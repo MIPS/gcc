@@ -1,7 +1,7 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009
+   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -1451,7 +1451,7 @@ lookup_fnfields_1 (tree type, tree name)
 tree
 lookup_fnfields_slot (tree type, tree name)
 {
-  int ix = lookup_fnfields_1 (type, name);
+  int ix = lookup_fnfields_1 (complete_type (type), name);
   if (ix < 0)
     return NULL_TREE;
   return VEC_index (tree, CLASSTYPE_METHOD_VEC (type), ix);
@@ -1803,8 +1803,8 @@ check_final_overrider (tree overrider, tree basefn)
   tree base_type = TREE_TYPE (basefn);
   tree over_return = TREE_TYPE (over_type);
   tree base_return = TREE_TYPE (base_type);
-  tree over_throw = TYPE_RAISES_EXCEPTIONS (over_type);
-  tree base_throw = TYPE_RAISES_EXCEPTIONS (base_type);
+  tree over_throw, base_throw;
+
   int fail = 0;
 
   if (DECL_INVALID_OVERRIDER_P (overrider))
@@ -1835,11 +1835,17 @@ check_final_overrider (tree overrider, tree basefn)
 
       if (CLASS_TYPE_P (base_return) && CLASS_TYPE_P (over_return))
 	{
-	  tree binfo = lookup_base (over_return, base_return,
-				    ba_check | ba_quiet, NULL);
+	  /* Strictly speaking, the standard requires the return type to be
+	     complete even if it only differs in cv-quals, but that seems
+	     like a bug in the wording.  */
+	  if (!same_type_ignoring_top_level_qualifiers_p (base_return, over_return))
+	    {
+	      tree binfo = lookup_base (over_return, base_return,
+					ba_check | ba_quiet, NULL);
 
-	  if (!binfo)
-	    fail = 1;
+	      if (!binfo)
+		fail = 1;
+	    }
 	}
       else if (!pedantic
 	       && can_convert (TREE_TYPE (base_type), TREE_TYPE (over_type)))
@@ -1882,6 +1888,11 @@ check_final_overrider (tree overrider, tree basefn)
     }
 
   /* Check throw specifier is at least as strict.  */
+  maybe_instantiate_noexcept (basefn);
+  maybe_instantiate_noexcept (overrider);
+  base_throw = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (basefn));
+  over_throw = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (overrider));
+
   if (!comp_except_specs (base_throw, over_throw, ce_derived))
     {
       error ("looser throw specifier for %q+#F", overrider);
@@ -1891,7 +1902,7 @@ check_final_overrider (tree overrider, tree basefn)
     }
 
   /* Check for conflicting type attributes.  */
-  if (!targetm.comp_type_attributes (over_type, base_type))
+  if (!comp_type_attributes (over_type, base_type))
     {
       error ("conflicting type attributes specified for %q+#D", overrider);
       error ("  overriding %q+#D", basefn);
@@ -1912,6 +1923,12 @@ check_final_overrider (tree overrider, tree basefn)
 	  error ("non-deleted function %q+D", overrider);
 	  error ("overriding deleted function %q+D", basefn);
 	}
+      return 0;
+    }
+  if (DECL_FINAL_P (basefn))
+    {
+      error ("virtual function %q+D", overrider);
+      error ("overriding final function %q+D", basefn);
       return 0;
     }
   return 1;

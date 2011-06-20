@@ -36,7 +36,6 @@ class Field_reference_expression;
 class Interface_field_reference_expression;
 class Type_guard_expression;
 class Receive_expression;
-class Send_expression;
 class Named_object;
 class Export;
 class Import;
@@ -79,9 +78,9 @@ class Expression
     EXPRESSION_FIELD_REFERENCE,
     EXPRESSION_INTERFACE_FIELD_REFERENCE,
     EXPRESSION_ALLOCATION,
-    EXPRESSION_MAKE,
     EXPRESSION_TYPE_GUARD,
     EXPRESSION_CONVERSION,
+    EXPRESSION_UNSAFE_CONVERSION,
     EXPRESSION_STRUCT_CONSTRUCTION,
     EXPRESSION_FIXED_ARRAY_CONSTRUCTION,
     EXPRESSION_OPEN_ARRAY_CONSTRUCTION,
@@ -89,10 +88,10 @@ class Expression
     EXPRESSION_COMPOSITE_LITERAL,
     EXPRESSION_HEAP_COMPOSITE,
     EXPRESSION_RECEIVE,
-    EXPRESSION_SEND,
     EXPRESSION_TYPE_DESCRIPTOR,
     EXPRESSION_TYPE_INFO,
     EXPRESSION_STRUCT_FIELD_OFFSET,
+    EXPRESSION_MAP_DESCRIPTOR,
     EXPRESSION_LABEL_ADDR
   };
 
@@ -237,10 +236,6 @@ class Expression
   static Expression*
   make_allocation(Type*, source_location);
 
-  // Make a call to the builtin function make.
-  static Expression*
-  make_make(Type*, Expression_list*, source_location);
-
   // Make a type guard expression.
   static Expression*
   make_type_guard(Expression*, Type*, source_location);
@@ -248,6 +243,12 @@ class Expression
   // Make a type cast expression.
   static Expression*
   make_cast(Type*, Expression*, source_location);
+
+  // Make an unsafe type cast expression.  This is only used when
+  // passing parameter to builtin functions that are part of the Go
+  // runtime.
+  static Expression*
+  make_unsafe_cast(Type*, Expression*, source_location);
 
   // Make a composite literal.  The DEPTH parameter is how far down we
   // are in a list of composite literals with omitted types.
@@ -271,12 +272,8 @@ class Expression
   static Receive_expression*
   make_receive(Expression* channel, source_location);
 
-  // Make a send expression.
-  static Send_expression*
-  make_send(Expression* channel, Expression* val, source_location);
-
-  // Make an expression which evaluates to the type descriptor of a
-  // type.
+  // Make an expression which evaluates to the address of the type
+  // descriptor for TYPE.
   static Expression*
   make_type_descriptor(Type* type, source_location);
 
@@ -302,6 +299,11 @@ class Expression
   // location parameter.
   static Expression*
   make_struct_field_offset(Struct_type*, const Struct_field*);
+
+  // Make an expression which evaluates to the address of the map
+  // descriptor for TYPE.
+  static Expression*
+  make_map_descriptor(Map_type* type, source_location);
 
   // Make an expression which evaluates to the address of an unnamed
   // label.
@@ -356,8 +358,7 @@ class Expression
 
   // This is called by the parser if the value of this expression is
   // being discarded.  This issues warnings about computed values
-  // being unused, and handles send expressions which act differently
-  // depending upon whether the value is used.
+  // being unused.
   void
   discarding_value()
   { this->do_discarding_value(); }
@@ -873,20 +874,19 @@ class Parser_expression : public Expression
   do_lower(Gogo*, Named_object*, int) = 0;
 
   Type*
-  do_type()
-  { gcc_unreachable(); }
+  do_type();
 
   void
   do_determine_type(const Type_context*)
-  { gcc_unreachable(); }
+  { go_unreachable(); }
 
   void
   do_check_types(Gogo*)
-  { gcc_unreachable(); }
+  { go_unreachable(); }
 
   tree
   do_get_tree(Translate_context*)
-  { gcc_unreachable(); }
+  { go_unreachable(); }
 };
 
 // An expression which is simply a variable.
@@ -904,10 +904,6 @@ class Var_expression : public Expression
   named_object() const
   { return this->variable_; }
 
-  // Return the name of the variable.
-  const std::string&
-  name() const;
-
  protected:
   Expression*
   do_lower(Gogo*, Named_object*, int);
@@ -916,8 +912,7 @@ class Var_expression : public Expression
   do_type();
 
   void
-  do_determine_type(const Type_context*)
-  { }
+  do_determine_type(const Type_context*);
 
   Expression*
   do_copy()
@@ -1162,7 +1157,7 @@ class Call_expression : public Expression
 		  source_location location)
     : Expression(EXPRESSION_CALL, location),
       fn_(fn), args_(args), type_(NULL), tree_(NULL), is_varargs_(is_varargs),
-      is_value_discarded_(false), varargs_are_lowered_(false),
+      varargs_are_lowered_(false), types_are_determined_(false),
       is_deferred_(false)
   { }
 
@@ -1221,7 +1216,7 @@ class Call_expression : public Expression
 
   void
   do_discarding_value()
-  { this->is_value_discarded_ = true; }
+  { }
 
   virtual Type*
   do_type();
@@ -1235,7 +1230,10 @@ class Call_expression : public Expression
   Expression*
   do_copy()
   {
-    return Expression::make_call(this->fn_->copy(), this->args_->copy(),
+    return Expression::make_call(this->fn_->copy(),
+				 (this->args_ == NULL
+				  ? NULL
+				  : this->args_->copy()),
 				 this->is_varargs_, this->location());
   }
 
@@ -1261,10 +1259,12 @@ class Call_expression : public Expression
   lower_varargs(Gogo*, Named_object* function, Type* varargs_type,
 		size_t param_count);
 
- private:
+  // Let a builtin expression check whether types have been
+  // determined.
   bool
-  is_compatible_varargs_argument(Named_object*, Expression*, Type*, bool*);
+  determining_types();
 
+ private:
   bool
   check_argument_type(int, const Type*, const Type*, source_location, bool);
 
@@ -1287,10 +1287,10 @@ class Call_expression : public Expression
   tree tree_;
   // True if the last argument is a varargs argument (f(a...)).
   bool is_varargs_;
-  // True if the value is being discarded.
-  bool is_value_discarded_;
   // True if varargs have already been lowered.
   bool varargs_are_lowered_;
+  // True if types have been determined.
+  bool types_are_determined_;
   // True if the call is an argument to a defer statement.
   bool is_deferred_;
 };
@@ -1310,10 +1310,6 @@ class Func_expression : public Expression
   const Named_object*
   named_object() const
   { return this->function_; }
-
-  // Return the name of the function.
-  const std::string&
-  name() const;
 
   // Return the closure for this function.  This will return NULL if
   // the function has no closure, which is the normal case.
@@ -1343,7 +1339,9 @@ class Func_expression : public Expression
   do_copy()
   {
     return Expression::make_func_reference(this->function_,
-					   this->closure_->copy(),
+					   (this->closure_ == NULL
+					    ? NULL
+					    : this->closure_->copy()),
 					   this->location());
   }
 
@@ -1383,6 +1381,12 @@ class Unknown_expression : public Parser_expression
   void
   set_is_composite_literal_key()
   { this->is_composite_literal_key_ = true; }
+
+  // Note that this expression should no longer be treated as a
+  // composite literal key.
+  void
+  clear_is_composite_literal_key()
+  { this->is_composite_literal_key_ = false; }
 
  protected:
   Expression*
@@ -1638,7 +1642,7 @@ class Field_reference_expression : public Expression
   void
   set_struct_expression(Expression* expr)
   {
-    gcc_assert(this->expr_ == NULL);
+    go_assert(this->expr_ == NULL);
     this->expr_ = expr;
   }
 
@@ -1804,7 +1808,7 @@ class Receive_expression : public Expression
  public:
   Receive_expression(Expression* channel, source_location location)
     : Expression(EXPRESSION_RECEIVE, location),
-      channel_(channel), is_value_discarded_(false), for_select_(false)
+      channel_(channel), for_select_(false)
   { }
 
   // Return the channel.
@@ -1824,7 +1828,7 @@ class Receive_expression : public Expression
 
   void
   do_discarding_value()
-  { this->is_value_discarded_ = true; }
+  { }
 
   Type*
   do_type();
@@ -1852,67 +1856,6 @@ class Receive_expression : public Expression
  private:
   // The channel from which we are receiving.
   Expression* channel_;
-  // Whether the value is being discarded.
-  bool is_value_discarded_;
-  // Whether this is for a select statement.
-  bool for_select_;
-};
-
-// A send expression.
-
-class Send_expression : public Expression
-{
- public:
-  Send_expression(Expression* channel, Expression* val,
-		  source_location location)
-    : Expression(EXPRESSION_SEND, location),
-      channel_(channel), val_(val), is_value_discarded_(false),
-      for_select_(false)
-  { }
-
-  // Note that this is for a select statement.
-  void
-  set_for_select()
-  { this->for_select_ = true; }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  void
-  do_discarding_value()
-  { this->is_value_discarded_ = true; }
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_send(this->channel_->copy(), this->val_->copy(),
-				 this->location());
-  }
-
-  bool
-  do_must_eval_in_order() const
-  { return true; }
-
-  tree
-  do_get_tree(Translate_context*);
-
- private:
-  // The channel on which to send the value.
-  Expression* channel_;
-  // The value to send.
-  Expression* val_;
-  // Whether the value is being discarded.
-  bool is_value_discarded_;
   // Whether this is for a select statement.
   bool for_select_;
 };

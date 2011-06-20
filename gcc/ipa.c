@@ -1,5 +1,5 @@
 /* Basic IPA optimizations and utilities.
-   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -31,82 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "target.h"
 #include "tree-iterator.h"
-
-/* Fill array order with all nodes with output flag set in the reverse
-   topological order.  */
-
-int
-cgraph_postorder (struct cgraph_node **order)
-{
-  struct cgraph_node *node, *node2;
-  int stack_size = 0;
-  int order_pos = 0;
-  struct cgraph_edge *edge, last;
-  int pass;
-
-  struct cgraph_node **stack =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-
-  /* We have to deal with cycles nicely, so use a depth first traversal
-     output algorithm.  Ignore the fact that some functions won't need
-     to be output and put them into order as well, so we get dependencies
-     right through inline functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
-    node->aux = NULL;
-  for (pass = 0; pass < 2; pass++)
-    for (node = cgraph_nodes; node; node = node->next)
-      if (!node->aux
-	  && (pass
-	      || (!node->address_taken
-		  && !node->global.inlined_to
-		  && !cgraph_only_called_directly_p (node))))
-	{
-	  node2 = node;
-	  if (!node->callers)
-	    node->aux = &last;
-	  else
-	    node->aux = node->callers;
-	  while (node2)
-	    {
-	      while (node2->aux != &last)
-		{
-		  edge = (struct cgraph_edge *) node2->aux;
-		  if (edge->next_caller)
-		    node2->aux = edge->next_caller;
-		  else
-		    node2->aux = &last;
-		  /* Break possible cycles involving always-inline
-		     functions by ignoring edges from always-inline
-		     functions to non-always-inline functions.  */
-		  if (edge->caller->local.disregard_inline_limits
-		      && !edge->callee->local.disregard_inline_limits)
-		    continue;
-		  if (!edge->caller->aux)
-		    {
-		      if (!edge->caller->callers)
-			edge->caller->aux = &last;
-		      else
-			edge->caller->aux = edge->caller->callers;
-		      stack[stack_size++] = node2;
-		      node2 = edge->caller;
-		      break;
-		    }
-		}
-	      if (node2->aux == &last)
-		{
-		  order[order_pos++] = node2;
-		  if (stack_size)
-		    node2 = stack[--stack_size];
-		  else
-		    node2 = NULL;
-		}
-	    }
-	}
-  free (stack);
-  for (node = cgraph_nodes; node; node = node->next)
-    node->aux = NULL;
-  return order_pos;
-}
+#include "ipa-utils.h"
 
 /* Look for all functions inlined to NODE and update their inlined_to pointers
    to INLINED_TO.  */
@@ -188,17 +113,51 @@ process_references (struct ipa_ref_list *list,
     }
 }
 
+
+/* Return true when NODE can not be local. Worker for cgraph_local_node_p.  */
+
+static bool
+cgraph_non_local_node_p_1 (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+   /* FIXME: Aliases can be local, but i386 gets thunks wrong then.  */
+   return !(cgraph_only_called_directly_or_aliased_p (node)
+	    && !ipa_ref_has_aliases_p (&node->ref_list)
+	    && node->analyzed
+	    && !DECL_EXTERNAL (node->decl)
+	    && !node->local.externally_visible
+	    && !node->reachable_from_other_partition
+	    && !node->in_other_partition);
+}
+
 /* Return true when function can be marked local.  */
 
 static bool
 cgraph_local_node_p (struct cgraph_node *node)
 {
-   return (cgraph_only_called_directly_p (node)
-	   && node->analyzed
-	   && !DECL_EXTERNAL (node->decl)
-	   && !node->local.externally_visible
-	   && !node->reachable_from_other_partition
-	   && !node->in_other_partition);
+   struct cgraph_node *n = cgraph_function_or_thunk_node (node, NULL);
+
+   /* FIXME: thunks can be considered local, but we need prevent i386
+      from attempting to change calling convention of them.  */
+   if (n->thunk.thunk_p)
+     return false;
+   return !cgraph_for_node_and_aliases (n,
+					cgraph_non_local_node_p_1, NULL, true);
+					
+}
+
+/* Return true when NODE has ADDR reference.  */
+
+static bool
+has_addr_references_p (struct cgraph_node *node,
+		       void *data ATTRIBUTE_UNUSED)
+{
+  int i;
+  struct ipa_ref *ref;
+
+  for (i = 0; ipa_ref_list_refering_iterate (&node->ref_list, i, ref); i++)
+    if (ref->use == IPA_REF_ADDR)
+      return true;
+  return false;
 }
 
 /* Perform reachability analysis and reclaim all unreachable nodes.
@@ -259,7 +218,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     {
       vnode->next_needed = NULL;
       vnode->prev_needed = NULL;
-      if (vnode->analyzed
+      if ((vnode->analyzed || vnode->force_output)
 	  && !varpool_can_remove_if_no_refs (vnode))
 	{
 	  vnode->needed = false;
@@ -380,7 +339,6 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  cgraph_node_remove_callees (node);
 	  ipa_remove_all_references (&node->ref_list);
 	  node->analyzed = false;
-	  node->local.inlinable = false;
 	}
       if (!node->aux)
 	{
@@ -421,17 +379,14 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		  if (!clone)
 		    {
 		      cgraph_release_function_body (node);
-		      node->local.inlinable = false;
 		      if (node->prev_sibling_clone)
 			node->prev_sibling_clone->next_sibling_clone = node->next_sibling_clone;
 		      else if (node->clone_of)
 			node->clone_of->clones = node->next_sibling_clone;
 		      if (node->next_sibling_clone)
 			node->next_sibling_clone->prev_sibling_clone = node->prev_sibling_clone;
-#ifdef ENABLE_CHECKING
 		      if (node->clone_of)
 			node->former_clone_of = node->clone_of->decl;
-#endif
 		      node->clone_of = NULL;
 		      node->next_sibling_clone = NULL;
 		      node->prev_sibling_clone = NULL;
@@ -496,16 +451,7 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     if (node->address_taken
 	&& !node->reachable_from_other_partition)
       {
-	int i;
-        struct ipa_ref *ref;
-	bool found = false;
-        for (i = 0; ipa_ref_list_refering_iterate (&node->ref_list, i, ref)
-		    && !found; i++)
-	  {
-	    gcc_assert (ref->use == IPA_REF_ADDR);
-	    found = true;
-	  }
-	if (!found)
+	if (!cgraph_for_node_and_aliases (node, has_addr_references_p, NULL, true))
 	  {
 	    if (file)
 	      fprintf (file, " %s", cgraph_node_name (node));
@@ -519,6 +465,8 @@ cgraph_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      }
 	  }
       }
+  if (file)
+    fprintf (file, "\n");
 
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
@@ -595,14 +543,15 @@ cgraph_address_taken_from_non_vtable_p (struct cgraph_node *node)
   int i;
   struct ipa_ref *ref;
   for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref); i++)
-    {
-      struct varpool_node *node;
-      if (ref->refered_type == IPA_REF_CGRAPH)
-	return true;
-      node = ipa_ref_varpool_node (ref);
-      if (!DECL_VIRTUAL_P (node->decl))
-	return true;
-    }
+    if (ref->use == IPA_REF_ADDR)
+      {
+	struct varpool_node *node;
+	if (ref->refered_type == IPA_REF_CGRAPH)
+	  return true;
+	node = ipa_ref_varpool_node (ref);
+	if (!DECL_VIRTUAL_P (node->decl))
+	  return true;
+      }
   return false;
 }
 
@@ -631,7 +580,7 @@ cgraph_comdat_can_be_unshared_p (struct cgraph_node *node)
          address taken.  */
       for (next = node->same_comdat_group;
 	   next != node; next = next->same_comdat_group)
-	if (cgraph_address_taken_from_non_vtable_p (node)
+	if (cgraph_address_taken_from_non_vtable_p (next)
 	    && !DECL_VIRTUAL_P (next->decl))
 	  return false;
     }
@@ -641,9 +590,9 @@ cgraph_comdat_can_be_unshared_p (struct cgraph_node *node)
 /* Return true when function NODE should be considered externally visible.  */
 
 static bool
-cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool aliased)
+cgraph_externally_visible_p (struct cgraph_node *node,
+			     bool whole_program, bool aliased)
 {
-  struct cgraph_node *alias;
   if (!node->local.finalized)
     return false;
   if (!DECL_COMDAT (node->decl)
@@ -663,14 +612,6 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
   if (DECL_BUILT_IN (node->decl))
     return true;
 
-  /* FIXME: We get wrong symbols with asm aliases in callgraph and LTO.
-     This is because very little of code knows that assembler name needs to
-     mangled.  Avoid touching declarations with user asm name set to mask
-     some of the problems.  */
-  if (DECL_ASSEMBLER_NAME_SET_P (node->decl)
-      && IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl))[0]=='*')
-    return true;
-
   /* If linker counts on us, we must preserve the function.  */
   if (cgraph_used_from_object_file_p (node))
     return true;
@@ -681,6 +622,8 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
   if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
       && lookup_attribute ("dllexport", DECL_ATTRIBUTES (node->decl)))
     return true;
+  if (node->resolution == LDPR_PREVAILING_DEF_IRONLY)
+    return false;
   /* When doing LTO or whole program, we can bring COMDAT functoins static.
      This improves code quality and we know we will duplicate them at most twice
      (in the case that we are not using plugin and link with object file
@@ -688,18 +631,6 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
   if ((in_lto_p || whole_program)
       && DECL_COMDAT (node->decl)
       && cgraph_comdat_can_be_unshared_p (node))
-    return false;
-
-  /* See if we have linker information about symbol not being used or
-     if we need to make guess based on the declaration.
-
-     Even if the linker clams the symbol is unused, never bring internal
-     symbols that are declared by user as used or externally visible.
-     This is needed for i.e. references from asm statements.   */
-  for (alias = node->same_body; alias; alias = alias->next)
-    if (alias->resolution != LDPR_PREVAILING_DEF_IRONLY)
-      break;
-  if (!alias && node->resolution == LDPR_PREVAILING_DEF_IRONLY)
     return false;
 
   /* When doing link time optimizations, hidden symbols become local.  */
@@ -724,7 +655,6 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
 static bool
 varpool_externally_visible_p (struct varpool_node *vnode, bool aliased)
 {
-  struct varpool_node *alias;
   if (!DECL_COMDAT (vnode->decl) && !TREE_PUBLIC (vnode->decl))
     return false;
 
@@ -735,14 +665,6 @@ varpool_externally_visible_p (struct varpool_node *vnode, bool aliased)
 
   /* If linker counts on us, we must preserve the function.  */
   if (varpool_used_from_object_file_p (vnode))
-    return true;
-
-  /* FIXME: We get wrong symbols with asm aliases in callgraph and LTO.
-     This is because very little of code knows that assembler name needs to
-     mangled.  Avoid touching declarations with user asm name set to mask
-     some of the problems.  */
-  if (DECL_ASSEMBLER_NAME_SET_P (vnode->decl)
-      && IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (vnode->decl))[0]=='*')
     return true;
 
   if (DECL_PRESERVE_P (vnode->decl))
@@ -763,11 +685,6 @@ varpool_externally_visible_p (struct varpool_node *vnode, bool aliased)
      This is needed for i.e. references from asm statements.   */
   if (varpool_used_from_object_file_p (vnode))
     return true;
-  for (alias = vnode->extra_name; alias; alias = alias->next)
-    if (alias->resolution != LDPR_PREVAILING_DEF_IRONLY)
-      break;
-  if (!alias && vnode->resolution == LDPR_PREVAILING_DEF_IRONLY)
-    return false;
 
   /* As a special case, the COMDAT virutal tables can be unshared.
      In LTO mode turn vtables into static variables.  The variable is readonly,
@@ -846,16 +763,22 @@ function_and_variable_visibility (bool whole_program)
 		IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (p->decl)),
 		IDENTIFIER_POINTER (p->target));
 		
-      if ((node = cgraph_node_for_asm (p->target)) != NULL)
+      if ((node = cgraph_node_for_asm (p->target)) != NULL
+	  && !DECL_EXTERNAL (node->decl))
         {
+	  if (!node->analyzed)
+	    continue;
+	  cgraph_mark_needed_node (node);
 	  gcc_assert (node->needed);
 	  pointer_set_insert (aliased_nodes, node);
 	  if (dump_file)
 	    fprintf (dump_file, "  node %s/%i",
 		     cgraph_node_name (node), node->uid);
         }
-      else if ((vnode = varpool_node_for_asm (p->target)) != NULL)
+      else if ((vnode = varpool_node_for_asm (p->target)) != NULL
+	       && !DECL_EXTERNAL (vnode->decl))
         {
+	  varpool_mark_needed_node (vnode);
 	  gcc_assert (vnode->needed);
 	  pointer_set_insert (aliased_vnodes, vnode);
 	  if (dump_file)
@@ -869,6 +792,8 @@ function_and_variable_visibility (bool whole_program)
   for (node = cgraph_nodes; node; node = node->next)
     {
       int flags = flags_from_decl_or_type (node->decl);
+
+      /* Optimize away PURE and CONST constructors and destructors.  */
       if (optimize
 	  && (flags & (ECF_CONST | ECF_PURE))
 	  && !(flags & ECF_LOOPING_CONST_OR_PURE))
@@ -876,6 +801,13 @@ function_and_variable_visibility (bool whole_program)
 	  DECL_STATIC_CONSTRUCTOR (node->decl) = 0;
 	  DECL_STATIC_DESTRUCTOR (node->decl) = 0;
 	}
+
+      /* Frontends and alias code marks nodes as needed before parsing is finished.
+	 We may end up marking as node external nodes where this flag is meaningless
+	 strip it.  */
+      if (node->needed
+	  && (DECL_EXTERNAL (node->decl) || !node->analyzed))
+	node->needed = 0;
 
       /* C++ FE on lack of COMDAT support create local COMDAT functions
 	 (that ought to be shared but can not due to object format
@@ -914,12 +846,9 @@ function_and_variable_visibility (bool whole_program)
       if (!node->local.externally_visible && node->analyzed
 	  && !DECL_EXTERNAL (node->decl))
 	{
-          struct cgraph_node *alias;
 	  gcc_assert (whole_program || in_lto_p || !TREE_PUBLIC (node->decl));
 	  cgraph_make_decl_local (node->decl);
 	  node->resolution = LDPR_PREVAILING_DEF_IRONLY;
-	  for (alias = node->same_body; alias; alias = alias->next)
-	    cgraph_make_decl_local (alias->decl);
 	  if (node->same_comdat_group)
 	    /* cgraph_externally_visible_p has already checked all other nodes
 	       in the group and they will all be made local.  We need to
@@ -927,8 +856,47 @@ function_and_variable_visibility (bool whole_program)
 	       segfault though. */
 	    dissolve_same_comdat_group_list (node);
 	}
-      node->local.local = cgraph_local_node_p (node);
+
+      if (node->thunk.thunk_p
+	  && TREE_PUBLIC (node->decl))
+	{
+	  struct cgraph_node *decl_node = node;
+
+	  decl_node = cgraph_function_node (decl_node->callees->callee, NULL);
+
+	  /* Thunks have the same visibility as function they are attached to.
+	     For some reason C++ frontend don't seem to care. I.e. in 
+	     g++.dg/torture/pr41257-2.C the thunk is not comdat while function
+	     it is attached to is.
+
+	     We also need to arrange the thunk into the same comdat group as
+	     the function it reffers to.  */
+	  if (DECL_ONE_ONLY (decl_node->decl))
+	    {
+	      DECL_COMDAT (node->decl) = DECL_COMDAT (decl_node->decl);
+	      DECL_COMDAT_GROUP (node->decl) = DECL_COMDAT_GROUP (decl_node->decl);
+	      if (DECL_ONE_ONLY (decl_node->decl) && !node->same_comdat_group)
+		{
+		  node->same_comdat_group = decl_node;
+		  if (!decl_node->same_comdat_group)
+		    decl_node->same_comdat_group = node;
+		  else
+		    {
+		      struct cgraph_node *n;
+		      for (n = decl_node->same_comdat_group;
+			   n->same_comdat_group != decl_node;
+			   n = n->same_comdat_group)
+			;
+		      n->same_comdat_group = node;
+		    }
+		}
+	    }
+	  if (DECL_EXTERNAL (decl_node->decl))
+	    DECL_EXTERNAL (node->decl) = 1;
+	}
     }
+  for (node = cgraph_nodes; node; node = node->next)
+    node->local.local = cgraph_local_node_p (node);
   for (vnode = varpool_nodes; vnode; vnode = vnode->next)
     {
       /* weak flag makes no sense on local variables.  */
@@ -1097,320 +1065,6 @@ struct ipa_opt_pass_d pass_ipa_whole_program_visibility =
  NULL,					/* variable_transform */
 };
 
-/* Hash a cgraph node set element.  */
-
-static hashval_t
-hash_cgraph_node_set_element (const void *p)
-{
-  const_cgraph_node_set_element element = (const_cgraph_node_set_element) p;
-  return htab_hash_pointer (element->node);
-}
-
-/* Compare two cgraph node set elements.  */
-
-static int
-eq_cgraph_node_set_element (const void *p1, const void *p2)
-{
-  const_cgraph_node_set_element e1 = (const_cgraph_node_set_element) p1;
-  const_cgraph_node_set_element e2 = (const_cgraph_node_set_element) p2;
-
-  return e1->node == e2->node;
-}
-
-/* Create a new cgraph node set.  */
-
-cgraph_node_set
-cgraph_node_set_new (void)
-{
-  cgraph_node_set new_node_set;
-
-  new_node_set = ggc_alloc_cgraph_node_set_def ();
-  new_node_set->hashtab = htab_create_ggc (10,
-					   hash_cgraph_node_set_element,
-					   eq_cgraph_node_set_element,
-					   NULL);
-  new_node_set->nodes = NULL;
-  return new_node_set;
-}
-
-/* Add cgraph_node NODE to cgraph_node_set SET.  */
-
-void
-cgraph_node_set_add (cgraph_node_set set, struct cgraph_node *node)
-{
-  void **slot;
-  cgraph_node_set_element element;
-  struct cgraph_node_set_element_def dummy;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, INSERT);
-
-  if (*slot != HTAB_EMPTY_ENTRY)
-    {
-      element = (cgraph_node_set_element) *slot;
-      gcc_assert (node == element->node
-		  && (VEC_index (cgraph_node_ptr, set->nodes, element->index)
-		      == node));
-      return;
-    }
-
-  /* Insert node into hash table.  */
-  element = ggc_alloc_cgraph_node_set_element_def ();
-  element->node = node;
-  element->index = VEC_length (cgraph_node_ptr, set->nodes);
-  *slot = element;
-
-  /* Insert into node vector.  */
-  VEC_safe_push (cgraph_node_ptr, gc, set->nodes, node);
-}
-
-/* Remove cgraph_node NODE from cgraph_node_set SET.  */
-
-void
-cgraph_node_set_remove (cgraph_node_set set, struct cgraph_node *node)
-{
-  void **slot, **last_slot;
-  cgraph_node_set_element element, last_element;
-  struct cgraph_node *last_node;
-  struct cgraph_node_set_element_def dummy;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-  if (slot == NULL)
-    return;
-
-  element = (cgraph_node_set_element) *slot;
-  gcc_assert (VEC_index (cgraph_node_ptr, set->nodes, element->index)
-	      == node);
-
-  /* Remove from vector. We do this by swapping node with the last element
-     of the vector.  */
-  last_node = VEC_pop (cgraph_node_ptr, set->nodes);
-  if (last_node != node)
-    {
-      dummy.node = last_node;
-      last_slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-      last_element = (cgraph_node_set_element) *last_slot;
-      gcc_assert (last_element);
-
-      /* Move the last element to the original spot of NODE.  */
-      last_element->index = element->index;
-      VEC_replace (cgraph_node_ptr, set->nodes, last_element->index,
-		   last_node);
-    }
-
-  /* Remove element from hash table.  */
-  htab_clear_slot (set->hashtab, slot);
-  ggc_free (element);
-}
-
-/* Find NODE in SET and return an iterator to it if found.  A null iterator
-   is returned if NODE is not in SET.  */
-
-cgraph_node_set_iterator
-cgraph_node_set_find (cgraph_node_set set, struct cgraph_node *node)
-{
-  void **slot;
-  struct cgraph_node_set_element_def dummy;
-  cgraph_node_set_element element;
-  cgraph_node_set_iterator csi;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-  if (slot == NULL)
-    csi.index = (unsigned) ~0;
-  else
-    {
-      element = (cgraph_node_set_element) *slot;
-      gcc_assert (VEC_index (cgraph_node_ptr, set->nodes, element->index)
-		  == node);
-      csi.index = element->index;
-    }
-  csi.set = set;
-
-  return csi;
-}
-
-/* Dump content of SET to file F.  */
-
-void
-dump_cgraph_node_set (FILE *f, cgraph_node_set set)
-{
-  cgraph_node_set_iterator iter;
-
-  for (iter = csi_start (set); !csi_end_p (iter); csi_next (&iter))
-    {
-      struct cgraph_node *node = csi_node (iter);
-      fprintf (f, " %s/%i", cgraph_node_name (node), node->uid);
-    }
-  fprintf (f, "\n");
-}
-
-/* Dump content of SET to stderr.  */
-
-DEBUG_FUNCTION void
-debug_cgraph_node_set (cgraph_node_set set)
-{
-  dump_cgraph_node_set (stderr, set);
-}
-
-/* Hash a varpool node set element.  */
-
-static hashval_t
-hash_varpool_node_set_element (const void *p)
-{
-  const_varpool_node_set_element element = (const_varpool_node_set_element) p;
-  return htab_hash_pointer (element->node);
-}
-
-/* Compare two varpool node set elements.  */
-
-static int
-eq_varpool_node_set_element (const void *p1, const void *p2)
-{
-  const_varpool_node_set_element e1 = (const_varpool_node_set_element) p1;
-  const_varpool_node_set_element e2 = (const_varpool_node_set_element) p2;
-
-  return e1->node == e2->node;
-}
-
-/* Create a new varpool node set.  */
-
-varpool_node_set
-varpool_node_set_new (void)
-{
-  varpool_node_set new_node_set;
-
-  new_node_set = ggc_alloc_varpool_node_set_def ();
-  new_node_set->hashtab = htab_create_ggc (10,
-					   hash_varpool_node_set_element,
-					   eq_varpool_node_set_element,
-					   NULL);
-  new_node_set->nodes = NULL;
-  return new_node_set;
-}
-
-/* Add varpool_node NODE to varpool_node_set SET.  */
-
-void
-varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
-{
-  void **slot;
-  varpool_node_set_element element;
-  struct varpool_node_set_element_def dummy;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, INSERT);
-
-  if (*slot != HTAB_EMPTY_ENTRY)
-    {
-      element = (varpool_node_set_element) *slot;
-      gcc_assert (node == element->node
-		  && (VEC_index (varpool_node_ptr, set->nodes, element->index)
-		      == node));
-      return;
-    }
-
-  /* Insert node into hash table.  */
-  element = ggc_alloc_varpool_node_set_element_def ();
-  element->node = node;
-  element->index = VEC_length (varpool_node_ptr, set->nodes);
-  *slot = element;
-
-  /* Insert into node vector.  */
-  VEC_safe_push (varpool_node_ptr, gc, set->nodes, node);
-}
-
-/* Remove varpool_node NODE from varpool_node_set SET.  */
-
-void
-varpool_node_set_remove (varpool_node_set set, struct varpool_node *node)
-{
-  void **slot, **last_slot;
-  varpool_node_set_element element, last_element;
-  struct varpool_node *last_node;
-  struct varpool_node_set_element_def dummy;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-  if (slot == NULL)
-    return;
-
-  element = (varpool_node_set_element) *slot;
-  gcc_assert (VEC_index (varpool_node_ptr, set->nodes, element->index)
-	      == node);
-
-  /* Remove from vector. We do this by swapping node with the last element
-     of the vector.  */
-  last_node = VEC_pop (varpool_node_ptr, set->nodes);
-  if (last_node != node)
-    {
-      dummy.node = last_node;
-      last_slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-      last_element = (varpool_node_set_element) *last_slot;
-      gcc_assert (last_element);
-
-      /* Move the last element to the original spot of NODE.  */
-      last_element->index = element->index;
-      VEC_replace (varpool_node_ptr, set->nodes, last_element->index,
-		   last_node);
-    }
-
-  /* Remove element from hash table.  */
-  htab_clear_slot (set->hashtab, slot);
-  ggc_free (element);
-}
-
-/* Find NODE in SET and return an iterator to it if found.  A null iterator
-   is returned if NODE is not in SET.  */
-
-varpool_node_set_iterator
-varpool_node_set_find (varpool_node_set set, struct varpool_node *node)
-{
-  void **slot;
-  struct varpool_node_set_element_def dummy;
-  varpool_node_set_element element;
-  varpool_node_set_iterator vsi;
-
-  dummy.node = node;
-  slot = htab_find_slot (set->hashtab, &dummy, NO_INSERT);
-  if (slot == NULL)
-    vsi.index = (unsigned) ~0;
-  else
-    {
-      element = (varpool_node_set_element) *slot;
-      gcc_assert (VEC_index (varpool_node_ptr, set->nodes, element->index)
-		  == node);
-      vsi.index = element->index;
-    }
-  vsi.set = set;
-
-  return vsi;
-}
-
-/* Dump content of SET to file F.  */
-
-void
-dump_varpool_node_set (FILE *f, varpool_node_set set)
-{
-  varpool_node_set_iterator iter;
-
-  for (iter = vsi_start (set); !vsi_end_p (iter); vsi_next (&iter))
-    {
-      struct varpool_node *node = vsi_node (iter);
-      fprintf (f, " %s", varpool_node_name (node));
-    }
-  fprintf (f, "\n");
-}
-
-/* Dump content of SET to stderr.  */
-
-DEBUG_FUNCTION void
-debug_varpool_node_set (varpool_node_set set)
-{
-  dump_varpool_node_set (stderr, set);
-}
-
 
 /* Simple ipa profile pass propagating frequencies across the callgraph.  */
 
@@ -1423,7 +1077,7 @@ ipa_profile (void)
   bool something_changed = false;
   int i;
 
-  order_pos = cgraph_postorder (order);
+  order_pos = ipa_reverse_postorder (order);
   for (i = order_pos - 1; i >= 0; i--)
     {
       if (order[i]->local.local && cgraph_propagate_frequency (order[i]))
@@ -1469,7 +1123,7 @@ struct ipa_opt_pass_d pass_ipa_profile =
 {
  {
   IPA_PASS,
-  "ipa-profile",			/* name */
+  "profile_estimate",			/* name */
   gate_ipa_profile,			/* gate */
   ipa_profile,			        /* execute */
   NULL,					/* sub */
@@ -1496,10 +1150,13 @@ struct ipa_opt_pass_d pass_ipa_profile =
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
    is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor.  */
+   initialization priority for this constructor or destructor. 
 
-void
-cgraph_build_static_cdtor (char which, tree body, int priority)
+   FINAL specify whether the externally visible name for collect2 should
+   be produced. */
+
+static void
+cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 {
   static int counter = 0;
   char which_buf[16];
@@ -1508,7 +1165,12 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   /* The priority is encoded in the constructor or destructor name.
      collect2 will sort the names and arrange that they are called at
      program startup.  */
-  sprintf (which_buf, "%c_%.5d_%d", which, priority, counter++);
+  if (final)
+    sprintf (which_buf, "%c_%.5d_%d", which, priority, counter++);
+  else
+  /* Proudce sane name but one not recognizable by collect2, just for the
+     case we fail to inline the function.  */
+    sprintf (which_buf, "sub_%c_%.5d_%d", which, priority, counter++);
   name = get_file_function_name (which_buf);
 
   decl = build_decl (input_location, FUNCTION_DECL, name,
@@ -1528,7 +1190,7 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   DECL_ARTIFICIAL (decl) = 1;
   DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
   DECL_SAVED_TREE (decl) = body;
-  if (!targetm.have_ctors_dtors)
+  if (!targetm.have_ctors_dtors && final)
     {
       TREE_PUBLIC (decl) = 1;
       DECL_PRESERVE_P (decl) = 1;
@@ -1563,6 +1225,16 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
   current_function_decl = NULL;
 }
 
+/* Generate and emit a static constructor or destructor.  WHICH must
+   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
+   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
+   initialization priority for this constructor or destructor.  */
+
+void
+cgraph_build_static_cdtor (char which, tree body, int priority)
+{
+  cgraph_build_static_cdtor_1 (which, body, priority, false);
+}
 
 /* A vector of FUNCTION_DECLs declared as static constructors.  */
 static VEC(tree, heap) *static_ctors;
@@ -1583,8 +1255,8 @@ record_cdtor_fn (struct cgraph_node *node)
     VEC_safe_push (tree, heap, static_ctors, node->decl);
   if (DECL_STATIC_DESTRUCTOR (node->decl))
     VEC_safe_push (tree, heap, static_dtors, node->decl);
-  node = cgraph_node (node->decl);
-  node->local.disregard_inline_limits = 1;
+  node = cgraph_get_node (node->decl);
+  DECL_DISREGARD_INLINE_LIMITS (node->decl) = 1;
 }
 
 /* Define global constructors/destructor functions for the CDTORS, of
@@ -1648,7 +1320,7 @@ build_cdtor (bool ctor_p, VEC (tree, heap) *cdtors)
       gcc_assert (body != NULL_TREE);
       /* Generate a function to call all the function of like
 	 priority.  */
-      cgraph_build_static_cdtor (ctor_p ? 'I' : 'D', body, priority);
+      cgraph_build_static_cdtor_1 (ctor_p ? 'I' : 'D', body, priority, true);
     }
 }
 

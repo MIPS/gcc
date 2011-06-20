@@ -5,7 +5,6 @@
 package json
 
 import (
-	"bytes"
 	"io"
 	"os"
 )
@@ -24,8 +23,8 @@ func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r}
 }
 
-// Decode reads the next JSON-encoded value from the
-// connection and stores it in the value pointed to by v.
+// Decode reads the next JSON-encoded value from its
+// input and stores it in the value pointed to by v.
 //
 // See the documentation for Unmarshal for details about
 // the conversion of JSON into a Go value.
@@ -63,6 +62,7 @@ Input:
 	for {
 		// Look in the buffer for a new value.
 		for i, c := range dec.buf[scanp:] {
+			dec.scan.bytes++
 			v := dec.scan.step(&dec.scan, int(c))
 			if v == scanEnd {
 				scanp += i
@@ -177,7 +177,7 @@ func (m *RawMessage) UnmarshalJSON(data []byte) os.Error {
 	if m == nil {
 		return os.NewError("json.RawMessage: UnmarshalJSON on nil pointer")
 	}
-	*m = bytes.Add((*m)[0:0], data)
+	*m = append((*m)[0:0], data...)
 	return nil
 }
 

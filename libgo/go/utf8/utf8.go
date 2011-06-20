@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Functions and constants to support text encoded in UTF-8.
-// This package calls a Unicode character a rune for brevity.
+// Package utf8 implements functions and constants to support text encoded in
+// UTF-8. This package calls a Unicode character a rune for brevity.
 package utf8
 
 import "unicode" // only needed for a couple of constants
@@ -293,7 +293,7 @@ func RuneLen(rune int) int {
 
 // EncodeRune writes into p (which must be large enough) the UTF-8 encoding of the rune.
 // It returns the number of bytes written.
-func EncodeRune(rune int, p []byte) int {
+func EncodeRune(p []byte, rune int) int {
 	// Negative values are erroneous.  Making it unsigned addresses the problem.
 	r := uint(rune)
 

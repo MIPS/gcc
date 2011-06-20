@@ -1,7 +1,7 @@
 /* Mainly the interface between cpplib and the C front ends.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010,
+   2011 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -437,7 +437,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       break;
 
     case CPP_PRAGMA:
-      *value = build_int_cst (NULL, tok->val.pragma);
+      *value = build_int_cst (integer_type_node, tok->val.pragma);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -752,8 +752,15 @@ interpret_float (const cpp_token *token, unsigned int flags)
   /* Create a node with determined type and value.  */
   value = build_real (const_type, real);
   if (flags & CPP_N_IMAGINARY)
-    value = build_complex (NULL_TREE, convert (const_type, integer_zero_node),
-			   value);
+    {
+      value = build_complex (NULL_TREE, convert (const_type,
+						 integer_zero_node), value);
+      if (type != const_type)
+	{
+	  const_type = TREE_TYPE (value);
+	  type = build_complex_type (type);
+	}
+    }
 
   if (type != const_type)
     value = build1 (EXCESS_PRECISION_EXPR, type, value);

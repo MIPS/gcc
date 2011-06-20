@@ -1,5 +1,6 @@
 /* RTL dead code elimination.
-   Copyright (C) 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -219,6 +220,26 @@ mark_nonreg_stores (rtx body, rtx insn, bool fast)
 }
 
 
+/* Return true if store to MEM, starting OFF bytes from stack pointer,
+   is a call argument store, and clear corresponding bits from SP_BYTES
+   bitmap if it is.  */
+
+static bool
+check_argument_store (rtx mem, HOST_WIDE_INT off, HOST_WIDE_INT min_sp_off,
+		      HOST_WIDE_INT max_sp_off, bitmap sp_bytes)
+{
+  HOST_WIDE_INT byte;
+  for (byte = off; byte < off + GET_MODE_SIZE (GET_MODE (mem)); byte++)
+    {
+      if (byte < min_sp_off
+	  || byte >= max_sp_off
+	  || !bitmap_clear_bit (sp_bytes, byte - min_sp_off))
+	return false;
+    }
+  return true;
+}
+
+
 /* Try to find all stack stores of CALL_INSN arguments if
    ACCUMULATE_OUTGOING_ARGS.  If all stack stores have been found
    and it is therefore safe to eliminate the call, return true,
@@ -363,7 +384,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
   for (insn = PREV_INSN (call_insn); insn; insn = prev_insn)
     {
       rtx set, mem, addr;
-      HOST_WIDE_INT off, byte;
+      HOST_WIDE_INT off;
 
       if (insn == BB_HEAD (BLOCK_FOR_INSN (call_insn)))
 	prev_insn = NULL_RTX;
@@ -373,7 +394,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
       if (CALL_P (insn))
 	break;
 
-      if (!INSN_P (insn))
+      if (!NONDEBUG_INSN_P (insn))
 	continue;
 
       set = single_set (insn);
@@ -432,16 +453,10 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 	    break;
 	}
 
-      if (GET_MODE_SIZE (GET_MODE (mem)) == 0)
+      if (GET_MODE_SIZE (GET_MODE (mem)) == 0
+	  || !check_argument_store (mem, off, min_sp_off,
+				    max_sp_off, sp_bytes))
 	break;
-
-      for (byte = off; byte < off + GET_MODE_SIZE (GET_MODE (mem)); byte++)
-	{
-	  if (byte < min_sp_off
-	      || byte >= max_sp_off
-	      || !bitmap_clear_bit (sp_bytes, byte - min_sp_off))
-	    break;
-	}
 
       if (!deletable_insn_p (insn, fast, NULL))
 	break;
@@ -478,6 +493,44 @@ remove_reg_equal_equiv_notes_for_defs (rtx insn)
     remove_reg_equal_equiv_notes_for_regno (DF_REF_REGNO (*def_rec));
 }
 
+/* Scan all BBs for debug insns and reset those that reference values
+   defined in unmarked insns.  */
+
+static void
+reset_unmarked_insns_debug_uses (void)
+{
+  basic_block bb;
+  rtx insn, next;
+
+  FOR_EACH_BB_REVERSE (bb)
+    FOR_BB_INSNS_REVERSE_SAFE (bb, insn, next)
+      if (DEBUG_INSN_P (insn))
+	{
+	  df_ref *use_rec;
+
+	  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+	    {
+	      df_ref use = *use_rec;
+	      struct df_link *defs;
+	      for (defs = DF_REF_CHAIN (use); defs; defs = defs->next)
+		{
+		  rtx ref_insn;
+		  if (DF_REF_IS_ARTIFICIAL (defs->ref))
+		    continue;
+		  ref_insn = DF_REF_INSN (defs->ref);
+		  if (!marked_insn_p (ref_insn))
+		    break;
+		}
+	      if (!defs)
+		continue;
+	      /* ??? FIXME could we propagate the values assigned to
+		 each of the DEFs?  */
+	      INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC ();
+	      df_insn_rescan_debug_internal (insn);
+	      break;
+	    }
+	}
+}
 
 /* Delete every instruction that hasn't been marked.  */
 
@@ -490,7 +543,7 @@ delete_unmarked_insns (void)
 
   FOR_EACH_BB_REVERSE (bb)
     FOR_BB_INSNS_REVERSE_SAFE (bb, insn, next)
-      if (INSN_P (insn))
+      if (NONDEBUG_INSN_P (insn))
 	{
 	  /* Always delete no-op moves.  */
 	  if (noop_move_p (insn))
@@ -564,7 +617,7 @@ prescan_insns_for_dce (bool fast)
   FOR_EACH_BB (bb)
     {
       FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
-	if (INSN_P (insn))
+	if (NONDEBUG_INSN_P (insn))
 	  {
 	    /* Don't mark argument stores now.  They will be marked
 	       if needed when the associated CALL is marked.  */
@@ -698,6 +751,9 @@ rest_of_handle_ud_dce (void)
     }
   VEC_free (rtx, heap, worklist);
 
+  if (MAY_HAVE_DEBUG_INSNS)
+    reset_unmarked_insns_debug_uses ();
+
   /* Before any insns are deleted, we must remove the chains since
      they are not bidirectional.  */
   df_remove_problem (df_chain);
@@ -719,7 +775,7 @@ struct rtl_opt_pass pass_ud_rtl_dce =
 {
  {
   RTL_PASS,
-  "ud dce",                             /* name */
+  "ud_dce",                             /* name */
   gate_ud_dce,                          /* gate */
   rest_of_handle_ud_dce,                /* execute */
   NULL,                                 /* sub */
@@ -730,7 +786,6 @@ struct rtl_opt_pass pass_ud_rtl_dce =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect                     /* todo_flags_finish */
  }
@@ -1071,7 +1126,7 @@ struct rtl_opt_pass pass_fast_rtl_dce =
 {
  {
   RTL_PASS,
-  "rtl dce",                            /* name */
+  "rtl_dce",                            /* name */
   gate_fast_dce,                        /* gate */
   rest_of_handle_fast_dce,              /* execute */
   NULL,                                 /* sub */
@@ -1082,7 +1137,6 @@ struct rtl_opt_pass pass_fast_rtl_dce =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func |
   TODO_df_finish | TODO_verify_rtl_sharing |
   TODO_ggc_collect                      /* todo_flags_finish */
  }

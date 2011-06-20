@@ -38,22 +38,24 @@
 #define GO_UINT32 10
 #define GO_UINT64 11
 #define GO_UINTPTR 12
-#define GO_FLOAT 13
-#define GO_FLOAT32 14
-#define GO_FLOAT64 15
-#define GO_COMPLEX 16
-#define GO_COMPLEX64 17
-#define GO_COMPLEX128 18
-#define GO_ARRAY 19
-#define GO_CHAN 20
-#define GO_FUNC 21
-#define GO_INTERFACE 22
-#define GO_MAP 23
-#define GO_PTR 24
-#define GO_SLICE 25
-#define GO_STRING 26
-#define GO_STRUCT 27
-#define GO_UNSAFE_POINTER 28
+#define GO_FLOAT32 13
+#define GO_FLOAT64 14
+#define GO_COMPLEX64 15
+#define GO_COMPLEX128 16
+#define GO_ARRAY 17
+#define GO_CHAN 18
+#define GO_FUNC 19
+#define GO_INTERFACE 20
+#define GO_MAP 21
+#define GO_PTR 22
+#define GO_SLICE 23
+#define GO_STRING 24
+#define GO_STRUCT 25
+#define GO_UNSAFE_POINTER 26
+
+#define GO_NO_POINTERS (1 << 7)
+
+#define GO_CODE_MASK 0x7f
 
 /* For each Go type the compiler constructs one of these structures.
    This is used for type reflectin, interfaces, maps, and reference
@@ -61,7 +63,7 @@
 
 struct __go_type_descriptor
 {
-  /* The type code for this type, a value in enum __go_type_codes.
+  /* The type code for this type, one of the type kind values above.
      This is used by unsafe.Reflect and unsafe.Typeof to determine the
      type descriptor to return for this type itself.  It is also used
      by reflect.toType when mapping to a reflect Type structure.  */
@@ -96,6 +98,10 @@ struct __go_type_descriptor
 
   /* A pointer to fields which are only used for some types.  */
   const struct __go_uncommon_type *__uncommon;
+
+  /* The descriptor for the type which is a pointer to this type.
+     This may be NULL.  */
+  const struct __go_type_descriptor *__pointer_to_this;
 };
 
 /* The information we store for each method of a type.  */
@@ -146,6 +152,9 @@ struct __go_array_type
 
   /* The element type.  */
   struct __go_type_descriptor *__element_type;
+
+  /* The type of a slice of the same element type.  */
+  struct __go_type_descriptor *__slice_type;
 
   /* The length of the array.  */
   uintptr_t __len;
@@ -285,6 +294,15 @@ struct __go_struct_type
 
   /* An array of struct __go_struct_field.  */
   struct __go_open_array __fields;
+};
+
+/* If an empty interface has these bits set in its type pointer, it
+   was copied from a reflect.Value and is not a valid empty
+   interface.  */
+
+enum 
+{
+  reflectFlags = 3,
 };
 
 /* Whether a type descriptor is a pointer.  */

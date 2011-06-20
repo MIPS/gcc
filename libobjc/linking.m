@@ -1,5 +1,5 @@
 /* Force linking of classes required by Objective C runtime.
-   Copyright (C) 1997, 2009 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2009, 2010 Free Software Foundation, Inc.
    Contributed by Ovidiu Predescu (ovidiu@net-community.com).
 
 This file is part of GCC.
@@ -25,13 +25,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include "objc-private/common.h"
 #include <objc/Object.h>
-#include <objc/NXConstStr.h>
 
 /* Generate references to Object class since it is needed by the
    runtime system to run correctly.  */
 
 void __objc_linking (void)
 {
-  [Object name];
+  [Object class];
 }
 

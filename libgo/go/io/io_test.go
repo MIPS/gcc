@@ -8,6 +8,7 @@ import (
 	"bytes"
 	. "io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -80,29 +81,87 @@ func TestCopynWriteTo(t *testing.T) {
 	}
 }
 
+type noReadFrom struct {
+	w Writer
+}
+
+func (w *noReadFrom) Write(p []byte) (n int, err os.Error) {
+	return w.w.Write(p)
+}
+
+func TestCopynEOF(t *testing.T) {
+	// Test that EOF behavior is the same regardless of whether
+	// argument to Copyn has ReadFrom.
+
+	b := new(bytes.Buffer)
+
+	n, err := Copyn(&noReadFrom{b}, strings.NewReader("foo"), 3)
+	if n != 3 || err != nil {
+		t.Errorf("Copyn(noReadFrom, foo, 3) = %d, %v; want 3, nil", n, err)
+	}
+
+	n, err = Copyn(&noReadFrom{b}, strings.NewReader("foo"), 4)
+	if n != 3 || err != os.EOF {
+		t.Errorf("Copyn(noReadFrom, foo, 4) = %d, %v; want 3, EOF", n, err)
+	}
+
+	n, err = Copyn(b, strings.NewReader("foo"), 3) // b has read from
+	if n != 3 || err != nil {
+		t.Errorf("Copyn(bytes.Buffer, foo, 3) = %d, %v; want 3, nil", n, err)
+	}
+
+	n, err = Copyn(b, strings.NewReader("foo"), 4) // b has read from
+	if n != 3 || err != os.EOF {
+		t.Errorf("Copyn(bytes.Buffer, foo, 4) = %d, %v; want 3, EOF", n, err)
+	}
+}
+
 func TestReadAtLeast(t *testing.T) {
 	var rb bytes.Buffer
+	testReadAtLeast(t, &rb)
+}
+
+// A version of bytes.Buffer that returns n > 0, os.EOF on Read
+// when the input is exhausted.
+type dataAndEOFBuffer struct {
+	bytes.Buffer
+}
+
+func (r *dataAndEOFBuffer) Read(p []byte) (n int, err os.Error) {
+	n, err = r.Buffer.Read(p)
+	if n > 0 && r.Buffer.Len() == 0 && err == nil {
+		err = os.EOF
+	}
+	return
+}
+
+func TestReadAtLeastWithDataAndEOF(t *testing.T) {
+	var rb dataAndEOFBuffer
+	testReadAtLeast(t, &rb)
+}
+
+func testReadAtLeast(t *testing.T, rb ReadWriter) {
 	rb.Write([]byte("0123"))
 	buf := make([]byte, 2)
-	n, err := ReadAtLeast(&rb, buf, 2)
+	n, err := ReadAtLeast(rb, buf, 2)
 	if err != nil {
 		t.Error(err)
 	}
-	n, err = ReadAtLeast(&rb, buf, 4)
+	n, err = ReadAtLeast(rb, buf, 4)
 	if err != ErrShortBuffer {
 		t.Errorf("expected ErrShortBuffer got %v", err)
 	}
 	if n != 0 {
 		t.Errorf("expected to have read 0 bytes, got %v", n)
 	}
-	n, err = ReadAtLeast(&rb, buf, 1)
+	n, err = ReadAtLeast(rb, buf, 1)
 	if err != nil {
 		t.Error(err)
 	}
 	if n != 2 {
 		t.Errorf("expected to have read 2 bytes, got %v", n)
 	}
-	n, err = ReadAtLeast(&rb, buf, 2)
+	n, err = ReadAtLeast(rb, buf, 2)
 	if err != os.EOF {
 		t.Errorf("expected EOF, got %v", err)
 	}
@@ -110,7 +169,7 @@ func TestReadAtLeast(t *testing.T) {
 		t.Errorf("expected to have read 0 bytes, got %v", n)
 	}
 	rb.Write([]byte("4"))
-	n, err = ReadAtLeast(&rb, buf, 2)
+	n, err = ReadAtLeast(rb, buf, 2)
 	if err != ErrUnexpectedEOF {
 		t.Errorf("expected ErrUnexpectedEOF, got %v", err)
 	}

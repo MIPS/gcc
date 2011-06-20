@@ -1,6 +1,6 @@
 /* Output routines for Motorola MCore processor
    Copyright (C) 1993, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008,
-   2009, 2010 Free Software Foundation, Inc.
+   2009, 2010, 2011 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -61,19 +61,6 @@ const enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER] =
   GENERAL_REGS, C_REGS,       NO_REGS,      NO_REGS,
 };
 
-/* Provide reg_class from a letter such as appears in the machine
-   description.  */
-const enum reg_class reg_class_from_letter[] =
-{
-  /* a */ LRW_REGS, /* b */ ONLYR1_REGS, /* c */ C_REGS,  /* d */ NO_REGS,
-  /* e */ NO_REGS, /* f */ NO_REGS, /* g */ NO_REGS, /* h */ NO_REGS,
-  /* i */ NO_REGS, /* j */ NO_REGS, /* k */ NO_REGS, /* l */ NO_REGS,
-  /* m */ NO_REGS, /* n */ NO_REGS, /* o */ NO_REGS, /* p */ NO_REGS,
-  /* q */ NO_REGS, /* r */ GENERAL_REGS, /* s */ NO_REGS, /* t */ NO_REGS,
-  /* u */ NO_REGS, /* v */ NO_REGS, /* w */ NO_REGS, /* x */ ALL_REGS,
-  /* y */ NO_REGS, /* z */ NO_REGS
-};
-
 struct mcore_frame
 {
   int arg_size;			/* Stdarg spills (bytes).  */
@@ -109,7 +96,7 @@ static int        calc_live_regs                (int *);
 static int        try_constant_tricks           (long, HOST_WIDE_INT *, HOST_WIDE_INT *);
 static const char *     output_inline_const     (enum machine_mode, rtx *);
 static void       layout_mcore_frame            (struct mcore_frame *);
-static void       mcore_setup_incoming_varargs	(CUMULATIVE_ARGS *, enum machine_mode, tree, int *, int);
+static void       mcore_setup_incoming_varargs	(cumulative_args_t, enum machine_mode, tree, int *, int);
 static cond_type  is_cond_candidate             (rtx);
 static rtx        emit_new_cond_insn            (rtx, int);
 static rtx        conditionalize_block          (rtx);
@@ -137,13 +124,13 @@ static int        mcore_ior_cost               	(rtx);
 static bool       mcore_rtx_costs		(rtx, int, int, int *, bool);
 static void       mcore_external_libcall	(rtx);
 static bool       mcore_return_in_memory	(const_tree, const_tree);
-static int        mcore_arg_partial_bytes       (CUMULATIVE_ARGS *,
+static int        mcore_arg_partial_bytes       (cumulative_args_t,
 						 enum machine_mode,
 						 tree, bool);
-static rtx        mcore_function_arg            (CUMULATIVE_ARGS *,
+static rtx        mcore_function_arg            (cumulative_args_t,
 						 enum machine_mode,
 						 const_tree, bool);
-static void       mcore_function_arg_advance    (CUMULATIVE_ARGS *,
+static void       mcore_function_arg_advance    (cumulative_args_t,
 						 enum machine_mode,
 						 const_tree, bool);
 static unsigned int mcore_function_arg_boundary (enum machine_mode,
@@ -151,34 +138,20 @@ static unsigned int mcore_function_arg_boundary (enum machine_mode,
 static void       mcore_asm_trampoline_template (FILE *);
 static void       mcore_trampoline_init		(rtx, tree, rtx);
 static void       mcore_option_override		(void);
+static bool       mcore_legitimate_constant_p   (enum machine_mode, rtx);
 
 /* MCore specific attributes.  */
 
 static const struct attribute_spec mcore_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */
-  { "dllexport", 0, 0, true,  false, false, NULL },
-  { "dllimport", 0, 0, true,  false, false, NULL },
-  { "naked",     0, 0, true,  false, false, mcore_handle_naked_attribute },
-  { NULL,        0, 0, false, false, false, NULL }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       affects_type_identity } */
+  { "dllexport", 0, 0, true,  false, false, NULL, false },
+  { "dllimport", 0, 0, true,  false, false, NULL, false },
+  { "naked",     0, 0, true,  false, false, mcore_handle_naked_attribute,
+    false },
+  { NULL,        0, 0, false, false, false, NULL, false }
 };
-
-/* What options are we going to default to specific settings when
-   -O* happens; the user can subsequently override these settings.
-  
-   Omitting the frame pointer is a very good idea on the MCore.
-   Scheduling isn't worth anything on the current MCore implementation.  */
-
-static const struct default_options mcore_option_optimization_table[] =
-  {
-    { OPT_LEVELS_1_PLUS, OPT_ffunction_cse, NULL, 0 },
-    { OPT_LEVELS_1_PLUS, OPT_fomit_frame_pointer, NULL, 1 },
-    { OPT_LEVELS_ALL, OPT_fcaller_saves, NULL, 0 },
-    { OPT_LEVELS_ALL, OPT_fschedule_insns, NULL, 0 },
-    { OPT_LEVELS_ALL, OPT_fschedule_insns2, NULL, 0 },
-    { OPT_LEVELS_SIZE, OPT_mhardlit, NULL, 0 },
-    { OPT_LEVELS_NONE, 0, NULL, 0 }
-  };
 
 /* Initialize the GCC target structure.  */
 #undef  TARGET_ASM_EXTERNAL_LIBCALL
@@ -209,8 +182,6 @@ static const struct default_options mcore_option_optimization_table[] =
 #define TARGET_ASM_UNIQUE_SECTION 	mcore_unique_section
 #undef  TARGET_ASM_FUNCTION_RODATA_SECTION
 #define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
-#undef  TARGET_DEFAULT_TARGET_FLAGS
-#define TARGET_DEFAULT_TARGET_FLAGS	TARGET_DEFAULT
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO 	mcore_encode_section_info
 #undef  TARGET_STRIP_NAME_ENCODING
@@ -252,11 +223,9 @@ static const struct default_options mcore_option_optimization_table[] =
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE mcore_option_override
-#undef TARGET_OPTION_OPTIMIZATION_TABLE
-#define TARGET_OPTION_OPTIMIZATION_TABLE mcore_option_optimization_table
 
-#undef TARGET_EXCEPT_UNWIND_INFO
-#define TARGET_EXCEPT_UNWIND_INFO sjlj_except_unwind_info
+#undef TARGET_LEGITIMATE_CONSTANT_P
+#define TARGET_LEGITIMATE_CONSTANT_P mcore_legitimate_constant_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1942,11 +1911,13 @@ mcore_initial_elimination_offset (int from, int to)
 /* Keep track of some information about varargs for the prolog.  */
 
 static void
-mcore_setup_incoming_varargs (CUMULATIVE_ARGS *args_so_far,
+mcore_setup_incoming_varargs (cumulative_args_t args_so_far_v,
 			      enum machine_mode mode, tree type,
 			      int * ptr_pretend_size ATTRIBUTE_UNUSED,
 			      int second_time ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *args_so_far = get_cumulative_args (args_so_far_v);
+
   current_function_anonymous_args = 1;
 
   /* We need to know how many argument registers are used before
@@ -1991,8 +1962,7 @@ mcore_expand_prolog (void)
       
       gcc_assert (GET_CODE (x) == SYMBOL_REF);
       
-      if (mcore_current_function_name)
-	free (mcore_current_function_name);
+      free (mcore_current_function_name);
       
       mcore_current_function_name = xstrdup (XSTR (x, 0));
       
@@ -2815,7 +2785,7 @@ mcore_function_value (const_tree valtype, const_tree func)
    its data type forbids.  */
 
 static rtx
-mcore_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mcore_function_arg (cumulative_args_t cum, enum machine_mode mode,
 		    const_tree type, bool named)
 {
   int arg_reg;
@@ -2826,7 +2796,7 @@ mcore_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (targetm.calls.must_pass_in_stack (mode, type))
     return 0;
 
-  arg_reg = ROUND_REG (*cum, mode);
+  arg_reg = ROUND_REG (*get_cumulative_args (cum), mode);
   
   if (arg_reg < NPARM_REGS)
     return handle_structs_in_regs (mode, type, FIRST_PARM_REG + arg_reg);
@@ -2835,9 +2805,11 @@ mcore_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 static void
-mcore_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mcore_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			    const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   *cum = (ROUND_REG (*cum, mode)
 	  + (int)named * mcore_num_arg_regs (mode, type));
 }
@@ -2860,10 +2832,10 @@ mcore_function_arg_boundary (enum machine_mode mode,
    the function.  */
 
 static int
-mcore_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+mcore_arg_partial_bytes (cumulative_args_t cum, enum machine_mode mode,
 			 tree type, bool named)
 {
-  int reg = ROUND_REG (*cum, mode);
+  int reg = ROUND_REG (*get_cumulative_args (cum), mode);
 
   if (named == 0)
     return 0;
@@ -3216,4 +3188,14 @@ mcore_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
   emit_move_insn (mem, chain_value);
   mem = adjust_address (m_tramp, SImode, 12);
   emit_move_insn (mem, fnaddr);
+}
+
+/* Implement TARGET_LEGITIMATE_CONSTANT_P
+
+   On the MCore, allow anything but a double.  */
+
+static bool
+mcore_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+{
+  return GET_CODE (x) != CONST_DOUBLE;
 }

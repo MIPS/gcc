@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package provides basic interfaces to I/O primitives.
+// Package io provides basic interfaces to I/O primitives.
 // Its primary job is to wrap existing implementations of such primitives,
 // such as those in package os, into shared public interfaces that
 // abstract the functionality, plus some other related primitives.
@@ -136,6 +136,10 @@ type WriterTo interface {
 // At the end of the input stream, ReadAt returns 0, os.EOF.
 // ReadAt may return a non-zero number of bytes with a non-nil err.
 // In particular, a ReadAt that exhausts the input may return n > 0, os.EOF.
+//
+// If ReadAt is reading from an data stream with a seek offset,
+// ReadAt should not affect nor be affected by the underlying
+// seek offset.
 type ReaderAt interface {
 	ReadAt(p []byte, off int64) (n int, err os.Error)
 }
@@ -150,12 +154,21 @@ type WriterAt interface {
 	WriteAt(p []byte, off int64) (n int, err os.Error)
 }
 
-// ReadByter is the interface that wraps the ReadByte method.
+// ByteReader is the interface that wraps the ReadByte method.
 //
 // ReadByte reads and returns the next byte from the input.
 // If no byte is available, err will be set.
-type ReadByter interface {
+type ByteReader interface {
 	ReadByte() (c byte, err os.Error)
+}
+
+// RuneReader is the interface that wraps the ReadRune method.
+//
+// ReadRune reads a single UTF-8 encoded Unicode character
+// and returns the rune and its size in bytes. If no character is
+// available, err will be set.
+type RuneReader interface {
+	ReadRune() (rune int, size int, err os.Error)
 }
 
 // WriteString writes the contents of the string s to w, which accepts an array of bytes.
@@ -173,16 +186,16 @@ func ReadAtLeast(r Reader, buf []byte, min int) (n int, err os.Error) {
 	if len(buf) < min {
 		return 0, ErrShortBuffer
 	}
-	for n < min {
-		nn, e := r.Read(buf[n:])
-		if nn > 0 {
-			n += nn
-		}
-		if e != nil {
-			if e == os.EOF && n > 0 {
-				e = ErrUnexpectedEOF
-			}
-			return n, e
+	for n < min && err == nil {
+		var nn int
+		nn, err = r.Read(buf[n:])
+		n += nn
+	}
+	if err == os.EOF {
+		if n >= min {
+			err = nil
+		} else if n > 0 {
+			err = ErrUnexpectedEOF
 		}
 	}
 	return
@@ -203,10 +216,15 @@ func ReadFull(r Reader, buf []byte) (n int, err os.Error) {
 // If dst implements the ReaderFrom interface,
 // the copy is implemented by calling dst.ReadFrom(src).
 func Copyn(dst Writer, src Reader, n int64) (written int64, err os.Error) {
-	// If the writer has a ReadFrom method, use it to to do the copy.
+	// If the writer has a ReadFrom method, use it to do the copy.
 	// Avoids a buffer allocation and a copy.
 	if rt, ok := dst.(ReaderFrom); ok {
-		return rt.ReadFrom(LimitReader(src, n))
+		written, err = rt.ReadFrom(LimitReader(src, n))
+		if written < n && err == nil {
+			// rt stopped early; must have been EOF.
+			err = os.EOF
+		}
+		return
 	}
 	buf := make([]byte, 32*1024)
 	for written < n {
@@ -246,12 +264,12 @@ func Copyn(dst Writer, src Reader, n int64) (written int64, err os.Error) {
 // Otherwise, if src implements the WriterTo interface,
 // the copy is implemented by calling src.WriteTo(dst).
 func Copy(dst Writer, src Reader) (written int64, err os.Error) {
-	// If the writer has a ReadFrom method, use it to to do the copy.
+	// If the writer has a ReadFrom method, use it to do the copy.
 	// Avoids an allocation and a copy.
 	if rt, ok := dst.(ReaderFrom); ok {
 		return rt.ReadFrom(src)
 	}
-	// Similarly, if the reader has a WriteTo method, use it to to do the copy.
+	// Similarly, if the reader has a WriteTo method, use it to do the copy.
 	if wt, ok := src.(WriterTo); ok {
 		return wt.WriteTo(dst)
 	}

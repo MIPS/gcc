@@ -1630,7 +1630,7 @@ package body Sem_Attr is
          end if;
 
          --  Check special case of Exception_Id and Exception_Occurrence which
-         --  are not allowed for restriction No_Exception_Regstriation.
+         --  are not allowed for restriction No_Exception_Registration.
 
          if Is_RTE (P_Type, RE_Exception_Id)
               or else
@@ -2243,6 +2243,13 @@ package body Sem_Attr is
 
       when Attribute_Asm_Input =>
          Check_Asm_Attribute;
+
+         --  The back-end may need to take the address of E2
+
+         if Is_Entity_Name (E2) then
+            Set_Address_Taken (Entity (E2));
+         end if;
+
          Set_Etype (N, RTE (RE_Asm_Input_Operand));
 
       ----------------
@@ -2263,6 +2270,13 @@ package body Sem_Attr is
          end if;
 
          Note_Possible_Modification (E2, Sure => True);
+
+         --  The back-end may need to take the address of E2
+
+         if Is_Entity_Name (E2) then
+            Set_Address_Taken (Entity (E2));
+         end if;
+
          Set_Etype (N, RTE (RE_Asm_Output_Operand));
 
       ---------------

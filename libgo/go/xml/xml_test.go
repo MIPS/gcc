@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +97,19 @@ var cookedTokens = []Token{
 	Comment([]byte(" missing final newline ")),
 }
 
+const testInputAltEncoding = `
+<?xml version="1.0" encoding="x-testing-uppercase"?>
+<TAG>VALUE</TAG>`
+
+var rawTokensAltEncoding = []Token{
+	CharData([]byte("\n")),
+	ProcInst{"xml", []byte(`version="1.0" encoding="x-testing-uppercase"`)},
+	CharData([]byte("\n")),
+	StartElement{Name{"", "tag"}, nil},
+	CharData([]byte("value")),
+	EndElement{Name{"", "tag"}},
+}
+
 var xmlInput = []string{
 	// unexpected EOF cases
 	"<",
@@ -173,9 +187,112 @@ func StringReader(s string) io.Reader { return &stringReader{s, 0} }
 
 func TestRawToken(t *testing.T) {
 	p := NewParser(StringReader(testInput))
+	testRawToken(t, p, rawTokens)
+}
 
+type downCaser struct {
+	t *testing.T
+	r io.ByteReader
+}
+
+func (d *downCaser) ReadByte() (c byte, err os.Error) {
+	c, err = d.r.ReadByte()
+	if c >= 'A' && c <= 'Z' {
+		c += 'a' - 'A'
+	}
+	return
+}
+
+func (d *downCaser) Read(p []byte) (int, os.Error) {
+	d.t.Fatalf("unexpected Read call on downCaser reader")
+	return 0, os.EINVAL
+}
+
+func TestRawTokenAltEncoding(t *testing.T) {
+	sawEncoding := ""
+	p := NewParser(StringReader(testInputAltEncoding))
+	p.CharsetReader = func(charset string, input io.Reader) (io.Reader, os.Error) {
+		sawEncoding = charset
+		if charset != "x-testing-uppercase" {
+			t.Fatalf("unexpected charset %q", charset)
+		}
+		return &downCaser{t, input.(io.ByteReader)}, nil
+	}
+	testRawToken(t, p, rawTokensAltEncoding)
+}
+
+func TestRawTokenAltEncodingNoConverter(t *testing.T) {
+	p := NewParser(StringReader(testInputAltEncoding))
+	token, err := p.RawToken()
+	if token == nil {
+		t.Fatalf("expected a token on first RawToken call")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err = p.RawToken()
+	if token != nil {
+		t.Errorf("expected a nil token; got %#v", token)
+	}
+	if err == nil {
+		t.Fatalf("expected an error on second RawToken call")
+	}
+	const encoding = "x-testing-uppercase"
+	if !strings.Contains(err.String(), encoding) {
+		t.Errorf("expected error to contain %q; got error: %v",
+			encoding, err)
+	}
+}
+
+func testRawToken(t *testing.T, p *Parser, rawTokens []Token) {
 	for i, want := range rawTokens {
 		have, err := p.RawToken()
+		if err != nil {
+			t.Fatalf("token %d: unexpected error: %s", i, err)
+		}
+		if !reflect.DeepEqual(have, want) {
+			t.Errorf("token %d = %#v want %#v", i, have, want)
+		}
+	}
+}
+
+// Ensure that directives (specifically !DOCTYPE) include the complete
+// text of any nested directives, noting that < and > do not change
+// nesting depth if they are in single or double quotes.
+
+var nestedDirectivesInput = `
+<!DOCTYPE [<!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#">]>
+<!DOCTYPE [<!ENTITY xlt ">">]>
+<!DOCTYPE [<!ENTITY xlt "<">]>
+<!DOCTYPE [<!ENTITY xlt '>'>]>
+<!DOCTYPE [<!ENTITY xlt '<'>]>
+<!DOCTYPE [<!ENTITY xlt '">'>]>
+<!DOCTYPE [<!ENTITY xlt "'<">]>
+`
+
+var nestedDirectivesTokens = []Token{
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY rdf "http://www.w3.org/1999/02/22-rdf-syntax-ns#">]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt ">">]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt "<">]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt '>'>]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt '<'>]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt '">'>]`)),
+	CharData([]byte("\n")),
+	Directive([]byte(`DOCTYPE [<!ENTITY xlt "'<">]`)),
+	CharData([]byte("\n")),
+}
+
+func TestNestedDirectives(t *testing.T) {
+	p := NewParser(StringReader(nestedDirectivesInput))
+
+	for i, want := range nestedDirectivesTokens {
+		have, err := p.Token()
 		if err != nil {
 			t.Fatalf("token %d: unexpected error: %s", i, err)
 		}
@@ -212,48 +329,50 @@ func TestSyntax(t *testing.T) {
 }
 
 type allScalars struct {
-	True1   bool
-	True2   bool
-	False1  bool
-	False2  bool
-	Int     int
-	Int8    int8
-	Int16   int16
-	Int32   int32
-	Int64   int64
-	Uint    int
-	Uint8   uint8
-	Uint16  uint16
-	Uint32  uint32
-	Uint64  uint64
-	Uintptr uintptr
-	Float   float
-	Float32 float32
-	Float64 float64
-	String  string
+	True1     bool
+	True2     bool
+	False1    bool
+	False2    bool
+	Int       int
+	Int8      int8
+	Int16     int16
+	Int32     int32
+	Int64     int64
+	Uint      int
+	Uint8     uint8
+	Uint16    uint16
+	Uint32    uint32
+	Uint64    uint64
+	Uintptr   uintptr
+	Float32   float32
+	Float64   float64
+	String    string
+	PtrString *string
 }
 
 var all = allScalars{
-	True1:   true,
-	True2:   true,
-	False1:  false,
-	False2:  false,
-	Int:     1,
-	Int8:    -2,
-	Int16:   3,
-	Int32:   -4,
-	Int64:   5,
-	Uint:    6,
-	Uint8:   7,
-	Uint16:  8,
-	Uint32:  9,
-	Uint64:  10,
-	Uintptr: 11,
-	Float:   12.0,
-	Float32: 13.0,
-	Float64: 14.0,
-	String:  "15",
+	True1:     true,
+	True2:     true,
+	False1:    false,
+	False2:    false,
+	Int:       1,
+	Int8:      -2,
+	Int16:     3,
+	Int32:     -4,
+	Int64:     5,
+	Uint:      6,
+	Uint8:     7,
+	Uint16:    8,
+	Uint32:    9,
+	Uint64:    10,
+	Uintptr:   11,
+	Float32:   13.0,
+	Float64:   14.0,
+	String:    "15",
+	PtrString: &sixteen,
 }
+
+var sixteen = "16"
 
 const testScalarsInput = `<allscalars>
 	<true1>true</true1>
@@ -275,6 +394,7 @@ const testScalarsInput = `<allscalars>
 	<float32>13.0</float32>
 	<float64>14.0</float64>
 	<string>15</string>
+	<ptrstring>16</ptrstring>
 </allscalars>`
 
 func TestAllScalars(t *testing.T) {
@@ -286,7 +406,7 @@ func TestAllScalars(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(a, all) {
-		t.Errorf("expected %+v got %+v", all, a)
+		t.Errorf("have %+v want %+v", a, all)
 	}
 }
 
@@ -301,7 +421,7 @@ func TestIssue569(t *testing.T) {
 	err := Unmarshal(buf, &i)
 
 	if err != nil || i.Field_a != "abcd" {
-		t.Fatalf("Expecting abcd")
+		t.Fatal("Expecting abcd")
 	}
 }
 
@@ -396,5 +516,69 @@ func TestEntityInsideCDATA(t *testing.T) {
 	}
 	if err != os.EOF {
 		t.Fatalf("p.Token() = _, %v, want _, os.EOF", err)
+	}
+}
+
+
+// The last three tests (respectively one for characters in attribute
+// names and two for character entities) pass not because of code
+// changed for issue 1259, but instead pass with the given messages
+// from other parts of xml.Parser.  I provide these to note the
+// current behavior of situations where one might think that character
+// range checking would detect the error, but it does not in fact.
+
+var characterTests = []struct {
+	in  string
+	err string
+}{
+	{"\x12<doc/>", "illegal character code U+0012"},
+	{"<?xml version=\"1.0\"?>\x0b<doc/>", "illegal character code U+000B"},
+	{"\xef\xbf\xbe<doc/>", "illegal character code U+FFFE"},
+	{"<?xml version=\"1.0\"?><doc>\r\n<hiya/>\x07<toots/></doc>", "illegal character code U+0007"},
+	{"<?xml version=\"1.0\"?><doc \x12='value'>what's up</doc>", "expected attribute name in element"},
+	{"<doc>&\x01;</doc>", "invalid character entity &;"},
+	{"<doc>&\xef\xbf\xbe;</doc>", "invalid character entity &;"},
+}
+
+
+func TestDisallowedCharacters(t *testing.T) {
+
+	for i, tt := range characterTests {
+		p := NewParser(StringReader(tt.in))
+		var err os.Error
+
+		for err == nil {
+			_, err = p.Token()
+		}
+		synerr, ok := err.(*SyntaxError)
+		if !ok {
+			t.Fatalf("input %d p.Token() = _, %v, want _, *SyntaxError", i, err)
+		}
+		if synerr.Msg != tt.err {
+			t.Fatalf("input %d synerr.Msg wrong: want '%s', got '%s'", i, tt.err, synerr.Msg)
+		}
+	}
+}
+
+type procInstEncodingTest struct {
+	expect, got string
+}
+
+var procInstTests = []struct {
+	input, expect string
+}{
+	{`version="1.0" encoding="utf-8"`, "utf-8"},
+	{`version="1.0" encoding='utf-8'`, "utf-8"},
+	{`version="1.0" encoding='utf-8' `, "utf-8"},
+	{`version="1.0" encoding=utf-8`, ""},
+	{`encoding="FOO" `, "FOO"},
+}
+
+func TestProcInstEncoding(t *testing.T) {
+	for _, test := range procInstTests {
+		got := procInstEncoding(test.input)
+		if got != test.expect {
+			t.Errorf("procInstEncoding(%q) = %q; want %q", test.input, got, test.expect)
+		}
 	}
 }

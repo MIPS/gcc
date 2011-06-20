@@ -1,6 +1,6 @@
 /* longlong.h -- definitions for mixed size 32/64 bit arithmetic.
    Copyright (C) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
    This file is part of the GNU C Library.
@@ -250,6 +250,12 @@ UDItype __umulsidi3 (USItype, USItype);
 #define COUNT_LEADING_ZEROS_0 32
 #endif
 
+#if defined (__AVR__) && W_TYPE_SIZE == 32
+#define count_leading_zeros(COUNT,X)  ((COUNT) = __builtin_clzl (X))
+#define count_trailing_zeros(COUNT,X) ((COUNT) = __builtin_ctzl (X))
+#define COUNT_LEADING_ZEROS_0 32
+#endif /* defined (__AVR__) && W_TYPE_SIZE == 32 */
+
 #if defined (__CRIS__) && __CRIS_arch_version >= 3
 #define count_leading_zeros(COUNT, X) ((COUNT) = __builtin_clz (X))
 #if __CRIS_arch_version >= 8
@@ -349,7 +355,7 @@ UDItype __umulsidi3 (USItype, USItype);
     __asm__ ("mr\t%%r0,%3"                                              \
              : "=r" (r0), "=r" (r1)                                     \
              : "r"  (r1),  "r" (m1));                                   \
-    (xh) = r1; (xl) = r0;                                               \
+    (xh) = r0; (xl) = r1;                                               \
   } while (0)
 #define sdiv_qrnnd(q, r, n1, n0, d) \
   do {									\
@@ -430,8 +436,8 @@ UDItype __umulsidi3 (USItype, USItype);
 	   : "0" ((UDItype) (n0)),					\
 	     "1" ((UDItype) (n1)),					\
 	     "rm" ((UDItype) (dv)))
-#define count_leading_zeros(count, x)	((count) = __builtin_clzl (x))
-#define count_trailing_zeros(count, x)	((count) = __builtin_ctzl (x))
+#define count_leading_zeros(count, x)	((count) = __builtin_clzll (x))
+#define count_trailing_zeros(count, x)	((count) = __builtin_ctzll (x))
 #define UMUL_TIME 40
 #define UDIV_TIME 40
 #endif /* x86_64 */
@@ -717,6 +723,43 @@ UDItype __umulsidi3 (USItype, USItype);
 #define UDIV_TIME 150
 #endif /* __mc88110__ */
 #endif /* __m88000__ */
+
+#if defined (__mn10300__)
+# if defined (__AM33__)
+#  define count_leading_zeros(COUNT,X)	((COUNT) = __builtin_clz (X))
+#  define umul_ppmm(w1, w0, u, v)		\
+    asm("mulu %3,%2,%1,%0" : "=r"(w0), "=r"(w1) : "r"(u), "r"(v))
+#  define smul_ppmm(w1, w0, u, v)		\
+    asm("mul %3,%2,%1,%0" : "=r"(w0), "=r"(w1) : "r"(u), "r"(v))
+# else
+#  define umul_ppmm(w1, w0, u, v)		\
+    asm("nop; nop; mulu %3,%0" : "=d"(w0), "=z"(w1) : "%0"(u), "d"(v))
+#  define smul_ppmm(w1, w0, u, v)		\
+    asm("nop; nop; mul %3,%0" : "=d"(w0), "=z"(w1) : "%0"(u), "d"(v))
+# endif
+# define add_ssaaaa(sh, sl, ah, al, bh, bl)	\
+  do {						\
+    DWunion __s, __a, __b;			\
+    __a.s.low = (al); __a.s.high = (ah);	\
+    __b.s.low = (bl); __b.s.high = (bh);	\
+    __s.ll = __a.ll + __b.ll;			\
+    (sl) = __s.s.low; (sh) = __s.s.high;	\
+  } while (0)
+# define sub_ddmmss(sh, sl, ah, al, bh, bl)	\
+  do {						\
+    DWunion __s, __a, __b;			\
+    __a.s.low = (al); __a.s.high = (ah);	\
+    __b.s.low = (bl); __b.s.high = (bh);	\
+    __s.ll = __a.ll - __b.ll;			\
+    (sl) = __s.s.low; (sh) = __s.s.high;	\
+  } while (0)
+# define udiv_qrnnd(q, r, nh, nl, d)		\
+  asm("divu %2,%0" : "=D"(q), "=z"(r) : "D"(d), "0"(nl), "1"(nh))
+# define sdiv_qrnnd(q, r, nh, nl, d)		\
+  asm("div %2,%0" : "=D"(q), "=z"(r) : "D"(d), "0"(nl), "1"(nh))
+# define UMUL_TIME 3
+# define UDIV_TIME 38
+#endif
 
 #if defined (__mips__) && W_TYPE_SIZE == 32
 #define umul_ppmm(w1, w0, u, v)						\

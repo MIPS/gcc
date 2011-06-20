@@ -3,10 +3,16 @@
 
 /* { dg-do run } */
 /* { dg-xfail-run-if "Needs OBJC2 ABI" { *-*-darwin* && { lp64 && { ! objc2 } } } { "-fnext-runtime" } { "" } } */
-/* { dg-additional-sources "../objc-obj-c++-shared/Object1.m" } */
 
-#import "../objc-obj-c++-shared/Object1.h"
-#import "../objc-obj-c++-shared/Protocol1.h"
+#include <objc/Protocol.h>
+ 
+@interface Object (TS_CAT)
+- test;
+@end
+
+@implementation Object (TS_CAT)
+- test { return self; }
+@end
 
 @protocol A
 @end
@@ -19,8 +25,8 @@
 
 int main ()
 {
-  [@protocol(A) class];
-  [@protocol(B) class];
+  [@protocol(A) test];
+  [@protocol(B) test];
 
   return 0;
 }

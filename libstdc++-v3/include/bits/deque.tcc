@@ -1,7 +1,7 @@
 // Deque implementation (out of line) -*- C++ -*-
 
 // Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-// 2009, 2010
+// 2009, 2010, 2011
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -50,15 +50,17 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file deque.tcc
+/** @file bits/deque.tcc
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{deque}
  */
 
 #ifndef _DEQUE_TCC
 #define _DEQUE_TCC 1
 
-_GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
   template <typename _Tp, typename _Alloc>
@@ -322,6 +324,24 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
 	      __throw_exception_again;
 	    }
 	}
+    }
+
+  template <typename _Tp, typename _Alloc>
+    bool
+    deque<_Tp, _Alloc>::
+    _M_shrink_to_fit()
+    {
+      const difference_type __front_capacity
+	= (this->_M_impl._M_start._M_cur - this->_M_impl._M_start._M_first);
+      if (__front_capacity == 0)
+	return false;
+
+      const difference_type __back_capacity
+	= (this->_M_impl._M_finish._M_last - this->_M_impl._M_finish._M_cur);
+      if (__front_capacity + __back_capacity < _S_buffer_size())
+	return false;
+
+      return std::__shrink_to_fit_aux<deque>::_S_do_it(*this);
     }
 #endif
 
@@ -1038,6 +1058,7 @@ _GLIBCXX_BEGIN_NESTED_NAMESPACE(std, _GLIBCXX_STD_D)
     }
 #endif
 
-_GLIBCXX_END_NESTED_NAMESPACE
+_GLIBCXX_END_NAMESPACE_CONTAINER
+} // namespace std
 
 #endif

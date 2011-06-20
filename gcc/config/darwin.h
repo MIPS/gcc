@@ -1,6 +1,6 @@
 /* Target definitions for Darwin (Mac OS X) systems.
    Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008, 2009, 2010
+   2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
@@ -140,6 +140,21 @@ extern GTY(()) int darwin_ms_struct;
   } while (0)
 
 #define SUBTARGET_C_COMMON_OVERRIDE_OPTIONS do {                        \
+  /* Unless set, force ABI=2 for NeXT and m64, 0 otherwise.  */		\
+  if (!global_options_set.x_flag_objc_abi)				\
+    global_options.x_flag_objc_abi					\
+	= (flag_next_runtime && TARGET_64BIT) ? 2 : 0;			\
+  /* Objective-C family ABI 2 is only valid for next/m64 at present. */	\
+  if (global_options_set.x_flag_objc_abi && flag_next_runtime)		\
+    if (TARGET_64BIT && global_options.x_flag_objc_abi < 2)		\
+      error_at (UNKNOWN_LOCATION, "%<-fobjc-abi-version%> >= 2 is only"	\
+		" supported on %<-m64%> targets for"			\
+		" %<-fnext-runtime%>");					\
+  /* Sort out ObjC exceptions: If the runtime is NeXT we default to	\
+     sjlj for m32 only.  */						\
+  if (!global_options_set.x_flag_objc_sjlj_exceptions)			\
+    global_options.x_flag_objc_sjlj_exceptions = 			\
+				flag_next_runtime && !TARGET_64BIT;	\
     if (flag_mkernel || flag_apple_kext)				\
       {									\
 	if (flag_use_cxa_atexit == 2)					\
@@ -169,8 +184,9 @@ extern GTY(()) int darwin_ms_struct;
 
 #define LINK_COMMAND_SPEC_A \
    "%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
-    %(linker) \
-    %{flto*:%<fcompare-debug*} \
+    %(linker)" \
+    LINK_PLUGIN_SPEC \
+    "%{flto*:%<fcompare-debug*} \
     %{flto*} \
     %l %X %{s} %{t} %{Z} %{u*} \
     %{e*} %{r} \
@@ -188,10 +204,15 @@ extern GTY(()) int darwin_ms_struct;
 
 #define DSYMUTIL_SPEC \
    "%{!fdump=*:%{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
+    %{v} \
+    %{gdwarf-2:%{!gstabs*:%{!g0: -idsym}}}\
     %{.c|.cc|.C|.cpp|.cp|.c++|.cxx|.CPP|.m|.mm: \
-    %{gdwarf-2:%{!gstabs*:%{!g0: " DSYMUTIL " %{o*:%*}%{!o:a.out}}}}}}}}}}}}"
+    %{gdwarf-2:%{!gstabs*:%{!g0: -dsym}}}}}}}}}}}"
 
 #define LINK_COMMAND_SPEC LINK_COMMAND_SPEC_A DSYMUTIL_SPEC
+
+/* Tell collect2 to run dsymutil for us as necessary.  */
+#define COLLECT_RUN_DSYMUTIL 1
 
 /* We only want one instance of %G, since libSystem (Darwin's -lc) does not depend
    on libgcc.  */
@@ -257,7 +278,7 @@ extern GTY(()) int darwin_ms_struct;
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
    %{Zflat_namespace:-flat_namespace} \
-   %{headerpad_max_install_names*} \
+   %{headerpad_max_install_names} \
    %{Zimage_base*:-image_base %*} \
    %{Zinit*:-init %*} \
    %{!mmacosx-version-min=*:-macosx_version_min %(darwin_minversion)} \
@@ -589,7 +610,7 @@ int darwin_label_is_anonymous_local_objc_name (const char *name);
 	 }								     \
        else if (xname[0] == '+' || xname[0] == '-')			     \
          fprintf (FILE, "\"%s\"", xname);				     \
-       else if (darwin_label_is_anonymous_local_objc_name (xname))				     \
+       else if (darwin_label_is_anonymous_local_objc_name (xname))	     \
          fprintf (FILE, "L%s", xname);					     \
        else if (!strncmp (xname, ".objc_class_name_", 17))		     \
 	 fprintf (FILE, "%s", xname);					     \
@@ -641,11 +662,6 @@ int darwin_label_is_anonymous_local_objc_name (const char *name);
 /* The generic version, archs should over-ride where required.  */
 #define MACHOPIC_NL_SYMBOL_PTR_SECTION ".non_lazy_symbol_pointer"
 
-/* Private flag applied to disable section-anchors in a particular section.
-   This needs to be kept in sync with the flags used by varasm.c (defined in
-   output.h).  */
-#define SECTION_NO_ANCHOR 0x2000000
-
 /* Declare the section variables.  */
 #ifndef USED_FOR_TARGET
 enum darwin_section_enum {
@@ -659,9 +675,13 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 #undef	TARGET_ASM_SELECT_SECTION
 #define TARGET_ASM_SELECT_SECTION machopic_select_section
-#define USE_SELECT_SECTION_FOR_FUNCTIONS
+
 #undef	TARGET_ASM_FUNCTION_SECTION
 #define TARGET_ASM_FUNCTION_SECTION darwin_function_section
+
+#undef	TARGET_ASM_FUNCTION_SWITCHED_TEXT_SECTIONS
+#define TARGET_ASM_FUNCTION_SWITCHED_TEXT_SECTIONS \
+	darwin_function_switched_text_sections
 
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define TARGET_ASM_SELECT_RTX_SECTION machopic_select_rtx_section
@@ -707,11 +727,12 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */ \
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,     \
+       affects_type_identity } */						     \
   { "apple_kext_compatibility", 0, 0, false, true, false,		     \
-    darwin_handle_kext_attribute },					     \
+    darwin_handle_kext_attribute, false },				     \
   { "weak_import", 0, 0, true, false, false,				     \
-    darwin_handle_weak_import_attribute }
+    darwin_handle_weak_import_attribute, false }
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
@@ -898,43 +919,7 @@ void add_framework_path (char *);
 #define TARGET_ASM_OUTPUT_ANCHOR NULL
 #define DARWIN_SECTION_ANCHORS 0
 
-/* Attempt to turn on execute permission for the stack.  This may be
-    used by TARGET_TRAMPOLINE_INIT if the target needs it (that is,
-    if the target machine can change execute permissions on a page).
-
-    There is no way to query the execute permission of the stack, so
-    we always issue the mprotect() call.
-
-    Unfortunately it is not possible to make this namespace-clean.
-
-    Also note that no errors should be emitted by this code; it is
-    considered dangerous for library calls to send messages to
-    stdout/stderr.  */
-
-#define ENABLE_EXECUTE_STACK                                            \
-extern void __enable_execute_stack (void *);                            \
-void                                                                    \
-__enable_execute_stack (void *addr)                                     \
-{                                                                       \
-   extern int mprotect (void *, size_t, int);                           \
-   extern int getpagesize (void);					\
-   static int size;                                                     \
-   static long mask;                                                    \
-                                                                        \
-   char *page, *end;                                                    \
-                                                                        \
-   if (size == 0)                                                       \
-     {                                                                  \
-       size = getpagesize();						\
-       mask = ~((long) size - 1);                                       \
-     }                                                                  \
-                                                                        \
-   page = (char *) (((long) addr) & mask);                              \
-   end  = (char *) ((((long) (addr + (TARGET_64BIT ? 48 : 40))) & mask) + size); \
-                                                                        \
-   /* 7 == PROT_READ | PROT_WRITE | PROT_EXEC */                        \
-   (void) mprotect (page, end - page, 7);                               \
-}
+#define HAVE_ENABLE_EXECUTE_STACK
 
 /* For Apple KEXTs, we make the constructors return this to match gcc
    2.95.  */
@@ -944,24 +929,14 @@ __enable_execute_stack (void *addr)                                     \
 /* We have target-specific builtins.  */
 #define TARGET_FOLD_BUILTIN darwin_fold_builtin
 
-#define TARGET_OBJC_CONSTRUCT_STRING_OBJECT \
-  darwin_objc_construct_string
-
-#define TARGET_STRING_OBJECT_REF_TYPE_P \
-  darwin_cfstring_ref_p
-
 #define TARGET_N_FORMAT_TYPES 1
 #define TARGET_FORMAT_TYPES darwin_additional_format_types
 
-#define TARGET_CHECK_STRING_OBJECT_FORMAT_ARG \
-  darwin_check_cfstring_format_arg
-
-#define TARGET_HAS_TARGETCM 1
-
-extern void darwin_driver_init (unsigned int *decoded_options_count,
-				struct cl_decoded_option **decoded_options);
+#ifndef USED_FOR_TARGET
+extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
 #define GCC_DRIVER_HOST_INITIALIZATION \
   darwin_driver_init (&decoded_options_count, &decoded_options)
+#endif
 
 /* The Apple assembler and linker do not support constructor priorities.  */
 #undef SUPPORTS_INIT_PRIORITY

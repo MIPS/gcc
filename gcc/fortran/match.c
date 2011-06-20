@@ -1,7 +1,7 @@
 /* Matching subroutines in all sizes, shapes and colors.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010
-   2010 Free Software Foundation, Inc.
+   2009, 2010, 2011
+   Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -118,12 +118,13 @@ match
 gfc_match_parens (void)
 {
   locus old_loc, where;
-  int count, instring;
+  int count;
+  gfc_instring instring;
   gfc_char_t c, quote;
 
   old_loc = gfc_current_locus;
   count = 0;
-  instring = 0;
+  instring = NONSTRING;
   quote = ' ';
 
   for (;;)
@@ -134,13 +135,13 @@ gfc_match_parens (void)
       if (quote == ' ' && ((c == '\'') || (c == '"')))
 	{
 	  quote = c;
-	  instring = 1;
+	  instring = INSTRING_WARN;
 	  continue;
 	}
       if (quote != ' ' && c == quote)
 	{
 	  quote = ' ';
-	  instring = 0;
+	  instring = NONSTRING;
 	  continue;
 	}
 
@@ -185,7 +186,7 @@ gfc_match_special_char (gfc_char_t *res)
 
   m = MATCH_YES;
 
-  switch ((c = gfc_next_char_literal (1)))
+  switch ((c = gfc_next_char_literal (INSTRING_WARN)))
     {
     case 'a':
       *res = '\a';
@@ -225,7 +226,7 @@ gfc_match_special_char (gfc_char_t *res)
 	{
 	  char buf[2] = { '\0', '\0' };
 
-	  c = gfc_next_char_literal (1);
+	  c = gfc_next_char_literal (INSTRING_WARN);
 	  if (!gfc_wide_fits_in_byte (c)
 	      || !gfc_check_digit ((unsigned char) c, 16))
 	    return MATCH_NO;
@@ -592,7 +593,7 @@ gfc_match_name_C (char *buffer)
 
   /* Get the next char (first possible char of name) and see if
      it's valid for C (either a letter or an underscore).  */
-  c = gfc_next_char_literal (1);
+  c = gfc_next_char_literal (INSTRING_WARN);
 
   /* If the user put nothing expect spaces between the quotes, it is valid
      and simply means there is no name= specifier and the name is the fortran
@@ -632,7 +633,7 @@ gfc_match_name_C (char *buffer)
       old_loc = gfc_current_locus;
       
       /* Get next char; param means we're in a string.  */
-      c = gfc_next_char_literal (1);
+      c = gfc_next_char_literal (INSTRING_WARN);
     } while (ISALNUM (c) || c == '_');
 
   buffer[i] = '\0';
@@ -1560,6 +1561,7 @@ gfc_match_if (gfc_statement *if_type)
   match ("go to", gfc_match_goto, ST_GOTO)
   match ("if", match_arithmetic_if, ST_ARITHMETIC_IF)
   match ("inquire", gfc_match_inquire, ST_INQUIRE)
+  match ("lock", gfc_match_lock, ST_LOCK)
   match ("nullify", gfc_match_nullify, ST_NULLIFY)
   match ("open", gfc_match_open, ST_OPEN)
   match ("pause", gfc_match_pause, ST_NONE)
@@ -1572,6 +1574,7 @@ gfc_match_if (gfc_statement *if_type)
   match ("sync all", gfc_match_sync_all, ST_SYNC_CALL);
   match ("sync images", gfc_match_sync_images, ST_SYNC_IMAGES);
   match ("sync memory", gfc_match_sync_memory, ST_SYNC_MEMORY);
+  match ("unlock", gfc_match_unlock, ST_UNLOCK)
   match ("where", match_simple_where, ST_WHERE)
   match ("write", gfc_match_write, ST_WRITE)
 
@@ -1714,7 +1717,7 @@ gfc_free_iterator (gfc_iterator *iter, int flag)
   gfc_free_expr (iter->step);
 
   if (flag)
-    gfc_free (iter);
+    free (iter);
 }
 
 
@@ -1744,6 +1747,9 @@ gfc_match_critical (void)
       gfc_error ("Image control statement CRITICAL at %C in PURE procedure");
       return MATCH_ERROR;
     }
+
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
 
   if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: CRITICAL statement at %C")
       == FAILURE)
@@ -1864,7 +1870,7 @@ gfc_match_associate (void)
       continue;
 
 assocListError:
-      gfc_free (newAssoc);
+      free (newAssoc);
       goto error;
     }
   if (gfc_match_char (')') != MATCH_YES)
@@ -2188,6 +2194,9 @@ gfc_match_stopcode (gfc_statement st)
       goto cleanup;
     }
 
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
   if (st == ST_STOP && gfc_find_state (COMP_CRITICAL) == SUCCESS)
     {
       gfc_error ("Image control statement STOP at %C in CRITICAL block");
@@ -2298,6 +2307,190 @@ gfc_match_error_stop (void)
 }
 
 
+/* Match LOCK/UNLOCK statement. Syntax:
+     LOCK ( lock-variable [ , lock-stat-list ] )
+     UNLOCK ( lock-variable [ , sync-stat-list ] )
+   where lock-stat is ACQUIRED_LOCK or sync-stat
+   and sync-stat is STAT= or ERRMSG=.  */
+
+static match
+lock_unlock_statement (gfc_statement st)
+{
+  match m;
+  gfc_expr *tmp, *lockvar, *acq_lock, *stat, *errmsg;
+  bool saw_acq_lock, saw_stat, saw_errmsg;
+
+  tmp = lockvar = acq_lock = stat = errmsg = NULL;
+  saw_acq_lock = saw_stat = saw_errmsg = false;
+
+  if (gfc_pure (NULL))
+    {
+      gfc_error ("Image control statement SYNC at %C in PURE procedure");
+      return MATCH_ERROR;
+    }
+
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
+  if (gfc_option.coarray == GFC_FCOARRAY_NONE)
+    {
+       gfc_fatal_error ("Coarrays disabled at %C, use -fcoarray= to enable");
+       return MATCH_ERROR;
+    }
+
+  if (gfc_find_state (COMP_CRITICAL) == SUCCESS)
+    {
+      gfc_error ("Image control statement SYNC at %C in CRITICAL block");
+      return MATCH_ERROR;
+    }
+
+  if (gfc_match_char ('(') != MATCH_YES)
+    goto syntax;
+
+  if (gfc_match ("%e", &lockvar) != MATCH_YES)
+    goto syntax;
+  m = gfc_match_char (',');
+  if (m == MATCH_ERROR)
+    goto syntax;
+  if (m == MATCH_NO)
+    {
+      m = gfc_match_char (')');
+      if (m == MATCH_YES)
+	goto done;
+      goto syntax;
+    }
+
+  for (;;)
+    {
+      m = gfc_match (" stat = %v", &tmp);
+      if (m == MATCH_ERROR)
+	goto syntax;
+      if (m == MATCH_YES)
+	{
+	  if (saw_stat)
+	    {
+	      gfc_error ("Redundant STAT tag found at %L ", &tmp->where);
+	      goto cleanup;
+	    }
+	  stat = tmp;
+	  saw_stat = true;
+
+	  m = gfc_match_char (',');
+	  if (m == MATCH_YES)
+	    continue;
+
+	  tmp = NULL;
+	  break;
+	}
+
+      m = gfc_match (" errmsg = %v", &tmp);
+      if (m == MATCH_ERROR)
+	goto syntax;
+      if (m == MATCH_YES)
+	{
+	  if (saw_errmsg)
+	    {
+	      gfc_error ("Redundant ERRMSG tag found at %L ", &tmp->where);
+	      goto cleanup;
+	    }
+	  errmsg = tmp;
+	  saw_errmsg = true;
+
+	  m = gfc_match_char (',');
+	  if (m == MATCH_YES)
+	    continue;
+
+	  tmp = NULL;
+	  break;
+	}
+
+      m = gfc_match (" acquired_lock = %v", &tmp);
+      if (m == MATCH_ERROR || st == ST_UNLOCK)
+	goto syntax;
+      if (m == MATCH_YES)
+	{
+	  if (saw_acq_lock)
+	    {
+	      gfc_error ("Redundant ACQUIRED_LOCK tag found at %L ",
+			 &tmp->where);
+	      goto cleanup;
+	    }
+	  acq_lock = tmp;
+	  saw_acq_lock = true;
+
+	  m = gfc_match_char (',');
+	  if (m == MATCH_YES)
+	    continue;
+
+	  tmp = NULL;
+	  break;
+	}
+
+      break;
+    }
+
+  if (m == MATCH_ERROR)
+    goto syntax;
+
+  if (gfc_match (" )%t") != MATCH_YES)
+    goto syntax;
+
+done:
+  switch (st)
+    {
+    case ST_LOCK:
+      new_st.op = EXEC_LOCK;
+      break;
+    case ST_UNLOCK:
+      new_st.op = EXEC_UNLOCK;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  new_st.expr1 = lockvar;
+  new_st.expr2 = stat;
+  new_st.expr3 = errmsg;
+  new_st.expr4 = acq_lock;
+
+  return MATCH_YES;
+
+syntax:
+  gfc_syntax_error (st);
+
+cleanup:
+  gfc_free_expr (tmp);
+  gfc_free_expr (lockvar);
+  gfc_free_expr (acq_lock);
+  gfc_free_expr (stat);
+  gfc_free_expr (errmsg);
+
+  return MATCH_ERROR;
+}
+
+
+match
+gfc_match_lock (void)
+{
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: LOCK statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  return lock_unlock_statement (ST_LOCK);
+}
+
+
+match
+gfc_match_unlock (void)
+{
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: UNLOCK statement at %C")
+      == FAILURE)
+    return MATCH_ERROR;
+
+  return lock_unlock_statement (ST_UNLOCK);
+}
+
+
 /* Match SYNC ALL/IMAGES/MEMORY statement. Syntax:
      SYNC ALL [(sync-stat-list)]
      SYNC MEMORY [(sync-stat-list)]
@@ -2320,6 +2513,9 @@ sync_statement (gfc_statement st)
       return MATCH_ERROR;
     }
 
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
   if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: SYNC statement at %C")
       == FAILURE)
     return MATCH_ERROR;
@@ -2335,7 +2531,7 @@ sync_statement (gfc_statement st)
       gfc_error ("Image control statement SYNC at %C in CRITICAL block");
       return MATCH_ERROR;
     }
-	
+
   if (gfc_match_eos () == MATCH_YES)
     {
       if (st == ST_SYNC_IMAGES)
@@ -2386,6 +2582,9 @@ sync_statement (gfc_statement st)
 
 	  if (gfc_match_char (',') == MATCH_YES)
 	    continue;
+
+	  tmp = NULL;
+	  break;
 	}
 
       m = gfc_match (" errmsg = %v", &tmp);
@@ -2403,15 +2602,16 @@ sync_statement (gfc_statement st)
 
 	  if (gfc_match_char (',') == MATCH_YES)
 	    continue;
+
+	  tmp = NULL;
+	  break;
 	}
 
-      gfc_gobble_whitespace ();
-
-      if (gfc_peek_char () == ')')
 	break;
-
-      goto syntax;
     }
+
+  if (m == MATCH_ERROR)
+    goto syntax;
 
   if (gfc_match (" )%t") != MATCH_YES)
     goto syntax;
@@ -2641,7 +2841,7 @@ gfc_match_goto (void)
 					     NULL, i++);
 
       tail->op = EXEC_SELECT;
-      tail->ext.case_list = cp;
+      tail->ext.block.case_list = cp;
 
       tail->next = gfc_get_code ();
       tail->next->op = EXEC_GOTO;
@@ -2700,7 +2900,7 @@ gfc_free_alloc_list (gfc_alloc *p)
     {
       q = p->next;
       gfc_free_expr (p->expr);
-      gfc_free (p);
+      free (p);
     }
 }
 
@@ -2919,6 +3119,10 @@ gfc_match_allocate (void)
 	  goto cleanup;
 	}
 
+      if (gfc_implicit_pure (NULL)
+	    && gfc_impure_variable (tail->expr->symtree->n.sym))
+	gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
       if (tail->expr->ts.deferred)
 	{
 	  saw_deferred = true;
@@ -2955,7 +3159,7 @@ gfc_match_allocate (void)
       b1 = !(tail->expr->ref
 	   && (tail->expr->ref->type == REF_COMPONENT
 		|| tail->expr->ref->type == REF_ARRAY));
-      if (sym && sym->ts.type == BT_CLASS)
+      if (sym && sym->ts.type == BT_CLASS && sym->attr.class_ok)
 	b2 = !(CLASS_DATA (sym)->attr.allocatable
 	       || CLASS_DATA (sym)->attr.class_pointer);
       else
@@ -3120,10 +3324,11 @@ alloc_opt_list:
     }
 
   /* Check F03:C623,  */
-  if (saw_deferred && ts.type == BT_UNKNOWN && !source)
+  if (saw_deferred && ts.type == BT_UNKNOWN && !source && !mold)
     {
       gfc_error ("Allocate-object at %L with a deferred type parameter "
-		 "requires either a type-spec or SOURCE tag", &deferred_locus);
+		 "requires either a type-spec or SOURCE tag or a MOLD tag",
+		 &deferred_locus);
       goto cleanup;
     }
   
@@ -3178,6 +3383,13 @@ gfc_match_nullify (void)
 
       if (gfc_check_do_variable (p->symtree))
 	goto cleanup;
+
+      /* F2008, C1242.  */
+      if (gfc_is_coindexed (p))
+	{
+	  gfc_error ("Pointer object at %C shall not be conindexed");
+	  goto cleanup;
+	}
 
       /* build ' => NULL() '.  */
       e = gfc_get_null_expr (&gfc_current_locus);
@@ -3261,6 +3473,9 @@ gfc_match_deallocate (void)
 	  gfc_error ("Illegal allocate-object at %C for a PURE procedure");
 	  goto cleanup;
 	}
+
+      if (gfc_implicit_pure (NULL) && gfc_impure_variable (sym))
+	gfc_current_ns->proc_name->attr.implicit_pure = 0;
 
       /* FIXME: disable the checking on derived types.  */
       b1 = !(tail->expr->ref
@@ -3590,7 +3805,7 @@ gfc_match_call (void)
 	  new_case = gfc_get_case ();
 	  new_case->high = gfc_get_int_expr (gfc_default_integer_kind, NULL, i);
 	  new_case->low = new_case->high;
-	  c->ext.case_list = new_case;
+	  c->ext.block.case_list = new_case;
 
 	  c->next = gfc_get_code ();
 	  c->next->op = EXEC_GOTO;
@@ -3949,7 +4164,7 @@ gfc_free_namelist (gfc_namelist *name)
   for (; name; name = n)
     {
       n = name->next;
-      gfc_free (name);
+      free (name);
     }
 }
 
@@ -4009,13 +4224,6 @@ gfc_match_namelist (void)
 	  if (sym->as && sym->as->type == AS_ASSUMED_SIZE)
 	    {
 	      gfc_error ("Assumed size array '%s' in namelist '%s' at "
-			 "%C is not allowed", sym->name, group_name->name);
-	      gfc_error_check ();
-	    }
-
-	  if (sym->ts.type == BT_CHARACTER && sym->ts.u.cl->length == NULL)
-	    {
-	      gfc_error ("Assumed character length '%s' in namelist '%s' at "
 			 "%C is not allowed", sym->name, group_name->name);
 	      gfc_error_check ();
 	    }
@@ -4094,7 +4302,7 @@ gfc_free_equiv_until (gfc_equiv *eq, gfc_equiv *stop)
   gfc_free_equiv (eq->eq);
   gfc_free_equiv_until (eq->next, stop);
   gfc_free_expr (eq->expr);
-  gfc_free (eq);
+  free (eq);
 }
 
 
@@ -4357,7 +4565,7 @@ free_case (gfc_case *p)
     p->high = NULL;
   gfc_free_expr (p->low);
   gfc_free_expr (p->high);
-  gfc_free (p);
+  free (p);
 }
 
 
@@ -4522,14 +4730,15 @@ select_type_set_tmp (gfc_typespec *ts)
   gfc_get_sym_tree (name, gfc_current_ns, &tmp, false);
   gfc_add_type (tmp->n.sym, ts, NULL);
   gfc_set_sym_referenced (tmp->n.sym);
-  gfc_add_pointer (&tmp->n.sym->attr, NULL);
+  if (select_type_stack->selector->ts.type == BT_CLASS &&
+      CLASS_DATA (select_type_stack->selector)->attr.allocatable)
+    gfc_add_allocatable (&tmp->n.sym->attr, NULL);
+  else
+    gfc_add_pointer (&tmp->n.sym->attr, NULL);
   gfc_add_flavor (&tmp->n.sym->attr, FL_VARIABLE, name, NULL);
   if (ts->type == BT_CLASS)
-    {
-      gfc_build_class_symbol (&tmp->n.sym->ts, &tmp->n.sym->attr,
-			      &tmp->n.sym->as, false);
-      tmp->n.sym->attr.class_ok = 1;
-    }
+    gfc_build_class_symbol (&tmp->n.sym->ts, &tmp->n.sym->attr,
+			    &tmp->n.sym->as, false);
   tmp->n.sym->attr.select_type_temporary = 1;
 
   /* Add an association for it, so the rest of the parser knows it is
@@ -4641,7 +4850,7 @@ gfc_match_case (void)
       new_st.op = EXEC_SELECT;
       c = gfc_get_case ();
       c->where = gfc_current_locus;
-      new_st.ext.case_list = c;
+      new_st.ext.block.case_list = c;
       return MATCH_YES;
     }
 
@@ -4673,7 +4882,7 @@ gfc_match_case (void)
     goto cleanup;
 
   new_st.op = EXEC_SELECT;
-  new_st.ext.case_list = head;
+  new_st.ext.block.case_list = head;
 
   return MATCH_YES;
 
@@ -4721,7 +4930,7 @@ gfc_match_type_is (void)
     goto cleanup;
 
   new_st.op = EXEC_SELECT_TYPE;
-  new_st.ext.case_list = c;
+  new_st.ext.block.case_list = c;
 
   /* Create temporary variable.  */
   select_type_set_tmp (&c->ts);
@@ -4761,7 +4970,7 @@ gfc_match_class_is (void)
       c = gfc_get_case ();
       c->where = gfc_current_locus;
       c->ts.type = BT_UNKNOWN;
-      new_st.ext.case_list = c;
+      new_st.ext.block.case_list = c;
       select_type_set_tmp (NULL);
       return MATCH_YES;
     }
@@ -4794,7 +5003,7 @@ gfc_match_class_is (void)
     goto cleanup;
 
   new_st.op = EXEC_SELECT_TYPE;
-  new_st.ext.case_list = c;
+  new_st.ext.block.case_list = c;
   
   /* Create temporary variable.  */
   select_type_set_tmp (&c->ts);
@@ -4997,7 +5206,7 @@ gfc_free_forall_iterator (gfc_forall_iterator *iter)
       gfc_free_expr (iter->start);
       gfc_free_expr (iter->end);
       gfc_free_expr (iter->stride);
-      gfc_free (iter);
+      free (iter);
       iter = next;
     }
 }

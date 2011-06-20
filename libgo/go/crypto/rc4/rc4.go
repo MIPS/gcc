@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package implements RC4 encryption, as defined in Bruce Schneier's
+// Package rc4 implements RC4 encryption, as defined in Bruce Schneier's
 // Applied Cryptography.
 package rc4
 
@@ -45,14 +45,14 @@ func NewCipher(key []byte) (*Cipher, os.Error) {
 	return &c, nil
 }
 
-// XORKeyStream will XOR each byte of the given buffer with a byte of the
-// generated keystream.
-func (c *Cipher) XORKeyStream(buf []byte) {
-	for i := range buf {
+// XORKeyStream sets dst to the result of XORing src with the key stream.
+// Dst and src may be the same slice but otherwise should not overlap.
+func (c *Cipher) XORKeyStream(dst, src []byte) {
+	for i := range src {
 		c.i += 1
 		c.j += c.s[c.i]
 		c.s[c.i], c.s[c.j] = c.s[c.j], c.s[c.i]
-		buf[i] ^= c.s[c.s[c.i]+c.s[c.j]]
+		dst[i] = src[i] ^ c.s[c.s[c.i]+c.s[c.j]]
 	}
 }
 

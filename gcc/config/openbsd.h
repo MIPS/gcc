@@ -144,6 +144,7 @@ while (0)
 #define LIB_SPEC OBSD_LIB_SPEC
 #endif
 
+#define TARGET_POSIX_IO
 
 /* Runtime target specification.  */
 
@@ -156,9 +157,7 @@ while (0)
 #define DBX_NO_XREFS
 
 
-/* Support of shared libraries, mostly imported from svr4.h through netbsd.  */
-/* Two differences from svr4.h:
-   - we use . - _func instead of a local label,
+/* - we use . - _func instead of a local label,
    - we put extra spaces in expressions such as 
      .type _func , @function
      This is more readable for a human being and confuses c++filt less.  */
@@ -282,20 +281,4 @@ do {									 \
 /* Storage layout.  */
 
 
-/* Stack is explicitly denied execution rights on OpenBSD platforms.  */
-#define ENABLE_EXECUTE_STACK						\
-extern void __enable_execute_stack (void *);				\
-void									\
-__enable_execute_stack (void *addr)					\
-{									\
-  long size = getpagesize ();						\
-  long mask = ~(size-1);						\
-  char *page = (char *) (((long) addr) & mask); 			\
-  char *end  = (char *) ((((long) (addr + TRAMPOLINE_SIZE)) & mask) + size); \
-								      \
-  if (mprotect (page, end - page, PROT_READ | PROT_WRITE | PROT_EXEC) < 0) \
-    perror ("mprotect of trampoline code");				\
-}
-
-#include <sys/types.h>
-#include <sys/mman.h>
+#define HAVE_ENABLE_EXECUTE_STACK

@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package implements the 64-bit cyclic redundancy check, or CRC-64, checksum.
-// See http://en.wikipedia.org/wiki/Cyclic_redundancy_check for information.
+// Package crc64 implements the 64-bit cyclic redundancy check, or CRC-64,
+// checksum. See http://en.wikipedia.org/wiki/Cyclic_redundancy_check for
+// information.
 package crc64
 
 import (
@@ -80,7 +81,7 @@ func (d *digest) Sum64() uint64 { return d.crc }
 func (d *digest) Sum() []byte {
 	p := make([]byte, 8)
 	s := d.Sum64()
-	p[0] = byte(s >> 54)
+	p[0] = byte(s >> 56)
 	p[1] = byte(s >> 48)
 	p[2] = byte(s >> 40)
 	p[3] = byte(s >> 32)

@@ -1,5 +1,5 @@
 /* Encoding of types for Objective C.
-   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2002, 2004, 2009
+   Copyright (C) 1993, 1995, 1996, 1997, 1998, 2000, 2002, 2004, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Kresten Krab Thorup
    Bitfield support by Ovidiu Predescu
@@ -117,27 +117,55 @@ static int __attribute__ ((__unused__)) not_target_flags = 0;
  to a static variable, initialized by target overrides. This is reset
  in linux64.h but not in darwin64.h.  The macro is not used by *86*.  */
 
-#if __MACH__ && __LP64__
-# undef TARGET_ALIGN_NATURAL
-# define TARGET_ALIGN_NATURAL 1
+#if __MACH__ 
+# if __LP64__
+#  undef TARGET_ALIGN_NATURAL
+#  define TARGET_ALIGN_NATURAL 1
+# endif
+
+/* On Darwin32, we need to recurse until we find the starting stuct type.  */
+static int 
+_darwin_rs6000_special_round_type_align (const char *struc, int comp, int spec)
+{
+  const char *_stp , *_fields = TYPE_FIELDS (struc);
+  if (!_fields)
+    return MAX (comp, spec);
+  _stp = strip_array_types (_fields);
+  if (TYPE_MODE(_stp) == _C_COMPLEX)
+   _stp++;
+  switch (TYPE_MODE(_stp))
+    {
+      case RECORD_TYPE:
+      case UNION_TYPE:
+	return MAX (MAX (comp, spec), objc_alignof_type (_stp) * BITS_PER_UNIT);
+	break;
+      case DFmode:
+      case _C_LNG_LNG:
+      case _C_ULNG_LNG:
+	return MAX (MAX (comp, spec), 64);
+	break;
+
+      default:
+	return MAX (comp, spec);
+	break;
+    }
+}
+
+/* See comment below.  */
+#define darwin_rs6000_special_round_type_align(S,C,S2)			\
+  (_darwin_rs6000_special_round_type_align ((char*)(S), (int)(C), (int)(S2)))
 #endif
 
 /*  FIXME: while this file has no business including tm.h, this
     definitely has no business defining this macro but it
     is only way around without really rewritting this file,
-    should look after the branch of 3.4 to fix this.
-    FIXME1: It's also out of date, darwin no longer has the same alignment
-    'special' as aix - this is probably the origin of the m32 breakage.  */
+    should look after the branch of 3.4 to fix this.   */
 #define rs6000_special_round_type_align(STRUCT, COMPUTED, SPECIFIED)	\
   ({ const char *_fields = TYPE_FIELDS (STRUCT);			\
   ((_fields != 0							\
     && TYPE_MODE (strip_array_types (TREE_TYPE (_fields))) == DFmode)	\
    ? MAX (MAX (COMPUTED, SPECIFIED), 64)				\
    : MAX (COMPUTED, SPECIFIED));})
-/* FIXME: The word 'fixme' is insufficient to explain the wrong-ness
-   of this next macro definition.  */
-#define darwin_rs6000_special_round_type_align(S,C,S2) \
-  rs6000_special_round_type_align(S,C,S2)
 
 
 /* Skip a variable name, enclosed in quotes (").  */
@@ -963,98 +991,6 @@ method_getNumberOfArguments (struct objc_method *method)
 	  return (i - 1);
 	}
     }
-}
-
-int
-method_get_number_of_arguments (struct objc_method *mth)
-{
-  return method_getNumberOfArguments (mth);
-}
-
-/* Return the size of the argument block needed on the stack to invoke
-   the method MTH.  This may be zero, if all arguments are passed in
-   registers.  */
-int
-method_get_sizeof_arguments (struct objc_method *mth)
-{
-  const char *type = objc_skip_typespec (mth->method_types);
-  return atoi (type);
-}
-
-/*
-  Return a pointer to the next argument of ARGFRAME.  type points to
-  the last argument.  Typical use of this look like:
-
-  {
-    char *datum, *type;
-    for (datum = method_get_first_argument (method, argframe, &type);
-         datum; datum = method_get_next_argument (argframe, &type))
-      {
-        unsigned flags = objc_get_type_qualifiers (type);
-        type = objc_skip_type_qualifiers (type);
-	if (*type != _C_PTR)
-          [portal encodeData: datum ofType: type];
-	else
-	  {
-	    if ((flags & _F_IN) == _F_IN)
-              [portal encodeData: *(char **) datum ofType: ++type];
-	  }
-      }
-  }
-*/
-char *
-method_get_next_argument (arglist_t argframe, const char **type)
-{
-  const char *t = objc_skip_argspec (*type);
-
-  if (*t == '\0')
-    return 0;
-
-  *type = t;
-  t = objc_skip_typespec (t);
-
-  if (*t == '+')
-    return argframe->arg_regs + atoi (++t);
-  else
-    return argframe->arg_ptr + atoi (t);
-}
-
-/* Return a pointer to the value of the first argument of the method
-   described in M with the given argumentframe ARGFRAME.  The type
-   is returned in TYPE.  type must be passed to successive calls of
-   method_get_next_argument.  */
-char *
-method_get_first_argument (struct objc_method *m,
-			   arglist_t argframe,
-			   const char **type)
-{
-  *type = m->method_types;
-  return method_get_next_argument (argframe, type);
-}
-
-/* Return a pointer to the ARGth argument of the method
-   M from the frame ARGFRAME.  The type of the argument
-   is returned in the value-result argument TYPE.  */
-char *
-method_get_nth_argument (struct objc_method *m,
-			 arglist_t argframe, int arg,
-			 const char **type)
-{
-  const char *t = objc_skip_argspec (m->method_types);
-
-  if (arg > method_get_number_of_arguments (m))
-    return 0;
-
-  while (arg--)
-    t = objc_skip_argspec (t);
-
-  *type = t;
-  t = objc_skip_typespec (t);
-
-  if (*t == '+')
-    return argframe->arg_regs + atoi (++t);
-  else
-    return argframe->arg_ptr + atoi (t);
 }
 
 unsigned

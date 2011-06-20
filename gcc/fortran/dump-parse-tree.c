@@ -105,6 +105,7 @@ show_typespec (gfc_typespec *ts)
 
     case BT_CHARACTER:
       show_expr (ts->u.cl->length);
+      fprintf(dumpfile, " %d", ts->kind);
       break;
 
     default:
@@ -537,7 +538,7 @@ show_expr (gfc_expr *p)
 	  fputs ("NOT ", dumpfile);
 	  break;
 	case INTRINSIC_PARENTHESES:
-	  fputs ("parens", dumpfile);
+	  fputs ("parens ", dumpfile);
 	  break;
 
 	default:
@@ -693,6 +694,8 @@ show_components (gfc_symbol *sym)
     {
       fprintf (dumpfile, "(%s ", c->name);
       show_typespec (&c->ts);
+      if (c->attr.allocatable)
+	fputs (" ALLOCATABLE", dumpfile);
       if (c->attr.pointer)
 	fputs (" POINTER", dumpfile);
       if (c->attr.proc_pointer)
@@ -890,7 +893,8 @@ show_symbol (gfc_symbol *sym)
     }
 
   if (sym->formal_ns && (sym->formal_ns->proc_name != sym)
-      && sym->attr.proc != PROC_ST_FUNCTION)
+      && sym->attr.proc != PROC_ST_FUNCTION
+      && !sym->attr.entry)
     {
       show_indent ();
       fputs ("Formal namespace", dumpfile);
@@ -1392,6 +1396,33 @@ show_code_node (int level, gfc_code *c)
 	}
       break;
 
+    case EXEC_LOCK:
+    case EXEC_UNLOCK:
+      if (c->op == EXEC_LOCK)
+	fputs ("LOCK ", dumpfile);
+      else
+	fputs ("UNLOCK ", dumpfile);
+
+      fputs ("lock-variable=", dumpfile);
+      if (c->expr1 != NULL)
+	show_expr (c->expr1);
+      if (c->expr4 != NULL)
+	{
+	  fputs (" acquired_lock=", dumpfile);
+	  show_expr (c->expr4);
+	}
+      if (c->expr2 != NULL)
+	{
+	  fputs (" stat=", dumpfile);
+	  show_expr (c->expr2);
+	}
+      if (c->expr3 != NULL)
+	{
+	  fputs (" errmsg=", dumpfile);
+	  show_expr (c->expr3);
+	}
+      break;
+
     case EXEC_ARITHMETIC_IF:
       fputs ("IF ", dumpfile);
       show_expr (c->expr1);
@@ -1437,6 +1468,8 @@ show_code_node (int level, gfc_code *c)
     case EXEC_BLOCK:
       {
 	const char* blocktype;
+	gfc_namespace *saved_ns;
+
 	if (c->ext.block.assoc)
 	  blocktype = "ASSOCIATE";
 	else
@@ -1445,7 +1478,10 @@ show_code_node (int level, gfc_code *c)
 	fprintf (dumpfile, "%s ", blocktype);
 	++show_level;
 	ns = c->ext.block.ns;
+	saved_ns = gfc_current_ns;
+	gfc_current_ns = ns;
 	gfc_traverse_symtree (ns->sym_root, show_symtree);
+	gfc_current_ns = saved_ns;
 	show_code (show_level, ns->code);
 	--show_level;
 	show_indent ();
@@ -1464,7 +1500,7 @@ show_code_node (int level, gfc_code *c)
 	  code_indent (level, 0);
 
 	  fputs ("CASE ", dumpfile);
-	  for (cp = d->ext.case_list; cp; cp = cp->next)
+	  for (cp = d->ext.block.case_list; cp; cp = cp->next)
 	    {
 	      fputc ('(', dumpfile);
 	      show_expr (cp->low);
@@ -1600,6 +1636,15 @@ show_code_node (int level, gfc_code *c)
 	{
 	  fputs (" ERRMSG=", dumpfile);
 	  show_expr (c->expr2);
+	}
+
+      if (c->expr3)
+	{
+	  if (c->expr3->mold)
+	    fputs (" MOLD=", dumpfile);
+	  else
+	    fputs (" SOURCE=", dumpfile);
+	  show_expr (c->expr3);
 	}
 
       for (a = c->ext.alloc.list; a; a = a->next)

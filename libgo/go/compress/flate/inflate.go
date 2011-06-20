@@ -2,9 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// The flate package implements the DEFLATE compressed data
-// format, described in RFC 1951.  The gzip and zlib packages
-// implement access to DEFLATE-based file formats.
+// Package flate implements the DEFLATE compressed data format, described in
+// RFC 1951.  The gzip and zlib packages implement access to DEFLATE-based file
+// formats.
 package flate
 
 import (
@@ -47,7 +47,7 @@ func (e *ReadError) String() string {
 // A WriteError reports an error encountered while writing output.
 type WriteError struct {
 	Offset int64    // byte offset where error occurred
-	Error  os.Error // error returned by underlying Read
+	Error  os.Error // error returned by underlying Write
 }
 
 func (e *WriteError) String() string {
@@ -217,6 +217,7 @@ type decompressor struct {
 	// Output history, buffer.
 	hist  [maxHist]byte
 	hp    int  // current output position in buffer
+	hw    int  // have written hist[0:hw] already
 	hfull bool // buffer has filled at least once
 
 	// Temporary buffer (avoids repeated allocation).
@@ -497,6 +498,11 @@ func (f *decompressor) dataBlock() os.Error {
 		return CorruptInputError(f.roffset)
 	}
 
+	if n == 0 {
+		// 0-length block means sync
+		return f.flush()
+	}
+
 	// Read len bytes into history,
 	// writing as history fills.
 	for n > 0 {
@@ -518,6 +524,20 @@ func (f *decompressor) dataBlock() os.Error {
 		}
 	}
 	return nil
+}
+
+func (f *decompressor) setDict(dict []byte) {
+	if len(dict) > len(f.hist) {
+		// Will only remember the tail.
+		dict = dict[len(dict)-len(f.hist):]
+	}
+
+	f.hp = copy(f.hist[:], dict)
+	if f.hp == len(f.hist) {
+		f.hp = 0
+		f.hfull = true
+	}
+	f.hw = f.hp
 }
 
 func (f *decompressor) moreBits() os.Error {
@@ -560,19 +580,23 @@ func (f *decompressor) huffSym(h *huffmanDecoder) (int, os.Error) {
 
 // Flush any buffered output to the underlying writer.
 func (f *decompressor) flush() os.Error {
-	if f.hp == 0 {
+	if f.hw == f.hp {
 		return nil
 	}
-	n, err := f.w.Write(f.hist[0:f.hp])
-	if n != f.hp && err == nil {
+	n, err := f.w.Write(f.hist[f.hw:f.hp])
+	if n != f.hp-f.hw && err == nil {
 		err = io.ErrShortWrite
 	}
 	if err != nil {
 		return &WriteError{f.woffset, err}
 	}
-	f.woffset += int64(f.hp)
-	f.hp = 0
-	f.hfull = true
+	f.woffset += int64(f.hp - f.hw)
+	f.hw = f.hp
+	if f.hp == len(f.hist) {
+		f.hp = 0
+		f.hw = 0
+		f.hfull = true
+	}
 	return nil
 }
 
@@ -583,9 +607,9 @@ func makeReader(r io.Reader) Reader {
 	return bufio.NewReader(r)
 }
 
-// Inflate reads DEFLATE-compressed data from r and writes
+// decompress reads DEFLATE-compressed data from r and writes
 // the uncompressed data to w.
-func (f *decompressor) decompressor(r io.Reader, w io.Writer) os.Error {
+func (f *decompressor) decompress(r io.Reader, w io.Writer) os.Error {
 	f.r = makeReader(r)
 	f.w = w
 	f.woffset = 0
@@ -605,6 +629,19 @@ func (f *decompressor) decompressor(r io.Reader, w io.Writer) os.Error {
 func NewReader(r io.Reader) io.ReadCloser {
 	var f decompressor
 	pr, pw := io.Pipe()
-	go func() { pw.CloseWithError(f.decompressor(r, pw)) }()
+	go func() { pw.CloseWithError(f.decompress(r, pw)) }()
+	return pr
+}
+
+// NewReaderDict is like NewReader but initializes the reader
+// with a preset dictionary.  The returned Reader behaves as if
+// the uncompressed data stream started with the given dictionary,
+// which has already been read.  NewReaderDict is typically used
+// to read data compressed by NewWriterDict.
+func NewReaderDict(r io.Reader, dict []byte) io.ReadCloser {
+	var f decompressor
+	f.setDict(dict)
+	pr, pw := io.Pipe()
+	go func() { pw.CloseWithError(f.decompress(r, pw)) }()
 	return pr
 }

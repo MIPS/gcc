@@ -57,17 +57,15 @@ extern const struct __go_type_descriptor ptr_struct_descriptor
 const struct __go_type_descriptor *
 get_descriptor (int code)
 {
-  switch (code)
+  switch (code & GO_CODE_MASK)
     {
     case GO_BOOL:
       return &ptr_bool_descriptor;
     case GO_FLOAT32:
     case GO_FLOAT64:
-    case GO_FLOAT:
       return &ptr_float_descriptor;
     case GO_COMPLEX64:
     case GO_COMPLEX128:
-    case GO_COMPLEX:
       return &ptr_complex_descriptor;
     case GO_INT16:
     case GO_INT32:
@@ -123,6 +121,9 @@ Reflect (struct __go_empty_interface e)
 {
   struct reflect_ret ret;
 
+  if (((uintptr_t) e.__type_descriptor & reflectFlags) != 0)
+    __go_panic_msg ("invalid interface value");
+
   if (e.__type_descriptor == NULL)
     {
       ret.rettype.__type_descriptor = NULL;
@@ -167,6 +168,9 @@ struct __go_empty_interface
 Typeof (const struct __go_empty_interface e)
 {
   struct __go_empty_interface ret;
+
+  if (((uintptr_t) e.__type_descriptor & reflectFlags) != 0)
+    __go_panic_msg ("invalid interface value");
 
   if (e.__type_descriptor == NULL)
     {

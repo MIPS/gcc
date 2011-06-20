@@ -33,14 +33,12 @@ enum Builtin_code
   BUILTIN_INT = -11,
   BUILTIN_UINT = -12,
   BUILTIN_UINTPTR = -13,
-  BUILTIN_FLOAT = -14,
   BUILTIN_BOOL = -15,
   BUILTIN_STRING = -16,
   BUILTIN_COMPLEX64 = -17,
   BUILTIN_COMPLEX128 = -18,
-  BUILTIN_COMPLEX = -19,
 
-  SMALLEST_BUILTIN_CODE = -19
+  SMALLEST_BUILTIN_CODE = -18
 };
 
 // This class manages exporting Go declarations.  It handles the main
@@ -181,11 +179,6 @@ class Stream_to_section : public Export::Stream
  protected:
   void
   do_write(const char*, size_t);
-
- private:
-  // The section we are writing to; this is really union section
-  // defined in output.h.
-  void* section_;
 };
 
 #endif // !defined(GO_EXPORT_H)

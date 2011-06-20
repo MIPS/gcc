@@ -263,7 +263,7 @@ tree_nrv (void)
   DECL_HAS_VALUE_EXPR_P (found) = 1;
 
   /* FOUND is no longer used.  Ensure it gets removed.  */
-  var_ann (found)->used = 0;
+  clear_is_used (found);
   return 0;
 }
 
@@ -288,7 +288,7 @@ struct gimple_opt_pass pass_nrv =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect			/* todo_flags_finish */
+  TODO_ggc_collect			/* todo_flags_finish */
  }
 };
 

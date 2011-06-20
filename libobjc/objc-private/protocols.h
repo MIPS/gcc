@@ -25,10 +25,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef __objc_private_protocols_INCLUDE_GNU
 #define __objc_private_protocols_INCLUDE_GNU
 
-#ifdef __cplusplus
-extern "C" {
-#endif /* __cplusplus */
-
 /* This function needs to be called at startup by init.c.  */
 void
 __objc_protocols_init (void);
@@ -37,10 +33,6 @@ __objc_protocols_init (void);
    protocols by name, which allows objc_getProtocol(name) to be
    implemented efficiently.  */
 void
-__objc_protocols_add_protocol (const char *name, Protocol *object);
-
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+__objc_protocols_add_protocol (const char *name, struct objc_protocol *object);
 
 #endif /* not __objc_private_protocols_INCLUDE_GNU */

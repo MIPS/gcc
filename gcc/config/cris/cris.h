@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008,
-   2009, 2010 Free Software Foundation, Inc.
+   2009, 2010, 2011 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -192,14 +192,13 @@ extern int cris_cpu_version;
 #undef ASM_SPEC
 #define ASM_SPEC \
  MAYBE_AS_NO_MUL_BUG_ABORT \
- "%{v:-v}\
- %(asm_subtarget)\
- %{march=*:%{cpu=*:%edo not specify both -march=... and -mcpu=...}}\
+ "%(asm_subtarget)\
+ %{march=*:%{mcpu=*:%edo not specify both -march=... and -mcpu=...}}\
  %{march=v32:--march=v32} %{mcpu=v32:--march=v32}"
 
 /* For the cris-*-elf subtarget.  */
 #define CRIS_ASM_SUBTARGET_SPEC \
- "--em=criself %{!march=*:%{!cpu=*:" CRIS_DEFAULT_ASM_ARCH_OPTION "}}"
+ "--em=criself %{!march=*:%{!mcpu=*:" CRIS_DEFAULT_ASM_ARCH_OPTION "}}"
 
 /* FIXME: We should propagate the -melf option to make the criself
    "emulation" unless a linker script is provided (-T*), but I don't know
@@ -208,11 +207,8 @@ extern int cris_cpu_version;
    time being.
 
    Note that -melf overrides -maout except that a.out-compiled libraries
-   are linked in (multilibbing).  The somewhat cryptic -rpath-link pair is
-   to avoid *only* picking up the linux multilib subdir from the "-B./"
-   option during build, while still giving it preference.  We'd need some
-   %s-variant that checked for existence of some specific file.  */
-/* Override previous definitions (svr4.h).  */
+   are linked in (multilibbing).  We'd need some %s-variant that
+   checked for existence of some specific file.  */
 #undef LINK_SPEC
 #define LINK_SPEC \
  "%{v:--verbose}\
@@ -312,8 +308,6 @@ extern int cris_cpu_version;
 #define TARGET_HAS_LZ (cris_cpu_version >= CRIS_CPU_ETRAX4)
 #define TARGET_HAS_SWAP (cris_cpu_version >= CRIS_CPU_SVINTO)
 #define TARGET_V32 (cris_cpu_version >= CRIS_CPU_V32)
-
-#define CRIS_SUBTARGET_HANDLE_OPTION(x, y, z)
 
 /* Node: Storage Layout */
 
@@ -424,7 +418,7 @@ extern int cris_cpu_version;
    registers are fixed at the moment.  The faked argument pointer register
    is fixed too.  */
 #define FIXED_REGISTERS \
- {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0}
+ {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1}
 
 /* Register r9 is used for structure-address, r10-r13 for parameters,
    r10- for return values.  */
@@ -494,17 +488,17 @@ extern int cris_cpu_version;
 
 /* Node: Register Classes */
 
-/* FIXME: A separate class for the return register would make sense.
-
-   We need a separate register class to handle register allocation for
+/* We need a separate register class to handle register allocation for
    ACR, since it can't be used for post-increment.
 
    It's not obvious, but having subunions of all movable-between
-   register classes does really help register allocation.  */
+   register classes does really help register allocation (pre-IRA
+   comment).  */
 enum reg_class
   {
     NO_REGS,
-    ACR_REGS, MOF_REGS, CC0_REGS, SPECIAL_REGS,
+    ACR_REGS, MOF_REGS, SRP_REGS, CC0_REGS,
+    MOF_SRP_REGS, SPECIAL_REGS,
     SPEC_ACR_REGS, GENNONACR_REGS,
     SPEC_GENNONACR_REGS, GENERAL_REGS,
     ALL_REGS,
@@ -515,7 +509,8 @@ enum reg_class
 
 #define REG_CLASS_NAMES						\
   {"NO_REGS",							\
-   "ACR_REGS", "MOF_REGS", "CC0_REGS", "SPECIAL_REGS",		\
+   "ACR_REGS", "MOF_REGS", "SRP_REGS", "CC0_REGS",		\
+   "MOF_SRP_REGS", "SPECIAL_REGS",				\
    "SPEC_ACR_REGS", "GENNONACR_REGS", "SPEC_GENNONACR_REGS",	\
    "GENERAL_REGS", "ALL_REGS"}
 
@@ -528,7 +523,10 @@ enum reg_class
    {0},						\
    {1 << CRIS_ACR_REGNUM},			\
    {1 << CRIS_MOF_REGNUM},			\
+   {1 << CRIS_SRP_REGNUM},			\
    {1 << CRIS_CC0_REGNUM},			\
+   {(1 << CRIS_MOF_REGNUM)			\
+    | (1 << CRIS_SRP_REGNUM)},			\
    {CRIS_SPECIAL_REGS_CONTENTS},		\
    {CRIS_SPECIAL_REGS_CONTENTS			\
     | (1 << CRIS_ACR_REGNUM)},			\
@@ -545,8 +543,8 @@ enum reg_class
 #define REGNO_REG_CLASS(REGNO)			\
   ((REGNO) == CRIS_ACR_REGNUM ? ACR_REGS :	\
    (REGNO) == CRIS_MOF_REGNUM ? MOF_REGS :	\
+   (REGNO) == CRIS_SRP_REGNUM ? SRP_REGS :	\
    (REGNO) == CRIS_CC0_REGNUM ? CC0_REGS :	\
-   (REGNO) == CRIS_SRP_REGNUM ? SPECIAL_REGS :	\
    GENERAL_REGS)
 
 #define BASE_REG_CLASS GENERAL_REGS
@@ -555,8 +553,6 @@ enum reg_class
   ((OCODE) != POST_INC ? BASE_REG_CLASS : GENNONACR_REGS)
 
 #define INDEX_REG_CLASS GENERAL_REGS
-
-#define IRA_COVER_CLASSES { GENERAL_REGS, SPECIAL_REGS, LIM_REG_CLASSES }
 
 #define REG_CLASS_FROM_LETTER(C)		\
   (						\
@@ -598,6 +594,7 @@ enum reg_class
 #define PREFERRED_RELOAD_CLASS(X, CLASS)	\
  ((CLASS) != ACR_REGS				\
   && (CLASS) != MOF_REGS			\
+  && (CLASS) != SRP_REGS			\
   && (CLASS) != CC0_REGS			\
   && (CLASS) != SPECIAL_REGS			\
   ? GENERAL_REGS : (CLASS))
@@ -609,7 +606,7 @@ enum reg_class
    the effect that any X that isn't a special-register is treated as
    a non-empty intersection with GENERAL_REGS.  */
 #define SECONDARY_RELOAD_CLASS(CLASS, MODE, X)				\
- ((((CLASS) == SPECIAL_REGS || (CLASS) == MOF_REGS)			\
+ ((reg_class_subset_p (CLASS, SPECIAL_REGS)				\
    && ((GET_MODE_SIZE (MODE) < 4 && MEM_P (X))				\
        || !reg_classes_intersect_p (REGNO_REG_CLASS (true_regnum (X)),	\
 				    GENERAL_REGS)))			\
@@ -1027,8 +1024,6 @@ struct cum_args {int regs;};
 	goto WIN;							\
     }									\
   while (0)
-
-#define LEGITIMATE_CONSTANT_P(X) 1
 
 
 /* Node: Condition Code */

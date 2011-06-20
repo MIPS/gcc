@@ -1,7 +1,7 @@
 /* Common subexpression elimination for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+   2011 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -796,8 +796,7 @@ init_cse_reg_info (unsigned int nregs)
 	}
 
       /* Reallocate the table with NEW_SIZE entries.  */
-      if (cse_reg_info_table)
-	free (cse_reg_info_table);
+      free (cse_reg_info_table);
       cse_reg_info_table = XNEWVEC (struct cse_reg_info, new_size);
       cse_reg_info_table_size = new_size;
       cse_reg_info_table_first_uninitialized = 0;
@@ -2670,15 +2669,25 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
     case MEM:
       if (for_gcse)
 	{
-	  /* Can't merge two expressions in different alias sets, since we
-	     can decide that the expression is transparent in a block when
-	     it isn't, due to it being set with the different alias set.  */
-	  if (MEM_ALIAS_SET (x) != MEM_ALIAS_SET (y))
-	    return 0;
-
 	  /* A volatile mem should not be considered equivalent to any
 	     other.  */
 	  if (MEM_VOLATILE_P (x) || MEM_VOLATILE_P (y))
+	    return 0;
+
+	  /* Can't merge two expressions in different alias sets, since we
+	     can decide that the expression is transparent in a block when
+	     it isn't, due to it being set with the different alias set.
+
+	     Also, can't merge two expressions with different MEM_ATTRS.
+	     They could e.g. be two different entities allocated into the
+	     same space on the stack (see e.g. PR25130).  In that case, the
+	     MEM addresses can be the same, even though the two MEMs are
+	     absolutely not equivalent.
+
+	     But because really all MEM attributes should be the same for
+	     equivalent MEMs, we just use the invariant that MEMs that have
+	     the same attributes share the same mem_attrs data structure.  */
+	  if (MEM_ATTRS (x) != MEM_ATTRS (y))
 	    return 0;
 	}
       break;
@@ -6193,7 +6202,9 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	  else
 	    e = NULL;
 
-	  if (e && e->dest != EXIT_BLOCK_PTR
+	  if (e
+	      && !((e->flags & EDGE_ABNORMAL_CALL) && cfun->has_nonlocal_label)
+	      && e->dest != EXIT_BLOCK_PTR
 	      && single_pred_p (e->dest)
 	      /* Avoid visiting basic blocks twice.  The large comment
 		 above explains why this can happen.  */
@@ -6575,8 +6586,9 @@ check_for_label_ref (rtx *rtl, void *data)
    Don't count a usage of DEST, which is the SET_DEST of a SET which
    contains X in its SET_SRC.  This is because such a SET does not
    modify the liveness of DEST.
-   DEST is set to pc_rtx for a trapping insn, which means that we must count
-   uses of a SET_DEST regardless because the insn can't be deleted here.  */
+   DEST is set to pc_rtx for a trapping insn, or for an insn with side effects.
+   We must then count uses of a SET_DEST regardless, because the insn can't be
+   deleted here.  */
 
 static void
 count_reg_usage (rtx x, int *counts, rtx dest, int incr)
@@ -6629,9 +6641,10 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
     case CALL_INSN:
     case INSN:
     case JUMP_INSN:
-      /* We expect dest to be NULL_RTX here.  If the insn may trap, mark
-         this fact by setting DEST to pc_rtx.  */
-      if (insn_could_throw_p (x))
+      /* We expect dest to be NULL_RTX here.  If the insn may trap,
+	 or if it cannot be deleted due to side-effects, mark this fact
+	 by setting DEST to pc_rtx.  */
+      if (insn_could_throw_p (x) || side_effects_p (PATTERN (x)))
 	dest = pc_rtx;
       if (code == CALL_INSN)
 	count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, dest, incr);
@@ -6671,10 +6684,6 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
       return;
 
     case ASM_OPERANDS:
-      /* If the asm is volatile, then this insn cannot be deleted,
-	 and so the inputs *must* be live.  */
-      if (MEM_VOLATILE_P (x))
-	dest = NULL_RTX;
       /* Iterate over just the inputs, not the constraints as well.  */
       for (i = ASM_OPERANDS_INPUT_LENGTH (x) - 1; i >= 0; i--)
 	count_reg_usage (ASM_OPERANDS_INPUT (x, i), counts, dest, incr);
@@ -6977,8 +6986,7 @@ delete_trivially_dead_insns (rtx insns, int nreg)
 		df_insn_rescan (insn);
 	      }
 	  }
-      if (replacements)
-	free (replacements);
+      free (replacements);
     }
 
   if (dump_file && ndead)
@@ -7416,7 +7424,6 @@ struct rtl_opt_pass pass_cse =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow,                     /* todo_flags_finish */
  }
@@ -7479,7 +7486,6 @@ struct rtl_opt_pass pass_cse2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow                      /* todo_flags_finish */
  }
@@ -7540,7 +7546,6 @@ struct rtl_opt_pass pass_cse_after_global_opts =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func |
   TODO_ggc_collect |
   TODO_verify_flow                      /* todo_flags_finish */
  }

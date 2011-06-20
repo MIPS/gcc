@@ -89,6 +89,10 @@ type compressor struct {
 	// (1 << logWindowSize) - 1.
 	windowMask int
 
+	eof      bool // has eof been reached on input?
+	sync     bool // writer wants to flush
+	syncChan chan os.Error
+
 	// hashHead[hashValue] contains the largest inputIndex with the specified hash value
 	hashHead []int
 
@@ -124,6 +128,9 @@ func (d *compressor) flush() os.Error {
 }
 
 func (d *compressor) fillWindow(index int) (int, os.Error) {
+	if d.sync {
+		return index, nil
+	}
 	wSize := d.windowMask + 1
 	if index >= wSize+wSize-(minMatchLength+maxMatchLength) {
 		// shift the window by wSize
@@ -136,18 +143,28 @@ func (d *compressor) fillWindow(index int) (int, os.Error) {
 			d.blockStart = math.MaxInt32
 		}
 		for i, h := range d.hashHead {
-			d.hashHead[i] = max(h-wSize, -1)
+			v := h - wSize
+			if v < -1 {
+				v = -1
+			}
+			d.hashHead[i] = v
 		}
 		for i, h := range d.hashPrev {
-			d.hashPrev[i] = max(h-wSize, -1)
+			v := -h - wSize
+			if v < -1 {
+				v = -1
+			}
+			d.hashPrev[i] = v
 		}
 	}
-	var count int
-	var err os.Error
-	count, err = io.ReadAtLeast(d.r, d.window[d.windowEnd:], 1)
+	count, err := d.r.Read(d.window[d.windowEnd:])
 	d.windowEnd += count
+	if count == 0 && err == nil {
+		d.sync = true
+	}
 	if err == os.EOF {
-		return index, nil
+		d.eof = true
+		err = nil
 	}
 	return index, err
 }
@@ -168,10 +185,18 @@ func (d *compressor) writeBlock(tokens []token, index int, eof bool) os.Error {
 // Try to find a match starting at index whose length is greater than prevSize.
 // We only look at chainCount possibilities before giving up.
 func (d *compressor) findMatch(pos int, prevHead int, prevLength int, lookahead int) (length, offset int, ok bool) {
-	win := d.window[0 : pos+min(maxMatchLength, lookahead)]
+	minMatchLook := maxMatchLength
+	if lookahead < minMatchLook {
+		minMatchLook = lookahead
+	}
+
+	win := d.window[0 : pos+minMatchLook]
 
 	// We quit when we get a match that's at least nice long
-	nice := min(d.niceMatch, len(win)-pos)
+	nice := len(win) - pos
+	if d.niceMatch < nice {
+		nice = d.niceMatch
+	}
 
 	// If we've got a match that's good enough, only look in 1/4 the chain.
 	tries := d.maxChainLength
@@ -227,9 +252,16 @@ func (d *compressor) storedDeflate() os.Error {
 	buf := make([]byte, maxStoreBlockSize)
 	for {
 		n, err := d.r.Read(buf)
-		if n > 0 {
+		if n == 0 && err == nil {
+			d.sync = true
+		}
+		if n > 0 || d.sync {
 			if err := d.writeStoredBlock(buf[0:n]); err != nil {
 				return err
+			}
+			if d.sync {
+				d.syncChan <- nil
+				d.sync = false
 			}
 		}
 		if err != nil {
@@ -275,6 +307,7 @@ func (d *compressor) doDeflate() (err os.Error) {
 		hash = int(d.window[index])<<hashShift + int(d.window[index+1])
 	}
 	chainHead := -1
+Loop:
 	for {
 		if index > windowEnd {
 			panic("index > windowEnd")
@@ -291,7 +324,31 @@ func (d *compressor) doDeflate() (err os.Error) {
 			maxInsertIndex = windowEnd - (minMatchLength - 1)
 			lookahead = windowEnd - index
 			if lookahead == 0 {
-				break
+				// Flush current output block if any.
+				if byteAvailable {
+					// There is still one pending token that needs to be flushed
+					tokens[ti] = literalToken(uint32(d.window[index-1]) & 0xFF)
+					ti++
+					byteAvailable = false
+				}
+				if ti > 0 {
+					if err = d.writeBlock(tokens[0:ti], index, false); err != nil {
+						return
+					}
+					ti = 0
+				}
+				if d.sync {
+					d.w.writeStoredHeader(0, false)
+					d.w.flush()
+					d.syncChan <- d.w.err
+					d.sync = false
+				}
+
+				// If this was only a sync (not at EOF) keep going.
+				if !d.eof {
+					continue
+				}
+				break Loop
 			}
 		}
 		if index < maxInsertIndex {
@@ -303,9 +360,12 @@ func (d *compressor) doDeflate() (err os.Error) {
 		}
 		prevLength := length
 		prevOffset := offset
-		minIndex := max(index-maxOffset, 0)
 		length = minMatchLength - 1
 		offset = 0
+		minIndex := index - maxOffset
+		if minIndex < 0 {
+			minIndex = 0
+		}
 
 		if chainHead >= minIndex &&
 			(isFastDeflate && lookahead > minMatchLength-1 ||
@@ -383,23 +443,11 @@ func (d *compressor) doDeflate() (err os.Error) {
 				byteAvailable = true
 			}
 		}
-
-	}
-	if byteAvailable {
-		// There is still one pending token that needs to be flushed
-		tokens[ti] = literalToken(uint32(d.window[index-1]) & 0xFF)
-		ti++
-	}
-
-	if ti > 0 {
-		if err = d.writeBlock(tokens[0:ti], index, false); err != nil {
-			return
-		}
 	}
 	return
 }
 
-func (d *compressor) compressor(r io.Reader, w io.Writer, level int, logWindowSize uint) (err os.Error) {
+func (d *compressor) compress(r io.Reader, w io.Writer, level int, logWindowSize uint) (err os.Error) {
 	d.r = r
 	d.w = newHuffmanBitWriter(w)
 	d.level = level
@@ -417,6 +465,10 @@ func (d *compressor) compressor(r io.Reader, w io.Writer, level int, logWindowSi
 		return WrongValueError{"level", 0, 9, int32(level)}
 	}
 
+	if d.sync {
+		d.syncChan <- err
+		d.sync = false
+	}
 	if err != nil {
 		return err
 	}
@@ -426,16 +478,90 @@ func (d *compressor) compressor(r io.Reader, w io.Writer, level int, logWindowSi
 	return d.flush()
 }
 
-func newCompressor(w io.Writer, level int, logWindowSize uint) io.WriteCloser {
+// NewWriter returns a new Writer compressing
+// data at the given level.  Following zlib, levels
+// range from 1 (BestSpeed) to 9 (BestCompression);
+// higher levels typically run slower but compress more.
+// Level 0 (NoCompression) does not attempt any
+// compression; it only adds the necessary DEFLATE framing.
+func NewWriter(w io.Writer, level int) *Writer {
+	const logWindowSize = logMaxOffsetSize
 	var d compressor
+	d.syncChan = make(chan os.Error, 1)
 	pr, pw := syncPipe()
 	go func() {
-		err := d.compressor(pr, w, level, logWindowSize)
+		err := d.compress(pr, w, level, logWindowSize)
 		pr.CloseWithError(err)
 	}()
-	return pw
+	return &Writer{pw, &d}
 }
 
-func NewWriter(w io.Writer, level int) io.WriteCloser {
-	return newCompressor(w, level, logMaxOffsetSize)
+// NewWriterDict is like NewWriter but initializes the new
+// Writer with a preset dictionary.  The returned Writer behaves
+// as if the dictionary had been written to it without producing
+// any compressed output.  The compressed data written to w
+// can only be decompressed by a Reader initialized with the
+// same dictionary.
+func NewWriterDict(w io.Writer, level int, dict []byte) *Writer {
+	dw := &dictWriter{w, false}
+	zw := NewWriter(dw, level)
+	zw.Write(dict)
+	zw.Flush()
+	dw.enabled = true
+	return zw
+}
+
+type dictWriter struct {
+	w       io.Writer
+	enabled bool
+}
+
+func (w *dictWriter) Write(b []byte) (n int, err os.Error) {
+	if w.enabled {
+		return w.w.Write(b)
+	}
+	return len(b), nil
+}
+
+// A Writer takes data written to it and writes the compressed
+// form of that data to an underlying writer (see NewWriter).
+type Writer struct {
+	w *syncPipeWriter
+	d *compressor
+}
+
+// Write writes data to w, which will eventually write the
+// compressed form of data to its underlying writer.
+func (w *Writer) Write(data []byte) (n int, err os.Error) {
+	if len(data) == 0 {
+		// no point, and nil interferes with sync
+		return
+	}
+	return w.w.Write(data)
+}
+
+// Flush flushes any pending compressed data to the underlying writer.
+// It is useful mainly in compressed network protocols, to ensure that
+// a remote reader has enough data to reconstruct a packet.
+// Flush does not return until the data has been written.
+// If the underlying writer returns an error, Flush returns that error.
+//
+// In the terminology of the zlib library, Flush is equivalent to Z_SYNC_FLUSH.
+func (w *Writer) Flush() os.Error {
+	// For more about flushing:
+	// http://www.bolet.org/~pornin/deflate-flush.html
+	if w.d.sync {
+		panic("compress/flate: double Flush")
+	}
+	_, err := w.w.Write(nil)
+	err1 := <-w.d.syncChan
+	if err == nil {
+		err = err1
+	}
+	return err
+}
+
+// Close flushes and closes the writer.
+func (w *Writer) Close() os.Error {
+	return w.w.Close()
 }

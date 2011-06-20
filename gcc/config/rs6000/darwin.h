@@ -1,6 +1,6 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2010,
+   2011 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -21,9 +21,6 @@
 
 #undef DARWIN_PPC
 #define DARWIN_PPC 1
-
-#undef  TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
 
 /* The "Darwin ABI" is mostly like AIX, but with some key differences.  */
 
@@ -384,10 +381,6 @@ extern int darwin_emit_branch_islands;
 #include <stdbool.h>
 #endif
 
-#if !defined(__LP64__) && !defined(DARWIN_LIBSYSTEM_HAS_UNWIND)
-#define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
-#endif
-
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 5 nops so
    that gdb may insert code to redirect them, and for data to be
@@ -433,5 +426,6 @@ extern int darwin_emit_branch_islands;
 #define SUBTARGET_INIT_BUILTINS						\
 do {									\
   darwin_patch_builtins ();						\
-  darwin_init_cfstring_builtins ((unsigned) (RS6000_BUILTIN_COUNT));	\
+  rs6000_builtin_decls[(unsigned) (RS6000_BUILTIN_CFSTRING)]		\
+    = darwin_init_cfstring_builtins ((unsigned) (RS6000_BUILTIN_CFSTRING)); \
 } while(0)

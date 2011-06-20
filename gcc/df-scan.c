@@ -1,6 +1,6 @@
 /* Scanning of rtl for dataflow analysis.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008, 2009, 2010 Free Software Foundation, Inc.
+   2008, 2009, 2010, 2011 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -3360,16 +3360,19 @@ df_get_call_refs (struct df_collection_rec * collection_rec,
 		 NULL, bb, insn_info, DF_REF_REG_USE,
 		 DF_REF_CALL_STACK_USAGE | flags);
 
-  /* Calls may also reference any of the global registers,
-     so they are recorded as used.  */
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (global_regs[i])
-      {
-	df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
-		       NULL, bb, insn_info, DF_REF_REG_USE, flags);
-	df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
-		       NULL, bb, insn_info, DF_REF_REG_DEF, flags);
-      }
+  /* Calls to const functions cannot access any global registers and calls to
+     pure functions cannot set them.  All other calls may reference any of the
+     global registers, so they are recorded as used.  */
+  if (!RTL_CONST_CALL_P (insn_info->insn))
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (global_regs[i])
+	{
+	  df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+			 NULL, bb, insn_info, DF_REF_REG_USE, flags);
+	  if (!RTL_PURE_CALL_P (insn_info->insn))
+	    df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+			   NULL, bb, insn_info, DF_REF_REG_DEF, flags);
+	}
 
   is_sibling_call = SIBLING_CALL_P (insn_info->insn);
   EXECUTE_IF_SET_IN_BITMAP (regs_invalidated_by_call_regset, 0, ui, bi)
@@ -3622,6 +3625,8 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
        live everywhere -- which might not already be the case for
        blocks within infinite loops.  */
     {
+      unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
+
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
       bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
@@ -3639,9 +3644,9 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
-      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (regular_block_artificial_uses, PIC_OFFSET_TABLE_REGNUM);
+      if (picreg != INVALID_REGNUM
+	  && fixed_regs[picreg])
+	bitmap_set_bit (regular_block_artificial_uses, picreg);
     }
   /* The all-important stack pointer must always be live.  */
   bitmap_set_bit (regular_block_artificial_uses, STACK_POINTER_REGNUM);
@@ -3776,6 +3781,10 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
   /* These registers are live everywhere.  */
   if (!reload_completed)
     {
+#ifdef PIC_OFFSET_TABLE_REGNUM
+      unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
+#endif
+
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
@@ -3786,9 +3795,9 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 #ifdef PIC_OFFSET_TABLE_REGNUM
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
-      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (entry_block_defs, PIC_OFFSET_TABLE_REGNUM);
+      if (picreg != INVALID_REGNUM
+	  && fixed_regs[picreg])
+	bitmap_set_bit (entry_block_defs, picreg);
 #endif
     }
 
@@ -3886,6 +3895,7 @@ static void
 df_get_exit_block_use_set (bitmap exit_block_uses)
 {
   unsigned int i;
+  unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
 
   bitmap_clear (exit_block_uses);
 
@@ -3910,9 +3920,9 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
      Assume the pic register is not in use, or will be handled by
      other means, if it is not fixed.  */
   if (!PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
-      && (unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-      && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-    bitmap_set_bit (exit_block_uses, PIC_OFFSET_TABLE_REGNUM);
+      && picreg != INVALID_REGNUM
+      && fixed_regs[picreg])
+    bitmap_set_bit (exit_block_uses, picreg);
 
   /* Mark all global registers, and all registers used by the
      epilogue as being live at the end of the function since they

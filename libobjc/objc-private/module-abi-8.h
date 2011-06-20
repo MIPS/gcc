@@ -47,8 +47,17 @@ struct objc_static_instances
    categories  defined in the module.   */
 struct objc_symtab
 {
-  unsigned long sel_ref_cnt;  /* Unknown. */
-  SEL        refs;            /* Unknown. */
+  unsigned long sel_ref_cnt;  /* Unused (always set to 0). */
+  struct objc_selector *refs; /* The table of selectors referenced in
+                                 this module.  This is terminated by a
+                                 selector with NULL sel_id and NULL
+                                 sel_types.  Note that we use the type
+                                 'struct objc_selector *' and not
+                                 'SEL' (which is 'const struct
+                                 objc_selector *') because the sel_id
+                                 of these selectors is patched up by
+                                 the runtime when the module is
+                                 loaded.  */
   unsigned short cls_def_cnt; /* Number of classes compiled (defined)
                                  in the module. */
   unsigned short cat_def_cnt; /* Number of categories compiled
@@ -140,34 +149,30 @@ struct objc_method_list
 					     structure. */
 };
 
-/* Currently defined in Protocol.m (that definition should go away
-   once we include this file).  Note that a 'struct
-   objc_method_description' as embedded inside a Protocol uses the
-   same trick as a 'struct objc_method': the method_name is a 'char *'
-   according to the compiler, who puts the method name as a string in
-   there.  At runtime, the selectors need to be registered, and the
-   method_name then becomes a SEL.  */
+/* Note that a 'struct objc_method_description' as embedded inside a
+   Protocol uses the same trick as a 'struct objc_method': the
+   method_name is a 'char *' according to the compiler, who puts the
+   method name as a string in there.  At runtime, the selectors need
+   to be registered, and the method_name then becomes a SEL.  */
 struct objc_method_description_list
 {
   int count;
   struct objc_method_description list[1];
 };
 
-/* Currently defined by objc/objc.h.  */
-/*
 struct objc_protocol {
   struct objc_class* class_pointer;
   char *protocol_name;
   struct objc_protocol_list *protocol_list;
   struct objc_method_description_list *instance_methods, *class_methods; 
 };
-*/
+
 
 struct objc_protocol_list
 {
   struct objc_protocol_list *next;
   size_t count;
-  Protocol *list[1];
+  struct objc_protocol *list[1];
 };
 
 /*
@@ -180,7 +185,6 @@ struct objc_protocol_list
   some members change type. The compiler generates "char* const" and
   places a string in the following member variables: super_class.
 */
-#ifndef __objc_STRUCT_OBJC_CLASS_defined
 struct objc_class {
   struct objc_class*  class_pointer;    /* Pointer to the class's meta
 					   class. */
@@ -223,7 +227,6 @@ struct objc_class {
   struct objc_protocol_list *protocols; /* Protocols conformed to */
   void* gc_object_type;
 };
-#endif /* __objc_STRUCT_OBJC_CLASS_defined */
 
 /* This is used to assure consistent access to the info field of 
    classes.  */
@@ -273,7 +276,6 @@ struct objc_class {
   ({ (cls)->info <<= (HOST_BITS_PER_LONG/2); \
      (cls)->info >>= (HOST_BITS_PER_LONG/2); \
      __CLS_SETINFO(cls, (((unsigned long)num) << (HOST_BITS_PER_LONG/2))); })
-
 
 /* The compiler generates one of these structures for each category.
    A class may have many categories and contain both instance and

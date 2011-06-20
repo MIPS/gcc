@@ -1,5 +1,5 @@
 /* go-lang.c -- Go frontend gcc interface.
-   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009, 2010, 2011 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks-def.h"
 #include "except.h"
 #include "target.h"
+#include "common/common-target.h"
 
 #include <mpfr.h>
 
@@ -65,7 +66,7 @@ struct GTY(()) lang_identifier
 /* The resulting tree type.  */
 
 union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-	   chain_next ("(union lang_tree_node *) TREE_CHAIN (&%h.generic)")))
+	   chain_next ("CODE_CONTAINS_STRUCT (TREE_CODE (&%h.generic), TS_COMMON) ? ((union lang_tree_node *) TREE_CHAIN (&%h.generic)) : NULL")))
 lang_tree_node
 {
   union tree_node GTY((tag ("0"),
@@ -87,15 +88,6 @@ go_langhook_init (void)
 {
   build_common_tree_nodes (false);
 
-  /* The sizetype may be "unsigned long" or "unsigned long long".  */
-  if (TYPE_MODE (long_unsigned_type_node) == ptr_mode)
-    size_type_node = long_unsigned_type_node;
-  else if (TYPE_MODE (long_long_unsigned_type_node) == ptr_mode)
-    size_type_node = long_long_unsigned_type_node;
-  else
-    size_type_node = long_unsigned_type_node;
-  set_sizetype (size_type_node);
-
   build_common_tree_nodes_2 (0);
 
   /* We must create the gogo IR after calling build_common_tree_nodes
@@ -103,7 +95,7 @@ go_langhook_init (void)
      to, e.g., unsigned_char_type_node) but before calling
      build_common_builtin_nodes (because it calls, indirectly,
      go_type_for_size).  */
-  go_create_gogo (INT_TYPE_SIZE, FLOAT_TYPE_SIZE, POINTER_SIZE);
+  go_create_gogo (INT_TYPE_SIZE, POINTER_SIZE);
 
   build_common_builtin_nodes ();
 
@@ -149,12 +141,10 @@ go_langhook_init_options_struct (struct gcc_options *opts)
 
   /* The builtin math functions should not set errno.  */
   opts->x_flag_errno_math = 0;
-
-  /* By default assume that floating point math does not trap.  */
-  opts->x_flag_trapping_math = 0;
+  opts->frontend_set_flag_errno_math = true;
 
   /* We turn on stack splitting if we can.  */
-  if (targetm.supports_split_stack (false, opts))
+  if (targetm_common.supports_split_stack (false, opts))
     opts->x_flag_split_stack = 1;
 
   /* Exceptions are used to handle recovering from panics.  */
@@ -310,10 +300,12 @@ go_langhook_builtin_function (tree decl)
   return decl;
 }
 
-static int
+/* Return true if we are in the global binding level.  */
+
+static bool
 go_langhook_global_bindings_p (void)
 {
-  return current_function_decl == NULL ? 1 : 0;
+  return current_function_decl == NULL_TREE;
 }
 
 /* Push a declaration into the current binding level.  We can't

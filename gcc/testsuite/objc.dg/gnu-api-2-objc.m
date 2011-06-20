@@ -3,7 +3,8 @@
   This is test 'objc', covering all functions starting with 'objc'.  */
 
 /* { dg-do run } */
-/* { dg-skip-if "" { *-*-* } { "-fnext-runtime" } { "" } } */
+/* { dg-skip-if "No API#2 pre-Darwin9" { *-*-darwin[5-8]* } { "-fnext-runtime" } { "" } } */
+/* { dg-xfail-run-if "Needs OBJC2 ABI" { *-*-darwin* && { lp64 && { ! objc2 } } } { "-fnext-runtime" } { "" } } */
 
 /* To get the modern GNU Objective-C Runtime API, you include
    objc/runtime.h.  */
@@ -16,11 +17,13 @@
 { Class isa; }
 + alloc;
 - init;
++ initialize;
 @end
 
 @implementation MyRootClass
 + alloc { return class_createInstance (self, 0); }
 - init  { return self; }
++ initialize { return self; }
 @end
 
 @protocol MyProtocol
@@ -42,6 +45,23 @@
 - (id) variable { return variable_ivar; }
 @end
 
+/* Hack to calculate the log2 of a byte alignment.  */
+unsigned char
+log_2_of (unsigned int x)
+{
+  unsigned char result = 0;
+
+  /* We count how many times we need to divide by 2 before we reach 1.
+     This algorithm is good enough for the small numbers (such as 8,
+     16 or 64) that we have to deal with.  */
+  while (x > 1)
+    {
+      x = x / 2;
+      result++;
+    }
+
+  return result;
+}
 
 int main(int argc, void **args)
 {
@@ -53,8 +73,9 @@ int main(int argc, void **args)
     Class new_class = objc_allocateClassPair (objc_getClass ("MyRootClass"), "MyNewSubClass", 0);
 
     /* A new root class would obviously need at least an 'isa'
-       instance variable.  We don't add it so we never actually
-       instantiate an instance of the class, which wouldn't work.  */
+       instance variable.  */
+    class_addIvar (new_root_class, "isa", sizeof (Class), log_2_of (__alignof__ (Class)),
+		   @encode (Class));
 
     objc_registerClassPair (new_root_class);
     objc_registerClassPair (new_class);
@@ -72,7 +93,7 @@ int main(int argc, void **args)
       abort ();
 
     {
-      MySubClass *o = [[objc_getClass ("MyNewSubClass") alloc] init];
+      MySubClass *o = [[(Class)objc_getClass ("MyNewSubClass") alloc] init];
       
       if (object_getClass (o) != objc_getClass ("MyNewSubClass"))
 	abort ();
@@ -103,12 +124,15 @@ int main(int argc, void **args)
   printf ("Testing objc_disposeClassPair ()...\n");
   {
     Method method = class_getInstanceMethod (objc_getClass ("MySubClass"), @selector (setVariable:));
-    Class new_class = objc_allocateClassPair (objc_getClass ("MyRootClass"), "MyNewSubClass", 0);
+    Class new_class = objc_allocateClassPair (objc_getClass ("MyRootClass"), "MyNewSubClass2", 0);
+
+    if (new_class == Nil)
+      abort ();
 
     /* Add a bit of everything to the class to exercise undoing all these changes.  */
 
     /* Instance variable.  */
-    class_addIvar (new_class, "my_variable", sizeof (float), __alignof__ (float), @encode (float));
+    class_addIvar (new_class, "my_variable", sizeof (float), log_2_of (__alignof__ (float)), @encode (float));
 
     /* Instance method.  */
     class_addMethod (new_class, @selector (setVariable:), method_getImplementation (method),
@@ -204,9 +228,9 @@ int main(int argc, void **args)
       abort ();
   }
 
-  printf ("Testing objc_lookupClass ()...\n");
+  printf ("Testing objc_lookUpClass ()...\n");
   {
-    if (strcmp (class_getName (objc_lookupClass ("MyRootClass")),
+    if (strcmp (class_getName (objc_lookUpClass ("MyRootClass")),
 		"MyRootClass") != 0)
       abort ();
   }

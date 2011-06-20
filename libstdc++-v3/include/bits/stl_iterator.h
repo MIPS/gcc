@@ -49,9 +49,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file stl_iterator.h
+/** @file bits/stl_iterator.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{iterator}
  *
  *  This file implements reverse_iterator, back_insert_iterator,
  *  front_insert_iterator, insert_iterator, __normal_iterator, and their
@@ -65,7 +65,9 @@
 #include <ext/type_traits.h>
 #include <bits/move.h>
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @addtogroup iterators
@@ -680,9 +682,12 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
   // @} group iterators
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
-_GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
+namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // This iterator adapter is @a normal in the sense that it does not
   // change the semantics of any of the operators of its iterator
@@ -892,11 +897,14 @@ _GLIBCXX_BEGIN_NAMESPACE(__gnu_cxx)
 	      __n, const __normal_iterator<_Iterator, _Container>& __i)
     { return __normal_iterator<_Iterator, _Container>(__i.base() + __n); }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @addtogroup iterators
@@ -1110,13 +1118,25 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     make_move_iterator(const _Iterator& __i)
     { return move_iterator<_Iterator>(__i); }
 
+  template<typename _Iterator, typename _ReturnType
+    = typename conditional<__move_if_noexcept_cond
+      <typename iterator_traits<_Iterator>::value_type>::value,
+                _Iterator, move_iterator<_Iterator>>::type>
+    inline _ReturnType
+    __make_move_if_noexcept_iterator(_Iterator __i)
+    { return _ReturnType(__i); }
+
   // @} group iterators
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #define _GLIBCXX_MAKE_MOVE_ITERATOR(_Iter) std::make_move_iterator(_Iter)
+#define _GLIBCXX_MAKE_MOVE_IF_NOEXCEPT_ITERATOR(_Iter) \
+  std::__make_move_if_noexcept_iterator(_Iter)
 #else
 #define _GLIBCXX_MAKE_MOVE_ITERATOR(_Iter) (_Iter)
+#define _GLIBCXX_MAKE_MOVE_IF_NOEXCEPT_ITERATOR(_Iter) (_Iter)
 #endif // __GXX_EXPERIMENTAL_CXX0X__
 
 #endif

@@ -352,7 +352,7 @@ propagate_with_phi (basic_block bb, gimple phi, struct phiprop_d *phivn,
 	     want to delete it here we also have to delete all intermediate
 	     copies.  */
 	  gsi = gsi_for_stmt (use_stmt);
-	  gsi_remove (&gsi, false);
+	  gsi_remove (&gsi, true);
 
 	  phi_inserted = true;
 	}
@@ -426,8 +426,7 @@ struct gimple_opt_pass pass_phiprop =
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_dump_func
-  | TODO_ggc_collect
+  TODO_ggc_collect
   | TODO_update_ssa
   | TODO_verify_ssa		/* todo_flags_finish */
  }

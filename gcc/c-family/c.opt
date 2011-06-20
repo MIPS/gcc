@@ -1,6 +1,6 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-; Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+; 2011 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -201,7 +201,7 @@ E
 C ObjC C++ ObjC++ Undocumented Var(flag_preprocess_only)
 
 F
-C ObjC C++ ObjC++ Joined Separate MissingArgError(missing path after %qs)
+Driver C ObjC C++ ObjC++ Joined Separate MissingArgError(missing path after %qs)
 -F <dir>	Add <dir> to the end of the main framework include path
 
 H
@@ -330,6 +330,10 @@ Warn when all constructors and destructors are private
 Wdeclaration-after-statement
 C ObjC Var(warn_declaration_after_statement) Warning
 Warn when a declaration is found after a statement
+
+Wdelete-non-virtual-dtor
+C++ ObjC++ Var(warn_delnonvdtor) Warning
+Warn about deleting polymorphic objects with non-virtual destructors
 
 Wdeprecated
 C C++ ObjC ObjC++ Var(warn_deprecated) Init(1) Warning
@@ -696,6 +700,10 @@ fasm
 C ObjC C++ ObjC++ Var(flag_no_asm, 0)
 Recognize the \"asm\" keyword
 
+; Define extra predefined macros for use in libgcc.
+fbuilding-libgcc
+C ObjC C++ ObjC++ Undocumented Var(flag_building_libgcc)
+
 fbuiltin
 C ObjC C++ ObjC++ Var(flag_no_builtin, 0)
 Recognize built-in functions
@@ -718,6 +726,10 @@ Reduce the size of object files
 fconstant-string-class=
 ObjC ObjC++ Joined MissingArgError(no class name specified with %qs)
 -fconst-string-class=<name>	Use class <name> for constant strings
+
+fconstexpr-depth=
+C++ ObjC++ Joined RejectNegative UInteger Var(max_constexpr_depth) Init(512)
+-fconstexpr-depth=<number>	Specify maximum constexpr recursion depth
 
 fdeduce-init-list
 C++ ObjC++ Var(flag_deduce_init_list) Init(1)
@@ -814,6 +826,10 @@ ffriend-injection
 C++ ObjC++ Var(flag_friend_injection)
 Inject friend functions into enclosing namespace
 
+fkeep-inline-dllexport
+C C++ ObjC ObjC++ Var(flag_keep_inline_dllexport) Init(1) Report Condition(TARGET_DLLIMPORT_DECL_ATTRIBUTES)
+Don't emit dllexported inline functions unless needed
+
 flabels-ok
 C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
@@ -849,6 +865,10 @@ fnothrow-opt
 C++ ObjC++ Optimization Var(flag_nothrow_opt)
 Treat a throw() exception specification as noexcept to improve code size
 
+fobjc-abi-version=
+ObjC ObjC++ Joined Report RejectNegative UInteger Var(flag_objc_abi)
+Specify which ABI to use for Objective-C family code and meta-data generation.
+
 ; Generate special '- .cxx_construct' and '- .cxx_destruct' methods
 ; to initialize any non-POD ivars in Objective-C++ classes.
 fobjc-call-cxx-cdtors
@@ -868,6 +888,10 @@ Enable Objective-C exception and synchronization syntax
 fobjc-gc
 ObjC ObjC++ Var(flag_objc_gc)
 Enable garbage collection (GC) in Objective-C/Objective-C++ programs
+
+fobjc-nilcheck
+ObjC ObjC++ Var(flag_objc_nilcheck,1)
+Enable inline checks for nil receivers with the NeXT runtime and ABI version 2.
 
 ; Nonzero means that we generate NeXT setjmp based exceptions.
 fobjc-sjlj-exceptions
@@ -1121,7 +1145,11 @@ Remap file names when including files
 
 std=c++98
 C++ ObjC++
-Conform to the ISO 1998 C++ standard
+Conform to the ISO 1998 C++ standard revised by the 2003 technical corrigendum
+
+std=c++03
+C++ ObjC++ Alias(std=c++98)
+Conform to the ISO 1998 C++ standard revised by the 2003 technical corrigendum
 
 std=c++0x
 C++ ObjC++

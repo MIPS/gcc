@@ -50,15 +50,17 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file stl_uninitialized.h
+/** @file bits/stl_uninitialized.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{memory}
  */
 
 #ifndef _STL_UNINITIALIZED_H
 #define _STL_UNINITIALIZED_H 1
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<bool _TrivialValueTypes>
     struct __uninitialized_copy
@@ -265,6 +267,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       return std::__uninitialized_copy_a(_GLIBCXX_MAKE_MOVE_ITERATOR(__first),
 					 _GLIBCXX_MAKE_MOVE_ITERATOR(__last),
 					 __result, __alloc);
+    }
+
+  template<typename _InputIterator, typename _ForwardIterator,
+	   typename _Allocator>
+    inline _ForwardIterator
+    __uninitialized_move_if_noexcept_a(_InputIterator __first,
+				       _InputIterator __last,
+				       _ForwardIterator __result,
+				       _Allocator& __alloc)
+    {
+      return std::__uninitialized_copy_a
+	(_GLIBCXX_MAKE_MOVE_IF_NOEXCEPT_ITERATOR(__first),
+	 _GLIBCXX_MAKE_MOVE_IF_NOEXCEPT_ITERATOR(__last), __result, __alloc);
     }
 
   template<typename _ForwardIterator, typename _Tp, typename _Allocator>
@@ -632,6 +647,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 					 std::__iterator_category(__first)); }
 #endif
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #endif /* _STL_UNINITIALIZED_H */

@@ -1,6 +1,7 @@
 // Temporary buffer implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+// 2010, 2011
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -49,9 +50,9 @@
  * purpose.  It is provided "as is" without express or implied warranty.
  */
 
-/** @file stl_tempbuf.h
+/** @file bits/stl_tempbuf.h
  *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+ *  Do not attempt to use it directly. @headername{memory}
  */
 
 #ifndef _STL_TEMPBUF_H
@@ -60,7 +61,9 @@
 #include <bits/stl_algobase.h>
 #include <bits/stl_construct.h>
 
-_GLIBCXX_BEGIN_NAMESPACE(std)
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief Allocates a temporary buffer.
@@ -81,7 +84,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    */
   template<typename _Tp>
     pair<_Tp*, ptrdiff_t>
-    get_temporary_buffer(ptrdiff_t __len)
+    get_temporary_buffer(ptrdiff_t __len) _GLIBCXX_NOEXCEPT
     {
       const ptrdiff_t __max =
 	__gnu_cxx::__numeric_traits<ptrdiff_t>::__max / sizeof(_Tp);
@@ -264,7 +267,8 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	}
     }
 
-_GLIBCXX_END_NAMESPACE
+_GLIBCXX_END_NAMESPACE_VERSION
+} // namespace
 
 #endif /* _STL_TEMPBUF_H */
 
