@@ -68,6 +68,53 @@
 #include "stack.h"
 #include <endian.h>
 
+#ifdef __BYTE_ORDER == __BIG_ENDIAN
+  #define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
+
+  #ifdef le16toh
+    #define read_arg16(a) a =  (const typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+  #else
+    #define swap_le16toh(D, S) __extension__ \
+    ({ ((char*)&D)[0] = ((const char*)&S)[1];      \
+       ((char*)&D)[1] = ((const char*)&S)[0];      \
+       D; })
+    #define read_arg16(a) a = swap_le16toh(a, *((const typeof (a) *) ip)); ip += sizeof (a);
+  #endif
+
+  #ifdef le32toh
+    #define read_arg32(a) a = (const typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+  #else
+    #define swap_le32toh(D, S) __extension__ \
+    ({ ((char*)&D)[0] = ((const char*)&S)[3];      \
+       ((char*)&D)[1] = ((const char*)&S)[2];      \
+       ((char*)&D)[2] = ((const char*)&S)[1];      \
+       ((char*)&D)[3] = ((const char*)&S)[0];      \
+       D; })
+    #define read_arg32(a) a = swap_le32toh(a, *((const typeof (a) *) ip)); ip += sizeof (a);
+  #endif
+
+  #ifdef le64toh
+    #define read_arg64(a) a = (const typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+  #else
+    #define swap_le64toh(D, S) __extension__ \
+    ({ ((char*)&D)[0] = ((const char*)&S)[7];      \
+       ((char*)&D)[1] = ((const char*)&S)[6];      \
+       ((char*)&D)[2] = ((const char*)&S)[5];      \
+       ((char*)&D)[3] = ((const char*)&S)[4];      \
+       ((char*)&D)[4] = ((const char*)&S)[3];      \
+       ((char*)&D)[5] = ((const char*)&S)[2];      \
+       ((char*)&D)[6] = ((const char*)&S)[1];      \
+       ((char*)&D)[7] = ((const char*)&S)[0];      \
+       D; })
+    #define read_arg64(a) a = swap_le64toh(a, *((const typeof (a) *) ip)); ip += sizeof (a);
+  #endif
+#else
+  #define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
+  #define read_arg16(a) a = (const typeof (a))(*((const typeof (a) *) ip)); ip += sizeof (a);
+  #define read_arg32(a) a = (const typeof (a))(*((const typeof (a) *) ip)); ip += sizeof (a);
+  #define read_arg64(a) a = (const typeof (a))(*((const typeof (a) *) ip)); ip += sizeof (a);
+#endif
+
 /* parse only the methods which are reachable from the entry point */
 bool flag_parse_only_reachable = FALSE;
 
@@ -2304,11 +2351,7 @@ preparse_method_labels(unsigned const char *code, unsigned const char *code_end,
       gint16 arg_int16;
       gint8 arg_int8;
       guint32 arg_token = 0;
-/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
-#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
-#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+/*#define read_arg(a) a = *((const const typeof (a) *) ip); ip += sizeof (a);*/
       switch (mono_opcodes [opcode].argument)
         {
         case MonoInlineNone:
@@ -2417,11 +2460,7 @@ parse_method_code (MonoMethod *method)
       gint8 arg_int8;
       guint8 arg_uint8;
       guint32 arg_token;
-/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
-#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
-#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+
       switch (opcode) {
       case MONO_CEE_NOP:
         break;
@@ -3034,11 +3073,7 @@ parser_preparse_method (MonoMethod *method, GSList **called_methods, GSList **re
       gint16 arg_int16;
       gint8 arg_int8;
       guint32 arg_token = 0;
-/*#define read_arg(a) a = *((const typeof (a) *) ip); ip += sizeof (a);*/
-#define read_arg8(a) a = *((const typeof (a) *) ip); ip += sizeof (a);
-#define read_arg16(a) a = (typeof (a))le16toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg32(a) a = (typeof (a))le32toh(*((const typeof (a) *) ip)); ip += sizeof (a);
-#define read_arg64(a) a = (typeof (a))le64toh(*((const typeof (a) *) ip)); ip += sizeof (a);
+
       switch (mono_opcodes [opcode].argument)
         {
         case MonoInlineNone:
