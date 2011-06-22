@@ -136,13 +136,13 @@ static bitmap_head *live_hard_reg_pseudos;
    live_pseudos_reg_renumber always reflects the info.  */
 static int *live_pseudos_reg_renumber;
 
-/* Bitmap used to calculate living hard reg pseudos for some program
+/* Sparseset used to calculate living hard reg pseudos for some program
    point range.  */
-static bitmap_head live_range_hard_reg_pseudos;
+static sparseset live_range_hard_reg_pseudos;
 
-/* Bitmap used to calculate living reload pseudos for some program
+/* Sparseset used to calculate living reload pseudos for some program
    point range.  */
-static bitmap_head live_range_reload_pseudos;
+static sparseset live_range_reload_pseudos;
 
 /* Allocate and initialize the data about living pseudos at program
    points.  */
@@ -151,8 +151,8 @@ init_lives (void)
 {
   int i;
 
-  bitmap_initialize (&live_range_hard_reg_pseudos, &reg_obstack);
-  bitmap_initialize (&live_range_reload_pseudos, &reg_obstack);
+  live_range_hard_reg_pseudos = sparseset_alloc (max_reg_num ());
+  live_range_reload_pseudos = sparseset_alloc (max_reg_num ());
   live_hard_reg_pseudos = (bitmap_head *) xmalloc (sizeof (bitmap_head)
 						   * lra_live_max_point);
   for (i = 0; i < lra_live_max_point; i++)
@@ -169,8 +169,8 @@ finish_lives (void)
 {
   int i;
 
-  bitmap_clear (&live_range_hard_reg_pseudos);
-  bitmap_clear (&live_range_reload_pseudos);
+  sparseset_free (live_range_hard_reg_pseudos);
+  sparseset_free (live_range_reload_pseudos);
   for (i = 0; i < lra_live_max_point; i++)
     bitmap_clear (&live_hard_reg_pseudos[i]);
   free (live_hard_reg_pseudos);
@@ -206,10 +206,10 @@ update_lives (int regno, bool free_p)
     }
 }
 
-/* Bitmap used to calculate reload pseudos conflicting with a given
+/* Sparseset used to calculate reload pseudos conflicting with a given
    pseudo when we are trying to find a hard register for the given
    pseudo.  */
-static bitmap_head conflict_reload_pseudos;
+static sparseset conflict_reload_pseudos;
 
 /* Map: program point -> bitmap of all reload pseudos living at the
    point.  */
@@ -223,7 +223,7 @@ init_live_reload_pseudos (void)
   int i, p;
   lra_live_range_t r;
   
-  bitmap_initialize (&conflict_reload_pseudos, &reg_obstack);
+  conflict_reload_pseudos = sparseset_alloc (max_reg_num ());
   live_reload_pseudos
     = (bitmap_head *) xmalloc (sizeof (bitmap_head) * lra_live_max_point);
   for (p = 0; p < lra_live_max_point; p++)
@@ -241,7 +241,7 @@ finish_live_reload_pseudos (void)
 {
   int p;
 
-  bitmap_clear (&conflict_reload_pseudos);
+  sparseset_free (conflict_reload_pseudos);
   for (p = 0; p < lra_live_max_point; p++)
     bitmap_clear (&live_reload_pseudos[p]);
   free (live_reload_pseudos);
@@ -286,7 +286,7 @@ find_hard_regno_for (int regno, int *cost)
   lra_live_range_t r;
   int p, i, j, rclass_size, best_hard_regno, bank;
   int curr_regno, hard_regno;
-  unsigned int conflict_regno, original_regno;
+  unsigned int k, conflict_regno, original_regno;
   enum reg_class rclass;
   bitmap_iterator bi;
   bool all_p;
@@ -294,8 +294,8 @@ find_hard_regno_for (int regno, int *cost)
   COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
   rclass = lra_get_preferred_class (regno);
   curr_hard_regno_costs_check++;
-  bitmap_clear (&conflict_reload_pseudos);
-  bitmap_clear (&live_range_hard_reg_pseudos);
+  sparseset_clear (conflict_reload_pseudos);
+  sparseset_clear (live_range_hard_reg_pseudos);
   for (curr_regno = lra_reg_info[regno].first;
        curr_regno >= 0;
        curr_regno = lra_reg_info[curr_regno].next)
@@ -306,10 +306,10 @@ find_hard_regno_for (int regno, int *cost)
 	   r != NULL;
 	   r = r->next)
 	{
-	  bitmap_ior_into (&live_range_hard_reg_pseudos,
-			   &live_hard_reg_pseudos[r->start]);
-	  bitmap_ior_into (&conflict_reload_pseudos,
-			   &live_reload_pseudos[r->start]);
+	  EXECUTE_IF_SET_IN_BITMAP (&live_hard_reg_pseudos[r->start], 0, k, bi)
+	    sparseset_set_bit (live_range_hard_reg_pseudos, k);
+	  EXECUTE_IF_SET_IN_BITMAP (&live_reload_pseudos[r->start], 0, k, bi)
+	    sparseset_set_bit (conflict_reload_pseudos, k);
 	  for (p = r->start + 1; p <= r->finish; p++)
 	    {
 	      lra_live_range_t r2;
@@ -317,9 +317,9 @@ find_hard_regno_for (int regno, int *cost)
 	      for (r2 = lra_start_point_ranges[p]; r2 != NULL; r2 = r2->start_next)
 		{
 		  if (r2->regno >= lra_constraint_new_regno_start)
-		    bitmap_set_bit (&conflict_reload_pseudos, r2->regno);
+		    sparseset_set_bit (conflict_reload_pseudos, r2->regno);
 		  if (live_pseudos_reg_renumber[r2->regno] >= 0)
-		    bitmap_set_bit (&live_range_hard_reg_pseudos, r2->regno);
+		    sparseset_set_bit (live_range_hard_reg_pseudos, r2->regno);
 		}
 	    }
 	}
@@ -349,11 +349,10 @@ find_hard_regno_for (int regno, int *cost)
   for (curr_regno = lra_reg_info[regno].first;
        curr_regno >= 0;
        curr_regno = lra_reg_info[curr_regno].next)
-    bitmap_clear_bit (&conflict_reload_pseudos, curr_regno);
+    sparseset_clear_bit (conflict_reload_pseudos, curr_regno);
   original_regno = ORIGINAL_REGNO (regno_reg_rtx[regno]);
   all_p = bitmap_bit_p (&lra_dont_inherit_pseudos, regno);
-  EXECUTE_IF_SET_IN_BITMAP (&live_range_hard_reg_pseudos, 0,
-			    conflict_regno, bi)
+  EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
     if (original_regno != conflict_regno
 	|| all_p || bitmap_bit_p (&lra_dont_inherit_pseudos, conflict_regno))
       lra_add_hard_reg_set (reg_renumber[conflict_regno],
@@ -362,7 +361,7 @@ find_hard_regno_for (int regno, int *cost)
   if (hard_reg_set_subset_p (reg_class_contents[rclass],
 			     conflict_set))
     return -1;
-  EXECUTE_IF_SET_IN_BITMAP (&conflict_reload_pseudos, 0, conflict_regno, bi)
+  EXECUTE_IF_SET_IN_SPARSESET (conflict_reload_pseudos, conflict_regno)
     for (curr_regno = lra_reg_info[conflict_regno].first;
 	 curr_regno >= 0;
 	 curr_regno = lra_reg_info[curr_regno].next)
@@ -637,10 +636,10 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
   enum machine_mode mode, mode2;
   enum reg_class rclass;
   HARD_REG_SET spilled_hard_regs;
-  unsigned int spill_regno, reload_regno, uid;
+  unsigned int k, spill_regno, reload_regno, uid;
   int insn_pseudos_num, best_insn_pseudos_num;
   lra_live_range_t r;
-  bitmap_iterator bi;
+  bitmap_iterator bi, bi2;
 
   gcc_assert (lra_reg_info[regno].first == regno);
   rclass = lra_get_preferred_class (regno);
@@ -699,7 +698,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
       insn_pseudos_num = 0;
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "        Trying %d:", hard_regno);
-      bitmap_clear (&live_range_reload_pseudos);
+      sparseset_clear (live_range_reload_pseudos);
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
 	{
 	  if (bitmap_bit_p (&ignore_pseudos_bitmap, spill_regno))
@@ -714,15 +713,15 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 				&spilled_hard_regs);
 	  for (r = lra_reg_info[spill_regno].live_ranges; r != NULL; r = r->next)
 	    {
-	      bitmap_ior_into (&live_range_reload_pseudos,
-			       &live_reload_pseudos[r->start]);
+	      EXECUTE_IF_SET_IN_BITMAP (&live_hard_reg_pseudos[r->start], 0, k, bi2)
+		sparseset_set_bit (live_range_hard_reg_pseudos, k);
 	      for (p = r->start + 1; p <= r->finish; p++)
 		{
 		  lra_live_range_t r2;
 		  
 		  for (r2 = lra_start_point_ranges[p]; r2 != NULL; r2 = r2->start_next)
 		    if (r2->regno >= lra_constraint_new_regno_start)
-		      bitmap_set_bit (&live_range_reload_pseudos, r2->regno);
+		      sparseset_set_bit (live_range_reload_pseudos, r2->regno);
 		}
 	    }
 	}
@@ -734,7 +733,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	{
 	  assign_temporarily (regno, hard_regno);
 	  n = 0;
-	  EXECUTE_IF_SET_IN_BITMAP (&live_range_reload_pseudos, 0, reload_regno, bi)
+	  EXECUTE_IF_SET_IN_SPARSESET (live_range_reload_pseudos, reload_regno)
 	    if (reg_renumber[reload_regno] < 0
 		&& lra_reg_info[reload_regno].first == (int) reload_regno
 		&& (hard_reg_set_intersect_p
@@ -848,7 +847,7 @@ static void
 setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
 {
   int p, i, j, n, regno, curr_regno, hard_regno;
-  unsigned int conflict_regno, original_regno;
+  unsigned int k, conflict_regno, original_regno;
   HARD_REG_SET conflict_set;
   enum machine_mode mode;
   lra_live_range_t r;
@@ -865,7 +864,7 @@ setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
       hard_regno = reg_renumber[regno];
       gcc_assert (hard_regno >= 0);
       mode = lra_reg_info[regno].biggest_mode;
-      bitmap_clear (&live_range_hard_reg_pseudos);
+      sparseset_clear (live_range_hard_reg_pseudos);
       for (curr_regno = lra_reg_info[regno].first;
 	   curr_regno >= 0;
 	   curr_regno = lra_reg_info[curr_regno].next)
@@ -877,22 +876,21 @@ setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
 	    mode = lra_reg_info[curr_regno].biggest_mode;
 	  for (r = lra_reg_info[curr_regno].live_ranges; r != NULL; r = r->next)
 	    {
-	      bitmap_ior_into (&live_range_hard_reg_pseudos,
-			       &live_hard_reg_pseudos[r->start]);
+	      EXECUTE_IF_SET_IN_BITMAP (&live_hard_reg_pseudos[r->start], 0, k, bi)
+		sparseset_set_bit (live_range_hard_reg_pseudos, k);
 	      for (p = r->start + 1; p <= r->finish; p++)
 		{
 		  lra_live_range_t r2;
 		  
 		  for (r2 = lra_start_point_ranges[p]; r2 != NULL; r2 = r2->start_next)
 		    if (live_pseudos_reg_renumber[r2->regno] >= 0)
-		      bitmap_set_bit (&live_range_hard_reg_pseudos, r2->regno);
+		      sparseset_set_bit (live_range_hard_reg_pseudos, r2->regno);
 		}
 	    }
 	}
       COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
       original_regno = ORIGINAL_REGNO (regno_reg_rtx[regno]);
-      EXECUTE_IF_SET_IN_BITMAP (&live_range_hard_reg_pseudos, 0,
-				conflict_regno, bi)
+      EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
 	if (original_regno != conflict_regno)
 	  lra_add_hard_reg_set (reg_renumber[conflict_regno],
 				lra_reg_info[conflict_regno].biggest_mode,

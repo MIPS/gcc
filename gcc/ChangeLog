@@ -1,3 +1,14 @@
+2011-06-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (live_range_hard_reg_pseudos): Make it a sparseset.
+	(live_range_hard_reg_pseudos, live_range_reload_pseudos): Ditto.
+	(init_live_reload_pseudos, finish_live_reload_pseudos): Work with
+	the above variables as sparsesets.
+	(find_hard_regno_for, spill_for): Ditto.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Ditto.
+
+	* Makefile.in (lra-assign.o): Add missed sparseset.h.
+
 2011-06-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assigns.c (live_pseudos_reg_renumber): New array.
