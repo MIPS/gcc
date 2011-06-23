@@ -1,3 +1,18 @@
+2011-05-27  Simon Baldwin  <simonb@google.com>
+
+	* testsuite/gcc.dg/plugin/selfassign.c (check_self_assign): Renamed
+	from warn_self_assign.
+	(execute_warn_self_assign): Call a function by its new name.
+	* testsuite/g++.dg/plugin/selfassign.c (check_self_assign): Renamed
+	from warn_self_assign.
+	(execute_warn_self_assign): Call a function by its new name.
+
+2011-03-30  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/guality/guality.exp: Disable.
+	* gcc.dg/guality/guality.exp: Disable.
+	* gfortran.dg/guality/guality.exp: Disable.
+
 2011-03-14  Diego Novillo  <dnovillo@google.com>
 
 	* gcc.dg/guality/vla-1.c: XFAIL.
