@@ -45,35 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "lra-int.h"
 #include "df.h"
 
-/* Info about BBs used by several LRA files.  Remember that we never
-   create new BBs during LRA.  */
-struct lra_bb_info *lra_bb_info;
-
-/* Allocate and initialize the BB info.  */
-static void
-init_bb_info (void)
-{
-  basic_block bb;
-
-  lra_bb_info = (struct lra_bb_info *) xmalloc (sizeof (struct lra_bb_info)
-						* last_basic_block);
-  FOR_EACH_BB (bb)
-    bitmap_initialize (&lra_bb_info[bb->index].live_in_regs, &reg_obstack); 
-}
-
-/* Finish and free the BB info.  */
-static void
-finish_bb_info (void)
-{
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    bitmap_clear (&lra_bb_info[bb->index].live_in_regs); 
-  free (lra_bb_info);
-}
-
-
-
 /* Hard registers currently not available for allocation.  It can
    changed after some registers become not eliminable.  */
 HARD_REG_SET lra_no_alloc_regs;
@@ -2041,7 +2012,6 @@ lra (FILE *f)
   lra_dump_file = f;
 
 
-  init_bb_info ();
   init_insn_recog_data ();
 
 #ifdef ENABLE_CHECKING
@@ -2141,7 +2111,6 @@ lra (FILE *f)
   lra_live_ranges_finish ();
   lra_contraints_finish ();
   finish_reg_info ();
-  finish_bb_info ();
   bitmap_clear (&lra_constraint_insn_stack_bitmap);
   VEC_free (rtx, heap, lra_constraint_insn_stack);
   finish_insn_recog_data ();

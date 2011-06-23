@@ -72,10 +72,6 @@ static sparseset pseudos_live;
 /* Set of hard regs (except eliminable ones) currently live.  */
 static HARD_REG_SET hard_regs_live;
 
-/* Another representation of living pseudos and hard registers at the
-   current point.  */
-static bitmap_head live_regs;
-
 /* Set of pseudos and hard registers start living/dying.  */
 static sparseset start_living, start_dying;
 
@@ -283,7 +279,6 @@ make_hard_regno_born (int regno)
       || TEST_HARD_REG_BIT (hard_regs_live, regno))
     return;
   SET_HARD_REG_BIT (hard_regs_live, regno);
-  bitmap_set_bit (&live_regs, regno);
   sparseset_set_bit (start_living, regno);
   EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
     SET_HARD_REG_BIT (lra_reg_info[i].conflict_hard_regs, regno);
@@ -300,7 +295,6 @@ make_hard_regno_dead (int regno)
   gcc_assert (regno < FIRST_PSEUDO_REGISTER);
   sparseset_set_bit (start_dying, regno);
   CLEAR_HARD_REG_BIT (hard_regs_live, regno);
-  bitmap_clear_bit (&live_regs, regno);
 }
 
 /* Mark pseudo REGNO as currently living, update conflicting hard
@@ -314,7 +308,6 @@ mark_pseudo_live (int regno)
   gcc_assert (regno >= FIRST_PSEUDO_REGISTER);
   gcc_assert (! sparseset_bit_p (pseudos_live, regno));
   sparseset_set_bit (pseudos_live, regno);
-  bitmap_set_bit (&live_regs, regno);
   IOR_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs, hard_regs_live);
   
   if ((complete_info_p || lra_get_regno_hard_regno (regno) < 0)
@@ -335,7 +328,6 @@ mark_pseudo_dead (int regno)
   gcc_assert (regno >= FIRST_PSEUDO_REGISTER);
   gcc_assert (sparseset_bit_p (pseudos_live, regno));
   sparseset_clear_bit (pseudos_live, regno);
-  bitmap_clear_bit (&live_regs, regno);
   sparseset_set_bit (start_dying, regno);
   if (complete_info_p || lra_get_regno_hard_regno (regno) < 0)
     {
@@ -488,16 +480,12 @@ process_bb_lives (basic_block bb)
 
   reg_live_out = DF_LR_OUT (bb);
   sparseset_clear (pseudos_live);
-  bitmap_clear (&live_regs);
   REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_out);
   AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
   AND_COMPL_HARD_REG_SET (hard_regs_live, lra_no_alloc_regs);
   EXECUTE_IF_SET_IN_BITMAP (reg_live_out, 0, j, bi)
     if (j >= FIRST_PSEUDO_REGISTER)
       mark_pseudo_live (j);
-    else if (! TEST_HARD_REG_BIT (lra_no_alloc_regs, j)
-	     && ! TEST_HARD_REG_BIT (eliminable_regset, j))
-      bitmap_set_bit (&live_regs, j);
       
   freq = REG_FREQ_FROM_BB (bb);
 
@@ -679,10 +667,6 @@ process_bb_lives (basic_block bb)
 	add_reg_note (curr_insn, REG_UNUSED, regno_reg_rtx[j]);
     }
   
-  /* It is important to call it before processing EH return data
-     regnos.  */
-  bitmap_copy (&lra_bb_info[bb->index].live_in_regs, &live_regs);
-
 #ifdef EH_RETURN_DATA_REGNO
   if (bb_has_eh_pred (bb))
     for (j = 0; ; ++j)
@@ -947,7 +931,6 @@ lra_create_live_ranges (bool all_p)
 	lra_hard_reg_usage[hard_regno] += lra_reg_info[i].freq;
     }
   lra_free_copies ();
-  bitmap_initialize (&live_regs, &reg_obstack);
   pseudos_live = sparseset_alloc (max_regno);
   start_living = sparseset_alloc (max_regno);
   start_dying = sparseset_alloc (max_regno);
@@ -968,7 +951,6 @@ lra_create_live_ranges (bool all_p)
   sparseset_free (start_dying);
   sparseset_free (start_living);
   sparseset_free (pseudos_live);
-  bitmap_clear (&live_regs);
   compress_live_ranges ();
 }
 

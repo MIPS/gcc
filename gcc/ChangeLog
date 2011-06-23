@@ -1,3 +1,16 @@
+2011-06-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (struct lra_bb_info, lra_bb_info): Remove.
+
+	* lra.c (lra_bb_info, init_bb_info, finish_bb_info): Remove.
+	(lra): Remove calls of init_bb_info and finish_bb_info.
+
+	* lra-lives.c (live_regs): Remove.
+	(make_hard_regno_born, make_pseudo_live, make_pseudo_dead): Don't
+	update live_regs.
+	(process_bb_lives): Ditto.  Don't set up lra_bb_info.
+	(lra_create_live_ranges): Don't initialize/finalize live_regs.
+
 2011-06-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assign.c (live_range_hard_reg_pseudos): Make it a sparseset.

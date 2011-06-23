@@ -48,19 +48,6 @@ lra_get_preferred_class (int regno)
   return reg_preferred_class (regno);
 }
 
-/* Info about BBs used by several LRA files.  */
-struct lra_bb_info
-{
-  /* DFA creates a bit different data (DF_LR_IN) than we need for LRA
-     live range splitting.  E.g. DF_LR_IN might be not accurate for BB
-     having EH predecessors.  */
-  bitmap_head live_in_regs;
-};
-
-/* Info about BBs used by several LRA files.  Remember that we never
-   create new BBs during LRA.  */
-extern struct lra_bb_info *lra_bb_info;
-
 typedef struct lra_live_range *lra_live_range_t;
 
 /* The structure describes program points where a given pseudo lives.
