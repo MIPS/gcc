@@ -1,5 +1,10 @@
 2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-constraints.c (curr_insn_transform): Process operator
+	duplications.
+
+2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-constraints.c (lra_constraints): Check subreg for equiv init
 	insn.
 

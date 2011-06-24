@@ -3051,8 +3051,22 @@ curr_insn_transform (void)
   if (before != NULL_RTX || after != NULL_RTX || max_regno_before != max_reg_num ())
     change_p = true;
   if (change_p)
-    /* Something changes -- process the insn.  */
-    lra_update_insn_regno_info (curr_insn);
+    {
+      /* Process operator duplications.  We do it here to guarantee
+	 their processing after operands processing.  Generally
+	 speaking, we could do this probably in the previous loop
+	 because a common practice is to enumerate the operators after
+	 their operands.  */
+      for (i = 0; i < n_dups; i++)
+	{
+	  int ndup = curr_static_id->dup_num[i];
+
+	  if (curr_static_id->operand[ndup].is_operator)
+	    *curr_id->dup_loc[i] = *curr_id->operand_loc[ndup];
+	}
+      /* Something changes -- process the insn.  */
+      lra_update_insn_regno_info (curr_insn);
+    }
   lra_process_new_insns (curr_insn, before, after, "Inserting insn reload");
   return change_p;
 }
