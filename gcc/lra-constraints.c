@@ -3121,7 +3121,7 @@ lra_constraints (bool first_p)
   bool changed_p;
   int i, hard_regno, new_insns_num;
   unsigned int min_len;
-  rtx set, x;
+  rtx set, x, dest_reg;
   basic_block last_bb;
 
   lra_constraint_iter++;
@@ -3193,43 +3193,52 @@ lra_constraints (bool first_p)
       new_insns_num++;
       if (NONDEBUG_INSN_P (curr_insn))
 	{
-	  if ((set = single_set (curr_insn)) != NULL_RTX
-	      && ((((x = get_equiv_substitution (SET_DEST (set)))
-		    != SET_DEST (set))
-		   /* Remove insns which set up a pseudo whose value
-		      can not be changed.  Such insns might be not in
-		      init_insns because we don't update equiv data
-		      during insn transformations.
-
-		      As an example, let suppose that a pseudo got
-		      hard register and on the 1st pass was not
-		      changed to equivalent constant.  We generate an
-		      additional insn setting up the pseudo because of
-		      secondary memory movement.  Then the pseudo is
-		      spilled and we use the equiv constant.  In this
-		      case we should remove the additional insn and
-		      this insn is not init_insns list.  */
-		   && (! MEM_P (x) || MEM_READONLY_P (x)
-		       || in_list_p (curr_insn,
-				     ira_reg_equiv
-				     [REGNO (SET_DEST (set))].init_insns)))
-		  || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
-		      && in_list_p (curr_insn,
-				    ira_reg_equiv
-				    [REGNO (SET_SRC (set))].init_insns))))
+	  if ((set = single_set (curr_insn)) != NULL_RTX)
 	    {
-	      /* This is equiv init insn of pseudo which did not get a
-		 hard register -- remove the insn.  */
-	      if (lra_dump_file != NULL)
+	      dest_reg = SET_DEST (set);
+	      /* The equivalence pseudo could be set up as SUBREG in a
+		 case when it is a call restore insn in a mode
+		 different from the pseudo mode.  */
+	      if (GET_CODE (dest_reg) == SUBREG)
+		dest_reg = SUBREG_REG (dest_reg);
+	      if (REG_P (dest_reg)
+		  && ((((x = get_equiv_substitution (dest_reg)) != dest_reg)
+		       /* Remove insns which set up a pseudo whose
+			  value can not be changed.  Such insns might
+			  be not in init_insns because we don't update
+			  equiv data during insn transformations.
+			  
+			  As an example, let suppose that a pseudo got
+			  hard register and on the 1st pass was not
+			  changed to equivalent constant.  We generate
+			  an additional insn setting up the pseudo
+			  because of secondary memory movement.  Then
+			  the pseudo is spilled and we use the equiv
+			  constant.  In this case we should remove the
+			  additional insn and this insn is not
+			  init_insns list.  */
+		       && (! MEM_P (x) || MEM_READONLY_P (x)
+			   || in_list_p (curr_insn,
+					 ira_reg_equiv
+					 [REGNO (SET_DEST (set))].init_insns)))
+		      || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
+			  && in_list_p (curr_insn,
+					ira_reg_equiv
+					[REGNO (SET_SRC (set))].init_insns))))
 		{
-		  fprintf (lra_dump_file,
-			   "      Removing equiv init insn %i (freq=%d)\n",
-			   INSN_UID (curr_insn),
-			   BLOCK_FOR_INSN (curr_insn)->frequency);
-		  print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
+		  /* This is equiv init insn of pseudo which did not get a
+		     hard register -- remove the insn.  */
+		  if (lra_dump_file != NULL)
+		    {
+		      fprintf (lra_dump_file,
+			       "      Removing equiv init insn %i (freq=%d)\n",
+			       INSN_UID (curr_insn),
+			       BLOCK_FOR_INSN (curr_insn)->frequency);
+		      print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
+		    }
+		  lra_set_insn_deleted (curr_insn);
+		  continue;
 		}
-	      lra_set_insn_deleted (curr_insn);
-	      continue;
 	    }
 	  curr_id = lra_get_insn_recog_data (curr_insn);
 	  curr_static_id = curr_id->insn_static_data;
