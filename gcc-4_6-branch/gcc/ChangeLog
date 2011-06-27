@@ -1,5 +1,12 @@
 2011-06-22  Jakub Jelinek  <jakub@redhat.com>
 
+	PR libgomp/49490
+	* omp-low.c (expand_omp_for_static_nochunk): Only
+	use n ceil/ nthreads size for the first
+	n % nthreads threads in the team instead of
+	all threads except for the last few ones which
+	get less work or none at all.
+
 	* dwarf2out.c (size_of_loc_descr, output_loc_operands,
 	mark_base_types, hash_loc_operands, compare_loc_operands): Allow
 	DW_OP_GNU_convert and DW_OP_GNU_reinterpret to use constant instead
