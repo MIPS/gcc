@@ -3816,7 +3816,7 @@
   "TARGET_SSE"
 {
   if (!TARGET_AVX)
-    operands[1] = force_reg (V4SFmode, operands[1]);
+    operands[1] = force_reg (SFmode, operands[1]);
 })
 
 (define_insn "*vec_dupv4sf_avx"
@@ -5117,6 +5117,16 @@
    (set_attr "length_immediate" "*,*,*,1,*,*")
    (set_attr "mode" "DF,V1DF,V1DF,V2DF,V1DF,V1DF")])
 
+(define_expand "vec_dupv2df"
+  [(set (match_operand:V2DF 0 "register_operand" "")
+	(vec_duplicate:V2DF
+	  (match_operand:DF 1 "nonimmediate_operand" "")))]
+  "TARGET_SSE2"
+{
+  if (!TARGET_SSE3)
+    operands[1] = force_reg (DFmode, operands[1]);
+})
+
 (define_insn "*vec_dupv2df_sse3"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
 	(vec_duplicate:V2DF
@@ -5127,7 +5137,7 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "DF")])
 
-(define_insn "vec_dupv2df"
+(define_insn "*vec_dupv2df"
   [(set (match_operand:V2DF 0 "register_operand" "=x")
 	(vec_duplicate:V2DF
 	  (match_operand:DF 1 "register_operand" "0")))]
@@ -9360,8 +9370,8 @@
 (define_insn "sse4a_extrqi"
   [(set (match_operand:V2DI 0 "register_operand" "=x")
         (unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
-                      (match_operand 2 "const_int_operand" "")
-                      (match_operand 3 "const_int_operand" "")]
+                      (match_operand 2 "const_0_to_255_operand" "")
+                      (match_operand 3 "const_0_to_255_operand" "")]
                      UNSPEC_EXTRQI))]
   "TARGET_SSE4A"
   "extrq\t{%3, %2, %0|%0, %2, %3}"
@@ -9385,8 +9395,8 @@
   [(set (match_operand:V2DI 0 "register_operand" "=x")
         (unspec:V2DI [(match_operand:V2DI 1 "register_operand" "0")
         	      (match_operand:V2DI 2 "register_operand" "x")
-                      (match_operand 3 "const_int_operand" "")
-                      (match_operand 4 "const_int_operand" "")]
+                      (match_operand 3 "const_0_to_255_operand" "")
+                      (match_operand 4 "const_0_to_255_operand" "")]
                      UNSPEC_INSERTQI))]
   "TARGET_SSE4A"
   "insertq\t{%4, %3, %2, %0|%0, %2, %3, %4}"
@@ -12102,7 +12112,7 @@
   [(set (match_operand:V8HI 0 "register_operand" "")
 	(vec_concat:V8HI
 	  (unspec:V4HI [(match_operand:V4SF 1 "register_operand" "")
-			(match_operand:SI 2 "immediate_operand" "")]
+			(match_operand:SI 2 "const_0_to_255_operand" "")]
 		       UNSPEC_VCVTPS2PH)
 	  (match_dup 3)))]
   "TARGET_F16C"
@@ -12112,7 +12122,7 @@
   [(set (match_operand:V8HI 0 "register_operand" "=x")
 	(vec_concat:V8HI
 	  (unspec:V4HI [(match_operand:V4SF 1 "register_operand" "x")
-			(match_operand:SI 2 "immediate_operand" "N")]
+			(match_operand:SI 2 "const_0_to_255_operand" "N")]
 		       UNSPEC_VCVTPS2PH)
 	  (match_operand:V4HI 3 "const0_operand" "")))]
   "TARGET_F16C"
@@ -12124,7 +12134,7 @@
 (define_insn "*vcvtps2ph_store"
   [(set (match_operand:V4HI 0 "memory_operand" "=m")
 	(unspec:V4HI [(match_operand:V4SF 1 "register_operand" "x")
-		      (match_operand:SI 2 "immediate_operand" "N")]
+		      (match_operand:SI 2 "const_0_to_255_operand" "N")]
 		     UNSPEC_VCVTPS2PH))]
   "TARGET_F16C"
   "vcvtps2ph\t{%2, %1, %0|%0, %1, %2}"
@@ -12135,7 +12145,7 @@
 (define_insn "vcvtps2ph256"
   [(set (match_operand:V8HI 0 "nonimmediate_operand" "=xm")
 	(unspec:V8HI [(match_operand:V8SF 1 "register_operand" "x")
-		      (match_operand:SI 2 "immediate_operand" "N")]
+		      (match_operand:SI 2 "const_0_to_255_operand" "N")]
 		     UNSPEC_VCVTPS2PH))]
   "TARGET_F16C"
   "vcvtps2ph\t{%2, %1, %0|%0, %1, %2}"

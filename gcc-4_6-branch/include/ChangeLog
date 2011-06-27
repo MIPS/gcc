@@ -1,3 +1,7 @@
+2011-06-27  Release Manager
+
+	* GCC 4.6.1 released.
+
 2011-04-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2.h (DW_OP_GNU_const_type, DW_OP_GNU_regval_type,
