@@ -1,3 +1,8 @@
+2011-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/49544
+	* gcc.dg/pr49544.c: New test.
+
 2011-06-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/49308
