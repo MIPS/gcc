@@ -1,3 +1,21 @@
+2011-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49308
+	* dce.c (reset_unmarked_insns_debug_uses): Avoid shadowing insn
+	variable.  After resetting and rescanning insn continue with previous
+	statement.
+
+2011-06-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* dce.c (reset_unmarked_insns_debug_uses): New.
+	(delete_unmarked_insns): Skip debug insns.
+	(prescan_insns_for_dce): Likewise.
+	(rest_of_handle_ud_dce): Reset debug uses of removed sets.
+	* reg-stack.c (subst_stack_regs_in_debug_insn): Signal when no
+	active reg can be found.
+	(subst_all_stack_regs_in_debug_insn): New.  Reset debug insn then.
+	(convert_regs_1): Use it.
+
 2011-06-27  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* reorg.c (fill_simple_delay_slots): Use stop_search_p to stop the
