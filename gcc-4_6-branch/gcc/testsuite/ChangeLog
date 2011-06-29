@@ -1,3 +1,8 @@
+2011-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/49567
+	* gcc.target/i386/pr49567.c: New test.
+
 2011-06-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49544
