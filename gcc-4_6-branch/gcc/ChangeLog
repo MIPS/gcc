@@ -1,3 +1,50 @@
+2011-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-structalias.c (find_func_aliases): Fix
+	handling of BUILT_IN_ASSUME_ALIGNED.
+
+	* tree-ssa-structalias.c (find_func_aliases): Fix
+	handling of BUILT_IN_MEMPCPY_CHK and BUILT_IN_STPCPY_CHK.
+
+2011-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtin-types.def (BT_FN_PTR_CONST_PTR_SIZE_VAR): New.
+	* builtins.def (BUILT_IN_ASSUME_ALIGNED): New builtin.
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call,
+	find_func_clobbers): Handle BUILT_IN_ASSUME_ALIGNED.
+	* tree-ssa-ccp.c (bit_value_assume_aligned): New function.
+	(evaluate_stmt, execute_fold_all_builtins): Handle
+	BUILT_IN_ASSUME_ALIGNED.
+	* tree-ssa-dce.c (propagate_necessity): Likewise.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1,
+	call_may_clobber_ref_p_1): Likewise.
+	* builtins.c (is_simple_builtin, expand_builtin): Likewise.
+	(expand_builtin_assume_aligned): New function.
+	* doc/extend.texi (__builtin_assume_aligned): Document.
+
+2011-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Use
+	get_pointer_alignment to see if base isn't sufficiently aligned.
+
+2011-06-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssa-ccp.c (evaluate_stmt): Try bitwise tracking for
+	builtin calls even if likelyvalue is not CONSTANT.
+	Handle BUILT_IN_STRDUP and BUILT_IN_STRNDUP like BUILT_IN_MALLOC.
+	Return get_value_for_expr of first operand
+	for BUILT_IN_{MEM{CPY,MOVE,SET},STR{,N}CPY}{,_CHK}.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Handle
+	BUILT_IN_{MEM{{,P}CPY,MOVE,SET},STR{,N}C{PY,AT},STPCPY}_CHK like
+	their non-checking counterparts.
+	(call_may_clobber_ref_p_1): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases):
+	Handle BUILT_IN_{MEM{{,P}CPY,MOVE,SET},STR{,N}C{PY,AT},STPCPY}_CHK
+	like their non-checking counterparts.
+	(find_func_clobbers): Likewise.
+	* tree-ssa-dce.c (propagate_necessity): Handle BUILT_IN_MEMSET_CHK
+	like BUILT_IN_MEMSET and BUILT_IN_CALLOC like BUILT_IN_MALLOC.
+
 2011-06-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49567

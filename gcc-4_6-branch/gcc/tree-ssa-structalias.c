@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
@@ -4126,6 +4126,14 @@ find_func_aliases (gimple origt)
 	  case BUILT_IN_STPNCPY:
 	  case BUILT_IN_STRCAT:
 	  case BUILT_IN_STRNCAT:
+	  case BUILT_IN_STRCPY_CHK:
+	  case BUILT_IN_STRNCPY_CHK:
+	  case BUILT_IN_MEMCPY_CHK:
+	  case BUILT_IN_MEMMOVE_CHK:
+	  case BUILT_IN_MEMPCPY_CHK:
+	  case BUILT_IN_STPCPY_CHK:
+	  case BUILT_IN_STRCAT_CHK:
+	  case BUILT_IN_STRNCAT_CHK:
 	    {
 	      tree res = gimple_call_lhs (t);
 	      tree dest = gimple_call_arg (t, (DECL_FUNCTION_CODE (fndecl)
@@ -4137,7 +4145,9 @@ find_func_aliases (gimple origt)
 		  get_constraint_for (res, &lhsc);
 		  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMPCPY
 		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STPCPY
-		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STPNCPY)
+		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STPNCPY
+		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMPCPY_CHK
+		      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_STPCPY_CHK)
 		    get_constraint_for_ptr_offset (dest, NULL_TREE, &rhsc);
 		  else
 		    get_constraint_for (dest, &rhsc);
@@ -4155,6 +4165,7 @@ find_func_aliases (gimple origt)
 	      return;
 	    }
 	  case BUILT_IN_MEMSET:
+	  case BUILT_IN_MEMSET_CHK:
 	    {
 	      tree res = gimple_call_lhs (t);
 	      tree dest = gimple_call_arg (t, 0);
@@ -4186,6 +4197,20 @@ find_func_aliases (gimple origt)
 	      FOR_EACH_VEC_ELT (ce_s, lhsc, i, lhsp)
 		process_constraint (new_constraint (*lhsp, ac));
 	      VEC_free (ce_s, heap, lhsc);
+	      return;
+	    }
+	  case BUILT_IN_ASSUME_ALIGNED:
+	    {
+	      tree res = gimple_call_lhs (t);
+	      tree dest = gimple_call_arg (t, 0);
+	      if (res != NULL_TREE)
+		{
+		  get_constraint_for (res, &lhsc);
+		  get_constraint_for (dest, &rhsc);
+		  process_all_all_constraints (lhsc, rhsc);
+		  VEC_free (ce_s, heap, lhsc);
+		  VEC_free (ce_s, heap, rhsc);
+		}
 	      return;
 	    }
 	  /* All the following functions do not return pointers, do not
@@ -4702,6 +4727,14 @@ find_func_clobbers (gimple origt)
 	  case BUILT_IN_STPNCPY:
 	  case BUILT_IN_STRCAT:
 	  case BUILT_IN_STRNCAT:
+	  case BUILT_IN_STRCPY_CHK:
+	  case BUILT_IN_STRNCPY_CHK:
+	  case BUILT_IN_MEMCPY_CHK:
+	  case BUILT_IN_MEMMOVE_CHK:
+	  case BUILT_IN_MEMPCPY_CHK:
+	  case BUILT_IN_STPCPY_CHK:
+	  case BUILT_IN_STRCAT_CHK:
+	  case BUILT_IN_STRNCAT_CHK:
 	    {
 	      tree dest = gimple_call_arg (t, (DECL_FUNCTION_CODE (decl)
 					       == BUILT_IN_BCOPY ? 1 : 0));
@@ -4724,6 +4757,7 @@ find_func_clobbers (gimple origt)
 	  /* The following function clobbers memory pointed to by
 	     its argument.  */
 	  case BUILT_IN_MEMSET:
+	  case BUILT_IN_MEMSET_CHK:
 	    {
 	      tree dest = gimple_call_arg (t, 0);
 	      unsigned i;
@@ -4771,6 +4805,7 @@ find_func_clobbers (gimple origt)
 	      return;
 	    }
 	  /* The following functions neither read nor clobber memory.  */
+	  case BUILT_IN_ASSUME_ALIGNED:
 	  case BUILT_IN_FREE:
 	    return;
 	  /* Trampolines are of no interest to us.  */
