@@ -2554,8 +2554,6 @@ type_decays_to (tree type)
     return build_pointer_type (TREE_TYPE (type));
   if (TREE_CODE (type) == FUNCTION_TYPE)
     return build_pointer_type (type);
-  if (!MAYBE_CLASS_TYPE_P (type))
-    type = cv_unqualified (type);
   return type;
 }
 
@@ -5724,7 +5722,15 @@ convert_arg_to_ellipsis (tree arg)
   else if (NULLPTR_TYPE_P (arg_type))
     arg = null_pointer_node;
   else if (INTEGRAL_OR_ENUMERATION_TYPE_P (arg_type))
-    arg = perform_integral_promotions (arg);
+    {
+      if (SCOPED_ENUM_P (arg_type) && !abi_version_at_least (6))
+	{
+	  warning (OPT_Wabi, "scoped enum %qT will not promote to an "
+		   "integral type in a future version of GCC", arg_type);
+	  arg = cp_convert (ENUM_UNDERLYING_TYPE (arg_type), arg);
+	}
+      arg = perform_integral_promotions (arg);
+    }
 
   arg = require_complete_type (arg);
   arg_type = TREE_TYPE (arg);
@@ -8059,7 +8065,8 @@ perform_implicit_conversion_flags (tree type, tree expr, tsubst_flags_t complain
 	  else if (invalid_nonstatic_memfn_p (expr, complain))
 	    /* We gave an error.  */;
 	  else
-	    error ("could not convert %qE to %qT", expr, type);
+	    error ("could not convert %qE from %qT to %qT", expr,
+		   TREE_TYPE (expr), type);
 	}
       expr = error_mark_node;
     }
