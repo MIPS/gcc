@@ -1,3 +1,8 @@
+2011-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (pass_through_call): Handle
+	BUILT_IN_ASSUME_ALIGNED.
+
 2011-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49364
