@@ -1,3 +1,49 @@
+2011-07-05  Jason Merrill  <jason@redhat.com>
+
+	PR testsuite/49643
+	* g++.dg/rtti/anon-ns1.C: Allow for null-termination.
+
+	* g++.dg/cpp0x/lambda/lambda-ref2.C: New.
+
+	* g++.dg/diagnostic/aka1.C: New.
+
+2011-07-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): Extract last field from type -p,
+	type output only if command succeeded.
+
+2011-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49619
+	* gcc.dg/pr49619.c: New test.
+
+	PR rtl-optimization/49472
+	* gfortran.dg/pr49472.f90: New test.
+
+	Backported from mainline
+	2011-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/49540
+	* gfortran.dg/pr49540-1.f90: New test.
+	* gfortran.dg/pr49540-2.f90: New test.
+
+2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49615
+	* g++.dg/torture/pr49615.C: New testcase.
+
+2011-07-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from mainline:
+        PR libfortran/49296
+        * gfortran.dg/read_list_eof_1.f90: New test.
+
+2011-07-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49466
+	* gfortran.dg/allocatable_scalar_9.f90: Modified.
+	* gfortran.dg/extends_14.f03: New.
+
 2011-06-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR ada/49511

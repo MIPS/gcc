@@ -1,3 +1,45 @@
+2011-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49618
+	* tree-eh.c (tree_could_trap_p) <case FUNCTION_DECL, case VAR_DECL>:
+	For DECL_WEAK decls return true.
+
+2011-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49619
+	* combine.c (combine_simplify_rtx): In PLUS -> IOR simplification
+	pass VOIDmode as op0_mode to recursive call.
+
+	PR rtl-optimization/49472
+	* simplify-rtx.c (simplify_unary_operation_1) <case NEG>: When
+	negating MULT, negate the second operand instead of first.
+	(simplify_binary_operation_1) <case MULT>: If one operand is
+	a NEG and the other is MULT, don't attempt to optimize by
+	negation of the MULT operand if it only moves the NEG operation
+	around.
+
+	Backported from mainline
+	2011-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/49262
+	* dwarf2out.c (native_encode_initializer): Decrement count in each
+	iteration.
+
+2011-07-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline
+	2011-07-04  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/44643
+	* config/avr/avr.c (avr_insert_attributes): Use TYPE_READONLY
+	instead of TREE_READONLY.
+
+2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49615
+	* tree-cfgcleanup.c (split_bbs_on_noreturn_calls): Fix
+	basic-block index check.
+
 2011-06-30  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR tree-optimization/49572
