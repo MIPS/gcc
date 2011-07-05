@@ -5987,6 +5987,11 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   if (init && TREE_CODE (decl) == VAR_DECL)
     {
       DECL_NONTRIVIALLY_INITIALIZED_P (decl) = 1;
+      /* If DECL is a reference, then we want to know whether init is a
+	 reference constant; init_const_expr_p as passed tells us whether
+	 it's an rvalue constant.  */
+      if (TREE_CODE (type) == REFERENCE_TYPE)
+	init_const_expr_p = potential_constant_expression (init);
       if (init_const_expr_p)
 	{
 	  /* Set these flags now for templates.  We'll update the flags in
@@ -6996,7 +7001,14 @@ build_this_parm (tree type, cp_cv_quals quals)
   tree parm;
   cp_cv_quals this_quals;
 
-  this_type = type_of_this_parm (type);
+  if (CLASS_TYPE_P (type))
+    {
+      this_type
+	= cp_build_qualified_type (type, quals & ~TYPE_QUAL_RESTRICT);
+      this_type = build_pointer_type (this_type);
+    }
+  else
+    this_type = type_of_this_parm (type);
   /* The `this' parameter is implicitly `const'; it cannot be
      assigned to.  */
   this_quals = (quals & TYPE_QUAL_RESTRICT) | TYPE_QUAL_CONST;
@@ -9333,8 +9345,11 @@ grokdeclarator (const cp_declarator *declarator,
         error ("both %<const%> and %<constexpr%> cannot be used here");
       if (type_quals & TYPE_QUAL_VOLATILE)
         error ("both %<volatile%> and %<constexpr%> cannot be used here");
-      type_quals |= TYPE_QUAL_CONST;
-      type = cp_build_qualified_type (type, type_quals);
+      if (TREE_CODE (type) != REFERENCE_TYPE)
+	{
+	  type_quals |= TYPE_QUAL_CONST;
+	  type = cp_build_qualified_type (type, type_quals);
+	}
     }
 
   if (unqualified_id && TREE_CODE (unqualified_id) == TEMPLATE_ID_EXPR
@@ -12667,6 +12682,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
       cp_function_chain->x_current_class_ref
 	= cp_build_indirect_ref (t, RO_NULL, tf_warning_or_error);
+      /* Set this second to avoid shortcut in cp_build_indirect_ref.  */
       cp_function_chain->x_current_class_ptr = t;
 
       /* Constructors and destructors need to know whether they're "in

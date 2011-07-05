@@ -1,7 +1,7 @@
 /* RTL simplification functions for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+   2011  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -686,13 +686,13 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	  return simplify_gen_binary (MINUS, mode, temp, XEXP (op, 1));
 	}
 
-      /* (neg (mult A B)) becomes (mult (neg A) B).
+      /* (neg (mult A B)) becomes (mult A (neg B)).
 	 This works even for floating-point values.  */
       if (GET_CODE (op) == MULT
 	  && !HONOR_SIGN_DEPENDENT_ROUNDING (mode))
 	{
-	  temp = simplify_gen_unary (NEG, mode, XEXP (op, 0), mode);
-	  return simplify_gen_binary (MULT, mode, temp, XEXP (op, 1));
+	  temp = simplify_gen_unary (NEG, mode, XEXP (op, 1), mode);
+	  return simplify_gen_binary (MULT, mode, XEXP (op, 0), temp);
 	}
 
       /* NEG commutes with ASHIFT since it is multiplication.  Only do
@@ -1211,6 +1211,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 				rtx op, enum machine_mode op_mode)
 {
   unsigned int width = GET_MODE_BITSIZE (mode);
+  unsigned int op_width = GET_MODE_BITSIZE (op_mode);
 
   if (code == VEC_DUPLICATE)
     {
@@ -1321,7 +1322,8 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
     }
 
   if (CONST_INT_P (op)
-      && width <= HOST_BITS_PER_WIDE_INT && width > 0)
+      && width <= HOST_BITS_PER_WIDE_INT
+      && op_width <= HOST_BITS_PER_WIDE_INT && op_width > 0)
     {
       HOST_WIDE_INT arg0 = INTVAL (op);
       HOST_WIDE_INT val;
@@ -1341,40 +1343,50 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case FFS:
-	  arg0 &= GET_MODE_MASK (mode);
+	  arg0 &= GET_MODE_MASK (op_mode);
 	  val = ffs_hwi (arg0);
 	  break;
 
 	case CLZ:
-	  arg0 &= GET_MODE_MASK (mode);
-	  if (arg0 == 0 && CLZ_DEFINED_VALUE_AT_ZERO (mode, val))
+	  arg0 &= GET_MODE_MASK (op_mode);
+	  if (arg0 == 0 && CLZ_DEFINED_VALUE_AT_ZERO (op_mode, val))
 	    ;
 	  else
-	    val = GET_MODE_BITSIZE (mode) - floor_log2 (arg0) - 1;
+	    val = GET_MODE_BITSIZE (op_mode) - floor_log2 (arg0) - 1;
+	  break;
+
+	case CLRSB:
+	  arg0 &= GET_MODE_MASK (op_mode);
+	  if (arg0 == 0)
+	    val = GET_MODE_BITSIZE (op_mode) - 1;
+	  else if (arg0 >= 0)
+	    val = GET_MODE_BITSIZE (op_mode) - floor_log2 (arg0) - 2;
+	  else if (arg0 < 0)
+	    val = GET_MODE_BITSIZE (op_mode) - floor_log2 (~arg0) - 2;
 	  break;
 
 	case CTZ:
-	  arg0 &= GET_MODE_MASK (mode);
+	  arg0 &= GET_MODE_MASK (op_mode);
 	  if (arg0 == 0)
 	    {
 	      /* Even if the value at zero is undefined, we have to come
 		 up with some replacement.  Seems good enough.  */
-	      if (! CTZ_DEFINED_VALUE_AT_ZERO (mode, val))
-		val = GET_MODE_BITSIZE (mode);
+	      if (! CTZ_DEFINED_VALUE_AT_ZERO (op_mode, val))
+		val = GET_MODE_BITSIZE (op_mode);
 	    }
 	  else
 	    val = ctz_hwi (arg0);
 	  break;
 
 	case POPCOUNT:
-	  arg0 &= GET_MODE_MASK (mode);
+	  arg0 &= GET_MODE_MASK (op_mode);
 	  val = 0;
 	  while (arg0)
 	    val++, arg0 &= arg0 - 1;
 	  break;
 
 	case PARITY:
-	  arg0 &= GET_MODE_MASK (mode);
+	  arg0 &= GET_MODE_MASK (op_mode);
 	  val = 0;
 	  while (arg0)
 	    val++, arg0 &= arg0 - 1;
@@ -2259,12 +2271,34 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       if (GET_CODE (op0) == NEG)
 	{
 	  rtx temp = simplify_unary_operation (NEG, mode, op1, mode);
+	  /* If op1 is a MULT as well and simplify_unary_operation
+	     just moved the NEG to the second operand, simplify_gen_binary
+	     below could through simplify_associative_operation move
+	     the NEG around again and recurse endlessly.  */
+	  if (temp
+	      && GET_CODE (op1) == MULT
+	      && GET_CODE (temp) == MULT
+	      && XEXP (op1, 0) == XEXP (temp, 0)
+	      && GET_CODE (XEXP (temp, 1)) == NEG
+	      && XEXP (op1, 1) == XEXP (XEXP (temp, 1), 0))
+	    temp = NULL_RTX;
 	  if (temp)
 	    return simplify_gen_binary (MULT, mode, XEXP (op0, 0), temp);
 	}
       if (GET_CODE (op1) == NEG)
 	{
 	  rtx temp = simplify_unary_operation (NEG, mode, op0, mode);
+	  /* If op0 is a MULT as well and simplify_unary_operation
+	     just moved the NEG to the second operand, simplify_gen_binary
+	     below could through simplify_associative_operation move
+	     the NEG around again and recurse endlessly.  */
+	  if (temp
+	      && GET_CODE (op0) == MULT
+	      && GET_CODE (temp) == MULT
+	      && XEXP (op0, 0) == XEXP (temp, 0)
+	      && GET_CODE (XEXP (temp, 1)) == NEG
+	      && XEXP (op0, 1) == XEXP (XEXP (temp, 1), 0))
+	    temp = NULL_RTX;
 	  if (temp)
 	    return simplify_gen_binary (MULT, mode, temp, XEXP (op1, 0));
 	}

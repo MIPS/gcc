@@ -947,7 +947,8 @@ varpool_can_remove_if_no_refs (struct varpool_node *node)
 static inline bool
 varpool_all_refs_explicit_p (struct varpool_node *vnode)
 {
-  return (!vnode->externally_visible
+  return (vnode->analyzed
+	  && !vnode->externally_visible
 	  && !vnode->used_from_other_partition
 	  && !vnode->force_output);
 }
@@ -981,7 +982,7 @@ varpool_alias_aliased_node (struct varpool_node *n)
 
   ipa_ref_list_reference_iterate (&n->ref_list, 0, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
-  if (ref->refered_type == IPA_REF_CGRAPH)
+  if (ref->refered_type == IPA_REF_VARPOOL)
     return ipa_ref_varpool_node (ref);
   return NULL;
 }
@@ -1011,7 +1012,7 @@ cgraph_function_node (struct cgraph_node *node, enum availability *availability)
 	    *availability = a;
 	}
     }
-  if (*availability)
+  if (availability)
     *availability = AVAIL_NOT_AVAILABLE;
   return NULL;
 }
@@ -1039,7 +1040,7 @@ cgraph_function_or_thunk_node (struct cgraph_node *node, enum availability *avai
 	    *availability = a;
 	}
     }
-  if (*availability)
+  if (availability)
     *availability = AVAIL_NOT_AVAILABLE;
   return NULL;
 }
@@ -1067,7 +1068,7 @@ varpool_variable_node (struct varpool_node *node, enum availability *availabilit
 	    *availability = a;
 	}
     }
-  if (*availability)
+  if (availability)
     *availability = AVAIL_NOT_AVAILABLE;
   return NULL;
 }

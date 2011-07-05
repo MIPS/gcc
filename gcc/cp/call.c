@@ -352,6 +352,9 @@ build_call_a (tree function, int n, tree *argarray)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
+  if (!nothrow && cfun && cp_function_chain)
+    cp_function_chain->can_throw = 1;
+
   if (decl && TREE_THIS_VOLATILE (decl) && cfun && cp_function_chain)
     current_function_returns_abnormally = 1;
 
@@ -2640,8 +2643,6 @@ type_decays_to (tree type)
     return build_pointer_type (TREE_TYPE (type));
   if (TREE_CODE (type) == FUNCTION_TYPE)
     return build_pointer_type (type);
-  if (!MAYBE_CLASS_TYPE_P (type))
-    type = cv_unqualified (type);
   return type;
 }
 
@@ -2775,7 +2776,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	      type = non_reference (type);
 	      if (i != 0 || ! ref1)
 		{
-		  type = TYPE_MAIN_VARIANT (type_decays_to (type));
+		  type = cv_unqualified (type_decays_to (type));
 		  if (enum_p && TREE_CODE (type) == ENUMERAL_TYPE)
 		    VEC_safe_push (tree, gc, types[i], type);
 		  if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
@@ -2794,7 +2795,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	  type = non_reference (argtypes[i]);
 	  if (i != 0 || ! ref1)
 	    {
-	      type = TYPE_MAIN_VARIANT (type_decays_to (type));
+	      type = cv_unqualified (type_decays_to (type));
 	      if (enum_p && UNSCOPED_ENUM_P (type))
 		VEC_safe_push (tree, gc, types[i], type);
 	      if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
@@ -5591,6 +5592,18 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	tree convfn = cand->fn;
 	unsigned i;
 
+	/* If we're initializing from {}, it's value-initialization.  */
+	if (BRACE_ENCLOSED_INITIALIZER_P (expr)
+	    && CONSTRUCTOR_NELTS (expr) == 0
+	    && TYPE_HAS_DEFAULT_CONSTRUCTOR (totype))
+	  {
+	    expr = build_value_init (totype, complain);
+	    expr = get_target_expr_sfinae (expr, complain);
+	    if (expr != error_mark_node)
+	      TARGET_EXPR_LIST_INIT_P (expr) = true;
+	    return expr;
+	  }
+
 	expr = mark_rvalue_use (expr);
 
 	/* When converting from an init list we consider explicit
@@ -5621,7 +5634,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    expr = build_cplus_new (totype, expr, complain);
 
 	    /* Remember that this was list-initialization.  */
-	    if (convs->check_narrowing)
+	    if (convs->check_narrowing && expr != error_mark_node)
 	      TARGET_EXPR_LIST_INIT_P (expr) = true;
 	  }
 
@@ -5633,7 +5646,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	{
 	  int nelts = CONSTRUCTOR_NELTS (expr);
 	  if (nelts == 0)
-	    expr = build_value_init (totype, tf_warning_or_error);
+	    expr = build_value_init (totype, complain);
 	  else if (nelts == 1)
 	    expr = CONSTRUCTOR_ELT (expr, 0)->value;
 	  else
@@ -6708,15 +6721,13 @@ build_cxx_call (tree fn, int nargs, tree *argarray)
 {
   tree fndecl;
 
+  /* Remember roughly where this call is.  */
+  location_t loc = EXPR_LOC_OR_HERE (fn);
   fn = build_call_a (fn, nargs, argarray);
+  SET_EXPR_LOCATION (fn, loc);
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
-  if ((!fndecl || !TREE_NOTHROW (fndecl))
-      && at_function_scope_p ()
-      && cfun
-      && cp_function_chain)
-    cp_function_chain->can_throw = 1;
 
   /* Check that arguments to builtin functions match the expectations.  */
   if (fndecl
@@ -7142,10 +7153,29 @@ build_new_method_call_1 (tree instance, tree fns, VEC(tree,gc) **args,
       && BRACE_ENCLOSED_INITIALIZER_P (VEC_index (tree, *args, 0))
       && CONSTRUCTOR_IS_DIRECT_INIT (VEC_index (tree, *args, 0)))
     {
+      tree init_list = VEC_index (tree, *args, 0);
+
       gcc_assert (VEC_length (tree, *args) == 1
 		  && !(flags & LOOKUP_ONLYCONVERTING));
 
-      add_list_candidates (fns, first_mem_arg, VEC_index (tree, *args, 0),
+      /* If the initializer list has no elements and T is a class type with
+	 a default constructor, the object is value-initialized.  Handle
+	 this here so we don't need to handle it wherever we use
+	 build_special_member_call.  */
+      if (CONSTRUCTOR_NELTS (init_list) == 0
+	  && TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
+	  && !processing_template_decl)
+	{
+	  tree ob, init = build_value_init (basetype, complain);
+	  if (integer_zerop (instance_ptr))
+	    return get_target_expr_sfinae (init, complain);
+	  ob = build_fold_indirect_ref (instance_ptr);
+	  init = build2 (INIT_EXPR, TREE_TYPE (ob), ob, init);
+	  TREE_SIDE_EFFECTS (init) = true;
+	  return init;
+	}
+
+      add_list_candidates (fns, first_mem_arg, init_list,
 			   basetype, explicit_targs, template_only,
 			   conversion_path, access_binfo, flags, &candidates);
     }
@@ -8369,7 +8399,7 @@ perform_implicit_conversion (tree type, tree expr, tsubst_flags_t complain)
    permitted.  If the conversion is valid, the converted expression is
    returned.  Otherwise, NULL_TREE is returned, except in the case
    that TYPE is a class type; in that case, an error is issued.  If
-   C_CAST_P is true, then this direction initialization is taking
+   C_CAST_P is true, then this direct-initialization is taking
    place as part of a static_cast being attempted as part of a C-style
    cast.  */
 
@@ -8631,6 +8661,8 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup,
       tree var;
       tree base_conv_type;
 
+      gcc_assert (complain == tf_warning_or_error);
+
       /* Skip over the REF_BIND.  */
       conv = conv->u.next;
       /* If the next conversion is a BASE_CONV, skip that too -- but
@@ -8648,7 +8680,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup,
 				/*inner=*/-1,
 				/*issue_conversion_warnings=*/true,
 				/*c_cast_p=*/false,
-				tf_warning_or_error);
+				complain);
       if (error_operand_p (expr))
 	expr = error_mark_node;
       else
@@ -8669,18 +8701,24 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup,
 	    }
 	  else
 	    /* Take the address of EXPR.  */
-	    expr = cp_build_addr_expr (expr, tf_warning_or_error);
+	    expr = cp_build_addr_expr (expr, complain);
 	  /* If a BASE_CONV was required, perform it now.  */
 	  if (base_conv_type)
 	    expr = (perform_implicit_conversion
 		    (build_pointer_type (base_conv_type), expr,
-		     tf_warning_or_error));
+		     complain));
 	  expr = build_nop (type, expr);
+	  if (DECL_DECLARED_CONSTEXPR_P (decl))
+	    {
+	      expr = cxx_constant_value (expr);
+	      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl)
+		= reduced_constant_expression_p (expr);
+	    }
 	}
     }
   else
     /* Perform the conversion.  */
-    expr = convert_like (conv, expr, tf_warning_or_error);
+    expr = convert_like (conv, expr, complain);
 
   /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);

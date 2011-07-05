@@ -1609,7 +1609,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
     default:
       gcc_assert (IS_EXPR_CODE_CLASS (tclass));
       {
-	unsigned n = TREE_OPERAND_LENGTH (arg);
+	unsigned n = cp_tree_operand_length (arg);
 	for (i = 0; i < n; ++i)
 	  val = iterative_hash_template_arg (TREE_OPERAND (arg, i), val);
 	return val;
@@ -5916,6 +5916,28 @@ template_template_parm_bindings_ok_p (tree tparms, tree targs)
   return ret;
 }
 
+/* Since type attributes aren't mangled, we need to strip them from
+   template type arguments.  */
+
+static tree
+canonicalize_type_argument (tree arg, tsubst_flags_t complain)
+{
+  tree mv;
+  if (!arg || arg == error_mark_node || arg == TYPE_CANONICAL (arg))
+    return arg;
+  mv = TYPE_MAIN_VARIANT (arg);
+  arg = strip_typedefs (arg);
+  if (TYPE_ALIGN (arg) != TYPE_ALIGN (mv)
+      || TYPE_ATTRIBUTES (arg) != TYPE_ATTRIBUTES (mv))
+    {
+      if (complain & tf_warning)
+	warning (0, "ignoring attributes on template argument %qT", arg);
+      arg = build_aligned_type (arg, TYPE_ALIGN (mv));
+      arg = cp_build_type_attribute_variant (arg, TYPE_ATTRIBUTES (mv));
+    }
+  return arg;
+}
+
 /* Convert the indicated template ARG as necessary to match the
    indicated template PARM.  Returns the converted ARG, or
    error_mark_node if the conversion was unsuccessful.  Error and
@@ -6092,7 +6114,7 @@ convert_template_argument (tree parm,
 	 the typedef, which is confusing if those future uses do not
 	 themselves also use the typedef.  */
       if (TYPE_P (val))
-	val = strip_typedefs (val);
+	val = canonicalize_type_argument (val, complain);
     }
   else
     {
@@ -6136,8 +6158,9 @@ convert_template_argument (tree parm,
       if (TREE_CODE (val) == SCOPE_REF)
 	{
 	  /* Strip typedefs from the SCOPE_REF.  */
-	  tree type = strip_typedefs (TREE_TYPE (val));
-	  tree scope = strip_typedefs (TREE_OPERAND (val, 0));
+	  tree type = canonicalize_type_argument (TREE_TYPE (val), complain);
+	  tree scope = canonicalize_type_argument (TREE_OPERAND (val, 0),
+						   complain);
 	  val = build_qualified_name (type, scope, TREE_OPERAND (val, 1),
 				      QUALIFIED_NAME_IS_TEMPLATE (val));
 	}
@@ -6599,8 +6622,12 @@ lookup_template_function (tree fns, tree arglist)
     return error_mark_node;
 
   gcc_assert (!arglist || TREE_CODE (arglist) == TREE_VEC);
-  gcc_assert (fns && (is_overloaded_fn (fns)
-		      || TREE_CODE (fns) == IDENTIFIER_NODE));
+
+  if (!is_overloaded_fn (fns) && TREE_CODE (fns) != IDENTIFIER_NODE)
+    {
+      error ("%q#D is not a function template", fns);
+      return error_mark_node;
+    }
 
   if (BASELINK_P (fns))
     {
@@ -10115,12 +10142,11 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	       scope, such as for a lambda return type.  Don't add it to
 	       local_specializations, do perform auto deduction.  */
 	    tree auto_node = type_uses_auto (type);
-	    tree init
-	      = tsubst_expr (DECL_INITIAL (t), args, complain, in_decl,
-			     /*constant_expression_p=*/false);
-
-	    if (auto_node && init)
+	    if (auto_node)
 	      {
+		tree init
+		  = tsubst_expr (DECL_INITIAL (t), args, complain, in_decl,
+				 /*constant_expression_p=*/false);
 		init = resolve_nondeduced_context (init);
 		TREE_TYPE (r) = type
 		  = do_auto_deduction (type, init, auto_node);
@@ -10223,7 +10249,7 @@ tsubst_arg_types (tree arg_types,
     
     /* Do array-to-pointer, function-to-pointer conversion, and ignore
        top-level qualifiers as required.  */
-    type = TYPE_MAIN_VARIANT (type_decays_to (type));
+    type = cv_unqualified (type_decays_to (type));
 
     /* We do not substitute into default arguments here.  The standard
        mandates that they be instantiated only when needed, which is
@@ -11085,6 +11111,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  type = lambda_capture_field_type (type);
 	else if (DECLTYPE_FOR_LAMBDA_RETURN (t))
 	  type = lambda_return_type (type);
+	else if (DECLTYPE_FOR_LAMBDA_PROXY (t))
+	  type = lambda_proxy_type (type);
 	else
 	  type = finish_decltype_type
 	    (type, DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P (t), complain);
@@ -11320,7 +11348,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
       expr = (adjust_result_of_qualified_name_lookup
 	      (expr, scope, current_class_type));
       expr = (finish_qualified_id_expr
-	      (scope, expr, done, address_p,
+	      (scope, expr, done, address_p && PTRMEM_OK_P (qualified_id),
 	       QUALIFIED_NAME_IS_TEMPLATE (qualified_id),
 	       /*template_arg_p=*/false));
     }
@@ -14501,6 +14529,7 @@ resolve_overloaded_unification (tree tparms,
 	 the affected templates before we try to unify, in case the
 	 explicit args will completely resolve the templates in question.  */
 
+      int ok = 0;
       tree expl_subargs = TREE_OPERAND (arg, 1);
       arg = TREE_OPERAND (arg, 0);
 
@@ -14515,7 +14544,7 @@ resolve_overloaded_unification (tree tparms,
 	  ++processing_template_decl;
 	  subargs = get_bindings (fn, DECL_TEMPLATE_RESULT (fn),
 				  expl_subargs, /*check_ret=*/false);
-	  if (subargs)
+	  if (subargs && !any_dependent_template_arguments_p (subargs))
 	    {
 	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
 	      if (try_one_overload (tparms, targs, tempargs, parm,
@@ -14526,8 +14555,16 @@ resolve_overloaded_unification (tree tparms,
 		  ++good;
 		}
 	    }
+	  else if (subargs)
+	    ++ok;
 	  --processing_template_decl;
 	}
+      /* If no templates (or more than one) are fully resolved by the
+	 explicit arguments, this template-id is a non-deduced context; it
+	 could still be OK if we deduce all template arguments for the
+	 enclosing call through other arguments.  */
+      if (good != 1)
+	good = ok;
     }
   else if (TREE_CODE (arg) != OVERLOAD
 	   && TREE_CODE (arg) != FUNCTION_DECL)
@@ -14646,6 +14683,7 @@ resolve_nondeduced_context (tree orig_expr)
 	}
       if (good == 1)
 	{
+	  mark_used (goodfn);
 	  expr = goodfn;
 	  if (baselink)
 	    expr = build_baselink (BASELINK_BINFO (baselink),
@@ -15479,7 +15517,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	    return 1;
 
 	  /* Strip typedefs as in convert_template_argument.  */
-	  arg = strip_typedefs (arg);
+	  arg = canonicalize_type_argument (arg, tf_none);
 	}
 
       /* If ARG is a parameter pack or an expansion, we cannot unify
@@ -16587,12 +16625,12 @@ most_specialized_instantiation (tree templates)
 
       if (get_bindings (TREE_VALUE (champ),
 			DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
-			NULL_TREE, /*check_ret=*/false))
+			NULL_TREE, /*check_ret=*/true))
 	fate--;
 
       if (get_bindings (TREE_VALUE (fn),
 			DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
-			NULL_TREE, /*check_ret=*/false))
+			NULL_TREE, /*check_ret=*/true))
 	fate++;
 
       if (fate == -1)
@@ -16614,10 +16652,10 @@ most_specialized_instantiation (tree templates)
     for (fn = templates; fn != champ; fn = TREE_CHAIN (fn))
       if (get_bindings (TREE_VALUE (champ),
 			DECL_TEMPLATE_RESULT (TREE_VALUE (fn)),
-			NULL_TREE, /*check_ret=*/false)
+			NULL_TREE, /*check_ret=*/true)
 	  || !get_bindings (TREE_VALUE (fn),
 			    DECL_TEMPLATE_RESULT (TREE_VALUE (champ)),
-			    NULL_TREE, /*check_ret=*/false))
+			    NULL_TREE, /*check_ret=*/true))
 	{
 	  champ = NULL_TREE;
 	  break;
@@ -18810,7 +18848,7 @@ dependent_template_arg_p (tree arg)
      is dependent. This is consistent with what
      any_dependent_template_arguments_p [that calls this function]
      does.  */
-  if (arg == error_mark_node)
+  if (!arg || arg == error_mark_node)
     return true;
 
   if (TREE_CODE (arg) == ARGUMENT_PACK_SELECT)

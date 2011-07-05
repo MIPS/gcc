@@ -106,9 +106,9 @@ static rtx avr_function_arg (cumulative_args_t , enum machine_mode,
 			     const_tree, bool);
 static void avr_function_arg_advance (cumulative_args_t, enum machine_mode,
 				      const_tree, bool);
-static void avr_help (void);
 static bool avr_function_ok_for_sibcall (tree, tree);
 static void avr_asm_named_section (const char *name, unsigned int flags, tree decl);
+static void avr_encode_section_info (tree, rtx, int);
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
 #define FIRST_CUM_REG 26
@@ -170,8 +170,6 @@ static const struct attribute_spec avr_attribute_table[] =
 #define TARGET_ASM_INTEGER avr_assemble_integer
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START avr_file_start
-#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
-#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 #undef TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END avr_file_end
 
@@ -200,6 +198,8 @@ static const struct attribute_spec avr_attribute_table[] =
 
 #undef TARGET_ASM_INIT_SECTIONS
 #define TARGET_ASM_INIT_SECTIONS avr_asm_init_sections
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO avr_encode_section_info
 
 #undef TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST avr_register_move_cost
@@ -250,9 +250,6 @@ static const struct attribute_spec avr_attribute_table[] =
 #undef TARGET_CANNOT_MODIFY_JUMPS_P
 #define TARGET_CANNOT_MODIFY_JUMPS_P avr_cannot_modify_jumps_p
 
-#undef TARGET_HELP
-#define TARGET_HELP avr_help
-
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL avr_function_ok_for_sibcall
 
@@ -268,21 +265,9 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 static void
 avr_option_override (void)
 {
-  const struct mcu_type_s *t;
-
   flag_delete_null_pointer_checks = 0;
 
-  for (t = avr_mcu_types; t->name; t++)
-    if (strcmp (t->name, avr_mcu_name) == 0)
-      break;
-
-  if (!t->name)
-    {
-      error ("unrecognized argument to -mmcu= option: %qs", avr_mcu_name);
-      inform (input_location,  "See --target-help for supported MCUs");
-    }
-
-  avr_current_device = t;
+  avr_current_device = &avr_mcu_types[avr_mcu_index];
   avr_current_arch = &avr_arch_types[avr_current_device->arch];
   avr_extra_arch_macro = avr_current_device->macro;
 
@@ -290,42 +275,6 @@ avr_option_override (void)
   zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);
 
   init_machine_status = avr_init_machine_status;
-}
-
-/* Implement TARGET_HELP */
-/* Report extra information for --target-help */
-
-static void
-avr_help (void)
-{
-  const struct mcu_type_s *t;
-  const char * const indent = "  ";
-  int len;
-
-  /* Give a list of MCUs that are accepted by -mmcu=* .
-     Note that MCUs supported by the compiler might differ from
-     MCUs supported by binutils. */
-
-  len = strlen (indent);
-  printf ("Known MCU names:\n%s", indent);
-
-  /* Print a blank-separated list of all supported MCUs */
-
-  for (t = avr_mcu_types; t->name; t++)
-    {
-      printf ("%s ", t->name);
-      len += 1 + strlen (t->name);
-
-      /* Break long lines */
-      
-      if (len > 66 && (t+1)->name)
-        {
-          printf ("\n%s", indent);
-          len = strlen (indent);
-        }
-    }
-
-  printf ("\n\n");
 }
 
 /*  return register class from register number.  */
@@ -4949,99 +4898,6 @@ avr_asm_declare_function_name (FILE *file, const char *name, tree decl)
   ASM_OUTPUT_LABEL (file, name);
 }
 
-/* The routine used to output NUL terminated strings.  We use a special
-   version of this for most svr4 targets because doing so makes the
-   generated assembly code more compact (and thus faster to assemble)
-   as well as more readable, especially for targets like the i386
-   (where the only alternative is to output character sequences as
-   comma separated lists of numbers).  */
-
-void
-gas_output_limited_string(FILE *file, const char *str)
-{
-  const unsigned char *_limited_str = (const unsigned char *) str;
-  unsigned ch;
-  fprintf (file, "%s\"", STRING_ASM_OP);
-  for (; (ch = *_limited_str); _limited_str++)
-    {
-      int escape;
-      switch (escape = ESCAPES[ch])
-	{
-	case 0:
-	  putc (ch, file);
-	  break;
-	case 1:
-	  fprintf (file, "\\%03o", ch);
-	  break;
-	default:
-	  putc ('\\', file);
-	  putc (escape, file);
-	  break;
-	}
-    }
-  fprintf (file, "\"\n");
-}
-
-/* The routine used to output sequences of byte values.  We use a special
-   version of this for most svr4 targets because doing so makes the
-   generated assembly code more compact (and thus faster to assemble)
-   as well as more readable.  Note that if we find subparts of the
-   character sequence which end with NUL (and which are shorter than
-   STRING_LIMIT) we output those using ASM_OUTPUT_LIMITED_STRING.  */
-
-void
-gas_output_ascii(FILE *file, const char *str, size_t length)
-{
-  const unsigned char *_ascii_bytes = (const unsigned char *) str;
-  const unsigned char *limit = _ascii_bytes + length;
-  unsigned bytes_in_chunk = 0;
-  for (; _ascii_bytes < limit; _ascii_bytes++)
-    {
-      const unsigned char *p;
-      if (bytes_in_chunk >= 60)
-	{
-	  fprintf (file, "\"\n");
-	  bytes_in_chunk = 0;
-	}
-      for (p = _ascii_bytes; p < limit && *p != '\0'; p++)
-	continue;
-      if (p < limit && (p - _ascii_bytes) <= (signed)STRING_LIMIT)
-	{
-	  if (bytes_in_chunk > 0)
-	    {
-	      fprintf (file, "\"\n");
-	      bytes_in_chunk = 0;
-	    }
-	  gas_output_limited_string (file, (const char*)_ascii_bytes);
-	  _ascii_bytes = p;
-	}
-      else
-	{
-	  int escape;
-	  unsigned ch;
-	  if (bytes_in_chunk == 0)
-	    fprintf (file, "\t.ascii\t\"");
-	  switch (escape = ESCAPES[ch = *_ascii_bytes])
-	    {
-	    case 0:
-	      putc (ch, file);
-	      bytes_in_chunk++;
-	      break;
-	    case 1:
-	      fprintf (file, "\\%03o", ch);
-	      bytes_in_chunk += 4;
-	      break;
-	    default:
-	      putc ('\\', file);
-	      putc (escape, file);
-	      bytes_in_chunk += 2;
-	      break;
-	    }
-	}
-    }
-  if (bytes_in_chunk > 0)
-    fprintf (file, "\"\n");
-}
 
 /* Return value is nonzero if pseudos that have been
    assigned to registers of class CLASS would likely be spilled
@@ -5088,12 +4944,7 @@ avr_handle_progmem_attribute (tree *node, tree name,
 	}
       else if (TREE_STATIC (*node) || DECL_EXTERNAL (*node))
 	{
-	  if (DECL_INITIAL (*node) == NULL_TREE && !DECL_EXTERNAL (*node))
-	    {
-	      warning (0, "only initialized variables can be placed into "
-		       "program memory area");
-	      *no_add_attrs = true;
-	    }
+          *no_add_attrs = false;
 	}
       else
 	{
@@ -5179,7 +5030,19 @@ avr_insert_attributes (tree node, tree *attributes)
       && (TREE_STATIC (node) || DECL_EXTERNAL (node))
       && avr_progmem_p (node, *attributes))
     {
-      if (TREE_READONLY (node)) 
+      tree node0 = node;
+
+      /* For C++, we have to peel arrays in order to get correct
+         determination of readonlyness.  */
+      
+      do
+        node0 = TREE_TYPE (node0);
+      while (TREE_CODE (node0) == ARRAY_TYPE);
+
+      if (error_mark_node == node0)
+        return;
+      
+      if (TYPE_READONLY (node0))
         {
           static const char dsec[] = ".progmem.data";
 
@@ -5221,17 +5084,9 @@ avr_asm_output_aligned_decl_common (FILE * stream, const_tree decl ATTRIBUTE_UNU
   avr_need_clear_bss_p = true;
 
   if (local_p)
-    {
-      fputs ("\t.local\t", stream);
-      assemble_name (stream, name);
-      fputs ("\n", stream);
-    }
-  
-  fputs ("\t.comm\t", stream);
-  assemble_name (stream, name);
-  fprintf (stream,
-           "," HOST_WIDE_INT_PRINT_UNSIGNED ",%u\n",
-           size, align / BITS_PER_UNIT);
+    ASM_OUTPUT_ALIGNED_LOCAL (stream, name, size, align);
+  else
+    ASM_OUTPUT_ALIGNED_COMMON (stream, name, size, align);
 }
 
 
@@ -5308,7 +5163,34 @@ avr_section_type_flags (tree decl, const char *name, int reloc)
 		 ".noinit section");
     }
 
+  if (0 == strncmp (name, ".progmem.data", strlen (".progmem.data")))
+    flags &= ~SECTION_WRITE;
+  
   return flags;
+}
+
+
+/* Implement `TARGET_ENCODE_SECTION_INFO'.  */
+
+static void
+avr_encode_section_info (tree decl, rtx rtl,
+                         int new_decl_p)
+{
+  /* In avr_handle_progmem_attribute, DECL_INITIAL is not yet
+     readily available, see PR34734.  So we postpone the warning
+     about uninitialized data in program memory section until here.  */
+   
+  if (new_decl_p
+      && decl && DECL_P (decl)
+      && NULL_TREE == DECL_INITIAL (decl)
+      && avr_progmem_p (decl, DECL_ATTRIBUTES (decl)))
+    {
+      warning (OPT_Wuninitialized,
+               "uninitialized variable %q+D put into "
+               "program memory area", decl);
+    }
+
+  default_encode_section_info (decl, rtl, new_decl_p);
 }
 
 
@@ -5320,11 +5202,11 @@ static void
 avr_file_start (void)
 {
   if (avr_current_arch->asm_only)
-    error ("MCU %qs supported for assembler only", avr_mcu_name);
+    error ("MCU %qs supported for assembler only", avr_current_device->name);
 
   default_file_start ();
 
-/*  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);*/
+/*  fprintf (asm_out_file, "\t.arch %s\n", avr_current_device->name);*/
   fputs ("__SREG__ = 0x3f\n"
 	 "__SP_H__ = 0x3e\n"
 	 "__SP_L__ = 0x3d\n", asm_out_file);
@@ -6666,19 +6548,12 @@ avr_init_builtins (void)
   DEF_BUILTIN ("__builtin_avr_delay_cycles", void_ftype_ulong, 
                AVR_BUILTIN_DELAY_CYCLES);
 
-  if (AVR_HAVE_MUL)
-    {
-      /* FIXME: If !AVR_HAVE_MUL, make respective functions available
-         in libgcc. For fmul and fmuls this is straight forward with
-         upcoming fixed point support. */
-      
-      DEF_BUILTIN ("__builtin_avr_fmul", uint_ftype_uchar_uchar, 
-                   AVR_BUILTIN_FMUL);
-      DEF_BUILTIN ("__builtin_avr_fmuls", int_ftype_char_char, 
-                   AVR_BUILTIN_FMULS);
-      DEF_BUILTIN ("__builtin_avr_fmulsu", int_ftype_char_uchar, 
-                   AVR_BUILTIN_FMULSU);
-    }
+  DEF_BUILTIN ("__builtin_avr_fmul", uint_ftype_uchar_uchar, 
+               AVR_BUILTIN_FMUL);
+  DEF_BUILTIN ("__builtin_avr_fmuls", int_ftype_char_char, 
+               AVR_BUILTIN_FMULS);
+  DEF_BUILTIN ("__builtin_avr_fmulsu", int_ftype_char_uchar, 
+               AVR_BUILTIN_FMULSU);
 }
 
 #undef DEF_BUILTIN
