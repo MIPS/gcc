@@ -8972,6 +8972,11 @@ recognize.
 If you want to pass an option that takes an argument, you must use
 @option{-Xassembler} twice, once for the option and once for the argument.
 
+@item case-values-threshold
+The smallest number of different values for which it is best to use a
+jump-table instead of a tree of conditional branches.  If the value is
+0, use the default for the machine.  The default is 0.
+
 @end table
 
 @node Link Options

@@ -1,3 +1,20 @@
+2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline:
+	2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* params.def (PARAM_CASE_VALUES_THRESHOLD): New parameter to
+	override CASE_VALUES_THRESHOLD.
+
+	* stmt.c (toplevel): Include params.h.
+	(case_values_threshold): Use the --param case-values-threshold
+	value if non-zero, otherwise use machine dependent value.
+	(expand_case): Use case_values_threshold.
+
+	* Makefile.in (stmt.o): Add $(PARAMS_H) dependency.
+
+	* doc/invoke.texi (--param case-values-threshold): Document.
+
 2011-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 175762.
