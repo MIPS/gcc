@@ -384,6 +384,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "ira-int.h"
 #include "lra.h"
+#include "dce.h"
 
 struct target_ira default_target_ira;
 struct target_ira_int default_target_ira_int;
@@ -3726,6 +3727,7 @@ ira (FILE *f)
   int rebuild_p;
   int saved_flag_ira_share_spill_slots;
   basic_block bb;
+  bool need_dce = false;
 
   timevar_push (TV_IRA);
 
@@ -3947,7 +3949,7 @@ ira (FILE *f)
       df_set_flags (DF_NO_INSN_RESCAN);
       build_insn_chain ();
       
-      reload_completed = !reload (get_insns (), ira_conflicts_p);
+      need_dce = !reload (get_insns (), ira_conflicts_p);
 
       finish_subregs_of_mode ();
     }
@@ -3993,7 +3995,7 @@ ira (FILE *f)
 #endif
 
   /* The code after the reload has changed so much that at this point
-     we might as well just rescan everything.  Not that
+     we might as well just rescan everything.  Note that
      df_rescan_all_insns is not going to help here because it does not
      touch the artificial uses and defs.  */
   df_finish_pass (true);
@@ -4004,6 +4006,9 @@ ira (FILE *f)
 
   if (optimize)
     df_analyze ();
+
+  if (need_dce && optimize)
+    run_fast_dce ();
 
   timevar_pop (TV_IRA);
 }
@@ -4039,7 +4044,6 @@ struct rtl_opt_pass pass_ira =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func |
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };

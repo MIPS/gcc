@@ -3706,7 +3706,7 @@ struct rtl_opt_pass pass_peephole2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func                       /* todo_flags_finish */
+  0                                    /* todo_flags_finish */
  }
 };
 
@@ -3732,7 +3732,7 @@ struct rtl_opt_pass pass_split_all_insns =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 
@@ -3762,7 +3762,7 @@ struct rtl_opt_pass pass_split_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 
@@ -3806,7 +3806,7 @@ struct rtl_opt_pass pass_split_before_regstack =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 
@@ -3844,8 +3844,7 @@ struct rtl_opt_pass pass_split_before_sched2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_verify_flow |
-  TODO_dump_func                        /* todo_flags_finish */
+  TODO_verify_flow                      /* todo_flags_finish */
  }
 };
 
@@ -3876,6 +3875,6 @@ struct rtl_opt_pass pass_split_for_shorten_branches =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_verify_rtl_sharing /* todo_flags_finish */
+  TODO_verify_rtl_sharing               /* todo_flags_finish */
  }
 };
