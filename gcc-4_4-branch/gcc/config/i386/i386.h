@@ -59,6 +59,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_LWP	OPTION_ISA_LWP
 #define TARGET_ROUND	OPTION_ISA_ROUND
 #define TARGET_ABM	OPTION_ISA_ABM
+#define TARGET_BMI	OPTION_ISA_BMI
+#define TARGET_TBM	OPTION_ISA_TBM
 #define TARGET_POPCNT	OPTION_ISA_POPCNT
 #define TARGET_SAHF	OPTION_ISA_SAHF
 #define TARGET_MOVBE	OPTION_ISA_MOVBE
@@ -2550,6 +2552,14 @@ struct machine_function GTY(())
 /* Cost of conditional not taken branch for vectorizer cost model.  */
 #undef TARG_COND_NOT_TAKEN_BRANCH_COST
 #define TARG_COND_NOT_TAKEN_BRANCH_COST ix86_cost->cond_not_taken_branch_cost
+
+/* The value at zero is only defined for the BMI instructions
+   LZCNT and TZCNT, not the BSR/BSF insns in the original isa.  */
+#define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
+	((VALUE) = GET_MODE_BITSIZE (MODE), TARGET_BMI)
+#define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
+	((VALUE) = GET_MODE_BITSIZE (MODE), TARGET_BMI)
+
 
 /*
 Local variables:
