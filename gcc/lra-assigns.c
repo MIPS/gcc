@@ -78,8 +78,8 @@ static int
 reload_pseudo_compare_func (const void *v1p, const void *v2p)
 {
   int r1 = *(const int *) v1p, r2 = *(const int *) v2p;
-  enum reg_class cl1 = lra_get_preferred_class (r1);
-  enum reg_class cl2 = lra_get_preferred_class (r2);
+  enum reg_class cl1 = lra_get_allocno_class (r1);
+  enum reg_class cl2 = lra_get_allocno_class (r2);
   int diff;
   
   gcc_assert (r1 >= lra_constraint_new_regno_start
@@ -292,7 +292,7 @@ find_hard_regno_for (int regno, int *cost)
   bool all_p;
 
   COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
-  rclass = lra_get_preferred_class (regno);
+  rclass = lra_get_allocno_class (regno);
   curr_hard_regno_costs_check++;
   sparseset_clear (conflict_reload_pseudos);
   sparseset_clear (live_range_hard_reg_pseudos);
@@ -344,7 +344,7 @@ find_hard_regno_for (int regno, int *cost)
 	for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
 	  SET_HARD_REG_BIT (conflict_set, i);
 #endif
-      gcc_assert (rclass == lra_get_preferred_class (curr_regno));
+      gcc_assert (rclass == lra_get_allocno_class (curr_regno));
     }
   for (curr_regno = lra_reg_info[regno].first;
        curr_regno >= 0;
@@ -642,7 +642,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
   bitmap_iterator bi, bi2;
 
   gcc_assert (lra_reg_info[regno].first == regno);
-  rclass = lra_get_preferred_class (regno);
+  rclass = lra_get_allocno_class (regno);
   gcc_assert (reg_renumber[regno] < 0 && rclass != NO_REGS);
   bitmap_clear (&ignore_pseudos_bitmap);
   bitmap_clear (&best_spill_pseudos_bitmap);
@@ -737,7 +737,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	    if (reg_renumber[reload_regno] < 0
 		&& lra_reg_info[reload_regno].first == (int) reload_regno
 		&& (hard_reg_set_intersect_p
-		    (reg_class_contents[lra_get_preferred_class (reload_regno)],
+		    (reg_class_contents[lra_get_allocno_class (reload_regno)],
 		     spilled_hard_regs)))
 	      sorted_reload_pseudos[n++] = reload_regno;
 	  qsort (sorted_reload_pseudos, n, sizeof (int), pseudo_compare_func);
@@ -950,7 +950,7 @@ assign_by_spills (void)
   for (n = 0, i = lra_constraint_new_regno_start; i < max_reg_num (); i++)
     if (reg_renumber[i] < 0
 	&& lra_reg_info[i].nrefs != 0 && lra_reg_info[i].first == i
-	&& lra_get_preferred_class (i) != NO_REGS)
+	&& lra_get_allocno_class (i) != NO_REGS)
       sorted_pseudos[n++] = i;
   bitmap_initialize (&ignore_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&spill_pseudos_bitmap, &reg_obstack);
@@ -1040,7 +1040,7 @@ assign_by_spills (void)
 	 || bitmap_bit_p (&lra_inheritance_pseudos, i))
 	&& reg_renumber[i] < 0
 	&& lra_reg_info[i].nrefs != 0 && lra_reg_info[i].first == i
-	&& lra_get_preferred_class (i) != NO_REGS)
+	&& lra_get_allocno_class (i) != NO_REGS)
       sorted_pseudos[n++] = i;
   if (n != 0 && lra_dump_file != NULL)
     fprintf (lra_dump_file, "  Reassing non-reload pseudos\n");

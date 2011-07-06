@@ -443,7 +443,7 @@ lra_hard_reg_substitution (void)
       SET_REGNO (regno_reg_rtx[i], hard_regno);
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
-      if (NONDEBUG_INSN_P (insn))
+      if (INSN_P (insn))
 	{
 	  lra_insn_recog_data_t id;
 	  

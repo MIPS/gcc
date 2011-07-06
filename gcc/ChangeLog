@@ -1,3 +1,51 @@
+2011-07-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (reload_pseudo_compare_func, find_hard_regno_for):
+	Use lra_get_allocno_class instead of lra_get_preferred_class.
+	(spill_for, assign_by_spills): Ditto.
+
+	* lra-constraints.c (get_try_hard_regno, get_reg_class): Use
+	lra_get_allocno_class instead of lra_get_preferred_class.
+	(make_early_clobber_input_reload_reg, inherit_reload_reg): Ditto.
+	(inherit_in_ebb): Ditto.
+	(equivalence_change_p): New function.
+	(lra_constraints): Call equivalence_change_p for debug insns.
+
+	* lra-int.h (lra_get_preferred_class): Rename to
+	lra_get_allocno_class and return allocno class.
+	(struct lra_reg): Add comments for members insn_bitmap, nrefs, and
+	freq.
+	(lra_operand_data, lra_static_insn_data): Add comment about future
+	changes and debug insns.
+
+	* lra.c (debug_operand_data, debug_insn_static_data): New
+	initialized varaibles.
+	(free_insn_recog_data, lra_get_insn_recog_data): Add code for
+	processing debug insns.
+	(lra_update_insn_recog_data, invalidate_insn_data_regno_info): Ditto.
+	(lra_update_insn_regno_info): Ditto.
+
+	* lra-eliminations.c (lra_eliminate_regs_1): Process asm operands
+	too.
+	(eliminate_regs_in_insn): Process debug insns too.
+
+	* lra-spills.c (lra_hard_reg_substitution): Process debug insns
+	too.
+
+	* lra-equivs.c (memref_used_between_p): Process debug insns too.
+
+	* ira.c (ira_setup_eliminable_regset): Initialize dont_use_regs
+	for reload.
+
+	* reginfo.c (allocate_reg_info, resize_reg_info): Initialize
+	allocno class as GENERAL_REGS.
+
+	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Restore
+	correct constraints for movzb.
+
+	* config/i386/i386.c (ix86_register_bank): Make AX as the most
+	preferable.
+
 2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (extract_loc_address_regs): Add an argument.

@@ -27890,11 +27890,18 @@ ix86_free_from_memory (enum machine_mode mode)
 static int
 ix86_register_bank (int hard_regno)
 {
+  /* New x86-64 int registers result in bigger code size.  Discourage
+     them.  */
   if (FIRST_REX_INT_REG <= hard_regno && hard_regno <= LAST_REX_INT_REG)
-    return 1;
+    return 2;
+  /* New x86-64 SSE registers result in bigger code size.  Discourage
+     them.  */
   if (FIRST_REX_SSE_REG <= hard_regno && hard_regno <= LAST_REX_SSE_REG)
-    return 1;
-  return 0;
+    return 2;
+  /* Usage of AX register results in smaller code.  Prefer it.  */
+  if (hard_regno == 0)
+    return 0;
+  return 1;
 }
 
 /* Implement TARGET_PREFERRED_RELOAD_CLASS.

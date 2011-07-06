@@ -38,14 +38,14 @@ lra_get_regno_hard_regno (int regno)
   return reg_renumber[regno];
 }
 
-/* Return the preferred reg class of REGNO.  If it is a reload pseudo,
-   the pseudo should finally get hard register of the preferred
+/* Return the allocno reg class of REGNO.  If it is a reload pseudo,
+   the pseudo should finally get hard register of the allocno
    class.  */
 static inline enum reg_class
-lra_get_preferred_class (int regno)
+lra_get_allocno_class (int regno)
 {
   resize_reg_info ();
-  return reg_preferred_class (regno);
+  return reg_allocno_class (regno);
 }
 
 typedef struct lra_live_range *lra_live_range_t;
@@ -86,7 +86,8 @@ struct lra_copy
 /* Common info about a register.  */
 struct lra_reg
 {
-  /* Bitmap of UIDs of insns referring the reg.  */
+  /* Bitmap of UIDs of insns (including debug insns) referring the
+     reg.  */
   bitmap_head insn_bitmap;
   /* The following fields are defined only for pseudos.  */
   /* Hard registers with which the pseudo conflicts.  */
@@ -106,6 +107,8 @@ struct lra_reg
   /* True if the pseudo should not be assigned to a stack register.  */
   bool no_stack_p;
 #endif
+  /* Number of references and execution frequencies of the register in
+     *non-debug* insns.  */
   int nrefs, freq;
   int last_reload;
   /* That is for bound pseudos only.  */
@@ -126,7 +129,8 @@ struct lra_reg
 extern struct lra_reg *lra_reg_info;
 
 /* Static info about each insn operand (common for all insns with the
-   same ICODE).  */
+   same ICODE).  Warning: if the structure is changed, the initializer
+   for debug_operand_data in lra.c should be changed too.  */
 struct lra_operand_data
 {
   /* The machine description constraint string.  */
@@ -167,7 +171,9 @@ struct lra_insn_reg
 
 /* Static part (common info for insns with the same ICODE) of LRA
    internal insn info.  It exists in at most one exemplar for each
-   non-negative ICODE.  */
+   non-negative ICODE.  Warning: if the structure is changed, the
+   initializer for debug_insn_static_data in lra.c should be changed
+   too.  */
 struct lra_static_insn_data
 {
   /* Static info about each insn operand.  */
@@ -207,13 +213,14 @@ struct lra_insn_recog_data
      negative value.  */
   int *arg_hard_regs;
 #ifdef HAVE_ATTR_enabled
-  /* Alternative enabled for the insn.  */
+  /* Alternative enabled for the insn.  NULL for debug insns.  */
   bool *alternative_enabled_p;
 #endif
-  /* The alternative should be used for the insn, -1 if invalid or
-     we should try to use any alternative.  */
+  /* The alternative should be used for the insn, -1 if invalid, or we
+     should try to use any alternative, or the insn is a debug
+     insns.  */
   int used_insn_alternative;
-  struct lra_insn_reg *regs;
+  struct lra_insn_reg *regs;  /* Always NULL for a debug insn.  */
 };
 
 typedef struct lra_insn_recog_data *lra_insn_recog_data_t;

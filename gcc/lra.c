@@ -402,6 +402,37 @@ struct lra_static_insn_data *insn_code_data[CODE_FOR_nothing];
    because classes in the data can be changed.  */
 struct operand_alternative *op_alt_data[CODE_FOR_nothing];
 
+/* Debug insns are represented as a special insn with one input
+   operand which is RTL expression in var_location.  */
+
+/* The following data are used as static insn operand data for all
+   debug insns.  If structure lra_operand_data is changed, the
+   initializer should be changed too.  */
+static struct lra_operand_data debug_operand_data =
+  {
+    NULL, /* alternative.  */
+    VOIDmode, /* We are not interesting int the operand mode.  */
+    OP_IN,
+    0, 0, 0 
+  };
+
+/* The following data are used as static insn data for all debug
+   insns.  If structure lra_static_insn_data is changed, the
+   initializer should be changed too.  */
+static struct lra_static_insn_data debug_insn_static_data =
+  {
+    &debug_operand_data,
+    0,  /* Duplication operands #.  */
+    -1, /* Commutative operand #.  */
+    1,  /* Operands #.  There is only one operand which is debug RTL
+	   expression.  */
+    0,  /* Duplications #.  */
+    0,  /* Alternatives #.  We are not interesting alternatives
+	   because we does not proceed debug_insns for reloads.  */
+    NULL, /* Hard registers referenced in machine description.  */
+    NULL  /* Descriptions of operands in alternatives.  */
+  };
+
 /* Called once per compiler work to initialize some LRA data related
    to insns.  */
 static void
@@ -536,7 +567,7 @@ free_insn_recog_data (lra_insn_recog_data_t data)
   if (data->alternative_enabled_p != NULL)
     free (data->alternative_enabled_p);
 #endif
-  if (data->icode < 0)
+  if (data->icode < 0 && NONDEBUG_INSN_P (data->insn))
     {
       if (data->insn_static_data->operand_alternative != NULL)
 	free (data->insn_static_data->operand_alternative);
@@ -869,10 +900,15 @@ lra_get_insn_recog_data (rtx insn)
 		  && (INSN_CODE (insn) < 0 || data->icode == INSN_CODE (insn)));
       return data;
     }
-  icode = INSN_CODE (insn);
-  if (icode < 0)
-    /* It might be a new simple insn which is not recognized yet.  */
-    INSN_CODE (insn) = icode = recog (PATTERN (insn), insn, 0);
+  if (DEBUG_INSN_P (insn))
+    icode = -1;
+  else
+    {
+      icode = INSN_CODE (insn);
+      if (icode < 0)
+	/* It might be a new simple insn which is not recognized yet.  */
+	INSN_CODE (insn) = icode = recog (PATTERN (insn), insn, 0);
+    }
   data
     = (lra_insn_recog_data_t) xmalloc (sizeof (struct lra_insn_recog_data));
   insn_recog_data[uid] = data;
@@ -880,6 +916,18 @@ lra_get_insn_recog_data (rtx insn)
   data->used_insn_alternative = -1;
   data->icode = icode;
   data->regs = NULL;
+  if (DEBUG_INSN_P (insn))
+    {
+      data->insn_static_data = &debug_insn_static_data;
+      data->dup_loc = NULL;
+      data->arg_hard_regs = NULL;
+#ifdef HAVE_ATTR_enabled
+      data->alternative_enabled_p = NULL;
+#endif
+      data->operand_loc = (rtx **) xmalloc (sizeof (rtx *));
+      data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
+      return data;
+    }
   if (icode < 0)
     {
       int nop;
@@ -1107,6 +1155,8 @@ lra_update_insn_recog_data (rtx insn)
     return lra_get_insn_recog_data (insn);
   insn_static_data = data->insn_static_data;
   data->used_insn_alternative = -1;
+  if (DEBUG_INSN_P (insn))
+    return data;
   if (data->icode < 0)
     {
       int nop;
@@ -1516,17 +1566,19 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx insn,
 				 int freq)
 {
   int uid;
+  bool debug_p;
   unsigned int i;
   struct lra_insn_reg *ir, *next_ir;
 
   uid = INSN_UID (insn);
+  debug_p = DEBUG_INSN_P (insn);
   for (ir = data->regs; ir != NULL; ir = next_ir)
     {
       i = ir->regno;
       next_ir = ir->next;
       free_insn_reg (ir);
       bitmap_clear_bit (&lra_reg_info[i].insn_bitmap, uid);
-      if (i >= FIRST_PSEUDO_REGISTER)
+      if (i >= FIRST_PSEUDO_REGISTER && ! debug_p)
 	{
 	  lra_reg_info[i].nrefs--;
 	  lra_reg_info[i].freq -= freq;
@@ -1571,7 +1623,7 @@ lra_update_insn_regno_info (rtx insn)
   struct lra_static_insn_data *static_data;
   enum rtx_code code;
 
-  if (! NONDEBUG_INSN_P (insn))
+  if (! INSN_P (insn))
     return;
   data = lra_get_insn_recog_data (insn);
   static_data = data->insn_static_data;
@@ -1585,7 +1637,8 @@ lra_update_insn_regno_info (rtx insn)
   if ((code = GET_CODE (PATTERN (insn))) == CLOBBER || code == USE)
     add_regs_to_insn_regno_info (data, XEXP (PATTERN (insn), 0), uid,
 				 code == USE ? OP_IN : OP_OUT, false);
-  setup_insn_reg_info (data, freq);
+  if (NONDEBUG_INSN_P (insn))
+    setup_insn_reg_info (data, freq);
 }
 
 /* Return reg info of insn given by it UID.  */

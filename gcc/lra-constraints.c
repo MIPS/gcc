@@ -145,7 +145,7 @@ get_secondary_mem (enum machine_mode mode)
 static int new_regno_start;
 
 /* Return hard regno of REGNO or if it is was not assigned to a hard
-   register, use a hard register from its preferred class.  */
+   register, use a hard register from its allocno class.  */
 static int
 get_try_hard_regno (int regno)
 {
@@ -156,14 +156,14 @@ get_try_hard_regno (int regno)
     hard_regno = lra_get_regno_hard_regno (regno);
   if (hard_regno >= 0)
     return hard_regno;
-  rclass = lra_get_preferred_class (regno);
+  rclass = lra_get_allocno_class (regno);
   if (rclass == NO_REGS)
     return -1;
   return ira_class_hard_regs[rclass][0];
 }
 
 /* Return class of hard regno of REGNO or if it is was not assigned to
-   a hard register, return its preferred class but only for
+   a hard register, return its allocno class but only for
    non-inherited pseudos created on the current constraint pass.
    Otherwise, return NO_REGS.  */
 static enum reg_class
@@ -177,7 +177,7 @@ get_reg_class (int regno)
     return REGNO_REG_CLASS (hard_regno);
   if (regno >= new_regno_start
       && ! bitmap_bit_p (&lra_inheritance_pseudos, regno))
-    return lra_get_preferred_class (regno);
+    return lra_get_allocno_class (regno);
   return NO_REGS;
 }
 
@@ -2407,8 +2407,7 @@ make_early_clobber_input_reload_reg (rtx x, enum reg_class rclass,
 	/* It is not worth to check class subsets or to use class
 	   intersects because such cases are extremely rare.  */
 	&& (rclass
-	    == lra_get_preferred_class (REGNO (early_clobber_reload_regs[i]
-					       .new_reg))))
+	    == lra_get_allocno_class (REGNO (early_clobber_reload_regs[i].new_reg))))
       return early_clobber_reload_regs[i].new_reg;
   if (get_reload_reg (OP_IN, VOIDmode, x, rclass, "early clobbered", &new_reg))
     {
@@ -3118,6 +3117,36 @@ contains_pseudo_p (rtx x, bool spilled_p)
   return false;
 }
 
+/* Process all regs in *LOC and change them on equivalent
+   substitution.  Return true if any change was done.  */
+static bool
+equivalence_change_p (rtx *loc)
+{
+  rtx subst, x = *loc;
+  bool result = false;
+  enum rtx_code code = GET_CODE (x);
+  const char *fmt;
+  int i, j;
+
+  if (code == REG && (subst = get_equiv_substitution (x)) != x)
+    {
+      *loc = subst;
+      return true;
+    }
+
+  /* Scan all the operand sub-expressions.  */
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	result = equivalence_change_p (&XEXP (x, i)) || result;
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  result = equivalence_change_p (&XVECEXP (x, i, j)) || result;
+    }
+  return result;
+}
+
 /* Maximum number of constraint pass iteration number.  It is for
    preventing all LRA cycling.  */
 #define MAX_CONSTRAINT_ITERATION_NUMBER 15
@@ -3207,7 +3236,15 @@ lra_constraints (bool first_p)
 	  ("Max. number of generated reload insns per insn is achieved (%d)\n",
 	   MAX_RELOAD_INSNS_NUMBER);
       new_insns_num++;
-      if (NONDEBUG_INSN_P (curr_insn))
+      if (DEBUG_INSN_P (curr_insn))
+	{
+	  /* We need to check equivalence in debug insn and change
+	     pseudo to the equivalent value if necessary.  */
+	  curr_id = lra_get_insn_recog_data (curr_insn);
+	  if (equivalence_change_p (curr_id->operand_loc[0]))
+	    changed_p = true;
+	}
+      else if (INSN_P (curr_insn))
 	{
 	  if ((set = single_set (curr_insn)) != NULL_RTX)
 	    {
@@ -3331,7 +3368,7 @@ inherit_reload_reg (rtx reload_reg, int original_regno,
 		    rtx insn, rtx last_reload_insn)
 {
   int reload_regno = REGNO (reload_reg);
-  enum reg_class rclass = lra_get_preferred_class (reload_regno);
+  enum reg_class rclass = lra_get_allocno_class (reload_regno);
   rtx new_reg, new_insns, set, src, dst;
   basic_block bb;
 
@@ -3399,7 +3436,7 @@ inherit_in_ebb (rtx head, rtx tail)
 	}
       if (src_regno < lra_constraint_new_regno_start
 	  && dst_regno >= lra_constraint_new_regno_start
-	  && lra_get_preferred_class (dst_regno) != NO_REGS)
+	  && lra_get_allocno_class (dst_regno) != NO_REGS)
 	{
 	  /* 'reload_pseudo <- original_pseudo'.  */
 	  if (reload_insn_check[src_regno] == curr_reload_insn_check
@@ -3412,7 +3449,7 @@ inherit_in_ebb (rtx head, rtx tail)
 	}
       else if (src_regno >= lra_constraint_new_regno_start
 	       && dst_regno < lra_constraint_new_regno_start
-	       && lra_get_preferred_class (src_regno) != NO_REGS
+	       && lra_get_allocno_class (src_regno) != NO_REGS
 	       && reload_insn_check[dst_regno] == curr_reload_insn_check
 	       && (last_reload_insn = reload_insn[dst_regno]) != NULL_RTX)
 	{

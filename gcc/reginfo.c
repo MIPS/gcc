@@ -967,7 +967,7 @@ allocate_reg_info (void)
     {
       reg_pref[i].prefclass = GENERAL_REGS;
       reg_pref[i].altclass = ALL_REGS;
-      reg_pref[i].allocnoclass = NO_REGS;
+      reg_pref[i].allocnoclass = GENERAL_REGS;
     }
 }
 
@@ -1001,7 +1001,7 @@ resize_reg_info (void)
     {
       reg_pref[i].prefclass = GENERAL_REGS;
       reg_pref[i].altclass = ALL_REGS;
-      reg_pref[i].allocnoclass = NO_REGS;
+      reg_pref[i].allocnoclass = GENERAL_REGS;
     }
   return true;
 }

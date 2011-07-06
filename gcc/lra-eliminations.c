@@ -593,7 +593,6 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case CLOBBER:
-    case ASM_OPERANDS:
     case SET:
       gcc_unreachable ();
 
@@ -768,7 +767,6 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 {
   int icode = recog_memoized (insn);
   rtx old_body = PATTERN (insn);
-  int insn_is_asm = asm_noperands (old_body) >= 0;
   rtx old_set = single_set (insn);
   rtx new_body;
   bool val;
@@ -780,14 +778,13 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
   lra_insn_recog_data_t id;
   struct lra_static_insn_data *static_id;
 
-  if (! insn_is_asm && icode < 0)
+  if (icode < 0 && asm_noperands (old_body) < 0 && ! DEBUG_INSN_P (insn))
     {
       gcc_assert (GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       return;
     }
 
@@ -980,7 +977,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       substed_operand[i] = *id->operand_loc[i];
 
       /* For an asm statement, every operand is eliminable.  */
-      if (insn_is_asm || insn_data[icode].operand[i].eliminable)
+      if (icode < 0 || insn_data[icode].operand[i].eliminable)
 	{
 	  /* Check for setting a register that we know about.  */
 	  if (static_id->operand[i].type != OP_IN

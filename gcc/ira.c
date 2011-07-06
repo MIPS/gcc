@@ -1818,6 +1818,8 @@ ira_setup_eliminable_regset (void)
 
   if (flag_lra)
     lra_init_elimination (&dont_use_regs);
+  else
+    CLEAR_HARD_REG_SET (dont_use_regs);
 
   COPY_HARD_REG_SET (ira_no_alloc_regs, no_unit_alloc_regs);
   IOR_HARD_REG_SET (ira_no_alloc_regs, dont_use_regs);
