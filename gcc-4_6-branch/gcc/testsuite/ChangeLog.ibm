@@ -1,3 +1,12 @@
+2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/no-r11-1.c: New test for -mr11, -mno-r11.
+	* gcc.target/powerpc/no-r11-2.c: Ditto.
+	* gcc.target/powerpc/no-r11-3.c: Ditto.
+
 2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 175885.
