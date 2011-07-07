@@ -1,3 +1,14 @@
+2011-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_invalidate_insn_data): New prototype.
+
+	* lra.c (lra_invalidate_insn_data): Split out from ...
+	(lra_set_insn_deleted): ... here.
+
+	* lra-constraints.c (curr_insn_transform): Call
+	lra_invalidate_insn_data and return true for wrong asm insn.
+	(lra_constraints): Use dest-reg instead of SET_DEST (set).
+
 2011-07-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assigns.c (reload_pseudo_compare_func, find_hard_regno_for):

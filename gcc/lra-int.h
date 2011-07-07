@@ -252,6 +252,7 @@ extern void lra_push_insn_and_update_insn_regno_info (rtx);
 
 extern rtx lra_create_new_reg (enum machine_mode, rtx, enum reg_class,
 			       const char *);
+extern void lra_invalidate_insn_data (rtx);
 extern void lra_set_insn_deleted (rtx);
 extern void lra_delete_dead_insn (rtx);
 extern void lra_emit_add (rtx, rtx, rtx);

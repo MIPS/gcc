@@ -2760,7 +2760,8 @@ curr_insn_transform (void)
 		     "inconsistent operand constraints in an %<asm%>");
       /* Avoid further trouble with this insn.  */
       PATTERN (curr_insn) = gen_rtx_USE (VOIDmode, const0_rtx);
-      return false;
+      lra_invalidate_insn_data (curr_insn);
+      return true;
     }
 
   /* If the best alternative is with operands 1 and 2 swapped, swap
@@ -3273,7 +3274,7 @@ lra_constraints (bool first_p)
 		       && (! MEM_P (x) || MEM_READONLY_P (x)
 			   || in_list_p (curr_insn,
 					 ira_reg_equiv
-					 [REGNO (SET_DEST (set))].init_insns)))
+					 [REGNO (dest_reg)].init_insns)))
 		      || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
 			  && in_list_p (curr_insn,
 					ira_reg_equiv

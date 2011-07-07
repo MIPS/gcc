@@ -107,13 +107,20 @@ lra_create_new_reg (enum machine_mode md_mode, rtx original,
   return new_reg;
 }
 
+/* Invalidate INSN related info used by LRA.  */
+void
+lra_invalidate_insn_data (rtx insn)
+{
+  lra_invalidate_insn_regno_info (insn);
+  invalidate_insn_recog_data (INSN_UID (insn));
+}
+
 /* Mark INSN deleted and invalidate the insn related info used by
    LRA.  */
 void
 lra_set_insn_deleted (rtx insn)
 {
-  lra_invalidate_insn_regno_info (insn);
-  invalidate_insn_recog_data (INSN_UID (insn));
+  lra_invalidate_insn_data (insn);
   SET_INSN_DELETED (insn);
 }
 
