@@ -7,7 +7,7 @@
 
 	* lra-constraints.c (curr_insn_transform): Call
 	lra_invalidate_insn_data and return true for wrong asm insn.
-	(lra_constraints): Use dest-reg instead of SET_DEST (set).
+	(lra_constraints): Use dest_reg instead of SET_DEST (set).
 
 2011-07-06  Vladimir Makarov  <vmakarov@redhat.com>
 
