@@ -1,3 +1,11 @@
+2011-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgexpand.c (EMIT_ENTRY_VALUE): Remove.
+	(expand_debug_expr): Don't test it.
+	* var-tracking.c (vt_add_function_parameter): Likewise.
+	(add_cselib_value_chains): If !EMIT_ENTRY_VALUE, remove
+	ENTRY_VALUE locs from VALUE loc chains.
+
 2011-07-07  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/49660

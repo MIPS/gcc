@@ -2977,7 +2977,8 @@ add_cselib_value_chains (decl_or_value dv)
   struct elt_loc_list **l;
 
   for (l = &CSELIB_VAL_PTR (dv_as_value (dv))->locs; *l;)
-    if (GET_CODE ((*l)->loc) == ASM_OPERANDS)
+    if (GET_CODE ((*l)->loc) == ASM_OPERANDS
+	|| (!EMIT_ENTRY_VALUE && GET_CODE ((*l)->loc) == ENTRY_VALUE))
       *l = (*l)->next;
     else
       {
@@ -8561,7 +8562,7 @@ vt_add_function_parameter (tree parm)
 			 incoming);
       set_variable_part (out, incoming, dv, offset,
 			 VAR_INIT_STATUS_INITIALIZED, NULL, INSERT);
-      if (dv_is_value_p (dv) && EMIT_ENTRY_VALUE)
+      if (dv_is_value_p (dv))
 	{
 	  cselib_val *val = CSELIB_VAL_PTR (dv_as_value (dv));
 	  create_entry_value (incoming, val);

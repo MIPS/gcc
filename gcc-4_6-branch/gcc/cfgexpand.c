@@ -2387,8 +2387,6 @@ convert_debug_memory_address (enum machine_mode mode, rtx x,
   return x;
 }
 
-#define EMIT_ENTRY_VALUE 1
-
 /* Return an RTX equivalent to the value of the tree expression
    EXP.  */
 
@@ -3202,7 +3200,6 @@ expand_debug_expr (tree exp)
 		  {
 		    rtx incoming = DECL_INCOMING_RTL (SSA_NAME_VAR (exp));
 		    if (incoming
-			&& EMIT_ENTRY_VALUE
 			&& GET_MODE (incoming) != BLKmode
 			&& ((REG_P (incoming) && HARD_REGISTER_P (incoming))
 			    || (MEM_P (incoming)
