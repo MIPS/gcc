@@ -20,6 +20,6 @@ public:
 
 Gtk_Base::Gtk_Base()
 {
-  connect_to_method(this,&show);   // { dg-error "pointer to member" } invalid pmf expression
+  connect_to_method(this,&show);   // { dg-message "pointer to member" } invalid pmf expression
   connect_to_method(this,&expose); // { dg-error "pointer to member" } invalid pmf expression
 }
