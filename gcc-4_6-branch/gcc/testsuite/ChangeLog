@@ -1,3 +1,178 @@
+2011-07-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48157
+	* g++.dg/template/template-id-4.C: New.
+
+2011-07-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/sparc/cas64.c: New test.
+
+2011-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/49644
+	* g++.dg/torture/pr49644.C: New test.
+
+	PR c/49644
+	* gcc.c-torture/execute/pr49644.c: New test.
+
+	PR debug/49522
+	* gcc.dg/debug/pr49522.c: New test.
+
+	PR middle-end/49640
+	* gcc.dg/gomp/pr49640.c: New test.
+
+2011-07-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/49479
+	* gfortran.dg/reshape_zerosize_3.f90:  New test case.
+
+2011-07-05  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/arm/20031108-1.c: Require thumb1 or thumb2.
+	* gcc.target/arm/pr40482.c: Likewise.
+	* gcc.target/arm/stack-corruption.c: Likewise.
+
+	* gcc.target/arm/ctz.c: Don't specify -march, require thumb2.
+	* gcc.target/arm/pr42879.c: Likewise.
+	* gcc.target/arm/pr45701-3.c: Likewise.
+
+	* gcc.target/arm/thumb-bitfld1.c: Don't specify -march, require thumb1.
+
+	* gcc.target/arm/scd42-3.c: Allow -march-xscale; skip if -mcpu
+	is not xscale.
+
+	* lib/target-supports-dg.exp (dg-require-effective-target): Return
+	early if the test is already being skipped.
+
+	* lib/target-supports.exp (add_options_for_arm_fp16): Renamed
+	from add_options_for_arm_neon_fp16.
+	(check_effective_target_arm_fp16_ok_nocache): Renamed from
+	check_effective_target_arm_neon_fp16_ok_nocache.
+	Check -mfpu and -mfloat-abi options from current multilib.
+	Do not require neon support.
+	(check_effective_target_arm_fp16_ok): Renamed from
+	check_effecitve_target_arm_neon_fp16_ok.
+	* g++.dg/ext/arm-fp16/arm-fp16-ops-5.C: Use new names for
+	arm_neon_fp16_ok and arm_fp16.
+	* g++.dg/ext/arm-fp16/arm-fp16-ops-6.C: Likewise.
+	* gcc.dg/torture/arm-fp16-ops-5.c: Likewise.
+	* gcc.dg/torture/arm-fp16-ops-6.c: Likewise.
+	* gcc.target/arm/fp16-compile-vcvt.c: Likewise.
+
+	* lib/scandump.exp (scan-dump, scan-dump-times, scan-dump-not,
+	scan-dump-dem, scan-dump-dem-not): Treat a missing dump file as
+	unresolved and report the reason to the log file.
+
+	* lib/scanasm.exp (dg-scan, scan-assembler-times, scan-assembler-dem,
+	scan-assembler-dem-not): For missing file, report unresolved with
+	same message as for pass/fail, with reason reported in log file.
+
+2011-07-05  Jason Merrill  <jason@redhat.com>
+
+	PR testsuite/49643
+	* g++.dg/rtti/anon-ns1.C: Allow for null-termination.
+
+	* g++.dg/cpp0x/lambda/lambda-ref2.C: New.
+
+	* g++.dg/diagnostic/aka1.C: New.
+
+2011-07-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* ada/acats/run_acats (which): Extract last field from type -p,
+	type output only if command succeeded.
+
+2011-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49619
+	* gcc.dg/pr49619.c: New test.
+
+	PR rtl-optimization/49472
+	* gfortran.dg/pr49472.f90: New test.
+
+	Backported from mainline
+	2011-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/49540
+	* gfortran.dg/pr49540-1.f90: New test.
+	* gfortran.dg/pr49540-2.f90: New test.
+
+2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49615
+	* g++.dg/torture/pr49615.C: New testcase.
+
+2011-07-03  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	Backport from mainline:
+        PR libfortran/49296
+        * gfortran.dg/read_list_eof_1.f90: New test.
+
+2011-07-02  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49466
+	* gfortran.dg/allocatable_scalar_9.f90: Modified.
+	* gfortran.dg/extends_14.f03: New.
+
+2011-06-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR ada/49511
+	* ada/acats/run_acats (which): Use last field of type -p output.
+
+2011-06-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38752
+	* gcc.c-torture/compile/pr38752.c: New testcase.
+
+2011-06-29  Martin Jambor  <mjambor@suse.cz>
+	Backport from mainline
+	2011-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimizations/49516
+	* g++.dg/tree-ssa/pr49516.C: New test.
+
+2011-06-28 Changpeng Fang <changpeng.fang@amd.com>
+	Backport from mainline
+	2011-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx256-unaligned-load-1.c: New.
+	* gcc.target/i386/avx256-unaligned-load-2.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-3.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-4.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-5.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-6.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-load-7.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-1.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-3.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-4.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-5.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-6.c: Likewise.
+	* gcc.target/i386/avx256-unaligned-store-7.c: Likewise.
+
+2011-06-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt17.ad[sb]: New test.
+
+2011-06-28  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2011-04-08  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR target/48273
+	* g++.dg/opt/pr48273.C: New.
+
+2011-06-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49528
+	* g++.dg/init/ref19.C: New.
+	* g++.dg/cpp0x/constexpr-cleanup.C: New.
+
+	PR c++/49440
+	* g++.dg/rtti/anon-ns1.C: New.
+
+	PR c++/49418
+	* g++.dg/template/param3.C: New.
+
 2011-07-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49602

@@ -1,3 +1,237 @@
+2011-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/49660
+	* config/sparc/sol2.h [TARGET_64BIT_DEFAULT] (TARGET_DEFAULT): Add
+	MASK_V8PLUS, remove commented out flag and reorder.
+
+	Backport from mainline
+	2011-06-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sol2-64.h (TARGET_DEFAULT): Remove.
+	(TARGET_64BIT_DEFAULT): Define.
+	* config.gcc (sparc*-*-solaris2*): Move sparc/sol2-64.h to front
+	of tm_file.
+	* config/sparc/sol2.h [TARGET_64BIT_DEFAULT] (TARGET_DEFAULT): Define.
+
+2011-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/49644
+	* c-typeck.c (build_binary_op): For MULT_EXPR and TRUNC_DIV_EXPR with
+	one non-complex and one complex argument, call c_save_expr on both
+	operands.
+
+	PR debug/49522
+	* df-problems.c (dead_debug_reset): Remove dead_debug_uses
+	referencing debug insns that have been reset.
+	(dead_debug_insert_before): Don't assert reg is non-NULL,
+	instead return immediately if it is NULL.
+
+	PR middle-end/49640
+	* gimplify.c (gimplify_compound_lval): For last 2 ARRAY_*REF
+	operands and last COMPONENT_REF operand call gimplify_expr on it
+	if non-NULL.
+
+2011-07-06  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline.
+	2011-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/49335
+	* config/arm/predicates.md (add_operator): New.
+	* config/arm/arm.md ("*arith_shiftsi"): Fix for SP reg usage
+	in Thumb2.
+
+2011-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49618
+	* tree-eh.c (tree_could_trap_p) <case FUNCTION_DECL, case VAR_DECL>:
+	For DECL_WEAK decls return true.
+
+2011-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49619
+	* combine.c (combine_simplify_rtx): In PLUS -> IOR simplification
+	pass VOIDmode as op0_mode to recursive call.
+
+	PR rtl-optimization/49472
+	* simplify-rtx.c (simplify_unary_operation_1) <case NEG>: When
+	negating MULT, negate the second operand instead of first.
+	(simplify_binary_operation_1) <case MULT>: If one operand is
+	a NEG and the other is MULT, don't attempt to optimize by
+	negation of the MULT operand if it only moves the NEG operation
+	around.
+
+	Backported from mainline
+	2011-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/49262
+	* dwarf2out.c (native_encode_initializer): Decrement count in each
+	iteration.
+
+2011-07-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline
+	2011-07-04  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/44643
+	* config/avr/avr.c (avr_insert_attributes): Use TYPE_READONLY
+	instead of TREE_READONLY.
+
+2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49615
+	* tree-cfgcleanup.c (split_bbs_on_noreturn_calls): Fix
+	basic-block index check.
+
+2011-06-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/49572
+	* tree-ssa-dom.c (initialize_hash_element) <GIMPLE_SINGLE_RHS>: Use the
+	type of the RHS instead of that of the LHS for the expression type.
+
+2011-06-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline
+	PR target/34734
+	(avr_section_type_flags): For data in ".progmem.data", remove
+	section flag SECTION_WRITE.
+
+2011-06-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline
+	PR target/34734
+	* config/avr/avr.c (avr_handle_progmem_attribute): Move warning
+	about uninitialized data attributed 'progmem' from here...
+	(avr_encode_section_info): ...to this new function.
+	(TARGET_ENCODE_SECTION_INFO): New define.
+
+2011-06-29  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline
+	2011-06-29  Changpeng Fang  <changpeng.fang@amd.com>
+
+	* config/i386/i386.opt (mprefer-avx128): Redefine the flag as a Mask
+	option.
+	* config/i386/i386.h (ix86_tune_indices): Add X86_TUNE_AVX128_OPTIMAL
+	entry.
+	(TARGET_AVX128_OPTIMAL): New definition.
+	* config/i386/i386.c (initial_ix86_tune_features): Initialize
+	X86_TUNE_AVX128_OPTIMAL entry.
+	(ix86_option_override_internal): Enable the generation
+	of the 128-bit instructions when TARGET_AVX128_OPTIMAL is set.
+	(ix86_preferred_simd_mode): Use TARGET_PREFER_AVX128.
+	(ix86_autovectorize_vector_sizes): Use TARGET_PREFER_AVX128.
+
+2011-06-29  Harsha Jagasia <harsha.jagasia@amd.com>
+
+	Backport from mainline
+	2011-05-31  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/i386/i386.c (ix86_rtx_costs): Drop NEG from sub for FMA.
+	* config/i386/sse.md: Add n to negated FMA pattern names.
+
+2011-06-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/49539
+	* tree-ssa-forwprop.c (can_propagate_from): Check for abnormal SSA
+	names by means of stmt_references_abnormal_ssa_name.
+	(associate_plusminus): Call can_propagate_from before propagating
+	from definition statements.
+
+2011-06-29  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2011-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimizations/49516
+	* tree-sra.c (sra_modify_assign): Choose the safe path for
+	aggregate copies if we also did scalar replacements.
+
+2011-06-28  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline
+	2011-06-20  Changpeng Fang  <changpeng.fang@amd.com>
+
+	PR target/49089
+	* config/i386/i386.c (avx256_split_unaligned_load): New definition.
+	(avx256_split_unaligned_store): New definition.
+	(ix86_option_override_internal): Enable avx256 unaligned load/store
+	splitting only when avx256_split_unaligned_load/store is set.
+
+2011-06-28  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline
+	2011-03-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (flag_opts): Fix a typo in
+	-mavx256-split-unaligned-store.
+
+2011-06-28  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline
+	2011-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (*avx_mov<mode>_internal): Don't assert
+	unaligned 256bit load/store.
+	(*avx_movu<ssemodesuffix><avxmodesuffix>): Likewise.
+	(*avx_movdqu<avxmodesuffix>): Likewise.
+
+2011-06-28  Changpeng Fang  <changpeng.fang@amd.com>
+
+	Backport from mainline
+	2011-03-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (flag_opts): Add -mavx256-split-unaligned-load
+	and -mavx256-split-unaligned-store.
+	(ix86_option_override_internal): Split 32-byte AVX unaligned
+	load/store by default.
+	(ix86_avx256_split_vector_move_misalign): New.
+	(ix86_expand_vector_move_misalign): Use it.
+
+	* config/i386/i386.opt: Add -mavx256-split-unaligned-load and
+	-mavx256-split-unaligned-store.
+
+	* config/i386/sse.md (*avx_mov<mode>_internal): Verify unaligned
+	256bit load/store.  Generate unaligned store on misaligned memory
+	operand.
+	(*avx_movu<ssemodesuffix><avxmodesuffix>): Verify unaligned
+	256bit load/store.
+	(*avx_movdqu<avxmodesuffix>): Likewise.
+
+	* doc/invoke.texi: Document -mavx256-split-unaligned-load and
+	-mavx256-split-unaligned-store.
+
+2011-06-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-dom.c (initialize_hash_element): Fix oversight.
+
+2011-06-28  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-05-25  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/49014
+	* config/i386/athlon.md (athlon_ssecomi): Change type to ssecomi.
+
+2011-06-28  Alexander Monakov  <amonakov@ispras.ru>
+
+	Backport from mainline
+	2011-04-08  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR target/48273
+	* cfgloop.h (loop_has_exit_edges): New helper.
+	* sel-sched-ir.c (init_global_and_expr_for_insn): Make CALLs
+	non-clonable.
+	* sel-sched.c (sel_setup_region_sched_flags): Don't pipeline loops
+	that have no exit edges.
+
+2011-06-28  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/47997
+	* config/darwin.c (darwin_mergeable_string_section): Place string
+	constants in '.cstring' rather than '.const' when CF/NSStrings are
+	active.
+
 2011-07-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49602
