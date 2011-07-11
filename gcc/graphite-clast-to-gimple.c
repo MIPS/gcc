@@ -88,7 +88,7 @@ clast_name_to_index (clast_name_p name, htab_t index_table)
 
 #ifdef CLOOG_ORG
   gcc_assert (name->type == clast_expr_name);
-  tmp.name = ((const struct clast_name*) name)->name;
+  tmp.name = ((const struct clast_name *) name)->name;
 #else
   tmp.name = name;
 #endif
@@ -114,8 +114,7 @@ save_clast_name_index (htab_t index_table, const char *name, int index)
 
   if (slot)
     {
-      if (*slot)
-	free (*slot);
+      free (*slot);
 
       *slot = new_clast_name_index (name, index);
     }
@@ -380,72 +379,16 @@ clast_to_gcc_expression (tree type, struct clast_expr *e,
   return NULL_TREE;
 }
 
-/* Return the precision needed to represent the value VAL.  */
-
-static int
-precision_for_value (mpz_t val)
-{
-  mpz_t x, y, two;
-  int precision;
-
-  mpz_init (x);
-  mpz_init (y);
-  mpz_init (two);
-  mpz_set_si (x, 2);
-  mpz_set (y, val);
-  mpz_set_si (two, 2);
-  precision = 1;
-
-  if (mpz_sgn (y) < 0)
-    mpz_neg (y, y);
-
-  while (mpz_cmp (y, x) >= 0)
-    {
-      mpz_mul (x, x, two);
-      precision++;
-    }
-
-  mpz_clear (x);
-  mpz_clear (y);
-  mpz_clear (two);
-
-  return precision;
-}
-
-/* Return the precision needed to represent the values between LOW and
-   UP.  */
-
-static int
-precision_for_interval (mpz_t low, mpz_t up)
-{
-  mpz_t diff;
-  int precision;
-
-  gcc_assert (mpz_cmp (low, up) <= 0);
-
-  mpz_init (diff);
-  mpz_sub (diff, up, low);
-  precision = precision_for_value (diff);
-  mpz_clear (diff);
-
-  return precision;
-}
-
-/* Return a type that could represent the integer value VAL.  */
+/* Return a type that could represent the values between V1 and V2.  */
 
 static tree
-gcc_type_for_interval (mpz_t low, mpz_t up)
+gcc_type_for_interval (mpz_t v1, mpz_t v2)
 {
-  bool unsigned_p = true;
-  int precision, prec_up, prec_int;
+  bool unsigned_p;
   tree type;
   enum machine_mode mode;
-
-  gcc_assert (mpz_cmp (low, up) <= 0);
-
-  prec_up = precision_for_value (up);
-  prec_int = precision_for_interval (low, up);
-  precision = MAX (prec_up, prec_int);
+  int precision = MAX (mpz_sizeinbase (v1, 2),
+		       mpz_sizeinbase (v2, 2));
 
   if (precision > BITS_PER_WORD)
     {
@@ -453,14 +396,10 @@ gcc_type_for_interval (mpz_t low, mpz_t up)
       return integer_type_node;
     }
 
-  if (mpz_sgn (low) <= 0)
-    unsigned_p = false;
-
-  else if (precision < BITS_PER_WORD)
-    {
-      unsigned_p = false;
-      precision++;
-    }
+  if (mpz_cmp (v1, v2) <= 0)
+    unsigned_p = (mpz_sgn (v1) >= 0);
+  else
+    unsigned_p = (mpz_sgn (v2) >= 0);
 
   mode = smallest_mode_for_size (precision, MODE_INT);
   precision = GET_MODE_PRECISION (mode);
@@ -1236,7 +1175,7 @@ init_cloog_input_file (int scop_number)
 
 static void
 build_cloog_prog (scop_p scop, CloogProgram *prog,
-                  CloogOptions *options, CloogState *state ATTRIBUTE_UNUSED)
+                  CloogOptions *options)
 {
   int i;
   int max_nb_loops = scop_max_loop_depth (scop);
@@ -1249,7 +1188,7 @@ build_cloog_prog (scop_p scop, CloogProgram *prog,
 
   cloog_program_set_context
     (prog, new_Cloog_Domain_from_ppl_Pointset_Powerset (SCOP_CONTEXT (scop),
-      scop_nb_params (scop), state));
+      scop_nb_params (scop), cloog_state));
   nbs = unify_scattering_dimensions (scop);
   scaldims = (int *) xmalloc (nbs * (sizeof (int)));
   cloog_program_set_nb_scattdims (prog, nbs);
@@ -1267,16 +1206,16 @@ build_cloog_prog (scop_p scop, CloogProgram *prog,
 	continue;
 
       /* Build the new statement and its block.  */
-      stmt = cloog_statement_alloc (state, pbb_index (pbb));
+      stmt = cloog_statement_alloc (cloog_state, pbb_index (pbb));
       dom = new_Cloog_Domain_from_ppl_Pointset_Powerset (PBB_DOMAIN (pbb),
                                                          scop_nb_params (scop),
-                                                         state);
+                                                         cloog_state);
       block = cloog_block_alloc (stmt, 0, NULL, pbb_dim_iter_domain (pbb));
       cloog_statement_set_usr (stmt, pbb);
 
       /* Build loop list.  */
       {
-        CloogLoop *new_loop_list = cloog_loop_malloc (state);
+        CloogLoop *new_loop_list = cloog_loop_malloc (cloog_state);
         cloog_loop_set_next (new_loop_list, loop_list);
         cloog_loop_set_domain (new_loop_list, dom);
         cloog_loop_set_block (new_loop_list, block);
@@ -1303,7 +1242,7 @@ build_cloog_prog (scop_p scop, CloogProgram *prog,
 	scat = PBB_TRANSFORMED_SCATTERING (pbb);
         dom = new_Cloog_Scattering_from_ppl_Polyhedron
           (scat, scop_nb_params (scop), pbb_nb_scattering_transform (pbb),
-           state);
+           cloog_state);
 
         cloog_set_next_scattering (new_scattering, scattering);
         cloog_set_scattering (new_scattering, dom);
@@ -1360,9 +1299,9 @@ build_cloog_prog (scop_p scop, CloogProgram *prog,
 /* Return the options that will be used in GLOOG.  */
 
 static CloogOptions *
-set_cloog_options (CloogState *state ATTRIBUTE_UNUSED)
+set_cloog_options (void)
 {
-  CloogOptions *options = cloog_options_malloc (state);
+  CloogOptions *options = cloog_options_malloc (cloog_state);
 
   /* Change cloog output language to C.  If we do use FORTRAN instead, cloog
      will stop e.g. with "ERROR: unbounded loops not allowed in FORTRAN.", if
@@ -1411,12 +1350,10 @@ set_cloog_options (CloogState *state ATTRIBUTE_UNUSED)
 void
 print_clast_stmt (FILE *file, struct clast_stmt *stmt)
 {
-  CloogState *state = cloog_state_malloc ();
-  CloogOptions *options = set_cloog_options (state);
+  CloogOptions *options = set_cloog_options ();
 
   clast_pprint (file, stmt, 0, options);
   cloog_options_free (options);
-  cloog_state_free (state);
 }
 
 /* Prints STMT to STDERR.  */
@@ -1432,14 +1369,14 @@ debug_clast_stmt (struct clast_stmt *stmt)
    without a program.  */
 
 cloog_prog_clast
-scop_to_clast (scop_p scop, CloogState *state)
+scop_to_clast (scop_p scop)
 {
-  CloogOptions *options = set_cloog_options (state);
+  CloogOptions *options = set_cloog_options ();
   cloog_prog_clast pc;
 
   /* Connect new cloog prog generation to graphite.  */
   pc.prog = cloog_program_malloc ();
-  build_cloog_prog (scop, pc.prog, options, state);
+  build_cloog_prog (scop, pc.prog, options);
   pc.prog = cloog_program_generate (pc.prog, options);
   pc.stmt = cloog_clast_create (pc.prog, options);
 
@@ -1452,10 +1389,9 @@ scop_to_clast (scop_p scop, CloogState *state)
 void
 print_generated_program (FILE *file, scop_p scop)
 {
-  CloogState *state = cloog_state_malloc ();
-  CloogOptions *options = set_cloog_options (state);
+  CloogOptions *options = set_cloog_options ();
 
-  cloog_prog_clast pc = scop_to_clast (scop, state);
+  cloog_prog_clast pc = scop_to_clast (scop);
 
   fprintf (file, "       (prog: \n");
   cloog_program_print (file, pc.prog);
@@ -1506,13 +1442,11 @@ gloog (scop_p scop, htab_t bb_pbb_mapping)
   ifsese if_region = NULL;
   htab_t newivs_index, params_index;
   cloog_prog_clast pc;
-  CloogState *state;
 
-  state = cloog_state_malloc ();
   timevar_push (TV_GRAPHITE_CODE_GEN);
   gloog_error = false;
 
-  pc = scop_to_clast (scop, state);
+  pc = scop_to_clast (scop);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1576,8 +1510,6 @@ gloog (scop_p scop, htab_t bb_pbb_mapping)
       fprintf (dump_file, "\n%d loops carried no dependency.\n",
 	       num_no_dependency);
     }
-
-  cloog_state_free (state);
 
   return !gloog_error;
 }

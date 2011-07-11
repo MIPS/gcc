@@ -1,43 +1,27 @@
 ! { dg-do run }
+! { dg-options "-fopenmp" }
+!
+! PR fortran/47886
+!
+! Test case contributed by Bill Long
 
-  use omp_lib
-  integer :: err, e
+!  derived from OpenMP test OMP3f/F03_2_7_1d.F90
+program F03_2_7_1d
+   use omp_lib
+   implicit none
+   integer, parameter :: NT = 4
+   integer :: sum = 0
 
-!$omp parallel shared(err) private(e)
-  if (omp_in_final ()) then
-!$omp atomic write
-    err = 1
-  endif
-!$omp task if (.false.) shared(err)
-  if (omp_in_final ()) then
-!$omp atomic write
-    err = 1
-  endif
-!$omp task if (.false.) shared(err)
-  if (omp_in_final ()) then
-!$omp atomic write
-    err = 1
-  endif
-!$omp end task
-!$omp end task
-!$omp atomic read
-  e = err
-!$omp task final (e .eq. 0) shared(err)
-  if (.not.omp_in_final ()) then
-!$omp atomic write
-    err = 1
-  endif
-!$omp taskyield
-!$omp taskwait
-!$omp task shared(err)
-  if (.not.omp_in_final ()) then
-!$omp atomic write
-    err = 1
-  endif
-!$omp end task
-!$omp end task
-!$omp end parallel
-!$omp atomic read
-  e = err
-  if (e .ne. 0) call abort
-end
+   call omp_set_num_threads(NT); 
+
+   !$omp parallel
+   !$omp task if(omp_get_num_threads() > 0)
+   !$omp atomic
+      sum = sum + 1
+   !$omp end task
+   !$omp end parallel
+   if (sum /= NT) then
+      print *, "FAIL - sum == ", sum, " (expected ", NT, ")"
+      call abort
+   end if
+end program F03_2_7_1d

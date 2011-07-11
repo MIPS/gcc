@@ -1,6 +1,6 @@
 /* Standard problems for dataflow support routines.
    Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008, 2009, 2010 Free Software Foundation, Inc.
+   2008, 2009, 2010, 2011 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -906,6 +906,7 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
      blocks within infinite loops.  */
   if (!reload_completed)
     {
+      unsigned int pic_offset_table_regnum = PIC_OFFSET_TABLE_REGNUM;
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
       bitmap_set_bit (&df->hardware_regs_used, FRAME_POINTER_REGNUM);
@@ -919,9 +920,9 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
-      if ((unsigned) PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM
-	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
-	bitmap_set_bit (&df->hardware_regs_used, PIC_OFFSET_TABLE_REGNUM);
+      if (pic_offset_table_regnum != INVALID_REGNUM
+	  && fixed_regs[pic_offset_table_regnum])
+	bitmap_set_bit (&df->hardware_regs_used, pic_offset_table_regnum);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (df_lr->out_of_date_transfer_functions, 0, bb_index, bi)
@@ -3095,6 +3096,7 @@ static void
 dead_debug_reset (struct dead_debug *debug, unsigned int dregno)
 {
   struct dead_debug_use **tailp = &debug->head;
+  struct dead_debug_use **insnp = &debug->head;
   struct dead_debug_use *cur;
   rtx insn;
 
@@ -3112,9 +3114,25 @@ dead_debug_reset (struct dead_debug *debug, unsigned int dregno)
 	    debug->to_rescan = BITMAP_ALLOC (NULL);
 	  bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
 	  XDELETE (cur);
+	  /* If the current use isn't the first one attached to INSN, go back
+	     to this first use.  We assume that the uses attached to an insn
+	     are adjacent.  */                                                                       
+	  if (tailp != insnp && DF_REF_INSN ((*insnp)->use) == insn)
+	    tailp = insnp;
+	  /* Then remove all the other uses attached to INSN.  */
+	  while ((cur = *tailp) && DF_REF_INSN (cur->use) == insn)
+	    {
+	      *tailp = cur->next;
+	      XDELETE (cur);
+	    }
+	  insnp = tailp;
 	}
       else
-	tailp = &(*tailp)->next;
+	{
+	  if (DF_REF_INSN ((*insnp)->use) != DF_REF_INSN (cur->use))
+	    insnp = tailp;
+	  tailp = &(*tailp)->next;
+	}
     }
 }
 
@@ -3173,7 +3191,10 @@ dead_debug_insert_before (struct dead_debug *debug, unsigned int uregno,
 	tailp = &(*tailp)->next;
     }
 
-  gcc_assert (reg);
+  /* We may have dangling bits in debug->used for registers that were part
+     of a multi-register use, one component of which has been reset.  */
+  if (reg == NULL)
+    return;
 
   /* Create DEBUG_EXPR (and DEBUG_EXPR_DECL).  */
   dval = make_debug_expr_from_rtl (reg);
@@ -3774,12 +3795,9 @@ df_simulate_one_insn_forwards (basic_block bb, rtx insn, bitmap live)
 	  {
 	    rtx reg = XEXP (link, 0);
 	    int regno = REGNO (reg);
-	    if (regno < FIRST_PSEUDO_REGISTER)
-	      {
-		int n = hard_regno_nregs[regno][GET_MODE (reg)];
-		while (--n >= 0)
-		  bitmap_clear_bit (live, regno + n);
-	      }
+	    if (HARD_REGISTER_NUM_P (regno))
+	      bitmap_clear_range (live, regno,
+				  hard_regno_nregs[regno][GET_MODE (reg)]);
 	    else
 	      bitmap_clear_bit (live, regno);
 	  }
@@ -4004,7 +4022,10 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 	  if (bitmap_intersect_p (merge_set, test_use)
 	      || bitmap_intersect_p (merge_use, test_set))
 	    break;
-	  max_to = insn;
+#ifdef HAVE_cc0
+	  if (!sets_cc0_p (insn))
+#endif
+	    max_to = insn;
 	}
       next = NEXT_INSN (insn);
       if (insn == to)
@@ -4041,7 +4062,11 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
     {
       if (NONDEBUG_INSN_P (insn))
 	{
-	  if (!bitmap_intersect_p (test_set, local_merge_live))
+	  if (!bitmap_intersect_p (test_set, local_merge_live)
+#ifdef HAVE_cc0
+	      && !sets_cc0_p (insn)
+#endif
+	      )
 	    {
 	      max_to = insn;
 	      break;

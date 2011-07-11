@@ -230,7 +230,7 @@ c_finish_omp_flush (location_t loc)
 {
   tree x;
 
-  x = built_in_decls[BUILT_IN_SYNCHRONIZE];
+  x = built_in_decls[BUILT_IN_SYNC_SYNCHRONIZE];
   x = build_call_expr_loc (loc, x, 0);
   add_stmt (x);
 }
@@ -274,6 +274,27 @@ check_omp_for_incr_expr (location_t loc, tree exp, tree decl)
         return fold_build2_loc (loc, PLUS_EXPR,
 			    TREE_TYPE (exp), TREE_OPERAND (exp, 0), t);
       break;
+    case COMPOUND_EXPR:
+      {
+	/* cp_build_modify_expr forces preevaluation of the RHS to make
+	   sure that it is evaluated before the lvalue-rvalue conversion
+	   is applied to the LHS.  Reconstruct the original expression.  */
+	tree op0 = TREE_OPERAND (exp, 0);
+	if (TREE_CODE (op0) == TARGET_EXPR
+	    && !VOID_TYPE_P (TREE_TYPE (op0)))
+	  {
+	    tree op1 = TREE_OPERAND (exp, 1);
+	    tree temp = TARGET_EXPR_SLOT (op0);
+	    if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_binary
+		&& TREE_OPERAND (op1, 1) == temp)
+	      {
+		op1 = copy_node (op1);
+		TREE_OPERAND (op1, 1) = TARGET_EXPR_INITIAL (op0);
+		return check_omp_for_incr_expr (loc, op1, decl);
+	      }
+	  }
+	break;
+      }
     default:
       break;
     }

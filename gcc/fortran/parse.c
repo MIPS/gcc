@@ -398,8 +398,12 @@ decode_statement (void)
       match ("intrinsic", gfc_match_intrinsic, ST_ATTR_DECL);
       break;
 
+    case 'l':
+      match ("lock", gfc_match_lock, ST_LOCK);
+      break;
+
     case 'm':
-      match ("module% procedure% ", gfc_match_modproc, ST_MODULE_PROC);
+      match ("module% procedure", gfc_match_modproc, ST_MODULE_PROC);
       match ("module", gfc_match_module, ST_MODULE);
       break;
 
@@ -449,6 +453,7 @@ decode_statement (void)
       break;
 
     case 'u':
+      match ("unlock", gfc_match_unlock, ST_UNLOCK);
       match ("use", gfc_match_use, ST_USE);
       break;
 
@@ -956,7 +961,7 @@ next_statement (void)
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
   case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
   case ST_ERROR_STOP: case ST_SYNC_ALL: case ST_SYNC_IMAGES: \
-  case ST_SYNC_MEMORY
+  case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK
 
 /* Statements that mark other executable statements.  */
 
@@ -1337,6 +1342,9 @@ gfc_ascii_statement (gfc_statement st)
     case ST_INTERFACE:
       p = "INTERFACE";
       break;
+    case ST_LOCK:
+      p = "LOCK";
+      break;
     case ST_PARAMETER:
       p = "PARAMETER";
       break;
@@ -1396,6 +1404,9 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_TYPE:
       p = "TYPE";
+      break;
+    case ST_UNLOCK:
+      p = "UNLOCK";
       break;
     case ST_USE:
       p = "USE";
@@ -2117,13 +2128,15 @@ endType:
     {
       /* Look for allocatable components.  */
       if (c->attr.allocatable
-	  || (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.allocatable)
+	  || (c->ts.type == BT_CLASS && c->attr.class_ok
+	      && CLASS_DATA (c)->attr.allocatable)
 	  || (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.alloc_comp))
 	sym->attr.alloc_comp = 1;
 
       /* Look for pointer components.  */
       if (c->attr.pointer
-	  || (c->ts.type == BT_CLASS && CLASS_DATA (c)->attr.class_pointer)
+	  || (c->ts.type == BT_CLASS && c->attr.class_ok
+	      && CLASS_DATA (c)->attr.class_pointer)
 	  || (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.pointer_comp))
 	sym->attr.pointer_comp = 1;
 
@@ -2137,6 +2150,13 @@ endType:
       if (c->attr.codimension
 	  || (c->attr.coarray_comp && !c->attr.pointer && !c->attr.allocatable))
 	sym->attr.coarray_comp = 1;
+
+      /* Looking for lock_type components.  */
+      if (c->attr.lock_comp
+	  || (sym->ts.type == BT_DERIVED
+	      && c->ts.u.derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+	      && c->ts.u.derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE))
+	sym->attr.lock_comp = 1;
 
       /* Look for private components.  */
       if (sym->component_access == ACCESS_PRIVATE
@@ -2934,7 +2954,7 @@ select_type_pop (void)
 {
   gfc_select_type_stack *old = select_type_stack;
   select_type_stack = old->prev;
-  gfc_free (old);
+  free (old);
 }
 
 
@@ -3144,6 +3164,7 @@ gfc_namespace*
 gfc_build_block_ns (gfc_namespace *parent_ns)
 {
   gfc_namespace* my_ns;
+  static int numblock = 1;
 
   my_ns = gfc_get_namespace (parent_ns, 1);
   my_ns->construct_entities = 1;
@@ -3158,8 +3179,10 @@ gfc_build_block_ns (gfc_namespace *parent_ns)
   else
     {
       gfc_try t;
+      char buffer[20];  /* Enough to hold "block@2147483648\n".  */
 
-      gfc_get_symbol ("block@", my_ns, &my_ns->proc_name);
+      snprintf(buffer, sizeof(buffer), "block@%d", numblock++);
+      gfc_get_symbol (buffer, my_ns, &my_ns->proc_name);
       t = gfc_add_flavor (&my_ns->proc_name->attr, FL_LABEL,
 			  my_ns->proc_name->name, NULL);
       gcc_assert (t == SUCCESS);
@@ -3600,7 +3623,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 	      && strcmp (cp->ext.omp_name, new_st.ext.omp_name) != 0))
 	gfc_error ("Name after !$omp critical and !$omp end critical does "
 		   "not match at %C");
-      gfc_free (CONST_CAST (char *, new_st.ext.omp_name));
+      free (CONST_CAST (char *, new_st.ext.omp_name));
       break;
     case EXEC_OMP_END_SINGLE:
       cp->ext.omp_clauses->lists[OMP_LIST_COPYPRIVATE]
@@ -4215,6 +4238,10 @@ resolve_all_program_units (gfc_namespace *gfc_global_ns_list)
   gfc_current_ns = gfc_global_ns_list;
   for (; gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
     {
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	continue; /* Already resolved.  */
+
       if (gfc_current_ns->proc_name)
 	gfc_current_locus = gfc_current_ns->proc_name->declared_at;
       gfc_resolve (gfc_current_ns);
@@ -4248,15 +4275,41 @@ clean_up_modules (gfc_gsymbol *gsym)
    is active. This could be in a different order to resolution if
    there are forward references in the file.  */
 static void
-translate_all_program_units (gfc_namespace *gfc_global_ns_list)
+translate_all_program_units (gfc_namespace *gfc_global_ns_list,
+			     bool main_in_tu)
 {
   int errors;
 
   gfc_current_ns = gfc_global_ns_list;
   gfc_get_errors (NULL, &errors);
 
+  /* If the main program is in the translation unit and we have
+     -fcoarray=libs, generate the static variables.  */
+  if (gfc_option.coarray == GFC_FCOARRAY_LIB && main_in_tu)
+    gfc_init_coarray_decl (true);
+
+  /* We first translate all modules to make sure that later parts
+     of the program can use the decl. Then we translate the nonmodules.  */
+
   for (; !errors && gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
     {
+      if (!gfc_current_ns->proc_name
+	  || gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
+	continue;
+
+      gfc_current_locus = gfc_current_ns->proc_name->declared_at;
+      gfc_derived_types = gfc_current_ns->derived_types;
+      gfc_generate_module_code (gfc_current_ns);
+      gfc_current_ns->translated = 1;
+    }
+
+  gfc_current_ns = gfc_global_ns_list;
+  for (; !errors && gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
+    {
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	continue;
+
       gfc_current_locus = gfc_current_ns->proc_name->declared_at;
       gfc_derived_types = gfc_current_ns->derived_types;
       gfc_generate_code (gfc_current_ns);
@@ -4267,7 +4320,16 @@ translate_all_program_units (gfc_namespace *gfc_global_ns_list)
   gfc_current_ns = gfc_global_ns_list;
   for (;gfc_current_ns;)
     {
-      gfc_namespace *ns = gfc_current_ns->sibling;
+      gfc_namespace *ns;
+
+      if (gfc_current_ns->proc_name
+	  && gfc_current_ns->proc_name->attr.flavor == FL_MODULE)
+	{
+	  gfc_current_ns = gfc_current_ns->sibling;
+	  continue;
+	}
+
+      ns = gfc_current_ns->sibling;
       gfc_derived_types = gfc_current_ns->derived_types;
       gfc_done_2 ();
       gfc_current_ns = ns;
@@ -4399,16 +4461,18 @@ loop:
   if (s.state == COMP_MODULE)
     {
       gfc_dump_module (s.sym->name, errors_before == errors);
-      if (errors == 0)
-	gfc_generate_module_code (gfc_current_ns);
-      pop_state ();
       if (!gfc_option.flag_whole_file)
-	gfc_done_2 ();
+	{
+	  if (errors == 0)
+	    gfc_generate_module_code (gfc_current_ns);
+	  pop_state ();
+	  gfc_done_2 ();
+	}
       else
 	{
 	  gfc_current_ns->derived_types = gfc_derived_types;
 	  gfc_derived_types = NULL;
-	  gfc_current_ns = NULL;
+	  goto prog_units;
 	}
     }
   else
@@ -4453,13 +4517,15 @@ prog_units:
 	= gfc_option.dump_fortran_original ? gfc_global_ns_list : NULL;
 
   for (; gfc_current_ns; gfc_current_ns = gfc_current_ns->sibling)
-    {
-      gfc_dump_parse_tree (gfc_current_ns, stdout);
-      fputs ("------------------------------------------\n\n", stdout);
-    }
+    if (!gfc_current_ns->proc_name
+	|| gfc_current_ns->proc_name->attr.flavor != FL_MODULE)
+      {
+	gfc_dump_parse_tree (gfc_current_ns, stdout);
+	fputs ("------------------------------------------\n\n", stdout);
+      }
 
   /* Do the translation.  */
-  translate_all_program_units (gfc_global_ns_list);
+  translate_all_program_units (gfc_global_ns_list, seen_program);
 
 termination:
 

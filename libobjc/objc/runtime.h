@@ -28,23 +28,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /*
   This file declares the "modern" GNU Objective-C Runtime API.
-  Include this file to use it.
 
-  This API is replacing the "traditional" GNU Objective-C Runtime API
-  (declared in objc/objc-api.h) which is the one supported by older
-  versions of the GNU Objective-C Runtime.  The "modern" API is very
-  similar to the API used by the modern Apple/NeXT runtime.
-
-  Because the two APIs have some conflicting definitions (in
-  particular, Method and Category are defined differently) you should
-  include either objc/objc-api.h (to use the traditional GNU
-  Objective-C Runtime API) or objc/runtime.h (to use the modern GNU
-  Objective-C Runtime API), but not both.
+  This API replaced the "traditional" GNU Objective-C Runtime API
+  (which used to be declared in objc/objc-api.h) which is the one
+  supported by older versions of the GNU Objective-C Runtime.  The
+  "modern" API is very similar to the API used by the modern
+  Apple/NeXT runtime.
 */
-#ifdef __objc_api_INCLUDE_GNU
-# error You can not include both objc/objc-api.h and objc/runtime.h.  Include objc/objc-api.h for the traditional GNU Objective-C Runtime API and objc/runtime.h for the modern one.
-#endif
-
 #include "objc.h"
 #include "objc-decls.h"
 
@@ -226,14 +216,16 @@ objc_EXPORT SEL * sel_copyTypedSelectorList (const char *name,
 					     unsigned int *numberOfReturnedSelectors);
 
 /* Return a selector with name 'name' and a non-zero type encoding, if
-   any such selector is registered with the runtime.  If there is no
-   such selector, NULL is returned.  Return NULL if 'name' is NULL.
+   there is a single selector with a type, and with that name,
+   registered with the runtime.  If there is no such selector, or if
+   there are multiple selectors with the same name but conflicting
+   types, NULL is returned.  Return NULL if 'name' is NULL.
 
    This is useful if you have the name of the selector, and would
    really like to get a selector for it that includes the type
    encoding.  Unfortunately, if the program contains multiple selector
-   with the same name but different types, sel_getTypedSelector
-   returns a random one of them, which may not be the right one.
+   with the same name but different types, sel_getTypedSelector can
+   not possibly know which one you need, and so will return NULL.
 
    Compatibility Note: the Apple/NeXT runtime has untyped selectors,
    so it does not have this function, which is specific to the GNU

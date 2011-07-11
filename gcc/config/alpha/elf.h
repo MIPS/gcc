@@ -25,8 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 
 /* ??? Move all SDB stuff from alpha.h to osf.h.  */
 #undef SDB_DEBUGGING_INFO
+#undef MIPS_DEBUGGING_INFO
+#undef DBX_DEBUGGING_INFO
 
-#define DBX_DEBUGGING_INFO 1
 #define DWARF2_DEBUGGING_INFO 1
 
 #undef  PREFERRED_DEBUGGING_TYPE
@@ -397,7 +398,7 @@ do {									\
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+  "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
    %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
 
 /* Select a format to encode pointers in exception handling data.  CODE

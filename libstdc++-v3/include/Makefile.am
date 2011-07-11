@@ -58,6 +58,7 @@ std_headers = \
 	${std_srcdir}/random \
 	${std_srcdir}/ratio \
 	${std_srcdir}/regex \
+	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
@@ -79,6 +80,7 @@ bits_srcdir = ${glibcxx_srcdir}/include/bits
 bits_builddir = ./bits
 bits_headers = \
         ${bits_srcdir}/algorithmfwd.h \
+	${bits_srcdir}/alloc_traits.h \
 	${bits_srcdir}/allocator.h \
 	${bits_srcdir}/atomic_base.h \
 	${bits_srcdir}/atomic_0.h \
@@ -119,6 +121,7 @@ bits_headers = \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/postypes.h \
+	${bits_srcdir}/ptr_traits.h \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
@@ -167,6 +170,7 @@ bits_headers = \
 	${bits_srcdir}/unique_ptr.h \
 	${bits_srcdir}/unordered_map.h \
 	${bits_srcdir}/unordered_set.h \
+	${bits_srcdir}/uses_allocator.h \
 	${bits_srcdir}/valarray_array.h \
 	${bits_srcdir}/valarray_array.tcc \
 	${bits_srcdir}/valarray_before.h \
@@ -201,7 +205,7 @@ pb_subdirs = \
 	${pb_builddir}/detail/pairing_heap_ \
 	${pb_builddir}/detail/splay_tree_ \
 	${pb_builddir}/detail/list_update_map_ \
-	${pb_builddir}/detail/basic_tree_policy \
+	${pb_builddir}/detail/branch_policy \
 	${pb_builddir}/detail/trie_policy \
 	${pb_builddir}/detail/gp_hash_table_map_ \
 	${pb_builddir}/detail/tree_policy \
@@ -236,13 +240,12 @@ pb_headers1 = \
 	${pb_srcdir}/tag_and_trait.hpp \
 	${pb_srcdir}/tree_policy.hpp \
 	${pb_srcdir}/trie_policy.hpp \
-	${pb_srcdir}/detail/basic_tree_policy/basic_tree_policy_base.hpp \
-	${pb_srcdir}/detail/basic_tree_policy/null_node_metadata.hpp \
-	${pb_srcdir}/detail/basic_tree_policy/traits.hpp \
-	${pb_srcdir}/detail/basic_types.hpp \
+	${pb_srcdir}/detail/branch_policy/branch_policy.hpp \
+	${pb_srcdir}/detail/branch_policy/null_node_metadata.hpp \
+	${pb_srcdir}/detail/branch_policy/traits.hpp \
 	${pb_srcdir}/detail/binary_heap_/binary_heap_.hpp \
 	${pb_srcdir}/detail/binary_heap_/const_iterator.hpp \
-	${pb_srcdir}/detail/binary_heap_/const_point_iterator.hpp \
+	${pb_srcdir}/detail/binary_heap_/point_const_iterator.hpp \
 	${pb_srcdir}/detail/binary_heap_/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/binary_heap_/debug_fn_imps.hpp \
 	${pb_srcdir}/detail/binary_heap_/entry_cmp.hpp \
@@ -266,9 +269,7 @@ pb_headers1 = \
 	${pb_srcdir}/detail/binomial_heap_/binomial_heap_.hpp \
 	${pb_srcdir}/detail/binomial_heap_/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/binomial_heap_/debug_fn_imps.hpp \
-	${pb_srcdir}/detail/bin_search_tree_/bin_search_tree_.hpp \
-	${pb_srcdir}/detail/bin_search_tree_/cond_dtor_entry_dealtor.hpp \
-	${pb_srcdir}/detail/bin_search_tree_/cond_key_dtor_entry_dealtor.hpp
+	${pb_srcdir}/detail/bin_search_tree_/bin_search_tree_.hpp 
 
 pb_headers2 = \
 	${pb_srcdir}/detail/bin_search_tree_/constructors_destructor_fn_imps.hpp \
@@ -315,7 +316,6 @@ pb_headers2 = \
 pb_headers3 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/cond_dealtor.hpp \
-	${pb_srcdir}/detail/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/container_base_dispatch.hpp \
 	${pb_srcdir}/detail/eq_fn/eq_by_less.hpp \
 	${pb_srcdir}/detail/eq_fn/hash_eq_fn.hpp \
@@ -359,7 +359,7 @@ pb_headers4 = \
 	${pb_srcdir}/detail/hash_fn/sample_ranged_probe_fn.hpp \
 	${pb_srcdir}/detail/hash_fn/sample_range_hashing.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/const_iterator.hpp \
-	${pb_srcdir}/detail/left_child_next_sibling_heap_/const_point_iterator.hpp \
+	${pb_srcdir}/detail/left_child_next_sibling_heap_/point_const_iterator.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/debug_fn_imps.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/erase_fn_imps.hpp \
@@ -368,7 +368,6 @@ pb_headers4 = \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/iterators_fn_imps.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/left_child_next_sibling_heap_.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/node.hpp \
-	${pb_srcdir}/detail/left_child_next_sibling_heap_/null_metadata.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/policy_access_fn_imps.hpp \
 	${pb_srcdir}/detail/left_child_next_sibling_heap_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/list_update_map_/constructor_destructor_fn_imps.hpp \
@@ -381,12 +380,9 @@ pb_headers4 = \
 	${pb_srcdir}/detail/list_update_map_/iterators_fn_imps.hpp \
 	${pb_srcdir}/detail/list_update_map_/lu_map_.hpp \
 	${pb_srcdir}/detail/list_update_map_/trace_fn_imps.hpp \
-	${pb_srcdir}/detail/list_update_policy/counter_lu_metadata.hpp \
-	${pb_srcdir}/detail/list_update_policy/counter_lu_policy_imp.hpp \
-	${pb_srcdir}/detail/list_update_policy/mtf_lu_policy_imp.hpp \
+	${pb_srcdir}/detail/list_update_policy/lu_counter_metadata.hpp \
 	${pb_srcdir}/detail/list_update_policy/sample_update_policy.hpp \
 	${pb_srcdir}/detail/debug_map_base.hpp \
-	${pb_srcdir}/detail/ov_tree_map_/cond_dtor.hpp \
 	${pb_srcdir}/detail/ov_tree_map_/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/ov_tree_map_/debug_fn_imps.hpp \
 	${pb_srcdir}/detail/ov_tree_map_/erase_fn_imps.hpp \
@@ -407,30 +403,20 @@ pb_headers5 = \
 	${pb_srcdir}/detail/pairing_heap_/insert_fn_imps.hpp \
 	${pb_srcdir}/detail/pairing_heap_/pairing_heap_.hpp \
 	${pb_srcdir}/detail/pairing_heap_/split_join_fn_imps.hpp \
-	${pb_srcdir}/detail/pat_trie_/child_iterator.hpp \
-	${pb_srcdir}/detail/pat_trie_/cond_dtor_entry_dealtor.hpp \
-	${pb_srcdir}/detail/pat_trie_/const_child_iterator.hpp \
 	${pb_srcdir}/detail/pat_trie_/constructors_destructor_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/debug_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/erase_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/find_fn_imps.hpp \
-	${pb_srcdir}/detail/pat_trie_/head.hpp \
 	${pb_srcdir}/detail/pat_trie_/info_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/insert_join_fn_imps.hpp \
-	${pb_srcdir}/detail/pat_trie_/internal_node.hpp \
 	${pb_srcdir}/detail/pat_trie_/iterators_fn_imps.hpp \
-	${pb_srcdir}/detail/pat_trie_/leaf.hpp \
-	${pb_srcdir}/detail/pat_trie_/node_base.hpp \
-	${pb_srcdir}/detail/pat_trie_/node_iterators.hpp \
-	${pb_srcdir}/detail/pat_trie_/node_metadata_base.hpp \
 	${pb_srcdir}/detail/pat_trie_/pat_trie_.hpp \
-	${pb_srcdir}/detail/pat_trie_/point_iterators.hpp \
+	${pb_srcdir}/detail/pat_trie_/pat_trie_base.hpp \
 	${pb_srcdir}/detail/pat_trie_/policy_access_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/r_erase_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/rotate_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/split_fn_imps.hpp \
-	${pb_srcdir}/detail/pat_trie_/split_join_branch_bag.hpp \
-	${pb_srcdir}/detail/pat_trie_/synth_e_access_traits.hpp \
+	${pb_srcdir}/detail/pat_trie_/synth_access_traits.hpp \
 	${pb_srcdir}/detail/pat_trie_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/pat_trie_/traits.hpp \
 	${pb_srcdir}/detail/pat_trie_/update_fn_imps.hpp \
@@ -487,22 +473,20 @@ pb_headers7 = \
 	${pb_srcdir}/detail/thin_heap_/thin_heap_.hpp \
 	${pb_srcdir}/detail/thin_heap_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/tree_policy/node_metadata_selector.hpp \
-	${pb_srcdir}/detail/tree_policy/null_node_update_imp.hpp \
 	${pb_srcdir}/detail/tree_policy/order_statistics_imp.hpp \
 	${pb_srcdir}/detail/tree_policy/sample_tree_node_update.hpp \
 	${pb_srcdir}/detail/tree_trace_base.hpp \
 	${pb_srcdir}/detail/trie_policy/node_metadata_selector.hpp \
-	${pb_srcdir}/detail/trie_policy/null_node_update_imp.hpp \
 	${pb_srcdir}/detail/trie_policy/order_statistics_imp.hpp \
 	${pb_srcdir}/detail/trie_policy/prefix_search_node_update_imp.hpp \
-	${pb_srcdir}/detail/trie_policy/sample_trie_e_access_traits.hpp \
+	${pb_srcdir}/detail/trie_policy/sample_trie_access_traits.hpp \
 	${pb_srcdir}/detail/trie_policy/sample_trie_node_update.hpp \
-	${pb_srcdir}/detail/trie_policy/string_trie_e_access_traits_imp.hpp \
+	${pb_srcdir}/detail/trie_policy/trie_string_access_traits_imp.hpp \
 	${pb_srcdir}/detail/trie_policy/trie_policy_base.hpp \
 	${pb_srcdir}/detail/types_traits.hpp \
 	${pb_srcdir}/detail/type_utils.hpp \
 	${pb_srcdir}/detail/unordered_iterator/const_iterator.hpp \
-	${pb_srcdir}/detail/unordered_iterator/const_point_iterator.hpp \
+	${pb_srcdir}/detail/unordered_iterator/point_const_iterator.hpp \
 	${pb_srcdir}/detail/unordered_iterator/iterator.hpp \
 	${pb_srcdir}/detail/unordered_iterator/point_iterator.hpp
 
@@ -511,6 +495,7 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/alloc_traits.h \
 	${ext_srcdir}/atomicity.h \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
@@ -827,7 +812,6 @@ host_installdir = ${gxx_include_dir}/${host_alias}$(MULTISUBDIR)/bits
 host_headers = \
 	${host_srcdir}/ctype_base.h \
 	${host_srcdir}/ctype_inline.h \
-	${host_srcdir}/ctype_noninline.h \
 	${host_srcdir}/os_defines.h \
 	${glibcxx_srcdir}/$(ATOMIC_WORD_SRCDIR)/atomic_word.h \
 	${glibcxx_srcdir}/$(ABI_TWEAKS_SRCDIR)/cxxabi_tweaks.h \
@@ -1067,6 +1051,14 @@ stamp-namespace-version:
 	echo 0 > stamp-namespace-version
 endif
 
+if ENABLE_EXTERN_TEMPLATE
+stamp-extern-template:
+	echo 1 > stamp-extern-template
+else
+stamp-extern-template:
+	echo 0 > stamp-extern-template
+endif
+
 if ENABLE_VISIBILITY
 stamp-visibility:
 	echo 1 > stamp-visibility
@@ -1082,10 +1074,12 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 			      stamp-${host_alias} \
 			      ${toplevel_srcdir}/gcc/DATESTAMP \
 			      stamp-namespace-version \
-			      stamp-visibility
+			      stamp-visibility \
+			      stamp-extern-template
 	@date=`cat ${toplevel_srcdir}/gcc/DATESTAMP` ;\
 	ns_version=`cat stamp-namespace-version` ;\
 	visibility=`cat stamp-visibility` ;\
+	externtemplate=`cat stamp-extern-template` ;\
 	ldbl_compat='s,g,g,' ;\
 	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
@@ -1093,6 +1087,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	sed -e "s,define __GLIBCXX__,define __GLIBCXX__ $$date," \
 	-e "s,define _GLIBCXX_INLINE_VERSION, define _GLIBCXX_INLINE_VERSION $$ns_version," \
 	-e "s,define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY, define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY $$visibility," \
+	-e "s,define _GLIBCXX_EXTERN_TEMPLATE, define _GLIBCXX_EXTERN_TEMPLATE $$externtemplate," \
 	-e "$$ldbl_compat" \
             < ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \
@@ -1189,7 +1184,9 @@ endif
 install-freestanding-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}
 	$(mkinstalldirs) $(DESTDIR)${host_installdir}
-	for file in ${host_srcdir}/os_defines.h ${host_builddir}/c++config.h; do \
+	for file in ${host_srcdir}/os_defines.h ${host_builddir}/c++config.h \
+	  ${glibcxx_srcdir}/$(ABI_TWEAKS_SRCDIR)/cxxabi_tweaks.h \
+	  ${glibcxx_srcdir}/$(CPU_DEFINES_SRCDIR)/cpu_defines.h; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${std_builddir}
 	$(INSTALL_DATA) ${std_builddir}/limits $(DESTDIR)${gxx_include_dir}/${std_builddir}

@@ -1,7 +1,7 @@
 // Allocators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-// Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+// 2011 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,10 +47,6 @@
 // Define the base class to std::allocator.
 #include <bits/c++allocator.h>
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
-#include <type_traits> // For _GLIBCXX_HAS_NESTED_TYPE
-#endif
-
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -60,6 +56,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @ingroup memory
    *
    * Classes encapsulating memory operations.
+   *
+   * @{
    */
 
   template<typename _Tp>
@@ -83,10 +81,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    * @brief  The @a standard allocator, as per [20.4].
-   * @ingroup allocators
    *
-   *  Further details:
-   *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt04ch11.html
+   *  See http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt04ch11.html
+   *  for further details.
    */
   template<typename _Tp>
     class allocator: public __glibcxx_base_allocator<_Tp>
@@ -137,9 +134,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator!=(const allocator<_Tp>&, const allocator<_Tp>&)
     { return false; }
 
+  /**
+   * @}
+   */
+
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.
-  // NB: This syntax is a GNU extension.
 #if _GLIBCXX_EXTERN_TEMPLATE
   extern template class allocator<char>;
   extern template class allocator<wchar_t>;
@@ -183,58 +183,35 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
-  // A very basic implementation for now.  In general we have to wait for
-  // the availability of the infrastructure described in N2983:  we should
-  // try when either T has a move constructor which cannot throw or T is
-  // CopyContructible.
-  // NB: This code doesn't properly belong here, we should find a more
-  // suited place common to std::vector and std::deque.
-  template<typename _Tp,
-	   bool = __has_trivial_copy(typename _Tp::value_type)>
-    struct __shrink_to_fit
-    { static void _S_do_it(_Tp&) { } };
+  template<typename _Tp, bool
+    = __or_<is_copy_constructible<typename _Tp::value_type>,
+            is_nothrow_move_constructible<typename _Tp::value_type>>::value>
+    struct __shrink_to_fit_aux
+    { static bool _S_do_it(_Tp&) { return false; } };
 
   template<typename _Tp>
-    struct __shrink_to_fit<_Tp, true>
+    struct __shrink_to_fit_aux<_Tp, true>
     {
-      static void
-      _S_do_it(_Tp& __v)
+      static bool
+      _S_do_it(_Tp& __c)
       {
 	__try
-	  { _Tp(__v).swap(__v); }
-	__catch(...) { }
+	  {
+	    _Tp(__make_move_if_noexcept_iterator(__c.begin()),
+		__make_move_if_noexcept_iterator(__c.end())).swap(__c);
+	    return true;
+	  }
+	__catch(...)
+	  { return false; }
       }
     };
 
-
-  /// [allocator.tag]
-  struct allocator_arg_t { };
-
-  constexpr allocator_arg_t allocator_arg = allocator_arg_t();
-
-_GLIBCXX_HAS_NESTED_TYPE(allocator_type)
-
-  template<typename _Tp, typename _Alloc,
-	   bool = __has_allocator_type<_Tp>::value>
-    struct __uses_allocator_helper
-    : public false_type { };
-
-  template<typename _Tp, typename _Alloc>
-    struct __uses_allocator_helper<_Tp, _Alloc, true>
-    : public integral_constant<bool, is_convertible<_Alloc,
-				     typename _Tp::allocator_type>::value>
-    { };
-
-  /// [allocator.uses.trait]
-  template<typename _Tp, typename _Alloc>
-    struct uses_allocator
-    : public integral_constant<bool,
-			       __uses_allocator_helper<_Tp, _Alloc>::value>
-    { };
-
+  // Declare uses_allocator so it can be specialized in <queue> etc.
+  template<typename, typename>
+    struct uses_allocator;
 #endif
 
 _GLIBCXX_END_NAMESPACE_VERSION
-} // namespace
+} // namespace std
 
 #endif
