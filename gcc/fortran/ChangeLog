@@ -1,3 +1,8 @@
+2011-07-11  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.c (OMP_LIB): Updated openmp_version's
+	value to 201107.
+
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* cpp.c (cpp_define_builtins): Change _OPENMP to 201107.
