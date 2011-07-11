@@ -1,3 +1,7 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP to 201107.
+
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_finish_omp_taskyield): New function.

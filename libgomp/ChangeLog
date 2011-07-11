@@ -1,3 +1,8 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp_lib.f90.in (openmp_version): Change to 201107.
+	* omp_lib.h.in (openmp_version): Likewise.
+
 2011-05-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* task.c (omp_in_final): Don't return true if not final_task.

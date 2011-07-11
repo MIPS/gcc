@@ -1,3 +1,7 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* cpp.c (cpp_define_builtins): Change _OPENMP to 201107.
+
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* openmp.c (gfc_free_omp_clauses): Free also final_expr.
