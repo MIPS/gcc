@@ -1,5 +1,13 @@
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
+	Revert
+	2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_predetermined_sharing): Don't return
+	OMP_CLAUSE_DEFAULT_SHARED for TREE_READONLY decls.
+
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
 	* c-cppbuiltin.c (c_cpp_builtins): Change _OPENMP to 201107.
 
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>

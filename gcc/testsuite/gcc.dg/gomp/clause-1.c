@@ -80,15 +80,15 @@ foo (int x)
     ;
 #pragma omp p reduction (*:t) /* { dg-error "predetermined 'threadprivate" } */
     ;
-#pragma omp p shared (c)
+#pragma omp p shared (c) /* { dg-error "predetermined 'shared'" } */
     ;
-#pragma omp p private (c) /* { dg-error "cannot appear in 'private'" } */
+#pragma omp p private (c) /* { dg-error "predetermined 'shared'" } */
     ;
 #pragma omp p firstprivate (c)
     ;
-#pragma omp p for lastprivate (c) /* { dg-error "cannot appear in 'lastprivate'" } */
+#pragma omp p for lastprivate (c) /* { dg-error "predetermined 'shared'" } */
   for (i = 0; i < 10; i++)
     ;
-#pragma omp p reduction (*:c) /* { dg-error "cannot appear in 'reduction'" } */
+#pragma omp p reduction (*:c) /* { dg-error "predetermined 'shared'" } */
     ;
 }

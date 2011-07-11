@@ -15,17 +15,17 @@ const A foo (const A d, const C e)
   const A f;
   const B b = { 4 };
   A g;
-  #pragma omp parallel private (a)	// { dg-error "cannot appear in 'private'" }
+  #pragma omp parallel private (a)	// { dg-error "predetermined" }
     bar (&a);
-  #pragma omp parallel private (b)	// { dg-error "cannot appear in 'private'" }
+  #pragma omp parallel private (b)	// { dg-error "predetermined" }
     bar (&b);
   #pragma omp parallel private (c)
     bar (&c);
-  #pragma omp parallel private (d)	// { dg-error "cannot appear in 'private'" }
+  #pragma omp parallel private (d)	// { dg-error "predetermined" }
     bar (&d);
   #pragma omp parallel private (e)
     bar (&e);
-  #pragma omp parallel private (f)	// { dg-error "cannot appear in 'private'" }
+  #pragma omp parallel private (f)	// { dg-error "predetermined" }
     bar (&f);
   #pragma omp parallel private (g)
     bar (&g);

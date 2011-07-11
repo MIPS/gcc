@@ -1372,6 +1372,8 @@ cxx_omp_privatize_by_reference (const_tree decl)
 enum omp_clause_default_kind
 cxx_omp_predetermined_sharing (tree decl)
 {
+  tree type;
+
   /* Static data members are predetermined as shared.  */
   if (TREE_STATIC (decl))
     {
@@ -1379,6 +1381,41 @@ cxx_omp_predetermined_sharing (tree decl)
       if (TYPE_P (ctx) && MAYBE_CLASS_TYPE_P (ctx))
 	return OMP_CLAUSE_DEFAULT_SHARED;
     }
+
+  type = TREE_TYPE (decl);
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      if (!is_invisiref_parm (decl))
+	return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+      type = TREE_TYPE (type);
+
+      if (TREE_CODE (decl) == RESULT_DECL && DECL_NAME (decl))
+	{
+	  /* NVR doesn't preserve const qualification of the
+	     variable's type.  */
+	  tree outer = outer_curly_brace_block (current_function_decl);
+	  tree var;
+
+	  if (outer)
+	    for (var = BLOCK_VARS (outer); var; var = DECL_CHAIN (var))
+	      if (DECL_NAME (decl) == DECL_NAME (var)
+		  && (TYPE_MAIN_VARIANT (type)
+		      == TYPE_MAIN_VARIANT (TREE_TYPE (var))))
+		{
+		  if (TYPE_READONLY (TREE_TYPE (var)))
+		    type = TREE_TYPE (var);
+		  break;
+		}
+	}
+    }
+
+  if (type == error_mark_node)
+    return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
+
+  /* Variables with const-qualified type having no mutable member
+     are predetermined shared.  */
+  if (TYPE_READONLY (type) && !cp_has_mutable_p (type))
+    return OMP_CLAUSE_DEFAULT_SHARED;
 
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
 }

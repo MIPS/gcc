@@ -1,3 +1,20 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/private-1.C: Adjust for expected wording of error
+	messages.
+
+	Revert
+	2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/appendix-a/a.24.1.c: Adjust for const-qualified
+	decls having no mutable members no longer being predetermined
+	shared.
+	* gcc.dg/gomp/sharing-1.c: Likewise.
+	* gcc.dg/gomp/clause-1.c: Likewise.
+	* g++.dg/gomp/sharing-1.C: Likewise.
+	* g++.dg/gomp/clause-3.C: Likewise.
+	* g++.dg/gomp/predetermined-1.C: Likewise.
+
 2011-04-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/omp_atomic2.f90: New test.

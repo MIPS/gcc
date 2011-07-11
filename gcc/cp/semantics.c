@@ -3966,7 +3966,6 @@ finish_omp_clauses (tree clauses)
       bool need_copy_ctor = false;
       bool need_copy_assignment = false;
       bool need_implicitly_determined = false;
-      bool no_const = false;
       tree type, inner_type;
 
       switch (c_kind)
@@ -3980,7 +3979,6 @@ finish_omp_clauses (tree clauses)
 	  need_complete_non_reference = true;
 	  need_default_ctor = true;
 	  need_implicitly_determined = true;
-	  no_const = true;
 	  break;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  name = "firstprivate";
@@ -3993,12 +3991,10 @@ finish_omp_clauses (tree clauses)
 	  need_complete_non_reference = true;
 	  need_copy_assignment = true;
 	  need_implicitly_determined = true;
-	  no_const = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
 	  name = "reduction";
 	  need_implicitly_determined = true;
-	  no_const = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  name = "copyprivate";
@@ -4089,6 +4085,13 @@ finish_omp_clauses (tree clauses)
 	    case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 	      break;
 	    case OMP_CLAUSE_DEFAULT_SHARED:
+	      /* const vars may be specified in firstprivate clause,
+		 but don't allow static data members.  */
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		  && (!TREE_STATIC (t)
+		      || !TYPE_P (CP_DECL_CONTEXT (t))
+		      || !MAYBE_CLASS_TYPE_P (CP_DECL_CONTEXT (t))))
+		break;
 	      share_name = "shared";
 	      break;
 	    case OMP_CLAUSE_DEFAULT_PRIVATE:
@@ -4102,23 +4105,6 @@ finish_omp_clauses (tree clauses)
 	      error ("%qE is predetermined %qs for %qs",
 		     t, share_name, name);
 	      remove = true;
-	    }
-	  else if (no_const)
-	    {
-	      type = TREE_TYPE (t);
-	      if (type != error_mark_node
-		  && TYPE_READONLY (type)
-		  && (c_kind == OMP_CLAUSE_REDUCTION
-		      || !cp_has_mutable_p (type)))
-		{
-		  if (c_kind == OMP_CLAUSE_REDUCTION)
-		    error ("const-qualified %qE cannot appear in "
-			   "%<reduction%> clause", t);
-		  else
-		    error ("const-qualified %qE with no mutable member "
-			   "cannot appear in %qs clause", t, name);
-		  remove = true;
-		}
 	    }
 	}
 

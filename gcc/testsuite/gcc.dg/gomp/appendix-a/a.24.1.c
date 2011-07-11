@@ -17,7 +17,7 @@ a24 (int a)
     /* O.K.  -  a is listed in private clause */
     /*       -  z is listed in shared clause */
     x = c;			/* O.K.  -  x is threadprivate */
-    /* { dg-error "'c' not specified" "" { target *-*-* } 19 } */
+    				/*       -  c has const-qualified type */
     z[i] = y;
     /* { dg-error "'i' not specified" "" { target *-*-* } 21 } */
     /* { dg-error "enclosing parallel" "" { target *-*-* } 13 } */

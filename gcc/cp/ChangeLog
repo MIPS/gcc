@@ -1,3 +1,19 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Don't complain about
+	const qualified predetermined vars in firstprivate clause,
+	unless it is a static data member.
+
+	Revert
+	2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-gimplify.c (cxx_omp_predetermined_sharing): Don't return
+	OMP_CLAUSE_DEFAULT_SHARED for decls with TYPE_READONLY
+	type having no mutable member.
+	* semantics.c (finish_omp_clauses): Complain about
+	TREE_READONLY decls with no mutable member in private,
+	lastprivate and reduction clauses.
+
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_FINAL and

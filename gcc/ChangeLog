@@ -1,3 +1,15 @@
+2011-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Don't complain about
+	const qualified predetermined vars in firstprivate clause.
+
+	Revert
+	2011-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Complain about
+	TREE_READONLY decls in private, lastprivate and reduction
+	clauses.
+
 2011-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE_FINAL
