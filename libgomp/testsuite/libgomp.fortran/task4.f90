@@ -3,6 +3,8 @@
   use omp_lib
   integer :: err, e
 
+!$omp atomic write
+  err = 0
 !$omp parallel shared(err) private(e)
   if (omp_in_final ()) then
 !$omp atomic write

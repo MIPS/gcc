@@ -5120,8 +5120,8 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
 	 are not reversible.  */
       if (direct_optab_handler (oldoptab, TYPE_MODE (itype))
 	  == CODE_FOR_nothing
-	  && (oldbase == BUILT_IN_FETCH_AND_AND_N
-	      || oldbase == BUILT_IN_FETCH_AND_OR_N
+	  && (oldbase == BUILT_IN_SYNC_FETCH_AND_AND_N
+	      || oldbase == BUILT_IN_SYNC_FETCH_AND_OR_N
 	      || direct_optab_handler (newoptab, TYPE_MODE (itype))
 		 == CODE_FOR_nothing))
 	return false;
