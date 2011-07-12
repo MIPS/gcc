@@ -1,5 +1,7 @@
 2011-07-12  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.fortran/allocatable8.f90: New test.
+
 	* testsuite/libgomp.c/atomic-11.c: Add new tests.
 	* testsuite/libgomp.c/atomic-12.c: Likewise.
 	* testsuite/libgomp.c++/atomic-2.C: Likewise.
