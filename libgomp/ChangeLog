@@ -1,3 +1,12 @@
+2011-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/atomic-11.c: Add new tests.
+	* testsuite/libgomp.c/atomic-12.c: Likewise.
+	* testsuite/libgomp.c++/atomic-2.C: Likewise.
+	* testsuite/libgomp.c++/atomic-3.C: Likewise.
+	* testsuite/libgomp.c++/atomic-4.C: Likewise.
+	* testsuite/libgomp.c++/atomic-5.C: Likewise.
+
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp_lib.f90.in (openmp_version): Change to 201107.

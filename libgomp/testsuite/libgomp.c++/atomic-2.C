@@ -60,6 +60,50 @@ main (void)
     v = x;
   if (v != 62)
     abort ();
+  #pragma omp atomic capture
+    { v = x; x++; }
+  if (v != 62)
+    abort ();
+  #pragma omp atomic capture
+    { v = x; ++x; }
+  if (v != 63)
+    abort ();
+  #pragma omp atomic capture
+    {
+      ++x;
+      v = x;
+    }
+  if (v != 65)
+    abort ();
+#pragma omp atomic capture
+{x++;v=x;}if (v != 66)
+    abort ();
+  #pragma omp atomic read
+    v = x;
+  if (v != 66)
+    abort ();
+  #pragma omp atomic capture
+    { v = x; x--; }
+  if (v != 66)
+    abort ();
+  #pragma omp atomic capture
+    { v = x; --x; }
+  if (v != 65)
+    abort ();
+  #pragma omp atomic capture
+    {
+      --x;
+      v = x;
+    }
+  if (v != 63)
+    abort ();
+  #pragma omp atomic capture
+  { x--; v = x; } if (v != 62)
+    abort ();
+  #pragma omp atomic read
+    v = x;
+  if (v != 62)
+    abort ();
   #pragma omp atomic write
     y = 17.5f;
   #pragma omp atomic read

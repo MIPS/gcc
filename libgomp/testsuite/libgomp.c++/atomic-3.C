@@ -4,7 +4,7 @@ extern "C" void abort (void);
 bool v, x1, x2, x3, x4, x5, x6;
 
 void
-foo (void)
+foo ()
 {
   #pragma omp atomic capture
   v = ++x1;
@@ -32,6 +32,35 @@ foo (void)
     abort ();
 }
 
+void
+bar ()
+{
+  #pragma omp atomic write
+  x1 = false;
+  #pragma omp atomic write
+  x2 = false;
+  #pragma omp atomic capture
+  { ++x1; v = x1; }
+  if (!v)
+    abort ();
+  #pragma omp atomic capture
+  { v = x2; x2++; }
+  if (v)
+    abort ();
+  #pragma omp atomic write
+  x1 = false;
+  #pragma omp atomic write
+  x2 = false;
+  #pragma omp atomic capture
+  { x1++; v = x1; }
+  if (!v)
+    abort ();
+  #pragma omp atomic capture
+  { v = x2; ++x2; }
+  if (v)
+    abort ();
+}
+
 int
 main ()
 {
@@ -40,5 +69,6 @@ main ()
   #pragma omp atomic write
   x4 = true;
   foo ();
+  bar ();
   return 0;
 }

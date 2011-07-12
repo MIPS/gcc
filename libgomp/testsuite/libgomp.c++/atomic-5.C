@@ -4,7 +4,7 @@ extern "C" void abort (void);
 
 template <typename T>
 void
-foo (void)
+foo ()
 {
   extern T v, x1, x2, x3, x4, x5, x6;
   #pragma omp atomic capture
@@ -33,6 +33,37 @@ foo (void)
     abort ();
 }
 
+template <typename T>
+void
+bar ()
+{
+  extern T v, x1, x2;
+  #pragma omp atomic write
+  x1 = false;
+  #pragma omp atomic write
+  x2 = false;
+  #pragma omp atomic capture
+  { ++x1; v = x1; }
+  if (!v)
+    abort ();
+  #pragma omp atomic capture
+  { v = x2; x2++; }
+  if (v)
+    abort ();
+  #pragma omp atomic write
+  x1 = false;
+  #pragma omp atomic write
+  x2 = false;
+  #pragma omp atomic capture
+  { x1++; v = x1; }
+  if (!v)
+    abort ();
+  #pragma omp atomic capture
+  { v = x2; ++x2; }
+  if (v)
+    abort ();
+}
+
 bool v, x1, x2, x3, x4, x5, x6;
 
 int
@@ -43,5 +74,6 @@ main ()
   #pragma omp atomic write
   x4 = true;
   foo <bool> ();
+  bar <bool> ();
   return 0;
 }

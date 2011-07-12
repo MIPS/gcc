@@ -9157,7 +9157,7 @@ c_parser_omp_structured_block (c_parser *parser)
    capture-stmt:
      v = x binop= expr | v = x++ | v = ++x | v = x-- | v = --x
    capture-block:
-     { v = x; x binop= expr; } | { x binop= expr; v = x; }
+     { v = x; expression-stmt; } | { expression-stmt; v = x; }
 
   where x and v are lvalue expressions with scalar type.
 
@@ -9253,7 +9253,7 @@ restart:
       return;
 
     case POSTINCREMENT_EXPR:
-      if (code == OMP_ATOMIC_CAPTURE_NEW)
+      if (code == OMP_ATOMIC_CAPTURE_NEW && !structured_block)
 	code = OMP_ATOMIC_CAPTURE_OLD;
       /* FALLTHROUGH */
     case PREINCREMENT_EXPR:
@@ -9263,7 +9263,7 @@ restart:
       break;
 
     case POSTDECREMENT_EXPR:
-      if (code == OMP_ATOMIC_CAPTURE_NEW)
+      if (code == OMP_ATOMIC_CAPTURE_NEW && !structured_block)
 	code = OMP_ATOMIC_CAPTURE_OLD;
       /* FALLTHROUGH */
     case PREDECREMENT_EXPR:
@@ -9295,6 +9295,7 @@ restart:
 	      lhs = TREE_OPERAND (lhs, 0);
 	      opcode = NOP_EXPR;
 	      if (code == OMP_ATOMIC_CAPTURE_NEW
+		  && !structured_block
 		  && TREE_CODE (orig_lhs) == COMPOUND_EXPR)
 		code = OMP_ATOMIC_CAPTURE_OLD;
 	      break;
@@ -9308,6 +9309,7 @@ restart:
 	      lhs = TREE_OPERAND (lhs, 0);
 	      opcode = NOP_EXPR;
 	      if (code == OMP_ATOMIC_CAPTURE_NEW
+		  && !structured_block
 		  && TREE_CODE (orig_lhs) == COMPOUND_EXPR)
 		code = OMP_ATOMIC_CAPTURE_OLD;
 	      break;
