@@ -2942,7 +2942,7 @@ finish_id_expression (tree id_expression,
 	  tree containing_function = current_function_decl;
 	  tree lambda_stack = NULL_TREE;
 	  tree lambda_expr = NULL_TREE;
-	  tree initializer = decl;
+	  tree initializer = convert_from_reference (decl);
 
 	  /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
 	     support for an approach in which a reference to a local
@@ -3633,7 +3633,10 @@ expand_or_defer_fn_1 (tree fn)
 	   && !DECL_REALLY_EXTERN (fn))
 	  || (flag_keep_inline_dllexport
 	      && lookup_attribute ("dllexport", DECL_ATTRIBUTES (fn))))
-	mark_needed (fn);
+	{
+	  mark_needed (fn);
+	  DECL_EXTERNAL (fn) = 0;
+	}
     }
 
   /* There's no reason to do any of the work here if we're only doing
@@ -8805,6 +8808,9 @@ maybe_add_lambda_conv_op (tree type)
   if (LAMBDA_EXPR_CAPTURE_LIST (CLASSTYPE_LAMBDA_EXPR (type)) != NULL_TREE)
     return;
 
+  if (processing_template_decl)
+    return;
+
   stattype = build_function_type (TREE_TYPE (TREE_TYPE (callop)),
 				  FUNCTION_ARG_CHAIN (callop));
 
@@ -8877,14 +8883,8 @@ maybe_add_lambda_conv_op (tree type)
   if (DECL_ONE_ONLY (statfn))
     {
       /* Put the thunk in the same comdat group as the call op.  */
-      struct cgraph_node *callop_node, *thunk_node;
-      DECL_COMDAT_GROUP (statfn) = cxx_comdat_group (callop);
-      callop_node = cgraph_get_create_node (callop);
-      thunk_node = cgraph_get_create_node (statfn);
-      gcc_assert (callop_node->same_comdat_group == NULL);
-      gcc_assert (thunk_node->same_comdat_group == NULL);
-      callop_node->same_comdat_group = thunk_node;
-      thunk_node->same_comdat_group = callop_node;
+      cgraph_add_to_same_comdat_group (cgraph_get_create_node (statfn),
+				       cgraph_get_create_node (callop));
     }
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
