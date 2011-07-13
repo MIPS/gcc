@@ -1,3 +1,127 @@
+2011-07-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cse.c (insert_with_costs): Put semi-colon after empty loop body
+	on the next line.
+	* emit-rtl.c (push_to_sequence): Likewise.
+	* haifa-sched.c (max_issue): Likewise.
+	* matrix-reorg.c (add_allocation_site): Likewise.
+	* postreload-gcse.c (eliminate_partially_redundant_load): Likewise.
+	* reload.c (alternative_allows_const_pool_ref): Likewise.
+	* sched-rgn.c (rgn_add_block): Likewise.
+	(rgn_fix_recovery_cfg): Likewise.
+	* tree.c (attribute_list_contained): Likewise.
+
+2011-07-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c: Tidy processor feature bitmasks.
+	(m_P4_NOCONA): New.
+
+2011-07-12  Andrew Pinski  <pinskia@gmail.com>
+
+	PR rtl-opt/49474
+	* cprop.c (find_implicit_sets): Correct the condition.
+
+2011-07-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/49713
+	* dwarf2out.h (dwarf_frame_regnum): Remove.
+	* dwarf2out.c (based_loc_descr): Revert last change.  Initialize regno
+	earlier from DWARF_FRAME_REGNUM.  Never use dbx_reg_number.
+	* dwarf2cfi.c (dw_stack_pointer_regnum, dw_frame_pointer_regnum): New.
+	(execute_dwarf2_frame): Initialize them.
+	(DW_STACK_POINTER_REGNUM, DW_FRAME_POINTER_REGNUM): Remove; replace
+	users of the macros with the variables.
+	(expand_builtin_dwarf_sp_column): Revert last change.
+	(expand_builtin_init_dwarf_reg_sizes): Likewise.  Compute the
+	result of DWARF_FRAME_REGNUM into a local variable.
+
+2011-07-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/49714
+	* config/i386/i386.c (x86_output_mi_thunk): Use
+	machopic_indirect_call_target instead of machopic_indirection_name
+	directly.
+
+2011-07-12  Laurent GUERBY  <laurent@guerby.net>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* prefix.h: Wrap up in extern "C" block.
+
+2011-07-12  Harsha Jagasia  <harsha.jagasia@amd.com>
+
+	AMD bdver2 Enablement
+	* config.gcc (i[34567]86-*-linux* | ...): Add bdver2.
+	(case ${target}): Add bdver2.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Let
+	-march=native recognize bdver2 processors.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Add
+	bdver2 def_and_undef
+	* config/i386/i386.c (struct processor_costs bdver2_cost): New
+	bdver2 cost table.
+	(m_BDVER2): New definition.
+	(m_AMD_MULTIPLE): Includes m_BDVER2.
+	(initial_ix86_tune_features): Add bdver2 tuning.
+	(processor_target_table): Add bdver2 entry.
+	(static const char *const cpu_names): Add bdver2 entry.
+	(ix86_option_override_internal): Add bdver2 instruction sets.
+	(ix86_issue_rate): Add bdver2.
+	(ix86_adjust_cost): Add bdver2.
+	(has_dispatch): Add bdver2.
+	* config/i386/i386.h (TARGET_BDVER2): New definition.
+	(enum target_cpu_default): Add TARGET_CPU_DEFAULT_bdver2.
+	(enum processor_type): Add PROCESSOR_BDVER2.
+	* config/i386/i386.md (define_attr "cpu"): Add bdver2.
+	* config/i386/i386.opt ( mdispatch-scheduler): Add bdver2 to
+	description.
+
+2011-07-12  Richard Henderson  <rth@redhat.com>
+
+	PR target/49714
+	* config/i386/i386.c (x86_output_mi_thunk): Fix mode for
+	destination address in memory on some paths.
+
+2011-07-12  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* doc/tm.texi.in (FUNCTION_ARG_PADDING): Mention
+	TARGET_FUNCTION_ARG_ROUND_BOUNDARY.
+	(TARGET_FUNCTION_ARG_ROUND_BOUNDARY): Add hook.
+	* function.c (locate_and_pad_parm): Take it into account.
+	* target.def (function_arg_round_boundary): New hook.
+	* targhooks.c (default_function_arg_round_boundary): New function.
+	* targhooks.h (default_function_arg_round_boundary): Declare.
+	* doc/tm.texi: Regenerate.
+
+2011-07-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-copyrename.c (rename_ssa_copies): Zero statistics.
+	Do not perform no-op changes.
+
+2011-07-12  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* config/arm/predicates.md (neon_struct_operand): Make a normal
+	predicate.
+	(neon_struct_or_register_operand): New predicate.
+	* config/arm/neon.md (movmisalign<mode>): Replace predicates
+	with neon_struct_or_register_operand.
+	(*movmisalign<mode>_neon_store, *movmisalign<mode>_neon_load): Use
+	neon_struct_operand instead of memory_operand.
+
+2011-07-12  Martin Jambor  <mjambor@suse.cz>
+
+	* cgraph.h (cgraph_get_node_or_alias): Removed declaration.
+	* cgraph.c (cgraph_get_node_or_alias): Removed.
+	(change_decl_assembler_name): Changed all calls to
+	cgraph_get_node_or_alias to a call to cgraph_get_node.
+	(cgraph_make_decl_local): Likewise.
+	* lto-symtab.c (lto_symtab_resolve_symbols): Likewise.
+	* varasm.c (default_binds_local_p_1): Likewise.
+	(decl_binds_to_current_def_p): Likewise.
+
+2011-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49712
+	* tree-ssa-loop-im.c (gen_lsm_tmp_name): Handle TARGET_MEM_REF.
+
 2011-07-11  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* genautomata.c (add_arc): Return void.  All callers changed.
