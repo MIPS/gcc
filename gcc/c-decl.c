@@ -3281,6 +3281,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
     DECL_COMMON (decl) = 1;
 
   if (TREE_CODE (decl) == VAR_DECL
+      && TREE_TYPE (decl) != error_mark_node
       && TYPE_ADDR_SPACE (strip_array_types (TREE_TYPE (decl)))
       && (declspecs->storage_class == csc_static
 	  || (declspecs->storage_class == csc_none

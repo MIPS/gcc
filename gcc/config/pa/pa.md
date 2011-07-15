@@ -988,7 +988,7 @@
 			 (match_operand:DI 3 "arith11_operand" "rI"))
 		 (match_operand:DI 1 "register_operand" "r")))]
   "TARGET_64BIT"
-  "sub%I3 %3,%2,%%r0\;add,dc %%r0,%1,%0"
+  "sub%I3,* %3,%2,%%r0\;add,dc %%r0,%1,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1010,7 +1010,7 @@
 			 (match_operand:DI 3 "register_operand" "r"))
 		 (match_operand:DI 1 "register_operand" "r")))]
   "TARGET_64BIT"
-  "sub %2,%3,%%r0\;add,dc %%r0,%1,%0"
+  "sub,* %2,%3,%%r0\;add,dc %%r0,%1,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1033,7 +1033,7 @@
 			 (match_operand:DI 3 "int11_operand" "I"))
 		 (match_operand:DI 1 "register_operand" "r")))]
   "TARGET_64BIT"
-  "addi %k3,%2,%%r0\;add,dc %%r0,%1,%0"
+  "addi,* %k3,%2,%%r0\;add,dc %%r0,%1,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1079,7 +1079,7 @@
 		  (gtu:DI (match_operand:DI 2 "register_operand" "r")
 			  (match_operand:DI 3 "arith11_operand" "rI"))))]
   "TARGET_64BIT"
-  "sub%I3 %3,%2,%%r0\;sub,db %1,%%r0,%0"
+  "sub%I3,* %3,%2,%%r0\;sub,db %1,%%r0,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1101,7 +1101,7 @@
 				    (match_operand:DI 3 "arith11_operand" "rI")))
 		  (match_operand:DI 4 "register_operand" "r")))]
   "TARGET_64BIT"
-  "sub%I3 %3,%2,%%r0\;sub,db %1,%4,%0"
+  "sub%I3,* %3,%2,%%r0\;sub,db %1,%4,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1123,7 +1123,7 @@
 		  (ltu:DI (match_operand:DI 2 "register_operand" "r")
 			  (match_operand:DI 3 "register_operand" "r"))))]
   "TARGET_64BIT"
-  "sub %2,%3,%%r0\;sub,db %1,%%r0,%0"
+  "sub,* %2,%3,%%r0\;sub,db %1,%%r0,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1145,7 +1145,7 @@
 				    (match_operand:DI 3 "register_operand" "r")))
 		  (match_operand:DI 4 "register_operand" "r")))]
   "TARGET_64BIT"
-  "sub %2,%3,%%r0\;sub,db %1,%4,%0"
+  "sub,* %2,%3,%%r0\;sub,db %1,%4,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1168,7 +1168,7 @@
 		  (leu:DI (match_operand:DI 2 "register_operand" "r")
 			  (match_operand:DI 3 "int11_operand" "I"))))]
   "TARGET_64BIT"
-  "addi %k3,%2,%%r0\;sub,db %1,%%r0,%0"
+  "addi,* %k3,%2,%%r0\;sub,db %1,%%r0,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -1190,7 +1190,7 @@
 				    (match_operand:DI 3 "int11_operand" "I")))
 		  (match_operand:DI 4 "register_operand" "r")))]
   "TARGET_64BIT"
-  "addi %k3,%2,%%r0\;sub,db %1,%4,%0"
+  "addi,* %k3,%2,%%r0\;sub,db %1,%4,%0"
   [(set_attr "type" "binary")
    (set_attr "length" "8")])
 
@@ -3538,7 +3538,7 @@
 
   size = INTVAL (operands[2]);
   align = INTVAL (operands[3]);
-  align = align > 4 ? 4 : align;
+  align = align > 4 ? 4 : (align ? align : 1);
 
   /* If size/alignment is large, then use the library routines.  */
   if (size / align > 16)
@@ -3726,7 +3726,7 @@
 
   size = INTVAL (operands[2]);
   align = INTVAL (operands[3]);
-  align = align > 8 ? 8 : align;
+  align = align > 8 ? 8 : (align ? align : 1);
 
   /* If size/alignment is large, then use the library routines.  */
   if (size / align > 16)
@@ -10001,89 +10001,38 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (match_operand 2 "const_int_operand" "")]
   "TARGET_PA_20"
 {
-  int locality = INTVAL (operands[2]);
-
-  gcc_assert (locality >= 0 && locality <= 3);
-
-  /* Change operand[0] to a MEM as we don't have the infrastructure
-     to output all the supported address modes for ldw/ldd when we use
-     the address directly.  However, we do have it for MEMs.  */
-  operands[0] = gen_rtx_MEM (QImode, operands[0]);
-
-  /* If the address isn't valid for the prefetch, replace it.  */
-  if (locality)
-    {
-      if (!prefetch_nocc_operand (operands[0], QImode))
-	operands[0]
-	  = replace_equiv_address (operands[0],
-				   copy_to_mode_reg (Pmode,
-						     XEXP (operands[0], 0)));
-      emit_insn (gen_prefetch_nocc (operands[0], operands[1], operands[2]));
-    }
-  else
-    {
-      if (!prefetch_cc_operand (operands[0], QImode))
-	operands[0]
-	  = replace_equiv_address (operands[0],
-				   copy_to_mode_reg (Pmode,
-						     XEXP (operands[0], 0)));
-      emit_insn (gen_prefetch_cc (operands[0], operands[1], operands[2]));
-    }
+  operands[0] = copy_addr_to_reg (operands[0]);
+  emit_insn (gen_prefetch_20 (operands[0], operands[1], operands[2]));
   DONE;
 })
 
-(define_insn "prefetch_cc"
-  [(prefetch (match_operand:QI 0 "prefetch_cc_operand" "RW")
+(define_insn "prefetch_20"
+  [(prefetch (match_operand 0 "pmode_register_operand" "r")
 	     (match_operand:SI 1 "const_int_operand" "n")
 	     (match_operand:SI 2 "const_int_operand" "n"))]
-  "TARGET_PA_20 && operands[2] == const0_rtx"
+  "TARGET_PA_20"
 {
-  /* The SL cache-control completor indicates good spatial locality but
+  /* The SL cache-control completer indicates good spatial locality but
      poor temporal locality.  The ldw instruction with a target of general
      register 0 prefetches a cache line for a read.  The ldd instruction
      prefetches a cache line for a write.  */
-  static const char * const instr[2] = {
-    "ldw%M0,sl %0,%%r0",
-    "ldd%M0,sl %0,%%r0"
-  };
-  int read_or_write = INTVAL (operands[1]);
-
-  gcc_assert (read_or_write >= 0 && read_or_write <= 1);
-
-  return instr [read_or_write];
-}
-  [(set_attr "type" "load")
-   (set_attr "length" "4")])
-
-(define_insn "prefetch_nocc"
-  [(prefetch (match_operand:QI 0 "prefetch_nocc_operand" "A,RQ")
-	     (match_operand:SI 1 "const_int_operand" "n,n")
-	     (match_operand:SI 2 "const_int_operand" "n,n"))]
-  "TARGET_PA_20 && operands[2] != const0_rtx"
-{
-  /* The ldw instruction with a target of general register 0 prefetches
-     a cache line for a read.  The ldd instruction prefetches a cache line
-     for a write.  */
   static const char * const instr[2][2] = {
     {
-      "ldw RT'%A0,%%r0",
-      "ldd RT'%A0,%%r0",
+      "ldw,sl 0(%0),%%r0",
+      "ldd,sl 0(%0),%%r0"
     },
     {
-      "ldw%M0 %0,%%r0",
-      "ldd%M0 %0,%%r0",
+      "ldw 0(%0),%%r0",
+      "ldd 0(%0),%%r0"
     }
   };
-  int read_or_write = INTVAL (operands[1]);
+  int read_or_write = INTVAL (operands[1]) == 0 ? 0 : 1;
+  int locality = INTVAL (operands[2]) == 0 ? 0 : 1;
 
-  gcc_assert (which_alternative == 0 || which_alternative == 1);
-  gcc_assert (read_or_write >= 0 && read_or_write <= 1);
-
-  return instr [which_alternative][read_or_write];
+  return instr [locality][read_or_write];
 }
   [(set_attr "type" "load")
    (set_attr "length" "4")])
-
 
 ;; TLS Support
 (define_insn "tgd_load"

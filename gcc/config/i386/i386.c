@@ -6393,12 +6393,9 @@ ix86_expand_prologue (void)
 			       GEN_INT (-allocate), -1);
   else
     {
-      /* Only valid for Win32.  */
       rtx eax = gen_rtx_REG (Pmode, AX_REG);
       bool eax_live;
       rtx t;
-
-      gcc_assert (!TARGET_64BIT || TARGET_64BIT_MS_ABI);
 
       if (TARGET_64BIT_MS_ABI)
 	eax_live = false;
@@ -6874,8 +6871,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
      Avoid this by transforming to [%esi+0].  */
   if (TARGET_K6 && !optimize_size
       && base_reg && !index_reg && !disp
-      && REG_P (base_reg)
-      && REGNO_REG_CLASS (REGNO (base_reg)) == SIREG)
+      && REG_P (base_reg) && REGNO (base_reg) == SI_REG)
     disp = const0_rtx;
 
   /* Special case: encode reg+reg instead of reg*2.  */

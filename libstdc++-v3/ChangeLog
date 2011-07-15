@@ -1,3 +1,42 @@
+2011-06-27  Release Manager
+
+	* GCC 4.3.6 released.
+
+2010-05-22  Release Manager
+
+	* GCC 4.3.5 released.
+
+2010-05-06  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	PR other/43620
+	* configure.ac (AM_INIT_AUTOMAKE): Add no-dist.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* doc/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libmath/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2010-04-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/43458
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	Xfail hppa*-*-hpux*.
+
+2010-02-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2010-01-20  Janis Johnson  <janis187@us.ibm.com>
+		    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/21769
+	* testsuite/lib/dg-options.exp (add_options_for_no_pch): Add.
+	* testsuite/26_numerics/headers/cmath/c99_classification_macros_c.cc:
+	Use it.
+
 2009-08-04  Release Manager
 
 	* GCC 4.3.4 released.

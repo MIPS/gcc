@@ -1,3 +1,452 @@
+2011-06-27  Release Manager
+
+	* GCC 4.3.6 released.
+
+2011-06-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	Backport from mainline
+	2011-06-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/48542
+	* reload.c (find_equiv_reg): Stop looking when finding a
+	setjmp-type call.
+	* reload1.c (reload_as_needed): Invalidate all reload
+	registers when crossing a setjmp-type call.
+
+2011-06-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2011-05-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49186
+	* config/sh/sh.c (expand_cbranchdi4): Set msw_skip when the high
+	part of the second operand is 0.
+
+2011-05-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/42775
+	* cfgrtl.c (rest_of_pass_free_cfg): Recompute notes if delay slot
+	scheduling is enabled.
+
+	PR rtl-optimization/49007
+	Backport from mainline:
+	2009-11-30  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/40086
+	* reorg.c (relax_delay_slots): When looking for redundant insn at
+	the branch target, use next_real_insn, not next_active_insn.
+
+2011-05-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR rtl-optimization/48932
+	Backport from mainline:
+	2010-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/45593
+	* reorg.c (relax_delay_slots): Use emit_copy_of_insn_after to re-emit
+	insns that were in delay slots as stand-alone insns.
+
+2011-05-05  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/neon.md (vec_set<mode>_internal): Fix misplaced
+	parenthesis in D-register case.
+
+2011-02-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-08-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_active_init): Delete.
+	(__gthread_active_p): Do activity check here.
+	Don't include errno.h on hppa-hpux.  Update comment.
+	* gthr-posix95.h (__gthread_active_init): Delete.
+	(__gthread_active_p): Do activity check here.
+	Don't include errno.h on hppa-hpux.  Update comment.
+
+2011-02-24  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa[12]*-*-hpux11*): Set extra_parts.
+	* config/pa/stublib.c (pthread_default_stacksize_np, pthread_mutex_lock,
+	pthread_mutex_unlock, pthread_once): New pthread stubs.
+	* config/pa/t-pa-hpux11: Add rules to build pthread stubs.
+	* config/pa/t-pa64: Likewise.
+	* config/pa/pa-hpux11.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
+	(LIB_SPEC): In static links, link against shared libc if not linking
+	against libpthread.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+
+2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2010-12-22 John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-12-18  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/46915
+	* config/pa/pa.c (branch_to_delay_slot_p): Use next_active_insn instead
+	of next_real_insn.  Search forward checking for both ASM_INPUT and
+	ASM_OPERANDS asms until exit condition is found.
+	(branch_needs_nop_p): Likewise.
+	(use_skip_p): New function.
+	(output_cbranch): Use use_skip_p.
+	(output_bb, output_bvb): Likewise.
+
+	2009-06-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/40468
+	* pa.c (branch_to_delay_slot_p, branch_needs_nop_p): New functions.
+	(output_cbranch): Use new functions.
+	(output_bb, output_bvb, output_dbra, output_movb): Likewise.
+
+2010-12-05  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Check that
+	FUNCTION_DECL exists and that it's a builtin.
+
+2010-11-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/46337
+	Backport from mainline
+	2009-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* dse.c (replace_inc_dec): Reverse parameters to gen_int_mode.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/45946
+	* config/i386/i386.md (*pushti2): New insn pattern.
+	(pushti2 splitter): New insn splitter.
+
+2010-10-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/45820
+	* config/pa/pa.c (pa_secondary_reload): Handle symbolic operands
+	earlier.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* tree-inline.c (copy_phis_for_bb): Delay commit of edge
+	insertions until after all PHI nodes of the block are processed.
+
+2010-09-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimplify.c (gimplify_init_constructor): Do not create a temporary for
+	a volatile LHS if the constructor has only one element.
+
+2010-08-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Revert:
+	2010-08-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-11  Richard Guenther  <rguenther@suse.de>
+
+	PR c/44555
+	* c-common.c (c_common_truthvalue_conversion): Remove
+	premature and wrong optimization concering ADDR_EXPRs.
+
+2010-08-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR boehm-gc/34544
+	* gthr-posix.h (__gthread_start): Delete.
+	(__gthread_active_init): Use pthread_default_stacksize_np instead of
+	pthread_create to determine if hpux pthreads are active.
+	* gthr-posix95.h (__gthread_start): Delete.
+	(__gthread_active_init): Likewise use pthread_default_stacksize_np.
+
+2010-08-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.c (override_options): Fix warning.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* expmed.c (expand_mult_const) <case alg_shift>: Expand shift into
+	temporary. Emit move from temporary to accum, so REG_EQUAL note will
+	be attached to this insn in correct mode.
+
+2010-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_decompose_address): Check for SI_REG
+	using REGNO of base_reg directly.
+
+2010-08-05  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (spu_emit_branch_hint): Do not access NOTE_KIND of
+	non-NOTE insns.
+
+2010-07-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/44597
+	* config/pa/predicates.md (prefetch_cc_operand): Remove.
+	(prefetch_nocc_operand): Likewise.
+	* config/pa/pa.md (prefetch): Revise expander to use prefetch_20.
+	(prefetch_20): New insn.
+	(prefetch_cc): Remove.
+	(prefetch_nocc): Likewise.
+
+	PR target/44705
+	* config/pa/pa.h (GO_IF_LEGITIMATE_ADDRESS): Reject LABEL_REF.
+
+2010-06-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/39690
+	* config/pa/pa.c (override_options): Disable
+	-freorder-blocks-and-partition.
+
+2010-06-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/43740
+	config/pa/pa.c (emit_move_sequence): Don't infer REG_POINTER flag for
+	SET source operand from SET destination operand.
+
+2010-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44481
+	* config/i386/i386.md (UNSPEC_PARITY): New unspec.
+	(paritydi2_cmp): Use UNSPEC_PARITY unspec insted of parity RTX.
+	(partiysi2_cmp): Ditto.
+	(*partiyhi2_cmp): Ditto.
+	(*parityqi2_cmp): Remove.
+
+2010-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movsi_1) <TYPE_LEA>: Use %a modifier
+	to output operand 1.
+	(ashift_zext lea splitter): Use DImode for multiplication.
+
+2010-06-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*addqi_4): Check for incdec_operand in QImode.
+
+2010-06-04  Alan Modra  <amodra@gmail.com>
+
+	PR target/44075
+	* gcc/config/rs6000/rs6000.c (struct machine_function): Reorder
+	fields for better packing.  Add lr_save_state.
+	(rs6000_ra_ever_killed): Return lr_save_state if set.
+	(rs6000_emit_eh_reg_restore): Set lr_save_state.
+
+2010-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43733
+	* configure.ac (gcc_cv_as_ix86_sahf): Switch to 64bit mode.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/i386/i386.md (x86_sahf_1): Conditionally output 0x9e
+	instead of sahf only for 64bit targets.
+
+2010-05-22  Richard Guenther  <rguenther@suse.de>
+
+	* BASE-VER: Set to 4.3.6.
+	* DEV-PHASE: Set to prerelease.
+
+2010-05-22  Release Manager
+
+	* GCC 4.3.5 released.
+
+2010-05-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/44202
+	* config/cris/cris.md ("*addsi3_v32"): Correct "cc"
+	settings for 16-bit-constant "addo" alternative.
+
+2010-05-14  Richard Guenther  <rguenther@suse.de>
+
+	PR bootstrap/38591
+	* Makefile.in (graph.o): Add missing $(CONFIG_H) dependency.
+	(sparseset.o): Likewise.
+
+2010-04-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-loop-ivopts.c (may_be_unaligned_p): Check the alignment of
+	the variable part of the offset as well.
+
+2010-04-27  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/40561
+	Backport from mainline
+	2008-12-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38564
+	* fold-const.c (fold_comparison): Use the correct result type.
+
+2010-04-27  Richard Guenther  <rguenther@suse.de>
+
+ 	Backport from mainline:
+ 	2010-03-19  Michael Matz  <matz@suse.de>
+ 
+	PR c++/43116
+	* attribs.c (decl_attributes): When rebuilding a function pointer
+	type use the same qualifiers as the original pointer type.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-12-30  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/38584
+	* ipa-inline.c (compute_inline_parameters): When not optimizing,
+	don't compute the inline parameters, just set them to 0 instead.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43220
+	* tree-ssa-ccp.c (optimize_stack_restore): Do not optimize
+	BUILT_IN_STACK_{SAVE,RESTORE} around alloca.
+
+	2008-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/38360
+	* tree-ssa-ccp.c (ccp_fold_builtin): Bail out if the builtin doesn't
+	have the right number of arguments.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/38957
+	* c-typeck.c (c_finish_return): Handle POINTER_PLUS_EXPR the same way
+	as PLUS_EXPR.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-12-08  Jakub Jelinek  <jakub@redhat.com>
+	PR c/35443
+	* c-pretty-print.c (pp_c_expression): Handle BIND_EXPR.
+
+	2009-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35742
+	* c-pretty-print.c (pp_c_expression): Handle GOTO_EXPR like
+	BIND_EXPR.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* combine.c (make_extraction): Properly zero-/sign-extend an
+	extraction of the low part of a CONST_INT.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* tree-ssa-ccp.c (likely_value): Scan for literal constants
+	as well.  Reset all_undefined_operands if we have seen a
+	constant value.
+
+2010-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/43769
+	* tree-sra.c (bitfield_overlaps_p): If the length of the element is
+	self-referential, try to compute an upper bound.
+
+2010-04-09  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2009-12-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/41912
+	* pa/linux-unwind.h (pa32_fallback_frame_state): Set fs->signal_frame
+	for signal frames.
+	* pa/hpux-unwind.h (pa32_fallback_frame_state): Likewise.
+
+2010-03-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/43528
+	* stor-layout.c (place_field): Check that constant fits into
+	unsigned HWI when skipping calculation of MS bitfield layout.
+
+	2010-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43524
+	* config/i386/i386.c (ix86_expand_prologue) [TARGET_STACK_PROBE]:
+	Remove invalid assert and wrong comment.
+
+2010-03-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Omit issuing a dynamic
+	stack check if the mask would be zero.
+
+2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/42113
+	* config/alpha/alpha.md (*cmp_sadd_si): Change mode
+	of scratch register to DImode.  Split to DImode comparison operator.
+	Use SImode subreg of scratch register in the multiplication.
+	(*cmp_sadd_sidi): Ditto.
+	(*cmp_ssub_si): Ditto.
+	(*cmp_ssub_sidi): Ditto.
+
+2010-03-23  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline:
+	2010-01-08  DJ Delorie  <dj@redhat.com>
+
+	* config/sh/sh.c (sh_expand_epilogue): Fix interrupt handler
+	register popping order.
+
+2010-03-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/42718
+	* pa.md (movmemsi): Set align to one if zero.
+	(movmemdi): Likewise.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  Steven Bosscher  <steven@gcc.gnu.org>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/43360
+	* loop-invariant.c (move_invariant_reg): Remove the REG_EQUAL
+	note if we don't know its invariant status.
+
+2010-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (override_options): Fix -mtune error message.
+
+2010-02-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu-c.c (spu_resolve_overloaded_builtin): Call
+	lang_hooks.types_compatible_p instead of comptypes.
+
+2010-02-17  Mikael Pettersson  <mikpe@it.uu.se>
+
+	* config/sparc/gas.h: New file.  Restore
+	TARGET_ASM_NAMED_SECTION to its ELF default.
+	* config/sparc/sysv4.h (TARGET_ASM_NAMED_SECTION): Do not
+	check !HAVE_GNU_AS.
+	* config/sparc/sparc.c (sparc_elf_asm_named_section):
+	Likewise.  Add ATTRIBUTE_UNUSED to prototype.
+	* config.gcc (sparc*-*-linux*): Include sparc/gas.h
+	after sparc/sysv4.h.
+
 2010-02-16  Paolo Bonzini  <bonzini@gnu.org>
 
 	PR rtl-optimization/41917

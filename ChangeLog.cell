@@ -1,3 +1,7 @@
+2011-07-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* gcc/c-decl.c (start_decl): Fix --enable-checking ICE.
+
 2008-12-05  Ulrich Weigand  <uweigand@de.ibm.com>
 
 	* gcc/config/spu/spu.h (ADDRESSES_NEVER_TRAP): Define.

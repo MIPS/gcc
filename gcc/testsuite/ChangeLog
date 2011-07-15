@@ -1,3 +1,246 @@
+2011-06-27  Release Manager
+
+	* GCC 4.3.6 released.
+
+2011-06-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	Backport from mainline
+	2011-06-17  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR rtl-optimization/48542
+	* gcc.dg/torture/pr48542.c: New test.
+
+2011-06-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2011-05-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49186
+	* gcc.c-torture/execute/pr49186.c: New.
+
+2011-05-20  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/new32.C: New.
+
+2011-05-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2010-09-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20100915-1.c: New test.
+
+2011-05-05  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.target/arm/neon-vset_lanes8.c: New test.
+
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39219
+	* g++.dg/parse/attr3.C: New.
+
+2011-03-08  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/anon5.C: New.
+
+2011-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR testsuite/33033
+	* gcc.dg/20061124-1.c: Pass -mcpu=v9 on the SPARC.
+
+2010-12-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/45081
+	* gfortran.dg/derived_array_intrinsics_1.f90: New test.
+
+2010-12-02  Richard Guenther  <rguenther@suse.de>
+	    Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/46663
+	* gcc.dg/vect/pr46663.c: New test.
+
+2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	    PR target/45946
+	    * gcc.target/i386/pr45946.c: New test.
+
+2010-09-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45709
+	* g++.dg/torture/pr45709.C: New testcase.
+	* g++.dg/torture/pr45709-2.C: Likewise.
+
+2010-08-11  Richard Guenther  <rguenther@suse.de>
+
+	PR c/44555
+	* gcc.c-torture/execute/pr44555.c: New testcase.
+
+2010-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44481
+	* gcc.target/i386/pr44481.c: New test.
+
+2010-05-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43555
+	* g++.dg/ext/vla9.C: New.
+
+2010-05-22  Release Manager
+
+	* GCC 4.3.5 released.
+
+2010-05-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/44202
+	* gcc.c-torture/execute/pr44202-1.c: New test.
+
+2010-05-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44193
+	* g++.dg/template/fntype1.C: New.
+
+2010-04-30  DJ Delorie  <dj@redhat.com>
+
+	* gcc.c-torture/execute/20100430-1.c: New test.
+
+2010-04-27  Richard Guenther  <rguenther@suse.de>
+
+	PR c++/40561
+	Backport from mainline
+	2008-12-29  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/38564
+	* gcc.c-torture/compile/pr38564.c: New testcase.
+	* g++.dg/other/pr40561.C: Likewise.
+
+2010-04-27  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-19  Michael Matz  <matz@suse.de>
+
+	PR c++/43116
+	* g++.dg/other/pr43116.C: New testcase.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline:
+	2010-03-01  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43220
+	* gcc.c-torture/execute/pr43220.c: New testcase.
+
+	2008-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/38360
+	* gcc.c-torture/compile/pr38360.c: New test.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2009-01-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/38957
+	* gcc.dg/pr38957.c: New test.
+ 
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2008-12-08  Jakub Jelinek  <jakub@redhat.com>
+	PR c/35443
+	* gcc.dg/pr35443.c: New test.
+
+	2009-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/35742
+	* gcc.dg/pr35742.c: New test.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/43438
+	* gcc.c-torture/execute/pr43438.c: New testcase.
+
+2010-04-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/43629
+	* gcc.c-torture/execute/pr43629.c: New testcase.
+
+2010-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/rep_clause5.ad[sb]: New test.
+	* gnat.dg/rep_clause5_pkg.ads: New helper.
+
+2010-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/s390/stackcheck1.c: Add dg-warning.
+
+2010-03-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2010-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/43528
+	* gcc.target/i386/pr43528.c: New test.
+
+	2010-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/43524
+	* gcc.target/i386/pr43524.c: New test.
+
+2010-03-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/stackcheck1.c: New testcase.
+
+2010-03-21  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/powerpc/ppc-sdata-1.c: Require nonpic.
+	* gcc.target/powerpc/ppc-sdata-2.c: Likewise.
+
+2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2010-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/43360
+	* gcc.dg/torture/pr43360.c: New.
+
+2010-03-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.target/arm/sibcall-1.c: Allow PLT to appear with pic code.
+
+2010-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2008-12-12  Uros Bizjak <ubizjak@gmail.com>
+
+	PR testsuite/38163
+	* gcc.dg/tree-ssa/loop-3.c: Compile only on nonpic x86 targets.
+	Remove dg-skip-if directive.
+
+2010-03-10  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* g++.old-deja/g++.pt/asm1.C: Don't detect pic via looking for the
+	-fpic/-fPIC flags.
+	* g++.old-deja/g++.pt/asm2.C: Likewise.
+	* gcc.c-torture/compile/20000804-1.c: Likewise.
+	* gcc.target/i386/clobbers.c: Likewise.
+
+2010-03-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2009-10-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* lib/target-supports.exp (add_options_for_bind_pic_locally): New.
+
+	2009-10-16  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+	* g++.dg/other/first-global.C: Use dg-add-options bind_pic_locally.
+	* g++.dg/parse/attr-externally-visible-1.C: Likewise.
+	* g++.dg/tree-ssa/nothrow-1.C: Likewise.
+	* gcc.dg/ipa/ipa-1.c: Likewise.
+	* gcc.dg/ipa/ipa-2.c: Likewise.
+	* gcc.dg/ipa/ipa-3.c: Likewise.
+	* gcc.dg/ipa/ipa-4.c: Likewise.
+	* gcc.dg/ipa/ipa-5.c: Likewise.
+	* gcc.dg/ipa/ipa-7.c: Likewise.
+
 2010-02-16  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.c-torture/execute/pr41917.c: New test.
@@ -9,7 +252,7 @@
 	* gfortran.dg/namelist_59.f90: New test.
 	* gcc/testsuite/gfortran.dg/namelist_47.f90: Update test.
 	* gcc/testsuite/gfortran.dg/namelist_40.f90: Update test.
-	
+
 2010-02-04  Richard Guenther  <rguenther@suse.de>
 
 	PR rtl-optimization/42952
