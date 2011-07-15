@@ -1,3 +1,83 @@
+2011-07-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/49541
+	* config/sol2.h (LIB_SPEC): Simplify.
+	Move LIB_THREAD_LDFLAGS_SPEC ...
+	(LINK_SPEC): ... here.
+
+2011-07-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add __ARM_FEATURE_DSP.
+
+2011-07-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR tree-opt/49309
+	* tree-mudflap.c (mf_xform_derefs_1 <case MEM_REF>):
+	Use fold_build2_loc instead of build2.
+	Use the correct type for the new tree.
+
+2011-07-14  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/49487
+	Backport from mainline r176276
+	2011-07-14  Georg-Johann Lay
+	* config/avr/avr.md (rotl<mode>3): Generate SCRATCH instead
+	of REG.
+	(*rotw<mode>): Use const_int_operand for operand2.
+	Use match_scatch for operand3.
+	(*rotb<mode>): Ditto
+	* config/avr/avr.c (avr_rotate_bytes): Treat SCRATCH.
+
+2011-07-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49651
+	* tree-ssa-structalias.c (get_constraint_for_1): Properly
+	handle dereferences with subvariables.
+
+2011-07-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/49094
+	* tree-sra.c (tree_non_mode_aligned_mem_p): New function.
+	(build_accesses_from_assign): Use it.
+
+2011-07-11  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/39633
+	Backport from mainline r176141
+	2011-07-11  Georg-Johann Lay
+	* config/avr/avr.c (notice_update_cc): For ashiftrt:QI, only
+	offsets 1..5 set cc0 in a usable way.
+
+2011-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49621
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Use
+	CONST0_RTX (dest_mode) instead of const0_rtx as second operand
+	of NE.
+	* config/rs6000/vector.md (vector_select_<mode>,
+	vector_select_<mode>_uns): Change second operand of NE to
+	CONST0_RTX (<MODE>mode) instead of const0_rtx.
+	* config/rs6000/altivec.md (*altivec_vsel<mode>,
+	*altivec_vsel<mode>_uns): Expect second operand of NE to be
+	zero_constant of the corresponding vector mode.
+	* config/rs6000/vsx.md (*vsx_xxsel<mode>, *vsx_xxsel<mode>_uns):
+	Likewise.
+
+2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/46779
+	Backport from mainline SVN 176053.
+	2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
+	* config/avr/avr.c (avr_hard_regno_mode_ok): Rewrite.
+	In particular, allow 8-bit values in r28 and r29.
+	(avr_hard_regno_scratch_ok): Disallow any register that might be
+	part of the frame pointer.
+	(avr_hard_regno_rename_ok): Same.
+	(avr_legitimate_address_p): Don't allow SUBREGs.
+
 2011-07-12  Harsha Jagasia  <harsha.jagasia@amd.com>
 
 	AMD bdver2 Enablement

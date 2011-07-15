@@ -6685,7 +6685,7 @@ cxx_eval_vec_init_1 (const constexpr_call *call, tree atype, tree init,
 
   if (!*non_constant_p)
     {
-      init = build_constructor (TREE_TYPE (atype), n);
+      init = build_constructor (atype, n);
       TREE_CONSTANT (init) = true;
       return init;
     }
@@ -8490,6 +8490,9 @@ maybe_add_lambda_conv_op (tree type)
   VEC (tree, gc) *argvec;
 
   if (LAMBDA_EXPR_CAPTURE_LIST (CLASSTYPE_LAMBDA_EXPR (type)) != NULL_TREE)
+    return;
+
+  if (processing_template_decl)
     return;
 
   stattype = build_function_type (TREE_TYPE (TREE_TYPE (callop)),
