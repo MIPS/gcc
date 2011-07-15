@@ -154,7 +154,7 @@
        (eq_attr "cpu" "power7"))
   "DU_power7,FXU_power7")
 
-(define_insn_reservation "power7-cntlz" 2
+(define_insn_reservation "power7-cntlz" 3
   (and (eq_attr "type" "cntlz")
        (eq_attr "cpu" "power7"))
   "DU_power7,FXU_power7")

@@ -554,3 +554,25 @@ Target Undocumented Var(rs6000_mem_rw_cost) Init(8) RejectNegative Joined UInteg
 ; Adjust cost of storing from one register set and loading to another
 ; This might be much more expensive than just the read and write costs,
 ; if the compiler can't put enough insns between the store and the read.
+
+mnon-short-circuit
+Target Undocument Var(TARGET_NON_SHORT_CIRCUIT) Save Init(0)
+; Set LOGICAL_OP_NON_SHORT_CIRCUIT, which overrides BRANCH_COST heuristic which
+; empirically produces worse performance for removing short circuiting from the
+; logical ops.
+
+mbranch-cost-speed=
+Target Undocumented Var(rs6000_branch_cost_speed) Init(3) RejectNegative Joined UInteger Save
+; BRANCH_COST when optimizing for speed
+
+mbranch-cost-size=
+Target Undocumented Var(rs6000_branch_cost_size) Init(3) RejectNegative Joined UInteger Save
+; BRANCH_COST when optimizing for size
+
+mbranch-cost-predict=
+Target Undocumented Var(rs6000_branch_cost_predict) Init(3) RejectNegative Joined UInteger Save
+; BRANCH_COST when optimizing predicted branches
+
+misel-hack
+Target Undocumented Var(TARGET_ISEL_HACK) Init(0) Save
+; Enable use of ISEL for setcc operations.

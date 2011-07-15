@@ -1102,12 +1102,15 @@ extern unsigned rs6000_pointer_size;
    Set this to 3 on the RS/6000 since that is roughly the average cost of an
    unscheduled conditional branch.  */
 
-#define BRANCH_COST(speed_p, predictable_p) 3
+#define BRANCH_COST(speed_p, predictable_p)				\
+  ((predictable_p) ? rs6000_branch_cost_predict				\
+   : ((speed_p) ? rs6000_branch_cost_speed				\
+      : rs6000_branch_cost_size))
 
 /* Override BRANCH_COST heuristic which empirically produces worse
    performance for removing short circuiting from the logical ops.  */
 
-#define LOGICAL_OP_NON_SHORT_CIRCUIT 0
+#define LOGICAL_OP_NON_SHORT_CIRCUIT TARGET_NON_SHORT_CIRCUIT
 
 /* A fixed register used at epilogue generation to address SPE registers
    with negative offsets.  The 64-bit load/store instructions on the SPE
