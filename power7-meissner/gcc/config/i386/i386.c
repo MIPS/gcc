@@ -11149,8 +11149,13 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 		return 0;
 	      break;
 
-	    case REG:
 	    case SUBREG:
+	      /* Allow only subregs of DImode hard regs in PLUS chains.  */
+	      if (!register_no_elim_operand (SUBREG_REG (op), DImode))
+		return 0;
+	      /* FALLTHRU */
+
+	    case REG:
 	      if (!base)
 		base = op;
 	      else if (!index)
@@ -31431,8 +31436,7 @@ ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
   return clobbers;
 }
 
-/* Implements target vector targetm.asm.encode_section_info.  This
-   is not used by netware.  */
+/* Implements target vector targetm.asm.encode_section_info.  */
 
 static void ATTRIBUTE_UNUSED
 ix86_encode_section_info (tree decl, rtx rtl, int first)

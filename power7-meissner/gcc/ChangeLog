@@ -1,3 +1,177 @@
+2011-07-18  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h: Include alloc-pool.h, all sorts of updates to general
+	comments.
+	(ipcp_values_pool): Declare.
+	(ipcp_sources_pool): Likewise.
+	(ipcp_lattice): Changed to forward declaration.
+	(ipa_param_descriptor): Removed fields ipcp_lattice, types and
+	cannot_devirtualize.
+	(ipa_node_params): New fields descriptors, lattices, known_vals,
+	clone_for_all_contexts and node dead, removed fields params and
+	count_scale.
+	(ipa_set_param_count): Removed.
+	(ipa_get_param_count): Made to work with descriptors vector.
+	(ipa_get_param): Updated.
+	(ipa_param_cannot_devirtualize_p): Removed.
+	(ipa_param_types_vec_empty): Likewise.
+	(ipa_set_param_used): New function.
+	(ipa_get_param_used): Updated to use descriptors vector.
+	(ipa_func_list): Removed.
+	(ipa_init_func_list): Removed declaration.
+	(ipa_push_func_to_list_1): Likewise.
+	(ipa_pop_func_from_list): Likewise.
+	(ipa_push_func_to_list): Removed.
+	(ipa_lattice_from_jfunc): Remove declaration.
+	(ipa_get_jf_pass_through_result): Declare.
+	(ipa_get_jf_ancestor_result): Likewise.
+	(ipa_value_from_jfunc): Likewise.
+	(ipa_get_lattice): Update.
+	(ipa_lat_is_single_const): New function.
+	* ipa-prop.c (ipa_push_func_to_list_1): Removed.
+	(ipa_init_func_list): Likewise.
+	(ipa_pop_func_from_list): Likewise.
+	(ipa_get_param_decl_index): Fix coding style.
+	(count_formal_params): Removed.
+	(count_formal_params_1): Renamed to count_formal_params.
+	(ipa_populate_param_decls): Update to use descriptors vector.
+	(ipa_initialize_node_params): Likewise.
+	(visit_ref_for_mod_analysis): Use ipa_set_param_used.
+	(ipa_analyze_params_uses): Likewise.
+	(ipa_free_node_params_substructures): Likewise and free also lattices
+	and known values.
+	(duplicate_array): Removed.
+	(ipa_edge_duplication_hook): Add the new edge to the list of edge
+	clones.
+	(ipa_node_duplication_hook): Update to use new lattices.
+	(ipa_free_all_structures_after_ipa_cp): Free alloc pools.
+	(ipa_free_all_structures_after_iinln): Likewise.
+	(ipa_write_node_info): Update to use new lattices.
+	(ipa_read_node_info): Likewise.
+	(ipa_get_jf_pass_through_result): New function.
+	(ipa_get_jf_ancestor_result): Likewise.
+	(ipa_value_from_jfunc): Likewise.
+	(ipa_cst_from_jfunc): Reimplemented using ipa_value_from_jfunc.
+	* ipa-cp.c: Reimplemented.
+	* params.def (PARAM_DEVIRT_TYPE_LIST_SIZE): Removed.
+	(PARAM_IPA_CP_VALUE_LIST_SIZE): New parameter.
+	(PARAM_IPA_CP_EVAL_THRESHOLD): Likewise.
+	* Makefile.in (IPA_PROP_H): Added alloc-pool.h to dependencies.
+	* doc/invoke.texi (devirt-type-list-size): Removed description.
+	(ipa-cp-value-list-size): Added description.
+
+2011-07-18  Richard Henderson  <rth@redhat.com>
+
+	* bb-reorder.c (fix_crossing_conditional_branches): Emit all insns
+	before calling create_basic_block.
+
+2011-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49675
+	* tree.c (build_common_builtin_nodes): Register
+	__builtin_return_address, __cyg_profile_func_enter
+	and __cyg_profile_func_exit.
+
+2011-07-18  Richard Henderson  <rth@redhat.com>
+
+	* bb-reorder.c (emit_barrier_after_bb): Split out of ...
+	(add_labels_and_missing_jumps): ... here.
+	(fix_up_fall_thru_edges, fix_crossing_conditional_branches): Use it.
+
+2011-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47744
+	* config/i386/i386.c (ix86_decompose_address): Allow only subregs
+	of DImode hard registers in PLUS address chains.
+
+2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/49769
+	* config.gcc (alpha*-*-linux*): Add crtfastmath.o to extra_parts.
+	(alpha*-*-freebsd*): Likewise.
+	(i[34567]86-*-linux*, i[34567]86-*-kfreebsd*-gnu,
+	i[34567]86-*-knetbsd*-gnu, i[34567]86-*-gnu*,
+	i[34567]86-*-kopensolaris*-gnu): Add crtprec32.o, crtprec64.o,
+	crtprec80.o, crtfastmath.o to extra_parts for all targets.
+	(ia64*-*-elf*): Remove extra_parts.
+	(sparc-*-linux*): Add crtfastmath.o to extra_parts.
+	(sparc64-*-linux*): Likewise.
+	(sparc64-*-freebsd*): Likewise.
+
+	Revert:
+	* config.gcc (ia64*-*-freebsd*): Remove crtfastmath.o from extra_parts.
+	(ia64*-*-linux*): Likewise.
+	(mips64*-*-linux*): Likewise.
+	(mips*-*-linux*): Likewise.
+
+2011-07-18  David Edelsohn  <dje.gcc@gmail.com>
+
+	* doc/install.texi (Specific, *-ibm-aix*): AIX assembler bug.
+
+2011-07-18  Richard Guenther  <rguenther@suse.de>
+
+	* gimplify.c (gimplify_expr): Use input_location, not saved_location
+	when building new trees.
+
+2011-07-18  Richard Guenther  <rguenther@suse.de>
+
+	* expr.c (expand_expr_real_2): Properly truncate the BIT_NOT_EXPR
+	expansion result to bitfield precision if required.
+
+2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (i[3456x]86-*-netware*): Remove.
+
+	* gthr-nks.h: Remove.
+	* configure.ac (enable_threads): Remove nks.
+	* configure: Regenerate.
+
+	* config/i386/i386.c (ix86_encode_section_info): Remove netware
+	reference.
+	* config/i386/i386.h (KEEP_AGGREGATE_RETURN_POINTER): Remove
+	<netware.h> reference.
+
+	* config/i386/netware-libgcc.c,
+	gcc/config/i386/netware-libgcc.def,
+	gcc/config/i386/netware-libgcc.exp, gcc/config/i386/netware.c,
+	gcc/config/i386/netware.h, gcc/config/i386/netware.opt,
+	gcc/config/i386/nwld.c, gcc/config/i386/nwld.h,
+	gcc/config/i386/t-netware, gcc/config/i386/t-nwld: Remove
+
+	* doc/extend.texi (Function Attributes,
+	callee_pop_aggregate_return): Remove i?86-netware reference.
+	* doc/install.texi (Configuration, --enable-threads): Remove nks.
+
+2011-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/49746
+	Revert:
+	2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2011-07-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/49732
+	* tree.c (walk_tree_1) <DECL_EXPR>: Do not walk a pointed-to type.
+
+2011-07-16  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/install.texi: Document --enable-static-libjava.
+
+2011-07-15  Richard Henderson  <rth@redhat.com>
+
+	* bb-reorder.c (find_rarely_executed_basic_blocks_and_crossing_edges):
+	Replace all three arguments by returning a VEC of edges.
+	(add_labels_and_missing_jumps): Accept a VEC of edges, not bare
+	pointers and counts.
+	(fix_edges_for_rarely_executed_code): Merge ...
+	(rest_of_handle_partition_blocks): ... into...
+	(partition_hot_cold_basic_blocks): ... here.  Return todo items if
+	any work was performed.
+	(pass_partition_blocks): Clear todo_flags_finish.
+
 2011-07-15  Paolo Carlini  <paolo.carlini@oracle.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 	    Jonathan Wakely  <jwakely.gcc@gmail.com>
@@ -15,7 +189,7 @@
 2011-07-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* doc/plugins.texi (Building GCC plugins): gengtype needs its
-	gtype.state.
+	corresponding gtype.state.
 
 2011-07-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
@@ -193,15 +367,14 @@
 	(READONLY_DATA_SECTION_ASM_OP): Remove.
 	(TARGET_ASM_NAMED_SECTION): Move from here...
 	* config/avr/avr.c: ...to here.
-	(avr_asm_init_sections): Set unnamed callback of
-	readonly_data_section.
+	(avr_asm_init_sections): Set unnamed callback of readonly_data_section.
 	(avr_asm_named_section): Make static.
 
 2011-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR bootstrap/49739
-	* config.gcc (extra_parts): Add crtprec32.o crtprec64.o crtp
-	rec80.o crtfastmath.o for Linux/x86.
+	* config.gcc (extra_parts): Add crtprec32.o crtprec64.o crtprec80.o
+	and crtfastmath.o for Linux/x86.
 
 2011-07-14  Bernd Schmidt  <bernds@codesourcery.com>
 
@@ -231,8 +404,7 @@
 	estimate_insn_tick, estimate_shadow_tick): New functions.
 	(prune_ready_list): New arg shadows_only_p.  All callers changed.
 	If true, remove everything that isn't SHADOW_P.  Look up delay
-	pairs and estimate ticks to avoid scheduling the first insn too
-	early.
+	pairs and estimate ticks to avoid scheduling the first insn too early.
 	(verify_shadows): New function.
 	(schedule_block): Add machinery to enable backtracking.
 	(sched_init): Take sched_no_dce into account when setting
@@ -297,8 +469,7 @@
 2011-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR target/49541
-	* config/sol2.h (LIB_SPEC): Simplify.
-	Move LIB_THREAD_LDFLAGS_SPEC ...
+	* config/sol2.h (LIB_SPEC): Simplify.  Move LIB_THREAD_LDFLAGS_SPEC ...
 	(LINK_SPEC): ... here.
 
 2011-07-13  Bernd Schmidt  <bernds@codesourcery.com>
@@ -360,8 +531,7 @@
 
 2011-07-13  H.J. Lu  <hongjiu.lu@intel.com>
 
-	* config/i386/i386.c (x86_output_mi_thunk): Support ptr_mode
-	!= Pmode.
+	* config/i386/i386.c (x86_output_mi_thunk): Support ptr_mode != Pmode.
 
 	* config/i386/i386.md (*addsi_1_zext): Renamed to ...
 	(addsi_1_zext): This.
