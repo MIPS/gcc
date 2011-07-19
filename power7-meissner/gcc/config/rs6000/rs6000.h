@@ -472,6 +472,10 @@ extern int rs6000_vector_align[];
 #define TARGET_FCTIDUZ	TARGET_POPCNTD
 #define TARGET_FCTIWUZ	TARGET_POPCNTD
 
+/* Whether we should reassociate instructions to do more instructions in
+   parallel.  Only do this for the servers for now.  */
+#define TARGET_REASSOC TARGET_POPCNTB
+
 /* E500 processors only support plain "sync", not lwsync.  */
 #define TARGET_NO_LWSYNC TARGET_E500
 
