@@ -1,3 +1,24 @@
+2011-07-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49708
+	* gfortran.dg/allocate_error_3.f90: New.
+
+2011-07-19  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/bool-10.c: Adjust expected pattern.
+	* gcc.dg/tree-ssa/bool-11.c: Likewise.
+	* gcc.dg/torture/20110719-1.c: New testcase.
+
+2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49768
+	* gcc.c-torture/execute/pr49768.c: New test.
+
+2011-07-19  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49771
+	* gcc.dg/vect/pr49771.c: New test.
+
 2011-07-18  Martin Jambor  <mjambor@suse.cz>
 
 	* gcc.dg/ipa/ipa-1.c: Updated testcase dump scan.
