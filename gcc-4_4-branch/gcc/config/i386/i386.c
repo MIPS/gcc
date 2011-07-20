@@ -3771,8 +3771,9 @@ override_options (bool main_args_p)
     }
 
   /* For sane SSE instruction set generation we need fcomi instruction.
-     It is safe to enable all CMOVE instructions.  */
-  if (TARGET_SSE)
+     It is safe to enable all CMOVE instructions.  Also, RDRAND intrinsic
+     expands to a sequence that includes conditional move. */
+  if (TARGET_SSE || TARGET_RDRND)
     TARGET_CMOVE = 1;
 
   /* Figure out what ASM_GENERATE_INTERNAL_LABEL builds as a prefix.  */
@@ -21752,9 +21753,9 @@ enum ix86_builtins
   IX86_BUILTIN_WRGSBASE64,
 
   /* RDRND instructions.  */
-  IX86_BUILTIN_RDRAND16,
-  IX86_BUILTIN_RDRAND32,
-  IX86_BUILTIN_RDRAND64,
+  IX86_BUILTIN_RDRAND16_STEP,
+  IX86_BUILTIN_RDRAND32_STEP,
+  IX86_BUILTIN_RDRAND64_STEP,
 
   /* F16C instructions.  */
   IX86_BUILTIN_CVTPH2PS,
@@ -21985,8 +21986,7 @@ enum ix86_special_builtin_type
   VOID_FTYPE_UINT64,
   VOID_FTYPE_UNSIGNED,
   UINT64_FTYPE_VOID,
-  UNSIGNED_FTYPE_VOID,
-  UINT16_FTYPE_VOID
+  UNSIGNED_FTYPE_VOID
 };
 
 /* Builtin types */
@@ -22251,11 +22251,6 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_FSGSBASE | OPTION_MASK_ISA_64BIT, CODE_FOR_wrfsbasedi, "__builtin_ia32_wrfsbase64", IX86_BUILTIN_WRFSBASE64, UNKNOWN, (int) VOID_FTYPE_UINT64 },
   { OPTION_MASK_ISA_FSGSBASE | OPTION_MASK_ISA_64BIT, CODE_FOR_wrgsbasesi, "__builtin_ia32_wrgsbase32", IX86_BUILTIN_WRGSBASE32, UNKNOWN, (int) VOID_FTYPE_UNSIGNED },
   { OPTION_MASK_ISA_FSGSBASE | OPTION_MASK_ISA_64BIT, CODE_FOR_wrgsbasedi, "__builtin_ia32_wrgsbase64", IX86_BUILTIN_WRGSBASE64, UNKNOWN, (int) VOID_FTYPE_UINT64 },
-
-  /* RDRND */
-  { OPTION_MASK_ISA_RDRND, CODE_FOR_rdrandhi, "__builtin_ia32_rdrand16", IX86_BUILTIN_RDRAND16, UNKNOWN, (int) UINT16_FTYPE_VOID },
-  { OPTION_MASK_ISA_RDRND, CODE_FOR_rdrandsi, "__builtin_ia32_rdrand32", IX86_BUILTIN_RDRAND32, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
-  { OPTION_MASK_ISA_RDRND | OPTION_MASK_ISA_64BIT, CODE_FOR_rdranddi, "__builtin_ia32_rdrand64", IX86_BUILTIN_RDRAND64, UNKNOWN, (int) UINT64_FTYPE_VOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -23767,6 +23762,19 @@ ix86_init_mmx_sse_builtins (void)
     = build_function_type_list (V2DF_type_node,
 				V2DF_type_node, V2DI_type_node, NULL_TREE);
 
+  /* RDRND instructions */
+  tree pushort_type_node = build_pointer_type (short_unsigned_type_node);
+  tree puint_type_node = build_pointer_type (unsigned_type_node);
+  tree int_ftype_pushort
+    = build_function_type_list (integer_type_node,
+				pushort_type_node, NULL_TREE);
+  tree int_ftype_puint
+    = build_function_type_list (integer_type_node,
+				puint_type_node, NULL_TREE);
+  tree int_ftype_pdi
+    = build_function_type_list (integer_type_node,
+				pdi_type_node, NULL_TREE);
+
   /* XOP instructions */
   tree v2di_ftype_v2di_v2di_v2di
     = build_function_type_list (V2DI_type_node,
@@ -23975,13 +23983,7 @@ ix86_init_mmx_sse_builtins (void)
 				long_long_unsigned_type_node,
 				NULL_TREE);
   tree uint64_ftype_void
-    = build_function_type_list (long_long_unsigned_type_node,
-				void_type_node,
-				NULL_TREE);
-  tree uint16_ftype_void
-    = build_function_type_list (short_unsigned_type_node,
-				void_type_node,
-				NULL_TREE);
+    = build_function_type (long_long_unsigned_type_node, void_list_node);
   tree v8sf_ftype_v8hi
     = build_function_type_list (V8SF_type_node,
 				V8HI_type_node,
@@ -24137,9 +24139,6 @@ ix86_init_mmx_sse_builtins (void)
 	  break;
 	case UNSIGNED_FTYPE_VOID:
 	  type = unsigned_ftype_void;
-	  break;
-	case UINT16_FTYPE_VOID:
-	  type = uint16_ftype_void;
 	  break;
 
 	default:
@@ -24671,6 +24670,15 @@ ix86_init_mmx_sse_builtins (void)
   /* AVX */
   def_builtin (OPTION_MASK_ISA_AVX, "__builtin_ia32_vzeroupper", void_ftype_void,
 	       TARGET_64BIT ? IX86_BUILTIN_VZEROUPPER_REX64 : IX86_BUILTIN_VZEROUPPER);
+
+  /* RDRND */
+  def_builtin (OPTION_MASK_ISA_RDRND, "__builtin_ia32_rdrand16_step",
+	       int_ftype_pushort, IX86_BUILTIN_RDRAND16_STEP);
+  def_builtin (OPTION_MASK_ISA_RDRND, "__builtin_ia32_rdrand32_step",
+	       int_ftype_puint, IX86_BUILTIN_RDRAND32_STEP);
+  def_builtin (OPTION_MASK_ISA_RDRND | OPTION_MASK_ISA_64BIT,
+	       "__builtin_ia32_rdrand64_step", int_ftype_pdi,
+	       IX86_BUILTIN_RDRAND64_STEP);
 
   /* Access to the vec_init patterns.  */
   ftype = build_function_type_list (V2SI_type_node, integer_type_node,
@@ -25994,7 +26002,6 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       break;
     case UINT64_FTYPE_VOID:
     case UNSIGNED_FTYPE_VOID:
-    case UINT16_FTYPE_VOID:
       nargs = 0;
       klass = load;
       memory = 0;
@@ -26489,6 +26496,53 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
             emit_insn (pat);
           return target;
         }
+
+    case IX86_BUILTIN_RDRAND16_STEP:
+      icode = CODE_FOR_rdrandhi_1;
+      mode0 = HImode;
+      goto rdrand_step;
+
+    case IX86_BUILTIN_RDRAND32_STEP:
+      icode = CODE_FOR_rdrandsi_1;
+      mode0 = SImode;
+      goto rdrand_step;
+
+    case IX86_BUILTIN_RDRAND64_STEP:
+      icode = CODE_FOR_rdranddi_1;
+      mode0 = DImode;
+
+rdrand_step:
+      op0 = gen_reg_rtx (mode0);
+      emit_insn (GEN_FCN (icode) (op0));
+
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      op1 = expand_normal (arg0);
+      if (!address_operand (op1, VOIDmode))
+	op1 = copy_addr_to_reg (op1);
+      emit_move_insn (gen_rtx_MEM (mode0, op1), op0);
+
+      op1 = gen_reg_rtx (SImode);
+      emit_move_insn (op1, CONST1_RTX (SImode));
+
+      /* Emit SImode conditional move.  */
+      if (mode0 == HImode)
+	{
+	  op2 = gen_reg_rtx (SImode);
+	  emit_insn (gen_zero_extendhisi2 (op2, op0));
+	}
+      else if (mode0 == SImode)
+	op2 = op0;
+      else
+	op2 = gen_rtx_SUBREG (SImode, op0, 0);
+
+      if (target == 0)
+	target = gen_reg_rtx (SImode);
+
+      pat = gen_rtx_GEU (VOIDmode, gen_rtx_REG (CCCmode, FLAGS_REG),
+			 const0_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_IF_THEN_ELSE (SImode, pat, op2, op1)));
+      return target;
 
     default:
       break;
