@@ -2,7 +2,7 @@
    for the C standard's "minimum maximum" limits.  It is off by default,
    but implied by -pedantic.  */
 
-/* { dg-options "-std=c90 -pedantic" } */
+/* { dg-options "-std=c89 -pedantic" } */
 
 #define TEN "          "
 #define HUN TEN TEN TEN TEN TEN  TEN TEN TEN TEN TEN

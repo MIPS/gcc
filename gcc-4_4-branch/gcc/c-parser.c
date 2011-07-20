@@ -818,7 +818,7 @@ disable_extension_diagnostics (void)
 	     | (warn_traditional << 2)
 	     | (flag_iso << 3)
 	     | (warn_long_long << 4)
-	     | (cpp_opts->warn_long_long << 5));
+	     | (cpp_opts->warn_long_long << 5)
 	     | (warn_overlength_strings << 6));
   cpp_opts->pedantic = pedantic = 0;
   warn_pointer_arith = 0;
