@@ -1,3 +1,49 @@
+2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49640
+	* gimplify.c (gimplify_compound_lval): For last 2 ARRAY_*REF
+	operands and last COMPONENT_REF operand call gimplify_expr on it
+	if non-NULL.
+
+	2011-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49619
+	* combine.c (combine_simplify_rtx): In PLUS -> IOR simplification
+	pass VOIDmode as op0_mode to recursive call.
+
+	2011-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49165
+	* c-common.c (c_common_truthvalue_conversion) <case COND_EXPR>: For
+	C++ don't call c_common_truthvalue_conversion on void type arms.
+
+	2011-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49165
+	* gimplify.c (shortcut_cond_r): Don't special case
+	COND_EXPRs if they have void type on one of their arms.
+
+	2011-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48973
+	* expr.c (expand_expr_real_1) <case LT_EXPR>: If do_store_flag
+	failed and the comparison has a single bit signed type, use
+	constm1_rtx instead of const1_rtx for true value.
+	(do_store_flag): If TREE_TYPE (exp) is single bit signed type, disable
+	single bit test optimization, pass -1 instead of 1 as last
+	parameter to emit_store_flag and use constm1_rtx instead of
+	const1_rtx as true value.
+
+	2011-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49039
+	* tree-vrp.c (extract_range_from_binary_expr): For
+	MIN_EXPR <~[a, b], ~[c, d]> and MAX_EXPR <~[a, b], ~[c, d]>
+	return ~[MAX_EXPR <a, c>, MIN_EXPR <b, d>].
+
 2011-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/49746
