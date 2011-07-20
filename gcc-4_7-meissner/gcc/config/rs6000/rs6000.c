@@ -21893,8 +21893,9 @@ toc_hash_eq (const void *h1, const void *h2)
 const char *
 rs6000_xcoff_strip_dollar (const char *name)
 {
-  char *strip, *p;
-  int len;
+  char *strip;
+  const char *p;
+  size_t len, i;
 
   p = strchr (name, '$');
 
@@ -21902,13 +21903,11 @@ rs6000_xcoff_strip_dollar (const char *name)
     return name;
 
   len = strlen (name);
-  strip = (char *) alloca (len + 1);
-  strcpy (strip, name);
-  p = strchr (strip, '$');
-  while (p)
+  strip = XALLOCAVEC (char, len);
+  for (i = 0; i < len; i++)
     {
-      *p = '_';
-      p = strchr (p + 1, '$');
+      int ch = name[i];
+      strip[i] = (ch == '$') ? '_' : ch;
     }
 
   return ggc_alloc_string (strip, len);
