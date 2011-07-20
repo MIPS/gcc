@@ -1,3 +1,7 @@
+2011-04-03  Alan Modra  <amodra@gmail.com>
+
+	* dwarf2out.c (mem_loc_descriptor): Recurse on LO_SUM.
+
 2011-03-15  Alan Modra  <amodra@gmail.com>
 
 	PR target/48032
