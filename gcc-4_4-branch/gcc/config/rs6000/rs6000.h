@@ -1040,24 +1040,15 @@ extern unsigned rs6000_pointer_size;
 	 ((MODE) == V4SFmode		\
 	  || (MODE) == V2DFmode)	\
 
-#define VSX_SCALAR_MODE(MODE)		\
-	((MODE) == DFmode)
-
-#define VSX_MODE(MODE)			\
-	(VSX_VECTOR_MODE (MODE)		\
-	 || VSX_SCALAR_MODE (MODE))
-
-#define VSX_MOVE_MODE(MODE)		\
-	(VSX_VECTOR_MODE (MODE)		\
-	 || VSX_SCALAR_MODE (MODE)	\
-	 || ALTIVEC_VECTOR_MODE (MODE)	\
-	 || (MODE) == TImode)
-
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
 	  || (MODE) == V8HImode		\
 	  || (MODE) == V4SFmode		\
 	  || (MODE) == V4SImode)
+
+#define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
+  (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE) 		\
+   || (MODE) == V2DImode)
 
 #define SPE_VECTOR_MODE(MODE)		\
 	((MODE) == V4HImode          	\
@@ -1101,10 +1092,10 @@ extern unsigned rs6000_pointer_size;
    ? ALTIVEC_VECTOR_MODE (MODE2)		\
    : ALTIVEC_VECTOR_MODE (MODE2)		\
    ? ALTIVEC_VECTOR_MODE (MODE1)		\
-   : VSX_VECTOR_MODE (MODE1)			\
-   ? VSX_VECTOR_MODE (MODE2)			\
-   : VSX_VECTOR_MODE (MODE2)			\
-   ? VSX_VECTOR_MODE (MODE1)			\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
    : 1)
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
