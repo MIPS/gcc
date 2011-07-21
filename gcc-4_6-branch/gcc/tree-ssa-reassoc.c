@@ -191,6 +191,53 @@ static long *bb_rank;
 static struct pointer_map_t *operand_rank;
 
 
+/* Bias amount for loop-carried phis.  We want this to be larger than
+   the depth of the largest reassociation tree we expect to see in 
+   practice, but not so large that it outweighs expressions in deeper
+   loops.  */
+#define PHI_LOOP_BIAS 31
+
+/* If the phi-stmt STMT resides in a loop header of an innermost loop,
+   and one of its phi arguments is defined in the same loop, then return
+   a bias value intended to artificially raise the rank of this phi. 
+   The purpose of this is to expose the phi variable to copyrename by
+   forcing the phi variable to be consumed last.  */
+static int
+phi_loop_bias (gimple stmt)
+{
+  basic_block bb = gimple_bb (stmt);
+  struct loop *father = bb->loop_father;
+  tree res;
+  unsigned i;
+
+  /* Restrict to innermost loops.  */
+  if (father->inner)
+    return 0;
+
+  if (bb != father->header)
+    return 0;
+
+  /* Ignore virtual SSA_NAMEs.  */
+  res = gimple_phi_result (stmt);
+  if (!is_gimple_reg (SSA_NAME_VAR (res)))
+    return 0;
+
+  for (i = 0; i < gimple_phi_num_args (stmt); i++)
+    {
+      tree arg = gimple_phi_arg (stmt, i)->def;
+      if (TREE_CODE (arg) == SSA_NAME)
+	{
+	  gimple def_stmt = SSA_NAME_DEF_STMT (arg);
+	  if (def_stmt
+	      && gimple_bb (def_stmt)
+	      && gimple_bb (def_stmt)->loop_father == father)
+	    return PHI_LOOP_BIAS;
+	}
+    }
+
+  return 0;
+}
+
 /* Look up the operand rank structure for expression E.  */
 
 static inline long
@@ -235,7 +282,7 @@ get_rank (tree e)
   if (TREE_CODE (e) == SSA_NAME)
     {
       gimple stmt;
-      long rank, maxrank;
+      long rank, maxrank, op_rank;
       int i, n;
 
       if (TREE_CODE (SSA_NAME_VAR (e)) == PARM_DECL
@@ -245,6 +292,9 @@ get_rank (tree e)
       stmt = SSA_NAME_DEF_STMT (e);
       if (gimple_bb (stmt) == NULL)
 	return 0;
+
+      if (gimple_code (stmt) == GIMPLE_PHI)
+	return bb_rank[gimple_bb (stmt)->index] + phi_loop_bias (stmt);
 
       if (!is_gimple_assign (stmt)
 	  || gimple_vdef (stmt))
@@ -264,21 +314,37 @@ get_rank (tree e)
 	  tree rhs = gimple_assign_rhs1 (stmt);
 	  n = TREE_OPERAND_LENGTH (rhs);
 	  if (n == 0)
-	    rank = MAX (rank, get_rank (rhs));
+	    {
+	      op_rank = get_rank (rhs);
+	      /* Don't transfer operand rank for biased phi definitions.  */
+	      if (op_rank < maxrank + PHI_LOOP_BIAS)
+		rank = MAX (rank, op_rank);
+	    }
 	  else
 	    {
-	      for (i = 0;
-		   i < n && TREE_OPERAND (rhs, i) && rank != maxrank; i++)
-		rank = MAX(rank, get_rank (TREE_OPERAND (rhs, i)));
+	      for (i = 0; i < n; i++)
+		if (TREE_OPERAND (rhs, i))
+		  {
+		    op_rank = get_rank (TREE_OPERAND (rhs, i));
+		    /* Don't transfer operand rank for biased
+		       phi definitions.  */
+		    if (op_rank < maxrank + PHI_LOOP_BIAS)
+		      rank = MAX(rank, op_rank);
+		    rank = MIN(rank, maxrank + PHI_LOOP_BIAS - 2);
+		  }
 	    }
 	}
       else
 	{
 	  n = gimple_num_ops (stmt);
-	  for (i = 1; i < n && rank != maxrank; i++)
+	  for (i = 1; i < n; i++)
 	    {
+	      op_rank = get_rank (gimple_op (stmt, i));
 	      gcc_assert (gimple_op (stmt, i));
-	      rank = MAX(rank, get_rank (gimple_op (stmt, i)));
+	      /* Don't transfer operand rank for biased phi definitions.  */
+	      if (op_rank < maxrank + PHI_LOOP_BIAS)
+		rank = MAX(rank, op_rank);
+	      rank = MIN(rank, maxrank + PHI_LOOP_BIAS - 2);
 	    }
 	}
 
