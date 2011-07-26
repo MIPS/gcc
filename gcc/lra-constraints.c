@@ -802,7 +802,7 @@ match_reload (int out, int in, enum reg_class goal_class,
   outmode = lra_get_mode (curr_static_id->operand[out].mode, out_rtx);
   if (inmode != outmode)
     {
-      /* Don't reuse the pseudos for inheritance -- they will bound.  */
+      /* Don't reuse the pseudos for inheritance -- they will be bound.  */
       get_reload_reg (OP_IN, inmode, in_rtx, goal_class, "", &new_in_reg);
       new_out_reg = lra_create_new_reg (outmode, out_rtx, goal_class, "");
     }
@@ -1060,26 +1060,24 @@ check_and_process_move (bool *change_p)
 
 /* The chosen reg class which should be used for the corresponding
    operands.  */
-static enum reg_class goal_alternative[MAX_RECOG_OPERANDS];
+static enum reg_class goal_alt[MAX_RECOG_OPERANDS];
 /* True if the operand should be the same as another operand and the
    another operand does not need a reload.  */
-static bool goal_alternative_match_win[MAX_RECOG_OPERANDS];
+static bool goal_alt_match_win[MAX_RECOG_OPERANDS];
 /* True if the operand does not need a reload.  */
-static bool goal_alternative_win[MAX_RECOG_OPERANDS];
+static bool goal_alt_win[MAX_RECOG_OPERANDS];
 /* True if the operand can be offsetable memory.  */
-static bool goal_alternative_offmemok[MAX_RECOG_OPERANDS];
+static bool goal_alt_offmemok[MAX_RECOG_OPERANDS];
 /* The number of operand to which given operand can be matched to.  */
-static int goal_alternative_matches[MAX_RECOG_OPERANDS];
+static int goal_alt_matches[MAX_RECOG_OPERANDS];
+/* The number of elements in the following array.  */
+static int goal_alt_dont_inherit_ops_num;
+/* Numbers of operands whose reload pseudos should not be inherited.  */
+static int goal_alt_dont_inherit_ops[MAX_RECOG_OPERANDS];
 /* True if the insn commutative operands should be swapped.  */
-static bool goal_alternative_swapped;
-/* The number of elements in the following two arrays.  */
-static int goal_early_clobbered_nops_num;
-/* Numbers of operands which are early clobbered registers.  */
-static int goal_early_clobbered_nops[MAX_RECOG_OPERANDS];
-/* Biggest of mode of the early clobbered registers.  */
-static enum machine_mode goal_early_clobbered_modes[MAX_RECOG_OPERANDS];
+static bool goal_alt_swapped;
 /* The chosen insn alternative.  */
-static int goal_alternative_number;
+static int goal_alt_number;
 
 /* The following four variables are used to choose the best insn
    alternative.  They reflect finally characteristics of the best
@@ -1247,6 +1245,74 @@ get_final_hard_regno (int hard_regno, int offset)
   return lra_get_elimation_hard_regno (hard_regno);
 }
 
+/* Return TRUE if *LOC refers for a hard register from SET.  */
+static bool
+uses_hard_regs_p (rtx *loc, HARD_REG_SET set)
+{
+  int i, j, x_hard_regno;
+  enum machine_mode mode;
+  rtx x;
+  const char *fmt;
+  enum rtx_code code;
+
+  if (*loc == NULL_RTX)
+    return false;
+  x = *loc;
+  code = GET_CODE (x);
+  mode = GET_MODE (x);
+  if (code == SUBREG)
+    {
+      loc = &SUBREG_REG (x);
+      x = SUBREG_REG (x);
+      code = GET_CODE (x);
+      if (GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (mode))
+	mode = GET_MODE (x);
+    }
+  
+  if (REG_P (x))
+    {
+      x_hard_regno = REGNO (x);
+      if (x_hard_regno >= FIRST_PSEUDO_REGISTER)
+	x_hard_regno = reg_renumber[x_hard_regno];
+      return (x_hard_regno >= 0
+	      && lra_hard_reg_set_intersection_p (x_hard_regno, mode, set));
+    }
+  if (MEM_P (x))
+    {
+      struct address ad;
+      enum machine_mode mode = GET_MODE (x);
+      rtx *addr_loc = &XEXP (x, 0);
+
+      extract_address_regs (mode, addr_loc, MEM, &ad);
+      if (ad.base_reg_loc != NULL)
+	{
+	  if (uses_hard_regs_p (ad.base_reg_loc, set))
+	    return true;
+	}
+      if (ad.index_reg_loc != NULL)
+	{
+	  if (uses_hard_regs_p (ad.index_reg_loc, set))
+	    return true;
+	}
+    }
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (uses_hard_regs_p (&XEXP (x, i), set))
+	    return true;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  for (j = XVECLEN (*loc, i) - 1; j >= 0; j--)
+	    if (uses_hard_regs_p (&XVECEXP (*loc, i, j), set))
+	      return true;
+	}
+    }
+  return false;
+}
+
 /* Major function to choose the current insn alternative and what
    operands should be reload and how.  If ONLY_ALTERNATIVE is not
    negative we should consider only this alternative.  Return false if
@@ -1269,18 +1335,20 @@ process_alt_operands (int only_alternative)
      three times here since we want the disparaging caused by a bad
      register class to only count 1/3 as much.  */
   int reject;
-  /* The number of elements in the following two arrays.  */
-  int curr_early_clobbered_regs_num;
+  /* The number of elements in the following array.  */
+  int early_clobbered_regs_num;
   /* Numbers of operands which are early clobber registers.  */
-  int curr_early_clobbered_nops[MAX_RECOG_OPERANDS];
-  /* Biggest of mode of the early clobbered registers.  */
-  enum machine_mode curr_early_clobbered_modes[MAX_RECOG_OPERANDS];
-  enum reg_class curr_alternative[MAX_RECOG_OPERANDS];
-  HARD_REG_SET curr_alternative_set[MAX_RECOG_OPERANDS];
-  bool curr_alternative_match_win[MAX_RECOG_OPERANDS];
-  bool curr_alternative_win[MAX_RECOG_OPERANDS];
-  bool curr_alternative_offmemok[MAX_RECOG_OPERANDS];
-  int curr_alternative_matches[MAX_RECOG_OPERANDS];
+  int early_clobbered_nops[MAX_RECOG_OPERANDS];
+  enum reg_class curr_alt[MAX_RECOG_OPERANDS];
+  HARD_REG_SET curr_alt_set[MAX_RECOG_OPERANDS];
+  bool curr_alt_match_win[MAX_RECOG_OPERANDS];
+  bool curr_alt_win[MAX_RECOG_OPERANDS];
+  bool curr_alt_offmemok[MAX_RECOG_OPERANDS];
+  int curr_alt_matches[MAX_RECOG_OPERANDS];
+  /* The number of elements in the following array.  */
+  int curr_alt_dont_inherit_ops_num;
+  /* Numbers of operands whose reload pseudos should not be inherited.  */
+  int curr_alt_dont_inherit_ops[MAX_RECOG_OPERANDS];
   rtx op;
   rtx no_subreg_operand[MAX_RECOG_OPERANDS], operand_reg[MAX_RECOG_OPERANDS];
   int hard_regno[MAX_RECOG_OPERANDS];
@@ -1334,7 +1402,7 @@ process_alt_operands (int only_alternative)
       for (nop = 0; nop < n_operands; nop++)
 	reject += (curr_static_id
 		   ->operand_alternative[nalt * n_operands + nop].reject);
-      curr_early_clobbered_regs_num = 0;
+      early_clobbered_regs_num = 0;
 
       for (nop = 0; nop < n_operands; nop++)
 	{
@@ -1362,12 +1430,12 @@ process_alt_operands (int only_alternative)
 	  if (curr_static_id->operand_alternative[opalt_num].anything_ok)
 	    {
 	      /* Fast track for no constraints at all.  */
-	      curr_alternative[nop] = NO_REGS;
-	      CLEAR_HARD_REG_SET (curr_alternative_set[nop]);
-	      curr_alternative_win[nop] = true;
-	      curr_alternative_match_win[nop] = false;
-	      curr_alternative_offmemok[nop] = false;
-	      curr_alternative_matches[nop] = -1;
+	      curr_alt[nop] = NO_REGS;
+	      CLEAR_HARD_REG_SET (curr_alt_set[nop]);
+	      curr_alt_win[nop] = true;
+	      curr_alt_match_win[nop] = false;
+	      curr_alt_offmemok[nop] = false;
+	      curr_alt_matches[nop] = -1;
 	      continue;
 	    }
       
@@ -1436,6 +1504,7 @@ process_alt_operands (int only_alternative)
 	      case '5':  case '6':  case '7':  case '8':  case '9':
 		{
 		  int m_hregno, m_offset;
+		  bool match_p;
 
 		  m = strtoul (p, &end, 10);
 		  p = end;
@@ -1454,20 +1523,37 @@ process_alt_operands (int only_alternative)
 		     operands win.  As a result, this alternative may
 		     be rejected when it is actually desirable.)  */
 		  /* If it conflicts with others.  */
+		  match_p = false;
 		  if (operands_match_p (*curr_id->operand_loc[nop],
 					*curr_id->operand_loc[m], m_hregno))
+		    {
+		      int i;
+
+		      for (i = 0; i < early_clobbered_regs_num; i++)
+			if (early_clobbered_nops[i] == m)
+			  break;
+		      /* We should reject matching of an early clobber
+			 operand if the matching operand is not dying
+			 in the insn.  */
+		      if (i >= early_clobbered_regs_num
+			  || operand_reg[nop] == NULL_RTX
+			  || (find_regno_note (curr_insn, REG_DEAD,
+					       REGNO (operand_reg[nop]))
+			      != NULL_RTX))
+			match_p = true;
+		    }
+		  if (match_p)
 		    {
 		      /* If we are matching a non-offsettable address
 			 where an offsettable address was expected,
 			 then we must reject this combination, because
 			 we can't reload it.  */
-		      if (curr_alternative_offmemok[m]
+		      if (curr_alt_offmemok[m]
 			  && MEM_P (*curr_id->operand_loc[m])
-			  && curr_alternative[m] == NO_REGS
-			  && ! curr_alternative_win[m])
+			  && curr_alt[m] == NO_REGS && ! curr_alt_win[m])
 			continue;
 	      
-		      did_match = curr_alternative_win[m];
+		      did_match = curr_alt_win[m];
 		    }
 		  else
 		    {
@@ -1476,11 +1562,11 @@ process_alt_operands (int only_alternative)
 			 match as a loser, if it wasn't already and it
 			 wasn't matched to a register constraint (e.g
 			 it might be matched by memory).  */
-		      if (curr_alternative_win[m]
+		      if (curr_alt_win[m]
 			  && (operand_reg[m] == NULL_RTX || hard_regno[m] < 0))
 			losers++;
 		      invalidate_m = m;
-		      if (curr_alternative[m] == NO_REGS)
+		      if (curr_alt[m] == NO_REGS)
 			continue;
 	      
 		      /* We prefer no matching alternatives because it
@@ -1495,9 +1581,8 @@ process_alt_operands (int only_alternative)
 		     are supposed to match can be fixed with
 		     reloads.  */
 		  badop = false;
-		  this_alternative = curr_alternative[m];
-		  COPY_HARD_REG_SET (this_alternative_set,
-				     curr_alternative_set[m]);
+		  this_alternative = curr_alt[m];
+		  COPY_HARD_REG_SET (this_alternative_set, curr_alt_set[m]);
 
 		  /* If we have to reload this operand and some
 		     previous operand also had to match the same thing
@@ -1505,8 +1590,7 @@ process_alt_operands (int only_alternative)
 		     So reject this alternative.  */
 		  if (! did_match)
 		    for (i = 0; i < nop; i++)
-		      if (curr_alternative_matches[i]
-			  == this_alternative_matches)
+		      if (curr_alt_matches[i] == this_alternative_matches)
 			badop = true;
 	  
 		  break;
@@ -1766,7 +1850,7 @@ process_alt_operands (int only_alternative)
 		 not need to generate a reload insn for this
 		 operand.  */
 	      if (this_alternative_matches < 0
-		  || curr_alternative_win[this_alternative_matches]
+		  || curr_alt_win[this_alternative_matches]
 		  || ! REG_P (op)
 		  || find_regno_note (curr_insn, REG_DEAD,
 				      REGNO (op)) == NULL_RTX
@@ -1878,22 +1962,83 @@ process_alt_operands (int only_alternative)
 	  if ((best_losers == 0 || losers != 0) && best_overall < overall)
 	    goto fail;
 
-	  curr_alternative[nop] = this_alternative;
-	  COPY_HARD_REG_SET (curr_alternative_set[nop], this_alternative_set);
-	  curr_alternative_win[nop] = this_alternative_win;
-	  curr_alternative_match_win[nop] = this_alternative_match_win;
-	  curr_alternative_offmemok[nop] = this_alternative_offmemok;
-	  curr_alternative_matches[nop] = this_alternative_matches;
+	  curr_alt[nop] = this_alternative;
+	  COPY_HARD_REG_SET (curr_alt_set[nop], this_alternative_set);
+	  curr_alt_win[nop] = this_alternative_win;
+	  curr_alt_match_win[nop] = this_alternative_match_win;
+	  curr_alt_offmemok[nop] = this_alternative_offmemok;
+	  curr_alt_matches[nop] = this_alternative_matches;
   
 	  if (invalidate_m >= 0 && ! this_alternative_win)
-	    curr_alternative_win[invalidate_m] = false;
+	    curr_alt_win[invalidate_m] = false;
   
 	  if (early_clobber_p && operand_reg[nop] != NULL_RTX)
+	    early_clobbered_nops[early_clobbered_regs_num++] = nop;
+	}
+      ok_p = true;
+      curr_alt_dont_inherit_ops_num = 0;
+      for (nop = 0; nop < early_clobbered_regs_num; nop++)
+	{
+	  int i, j, clobbered_hard_regno;
+	  HARD_REG_SET temp_set;
+
+	  i = early_clobbered_nops[nop];
+	  if ((! curr_alt_win[i] && ! curr_alt_match_win[i])
+	      || hard_regno[i] < 0)
+	    continue;
+	  clobbered_hard_regno = hard_regno[i];
+	  CLEAR_HARD_REG_SET (temp_set);
+	  for (j = hard_regno_nregs[clobbered_hard_regno][biggest_mode[i]] - 1;
+	       j >= 0;
+	       j--)
+	    SET_HARD_REG_BIT (temp_set, clobbered_hard_regno + j);
+	  for (j = 0; j < n_operands; j++)
+	    if (j == i
+		/* We don't want process insides of match_operator and
+		   match_parallel because otherwise we would process
+		   their operands once again generating a wrong
+		   code.  */
+		|| curr_static_id->operand[j].is_operator)
+	      continue;
+	    else if (curr_alt_matches[j] == i && curr_alt_match_win[j])
+	      {
+		/* This is a trick.  Such operands don't conflict and
+		   don't need a reload.  But it is hard to transfer
+		   this information to the assignment pass which
+		   spills one operand without this info.  We avoid the
+		   conflict by forcing to use the same pseudo for the
+		   operands hoping that the pseudo gets the same hard
+		   regno as the operands and the reloads are gone.  */
+		curr_alt_win[i] = false;
+		curr_alt_match_win[j] = false;
+		continue;
+	      }
+	    else if (curr_alt_matches[i] == j && curr_alt_match_win[i])
+	      {
+		/* See the comment for the previous case. */
+		curr_alt_win[j] = false;
+		curr_alt_match_win[i] = false;
+		continue;
+	      }
+	    else if (uses_hard_regs_p (curr_id->operand_loc[j], temp_set))
+	      break;
+	  if (j >= n_operands)
+	    continue;
+	  /* We need to reload early clobbered register.  */
+	  for (j = 0; j < n_operands; j++)
+	    if (curr_alt_matches[j] == i)
+	      curr_alt_match_win[j] = false;
+	  if (! curr_alt_match_win[i])
+	    curr_alt_dont_inherit_ops[curr_alt_dont_inherit_ops_num++] = i;
+	  else
 	    {
-	      curr_early_clobbered_nops[curr_early_clobbered_regs_num] = nop;
-	      curr_early_clobbered_modes[curr_early_clobbered_regs_num++]
-		= biggest_mode[nop];
+	      /* Remember pseudos used for match reloads are never inherited.  */
+	      gcc_assert (curr_alt_matches[i] >= 0);
+	      curr_alt_win[curr_alt_matches[i]] = false;
 	    }
+	  curr_alt_win[i] = curr_alt_match_win[i] = false;
+	  losers++;
+	  overall += 6;
 	}
       small_class_operands_num = 0;
       for (nop = 0; nop < n_operands; nop++)
@@ -1901,7 +2046,7 @@ process_alt_operands (int only_alternative)
 	   it needs less reloading than the others checked so far,
 	   record it as the chosen goal for reloading.  */
 	small_class_operands_num
-	  += SMALL_REGISTER_CLASS_P (curr_alternative[nop]) ? 1 : 0;
+	  += SMALL_REGISTER_CLASS_P (curr_alt[nop]) ? 1 : 0;
 
       if ((best_losers != 0 && losers == 0)
 	  || (((best_losers == 0 && losers == 0)
@@ -1922,24 +2067,22 @@ process_alt_operands (int only_alternative)
 	{
 	  for (nop = 0; nop < n_operands; nop++)
 	    {
-	      goal_alternative_win[nop] = curr_alternative_win[nop];
-	      goal_alternative_match_win[nop]
-		= curr_alternative_match_win[nop];
-	      goal_alternative_matches[nop] = curr_alternative_matches[nop];
-	      goal_alternative[nop] = curr_alternative[nop];
-	      goal_alternative_offmemok[nop] = curr_alternative_offmemok[nop];
-	      goal_early_clobbered_nops[nop] = curr_early_clobbered_nops[nop];
-	      goal_early_clobbered_modes[nop] = curr_early_clobbered_modes[nop];
+	      goal_alt_win[nop] = curr_alt_win[nop];
+	      goal_alt_match_win[nop] = curr_alt_match_win[nop];
+	      goal_alt_matches[nop] = curr_alt_matches[nop];
+	      goal_alt[nop] = curr_alt[nop];
+	      goal_alt_offmemok[nop] = curr_alt_offmemok[nop];
 	    }
-	  goal_early_clobbered_nops_num = curr_early_clobbered_regs_num;
-	  goal_alternative_swapped = curr_swapped;
+	  goal_alt_dont_inherit_ops_num = curr_alt_dont_inherit_ops_num;
+	  for (nop = 0; nop < curr_alt_dont_inherit_ops_num; nop++)
+	    goal_alt_dont_inherit_ops[nop] = curr_alt_dont_inherit_ops[nop];
+	  goal_alt_swapped = curr_swapped;
 	  best_overall = overall;
 	  best_losers = losers;
 	  best_small_class_operands_num = small_class_operands_num;
 	  best_reload_sum = reload_sum;
-	  goal_alternative_number = nalt;
+	  goal_alt_number = nalt;
 	}
-      ok_p = true;
       if (losers == 0)
 	/* Everything is satisfied.  Do not process alternatives
 	   anymore.  */ 
@@ -2375,216 +2518,6 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
   return result;
 }
 
-/* Number of elements in the following array.  */
-static int early_clobber_reload_regs_num;
-
-/* Info about registers which we already reloaded because of conflict
-   with early clobber.  */
-static struct
-{
-  /* Regno of already reloaded register because of conflict with early
-     clobber.  */
-  int regno;
-  /* New register used for the reload.  */
-  rtx new_reg;
-} early_clobber_reload_regs[MAX_RECOG_OPERANDS];
-
-/* The function returns a new register of class RCLASS which should be
-   used for reload input register X because of conflict with an early
-   clobbered register.  If such new register are being created, emit
-   the reload insns and put them to INSERT sequence.  */
-static rtx
-make_early_clobber_input_reload_reg (rtx x, enum reg_class rclass,
-				     rtx *insert)
-{
-  int i, regno;
-  rtx new_reg;
-  
-  gcc_assert (REG_P (x));
-  regno = REGNO (x);
-  for (i = 0; i < early_clobber_reload_regs_num; i++)
-    if (early_clobber_reload_regs[i].regno == regno
-	/* It is not worth to check class subsets or to use class
-	   intersects because such cases are extremely rare.  */
-	&& (rclass
-	    == lra_get_allocno_class (REGNO (early_clobber_reload_regs[i].new_reg))))
-      return early_clobber_reload_regs[i].new_reg;
-  if (get_reload_reg (OP_IN, VOIDmode, x, rclass, "early clobbered", &new_reg))
-    {
-      push_to_sequence (*insert);
-      lra_emit_move (new_reg, x);
-      *insert = get_insns ();
-      end_sequence ();
-    }
-  gcc_assert (early_clobber_reload_regs_num < MAX_RECOG_OPERANDS);
-  early_clobber_reload_regs[early_clobber_reload_regs_num].regno = regno;
-  early_clobber_reload_regs[early_clobber_reload_regs_num++].new_reg
-    = new_reg;
-  return new_reg;
-}
-
-/* Replace registers conflicting with early clobbered registers in
-   *LOC which is inside the operand with number NOP.  The substitution
-   register should have class RCLASS and the reload insns (if it is
-   not created yet) should be put into sequence *BEFORE.  *LOC is an
-   insn input if IN_P.  If the clobbered register is a hard register,
-   replace it by a new pseudo whose class should be RCLASS and the
-   reload insns should be put into sequence *BEFORE.  If a replacement
-   is done, return TRUE.  */
-static bool
-search_and_replace_reg (int nop, rtx *loc, enum reg_class rclass,
-			rtx *before, rtx *after, bool in_p)
-{
-  int i, j, clobber_nop, x_hard_regno, clobbered_hard_regno;
-  bool res;
-  enum machine_mode mode;
-  rtx x, *clobbered_reg_loc, new_reg;
-  const char *fmt;
-  enum rtx_code code;
-  HARD_REG_SET temp_set;
-
-  if (*loc == NULL_RTX)
-    return false;
-  x = *loc;
-  code = GET_CODE (x);
-  mode = GET_MODE (x);
-  if (code == SUBREG)
-    {
-      loc = &SUBREG_REG (x);
-      x = SUBREG_REG (x);
-      code = GET_CODE (x);
-      if (GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (mode))
-	mode = GET_MODE (x);
-    }
-  
-  res = false;
-  if (REG_P (x))
-    {
-      if (! in_p)
-	return false;
-      for (i = 0; i < goal_early_clobbered_nops_num; i++)
-	{
-	  clobber_nop = goal_early_clobbered_nops[i];
-	  if (goal_alternative_matches[nop] == clobber_nop
-	      || goal_alternative_matches[clobber_nop] == nop)
-	    continue;
-	  clobbered_reg_loc = curr_id->operand_loc[clobber_nop];
-	  if (GET_CODE (*clobbered_reg_loc) == SUBREG)
-	    clobbered_reg_loc = &SUBREG_REG (*clobbered_reg_loc);
-	  x_hard_regno = REGNO (x);
-	  if (x_hard_regno >= FIRST_PSEUDO_REGISTER)
-	    x_hard_regno = reg_renumber[x_hard_regno];
-	  clobbered_hard_regno = REGNO (*clobbered_reg_loc);
-	  if (clobbered_hard_regno >= FIRST_PSEUDO_REGISTER)
-	    clobbered_hard_regno = reg_renumber[clobbered_hard_regno];
-	  CLEAR_HARD_REG_SET (temp_set);
-	  if (clobbered_hard_regno >= 0)
-	    {
-	      for (j = (hard_regno_nregs[clobbered_hard_regno]
-			[goal_early_clobbered_modes[i]]) - 1;
-		   j >= 0;
-		   j--)
-		SET_HARD_REG_BIT (temp_set, clobbered_hard_regno + j);
-	    }
-	  /* Examples of conflicts: 1) early clobbered pseudo which is
-	     also an address register in a memory; 2) early clobbered
-	     pseudo which got the same hard register as an input
-	     operand (it might be a hard register itself).  ??? Should
-	     we fix it in IRA.  */
-	  if (x != *clobbered_reg_loc
-	      && (x_hard_regno == -1
-		  || clobbered_hard_regno == -1
-		  || ! lra_hard_reg_set_intersection_p (x_hard_regno, mode,
-							temp_set)))
-	    continue;
-	  if (REGNO (*clobbered_reg_loc) >= FIRST_PSEUDO_REGISTER)
-	    {
-	      new_reg
-		= make_early_clobber_input_reload_reg (x, rclass, before);
-	      *loc = new_reg;
-	    }
-	  else
-	    {
-	      /* In case of conflict with another input, the following
-		 code is not executed again because a new register has
-		 no hard register yet.   */
-	      gcc_assert (goal_alternative[clobber_nop] != NO_REGS);
-	      new_reg = lra_create_new_reg (VOIDmode, *clobbered_reg_loc,
-					    goal_alternative[clobber_nop],
-					    "early clobbered");
-	      push_to_sequence (*after);
-	      lra_emit_move (*clobbered_reg_loc, new_reg);
-	      *after = get_insns ();
-	      end_sequence ();
-	      *clobbered_reg_loc = new_reg;
-	    }
-	  bitmap_set_bit (&lra_dont_inherit_pseudos, REGNO (new_reg));
-	  res = true;
-	}
-      return res;
-    }
-  if (MEM_P (x))
-    {
-      struct address ad;
-      enum machine_mode mode = GET_MODE (x);
-      rtx *addr_loc = &XEXP (x, 0);
-
-      extract_address_regs (mode, addr_loc, MEM, &ad);
-      if (ad.base_reg_loc != NULL)
-	res = search_and_replace_reg (nop, ad.base_reg_loc,
-				      base_reg_class (mode,
-						      ad.base_outer_code,
-						      ad.index_code),
-				      before, after, true);
-      if (ad.index_reg_loc != NULL)
-	res = (search_and_replace_reg (nop, ad.index_reg_loc,
-				       INDEX_REG_CLASS, before, after, true)
-	       || res);
-    }
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	res = search_and_replace_reg (nop, &XEXP (x, i),
-				      rclass, before, after, in_p) || res;
-      else if (fmt[i] == 'E')
-	{
-	  for (j = XVECLEN (*loc, i) - 1; j >= 0; j--)
-	    res = search_and_replace_reg (nop, &XVECEXP (*loc, i, j),
-					  rclass, before, after, in_p) || res;
-	}
-    }
-  return res;
-}
-
-/* Make reload insn and put them into sequence *BEFORE or *AFTER to
-   resolve conflicts of inputs with early clobbered registers.
-   Unfortunately IRA does not avoid such conflict creation, e.g. when
-   early clobbered pseudo also present in a memory as an address
-   register.
-
-   ??? Should we fix such conflicts in IRA (pro: we can remove this
-   code here, contra: we can not do it effectively in IRA because we
-   don't know yet there what insn alternative will be used).  */
-static void
-create_early_clobber_reloads (rtx *before, rtx *after)
-{
-  int i;
-
-  if (goal_early_clobbered_nops_num == 0)
-    return;
-  early_clobber_reload_regs_num = 0;
-  for (i = 0; i < curr_static_id->n_operands; i++)
-    /* We don't want process insides of match_operator and
-       match_parallel because otherwise we would process their
-       operands once again generating a wrong code.  */
-    if (! curr_static_id->operand[i].is_operator
-	&& search_and_replace_reg (i, curr_id->operand_loc[i],
-				   goal_alternative[i], before, after,
-				   curr_static_id->operand[i].type == OP_IN))
-      lra_update_dups (curr_id, i, -1);
-}
-
 /* Main entry point of this file: search the body of the current insn
    to choose the best alternative.  It is mimicking insn alternative
    cost calculation model of former reload pass.  That is because
@@ -2601,7 +2534,7 @@ curr_insn_transform (void)
   int n_alternatives;
   int n_dups;
   int commutative;
-  int goal_alternative_matched[MAX_RECOG_OPERANDS];
+  int goal_alt_matched[MAX_RECOG_OPERANDS];
   rtx before, after;
   bool alt_p = false;
   /* Flag that the insn has been changed through a transformation.  */
@@ -2610,7 +2543,7 @@ curr_insn_transform (void)
   int reused_alternative_num;
 
   no_input_reloads_p = no_output_reloads_p = false;
-  goal_alternative_number = 0;
+  goal_alt_number = 0;
 
   if (check_and_process_move (&change_p))
     return change_p;
@@ -2641,8 +2574,8 @@ curr_insn_transform (void)
 
   for (i = 0; i < n_operands; i++)
     {
-      goal_alternative_matched[i] = -1;
-      goal_alternative_matches[i] = -1;
+      goal_alt_matched[i] = -1;
+      goal_alt_matches[i] = -1;
     }
 
   commutative = curr_static_id->commutative;
@@ -2655,7 +2588,7 @@ curr_insn_transform (void)
   best_small_class_operands_num = best_reload_sum = 0;
 
   curr_swapped = false;
-  goal_alternative_swapped = false;
+  goal_alt_swapped = false;
 
   /* Make equivalence substitution and memory subreg elimination
      before address processing because an address legitimacy can
@@ -2747,9 +2680,9 @@ curr_insn_transform (void)
 	}
     }
 
-  /* The operands don't meet the constraints.  goal_alternative
-     describes the alternative that we could reach by reloading the
-     fewest operands.  Reload so as to fit it.  */
+  /* The operands don't meet the constraints.  goal_alt describes the
+     alternative that we could reach by reloading the fewest operands.
+     Reload so as to fit it.  */
 
   if (! alt_p)
     {
@@ -2768,7 +2701,7 @@ curr_insn_transform (void)
      them.  Update the operand numbers of any reloads already
      pushed.  */
 
-  if (goal_alternative_swapped)
+  if (goal_alt_swapped)
     {
       rtx tem;
       rtx x;
@@ -2800,19 +2733,18 @@ curr_insn_transform (void)
       change_p = true;
     }
 
-  lra_set_used_insn_alternative (curr_insn,
-				 goal_alternative_number);
+  lra_set_used_insn_alternative (curr_insn, goal_alt_number);
 
   if (lra_dump_file != NULL)
     {
       const char *p;
 
       fprintf (lra_dump_file, "  Choosing alt %d in insn %u:",
-	       goal_alternative_number, INSN_UID (curr_insn));
+	       goal_alt_number, INSN_UID (curr_insn));
       for (i = 0; i < n_operands; i++)
 	{
 	  p = (curr_static_id->operand_alternative
-	       [goal_alternative_number * n_operands + i].constraint);
+	       [goal_alt_number * n_operands + i].constraint);
 	  if (*p == '\0')
 	    continue;
 	  fprintf (lra_dump_file, "  (%d) ", i);
@@ -2823,21 +2755,21 @@ curr_insn_transform (void)
     }
 
   /* Right now, for any pair of operands I and J that are required to
-     match, with I < J, goal_alternative_matches[J] is I.  Set up
-     goal_alternative_matched as the inverse function:
-     goal_alternative_matched[I] = J.  */
+     match, with I < J, goal_alt_matches[J] is I.  Set up
+     goal_alt_matched as the inverse function: goal_alt_matched[I] =
+     J.  */
   
   for (i = 0; i < n_operands; i++)
-    if (goal_alternative_matches[i] >= 0)
-      goal_alternative_matched[goal_alternative_matches[i]] = i;
+    if (goal_alt_matches[i] >= 0)
+      goal_alt_matched[goal_alt_matches[i]] = i;
   
   for (i = 0; i < n_operands; i++)
-    goal_alternative_win[i] |= goal_alternative_match_win[i];
+    goal_alt_win[i] |= goal_alt_match_win[i];
   
   /* Any constants that aren't allowed and can't be reloaded into
      registers are here changed into memory references.  */
   for (i = 0; i < n_operands; i++)
-    if (goal_alternative_win[i])
+    if (goal_alt_win[i])
       {
 	int regno;
 	enum reg_class new_class;
@@ -2848,7 +2780,7 @@ curr_insn_transform (void)
 	    
 	if (REG_P (reg) && (regno = REGNO (reg)) >= FIRST_PSEUDO_REGISTER)
 	  {
-	    bool ok_p = in_class_p (regno, goal_alternative[i], &new_class);
+	    bool ok_p = in_class_p (regno, goal_alt[i], &new_class);
 
 	    if (new_class != NO_REGS && get_reg_class (regno) != new_class)
 	      {
@@ -2882,7 +2814,7 @@ curr_insn_transform (void)
 	
 	if (CONST_POOL_OK_P (mode, op)
 	    && ((targetm.preferred_reload_class
-		 (op, (enum reg_class) goal_alternative[i]) == NO_REGS)
+		 (op, (enum reg_class) goal_alt[i]) == NO_REGS)
 		|| no_input_reloads_p)
 	    && mode != VOIDmode)
 	  {
@@ -2905,9 +2837,8 @@ curr_insn_transform (void)
 	    if (plus != NULL_RTX || subreg != NULL_RTX)
 	      continue;
 	    /* Skip alternatives before the one requested.  */
-	    constraint
-	      = (curr_static_id->operand_alternative
-		 [goal_alternative_number * n_operands + i].constraint);
+	    constraint = (curr_static_id->operand_alternative
+			  [goal_alt_number * n_operands + i].constraint);
 	    for (;
 		 (c = *constraint) && c != ',' && c != '#';
 		 constraint += CONSTRAINT_LEN (c, constraint))
@@ -2923,7 +2854,7 @@ curr_insn_transform (void)
 	    if (c == '\0' || c == ',' || c == '#')
 	      continue;
 	    
-	    goal_alternative_win[i] = true;
+	    goal_alt_win[i] = true;
 	  }
       }
   
@@ -2932,9 +2863,9 @@ curr_insn_transform (void)
       rtx old, new_reg;
       rtx op = *curr_id->operand_loc[i];
 
-      if (goal_alternative_win[i])
+      if (goal_alt_win[i])
 	{
-	  if (goal_alternative[i] == NO_REGS
+	  if (goal_alt[i] == NO_REGS
 	      && REG_P (op)
 	      && lra_former_scratch_operand_p (curr_insn, i))
 	    change_class (REGNO (op), NO_REGS, "      Change", true);
@@ -2942,16 +2873,14 @@ curr_insn_transform (void)
 	}
       
       /* Operands that match previous ones have already been handled.  */
-      if (goal_alternative_matches[i] >= 0)
+      if (goal_alt_matches[i] >= 0)
 	continue;
 
       /* We should not have an operand with a nonoffsettable address
 	 appearing where an offsettable address will do.  It also may
 	 be a case when the address should be special in other words
 	 not a general one (e.g. it needs no index reg).  */
-      if (goal_alternative_matched[i] == -1
-	  && goal_alternative_offmemok[i]
-	  && MEM_P (op))
+      if (goal_alt_matched[i] == -1 && goal_alt_offmemok[i] && MEM_P (op))
 	{
 	  enum reg_class rclass;
 	  rtx *loc = &XEXP (op, 0);
@@ -2973,11 +2902,11 @@ curr_insn_transform (void)
 	  *loc = new_reg;
 	  lra_update_dups (curr_id, i, -1);
 	}
-      else if (goal_alternative_matched[i] == -1)
+      else if (goal_alt_matched[i] == -1)
 	{
 	  enum machine_mode mode;
 	  rtx reg, *loc;
-	  int hard_regno, byte;
+	  int j, hard_regno, byte;
 	  enum op_type type = curr_static_id->operand[i].type;
 
 	  loc = curr_id->operand_loc[i];
@@ -2997,9 +2926,9 @@ curr_insn_transform (void)
 			  && (simplify_subreg_regno
 			      (hard_regno,
 			       GET_MODE (reg), byte, mode) < 0)
-			  && (goal_alternative[i] == NO_REGS
+			  && (goal_alt[i] == NO_REGS
 			      || (simplify_subreg_regno
-				  (ira_class_hard_regs[goal_alternative[i]][0],
+				  (ira_class_hard_regs[goal_alt[i]][0],
 				   GET_MODE (reg), byte, mode) >= 0)))))
 		{
 		  loc = &SUBREG_REG (*loc);
@@ -3007,7 +2936,7 @@ curr_insn_transform (void)
 		}
 	    }
 	  old = *loc;
-	  if (get_reload_reg (type, mode, old, goal_alternative[i], "", &new_reg)
+	  if (get_reload_reg (type, mode, old, goal_alt[i], "", &new_reg)
 	      && type != OP_OUT)
 	    {
 	      push_to_sequence (before);
@@ -3027,18 +2956,21 @@ curr_insn_transform (void)
 		}
 	      *loc = new_reg;
 	    }
+	  for (j = 0; j < goal_alt_dont_inherit_ops_num; j++)
+	    if (goal_alt_dont_inherit_ops[j] == i)
+	      {
+		bitmap_set_bit (&lra_dont_inherit_pseudos, REGNO (new_reg));
+		break;
+	      }
 	  lra_update_dups (curr_id, i, -1);
 	}
       else if (curr_static_id->operand[i].type == OP_IN
-	       && (curr_static_id
-		   ->operand[goal_alternative_matched[i]].type == OP_OUT))
-	match_reload (goal_alternative_matched[i], i,
-		      goal_alternative[i], &before, &after);
+	       && curr_static_id->operand[goal_alt_matched[i]].type == OP_OUT)
+	match_reload (goal_alt_matched[i], i,
+		      goal_alt[i], &before, &after);
       else if (curr_static_id->operand[i].type == OP_OUT
-	       && (curr_static_id
-		   ->operand[goal_alternative_matched[i]].type == OP_IN))
-	match_reload (i, goal_alternative_matched[i],
-		      goal_alternative[i], &before, &after);
+	       && curr_static_id->operand[goal_alt_matched[i]].type == OP_IN)
+	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
       else
 	{
 	  gcc_assert (INSN_CODE (curr_insn) < 0);
@@ -3049,7 +2981,6 @@ curr_insn_transform (void)
 	  return false;
 	}
     }
-  create_early_clobber_reloads (&before, &after);
   if (before != NULL_RTX || after != NULL_RTX || max_regno_before != max_reg_num ())
     change_p = true;
   if (change_p)

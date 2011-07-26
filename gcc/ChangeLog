@@ -1,3 +1,28 @@
+2011-07-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (setup_live_pseudos_and_spill_after_equiv_moves):
+	Remove the dead code.
+
+	* lra-constraints.c (goal_alternative*): Rename to goal_alt...
+	(goal_early_clobbered_nops_num, goal_early_clobbered_nops):
+	Remove.
+	(goal_alt_dont_inherit_ops_num, goal_alt_dont_inherit_ops): New
+	static variables.
+	(uses_hard_regs_p): New function.
+	(process_alt_operands): Rename curr_alternative to curr_alt...
+	Rename curr_early_clobbered_regs[_num] to
+	early_clobbered_regs[_num].  Add code for matching with early
+	clobber.  Add code to process and evaluate conflicts with early
+	clobbers.  Set up goal_alt_dont_inherit_ops_num,
+	goal_alt_dont_inherit_ops.
+	(early_clobber_reload_regs_num, early_clobber_reload_regs):
+	Remove.
+	(make_early_clobber_input_reload_reg, search_and_replace_reg): Ditto.
+	(create_early_clobber_reloads): Ditto.
+	(curr_insn_transform): Rename goal_alternative_matched to
+	goal_alt_matched.  Setup dont_inherit flag for early clobber
+	reload pseudo.  Don't call create_early_clobber_reloads.
+
 2011-07-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_invalidate_insn_data): New prototype.

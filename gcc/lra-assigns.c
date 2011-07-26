@@ -869,8 +869,6 @@ setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
 	   curr_regno >= 0;
 	   curr_regno = lra_reg_info[curr_regno].next)
 	{
-	  IOR_HARD_REG_SET (conflict_set,
-			    lra_reg_info[curr_regno].conflict_hard_regs);
 	  if (GET_MODE_SIZE (mode)
 	      < GET_MODE_SIZE (lra_reg_info[curr_regno].biggest_mode))
 	    mode = lra_reg_info[curr_regno].biggest_mode;
