@@ -1,3 +1,102 @@
+2011-07-25  Andrew Pinski  <apinski@cavium.com>
+
+	PR tree-opt/49671
+	* tree-inline.c (remap_gimple_op_r): Copy TREE_THIS_VOLATILE and
+	TREE_THIS_NOTRAP into the inner most MEM_REF.
+	Always copy TREE_THIS_VOLATILE.
+	* tree-sra.c (ptr_parm_has_direct_uses): Check that the lhs, rhs and
+	arguments are not volatile references.
+
+2011-07-25  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/39386
+	Backport from mainline r176756
+	2011-07-25  Georg-Johann Lay
+	* config/avr/avr.c (out_shift_with_cnt): Use tmp_reg as
+	shift counter for x << x and x >> x shifts.
+
+2011-07-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config.gcc (x86_64-*-linux*): Set
+	default_gnu_indirect_function to yes.
+
+2011-07-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/45819
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Properly
+	preserve volatile and notrap flags.
+
+2011-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2011-07-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/49600
+	* config/i386/i386.md (SSE2 int->float split): Push operand 1 in
+	general register to memory for !TARGET_INTER_UNIT_MOVES.
+
+2011-07-20  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_class_max_nregs): Fix return type.
+	* config/s390/s390-protos.h (s390_class_max_nregs): Likewise.
+
+2011-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49768
+	* tree-ssa-ccp.c (fold_nonarray_ctor_reference): Return NULL
+	if offset is smaller than bitoffset, but offset+size is bigger
+	than bitoffset.
+
+2011-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49675
+	* tree.c (build_common_builtin_nodes): Register
+	__builtin_return_address, __cyg_profile_func_enter
+	and __cyg_profile_func_exit.
+
+2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc: Obsolete i[3456x]86-*-netware*.
+
+2011-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/49746
+	Revert:
+	2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2011-07-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/49732
+	* tree.c (walk_tree_1) <DECL_EXPR>: Do not walk a pointed-to type.
+
+2011-07-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/49725
+	Backport from mainline
+	2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1) <ARRAY_REF>: Drop
+	a zero minimum index only if it is redundant.
+
+2011-07-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/49723
+	* config/pa/pa.md (casesi): Use gen_int_mode instead of GEN_INT.
+
+2011-07-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2011-07-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_ASM_FILE_START): Do not define.
+	(asm_file_start): Remove.
+	(spu_machine_dependent_reorg): Call compute_bb_for_insn and
+	free_bb_for_insn around code that modifies insns before
+	restarting df analysis.
+
 2011-07-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (gen_producer_string): Ignore also -fverbose-asm
