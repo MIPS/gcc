@@ -1,5 +1,12 @@
 2011-07-28  Jakub Jelinek  <jakub@redhat.com>
 
+	PR debug/49846
+	* var-tracking.c (prepare_call_arguments): For non-MODE_INT stack
+	arguments also check if they aren't initialized with a MODE_INT
+	mode of the same size.
+
+2011-07-28  Jakub Jelinek  <jakub@redhat.com>
+
 	* dwarf2out.c (resolve_addr): For -gdwarf-2 don't
 	optimize DW_AT_data_member_location containing just
 	DW_OP_plus_uconst.
