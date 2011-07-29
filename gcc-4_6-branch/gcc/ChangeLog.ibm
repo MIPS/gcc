@@ -1,3 +1,16 @@
+2011-07-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49749
+	* tree-ssa-reassoc.c (get_rank): New forward declaration.
+	(PHI_LOOP_BIAS): Changed value.
+	(phi_loop_bias): Replaced with...
+	(phi_rank): ...this new function.
+	(loop_carried_phi): New function.
+	(propagate_rank): Likewise.
+	(get_rank): Replace loop-biasing expression with call to phi_rank;
+	remove variable maxrank; replace propagation logic with calls to
+	propagate_rank.
+	
 2011-07-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/49749
