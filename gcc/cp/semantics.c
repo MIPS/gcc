@@ -4085,12 +4085,9 @@ finish_omp_clauses (tree clauses)
 	    case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 	      break;
 	    case OMP_CLAUSE_DEFAULT_SHARED:
-	      /* const vars may be specified in firstprivate clause,
-		 but don't allow static data members.  */
+	      /* const vars may be specified in firstprivate clause.  */
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
-		  && (!TREE_STATIC (t)
-		      || !TYPE_P (CP_DECL_CONTEXT (t))
-		      || !MAYBE_CLASS_TYPE_P (CP_DECL_CONTEXT (t))))
+		  && cxx_omp_const_qual_no_mutable (t))
 		break;
 	      share_name = "shared";
 	      break;

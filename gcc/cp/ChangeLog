@@ -1,3 +1,12 @@
+2011-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (cxx_omp_const_qual_no_mutable): New prototype.
+	* cp-gimplify.c (cxx_omp_const_qual_no_mutable): New function.
+	(cxx_omp_predetermined_sharing): Use it.
+	* semantics.c (finish_omp_clauses): Allow const qualified
+	static data members having no mutable member in firstprivate
+	clauses.
+
 2011-07-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_atomic): Fix handling of

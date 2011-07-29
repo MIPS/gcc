@@ -1,3 +1,7 @@
+2011-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/sharing-2.C: New test.
+
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/private-1.C: Adjust for expected wording of error
