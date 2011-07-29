@@ -1313,6 +1313,13 @@ uses_hard_regs_p (rtx *loc, HARD_REG_SET set)
   return false;
 }
 
+/* Cost factor for each additional reload and maximal cost bound for
+   insn reloads.  One might ask about such strange numbers.  Their
+   values occured historically from former reload pass. In some way,
+   even machine descriptions.  */
+#define LOSER_COST_FACTOR 6
+#define MAX_OVERALL_COST_BOUND 600
+
 /* Major function to choose the current insn alternative and what
    operands should be reload and how.  If ONLY_ALTERNATIVE is not
    negative we should consider only this alternative.  Return false if
@@ -1915,12 +1922,12 @@ process_alt_operands (int only_alternative)
 		{
 		  if (targetm.preferred_reload_class
 		      (op, this_alternative) == NO_REGS)
-		    reject = 600;
+		    reject = MAX_OVERALL_COST_BOUND;
 	  
 		  if (curr_static_id->operand[nop].type == OP_OUT
 		      && (targetm.preferred_output_reload_class
 			  (op, this_alternative) == NO_REGS))
-		    reject = 600;
+		    reject = MAX_OVERALL_COST_BOUND;
 		}
       
 	      /* We prefer to reload pseudos over reloading other
@@ -1958,7 +1965,7 @@ process_alt_operands (int only_alternative)
 	  /* ??? Should we update the cost because early clobber
 	     register reloads or it is a rare thing to be worth to do
 	     it.  */
-	  overall = losers * 6 + reject;
+	  overall = losers * LOSER_COST_FACTOR + reject;
 	  if ((best_losers == 0 || losers != 0) && best_overall < overall)
 	    goto fail;
 
@@ -2027,7 +2034,11 @@ process_alt_operands (int only_alternative)
 	  /* We need to reload early clobbered register.  */
 	  for (j = 0; j < n_operands; j++)
 	    if (curr_alt_matches[j] == i)
-	      curr_alt_match_win[j] = false;
+	      {
+		curr_alt_match_win[j] = false;
+		losers++;
+		overall += LOSER_COST_FACTOR;
+	      }
 	  if (! curr_alt_match_win[i])
 	    curr_alt_dont_inherit_ops[curr_alt_dont_inherit_ops_num++] = i;
 	  else
@@ -2038,7 +2049,7 @@ process_alt_operands (int only_alternative)
 	    }
 	  curr_alt_win[i] = curr_alt_match_win[i] = false;
 	  losers++;
-	  overall += 6;
+	  overall += LOSER_COST_FACTOR;
 	}
       small_class_operands_num = 0;
       for (nop = 0; nop < n_operands; nop++)
@@ -2584,7 +2595,7 @@ curr_insn_transform (void)
      got the wrong kind of hard reg.  For this, we must consider all
      the operands together against the register constraints.  */
 
-  best_losers = best_overall = MAX_RECOG_OPERANDS * 2 + 600;
+  best_losers = best_overall = MAX_RECOG_OPERANDS * 2 + MAX_OVERALL_COST_BOUND;
   best_small_class_operands_num = best_reload_sum = 0;
 
   curr_swapped = false;
@@ -3186,30 +3197,29 @@ lra_constraints (bool first_p)
 		 different from the pseudo mode.  */
 	      if (GET_CODE (dest_reg) == SUBREG)
 		dest_reg = SUBREG_REG (dest_reg);
-	      if (REG_P (dest_reg)
-		  && ((((x = get_equiv_substitution (dest_reg)) != dest_reg)
-		       /* Remove insns which set up a pseudo whose
-			  value can not be changed.  Such insns might
-			  be not in init_insns because we don't update
-			  equiv data during insn transformations.
+	      if ((REG_P (dest_reg)
+		   && (x = get_equiv_substitution (dest_reg)) != dest_reg
+		   /* Remove insns which set up a pseudo whose value
+		      can not be changed.  Such insns might be not in
+		      init_insns because we don't update equiv data
+		      during insn transformations.
 			  
-			  As an example, let suppose that a pseudo got
-			  hard register and on the 1st pass was not
-			  changed to equivalent constant.  We generate
-			  an additional insn setting up the pseudo
-			  because of secondary memory movement.  Then
-			  the pseudo is spilled and we use the equiv
-			  constant.  In this case we should remove the
-			  additional insn and this insn is not
-			  init_insns list.  */
-		       && (! MEM_P (x) || MEM_READONLY_P (x)
-			   || in_list_p (curr_insn,
-					 ira_reg_equiv
-					 [REGNO (dest_reg)].init_insns)))
-		      || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
-			  && in_list_p (curr_insn,
-					ira_reg_equiv
-					[REGNO (SET_SRC (set))].init_insns))))
+		      As an example, let suppose that a pseudo got
+		      hard register and on the 1st pass was not
+		      changed to equivalent constant.  We generate an
+		      additional insn setting up the pseudo because of
+		      secondary memory movement.  Then the pseudo is
+		      spilled and we use the equiv constant.  In this
+		      case we should remove the additional insn and
+		      this insn is not init_insns list.  */
+		   && (! MEM_P (x) || MEM_READONLY_P (x)
+		       || in_list_p (curr_insn,
+				     ira_reg_equiv
+				     [REGNO (dest_reg)].init_insns)))
+		  || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
+		      && in_list_p (curr_insn,
+				    ira_reg_equiv
+				    [REGNO (SET_SRC (set))].init_insns)))
 		{
 		  /* This is equiv init insn of pseudo which did not get a
 		     hard register -- remove the insn.  */

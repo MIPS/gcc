@@ -1,3 +1,22 @@
+2011-07-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (LOSER_COST_FACTOR, MAX_OVERALL_COST_BOUND):
+	New macros.
+	(process_alt_operands): Use the macros.  Adjust losers and
+	overall for reloads becuase of early clobbers.
+	(curr_insn_transform): Use MAX_OVERALL_COST_BOUND.
+	(lra_constraints): Fix typo with parentheses.
+
+	* lra-lives.c (process_bb_lives): Permit creation of copies
+	involving all new pseudos.
+
+	* lra-assigns.c (curr_update_hard_regno_preference_check): New variable.
+	(update_hard_regno_preference_check): Ditto.
+	(update_hard_regno_preference): New function.
+	(lra_setup_reg_renumber): Use update_hard_regno_preference.
+	(assign_by_spills): Initialize update_hard_regno_preference_check
+	and curr_update_hard_regno_preference_check.
+
 2011-07-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assign.c (setup_live_pseudos_and_spill_after_equiv_moves):

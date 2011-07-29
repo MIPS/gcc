@@ -443,15 +443,65 @@ find_hard_regno_for (int regno, int *cost)
   return best_hard_regno;
 }
 
+/* Current value used for checking elements in
+   update_hard_regno_preference_check.  */
+static int curr_update_hard_regno_preference_check;
+/* If an element value is equal to the above variable value, then the
+   corresponding regno has been processed for preference
+   propagation.  */
+static int *update_hard_regno_preference_check;
+
+/* Update HARD_REGNO preference for pseudos connected (directly or
+   indirectly) to a pseudo with REGNO.  Use divisor DIV to the
+   corresponding copy frequency for the hard regno cost preference
+   calculation.  The more indirectly a pseudo connected, the less the
+   cost preference.  It is achieved by increasing the divisor for each
+   next recursive level move.  */
+static void
+update_hard_regno_preference (int regno, int hard_regno, int div)
+{
+  int another_regno, cost;
+  lra_copy_t cp, next_cp;
+
+  /* Search depth 5 seems to be enough.  */
+  if (div > (1 << 5))
+    return;
+  for (cp = lra_reg_info[regno].copies; cp != NULL; cp = next_cp)
+    {
+      if (cp->regno1 == regno)
+	{
+	  next_cp = cp->regno1_next;
+	  another_regno = cp->regno2;
+	}
+      else if (cp->regno2 == regno)
+	{
+	  next_cp = cp->regno2_next;
+	  another_regno = cp->regno1;
+	}
+      else
+	gcc_unreachable ();
+      if (reg_renumber[another_regno] < 0
+	  && (update_hard_regno_preference_check[another_regno]
+	      != curr_update_hard_regno_preference_check))
+	{
+	  update_hard_regno_preference_check[another_regno]
+	    = curr_update_hard_regno_preference_check;
+	  cost = cp->freq < div ? 1 : cp->freq / div;
+	  lra_setup_reload_pseudo_preferenced_hard_reg
+	    (another_regno, hard_regno, cost);
+	  update_hard_regno_preference (another_regno, hard_regno, div * 2);
+	}
+    }
+}
+
 /* Update REG_RENUMBER and other pseudo preferences by assignment of
    HARD_REGNO to pseudo REGNO (and pseudos bound to it) and print
    about it if PRINT_P.  */
 void
 lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
 {
-  int i, hr, curr_regno, biggest_regno, another_regno;
+  int i, hr, curr_regno, biggest_regno;
   int offset, curr_offset;
-  lra_copy_t cp, next_cp;
 
   if (hard_regno < 0 || lra_reg_info[regno].next < 0)
     {
@@ -499,24 +549,10 @@ lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
 		 ? "inheritance " : "reload ",
 		 curr_regno, lra_reg_info[curr_regno].freq);
       if (hard_regno >= 0)
-	for (cp = lra_reg_info[curr_regno].copies; cp != NULL; cp = next_cp)
-	  {
-	    if (cp->regno1 == curr_regno)
-	      {
-		next_cp = cp->regno1_next;
-		another_regno = cp->regno2;
-	      }
-	    else if (cp->regno2 == curr_regno)
-	      {
-		next_cp = cp->regno2_next;
-		another_regno = cp->regno1;
-	      }
-	    else
-	      gcc_unreachable ();
-	    if (reg_renumber[another_regno] < 0)
-	      lra_setup_reload_pseudo_preferenced_hard_reg
-		(another_regno, hard_regno, cp->freq);
-	  }
+	{
+	  curr_update_hard_regno_preference_check++;
+	  update_hard_regno_preference (curr_regno, hard_regno, 1);
+	}
     }
 }
 
@@ -956,6 +992,11 @@ assign_by_spills (void)
   bitmap_initialize (&assign_candidates_bitmap, &reg_obstack);
   assign_candidates = (int *) xmalloc (sizeof (int) * max_reg_num ());
   assigned_pseudos = (int *) xmalloc (sizeof (int) * max_reg_num ());
+  update_hard_regno_preference_check = (int *) xmalloc (sizeof (int)
+							* max_reg_num ());
+  memset (update_hard_regno_preference_check, 0,
+	  sizeof (int) * max_reg_num ());
+  curr_update_hard_regno_preference_check = 0;
   memset (try_hard_reg_pseudos_check, 0, sizeof (try_hard_reg_pseudos_check));
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     bitmap_initialize (&try_hard_reg_pseudos[i], &reg_obstack);
@@ -1062,6 +1103,7 @@ assign_by_spills (void)
 	    bitmap_set_bit (&changed_pseudo_bitmap, curr_regno);
 	}
     }
+  free (update_hard_regno_preference_check);
   free (assigned_pseudos);
   free (assign_candidates);
   bitmap_clear (&assign_candidates_bitmap);

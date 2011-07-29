@@ -533,13 +533,14 @@ process_bb_lives (basic_block bb)
 	  /* Check that source regno does not conflict with
 	     destination regno to exclude most impossible
 	     preferences.  */
-	  && (((((src_regno = REGNO (SET_SRC (set))) >= FIRST_PSEUDO_REGISTER
-		 && ! sparseset_bit_p (pseudos_live, src_regno))
-		|| (src_regno < FIRST_PSEUDO_REGISTER
-		    && ! TEST_HARD_REG_BIT (hard_regs_live, src_regno)))
-	       /* It might be 'inheritance pseudo <- reload pseudo'.  */
-	       || (src_regno >= lra_constraint_new_regno_start
-		   && (int) ORIGINAL_REGNO (SET_DEST (set)) == src_regno))))
+	  && ((((src_regno = REGNO (SET_SRC (set))) >= FIRST_PSEUDO_REGISTER
+		&& ! sparseset_bit_p (pseudos_live, src_regno))
+	       || (src_regno < FIRST_PSEUDO_REGISTER
+		   && ! TEST_HARD_REG_BIT (hard_regs_live, src_regno)))
+	      /* It might be 'inheritance pseudo <- reload pseudo'.  */
+	      || (src_regno >= lra_constraint_new_regno_start
+		  && ((int) REGNO (SET_DEST (set))
+		      >= lra_constraint_new_regno_start))))
 	{
 	  int hard_regno = -1, regno = -1;
 
