@@ -4713,12 +4713,13 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 
 void
 finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
-		   tree rhs, tree v, tree lhs1)
+		   tree rhs, tree v, tree lhs1, tree rhs1)
 {
   tree orig_lhs;
   tree orig_rhs;
   tree orig_v;
   tree orig_lhs1;
+  tree orig_rhs1;
   bool dependent_p;
   tree stmt;
 
@@ -4726,6 +4727,7 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
   orig_rhs = rhs;
   orig_v = v;
   orig_lhs1 = lhs1;
+  orig_rhs1 = rhs1;
   dependent_p = false;
   stmt = NULL_TREE;
 
@@ -4736,7 +4738,8 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
       dependent_p = (type_dependent_expression_p (lhs)
 		     || (rhs && type_dependent_expression_p (rhs))
 		     || (v && type_dependent_expression_p (v))
-		     || (lhs1 && type_dependent_expression_p (lhs1)));
+		     || (lhs1 && type_dependent_expression_p (lhs1))
+		     || (rhs1 && type_dependent_expression_p (rhs1)));
       if (!dependent_p)
 	{
 	  lhs = build_non_dependent_expr (lhs);
@@ -4746,12 +4749,14 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
 	    v = build_non_dependent_expr (v);
 	  if (lhs1)
 	    lhs1 = build_non_dependent_expr (lhs1);
+	  if (rhs1)
+	    rhs1 = build_non_dependent_expr (rhs1);
 	}
     }
   if (!dependent_p)
     {
       stmt = c_finish_omp_atomic (input_location, code, opcode, lhs, rhs,
-				  v, lhs1);
+				  v, lhs1, rhs1);
       if (stmt == error_mark_node)
 	return;
     }
@@ -4768,6 +4773,8 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
 	    stmt = build2 (MODIFY_EXPR, void_type_node, orig_lhs, orig_rhs);
 	  else 
 	    stmt = build2 (opcode, void_type_node, orig_lhs, orig_rhs);
+	  if (orig_rhs1)
+	    stmt = build_min_nt (COMPOUND_EXPR, orig_rhs1, stmt);
 	  if (code != OMP_ATOMIC)
 	    {
 	      stmt = build_min_nt (code, orig_lhs1, stmt);

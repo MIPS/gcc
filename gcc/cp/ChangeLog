@@ -1,3 +1,16 @@
+2011-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (finish_omp_atomic): Add rhs1 argument.
+	* parser.c (cp_parser_omp_atomic): Parse x = x binop expr; stmts in
+	#pragma omp atomic update and in #pragma omp atomic capture
+	structured block forms.  Adjust finish_omp_atomic caller.
+	Fix up error handling in capture structured blocks.
+	* pt.c (tsubst_expr) <case OMP_ATOMIC>: Find saved rhs1 value if any
+	and pass it to finish_omp_atomic.
+	* semantics.c (finish_omp_atomic): Add rhs1 argument.  Adjust
+	c_finish_omp_atomic caller and store rhs1 inside of OMP_ATOMIC
+	arguments.
+
 2011-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (cxx_omp_const_qual_no_mutable): New prototype.

@@ -1,7 +1,8 @@
 /* This file contains routines to construct GNU OpenMP constructs,
    called from parsing in the C and C++ front ends.
 
-   Copyright (C) 2005, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009, 2010, 2011
+   Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>,
 		  Diego Novillo <dnovillo@redhat.com>.
 
@@ -122,12 +123,13 @@ c_finish_omp_taskyield (location_t loc)
 tree
 c_finish_omp_atomic (location_t loc, enum tree_code code,
 		     enum tree_code opcode, tree lhs, tree rhs,
-		     tree v, tree lhs1)
+		     tree v, tree lhs1, tree rhs1)
 {
   tree x, type, addr;
 
   if (lhs == error_mark_node || rhs == error_mark_node
-      || v == error_mark_node || lhs1 == error_mark_node)
+      || v == error_mark_node || lhs1 == error_mark_node
+      || rhs1 == error_mark_node)
     return error_mark_node;
 
   /* ??? According to one reading of the OpenMP spec, complex type are
@@ -188,6 +190,20 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   x = build2 (code, type, addr, rhs);
   SET_EXPR_LOCATION (x, loc);
 
+  /* Generally it is hard to prove lhs1 and lhs are the same memory
+     location, just diagnose different variables.  */
+  if (rhs1
+      && TREE_CODE (rhs1) == VAR_DECL
+      && TREE_CODE (lhs) == VAR_DECL
+      && rhs1 != lhs)
+    {
+      if (code == OMP_ATOMIC)
+	error_at (loc, "%<#pragma omp atomic update%> uses two different variables for memory");
+      else
+	error_at (loc, "%<#pragma omp atomic capture%> uses two different variables for memory");
+      return error_mark_node;
+    }
+
   if (code != OMP_ATOMIC)
     {
       /* Generally it is hard to prove lhs1 and lhs are the same memory
@@ -202,6 +218,13 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 	}
       x = build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
 			     loc, x, NULL_TREE);
+      if (rhs1 && rhs1 != lhs)
+	{
+	  tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, 0);
+	  if (rhs1addr == error_mark_node)
+	    return error_mark_node;
+	  x = omit_one_operand_loc (loc, type, x, rhs1addr);
+	}
       if (lhs1 && lhs1 != lhs)
 	{
 	  tree lhs1addr = build_unary_op (loc, ADDR_EXPR, lhs1, 0);
@@ -212,9 +235,16 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 	  else
 	    {
 	      x = save_expr (x);
-	      x = omit_two_operands_loc (loc, type, x, lhs1addr, x);
+	      x = omit_two_operands_loc (loc, type, x, x, lhs1addr);
 	    }
 	}
+    }
+  else if (rhs1 && rhs1 != lhs)
+    {
+      tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, 0);
+      if (rhs1addr == error_mark_node)
+	return error_mark_node;
+      x = omit_one_operand_loc (loc, type, x, rhs1addr);
     }
 
   return x;

@@ -1,3 +1,16 @@
+2011-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (enum c_parser_prec): New enum, moved from within
+	c_parser_binary_expression.
+	(c_parser_binary_expression): Add PREC argument.  Stop parsing
+	if operator has lower or equal precedence than PREC.
+	(c_parser_conditional_expression, c_parser_omp_for_loop): Adjust
+	callers.
+	(c_parser_omp_atomic): Parse x = x binop expr; stmts in
+	#pragma omp atomic update and in #pragma omp atomic capture
+	structured block forms.  Adjust c_finish_omp_atomic caller.
+	Fix up error handling in capture structured blocks.
+
 2011-07-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_atomic): Fix handling of

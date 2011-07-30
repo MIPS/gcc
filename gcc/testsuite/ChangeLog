@@ -1,3 +1,10 @@
+2011-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/atomic-5.c: Adjust expected diagnostics.
+	* gcc.dg/gomp/atomic-15.c: New test.
+	* g++.dg/gomp/atomic-5.C: Adjust expected diagnostics.
+	* g++.dg/gomp/atomic-15.C: New test.
+
 2011-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/sharing-2.C: New test.

@@ -24197,6 +24197,9 @@ cp_parser_omp_structured_block (cp_parser *parser)
   where x is an lvalue expression with scalar type.
 
    OpenMP 3.1:
+   # pragma omp atomic new-line
+     update-stmt
+
    # pragma omp atomic read new-line
      read-stmt
 
@@ -24204,7 +24207,7 @@ cp_parser_omp_structured_block (cp_parser *parser)
      write-stmt
 
    # pragma omp atomic update new-line
-     expression-stmt
+     update-stmt
 
    # pragma omp atomic capture new-line
      capture-stmt
@@ -24216,10 +24219,12 @@ cp_parser_omp_structured_block (cp_parser *parser)
      v = x
    write-stmt:
      x = expr
+   update-stmt:
+     expression-stmt | x = x binop expr
    capture-stmt:
      v = x binop= expr | v = x++ | v = ++x | v = x-- | v = --x
    capture-block:
-     { v = x; expression-stmt; } | { expression-stmt; v = x; }
+     { v = x; update-stmt; } | { update-stmt; v = x; }
 
   where x and v are lvalue expressions with scalar type.  */
 
@@ -24227,7 +24232,7 @@ static void
 cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
 {
   tree lhs = NULL_TREE, rhs = NULL_TREE, v = NULL_TREE, lhs1 = NULL_TREE;
-  tree orig_lhs;
+  tree rhs1 = NULL_TREE, orig_lhs;
   enum tree_code code = OMP_ATOMIC, opcode = NOP_EXPR;
   bool structured_block = false;
 
@@ -24387,19 +24392,74 @@ restart:
 	  opcode = BIT_XOR_EXPR;
 	  break;
 	case CPP_EQ:
-	  if (structured_block && code == OMP_ATOMIC_CAPTURE_NEW)
+	  if (structured_block || code == OMP_ATOMIC)
 	    {
-	      code = OMP_ATOMIC_CAPTURE_OLD;
-	      v = lhs;
-	      lhs = NULL_TREE;
+	      enum cp_parser_prec oprec;
+	      cp_token *token;
 	      cp_lexer_consume_token (parser->lexer);
-	      lhs1 = cp_parser_unary_expression (parser, /*address_p=*/false,
+	      rhs1 = cp_parser_unary_expression (parser, /*address_p=*/false,
 						 /*cast_p=*/false, NULL);
-	      if (lhs1 == error_mark_node)
+	      if (rhs1 == error_mark_node)
 		goto saw_error;
-	      if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+	      token = cp_lexer_peek_token (parser->lexer);
+	      switch (token->type)
+		{
+		case CPP_SEMICOLON:
+		  if (code == OMP_ATOMIC_CAPTURE_NEW)
+		    {
+		      code = OMP_ATOMIC_CAPTURE_OLD;
+		      v = lhs;
+		      lhs = NULL_TREE;
+		      lhs1 = rhs1;
+		      rhs1 = NULL_TREE;
+		      cp_lexer_consume_token (parser->lexer);
+		      goto restart;
+		    }
+		  cp_parser_error (parser,
+				   "invalid form of %<#pragma omp atomic%>");
+		  goto saw_error;
+		case CPP_MULT:
+		  opcode = MULT_EXPR;
+		  break;
+		case CPP_DIV:
+		  opcode = TRUNC_DIV_EXPR;
+		  break;
+		case CPP_PLUS:
+		  opcode = PLUS_EXPR;
+		  break;
+		case CPP_MINUS:
+		  opcode = MINUS_EXPR;
+		  break;
+		case CPP_LSHIFT:
+		  opcode = LSHIFT_EXPR;
+		  break;
+		case CPP_RSHIFT:
+		  opcode = RSHIFT_EXPR;
+		  break;
+		case CPP_AND:
+		  opcode = BIT_AND_EXPR;
+		  break;
+		case CPP_OR:
+		  opcode = BIT_IOR_EXPR;
+		  break;
+		case CPP_XOR:
+		  opcode = BIT_XOR_EXPR;
+		  break;
+		default:
+		  cp_parser_error (parser,
+				   "invalid operator for %<#pragma omp atomic%>");
+		  goto saw_error;
+		}
+	      oprec = TOKEN_PRECEDENCE (token);
+	      gcc_assert (oprec != PREC_NOT_OPERATOR);
+	      if (commutative_tree_code (opcode))
+		oprec = (enum cp_parser_prec) (oprec - 1);
+	      cp_lexer_consume_token (parser->lexer);
+	      rhs = cp_parser_binary_expression (parser, false, false,
+						 oprec, NULL);
+	      if (rhs == error_mark_node)
 		goto saw_error;
-	      goto restart;
+	      goto stmt_done;
 	    }
 	  /* FALLTHROUGH */
 	default:
@@ -24414,6 +24474,7 @@ restart:
 	goto saw_error;
       break;
     }
+stmt_done:
   if (structured_block && code == OMP_ATOMIC_CAPTURE_NEW)
     {
       if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
@@ -24435,13 +24496,24 @@ restart:
       cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE);
     }
 done:
-  finish_omp_atomic (code, opcode, lhs, rhs, v, lhs1);
+  finish_omp_atomic (code, opcode, lhs, rhs, v, lhs1, rhs1);
   if (!structured_block)
     cp_parser_consume_semicolon_at_end_of_statement (parser);
   return;
 
  saw_error:
   cp_parser_skip_to_end_of_block_or_statement (parser);
+  if (structured_block)
+    {
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+        cp_lexer_consume_token (parser->lexer);
+      else if (code == OMP_ATOMIC_CAPTURE_NEW)
+	{
+	  cp_parser_skip_to_end_of_block_or_statement (parser);
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+	    cp_lexer_consume_token (parser->lexer);
+	}
+    }
 }
 
 

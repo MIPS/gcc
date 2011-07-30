@@ -1,3 +1,11 @@
+2011-07-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (c_finish_omp_atomic): Add rhs1 argument.
+	* c-omp.c (c_finish_omp_atomic): Add rhs1 argument.  If it
+	has side-effects, evaluate those too in the right spot,
+	if it is a decl and lhs is also a decl, error out if they
+	aren't the same.  Fix order of omit_two_operands_loc arguments.
+
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	Revert
