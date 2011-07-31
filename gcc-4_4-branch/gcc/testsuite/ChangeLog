@@ -1,3 +1,24 @@
+2011-07-28  Tobias Burnus  <burnus@net-b.de>
+
+	Backported from mainline
+	2011-07-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/49791
+	* gfortran.dg/namelist_72.f: New.
+
+2011-07-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx-os-support.h: New.
+	* gcc.target/i386/avx-check.h: Include avx-os-support.h
+	(main): Check avx_os_support before the test is run.
+	* gcc.target/i386/aes-avx-check.h: Ditto.
+	* gcc.target/i386/pclmul-avx-check.h: Ditto.
+
+2011-07-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp (check_avx_os_support_available): New.
+	(check_effective_target_avx_runtime): Use it.
+
 2010-12-28  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* gcc.target/i386/rdrand-1.c: Updated.

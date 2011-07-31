@@ -1,3 +1,16 @@
+2011-07-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47364
+	* config/i386/i386.md (strlensi): Enable for !TARGET_64BIT only.
+	(strlendi): Enable for TARGET_64BIT only.
+
+2011-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48973
+	* expr.c (expand_expr_real_1) <case TRUTH_ANDIF_EXPR>: If
+	the comparison has a single bit signed type, use
+	constm1_rtx instead of const1_rtx for true value.
+
 2011-04-29  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/rs6000.c (rs6000_delegitimize_address): Handle
