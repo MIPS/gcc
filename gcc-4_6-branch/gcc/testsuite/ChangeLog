@@ -1,19 +1,62 @@
+2011-07-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/48876
+	* gfortran.dg/string_5.f90:  New test.
+
+2011-07-29  Wei Guozhi  <carrot@google.com>
+
+	Backported from mainline
+	2011-07-29  Wei Guozhi  <carrot@google.com>
+
+	PR rtl-optimization/49799
+	* gcc.dg/pr49799.c: New test case.
+
 2011-07-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/49871
 	* gcc.dg/debug/dwarf2/pr49871.c: New test.
 
+2011-07-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45586
+	* gfortran.dg/lto/pr45586-2_0.f90: New.
+
+2011-07-27  Jeffrey Yasskin  <jyasskin@google.com>
+
+	* g++.old-deja/g++.pt/crash60.C: Updated.
+
+2011-07-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49866
+	* gcc.target/i386/pr49866.c: New test.
+
+2011-07-27  Tobias Burnus  <burnus@net-b.de>
+
+	Backported from mainline
+	2011-07-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/49791
+	* gfortran.dg/namelist_72.f: New.
+
+2011-07-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx-os-support.h: New.
+	* gcc.target/i386/avx-check.h: Include avx-os-support.h
+	(main): Check avx_os_support before the test is run.
+	* gcc.target/i386/aes-avx-check.h: Ditto.
+	* gcc.target/i386/pclmul-avx-check.h: Ditto.
+
 2011-07-26  Ira Rosen  <ira.rosen@linaro.org>
 
-	* gcc.dg/vect/vect-70.c: Reduce the data size to fit
-	SPU local store.
+	* gcc.dg/vect/vect-70.c: Reduce the data size to fit SPU local store.
 
 2011-07-25  Andrew Pinski  <apinski@cavium.com>
 
 	PR tree-opt/49671
 	* gcc.dg/tree-ssa/pr49671-1.c: New testcase.
 	* gcc.dg/tree-ssa/pr49671-2.c: New testcase.
-	
+
 2011-07-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR testsuite/49753
