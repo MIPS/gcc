@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2010, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2011, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -37,6 +37,10 @@
     and the subsection "Specifying How Stack Checking is Done".  The handlers
     installed by this file are used to catch the resulting signals that come
     from these probes failing (i.e. touching protected pages).  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* This file should be kept synchronized with 2sinit.ads, 2sinit.adb,
    s-init-ae653-cert.adb and s-init-xi-sparc.adb.  All these files implement
@@ -759,16 +763,35 @@ extern struct Exception_Data _abort_signal;
    connecting that handler, with the effects described in the sigaction
    man page:
 
-          SA_SIGINFO [...]
-          If cleared and the signal is caught, the first argument is
-          also the signal number but the second argument is the signal
-          code identifying the cause of the signal. The third argument
-          points to a sigcontext_t structure containing the receiving
-          process's context when the signal was delivered.  */
+          SA_SIGINFO   If set and the signal is caught, sig is passed as the
+                       first argument to the signal-catching function.  If the
+                       second argument is not equal to NULL, it points to a
+                       siginfo_t structure containing the reason why the
+                       signal was generated [see siginfo(5)]; the third
+                       argument points to a ucontext_t structure containing
+                       the receiving process's context when the signal was
+                       delivered [see ucontext(5)].  If cleared and the signal
+                       is caught, the first argument is also the signal number
+                       but the second argument is the signal code identifying
+                       the cause of the signal. The third argument points to a
+                       sigcontext_t structure containing the receiving
+                       process's context when the signal was delivered. This
+                       is the default behavior (see signal(5) for more
+                       details).  Additionally, when SA_SIGINFO is set for a
+                       signal, multiple occurrences of that signal will be
+                       queued for delivery in FIFO order (see sigqueue(3) for
+                       a more detailed explanation of this concept), if those
+                       occurrences of that signal were generated using
+                       sigqueue(3).  */
 
 static void
-__gnat_error_handler (int sig, int code, sigcontext_t *sc ATTRIBUTE_UNUSED)
+__gnat_error_handler (int sig, siginfo_t *reason, void *uc ATTRIBUTE_UNUSED)
 {
+  /* This handler is installed with SA_SIGINFO cleared, but there's no
+     prototype for the resulting alternative three-argument form, so we
+     have to hack around this by casting reason to the int actually
+     passed.  */
+  int code = (int) reason;
   struct Exception_Data *exception;
   const char *msg;
 
@@ -853,9 +876,13 @@ __gnat_install_handler (void)
 
   /* Setup signal handler to map synchronous signals to appropriate
      exceptions.  Make sure that the handler isn't interrupted by another
-     signal that might cause a scheduling event!  */
+     signal that might cause a scheduling event!
 
-  act.sa_handler = __gnat_error_handler;
+     The handler is installed with SA_SIGINFO cleared, but there's no
+     C++ prototype for the three-argument form, so fake it by using
+     sa_sigaction and casting the arguments instead.  */
+
+  act.sa_sigaction = __gnat_error_handler;
   act.sa_flags = SA_NODEFER + SA_RESTART;
   sigfillset (&act.sa_mask);
   sigemptyset (&act.sa_mask);
@@ -1027,7 +1054,7 @@ __gnat_install_handler (void)
      exceptions.  Make sure that the handler isn't interrupted by another
      signal that might cause a scheduling event!  */
 
-  act.sa_handler = __gnat_error_handler;
+  act.sa_sigaction = __gnat_error_handler;
   act.sa_flags = SA_NODEFER | SA_RESTART | SA_SIGINFO;
   sigemptyset (&act.sa_mask);
 
@@ -2402,4 +2429,8 @@ __gnat_adjust_context_for_raise (int signo ATTRIBUTE_UNUSED,
      the unwinder adjustment is still desired.  */
 }
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif

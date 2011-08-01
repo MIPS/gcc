@@ -118,6 +118,62 @@
 	* omp_lib.f90.in (omp_integer_kind, omp_logical_kind): Remove
 	and replace all its uses in the module with 4.
 
+2011-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49897
+	PR middle-end/49898
+	* testsuite/libgomp.c/pr49897-1.c: New test.
+	* testsuite/libgomp.c/pr49897-2.c: New test.
+	* testsuite/libgomp.c/pr49898-1.c: New test.
+	* testsuite/libgomp.c/pr49898-2.c: New test.
+
+2011-07-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* testsuite/lib/libgomp.exp (libgomp_init): Add -march=i486
+	for ia32 instead of ilp32.
+
+	* testsuite/libgomp.c/atomic-1.c: Require ia32 instead of ilp32.
+	* testsuite/libgomp.c/atomic-6.c: Likewise.
+
+2011-07-23  Sebastian Pop  <sebastian.pop@amd.com>
+
+	* testsuite/libgomp.graphite/force-parallel-1.c: Un-xfail.
+	* testsuite/libgomp.graphite/force-parallel-2.c: Adjust pattern.
+
+2011-07-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libgomp/45351
+	* config/osf/sem.h: New file.
+	* configure.tgt (alpha*-dec-osf*): Prepend osf to config_path.
+
+2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/49541
+	* testsuite/lib/libgomp.exp (libgomp_init): Don't add -lgomp to
+	ldflags.
+
+2011-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/linux/wait.h (do_spin): New inline, largely copied
+	from do_wait, just don't do futex_wait here, instead return true if
+	it should be done.
+	(do_wait): Implement using do_spin.
+	* config/linux/mutex.h (gomp_mutex_lock_slow): Add an int argument
+	to prototype.
+	(gomp_mutex_lock): Use __sync_val_compare_and_swap instead of
+	__sync_bool_compare_and_swap, pass the oldval to
+	gomp_mutex_lock_slow.
+	* config/linux/mutex.c (gomp_mutex_lock_slow): Add oldval argument.
+	If all mutex contenders are just spinning and not sleeping, don't
+	change state to 2 unnecessarily.  Optimize the loop when state has
+	already become 2 to use just one atomic operation per loop instead
+	of two.
+	* config/linux/ia64/mutex.h (gomp_mutex_lock_slow): Add an int argument
+	to prototype.
+	(gomp_mutex_lock): Use __sync_val_compare_and_swap instead of
+	__sync_bool_compare_and_swap, pass the oldval to
+	gomp_mutex_lock_slow.
+
 2011-06-22  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgomp/49490

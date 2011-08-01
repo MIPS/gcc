@@ -8120,6 +8120,13 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	  return false;
       return true;
 
+    case FMA_EXPR:
+     for (i = 0; i < 3; ++i)
+      if (!potential_constant_expression_1 (TREE_OPERAND (t, i),
+					    true, flags))
+	return false;
+     return true;
+
     case COND_EXPR:
     case VEC_COND_EXPR:
       /* If the condition is a known constant, we know which of the legs we
@@ -8515,7 +8522,7 @@ is_normal_capture_proxy (tree decl)
 static inline void
 insert_capture_proxy (tree var)
 {
-  cxx_scope *b;
+  cp_binding_level *b;
   int skip;
   tree stmt_list;
 
@@ -8524,7 +8531,7 @@ insert_capture_proxy (tree var)
   b = current_binding_level;
   for (skip = 0; ; ++skip)
     {
-      cxx_scope *n = b->level_chain;
+      cp_binding_level *n = b->level_chain;
       if (n->kind == sk_function_parms)
 	break;
       b = n;
@@ -8871,6 +8878,9 @@ maybe_add_lambda_conv_op (tree type)
   if (LAMBDA_EXPR_CAPTURE_LIST (CLASSTYPE_LAMBDA_EXPR (type)) != NULL_TREE)
     return;
 
+  if (processing_template_decl)
+    return;
+
   stattype = build_function_type (TREE_TYPE (TREE_TYPE (callop)),
 				  FUNCTION_ARG_CHAIN (callop));
 
@@ -8935,6 +8945,10 @@ maybe_add_lambda_conv_op (tree type)
 
   if (nested)
     push_function_context ();
+  else
+    /* Still increment function_depth so that we don't GC in the
+       middle of an expression.  */
+    ++function_depth;
 
   /* Generate the body of the thunk.  */
 
@@ -8987,6 +9001,8 @@ maybe_add_lambda_conv_op (tree type)
 
   if (nested)
     pop_function_context ();
+  else
+    --function_depth;
 }
 
 /* Returns true iff VAL is a lambda-related declaration which should

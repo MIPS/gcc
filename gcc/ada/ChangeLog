@@ -1,3 +1,266 @@
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* aspects.ads, aspects.adb: Add aspect Type_Invariant, Precondition,
+	Postcondition.
+	(Same_Aspect): New function.
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Add aspect
+	Type_Invariant, Precondition, Postcondition.
+	* snames.ads-tmpl: Add Name_Type_Invariant.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* freeze.adb (Freeze_Entity): Don't call Check_Aspect_At_Freeze_Point
+	here.
+	(Freeze_All_Ent): Fix error in handling inherited aspects.
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Skip aspect that is
+	already analyzed, but don't skip entire processing of a declaration,
+	that's wrong in some cases of declarations being rewritten.
+	(Analyze_Aspect_Specification): Set Is_Delayed_Aspect in aspects.
+	Don't delay for integer, string literals
+	Treat predicates in usual manner for delay, remove special case code,
+	not needed.
+	(Analyze_Freeze_Entity): Make call to Check_Aspect_At_Freeze_Point
+	(Build_Predicate_Function): Update saved expression in aspect
+	(Build_Invariant_Procedure): Update saved expression in aspect
+	* exp_ch4.adb (Expand_N_Selected_Component): Only do the optimization
+	of replacement of discriminant references if the reference is simple.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* aspects.ads, aspects.adb: Add Static_Predicate and Dynamic_Predicate.
+	* sem_ch13.adb (Analyze_Aspect_Specification): Add processing for
+	Static_Predicate and Dynamic_Predicate.
+	(Build_Predicate_Function): Add processing for Static_Predicate
+	and Dynamic_Predicate.
+	* sinfo.ads, sinfo.adb (From_Dynamic_Predicate): New flag
+	(From_Static_Predicate): New flag
+	* snames.ads-tmpl: Add Name_Static_Predicate and Name_Dynamic_Predicate
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* usage.adb: Documentation cleanup for Ada version modes in usage.
+	* expander.adb: Minor reformatting.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* atree.ads: Minor comment fix.
+	* a-stwifi.adb, a-stzfix.adb, a-strfix.adb, a-ztexio.ads, a-textio.ads,
+	a-witeio.ads, sem_prag.adb: Minor reformatting.
+
+2011-08-01  Doug Rupp  <rupp@adacore.com>
+
+	* env.c (__gnat_setenv) [VMS]: Force 32bit on item list structure
+	pointers. Use descrip.h header file for convenience. Add some
+	comments.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* freeze.adb (Freeze_Entity): Call Check_Aspect_At_Freeze_Point
+	(Freeze_All): Call Check_Aspect_At_End_Of_Declarations
+	* sem_ch13.ads, sem_ch13.adb (Check_Aspect_At_Freeze_Point):
+	New procedure.
+	(Check_Aspect_At_End_Of_Declarations): New procedure
+	(Analye_Aspect_Specification): Minor changes for above procedures
+	* sinfo.ads, sinfo.adb (Is_Delayed_Aspect): Now set in aspect
+	specification node as well.
+
+2011-08-01  Pascal Obry  <obry@adacore.com>
+
+	* adaint.c (_gnat_stat): GetFilesAttributesEx() would fail on special
+	Windows files. Use GetFilesAttributes() in this case to check for file
+	existence instead of returning with an error code.
+
+2011-08-01  Vincent Celier  <celier@adacore.com>
+
+	* a-stzfix.adb, a-stwifi.adb (Replace_Slice): Fixed computation when
+	High is above Source length.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* a-ztexio.ads, a-textio.ads, a-witeio.ads: Fix comment.
+
+2011-08-01  Robert Dewar  <dewar@adacore.com>
+
+	* aspects.ads (Boolean_Aspects): New subtype.
+	* exp_ch13.adb (Expand_Freeze_Entity): Fix errors in handling aspects
+	for derived types in cases where the parent type and derived type have
+	aspects.
+	* freeze.adb (Freeze_Entity): Fix problems in handling derived type
+	with aspects when parent type also has aspects.
+	(Freeze_Entity): Deal with delay of boolean aspects (must evaluate
+	boolean expression at this point).
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Delay all aspects in
+	accordance with final decision on the Ada 2012 feature.
+	* sinfo.ads, sinfo.adb (Is_Boolean_Aspect): New flag.
+
+2011-08-01  Matthew Heaney  <heaney@adacore.com>
+
+	* a-chtgbo.adb (Delete_Node_Sans_Free): Replace iterator with selector.
+
+2011-08-01  Pascal Obry  <obry@adacore.com>
+
+	* a-stzunb-shared.adb, a-strunb-shared.adb, a-stwiun-shared.adb:
+	Fix Replace_Slice when High is above current string size.
+	(Replace_Slice): Fix DL computation when High is above current
+	string length.
+
+2011-08-01  Gary Dismukes  <dismukes@adacore.com>
+
+	* gnat_rm.texi: Add documentation for pragma Static_Elaboration_Desired.
+
+2011-08-01  Matthew Heaney  <heaney@adacore.com>
+
+	* a-rbtgbo.adb (Delete_Node_Sans_Free): Fixed assignment to left child
+	of node.
+
+2011-08-01  Pascal Obry  <obry@adacore.com>
+
+	* a-stzunb-shared.adb, a-strunb-shared.adb, a-stwiun-shared.adb: Minor
+	reformatting.
+
+2011-08-01  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute, case 'Access): Handle properly named
+	access to protected subprograms in generic bodies.
+	* sem_ch6.adb (Analyze_Subprogram_Declaration): If the context is a
+	protected type, indicate that the convention of the subprogram is
+	Convention_Protected, because it may be used in subsequent declarations
+	within the protected declaration.
+
+2011-08-01  Vincent Celier  <celier@adacore.com>
+
+	* mlib-prj.adb (Build_Library): Use "ada_" as the prefix for the "init"
+	and "final" procedures when the name of the library is "ada", to avoid
+	duplicate symbols "adainit" and "adafinal" in executables.
+
+2011-08-01  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute, case 'Result): Handle properly a
+	quantified expression that appears within a postcondition and uses the
+	Ada2012 'Result attribute.
+
+2011-07-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* init.c (__gnat_error_handler): Cast reason to int.
+	(__gnat_install_handler): Explain sa_sigaction use.
+
+2011-07-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Subprogram_Type>: If the
+	subprogram has copy-in copy-out parameters, try to promote the mode of
+	the return type if it is passed in registers.
+
+2011-07-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (build_binary_op) <ARRAY_REF>: Do not mark the
+	left operand as addressable.
+
+2011-07-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (build_function_stub): Remove.
+	(build_return_expr): Likewise.
+	(convert_vms_descriptor): Declare.
+	* gcc-interface/utils.c (convert_vms_descriptor): Make global.
+	(build_function_stub): Move to...
+	* gcc-interface/utils2.c (build_return_expr): Move to...
+	* gcc-interface/trans.c (build_function_stub): ...here.
+	(build_return_expr): ...here.
+	(Subprogram_Body_to_gnu): Add local variable for language_function.
+	Disconnect the parameter attributes cache, if any, once done with it.
+	Call end_subprog_body only after setting the end_locus.
+	Build the stub associated with the function, if any, at the very end.
+	(gnat_to_gnu) <N_Return_Statement>: Remove couple of useless local
+	variables and streamline control flow.
+
+2011-07-23  Arnaud Charlet  <charlet@adacore.com>
+
+	PR ada/49819
+	* gcc-interface/Makefile.in (powerpc-linux): Remove reference to
+	g-trasym-dwarf.adb.
+
+2011-07-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/49794
+	* init.c [sun && __SVR4 && !__vxworks] (__gnat_install_handler):
+	Assign to act.sa_sigaction.
+	* tracebak.c [USE_GENERIC_UNWINDER] (__gnat_backtrace): Cast
+	current->return_address to char * before arithmetic.
+
+2011-07-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* init.c [sgi] (__gnat_error_handler): Update sigaction(2) citation.
+	Correct argument types.
+	Extract code from reason.
+	(__gnat_install_handler): Assign to act.sa_sigaction.
+
+2011-07-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Make-lang.in (GNAT1_ADA_OBJS): Move ada/b_gnat1.o to...
+	(GNAT1_OBJS): ...here.
+
+2011-07-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/48711
+	* g-socthi-mingw.adb (Fill): Fix formatting.
+
+	* gcc-interface/gigi.h: Move around comment.
+
+2011-07-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/46350
+	* s-taprop-hpux-dce.adb (Abort_Task): Remove unnecessary cast.
+
+2011-07-14  Florian Weimer  <fw@deneb.enyo.de>
+
+	PR ada/48711
+	* g-socthi-mingw.adb (Fill): Guard against invalid MSG_WAITALL.
+
+2011-07-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (build_vms_descriptor32): Skip the 32-bit
+	range comparison if Pmode is SImode.
+
+2011-07-12  Laurent GUERBY  <laurent@guerby.net>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* adadecode.c: Wrap up in extern "C" block.
+	* adadecode.h: Likewise.
+	* adaint.c: Likewise.  Remove 'const' keyword.
+	* adaint.h: Likewise.
+	* argv.c: Likewise.
+	* atree.h: Likewise.
+	* cio.c: Likewise.
+	* cstreams.c: Likewise.
+	* env.c: Likewise.
+	* exit.c: Likewise.
+	* fe.h: Likewise.
+	* final.c: Likewise.
+	* init.c: Likewise.
+	* initialize.c: Likewise.
+	* link.c: Likewise.
+	* namet.h: Likewise.
+	* nlists.h: Likewise.
+	* raise.c: Likewise.
+	* raise.h: Likewise.
+	* repinfo.h: Likewise.
+	* seh_init.c: Likewise.
+	* targext.c: Likewise.
+	* tracebak.c: Likewise.
+	* uintp.h: Likewise.
+	* urealp.h: Likewise.
+	* xeinfo.adb: Wrap up generated C code in extern "C" block.
+	* xsinfo.adb: Likewise.
+	* xsnamest.adb: Likewise.
+	* gcc-interface/gadaint.h: Wrap up in extern "C" block.
+	* gcc-interface/gigi.h: Wrap up some prototypes in extern "C" block.
+	* gcc-interface/misc.c: Likewise.
+	* gcc-interface/Make-lang.in (GCC_LINK): Use LINKER.
+	(GNAT1_C_OBJS): Remove ada/b_gnat1.o.  List ada/seh_init.o and
+	ada/targext.o here...
+	(GNAT_ADA_OBJS): ...and not here.
+	(GNAT1_ADA_OBJS): Add ada/b_gnat1.o.
+	(GNATBIND_OBJS): Reorder.
+
 2011-07-07  Richard Henderson  <rth@redhat.com>
 
 	* gcc-interface/misc.c (gnat_init_gcc_eh): Don't call

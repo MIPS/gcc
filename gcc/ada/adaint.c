@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2010, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2011, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -33,6 +33,10 @@
    packages in the GNAT hierarchy (especially GNAT.OS_Lib) and in
    package Osint.  Many of the subprograms in OS_Lib import standard
    library calls directly. This file contains all other routines.  */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef __vxworks
 
@@ -291,9 +295,9 @@ const char *__gnat_library_template = GNAT_LIBRARY_TEMPLATE;
 /* This variable is used in hostparm.ads to say whether the host is a VMS
    system.  */
 #ifdef VMS
-const int __gnat_vmsp = 1;
+int __gnat_vmsp = 1;
 #else
-const int __gnat_vmsp = 0;
+int __gnat_vmsp = 0;
 #endif
 
 #if defined (VMS)
@@ -324,7 +328,7 @@ const int __gnat_vmsp = 0;
 #endif
 
 /* Used for Ada bindings */
-const int __gnat_size_of_file_attributes = sizeof (struct file_attributes);
+int __gnat_size_of_file_attributes = sizeof (struct file_attributes);
 
 /* Reset the file attributes as if no system call had been performed */
 void __gnat_stat_to_attr (int fd, char* name, struct file_attributes* attr);
@@ -1693,6 +1697,7 @@ __gnat_stat (char *name, GNAT_STRUCT_STAT *statbuf)
   TCHAR wname [GNAT_MAX_PATH_LEN + 2];
   int name_len;
   BOOL res;
+  DWORD error;
 
   S2WSC (wname, name, GNAT_MAX_PATH_LEN + 2);
   name_len = _tcslen (wname);
@@ -1704,8 +1709,19 @@ __gnat_stat (char *name, GNAT_STRUCT_STAT *statbuf)
 
   res = GetFileAttributesEx (wname, GetFileExInfoStandard, &fad);
 
-  if (res == FALSE)
-    switch (GetLastError()) {
+  if (res == FALSE) {
+    error = GetLastError();
+
+    /* Check file existence using GetFileAttributes() which does not fail on
+       special Windows files like con:, aux:, nul: etc...  */
+
+    if (GetFileAttributes(wname) != INVALID_FILE_ATTRIBUTES) {
+      /* Just pretend that it is a regular and readable file  */
+      statbuf->st_mode = S_IFREG | S_IREAD | S_IWRITE;
+      return 0;
+    }
+
+    switch (error) {
       case ERROR_ACCESS_DENIED:
       case ERROR_SHARING_VIOLATION:
       case ERROR_LOCK_VIOLATION:
@@ -1718,6 +1734,7 @@ __gnat_stat (char *name, GNAT_STRUCT_STAT *statbuf)
       default:
 	return ENOENT;
     }
+  }
 
   f2t (&fad.ftCreationTime, &statbuf->st_ctime);
   f2t (&fad.ftLastWriteTime, &statbuf->st_mtime);
@@ -3684,5 +3701,9 @@ void __main (void) {}
 void *__gnat_lwp_self (void)
 {
    return (void *) syscall (__NR_gettid);
+}
+#endif
+
+#ifdef __cplusplus
 }
 #endif
