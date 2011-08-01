@@ -1,3 +1,11 @@
+2011-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* env.c (initialize_env): Call parse_boolean with "OMP_PROC_BIND".
+	If OMP_PROC_BIND=true, call gomp_init_affinity even if parse_affinity
+	returned false.
+	* config/linux/affinity.c (gomp_init_affinity): Handle
+	gomp_cpu_affinity_len == 0.
+
 2011-07-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/atomic-14.c: New test.

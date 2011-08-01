@@ -571,6 +571,7 @@ initialize_env (void)
 {
   unsigned long stacksize;
   int wait_policy;
+  bool bind_var = false;
 
   /* Do a compile time check that mkomp_h.pl did good job.  */
   omp_check_defines ();
@@ -578,6 +579,7 @@ initialize_env (void)
   parse_schedule ();
   parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
+  parse_boolean ("OMP_PROC_BIND", &bind_var);
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
 		       true);
   parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var, false);
@@ -593,7 +595,7 @@ initialize_env (void)
 				 &gomp_nthreads_var_list,
 				 &gomp_nthreads_var_list_len))
     gomp_global_icv.nthreads_var = gomp_available_cpus;
-  if (parse_affinity ())
+  if (parse_affinity () || bind_var)
     gomp_init_affinity ();
   wait_policy = parse_wait_policy ();
   if (!parse_spincount ("GOMP_SPINCOUNT", &gomp_spin_count_var))
