@@ -428,7 +428,12 @@ find_hard_regno_for (int regno, int *cost)
 	  if (best_hard_regno < 0 || hard_regno_costs[hard_regno] < best_cost
 	      || (hard_regno_costs[hard_regno] == best_cost
 		  && (bank < best_bank
-		      || (bank == best_bank
+		      /* Hard register usage leveling actually results
+			 in bigger code for targets with conditional
+			 execution like ARM because it reduces chance
+			 of if-conversion after LRA.  */
+		      || (! targetm.have_conditional_execution ()
+			  && bank == best_bank
 			  && best_usage > lra_hard_reg_usage[hard_regno]))))
 	    {
 	      best_hard_regno = hard_regno;

@@ -1,3 +1,8 @@
+2011-08-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (find_hard_regno_for): Don't do hard register
+	usage leveling for tagets with conditional execution.
+
 2011-07-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (LOSER_COST_FACTOR, MAX_OVERALL_COST_BOUND):
