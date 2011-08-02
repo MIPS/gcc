@@ -1,5 +1,31 @@
 2011-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-msave-toc-indirect, which previously was an undocumented debug
+	switch.  Add -munaligned-vector, -mnvsx-vector-32bit-to-double,
+	-mvsx-vector-double-to32bit switches.
+
+	* config/rs6000/rs6000.md (vec_pack_trunc_v2df): Add conditions on
+	-mvsx-vector-double-to-32bit and -mvsx-vector-32bit-to-double.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+	(vec_unpacks_lo_v4sf): Ditto.
+	(vec_unpacks_float_hi_v4s): Ditto.
+	(vec_unpacks_float_lo_v4s): Ditto.
+	(vec_unpacku_float_hi_v4s): Ditto.
+	(vec_unpacku_float_lo_v4s): Ditto.
+	(vec_realign_load_<mode>): Add condition on -munalgined-vector.
+
+	* config/rs6000/rs6000.opt (-mvector-convert-32bit-to-64bit): New
+	switch to control whether the compiler does 32<->64 bit conversions.
+	(-mvector-convert-64bit-to-32bit): Ditto.
+	(-munaligned-vector): New switch to control whether we lvsr/vperm
+	to do unaligned vectors, or do the loop in scalar mode.
+	(-msave-toc-indirect): Add documentation.
+
+2011-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Create branch, cloned from trunk, revision 177200.
 	* REVISION: New file.
 
