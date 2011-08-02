@@ -10445,6 +10445,8 @@ c_finish_omp_clauses (tree clauses)
 		case PLUS_EXPR:
 		case MULT_EXPR:
 		case MINUS_EXPR:
+		case MIN_EXPR:
+		case MAX_EXPR:
 		  break;
 		case BIT_AND_EXPR:
 		  r_name = "&";
@@ -10561,6 +10563,8 @@ c_finish_omp_clauses (tree clauses)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_FINAL:
+	case OMP_CLAUSE_MERGEABLE:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
@@ -10590,6 +10594,10 @@ c_finish_omp_clauses (tree clauses)
 		case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
 		  break;
 		case OMP_CLAUSE_DEFAULT_SHARED:
+		  /* const vars may be specified in firstprivate clause.  */
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		      && TREE_READONLY (t))
+		    break;
 		  share_name = "shared";
 		  break;
 		case OMP_CLAUSE_DEFAULT_PRIVATE:
