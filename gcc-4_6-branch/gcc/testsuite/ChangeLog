@@ -1,3 +1,16 @@
+2011-08-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49924
+	* g++.dg/cpp0x/constexpr-array4.C: New.
+
+	PR c++/49260
+	* g++.dg/cpp0x/lambda/lambda-eh2.C: Change options.
+
+2011-07-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/49920
+	* gcc.target/i386/pr49920.c: New test.
+
 2011-07-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk.
