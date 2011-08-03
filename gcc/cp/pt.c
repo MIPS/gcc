@@ -4121,6 +4121,7 @@ build_template_decl (tree decl, tree parms, bool member_template_p)
   tree tmpl = build_lang_decl (TEMPLATE_DECL, DECL_NAME (decl), NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = parms;
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
+  DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
 
   return tmpl;
@@ -5555,41 +5556,45 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      function). We just strip everything and get to the arg.
      See g++.old-deja/g++.oliva/template4.C and g++.dg/template/nontype9.C
      for examples.  */
-  if (TREE_CODE (expr) == NOP_EXPR)
+  if (TYPE_REF_OBJ_P (type) || TYPE_REFFN_P (type))
     {
-      if (TYPE_REF_OBJ_P (type) || TYPE_REFFN_P (type))
+      tree probe_type, probe = expr;
+      if (REFERENCE_REF_P (probe))
+	probe = TREE_OPERAND (probe, 0);
+      probe_type = TREE_TYPE (probe);
+      if (TREE_CODE (probe) == NOP_EXPR)
 	{
 	  /* ??? Maybe we could use convert_from_reference here, but we
 	     would need to relax its constraints because the NOP_EXPR
 	     could actually change the type to something more cv-qualified,
 	     and this is not folded by convert_from_reference.  */
-	  tree addr = TREE_OPERAND (expr, 0);
-	  gcc_assert (TREE_CODE (expr_type) == REFERENCE_TYPE);
+	  tree addr = TREE_OPERAND (probe, 0);
+	  gcc_assert (TREE_CODE (probe_type) == REFERENCE_TYPE);
 	  gcc_assert (TREE_CODE (addr) == ADDR_EXPR);
 	  gcc_assert (TREE_CODE (TREE_TYPE (addr)) == POINTER_TYPE);
 	  gcc_assert (same_type_ignoring_top_level_qualifiers_p
-		      (TREE_TYPE (expr_type),
+		      (TREE_TYPE (probe_type),
 		       TREE_TYPE (TREE_TYPE (addr))));
 
 	  expr = TREE_OPERAND (addr, 0);
 	  expr_type = TREE_TYPE (expr);
 	}
+    }
 
-      /* We could also generate a NOP_EXPR(ADDR_EXPR()) when the
-	 parameter is a pointer to object, through decay and
-	 qualification conversion. Let's strip everything.  */
-      else if (TYPE_PTROBV_P (type))
-	{
-	  STRIP_NOPS (expr);
-	  gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
-	  gcc_assert (TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE);
-	  /* Skip the ADDR_EXPR only if it is part of the decay for
-	     an array. Otherwise, it is part of the original argument
-	     in the source code.  */
-	  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == ARRAY_TYPE)
-	    expr = TREE_OPERAND (expr, 0);
-	  expr_type = TREE_TYPE (expr);
-	}
+  /* We could also generate a NOP_EXPR(ADDR_EXPR()) when the
+     parameter is a pointer to object, through decay and
+     qualification conversion. Let's strip everything.  */
+  else if (TREE_CODE (expr) == NOP_EXPR && TYPE_PTROBV_P (type))
+    {
+      STRIP_NOPS (expr);
+      gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
+      gcc_assert (TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE);
+      /* Skip the ADDR_EXPR only if it is part of the decay for
+	 an array. Otherwise, it is part of the original argument
+	 in the source code.  */
+      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == ARRAY_TYPE)
+	expr = TREE_OPERAND (expr, 0);
+      expr_type = TREE_TYPE (expr);
     }
 
   /* [temp.arg.nontype]/5, bullet 1
@@ -6537,6 +6542,7 @@ coerce_template_parms (tree parms,
      subtract it from nparms to get the number of non-variadic
      parameters.  */
   int variadic_p = 0;
+  int post_variadic_parms = 0;
 
   if (args == error_mark_node)
     return error_mark_node;
@@ -6547,19 +6553,22 @@ coerce_template_parms (tree parms,
   for (parm_idx = 0; parm_idx < nparms; ++parm_idx)
     {
       tree tparm = TREE_VALUE (TREE_VEC_ELT (parms, parm_idx));
+      if (variadic_p)
+	++post_variadic_parms;
       if (template_parameter_pack_p (tparm))
 	++variadic_p;
     }
 
   inner_args = INNERMOST_TEMPLATE_ARGS (args);
-  /* If there are 0 or 1 parameter packs, we need to expand any argument
-     packs so that we can deduce a parameter pack from some non-packed args
-     followed by an argument pack, as in variadic85.C.  If there are more
-     than that, we need to leave argument packs intact so the arguments are
-     assigned to the right parameter packs.  This should only happen when
-     dealing with a nested class inside a partial specialization of a class
-     template, as in variadic92.C.  */
-  if (variadic_p <= 1)
+  /* If there are no parameters that follow a parameter pack, we need to
+     expand any argument packs so that we can deduce a parameter pack from
+     some non-packed args followed by an argument pack, as in variadic85.C.
+     If there are such parameters, we need to leave argument packs intact
+     so the arguments are assigned properly.  This can happen when dealing
+     with a nested class inside a partial specialization of a class
+     template, as in variadic92.C, or when deducing a template parameter pack
+     from a sub-declarator, as in variadic114.C.  */
+  if (!post_variadic_parms)
     inner_args = expand_template_argument_pack (inner_args);
 
   nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
@@ -6574,7 +6583,7 @@ coerce_template_parms (tree parms,
 	{
           if (variadic_p)
             {
-              --nparms;
+              nparms -= variadic_p;
 	      error ("wrong number of template arguments "
 		     "(%d, should be %d or more)", nargs, nparms);
             }
@@ -8936,6 +8945,10 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		       /*integral_constant_expression_p=*/true);
       if (!(complain & tf_warning))
 	--c_inhibit_evaluation_warnings;
+      /* Preserve the raw-reference nature of T.  */
+      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
+	  && REFERENCE_REF_P (r))
+	r = TREE_OPERAND (r, 0);
     }
   return r;
 }
@@ -10976,7 +10989,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      }
 	    else
 	      /* TEMPLATE_TEMPLATE_PARM or TEMPLATE_PARM_INDEX.  */
-	      return unshare_expr (arg);
+	      return convert_from_reference (unshare_expr (arg));
 	  }
 
 	if (level == 1)
