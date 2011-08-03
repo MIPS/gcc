@@ -37,8 +37,8 @@ with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
 with Errout;   use Errout;
-with Exp_Ch7;  use Exp_Ch7;
 with Exp_Dist; use Exp_Dist;
+with Exp_Util; use Exp_Util;
 with Lib;      use Lib;
 with Lib.Writ; use Lib.Writ;
 with Lib.Xref; use Lib.Xref;
@@ -3014,6 +3014,38 @@ package body Sem_Prag is
 
          Ent := E;
 
+         --  Ada_Pass_By_Copy special checking
+
+         if C = Convention_Ada_Pass_By_Copy then
+            if not Is_First_Subtype (E) then
+               Error_Pragma_Arg
+                 ("convention `Ada_Pass_By_Copy` only "
+                  & "allowed for types", Arg2);
+            end if;
+
+            if Is_By_Reference_Type (E) then
+               Error_Pragma_Arg
+                 ("convention `Ada_Pass_By_Copy` not allowed for "
+                  & "by-reference type", Arg1);
+            end if;
+         end if;
+
+         --  Ada_Pass_By_Reference special checking
+
+         if C = Convention_Ada_Pass_By_Reference then
+            if not Is_First_Subtype (E) then
+               Error_Pragma_Arg
+                 ("convention `Ada_Pass_By_Reference` only "
+                  & "allowed for types", Arg2);
+            end if;
+
+            if Is_By_Copy_Type (E) then
+               Error_Pragma_Arg
+                 ("convention `Ada_Pass_By_Reference` not allowed for "
+                  & "by-copy type", Arg1);
+            end if;
+         end if;
+
          --  Go to renamed subprogram if present, since convention applies to
          --  the actual renamed entity, not to the renaming entity. If the
          --  subprogram is inherited, go to parent subprogram.
@@ -4156,24 +4188,18 @@ package body Sem_Prag is
          elsif Is_Record_Type (Def_Id)
            and then C = Convention_CPP
          then
-            --  Types treated as CPP classes are treated as limited, but we
-            --  don't require them to be declared this way. A warning is issued
-            --  to encourage the user to declare them as limited. This is not
-            --  an error, for compatibility reasons, because these types have
-            --  been supported this way for some time.
+            --  Types treated as CPP classes must be declared limited (note:
+            --  this used to be a warning but there is no real benefit to it
+            --  since we did effectively intend to treat the type as limited
+            --  anyway).
 
             if not Is_Limited_Type (Def_Id) then
                Error_Msg_N
-                 ("imported 'C'P'P type should be " &
-                    "explicitly declared limited?",
-                  Get_Pragma_Arg (Arg2));
-               Error_Msg_N
-                 ("\type will be considered limited",
+                 ("imported 'C'P'P type must be limited",
                   Get_Pragma_Arg (Arg2));
             end if;
 
             Set_Is_CPP_Class (Def_Id);
-            Set_Is_Limited_Record (Def_Id);
 
             --  Imported CPP types must not have discriminants (because C++
             --  classes do not have discriminants).
@@ -4723,14 +4749,24 @@ package body Sem_Prag is
                 Strval => End_String);
          end if;
 
-         Set_Encoded_Interface_Name
-           (Get_Base_Subprogram (Subprogram_Def), Link_Nam);
+         --  Set the interface name. If the entity is a generic instance, use
+         --  its alias, which is the callable entity.
 
-         --  We allow duplicated export names in CIL, as they are always
+         if Is_Generic_Instance (Subprogram_Def) then
+            Set_Encoded_Interface_Name
+              (Alias (Get_Base_Subprogram (Subprogram_Def)), Link_Nam);
+         else
+            Set_Encoded_Interface_Name
+              (Get_Base_Subprogram (Subprogram_Def), Link_Nam);
+         end if;
+
+         --  We allow duplicated export names in CIL/Java, as they are always
          --  enclosed in a namespace that differentiates them, and overloaded
          --  entities are supported by the VM.
 
-         if Convention (Subprogram_Def) /= Convention_CIL then
+         if Convention (Subprogram_Def) /= Convention_CIL
+           and then Convention (Subprogram_Def) /= Convention_Java
+         then
             Check_Duplicated_Export_Name (Link_Nam);
          end if;
       end Process_Interface_Name;
@@ -7045,24 +7081,18 @@ package body Sem_Prag is
                Error_Pragma_Arg ("pragma% applicable to tagged types ", Arg1);
             end if;
 
-            --  Types treated as CPP classes are treated as limited, but we
-            --  don't require them to be declared this way. A warning is issued
-            --  to encourage the user to declare them as limited. This is not
-            --  an error, for compatibility reasons, because these types have
-            --  been supported this way for some time.
+            --  Types treated as CPP classes must be declared limited (note:
+            --  this used to be a warning but there is no real benefit to it
+            --  since we did effectively intend to treat the type as limited
+            --  anyway).
 
             if not Is_Limited_Type (Typ) then
                Error_Msg_N
-                 ("imported 'C'P'P type should be " &
-                    "explicitly declared limited?",
-                  Get_Pragma_Arg (Arg1));
-               Error_Msg_N
-                 ("\type will be considered limited",
+                 ("imported 'C'P'P type must be limited",
                   Get_Pragma_Arg (Arg1));
             end if;
 
             Set_Is_CPP_Class      (Typ);
-            Set_Is_Limited_Record (Typ);
             Set_Convention        (Typ, Convention_CPP);
 
             --  Imported CPP types must not have discriminants (because C++
@@ -13890,9 +13920,8 @@ package body Sem_Prag is
       Result := Def_Id;
       while Is_Subprogram (Result)
         and then
-          (Is_Generic_Instance (Result)
-            or else Nkind (Parent (Declaration_Node (Result))) =
-                                         N_Subprogram_Renaming_Declaration)
+          Nkind (Parent (Declaration_Node (Result))) =
+                                         N_Subprogram_Renaming_Declaration
         and then Present (Alias (Result))
       loop
          Result := Alias (Result);

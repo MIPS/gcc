@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,13 +35,13 @@ package body Ch4 is
    --  Attributes that cannot have arguments
 
    Is_Parameterless_Attribute : constant Attribute_Class_Array :=
-     (Attribute_Body_Version => True,
+     (Attribute_Base         => True,
+      Attribute_Body_Version => True,
+      Attribute_Class        => True,
       Attribute_External_Tag => True,
       Attribute_Img          => True,
-      Attribute_Version      => True,
-      Attribute_Base         => True,
-      Attribute_Class        => True,
       Attribute_Stub_Type    => True,
+      Attribute_Version      => True,
       Attribute_Type_Key     => True,
       others                 => False);
    --  This map contains True for parameterless attributes that return a
@@ -606,8 +606,18 @@ package body Ch4 is
             raise Error_Resync;
 
          elsif Token /= Tok_Right_Paren then
-            T_Right_Paren;
-            raise Error_Resync;
+            if Token = Tok_Arrow then
+
+               --  This may be an aggregate that is missing a qualification
+
+               Error_Msg_SC
+                 ("context of aggregate must be a qualified expression");
+               raise Error_Resync;
+
+            else
+               T_Right_Paren;
+               raise Error_Resync;
+            end if;
 
          else
             Scan; -- past right paren

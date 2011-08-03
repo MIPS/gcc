@@ -688,8 +688,52 @@ package body Sem_Ch8 is
       T   : Entity_Id;
       T2  : Entity_Id;
 
+      procedure Check_Constrained_Object;
+      --  If the nominal type is unconstrained but the renamed object is
+      --  constrained, as can happen with renaming an explicit dereference or
+      --  a function return, build a constrained subtype from the object. If
+      --  the renaming is for a formal in an accept statement, the analysis
+      --  has already established its actual subtype. This is only relevant
+      --  if the renamed object is an explicit dereference.
+
       function In_Generic_Scope (E : Entity_Id) return Boolean;
       --  Determine whether entity E is inside a generic cope
+
+      ------------------------------
+      -- Check_Constrained_Object --
+      ------------------------------
+
+      procedure Check_Constrained_Object is
+         Loc  : constant Source_Ptr := Sloc (N);
+         Subt : Entity_Id;
+
+      begin
+         if Nkind_In (Nam, N_Function_Call, N_Explicit_Dereference)
+           and then Is_Composite_Type (Etype (Nam))
+           and then not Is_Constrained (Etype (Nam))
+           and then not Has_Unknown_Discriminants (Etype (Nam))
+           and then Expander_Active
+         then
+            --  If Actual_Subtype is already set, nothing to do
+
+            if Ekind_In (Id, E_Variable, E_Constant)
+              and then Present (Actual_Subtype (Id))
+            then
+               null;
+
+            else
+               Subt := Make_Temporary (Loc, 'T');
+               Remove_Side_Effects (Nam);
+               Insert_Action (N,
+                 Make_Subtype_Declaration (Loc,
+                   Defining_Identifier => Subt,
+                   Subtype_Indication  =>
+                     Make_Subtype_From_Expr (Nam, Etype (Nam))));
+               Rewrite (Subtype_Mark (N), New_Occurrence_Of (Subt, Loc));
+               Set_Etype (Nam, Subt);
+            end if;
+         end if;
+      end Check_Constrained_Object;
 
       ----------------------
       -- In_Generic_Scope --
@@ -870,7 +914,8 @@ package body Sem_Ch8 is
               (Designated_Type (T), Designated_Type (Etype (Nam)));
 
          elsif not Subtypes_Statically_Match
-                     (Designated_Type (T), Designated_Type (Etype (Nam)))
+                     (Designated_Type (T),
+                      Available_View (Designated_Type (Etype (Nam))))
          then
             Error_Msg_N
               ("subtype of renamed object does not statically match", N);
@@ -910,32 +955,10 @@ package body Sem_Ch8 is
                      Nam);
                end if;
 
-               --  If the function call returns an unconstrained type, we must
-               --  build a constrained subtype for the new entity, in a way
-               --  similar to what is done for an object declaration with an
-               --  unconstrained nominal type.
-
-               if Is_Composite_Type (Etype (Nam))
-                 and then not Is_Constrained (Etype (Nam))
-                 and then not Has_Unknown_Discriminants (Etype (Nam))
-                 and then Expander_Active
-               then
-                  declare
-                     Loc  : constant Source_Ptr := Sloc (N);
-                     Subt : constant Entity_Id  := Make_Temporary (Loc, 'T');
-                  begin
-                     Remove_Side_Effects (Nam);
-                     Insert_Action (N,
-                       Make_Subtype_Declaration (Loc,
-                         Defining_Identifier => Subt,
-                         Subtype_Indication  =>
-                           Make_Subtype_From_Expr (Nam, Etype (Nam))));
-                     Rewrite (Subtype_Mark (N), New_Occurrence_Of (Subt, Loc));
-                     Set_Etype (Nam, Subt);
-                  end;
-               end if;
          end case;
       end if;
+
+      Check_Constrained_Object;
 
       --  An object renaming requires an exact match of the type. Class-wide
       --  matching is not allowed.
@@ -3617,11 +3640,9 @@ package body Sem_Ch8 is
         (Op : Entity_Id;
          F  : Entity_Id) return Boolean
       is
-         T : constant Entity_Id := Etype (F);
+         T : constant Entity_Id := Base_Type (Etype (F));
       begin
-         return (In_Use (T)
-                  or else Present (Current_Use_Clause (Base_Type (T))))
-           and then Scope (T) = Scope (Op);
+         return In_Use (T) and then Scope (T) = Scope (Op);
       end Is_Primitive_Operator_In_Use;
 
    --  Start of processing for End_Use_Package
@@ -5441,7 +5462,7 @@ package body Sem_Ch8 is
          return Old_S;
       end Report_Overload;
 
-   --  Start of processing for Find_Renamed_Entry
+   --  Start of processing for Find_Renamed_Entity
 
    begin
       Old_S := Any_Id;
@@ -5609,18 +5630,21 @@ package body Sem_Ch8 is
                then
                   --  Do not build the subtype when referencing components of
                   --  dispatch table wrappers. Required to avoid generating
-                  --  elaboration code with HI runtimes.
+                  --  elaboration code with HI runtimes. JVM and .NET use a
+                  --  modified version of Ada.Tags which does not contain RE_
+                  --  Dispatch_Table_Wrapper and RE_No_Dispatch_Table_Wrapper.
+                  --  Avoid raising RE_Not_Available exception in those cases.
 
-                  if RTU_Loaded (Ada_Tags)
-                    and then RTE_Available (RE_Dispatch_Table_Wrapper)
-                    and then Scope (Selector) = RTE (RE_Dispatch_Table_Wrapper)
-                  then
-                     C_Etype := Empty;
-
-                  elsif RTU_Loaded (Ada_Tags)
-                    and then RTE_Available (RE_No_Dispatch_Table_Wrapper)
-                    and then Scope (Selector)
-                               = RTE (RE_No_Dispatch_Table_Wrapper)
+                  if VM_Target = No_VM
+                    and then RTU_Loaded (Ada_Tags)
+                    and then
+                      ((RTE_Available (RE_Dispatch_Table_Wrapper)
+                          and then Scope (Selector) =
+                                     RTE (RE_Dispatch_Table_Wrapper))
+                      or else
+                       (RTE_Available (RE_No_Dispatch_Table_Wrapper)
+                          and then Scope (Selector) =
+                                     RTE (RE_No_Dispatch_Table_Wrapper)))
                   then
                      C_Etype := Empty;
 

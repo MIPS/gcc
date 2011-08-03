@@ -239,21 +239,21 @@ package Restrict is
    --  known, V is left at its default of -1 which indicates an unknown count.
 
    procedure Check_Restriction
-     (R          : Restriction_Id;
-      N          : Node_Id;
-      V          : Uint := Uint_Minus_1);
+     (R : Restriction_Id;
+      N : Node_Id;
+      V : Uint := Uint_Minus_1);
    --  Wrapper on Check_Restriction with Msg_Issued, with the out-parameter
    --  being ignored here.
 
    procedure Check_Restriction_No_Dependence (U : Node_Id; Err : Node_Id);
    --  Called when a dependence on a unit is created (either implicitly, or by
-   --  an explicit WITH clause). U is a node for the unit involved, and Err
-   --  is the node to which an error will be attached if necessary.
+   --  an explicit WITH clause). U is a node for the unit involved, and Err is
+   --  the node to which an error will be attached if necessary.
 
    procedure Check_Elaboration_Code_Allowed (N : Node_Id);
    --  Tests to see if elaboration code is allowed by the current restrictions
-   --  settings. This function is called by Gigi when it needs to define
-   --  an elaboration routine. If elaboration code is not allowed, an error
+   --  settings. This function is called by Gigi when it needs to define an
+   --  elaboration routine. If elaboration code is not allowed, an error
    --  message is posted on the node given as argument.
 
    procedure Check_SPARK_Restriction
@@ -265,8 +265,8 @@ package Restrict is
    --  SPARK restriction is set, then an error is issued on N. Msg is appended
    --  to the restriction failure message.
 
-   procedure Check_Formal_Restriction (Msg1, Msg2 : String; N : Node_Id);
-   --  Same as Check_Formal_Restriction except there is a continuation message
+   procedure Check_SPARK_Restriction (Msg1, Msg2 : String; N : Node_Id);
+   --  Same as Check_SPARK_Restriction except there is a continuation message
    --  Msg2 following the initial message Msg1.
 
    procedure Check_Implicit_Dynamic_Code_Allowed (N : Node_Id);

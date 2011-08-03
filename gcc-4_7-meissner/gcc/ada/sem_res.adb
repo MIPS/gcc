@@ -28,7 +28,6 @@ with Checks;   use Checks;
 with Debug;    use Debug;
 with Debug_A;  use Debug_A;
 with Einfo;    use Einfo;
-with Elists;   use Elists;
 with Errout;   use Errout;
 with Expander; use Expander;
 with Exp_Disp; use Exp_Disp;
@@ -4020,40 +4019,6 @@ package body Sem_Res is
       --  If the allocator is an actual in a call, it is allowed to be class-
       --  wide when the context is not because it is a controlling actual.
 
-      procedure Propagate_Coextensions (Root : Node_Id);
-      --  Propagate all nested coextensions which are located one nesting
-      --  level down the tree to the node Root. Example:
-      --
-      --    Top_Record
-      --       Level_1_Coextension
-      --          Level_2_Coextension
-      --
-      --  The algorithm is paired with delay actions done by the Expander. In
-      --  the above example, assume all coextensions are controlled types.
-      --  The cycle of analysis, resolution and expansion will yield:
-      --
-      --  1) Analyze Top_Record
-      --  2) Analyze Level_1_Coextension
-      --  3) Analyze Level_2_Coextension
-      --  4) Resolve Level_2_Coextension. The allocator is marked as a
-      --       coextension.
-      --  5) Expand Level_2_Coextension. A temporary variable Temp_1 is
-      --       generated to capture the allocated object. Temp_1 is attached
-      --       to the coextension chain of Level_2_Coextension.
-      --  6) Resolve Level_1_Coextension. The allocator is marked as a
-      --       coextension. A forward tree traversal is performed which finds
-      --       Level_2_Coextension's list and copies its contents into its
-      --       own list.
-      --  7) Expand Level_1_Coextension. A temporary variable Temp_2 is
-      --       generated to capture the allocated object. Temp_2 is attached
-      --       to the coextension chain of Level_1_Coextension. Currently, the
-      --       contents of the list are [Temp_2, Temp_1].
-      --  8) Resolve Top_Record. A forward tree traversal is performed which
-      --       finds Level_1_Coextension's list and copies its contents into
-      --       its own list.
-      --  9) Expand Top_Record. Generate finalization calls for Temp_1 and
-      --       Temp_2 and attach them to Top_Record's finalization list.
-
       -------------------------------------------
       -- Check_Allocator_Discrim_Accessibility --
       -------------------------------------------
@@ -4107,140 +4072,14 @@ package body Sem_Res is
 
       function In_Dispatching_Context return Boolean is
          Par : constant Node_Id := Parent (N);
+
       begin
-         return Nkind_In (Par, N_Function_Call, N_Procedure_Call_Statement)
-           and then Is_Entity_Name (Name (Par))
-           and then Is_Dispatching_Operation (Entity (Name (Par)));
+         return
+           Nkind_In (Par, N_Function_Call,
+                          N_Procedure_Call_Statement)
+             and then Is_Entity_Name (Name (Par))
+             and then Is_Dispatching_Operation (Entity (Name (Par)));
       end In_Dispatching_Context;
-
-      ----------------------------
-      -- Propagate_Coextensions --
-      ----------------------------
-
-      procedure Propagate_Coextensions (Root : Node_Id) is
-
-         procedure Copy_List (From : Elist_Id; To : Elist_Id);
-         --  Copy the contents of list From into list To, preserving the
-         --  order of elements.
-
-         function Process_Allocator (Nod : Node_Id) return Traverse_Result;
-         --  Recognize an allocator or a rewritten allocator node and add it
-         --  along with its nested coextensions to the list of Root.
-
-         ---------------
-         -- Copy_List --
-         ---------------
-
-         procedure Copy_List (From : Elist_Id; To : Elist_Id) is
-            From_Elmt : Elmt_Id;
-         begin
-            From_Elmt := First_Elmt (From);
-            while Present (From_Elmt) loop
-               Append_Elmt (Node (From_Elmt), To);
-               Next_Elmt (From_Elmt);
-            end loop;
-         end Copy_List;
-
-         -----------------------
-         -- Process_Allocator --
-         -----------------------
-
-         function Process_Allocator (Nod : Node_Id) return Traverse_Result is
-            Orig_Nod : Node_Id := Nod;
-
-         begin
-            --  This is a possible rewritten subtype indication allocator. Any
-            --  nested coextensions will appear as discriminant constraints.
-
-            if Nkind (Nod) = N_Identifier
-              and then Present (Original_Node (Nod))
-              and then Nkind (Original_Node (Nod)) = N_Subtype_Indication
-            then
-               declare
-                  Discr      : Node_Id;
-                  Discr_Elmt : Elmt_Id;
-
-               begin
-                  if Is_Record_Type (Entity (Nod)) then
-                     Discr_Elmt :=
-                       First_Elmt (Discriminant_Constraint (Entity (Nod)));
-                     while Present (Discr_Elmt) loop
-                        Discr := Node (Discr_Elmt);
-
-                        if Nkind (Discr) = N_Identifier
-                          and then Present (Original_Node (Discr))
-                          and then Nkind (Original_Node (Discr)) = N_Allocator
-                          and then Present (Coextensions (
-                                     Original_Node (Discr)))
-                        then
-                           if No (Coextensions (Root)) then
-                              Set_Coextensions (Root, New_Elmt_List);
-                           end if;
-
-                           Copy_List
-                             (From => Coextensions (Original_Node (Discr)),
-                              To   => Coextensions (Root));
-                        end if;
-
-                        Next_Elmt (Discr_Elmt);
-                     end loop;
-
-                     --  There is no need to continue the traversal of this
-                     --  subtree since all the information has already been
-                     --  propagated.
-
-                     return Skip;
-                  end if;
-               end;
-
-            --  Case of either a stand alone allocator or a rewritten allocator
-            --  with an aggregate.
-
-            else
-               if Present (Original_Node (Nod)) then
-                  Orig_Nod := Original_Node (Nod);
-               end if;
-
-               if Nkind (Orig_Nod) = N_Allocator then
-
-                  --  Propagate the list of nested coextensions to the Root
-                  --  allocator. This is done through list copy since a single
-                  --  allocator may have multiple coextensions. Do not touch
-                  --  coextensions roots.
-
-                  if not Is_Coextension_Root (Orig_Nod)
-                    and then Present (Coextensions (Orig_Nod))
-                  then
-                     if No (Coextensions (Root)) then
-                        Set_Coextensions (Root, New_Elmt_List);
-                     end if;
-
-                     Copy_List
-                       (From => Coextensions (Orig_Nod),
-                        To   => Coextensions (Root));
-                  end if;
-
-                  --  There is no need to continue the traversal of this
-                  --  subtree since all the information has already been
-                  --  propagated.
-
-                  return Skip;
-               end if;
-            end if;
-
-            --  Keep on traversing, looking for the next allocator
-
-            return OK;
-         end Process_Allocator;
-
-         procedure Process_Allocators is
-           new Traverse_Proc (Process_Allocator);
-
-      --  Start of processing for Propagate_Coextensions
-
-      begin
-         Process_Allocators (Expression (Root));
-      end Propagate_Coextensions;
 
    --  Start of processing for Resolve_Allocator
 
@@ -4486,13 +4325,6 @@ package body Sem_Res is
          else
             Set_Is_Dynamic_Coextension (N, False);
             Set_Is_Static_Coextension  (N, False);
-         end if;
-
-         --  There is no need to propagate any nested coextensions if they
-         --  are marked as static since they will be rewritten on the spot.
-
-         if not Is_Static_Coextension (N) then
-            Propagate_Coextensions (N);
          end if;
       end if;
    end Resolve_Allocator;
@@ -5748,7 +5580,7 @@ package body Sem_Res is
 --        and then Is_Inherited_Operation_For_Type
 --                   (Entity (Name (N)), Etype (N))
 --      then
---         Check_Formal_Restriction ("function not inherited", N);
+--         Check_SPARK_Restriction ("function not inherited", N);
 --      end if;
 
       --  Implement rule in 12.5.1 (23.3/2): In an instance, if the actual is
@@ -6026,6 +5858,10 @@ package body Sem_Res is
       else
          Error_Msg_N ("can only omit ELSE expression in Boolean case", N);
          Append_To (Expressions (N), Error);
+      end if;
+
+      if Root_Type (Typ) /= Standard_Boolean then
+         Mark_Non_ALFA_Subprogram;
       end if;
 
       Set_Etype (N, Typ);
@@ -7662,25 +7498,46 @@ package body Sem_Res is
       Is_Comp : Boolean)
    is
       Btyp : constant Entity_Id := Base_Type (Typ);
+      Ctyp : constant Entity_Id := Component_Type (Typ);
 
    begin
       if In_Instance then
          if Is_Comp
            or else (not Is_Overloaded (Arg)
                      and then Etype (Arg) /= Any_Composite
-                     and then Covers (Component_Type (Typ), Etype (Arg)))
+                     and then Covers (Ctyp, Etype (Arg)))
          then
-            Resolve (Arg, Component_Type (Typ));
+            Resolve (Arg, Ctyp);
          else
             Resolve (Arg, Btyp);
          end if;
 
-      elsif Has_Compatible_Type (Arg, Component_Type (Typ)) then
+      --  If both Array & Array and Array & Component are visible, there is a
+      --  potential ambiguity that must be reported.
+
+      elsif Has_Compatible_Type (Arg, Ctyp) then
          if Nkind (Arg) = N_Aggregate
-           and then Is_Composite_Type (Component_Type (Typ))
+           and then Is_Composite_Type (Ctyp)
          then
-            if Is_Private_Type (Component_Type (Typ)) then
+            if Is_Private_Type (Ctyp) then
                Resolve (Arg, Btyp);
+
+            --  If the operation is user-defined and not overloaded use its
+            --  profile. The operation may be a renaming, in which case it has
+            --  been rewritten, and we want the original profile.
+
+            elsif not Is_Overloaded (N)
+              and then Comes_From_Source (Entity (Original_Node (N)))
+              and then Ekind (Entity (Original_Node (N))) = E_Function
+            then
+               Resolve (Arg,
+                 Etype
+                   (Next_Formal (First_Formal (Entity (Original_Node (N))))));
+               return;
+
+            --  Otherwise an aggregate may match both the array type and the
+            --  component type.
+
             else
                Error_Msg_N ("ambiguous aggregate must be qualified", Arg);
                Set_Etype (Arg, Any_Type);
@@ -7715,16 +7572,15 @@ package body Sem_Res is
                          Arg, Component_Type (Typ));
 
                   else
-                     Error_Msg_N
-                       ("ambiguous operand for concatenation!", Arg);
+                     Error_Msg_N ("ambiguous operand for concatenation!", Arg);
 
                      Get_First_Interp (Arg, I, It);
                      while Present (It.Nam) loop
                         Error_Msg_Sloc := Sloc (It.Nam);
 
-                        if Base_Type (It.Typ) = Base_Type (Typ)
-                          or else Base_Type (It.Typ) =
-                                  Base_Type (Component_Type (Typ))
+                        if Base_Type (It.Typ) = Btyp
+                             or else
+                           Base_Type (It.Typ) = Base_Type (Ctyp)
                         then
                            Error_Msg_N -- CODEFIX
                              ("\\possible interpretation#", Arg);
@@ -7754,10 +7610,10 @@ package body Sem_Res is
       end if;
 
       --  Concatenation is restricted in SPARK: each operand must be either a
-      --  string literal, a static character expression, or another
-      --  concatenation. Arg cannot be a concatenation here as callers of
-      --  Resolve_Op_Concat_Arg call it separately on each final operand, past
-      --  concatenation operations.
+      --  string literal, the name of a string constant, a static character or
+      --  string expression, or another concatenation. Arg cannot be a
+      --  concatenation here as callers of Resolve_Op_Concat_Arg call it
+      --  separately on each final operand, past concatenation operations.
 
       if Is_Character_Type (Etype (Arg)) then
          if not Is_Static_Expression (Arg) then
@@ -7766,7 +7622,10 @@ package body Sem_Res is
          end if;
 
       elsif Is_String_Type (Etype (Arg)) then
-         if not Is_Static_Expression (Arg) then
+         if not (Nkind_In (Arg, N_Identifier, N_Expanded_Name)
+                  and then Is_Constant_Object (Entity (Arg)))
+           and then not Is_Static_Expression (Arg)
+         then
             Check_SPARK_Restriction
               ("string operand for concatenation should be static", N);
          end if;
@@ -8355,7 +8214,10 @@ package body Sem_Res is
                T := It.Typ;
             end if;
 
-            if Is_Record_Type (T) then
+            --  Locate selected component. For a private prefix the selector
+            --  can denote a discriminant.
+
+            if Is_Record_Type (T) or else Is_Private_Type (T) then
 
                --  The visible components of a class-wide type are those of
                --  the root type.
@@ -9873,29 +9735,62 @@ package body Sem_Res is
          Set_String_Literal_Low_Bound (Subtype_Id, Low_Bound);
 
       else
-         Set_String_Literal_Low_Bound
-           (Subtype_Id, Make_Integer_Literal (Loc, 1));
-         Set_Etype (String_Literal_Low_Bound (Subtype_Id), Standard_Positive);
-
-         --  Build bona fide subtype for the string, and wrap it in an
-         --  unchecked conversion, because the backend expects the
-         --  String_Literal_Subtype to have a static lower bound.
+         --  If the lower bound is not static we create a range for the string
+         --  literal, using the index type and the known length of the literal.
+         --  The index type is not necessarily Positive, so the upper bound is
+         --  computed as  T'Val (T'Pos (Low_Bound) + L - 1)
 
          declare
             Index_List    : constant List_Id    := New_List;
             Index_Type    : constant Entity_Id := Etype (First_Index (Typ));
-            High_Bound    : constant Node_Id :=
+
+            High_Bound : constant Node_Id :=
+                           Make_Attribute_Reference (Loc,
+                             Attribute_Name => Name_Val,
+                             Prefix         =>
+                               New_Occurrence_Of (Index_Type, Loc),
+                             Expressions    => New_List (
                                Make_Op_Add (Loc,
-                                  Left_Opnd => New_Copy_Tree (Low_Bound),
-                                  Right_Opnd =>
-                                    Make_Integer_Literal (Loc,
-                                      String_Length (Strval (N)) - 1));
+                                 Left_Opnd  =>
+                                   Make_Attribute_Reference (Loc,
+                                     Attribute_Name => Name_Pos,
+                                     Prefix         =>
+                                       New_Occurrence_Of (Index_Type, Loc),
+                                     Expressions    =>
+                                       New_List (New_Copy_Tree (Low_Bound))),
+                                 Right_Opnd =>
+                                   Make_Integer_Literal (Loc,
+                                     String_Length (Strval (N)) - 1))));
+
             Array_Subtype : Entity_Id;
             Index_Subtype : Entity_Id;
             Drange        : Node_Id;
             Index         : Node_Id;
 
          begin
+            if Is_Integer_Type (Index_Type) then
+               Set_String_Literal_Low_Bound
+                 (Subtype_Id, Make_Integer_Literal (Loc, 1));
+
+            else
+               --  If the index type is an enumeration type, build bounds
+               --  expression with attributes.
+
+               Set_String_Literal_Low_Bound
+                 (Subtype_Id,
+                  Make_Attribute_Reference (Loc,
+                    Attribute_Name => Name_First,
+                    Prefix         =>
+                      New_Occurrence_Of (Base_Type (Index_Type), Loc)));
+               Set_Etype (String_Literal_Low_Bound (Subtype_Id), Index_Type);
+            end if;
+
+            Analyze_And_Resolve (String_Literal_Low_Bound (Subtype_Id));
+
+            --  Build bona fide subtype for the string, and wrap it in an
+            --  unchecked conversion, because the backend expects the
+            --  String_Literal_Subtype to have a static lower bound.
+
             Index_Subtype :=
               Create_Itype (Subtype_Kind (Ekind (Index_Type)), N);
             Drange := Make_Range (Loc, New_Copy_Tree (Low_Bound), High_Bound);

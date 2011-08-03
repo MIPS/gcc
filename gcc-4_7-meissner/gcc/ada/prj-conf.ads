@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---            Copyright (C) 2006-2009, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2011, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,13 +48,13 @@ package Prj.Conf is
       Project_File_Name          : String;
       Project_Tree               : Prj.Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Packages_To_Check          : String_List_Access;
       Allow_Automatic_Generation : Boolean := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
       Target_Name                : String := "";
       Normalized_Hostname        : String;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null);
    --  Find the main configuration project and parse the project tree rooted at
    --  this configuration project.
@@ -93,13 +93,13 @@ package Prj.Conf is
       Autoconf_Specified         : Boolean;
       Project_Tree               : Prj.Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Packages_To_Check          : String_List_Access;
       Allow_Automatic_Generation : Boolean := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
       Target_Name                : String := "";
       Normalized_Hostname        : String;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null;
       Reset_Tree                 : Boolean := True);
    --  Same as above, except the project must already have been parsed through
@@ -121,6 +121,7 @@ package Prj.Conf is
      (Project                    : Prj.Project_Id;
       Project_Tree               : Prj.Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Allow_Automatic_Generation : Boolean;
       Config_File_Name           : String := "";
       Autoconf_Specified         : Boolean;
@@ -130,7 +131,6 @@ package Prj.Conf is
       Config                     : out Prj.Project_Id;
       Config_File_Path           : out String_Access;
       Automatically_Generated    : out Boolean;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null);
    --  Compute the name of the configuration file that should be used. If no
    --  default configuration file is found, a new one will be automatically
@@ -161,17 +161,6 @@ package Prj.Conf is
    --  If a project file could be found, it is automatically parsed and
    --  processed (and Packages_To_Check is used to indicate which packages
    --  should be processed)
-
-   procedure Apply_Config_File
-     (Config_File  : Prj.Project_Id;
-      Project_Tree : Prj.Project_Tree_Ref);
-   --  Apply the configuration file settings to all the projects in the
-   --  project tree. The Project_Tree must have been parsed first, and
-   --  processed through the first phase so that all its projects are known.
-   --
-   --  Currently, this will add new attributes and packages in the various
-   --  projects, so that when the second phase of the processing is performed
-   --  these attributes are automatically taken into account.
 
    procedure Add_Default_GNAT_Naming_Scheme
      (Config_File  : in out Prj.Tree.Project_Node_Id;

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1807,6 +1807,13 @@ package body Exp_Attr is
 
       when Attribute_Elab_Body |
            Attribute_Elab_Spec =>
+
+         --  Leave attribute unexpanded in CodePeer mode: the gnat2scil
+         --  back-end knows how to handle this attribute directly.
+
+         if CodePeer_Mode then
+            return;
+         end if;
 
          Elab_Body : declare
             Ent  : constant Entity_Id := Make_Temporary (Loc, 'E');
@@ -4991,7 +4998,7 @@ package body Exp_Attr is
       -- Value --
       -----------
 
-      --  Value attribute is handled in separate unti Exp_Imgv
+      --  Value attribute is handled in separate unit Exp_Imgv
 
       when Attribute_Value =>
          Exp_Imgv.Expand_Value_Attribute (N);

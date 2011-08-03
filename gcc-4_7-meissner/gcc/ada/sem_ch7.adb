@@ -936,7 +936,7 @@ package body Sem_Ch7 is
 
                   else
                      Error_Msg_Sloc := Sloc (Previous);
-                     Check_Formal_Restriction
+                     Check_SPARK_Restriction
                        ("at most one tagged type or type extension allowed",
                         "\\ previous declaration#",
                         Decl);
@@ -1516,8 +1516,8 @@ package body Sem_Ch7 is
    procedure Declare_Inherited_Private_Subprograms (Id : Entity_Id) is
 
       function Is_Primitive_Of (T : Entity_Id; S : Entity_Id) return Boolean;
-      --  Check whether an inherited subprogram is an operation of an untagged
-      --  derived type.
+      --  Check whether an inherited subprogram S is an operation of an
+      --  untagged derived type T.
 
       ---------------------
       -- Is_Primitive_Of --

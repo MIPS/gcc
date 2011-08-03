@@ -210,15 +210,6 @@ package body Sem_Ch11 is
                Push_Scope (H_Scope);
                Set_Etype (H_Scope, Standard_Void_Type);
 
-               --  Set the Finalization Chain entity to Error means that it
-               --  should not be used at that level but the parent one should
-               --  be used instead.
-
-               --  ??? this usage needs documenting in Einfo/Exp_Ch7 ???
-               --  ??? using Error for this non-error condition is nasty ???
-
-               Set_Finalization_Chain_Entity (H_Scope, Error);
-
                Enter_Name (Choice);
                Set_Ekind (Choice, E_Variable);
 
@@ -611,7 +602,6 @@ package body Sem_Ch11 is
    --  Start of processing for Analyze_Raise_xxx_Error
 
    begin
-      Mark_Non_ALFA_Subprogram;
       Check_SPARK_Restriction ("raise statement is not allowed", N);
 
       if No (Etype (N)) then

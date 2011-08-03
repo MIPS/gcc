@@ -31,7 +31,6 @@ with Elists;   use Elists;
 with Errout;   use Errout;
 with Exp_Atag; use Exp_Atag;
 with Exp_Ch6;  use Exp_Ch6;
-with Exp_Ch7;  use Exp_Ch7;
 with Exp_CG;   use Exp_CG;
 with Exp_Dbug; use Exp_Dbug;
 with Exp_Tss;  use Exp_Tss;
@@ -3764,7 +3763,10 @@ package body Exp_Disp is
       DT_Aggr : constant Elist_Id := New_Elmt_List;
       --  Entities marked with attribute Is_Dispatch_Table_Entity
 
-      procedure Check_Premature_Freezing (Subp : Entity_Id; Typ : Entity_Id);
+      procedure Check_Premature_Freezing
+        (Subp        : Entity_Id;
+         Tagged_Type : Entity_Id;
+         Typ         : Entity_Id);
       --  Verify that all non-tagged types in the profile of a subprogram
       --  are frozen at the point the subprogram is frozen. This enforces
       --  the rule on RM 13.14 (14) as modified by AI05-019. At the point a
@@ -3775,6 +3777,8 @@ package body Exp_Disp is
       --  Typical violation of the rule involves an object declaration that
       --  freezes a tagged type, when one of its primitive operations has a
       --  type in its profile whose full view has not been analyzed yet.
+      --  More complex cases involve composite types that have one private
+      --  unfrozen subcomponent.
 
       procedure Export_DT (Typ : Entity_Id; DT : Entity_Id; Index : Nat := 0);
       --  Export the dispatch table DT of tagged type Typ. Required to generate
@@ -3803,21 +3807,27 @@ package body Exp_Disp is
       --  calls through interface types; the latter secondary table is
       --  generated when Build_Thunks is False, and provides support for
       --  Generic Dispatching Constructors that dispatch calls through
-      --  interface types. When constructing this latter table the value
-      --  of Suffix_Index is -1 to indicate that there is no need to export
-      --  such table when building statically allocated dispatch tables; a
-      --  positive value of Suffix_Index must match the Suffix_Index value
-      --  assigned to this secondary dispatch table by Make_Tags when its
-      --  unique external name was generated.
+      --  interface types. When constructing this latter table the value of
+      --  Suffix_Index is -1 to indicate that there is no need to export such
+      --  table when building statically allocated dispatch tables; a positive
+      --  value of Suffix_Index must match the Suffix_Index value assigned to
+      --  this secondary dispatch table by Make_Tags when its unique external
+      --  name was generated.
 
       ------------------------------
       -- Check_Premature_Freezing --
       ------------------------------
 
-      procedure Check_Premature_Freezing (Subp : Entity_Id; Typ : Entity_Id) is
+      procedure Check_Premature_Freezing
+        (Subp        : Entity_Id;
+         Tagged_Type : Entity_Id;
+         Typ         : Entity_Id)
+      is
+         Comp : Entity_Id;
+
       begin
          if Present (N)
-           and then  Is_Private_Type (Typ)
+           and then Is_Private_Type (Typ)
            and then No (Full_View (Typ))
            and then not Is_Generic_Type (Typ)
            and then not Is_Tagged_Type (Typ)
@@ -3828,8 +3838,26 @@ package body Exp_Disp is
               ("declaration must appear after completion of type &", N, Typ);
             Error_Msg_NE
               ("\which is an untagged type in the profile of"
-               & " primitive operation & declared#",
-               N, Subp);
+               & " primitive operation & declared#", N, Subp);
+
+         else
+            Comp := Private_Component (Typ);
+
+            if not Is_Tagged_Type (Typ)
+              and then Present (Comp)
+              and then not Is_Frozen (Comp)
+            then
+               Error_Msg_Sloc := Sloc (Subp);
+               Error_Msg_Node_2 := Subp;
+               Error_Msg_Name_1 := Chars (Tagged_Type);
+               Error_Msg_NE
+                 ("declaration must appear after completion of type &",
+                   N, Comp);
+               Error_Msg_NE
+                 ("\which is a component of untagged type& in the profile of"
+               & " primitive & of type % that is frozen by the declaration ",
+                   N, Typ);
+            end if;
          end if;
       end Check_Premature_Freezing;
 
@@ -4587,11 +4615,11 @@ package body Exp_Disp is
                begin
                   F := First_Formal (Prim);
                   while Present (F) loop
-                     Check_Premature_Freezing (Prim, Etype (F));
+                     Check_Premature_Freezing (Prim, Typ, Etype (F));
                      Next_Formal (F);
                   end loop;
 
-                  Check_Premature_Freezing (Prim, Etype (Prim));
+                  Check_Premature_Freezing (Prim, Typ, Etype (Prim));
                end;
 
                if Present (Frnodes) then
@@ -4872,7 +4900,7 @@ package body Exp_Disp is
       --            HT_Link            => HT_Link'Address,
       --            Transportable      => <<boolean-value>>,
       --            Type_Is_Abstract   => <<boolean-value>>,
-      --            RC_Offset          => <<integer-value>>,
+      --            Needs_Finalization => <<boolean-value>>,
       --            [ Size_Func         => Size_Prim'Access ]
       --            [ Interfaces_Table  => <<access-value>> ]
       --            [ SSD               => SSD_Table'Address ]
@@ -5154,62 +5182,15 @@ package body Exp_Disp is
          end;
       end if;
 
-      --  RC_Offset: These are the valid values and their meaning:
-
-      --   >0: For simple types with controlled components is
-      --         type._record_controller'position
-
-      --    0: For types with no controlled components
-
-      --   -1: For complex types with controlled components where the position
-      --       of the record controller is not statically computable but there
-      --       are controlled components at this level. The _Controller field
-      --       is available right after the _parent.
-
-      --   -2: There are no controlled components at this level. We need to
-      --       get the position from the parent.
+      --  Needs_Finalization: Set if the type is controlled or has controlled
+      --  components.
 
       declare
-         RC_Offset_Node : Node_Id;
+         Needs_Fin : Entity_Id;
 
       begin
-         if not Has_Controlled_Component (Typ) then
-            RC_Offset_Node := Make_Integer_Literal (Loc, 0);
-
-         elsif Etype (Typ) /= Typ
-           and then Has_Discriminants (Parent_Typ)
-         then
-            if Has_New_Controlled_Component (Typ) then
-               RC_Offset_Node := Make_Integer_Literal (Loc, -1);
-            else
-               RC_Offset_Node := Make_Integer_Literal (Loc, -2);
-            end if;
-         else
-            RC_Offset_Node :=
-              Make_Attribute_Reference (Loc,
-                Prefix =>
-                  Make_Selected_Component (Loc,
-                    Prefix => New_Reference_To (Typ, Loc),
-                    Selector_Name =>
-                      New_Reference_To (Controller_Component (Typ), Loc)),
-                Attribute_Name => Name_Position);
-
-            --  This is not proper Ada code to use the attribute 'Position
-            --  on something else than an object but this is supported by
-            --  the back end (see comment on the Bit_Component attribute in
-            --  sem_attr). So we avoid semantic checking here.
-
-            --  Is this documented in sinfo.ads??? it should be!
-
-            Set_Analyzed (RC_Offset_Node);
-            Set_Etype (Prefix (RC_Offset_Node), RTE (RE_Record_Controller));
-            Set_Etype (Prefix (Prefix (RC_Offset_Node)), Typ);
-            Set_Etype (Selector_Name (Prefix (RC_Offset_Node)),
-              RTE (RE_Record_Controller));
-            Set_Etype (RC_Offset_Node, RTE (RE_Storage_Offset));
-         end if;
-
-         Append_To (TSD_Aggr_List, RC_Offset_Node);
+         Needs_Fin := Boolean_Literals (Needs_Finalization (Typ));
+         Append_To (TSD_Aggr_List, New_Occurrence_Of (Needs_Fin, Loc));
       end;
 
       --  Size_Func

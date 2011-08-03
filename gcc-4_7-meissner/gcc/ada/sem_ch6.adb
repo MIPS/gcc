@@ -628,8 +628,19 @@ package body Sem_Ch6 is
 
       if Nkind (N) = N_Simple_Return_Statement then
          Expr := Expression (N);
-         Analyze_And_Resolve (Expr, R_Type);
-         Check_Limited_Return (Expr);
+
+         --  Guard against a malformed expression. The parser may have tried to
+         --  recover but the node is not analyzable.
+
+         if Nkind (Expr) = N_Error then
+            Set_Etype (Expr, Any_Type);
+            Expander_Mode_Save_And_Set (False);
+            return;
+
+         else
+            Analyze_And_Resolve (Expr, R_Type);
+            Check_Limited_Return (Expr);
+         end if;
 
          --  RETURN only allowed in SPARK is as the last statement function
 
@@ -1959,6 +1970,10 @@ package body Sem_Ch6 is
             while Present (Formal) loop
                Formal_Typ := Etype (Formal);
 
+               if Is_Class_Wide_Type (Formal_Typ) then
+                  Formal_Typ := Root_Type (Formal_Typ);
+               end if;
+
                --  From concurrent type to corresponding record
 
                if To_Corresponding then
@@ -2050,6 +2065,10 @@ package body Sem_Ch6 is
             Formal_Typ := Etype (First_Formal (Subp_Id));
 
             if Is_Concurrent_Record_Type (Formal_Typ) then
+               if Is_Class_Wide_Type (Formal_Typ) then
+                  Formal_Typ := Root_Type (Formal_Typ);
+               end if;
+
                Formal_Typ := Corresponding_Concurrent_Type (Formal_Typ);
             end if;
 
@@ -6046,24 +6065,15 @@ package body Sem_Ch6 is
                     E, BIP_Formal_Suffix (BIP_Alloc_Form));
             end if;
 
-            --  For functions whose result type has controlled parts, we have
-            --  an extra formal of type System.Finalization_Implementation.
-            --  Finalizable_Ptr_Ptr. That is, we are passing a pointer to a
-            --  finalization list (which is itself a pointer). This extra
-            --  formal is then passed along to Move_Final_List in case of
-            --  successful completion of a return statement. We cannot pass an
-            --  'in out' parameter, because we need to update the finalization
-            --  list during an abort-deferred region, rather than using
-            --  copy-back after the function returns. This is true even if we
-            --  are able to get away with having 'in out' parameters, which are
-            --  normally illegal for functions. This formal is also needed when
-            --  the function has a tagged result.
+            --  In the case of functions whose result type needs finalization,
+            --  add an extra formal of type Ada.Finalization.Heap_Management.
+            --  Finalization_Collection_Ptr.
 
-            if Needs_BIP_Final_List (E) then
+            if Needs_BIP_Collection (E) then
                Discard :=
                  Add_Extra_Formal
-                   (E, RTE (RE_Finalizable_Ptr_Ptr),
-                    E, BIP_Formal_Suffix (BIP_Final_List));
+                   (E, RTE (RE_Finalization_Collection_Ptr),
+                    E, BIP_Formal_Suffix (BIP_Collection));
             end if;
 
             --  If the result type contains tasks, we have two extra formals:
@@ -6321,7 +6331,13 @@ package body Sem_Ch6 is
                if In_Instance then
                   Set_Convention (Designator, Convention (E));
 
-                  if Nkind (N) = N_Subprogram_Body
+                  --  Skip past subprogram bodies and subprogram renamings that
+                  --  may appear to have a matching spec, but that aren't fully
+                  --  conformant with it. That can occur in cases where an
+                  --  actual type causes unrelated homographs in the instance.
+
+                  if Nkind_In (N, N_Subprogram_Body,
+                                  N_Subprogram_Renaming_Declaration)
                     and then Present (Homonym (E))
                     and then not Fully_Conformant (Designator, E)
                   then
@@ -8593,15 +8609,18 @@ package body Sem_Ch6 is
          Check_Overriding_Indicator
            (S, Overridden_Subp, Is_Primitive => Is_Primitive_Subp);
 
-         --  Overloading is not allowed in SPARK
+         --  Overloading is not allowed in SPARK, except for operators
 
-         Error_Msg_Sloc := Sloc (Homonym (S));
-         Check_SPARK_Restriction ("overloading not allowed with entity#", S);
+         if Nkind (S) /= N_Defining_Operator_Symbol then
+            Error_Msg_Sloc := Sloc (Homonym (S));
+            Check_SPARK_Restriction
+              ("overloading not allowed with entity#", S);
+         end if;
 
          --  If S is a derived operation for an untagged type then by
          --  definition it's not a dispatching operation (even if the parent
-         --  operation was dispatching), so we don't call
-         --  Check_Dispatching_Operation in that case.
+         --  operation was dispatching), so Check_Dispatching_Operation is not
+         --  called in that case.
 
          if No (Derived_Type)
            or else Is_Tagged_Type (Derived_Type)
@@ -8862,13 +8881,12 @@ package body Sem_Ch6 is
 
          Set_Etype (Formal, Formal_Type);
 
-         --  If the type of a subprogram's formal parameter is not in ALFA,
-         --  then the subprogram is not in ALFA.
+         --  The parameter is in ALFA if-and-only-if its type is in ALFA
 
-         if Nkind (Parent (First (T))) in N_Subprogram_Specification
-           and then not Is_In_ALFA (Formal_Type)
-         then
-            Set_Is_In_ALFA (Defining_Entity (Parent (First (T))), False);
+         if Is_In_ALFA (Formal_Type) then
+            Set_Is_In_ALFA (Formal);
+         else
+            Mark_Non_ALFA_Subprogram;
          end if;
 
          Default := Expression (Param_Spec);
@@ -9530,6 +9548,9 @@ package body Sem_Ch6 is
                 Handled_Statement_Sequence =>
                   Make_Handled_Sequence_Of_Statements (Loc,
                     Statements => Plist)));
+
+            Set_Ekind (Post_Proc, E_Procedure);
+            Set_Is_Postcondition_Proc (Post_Proc);
 
             --  If this is a procedure, set the Postcondition_Proc attribute on
             --  the proper defining entity for the subprogram.

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2006-2010, Free Software Foundation, Inc.       --
+--            Copyright (C) 2006-2011, Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -101,6 +101,17 @@ package body Prj.Conf is
    pragma No_Return (Raise_Invalid_Config);
    --  Raises exception Invalid_Config with given message
 
+   procedure Apply_Config_File
+     (Config_File  : Prj.Project_Id;
+      Project_Tree : Prj.Project_Tree_Ref);
+   --  Apply the configuration file settings to all the projects in the
+   --  project tree. The Project_Tree must have been parsed first, and
+   --  processed through the first phase so that all its projects are known.
+   --
+   --  Currently, this will add new attributes and packages in the various
+   --  projects, so that when the second phase of the processing is performed
+   --  these attributes are automatically taken into account.
+
    --------------------
    -- Add_Attributes --
    --------------------
@@ -110,6 +121,7 @@ package body Prj.Conf is
       Conf_Decl    : Declarations;
       User_Decl    : in out Declarations)
    is
+      Shared : constant Shared_Project_Tree_Data_Access := Project_Tree.Shared;
       Conf_Attr_Id       : Variable_Id;
       Conf_Attr          : Variable;
       Conf_Array_Id      : Array_Id;
@@ -130,10 +142,8 @@ package body Prj.Conf is
       Conf_Attr_Id := Conf_Decl.Attributes;
       User_Attr_Id := User_Decl.Attributes;
       while Conf_Attr_Id /= No_Variable loop
-         Conf_Attr :=
-           Project_Tree.Variable_Elements.Table (Conf_Attr_Id);
-         User_Attr :=
-           Project_Tree.Variable_Elements.Table (User_Attr_Id);
+         Conf_Attr := Shared.Variable_Elements.Table (Conf_Attr_Id);
+         User_Attr := Shared.Variable_Elements.Table (User_Attr_Id);
 
          if not Conf_Attr.Value.Default then
             if User_Attr.Value.Default then
@@ -142,8 +152,7 @@ package body Prj.Conf is
                --  value of the configuration attribute.
 
                User_Attr.Value := Conf_Attr.Value;
-               Project_Tree.Variable_Elements.Table (User_Attr_Id) :=
-                 User_Attr;
+               Shared.Variable_Elements.Table (User_Attr_Id) := User_Attr;
 
             elsif User_Attr.Value.Kind = List
               and then Conf_Attr.Value.Values /= Nil_String
@@ -164,23 +173,20 @@ package body Prj.Conf is
                   --  Create new list
 
                   String_Element_Table.Increment_Last
-                    (Project_Tree.String_Elements);
-                  New_List := String_Element_Table.Last
-                    (Project_Tree.String_Elements);
+                    (Shared.String_Elements);
+                  New_List :=
+                    String_Element_Table.Last (Shared.String_Elements);
 
                   --  Value of attribute is new list
 
                   User_Attr.Value.Values := New_List;
-                  Project_Tree.Variable_Elements.Table (User_Attr_Id) :=
-                    User_Attr;
+                  Shared.Variable_Elements.Table (User_Attr_Id) := User_Attr;
 
                   loop
-
                      --  Get each element of configuration list
 
-                     Conf_Elem :=
-                       Project_Tree.String_Elements.Table (Conf_List);
-                     New_Elem := Conf_Elem;
+                     Conf_Elem := Shared.String_Elements.Table (Conf_List);
+                     New_Elem  := Conf_Elem;
                      Conf_List := Conf_Elem.Next;
 
                      if Conf_List = Nil_String then
@@ -189,8 +195,7 @@ package body Prj.Conf is
                         --  first element of user list, and we are done.
 
                         New_Elem.Next := User_List;
-                        Project_Tree.String_Elements.Table
-                          (New_List) := New_Elem;
+                        Shared.String_Elements.Table (New_List) := New_Elem;
                         exit;
 
                      else
@@ -198,12 +203,10 @@ package body Prj.Conf is
                         --  new list.
 
                         String_Element_Table.Increment_Last
-                          (Project_Tree.String_Elements);
+                          (Shared.String_Elements);
                         New_Elem.Next :=
-                          String_Element_Table.Last
-                            (Project_Tree.String_Elements);
-                        Project_Tree.String_Elements.Table
-                          (New_List) := New_Elem;
+                          String_Element_Table.Last (Shared.String_Elements);
+                        Shared.String_Elements.Table (New_List) := New_Elem;
                         New_List := New_Elem.Next;
                      end if;
                   end loop;
@@ -217,11 +220,11 @@ package body Prj.Conf is
 
       Conf_Array_Id := Conf_Decl.Arrays;
       while Conf_Array_Id /= No_Array loop
-         Conf_Array := Project_Tree.Arrays.Table (Conf_Array_Id);
+         Conf_Array := Shared.Arrays.Table (Conf_Array_Id);
 
          User_Array_Id := User_Decl.Arrays;
          while User_Array_Id /= No_Array loop
-            User_Array := Project_Tree.Arrays.Table (User_Array_Id);
+            User_Array := Shared.Arrays.Table (User_Array_Id);
             exit when User_Array.Name = Conf_Array.Name;
             User_Array_Id := User_Array.Next;
          end loop;
@@ -230,45 +233,43 @@ package body Prj.Conf is
          --  do a shallow copy of the full associative array.
 
          if User_Array_Id = No_Array then
-            Array_Table.Increment_Last (Project_Tree.Arrays);
+            Array_Table.Increment_Last (Shared.Arrays);
             User_Array := Conf_Array;
             User_Array.Next := User_Decl.Arrays;
-            User_Decl.Arrays := Array_Table.Last (Project_Tree.Arrays);
-            Project_Tree.Arrays.Table (User_Decl.Arrays) := User_Array;
+            User_Decl.Arrays := Array_Table.Last (Shared.Arrays);
+            Shared.Arrays.Table (User_Decl.Arrays) := User_Array;
+
+         --  Otherwise, check each array element
 
          else
-            --  Otherwise, check each array element
-
             Conf_Array_Elem_Id := Conf_Array.Value;
             while Conf_Array_Elem_Id /= No_Array_Element loop
                Conf_Array_Elem :=
-                 Project_Tree.Array_Elements.Table (Conf_Array_Elem_Id);
+                 Shared.Array_Elements.Table (Conf_Array_Elem_Id);
 
                User_Array_Elem_Id := User_Array.Value;
                while User_Array_Elem_Id /= No_Array_Element loop
                   User_Array_Elem :=
-                    Project_Tree.Array_Elements.Table (User_Array_Elem_Id);
+                    Shared.Array_Elements.Table (User_Array_Elem_Id);
                   exit when User_Array_Elem.Index = Conf_Array_Elem.Index;
                   User_Array_Elem_Id := User_Array_Elem.Next;
                end loop;
 
-               --  If the array element does not exist in the user array,
-               --  insert a shallow copy of the conf array element in the
-               --  user array.
+               --  If the array element doesn't exist in the user array, insert
+               --  a shallow copy of the conf array element in the user array.
 
                if User_Array_Elem_Id = No_Array_Element then
-                  Array_Element_Table.Increment_Last
-                    (Project_Tree.Array_Elements);
+                  Array_Element_Table.Increment_Last (Shared.Array_Elements);
                   User_Array_Elem := Conf_Array_Elem;
                   User_Array_Elem.Next := User_Array.Value;
                   User_Array.Value :=
-                    Array_Element_Table.Last (Project_Tree.Array_Elements);
-                  Project_Tree.Array_Elements.Table (User_Array.Value) :=
+                    Array_Element_Table.Last (Shared.Array_Elements);
+                  Shared.Array_Elements.Table (User_Array.Value) :=
                     User_Array_Elem;
-                  Project_Tree.Arrays.Table (User_Array_Id) := User_Array;
+                  Shared.Arrays.Table (User_Array_Id) := User_Array;
 
-               --  Otherwise, if the value is a string list, prepend the
-               --  user array element with the conf array element value.
+               --  Otherwise, if the value is a string list, prepend the conf
+               --  array element value to the array element.
 
                elsif Conf_Array_Elem.Value.Kind = List then
                   Conf_List := Conf_Array_Elem.Value.Values;
@@ -283,23 +284,22 @@ package body Prj.Conf is
                      begin
                         loop
                            Conf_List_Elem :=
-                             Project_Tree.String_Elements.Table
-                               (Conf_List);
+                             Shared.String_Elements.Table (Conf_List);
                            String_Element_Table.Increment_Last
-                             (Project_Tree.String_Elements);
+                             (Shared.String_Elements);
                            Next :=
                              String_Element_Table.Last
-                               (Project_Tree.String_Elements);
-                           Project_Tree.String_Elements.Table (Next) :=
+                               (Shared.String_Elements);
+                           Shared.String_Elements.Table (Next) :=
                              Conf_List_Elem;
 
                            if Previous = Nil_String then
                               User_Array_Elem.Value.Values := Next;
-                              Project_Tree.Array_Elements.Table
+                              Shared.Array_Elements.Table
                                 (User_Array_Elem_Id) := User_Array_Elem;
 
                            else
-                              Project_Tree.String_Elements.Table
+                              Shared.String_Elements.Table
                                 (Previous).Next := Next;
                            end if;
 
@@ -308,8 +308,8 @@ package body Prj.Conf is
                            Conf_List := Conf_List_Elem.Next;
 
                            if Conf_List = Nil_String then
-                              Project_Tree.String_Elements.Table
-                                (Previous).Next := Link;
+                              Shared.String_Elements.Table (Previous).Next :=
+                                Link;
                               exit;
                            end if;
                         end loop;
@@ -349,12 +349,13 @@ package body Prj.Conf is
          Index : String := "";
          Pkg   : Project_Node_Id := Empty_Node)
       is
-         Attr       : Project_Node_Id;
+         Attr : Project_Node_Id;
          pragma Unreferenced (Attr);
 
          Expr   : Name_Id         := No_Name;
          Val    : Name_Id         := No_Name;
          Parent : Project_Node_Id := Config_File;
+
       begin
          if Index /= "" then
             Name_Len := Index'Length;
@@ -457,6 +458,8 @@ package body Prj.Conf is
      (Config_File  : Prj.Project_Id;
       Project_Tree : Prj.Project_Tree_Ref)
    is
+      Shared : constant Shared_Project_Tree_Data_Access := Project_Tree.Shared;
+
       Conf_Decl    : constant Declarations := Config_File.Decl;
       Conf_Pack_Id : Package_Id;
       Conf_Pack    : Package_Element;
@@ -467,47 +470,67 @@ package body Prj.Conf is
       Proj         : Project_List;
 
    begin
+      Debug_Output ("Applying config file to a project tree");
+
       Proj := Project_Tree.Projects;
       while Proj /= null loop
          if Proj.Project /= Config_File then
             User_Decl := Proj.Project.Decl;
             Add_Attributes
-              (Project_Tree => Project_Tree,
-               Conf_Decl    => Conf_Decl,
-               User_Decl    => User_Decl);
+              (Project_Tree      => Project_Tree,
+               Conf_Decl         => Conf_Decl,
+               User_Decl         => User_Decl);
 
             Conf_Pack_Id := Conf_Decl.Packages;
             while Conf_Pack_Id /= No_Package loop
-               Conf_Pack := Project_Tree.Packages.Table (Conf_Pack_Id);
+               Conf_Pack := Shared.Packages.Table (Conf_Pack_Id);
 
                User_Pack_Id := User_Decl.Packages;
                while User_Pack_Id /= No_Package loop
-                  User_Pack := Project_Tree.Packages.Table (User_Pack_Id);
+                  User_Pack := Shared.Packages.Table (User_Pack_Id);
                   exit when User_Pack.Name = Conf_Pack.Name;
                   User_Pack_Id := User_Pack.Next;
                end loop;
 
                if User_Pack_Id = No_Package then
-                  Package_Table.Increment_Last (Project_Tree.Packages);
+                  Package_Table.Increment_Last (Shared.Packages);
                   User_Pack := Conf_Pack;
                   User_Pack.Next := User_Decl.Packages;
-                  User_Decl.Packages :=
-                    Package_Table.Last (Project_Tree.Packages);
-                  Project_Tree.Packages.Table (User_Decl.Packages) :=
-                    User_Pack;
+                  User_Decl.Packages := Package_Table.Last (Shared.Packages);
+                  Shared.Packages.Table (User_Decl.Packages) := User_Pack;
 
                else
                   Add_Attributes
-                    (Project_Tree => Project_Tree,
-                     Conf_Decl    => Conf_Pack.Decl,
-                     User_Decl    => Project_Tree.Packages.Table
-                       (User_Pack_Id).Decl);
+                    (Project_Tree      => Project_Tree,
+                     Conf_Decl         => Conf_Pack.Decl,
+                     User_Decl         =>
+                       Shared.Packages.Table (User_Pack_Id).Decl);
                end if;
 
                Conf_Pack_Id := Conf_Pack.Next;
             end loop;
 
             Proj.Project.Decl := User_Decl;
+
+            --  For aggregate projects, we need to apply the config to all
+            --  their aggregated trees as well.
+
+            if Proj.Project.Qualifier = Aggregate then
+               declare
+                  List : Aggregated_Project_List :=
+                    Proj.Project.Aggregated_Projects;
+               begin
+                  while List /= null loop
+                     Debug_Output
+                       ("Recursively apply config to aggregated tree",
+                        List.Project.Name);
+                     Apply_Config_File
+                       (Config_File,
+                        Project_Tree      => List.Tree);
+                     List := List.Next;
+                  end loop;
+               end;
+            end if;
          end if;
 
          Proj := Proj.Next;
@@ -524,9 +547,10 @@ package body Prj.Conf is
       Project_Tree : Prj.Project_Tree_Ref;
       Target       : String := "") return Boolean
    is
+      Shared : constant Shared_Project_Tree_Data_Access := Project_Tree.Shared;
       Variable : constant Variable_Value :=
                    Value_Of
-                     (Name_Target, Config_File.Decl.Attributes, Project_Tree);
+                     (Name_Target, Config_File.Decl.Attributes, Shared);
       Tgt_Name : Name_Id := No_Name;
       OK       : Boolean;
 
@@ -573,6 +597,7 @@ package body Prj.Conf is
      (Project                    : Project_Id;
       Project_Tree               : Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Allow_Automatic_Generation : Boolean;
       Config_File_Name           : String := "";
       Autoconf_Specified         : Boolean;
@@ -582,9 +607,9 @@ package body Prj.Conf is
       Config                     : out Prj.Project_Id;
       Config_File_Path           : out String_Access;
       Automatically_Generated    : out Boolean;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null)
    is
+      Shared : constant Shared_Project_Tree_Data_Access := Project_Tree.Shared;
 
       At_Least_One_Compiler_Command : Boolean := False;
       --  Set to True if at least one attribute Ide'Compiler_Command is
@@ -655,7 +680,7 @@ package body Prj.Conf is
            Value_Of
              (Name_Source_Dirs,
               Project.Decl.Attributes,
-              Project_Tree);
+              Shared);
 
          if Variable = Nil_Variable_Value
            or else Variable.Default
@@ -665,7 +690,7 @@ package body Prj.Conf is
               Value_Of
                 (Name_Source_Files,
                  Project.Decl.Attributes,
-                 Project_Tree);
+                 Shared);
             return Variable = Nil_Variable_Value
               or else Variable.Default
               or else Variable.Values /= Nil_String;
@@ -690,10 +715,7 @@ package body Prj.Conf is
          --  Hash table to keep the languages used in the project tree
 
          IDE : constant Package_Id :=
-                 Value_Of
-                   (Name_Ide,
-                    Project.Decl.Packages,
-                    Project_Tree);
+                 Value_Of (Name_Ide, Project.Decl.Packages, Shared);
 
          Prj_Iter : Project_List;
          List     : String_List_Id;
@@ -714,7 +736,7 @@ package body Prj.Conf is
                  Value_Of
                    (Name_Languages,
                     Prj_Iter.Project.Decl.Attributes,
-                    Project_Tree);
+                    Shared);
 
                if Variable = Nil_Variable_Value
                  or else Variable.Default
@@ -730,7 +752,7 @@ package body Prj.Conf is
                        Value_Of
                          (Name_Languages,
                           Prj_Iter.Project.Extends.Decl.Attributes,
-                          Project_Tree);
+                          Shared);
                      Check_Default :=
                        Variable /= Nil_Variable_Value
                          and then Variable.Values = Nil_String;
@@ -741,7 +763,7 @@ package body Prj.Conf is
                        Value_Of
                          (Name_Default_Language,
                           Prj_Iter.Project.Decl.Attributes,
-                          Project_Tree);
+                          Shared);
 
                      if Variable /= Nil_Variable_Value
                        and then not Variable.Default
@@ -765,7 +787,7 @@ package body Prj.Conf is
 
                   List := Variable.Values;
                   while List /= Nil_String loop
-                     Elem := Project_Tree.String_Elements.Table (List);
+                     Elem := Shared.String_Elements.Table (List);
 
                      Get_Name_String (Elem.Value);
                      To_Lower (Name_Buffer (1 .. Name_Len));
@@ -800,7 +822,7 @@ package body Prj.Conf is
                 (Name,
                  Attribute_Or_Array_Name => Name_Compiler_Command,
                  In_Package              => IDE,
-                 In_Tree                 => Project_Tree,
+                 Shared                  => Shared,
                  Force_Lower_Case_Index  => True);
 
             declare
@@ -857,7 +879,7 @@ package body Prj.Conf is
                      Value_Of
                        (Name_Object_Dir,
                         Project.Decl.Attributes,
-                        Project_Tree);
+                        Shared);
 
          Gprconfig_Path  : String_Access;
          Success         : Boolean;
@@ -932,13 +954,13 @@ package body Prj.Conf is
             end if;
 
             if not Is_Directory (Obj_Dir) then
-               case Flags.Require_Obj_Dirs is
+               case Env.Flags.Require_Obj_Dirs is
                   when Error =>
                      Raise_Invalid_Config
                        ("object directory " & Obj_Dir & " does not exist");
                   when Warning =>
                      Prj.Err.Error_Msg
-                       (Flags,
+                       (Env.Flags,
                         "?object directory " & Obj_Dir & " does not exist");
                      Obj_Dir_Exists := False;
                   when Silent =>
@@ -965,7 +987,7 @@ package body Prj.Conf is
 
                   begin
                      Prj.Env.Create_Temp_File
-                       (In_Tree   => Project_Tree,
+                       (Shared    => Project_Tree.Shared,
                         Path_FD   => Path_FD,
                         Path_Name => Path_Name,
                         File_Use  => "configuration file");
@@ -1061,6 +1083,8 @@ package body Prj.Conf is
       Config_Project_Node : Project_Node_Id := Empty_Node;
 
    begin
+      pragma Assert (Prj.Env.Is_Initialized (Env.Project_Path));
+
       Free (Config_File_Path);
       Config := No_Project;
 
@@ -1117,12 +1141,11 @@ package body Prj.Conf is
            (In_Tree                => Project_Node_Tree,
             Project                => Config_Project_Node,
             Project_File_Name      => Config_File_Path.all,
-            Always_Errout_Finalize => False,
+            Errout_Handling        => Prj.Part.Finalize_If_Error,
             Packages_To_Check      => Packages_To_Check,
             Current_Directory      => Current_Directory,
             Is_Config_File         => True,
-            Flags                  => Flags,
-            Target_Name            => Target_Name);
+            Env                    => Env);
       else
          Config_Project_Node := Empty_Node;
       end if;
@@ -1134,7 +1157,7 @@ package body Prj.Conf is
             Success                => Success,
             From_Project_Node      => Config_Project_Node,
             From_Project_Node_Tree => Project_Node_Tree,
-            Flags                  => Flags,
+            Env                    => Env,
             Reset_Tree             => False);
       end if;
 
@@ -1188,16 +1211,18 @@ package body Prj.Conf is
       Project_File_Name          : String;
       Project_Tree               : Prj.Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Packages_To_Check          : String_List_Access;
       Allow_Automatic_Generation : Boolean := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
       Target_Name                : String := "";
       Normalized_Hostname        : String;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null)
    is
    begin
+      pragma Assert (Prj.Env.Is_Initialized (Env.Project_Path));
+
       --  Parse the user project tree
 
       Prj.Initialize (Project_Tree);
@@ -1209,12 +1234,11 @@ package body Prj.Conf is
         (In_Tree                => Project_Node_Tree,
          Project                => User_Project_Node,
          Project_File_Name      => Project_File_Name,
-         Always_Errout_Finalize => False,
+         Errout_Handling        => Prj.Part.Finalize_If_Error,
          Packages_To_Check      => Packages_To_Check,
          Current_Directory      => Current_Directory,
          Is_Config_File         => False,
-         Flags                  => Flags,
-         Target_Name            => Target_Name);
+         Env                    => Env);
 
       if User_Project_Node = Empty_Node then
          User_Project_Node := Empty_Node;
@@ -1228,13 +1252,13 @@ package body Prj.Conf is
          Autoconf_Specified         => Autoconf_Specified,
          Project_Tree               => Project_Tree,
          Project_Node_Tree          => Project_Node_Tree,
+         Env                        => Env,
          Packages_To_Check          => Packages_To_Check,
          Allow_Automatic_Generation => Allow_Automatic_Generation,
          Automatically_Generated    => Automatically_Generated,
          Config_File_Path           => Config_File_Path,
          Target_Name                => Target_Name,
          Normalized_Hostname        => Normalized_Hostname,
-         Flags                      => Flags,
          On_Load_Config             => On_Load_Config);
    end Parse_Project_And_Apply_Config;
 
@@ -1249,16 +1273,17 @@ package body Prj.Conf is
       Autoconf_Specified         : Boolean;
       Project_Tree               : Prj.Project_Tree_Ref;
       Project_Node_Tree          : Prj.Tree.Project_Node_Tree_Ref;
+      Env                        : in out Prj.Tree.Environment;
       Packages_To_Check          : String_List_Access;
       Allow_Automatic_Generation : Boolean := True;
       Automatically_Generated    : out Boolean;
       Config_File_Path           : out String_Access;
       Target_Name                : String := "";
       Normalized_Hostname        : String;
-      Flags                      : Processing_Flags;
       On_Load_Config             : Config_File_Hook := null;
       Reset_Tree                 : Boolean := True)
    is
+      Shared : constant Shared_Project_Tree_Data_Access := Project_Tree.Shared;
       Main_Config_Project : Project_Id;
       Success : Boolean;
 
@@ -1272,7 +1297,7 @@ package body Prj.Conf is
          Success                => Success,
          From_Project_Node      => User_Project_Node,
          From_Project_Node_Tree => Project_Node_Tree,
-         Flags                  => Flags,
+         Env                    => Env,
          Reset_Tree             => Reset_Tree);
 
       if not Success then
@@ -1287,7 +1312,7 @@ package body Prj.Conf is
                  Value_Of
                    (Name_Object_Dir,
                     Main_Project.Decl.Attributes,
-                    Project_Tree);
+                    Shared);
 
             begin
                if Obj_Dir = Nil_Variable_Value or else Obj_Dir.Default then
@@ -1323,6 +1348,7 @@ package body Prj.Conf is
          Project                    => Main_Project,
          Project_Tree               => Project_Tree,
          Project_Node_Tree          => Project_Node_Tree,
+         Env                        => Env,
          Allow_Automatic_Generation => Allow_Automatic_Generation,
          Config_File_Name           => Config_File_Name,
          Autoconf_Specified         => Autoconf_Specified,
@@ -1331,7 +1357,6 @@ package body Prj.Conf is
          Packages_To_Check          => Packages_To_Check,
          Config_File_Path           => Config_File_Path,
          Automatically_Generated    => Automatically_Generated,
-         Flags                      => Flags,
          On_Load_Config             => On_Load_Config);
 
       Apply_Config_File (Main_Config_Project, Project_Tree);
@@ -1344,7 +1369,7 @@ package body Prj.Conf is
          Success                    => Success,
          From_Project_Node          => User_Project_Node,
          From_Project_Node_Tree     => Project_Node_Tree,
-         Flags                      => Flags);
+         Env                        => Env);
 
       if Success then
          if Project_Tree.Source_Info_File_Name /= null and then

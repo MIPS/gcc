@@ -781,7 +781,7 @@ package body Sem_Ch3 is
 
       Anon_Type :=
         Create_Itype
-         (E_Anonymous_Access_Type, Related_Nod, Scope_Id => Anon_Scope);
+          (E_Anonymous_Access_Type, Related_Nod, Scope_Id => Anon_Scope);
 
       if All_Present (N)
         and then Ada_Version >= Ada_2005
@@ -1279,8 +1279,11 @@ package body Sem_Ch3 is
    ----------------------------
 
    procedure Access_Type_Declaration (T : Entity_Id; Def : Node_Id) is
-      S : constant Node_Id := Subtype_Indication (Def);
       P : constant Node_Id := Parent (Def);
+      S : constant Node_Id := Subtype_Indication (Def);
+
+      Full_Desig : Entity_Id;
+
    begin
       Check_SPARK_Restriction ("access type is not allowed", Def);
 
@@ -1307,15 +1310,17 @@ package body Sem_Ch3 is
          Set_Ekind (T, E_Access_Type);
       end if;
 
-      if Base_Type (Designated_Type (T)) = T then
+      Full_Desig := Designated_Type (T);
+
+      if Base_Type (Full_Desig) = T then
          Error_Msg_N ("access type cannot designate itself", S);
 
       --  In Ada 2005, the type may have a limited view through some unit
       --  in its own context, allowing the following circularity that cannot
       --  be detected earlier
 
-      elsif Is_Class_Wide_Type (Designated_Type (T))
-        and then Etype (Designated_Type (T)) = T
+      elsif Is_Class_Wide_Type (Full_Desig)
+        and then Etype (Full_Desig) = T
       then
          Error_Msg_N
            ("access type cannot designate its own classwide type", S);
@@ -1341,12 +1346,19 @@ package body Sem_Ch3 is
       Set_Has_Task (T, False);
       Set_Has_Controlled_Component (T, False);
 
-      --  Initialize Associated_Final_Chain explicitly to Empty, to avoid
+      --  Initialize Associated_Collection explicitly to Empty, to avoid
       --  problems where an incomplete view of this entity has been previously
       --  established by a limited with and an overlaid version of this field
       --  (Stored_Constraint) was initialized for the incomplete view.
 
-      Set_Associated_Final_Chain (T, Empty);
+      --  This reset is performed in most cases except where the access type
+      --  has been created for the purposes of allocating or deallocating a
+      --  build-in-place object. Such access types have explicitly set pools
+      --  and collections.
+
+      if No (Associated_Storage_Pool (T)) then
+         Set_Associated_Collection (T, Empty);
+      end if;
 
       --  Ada 2005 (AI-231): Propagate the null-excluding and access-constant
       --  attributes
@@ -2537,7 +2549,7 @@ package body Sem_Ch3 is
       --  subtypes will be built after the full view of the type.
 
       Set_Private_Dependents (T, New_Elmt_List);
-      Set_Is_Pure (T, F);
+      Set_Is_Pure            (T, F);
    end Analyze_Incomplete_Type_Decl;
 
    -----------------------------------
@@ -3401,15 +3413,27 @@ package body Sem_Ch3 is
          --  It is unclear why this should make it acceptable to gcc. ???
 
          Remove_Side_Effects (E);
+
+      --  If this is a constant declaration of an unconstrained type and
+      --  the initialization is an aggregate, we can use the subtype of the
+      --  aggregate for the declared entity because it is immutable.
+
+      elsif not Is_Constrained (T)
+        and then Has_Discriminants (T)
+        and then Constant_Present (N)
+        and then not Has_Unchecked_Union (T)
+        and then Nkind (E) = N_Aggregate
+      then
+         Act_T := Etype (E);
       end if;
 
       --  Check No_Wide_Characters restriction
 
       Check_Wide_Character_Restriction (T, Object_Definition (N));
 
-      --  Indicate this is not set in source. Certainly true for constants,
-      --  and true for variables so far (will be reset for a variable if and
-      --  when we encounter a modification in the source).
+      --  Indicate this is not set in source. Certainly true for constants, and
+      --  true for variables so far (will be reset for a variable if and when
+      --  we encounter a modification in the source).
 
       Set_Never_Set_In_Source (Id, True);
 
@@ -3423,9 +3447,9 @@ package body Sem_Ch3 is
          Set_Ekind (Id, E_Variable);
 
          --  A variable is set as shared passive if it appears in a shared
-         --  passive package, and is at the outer level. This is not done
-         --  for entities generated during expansion, because those are
-         --  always manipulated locally.
+         --  passive package, and is at the outer level. This is not done for
+         --  entities generated during expansion, because those are always
+         --  manipulated locally.
 
          if Is_Shared_Passive (Current_Scope)
            and then Is_Library_Level_Entity (Id)
@@ -4627,6 +4651,7 @@ package body Sem_Ch3 is
       Nb_Index      : Nat;
       P             : constant Node_Id := Parent (Def);
       Priv          : Entity_Id;
+      T_In_ALFA     : Boolean := True;
 
    begin
       if Nkind (Def) = N_Constrained_Array_Definition then
@@ -4651,6 +4676,12 @@ package body Sem_Ch3 is
 
          if not Nkind_In (Index, N_Identifier, N_Expanded_Name) then
             Check_SPARK_Restriction ("subtype mark required", Index);
+         end if;
+
+         if Present (Etype (Index))
+           and then not Is_In_ALFA (Etype (Index))
+         then
+            T_In_ALFA := False;
          end if;
 
          --  Add a subtype declaration for each index of private array type
@@ -4728,9 +4759,17 @@ package body Sem_Ch3 is
             Check_SPARK_Restriction ("subtype mark required", Component_Typ);
          end if;
 
+         if Present (Element_Type)
+           and then not Is_In_ALFA (Element_Type)
+         then
+            T_In_ALFA := False;
+         end if;
+
       --  Ada 2005 (AI-230): Access Definition case
 
       else pragma Assert (Present (Access_Definition (Component_Def)));
+
+         T_In_ALFA := False;
 
          --  Indicate that the anonymous access type is created by the
          --  array type declaration.
@@ -4808,6 +4847,12 @@ package body Sem_Ch3 is
                                (Implicit_Base, Finalize_Storage_Only
                                                         (Element_Type));
 
+         --  Final check for static bounds on array
+
+         if not Has_Static_Array_Bounds (T) then
+            T_In_ALFA := False;
+         end if;
+
       --  Unconstrained array case
 
       else
@@ -4832,6 +4877,7 @@ package body Sem_Ch3 is
 
       Set_Component_Type (Base_Type (T), Element_Type);
       Set_Packed_Array_Type (T, Empty);
+      Set_Is_In_ALFA (T, T_In_ALFA);
 
       if Aliased_Present (Component_Definition (Def)) then
          Check_SPARK_Restriction
@@ -6946,35 +6992,32 @@ package body Sem_Ch3 is
       Derived_Type : Entity_Id;
       Derive_Subps : Boolean := True)
    is
-      Loc          : constant Source_Ptr := Sloc (N);
-      Parent_Base  : Entity_Id;
-      Type_Def     : Node_Id;
-      Indic        : Node_Id;
-      Discrim      : Entity_Id;
-      Last_Discrim : Entity_Id;
-      Constrs      : Elist_Id;
+      Discriminant_Specs : constant Boolean :=
+                             Present (Discriminant_Specifications (N));
+      Is_Tagged          : constant Boolean := Is_Tagged_Type (Parent_Type);
+      Loc                : constant Source_Ptr := Sloc (N);
+      Private_Extension  : constant Boolean :=
+                             Nkind (N) = N_Private_Extension_Declaration;
+      Assoc_List         : Elist_Id;
+      Constraint_Present : Boolean;
+      Constrs            : Elist_Id;
+      Discrim            : Entity_Id;
+      Indic              : Node_Id;
+      Inherit_Discrims   : Boolean := False;
+      Last_Discrim       : Entity_Id;
+      New_Base           : Entity_Id;
+      New_Decl           : Node_Id;
+      New_Discrs         : Elist_Id;
+      New_Indic          : Node_Id;
+      Parent_Base        : Entity_Id;
+      Save_Etype         : Entity_Id;
+      Save_Discr_Constr  : Elist_Id;
+      Save_Next_Entity   : Entity_Id;
+      Type_Def           : Node_Id;
 
       Discs : Elist_Id := New_Elmt_List;
       --  An empty Discs list means that there were no constraints in the
       --  subtype indication or that there was an error processing it.
-
-      Assoc_List : Elist_Id;
-      New_Discrs : Elist_Id;
-      New_Base   : Entity_Id;
-      New_Decl   : Node_Id;
-      New_Indic  : Node_Id;
-
-      Is_Tagged          : constant Boolean := Is_Tagged_Type (Parent_Type);
-      Discriminant_Specs : constant Boolean :=
-                             Present (Discriminant_Specifications (N));
-      Private_Extension  : constant Boolean :=
-                             Nkind (N) = N_Private_Extension_Declaration;
-
-      Constraint_Present : Boolean;
-      Inherit_Discrims   : Boolean := False;
-      Save_Etype         : Entity_Id;
-      Save_Discr_Constr  : Elist_Id;
-      Save_Next_Entity   : Entity_Id;
 
    begin
       if Ekind (Parent_Type) = E_Record_Type_With_Private
@@ -7214,14 +7257,18 @@ package body Sem_Ch3 is
          Analyze (N);
 
          --  Derivation of subprograms must be delayed until the full subtype
-         --  has been established to ensure proper overriding of subprograms
+         --  has been established, to ensure proper overriding of subprograms
          --  inherited by full types. If the derivations occurred as part of
          --  the call to Build_Derived_Type above, then the check for type
          --  conformance would fail because earlier primitive subprograms
          --  could still refer to the full type prior the change to the new
          --  subtype and hence would not match the new base type created here.
+         --  Subprograms are not derived, however, when Derive_Subps is False
+         --  (since otherwise there could be redundant derivations).
 
-         Derive_Subprograms (Parent_Type, Derived_Type);
+         if Derive_Subps then
+            Derive_Subprograms (Parent_Type, Derived_Type);
+         end if;
 
          --  For tagged types the Discriminant_Constraint of the new base itype
          --  is inherited from the first subtype so that no subtype conformance
@@ -8286,7 +8333,9 @@ package body Sem_Ch3 is
                --  the point of instantiation, we want to find the discriminant
                --  that corresponds to D in Rec, i.e. X.
 
-               if Present (Original_Discriminant (Id)) then
+               if Present (Original_Discriminant (Id))
+                 and then In_Instance
+               then
                   Discr := Find_Corresponding_Discriminant (Id, T);
                   Found := True;
 
@@ -8305,14 +8354,11 @@ package body Sem_Ch3 is
                      Error_Msg_N ("& does not match any discriminant", Id);
                      return New_Elmt_List;
 
-                  --  The following is only useful for the benefit of generic
-                  --  instances but it does not interfere with other
-                  --  processing for the non-generic case so we do it in all
-                  --  cases (for generics this statement is executed when
-                  --  processing the generic definition, see comment at the
-                  --  beginning of this if statement).
+                  --  If the parent type is a generic formal, preserve the
+                  --  name of the discriminant for subsequent instances.
+                  --  see comment at the beginning of this if statement.
 
-                  else
+                  elsif Is_Generic_Type (Root_Type (T)) then
                      Set_Original_Discriminant (Id, Discr);
                   end if;
                end if;
@@ -8546,7 +8592,7 @@ package body Sem_Ch3 is
       end if;
 
       if Is_Tagged_Type (T) then
-         Set_Is_Tagged_Type  (Def_Id);
+         Set_Is_Tagged_Type (Def_Id);
          Make_Class_Wide_Type (Def_Id);
       end if;
 
@@ -8617,8 +8663,15 @@ package body Sem_Ch3 is
    is
       IR : constant Node_Id := Make_Itype_Reference (Sloc (Nod));
    begin
-      Set_Itype (IR, Ityp);
-      Insert_After (Nod, IR);
+
+      --  Itype references are only created for use by the back-end
+
+      if Inside_A_Generic then
+         return;
+      else
+         Set_Itype (IR, Ityp);
+         Insert_After (Nod, IR);
+      end if;
    end Build_Itype_Reference;
 
    ------------------------
@@ -12147,8 +12200,8 @@ package body Sem_Ch3 is
             Next_Discriminant (Old_C);
          end loop;
 
-         --  The tag, and the possible parent and controller components
-         --  are unconditionally in the subtype.
+         --  The tag and the possible parent component are unconditionally in
+         --  the subtype.
 
          if Is_Tagged_Type (Typ)
            or else Has_Controlled_Component (Typ)
@@ -12157,7 +12210,6 @@ package body Sem_Ch3 is
             while Present (Old_C) loop
                if Chars ((Old_C)) = Name_uTag
                  or else Chars ((Old_C)) = Name_uParent
-                 or else Chars ((Old_C)) = Name_uController
                then
                   Append_Elmt (Old_C, Comp_List);
                end if;
@@ -12423,7 +12475,6 @@ package body Sem_Ch3 is
                if Original_Record_Component (Old_C) = Old_C
                 and then Chars (Old_C) /= Name_uTag
                 and then Chars (Old_C) /= Name_uParent
-                and then Chars (Old_C) /= Name_uController
                then
                   Append_Elmt (Old_C, Comp_List);
                end if;
@@ -14772,7 +14823,7 @@ package body Sem_Ch3 is
                Error_Msg_NE ("invalid redeclaration of }", Id, Prev);
             end if;
 
-            Set_Full_View (Prev,  Id);
+            Set_Full_View (Prev, Id);
             Append_Entity (Id, Current_Scope);
             Set_Is_Public (Id, Is_Public (Prev));
             Set_Is_Internal (Id);
@@ -16140,15 +16191,31 @@ package body Sem_Ch3 is
       Next_E  : Entity_Id;
 
    begin
-      --  The class wide type can have been defined by the partial view, in
-      --  which case everything is already done.
-
       if Present (Class_Wide_Type (T)) then
-         return;
-      end if;
 
-      CW_Type :=
-        New_External_Entity (E_Void, Scope (T), Sloc (T), T, 'C', 0, 'T');
+         --  The class-wide type is a partially decorated entity created for a
+         --  unanalyzed tagged type referenced through a limited with clause.
+         --  When the tagged type is analyzed, its class-wide type needs to be
+         --  redecorated. Note that we reuse the entity created by Decorate_
+         --  Tagged_Type in order to preserve all links.
+
+         if Materialize_Entity (Class_Wide_Type (T)) then
+            CW_Type := Class_Wide_Type (T);
+            Set_Materialize_Entity (CW_Type, False);
+
+         --  The class wide type can have been defined by the partial view, in
+         --  which case everything is already done.
+
+         else
+            return;
+         end if;
+
+      --  Default case, we need to create a new class-wide type
+
+      else
+         CW_Type :=
+           New_External_Entity (E_Void, Scope (T), Sloc (T), T, 'C', 0, 'T');
+      end if;
 
       --  Inherit root type characteristics
 
@@ -17320,10 +17387,10 @@ package body Sem_Ch3 is
             Set_Is_Limited_Record (Full_T);
 
          --  GNAT allow its own definition of Limited_Controlled to disobey
-         --  this rule in order in ease the implementation. The next test is
-         --  safe because Root_Controlled is defined in a private system child
+         --  this rule in order in ease the implementation. This test is safe
+         --  because Root_Controlled is defined in a private system child.
 
-         elsif Etype (Full_T) = Full_View (RTE (RE_Root_Controlled)) then
+         elsif Is_RTE (Etype (Full_T), RE_Root_Controlled) then
             Set_Is_Limited_Composite (Full_T);
          else
             Error_Msg_N

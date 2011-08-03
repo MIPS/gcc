@@ -7,7 +7,7 @@
 @c                                                                            o
 @c                             G N A T _ U G N                                o
 @c                                                                            o
-@c                     Copyright (C) 1992-2010, AdaCore                       o
+@c                     Copyright (C) 1992-2011, AdaCore                       o
 @c                                                                            o
 @c oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
@@ -3961,10 +3961,9 @@ and @command{gcc} cannot be used to run the GNAT binder.
 
 @item -fno-inline
 @cindex @option{-fno-inline} (@command{gcc})
-Suppresses all back-end inlining, even if other optimization or inlining
-switches are set.
-This includes suppression of inlining that results
-from the use of the pragma @code{Inline_Always}.
+Suppresses all inlining, even if other optimization or inlining
+switches are set.  This includes suppression of inlining that
+results from the use of the pragma @code{Inline_Always}.
 Any occurrences of pragma @code{Inline} or @code{Inline_Always}
 are ignored, and @option{-gnatn} and @option{-gnatN} have no
 effect if this switch is present.
@@ -4007,7 +4006,7 @@ See @ref{Stack Overflow Checking} for details.
 @item -fstack-usage
 @cindex @option{-fstack-usage} (@command{gcc})
 Makes the compiler output stack usage information for the program, on a
-per-function basis. See @ref{Static Stack Usage Analysis} for details.
+per-subprogram basis. See @ref{Static Stack Usage Analysis} for details.
 
 @item -fcallgraph-info@r{[}=su@r{]}
 @cindex @option{-fcallgraph-info} (@command{gcc})
@@ -5824,9 +5823,14 @@ Similarly, @option{^-Wuninitialized^WARNINGS=UNINITIALIZED^} activates
 the back end warning for uninitialized variables. This switch must be
 used in conjunction with an optimization level greater than zero.
 
+@item -Wstack-usage=@var{len}
+@cindex @option{-Wstack-usage}
+Warn if the stack usage of a subprogram might be larger than @var{len} bytes.
+See @ref{Static Stack Usage Analysis} for details.
+
 @item ^-Wall^/ALL_BACK_END_WARNINGS^
 @cindex @option{-Wall}
-This switch enables all the above warnings from the @option{GCC} back end.
+This switch enables most warnings from the @option{GCC} back end.
 The code generator detects a number of warning situations that are missed
 by the @option{GNAT} front end, and this switch can be used to activate them.
 The use of this switch also sets the default front end warning mode to
@@ -14356,12 +14360,14 @@ McCabe cyclomatic complexity;
 McCabe essential complexity;
 
 @item
-maximal loop nesting level
+maximal loop nesting level;
 
+@item
+extra exit points (for subprograms);
 @end itemize
 
 @noindent
-The McCabe complexity metrics are defined
+The McCabe cyclomatic complexity metric is defined
 in @url{http://www.mccabe.com/pdf/mccabe-nist235r.pdf}
 
 According to McCabe, both control statements and short-circuit control forms
@@ -14382,6 +14388,34 @@ cyclomatic complexity, which is the sum of these two values.
 @end itemize
 
 @noindent
+
+The origin of cyclomatic complexity metric is the need to estimate the number
+of independent paths in the control flow graph that in turn gives the number
+of tests needed to satisfy paths coverage testing completeness criterion.
+Considered from the testing point of view, a static Ada @code{loop} (that is,
+the @code{loop} statement having static subtype in loop parameter
+specification) does not add to cyclomatic complexity. By providing
+@option{^--no-static-loop^NO_STATIC_LOOP^} option a user
+may specify that such loops should not be counted when computing the
+cyclomatic complexity metric
+
+The Ada essential complexity metric is a McCabe cyclomatic complexity metric
+counted for the code that is reduced by excluding all the pure structural Ada
+control statements. An compound statement is considered as a non-structural
+if it contains a @code{raise} or @code{return} statement as it subcomponent,
+or if it contains a @code{goto} statement that transfers the control outside
+the operator. A selective accept statement with @code{terminate} alternative
+is considered as non-structural statement. When computing this metric,
+@code{exit} statements are treated in the same way as @code{goto}
+statements unless @option{^-ne^NO_EXITS_AS_GOTOS^} option is specified.
+
+The Ada essential complexity metric defined here is intended to quantify
+the extent to which the software is unstructured. It is adapted from
+the McCabe essential complexity metric defined in
+http://www.mccabe.com/pdf/nist235r.pdf but is modified to be more
+suitable for typical Ada usage. For example, short circuit forms
+are not penalized as unstructured in the Ada essential complexity metric.
+
 When computing cyclomatic and essential complexity, @command{gnatmetric} skips
 the code in the exception handlers and in all the nested program units.
 
@@ -14434,6 +14468,10 @@ bodies, task bodies, entry bodies and statement sequences in package bodies
 @item ^-ne^/NO_EXITS_AS_GOTOS^
 Do not consider @code{exit} statements as @code{goto}s when
 computing Essential Complexity
+
+@cindex @option{^--no-static-loop^/NO_STATIC_LOOP^} (@command{gnatmetric})
+@item ^--no-static-loop^/NO_STATIC_LOOP^
+Do not consider static loops when computing cyclomatic complexity
 
 @item ^--extra-exit-points^/EXTRA_EXIT_POINTS^
 Report the extra exit points for subprogram bodies. As an exit point, this
@@ -17170,6 +17208,10 @@ qualifier appears alone, the second field is not a reliable measure
 of the function stack analysis. When it is qualified with  @code{bounded}, it
 means that the second field is a reliable maximum of the function stack
 utilization.
+
+A unit compiled with @option{-Wstack-usage} will issue a warning for each
+subprogram whose stack usage might be larger than the specified amount of
+bytes.  The wording is in keeping with the qualifier documented above.
 
 @node Dynamic Stack Usage Analysis
 @section Dynamic Stack Usage Analysis

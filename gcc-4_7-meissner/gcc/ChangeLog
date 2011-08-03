@@ -1,3 +1,107 @@
+2011-08-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/49958
+	* fold-const.c (fold_binary_loc): Only associate
+	(+ (+ (* a b) c) (* d e)) as (+ (+ (* a b) (* d e)) c) if
+	overflow wraps.
+
+2011-08-03  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/49941
+	* jump.c (mark_jump_label): Comment.
+	(mark_jump_label_1): Set JUMP_LABEL for return jumps.
+	* emit-rtl.c (copy_rtx_if_shared_1, copy_insn_1): Leave RETURN shared.
+	(mark_used_flags): Don't mark RETURN.
+
+2011-08-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49938
+	* tree-scalar-evolution.c (interpret_loop_phi): Gracefully
+	deal with a POLYNOMIAL_CHREC.
+
+2011-08-03  Revital Eres  <revital.eres@linaro.org>
+
+	* modulo-sched.c (calculate_stage_count,
+	calculate_must_precede_follow, get_sched_window,
+	try_scheduling_node_in_cycle, remove_node_from_ps): Add
+	declaration.
+	(update_node_sched_params, set_must_precede_follow, optimize_sc):
+	New functions.
+	(reset_sched_times): Call update_node_sched_params.
+	(sms_schedule): Call optimize_sc.
+	(get_sched_window): Change function arguments.
+	(sms_schedule_by_order): Update call to get_sched_window.
+	Call set_must_precede_follow.
+	(calculate_stage_count): Add function argument.
+
+2011-08-02  Richard Henderson  <rth@redhat.com>
+
+	PR target/49864
+	PR target/49879
+	* reg-notes.def (REG_ARGS_SIZE): New.
+	* calls.c (emit_call_1): Emit REG_ARGS_SIZE for call_pop.
+	(expand_call): Add REG_ARGS_SIZE to emit_stack_restore.
+	* cfgcleanup.c (old_insns_match_p): Don't allow cross-jumping to
+	different stack levels.
+	* combine-stack-adj.c (adjust_frame_related_expr): Remove.
+	(maybe_move_args_size_note): New.
+	(combine_stack_adjustments_for_block): Use it.
+	* combine.c (distribute_notes): Place REG_ARGS_SIZE.
+	* dwarf2cfi.c (dw_cfi_row_struct): Remove args_size member.
+	(dw_trace_info): Add beg_true_args_size, end_true_args_size,
+	beg_delay_args_size, end_delay_args_size, eh_head, args_size_undefined.
+	(cur_cfa): New.
+	(queued_args_size): Remove.
+	(add_cfi_args_size): Assert size is non-negative.
+	(stack_adjust_offset, dwarf2out_args_size): Remove.
+	(dwarf2out_stack_adjust, dwarf2out_notice_stack_adjust): Remove.
+	(notice_args_size, notice_eh_throw): New.
+	(dwarf2out_frame_debug_def_cfa): Use cur_cfa.
+	(dwarf2out_frame_debug_adjust_cfa): Likewise.
+	(dwarf2out_frame_debug_cfa_offset): Likewise.
+	(dwarf2out_frame_debug_expr): Likewise.  Don't stack_adjust_offset.
+	(dwarf2out_frame_debug): Don't handle non-frame-related-p insns.
+	(change_cfi_row): Don't emit args_size.
+	(maybe_record_trace_start_abnormal): Split out from ...
+	(maybe_record_trace_start): Here.  Set args_size_undefined.
+	(create_trace_edges): Update to match.
+	(scan_trace): Handle REG_ARGS_SIZE.
+	(connect_traces): Connect args_size between EH insns.
+	* emit-rtl.c (try_split): Handle REG_ARGS_SIZE.
+	* explow.c (suppress_reg_args_size): New.
+	(adjust_stack_1): Split out from ...
+	(adjust_stack): ... here.
+	(anti_adjust_stack): Use it.
+	(allocate_dynamic_stack_space): Suppress REG_ARGS_SIZE.
+	* expr.c (mem_autoinc_base): New.
+	(fixup_args_size_notes): New.
+	(emit_single_push_insn_1): Rename from emit_single_push_insn.
+	(emit_single_push_insn): New.  Generate REG_ARGS_SIZE.
+	* recog.c (peep2_attempt): Handle REG_ARGS_SIZE.
+	* reload1.c (reload_as_needed): Likewise.
+	* rtl.h (fixup_args_size_notes): Declare.
+
+2011-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR bootstrap/49914
+	* fold-const.c (fold_plusminus_mult_expr): Use abs_hwi instead
+	of abs.
+	* tree-ssa-math-opts.c (gimple_expand_builtin_pow): Likewise.
+	* tree-ssa-loop-prefetch.c (prune_ref_by_group_reuse): Likewise.
+
+2011-08-02  Richard Henderson  <rth@redhat.com>
+
+	* config/h8300/h8300.c (push, pop): Return the insn.
+	(h8300_swap_into_er6): Generate correct unwind info.
+	(h8300_swap_out_of_er6): Likewise.
+	* dwarf2cfi.c (def_cfa_1): Clear cfa_cfi if we no longer have a
+	complex cfa expression.
+	(dwarf2out_frame_debug_def_cfa): Allow (plus (mem) (const_int)) too.
+
+2011-08-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix a typo.
+
 2011-08-02  Richard Henderson  <rth@redhat.com>
 
 	PR target/49878
@@ -87,10 +191,10 @@
 	boolean-typed operands for comparisons.
 
 2011-08-02  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	* config/avr/libgcc.S: Gather related function in the
 	same input section.
- 	(__mulqihi3, __mulqihi3, __divmodqi4, __divmodhi4, __udivmodsi4,
+	(__mulqihi3, __mulqihi3, __divmodqi4, __divmodhi4, __udivmodsi4,
 	__divmodsi4): Use XCALL/XJMP instead of rcall/rjmp for external
 	references.
 	(__udivmodqi4, __divmodqi4, __udivmodhi4, __divmodhi4,
@@ -21248,7 +21352,7 @@
 	to cselib_lookup.
 	(add_uses): Likewise, also to cselib_subst_to_values.
 	(add_stores): Likewise.
-	* sched-deps.c 	(add_insn_mem_dependence): Pass mode to
+	* sched-deps.c (add_insn_mem_dependence): Pass mode to
 	cselib_subst_to_values.
 	(sched_analyze_1, sched_analyze_2): Likewise.  Adjusted.
 	* gcse.c (do_local_cprop): Adjusted.

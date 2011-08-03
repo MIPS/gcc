@@ -1520,10 +1520,28 @@ package body Sem_Ch4 is
          return;
       end if;
 
-      Mark_Non_ALFA_Subprogram;
       Check_SPARK_Restriction ("conditional expression is not allowed", N);
 
       Else_Expr := Next (Then_Expr);
+
+      --  In ALFA, boolean conditional expressions are allowed:
+      --    * if they have no ELSE part, in which case the expression is
+      --      equivalent to
+
+      --        NOT Condition OR ELSE Then_Expr
+
+      --    * in pre- and postconditions, where the Condition cannot have side-
+      --      effects (in ALFA) and thus the expression is equivalent to
+
+      --        (Condition AND THEN Then_Expr)
+      --          and (NOT Condition AND THEN Then_Expr)
+
+      --  Non-boolean conditional expressions are marked as not in ALFA during
+      --  resolution.
+
+      if Present (Else_Expr) and then not In_Pre_Post_Expression then
+         Mark_Non_ALFA_Subprogram;
+      end if;
 
       if Comes_From_Source (N) then
          Check_Compiler_Unit (N);
@@ -2483,8 +2501,6 @@ package body Sem_Ch4 is
    --  Start of processing for Analyze_Membership_Op
 
    begin
-      Mark_Non_ALFA_Subprogram;
-
       Analyze_Expression (L);
 
       if No (R)
@@ -2897,9 +2913,9 @@ package body Sem_Ch4 is
          Actual := First_Actual (N);
          Formal := First_Formal (Nam);
 
-         --  If we are analyzing a call rewritten from object notation,
-         --  skip first actual, which may be rewritten later as an
-         --  explicit dereference.
+         --  If we are analyzing a call rewritten from object notation, skip
+         --  first actual, which may be rewritten later as an explicit
+         --  dereference.
 
          if Must_Skip then
             Next_Actual (Actual);
@@ -3127,7 +3143,10 @@ package body Sem_Ch4 is
             T := It.Typ;
          end if;
 
-         if Is_Record_Type (T) then
+         --  Locate the component. For a private prefix the selector can denote
+         --  a discriminant.
+
+         if Is_Record_Type (T) or else Is_Private_Type (T) then
 
             --  If the prefix is a class-wide type, the visible components are
             --  those of the base type.
@@ -3754,6 +3773,7 @@ package body Sem_Ch4 is
       --  be done transitively, so note the new original discriminant.
 
       if Nkind (Sel) = N_Identifier
+        and then In_Instance
         and then Present (Original_Discriminant (Sel))
       then
          Comp := Find_Corresponding_Discriminant (Sel, Prefix_Type);
@@ -3910,7 +3930,7 @@ package body Sem_Ch4 is
             --  which can appear in expanded code in a tag check.
 
             if Ekind (Type_To_Use) = E_Record_Type_With_Private
-              and then  Chars (Selector_Name (N)) /= Name_uTag
+              and then Chars (Selector_Name (N)) /= Name_uTag
             then
                exit when Comp = Last_Entity (Type_To_Use);
             end if;
@@ -4371,8 +4391,6 @@ package body Sem_Ch4 is
       T    : Entity_Id;
 
    begin
-      Mark_Non_ALFA_Subprogram;
-
       --  If Conversion_OK is set, then the Etype is already set, and the
       --  only processing required is to analyze the expression. This is
       --  used to construct certain "illegal" conversions which are not
@@ -4393,6 +4411,13 @@ package body Sem_Ch4 is
       Check_Fully_Declared (T, N);
       Analyze_Expression (Expr);
       Validate_Remote_Type_Type_Conversion (N);
+
+      --  Type conversion between scalar types are allowed in ALFA. All other
+      --  type conversions are not allowed.
+
+      if not (Is_Scalar_Type (Etype (Expr)) and then Is_Scalar_Type (T)) then
+         Mark_Non_ALFA_Subprogram;
+      end if;
 
       --  Only remaining step is validity checks on the argument. These
       --  are skipped if the conversion does not come from the source.
@@ -7259,7 +7284,8 @@ package body Sem_Ch4 is
 
               or else
                 (Ekind (Typ) = E_Anonymous_Access_Type
-                  and then Designated_Type (Typ) = Base_Type (Corr_Type));
+                  and then
+                    Base_Type (Designated_Type (Typ)) = Base_Type (Corr_Type));
          end Valid_First_Argument_Of;
 
       --  Start of processing for Try_Primitive_Operation
