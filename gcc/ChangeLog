@@ -1,3 +1,11 @@
+2011-08-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_mode): Remove.
+
+	* lra-constraints.c (find_mode, get_op_mode): New.
+	(match_reload, curr_insn_transform, process_alt_operands): Use
+	get_op_mode instead of lra_get_mode.
+
 2011-08-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assigns.c (find_hard_regno_for): Don't do hard register

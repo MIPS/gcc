@@ -225,16 +225,6 @@ struct lra_insn_recog_data
 
 typedef struct lra_insn_recog_data *lra_insn_recog_data_t;
 
-/* Return mode for X which corresponds to machine description operand
-   with mode MD_MODE.  */
-static inline enum machine_mode
-lra_get_mode (enum machine_mode md_mode, rtx x)
-{
-  if (GET_MODE (x) != VOIDmode)
-    return GET_MODE (x);
-  return md_mode;
-}
-
 /* lra.c: */
 
 extern FILE *lra_dump_file;

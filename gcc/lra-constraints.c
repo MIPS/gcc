@@ -786,6 +786,60 @@ bitmap_head lra_dont_inherit_pseudos;
   (reg_class_size [(C)] == 1						\
    || (reg_class_size [(C)] >= 1 && targetm.class_likely_spilled_p (C)))
 
+/* Return mode of WHAT inside of WHERE whose mode of the context is
+   OUTER_MODE.  If WHERE does not contain WHAT, return VOIDmode.  */
+static enum machine_mode
+find_mode (rtx *where, enum machine_mode outer_mode, rtx *what)
+{
+  int i, j;
+  enum machine_mode mode;
+  rtx x;
+  const char *fmt;
+  enum rtx_code code;
+
+  if (where == what)
+    return outer_mode;
+  if (*where == NULL_RTX)
+    return VOIDmode;
+  x = *where;
+  code = GET_CODE (x);
+  outer_mode = GET_MODE (x);
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if ((mode = find_mode (&XEXP (x, i), outer_mode, what)) != VOIDmode)
+	    return mode;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  if ((mode = find_mode (&XVECEXP (x, i, j), outer_mode, what))
+	      != VOIDmode)
+	    return mode;
+	}
+    }
+  return VOIDmode;
+}
+
+/* Return mode for operand NOP of the current insn.  */
+static inline enum machine_mode
+get_op_mode (int nop)
+{
+  rtx *loc = curr_id->operand_loc[nop];
+  enum machine_mode mode = GET_MODE (*loc);
+
+  /* Take mode from the operand first.  */
+  if (mode != VOIDmode)
+    return mode;
+  /* Take mode from the machine description second.  */
+  if ((mode = curr_static_id->operand[nop].mode) != VOIDmode)
+    return mode;
+  /* Here is a very rare case.  Take mode from the context.  */
+  return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
+}
+
 /* Generate reloads for matching OUT and IN with reg class GOAL_CLASS.
    Add input and output reloads correspondingly to the lists *BEFORE
    and *AFTER.  */
@@ -798,8 +852,8 @@ match_reload (int out, int in, enum reg_class goal_class,
   rtx in_rtx = *curr_id->operand_loc[in];
   rtx out_rtx = *curr_id->operand_loc[out];
 
-  inmode = lra_get_mode (curr_static_id->operand[in].mode, in_rtx);
-  outmode = lra_get_mode (curr_static_id->operand[out].mode, out_rtx);
+  inmode = get_op_mode (in);
+  outmode = get_op_mode (out);
   if (inmode != outmode)
     {
       /* Don't reuse the pseudos for inheritance -- they will be bound.  */
@@ -1897,8 +1951,7 @@ process_alt_operands (int only_alternative)
 		  && ((targetm.preferred_reload_class
 		       (op, this_alternative) == NO_REGS)
 		      || no_input_reloads_p)
-		  && lra_get_mode (curr_static_id->operand[nop].mode,
-				   op) != VOIDmode)
+		  && get_op_mode (nop) != VOIDmode)
 		{
 		  const_to_mem = 1;
 		  if (! no_regs_p)
@@ -2807,8 +2860,7 @@ curr_insn_transform (void)
 	rtx op = *curr_id->operand_loc[i];
 	rtx subreg = NULL_RTX;
 	rtx plus = NULL_RTX;
-	enum machine_mode mode
-	  = lra_get_mode (curr_static_id->operand[i].mode, op);
+	enum machine_mode mode = get_op_mode (i);
 	
 	if (GET_CODE (op) == SUBREG)
 	  {
@@ -2921,7 +2973,7 @@ curr_insn_transform (void)
 	  enum op_type type = curr_static_id->operand[i].type;
 
 	  loc = curr_id->operand_loc[i];
-	  mode = lra_get_mode (curr_static_id->operand[i].mode, *loc);
+	  mode = get_op_mode (i);
 	  if (GET_CODE (*loc) == SUBREG)
 	    {
 	      reg = SUBREG_REG (*loc);
