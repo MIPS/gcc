@@ -1,3 +1,13 @@
+2011-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49948
+	* gcc.dg/pr49948.c: New test.
+
+2011-08-03  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/49885
+	* gfortran.dg/auto_char_dummy_array_3.f90: New test.
+
 2011-08-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/46752
@@ -12,6 +22,15 @@
 	* gfortran.dg/gomp/omp_atomic2.f90: New test.
 
 2011-08-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43886
+	* g++.dg/cpp0x/lambda/lambda-defarg2.C: New.
+
+	PR c++/49593
+	* g++.dg/cpp0x/variadic115.C: New.
+
+	PR c++/49803
+	* g++.dg/cpp0x/union5.C: New.
 
 	PR c++/49924
 	* g++.dg/cpp0x/constexpr-array4.C: New.
