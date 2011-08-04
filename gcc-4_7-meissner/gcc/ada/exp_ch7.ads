@@ -58,10 +58,11 @@ package Exp_Ch7 is
    --  the controlling operations.
 
    function Build_Object_Declarations
-     (Loc       : Source_Ptr;
-      Abort_Id  : Entity_Id;
-      E_Id      : Entity_Id;
-      Raised_Id : Entity_Id) return List_Id;
+     (Loc         : Source_Ptr;
+      Abort_Id    : Entity_Id;
+      E_Id        : Entity_Id;
+      Raised_Id   : Entity_Id;
+      For_Package : Boolean := False) return List_Id;
    --  Subsidiary to Make_Deep_Array_Body and Make_Deep_Record_Body. Return a
    --  list containing the object declarations of boolean flag Abort_Id, the
    --  exception occurrence E_Id and boolean flag Raised_Id.
@@ -70,7 +71,7 @@ package Exp_Ch7 is
    --                  Exception_Identity (Get_Current_Excep.all) =
    --                    Standard'Abort_Signal'Identity;
    --      <or>
-   --    Abort_Id  : constant Boolean := False;  --  no abort
+   --    Abort_Id  : constant Boolean := False;  --  no abort or For_Package
    --
    --    E_Id      : Exception_Occurrence;
    --    Raised_Id : Boolean := False;
@@ -98,6 +99,11 @@ package Exp_Ch7 is
    --  applies, in which case we know that class-wide objects do not contain
    --  controlled parts.
 
+   function Get_Global_Pool_For_Access_Type (T : Entity_Id) return Entity_Id;
+   --  Return the pool id for access type T.  This is generally the node
+   --  corresponding to System.Global_Pool.Global_Pool_Object except on
+   --  VMS if the access size is 32.
+
    function Has_New_Controlled_Component (E : Entity_Id) return Boolean;
    --  E is a type entity. Give the same result as Has_Controlled_Component
    --  except for tagged extensions where the result is True only if the
@@ -119,7 +125,7 @@ package Exp_Ch7 is
    --  Create a call to prepend an object to a finalization collection. Obj_Ref
    --  is the object, Ptr_Typ is the access type that owns the collection.
    --  Generate the following:
-
+   --
    --    Ada.Finalization.Heap_Managment.Attach
    --      (<Ptr_Typ>FC,
    --       System.Finalization_Root.Root_Controlled_Ptr (Obj_Ref));
@@ -127,7 +133,7 @@ package Exp_Ch7 is
    function Make_Detach_Call (Obj_Ref : Node_Id) return Node_Id;
    --  Create a call to unhook an object from an arbitrary list. Obj_Ref is the
    --  object. Generate the following:
-
+   --
    --    Ada.Finalization.Heap_Management.Detach
    --      (System.Finalization_Root.Root_Controlled_Ptr (Obj_Ref));
 

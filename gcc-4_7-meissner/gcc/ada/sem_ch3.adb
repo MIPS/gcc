@@ -793,6 +793,13 @@ package body Sem_Ch3 is
       --  the corresponding semantic routine
 
       if Present (Access_To_Subprogram_Definition (N)) then
+
+         --  Compiler runtime units are compiled in Ada 2005 mode when building
+         --  the runtime library but must also be compilable in Ada 95 mode
+         --  (when bootstrapping the compiler).
+
+         Check_Compiler_Unit (N);
+
          Access_Subprogram_Declaration
            (T_Name => Anon_Type,
             T_Def  => Access_To_Subprogram_Definition (N));
@@ -2050,21 +2057,21 @@ package body Sem_Ch3 is
    --  Start of processing for Analyze_Declarations
 
    begin
-      if SPARK_Mode or else Restriction_Check_Required (SPARK) then
+      if Restriction_Check_Required (SPARK) then
          Check_Later_Vs_Basic_Declarations (L, During_Parsing => False);
       end if;
 
       D := First (L);
       while Present (D) loop
 
-         --  Package specification cannot contain a package declaration in
-         --  SPARK.
+         --  Package spec cannot contain a package declaration in SPARK
 
          if Nkind (D) = N_Package_Declaration
            and then Nkind (Parent (L)) = N_Package_Specification
          then
-            Check_SPARK_Restriction ("package specification cannot contain "
-                                      & "a package declaration", D);
+            Check_SPARK_Restriction
+              ("package specification cannot contain a package declaration",
+               D);
          end if;
 
          --  Complete analysis of declaration
@@ -2173,9 +2180,16 @@ package body Sem_Ch3 is
             if Nkind (Original_Node (Decl)) = N_Subprogram_Declaration then
                Spec := Specification (Original_Node (Decl));
                Sent := Defining_Unit_Name (Spec);
-               Prag := Spec_PPC_List (Sent);
+
+               Prag := Spec_PPC_List (Contract (Sent));
                while Present (Prag) loop
                   Analyze_PPC_In_Decl_Part (Prag, Sent);
+                  Prag := Next_Pragma (Prag);
+               end loop;
+
+               Prag := Spec_TC_List (Contract (Sent));
+               while Present (Prag) loop
+                  Analyze_TC_In_Decl_Part (Prag, Sent);
                   Prag := Next_Pragma (Prag);
                end loop;
             end if;
@@ -2493,8 +2507,16 @@ package body Sem_Ch3 is
       Set_Optimize_Alignment_Flags (Def_Id);
       Check_Eliminated (Def_Id);
 
+      --  If the declaration is a completion and aspects are present, apply
+      --  them to the entity for the type which is currently the partial
+      --  view, but which is the one that will be frozen.
+
       if Has_Aspects (N) then
-         Analyze_Aspect_Specifications (N, Def_Id);
+         if Prev /= Def_Id then
+            Analyze_Aspect_Specifications (N, Prev);
+         else
+            Analyze_Aspect_Specifications (N, Def_Id);
+         end if;
       end if;
    end Analyze_Full_Type_Declaration;
 
@@ -3041,15 +3063,6 @@ package body Sem_Ch3 is
       --  the nominal one is unconstrained and obtained from the expression.
 
       Act_T := T;
-
-      --  The object is in ALFA if-and-only-if its type is in ALFA and it is
-      --  not aliased.
-
-      if Is_In_ALFA (T) and then not Aliased_Present (N) then
-         Set_Is_In_ALFA (Id);
-      else
-         Mark_Non_ALFA_Subprogram;
-      end if;
 
       --  These checks should be performed before the initialization expression
       --  is considered, so that the Object_Definition node is still the same
@@ -3732,13 +3745,6 @@ package body Sem_Ch3 is
    <<Leave>>
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, Id);
-      end if;
-
-      --  Generate 'I' xref for object initialization at definition, only used
-      --  for the local xref section used in ALFA mode.
-
-      if ALFA_Mode and then Present (Expression (Original_Node (N))) then
-         Generate_Reference (Id, Id, 'I');
       end if;
    end Analyze_Object_Declaration;
 
@@ -4651,7 +4657,6 @@ package body Sem_Ch3 is
       Nb_Index      : Nat;
       P             : constant Node_Id := Parent (Def);
       Priv          : Entity_Id;
-      T_In_ALFA     : Boolean := True;
 
    begin
       if Nkind (Def) = N_Constrained_Array_Definition then
@@ -4676,12 +4681,6 @@ package body Sem_Ch3 is
 
          if not Nkind_In (Index, N_Identifier, N_Expanded_Name) then
             Check_SPARK_Restriction ("subtype mark required", Index);
-         end if;
-
-         if Present (Etype (Index))
-           and then not Is_In_ALFA (Etype (Index))
-         then
-            T_In_ALFA := False;
          end if;
 
          --  Add a subtype declaration for each index of private array type
@@ -4759,17 +4758,9 @@ package body Sem_Ch3 is
             Check_SPARK_Restriction ("subtype mark required", Component_Typ);
          end if;
 
-         if Present (Element_Type)
-           and then not Is_In_ALFA (Element_Type)
-         then
-            T_In_ALFA := False;
-         end if;
-
       --  Ada 2005 (AI-230): Access Definition case
 
       else pragma Assert (Present (Access_Definition (Component_Def)));
-
-         T_In_ALFA := False;
 
          --  Indicate that the anonymous access type is created by the
          --  array type declaration.
@@ -4847,12 +4838,6 @@ package body Sem_Ch3 is
                                (Implicit_Base, Finalize_Storage_Only
                                                         (Element_Type));
 
-         --  Final check for static bounds on array
-
-         if not Has_Static_Array_Bounds (T) then
-            T_In_ALFA := False;
-         end if;
-
       --  Unconstrained array case
 
       else
@@ -4877,7 +4862,6 @@ package body Sem_Ch3 is
 
       Set_Component_Type (Base_Type (T), Element_Type);
       Set_Packed_Array_Type (T, Empty);
-      Set_Is_In_ALFA (T, T_In_ALFA);
 
       if Aliased_Present (Component_Definition (Def)) then
          Check_SPARK_Restriction
@@ -7027,6 +7011,28 @@ package body Sem_Ch3 is
          Parent_Base := Base_Type (Full_View (Parent_Type));
       else
          Parent_Base := Base_Type (Parent_Type);
+      end if;
+
+      --  AI05-0115 : if this is a derivation from a private type in some
+      --  other scope that may lead to invisible components for the derived
+      --  type, mark it accordingly.
+
+      if Is_Private_Type (Parent_Type) then
+         if Scope (Parent_Type) = Scope (Derived_Type) then
+            null;
+
+         elsif In_Open_Scopes (Scope (Parent_Type))
+           and then In_Private_Part (Scope (Parent_Type))
+         then
+            null;
+
+         else
+            Set_Has_Private_Ancestor (Derived_Type);
+         end if;
+
+      else
+         Set_Has_Private_Ancestor
+           (Derived_Type, Has_Private_Ancestor (Parent_Type));
       end if;
 
       --  Before we start the previously documented transformations, here is
@@ -11588,16 +11594,6 @@ package body Sem_Ch3 is
       C : constant Node_Id   := Constraint (S);
 
    begin
-      --  By default, consider that the enumeration subtype is in ALFA if the
-      --  entity of its subtype mark is in ALFA. This is reversed later if the
-      --  range of the subtype is not static.
-
-      if Nkind (Original_Node (Parent (Def_Id))) = N_Subtype_Declaration
-        and then Is_In_ALFA (T)
-      then
-         Set_Is_In_ALFA (Def_Id);
-      end if;
-
       Set_Ekind (Def_Id, E_Enumeration_Subtype);
 
       Set_First_Literal     (Def_Id, First_Literal (Base_Type (T)));
@@ -11820,16 +11816,6 @@ package body Sem_Ch3 is
       C : constant Node_Id   := Constraint (S);
 
    begin
-      --  By default, consider that the integer subtype is in ALFA if the
-      --  entity of its subtype mark is in ALFA. This is reversed later if the
-      --  range of the subtype is not static.
-
-      if Nkind (Original_Node (Parent (Def_Id))) = N_Subtype_Declaration
-        and then Is_In_ALFA (T)
-      then
-         Set_Is_In_ALFA (Def_Id);
-      end if;
-
       Set_Scalar_Range_For_Subtype (Def_Id, Range_Expression (C), T);
 
       if Is_Modular_Integer_Type (T) then
@@ -13022,6 +13008,7 @@ package body Sem_Ch3 is
       New_Subp :=
          New_Entity (Nkind (Parent_Subp), Sloc (Derived_Type));
       Set_Ekind (New_Subp, Ekind (Parent_Subp));
+      Set_Contract (New_Subp, Make_Contract (Sloc (New_Subp)));
 
       --  Check whether the inherited subprogram is a private operation that
       --  should be inherited but not yet made visible. Such subprograms can
@@ -13648,7 +13635,8 @@ package body Sem_Ch3 is
                      Type_Conformant (Subp, Act_Subp,
                                       Skip_Controlling_Formals => True)))
             then
-               pragma Assert (not Is_Ancestor (Parent_Base, Generic_Actual));
+               pragma Assert (not Is_Ancestor (Parent_Base, Generic_Actual,
+                                               Use_Full_View => True));
 
                --  Remember that we need searching for all pending primitives
 
@@ -14578,12 +14566,6 @@ package body Sem_Ch3 is
       Set_Enum_Esize      (T);
       Set_Enum_Pos_To_Rep (T, Empty);
 
-      --  Enumeration type is in ALFA only if it is not a character type
-
-      if not Is_Character_Type (T) then
-         Set_Is_In_ALFA (T);
-      end if;
-
       --  Set Discard_Names if configuration pragma set, or if there is
       --  a parameterless pragma in the current declarative region
 
@@ -15303,7 +15285,7 @@ package body Sem_Ch3 is
             elsif No (Real_Range_Specification (Def)) then
                Error_Msg_Uint_1 := Max_Digs_Val;
                Error_Msg_N ("types with more than ^ digits need range spec "
-                 & "('R'M 3.5.7(6))", Digs);
+                 & "(RM 3.5.7(6))", Digs);
             end if;
          end;
       end if;
@@ -19518,14 +19500,6 @@ package body Sem_Ch3 is
       Set_Ekind (Def_Id, E_Void);
       Process_Range_Expr_In_Decl (R, Subt);
       Set_Ekind (Def_Id, Kind);
-
-      --  In ALFA, all subtypes should have a static range
-
-      if Nkind (R) = N_Range
-        and then not Is_Static_Range (R)
-      then
-         Set_Is_In_ALFA (Def_Id, False);
-      end if;
    end Set_Scalar_Range_For_Subtype;
 
    --------------------------------------------------------
@@ -19697,7 +19671,6 @@ package body Sem_Ch3 is
       Set_Scalar_Range   (T, Def);
       Set_RM_Size        (T, UI_From_Int (Minimum_Size (T)));
       Set_Is_Constrained (T);
-      Set_Is_In_ALFA     (T);
    end Signed_Integer_Type_Declaration;
 
 end Sem_Ch3;

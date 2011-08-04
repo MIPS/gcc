@@ -121,6 +121,7 @@ GNATRTL_NONTASKING_OBJS= \
   a-cohama$(objext) \
   a-cohase$(objext) \
   a-cohata$(objext) \
+  a-coinho$(objext) \
   a-coinve$(objext) \
   a-colien$(objext) \
   a-colire$(objext) \
@@ -445,6 +446,7 @@ GNATRTL_NONTASKING_OBJS= \
   s-arit64$(objext) \
   s-assert$(objext) \
   s-atacco$(objext) \
+  s-atocou$(objext) \
   s-auxdec$(objext) \
   s-bitops$(objext) \
   s-boarop$(objext) \
@@ -492,6 +494,7 @@ GNATRTL_NONTASKING_OBJS= \
   s-filofl$(objext) \
   s-finroo$(objext) \
   s-fishfl$(objext) \
+  s-flocon$(objext) \
   s-fore$(objext)   \
   s-fvadfl$(objext) \
   s-fvaffl$(objext) \

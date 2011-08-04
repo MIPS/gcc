@@ -921,10 +921,12 @@ package body Exp_Ch9 is
       Ent : Entity_Id;
       Pid : Node_Id) return Node_Id
    is
-      Loc         : constant Source_Ptr := Sloc (N);
-      Func_Id     : constant Entity_Id  := Barrier_Function (Ent);
       Ent_Formals : constant Node_Id    := Entry_Body_Formal_Part (N);
+      Cond        : constant Node_Id    := Condition (Ent_Formals);
+      Loc         : constant Source_Ptr := Sloc (Cond);
+      Func_Id     : constant Entity_Id  := Barrier_Function (Ent);
       Op_Decls    : constant List_Id    := New_List;
+      Stmt        : Node_Id;
       Func_Body   : Node_Id;
 
    begin
@@ -932,8 +934,32 @@ package body Exp_Ch9 is
       --  for the discriminals and privals and finally a declaration for the
       --  entry family index (if applicable).
 
-      Install_Private_Data_Declarations
-        (Loc, Func_Id, Pid, N, Op_Decls, True, Ekind (Ent) = E_Entry_Family);
+      Install_Private_Data_Declarations (Sloc (N),
+         Spec_Id  => Func_Id,
+         Conc_Typ => Pid,
+         Body_Nod => N,
+         Decls    => Op_Decls,
+         Barrier  => True,
+         Family   => Ekind (Ent) = E_Entry_Family);
+
+      --  If compiling with -fpreserve-control-flow, make sure we insert an
+      --  IF statement so that the back-end knows to generate a conditional
+      --  branch instruction, even if the condition is just the name of a
+      --  boolean object.
+
+      if Opt.Suppress_Control_Flow_Optimizations then
+         Stmt := Make_Implicit_If_Statement (Cond,
+                   Condition       => Cond,
+                   Then_Statements => New_List (
+                     Make_Simple_Return_Statement (Loc,
+                       New_Occurrence_Of (Standard_True, Loc))),
+                   Else_Statements => New_List (
+                     Make_Simple_Return_Statement (Loc,
+                       New_Occurrence_Of (Standard_False, Loc))));
+
+      else
+         Stmt := Make_Simple_Return_Statement (Loc, Cond);
+      end if;
 
       --  Note: the condition in the barrier function needs to be properly
       --  processed for the C/Fortran boolean possibility, but this happens
@@ -947,9 +973,7 @@ package body Exp_Ch9 is
           Declarations => Op_Decls,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
-              Statements => New_List (
-                Make_Simple_Return_Statement (Loc,
-                  Expression => Condition (Ent_Formals)))));
+              Statements => New_List (Stmt)));
       Set_Is_Entry_Barrier_Function (Func_Body);
 
       return Func_Body;
@@ -1636,7 +1660,7 @@ package body Exp_Ch9 is
          P : Node_Id;
 
       begin
-         P := Spec_PPC_List (E);
+         P := Spec_PPC_List (Contract (E));
          if No (P) then
             return;
          end if;
@@ -5848,6 +5872,9 @@ package body Exp_Ch9 is
       T   : Entity_Id;  --  Additional status flag
 
    begin
+      Process_Statements_For_Controlled_Objects (Trig);
+      Process_Statements_For_Controlled_Objects (Abrt);
+
       Blk_Ent := Make_Temporary (Loc, 'A');
       Ecall   := Triggering_Statement (Trig);
 
@@ -6800,6 +6827,8 @@ package body Exp_Ch9 is
       S : Entity_Id;  --  Primitive operation slot
 
    begin
+      Process_Statements_For_Controlled_Objects (N);
+
       if Ada_Version >= Ada_2005
         and then Nkind (Blk) = N_Procedure_Call_Statement
       then
@@ -7306,7 +7335,6 @@ package body Exp_Ch9 is
                  Subtype_Indication => New_Reference_To (Rec_Ent, Loc)));
 
          Insert_After (Last_Decl, Decl);
-         Last_Decl := Decl;
       end if;
    end Expand_N_Entry_Declaration;
 
@@ -9637,6 +9665,8 @@ package body Exp_Ch9 is
    --  Start of processing for Expand_N_Selective_Accept
 
    begin
+      Process_Statements_For_Controlled_Objects (N);
+
       --  First insert some declarations before the select. The first is:
 
       --    Ann : Address
@@ -9656,6 +9686,7 @@ package body Exp_Ch9 is
 
       Alt := First (Alts);
       while Present (Alt) loop
+         Process_Statements_For_Controlled_Objects (Alt);
 
          if Nkind (Alt) = N_Accept_Alternative then
             Add_Accept (Alt);
@@ -10848,7 +10879,7 @@ package body Exp_Ch9 is
          Ent := First_Entity (Tasktyp);
          while Present (Ent) loop
             if Ekind_In (Ent, E_Entry, E_Entry_Family)
-              and then Present (Spec_PPC_List (Ent))
+              and then Present (Spec_PPC_List (Contract (Ent)))
             then
                Build_PPC_Wrapper (Ent, N);
             end if;
@@ -11011,6 +11042,9 @@ package body Exp_Ch9 is
       if Restriction_Active (No_Select_Statements) then
          return;
       end if;
+
+      Process_Statements_For_Controlled_Objects (Entry_Call_Alternative (N));
+      Process_Statements_For_Controlled_Objects (Delay_Alternative (N));
 
       --  The arguments in the call may require dynamic allocation, and the
       --  call statement may have been transformed into a block. The block

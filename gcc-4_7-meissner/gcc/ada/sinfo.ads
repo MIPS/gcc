@@ -719,9 +719,9 @@ package Sinfo is
 
    --  Corresponding_Body (Node5-Sem)
    --    This field is set in subprogram declarations, package declarations,
-   --    entry declarations of protected types, and in generic units. It
-   --    points to the defining entity for the corresponding body (NOT the
-   --    node for the body itself).
+   --    entry declarations of protected types, and in generic units. It points
+   --    to the defining entity for the corresponding body (NOT the node for
+   --    the body itself).
 
    --  Corresponding_Formal_Spec (Node3-Sem)
    --    This field is set in subprogram renaming declarations, where it points
@@ -763,15 +763,6 @@ package Sinfo is
    --  Dcheck_Function (Node5-Sem)
    --    This field is present in an N_Variant node, It references the entity
    --    for the discriminant checking function for the variant.
-
-   --  Debug_Statement (Node3)
-   --    This field is present in an N_Pragma node. It is used only for a Debug
-   --    pragma. The parameter is of the form of an expression, as required by
-   --    the pragma syntax, but is actually a procedure call. To simplify
-   --    semantic processing, the parser creates a copy of the argument
-   --    rearranged into a procedure call statement and places it in the
-   --    Debug_Statement field. Note that this field is considered syntactic
-   --    field, since it is created by the parser.
 
    --  Default_Expression (Node5-Sem)
    --    This field is Empty if there is no default expression. If there is a
@@ -1596,12 +1587,6 @@ package Sinfo is
    --    package specification. This field is Empty for library bodies (the
    --    parent spec in this case can be found from the corresponding spec).
 
-   --  Pragma_Enabled (Flag5-Sem)
-   --    Present in N_Pragma nodes. This flag is relevant only for pragmas
-   --    Assert, Check, Precondition, and Postcondition. It is true if the
-   --    check corresponding to the pragma type is enabled at the point where
-   --    the pragma appears.
-
    --  Present_Expr (Uint3-Sem)
    --    Present in an N_Variant node. This has a meaningful value only after
    --    Gigi has back annotated the tree with representation information. At
@@ -1709,12 +1694,12 @@ package Sinfo is
    --    which gigi must do size validation for.
 
    --  Split_PPC (Flag17)
-   --     When a Pre or Postaspect specification is processed, it is broken
-   --     into AND THEN sections. The left most section has Split_PPC set to
-   --     False, indicating that it is the original specification (e.g. for
-   --     posting errors). For other sections, Split_PPC is set to True.
-   --     This flag is set in both the N_Aspect_Specification node itself,
-   --     and in the pragma which is generated from this node.
+   --    When a Pre or Post aspect specification is processed, it is broken
+   --    into AND THEN sections. The left most section has Split_PPC set to
+   --    False, indicating that it is the original specification (e.g. for
+   --    posting errors). For other sections, Split_PPC is set to True.
+   --    This flag is set in both the N_Aspect_Specification node itself,
+   --    and in the pragma which is generated from this node.
 
    --  Static_Processing_OK (Flag4-Sem)
    --    Present in N_Aggregate nodes. When the Compile_Time_Known_Aggregate
@@ -2069,10 +2054,8 @@ package Sinfo is
       --  Sloc points to PRAGMA
       --  Next_Pragma (Node1-Sem)
       --  Pragma_Argument_Associations (List2) (set to No_List if none)
-      --  Debug_Statement (Node3) (set to Empty if not Debug)
       --  Pragma_Identifier (Node4)
       --  Next_Rep_Item (Node5-Sem)
-      --  Pragma_Enabled (Flag5-Sem)
       --  From_Aspect_Specification (Flag13-Sem)
       --  Is_Delayed_Aspect (Flag14-Sem)
       --  Import_Interface_Present (Flag16-Sem)
@@ -5911,23 +5894,32 @@ package Sinfo is
       --  used only internally currently, but is considered to be syntactic.
       --  At the moment, the only cleanup action allowed is a single call to
       --  a parameterless procedure, and the Identifier field of the node is
-      --  the procedure to be called. Also there is a current restriction
-      --  that exception handles and a cleanup cannot be present in the same
-      --  frame, so at least one of Exception_Handlers or the Identifier must
-      --  be missing.
+      --  the procedure to be called. The cleanup action occurs whenever the
+      --  sequence of statements is left for any reason. The possible reasons
+      --  are:
+      --      1. reaching the end of the sequence
+      --      2. exit, return, or goto
+      --      3. exception or abort
+      --  For some back ends, such as gcc with ZCX, "at end" is implemented
+      --  entirely in the back end. In this case, a handled sequence of
+      --  statements with an "at end" cannot also have exception handlers.
+      --  For other back ends, such as gcc with SJLJ and .NET, the
+      --  implementation is split between the front end and back end; the front
+      --  end implements 3, and the back end implements 1 and 2. In this case,
+      --  if there is an "at end", the front end inserts the appropriate
+      --  exception handler, and this handler takes precedence over "at end"
+      --  in case of exception.
 
-      --  Actually, more accurately, this restriction applies to the original
-      --  source program. In the expanded tree, if the At_End_Proc field is
-      --  present, then there will also be an exception handler of the form:
+      --  The inserted exception handler is of the form:
 
       --     when all others =>
       --        cleanup;
       --        raise;
 
-      --  where cleanup is the procedure to be generated. The reason we do
-      --  this is so that the front end can handle the necessary entries in
-      --  the exception tables, and other exception handler actions required
-      --  as part of the normal handling for exception handlers.
+      --  where cleanup is the procedure to be called. The reason we do this is
+      --  so that the front end can handle the necessary entries in the
+      --  exception tables, and other exception handler actions required as
+      --  part of the normal handling for exception handlers.
 
       --  The AT END cleanup handler protects only the sequence of statements
       --  (not the associated declarations of the parent), just like exception
@@ -6902,6 +6894,39 @@ package Sinfo is
       --  Is_Elsif (Flag13) (set if comes from ELSIF)
       --  plus fields for expression
 
+      --------------
+      -- Contract --
+      --------------
+
+      --  This node is used to hold the various parts of an entry or subprogram
+      --  contract, consisting in pre- and postconditions on the one hand, and
+      --  test-cases on the other hand.
+
+      --  It is referenced from an entry, a subprogram or a generic subprogram
+      --  entity.
+
+      --  Sprint syntax:  <none> as the node should not appear in the tree, but
+      --                  only attached to an entry or [generic] subprogram
+      --                  entity.
+
+      --  N_Contract
+      --  Sloc points to the subprogram's name
+      --  Spec_PPC_List (Node1) (set to Empty if none)
+      --  Spec_TC_List (Node2) (set to Empty if none)
+
+      --  Spec_PPC_List points to a list of Precondition and Postcondition
+      --  pragma nodes for preconditions and postconditions declared in the
+      --  spec of the entry/subprogram. The last pragma encountered is at the
+      --  head of this list, so it is in reverse order of textual appearance.
+      --  Note that this includes precondition/postcondition pragmas generated
+      --  to correspond to Pre/Post aspects.
+
+      --  Spec_TC_List points to a list of Test_Case pragma nodes for
+      --  test-cases declared in the spec of the entry/subprogram. The last
+      --  pragma encountered is at the head of this list, so it is in reverse
+      --  order of textual appearance. Note that this includes test-case
+      --  pragmas generated to correspond to Test_Case aspects.
+
       -------------------
       -- Expanded_Name --
       -------------------
@@ -7754,6 +7779,7 @@ package Sinfo is
       N_Component_Association,
       N_Component_Definition,
       N_Component_List,
+      N_Contract,
       N_Derived_Type_Definition,
       N_Decimal_Fixed_Point_Definition,
       N_Defining_Program_Unit_Name,
@@ -8200,9 +8226,6 @@ package Sinfo is
 
    function Dcheck_Function
      (N : Node_Id) return Entity_Id;  -- Node5
-
-   function Debug_Statement
-     (N : Node_Id) return Node_Id;    -- Node3
 
    function Declarations
      (N : Node_Id) return List_Id;    -- List2
@@ -8747,9 +8770,6 @@ package Sinfo is
    function Pragma_Argument_Associations
      (N : Node_Id) return List_Id;    -- List2
 
-   function Pragma_Enabled
-     (N : Node_Id) return Boolean;    -- Flag5
-
    function Pragma_Identifier
      (N : Node_Id) return Node_Id;    -- Node4
 
@@ -8863,6 +8883,12 @@ package Sinfo is
 
    function Source_Type
      (N : Node_Id) return Entity_Id;  -- Node1
+
+   function Spec_PPC_List
+     (N : Node_Id) return Node_Id;    -- Node1
+
+   function Spec_TC_List
+     (N : Node_Id) return Node_Id;    -- Node2
 
    function Specification
      (N : Node_Id) return Node_Id;    -- Node1
@@ -9172,9 +9198,6 @@ package Sinfo is
 
    procedure Set_Dcheck_Function
      (N : Node_Id; Val : Entity_Id);          -- Node5
-
-   procedure Set_Debug_Statement
-     (N : Node_Id; Val : Node_Id);            -- Node3
 
    procedure Set_Declarations
      (N : Node_Id; Val : List_Id);            -- List2
@@ -9716,9 +9739,6 @@ package Sinfo is
    procedure Set_Pragma_Argument_Associations
      (N : Node_Id; Val : List_Id);            -- List2
 
-   procedure Set_Pragma_Enabled
-     (N : Node_Id; Val : Boolean := True);    -- Flag5
-
    procedure Set_Pragma_Identifier
      (N : Node_Id; Val : Node_Id);            -- Node4
 
@@ -9832,6 +9852,12 @@ package Sinfo is
 
    procedure Set_Source_Type
      (N : Node_Id; Val : Entity_Id);          -- Node1
+
+   procedure Set_Spec_PPC_List
+     (N : Node_Id; Val : Node_Id);            -- Node1
+
+   procedure Set_Spec_TC_List
+     (N : Node_Id; Val : Node_Id);            -- Node2
 
    procedure Set_Specification
      (N : Node_Id; Val : Node_Id);            -- Node1
@@ -10105,7 +10131,7 @@ package Sinfo is
      N_Pragma =>
        (1 => False,   --  Next_Pragma (Node1-Sem)
         2 => True,    --  Pragma_Argument_Associations (List2)
-        3 => True,    --  Debug_Statement (Node3)
+        3 => False,   --  unused
         4 => True,    --  Pragma_Identifier (Node4)
         5 => False),  --  Next_Rep_Item (Node5-Sem)
 
@@ -11467,6 +11493,13 @@ package Sinfo is
         4 => False,   --  unused
         5 => False),  --  Etype (Node5-Sem)
 
+     N_Contract =>
+       (1 => False,   --  Spec_PPC_List (Node1)
+        2 => False,   --  Spec_TC_List (Node2)
+        3 => False,   --  unused
+        4 => False,   --  unused
+        5 => False),  --  unused
+
      N_Expanded_Name =>
        (1 => True,    --  Chars (Name1)
         2 => True,    --  Selector_Name (Node2)
@@ -11732,7 +11765,6 @@ package Sinfo is
    pragma Inline (Corresponding_Spec);
    pragma Inline (Corresponding_Stub);
    pragma Inline (Dcheck_Function);
-   pragma Inline (Debug_Statement);
    pragma Inline (Declarations);
    pragma Inline (Default_Expression);
    pragma Inline (Default_Storage_Pool);
@@ -11914,7 +11946,6 @@ package Sinfo is
    pragma Inline (Parent_Spec);
    pragma Inline (Position);
    pragma Inline (Pragma_Argument_Associations);
-   pragma Inline (Pragma_Enabled);
    pragma Inline (Pragma_Identifier);
    pragma Inline (Pragmas_After);
    pragma Inline (Pragmas_Before);
@@ -11953,6 +11984,8 @@ package Sinfo is
    pragma Inline (Selector_Names);
    pragma Inline (Shift_Count_OK);
    pragma Inline (Source_Type);
+   pragma Inline (Spec_PPC_List);
+   pragma Inline (Spec_TC_List);
    pragma Inline (Specification);
    pragma Inline (Split_PPC);
    pragma Inline (Statements);
@@ -12053,7 +12086,6 @@ package Sinfo is
    pragma Inline (Set_Corresponding_Spec);
    pragma Inline (Set_Corresponding_Stub);
    pragma Inline (Set_Dcheck_Function);
-   pragma Inline (Set_Debug_Statement);
    pragma Inline (Set_Declarations);
    pragma Inline (Set_Default_Expression);
    pragma Inline (Set_Default_Storage_Pool);
@@ -12234,7 +12266,6 @@ package Sinfo is
    pragma Inline (Set_Parent_Spec);
    pragma Inline (Set_Position);
    pragma Inline (Set_Pragma_Argument_Associations);
-   pragma Inline (Set_Pragma_Enabled);
    pragma Inline (Set_Pragma_Identifier);
    pragma Inline (Set_Pragmas_After);
    pragma Inline (Set_Pragmas_Before);
@@ -12272,6 +12303,8 @@ package Sinfo is
    pragma Inline (Set_Selector_Names);
    pragma Inline (Set_Shift_Count_OK);
    pragma Inline (Set_Source_Type);
+   pragma Inline (Set_Spec_PPC_List);
+   pragma Inline (Set_Spec_TC_List);
    pragma Inline (Set_Specification);
    pragma Inline (Set_Split_PPC);
    pragma Inline (Set_Statements);

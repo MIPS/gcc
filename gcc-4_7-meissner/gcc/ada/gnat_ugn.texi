@@ -4115,9 +4115,12 @@ Defines a symbol, associated with @var{value}, for preprocessing.
 
 @item -gnateE
 @cindex @option{-gnateE} (@command{gcc})
-Generate extra information in exception messages, in particular display
+Generate extra information in exception messages. In particular, display
 extra column information and the value and range associated with index and
 range check failures, and extra column information for access checks.
+In cases where the compiler is able to determine at compile time that
+a check will fail, it gives a warning, and the extra information is not
+produced at run time.
 
 @item -gnatef
 @cindex @option{-gnatef} (@command{gcc})
@@ -8310,6 +8313,10 @@ Output object list (to standard output or to the named file).
 @cindex @option{^-p^/PESSIMISTIC_ELABORATION^} (@command{gnatbind})
 Pessimistic (worst-case) elaboration order
 
+@item ^-P^-P^
+@cindex @option{^-P^/CODEPEER^} (@command{gnatbind})
+Generate binder file suitable for CodePeer.
+
 @item ^-R^-R^
 @cindex @option{^-R^-R^} (@command{gnatbind})
 Output closure source list.
@@ -9134,6 +9141,14 @@ when multiple versions of the GNAT compiler are available.
 for further details. You would normally use the @option{-b} or
 @option{-V} switch instead.
 
+@item -M
+When linking an executable, create a map file. The name of the map file
+has the same name as the executable with extension ".map".
+
+@item -M=mapfile
+When linking an executable, create a map file. The name of the map file is
+"mapfile".
+
 @item --GCC=@var{compiler_name}
 @cindex @option{--GCC=compiler_name} (@command{gnatlink})
 Program used for compiling the binder file. The default is
@@ -9374,7 +9389,9 @@ to process the project files, especially when looking for sources that take a
 long time. If the source info file exists but cannot be parsed successfully,
 the Project Manager will attempt to recreate it. If the Project Manager fails
 to create the source info file, a message is issued, but gnatmake does not
-fail.
+fail. @command{gnatmake} "trusts" the source info file. This means that
+if the source files have changed (addition, deletion, moving to a different
+source directory), then the source info file need to be deleted and recreated.
 
 @ifclear vms
 @item --create-map-file
@@ -17242,7 +17259,7 @@ output this info at program termination. Results are displayed in four
 columns:
 
 @noindent
-Index | Task Name | Stack Size | Stack Usage [Value +/- Variation]
+Index | Task Name | Stack Size | Stack Usage
 
 @noindent
 where:
@@ -17260,8 +17277,7 @@ is the maximum size for the stack.
 @item Stack Usage
 is the measure done by the stack analyzer. In order to prevent overflow, the stack
 is not entirely analyzed, and it's not possible to know exactly how
-much has actually been used. The report thus contains the theoretical stack usage
-(Value) and the possible variation (Variation) around this value.
+much has actually been used.
 
 @end table
 
@@ -17269,6 +17285,9 @@ much has actually been used. The report thus contains the theoretical stack usag
 The environment task stack, e.g., the stack that contains the main unit, is
 only processed when the environment variable GNAT_STACK_LIMIT is set.
 
+@noindent
+The package @code{GNAT.Task_Stack_Usage} provides facilities to get
+stack usage reports at run-time. See its body for the details.
 
 @c *********************************
 @c *            GNATCHECK          *
@@ -17290,9 +17309,6 @@ legal Ada units. Moreover, when a unit depends semantically upon units located
 outside the current directory, the source search path has to be provided when
 calling @command{gnatcheck}, either through a specified project file or
 through @command{gnatcheck} switches.
-
-A number of rules are predefined in @command{gnatcheck} and are described
-later in this chapter.
 
 For full details, refer to @cite{GNATcheck Reference Manual} document.
 

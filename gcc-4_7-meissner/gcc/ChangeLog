@@ -1,3 +1,152 @@
+2011-08-04  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/i386.c (setup_incoming_varargs_ms_64): Set
+	ix86_varargs_gpr_size and ix86_varargs_fpr_size to zero.
+
+2011-08-04  Ira Rosen  <ira.rosen@linaro.org>
+
+	* tree-vectorizer.h (struct _stmt_vec_info): Add new field for
+	pattern def statement, and its access macro.
+	(NUM_PATTERNS): Set to 5.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Handle
+	pattern def statement.
+	(vect_transform_loop): Likewise.
+	* tree-vect-patterns.c (vect_vect_recog_func_ptrs): Add new
+	function vect_recog_over_widening_pattern ().
+	(vect_operation_fits_smaller_type): New function.
+	(vect_recog_over_widening_pattern, vect_mark_pattern_stmts):
+	Likewise.
+	(vect_pattern_recog_1): Move the code that marks pattern
+	statements to vect_mark_pattern_stmts (), and call it.  Update
+	documentation.
+	* tree-vect-stmts.c (vect_supportable_shift): New function.
+	(vect_analyze_stmt): Handle pattern def statement.
+	(new_stmt_vec_info): Initialize pattern def statement.
+
+2011-08-04  Richard Henderson  <rth@redhat.com>
+
+	PR target/49964
+	* config/i386/i386.c (ix86_expand_call): Don't create nested
+	PARALLELs for TARGET_VZEROUPPER.
+	(ix86_split_call_vzeroupper): Fix extraction of the original call.
+	* config/i386/i386.md (*call_rex64_ms_sysv_vzeroupper): Don't
+	recognize nested PARALLELs.
+	(*call_pop_vzeroupper, *sibcall_pop_vzeroupper,
+	*call_value_rex64_ms_sysv_vzeroupper, *call_value_pop_vzeroupper,
+	*sibcall_value_pop_vzeroupper): Likewise.
+
+2011-08-04  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/49968
+	* calls.c (expand_call): Use fixup_args_size_notes for
+	emit_stack_restore.
+	* expr.c (fixup_args_size_notes): Allow STACK_POINTER_REGNUM sets
+	in non-standard modes.
+
+2011-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (self_spec): New variable.
+	(static_specs): Add self_spec.
+	(main): Call do_self_spec on "self_spec" specs after reading
+	user specs files.  Move compare_debug handling right after that.
+
+2011-08-04  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (vrp_expr_computes_nonnegative): Remove.
+	(value_range_nonnegative_p): New function.
+	(ssa_name_nonnegative_p): Use it.
+	(value_range_constant_singleton): New function.
+	(op_with_constant_singleton_value_range): Use it.
+	(extract_range_from_binary_expr_1): New function, split out from ...
+	(extract_range_from_binary_expr): ... this.  Remove fallback
+	constant folding done here.
+
+2011-08-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49806
+	* tree-vrp.c (op_with_boolean_value_range_p): New function.
+	(simplify_truth_ops_using_ranges): Simplify.  Allow inserting
+	a new statement for a final conversion to bool.
+
+2011-08-04  Romain Geissler  <romain.geissler@gmail.com>
+
+	* gengtype-state.c: Include "bconfig.h" if
+	GENERATOR_FILE is defined, "config.h" otherwise.
+	* gengtype.c: Likewise.
+	* gengtype-lex.l: Likewise.
+	* gengtype-parse.c: Likewise.
+	* Makefile.in (gengtype-lex.o-warn): New variable.
+	(plugin_resourcesdir): Likewise.
+	(plugin_bindir): Likewise.
+	(plugin_includedir): Use $(plugin_resourcesdir) as prefix base.
+	(MOSTLYCLEANFILES): Add gengtype$(exeext).
+	(native): Depend on gengtype$(exeext) is $enable_plugin
+	is set to "yes".
+	(gtype.state): Depend on s-gtype. Use temporary file.
+	(gengtype-lex.o): New rule.
+	(gengtype-parse.o): Likewise.
+	(gengtype-state.o): Likewise.
+	(gengtype$(exeext)): Likewise.
+	(install-gengtype): Likewise.
+	(gengtype.o): Likewise.
+	(build/gengtype.o): Depend on version.h.
+	(build/gengtype-state): Depend on double-int.h, version.h,
+	$(HASHTAB_H), $(OBSTACK_H), $(XREGEX_H) and build/errors.o.
+	(install-plugin): Depend on install-gengtype.
+
+2011-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49905
+	* tree.h (init_attributes): New prototype.
+	* attribs.c (init_attributes): No longer static.
+
+2011-08-04  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	* config/arm/arm.c (arm_set_fixed_optab_libfunc): Constify
+	maybe_suffix.
+
+2011-08-03   David Li  <davidxl@google.com>
+
+	* tree-optimize.c (execute_fixup_cfg): Fix up entry
+	outgoing edge counts after inlining.
+
+2011-08-03   David Li  <davidxl@google.com>
+
+	* profile.c (compute_branch_probabilities): Compute
+	function frequency after profile annotation.
+
+2011-08-04  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Simplify
+	use_backchain_to_restore_sp initialisation.
+	(rs6000_legitimate_offset_address_p): Simplify offset test.
+
+2011-08-03  Richard Henderson  <rth@redhat.com>
+
+	* config/spu/spu.md: Use define_c_enum instead of define_constants.
+	(UNSPECV_BLOCKAGE, UNSPECV_LNOP, UNSPECV_SYNC): Rename from UNSPEC_*.
+	(UNSPECV_NOP): New.
+
+2011-08-03  Richard Henderson  <rth@redhat.com>
+
+	PR target/34888
+	* config/avr/avr.md: New splitter for REG_ARGS_SIZE 0.
+
+2011-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49948
+	* gimple.c (walk_stmt_load_store_addr_ops): Walk CONSTRUCTOR elements.
+
+2011-08-03  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/m32c/m32c.c (class_sizes): Remove.
+	(reduce_class): Change arguments and return type to reg_class_t.
+	Change type cc var to HARD_REG_SET. Change type best var to
+	reg_class_t. Change type best_size var to unsigned int. Remove
+	initialization class_sizes var. Use reg_class_size array instead
+	of class_sizes. Use reg_class_contents array instead
+	of class_contents.
+
 2011-08-03  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/49958

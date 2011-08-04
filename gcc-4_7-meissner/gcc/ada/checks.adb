@@ -1690,7 +1690,7 @@ package body Checks is
 
       if Truncate and then Ilast < 0 then
          Hi := Succ (Expr_Type, UR_From_Uint (Ilast));
-         Lo_OK := False;
+         Hi_OK := False;
 
       elsif Truncate then
          Hi := Pred (Expr_Type, UR_From_Uint (Ilast + 1));
@@ -3463,7 +3463,7 @@ package body Checks is
 
       if Enable_Overflow_Checks
         and then not Is_Entity_Name (N)
-        and then  (Lor < Lo or else Hir > Hi)
+        and then (Lor < Lo or else Hir > Hi)
       then
          OK := False;
          return;

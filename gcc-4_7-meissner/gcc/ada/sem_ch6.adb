@@ -230,6 +230,7 @@ package body Sem_Ch6 is
       Check_SPARK_Restriction ("abstract subprogram is not allowed", N);
 
       Generate_Definition (Designator);
+      Set_Contract (Designator, Make_Contract (Sloc (Designator)));
       Set_Is_Abstract_Subprogram (Designator);
       New_Overloaded_Entity (Designator);
       Check_Delayed_Subprogram (Designator);
@@ -638,24 +639,44 @@ package body Sem_Ch6 is
             return;
 
          else
+            --  The resolution of a controlled [extension] aggregate associated
+            --  with a return statement creates a temporary which needs to be
+            --  finalized on function exit. Wrap the return statement inside a
+            --  block so that the finalization machinery can detect this case.
+            --  This early expansion is done only when the return statement is
+            --  not part of a handled sequence of statements.
+
+            if Nkind_In (Expr, N_Aggregate,
+                               N_Extension_Aggregate)
+              and then Needs_Finalization (R_Type)
+              and then Nkind (Parent (N)) /= N_Handled_Sequence_Of_Statements
+            then
+               Rewrite (N,
+                 Make_Block_Statement (Loc,
+                   Handled_Statement_Sequence =>
+                     Make_Handled_Sequence_Of_Statements (Loc,
+                       Statements => New_List (Relocate_Node (N)))));
+
+               Analyze (N);
+               return;
+            end if;
+
             Analyze_And_Resolve (Expr, R_Type);
             Check_Limited_Return (Expr);
          end if;
 
-         --  RETURN only allowed in SPARK is as the last statement function
+         --  RETURN only allowed in SPARK as the last statement in function
 
          if Nkind (Parent (N)) /= N_Handled_Sequence_Of_Statements
            and then
              (Nkind (Parent (Parent (N))) /= N_Subprogram_Body
                or else Present (Next (N)))
          then
-            Mark_Non_ALFA_Subprogram;
             Check_SPARK_Restriction
               ("RETURN should be the last statement in function", N);
          end if;
 
       else
-         Mark_Non_ALFA_Subprogram;
          Check_SPARK_Restriction ("extended RETURN is not allowed", N);
 
          --  Analyze parts specific to extended_return_statement:
@@ -942,7 +963,15 @@ package body Sem_Ch6 is
          end if;
 
          Set_Actual_Subtypes (N, Current_Scope);
-         Process_PPCs (N, Gen_Id, Body_Id);
+
+         --  Deal with preconditions and postconditions. In formal verification
+         --  mode, we keep pre- and postconditions attached to entities rather
+         --  than inserted in the code, in order to facilitate a distinct
+         --  treatment for them.
+
+         if not ALFA_Mode then
+            Process_PPCs (N, Gen_Id, Body_Id);
+         end if;
 
          --  If the generic unit carries pre- or post-conditions, copy them
          --  to the original generic tree, so that they are properly added
@@ -1468,13 +1497,6 @@ package body Sem_Ch6 is
             Typ := Entity (Result_Definition (N));
             Set_Etype (Designator, Typ);
 
-            --  If the result type of a subprogram is not in ALFA, then the
-            --  subprogram is not in ALFA.
-
-            if not Is_In_ALFA (Typ) then
-               Set_Is_In_ALFA (Designator, False);
-            end if;
-
             --  Unconstrained array as result is not allowed in SPARK
 
             if Is_Array_Type (Typ)
@@ -1909,11 +1931,11 @@ package body Sem_Ch6 is
             Check_Returns (HSS, 'P', Missing_Ret, Spec_Id);
          end if;
 
-         --  Special checks in formal mode
+         --  Special checks in SPARK mode
 
          if Nkind (Body_Spec) = N_Function_Specification then
 
-            --  In formal mode, last statement of a function should be a return
+            --  In SPARK mode, last statement of a function should be a return
 
             declare
                Stat : constant Node_Id := Last_Source_Statement (HSS);
@@ -1922,13 +1944,12 @@ package body Sem_Ch6 is
                  and then not Nkind_In (Stat, N_Simple_Return_Statement,
                                               N_Extended_Return_Statement)
                then
-                  Set_Body_Is_In_ALFA (Id, False);
                   Check_SPARK_Restriction
                     ("last statement in function should be RETURN", Stat);
                end if;
             end;
 
-         --  In formal mode, verify that a procedure has no return
+         --  In SPARK mode, verify that a procedure has no return
 
          elsif Nkind (Body_Spec) = N_Procedure_Specification then
             if Present (Spec_Id) then
@@ -1941,7 +1962,6 @@ package body Sem_Ch6 is
             --  borrow the Check_Returns procedure here ???
 
             if Return_Present (Id) then
-               Set_Body_Is_In_ALFA (Id, False);
                Check_SPARK_Restriction
                  ("procedure should not have RETURN", N);
             end if;
@@ -2259,24 +2279,6 @@ package body Sem_Ch6 is
          end if;
       end if;
 
-      --  By default, consider that the subprogram body is in ALFA if the spec
-      --  is in ALFA. This is reversed later if some expression or statement is
-      --  not in ALFA.
-
-      declare
-         Id : Entity_Id;
-      begin
-         if Present (Spec_Id) then
-            Id := Spec_Id;
-         else
-            Id := Body_Id;
-         end if;
-
-         if Is_In_ALFA (Id) then
-            Set_Body_Is_In_ALFA (Id);
-         end if;
-      end;
-
       --  Do not inline any subprogram that contains nested subprograms, since
       --  the backend inlining circuit seems to generate uninitialized
       --  references in this case. We know this happens in the case of front
@@ -2508,7 +2510,6 @@ package body Sem_Ch6 is
          Set_Ekind (Body_Id, E_Subprogram_Body);
          Set_Scope (Body_Id, Scope (Spec_Id));
          Set_Is_Obsolescent (Body_Id, Is_Obsolescent (Spec_Id));
-         Set_Is_In_ALFA (Body_Id, False);
 
       --  Case of subprogram body with no previous spec
 
@@ -2539,6 +2540,7 @@ package body Sem_Ch6 is
          if Nkind (N) /= N_Subprogram_Body_Stub then
             Set_Acts_As_Spec (N);
             Generate_Definition (Body_Id);
+            Set_Contract (Body_Id, Make_Contract (Sloc (Body_Id)));
             Generate_Reference
               (Body_Id, Body_Id, 'b', Set_Ref => False, Force => True);
             Generate_Reference_To_Formals (Body_Id);
@@ -2671,9 +2673,14 @@ package body Sem_Ch6 is
       HSS := Handled_Statement_Sequence (N);
       Set_Actual_Subtypes (N, Current_Scope);
 
-      --  Deal with preconditions and postconditions
+      --  Deal with preconditions and postconditions. In formal verification
+      --  mode, we keep pre- and postconditions attached to entities rather
+      --  than inserted in the code, in order to facilitate a distinct
+      --  treatment for them.
 
-      Process_PPCs (N, Spec_Id, Body_Id);
+      if not ALFA_Mode then
+         Process_PPCs (N, Spec_Id, Body_Id);
+      end if;
 
       --  Add a declaration for the Protection object, renaming declarations
       --  for discriminals and privals and finally a declaration for the entry
@@ -2842,7 +2849,8 @@ package body Sem_Ch6 is
                      --  raises an exception, but in any case it is not coming
                      --  back here, so turn on the flag.
 
-                     if Ekind (Ent) = E_Procedure
+                     if Present (Ent)
+                       and then Ekind (Ent) = E_Procedure
                        and then No_Return (Ent)
                      then
                         Set_Trivial_Subprogram (Stm);
@@ -2976,6 +2984,7 @@ package body Sem_Ch6 is
 
       Designator := Analyze_Subprogram_Specification (Specification (N));
       Generate_Definition (Designator);
+      --  ??? why this call, already in Analyze_Subprogram_Specification
 
       if Debug_Flag_C then
          Write_Str ("==> subprogram spec ");
@@ -3154,11 +3163,6 @@ package body Sem_Ch6 is
    --  Start of processing for Analyze_Subprogram_Specification
 
    begin
-      --  By default, consider that the subprogram spec is in ALFA. This is
-      --  reversed later if some parameter or result is not in ALFA.
-
-      Set_Is_In_ALFA (Designator);
-
       --  User-defined operator is not allowed in SPARK, except as a renaming
 
       if Nkind (Defining_Unit_Name (N)) = N_Defining_Operator_Symbol
@@ -3170,6 +3174,7 @@ package body Sem_Ch6 is
       --  Proceed with analysis
 
       Generate_Definition (Designator);
+      Set_Contract (Designator, Make_Contract (Sloc (Designator)));
 
       if Nkind (N) = N_Function_Specification then
          Set_Ekind (Designator, E_Function);
@@ -6272,7 +6277,7 @@ package body Sem_Ch6 is
                         Obj_Decl, Typ);
                      Error_Msg_N
                        ("\an equality operator cannot be declared after this "
-                         & "point ('R'M 4.5.2 (9.8)) (Ada 2012))?", Obj_Decl);
+                         & "point (RM 4.5.2 (9.8)) (Ada 2012))?", Obj_Decl);
                      exit;
                   end if;
 
@@ -6400,8 +6405,9 @@ package body Sem_Ch6 is
 
                --  If the body already exists, then this is an error unless
                --  the previous declaration is the implicit declaration of a
-               --  derived subprogram, or this is a spurious overloading in an
-               --  instance.
+               --  derived subprogram. It is also legal for an instance to
+               --  contain type conformant overloadable declarations (but the
+               --  generic declaration may not), per 8.3(26/2).
 
                elsif No (Alias (E))
                  and then not Is_Intrinsic_Subprogram (E)
@@ -7299,7 +7305,8 @@ package body Sem_Ch6 is
 
          begin
             for J in Inherited'Range loop
-               P := Spec_PPC_List (Inherited (J));
+               P := Spec_PPC_List (Contract (Inherited (J)));
+
                while Present (P) loop
                   Error_Msg_Sloc := Sloc (P);
 
@@ -8881,14 +8888,6 @@ package body Sem_Ch6 is
 
          Set_Etype (Formal, Formal_Type);
 
-         --  The parameter is in ALFA if-and-only-if its type is in ALFA
-
-         if Is_In_ALFA (Formal_Type) then
-            Set_Is_In_ALFA (Formal);
-         else
-            Mark_Non_ALFA_Subprogram;
-         end if;
-
          Default := Expression (Param_Spec);
 
          if Present (Default) then
@@ -9200,7 +9199,7 @@ package body Sem_Ch6 is
          --  the body will be analyzed and converted when we scan the body
          --  declarations below.
 
-         Prag := Spec_PPC_List (Spec_Id);
+         Prag := Spec_PPC_List (Contract (Spec_Id));
          while Present (Prag) loop
             if Pragma_Name (Prag) = Name_Precondition then
 
@@ -9209,8 +9208,8 @@ package body Sem_Ch6 is
                --  will be executed at the start of the procedure. Note that
                --  this processing reverses the order of the list, which is
                --  what we want since new entries were chained to the head of
-               --  the list. There can be more then one precondition when we
-               --  use pragma Precondition
+               --  the list. There can be more than one precondition when we
+               --  use pragma Precondition.
 
                if not Class_Present (Prag) then
                   Prepend (Grab_PPC, Declarations (N));
@@ -9229,7 +9228,7 @@ package body Sem_Ch6 is
          --  Now deal with inherited preconditions
 
          for J in Inherited'Range loop
-            Prag := Spec_PPC_List (Inherited (J));
+            Prag := Spec_PPC_List (Contract (Inherited (J)));
 
             while Present (Prag) loop
                if Pragma_Name (Prag) = Name_Precondition
@@ -9409,7 +9408,7 @@ package body Sem_Ch6 is
 
                --  Loop through PPC pragmas from spec
 
-               Prag := Spec_PPC_List (Spec);
+               Prag := Spec_PPC_List (Contract (Spec));
                loop
                   if Pragma_Name (Prag) = Name_Postcondition
                     and then (not Class or else Class_Present (Prag))
@@ -9434,14 +9433,14 @@ package body Sem_Ch6 is
          --  Start of processing for Spec_Postconditions
 
          begin
-            if Present (Spec_PPC_List (Spec_Id)) then
+            if Present (Spec_PPC_List (Contract (Spec_Id))) then
                Process_Post_Conditions (Spec_Id, Class => False);
             end if;
 
             --  Process inherited postconditions
 
             for J in Inherited'Range loop
-               if Present (Spec_PPC_List (Inherited (J))) then
+               if Present (Spec_PPC_List (Contract (Inherited (J)))) then
                   Process_Post_Conditions (Inherited (J), Class => True);
                end if;
             end loop;

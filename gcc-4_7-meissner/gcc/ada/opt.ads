@@ -112,10 +112,6 @@ package Opt is
    --  case of some binder variables, Gnatbind.Scan_Bind_Arg may modify
    --  the default values.
 
-   Ada_Bind_File : Boolean := True;
-   --  GNATBIND, GNATLINK
-   --  Set True if binder file to be generated in Ada rather than C
-
    type Ada_Version_Type is (Ada_83, Ada_95, Ada_2005, Ada_2012);
    pragma Ordered (Ada_Version_Type);
    --  Versions of Ada for Ada_Version below. Note that these are ordered,
@@ -328,7 +324,7 @@ package Opt is
    --  of withing a package and using none of the entities in the package.
 
    CodePeer_Mode : Boolean := False;
-   --  GNAT
+   --  GNAT, GNATBIND
    --  Enable full CodePeer mode (SCIL generation, disable switches that
    --  interact badly with it, etc...).
 
@@ -1718,11 +1714,6 @@ package Opt is
    --  used to set the initial value of Fast_Math at the start of each new
    --  compilation unit.
 
-   Init_Or_Norm_Scalars_Config : Boolean;
-   --  GNAT
-   --  This is the value of the configuration switch that is set by one
-   --  of the pragmas Initialize_Scalars or Normalize_Scalars.
-
    Initialize_Scalars_Config : Boolean;
    --  GNAT
    --  This is the value of the configuration switch that is set by the
@@ -1883,9 +1874,6 @@ package Opt is
    --  the generation of Why code for those parts of the input code that
    --  belong to the ALFA subset of Ada. Set by debuf flag -gnatd.F.
 
-   SPARK_Mode : Boolean := False;
-   --  Reject constructs not allowed by SPARK. Set by flag -gnatd.D.
-
 private
 
    --  The following type is used to save and restore settings of switches in
@@ -1909,8 +1897,8 @@ private
       External_Name_Exp_Casing       : External_Casing_Type;
       External_Name_Imp_Casing       : External_Casing_Type;
       Fast_Math                      : Boolean;
-      Init_Or_Norm_Scalars           : Boolean;
       Initialize_Scalars             : Boolean;
+      Normalize_Scalars              : Boolean;
       Optimize_Alignment             : Character;
       Optimize_Alignment_Local       : Boolean;
       Persistent_BSS_Mode            : Boolean;

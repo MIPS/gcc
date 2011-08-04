@@ -484,20 +484,7 @@ package Exp_Util is
    --  Return the stream size value of the subtype E
 
    function Has_Access_Constraint (E : Entity_Id) return Boolean;
-   --  Given object or type E, determine whether a discriminant is of an access
-   --  type.
-
-   function Has_Controlled_Objects (N : Node_Id) return Boolean;
-   --  Given an arbitrary node N, determine whether it has a declarative or a
-   --  statement part and whether those lists contain at least one controlled
-   --  object.
-
-   function Has_Controlled_Objects
-     (L           : List_Id;
-      For_Package : Boolean) return Boolean;
-   --  Given a list, determine whether L contains at least one controlled
-   --  object. Flag For_Package should be set when the list comes from a
-   --  package spec or body.
+   --  Given object or type E, determine if a discriminant is of an access type
 
    function Has_Following_Address_Clause (D : Node_Id) return Boolean;
    --  D is the node for an object declaration. This function searches the
@@ -595,6 +582,10 @@ package Exp_Util is
    --
    --  We consider that a (1 .. 2) is a renamed object since it is the prefix
    --  of the name in the renaming declaration.
+
+   function Is_Tag_To_CW_Conversion (Obj_Id : Entity_Id) return Boolean;
+   --  Determine whether object Obj_Id is the result of a tag-to-class-wide
+   --  type conversion.
 
    function Is_Untagged_Derivation (T : Entity_Id) return Boolean;
    --  Returns true if type T is not tagged and is a derived type,
@@ -715,6 +706,11 @@ package Exp_Util is
    --  causes trouble for the back end (see Component_May_Be_Bit_Aligned for
    --  further details).
 
+   procedure Process_Statements_For_Controlled_Objects (N : Node_Id);
+   --  N is a node which contains a non-handled statement list. Inspect the
+   --  statements looking for declarations of controlled objects. If at least
+   --  one such object is found, wrap the statement list in a block.
+
    procedure Remove_Side_Effects
      (Exp          : Node_Id;
       Name_Req     : Boolean := False;
@@ -735,6 +731,15 @@ package Exp_Util is
    --  Returns True iff the implementation of this type in code generation
    --  terms is scalar. This is true for scalars in the Ada sense, and for
    --  packed arrays which are represented by a scalar (modular) type.
+
+   function Requires_Cleanup_Actions (N : Node_Id) return Boolean;
+   --  Given a node N, determine whether its declarative and/or statement list
+   --  contains one of the following:
+   --
+   --    1) controlled objects
+   --    2) library-level tagged types
+   --
+   --  The above cases require special actions on scope exit.
 
    function Safe_Unchecked_Type_Conversion (Exp : Node_Id) return Boolean;
    --  Given the node for an N_Unchecked_Type_Conversion, return True if this

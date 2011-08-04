@@ -324,6 +324,7 @@ package Rtsfind is
       System_Pack_63,
       System_Parameters,
       System_Partition_Interface,
+      System_Pool_32_Global,
       System_Pool_Global,
       System_Pool_Empty,
       System_Pool_Local,
@@ -504,6 +505,7 @@ package Rtsfind is
      RE_Exception_Message,               -- Ada.Exceptions
      RE_Exception_Name_Simple,           -- Ada.Exceptions
      RE_Exception_Occurrence,            -- Ada.Exceptions
+     RE_Exception_Occurrence_Access,     -- Ada.Exceptions
      RE_Null_Id,                         -- Ada.Exceptions
      RE_Null_Occurrence,                 -- Ada.Exceptions
      RE_Poll,                            -- Ada.Exceptions
@@ -559,6 +561,7 @@ package Rtsfind is
      RE_Address_Array,                   -- Ada.Tags
      RE_Addr_Ptr,                        -- Ada.Tags
      RE_Base_Address,                    -- Ada.Tags
+     RE_Check_Interface_Conversion,      -- Ada.Tags
      RE_Check_TSD,                       -- Ada.Tags
      RE_Cstring_Ptr,                     -- Ada.Tags
      RE_Descendant_Tag,                  -- Ada.Tags
@@ -640,6 +643,7 @@ package Rtsfind is
      RE_TK_Protected,                    -- Ada.Tags
      RE_TK_Tagged,                       -- Ada.Tags
      RE_TK_Task,                         -- Ada.Tags
+     RE_Unregister_Tag,                  -- Ada.Tags
 
      RE_Set_Specific_Handler,            -- Ada.Task_Termination
      RE_Specific_Handler,                -- Ada.Task_Termination
@@ -1152,6 +1156,8 @@ package Rtsfind is
      RE_Get_RAS_Info,                    -- System.Partition_Interface
 
      RE_Global_Pool_Object,              -- System.Pool_Global
+
+     RE_Global_Pool_32_Object,           -- System.Pool_32_Global
 
      RE_Stack_Bounded_Pool,              -- System.Pool_Size
 
@@ -1682,6 +1688,7 @@ package Rtsfind is
      RE_Exception_Message                => Ada_Exceptions,
      RE_Exception_Name_Simple            => Ada_Exceptions,
      RE_Exception_Occurrence             => Ada_Exceptions,
+     RE_Exception_Occurrence_Access      => Ada_Exceptions,
      RE_Null_Id                          => Ada_Exceptions,
      RE_Null_Occurrence                  => Ada_Exceptions,
      RE_Poll                             => Ada_Exceptions,
@@ -1737,6 +1744,7 @@ package Rtsfind is
      RE_Address_Array                    => Ada_Tags,
      RE_Addr_Ptr                         => Ada_Tags,
      RE_Base_Address                     => Ada_Tags,
+     RE_Check_Interface_Conversion       => Ada_Tags,
      RE_Check_TSD                        => Ada_Tags,
      RE_Cstring_Ptr                      => Ada_Tags,
      RE_Descendant_Tag                   => Ada_Tags,
@@ -1818,6 +1826,7 @@ package Rtsfind is
      RE_TK_Protected                     => Ada_Tags,
      RE_TK_Tagged                        => Ada_Tags,
      RE_TK_Task                          => Ada_Tags,
+     RE_Unregister_Tag                   => Ada_Tags,
 
      RE_Set_Specific_Handler             => Ada_Task_Termination,
      RE_Specific_Handler                 => Ada_Task_Termination,
@@ -2449,6 +2458,8 @@ package Rtsfind is
      RE_TC_Object                        => System_Partition_Interface,
 
      RE_Global_Pool_Object               => System_Pool_Global,
+
+     RE_Global_Pool_32_Object            => System_Pool_32_Global,
 
      RE_Stack_Bounded_Pool               => System_Pool_Size,
 

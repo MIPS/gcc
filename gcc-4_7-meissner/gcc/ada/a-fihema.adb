@@ -33,10 +33,9 @@ with Ada.Exceptions;          use Ada.Exceptions;
 with Ada.Unchecked_Conversion;
 with Ada.Unchecked_Deallocation;
 
-with GNAT.IO;                 use GNAT.IO;
-
 with System;                  use System;
 with System.Address_Image;
+with System.IO;               use System.IO;
 with System.Soft_Links;       use System.Soft_Links;
 with System.Storage_Elements; use System.Storage_Elements;
 with System.Storage_Pools;    use System.Storage_Pools;
@@ -45,6 +44,7 @@ package body Ada.Finalization.Heap_Management is
 
    Header_Size   : constant Storage_Count  := Node'Size / Storage_Unit;
    Header_Offset : constant Storage_Offset := Header_Size;
+   --  Comments needed???
 
    function Address_To_Node_Ptr is
      new Ada.Unchecked_Conversion (Address, Node_Ptr);
@@ -144,6 +144,7 @@ package body Ada.Finalization.Heap_Management is
       N.Prev := L;
 
       Unlock_Task.all;
+
    exception
       when others =>
          Unlock_Task.all;
@@ -230,6 +231,7 @@ package body Ada.Finalization.Heap_Management is
       end if;
 
       Unlock_Task.all;
+
    exception
       when others =>
          Unlock_Task.all;

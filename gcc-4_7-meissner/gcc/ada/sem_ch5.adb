@@ -746,14 +746,10 @@ package body Sem_Ch5 is
             if Safe_To_Capture_Value (N, Ent) then
 
                --  If simple variable on left side, warn if this assignment
-               --  blots out another one (rendering it useless) and note
-               --  location of assignment in case no one references value. We
-               --  only do this for source assignments, otherwise we can
-               --  generate bogus warnings when an assignment is rewritten as
-               --  another assignment, and gets tied up with itself.
-
-               --  Note: we don't use Record_Last_Assignment here, because we
-               --  have lots of other stuff to do under control of this test.
+               --  blots out another one (rendering it useless). We only do
+               --  this for source assignments, otherwise we can generate bogus
+               --  warnings when an assignment is rewritten as another
+               --  assignment, and gets tied up with itself.
 
                if Warn_On_Modified_Unread
                  and then Is_Assignable (Ent)
@@ -761,7 +757,6 @@ package body Sem_Ch5 is
                  and then In_Extended_Main_Source_Unit (Ent)
                then
                   Warn_On_Useless_Assignment (Ent, N);
-                  Set_Last_Assignment (Ent, Lhs);
                end if;
 
                --  If we are assigning an access type and the left side is an
@@ -803,6 +798,28 @@ package body Sem_Ch5 is
             end if;
          end;
       end if;
+
+      --  If assigning to an object in whole or in part, note location of
+      --  assignment in case no one references value. We only do this for
+      --  source assignments, otherwise we can generate bogus warnings when an
+      --  assignment is rewritten as another assignment, and gets tied up with
+      --  itself.
+
+      declare
+         Ent : constant Entity_Id := Get_Enclosing_Object (Lhs);
+
+      begin
+         if Present (Ent)
+           and then Safe_To_Capture_Value (N, Ent)
+           and then Nkind (N) = N_Assignment_Statement
+           and then Warn_On_Modified_Unread
+           and then Is_Assignable (Ent)
+           and then Comes_From_Source (N)
+           and then In_Extended_Main_Source_Unit (Ent)
+         then
+            Set_Last_Assignment (Ent, Lhs);
+         end if;
+      end;
    end Analyze_Assignment;
 
    -----------------------------
@@ -1113,7 +1130,6 @@ package body Sem_Ch5 is
       if Others_Present
         and then List_Length (Alternatives (N)) = 1
       then
-         Mark_Non_ALFA_Subprogram;
          Check_SPARK_Restriction
            ("OTHERS as unique case alternative is not allowed", N);
       end if;
@@ -1163,7 +1179,7 @@ package body Sem_Ch5 is
    --  loop. Otherwise there must be an innermost open loop on the stack, to
    --  which the statement implicitly refers.
 
-   --  Additionally, in formal mode:
+   --  Additionally, in SPARK mode:
 
    --    The exit can only name the closest enclosing loop;
 
@@ -1195,7 +1211,6 @@ package body Sem_Ch5 is
 
          else
             if Has_Loop_In_Inner_Open_Scopes (U_Name) then
-               Mark_Non_ALFA_Subprogram;
                Check_SPARK_Restriction
                  ("exit label must name the closest enclosing loop", N);
             end if;
@@ -1242,14 +1257,12 @@ package body Sem_Ch5 is
 
       if Present (Cond) then
          if Nkind (Parent (N)) /= N_Loop_Statement then
-            Mark_Non_ALFA_Subprogram;
             Check_SPARK_Restriction
               ("exit with when clause must be directly in loop", N);
          end if;
 
       else
          if Nkind (Parent (N)) /= N_If_Statement then
-            Mark_Non_ALFA_Subprogram;
             if Nkind (Parent (N)) = N_Elsif_Part then
                Check_SPARK_Restriction
                  ("exit must be in IF without ELSIF", N);
@@ -1258,22 +1271,19 @@ package body Sem_Ch5 is
             end if;
 
          elsif Nkind (Parent (Parent (N))) /= N_Loop_Statement then
-            Mark_Non_ALFA_Subprogram;
             Check_SPARK_Restriction
               ("exit must be in IF directly in loop", N);
 
-            --  First test the presence of ELSE, so that an exit in an ELSE
-            --  leads to an error mentioning the ELSE.
+         --  First test the presence of ELSE, so that an exit in an ELSE leads
+         --  to an error mentioning the ELSE.
 
          elsif Present (Else_Statements (Parent (N))) then
-            Mark_Non_ALFA_Subprogram;
             Check_SPARK_Restriction ("exit must be in IF without ELSE", N);
 
-            --  An exit in an ELSIF does not reach here, as it would have been
-            --  detected in the case (Nkind (Parent (N)) /= N_If_Statement).
+         --  An exit in an ELSIF does not reach here, as it would have been
+         --  detected in the case (Nkind (Parent (N)) /= N_If_Statement).
 
          elsif Present (Elsif_Parts (Parent (N))) then
-            Mark_Non_ALFA_Subprogram;
             Check_SPARK_Restriction ("exit must be in IF without ELSIF", N);
          end if;
       end if;
@@ -1302,7 +1312,6 @@ package body Sem_Ch5 is
       Label_Ent   : Entity_Id;
 
    begin
-      Mark_Non_ALFA_Subprogram;
       Check_SPARK_Restriction ("goto statement is not allowed", N);
 
       --  Actual semantic checks
@@ -2611,7 +2620,7 @@ package body Sem_Ch5 is
 
                   --  Now issue the warning (or error in formal mode)
 
-                  if SPARK_Mode or else Restriction_Check_Required (SPARK) then
+                  if Restriction_Check_Required (SPARK) then
                      Check_SPARK_Restriction
                        ("unreachable code is not allowed", Error_Node);
                   else

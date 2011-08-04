@@ -1397,10 +1397,12 @@ package Prj is
       In_Extended_Only : Boolean := False;
       Base_Name        : File_Name_Type;
       Index            : Int := 0) return Source_Id;
-   --  Find the first source file with the given name either in the whole tree
-   --  (if In_Imported_Only is False) or in the projects imported or extended
-   --  by Project otherwise. In_Extended_Only implies In_Imported_Only, and
-   --  will only look in Project and the projects it extends.
+   --  Find the first source file with the given name.
+   --  If In_Extended_Only is True, it will search in project and the project
+   --     it extends, but not in the imported projects.
+   --  Elsif In_Imported_Only is True, it will search in project and the
+   --     projects it imports, but not in the others or in aggregated projects.
+   --  Else it searches in the whole tree.
    --  If Index is specified, this only search for a source with that index.
 
    -----------------------
@@ -1437,6 +1439,17 @@ package Prj is
    --  own tree) and make the comparison of projects easier, all trees store
    --  the lists in the same tables.
 
+   type Project_Tree_Appdata is tagged null record;
+   type Project_Tree_Appdata_Access is access all Project_Tree_Appdata'Class;
+   --  Application-specific data that can be associated with a project tree.
+   --  We do not make the Project_Tree_Data itself tagged for several reasons:
+   --    - it couldn't have a default value for its discriminant
+   --    - it would require a "factory" to allocate such data, because trees
+   --      are created automatically when parsing aggregate projects.
+
+   procedure Free (Tree : in out Project_Tree_Appdata);
+   --  Should be overridden if your derive your own data
+
    type Project_Tree_Data (Is_Root_Tree : Boolean := True) is record
       --  The root tree is the one loaded by the user from the command line.
       --  Is_Root_Tree is only false for projects aggregated within a root
@@ -1472,6 +1485,9 @@ package Prj is
       Shared : Shared_Project_Tree_Data_Access;
       --  The shared data for this tree and all aggregated trees.
 
+      Appdata : Project_Tree_Appdata_Access;
+      --  Application-specific data for this tree
+
       case Is_Root_Tree is
          when True =>
             Shared_Data : aliased Shared_Project_Tree_Data;
@@ -1482,6 +1498,10 @@ package Prj is
       end case;
    end record;
    --  Data for a project tree
+
+   function Debug_Name (Tree : Project_Tree_Ref) return Name_Id;
+   --  If debug traces are activated, return an identitier for the project
+   --  tree. This modifies Name_Buffer.
 
    procedure Expect (The_Token : Token_Type; Token_Image : String);
    --  Check that the current token is The_Token. If it is not, then output
@@ -1504,6 +1524,14 @@ package Prj is
       Equal      => "=");
    --  A table that associates a project to a boolean. This is used to detect
    --  whether a project was already processed for instance.
+
+   generic
+      with procedure Action (Project : Project_Id; Tree : Project_Tree_Ref);
+   procedure For_Project_And_Aggregated
+     (Root_Project : Project_Id;
+      Root_Tree    : Project_Tree_Ref);
+   --  Execute Action for Root_Project and all its aggregated projects
+   --  recursively.
 
    generic
       type State is limited private;
@@ -1604,7 +1632,8 @@ package Prj is
       Error_On_Unknown_Language  : Boolean       := True;
       Require_Obj_Dirs           : Error_Warning := Error;
       Allow_Invalid_External     : Error_Warning := Error;
-      Missing_Source_Files       : Error_Warning := Error)
+      Missing_Source_Files       : Error_Warning := Error;
+      Ignore_Missing_With        : Boolean       := False)
       return Processing_Flags;
    --  Function used to create Processing_Flags structure
    --
@@ -1642,6 +1671,16 @@ package Prj is
    --  a source file mentioned in the Source_Files attributes is not actually
    --  found in the source directories. This also impacts errors for missing
    --  source directories.
+   --
+   --  If Ignore_Missing_With is True, then a "with" statement that cannot be
+   --  resolved will simply be ignored. However, in such a case, the flag
+   --  Incomplete_With in the project tree will be set to True.
+   --  This is meant for use by tools so that they can properly set the
+   --  project path in such a case:
+   --       * no "gnatls" found (so no default project path)
+   --       * user project sets Project.IDE'gnatls attribute to a cross gnatls
+   --       * user project also includes a "with" that can only be resolved
+   --         once we have found the gnatls
 
    Gprbuild_Flags : constant Processing_Flags;
    Gprclean_Flags : constant Processing_Flags;
@@ -1665,9 +1704,8 @@ package Prj is
    --  Does nothing if Debug.Debug_Flag_N is set
 
    procedure Delete_Temp_Config_Files (Project_Tree : Project_Tree_Ref);
-   --  Delete all temporary config files.
-   --  Does nothing if Debug.Debug_Flag_N is set or if Project_Tree is null.
-   --  This initially came from gnatmake
+   --  Delete all temporary config files. Does nothing if Debug.Debug_Flag_N is
+   --  set or if Project_Tree is null. This initially came from gnatmake
    --  ??? Should this be combined with Delete_All_Temp_Files above
 
    procedure Delete_Temporary_File
@@ -1675,8 +1713,8 @@ package Prj is
       Path   : Path_Name_Type);
    --  Delete a temporary file from the disk. The file is also removed from the
    --  list of temporary files to delete at the end of the program, in case
-   --  another program running on the same machine has recreated it.
-   --  Does nothing if Debug.Debug_Flag_N is set
+   --  another program running on the same machine has recreated it. Does
+   --  nothing if Debug.Debug_Flag_N is set
 
    Virtual_Prefix : constant String := "v$";
    --  The prefix for virtual extending projects. Because of the '$', which is
@@ -1708,8 +1746,8 @@ package Prj is
    procedure Debug_Increase_Indent
      (Str : String := ""; Str2 : Name_Id := No_Name);
    procedure Debug_Decrease_Indent (Str : String := "");
-   --  Increase or decrease the indentation level for debug traces.
-   --  This indentation level only affects output done through Debug_Output.
+   --  Increase or decrease the indentation level for debug traces. This
+   --  indentation level only affects output done through Debug_Output.
 
 private
 
@@ -1788,6 +1826,7 @@ private
       Require_Obj_Dirs           : Error_Warning;
       Allow_Invalid_External     : Error_Warning;
       Missing_Source_Files       : Error_Warning;
+      Ignore_Missing_With        : Boolean;
    end record;
 
    Gprbuild_Flags : constant Processing_Flags :=
@@ -1799,7 +1838,8 @@ private
       Error_On_Unknown_Language  => True,
       Require_Obj_Dirs           => Error,
       Allow_Invalid_External     => Error,
-      Missing_Source_Files       => Error);
+      Missing_Source_Files       => Error,
+      Ignore_Missing_With        => False);
 
    Gprclean_Flags : constant Processing_Flags :=
      (Report_Error               => null,
@@ -1810,7 +1850,8 @@ private
       Error_On_Unknown_Language  => True,
       Require_Obj_Dirs           => Warning,
       Allow_Invalid_External     => Error,
-      Missing_Source_Files       => Error);
+      Missing_Source_Files       => Error,
+      Ignore_Missing_With        => False);
 
    Gnatmake_Flags : constant Processing_Flags :=
      (Report_Error               => null,
@@ -1821,6 +1862,7 @@ private
       Error_On_Unknown_Language  => False,
       Require_Obj_Dirs           => Error,
       Allow_Invalid_External     => Error,
-      Missing_Source_Files       => Error);
+      Missing_Source_Files       => Error,
+      Ignore_Missing_With        => False);
 
 end Prj;

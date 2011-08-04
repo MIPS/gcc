@@ -888,7 +888,6 @@ package body Sem_Ch12 is
       Actual          : Node_Id;
       Formal          : Node_Id;
       Next_Formal     : Node_Id;
-      Temp_Formal     : Node_Id;
       Analyzed_Formal : Node_Id;
       Match           : Node_Id;
       Named           : Node_Id;
@@ -910,8 +909,15 @@ package body Sem_Ch12 is
       Num_Actuals    : Int := 0;
 
       Others_Present : Boolean := False;
+      Others_Choice  : Node_Id := Empty;
       --  In Ada 2005, indicates partial parametrization of a formal
       --  package. As usual an other association must be last in the list.
+
+      procedure Check_Overloaded_Formal_Subprogram (Formal : Entity_Id);
+      --  Apply RM 12.3 (9): if a formal subprogram is overloaded, the instance
+      --  cannot have a named association for it. AI05-0025 extends this rule
+      --  to formals of formal packages by AI05-0025, and it also applies to
+      --  box-initialized formals.
 
       function Matching_Actual
         (F   : Entity_Id;
@@ -945,6 +951,40 @@ package body Sem_Ch12 is
       --  correspondence between the two lists is not one-one. In addition to
       --  anonymous types, the presence a formal equality will introduce an
       --  implicit declaration for the corresponding inequality.
+
+      ----------------------------------------
+      -- Check_Overloaded_Formal_Subprogram --
+      ----------------------------------------
+
+      procedure Check_Overloaded_Formal_Subprogram (Formal : Entity_Id) is
+         Temp_Formal : Entity_Id;
+
+      begin
+         Temp_Formal := First (Formals);
+         while Present (Temp_Formal) loop
+            if Nkind (Temp_Formal) in N_Formal_Subprogram_Declaration
+              and then Temp_Formal /= Formal
+              and then
+                Chars (Defining_Unit_Name (Specification (Formal))) =
+                Chars (Defining_Unit_Name (Specification (Temp_Formal)))
+            then
+               if Present (Found_Assoc) then
+                  Error_Msg_N
+                    ("named association not allowed for overloaded formal",
+                     Found_Assoc);
+
+               else
+                  Error_Msg_N
+                    ("named association not allowed for overloaded formal",
+                     Others_Choice);
+               end if;
+
+               Abandon_Instantiation (Instantiation_Node);
+            end if;
+
+            Next (Temp_Formal);
+         end loop;
+      end Check_Overloaded_Formal_Subprogram;
 
       ---------------------
       -- Matching_Actual --
@@ -1131,6 +1171,7 @@ package body Sem_Ch12 is
          while Present (Actual) loop
             if Nkind (Actual) = N_Others_Choice then
                Others_Present := True;
+               Others_Choice  := Actual;
 
                if Present (Next (Actual)) then
                   Error_Msg_N ("others must be last association", Actual);
@@ -1293,24 +1334,7 @@ package body Sem_Ch12 is
                     and then Is_Named_Assoc
                     and then Comes_From_Source (Found_Assoc)
                   then
-                     Temp_Formal := First (Formals);
-                     while Present (Temp_Formal) loop
-                        if Nkind (Temp_Formal) in
-                             N_Formal_Subprogram_Declaration
-                          and then Temp_Formal /= Formal
-                          and then
-                            Chars (Selector_Name (Found_Assoc)) =
-                              Chars (Defining_Unit_Name
-                                       (Specification (Temp_Formal)))
-                        then
-                           Error_Msg_N
-                             ("name not allowed for overloaded formal",
-                              Found_Assoc);
-                           Abandon_Instantiation (Instantiation_Node);
-                        end if;
-
-                        Next (Temp_Formal);
-                     end loop;
+                     Check_Overloaded_Formal_Subprogram (Formal);
                   end if;
 
                   --  If there is no corresponding actual, this may be case of
@@ -1321,6 +1345,10 @@ package body Sem_Ch12 is
                     and then  Partial_Parametrization
                   then
                      Process_Default (Formal);
+                     if Nkind (I_Node) = N_Formal_Package_Declaration then
+                        Check_Overloaded_Formal_Subprogram (Formal);
+                     end if;
+
                   else
                      Append_To (Assoc,
                        Instantiate_Formal_Subprogram
@@ -2662,6 +2690,8 @@ package body Sem_Ch12 is
       Decl        : Node_Id;
 
    begin
+      Check_SPARK_Restriction ("generic is not allowed", N);
+
       --  We introduce a renaming of the enclosing package, to have a usable
       --  entity as the prefix of an expanded name for a local entity of the
       --  form Par.P.Q, where P is the generic package. This is because a local
@@ -2783,6 +2813,8 @@ package body Sem_Ch12 is
       Typ         : Entity_Id;
 
    begin
+      Check_SPARK_Restriction ("generic is not allowed", N);
+
       --  Create copy of generic unit, and save for instantiation. If the unit
       --  is a child unit, do not copy the specifications for the parent, which
       --  are not part of the generic tree.
@@ -2811,6 +2843,7 @@ package body Sem_Ch12 is
       Spec := Specification (N);
       Id := Defining_Entity (Spec);
       Generate_Definition (Id);
+      Set_Contract (Id, Make_Contract (Sloc (Id)));
 
       if Nkind (Id) = N_Defining_Operator_Symbol then
          Error_Msg_N
@@ -3022,6 +3055,8 @@ package body Sem_Ch12 is
    --  Start of processing for Analyze_Package_Instantiation
 
    begin
+      Check_SPARK_Restriction ("generic is not allowed", N);
+
       --  Very first thing: apply the special kludge for Text_IO processing
       --  in case we are instantiating one of the children of [Wide_]Text_IO.
 
@@ -3379,16 +3414,18 @@ package body Sem_Ch12 is
             end if;
          end;
 
-         --  If we are generating calling stubs, we never need a body for an
-         --  instantiation from source. However normal processing occurs for
-         --  any generic instantiation appearing in generated code, since we
-         --  do not generate stubs in that case.
+         --  Note that we generate the instance body even when generating
+         --  calling stubs for an RCI unit: it may be required e.g. if it
+         --  provides stream attributes for some type used in the profile of a
+         --  remote subprogram. If the instantiation is within the visible part
+         --  of the RCI, then calling stubs for any relevant subprogram will
+         --  be inserted immediately after the subprogram declaration, and
+         --  will take precedence over the subsequent (original) body. (The
+         --  stub and original body will be complete homographs, but this is
+         --  permitted in an instance).
 
-         if Distribution_Stub_Mode = Generate_Caller_Stub_Body
-              and then Comes_From_Source (N)
-         then
-            Needs_Body := False;
-         end if;
+         --  Could we do better and remove the original subprogram body in that
+         --  case???
 
          if Needs_Body then
 
@@ -4164,6 +4201,8 @@ package body Sem_Ch12 is
    --  Start of processing for Analyze_Subprogram_Instantiation
 
    begin
+      Check_SPARK_Restriction ("generic is not allowed", N);
+
       --  Very first thing: apply the special kludge for Text_IO processing
       --  in case we are instantiating one of the children of [Wide_]Text_IO.
       --  Of course such an instantiation is bogus (these are packages, not
@@ -4337,6 +4376,8 @@ package body Sem_Ch12 is
          end if;
 
          Generate_Definition (Act_Decl_Id);
+         Set_Contract (Anon_Id, Make_Contract (Sloc (Anon_Id))); -- ??? needed?
+         Set_Contract (Act_Decl_Id, Make_Contract (Sloc (Act_Decl_Id)));
 
          Set_Is_Inlined (Act_Decl_Id, Is_Inlined (Gen_Unit));
          Set_Is_Inlined (Anon_Id,     Is_Inlined (Gen_Unit));
@@ -6295,8 +6336,8 @@ package body Sem_Ch12 is
             end if;
          end if;
 
-         --  Do not copy the associated node, which points to
-         --  the generic copy of the aggregate.
+         --  Do not copy the associated node, which points to the generic copy
+         --  of the aggregate.
 
          declare
             use Atree.Unchecked_Access;
@@ -6310,9 +6351,9 @@ package body Sem_Ch12 is
             Set_Field5 (New_N, Copy_Generic_Descendant (Field5 (N)));
          end;
 
-      --  Allocators do not have an identifier denoting the access type,
-      --  so we must locate it through the expression to check whether
-      --  the views are consistent.
+      --  Allocators do not have an identifier denoting the access type, so we
+      --  must locate it through the expression to check whether the views are
+      --  consistent.
 
       elsif Nkind (N) = N_Allocator
         and then Nkind (Expression (N)) = N_Qualified_Expression
@@ -6373,16 +6414,13 @@ package body Sem_Ch12 is
       --  Don't copy Ident or Comment pragmas, since the comment belongs to the
       --  generic unit, not to the instantiating unit.
 
-      elsif Nkind (N) = N_Pragma
-        and then Instantiating
-      then
+      elsif Nkind (N) = N_Pragma and then Instantiating then
          declare
             Prag_Id : constant Pragma_Id := Get_Pragma_Id (N);
          begin
-            if Prag_Id = Pragma_Ident
-              or else Prag_Id = Pragma_Comment
-            then
+            if Prag_Id = Pragma_Ident or else Prag_Id = Pragma_Comment then
                New_N := Make_Null_Statement (Sloc (N));
+
             else
                Copy_Descendants;
             end if;
@@ -6411,10 +6449,10 @@ package body Sem_Ch12 is
       else
          Copy_Descendants;
 
-         if Instantiating
-           and then Nkind (N) = N_Subprogram_Body
-         then
+         if Instantiating and then Nkind (N) = N_Subprogram_Body then
             Set_Generic_Parent (Specification (New_N), N);
+
+            --  Should preserve Corresponding_Spec??? (12.3(14))
          end if;
       end if;
 
@@ -6455,9 +6493,7 @@ package body Sem_Ch12 is
                if Renamed_Object (E1) = Pack then
                   return True;
 
-               elsif E1 = P
-                 or else  Renamed_Object (E1) = P
-               then
+               elsif E1 = P or else  Renamed_Object (E1) = P then
                   return False;
 
                elsif Is_Actual_Of_Previous_Formal (E1) then
@@ -6479,7 +6515,7 @@ package body Sem_Ch12 is
            Instance_Envs.Table
              (Instance_Envs.Last).Instantiated_Parent.Act_Id;
       else
-         Par  := Current_Instantiated_Parent.Act_Id;
+         Par := Current_Instantiated_Parent.Act_Id;
       end if;
 
       if Ekind (Scop) = E_Generic_Package
@@ -6675,12 +6711,12 @@ package body Sem_Ch12 is
          end loop;
 
          --  At this point P1 and P2 are at the same distance from the root.
-         --  We examine their parents until we find a common declarative
-         --  list, at which point we can establish their relative placement
-         --  by comparing their ultimate slocs. If we reach the root,
-         --  N1 and N2 do not descend from the same declarative list (e.g.
-         --  one is nested in the declarative part and the other is in a block
-         --  in the statement part) and the earlier one is already frozen.
+         --  We examine their parents until we find a common declarative list,
+         --  at which point we can establish their relative placement by
+         --  comparing their ultimate slocs. If we reach the root, N1 and N2
+         --  do not descend from the same declarative list (e.g. one is nested
+         --  in the declarative part and the other is in a block in the
+         --  statement part) and the earlier one is already frozen.
 
          while not Is_List_Member (P1)
            or else not Is_List_Member (P2)
@@ -6814,9 +6850,9 @@ package body Sem_Ch12 is
                  In_Same_Declarative_Part (Freeze_Node (Par), Parent (Enc_I)))
          then
             --  The enclosing package may contain several instances. Rather
-            --  than computing the earliest point at which to insert its
-            --  freeze node, we place it at the end of the declarative part
-            --  of the parent of the generic.
+            --  than computing the earliest point at which to insert its freeze
+            --  node, we place it at the end of the declarative part of the
+            --  parent of the generic.
 
             Insert_After_Last_Decl
               (Freeze_Node (Par), Package_Freeze_Node (Enc_I));
@@ -6838,12 +6874,12 @@ package body Sem_Ch12 is
 
          --  Freeze package that encloses instance, and place node after
          --  package that encloses generic. If enclosing package is already
-         --  frozen we have to assume it is at the proper place. This may be
-         --  a potential ABE that requires dynamic checking. Do not add a
-         --  freeze node if the package that encloses the generic is inside
-         --  the body that encloses the instance, because the freeze node
-         --  would be in the wrong scope. Additional contortions needed if
-         --  the bodies are within a subunit.
+         --  frozen we have to assume it is at the proper place. This may be a
+         --  potential ABE that requires dynamic checking. Do not add a freeze
+         --  node if the package that encloses the generic is inside the body
+         --  that encloses the instance, because the freeze node would be in
+         --  the wrong scope. Additional contortions needed if the bodies are
+         --  within a subunit.
 
          declare
             Enclosing_Body : Node_Id;
@@ -6921,14 +6957,14 @@ package body Sem_Ch12 is
       --  investigated, and would allow this function to be significantly
       --  simplified. ???
 
-      if Present (Package_Instantiation (A)) then
-         if Nkind (Package_Instantiation (A)) = N_Package_Instantiation then
-            return Package_Instantiation (A);
+      Inst := Package_Instantiation (A);
 
-         elsif Nkind (Original_Node (Package_Instantiation (A))) =
-                                                   N_Package_Instantiation
-         then
-            return Original_Node (Package_Instantiation (A));
+      if Present (Inst) then
+         if Nkind (Inst) = N_Package_Instantiation then
+            return Inst;
+
+         elsif Nkind (Original_Node (Inst)) = N_Package_Instantiation then
+            return Original_Node (Inst);
          end if;
       end if;
 
@@ -7034,9 +7070,7 @@ package body Sem_Ch12 is
       --  now we depend on the user not redefining Standard itself in one of
       --  the parent units.
 
-      if Is_Immediately_Visible (C)
-        and then C /= Standard_Standard
-      then
+      if Is_Immediately_Visible (C) and then C /= Standard_Standard then
          Set_Is_Immediately_Visible (C, False);
          Append_Elmt (C, Hidden_Entities);
       end if;
@@ -7143,10 +7177,9 @@ package body Sem_Ch12 is
             --  might produce false positives in rare cases, but guarantees
             --  that we produce all the instance bodies we will need.
 
-            if (Is_Entity_Name (Nam)
-                 and then Chars (Nam) = Chars (E))
-              or else (Nkind (Nam) = N_Selected_Component
-                        and then Chars (Selector_Name (Nam)) = Chars (E))
+            if (Is_Entity_Name (Nam) and then Chars (Nam) = Chars (E))
+                 or else (Nkind (Nam) = N_Selected_Component
+                           and then Chars (Selector_Name (Nam)) = Chars (E))
             then
                return True;
             end if;
@@ -7321,8 +7354,8 @@ package body Sem_Ch12 is
 
    begin
 
-      --  If the body is a subunit, the freeze point is the corresponding
-      --  stub in the current compilation, not the subunit itself.
+      --  If the body is a subunit, the freeze point is the corresponding stub
+      --  in the current compilation, not the subunit itself.
 
       if Nkind (Parent (Gen_Body)) = N_Subunit then
          Orig_Body := Corresponding_Stub (Parent (Gen_Body));
@@ -12446,26 +12479,6 @@ package body Sem_Ch12 is
                --  All other cases than aggregates
 
                else
-                  --  For pragmas, we propagate the Enabled status for the
-                  --  relevant pragmas to the original generic tree. This was
-                  --  originally needed for SCO generation. It is no longer
-                  --  needed there (since we use the Sloc value in calls to
-                  --  Set_SCO_Pragma_Enabled), but it seems a generally good
-                  --  idea to have this flag set properly.
-
-                  if Nkind (N) = N_Pragma
-                    and then
-                      (Pragma_Name (N) = Name_Assert       or else
-                       Pragma_Name (N) = Name_Check        or else
-                       Pragma_Name (N) = Name_Precondition or else
-                       Pragma_Name (N) = Name_Postcondition)
-                    and then Present (Associated_Node (Pragma_Identifier (N)))
-                  then
-                     Set_Pragma_Enabled (N,
-                       Pragma_Enabled
-                         (Parent (Associated_Node (Pragma_Identifier (N)))));
-                  end if;
-
                   Save_Global_Descendant (Field1 (N));
                   Save_Global_Descendant (Field2 (N));
                   Save_Global_Descendant (Field3 (N));

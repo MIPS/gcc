@@ -5022,27 +5022,6 @@ package body Exp_Ch3 is
                   Set_Homonym (Defining_Identifier (N), Homonym (Def_Id));
                   Exchange_Entities (Defining_Identifier (N), Def_Id);
                end;
-
-            --  Handle initialization of class-wide interface object in VM
-            --  targets
-
-            elsif not Tagged_Type_Expansion then
-
-               --  Replace
-               --     CW : I'Class := Obj;
-               --  by
-               --     CW : I'Class;
-               --     CW := I'Class (Obj); [1]
-
-               --  The assignment [1] is later expanded in a dispatching
-               --  call to _assign
-
-               Set_Expression (N, Empty);
-
-               Insert_Action (N,
-                 Make_Assignment_Statement (Loc,
-                   Name       => New_Reference_To (Def_Id, Loc),
-                   Expression => Convert_To (Typ, Relocate_Node (Expr))));
             end if;
 
             return;
@@ -5576,6 +5555,12 @@ package body Exp_Ch3 is
       if Restriction_Active (No_Finalization) then
          return;
 
+      --  Do not create TSS routine Finalize_Address when dispatching calls are
+      --  disabled since the core of the routine is a dispatching call.
+
+      elsif Restriction_Active (No_Dispatching_Calls) then
+         return;
+
       --  Do not create TSS routine Finalize_Address for concurrent class-wide
       --  types. Ignore C, C++, CIL and Java types since it is assumed that the
       --  non-Ada side will handle their destruction.
@@ -5588,16 +5573,16 @@ package body Exp_Ch3 is
       then
          return;
 
-      --  Do not create TSS routine Finalize_Address when dispatching calls are
-      --  disabled since the core of the routine is a dispatching call.
-
-      elsif Restriction_Active (No_Dispatching_Calls) then
-         return;
-
       --  Do not create TSS routine Finalize_Address for .NET/JVM because these
       --  targets do not support address arithmetic and unchecked conversions.
 
       elsif VM_Target /= No_VM then
+         return;
+
+      --  Do not create TSS routine Finalize_Address when compiling in CodePeer
+      --  mode since the routine contains an Unchecked_Conversion.
+
+      elsif CodePeer_Mode then
          return;
       end if;
 
@@ -6164,6 +6149,9 @@ package body Exp_Ch3 is
                if not Building_Static_DT (Def_Id) then
                   Append_Freeze_Actions (Def_Id, Make_DT (Def_Id));
                end if;
+
+            elsif VM_Target /= No_VM then
+               Append_Freeze_Actions (Def_Id, Make_VM_TSD (Def_Id));
             end if;
 
             --  If the type has unknown discriminants, propagate dispatching
@@ -9069,6 +9057,7 @@ package body Exp_Ch3 is
         and then not Restriction_Active (No_Dispatch)
         and then not No_Run_Time_Mode
         and then RTE_Available (RE_Tag)
+        and then No (Type_Without_Stream_Operation (Typ))
         and then RTE_Available (RE_Root_Stream_Type)
         and then not Is_RTE (Typ, RE_Finalization_Collection);
    end Stream_Operation_OK;

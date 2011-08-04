@@ -203,6 +203,7 @@ Implementation Defined Pragmas
 * Pragma Task_Info::
 * Pragma Task_Name::
 * Pragma Task_Storage::
+* Pragma Test_Case::
 * Pragma Thread_Local_Storage::
 * Pragma Time_Slice::
 * Pragma Title::
@@ -835,6 +836,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Task_Info::
 * Pragma Task_Name::
 * Pragma Task_Storage::
+* Pragma Test_Case::
 * Pragma Thread_Local_Storage::
 * Pragma Time_Slice::
 * Pragma Title::
@@ -984,7 +986,7 @@ same syntax and effect.
 @noindent
 Syntax:
 @smallexample @c ada
-pragma Annotate (IDENTIFIER [,IDENTIFIER] @{, ARG@});
+pragma Annotate (IDENTIFIER [,IDENTIFIER @{, ARG@}]);
 
 ARG ::= NAME | EXPRESSION
 @end smallexample
@@ -1003,8 +1005,11 @@ All other kinds of arguments are analyzed as expressions, and must be
 unambiguous.
 
 The analyzed pragma is retained in the tree, but not otherwise processed
-by any part of the GNAT compiler.  This pragma is intended for use by
-external tools, including ASIS@.
+by any part of the GNAT compiler, except to generate corresponding note
+lines in the generated ALI file. For the format of these note lines, see
+the compiler source file lib-writ.ads. This pragma is intended for use by
+external tools, including ASIS@. The use of pragma Annotate does not
+affect the compilation process in any way.
 
 @node Pragma Assert
 @unnumberedsec Pragma Assert
@@ -3964,7 +3969,7 @@ In addition, the boolean expression which is the condition which
 must be true may contain references to function'Result in the case
 of a function to refer to the returned value.
 
-@code{Postcondition} pragmas may appear either immediate following the
+@code{Postcondition} pragmas may appear either immediately following the
 (separate) declaration of a subprogram, or at the start of the
 declarations of a subprogram body. Only other pragmas may intervene
 (that is appear between the subprogram declaration and its
@@ -4130,7 +4135,7 @@ end Math_Functions;
 @end smallexample
 
 @noindent
-@code{Precondition} pragmas may appear either immediate following the
+@code{Precondition} pragmas may appear either immediately following the
 (separate) declaration of a subprogram, or at the start of the
 declarations of a subprogram body. Only other pragmas may intervene
 (that is appear between the subprogram declaration and its
@@ -4175,20 +4180,20 @@ the ceiling priority of the corresponding protected object.
 plus the following set of restrictions:
 
 @table @code
-@item Max_Entry_Queue_Length = 1
+@item Max_Entry_Queue_Length => 1
 Defines the maximum number of calls that are queued on a (protected) entry.
 Note that this restrictions is checked at run time. Violation of this
 restriction results in the raising of Program_Error exception at the point of
 the call. For the Profile (Ravenscar) the value of Max_Entry_Queue_Length is
 always 1 and hence no task can be queued on a protected entry.
 
-@item Max_Protected_Entries = 1
+@item Max_Protected_Entries => 1
 [RM D.7] Specifies the maximum number of entries per protected type. The
 bounds of every entry family of a protected unit shall be static, or shall be
 defined by a discriminant of a subtype whose corresponding bound is static.
 For the Profile (Ravenscar) the value of Max_Protected_Entries is always 1.
 
-@item Max_Task_Entries = 0
+@item Max_Task_Entries => 0
 [RM D.7] Specifies the maximum number of entries
 per task.  The bounds of every entry family
 of a task unit shall be static, or shall be
@@ -4201,13 +4206,6 @@ the Profile (Ravenscar), the value of Max_Task_Entries is always
 @item No_Abort_Statements
 [RM D.7] There are no abort_statements, and there are
 no calls to Task_Identification.Abort_Task.
-
-@item No_Asynchronous_Control
-There are no semantic dependences on the package
-Asynchronous_Task_Control.
-
-@item No_Calendar
-There are no semantic dependencies on the package Ada.Calendar.
 
 @item No_Dynamic_Attachment
 There is no call to any of the operations defined in package Ada.Interrupts
@@ -4249,9 +4247,6 @@ or to Ada.Task_Termination.Specific_Handler.
 [RM D.7] There are no allocators for task types
 or types containing task subcomponents.
 
-@item No_Task_Attributes_Package
-There are no semantic dependencies on the Ada.Task_Attributes package.
-
 @item No_Task_Hierarchy
 [RM D.7] All (non-environment) tasks depend
 directly on the environment task of the partition.
@@ -4259,19 +4254,28 @@ directly on the environment task of the partition.
 @item No_Task_Termination
 Tasks which terminate are erroneous.
 
-@item No_Unchecked_Conversion
-There are no semantic dependencies on the Ada.Unchecked_Conversion package.
-
-@item No_Unchecked_Deallocation
-There are no semantic dependencies on the Ada.Unchecked_Deallocation package.
-
 @item Simple_Barriers
 Entry barrier condition expressions shall be either static
 boolean expressions or boolean objects which are declared in
 the protected type which contains the entry.
 @end table
+@noindent
+
+The Ravenscar profile also includes the following restrictions that specify
+that there are no semantic dependences on the corresponding predefined
+packages:
+
+@table @code
+@item No_Dependence => Ada.Asynchronous_Task_Control
+@item No_Dependence => Ada.Calendar
+@item No_Dependence => Ada.Execution_Time.Group_Budget
+@item No_Dependence => Ada.Execution_Time.Timers
+@item No_Dependence => Ada.Task_Attributes
+@item No_Dependence => System.Multiprocessors.Dispatching_Domains
+@end table
 
 @noindent
+
 This set of configuration pragmas and restrictions correspond to the
 definition of the ``Ravenscar Profile'' for limited tasking, devised and
 published by the @cite{International Real-Time Ada Workshop}, 1997,
@@ -5004,6 +5008,61 @@ means that either no guard area is created or a minimal guard area is
 created, depending on the target.  This pragma can appear anywhere a
 @code{Storage_Size} attribute definition clause is allowed for a task
 type.
+
+@node Pragma Test_Case
+@unnumberedsec Pragma Test_Case
+@cindex Test cases
+@findex Test_Case
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Test_Case (
+   [Name     =>] static_string_Expression
+  ,[Mode     =>] (Normal | Robustness)
+ [, Requires =>  Boolean_Expression]
+ [, Ensures  =>  Boolean_Expression]);
+@end smallexample
+
+@noindent
+The @code{Test_Case} pragma allows defining fine-grain specifications
+for use by testing and verification tools. The compiler only checks its
+validity but the presence of pragma @code{Test_Case} does not lead to
+any modification of the code generated by the compiler.
+
+@code{Test_Case} pragmas may only appear immediately following the
+(separate) declaration of a subprogram. Only other pragmas may intervene
+(that is appear between the subprogram declaration and its
+postconditions).
+
+The compiler checks that boolean expression given in @code{Requires} and
+@code{Ensures} are valid, where the rules for @code{Requires} are the
+same as the rule for an expression in @code{Precondition} and the rules
+for @code{Ensures} are the same as the rule for an expression in
+@code{Postcondition}. In particular, attributes @code{'Old} and
+@code{'Result} can only be used within the @code{Ensures}
+expression. The following is an example of use within a package spec:
+
+@smallexample @c ada
+package Math_Functions is
+   ...
+   function Sqrt (Arg : Float) return Float;
+   pragma Test_Case (Name     => "Test 1",
+                     Mode     => Normal,
+                     Requires => Arg < 100,
+                     Ensures  => Sqrt'Result < 10);
+   ...
+end Math_Functions;
+@end smallexample
+
+@noindent
+The meaning of a test case is that, if the associated subprogram is
+executed in a context where @code{Requires} holds, then @code{Ensures}
+should hold when the subprogram returns. Mode @code{Normal} indicates
+that the input context should satisfy the normal precondition of the
+subprogram, and the output context should then satisfy its
+postcondition. More @code{Robustness} indicates that the normal pre- and
+postcondition of the subprogram should be ignored for this test case.
 
 @node Pragma Thread_Local_Storage
 @unnumberedsec Pragma Thread_Local_Storage
@@ -16587,6 +16646,7 @@ A complete description of the AIs may be found in
 @item @code{Stream_Size} @tab
 @item @code{Suppress} @tab
 @item @code{Suppress_Debug_Info} @tab           -- GNAT
+@item @code{Test_Case} @tab                     -- GNAT
 @item @code{Unchecked_Union} @tab
 @item @code{Universal_Aliasing} @tab            -- GNAT
 @item @code{Unmodified} @tab                    -- GNAT
@@ -17940,7 +18000,7 @@ A complete description of the AIs may be found in
 
 @item
 @emph{AI-0216 No_Task_Hierarchy forbids local tasks (0000-00-00)}
-@cindex AI-0216 (Ada 2012 feature)
+@cindex AI05-0216 (Ada 2012 feature)
 
 @noindent
   It is clearly the intention that @code{No_Task_Hierarchy} is intended to

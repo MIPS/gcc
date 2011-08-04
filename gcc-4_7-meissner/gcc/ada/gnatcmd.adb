@@ -41,6 +41,7 @@ with Prj.Ext;  use Prj.Ext;
 with Prj.Pars;
 with Prj.Tree; use Prj.Tree;
 with Prj.Util; use Prj.Util;
+with Sdefault;
 with Sinput.P;
 with Snames;   use Snames;
 with Table;
@@ -1291,8 +1292,9 @@ procedure GNATCmd is
    begin
       Makeutl.Test_If_Relative_Path
         (Switch, Parent,
-         Do_Fail => Osint.Fail'Access,
-         Including_Non_Switch => False, Including_RTS => True);
+         Do_Fail              => Osint.Fail'Access,
+         Including_Non_Switch => False,
+         Including_RTS        => True);
    end Test_If_Relative_Path;
 
    -------------------
@@ -1359,7 +1361,8 @@ begin
 
    Prj.Tree.Initialize (Root_Environment, Gnatmake_Flags);
    Prj.Env.Initialize_Default_Project_Path
-     (Root_Environment.Project_Path, Target_Name => "");
+     (Root_Environment.Project_Path,
+      Target_Name => Sdefault.Target_Name.all);
 
    Project_Node_Tree := new Project_Node_Tree_Data;
    Prj.Tree.Initialize (Project_Node_Tree);

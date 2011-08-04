@@ -51,6 +51,11 @@ extern "C" {
 #include "cacheLib.h"
 #endif /* __mips_vxworks */
 
+/* If SMP, access vxCpuConfiguredGet */
+#ifdef _WRS_CONFIG_SMP
+#include <vxCpuLib.h>
+#endif /* _WRS_CONFIG_SMP */
+
 #endif /* VxWorks */
 
 #if (defined (__mips) && defined (__sgi)) || defined (__APPLE__)
@@ -1177,13 +1182,15 @@ __gnat_tmp_name (char *tmp_filename)
 #elif defined (__MINGW32__)
   {
     char *pname;
+    char prefix[25];
 
     /* tempnam tries to create a temporary file in directory pointed to by
        TMP environment variable, in c:\temp if TMP is not set, and in
        directory specified by P_tmpdir in stdio.h if c:\temp does not
        exist. The filename will be created with the prefix "gnat-".  */
 
-    pname = (char *) tempnam ("c:\\temp", "gnat-");
+    sprintf (prefix, "gnat-%d-", (int)getpid());
+    pname = (char *) _tempnam ("c:\\temp", prefix);
 
     /* if pname is NULL, the file was not created properly, the disk is full
        or there is no more free temporary files */
@@ -2440,6 +2447,12 @@ __gnat_number_of_cpus (void)
   status = LIB$GETSYI (&code, &res);
   if ((status & 1) != 0)
     cores = res;
+
+#elif defined (_WRS_CONFIG_SMP)
+  unsigned int vxCpuConfiguredGet (void);
+
+  cores = vxCpuConfiguredGet ();
+
 #endif
 
   return cores;

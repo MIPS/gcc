@@ -434,7 +434,6 @@ package body Sem_Ch11 is
       P              : Node_Id;
 
    begin
-      Mark_Non_ALFA_Subprogram;
       Check_SPARK_Restriction ("raise statement is not allowed", N);
       Check_Unreachable_Code (N);
 
@@ -588,8 +587,9 @@ package body Sem_Ch11 is
             return Same_Expression (Right_Opnd (C1), Right_Opnd (C2));
 
          elsif Nkind (C1) in N_Binary_Op then
-            return Same_Expression (Left_Opnd (C1), Left_Opnd (C2))
-              and then Same_Expression (Right_Opnd (C1), Right_Opnd (C2));
+            return Same_Expression (Left_Opnd (C1),  Left_Opnd (C2))
+                     and then
+                   Same_Expression (Right_Opnd (C1), Right_Opnd (C2));
 
          elsif Nkind (C1) = N_Null then
             return True;

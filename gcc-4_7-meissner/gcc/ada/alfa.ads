@@ -133,9 +133,17 @@ package ALFA is
    --      entity-number and identity identify a scope entity in FS lines for
    --      the file previously identified.
 
-   --    line col entity ref*
+   --    line typ col entity ref*
 
    --      line is the line number of the referenced entity
+
+   --      typ is the type of the referenced entity, using a code similar to
+   --      the one used for cross-references:
+
+   --        > = IN parameter
+   --        < = OUT parameter
+   --        = = IN OUT parameter
+   --        * = all other cases
 
    --      col is the column number of the referenced entity
 
@@ -185,6 +193,13 @@ package ALFA is
 
       Entity_Line : Nat;
       --  Line number for the entity referenced
+
+      Etype : Character;
+      --  Indicates type of entity, using code used in ALI file:
+      --    > = IN parameter
+      --    < = OUT parameter
+      --    = = IN OUT parameter
+      --    * = all other cases
 
       Entity_Col : Nat;
       --  Column number for the entity referenced
@@ -316,19 +331,12 @@ package ALFA is
    -- Subprograms --
    -----------------
 
-   procedure dalfa;
-   --  Debug routine to dump internal ALFA tables. This is a raw format dump
-   --  showing exactly what the tables contain.
-
    procedure Initialize_ALFA_Tables;
    --  Reset tables for a new compilation
 
-   function Get_Entity_For_Decl (N : Node_Id) return Entity_Id;
-   --  Return the entity for declaration N
-
-   function Get_Unique_Entity_For_Decl (N : Node_Id) return Entity_Id;
-   --  Return the entity which represents declaration N, so that matching
-   --  declaration and body have the same entity.
+   procedure dalfa;
+   --  Debug routine to dump internal ALFA tables. This is a raw format dump
+   --  showing exactly what the tables contain.
 
    procedure palfa;
    --  Debugging procedure to output contents of ALFA binary tables in the

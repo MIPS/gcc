@@ -3736,7 +3736,13 @@ package body Sem_Res is
                --  Is_OK_Variable_For_Out_Formal generates the required
                --  reference in this case.
 
-               if not Is_OK_Variable_For_Out_Formal (A) then
+               --  A call to an initialization procedure for an aggregate
+               --  component may initialize a nested component of a constant
+               --  designated object. In this context the object is variable.
+
+               if not Is_OK_Variable_For_Out_Formal (A)
+                 and then not Is_Init_Proc (Nam)
+               then
                   Error_Msg_NE ("actual for& must be a variable", A, F);
                end if;
 
@@ -3965,9 +3971,14 @@ package body Sem_Res is
             Eval_Actual (A);
 
             --  If it is a named association, treat the selector_name as a
-            --  proper identifier, and mark the corresponding entity.
+            --  proper identifier, and mark the corresponding entity. Ignore
+            --  this reference in ALFA mode, as it refers to an entity not in
+            --  scope at the point of reference, so the reference should be
+            --  ignored for computing effects of subprograms.
 
-            if Nkind (Parent (A)) = N_Parameter_Association then
+            if Nkind (Parent (A)) = N_Parameter_Association
+              and then not ALFA_Mode
+            then
                Set_Entity (Selector_Name (Parent (A)), F);
                Generate_Reference (F, Selector_Name (Parent (A)));
                Set_Etype (Selector_Name (Parent (A)), F_Typ);
@@ -4301,6 +4312,15 @@ package body Sem_Res is
          Check_Restriction (No_Anonymous_Allocators, N);
       end if;
 
+      --  Check that an allocator with task parts isn't for a nested access
+      --  type when restriction No_Task_Hierarchy applies.
+
+      if not Is_Library_Level_Entity (Base_Type (Typ))
+        and then Has_Task (Base_Type (Designated_Type (Typ)))
+      then
+         Check_Restriction (No_Task_Hierarchy, N);
+      end if;
+
       --  An erroneous allocator may be rewritten as a raise Program_Error
       --  statement.
 
@@ -4326,6 +4346,21 @@ package body Sem_Res is
             Set_Is_Dynamic_Coextension (N, False);
             Set_Is_Static_Coextension  (N, False);
          end if;
+      end if;
+
+      --  Report a simple error:  if the designated object is a local task,
+      --  its body has not been seen yet, and its activation will fail
+      --  an elaboration check.
+
+      if Is_Task_Type (Designated_Type (Typ))
+        and then Scope (Base_Type (Designated_Type (Typ))) = Current_Scope
+        and then Is_Compilation_Unit (Current_Scope)
+        and then Ekind (Current_Scope) = E_Package
+        and then not In_Package_Body (Current_Scope)
+      then
+         Error_Msg_N
+           ("cannot activate task before body seen?", N);
+         Error_Msg_N ("\Program_Error will be raised at run time?", N);
       end if;
    end Resolve_Allocator;
 
@@ -5261,6 +5296,9 @@ package body Sem_Res is
                      --  decrease false positives, without losing too many good
                      --  warnings. The idea is that these previous statements
                      --  may affect global variables the procedure depends on.
+                     --  We also exclude raise statements, that may arise from
+                     --  constraint checks and are probably unrelated to the
+                     --  intended control flow.
 
                      if Nkind (N) = N_Procedure_Call_Statement
                        and then Is_List_Member (N)
@@ -5270,7 +5308,10 @@ package body Sem_Res is
                         begin
                            P := Prev (N);
                            while Present (P) loop
-                              if Nkind (P) /= N_Assignment_Statement then
+                              if not Nkind_In (P,
+                                N_Assignment_Statement,
+                                N_Raise_Constraint_Error)
+                              then
                                  exit Scope_Loop;
                               end if;
 
@@ -5796,21 +5837,14 @@ package body Sem_Res is
       --  types or array types except String.
 
       if Is_Boolean_Type (T) then
-         Mark_Non_ALFA_Subprogram;
          Check_SPARK_Restriction
            ("comparison is not defined on Boolean type", N);
 
-      elsif Is_Array_Type (T) then
-         Mark_Non_ALFA_Subprogram;
-
-         if Base_Type (T) /= Standard_String then
-            Check_SPARK_Restriction
-              ("comparison is not defined on array types other than String",
-               N);
-         end if;
-
-      else
-         null;
+      elsif Is_Array_Type (T)
+        and then Base_Type (T) /= Standard_String
+      then
+         Check_SPARK_Restriction
+           ("comparison is not defined on array types other than String", N);
       end if;
 
       --  Check comparison on unordered enumeration
@@ -5858,10 +5892,6 @@ package body Sem_Res is
       else
          Error_Msg_N ("can only omit ELSE expression in Boolean case", N);
          Append_To (Expressions (N), Error);
-      end if;
-
-      if Root_Type (Typ) /= Standard_Boolean then
-         Mark_Non_ALFA_Subprogram;
       end if;
 
       Set_Etype (N, Typ);
@@ -6664,8 +6694,6 @@ package body Sem_Res is
          --  operands have equal static bounds.
 
          if Is_Array_Type (T) then
-            Mark_Non_ALFA_Subprogram;
-
             --  Protect call to Matching_Static_Array_Bounds to avoid costly
             --  operation if not needed.
 
@@ -7022,6 +7050,28 @@ package body Sem_Res is
       Arg1    : Node_Id;
       Arg2    : Node_Id;
 
+      function Convert_Operand (Opnd : Node_Id) return Node_Id;
+      --  If the operand is a literal, it cannot be the expression in a
+      --  conversion. Use a qualified expression instead.
+
+      function Convert_Operand (Opnd : Node_Id) return Node_Id is
+         Loc : constant Source_Ptr := Sloc (Opnd);
+         Res : Node_Id;
+      begin
+         if Nkind_In (Opnd, N_Integer_Literal, N_Real_Literal) then
+            Res :=
+              Make_Qualified_Expression (Loc,
+                Subtype_Mark => New_Occurrence_Of (Btyp, Loc),
+                Expression   => Relocate_Node (Opnd));
+            Analyze (Res);
+
+         else
+            Res := Unchecked_Convert_To (Btyp, Opnd);
+         end if;
+
+         return Res;
+      end Convert_Operand;
+
    begin
       --  We must preserve the original entity in a generic setting, so that
       --  the legality of the operation can be verified in an instance.
@@ -7044,12 +7094,13 @@ package body Sem_Res is
       --  type.
 
       if Is_Private_Type (Typ) then
-         Arg1 := Unchecked_Convert_To (Btyp, Left_Opnd  (N));
+         Arg1 := Convert_Operand (Left_Opnd (N));
+         --  Unchecked_Convert_To (Btyp, Left_Opnd  (N));
 
          if Nkind (N) = N_Op_Expon then
             Arg2 := Unchecked_Convert_To (Standard_Integer, Right_Opnd (N));
          else
-            Arg2 := Unchecked_Convert_To (Btyp, Right_Opnd (N));
+            Arg2 := Convert_Operand (Right_Opnd (N));
          end if;
 
          if Nkind (Arg1) = N_Type_Conversion then
@@ -7214,11 +7265,10 @@ package body Sem_Res is
       if Is_Array_Type (B_Typ)
         and then Nkind (N) in N_Binary_Op
       then
-         Mark_Non_ALFA_Subprogram;
-
          declare
             Left_Typ  : constant Node_Id := Etype (Left_Opnd (N));
             Right_Typ : constant Node_Id := Etype (Right_Opnd (N));
+
          begin
             --  Protect call to Matching_Static_Array_Bounds to avoid costly
             --  operation if not needed.

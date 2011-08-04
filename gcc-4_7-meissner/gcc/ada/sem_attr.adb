@@ -217,6 +217,8 @@ package body Sem_Attr is
       --  actual, then the message is a warning, and we generate code to raise
       --  program error with an appropriate reason. No error message is given
       --  for internally generated uses of the attributes.
+      --  The legality rule only applies to scalar types, even though the
+      --  current AI mentions all subtypes.
 
       procedure Check_Array_Or_Scalar_Type;
       --  Common procedure used by First, Last, Range attribute to check
@@ -295,9 +297,6 @@ package body Sem_Attr is
       procedure Check_Integer_Type;
       --  Verify that prefix of attribute N is an integer type
 
-      procedure Check_Library_Unit;
-      --  Verify that prefix of attribute N is a library unit
-
       procedure Check_Modular_Integer_Type;
       --  Verify that prefix of attribute N is a modular integer type
 
@@ -344,8 +343,8 @@ package body Sem_Attr is
       --  itself of the form of a library unit name. Note that this is
       --  quite different from Check_Program_Unit, since it only checks
       --  the syntactic form of the name, not the semantic identity. This
-      --  is because it is used with attributes (Elab_Body, Elab_Spec, and
-      --  UET_Address) which can refer to non-visible unit.
+      --  is because it is used with attributes (Elab_Body, Elab_Spec,
+      --  UET_Address and Elaborated) which can refer to non-visible unit.
 
       procedure Error_Attr (Msg : String; Error_Node : Node_Id);
       pragma No_Return (Error_Attr);
@@ -843,7 +842,9 @@ package body Sem_Attr is
 
       procedure Bad_Attribute_For_Predicate is
       begin
-         if Comes_From_Source (N) then
+         if Is_Scalar_Type (P_Type)
+           and then  Comes_From_Source (N)
+         then
             Error_Msg_Name_1 := Aname;
             Bad_Predicated_Subtype_Use
               ("type& has predicates, attribute % not allowed", N, P_Type);
@@ -1302,17 +1303,6 @@ package body Sem_Attr is
          end if;
       end Check_Integer_Type;
 
-      ------------------------
-      -- Check_Library_Unit --
-      ------------------------
-
-      procedure Check_Library_Unit is
-      begin
-         if not Is_Compilation_Unit (Entity (P)) then
-            Error_Attr_P ("prefix of % attribute must be library unit");
-         end if;
-      end Check_Library_Unit;
-
       --------------------------------
       -- Check_Modular_Integer_Type --
       --------------------------------
@@ -1643,6 +1633,39 @@ package body Sem_Attr is
             Check_Restriction (No_Streams, P);
          end if;
 
+         --  AI05-0057: if restriction No_Default_Stream_Attributes is active,
+         --  it is illegal to use a predefined elementary type stream attribute
+         --  either by itself, or more importantly as part of the attribute
+         --  subprogram for a composite type.
+
+         if Restriction_Active (No_Default_Stream_Attributes) then
+            declare
+               T : Entity_Id;
+            begin
+               if Nam = TSS_Stream_Input
+                 or else Nam = TSS_Stream_Read
+               then
+                  T :=
+                    Type_Without_Stream_Operation (P_Type, TSS_Stream_Read);
+               else
+                  T :=
+                    Type_Without_Stream_Operation (P_Type, TSS_Stream_Write);
+               end if;
+
+               if Present (T) then
+                  Check_Restriction (No_Default_Stream_Attributes, N);
+
+                  Error_Msg_NE
+                    ("missing user-defined Stream Read or Write for type&",
+                      N, T);
+                  if not Is_Elementary_Type (P_Type) then
+                     Error_Msg_NE
+                     ("\which is a component of type&", N, P_Type);
+                  end if;
+               end if;
+            end;
+         end if;
+
          --  Check special case of Exception_Id and Exception_Occurrence which
          --  are not allowed for restriction No_Exception_Registration.
 
@@ -1761,7 +1784,7 @@ package body Sem_Attr is
          if Nkind (Nod) = N_Identifier then
             return;
 
-         elsif Nkind (Nod) = N_Selected_Component then
+         elsif Nkind_In (Nod, N_Selected_Component, N_Expanded_Name) then
             Check_Unit_Name (Prefix (Nod));
 
             if Nkind (Selector_Name (Nod)) = N_Identifier then
@@ -2078,8 +2101,7 @@ package body Sem_Attr is
         and then not In_Open_Scopes (Scope (P_Type))
         and then not In_Spec_Expression
       then
-         Error_Msg_Node_1 := First_Subtype (P_Type);
-         Check_SPARK_Restriction ("invisible attribute of}", N);
+         Check_SPARK_Restriction ("invisible attribute of type", N);
       end if;
 
       --  Remaining processing depends on attribute
@@ -3003,7 +3025,7 @@ package body Sem_Attr is
 
       when Attribute_Elaborated =>
          Check_E0;
-         Check_Library_Unit;
+         Check_Unit_Name (P);
          Set_Etype (N, Standard_Boolean);
 
       ----------
@@ -4004,6 +4026,9 @@ package body Sem_Attr is
          --  source subprogram to which the postcondition applies. During
          --  pre-analysis, CS is the scope of the subprogram declaration.
 
+         Prag : Node_Id;
+         --  During pre-analysis, Prag is the enclosing pragma node if any
+
       begin
          --  Find enclosing scopes, excluding loops
 
@@ -4041,6 +4066,44 @@ package body Sem_Attr is
                Error_Msg_NE
                  ("incorrect prefix for % attribute, expected &", P, CS);
                Error_Attr;
+            end if;
+
+            --  Check in postcondition of function
+
+            Prag := N;
+            while not Nkind_In (Prag, N_Pragma,
+                                      N_Function_Specification,
+                                      N_Subprogram_Body)
+            loop
+               Prag := Parent (Prag);
+            end loop;
+
+            if Nkind (Prag) /= N_Pragma then
+               Error_Attr
+                 ("% attribute can only appear in postcondition of function",
+                  P);
+
+            elsif Get_Pragma_Id (Prag) = Pragma_Test_Case then
+               declare
+                  Arg_Ens : constant Node_Id :=
+                              Get_Ensures_From_Test_Case_Pragma (Prag);
+                  Arg     : Node_Id;
+
+               begin
+                  Arg := N;
+                  while Arg /= Prag and Arg /= Arg_Ens loop
+                     Arg := Parent (Arg);
+                  end loop;
+
+                  if Arg /= Arg_Ens then
+                     Error_Attr ("% attribute misplaced inside Test_Case", P);
+                  end if;
+               end;
+
+            elsif Get_Pragma_Id (Prag) /= Pragma_Postcondition then
+               Error_Attr
+                 ("% attribute can only appear in postcondition of function",
+                  P);
             end if;
 
             --  The attribute reference is a primary. If expressions follow,
@@ -4117,8 +4180,8 @@ package body Sem_Attr is
 
             else
                Error_Attr
-                 ("% attribute can only appear" &
-                   " in function Postcondition pragma", P);
+                 ("% attribute can only appear in postcondition of function",
+                  P);
             end if;
          end if;
       end Result;

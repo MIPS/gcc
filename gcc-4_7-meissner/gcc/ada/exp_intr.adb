@@ -124,7 +124,7 @@ package body Exp_Intr is
       T3  : Entity_Id;
       Res : Node_Id;
 
-      Siz : constant Uint := UI_Max (Esize (T1), Esize (T2));
+      Siz : constant Uint := UI_Max (RM_Size (T1), RM_Size (T2));
       --  Maximum of operand sizes
 
    begin
@@ -1155,7 +1155,6 @@ package body Exp_Intr is
                D_Type   : Entity_Id;
 
             begin
-               Set_Etype  (Deref, Typ);
                Set_Parent (Deref, Free_Node);
                D_Subtyp := Make_Subtype_From_Expr (Deref, Desig_T);
 

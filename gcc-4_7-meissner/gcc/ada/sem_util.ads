@@ -26,6 +26,7 @@
 --  Package containing utility procedures used throughout the semantics
 
 with Einfo;  use Einfo;
+with Exp_Tss; use Exp_Tss;
 with Namet;  use Namet;
 with Nmake;  use Nmake;
 with Snames; use Snames;
@@ -136,7 +137,7 @@ package Sem_Util is
    --  discriminants, and build actual subtype for it if so.
 
    procedure Build_Elaboration_Entity (N : Node_Id; Spec_Id : Entity_Id);
-   --  Given a compilation unit node N, allocate an elaboration boolean for
+   --  Given a compilation unit node N, allocate an elaboration counter for
    --  the compilation unit, and install it in the Elaboration_Entity field
    --  of Spec_Id, the entity for the compilation unit.
 
@@ -276,18 +277,6 @@ package Sem_Util is
    --  then that is what is returned, otherwise the Enclosing_Subprogram of the
    --  Current_Scope is returned. The returned value is Empty if this is called
    --  from a library package which is not within any subprogram.
-
-   procedure Mark_Non_ALFA_Subprogram;
-   --  If Current_Subprogram is not Empty, mark either its specification or its
-   --  body as not being in ALFA. This procedure may be called during the
-   --  analysis of a precondition or postcondition, as indicated by the flag
-   --  In_Pre_Post_Expression, or during the analysis of a subprogram's body.
-   --  In the first case, the specification of Current_Subprogram must be
-   --  marked as not being in ALFA, as the contract is considered to be part of
-   --  the specification, so that calls to this subprogram are not in ALFA. In
-   --  the second case, mark the body as not being in ALFA, which does not
-   --  prevent the subprogram's specification, and calls to the subprogram,
-   --  from being in ALFA.
 
    function Defining_Entity (N : Node_Id) return Entity_Id;
    --  Given a declaration N, returns the associated defining entity. If the
@@ -492,6 +481,13 @@ package Sem_Util is
    --  identifier provided as the external name. Letters in the name are
    --  according to the setting of Opt.External_Name_Default_Casing.
 
+   function Get_Enclosing_Object (N : Node_Id) return Entity_Id;
+   --  If expression N references a part of an object, return this object.
+   --  Otherwise return Empty. Expression N should have been resolved already.
+
+   function Get_Ensures_From_Test_Case_Pragma (N : Node_Id) return Node_Id;
+   --  Return the Ensures component of Test_Case pragma N, or Empty otherwise
+
    function Get_Generic_Entity (N : Node_Id) return Entity_Id;
    --  Returns the true generic entity in an instantiation. If the name in the
    --  instantiation is a renaming, the function returns the renamed generic.
@@ -523,6 +519,9 @@ package Sem_Util is
    --  is the innermost visible entity with the given name. See the body of
    --  Sem_Ch8 for further details on handling of entity visibility.
 
+   function Get_Name_From_Test_Case_Pragma (N : Node_Id) return String_Id;
+   --  Return the Name component of Test_Case pragma N
+
    function Get_Pragma_Id (N : Node_Id) return Pragma_Id;
    pragma Inline (Get_Pragma_Id);
    --  Obtains the Pragma_Id from the Chars field of Pragma_Identifier (N)
@@ -537,6 +536,9 @@ package Sem_Util is
    --  returns the ultimately renamed entity if this is a renaming. If this is
    --  not a renamed entity, returns its argument. It is an error to call this
    --  with any other kind of entity.
+
+   function Get_Requires_From_Test_Case_Pragma (N : Node_Id) return Node_Id;
+   --  Return the Requires component of Test_Case pragma N, or Empty otherwise
 
    function Get_Subprogram_Entity (Nod : Node_Id) return Entity_Id;
    --  Nod is either a procedure call statement, or a function call, or an
@@ -1210,7 +1212,7 @@ package Sem_Util is
    --  previous errors (particularly in -gnatq mode).
 
    function Requires_Transient_Scope (Id : Entity_Id) return Boolean;
-   --  E is a type entity. The result is True when temporaries of this type
+   --  Id is a type entity. The result is True when temporaries of this type
    --  need to be wrapped in a transient scope to be reclaimed properly when a
    --  secondary stack is in use. Examples of types requiring such wrapping are
    --  controlled types and variable-sized types including unconstrained
@@ -1375,6 +1377,24 @@ package Sem_Util is
 
    function Type_Access_Level (Typ : Entity_Id) return Uint;
    --  Return the accessibility level of Typ
+
+   function Type_Without_Stream_Operation
+     (T : Entity_Id; Op : TSS_Name_Type := TSS_Null) return Entity_Id;
+   --  AI05-0161 : if the restriction No_Default_Stream_Attributes is active
+   --  then we cannot generate stream subprograms for composite types with
+   --  elementary subcomponents that lack user-defined stream subprograms.
+   --  This predicate determines whether a type has such an elementary
+   --  subcomponent. If Op is TSS_Null, a type that lacks either Read or Write
+   --  prevents the construction of a composite stream operation. If Op is
+   --  specified we check only for the given stream operation.
+
+   function Unique_Defining_Entity (N : Node_Id) return Entity_Id;
+   --  Return the entity which represents declaration N, so that matching
+   --  declaration and body have the same entity.
+
+   function Unique_Name (E : Entity_Id) return String;
+   --  Return a unique name for entity E, which could be used to identify E
+   --  across compilation units.
 
    function Unit_Declaration_Node (Unit_Id : Entity_Id) return Node_Id;
    --  Unit_Id is the simple name of a program unit, this function returns the

@@ -1,3 +1,39 @@
+2011-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* src/atomic.cc: Use noexcept.
+	* include/std/atomic: Likewise.
+	* include/bits/atomic_0.h: Likewise.
+	* include/bits/atomic_2.h: Likewise.
+	* include/bits/atomic_base.h: Likewise.
+
+2011-08-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/performance/27_io/filebuf_sputn_unbuf.cc: Include
+	unistd.h for unlink.
+	* testsuite/performance/27_io/ofstream_insert_int.cc: Same.
+	* testsuite/performance/27_io/ifstream_extract_int.cc: Same.
+	* testsuite/performance/27_io/ifstream_getline-2.cc: Same.
+	* testsuite/performance/27_io/fstream_seek_write.cc: Same.
+	* testsuite/performance/27_io/ifstream_extract_chars.cc: Same.
+	* testsuite/performance/27_io/ofstream_insert_float.cc: Same.
+	* testsuite/performance/27_io/ifstream_extract_float.cc: Same.
+	* testsuite/performance/27_io/filebuf_sputc.cc: Same.
+
+2011-08-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/std/tuple: Mark more constructors constexpr.
+	* testsuite/20_util/tuple/cons/constexpr.cc: Split into and extend as:
+	* testsuite/20_util/tuple/cons/constexpr-2.cc: ...this.
+	* testsuite/20_util/tuple/cons/constexpr-3.cc: ... and this.
+	* testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Adjust line numbers.
+
+2011-08-03  Benjamin Kosnik  <bkoz@redhat.com>
+	    François Dumont  <francois.cppdevs@free.fr>
+
+	* testsuite/23_containers/array/at_neg.cc: Move...
+	* testsuite/23_containers/array/at.cc: ...here. Remove
+	-fno-exceptions, call const at member function.
+
 2011-08-01  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/abi/post/x86_64-linux-gnu/x32/baseline_symbols.txt: Generated.
@@ -941,13 +977,6 @@
 	* testsuite/23_containers/vector/bool/capacity/shrink_to_fit.cc:
 	Likewise.
 	* testsuite/23_containers/deque/debug/shrink_to_fit.cc: Likewise.
-
-2011-06-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
-
-	* testsuite/tr1/6_containers/tuple/creation_functions/tie2.cc: Fix for
-	C++0x mode.
-	* testsuite/25_algorithms/sort/35588.cc: Likewise.
-	* testsuite/26_numerics/headers/complex/synopsis.cc: Likewise.
 
 2011-06-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
 

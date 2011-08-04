@@ -295,6 +295,7 @@ package body Impunit is
      "g-ssvety",    -- GNAT.SSE.Vector_Types
      "g-table ",    -- GNAT.Table
      "g-tasloc",    -- GNAT.Task_Lock
+     "g-tastus",    -- GNAT.Task_Stack_Usage
      "g-thread",    -- GNAT.Threads
      "g-timsta",    -- GNAT.Time_Stamp
      "g-traceb",    -- GNAT.Traceback
@@ -513,6 +514,7 @@ package body Impunit is
      "a-cborma",    -- Ada.Containers.Bounded_Ordered_Maps
      "a-cbhase",    -- Ada.Containers.Bounded_Hashed_Sets
      "a-cbhama",    -- Ada.Containers.Bounded_Hashed_Maps
+     "a-coinho",    -- Ada.Containers.Indefinite_Holders
      "a-extiin",    -- Ada.Execution_Time.Interrupts
 
    -----------------------------------------

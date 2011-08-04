@@ -30,8 +30,6 @@ with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
-with Restrict; use Restrict;
-with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem_Aux;  use Sem_Aux;
 with Sem_Util; use Sem_Util;
@@ -195,42 +193,41 @@ package body Exp_Strm is
          Next_Index (Indx);
       end loop;
 
-      --  If the first subtype is constrained, use it directly. Otherwise
-      --  build a subtype indication with the proper bounds.
+      --  If the type is constrained, use it directly. Otherwise build a
+      --  subtype indication with the proper bounds.
 
-      if Is_Constrained (Stream_Base_Type (Typ)) then
+      if Is_Constrained (Typ) then
          Odecl :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Make_Defining_Identifier (Loc, Name_V),
-             Object_Definition =>
-               New_Occurrence_Of (Stream_Base_Type (Typ), Loc));
+             Object_Definition   => New_Occurrence_Of (Typ, Loc));
+
       else
          Odecl :=
            Make_Object_Declaration (Loc,
              Defining_Identifier => Make_Defining_Identifier (Loc, Name_V),
-             Object_Definition =>
+             Object_Definition   =>
                Make_Subtype_Indication (Loc,
                  Subtype_Mark =>
                    New_Occurrence_Of (Stream_Base_Type (Typ), Loc),
-                 Constraint =>
-                   Make_Index_Or_Discriminant_Constraint (Loc,
-                     Constraints => Ranges)));
+                 Constraint   =>
+                   Make_Index_Or_Discriminant_Constraint (Loc, Ranges)));
       end if;
 
-      Rstmt := Make_Attribute_Reference (Loc,
-                 Prefix         => New_Occurrence_Of (Typ, Loc),
-                 Attribute_Name => Name_Read,
-                 Expressions    => New_List (
-                   Make_Identifier (Loc, Name_S),
-                   Make_Identifier (Loc, Name_V)));
+      Rstmt :=
+        Make_Attribute_Reference (Loc,
+          Prefix         => New_Occurrence_Of (Typ, Loc),
+          Attribute_Name => Name_Read,
+          Expressions    => New_List (
+            Make_Identifier (Loc, Name_S),
+            Make_Identifier (Loc, Name_V)));
 
       if Ada_Version >= Ada_2005 then
          Stms := New_List (
             Make_Extended_Return_Statement (Loc,
               Return_Object_Declarations => New_List (Odecl),
               Handled_Statement_Sequence =>
-                Make_Handled_Sequence_Of_Statements (Loc,
-                  New_List (Rstmt))));
+                Make_Handled_Sequence_Of_Statements (Loc, New_List (Rstmt))));
       else
          --  pragma Assert (not Is_Limited_Type (Typ));
          --  Returning a local object, shouldn't happen in the case of a
@@ -272,10 +269,10 @@ package body Exp_Strm is
       for J in 1 .. Number_Dimensions (Typ) loop
          Append_To (Stms,
            Make_Attribute_Reference (Loc,
-             Prefix =>
+             Prefix         =>
                New_Occurrence_Of (Stream_Base_Type (Etype (Indx)), Loc),
              Attribute_Name => Name_Write,
-             Expressions => New_List (
+             Expressions    => New_List (
                Make_Identifier (Loc, Name_S),
                Make_Attribute_Reference (Loc,
                  Prefix         => Make_Identifier (Loc, Name_V),
@@ -285,10 +282,10 @@ package body Exp_Strm is
 
          Append_To (Stms,
            Make_Attribute_Reference (Loc,
-             Prefix =>
+             Prefix         =>
                New_Occurrence_Of (Stream_Base_Type (Etype (Indx)), Loc),
              Attribute_Name => Name_Write,
-             Expressions => New_List (
+             Expressions    => New_List (
                Make_Identifier (Loc, Name_S),
                Make_Attribute_Reference (Loc,
                  Prefix         => Make_Identifier (Loc, Name_V),
@@ -303,7 +300,7 @@ package body Exp_Strm is
 
       Append_To (Stms,
         Make_Attribute_Reference (Loc,
-          Prefix => New_Occurrence_Of (Typ, Loc),
+          Prefix         => New_Occurrence_Of (Typ, Loc),
           Attribute_Name => Name_Write,
           Expressions => New_List (
             Make_Identifier (Loc, Name_S),
@@ -475,7 +472,6 @@ package body Exp_Strm is
       Lib_RE  : RE_Id;
 
    begin
-      Check_Restriction (No_Default_Stream_Attributes, N);
 
       --  Check first for Boolean and Character. These are enumeration types,
       --  but we treat them specially, since they may require special handling
@@ -568,6 +564,10 @@ package body Exp_Strm is
       --  then the representation is unsigned
 
       elsif not Is_Unsigned_Type (FST)
+
+        --  The following set of tests gets repeated many times, we should
+        --  have an abstraction defined ???
+
         and then
           (Is_Fixed_Point_Type (U_Type)
              or else
@@ -575,6 +575,7 @@ package body Exp_Strm is
              or else
            (Is_Signed_Integer_Type (U_Type)
               and then not Has_Biased_Representation (FST)))
+
       then
          if P_Size <= Standard_Short_Short_Integer_Size then
             Lib_RE := RE_I_SSI;
@@ -680,7 +681,6 @@ package body Exp_Strm is
       Libent  : Entity_Id;
 
    begin
-      Check_Restriction (No_Default_Stream_Attributes, N);
 
       --  Compute the size of the stream element. This is either the size of
       --  the first subtype or if given the size of the Stream_Size attribute.
@@ -1200,10 +1200,9 @@ package body Exp_Strm is
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
                    Make_Attribute_Reference (Loc,
-                     Prefix =>
-                       New_Occurrence_Of (Typ, Loc),
+                     Prefix         => New_Occurrence_Of (Typ, Loc),
                      Attribute_Name => Name_Read,
-                     Expressions => New_List (
+                     Expressions    => New_List (
                        Make_Identifier (Loc, Name_S),
                        Make_Identifier (Loc, Name_V)))))));
       else

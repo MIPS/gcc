@@ -123,7 +123,7 @@ package body Einfo is
    --    Extra_Formal                    Node15
    --    Lit_Indexes                     Node15
    --    Related_Instance                Node15
-   --    Return_Flag                     Node15
+   --    Return_Flag_Or_Transient_Decl   Node15
    --    Scale_Value                     Uint15
    --    Storage_Size_Variable           Node15
    --    String_Literal_Low_Bound        Node15
@@ -209,7 +209,7 @@ package body Einfo is
 
    --    Finalizer                       Node24
    --    Related_Expression              Node24
-   --    Spec_PPC_List                   Node24
+   --    Contract                        Node24
 
    --    Interface_Alias                 Node25
    --    Interfaces                      Elist25
@@ -409,7 +409,7 @@ package body Einfo is
    --    Is_Compilation_Unit             Flag149
    --    Has_Pragma_Elaborate_Body       Flag150
 
-   --    Is_In_ALFA                      Flag151
+   --    Has_Private_Ancestor            Flag151
    --    Entry_Accepted                  Flag152
    --    Is_Obsolescent                  Flag153
    --    Has_Per_Object_Constraint       Flag154
@@ -519,9 +519,11 @@ package body Einfo is
    --    Is_Safe_To_Reevaluate           Flag249
    --    Has_Predicates                  Flag250
 
-   --    Body_Is_In_ALFA                 Flag251
    --    Is_Processed_Transient          Flag252
    --    Is_Postcondition_Proc           Flag253
+
+   --    (unused)                        Flag151
+   --    (unused)                        Flag251
    --    (unused)                        Flag254
 
    -----------------------
@@ -651,12 +653,6 @@ package body Einfo is
       pragma Assert (Ekind_In (Id, E_Package, E_Generic_Package));
       return Node19 (Id);
    end Body_Entity;
-
-   function Body_Is_In_ALFA (Id : E) return B is
-   begin
-      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
-      return Flag251 (Id);
-   end Body_Is_In_ALFA;
 
    function Body_Needed_For_SAL (Id : E) return B is
    begin
@@ -985,6 +981,15 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Entry_Index_Parameter);
       return Node18 (Id);
    end Entry_Index_Constant;
+
+   function Contract (Id : E) return N is
+   begin
+      pragma Assert
+        (Ekind_In (Id, E_Entry, E_Entry_Family)
+          or else Is_Subprogram (Id)
+          or else Is_Generic_Subprogram (Id));
+      return Node24 (Id);
+   end Contract;
 
    function Entry_Parameters_Type (Id : E) return E is
    begin
@@ -1317,7 +1322,9 @@ package body Einfo is
 
    function Has_Invariants (Id : E) return B is
    begin
-      pragma Assert (Is_Type (Id) or else Ekind (Id) = E_Procedure);
+      pragma Assert (Is_Type (Id)
+        or else Ekind (Id) = E_Procedure
+        or else Ekind (Id) = E_Generic_Procedure);
       return Flag232 (Id);
    end Has_Invariants;
 
@@ -1449,6 +1456,11 @@ package body Einfo is
       pragma Assert (Is_Type (Id));
       return Flag120 (Base_Type (Id));
    end Has_Primitive_Operations;
+
+   function Has_Private_Ancestor (Id : E) return B is
+   begin
+      return Flag151 (Id);
+   end Has_Private_Ancestor;
 
    function Has_Private_Declaration (Id : E) return B is
    begin
@@ -1853,11 +1865,6 @@ package body Einfo is
    begin
       return Flag24 (Id);
    end Is_Imported;
-
-   function Is_In_ALFA (Id : E) return B is
-   begin
-      return Flag151 (Id);
-   end Is_In_ALFA;
 
    function Is_Inlined (Id : E) return B is
    begin
@@ -2559,11 +2566,11 @@ package body Einfo is
       return Flag213 (Id);
    end Requires_Overriding;
 
-   function Return_Flag (Id : E) return N is
+   function Return_Flag_Or_Transient_Decl (Id : E) return N is
    begin
       pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
       return Node15 (Id);
-   end Return_Flag;
+   end Return_Flag_Or_Transient_Decl;
 
    function Return_Present (Id : E) return B is
    begin
@@ -2651,15 +2658,6 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Package_Body or else Is_Formal (Id));
       return Node19 (Id);
    end Spec_Entity;
-
-   function Spec_PPC_List (Id : E) return N is
-   begin
-      pragma Assert
-        (Ekind_In (Id,  E_Entry, E_Entry_Family)
-          or else Is_Subprogram (Id)
-          or else Is_Generic_Subprogram (Id));
-      return Node24 (Id);
-   end Spec_PPC_List;
 
    function Static_Predicate (Id : E) return S is
    begin
@@ -3126,12 +3124,6 @@ package body Einfo is
       Set_Node19 (Id, V);
    end Set_Body_Entity;
 
-   procedure Set_Body_Is_In_ALFA (Id : E; V : B := True) is
-   begin
-      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
-      Set_Flag251 (Id, V);
-   end Set_Body_Is_In_ALFA;
-
    procedure Set_Body_Needed_For_SAL (Id : E; V : B := True) is
    begin
       pragma Assert
@@ -3458,6 +3450,15 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Entry_Index_Parameter);
       Set_Node18 (Id, V);
    end Set_Entry_Index_Constant;
+
+   procedure Set_Contract (Id : E; V : N) is
+   begin
+      pragma Assert
+        (Ekind_In (Id, E_Entry, E_Entry_Family, E_Void)
+          or else Is_Subprogram (Id)
+          or else Is_Generic_Subprogram (Id));
+      Set_Node24 (Id, V);
+   end Set_Contract;
 
    procedure Set_Entry_Parameters_Type (Id : E; V : E) is
    begin
@@ -3952,6 +3953,12 @@ package body Einfo is
       Set_Flag120 (Id, V);
    end Set_Has_Primitive_Operations;
 
+   procedure Set_Has_Private_Ancestor (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag151 (Id, V);
+   end Set_Has_Private_Ancestor;
+
    procedure Set_Has_Private_Declaration (Id : E; V : B := True) is
    begin
       Set_Flag155 (Id, V);
@@ -4373,11 +4380,6 @@ package body Einfo is
    begin
       Set_Flag24 (Id, V);
    end Set_Is_Imported;
-
-   procedure Set_Is_In_ALFA (Id : E; V : B := True) is
-   begin
-      Set_Flag151 (Id, V);
-   end Set_Is_In_ALFA;
 
    procedure Set_Is_Inlined (Id : E; V : B := True) is
    begin
@@ -5101,11 +5103,11 @@ package body Einfo is
       Set_Flag213 (Id, V);
    end Set_Requires_Overriding;
 
-   procedure Set_Return_Flag (Id : E; V : E) is
+   procedure Set_Return_Flag_Or_Transient_Decl (Id : E; V : E) is
    begin
       pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
       Set_Node15 (Id, V);
-   end Set_Return_Flag;
+   end Set_Return_Flag_Or_Transient_Decl;
 
    procedure Set_Return_Present (Id : E; V : B := True) is
    begin
@@ -5195,15 +5197,6 @@ package body Einfo is
       pragma Assert (Ekind (Id) = E_Package_Body or else Is_Formal (Id));
       Set_Node19 (Id, V);
    end Set_Spec_Entity;
-
-   procedure Set_Spec_PPC_List (Id : E; V : N) is
-   begin
-      pragma Assert
-        (Ekind_In (Id, E_Entry, E_Entry_Family, E_Void)
-          or else Is_Subprogram (Id)
-          or else Is_Generic_Subprogram (Id));
-      Set_Node24 (Id, V);
-   end Set_Spec_PPC_List;
 
    procedure Set_Static_Predicate (Id : E; V : S) is
    begin
@@ -6120,25 +6113,6 @@ package body Einfo is
 
       return False;
    end Has_Interrupt_Handler;
-
-   --------------------------
-   -- Has_Private_Ancestor --
-   --------------------------
-
-   function Has_Private_Ancestor (Id : E) return B is
-      R  : constant Entity_Id := Root_Type (Id);
-      T1 : Entity_Id := Id;
-   begin
-      loop
-         if Is_Private_Type (T1) then
-            return True;
-         elsif T1 = R then
-            return False;
-         else
-            T1 := Etype (T1);
-         end if;
-      end loop;
-   end Has_Private_Ancestor;
 
    --------------------
    -- Has_Rep_Pragma --
@@ -7414,7 +7388,6 @@ package body Einfo is
       end if;
 
       W ("Address_Taken",                   Flag104 (Id));
-      W ("Body_Is_In_ALFA",                 Flag251 (Id));
       W ("Body_Needed_For_SAL",             Flag40  (Id));
       W ("C_Pass_By_Copy",                  Flag125 (Id));
       W ("Can_Never_Be_Null",               Flag38  (Id));
@@ -7483,6 +7456,7 @@ package body Einfo is
       W ("Has_Pragma_Unreferenced_Objects", Flag212 (Id));
       W ("Has_Predicates",                  Flag250 (Id));
       W ("Has_Primitive_Operations",        Flag120 (Id));
+      W ("Has_Private_Ancestor",            Flag151 (Id));
       W ("Has_Private_Declaration",         Flag155 (Id));
       W ("Has_Qualified_Name",              Flag161 (Id));
       W ("Has_RACW",                        Flag214 (Id));
@@ -7552,7 +7526,6 @@ package body Einfo is
       W ("Is_Hidden_Open_Scope",            Flag171 (Id));
       W ("Is_Immediately_Visible",          Flag7   (Id));
       W ("Is_Imported",                     Flag24  (Id));
-      W ("Is_In_ALFA",                      Flag151 (Id));
       W ("Is_Inlined",                      Flag11  (Id));
       W ("Is_Instantiated",                 Flag126 (Id));
       W ("Is_Interface",                    Flag186 (Id));
@@ -8095,7 +8068,7 @@ package body Einfo is
 
          when E_Constant                                   |
               E_Variable                                   =>
-            Write_Str ("Return_Flag");
+            Write_Str ("Return_Flag_Or_Transient_Decl");
 
          when Decimal_Fixed_Point_Kind                     =>
             Write_Str ("Scale_Value");
@@ -8561,8 +8534,11 @@ package body Einfo is
               Type_Kind                                    =>
             Write_Str ("Related_Expression");
 
-         when Subprogram_Kind                              =>
-            Write_Str ("Spec_PPC_List");
+         when E_Entry                                      |
+              E_Entry_Family                               |
+              Subprogram_Kind                              |
+              Generic_Subprogram_Kind                      =>
+            Write_Str ("Contract");
 
          when others                                       =>
             Write_Str ("Field24???");

@@ -440,14 +440,14 @@ package body Sem_Ch13 is
                               Error_Msg_Uint_1 := SSU;
                               Error_Msg_F
                                 ("\and is not a multiple of Storage_Unit (^) "
-                                 & "('R'M 13.4.1(10))",
+                                 & "(RM 13.4.1(10))",
                                  First_Bit (CC));
 
                            else
                               Error_Msg_Uint_1 := Fbit;
                               Error_Msg_F
                                 ("\and first bit (^) is non-zero "
-                                 & "('R'M 13.4.1(10))",
+                                 & "(RM 13.4.1(10))",
                                  First_Bit (CC));
                            end if;
                         end if;
@@ -695,8 +695,8 @@ package body Sem_Ch13 is
       --  Insert pragmas (except Pre/Post/Invariant/Predicate) after this node
 
       --  The general processing involves building an attribute definition
-      --  clause or a pragma node that corresponds to the access type. Then
-      --  one of two things happens:
+      --  clause or a pragma node that corresponds to the aspect. Then one
+      --  of two things happens:
 
       --  If we are required to delay the evaluation of this aspect to the
       --  freeze point, we attach the corresponding pragma/attribute definition
@@ -812,53 +812,56 @@ package body Sem_Ch13 is
             --  test allows duplicate Pre/Post's that we generate internally
             --  to escape being flagged here.
 
-            Anod := First (L);
-            while Anod /= Aspect loop
-               if Same_Aspect (A_Id, Get_Aspect_Id (Chars (Identifier (Anod))))
-                 and then Comes_From_Source (Aspect)
-               then
-                  Error_Msg_Name_1 := Nam;
-                  Error_Msg_Sloc := Sloc (Anod);
+            if No_Duplicates_Allowed (A_Id) then
+               Anod := First (L);
+               while Anod /= Aspect loop
+                  if Same_Aspect
+                      (A_Id, Get_Aspect_Id (Chars (Identifier (Anod))))
+                    and then Comes_From_Source (Aspect)
+                  then
+                     Error_Msg_Name_1 := Nam;
+                     Error_Msg_Sloc := Sloc (Anod);
 
-                  --  Case of same aspect specified twice
+                     --  Case of same aspect specified twice
 
-                  if Class_Present (Anod) = Class_Present (Aspect) then
-                     if not Class_Present (Anod) then
-                        Error_Msg_NE
-                          ("aspect% for & previously given#",
-                           Id, E);
-                     else
-                        Error_Msg_NE
-                          ("aspect `%''Class` for & previously given#",
-                           Id, E);
+                     if Class_Present (Anod) = Class_Present (Aspect) then
+                        if not Class_Present (Anod) then
+                           Error_Msg_NE
+                             ("aspect% for & previously given#",
+                              Id, E);
+                        else
+                           Error_Msg_NE
+                             ("aspect `%''Class` for & previously given#",
+                              Id, E);
+                        end if;
+
+                        --  Case of Pre and Pre'Class both specified
+
+                     elsif Nam = Name_Pre then
+                        if Class_Present (Aspect) then
+                           Error_Msg_NE
+                             ("aspect `Pre''Class` for & is not allowed here",
+                              Id, E);
+                           Error_Msg_NE
+                             ("\since aspect `Pre` previously given#",
+                              Id, E);
+
+                        else
+                           Error_Msg_NE
+                             ("aspect `Pre` for & is not allowed here",
+                              Id, E);
+                           Error_Msg_NE
+                             ("\since aspect `Pre''Class` previously given#",
+                              Id, E);
+                        end if;
                      end if;
 
-                  --  Case of Pre and Pre'Class both specified
-
-                  elsif Nam = Name_Pre then
-                     if Class_Present (Aspect) then
-                        Error_Msg_NE
-                          ("aspect `Pre''Class` for & is not allowed here",
-                           Id, E);
-                        Error_Msg_NE
-                          ("\since aspect `Pre` previously given#",
-                           Id, E);
-
-                     else
-                        Error_Msg_NE
-                          ("aspect `Pre` for & is not allowed here",
-                           Id, E);
-                        Error_Msg_NE
-                          ("\since aspect `Pre''Class` previously given#",
-                           Id, E);
-                     end if;
+                     --  Allowed case of X and X'Class both specified
                   end if;
 
-                  goto Continue;
-               end if;
-
-               Next (Anod);
-            end loop;
+                  Next (Anod);
+               end loop;
+            end if;
 
             --  Copy expression for later processing by the procedures
             --  Check_Aspect_At_[Freeze_Point | End_Of_Declarations]
@@ -1086,6 +1089,12 @@ package body Sem_Ch13 is
                   --  we generate separate Pre/Post aspects for the separate
                   --  clauses. Since we allow multiple pragmas, there is no
                   --  problem in allowing multiple Pre/Post aspects internally.
+                  --  These should be treated in reverse order (B first and
+                  --  A second) since they are later inserted just after N in
+                  --  the order they are treated. This way, the pragma for A
+                  --  ends up preceding the pragma for B, which may have an
+                  --  importance for the error raised (either constraint error
+                  --  or precondition error).
 
                   --  We do not do this for Pre'Class, since we have to put
                   --  these conditions together in a complex OR expression
@@ -1095,12 +1104,12 @@ package body Sem_Ch13 is
                   then
                      while Nkind (Expr) = N_And_Then loop
                         Insert_After (Aspect,
-                          Make_Aspect_Specification (Sloc (Right_Opnd (Expr)),
+                          Make_Aspect_Specification (Sloc (Left_Opnd (Expr)),
                             Identifier    => Identifier (Aspect),
-                            Expression    => Relocate_Node (Right_Opnd (Expr)),
+                            Expression    => Relocate_Node (Left_Opnd (Expr)),
                             Class_Present => Class_Present (Aspect),
                             Split_PPC     => True));
-                        Rewrite (Expr, Relocate_Node (Left_Opnd (Expr)));
+                        Rewrite (Expr, Relocate_Node (Right_Opnd (Expr)));
                         Eloc := Sloc (Expr);
                      end loop;
                   end if;
@@ -1163,6 +1172,15 @@ package body Sem_Ch13 is
                when Aspect_Invariant      |
                     Aspect_Type_Invariant =>
 
+                  --  Check placement legality
+
+                  if not Nkind_In (N, N_Private_Type_Declaration,
+                                      N_Private_Extension_Declaration)
+                  then
+                     Error_Msg_N
+                       ("invariant aspect must apply to a private type", N);
+                  end if;
+
                   --  Construct the pragma
 
                   Aitem :=
@@ -1204,7 +1222,7 @@ package body Sem_Ch13 is
                     Aspect_Static_Predicate  =>
 
                   --  Construct the pragma (always a pragma Predicate, with
-                  --  flags recording whether
+                  --  flags recording whether it is static/dynamic).
 
                   Aitem :=
                     Make_Pragma (Loc,
@@ -1229,9 +1247,75 @@ package body Sem_Ch13 is
                   --  have a place to build the predicate function).
 
                   Set_Has_Predicates (E);
+
+                  if Is_Private_Type (E)
+                    and then Present (Full_View (E))
+                  then
+                     Set_Has_Predicates (Full_View (E));
+                     Set_Has_Delayed_Aspects (Full_View (E));
+                  end if;
+
                   Ensure_Freeze_Node (E);
                   Set_Is_Delayed_Aspect (Aspect);
                   Delay_Required := True;
+
+               when Aspect_Test_Case => declare
+                  Args      : List_Id;
+                  Comp_Expr : Node_Id;
+                  Comp_Assn : Node_Id;
+
+               begin
+                  Args := New_List;
+
+                  if Nkind (Expr) /= N_Aggregate then
+                     Error_Msg_NE
+                       ("wrong syntax for aspect `Test_Case` for &", Id, E);
+                     goto Continue;
+                  end if;
+
+                  Comp_Expr := First (Expressions (Expr));
+                  while Present (Comp_Expr) loop
+                     Append (Relocate_Node (Comp_Expr), Args);
+                     Next (Comp_Expr);
+                  end loop;
+
+                  Comp_Assn := First (Component_Associations (Expr));
+                  while Present (Comp_Assn) loop
+                     if List_Length (Choices (Comp_Assn)) /= 1
+                       or else
+                         Nkind (First (Choices (Comp_Assn))) /= N_Identifier
+                     then
+                        Error_Msg_NE
+                          ("wrong syntax for aspect `Test_Case` for &", Id, E);
+                        goto Continue;
+                     end if;
+
+                     Append (Make_Pragma_Argument_Association (
+                       Sloc       => Sloc (Comp_Assn),
+                       Chars      => Chars (First (Choices (Comp_Assn))),
+                       Expression => Relocate_Node (Expression (Comp_Assn))),
+                       Args);
+                     Next (Comp_Assn);
+                  end loop;
+
+                  --  Build the test-case pragma
+
+                  Aitem :=
+                    Make_Pragma (Loc,
+                      Pragma_Identifier            =>
+                        Make_Identifier (Sloc (Id), Name_Test_Case),
+                      Pragma_Argument_Associations =>
+                        Args);
+
+                  Set_From_Aspect_Specification (Aitem, True);
+                  Set_Is_Delayed_Aspect (Aspect);
+
+                  --  Insert immediately after the entity declaration
+
+                  Insert_After (N, Aitem);
+
+                  goto Continue;
+               end;
             end case;
 
             --  If a delay is required, we delay the freeze (not much point in
@@ -2339,11 +2423,15 @@ package body Sem_Ch13 is
                if Is_Type (U_Ent) then
                   Set_RM_Size (U_Ent, Size);
 
-                  --  For scalar types, increase Object_Size to power of 2, but
-                  --  not less than a storage unit in any case (i.e., normally
+                  --  For elementary types, increase Object_Size to power of 2,
+                  --  but not less than a storage unit in any case (normally
                   --  this means it will be byte addressable).
 
-                  if Is_Scalar_Type (U_Ent) then
+                  --  For all other types, nothing else to do, we leave Esize
+                  --  (object size) unset, the back end will set it from the
+                  --  size and alignment in an appropriate manner.
+
+                  if Is_Elementary_Type (U_Ent) then
                      if Size <= System_Storage_Unit then
                         Init_Esize (U_Ent, System_Storage_Unit);
                      elsif Size <= 16 then
@@ -2354,14 +2442,8 @@ package body Sem_Ch13 is
                         Set_Esize  (U_Ent, (Size + 63) / 64 * 64);
                      end if;
 
-                  --  For all other types, object size = value size. The
-                  --  backend will adjust as needed.
-
-                  else
-                     Set_Esize (U_Ent, Size);
+                     Alignment_Check_For_Esize_Change (U_Ent);
                   end if;
-
-                  Alignment_Check_For_Esize_Change (U_Ent);
 
                --  For objects, set Esize only
 
@@ -2840,7 +2922,8 @@ package body Sem_Ch13 is
       Assoc    : Node_Id;
       Choice   : Node_Id;
       Val      : Uint;
-      Err      : Boolean := False;
+
+      Err : Boolean := False;
       --  Set True to avoid cascade errors and crashes on incorrect source code
 
       Lo : constant Uint := Expr_Value (Type_Low_Bound (Universal_Integer));
@@ -2980,12 +3063,15 @@ package body Sem_Ch13 is
                Err := True;
 
             elsif Nkind (Choice) = N_Range then
+
                --  ??? should allow zero/one element range here
+
                Error_Msg_N ("range not allowed here", Choice);
                Err := True;
 
             else
                Analyze_And_Resolve (Choice, Enumtype);
+
                if Error_Posted (Choice) then
                   Err := True;
                end if;
@@ -2996,6 +3082,7 @@ package body Sem_Ch13 is
                   then
                      Error_Msg_N ("subtype name not allowed here", Choice);
                      Err := True;
+
                      --  ??? should allow static subtype with zero/one entry
 
                   elsif Etype (Choice) = Base_Type (Enumtype) then
@@ -3577,7 +3664,7 @@ package body Sem_Ch13 is
                      Lbit := Lbit + UI_From_Int (SSU) * Posit;
 
                      if Has_Size_Clause (Rectype)
-                       and then Esize (Rectype) <= Lbit
+                       and then RM_Size (Rectype) <= Lbit
                      then
                         Error_Msg_N
                           ("bit number out of range of specified size",
@@ -4208,9 +4295,14 @@ package body Sem_Ch13 is
                Arg1 := Get_Pragma_Arg (Arg1);
                Arg2 := Get_Pragma_Arg (Arg2);
 
-               --  See if this predicate pragma is for the current type
+               --  See if this predicate pragma is for the current type or for
+               --  its full view. A predicate on a private completion is placed
+               --  on the partial view beause this is the visible entity that
+               --  is frozen.
 
-               if Entity (Arg1) = Typ then
+               if Entity (Arg1) = Typ
+                 or else Full_View (Entity (Arg1)) = Typ
+               then
 
                   --  We have a match, this entry is for our subtype
 
@@ -5299,6 +5391,12 @@ package body Sem_Ch13 is
          when Boolean_Aspects =>
             raise Program_Error;
 
+         --  Test_Case aspect applies to entries and subprograms, hence should
+         --  never be delayed.
+
+         when Aspect_Test_Case =>
+            raise Program_Error;
+
          --  Default_Value is resolved with the type entity in question
 
          when Aspect_Default_Value =>
@@ -5323,8 +5421,7 @@ package body Sem_Ch13 is
          when Aspect_Storage_Pool =>
             T := Class_Wide_Type (RTE (RE_Root_Storage_Pool));
 
-         when
-              Aspect_Alignment      |
+         when Aspect_Alignment      |
               Aspect_Component_Size |
               Aspect_Machine_Radix  |
               Aspect_Object_Size    |
@@ -5344,7 +5441,7 @@ package body Sem_Ch13 is
             Analyze (Expression (ASN));
             return;
 
-         --  Suppress/Unsupress/Warnings should never be delayed
+         --  Suppress/Unsuppress/Warnings should never be delayed
 
          when Aspect_Suppress   |
               Aspect_Unsuppress |
@@ -5994,7 +6091,7 @@ package body Sem_Ch13 is
             --  Check bit position out of range of specified size
 
             if Has_Size_Clause (Rectype)
-              and then Esize (Rectype) <= Lbit
+              and then RM_Size (Rectype) <= Lbit
             then
                Error_Msg_N
                  ("bit number out of range of specified size",

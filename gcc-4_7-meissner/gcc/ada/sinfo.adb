@@ -661,14 +661,6 @@ package body Sinfo is
       return Node5 (N);
    end Dcheck_Function;
 
-   function Debug_Statement
-      (N : Node_Id) return Node_Id is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Pragma);
-      return Node3 (N);
-   end Debug_Statement;
-
    function Declarations
       (N : Node_Id) return List_Id is
    begin
@@ -2414,14 +2406,6 @@ package body Sinfo is
       return List2 (N);
    end Pragma_Argument_Associations;
 
-   function Pragma_Enabled
-     (N : Node_Id) return Boolean is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Pragma);
-      return Flag5 (N);
-   end Pragma_Enabled;
-
    function Pragma_Identifier
       (N : Node_Id) return Node_Id is
    begin
@@ -2781,6 +2765,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Validate_Unchecked_Conversion);
       return Node1 (N);
    end Source_Type;
+
+   function Spec_PPC_List
+      (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Contract);
+      return Node1 (N);
+   end Spec_PPC_List;
+
+   function Spec_TC_List
+      (N : Node_Id) return Node_Id is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Contract);
+      return Node2 (N);
+   end Spec_TC_List;
 
    function Specification
       (N : Node_Id) return Node_Id is
@@ -3711,14 +3711,6 @@ package body Sinfo is
         or else NT (N).Nkind = N_Variant);
       Set_Node5 (N, Val); -- semantic field, no parent set
    end Set_Dcheck_Function;
-
-   procedure Set_Debug_Statement
-      (N : Node_Id; Val : Node_Id) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Pragma);
-      Set_Node3_With_Parent (N, Val);
-   end Set_Debug_Statement;
 
    procedure Set_Declarations
       (N : Node_Id; Val : List_Id) is
@@ -5456,14 +5448,6 @@ package body Sinfo is
       Set_List2_With_Parent (N, Val);
    end Set_Pragma_Argument_Associations;
 
-   procedure Set_Pragma_Enabled
-     (N : Node_Id; Val : Boolean := True) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Pragma);
-      Set_Flag5 (N, Val);
-   end Set_Pragma_Enabled;
-
    procedure Set_Pragma_Identifier
       (N : Node_Id; Val : Node_Id) is
    begin
@@ -5823,6 +5807,22 @@ package body Sinfo is
         or else NT (N).Nkind = N_Validate_Unchecked_Conversion);
       Set_Node1 (N, Val); -- semantic field, no parent set
    end Set_Source_Type;
+
+   procedure Set_Spec_PPC_List
+      (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Contract);
+      Set_Node1 (N, Val); -- semantic field, no parent set
+   end Set_Spec_PPC_List;
+
+   procedure Set_Spec_TC_List
+      (N : Node_Id; Val : Node_Id) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Contract);
+      Set_Node2 (N, Val); -- semantic field, no parent set
+   end Set_Spec_TC_List;
 
    procedure Set_Specification
       (N : Node_Id; Val : Node_Id) is

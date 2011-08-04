@@ -150,8 +150,9 @@ package body Prj is
 
    procedure Delete_Temp_Config_Files (Project_Tree : Project_Tree_Ref) is
       Success : Boolean;
-      Proj    : Project_List;
       pragma Warnings (Off, Success);
+
+      Proj : Project_List;
 
    begin
       if not Debug.Debug_Flag_N then
@@ -171,6 +172,7 @@ package body Prj is
                   Proj.Project.Config_File_Name := No_Path;
                   Proj.Project.Config_File_Temp := False;
                end if;
+
                Proj := Proj.Next;
             end loop;
          end if;
@@ -269,7 +271,7 @@ package body Prj is
 
       begin
          --  Only the fields for which no default value could be provided in
-         --  prj.ads are initialized below
+         --  prj.ads are initialized below.
 
          Data.Config := Default_Project_Config;
          return Data;
@@ -555,7 +557,14 @@ package body Prj is
               and then (Index = 0 or else Element (Iterator).Index = Index)
             then
                Src := Element (Iterator);
-               return;
+
+               --  If the source has been excluded, continue looking. We will
+               --  get the excluded source only if there is no other source
+               --  with the same base name that is not locally removed.
+
+               if not Element (Iterator).Locally_Removed then
+                  return;
+               end if;
             end if;
 
             Next (Iterator);
@@ -584,9 +593,10 @@ package body Prj is
 
          if Result = No_Source then
             For_Imported_Projects
-              (By         => Project,
-               Tree       => In_Tree,
-               With_State => Result);
+              (By                 => Project,
+               Tree               => In_Tree,
+               Include_Aggregated => False,
+               With_State         => Result);
          end if;
       else
          Look_For_Sources (No_Project, In_Tree, Result);
@@ -942,7 +952,12 @@ package body Prj is
 
    procedure Free (Tree : in out Project_Tree_Ref) is
       procedure Unchecked_Free is new
-        Ada.Unchecked_Deallocation (Project_Tree_Data, Project_Tree_Ref);
+        Ada.Unchecked_Deallocation
+          (Project_Tree_Data, Project_Tree_Ref);
+
+      procedure Unchecked_Free is new
+        Ada.Unchecked_Deallocation
+          (Project_Tree_Appdata'Class, Project_Tree_Appdata_Access);
 
    begin
       if Tree /= null then
@@ -955,6 +970,11 @@ package body Prj is
             Array_Table.Free            (Tree.Shared.Arrays);
             Package_Table.Free          (Tree.Shared.Packages);
             Temp_Files_Table.Free       (Tree.Shared.Private_Part.Temp_Files);
+         end if;
+
+         if Tree.Appdata /= null then
+            Free (Tree.Appdata.all);
+            Unchecked_Free (Tree.Appdata);
          end if;
 
          Source_Paths_Htable.Reset (Tree.Source_Paths_HT);
@@ -1358,7 +1378,8 @@ package body Prj is
       Error_On_Unknown_Language  : Boolean       := True;
       Require_Obj_Dirs           : Error_Warning := Error;
       Allow_Invalid_External     : Error_Warning := Error;
-      Missing_Source_Files       : Error_Warning := Error)
+      Missing_Source_Files       : Error_Warning := Error;
+      Ignore_Missing_With        : Boolean       := False)
       return Processing_Flags
    is
    begin
@@ -1371,7 +1392,8 @@ package body Prj is
          Compiler_Driver_Mandatory  => Compiler_Driver_Mandatory,
          Require_Obj_Dirs           => Require_Obj_Dirs,
          Allow_Invalid_External     => Allow_Invalid_External,
-         Missing_Source_Files       => Missing_Source_Files);
+         Missing_Source_Files       => Missing_Source_Files,
+         Ignore_Missing_With        => Ignore_Missing_With);
    end Create_Flags;
 
    ------------
@@ -1465,6 +1487,64 @@ package body Prj is
          Debug_Output (Str);
       end if;
    end Debug_Decrease_Indent;
+
+   ----------------
+   -- Debug_Name --
+   ----------------
+
+   function Debug_Name (Tree : Project_Tree_Ref) return Name_Id is
+      P : Project_List;
+
+   begin
+      Name_Len := 0;
+      Add_Str_To_Name_Buffer ("Tree [");
+
+      P := Tree.Projects;
+      while P /= null loop
+         if P /= Tree.Projects then
+            Add_Char_To_Name_Buffer (',');
+         end if;
+
+         Add_Str_To_Name_Buffer (Get_Name_String (P.Project.Name));
+
+         P := P.Next;
+      end loop;
+
+      Add_Char_To_Name_Buffer (']');
+
+      return Name_Find;
+   end Debug_Name;
+
+   ----------
+   -- Free --
+   ----------
+
+   procedure Free (Tree : in out Project_Tree_Appdata) is
+      pragma Unreferenced (Tree);
+   begin
+      null;
+   end Free;
+
+   --------------------------------
+   -- For_Project_And_Aggregated --
+   --------------------------------
+
+   procedure For_Project_And_Aggregated
+     (Root_Project : Project_Id;
+      Root_Tree    : Project_Tree_Ref)
+   is
+      Agg : Aggregated_Project_List;
+   begin
+      Action (Root_Project, Root_Tree);
+
+      if Root_Project.Qualifier = Aggregate then
+         Agg := Root_Project.Aggregated_Projects;
+         while Agg /= null loop
+            For_Project_And_Aggregated (Agg.Project, Agg.Tree);
+            Agg := Agg.Next;
+         end loop;
+      end if;
+   end For_Project_And_Aggregated;
 
 begin
    --  Make sure that the standard config and user project file extensions are

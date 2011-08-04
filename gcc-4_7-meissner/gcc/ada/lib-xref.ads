@@ -177,7 +177,6 @@ package Lib.Xref is
    --              e = end of spec
    --              H = abstract type
    --              i = implicit reference
-   --              I = object definition with initialization
    --              k = implicit reference to parent unit in child unit
    --              l = label on END line
    --              m = modification
@@ -590,6 +589,15 @@ package Lib.Xref is
    --  printing in ALI files.
 
    package ALFA is
+
+      type Node_Processing is access procedure (N : Node_Id);
+
+      procedure Traverse_Compilation_Unit
+        (CU      : Node_Id;
+         Process : Node_Processing);
+
+      procedure Traverse_All_Compilation_Units (Process : Node_Processing);
+      --  Call Process on all declarations through all compilation units
 
       procedure Collect_ALFA (Sdep_Table : Unit_Ref_Table; Num_Sdep : Nat);
       --  Collect ALFA information from library units (for files and scopes)

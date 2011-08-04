@@ -105,11 +105,6 @@ package body Prj.Env is
    procedure Set_Path_File_Var (Name : String; Value : String);
    --  Call Setenv, after calling To_Host_File_Spec
 
-   function Ultimate_Extension_Of
-     (Project : Project_Id) return Project_Id;
-   --  Return a project that is either Project or an extended ancestor of
-   --  Project that itself is not extended.
-
    ----------------------
    -- Ada_Include_Path --
    ----------------------
@@ -476,9 +471,7 @@ package body Prj.Env is
       File_Name : Path_Name_Type  := No_Path;
       File      : File_Descriptor := Invalid_FD;
 
-      Current_Naming  : Naming_Id;
-      Iter            : Source_Iterator;
-      Source          : Source_Id;
+      Current_Naming : Naming_Id;
 
       procedure Check
         (Project : Project_Id;
@@ -509,11 +502,13 @@ package body Prj.Env is
          In_Tree : Project_Tree_Ref;
          State   : in out Integer)
       is
-         pragma Unreferenced (State, In_Tree);
+         pragma Unreferenced (State);
 
          Lang   : constant Language_Ptr :=
                     Get_Language_From_Name (Project, "ada");
          Naming : Lang_Naming_Data;
+         Iter   : Source_Iterator;
+         Source : Source_Id;
 
       begin
          if Current_Verbosity = High then
@@ -527,6 +522,22 @@ package body Prj.Env is
 
             return;
          end if;
+
+         --  Visit all the files and process those that need an SFN pragma
+
+         Iter := For_Each_Source (In_Tree, Project);
+         while Element (Iter) /= No_Source loop
+            Source := Element (Iter);
+
+            if Source.Index >= 1
+              and then not Source.Locally_Removed
+              and then Source.Unit /= null
+            then
+               Put (Source);
+            end if;
+
+            Next (Iter);
+         end loop;
 
          Naming := Lang.Config.Naming_Data;
 
@@ -692,22 +703,6 @@ package body Prj.Env is
          Check_Imported_Projects
            (For_Project, In_Tree, Dummy, Imported_First => False);
 
-         --  Visit all the files and process those that need an SFN pragma
-
-         Iter := For_Each_Source (In_Tree, For_Project);
-         while Element (Iter) /= No_Source loop
-            Source := Element (Iter);
-
-            if Source.Index >= 1
-              and then not Source.Locally_Removed
-              and then Source.Unit /= null
-            then
-               Put (Source);
-            end if;
-
-            Next (Iter);
-         end loop;
-
          --  If there are no non standard naming scheme, issue the GNAT
          --  standard naming scheme. This will tell the compiler that
          --  a project file is used and will forbid any pragma SFN.
@@ -829,6 +824,7 @@ package body Prj.Env is
          Iter   : Source_Iterator;
 
       begin
+         Debug_Output ("Add mapping for project", Project.Name);
          Iter := For_Each_Source (In_Tree, Project, Language => Language);
 
          loop
@@ -901,13 +897,18 @@ package body Prj.Env is
    --  Start of processing for Create_Mapping_File
 
    begin
+      if Current_Verbosity = High then
+         Debug_Output ("Create mapping file for", Debug_Name (In_Tree));
+      end if;
+
       Create_Temp_File (In_Tree.Shared, File, Name, "mapping");
 
       if Current_Verbosity = High then
          Debug_Increase_Indent ("Create mapping file ", Name_Id (Name));
       end if;
 
-      For_Every_Imported_Project (Project, In_Tree, Dummy);
+      For_Every_Imported_Project
+        (Project, In_Tree, Dummy, Include_Aggregated => False);
 
       declare
          Last   : Natural;
@@ -1280,7 +1281,7 @@ package body Prj.Env is
          --  If there are Ada sources, call action with the name of every
          --  source directory.
 
-         if Has_Ada_Sources (Project) then
+         if Has_Ada_Sources (Prj) then
             while Current /= Nil_String loop
                The_String := In_Tree.Shared.String_Elements.Table (Current);
                Action (Get_Name_String (The_String.Display_Value));
@@ -1339,8 +1340,8 @@ package body Prj.Env is
                               (Unit.File_Names (Spec).Path.Name) =
                             Original_Name))
             then
-               Project := Ultimate_Extension_Of
-                          (Project => Unit.File_Names (Spec).Project);
+               Project := Ultimate_Extending_Project_Of
+                          (Unit.File_Names (Spec).Project);
                Path := Unit.File_Names (Spec).Path.Display_Name;
 
                if Current_Verbosity > Default then
@@ -1361,8 +1362,8 @@ package body Prj.Env is
                             (Unit.File_Names (Impl).Path.Name) =
                             Original_Name))
             then
-               Project := Ultimate_Extension_Of
-                            (Project => Unit.File_Names (Impl).Project);
+               Project := Ultimate_Extending_Project_Of
+                            (Unit.File_Names (Impl).Project);
                Path := Unit.File_Names (Impl).Path.Display_Name;
 
                if Current_Verbosity > Default then
@@ -1550,15 +1551,7 @@ package body Prj.Env is
          Unit := Units_Htable.Get_Next (In_Tree.Units_HT);
       end loop;
 
-      --  Get the ultimate extending project
-
-      if Result /= No_Project then
-         while Result.Extended_By /= No_Project loop
-            Result := Result.Extended_By;
-         end loop;
-      end if;
-
-      return Result;
+      return Ultimate_Extending_Project_Of (Result);
    end Project_Of;
 
    -------------------
@@ -1799,24 +1792,6 @@ package body Prj.Env is
       end if;
    end Set_Path_File_Var;
 
-   ---------------------------
-   -- Ultimate_Extension_Of --
-   ---------------------------
-
-   function Ultimate_Extension_Of
-     (Project : Project_Id) return Project_Id
-   is
-      Result : Project_Id;
-
-   begin
-      Result := Project;
-      while Result.Extended_By /= No_Project loop
-         Result := Result.Extended_By;
-      end loop;
-
-      return Result;
-   end Ultimate_Extension_Of;
-
    ---------------------
    -- Add_Directories --
    ---------------------
@@ -1833,6 +1808,11 @@ package body Prj.Env is
          Tmp := Self.Path;
          Self.Path := new String'(Tmp.all & Path_Separator & Path);
          Free (Tmp);
+      end if;
+
+      if Current_Verbosity = High then
+         Debug_Output ("Adding directories to Project_Path: """
+                       & Path & '"');
       end if;
    end Add_Directories;
 
@@ -2001,44 +1981,61 @@ package body Prj.Env is
 
       if Add_Default_Dir then
          declare
-            Prefix : String_Ptr := Sdefault.Search_Dir_Prefix;
+            Prefix : String_Ptr;
 
          begin
-            if Prefix = null then
+            if Sdefault.Search_Dir_Prefix = null then
+
+               --  gprbuild case
+
                Prefix := new String'(Executable_Prefix_Path);
 
-               if Prefix.all /= "" then
-                  if Target_Name /= "" then
-                     Add_Str_To_Name_Buffer
-                       (Path_Separator & Prefix.all &
-                        Target_Name & Directory_Separator &
-                        "lib" & Directory_Separator & "gnat");
+            else
+               Prefix := new String'(Sdefault.Search_Dir_Prefix.all
+                                     & ".." & Dir_Separator
+                                     & ".." & Dir_Separator
+                                     & ".." & Dir_Separator
+                                     & ".." & Dir_Separator);
+            end if;
+
+            if Prefix.all /= "" then
+               if Target_Name /= "" then
+
+                  --  $prefix/$target/lib/gnat
+
+                  Add_Str_To_Name_Buffer
+                    (Path_Separator & Prefix.all &
+                     Target_Name);
+
+                  --  Note: Target_Name has a trailing / when it comes from
+                  --  Sdefault.
+
+                  if Name_Buffer (Name_Len) /= '/' then
+                     Add_Char_To_Name_Buffer (Directory_Separator);
                   end if;
 
                   Add_Str_To_Name_Buffer
-                    (Path_Separator & Prefix.all &
-                     "share" & Directory_Separator & "gpr");
-                  Add_Str_To_Name_Buffer
-                    (Path_Separator & Prefix.all &
-                     "lib" & Directory_Separator & "gnat");
+                    ("lib" & Directory_Separator & "gnat");
                end if;
 
-            else
-               Self.Path :=
-                 new String'(Name_Buffer (1 .. Name_Len) & Path_Separator &
-                             Prefix.all &
-                             ".." &  Directory_Separator &
-                             ".." & Directory_Separator &
-                             ".." & Directory_Separator & "gnat");
+               --  $prefix/share/gpr
+
+               Add_Str_To_Name_Buffer
+                 (Path_Separator & Prefix.all &
+                  "share" & Directory_Separator & "gpr");
+
+               --  $prefix/lib/gnat
+
+               Add_Str_To_Name_Buffer
+                 (Path_Separator & Prefix.all &
+                  "lib" & Directory_Separator & "gnat");
             end if;
 
             Free (Prefix);
          end;
       end if;
 
-      if Self.Path = null then
-         Self.Path := new String'(Name_Buffer (1 .. Name_Len));
-      end if;
+      Self.Path := new String'(Name_Buffer (1 .. Name_Len));
    end Initialize_Default_Project_Path;
 
    --------------

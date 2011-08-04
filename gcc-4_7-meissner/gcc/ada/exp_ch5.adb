@@ -2279,6 +2279,8 @@ package body Exp_Ch5 is
       if Compile_Time_Known_Value (Expr) then
          Alt := Find_Static_Alternative (N);
 
+         Process_Statements_For_Controlled_Objects (Alt);
+
          --  Move statements from this alternative after the case statement.
          --  They are already analyzed, so will be skipped by the analyzer.
 
@@ -2290,21 +2292,21 @@ package body Exp_Ch5 is
          Kill_Dead_Code (Expression (N));
 
          declare
-            A : Node_Id;
+            Dead_Alt : Node_Id;
 
          begin
             --  Loop through case alternatives, skipping pragmas, and skipping
             --  the one alternative that we select (and therefore retain).
 
-            A := First (Alternatives (N));
-            while Present (A) loop
-               if A /= Alt
-                 and then Nkind (A) = N_Case_Statement_Alternative
+            Dead_Alt := First (Alternatives (N));
+            while Present (Dead_Alt) loop
+               if Dead_Alt /= Alt
+                 and then Nkind (Dead_Alt) = N_Case_Statement_Alternative
                then
-                  Kill_Dead_Code (Statements (A), Warn_On_Deleted_Code);
+                  Kill_Dead_Code (Statements (Dead_Alt), Warn_On_Deleted_Code);
                end if;
 
-               Next (A);
+               Next (Dead_Alt);
             end loop;
          end;
 
@@ -2351,12 +2353,16 @@ package body Exp_Ch5 is
          Len := List_Length (Alternatives (N));
 
          if Len = 1 then
-            --  We still need to evaluate the expression if it has any
-            --  side effects.
+
+            --  We still need to evaluate the expression if it has any side
+            --  effects.
 
             Remove_Side_Effects (Expression (N));
 
-            Insert_List_After (N, Statements (First (Alternatives (N))));
+            Alt := First (Alternatives (N));
+
+            Process_Statements_For_Controlled_Objects (Alt);
+            Insert_List_After (N, Statements (Alt));
 
             --  That leaves the case statement as a shell. The alternative that
             --  will be executed is reset to a null list. So now we can kill
@@ -2365,7 +2371,6 @@ package body Exp_Ch5 is
             Kill_Dead_Code (Expression (N));
             Rewrite (N, Make_Null_Statement (Loc));
             return;
-         end if;
 
          --  An optimization. If there are only two alternatives, and only
          --  a single choice, then rewrite the whole case statement as an
@@ -2374,7 +2379,7 @@ package body Exp_Ch5 is
          --  simple form, but also with generated code (discriminant check
          --  functions in particular)
 
-         if Len = 2 then
+         elsif Len = 2 then
             Chlist := Discrete_Choices (First (Alternatives (N)));
 
             if List_Length (Chlist) = 1 then
@@ -2451,6 +2456,14 @@ package body Exp_Ch5 is
               (Others_Node, Discrete_Choices (Last_Alt));
             Set_Discrete_Choices (Last_Alt, New_List (Others_Node));
          end if;
+
+         Alt := First (Alternatives (N));
+         while Present (Alt)
+           and then Nkind (Alt) = N_Case_Statement_Alternative
+         loop
+            Process_Statements_For_Controlled_Objects (Alt);
+            Next (Alt);
+         end loop;
       end;
    end Expand_N_Case_Statement;
 
@@ -2525,6 +2538,8 @@ package body Exp_Ch5 is
       --  these warnings for expander generated code.
 
    begin
+      Process_Statements_For_Controlled_Objects (N);
+
       Adjust_Condition (Condition (N));
 
       --  The following loop deals with constant conditions for the IF. We
@@ -2610,6 +2625,8 @@ package body Exp_Ch5 is
       if Present (Elsif_Parts (N)) then
          E := First (Elsif_Parts (N));
          while Present (E) loop
+            Process_Statements_For_Controlled_Objects (E);
+
             Adjust_Condition (Condition (E));
 
             --  If there are condition actions, then rewrite the if statement
@@ -3064,6 +3081,8 @@ package body Exp_Ch5 is
          Rewrite (N, Make_Null_Statement (Loc));
          return;
       end if;
+
+      Process_Statements_For_Controlled_Objects (N);
 
       --  Deal with condition for C/Fortran Boolean
 
@@ -3538,9 +3557,9 @@ package body Exp_Ch5 is
 
       else
          Append_To (Res,
-           Make_Final_Call (
-             Obj_Ref => Duplicate_Subexpr_No_Checks (L),
-             Typ     => Etype (L)));
+           Make_Final_Call
+             (Obj_Ref => Duplicate_Subexpr_No_Checks (L),
+              Typ     => Etype (L)));
       end if;
 
       --  Save the Tag in a local variable Tag_Id
@@ -3551,12 +3570,10 @@ package body Exp_Ch5 is
          Append_To (Res,
            Make_Object_Declaration (Loc,
              Defining_Identifier => Tag_Id,
-             Object_Definition =>
-               New_Reference_To (RTE (RE_Tag), Loc),
-             Expression =>
+             Object_Definition   => New_Reference_To (RTE (RE_Tag), Loc),
+             Expression          =>
                Make_Selected_Component (Loc,
-                 Prefix =>
-                   Duplicate_Subexpr_No_Checks (L),
+                 Prefix        => Duplicate_Subexpr_No_Checks (L),
                  Selector_Name =>
                    New_Reference_To (First_Tag_Component (T), Loc))));
 
@@ -3581,11 +3598,11 @@ package body Exp_Ch5 is
          Append_To (Res,
            Make_Object_Declaration (Loc,
              Defining_Identifier => Prev_Id,
-             Object_Definition =>
+             Object_Definition   =>
                New_Reference_To (RTE (RE_Root_Controlled_Ptr), Loc),
-             Expression =>
+             Expression          =>
                Make_Selected_Component (Loc,
-                 Prefix =>
+                 Prefix        =>
                    Unchecked_Convert_To
                      (RTE (RE_Root_Controlled), New_Copy_Tree (L)),
                  Selector_Name =>
@@ -3597,11 +3614,11 @@ package body Exp_Ch5 is
          Append_To (Res,
            Make_Object_Declaration (Loc,
              Defining_Identifier => Next_Id,
-             Object_Definition =>
+             Object_Definition   =>
                New_Reference_To (RTE (RE_Root_Controlled_Ptr), Loc),
-             Expression =>
+             Expression          =>
                Make_Selected_Component (Loc,
-                 Prefix =>
+                 Prefix        =>
                    Unchecked_Convert_To
                      (RTE (RE_Root_Controlled), New_Copy_Tree (L)),
                  Selector_Name =>
@@ -3625,14 +3642,12 @@ package body Exp_Ch5 is
       if Save_Tag then
          Append_To (Res,
            Make_Assignment_Statement (Loc,
-             Name =>
+             Name       =>
                Make_Selected_Component (Loc,
-                 Prefix =>
-                   Duplicate_Subexpr_No_Checks (L),
+                 Prefix        => Duplicate_Subexpr_No_Checks (L),
                  Selector_Name =>
                    New_Reference_To (First_Tag_Component (T), Loc)),
-             Expression =>
-               New_Reference_To (Tag_Id, Loc)));
+             Expression => New_Reference_To (Tag_Id, Loc)));
       end if;
 
       --  Restore the Prev and Next fields on .NET/JVM
@@ -3645,30 +3660,27 @@ package body Exp_Ch5 is
 
          Append_To (Res,
            Make_Assignment_Statement (Loc,
-             Name =>
+             Name       =>
                Make_Selected_Component (Loc,
-                 Prefix =>
+                 Prefix        =>
                    Unchecked_Convert_To
                      (RTE (RE_Root_Controlled), New_Copy_Tree (L)),
                  Selector_Name =>
                    Make_Identifier (Loc, Name_Prev)),
-             Expression =>
-               New_Reference_To (Prev_Id, Loc)));
+             Expression => New_Reference_To (Prev_Id, Loc)));
 
          --  Generate:
          --    Root_Controlled (L).Next := Next_Id;
 
          Append_To (Res,
            Make_Assignment_Statement (Loc,
-             Name =>
+             Name       =>
                Make_Selected_Component (Loc,
-                 Prefix =>
+                 Prefix        =>
                    Unchecked_Convert_To
                      (RTE (RE_Root_Controlled), New_Copy_Tree (L)),
-                 Selector_Name =>
-                   Make_Identifier (Loc, Name_Next)),
-             Expression =>
-               New_Reference_To (Next_Id, Loc)));
+                 Selector_Name => Make_Identifier (Loc, Name_Next)),
+             Expression => New_Reference_To (Next_Id, Loc)));
       end if;
 
       --  Adjust the target after the assignment when controlled (not in the
@@ -3676,14 +3688,15 @@ package body Exp_Ch5 is
 
       if Ctrl_Act then
          Append_To (Res,
-           Make_Adjust_Call (
-             Obj_Ref => Duplicate_Subexpr_Move_Checks (L),
-             Typ     => Etype (L)));
+           Make_Adjust_Call
+             (Obj_Ref => Duplicate_Subexpr_Move_Checks (L),
+              Typ     => Etype (L)));
       end if;
 
       return Res;
 
    exception
+
       --  Could use comment here ???
 
       when RE_Not_Available =>

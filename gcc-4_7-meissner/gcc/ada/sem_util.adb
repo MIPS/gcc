@@ -31,7 +31,6 @@ with Errout;   use Errout;
 with Elists;   use Elists;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Disp; use Exp_Disp;
-with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
 with Freeze;   use Freeze;
@@ -140,10 +139,6 @@ package body Sem_Util is
    function Has_Null_Extension (T : Entity_Id) return Boolean;
    --  T is a derived tagged type. Check whether the type extension is null.
    --  If the parent type is fully initialized, T can be treated as such.
-
-   procedure Mark_Non_ALFA_Subprogram_Unconditional;
-   --  Perform the action for Mark_Non_ALFA_Subprogram_Body, which allows the
-   --  latter to be small and inlined.
 
    ------------------------------
    --  Abstract_Interface_List --
@@ -954,19 +949,17 @@ package body Sem_Util is
       Name_Buffer (Name_Len + 2) := 'E';
       Name_Len := Name_Len + 2;
 
-      --  Create elaboration flag
+      --  Create elaboration counter
 
-      Elab_Ent :=
-        Make_Defining_Identifier (Loc, Chars => Name_Find);
+      Elab_Ent := Make_Defining_Identifier (Loc, Chars => Name_Find);
       Set_Elaboration_Entity (Spec_Id, Elab_Ent);
 
       Decl :=
-         Make_Object_Declaration (Loc,
-           Defining_Identifier => Elab_Ent,
-           Object_Definition   =>
-             New_Occurrence_Of (Standard_Boolean, Loc),
-           Expression          =>
-             New_Occurrence_Of (Standard_False, Loc));
+        Make_Object_Declaration (Loc,
+          Defining_Identifier => Elab_Ent,
+          Object_Definition   =>
+            New_Occurrence_Of (Standard_Short_Integer, Loc),
+          Expression          => Make_Integer_Literal (Loc, Uint_0));
 
       Push_Scope (Standard_Standard);
       Add_Global_Declaration (Decl);
@@ -2320,47 +2313,6 @@ package body Sem_Util is
          return Enclosing_Subprogram (Scop);
       end if;
    end Current_Subprogram;
-
-   ------------------------------
-   -- Mark_Non_ALFA_Subprogram --
-   ------------------------------
-
-   procedure Mark_Non_ALFA_Subprogram is
-   begin
-      --  Isolate marking of the current subprogram body so that the body of
-      --  Mark_Non_ALFA_Subprogram is small and inlined.
-
-      if ALFA_Mode then
-         Mark_Non_ALFA_Subprogram_Unconditional;
-      end if;
-   end Mark_Non_ALFA_Subprogram;
-
-   --------------------------------------------
-   -- Mark_Non_ALFA_Subprogram_Unconditional --
-   --------------------------------------------
-
-   procedure Mark_Non_ALFA_Subprogram_Unconditional is
-      Cur_Subp : constant Entity_Id := Current_Subprogram;
-
-   begin
-      if Present (Cur_Subp)
-        and then (Is_Subprogram (Cur_Subp)
-                   or else Is_Generic_Subprogram (Cur_Subp))
-      then
-         --  If the non-ALFA construct is in a precondition or postcondition,
-         --  then mark the subprogram as not in ALFA. Otherwise, mark the
-         --  subprogram body as not in ALFA.
-
-         --  This comment just says what is done, but not why ??? and it
-         --  just repeats what is in the spec ???
-
-         if In_Pre_Post_Expression then
-            Set_Is_In_ALFA (Cur_Subp, False);
-         else
-            Set_Body_Is_In_ALFA (Cur_Subp, False);
-         end if;
-      end if;
-   end Mark_Non_ALFA_Subprogram_Unconditional;
 
    ---------------------
    -- Defining_Entity --
@@ -4198,6 +4150,38 @@ package body Sem_Util is
           Strval => String_From_Name_Buffer);
    end Get_Default_External_Name;
 
+   --------------------------
+   -- Get_Enclosing_Object --
+   --------------------------
+
+   function Get_Enclosing_Object (N : Node_Id) return Entity_Id is
+   begin
+      if Is_Entity_Name (N) then
+         return Entity (N);
+      else
+         case Nkind (N) is
+            when N_Indexed_Component  |
+                 N_Slice              |
+                 N_Selected_Component =>
+
+               --  If not generating code, a dereference may be left implicit.
+               --  In thoses cases, return Empty.
+
+               if Is_Access_Type (Etype (Prefix (N))) then
+                  return Empty;
+               else
+                  return Get_Enclosing_Object (Prefix (N));
+               end if;
+
+            when N_Type_Conversion =>
+               return Get_Enclosing_Object (Expression (N));
+
+            when others =>
+               return Empty;
+         end case;
+      end if;
+   end Get_Enclosing_Object;
+
    ---------------------------
    -- Get_Enum_Lit_From_Pos --
    ---------------------------
@@ -4237,6 +4221,28 @@ package body Sem_Util is
          return New_Occurrence_Of (Lit, Loc);
       end if;
    end Get_Enum_Lit_From_Pos;
+
+   ---------------------------------------
+   -- Get_Ensures_From_Test_Case_Pragma --
+   ---------------------------------------
+
+   function Get_Ensures_From_Test_Case_Pragma (N : Node_Id) return Node_Id is
+      Args : constant List_Id := Pragma_Argument_Associations (N);
+      Res  : Node_Id;
+
+   begin
+      if List_Length (Args) = 4 then
+         Res := Pick (Args, 4);
+
+      else
+         Res := Pick (Args, 3);
+         if Chars (Res) /= Name_Ensures then
+            Res := Empty;
+         end if;
+      end if;
+
+      return Res;
+   end Get_Ensures_From_Test_Case_Pragma;
 
    ------------------------
    -- Get_Generic_Entity --
@@ -4324,6 +4330,17 @@ package body Sem_Util is
       return Entity_Id (Get_Name_Table_Info (Id));
    end Get_Name_Entity_Id;
 
+   ------------------------------------
+   -- Get_Name_From_Test_Case_Pragma --
+   ------------------------------------
+
+   function Get_Name_From_Test_Case_Pragma (N : Node_Id) return String_Id is
+      Arg : constant Node_Id :=
+              Get_Pragma_Arg (First (Pragma_Argument_Associations (N)));
+   begin
+      return Strval (Expr_Value_S (Arg));
+   end Get_Name_From_Test_Case_Pragma;
+
    -------------------
    -- Get_Pragma_Id --
    -------------------
@@ -4366,6 +4383,23 @@ package body Sem_Util is
 
       return R;
    end Get_Renamed_Entity;
+
+   ----------------------------------------
+   -- Get_Requires_From_Test_Case_Pragma --
+   ----------------------------------------
+
+   function Get_Requires_From_Test_Case_Pragma (N : Node_Id) return Node_Id is
+      Args : constant List_Id := Pragma_Argument_Associations (N);
+      Res  : Node_Id;
+
+   begin
+      Res := Pick (Args, 3);
+      if Chars (Res) /= Name_Requires then
+         Res := Empty;
+      end if;
+
+      return Res;
+   end Get_Requires_From_Test_Case_Pragma;
 
    -------------------------
    -- Get_Subprogram_Body --
@@ -5567,7 +5601,7 @@ package body Sem_Util is
          return False;
       end if;
 
-      --  First treat specially string literals, as the lower bound and length
+      --  First treat string literals specially, as the lower bound and length
       --  of string literals are not stored like those of arrays.
 
       --  A string literal always has static bounds
@@ -5596,8 +5630,9 @@ package body Sem_Util is
             return False;
          end if;
 
-         if         Is_OK_Static_Expression (Low)
-           and then Is_OK_Static_Expression (High)
+         if Is_OK_Static_Expression (Low)
+              and then
+            Is_OK_Static_Expression (High)
          then
             null;
          else
@@ -6000,6 +6035,7 @@ package body Sem_Util is
                if Nkind (Decl) = N_Incomplete_Type_Declaration then
                   Match := Defining_Identifier (Decl);
                end if;
+
             else
                if Nkind_In (Decl, N_Private_Extension_Declaration,
                                   N_Private_Type_Declaration)
@@ -6020,6 +6056,8 @@ package body Sem_Util is
 
          return Empty;
       end Inspect_Decls;
+
+      --  Local variables
 
       Prev : Entity_Id;
 
@@ -10745,7 +10783,9 @@ package body Sem_Util is
 
          elsif Is_Record_Type (Btype) then
             Component := First_Entity (Btype);
-            while Present (Component) loop
+            while Present (Component)
+              and then Comes_From_Source (Component)
+            loop
 
                --  Skip anonymous types generated by constrained components
 
@@ -10983,7 +11023,7 @@ package body Sem_Util is
          --  subprogram bodies. Detect those cases by testing whether
          --  Process_End_Label was called for a body (Typ = 't') or a package.
 
-         if (SPARK_Mode or else Restriction_Check_Required (SPARK))
+         if Restriction_Check_Required (SPARK)
            and then (Typ = 't' or else Ekind (Ent) = E_Package)
          then
             Error_Msg_Node_1 := Endl;
@@ -12190,6 +12230,107 @@ package body Sem_Util is
       return Scope_Depth (Enclosing_Dynamic_Scope (Btyp));
    end Type_Access_Level;
 
+   ------------------------------------
+   -- Type_Without_Stream_Operation  --
+   ------------------------------------
+
+   function Type_Without_Stream_Operation
+     (T : Entity_Id; Op : TSS_Name_Type := TSS_Null) return Entity_Id
+   is
+      BT : constant Entity_Id := Base_Type (T);
+      Op_Missing : Boolean;
+   begin
+      if not Restriction_Active (No_Default_Stream_Attributes) then
+         return Empty;
+      end if;
+
+      if Is_Elementary_Type (T) then
+         if Op = TSS_Null then
+            Op_Missing :=
+            No (TSS (BT, TSS_Stream_Read))
+              or else No (TSS (BT, TSS_Stream_Write));
+
+         else
+            Op_Missing := No (TSS (BT, Op));
+         end if;
+
+         if Op_Missing then
+            return T;
+
+         else
+            return Empty;
+         end if;
+
+      elsif Is_Array_Type (T) then
+         return Type_Without_Stream_Operation (Component_Type (T), Op);
+
+      elsif Is_Record_Type (T) then
+         declare
+            Comp  : Entity_Id;
+            C_Typ : Entity_Id;
+
+         begin
+            Comp := First_Component (T);
+            while Present (Comp) loop
+               C_Typ := Type_Without_Stream_Operation (Etype (Comp), Op);
+               if Present (C_Typ) then
+                  return C_Typ;
+               end if;
+
+               Next_Component (Comp);
+            end loop;
+
+            return Empty;
+         end;
+
+      elsif Is_Private_Type (T)
+        and then Present (Full_View (T))
+      then
+         return Type_Without_Stream_Operation (Full_View (T), Op);
+
+      else
+         return Empty;
+      end if;
+   end Type_Without_Stream_Operation;
+
+   ----------------------------
+   -- Unique_Defining_Entity --
+   ----------------------------
+
+   function Unique_Defining_Entity (N : Node_Id) return Entity_Id is
+   begin
+      case Nkind (N) is
+         when N_Package_Body =>
+            return Corresponding_Spec (N);
+
+         when N_Subprogram_Body =>
+            if Acts_As_Spec (N) then
+               return Defining_Entity (N);
+            else
+               return Corresponding_Spec (N);
+            end if;
+
+         when others =>
+            return Defining_Entity (N);
+      end case;
+   end Unique_Defining_Entity;
+
+   -----------------
+   -- Unique_Name --
+   -----------------
+
+   function Unique_Name (E : Entity_Id) return String is
+      Name : constant String := Get_Name_String (Chars (E));
+   begin
+      if Has_Fully_Qualified_Name (E)
+        or else E = Standard_Standard
+      then
+         return Name;
+      else
+         return Unique_Name (Scope (E)) & "__" & Name;
+      end if;
+   end Unique_Name;
+
    --------------------------
    -- Unit_Declaration_Node --
    --------------------------
@@ -12462,6 +12603,10 @@ package body Sem_Util is
       Found_Type : constant Entity_Id := First_Subtype (Etype (Expr));
       Expec_Type : constant Entity_Id := First_Subtype (Expected_Type);
 
+      Matching_Field : Entity_Id;
+      --  Entity to give a more precise suggestion on how to write a one-
+      --  element positional aggregate.
+
       function Has_One_Matching_Field return Boolean;
       --  Determines if Expec_Type is a record type with a single component or
       --  discriminant whose type matches the found type or is one dimensional
@@ -12475,11 +12620,27 @@ package body Sem_Util is
          E : Entity_Id;
 
       begin
+         Matching_Field := Empty;
+
          if Is_Array_Type (Expec_Type)
            and then Number_Dimensions (Expec_Type) = 1
            and then
              Covers (Etype (Component_Type (Expec_Type)), Found_Type)
          then
+            --  Use type name if available. This excludes multidimensional
+            --  arrays and anonymous arrays.
+
+            if Comes_From_Source (Expec_Type) then
+               Matching_Field := Expec_Type;
+
+            --  For an assignment, use name of target.
+
+            elsif Nkind (Parent (Expr)) = N_Assignment_Statement
+              and then Is_Entity_Name (Name (Parent (Expr)))
+            then
+               Matching_Field := Entity (Name (Parent (Expr)));
+            end if;
+
             return True;
 
          elsif not Is_Record_Type (Expec_Type) then
@@ -12510,6 +12671,7 @@ package body Sem_Util is
                return False;
 
             else
+               Matching_Field := E;
                return True;
             end if;
          end if;
@@ -12558,6 +12720,16 @@ package body Sem_Util is
         and then Has_One_Matching_Field
       then
          Error_Msg_N ("positional aggregate cannot have one component", Expr);
+         if Present (Matching_Field) then
+            if Is_Array_Type (Expec_Type) then
+               Error_Msg_NE
+                 ("\write instead `&''First ='> ...`", Expr, Matching_Field);
+
+            else
+               Error_Msg_NE
+                 ("\write instead `& ='> ...`", Expr, Matching_Field);
+            end if;
+         end if;
 
       --  Another special check, if we are looking for a pool-specific access
       --  type and we found an E_Access_Attribute_Type, then we have the case

@@ -147,6 +147,19 @@ package body Exp_Util is
       N      : Node_Id) return Entity_Id;
    --  Create an implicit subtype of CW_Typ attached to node N
 
+   function Requires_Cleanup_Actions
+     (L                 : List_Id;
+      For_Package       : Boolean;
+      Nested_Constructs : Boolean) return Boolean;
+   --  Given a list L, determine whether it contains one of the following:
+   --
+   --    1) controlled objects
+   --    2) library-level tagged types
+   --
+   --  Flag For_Package should be set when the list comes from a package spec
+   --  or body. Flag Nested_Constructs should be set when any nested packages
+   --  declared in L must be processed.
+
    ----------------------
    -- Adjust_Condition --
    ----------------------
@@ -338,24 +351,23 @@ package body Exp_Util is
       -----------------
 
       function Find_Object (E : Node_Id) return Node_Id is
-         Expr   : Node_Id := E;
-         Change : Boolean := True;
+         Expr : Node_Id;
 
       begin
          pragma Assert (Is_Allocate);
 
-         while Change loop
-            Change := False;
-
+         Expr := E;
+         loop
             if Nkind_In (Expr, N_Qualified_Expression,
                                N_Unchecked_Type_Conversion)
             then
-               Expr   := Expression (Expr);
-               Change := True;
+               Expr := Expression (Expr);
 
             elsif Nkind (Expr) = N_Explicit_Dereference then
-               Expr   := Prefix (Expr);
-               Change := True;
+               Expr := Prefix (Expr);
+
+            else
+               exit;
             end if;
          end loop;
 
@@ -2580,224 +2592,6 @@ package body Exp_Util is
       end if;
    end Has_Access_Constraint;
 
-   ----------------------------
-   -- Has_Controlled_Objects --
-   ----------------------------
-
-   function Has_Controlled_Objects (N : Node_Id) return Boolean is
-      For_Pkg : constant Boolean :=
-                  Nkind_In (N, N_Package_Body, N_Package_Specification);
-
-   begin
-      case Nkind (N) is
-         when N_Accept_Statement      |
-              N_Block_Statement       |
-              N_Entry_Body            |
-              N_Package_Body          |
-              N_Protected_Body        |
-              N_Subprogram_Body       |
-              N_Task_Body             =>
-            return Has_Controlled_Objects (Declarations (N), For_Pkg)
-                     or else
-
-                  --  An expanded sequence of statements may introduce
-                  --  controlled objects.
-
-                  (Present (Handled_Statement_Sequence (N))
-                     and then
-                   Has_Controlled_Objects
-                     (Statements (Handled_Statement_Sequence (N)), For_Pkg));
-
-         when N_Package_Specification =>
-            return Has_Controlled_Objects (Visible_Declarations (N), For_Pkg)
-                     or else
-                   Has_Controlled_Objects (Private_Declarations (N), For_Pkg);
-
-         when others                  =>
-            return False;
-      end case;
-   end Has_Controlled_Objects;
-
-   ----------------------------
-   -- Has_Controlled_Objects --
-   ----------------------------
-
-   function Has_Controlled_Objects
-     (L           : List_Id;
-      For_Package : Boolean) return Boolean
-   is
-      Decl    : Node_Id;
-      Expr    : Node_Id;
-      Obj_Id  : Entity_Id;
-      Obj_Typ : Entity_Id;
-      Pack_Id : Entity_Id;
-      Typ     : Entity_Id;
-
-   begin
-      if No (L)
-        or else Is_Empty_List (L)
-      then
-         return False;
-      end if;
-
-      Decl := First (L);
-      while Present (Decl) loop
-
-         --  Regular object declarations
-
-         if Nkind (Decl) = N_Object_Declaration then
-            Obj_Id  := Defining_Identifier (Decl);
-            Obj_Typ := Base_Type (Etype (Obj_Id));
-            Expr    := Expression (Decl);
-
-            --  Bypass any form of processing for objects which have their
-            --  finalization disabled. This applies only to objects at the
-            --  library level.
-
-            if For_Package
-              and then Finalize_Storage_Only (Obj_Typ)
-            then
-               null;
-
-            --  Transient variables are treated separately in order to minimize
-            --  the size of the generated code. See Exp_Ch7.Process_Transient_
-            --  Objects.
-
-            elsif Is_Processed_Transient (Obj_Id) then
-               null;
-
-            --  The object is of the form:
-            --    Obj : Typ [:= Expr];
-            --
-            --  Do not process the incomplete view of a deferred constant
-
-            elsif not Is_Imported (Obj_Id)
-              and then Needs_Finalization (Obj_Typ)
-              and then not (Ekind (Obj_Id) = E_Constant
-                              and then not Has_Completion (Obj_Id))
-            then
-               return True;
-
-            --  The object is of the form:
-            --    Obj : Access_Typ := Non_BIP_Function_Call'reference;
-            --
-            --    Obj : Access_Typ :=
-            --            BIP_Function_Call
-            --              (..., BIPaccess => null, ...)'reference;
-
-            elsif Is_Access_Type (Obj_Typ)
-              and then Needs_Finalization
-                         (Available_View (Designated_Type (Obj_Typ)))
-              and then Present (Expr)
-              and then
-                (Is_Null_Access_BIP_Func_Call (Expr)
-                   or else
-                (Is_Non_BIP_Func_Call (Expr)
-                   and then not Is_Related_To_Func_Return (Obj_Id)))
-            then
-               return True;
-
-            --  Simple protected objects which use type System.Tasking.
-            --  Protected_Objects.Protection to manage their locks should be
-            --  treated as controlled since they require manual cleanup.
-
-            elsif Ekind (Obj_Id) = E_Variable
-              and then
-                (Is_Simple_Protected_Type (Obj_Typ)
-                   or else Has_Simple_Protected_Object (Obj_Typ))
-            then
-               return True;
-            end if;
-
-         --  Specific cases of object renamings
-
-         elsif Nkind (Decl) = N_Object_Renaming_Declaration
-           and then Nkind (Name (Decl)) = N_Explicit_Dereference
-           and then Nkind (Prefix (Name (Decl))) = N_Identifier
-         then
-            Obj_Id  := Defining_Identifier (Decl);
-            Obj_Typ := Base_Type (Etype (Obj_Id));
-
-            --  Bypass any form of processing for objects which have their
-            --  finalization disabled. This applies only to objects at the
-            --  library level.
-
-            if For_Package
-              and then Finalize_Storage_Only (Obj_Typ)
-            then
-               null;
-
-            --  Return object of a build-in-place function. This case is
-            --  recognized and marked by the expansion of an extended return
-            --  statement (see Expand_N_Extended_Return_Statement).
-
-            elsif Needs_Finalization (Obj_Typ)
-              and then Is_Return_Object (Obj_Id)
-              and then Present (Return_Flag (Obj_Id))
-            then
-               return True;
-            end if;
-
-         --  Inspect the freeze node of an access-to-controlled type and
-         --  look for a delayed finalization collection. This case arises
-         --  when the freeze actions are inserted at a later time than the
-         --  expansion of the context. Since Build_Finalizer is never called
-         --  on a single construct twice, the collection will be ultimately
-         --  left out and never finalized. This is also needed for freeze
-         --  actions of designated types themselves, since in some cases the
-         --  finalization collection is associated with a designated type's
-         --  freeze node rather than that of the access type (see handling
-         --  for freeze actions in Build_Finalization_Collection).
-
-         elsif Nkind (Decl) = N_Freeze_Entity
-           and then Present (Actions (Decl))
-         then
-            Typ := Entity (Decl);
-
-            if (Is_Access_Type (Typ)
-                  and then not Is_Access_Subprogram_Type (Typ)
-                  and then Needs_Finalization
-                             (Available_View (Designated_Type (Typ))))
-              or else
-               (Is_Type (Typ)
-                  and then Needs_Finalization (Typ))
-            then
-               return True;
-            end if;
-
-         --  Nested package declarations
-
-         elsif Nkind (Decl) = N_Package_Declaration then
-            Pack_Id := Defining_Unit_Name (Specification (Decl));
-
-            if Nkind (Pack_Id) = N_Defining_Program_Unit_Name then
-               Pack_Id := Defining_Identifier (Pack_Id);
-            end if;
-
-            if Ekind (Pack_Id) /= E_Generic_Package
-              and then Has_Controlled_Objects (Specification (Decl))
-            then
-               return True;
-            end if;
-
-         --  Nested package bodies
-
-         elsif Nkind (Decl) = N_Package_Body then
-            Pack_Id := Corresponding_Spec (Decl);
-
-            if Ekind (Pack_Id) /= E_Generic_Package
-              and then Has_Controlled_Objects (Decl)
-            then
-               return True;
-            end if;
-         end if;
-
-         Next (Decl);
-      end loop;
-
-      return False;
-   end Has_Controlled_Objects;
-
    ----------------------------------
    -- Has_Following_Address_Clause --
    ----------------------------------
@@ -3394,6 +3188,11 @@ package body Exp_Util is
                      null;
                   end if;
 
+            --  A contract node should not belong to the tree
+
+            when N_Contract =>
+               raise Program_Error;
+
             --  For all other node types, keep climbing tree
 
             when
@@ -3890,6 +3689,12 @@ package body Exp_Util is
                then
                   Ren_Obj := Prefix (Ren_Obj);
                   Change := True;
+
+               elsif Nkind_In (Ren_Obj, N_Type_Conversion,
+                                        N_Unchecked_Type_Conversion)
+               then
+                  Ren_Obj := Expression (Ren_Obj);
+                  Change := True;
                end if;
             end loop;
 
@@ -3904,8 +3709,7 @@ package body Exp_Util is
 
       begin
          --  If a previous invocation of this routine has determined that a
-         --  list has no renamings, there is no point in repeating the same
-         --  scan.
+         --  list has no renamings, then no point in repeating the same scan.
 
          if not Has_Rens then
             return False;
@@ -3955,11 +3759,6 @@ package body Exp_Util is
 
           and then not Is_Allocated (Obj_Id)
 
-         --  Do not consider renamed transient objects because the act of
-         --  renaming extends the object's lifetime.
-
-          and then not Is_Renamed (Obj_Id, Decl)
-
          --  If the transient object is a pointer, check that it is not
          --  initialized by a function which returns a pointer or acts as a
          --  renaming of another pointer.
@@ -3971,7 +3770,16 @@ package body Exp_Util is
          --  Do not consider transient objects which act as indirect aliases of
          --  build-in-place function results.
 
-          and then not Initialized_By_Aliased_BIP_Func_Call (Obj_Id);
+          and then not Initialized_By_Aliased_BIP_Func_Call (Obj_Id)
+
+         --  Do not consider renamed transient objects because the act of
+         --  renaming extends the object's lifetime.
+
+          and then not Is_Renamed (Obj_Id, Decl)
+
+         --  Do not consider conversions of tags to class-wide types
+
+          and then not Is_Tag_To_CW_Conversion (Obj_Id);
    end Is_Finalizable_Transient;
 
    ---------------------------------
@@ -4393,7 +4201,6 @@ package body Exp_Util is
 
    function Is_Related_To_Func_Return (Id : Entity_Id) return Boolean is
       Expr : constant Node_Id := Related_Expression (Id);
-
    begin
       return
         Present (Expr)
@@ -4489,6 +4296,21 @@ package body Exp_Util is
          return False;
       end if;
    end Is_Renamed_Object;
+
+   -----------------------------
+   -- Is_Tag_To_CW_Conversion --
+   -----------------------------
+
+   function Is_Tag_To_CW_Conversion (Obj_Id : Entity_Id) return Boolean is
+      Expr : constant Node_Id := Expression (Parent (Obj_Id));
+
+   begin
+      return
+        Is_Class_Wide_Type (Etype (Obj_Id))
+          and then Present (Expr)
+          and then Nkind (Expr) = N_Unchecked_Type_Conversion
+          and then Etype (Expression (Expr)) = RTE (RE_Tag);
+   end Is_Tag_To_CW_Conversion;
 
    ----------------------------
    -- Is_Untagged_Derivation --
@@ -5626,6 +5448,105 @@ package body Exp_Util is
       end case;
    end Possible_Bit_Aligned_Component;
 
+   -----------------------------------------------
+   -- Process_Statements_For_Controlled_Objects --
+   -----------------------------------------------
+
+   procedure Process_Statements_For_Controlled_Objects (N : Node_Id) is
+      Loc : constant Source_Ptr := Sloc (N);
+
+      function Are_Wrapped (L : List_Id) return Boolean;
+      --  Determine whether list L contains only one statement which is a block
+
+      function Wrap_Statements_In_Block (L : List_Id) return Node_Id;
+      --  Given a list of statements L, wrap it in a block statement and return
+      --  the generated node.
+
+      -----------------
+      -- Are_Wrapped --
+      -----------------
+
+      function Are_Wrapped (L : List_Id) return Boolean is
+         Stmt : constant Node_Id := First (L);
+      begin
+         return
+           Present (Stmt)
+             and then No (Next (Stmt))
+             and then Nkind (Stmt) = N_Block_Statement;
+      end Are_Wrapped;
+
+      ------------------------------
+      -- Wrap_Statements_In_Block --
+      ------------------------------
+
+      function Wrap_Statements_In_Block (L : List_Id) return Node_Id is
+      begin
+         return
+           Make_Block_Statement (Loc,
+             Declarations => No_List,
+             Handled_Statement_Sequence =>
+               Make_Handled_Sequence_Of_Statements (Loc,
+                 Statements => L));
+      end Wrap_Statements_In_Block;
+
+   --  Start of processing for Process_Statements_For_Controlled_Objects
+
+   begin
+      case Nkind (N) is
+         when N_Elsif_Part             |
+              N_If_Statement           |
+              N_Conditional_Entry_Call |
+              N_Selective_Accept       =>
+
+            --  Check the "then statements" for elsif parts and if statements
+
+            if Nkind_In (N, N_Elsif_Part, N_If_Statement)
+              and then not Is_Empty_List (Then_Statements (N))
+              and then not Are_Wrapped (Then_Statements (N))
+              and then Requires_Cleanup_Actions
+                         (Then_Statements (N), False, False)
+            then
+               Set_Then_Statements (N, New_List (
+                 Wrap_Statements_In_Block (Then_Statements (N))));
+            end if;
+
+            --  Check the "else statements" for conditional entry calls, if
+            --  statements and selective accepts.
+
+            if Nkind_In (N, N_Conditional_Entry_Call,
+                            N_If_Statement,
+                            N_Selective_Accept)
+              and then not Is_Empty_List (Else_Statements (N))
+              and then not Are_Wrapped (Else_Statements (N))
+              and then Requires_Cleanup_Actions
+                         (Else_Statements (N), False, False)
+            then
+               Set_Else_Statements (N, New_List (
+                 Wrap_Statements_In_Block (Else_Statements (N))));
+            end if;
+
+         when N_Abortable_Part             |
+              N_Accept_Alternative         |
+              N_Case_Statement_Alternative |
+              N_Delay_Alternative          |
+              N_Entry_Call_Alternative     |
+              N_Exception_Handler          |
+              N_Loop_Statement             |
+              N_Triggering_Alternative     =>
+
+            if not Is_Empty_List (Statements (N))
+              and then not Are_Wrapped (Statements (N))
+              and then Requires_Cleanup_Actions (Statements (N), False, False)
+            then
+               Set_Statements (N, New_List (
+                 Wrap_Statements_In_Block (Statements (N))));
+            end if;
+
+         when others                       =>
+            null;
+      end case;
+   end Process_Statements_For_Controlled_Objects;
+
    -------------------------
    -- Remove_Side_Effects --
    -------------------------
@@ -6310,6 +6231,259 @@ package body Exp_Util is
                    and then Is_Scalar_Type (Packed_Array_Type (UT)));
    end Represented_As_Scalar;
 
+   ------------------------------
+   -- Requires_Cleanup_Actions --
+   ------------------------------
+
+   function Requires_Cleanup_Actions (N : Node_Id) return Boolean is
+      For_Pkg : constant Boolean :=
+                  Nkind_In (N, N_Package_Body, N_Package_Specification);
+
+   begin
+      case Nkind (N) is
+         when N_Accept_Statement      |
+              N_Block_Statement       |
+              N_Entry_Body            |
+              N_Package_Body          |
+              N_Protected_Body        |
+              N_Subprogram_Body       |
+              N_Task_Body             =>
+            return
+              Requires_Cleanup_Actions (Declarations (N), For_Pkg, True)
+                or else
+              (Present (Handled_Statement_Sequence (N))
+                and then
+              Requires_Cleanup_Actions (Statements
+                (Handled_Statement_Sequence (N)), For_Pkg, True));
+
+         when N_Package_Specification =>
+            return
+              Requires_Cleanup_Actions
+                (Visible_Declarations (N), For_Pkg, True)
+                  or else
+              Requires_Cleanup_Actions
+                (Private_Declarations (N), For_Pkg, True);
+
+         when others                  =>
+            return False;
+      end case;
+   end Requires_Cleanup_Actions;
+
+   ------------------------------
+   -- Requires_Cleanup_Actions --
+   ------------------------------
+
+   function Requires_Cleanup_Actions
+     (L                 : List_Id;
+      For_Package       : Boolean;
+      Nested_Constructs : Boolean) return Boolean
+   is
+      Decl    : Node_Id;
+      Expr    : Node_Id;
+      Obj_Id  : Entity_Id;
+      Obj_Typ : Entity_Id;
+      Pack_Id : Entity_Id;
+      Typ     : Entity_Id;
+
+   begin
+      if No (L)
+        or else Is_Empty_List (L)
+      then
+         return False;
+      end if;
+
+      Decl := First (L);
+      while Present (Decl) loop
+
+         --  Library-level tagged types
+
+         if Nkind (Decl) = N_Full_Type_Declaration then
+            Typ := Defining_Identifier (Decl);
+
+            if Is_Tagged_Type (Typ)
+              and then Is_Library_Level_Entity (Typ)
+              and then Convention (Typ) = Convention_Ada
+              and then Present (Access_Disp_Table (Typ))
+              and then RTE_Available (RE_Unregister_Tag)
+              and then not No_Run_Time_Mode
+              and then not Is_Abstract_Type (Typ)
+            then
+               return True;
+            end if;
+
+         --  Regular object declarations
+
+         elsif Nkind (Decl) = N_Object_Declaration then
+            Obj_Id  := Defining_Identifier (Decl);
+            Obj_Typ := Base_Type (Etype (Obj_Id));
+            Expr    := Expression (Decl);
+
+            --  Bypass any form of processing for objects which have their
+            --  finalization disabled. This applies only to objects at the
+            --  library level.
+
+            if For_Package
+              and then Finalize_Storage_Only (Obj_Typ)
+            then
+               null;
+
+            --  Transient variables are treated separately in order to minimize
+            --  the size of the generated code. See Exp_Ch7.Process_Transient_
+            --  Objects.
+
+            elsif Is_Processed_Transient (Obj_Id) then
+               null;
+
+            --  The object is of the form:
+            --    Obj : Typ [:= Expr];
+            --
+            --  Do not process the incomplete view of a deferred constant. Do
+            --  not consider tag-to-class-wide conversions.
+
+            elsif not Is_Imported (Obj_Id)
+              and then Needs_Finalization (Obj_Typ)
+              and then not (Ekind (Obj_Id) = E_Constant
+                              and then not Has_Completion (Obj_Id))
+              and then not Is_Tag_To_CW_Conversion (Obj_Id)
+            then
+               return True;
+
+            --  The object is of the form:
+            --    Obj : Access_Typ := Non_BIP_Function_Call'reference;
+            --
+            --    Obj : Access_Typ :=
+            --            BIP_Function_Call
+            --              (..., BIPaccess => null, ...)'reference;
+
+            elsif Is_Access_Type (Obj_Typ)
+              and then Needs_Finalization
+                         (Available_View (Designated_Type (Obj_Typ)))
+              and then Present (Expr)
+              and then
+                (Is_Null_Access_BIP_Func_Call (Expr)
+                   or else
+                (Is_Non_BIP_Func_Call (Expr)
+                   and then not Is_Related_To_Func_Return (Obj_Id)))
+            then
+               return True;
+
+            --  Processing for "hook" objects generated for controlled
+            --  transients declared inside an Expression_With_Actions.
+
+            elsif Is_Access_Type (Obj_Typ)
+              and then Present (Return_Flag_Or_Transient_Decl (Obj_Id))
+              and then Nkind (Return_Flag_Or_Transient_Decl (Obj_Id)) =
+                         N_Object_Declaration
+              and then Is_Finalizable_Transient
+                         (Return_Flag_Or_Transient_Decl (Obj_Id), Decl)
+            then
+               return True;
+
+            --  Simple protected objects which use type System.Tasking.
+            --  Protected_Objects.Protection to manage their locks should be
+            --  treated as controlled since they require manual cleanup.
+
+            elsif Ekind (Obj_Id) = E_Variable
+              and then
+                (Is_Simple_Protected_Type (Obj_Typ)
+                  or else Has_Simple_Protected_Object (Obj_Typ))
+            then
+               return True;
+            end if;
+
+         --  Specific cases of object renamings
+
+         elsif Nkind (Decl) = N_Object_Renaming_Declaration
+           and then Nkind (Name (Decl)) = N_Explicit_Dereference
+           and then Nkind (Prefix (Name (Decl))) = N_Identifier
+         then
+            Obj_Id  := Defining_Identifier (Decl);
+            Obj_Typ := Base_Type (Etype (Obj_Id));
+
+            --  Bypass any form of processing for objects which have their
+            --  finalization disabled. This applies only to objects at the
+            --  library level.
+
+            if For_Package
+              and then Finalize_Storage_Only (Obj_Typ)
+            then
+               null;
+
+            --  Return object of a build-in-place function. This case is
+            --  recognized and marked by the expansion of an extended return
+            --  statement (see Expand_N_Extended_Return_Statement).
+
+            elsif Needs_Finalization (Obj_Typ)
+              and then Is_Return_Object (Obj_Id)
+              and then Present (Return_Flag_Or_Transient_Decl (Obj_Id))
+            then
+               return True;
+            end if;
+
+         --  Inspect the freeze node of an access-to-controlled type and
+         --  look for a delayed finalization collection. This case arises
+         --  when the freeze actions are inserted at a later time than the
+         --  expansion of the context. Since Build_Finalizer is never called
+         --  on a single construct twice, the collection will be ultimately
+         --  left out and never finalized. This is also needed for freeze
+         --  actions of designated types themselves, since in some cases the
+         --  finalization collection is associated with a designated type's
+         --  freeze node rather than that of the access type (see handling
+         --  for freeze actions in Build_Finalization_Collection).
+
+         elsif Nkind (Decl) = N_Freeze_Entity
+           and then Present (Actions (Decl))
+         then
+            Typ := Entity (Decl);
+
+            if (Is_Access_Type (Typ)
+                  and then not Is_Access_Subprogram_Type (Typ)
+                  and then Needs_Finalization
+                             (Available_View (Designated_Type (Typ))))
+              or else
+               (Is_Type (Typ)
+                  and then Needs_Finalization (Typ))
+            then
+               return True;
+            end if;
+
+         --  Nested package declarations
+
+         elsif Nested_Constructs
+           and then Nkind (Decl) = N_Package_Declaration
+         then
+            Pack_Id := Defining_Unit_Name (Specification (Decl));
+
+            if Nkind (Pack_Id) = N_Defining_Program_Unit_Name then
+               Pack_Id := Defining_Identifier (Pack_Id);
+            end if;
+
+            if Ekind (Pack_Id) /= E_Generic_Package
+              and then Requires_Cleanup_Actions (Specification (Decl))
+            then
+               return True;
+            end if;
+
+         --  Nested package bodies
+
+         elsif Nested_Constructs
+           and then Nkind (Decl) = N_Package_Body
+         then
+            Pack_Id := Corresponding_Spec (Decl);
+
+            if Ekind (Pack_Id) /= E_Generic_Package
+              and then Requires_Cleanup_Actions (Decl)
+            then
+               return True;
+            end if;
+         end if;
+
+         Next (Decl);
+      end loop;
+
+      return False;
+   end Requires_Cleanup_Actions;
+
    ------------------------------------
    -- Safe_Unchecked_Type_Conversion --
    ------------------------------------
@@ -6634,7 +6808,7 @@ package body Exp_Util is
             Asn :=
               Make_Assignment_Statement (Loc,
                 Name       => New_Occurrence_Of (Ent, Loc),
-                Expression => New_Occurrence_Of (Standard_True, Loc));
+                Expression => Make_Integer_Literal (Loc, Uint_1));
 
             if Nkind (Parent (N)) = N_Subunit then
                Insert_After (Corresponding_Stub (Parent (N)), Asn);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---           Copyright (C) 2009-2010, Free Software Foundation, Inc.        --
+--           Copyright (C) 2009-2011, Free Software Foundation, Inc.        --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -92,7 +92,7 @@ package body System.Stack_Usage.Tasking is
       use type System.Tasking.Task_Id;
    begin
       if not System.Stack_Usage.Is_Enabled then
-         Put ("Stack Usage not enabled: bind with -uNNN switch");
+         Put_Line ("Stack Usage not enabled: bind with -uNNN switch");
       else
 
          --  Loop over all tasks
@@ -118,7 +118,7 @@ package body System.Stack_Usage.Tasking is
    procedure Compute_Current_Task is
    begin
       if not System.Stack_Usage.Is_Enabled then
-         Put ("Stack Usage not enabled: bind with -uNNN switch");
+         Put_Line ("Stack Usage not enabled: bind with -uNNN switch");
       else
 
          --  The current task
@@ -250,9 +250,8 @@ package body System.Stack_Usage.Tasking is
                     Obj.Task_Name (Obj.Task_Name'First .. Pos);
       begin
          Put_Line
-           ("| " & T_Name & " | " & Natural'Image (Obj.Max_Size) &
-            Natural'Image (Obj.Value) & " +/- " &
-            Natural'Image (Obj.Variation));
+           ("| " & T_Name & " | " & Natural'Image (Obj.Stack_Size) &
+            Natural'Image (Obj.Value));
       end;
    end Print;
 

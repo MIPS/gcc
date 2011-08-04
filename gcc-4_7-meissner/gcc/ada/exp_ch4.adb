@@ -455,7 +455,8 @@ package body Exp_Ch4 is
              or else Is_Library_Level_Entity (Ptr_Typ))
       then
          declare
-            Pool_Id : constant Entity_Id := RTE (RE_Global_Pool_Object);
+            Pool_Id : constant Entity_Id :=
+                        Get_Global_Pool_For_Access_Type (Ptr_Typ);
             Scop    : Node_Id := Cunit_Entity (Current_Sem_Unit);
 
          begin
@@ -628,14 +629,10 @@ package body Exp_Ch4 is
         (Ref            : Node_Id;
          Built_In_Place : Boolean := False)
       is
-         Ref_Node : Node_Id;
+         New_Node : Node_Id;
 
       begin
-         --  Note: we skip the accessibility check for the VM case, since
-         --  there does not seem to be any practical way of implementing it.
-
          if Ada_Version >= Ada_2005
-           and then Tagged_Type_Expansion
            and then Is_Class_Wide_Type (DesigT)
            and then not Scope_Suppress (Accessibility_Check)
            and then
@@ -651,20 +648,36 @@ package body Exp_Ch4 is
             --  address of the allocated object.
 
             if Built_In_Place then
-               Ref_Node := New_Copy (Ref);
+               New_Node := New_Copy (Ref);
             else
-               Ref_Node := New_Reference_To (Ref, Loc);
+               New_Node := New_Reference_To (Ref, Loc);
+            end if;
+
+            New_Node :=
+              Make_Attribute_Reference (Loc,
+                Prefix         => New_Node,
+                Attribute_Name => Name_Tag);
+
+            if Tagged_Type_Expansion then
+               New_Node := Build_Get_Access_Level (Loc, New_Node);
+
+            elsif VM_Target /= No_VM then
+               New_Node :=
+                 Make_Function_Call (Loc,
+                   Name => New_Reference_To (RTE (RE_Get_Access_Level), Loc),
+                   Parameter_Associations => New_List (New_Node));
+
+            --  Cannot generate the runtime check
+
+            else
+               return;
             end if;
 
             Insert_Action (N,
               Make_Raise_Program_Error (Loc,
                 Condition =>
                   Make_Op_Gt (Loc,
-                    Left_Opnd  =>
-                      Build_Get_Access_Level (Loc,
-                        Make_Attribute_Reference (Loc,
-                          Prefix         => Ref_Node,
-                          Attribute_Name => Name_Tag)),
+                    Left_Opnd  => New_Node,
                     Right_Opnd =>
                       Make_Integer_Literal (Loc, Type_Access_Level (PtrT))),
                 Reason => PE_Accessibility_Check_Failed));
@@ -1076,9 +1089,11 @@ package body Exp_Ch4 is
             --      (Collection, <Finalize_Address>'Unrestricted_Access)
 
             --  Since .NET/JVM compilers do not support address arithmetic,
-            --  this call is skipped.
+            --  this call is skipped. The same is done for CodePeer because
+            --  Finalize_Address is never generated.
 
             if VM_Target = No_VM
+              and then not CodePeer_Mode
               and then Present (Associated_Collection (PtrT))
             then
                Insert_Action (N,
@@ -2101,6 +2116,54 @@ package body Exp_Ch4 is
       Prim      : Elmt_Id;
       Eq_Op     : Entity_Id;
 
+      function Find_Primitive_Eq return Node_Id;
+      --  AI05-0123: Locate primitive equality for type if it exists, and
+      --  build the corresponding call. If operation is abstract, replace
+      --  call with an explicit raise. Return Empty if there is no primitive.
+
+      -----------------------
+      -- Find_Primitive_Eq --
+      -----------------------
+
+      function Find_Primitive_Eq return Node_Id is
+         Prim_E : Elmt_Id;
+         Prim   : Node_Id;
+
+      begin
+         Prim_E := First_Elmt (Collect_Primitive_Operations (Typ));
+         while Present (Prim_E) loop
+            Prim := Node (Prim_E);
+
+            --  Locate primitive equality with the right signature
+
+            if Chars (Prim) = Name_Op_Eq
+              and then Etype (First_Formal (Prim)) =
+                       Etype (Next_Formal (First_Formal (Prim)))
+              and then Etype (Prim) = Standard_Boolean
+            then
+               if Is_Abstract_Subprogram (Prim) then
+                  return
+                    Make_Raise_Program_Error (Loc,
+                      Reason => PE_Explicit_Raise);
+
+               else
+                  return
+                    Make_Function_Call (Loc,
+                      Name                   => New_Reference_To (Prim, Loc),
+                      Parameter_Associations => New_List (Lhs, Rhs));
+               end if;
+            end if;
+
+            Next_Elmt (Prim_E);
+         end loop;
+
+         --  If not found, predefined operation will be used
+
+         return Empty;
+      end Find_Primitive_Eq;
+
+   --  Start of processing for Expand_Composite_Equality
+
    begin
       if Is_Private_Type (Typ) then
          Full_Type := Underlying_Type (Typ);
@@ -2127,7 +2190,7 @@ package body Exp_Ch4 is
          if Is_Elementary_Type (Component_Type (Full_Type))
            and then not Is_Floating_Point_Type (Component_Type (Full_Type))
          then
-            return Make_Op_Eq (Loc, Left_Opnd  => Lhs, Right_Opnd => Rhs);
+            return Make_Op_Eq (Loc, Left_Opnd => Lhs, Right_Opnd => Rhs);
 
          --  For composite component types, and floating-point types, use the
          --  expansion. This deals with tagged component types (where we use
@@ -2198,10 +2261,10 @@ package body Exp_Ch4 is
                begin
                   return
                     Make_Function_Call (Loc,
-                      Name => New_Reference_To (Eq_Op, Loc),
-                      Parameter_Associations =>
-                        New_List (OK_Convert_To (T, Lhs),
-                                  OK_Convert_To (T, Rhs)));
+                      Name                  => New_Reference_To (Eq_Op, Loc),
+                      Parameter_Associations => New_List (
+                        OK_Convert_To (T, Lhs),
+                        OK_Convert_To (T, Rhs)));
                end;
 
             else
@@ -2242,20 +2305,21 @@ package body Exp_Ch4 is
                         then
                            Lhs_Discr_Val :=
                              Make_Selected_Component (Loc,
-                               Prefix => Prefix (Lhs),
+                               Prefix        => Prefix (Lhs),
                                Selector_Name =>
-                                 New_Copy (
-                                   Get_Discriminant_Value (
-                                     First_Discriminant (Lhs_Type),
-                                     Lhs_Type,
-                                     Stored_Constraint (Lhs_Type))));
+                                 New_Copy
+                                   (Get_Discriminant_Value
+                                      (First_Discriminant (Lhs_Type),
+                                       Lhs_Type,
+                                       Stored_Constraint (Lhs_Type))));
 
                         else
-                           Lhs_Discr_Val := New_Copy (
-                             Get_Discriminant_Value (
-                               First_Discriminant (Lhs_Type),
-                               Lhs_Type,
-                               Stored_Constraint (Lhs_Type)));
+                           Lhs_Discr_Val :=
+                             New_Copy
+                               (Get_Discriminant_Value
+                                  (First_Discriminant (Lhs_Type),
+                                   Lhs_Type,
+                                   Stored_Constraint (Lhs_Type)));
 
                         end if;
                      else
@@ -2271,25 +2335,26 @@ package body Exp_Ch4 is
 
                      if Is_Constrained (Rhs_Type) then
                         if Nkind (Rhs) = N_Selected_Component
-                          and then Has_Per_Object_Constraint (
-                                     Entity (Selector_Name (Rhs)))
+                          and then Has_Per_Object_Constraint
+                                     (Entity (Selector_Name (Rhs)))
                         then
                            Rhs_Discr_Val :=
                              Make_Selected_Component (Loc,
-                               Prefix => Prefix (Rhs),
+                               Prefix        => Prefix (Rhs),
                                Selector_Name =>
-                                 New_Copy (
-                                   Get_Discriminant_Value (
-                                     First_Discriminant (Rhs_Type),
-                                     Rhs_Type,
-                                     Stored_Constraint (Rhs_Type))));
+                                 New_Copy
+                                   (Get_Discriminant_Value
+                                      (First_Discriminant (Rhs_Type),
+                                       Rhs_Type,
+                                       Stored_Constraint (Rhs_Type))));
 
                         else
-                           Rhs_Discr_Val := New_Copy (
-                             Get_Discriminant_Value (
-                               First_Discriminant (Rhs_Type),
-                               Rhs_Type,
-                               Stored_Constraint (Rhs_Type)));
+                           Rhs_Discr_Val :=
+                             New_Copy
+                               (Get_Discriminant_Value
+                                  (First_Discriminant (Rhs_Type),
+                                   Rhs_Type,
+                                   Stored_Constraint (Rhs_Type)));
 
                         end if;
                      else
@@ -2322,42 +2387,21 @@ package body Exp_Ch4 is
          elsif Ada_Version >= Ada_2012 then
 
             --  if no TSS has been created for the type, check whether there is
-            --  a primitive equality declared for it. If it is abstract replace
-            --  the call with an explicit raise (AI05-0123).
+            --  a primitive equality declared for it.
 
             declare
-               Prim : Elmt_Id;
+               Ada_2012_Op : constant Node_Id := Find_Primitive_Eq;
 
             begin
-               Prim := First_Elmt (Collect_Primitive_Operations (Full_Type));
-               while Present (Prim) loop
+               if Present (Ada_2012_Op) then
+                  return Ada_2012_Op;
+               else
 
-                  --  Locate primitive equality with the right signature
+               --  Use predefined equality if no user-defined primitive exists
 
-                  if Chars (Node (Prim)) = Name_Op_Eq
-                    and then Etype (First_Formal (Node (Prim))) =
-                               Etype (Next_Formal (First_Formal (Node (Prim))))
-                    and then Etype (Node (Prim)) = Standard_Boolean
-                  then
-                     if Is_Abstract_Subprogram (Node (Prim)) then
-                        return
-                          Make_Raise_Program_Error (Loc,
-                            Reason => PE_Explicit_Raise);
-                     else
-                        return
-                          Make_Function_Call (Loc,
-                            Name => New_Reference_To (Node (Prim), Loc),
-                            Parameter_Associations => New_List (Lhs, Rhs));
-                     end if;
-                  end if;
-
-                  Next_Elmt (Prim);
-               end loop;
+                  return Make_Op_Eq (Loc, Lhs, Rhs);
+               end if;
             end;
-
-            --  Use predefined equality iff no user-defined primitive exists
-
-            return Make_Op_Eq (Loc, Lhs, Rhs);
 
          else
             return Expand_Record_Equality (Nod, Full_Type, Lhs, Rhs, Bodies);
@@ -2562,6 +2606,8 @@ package body Exp_Ch4 is
       Clen     : Node_Id;
       Set      : Boolean;
 
+   --  Start of processing for Expand_Concatenate
+
    begin
       --  Choose an appropriate computational type
 
@@ -2734,8 +2780,7 @@ package body Exp_Ch4 is
                         if J = N and then Result_May_Be_Null then
                            Last_Opnd_High_Bound :=
                              Convert_To (Ityp,
-                               Make_Integer_Literal (Loc,
-                                 Intval => Expr_Value (Hi)));
+                               Make_Integer_Literal (Loc, Expr_Value (Hi)));
                         end if;
 
                         --  Exclude null length case unless last operand
@@ -2749,10 +2794,9 @@ package body Exp_Ch4 is
                         Is_Fixed_Length (NN) := True;
                         Fixed_Length (NN)    := Len;
 
-                        Opnd_Low_Bound (NN) := To_Ityp (
-                          Make_Integer_Literal (Loc,
-                            Intval => Expr_Value (Lo)));
-
+                        Opnd_Low_Bound (NN) :=
+                          To_Ityp
+                            (Make_Integer_Literal (Loc, Expr_Value (Lo)));
                         Set := True;
                      end;
                   end if;
@@ -2794,10 +2838,7 @@ package body Exp_Ch4 is
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Var_Length (NN),
                    Constant_Present    => True,
-
-                   Object_Definition   =>
-                     New_Occurrence_Of (Artyp, Loc),
-
+                   Object_Definition   => New_Occurrence_Of (Artyp, Loc),
                    Expression          =>
                      Make_Attribute_Reference (Loc,
                        Prefix         =>
@@ -2813,12 +2854,9 @@ package body Exp_Ch4 is
 
          if NN = 1 then
             if Is_Fixed_Length (1) then
-               Aggr_Length (1) :=
-                 Make_Integer_Literal (Loc,
-                   Intval => Fixed_Length (1));
+               Aggr_Length (1) := Make_Integer_Literal (Loc, Fixed_Length (1));
             else
-               Aggr_Length (1) :=
-                 New_Reference_To (Var_Length (1), Loc);
+               Aggr_Length (1) := New_Reference_To (Var_Length (1), Loc);
             end if;
 
          --  If entry is fixed length and only fixed lengths so far, make
@@ -2847,10 +2885,7 @@ package body Exp_Ch4 is
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Ent,
                 Constant_Present    => True,
-
-                Object_Definition   =>
-                  New_Occurrence_Of (Artyp, Loc),
-
+                Object_Definition   => New_Occurrence_Of (Artyp, Loc),
                 Expression          =>
                   Make_Op_Add (Loc,
                     Left_Opnd  => New_Copy (Aggr_Length (NN - 1)),
@@ -3185,13 +3220,12 @@ package body Exp_Ch4 is
 
                      Assign :=
                        Make_Implicit_If_Statement (Cnode,
-                         Condition =>
+                         Condition       =>
                            Make_Op_Ne (Loc,
-                             Left_Opnd =>
+                             Left_Opnd  =>
                                New_Occurrence_Of (Var_Length (J), Loc),
                              Right_Opnd => Make_Integer_Literal (Loc, 0)),
-                         Then_Statements =>
-                           New_List (Assign));
+                         Then_Statements => New_List (Assign));
                   end if;
 
                   Insert_Action (Cnode, Assign, Suppress => All_Checks);
@@ -3847,7 +3881,10 @@ package body Exp_Ch4 is
                      --    Set_Finalize_Address_Ptr
                      --      (Pool, <Finalize_Address>'Unrestricted_Access)
 
-                     else
+                     --  Do not generate the above for CodePeer compilations
+                     --  because Finalize_Address is never built.
+
+                     elsif not CodePeer_Mode then
                         Insert_Action (N,
                           Make_Set_Finalize_Address_Ptr_Call
                             (Loc     => Loc,
@@ -4279,6 +4316,124 @@ package body Exp_Ch4 is
 
       Insert_Dereference_Action (Prefix (N));
    end Expand_N_Explicit_Dereference;
+
+   --------------------------------------
+   -- Expand_N_Expression_With_Actions --
+   --------------------------------------
+
+   procedure Expand_N_Expression_With_Actions (N : Node_Id) is
+
+      procedure Process_Transient_Object (Decl : Node_Id);
+      --  Given the declaration of a controlled transient declared inside the
+      --  Actions list of an Expression_With_Actions, generate all necessary
+      --  types and hooks in order to properly finalize the transient. This
+      --  mechanism works in conjunction with Build_Finalizer.
+
+      ------------------------------
+      -- Process_Transient_Object --
+      ------------------------------
+
+      procedure Process_Transient_Object (Decl : Node_Id) is
+         Ins_Nod : constant Node_Id := Parent (N);
+         --  To avoid the insertion of generated code in the list of Actions,
+         --  Insert_Action must look at the parent field of the EWA.
+
+         Loc       : constant Source_Ptr := Sloc (Decl);
+         Obj_Id    : constant Entity_Id  := Defining_Identifier (Decl);
+         Obj_Typ   : constant Entity_Id  := Etype (Obj_Id);
+         Desig_Typ : Entity_Id;
+         Expr      : Node_Id;
+         Ptr_Decl  : Node_Id;
+         Ptr_Id    : Entity_Id;
+         Temp_Decl : Node_Id;
+         Temp_Id   : Node_Id;
+
+      begin
+         --  Step 1: Create the access type which provides a reference to
+         --  the transient object.
+
+         if Is_Access_Type (Obj_Typ) then
+            Desig_Typ := Directly_Designated_Type (Obj_Typ);
+         else
+            Desig_Typ := Obj_Typ;
+         end if;
+
+         --  Generate:
+         --    Ann : access [all] <Desig_Typ>;
+
+         Ptr_Id := Make_Temporary (Loc, 'A');
+
+         Ptr_Decl :=
+           Make_Full_Type_Declaration (Loc,
+             Defining_Identifier => Ptr_Id,
+               Type_Definition =>
+                 Make_Access_To_Object_Definition (Loc,
+                   All_Present        =>
+                     Ekind (Obj_Typ) = E_General_Access_Type,
+                   Subtype_Indication => New_Reference_To (Desig_Typ, Loc)));
+
+         Insert_Action (Ins_Nod, Ptr_Decl);
+         Analyze (Ptr_Decl);
+
+         --  Step 2: Create a temporary which acts as a hook to the transient
+         --  object. Generate:
+
+         --    Temp : Ptr_Id := null;
+
+         Temp_Id := Make_Temporary (Loc, 'T');
+
+         Temp_Decl :=
+           Make_Object_Declaration (Loc,
+             Defining_Identifier => Temp_Id,
+             Object_Definition   => New_Reference_To (Ptr_Id, Loc));
+
+         Insert_Action (Ins_Nod, Temp_Decl);
+         Analyze (Temp_Decl);
+
+         --  Mark this temporary as created for the purposes of "exporting" the
+         --  transient declaration out of the Actions list. This signals the
+         --  machinery in Build_Finalizer to recognize this special case.
+
+         Set_Return_Flag_Or_Transient_Decl (Temp_Id, Decl);
+
+         --  Step 3: "Hook" the transient object to the temporary
+
+         if Is_Access_Type (Obj_Typ) then
+            Expr := Convert_To (Ptr_Id, New_Reference_To (Obj_Id, Loc));
+         else
+            Expr :=
+              Make_Attribute_Reference (Loc,
+                Prefix         => New_Reference_To (Obj_Id, Loc),
+                Attribute_Name => Name_Unrestricted_Access);
+         end if;
+
+         --  Generate:
+         --    Temp := Ptr_Id (Obj_Id);
+         --      <or>
+         --    Temp := Obj_Id'Unrestricted_Access;
+
+         Insert_After_And_Analyze (Decl,
+           Make_Assignment_Statement (Loc,
+             Name       => New_Reference_To (Temp_Id, Loc),
+             Expression => Expr));
+      end Process_Transient_Object;
+
+      Decl : Node_Id;
+
+   --  Start of processing for Expand_N_Expression_With_Actions
+
+   begin
+      Decl := First (Actions (N));
+      while Present (Decl) loop
+         if Nkind (Decl) = N_Object_Declaration
+           and then Is_Finalizable_Transient (Decl, N)
+         then
+            Process_Transient_Object (Decl);
+         end if;
+
+         Next (Decl);
+      end loop;
+   end Expand_N_Expression_With_Actions;
 
    -----------------
    -- Expand_N_In --
@@ -9171,6 +9326,17 @@ package body Exp_Ch4 is
             return Suitable_Element (Next_Entity (C));
 
          elsif Chars (C) = Name_uTag then
+            return Suitable_Element (Next_Entity (C));
+
+         --  The .NET/JVM version of type Root_Controlled contains two fields
+         --  which should not be considered part of the object. To achieve
+         --  proper equiality between two controlled objects on .NET/JVM, skip
+         --  field _parent whenever it is of type Root_Controlled.
+
+         elsif Chars (C) = Name_uParent
+           and then VM_Target /= No_VM
+           and then Etype (C) = RTE (RE_Root_Controlled)
+         then
             return Suitable_Element (Next_Entity (C));
 
          elsif Is_Interface (Etype (C)) then

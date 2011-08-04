@@ -623,13 +623,6 @@ package body Freeze is
          if S > 32 then
             return;
 
-         --  Don't bother if alignment clause with a value other than 1 is
-         --  present, because size may be padded up to meet back end alignment
-         --  requirements, and only the back end knows the rules!
-
-         elsif Known_Alignment (T) and then Alignment (T) /= 1 then
-            return;
-
          --  Check for bad size clause given
 
          elsif Has_Size_Clause (T) then
@@ -638,21 +631,12 @@ package body Freeze is
                Error_Msg_NE
                  ("size for& too small, minimum allowed is ^",
                   Size_Clause (T), T);
-
-            elsif Unknown_Esize (T) then
-               Set_Esize (T, S);
             end if;
 
-         --  Set sizes if not set already
+         --  Set size if not set already
 
-         else
-            if Unknown_Esize (T) then
-               Set_Esize (T, S);
-            end if;
-
-            if Unknown_RM_Size (T) then
-               Set_RM_Size (T, S);
-            end if;
+         elsif Unknown_RM_Size (T) then
+            Set_RM_Size (T, S);
          end if;
       end Set_Small_Size;
 
@@ -836,7 +820,7 @@ package body Freeze is
                   if not Is_Constrained (T)
                     and then
                       No (Discriminant_Default_Value (First_Discriminant (T)))
-                    and then Unknown_Esize (T)
+                    and then Unknown_RM_Size (T)
                   then
                      return False;
                   end if;
@@ -1190,6 +1174,7 @@ package body Freeze is
 
          Set_Expression (Par, New_Occurrence_Of (Temp, Loc));
          return True;
+
       else
          return False;
       end if;
@@ -2250,12 +2235,12 @@ package body Freeze is
            --  less than the sum of the object sizes (no point in packing if
            --  this is not the case).
 
-           and then Esize (Rec) < Scalar_Component_Total_Esize
+           and then RM_Size (Rec) < Scalar_Component_Total_Esize
 
            --  And the total RM size cannot be greater than the specified size
            --  since otherwise packing will not get us where we have to be!
 
-           and then Esize (Rec) >= Scalar_Component_Total_RM_Size
+           and then RM_Size (Rec) >= Scalar_Component_Total_RM_Size
 
            --  Never do implicit packing in CodePeer mode since we don't do
            --  any packing in this mode, since this generates over-complex
@@ -2726,24 +2711,24 @@ package body Freeze is
 
                      if Has_Foreign_Convention (E)
 
-                        --  We are looking for a return of unconstrained array
+                       --  We are looking for a return of unconstrained array
 
                        and then Is_Array_Type (R_Type)
                        and then not Is_Constrained (R_Type)
 
-                        --  Exclude imported routines, the warning does not
-                        --  belong on the import, but rather on the routine
-                        --  definition.
+                       --  Exclude imported routines, the warning does not
+                       --  belong on the import, but rather on the routine
+                       --  definition.
 
                        and then not Is_Imported (E)
 
-                        --  Exclude VM case, since both .NET and JVM can handle
-                        --  return of unconstrained arrays without a problem.
+                       --  Exclude VM case, since both .NET and JVM can handle
+                       --  return of unconstrained arrays without a problem.
 
                        and then VM_Target = No_VM
 
-                        --  Check that general warning is enabled, and that it
-                        --  is not suppressed for this particular case.
+                       --  Check that general warning is enabled, and that it
+                       --  is not suppressed for this particular case.
 
                        and then Warn_On_Export_Import
                        and then not Has_Warnings_Off (E)
@@ -3033,12 +3018,12 @@ package body Freeze is
                   --  action that causes stuff to be inherited).
 
                   if Present (Size_Clause (E))
-                    and then Known_Static_Esize (E)
+                    and then Known_Static_RM_Size (E)
                     and then not Is_Packed (E)
                     and then not Has_Pragma_Pack (E)
                     and then Number_Dimensions (E) = 1
                     and then not Has_Component_Size_Clause (E)
-                    and then Known_Static_Esize (Ctyp)
+                    and then Known_Static_RM_Size (Ctyp)
                     and then not Is_Limited_Composite (E)
                     and then not Is_Packed (Root_Type (E))
                     and then not Has_Component_Size_Clause (Root_Type (E))
@@ -3411,12 +3396,18 @@ package body Freeze is
                      --  Start of processing for Alias_Atomic_Check
 
                      begin
-                        --  Case where component size has no effect. First
-                        --  check for object size of component type known
-                        --  and a multiple of the storage unit size.
 
-                        if Known_Static_Esize (Ctyp)
-                          and then Esize (Ctyp) mod System_Storage_Unit = 0
+                        --  If object size of component type isn't known, we
+                        --  cannot be sure so we defer to the back end.
+
+                        if not Known_Static_Esize (Ctyp) then
+                           null;
+
+                        --  Case where component size has no effect. First
+                        --  check for object size of component type multiple
+                        --  of the storage unit size.
+
+                        elsif Esize (Ctyp) mod System_Storage_Unit = 0
 
                           --  OK in both packing case and component size case
                           --  if RM size is known and static and the same as
@@ -3920,7 +3911,7 @@ package body Freeze is
 
             if Is_Pure_Unit_Access_Type (E)
               and then (Ada_Version < Ada_2005
-                          or else not No_Pool_Assigned (E))
+                         or else not No_Pool_Assigned (E))
             then
                Error_Msg_N ("named access type not allowed in pure unit", E);
 
@@ -5449,8 +5440,8 @@ package body Freeze is
             elsif Is_Array_Type (Retype)
               and then not Is_Constrained (Retype)
 
-               --  Exclude cases where descriptor mechanism is set, since the
-               --  VMS descriptor mechanisms allow such unconstrained returns.
+              --  Exclude cases where descriptor mechanism is set, since the
+              --  VMS descriptor mechanisms allow such unconstrained returns.
 
               and then Mechanism (E) not in Descriptor_Codes
 
@@ -5459,8 +5450,8 @@ package body Freeze is
 
               and then Warn_On_Export_Import
 
-               --  Exclude the VM case, since return of unconstrained arrays
-               --  is properly handled in both the JVM and .NET cases.
+              --  Exclude the VM case, since return of unconstrained arrays
+              --  is properly handled in both the JVM and .NET cases.
 
               and then VM_Target = No_VM
             then
@@ -5724,15 +5715,14 @@ package body Freeze is
 
                    Declarations => New_List (
                      Make_Object_Declaration (Loc,
-                       Defining_Identifier =>
-                         Make_Temporary (Loc, 'T'),
-                       Object_Definition =>
+                       Defining_Identifier => Make_Temporary (Loc, 'T'),
+                       Object_Definition   =>
                          New_Occurrence_Of (Etype (Formal), Loc),
-                       Expression => New_Copy_Tree (Dcopy))),
+                       Expression          => New_Copy_Tree (Dcopy))),
 
                    Handled_Statement_Sequence =>
                      Make_Handled_Sequence_Of_Statements (Loc,
-                       Statements => New_List));
+                       Statements => Empty_List));
 
                Set_Scope (Dnam, Scope (E));
                Set_Assignment_OK (First (Declarations (Dbody)));
