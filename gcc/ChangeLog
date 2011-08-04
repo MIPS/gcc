@@ -1,3 +1,8 @@
+2011-08-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (uses_hard_regs_p): Use hard register
+	elimination.
+
 2011-08-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_get_mode): Remove.

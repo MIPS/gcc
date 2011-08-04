@@ -1303,7 +1303,7 @@ get_final_hard_regno (int hard_regno, int offset)
 static bool
 uses_hard_regs_p (rtx *loc, HARD_REG_SET set)
 {
-  int i, j, x_hard_regno;
+  int i, j, x_hard_regno, offset;
   enum machine_mode mode;
   rtx x;
   const char *fmt;
@@ -1325,9 +1325,10 @@ uses_hard_regs_p (rtx *loc, HARD_REG_SET set)
   
   if (REG_P (x))
     {
-      x_hard_regno = REGNO (x);
-      if (x_hard_regno >= FIRST_PSEUDO_REGISTER)
-	x_hard_regno = reg_renumber[x_hard_regno];
+      lra_get_hard_regno_and_offset (x, &x_hard_regno, &offset);
+      /* The real hard regno of the operand after the allocation.  It
+	 can be negative only for registers.  */
+      x_hard_regno = get_final_hard_regno (x_hard_regno, offset);
       return (x_hard_regno >= 0
 	      && lra_hard_reg_set_intersection_p (x_hard_regno, mode, set));
     }
