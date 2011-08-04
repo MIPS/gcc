@@ -1,3 +1,11 @@
+2011-07-22  Romain Geissler  <romain.geissler@gmail.com>
+
+	PR plugins/45348
+	PR plugins/48425
+	PR plugins/46577
+	* Makefile.in: Do not flatten c-family directory when installing
+	plugin headers.
+
 2011-08-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (enum c_parser_prec): New enum, moved from within
