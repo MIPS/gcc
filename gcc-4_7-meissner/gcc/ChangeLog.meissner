@@ -17,11 +17,11 @@
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
 	-msave-toc-indirect, which previously was an undocumented debug
-	switch.  Add -munaligned-vector, -mnvsx-vector-32bit-to-double,
-	-mvsx-vector-double-to32bit switches.
+	switch.  Add -munaligned-vector, -mnvsx-vector-32bit-to-64bit,
+	-mvsx-vector-64bit-to-32bit switches.
 
 	* config/rs6000/rs6000.md (vec_pack_trunc_v2df): Add conditions on
-	-mvsx-vector-double-to-32bit and -mvsx-vector-32bit-to-double.
+	-mvsx-vector-64bit-to-32bit and -mvsx-vector-32bit-to-64bit.
 	(vec_pack_sfix_trunc_v2df): Ditto.
 	(vec_pack_ufix_trunc_v2df): Ditto.
 	(vec_pack_ufix_trunc_v2df): Ditto.

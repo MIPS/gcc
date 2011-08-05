@@ -1,3 +1,14 @@
+2011-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-vector-7.c: New test for
+	-mvector-convert-32bit-to-64bit and
+	-mvector-convert-64bit-to-32bit.
+	* gcc.target/powerpc/vsx-vector-8.c: Ditto.
+
+	* gcc.target/powerpc/vsx-vector-9.c: New test for
+	-munaligned-vector.
+	* gcc.target/powerpc/vsx-vector-10.c: Ditto.
+
 2011-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Create branch, cloned from trunk, revision 177200.
