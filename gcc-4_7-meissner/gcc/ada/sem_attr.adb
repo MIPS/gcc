@@ -1641,9 +1641,11 @@ package body Sem_Attr is
          if Restriction_Active (No_Default_Stream_Attributes) then
             declare
                T : Entity_Id;
+
             begin
                if Nam = TSS_Stream_Input
-                 or else Nam = TSS_Stream_Read
+                    or else
+                  Nam = TSS_Stream_Read
                then
                   T :=
                     Type_Without_Stream_Operation (P_Type, TSS_Stream_Read);
@@ -2107,6 +2109,16 @@ package body Sem_Attr is
       --  Remaining processing depends on attribute
 
       case Attr_Id is
+
+         --  Attributes related to Ada2012 iterators. Attribute specifications
+         --  exist for these, but they cannot be queried.
+
+         when Attribute_Constant_Indexing    |
+              Attribute_Default_Iterator     |
+              Attribute_Implicit_Dereference |
+              Attribute_Iterator_Element     |
+              Attribute_Variable_Indexing    =>
+            Error_Msg_N ("illegal attribute", N);
 
       ------------------
       -- Abort_Signal --
@@ -5957,15 +5969,23 @@ package body Sem_Attr is
       --  test Static as required in cases where it makes a difference.
 
       --  In the case where Static is not set, we do know that all the
-      --  expressions present are at least known at compile time (we
-      --  assumed above that if this was not the case, then there was
-      --  no hope of static evaluation). However, we did not require
-      --  that the bounds of the prefix type be compile time known,
-      --  let alone static). That's because there are many attributes
-      --  that can be computed at compile time on non-static subtypes,
-      --  even though such references are not static expressions.
+      --  expressions present are at least known at compile time (we assumed
+      --  above that if this was not the case, then there was no hope of static
+      --  evaluation). However, we did not require that the bounds of the
+      --  prefix type be compile time known, let alone static). That's because
+      --  there are many attributes that can be computed at compile time on
+      --  non-static subtypes, even though such references are not static
+      --  expressions.
 
       case Id is
+
+         --  Attributes related to Ada2012 iterators (placeholder ???)
+
+         when Attribute_Constant_Indexing    => null;
+         when Attribute_Default_Iterator     => null;
+         when Attribute_Implicit_Dereference => null;
+         when Attribute_Iterator_Element     => null;
+         when Attribute_Variable_Indexing    => null;
 
       --------------
       -- Adjacent --

@@ -865,11 +865,20 @@ procedure GNATCmd is
       if Return_Code /= 0 then
          Get_Line (File, Line, Last);
 
-         if not Keep_Temporary_Files then
-            Delete (File);
-         else
-            Close (File);
-         end if;
+         begin
+            if not Keep_Temporary_Files then
+               Delete (File);
+            else
+               Close (File);
+            end if;
+
+         --  Don't crash if it is not possible to delete or close the file,
+         --  just ignore the situation.
+
+         exception
+            when others =>
+               null;
+         end;
 
          Put_Line (Standard_Error, Line (1 .. Last));
          Put_Line
@@ -918,11 +927,20 @@ procedure GNATCmd is
             end if;
          end loop;
 
-         if not Keep_Temporary_Files then
-            Delete (File);
-         else
-            Close (File);
-         end if;
+         begin
+            if not Keep_Temporary_Files then
+               Delete (File);
+            else
+               Close (File);
+            end if;
+
+         --  Don't crash if it is not possible to delete or close the file,
+         --  just ignore the situation.
+
+         exception
+            when others =>
+               null;
+         end;
       end if;
    end Get_Closure;
 

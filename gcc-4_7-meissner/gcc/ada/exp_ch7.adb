@@ -1138,7 +1138,7 @@ package body Exp_Ch7 is
 
       Jump_Alts : List_Id := No_List;
       --  Jump block alternatives. Depending on the value of the state counter,
-      --  the control flow jumps to a sequence of finalization statments. This
+      --  the control flow jumps to a sequence of finalization statements. This
       --  list contains the following:
       --
       --     when <counter value> =>
@@ -2270,6 +2270,10 @@ package body Exp_Ch7 is
             --  call and if it is, try to match the name of the call with the
             --  [Deep_]Initialize proc of Typ.
 
+            function Next_Suitable_Statement (Stmt : Node_Id) return Node_Id;
+            --  Given a statement which is part of a list, return the next
+            --  real statement while skipping over dynamic elab checks.
+
             ------------------
             -- Is_Init_Call --
             ------------------
@@ -2285,7 +2289,7 @@ package body Exp_Ch7 is
                  and then Nkind (Name (N)) = N_Identifier
                then
                   declare
-                     Call_Nam  : constant Name_Id := Chars (Entity (Name (N)));
+                     Call_Ent  : constant Entity_Id := Entity (Name (N));
                      Deep_Init : constant Entity_Id :=
                                    TSS (Typ, TSS_Deep_Initialize);
                      Init      : Entity_Id := Empty;
@@ -2300,15 +2304,34 @@ package body Exp_Ch7 is
 
                      return
                          (Present (Deep_Init)
-                           and then Chars (Deep_Init) = Call_Nam)
+                           and then Call_Ent = Deep_Init)
                        or else
                          (Present (Init)
-                           and then Chars (Init) = Call_Nam);
+                           and then Call_Ent = Init);
                   end;
                end if;
 
                return False;
             end Is_Init_Call;
+
+            -----------------------------
+            -- Next_Suitable_Statement --
+            -----------------------------
+
+            function Next_Suitable_Statement (Stmt : Node_Id) return Node_Id is
+               Result : Node_Id := Next (Stmt);
+
+            begin
+               --  Skip over access-before-elaboration checks
+
+               if Dynamic_Elaboration_Checks
+                 and then Nkind (Result) = N_Raise_Program_Error
+               then
+                  Result := Next (Result);
+               end if;
+
+               return Result;
+            end Next_Suitable_Statement;
 
          --  Start of processing for Find_Last_Init
 
@@ -2338,9 +2361,9 @@ package body Exp_Ch7 is
             --  where the user-defined initialize may be optional or may appear
             --  inside a block when abort deferral is needed.
 
-            Nod_1 := Next (Decl);
+            Nod_1 := Next_Suitable_Statement (Decl);
             if Present (Nod_1) then
-               Nod_2 := Next (Nod_1);
+               Nod_2 := Next_Suitable_Statement (Nod_1);
 
                --  The statement following an object declaration is always a
                --  call to the type init proc.
@@ -3532,6 +3555,16 @@ package body Exp_Ch7 is
       elsif Nkind (Wrap_Node) = N_Iteration_Scheme then
          null;
 
+      --  In formal verification mode, if the node to wrap is a pragma check,
+      --  this node and enclosed expression are not expanded, so do not apply
+      --  any transformations here.
+
+      elsif ALFA_Mode
+        and then Nkind (Wrap_Node) = N_Pragma
+        and then Get_Pragma_Id (Wrap_Node) = Pragma_Check
+      then
+         null;
+
       else
          Push_Scope (New_Internal_Entity (E_Block, Current_Scope, Loc, 'B'));
          Set_Scope_Is_Transient;
@@ -4590,6 +4623,8 @@ package body Exp_Ch7 is
      (Obj_Ref : Node_Id;
       Ptr_Typ : Entity_Id) return Node_Id
    is
+      pragma Assert (VM_Target /= No_VM);
+
       Loc : constant Source_Ptr := Sloc (Obj_Ref);
    begin
       return

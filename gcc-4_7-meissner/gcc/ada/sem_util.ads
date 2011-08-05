@@ -25,14 +25,14 @@
 
 --  Package containing utility procedures used throughout the semantics
 
-with Einfo;  use Einfo;
+with Einfo;   use Einfo;
 with Exp_Tss; use Exp_Tss;
-with Namet;  use Namet;
-with Nmake;  use Nmake;
-with Snames; use Snames;
-with Types;  use Types;
-with Uintp;  use Uintp;
-with Urealp; use Urealp;
+with Namet;   use Namet;
+with Nmake;   use Nmake;
+with Snames;  use Snames;
+with Types;   use Types;
+with Uintp;   use Uintp;
+with Urealp;  use Urealp;
 
 package Sem_Util is
 
@@ -146,6 +146,11 @@ package Sem_Util is
    --  The response is conservative in the sense that a result of False does
    --  not necessarily mean that CE could be raised, but a response of True
    --  means that for sure CE cannot be raised.
+
+   procedure Check_Implicit_Dereference (Nam : Node_Id; Typ : Entity_Id);
+   --  AI05-139-2: Accessors and iterators for containers. This procedure
+   --  checks whether T is a reference type, and if so it adds an interprettion
+   --  to Expr whose type is the designated type of the reference_discriminant.
 
    procedure Check_Later_Vs_Basic_Declarations
      (Decls          : List_Id;
@@ -1379,10 +1384,11 @@ package Sem_Util is
    --  Return the accessibility level of Typ
 
    function Type_Without_Stream_Operation
-     (T : Entity_Id; Op : TSS_Name_Type := TSS_Null) return Entity_Id;
-   --  AI05-0161 : if the restriction No_Default_Stream_Attributes is active
-   --  then we cannot generate stream subprograms for composite types with
-   --  elementary subcomponents that lack user-defined stream subprograms.
+     (T  : Entity_Id;
+      Op : TSS_Name_Type := TSS_Null) return Entity_Id;
+   --  AI05-0161: In Ada 2012, if the restriction No_Default_Stream_Attributes
+   --  is active then we cannot generate stream subprograms for composite types
+   --  with elementary subcomponents that lack user-defined stream subprograms.
    --  This predicate determines whether a type has such an elementary
    --  subcomponent. If Op is TSS_Null, a type that lacks either Read or Write
    --  prevents the construction of a composite stream operation. If Op is

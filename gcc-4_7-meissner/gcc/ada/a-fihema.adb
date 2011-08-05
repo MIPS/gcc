@@ -31,20 +31,29 @@
 
 with Ada.Exceptions;          use Ada.Exceptions;
 with Ada.Unchecked_Conversion;
-with Ada.Unchecked_Deallocation;
 
 with System;                  use System;
 with System.Address_Image;
 with System.IO;               use System.IO;
+--  ???with System.OS_Lib;
+--  Breaks ravenscar runtimes
 with System.Soft_Links;       use System.Soft_Links;
 with System.Storage_Elements; use System.Storage_Elements;
 with System.Storage_Pools;    use System.Storage_Pools;
 
 package body Ada.Finalization.Heap_Management is
 
-   Header_Size   : constant Storage_Count  := Node'Size / Storage_Unit;
+   Debug : constant Boolean := False;
+   --  True for debugging printouts.
+
+   Header_Size : constant Storage_Count  := Node'Size / Storage_Unit;
+   --  Size of the header in bytes. Added to Storage_Size requested by
+   --  Allocate/Deallocate to determine the Storage_Size passed to the
+   --  underlying pool.
+
    Header_Offset : constant Storage_Offset := Header_Size;
-   --  Comments needed???
+   --  Offset from the header to the actual object. Used to get from the
+   --  address of a header to the address of the actual object, and vice-versa.
 
    function Address_To_Node_Ptr is
      new Ada.Unchecked_Conversion (Address, Node_Ptr);
@@ -55,7 +64,41 @@ package body Ada.Finalization.Heap_Management is
    procedure Detach (N : Node_Ptr);
    --  Unhook a node from an arbitrary list
 
-   procedure Free is new Ada.Unchecked_Deallocation (Node, Node_Ptr);
+   procedure Fin_Assert (Condition : Boolean; Message : String);
+   --  Asserts that the condition is True. Used instead of pragma Assert in
+   --  delicate places where raising an exception would cause re-invocation of
+   --  finalization. Instead of raising an exception, aborts the whole process.
+
+   function Is_Empty (Objects : Node_Ptr) return Boolean;
+   --  True if the Objects list is empty
+
+   ----------------
+   -- Fin_Assert --
+   ----------------
+
+   procedure Fin_Assert (Condition : Boolean; Message : String) is
+
+      procedure Fail;
+      --  Use a separate procedure to make it easy to set a breakpoint here.
+
+      ----------
+      -- Fail --
+      ----------
+
+      procedure Fail is
+      begin
+         Put_Line ("Heap_Management: Fin_Assert failed: " & Message);
+         --  ???OS_Lib.OS_Abort;
+         --  Breaks ravenscar runtimes
+      end Fail;
+
+   --  Start of processing for Fin_Assert
+
+   begin
+      if not Condition then
+         Fail;
+      end if;
+   end Fin_Assert;
 
    ---------------------------
    -- Add_Offset_To_Address --
@@ -81,7 +124,7 @@ package body Ada.Finalization.Heap_Management is
       Needs_Header : Boolean := True)
    is
    begin
-      --  Allocation of a controlled object
+      --  Allocation of an object with controlled parts
 
       if Needs_Header then
 
@@ -99,7 +142,8 @@ package body Ada.Finalization.Heap_Management is
          begin
             --  Use the underlying pool to allocate enough space for the object
             --  and the list header. The returned address points to the list
-            --  header.
+            --  header. If locking is necessary, it will be done by the
+            --  underlying pool.
 
             Allocate
               (Collection.Base_Pool.all,
@@ -111,7 +155,7 @@ package body Ada.Finalization.Heap_Management is
             --  top of the allocated bits into a list header.
 
             N_Ptr := Address_To_Node_Ptr (N_Addr);
-            Attach (N_Ptr, Collection.Objects);
+            Attach (N_Ptr, Collection.Objects'Unchecked_Access);
 
             --  Move the address from Prev to the start of the object. This
             --  operation effectively hides the list header.
@@ -128,6 +172,8 @@ package body Ada.Finalization.Heap_Management is
             Storage_Size,
             Alignment);
       end if;
+
+      pragma Assert (Addr mod Alignment = 0);
    end Allocate;
 
    ------------
@@ -145,10 +191,9 @@ package body Ada.Finalization.Heap_Management is
 
       Unlock_Task.all;
 
-   exception
-      when others =>
-         Unlock_Task.all;
-         raise;
+      --  Note: no need to unlock in case of exceptions; the above code cannot
+      --  raise any.
+
    end Attach;
 
    ---------------
@@ -173,8 +218,9 @@ package body Ada.Finalization.Heap_Management is
       Alignment    : System.Storage_Elements.Storage_Count;
       Has_Header   : Boolean := True)
    is
+      pragma Assert (Addr mod Alignment = 0);
    begin
-      --  Deallocation of a controlled object
+      --  Deallocation of an object with controlled parts
 
       if Has_Header then
          declare
@@ -182,8 +228,7 @@ package body Ada.Finalization.Heap_Management is
             N_Ptr  : Node_Ptr;
 
          begin
-            --  Move the address from the object to the beginning of the list
-            --  header.
+            --  Move address from the object to beginning of the list header
 
             N_Addr := Addr - Header_Offset;
 
@@ -219,23 +264,25 @@ package body Ada.Finalization.Heap_Management is
 
    procedure Detach (N : Node_Ptr) is
    begin
+      pragma Debug (Fin_Assert (N /= null, "Detach null"));
+
       Lock_Task.all;
 
-      if N.Prev /= null
-        and then N.Next /= null
-      then
+      if N.Next = null then
+         pragma Assert (N.Prev = null);
+
+      else
          N.Prev.Next := N.Next;
          N.Next.Prev := N.Prev;
-         N.Prev := null;
          N.Next := null;
+         N.Prev := null;
       end if;
 
       Unlock_Task.all;
 
-   exception
-      when others =>
-         Unlock_Task.all;
-         raise;
+      --  Note: no need to unlock in case of exceptions; the above code cannot
+      --  raise any.
+
    end Detach;
 
    --------------
@@ -245,126 +292,83 @@ package body Ada.Finalization.Heap_Management is
    overriding procedure Finalize
      (Collection : in out Finalization_Collection)
    is
-      function Head (L : Node_Ptr) return Node_Ptr;
-      --  Return the node which comes after the dummy head
-
-      function Is_Dummy_Head (N : Node_Ptr) return Boolean;
-      --  Determine whether a node acts as a dummy head. Such nodes do not
-      --  have an actual "object" attached to them and point to themselves.
-
-      function Is_Empty_List (L : Node_Ptr) return Boolean;
-      --  Determine whether a list is empty
-
-      function Node_Ptr_To_Address (N : Node_Ptr) return Address;
-      --  Not the reverse of Address_To_Node_Ptr. Return the address of the
-      --  object following the list header.
-
-      ----------
-      -- Head --
-      ----------
-
-      function Head (L : Node_Ptr) return Node_Ptr is
-      begin
-         return L.Next;
-      end Head;
-
-      -------------------
-      -- Is_Dummy_Head --
-      -------------------
-
-      function Is_Dummy_Head (N : Node_Ptr) return Boolean is
-      begin
-         --  To be a dummy head, the node must point to itself in both
-         --  directions.
-
-         return
-           N.Next /= null
-             and then N.Next = N
-             and then N.Prev /= null
-             and then N.Prev = N;
-      end Is_Dummy_Head;
-
-      -------------------
-      -- Is_Empty_List --
-      -------------------
-
-      function Is_Empty_List (L : Node_Ptr) return Boolean is
-      begin
-         return L = null or else Is_Dummy_Head (L);
-      end Is_Empty_List;
-
-      -------------------------
-      -- Node_Ptr_To_Address --
-      -------------------------
-
-      function Node_Ptr_To_Address (N : Node_Ptr) return Address is
-      begin
-         return N.all'Address + Header_Offset;
-      end Node_Ptr_To_Address;
-
-      Curr_Ptr : Node_Ptr;
       Ex_Occur : Exception_Occurrence;
-      Next_Ptr : Node_Ptr;
       Raised   : Boolean := False;
 
-   --  Start of processing for Finalize
-
    begin
-      --  Lock the collection to prevent any allocations while the objects are
-      --  being finalized. The collection remains locked because the associated
-      --  access type is about to go out of scope.
+      if Debug then
+         Put_Line ("-->Heap_Management: ");
+         pcol (Collection);
+      end if;
 
+      --  Set Finalization_Started to prevent any allocations of objects with
+      --  controlled parts during finalization. The associated access type is
+      --  about to go out of scope; Finalization_Started is never again
+      --  modified.
+
+      if Collection.Finalization_Started then
+
+         --  ???Needed for shared libraries
+
+         return;
+      end if;
+
+      pragma Debug (Fin_Assert (not Collection.Finalization_Started,
+                                "Finalize: already started"));
       Collection.Finalization_Started := True;
 
-      while not Is_Empty_List (Collection.Objects) loop
+      --  For each object in the Objects list, detach it, and finalize it. Note
+      --  that other tasks can be doing Unchecked_Deallocations at the same
+      --  time, so we need to beware of race conditions.
 
-         --  Find the real head of the collection, skipping the dummy head
+      while not Is_Empty (Collection.Objects'Unchecked_Access) loop
 
-         Curr_Ptr := Head (Collection.Objects);
+         declare
+            Node : constant Node_Ptr := Collection.Objects.Next;
+         begin
+            --  Remove the current node from the list first, in case some other
+            --  task is simultaneously doing Unchecked_Deallocation on this
+            --  object. Detach does Lock_Task. Note that we can't Lock_Task
+            --  during Finalize_Address, because finalization can do pretty
+            --  much anything.
 
-         --  If the dummy head is the only remaining node, all real objects
-         --  have already been detached and finalized.
+            Detach (Node);
 
-         if Is_Dummy_Head (Curr_Ptr) then
-            exit;
-         end if;
+            --  ??? Kludge: Don't do anything until the proper place to set
+            --  primitive Finalize_Address has been determined.
 
-         --  Store the next node now since the detachment will destroy the
-         --  reference to it.
+            if Collection.Finalize_Address /= null then
+               declare
+                  Object_Address : constant Address :=
+                                     Node.all'Address + Header_Offset;
+                  --  Get address of object from address of header
 
-         Next_Ptr := Curr_Ptr.Next;
-
-         --  Remove the current node from the list
-
-         Detach (Curr_Ptr);
-
-         --  ??? Kludge: Don't do anything until the proper place to set
-         --  primitive Finalize_Address has been determined.
-
-         if Collection.Finalize_Address /= null then
-            begin
-               Collection.Finalize_Address (Node_Ptr_To_Address (Curr_Ptr));
-
-            exception
-               when Fin_Except : others =>
-                  if not Raised then
-                     Raised := True;
-                     Save_Occurrence (Ex_Occur, Fin_Except);
-                  end if;
-            end;
-         end if;
-
-         Curr_Ptr := Next_Ptr;
+               begin
+                  Collection.Finalize_Address (Object_Address);
+               exception
+                  when Fin_Except : others =>
+                     if not Raised then
+                        Raised := True;
+                        Save_Occurrence (Ex_Occur, Fin_Except);
+                     end if;
+               end;
+            end if;
+         end;
       end loop;
 
-      --  Deallocate the dummy head
-
-      Free (Collection.Objects);
+      if Debug then
+         Put_Line ("<--Heap_Management: ");
+         pcol (Collection);
+      end if;
 
       --  If the finalization of a particular node raised an exception, reraise
       --  it after the remainder of the list has been finalized.
 
       if Raised then
+         if Debug then
+            Put_Line ("Heap_Management: reraised");
+         end if;
+
          Reraise_Occurrence (Ex_Occur);
       end if;
    end Finalize;
@@ -377,19 +381,34 @@ package body Ada.Finalization.Heap_Management is
      (Collection : in out Finalization_Collection)
    is
    begin
-      Collection.Objects := new Node;
-
       --  The dummy head must point to itself in both directions
 
-      Collection.Objects.Next := Collection.Objects;
-      Collection.Objects.Prev := Collection.Objects;
+      Collection.Objects.Next := Collection.Objects'Unchecked_Access;
+      Collection.Objects.Prev := Collection.Objects'Unchecked_Access;
+      pragma Assert (Is_Empty (Collection.Objects'Unchecked_Access));
    end Initialize;
+
+   --------------
+   -- Is_Empty --
+   --------------
+
+   function Is_Empty (Objects : Node_Ptr) return Boolean is
+   begin
+      pragma Debug
+        (Fin_Assert ((Objects.Next = Objects) = (Objects.Prev = Objects),
+                     "Is_Empty"));
+      return Objects.Next = Objects;
+   end Is_Empty;
 
    ----------
    -- pcol --
    ----------
 
    procedure pcol (Collection : Finalization_Collection) is
+      Head      : constant Node_Ptr := Collection.Objects'Unrestricted_Access;
+      --  "Unrestricted", because we are getting access-to-variable of a
+      --  constant! Normally worrisome, this is OK for debugging code.
+
       Head_Seen : Boolean := False;
       N_Ptr     : Node_Ptr;
 
@@ -405,6 +424,7 @@ package body Ada.Finalization.Heap_Management is
       Put_Line (Address_Image (Collection'Address));
 
       Put ("Base_Pool : ");
+
       if Collection.Base_Pool = null then
          Put_Line (" null");
       else
@@ -412,6 +432,7 @@ package body Ada.Finalization.Heap_Management is
       end if;
 
       Put ("Fin_Addr  : ");
+
       if Collection.Finalize_Address = null then
          Put_Line ("null");
       else
@@ -440,25 +461,21 @@ package body Ada.Finalization.Heap_Management is
       --         - points to
       --  (dummy head) - present if dummy head
 
-      N_Ptr := Collection.Objects;
-
-      while N_Ptr /= null loop
+      N_Ptr := Head;
+      while N_Ptr /= null loop -- Should never be null; we being defensive
          Put_Line ("V");
 
-         --  The current node is the head. If we have already traversed the
-         --  chain, the head will be encountered again since the chain is
-         --  circular.
+         --  We see the head initially; we want to exit when we see the head a
+         --  SECOND time.
 
-         if N_Ptr = Collection.Objects then
-            if Head_Seen then
-               exit;
-            else
-               Head_Seen := True;
-            end if;
+         if N_Ptr = Head then
+            exit when Head_Seen;
+
+            Head_Seen := True;
          end if;
 
-         --  The current element points back to null. This should never happen
-         --  since the list is circular.
+         --  The current element is null. This should never happen since the
+         --  list is circular.
 
          if N_Ptr.Prev = null then
             Put_Line ("null (ERROR)");
@@ -468,7 +485,7 @@ package body Ada.Finalization.Heap_Management is
          elsif N_Ptr.Prev.Next = N_Ptr then
             Put_Line ("^");
 
-         --  The current element points back to an erroneous element
+         --  The current element points to an erroneous element
 
          else
             Put_Line ("? (ERROR)");
@@ -481,13 +498,14 @@ package body Ada.Finalization.Heap_Management is
 
          --  Detect the dummy head
 
-         if N_Ptr = Collection.Objects then
+         if N_Ptr = Head then
             Put_Line (" (dummy head)");
          else
             Put_Line ("");
          end if;
 
          Put ("|  Prev: ");
+
          if N_Ptr.Prev = null then
             Put_Line ("null");
          else
@@ -495,6 +513,7 @@ package body Ada.Finalization.Heap_Management is
          end if;
 
          Put ("|  Next: ");
+
          if N_Ptr.Next = null then
             Put_Line ("null");
          else

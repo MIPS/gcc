@@ -1,3 +1,283 @@
+2011-08-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/s390/s390.c (s390_expand_cs_hqi): Add new arguments to
+	store_bit_field.
+	(s390_expand_atomic): Same.
+
+2011-08-05  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/49977
+	* dwarf2cfi.c (scan_insn_after): Split out of ...
+	(scan_trace): ... here.  Correctly place notes wrt sequences.
+
+2011-08-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+	    Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/49982
+	* expr.c (fixup_args_size_notes): Look through no-op moves.
+
+2011-08-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*push<mode>2): Use "o" constraint instead
+	of "m" for operand 0.  Add type and mode attribute.
+	(*pushxf_nointeger"): Use "<" constraint for operand 0.
+	(*pushdf_rex64): New pattern, split out of *pushdf.  Use "m"
+	constraint instead of "o" for opreand 1.
+	(*pushdf): Disable for TARGET_64BIT.  Correct mode attribute.
+	(*movdi_internal_rex64): Use "!o" constraint instead of "!m" for
+	operand 0, alternative 4.
+	(*movdf_internal_rex64): Ditto for operand 0, alernative 6.
+
+2011-08-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (lea_address_operand): Rename from
+	no_seg_address_operand.
+	* config/i386/i386.md (*lea_1): Update operand 1 predicate for rename.
+	(*lea_1_zext): Ditto.
+	(*lea_2): Ditto.
+	(*lea_2_zext): Ditto.
+
+2011-08-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_print_operand_address): Handle SUBREGs of
+	parts.base and parts.index.
+	* config/i386/predicates.md (aligned_operand): Ditto.
+	(cmpxchg8b_pic_memory_operand): Ditto.
+
+2011-08-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/soft-fp: Move to ../libgcc.
+	* Makefile.in (SFP_MACHINE): Remove.
+	(libgcc-support): Remove $(SFP_MACHINE) dependency.
+	* config/arm/sfp-machine.h: Move to ../libgcc/config/arm.
+	* config/arm/t-arm-softfp: Move to
+	../libgcc/config/arm/t-softfp.
+	* config/c6x/sfp-machine.h: Move to ../libgcc/config/c6x.
+	* config/c6x/t-c6x-softfp: Remove.
+	* config/i386/sfp-machine.h: Move to ../libgcc/config/i386.
+	* config/i386/t-fprules-softfp: Move to
+	../libgcc/config/t-softfp-tf.
+	* config/ia64/sfp-machine.h: Move to ../libgcc/config/ia64.
+	* config/ia64/t-fprules-softfp: Remove.
+	* config/lm32/sfp-machine.h: Move to ../libgcc/config/lm32.
+	* config/lm32/t-fprules-softfp: Remove.
+	* config/moxie/sfp-machine.h: Remove.
+	* config/moxie/t-moxie-softfp: Remove.
+	* config/rs6000/darwin-ldouble-format: Move to
+	../libgcc/config/rs6000/ibm-ldouble-format.
+	* config/rs6000/darwin-ldouble.c: Move to
+	../libgcc/config/rs6000/ibm-ldouble.c
+	* config/rs6000/libgcc-ppc-glibc.ver: Move to ../libgcc/config/rs6000.
+	* config/rs6000/libgcc-ppc64.ver: Likewise.
+	* config/rs6000/sfp-machine.h: Likewise.
+	* config/rs6000/t-aix43 (SHLIB_MAPFILES): Remove
+	$(srcdir)/config/rs6000/libgcc-ppc64.ver.
+	(LIB2FUNCS_EXTRA): Remove.
+	(TARGET_LIBGCC2_CFLAGS): Remove.
+	* config/rs6000/t-aix52: Likewise
+	* config/rs6000/t-darwin (LIB2FUNCS_EXTRA): Remove
+	$(srcdir)/config/rs6000/darwin-ldouble.c.
+	(SHLIB_MAPFILES): Remove.
+	* config/rs6000/t-darwin64 (LIB2FUNCS_EXTRA): Remove
+	$(srcdir)/config/rs6000/darwin-ldouble.c.
+	* config/rs6000/t-fprules-softfp: Move to
+	../libgcc/config/t-softfp-sfdf.
+	* config/rs6000/t-freebsd: Move to ../libgcc/config/rs6000.
+	* config/rs6000/t-linux64 (softfp_wrap_start, softfp_wrap_end): Remove.
+	* config/rs6000/t-ppccomm (LIB2FUNCS_EXTRA): Remove
+	$(srcdir)/config/rs6000/darwin-ldouble.c.
+	* config/score/sfp-machine.h: Move to ../libgcc/config/score.
+	* config/score/t-score-softfp: Remove.
+	* config.gcc (arm*-*-linux*): Remove arm/t-arm-softfp,
+	soft-fp/t-softfp from tmake_file.
+	(arm*-*-uclinux*): Likewise.
+	(arm*-*-ecos-elf): Likewise.
+	(arm*-*-eabi*, arm*-*-symbianelf*): Likewise.
+	(arm*-*-rtems*): Likewise.
+	(arm*-*-elf): Likewise.
+	(moxie-*-elf): Remove moxie/t-moxie-softfp, soft-fp/t-softfp from
+	tmake_file.
+	(moxie-*-uclinux*): Likewise.
+	(moxie-*-rtems*): Likewise.
+	(lm32-*-elf*): Remove lm32/t-fprules-softfp, soft-fp/t-softfp from
+	tmake_file.
+	(lm32-*-rtems*): Likewise.
+	(lm32-*-uclinux*): Likewise.
+	(powerpc-*-freebsd*): Remove rs6000/t-freebsd,
+	rs6000/t-fprules-softfp, soft-fp/t-softfp from tmake_file.
+	(powerpc-*-linux*, powerpc64-*-linux*): Remove
+	rs6000/t-fprules-softfp, soft-fp/t-softfp from tmake_file.
+	(score-*-elf): Remove score/t-score-softfp, soft-fp/t-softfp from
+	tmake_file.
+	(tic6x-*-elf): Remove c6x/t-c6x-softfp, soft-fp/t-softfp from
+	tmake_file.
+	(tic6x-*-uclinux): Likewise.
+	(i[34567]86-*-darwin*, x86_64-*-darwin*): Remove i386/t-fprules-softfp,
+	soft-fp/t-softfp from tmake_file.
+	(i[34567]86-*-linux*, x86_64-*-linux*, i[34567]86-*-kfreebsd*-gnu)
+	(x86_64-*-kfreebsd*-gnu, i[34567]86-*-gnu*): Likewise.
+	(i[34567]86-*-solaris2*, x86_64-*-solaris2.1[0-9]*): Likewise.
+	(i[34567]86-*-cygwin*, i[34567]86-*-mingw*, x86_64-*-mingw*): Likewise.
+	(i[34567]86-*-freebsd*, x86_64-*-freebsd*): Likewise.
+
+2011-08-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* Makefile.in (FPBIT_FUNCS, DPBIT_FUNCS, TPBIT_FUNCS): Remove.
+	(libgcc-support): Remove $(FPBIT), $(DPBIT), $(TPBIT) dependencies.
+	(libgcc.mvars): Remove FPBIT, FPBIT_FUNCS, DPBIT, DPBIT_FUNCS,
+	TPBIT, TPBIT_FUNCS.
+	* config/fp-bit.c, config/fp-bit.h: Move to ../libgcc.
+	* config/arm/t-strongarm-elf (FPBIT, DPBIT, dp-bit.c, fp-bit.c):
+	Remove.
+	* config/arm/t-vxworks: Likewise.
+	* config/arm/t-wince-pe: Likewise.
+	* config/avr/t-avr (fp-bit.c, FPBIT): Remove.
+	* config/bfin/t-bfin (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/bfin/t-bfin-elf: Likewise.
+	* config/bfin/t-bfin-linux: Likewise.
+	* config/bfin/t-bfin-uclinux: Likewise.
+	* config/cris/t-cris (FPBIT, DPBIT, dp-bit.c, tmplibgcc_fp_bit.c):
+	Remove.
+	* config/fr30/t-fr30: Likewise.
+	* config/frv/t-frv: Likewise.
+	* config/h8300/t-h8300 (FPBIT, fp-bit.c): Remove.
+	* config/iq2000/t-iq2000 (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/m32c/t-m32c: Likewise.
+	* config/m32r/t-linux: (LIB2FUNCS_EXTRA, fp-bit.c, dp-bit.c): Remove.
+	* config/m32r/t-m32r (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/mcore/t-mcore: Likewise.
+	* config/mep/t-mep: Likewise.
+	* config/microblaze/t-microblaze: Likewise.
+	* config/mips/t-linux64 (TPBIT, tp-bit.c): Remove.
+	* config/mips/t-mips (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/mips/t-sdemtk (FPBIT, DPBIT): Remove.
+	* config/mips/t-sr71k (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/mn10300/t-linux: Remove.
+	* config/mn10300/t-mn10300 (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/pdp11/t-pdp11: Likewise.
+	* config/picochip/t-picochip (FPBIT, fp-bit.c): Remove.
+	* config/rs6000/ppc64-fp.c: Move to ../libgcc/config/rs6000.
+	* config/rs6000/t-aix43 (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	(LIB2FUNCS_EXTRA): Remove $(srcdir)/config/rs6000/ppc64-fp.c.
+	* config/rs6000/t-aix52: Likewise.
+	* config/rs6000/t-darwin (LIB2FUNCS_EXTRA): Remove
+	$(srcdir)/config/rs6000/ppc64-fp.c.
+	* config/rs6000/t-fprules-fpbit: Remove.
+	* config/rs6000/t-linux64 (LIB2FUNCS_EXTRA): Remove.
+	* config/rs6000/t-lynx (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/sh/t-netbsd (FPBIT, DPBIT): Remove.
+	* config/sh/t-sh (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/sparc/t-elf: Likewise.
+	* config/sparc/t-leon: Likewise.
+	* config/sparc/t-leon3: Likewise.
+	* config/spu/t-spu-elf: Likewise.
+	(DPBIT_FUNCS): Remove.
+	* config/stormy16/t-stormy16 (FPBIT, DPBIT, dp-bit.c, fp-bit.c): Remove.
+	* config/v850/t-v850: Likewise.
+	* config.gcc (avr-*-rtems*): Add avr/avr-lib.h to libgcc_tm_file.
+	(avr-*-*): Likewise.
+	(h8300-*-rtems*): Set libgcc_tm_file.
+	(h8300-*-elf*): Likewise.
+	(powerpc-*-eabisimaltivec*): Remove rs6000/t-fprules-fpbit from
+	tmake_file.
+	(powerpc-*-eabisim*): Likewise.
+	(powerpc-*-elf*): Likewise.
+	(powerpc-*-eabialtivec*): Likewise.
+	(powerpc-xilinx-eabi*): Likewise.
+	(powerpc-*-eabi*): Likewise.
+	(powerpc-*-rtems*): Likewise.
+	(powerpc-wrs-vxworks, powerpc-wrs-vxworksae): Likewise.
+	(powerpcle-*-elf*): Likewise.
+	(powerpcle-*-eabisim*): Likewise.
+	(powerpcle-*-eabi*): Likewise.
+	(rx-*-elf*): Add rx/rx-lib.h to libgcc_tm_file.
+	(am33_2.0-*-linux*): Remove mn10300/t-linux from tmake_file.
+	* doc/fragments.texi (Target Fragment, Floating Point Emulation):
+	Remove.
+
+2011-08-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* Makefile.in (UNWIND_H): Remove.
+	(LIB2ADDEH, LIB2ADDEHSTATIC, LIB2ADDEHSHARED): Move to
+	../libgcc/Makefile.in.
+	(LIBUNWIND, SHLIBUNWIND_LINK, SHLIBUNWIND_INSTALL): Likewise.
+	(LIBUNWINDDEP): Remove.
+	(libgcc-support): Remove LIB2ADDEH, $(srcdir)/emutls.c dependencies.
+	(libgcc.mvars): Remove LIB2ADDEH, LIB2ADDEHSTATIC, LIB2ADDEHSHARED,
+	LIBUNWIND, SHLIBUNWIND_LINK, SHLIBUNWIND_INSTALL.
+	(stmp-int-hdrs): Remove $(UNWIND_H) dependency.
+	Don't copy $(UNWIND_H).
+	* config.gcc (ia64*-*-linux*): Remove with_system_libunwind handling.
+	* configure.ac (GCC_CHECK_UNWIND_GETIPINFO): Remove.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* emutls.c, unwind-c.c, unwind-compat.c, unwind-compat.h,
+	unwind-dw2-fde-compat.c, unwind-dw2-fde-glibc.c, unwind-dw2-fde.c,
+	unwind-dw2-fde.h, unwind-dw2.c, unwind-dw2.h, unwind-generic.h,
+	unwind-pe.h, unwind-sjlj.c, unwind.inc: Move to ../libgcc.
+	* unwind-dw2-fde-darwin.c: Move to ../libgcc/config.
+	* config/arm/libunwind.S, config/arm/pr-support.c,
+	config/arm/unwind-arm.c, config/arm/unwind-arm.h: Move to
+	../libgcc/config/arm.
+	* config/arm/t-bpabi (UNWIND_H, LIB2ADDEH): Remove.
+	* config/arm/t-symbian (UNWIND_H, LIB2ADDEH): Remove.
+	* config/frv/t-frv ($(T)frvbegin$(objext)): Use
+	$(srcdir)/../libgcc to refer to unwind-dw2-fde.h.
+	($(T)frvend$(objext)): Likewise.
+	* config/ia64/t-glibc (LIB2ADDEH): Remove.
+	* config/ia64/t-glibc-libunwind: Move to ../libgcc/config/ia64.
+	* config/ia64/fde-glibc.c, config/ia64/fde-vms.c,
+	config/ia64/unwind-ia64.c, config/ia64/unwind-ia64.h: Move to
+	../libgcc/config/ia64.
+	* config/ia64/t-hpux (LIB2ADDEH): Remove.
+	* config/ia64/t-ia64 (LIB2ADDEH): Remove.
+	* config/ia64/t-vms (LIB2ADDEH): Remove.
+	* config/ia64/vms.h (UNW_IVMS_MODE,
+	MD_UNW_COMPATIBLE_PERSONALITY_P): Remove.
+	* config/picochip/t-picochip (LIB2ADDEH): Remove.
+	* config/rs6000/aix.h (R_LR, MD_FROB_UPDATE_CONTEXT): Remove.
+	* config/rs6000/t-darwin (LIB2ADDEH): Remove.
+	* config/rs6000/darwin-fallback.c: Move to ../libgcc/config/rs6000.
+	* config/sh/t-sh ($(T)unwind-dw2-Os-4-200.o): Use
+	$(srcdir)/../libgcc to refer to unwinder sources.
+	* config/spu/t-spu-elf (LIB2ADDEH): Remove.
+	* config/t-darwin (LIB2ADDEH): Remove.
+	* config/t-freebsd (LIB2ADDEH): Remove.
+	* config/t-libunwind (LIB2ADDEH, LIB2ADDEHSTATIC): Remove.
+	* config/t-libunwind-elf: Move to ../libgcc/config.
+	* config/t-linux (LIB2ADDEH): Remove.
+	* config/t-sol2 (LIB2ADDEH): Remove.
+	* config/xtensa/t-xtensa (LIB2ADDEH): Remove.
+	* system.h (MD_FROB_UPDATE_CONTEXT): Poison.
+
+2011-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (processor_alias_table): Add core-avx-i.
+
+	* doc/invoke.texi: Document core-avx-i.
+
+2011-08-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* tsystem.h (CONST_CAST2, CONST_CAST): Define.
+
+2011-08-05  Ira Rosen  <ira.rosen@linaro.org>
+
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Use the
+	result of multiple results reduction when extracting the final
+	value using scalar code.
+
+2011-08-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49984
+	* tree-vrp.c (extract_range_from_binary_expr_1): Handle BIT_XOR_EXPR.
+
+2011-08-05  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (zero_nonzero_bits_from_vr): Make sure to always
+	return true for constant integer ranges.
+	(extract_range_from_binary_expr_1): Simplify BIT_AND_EXPR and
+	BIT_IOR_EXPR handling.
+
 2011-08-04  Kai Tietz  <ktietz@redhat.com>
 
 	* config/i386/i386.c (setup_incoming_varargs_ms_64): Set

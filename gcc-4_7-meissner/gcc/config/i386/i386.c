@@ -2969,6 +2969,11 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL},
+      {"core-avx-i", PROCESSOR_COREI7_64, CPU_COREI7,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
+	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
+	| PTA_RDRND | PTA_F16C},
       {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE},
@@ -14092,6 +14097,20 @@ ix86_print_operand_address (FILE *file, rtx addr)
   int ok = ix86_decompose_address (addr, &parts);
 
   gcc_assert (ok);
+
+  if (parts.base && GET_CODE (parts.base) == SUBREG)
+    {
+      rtx tmp = SUBREG_REG (parts.base);
+      parts.base = simplify_subreg (GET_MODE (parts.base),
+				    tmp, GET_MODE (tmp), 0);
+    }
+
+  if (parts.index && GET_CODE (parts.index) == SUBREG)
+    {
+      rtx tmp = SUBREG_REG (parts.index);
+      parts.index = simplify_subreg (GET_MODE (parts.index),
+				     tmp, GET_MODE (tmp), 0);
+    }
 
   base = parts.base;
   index = parts.index;

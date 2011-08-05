@@ -2319,6 +2319,10 @@ package VMS_Data is
                                                "-gnaty-B "                 &
                                             "COMMENTS "                    &
                                                "-gnatyc "                  &
+                                            "COMMENTS1 "                   &
+                                               "-gnatyC "                  &
+                                            "COMMENTS2 "                   &
+                                               "-gnatyc "                  &
                                             "NOCOMMENTS "                  &
                                                "-gnaty-c "                 &
                                             "DOS_LINE_ENDINGS "            &
@@ -2409,7 +2413,7 @@ package VMS_Data is
    --   input source code.  The following keywords are supported:
    --
    --      ALL_BUILTIN (D)      Equivalent to the following list of options:
-   --                           3, ATTRIBUTE, BLANKS, COMMENTS, END, VTABS,
+   --                           3, ATTRIBUTE, BLANKS, COMMENTS2, END, VTABS,
    --                           HTABS, IF_THEN, KEYWORD, LAYOUT, LINE_LENGTH,
    --                           PRAGMA, REFERENCES, SPECS, TOKEN.
    --
@@ -2441,8 +2445,8 @@ package VMS_Data is
    --                           enforce a canonical format for the use of
    --                           blanks to separate source tokens.
    --
-   --      COMMENTS             Check comments.
-   --                           Comments must meet the following set of rules:
+   --      COMMENTS2            Check comments.
+   --      COMMENTS             Comments must meet the following set of rules:
    --
    --                             * The "--" that starts the column must either
    --                               start in column one, or else at least one
@@ -2487,6 +2491,11 @@ package VMS_Data is
    --                               ---------------------------
    --                               -- This is a box comment --
    --                               ---------------------------
+   --
+   --      COMMENTS1            Check comments (single space).
+   --                           Like COMMENTS2, but the -- of a comment only
+   --                           requires one or more spaces following, instead
+   --                           of two or more spaces.
    --
    --      DOS_LINE_ENDINGS     Check that no DOS line terminators are present
    --                           All lines must be terminated by a single
@@ -5403,24 +5412,22 @@ package VMS_Data is
    S_Metric_Coupling : aliased constant S := "/COUPLING_METRICS="             &
                                            "ALL "                             &
                                            "--coupling-all "                  &
-                                           "NONE "                            &
-                                           "--no-coupling-all "               &
-                                           "PACKAGE_EFFERENT "                &
-                                           "--package-efferent-coupling "     &
-                                           "NOPACKAGE_EFFERENT "              &
-                                           "--no-package-efferent-coupling "  &
-                                           "PACKAGE_AFFERENT "                &
-                                           "--package-afferent-coupling "     &
-                                           "NOPACKAGE_AFFERENT "              &
-                                           "--no-package-afferent-coupling "  &
-                                           "CATEGORY_EFFERENT "               &
-                                           "--category-efferent-coupling "    &
-                                           "NOCATEGORY_EFFERENT "             &
-                                           "--no-category-efferent-coupling " &
-                                           "CATEGORY_AFFERENT "               &
-                                           "--category-afferent-coupling "    &
-                                           "NOCATEGORY_AFFERENT "             &
-                                           "--no-category-afferent-coupling";
+                                           "TAGGED_OUT "                      &
+                                           "--tagged-coupling-out "           &
+                                           "TAGGED_IN "                       &
+                                           "--tagged-coupling-in "            &
+                                           "HIERARCHY_OUT "                   &
+                                           "--hierarchy-coupling-out "        &
+                                           "HIERARCHY_IN "                    &
+                                           "--hierarchy-coupling-in "         &
+                                           "UNIT_OUT "                        &
+                                           "--unit-coupling-out "             &
+                                           "UNIT_IN "                         &
+                                           "--unit-coupling-in "              &
+                                           "CONTROL_OUT "                     &
+                                           "--control-coupling-out "          &
+                                           "CONTROL_IN "                      &
+                                           "--control-coupling-in";
 
    --      /COUPLING_METRICS=(option, option ...)
 
@@ -5428,16 +5435,17 @@ package VMS_Data is
    --
    --   option may be one of the following:
    --
-   --     ALL                   All the coupling metrics are computed
-   --     NONE (D)              None of coupling metrics is computed
-   --     PACKAGE_EFFERENT      Compute package efferent coupling
-   --     NOPACKAGE_EFFERENT    Do not compute package efferent coupling
-   --     PACKAGE_AFFERENT      Compute package afferent coupling
-   --     NOPACKAGE_AFFERENT    Do not compute package afferent coupling
-   --     CATEGORY_EFFERENT     Compute category efferent coupling
-   --     NOCATEGORY_EFFERENT   Do not compute category efferent coupling
-   --     CATEGORY_AFFERENT     Compute category afferent coupling
-   --     NOCATEGORY_AFFERENT   Do not compute category afferent coupling
+   --     ALL            All the coupling metrics are computed
+   --     NOALL (D)      None of coupling metrics is computed
+   --     TAGGED_OUT     Compute tagged (class) far-out coupling
+   --     TAGGED_IN      Compute tagged (class) far-in coupling
+   --     HIERARCHY_OUT  Compute hieraqrchy (category) far-out coupling
+   --     HIERARCHY_IN   Compute hieraqrchy (category) far-in coupling
+   --     UNIT_OUT       Compute unit far-out coupling
+   --     UNIT_IN        Compute unit far-in coupling
+   --     CONTROL_OUT    Compute control far-out coupling
+   --     CONTROL_IN     Compute control far-in coupling
+
    --
    --   All combinations of coupling metrics options are allowed.
 

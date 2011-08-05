@@ -4352,14 +4352,13 @@ package body Make is
             end if;
          end if;
 
-         --  Put the object directories in ADA_OBJECTS_PATH. Same treatment for
-         --  source directories in ADA_INCLUDE_PATH if in CodePeer mode.
+         --  Put the object directories in ADA_OBJECTS_PATH
 
          Prj.Env.Set_Ada_Paths
            (Main_Project,
             Project_Tree,
             Including_Libraries => False,
-            Include_Path        => CodePeer_Mode);
+            Include_Path        => False);
 
          --  Check for attributes Linker'Linker_Options in projects other than
          --  the main project
@@ -4843,6 +4842,8 @@ package body Make is
         and then Osint.Number_Of_Files = 1
       then
          Inform (Msg => "objects up to date.");
+         Stop_Compile := True;
+         return;
 
       elsif Do_Not_Execute and then First_Compiled_File /= No_File then
          Write_Name (First_Compiled_File);
@@ -4874,9 +4875,8 @@ package body Make is
 
       --  If the objects were up-to-date check if the executable file is also
       --  up-to-date. For now always bind and link on the JVM since there is
-      --  currently no simple way to check whether objects are up-to-date wrt
-      --  the executable. Similarly in CodePeer mode where there is no
-      --  executable.
+      --  currently no simple way to check whether objects are up to date wrt
+      --  the executable. Same in CodePeer mode where there is no executable.
 
       if Targparm.VM_Target /= JVM_Target
         and then not CodePeer_Mode
@@ -7832,6 +7832,8 @@ package body Make is
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Operating_Mode           := Check_Semantics;
             Check_Object_Consistency := False;
+
+            --  Comment needed here, what is going on???
 
             if Argv'Last >= 7 and then Argv (7) = 'C' then
                CodePeer_Mode := True;

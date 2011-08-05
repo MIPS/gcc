@@ -374,6 +374,10 @@ package Opt is
    --  GNAT
    --  Enable debug statements from pragma Debug
 
+   Debug_Pragmas_Disabled : Boolean := False;
+   --  GNAT
+   --  Debug pragmas completely disabled (no semantic checking)
+
    subtype Debug_Level_Value is Nat range 0 .. 3;
    Debugger_Level : Debug_Level_Value := 0;
    --  GNATBIND
@@ -601,6 +605,10 @@ package Opt is
    --  GNAT
    --  Force generation of ALI file even if errors are encountered.
    --  Also forces generation of tree file if -gnatt is also set.
+
+   Disable_ALI_File : Boolean := False;
+   --  GNAT
+   --  Disable generation of ALI file
 
    Force_Checking_Of_Elaboration_Flags : Boolean := False;
    --  GNATBIND
@@ -1657,6 +1665,11 @@ package Opt is
    --  terminated by Empty. The order is most recently processed first. This
    --  list includes only those pragmas in configuration pragma files.
 
+   Debug_Pragmas_Disabled_Config : Boolean;
+   --  GNAT
+   --  This is the value of the configuration switch for debug pragmas disabled
+   --  mode, as possibly set by use of the configuration pragma Debug_Policy.
+
    Debug_Pragmas_Enabled_Config : Boolean;
    --  GNAT
    --  This is the value of the configuration switch for debug pragmas enabled
@@ -1855,24 +1868,16 @@ package Opt is
    --  Used to store the ASIS version number read from a tree file to check if
    --  it is the same as stored in the ASIS version number in Tree_IO.
 
-   -----------------------------------
-   -- Modes for Formal Verification --
-   -----------------------------------
+   ----------------------------------
+   -- Mode for Formal Verification --
+   ----------------------------------
 
-   --  These modes are currently defined through debug flags
+   --  This mode is currently defined through a debug flag
 
    ALFA_Mode : Boolean := False;
-   --  Set True if ALFA_Through_SPARK_Mode or else ALFA_Through_Why_Mode
-
-   ALFA_Through_SPARK_Mode : Boolean := False;
-   --  Specific compiling mode targeting formal verification through
-   --  the generation of SPARK code for those parts of the input code that
-   --  belong to the ALFA subset of Ada. Set by debug flag -gnatd.E.
-
-   ALFA_Through_Why_Mode : Boolean := False;
-   --  Specific compiling mode targeting formal verification through
-   --  the generation of Why code for those parts of the input code that
-   --  belong to the ALFA subset of Ada. Set by debuf flag -gnatd.F.
+   --  Specific compiling mode targeting formal verification through the
+   --  generation of Why code for those parts of the input code that belong to
+   --  the ALFA subset of Ada. Set by debuf flag -gnatd.F.
 
 private
 
@@ -1889,6 +1894,7 @@ private
       Assertions_Enabled             : Boolean;
       Assume_No_Invalid_Values       : Boolean;
       Check_Policy_List              : Node_Id;
+      Debug_Pragmas_Disabled         : Boolean;
       Debug_Pragmas_Enabled          : Boolean;
       Default_Pool                   : Node_Id;
       Dynamic_Elaboration_Checks     : Boolean;

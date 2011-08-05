@@ -2015,7 +2015,7 @@ package body Sem_Ch12 is
       Renaming         : Node_Id;
       Parent_Instance  : Entity_Id;
       Renaming_In_Par  : Entity_Id;
-      No_Associations  : Boolean := False;
+      Associations     : Boolean := True;
 
       function Build_Local_Package return Node_Id;
       --  The formal package is rewritten so that its parameters are replaced
@@ -2124,7 +2124,7 @@ package body Sem_Ch12 is
          return Pack_Decl;
       end Build_Local_Package;
 
-   --  Start of processing for Analyze_Formal_Package
+   --  Start of processing for Analyze_Formal_Package_Declaration
 
    begin
       Text_IO_Kludge (Gen_Id);
@@ -2182,11 +2182,31 @@ package body Sem_Ch12 is
          end if;
       end if;
 
+      --  Check that name of formal package does not hide name of generic,
+      --  or its leading prefix. This check must be done separately because
+      --  the name of the generic has already been analyzed.
+
+      declare
+         Gen_Name : Entity_Id;
+
+      begin
+         Gen_Name := Gen_Id;
+         while Nkind (Gen_Name) = N_Expanded_Name loop
+            Gen_Name := Prefix (Gen_Name);
+         end loop;
+
+         if Chars (Gen_Name) = Chars (Pack_Id) then
+            Error_Msg_NE
+             ("& is hidden within declaration of formal package",
+               Gen_Id, Gen_Name);
+         end if;
+      end;
+
       if Box_Present (N)
         or else No (Generic_Associations (N))
         or else Nkind (First (Generic_Associations (N))) = N_Others_Choice
       then
-         No_Associations := True;
+         Associations := False;
       end if;
 
       --  If there are no generic associations, the generic parameters appear
@@ -2267,24 +2287,31 @@ package body Sem_Ch12 is
       --  outside of the formal package. The others are still declared by a
       --  formal parameter declaration.
 
-      if not No_Associations then
-         declare
-            E : Entity_Id;
+      --  If there are no associations, the only local entity to hide is the
+      --  generated package renaming itself.
 
-         begin
-            E := First_Entity (Formal);
-            while Present (E) loop
-               exit when Ekind (E) = E_Package
-                 and then Renamed_Entity (E) = Formal;
+      declare
+         E : Entity_Id;
 
-               if not Is_Generic_Formal (E) then
-                  Set_Is_Hidden (E);
-               end if;
+      begin
+         E := First_Entity (Formal);
+         while Present (E) loop
+            if Associations
+              and then not Is_Generic_Formal (E)
+            then
+               Set_Is_Hidden (E);
+            end if;
 
-               Next_Entity (E);
-            end loop;
-         end;
-      end if;
+            if Ekind (E) = E_Package
+              and then Renamed_Entity (E) = Formal
+            then
+               Set_Is_Hidden (E);
+               exit;
+            end if;
+
+            Next_Entity (E);
+         end loop;
+      end;
 
       End_Package_Scope (Formal);
 
@@ -3373,15 +3400,16 @@ package body Sem_Ch12 is
                            or else Might_Inline_Subp)
                 and then not Is_Actual_Pack
                 and then not Inline_Now
+                and then not ALFA_Mode
                 and then (Operating_Mode = Generate_Code
-                            or else (Operating_Mode = Check_Semantics
-                                      and then ASIS_Mode));
+                           or else (Operating_Mode = Check_Semantics
+                                     and then ASIS_Mode));
 
             --  If front_end_inlining is enabled, do not instantiate body if
             --  within a generic context.
 
             if (Front_End_Inlining
-                  and then not Expander_Active)
+                 and then not Expander_Active)
               or else Is_Generic_Unit (Cunit_Entity (Main_Unit))
             then
                Needs_Body := False;
@@ -3402,10 +3430,10 @@ package body Sem_Ch12 is
                begin
                   if Nkind (Decl) = N_Formal_Package_Declaration
                     or else (Nkind (Decl) = N_Package_Declaration
-                               and then Is_List_Member (Decl)
-                               and then Present (Next (Decl))
-                               and then
-                                 Nkind (Next (Decl)) =
+                              and then Is_List_Member (Decl)
+                              and then Present (Next (Decl))
+                              and then
+                                Nkind (Next (Decl)) =
                                                 N_Formal_Package_Declaration)
                   then
                      Needs_Body := False;
@@ -3986,11 +4014,12 @@ package body Sem_Ch12 is
    is
    begin
       if (Is_In_Main_Unit (N)
-            or else Is_Inlined (Subp)
-            or else Is_Inlined (Alias (Subp)))
+           or else Is_Inlined (Subp)
+           or else Is_Inlined (Alias (Subp)))
+        and then not ALFA_Mode
         and then (Operating_Mode = Generate_Code
-                    or else (Operating_Mode = Check_Semantics
-                               and then ASIS_Mode))
+                   or else (Operating_Mode = Check_Semantics
+                             and then ASIS_Mode))
         and then (Expander_Active or else ASIS_Mode)
         and then not ABE_Is_Certain (N)
         and then not Is_Eliminated (Subp)
@@ -4004,6 +4033,7 @@ package body Sem_Ch12 is
              Local_Suppress_Stack_Top => Local_Suppress_Stack_Top,
              Version                  => Ada_Version));
          return True;
+
       else
          return False;
       end if;
@@ -11860,11 +11890,26 @@ package body Sem_Ch12 is
          N2 := Get_Associated_Node (N);
          E := Entity (N2);
 
-         --  If the entity is an itype created as a subtype of an access type
-         --  with a null exclusion restore source entity for proper visibility.
-         --  The itype will be created anew in the instance.
-
          if Present (E) then
+
+            --  If the node is an entry call to an entry in an enclosing task,
+            --  it is rewritten as a selected component. No global entity to
+            --  preserve in this case, since the expansion will be redone in
+            --  the instance.
+
+            if not Nkind_In (E, N_Defining_Identifier,
+                                N_Defining_Character_Literal,
+                                N_Defining_Operator_Symbol)
+            then
+               Set_Associated_Node (N, Empty);
+               Set_Etype  (N, Empty);
+               return;
+            end if;
+
+            --  If the entity is an itype created as a subtype of an access
+            --  type with a null exclusion restore source entity for proper
+            --  visibility. The itype will be created anew in the instance.
+
             if Is_Itype (E)
               and then Ekind (E) = E_Access_Subtype
               and then Is_Entity_Name (N)

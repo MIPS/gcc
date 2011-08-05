@@ -845,6 +845,9 @@ package body ALFA is
                if Present (Body_Entity) then
                   if Nkind (Body_Entity) = N_Defining_Program_Unit_Name then
                      Body_Entity := Parent (Body_Entity);
+                  elsif Nkind (Body_Entity) = N_Subprogram_Body_Stub then
+                     Body_Entity :=
+                       Proper_Body (Unit (Library_Unit (Body_Entity)));
                   end if;
 
                   Spec_Entity := Corresponding_Spec (Body_Entity);
@@ -876,6 +879,7 @@ package body ALFA is
    begin
       if Nkind_In (N, N_Subprogram_Declaration,
                       N_Subprogram_Body,
+                      N_Subprogram_Body_Stub,
                       N_Package_Declaration,
                       N_Package_Body)
       then

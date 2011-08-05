@@ -29,7 +29,15 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  This package provides atomic counter on platforms where it is supported.
+--  This package provides atomic counter on platforms where it is supported:
+--    - all Alpha platforms
+--    - all ia64 platforms
+--    - all PowerPC platforms
+--    - all SPARC V9 platforms
+--    - all x86 platforms
+--    - all x86_64 platforms
+
+--  Why isn't this package available to application programs???
 
 package System.Atomic_Counters is
 
@@ -37,11 +45,11 @@ package System.Atomic_Counters is
 
    type Atomic_Counter is limited private;
    --  Type for atomic counter objects. Note, initial value of the counter is
-   --  one. This allows to use atomic counter as member of record types when
-   --  object of these types are created at library level on preelaboratable
+   --  one. This allows using an atomic counter as member of record types when
+   --  object of these types are created at library level in preelaborable
    --  compilation units.
    --
-   --  Atomic counter is declared as private limited type to provide highest
+   --  Atomic_Counter is declared as private limited type to provide highest
    --  level of protection from unexpected use. All available operations are
    --  declared below, and this set should be as small as possible.
 

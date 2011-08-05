@@ -94,10 +94,9 @@ package Exp_Ch7 is
 
    function CW_Or_Has_Controlled_Part (T : Entity_Id) return Boolean;
    --  True if T is a class-wide type, or if it has controlled parts ("part"
-   --  means T or any of its subcomponents). This is the same as
-   --  Needs_Finalization, except when pragma Restrictions (No_Finalization)
-   --  applies, in which case we know that class-wide objects do not contain
-   --  controlled parts.
+   --  means T or any of its subcomponents). Same as Needs_Finalization, except
+   --  when pragma Restrictions (No_Finalization) applies, in which case we
+   --  know that class-wide objects do not contain controlled parts.
 
    function Get_Global_Pool_For_Access_Type (T : Entity_Id) return Entity_Id;
    --  Return the pool id for access type T.  This is generally the node
@@ -123,10 +122,11 @@ package Exp_Ch7 is
      (Obj_Ref : Node_Id;
       Ptr_Typ : Entity_Id) return Node_Id;
    --  Create a call to prepend an object to a finalization collection. Obj_Ref
-   --  is the object, Ptr_Typ is the access type that owns the collection.
+   --  is the object, Ptr_Typ is the access type that owns the collection. This
+   --  is used only for .NET/JVM, that is, when VM_Target /= No_VM.
    --  Generate the following:
    --
-   --    Ada.Finalization.Heap_Managment.Attach
+   --    Ada.Finalization.Heap_Management.Attach
    --      (<Ptr_Typ>FC,
    --       System.Finalization_Root.Root_Controlled_Ptr (Obj_Ref));
 
