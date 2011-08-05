@@ -1,3 +1,5 @@
+========== AT 5.0 release, subversion id 176948. ==========
+
 2011-07-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/49749
@@ -10,7 +12,7 @@
 	(get_rank): Replace loop-biasing expression with call to phi_rank;
 	remove variable maxrank; replace propagation logic with calls to
 	propagate_rank.
-	
+
 2011-07-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/49749
@@ -18,7 +20,7 @@
 	(phi_loop_bias): New function.
 	(get_rank): Bias rank upward for loop-carried dependencies; fix
 	errors in operand scan conditions.
-	
+
 2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
