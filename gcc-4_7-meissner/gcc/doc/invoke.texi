@@ -817,7 +817,7 @@ See RS/6000 and PowerPC Options.
 -msave-toc-indirect -mno-save-toc-indirect @gol
 -mvector-convert-32bit-to-64bit -mno-vector-convert-32bit-to-64bit @gol
 -mvector-convert-64bit-to-32bit -mno-vector-convert-64bit-to-32bit @gol
--munaligned-vect -mno-unaligned-vector}
+-munaligned-vector -mno-unaligned-vector}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
