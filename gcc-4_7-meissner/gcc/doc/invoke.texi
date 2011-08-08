@@ -815,9 +815,7 @@ See RS/6000 and PowerPC Options.
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
--mvector-convert-32bit-to-64bit -mno-vector-convert-32bit-to-64bit @gol
--mvector-convert-64bit-to-32bit -mno-vector-convert-64bit-to-32bit @gol
--munaligned-vector -mno-unaligned-vector}
+-mvector-convert-32bit-to-64bit -mno-vector-convert-32bit-to-64bit}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -16444,20 +16442,6 @@ generate the save inline when doing calls to functions on AIX and
 Generate (do not generate) code to use VSX vector instructions when
 converting 32-bit types to 64-bit types.  The default is
 @option{-mvector-convert-32bit-to-64bit}.
-
-@item -mvector-convert-64bit-to-32bit
-@itemx -mno-vector-convert-64bit-to-32bit
-@opindex mvector-convert-64bit-to-32bit
-Generate (do not generate) code to use VSX vector instructions when
-converting 64-bit types to 32-bit types.  The default is
-@option{-mvector-convert-64bit-to-32bit}.
-
-@item -munaligned-vector
-@itemx -mno-unaligned-vector
-@opindex munaligned-vector
-Generate (do not generate) code to use unaligned vector memory
-instructions to load some vectors from memory.  The default is
-@option{-munaligned-vector}.
 @end table
 
 @node RX Options

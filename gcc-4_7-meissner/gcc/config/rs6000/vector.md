@@ -752,8 +752,7 @@
   [(match_operand:V4SF 0 "vfloat_operand" "")
    (match_operand:V2DF 1 "vfloat_operand" "")
    (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC
-   && TARGET_VECTOR_CONVERT_64BIT_TO_32BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SFmode);
   rtx r2 = gen_reg_rtx (V4SFmode);
@@ -768,8 +767,7 @@
   [(match_operand:V4SI 0 "vint_operand" "")
    (match_operand:V2DF 1 "vfloat_operand" "")
    (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC
-   && TARGET_VECTOR_CONVERT_64BIT_TO_32BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SImode);
   rtx r2 = gen_reg_rtx (V4SImode);
@@ -784,8 +782,7 @@
   [(match_operand:V4SI 0 "vint_operand" "")
    (match_operand:V2DF 1 "vfloat_operand" "")
    (match_operand:V2DF 2 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC
-   && TARGET_VECTOR_CONVERT_64BIT_TO_32BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && TARGET_ALTIVEC"
 {
   rtx r1 = gen_reg_rtx (V4SImode);
   rtx r2 = gen_reg_rtx (V4SImode);
@@ -882,7 +879,7 @@
    (match_operand:VEC_K 1 "vlogical_operand" "")
    (match_operand:VEC_K 2 "vlogical_operand" "")
    (match_operand:V16QI 3 "vlogical_operand" "")]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode) && TARGET_UNALIGNED_VECTOR"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
   emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
 				       operands[3]));

@@ -1,3 +1,17 @@
+2011-08-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Delete
+	-mvsx-vector-64bit-to-32bit and -munaligned-vector.
+
+	* config/rs6000/rs6000.opt (-munaligned-vector): Delete.
+	(-mvsx-vector-64bit-to-32bit): Ditto.
+
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Delete
+	-munaligned-vector switch.
+	(vec_pack_trunk_v2df): Delete -mvector-convert-64bit-to-32bit.
+	(vec_pack_sfix_trunc_v2df): Ditto.
+	(vec_pack_ufix_trunc_v2df): Ditto.
+
 2011-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 177467.

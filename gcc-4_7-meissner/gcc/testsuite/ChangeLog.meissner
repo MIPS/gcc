@@ -1,3 +1,12 @@
+2011-08-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-vector-7.c: Drop support for
+	-mvector-convert-64bit-to-32bit.
+	* gcc.target/powerpc/vsx-vector-8.c: Ditto.
+
+	* gcc.target/powerpc/vsx-vector-9.c: Delete.
+	* gcc.target/powerpc/vsx-vector-10.c: Ditto.
+
 2011-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vsx-vector-7.c: New test for

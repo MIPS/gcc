@@ -207,14 +207,6 @@ mvector-convert-32bit-to-64bit
 Target Report Var(TARGET_VECTOR_CONVERT_32BIT_TO_64BIT) Init(1)
 If -mvsx, enable conversion of 32-bit types to 64-bit types with vector instructions
 
-mvector-convert-64bit-to-32bit
-Target Report Var(TARGET_VECTOR_CONVERT_64BIT_TO_32BIT) Init(1)
-If -mvsx, enable conversion of 64-bit double to 32-bit int and float with vector instructions
-
-munaligned-vector
-Target Report Var(TARGET_UNALIGNED_VECTOR) Init(1)
-If -mvsx or -maltivec, possibly use unalgined vector load instructions
-
 mvsx-align-128
 Target Undocumented Report Var(TARGET_VSX_ALIGN_128)
 ; If -mvsx, set alignment to 128 bits instead of 32/64
