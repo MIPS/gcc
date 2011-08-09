@@ -2840,6 +2840,7 @@ bool gfc_arglist_matches_symbol (gfc_actual_arglist**, gfc_symbol*);
 bool gfc_check_operator_interface (gfc_symbol*, gfc_intrinsic_op, locus);
 int gfc_has_vector_subscript (gfc_expr*);
 gfc_intrinsic_op gfc_equivalent_op (gfc_intrinsic_op);
+gfc_try gfc_check_typebound_override (gfc_symtree*, gfc_symtree*);
 
 /* io.c */
 extern gfc_st_label format_asterisk;
@@ -2896,6 +2897,8 @@ int gfc_dep_compare_expr (gfc_expr *, gfc_expr *);
 
 /* check.c */
 gfc_try gfc_check_same_strlen (const gfc_expr*, const gfc_expr*, const char*);
+gfc_try gfc_calculate_transfer_sizes (gfc_expr*, gfc_expr*, gfc_expr*,
+				      size_t*, size_t*, size_t*);
 
 /* class.c */
 void gfc_add_component_ref (gfc_expr *, const char *);

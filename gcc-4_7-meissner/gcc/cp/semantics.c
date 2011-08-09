@@ -2042,12 +2042,14 @@ finish_call_expr (tree fn, VEC(tree,gc) **args, bool disallow_virtual,
 	 expressions with no type as being dependent.  */
       if (type_dependent_expression_p (fn)
 	  || any_type_dependent_arguments_p (*args)
-	  /* For a non-static member function, we need to specifically
+	  /* For a non-static member function that doesn't have an
+	     explicit object argument, we need to specifically
 	     test the type dependency of the "this" pointer because it
 	     is not included in *ARGS even though it is considered to
 	     be part of the list of arguments.  Note that this is
 	     related to CWG issues 515 and 1005.  */
-	  || (non_static_member_function_p (fn)
+	  || (TREE_CODE (fn) != COMPONENT_REF
+	      && non_static_member_function_p (fn)
 	      && current_class_ref
 	      && type_dependent_expression_p (current_class_ref)))
 	{
@@ -4948,6 +4950,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
       return error_mark_node;
     }
 
+  if (invalid_nonstatic_memfn_p (expr, complain))
+    return error_mark_node;
+
   /* To get the size of a static data member declared as an array of
      unknown bound, we need to instantiate it.  */
   if (TREE_CODE (expr) == VAR_DECL
@@ -6428,11 +6433,18 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
   elem_type = TREE_TYPE (TREE_TYPE (ary));
   if (TREE_CODE (ary) == CONSTRUCTOR)
     len = CONSTRUCTOR_NELTS (ary);
-  else
+  else if (TREE_CODE (ary) == STRING_CST)
     {
       elem_nchars = (TYPE_PRECISION (elem_type)
 		     / TYPE_PRECISION (char_type_node));
       len = (unsigned) TREE_STRING_LENGTH (ary) / elem_nchars;
+    }
+  else
+    {
+      /* We can't do anything with other tree codes, so use
+	 VERIFY_CONSTANT to complain and fail.  */
+      VERIFY_CONSTANT (ary);
+      gcc_unreachable ();
     }
   if (compare_tree_int (index, len) >= 0)
     {
@@ -7723,7 +7735,17 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		  {
 		    tree x = get_nth_callarg (t, 0);
 		    if (is_this_parameter (x))
-		      /* OK.  */;
+		      {
+			if (DECL_CONSTRUCTOR_P (DECL_CONTEXT (x)))
+			  {
+			    if (flags & tf_error)
+			      sorry ("calling a member function of the "
+				     "object being constructed in a constant "
+				     "expression");
+			    return false;
+			  }
+			/* Otherwise OK.  */;
+		      }
 		    else if (!potential_constant_expression_1 (x, rval, flags))
 		      return false;
 		    i = 1;

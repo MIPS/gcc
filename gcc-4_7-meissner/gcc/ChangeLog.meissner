@@ -1,3 +1,8 @@
+2011-08-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 177605.
+	* REVISION: Update subversion id.
+
 2011-08-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Delete

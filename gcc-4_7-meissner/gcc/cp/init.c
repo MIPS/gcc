@@ -547,14 +547,17 @@ perform_member_init (tree member, tree init)
 	  finish_expr_stmt (init);
 	}
     }
-  else if (type_build_ctor_call (type))
+  else if (type_build_ctor_call (type)
+	   || (init && CLASS_TYPE_P (strip_array_types (type))))
     {
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  if (init)
 	    {
-	      gcc_assert (TREE_CHAIN (init) == NULL_TREE);
-	      init = TREE_VALUE (init);
+	      if (TREE_CHAIN (init))
+		init = error_mark_node;
+	      else
+		init = TREE_VALUE (init);
 	      if (BRACE_ENCLOSED_INITIALIZER_P (init))
 		init = digest_init (type, init, tf_warning_or_error);
 	    }

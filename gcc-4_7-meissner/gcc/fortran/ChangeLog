@@ -1,3 +1,61 @@
+2011-08-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* Make-lang.in (gfortran$(exeext)): Add $(EXTRA_GCC_LIBS).
+
+2011-08-07  Janus Weil  <janus@gcc.gnu.org>
+	    Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/49638
+	* dependency.c (are_identical_variables): For dummy arguments only
+	check for equal names, not equal symbols.
+	* interface.c (gfc_check_typebound_override): Add checking for rank
+	and character length.
+
+2011-08-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49638
+	* dependency.h (gfc_is_same_range,gfc_are_identical_variables): Remove
+	two prototypes.
+	* dependency.c (gfc_are_identical_variables,are_identical_variables):
+	Renamed the former to the latter and made static.
+	(gfc_dep_compare_expr): Renamed 'gfc_are_identical_variables', handle
+	commutativity of multiplication.
+	(gfc_is_same_range,is_same_range): Renamed the former to the latter,
+	made static and removed argument 'def'.
+	(check_section_vs_section): Renamed 'gfc_is_same_range'.
+	* gfortran.h (gfc_check_typebound_override): New prototype.
+	* interface.c (gfc_check_typebound_override): Moved here from ...
+	* resolve.c (check_typebound_override): ... here (and renamed).
+	(resolve_typebound_procedure): Renamed 'check_typebound_override'.
+
+2011-08-06  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/50004
+	* target-memory.c (gfc_target_expr-size): Don't clobber typespec
+	for derived types.
+	* simplify.c (gfc_simplify_transfer): Don't calculate source_size
+	twice.
+
+2011-08-05  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/37211
+	* gfortran.h (gfc_calculate_transfer_sizes):  Add prototype.
+	* target-memory.h (gfc_target_interpret_expr):  Add boolean
+	argument wether to convert wide characters.
+	* target-memory.c (gfc_target_expr_size):  Also return length
+	of characters for non-constant expressions if these can be
+	determined from the cl.
+	(interpret_array):  Add argument for gfc_target_interpret_expr.
+	(gfc_interpret_derived):  Likewise.
+	(gfc_target_interpret_expr):  Likewise.
+	* check.c:  Include target-memory.h.
+	(gfc_calculate_transfer_sizes):  New function.
+	(gfc_check_transfer):  When -Wsurprising is in force, calculate
+	sizes and warn if result is larger than size (check moved from
+	gfc_simplify_transfer).
+	* simplify.c (gfc_simplify_transfer):  Use
+	gfc_calculate_transfer_sizes.  Remove warning.
+
 2011-08-04  Richard Guenther  <rguenther@suse.de>
 
 	PR fortran/49957
