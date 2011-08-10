@@ -1,5 +1,8 @@
 2011-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Fix tests to
+	allow VSX to generate lvx/stvx under the right conditions.
+
 	* config/rs6000/vector.md (vec_realign_load_<mode>): If misaligned
 	moves are allowed, don't provide realigned loads for V4SF and V4SI
 	vectors.
