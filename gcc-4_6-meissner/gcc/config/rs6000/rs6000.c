@@ -15144,7 +15144,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  || (GET_CODE (addr) == AND			/* Altivec memory */
 	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
 	      && INTVAL (XEXP (addr, 1)) == -16
-	      && VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
+	      && VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+	      && rclass == ALTIVEC_REGS)
 	  || (rclass == FLOAT_REGS			/* legacy float mem */
 	      && GET_MODE_SIZE (mode) == 8
 	      && and_op2 == NULL_RTX
