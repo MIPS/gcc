@@ -797,8 +797,7 @@
 (define_expand "vec_unpacks_hi_v4sf"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SF 1 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
 {
   rtx reg = gen_reg_rtx (V4SFmode);
 
@@ -810,8 +809,7 @@
 (define_expand "vec_unpacks_lo_v4sf"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SF 1 "vfloat_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SFmode)"
 {
   rtx reg = gen_reg_rtx (V4SFmode);
 
@@ -823,8 +821,7 @@
 (define_expand "vec_unpacks_float_hi_v4si"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SI 1 "vint_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
 
@@ -836,8 +833,7 @@
 (define_expand "vec_unpacks_float_lo_v4si"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SI 1 "vint_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
 
@@ -849,8 +845,7 @@
 (define_expand "vec_unpacku_float_hi_v4si"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SI 1 "vint_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
 
@@ -862,8 +857,7 @@
 (define_expand "vec_unpacku_float_lo_v4si"
   [(match_operand:V2DF 0 "vfloat_operand" "")
    (match_operand:V4SI 1 "vint_operand" "")]
-  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)
-   && TARGET_VECTOR_CONVERT_32BIT_TO_64BIT"
+  "VECTOR_UNIT_VSX_P (V2DFmode) && VECTOR_UNIT_ALTIVEC_OR_VSX_P (V4SImode)"
 {
   rtx reg = gen_reg_rtx (V4SImode);
 

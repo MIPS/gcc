@@ -1,4 +1,25 @@
+2011-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Delete 8/8 and
+	8/2 changes.
+	* config/rs6000/rs6000.opt: Ditto.
+	* config/rs6000/vector.md: Ditto.
+
 2011-08-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorization_cost): Make
+	permutes a little more expensive on power7.
+	(rs6000_preferred_simd_mode): Eliminate TARGET_VSX test, since
+	TARGET_ALTIVEC will always be set when VSX is set.
+	(rs6000_legitimize_reload_address): Support VSX addresses with AND
+	-16 in them, and fall back to Altivec loads and stores.
+	(rs6000_legitimate_address_p): Ditto.
+	(rs6000_secondary_reload): Ditto.
+	(rs6000_secondary_reload_inner): Ditto.
+	(print_operand): Ditto.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Fix cut+paste error for
+	using Altivec lvx.
 
 	Merge up to 177605.
 	* REVISION: Update subversion id.

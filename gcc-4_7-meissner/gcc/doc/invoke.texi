@@ -813,9 +813,7 @@ See RS/6000 and PowerPC Options.
 -mrecip -mrecip=@var{opt} -mno-recip -mrecip-precision @gol
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
--mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
--msave-toc-indirect -mno-save-toc-indirect @gol
--mvector-convert-32bit-to-64bit -mno-vector-convert-32bit-to-64bit}
+-mpointers-to-nested-functions -mno-pointers-to-nested-functions}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -3977,19 +3975,19 @@ The message is in keeping with the output of @option{-fstack-usage}.
 If the stack usage is fully static but exceeds the specified amount, it's:
 
 @smallexample
-  warning: stack usage is 1120 bytes
+Â  warning: stack usage is 1120 bytes
 @end smallexample
 @item
 If the stack usage is (partly) dynamic but bounded, it's:
 
 @smallexample
-  warning: stack usage might be 1648 bytes
+Â  warning: stack usage might be 1648 bytes
 @end smallexample
 @item
 If the stack usage is (partly) dynamic and not bounded, it's:
 
 @smallexample
-  warning: stack usage might be unbounded
+Â  warning: stack usage might be unbounded
 @end smallexample
 @end itemize
 
@@ -16428,20 +16426,6 @@ static chain value to be loaded in register @var{r11}.  The
 not be able to call through pointers to nested functions or pointers
 to functions compiled in other languages that use the static chain if
 you use the @option{-mno-pointers-to-nested-functions}.
-
-@item -msave-toc-indirect
-@itemx -mno-save-toc-indirect
-@opindex msave-toc-indirect
-Control whether we save the TOC in the prologue for indirect calls or
-generate the save inline when doing calls to functions on AIX and
-64-bit Linux systems.  The default is @option{-msave-toc-indirect}.
-
-@item -mvector-convert-32bit-to-64bit
-@itemx -mno-vector-convert-32bit-to-64bit
-@opindex mvector-convert-32bit-to-64bit
-Generate (do not generate) code to use VSX vector instructions when
-converting 32-bit types to 64-bit types.  The default is
-@option{-mvector-convert-32bit-to-64bit}.
 @end table
 
 @node RX Options
