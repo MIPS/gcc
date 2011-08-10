@@ -5328,11 +5328,19 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx element = XVECEXP (vals, 0, 0);
+	  /* While we can optimize to use lxvdsx, copy it to a register for
+	     now, and let the optimizer recreate the memory if it is
+	     appropriate.  */
 	  if (mode == V2DFmode)
-	    emit_insn (gen_vsx_splat_v2df (target, element));
+	    {
+	      rtx element = copy_to_mode_reg (DFmode, XVECEXP (vals, 0, 0));
+	      emit_insn (gen_vsx_splat_v2df (target, element));
+	    }
 	  else
-	    emit_insn (gen_vsx_splat_v2di (target, element));
+	    {
+	      rtx element = copy_to_mode_reg (DImode, XVECEXP (vals, 0, 0));
+	      emit_insn (gen_vsx_splat_v2di (target, element));
+	    }
 	}
       else
 	{

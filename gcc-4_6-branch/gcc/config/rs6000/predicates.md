@@ -886,7 +886,10 @@
       else if (mode == DImode)
 	mode = V2DImode;
       else
-	gcc_unreachable ();        
+	gcc_unreachable ();
+
+      op = XEXP (op, 0);
+      return indexed_or_indirect_address (op, mode);
     }
   return input_operand (op, mode);
 })
