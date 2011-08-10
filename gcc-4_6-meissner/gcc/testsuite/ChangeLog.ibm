@@ -1,0 +1,57 @@
+2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-fma-1.c: Adjust to allow non-VSX fmas to
+	be generated.
+	* gcc.target/powerpc/ppc-fma-2.c: Ditto.
+	* gcc.target/powerpc/recip-3.c: Ditto.
+
+2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/no-r11-1.c: Change -mno-r11 to
+	-mno-pointers-to-nested-functions.
+	* gcc.target/powerpc/no-r11-2.c: Ditto.
+	* gcc.target/powerpc/no-r11-3.c: Ditto.
+
+2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/no-r11-1.c: New test for -mr11, -mno-r11.
+	* gcc.target/powerpc/no-r11-2.c: Ditto.
+	* gcc.target/powerpc/no-r11-3.c: Ditto.
+
+2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 175885.
+
+	Backport from mainline
+	2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-switch-1.c: New test for
+	--param case-values-threshold.
+	* gcc.target/powerpc/ppc-switch-2.c: Ditto.
+
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173137.
+
+2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48258
+	* gcc.target/powerpc/pr48258-1.c: New file.
+	* gcc.target/powerpc/pr48258-2.c: Ditto.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Branch from gcc-4_6-branch, subversion id 171614.
+
