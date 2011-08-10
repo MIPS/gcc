@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 #ifndef TYPE
-#define TYPE vector double
+#define TYPE vector int
 #endif
 
 /* Test whether Altivec lvx, stvx can be generated under VSX.  There should be

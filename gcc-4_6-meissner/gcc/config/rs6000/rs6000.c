@@ -14887,7 +14887,7 @@ rs6000_secondary_reload (bool in_p,
 	  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS
 		   || rclass == FLOAT_REGS || rclass == NO_REGS)
 	    {
-	      if (!VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
+	      if ((rclass == FLOAT_REGS || !VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
 		  && GET_CODE (addr) == AND
 		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
 		  && INTVAL (XEXP (addr, 1)) == -16
