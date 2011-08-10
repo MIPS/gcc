@@ -3697,8 +3697,11 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
       case vec_to_scalar:
       case scalar_to_vec:
       case cond_branch_not_taken:
-      case vec_perm:
         return 1;
+
+	/* permute is more expensive on power7, so up the cost somewhat.  */
+      case vec_perm:
+	return (rs6000_cpu == PROCESSOR_POWER7) ? 2 : 1;
 
       case cond_branch_taken:
         return 3;
@@ -3790,7 +3793,7 @@ rs6000_preferred_simd_mode (enum machine_mode mode)
 	return V2DFmode;
       default:;
       }
-  if (TARGET_ALTIVEC || TARGET_VSX)
+  if (TARGET_ALTIVEC)
     switch (mode)
       {
       case SFmode:
@@ -6884,7 +6887,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
      force reload to create the address with an AND in a separate
      register, because we can't guarantee an altivec register will
      be used.  */
-  if (VECTOR_MEM_ALTIVEC_P (mode)
+  if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (x, 0), 0)) == REG
@@ -6965,7 +6968,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
-  if (VECTOR_MEM_ALTIVEC_P (mode)
+  if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
       && GET_CODE (x) == AND
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && INTVAL (XEXP (x, 1)) == -16)
@@ -14884,7 +14887,7 @@ rs6000_secondary_reload (bool in_p,
 	  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS
 		   || rclass == FLOAT_REGS || rclass == NO_REGS)
 	    {
-	      if (!VECTOR_MEM_ALTIVEC_P (mode)
+	      if (!VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
 		  && GET_CODE (addr) == AND
 		  && GET_CODE (XEXP (addr, 1)) == CONST_INT
 		  && INTVAL (XEXP (addr, 1)) == -16
@@ -15115,7 +15118,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  && (rclass != ALTIVEC_REGS || GET_MODE_SIZE (mode) != 16
 	      || GET_CODE (XEXP (addr, 1)) != CONST_INT
 	      || INTVAL (XEXP (addr, 1)) != -16
-	      || !VECTOR_MEM_ALTIVEC_P (mode)))
+	      || !VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)))
 	{
 	  and_op2 = XEXP (addr, 1);
 	  addr = XEXP (addr, 0);
@@ -15141,7 +15144,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  || (GET_CODE (addr) == AND			/* Altivec memory */
 	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
 	      && INTVAL (XEXP (addr, 1)) == -16
-	      && VECTOR_MEM_ALTIVEC_P (mode))
+	      && VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
 	  || (rclass == FLOAT_REGS			/* legacy float mem */
 	      && GET_MODE_SIZE (mode) == 8
 	      && and_op2 == NULL_RTX
@@ -16521,7 +16524,7 @@ print_operand (FILE *file, rtx x, int code)
 
 	    /* Fall through.  Must be [reg+reg].  */
 	  }
-	if (VECTOR_MEM_ALTIVEC_P (GET_MODE (x))
+	if (VECTOR_MEM_ALTIVEC_OR_VSX_P (GET_MODE (x))
 	    && GET_CODE (tmp) == AND
 	    && GET_CODE (XEXP (tmp, 1)) == CONST_INT
 	    && INTVAL (XEXP (tmp, 1)) == -16)

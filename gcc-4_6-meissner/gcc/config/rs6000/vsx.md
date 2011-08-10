@@ -253,10 +253,10 @@
       return "stvx %1,%y0";
 
     case 13:
-      gcc_assert (MEM_P (operands[0])
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_INC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_DEC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_MODIFY);
+      gcc_assert (MEM_P (operands[1])
+		  && GET_CODE (XEXP (operands[1], 0)) != PRE_INC
+		  && GET_CODE (XEXP (operands[1], 0)) != PRE_DEC
+		  && GET_CODE (XEXP (operands[1], 0)) != PRE_MODIFY);
       return "lvx %0,%y1";
 
     default:
