@@ -876,7 +876,7 @@
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
    && (<MODE>mode == V16QImode
        || <MODE>mode == V8HImode
-       || !TARGET_ALLOW_MOVMISALIGN)"
+       || !TARGET_MOVMISALIGN_INT_FLOAT)"
 {
   emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
 				       operands[3]));
