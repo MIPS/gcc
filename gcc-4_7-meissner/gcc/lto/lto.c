@@ -721,6 +721,8 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
 	    {
 	      TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (mv);
 	      TYPE_NEXT_VARIANT (mv) = t;
+	      if (RECORD_OR_UNION_TYPE_P (t))
+		TYPE_BINFO (t) = TYPE_BINFO (mv);
 	    }
 
 	  /* Finally adjust our main variant and fix it up.  */
@@ -832,7 +834,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
     {
       tree t;
       unsigned from = VEC_length (tree, data_in->reader_cache->nodes);
-      t = lto_input_tree (&ib_main, data_in);
+      t = stream_read_tree (&ib_main, data_in);
       gcc_assert (t && ib_main.p <= ib_main.len);
       uniquify_nodes (data_in, from);
     }

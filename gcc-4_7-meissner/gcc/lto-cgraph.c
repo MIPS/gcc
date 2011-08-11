@@ -994,7 +994,7 @@ input_node (struct lto_file_decl_data *file_data,
      have already been read will have their tag stored in the 'aux'
      field.  Since built-in functions can be referenced in multiple
      functions, they are expected to be read more than once.  */
-  if (node->aux && !DECL_IS_BUILTIN (node->decl))
+  if (node->aux && !DECL_BUILT_IN (node->decl))
     internal_error ("bytecode stream: found multiple instances of cgraph "
 		    "node %d", node->uid);
 
@@ -1581,7 +1581,7 @@ output_node_opt_summary (struct output_block *ob,
          mechanism to store function local declarations into summaries.  */
       gcc_assert (parm);
       lto_output_uleb128_stream (ob->main_stream, parm_num);
-      lto_output_tree (ob, map->new_tree, true);
+      stream_write_tree (ob, map->new_tree, true);
       bp = bitpack_create (ob->main_stream);
       bp_pack_value (&bp, map->replace_p, 1);
       bp_pack_value (&bp, map->ref_p, 1);
@@ -1688,7 +1688,7 @@ input_node_opt_summary (struct cgraph_node *node,
 	parm_num --;
       map->parm_num = lto_input_uleb128 (ib_main);
       map->old_tree = NULL;
-      map->new_tree = lto_input_tree (ib_main, data_in);
+      map->new_tree = stream_read_tree (ib_main, data_in);
       bp = lto_input_bitpack (ib_main);
       map->replace_p = bp_unpack_value (&bp, 1);
       map->ref_p = bp_unpack_value (&bp, 1);

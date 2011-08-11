@@ -1,5 +1,8 @@
 2011-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 177676.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.opt (-mmovmisalign-int-float): New switch.
 
 	* config/rs6000/vector.md (vec_realign_load_<mode>): Add support

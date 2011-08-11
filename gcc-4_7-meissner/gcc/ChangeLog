@@ -1,3 +1,300 @@
+2011-08-11  Romain Geissler  <romain.geissler@gmail.com>
+            Brian Hackett  <bhackett1024@gmail.com>
+
+	* plugin.def: Add event for finish_decl.
+	* plugin.c (register_callback, invoke_plugin_callbacks): Same.
+	* c-decl.c (finish_decl): Invoke callbacks on above event.
+	* doc/plugins.texi: Document above event.
+
+2011-08-11  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Avoid redundant
+	lookups, make looking through aggregate copies stronger.
+
+2011-08-11  Richard Henderson  <rth@redhat.com>
+
+	PR bootstrap/50018
+	* expr.c (fixup_args_size_notes): Accept and ignore normal calls.
+
+2011-08-11  Richard Guenther  <rguenther@suse.de>
+
+	* lto-cgraph.c (input_node): Use DECL_BUILT_IN.
+	* tree-vrp.c (stmt_interesting_for_vrp): Likewise.
+	(vrp_visit_stmt): Likewise.
+
+2011-08-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/50040
+	* gimplify.c (gimplify_modify_expr_complex_part): Mark the
+	load of the other piece with TREE_NO_WARNING.
+	* tree-flow.h (warn_uninit): Adjust prototype.
+	* tree-ssa.c (warn_uninit): Take uninitialized SSA name,
+	the base variable and the expression that is used separately.
+	Properly query all TREE_NO_WARNING flags.
+	(struct walk_data): Remove.
+	(warn_uninitialized_var): Likewise.
+	(warn_uninitialized_vars): Do not walk gimple pieces but simply
+	look at all SSA uses of the statement.  Handle unused memory
+	separately.
+	* tree-ssa-uninit.c (warn_uninitialized_phi): Adjust.
+
+2011-08-11   Kazuhiro Inaoka  <kazuhiro.inaoka.ud@renesas.com>
+
+	* config/rx/rx.md (movsicc): Allow register to register
+	transfers.
+	(*movsicc): Likewise.
+	(*stcc): Restrict this pattern to EQ and NE compares.
+	(*stcc_reg): New pattern.  Works for any comparison but only for
+	register transfers.
+
+2011-08-11   Diego Novillo  <dnovillo@google.com>
+
+	* tree-streamer-out.c (lto_output_ts_decl_with_vis_tree_pointers):
+	Call stream_write_tree instead of output_record_start.
+	(lto_output_ts_binfo_tree_pointers): Likewise.
+
+	* streamer-hooks.h (stream_write_tree): Move from tree-streamer.h.
+	Convert it to a macro.
+	(stream_read_tree): Likewise.
+
+	* lto-streamer.h (lto_stream_as_builtin_p): Move ...
+	* tree-streamer.h (lto_stream_as_builtin_p): ... here.
+
+	* lto-streamer-in.c (lto_read_tree): Call lto_streamer_cache_append
+	and tree_read_bitfields.
+	* lto-streamer-out.c (lto_is_streamable): Move from lto-streamer.c
+	(lto_write_tree): Call it.
+	* lto-streamer.c (lto_is_streamable): Move to lto-streamer-out.c
+	* streamer-hooks.h (struct streamer_hooks): Remove fields
+	name, is_streamable and alloc_tree. Update all users.
+	* tree-streamer-in.c (tree_read_bitfields): Factor out of ...
+	(lto_materialize_tree): ... here.
+	Handle CALL_EXPR codes.
+	Remove call to lto_streamer_cache_append.
+	* tree-streamer-out.c (lto_output_tree_header): Handle
+	CALL_EXPR nodes.
+	* tree-streamer.h (tree_read_bitfields): Declare.
+
+	* Makefile.in (TREE_STREAMER_H): Add STREAMER_HOOKS_H.
+	(gimple-streamer-in.o): Add dependency on TREE_STREAMER_H.
+	* tree-streamer.h (stream_read_tree): New.  Replace all calls
+	to lto_input_tree with it.
+	(stream_write_tree): New.  Replace all calls to lto_output_tree,
+	lto_output_tree_ref and lto_output_tree_or_ref with it.
+	* lto-streamer-in.c (lto_read_tree): Inline code from
+	lto_streamer_read_tree.
+	(lto_input_tree): Move from tree-streamer-in.c.
+	* lto-streamer-out.c (lto_output_tree_ref): Make static.
+	Remove handling of NULL values for EXPR.
+	Do not handle EXPRs that are not indexable.
+	(lto_write_tree): Move from tree-streamer-out.c.
+	Inline lto_streamer_write_tree.
+	(lto_output_tree): Move from tree-streamer-out.c.
+	If REF_P is true and EXPR is indexable, call lto_output_tree_ref.
+	* lto-streamer.c (lto_record_common_node): Move to tree-streamer.c.
+	(lto_preload_common_nodes): Likewise.
+	Remove assertions and adjustments for nodes
+	main_identifier_node, ptrdiff_type_node and fileptr_type_node.
+	(lto_streamer_hooks_init): Set streamer_hooks.write_tree to
+	lto_output_tree and streamer_hooks.read_tree to
+	lto_input_tree.
+	* lto-streamer.h (lto_input_tree): Declare.
+	(lto_output_tree_ref): Remove.
+	* streamer-hooks.h (struct streamer_hooks): Remove fields
+	preload_common_nodes, indexable_with_decls_p,
+	pack_value_fields, unpack_value_fields and output_tree_header.
+	Update all users.
+	* tree-streamer-in.c (lto_materialize_tree): Make extern.
+	(lto_input_tree_pointers): Likewise.
+	(lto_read_tree): Move to lto-streamer-in.c.
+	(lto_input_integer_cst): Make extern.
+	(lto_get_pickled_tree): Likewise.
+	(lto_get_builtin_tree): Likewise.
+	(lto_input_tree): Move to lto-streamer-in.c.
+	* tree-streamer-out.c (pack_value_fields): Make extern.
+	(lto_output_tree_or_ref): Remove.  Replace all callers with
+	calls to stream_write_tree.
+	(lto_output_builtin_tree): Make extern.
+	(lto_streamer_write_tree): Inline into lto_write_tree.
+	(lto_output_tree_pointers): Make extern.
+	(lto_output_tree_header): Likewise.
+	(lto_output_integer_cst): Likewise.
+	(lto_write_tree): Move to lto-streamer-out.c.
+	(lto_output_tree): Likewise.
+	* tree-streamer.c (lto_record_common_node): Move from
+	lto-streamer.c
+	(preload_common_nodes): Likewise.
+	(lto_streamer_cache_create): Call it.
+	* tree-streamer.h: Include streamer-hooks.h.
+	(stream_write_tree): New.
+	(stream_read_tree): New.
+	(lto_input_tree): Remove.
+	(lto_materialize_tree): Declare.
+	(lto_input_tree_pointers): Declare.
+	(lto_get_pickled_tree): Declare.
+	(lto_get_builtin_tree): Declare.
+	(lto_input_integer_cst): Declare.
+	(lto_output_tree_header): Declare.
+	(pack_value_fields): Declare.
+	(lto_output_tree_pointers): Declare.
+	(lto_output_integer_cst): Declare.
+	(lto_output_builtin_tree): Declare.
+
+2011-08-11  Sergey Grechanik  <mouseentity@ispras.ru>
+
+	* sel-sched-ir.c (has_dependence_note_reg_use): Call ds_full_merge
+	only if producer writes to the register given by regno.
+
+2011-08-11  Sergey Grechanik  <mouseentity@ispras.ru>
+	    Alexander Monakov  <amonakov@ispras.ru>
+
+	* sched-deps.c (sched_get_condition_with_rev): Rename to ...
+	(sched_get_condition_with_rev_uncached): ... this.  Factor out
+	condition caching logic into ...
+	(sched_get_condition_with_rev): ... this.  Reimplement.  Do not
+	attempt to use cache for instructions with zero luid.
+	(sched_analyze_insn): Use INSN_CACHED_COND instead of INSN_COND.
+	* sched-int.h (INSN_COND): Rename to INSN_CACHED_COND.
+
+2011-08-11  Sergey Grechanik  <mouseentity@ispras.ru>
+
+	* sel-sched-ir.c (get_seqno_of_a_pred): Rename to
+	get_seqno_for_a_jump.  Update the caller.
+	(get_seqno_by_succs): New.  Use it ...
+	(get_seqno_for_a_jump): ... here to find a seqno if looking at
+	predecessors was not sufficient.
+	(get_seqno_by_preds): Include head in iteration range, exclude insn.
+
+2011-08-11  Dmitry Melnik  <dm@ispras.ru>
+
+	* sel-sched-ir.c (invalidate_av_set): Remove the assert.
+
+2011-08-11  Sergey Grechanik  <mouseentity@ispras.ru>
+
+	* sel-sched-ir.h (register_unavailable_p): Declare.
+	* sel-sched-ir.c (register_unavailable_p): New.  Use it...
+	(set_unavailable_target_for_expr): ... here to properly test
+	availability of a register.
+	(speculate_expr): Ditto.
+	* sel-sched.c (substitute_reg_in_expr): Ditto.
+	(av_set_could_be_blocked_by_bookkeeping_p): Ditto.
+
+2011-08-11  Sergey Grechanik  <mouseentity@ispras.ru>
+
+	* sel-sched.c (verify_target_availability): Fix usage of
+	hard_regno_nregs.
+
+2011-08-11  Dmitry Melnik  <dm@ispras.ru>
+
+	* sel-sched-ir.c (init_global_and_expr_for_insn): Forbid copying of
+	recognized by cannot_copy_insn_p hook and volatile instructions.
+
+2011-08-11  Dmitry Melnik  <dm@ispras.ru>
+
+	* sel-sched-ir.c (merge_expr_data): Take maximum spec.
+
+2011-08-11  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* doc/md.texi (define_bypass): Say that the instruction names can
+	be filename-style globs.
+	* Makefile.in (FNMATCH_H): Define.
+	(build/genattrtab.o, build/genautomata.o): Depend on $(FNMATCH_H).
+	* genattrtab.c: Include fnmatch.h.
+	(bypass_list): Change field name from "insn" to "pattern".
+	(gen_bypass_1): Update accordingly.
+	(process_bypasses): Use fnmatch to check for matches between
+	insn reservations and define_bypasses.
+	* genautomata.c: Include fnmatch.h.
+	(bypass_decl): Rename in_insn_name and out_insn_name to in_pattern
+	and out_pattern respectively.
+	(gen_bypass, insert_bypass): Update accordingly.
+	(for_each_matching_insn, process_bypass_2, process_bypass_1)
+	(process_bypass): New functions.
+	(process_decls): Use process_bypass.  Update after field name changes.
+
+2011-08-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/49687
+	* config/avr/avr.md (smulqi3_highpart): New insn.
+	(umulqi3_highpart): New insn.
+	(*subqi3.ashiftrt7): New insn.
+	(smulhi3_highpart): New expander.
+	(umulhi3_highpart): Nex expander.
+	(*smulhi3_highpart_call): New insn.
+	(*umulhi3_highpart_call): New insn.
+	(extend_u): New code attribute.
+	(extend_prefix): Rename code attribute to extend_su.
+	* config/avr/avr.c (avr_rtx_costs): Report costs of highpart of
+	widening QI/HI multiply.
+
+2011-08-11  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/50039
+	* tree-vect-patterns.c (vect_operation_fits_smaller_type): Check
+	that DEF_STMT has a stmt_vec_info.
+
+2011-08-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (can_trust_pointer_alignment): Remove.
+	* builtins.c (can_trust_pointer_alignment): Remove.
+
+2011-08-10  Artjoms Sinkarovs <artyom.shinakroff@gmail.com>
+
+	* c-typeck.c (scalar_to_vector): New function. Try scalar to
+	vector conversion.
+	(stv_conv): New enum for scalar_to_vector return type.
+	(build_binary_op): Adjust.
+	* doc/extend.texi: Description of scalar to vector expansion.
+
+2011-08-10  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (get_pointer_alignment): Remove max-align argument.
+	(get_object_alignment): Likewise.
+	* builtins.c (get_object_alignment_1): Adjust.
+	(get_object_alignment): Remove max-align argument.
+	(get_pointer_alignment): Likewise.
+	(expand_builtin_strlen): Adjust.
+	(expand_builtin_memcpy): Likewise.
+	(expand_builtin_mempcpy_args): Likewise.
+	(expand_builtin_strncpy): Likewise.
+	(expand_builtin_memset_args): Likewise.
+	(expand_builtin_memcmp): Likewise.
+	(expand_builtin_strcmp): Likewise.
+	(expand_builtin_strncmp): Likewise.
+	(get_builtin_sync_mem): Likewise.
+	(fold_builtin_memset): Likewise.
+	(fold_builtin_memory_op): Likewise.
+	(expand_builtin_memory_chk): Likewise.
+	* emit-rtl.c (get_mem_align_offset): Likewise.
+	(set_mem_attributes_minus_bitpos): Likewise.
+	* expr.c (expand_assignment): Likewise.
+	(expand_expr_real_1): Likewise.
+	* tree-sra.c (tree_non_mode_aligned_mem_p): Likewise.
+	* tree-ssa-forwprop.c (simplify_builtin_call): Likewise.
+	* tree-ssa-loop-ivopts.c (may_be_unaligned_p): Likewise.
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Likewise.
+	* value-prof.c (gimple_stringops_transform): Likewise.
+
+2011-08-10  Paulo J. Matos  <paulo.matos@csr.com>
+
+	* doc/tm.texi.in (CLASS_MAX_NREGS): Fix typo.
+	* doc/tm.texi: Regenerate.
+
+2011-08-10  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/29560
+	* config/avr/avr.md (*ashlhiqi3): New insn-and-split.
+	(*ashl<extend_prefix>qihiqi3): New insn-and-splits.
+	(*ashl<extend_prefix>qihiqi3.mem): New insn-and-splits.
+	Add peephole2 to map ashlhi3 to ashlqi3 if high part of
+	shift target is unused.
+
+2011-08-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49937
+	* tree-ssa-ccp.c (get_value_from_alignment): Re-implement
+	using get_object_alignment_1.
+
 2011-08-09  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.c (ix86_emit_i387_round): New function.
