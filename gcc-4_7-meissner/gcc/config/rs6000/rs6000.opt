@@ -215,6 +215,10 @@ mallow-df-permute
 Target Undocumented Var(TARGET_ALLOW_DF_PERMUTE)
 ; Allow/disallow permutation of DF/DI vectors
 
+mmovmisalign-int-float
+Target Undocumented Var(TARGET_MOVMISALIGN_INT_FLOAT)
+; Allow/disallow the movmisalign in SF/SI vectors
+
 msched-groups
 Target Undocumented Report Var(TARGET_SCHED_GROUPS) Init(-1)
 ; Explicitly set/unset whether rs6000_sched_groups is set
