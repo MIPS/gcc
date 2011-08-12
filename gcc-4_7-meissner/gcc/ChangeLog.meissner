@@ -1,3 +1,26 @@
+2011-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Split into two
+	parts, rs6000_init_builtins that is meant to be called only once,
+	and rs6000_init_builtins_inner that is called multiple times to
+	initialize new builtins as the user changes the machine with
+	target attributes/pragmas.  Split out the altivec builtins init
+	into 5 separate functions.  Move common types to the
+	rs6000_builtin_types array.
+	(rs6000_init_builtins_inner): Ditto.
+	(altivec_types_init_builtins): Ditto.
+	(altivec_predicate_init_builtins): Ditto.
+	(altivec_abs_init_builtins): Ditto.
+	(altivec_cell_init_builtins): Ditto.
+	(vsx_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(legitimate_indirect_address_p): Remove inline, since
+	predicates.md has calls to it.
+
+	* config/rs6000/rs6000.h (RS6000_BTI_*): Add more bultin types to
+	allow altivec, vsx, and cell builtins to be initialized at
+	different times.
+
 2011-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 177676.

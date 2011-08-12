@@ -2328,6 +2328,48 @@ enum rs6000_builtin_type_index
   RS6000_BTI_float,	         /* float_type_node */
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
+
+  /* The altivec, altivec_cell, and vsx init builtins share types.  If you add
+     types here, be sure to change the defines in rs6000.c.  The defines aren't
+     done here to avoid mismatches with other parts of the compiler.  */
+  RS6000_BTI_pvoid_type_node,
+  RS6000_BTI_pcvoid_type_node,
+  RS6000_BTI_int_ftype_opaque,
+  RS6000_BTI_opaque_ftype_opaque,
+  RS6000_BTI_opaque_ftype_opaque_int,
+  RS6000_BTI_opaque_ftype_opaque_opaque,
+  RS6000_BTI_opaque_ftype_opaque_opaque_int,
+  RS6000_BTI_opaque_ftype_opaque_opaque_opaque,
+  RS6000_BTI_int_ftype_int_opaque_opaque,
+  RS6000_BTI_int_ftype_int_v4si_v4si,
+  RS6000_BTI_void_ftype_v4si,
+  RS6000_BTI_v8hi_ftype_void,
+  RS6000_BTI_void_ftype_void,
+  RS6000_BTI_void_ftype_int,
+  RS6000_BTI_opaque_ftype_long_pcvoid,
+  RS6000_BTI_v16qi_ftype_long_pcvoid,
+  RS6000_BTI_v8hi_ftype_long_pcvoid,
+  RS6000_BTI_v4si_ftype_long_pcvoid,
+  RS6000_BTI_v4sf_ftype_long_pcvoid,
+  RS6000_BTI_v2df_ftype_long_pcvoid,
+  RS6000_BTI_v2di_ftype_long_pcvoid,
+  RS6000_BTI_void_ftype_opaque_long_pvoid,
+  RS6000_BTI_void_ftype_v4si_long_pvoid,
+  RS6000_BTI_void_ftype_v16qi_long_pvoid,
+  RS6000_BTI_void_ftype_v8hi_long_pvoid,
+  RS6000_BTI_void_ftype_v4sf_long_pvoid,
+  RS6000_BTI_void_ftype_v2df_long_pvoid,
+  RS6000_BTI_void_ftype_v2di_long_pvoid,
+  RS6000_BTI_int_ftype_int_v8hi_v8hi,
+  RS6000_BTI_int_ftype_int_v16qi_v16qi,
+  RS6000_BTI_int_ftype_int_v4sf_v4sf,
+  RS6000_BTI_int_ftype_int_v2df_v2df,
+  RS6000_BTI_v4si_ftype_v4si,
+  RS6000_BTI_v8hi_ftype_v8hi,
+  RS6000_BTI_v16qi_ftype_v16qi,
+  RS6000_BTI_v4sf_ftype_v4sf,
+  RS6000_BTI_v2df_ftype_v2df,
+  RS6000_BTI_void_ftype_pcvoid_int_int,
   RS6000_BTI_MAX
 };
 
