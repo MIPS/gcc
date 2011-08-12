@@ -12513,7 +12513,8 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	    /* For the load case need to negate the address.  */
 	    op = gen_reg_rtx (GET_MODE (addr));
 	    emit_insn (gen_rtx_SET (VOIDmode, op,
-				    gen_rtx_NEG (GET_MODE (addr), addr)));
+				    gen_rtx_NEG (GET_MODE (addr),
+				    force_reg (Pmode, addr))));
 	  }
 	op = gen_rtx_MEM (mode, op);
 
