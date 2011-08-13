@@ -26,7 +26,74 @@
 
 /* Before including this file, two macros must be defined:
    RS6000_BUILTIN	 -- 2 arguments, the enum name, and classification
-   RS6000_BUILTIN_EQUATE -- 2 arguments, enum name and value */
+   RS6000_BUILTIN_EQUATE -- 2 arguments, enum name and value
+
+   RS6000_BUILTIN_ARGS	 -- 9 arguments:
+	argument 1, the string name of the builtin function
+	argument 2, the enum name
+	argument 3, the insn code for the function that implments this
+	argument 4, the classification
+	argument 5, the mask for whether the builtin should be used
+	argument 6, RS6000_BTI index for return value
+	arguments 7-9, RS6000_BTI index for 1-3 arguments.  */
+
+#ifndef RS6000_BUILTIN_ARG0
+#define RS6000_BUILTIN_ARG0(STR, NAME, ICODE, CLASS, MASK, RET)		\
+  RS6000_BUILTIN_ARGS(STR,						\
+		      NAME,						\
+		      ICODE,						\
+		      CLASS,						\
+		      MASK,						\
+		      RET,						\
+		      RS6000_BTI_NONE,					\
+		      RS6000_BTI_NONE,					\
+		      RS6000_BTI_NONE)
+#endif
+
+#ifndef RS6000_BUILTIN_ARG1
+#define RS6000_BUILTIN_ARG1(STR, NAME, ICODE, CLASS, MASK, RET, ARG1)	\
+  RS6000_BUILTIN_ARGS(STR,						\
+		      NAME,						\
+		      ICODE,						\
+		      CLASS,						\
+		      MASK,						\
+		      RET,						\
+		      ARG1,						\
+		      RS6000_BTI_NONE,					\
+		      RS6000_BTI_NONE)
+#endif
+
+#ifndef RS6000_BUILTIN_ARG2
+#define RS6000_BUILTIN_ARG2(STR, NAME, ICODE, CLASS, MASK, RET, ARG1, ARG2) \
+  RS6000_BUILTIN_ARGS(STR,						\
+		      NAME,						\
+		      ICODE,						\
+		      CLASS,						\
+		      MASK,						\
+		      RET,						\
+		      ARG1,						\
+		      ARG2,						\
+		      RS6000_BTI_NONE)
+#endif
+
+#ifndef RS6000_BUILTIN_ARG3
+#define RS6000_BUILTIN_ARG3(STR, NAME, ICODE, CLASS, MASK, RET, A1, A2, A3) \
+  RS6000_BUILTIN_ARGS(STR,						\
+		      NAME,						\
+		      ICODE,						\
+		      CLASS,						\
+		      MASK,						\
+		      RET,						\
+		      A1,						\
+		      A2,						\
+		      A3)
+#endif
+
+/* For now, convert new macro into old macro.  */
+#ifndef RS6000_BUILTIN_ARGS
+#define RS6000_BUILTIN_ARGS(STR, NAME, ICODE, CLASS, MASK, RET, A1, A2, A3) \
+  RS6000_BUILTIN(NAME, CLASS)
+#endif
 
 /* AltiVec builtins.  */
 RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_4si,		RS6000_BTC_MEM)
@@ -41,10 +108,50 @@ RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_2df,		RS6000_BTC_MEM)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_2df,		RS6000_BTC_MEM)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_2di,		RS6000_BTC_MEM)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_2di,		RS6000_BTC_MEM)
+
+RS6000_BUILTIN_ARG2("__builtin_altivec_vaddubm",
+		    ALTIVEC_BUILTIN_VADDUBM,
+		    CODE_FOR_addv16qi3,
+		    RS6000_BTC_CONST,
+		    RS6000_BTM_ALTIVEC,
+		    RS6000_BTI_V16QI,
+		    RS6000_BTI_V16QI,
+		    RS6000_BTI_V16QI)
+
+RS6000_BUILTIN_ARG2("__builtin_altivec_vadduhm",
+		    ALTIVEC_BUILTIN_VADDUHM,
+		    CODE_FOR_addv8hi3,
+		    RS6000_BTC_CONST,
+		    RS6000_BTM_ALTIVEC,
+		    RS6000_BTI_V8HI,
+		    RS6000_BTI_V8HI,
+		    RS6000_BTI_V8HI)
+
+RS6000_BUILTIN_ARG2("__builtin_altivec_vadduwm",
+		    ALTIVEC_BUILTIN_VADDUWM,
+		    CODE_FOR_addv4si3,
+		    RS6000_BTC_CONST,
+		    RS6000_BTM_ALTIVEC,
+		    RS6000_BTI_V4SI,
+		    RS6000_BTI_V4SI,
+		    RS6000_BTI_V4SI)
+
+RS6000_BUILTIN_ARG2("__builtin_altivec_vaddfp",
+		    ALTIVEC_BUILTIN_VADDFP,
+		    CODE_FOR_addv4sf3,
+		    RS6000_BTC_CONST,
+		    RS6000_BTM_ALTIVEC,
+		    RS6000_BTI_V4SF,
+		    RS6000_BTI_V4SF,
+		    RS6000_BTI_V4SF)
+
+#if 0
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUBM,			RS6000_BTC_CONST)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUHM,			RS6000_BTC_CONST)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUWM,			RS6000_BTC_CONST)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDFP,			RS6000_BTC_FP_PURE)
+#endif
+
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDCUW,			RS6000_BTC_CONST)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUBS,			RS6000_BTC_CONST)
 RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDSBS,			RS6000_BTC_SAT)

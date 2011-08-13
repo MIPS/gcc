@@ -2254,15 +2254,35 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 /* General flags.  */
 extern int frame_pointer_needed;
 
+/* Masks for builtin functions.  We don't use target_flags masks, because we
+   are out of bits in target_flags, and some switches are now separate
+   variables.  */
+
+typedef enum rs6000_btmask
+{
+  RS6000_BTM_NONE	= 0x00000000,	/* no mask */
+  RS6000_BTM_ALTIVEC	= 0x00000001,	/* machine supports Altivec.  */
+  RS6000_BTM_VSX	= 0x00000002,	/* machine supports VSX.  */
+  RS6000_BTM_CELL	= 0x00000004,	/* machine is a cell with Altivec.  */
+  RS6000_BTM_PAIRED	= 0x00000008,	/* machine supports paired insns.  */
+  RS6000_BTM_SPE	= 0x00000010,	/* machine supports SPE.  */
+  RS6000_BTM_FRE	= 0x00000020,	/* machine has FRE insn.  */
+  RS6000_BTM_FRES	= 0x00000040,	/* machine has FRES insn.  */
+  RS6000_BTM_FRSQRTE	= 0x00000080,	/* machine has FRSQRTE insn.  */
+  RS6000_BTM_FRSQRTES	= 0x00000100,	/* machine has FRSQRTES insn.  */
+  RS6000_BTM_POPCNTD	= 0x00000200,	/* machine has ISA 2.06 insns.  */
+  RS6000_BTM_BSWAP16	= 0x00000400	/* machine has 16-bit swap */
+} rs6000_btm_type;
+
 /* Classification of the builtin functions to properly set the declaration tree
    flags.  */
-enum rs6000_btc
+typedef enum rs6000_btc
 {
   RS6000_BTC_MISC,		/* assume builtin can do anything */
   RS6000_BTC_CONST,		/* builtin is a 'const' function.  */
   RS6000_BTC_PURE,		/* builtin is a 'pure' function.  */
   RS6000_BTC_FP_PURE		/* builtin is 'pure' if rounding math.  */
-};
+} rs6000_btc_type;
 
 /* Convenience macros to document the instruction type.  */
 #define RS6000_BTC_MEM	RS6000_BTC_MISC	/* load/store touches memory */
@@ -2270,8 +2290,11 @@ enum rs6000_btc
 
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
+#undef RS6000_BUILTIN_ARGS
+
 #define RS6000_BUILTIN(NAME, TYPE) NAME,
 #define RS6000_BUILTIN_EQUATE(NAME, VALUE) NAME = VALUE,
+#define RS6000_BUILTIN_ARGS(S, N, IC, CLASS, MASK, RET, A1, A2, A3) N,
 
 enum rs6000_builtins
 {
@@ -2282,10 +2305,13 @@ enum rs6000_builtins
 
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
+#undef RS6000_BUILTIN_ARGS
 
-enum rs6000_builtin_type_index
+typedef enum rs6000_builtin_type_index
 {
-  RS6000_BTI_NOT_OPAQUE,
+  RS6000_BTI_NONE,
+#define RS6000_BTI_NOT_OPAQUE	RS6000_BTI_NONE		/* old name */
+
   RS6000_BTI_opaque_V2SI,
   RS6000_BTI_opaque_V2SF,
   RS6000_BTI_opaque_p_V2SI,
@@ -2329,7 +2355,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_MAX
-};
+} rs6000_bti_type;
 
 
 #define opaque_V2SI_type_node         (rs6000_builtin_types[RS6000_BTI_opaque_V2SI])

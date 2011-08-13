@@ -195,9 +195,14 @@ static enum insn_code rs6000_vector_reload[NUM_MACHINE_MODES][2];
 
 static int dbg_cost_ctrl;
 
-/* Built in types.  */
+/* Built in types and declarations.  */
 tree rs6000_builtin_types[RS6000_BTI_MAX];
 tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
+
+/* Built in declarations that have been created at any time, but may or may not
+   be in rs6000_builtin_declars, depending on the current target attribute or
+   pragma.  */
+tree rs6000_builtin_decls_init[RS6000_BUILTIN_COUNT];
 
 /* Flag to say the TOC is initialized */
 int toc_initialized;
@@ -848,19 +853,43 @@ struct processor_costs ppca2_cost = {
 };
 
 
-/* Table that classifies rs6000 builtin functions (pure, const, etc.).  */
+/* Table that classifies rs6000 builtin functions in terms of effect(pure,
+   const, etc.), what target machine they run on, and describes their
+   return value and arguments.  */
+
+typedef struct rs6000_builtin_info
+{
+  const char *string;		/* function name as a string.  */
+  enum insn_code icode;		/* rtl insn that implemnts builtin.  */
+  rs6000_btc_type classify;	/* builtin classification.  */
+  rs6000_btm_type mask;		/* mask to define builtin.  */
+  rs6000_bti_type ret;		/* return type.  */
+  rs6000_bti_type args[3];	/* function args.  */
+} rs6000_btinfo_type;
+  
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
-#define RS6000_BUILTIN(NAME, TYPE) TYPE,
+#undef RS6000_BUILTIN_ARGS
+
+#define RS6000_BUILTIN(NAME, CLASS)					\
+  { NULL, CODE_FOR_nothing, CLASS, RS6000_BTM_NONE, RS6000_BTI_NONE,	\
+    { RS6000_BTI_NONE, RS6000_BTI_NONE, RS6000_BTI_NONE } },
+
 #define RS6000_BUILTIN_EQUATE(NAME, VALUE)
 
-static const enum rs6000_btc builtin_classify[(int)RS6000_BUILTIN_COUNT] =
+#define RS6000_BUILTIN_ARGS(STR, NAME, ICODE, CLASS, MASK, RET, A1, A2, A3) \
+  { STR, ICODE, CLASS, MASK, RET, { A1, A2, A3 }},
+
+
+static
+const rs6000_btinfo_type builtin_info[(int)RS6000_BUILTIN_COUNT] =
 {
 #include "rs6000-builtin.def"
 };
 
 #undef RS6000_BUILTIN
 #undef RS6000_BUILTIN_EQUATE
+#undef RS6000_BUILTIN_ARGS
 
 /* Support for -mveclibabi=<xxx> to control which vector library to use.  */
 static tree (*rs6000_veclib_handler) (tree, tree, tree);
@@ -1000,6 +1029,7 @@ static enum machine_mode rs6000_preferred_simd_mode (enum machine_mode);
 static void def_builtin (int, const char *, tree, int);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
 static void rs6000_init_builtins (void);
+static void rs6000_table_init_builtins (void);
 static tree rs6000_builtin_decl (unsigned, bool);
 
 static rtx rs6000_expand_unop_builtin (enum insn_code, tree, rtx);
@@ -9427,7 +9457,7 @@ def_builtin (int mask, const char *name, tree type, int code)
 			      NULL, NULL_TREE);
 
       gcc_assert (code >= 0 && code < (int)RS6000_BUILTIN_COUNT);
-      switch (builtin_classify[code])
+      switch (builtin_info[code].classify)
 	{
 	default:
 	  gcc_unreachable ();
@@ -9607,10 +9637,12 @@ static const struct builtin_description bdesc_dst[] =
 
 static struct builtin_description bdesc_2arg[] =
 {
+#if 0
   { MASK_ALTIVEC, CODE_FOR_addv16qi3, "__builtin_altivec_vaddubm", ALTIVEC_BUILTIN_VADDUBM },
   { MASK_ALTIVEC, CODE_FOR_addv8hi3, "__builtin_altivec_vadduhm", ALTIVEC_BUILTIN_VADDUHM },
   { MASK_ALTIVEC, CODE_FOR_addv4si3, "__builtin_altivec_vadduwm", ALTIVEC_BUILTIN_VADDUWM },
   { MASK_ALTIVEC, CODE_FOR_addv4sf3, "__builtin_altivec_vaddfp", ALTIVEC_BUILTIN_VADDFP },
+#endif
   { MASK_ALTIVEC, CODE_FOR_altivec_vaddcuw, "__builtin_altivec_vaddcuw", ALTIVEC_BUILTIN_VADDCUW },
   { MASK_ALTIVEC, CODE_FOR_altivec_vaddubs, "__builtin_altivec_vaddubs", ALTIVEC_BUILTIN_VADDUBS },
   { MASK_ALTIVEC, CODE_FOR_altivec_vaddsbs, "__builtin_altivec_vaddsbs", ALTIVEC_BUILTIN_VADDSBS },
@@ -11942,6 +11974,24 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   gcc_assert (TARGET_ALTIVEC || TARGET_VSX || TARGET_SPE || TARGET_PAIRED_FLOAT);
 
+  /* Handle builtins created from the builtins table.  */
+  if (fcode < RS6000_BUILTIN_COUNT && rs6000_builtin_decls[fcode]
+      && builtin_info[fcode].icode != CODE_FOR_nothing)
+    {
+      /* Figure out if it is a ternary, binary, or unary op.  */
+      if (builtin_info[fcode].args[2] != RS6000_BTI_NONE)
+	return rs6000_expand_ternop_builtin (builtin_info[fcode].icode,
+					     exp, target);
+
+      else if (builtin_info[fcode].args[1] != RS6000_BTI_NONE)
+	return rs6000_expand_binop_builtin (builtin_info[fcode].icode,
+					    exp, target);
+
+      else if (builtin_info[fcode].args[0] != RS6000_BTI_NONE)
+	return rs6000_expand_unop_builtin (builtin_info[fcode].icode,
+					   exp, target);
+    }
+
   /* Handle simple unary operations.  */
   d = (struct builtin_description *) bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
@@ -12219,6 +12269,156 @@ rs6000_init_builtins (void)
 #ifdef SUBTARGET_INIT_BUILTINS
   SUBTARGET_INIT_BUILTINS;
 #endif
+
+  /* Initialize all of the builtins described in rs6000-builtins.def.  */
+  rs6000_table_init_builtins ();
+}
+
+/* Create a builtin described in the builtin_info table.  */
+
+static void
+rs6000_create_builtin (size_t index, unsigned flags)
+{
+  enum rs6000_builtins bindex = (enum rs6000_builtins)index;
+  const rs6000_btinfo_type *bt = &builtin_info[index];
+  size_t n_args;
+  int ret = bt->ret;
+  tree ret_type;
+  enum machine_mode ret_mode;
+  enum machine_mode args_mode[3] = { VOIDmode, VOIDmode, VOIDmode };
+  tree fndecl;
+
+  gcc_assert (bt->string != NULL);
+
+  /* Validate return type.  */
+  gcc_assert (IN_RANGE (ret, 0, (int)RS6000_BTI_MAX));
+  ret_type = rs6000_builtin_types[ret];
+  gcc_assert (ret_type != NULL_TREE);
+  ret_mode = TYPE_MODE (ret_type);
+
+  /* Validate and count arguments.  */
+  for (n_args = 0; n_args < 3; n_args++)
+    {
+      int arg = bt->args[n_args];
+      tree arg_type;
+
+      gcc_assert (IN_RANGE (arg, 0, (int)RS6000_BTI_MAX));
+      if (arg == (int)RS6000_BTI_NONE)
+	break;
+
+      arg_type = rs6000_builtin_types[arg];
+      gcc_assert (arg_type != NULL_TREE);
+      args_mode[n_args] = TYPE_MODE (arg_type);
+    }
+
+  fndecl = builtin_function_type (ret_mode, args_mode[0], args_mode[1],
+				  args_mode[2], bindex, bt->string);
+
+  def_builtin (flags, bt->string, fndecl, bindex);
+  rs6000_builtin_decls_init[index] = rs6000_builtin_decls[index];
+}
+
+/* Define all builtins defined in the builtin_info table.  This function might
+   be called multiple times, if the user uses target attributes or pragmas to
+   change the machine for a particular function, so we will need to make sure
+   we don't create more than one declaration.  */
+
+static void
+rs6000_table_init_builtins (void)
+{
+  size_t i;
+  unsigned int mask = 0;
+  unsigned int flags = 0;
+
+  /* Figure out the current mask of functions that should be allowed.  */
+  if (TARGET_ALTIVEC)
+    {
+      mask |= RS6000_BTM_ALTIVEC;
+      flags |= MASK_ALTIVEC;
+    }
+
+  if (TARGET_ALTIVEC && rs6000_cpu == PROCESSOR_CELL)
+    {
+      mask |= RS6000_BTM_CELL;
+      flags |= MASK_ALTIVEC;
+    }
+
+  if (TARGET_VSX)
+    {
+      mask |= RS6000_BTM_VSX;
+      flags |= MASK_VSX;
+    }
+
+  if (TARGET_PAIRED_FLOAT)
+    {
+      mask |= RS6000_BTM_PAIRED;
+      flags |= target_flags;
+    }
+
+  if (TARGET_SPE)
+    {
+      mask |= RS6000_BTM_SPE;
+      flags |= target_flags;
+    }
+
+  if (TARGET_FRE)
+    {
+      mask |= RS6000_BTM_FRE;
+      flags |= MASK_POPCNTB;
+    }
+
+  if (TARGET_FRES)
+    {
+      mask |= RS6000_BTM_FRES;
+      flags |= MASK_PPC_GFXOPT;
+    }
+
+  if (TARGET_FRSQRTE)
+    {
+      mask |= RS6000_BTM_FRSQRTE;
+      flags |= MASK_PPC_GFXOPT;
+    }
+
+  if (TARGET_FRSQRTES)
+    {
+      mask |= RS6000_BTM_FRSQRTES;
+      flags |= MASK_POPCNTB;
+    }
+
+  if (TARGET_POPCNTD)
+    {
+      mask |= RS6000_BTM_POPCNTD;
+      flags |= MASK_POPCNTD;
+    }
+
+  if (TARGET_POWERPC)
+    {
+      mask |= RS6000_BTM_BSWAP16;
+      flags |= MASK_POWERPC;
+    }
+
+  /* Go through the builtins, looking for possibile candidates, skipping
+     functions that don't have the arguments, etc. in the table.  */
+  for (i = 0; i < ARRAY_SIZE (builtin_info); i++)
+    {
+      const rs6000_btinfo_type *bt = &builtin_info[i];
+      if (bt->mask != RS6000_BTM_NONE)
+	{
+	  /* Function not availble in current machine?  */
+	  if ((bt->mask & mask) == 0)
+	    rs6000_builtin_decls[i] = NULL_TREE;
+
+	  else
+	    {
+	      /* Do we need to create the function?  */
+	      if (!rs6000_builtin_decls_init[i])
+		rs6000_create_builtin (i, flags);
+
+	      else
+		rs6000_builtin_decls[i] = rs6000_builtin_decls_init[i];
+	    }
+	}
+    }
 }
 
 /* Returns the rs6000 builtin decl for CODE.  */

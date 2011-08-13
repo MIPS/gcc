@@ -1,5 +1,44 @@
 2011-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_ARGS): New
+	macros to encode types within the macros, so that we can process
+	the builtins as a single table, instead of being spread out over
+	several different functions.  Start converting the Altivec add
+	functions to the new scheme.
+	(RS6000_BUILTIN_ARG0): Ditto.
+	(RS6000_BUILTIN_ARG1): Ditto.
+	(RS6000_BUILTIN_ARG2): Ditto.
+	(RS6000_BUILTIN_ARG2): Ditto.
+	(RS6000_BUILTIN_ARG3): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_decls_init): New static
+	array to record the builtin functions that have been created, even
+	if the current machine does not support the function.
+	(builtin_info): New array to hold all of the information for
+	creating builtin functions.
+	(builtin_classify): Delete, merge into builtin_info.
+	(def_builtin): Use builtin_info instead of builtin_classify.
+	(bdesc_2arg): Remove Altivec add functions moved over to the new
+	format.
+	(rs6000_expand_builtin): Add support for generating builtin
+	functions from a table.
+	(rs6000_create_builtin): New function, create a builtin function
+	from the table of builtins.
+	(rs6000_table_init_builtins): New function to create the builtins
+	that are in the builtin table.
+
+	* config/rs6000/rs6000.h (enum rs6000_btmask): Masks of the
+	various conditions for creating builtins.
+	(enum rs6000_btc): Add typedef.
+	(enum rs6000_builtin_type_index): Ditto.
+	(enum rs6000_builtins): Define RS6000_BUILTIN_ARGS for new builtin
+	handling.
+	(RS6000_BTI_NONE): New name for no type provided.
+	(RS6000_BTI_NOT_OPAQUE): Map into RS6000_BTI_NONE.
+
+2011-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Version deleted, but available in tree.
 	* config/rs6000/rs6000.c (rs6000_init_builtins): Split into two
 	parts, rs6000_init_builtins that is meant to be called only once,
 	and rs6000_init_builtins_inner that is called multiple times to
