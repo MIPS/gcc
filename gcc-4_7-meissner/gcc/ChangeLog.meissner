@@ -1,5 +1,43 @@
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree.h (toplevel): Include builtin-funcs.h instead of
+	builtins.def.
+	* builtins.c (toplevel): Ditto.
+
+	* configure.ac (md_builtin_attrs_def): New configure variable
+	passed to the Makefile to hold machine dependent builtin
+	includes.
+	(md_builtin_funcs_def): Ditto.
+	(md_builtin_types_def): Ditto.
+	* config.gcc (md_builtin_types_def): Ditto.
+	(md_builtin_funcs_def): Ditto.
+	(md_builtin_types_def): Ditto.
+	(powerpc*, rs6000*): Add rs6000 builtin includes.
+
+	* configure: Regenerate.
+
+	* Makefile.in (BUILTINS_DEF): Delete.
+	(BUILTIN_FUNCS_DEF): New macro to allow backend to define new
+	builtins.
+	(BUILTIN_ATTRS_DEF): Ditto.
+	(BUILTIN_TYPES_DEF): Ditto.
+	(BUILTIN_FUNCS_H): Ditto.
+	(BUILTIN_ATTRS_H): Ditto.
+	(BUILTIN_FUNCS_H): Ditto.
+	(builtin-attrs.h): New include file that includes the standard and
+	machine dependent builtins.
+	(builtin-funcs.h): Ditto.
+	(builtin-types.h): Ditto.
+	(c-family/c-common.o): Change dependencies to allow backend to
+	define new builtins.
+	(mostlyclean): Delete generated builtin include files.
+
+	* config/rs6000/rs6000-builtin-attrs.def: Stub file for now.
+	* config/rs6000/rs6000-builtin-funcs.def: Ditto.
+	* config/rs6000/rs6000-builtin-types.def: Ditto.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 177785.
 	* REVISION: Update subversion id.
 

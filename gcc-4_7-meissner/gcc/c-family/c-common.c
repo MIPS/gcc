@@ -4457,7 +4457,7 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
   NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
-#include "builtin-types.def"
+#include "builtin-types.h"
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
@@ -4564,7 +4564,7 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
-#include "builtin-types.def"
+#include "builtin-types.h"
 
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_1
@@ -4592,7 +4592,7 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 		   builtin_types[(int) LIBTYPE],                        \
 		   BOTH_P, FALLBACK_P, NONANSI_P,                       \
 		   built_in_attributes[(int) ATTRS], IMPLICIT);
-#include "builtins.def"
+#include "builtin-funcs.h"
 #undef DEF_BUILTIN
 
   targetm.init_builtins ();
@@ -8961,7 +8961,7 @@ c_common_mark_addressable_vec (tree t)
 
 
 
-/* Used to help initialize the builtin-types.def table.  When a type of
+/* Used to help initialize the builtin-types.h table.  When a type of
    the correct size doesn't exist, use error_mark_node instead of NULL.
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */

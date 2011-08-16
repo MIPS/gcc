@@ -1,0 +1,13 @@
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (c_builtin_type): Include builtin-types.h, not
+	builtin-types.def.
+	(c_define_builtins): Ditto.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 177785.
+
+2011-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Create branch, cloned from trunk, revision 177200.

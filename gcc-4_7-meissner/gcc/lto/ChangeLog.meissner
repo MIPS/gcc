@@ -1,0 +1,17 @@
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* Make-lang.in (lto/lto-lang.o): Adjust dependencies for backend
+	created builtins.
+
+	* lto-lang.c (lto_builtin_types): Include builtin-types.h not
+	builtin-types.def.
+	(lto_init_attributes): Ditto.
+	(lto_define_builtins): Ditto.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 177785.
+
+2011-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Create branch, cloned from trunk, revision 177200.
