@@ -1,3 +1,31 @@
+2011-08-16  Andreas Schwab  <schwab@redhat.com>
+
+	* ggc.h (ggc_alloc_rtvec_sized): Use ggc_alloc_zone_rtvec_def
+	instead of ggc_alloc_zone_vec_rtvec_def.
+
+2011-08-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (ptrofftype_p): New helper function.
+	* tree-cfg.c (verify_expr): Use ptrofftype_p for POINTER_PLUS_EXPR
+	offset verification.
+	(verify_gimple_assign_binary): Likewise.
+	* tree.c (build2_stat): Likewise.
+	* tree-chrec.c (chrec_fold_plus_poly_poly): Likewise.
+	(reset_evolution_in_loop): Likewise.
+	* tree-chrec.h (build_polynomial_chrec): Likewise.
+
+2011-08-16  Liang Wang  <lwang1@marvell.com>
+
+	* ggc.h (ggc_alloc_rtvec_sized): Change arguments of
+	ggc_alloc_zone_vec_rtvec_def.
+
+2011-08-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vrp.c (extract_range_from_multiplicative_op_1): New
+	helper factored out from ...
+	(extract_range_from_binary_expr_1): ... here.  Re-structure
+	to not glob handling too different tree codes.
+
 2011-08-15  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/50006
@@ -81,11 +109,6 @@
 	New static functions.
 	(avr_reorg): Use them.  Use next_real_insn instead of NEXT_INSN.
 	Use CONST_INT_P.  Beauty.
-
-2011-08-12  David Li  <davidxl@google.com>
-
-	* cp/class.c (update_vtable_entry_for_fn): Set
-	LOST_PRIMARY bit properly.
 
 2011-08-12  Richard Henderson  <rth@redhat.com>
 
