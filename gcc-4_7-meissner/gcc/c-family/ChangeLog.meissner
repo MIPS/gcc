@@ -1,8 +1,10 @@
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* c-common.c (c_builtin_type): Include builtin-types.h, not
-	builtin-types.def.
+	* c-common.c (enum c_builtin_type): Add support for machine
+	dependent builtin attributes, types, and functions.
 	(c_define_builtins): Ditto.
+	(enum built_in_attribute): Ditto.
+	(c_init_attributes): Ditto.
 
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

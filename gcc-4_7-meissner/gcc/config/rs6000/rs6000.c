@@ -1029,6 +1029,8 @@ static enum machine_mode rs6000_preferred_simd_mode (enum machine_mode);
 static void def_builtin (int, const char *, tree, int);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
 static void rs6000_init_builtins (void);
+static void rs6000_builtin_attrs_init (void);
+static void rs6000_builtin_types_init (void);
 static void rs6000_table_init_builtins (void);
 static tree rs6000_builtin_decl (unsigned, bool);
 
@@ -1453,6 +1455,13 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
+
+#undef TARGET_BUILTIN_ATTRS_INIT
+#define TARGET_BUILTIN_ATTRS_INIT rs6000_builtin_attrs_init
+
+#undef TARGET_BUILTIN_TYPES_INIT
+#define TARGET_BUILTIN_TYPES_INIT rs6000_builtin_types_init
+
 #undef TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL rs6000_builtin_decl
 
@@ -12013,11 +12022,17 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+/* Initialize builtin function attributes.  */
 static void
-rs6000_init_builtins (void)
+rs6000_builtin_attrs_init (void)
+{
+}
+
+/* Initialize builtin function types.  */
+static void
+rs6000_builtin_types_init (void)
 {
   tree tdecl;
-  tree ftype;
 
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
@@ -12200,6 +12215,13 @@ rs6000_init_builtins (void)
       TYPE_NAME (bool_V2DI_type_node) = tdecl;
       (*lang_hooks.decls.pushdecl) (tdecl);
     }
+
+}
+
+static void
+rs6000_init_builtins (void)
+{
+  tree ftype;
 
   if (TARGET_PAIRED_FLOAT)
     paired_init_builtins ();

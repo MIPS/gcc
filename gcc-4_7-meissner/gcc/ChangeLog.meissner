@@ -32,9 +32,27 @@
 	define new builtins.
 	(mostlyclean): Delete generated builtin include files.
 
+	* doc/tm.texi (TARGET_BUILTIN_ATTRS_INIT): New target hook.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	* doc/tm.texi.in (TARGET_BUILTIN_ATTRS_INIT): Ditto.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	* target.def (builtin_attrs_init): Ditto.
+	(builtin_types_init): Ditto.
+
 	* config/rs6000/rs6000-builtin-attrs.def: Stub file for now.
 	* config/rs6000/rs6000-builtin-funcs.def: Ditto.
-	* config/rs6000/rs6000-builtin-types.def: Ditto.
+
+	* config/rs6000/rs6000-builtin-types.def: Add rs6000 builtin
+	types.
+
+	* config/rs6000.c (rs6000_builtin_attrs_init): New target hook for
+	initialize builtin types and attributes.  Move in type handling
+	from rs6000_init_builtins.
+	(rs6000_builtin_types_init): Ditto.
+	(TARGET_BUILTIN_ATTRS_INIT): Define.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	(rs6000_init_builtins): Move type initialization to
+	rs6000_builtin_types_init.
 
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

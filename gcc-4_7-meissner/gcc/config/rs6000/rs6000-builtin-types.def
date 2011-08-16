@@ -24,3 +24,33 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
+/* Define the types used for rs6000 builtin functions.  The types themselves
+   are initialized in rs6000_init_builtins.  */
+
+DEF_PRIMITIVE_TYPE (BT_PPC_opaque_V2SI,		opaque_V2SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_opaque_V2SF,		opaque_V2SF_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_opaque_p_V2SI,	opaque_p_V2SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_opaque_V4SI,		opaque_V4SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V16QI,		V16QI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V2DI,		V2DI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V2DF,		V2DF_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V2SI,		V2SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V2SF,		V2SF_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V4HI,		V4HI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V4SI,		V4SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V4SF,		V4SF_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_V8HI,		V8HI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_unsigned_V16QI,	unsigned_V16QI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_unsigned_V8HI,	unsigned_V8HI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_unsigned_V4SI,	unsigned_V4SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_unsigned_V2DI,	unsigned_V2DI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_char,		bool_char_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_short,		bool_short_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_int,		bool_int_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_long,		bool_long_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_pixel,		pixel_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_V16QI,		bool_V16QI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_V8HI,		bool_V8HI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_V4SI,		bool_V4SI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_bool_V2DI,		bool_V2DI_type_node)
+DEF_PRIMITIVE_TYPE (BT_PPC_pixel_V8HI,		pixel_V8HI_type_node)
