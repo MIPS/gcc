@@ -1,3 +1,8 @@
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to AT 5.0 branch, subversion id 177801.
+	* REVISION: Update subversion id.
+
 2011-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mmovmisalign-int-float): New switch.
