@@ -1,5 +1,7 @@
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Version deleted, still available in tree as subverison id 177803.
+
 	* tree.h (toplevel): Include builtin-funcs.h instead of
 	builtins.def.
 	* builtins.c (toplevel): Ditto.
