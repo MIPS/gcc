@@ -1,3 +1,15 @@
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* Make-lang.in (lto/lto-lang.o): Adjust dependencies for backend
+	created builtins.
+
+	* lto-lang.c (enum lto_builtin_aatribute): Add support for machine
+	dependent builtin attributes, types, and functions.
+	(enum lto_builtin_types): Ditto.
+	(enum built_in_attribute): Ditto.
+	(lto_init_attributes): Ditto.
+	(lto_define_builtins): Ditto.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from FSF branch 177785.

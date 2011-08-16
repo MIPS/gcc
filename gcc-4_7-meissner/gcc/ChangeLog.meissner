@@ -1,5 +1,60 @@
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree.h (toplevel): Include builtin-funcs.h instead of
+	builtins.def.
+	* builtins.c (toplevel): Ditto.
+
+	* configure.ac (md_builtin_attrs_def): New configure variable
+	passed to the Makefile to hold machine dependent builtin
+	includes.
+	(md_builtin_funcs_def): Ditto.
+	(md_builtin_types_def): Ditto.
+	* config.gcc (md_builtin_types_def): Ditto.
+	(md_builtin_funcs_def): Ditto.
+	(md_builtin_types_def): Ditto.
+	(powerpc*, rs6000*): Add rs6000 builtin includes.
+
+	* configure: Regenerate.
+
+	* Makefile.in (BUILTINS_DEF): Delete.
+	(BUILTIN_FUNCS_DEF): New macro to allow backend to define new
+	builtins.
+	(BUILTIN_ATTRS_DEF): Ditto.
+	(BUILTIN_TYPES_DEF): Ditto.
+	(BUILTIN_FUNCS_H): Ditto.
+	(BUILTIN_ATTRS_H): Ditto.
+	(BUILTIN_FUNCS_H): Ditto.
+	(builtin-attrs.h): New include file that includes the standard and
+	machine dependent builtins.
+	(builtin-funcs.h): Ditto.
+	(builtin-types.h): Ditto.
+	(c-family/c-common.o): Change dependencies to allow backend to
+	define new builtins.
+	(mostlyclean): Delete generated builtin include files.
+
+	* doc/tm.texi (TARGET_BUILTIN_ATTRS_INIT): New target hook.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	* doc/tm.texi.in (TARGET_BUILTIN_ATTRS_INIT): Ditto.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	* target.def (builtin_attrs_init): Ditto.
+	(builtin_types_init): Ditto.
+
+	* config/rs6000/rs6000-builtin-funcs.def: Stub file for now.
+
+	* config/rs6000/rs6000-builtin-types.def: Add rs6000 builtin
+	types.
+
+	* config/rs6000.c (rs6000_builtin_attrs_init): New target hook for
+	initialize builtin types and attributes.  Move in type handling
+	from rs6000_init_builtins.
+	(rs6000_builtin_types_init): Ditto.
+	(TARGET_BUILTIN_ATTRS_INIT): Define.
+	(TARGET_BUILTIN_TYPES_INIT): Ditto.
+	(rs6000_init_builtins): Move type initialization to
+	rs6000_builtin_types_init.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from FSF branch 177785.
 	* REVISION: New file.
 

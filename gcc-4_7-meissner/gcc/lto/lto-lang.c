@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright 2009, 2010 Free Software Foundation, Inc.
+   Copyright 2009, 2010, 2011 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -98,7 +98,7 @@ enum built_in_attribute
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
-#include "builtin-attrs.def"
+#include "builtin-attrs.h"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
@@ -129,7 +129,7 @@ enum lto_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
   NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
-#include "builtin-types.def"
+#include "builtin-types.h"
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
@@ -160,7 +160,7 @@ static GTY(()) tree intmax_type_node;
 static GTY(()) tree uintmax_type_node;
 static GTY(()) tree signed_size_type_node;
 
-/* Flags needed to process builtins.def.  */
+/* Flags needed to process builtin-funcs.h.  */
 int flag_isoc94;
 int flag_isoc99;
 
@@ -462,7 +462,7 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   va_end (list);
 }
 
-/* Used to help initialize the builtin-types.def table.  When a type of
+/* Used to help initialize the builtin-types.h table.  When a type of
    the correct size doesn't exist, use error_mark_node instead of NULL.
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */
@@ -522,15 +522,17 @@ lto_init_attributes (void)
     = tree_cons (built_in_attributes[(int) PURPOSE],	\
 		 built_in_attributes[(int) VALUE],	\
 		 built_in_attributes[(int) CHAIN]);
-#include "builtin-attrs.def"
+#include "builtin-attrs.h"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
+
+  targetm.builtin_attrs_init ();
 }
 
 /* Create builtin types and functions.  VA_LIST_REF_TYPE_NODE and
-   VA_LIST_ARG_TYPE_NODE are used in builtin-types.def.  */
+   VA_LIST_ARG_TYPE_NODE are used in builtin-types.h.  */
 
 static void
 lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
@@ -571,7 +573,7 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
-#include "builtin-types.def"
+#include "builtin-types.h"
 
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_1
@@ -589,6 +591,7 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
+  targetm.builtin_types_init ();
   lto_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,\
@@ -597,7 +600,7 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
       def_builtin_1 (ENUM, NAME, CLASS, builtin_types[(int) TYPE],	\
 		     builtin_types[(int) LIBTYPE], BOTH_P, FALLBACK_P,	\
 		     NONANSI_P, built_in_attributes[(int) ATTRS], IMPLICIT);
-#include "builtins.def"
+#include "builtin-funcs.h"
 #undef DEF_BUILTIN
 }
 
@@ -1014,8 +1017,9 @@ lto_register_builtin_type (tree type, const char *name)
   registered_builtin_types = tree_cons (0, type, registered_builtin_types);
 }
 
-/* Build nodes that would have be created by the C front-end; necessary
-   for including builtin-types.def and ultimately builtins.def.  */
+/* Build nodes that would have be created by the C front-end; necessary for
+   including builtin-types.h and ultimately builtins.def and
+   builtin-funcs.h.  */
 
 static void
 lto_build_c_type_nodes (void)
