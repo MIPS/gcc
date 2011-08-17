@@ -999,6 +999,7 @@ static enum machine_mode rs6000_preferred_simd_mode (enum machine_mode);
 
 static void def_builtin (int, const char *, tree, int);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
+static void rs6000_init_builtin_types (void);
 static void rs6000_init_builtins (void);
 static tree rs6000_builtin_decl (unsigned, bool);
 
@@ -1423,6 +1424,10 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
+
+#undef TARGET_INIT_BUILTIN_TYPES
+#define TARGET_INIT_BUILTIN_TYPES rs6000_init_builtin_types
+
 #undef TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL rs6000_builtin_decl
 
@@ -11961,10 +11966,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 }
 
 static void
-rs6000_init_builtins (void)
+rs6000_init_builtin_types (void)
 {
   tree tdecl;
-  tree ftype;
 
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
@@ -12121,32 +12125,38 @@ rs6000_init_builtins (void)
   TYPE_NAME (pixel_V8HI_type_node) = tdecl;
   (*lang_hooks.decls.pushdecl) (tdecl);
 
-  if (TARGET_VSX)
-    {
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector double"),
-			  V2DF_type_node);
-      TYPE_NAME (V2DF_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector double"),
+		      V2DF_type_node);
+  TYPE_NAME (V2DF_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector long"),
-			  V2DI_type_node);
-      TYPE_NAME (V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector long"),
+		      V2DI_type_node);
+  TYPE_NAME (V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector unsigned long"),
-			  unsigned_V2DI_type_node);
-      TYPE_NAME (unsigned_V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector unsigned long"),
+		      unsigned_V2DI_type_node);
+  TYPE_NAME (unsigned_V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector __bool long"),
-			  bool_V2DI_type_node);
-      TYPE_NAME (bool_V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
-    }
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector __bool long"),
+		      bool_V2DI_type_node);
+  TYPE_NAME (bool_V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
+}
+
+static void
+rs6000_init_builtins (void)
+{
+  tree ftype;
+
+  /* Make sure rs6000_init_builtin_types was run.  */
+  gcc_assert (V2SI_type_node != NULL_TREE);
 
   if (TARGET_PAIRED_FLOAT)
     paired_init_builtins ();

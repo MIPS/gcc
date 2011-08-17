@@ -1177,6 +1177,14 @@ DEFHOOK
  void, (void),
  hook_void_void)
 
+/* Set up target-specific built-in types before creating the builtin
+   functions.  */
+DEFHOOK
+(init_builtin_types,
+ "",
+ void, (void),
+ hook_void_void)
+
 /* Initialize (if INITIALIZE_P is true) and return the target-specific
    built-in function decl for CODE.
    Return NULL if that is not possible.  Return error_mark_node if CODE

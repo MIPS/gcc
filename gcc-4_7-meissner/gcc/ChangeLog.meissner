@@ -1,5 +1,52 @@
 2011-08-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* doc/tm.texi (TARGET_INIT_BUILTIN_TYPES): Document new hook.
+	* doc/tm.texi.in (TARGET_INIT_BUILTIN_TYPES): Ditto.
+
+	* target.def (init_builtin_types): New target hook to allow
+	backend to initialize types needed for builtin functions.
+
+	* builtin-attrs.def: Include tm-bu-attrs.def.
+	* builtin_types.def: Include tm-bu-types.def.
+	* builtins.def: Include tm-bu-funcs.def.
+
+	* configure.ac (tm_builtin_attrs): New autoconf substitution
+	variable for backend builtin functions.
+	(tm_builtin_funcs): Ditto.
+	(tm_builtin_types): Ditto.
+	* configure: Regenerate.
+	* config.gcc (powerpc*, rs6000*): Add rs6000 builtin files.
+
+	* Makefile.in (BUILTINS_DEF): Add support for backend defined
+	builtin attributes, types, and functions.
+	(BUILTIN_FUNCS_MD): Ditto.
+	(BUILTIN_ATTRS_MD): Ditto.
+	(BUILTIN_ATTRS_DEF): Ditto.
+	(BUILTIN_TYPES_MD): Ditto.
+	(BUILTIN_TYPES_DEF): Ditto.
+	(tm-bu-attrs.def): Build file to include the back end builtin
+	attributes, types, and functions files.
+	(tm-bu-funcs.def): Ditto.
+	(tm-bu-types.def): Ditto.
+	(c-family/c-common.o): Adjust dependencies for back end builtins
+	being merged with the standard builtins.
+	(mostlyclean): Delete generated builtin include files.
+
+	* config/rs6000/rs6000-bu-funcs.def: Stub file for now.
+	* config/rs6000/rs6000-bu-attrs.def: Ditto.
+
+	* config/rs6000/rs6000-bu-types.def: Add basic types needed for
+	rs6000 builtins.
+
+	* config/rs6000/rs6000.c (rs6000_init_builtin_types): New
+	function, split type initialization from rs6000_init_builtins.
+	Always generate the VSX vector types, just like we do for Altivec
+	and SPE.
+	(rs6000_init_builtins): Ditto.
+	(TARGET_INIT_BUILTIN_TYPES): Define target hook.
+
+2011-08-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* Delete previous changes (subversion id 177834).
 
 2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>

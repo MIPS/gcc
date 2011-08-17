@@ -590,6 +590,7 @@ lto_define_builtins (tree va_list_ref_type_node ATTRIBUTE_UNUSED,
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
   lto_init_attributes ();
+  targetm.init_builtin_types ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P,\
 		    NONANSI_P, ATTRS, IMPLICIT, COND)			\

@@ -10936,6 +10936,12 @@ only language front ends that use those two functions will call
 @samp{TARGET_INIT_BUILTINS}.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_INIT_BUILTIN_TYPES (void)
+Define this hook if you need to creates types before the builtin
+functions are created.  It should be a function that performs the
+necessary setup.
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_BUILTIN_DECL (unsigned @var{code}, bool @var{initialize_p})
 Define this hook if you have any machine-specific built-in functions
 that need to be defined.  It should be a function that returns the

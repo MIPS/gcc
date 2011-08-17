@@ -789,3 +789,6 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
+
+/* Target machine builtins.  */
+#include "tm-bu-funcs.def"
