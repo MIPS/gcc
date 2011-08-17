@@ -4426,7 +4426,7 @@ enum built_in_attribute
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
-#include "builtin-attrs.h"
+#include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
@@ -4457,7 +4457,7 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG6) \
   NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
-#include "builtin-types.h"
+#include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_0
 #undef DEF_FUNCTION_TYPE_1
@@ -4564,7 +4564,7 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
-#include "builtin-types.h"
+#include "builtin-types.def"
 
 #undef DEF_PRIMITIVE_TYPE
 #undef DEF_FUNCTION_TYPE_1
@@ -4582,7 +4582,6 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
-  targetm.builtin_types_init ();
   c_init_attributes ();
 
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
@@ -4593,7 +4592,7 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 		   builtin_types[(int) LIBTYPE],                        \
 		   BOTH_P, FALLBACK_P, NONANSI_P,                       \
 		   built_in_attributes[(int) ATTRS], IMPLICIT);
-#include "builtin-funcs.h"
+#include "builtins.def"
 #undef DEF_BUILTIN
 
   targetm.init_builtins ();
@@ -5756,13 +5755,11 @@ c_init_attributes (void)
     = tree_cons (built_in_attributes[(int) PURPOSE],	\
 		 built_in_attributes[(int) VALUE],	\
 		 built_in_attributes[(int) CHAIN]);
-#include "builtin-attrs.h"
+#include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
-
-  targetm.builtin_attrs_init ();
 }
 
 /* Returns TRUE iff the attribute indicated by ATTR_ID takes a plain
@@ -8964,7 +8961,7 @@ c_common_mark_addressable_vec (tree t)
 
 
 
-/* Used to help initialize the builtin-types.h table.  When a type of
+/* Used to help initialize the builtin-types.def table.  When a type of
    the correct size doesn't exist, use error_mark_node instead of NULL.
    The later results in segfaults even when a decl using the type doesn't
    get invoked.  */

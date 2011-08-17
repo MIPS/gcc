@@ -908,16 +908,11 @@ RTL_H = $(RTL_BASE_H) genrtl.h vecir.h
 RTL_ERROR_H = $(RTL_H) $(DIAGNOSTIC_CORE_H)
 READ_MD_H = $(OBSTACK_H) $(HASHTAB_H) read-md.h
 PARAMS_H = params.h params.def
-BUILTIN_FUNCS_DEF = builtins.def @md_builtin_funcs_def@
-BUILTIN_FUNCS_H = builtin-funcs.h $(BUILTINS_FUNCS_DEF) sync-builtins.def omp-builtins.def
-BUILTIN_TYPES_DEF = builtin-types.def @md_builtin_types_def@
-BUILTIN_TYPES_H = builtin-types.h $(BUILTIN_TYPES_DEF)
-BUILTIN_ATTRS_DEF = builtin-attrs.def @md_builtin_attrs_def@
-BUILTIN_ATTRS_H = builtin-attrs.h $(BUILTIN_ATTRS_DEF)
+BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 INTERNAL_FN_DEF = internal-fn.def
 INTERNAL_FN_H = internal-fn.h $(INTERNAL_FN_DEF)
 TREE_H = tree.h all-tree.def tree.def c-family/c-common.def \
-	$(lang_tree_files) $(MACHMODE_H) tree-check.h $(BUILTIN_FUNCS_H) \
+	$(lang_tree_files) $(MACHMODE_H) tree-check.h $(BUILTINS_DEF) \
 	$(INPUT_H) statistics.h $(VEC_H) treestruct.def $(HASHTAB_H) \
 	double-int.h alias.h $(SYMTAB_H) $(FLAGS_H) vecir.h \
 	$(REAL_H) $(FIXED_VALUE_H)
@@ -1983,35 +1978,6 @@ $(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
 	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS) \
 	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O \
 	  -o $(T)crtbeginT$(objext)
-
-# Build the builtin include files that includes the standard builtin file along
-# with any machine dependent versions of those files.  Note, these files are
-# expected to be included multiple times, so don't use mkconfig.sh which adds
-# header guards
-builtin-attrs.h: s-bu-attrs; @true
-s-bu-attrs: Makefile
-	for inc in $(BUILTIN_ATTRS_DEF); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-attrs.h
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-attrs.h builtin-attrs.h
-	$(STAMP) s-bu-attrs
-
-builtin-types.h: s-bu-types; @true
-s-bu-types: Makefile
-	for inc in $(BUILTIN_TYPES_DEF); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-types.h
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-types.h builtin-types.h
-	$(STAMP) s-bu-types
-
-builtin-funcs.h: s-bu-funcs; @true
-s-bu-funcs: Makefile
-	for inc in $(BUILTIN_FUNCS_DEF); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-funcs.h
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-funcs.h builtin-funcs.h
-	$(STAMP) s-bu-funcs
-
 #
 # Compiling object files from source files.
 
@@ -2109,11 +2075,11 @@ lto-wrapper.o: lto-wrapper.c $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h \
 c-family/c-common.o : c-family/c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(TM_H) $(TREE_H) \
 	$(OBSTACK_H) $(C_COMMON_H) $(FLAGS_H) toplev.h output.h $(C_PRAGMA_H) \
-	$(GGC_H) $(BUILTIN_ATTRS_H) $(BUILTIN_FUNCS_H) $(BUILTIN_TYPES_H) \
+	$(GGC_H) builtin-types.def builtin-attrs.def \
 	$(DIAGNOSTIC_H) langhooks.h c-family/c-objc.h \
 	$(TARGET_H) tree-iterator.h langhooks.h tree-mudflap.h \
 	intl.h $(OPTS_H) $(CPPLIB_H) $(TREE_INLINE_H) $(HASHTAB_H) \
-	$(CGRAPH_H) $(BASIC_BLOCK_H) $(TARGET_DEF_H) \
+	$(BUILTINS_DEF) $(CGRAPH_H) $(BASIC_BLOCK_H) $(TARGET_DEF_H) \
 	$(LIBFUNCS_H) \
 	gt-c-family-c-common.h $(COMMON_TARGET_H)
 
@@ -2965,7 +2931,7 @@ builtins.o : builtins.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(EXPR_H) $(OPTABS_H) insn-config.h $(RECOG_H) output.h typeclass.h \
    hard-reg-set.h $(DIAGNOSTIC_CORE_H) hard-reg-set.h $(EXCEPT_H) \
    $(TM_P_H) $(PREDICT_H) $(LIBFUNCS_H) langhooks.h $(BASIC_BLOCK_H) \
-   tree-mudflap.h realmpfr.h $(BUILTIN_FUNCS_H) $(MACHMODE_H) \
+   tree-mudflap.h realmpfr.h $(BUILTINS_DEF) $(MACHMODE_H) \
    $(DIAGNOSTIC_CORE_H) $(TREE_FLOW_H) value-prof.h
 calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) langhooks.h $(TARGET_H) \
@@ -4544,8 +4510,6 @@ mostlyclean: lang.mostlyclean
 	-rm -f gtype.state
 # Delete genchecksum outputs
 	-rm -f *-checksum.c
-# Delete builtin types, attributes, function include files
-	-rm -f builtin-attrs.h builtin-funcs.h builtin-types.h
 
 # Delete all files made by compilation
 # that don't exist in the distribution.

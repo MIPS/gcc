@@ -69,7 +69,7 @@ const char *const built_in_class_names[4]
 #define DEF_BUILTIN(X, N, C, T, LT, B, F, NA, AT, IM, COND) #X,
 const char * built_in_names[(int) END_BUILTINS] =
 {
-#include "builtin-funcs.h"
+#include "builtins.def"
 };
 #undef DEF_BUILTIN
 

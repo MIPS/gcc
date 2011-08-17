@@ -10816,16 +10816,6 @@ You need not implement the hook if it has nothing to do.  The default
 definition is null.
 @end deftypefn
 
-@hook TARGET_BUILTIN_TYPES_INIT
-Define this hook if you need to create types for machine dependent
-builtin functions before the normal builtin functions are created.
-@end deftypefn
-
-@hook TARGET_BUILTIN_ATTRS_INIT
-Define this hook if you need to create attributes for machine dependent
-builtin functions before the normal builtin functions are created.
-@end deftypefn
-
 @hook TARGET_INIT_BUILTINS
 Define this hook if you have any machine-specific built-in functions
 that need to be defined.  It should be a function that performs the

@@ -2325,20 +2325,6 @@ DEFHOOK
  void, (void),
  hook_void_void)
 
-/* Initialize machine dependent types for builtin functions.  */
-DEFHOOK
-(builtin_types_init,
- "",
- void, (void),
- hook_void_void)
-
-/* Initialize machine dependent attributes for builtin functions.  */
-DEFHOOK
-(builtin_attrs_init,
- "",
- void, (void),
- hook_void_void)
-
 /* Functions specific to the C family of frontends.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_C_"

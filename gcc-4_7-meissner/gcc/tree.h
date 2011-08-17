@@ -290,7 +290,7 @@ extern const char *const built_in_class_names[4];
 #define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) ENUM,
 enum built_in_function
 {
-#include "builtin-funcs.h"
+#include "builtins.def"
 
   /* Complex division routines in libgcc.  These are done via builtins
      because emit_library_call_value can't handle complex values.  */
