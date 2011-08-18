@@ -1,3 +1,14 @@
+2011-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/tm.texi: Undo 8/17 change.
+	* doc/tm.texi.in: Ditto.
+	* target.def: Ditto.
+
+	* config/rs600/rs6000.c (rs6000_init_builtins): Undo 8/17 change
+	splitting into two functions, and adding init builtin type target
+	hook, but keep the change where we no longer test for TARGET_VSX
+	before creating the basic VSX types.
+
 2011-08-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/tm.texi (TARGET_INIT_BUILTIN_TYPES): Document new hook.

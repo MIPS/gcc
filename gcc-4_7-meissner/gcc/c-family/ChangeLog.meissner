@@ -1,3 +1,7 @@
+2011-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (c_define_builtins): Undo 8/17 change.
+
 2011-08-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-common.c (c_define_builtins): Call init_builtin_types target
