@@ -1,5 +1,47 @@
 2011-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* builtins.def (DEF_BUILTIN_MD): Define new macro for machine
+	dependent builtins added to the built_in_function enum.
+
+	* config.gcc (rs6000*, powerpc*): Drop rs6000-bu-*.def, add
+	rs6000-builtin.def which holds the powerpc builtins.
+
+	* config/rs6000/rs6000-protos.h (rs6000_builtin_types): Move
+	declaration here from rs6000.h.  Conditionalize on whether tree.h
+	has been included.  Merge rs6000 builtins into standard builtins.
+	(rs6000_builtin_decls): Ditto.
+
+	* config/rs6000/rs6000-bu-attrs.def: Delete.
+	* config/rs6000/rs6000-bu-funcs.def: Ditto.
+	* config/rs6000/rs6000-bu-types.def: Ditto.
+
+	* config/rs6000/rs6000-c.c (struct altivec_builtin_types): Merge
+	rs6000 builtins into standard builtin enum.
+	(altivec_overloaded_builtins): Ditto.
+
+	* config/rs6000/rs6000-builtin.def: Drop RS6000_BUILTIN_EQUATE,
+	and create marker enums for beginning/end enumerations.  Add
+	support for being included from builtins.def to merge the rs6000
+	builtin enums with the standard builtin enums.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_decls): Merge rs6000
+	builtins with standard builtins.
+	(struct builtin_description): Ditto.
+	(builtin_classify): Ditto.
+	(builtin_function_type): Ditto.
+	(enable_mask_for_builtins): Ditto.
+	(rs6000_builtin_vectorized_function): Ditto.
+	(def_builtin): Ditto.
+	(rs6000_builtin_decl): Ditto.
+	(builtin_hash_eq): Ditto.
+
+	* config/rs6000/rs6000.h (enum rs6000_btc): Add RS6000_BTC_NONE
+	for markers.
+	(enum rs6000_builtins): Delete, merge rs6000 builtins into
+	standard builtins.
+	(rs6000_builtin_types): Move to rs6000-protos.h.
+	(rs6000_builtin_decl): Ditto.
+
 	* doc/tm.texi: Undo 8/17 change.
 	* doc/tm.texi.in: Ditto.
 	* target.def: Ditto.

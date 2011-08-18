@@ -197,7 +197,7 @@ static int dbg_cost_ctrl;
 
 /* Built in types.  */
 tree rs6000_builtin_types[RS6000_BTI_MAX];
-tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
+tree rs6000_builtin_decls[END_BUILTINS];
 
 /* Flag to say the TOC is initialized */
 int toc_initialized;
@@ -221,7 +221,7 @@ struct builtin_description
   unsigned int mask;
   const enum insn_code icode;
   const char *const name;
-  const enum rs6000_builtins code;
+  const enum built_in_function code;
 };
 
 /* Describe the vector unit used for modes.  */
@@ -850,17 +850,20 @@ struct processor_costs ppca2_cost = {
 
 /* Table that classifies rs6000 builtin functions (pure, const, etc.).  */
 #undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
 #define RS6000_BUILTIN(NAME, TYPE) TYPE,
-#define RS6000_BUILTIN_EQUATE(NAME, VALUE)
 
-static const enum rs6000_btc builtin_classify[(int)RS6000_BUILTIN_COUNT] =
+#define RS6000_BUILTIN_COUNT \
+  (((size_t)RS6000_BUILTIN_LAST) - (size_t)RS6000_BUILTIN_FIRST + 1)
+
+static const enum rs6000_btc builtin_classify[RS6000_BUILTIN_COUNT] =
 {
 #include "rs6000-builtin.def"
 };
 
 #undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
+
+#define RS6000_BUILTIN_CLASSIFY(FN) \
+  builtin_classify [(size_t)(FN) - (size_t)RS6000_BUILTIN_FIRST]
 
 /* Support for -mveclibabi=<xxx> to control which vector library to use.  */
 static tree (*rs6000_veclib_handler) (tree, tree, tree);
@@ -1011,7 +1014,7 @@ static unsigned builtin_hash_function (const void *);
 static int builtin_hash_eq (const void *, const void *);
 static tree builtin_function_type (enum machine_mode, enum machine_mode,
 				   enum machine_mode, enum machine_mode,
-				   enum rs6000_builtins, const char *name);
+				   enum built_in_function, const char *name);
 static void rs6000_common_init_builtins (void);
 static void rs6000_init_libfuncs (void);
 
@@ -1022,8 +1025,8 @@ static rtx paired_expand_stv_builtin (enum insn_code, tree);
 static rtx paired_expand_predicate_builtin (enum insn_code, tree, rtx);
 
 static void enable_mask_for_builtins (struct builtin_description *, int,
-				      enum rs6000_builtins,
-				      enum rs6000_builtins);
+				      enum built_in_function,
+				      enum built_in_function);
 static void spe_init_builtins (void);
 static rtx spe_expand_builtin (tree, rtx, bool *);
 static rtx spe_expand_stv_builtin (enum insn_code, tree);
@@ -3962,8 +3965,8 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 
   else if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     {
-      enum rs6000_builtins fn
-	= (enum rs6000_builtins)DECL_FUNCTION_CODE (fndecl);
+      enum built_in_function fn
+	= (enum built_in_function)DECL_FUNCTION_CODE (fndecl);
       switch (fn)
 	{
 	case RS6000_BUILTIN_RSQRTF:
@@ -9423,8 +9426,8 @@ def_builtin (int mask, const char *name, tree type, int code)
         add_builtin_function (name, type, code, BUILT_IN_MD,
 			      NULL, NULL_TREE);
 
-      gcc_assert (code >= 0 && code < (int)RS6000_BUILTIN_COUNT);
-      switch (builtin_classify[code])
+      gcc_assert (IN_RANGE (code, RS6000_BUILTIN_FIRST, RS6000_BUILTIN_LAST));
+      switch (RS6000_BUILTIN_CLASSIFY (code))
 	{
 	default:
 	  gcc_unreachable ();
@@ -10064,7 +10067,7 @@ struct builtin_description_predicates
   const unsigned int mask;
   const enum insn_code icode;
   const char *const name;
-  const enum rs6000_builtins code;
+  const enum built_in_function code;
 };
 
 static const struct builtin_description_predicates bdesc_altivec_preds[] =
@@ -12233,8 +12236,8 @@ rs6000_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
    END is the builtin enum at which to end.  */
 static void
 enable_mask_for_builtins (struct builtin_description *desc, int size,
-			  enum rs6000_builtins start,
-			  enum rs6000_builtins end)
+			  enum built_in_function start,
+			  enum built_in_function end)
 {
   int i;
 
@@ -13011,7 +13014,7 @@ builtin_hash_eq (const void *h1, const void *h2)
 static tree
 builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
 		       enum machine_mode mode_arg1, enum machine_mode mode_arg2,
-		       enum rs6000_builtins builtin, const char *name)
+		       enum built_in_function builtin, const char *name)
 {
   struct builtin_hash_struct h;
   struct builtin_hash_struct *h2;
