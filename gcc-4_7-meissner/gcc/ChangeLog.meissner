@@ -1,5 +1,8 @@
 2011-08-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 177912.
+	* REVISION: Update subversion id.
+
 	* tree.h (struct tree_function_decl): Grow function code field by
 	1 bit to allow for machines with lots of builtins.
 

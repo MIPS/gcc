@@ -1,3 +1,61 @@
+2011-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/49792
+	* trans-expr.c (gfc_trans_assignment_1): Set OMPWS_SCALARIZER_WS
+	bit in ompws_flags only if loop.temp_ss is NULL, and clear it if
+	lhs needs reallocation.
+	* trans-openmp.c (gfc_trans_omp_workshare): Don't return early if
+	code is NULL, emit a barrier if workshare emitted no code at all
+	and NOWAIT clause isn't present.
+
+2011-08-19  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50071
+	* gfortran.h (gfc_exec_op): New constant EXEC_END_NESTED_BLOCK.
+	* parse.c (check_statement_label): Accept ST_END_BLOCK and
+	ST_END_ASSOCIATE as valid branch target.
+	(accept_statement): Change EXEC_END_BLOCK to EXEC_END_NESTED_BLOCK.
+	Add EXEC_END_BLOCK code in the ST_END_BLOCK and ST_END_ASSOCIATE cases.
+	* resolve.c (find_reachable_labels): Change EXEC_END_BLOCK to
+	EXEC_END_NESTED_BLOCK.
+	(resolve_branch): Ditto.
+	(resolve_code): Add EXEC_END_NESTED_BLOCK case.
+	* st.c (gfc_free_statement): Ditto.
+	* trans.c (trans_code): Ditto.
+
+2011-08-18  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50071
+	* symbol.c (gfc_get_st_label): Use the derived type namespace when
+	we are parsing a derived type definition.
+
+2011-08-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/18918
+	* parse.c (parse_derived): Add lock_type
+	checks, improve coarray_comp handling.
+	* resolve.c (resolve_allocate_expr,
+	resolve_lock_unlock, resolve_symbol): Fix lock_type
+	constraint checks.
+
+2011-08-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/31461
+	* trans-decl.c (generate_local_decl): Warn about
+	unused explicitly imported module variables/parameters.
+
+2011-08-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50070
+	* resolve.c (resolve_fl_variable): Reject non-constant character lengths
+	in COMMON variables.
+
+2011-08-16  Tobias Burnus  <burnus@net-b.de>
+	    Dominique Dhumieres  <dominiq@lps.ens.fr>
+
+	PR fortran/50094
+	* resolve.c (resolve_symbol): Fix stupid typo.
+
 2011-08-15  Tobias Burnus  <burnus@net-b.de>
 
 	* resolve.c (resolve_symbol): Fix coarray result-var check.
