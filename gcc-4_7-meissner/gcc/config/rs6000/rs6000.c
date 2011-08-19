@@ -9415,12 +9415,10 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 static void
 def_builtin (int mask, const char *name, tree type, int code)
 {
-  if ((mask & target_flags) || TARGET_PAIRED_FLOAT)
+  if (!rs6000_builtin_decls[code]
+      && ((mask & target_flags) || TARGET_PAIRED_FLOAT))
     {
       tree t;
-      if (rs6000_builtin_decls[code])
-	fatal_error ("internal error: builtin function to %s already processed",
-		     name);
 
       rs6000_builtin_decls[code] = t =
         add_builtin_function (name, type, code, BUILT_IN_MD,
@@ -11168,10 +11166,7 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum machine_mode tmode, mode0;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
-  if ((fcode >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-       && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-      || (fcode >= VSX_BUILTIN_OVERLOADED_FIRST
-	  && fcode <= VSX_BUILTIN_OVERLOADED_LAST))
+  if (OVERLOADED_BUILTIN_P (fcode))
     {
       *expandedp = true;
       error ("unresolved overload for Altivec builtin %qF", fndecl);
@@ -11964,10 +11959,9 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 }
 
 static void
-rs6000_init_builtins (void)
+rs6000_init_builtin_types (void)
 {
   tree tdecl;
-  tree ftype;
 
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
@@ -12147,16 +12141,33 @@ rs6000_init_builtins (void)
 		      bool_V2DI_type_node);
   TYPE_NAME (bool_V2DI_type_node) = tdecl;
   (*lang_hooks.decls.pushdecl) (tdecl);
+}
 
-  if (TARGET_PAIRED_FLOAT)
+/* This function may be called multiple times if the user changes the machine
+   with the target attribute or pragma, so only create the builtins for a
+   particular class the first time where the target options were set.  */
+
+static void
+rs6000_init_builtins (void)
+{
+  static bool first_time = true;
+  tree ftype;
+
+  if (V2SI_type_node == NULL_TREE)
+    rs6000_init_builtin_types ();
+
+  if (TARGET_PAIRED_FLOAT && !rs6000_builtin_decls[PAIRED_BUILTIN_LX])
     paired_init_builtins ();
-  if (TARGET_SPE)
+
+  if (TARGET_SPE && !rs6000_builtin_decls[SPE_BUILTIN_MTSPEFSCR])
     spe_init_builtins ();
-  if (TARGET_ALTIVEC)
+
+  if (TARGET_ALTIVEC && !rs6000_builtin_decls[ALTIVEC_BUILTIN_MTVSCR])
     altivec_init_builtins ();
   if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX)
     rs6000_common_init_builtins ();
-  if (TARGET_FRE)
+
+  if (TARGET_FRE && !rs6000_builtin_decls[RS6000_BUILTIN_RECIP])
     {
       ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
 				     RS6000_BUILTIN_RECIP,
@@ -12164,7 +12175,8 @@ rs6000_init_builtins (void)
       def_builtin (MASK_POPCNTB, "__builtin_recipdiv", ftype,
 		   RS6000_BUILTIN_RECIP);
     }
-  if (TARGET_FRES)
+
+  if (TARGET_FRES && !rs6000_builtin_decls[RS6000_BUILTIN_RECIPF])
     {
       ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
 				     RS6000_BUILTIN_RECIPF,
@@ -12172,7 +12184,8 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_recipdivf", ftype,
 		   RS6000_BUILTIN_RECIPF);
     }
-  if (TARGET_FRSQRTE)
+
+  if (TARGET_FRSQRTE && !rs6000_builtin_decls[RS6000_BUILTIN_RSQRT])
     {
       ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRT,
@@ -12180,7 +12193,8 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrt", ftype,
 		   RS6000_BUILTIN_RSQRT);
     }
-  if (TARGET_FRSQRTES)
+
+  if (TARGET_FRSQRTES && !rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF])
     {
       ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
 				     RS6000_BUILTIN_RSQRTF,
@@ -12188,7 +12202,8 @@ rs6000_init_builtins (void)
       def_builtin (MASK_PPC_GFXOPT, "__builtin_rsqrtf", ftype,
 		   RS6000_BUILTIN_RSQRTF);
     }
-  if (TARGET_POPCNTD)
+
+  if (TARGET_POPCNTD && !rs6000_builtin_decls[POWER7_BUILTIN_BPERMD])
     {
       enum machine_mode mode = (TARGET_64BIT) ? DImode : SImode;
       tree ftype = builtin_function_type (mode, mode, mode, VOIDmode,
@@ -12197,7 +12212,8 @@ rs6000_init_builtins (void)
       def_builtin (MASK_POPCNTD, "__builtin_bpermd", ftype,
 		   POWER7_BUILTIN_BPERMD);
     }
-  if (TARGET_POWERPC)
+
+  if (TARGET_POWERPC && !rs6000_builtin_decls[RS6000_BUILTIN_BSWAP_HI])
     {
       /* Don't use builtin_function_type here, as it maps HI/QI to SI.  */
       tree ftype = build_function_type_list (unsigned_intHI_type_node,
@@ -12207,15 +12223,20 @@ rs6000_init_builtins (void)
 		   RS6000_BUILTIN_BSWAP_HI);
     }
 
+  if (first_time)
+    {
+      first_time = false;
+
 #if TARGET_XCOFF
-  /* AIX libm provides clog as __clog.  */
-  if (built_in_decls [BUILT_IN_CLOG])
-    set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
+      /* AIX libm provides clog as __clog.  */
+      if (built_in_decls [BUILT_IN_CLOG])
+	set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
 #endif
 
 #ifdef SUBTARGET_INIT_BUILTINS
-  SUBTARGET_INIT_BUILTINS;
+      SUBTARGET_INIT_BUILTINS;
 #endif
+    }
 }
 
 /* Returns the rs6000 builtin decl for CODE.  */
@@ -12762,12 +12783,8 @@ altivec_init_builtins (void)
     {
       enum machine_mode mode1;
       tree type;
-      bool is_overloaded = ((dp->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			     && dp->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-			    || (dp->code >= VSX_BUILTIN_OVERLOADED_FIRST
-				&& dp->code <= VSX_BUILTIN_OVERLOADED_LAST));
 
-      if (is_overloaded)
+      if (OVERLOADED_BUILTIN_P (dp->code))
 	mode1 = VOIDmode;
       else
 	mode1 = insn_data[dp->icode].operand[1].mode;
@@ -13184,13 +13201,11 @@ rs6000_common_init_builtins (void)
       int mask = d->mask;
 
       if ((mask != 0 && (mask & target_flags) == 0)
-	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT)
+	  || rs6000_builtin_decls[d->code] != NULL_TREE)
 	continue;
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (OVERLOADED_BUILTIN_P (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque_opaque
@@ -13225,13 +13240,11 @@ rs6000_common_init_builtins (void)
       int mask = d->mask;
 
       if ((mask != 0 && (mask & target_flags) == 0)
-	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT)
+	  || rs6000_builtin_decls[d->code] != NULL_TREE)
 	continue;
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (OVERLOADED_BUILTIN_P (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque
@@ -13288,13 +13301,11 @@ rs6000_common_init_builtins (void)
       int mask = d->mask;
 
       if ((mask != 0 && (mask & target_flags) == 0)
-	  || (mask == 0 && !TARGET_PAIRED_FLOAT))
+	  || (mask == 0 && !TARGET_PAIRED_FLOAT)
+	  || rs6000_builtin_decls[d->code] != NULL_TREE)
 	continue;
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (OVERLOADED_BUILTIN_P (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque))
 	    type = opaque_ftype_opaque

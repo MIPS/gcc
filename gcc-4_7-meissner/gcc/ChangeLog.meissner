@@ -1,3 +1,27 @@
+2011-08-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (struct tree_function_decl): Grow function code field by
+	1 bit to allow for machines with lots of builtins.
+
+	* builtins.def (BUILT_IN_NONE): Reserve builtin index 0 so it is
+	not a legitimate builtin.
+
+	* config/rs6000/rs6000-builtin.def: Use #defines for FIRST, LAST
+	markers instead allocating dummy builtin slots.
+
+	* config/rs6000/rs6000.c (def_builtin): Skip previously defined
+	builtins instead of raising an error.
+	(altivec_expand_builtin): Use OVERLOADED_BUILTIN_P.
+	(altivec_init_builtin): Ditto.
+	(rs6000_init_builtin_types): Split initializing types from the
+	rest of the builtin support.  Add initial steps to making
+	rs6000_init_builtins be called more than one.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+
+	* config/rs6000/rs6000.h (*_BUILTIN_P): New macros to classify
+	builtins.
+
 2011-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* builtins.def (DEF_BUILTIN_MD): Define new macro for machine
