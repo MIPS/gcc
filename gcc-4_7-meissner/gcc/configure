@@ -10708,6 +10708,9 @@ else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
+#ifndef __ELF__
+#error Not an ELF OS
+#endif
 #ifdef __ia64__
 /* We turn on .preinit_array/.init_array/.fini_array support for ia64
    if it can be used.  */

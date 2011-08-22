@@ -1,3 +1,65 @@
+2011-08-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50133
+	* gcc.dg/pr50133.c: New test.
+
+	PR middle-end/50141
+	* c-c++-common/cxxbitfields-6.c: New test.
+
+2011-08-22  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.dg/alloc_comp_initializer_3.f90: New test.
+
+2011-08-22  Georg-Johann Lay  <avr@gjlay.de>
+	
+	* gcc.dg/pr49994-2.c: Add dg-require-effective-target scheduling.
+	* gcc.dg/pr49994-3.c: Ditto.
+
+2011-08-22  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/50145
+	* gcc.dg/torture/pr50067-1.c: Run on little-endian systems only.
+	* gcc.dg/torture/pr50067-2.c: Likewise.
+
+2011-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/47659
+	* gfortran.dg/warn_conversion_2.f90:  Also warn about conversion
+	of a constant resulting from simplification.
+	* gfortran.dg/warn_conversion_3.f90:  New test.
+
+2011-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/50130
+	* gfortran.dg/zero_stride_1.f90:  New test.
+
+2011-08-20  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49638
+	* gfortran.dg/typebound_override_1.f90: Modified.
+
+2011-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48739
+	* gcc.dg/pr48739-1.c: New test.
+	* gcc.dg/pr48739-2.c: New test.
+
+2011-08-20  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/graphite/interchange-1.f: Remove xfail.
+
+2011-08-19  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50129
+	* gfortran.dg/where_3.f90: New test.
+
+2011-08-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/49721
+	* gfortran.dg/pr49721-1.f: New.
+	* gfortran.fortran-torture/compile/pr49721-1.f: Likewise.
+
 2011-08-19  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/builtin-complex-err-1.c, gcc.dg/builtin-complex-err-2.c,

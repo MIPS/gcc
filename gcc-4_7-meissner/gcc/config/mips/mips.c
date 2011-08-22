@@ -10630,12 +10630,14 @@ mips_class_max_nregs (enum reg_class rclass, enum machine_mode mode)
   COPY_HARD_REG_SET (left, reg_class_contents[(int) rclass]);
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) ST_REGS]))
     {
-      size = MIN (size, 4);
+      if (HARD_REGNO_MODE_OK (ST_REG_FIRST, mode))
+	size = MIN (size, 4);
       AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) ST_REGS]);
     }
   if (hard_reg_set_intersect_p (left, reg_class_contents[(int) FP_REGS]))
     {
-      size = MIN (size, UNITS_PER_FPREG);
+      if (HARD_REGNO_MODE_OK (FP_REG_FIRST, mode))
+	size = MIN (size, UNITS_PER_FPREG);
       AND_COMPL_HARD_REG_SET (left, reg_class_contents[(int) FP_REGS]);
     }
   if (!hard_reg_set_empty_p (left))
@@ -14831,6 +14833,7 @@ mips_reorg_process_insns (void)
 		 executed.  */
 	      else if (recog_memoized (insn) == CODE_FOR_r10k_cache_barrier
 		       && last_insn
+		       && JUMP_P (SEQ_BEGIN (last_insn))
 		       && INSN_ANNULLED_BRANCH_P (SEQ_BEGIN (last_insn)))
 		delete_insn (insn);
 	      else
