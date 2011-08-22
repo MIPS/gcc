@@ -1,5 +1,16 @@
 2011-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* configure.ac (tm_builtin_{attrs,types}): Delete, don't allow MD
+	builtin attributes or types.
+	* config.gcc (tm_builtin_{attrs,types}): Ditto.
+	* Makefile.in (BUILTIN_{ATTRS,TYPES}_{DEF,MD}): Ditto.
+	(tm-bu-{attrs,types}.def): Ditto.
+	(c-family/c-common.o): Ditto.
+	(mostlyclean): Ditto.
+	* configure: Regenerate.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_decl): Fix thinko.
+
 	Merge up to 177964.
 	* REVISION: Update subversion id.
 

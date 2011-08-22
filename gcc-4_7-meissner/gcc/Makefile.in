@@ -912,10 +912,6 @@ PARAMS_H = params.h params.def
 BUILTIN_FUNCS_MD = @tm_builtin_funcs@
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def \
   tm-bu-funcs.def $(BUILTIN_FUNCS_MD)
-BUILTIN_ATTRS_MD = @tm_builtin_attrs@
-BUILTIN_ATTRS_DEF = builtin-attrs.def tm-bu-attrs.def $(BUILTIN_ATTRS_MD)
-BUILTIN_TYPES_MD = @tm_builtin_types@
-BUILTIN_TYPES_DEF = builtin-types.def tm-bu-types.def $(BUILTIN_TYPES_MD)
 INTERNAL_FN_DEF = internal-fn.def
 INTERNAL_FN_H = internal-fn.h $(INTERNAL_FN_DEF)
 TREE_H = tree.h all-tree.def tree.def c-family/c-common.def \
@@ -1987,25 +1983,9 @@ $(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
 	  -o $(T)crtbeginT$(objext)
 
 # Build the builtin include files that includes the standard builtin file along
-# with any machine dependent versions of those files.  Note, these files are
+# with any machine dependent versions of those files.  Note, this files is
 # expected to be included multiple times, so don't use mkconfig.sh which adds
 # header guards
-tm-bu-attrs.def: s-bu-attrs; @true
-s-bu-attrs: Makefile
-	for inc in $(BUILTIN_ATTRS_MD); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-attrs.def
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-attrs.def tm-bu-attrs.def
-	$(STAMP) s-bu-attrs
-
-tm-bu-types.def: s-bu-types; @true
-s-bu-types: Makefile
-	for inc in $(BUILTIN_TYPES_MD); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-types.def
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-types.def tm-bu-types.def
-	$(STAMP) s-bu-types
-
 tm-bu-funcs.def: s-bu-funcs; @true
 s-bu-funcs: Makefile
 	for inc in $(BUILTIN_FUNCS_MD); do \
@@ -2111,7 +2091,7 @@ lto-wrapper.o: lto-wrapper.c $(CONFIG_H) $(SYSTEM_H) coretypes.h intl.h \
 c-family/c-common.o : c-family/c-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 	$(TM_H) $(TREE_H) \
 	$(OBSTACK_H) $(C_COMMON_H) $(FLAGS_H) toplev.h output.h $(C_PRAGMA_H) \
-	$(GGC_H) $(BUILTIN_ATTRS_DEF) $(BUILTIN_TYPES_DEF) \
+	$(GGC_H) builtin-types.def builtin-attrs.def \
 	$(DIAGNOSTIC_H) langhooks.h c-family/c-objc.h \
 	$(TARGET_H) tree-iterator.h langhooks.h tree-mudflap.h \
 	intl.h $(OPTS_H) $(CPPLIB_H) $(TREE_INLINE_H) $(HASHTAB_H) \
@@ -4547,7 +4527,7 @@ mostlyclean: lang.mostlyclean
 # Delete genchecksum outputs
 	-rm -f *-checksum.c
 # Delete builtin types, attributes, function include files
-	-rm -f tm-bu-*.def
+	-rm -f tm-bu-funcs.def
 
 # Delete all files made by compilation
 # that don't exist in the distribution.

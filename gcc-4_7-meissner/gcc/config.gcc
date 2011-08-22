@@ -187,17 +187,9 @@
 #			Set to an initializer for configure_default_options
 #			in configargs.h, based on --with-cpu et cetera.
 #
-#  tm_builtin_attrs	Set to additional files in the target directory to
-#			provide additional attributes for creating target
-#			machine builtin functions.
-#
 #  tm_builtin_funcs	Set to additional files in the target directory to
 #			provide target specific builtin functions.
 #
-#  tm_builtin_types	Set to additional files in the target directory to
-#			provide additional types for creating target machine
-#			builtin functions.
-
 # The following variables are used in each case-construct to build up the
 # outgoing variables:
 #
@@ -249,9 +241,7 @@ default_gnu_indirect_function=no
 target_gtfiles=
 need_64bit_hwint=
 need_64bit_isa=
-tm_builtin_attrs=
 tm_builtin_funcs=
-tm_builtin_types=
 
 # Don't carry these over build->host->target.  Please.
 xm_file=

@@ -12244,7 +12244,7 @@ rs6000_init_builtins (void)
 static tree
 rs6000_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
 {
-  if (code >= RS6000_BUILTIN_COUNT)
+  if (!IN_RANGE (code, RS6000_BUILTIN_FIRST, RS6000_BUILTIN_LAST))
     return error_mark_node;
 
   return rs6000_builtin_decls[code];
