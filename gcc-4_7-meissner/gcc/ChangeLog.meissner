@@ -1,5 +1,9 @@
 2011-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* builtin-types.def (toplevel): Delete MD defined builtin
+	attributes and types.
+	* builtin-attrs.def (toplevel): Ditto.
+
 	* configure.ac (tm_builtin_{attrs,types}): Delete, don't allow MD
 	builtin attributes or types.
 	* config.gcc (tm_builtin_{attrs,types}): Ditto.

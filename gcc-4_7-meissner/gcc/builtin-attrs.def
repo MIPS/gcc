@@ -234,6 +234,3 @@ DEF_FORMAT_ATTRIBUTE_NOTHROW(STRFMON,3,3_4)
 DEF_FORMAT_ARG_ATTRIBUTE(1)
 DEF_FORMAT_ARG_ATTRIBUTE(2)
 #undef DEF_FORMAT_ARG_ATTRIBUTE
-
-/* Target machine attributes.  */
-#include "tm-bu-attrs.def"
