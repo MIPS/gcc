@@ -60,5 +60,17 @@ machine.
 @item
 @file{tm_p.h}, which includes the header @file{@var{machine}-protos.h}
 that contains prototypes for functions in the target @file{.c} file.
-FIXME: why is such a separate header necessary?
+The @file{tm_p.h} is needed because the @file{@var{machine}-protos.h}
+will often times include declarations that include RTL and TREE
+datatypes.  These references must be bracketed with @code{#ifdef
+RTX_CODE} and @code{#ifdef TREE_CODE} respecitively.  These
+declarations can't go in the normal @file{@var{machine}.h} file
+because that file is included before @file{rtl.h} and/or @file{tree.h}
+are included.  The @file{tm_p.h} is included after @file{rtl.h} or
+@file{tree.h} are included.
+@item
+@file{tm-bu-funcs.def}, includes the machine dependent builtin
+functions that use the @code{DEF_BUILTIN_MD} macro to reserve the
+machine dependent builtins in the master builtin enum list after the
+standard enumerations.
 @end itemize
