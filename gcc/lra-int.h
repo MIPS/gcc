@@ -328,9 +328,7 @@ extern void lra_coalesce (void);
 
 /* lra-saves.c: */
 
-extern void lra_debug_save_data (void);
-extern bool lra_save_restore (int);
-
+extern void lra_save_restore (void);
 
 /* lra-spills.c:  */
 

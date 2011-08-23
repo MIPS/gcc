@@ -1,3 +1,14 @@
+2011-08-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_debug_save_data): Remove.
+	(lra_save_restore): Change the prototype.
+
+	* lra.c (lra): Don't call df_analyze after lra_save_restore.
+	Don't call lra_create_live_ranges before the loop.  Call
+	lra_create_live_ranges before lra_spill if necessary.
+
+	* lra-saves.c: Rewrite.
+
 2011-08-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (uses_hard_regs_p): Use hard register

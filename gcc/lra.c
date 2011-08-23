@@ -2067,8 +2067,8 @@ void
 lra (FILE *f)
 {
   int i;
-  bool first_p, scratch_p, inserted_p, coalesce_skip_p;
-  
+  bool first_p, live_p, scratch_p, inserted_p, coalesce_skip_p;
+
   lra_dump_file = f;
 
 
@@ -2109,9 +2109,8 @@ lra (FILE *f)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
 
-  if (flag_caller_saves && lra_save_restore (lra_constraint_new_regno_start))
-    /* Update live info after inserting save/restore code.  */
-    df_analyze ();
+  if (flag_caller_saves)
+    lra_save_restore ();
 
   /* We don't DF from now and avoid its using because it is to
      expensive when a lot of RTL changes are made.  */
@@ -2124,11 +2123,11 @@ lra (FILE *f)
   lra_curr_reload_num = 0;
   push_insns (get_last_insn (), NULL_RTX);
   /* It is needed for the 1st coalescing.  */
-  lra_create_live_ranges (false);
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
   bitmap_clear (&lra_dont_inherit_pseudos);
-  coalesce_skip_p = false;
+  live_p = false;
+  coalesce_skip_p = true;
   for (;;)
     {
       for (;;)
@@ -2152,8 +2151,14 @@ lra (FILE *f)
 	  if (lra_undo_inheritance ())
 	    lra_create_live_ranges (false);
 	  first_p = false;
+	  live_p = true;
 	}
       first_p = false;
+      if (! live_p)
+	{
+	  lra_create_live_ranges (false);
+	  live_p = true;
+	}
       if (! lra_spill ())
 	break;
       coalesce_skip_p = true;
