@@ -1,3 +1,9 @@
+2011-08-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50133
+	* tree-vect-stmts.c (vect_finish_stmt_generation): Copy location
+	from stmt instead of some statement around gsi.
+
 2011-08-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/48739
