@@ -1,3 +1,73 @@
+2011-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48739
+	* tree-ssa.c: Include cfgloop.h.
+	(execute_update_addresses_taken): When updating ssa, if in
+	loop closed SSA form, call rewrite_into_loop_closed_ssa instead of
+	update_ssa.
+	* Makefile.in (tree-ssa.o): Depend on $(CFGLOOP_H).
+
+2011-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50092
+	* config/i386/i386.c (assign_386_stack_local): Call validize_mem
+	on the result before returning it.
+
+2011-08-16  Liang Wang  <lwang1@marvell.com>
+
+	* ggc.h (ggc_alloc_rtvec_sized): Change arguments of
+	ggc_alloc_zone_vec_rtvec_def.
+
+2011-08-12  Nick Clifton  <nickc@redhat.com>
+
+	* builtins.c (expand_builtin_memcmp): Do not use cmpstrnsi
+	pattern.
+	* doc/md.texi (cmpstrn): Note that the comparison stops if both
+	fetched bytes are zero.
+	(cmpstr): Likewise.
+	(cmpmem): Note that the comparison does not stop if both of the
+	fetched bytes are zero.
+
+2011-08-11   Kazuhiro Inaoka  <kazuhiro.inaoka.ud@renesas.com>
+
+	* config/rx/rx.md (movsicc): Allow register to register
+	transfers.
+	(*movsicc): Likewise.
+	(*stcc): Restrict this pattern to EQ and NE compares.
+	(*stcc_reg): New pattern.  Works for any comparison but only for
+	register transfers.
+
+2011-08-10  DJ Delorie  <dj@redhat.com>
+
+	* expr.c (expand_expr_addr_expr_1): Detect a user request for
+	a local frame in a naked function, and produce a suitable
+	error for that specific case.
+
+2011-08-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49923
+	* tree-sra.c (access_precludes_ipa_sra_p): Also check access
+	memory alignment.
+
+2011-08-09  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md: Disable extender peepholes at -O3.
+
+2011-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50001
+	* config/alpha/alpha.c (alpha_instantiate_decls): New function.
+	(TARGET_INSTANTIATE_DECLS): New define.
+
+2011-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-08-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (processor_alias_table): Add core-avx-i.
+
+	* doc/invoke.texi: Document core-avx-i.
+
 2011-08-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/49948

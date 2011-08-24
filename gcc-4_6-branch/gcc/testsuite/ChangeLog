@@ -1,3 +1,82 @@
+2011-08-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50024
+	* g++.dg/cpp0x/constexpr-initlist5.C: New.
+
+2011-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46862
+	* g++.dg/dfp/nofields.C: New test.
+
+2011-08-22  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.dg/alloc_comp_initializer_3.f90: New test.
+
+2011-08-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/50130
+	* gfortran.dg/zero_stride_1.f90:  New test.
+
+2011-08-20  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50129
+	* gfortran.dg/where_3.f90: New test.
+
+2011-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48739
+	* gcc.dg/pr48739-1.c: New test.
+	* gcc.dg/pr48739-2.c: New test.
+
+2011-08-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50109
+	* gfortran.dg/namelist_73.f90: New.
+
+2011-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50092
+	* gcc.dg/torture/pr50092.c: New test.
+
+2011-08-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50086
+	* g++.dg/cpp0x/variadic-unresolved.C: New.
+
+	PR c++/50054
+	* g++.dg/cpp0x/initlist56.C: New.
+
+2011-08-12  David Li  <davidxl@google.com>
+
+	* g++.dg/abi/vbase15.C: New test.
+
+2011-08-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49923
+	* gcc.dg/tree-ssa/pr49923.c: New test.
+
+2011-08-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48993
+	* g++.dg/cpp0x/constexpr-48089.C: Add cases.
+
+	PR c++/49921
+	* g++.dg/cpp0x/decltype31.C: New.
+
+	PR c++/49669
+	* g++.dg/init/array28.C: New.
+
+	PR c++/49988
+	* g++.dg/cpp0x/constexpr-non-const-arg3.C: New.
+
+2011-08-05  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49112
+	* gfortran.dg/abstract_type_6.f03: Modified.
+	* gfortran.dg/typebound_proc_24.f03: New.
+
 2011-08-23  Siddhesh Poyarekar  <siddhesh.poyarekar@gmail.com>
 
 	PR c++/50055

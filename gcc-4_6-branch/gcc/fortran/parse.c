@@ -2676,6 +2676,7 @@ parse_where_block (void)
 	    {
 	      gfc_error ("ELSEWHERE statement at %C follows previous "
 			 "unmasked ELSEWHERE");
+	      reject_statement ();
 	      break;
 	    }
 
