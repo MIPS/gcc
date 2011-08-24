@@ -521,7 +521,11 @@ expand_end_catch_block (void)
 tree
 begin_eh_spec_block (void)
 {
-  tree r = build_stmt (EH_SPEC_BLOCK, NULL_TREE, NULL_TREE);
+  tree r;
+  location_t saved_loc = input_location;
+  input_location = DECL_SOURCE_LOCATION (current_function_decl);
+  r = build_stmt (EH_SPEC_BLOCK, NULL_TREE, NULL_TREE);
+  input_location = saved_loc;
   add_stmt (r);
   EH_SPEC_STMTS (r) = push_stmt_list ();
   return r;

@@ -2110,6 +2110,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       else if (DECL_READ_P (newdecl))
 	DECL_READ_P (olddecl) = 1;
     }
+  if (DECL_PRESERVE_P (olddecl))
+    DECL_PRESERVE_P (newdecl) = 1;
+  else if (DECL_PRESERVE_P (newdecl))
+    DECL_PRESERVE_P (olddecl) = 1;
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
