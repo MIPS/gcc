@@ -2691,6 +2691,19 @@ merge_conversion_sequences (conversion *user_seq, conversion *std_seq)
   return std_seq;
 }
 
+/* ggc_free all the TREE_LIST nodes in LIST.  */
+
+static void
+ggc_free_list (tree list)
+{
+  tree next;
+  for (; list; list = next)
+    {
+      next = TREE_CHAIN (list);
+      ggc_free (list);
+    }
+}
+
 /* Returns the best overload candidate to perform the requested
    conversion.  This function is used for three the overloading situations
    described in [over.match.copy], [over.match.conv], and [over.match.ref].
@@ -2705,7 +2718,8 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
   tree ctors = NULL_TREE;
   tree conv_fns = NULL_TREE;
   conversion *conv = NULL;
-  tree args = NULL_TREE;
+  tree ctorargs = NULL_TREE;
+  tree convargs = NULL_TREE;
   bool any_viable_p;
   int convflags;
 
@@ -2716,7 +2730,9 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 	      || !DERIVED_FROM_P (totype, fromtype));
 
   if (MAYBE_CLASS_TYPE_P (totype))
-    ctors = lookup_fnfields (totype, complete_ctor_identifier, 0);
+    /* Use lookup_fnfields_slot instead of lookup_fnfields to avoid
+       creating a garbage BASELINK; constructors can't be inherited.  */
+    ctors = lookup_fnfields_slot (totype, complete_ctor_identifier);
 
   if (MAYBE_CLASS_TYPE_P (fromtype))
     {
@@ -2747,13 +2763,11 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
     {
       tree t;
 
-      ctors = BASELINK_FUNCTIONS (ctors);
-
       t = build_int_cst (build_pointer_type (totype), 0);
       if (BRACE_ENCLOSED_INITIALIZER_P (expr)
 	  && !TYPE_HAS_LIST_CTOR (totype))
 	{
-	  args = ctor_to_list (expr);
+	  ctorargs = ctor_to_list (expr);
 	  /* We still allow more conversions within an init-list.  */
 	  flags = ((flags & ~LOOKUP_NO_CONVERSION)
 		   /* But not for the copy ctor.  */
@@ -2761,12 +2775,12 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 		   |LOOKUP_NO_NARROWING);
 	}
       else
-	args = build_tree_list (NULL_TREE, expr);
+	ctorargs = build_tree_list (NULL_TREE, expr);
       /* We should never try to call the abstract or base constructor
 	 from here.  */
       gcc_assert (!DECL_HAS_IN_CHARGE_PARM_P (OVL_CURRENT (ctors))
 		  && !DECL_HAS_VTT_PARM_P (OVL_CURRENT (ctors)));
-      args = tree_cons (NULL_TREE, t, args);
+      ctorargs = tree_cons (NULL_TREE, t, ctorargs);
     }
   for (; ctors; ctors = OVL_NEXT (ctors))
     {
@@ -2777,14 +2791,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
       if (TREE_CODE (ctor) == TEMPLATE_DECL)
 	cand = add_template_candidate (&candidates, ctor, totype,
-				       NULL_TREE, args, NULL_TREE,
+				       NULL_TREE, ctorargs, NULL_TREE,
 				       TYPE_BINFO (totype),
 				       TYPE_BINFO (totype),
 				       flags,
 				       DEDUCE_CALL);
       else
 	cand = add_function_candidate (&candidates, ctor, totype,
-				       args, TYPE_BINFO (totype),
+				       ctorargs, TYPE_BINFO (totype),
 				       TYPE_BINFO (totype),
 				       flags);
 
@@ -2808,7 +2822,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
     }
 
   if (conv_fns)
-    args = build_tree_list (NULL_TREE, build_this (expr));
+    convargs = build_tree_list (NULL_TREE, build_this (expr));
 
   for (; conv_fns; conv_fns = TREE_CHAIN (conv_fns))
     {
@@ -2836,14 +2850,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
 	    cand = add_template_candidate (&candidates, fn, fromtype,
 					   NULL_TREE,
-					   args, totype,
+					   convargs, totype,
 					   TYPE_BINFO (fromtype),
 					   conversion_path,
 					   flags,
 					   DEDUCE_CONV);
 	  else
 	    cand = add_function_candidate (&candidates, fn, fromtype,
-					   args,
+					   convargs,
 					   TYPE_BINFO (fromtype),
 					   conversion_path,
 					   flags);
@@ -2882,7 +2896,11 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
   candidates = splice_viable (candidates, pedantic, &any_viable_p);
   if (!any_viable_p)
-    return NULL;
+    {
+      ggc_free_list (ctorargs);
+      ggc_free_list (convargs);
+      return NULL;
+    }
 
   cand = tourney (candidates);
   if (cand == 0)

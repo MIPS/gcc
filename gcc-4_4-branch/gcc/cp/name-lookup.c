@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "debug.h"
 #include "c-pragma.h"
+#include "pointer-set.h"
 
 /* The bindings for a particular name in a particular scope.  */
 
@@ -4456,6 +4457,7 @@ struct arg_lookup
   tree namespaces;
   tree classes;
   tree functions;
+  struct pointer_set_t *fn_set;
 };
 
 static bool arg_assoc (struct arg_lookup*, tree);
@@ -4472,20 +4474,19 @@ static bool arg_assoc_template_arg (struct arg_lookup*, tree);
 static bool
 add_function (struct arg_lookup *k, tree fn)
 {
-  /* We used to check here to see if the function was already in the list,
-     but that's O(n^2), which is just too expensive for function lookup.
-     Now we deal with the occasional duplicate in joust.  In doing this, we
-     assume that the number of duplicates will be small compared to the
-     total number of functions being compared, which should usually be the
-     case.  */
-
+  if (k->fn_set && pointer_set_insert (k->fn_set, fn))
+    /* It's already in the list.  */;
   /* We must find only functions, or exactly one non-function.  */
-  if (!k->functions)
+  else if (!k->functions)
     k->functions = fn;
   else if (fn == k->functions)
     ;
   else if (is_overloaded_fn (k->functions) && is_overloaded_fn (fn))
-    k->functions = build_overload (fn, k->functions);
+    {
+      k->functions = build_overload (fn, k->functions);
+      if (TREE_CODE (k->functions) == OVERLOAD)
+	OVL_ARG_DEPENDENT (k->functions) = true;
+    }
   else
     {
       tree f1 = OVL_CURRENT (k->functions);
@@ -4932,6 +4933,20 @@ lookup_arg_dependent (tree name, tree fns, tree args)
      picking up later definitions) in the second stage. */
   k.namespaces = NULL_TREE;
 
+  /* We used to allow duplicates and let joust discard them, but
+     since the above change for DR 164 we end up with duplicates of
+     all the functions found by unqualified lookup.  So keep track
+     of which ones we've seen.  */
+  if (fns)
+    {
+      tree ovl;
+      k.fn_set = pointer_set_create ();
+      for (ovl = fns; ovl; ovl = OVL_NEXT (ovl))
+	pointer_set_insert (k.fn_set, OVL_CURRENT (ovl));
+    }
+  else
+    k.fn_set = NULL;
+
   arg_assoc_args (&k, args);
 
   fns = k.functions;
@@ -4944,6 +4959,9 @@ lookup_arg_dependent (tree name, tree fns, tree args)
       error ("  in call to %qD", name);
       fns = error_mark_node;
     }
+
+  if (k.fn_set)
+    pointer_set_destroy (k.fn_set);
     
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, fns);
 }

@@ -331,6 +331,9 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
    This is not to confuse with being used somewhere, which
    is not important for this node.  */
 #define OVL_USED(NODE)		TREE_USED (NODE)
+/* If set, this OVERLOAD was created for argument-dependent lookup
+   and can be freed afterward.  */
+#define OVL_ARG_DEPENDENT(NODE) TREE_LANG_FLAG_0 (OVERLOAD_CHECK (NODE))
 
 struct tree_overload GTY(())
 {
@@ -4649,6 +4652,7 @@ extern int accessible_p				(tree, tree, bool);
 extern tree lookup_field_1			(tree, tree, bool);
 extern tree lookup_field			(tree, tree, int, bool);
 extern int lookup_fnfields_1			(tree, tree);
+extern tree lookup_fnfields_slot		(tree, tree);
 extern int class_method_index_for_fn		(tree, tree);
 extern tree lookup_fnfields			(tree, tree, int);
 extern tree lookup_member			(tree, tree, int, bool);

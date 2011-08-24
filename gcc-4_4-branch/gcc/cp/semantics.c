@@ -1999,6 +1999,26 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
       result = build_call_list (TREE_TYPE (result), orig_fn, orig_args);
       KOENIG_LOOKUP_P (result) = koenig_p;
     }
+
+  if (koenig_p)
+    {
+      /* Free garbage OVERLOADs from arg-dependent lookup.  */
+      tree next = NULL_TREE;
+      for (fn = orig_fn;
+	   fn && TREE_CODE (fn) == OVERLOAD && OVL_ARG_DEPENDENT (fn);
+	   fn = next)
+	{
+	  if (processing_template_decl)
+	    /* In a template, we'll re-use them at instantiation time.  */
+	    OVL_ARG_DEPENDENT (fn) = false;
+	  else
+	    {
+	      next = OVL_CHAIN (fn);
+	      ggc_free (fn);
+	    }
+	}
+    }
+
   return result;
 }
 

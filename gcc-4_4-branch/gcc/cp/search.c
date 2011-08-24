@@ -1463,6 +1463,18 @@ lookup_fnfields_1 (tree type, tree name)
   return -1;
 }
 
+/* TYPE is a class type. Return the field within the method vector with
+   name NAME, or NULL_TREE if no such field exists.  */
+
+tree
+lookup_fnfields_slot (tree type, tree name)
+{
+  int ix = lookup_fnfields_1 (complete_type (type), name);
+  if (ix < 0)
+    return NULL_TREE;
+  return VEC_index (tree, CLASSTYPE_METHOD_VEC (type), ix);
+}
+
 /* Like lookup_fnfields_1, except that the name is extracted from
    FUNCTION, which is a FUNCTION_DECL or a TEMPLATE_DECL.  */
 

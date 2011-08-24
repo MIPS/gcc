@@ -1,3 +1,31 @@
+2011-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (cp/decl.o): Depend on pointer-set.h.
+	(cp/name-lookup.o): Likewise.
+
+2011-06-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48481
+	* name-lookup.c (struct arg_lookup): Add fn_set.
+	(add_function): Check it.
+	(lookup_arg_dependent_1): Initialize it.
+
+2011-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48481
+    	* call.c (build_user_type_conversion_1): Use lookup_fnfields_slot.
+    	* search.c (lookup_fnfields_slot): New.
+    	* cp-tree.h: Declare it.
+
+	PR c++/48481
+	* cp-tree.h (OVL_ARG_DEPENDENT): New.
+	* name-lookup.c (add_function): Set it.
+	* semantics.c (finish_call_expr): Free OVERLOADs if it's set.
+
+	PR c++/48481
+    	* call.c (ggc_free_list): New.
+    	(build_user_type_conversion_1): Free args on failure.
+
 2011-08-23  Siddhesh Poyarekar  <siddhesh.poyarekar@gmail.com>
 
 	PR c++/50055

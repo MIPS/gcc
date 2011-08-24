@@ -7,7 +7,7 @@
 template<class F> void bind(F f) {}
 
 template<class F> void bindm(F f) {}
-template<class F, class T> void bindm(F (T::*f)(void)) {} // { dg-message "note" }
+template<class F, class T> void bindm(F (T::*f)(void)) {}
 
 template<class F> void bindn(F f) {}
 template<class F, class T> void bindn(F (*f)(T)) {}
@@ -42,7 +42,7 @@ struct foo {
       bind (&barf); // { dg-error "no matching function" }
       bind (&foo::barf); // { dg-error "no matching function" }
 
-      bindm (&barf); // { dg-error "no matching function" }
+      bindm (&barf); // { dg-message "pointer to member" }
       bindm (&foo::barf);
 
       bindn (&barf);
@@ -54,7 +54,7 @@ struct foo {
       bind (&bark); // { dg-error "no matching function" }
       bind (&bar::bark); // { dg-error "no matching function" }
 
-      bindm (&bark); // { dg-error "no matching function" }
+      bindm (&bark); // { dg-error "pointer to member" }
       bindm (&bar::bark);
 
       bindn (&bark);
@@ -86,7 +86,7 @@ struct foo {
       bind (&barf); // { dg-error "no matching function" }
       bind (&foo::barf); // { dg-error "no matching function" }
 
-      bindm (&barf); // { dg-error "no matching function" }
+      bindm (&barf); // { dg-error "pointer to member" }
       bindm (&foo::barf);
 
       bindn (&barf);
@@ -98,7 +98,7 @@ struct foo {
       bind (&bark); // { dg-error "no matching function" }
       bind (&barT::bark); // { dg-error "no matching function" }
 
-      bindm (&bark); // { dg-error "no matching function" }
+      bindm (&bark); // { dg-error "pointer to member" }
       bindm (&barT::bark);
 
       bindn (&bark);
