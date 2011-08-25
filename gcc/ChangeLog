@@ -1,3 +1,7 @@
+2011-08-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (remove_scratches): Don't rescan insn.
+
 2011-08-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_debug_save_data): Remove.

@@ -1791,7 +1791,6 @@ static void
 remove_scratches (void)
 {
   int i;
-  bool insn_change_p;
   basic_block bb;
   rtx insn, reg;
   loc_t loc;
@@ -1807,12 +1806,10 @@ remove_scratches (void)
       {
 	id = lra_get_insn_recog_data (insn);
 	static_id = id->insn_static_data;
-	insn_change_p = false;
 	for (i = 0; i < static_id->n_operands; i++)
 	  if (GET_CODE (*id->operand_loc[i]) == SCRATCH
 	      && GET_MODE (*id->operand_loc[i]) != VOIDmode)
 	    {
-	      insn_change_p = true;
 	      *id->operand_loc[i] = reg
 		= lra_create_new_reg (static_id->operand[i].mode,
 				      *id->operand_loc[i], ALL_REGS, NULL);
@@ -1829,8 +1826,6 @@ remove_scratches (void)
 		fprintf (lra_dump_file, "Removing SCRATCH in insn #%u (nop %d)\n",
 			 INSN_UID (insn), i);
 	    }
-	if (insn_change_p)
-	  df_insn_rescan (insn);
       }
 }
 
