@@ -1,4 +1,7 @@
-2011-08-22  Jakub Jelinek  <jakub@redhat.com>
+2011-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48722
+	* gcc.target/i386/pr48722.c: New test.
 
 	PR tree-optimization/50133
 	* gcc.dg/pr50133.c: New test.

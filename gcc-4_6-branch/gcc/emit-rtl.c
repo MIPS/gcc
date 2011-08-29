@@ -2374,6 +2374,8 @@ unshare_all_rtl_again (rtx insn)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
+	if (CALL_P (p))
+	  reset_used_flags (CALL_INSN_FUNCTION_USAGE (p));
       }
 
   /* Make sure that virtual stack slots are not shared.  */
@@ -2539,6 +2541,8 @@ verify_rtl_sharing (void)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
+	if (CALL_P (p))
+	  reset_used_flags (CALL_INSN_FUNCTION_USAGE (p));
 	if (GET_CODE (PATTERN (p)) == SEQUENCE)
 	  {
 	    int i;
@@ -2550,6 +2554,8 @@ verify_rtl_sharing (void)
 		gcc_assert (INSN_P (q));
 		reset_used_flags (PATTERN (q));
 		reset_used_flags (REG_NOTES (q));
+		if (CALL_P (q))
+		  reset_used_flags (CALL_INSN_FUNCTION_USAGE (q));
 	      }
 	  }
       }
@@ -2559,6 +2565,8 @@ verify_rtl_sharing (void)
       {
 	verify_rtx_sharing (PATTERN (p), p);
 	verify_rtx_sharing (REG_NOTES (p), p);
+	if (CALL_P (p))
+	  verify_rtx_sharing (CALL_INSN_FUNCTION_USAGE (p), p);
       }
 
   timevar_pop (TV_VERIFY_RTL_SHARING);
@@ -2575,6 +2583,9 @@ unshare_all_rtl_in_chain (rtx insn)
       {
 	PATTERN (insn) = copy_rtx_if_shared (PATTERN (insn));
 	REG_NOTES (insn) = copy_rtx_if_shared (REG_NOTES (insn));
+	if (CALL_P (insn))
+	  CALL_INSN_FUNCTION_USAGE (insn)
+	    = copy_rtx_if_shared (CALL_INSN_FUNCTION_USAGE (insn));
       }
 }
 

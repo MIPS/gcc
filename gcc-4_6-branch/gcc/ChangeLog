@@ -1,5 +1,13 @@
 2011-08-29  Jakub Jelinek  <jakub@redhat.com>
 
+	PR middle-end/48722
+	* emit-rtl.c (unshare_all_rtl_again): For CALL_INSNs,
+	reset_used_flags also in CALL_INSN_FUNCTION_USAGE.
+	(verify_rtl_sharing): Likewise and verify_rtx_sharing
+	in there too.
+	(unshare_all_rtl_in_chain): For CALL_INSNs
+	copy_rtx_if_shared also CALL_INSN_FUNCTION_USAGE.
+
 	PR debug/50215
 	* var-tracking.c (create_entry_value): Call cselib_lookup_from_insn
 	before adding ENTRY_VALUE to val->locs.
