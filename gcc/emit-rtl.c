@@ -2450,6 +2450,8 @@ unshare_all_rtl_again (rtx insn)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
+	if (CALL_P (p))
+	  reset_used_flags (CALL_INSN_FUNCTION_USAGE (p));
       }
 
   /* Make sure that virtual stack slots are not shared.  */
@@ -2524,6 +2526,7 @@ verify_rtx_sharing (rtx orig, rtx insn)
     case PC:
     case CC0:
     case RETURN:
+    case SIMPLE_RETURN:
     case SCRATCH:
       return;
       /* SCRATCH must be shared because they represent distinct values.  */
@@ -2616,6 +2619,8 @@ verify_rtl_sharing (void)
       {
 	reset_used_flags (PATTERN (p));
 	reset_used_flags (REG_NOTES (p));
+	if (CALL_P (p))
+	  reset_used_flags (CALL_INSN_FUNCTION_USAGE (p));
 	if (GET_CODE (PATTERN (p)) == SEQUENCE)
 	  {
 	    int i;
@@ -2627,6 +2632,8 @@ verify_rtl_sharing (void)
 		gcc_assert (INSN_P (q));
 		reset_used_flags (PATTERN (q));
 		reset_used_flags (REG_NOTES (q));
+		if (CALL_P (q))
+		  reset_used_flags (CALL_INSN_FUNCTION_USAGE (q));
 	      }
 	  }
       }
@@ -2636,6 +2643,8 @@ verify_rtl_sharing (void)
       {
 	verify_rtx_sharing (PATTERN (p), p);
 	verify_rtx_sharing (REG_NOTES (p), p);
+	if (CALL_P (p))
+	  verify_rtx_sharing (CALL_INSN_FUNCTION_USAGE (p), p);
       }
 
   timevar_pop (TV_VERIFY_RTL_SHARING);
@@ -2652,6 +2661,9 @@ unshare_all_rtl_in_chain (rtx insn)
       {
 	PATTERN (insn) = copy_rtx_if_shared (PATTERN (insn));
 	REG_NOTES (insn) = copy_rtx_if_shared (REG_NOTES (insn));
+	if (CALL_P (insn))
+	  CALL_INSN_FUNCTION_USAGE (insn)
+	    = copy_rtx_if_shared (CALL_INSN_FUNCTION_USAGE (insn));
       }
 }
 
@@ -2731,6 +2743,7 @@ repeat:
     case PC:
     case CC0:
     case RETURN:
+    case SIMPLE_RETURN:
     case SCRATCH:
       /* SCRATCH must be shared because they represent distinct values.  */
       return;
@@ -2851,6 +2864,7 @@ repeat:
     case PC:
     case CC0:
     case RETURN:
+    case SIMPLE_RETURN:
       return;
 
     case DEBUG_INSN:
@@ -5014,7 +5028,7 @@ classify_insn (rtx x)
     return CODE_LABEL;
   if (GET_CODE (x) == CALL)
     return CALL_INSN;
-  if (GET_CODE (x) == RETURN)
+  if (ANY_RETURN_P (x))
     return JUMP_INSN;
   if (GET_CODE (x) == SET)
     {
@@ -5270,6 +5284,7 @@ copy_insn_1 (rtx orig)
     case PC:
     case CC0:
     case RETURN:
+    case SIMPLE_RETURN:
       return orig;
     case CLOBBER:
       if (REG_P (XEXP (orig, 0)) && REGNO (XEXP (orig, 0)) < FIRST_PSEUDO_REGISTER)
@@ -5527,6 +5542,7 @@ init_emit_regs (void)
   /* Assign register numbers to the globally defined register rtx.  */
   pc_rtx = gen_rtx_fmt_ (PC, VOIDmode);
   ret_rtx = gen_rtx_fmt_ (RETURN, VOIDmode);
+  simple_return_rtx = gen_rtx_fmt_ (SIMPLE_RETURN, VOIDmode);
   cc0_rtx = gen_rtx_fmt_ (CC0, VOIDmode);
   stack_pointer_rtx = gen_raw_REG (Pmode, STACK_POINTER_REGNUM);
   frame_pointer_rtx = gen_raw_REG (Pmode, FRAME_POINTER_REGNUM);
