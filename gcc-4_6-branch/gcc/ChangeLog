@@ -1,5 +1,8 @@
 2011-08-29  Jakub Jelinek  <jakub@redhat.com>
 
+	* gthr-posix.h (__gthread_active_p): Do not use preprocessor
+	conditionals and comments inside macro arguments.
+
 	PR middle-end/48722
 	* emit-rtl.c (unshare_all_rtl_again): For CALL_INSNs,
 	reset_used_flags also in CALL_INSN_FUNCTION_USAGE.
