@@ -1491,15 +1491,6 @@ notice_update_cc (rtx body ATTRIBUTE_UNUSED, rtx insn)
     }
 }
 
-/* Return maximum number of consecutive registers of
-   class CLASS needed to hold a value of mode MODE.  */
-
-int
-class_max_nregs (enum reg_class rclass ATTRIBUTE_UNUSED,enum machine_mode mode)
-{
-  return ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD);
-}
-
 /* Choose mode for jump insn:
    1 - relative jump in range -63 <= x <= 62 ;
    2 - relative jump in range -2046 <= x <= 2045 ;
@@ -5341,6 +5332,7 @@ avr_rtx_costs (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED, int *total,
     {
     case CONST_INT:
     case CONST_DOUBLE:
+    case SYMBOL_REF:
       /* Immediate constants are as cheap as registers.  */
       *total = 0;
       return true;
@@ -5348,7 +5340,6 @@ avr_rtx_costs (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED, int *total,
     case MEM:
     case CONST:
     case LABEL_REF:
-    case SYMBOL_REF:
       *total = COSTS_N_INSNS (GET_MODE_SIZE (mode));
       return true;
 

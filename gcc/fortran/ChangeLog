@@ -1,3 +1,32 @@
+2011-07-19  Tobias Burnus  <burnus@net-b.de>
+
+	* expr.c (gfc_is_coarray): New function.
+	* gfortran.h (gfc_is_coarray): New prototype.
+	* interface.c (compare_parameter): Use it.
+
+2011-07-19  Richard Guenther  <rguenther@suse.de>
+
+	* trans-expr.c (fill_with_spaces): Use fold_build_pointer_plus.
+	(gfc_trans_string_copy): Likewise.
+	* trans-intrinsic.c (gfc_conv_intrinsic_repeat): Likewise.
+	* trans-types.c (gfc_get_array_descr_info): Likewise.
+	* trans.c (gfc_build_array_ref): Likewise.
+
+2011-07-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49708
+	* resolve.c (resolve_allocate_expr): Fix diagnostics for pointers.
+
+2011-07-18  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_build_qualified_array): Make coarray's
+	token TYPE_QUAL_RESTRICT.
+
+2011-07-18  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (resolve_transfer): Mention defined I/O
+	in the diagnostic for alloc_comp/pointer_comp.
+
 2011-07-17  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/34657
@@ -1070,7 +1099,7 @@
 
 	* f95-lang.c (build_builtin_fntypes): Swap frexp parameter types.
 
-2010-04-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
+2011-04-04  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	* frontend-passes: (optimize_lexical_comparison): New function.
 	(optimize_expr): Call it.
@@ -1206,7 +1235,7 @@
 	* trans-types.c (gfc_get_function_type): Don't use varargs if the
 	procedure is known to have no arguments.
 
-2010-03-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+2011-03-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/22572
 	* gfortran.h (gfc_option_t) : Add

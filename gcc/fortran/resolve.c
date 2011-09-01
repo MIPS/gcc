@@ -5219,7 +5219,7 @@ check_host_association (gfc_expr *e)
 	    {
 	      /* Original was variable so convert array references into
 		 an actual arglist. This does not need any checking now
-		 since gfc_resolve_function will take care of it.  */
+		 since resolve_function will take care of it.  */
 	      e->value.function.actual = NULL;
 	      e->expr_type = EXPR_FUNCTION;
 	      e->symtree = st;
@@ -6886,7 +6886,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
       gfc_find_derived_vtab (ts.u.derived);
     }
 
-  if (pointer || (dimension == 0 && codimension == 0))
+  if (dimension == 0 && codimension == 0)
     goto success;
 
   /* Make sure the last reference node is an array specifiction.  */
@@ -8139,8 +8139,9 @@ resolve_transfer (gfc_code *code)
 	 components.  */
       if (ts->u.derived->attr.pointer_comp)
 	{
-	  gfc_error ("Data transfer element at %L cannot have "
-		     "POINTER components", &code->loc);
+	  gfc_error ("Data transfer element at %L cannot have POINTER "
+		     "components unless it is processed by a defined "
+		     "input/output procedure", &code->loc);
 	  return;
 	}
 
@@ -8154,8 +8155,9 @@ resolve_transfer (gfc_code *code)
 
       if (ts->u.derived->attr.alloc_comp)
 	{
-	  gfc_error ("Data transfer element at %L cannot have "
-		     "ALLOCATABLE components", &code->loc);
+	  gfc_error ("Data transfer element at %L cannot have ALLOCATABLE "
+		     "components unless it is processed by a defined "
+		     "input/output procedure", &code->loc);
 	  return;
 	}
 
