@@ -1143,10 +1143,6 @@ static int best_losers, best_overall;
 /* Number of small register classes used for operands of the best
    alternative.  */
 static int best_small_class_operands_num;
-/* Overall number hard registers used for reloads.  For example, on
-   some targets we need 2 general registers to reload DFmode and only
-   one floating point register.  */
-static int best_reload_nregs;
 /* Overall number reflecting distances of previous reloading the same
    value.  It is used to improve inheritance chances.  */
 static int best_reload_sum;
@@ -1419,7 +1415,7 @@ process_alt_operands (int only_alternative)
   rtx no_subreg_operand[MAX_RECOG_OPERANDS], operand_reg[MAX_RECOG_OPERANDS];
   int hard_regno[MAX_RECOG_OPERANDS];
   enum machine_mode biggest_mode[MAX_RECOG_OPERANDS];
-  int reload_nregs, reload_sum;
+  int reload_sum;
 
   /* Calculate some data common for all alternatives to speed up the
      function.  */
@@ -1464,7 +1460,7 @@ process_alt_operands (int only_alternative)
 	  (only_alternative >= 0 && nalt != only_alternative))
 	continue;
 
-      overall = losers = reject = reload_nregs = reload_sum = 0;
+      overall = losers = reject = reload_sum = 0;
       for (nop = 0; nop < n_operands; nop++)
 	reject += (curr_static_id
 		   ->operand_alternative[nalt * n_operands + nop].reject);
@@ -2007,7 +2003,7 @@ process_alt_operands (int only_alternative)
 	      /* Input reloads can be inherited more often than output
 		 reloads can be removed, so penalize output
 		 reloads.  */
-	      if (!REG_P (op) || curr_static_id->operand[nop].type != OP_IN)
+	      if (curr_static_id->operand[nop].type != OP_IN)
 		reject++;
 	      /* SUBREGS ??? */
 	      if (this_alternative_matches >= 0)
@@ -2016,9 +2012,6 @@ process_alt_operands (int only_alternative)
 		}
 	      else if (no_regs_p && ! this_alternative_offmemok && ! constmemok)
 		goto fail;
-
-	      if (! no_regs_p)
-		reload_nregs += ira_reg_class_max_nregs[this_alternative][mode];
 	    }
   
 	  if (early_clobber_p)
@@ -2135,9 +2128,7 @@ process_alt_operands (int only_alternative)
 			  < best_small_class_operands_num
 			  || (small_class_operands_num
 			      == best_small_class_operands_num
-			      && (reload_nregs < best_reload_nregs
-				  || (reload_nregs == best_reload_nregs
-				      && best_reload_sum < reload_sum))))))))
+			      && best_reload_sum < reload_sum))))))
 	{
 	  for (nop = 0; nop < n_operands; nop++)
 	    {
@@ -2154,7 +2145,6 @@ process_alt_operands (int only_alternative)
 	  best_overall = overall;
 	  best_losers = losers;
 	  best_small_class_operands_num = small_class_operands_num;
-	  best_reload_nregs = reload_nregs;
 	  best_reload_sum = reload_sum;
 	  goal_alt_number = nalt;
 	}

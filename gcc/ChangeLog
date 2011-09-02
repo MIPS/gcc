@@ -1,3 +1,14 @@
+2011-09-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Revert:
+	2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
+	* lra-constraints.c (best_reload_nregs): New variable.
+	(process_alt_operands): Add preferences for smaller hard registers
+	involved.  Increase reject for all failed non registers.
+
+	* lra-eliminations.c (mark_not_eliminable): Add check on hard
+	register before looping on eliminations.
+
 2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (best_reload_nregs): New variable.
