@@ -3013,6 +3013,7 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
       *walk_subtrees = 0;
       return NULL_TREE;
 
+    case CONSTRUCTOR:
     case TEMPLATE_DECL:
       cp_walk_tree (&TREE_TYPE (t),
 		    &find_parameter_packs_r, ppd, ppd->visited);
@@ -4109,6 +4110,7 @@ build_template_decl (tree decl, tree parms, bool member_template_p)
   tree tmpl = build_lang_decl (TEMPLATE_DECL, DECL_NAME (decl), NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = parms;
   DECL_CONTEXT (tmpl) = DECL_CONTEXT (decl);
+  DECL_SOURCE_LOCATION (tmpl) = DECL_SOURCE_LOCATION (decl);
   DECL_MEMBER_TEMPLATE_P (tmpl) = member_template_p;
 
   return tmpl;
@@ -6295,6 +6297,7 @@ coerce_template_parms (tree parms,
      subtract it from nparms to get the number of non-variadic
      parameters.  */
   int variadic_p = 0;
+  int post_variadic_parms = 0;
 
   if (args == error_mark_node)
     return error_mark_node;
@@ -6305,19 +6308,22 @@ coerce_template_parms (tree parms,
   for (parm_idx = 0; parm_idx < nparms; ++parm_idx)
     {
       tree tparm = TREE_VALUE (TREE_VEC_ELT (parms, parm_idx));
+      if (variadic_p)
+	++post_variadic_parms;
       if (template_parameter_pack_p (tparm))
 	++variadic_p;
     }
 
   inner_args = INNERMOST_TEMPLATE_ARGS (args);
-  /* If there are 0 or 1 parameter packs, we need to expand any argument
-     packs so that we can deduce a parameter pack from some non-packed args
-     followed by an argument pack, as in variadic85.C.  If there are more
-     than that, we need to leave argument packs intact so the arguments are
-     assigned to the right parameter packs.  This should only happen when
-     dealing with a nested class inside a partial specialization of a class
-     template, as in variadic92.C.  */
-  if (variadic_p <= 1)
+  /* If there are no parameters that follow a parameter pack, we need to
+     expand any argument packs so that we can deduce a parameter pack from
+     some non-packed args followed by an argument pack, as in variadic85.C.
+     If there are such parameters, we need to leave argument packs intact
+     so the arguments are assigned properly.  This can happen when dealing
+     with a nested class inside a partial specialization of a class
+     template, as in variadic92.C, or when deducing a template parameter pack
+     from a sub-declarator, as in variadic114.C.  */
+  if (!post_variadic_parms)
     inner_args = expand_template_argument_pack (inner_args);
 
   nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
@@ -8620,11 +8626,12 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return r;
 }
 
-/* Give a chain SPEC_PARM of PARM_DECLs, pack them into a
-   NONTYPE_ARGUMENT_PACK.  */
+/* Given a function parameter pack TMPL_PARM and some function parameters
+   instantiated from it at *SPEC_P, return a NONTYPE_ARGUMENT_PACK of them
+   and set *SPEC_P to point at the next point in the list.  */
 
 static tree
-make_fnparm_pack (tree spec_parm)
+extract_fnparm_pack (tree tmpl_parm, tree *spec_p)
 {
   /* Collect all of the extra "packed" parameters into an
      argument pack.  */
@@ -8632,11 +8639,18 @@ make_fnparm_pack (tree spec_parm)
   tree parmtypevec;
   tree argpack = make_node (NONTYPE_ARGUMENT_PACK);
   tree argtypepack = cxx_make_type (TYPE_ARGUMENT_PACK);
-  int i, len = list_length (spec_parm);
+  tree spec_parm = *spec_p;
+  int i, len;
+
+  for (len = 0; spec_parm; ++len, spec_parm = TREE_CHAIN (spec_parm))
+    if (tmpl_parm
+	&& !function_parameter_expanded_from_pack_p (spec_parm, tmpl_parm))
+      break;
 
   /* Fill in PARMVEC and PARMTYPEVEC with all of the parameters.  */
   parmvec = make_tree_vec (len);
   parmtypevec = make_tree_vec (len);
+  spec_parm = *spec_p;
   for (i = 0; i < len; i++, spec_parm = DECL_CHAIN (spec_parm))
     {
       TREE_VEC_ELT (parmvec, i) = spec_parm;
@@ -8647,9 +8661,19 @@ make_fnparm_pack (tree spec_parm)
   SET_ARGUMENT_PACK_ARGS (argpack, parmvec);
   SET_ARGUMENT_PACK_ARGS (argtypepack, parmtypevec);
   TREE_TYPE (argpack) = argtypepack;
+  *spec_p = spec_parm;
 
   return argpack;
-}        
+}
+
+/* Give a chain SPEC_PARM of PARM_DECLs, pack them into a
+   NONTYPE_ARGUMENT_PACK.  */
+
+static tree
+make_fnparm_pack (tree spec_parm)
+{
+  return extract_fnparm_pack (NULL_TREE, &spec_parm);
+}
 
 /* Substitute ARGS into T, which is an pack expansion
    (i.e. TYPE_PACK_EXPANSION or EXPR_PACK_EXPANSION). Returns a
@@ -11200,8 +11224,12 @@ tsubst_qualified_id (tree qualified_id, tree args,
     expr = name;
 
   if (dependent_scope_p (scope))
-    return build_qualified_name (NULL_TREE, scope, expr,
-				 QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+    {
+      if (is_template)
+	expr = build_min_nt (TEMPLATE_ID_EXPR, expr, template_args);
+      return build_qualified_name (NULL_TREE, scope, expr,
+				   QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+    }
 
   if (!BASELINK_P (name) && !DECL_P (expr))
     {
@@ -14772,7 +14800,6 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
         tree arg = TREE_VEC_ELT (packed_args, i);
 	tree arg_expr = NULL_TREE;
         int arg_strict = strict;
-        bool skip_arg_p = false;
 
         if (call_args_p)
           {
@@ -14815,19 +14842,15 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
                     if (resolve_overloaded_unification
                         (tparms, targs, parm, arg,
 			 (unification_kind_t) strict,
-			 sub_strict)
-                        != 0)
-                      return 1;
-                    skip_arg_p = true;
+			 sub_strict))
+		      goto unified;
+		    return 1;
                   }
 
-                if (!skip_arg_p)
-                  {
-		    arg_expr = arg;
-                    arg = unlowered_expr_type (arg);
-                    if (arg == error_mark_node)
-                      return 1;
-                  }
+		arg_expr = arg;
+		arg = unlowered_expr_type (arg);
+		if (arg == error_mark_node)
+		  return 1;
               }
       
             arg_strict = sub_strict;
@@ -14838,16 +14861,14 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 						  &parm, &arg, arg_expr);
           }
 
-        if (!skip_arg_p)
-          {
-	    /* For deduction from an init-list we need the actual list.  */
-	    if (arg_expr && BRACE_ENCLOSED_INITIALIZER_P (arg_expr))
-	      arg = arg_expr;
-            if (unify (tparms, targs, parm, arg, arg_strict))
-              return 1;
-          }
+	/* For deduction from an init-list we need the actual list.  */
+	if (arg_expr && BRACE_ENCLOSED_INITIALIZER_P (arg_expr))
+	  arg = arg_expr;
+	if (unify (tparms, targs, parm, arg, arg_strict))
+	  return 1;
       }
 
+    unified:
       /* For each parameter pack, collect the deduced value.  */
       for (pack = packs; pack; pack = TREE_CHAIN (pack))
         {
@@ -17466,21 +17487,21 @@ instantiate_decl (tree d, int defer_ok,
 	  spec_parm = skip_artificial_parms_for (d, spec_parm);
 	  tmpl_parm = skip_artificial_parms_for (subst_decl, tmpl_parm);
 	}
-      while (tmpl_parm && !FUNCTION_PARAMETER_PACK_P (tmpl_parm))
+      for (; tmpl_parm; tmpl_parm = DECL_CHAIN (tmpl_parm))
 	{
-	  register_local_specialization (spec_parm, tmpl_parm);
-	  tmpl_parm = DECL_CHAIN (tmpl_parm);
-	  spec_parm = DECL_CHAIN (spec_parm);
+	  if (!FUNCTION_PARAMETER_PACK_P (tmpl_parm))
+	    {
+	      register_local_specialization (spec_parm, tmpl_parm);
+	      spec_parm = DECL_CHAIN (spec_parm);
+	    }
+	  else
+	    {
+	      /* Register the (value) argument pack as a specialization of
+		 TMPL_PARM, then move on.  */
+	      tree argpack = extract_fnparm_pack (tmpl_parm, &spec_parm);
+	      register_local_specialization (argpack, tmpl_parm);
+	    }
 	}
-      if (tmpl_parm && FUNCTION_PARAMETER_PACK_P (tmpl_parm))
-        {
-          /* Register the (value) argument pack as a specialization of
-             TMPL_PARM, then move on.  */
-	  tree argpack = make_fnparm_pack (spec_parm);
-          register_local_specialization (argpack, tmpl_parm);
-          tmpl_parm = DECL_CHAIN (tmpl_parm);
-	  spec_parm = NULL_TREE;
-        }
       gcc_assert (!spec_parm);
 
       /* Substitute into the body of the function.  */
@@ -18886,6 +18907,10 @@ build_non_dependent_expr (tree expr)
      expression, there are special rules if the second or third
      argument is a throw-expression.  */
   if (TREE_CODE (expr) == THROW_EXPR)
+    return expr;
+
+  /* Don't wrap an initializer list, we need to be able to look inside.  */
+  if (BRACE_ENCLOSED_INITIALIZER_P (expr))
     return expr;
 
   if (TREE_CODE (expr) == COND_EXPR)

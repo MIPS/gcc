@@ -351,6 +351,9 @@ build_call_a (tree function, int n, tree *argarray)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
+  if (!nothrow && at_function_scope_p () && cfun && cp_function_chain)
+    cp_function_chain->can_throw = 1;
+
   if (decl && TREE_THIS_VOLATILE (decl) && cfun && cp_function_chain)
     current_function_returns_abnormally = 1;
 
@@ -5326,6 +5329,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   diagnostic_t diag_kind;
   int flags;
 
+  if (convs->bad_p && !(complain & tf_error))
+    return error_mark_node;
+
   if (convs->bad_p
       && convs->kind != ck_user
       && convs->kind != ck_list
@@ -5361,15 +5367,12 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-      if (complain & tf_error)
-	{
-	  permerror (input_location, "invalid conversion from %qT to %qT", TREE_TYPE (expr), totype);
-	  if (fn)
-	    permerror (DECL_SOURCE_LOCATION (fn),
-		       "  initializing argument %P of %qD", argnum, fn);
-	}
-      else
-	return error_mark_node;
+
+      permerror (input_location, "invalid conversion from %qT to %qT",
+		 TREE_TYPE (expr), totype);
+      if (fn)
+	permerror (DECL_SOURCE_LOCATION (fn),
+		   "  initializing argument %P of %qD", argnum, fn);
 
       return cp_convert (totype, expr);
     }
@@ -6457,11 +6460,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray)
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
-  if ((!fndecl || !TREE_NOTHROW (fndecl))
-      && at_function_scope_p ()
-      && cfun
-      && cp_function_chain)
-    cp_function_chain->can_throw = 1;
 
   /* Check that arguments to builtin functions match the expectations.  */
   if (fndecl
