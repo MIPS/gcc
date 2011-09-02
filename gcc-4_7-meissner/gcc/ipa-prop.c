@@ -1032,19 +1032,13 @@ ipa_compute_jump_functions (struct cgraph_node *node,
 
   for (cs = node->callees; cs; cs = cs->next_callee)
     {
-      struct cgraph_node *callee = cgraph_function_or_thunk_node (cs->callee, NULL);
+      struct cgraph_node *callee = cgraph_function_or_thunk_node (cs->callee,
+								  NULL);
       /* We do not need to bother analyzing calls to unknown
 	 functions unless they may become known during lto/whopr.  */
-      if (!cs->callee->analyzed && !flag_lto)
+      if (!callee->analyzed && !flag_lto)
 	continue;
       ipa_count_arguments (cs);
-      /* If the descriptor of the callee is not initialized yet, we have to do
-	 it now. */
-      if (callee->analyzed)
-	ipa_initialize_node_params (callee);
-      if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
-	  != ipa_get_param_count (IPA_NODE_REF (callee)))
-	ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
       ipa_compute_jump_functions_for_edge (parms_info, cs);
     }
 
@@ -1614,12 +1608,10 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
 }
 
 /* If TARGET is an addr_expr of a function declaration, make it the destination
-   of an indirect edge IE and return the edge.  Otherwise, return NULL.  Delta,
-   if non-NULL, is an integer constant that must be added to this pointer
-   (first parameter).  */
+   of an indirect edge IE and return the edge.  Otherwise, return NULL.  */
 
 struct cgraph_edge *
-ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
+ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 {
   struct cgraph_node *callee;
 
@@ -1632,11 +1624,11 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
     return NULL;
   ipa_check_create_node_params ();
 
-  /* We can not make edges to inline clones.  It is bug that someone removed the cgraph
-     node too early.  */
+  /* We can not make edges to inline clones.  It is bug that someone removed
+     the cgraph node too early.  */
   gcc_assert (!callee->global.inlined_to);
 
-  cgraph_make_edge_direct (ie, callee, delta ? tree_low_cst (delta, 0) : 0);
+  cgraph_make_edge_direct (ie, callee);
   if (dump_file)
     {
       fprintf (dump_file, "ipa-prop: Discovered %s call to a known target "
@@ -1648,19 +1640,8 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
 	print_gimple_stmt (dump_file, ie->call_stmt, 2, TDF_SLIM);
       else
 	fprintf (dump_file, "with uid %i\n", ie->lto_stmt_uid);
-
-      if (delta)
-	{
-	  fprintf (dump_file, "          Thunk delta is ");
-	  print_generic_expr (dump_file, delta, 0);
-	  fprintf (dump_file, "\n");
-	}
     }
   callee = cgraph_function_or_thunk_node (callee, NULL);
-
-  if (ipa_get_cs_argument_count (IPA_EDGE_REF (ie))
-      != ipa_get_param_count (IPA_NODE_REF (callee)))
-    ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
 
   return ie;
 }
@@ -1683,7 +1664,7 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
   else
     return NULL;
 
-  return ipa_make_edge_direct_to_target (ie, target, NULL_TREE);
+  return ipa_make_edge_direct_to_target (ie, target);
 }
 
 /* Try to find a destination for indirect edge IE that corresponds to a
@@ -1695,7 +1676,7 @@ static struct cgraph_edge *
 try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 				   struct ipa_jump_func *jfunc)
 {
-  tree binfo, type, target, delta;
+  tree binfo, type, target;
   HOST_WIDE_INT token;
 
   if (jfunc->type == IPA_JF_KNOWN_TYPE)
@@ -1710,12 +1691,12 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
   type = ie->indirect_info->otr_type;
   binfo = get_binfo_at_offset (binfo, ie->indirect_info->anc_offset, type);
   if (binfo)
-    target = gimple_get_virt_method_for_binfo (token, binfo, &delta);
+    target = gimple_get_virt_method_for_binfo (token, binfo);
   else
     return NULL;
 
   if (target)
-    return ipa_make_edge_direct_to_target (ie, target, delta);
+    return ipa_make_edge_direct_to_target (ie, target);
   else
     return NULL;
 }
@@ -1973,7 +1954,6 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
   new_info->lattices = NULL;
   new_info->ipcp_orig_node = old_info->ipcp_orig_node;
 
-  new_info->called_with_var_arguments = old_info->called_with_var_arguments;
   new_info->uses_analysis_done = old_info->uses_analysis_done;
   new_info->node_enqueued = old_info->node_enqueued;
 }
@@ -2958,7 +2938,6 @@ void
 ipa_update_after_lto_read (void)
 {
   struct cgraph_node *node;
-  struct cgraph_edge *cs;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
@@ -2966,17 +2945,4 @@ ipa_update_after_lto_read (void)
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed)
       ipa_initialize_node_params (node);
-
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed)
-      for (cs = node->callees; cs; cs = cs->next_callee)
-	{
-	  struct cgraph_node *callee;
-
-	  callee = cgraph_function_or_thunk_node (cs->callee, NULL);
-	  if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
-	      != ipa_get_param_count (IPA_NODE_REF (callee)))
-	    ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
-	}
 }
-
