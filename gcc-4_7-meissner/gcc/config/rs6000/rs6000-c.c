@@ -446,8 +446,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 
 struct altivec_builtin_types
 {
-  enum built_in_function code;
-  enum built_in_function overloaded_code;
+  enum rs6000_builtins code;
+  enum rs6000_builtins overloaded_code;
   signed char ret_type;
   signed char op1;
   signed char op2;
@@ -3334,7 +3334,7 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VCMPGE_P, VSX_BUILTIN_XVCMPGEDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
-  { (enum built_in_function) 0, (enum built_in_function) 0, 0, 0, 0, 0 }
+  { (enum rs6000_builtins) 0, (enum rs6000_builtins) 0, 0, 0, 0, 0 }
 };
 
 

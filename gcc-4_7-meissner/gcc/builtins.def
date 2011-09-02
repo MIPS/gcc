@@ -134,13 +134,6 @@ along with GCC; see the file COPYING3.  If not see
   DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, 0, 0, false, false, \
 	       false, 0, false, false)
 
-/* Allocate the enum and the name for a machine dependent builtin, but do not
-   actually define it here at all.  */
-#undef DEF_BUILTIN_MD
-#define DEF_BUILTIN_MD(ENUM, NAME) \
-  DEF_BUILTIN (ENUM, NAME, BUILT_IN_MD, 0, 0, false, false, \
-	       false, 0, false, false)
-
 /* Builtin used by the implementation of GNU OpenMP.  None of these are
    actually implemented in the compiler; they're all in libgomp.  */
 #undef DEF_GOMP_BUILTIN
@@ -179,10 +172,6 @@ along with GCC; see the file COPYING3.  If not see
    maintenance purposes.  */
 #undef ATTR_MATHFN_FPROUNDING_STORE
 #define ATTR_MATHFN_FPROUNDING_STORE ATTR_NOTHROW_LEAF_LIST
-
-/* Avoid problems with fields that are zeroed by making sure index 0 is not a
-   legitimate builtin.  */
-DEF_BUILTIN_STUB       (BUILT_IN_NONE, (const char *)0)
 
 /* Category: math builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ACOS, "acos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
@@ -800,6 +789,3 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
-
-/* Target machine builtins.  */
-#include "tm-bu-funcs.def"

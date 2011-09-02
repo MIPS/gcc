@@ -909,9 +909,7 @@ RTL_H = $(RTL_BASE_H) genrtl.h vecir.h
 RTL_ERROR_H = $(RTL_H) $(DIAGNOSTIC_CORE_H)
 READ_MD_H = $(OBSTACK_H) $(HASHTAB_H) read-md.h
 PARAMS_H = params.h params.def
-BUILTIN_FUNCS_MD = @tm_builtin_funcs@
-BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def \
-  tm-bu-funcs.def $(BUILTIN_FUNCS_MD)
+BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def
 INTERNAL_FN_DEF = internal-fn.def
 INTERNAL_FN_H = internal-fn.h $(INTERNAL_FN_DEF)
 TREE_H = tree.h all-tree.def tree.def c-family/c-common.def \
@@ -1981,19 +1979,6 @@ $(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
 	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS) \
 	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O \
 	  -o $(T)crtbeginT$(objext)
-
-# Build the builtin include files that includes the standard builtin file along
-# with any machine dependent versions of those files.  Note, this files is
-# expected to be included multiple times, so don't use mkconfig.sh which adds
-# header guards
-tm-bu-funcs.def: s-bu-funcs; @true
-s-bu-funcs: Makefile
-	for inc in $(BUILTIN_FUNCS_MD); do \
-	  echo "#include \"$$inc\""; \
-	done > tmp-bu-funcs.def
-	$(SHELL) $(srcdir)/../move-if-change tmp-bu-funcs.def tm-bu-funcs.def
-	$(STAMP) s-bu-funcs
-
 #
 # Compiling object files from source files.
 
@@ -4510,8 +4495,6 @@ mostlyclean: lang.mostlyclean
 	-rm -f gtype.state
 # Delete genchecksum outputs
 	-rm -f *-checksum.c
-# Delete builtin types, attributes, function include files
-	-rm -f tm-bu-funcs.def
 
 # Delete all files made by compilation
 # that don't exist in the distribution.

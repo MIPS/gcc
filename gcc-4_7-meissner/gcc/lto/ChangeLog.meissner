@@ -1,3 +1,12 @@
+2011-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* Make-lang.in: Undo meissner changes.
+
+	Subversion id r178490 is the revision that holds the previous
+	changes.
+
+	Merge up to 178488.
+
 2011-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* Make-lang.in (lto/lto-lang.o): Delete BUILTIN_{ATTRS,TYPES}_DEF

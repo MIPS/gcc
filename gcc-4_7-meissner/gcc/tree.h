@@ -3503,7 +3503,7 @@ struct GTY(()) tree_function_decl {
      DECL_FUNCTION_CODE.  Otherwise unused.
      ???  The bitfield needs to be able to hold all target function
 	  codes as well.  */
-  ENUM_BITFIELD(built_in_function) function_code : 12;
+  ENUM_BITFIELD(built_in_function) function_code : 11;
   ENUM_BITFIELD(built_in_class) built_in_class : 2;
 
   unsigned static_ctor_flag : 1;
@@ -3526,7 +3526,7 @@ struct GTY(()) tree_function_decl {
   unsigned looping_const_or_pure_flag : 1;
   unsigned has_debug_args_flag : 1;
 
-  /* 1 bit left */
+  /* 2 bits left */
 };
 
 /* The source language of the translation-unit.  */

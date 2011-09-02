@@ -1,5 +1,25 @@
 2011-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* builtin-attrs.def: Undo meissner changes.
+	* builtins.def: Ditto.
+	* builtin-types.def: Ditto.
+	* config.gcc: Ditto.
+	* config/rs6000/rs6000-builtin.def: Ditto.
+	* config/rs6000/rs6000.c: Ditto.
+	* config/rs6000/rs6000-c.c: Ditto.
+	* config/rs6000/rs6000.h: Ditto.
+	* config/rs6000/rs6000-protos.h: Ditto.
+	* configure: Ditto.
+	* configure.ac: Ditto.
+	* doc/configfiles.texi: Ditto.
+	* Makefile.in: Ditto.
+	* tree.h: Ditto.
+
+	Subversion id r178490 is the revision that holds the previous
+	changes.
+
+2011-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 178488.
 	* REVISION: Update subversion id.
 

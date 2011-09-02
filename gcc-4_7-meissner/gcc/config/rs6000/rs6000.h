@@ -2258,7 +2258,6 @@ extern int frame_pointer_needed;
    flags.  */
 enum rs6000_btc
 {
-  RS6000_BTC_NONE,		/* not really a builtin, marker */
   RS6000_BTC_MISC,		/* assume builtin can do anything */
   RS6000_BTC_CONST,		/* builtin is a 'const' function.  */
   RS6000_BTC_PURE,		/* builtin is a 'pure' function.  */
@@ -2268,6 +2267,21 @@ enum rs6000_btc
 /* Convenience macros to document the instruction type.  */
 #define RS6000_BTC_MEM	RS6000_BTC_MISC	/* load/store touches memory */
 #define RS6000_BTC_SAT	RS6000_BTC_MISC	/* VMX saturate sets VSCR register */
+
+#undef RS6000_BUILTIN
+#undef RS6000_BUILTIN_EQUATE
+#define RS6000_BUILTIN(NAME, TYPE) NAME,
+#define RS6000_BUILTIN_EQUATE(NAME, VALUE) NAME = VALUE,
+
+enum rs6000_builtins
+{
+#include "rs6000-builtin.def"
+
+  RS6000_BUILTIN_COUNT
+};
+
+#undef RS6000_BUILTIN
+#undef RS6000_BUILTIN_EQUATE
 
 enum rs6000_builtin_type_index
 {
@@ -2314,7 +2328,6 @@ enum rs6000_builtin_type_index
   RS6000_BTI_float,	         /* float_type_node */
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
-
   RS6000_BTI_MAX
 };
 
@@ -2363,26 +2376,6 @@ enum rs6000_builtin_type_index
 #define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 
-/* Feature tests for builtin functions.  */
-#define ALTIVEC_BUILTIN_P(FN)						\
-  IN_RANGE ((FN), ALTIVEC_BUILTIN_FIRST, ALTIVEC_BUILTIN_LAST)
+extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
+extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
-#define ALTIVEC_BUILTIN_OVERLOADED_P(FN)				\
-  IN_RANGE ((FN), ALTIVEC_BUILTIN_OVERLOADED_FIRST,			\
-	    ALTIVEC_BUILTIN_OVERLOADED_LAST)
-
-#define VSX_BUILTIN_P(FN) IN_RANGE ((FN), VSX_BUILTIN_FIRST, VSX_BUILTIN_LAST)
-
-#define VSX_BUILTIN_OVERLOADED_P(FN)					\
-  IN_RANGE ((FN), VSX_BUILTIN_OVERLOADED_FIRST, VSX_BUILTIN_OVERLOADED_LAST)
-
-#define OVERLOADED_BUILTIN_P(FN)					\
-  (ALTIVEC_BUILTIN_OVERLOADED_P (FN) || VSX_BUILTIN_OVERLOADED_P (FN))
-
-#define SPE_BUILTIN_P(FN) IN_RANGE ((FN), SPE_BUILTIN_FIRST, SPE_BUILTIN_LAST)
-
-#define PAIRED_BUILTIN_P(FN) 						\
-  IN_RANGE ((FN), PAIRED_BUILTIN_FIRST, PAIRED_BUILTIN_LAST)
-
-#define MISC_BUILTIN_P(FN) 						\
-  IN_RANGE ((FN), MISC_BUILTIN_FIRST, MISC_BUILTIN_LAST)
