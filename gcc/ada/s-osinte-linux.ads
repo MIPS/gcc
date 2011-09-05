@@ -7,25 +7,23 @@
 --                                  S p e c                                 --
 --                                                                          --
 --             Copyright (C) 1991-1994, Florida State University            --
---          Copyright (C) 1995-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1995-2011, Free Software Foundation, Inc.         --
 --                                                                          --
--- GNARL is free software; you can  redistribute it  and/or modify it under --
+-- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -122,12 +120,12 @@ package System.OS_Interface is
    SIGLTHRDBG : constant := System.Linux.SIGLTHRDBG;
 
    SIGADAABORT : constant := SIGABRT;
-   --  Change this if you want to use another signal for task abort.
-   --  SIGTERM might be a good one.
+   --  Change this to use another signal for task abort. SIGTERM might be a
+   --  good one.
 
    type Signal_Set is array (Natural range <>) of Signal;
 
-   Unmasked    : constant Signal_Set := (
+   Unmasked : constant Signal_Set := (
       SIGTRAP,
       --  To enable debugging on multithreaded applications, mark SIGTRAP to
       --  be kept unmasked.
@@ -135,24 +133,22 @@ package System.OS_Interface is
       SIGBUS,
 
       SIGTTIN, SIGTTOU, SIGTSTP,
-      --  Keep these three signals unmasked so that background processes
-      --  and IO behaves as normal "C" applications
+      --  Keep these three signals unmasked so that background processes and IO
+      --  behaves as normal "C" applications
 
       SIGPROF,
       --  To avoid confusing the profiler
 
       SIGKILL, SIGSTOP,
-      --  These two signals actually cannot be masked;
-      --  POSIX simply won't allow it.
+      --  These two signals actually can't be masked (POSIX won't allow it)
 
       SIGLTHRRES, SIGLTHRCAN, SIGLTHRDBG);
-      --  These three signals are used by GNU/LinuxThreads starting from
-      --  glibc 2.1 (future 2.2).
+      --  These three signals are used by GNU/LinuxThreads starting from glibc
+      --  2.1 (future 2.2).
 
-   Reserved    : constant Signal_Set :=
-   --  I am not sure why the following two signals are reserved.
-   --  I guess they are not supported by this version of GNU/Linux.
-     (SIGVTALRM, SIGUNUSED);
+   Reserved : constant Signal_Set := (SIGVTALRM, SIGUNUSED);
+   --  Not clear why these two signals are reserved. Perhaps they are not
+   --  supported by this version of GNU/Linux ???
 
    type sigset_t is private;
 
@@ -270,10 +266,10 @@ package System.OS_Interface is
      Ada.Unchecked_Conversion (System.Address, Thread_Body);
 
    type pthread_t is new unsigned_long;
-   subtype Thread_Id        is pthread_t;
+   subtype Thread_Id is pthread_t;
 
-   function To_pthread_t is new Ada.Unchecked_Conversion
-     (unsigned_long, pthread_t);
+   function To_pthread_t is
+     new Ada.Unchecked_Conversion (unsigned_long, pthread_t);
 
    type pthread_mutex_t     is limited private;
    type pthread_cond_t      is limited private;
@@ -475,6 +471,10 @@ package System.OS_Interface is
    pragma Import (C, pthread_key_create, "pthread_key_create");
 
    CPU_SETSIZE : constant := 1_024;
+   --  Size of the cpu_set_t mask on most linux systems (SUSE 11 uses 4_096).
+   --  This is kept for backward compatibility (System.Task_Info uses it), but
+   --  the run-time library does no longer rely on static masks, using
+   --  dynamically allocated masks instead.
 
    type bit_field is array (1 .. CPU_SETSIZE) of Boolean;
    for bit_field'Size use CPU_SETSIZE;
@@ -486,10 +486,36 @@ package System.OS_Interface is
    end record;
    pragma Convention (C, cpu_set_t);
 
+   type cpu_set_t_ptr is access all cpu_set_t;
+   --  In the run-time library we use this pointer because the size of type
+   --  cpu_set_t varies depending on the glibc version. Hence, objects of type
+   --  cpu_set_t are allocated dynamically using the number of processors
+   --  available in the target machine (value obtained at execution time).
+
+   function CPU_ALLOC (count : size_t) return cpu_set_t_ptr;
+   pragma Import (C, CPU_ALLOC, "__gnat_cpu_alloc");
+   --  Wrapper around the CPU_ALLOC C macro
+
+   function CPU_ALLOC_SIZE (count : size_t) return size_t;
+   pragma Import (C, CPU_ALLOC_SIZE, "__gnat_cpu_alloc_size");
+   --  Wrapper around the CPU_ALLOC_SIZE C macro
+
+   procedure CPU_FREE (cpuset : cpu_set_t_ptr);
+   pragma Import (C, CPU_FREE, "__gnat_cpu_free");
+   --  Wrapper around the CPU_FREE C macro
+
+   procedure CPU_ZERO (count : size_t; cpuset : cpu_set_t_ptr);
+   pragma Import (C, CPU_ZERO, "__gnat_cpu_zero");
+   --  Wrapper around the CPU_ZERO_S C macro
+
+   procedure CPU_SET (cpu : int; count : size_t; cpuset : cpu_set_t_ptr);
+   pragma Import (C, CPU_SET, "__gnat_cpu_set");
+   --  Wrapper around the CPU_SET_S C macro
+
    function pthread_setaffinity_np
      (thread     : pthread_t;
       cpusetsize : size_t;
-      cpuset     : access cpu_set_t) return int;
+      cpuset     : cpu_set_t_ptr) return int;
    pragma Import (C, pthread_setaffinity_np, "pthread_setaffinity_np");
    pragma Weak_External (pthread_setaffinity_np);
    --  Use a weak symbol because this function may be available or not,
@@ -498,7 +524,7 @@ package System.OS_Interface is
    function pthread_attr_setaffinity_np
      (attr       : access pthread_attr_t;
       cpusetsize : size_t;
-      cpuset     : access cpu_set_t) return int;
+      cpuset     : cpu_set_t_ptr) return int;
    pragma Import (C, pthread_attr_setaffinity_np,
                     "pthread_attr_setaffinity_np");
    pragma Weak_External (pthread_attr_setaffinity_np);
@@ -557,7 +583,7 @@ private
    type pthread_mutex_t is new System.Linux.pthread_mutex_t;
 
    type unsigned_long_long_t is mod 2 ** 64;
-   --  Interfaces.C.Extensions isn't preelaborated so cannot be with-ed
+   --  Local type only used to get it's 'Alignment below
 
    type pthread_cond_t is array (0 .. 47) of unsigned_char;
    pragma Convention (C, pthread_cond_t);

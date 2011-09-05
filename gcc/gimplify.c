@@ -1799,7 +1799,6 @@ canonicalize_addr_expr (tree *expr_p)
 static enum gimplify_status
 gimplify_conversion (tree *expr_p)
 {
-  tree tem;
   location_t loc = EXPR_LOCATION (*expr_p);
   gcc_assert (CONVERT_EXPR_P (*expr_p));
 
@@ -1809,17 +1808,6 @@ gimplify_conversion (tree *expr_p)
   /* And remove the outermost conversion if it's useless.  */
   if (tree_ssa_useless_type_conversion (*expr_p))
     *expr_p = TREE_OPERAND (*expr_p, 0);
-
-  /* Attempt to avoid NOP_EXPR by producing reference to a subtype.
-     For example this fold (subclass *)&A into &A->subclass avoiding
-     a need for statement.  */
-  if (CONVERT_EXPR_P (*expr_p)
-      && POINTER_TYPE_P (TREE_TYPE (*expr_p))
-      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (*expr_p, 0)))
-      && (tem = maybe_fold_offset_to_address
-	  (EXPR_LOCATION (*expr_p), TREE_OPERAND (*expr_p, 0),
-	   integer_zero_node, TREE_TYPE (*expr_p))) != NULL_TREE)
-    *expr_p = tem;
 
   /* If we still have a conversion at the toplevel,
      then canonicalize some constructs.  */
@@ -2208,7 +2196,7 @@ gimplify_self_mod_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
   /* For POINTERs increment, use POINTER_PLUS_EXPR.  */
   if (POINTER_TYPE_P (TREE_TYPE (lhs)))
     {
-      rhs = fold_convert_loc (loc, sizetype, rhs);
+      rhs = convert_to_ptrofftype_loc (loc, rhs);
       if (arith_code == MINUS_EXPR)
 	rhs = fold_build1_loc (loc, NEGATE_EXPR, TREE_TYPE (rhs), rhs);
       arith_code = POINTER_PLUS_EXPR;
@@ -2860,18 +2848,23 @@ gimple_boolify (tree expr)
 
     case TRUTH_NOT_EXPR:
       TREE_OPERAND (expr, 0) = gimple_boolify (TREE_OPERAND (expr, 0));
-      /* FALLTHRU */
 
-    case EQ_EXPR: case NE_EXPR:
-    case LE_EXPR: case GE_EXPR: case LT_EXPR: case GT_EXPR:
       /* These expressions always produce boolean results.  */
-      TREE_TYPE (expr) = boolean_type_node;
+      if (TREE_CODE (type) != BOOLEAN_TYPE)
+	TREE_TYPE (expr) = boolean_type_node;
       return expr;
 
     default:
+      if (COMPARISON_CLASS_P (expr))
+	{
+	  /* There expressions always prduce boolean results.  */
+	  if (TREE_CODE (type) != BOOLEAN_TYPE)
+	    TREE_TYPE (expr) = boolean_type_node;
+	  return expr;
+	}
       /* Other expressions that get here must have boolean values, but
 	 might need to be converted to the appropriate mode.  */
-      if (type == boolean_type_node)
+      if (TREE_CODE (type) == BOOLEAN_TYPE)
 	return expr;
       return fold_convert_loc (loc, boolean_type_node, expr);
     }
@@ -4478,6 +4471,7 @@ gimplify_modify_expr_complex_part (tree *expr_p, gimple_seq *pre_p,
 
   ocode = code == REALPART_EXPR ? IMAGPART_EXPR : REALPART_EXPR;
   other = build1 (ocode, TREE_TYPE (rhs), lhs);
+  TREE_NO_WARNING (other) = 1;
   other = get_formal_tmp_var (other, pre_p);
 
   realpart = code == REALPART_EXPR ? rhs : other;
@@ -5927,6 +5921,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    }
 	  break;
 
+	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
 	  OMP_CLAUSE_OPERAND (c, 0)
 	    = gimple_boolify (OMP_CLAUSE_OPERAND (c, 0));
@@ -5943,6 +5938,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_MERGEABLE:
 	  break;
 
 	case OMP_CLAUSE_DEFAULT:
@@ -6083,6 +6079,8 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_FINAL:
+	case OMP_CLAUSE_MERGEABLE:
 	  break;
 
 	default:
@@ -6485,24 +6483,45 @@ static enum gimplify_status
 gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 {
   tree addr = TREE_OPERAND (*expr_p, 0);
-  tree rhs = TREE_OPERAND (*expr_p, 1);
+  tree rhs = TREE_CODE (*expr_p) == OMP_ATOMIC_READ
+	     ? NULL : TREE_OPERAND (*expr_p, 1);
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
   tree tmp_load;
+  gimple loadstmt, storestmt;
 
-   tmp_load = create_tmp_reg (type, NULL);
-   if (goa_stabilize_expr (&rhs, pre_p, addr, tmp_load) < 0)
-     return GS_ERROR;
+  tmp_load = create_tmp_reg (type, NULL);
+  if (rhs && goa_stabilize_expr (&rhs, pre_p, addr, tmp_load) < 0)
+    return GS_ERROR;
 
-   if (gimplify_expr (&addr, pre_p, NULL, is_gimple_val, fb_rvalue)
-       != GS_ALL_DONE)
-     return GS_ERROR;
+  if (gimplify_expr (&addr, pre_p, NULL, is_gimple_val, fb_rvalue)
+      != GS_ALL_DONE)
+    return GS_ERROR;
 
-   gimplify_seq_add_stmt (pre_p, gimple_build_omp_atomic_load (tmp_load, addr));
-   if (gimplify_expr (&rhs, pre_p, NULL, is_gimple_val, fb_rvalue)
-       != GS_ALL_DONE)
-     return GS_ERROR;
-   gimplify_seq_add_stmt (pre_p, gimple_build_omp_atomic_store (rhs));
-   *expr_p = NULL;
+  loadstmt = gimple_build_omp_atomic_load (tmp_load, addr);
+  gimplify_seq_add_stmt (pre_p, loadstmt);
+  if (rhs && gimplify_expr (&rhs, pre_p, NULL, is_gimple_val, fb_rvalue)
+      != GS_ALL_DONE)
+    return GS_ERROR;
+
+  if (TREE_CODE (*expr_p) == OMP_ATOMIC_READ)
+    rhs = tmp_load;
+  storestmt = gimple_build_omp_atomic_store (rhs);
+  gimplify_seq_add_stmt (pre_p, storestmt);
+  switch (TREE_CODE (*expr_p))
+    {
+    case OMP_ATOMIC_READ:
+    case OMP_ATOMIC_CAPTURE_OLD:
+      *expr_p = tmp_load;
+      gimple_omp_atomic_set_need_value (loadstmt);
+      break;
+    case OMP_ATOMIC_CAPTURE_NEW:
+      *expr_p = rhs;
+      gimple_omp_atomic_set_need_value (storestmt);
+      break;
+    default:
+      *expr_p = NULL;
+      break;
+    }
 
    return GS_ALL_DONE;
 }
@@ -7225,6 +7244,9 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  }
 
 	case OMP_ATOMIC:
+	case OMP_ATOMIC_READ:
+	case OMP_ATOMIC_CAPTURE_OLD:
+	case OMP_ATOMIC_CAPTURE_NEW:
 	  ret = gimplify_omp_atomic (expr_p, pre_p);
 	  break;
 
@@ -7268,36 +7290,33 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  goto expr_3;
 
 	case POINTER_PLUS_EXPR:
-          /* Convert ((type *)A)+offset into &A->field_of_type_and_offset.
-	     The second is gimple immediate saving a need for extra statement.
-	   */
-	  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
-	      && (tmp = maybe_fold_offset_to_address
-		  (EXPR_LOCATION (*expr_p),
-		   TREE_OPERAND (*expr_p, 0), TREE_OPERAND (*expr_p, 1),
-		   TREE_TYPE (*expr_p))))
-	    {
-	      *expr_p = tmp;
-	      ret = GS_OK;
-	      break;
-	    }
-	  /* Convert (void *)&a + 4 into (void *)&a[1].  */
-	  if (TREE_CODE (TREE_OPERAND (*expr_p, 0)) == NOP_EXPR
-	      && TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
-	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p,
-									0),0)))
-	      && (tmp = maybe_fold_offset_to_address
-		  (EXPR_LOCATION (*expr_p),
-		   TREE_OPERAND (TREE_OPERAND (*expr_p, 0), 0),
-		   TREE_OPERAND (*expr_p, 1),
-		   TREE_TYPE (TREE_OPERAND (TREE_OPERAND (*expr_p, 0),
-					    0)))))
-	     {
-               *expr_p = fold_convert (TREE_TYPE (*expr_p), tmp);
-	       ret = GS_OK;
-	       break;
-	     }
-          /* FALLTHRU */
+	  {
+	    enum gimplify_status r0, r1;
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    recalculate_side_effects (*expr_p);
+	    ret = MIN (r0, r1);
+	    /* Convert &X + CST to invariant &MEM[&X, CST].  Do this
+	       after gimplifying operands - this is similar to how
+	       it would be folding all gimplified stmts on creation
+	       to have them canonicalized, which is what we eventually
+	       should do anyway.  */
+	    if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == INTEGER_CST
+		&& is_gimple_min_invariant (TREE_OPERAND (*expr_p, 0)))
+	      {
+		*expr_p = build_fold_addr_expr_with_type_loc
+		   (input_location,
+		    fold_build2 (MEM_REF, TREE_TYPE (TREE_TYPE (*expr_p)),
+				 TREE_OPERAND (*expr_p, 0),
+				 fold_convert (ptr_type_node,
+					       TREE_OPERAND (*expr_p, 1))),
+		    TREE_TYPE (*expr_p));
+		ret = MIN (ret, GS_OK);
+	      }
+	    break;
+	  }
 
 	default:
 	  switch (TREE_CODE_CLASS (TREE_CODE (*expr_p)))
@@ -7315,8 +7334,23 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		{
 		  tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 1));
 
-		  if (!AGGREGATE_TYPE_P (type))
+		  /* Vector comparisons need no boolification.  */
+		  if (TREE_CODE (type) == VECTOR_TYPE)
 		    goto expr_2;
+		  else if (!AGGREGATE_TYPE_P (type))
+		    {
+		      tree org_type = TREE_TYPE (*expr_p);
+		      *expr_p = gimple_boolify (*expr_p);
+		      if (!useless_type_conversion_p (org_type,
+						      TREE_TYPE (*expr_p)))
+			{
+			  *expr_p = fold_convert_loc (input_location,
+						      org_type, *expr_p);
+			  ret = GS_OK;
+			}
+		      else
+			goto expr_2;
+		    }
 		  else if (TYPE_MODE (type) != BLKmode)
 		    ret = gimplify_scalar_mode_aggregate_compare (expr_p);
 		  else

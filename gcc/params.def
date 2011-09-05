@@ -845,7 +845,7 @@ DEFPARAM (PARAM_MAX_VARTRACK_SIZE,
 DEFPARAM (PARAM_MAX_VARTRACK_EXPR_DEPTH,
 	  "max-vartrack-expr-depth",
 	  "Max. recursion depth for expanding var tracking expressions",
-	  20, 0, 0)
+	  12, 0, 0)
 
 /* Set minimum insn uid for non-debug insns.  */
 
@@ -907,6 +907,12 @@ DEFPARAM (PARAM_CASE_VALUES_THRESHOLD,
 	  "use a jump-table instead of a tree of conditional branches, "
 	  "if 0, use the default for the machine",
           0, 0, 0)
+
+/* Data race flags for C++0x memory model compliance.  */
+DEFPARAM (PARAM_ALLOW_STORE_DATA_RACES,
+	  "allow-store-data-races",
+	  "Allow new data races on stores to be introduced",
+	  1, 0, 1)
 
 
 /*

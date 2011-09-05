@@ -1081,8 +1081,7 @@ lto_init (void)
   flag_generate_lto = flag_wpa;
 
   /* Initialize libcpp line maps for gcc_assert to work.  */
-  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
-  linemap_add (line_table, LC_RENAME, 0, NULL, 0);
+  linemap_add (line_table, LC_ENTER, 0, NULL, 0);
 
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, /*short_double=*/false);
@@ -1099,6 +1098,7 @@ lto_init (void)
      distinction should only be relevant to the front-end, so we
      always use the C definition here in lto1.  */
   gcc_assert (fileptr_type_node == ptr_type_node);
+  gcc_assert (TYPE_MAIN_VARIANT (fileptr_type_node) == ptr_type_node);
 
   ptrdiff_type_node = integer_type_node;
 

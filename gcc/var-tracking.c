@@ -5777,6 +5777,22 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	    val = cselib_lookup (mem, GET_MODE (mem), 0, VOIDmode);
 	    if (val && cselib_preserved_value_p (val))
 	      item = gen_rtx_CONCAT (GET_MODE (x), copy_rtx (x), val->val_rtx);
+	    else if (GET_MODE_CLASS (GET_MODE (mem)) != MODE_INT)
+	      {
+		/* For non-integer stack argument see also if they weren't
+		   initialized by integers.  */
+		enum machine_mode imode = int_mode_for_mode (GET_MODE (mem));
+		if (imode != GET_MODE (mem) && imode != BLKmode)
+		  {
+		    val = cselib_lookup (adjust_address_nv (mem, imode, 0),
+					 imode, 0, VOIDmode);
+		    if (val && cselib_preserved_value_p (val))
+		      item = gen_rtx_CONCAT (GET_MODE (x), copy_rtx (x),
+					     lowpart_subreg (GET_MODE (x),
+							     val->val_rtx,
+							     imode));
+		  }
+	      }
 	  }
 	if (item)
 	  call_arguments = gen_rtx_EXPR_LIST (VOIDmode, item, call_arguments);
@@ -8472,13 +8488,13 @@ create_entry_value (rtx rtl, cselib_val *val)
   cselib_val *val2;
   struct elt_loc_list *el;
   el = (struct elt_loc_list *) ggc_alloc_cleared_atomic (sizeof (*el));
-  el->next = val->locs;
   el->loc = gen_rtx_ENTRY_VALUE (GET_MODE (rtl));
   ENTRY_VALUE_EXP (el->loc) = rtl;
-  el->setting_insn = get_insns ();
-  val->locs = el;
   val2 = cselib_lookup_from_insn (el->loc, GET_MODE (rtl), true,
 				  VOIDmode, get_insns ());
+  el->next = val->locs;
+  el->setting_insn = get_insns ();
+  val->locs = el;
   if (val2
       && val2 != val
       && val2->locs
@@ -9135,8 +9151,9 @@ vt_finalize (void)
       cselib_finish ();
       BITMAP_FREE (scratch_regs);
       scratch_regs = NULL;
-      VEC_free (parm_reg_t, gc, windowed_parm_regs);
     }
+
+  VEC_free (parm_reg_t, gc, windowed_parm_regs);
 
   if (vui_vec)
     XDELETEVEC (vui_vec);

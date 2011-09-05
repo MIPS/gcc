@@ -35,7 +35,7 @@
 #else
 # include <unordered_map>
 
-#include <debug/safe_unordered_sequence.h>
+#include <debug/safe_unordered_container.h>
 #include <debug/safe_iterator.h>
 #include <debug/safe_local_iterator.h>
 
@@ -50,12 +50,12 @@ namespace __debug
 	   typename _Alloc = std::allocator<_Key> >
     class unordered_map
     : public _GLIBCXX_STD_C::unordered_map<_Key, _Tp, _Hash, _Pred, _Alloc>,
-      public __gnu_debug::_Safe_unordered_sequence<unordered_map<_Key, _Tp,
+      public __gnu_debug::_Safe_unordered_container<unordered_map<_Key, _Tp,
 							_Hash, _Pred, _Alloc> >
     {
       typedef _GLIBCXX_STD_C::unordered_map<_Key, _Tp, _Hash,
 					    _Pred, _Alloc> _Base;
-      typedef __gnu_debug::_Safe_unordered_sequence<unordered_map> _Safe_base;
+      typedef __gnu_debug::_Safe_unordered_container<unordered_map> _Safe_base;
       typedef typename _Base::const_iterator _Base_const_iterator;
       typedef typename _Base::iterator _Base_iterator;
       typedef typename _Base::const_local_iterator _Base_const_local_iterator;
@@ -104,8 +104,6 @@ namespace __debug
       : _Base(__x) { }
 
       unordered_map(unordered_map&& __x)
-      noexcept(__and_<is_nothrow_copy_constructible<_Hash>,
-	              is_nothrow_copy_constructible<_Pred>>::value)
       : _Base(std::move(__x)) { }
 
       unordered_map(initializer_list<value_type> __l,
@@ -430,12 +428,12 @@ namespace __debug
     class unordered_multimap
     : public _GLIBCXX_STD_C::unordered_multimap<_Key, _Tp, _Hash,
 						_Pred, _Alloc>,
-      public __gnu_debug::_Safe_unordered_sequence<unordered_multimap<_Key,
+      public __gnu_debug::_Safe_unordered_container<unordered_multimap<_Key,
 						_Tp, _Hash, _Pred, _Alloc> >
     {
       typedef _GLIBCXX_STD_C::unordered_multimap<_Key, _Tp, _Hash,
 						 _Pred, _Alloc> _Base;
-      typedef __gnu_debug::_Safe_unordered_sequence<unordered_multimap>
+      typedef __gnu_debug::_Safe_unordered_container<unordered_multimap>
 	_Safe_base;
       typedef typename _Base::const_iterator _Base_const_iterator;
       typedef typename _Base::iterator _Base_iterator;
@@ -485,8 +483,6 @@ namespace __debug
       : _Base(__x) { }
 
       unordered_multimap(unordered_multimap&& __x)
-      noexcept(__and_<is_nothrow_copy_constructible<_Hash>,
-	              is_nothrow_copy_constructible<_Pred>>::value)
       : _Base(std::move(__x)) { }
 
       unordered_multimap(initializer_list<value_type> __l,

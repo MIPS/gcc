@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "lto-streamer.h"
+#include "data-streamer.h"
+#include "tree-streamer.h"
 
 
 /* Intermediate information about a parameter that is only useful during the
@@ -139,25 +141,6 @@ ipa_initialize_node_params (struct cgraph_node *node)
 	  ipa_populate_param_decls (node, info);
 	}
     }
-}
-
-/* Count number of arguments callsite CS has and store it in
-   ipa_edge_args structure corresponding to this callsite.  */
-
-static void
-ipa_count_arguments (struct cgraph_edge *cs)
-{
-  gimple stmt;
-  int arg_num;
-
-  stmt = cs->call_stmt;
-  gcc_assert (is_gimple_call (stmt));
-  arg_num = gimple_call_num_args (stmt);
-  if (VEC_length (ipa_edge_args_t, ipa_edge_args_vector)
-      <= (unsigned) cgraph_edge_max_uid)
-    VEC_safe_grow_cleared (ipa_edge_args_t, gc,
-			   ipa_edge_args_vector, cgraph_edge_max_uid + 1);
-  ipa_set_cs_argument_count (IPA_EDGE_REF (cs), arg_num);
 }
 
 /* Print the jump functions associated with call graph edge CS to file F.  */
@@ -694,7 +677,7 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
 
 static void
 compute_scalar_jump_functions (struct ipa_node_params *info,
-			       struct ipa_jump_func *functions,
+			       struct ipa_edge_args *args,
 			       gimple call)
 {
   tree arg;
@@ -702,12 +685,13 @@ compute_scalar_jump_functions (struct ipa_node_params *info,
 
   for (num = 0; num < gimple_call_num_args (call); num++)
     {
+      struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, num);
       arg = gimple_call_arg (call, num);
 
       if (is_gimple_ip_invariant (arg))
 	{
-	  functions[num].type = IPA_JF_CONST;
-	  functions[num].value.constant = arg;
+	  jfunc->type = IPA_JF_CONST;
+	  jfunc->value.constant = arg;
 	}
       else if (TREE_CODE (arg) == SSA_NAME)
 	{
@@ -716,26 +700,24 @@ compute_scalar_jump_functions (struct ipa_node_params *info,
 	      int index = ipa_get_param_decl_index (info, SSA_NAME_VAR (arg));
 
 	      if (index >= 0
-		  && !detect_type_change_ssa (arg, call, &functions[num]))
+		  && !detect_type_change_ssa (arg, call, jfunc))
 		{
-		  functions[num].type = IPA_JF_PASS_THROUGH;
-		  functions[num].value.pass_through.formal_id = index;
-		  functions[num].value.pass_through.operation = NOP_EXPR;
+		  jfunc->type = IPA_JF_PASS_THROUGH;
+		  jfunc->value.pass_through.formal_id = index;
+		  jfunc->value.pass_through.operation = NOP_EXPR;
 		}
 	    }
 	  else
 	    {
 	      gimple stmt = SSA_NAME_DEF_STMT (arg);
 	      if (is_gimple_assign (stmt))
-		compute_complex_assign_jump_func (info, &functions[num],
-						  call, stmt, arg);
+		compute_complex_assign_jump_func (info, jfunc, call, stmt, arg);
 	      else if (gimple_code (stmt) == GIMPLE_PHI)
-		compute_complex_ancestor_jump_func (info, &functions[num],
-						    call, stmt);
+		compute_complex_ancestor_jump_func (info, jfunc, call, stmt);
 	    }
 	}
       else
-	compute_known_type_jump_func (arg, &functions[num], call);
+	compute_known_type_jump_func (arg, jfunc, call);
     }
 }
 
@@ -819,7 +801,7 @@ is_parm_modified_before_call (struct param_analysis_info *parm_info,
 static bool
 compute_pass_through_member_ptrs (struct ipa_node_params *info,
 				  struct param_analysis_info *parms_info,
-				  struct ipa_jump_func *functions,
+				  struct ipa_edge_args *args,
 				  gimple call)
 {
   bool undecided_members = false;
@@ -839,9 +821,11 @@ compute_pass_through_member_ptrs (struct ipa_node_params *info,
 	      gcc_assert (index >=0);
 	      if (!is_parm_modified_before_call (&parms_info[index], call, arg))
 		{
-		  functions[num].type = IPA_JF_PASS_THROUGH;
-		  functions[num].value.pass_through.formal_id = index;
-		  functions[num].value.pass_through.operation = NOP_EXPR;
+		  struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args,
+								       num);
+		  jfunc->type = IPA_JF_PASS_THROUGH;
+		  jfunc->value.pass_through.formal_id = index;
+		  jfunc->value.pass_through.operation = NOP_EXPR;
 		}
 	      else
 		undecided_members = true;
@@ -967,7 +951,7 @@ determine_cst_member_ptr (gimple call, tree arg, tree method_field,
    associated with the call.  */
 
 static void
-compute_cst_member_ptr_arguments (struct ipa_jump_func *functions,
+compute_cst_member_ptr_arguments (struct ipa_edge_args *args,
 				  gimple call)
 {
   unsigned num;
@@ -975,13 +959,13 @@ compute_cst_member_ptr_arguments (struct ipa_jump_func *functions,
 
   for (num = 0; num < gimple_call_num_args (call); num++)
     {
+      struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, num);
       arg = gimple_call_arg (call, num);
 
-      if (functions[num].type == IPA_JF_UNKNOWN
+      if (jfunc->type == IPA_JF_UNKNOWN
 	  && type_like_member_ptr_p (TREE_TYPE (arg), &method_field,
 				     &delta_field))
-	determine_cst_member_ptr (call, arg, method_field, delta_field,
-				  &functions[num]);
+	determine_cst_member_ptr (call, arg, method_field, delta_field, jfunc);
     }
 }
 
@@ -994,29 +978,25 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_info,
 				     struct cgraph_edge *cs)
 {
   struct ipa_node_params *info = IPA_NODE_REF (cs->caller);
-  struct ipa_edge_args *arguments = IPA_EDGE_REF (cs);
-  gimple call;
+  struct ipa_edge_args *args = IPA_EDGE_REF (cs);
+  gimple call = cs->call_stmt;
+  int arg_num = gimple_call_num_args (call);
 
-  if (ipa_get_cs_argument_count (arguments) == 0 || arguments->jump_functions)
+  if (arg_num == 0 || args->jump_functions)
     return;
-  arguments->jump_functions = ggc_alloc_cleared_vec_ipa_jump_func
-    (ipa_get_cs_argument_count (arguments));
-
-  call = cs->call_stmt;
-  gcc_assert (is_gimple_call (call));
+  VEC_safe_grow_cleared (ipa_jump_func_t, gc, args->jump_functions, arg_num);
 
   /* We will deal with constants and SSA scalars first:  */
-  compute_scalar_jump_functions (info, arguments->jump_functions, call);
+  compute_scalar_jump_functions (info, args, call);
 
   /* Let's check whether there are any potential member pointers and if so,
      whether we can determine their functions as pass_through.  */
-  if (!compute_pass_through_member_ptrs (info, parms_info,
-					 arguments->jump_functions, call))
+  if (!compute_pass_through_member_ptrs (info, parms_info, args, call))
     return;
 
   /* Finally, let's check whether we actually pass a new constant member
      pointer here...  */
-  compute_cst_member_ptr_arguments (arguments->jump_functions, call);
+  compute_cst_member_ptr_arguments (args, call);
 }
 
 /* Compute jump functions for all edges - both direct and indirect - outgoing
@@ -1030,27 +1010,17 @@ ipa_compute_jump_functions (struct cgraph_node *node,
 
   for (cs = node->callees; cs; cs = cs->next_callee)
     {
-      struct cgraph_node *callee = cgraph_function_or_thunk_node (cs->callee, NULL);
+      struct cgraph_node *callee = cgraph_function_or_thunk_node (cs->callee,
+								  NULL);
       /* We do not need to bother analyzing calls to unknown
 	 functions unless they may become known during lto/whopr.  */
-      if (!cs->callee->analyzed && !flag_lto)
+      if (!callee->analyzed && !flag_lto)
 	continue;
-      ipa_count_arguments (cs);
-      /* If the descriptor of the callee is not initialized yet, we have to do
-	 it now. */
-      if (callee->analyzed)
-	ipa_initialize_node_params (callee);
-      if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
-	  != ipa_get_param_count (IPA_NODE_REF (callee)))
-	ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
       ipa_compute_jump_functions_for_edge (parms_info, cs);
     }
 
   for (cs = node->indirect_calls; cs; cs = cs->next_callee)
-    {
-      ipa_count_arguments (cs);
-      ipa_compute_jump_functions_for_edge (parms_info, cs);
-    }
+    ipa_compute_jump_functions_for_edge (parms_info, cs);
 }
 
 /* If RHS looks like a rhs of a statement loading pfn from a member
@@ -1612,12 +1582,10 @@ update_jump_functions_after_inlining (struct cgraph_edge *cs,
 }
 
 /* If TARGET is an addr_expr of a function declaration, make it the destination
-   of an indirect edge IE and return the edge.  Otherwise, return NULL.  Delta,
-   if non-NULL, is an integer constant that must be added to this pointer
-   (first parameter).  */
+   of an indirect edge IE and return the edge.  Otherwise, return NULL.  */
 
 struct cgraph_edge *
-ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
+ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 {
   struct cgraph_node *callee;
 
@@ -1630,11 +1598,11 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
     return NULL;
   ipa_check_create_node_params ();
 
-  /* We can not make edges to inline clones.  It is bug that someone removed the cgraph
-     node too early.  */
+  /* We can not make edges to inline clones.  It is bug that someone removed
+     the cgraph node too early.  */
   gcc_assert (!callee->global.inlined_to);
 
-  cgraph_make_edge_direct (ie, callee, delta ? tree_low_cst (delta, 0) : 0);
+  cgraph_make_edge_direct (ie, callee);
   if (dump_file)
     {
       fprintf (dump_file, "ipa-prop: Discovered %s call to a known target "
@@ -1646,19 +1614,8 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target, tree delta)
 	print_gimple_stmt (dump_file, ie->call_stmt, 2, TDF_SLIM);
       else
 	fprintf (dump_file, "with uid %i\n", ie->lto_stmt_uid);
-
-      if (delta)
-	{
-	  fprintf (dump_file, "          Thunk delta is ");
-	  print_generic_expr (dump_file, delta, 0);
-	  fprintf (dump_file, "\n");
-	}
     }
   callee = cgraph_function_or_thunk_node (callee, NULL);
-
-  if (ipa_get_cs_argument_count (IPA_EDGE_REF (ie))
-      != ipa_get_param_count (IPA_NODE_REF (callee)))
-    ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
 
   return ie;
 }
@@ -1681,7 +1638,7 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
   else
     return NULL;
 
-  return ipa_make_edge_direct_to_target (ie, target, NULL_TREE);
+  return ipa_make_edge_direct_to_target (ie, target);
 }
 
 /* Try to find a destination for indirect edge IE that corresponds to a
@@ -1693,7 +1650,7 @@ static struct cgraph_edge *
 try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 				   struct ipa_jump_func *jfunc)
 {
-  tree binfo, type, target, delta;
+  tree binfo, type, target;
   HOST_WIDE_INT token;
 
   if (jfunc->type == IPA_JF_KNOWN_TYPE)
@@ -1708,12 +1665,12 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
   type = ie->indirect_info->otr_type;
   binfo = get_binfo_at_offset (binfo, ie->indirect_info->anc_offset, type);
   if (binfo)
-    target = gimple_get_virt_method_for_binfo (token, binfo, &delta);
+    target = gimple_get_virt_method_for_binfo (token, binfo);
   else
     return NULL;
 
   if (target)
-    return ipa_make_edge_direct_to_target (ie, target, delta);
+    return ipa_make_edge_direct_to_target (ie, target);
   else
     return NULL;
 }
@@ -1917,19 +1874,6 @@ ipa_node_removal_hook (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
   ipa_free_node_params_substructures (IPA_NODE_REF (node));
 }
 
-static struct ipa_jump_func *
-duplicate_ipa_jump_func_array (const struct ipa_jump_func * src, size_t n)
-{
-  struct ipa_jump_func *p;
-
-  if (!src)
-    return NULL;
-
-  p = ggc_alloc_vec_ipa_jump_func (n);
-  memcpy (p, src, n * sizeof (struct ipa_jump_func));
-  return p;
-}
-
 /* Hook that is called by cgraph.c when a node is duplicated.  */
 
 static void
@@ -1937,17 +1881,14 @@ ipa_edge_duplication_hook (struct cgraph_edge *src, struct cgraph_edge *dst,
 			   __attribute__((unused)) void *data)
 {
   struct ipa_edge_args *old_args, *new_args;
-  int arg_count;
 
   ipa_check_create_edge_args ();
 
   old_args = IPA_EDGE_REF (src);
   new_args = IPA_EDGE_REF (dst);
 
-  arg_count = ipa_get_cs_argument_count (old_args);
-  ipa_set_cs_argument_count (new_args, arg_count);
-  new_args->jump_functions =
-    duplicate_ipa_jump_func_array (old_args->jump_functions, arg_count);
+  new_args->jump_functions = VEC_copy (ipa_jump_func_t, gc,
+				       old_args->jump_functions);
 
   if (iinlining_processed_edges
       && bitmap_bit_p (iinlining_processed_edges, src->uid))
@@ -1971,7 +1912,6 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
   new_info->lattices = NULL;
   new_info->ipcp_orig_node = old_info->ipcp_orig_node;
 
-  new_info->called_with_var_arguments = old_info->called_with_var_arguments;
   new_info->uses_analysis_done = old_info->uses_analysis_done;
   new_info->node_enqueued = old_info->node_enqueued;
 }
@@ -2642,36 +2582,31 @@ static void
 ipa_write_jump_function (struct output_block *ob,
 			 struct ipa_jump_func *jump_func)
 {
-  lto_output_uleb128_stream (ob->main_stream,
-			     jump_func->type);
+  streamer_write_uhwi (ob, jump_func->type);
 
   switch (jump_func->type)
     {
     case IPA_JF_UNKNOWN:
       break;
     case IPA_JF_KNOWN_TYPE:
-      lto_output_tree (ob, jump_func->value.base_binfo, true);
+      stream_write_tree (ob, jump_func->value.base_binfo, true);
       break;
     case IPA_JF_CONST:
-      lto_output_tree (ob, jump_func->value.constant, true);
+      stream_write_tree (ob, jump_func->value.constant, true);
       break;
     case IPA_JF_PASS_THROUGH:
-      lto_output_tree (ob, jump_func->value.pass_through.operand, true);
-      lto_output_uleb128_stream (ob->main_stream,
-				 jump_func->value.pass_through.formal_id);
-      lto_output_uleb128_stream (ob->main_stream,
-				 jump_func->value.pass_through.operation);
+      stream_write_tree (ob, jump_func->value.pass_through.operand, true);
+      streamer_write_uhwi (ob, jump_func->value.pass_through.formal_id);
+      streamer_write_uhwi (ob, jump_func->value.pass_through.operation);
       break;
     case IPA_JF_ANCESTOR:
-      lto_output_uleb128_stream (ob->main_stream,
-				 jump_func->value.ancestor.offset);
-      lto_output_tree (ob, jump_func->value.ancestor.type, true);
-      lto_output_uleb128_stream (ob->main_stream,
-				 jump_func->value.ancestor.formal_id);
+      streamer_write_uhwi (ob, jump_func->value.ancestor.offset);
+      stream_write_tree (ob, jump_func->value.ancestor.type, true);
+      streamer_write_uhwi (ob, jump_func->value.ancestor.formal_id);
       break;
     case IPA_JF_CONST_MEMBER_PTR:
-      lto_output_tree (ob, jump_func->value.member_cst.pfn, true);
-      lto_output_tree (ob, jump_func->value.member_cst.delta, false);
+      stream_write_tree (ob, jump_func->value.member_cst.pfn, true);
+      stream_write_tree (ob, jump_func->value.member_cst.delta, false);
       break;
     }
 }
@@ -2683,31 +2618,32 @@ ipa_read_jump_function (struct lto_input_block *ib,
 			struct ipa_jump_func *jump_func,
 			struct data_in *data_in)
 {
-  jump_func->type = (enum jump_func_type) lto_input_uleb128 (ib);
+  jump_func->type = (enum jump_func_type) streamer_read_uhwi (ib);
 
   switch (jump_func->type)
     {
     case IPA_JF_UNKNOWN:
       break;
     case IPA_JF_KNOWN_TYPE:
-      jump_func->value.base_binfo = lto_input_tree (ib, data_in);
+      jump_func->value.base_binfo = stream_read_tree (ib, data_in);
       break;
     case IPA_JF_CONST:
-      jump_func->value.constant = lto_input_tree (ib, data_in);
+      jump_func->value.constant = stream_read_tree (ib, data_in);
       break;
     case IPA_JF_PASS_THROUGH:
-      jump_func->value.pass_through.operand = lto_input_tree (ib, data_in);
-      jump_func->value.pass_through.formal_id = lto_input_uleb128 (ib);
-      jump_func->value.pass_through.operation = (enum tree_code) lto_input_uleb128 (ib);
+      jump_func->value.pass_through.operand = stream_read_tree (ib, data_in);
+      jump_func->value.pass_through.formal_id = streamer_read_uhwi (ib);
+      jump_func->value.pass_through.operation
+	= (enum tree_code) streamer_read_uhwi (ib);
       break;
     case IPA_JF_ANCESTOR:
-      jump_func->value.ancestor.offset = lto_input_uleb128 (ib);
-      jump_func->value.ancestor.type = lto_input_tree (ib, data_in);
-      jump_func->value.ancestor.formal_id = lto_input_uleb128 (ib);
+      jump_func->value.ancestor.offset = streamer_read_uhwi (ib);
+      jump_func->value.ancestor.type = stream_read_tree (ib, data_in);
+      jump_func->value.ancestor.formal_id = streamer_read_uhwi (ib);
       break;
     case IPA_JF_CONST_MEMBER_PTR:
-      jump_func->value.member_cst.pfn = lto_input_tree (ib, data_in);
-      jump_func->value.member_cst.delta = lto_input_tree (ib, data_in);
+      jump_func->value.member_cst.pfn = stream_read_tree (ib, data_in);
+      jump_func->value.member_cst.delta = stream_read_tree (ib, data_in);
       break;
     }
 }
@@ -2722,16 +2658,16 @@ ipa_write_indirect_edge_info (struct output_block *ob,
   struct cgraph_indirect_call_info *ii = cs->indirect_info;
   struct bitpack_d bp;
 
-  lto_output_sleb128_stream (ob->main_stream, ii->param_index);
-  lto_output_sleb128_stream (ob->main_stream, ii->anc_offset);
+  streamer_write_hwi (ob, ii->param_index);
+  streamer_write_hwi (ob, ii->anc_offset);
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, ii->polymorphic, 1);
-  lto_output_bitpack (&bp);
+  streamer_write_bitpack (&bp);
 
   if (ii->polymorphic)
     {
-      lto_output_sleb128_stream (ob->main_stream, ii->otr_token);
-      lto_output_tree (ob, ii->otr_type, true);
+      streamer_write_hwi (ob, ii->otr_token);
+      stream_write_tree (ob, ii->otr_type, true);
     }
 }
 
@@ -2746,14 +2682,14 @@ ipa_read_indirect_edge_info (struct lto_input_block *ib,
   struct cgraph_indirect_call_info *ii = cs->indirect_info;
   struct bitpack_d bp;
 
-  ii->param_index = (int) lto_input_sleb128 (ib);
-  ii->anc_offset = (HOST_WIDE_INT) lto_input_sleb128 (ib);
-  bp = lto_input_bitpack (ib);
+  ii->param_index = (int) streamer_read_hwi (ib);
+  ii->anc_offset = (HOST_WIDE_INT) streamer_read_hwi (ib);
+  bp = streamer_read_bitpack (ib);
   ii->polymorphic = bp_unpack_value (&bp, 1);
   if (ii->polymorphic)
     {
-      ii->otr_token = (HOST_WIDE_INT) lto_input_sleb128 (ib);
-      ii->otr_type = lto_input_tree (ib, data_in);
+      ii->otr_token = (HOST_WIDE_INT) streamer_read_hwi (ib);
+      ii->otr_type = stream_read_tree (ib, data_in);
     }
 }
 
@@ -2771,7 +2707,7 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
 
   encoder = ob->decl_state->cgraph_node_encoder;
   node_ref = lto_cgraph_encoder_encode (encoder, node);
-  lto_output_uleb128_stream (ob->main_stream, node_ref);
+  streamer_write_uhwi (ob, node_ref);
 
   bp = bitpack_create (ob->main_stream);
   gcc_assert (info->uses_analysis_done
@@ -2780,13 +2716,12 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
   gcc_assert (!info->ipcp_orig_node);
   for (j = 0; j < ipa_get_param_count (info); j++)
     bp_pack_value (&bp, ipa_is_param_used (info, j), 1);
-  lto_output_bitpack (&bp);
+  streamer_write_bitpack (&bp);
   for (e = node->callees; e; e = e->next_callee)
     {
       struct ipa_edge_args *args = IPA_EDGE_REF (e);
 
-      lto_output_uleb128_stream (ob->main_stream,
-				 ipa_get_cs_argument_count (args));
+      streamer_write_uhwi (ob, ipa_get_cs_argument_count (args));
       for (j = 0; j < ipa_get_cs_argument_count (args); j++)
 	ipa_write_jump_function (ob, ipa_get_ith_jump_func (args, j));
     }
@@ -2794,8 +2729,7 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
     {
       struct ipa_edge_args *args = IPA_EDGE_REF (e);
 
-      lto_output_uleb128_stream (ob->main_stream,
-				 ipa_get_cs_argument_count (args));
+      streamer_write_uhwi (ob, ipa_get_cs_argument_count (args));
       for (j = 0; j < ipa_get_cs_argument_count (args); j++)
 	ipa_write_jump_function (ob, ipa_get_ith_jump_func (args, j));
       ipa_write_indirect_edge_info (ob, e);
@@ -2815,7 +2749,7 @@ ipa_read_node_info (struct lto_input_block *ib, struct cgraph_node *node,
 
   ipa_initialize_node_params (node);
 
-  bp = lto_input_bitpack (ib);
+  bp = streamer_read_bitpack (ib);
   if (ipa_get_param_count (info) != 0)
     info->uses_analysis_done = true;
   info->node_enqueued = false;
@@ -2824,29 +2758,27 @@ ipa_read_node_info (struct lto_input_block *ib, struct cgraph_node *node,
   for (e = node->callees; e; e = e->next_callee)
     {
       struct ipa_edge_args *args = IPA_EDGE_REF (e);
-      int count = lto_input_uleb128 (ib);
+      int count = streamer_read_uhwi (ib);
 
-      ipa_set_cs_argument_count (args, count);
       if (!count)
 	continue;
+      VEC_safe_grow_cleared (ipa_jump_func_t, gc, args->jump_functions, count);
 
-      args->jump_functions = ggc_alloc_cleared_vec_ipa_jump_func
-	(ipa_get_cs_argument_count (args));
       for (k = 0; k < ipa_get_cs_argument_count (args); k++)
 	ipa_read_jump_function (ib, ipa_get_ith_jump_func (args, k), data_in);
     }
   for (e = node->indirect_calls; e; e = e->next_callee)
     {
       struct ipa_edge_args *args = IPA_EDGE_REF (e);
-      int count = lto_input_uleb128 (ib);
+      int count = streamer_read_uhwi (ib);
 
-      ipa_set_cs_argument_count (args, count);
       if (count)
 	{
-          args->jump_functions = ggc_alloc_cleared_vec_ipa_jump_func
-	    (ipa_get_cs_argument_count (args));
+	  VEC_safe_grow_cleared (ipa_jump_func_t, gc, args->jump_functions,
+				 count);
           for (k = 0; k < ipa_get_cs_argument_count (args); k++)
-	    ipa_read_jump_function (ib, ipa_get_ith_jump_func (args, k), data_in);
+	    ipa_read_jump_function (ib, ipa_get_ith_jump_func (args, k),
+				    data_in);
 	}
       ipa_read_indirect_edge_info (ib, data_in, e);
     }
@@ -2875,7 +2807,7 @@ ipa_prop_write_jump_functions (cgraph_node_set set)
 	count++;
     }
 
-  lto_output_uleb128_stream (ob->main_stream, count);
+  streamer_write_uhwi (ob, count);
 
   /* Process all of the functions.  */
   for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
@@ -2885,7 +2817,7 @@ ipa_prop_write_jump_functions (cgraph_node_set set)
 	  && IPA_NODE_REF (node) != NULL)
         ipa_write_node_info (ob, node);
     }
-  lto_output_1_stream (ob->main_stream, 0);
+  streamer_write_char_stream (ob->main_stream, 0);
   produce_asm (ob, NULL);
   destroy_output_block (ob);
 }
@@ -2912,7 +2844,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
   data_in =
     lto_data_in_create (file_data, (const char *) data + string_offset,
 			header->string_size, NULL);
-  count = lto_input_uleb128 (&ib_main);
+  count = streamer_read_uhwi (&ib_main);
 
   for (i = 0; i < count; i++)
     {
@@ -2920,7 +2852,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
       struct cgraph_node *node;
       lto_cgraph_encoder_t encoder;
 
-      index = lto_input_uleb128 (&ib_main);
+      index = streamer_read_uhwi (&ib_main);
       encoder = file_data->cgraph_node_encoder;
       node = lto_cgraph_encoder_deref (encoder, index);
       gcc_assert (node->analyzed);
@@ -2962,7 +2894,6 @@ void
 ipa_update_after_lto_read (void)
 {
   struct cgraph_node *node;
-  struct cgraph_edge *cs;
 
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
@@ -2970,17 +2901,4 @@ ipa_update_after_lto_read (void)
   for (node = cgraph_nodes; node; node = node->next)
     if (node->analyzed)
       ipa_initialize_node_params (node);
-
-  for (node = cgraph_nodes; node; node = node->next)
-    if (node->analyzed)
-      for (cs = node->callees; cs; cs = cs->next_callee)
-	{
-	  struct cgraph_node *callee;
-
-	  callee = cgraph_function_or_thunk_node (cs->callee, NULL);
-	  if (ipa_get_cs_argument_count (IPA_EDGE_REF (cs))
-	      != ipa_get_param_count (IPA_NODE_REF (callee)))
-	    ipa_set_called_with_variable_arg (IPA_NODE_REF (callee));
-	}
 }
-

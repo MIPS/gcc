@@ -456,17 +456,23 @@ cgraph_debug_gimple_stmt (struct function *this_cfun, gimple stmt)
 static bool
 verify_edge_corresponds_to_fndecl (struct cgraph_edge *e, tree decl)
 {
-  if (!e->callee->global.inlined_to
-      && decl
-      && cgraph_get_node (decl)
-      && (e->callee->former_clone_of
-	  != cgraph_function_or_thunk_node (cgraph_get_node (decl), NULL)->decl)
+  struct cgraph_node *node;
+
+  if (!decl || e->callee->global.inlined_to)
+    return false;
+  node = cgraph_get_node (decl);
+
+  /* We do not know if a node from a different partition is an alias or what it
+     aliases and therefore cannot do the former_clone_of check reliably.  */
+  if (!node || node->in_other_partition)
+    return false;
+  node = cgraph_function_or_thunk_node (node, NULL);
+
+  if ((e->callee->former_clone_of != node->decl)
       /* IPA-CP sometimes redirect edge to clone and then back to the former
 	 function.  This ping-pong has to go, eventaully.  */
-      && (cgraph_function_or_thunk_node (cgraph_get_node (decl), NULL)
-	  != cgraph_function_or_thunk_node (e->callee, NULL))
-      && !clone_of_p (cgraph_get_node (decl),
-		      e->callee))
+      && (node != cgraph_function_or_thunk_node (e->callee, NULL))
+      && !clone_of_p (node, e->callee))
     return true;
   else
     return false;
@@ -1472,7 +1478,6 @@ thunk_adjust (gimple_stmt_iterator * bsi,
       tree vtabletmp;
       tree vtabletmp2;
       tree vtabletmp3;
-      tree offsettmp;
 
       if (!vtable_entry_type)
 	{
@@ -1521,15 +1526,10 @@ thunk_adjust (gimple_stmt_iterator * bsi,
       mark_symbols_for_renaming (stmt);
       find_referenced_vars_in (stmt);
 
-      /* Cast to sizetype.  */
-      offsettmp = create_tmp_var (sizetype, "offset");
-      stmt = gimple_build_assign (offsettmp, fold_convert (sizetype, vtabletmp3));
-      gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
-      mark_symbols_for_renaming (stmt);
-      find_referenced_vars_in (stmt);
-
       /* Adjust the `this' pointer.  */
-      ptr = fold_build_pointer_plus_loc (input_location, ptr, offsettmp);
+      ptr = fold_build_pointer_plus_loc (input_location, ptr, vtabletmp3);
+      ptr = force_gimple_operand_gsi (bsi, ptr, true, NULL_TREE, false,
+				      GSI_CONTINUE_LINKING);
     }
 
   if (!this_adjusting
@@ -2367,15 +2367,12 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   tree decl = gimple_call_fndecl (e->call_stmt);
   gimple new_stmt;
   gimple_stmt_iterator gsi;
-  bool gsi_computed = false;
 #ifdef ENABLE_CHECKING
   struct cgraph_node *node;
 #endif
 
   if (e->indirect_unknown_callee
-      || decl == e->callee->decl
-      /* Don't update call from same body alias to the real function.  */
-      || (decl && cgraph_get_node (decl) == cgraph_get_node (e->callee->decl)))
+      || decl == e->callee->decl)
     return e->call_stmt;
 
 #ifdef ENABLE_CHECKING
@@ -2400,22 +2397,6 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	}
     }
 
-  if (e->indirect_info &&
-      e->indirect_info->thunk_delta != 0
-      && (!e->callee->clone.combined_args_to_skip
-	  || !bitmap_bit_p (e->callee->clone.combined_args_to_skip, 0)))
-    {
-      if (cgraph_dump_file)
-	fprintf (cgraph_dump_file, "          Thunk delta is "
-		 HOST_WIDE_INT_PRINT_DEC "\n", e->indirect_info->thunk_delta);
-      gsi = gsi_for_stmt (e->call_stmt);
-      gsi_computed = true;
-      gimple_adjust_this_by_delta (&gsi,
-				   build_int_cst (sizetype,
-					       e->indirect_info->thunk_delta));
-      e->indirect_info->thunk_delta = 0;
-    }
-
   if (e->callee->clone.combined_args_to_skip)
     {
       int lp_nr;
@@ -2429,8 +2410,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  && TREE_CODE (gimple_vdef (new_stmt)) == SSA_NAME)
 	SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
 
-      if (!gsi_computed)
-	gsi = gsi_for_stmt (e->call_stmt);
+      gsi = gsi_for_stmt (e->call_stmt);
       gsi_replace (&gsi, new_stmt, false);
       /* We need to defer cleaning EH info on the new statement to
          fixup-cfg.  We may not have dominator information at this point
