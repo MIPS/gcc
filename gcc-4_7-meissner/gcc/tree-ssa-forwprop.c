@@ -534,6 +534,23 @@ forward_propagate_into_gimple_cond (gimple stmt)
       return (cfg_changed || is_gimple_min_invariant (tmp)) ? 2 : 1;
     }
 
+  /* Canonicalize _Bool == 0 and _Bool != 1 to _Bool != 0 by swapping edges.  */
+  if ((TREE_CODE (TREE_TYPE (rhs1)) == BOOLEAN_TYPE
+       || (INTEGRAL_TYPE_P (TREE_TYPE (rhs1))
+	   && TYPE_PRECISION (TREE_TYPE (rhs1)) == 1))
+      && ((code == EQ_EXPR
+	   && integer_zerop (rhs2))
+	  || (code == NE_EXPR
+	      && integer_onep (rhs2))))
+    {
+      basic_block bb = gimple_bb (stmt);
+      gimple_cond_set_code (stmt, NE_EXPR);
+      gimple_cond_set_rhs (stmt, build_zero_cst (TREE_TYPE (rhs1)));
+      EDGE_SUCC (bb, 0)->flags ^= (EDGE_TRUE_VALUE|EDGE_FALSE_VALUE);
+      EDGE_SUCC (bb, 1)->flags ^= (EDGE_TRUE_VALUE|EDGE_FALSE_VALUE);
+      return 1;
+    }
+
   return 0;
 }
 
@@ -548,6 +565,7 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
   gimple stmt = gsi_stmt (*gsi_p);
   tree tmp = NULL_TREE;
   tree cond = gimple_assign_rhs1 (stmt);
+  bool swap = false;
 
   /* We can do tree combining on SSA_NAME and comparison expressions.  */
   if (COMPARISON_CLASS_P (cond))
@@ -557,17 +575,27 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
 					       TREE_OPERAND (cond, 1));
   else if (TREE_CODE (cond) == SSA_NAME)
     {
+      enum tree_code code;
       tree name = cond;
       gimple def_stmt = get_prop_source_stmt (name, true, NULL);
       if (!def_stmt || !can_propagate_from (def_stmt))
 	return 0;
 
-      if (TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_comparison)
+      code = gimple_assign_rhs_code (def_stmt);
+      if (TREE_CODE_CLASS (code) == tcc_comparison)
 	tmp = fold_build2_loc (gimple_location (def_stmt),
-			       gimple_assign_rhs_code (def_stmt),
+			       code,
 			       boolean_type_node,
 			       gimple_assign_rhs1 (def_stmt),
 			       gimple_assign_rhs2 (def_stmt));
+      else if ((code == BIT_NOT_EXPR
+		&& TYPE_PRECISION (TREE_TYPE (cond)) == 1)
+	       || (code == BIT_XOR_EXPR
+		   && integer_onep (gimple_assign_rhs2 (def_stmt))))
+	{
+	  tmp = gimple_assign_rhs1 (def_stmt);
+	  swap = true;
+	}
     }
 
   if (tmp)
@@ -586,7 +614,15 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
       else if (integer_zerop (tmp))
 	gimple_assign_set_rhs_from_tree (gsi_p, gimple_assign_rhs3 (stmt));
       else
-	gimple_assign_set_rhs1 (stmt, unshare_expr (tmp));
+	{
+	  gimple_assign_set_rhs1 (stmt, unshare_expr (tmp));
+	  if (swap)
+	    {
+	      tree t = gimple_assign_rhs2 (stmt);
+	      gimple_assign_set_rhs2 (stmt, gimple_assign_rhs3 (stmt));
+	      gimple_assign_set_rhs3 (stmt, t);
+	    }
+	}
       stmt = gsi_stmt (*gsi_p);
       update_stmt (stmt);
 
@@ -2377,21 +2413,23 @@ ssa_forward_propagate_and_combine (void)
 	      else
 		gsi_next (&gsi);
 	    }
-	  else if (code == POINTER_PLUS_EXPR && can_propagate_from (stmt))
+	  else if (code == POINTER_PLUS_EXPR)
 	    {
-	      if (TREE_CODE (gimple_assign_rhs2 (stmt)) == INTEGER_CST
+	      tree off = gimple_assign_rhs2 (stmt);
+	      if (TREE_CODE (off) == INTEGER_CST
+		  && can_propagate_from (stmt)
+		  && !simple_iv_increment_p (stmt)
 		  /* ???  Better adjust the interface to that function
 		     instead of building new trees here.  */
 		  && forward_propagate_addr_expr
-		  (lhs,
-		   build1 (ADDR_EXPR,
-			   TREE_TYPE (rhs),
-			   fold_build2 (MEM_REF,
-					TREE_TYPE (TREE_TYPE (rhs)),
-					rhs,
-					fold_convert
-					(ptr_type_node,
-					 gimple_assign_rhs2 (stmt))))))
+		       (lhs,
+			build1_loc (gimple_location (stmt),
+				    ADDR_EXPR, TREE_TYPE (rhs),
+				    fold_build2 (MEM_REF,
+						 TREE_TYPE (TREE_TYPE (rhs)),
+						 rhs,
+						 fold_convert (ptr_type_node,
+							       off)))))
 		{
 		  release_defs (stmt);
 		  todoflags |= TODO_remove_unused_locals;

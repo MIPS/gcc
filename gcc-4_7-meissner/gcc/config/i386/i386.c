@@ -2168,7 +2168,15 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_AVX128_OPTIMAL: Enable 128-bit AVX instruction generation for
      the auto-vectorizer.  */
-  m_BDVER
+  m_BDVER,
+
+  /* X86_TUNE_REASSOC_INT_TO_PARALLEL: Try to produce parallel computations
+     during reassociation of integer computation.  */
+  m_ATOM,
+
+  /* X86_TUNE_REASSOC_FP_TO_PARALLEL: Try to produce parallel computations
+     during reassociation of fp computation.  */
+  m_ATOM
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -7007,7 +7015,7 @@ ix86_function_value_regno_p (const unsigned int regno)
 {
   switch (regno)
     {
-    case 0:
+    case AX_REG:
       return true;
 
     case FIRST_FLOAT_REG:
@@ -7045,18 +7053,18 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
      we normally prevent this case when mmx is not available.  However
      some ABIs may require the result to be returned like DImode.  */
   if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8)
-    regno = TARGET_MMX ? FIRST_MMX_REG : 0;
+    regno = FIRST_MMX_REG;
 
   /* 16-byte vector modes in %xmm0.  See ix86_return_in_memory for where
      we prevent this case when sse is not available.  However some ABIs
      may require the result to be returned like integer TImode.  */
   else if (mode == TImode
 	   || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
-    regno = TARGET_SSE ? FIRST_SSE_REG : 0;
+    regno = FIRST_SSE_REG;
 
   /* 32-byte vector modes in %ymm0.   */
   else if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 32)
-    regno = TARGET_AVX ? FIRST_SSE_REG : 0;
+    regno = FIRST_SSE_REG;
 
   /* Floating point return values in %st(0) (unless -mno-fp-ret-in-387).  */
   else if (X87_FLOAT_MODE_P (mode) && TARGET_FLOAT_RETURNS_IN_80387)
@@ -7090,6 +7098,8 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
   /* Handle libcalls, which don't provide a type node.  */
   if (valtype == NULL)
     {
+      unsigned int regno;
+
       switch (mode)
 	{
 	case SFmode:
@@ -7100,15 +7110,19 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 	case SDmode:
 	case DDmode:
 	case TDmode:
-	  return gen_rtx_REG (mode, FIRST_SSE_REG);
+	  regno = FIRST_SSE_REG;
+	  break;
 	case XFmode:
 	case XCmode:
-	  return gen_rtx_REG (mode, FIRST_FLOAT_REG);
+	  regno = FIRST_FLOAT_REG;
+	  break;
 	case TCmode:
 	  return NULL;
 	default:
-	  return gen_rtx_REG (mode, AX_REG);
+	  regno = AX_REG;
 	}
+
+      return gen_rtx_REG (mode, regno);
     }
   else if (POINTER_TYPE_P (valtype))
     {
@@ -34843,6 +34857,8 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 #define TARGET_SCHED_DISPATCH has_dispatch
 #undef TARGET_SCHED_DISPATCH_DO
 #define TARGET_SCHED_DISPATCH_DO do_dispatch
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH ix86_reassociation_width
 
 /* The size of the dispatch window is the total number of bytes of
    object code allowed in a window.  */
@@ -35638,6 +35654,32 @@ has_dispatch (rtx insn, int action)
       }
 
   return false;
+}
+
+/* Implementation of reassociation_width target hook used by
+   reassoc phase to identify parallelism level in reassociated
+   tree.  Statements tree_code is passed in OPC.  Arguments type
+   is passed in MODE.
+
+   Currently parallel reassociation is enabled for Atom
+   processors only and we set reassociation width to be 2
+   because Atom may issue up to 2 instructions per cycle.
+
+   Return value should be fixed if parallel reassociation is
+   enabled for other processors.  */
+
+static int
+ix86_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
+			  enum machine_mode mode)
+{
+  int res = 1;
+
+  if (INTEGRAL_MODE_P (mode) && TARGET_REASSOC_INT_TO_PARALLEL)
+    res = 2;
+  else if (FLOAT_MODE_P (mode) && TARGET_REASSOC_FP_TO_PARALLEL)
+    res = 2;
+
+  return res;
 }
 
 /* ??? No autovectorization into MMX or 3DNOW until we can reliably
