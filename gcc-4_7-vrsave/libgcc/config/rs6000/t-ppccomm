@@ -15,7 +15,8 @@ LIB2ADD_ST += crtsavfpr.S crtresfpr.S \
   e500crtsav64gprctr.S \
   e500crtsavg32gpr.S \
   e500crtsavg64gpr.S \
-  e500crtsavg64gprctr.S
+  e500crtsavg64gprctr.S \
+  vrsave-constructor.S 
 
 EXTRA_PARTS += crtbegin$(objext) crtend$(objext) \
   crtbeginS$(objext) crtendS$(objext) crtbeginT$(objext) \
@@ -93,6 +94,9 @@ e500crtsavg64gpr.S: $(gcc_srcdir)/config/rs6000/e500crtsavg64gpr.asm
 
 e500crtsavg64gprctr.S: $(gcc_srcdir)/config/rs6000/e500crtsavg64gprctr.asm
 	cat $(gcc_srcdir)/config/rs6000/e500crtsavg64gprctr.asm >e500crtsavg64gprctr.S
+
+vrsave-constructor.S: $(gcc_srcdir)/config/rs6000/vrsave-constructor.asm
+	cat $(gcc_srcdir)/config/rs6000/vrsave-constructor.asm > vrsave-constructor.S
 
 ecrti$(objext): ecrti.S
 	$(crt_compile) -c ecrti.S

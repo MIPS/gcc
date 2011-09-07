@@ -325,6 +325,10 @@ mvrsave=yes
 Target RejectNegative Alias(mvrsave)
 Deprecated option.  Use -mvrsave instead
 
+mvrsave-constructor
+Target Report Var(TARGET_ALTIVEC_VRSAVE_CONSTRUCTOR) Save
+Generate a constructor that sets the VRSAVE register if any non-volatile Altivec register is used.
+
 mblock-move-inline-limit=
 Target Report Var(rs6000_block_move_inline_limit) Init(0) RejectNegative Joined UInteger Save
 Specify how many bytes should be moved inline before calling out to memcpy/memmove

@@ -1,5 +1,10 @@
 2011-09-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vrsave-constructor.asm: New file for vrsave
+	support.
+
+	* config/rs6000/rs6000.opt (-mvrsave-constructor): New option.
+
 	Clone branch from 178641.
 	* REVISION: New file.
 
