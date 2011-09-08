@@ -2,6 +2,14 @@
 
 	Backport from mainline
 
+	2010-06-09  Jan Hubicka  <jh@suse.cz>
+
+	* system.h (gcc_checking_assert): New macro.
+
+2011-09-08  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+
 	2011-08-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/46862
