@@ -1,3 +1,145 @@
+2011-09-08  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/arm/arm.md (push_multi): Emit predicates.
+	(push_fp_multi): Likewise.
+	* config/arm/arm.c (vfp_output_fstmd): Likewise.
+
+2011-09-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/33255 - Support -Wunused-local-typedefs warning
+	* c-decl.c (lookup_name): Use the new maybe_record_typedef_use.
+    	(pushdecl): Use the new
+    	record_locally_defined_typedef.
+    	(store_parm_decls): Allocate cfun->language.
+    	(finish_function): Use the new maybe_warn_unused_local_typedefs,
+    	and free cfun->language.
+    	(c_push_function_context): Allocate cfun->language here only if
+    	needed.
+    	(c_pop_function_context): Likewise, mark cfun->language
+    	for collection only when it should be done.
+    	* c-common.c (handle_used_attribute): Don't ignore TYPE_DECL
+    	nodes.
+    	* c-typeck.c (c_expr_sizeof_type, c_cast_expr): Use the new
+    	maybe_record_local_typedef_use.
+	* doc/invoke.texi: Update documentation for
+	-Wunused-local-typedefs.
+
+2011-09-08  Enkovich Ilya  <ilya.enkovich@intel.com>
+
+	* config/i386/i386-protos.h (ix86_lea_outperforms): New.
+	(ix86_avoid_lea_for_add): Likewise.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(ix86_split_lea_for_addr): Likewise.
+
+	* config/i386/i386.c (LEA_MAX_STALL): New.
+	(increase_distance): Likewise.
+	(insn_defines_reg): Likewise.
+	(insn_uses_reg_mem): Likewise.
+	(distance_non_agu_define_in_bb): Likewise.
+	(distance_agu_use_in_bb): Likewise.
+	(ix86_lea_outperforms): Likewise.
+	(ix86_ok_to_clobber_flags): Likewise.
+	(ix86_avoid_lea_for_add): Likewise.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(ix86_split_lea_for_addr): Likewise.
+	(distance_non_agu_define): Search in pred BBs added.
+	(distance_agu_use): Search in succ BBs added.
+	(IX86_LEA_PRIORITY): Value changed from 2 to 0.
+	(LEA_SEARCH_THRESHOLD): Now depends on LEA_MAX_STALL.
+	(ix86_lea_for_add_ok): Use ix86_lea_outperforms to make decision.
+
+	* config/i386/i386.md: Split added to transform non destructive
+	add into move and add.
+	(lea_1): transformed into insn_and_split to avoid AGU stalls.
+	(lea<mode>_2): Likewise.
+
+2011-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/50287
+	* ipa-split.c (split_function): Do not create SSA names for
+	non-gimple-registers.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/19831
+	* tree-ssa-dce.c (mark_all_reaching_defs_necessary_1): Also
+	skip builtins with vdefs that do not really store something.
+	(propagate_necessity): For calls to free that we can associate
+	with an allocation function do not mark the freed pointer
+	definition necessary.
+	(eliminate_unnecessary_stmts): Remove a call to free if
+	the associated call to an allocation function is not necessary.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/19831
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary): Do not mark
+	allocation functions as necessary.
+
+2011-09-08  Iain Sandoe  <iains@gcc.gnu.org>
+
+	*config/darwin-driver.c (darwin_find_version_from_kernel): New routine 
+	cut from ... (darwin_default_min_version): Amended to provide defaults
+	for the cross directory case.
+	(darwin_driver_init): call darwin_default_min_version unconditionally.
+	* config/darwin.h (DEF_MIN_OSX_VERSION): New.
+	* config/darwin9.h: Likewise.
+	* config/darwin10.h: Likewise.
+	* config/rs6000/darwin7.h: Likewise.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* config/i386/i386.c (ix86_prepare_sse_fp_compare_args): Return
+	code early if TARGET_AVX.
+	(ix86_expand_fp_vcond): Handle LTGT and UNEQ.
+
+2011-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (sseinsnmode): Remove 32-byte integer vector
+	duplicates.
+
+	PR target/50310
+	* config/i386/sse.md (*andnot<mode>3, *<code><mode>3): Fix up
+	"mode" attribute computation.
+
+2011-09-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* regrename.c (struct du_head): Make nregs signed.
+	(closed_chains): Remove.
+	(create_new_chain): Return the new chain.
+	(chain_from_id): New static function.
+	(dump_def_use_chain): Change argument to be an int, indicating
+	the first ID to print.  All callers changed.
+	(merge_overlapping_regs): Use chain_from_id.  Assert that
+	chains don't conflict with themselves.
+	(rename_chains): Take no argument.  Iterate over id_to_chain
+	rather to find chains to rename.  Clear tick before the main
+	loop.
+	(struct incoming_reg_info): New struct.
+	(struct bb_rename_info): New struct.
+	(init_rename_info, set_incoming_from_chain, merge_chains): New
+	static functions.
+	(regrename_analyze): New static function, broken out of
+	regrename_optimize.  Record and make use of open chain information
+	at basic block boundaries, and merge chains where possible.
+	(scan_rtx_reg): Make this_nregs signed.  Don't update
+	closed_chains.
+	(build_def_use): Return a bool to indicate success.  All callers
+	changed.  Don't initialize global data here.
+	(regrename_optimize): Move most code out of here into
+	regrename_analyze.
+	* regs.h (add_range_to_hard_reg_set, remove_range_from_hard_reg_set,
+	range_overlaps_hard_reg_set_p, range_in_hard_reg_set_p): New
+	static inline functions.
+	* vec.h (FOR_EACH_VEC_ELT_FROM): New macro.
+
+	* bb-reorder.c (insert_section_boundary_note): Don't check
+	optimize_function_for_speed_p.
+	(gate_handle_partition_blocks): Do it here instead.
+	(gate_handle_reorder_blocks): Move preliminary checks here ...
+	(rest_of_handle_reorder_blocks): ... from here.
+
 2011-09-07  Martin Jambor  <mjambor@suse.cz>
 
 	PR middle-end/50301

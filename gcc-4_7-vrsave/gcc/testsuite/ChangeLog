@@ -1,3 +1,86 @@
+2011-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50324
+	* g++.dg/cpp0x/sfinae28.C: New.
+
+2011-09-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/33255 - Support -Wunused-local-typedefs warning
+	* g++.dg/warn/Wunused-local-typedefs.C: New test file.
+	* c-c++-common/Wunused-local-typedefs.c: Likewise.
+
+2011-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/50287
+	* gcc.dg/torture/pr50287.c: New test.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/19831
+	* gcc.dg/tree-ssa/pr19831-1.c: New testcase.
+	* gcc.dg/tree-ssa/pr19831-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr19831-3.c: Likewise.
+	* gcc.dg/errno-1.c: Adjust.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/19831
+	* gcc.dg/tree-ssa/ssa-dce-8.c: New testcase.
+
+2011-09-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44646
+	* gfortran.dg/do_concurrent_1.f90: New.
+	* gfortran.dg/do_concurrent_2.f90: New.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* gcc.c-torture/execute/ieee/pr50310.c: New test.
+	* gcc.dg/pr50310-2.c: New test.
+
+2011-09-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48095
+	* gfortran.dg/derived_constructor_comps_2.f90: Modified.
+	* gfortran.dg/impure_constructor_1.f90: Modified.
+	* gfortran.dg/proc_ptr_comp_33.f90: New.
+
+2011-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* gcc.dg/pr50310-1.c: New test.
+
+2011-09-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR middle-end/48571
+	* gcc.c-torture/execute/pr48571-1.c (bar): Use offsets sizeof(int)
+	instead of 4.
+	
+2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50309
+	* g++.dg/cpp0x/noexcept14.C: New.
+
+2011-09-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-ref3.C: New.
+
+	* g++.dg/cpp0x/sfinae11.C: Check for explanatory diagnostic.
+
+2011-09-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.dg/section1.c: Don't xfail for avr.
+
+2011-09-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR tree-optimization/50322
+	* gcc.dg/tree-ssa/ivopts-lt.c: Add xfails for avr.
+
+2011-09-07  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/tree-ssa/pr49911.C: Added flag -fstrict-enums.
+
 2011-09-07  Martin Jambor  <mjambor@suse.cz>
 
 	PR tree-optimization/49911
