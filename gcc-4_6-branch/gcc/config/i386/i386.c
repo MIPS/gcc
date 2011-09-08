@@ -12799,7 +12799,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, dest));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
       break;
 
@@ -12830,7 +12830,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  rtx x = ix86_tls_module_base ();
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV,
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL,
 			       gen_rtx_MINUS (Pmode, x, tp));
 	}
 
@@ -12843,7 +12843,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
 
       break;
@@ -18781,6 +18781,11 @@ ix86_prepare_sse_fp_compare_args (rtx dest, enum rtx_code code,
 {
   rtx tmp;
 
+  /* AVX supports all the needed comparisons, no need to swap arguments
+     nor help reload.  */
+  if (TARGET_AVX)
+    return code;
+
   switch (code)
     {
     case LTGT:
@@ -19029,7 +19034,32 @@ ix86_expand_fp_vcond (rtx operands[])
   code = ix86_prepare_sse_fp_compare_args (operands[0], code,
 					   &operands[4], &operands[5]);
   if (code == UNKNOWN)
-    return false;
+    {
+      rtx temp;
+      switch (GET_CODE (operands[3]))
+	{
+	case LTGT:
+	  temp = ix86_expand_sse_cmp (operands[0], ORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], NE, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = AND;
+	  break;
+	case UNEQ:
+	  temp = ix86_expand_sse_cmp (operands[0], UNORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], EQ, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = IOR;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      cmp = expand_simple_binop (GET_MODE (cmp), code, temp, cmp, cmp, 1,
+				 OPTAB_DIRECT);
+      ix86_expand_sse_movcc (operands[0], cmp, operands[1], operands[2]);
+      return true;
+    }
 
   if (ix86_expand_sse_fp_minmax (operands[0], code, operands[4],
 				 operands[5], operands[1], operands[2]))

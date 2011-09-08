@@ -1,3 +1,101 @@
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* gcc.c-torture/execute/ieee/pr50310.c: New test.
+	* gcc.dg/pr50310-2.c: New test.
+
+2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50309
+	* g++.dg/cpp0x/noexcept11.C: New.
+
+2011-09-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	* g++.dg/ext/altivec-17.C: Fix dg-error to match current compiler.
+
+2011-09-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20110906-1.c: New test.
+
+2011-09-06  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.c-torture/execute/pr49886.c: Move to...
+	* gcc.dg/torture/pr49886.c: ...here. Xfail run test for -O2 and above.
+
+2011-09-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49267
+	* g++.dg/cpp0x/rv-conv1.C: New.
+
+2011-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-layout-1_test.h: Decrease bitfield size
+	to work even with -fshort-enums.
+
+2011-09-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49886
+	* gcc.c-torture/execute/pr49886.c: New testcase.
+	* gfortran.fortran-torture/compile/pr50260.f90: Likewise.
+
+2011-09-01  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/50178
+	* gfortran.dg/vect/pr50178.f90: New test.
+
+2011-08-29  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/dfp/base.C: New test.
+
+2011-08-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50089
+	* g++.dg/cpp0x/lambda/lambda-qualified.C: New.
+
+	PR c++/50220
+	* g++.dg/cpp0x/lambda/lambda-50220.C: New.
+
+	PR c++/50234
+	* g++.dg/cpp0x/constexpr-value3.C: New.
+
+2011-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50224
+	* g++.dg/cpp0x/lambda/lambda-use2.C: New.
+
+2011-08-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR libfortran/50192
+	* gfortran.dg/widechar_compare_1.f90:  New test.
+
+2011-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50202
+	* gcc.target/i386/pr50202.c: New test.
+
+2011-08-26  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.dg/pointer_comp_init_1.f90: New test.
+
+2011-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/50179
+	* c-c++-common/Wunused-var-14.c: New test.
+
+2011-08-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50157
+	* g++.dg/cpp0x/sfinae27.C: New.
+
+2011-08-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50163
+	* gfortran.dg/initialization_28.f90: New.
+
 2011-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/48722
