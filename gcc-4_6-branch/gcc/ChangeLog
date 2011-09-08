@@ -1,3 +1,9 @@
+2011-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/50191
+	* dwarf2out.c (mem_loc_descriptor) <case MEM>: Try
+	avoid_constant_pool_reference first instead of last.
+
 2011-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* gthr-posix.h (__gthread_active_p): Do not use preprocessor
