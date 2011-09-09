@@ -3113,17 +3113,30 @@ contains_pseudo_p (rtx x, bool spilled_p)
   return false;
 }
 
-/* Process all regs in *LOC and change them on equivalent
-   substitution.  Return true if any change was done.  */
+/* Process all regs in debug location *LOC and change them on
+   equivalent substitution.  Return true if any change was done.  */
 static bool
-equivalence_change_p (rtx *loc)
+debug_loc_equivalence_change_p (rtx *loc)
 {
-  rtx subst, x = *loc;
+  rtx subst, reg, x = *loc;
   bool result = false;
   enum rtx_code code = GET_CODE (x);
   const char *fmt;
   int i, j;
 
+  if (code == SUBREG)
+    {
+      reg = SUBREG_REG (x);
+      if ((subst = get_equiv_substitution (reg)) != reg
+	  && GET_MODE (subst) == VOIDmode)
+	{
+	  /* We cannot reload debug location.  Simplify subreg here
+	     while we know the inner mode.  */
+	  *loc = simplify_gen_subreg (GET_MODE (x), subst,
+				      GET_MODE (reg), SUBREG_BYTE (x));
+	  return true;
+	}
+    }
   if (code == REG && (subst = get_equiv_substitution (x)) != x)
     {
       *loc = subst;
@@ -3135,10 +3148,11 @@ equivalence_change_p (rtx *loc)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	result = equivalence_change_p (&XEXP (x, i)) || result;
+	result = debug_loc_equivalence_change_p (&XEXP (x, i)) || result;
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  result = equivalence_change_p (&XVECEXP (x, i, j)) || result;
+	  result
+	    = debug_loc_equivalence_change_p (&XVECEXP (x, i, j)) || result;
     }
   return result;
 }
@@ -3237,7 +3251,7 @@ lra_constraints (bool first_p)
 	  /* We need to check equivalence in debug insn and change
 	     pseudo to the equivalent value if necessary.  */
 	  curr_id = lra_get_insn_recog_data (curr_insn);
-	  if (equivalence_change_p (curr_id->operand_loc[0]))
+	  if (debug_loc_equivalence_change_p (curr_id->operand_loc[0]))
 	    changed_p = true;
 	}
       else if (INSN_P (curr_insn))

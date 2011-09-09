@@ -1,3 +1,9 @@
+2011-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (equivalence_change_p): Rename to
+	debug_loc_equivalence_change_p.  Process subreg of reg whose
+	equivalence mode is unknown.
+
 2011-09-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	Revert:
