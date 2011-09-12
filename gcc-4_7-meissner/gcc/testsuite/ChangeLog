@@ -1,9 +1,92 @@
+2011-09-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp (mips_option_groups): Add debug options.
+	* gcc.target/mips/interrupt_handler-2.c: New test.
+	* gcc.target/mips/interrupt_handler-3.c: Likewise.
+
+2011-09-12  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/fntmpdefarg2.C: Add more tests.
+
+	* g++.dg/cpp0x/explicit7.C: New.
+
+2011-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/50212
+	* g++.dg/other/pr50212.C: New test.
+
+2011-09-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/43746
+	* testsuite/gcc.target/avr/torture/avr-torture.exp
+	(AVR_TORTURE_OPTIONS): Add test cases "-O2 -fdata-sections" and
+	"-O2 -fmerge-all-constants".
+
+2011-09-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/50327
+	* gfortran.dg/do_while_1.f90:  New test.
+
+2011-09-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/35831
+	PR fortran/47978
+	* gfortran.dg/dynamic_dispatch_5.f03: Fix invalid test case.
+	* gfortran.dg/proc_decl_26.f90: New.
+	* gfortran.dg/typebound_override_2.f90: New.
+	* gfortran.dg/typebound_proc_6.f03: Changed wording in error message.
+
+2011-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/cond_expr2.ad[sb]: New test.
+
+2011-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic5.ad[sb]: New test.
+
+2011-09-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/sibcall-6.c: Check ia32 instead of ilp32.
+
+2011-09-09  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/49030
+	* gcc.dg/torture/pr49030.c: Run only if target int32plus.
+
+2011-09-09  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/49614
+	* gcc.dg/vmx/gcc-bug-i.c (inline_me): Declare 'inline'.
+
+2011-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50328
+	* gcc.dg/vect/fast-math-vect-outer-7.c: New testcase.
+
+2011-09-09  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/50333
+	* gcc.dg/torture/pr50333.c: New testcase.
+
+2011-09-08  Andrew Stubbs  <ams@codesourcery.com>
+
+	PR tree-optimization/50318
+	* gcc.target/arm/pr50318-1.c: New file.
+
+2011-09-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/all_one_m256i.c: New test.
+
 2011-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/50324
 	* g++.dg/cpp0x/sfinae28.C: New.
 
 2011-09-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c/50332
+	* gcc.dg/attr-invalid.c: Adjust as __attribute__((used) is no
+	longer ignored on typedefs.
 
 	PR c++/33255 - Support -Wunused-local-typedefs warning
 	* g++.dg/warn/Wunused-local-typedefs.C: New test file.
@@ -56,7 +139,7 @@
 	PR middle-end/48571
 	* gcc.c-torture/execute/pr48571-1.c (bar): Use offsets sizeof(int)
 	instead of 4.
-	
+
 2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/50309
