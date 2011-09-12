@@ -173,6 +173,9 @@ along with GCC; see the file COPYING3.  If not see
 #undef ATTR_MATHFN_FPROUNDING_STORE
 #define ATTR_MATHFN_FPROUNDING_STORE ATTR_NOTHROW_LEAF_LIST
 
+/* Make sure 0 is not a legitimate builtin index.  */
+DEF_BUILTIN_STUB (BUILT_IN_NONE, (const char *)0)
+
 /* Category: math builtins.  */
 DEF_LIB_BUILTIN        (BUILT_IN_ACOS, "acos", BT_FN_DOUBLE_DOUBLE, ATTR_MATHFN_FPROUNDING_ERRNO)
 DEF_C99_C90RES_BUILTIN (BUILT_IN_ACOSF, "acosf", BT_FN_FLOAT_FLOAT, ATTR_MATHFN_FPROUNDING_ERRNO)

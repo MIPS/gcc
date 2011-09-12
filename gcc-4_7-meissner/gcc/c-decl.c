@@ -4324,7 +4324,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
     }
 
   /* If this is a function and an assembler name is specified, reset DECL_RTL
-     so we can give it its new name.  Also, update built_in_decls if it
+     so we can give it its new name.  Also, update built_in_decl_info if it
      was a normal built-in.  */
   if (TREE_CODE (decl) == FUNCTION_DECL && asmspec)
     {

@@ -1,0 +1,11 @@
+2011-09-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* objc-next-runtime-abi-01.c (objc_build_exc_ptr): Change to use
+	new builtin accessor macros instead of refering to the
+	built_in_decls and implicit_built_in_decls directly.
+	* objc-next-runtime-abi-02.c (objc_build_exc_ptr): Ditto.
+	* objc-gnu-runtime-abi-01.c (objc_build_exc_ptr): Ditto.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from FSF branch 177785.

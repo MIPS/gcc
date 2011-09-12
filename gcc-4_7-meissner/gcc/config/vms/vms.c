@@ -99,8 +99,8 @@ vms_patch_builtins (void)
   unsigned int i;
 
   /* Fwrite on VMS is non-standard.  */
-  implicit_built_in_decls[(int) BUILT_IN_FWRITE] = NULL_TREE;
-  implicit_built_in_decls[(int) BUILT_IN_FWRITE_UNLOCKED] = NULL_TREE;
+  built_in_no_implicit (BUILT_IN_WRITE);
+  built_in_no_implicit (BUILT_IN_WRITE_UNLOCKED);
 
   /* Define aliases for names.  */
   for (i = 0; i < NBR_CRTL_NAMES; i++)

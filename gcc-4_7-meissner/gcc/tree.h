@@ -336,9 +336,70 @@ extern const char * built_in_names[(int) END_BUILTINS];
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
 
-/* An array of _DECL trees for the above.  */
-extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
-extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
+/* Functional interface to the builtin functions.  */
+typedef struct GTY(()) built_in_decl_info
+{
+  tree decl;			/* normal declaration for the builtin.  */
+  tree implicit;		/* implicit declaration for the builtin.  */
+} built_in_decl_info;
+
+extern GTY(()) built_in_decl_info built_in_info[(int)END_BUILTINS];
+
+/* Valid builtin number.  */
+#define BUILT_IN_VALID_P(FNCODE) \
+  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+built_in_get_decl (enum built_in_function fncode, bool implicit_p)
+{
+  built_in_decl_info *info;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  info = &built_in_info[(int)fncode];
+  return ((implicit_p) ? info->implicit : info->decl);
+}
+
+#define BUILT_IN_DECLS(FNCODE) built_in_get_decl (FNCODE, false)
+#define IMPLICIT_BUILT_IN_DECLS(FNCODE) built_in_get_decl (FNCODE, true)
+
+#define BUILT_IN_DECLS_ADD(FNCODE, ADDEND) \
+  built_in_get_decl ((enum built_in_function)((int)(FNCODE) + (ADDEND)), false)
+
+/* Initialize a builtin function.  */
+static inline void
+built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
+{
+  built_in_decl_info *info;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  info = &built_in_info[(int)fncode];
+  info->decl = decl;
+  info->implicit = implicit;
+}
+
+/* Copy a builtin function.  */
+static inline void
+built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
+{
+  gcc_assert (BUILT_IN_VALID_P (dest));
+  gcc_assert (BUILT_IN_VALID_P (src));
+  built_in_info[(int)dest] = built_in_info[(int)src];
+}
+
+/* Turn off an implicit builtin function, but keep the explict version.  */
+static inline void
+built_in_no_implicit (enum built_in_function fncode)
+{
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  built_in_info[(int)fncode].implicit = (tree)0;
+}
+
+/* Poison old names.  */
+#if (GCC_VERSION >= 3000) && defined (IN_GCC)
+ #pragma GCC poison built_in_decls implicit_built_in_decls
+#endif
 
 /* In an OMP_CLAUSE node.  */
 

@@ -1124,22 +1124,22 @@ gfc_conv_power_op (gfc_se * se, gfc_expr * expr)
 	      switch (kind)
 		{
 		case 0:
-		  fndecl = built_in_decls[BUILT_IN_POWIF];
+		  fndecl = BUILT_IN_DECLS (BUILT_IN_POWIF);
 		  break;
 		
 		case 1:
-		  fndecl = built_in_decls[BUILT_IN_POWI];
+		  fndecl = BUILT_IN_DECLS (BUILT_IN_POWI);
 		  break;
 
 		case 2:
-		  fndecl = built_in_decls[BUILT_IN_POWIL];
+		  fndecl = BUILT_IN_DECLS (BUILT_IN_POWIL);
 		  break;
 
 		case 3:
 		  /* Use the __builtin_powil() only if real(kind=16) is 
 		     actually the C long double type.  */
 		  if (!gfc_real16_is_float128)
-		    fndecl = built_in_decls[BUILT_IN_POWIL];
+		    fndecl = BUILT_IN_DECLS (BUILT_IN_POWIL);
 		  break;
 
 		default:
@@ -3855,7 +3855,7 @@ fill_with_spaces (tree start, tree type, tree size)
   /* For a simple char type, we can call memset().  */
   if (compare_tree_int (TYPE_SIZE_UNIT (type), 1) == 0)
     return build_call_expr_loc (input_location,
-			    built_in_decls[BUILT_IN_MEMSET], 3, start,
+			    BUILT_IN_DECLS (BUILT_IN_MEMSET), 3, start,
 			    build_int_cst (gfc_get_int_type (gfc_c_int_kind),
 					   lang_hooks.to_target_charset (' ')),
 			    size);
@@ -4015,12 +4015,12 @@ gfc_trans_string_copy (stmtblock_t * block, tree dlength, tree dest,
   cond2 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node, slen,
 			   dlen);
   tmp2 = build_call_expr_loc (input_location,
-			  built_in_decls[BUILT_IN_MEMMOVE],
+			  BUILT_IN_DECLS (BUILT_IN_MEMMOVE),
 			  3, dest, src, dlen);
 
   /* Else copy and pad with spaces.  */
   tmp3 = build_call_expr_loc (input_location,
-			  built_in_decls[BUILT_IN_MEMMOVE],
+			  BUILT_IN_DECLS (BUILT_IN_MEMMOVE),
 			  3, dest, src, slen);
 
   tmp4 = fold_build_pointer_plus_loc (input_location, dest, slen);
@@ -5816,7 +5816,7 @@ gfc_trans_zero_assign (gfc_expr * expr)
 
   /* Construct call to __builtin_memset.  */
   tmp = build_call_expr_loc (input_location,
-			 built_in_decls[BUILT_IN_MEMSET],
+			 BUILT_IN_DECLS (BUILT_IN_MEMSET),
 			 3, dest, integer_zero_node, len);
   return fold_convert (void_type_node, tmp);
 }
@@ -5845,7 +5845,7 @@ gfc_build_memcpy_call (tree dst, tree src, tree len)
 
   /* Construct call to __builtin_memcpy.  */
   tmp = build_call_expr_loc (input_location,
-			 built_in_decls[BUILT_IN_MEMCPY], 3, dst, src, len);
+			 BUILT_IN_DECLS (BUILT_IN_MEMCPY), 3, dst, src, len);
   return fold_convert (void_type_node, tmp);
 }
 
@@ -6056,7 +6056,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
     }
 
   tmp = build_call_expr_loc (input_location,
-			     built_in_decls[BUILT_IN_MALLOC], 1,
+			     BUILT_IN_DECLS (BUILT_IN_MALLOC), 1,
 			     size_in_bytes);
   tmp = fold_convert (TREE_TYPE (lse.expr), tmp);
   gfc_add_modify (block, lse.expr, tmp);
@@ -6083,7 +6083,7 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
 		      build_empty_stmt (input_location));
       gfc_add_expr_to_block (block, tmp);
       tmp = build_call_expr_loc (input_location,
-				 built_in_decls[BUILT_IN_REALLOC], 2,
+				 BUILT_IN_DECLS (BUILT_IN_REALLOC), 2,
 				 fold_convert (pvoid_type_node, lse.expr),
 				 size_in_bytes);
       tmp = fold_convert (TREE_TYPE (lse.expr), tmp);

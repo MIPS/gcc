@@ -1187,7 +1187,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0, hidden_friend = 0;
   int new_defines_function = 0;
-  tree new_template_info;
+  tree new_template_info, bfn;
 
   if (newdecl == olddecl)
     return olddecl;
@@ -1358,10 +1358,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && DECL_ANTICIPATED (olddecl)
 	  && TREE_NOTHROW (newdecl)
 	  && !TREE_NOTHROW (olddecl)
-	  && built_in_decls [DECL_FUNCTION_CODE (olddecl)] != NULL_TREE
-	  && built_in_decls [DECL_FUNCTION_CODE (olddecl)] != olddecl
+	  && (bfn = BUILT_IN_DECLS (DECL_FUNCTION_CODE (olddecl))) != NULL_TREE
+	  && bfn != olddecl
 	  && types_match)
-	TREE_NOTHROW (built_in_decls [DECL_FUNCTION_CODE (olddecl)]) = 1;
+	TREE_NOTHROW (bfn) = 1;
 
       /* Whether or not the builtin can throw exceptions has no
 	 bearing on this declarator.  */

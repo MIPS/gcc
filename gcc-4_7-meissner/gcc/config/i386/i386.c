@@ -7958,10 +7958,9 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 		}
 	      else
 		{
-		  tree copy
-		    = build_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY],
-				       3, dest_addr, src_addr,
-				       size_int (cur_size));
+		  tree bfn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+		  tree copy = build_call_expr (bfn, 3, dest_addr, src_addr,
+					       size_int (cur_size));
 		  gimplify_and_add (copy, pre_p);
 		}
 	      prev_size += cur_size;
@@ -28742,7 +28741,7 @@ ix86_veclibabi_svml (enum built_in_function fn, tree type_out, tree type_in)
       return NULL_TREE;
     }
 
-  bname = IDENTIFIER_POINTER (DECL_NAME (implicit_built_in_decls[fn]));
+  bname = IDENTIFIER_POINTER (DECL_NAME (IMPLICIT_BUILT_IN_DECLS (fn)));
 
   if (fn == BUILT_IN_LOGF)
     strcpy (name, "vmlsLn4");
@@ -28760,7 +28759,7 @@ ix86_veclibabi_svml (enum built_in_function fn, tree type_out, tree type_in)
   name[4] &= ~0x20;
 
   arity = 0;
-  for (args = DECL_ARGUMENTS (implicit_built_in_decls[fn]); args;
+  for (args = DECL_ARGUMENTS (IMPLICIT_BUILT_IN_DECLS (fn)); args;
        args = TREE_CHAIN (args))
     arity++;
 
@@ -28841,11 +28840,11 @@ ix86_veclibabi_acml (enum built_in_function fn, tree type_out, tree type_in)
       return NULL_TREE;
     }
 
-  bname = IDENTIFIER_POINTER (DECL_NAME (implicit_built_in_decls[fn]));
+  bname = IDENTIFIER_POINTER (DECL_NAME (IMPLICIT_BUILT_IN_DECLS (fn)));
   sprintf (name + 7, "%s", bname+10);
 
   arity = 0;
-  for (args = DECL_ARGUMENTS (implicit_built_in_decls[fn]); args;
+  for (args = DECL_ARGUMENTS (IMPLICIT_BUILT_IN_DECLS (fn)); args;
        args = TREE_CHAIN (args))
     arity++;
 
