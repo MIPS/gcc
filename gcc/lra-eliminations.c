@@ -671,49 +671,46 @@ mark_not_eliminable (rtx x)
     case POST_DEC:
     case POST_MODIFY:
     case PRE_MODIFY:
-      /* If we modify the source of an elimination rule, disable it.  */
-      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	if (ep->from_rtx == XEXP (x, 0)
-	    || (ep->to_rtx == XEXP (x, 0)
-		&& ep->to_rtx != hard_frame_pointer_rtx))
-	  setup_can_eliminate (ep, false);
-
-      /* These two aren't unary operators.  */
-      if (code == POST_MODIFY || code == PRE_MODIFY)
-	break;
-
-      mark_not_eliminable (XEXP (x, 0));
-      return;
-
-    case SUBREG:
-      mark_not_eliminable (SUBREG_REG (x));
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	/* If we modify the source of an elimination rule, disable it.  */
+	for (ep = reg_eliminate;
+	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
+	       ep++)
+	  if (ep->from_rtx == XEXP (x, 0)
+	      || (ep->to_rtx == XEXP (x, 0)
+		  && ep->to_rtx != hard_frame_pointer_rtx))
+	    setup_can_eliminate (ep, false);
       return;
 
     case USE:
-      /* If using a register that is the source of an eliminate we still
-	 think can be performed, note it cannot be performed since we don't
-	 know how this register is used.  */
-      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	if (ep->from_rtx == XEXP (x, 0) && ep->to_rtx != hard_frame_pointer_rtx)
-	  setup_can_eliminate (ep, false);
-
-      mark_not_eliminable (XEXP (x, 0));
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	/* If using a register that is the source of an eliminate we
+	   still think can be performed, note it cannot be performed
+	   since we don't know how this register is used.  */
+	for (ep = reg_eliminate;
+	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
+	     ep++)
+	  if (ep->from_rtx == XEXP (x, 0)
+	      && ep->to_rtx != hard_frame_pointer_rtx)
+	    setup_can_eliminate (ep, false);
       return;
 
     case CLOBBER:
-      /* If clobbering a register that is the replacement register for an
-	 elimination we still think can be performed, note that it cannot
-	 be performed.  Otherwise, we need not be concerned about it.  */
-      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-	if (ep->to_rtx == XEXP (x, 0) && ep->to_rtx != hard_frame_pointer_rtx)
-	  setup_can_eliminate (ep, false);
-
-      mark_not_eliminable (XEXP (x, 0));
+      if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
+	/* If clobbering a register that is the replacement register for an
+	   elimination we still think can be performed, note that it cannot
+	   be performed.  Otherwise, we need not be concerned about it.  */
+	for (ep = reg_eliminate;
+	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
+	     ep++)
+	  if (ep->to_rtx == XEXP (x, 0)
+	      && ep->to_rtx != hard_frame_pointer_rtx)
+	    setup_can_eliminate (ep, false);
       return;
 
     case SET:
       /* Check for setting a register that we know about.  */
-      if (REG_P (SET_DEST (x)))
+      if (REG_P (SET_DEST (x)) && REGNO (SET_DEST (x)) < FIRST_PSEUDO_REGISTER)
 	{
 	  /* See if this is setting the replacement register for an
 	     elimination.
