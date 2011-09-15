@@ -1,2 +1,0 @@
-SYNC = yes
-SYNC_CFLAGS = -mno-mips16
