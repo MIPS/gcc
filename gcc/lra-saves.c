@@ -161,9 +161,12 @@ mark_pseudo_store (rtx reg, const_rtx setter ATTRIBUTE_UNUSED,
 /* Info about save/restore code for a pseudo.  */
 struct save_regs
 {
-  /* A spilled pseudo which hold value of the corresponding
-     saved/restored pseudo around calls.  */
-  rtx mem_reg;
+  /* True if MEM_REG is actually an equivalence of the corresponding
+     saved pseudo.  */
+  bool equiv_p;
+  /* A spilled pseudo or equivalence which hold value of the
+     corresponding saved/restored pseudo around calls.  */
+  rtx saved_value;
   /* Saving/restoring of a pseudo could be done in a mode different
      from the pseudo mode.  The following is the pseudo or a subreg of
      the pseudo and is used in save/restore code.  */
@@ -175,71 +178,125 @@ struct save_regs
 /* Map: regno -> info about save/restore for REGNO.  */
 static struct save_regs *save_regs;
 
-/* Set up if necessary saved_reg and mem_reg for REGNO.  */
+/* Return equivalence value we can use for restoring.  NULL,
+   otherwise.  ??? Should we use and is it worth to invariants with
+   caller saved hard registers.  */
+static rtx
+equiv_for_save (int regno)
+{
+  return ira_reg_equiv[regno].constant;
+}
+
+/* Set to true if changes in live info are too complex to update it
+   here.  */
+static bool update_live_info_p;
+
+/* Set up if necessary equiv_p, saved_value, and saved_reg for REGNO.  */
 static void
 setup_save_regs (int regno)
 {
-  if (save_regs[regno].mem_reg == NULL_RTX)
+  if (save_regs[regno].saved_value == NULL_RTX)
     {
       enum machine_mode mode;
-      rtx saved_reg = regno_reg_rtx[regno];
-      int hard_regno = reg_renumber[regno];
+      int hard_regno;
+      rtx equiv, saved_reg = regno_reg_rtx[regno];
 
-      gcc_assert (hard_regno >= 0);
-      mode = (HARD_REGNO_CALLER_SAVE_MODE
-	      (hard_regno,
-	       hard_regno_nregs[hard_regno][PSEUDO_REGNO_MODE (regno)],
-	       PSEUDO_REGNO_MODE (regno)));
-      if (mode != PSEUDO_REGNO_MODE (regno))
-	saved_reg = gen_rtx_SUBREG (mode, saved_reg, 0);
-      save_regs[regno].mem_reg
-	= lra_create_new_reg (VOIDmode, saved_reg, NO_REGS, NULL);
+      equiv = ira_reg_equiv[regno].defined_p ? equiv_for_save (regno) : NULL_RTX;
+      if (equiv != NULL_RTX)
+	{
+	  save_regs[regno].saved_value = equiv;
+	  update_live_info_p = true;
+	}
+      else
+	{
+	  hard_regno = reg_renumber[regno];
+	  gcc_assert (hard_regno >= 0);
+	  mode = (HARD_REGNO_CALLER_SAVE_MODE
+		  (hard_regno,
+		   hard_regno_nregs[hard_regno][PSEUDO_REGNO_MODE (regno)],
+		   PSEUDO_REGNO_MODE (regno)));
+	  if (mode != PSEUDO_REGNO_MODE (regno))
+	    saved_reg = gen_rtx_SUBREG (mode, saved_reg, 0);
+	  save_regs[regno].saved_value
+	    = lra_create_new_reg (VOIDmode, saved_reg, NO_REGS, NULL);
+	}
       save_regs[regno].saved_reg = saved_reg;
+      save_regs[regno].equiv_p = equiv != NULL_RTX;
     }
 }
 
 /* Insert save (if SAVE_P) or restore code for REGNO before (if
-   BEFORE_P) or after INSN.  */
+   BEFORE_P) or after INSN.  Use equivalence for restoring if it is
+   possible.  */
 static void
 insert_save_restore (rtx insn, bool before_p, int regno, bool save_p)
 {
-  rtx x, mem_reg;
+  rtx x, saved_value;
   int to_regno, from_regno;
   rtx saved_reg;
 
   setup_save_regs (regno);
-  mem_reg = save_regs[regno].mem_reg;
+  saved_value = save_regs[regno].saved_value;
   saved_reg = save_regs[regno].saved_reg;
+  if (save_regs[regno].equiv_p)
+    {
+      if (save_p)
+	/* Do nothing -- the pseudo always holds the same value.  */
+	return;
+      start_sequence ();
+      emit_move_insn (saved_reg, saved_value);
+      x = get_insns ();
+      end_sequence ();
+      if (lra_dump_file != NULL)
+	{
+	  fprintf (lra_dump_file, "Inserting %s i%u bb%d\n",
+		   before_p ? "before" : "after", INSN_UID (insn),
+		   BLOCK_FOR_INSN (insn)->index);
+	  print_rtl_slim (lra_dump_file, x, x, -1, 0);
+	}
+      ira_reg_equiv[regno].init_insns
+	= gen_rtx_INSN_LIST (VOIDmode, x, ira_reg_equiv[regno].init_insns);
+      if (before_p)
+	emit_insn_before (x, insn); 
+      else
+	emit_insn_after (x, insn); 
+      return;
+    }
   start_sequence ();
   if (save_p)
     {
-      to_regno = REGNO (mem_reg);
+      gcc_assert (REG_P (saved_value));
+      to_regno = REGNO (saved_value);
       from_regno = regno;
-      emit_move_insn (mem_reg, saved_reg);
+      emit_move_insn (saved_value, saved_reg);
     }
   else
     {
       to_regno = regno;
-      from_regno = REGNO (mem_reg);
-      emit_move_insn (saved_reg, mem_reg);
+      from_regno = REGNO (saved_value);
+      emit_move_insn (saved_reg, saved_value);
     }
   x = get_insns ();
   end_sequence ();
   if (before_p || ! save_p || ! CALL_P (insn))
-    add_reg_note (x, REG_DEAD, regno_reg_rtx[from_regno]);
+    {
+      if (! update_live_info_p)
+	add_reg_note (x, REG_DEAD, regno_reg_rtx[from_regno]);
+    }
   else
     {
       /* A special case: saving a pseudo used in a call.  Put saving
 	 insn before the call and attach the note to the call.  */
       before_p = true;
-      add_reg_note (insn, REG_DEAD, regno_reg_rtx[from_regno]);
+      if (! update_live_info_p)
+	add_reg_note (insn, REG_DEAD, regno_reg_rtx[from_regno]);
     }
   ira_update_equiv_info_by_shuffle_insn (to_regno, from_regno, x);
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "Inserting insn %u %d:=%d %s i%u bb%d\n",
 	     INSN_UID (x),
-	     save_p ? (int) REGNO (mem_reg) : regno,
-	     save_p ? regno : (int) REGNO (mem_reg),
+	     save_p ? (int) REGNO (saved_value) : regno,
+	     save_p ? regno : (int) REGNO (saved_value),
 	     before_p ? "before" : "after", INSN_UID (insn),
 	     BLOCK_FOR_INSN (insn)->index);
   if (before_p)
@@ -380,8 +437,12 @@ insert_saves_restores (void)
 	      bitmap_clear_bit (DF_LR_IN (bb), regno);
 	      bitmap_clear_bit (DF_LR_OUT (prev_bb), regno);
 	      setup_save_regs (regno);
-	      bitmap_set_bit (DF_LR_IN (bb), REGNO (save_regs[regno].mem_reg));
-	      bitmap_set_bit (DF_LR_OUT (prev_bb), REGNO (save_regs[regno].mem_reg));
+	      if (update_live_info_p)
+		break;
+	      bitmap_set_bit (DF_LR_IN (bb),
+			      REGNO (save_regs[regno].saved_value));
+	      bitmap_set_bit (DF_LR_OUT (prev_bb),
+			      REGNO (save_regs[regno].saved_value));
 	    }
 	}
     }
@@ -392,8 +453,9 @@ insert_saves_restores (void)
 /* Major function to insert save/restore code.  The function needs
    correct DFA info and REG_N_REFS & REG_N_CALLS_CROSSED before the
    function work.  It keeps correct bb live info and live related insn
-   notes.  */
-void
+   notes.  Return true if we need to update live info because the
+   changes are too complex to do it here.  */
+bool
 lra_save_restore (void)
 {
   int i, hard_regno, max_regno_before;
@@ -403,6 +465,7 @@ lra_save_restore (void)
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Caller saves: **********\n\n");
 
+  update_live_info_p = false;
   consideration_pseudos = BITMAP_ALLOC (&reg_obstack);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno_before; i++)
     if (REG_N_REFS (i) != 0
@@ -422,4 +485,5 @@ lra_save_restore (void)
       BITMAP_FREE (live_pseudos);
     }
   BITMAP_FREE (consideration_pseudos);
+  return update_live_info_p;
 }

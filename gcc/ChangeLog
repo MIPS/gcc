@@ -1,3 +1,18 @@
+2011-09-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (remove_scratches): Rescan changed insns.
+	(lra): Call df_analyze after lr_save_restore if necessary.
+
+	* lra-int.h (lr_save_restore): Change the prototype.
+
+	* lra-saves.c (struct save_regs): Rename mem_reg to saved_value.
+	Add new member equiv_p.
+	(equiv_for_save): New function.
+	(update_live_info_p): New static variable.
+	(setup_save_regs): Add code to regno equivalence.
+	(insert_save_restore): Ditto.
+	(lra_save_restore): Return true if need to update live info.
+
 2011-09-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (best_reload_nregs): New variable.

@@ -1791,6 +1791,7 @@ static void
 remove_scratches (void)
 {
   int i;
+  bool insn_changed_p;
   basic_block bb;
   rtx insn, reg;
   loc_t loc;
@@ -1806,10 +1807,12 @@ remove_scratches (void)
       {
 	id = lra_get_insn_recog_data (insn);
 	static_id = id->insn_static_data;
+	insn_changed_p = false;
 	for (i = 0; i < static_id->n_operands; i++)
 	  if (GET_CODE (*id->operand_loc[i]) == SCRATCH
 	      && GET_MODE (*id->operand_loc[i]) != VOIDmode)
 	    {
+	      insn_changed_p = true;
 	      *id->operand_loc[i] = reg
 		= lra_create_new_reg (static_id->operand[i].mode,
 				      *id->operand_loc[i], ALL_REGS, NULL);
@@ -1826,6 +1829,10 @@ remove_scratches (void)
 		fprintf (lra_dump_file, "Removing SCRATCH in insn #%u (nop %d)\n",
 			 INSN_UID (insn), i);
 	    }
+	if (insn_changed_p)
+	  /* Because we might use DF right after caller-saves sub-pass
+	     we need to keep DF info up to date.  */
+	  df_insn_rescan (insn);
       }
 }
 
@@ -2105,7 +2112,10 @@ lra (FILE *f)
 	df_set_regs_ever_live (i, true);
 
   if (flag_caller_saves)
-    lra_save_restore ();
+    {
+      if (lra_save_restore ())
+	df_analyze ();
+    }
 
   /* We don't DF from now and avoid its using because it is to
      expensive when a lot of RTL changes are made.  */
