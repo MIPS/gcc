@@ -1158,8 +1158,11 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no, tree id)
 
 	  // If a function calls the predeclared recover function, we
 	  // can't inline it, because recover behaves differently in a
-	  // function passed directly to defer.
-	  if (this->calls_recover_ && !this->is_recover_thunk_)
+	  // function passed directly to defer.  If this is a recover
+	  // thunk that we built to test whether a function can be
+	  // recovered, we can't inline it, because that will mess up
+	  // our return address comparison.
+	  if (this->calls_recover_ || this->is_recover_thunk_)
 	    DECL_UNINLINABLE(decl) = 1;
 
 	  // If this is a thunk created to call a function which calls
@@ -1280,16 +1283,7 @@ Function::make_receiver_parm_decl(Gogo* gogo, Named_object* no, tree var_decl)
   DECL_ARG_TYPE(parm_decl) = TREE_TYPE(parm_decl);
 
   go_assert(DECL_INITIAL(var_decl) == NULL_TREE);
-  // The receiver might be passed as a null pointer.
-  tree check = fold_build2_loc(loc, NE_EXPR, boolean_type_node, parm_decl,
-			       fold_convert_loc(loc, TREE_TYPE(parm_decl),
-						null_pointer_node));
-  tree ind = build_fold_indirect_ref_loc(loc, parm_decl);
-  TREE_THIS_NOTRAP(ind) = 1;
-  Btype* btype = no->var_value()->type()->get_backend(gogo);
-  tree zero_init = expr_to_tree(gogo->backend()->zero_expression(btype));
-  tree init = fold_build3_loc(loc, COND_EXPR, TREE_TYPE(ind),
-			      check, ind, zero_init);
+  tree init = build_fold_indirect_ref_loc(loc, parm_decl);
 
   if (is_in_heap)
     {
@@ -1300,18 +1294,9 @@ Function::make_receiver_parm_decl(Gogo* gogo, Named_object* no, tree var_decl)
       space = fold_convert(build_pointer_type(val_type), space);
       tree spaceref = build_fold_indirect_ref_loc(no->location(), space);
       TREE_THIS_NOTRAP(spaceref) = 1;
-      tree check = fold_build2_loc(loc, NE_EXPR, boolean_type_node,
-				   parm_decl,
-				   fold_convert_loc(loc, TREE_TYPE(parm_decl),
-						    null_pointer_node));
-      tree parmref = build_fold_indirect_ref_loc(no->location(), parm_decl);
-      TREE_THIS_NOTRAP(parmref) = 1;
       tree set = fold_build2_loc(loc, MODIFY_EXPR, void_type_node,
-				 spaceref, parmref);
-      init = fold_build2_loc(loc, COMPOUND_EXPR, TREE_TYPE(space),
-			     build3(COND_EXPR, void_type_node,
-				    check, set, NULL_TREE),
-			     space);
+				 spaceref, init);
+      init = fold_build2_loc(loc, COMPOUND_EXPR, TREE_TYPE(space), set, space);
     }
 
   DECL_INITIAL(var_decl) = init;
