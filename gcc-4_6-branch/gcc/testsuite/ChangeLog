@@ -1,3 +1,89 @@
+2011-09-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49886
+	* gcc.dg/torture/pr49886.c: Remove XFAILs.
+	* gcc.dg/torture/pr50287.c: New test.
+
+2011-09-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50442
+	Revert:
+	PR c++/49267
+	* g++.dg/cpp0x/rv-conv1.C: New.
+
+2011-09-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50424
+	* g++.dg/eh/defarg1.C: New.
+
+2011-09-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48320
+	* g++.dg/cpp0x/variadic116.C: New test case.
+
+2011-09-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic5.ad[sb]: New test.
+
+2011-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2011-09-07  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/49911
+	* g++.dg/tree-ssa/pr49911.C: New test.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49518
+	PR tree-optimization/49628
+	* g++.dg/torture/pr49628.C: New testcase.
+	* gcc.dg/torture/pr49518.c: Likewise.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* gcc.c-torture/execute/ieee/pr50310.c: New test.
+	* gcc.dg/pr50310-2.c: New test.
+
+2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50309
+	* g++.dg/cpp0x/noexcept11.C: New.
+
+2011-09-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	* g++.dg/ext/altivec-17.C: Fix dg-error to match current compiler.
+
+2011-09-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20110906-1.c: New test.
+
+2011-09-06  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.c-torture/execute/pr49886.c: Move to...
+	* gcc.dg/torture/pr49886.c: ...here. Xfail run test for -O2 and above.
+
+2011-09-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49267
+	* g++.dg/cpp0x/rv-conv1.C: New.
+
+2011-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/compat/struct-layout-1_test.h: Decrease bitfield size
+	to work even with -fshort-enums.
+
+2011-09-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49886
+	* gcc.c-torture/execute/pr49886.c: New testcase.
+	* gfortran.fortran-torture/compile/pr50260.f90: Likewise.
+
 2011-09-01  Ira Rosen  <ira.rosen@linaro.org>
 
 	PR tree-optimization/50178
