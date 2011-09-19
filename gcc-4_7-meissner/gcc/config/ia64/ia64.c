@@ -10101,11 +10101,11 @@ ia64_init_builtins (void)
   if (TARGET_HPUX)
     {
       tree bfn;
-      if ((bfn = BUILT_IN_DECLS (BUILT_IN_FINITE)) != NULL_TREE)
+      if ((bfn = built_in_decls (BUILT_IN_FINITE)) != NULL_TREE)
 	set_user_assembler_name (bfn, "_Isfinite");
-      if ((bfn = BUILT_IN_DECLS (BUILT_IN_FINITEF)) != NULL_TREE)
+      if ((bfn = built_in_decls (BUILT_IN_FINITEF)) != NULL_TREE)
 	set_user_assembler_name (bfn, "_Isfinitef");
-      if ((bfn = BUILT_IN_DECLS (BUILT_IN_FINITEL)) != NULL_TREE)
+      if ((bfn = built_in_decls (BUILT_IN_FINITEL)) != NULL_TREE)
 	set_user_assembler_name (bfn, "_Isfinitef128");
     }
 }

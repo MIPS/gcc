@@ -329,7 +329,7 @@ compareAndSwapInt_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 
       addr = build_addr_sum (int_type_node, obj_arg, offset_arg);
       stmt = build_call_expr 
-		       (BUILT_IN_DECLS (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4),
+		       (built_in_decls (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4),
 			3, addr, expected_arg, value_arg);
 
       return build_check_this (stmt, this_arg);
@@ -356,7 +356,7 @@ compareAndSwapLong_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 
       addr = build_addr_sum (long_type_node, obj_arg, offset_arg);
       stmt = build_call_expr 
-		       (BUILT_IN_DECLS (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8),
+		       (built_in_decls (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8),
 			3, addr, expected_arg, value_arg);
 
       return build_check_this (stmt, this_arg);
@@ -381,7 +381,7 @@ compareAndSwapObject_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 	       : BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8);
 
     addr = build_addr_sum (value_type, obj_arg, offset_arg);
-    stmt = build_call_expr (BUILT_IN_DECLS (builtin),
+    stmt = build_call_expr (built_in_decls (builtin),
 			    3, addr, expected_arg, value_arg);
 
     return build_check_this (stmt, this_arg);
@@ -401,7 +401,7 @@ putVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
     = fold_convert (build_pointer_type (build_type_variant (value_type, 0, 1)),
 		    addr);
   
-  stmt = build_call_expr (BUILT_IN_DECLS (BUILT_IN_SYNC_SYNCHRONIZE), 0);
+  stmt = build_call_expr (built_in_decls (BUILT_IN_SYNC_SYNCHRONIZE), 0);
   modify_stmt = fold_build2 (MODIFY_EXPR, value_type,
 			     build_java_indirect_ref (value_type, addr,
 						      flag_check_references),
@@ -425,7 +425,7 @@ getVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
     = fold_convert (build_pointer_type (build_type_variant 
 					(method_return_type, 0, 1)), addr);
   
-  stmt = build_call_expr (BUILT_IN_DECLS (BUILT_IN_SYNC_SYNCHRONIZE), 0);
+  stmt = build_call_expr (built_in_decls (BUILT_IN_SYNC_SYNCHRONIZE), 0);
   
   tmp = build_decl (BUILTINS_LOCATION, VAR_DECL, NULL, method_return_type);
   DECL_IGNORED_P (tmp) = 1;
@@ -626,7 +626,7 @@ check_for_builtin (tree method, tree call)
 	         with the BC-ABI.  */
 	      if (flag_indirect_dispatch)
 	        return call;
-	      fn = BUILT_IN_DECLS (java_builtins[i].builtin_code);
+	      fn = built_in_decls (java_builtins[i].builtin_code);
 	      if (fn == NULL_TREE)
 		return call;
 	      return java_build_function_call_expr (fn, call);

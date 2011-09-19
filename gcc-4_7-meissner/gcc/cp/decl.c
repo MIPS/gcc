@@ -1358,7 +1358,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && DECL_ANTICIPATED (olddecl)
 	  && TREE_NOTHROW (newdecl)
 	  && !TREE_NOTHROW (olddecl)
-	  && (bfn = BUILT_IN_DECLS (DECL_FUNCTION_CODE (olddecl))) != NULL_TREE
+	  && (bfn = built_in_decls (DECL_FUNCTION_CODE (olddecl))) != NULL_TREE
 	  && bfn != olddecl
 	  && types_match)
 	TREE_NOTHROW (bfn) = 1;

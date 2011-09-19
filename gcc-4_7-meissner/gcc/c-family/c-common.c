@@ -9145,7 +9145,7 @@ resolve_overloaded_builtin (location_t loc, tree function, VEC(tree,gc) *params)
 	if (n == 0)
 	  return error_mark_node;
 
-	new_function = BUILT_IN_DECLS_ADD (orig_code, exact_log2 (n) + 1);
+	new_function = built_in_decls_add (orig_code, exact_log2 (n) + 1);
 	if (!sync_resolve_params (function, new_function, params))
 	  return error_mark_node;
 

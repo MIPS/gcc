@@ -5601,7 +5601,7 @@ def_builtin_1 (enum built_in_function fncode,
 
   /* Preserve an already installed decl.  It most likely was setup in advance
      (e.g. as part of the internal builtins) for specific reasons.  */
-  if (BUILT_IN_DECLS (fncode) != NULL_TREE)
+  if (built_in_decls (fncode) != NULL_TREE)
     return;
 
   gcc_assert ((!both_p && !fallback_p)

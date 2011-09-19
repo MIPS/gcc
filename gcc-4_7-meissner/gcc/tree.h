@@ -352,20 +352,28 @@ extern GTY(()) built_in_decl_info built_in_info[(int)END_BUILTINS];
 /* Return the tree node for a builtin function or NULL, possibly
    creating the tree node.  */
 static inline tree
-built_in_get_decl (enum built_in_function fncode, bool implicit_p)
+built_in_decls (enum built_in_function fncode)
 {
-  built_in_decl_info *info;
-
   gcc_assert (BUILT_IN_VALID_P (fncode));
-  info = &built_in_info[(int)fncode];
-  return ((implicit_p) ? info->implicit : info->decl);
+  return built_in_info[(int)fncode].decl;
 }
 
-#define BUILT_IN_DECLS(FNCODE) built_in_get_decl (FNCODE, false)
-#define IMPLICIT_BUILT_IN_DECLS(FNCODE) built_in_get_decl (FNCODE, true)
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+implicit_built_in_decls (enum built_in_function fncode)
+{
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  return built_in_info[(int)fncode].implicit;
+}
 
-#define BUILT_IN_DECLS_ADD(FNCODE, ADDEND) \
-  built_in_get_decl ((enum built_in_function)((int)(FNCODE) + (ADDEND)), false)
+/* Return the tree node for a builtin function or NULL, indexing into the
+   array.  */
+static inline tree
+built_in_decls_add (enum built_in_function fncode, int addend)
+{
+  return built_in_decls ((enum built_in_function)(((int)fncode) + addend));
+}
 
 /* Initialize a builtin function.  */
 static inline void
@@ -396,10 +404,6 @@ built_in_no_implicit (enum built_in_function fncode)
   built_in_info[(int)fncode].implicit = (tree)0;
 }
 
-/* Poison old names.  */
-#if (GCC_VERSION >= 3000) && defined (IN_GCC)
- #pragma GCC poison built_in_decls implicit_built_in_decls
-#endif
 
 /* In an OMP_CLAUSE node.  */
 

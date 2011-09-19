@@ -1,25 +1,11 @@
-2011-09-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 178893.
-	* REVISION: Update subversion id.
-
-2011-09-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 178819.
-	* REVISION: Update subversion id.
-
-2011-09-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 178795.
-	* REVISION: Update subversion id.
-
-2011-09-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Change builtin interface from being an
 	array to an inline function for both normal and implicit builtin
-	functions.  Change all references to built_in_decls and
-	implicit_built_in_decls to the new macros/functions, and poison
-	the old names. Make sure 0 is not a legitimate builtin index.
+	functions.  Change all read references to built_in_decls and
+	implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_decls_add,
+	built_in_decls_copy, or built_in_decls_no_implicit.
 	(implicit_built_in_decls): Ditto.
 	(struct built_in_decl_info): Ditto.
 	(built_in_info): Ditto.
@@ -27,8 +13,6 @@
 	(built_in_set_decl): Ditto.
 	(built_in_copy_decl): Ditto.
 	(built_in_no_implicit): Ditto.
-	(BUILT_IN_DECLS): Ditto.
-	(IMPLICIT_BUILT_IN_DECLS): Ditto.
 	* tree-complex.c (expand_complex_libcall): Ditto.
 	* tree-loop-distribution.c (generate_memset_zero): Ditto.
 	* tree.c (iterative_hash_expr): Ditto.
@@ -87,7 +71,6 @@
 	(lower_omp_ordered): Ditto.
 	(lower_omp_critical): Ditto.
 	* tree-ssa-ccp.c (optimize_stdarg_builtin): Ditto.
-	* builtins.def (BUILT_IN_NONE): Ditto.
 	* tree-ssa-math-opts.c (execute_optimize_bswap): Ditto.
 	* gimple-low.c (lower_function_body): Ditto.
 	(lower_builtin_setjmp): Ditto.
@@ -122,6 +105,24 @@
 	(darwin_patch_builtin): Ditto.
 	(darwin_rename_builtins): Ditto.
 	* config/pa/pa.c (pa_init_builtins): Ditto.
+
+	* builtins.def (BUILT_IN_NONE): Make sure 0 is not a legitimate
+	builtin function index.
+
+2011-09-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178893.
+	* REVISION: Update subversion id.
+
+2011-09-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178819.
+	* REVISION: Update subversion id.
+
+2011-09-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178795.
+	* REVISION: Update subversion id.
 
 2011-09-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

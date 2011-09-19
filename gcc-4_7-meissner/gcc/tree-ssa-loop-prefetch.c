@@ -1117,7 +1117,7 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 					   NULL, true, GSI_SAME_STMT);
       }
       /* Create the prefetch instruction.  */
-      prefetch = gimple_build_call (BUILT_IN_DECLS (BUILT_IN_PREFETCH),
+      prefetch = gimple_build_call (built_in_decls (BUILT_IN_PREFETCH),
 				    3, addr, write_p, local);
       gsi_insert_before (&bsi, prefetch, GSI_SAME_STMT);
     }
@@ -1909,7 +1909,7 @@ tree_ssa_prefetch_arrays (void)
 
   initialize_original_copy_tables ();
 
-  if (!BUILT_IN_DECLS (BUILT_IN_PREFETCH))
+  if (!built_in_decls (BUILT_IN_PREFETCH))
     {
       tree type = build_function_type_list (void_type_node,
 					    const_ptr_type_node, NULL_TREE);

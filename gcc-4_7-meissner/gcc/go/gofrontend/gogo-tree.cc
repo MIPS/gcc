@@ -2300,13 +2300,13 @@ Gogo::make_trampoline(tree fnaddr, tree closure, source_location location)
   x = save_expr(x);
 
   // Initialize the trampoline.
-  tree ini = build_call_expr(IMPLICIT_BUILT_IN_DECLS(BUILT_IN_INIT_TRAMPOLINE),
+  tree ini = build_call_expr(implicit_built_in_decls(BUILT_IN_INIT_TRAMPOLINE),
 			     3, x, fnaddr, closure);
 
   // On some targets the trampoline address needs to be adjusted.  For
   // example, when compiling in Thumb mode on the ARM, the address
   // needs to have the low bit set.
-  x = build_call_expr(IMPLICIT_BUILT_IN_DECLS(BUILT_IN_ADJUST_TRAMPOLINE),
+  x = build_call_expr(implicit_built_in_decls(BUILT_IN_ADJUST_TRAMPOLINE),
 		      1, x);
   x = fold_convert(TREE_TYPE(fnaddr), x);
 

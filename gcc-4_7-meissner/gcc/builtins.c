@@ -1900,7 +1900,9 @@ mathfn_built_in_1 (tree type, enum built_in_function fn, bool implicit)
   else
     return NULL_TREE;
 
-  return built_in_get_decl (fcode2, implicit);
+  return ((implicit)
+	  ? built_in_decls (fcode2)
+	  : implicit_built_in_decls (fcode2));
 }
 
 /* Like mathfn_built_in_1(), but always use the implicit array.  */
@@ -2559,7 +2561,7 @@ expand_builtin_cexpi (tree exp, rtx target)
       else
 	gcc_unreachable ();
 
-      fn = BUILT_IN_DECLS (fcode);
+      fn = built_in_decls (fcode);
       op1 = assign_temp (TREE_TYPE (arg), 0, 1, 1);
       op2 = assign_temp (TREE_TYPE (arg), 0, 1, 1);
       op1a = copy_to_mode_reg (Pmode, XEXP (op1, 0));
@@ -2587,7 +2589,7 @@ expand_builtin_cexpi (tree exp, rtx target)
       else
 	gcc_unreachable ();
 
-      fn = BUILT_IN_DECLS (fcode);
+      fn = built_in_decls (fcode);
 
       /* If we don't have a decl for cexp create one.  This is the
 	 friendliest fallback if the user calls __builtin_cexpi
@@ -3130,9 +3132,9 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len,
 			     rtx target, enum machine_mode mode, int endp)
 {
     /* If return value is ignored, transform mempcpy into memcpy.  */
-  if (target == const0_rtx && IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY))
+  if (target == const0_rtx && implicit_built_in_decls (BUILT_IN_MEMCPY))
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+      tree fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
       tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
 					   dest, src, len);
       return expand_expr (result, target, mode, EXPAND_NORMAL);
@@ -3293,9 +3295,9 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
   src = CALL_EXPR_ARG (exp, 1);
 
   /* If return value is ignored, transform stpcpy into strcpy.  */
-  if (target == const0_rtx && IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY))
+  if (target == const0_rtx && implicit_built_in_decls (BUILT_IN_STRCPY))
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+      tree fn = implicit_built_in_decls (BUILT_IN_STRCPY);
       tree result = build_call_nofold_loc (loc, fn, 2, dst, src);
       return expand_expr (result, target, mode, EXPAND_NORMAL);
     }
@@ -4354,7 +4356,7 @@ gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	 expression to exit or longjmp.  */
       gimplify_and_add (valist, pre_p);
       t = build_call_expr_loc (loc,
-			       IMPLICIT_BUILT_IN_DECLS (BUILT_IN_TRAP), 0);
+			       implicit_built_in_decls (BUILT_IN_TRAP), 0);
       gimplify_and_add (t, pre_p);
 
       /* This is dead code, but go ahead and finish so that the
@@ -5114,7 +5116,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	  if (warned_f_a_n)
 	    break;
 
-	  fndecl = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_SYNC_FETCH_AND_NAND_N);
+	  fndecl = implicit_built_in_decls (BUILT_IN_SYNC_FETCH_AND_NAND_N);
 	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_f_a_n = true;
 	  break;
@@ -5128,7 +5130,7 @@ expand_builtin_sync_operation (enum machine_mode mode, tree exp,
 	  if (warned_n_a_f)
 	    break;
 
-	  fndecl = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_SYNC_NAND_AND_FETCH_N);
+	  fndecl = implicit_built_in_decls (BUILT_IN_SYNC_NAND_AND_FETCH_N);
 	  inform (loc, "%qD changed semantics in GCC 4.4", fndecl);
 	  warned_n_a_f = true;
 	  break;
@@ -6233,7 +6235,7 @@ build_builtin_expect_predicate (location_t loc, tree pred, tree expected)
 {
   tree fn, arg_types, pred_type, expected_type, call_expr, ret_type;
 
-  fn = BUILT_IN_DECLS (BUILT_IN_EXPECT);
+  fn = built_in_decls (BUILT_IN_EXPECT);
   arg_types = TYPE_ARG_TYPES (TREE_TYPE (fn));
   ret_type = TREE_TYPE (TREE_TYPE (fn));
   pred_type = TREE_VALUE (arg_types);
@@ -8025,7 +8027,7 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 		  && (MIN (src_align, dest_align) / BITS_PER_UNIT
 		      >= (unsigned HOST_WIDE_INT) tree_low_cst (len, 1))))
 	    {
-	      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+	      tree fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
 	      if (!fn)
 		return NULL_TREE;
               return build_call_expr_loc (loc, fn, 3, dest, src, len);
@@ -8084,7 +8086,7 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 	      else
 		return NULL_TREE;
 
-	      fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+	      fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
 	      if (!fn)
 		return NULL_TREE;
 	      return build_call_expr_loc (loc, fn, 3, dest, src, len);
@@ -8103,7 +8105,7 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 	      if (!refs_may_alias_p_1 (&destr, &srcr, false))
 		{
 		  tree fn;
-		  fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+		  fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
 		  if (!fn)
 		    return NULL_TREE;
 		  return build_call_expr_loc (loc, fn, 3, dest, src, len);
@@ -8278,7 +8280,7 @@ fold_builtin_strcpy (location_t loc, tree fndecl, tree dest, tree src, tree len)
   if (optimize_function_for_size_p (cfun))
     return NULL_TREE;
 
-  fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+  fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
   if (!fn)
     return NULL_TREE;
 
@@ -8316,7 +8318,7 @@ fold_builtin_stpcpy (location_t loc, tree fndecl, tree dest, tree src)
       && !integer_zerop (len))
     return NULL_TREE;
 
-  fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+  fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
   if (!fn)
     return NULL_TREE;
 
@@ -8373,7 +8375,7 @@ fold_builtin_strncpy (location_t loc, tree fndecl, tree dest,
     return NULL_TREE;
 
   /* OK transform into builtin memcpy.  */
-  fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+  fn = implicit_built_in_decls (BUILT_IN_MEMCPY);
   if (!fn)
     return NULL_TREE;
   return fold_convert_loc (loc, TREE_TYPE (TREE_TYPE (fndecl)),
@@ -9194,7 +9196,7 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
     CASE_FLT_FN (BUILT_IN_ISINF):
       {
 	/* isinf(x) -> isgreater(fabs(x),DBL_MAX).  */
-	tree const isgr_fn = BUILT_IN_DECLS (BUILT_IN_ISGREATER);
+	tree const isgr_fn = built_in_decls (BUILT_IN_ISGREATER);
 	tree const type = TREE_TYPE (arg);
 	REAL_VALUE_TYPE r;
 	char buf[128];
@@ -9210,7 +9212,7 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
     case BUILT_IN_ISFINITE:
       {
 	/* isfinite(x) -> islessequal(fabs(x),DBL_MAX).  */
-	tree const isle_fn = BUILT_IN_DECLS (BUILT_IN_ISLESSEQUAL);
+	tree const isle_fn = built_in_decls (BUILT_IN_ISLESSEQUAL);
 	tree const type = TREE_TYPE (arg);
 	REAL_VALUE_TYPE r;
 	char buf[128];
@@ -9233,8 +9235,8 @@ fold_builtin_interclass_mathfn (location_t loc, tree fndecl, tree arg)
       {
 	/* isnormal(x) -> isgreaterequal(fabs(x),DBL_MIN) &
 	   islessequal(fabs(x),DBL_MAX).  */
-	tree const isle_fn = BUILT_IN_DECLS (BUILT_IN_ISLESSEQUAL);
-	tree const isge_fn = BUILT_IN_DECLS (BUILT_IN_ISGREATEREQUAL);
+	tree const isle_fn = built_in_decls (BUILT_IN_ISLESSEQUAL);
+	tree const isge_fn = built_in_decls (BUILT_IN_ISGREATEREQUAL);
 	tree const type = TREE_TYPE (arg);
 	REAL_VALUE_TYPE rmax, rmin;
 	char buf[128];
@@ -9295,7 +9297,7 @@ fold_builtin_classify (location_t loc, tree fndecl, tree arg, int builtin_index)
 	   1.  So e.g. "if (isinf_sign(x))" would be folded to just
 	   "if (isinf(x) ? 1 : 0)" which becomes "if (isinf(x))". */
 	tree signbit_fn = mathfn_built_in_1 (TREE_TYPE (arg), BUILT_IN_SIGNBIT, 0);
-	tree isinf_fn = BUILT_IN_DECLS (BUILT_IN_ISINF);
+	tree isinf_fn = built_in_decls (BUILT_IN_ISINF);
 	tree tmp = NULL_TREE;
 
 	arg = builtin_save_expr (arg);
@@ -10018,7 +10020,7 @@ fold_builtin_2 (location_t loc, tree fndecl, tree arg0, tree arg1, bool ignore)
     case BUILT_IN_STPCPY:
       if (ignore)
 	{
-	  tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+	  tree fn = implicit_built_in_decls (BUILT_IN_STRCPY);
 	  if (!fn)
 	    break;
 
@@ -10818,7 +10820,7 @@ fold_builtin_strstr (location_t loc, tree s1, tree s2, tree type)
       if (p2[1] != '\0')
 	return NULL_TREE;
 
-      fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCHR);
+      fn = implicit_built_in_decls (BUILT_IN_STRCHR);
       if (!fn)
 	return NULL_TREE;
 
@@ -10938,7 +10940,7 @@ fold_builtin_strrchr (location_t loc, tree s1, tree s2, tree type)
       if (! integer_zerop (s2))
 	return NULL_TREE;
 
-      fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCHR);
+      fn = implicit_built_in_decls (BUILT_IN_STRCHR);
       if (!fn)
 	return NULL_TREE;
 
@@ -11002,7 +11004,7 @@ fold_builtin_strpbrk (location_t loc, tree s1, tree s2, tree type)
       if (p2[1] != '\0')
 	return NULL_TREE;  /* Really call strpbrk.  */
 
-      fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCHR);
+      fn = implicit_built_in_decls (BUILT_IN_STRCHR);
       if (!fn)
 	return NULL_TREE;
 
@@ -11049,8 +11051,8 @@ fold_builtin_strcat (location_t loc ATTRIBUTE_UNUSED, tree dst, tree src)
 	{
 	  /* See if we can store by pieces into (dst + strlen(dst)).  */
 	  tree newdst, call;
-	  tree strlen_fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRLEN);
-	  tree strcpy_fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+	  tree strlen_fn = implicit_built_in_decls (BUILT_IN_STRLEN);
+	  tree strcpy_fn = implicit_built_in_decls (BUILT_IN_STRCPY);
 
 	  if (!strlen_fn || !strcpy_fn)
 	    return NULL_TREE;
@@ -11123,7 +11125,7 @@ fold_builtin_strncat (location_t loc, tree dst, tree src, tree len)
       if (TREE_CODE (len) == INTEGER_CST && p
 	  && compare_tree_int (len, strlen (p)) >= 0)
 	{
-	  tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCAT);
+	  tree fn = implicit_built_in_decls (BUILT_IN_STRCAT);
 
 	  /* If the replacement _DECL isn't initialized, don't do the
 	     transformation.  */
@@ -11228,7 +11230,7 @@ fold_builtin_strcspn (location_t loc, tree s1, tree s2)
       /* If the second argument is "", return __builtin_strlen(s1).  */
       if (p2 && *p2 == '\0')
 	{
-	  tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRLEN);
+	  tree fn = implicit_built_in_decls (BUILT_IN_STRLEN);
 
 	  /* If the replacement _DECL isn't initialized, don't do the
 	     transformation.  */
@@ -11254,10 +11256,10 @@ fold_builtin_fputs (location_t loc, tree arg0, tree arg1,
 {
   /* If we're using an unlocked function, assume the other unlocked
      functions exist explicitly.  */
-  tree const fn_fputc = unlocked ? BUILT_IN_DECLS (BUILT_IN_FPUTC_UNLOCKED)
-    : IMPLICIT_BUILT_IN_DECLS (BUILT_IN_FPUTC);
-  tree const fn_fwrite = unlocked ? BUILT_IN_DECLS (BUILT_IN_FWRITE_UNLOCKED)
-    : IMPLICIT_BUILT_IN_DECLS (BUILT_IN_FWRITE);
+  tree const fn_fputc = unlocked ? built_in_decls (BUILT_IN_FPUTC_UNLOCKED)
+    : implicit_built_in_decls (BUILT_IN_FPUTC);
+  tree const fn_fwrite = unlocked ? built_in_decls (BUILT_IN_FWRITE_UNLOCKED)
+    : implicit_built_in_decls (BUILT_IN_FWRITE);
 
   /* If the return value is used, don't do the transformation.  */
   if (!ignore)
@@ -11451,7 +11453,7 @@ fold_builtin_sprintf (location_t loc, tree dest, tree fmt,
   /* If the format doesn't contain % args or %%, use strcpy.  */
   if (strchr (fmt_str, target_percent) == NULL)
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+      tree fn = implicit_built_in_decls (BUILT_IN_STRCPY);
 
       if (!fn)
 	return NULL_TREE;
@@ -11471,7 +11473,7 @@ fold_builtin_sprintf (location_t loc, tree dest, tree fmt,
   else if (fmt_str && strcmp (fmt_str, target_percent_s) == 0)
     {
       tree fn;
-      fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+      fn = implicit_built_in_decls (BUILT_IN_STRCPY);
 
       if (!fn)
 	return NULL_TREE;
@@ -11492,7 +11494,7 @@ fold_builtin_sprintf (location_t loc, tree dest, tree fmt,
 
   if (call && retval)
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_SPRINTF);
+      tree fn = implicit_built_in_decls (BUILT_IN_SPRINTF);
       retval = fold_convert_loc (loc, TREE_TYPE (TREE_TYPE (fn)), retval);
       return build2 (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);
     }
@@ -11545,7 +11547,7 @@ fold_builtin_snprintf (location_t loc, tree dest, tree destsize, tree fmt,
   /* If the format doesn't contain % args or %%, use strcpy.  */
   if (strchr (fmt_str, target_percent) == NULL)
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+      tree fn = implicit_built_in_decls (BUILT_IN_STRCPY);
       size_t len = strlen (fmt_str);
 
       /* Don't optimize snprintf (buf, 4, "abc", ptr++).  */
@@ -11577,7 +11579,7 @@ fold_builtin_snprintf (location_t loc, tree dest, tree destsize, tree fmt,
   /* If the format is "%s", use strcpy if the result isn't used.  */
   else if (fmt_str && strcmp (fmt_str, target_percent_s) == 0)
     {
-      tree fn = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_STRCPY);
+      tree fn = implicit_built_in_decls (BUILT_IN_STRCPY);
       unsigned HOST_WIDE_INT origlen;
 
       /* Don't crash on snprintf (str1, cst, "%s").  */
@@ -11612,7 +11614,7 @@ fold_builtin_snprintf (location_t loc, tree dest, tree destsize, tree fmt,
 
   if (call && retval)
     {
-      tree fn = BUILT_IN_DECLS (BUILT_IN_SNPRINTF);
+      tree fn = built_in_decls (BUILT_IN_SNPRINTF);
       retval = fold_convert_loc (loc, TREE_TYPE (TREE_TYPE (fn)), retval);
       return build2 (COMPOUND_EXPR, TREE_TYPE (retval), call, retval);
     }
@@ -11700,16 +11702,16 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
       switch (fcode)
 	{
 	case BUILT_IN_MEMCPY_CHK:
-	  fn = BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+	  fn = built_in_decls (BUILT_IN_MEMCPY);
 	  break;
 	case BUILT_IN_MEMPCPY_CHK:
-	  fn = BUILT_IN_DECLS (BUILT_IN_MEMPCPY);
+	  fn = built_in_decls (BUILT_IN_MEMPCPY);
 	  break;
 	case BUILT_IN_MEMMOVE_CHK:
-	  fn = BUILT_IN_DECLS (BUILT_IN_MEMMOVE);
+	  fn = built_in_decls (BUILT_IN_MEMMOVE);
 	  break;
 	case BUILT_IN_MEMSET_CHK:
-	  fn = BUILT_IN_DECLS (BUILT_IN_MEMSET);
+	  fn = built_in_decls (BUILT_IN_MEMSET);
 	  break;
 	default:
 	  break;
@@ -11761,7 +11763,7 @@ expand_builtin_memory_chk (tree exp, rtx target, enum machine_mode mode,
 	     normal __memcpy_chk.  */
 	  if (readonly_data_expr (src))
 	    {
-	      tree fn = BUILT_IN_DECLS (BUILT_IN_MEMCPY_CHK);
+	      tree fn = built_in_decls (BUILT_IN_MEMCPY_CHK);
 	      if (!fn)
 		return NULL_RTX;
 	      fn = build_call_nofold_loc (EXPR_LOCATION (exp), fn, 4,
@@ -12025,7 +12027,7 @@ fold_builtin_memory_chk (location_t loc, tree fndecl,
 		{
 		  /* (void) __mempcpy_chk () can be optimized into
 		     (void) __memcpy_chk ().  */
-		  fn = BUILT_IN_DECLS (BUILT_IN_MEMCPY_CHK);
+		  fn = built_in_decls (BUILT_IN_MEMCPY_CHK);
 		  if (!fn)
 		    return NULL_TREE;
 
@@ -12047,16 +12049,16 @@ fold_builtin_memory_chk (location_t loc, tree fndecl,
   switch (fcode)
     {
     case BUILT_IN_MEMCPY_CHK:
-      fn = BUILT_IN_DECLS (BUILT_IN_MEMCPY);
+      fn = built_in_decls (BUILT_IN_MEMCPY);
       break;
     case BUILT_IN_MEMPCPY_CHK:
-      fn = BUILT_IN_DECLS (BUILT_IN_MEMPCPY);
+      fn = built_in_decls (BUILT_IN_MEMPCPY);
       break;
     case BUILT_IN_MEMMOVE_CHK:
-      fn = BUILT_IN_DECLS (BUILT_IN_MEMMOVE);
+      fn = built_in_decls (BUILT_IN_MEMMOVE);
       break;
     case BUILT_IN_MEMSET_CHK:
-      fn = BUILT_IN_DECLS (BUILT_IN_MEMSET);
+      fn = built_in_decls (BUILT_IN_MEMSET);
       break;
     default:
       break;
@@ -12111,7 +12113,7 @@ fold_builtin_stxcpy_chk (location_t loc, tree fndecl, tree dest,
 
 		  /* If return value of __stpcpy_chk is ignored,
 		     optimize into __strcpy_chk.  */
-		  fn = BUILT_IN_DECLS (BUILT_IN_STRCPY_CHK);
+		  fn = built_in_decls (BUILT_IN_STRCPY_CHK);
 		  if (!fn)
 		    return NULL_TREE;
 
@@ -12123,7 +12125,7 @@ fold_builtin_stxcpy_chk (location_t loc, tree fndecl, tree dest,
 
 	      /* If c_strlen returned something, but not a constant,
 		 transform __strcpy_chk into __memcpy_chk.  */
-	      fn = BUILT_IN_DECLS (BUILT_IN_MEMCPY_CHK);
+	      fn = built_in_decls (BUILT_IN_MEMCPY_CHK);
 	      if (!fn)
 		return NULL_TREE;
 
@@ -12141,7 +12143,7 @@ fold_builtin_stxcpy_chk (location_t loc, tree fndecl, tree dest,
     }
 
   /* If __builtin_st{r,p}cpy_chk is used, assume st{r,p}cpy is available.  */
-  fn = BUILT_IN_DECLS (fcode == BUILT_IN_STPCPY_CHK
+  fn = built_in_decls (fcode == BUILT_IN_STPCPY_CHK
 		       ? BUILT_IN_STPCPY : BUILT_IN_STRCPY);
   if (!fn)
     return NULL_TREE;
@@ -12186,7 +12188,7 @@ fold_builtin_strncpy_chk (location_t loc, tree dest, tree src,
     }
 
   /* If __builtin_strncpy_chk is used, assume strncpy is available.  */
-  fn = BUILT_IN_DECLS (BUILT_IN_STRNCPY);
+  fn = built_in_decls (BUILT_IN_STRNCPY);
   if (!fn)
     return NULL_TREE;
 
@@ -12217,7 +12219,7 @@ fold_builtin_strcat_chk (location_t loc, tree fndecl, tree dest,
     return NULL_TREE;
 
   /* If __builtin_strcat_chk is used, assume strcat is available.  */
-  fn = BUILT_IN_DECLS (BUILT_IN_STRCAT);
+  fn = built_in_decls (BUILT_IN_STRCAT);
   if (!fn)
     return NULL_TREE;
 
@@ -12259,7 +12261,7 @@ fold_builtin_strncat_chk (location_t loc, tree fndecl,
 	  && ! tree_int_cst_lt (len, src_len))
 	{
 	  /* If LEN >= strlen (SRC), optimize into __strcat_chk.  */
-	  fn = BUILT_IN_DECLS (BUILT_IN_STRCAT_CHK);
+	  fn = built_in_decls (BUILT_IN_STRCAT_CHK);
 	  if (!fn)
 	    return NULL_TREE;
 
@@ -12269,7 +12271,7 @@ fold_builtin_strncat_chk (location_t loc, tree fndecl,
     }
 
   /* If __builtin_strncat_chk is used, assume strncat is available.  */
-  fn = BUILT_IN_DECLS (BUILT_IN_STRNCAT);
+  fn = built_in_decls (BUILT_IN_STRNCAT);
   if (!fn)
     return NULL_TREE;
 
@@ -12360,7 +12362,7 @@ fold_builtin_sprintf_chk_1 (location_t loc, int nargs, tree *args,
     }
 
   /* If __builtin_{,v}sprintf_chk is used, assume {,v}sprintf is available.  */
-  fn = BUILT_IN_DECLS (fcode == BUILT_IN_VSPRINTF_CHK
+  fn = built_in_decls (fcode == BUILT_IN_VSPRINTF_CHK
 		       ? BUILT_IN_VSPRINTF : BUILT_IN_SPRINTF);
   if (!fn)
     return NULL_TREE;
@@ -12449,7 +12451,7 @@ fold_builtin_snprintf_chk_1 (location_t loc, int nargs, tree *args,
 
   /* If __builtin_{,v}snprintf_chk is used, assume {,v}snprintf is
      available.  */
-  fn = BUILT_IN_DECLS (fcode == BUILT_IN_VSNPRINTF_CHK
+  fn = built_in_decls (fcode == BUILT_IN_VSNPRINTF_CHK
 		       ? BUILT_IN_VSNPRINTF : BUILT_IN_SNPRINTF);
   if (!fn)
     return NULL_TREE;
@@ -12504,13 +12506,13 @@ fold_builtin_printf (location_t loc, tree fndecl, tree fmt,
     {
       /* If we're using an unlocked function, assume the other
 	 unlocked functions exist explicitly.  */
-      fn_putchar = BUILT_IN_DECLS (BUILT_IN_PUTCHAR_UNLOCKED);
-      fn_puts = BUILT_IN_DECLS (BUILT_IN_PUTS_UNLOCKED);
+      fn_putchar = built_in_decls (BUILT_IN_PUTCHAR_UNLOCKED);
+      fn_puts = built_in_decls (BUILT_IN_PUTS_UNLOCKED);
     }
   else
     {
-      fn_putchar = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_PUTCHAR);
-      fn_puts = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_PUTS);
+      fn_putchar = implicit_built_in_decls (BUILT_IN_PUTCHAR);
+      fn_puts = implicit_built_in_decls (BUILT_IN_PUTS);
     }
 
   if (!init_target_chars ())
@@ -12655,13 +12657,13 @@ fold_builtin_fprintf (location_t loc, tree fndecl, tree fp,
     {
       /* If we're using an unlocked function, assume the other
 	 unlocked functions exist explicitly.  */
-      fn_fputc = BUILT_IN_DECLS (BUILT_IN_FPUTC_UNLOCKED);
-      fn_fputs = BUILT_IN_DECLS (BUILT_IN_FPUTS_UNLOCKED);
+      fn_fputc = built_in_decls (BUILT_IN_FPUTC_UNLOCKED);
+      fn_fputs = built_in_decls (BUILT_IN_FPUTS_UNLOCKED);
     }
   else
     {
-      fn_fputc = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_FPUTC);
-      fn_fputs = IMPLICIT_BUILT_IN_DECLS (BUILT_IN_FPUTS);
+      fn_fputc = implicit_built_in_decls (BUILT_IN_FPUTC);
+      fn_fputs = implicit_built_in_decls (BUILT_IN_FPUTS);
     }
 
   if (!init_target_chars ())
@@ -13475,7 +13477,7 @@ set_builtin_user_assembler_name (tree decl, const char *asmspec)
 	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	      && asmspec != 0);
 
-  builtin = BUILT_IN_DECLS (DECL_FUNCTION_CODE (decl));
+  builtin = built_in_decls (DECL_FUNCTION_CODE (decl));
   set_user_assembler_name (builtin, asmspec);
   switch (DECL_FUNCTION_CODE (decl))
     {

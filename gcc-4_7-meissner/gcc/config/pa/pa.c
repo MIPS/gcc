@@ -555,15 +555,15 @@ static void
 pa_init_builtins (void)
 {
 #ifdef DONT_HAVE_FPUTC_UNLOCKED
-  buil_in_copy_decl (BUILT_IN_FPUTC_UNLOAD, BUILT_IN_PUTC_UNLOCKED);
+  buil_in_copy_decl (BUILT_IN_FPUTC_UNLOCKED, BUILT_IN_PUTC_UNLOCKED);
 #endif
 #if TARGET_HPUX_11
   {
     tree bfn;
 
-    if ((bfn = built_in_decls [BUILT_IN_FINITE]) != NULL_TREE)
+    if ((bfn = built_in_decls (BUILT_IN_FINITE)) != NULL_TREE)
       set_user_assembler_name (bfn, "_Isfinite");
-    if ((bfn = built_in_decls [BUILT_IN_FINITEF]) != NULL_TREE)
+    if ((bfn = built_in_decls (BUILT_IN_FINITEF)) != NULL_TREE)
       set_user_assembler_name (bfn, "_Isfinitef");
   }
 #endif

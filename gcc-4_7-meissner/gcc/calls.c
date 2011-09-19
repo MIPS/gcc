@@ -283,7 +283,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 doesn't run the garbage collector at the same spot and then
 	 shares the mem_attr with the equivalent entry. */
       if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL
-	  && (bfndecl = BUILT_IN_DECLS (DECL_FUNCTION_CODE (t))) != NULL_TREE)
+	  && (bfndecl = built_in_decls (DECL_FUNCTION_CODE (t))) != NULL_TREE)
 	t = bfndecl;
       set_mem_expr (funmem, t);
     }

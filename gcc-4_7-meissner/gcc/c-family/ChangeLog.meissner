@@ -1,17 +1,20 @@
-2011-09-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 178819.
-
-2011-09-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* c-common.c (def_builtin_1): Change to use new builtin accessor
-	macros instead of refering to the built_in_decls and
-	implicit_built_in_decls directly.
+	* c-common.c (def_builtin_1): Change builtin interface from being
+	an array to an inline function for both normal and implicit
+	builtin functions.  Change all read references to built_in_decls
+	and implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_decls_add,
+	built_in_decls_copy, or built_in_decls_no_implicit.
 	(resolve_overloaded_builtin): Ditto.
 	* c-omp.c (c_finish_omp_barrier): Ditto.
 	(c_finish_omp_taskwait): Ditto.
 	(c_finish_omp_taskyield): Ditto.
 	(c_finish_omp_flush): Ditto.
+
+2011-09-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178819.
 
 2011-09-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
