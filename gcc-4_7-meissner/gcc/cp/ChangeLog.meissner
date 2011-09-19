@@ -1,5 +1,9 @@
 2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 178985.
+
+2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* decl.c (duplicate_decls): Change builtin interface from being an
 	array to an inline function for both normal and implicit builtin
 	functions.  Change all read references to built_in_decls and
