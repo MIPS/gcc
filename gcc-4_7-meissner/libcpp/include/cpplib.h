@@ -470,6 +470,13 @@ struct cpp_options
    header is otherwise unfound.  */
 typedef const char *(*missing_header_cb)(cpp_reader *, const char *header, cpp_dir **);
 
+/* Callback for conditional macros.  There are two callbacks, one for the front
+   end, and one for the backend.  The front end hook is used for builtin
+   functions to create the definition the first time the builtin function name
+   is used.  The rs6000 and spu backends use the hook to allow vector
+   keywords.  */
+typedef cpp_hashnode * (*macro_to_expand_cb) (cpp_reader *, const cpp_token *);
+
 /* Call backs to cpplib client.  */
 struct cpp_callbacks
 {
@@ -493,9 +500,10 @@ struct cpp_callbacks
   void (*read_pch) (cpp_reader *, const char *, int, const char *);
   missing_header_cb missing_header;
 
-  /* Context-sensitive macro support.  Returns macro (if any) that should
-     be expanded.  */
-  cpp_hashnode * (*macro_to_expand) (cpp_reader *, const cpp_token *);
+  /* Context-sensitive macro support for target machines and for front ends.
+     Returns macro (if any) that should be expanded.  */
+  macro_to_expand_cb lang_macro_to_expand;
+  macro_to_expand_cb md_macro_to_expand;
 
   /* Called to emit a diagnostic.  This callback receives the
      translated message.  */

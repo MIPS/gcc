@@ -605,6 +605,13 @@ lhd_builtin_function (tree decl)
   return decl;
 }
 
+/* Finish initiailizing a builtin function the first time it is used.  */
+void
+lhd_builtin_function_init (enum built_in_function ARG_UNUSED (bfunc))
+{
+  gcc_unreachable ();
+}
+
 /* LTO hooks.  */
 
 /* Used to save and restore any previously active section.  */

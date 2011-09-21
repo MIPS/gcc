@@ -443,6 +443,9 @@ struct lang_hooks
      backend must add all of the builtins at program initialization time.  */
   tree (*builtin_function_ext_scope) (tree decl);
 
+  /* Finish initiailizing a builtin function the first time it is used.  */
+  void (*builtin_function_init) (enum built_in_function);
+
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
 

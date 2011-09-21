@@ -1,0 +1,17 @@
+2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* macro.c (cpp_get_token): Support both language and backend macro
+	expansion.
+
+	* include/cpplib.h (macro_to_expand_cb): Declaration of the
+	conditional macro expansion hook.
+	(struct cpp_callbacks): Split macro_to_expand into front end and
+	back end macro expansion hooks.
+
+2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178985.
+
+2011-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from FSF branch 177785.

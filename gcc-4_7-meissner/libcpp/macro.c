@@ -1285,29 +1285,31 @@ cpp_get_token (cpp_reader *pfile)
 	     first.  */
 	  if ((node->flags & NODE_CONDITIONAL) != 0)
 	    {
-	      if (pfile->cb.macro_to_expand)
-		{
-		  bool whitespace_after;
-		  const cpp_token *peek_tok = cpp_peek_token (pfile, 0);
+	      const cpp_token *peek_tok = cpp_peek_token (pfile, 0);
+	      bool whitespace_after = (peek_tok->type == CPP_PADDING
+				       || (peek_tok->flags & PREV_WHITE));
 
-		  whitespace_after = (peek_tok->type == CPP_PADDING
-				      || (peek_tok->flags & PREV_WHITE));
-		  node = pfile->cb.macro_to_expand (pfile, result);
-		  if (node)
-		    ret = enter_macro_context (pfile, node, result);
-		  else if (whitespace_after)
-		    {
-		      /* If macro_to_expand hook returned NULL and it
-			 ate some tokens, see if we don't need to add
-			 a padding token in between this and the
-			 next token.  */
-		      peek_tok = cpp_peek_token (pfile, 0);
-		      if (peek_tok->type != CPP_PADDING
-			  && (peek_tok->flags & PREV_WHITE) == 0)
-			_cpp_push_token_context (pfile, NULL,
-						 padding_token (pfile,
-								peek_tok), 1);
-		    }
+	      node = (cpp_hashnode *)0;
+	      if (pfile->cb.md_macro_to_expand)
+		node = pfile->cb.md_macro_to_expand (pfile, result);
+
+	      if (!node && pfile->cb.lang_macro_to_expand)
+		node = pfile->cb.lang_macro_to_expand (pfile, result);
+
+	      if (node)
+		ret = enter_macro_context (pfile, node, result);
+
+	      else if (whitespace_after)
+		{
+		  /* If macro_to_expand hook returned NULL and it ate some
+		     tokens, see if we don't need to add a padding token in
+		     between this and the next token.  */
+		  peek_tok = cpp_peek_token (pfile, 0);
+		  if (peek_tok->type != CPP_PADDING
+		      && (peek_tok->flags & PREV_WHITE) == 0)
+		    _cpp_push_token_context (pfile, NULL,
+					     padding_token (pfile, peek_tok),
+					     1);
 		}
 	    }
 	  else

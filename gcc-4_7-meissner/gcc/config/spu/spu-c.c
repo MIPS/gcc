@@ -219,7 +219,7 @@ spu_cpu_cpp_builtins (struct cpp_reader *pfile)
       C_CPP_HASHNODE (vector_keyword)->flags |= NODE_CONDITIONAL;
 
       /* Enable context-sensitive macros.  */
-      cpp_get_callbacks (pfile)->macro_to_expand = spu_macro_to_expand;
+      cpp_get_callbacks (pfile)->md_macro_to_expand = spu_macro_to_expand;
     }
 }
 

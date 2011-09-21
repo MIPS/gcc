@@ -314,6 +314,10 @@ enum built_in_function
 /* Names for the above.  */
 extern const char * built_in_names[(int) END_BUILTINS];
 
+/* Expand a builtin function that is referenced for the first time, calling the
+   language hooks to do the actual expansion.  */
+extern void builtin_function_init (enum built_in_function);
+
 /* Helper macros for math builtins.  */
 
 #define BUILTIN_EXP10_P(FN) \
@@ -344,65 +348,6 @@ typedef struct GTY(()) built_in_decl_info
 } built_in_decl_info;
 
 extern GTY(()) built_in_decl_info built_in_info[(int)END_BUILTINS];
-
-/* Valid builtin number.  */
-#define BUILT_IN_VALID_P(FNCODE) \
-  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
-
-/* Return the tree node for a builtin function or NULL, possibly
-   creating the tree node.  */
-static inline tree
-built_in_decls (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].decl;
-}
-
-/* Return the tree node for a builtin function or NULL, possibly
-   creating the tree node.  */
-static inline tree
-implicit_built_in_decls (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].implicit;
-}
-
-/* Return the tree node for a builtin function or NULL, indexing into the
-   array.  */
-static inline tree
-built_in_decls_add (enum built_in_function fncode, int addend)
-{
-  return built_in_decls ((enum built_in_function)(((int)fncode) + addend));
-}
-
-/* Initialize a builtin function.  */
-static inline void
-built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
-{
-  built_in_decl_info *info;
-
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  info = &built_in_info[(int)fncode];
-  info->decl = decl;
-  info->implicit = implicit;
-}
-
-/* Copy a builtin function.  */
-static inline void
-built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
-{
-  gcc_assert (BUILT_IN_VALID_P (dest));
-  gcc_assert (BUILT_IN_VALID_P (src));
-  built_in_info[(int)dest] = built_in_info[(int)src];
-}
-
-/* Turn off an implicit builtin function, but keep the explict version.  */
-static inline void
-built_in_no_implicit (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  built_in_info[(int)fncode].implicit = (tree)0;
-}
 
 
 /* In an OMP_CLAUSE node.  */
@@ -3890,6 +3835,8 @@ enum tree_index
   TI_CURRENT_TARGET_PRAGMA,
   TI_CURRENT_OPTIMIZE_PRAGMA,
 
+  TI_BUILTIN_FUNC_NO_INIT,
+
   TI_MAX
 };
 
@@ -4073,6 +4020,10 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define current_target_pragma		global_trees[TI_CURRENT_TARGET_PRAGMA]
 #define current_optimize_pragma		global_trees[TI_CURRENT_OPTIMIZE_PRAGMA]
 
+/* Type node for builtin functions that haven't been initialized yet.  The
+   first reference to the builtin creates the type.  */
+#define builtin_func_no_init_node	global_trees[TI_BUILTIN_FUNC_NO_INIT]
+
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
    that signed types appear before unsigned ones, for the correct
@@ -4114,6 +4065,118 @@ extern GTY(()) tree integer_types[itk_none];
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
 #define int128_integer_type_node	integer_types[itk_int128]
 #define int128_unsigned_type_node	integer_types[itk_unsigned_int128]
+
+/* Valid builtin number.  */
+#define BUILT_IN_VALID_P(FNCODE) \
+  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+built_in_decls (enum built_in_function fncode)
+{
+  tree t;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+
+  t = built_in_info[(int)fncode].decl;
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---built_in_decls[%s] = %p\n",
+	     built_in_names[(int)fncode],
+	     (void *)t);
+
+  if (t == builtin_func_no_init_node)
+    {
+      builtin_function_init (fncode);
+      t = built_in_info[(int)fncode].decl;
+    }
+
+  return t;
+}
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+implicit_built_in_decls (enum built_in_function fncode)
+{
+  tree t;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+
+  t = built_in_info[(int)fncode].implicit;
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---implicit_built_in_decls[%s] = %p\n",
+	     built_in_names[(int)fncode],
+	     (void *)t);
+
+  if (t == builtin_func_no_init_node)
+    {
+      builtin_function_init (fncode);
+      t = built_in_info[(int)fncode].implicit;
+    }
+
+  return t;
+}
+
+/* Return the tree node for a builtin function or NULL, indexing into the
+   array.  */
+static inline tree
+built_in_decls_add (enum built_in_function fncode, int addend)
+{
+  tree t = built_in_decls ((enum built_in_function)(((int)fncode) + addend));
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---built_in_decls_add[%s] = %p\n",
+	     built_in_names[(int)fncode],
+	     (void *)t);
+
+  return t;
+}
+
+/* Initialize a builtin function.  */
+static inline void
+built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
+{
+  built_in_decl_info *info;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---built_in_set_decl (%s, %p, %p)\n",
+	     built_in_names[(int)fncode],
+	     (void *)decl,
+	     (void *)implicit);
+
+  info = &built_in_info[(int)fncode];
+  info->decl = decl;
+  info->implicit = implicit;
+}
+
+/* Copy a builtin function.  */
+static inline void
+built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
+{
+  gcc_assert (BUILT_IN_VALID_P (dest));
+  gcc_assert (BUILT_IN_VALID_P (src));
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---built_in_copy_decl[%s, %s] (%p, %p)\n",
+	     built_in_names[(int)dest],
+	     built_in_names[(int)src],
+	     (void *)built_in_info[(int)src].decl,
+	     (void *)built_in_info[(int)src].implicit);
+
+  built_in_info[(int)dest] = built_in_info[(int)src];
+}
+
+/* Turn off an implicit builtin function, but keep the explict version.  */
+static inline void
+built_in_no_implicit (enum built_in_function fncode)
+{
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---built_in_no_implicit[%s]\n",
+	     built_in_names[(int)fncode]);
+
+  built_in_info[(int)fncode].implicit = (tree)0;
+}
 
 /* A pointer-to-function member type looks like:
 

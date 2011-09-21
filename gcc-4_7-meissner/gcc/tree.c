@@ -9402,6 +9402,11 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
     va_list_type_node = t;
   }
+
+  /* Define dummy node for builtin function type that will later be expanded
+     the first time a builtin function is used.  */
+  builtin_func_no_init_node = build_function_type (void_type_node,
+						   void_list_node);
 }
 
 /* A subroutine of build_common_builtin_nodes.  Define a builtin function.  */
@@ -9647,6 +9652,20 @@ build_common_builtin_nodes (void)
 			      ECF_CONST | ECF_NOTHROW | ECF_LEAF);
       }
   }
+}
+
+/* Expand a builtin function that is referenced for the first time, calling the
+   language hooks to do the actual expansion.  */
+
+void
+builtin_function_init (enum built_in_function fncode)
+{
+  lang_hooks.builtin_function_init (fncode);
+  if (TARGET_MEISSNER_DEBUG)
+    fprintf (stderr, "---builtin_function_init[%s], %p, %p\n",
+	     built_in_names[(int)fncode],
+	     (void *)built_in_info[(int)fncode].decl,
+	     (void *)built_in_info[(int)fncode].implicit);
 }
 
 /* HACK.  GROSS.  This is absolutely disgusting.  I wish there was a

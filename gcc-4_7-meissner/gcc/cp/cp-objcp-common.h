@@ -90,6 +90,8 @@ extern void cp_common_init_ts (void);
 #define LANG_HOOKS_BUILTIN_FUNCTION cxx_builtin_function
 #undef  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE cxx_builtin_function_ext_scope
+#undef	LANG_HOOKS_BUILTIN_FUNCTION_INIT
+#define LANG_HOOKS_BUILTIN_FUNCTION_INIT c_common_builtin_function_init
 #undef	LANG_HOOKS_TYPE_HASH_EQ
 #define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
 #undef LANG_HOOKS_MISSING_NORETURN_OK_P

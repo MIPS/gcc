@@ -311,7 +311,8 @@ rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 	  init_vector_keywords ();
 
 	  /* Enable context-sensitive macros.  */
-	  cpp_get_callbacks (pfile)->macro_to_expand = rs6000_macro_to_expand;
+	  cpp_get_callbacks (pfile)->md_macro_to_expand
+	    = rs6000_macro_to_expand;
 	}
     }
   if (rs6000_cpu == PROCESSOR_CELL)

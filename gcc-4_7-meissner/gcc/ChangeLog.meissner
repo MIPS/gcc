@@ -1,3 +1,40 @@
+2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.c (build_common_tree_nodes): Initialize
+	builtin_func_no_init_node.
+	(builtin_function_init): New function to cal lang_hooks
+	builtin_function_init hook.
+
+	* tree.h (builtin_function_init): New declaration.
+	(enum tree_index): Add TI_BUILTIN_FUNC_NO_INIT.
+	(builtin_func_no_init_node): New global tree node to use to
+	indicate builtin functions that need to be created.
+	(built_in_decls): Move later in the file, add debugging support.
+	(implicit_built_in_decls): Ditto.
+	(built_in_decls_add): Ditto.
+	(built_in_set_decl): Ditto.
+	(built_in_copy_decl): Ditto.
+	(built_in_no_implicit): Ditto.
+
+	* c-objc-common.h (LANG_HOOKS_BUILTIN_FUNCTION_INIT): Define hook.
+
+	* langhooks.c (lhd_builtin_function_init): Add default hook for
+	initializing a builtin function after the fact.
+
+	* langhooks.h (struct lang_hooks): Add builtin_function_init
+	hook.
+
+	* common.opt (-fmeissner-debug): Add temporary debug switch.
+	(-fmeissner-builtin): Ditto.
+
+	* config/spu/spu-c.c (spu_cpu_cpp_builtins): Change name of the
+	macro to expand hook.
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Ditto.
+
+	* langhooks-def.h (lhd_builtin_function_init): Add declaration.
+	(LANG_HOOKS_BUILTIN_FUNCTION_INIT): Define new hook.
+	(LANG_HOOKS_INITIALIZER): Add builtin_function_init initialize.
+
 2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 178985.

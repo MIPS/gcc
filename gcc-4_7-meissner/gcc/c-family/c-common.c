@@ -4538,8 +4538,43 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
   va_end (list);
 }
 
-/* Build builtin functions common to both C and C++ language
-   frontends.  */
+/* Create builtin function type node once it is referenced.  */
+void
+c_common_builtin_function_init (enum built_in_function fncode)
+{
+  switch (fncode)
+    {
+    default:
+      gcc_unreachable ();
+
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
+		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
+    case ENUM:								\
+      gcc_assert (NAME && COND);					\
+      def_builtin_1 (ENUM, NAME, CLASS,					\
+		     builtin_types[(int) TYPE],				\
+		     builtin_types[(int) LIBTYPE],			\
+		     BOTH_P, FALLBACK_P, NONANSI_P,			\
+		     built_in_attributes[(int) ATTRS], IMPLICIT);	\
+      break;
+
+#include "builtins.def"
+#undef DEF_BUILTIN
+
+    }
+
+  /* Make sure the node was actually created.  Don't use built_in_decls here,
+     since if it wasn't created, we would wind up recursing back to this
+     function.  */
+  gcc_assert (built_in_info[(int)fncode].decl != NULL_TREE
+	      && built_in_info[(int)fncode].decl != builtin_func_no_init_node);
+}
+
+/* Build builtin functions common to both C and C++ language frontends.  In
+   order to save space, we don't actually allocate the builtin type node until
+   it is referenced for the first time.  Instead we use a special marker to say
+   this is a builtin function here, and call c_common_builtin_function_init
+   when the first reference occurs. */
 
 static void
 c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
@@ -4602,11 +4637,16 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
 		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
   if (NAME && COND)							\
-    def_builtin_1 (ENUM, NAME, CLASS,                                   \
-		   builtin_types[(int) TYPE],                           \
-		   builtin_types[(int) LIBTYPE],                        \
-		   BOTH_P, FALLBACK_P, NONANSI_P,                       \
-		   built_in_attributes[(int) ATTRS], IMPLICIT);
+    {									\
+      if (TARGET_MEISSNER_BUILTIN)					\
+	built_in_set_decl (ENUM, builtin_func_no_init_node,		\
+			   ((IMPLICIT)					\
+			    ? builtin_func_no_init_node			\
+			    : NULL_TREE));				\
+      else								\
+	c_common_builtin_function_init (ENUM);				\
+    }
+
 #include "builtins.def"
 #undef DEF_BUILTIN
 

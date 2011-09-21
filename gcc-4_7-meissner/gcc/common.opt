@@ -756,6 +756,14 @@ Driver Joined Separate
 export-dynamic
 Driver Undocumented
 
+fmeissner-debug
+Common Report Var(TARGET_MEISSNER_DEBUG)
+Meissner temporary debug flag
+
+fmeissner-builtin
+Common Report Var(TARGET_MEISSNER_BUILTIN)
+Meissner temporary builtin flag
+
 ; The version of the C++ ABI in use.  The following values are allowed:
 ;
 ; 0: The version of the ABI believed most conformant with the C++ ABI
