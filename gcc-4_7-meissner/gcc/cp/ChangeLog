@@ -1,3 +1,26 @@
+2011-09-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50454
+	* decl.c (grokdeclarator): Consistently handle both __int128
+	and unsigned __int128 with -pedantic; suppress diagnostic in
+	system headers.
+
+2011-09-20  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (DECL_TEMPLOID_INSTANTIATION): New.
+	(DECL_GENERATED_P): New.
+	* class.c (finalize_literal_type_property): Use them.
+	* semantics.c (is_instantiation_of_constexpr): Likewise.
+	(register_constexpr_fundef): Likewise.
+
+	* call.c (convert_default_arg): Avoid redundant copy.
+	* tree.c (bot_manip): Copy everything.
+
+2011-09-20 Roberto Agostino Vitillo <ravitillo@lbl.gov>
+
+	* call.c (build_new_method_call_1): Use non-virtual lookup
+	for final virtual functions.
+
 2011-09-16  Jason Merrill  <jason@redhat.com>
 
 	PR c++/50424

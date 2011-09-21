@@ -1,3 +1,96 @@
+2011-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_sse_movcc): Use
+	blendvps, blendvpd and pblendvb if possible.
+
+2011-09-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50464
+	* config/i386/sse.md (xop_pcmov_<mode><avxsizesuffix>): Change
+	operand 1 predicate to register_operand and operand 2 predicate
+	to nonimmediate_operand.
+	* config/i386/i386.c (ix86_expand_sse_movcc): When generating
+	xop_pcmov, force op_true to register.  Also, force op_false to
+	register if it doesn't satisfy nonimmediate_operand predicate.
+
+2011-09-21  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/bmi2intrin.h (_mulx_u64): New.
+	(_mulx_u32): Ditto.
+
+2011-09-21  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/50433
+	* ipa-inline-analysis.c (eliminated_by_inlining_prob):
+	Use get_base_address.
+
+2011-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (<code><mode>3 smaxmin:VI124_128 expander): Use
+	nonimmediate_operand instead of register_operand predicate for operands
+	1 and 2, force them into registers if expanding them as comparison.
+	(<code><mode>3 umaxmin:VI124_128 expander): Similarly.  For UMAX
+	V8HImode force into register just operand 1.
+
+2011-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/45099
+	* config/avr/avr.c (avr_function_arg_advance): Change error to
+	warning if a fixed register is needed as function argument.
+
+2011-09-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/50449
+	PR target/50465
+	* config/avr/avr.md (adjust_len): New insn attribute.
+	(*reload_insi, *reload_insf): Use it.
+	(*movsi, *movsf): Use new interface of output_movsisf.
+	* config/avr/avr-protos.h (output_movsisf): Change prototype.
+	* config/avr/avr.c (output_movsisf): Ditto.
+	(adjust_insn_length): Use insn attribute "adjust_len" to adjust
+	lengths of insns *reload_insi, *reload_insf.
+	(output_reload_insisf_1): New static function.
+	(output_reload_insisf): Use it.
+
+2011-09-21  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.c (def_builtin): Change from macro into function.
+	(def_builtin_const): New.
+	(sparc_vis_init_builtins): Use def_builtin_const for all VIS builtins
+	other than alignaddr and falignaddr.
+
+2011-09-21  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (final): Handle if JUMP_LABEL is not LABEL_P.
+
+2011-09-20  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.md (UNSPEC_ALIGNADDRL): New unspec.
+	(aligneddrl<P:mode>_vis): New pattern.
+	(edge8_vis, edge8l_vis, edge16_vis, edge16l_vis, edge32_vis,
+	edge32l_vis): Adjust to take Pmode arguments, and return SImode.
+	* config/sparc/sparc.c (sparc_vis_init_builtins): Handle new
+	alignaddrl insn, and adjust edge operations for updated types.
+	* config/sparc/visintrin.h: Likewise.
+	* doc/extend.texi: Make typing in VIS documentation match reality.
+
+2011-09-20  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm-arches.def: Add armv6s-m.
+	* config/arm/arm-tables.opt: Regenerate.
+
+2011-09-20  Wei Guozhi  <carrot@google.com>
+
+	PR rtl-optimization/49452
+	* postreload.c (reload_combine): Invalidate use information when across
+	volatile insn.
+
+2011-09-19  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* haifa-sched.c (has_edge_p, prev_non_location_insn, check_cfg):
+	Remove maintenance overhead.
+	(haifa_sched_init, sched_finish): Update.
+
 2011-09-19  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/mmx.md (*mov<mode>_internal_rex64): Use if_then_else RTX

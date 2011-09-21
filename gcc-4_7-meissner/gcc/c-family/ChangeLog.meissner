@@ -1,5 +1,9 @@
 2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 179058.
+
+2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* c-common.c (c_define_builtins): If -fmeissner-builtin, don't
 	create the builtin declaration at compiler startup.
 	(c_common_builtin_function_init): New function, create the

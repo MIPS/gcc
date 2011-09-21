@@ -1,5 +1,9 @@
 2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 179058.
+
+2011-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* macro.c (cpp_get_token): Support both language and backend macro
 	expansion.
 
