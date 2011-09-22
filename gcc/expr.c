@@ -5300,6 +5300,7 @@ count_type_elements (const_tree type, bool for_ctor_p)
     case POINTER_TYPE:
     case OFFSET_TYPE:
     case REFERENCE_TYPE:
+    case NULLPTR_TYPE:
       return 1;
 
     case ERROR_MARK:
