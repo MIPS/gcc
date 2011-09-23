@@ -834,11 +834,6 @@ struct target_ira_int {
      taking all hard-registers including fixed ones into account.  */
   enum reg_class x_ira_reg_class_intersect[N_REG_CLASSES][N_REG_CLASSES];
 
-  /* True if the two classes (that is calculated taking only hard
-     registers available for allocation into account; are
-     intersected.  */
-  bool x_ira_reg_classes_intersect_p[N_REG_CLASSES][N_REG_CLASSES];
-
   /* Classes with end marker LIM_REG_CLASSES which are intersected with
      given class (the first index).  That includes given class itself.
      This is calculated taking only hard registers available for
@@ -910,8 +905,6 @@ extern struct target_ira_int *this_target_ira_int;
   (this_target_ira_int->x_ira_important_class_nums)
 #define ira_reg_class_intersect \
   (this_target_ira_int->x_ira_reg_class_intersect)
-#define ira_reg_classes_intersect_p \
-  (this_target_ira_int->x_ira_reg_classes_intersect_p)
 #define ira_reg_class_super_classes \
   (this_target_ira_int->x_ira_reg_class_super_classes)
 #define ira_reg_class_subunion \

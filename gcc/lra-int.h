@@ -111,15 +111,19 @@ struct lra_reg
      *non-debug* insns.  */
   int nrefs, freq;
   int last_reload;
-  /* That is for bound pseudos only.  */
-  int first, next;
+  /* Regno to undo the inheritance.  It can be non-zero only between
+     couple of inheritance and undo unheritance passes.  */
+  int restore_regno;
+  /* Value holding by register.  If the pseudos have the same value
+     they do not conflict.  */
+  int val;
   /* These members are set up in lra-lives.c and updated in
      lra-coalesce.c.  */
-  /* Live ranges of the pseudo.  */
-  lra_live_range_t live_ranges;
   /* The biggest size mode in which each pseudo reg is referred in
      whole function (possibly via subreg).  */
   enum machine_mode biggest_mode;
+  /* Live ranges of the pseudo.  */
+  lra_live_range_t live_ranges;
   /* This member is set up in lra-lives.c for subsequent
      assignments.  */
   lra_copy_t copies;
@@ -240,14 +244,17 @@ extern void lra_push_insn (rtx);
 extern void lra_push_insn_by_uid (unsigned int);
 extern void lra_push_insn_and_update_insn_regno_info (rtx);
 
+extern rtx lra_create_new_reg_with_unique_value (enum machine_mode, rtx,
+						 enum reg_class, const char *);
 extern rtx lra_create_new_reg (enum machine_mode, rtx, enum reg_class,
 			       const char *);
+extern void lra_set_regno_unique_value (int);
 extern void lra_invalidate_insn_data (rtx);
 extern void lra_set_insn_deleted (rtx);
 extern void lra_delete_dead_insn (rtx);
 extern void lra_emit_add (rtx, rtx, rtx);
 extern void lra_emit_move (rtx, rtx);
-extern void lra_update_dups (lra_insn_recog_data_t, int, int);
+extern void lra_update_dups (lra_insn_recog_data_t, signed char *);
 
 extern void lra_process_new_insns (rtx, rtx, rtx, const char *);
 
@@ -261,8 +268,6 @@ extern void lra_update_insn_regno_info (rtx);
 extern struct lra_insn_reg *lra_get_insn_regs (int);
 
 extern void lra_expand_reg_info (void);
-extern void lra_bind_pseudos (int, int);
-extern int lra_bound_pseudo_freq (int);
 extern void lra_free_copies (void);
 extern void lra_create_copy (int, int, int);
 
@@ -275,7 +280,8 @@ extern int lra_constraint_new_insn_uid_start;
 
 /* lra-constraints.c: */
 
-extern bitmap_head lra_dont_inherit_pseudos;
+extern bitmap_head lra_matched_pseudos;
+extern bitmap_head lra_bound_pseudos;
 
 extern rtx lra_secondary_memory[NUM_MACHINE_MODES];
 
@@ -396,4 +402,17 @@ lra_add_hard_reg_set (int hard_regno, enum machine_mode mode, HARD_REG_SET *s)
 
   for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     SET_HARD_REG_BIT (*s, hard_regno + i);
+}
+
+/* Update insn operands which are duplication of NOP operand.  The
+   insn is represented by its LRA internal representation ID.  */
+static inline void
+lra_update_dup (lra_insn_recog_data_t id, int nop)
+{
+  int i;
+  struct lra_static_insn_data *static_id = id->insn_static_data;
+
+  for (i = 0; i < static_id->n_dups; i++)
+    if (static_id->dup_num[i] == nop)
+      *id->dup_loc[i] = *id->operand_loc[nop];
 }

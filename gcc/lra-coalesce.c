@@ -221,12 +221,12 @@ lra_coalesce (void)
 	    && (dregno = REGNO (SET_DEST (set))) >= FIRST_PSEUDO_REGISTER
 	    && ! side_effects_p (set)
 	    && mem_move_p (sregno, dregno)
-	    /* Don't coalesces bound pseudos.  Bound pseudos always
-	       got the same hard regno or memory.  It is hard to
-	       maintain this info with coalescing and it is not worth
-	       to do it.  */
-	    && lra_reg_info[lra_reg_info[sregno].first].next < 0
-	    && lra_reg_info[lra_reg_info[dregno].first].next < 0
+	    /* Don't coalesces bound pseudos.  Bound pseudos has own
+	       rules for finding live ranges.  It is hard to maintain
+	       this info with coalescing and it is not worth to do
+	       it.  */
+	    && ! bitmap_bit_p (&lra_bound_pseudos, sregno)
+	    && ! bitmap_bit_p (&lra_bound_pseudos, dregno)
 	    /* We don't want to coalesce regnos with equivalences,
 	       at least without updating this info.  */
 	    && ira_reg_equiv[sregno].constant == NULL_RTX

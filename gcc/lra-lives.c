@@ -583,11 +583,15 @@ process_bb_lives (basic_block bb)
 
       /* See which defined values die here.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
+	if (reg->type == OP_OUT && ! reg->early_clobber
+	    && (! reg->subreg_p
+		|| bitmap_bit_p (&lra_bound_pseudos, reg->regno)))
 	  mark_regno_dead (reg->regno, reg->biggest_mode);
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
-	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
+	if (reg->type == OP_OUT && ! reg->early_clobber
+	    && (! reg->subreg_p
+		|| bitmap_bit_p (&lra_bound_pseudos, reg->regno)))
 	  make_hard_regno_dead (reg->regno);
 
       if (call_p)

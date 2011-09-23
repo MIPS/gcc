@@ -96,6 +96,11 @@ struct target_ira
      hard-registers including fixed ones into account.  */
   enum reg_class x_ira_reg_class_subset[N_REG_CLASSES][N_REG_CLASSES];
 
+  /* True if the two classes (that is calculated taking only hard
+     registers available for allocation into account; are
+     intersected.  */
+  bool x_ira_reg_classes_intersect_p[N_REG_CLASSES][N_REG_CLASSES];
+
   /* Function specific hard registers can not be used for the register
      allocation.  */
   HARD_REG_SET x_ira_no_alloc_regs;
@@ -140,6 +145,8 @@ extern struct target_ira *this_target_ira;
   (this_target_ira->x_ira_class_subset_p)
 #define ira_reg_class_subset \
   (this_target_ira->x_ira_reg_class_subset)
+#define ira_reg_classes_intersect_p \
+  (this_target_ira->x_ira_reg_classes_intersect_p)
 #define ira_no_alloc_regs \
   (this_target_ira->x_ira_no_alloc_regs)
 

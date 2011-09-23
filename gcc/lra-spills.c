@@ -161,8 +161,7 @@ regno_freq_compare (const void *v1p, const void *v2p)
   const int regno2 = *(const int *) v2p;
   int diff;
 
-  if ((diff = lra_bound_pseudo_freq (regno2) - lra_bound_pseudo_freq (regno1))
-      != 0)
+  if ((diff = lra_reg_info[regno2].freq - lra_reg_info[regno1].freq) != 0)
     return diff;
   return regno1 - regno2;
 }
@@ -207,7 +206,7 @@ pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 static void
 assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 {
-  int i, j, regno, curr_regno;
+  int i, j, regno;
   struct pseudo_slot *first;
   bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
 
@@ -224,30 +223,14 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 	j = slots_num;
       else
 	{
-	  for (curr_regno = lra_reg_info[regno].first;
-	       curr_regno >= 0;
-	       curr_regno = lra_reg_info[curr_regno].next)
-	    if (bitmap_bit_p (set_jump_crosses, curr_regno))
-	      {
-		j = slots_num; /* assign a new slot */
-		break;
-	      }
+	  if (bitmap_bit_p (set_jump_crosses, regno))
+	    j = slots_num; /* assign a new slot */
 	}
       if (j < 0)
 	for (j = 0; j < slots_num; j++)
-	  {
-	    for (curr_regno = lra_reg_info[regno].first;
-		 curr_regno >= 0;
-		 curr_regno = lra_reg_info[curr_regno].next)
-	      {
-		if (lra_intersected_live_ranges_p
-		    (slots[j].live_ranges,
-		     lra_reg_info[curr_regno].live_ranges))
-		  break;
-	      }
-	    if (curr_regno < 0)
-	      break;
-	  }
+	  if (! lra_intersected_live_ranges_p (slots[j].live_ranges,
+					       lra_reg_info[regno].live_ranges))
+	    break;
       if (j >= slots_num)
 	{
 	  /* New slot.  */
@@ -256,31 +239,24 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 	  slots[j].mem = NULL_RTX;
 	  slots_num++;
 	}
-      for (curr_regno = lra_reg_info[regno].first;
-	   curr_regno >= 0;
-	   curr_regno = lra_reg_info[curr_regno].next)
+      pseudo_slots[regno].mem = NULL_RTX;
+      pseudo_slots[regno].slot_num = j;
+      if (slots[j].regno < 0)
 	{
-	  pseudo_slots[curr_regno].mem = NULL_RTX;
-	  pseudo_slots[curr_regno].slot_num = j;
-	  if (slots[j].regno < 0)
-	    {
-	      slots[j].regno = curr_regno;
-	      pseudo_slots[curr_regno].first = &pseudo_slots[curr_regno];
-	      pseudo_slots[curr_regno].next = NULL;
-	    }
-	  else
-	    {
-	      first = pseudo_slots[curr_regno].first
-		= &pseudo_slots[slots[j].regno];
-	      pseudo_slots[curr_regno].next = pseudo_slots[slots[j].regno].next;
-	      first->next = &pseudo_slots[curr_regno];
-	    }
-	  slots[j].live_ranges
-	    = (lra_merge_live_ranges
-	       (slots[j].live_ranges,
-		lra_copy_live_range_list
-		(lra_reg_info[curr_regno].live_ranges)));
+	  slots[j].regno = regno;
+	  pseudo_slots[regno].first = &pseudo_slots[regno];
+	  pseudo_slots[regno].next = NULL;
 	}
+      else
+	{
+	  first = pseudo_slots[regno].first = &pseudo_slots[slots[j].regno];
+	  pseudo_slots[regno].next = pseudo_slots[slots[j].regno].next;
+	  first->next = &pseudo_slots[regno];
+	}
+      slots[j].live_ranges = (lra_merge_live_ranges
+			      (slots[j].live_ranges,
+			       lra_copy_live_range_list
+			       (lra_reg_info[regno].live_ranges)));
     }
   /* Sort regnos according to their slot numbers.  */
   qsort (pseudo_regnos, n, sizeof (int), pseudo_reg_slot_compare);
@@ -386,20 +362,16 @@ lra_spill (void)
   regs_num = max_reg_num ();
   pseudo_regnos = (int *) xmalloc (sizeof (int) * regs_num);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
-    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
-	&& lra_reg_info[i].first == i)
+    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0)
       pseudo_regnos[n++] = i;
   pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
 						 * regs_num);
   slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
   assign_stack_slot_num_and_sort_pseudos (pseudo_regnos, n);
   for (i = 0; i < n; i++)
-    for (curr_regno = lra_reg_info[pseudo_regnos[i]].first;
-	 curr_regno >= 0;
-	 curr_regno = lra_reg_info[curr_regno].next)
-      /* We do not want to assign memory for former scratches.  */
-      if (! lra_former_scratch_p (curr_regno))
-	assign_slot (curr_regno);
+    /* We do not want to assign memory for former scratches.  */
+    if (! lra_former_scratch_p (pseudo_regnos[i]))
+      assign_slot (pseudo_regnos[i]);
   if (lra_dump_file != NULL)
     {
       for (i = 0; i < slots_num; i++)
@@ -456,7 +428,7 @@ lra_hard_reg_substitution (void)
 		{
 		  gcc_assert (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER);
 		  alter_subreg (id->operand_loc[i]);
-		  lra_update_dups (id, i, -1);
+		  lra_update_dup (id, i);
 		}
 	    }
 	}

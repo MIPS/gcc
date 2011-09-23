@@ -140,9 +140,10 @@ get_secondary_mem (enum machine_mode mode)
 
 
 
-/* Start number for new registers at the current constraints pass
-   start.  */
+/* Start numbers for new registers and insns at the current constraints
+   pass start.  */
 static int new_regno_start;
+static int new_insn_uid_start;
 
 /* Return hard regno of REGNO or if it is was not assigned to a hard
    register, use a hard register from its allocno class.  */
@@ -175,8 +176,7 @@ get_reg_class (int regno)
     hard_regno = lra_get_regno_hard_regno (regno);
   if (hard_regno >= 0)
     return REGNO_REG_CLASS (hard_regno);
-  if (regno >= new_regno_start
-      && ! bitmap_bit_p (&lra_inheritance_pseudos, regno))
+  if (regno >= new_regno_start)
     return lra_get_allocno_class (regno);
   return NO_REGS;
 }
@@ -196,7 +196,12 @@ in_class_p (int regno, enum reg_class cl, enum reg_class *new_class)
     return TEST_HARD_REG_BIT (reg_class_contents[cl], regno);
   rclass = get_reg_class (regno);
   if (regno < new_regno_start
-      || bitmap_bit_p (&lra_inheritance_pseudos, regno))
+      /* Do not make more accurate class from reloads generated.  They
+	 are mostly moves with a lot of constraints.  Making more
+	 accurate class may results in very narrow class and
+	 impossibility of find registers for several reloads of one
+	 insn.  */
+      || INSN_UID (curr_insn) >= new_insn_uid_start)
     return (rclass != NO_REGS && ira_class_subset_p[rclass][cl]
 	     && ! hard_reg_set_subset_p (reg_class_contents[cl],
 					 lra_no_alloc_regs));
@@ -266,26 +271,16 @@ init_curr_insn_input_reloads (void)
   curr_insn_input_reloads_num = 0;
 }
 
-/* Change class of pseudo REGNO (and all pseudos bound to it) to
-   NEW_CLASS.  Print info about it using TITLE.  Output a new line if
-   NL_P.  */
+/* Change class of pseudo REGNO to NEW_CLASS.  Print info about it
+   using TITLE.  Output a new line if NL_P.  */
 static void
 change_class (int regno, enum reg_class new_class,
 	      const char *title, bool nl_p)
 {
-  int curr_regno;
-
   if (lra_dump_file != NULL)
-    fprintf (lra_dump_file, "%s to class %s for",
-	     title, reg_class_names[new_class]);
-  for (curr_regno = lra_reg_info[regno].first;
-       curr_regno >= 0;
-       curr_regno = lra_reg_info[curr_regno].next)
-    {
-      if (lra_dump_file != NULL)
-	fprintf (lra_dump_file, " r%d", curr_regno);
-      setup_reg_classes (curr_regno, new_class, NO_REGS, new_class);
-    }
+    fprintf (lra_dump_file, "%s to class %s for r%d",
+	     title, reg_class_names[new_class], regno);
+  setup_reg_classes (regno, new_class, NO_REGS, new_class);
   if (lra_dump_file != NULL && nl_p)
     fprintf (lra_dump_file, "\n");
 }
@@ -768,10 +763,17 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
   return true;
 }
 
-/* Pseudos for whose values should be not inherited from input reload
-   pseudos because the same hard register should be used for an output
-   (or early clobbered) reload pseudo.  */
-bitmap_head lra_dont_inherit_pseudos;
+/* Reload pseudos which created for input and output(or early
+   clobber) reloads which should have the same hard register.  Such
+   pseudos as input operands should be not inherited because the
+   output rewrite the value in any away.  */
+bitmap_head lra_matched_pseudos;
+
+/* Reload pseudos created for matched input and output reloads whose
+   mode are different.  Such pseudos has a modified rules for finding
+   their living ranges, e.g. assigning to subreg of such pseudo means
+   changing all pseudo value. */
+bitmap_head lra_bound_pseudos;
 
 /* True if X is a constant that can be forced into the constant pool.
    MODE is the mode of the operand, or VOIDmode if not known.  */
@@ -841,54 +843,67 @@ get_op_mode (int nop)
   return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
 }
 
-/* Generate reloads for matching OUT and IN with reg class GOAL_CLASS.
-   Add input and output reloads correspondingly to the lists *BEFORE
-   and *AFTER.  */
+/* Generate reloads for matching OUT and INS (array of input operand
+   numbers with end marker -1) with reg class GOAL_CLASS.  Add input
+   and output reloads correspondingly to the lists *BEFORE and
+   *AFTER.  */
 static void
-match_reload (int out, int in, enum reg_class goal_class,
+match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	      rtx *before, rtx *after)
 {
-  rtx new_in_reg, new_out_reg;
+  int i, in;
+  rtx new_in_reg, new_out_reg, reg;
   enum machine_mode inmode, outmode;
-  rtx in_rtx = *curr_id->operand_loc[in];
+  rtx in_rtx = *curr_id->operand_loc[ins[0]];
   rtx out_rtx = *curr_id->operand_loc[out];
 
-  inmode = get_op_mode (in);
   outmode = get_op_mode (out);
+  inmode = get_op_mode (ins[0]);
   if (inmode != outmode)
     {
-      /* Don't reuse the pseudos for inheritance -- they will be bound.  */
-      get_reload_reg (OP_IN, inmode, in_rtx, goal_class, "", &new_in_reg);
-      new_out_reg = lra_create_new_reg (outmode, out_rtx, goal_class, "");
+      if (GET_MODE_SIZE (inmode) > GET_MODE_SIZE (outmode))
+	{
+	  reg = new_in_reg
+	    = lra_create_new_reg_with_unique_value (inmode, in_rtx,
+						    goal_class, "");
+	  new_out_reg = gen_lowpart_SUBREG (outmode, reg);
+	}
+      else
+	{
+	  reg = new_out_reg
+	    = lra_create_new_reg_with_unique_value (outmode, out_rtx,
+						    goal_class, "");
+	  new_in_reg = gen_lowpart_SUBREG (inmode, new_out_reg);
+	}
+      bitmap_set_bit (&lra_matched_pseudos, REGNO (reg));
+      bitmap_set_bit (&lra_bound_pseudos, REGNO (reg));
     }
   else
     {
-      /* We are trying to minimize creating bound pseudos because it
-	 does not work well with coalescing.  We create pseudo for out
-	 rtx because we always should keep registers with the same
-	 original regno have synchronized value (it is not true for
-	 out register but it will be corrected by the next insn).
+      /* We create pseudo for out rtx because we always should keep
+	 registers with the same original regno have synchronized
+	 value (it is not true for out register but it will be
+	 corrected by the next insn).
 	 
 	 Do not reuse register because of the following situation: a <-
 	 a op b, and b should be the same as a.
 	 
 	 Don't generate inheritance for the new register because we
 	 can not use the same hard register for the corresponding
-	 inheritance pseudo.  */
+	 inheritance pseudo for input reload.  */
       new_in_reg = new_out_reg
-	= lra_create_new_reg (outmode, out_rtx, goal_class, "");
-      bitmap_set_bit (&lra_dont_inherit_pseudos, REGNO (new_in_reg));
+	= lra_create_new_reg_with_unique_value (outmode, out_rtx,
+						goal_class, "");
+      bitmap_set_bit (&lra_matched_pseudos, REGNO (new_in_reg));
     }
-  if (new_in_reg != in_rtx)
-    {
-      push_to_sequence (*before);
-      lra_emit_move (new_in_reg, in_rtx);
-      *before = get_insns ();
-      end_sequence ();
-      *curr_id->operand_loc[in] = new_in_reg;
-    }
-  if (new_out_reg != out_rtx
-      && find_reg_note (curr_insn, REG_UNUSED, out_rtx) == NULL_RTX)
+  push_to_sequence (*before);
+  lra_emit_move (new_in_reg, in_rtx);
+  *before = get_insns ();
+  end_sequence ();
+  for (i = 0; (in = ins[i]) >= 0; i++)
+    *curr_id->operand_loc[in] = new_in_reg;
+  lra_update_dups (curr_id, ins);
+  if (find_reg_note (curr_insn, REG_UNUSED, out_rtx) == NULL_RTX)
     {
       push_to_sequence (*after);
       lra_emit_move (out_rtx, new_out_reg);
@@ -896,14 +911,7 @@ match_reload (int out, int in, enum reg_class goal_class,
       end_sequence ();
     }
   *curr_id->operand_loc[out] = new_out_reg;
-  if (new_in_reg != new_out_reg)
-    {
-      if (lra_dump_file != NULL)
-	fprintf (lra_dump_file, "      Bound pseudos r%d and r%d\n",
-		 REGNO (new_in_reg), REGNO (new_out_reg));
-      lra_bind_pseudos (REGNO (new_in_reg), REGNO (new_out_reg));
-    }
-  lra_update_dups (curr_id, in, out);
+  lra_update_dup (curr_id, out);
 }
 
 /* Return register class which is union of all reg classes in insn
@@ -1055,7 +1063,6 @@ check_and_process_move (bool *change_p)
      hook.  */
   if (xclass != NO_REGS
       && REG_P (x) && (regno = REGNO (x)) >= new_regno_start
-      && ! bitmap_bit_p (&lra_inheritance_pseudos, regno)
       && lra_get_regno_hard_regno (regno) < 0)
     {
       reg_renumber[regno] = ira_class_hard_regs[xclass][0];
@@ -1978,6 +1985,7 @@ process_alt_operands (int only_alternative)
 		losers++;
 	      if (operand_reg[nop] != NULL_RTX)
 		{
+		  /* ??? */
 		  int last_reload = (lra_reg_info[ORIGINAL_REGNO
 						  (operand_reg[nop])]
 				     .last_reload);
@@ -2653,12 +2661,12 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
 static bool
 curr_insn_transform (void)
 {
-  int i;
+  int i, j, k;
   int n_operands;
   int n_alternatives;
   int n_dups;
   int commutative;
-  int goal_alt_matched[MAX_RECOG_OPERANDS];
+  signed char goal_alt_matched[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx before, after;
   bool alt_p = false;
   /* Flag that the insn has been changed through a transformation.  */
@@ -2698,7 +2706,7 @@ curr_insn_transform (void)
 
   for (i = 0; i < n_operands; i++)
     {
-      goal_alt_matched[i] = -1;
+      goal_alt_matched[i][0] = -1;
       goal_alt_matches[i] = -1;
     }
 
@@ -2747,7 +2755,7 @@ curr_insn_transform (void)
       if (simplify_operand_subreg (i, GET_MODE (old)) || op_change_p)
 	{
 	  change_p = true;
-	  lra_update_dups (curr_id, i, -1);
+	  lra_update_dup (curr_id, i);
 	}
     }
 
@@ -2758,7 +2766,7 @@ curr_insn_transform (void)
     if (process_address (i, &before, &after))
       {
 	change_p = true;
-	lra_update_dups (curr_id, i, -1);
+	lra_update_dup (curr_id, i);
       }
   
  try_swapped:
@@ -2791,7 +2799,8 @@ curr_insn_transform (void)
 	    = *curr_id->operand_loc[commutative + 1];
 	  *curr_id->operand_loc[commutative + 1] = x;
 	  /* Swap the duplicates too.  */
-	  lra_update_dups (curr_id, commutative, commutative + 1);
+	  lra_update_dup (curr_id, commutative);
+	  lra_update_dup (curr_id, commutative + 1);
 	  goto try_swapped;
 	}
       else
@@ -2800,7 +2809,8 @@ curr_insn_transform (void)
 	  *curr_id->operand_loc[commutative]
 	    = *curr_id->operand_loc[commutative + 1];
 	  *curr_id->operand_loc[commutative + 1] = x;
-	  lra_update_dups (curr_id, commutative, commutative + 1);
+	  lra_update_dup (curr_id, commutative);
+	  lra_update_dup (curr_id, commutative + 1);
 	}
     }
 
@@ -2879,13 +2889,24 @@ curr_insn_transform (void)
     }
 
   /* Right now, for any pair of operands I and J that are required to
-     match, with I < J, goal_alt_matches[J] is I.  Set up
-     goal_alt_matched as the inverse function: goal_alt_matched[I] =
-     J.  */
+     match, with J < I, goal_alt_matches[I] is J.  Add I to
+     goal_alt_matched[J].  */
   
   for (i = 0; i < n_operands; i++)
-    if (goal_alt_matches[i] >= 0)
-      goal_alt_matched[goal_alt_matches[i]] = i;
+    if ((j = goal_alt_matches[i]) >= 0)
+      {
+	for (k = 0; goal_alt_matched[j][k] >= 0; k++)
+	  ;
+	/* We allows matching one output operand and several input
+	   operands.  */
+	gcc_assert (k == 0
+		    || (curr_static_id->operand[j].type == OP_OUT
+			&& curr_static_id->operand[i].type == OP_IN
+			&& (curr_static_id->operand
+			    [goal_alt_matched[j][0]].type == OP_IN)));
+	goal_alt_matched[j][k] = i;
+	goal_alt_matched[j][k + 1] = -1;
+      }
   
   for (i = 0; i < n_operands; i++)
     goal_alt_win[i] |= goal_alt_match_win[i];
@@ -2952,7 +2973,7 @@ curr_insn_transform (void)
 	      tem = gen_rtx_SUBREG (mode, tem, SUBREG_BYTE (subreg));
 	    
 	    *curr_id->operand_loc[i] = tem;
-	    lra_update_dups (curr_id, i, -1);
+	    lra_update_dup (curr_id, i);
 	    process_address (i, &before, &after);
 	    
 	    /* If the alternative accepts constant pool refs directly
@@ -3003,7 +3024,7 @@ curr_insn_transform (void)
 	 appearing where an offsettable address will do.  It also may
 	 be a case when the address should be special in other words
 	 not a general one (e.g. it needs no index reg).  */
-      if (goal_alt_matched[i] == -1 && goal_alt_offmemok[i] && MEM_P (op))
+      if (goal_alt_matched[i][0] == -1 && goal_alt_offmemok[i] && MEM_P (op))
 	{
 	  enum reg_class rclass;
 	  rtx *loc = &XEXP (op, 0);
@@ -3023,13 +3044,13 @@ curr_insn_transform (void)
 	  before = get_insns ();
 	  end_sequence ();
 	  *loc = new_reg;
-	  lra_update_dups (curr_id, i, -1);
+	  lra_update_dup (curr_id, i);
 	}
-      else if (goal_alt_matched[i] == -1)
+      else if (goal_alt_matched[i][0] == -1)
 	{
 	  enum machine_mode mode;
 	  rtx reg, *loc;
-	  int j, hard_regno, byte;
+	  int hard_regno, byte;
 	  enum op_type type = curr_static_id->operand[i].type;
 
 	  loc = curr_id->operand_loc[i];
@@ -3082,17 +3103,23 @@ curr_insn_transform (void)
 	  for (j = 0; j < goal_alt_dont_inherit_ops_num; j++)
 	    if (goal_alt_dont_inherit_ops[j] == i)
 	      {
-		bitmap_set_bit (&lra_dont_inherit_pseudos, REGNO (new_reg));
+		lra_set_regno_unique_value (REGNO (new_reg));
 		break;
 	      }
-	  lra_update_dups (curr_id, i, -1);
+	  lra_update_dup (curr_id, i);
 	}
       else if (curr_static_id->operand[i].type == OP_IN
-	       && curr_static_id->operand[goal_alt_matched[i]].type == OP_OUT)
-	match_reload (goal_alt_matched[i], i,
-		      goal_alt[i], &before, &after);
+	       && curr_static_id->operand[goal_alt_matched[i][0]].type == OP_OUT)
+	{
+	  signed char arr[2];
+
+	  arr[0] = i;
+	  arr[1] = -1;
+	  match_reload (goal_alt_matched[i][0], arr,
+			goal_alt[i], &before, &after);
+	}
       else if (curr_static_id->operand[i].type == OP_OUT
-	       && curr_static_id->operand[goal_alt_matched[i]].type == OP_IN)
+	       && curr_static_id->operand[goal_alt_matched[i][0]].type == OP_IN)
 	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
       else
 	{
@@ -3248,6 +3275,7 @@ lra_constraints (bool first_p)
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
        MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
+  new_insn_uid_start = get_max_uid ();
   new_regno_start = first_p ? lra_constraint_new_regno_start : max_reg_num ();
   for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
     ira_reg_equiv[i].profitable_p = true;
@@ -3400,7 +3428,8 @@ lra_contraints_init (void)
     lra_secondary_memory[mode] = NULL_RTX;
 #endif
   init_indirect_mem ();
-  bitmap_initialize (&lra_dont_inherit_pseudos, &reg_obstack);
+  bitmap_initialize (&lra_matched_pseudos, &reg_obstack);
+  bitmap_initialize (&lra_bound_pseudos, &reg_obstack);
 }
 
 /* Finalize the LRA constraint pass.  It is done once per
@@ -3408,7 +3437,8 @@ lra_contraints_init (void)
 void
 lra_contraints_finish (void)
 {
-  bitmap_clear (&lra_dont_inherit_pseudos);
+  bitmap_clear (&lra_bound_pseudos);
+  bitmap_clear (&lra_matched_pseudos);
 }
 
 
@@ -3443,7 +3473,7 @@ inherit_reload_reg (rtx reload_reg, int original_regno,
 
   new_reg = lra_create_new_reg (GET_MODE (reload_reg), reload_reg,
 				rclass, "inheritance");
-  ORIGINAL_REGNO (new_reg) = original_regno;
+  lra_reg_info[REGNO (new_reg)].restore_regno = original_regno;
   bitmap_set_bit (&lra_inheritance_pseudos, REGNO (new_reg));
   start_sequence ();
   emit_move_insn (new_reg, reload_reg);
@@ -3504,13 +3534,15 @@ inherit_in_ebb (rtx head, rtx tail)
 	  dst_regno = REGNO (SET_DEST (set));
 	}
       if (src_regno < lra_constraint_new_regno_start
+	  && src_regno >= FIRST_PSEUDO_REGISTER
+	  && reg_renumber[src_regno] < 0
 	  && dst_regno >= lra_constraint_new_regno_start
 	  && lra_get_allocno_class (dst_regno) != NO_REGS)
 	{
 	  /* 'reload_pseudo <- original_pseudo'.  */
 	  if (reload_insn_check[src_regno] == curr_reload_insn_check
 	      && (last_reload_insn = reload_insn[src_regno]) != NULL_RTX
-	      && ! bitmap_bit_p (&lra_dont_inherit_pseudos, dst_regno))
+	      && ! bitmap_bit_p (&lra_matched_pseudos, dst_regno))
 	    inherit_reload_reg (SET_DEST (set), src_regno,
 				curr_insn, last_reload_insn);
 	  reload_insn_check[src_regno] = curr_reload_insn_check;
@@ -3518,6 +3550,8 @@ inherit_in_ebb (rtx head, rtx tail)
 	}
       else if (src_regno >= lra_constraint_new_regno_start
 	       && dst_regno < lra_constraint_new_regno_start
+	       && dst_regno >= FIRST_PSEUDO_REGISTER
+	       && reg_renumber[dst_regno] < 0
 	       && lra_get_allocno_class (src_regno) != NO_REGS
 	       && reload_insn_check[dst_regno] == curr_reload_insn_check
 	       && (last_reload_insn = reload_insn[dst_regno]) != NULL_RTX)
@@ -3617,49 +3651,26 @@ fix_bb_live_info (bitmap live, bitmap removed_pseudos)
   EXECUTE_IF_SET_IN_BITMAP (&temp_bitmap_head, 0, regno, bi)
     {
       bitmap_clear_bit (live, regno);
-      bitmap_set_bit (live, ORIGINAL_REGNO (regno_reg_rtx[regno]));
+      bitmap_set_bit (live, lra_reg_info[regno].restore_regno);
     }
 }
 
-/* Entry function for undoing inheritance transformation.  Return true
-   if we did any change.  */
-bool
-lra_undo_inheritance (void)
+/* Remove inheritance pseudos which are in REMOVE_PSEUDOS and return
+   true if we did any change.  */
+static bool
+remove_inheritance_pseudos (bitmap remove_pseudos)
 {
   basic_block bb;
-  int src_regno, dst_regno, original_regno;
-  unsigned int inherit_regno;
+  int src_regno, dst_regno, restore_regno;
   rtx set;
-  bitmap_head remove_pseudos, original_remove_pseudos;
-  bitmap_iterator bi;
 
-  lra_undo_inheritance_iter++;
-  if (lra_dump_file != NULL)
-    fprintf (lra_dump_file,
-	     "\n********** Undoing inheritance #%d: **********\n\n",
-	     lra_undo_inheritance_iter);
-  bitmap_initialize (&remove_pseudos, &reg_obstack);
-  bitmap_initialize (&original_remove_pseudos, &reg_obstack);
-  EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, inherit_regno, bi)
-    if (reg_renumber[inherit_regno] < 0)
-      {
-	original_regno = ORIGINAL_REGNO (regno_reg_rtx[inherit_regno]);
-	/* If the original pseudo got a hard register we can not remove
-	   the inheritance pseudo because of probable expanding the
-	   original pseudo live range.  */
-	if (reg_renumber[original_regno] < 0)
-	  {
-	    bitmap_set_bit (&remove_pseudos, inherit_regno);
-	    bitmap_set_bit (&original_remove_pseudos, original_regno);
-	  }
-      }
-  if (bitmap_empty_p (&remove_pseudos))
+  if (! bitmap_empty_p (remove_pseudos))
     return false;
   bitmap_initialize (&temp_bitmap_head, &reg_obstack);
   FOR_EACH_BB (bb)
     {
-      fix_bb_live_info (DF_LR_IN (bb), &remove_pseudos);
-      fix_bb_live_info (DF_LR_OUT (bb), &remove_pseudos);
+      fix_bb_live_info (DF_LR_IN (bb), remove_pseudos);
+      fix_bb_live_info (DF_LR_OUT (bb), remove_pseudos);
       FOR_BB_INSNS_REVERSE (bb, curr_insn)
 	{
 	  if (! NONDEBUG_INSN_P (curr_insn))
@@ -3669,13 +3680,21 @@ lra_undo_inheritance (void)
 	    {
 	      src_regno = REGNO (SET_SRC (set));
 	      dst_regno = REGNO (SET_DEST (set));
-	      if (bitmap_bit_p (&remove_pseudos, src_regno))
+	      if (bitmap_bit_p (remove_pseudos, src_regno))
 		{
 		  /* reload pseudo <- inheritance pseudo.  */
 		  if (lra_dump_file != NULL)
 		    print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
-		  SET_SRC (set) = regno_reg_rtx[ORIGINAL_REGNO (SET_SRC (set))];
+		  restore_regno = lra_reg_info[src_regno].restore_regno;
+		  gcc_assert (restore_regno >= FIRST_PSEUDO_REGISTER);
+		  SET_SRC (set) = regno_reg_rtx[restore_regno];
 		  lra_push_insn_and_update_insn_regno_info (curr_insn);
+		  /* We should not assign a hard register to pseudo
+		     whose inheritance pseudo did not get a hard
+		     register because undoing inheritance increases
+		     live range of the pseudo and the pseudo might
+		     conflict with new pseudos and hard registers.  */
+		  gcc_assert (reg_renumber[restore_regno] < 0);
 		  if (lra_dump_file != NULL)
 		    {
 		      fprintf (lra_dump_file, "    Inheritance reuse change:\n");
@@ -3684,7 +3703,7 @@ lra_undo_inheritance (void)
 		      fprintf (lra_dump_file, "\n");
 		    }
 		}
-	      else if (bitmap_bit_p (&remove_pseudos, dst_regno))
+	      else if (bitmap_bit_p (remove_pseudos, dst_regno))
 		{
 		  /* inheritance pseudo <- reload_pseudo  */
 		  if (lra_dump_file != NULL)
@@ -3699,8 +3718,34 @@ lra_undo_inheritance (void)
 	    }
 	}
     }
-  bitmap_clear (&remove_pseudos);
-  bitmap_clear (&original_remove_pseudos);
   bitmap_clear (&temp_bitmap_head);
   return true;
+}
+
+/* Entry function for undoing inheritance transformation.  Return true
+   if we did any change.  */
+bool
+lra_undo_inheritance (void)
+{
+  unsigned int inherit_regno;
+  bitmap_head remove_pseudos;
+  bitmap_iterator bi;
+  bool change_p;
+
+  lra_undo_inheritance_iter++;
+  if (lra_dump_file != NULL)
+    fprintf (lra_dump_file,
+	     "\n********** Undoing inheritance #%d: **********\n\n",
+	     lra_undo_inheritance_iter);
+  bitmap_initialize (&remove_pseudos, &reg_obstack);
+  EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, inherit_regno, bi)
+    if (reg_renumber[inherit_regno] < 0
+	&& lra_reg_info[inherit_regno].restore_regno >= 0)
+      bitmap_set_bit (&remove_pseudos, inherit_regno);
+  change_p = remove_inheritance_pseudos (&remove_pseudos);
+  bitmap_clear (&remove_pseudos);
+  /* Clear restore_regnos.  */
+  EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, inherit_regno, bi)
+    lra_reg_info[inherit_regno].restore_regno = -1;
+  return change_p;
 }

@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
    changed after some registers become not eliminable.  */
 HARD_REG_SET lra_no_alloc_regs;
 
+static int get_new_reg_value (void);
 static void expand_reg_info (void);
 static void invalidate_insn_recog_data (int);
 static int get_insn_freq (rtx);
@@ -66,10 +67,11 @@ expand_reg_data (void)
 /* Create and return a new reg from register FROM corresponding to
    machine description operand of mode MD_MODE.  Initialize its
    register class to RCLASS.  Print message about assigning class
-   RCLASS containing new register name TITLE unless it is NULL.  */
+   RCLASS containing new register name TITLE unless it is NULL.  The
+   created register will have unique held value.  */
 rtx
-lra_create_new_reg (enum machine_mode md_mode, rtx original,
-		    enum reg_class rclass, const char *title)
+lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
+				      enum reg_class rclass, const char *title)
 {
   enum machine_mode mode;
   rtx new_reg;
@@ -105,6 +107,28 @@ lra_create_new_reg (enum machine_mode md_mode, rtx original,
   expand_reg_data ();
   setup_reg_classes (REGNO (new_reg), rclass, NO_REGS, rclass);
   return new_reg;
+}
+
+/* Analogous to the previous function but also inherits value of
+   ORIGINAL.  */
+rtx
+lra_create_new_reg (enum machine_mode md_mode, rtx original,
+		    enum reg_class rclass, const char *title)
+{
+  rtx new_reg;
+
+  new_reg
+    = lra_create_new_reg_with_unique_value (md_mode, original, rclass, title);
+  if (original != NULL_RTX && REG_P (original))
+    lra_reg_info[REGNO (new_reg)].val = lra_reg_info[REGNO (original)].val;
+  return new_reg;
+}
+
+/* Set up for REGNO unique hold value. */
+void
+lra_set_regno_unique_value (int regno)
+{
+  lra_reg_info[regno].val = get_new_reg_value ();
 }
 
 /* Invalidate INSN related info used by LRA.  */
@@ -314,20 +338,19 @@ lra_emit_move (rtx x, rtx y)
   lra_emit_add (x, XEXP (y, 0), XEXP (y, 1));
 }
 
-/* Update insn operands which are duplication of FIRST and SECOND
-   operands.  The insn is represented by its LRA internal
-   representation ID.  */
+/* Update insn operands which are duplication of operands in array of
+   NOPS (with end marker -1).  The insn is represented by its LRA
+   internal representation ID.  */
 void
-lra_update_dups (lra_insn_recog_data_t id, int first, int second)
+lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
 {
-  int i;
+  int i, j, nop;
   struct lra_static_insn_data *static_id = id->insn_static_data;
 
   for (i = 0; i < static_id->n_dups; i++)
-    if (first >= 0 && static_id->dup_num[i] == first)
-      *id->dup_loc[i] = *id->operand_loc[first];
-    else if  (second >= 0 && static_id->dup_num[i] == second)
-      *id->dup_loc[i] = *id->operand_loc[second];
+    for (j = 0; (nop = nops[j]) >= 0; j++)
+      if (static_id->dup_num[i] == nop)
+	*id->dup_loc[i] = *id->operand_loc[nop];
 }
 
 
@@ -1270,6 +1293,16 @@ static int reg_info_size;
 /* Common info about each register.  */
 struct lra_reg *lra_reg_info;
 
+/* Last register value.  */
+static int last_reg_value;
+
+/* Return new register value.  */
+static int
+get_new_reg_value (void)
+{
+  return ++last_reg_value;
+}
+
 /* Pools for copies.  */
 static alloc_pool copy_pool;
 
@@ -1285,6 +1318,7 @@ init_reg_info (void)
 {
   int i;
 
+  last_reg_value = 0;
   reg_info_size = max_reg_num () * 3 / 2 + 1;
   lra_reg_info
     = (struct lra_reg *) xmalloc (reg_info_size * sizeof (struct lra_reg));
@@ -1302,8 +1336,8 @@ init_reg_info (void)
       lra_reg_info[i].live_ranges = NULL;
       lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
       lra_reg_info[i].last_reload = 0;
-      lra_reg_info[i].first = i;
-      lra_reg_info[i].next = -1;
+      lra_reg_info[i].restore_regno = -1;
+      lra_reg_info[i].val = get_new_reg_value ();
       lra_reg_info[i].copies = NULL;
     }
   copy_pool
@@ -1352,43 +1386,10 @@ expand_reg_info (void)
       lra_reg_info[i].live_ranges = NULL;
       lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
       lra_reg_info[i].last_reload = 0;
-      lra_reg_info[i].first = i;
-      lra_reg_info[i].next = -1;
+      lra_reg_info[i].restore_regno = -1;
+      lra_reg_info[i].val = get_new_reg_value ();
       lra_reg_info[i].copies = NULL;
     }
-}
-
-/* Bind two pseudos R1 and R2.  */
-void
-lra_bind_pseudos (int r1, int r2)
-{
-  int fr1, fr2, cr, last;
-
-  expand_reg_info ();
-  gcc_assert (r1 >= FIRST_PSEUDO_REGISTER && r2 >= FIRST_PSEUDO_REGISTER);
-  fr1 = lra_reg_info[r1].first;
-  fr2 = lra_reg_info[r2].first;
-  for (last = cr = lra_reg_info[r1].first;
-       cr >= 0;
-       last = cr, cr = lra_reg_info[cr].next)
-    lra_reg_info[cr].first = fr2;
-  lra_reg_info[last].next = lra_reg_info[r2].next;
-  lra_reg_info[fr2].next = fr1;
-}
-
-/* Return reference frequencies of REGNO and all pseudo bound to
-   it.  */
-int
-lra_bound_pseudo_freq (int regno)
-{
-  int curr_regno, freq = 0;
-
-  gcc_assert (regno >= FIRST_PSEUDO_REGISTER);
-  for (curr_regno = lra_reg_info[regno].first;
-       curr_regno >= 0;
-       curr_regno = lra_reg_info[curr_regno].next)
-    freq += lra_reg_info[curr_regno].freq;
-  return freq;
 }
 
 /* Free all copies.  */
@@ -1817,7 +1818,7 @@ remove_scratches (void)
 		= lra_create_new_reg (static_id->operand[i].mode,
 				      *id->operand_loc[i], ALL_REGS, NULL);
 	      add_reg_note (insn, REG_UNUSED, reg);
-	      lra_update_dups (id, i, -1);
+	      lra_update_dup (id, i);
 	      loc = (struct loc *) xmalloc (sizeof (struct loc));
 	      loc->insn = insn;
 	      loc->nop = i;
@@ -1862,7 +1863,7 @@ restore_scratches (void)
 	  gcc_assert (lra_former_scratch_p (regno));
 	  *id->operand_loc[loc->nop]
 	    = gen_rtx_SCRATCH (GET_MODE (*id->operand_loc[loc->nop]));
-	  lra_update_dups (id, loc->nop, -1);
+	  lra_update_dup (id, loc->nop);
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file, "Restoring SCRATCH in insn #%u(nop %d)\n",
 		     INSN_UID (loc->insn), loc->nop);
@@ -2054,7 +2055,7 @@ int lra_in_progress;
 /* Start of reload pseudo regnos before the new spill pass.  */ 
 int lra_constraint_new_regno_start;
 
-/* Inheritance pseudo regnos.  */ 
+/* Inheritance pseudo regnos breore the new spill pass.  */ 
 bitmap_head lra_inheritance_pseudos;
 
 /* First UID of insns generated before a new spill pass.  */
@@ -2069,7 +2070,7 @@ void
 lra (FILE *f)
 {
   int i;
-  bool first_p, live_p, scratch_p, inserted_p, coalesce_skip_p;
+  bool live_p, scratch_p, inserted_p, coalesce_skip_p;
 
   lra_dump_file = f;
 
@@ -2124,13 +2125,11 @@ lra (FILE *f)
   bitmap_initialize (&lra_constraint_insn_stack_bitmap, &reg_obstack);
   lra_live_ranges_init ();
   lra_contraints_init ();
-  first_p = true;
   lra_curr_reload_num = 0;
   push_insns (get_last_insn (), NULL_RTX);
   /* It is needed for the 1st coalescing.  */
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
-  bitmap_clear (&lra_dont_inherit_pseudos);
   live_p = false;
   coalesce_skip_p = true;
   for (;;)
@@ -2142,7 +2141,8 @@ lra (FILE *f)
 	  /* We should try to assign hard registers to scratches even
 	     if there were no RTL transformations in
 	     lra_constraints.  */
-	  if (! lra_constraints (first_p) && (! first_p || ! scratch_p))
+	  if (! lra_constraints (lra_constraint_iter == 0)
+	      && (lra_constraint_iter > 1 || ! scratch_p))
 	    break;
 	  lra_inheritance ();
 	  /* We need live ranges for lra_assign -- so build them.  */
@@ -2155,10 +2155,9 @@ lra (FILE *f)
 	  coalesce_skip_p = lra_assign ();
 	  if (lra_undo_inheritance ())
 	    lra_create_live_ranges (false);
-	  first_p = false;
 	  live_p = true;
 	}
-      first_p = false;
+      bitmap_clear (&lra_inheritance_pseudos);
       if (! live_p)
 	{
 	  lra_create_live_ranges (false);
@@ -2170,9 +2169,8 @@ lra (FILE *f)
       lra_eliminate (false);
       lra_constraint_new_regno_start = max_reg_num ();
       lra_constraint_new_insn_uid_start = get_max_uid ();
-      bitmap_clear (&lra_dont_inherit_pseudos);
+      bitmap_clear (&lra_matched_pseudos);
     }
-  bitmap_clear (&lra_inheritance_pseudos);
   restore_scratches ();
   lra_eliminate (true);
   lra_hard_reg_substitution ();

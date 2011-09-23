@@ -1,3 +1,98 @@
+2011-09-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (struct target_ira_int): Remove
+	x_ira_reg_classes_intersect_p.
+	(ira_reg_classes_intersect_p): Remove.
+
+	* ira.h (struct target_ira): Add x_ira_reg_classes_intersect_p.
+	(ira_reg_classes_intersect_p): New macro.
+
+	* lra-int.h (struct lra_reg): Remove members first and next.  Add
+	restore_regno and val.
+	(lra_create_new_reg_with_unique_value): New.
+	(lra_set_regno_unique_value): New.
+	(lra_update_dup): Change prototype.
+	(lra_dont_inherit_pseudos): Remove.
+	(lra_matched_pseudos, lra_bound_pseudos): Remove.
+	(lra_update_dup): New function.
+
+	* lra.c (get_new_reg_value): New function.
+	(lra_create_new_reg_with_unique_value): Extract from ...
+	(lra_create_new_reg): Set up value from the pseudo.
+	(lra_set_regno_unique_value): New function.
+	(lra_update_dups): Use array as nops.
+	(last_reg_value): New static variable.
+	(init_reg_info): Initialize it.  Initialize restore_regno and val
+	for pseudos.
+	(expand_reg_info): Initialize restore_regno and val
+	for new pseudos.
+	(lra_bind_pseudos, lra_bound_pseudo_freq): Remove.
+	(remove_scratches): Use lra_update_dup instead of lra_update_dups.
+	(lra): Use lra_constraint_iter instead of first.  Clear
+	lra_matched_pseudos after the spill subpass.  Clear
+	lra_inheritance_pseudos before the spill subpass. Remove code with
+	lra_dont_inherit_pseudos.
+
+	* lra-spills.c (regno_freq_compare): Don't use
+	lra_bound_pseudo_freq.
+	(assign_stack_slot_num_and_sort_pseudos): Remove processing bound
+	pseudos.
+	(lra_spill): Ditto.  Use lra_update_dup instead of
+	lra_update_dups.
+
+	* lra-lives.c (process_bb_lives): Check lra_bound_pseudos for
+	subreg dying.
+
+	* lra-coalesce.c (lra_coalesce): Check lra_bound_pseudos instead
+	of lra_reg_info.
+
+	* lra-constraints.c (new_insn_uid_start): New static variable.
+	(get_reg_class): Don't check lra_inheritance_pseudos.
+	(in_class_p): Ditto.  Check new_insn_uid_start instead.
+	(change_class): Remove processing bound pseudos.
+	(lra_dont_inherit_pseudos): Rename to lra_matched_pseudos.
+	(lra_bound_pseudos): New global var.
+	(match_reload): Change prototype by using array of inputs.  Don't
+	create bound pseudos.  Set up lra_bound_pseudos instead.  Use
+	lra_create_new_reg_with_unique_value instead of
+	lra_create_new_reg.  Use lra_update_dup for output.
+	(check_and_process_move): Don't check lra_inheritance_pseudos.
+	(curr_insn_transform): Make goal_alt_matched as two-dimensional
+	array.  Use lra_update_dup instead of lra_update_dups.  Use
+	lra_set_regno_unique_value instead of setting
+	lra_dont_inherit_pseudos.
+	(lra_constraints): Initialize new_insn_uid_start.
+	(lra_constraints_init): Initialize lra_bound_pseudos.
+	(lra_constraints_finish): Clear lra_bound_pseudos.
+	(inherit_reload_reg): Set up restore_regno.  Inherit only spilled
+	pseudos.
+	(remove_inheritance_pseudos): Extract from ...
+	(lra_undo_inheritance): Clear and use restore_regno.
+
+	* lra-assigns.c (get_biggest_bound_mode_pseudo): Remove.
+	(get_biggest_bound_mode): Ditto.
+	(regno_allocno_class_array): New.
+	(reload_pseudo_compare_func, pseudo_compare_func): Use it.
+	(update_lives): Remove processing bound pseudos.
+	(get_allocation_profit): Remove.
+	(find_hard_regno_for): Remove processing bound pseudos.  Look only
+	at intersected class pseudos.  Use pseudo values for conflicts.
+	Use regno_allocno_class_array.
+	(lra_setup_reg_renumber): Remove processing bound pseudos.
+	(setup_try_hard_regno_pseudos): Don't use first bound pseudos.
+	(assign_temporarily): Remove processing bound pseudos.
+	(spill_for): Ditto.  Use regno_allocno_class_array.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Remove
+	processing bound pseudos.  Use pseudo values for conflicts.
+	(assign_by_spills): Remove processing bound pseudos. Don't assign
+	hard registers to pseudos whose inheritance pseudos did not get a
+	hard register.  Use regno_allocno_class_array.
+	(lra_assign): Allocate, free, and initialize
+	regno_allocno_class_array.  Ignore spilling inheritance pseudos as
+	a change.
+
+	* emit-rtl.c (validate_subreg): Make any fp-mode subreg valid for LRA.
+
 2011-09-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.c (remove_scratches): Rescan changed insns.
