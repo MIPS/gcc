@@ -1,4 +1,115 @@
 2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree.h (built_in_decls): Change builtin interface from being an
+	array to an inline function for both normal and implicit builtin
+	functions.  Change all read references to built_in_decls and
+	implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_decls_add,
+	built_in_decls_copy, or built_in_decls_no_implicit.
+	(implicit_built_in_decls): Ditto.
+	(struct built_in_decl_info): Ditto.
+	(built_in_info): Ditto.
+	(built_in_get_decl): Ditto.
+	(built_in_set_decl): Ditto.
+	(built_in_copy_decl): Ditto.
+	(built_in_no_implicit): Ditto.
+	* tree-complex.c (expand_complex_libcall): Ditto.
+	* tree-loop-distribution.c (generate_memset_zero): Ditto.
+	* tree.c (iterative_hash_expr): Ditto.
+	(build_common_builtin_nodes): Ditto.
+	* builtins.c (built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	(mathfn_built_in_1): Ditto.
+	(expand_builtin_cexpi): Ditto.
+	(expand_builtin_mempcpy_args): Ditto.
+	(expand_builtin_stpcpy): Ditto.
+	(gimplify_va_arg_expr): Ditto.
+	(expand_builtin_sync_operation): Ditto.
+	(build_builtin_expect_predicate): Ditto.
+	(fold_builtin_memory_op): Ditto.
+	(fold_builtin_strcpy): Ditto.
+	(fold_builtin_strncpy): Ditto.
+	(fold_builtin_interclass_mathfn): Ditto.
+	(fold_builtin_classify): Ditto.
+	(fold_builtin_2): Ditto.
+	(fold_builtin_strstr): Ditto.
+	(fold_builtin_strpbrk): Ditto.
+	(fold_builtin_strcat): Ditto.
+	(fold_builtin_strncat): Ditto.
+	(fold_builtin_strcspn): Ditto.
+	(fold_builtin_fputs): Ditto.
+	(fold_builtin_sprintf): Ditto.
+	(fold_builtin_snprintf): Ditto.
+	(expand_builtin_memory_chk): Ditto.
+	(fold_builtin_stxcpy_chk): Ditto.
+	(fold_builtin_strncpy_chk): Ditto.
+	(fold_builtin_strcat_chk): Ditto.
+	(fold_builtin_strncat_chk): Ditto.
+	(fold_builtin_sprintf_chk_1): Ditto.
+	(fold_builtin_printf): Ditto.
+	(fold_builtin_fprintf): Ditto.
+	(fold_call_stmt): Ditto.
+	(set_builtin_user_assembler_name): Ditto.
+	* tree-emults.c (emutls_common_1): Ditto.
+	(lower_emutls_function_body): Ditto.
+	* omp-low.c (scan_omp): Ditto.
+	(lower_rec_input_clauses): Ditto.
+	(lower_reduction_clauses): Ditto.
+	(expand_parallel_call): Ditto.
+	(expand_task_call): Ditto.
+	(maybe_catch_exception): Ditto.
+	(optimize_omp_library_calls): Ditto.
+	(expand_omp_for_generic): Ditto.
+	(expand_omp_for_static_chunk): Ditto.
+	(expand_omp_sections): Ditto.
+	(expand_omp_atomic_pipeline): Ditto.
+	(expand_omp_atomic_mutex): Ditto.
+	(lower_omp_single_simple): Ditto.
+	(lower_omp_single_copy): Ditto.
+	(lower_omp_single): Ditto.
+	(lower_omp_master): Ditto.
+	(lower_omp_ordered): Ditto.
+	(lower_omp_critical): Ditto.
+	* tree-ssa-ccp.c (optimize_stdarg_builtin): Ditto.
+	* tree-ssa-math-opts.c (execute_optimize_bswap): Ditto.
+	* gimple-low.c (lower_function_body): Ditto.
+	(lower_builtin_setjmp): Ditto.
+	* c-decl.c (finish_decl): Ditto.
+	* tree-eh.c (lower_resx): ditto.
+	(lower_eh_dispatch): Ditto.
+	* function.c (gimplify_parameters): Ditto.
+	* c-typeck.c (build_function_call_vec): Ditto.
+	* gimplify.c (build_stack_save_restore): Ditto.
+	(gimplify_vla_decl): Ditto.
+	(gimplify_modify_expr_to_memcpy): Ditto.
+	(gimplify_modify_expr_to_memset): Ditto.
+	(gimplify_variable_sized_compare): Ditto.
+	(gimplify_function_tree): Ditto.
+	* calls.c (emit_call_1): Ditto.
+	* tree-nested.c (convert_nl_goto_reference): Ditto.
+	(convert_tramp_reference_op): Ditto.
+	(finalize_nesting_tree_1): Ditto.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
+	(tree_ssa_prefetch_arrays): Ditto.
+	* tree-streamer-in.c (streamer_get_builtin_tree): Ditto.
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Ditto.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Ditto.
+	(ix86_veclibabi_svml): Ditto.
+	(ix86_veclibabi_acml): Ditto.
+	* config/vms/vms.c (vms_patch_builtins): Ditto.
+	* config/ia64/ia64.c (ia64_init_builtins): Ditto.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_libmass): Ditto.
+	(rs6000_gimplify_va_arg): Ditto.
+	(rs6000_init_builtins): Ditto.
+	* config/darwin.c (darwin_override_options): Ditto.
+	(darwin_patch_builtin): Ditto.
+	(darwin_rename_builtins): Ditto.
+	* config/pa/pa.c (pa_init_builtins): Ditto.
+
+	* builtins.def (BUILT_IN_NONE): Make sure 0 is not a legitimate
+	builtin function index.
+
+2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from trunk at subversion id 179204.
 	* REVISION: New file.

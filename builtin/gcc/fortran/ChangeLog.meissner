@@ -1,3 +1,32 @@
 2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* trans.c (gfc_call_malloc): Change builtin interface from being
+	an array to an inline function for both normal and implicit
+	builtin functions.  Change all read references to built_in_decls
+	and implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_decls_add,
+	built_in_decls_copy, or built_in_decls_no_implicit.
+	(gfc_allocate_using_malloc): Ditto.
+	(gfc_call_free): Ditto.
+	(gfc_deallocate_with_status): Ditto.
+	(gfc_deallocate_scalar_with_status): Ditto.
+	(gfc_call_realloc): Ditto.
+	(gfc_unlikely): Ditto.
+	(gfc_likely): Ditto.
+	* f95-lang.c (gfc_define_builtin): Ditto.
+	(gfc_init_builtin_functions): Ditto.
+	* trans-decl.c (create_main_function): Ditto.
+	* trans-intrinsic.c (builtin_decl_for_precision): Ditto.
+	(gfc_build_intrinsic_lib_fndecls): Ditto.
+	(gfc_conv_intrinsic_minmax): Ditto.
+	(gfc_conv_intrinsic_leadz): Ditto.
+	(gfc_conv_intrinsic_trailz): Ditto.
+	(gfc_conv_intrinsic_popcnt_poppar): Ditto.
+	(gfc_conv_intrinsic_isnan): Ditto.
+	(gfc_conv_intrinsic_transfer): Ditto.
+	(scalar_transfer): Ditto.
+	(gfc_conv_intrinsic_repeat): Ditto.
+
+2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from trunk at subversion id 179204.

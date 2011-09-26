@@ -1,3 +1,13 @@
 2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* lto-lang.c (def_builtin_1): Change builtin interface from being
+	an array to an inline function for both normal and implicit
+	builtin functions.  Change all read references to built_in_decls
+	and implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_decls_add,
+	built_in_decls_copy, or built_in_decls_no_implicit.
+
+[gcc/objc]
+2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from trunk at subversion id 179204.
