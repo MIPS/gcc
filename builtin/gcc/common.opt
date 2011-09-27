@@ -1166,6 +1166,10 @@ fgraphite-identity
 Common Report Var(flag_graphite_identity) Optimization
 Enable Graphite Identity transformation
 
+flazy-builtin
+Common Report Var(flag_lazy_builtin) Optimization
+Do not create builtin nodes until the builtin identifier is referenced
+
 floop-parallelize-all
 Common Report Var(flag_loop_parallelize_all) Optimization
 Mark all loops as parallel

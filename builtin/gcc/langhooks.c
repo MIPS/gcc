@@ -527,7 +527,7 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 /* Common function for add_builtin_function and
    add_builtin_function_ext_scope.  */
 static tree
-add_builtin_function_common (const char *name,
+add_builtin_function_common (tree id,
 			     tree type,
 			     int function_code,
 			     enum built_in_class cl,
@@ -535,7 +535,6 @@ add_builtin_function_common (const char *name,
 			     tree attrs,
 			     tree (*hook) (tree))
 {
-  tree   id = get_identifier (name);
   tree decl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL, id, type);
 
   TREE_PUBLIC (decl)         = 1;
@@ -573,7 +572,8 @@ add_builtin_function (const char *name,
 		      const char *library_name,
 		      tree attrs)
 {
-  return add_builtin_function_common (name, type, function_code, cl,
+  tree id = get_identifier (name);
+  return add_builtin_function_common (id, type, function_code, cl,
 				      library_name, attrs,
 				      lang_hooks.builtin_function);
 }
@@ -593,7 +593,24 @@ add_builtin_function_ext_scope (const char *name,
 				const char *library_name,
 				tree attrs)
 {
-  return add_builtin_function_common (name, type, function_code, cl,
+  tree id = get_identifier (name);
+  return add_builtin_function_common (id, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function_ext_scope);
+}
+
+/* Like add_builtin_function, except take a tree node for the name for use in
+   creating builtin nodes lazily when the identifier is first used.  */
+
+tree
+add_builtin_function_lazy (tree id,
+			   tree type,
+			   int function_code,
+			   enum built_in_class cl,
+			   const char *library_name,
+			   tree attrs)
+{
+  return add_builtin_function_common (id, type, function_code, cl,
 				      library_name, attrs,
 				      lang_hooks.builtin_function_ext_scope);
 }
@@ -603,6 +620,17 @@ lhd_builtin_function (tree decl)
 {
   lang_hooks.decls.pushdecl (decl);
   return decl;
+}
+
+/* Create a standard builtin function lazily when it is needed, either when
+   the identifier is referenced in the source program, or when the back end
+   wants to see if a given builtin exists.  */
+
+tree
+lhd_builtin_function_lazy_create (enum built_in_function fn ATTRIBUTE_UNUSED,
+				  bool implicit ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
 }
 
 /* LTO hooks.  */

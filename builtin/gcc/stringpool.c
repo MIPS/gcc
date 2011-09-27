@@ -98,6 +98,22 @@ ggc_alloc_string_stat (const char *contents, int length MEM_STAT_DECL)
   return (const char *) result;
 }
 
+/* On the first use of a builtin identifier, create the builtin function.  */
+static void
+lazy_identifier_first_use (tree ident)
+{
+  tree lazy = LAZY_IDENTIFIER_INIT_TREE (ident);
+  unsigned HOST_WIDE_INT value;
+
+  gcc_assert (lazy && TREE_CODE (lazy) == INTEGER_CST);
+  LAZY_IDENTIFIER_FIRST_USE_P (ident) = 0;
+  LAZY_IDENTIFIER_INIT_TREE (ident) = NULL_TREE;
+  value = TREE_INT_CST_LOW (lazy);
+  built_in_decl_create (BUILT_IN_DECODE_FNCODE (value),
+			BUILT_IN_DECODE_CLASS (value),
+			BUILT_IN_DECODE_IMPLICIT (value));
+}
+
 /* Return an IDENTIFIER_NODE whose name is TEXT (a null-terminated string).
    If an identifier with that name has previously been referred to,
    the same node is returned this time.  */
@@ -107,12 +123,18 @@ ggc_alloc_string_stat (const char *contents, int length MEM_STAT_DECL)
 tree
 get_identifier (const char *text)
 {
+  tree ident;
   hashnode ht_node = ht_lookup (ident_hash,
 				(const unsigned char *) text,
 				strlen (text), HT_ALLOC);
 
   /* ht_node can't be NULL here.  */
-  return HT_IDENT_TO_GCC_IDENT (ht_node);
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+  if (LAZY_IDENTIFIER_FIRST_USE_P (ident))
+    lazy_identifier_first_use (ident);
+
+  return ident;
 }
 
 /* Identical to get_identifier, except that the length is assumed
@@ -121,12 +143,18 @@ get_identifier (const char *text)
 tree
 get_identifier_with_length (const char *text, size_t length)
 {
+  tree ident;
   hashnode ht_node = ht_lookup (ident_hash,
 				(const unsigned char *) text,
 				length, HT_ALLOC);
 
   /* ht_node can't be NULL here.  */
-  return HT_IDENT_TO_GCC_IDENT (ht_node);
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+  if (LAZY_IDENTIFIER_FIRST_USE_P (ident))
+    lazy_identifier_first_use (ident);
+
+  return ident;
 }
 
 /* If an identifier with the name TEXT (a null-terminated string) has
@@ -136,14 +164,60 @@ get_identifier_with_length (const char *text, size_t length)
 tree
 maybe_get_identifier (const char *text)
 {
+  tree ident;
   hashnode ht_node;
 
   ht_node = ht_lookup (ident_hash, (const unsigned char *) text,
 		       strlen (text), HT_NO_INSERT);
   if (ht_node)
-    return HT_IDENT_TO_GCC_IDENT (ht_node);
+    {
+      ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+      if (LAZY_IDENTIFIER_FIRST_USE_P (ident))
+	lazy_identifier_first_use (ident);
+
+      return ident;
+    }
 
   return NULL_TREE;
+}
+
+/* Register an identifier that corresponds to a builtin function.  The builtin
+   function will be created when the identifier is referenced in any
+   fashion. Most builtins are never referenced, so we will not need to create
+   the FUNCTION_DECL nodes for the hundreds of unused builtin functions.  */
+void get_identifier_builtin_lazy_create (const char *text,
+					 unsigned fncode,
+					 enum built_in_class bclass,
+					 bool implicit)
+{
+  size_t len = strlen (text);
+  hashnode ht_node;
+  tree ident;
+  unsigned HOST_WIDE_INT value;
+
+  ht_node = ht_lookup (ident_hash, (const unsigned char *) text, len,
+		       (flag_lazy_builtin) ? HT_NO_INSERT : HT_ALLOC);
+
+  /* If the identifier node exists, create the builtin function right now.  */
+  if (ht_node)
+    {
+      ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+      built_in_decl_create (fncode, bclass, implicit);
+      return ident;
+    }
+
+  /* Create the identifier node, and add a callback for the next time the
+     identifier is referenced in get_identifier to create the builtin
+     function.  */
+  ht_node = ht_lookup (ident_hash, (const unsigned char *) text, len, HT_ALLOC);
+
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+  LAZY_IDENTIFIER_FIRST_USE_P (ident) = 1;
+  value = BUILT_IN_ENCODE (fncode, bclass, implicit);
+  LAZY_IDENTIFIER_INIT_TREE (ident) = build_int_cst (integer_type_node, value);
+
+  return ident;
 }
 
 /* Report some basic statistics about the string pool.  */

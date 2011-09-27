@@ -2108,6 +2108,12 @@ rs6000_debug_reg_global (void)
 	   rs6000_long_double_type_size);
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
+  fprintf (stderr, DEBUG_FMT_D, "# std builtins", (int)END_BUILTINS);
+  fprintf (stderr, DEBUG_FMT_D, "# ppc builtins", (int)RS6000_BUILTIN_COUNT);
+  fprintf (stderr, DEBUG_FMT_D, "sizeof (func_decl)",
+	   (int)sizeof (struct tree_function_decl));
+  fprintf (stderr, DEBUG_FMT_D, "sizeof (int_cst)",
+	   (int)sizeof (struct tree_int_cst));
 }
 
 /* Initialize the various global tables that are based on register size.  */

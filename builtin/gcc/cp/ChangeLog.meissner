@@ -1,3 +1,8 @@
+2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY_CREATE):
+	Add initial lazy builtin support.
+
 2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* decl.c (duplicate_decls): Change builtin interface from being an

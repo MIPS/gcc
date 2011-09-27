@@ -61,6 +61,9 @@ along with GCC; see the file COPYING3.  If not see
 #define LANG_HOOKS_BUILTIN_FUNCTION c_builtin_function
 #undef  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE c_builtin_function_ext_scope
+#undef  LANG_HOOKS_BUILTIN_FUNCTION_LAZY_CREATE
+#define LANG_HOOKS_BUILTIN_FUNCTION_LAZY_CREATE \
+  c_common_builtin_function_lazy_create
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

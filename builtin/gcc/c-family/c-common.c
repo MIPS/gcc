@@ -4113,7 +4113,7 @@ static void def_builtin_1  (enum built_in_function fncode,
 			    enum built_in_class fnclass,
 			    tree fntype, tree libtype,
 			    bool both_p, bool fallback_p, bool nonansi_p,
-			    tree fnattrs, bool implicit_p);
+			    tree fnattrs, bool implicit_p, bool lazy);
 
 
 /* Apply the TYPE_QUALS to the new DECL.  */
@@ -4544,6 +4544,8 @@ def_fn_type (builtin_type def, builtin_type ret, bool var, int n, ...)
 static void
 c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 {
+  bool lazy_p = (flag_lazy_builtin != 0);
+
 #define DEF_PRIMITIVE_TYPE(ENUM, VALUE) \
   builtin_types[ENUM] = VALUE;
 #define DEF_FUNCTION_TYPE_0(ENUM, RETURN) \
@@ -4606,7 +4608,9 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 		   builtin_types[(int) TYPE],                           \
 		   builtin_types[(int) LIBTYPE],                        \
 		   BOTH_P, FALLBACK_P, NONANSI_P,                       \
-		   built_in_attributes[(int) ATTRS], IMPLICIT);
+		   built_in_attributes[(int) ATTRS], IMPLICIT,		\
+		   lazy_p);
+
 #include "builtins.def"
 #undef DEF_BUILTIN
 
@@ -4616,6 +4620,81 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 
   if (flag_mudflap)
     mudflap_init ();
+}
+
+/* Create a builtin function when it is needed.  */
+
+tree
+c_common_builtin_function_lazy_create (enum built_in_function fncode,
+				       bool implicit)
+{
+  unsigned uns_fncode = (unsigned) fncode;
+  tree ret = ((implicit)
+	      ? built_in_info[uns_fncode].implicit
+	      : built_in_info[uns_fncode].decl);
+  enum built_in_class bclass = NOT_BUILT_IN;
+  const char *fnname = (const char *)0;
+  bool both_p = false;
+  bool fallback_p = false;
+  bool nonansi_p = false;
+  bool fn_implicit = false;
+  enum built_in_attribute attrs = ATTR_LAST;
+  enum c_builtin_type fntype = BT_LAST;
+  enum c_builtin_type libtype = BT_LAST;
+
+  /* Allow lazy creation to be called multiple times.  */
+  if (ret != NULL_TREE && ret != lazy_builtin_node)
+    return ret;
+
+  switch (fncode)
+    {
+    default:
+      break;
+
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
+		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
+    case ENUM:								\
+      if (NAME && COND)							\
+	{								\
+	  fnname = NAME;						\
+	  bclass = CLASS;						\
+	  fntype = TYPE;						\
+	  libtype = LIBTYPE;						\
+	  both_p = BOTH_P;						\
+	  fallback_p = FALLBACK_P;					\
+	  nonansi_p = NONANSI_P;					\
+	  attrs = ATTRS;						\
+	  fn_implicit = IMPLICIT;					\
+	}								\
+      break;
+
+#include "builtins.def"
+#undef DEF_BUILTIN
+
+    }
+
+  fprintf (stderr, "---lazy_builtin (%s) implicit=%s, %s\n",
+	   built_in_names[(int)fncode],
+	   implicit ? "no" : "yes",
+	   (fntype) ? "create node" : "no builtin");
+
+  if (!fntype)
+    ret = NULL_TREE;
+
+  else
+    {
+      def_builtin_1 (fncode, fnname, bclass,
+		   builtin_types[(int) fntype],
+		   builtin_types[(int) libtype],
+		   both_p, fallback_p, nonansi_p,
+		   built_in_attributes[(int) attrs], implicit, false);
+
+      ret = ((implicit)
+	     ? built_in_info[(int)fncode].decl
+	     : built_in_info[(int)fncode].implicit);
+    }
+
+  return ret;
 }
 
 /* Like get_identifier, but avoid warnings about null arguments when
@@ -5151,10 +5230,12 @@ def_builtin_1 (enum built_in_function fncode,
 	       enum built_in_class fnclass,
 	       tree fntype, tree libtype,
 	       bool both_p, bool fallback_p, bool nonansi_p,
-	       tree fnattrs, bool implicit_p)
+	       tree fnattrs, bool implicit_p, bool lazy_p)
 {
   tree decl;
+  tree idecl = NULL_TREE;
   const char *libname;
+  bool add_lib_p;
 
   if (fntype == error_mark_node)
     return;
@@ -5164,16 +5245,31 @@ def_builtin_1 (enum built_in_function fncode,
 			   strlen ("__builtin_")));
 
   libname = name + strlen ("__builtin_");
-  decl = add_builtin_function (name, fntype, fncode, fnclass,
-			       (fallback_p ? libname : NULL),
-			       fnattrs);
-  if (both_p
-      && !flag_no_builtin && !builtin_function_disabled_p (libname)
-      && !(nonansi_p && flag_no_nonansi_builtin))
-    add_builtin_function (libname, libtype, fncode, fnclass,
-			  NULL, fnattrs);
+  add_lib_p = (both_p
+	       && !flag_no_builtin && !builtin_function_disabled_p (libname)
+	       && !(nonansi_p && flag_no_nonansi_builtin));
 
-  built_in_set_decl (fncode, decl, implicit_p ? decl : NULL_TREE);
+  /* Either create builtins right now, or just register the builtin for
+     creation later when the identifier is used, or the backend needs to use
+     the builtin.  */
+  if (!lazy_p)
+    {
+      decl = add_builtin_function (name, fntype, fncode, fnclass,
+				   (fallback_p ? libname : NULL),
+				   fnattrs);
+      if (add_lib_p)
+	idecl = add_builtin_function (libname, libtype, fncode, fnclass,
+				      NULL, fnattrs);
+
+      built_in_set_decl (fncode, decl, implicit_p ? idecl : NULL_TREE);
+    }
+  else
+    {
+      unsigned uns_fncode = (unsigned) fncode;
+      get_identifier_builtin_lazy_create (name, uns_fncode, fnclass, false);
+      if (add_lib_p)
+	get_identifier_builtin_lazy_create (libname, uns_fncode, fnclass, true);
+    }
 }
 
 /* Nonzero if the type T promotes to int.  This is (nearly) the

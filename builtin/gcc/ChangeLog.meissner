@@ -1,3 +1,61 @@
+2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.c (build_common_tree_nodes): Add initial lazy builtin
+	support.
+	(built_in_decl_create): Ditto.
+
+	* tree.h (BUILT_IN_VALID_P): Move to later in the file.  Add
+	initial lazy builtin support.
+	(built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	(built_in_decls_add): Ditto.
+	(built_in_set_decl): Ditto.
+	(built_in_copy_decl): Ditto.
+	(enum tree_index): Ditto.
+	(lazy_builtin_node): Ditto.
+	(BUILT_IN_ENCODE): Ditto.
+	(BUILT_IN_DECODE_FNCODE): Ditto.
+	(BUILT_IN_DECODE_CLASS): Ditto.
+	(BUILT_IN_DECODE_IMPLICIT): Ditto.
+	(LAZY_IDENTIFIER_FIRST_USE_P): Ditto.
+	(LAZY_IDENTIFIER_INIT_TREE): Ditto.
+	(get_identifier_builtin_lazy_create): Ditto.
+	(built_in_decl_create): Ditto.
+
+	* c-objc-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY_CREATE):
+	Ditto.
+
+	* langhooks.c (add_builtin_function_common): Take an
+	identifier_node instead of char *, and change callers to call
+	get_identifier.
+	(add_builtin_function): Ditto.
+	(add_builtin_function_ext_scope): Ditto.
+	(add_builtin_function_lazy): New function for lazy builtin
+	creation.
+	(lhd_builtin_function_lazy_create): Ditto.
+
+	* langhooks.h (struct lang_hooks): Add new hook
+	builtin_function_lazy_create.
+	(add_builtin_function_lazy): Add declaration.
+
+	* stringpool.c (lazy_identifier_first_use): New function to create
+	builtin functions when the identifier associated with it is used.
+	(get_identifier): Call lazy_identifier_first_use  as needed.
+	(get_identifier_with_length): Ditto.
+	(maybe_get_identifier): Ditto.
+	(get_identifier_builtin_lazy_create): New function to add support
+	for creating builtin functions lazily.
+
+	* common.opt (-flazy-builtin): New debug flag to enable/disable
+	lazy builtins.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print # of
+	builtins and some sizes of tree nodes if -mdebug=reg.
+
+	* langhooks-def.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY_CREATE): New
+	hook for lazy builtin creation.
+	(LANG_HOOKS_INITIALIZE): Use it.
+
 2011-09-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Change builtin interface from being an

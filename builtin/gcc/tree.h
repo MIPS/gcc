@@ -345,65 +345,6 @@ typedef struct GTY(()) built_in_decl_info
 
 extern GTY(()) built_in_decl_info built_in_info[(int)END_BUILTINS];
 
-/* Valid builtin number.  */
-#define BUILT_IN_VALID_P(FNCODE) \
-  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
-
-/* Return the tree node for a builtin function or NULL, possibly
-   creating the tree node.  */
-static inline tree
-built_in_decls (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].decl;
-}
-
-/* Return the tree node for a builtin function or NULL, possibly
-   creating the tree node.  */
-static inline tree
-implicit_built_in_decls (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].implicit;
-}
-
-/* Return the tree node for a builtin function or NULL, indexing into the
-   array.  */
-static inline tree
-built_in_decls_add (enum built_in_function fncode, int addend)
-{
-  return built_in_decls ((enum built_in_function)(((int)fncode) + addend));
-}
-
-/* Initialize a builtin function.  */
-static inline void
-built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
-{
-  built_in_decl_info *info;
-
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  info = &built_in_info[(int)fncode];
-  info->decl = decl;
-  info->implicit = implicit;
-}
-
-/* Copy a builtin function.  */
-static inline void
-built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
-{
-  gcc_assert (BUILT_IN_VALID_P (dest));
-  gcc_assert (BUILT_IN_VALID_P (src));
-  built_in_info[(int)dest] = built_in_info[(int)src];
-}
-
-/* Turn off an implicit builtin function, but keep the explict version.  */
-static inline void
-built_in_no_implicit (enum built_in_function fncode)
-{
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  built_in_info[(int)fncode].implicit = (tree)0;
-}
-
 
 /* In an OMP_CLAUSE node.  */
 
@@ -673,6 +614,9 @@ struct GTY(()) tree_common {
 
        FORCED_LABEL in
            LABEL_DECL
+
+       LAZY_IDENTIFIER_FIRST_USE_P in
+	   IDENTIFIER_NODE
 
    volatile_flag:
 
@@ -3890,6 +3834,8 @@ enum tree_index
   TI_CURRENT_TARGET_PRAGMA,
   TI_CURRENT_OPTIMIZE_PRAGMA,
 
+  TI_LAZY_BUILTIN_NODE,
+
   TI_MAX
 };
 
@@ -4072,6 +4018,10 @@ extern GTY(()) tree global_trees[TI_MAX];
    attribute list.  */
 #define current_target_pragma		global_trees[TI_CURRENT_TARGET_PRAGMA]
 #define current_optimize_pragma		global_trees[TI_CURRENT_OPTIMIZE_PRAGMA]
+
+/* Dummy node to say that we need to allocate a builtin function's declaration
+   when the identifier used in the builtin is referenced.  */
+#define lazy_builtin_node		global_trees[TI_LAZY_BUILTIN_NODE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
@@ -4490,6 +4440,123 @@ extern tree make_accum_type (int, int, int);
    tree.h had been included.  */
 
 extern tree make_tree (tree, rtx);
+
+/* Encode/decode builtin index, builtin class, and implicit/regular into a
+   single integer, which use use in the IDENTIFIER_NODE for lazy identifiers,
+   which creates the function declaration the first time the identifier is
+   referenced.  */
+
+#define BUILT_IN_ENCODE(FNCODE, CLASS, IMPLICIT)			\
+  ((((unsigned HOST_WIDE_INT) (FNCODE)) << 3) |				\
+   (((unsigned HOST_WIDE_INT) (CLASS)) << 1) |				\
+   (((unsigned HOST_WIDE_INT) (IMPLICIT)) & 1))
+
+#define BUILT_IN_DECODE_FNCODE(NUM) ((unsigned) (NUM) >> 3)
+
+#define BUILT_IN_DECODE_CLASS(NUM) \
+  ((enum built_in_class)((((unsigned) (NUM)) >> 1) & 3))
+
+#define BUILT_IN_DECODE_IMPLICIT(NUM) ((bool)(((unsigned) (NUM)) & 1))
+
+/* Nonzero means the first time the user uses this identifier, call a callback
+   function.  It is used for the builtin functions to create the function
+   declaration the first time a user uses the identifier.  */
+#define LAZY_IDENTIFIER_FIRST_USE_P(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->base.side_effects_flag)
+
+/* INTEGER_CST node that encodes which builtin function to create in a lazy
+   fashion.  */
+#define LAZY_IDENTIFIER_INIT_TREE(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->common.chain)
+
+/* Register an identifier that corresponds to a builtin function.  The builtin
+   function will be created when the identifier is referenced in any
+   fashion. Most builtins are never referenced, so we will not need to create
+   the FUNCTION_DECL nodes for the hundreds of unused builtin functions.  */
+extern void get_identifier_builtin_lazy_create (const char *, unsigned,
+						enum built_in_class, bool);
+
+/* Valid builtin number.  */
+#define BUILT_IN_VALID_P(FNCODE) \
+  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
+
+/* Create a builtin function when we need it.  */
+extern tree built_in_decl_create (unsigned, enum built_in_class, bool);
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  We use error_mark  */
+static inline tree
+built_in_decls (enum built_in_function fncode)
+{
+  size_t uns_fncode = (size_t) fncode;
+  tree decl;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  decl = built_in_info[uns_fncode].decl;
+  if (decl == lazy_builtin_node)
+    {
+      decl = built_in_decl_create (uns_fncode, BUILT_IN_NORMAL, false);
+      built_in_info[uns_fncode].decl = decl;
+    }
+
+  return decl;
+}
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+implicit_built_in_decls (enum built_in_function fncode)
+{
+  size_t uns_fncode = (size_t) fncode;
+  tree decl;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  decl = built_in_info[uns_fncode].implicit;
+  if (decl == lazy_builtin_node)
+    {
+      decl = built_in_decl_create (uns_fncode, BUILT_IN_NORMAL, true);
+      built_in_info[uns_fncode].implicit = decl;
+    }
+
+  return decl;
+}
+
+/* Return the tree node for a builtin function or NULL, indexing into the
+   array.  */
+static inline tree
+built_in_decls_add (enum built_in_function fncode, int addend)
+{
+  return built_in_decls ((enum built_in_function)(((int)fncode) + addend));
+}
+
+/* Initialize a builtin function.  */
+static inline void
+built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
+{
+  size_t uns_fncode = (size_t) fncode;
+
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  built_in_info[uns_fncode].decl = decl;
+  built_in_info[uns_fncode].implicit = implicit;
+}
+
+/* Copy a builtin function.  */
+static inline void
+built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
+{
+  gcc_assert (BUILT_IN_VALID_P (dest));
+  gcc_assert (BUILT_IN_VALID_P (src));
+  built_in_info[(size_t)dest] = built_in_info[(size_t)src];
+}
+
+/* Turn off an implicit builtin function, but keep the explict version.  */
+static inline void
+built_in_no_implicit (enum built_in_function fncode)
+{
+  gcc_assert (BUILT_IN_VALID_P (fncode));
+  built_in_info[(size_t)fncode].implicit = (tree)0;
+}
+
 
 /* Return a type like TTYPE except that its TYPE_ATTRIBUTES
    is ATTRIBUTE.

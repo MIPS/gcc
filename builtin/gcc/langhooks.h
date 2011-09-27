@@ -443,6 +443,11 @@ struct lang_hooks
      backend must add all of the builtins at program initialization time.  */
   tree (*builtin_function_ext_scope) (tree decl);
 
+  /* Create a standard builtin function lazily when it is needed, either when
+     the identifier is referenced in the source program, or when the back end
+     wants to see if a given builtin exists.  */
+  tree (*builtin_function_lazy_create) (enum built_in_function, bool);
+
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
 
@@ -489,5 +494,11 @@ extern tree add_builtin_function_ext_scope (const char *name, tree type,
 					    enum built_in_class cl,
 					    const char *library_name,
 					    tree attrs);
+
+extern tree add_builtin_function_lazy (tree ident, tree type,
+				       int function_code,
+				       enum built_in_class cl,
+				       const char *library_name,
+				       tree attrs);
 
 #endif /* GCC_LANG_HOOKS_H */
