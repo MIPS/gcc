@@ -626,9 +626,8 @@ lhd_builtin_function (tree decl)
    the identifier is referenced in the source program, or when the back end
    wants to see if a given builtin exists.  */
 
-tree
-lhd_builtin_function_lazy_create (enum built_in_function fn ATTRIBUTE_UNUSED,
-				  bool implicit ATTRIBUTE_UNUSED)
+void
+lhd_builtin_function_lazy (enum built_in_function fn ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

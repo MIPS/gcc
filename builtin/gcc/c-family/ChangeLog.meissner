@@ -1,5 +1,17 @@
 2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* c-common.c (builtin_in_types): Make builtin_in_types garbage
+	collected.
+	(c_common_nodes_and_builtins): Ditto.
+	(c_define_builtins): Lazy builtin changes.
+	(c_common_builtin_function_lazy): Ditto.
+	(def_builtin_1): Ditto.
+
+	* c-common.h (c_common_builtin_function_lazy): Change calling
+	signature.
+
+2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* c-common.c (def_builtin_1): Add initial lazy builtin support.
 	(c_define_builtins): Ditto.
 	(c_common_builtin_function_lazy_create): Ditto.

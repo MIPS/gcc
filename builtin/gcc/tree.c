@@ -9402,8 +9402,6 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
     va_list_type_node = t;
   }
-
-  lazy_builtin_node = build_function_type_list (void_type_node, NULL_TREE);
 }
 
 /* A subroutine of build_common_builtin_nodes.  Define a builtin function.  */
@@ -11316,27 +11314,6 @@ warn_deprecated_use (tree node, tree attr)
 	    }
 	}
     }
-}
-
-
-/* Create a builtin node with index FNCODE, builtin CLASS, and whether it is an
-   IMPLICIT builtin, calling the appropriate language front end hook for the
-   standard builtins or the backend hook for a machine dependent builtin.  */
-
-tree
-built_in_decl_create (unsigned uns_fncode,
-		      enum built_in_class bclass,
-		      bool implicit)
-{
-  if (bclass == BUILT_IN_NORMAL)
-    {
-      enum built_in_function fncode = (enum built_in_function) uns_fncode;
-      return lang_hooks.builtin_function_lazy_create (fncode, implicit);
-    }
-  else if (bclass == BUILT_IN_MD && !implicit)
-    return targetm.builtin_decl (uns_fncode, true);
-  else
-    gcc_unreachable ();
 }
 
 #include "gt-tree.h"

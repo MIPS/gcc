@@ -73,9 +73,9 @@ const char * built_in_names[(int) END_BUILTINS] =
 };
 #undef DEF_BUILTIN
 
-/* Setup an array of _DECL trees, make sure each element is
-   initialized to NULL_TREE.  */
-built_in_decl_info built_in_info[(int)END_BUILTINS];
+/* Setup the standard builtin function declarations, and have them initialized
+   to NULL_TREE.  */
+built_in_decl_info built_in_info;
 
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
@@ -13629,4 +13629,20 @@ is_inexpensive_builtin (tree decl)
       }
 
   return false;
+}
+
+
+/* Create a builtin node with index FNCODE, builtin CLASS, calling the
+   appropriate language front end hook for the standard builtins or the backend
+   hook for a machine dependent builtin.  */
+
+void
+built_in_decl_create (unsigned fncode, enum built_in_class bclass)
+{
+  if (bclass == BUILT_IN_NORMAL)
+    lang_hooks.builtin_function_lazy ((enum built_in_function)fncode);
+  else if (bclass == BUILT_IN_MD)
+    (void) targetm.builtin_decl (fncode, true);
+  else
+    gcc_unreachable ();
 }

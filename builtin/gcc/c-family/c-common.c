@@ -4496,7 +4496,7 @@ typedef enum c_builtin_type builtin_type;
 
 /* A temporary array for c_common_nodes_and_builtins.  Used in
    communication with def_fn_type.  */
-static tree builtin_types[(int) BT_LAST + 1];
+static GTY(()) tree builtin_types[(int) BT_LAST + 1];
 
 /* A helper function for c_common_nodes_and_builtins.  Build function type
    for DEF with return type RET and N arguments.  If VAR is true, then the
@@ -4624,28 +4624,30 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 
 /* Create a builtin function when it is needed.  */
 
-tree
-c_common_builtin_function_lazy_create (enum built_in_function fncode,
-				       bool implicit)
+void
+c_common_builtin_function_lazy (enum built_in_function fncode)
 {
   unsigned uns_fncode = (unsigned) fncode;
-  tree ret = ((implicit)
-	      ? built_in_info[uns_fncode].implicit
-	      : built_in_info[uns_fncode].decl);
   enum built_in_class bclass = NOT_BUILT_IN;
   const char *fnname = (const char *)0;
   bool both_p = false;
   bool fallback_p = false;
   bool nonansi_p = false;
-  bool fn_implicit = false;
+  bool implicit = false;
   enum built_in_attribute attrs = ATTR_LAST;
   enum c_builtin_type fntype = BT_LAST;
   enum c_builtin_type libtype = BT_LAST;
 
   /* Allow lazy creation to be called multiple times.  */
-  if (ret != NULL_TREE && ret != lazy_builtin_node)
-    return ret;
+  if (!built_in_info.lazy_p[uns_fncode])
+    {
+      fprintf (stderr, "---lazy_builtin (%s), already created\n",
+	       built_in_names[(int)fncode]);
 
+      return;
+    }
+
+  built_in_info.lazy_p[uns_fncode] = false;
   switch (fncode)
     {
     default:
@@ -4664,7 +4666,7 @@ c_common_builtin_function_lazy_create (enum built_in_function fncode,
 	  fallback_p = FALLBACK_P;					\
 	  nonansi_p = NONANSI_P;					\
 	  attrs = ATTRS;						\
-	  fn_implicit = IMPLICIT;					\
+	  implicit = IMPLICIT;						\
 	}								\
       break;
 
@@ -4673,28 +4675,18 @@ c_common_builtin_function_lazy_create (enum built_in_function fncode,
 
     }
 
-  fprintf (stderr, "---lazy_builtin (%s) implicit=%s, %s\n",
+  fprintf (stderr, "---lazy_builtin (%s), %s\n",
 	   built_in_names[(int)fncode],
-	   implicit ? "no" : "yes",
-	   (fntype) ? "create node" : "no builtin");
+	   (bclass != NOT_BUILT_IN) ? "create node" : "no builtin");
 
-  if (!fntype)
-    ret = NULL_TREE;
-
-  else
-    {
-      def_builtin_1 (fncode, fnname, bclass,
+  if (bclass != NOT_BUILT_IN)
+    def_builtin_1 (fncode, fnname, bclass,
 		   builtin_types[(int) fntype],
 		   builtin_types[(int) libtype],
 		   both_p, fallback_p, nonansi_p,
 		   built_in_attributes[(int) attrs], implicit, false);
 
-      ret = ((implicit)
-	     ? built_in_info[(int)fncode].decl
-	     : built_in_info[(int)fncode].implicit);
-    }
-
-  return ret;
+  return;
 }
 
 /* Like get_identifier, but avoid warnings about null arguments when
@@ -5145,9 +5137,6 @@ c_common_nodes_and_builtins (void)
      not shared.  */
   null_node = make_node (INTEGER_CST);
   TREE_TYPE (null_node) = c_common_type_for_size (POINTER_SIZE, 0);
-
-  /* Since builtin_types isn't gc'ed, don't export these nodes.  */
-  memset (builtin_types, 0, sizeof (builtin_types));
 }
 
 /* The number of named compound-literals generated thus far.  */
@@ -5263,12 +5252,14 @@ def_builtin_1 (enum built_in_function fncode,
 
       built_in_set_decl (fncode, decl, implicit_p ? idecl : NULL_TREE);
     }
+  else if (fnclass != BUILT_IN_NORMAL)
+    get_identifier_lazy_builtin (name, (unsigned)fncode, fnclass);
   else
     {
-      unsigned uns_fncode = (unsigned) fncode;
-      get_identifier_builtin_lazy_create (name, uns_fncode, fnclass, false);
+      built_in_info.lazy_p[(unsigned)fncode] = true;
+      get_identifier_lazy_builtin (name, (unsigned)fncode, fnclass);
       if (add_lib_p)
-	get_identifier_builtin_lazy_create (libname, uns_fncode, fnclass, true);
+	get_identifier_lazy_builtin (libname, (unsigned)fncode, fnclass);
     }
 }
 

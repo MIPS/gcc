@@ -446,7 +446,7 @@ struct lang_hooks
   /* Create a standard builtin function lazily when it is needed, either when
      the identifier is referenced in the source program, or when the back end
      wants to see if a given builtin exists.  */
-  tree (*builtin_function_lazy_create) (enum built_in_function, bool);
+  void (*builtin_function_lazy) (enum built_in_function);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);

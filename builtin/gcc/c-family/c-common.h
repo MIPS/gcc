@@ -826,7 +826,7 @@ extern int self_promoting_args_p (const_tree);
 extern tree strip_pointer_operator (tree);
 extern tree strip_pointer_or_array_types (tree);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
-extern tree c_common_builtin_function_lazy_create (enum built_in_function, bool);
+extern void c_common_builtin_function_lazy (enum built_in_function);
 
 /* This is the basic parsing function.  */
 extern void c_parse_file (void);

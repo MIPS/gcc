@@ -1,5 +1,51 @@
 2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* tree.c (build_common_tree_nodes): Delete lazy_builtin_node.
+	(built_in_decl_create): Move to builtins.c.
+
+	* tree.h (BUILT_IN_DECL): Define.
+	(BUILT_IN_IMPLICIT): Ditto.
+	(built_in_info): Reorganize data structure.
+	(built_in_decls): Ditto.
+	(built_in_implicit): Ditto.
+	(built_in_set_decl): Ditto.
+	(built_in_copy_decl): Ditto.
+	(built_in_no_implicit): Ditto.
+	(enum tree_index): Delete lazy_builtin_node.
+	(lazy_builtin_node): Ditto.
+	(get_identifier_lazy_builtin): Rename and change calling
+	sequence.
+	(BUILT_IN_ENCODE): Drop implicit argument.
+	(BUILT_IN_DECODE_FNCODE): Ditto.
+	(BUILT_IN_DECODE_CLASS): Ditto.
+	(BUILT_IN_DECODE_IMPLICIT): Ditto.
+	(built_in_decl_create): Change calling sequence.
+
+	* builtins.c (built_in_info): Change initialization.
+	(built_in_decl_create): Move here from tree.c.
+
+	* c-obj-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY): Change hook.
+
+	* c-decl.c (c_builtin_function): If no external scope, don't bind
+	it to the scope, just create the builtin node.
+	(c_builtin_function_ext_scope): Ditto.
+
+	* langhooks.c (lhd_builtin_function_lazy): Rename and change
+	signature.
+
+	* langhooks.h (struct lang_hooks): Rename builtin_function_lazy
+	hook and change the signature.
+
+	* stringpool.c (get_identifier_lasy_builtin): Rename, drop
+	implicit support, and change signature.
+
+	* langhooks-def.h (lhd_builtin_function_lazy): Rename and change
+	signature.
+	(LANG_HOOKS_BUILTIN_FUNCTION_LAZY): Ditto.
+	(LANG_HOOKS_INITIALIZE): Ditto.
+
+2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* tree.c (build_common_tree_nodes): Add initial lazy builtin
 	support.
 	(built_in_decl_create): Ditto.

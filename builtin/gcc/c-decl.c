@@ -3573,15 +3573,21 @@ c_builtin_function (tree decl)
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
-  bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
-	UNKNOWN_LOCATION);
-
-  /* Builtins in the implementation namespace are made visible without
-     needing to be explicitly declared.  See push_file_scope.  */
-  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+  /* If we are creating builtins lazily the backend might want to touch a
+     builtin after we have closed the scope information.  If that is the case,
+     create the builtin, but don't try to bind it.  */
+  if (external_scope)
     {
-      DECL_CHAIN (decl) = visible_builtins;
-      visible_builtins = decl;
+      bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
+	    UNKNOWN_LOCATION);
+
+      /* Builtins in the implementation namespace are made visible without
+	 needing to be explicitly declared.  See push_file_scope.  */
+      if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+	{
+	  DECL_CHAIN (decl) = visible_builtins;
+	  visible_builtins = decl;
+	}
     }
 
   return decl;
@@ -3599,15 +3605,21 @@ c_builtin_function_ext_scope (tree decl)
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
-  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
-	UNKNOWN_LOCATION);
-
-  /* Builtins in the implementation namespace are made visible without
-     needing to be explicitly declared.  See push_file_scope.  */
-  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+  /* If we are creating builtins lazily the backend might want to touch a
+     builtin after we have closed the scope information.  If that is the case,
+     create the builtin, but don't try to bind it.  */
+  if (external_scope)
     {
-      DECL_CHAIN (decl) = visible_builtins;
-      visible_builtins = decl;
+      bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
+	    UNKNOWN_LOCATION);
+
+      /* Builtins in the implementation namespace are made visible without
+	 needing to be explicitly declared.  See push_file_scope.  */
+      if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+	{
+	  DECL_CHAIN (decl) = visible_builtins;
+	  visible_builtins = decl;
+	}
     }
 
   return decl;
