@@ -1,3 +1,8 @@
+2011-09-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 179316.
+	* REVISION: Update subversion id.
+
 2011-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.c (build_common_tree_nodes): Delete lazy_builtin_node.

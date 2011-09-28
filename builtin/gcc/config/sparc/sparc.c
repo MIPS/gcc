@@ -2857,9 +2857,10 @@ eligible_for_restore_insn (rtx trial, bool return_p)
 int
 eligible_for_return_delay (rtx trial)
 {
+  int regno;
   rtx pat;
 
-  if (GET_CODE (trial) != INSN || GET_CODE (PATTERN (trial)) != SET)
+  if (GET_CODE (trial) != INSN)
     return 0;
 
   if (get_attr_length (trial) != 1)
@@ -2876,17 +2877,45 @@ eligible_for_return_delay (rtx trial)
       get_attr_in_uncond_branch_delay (trial) == IN_UNCOND_BRANCH_DELAY_TRUE;
 
   pat = PATTERN (trial);
+  if (GET_CODE (pat) == PARALLEL)
+    {
+      int i;
+
+      if (! TARGET_V9)
+	return 0;
+      for (i = XVECLEN (pat, 0) - 1; i >= 0; i--)
+	{
+	  rtx expr = XVECEXP (pat, 0, i);
+	  if (GET_CODE (expr) != SET)
+	    return 0;
+	  if (GET_CODE (SET_DEST (expr)) != REG)
+	    return 0;
+	  regno = REGNO (SET_DEST (expr));
+	  if (regno >= 8 && regno < 24)
+	    return 0;
+	}
+      return !epilogue_renumber (&pat, 1)
+	&& (get_attr_in_uncond_branch_delay (trial)
+	    == IN_UNCOND_BRANCH_DELAY_TRUE);
+    }
+
+  if (GET_CODE (pat) != SET)
+    return 0;
+
+  if (GET_CODE (SET_DEST (pat)) != REG)
+    return 0;
+
+  regno = REGNO (SET_DEST (pat));
 
   /* Otherwise, only operations which can be done in tandem with
      a `restore' or `return' insn can go into the delay slot.  */
-  if (GET_CODE (SET_DEST (pat)) != REG
-      || (REGNO (SET_DEST (pat)) >= 8 && REGNO (SET_DEST (pat)) < 24))
+  if (regno >= 8 && regno < 24)
     return 0;
 
   /* If this instruction sets up floating point register and we have a return
      instruction, it can probably go in.  But restore will not work
      with FP_REGS.  */
-  if (REGNO (SET_DEST (pat)) >= 32)
+  if (regno >= 32)
     return (TARGET_V9
 	    && !epilogue_renumber (&pat, 1)
 	    && get_attr_in_uncond_branch_delay (trial)
@@ -9144,6 +9173,7 @@ sparc_vis_init_builtins (void)
   tree v4hi = build_vector_type (intHI_type_node, 4);
   tree v2hi = build_vector_type (intHI_type_node, 2);
   tree v2si = build_vector_type (intSI_type_node, 2);
+  tree v1si = build_vector_type (intSI_type_node, 1);
 
   tree v4qi_ftype_v4hi = build_function_type_list (v4qi, v4hi, 0);
   tree v8qi_ftype_v2si_v8qi = build_function_type_list (v8qi, v2si, v8qi, 0);
@@ -9157,6 +9187,8 @@ sparc_vis_init_builtins (void)
   tree v4hi_ftype_v4hi_v4hi = build_function_type_list (v4hi, v4hi, v4hi, 0);
   tree v2si_ftype_v2si_v2si = build_function_type_list (v2si, v2si, v2si, 0);
   tree v8qi_ftype_v8qi_v8qi = build_function_type_list (v8qi, v8qi, v8qi, 0);
+  tree v2hi_ftype_v2hi_v2hi = build_function_type_list (v2hi, v2hi, v2hi, 0);
+  tree v1si_ftype_v1si_v1si = build_function_type_list (v1si, v1si, v1si, 0);
   tree di_ftype_v8qi_v8qi_di = build_function_type_list (intDI_type_node,
 							 v8qi, v8qi,
 							 intDI_type_node, 0);
@@ -9172,9 +9204,16 @@ sparc_vis_init_builtins (void)
   tree si_ftype_ptr_ptr = build_function_type_list (intSI_type_node,
 		        			    ptr_type_node,
 					            ptr_type_node, 0);
+  tree di_ftype_ptr_ptr = build_function_type_list (intDI_type_node,
+		        			    ptr_type_node,
+					            ptr_type_node, 0);
   tree si_ftype_v4hi_v4hi = build_function_type_list (intSI_type_node,
 						      v4hi, v4hi, 0);
   tree si_ftype_v2si_v2si = build_function_type_list (intSI_type_node,
+						      v2si, v2si, 0);
+  tree di_ftype_v4hi_v4hi = build_function_type_list (intDI_type_node,
+						      v4hi, v4hi, 0);
+  tree di_ftype_v2si_v2si = build_function_type_list (intDI_type_node,
 						      v2si, v2si, 0);
   tree void_ftype_di = build_function_type_list (void_type_node,
 						 intDI_type_node, 0);
@@ -9247,17 +9286,17 @@ sparc_vis_init_builtins (void)
   if (TARGET_ARCH64)
     {
       def_builtin_const ("__builtin_vis_edge8", CODE_FOR_edge8di_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
       def_builtin_const ("__builtin_vis_edge8l", CODE_FOR_edge8ldi_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
       def_builtin_const ("__builtin_vis_edge16", CODE_FOR_edge16di_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
       def_builtin_const ("__builtin_vis_edge16l", CODE_FOR_edge16ldi_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
       def_builtin_const ("__builtin_vis_edge32", CODE_FOR_edge32di_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
       def_builtin_const ("__builtin_vis_edge32l", CODE_FOR_edge32ldi_vis,
-			 si_ftype_ptr_ptr);
+			 di_ftype_ptr_ptr);
     }
   else
     {
@@ -9275,22 +9314,63 @@ sparc_vis_init_builtins (void)
 			 si_ftype_ptr_ptr);
     }
 
-  def_builtin_const ("__builtin_vis_fcmple16", CODE_FOR_fcmple16_vis,
-		     si_ftype_v4hi_v4hi);
-  def_builtin_const ("__builtin_vis_fcmple32", CODE_FOR_fcmple32_vis,
-		     si_ftype_v2si_v2si);
-  def_builtin_const ("__builtin_vis_fcmpne16", CODE_FOR_fcmpne16_vis,
-		     si_ftype_v4hi_v4hi);
-  def_builtin_const ("__builtin_vis_fcmpne32", CODE_FOR_fcmpne32_vis,
-		     si_ftype_v2si_v2si);
-  def_builtin_const ("__builtin_vis_fcmpgt16", CODE_FOR_fcmpgt16_vis,
-		     si_ftype_v4hi_v4hi);
-  def_builtin_const ("__builtin_vis_fcmpgt32", CODE_FOR_fcmpgt32_vis,
-		     si_ftype_v2si_v2si);
-  def_builtin_const ("__builtin_vis_fcmpeq16", CODE_FOR_fcmpeq16_vis,
-		     si_ftype_v4hi_v4hi);
-  def_builtin_const ("__builtin_vis_fcmpeq32", CODE_FOR_fcmpeq32_vis,
-		     si_ftype_v2si_v2si);
+  /* Pixel compare.  */
+  if (TARGET_ARCH64)
+    {
+      def_builtin_const ("__builtin_vis_fcmple16", CODE_FOR_fcmple16di_vis,
+			 di_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmple32", CODE_FOR_fcmple32di_vis,
+			 di_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpne16", CODE_FOR_fcmpne16di_vis,
+			 di_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpne32", CODE_FOR_fcmpne32di_vis,
+			 di_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpgt16", CODE_FOR_fcmpgt16di_vis,
+			 di_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpgt32", CODE_FOR_fcmpgt32di_vis,
+			 di_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpeq16", CODE_FOR_fcmpeq16di_vis,
+			 di_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpeq32", CODE_FOR_fcmpeq32di_vis,
+			 di_ftype_v2si_v2si);
+    }
+  else
+    {
+      def_builtin_const ("__builtin_vis_fcmple16", CODE_FOR_fcmple16si_vis,
+			 si_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmple32", CODE_FOR_fcmple32si_vis,
+			 si_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpne16", CODE_FOR_fcmpne16si_vis,
+			 si_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpne32", CODE_FOR_fcmpne32si_vis,
+			 si_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpgt16", CODE_FOR_fcmpgt16si_vis,
+			 si_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpgt32", CODE_FOR_fcmpgt32si_vis,
+			 si_ftype_v2si_v2si);
+      def_builtin_const ("__builtin_vis_fcmpeq16", CODE_FOR_fcmpeq16si_vis,
+			 si_ftype_v4hi_v4hi);
+      def_builtin_const ("__builtin_vis_fcmpeq32", CODE_FOR_fcmpeq32si_vis,
+			 si_ftype_v2si_v2si);
+    }
+
+  /* Addition and subtraction.  */
+  def_builtin_const ("__builtin_vis_fpadd16", CODE_FOR_addv4hi3,
+		     v4hi_ftype_v4hi_v4hi);
+  def_builtin_const ("__builtin_vis_fpadd16s", CODE_FOR_addv2hi3,
+		     v2hi_ftype_v2hi_v2hi);
+  def_builtin_const ("__builtin_vis_fpadd32", CODE_FOR_addv2si3,
+		     v2si_ftype_v2si_v2si);
+  def_builtin_const ("__builtin_vis_fpadd32s", CODE_FOR_addsi3,
+		     v1si_ftype_v1si_v1si);
+  def_builtin_const ("__builtin_vis_fpsub16", CODE_FOR_subv4hi3,
+		     v4hi_ftype_v4hi_v4hi);
+  def_builtin_const ("__builtin_vis_fpsub16s", CODE_FOR_subv2hi3,
+		     v2hi_ftype_v2hi_v2hi);
+  def_builtin_const ("__builtin_vis_fpsub32", CODE_FOR_subv2si3,
+		     v2si_ftype_v2si_v2si);
+  def_builtin_const ("__builtin_vis_fpsub32s", CODE_FOR_subsi3,
+		     v1si_ftype_v1si_v1si);
 }
 
 /* Handle TARGET_EXPAND_BUILTIN target hook.
@@ -10426,6 +10506,8 @@ sparc_conditional_register_usage (void)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	leaf_reg_remap [regno] = regno;
     }
+  if (TARGET_VIS)
+    global_regs[SPARC_GSR_REG] = 1;
 }
 
 /* Implement TARGET_PREFERRED_RELOAD_CLASS
