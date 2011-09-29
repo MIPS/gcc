@@ -120,6 +120,7 @@
 	(add_builtin_function_ext_scope): Ditto.
 	* langhooks.h (add_builtin_function_nobind): Ditto.
 	* tree.def (LAZY_BUILTIN_NODE): Ditto.
+	* print-tree.c (print_node): Ditto.
 	* config/sparc/sparc.c (sparc_gimplify_va_arg): Ditto.
 	* config/i386/i386.c (ix86_gimplify_va_arg): Ditto.
 	(ix86_veclibabi_svml): Ditto.
@@ -142,7 +143,7 @@
 
 2011-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Clone branch from subversion id 179361.
+	Clone branch from subversion id 179369.
 
 	* REVISION: New file, track subversion merges.
 
