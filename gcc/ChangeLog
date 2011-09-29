@@ -1,3 +1,28 @@
+2011-09-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_copy): New prototype.
+
+	* lra.c (lra_get_copy): New function.
+
+	* lra-saves.c (lra_save_restore): Ignore scratches.
+
+	* lra-constraints.c (remove_inheritance_pseudos): Fix a typo in
+	checking remove_pseudos emptiness.
+
+	* lra-assign.c (reload_insn_num): Remove.
+	(struct regno_assign_info): New.
+	(regno_assign_info): New array.
+	(process_copy_to_form_allocno, init_regno_assign_info): New.
+	(finish_regno_assign_info): New.
+	(reload_pseudo_compare_func): Rewrite using threads.
+	(find_hard_regno_for): Check value for conflicting reload pseudos.
+	(spill_for): Use reload_pseudo_compare_func instead of
+	pseudo_compare_func.
+	(assign_by_spills): Print info about processed reload and
+	inheritance pseudos.
+	(lra_assign): Call init_regno_assign_info and
+	finish_regno_assign_info.
+
 2011-09-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira-int.h (struct target_ira_int): Remove

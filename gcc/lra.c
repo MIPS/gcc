@@ -1439,6 +1439,16 @@ lra_create_copy (int regno1, int regno2, int freq)
 	     regno1, regno1_dest_p ? "<-" : "->", regno2, freq);
 }
 
+/* Return N-th (0, 1, ...) copy.  If there is no copy, return
+   NULL.  */
+lra_copy_t
+lra_get_copy (int n)
+{
+  if (n >= (int) VEC_length (lra_copy_t, copy_vec))
+    return NULL;
+  return VEC_index (lra_copy_t, copy_vec, n);
+}
+
 
 
 /* This page contains code dealing with info about registers in

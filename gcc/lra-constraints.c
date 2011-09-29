@@ -3664,7 +3664,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
   int src_regno, dst_regno, restore_regno;
   rtx set;
 
-  if (! bitmap_empty_p (remove_pseudos))
+  if (bitmap_empty_p (remove_pseudos))
     return false;
   bitmap_initialize (&temp_bitmap_head, &reg_obstack);
   FOR_EACH_BB (bb)

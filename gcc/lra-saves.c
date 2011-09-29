@@ -460,7 +460,8 @@ lra_save_restore (void)
 {
   int i, hard_regno, max_regno_before;
 
-  max_regno_before = max_reg_num ();
+  /* We ignore created scratches.  The don't need to be saved.  */
+  max_regno_before = lra_constraint_new_regno_start;
 
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Caller saves: **********\n\n");

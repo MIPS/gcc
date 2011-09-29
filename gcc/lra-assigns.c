@@ -44,13 +44,86 @@ along with GCC; see the file COPYING3.  If not see
    up the code.  */
 static enum reg_class *regno_allocno_class_array;
 
-/* Approximate order number of insn for each given reload pseudo (its
-   regno is the index) was generated, 0 otherwise.  This values are
-   used to improve chance of the inheritance.  */
-static int *reload_insn_num;
+/* Info about pseudo used during the assignment sub-pass.  Thread is a
+   set of connected reload and inheritance pseudos with the same set
+   of available hard reg set.  Thread is a pseudo itself for other
+   cases.  */
+struct regno_assign_info
+{
+  /* First/next pseudo of the same thread.  */
+  int first, next;
+  /* Frequency of the thread (frequency of the reload pseudos only in
+     the thread when the thread contains a reload pseudo).  Defined
+     only for the first thread pseudo.  */
+  int freq;
+};
 
-/* The function is used to sort *reload* pseudos to try to assign them
-   hard registers.  */
+/* Map regno to the corresponding assignment info.  */
+static struct regno_assign_info *regno_assign_info;
+
+/* Process a pseudo copy with frequency COPY_FREQ connecting REGNO1
+   and REGNO2 to form threads.  */
+static void
+process_copy_to_form_allocno (int regno1, int regno2, int copy_freq)
+{
+  int last, regno1_first, regno2_first;
+
+  gcc_assert (regno1 >= lra_constraint_new_regno_start
+	      && regno2 >= lra_constraint_new_regno_start);
+  regno1_first = regno_assign_info[regno1].first;
+  regno2_first = regno_assign_info[regno2].first;
+  if (regno1_first != regno2_first)
+    {
+      for (last = regno2_first;
+	   regno_assign_info[last].next >= 0;
+	   last = regno_assign_info[last].next)
+	regno_assign_info[last].first = regno1_first;
+      regno_assign_info[last].next = regno_assign_info[regno1_first].next;
+      regno_assign_info[regno1_first].first = regno2_first;
+      regno_assign_info[regno1_first].freq
+	+= regno_assign_info[regno2_first].freq;
+    }
+  regno_assign_info[regno1_first].freq -= 2 * copy_freq;
+  gcc_assert (regno_assign_info[regno1_first].freq >= 0);
+}
+
+/* Initialize REGNO_ASSIGN_INFO and form threads.  */
+static void
+init_regno_assign_info (void)
+{
+  int i, regno1, regno2;
+  lra_copy_t cp;
+
+  regno_assign_info
+    = (struct regno_assign_info *) xmalloc (sizeof (struct regno_assign_info)
+				       * max_reg_num ());
+  for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
+    {
+      regno_assign_info[i].first = i;
+      regno_assign_info[i].next = -1;
+      regno_assign_info[i].freq = lra_reg_info[i].freq;
+    }
+  /* Form the threads.  */
+  for (i = 0; (cp = lra_get_copy (i)) != NULL; i++)
+    if ((regno1 = cp->regno1) >= lra_constraint_new_regno_start
+	&& (regno2 = cp->regno2) >= lra_constraint_new_regno_start
+	&& reg_renumber[regno1] < 0 && lra_reg_info[regno1].nrefs != 0
+	&& reg_renumber[regno2] < 0 && lra_reg_info[regno2].nrefs != 0
+	&& (ira_available_class_regs[regno_allocno_class_array[regno1]]
+	    == ira_available_class_regs[regno_allocno_class_array[regno2]]))
+      process_copy_to_form_allocno (regno1, regno2, cp->freq);
+}
+
+/* Free REGNO_ASSIGN_INFO.  */
+static void
+finish_regno_assign_info (void)
+{
+  free (regno_assign_info);
+}
+
+/* The function is used to sort *reload* and *inheritance* pseudos to
+   try to assign them hard registers.  We put pseudos from the same
+   thread always nearby.  */
 static int
 reload_pseudo_compare_func (const void *v1p, const void *v2p)
 {
@@ -67,17 +140,12 @@ reload_pseudo_compare_func (const void *v1p, const void *v2p)
   if ((diff = (ira_available_class_regs[cl1]
 	       - ira_available_class_regs[cl2])) != 0)
     return diff;
-  /* Prefer to assign more frequently used reload registers first.  */
-  if ((diff = lra_reg_info[r2].freq - lra_reg_info[r1].freq) != 0)
+  if ((diff = (regno_assign_info[regno_assign_info[r2].first].freq
+	       - regno_assign_info[regno_assign_info[r1].first].freq)) != 0)
     return diff;
-  /* It is to improve chance for inheritance.  */
-  if ((diff = ((int) ORIGINAL_REGNO (regno_reg_rtx[r1])
-	       - (int) ORIGINAL_REGNO (regno_reg_rtx[r2]))) != 0)
+  /* Put pseudos from the thread nearby.  */
+  if ((diff = regno_assign_info[r1].first - regno_assign_info[r2].first) != 0)
     return diff;
-  /* It is to improve chance for inheritance.  */
-  if ((diff = reload_insn_num[r1] - reload_insn_num[r2]) != 0)
-    return diff;
-  
   /* If regs are equally good, sort by their numbers, so that the
      results of qsort leave nothing to chance.  */
   return r1 - r2;
@@ -306,7 +374,8 @@ find_hard_regno_for (int regno, int *cost)
 			     conflict_set))
     return -1;
   EXECUTE_IF_SET_IN_SPARSESET (conflict_reload_pseudos, conflict_regno)
-    if (reg_renumber[conflict_regno] < 0)
+    if (reg_renumber[conflict_regno] < 0
+	&& val != lra_reg_info[conflict_regno].val)
       {
 	if ((hard_regno
 	     = lra_reg_info[conflict_regno].preferred_hard_regno1) >= 0)
@@ -653,7 +722,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 		    (reg_class_contents[regno_allocno_class_array[reload_regno]],
 		     spilled_hard_regs)))
 	      sorted_reload_pseudos[n++] = reload_regno;
-	  qsort (sorted_reload_pseudos, n, sizeof (int), pseudo_compare_func);
+	  qsort (sorted_reload_pseudos, n, sizeof (int), reload_pseudo_compare_func);
 	  for (j = 0; j < n; j++)
 	    {
 	      reload_regno = sorted_reload_pseudos[j];
@@ -826,22 +895,12 @@ static void
 assign_by_spills (void)
 {
   int i, n, nfails, iter, regno, hard_regno, cost, restore_regno;
-  rtx insn, set;
+  rtx insn;
   basic_block bb;
   bitmap_head changed_insns, do_not_assign_nonreload_pseudos;
   unsigned int u;
   bitmap_iterator bi;
 
-  reload_insn_num = (int *) xmalloc (sizeof (int) * max_reg_num ());
-  memset (reload_insn_num, 0, sizeof (int) * max_reg_num ());
-  n = 0;
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS (bb, insn)
-    if (NONDEBUG_INSN_P (insn) && (set = single_set (insn)) != NULL_RTX
-	&& REG_P (SET_DEST (set))
-	&& (regno
-	    = REGNO (SET_DEST (set))) >= lra_constraint_new_regno_start)
-      reload_insn_num[regno] = ++n;
   for (n = 0, i = lra_constraint_new_regno_start; i < max_reg_num (); i++)
     if (reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
 	&& regno_allocno_class_array[i] != NO_REGS)
@@ -869,6 +928,13 @@ assign_by_spills (void)
       for (i = 0; i < n; i++)
 	{
 	  regno = sorted_pseudos[i];
+	  if (lra_dump_file != NULL)
+	    fprintf (lra_dump_file, "    Assigning to %d "
+		     "(cl=%s, orig=%d, freq=%d, tfirst=%d, tfreq=%d)...\n",
+		     regno, reg_class_names[regno_allocno_class_array[regno]],
+		     ORIGINAL_REGNO (regno_reg_rtx[regno]),
+		     lra_reg_info[regno].freq, regno_assign_info[regno].first,
+		     regno_assign_info[regno_assign_info[regno].first].freq);
 	  hard_regno = find_hard_regno_for (regno, &cost);
 	  if (hard_regno < 0 && ! bitmap_bit_p (&lra_inheritance_pseudos, regno))
 	    hard_regno = spill_for (regno, &all_spilled_pseudos);
@@ -973,7 +1039,6 @@ assign_by_spills (void)
   bitmap_clear (&best_spill_pseudos_bitmap);
   bitmap_clear (&spill_pseudos_bitmap);
   bitmap_clear (&ignore_pseudos_bitmap);
-  free (reload_insn_num);
 }
 
 
@@ -1002,6 +1067,7 @@ lra_assign (void)
     = (enum reg_class *) xmalloc (sizeof (enum reg_class) * max_reg_num ());
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     regno_allocno_class_array[i] = lra_get_allocno_class (i);
+  init_regno_assign_info ();
   bitmap_initialize (&all_spilled_pseudos, &reg_obstack);
   setup_live_pseudos_and_spill_after_equiv_moves (&all_spilled_pseudos);
   /* Setup insns to process.  */
@@ -1031,6 +1097,7 @@ lra_assign (void)
       lra_set_used_insn_alternative_by_uid (u, -1);
     }
   bitmap_clear (&insns_to_process);
+  finish_regno_assign_info ();
   free (regno_allocno_class_array);
   free (sorted_pseudos);
   free (sorted_reload_pseudos);

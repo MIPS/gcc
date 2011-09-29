@@ -270,7 +270,7 @@ extern struct lra_insn_reg *lra_get_insn_regs (int);
 extern void lra_expand_reg_info (void);
 extern void lra_free_copies (void);
 extern void lra_create_copy (int, int, int);
-
+extern lra_copy_t lra_get_copy (int);
 extern bool lra_former_scratch_p (int);
 extern bool lra_former_scratch_operand_p (rtx, int);
 
