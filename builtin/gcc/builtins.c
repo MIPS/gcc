@@ -75,7 +75,7 @@ const char * built_in_names[(int) END_BUILTINS] =
 
 /* Setup an array of _DECL trees, make sure each element is
    initialized to NULL_TREE.  */
-built_in_decl_info built_in_info[(int)END_BUILTINS];
+tree built_in_info[(int)END_BUILTINS][BUILT_IN_NUM];
 
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);

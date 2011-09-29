@@ -3149,8 +3149,8 @@ darwin_rename_builtins (void)
      use the faster version.  */
   if (!flag_unsafe_math_optimizations)
     {
-      tree fn = built_in_decls_add (BUILT_IN_COMPLEX_DIV_MIN,
-				    DCmode - MIN_MODE_COMPLEX_FLOAT);
+      tree fn = built_in_set_decl_add (BUILT_IN_COMPLEX_DIV_MIN,
+				       DCmode - MIN_MODE_COMPLEX_FLOAT);
       /* Fortran and c call TARGET_INIT_BUILTINS and
 	 TARGET_INIT_LIBFUNCS at different times, so we have to put a
 	 call into each to ensure that at least one of them is called

@@ -2108,6 +2108,10 @@ rs6000_debug_reg_global (void)
 	   rs6000_long_double_type_size);
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
+  fprintf (stderr, DEBUG_FMT_D, "sizeof tree_function_decl",
+	   (int)sizeof (tree_function_decl));
+  fprintf (stderr, DEBUG_FMT_D, "sizeof tree_lazy_builtin",
+	   (int)sizeof (tree_lazy_builtin));
 }
 
 /* Initialize the various global tables that are based on register size.  */

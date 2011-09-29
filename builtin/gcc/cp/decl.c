@@ -2136,16 +2136,20 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		 regardless of declaration matches.  */
 	      COPY_DECL_RTL (olddecl, newdecl);
 	      if (DECL_BUILT_IN_CLASS (newdecl) == BUILT_IN_NORMAL)
-		switch (DECL_FUNCTION_CODE (newdecl))
-		  {
-		    /* If a compatible prototype of these builtin functions
-		       is seen, assume the runtime implements it with the
-		       expected semantics.  */
-		  case BUILT_IN_STPCPY:
-		    built_in_copy_implicit (DECL_FUNCTION_CODE (newdecl));
-		  default:
-		    break;
-		  }
+		{
+		  enum built_in_function fncode = DECL_FUNCTION_CODE (newdecl);
+		  switch (fncode)
+		    {
+		      /* If a compatible prototype of these builtin functions
+			 is seen, assume the runtime implements it with the
+			 expected semantics.  */
+		    case BUILT_IN_STPCPY:
+		      built_in_set_implicit (fncode, built_in_decls (fncode));
+		      break;
+		    default:
+		      break;
+		    }
+		}
 	    }
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);

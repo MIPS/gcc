@@ -596,6 +596,9 @@ struct GTY(()) tree_common {
        CALL_ALLOCA_FOR_VAR_P in
            CALL_EXPR
 
+       IDENTIFIER_LAZY_BUILTIN_P in
+	   IDENTIFIER_NODE
+
    side_effects_flag:
 
        TREE_SIDE_EFFECTS in
@@ -3620,6 +3623,40 @@ struct GTY(()) tree_target_option {
 extern tree build_target_option_node (void);
 
 
+/* Node to remember lazy builtin function creation hook.  */
+
+struct GTY(()) tree_lazy_builtin {
+  struct tree_base base;
+  tree (*hook) (unsigned, bool);	/* function to create builtin.  */
+  unsigned short fncode;		/* index to pass to the function.  */
+  bool flag;				/* flag to pass to the function.   */
+  unsigned char spare;
+};
+
+/* Hook function to create the lazy builtin function.  */
+#define LAZY_BUILTIN_HOOK(NODE) \
+  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.hook)
+
+/* Function code index to pass to the hook function when creating the builtin
+   function.  */
+#define LAZY_BUILTIN_FNCODE(NODE) \
+  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.fncode)
+
+/* Flag to be passed to the hook function when creating the builtin
+   function.  */
+#define LAZY_BUILTIN_FLAG(NODE) \
+  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.flag)
+
+/* Mark an identifier as being the name of a builtin function which needs to be
+   created.  */
+#define IDENTIFIER_LAZY_BUILTIN_P(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->base.protected_flag)
+
+/* Pointer to the LAZY_BUILTIN_NODE in the identifier.  */
+#define IDENTIFIER_LAZY_BUILTIN_INFO(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->common.chain)
+
+
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
    for various types of node.  */
@@ -3667,6 +3704,7 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
+  struct tree_lazy_builtin GTY ((tag ("TS_LAZY_BUILTIN"))) lazy_builtin;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -5440,6 +5478,8 @@ extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
+extern void built_in_lazy_register (tree, unsigned, bool,
+				    tree (*) (unsigned, bool));
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -5913,13 +5953,11 @@ extern bool block_may_fallthru (const_tree);
 
 
 /* Functional interface to the builtin functions.  */
-typedef struct GTY(()) built_in_decl_info
-{
-  tree decl;			/* normal declaration for the builtin.  */
-  tree implicit;		/* implicit declaration for the builtin.  */
-} built_in_decl_info;
+#define BUILT_IN_DECL		0
+#define BUILT_IN_IMPLICIT	1
+#define BUILT_IN_NUM		2
 
-extern GTY(()) built_in_decl_info built_in_info[(int)END_BUILTINS];
+extern GTY(()) tree built_in_info[(int)END_BUILTINS][BUILT_IN_NUM];
 
 /* Valid builtin number.  */
 #define BUILT_IN_VALID_P(FNCODE) \
@@ -5931,7 +5969,7 @@ static inline tree
 built_in_decls (enum built_in_function fncode)
 {
   gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].decl;
+  return built_in_info[(int)fncode][BUILT_IN_DECL];
 }
 
 /* Return the tree node for a builtin function or NULL, possibly
@@ -5940,53 +5978,31 @@ static inline tree
 implicit_built_in_decls (enum built_in_function fncode)
 {
   gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode].implicit;
+  return built_in_info[(int)fncode][BUILT_IN_IMPLICIT];
 }
 
 /* Return the tree node for a builtin function or NULL, indexing into the
    array.  */
 static inline tree
-built_in_decls_add (enum built_in_function fncode, int addend)
+built_in_set_decl_add (enum built_in_function fncode, int addend)
 {
   return built_in_decls ((enum built_in_function)(((int)fncode) + addend));
 }
 
-/* Initialize a builtin function.  */
+/* Initialize an explicit builtin function.  */
 static inline void
-built_in_set_decl (enum built_in_function fncode, tree decl, tree implicit)
-{
-  built_in_decl_info *info;
-
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  info = &built_in_info[(int)fncode];
-  info->decl = decl;
-  info->implicit = implicit;
-}
-
-/* Copy a builtin function.  */
-static inline void
-built_in_copy_decl (enum built_in_function dest, enum built_in_function src)
-{
-  gcc_assert (BUILT_IN_VALID_P (dest));
-  gcc_assert (BUILT_IN_VALID_P (src));
-  built_in_info[(int)dest] = built_in_info[(int)src];
-}
-
-/* Turn off an implicit builtin function, but keep the explict version.  */
-static inline void
-built_in_no_implicit (enum built_in_function fncode)
+built_in_set_decl (enum built_in_function fncode, tree decl)
 {
   gcc_assert (BUILT_IN_VALID_P (fncode));
-  built_in_info[(int)fncode].implicit = (tree)0;
+  built_in_info[(int)fncode][BUILT_IN_DECL] = decl;
 }
 
-/* Copy the explicit version of the builtin to the implict version.  */
+/* Initialize an implicit builtin function.  */
 static inline void
-built_in_copy_implicit (enum built_in_function fncode)
+built_in_set_implicit (enum built_in_function fncode, tree implicit)
 {
   gcc_assert (BUILT_IN_VALID_P (fncode));
-  built_in_info[(int)fncode].implicit =
-    built_in_info[(int)fncode].decl;
+  built_in_info[(int)fncode][BUILT_IN_IMPLICIT] = implicit;
 }
 
 #endif  /* GCC_TREE_H  */

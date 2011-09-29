@@ -5,8 +5,7 @@
 	normal and implicit builtin functions.  Change all read references
 	to built_in_decls and implicit_built_in_decls arrays to functions,
 	and change write references to call built_in_set_decl,
-	built_in_decls_add, built_in_decls_copy,
-	built_in_decls_no_implicit, or built_in_decls_copy_implicit.
+	built_in_set_decl_add, or built_in_set_implicit.
 	* objc-next-runtime-abi-02.c (objc_build_exc_ptr): Ditto.
 	* objc-gnu-runtime-abi-01.c (objc_build_exc_ptr): Ditto.
 

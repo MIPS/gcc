@@ -2372,15 +2372,19 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	    {
 	      C_DECL_BUILTIN_PROTOTYPE (newdecl) = 0;
 	      if (DECL_BUILT_IN_CLASS (newdecl) == BUILT_IN_NORMAL)
-		switch (DECL_FUNCTION_CODE (newdecl))
-		  {
-		  /* If a compatible prototype of these builtin functions
-		     is seen, assume the runtime implements it with the
-		     expected semantics.  */
-		  case BUILT_IN_STPCPY:
-		    built_in_copy_implicit (DECL_FUNCTION_CODE (newdecl));
-		  default:
-		    break;
+		{
+		  enum built_in_function fncode = DECL_FUNCTION_CODE (newdecl);
+		  switch (fncode)
+		    {
+		      /* If a compatible prototype of these builtin functions
+			 is seen, assume the runtime implements it with the
+			 expected semantics.  */
+		    case BUILT_IN_STPCPY:
+		      built_in_set_implicit (fncode, built_in_decls (fncode));
+		      break;
+		    default:
+		      break;
+		    }
 		  }
 	    }
 	  else

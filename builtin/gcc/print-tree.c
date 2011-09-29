@@ -971,6 +971,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 			    indent + 4);
 	  break;
 
+	case LAZY_BUILTIN_NODE:
+	  fprintf (file, " lazy-builtin (%u, %d)",
+		   LAZY_BUILTIN_FNCODE (node),
+		   (int)LAZY_BUILTIN_FLAG (node));
+	  break;
+
 	default:
 	  if (EXCEPTIONAL_CLASS_P (node))
 	    lang_hooks.print_xnode (file, node, indent);

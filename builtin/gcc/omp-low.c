@@ -5087,7 +5087,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   else
     return false;
 
-  decl = built_in_decls_add ((need_new ? newbase : oldbase), index + 1);
+  decl = built_in_set_decl_add ((need_new ? newbase : oldbase), index + 1);
   if (decl == NULL_TREE)
     return false;
   itype = TREE_TYPE (TREE_TYPE (decl));
@@ -5169,8 +5169,8 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   gimple phi, stmt;
   edge e;
 
-  cmpxchg = built_in_decls_add (BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N,
-				index + 1);
+  cmpxchg = built_in_set_decl_add (BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N,
+				   index + 1);
   if (cmpxchg == NULL_TREE)
     return false;
   type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));

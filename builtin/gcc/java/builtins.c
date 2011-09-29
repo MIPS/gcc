@@ -483,7 +483,8 @@ define_builtin (enum built_in_function val,
   if (flags & BUILTIN_CONST)
     TREE_READONLY (decl) = 1;
 
-  built_in_set_decl (val, decl, decl);
+  built_in_set_decl (val, decl);
+  built_in_set_implicit (val, decl);
 }
 
 

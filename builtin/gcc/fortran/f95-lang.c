@@ -653,7 +653,8 @@ gfc_define_builtin (const char *name, tree type, int code,
     DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
 					NULL, DECL_ATTRIBUTES (decl));
 
-  built_in_set_decl ((enum built_in_function)code, decl, decl);
+  built_in_set_decl ((enum built_in_function)code, decl);
+  built_in_set_implicit ((enum built_in_function)code, decl);
 }
 
 

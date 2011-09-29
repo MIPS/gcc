@@ -490,4 +490,7 @@ extern tree add_builtin_function_ext_scope (const char *name, tree type,
 					    const char *library_name,
 					    tree attrs);
 
+extern tree add_builtin_function_nobind (tree id, tree type, int function_code,
+					 enum built_in_class cl,
+					 const char *library_name, tree attrs);
 #endif /* GCC_LANG_HOOKS_H */

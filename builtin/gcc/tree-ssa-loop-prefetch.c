@@ -1917,7 +1917,7 @@ tree_ssa_prefetch_arrays (void)
 					BUILT_IN_PREFETCH, BUILT_IN_NORMAL,
 					NULL, NULL_TREE);
       DECL_IS_NOVOPS (decl) = true;
-      built_in_set_decl (BUILT_IN_PREFETCH, decl, NULL_TREE);
+      built_in_set_decl (BUILT_IN_PREFETCH, decl);
     }
 
   /* We assume that size of cache line is a power of two, so verify this
