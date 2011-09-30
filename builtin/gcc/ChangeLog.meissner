@@ -1,16 +1,10 @@
-2011-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Change builtin interface from being an
 	array to an inline function for both normal and implicit builtin
 	functions.  Change all read references to built_in_decls and
 	implicit_built_in_decls arrays to functions, and change write
 	references to call built_in_set_decl and built_in_set_implicit.
-	Add accessor macros for recording in the identifier node enough
-	information to create the builtin dynamically.  Add a new
-	LAZY_BUILTIN_NODE node type to hold the callback function and
-	information to create the builtin.  Add stub code for registering
-	lazy builtins.  Add support for creating builtin function without
-	doing the front end binding.
 	(implicit_built_in_decls): Ditto.
 	(struct built_in_decl_info): Ditto.
 	(built_in_info): Ditto.
@@ -18,23 +12,11 @@
 	(built_in_set_decl): Ditto.
 	(built_in_set_decl_add): Ditto.
 	(built_in_set_implicit): Ditto.
-	(struct tree_lazy_builtin): Ditto.
-	(LAZY_BUILTIN_HOOK): Ditto.
-	(LAZY_BUILTIN_FNCODE): Ditto.
-	(LAZY_BUILTIN_FLAG): Ditto.
-	(IDENTIFIER_LAZY_BUILTIN_P): Ditto.
-	(IDENTIFIER_LAZY_BUILTIN_INFO): Ditto.
-	(union tree_node): Ditto.
-	(built_in_lazy_register): Ditto.
+	* tree.c (iterative_hash_expr): Ditto.
+	(local_define_builtin): Ditto.
+	(build_common_builtin_nodes): Ditto.
 	* tree-complex.c (expand_complex_libcall): Ditto.
 	* tree-loop-distribution.c (generate_memset_zero): Ditto.
-	* tree.c (tree_node_structure_for_code): Ditto.
-	(initialize_tree_contains_struct): Ditto.
-	(tree_code_size): Ditto.
-	(local_define_builtin): Ditto.
-	(iterative_hash_expr): Ditto.
-	(build_common_builtin_nodes): Ditto.
-	(built_in_lazy_register): Ditto.
 	* builtins.c (built_in_info): Ditto.
 	(built_in_decls): Ditto.
 	(implicit_built_in_decls): Ditto.
@@ -113,14 +95,11 @@
 	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
 	(tree_ssa_prefetch_arrays): Ditto.
 	* tree-streamer-in.c (streamer_get_builtin_tree): Ditto.
-	* treestruct.def (TS_LAZY_BUILTIN): Ditto.
 	* langhooks.c (add_builtin_function_common): Ditto.
 	(add_builtin_function_nobind): Ditto.
 	(add_builtin_function): Ditto.
 	(add_builtin_function_ext_scope): Ditto.
 	* langhooks.h (add_builtin_function_nobind): Ditto.
-	* tree.def (LAZY_BUILTIN_NODE): Ditto.
-	* print-tree.c (print_node): Ditto.
 	* config/sparc/sparc.c (sparc_gimplify_va_arg): Ditto.
 	* config/i386/i386.c (ix86_gimplify_va_arg): Ditto.
 	(ix86_veclibabi_svml): Ditto.
@@ -138,8 +117,8 @@
 	* builtins.def (BUILT_IN_NONE): Make sure 0 is not a legitimate
 	builtin function index.
 
-	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print some
-	tree sizes if -mdebug=reg.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print size of
+	the function decl node if -mdebug=reg.
 
 2011-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

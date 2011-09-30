@@ -3623,40 +3623,6 @@ struct GTY(()) tree_target_option {
 extern tree build_target_option_node (void);
 
 
-/* Node to remember lazy builtin function creation hook.  */
-
-struct GTY(()) tree_lazy_builtin {
-  struct tree_base base;
-  tree (*hook) (unsigned, bool);	/* function to create builtin.  */
-  unsigned short fncode;		/* index to pass to the function.  */
-  bool flag;				/* flag to pass to the function.   */
-  unsigned char spare;
-};
-
-/* Hook function to create the lazy builtin function.  */
-#define LAZY_BUILTIN_HOOK(NODE) \
-  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.hook)
-
-/* Function code index to pass to the hook function when creating the builtin
-   function.  */
-#define LAZY_BUILTIN_FNCODE(NODE) \
-  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.fncode)
-
-/* Flag to be passed to the hook function when creating the builtin
-   function.  */
-#define LAZY_BUILTIN_FLAG(NODE) \
-  (LAZY_BUILTIN_NODE_CHECK (NODE)->lazy_builtin.flag)
-
-/* Mark an identifier as being the name of a builtin function which needs to be
-   created.  */
-#define IDENTIFIER_LAZY_BUILTIN_P(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->base.protected_flag)
-
-/* Pointer to the LAZY_BUILTIN_NODE in the identifier.  */
-#define IDENTIFIER_LAZY_BUILTIN_INFO(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->common.chain)
-
-
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
    for various types of node.  */
@@ -3704,7 +3670,6 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
-  struct tree_lazy_builtin GTY ((tag ("TS_LAZY_BUILTIN"))) lazy_builtin;
 };
 
 /* Standard named or nameless data types of the C compiler.  */
@@ -5478,8 +5443,6 @@ extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
-extern void built_in_lazy_register (tree, unsigned, bool,
-				    tree (*) (unsigned, bool));
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);

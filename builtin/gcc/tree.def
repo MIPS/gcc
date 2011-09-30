@@ -1179,10 +1179,6 @@ DEFTREECODE (OPTIMIZATION_NODE, "optimization_node", tcc_exceptional, 0)
 /* TARGET_OPTION_NODE.  Node to store the target specific options.  */
 DEFTREECODE (TARGET_OPTION_NODE, "target_option_node", tcc_exceptional, 0)
 
-/* LAZY_BUILTIN_NODE.  Node to store the information to create a builtin
-   function on demand.  */
-DEFTREECODE (LAZY_BUILTIN_NODE, "lazy_builtin_node", tcc_exceptional, 0)
-
 /*
 Local variables:
 mode:c

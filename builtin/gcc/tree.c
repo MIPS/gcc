@@ -346,7 +346,6 @@ tree_node_structure_for_code (enum tree_code code)
     case OMP_CLAUSE:		return TS_OMP_CLAUSE;
     case OPTIMIZATION_NODE:	return TS_OPTIMIZATION;
     case TARGET_OPTION_NODE:	return TS_TARGET_OPTION;
-    case LAZY_BUILTIN_NODE:	return TS_LAZY_BUILTIN;
 
     default:
       gcc_unreachable ();
@@ -378,7 +377,6 @@ initialize_tree_contains_struct (void)
 	{
 	case TS_TYPED:
 	case TS_BLOCK:
-	case TS_LAZY_BUILTIN:
 	  MARK_TS_BASE (code);
 	  break;
 
@@ -700,7 +698,6 @@ tree_code_size (enum tree_code code)
 	case CONSTRUCTOR:	return sizeof (struct tree_constructor);
 	case OPTIMIZATION_NODE: return sizeof (struct tree_optimization_option);
 	case TARGET_OPTION_NODE: return sizeof (struct tree_target_option);
-	case LAZY_BUILTIN_NODE:	return sizeof (struct tree_lazy_builtin);
 
 	default:
 	  return lang_hooks.tree_size (code);
@@ -11330,30 +11327,6 @@ warn_deprecated_use (tree node, tree attr)
 	    }
 	}
     }
-}
-
-
-/* Register an IDENTIFIER as a builtin function to be expanded when the parser
-   sees the identifier for the first time, with an INDEX, and FLAG that is
-   passed to a HOOK function to create the builtin.  For standard builtins, the
-   flag indicates whether we are creating a normal or implicit builtin.  For
-   machine dependent builtins, the flag is true to force creation of the
-   builtin.  */
-
-void
-built_in_lazy_register (tree id, unsigned bf_index, bool bf_flag,
-			tree (*bf_hook) (unsigned, bool))
-{
-  tree lazy = make_node (LAZY_BUILTIN_NODE);
-  gcc_assert (!IDENTIFIER_LAZY_BUILTIN_P (id)
-	      && IDENTIFIER_LAZY_BUILTIN_INFO (id) == NULL);
-
-  IDENTIFIER_LAZY_BUILTIN_P (id) = 1;
-  IDENTIFIER_LAZY_BUILTIN_INFO (id) = lazy;
-
-  LAZY_BUILTIN_HOOK (lazy) = bf_hook;
-  LAZY_BUILTIN_FNCODE (lazy) = bf_index;
-  LAZY_BUILTIN_FLAG (lazy) = bf_flag;
 }
 
 #include "gt-tree.h"
