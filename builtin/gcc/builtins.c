@@ -1900,9 +1900,7 @@ mathfn_built_in_1 (tree type, enum built_in_function fn, bool implicit)
   else
     return NULL_TREE;
 
-  return ((implicit)
-	  ? built_in_decls (fcode2)
-	  : implicit_built_in_decls (fcode2));
+  return built_in_decls_or_implicit (fcode2, implicit);
 }
 
 /* Like mathfn_built_in_1(), but always use the implicit array.  */

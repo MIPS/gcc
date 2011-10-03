@@ -249,6 +249,18 @@ struct lang_hooks_for_lto
   void (*end_section) (void);
 };
 
+/* Each front end provides its own.  */
+extern struct lang_hooks lang_hooks;
+typedef tree add_builtin_function_type (const char *name, tree type,
+					int function_code,
+					enum built_in_class cl,
+					const char *library_name,
+					tree attrs);
+
+extern add_builtin_function_type add_builtin_function;
+extern add_builtin_function_type add_builtin_function_ext_scope;
+extern add_builtin_function_type add_builtin_function_nobind;
+
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
 
 struct lang_hooks
@@ -443,6 +455,16 @@ struct lang_hooks
      backend must add all of the builtins at program initialization time.  */
   tree (*builtin_function_ext_scope) (tree decl);
 
+
+  /* Create builtins in a lazy fashion if the front end supports it, otherwise
+     create the builtin function immediately.  This hook must have the same
+     calling sequence as add_builtin_function.  */
+  add_builtin_function_type *add_builtin_function_lazy;
+
+  /* Call the language hook to create lazy builtin with identifier IDENT, and
+     optionally add it to the front end's symbol table.  */
+  tree (*builtin_lazy_create) (tree ident, bool front_end_p);
+
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
 
@@ -477,20 +499,4 @@ struct lang_hooks
      and langhooks.c accordingly.  */
 };
 
-/* Each front end provides its own.  */
-extern struct lang_hooks lang_hooks;
-extern tree add_builtin_function (const char *name, tree type,
-				  int function_code, enum built_in_class cl,
-				  const char *library_name,
-				  tree attrs);
-
-extern tree add_builtin_function_ext_scope (const char *name, tree type,
-					    int function_code,
-					    enum built_in_class cl,
-					    const char *library_name,
-					    tree attrs);
-
-extern tree add_builtin_function_nobind (tree id, tree type, int function_code,
-					 enum built_in_class cl,
-					 const char *library_name, tree attrs);
 #endif /* GCC_LANG_HOOKS_H */

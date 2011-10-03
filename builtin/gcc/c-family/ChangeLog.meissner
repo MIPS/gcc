@@ -1,3 +1,24 @@
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-lex.c (c_lex_with_flags): Initial support to automatically
+	declare a builtin function when the name is used as an identifier.
+
+	* c-common.c (builtin_types): Expose this array to the garbage
+	collector.
+	(c_common_nodes_and_builtins): Don't clear the builtin_types array.
+	(def_builtin_1): Add argument to give function to add builtin
+	function to the front end.  Change callers.  If -flazy-builtin,
+	register builtin function to be expanded later.
+	(c_define_builtin): Ditto.
+	(LAZY_BUILTIN_MD): Ditto.
+	(LAZY_BUILTIN_SET_FNCODE): Ditto.
+	(c_common_add_builtin_function_lazy): Ditto.
+	(c_common_builtin_lazy_create): Ditto.
+
+	* c-common.h (c_common_add_builtin_function_lazy): Add
+	declaration.
+	(c_common_builtin_lazy_create): Ditto.
+
 2011-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-common.c (def_builtin_1): Change builtin interface from being

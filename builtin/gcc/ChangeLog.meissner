@@ -1,3 +1,48 @@
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (BUILT_IN_FNCODE_BITS): New macro to define # of bits to
+	use for builtin function codes and class.
+	(BUILT_IN_CLASS_BITS): Ditto.
+	(struct tree_function_decl): Use it.
+	(built_in_lazy_create): Add declaration.
+	(built_in_decls): Use gcc_checking_assert, not gcc_assert.  Add
+	initial support for lazy builtins.
+	(implicit_built_in_decls): Ditto.
+	(built_in_set_decl): Ditto.
+	(built_in_set_implicit): Ditto.
+	(built_in_decls_or_implicit): New function to set either standard
+	or implicit builtin decls.
+	(IDENTIFIER_LAZY_BUILTIN_P): Use protected_flag bit to indicate
+	this is a lazy builtin.
+
+	* builtins.c (mathfn_built_in_1): Use built_in_decls_or_implicit.
+
+	* c-objc-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY): Define using
+	hooks from c-common.c.
+	(LANG_HOOKS_BUILTIN_LAZY_CREATE): Ditto.
+
+	* langhooks.c (add_builtin_function_nobind): Change to use const
+	char * for name instead of tree node.  Change callers.
+	(add_builtin_function): Ditto.
+	(add_builtin_function_ext_scope): Ditto.
+
+	* langhooks.h (add_builtin_function_type): New type for
+	add_builtin* functions.  Move before struct lang_hooks.
+	(add_builtin_function): Use it.
+	(add_builtin_function_ext_scope): Ditto.
+	(add_builtin_function_nobind): New function that creates a builtin
+	node, but does not add it to the binding level.
+	(struct lang_hooks): Add add_builtin_function_lazy and
+	builtin_lazy_create hooks for dealing with lazy builtins.
+
+	* common.opt (-flazy-builtin): New switch to enable lazy builtins.
+
+	* langhooks-def.h (lhd_builtin_lazy_create): Add declaration.
+	(LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY): New langhooks for lazy
+	builtins.
+	(LANG_HOOKS_BUILTIN_LAZY_CREATE): Ditto.
+	(LANG_HOOKS_INITIALIZER): Add new hooks.
+
 2011-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Change builtin interface from being an

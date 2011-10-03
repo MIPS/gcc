@@ -3482,6 +3482,10 @@ extern VEC(tree, gc) **decl_debug_args_insert (tree);
 #define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
 
+/* Number of bits used to hold the builtin function index and the class.  */
+#define BUILT_IN_FNCODE_BITS 11
+#define BUILT_IN_CLASS_BITS 2
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3503,8 +3507,8 @@ struct GTY(()) tree_function_decl {
      DECL_FUNCTION_CODE.  Otherwise unused.
      ???  The bitfield needs to be able to hold all target function
 	  codes as well.  */
-  ENUM_BITFIELD(built_in_function) function_code : 11;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
+  ENUM_BITFIELD(built_in_function) function_code : BUILT_IN_FNCODE_BITS;
+  ENUM_BITFIELD(built_in_class) built_in_class : BUILT_IN_CLASS_BITS;
 
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
@@ -5920,19 +5924,37 @@ extern bool block_may_fallthru (const_tree);
 #define BUILT_IN_IMPLICIT	1
 #define BUILT_IN_NUM		2
 
+/* The built_in_info array holds either an IDENTIFIER_NODE if the function is a
+   lazy builtin that should be created as the function is referenced, or a
+   FUNCTION_DECL_NODE for the function after the function has been created.  At
+   this level, we do not add the function into the front end's binding level,
+   we just create the function as a tree node so the code generation will
+   reference it.  */
 extern GTY(()) tree built_in_info[(int)END_BUILTINS][BUILT_IN_NUM];
 
 /* Valid builtin number.  */
 #define BUILT_IN_VALID_P(FNCODE) \
   (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
 
+/* Call front end or back end hook to create lazy builtin.  */
+extern tree built_in_lazy_create (tree, bool);
+
 /* Return the tree node for a builtin function or NULL, possibly
    creating the tree node.  */
 static inline tree
 built_in_decls (enum built_in_function fncode)
 {
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode][BUILT_IN_DECL];
+  tree bfn;
+
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
+  bfn = built_in_info[(int)fncode][BUILT_IN_DECL];
+  if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
+    {
+      bfn = built_in_lazy_create (bfn, false);
+      built_in_info[(int)fncode][BUILT_IN_DECL] = bfn;
+    }
+
+  return bfn;
 }
 
 /* Return the tree node for a builtin function or NULL, possibly
@@ -5940,8 +5962,35 @@ built_in_decls (enum built_in_function fncode)
 static inline tree
 implicit_built_in_decls (enum built_in_function fncode)
 {
-  gcc_assert (BUILT_IN_VALID_P (fncode));
-  return built_in_info[(int)fncode][BUILT_IN_IMPLICIT];
+  tree bfn;
+
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
+  bfn = built_in_info[(int)fncode][BUILT_IN_IMPLICIT];
+  if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
+    {
+      bfn = built_in_lazy_create (bfn, false);
+      built_in_info[(int)fncode][BUILT_IN_IMPLICIT] = bfn;
+    }
+
+  return bfn;
+}
+
+/* Return the tree node for a builtin function or NULL, possibly
+   creating the tree node.  */
+static inline tree
+built_in_decls_or_implicit (enum built_in_function fncode, bool implicit)
+{
+  tree bfn;
+
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
+  bfn = built_in_info[(int)fncode][implicit];
+  if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
+    {
+      bfn = built_in_lazy_create (bfn, false);
+      built_in_info[(int)fncode][implicit] = bfn;
+    }
+
+  return bfn;
 }
 
 /* Return the tree node for a builtin function or NULL, indexing into the
@@ -5956,7 +6005,7 @@ built_in_set_decl_add (enum built_in_function fncode, int addend)
 static inline void
 built_in_set_decl (enum built_in_function fncode, tree decl)
 {
-  gcc_assert (BUILT_IN_VALID_P (fncode));
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
   built_in_info[(int)fncode][BUILT_IN_DECL] = decl;
 }
 
@@ -5964,8 +6013,12 @@ built_in_set_decl (enum built_in_function fncode, tree decl)
 static inline void
 built_in_set_implicit (enum built_in_function fncode, tree implicit)
 {
-  gcc_assert (BUILT_IN_VALID_P (fncode));
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
   built_in_info[(int)fncode][BUILT_IN_IMPLICIT] = implicit;
 }
+
+/* Mark that an identifier_node is a lazy builtin.  */
+#define IDENTIFIER_LAZY_BUILTIN_P(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->base.protected_flag)
 
 #endif  /* GCC_TREE_H  */
