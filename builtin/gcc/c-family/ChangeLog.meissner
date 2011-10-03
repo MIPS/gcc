@@ -1,5 +1,9 @@
 2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 179466.
+
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* c-lex.c (c_lex_with_flags): Initial support to automatically
 	declare a builtin function when the name is used as an identifier.
 

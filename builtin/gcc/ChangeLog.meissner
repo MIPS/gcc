@@ -1,5 +1,8 @@
 2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 179466.
+	* REVISION: Update subversion id.
+
 	* tree.h (BUILT_IN_FNCODE_BITS): New macro to define # of bits to
 	use for builtin function codes and class.
 	(BUILT_IN_CLASS_BITS): Ditto.

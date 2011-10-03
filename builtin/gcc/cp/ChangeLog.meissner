@@ -1,5 +1,9 @@
 2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 179466.
+
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY): Define
 	using hooks from c-common.c.
 	(LANG_HOOKS_BUILTIN_LAZY_CREATE): Ditto.
