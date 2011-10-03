@@ -6585,9 +6585,9 @@ cxx_eval_logical_expression (const constexpr_call *call, tree t,
 					   allow_non_constant, addr,
 					   non_constant_p);
   VERIFY_CONSTANT (lhs);
-  if (lhs == bailout_value)
+  if (tree_int_cst_equal (lhs, bailout_value))
     return lhs;
-  gcc_assert (lhs == continue_value);
+  gcc_assert (tree_int_cst_equal (lhs, continue_value));
   r = cxx_eval_constant_expression (call, TREE_OPERAND (t, 1),
 				    allow_non_constant, addr, non_constant_p);
   VERIFY_CONSTANT (r);
@@ -7549,6 +7549,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case IDENTIFIER_NODE:
       /* We can see a FIELD_DECL in a pointer-to-member expression.  */
     case FIELD_DECL:
+    case USING_DECL:
       return true;
 
     case PARM_DECL:

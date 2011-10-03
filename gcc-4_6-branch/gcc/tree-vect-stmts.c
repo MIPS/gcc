@@ -1533,7 +1533,7 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
 		}
 	      else
 		{
-		  vec_oprnd1 = gimple_call_arg (new_stmt, 2*i);
+		  vec_oprnd1 = gimple_call_arg (new_stmt, 2*i + 1);
 		  vec_oprnd0
 		    = vect_get_vec_def_for_stmt_copy (dt[i], vec_oprnd1);
 		  vec_oprnd1
@@ -4814,7 +4814,7 @@ vect_transform_stmt (gimple stmt, gimple_stmt_iterator *gsi,
   bool is_store = false;
   gimple vec_stmt = NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  gimple orig_stmt_in_pattern, orig_scalar_stmt = stmt;
+  gimple orig_stmt_in_pattern;
   bool done;
 
   switch (STMT_VINFO_TYPE (stmt_info))

@@ -1,5 +1,4 @@
 /* { dg-do run } */
-/* { dg-xfail-run-if "" { "*-*-*" } { "-O2" "-O3" "-Os" } } */
 
 struct PMC {
     unsigned flags;
