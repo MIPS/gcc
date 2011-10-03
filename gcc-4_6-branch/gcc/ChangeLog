@@ -1,3 +1,8 @@
+2011-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-scalar-evolution.c (simple_iv): Accept all kinds of pointer
+	types.
+
 2011-09-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR inline-asm/50571
