@@ -140,7 +140,7 @@ build_eh_type_type (tree type)
 tree
 build_exc_ptr (void)
 {
-  return build_call_n (built_in_decls [BUILT_IN_EH_POINTER],
+  return build_call_n (builtin_decl (BUILT_IN_EH_POINTER, BU_EXPLICIT),
 		       1, integer_zero_node);
 }
 
@@ -333,7 +333,7 @@ choose_personality_routine (enum languages lang)
 
     case lang_java:
       state = chose_java;
-      terminate_node = built_in_decls [BUILT_IN_ABORT];
+      terminate_node = builtin_decl (BUILT_IN_ABORT, BU_EXPLICIT);
       pragma_java_exceptions = true;
       break;
 

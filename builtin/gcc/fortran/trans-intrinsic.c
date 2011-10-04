@@ -158,7 +158,7 @@ builtin_decl_for_precision (enum built_in_function base_built_in,
       return m->real16_decl;
     }
 
-  return (i == END_BUILTINS ? NULL_TREE : built_in_decls[i]);
+  return (i == END_BUILTINS ? NULL_TREE : builtin_decl (i, BU_EXPLICIT));
 }
 
 

@@ -783,7 +783,8 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 	  tree vec0;
 
 	  vec0 = gimple_assign_rhs1 (stmt);
-	  new_stmt = gimple_build_call (built_in_decls[BUILT_IN_TRAP], 0);
+	  new_stmt = gimple_build_call (builtin_decl (BUILT_IN_TRAP,
+						      BU_EXPLICIT), 0);
 	  gsi_insert_before (gsi, new_stmt,  GSI_SAME_STMT);
 	  split_block (gimple_bb (new_stmt), new_stmt);
 	  new_stmt = gimple_build_assign (gimple_assign_lhs (stmt), vec0);

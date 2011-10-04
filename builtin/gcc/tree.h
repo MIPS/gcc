@@ -335,10 +335,6 @@ extern const char * built_in_names[(int) END_BUILTINS];
 #define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
-
-/* An array of _DECL trees for the above.  */
-extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
-extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
 
 /* In an OMP_CLAUSE node.  */
 
@@ -5915,5 +5911,57 @@ is_lang_specific (tree t)
 
 /* In gimple-low.c.  */
 extern bool block_may_fallthru (const_tree);
+
+
+/* Functional interface to the builtin functions.  */
+#define BU_EXPLICIT	0
+#define BU_IMPLICIT	1
+#define BU_NUMBER	2
+
+/* The built_in_info array holds either an IDENTIFIER_NODE if the function is a
+   lazy builtin that should be created as the function is referenced, or a
+   FUNCTION_DECL_NODE for the function after the function has been created.  At
+   this level, we do not add the function into the front end's binding level,
+   we just create the function as a tree node so the code generation will
+   reference it.
+
+   There are two declarations for each builtin.  There is the explicit builtin
+   when there is a reference to __builtin_<xxx>, and there are possibly
+   implicit declarations used when constructing the builtin implicitly in the
+   compiler.  The implicit declaration may be NULL_TREE when this is invalid
+   (for instance runtime is not required to implement the function call in all
+   cases).  */
+extern GTY(()) tree built_in_info[(int)END_BUILTINS][BU_NUMBER];
+
+/* Valid builtin number.  */
+#define BUILT_IN_VALID_P(FNCODE) \
+  (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
+
+/* Return the tree node for a builtin function or NULL, possibly creating the
+   tree node.  The first argument is the function index, and the second
+   argument determines whether we want to get the explicit or implicit node.
+   If we have stored an IDENTIFIER_NODE, that means the builtin is a lazy
+   builtin, and we need to create the appropriate function_decl node.  */
+
+static inline tree
+builtin_decl (enum built_in_function fncode, int explicit_or_implicit)
+{
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode)
+		       && (explicit_or_implicit == BU_EXPLICIT
+			   || explicit_or_implicit == BU_IMPLICIT));
+
+  return built_in_info[(int)fncode][explicit_or_implicit];
+}
+
+/* Set both the explicit and implicit function nodes for a builtin
+   function.  */
+
+static inline void
+set_builtin_decl (enum built_in_function fncode, tree edecl, tree idecl)
+{
+  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
+  built_in_info[(int)fncode][BU_EXPLICIT] = edecl;
+  built_in_info[(int)fncode][BU_IMPLICIT] = idecl;
+}
 
 #endif  /* GCC_TREE_H  */

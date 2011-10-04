@@ -397,7 +397,7 @@ get_string_length (strinfo si)
       callee = gimple_call_fndecl (stmt);
       gcc_assert (callee && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL);
       lhs = gimple_call_lhs (stmt);
-      gcc_assert (implicit_built_in_decls[BUILT_IN_STRCPY] != NULL_TREE);
+      gcc_assert (builtin_decl (BUILT_IN_STRCPY, BU_IMPLICIT) != NULL_TREE);
       /* unshare_strinfo is intentionally not called here.  The (delayed)
 	 transformation of strcpy or strcat into stpcpy is done at the place
 	 of the former strcpy/strcat call and so can affect all the strinfos
@@ -409,7 +409,7 @@ get_string_length (strinfo si)
 	case BUILT_IN_STRCAT:
 	case BUILT_IN_STRCAT_CHK:
 	  gsi = gsi_for_stmt (stmt);
-	  fn = implicit_built_in_decls[BUILT_IN_STRLEN];
+	  fn = builtin_decl (BUILT_IN_STRLEN, BU_IMPLICIT);
 	  gcc_assert (lhs == NULL_TREE);
 	  lhs_var = create_tmp_var (TREE_TYPE (TREE_TYPE (fn)), NULL);
 	  add_referenced_var (lhs_var);
@@ -434,9 +434,9 @@ get_string_length (strinfo si)
 	case BUILT_IN_STRCPY:
 	case BUILT_IN_STRCPY_CHK:
 	  if (gimple_call_num_args (stmt) == 2)
-	    fn = implicit_built_in_decls[BUILT_IN_STPCPY];
+	    fn = builtin_decl (BUILT_IN_STPCPY, BU_IMPLICIT);
 	  else
-	    fn = built_in_decls[BUILT_IN_STPCPY_CHK];
+	    fn = builtin_decl (BUILT_IN_STPCPY_CHK, BU_EXPLICIT);
 	  gcc_assert (lhs == NULL_TREE);
 	  if (dump_file && (dump_flags & TDF_DETAILS) != 0)
 	    {
@@ -1066,8 +1066,8 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       {
       case BUILT_IN_STRCPY:
       case BUILT_IN_STRCPY_CHK:
-	if (implicit_built_in_decls[BUILT_IN_STPCPY] == NULL_TREE
-	    || lhs != NULL_TREE)
+	if (lhs != NULL_TREE
+	    || builtin_decl (BUILT_IN_STPCPY, BU_IMPLICIT) == NULL_TREE)
 	  return;
 	break;
       case BUILT_IN_STPCPY:
@@ -1150,12 +1150,12 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   switch (bcode)
     {
     case BUILT_IN_STRCPY:
-      fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+      fn = builtin_decl (BUILT_IN_MEMCPY, BU_IMPLICIT);
       if (lhs)
 	VEC_replace (int, ssa_ver_to_stridx, SSA_NAME_VERSION (lhs), didx);
       break;
     case BUILT_IN_STRCPY_CHK:
-      fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+      fn = builtin_decl (BUILT_IN_MEMCPY_CHK, BU_EXPLICIT);
       if (lhs)
 	VEC_replace (int, ssa_ver_to_stridx, SSA_NAME_VERSION (lhs), didx);
       break;
@@ -1163,7 +1163,7 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       /* This would need adjustment of the lhs (subtract one),
 	 or detection that the trailing '\0' doesn't need to be
 	 written, if it will be immediately overwritten.
-      fn = built_in_decls[BUILT_IN_MEMPCPY];  */
+      fn = builtin_decl (BUILT_IN_MEMPCPY, BU_EXPLICIT);  */
       if (lhs)
 	{
 	  dsi->endptr = lhs;
@@ -1174,7 +1174,7 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       /* This would need adjustment of the lhs (subtract one),
 	 or detection that the trailing '\0' doesn't need to be
 	 written, if it will be immediately overwritten.
-      fn = built_in_decls[BUILT_IN_MEMPCPY_CHK];  */
+      fn = builtin_decl (BUILT_IN_MEMPCPY_CHK, BU_EXPLICIT);  */
       if (lhs)
 	{
 	  dsi->endptr = lhs;
@@ -1396,7 +1396,7 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
 	 with length endptr - p if we need to compute the length
 	 later on.  Don't do this transformation if we don't need
 	 it.  */
-      if (implicit_built_in_decls[BUILT_IN_STPCPY] != NULL_TREE
+      if (builtin_decl (BUILT_IN_STPCPY, BU_IMPLICIT) != NULL_TREE
 	  && lhs == NULL_TREE)
 	{
 	  if (didx == 0)
@@ -1456,8 +1456,8 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   else
     {
       dsi->length = NULL;
-      if (implicit_built_in_decls[BUILT_IN_STPCPY] != NULL_TREE
-	  && lhs == NULL_TREE)
+      if (lhs == NULL_TREE
+	  && builtin_decl (BUILT_IN_STPCPY, BU_IMPLICIT) != NULL_TREE)
 	dsi->dont_invalidate = true;
     }
 
@@ -1477,15 +1477,15 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
     {
     case BUILT_IN_STRCAT:
       if (srclen != NULL_TREE)
-	fn = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	fn = builtin_decl (BUILT_IN_MEMCPY, BU_IMPLICIT);
       else
-	fn = implicit_built_in_decls[BUILT_IN_STRCPY];
+	fn = builtin_decl (BUILT_IN_STRCPY, BU_IMPLICIT);
       break;
     case BUILT_IN_STRCAT_CHK:
       if (srclen != NULL_TREE)
-	fn = built_in_decls[BUILT_IN_MEMCPY_CHK];
+	fn = builtin_decl (BUILT_IN_MEMCPY_CHK, BU_EXPLICIT);
       else
-	fn = built_in_decls[BUILT_IN_STRCPY_CHK];
+	fn = builtin_decl (BUILT_IN_STRCPY_CHK, BU_EXPLICIT);
       objsz = gimple_call_arg (stmt, 2);
       break;
     default:

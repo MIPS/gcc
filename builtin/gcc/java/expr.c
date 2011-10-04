@@ -2073,7 +2073,7 @@ static void
 rewrite_arglist_getcaller (VEC(tree,gc) **arglist)
 {
   tree retaddr 
-    = build_call_expr (built_in_decls[BUILT_IN_RETURN_ADDRESS],
+    = build_call_expr (builtin_decl (BUILT_IN_RETURN_ADDRESS, BU_EXPLICIT),
 		       1, integer_zero_node);
 
   DECL_UNINLINABLE (current_function_decl) = 1;
@@ -2933,8 +2933,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
 			    field_ref, new_value);
 
       if (TREE_THIS_VOLATILE (field_decl))
-	java_add_stmt
-	  (build_call_expr (built_in_decls[BUILT_IN_SYNC_SYNCHRONIZE], 0));
+	java_add_stmt (build_call_expr (builtin_decl (BUILT_IN_SYNC_SYNCHRONIZE,
+						      BU_EXPLICIT), 0));
       	  
       java_add_stmt (modify_expr);
     }
@@ -2952,8 +2952,8 @@ expand_java_field_op (int is_static, int is_putting, int field_ref_index)
       java_add_stmt (modify_expr);
 
       if (TREE_THIS_VOLATILE (field_decl))
-	java_add_stmt 
-	  (build_call_expr (built_in_decls[BUILT_IN_SYNC_SYNCHRONIZE], 0));
+	java_add_stmt (build_call_expr (builtin_decl (BUILT_IN_SYNC_SYNCHRONIZE,
+						      BU_EXPLICIT), 0));
 
       push_value (temp);
     }      
