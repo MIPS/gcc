@@ -1,0 +1,28 @@
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 179466.
+
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION_LAZY): Define
+	using hooks from c-common.c.
+	(LANG_HOOKS_BUILTIN_LAZY_CREATE): Ditto.
+
+2011-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* decl.c (duplicate_decls): Change builtin interface from being an
+	array to an inline function for both normal and implicit builtin
+	functions.  Change all read references to built_in_decls and
+	implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_set_decl_add, or
+	built_in_set_implicit.
+	* except.c (build_eh_type_type): Ditto.
+	* semantics.c (finish_omp_atomic): Ditto.
+	(finish_omp_barrier): Ditto.
+	(finish_omp_flush): Ditto.
+	(finish_omp_taskwait): Ditto.
+
+2011-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from subversion id 179369.
+

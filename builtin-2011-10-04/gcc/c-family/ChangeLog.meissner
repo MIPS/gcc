@@ -1,0 +1,48 @@
+2011-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (c_common_builtin_lazy_create): Add temporary support
+	for -flazy-builtin-debug.
+
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 179466.
+
+2011-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-lex.c (c_lex_with_flags): Initial support to automatically
+	declare a builtin function when the name is used as an identifier.
+
+	* c-common.c (builtin_types): Expose this array to the garbage
+	collector.
+	(c_common_nodes_and_builtins): Don't clear the builtin_types array.
+	(def_builtin_1): Add argument to give function to add builtin
+	function to the front end.  Change callers.  If -flazy-builtin,
+	register builtin function to be expanded later.
+	(c_define_builtin): Ditto.
+	(LAZY_BUILTIN_MD): Ditto.
+	(LAZY_BUILTIN_SET_FNCODE): Ditto.
+	(c_common_add_builtin_function_lazy): Ditto.
+	(c_common_builtin_lazy_create): Ditto.
+
+	* c-common.h (c_common_add_builtin_function_lazy): Add
+	declaration.
+	(c_common_builtin_lazy_create): Ditto.
+
+2011-09-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (def_builtin_1): Change builtin interface from being
+	an array to an inline function for both normal and implicit
+	builtin functions.  Change all read references to built_in_decls
+	and implicit_built_in_decls arrays to functions, and change write
+	references to call built_in_set_decl, built_in_set_decl_add, or
+	built_in_set_implicit.
+	(resolve_overloaded_builtin): Ditto.
+	* c-omp.c (c_finish_omp_barrier): Ditto.
+	(c_finish_omp_taskwait): Ditto.
+	(c_finish_omp_taskyield): Ditto.
+	(c_finish_omp_flush): Ditto.
+
+2011-09-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from subversion id 179369.
+
