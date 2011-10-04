@@ -4743,13 +4743,14 @@ c_common_builtin_lazy_create (tree id, bool front_end_p)
 #undef DEF_BUILTIN
     }
 
-  fprintf (stderr,
-	   "---lazy_builtin (%s, %s, %s%s%s)\n",
-	   name,
-	   (bclass == BUILT_IN_NORMAL) ? built_in_names[fncode] : "---",
-	   built_in_class_names[bclass],
-	   front_end_p ? "" : ", no bind",
-	   (bclass != NOT_BUILT_IN) ? "" : ", no create");
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr,
+	     "---lazy_builtin (%s, %s, %s%s%s)\n",
+	     name,
+	     (bclass == BUILT_IN_NORMAL) ? built_in_names[fncode] : "---",
+	     built_in_class_names[bclass],
+	     front_end_p ? "" : ", no bind",
+	     (bclass != NOT_BUILT_IN) ? "" : ", no create");
 
   if (bclass == NOT_BUILT_IN)
     return NULL_TREE;

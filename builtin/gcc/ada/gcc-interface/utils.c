@@ -5646,7 +5646,9 @@ def_builtin_1 (enum built_in_function fncode,
     add_builtin_function (libname, libtype, fncode, fnclass,
 			  NULL, fnattrs);
 
-  built_in_set_decl (fncode, decl, implicit_p ? decl : NULL_TREE);
+  built_in_set_decl (fncode, decl);
+  if (implicit_p)
+    built_in_set_implicit (fncode, decl);
 }
 
 static int flag_isoc94 = 0;

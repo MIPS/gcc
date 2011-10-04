@@ -1174,6 +1174,10 @@ flazy-builtin
 Common Report Var(flag_lazy_builtin) Optimization
 Don't create builtin nodes at compiler startup.
 
+flazy-builtin-debug
+Common Undocumented Var(flag_lazy_builtin_debug) Optimization
+; Turn on lazy builtins debugging
+
 floop-parallelize-all
 Common Report Var(flag_loop_parallelize_all) Optimization
 Mark all loops as parallel
