@@ -249,7 +249,7 @@ gfc_omp_clause_copy_ctor (tree clause, tree dest, tree src)
   gfc_conv_descriptor_data_set (&cond_block, dest, ptr);
 
   call = build_call_expr_loc (input_location,
-			  builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT),
+			  builtin_decl_explict (BUILT_IN_MEMCPY),
 			  3, ptr,
 			  fold_convert (pvoid_type_node,
 					gfc_conv_descriptor_data_get (src)),
@@ -301,7 +301,7 @@ gfc_omp_clause_assign_op (tree clause ATTRIBUTE_UNUSED, tree dest, tree src)
 			  size, esize);
   size = gfc_evaluate_now (fold_convert (size_type_node, size), &block);
   call = build_call_expr_loc (input_location,
-			  builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT), 3,
+			  builtin_decl_explicit (BUILT_IN_MEMCPY), 3,
 			  fold_convert (pvoid_type_node,
 					gfc_conv_descriptor_data_get (dest)),
 			  fold_convert (pvoid_type_node,
@@ -1274,7 +1274,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 static tree
 gfc_trans_omp_barrier (void)
 {
-  tree decl = builtin_decl ([BUILT_IN_GOMP_BARRIER, BU_EXPLICIT);
+  tree decl = builtin_decl_explicit ([BUILT_IN_GOMP_BARRIER);
   return build_call_expr_loc (input_location, decl, 0);
 }
 
@@ -1548,7 +1548,7 @@ gfc_trans_omp_do (gfc_code *code, stmtblock_t *pblock,
 static tree
 gfc_trans_omp_flush (void)
 {
-  tree decl = builtin_decl ([BUILT_IN_SYNC_SYNCHRONIZE, BU_EXPLICIT);
+  tree decl = builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE);
   return build_call_expr_loc (input_location, decl, 0);
 }
 
@@ -1739,14 +1739,14 @@ gfc_trans_omp_task (gfc_code *code)
 static tree
 gfc_trans_omp_taskwait (void)
 {
-  tree decl = builtin_decl ([BUILT_IN_GOMP_TASKWAIT, BU_EXPLICIT);
+  tree decl = builtin_decl_explicit (BUILT_IN_GOMP_TASKWAIT);
   return build_call_expr_loc (input_location, decl, 0);
 }
 
 static tree
 gfc_trans_omp_taskyield (void)
 {
-  tree decl = builtin_decl ([BUILT_IN_GOMP_TASKYIELD, BU_EXPLICIT);
+  tree decl = builtin_decl_explicit (BUILT_IN_GOMP_TASKYIELD);
   return build_call_expr_loc (input_location, decl, 0);
 }
 

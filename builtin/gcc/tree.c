@@ -4656,10 +4656,9 @@ free_lang_data_in_decl (tree decl)
            && DECL_INITIAL (decl)
            && TREE_CODE (DECL_INITIAL (decl)) == BLOCK)
     {
-      /* Strip builtins from the translation-unit BLOCK.  We still have
-	 targets without builtin_decl support and also builtins are
-	 shared nodes and thus we can't use TREE_CHAIN in multiple
-	 lists.  */
+      /* Strip builtins from the translation-unit BLOCK.  We still have targets
+	 without builtin_decl_explicit support and also builtins are shared
+	 nodes and thus we can't use TREE_CHAIN in multiple lists.  */
       tree *nextp = &BLOCK_VARS (DECL_INITIAL (decl));
       while (*nextp)
         {
@@ -6942,9 +6941,9 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	 or front end builtins, since the function code is overloaded in those
 	 cases.  */
       if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL
-	  && builtin_decl (DECL_FUNCTION_CODE (t), BU_EXPLICIT))
+	  && builtin_decl_explicit_p (DECL_FUNCTION_CODE (t)))
 	{
-	  t = builtin_decl (DECL_FUNCTION_CODE (t), BU_EXPLICIT);
+	  t = builtin_decl_explicit (DECL_FUNCTION_CODE (t));
 	  code = TREE_CODE (t);
 	}
       /* FALL THROUGH */
@@ -9429,7 +9428,7 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
     DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
 					NULL, DECL_ATTRIBUTES (decl));
 
-  set_builtin_decl (code, decl, decl);
+  set_builtin_decl (code, decl, true);
 }
 
 /* Call this function after instantiating all builtins that the language
@@ -9441,22 +9440,22 @@ build_common_builtin_nodes (void)
 {
   tree tmp, ftype;
 
-  if (builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT) == NULL
-      || builtin_decl (BUILT_IN_MEMMOVE, BU_EXPLICIT) == NULL)
+  if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
+      || !builtin_decl_explicit_p (BUILT_IN_MEMMOVE))
     {
       ftype = build_function_type_list (ptr_type_node,
 					ptr_type_node, const_ptr_type_node,
 					size_type_node, NULL_TREE);
 
-      if (builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT) == NULL)
+      if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY))
 	local_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
 			      "memcpy", ECF_NOTHROW | ECF_LEAF);
-      if (builtin_decl (BUILT_IN_MEMMOVE, BU_EXPLICIT) == NULL)
+      if (!builtin_decl_explicit_p (BUILT_IN_MEMMOVE))
 	local_define_builtin ("__builtin_memmove", ftype, BUILT_IN_MEMMOVE,
 			      "memmove", ECF_NOTHROW | ECF_LEAF);
     }
 
-  if (builtin_decl (BUILT_IN_MEMCMP, BU_EXPLICIT) == NULL)
+  if (!builtin_decl_explicit_p (BUILT_IN_MEMCMP))
     {
       ftype = build_function_type_list (integer_type_node, const_ptr_type_node,
 					const_ptr_type_node, size_type_node,
@@ -9465,7 +9464,7 @@ build_common_builtin_nodes (void)
 			    "memcmp", ECF_PURE | ECF_NOTHROW | ECF_LEAF);
     }
 
-  if (builtin_decl (BUILT_IN_MEMSET, BU_EXPLICIT) == NULL)
+  if (!builtin_decl_explicit_p (BUILT_IN_MEMSET))
     {
       ftype = build_function_type_list (ptr_type_node,
 					ptr_type_node, integer_type_node,
@@ -9474,7 +9473,7 @@ build_common_builtin_nodes (void)
 			    "memset", ECF_NOTHROW | ECF_LEAF);
     }
 
-  if (builtin_decl (BUILT_IN_ALLOCA, BU_EXPLICIT) == NULL)
+  if (!builtin_decl_explicit_p (BUILT_IN_ALLOCA))
     {
       ftype = build_function_type_list (ptr_type_node,
 					size_type_node, NULL_TREE);
@@ -9484,7 +9483,7 @@ build_common_builtin_nodes (void)
 
   /* If we're checking the stack, `alloca' can throw.  */
   if (flag_stack_check)
-    TREE_NOTHROW (builtin_decl (BUILT_IN_ALLOCA, BU_EXPLICIT)) = 0;
+    TREE_NOTHROW (builtin_decl_explicit (BUILT_IN_ALLOCA)) = 0;
 
   ftype = build_function_type_list (void_type_node,
 				    ptr_type_node, ptr_type_node,
@@ -9550,7 +9549,7 @@ build_common_builtin_nodes (void)
 			 ? "_Unwind_SjLj_Resume" : "_Unwind_Resume"),
 			ECF_NORETURN);
 
-  if (builtin_decl (BUILT_IN_RETURN_ADDRESS, BU_EXPLICIT) == NULL_TREE)
+  if (builtin_decl_explicit (BUILT_IN_RETURN_ADDRESS) == NULL_TREE)
     {
       ftype = build_function_type_list (ptr_type_node, integer_type_node,
 					NULL_TREE);
@@ -9560,16 +9559,16 @@ build_common_builtin_nodes (void)
 			    ECF_NOTHROW);
     }
 
-  if (builtin_decl (BUILT_IN_PROFILE_FUNC_ENTER, BU_EXPLICIT) == NULL_TREE
-      || builtin_decl (BUILT_IN_PROFILE_FUNC_EXIT, BU_EXPLICIT) == NULL_TREE)
+  if (!builtin_decl_explicit_p (BUILT_IN_PROFILE_FUNC_ENTER)
+      || !builtin_decl_explicit_p (BUILT_IN_PROFILE_FUNC_EXIT))
     {
       ftype = build_function_type_list (void_type_node, ptr_type_node,
 					ptr_type_node, NULL_TREE);
-      if (builtin_decl (BUILT_IN_PROFILE_FUNC_ENTER, BU_EXPLICIT) == NULL_TREE)
+      if (!builtin_decl_explicit_p (BUILT_IN_PROFILE_FUNC_ENTER))
 	local_define_builtin ("__cyg_profile_func_enter", ftype,
 			      BUILT_IN_PROFILE_FUNC_ENTER,
 			      "__cyg_profile_func_enter", 0);
-      if (builtin_decl (BUILT_IN_PROFILE_FUNC_EXIT, BU_EXPLICIT) == NULL_TREE)
+      if (!builtin_decl_explicit_p (BUILT_IN_PROFILE_FUNC_EXIT))
 	local_define_builtin ("__cyg_profile_func_exit", ftype,
 			      BUILT_IN_PROFILE_FUNC_EXIT,
 			      "__cyg_profile_func_exit", 0);

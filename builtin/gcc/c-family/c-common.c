@@ -5168,13 +5168,14 @@ def_builtin_1 (enum built_in_function fncode,
   decl = add_builtin_function (name, fntype, fncode, fnclass,
 			       (fallback_p ? libname : NULL),
 			       fnattrs);
+
+  set_builtin_decl (fncode, decl, implicit_p);
+
   if (both_p
       && !flag_no_builtin && !builtin_function_disabled_p (libname)
       && !(nonansi_p && flag_no_nonansi_builtin))
     add_builtin_function (libname, libtype, fncode, fnclass,
 			  NULL, fnattrs);
-
-  set_builtin_decl (fncode, decl, implicit_p ? decl : NULL_TREE);
 }
 
 /* Nonzero if the type T promotes to int.  This is (nearly) the
@@ -9148,7 +9149,7 @@ resolve_overloaded_builtin (location_t loc, tree function, VEC(tree,gc) *params)
 	  return error_mark_node;
 
 	fncode = (enum built_in_function)((int)orig_code + exact_log2 (n) + 1);
-	new_function = builtin_decl (fncode, BU_EXPLICIT);
+	new_function = builtin_decl_explicit (fncode);
 	if (!sync_resolve_params (function, new_function, params))
 	  return error_mark_node;
 

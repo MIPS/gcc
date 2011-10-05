@@ -1470,8 +1470,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type));
 	      bound = build_int_cst (size_type_node, n * size);
 	      tmp = build_call_expr_loc (input_location,
-					 builtin_decl (BUILT_IN_MEMCPY,
-						       BU_EXPLICIT),
+					 builtin_decl_explict (BUILT_IN_MEMCPY),
 					 3, tmp, init, bound);
 	      gfc_add_expr_to_block (&body, tmp);
 
@@ -6633,7 +6632,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 	  gfc_add_expr_to_block (&block, tmp);
 	}
 
-      tmp = builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT);
+      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
       tmp = build_call_expr_loc (input_location, tmp, 3,
 				 dest, src, size);
     }
@@ -6657,7 +6656,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 
       /* We know the temporary and the value will be the same length,
 	 so can use memcpy.  */
-      tmp = builtin_decl (BUILT_IN_MEMCPY, BU_EXPLICIT);
+      tmp = builtin_decl_explicit (BUILT_IN_MEMCPY);
       tmp = build_call_expr_loc (input_location,
 			tmp, 3, gfc_conv_descriptor_data_get (dest),
 			gfc_conv_descriptor_data_get (src), size);
@@ -7413,7 +7412,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
      in the array reference - (*desc.data)[<element>]. */
   gfc_init_block (&realloc_block);
   tmp = build_call_expr_loc (input_location,
-			     builtin_decl (BUILT_IN_REALLOC, BU_EXPLICIT), 2,
+			     builtin_decl_explict (BUILT_IN_REALLOC), 2,
 			     fold_convert (pvoid_type_node, array1),
 			     size2);
   gfc_conv_descriptor_data_set (&realloc_block,
@@ -7429,8 +7428,8 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   /* Malloc expression.  */
   gfc_init_block (&alloc_block);
   tmp = build_call_expr_loc (input_location,
-			     builtin_decl (BUILT_IN_MALLOC, BU_EXPLICIT), 1,
-			     size2);
+			     builtin_decl_explicit (BUILT_IN_MALLOC),
+			     1, size2);
   gfc_conv_descriptor_data_set (&alloc_block,
 				desc, tmp);
   tmp = gfc_conv_descriptor_dtype (desc);

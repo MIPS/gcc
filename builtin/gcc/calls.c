@@ -284,7 +284,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 	 shares the mem_attr with the equivalent entry. */
       if (DECL_BUILT_IN_CLASS (t) == BUILT_IN_NORMAL)
 	{
-	  tree t2 = builtin_decl (DECL_FUNCTION_CODE (t), BU_EXPLICIT);
+	  tree t2 = builtin_decl_explicit (DECL_FUNCTION_CODE (t));
 	  if (t2)
 	    t = t2;
 	}

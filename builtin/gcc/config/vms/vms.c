@@ -97,14 +97,13 @@ vms_patch_builtins (void)
 {
   /* enum built_in_function bi; */
   unsigned int i;
-  tree decl;
 
   /* Fwrite on VMS is non-standard.  */
-  decl = builtin_decl (BUILT_IN_WRITE);
-  set_builtin_decl (BUILT_IN_WRITE, decl, NULL_TREE);
+  if (builtin_decl_implicit_p (BUILT_IN_WRITE))
+    set_builtin_decl_implicit_p (BUILT_IN_WRITE, false);
 
-  decl = builtin_decl (BUILT_IN_WRITE_UNLOCKED);
-  set_builtin_decl (BUILT_IN_WRITE_UNLOCKED, decl, NULL_TREE);
+  if (builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED))
+    set_builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED, false);
 
   /* Define aliases for names.  */
   for (i = 0; i < NBR_CRTL_NAMES; i++)

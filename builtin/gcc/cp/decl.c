@@ -1360,7 +1360,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && !TREE_NOTHROW (olddecl))
 	{
 	  enum built_in_function fncode = DECL_FUNCTION_CODE (olddecl);
-	  tree tmpdecl = builtin_decl (fncode, BU_EXPLICIT);
+	  tree tmpdecl = builtin_decl_explicit (fncode);
 	  if (tmpdecl && tmpdecl != olddecl && types_match)
 	    TREE_NOTHROW (tmpdecl)  = 1;
 	}
@@ -2140,15 +2140,14 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      if (DECL_BUILT_IN_CLASS (newdecl) == BUILT_IN_NORMAL)
 		{
 		  enum built_in_function fncode = DECL_FUNCTION_CODE (newdecl);
-		  tree tmpdecl;
 		  switch (fncode)
 		    {
 		      /* If a compatible prototype of these builtin functions
 			 is seen, assume the runtime implements it with the
 			 expected semantics.  */
 		    case BUILT_IN_STPCPY:
-		      tmpdecl = builtin_decl (fncode, BU_IMPLICIT);
-		      set_builtin_decl (fncode, tmpdecl, tmpdecl);
+		      if (builtin_decl_explicit_p (fncode))
+			set_builtin_decl_implicit_p (fncode, true);
 		      break;
 		    default:
 		      break;

@@ -1117,8 +1117,7 @@ issue_prefetch_ref (struct mem_ref *ref, unsigned unroll_factor, unsigned ahead)
 					   NULL, true, GSI_SAME_STMT);
       }
       /* Create the prefetch instruction.  */
-      prefetch = gimple_build_call (builtin_decl (BUILT_IN_PREFETCH,
-						  BU_EXPLICIT),
+      prefetch = gimple_build_call (builtin_decl_explicit (BUILT_IN_PREFETCH),
 				    3, addr, write_p, local);
       gsi_insert_before (&bsi, prefetch, GSI_SAME_STMT);
     }
@@ -1910,7 +1909,7 @@ tree_ssa_prefetch_arrays (void)
 
   initialize_original_copy_tables ();
 
-  if (!builtin_decl (BUILT_IN_PREFETCH, BU_EXPLICIT))
+  if (!builtin_decl_explicit_p (BUILT_IN_PREFETCH))
     {
       tree type = build_function_type_list (void_type_node,
 					    const_ptr_type_node, NULL_TREE);
@@ -1918,7 +1917,7 @@ tree_ssa_prefetch_arrays (void)
 					BUILT_IN_PREFETCH, BUILT_IN_NORMAL,
 					NULL, NULL_TREE);
       DECL_IS_NOVOPS (decl) = true;
-      set_builtin_decl (BUILT_IN_PREFETCH, decl, NULL_TREE);
+      set_builtin_decl (BUILT_IN_PREFETCH, decl, false);
     }
 
   /* We assume that size of cache line is a power of two, so verify this

@@ -139,7 +139,7 @@ static tree
 builtin_decl_for_precision (enum built_in_function base_built_in,
 			    int precision)
 {
-  int i = END_BUILTINS;
+  enum built_in_function i = END_BUILTINS;
 
   gfc_intrinsic_map_t *m;
   for (m = gfc_intrinsic_map; m->double_built_in != base_built_in ; m++)
@@ -158,7 +158,7 @@ builtin_decl_for_precision (enum built_in_function base_built_in,
       return m->real16_decl;
     }
 
-  return (i == END_BUILTINS ? NULL_TREE : builtin_decl (i, BU_EXPLICIT));
+  return (i == END_BUILTINS ? NULL_TREE : builtin_decl_explicit (i));
 }
 
 

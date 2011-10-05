@@ -1,4 +1,4 @@
-2011-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-common.c (def_builtin_1): Delete old interface with two
 	parallel arrays to hold standard builtin declarations, and replace

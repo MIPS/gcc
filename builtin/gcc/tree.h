@@ -5914,54 +5914,92 @@ extern bool block_may_fallthru (const_tree);
 
 
 /* Functional interface to the builtin functions.  */
-#define BU_EXPLICIT	0
-#define BU_IMPLICIT	1
-#define BU_NUMBER	2
 
-/* The built_in_info array holds either an IDENTIFIER_NODE if the function is a
-   lazy builtin that should be created as the function is referenced, or a
-   FUNCTION_DECL_NODE for the function after the function has been created.  At
-   this level, we do not add the function into the front end's binding level,
-   we just create the function as a tree node so the code generation will
-   reference it.
+/* The builtin_info structure holds the FUNCTION_DECL of the standard builtin
+   function, and a flag that says if the function is available implicitly, or
+   whether the user has to code explicit calls to __builtin_<xxx>.  */
 
-   There are two declarations for each builtin.  There is the explicit builtin
-   when there is a reference to __builtin_<xxx>, and there are possibly
-   implicit declarations used when constructing the builtin implicitly in the
-   compiler.  The implicit declaration may be NULL_TREE when this is invalid
-   (for instance runtime is not required to implement the function call in all
-   cases).  */
-extern GTY(()) tree built_in_info[(int)END_BUILTINS][BU_NUMBER];
+typedef struct GTY(()) builtin_info_type_d {
+  tree decl[(int)END_BUILTINS];
+  bool implicit_p[(int)END_BUILTINS];
+} builtin_info_type;
+
+extern GTY(()) builtin_info_type builtin_info;
 
 /* Valid builtin number.  */
-#define BUILT_IN_VALID_P(FNCODE) \
+#define BUILTIN_VALID_P(FNCODE) \
   (IN_RANGE ((int)FNCODE, ((int)BUILT_IN_NONE) + 1, ((int) END_BUILTINS) - 1))
 
-/* Return the tree node for a builtin function or NULL, possibly creating the
-   tree node.  The first argument is the function index, and the second
-   argument determines whether we want to get the explicit or implicit node.
-   If we have stored an IDENTIFIER_NODE, that means the builtin is a lazy
-   builtin, and we need to create the appropriate function_decl node.  */
-
+/* Return the tree node for an explicit standard builtin function or NULL.  */
 static inline tree
-builtin_decl (enum built_in_function fncode, int explicit_or_implicit)
+builtin_decl_explicit (enum built_in_function fncode)
 {
-  gcc_checking_assert (BUILT_IN_VALID_P (fncode)
-		       && (explicit_or_implicit == BU_EXPLICIT
-			   || explicit_or_implicit == BU_IMPLICIT));
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
 
-  return built_in_info[(int)fncode][explicit_or_implicit];
+  return builtin_info.decl[(size_t)fncode];
 }
 
-/* Set both the explicit and implicit function nodes for a builtin
+/* Return the tree node for an implicit builtin function or NULL.  */
+static inline tree
+builtin_decl_implicit (enum built_in_function fncode)
+{
+  size_t uns_fncode = (size_t)fncode;
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
+
+  if (!builtin_info.implicit_p[uns_fncode])
+    return NULL_TREE;
+
+  return builtin_info.decl[uns_fncode];
+}
+
+/* Set explicit builtin function nodes and whether it is an implicit
    function.  */
 
 static inline void
-set_builtin_decl (enum built_in_function fncode, tree edecl, tree idecl)
+set_builtin_decl (enum built_in_function fncode, tree decl, bool implicit_p)
 {
-  gcc_checking_assert (BUILT_IN_VALID_P (fncode));
-  built_in_info[(int)fncode][BU_EXPLICIT] = edecl;
-  built_in_info[(int)fncode][BU_IMPLICIT] = idecl;
+  size_t ufncode = (size_t)fncode;
+
+  gcc_checking_assert (BUILTIN_VALID_P (fncode)
+		       && (decl != NULL_TREE || !implicit_p));
+
+  builtin_info.decl[ufncode] = decl;
+  builtin_info.implicit_p[ufncode] = implicit_p;
+}
+
+/* Set the implicit flag for a builtin function.  */
+
+static inline void
+set_builtin_decl_implicit_p (enum built_in_function fncode, bool implicit_p)
+{
+  size_t uns_fncode = (size_t)fncode;
+
+  gcc_checking_assert (BUILTIN_VALID_P (fncode)
+		       && builtin_info.decl[uns_fncode] != NULL_TREE);
+
+  builtin_info.implicit_p[uns_fncode] = implicit_p;
+}
+
+/* Return whether the standard builtin function can be used as an explicit
+   function.  */
+
+static inline bool
+builtin_decl_explicit_p (enum built_in_function fncode)
+{
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
+  return (builtin_info.decl[(size_t)fncode] != NULL_TREE);
+}
+
+/* Return whether the standard builtin function can be used implicitly.  */
+
+static inline bool
+builtin_decl_implicit_p (enum built_in_function fncode)
+{
+  size_t uns_fncode = (size_t)fncode;
+
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
+  return (builtin_info.decl[uns_fncode] != NULL_TREE
+	  && builtin_info.implicit_p[uns_fncode]);
 }
 
 #endif  /* GCC_TREE_H  */

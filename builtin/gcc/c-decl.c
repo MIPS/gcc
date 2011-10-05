@@ -2374,15 +2374,14 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	      if (DECL_BUILT_IN_CLASS (newdecl) == BUILT_IN_NORMAL)
 		{
 		  enum built_in_function fncode = DECL_FUNCTION_CODE (newdecl);
-		  tree tmpdecl;
 		  switch (fncode)
 		    {
 		      /* If a compatible prototype of these builtin functions
 			 is seen, assume the runtime implements it with the
 			 expected semantics.  */
 		    case BUILT_IN_STPCPY:
-		      tmpdecl = builtin_decl (fncode, BU_IMPLICIT);
-		      set_builtin_decl (fncode, tmpdecl, tmpdecl);
+		      if (builtin_decl_explicit_p (fncode))
+			set_builtin_decl_implicit_p (fncode, true);
 		      break;
 		    default:
 		      break;

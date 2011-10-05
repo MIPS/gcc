@@ -556,18 +556,18 @@ pa_init_builtins (void)
 {
 #ifdef DONT_HAVE_FPUTC_UNLOCKED
   {
-    tree explicit = builtin_decl (BUILT_IN_PUTC_UNLOCKED, BU_EXPLICIT);
-    tree implicit = builtin_decl (BUILT_IN_PUTC_UNLOCKED, BU_IMPLICIT);
-    set_builtin_decl (BUILT_IN_FPUTC_UNLOCKED, explicit, implicit);
+    tree decl = builtin_decl_explicit (BUILT_IN_PUTC_UNLOCKED);
+    set_builtin_decl (BUILT_IN_FPUTC_UNLOCKED, decl,
+		      builtin_decl_implicit_p (BUILT_IN_PUTC_UNLOCKED));
   }
 #endif
 #if TARGET_HPUX_11
   {
     tree decl;
 
-    if ((decl = builtin_decl (BUILT_IN_FINITE, BU_EXPLICIT)) != NULL_TREE)
+    if ((decl = builtin_decl_explicit (BUILT_IN_FINITE)) != NULL_TREE)
       set_user_assembler_name (decl, "_Isfinite");
-    if ((decl = builtin_decl (BUILT_IN_FINITEF, BU_EXPLICIT)) != NULL_TREE)
+    if ((decl = builtin_decl_explicit (BUILT_IN_FINITEF)) != NULL_TREE)
       set_user_assembler_name (decl, "_Isfinitef");
   }
 #endif

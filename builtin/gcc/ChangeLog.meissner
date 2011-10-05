@@ -1,4 +1,4 @@
-2011-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Delete old interface with two parallel
 	arrays to hold standard builtin declarations, and replace it with
@@ -6,13 +6,14 @@
 	the fly in the future.  Change all uses, and poison the old
 	names.  Make sure 0 is not a legitimate builtin index.
 	(implicit_built_in_decls): Ditto.
-	(BU_EXPLICIT): Ditto.
-	(BU_IMPLICIT): Ditto.
-	(BU_NUMBER): Ditto.
 	(built_in_info): Ditto.
-	(BUILT_IN_VALID_P): Ditto.
-	(builtin_decl): Ditto.
+	(BUILTIN_VALID_P): Ditto.
+	(builtin_decl_explicit): Ditto.
+	(builtin_decl_implicit): Ditto.
 	(set_builtin_decl): Ditto.
+	(set_builtin_decl_implicit_p): Ditto.
+	(builtin_decl_explicit_p): Ditto.
+	(builtin_decl_implicit_p): Ditto.
 	(IDENTIFIER_LAZY_BUILTIN_P): Ditto.
 	* tree-complex.c (expand_complex_libcall): Ditto.
 	* tree-loop-distribution.c (generate_memset_zero): Ditto.

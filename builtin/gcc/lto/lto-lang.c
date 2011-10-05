@@ -499,7 +499,7 @@ def_builtin_1 (enum built_in_function fncode, const char *name,
     add_builtin_function (libname, libtype, fncode, fnclass,
 			  NULL, fnattrs);
 
-  set_builtin_decl (fncode, decl, implicit_p ? decl : NULL_TREE);
+  set_builtin_decl (fncode, decl, implicit_p);
 }
 
 
