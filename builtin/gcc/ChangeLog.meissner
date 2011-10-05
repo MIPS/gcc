@@ -14,7 +14,6 @@
 	(set_builtin_decl_implicit_p): Ditto.
 	(builtin_decl_explicit_p): Ditto.
 	(builtin_decl_implicit_p): Ditto.
-	(IDENTIFIER_LAZY_BUILTIN_P): Ditto.
 	* tree-complex.c (expand_complex_libcall): Ditto.
 	* tree-loop-distribution.c (generate_memset_zero): Ditto.
 	* tree-ssa-strlen.c (get_string_length): Ditto.
