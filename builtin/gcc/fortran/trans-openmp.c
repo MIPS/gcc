@@ -249,7 +249,7 @@ gfc_omp_clause_copy_ctor (tree clause, tree dest, tree src)
   gfc_conv_descriptor_data_set (&cond_block, dest, ptr);
 
   call = build_call_expr_loc (input_location,
-			  builtin_decl_explict (BUILT_IN_MEMCPY),
+			  builtin_decl_explicit (BUILT_IN_MEMCPY),
 			  3, ptr,
 			  fold_convert (pvoid_type_node,
 					gfc_conv_descriptor_data_get (src)),
@@ -1274,7 +1274,7 @@ gfc_trans_omp_atomic (gfc_code *code)
 static tree
 gfc_trans_omp_barrier (void)
 {
-  tree decl = builtin_decl_explicit ([BUILT_IN_GOMP_BARRIER);
+  tree decl = builtin_decl_explicit (BUILT_IN_GOMP_BARRIER);
   return build_call_expr_loc (input_location, decl, 0);
 }
 

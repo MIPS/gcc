@@ -638,7 +638,7 @@ gfc_builtin_function (tree decl)
 #define ATTR_CONST_NOTHROW_LIST		(ECF_NOTHROW | ECF_CONST)
 
 static void
-gfc_define_builtin (const char *name, tree type, int code,
+gfc_define_builtin (const char *name, tree type, enum built_in_function code,
 		    const char *library_name, int attr)
 {
   tree decl;

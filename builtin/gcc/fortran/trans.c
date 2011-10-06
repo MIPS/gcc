@@ -1028,7 +1028,7 @@ gfc_call_realloc (stmtblock_t * block, tree mem, tree size)
 
   /* Call realloc and check the result.  */
   tmp = build_call_expr_loc (input_location,
-			 built_in_decls[BUILT_IN_REALLOC], 2,
+			 builtin_decl_explicit (BUILT_IN_REALLOC), 2,
 			 fold_convert (pvoid_type_node, mem), size);
   gfc_add_modify (block, res, fold_convert (type, tmp));
   null_result = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
@@ -1595,7 +1595,8 @@ gfc_unlikely (tree cond)
   cond = fold_convert (long_integer_type_node, cond);
   tmp = build_zero_cst (long_integer_type_node);
   cond = build_call_expr_loc (input_location,
-			      built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
+			      builtin_decl_explicit (BUILT_IN_EXPECT),
+			      2, cond, tmp);
   cond = fold_convert (boolean_type_node, cond);
   return cond;
 }
@@ -1611,7 +1612,8 @@ gfc_likely (tree cond)
   cond = fold_convert (long_integer_type_node, cond);
   tmp = build_one_cst (long_integer_type_node);
   cond = build_call_expr_loc (input_location,
-			      built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
+			      builtin_decl_explicit (BUILT_IN_EXPECT),
+			      2, cond, tmp);
   cond = fold_convert (boolean_type_node, cond);
   return cond;
 }

@@ -1470,7 +1470,7 @@ gfc_trans_array_constructor_value (stmtblock_t * pblock, tree type,
 	      size = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type));
 	      bound = build_int_cst (size_type_node, n * size);
 	      tmp = build_call_expr_loc (input_location,
-					 builtin_decl_explict (BUILT_IN_MEMCPY),
+					 builtin_decl_explicit (BUILT_IN_MEMCPY),
 					 3, tmp, init, bound);
 	      gfc_add_expr_to_block (&body, tmp);
 
@@ -7412,7 +7412,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
      in the array reference - (*desc.data)[<element>]. */
   gfc_init_block (&realloc_block);
   tmp = build_call_expr_loc (input_location,
-			     builtin_decl_explict (BUILT_IN_REALLOC), 2,
+			     builtin_decl_explicit (BUILT_IN_REALLOC), 2,
 			     fold_convert (pvoid_type_node, array1),
 			     size2);
   gfc_conv_descriptor_data_set (&realloc_block,
