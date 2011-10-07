@@ -230,19 +230,16 @@
    (V4SF "V4SF") (V2DF "V2DF")
    (TI "TI")])
 
-;; All 128bit vector modes
-(define_mode_attr sseshuffint
-  [(V16QI "V16QI") (V8HI "V8HI")
-   (V4SI "V4SI")  (V2DI "V2DI")
-   (V4SF "V4SI") (V2DF "V2DI")])
-
 ;; Mapping of vector float modes to an integer mode of the same size
 (define_mode_attr sseintvecmode
   [(V8SF "V8SI") (V4DF "V4DI")
    (V4SF "V4SI") (V2DF "V2DI")
    (V4DF "V4DI") (V8SF "V8SI")
    (V8SI "V8SI") (V4DI "V4DI")
-   (V4SI "V4SI") (V2DI "V2DI")])
+   (V4SI "V4SI") (V2DI "V2DI")
+   (V16HI "V16HI") (V8HI "V8HI")
+   (V32QI "V32QI") (V16QI "V16QI")
+  ])
 
 ;; Mapping of vector modes to a vector mode of double size
 (define_mode_attr ssedoublevecmode
@@ -779,7 +776,9 @@
 {
   ix86_fixup_binary_operands_no_copy (DIV, <MODE>mode, operands);
 
-  if (TARGET_SSE_MATH && TARGET_RECIP && !optimize_insn_for_size_p ()
+  if (TARGET_SSE_MATH
+      && TARGET_RECIP_VEC_DIV
+      && !optimize_insn_for_size_p ()
       && flag_finite_math_only && !flag_trapping_math
       && flag_unsafe_math_optimizations)
     {
@@ -857,7 +856,9 @@
 	(sqrt:VF1 (match_operand:VF1 1 "nonimmediate_operand" "")))]
   "TARGET_SSE"
 {
-  if (TARGET_SSE_MATH && TARGET_RECIP && !optimize_insn_for_size_p ()
+  if (TARGET_SSE_MATH
+      && TARGET_RECIP_VEC_SQRT
+      && !optimize_insn_for_size_p ()
       && flag_finite_math_only && !flag_trapping_math
       && flag_unsafe_math_optimizations)
     {
@@ -6222,18 +6223,24 @@
   DONE;
 })
 
+;; ??? Irritatingly, the 256-bit VPSHUFB only shuffles within the 128-bit
+;; lanes.  For now, we don't try to support V32QI or V16HImode.  So we
+;; don't want to use VI_AVX2.
+(define_mode_iterator VSHUFFLE_AVX2
+  [V16QI V8HI V4SI V2DI V4SF V2DF
+   (V8SI "TARGET_AVX2") (V4DI "TARGET_AVX2")
+   (V8SF "TARGET_AVX2") (V4DF "TARGET_AVX2")])
+
 (define_expand "vshuffle<mode>"
-  [(match_operand:V_128 0 "register_operand" "")
-   (match_operand:V_128 1 "register_operand" "")
-   (match_operand:V_128 2 "register_operand" "")
-   (match_operand:<sseshuffint> 3 "register_operand" "")]
-  "TARGET_SSSE3 || TARGET_AVX"
+  [(match_operand:VSHUFFLE_AVX2 0 "register_operand" "")
+   (match_operand:VSHUFFLE_AVX2 1 "register_operand" "")
+   (match_operand:VSHUFFLE_AVX2 2 "register_operand" "")
+   (match_operand:<sseintvecmode> 3 "register_operand" "")]
+  "TARGET_SSSE3 || TARGET_AVX || TARGET_XOP"
 {
-  bool ok = ix86_expand_vshuffle (operands);
-  gcc_assert (ok);
+  ix86_expand_vshuffle (operands);
   DONE;
 })
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -12395,7 +12402,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "TI")])
 
-(define_insn "*vec_concat<mode>_avx"
+(define_insn "avx_vec_concat<mode>"
   [(set (match_operand:V_256 0 "register_operand" "=x,x")
 	(vec_concat:V_256
 	  (match_operand:<ssehalfvecmode> 1 "register_operand" "x,x")

@@ -1,3 +1,131 @@
+2011-10-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39164
+	* g++.dg/cpp0x/default31.C: New.
+
+2011-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50596
+	* lib/target-supports.exp (check_effective_target_vect_cond_mixed):
+	New.
+	* gcc.dg/vect/vect-cond-8.c: New test.
+
+2011-10-06  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/vect-shuffle-1.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-2.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-3.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-4.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-5.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-6.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-7.c: Remove.
+	* gcc.c-torture/execute/vect-shuffle-8.c: Remove.
+	* gcc.c-torture/execute/vshuf-16.inc: New file.
+	* gcc.c-torture/execute/vshuf-2.inc: New file.
+	* gcc.c-torture/execute/vshuf-4.inc: New file.
+	* gcc.c-torture/execute/vshuf-8.inc: New file.
+	* gcc.c-torture/execute/vshuf-main.inc: New file.
+	* gcc.c-torture/execute/vshuf-v16qi.c: New test.
+	* gcc.c-torture/execute/vshuf-v2df.c: New test.
+	* gcc.c-torture/execute/vshuf-v2di.c: New test.
+	* gcc.c-torture/execute/vshuf-v2sf.c: New test.
+	* gcc.c-torture/execute/vshuf-v2si.c: New test.
+	* gcc.c-torture/execute/vshuf-v4df.c: New test.
+	* gcc.c-torture/execute/vshuf-v4di.c: New test.
+	* gcc.c-torture/execute/vshuf-v4hi.c: New test.
+	* gcc.c-torture/execute/vshuf-v4sf.c: New test.
+	* gcc.c-torture/execute/vshuf-v4si.c: New test.
+	* gcc.c-torture/execute/vshuf-v8hi.c: New test.
+	* gcc.c-torture/execute/vshuf-v8qi.c: New test.
+	* gcc.c-torture/execute/vshuf-v8si.c: New test.
+
+2011-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49279
+	* gcc.dg/tree-ssa/restrict-4.c: XFAIL.
+	* gcc.c-torture/execute/pr49279.c: New test.
+
+2011-10-06  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/49049
+	* gcc.c-torture/compile/pr49049.c: New test.
+
+2011-10-06  Ulrich Weigand  <ulrich.weigand@linaro.org>
+
+	PR target/50305
+	* gcc.target/arm/pr50305.c: New test.
+
+2011-10-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38884
+	* gcc.dg/tree-ssa/ssa-fre-34.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-35.c: Likewise.
+
+2011-10-05  David S. Miller  <davem@davemloft.net>
+
+	* gcc.target/sparc/lzd.c: New test.
+	* gcc.target/sparc/popc.c: New test.
+
+2011-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/strlenopt-21.c (dg-options): Remove -fdump-tree-optimized.
+	* gcc.dg/ipa/inline-5.c: Cleanup inline ipa dump.
+	* g++.dg/other/final1.C: Cleanup original tree dump.
+
+2011-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50613
+	* gcc.dg/pr50613.c: New test.
+
+2011-10-05  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/vect-shuffle-1.c: Rewrite.
+	* gcc.c-torture/execute/vect-shuffle-2.c: Rewrite.
+	* gcc.c-torture/execute/vect-shuffle-3.c: Rewrite.
+	* gcc.c-torture/execute/vect-shuffle-4.c: Rewrite.
+	* gcc.c-torture/execute/vect-shuffle-5.c: Rewrite.
+	* gcc.c-torture/execute/vect-shuffle-6.c: New test.
+	* gcc.c-torture/execute/vect-shuffle-7.c: New test.
+	* gcc.c-torture/execute/vect-shuffle-8.c: New test.
+
+2011-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/vect.exp (VEC_CFLAGS): Move initialization after
+	DEFAULT_VECTFLAGS initialization.  Append "-fdump-tree-veclower2".
+	* gcc.dg/vect/vec-scal-opt.c: Scan and cleanup veclower2 tree dump.
+	* gcc.dg/vect/vec-scal-opt1.c: Ditto.
+	* gcc.dg/vect/vec-scal-opt2.c: Ditto.
+
+2011-10-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38885
+	* gcc.dg/tree-ssa/ssa-fre-33.c: New testcase.
+
+2011-10-05  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gcc.target/i386/sw-1.c: New test.
+
+2011-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx256-unaligned-load-3.c (dg-options): Add
+	-mtune=generic.
+	* gcc.target/i386/avx256-unaligned-store-3.c (dg-options): Ditto.
+
+2011-10-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/builtin-complex-1.c: Use dg-add-options ieee.
+
+2011-10-04  David S. Miller  <davem@davemloft.net>
+
+	* gcc.target/sparc/fhalve.c: New test.
+	* gcc.target/sparc/fnegop.c: New test.
+	* gcc.target/sparc/xmul.c: New test.
+
+2011-10-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/35831
+	* gfortran.dg/dummy_procedure_6.f90: New.
+
 2011-10-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/50604
@@ -115,7 +243,7 @@
 
 2011-09-30  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
 
-       * gcc.target/arm/pr42835.c: Add -fno-tree-tail-merge.
+	* gcc.target/arm/pr42835.c: Add -fno-tree-tail-merge.
 
 2011-09-30  David S. Miller  <davem@davemloft.net>
 
