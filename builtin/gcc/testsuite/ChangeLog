@@ -1,3 +1,78 @@
+2011-10-07  David S. Miller  <davem@davemloft.net>
+
+	PR 50655
+	* gcc.target/sparc/sparc.exp: Add vis3 target test.
+	* gcc.target/sparc/cmask.c: Use it.
+	* gcc.target/sparc/fhalve.c: Likewise.
+	* gcc.target/sparc/fnegop.c: Likewise.
+	* gcc.target/sparc/fpadds.c: Likewise.
+	* gcc.target/sparc/fshift.c: Likewise.
+	* gcc.target/sparc/fucmp.c: Likewise.
+	* gcc.target/sparc/lzd.c: Likewise.
+	* gcc.target/sparc/vis3misc.c: Likewise.
+	* gcc.target/sparc/xmul.c: Likewise.
+
+2011-10-07  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/avx256-unaligned-load-2.c: Tweek vinsert pattern
+	match for avx2.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Similarly.
+
+2011-10-07  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.dg/pr50193-1.c: New file.
+	* gcc.target/arm/shiftable.c: New file.
+
+2011-10-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50625
+	* gfortran.dg/class_46.f03: New.
+
+2011-10-06  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/pr47276.c (ASMNAME, ASMNAME2, STRING): Define.
+	(__EI___vsyslog_chk, __EI_syslog, __EI_vsyslog): Use ASMNAME.
+	(syslog, vsyslog, __vsyslog_chk): Likewise.
+
+	* gcc.dg/lto/20081222_1.c (ASMNAME, ASMNAME2, STRING): Define.
+	(x, EXT_x): Use ASMNAME.
+
+	* gcc.dg/torture/pr48044.c (ASMNAME, ASMNAME2, STRING): Define.
+	(a, c): Use ASMNAME.
+
+2011-10-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/50527
+	* gcc.dg/pr50527.c: New test.
+
+2011-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50650
+	* gcc.c-torture/compile/pr50650.c: New test.
+
+2011-10-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR tree-optimization/50575
+	* gcc.c-torture/execute/vector-compare-2.x: New file.
+
+2011-10-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR middle-end/50125
+	* gcc.dg/uninit-B.c (baz): Remove xfail *-*-*.
+	* gcc.dg/uninit-pr19430.c (main): Remove xfail *-*-*.
+	(bar3): Likewise.
+
+2011-10-07  Richard Guenther  <rguenther@suse.de>
+
+	PR testsuite/50637
+	* gcc.dg/vect/vect-align-2.c: Increase array size.
+
+2011-10-07  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/50603
+	* gcc.target/i386/pr50603.c: New test.
+
 2011-10-06  Jason Merrill  <jason@redhat.com>
 
 	PR c++/39164
@@ -144,8 +219,7 @@
 
 2011-10-04  Artem Shinkarov  <artyom.shinkaroff@gmail.com>
 
-	* gcc.c-torture/execute/vector-compare-1.c: Fix trailing white
-	spaces.
+	* gcc.c-torture/execute/vector-compare-1.c: Fix trailing white spaces.
 	(main): Use __typeof to get result type of comparison.
 
 2011-10-04  Ira Rosen  <ira.rosen@linaro.org>
@@ -298,8 +372,8 @@
 	PR testsuite/50485
 	* gcc.target/i386/sse4_1-blendps.c: Include <stdlib.h>.
 	(TEST): Initialize src3 with random floats.
-	* gcc.target/i386/sse4_1-blendps-2.c (sse4_1_test): Remove field i from
-	union src3.  Initialize src3 with random floats.
+	* gcc.target/i386/sse4_1-blendps-2.c (sse4_1_test): Remove field i
+	from union src3.  Initialize src3 with random floats.
 
 2011-09-27  Oleg Endo  <oleg.endo@t-online.de>
 
@@ -659,8 +733,7 @@
 2011-09-20  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR testsuite/50469
-	* gfortran.dg/storage_size_2.f08: Replace "must be be" with
-	"must be".
+	* gfortran.dg/storage_size_2.f08: Replace "must be be" with "must be".
 
 2011-09-20  Jason Merrill  <jason@redhat.com>
 
@@ -1046,8 +1119,7 @@
 	gcc.dg/vect/vect-54.c, gcc.dg/vect/vect-46.c, gcc.dg/vect/vect-48.c,
 	gcc.dg/vect/vect-96.c, gcc.dg/vect/vect-multitypes-3.c,
 	gcc.dg/vect/vect-40.c: Likewise.
-	* gcc.dg/vect/vect-outer-5.c: Remove quad-vectors option as
-	redundant.
+	* gcc.dg/vect/vect-outer-5.c: Remove quad-vectors option as redundant.
 	* gcc.dg/vect/vect-109.c, gcc.dg/vect/vect-peel-1.c,
 	gcc.dg/vect/vect-peel-2.c, gcc.dg/vect/slp-25.c,
 	gcc.dg/vect/vect-multitypes-1.c, gcc.dg/vect/slp-3.c,
@@ -1104,8 +1176,8 @@
 
 2011-09-05  Georg-Johann Lay  <avr@gjlay.de>
 
-	* gcc.dg/ipa/ipcp-3.c (mark_cell): Use mask 1 << 14 instead of 1
-	<< 18 to avoid warning on int=16 platforms..
+	* gcc.dg/ipa/ipcp-3.c (mark_cell): Use mask 1 << 14 instead of 1 << 18
+	to avoid warning on int=16 platforms..
 
 2011-09-05  Jakub Jelinek  <jakub@redhat.com>
 

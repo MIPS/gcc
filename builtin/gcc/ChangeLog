@@ -1,3 +1,93 @@
+2011-10-07  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (bdesc_args): Update code for
+	__builtin_ia32_palignr256.  Change type of __builtin_ia32_pslldqi256,
+	and __builtin_ia32_psrldqi256 to V4DI_FTYPE_V4DI_INT_CONVERT.
+	(ix86_expand_args_builtin): Handle V4DI_FTYPE_V4DI_INT_CONVERT.
+	* config/i386/sse.md (mode iterator V16): Add V2TI.
+	(mode iterator SSESCALARMODE): Use V2TI not V4DI.
+	(mode attr ssse3_avx2): Add V2TI.
+	(avx2_lshrqv4di3, avx2_lshlqv4di3): Remove.
+
+2011-10-07  David S. Miller  <davem@davemloft.net>
+
+	PR 50655
+	* configure.ac: Add .register directives to VIS3 test.
+	* configure: Regenerate.
+
+2011-10-07  Richard Henderson  <rth@redhat.com>
+
+	* config.gcc (x86_64-*): Add core-avx-i, core-avx2 for with_cpu.
+
+2011-10-07  Richard Henderson  <rth@redhat.com>
+
+	PR 49752
+	* fold-const.c (fold_checksum_tree): Remove out-of-date assert.
+
+2011-10-07  Andrew Stubbs  <ams@codesourcery.com>
+
+	* config/arm/predicates.md (shift_amount_operand): Remove constant
+	range check.
+	(shift_operator): Check range of constants for all shift operators.
+
+2011-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_tls_call_insn): Remove assertion.
+	Load GOT pointer for non-pic builds.
+	(s390_load_got): Replace pic_offset_table_rtx with hardcoded r12.
+	(s390_emit_call): Likewise.
+
+2011-10-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/50527
+	* tree.c (build_common_builtin_nodes): Add local_define_builtin for
+	* builtins.c (expand_builtin_alloca): Handle BUILT_IN_ALLOCA_WITH_ALIGN
+	* tree-ssa-ccp.c (evaluate_stmt): Set align for
+	* builtins.def (BUILT_IN_ALLOCA_WITH_ALIGN): Declare using
+	* ipa-pure-const.c (special_builtin_state): Handle
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1)
+	* function.c (gimplify_parameters): Lower vla to
+	* gimplify.c (gimplify_vla_decl): Same.
+	* cfgexpand.c (expand_call_stmt): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
+	* tree-mudflap.c (mf_xform_statements): Same.
+	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary)
+	* varasm.c (incorporeal_function_p): Same.
+	* tree-object-size.c (alloc_object_size): Same.
+	* gimple.c (gimple_build_call_from_tree): Same.
+
+2011-10-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* function.c (frame_required_for_rtx): Remove function.
+	(requires_stack_frame_p): New arg set_up_by_prologue.  All callers
+	changed.  Compute a set of mentioned registers and compare against
+	the new arg rather than calling frame_required_for_rtx.
+	(thread_prologue_and_epilogue_insns): Compute the set_up_by_prologue
+	reg set.  Convert the unconverted_simple_returns mechanism to store
+	jump insns rather than their basic blocks.  Also check the
+	orig_entry_edge destination for new blocks.
+
+2011-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50650
+	* tree-vect-patterns.c (vect_recog_mixed_size_cond_pattern): Don't
+	call vect_is_simple_cond here, instead fail if cond_expr isn't
+	COMPARISON_CLASS_P or if get_vectype_for_scalar_type returns NULL
+	for cond_expr's first operand.
+	* tree-vect-stmts.c (vect_is_simple_cond): Static again.
+	* tree-vectorizer.h (vect_is_simple_cond): Remove prototype.
+
+2011-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (DWH, dwh): New mode macros.
+	("umulsidi3"): Extend to support "umulditi3" as well.
+
+2011-10-07  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/50603
+	* config/i386/i386.c (ix86_fixup_binary_operands): Force src2 of
+	integer PLUS RTX to a register to improve address combine.
+
 2011-10-06  Richard Henderson  <rth@redhat.com>
 
 	* combine-stack-adjust.c (maybe_move_args_size_note): Add after
@@ -31,9 +121,8 @@
 
 2011-10-06  Bernd Schmidt  <bernds@codesourcery.com>
 
-	* function.c (thread_prologue_and_epilogue_insns): Emit split
-	prologue on the orig_entry_edge. Don't account for it in
-	prologue_clobbered.
+	* function.c (thread_prologue_and_epilogue_insns): Emit split prologue
+	on the orig_entry_edge. Don't account for it in prologue_clobbered.
 
 2011-10-06  Jakub Jelinek  <jakub@redhat.com>
 
