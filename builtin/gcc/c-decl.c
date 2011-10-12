@@ -3588,11 +3588,25 @@ c_builtin_function (tree decl)
   const char *name = IDENTIFIER_POINTER (id);
   C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
 
+  if (flag_lazy_builtin_debug && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+    fprintf (stderr,
+	     "---c_builtin_function (%s, decl=%p, %s, fncode=%d [%s], "
+	     "implicit=%s, proto=%s)\n",
+	     IDENTIFIER_POINTER (id),
+	     (void *)decl,
+	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
+	     (int)DECL_FUNCTION_CODE (decl),
+	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
+	      : "---"),
+	     C_DECL_IMPLICIT (decl) ? "true" : "false",
+	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false");
+
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
   bind (id, decl, external_scope, /*invisible=*/true, /*nested=*/false,
-	UNKNOWN_LOCATION);
+	BUILTINS_LOCATION);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */
@@ -3614,11 +3628,25 @@ c_builtin_function_ext_scope (tree decl)
   const char *name = IDENTIFIER_POINTER (id);
   C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
 
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr,
+	     "---c_builtin_function_ext_scope (%s, decl=%p, %s, "
+	     "fncode=%d [%s], implicit=%s, proto=%s)\n",
+	     IDENTIFIER_POINTER (id),
+	     (void *)decl,
+	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
+	     (int)DECL_FUNCTION_CODE (decl),
+	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
+	      : "---"),
+	     C_DECL_IMPLICIT (decl) ? "true" : "false",
+	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false");
+
   /* Should never be called on a symbol with a preexisting meaning.  */
   gcc_assert (!I_SYMBOL_BINDING (id));
 
   bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
-	UNKNOWN_LOCATION);
+	BUILTINS_LOCATION);
 
   /* Builtins in the implementation namespace are made visible without
      needing to be explicitly declared.  See push_file_scope.  */

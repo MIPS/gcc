@@ -1,0 +1,25 @@
+2011-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (builtin_types): Add support for lazy builtin
+	functions that are created when the identifier is first used in
+	the program, rather than being created at compiler startup time.
+	Mark builtin type and attribute arrays as needing garbage
+	collection.  Use address_space and rid_code to encode the builtin
+	lazy builtin function index.
+	(built_in_attributes): Ditto.
+	(LAZY_BUILTIN_MD): Ditto.
+	(lazy_builtin_fncode): Ditto.
+	(set_lazy_builtin_fncode): Ditto.
+	(c_common_add_builtin_function_lazy): Ditto.
+	(c_common_builtin_lazy_create): Ditto.
+	(c_common_nodes_and_builtins): Ditto.
+	(def_builtin_1): Ditto.
+	* c-lex.c (c_lex_with_flags): Ditto.
+	* c-common.h (c_common_add_builtin_function_lazy): Ditto.
+	(c_common_builtin_lazy_create): Ditto.
+
+2011-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch, subversion id 179820.
+
+

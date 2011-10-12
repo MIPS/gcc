@@ -70,6 +70,7 @@ extern bool lhd_complain_wrong_lang_p (const struct cl_option *);
 extern bool lhd_handle_option (size_t, const char *, int, int, location_t,
 			       const struct cl_option_handlers *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *);
+extern tree lhd_builtin_lazy_create (tree, bool);
 
 
 /* Declarations for tree gimplification hooks.  */
@@ -110,6 +111,8 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE	LANG_HOOKS_BUILTIN_FUNCTION
+#define LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY	add_builtin_function
+#define LANG_HOOKS_BUILTIN_LAZY_CREATE	lhd_builtin_lazy_create
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
 #define LANG_HOOKS_INIT_TS		lhd_do_nothing
@@ -303,6 +306,8 @@ extern void lhd_end_section (void);
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
   LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
+  LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY, \
+  LANG_HOOKS_BUILTIN_LAZY_CREATE, \
   LANG_HOOKS_INIT_TS,          \
   LANG_HOOKS_EXPR_TO_DECL, \
   LANG_HOOKS_EH_PERSONALITY, \

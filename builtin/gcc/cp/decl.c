@@ -3881,6 +3881,18 @@ cxx_builtin_function_ext_scope (tree decl)
 
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
+
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr, "---cxx_builtin_function_ext_scope (%s, decl=%p, %s, "
+	     "fncode=%d [%s])\n",
+	     IDENTIFIER_POINTER (id),
+	     (void *)decl,
+	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
+	     (int)DECL_FUNCTION_CODE (decl),
+	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
+	      : "---"));
+
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
@@ -3891,7 +3903,7 @@ cxx_builtin_function_ext_scope (tree decl)
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl, NULL_TREE, true);
+  return builtin_function_1 (decl, std_node, true);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library

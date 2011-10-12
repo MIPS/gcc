@@ -1,0 +1,8 @@
+2011-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* decl.c (cxx_builtin_function_ext_scope): Hardwire the context to
+	the std_node for lazy builtin support.
+
+2011-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch, subversion id 179820.

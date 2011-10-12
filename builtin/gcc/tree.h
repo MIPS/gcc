@@ -595,6 +595,9 @@ struct GTY(()) tree_common {
        CALL_ALLOCA_FOR_VAR_P in
            CALL_EXPR
 
+       IDENTIFIER_LAZY_BUILTIN in
+	   IDENTIFIER_NODE
+
    side_effects_flag:
 
        TREE_SIDE_EFFECTS in
@@ -3478,6 +3481,10 @@ extern VEC(tree, gc) **decl_debug_args_insert (tree);
 #define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
 
+/* Number of bits used to hold the builtin function index and the class.  */
+#define BUILTIN_FNCODE_BITS 11
+#define BUILTIN_CLASS_BITS 2
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -3499,8 +3506,8 @@ struct GTY(()) tree_function_decl {
      DECL_FUNCTION_CODE.  Otherwise unused.
      ???  The bitfield needs to be able to hold all target function
 	  codes as well.  */
-  ENUM_BITFIELD(built_in_function) function_code : 11;
-  ENUM_BITFIELD(built_in_class) built_in_class : 2;
+  ENUM_BITFIELD(built_in_function) function_code : BUILTIN_FNCODE_BITS;
+  ENUM_BITFIELD(built_in_class) built_in_class : BUILTIN_CLASS_BITS;
 
   unsigned static_ctor_flag : 1;
   unsigned static_dtor_flag : 1;
@@ -5917,16 +5924,24 @@ extern bool block_may_fallthru (const_tree);
 
 /* Functional interface to the builtin functions.  */
 
+/* Mark that an identifier_node is a lazy builtin.  */
+#define IDENTIFIER_LAZY_BUILTIN_P(NODE) \
+  (IDENTIFIER_NODE_CHECK (NODE)->base.protected_flag)
+
 /* The builtin_info structure holds the FUNCTION_DECL of the standard builtin
    function, and a flag that says if the function is available implicitly, or
    whether the user has to code explicit calls to __builtin_<xxx>.  */
 
 typedef struct GTY(()) builtin_info_type_d {
-  tree decl[(int)END_BUILTINS];
-  bool implicit_p[(int)END_BUILTINS];
+  tree decl[(int)END_BUILTINS];		/* function_decl or identifier.  */
+  bool implicit_p[(int)END_BUILTINS];	/* function declared implicitly.  */
+  bool both_p[(int)END_BUILTINS];	/* declare both __builtin_xxx and xxx */
 } builtin_info_type;
 
 extern GTY(()) builtin_info_type builtin_info;
+
+/* Call front end or back end hook to create lazy builtin.  */
+extern tree builtin_lazy_create (tree, bool);
 
 /* Valid builtin number.  */
 #define BUILTIN_VALID_P(FNCODE) \
@@ -5936,9 +5951,15 @@ extern GTY(()) builtin_info_type builtin_info;
 static inline tree
 builtin_decl_explicit (enum built_in_function fncode)
 {
+  tree bfn;
+
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
 
-  return builtin_info.decl[(size_t)fncode];
+  bfn = builtin_info.decl[(size_t)fncode];
+  if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
+    bfn = builtin_lazy_create (bfn, false);
+
+  return bfn;
 }
 
 /* Return the tree node for an implicit builtin function or NULL.  */
@@ -5946,12 +5967,17 @@ static inline tree
 builtin_decl_implicit (enum built_in_function fncode)
 {
   size_t uns_fncode = (size_t)fncode;
-  gcc_checking_assert (BUILTIN_VALID_P (fncode));
+  tree bfn;
 
+  gcc_checking_assert (BUILTIN_VALID_P (fncode));
   if (!builtin_info.implicit_p[uns_fncode])
     return NULL_TREE;
 
-  return builtin_info.decl[uns_fncode];
+  bfn = builtin_info.decl[uns_fncode];
+  if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
+    bfn = builtin_lazy_create (bfn, false);
+
+  return bfn;
 }
 
 /* Set explicit builtin function nodes and whether it is an implicit
@@ -5960,13 +5986,14 @@ builtin_decl_implicit (enum built_in_function fncode)
 static inline void
 set_builtin_decl (enum built_in_function fncode, tree decl, bool implicit_p)
 {
-  size_t ufncode = (size_t)fncode;
+  size_t uns_fncode = (size_t)fncode;
 
   gcc_checking_assert (BUILTIN_VALID_P (fncode)
 		       && (decl != NULL_TREE || !implicit_p));
 
-  builtin_info.decl[ufncode] = decl;
-  builtin_info.implicit_p[ufncode] = implicit_p;
+  builtin_info.decl[uns_fncode] = decl;
+  builtin_info.implicit_p[uns_fncode] = implicit_p;
+  builtin_info.both_p[uns_fncode] = false;
 }
 
 /* Set the implicit flag for a builtin function.  */

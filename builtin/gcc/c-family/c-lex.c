@@ -296,6 +296,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
   const cpp_token *tok;
   enum cpp_ttype type;
   unsigned char add_flags = 0;
+  tree id;
 
   timevar_push (TV_CPP);
  retry:
@@ -309,7 +310,18 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       goto retry;
 
     case CPP_NAME:
-      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+      *value = id = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+
+      /* If the identifier is the name of a lazy builtin function, create the
+	 builtin now.  */
+      if (IDENTIFIER_LAZY_BUILTIN_P (id))
+	{
+	  if (flag_lazy_builtin_debug)
+	    fprintf (stderr, "---c_lex_with_flags (%s)\n",
+		     IDENTIFIER_POINTER (id));
+
+	  (void) builtin_lazy_create (id, true);
+	}
       break;
 
     case CPP_NUMBER:
@@ -365,7 +377,18 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	      break;
 
 	    case CPP_NAME:
-	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+	      *value = id
+		= HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+
+	      if (IDENTIFIER_LAZY_BUILTIN_P (id))
+		{
+		  if (flag_lazy_builtin_debug)
+		    fprintf (stderr, "---c_lex_with_flags (%s)\n",
+			     IDENTIFIER_POINTER (id));
+
+		  (void) builtin_lazy_create (id, true);
+		}
+
 	      if (OBJC_IS_AT_KEYWORD (C_RID_CODE (*value))
 		  || OBJC_IS_CXX_KEYWORD (C_RID_CODE (*value)))
 		{

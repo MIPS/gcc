@@ -524,16 +524,14 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 {
 }
 
-/* Common function for add_builtin_function and
-   add_builtin_function_ext_scope.  */
-static tree
-add_builtin_function_common (const char *name,
+/* Set up a builtin function without adding it to the front end's binding.  */
+tree
+add_builtin_function_nobind (const char *name,
 			     tree type,
 			     int function_code,
 			     enum built_in_class cl,
 			     const char *library_name,
-			     tree attrs,
-			     tree (*hook) (tree))
+			     tree attrs)
 {
   tree   id = get_identifier (name);
   tree decl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL, id, type);
@@ -559,7 +557,7 @@ add_builtin_function_common (const char *name,
   else
     decl_attributes (&decl, NULL_TREE, 0);
 
-  return hook (decl);
+  return decl;
 
 }
 
@@ -573,9 +571,10 @@ add_builtin_function (const char *name,
 		      const char *library_name,
 		      tree attrs)
 {
-  return add_builtin_function_common (name, type, function_code, cl,
-				      library_name, attrs,
-				      lang_hooks.builtin_function);
+  tree decl = add_builtin_function_nobind (name, type, function_code, cl,
+					   library_name, attrs);
+
+  return lang_hooks.builtin_function (decl);
 }
 
 /* Like add_builtin_function, but make sure the scope is the external scope.
@@ -593,9 +592,10 @@ add_builtin_function_ext_scope (const char *name,
 				const char *library_name,
 				tree attrs)
 {
-  return add_builtin_function_common (name, type, function_code, cl,
-				      library_name, attrs,
-				      lang_hooks.builtin_function_ext_scope);
+  tree decl = add_builtin_function_nobind (name, type, function_code, cl,
+					   library_name, attrs);
+
+  return lang_hooks.builtin_function_ext_scope (decl);
 }
 
 tree
@@ -656,4 +656,21 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
+}
+
+/* Call the language hook to create lazy builtin with identifier IDENT, and
+   optionally add it to the front end's symbol table.  Not everything that
+   calls built_in_lazy_create includes langhooks.h, so we need to jump to the
+   hook here.  */
+tree
+builtin_lazy_create (tree ident, bool front_end_p)
+{
+  return lang_hooks.builtin_lazy_create (ident, front_end_p);
+}
+
+tree
+lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED,
+			 bool front_end_p ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
 }
