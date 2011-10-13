@@ -2154,6 +2154,15 @@ lra (FILE *f)
 	  if (! lra_constraints (lra_constraint_iter == 0)
 	      && (lra_constraint_iter > 1 || ! scratch_p))
 	    break;
+	  /* Constraint transformations may result in that eliminable
+	     hard regs become uneliminable and pseudos which use them
+	     should be spilled.  It is better to do it before pseudo
+	     assignments.
+
+	     For example, rs6000 can make
+	     RS6000_PIC_OFFSET_TABLE_REGNUM uneliminable if we started
+	     to use a constant pool.  */
+	  lra_eliminate (false);
 	  lra_inheritance ();
 	  /* We need live ranges for lra_assign -- so build them.  */
 	  lra_create_live_ranges (true);
@@ -2176,6 +2185,8 @@ lra (FILE *f)
       if (! lra_spill ())
 	break;
       coalesce_skip_p = true;
+      /* Assignment of stack slots changes elimination offsets for
+	 some eliminations.  So update the offsets here.  */
       lra_eliminate (false);
       lra_constraint_new_regno_start = max_reg_num ();
       lra_constraint_new_insn_uid_start = get_max_uid ();

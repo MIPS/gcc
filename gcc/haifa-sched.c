@@ -4440,7 +4440,7 @@ sched_init (void)
 		      && common_sched_info->sched_pass_id == SCHED_RGN_PASS);
 
   if (sched_pressure_p)
-    ira_setup_eliminable_regset ();
+    ira_setup_eliminable_regset (false);
 
   /* Initialize SPEC_INFO.  */
   if (targetm.sched.set_sched_flags)

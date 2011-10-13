@@ -1,3 +1,67 @@
+2011-10-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (process_copy_to_form_allocno): Rename to
+	process_copy_to_form_thread.
+	(conflict_reload_pseudos): Rename to
+	conflict_reload_and_inheritance_pseudos.
+	(live_reload_pseudos): Rename to
+	live_reload_and_inheritance_pseudos.
+	(init_live_reload_pseudos): Rename to
+	init_live_reload_and_inheritance_pseudos.
+	(finish_live_reload_and_inheritance_pseudos): Rename to
+	finish_live_reload_pseudos.
+	(find_hard_regno_for): Add new argument try_only_hard_regno.  Use
+	live_pseudos_reg_renumber instead of reg_renumber.  Check
+	live_pseudos_reg_renumber when adding to
+	conflict_reload_and_inheritance_pseudos.  Process
+	preferred_hard_regno2 only if preferred_hard_regno1 is
+	non-negative.
+	(setup_try_hard_regno_pseudos): Use live_pseudos_reg_renumber
+	instead of reg_renumber.
+	(spill_for): Ditto.  Pass new parameter to find_hard_regno_for.
+	(assign_temporarily): Don't change reg_renumber.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Only call
+	update_lives if lra_risky_equiv_subst_p is false.
+	(improve_inheritance): New function.
+	(assign_by_spills): Call improve_inheritance.
+
+	* lra.c (lra): Call lra_eliminate after lra_constraints.
+
+	* lra-constraints.c (contains_pseudo_p): Rename to contains_reg_p.
+	Add a new argument.  Modify it for new semantics.
+	(lra_risky_equiv_subst_p): New global var.
+	(lra_constraints): Set up lra_risky_equiv_subst_p.  Compare
+	get_equiv_substitution with right value.
+
+	* lra-eliminations.c (eliminate_regs_in_insn): Remove a dead
+	code.
+	(spill_pseudos): Clear to_process after its processing.
+	(update_reg_eliminate): Add a new argument.  Set it up.  Modify
+	lra_no_alloc_regs and eliminable_regset.
+	(init_elim_table): Remove the argument.  Permit elimination from a
+	register to itself.
+	(lra_init_elimination): Add a new argument.  Set it up.  Don't set
+	up liveness fo HARD_FRAME_POINTER_REGNUM.
+	(lra_eliminate): Rename to_process to insns_with_changed_offsets.
+	Call update_reg_eliminate with insns_with_changed_offsets.
+	Restructure code.  Add additional assertion on
+	insns_with_changed_offsets.
+
+	* lra.h (lra_init_elimination): New argument.
+
+	* lra-int.h (lra_risky_equiv_subst_p): New flag declaration.
+
+	* ira.c (ira_setup_eliminable_regset): Add a new argument.  Set
+	up liveness fo HARD_FRAME_POINTER_REGNUM if necessary.
+	(ira): Call ira_setup_eliminable_regset with a new parameter.
+
+	* ira.h (ira_setup_eliminable_regset): New argument.
+
+	* loop-invariant.c (calculate_loop_reg_pressure): Call
+	ira_setup_eliminable_regset with a new parameter.
+
+	* haifa-sched.c (sched_init): Ditto.
+
 2011-09-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_get_copy): New prototype.

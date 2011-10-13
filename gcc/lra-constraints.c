@@ -3165,9 +3165,10 @@ in_list_p (rtx x, rtx list)
   return false;
 }
 
-/* Return true if X contains a (spilled if SPILLED_P) pseudo.  */
+/* Return true if X contains an allocatable hard register (if
+   HARD_REG_P) or a (spilled if SPILLED_P) pseudo.  */
 static bool
-contains_pseudo_p (rtx x, bool spilled_p)
+contains_reg_p (rtx x, bool hard_reg_p, bool spilled_p)
 {
   int i, j;
   const char *fmt;
@@ -3176,24 +3177,40 @@ contains_pseudo_p (rtx x, bool spilled_p)
   code = GET_CODE (x);
   if (REG_P (x))
     {
-      if (REGNO (x) < FIRST_PSEUDO_REGISTER)
-	return false;
-      if (! spilled_p)
-	return true;
-      return lra_get_regno_hard_regno (REGNO (x)) < 0;
+      int regno = REGNO (x);
+      HARD_REG_SET alloc_regs;
+
+      if (hard_reg_p)
+	{
+	  if (regno >= FIRST_PSEUDO_REGISTER)
+	    regno = lra_get_regno_hard_regno (regno);
+	  if (regno < 0)
+	    return false;
+	  COMPL_HARD_REG_SET (alloc_regs, lra_no_alloc_regs);
+	  return lra_hard_reg_set_intersection_p (regno, GET_MODE (x),
+						  alloc_regs);
+	}
+      else
+	{
+	  if (regno < FIRST_PSEUDO_REGISTER)
+	    return false;
+	  if (! spilled_p)
+	    return true;
+	  return lra_get_regno_hard_regno (regno) < 0;
+	}
     }
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
 	{
-	  if (contains_pseudo_p (XEXP (x, i), spilled_p))
+	  if (contains_reg_p (XEXP (x, i), hard_reg_p, spilled_p))
 	    return true;
 	}
       else if (fmt[i] == 'E')
 	{
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (contains_pseudo_p (XVECEXP (x, i, j), spilled_p))
+	    if (contains_reg_p (XVECEXP (x, i, j), hard_reg_p, spilled_p))
 	      return true;
 	}
     }
@@ -3255,6 +3272,11 @@ debug_loc_equivalence_change_p (rtx *loc)
 /* The current iteration number of this LRA pass.  */
 int lra_constraint_iter;
 
+/* True if we substituted equiv which needs checking register
+   allocation correctness because the equivalent value contains
+   allocatiable hard registers.  */
+bool lra_risky_equiv_subst_p;
+
 /* Entry function of LRA constraint pass.  Return true if the
    constraint pass did change the code.  */
 bool
@@ -3275,6 +3297,7 @@ lra_constraints (bool first_p)
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
        MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
+  lra_risky_equiv_subst_p = false;
   new_insn_uid_start = get_max_uid ();
   new_regno_start = first_p ? lra_constraint_new_regno_start : max_reg_num ();
   for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
@@ -3291,7 +3314,7 @@ lra_constraints (bool first_p)
 	  }
 	else if ((x = get_equiv_substitution (regno_reg_rtx[i])) != NULL_RTX)
 	  {
-	    if (! first_p && contains_pseudo_p (x, false))
+	    if (! first_p && contains_reg_p (x, false, false))
 	      /* After RTL transformation, we can not guarantee that
 		 pseudo in the susbtitution was not reloaded which
 		 might make equivalence invalid.  For example, in
@@ -3304,7 +3327,7 @@ lra_constraints (bool first_p)
 		 the memory address register was reloaded before the
 		 2nd insn.  */
 	      ira_reg_equiv[i].defined_p = false;
-	    if (contains_pseudo_p (x, true))
+	    if (contains_reg_p (x, false, true))
 	      ira_reg_equiv[i].profitable_p = false;
 	  }
       }
@@ -3371,7 +3394,7 @@ lra_constraints (bool first_p)
 		       || in_list_p (curr_insn,
 				     ira_reg_equiv
 				     [REGNO (dest_reg)].init_insns)))
-		  || (SET_SRC (set) != get_equiv_substitution (SET_SRC (set))
+		  || ((x = get_equiv_substitution (SET_SRC (set))) != SET_SRC (set)
 		      && in_list_p (curr_insn,
 				    ira_reg_equiv
 				    [REGNO (SET_SRC (set))].init_insns)))
@@ -3386,6 +3409,8 @@ lra_constraints (bool first_p)
 			       BLOCK_FOR_INSN (curr_insn)->frequency);
 		      print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
 		    }
+		  if (contains_reg_p (x, true, false))
+		    lra_risky_equiv_subst_p = true;
 		  lra_set_insn_deleted (curr_insn);
 		  continue;
 		}

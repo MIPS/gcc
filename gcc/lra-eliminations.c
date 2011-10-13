@@ -763,9 +763,7 @@ static void
 eliminate_regs_in_insn (rtx insn, bool replace_p)
 {
   int icode = recog_memoized (insn);
-  rtx old_body = PATTERN (insn);
   rtx old_set = single_set (insn);
-  rtx new_body;
   bool val;
   int i, regno;
   rtx substed_operand[MAX_RECOG_OPERANDS];
@@ -775,7 +773,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
   lra_insn_recog_data_t id;
   struct lra_static_insn_data *static_id;
 
-  if (icode < 0 && asm_noperands (old_body) < 0 && ! DEBUG_INSN_P (insn))
+  if (icode < 0 && asm_noperands (PATTERN (insn)) < 0 && ! DEBUG_INSN_P (insn))
     {
       gcc_assert (GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
@@ -834,14 +832,6 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 			    : offset);
 		  src = plus_constant (ep->to_rtx, offset);
 		  
-		  new_body = old_body;
-		  if (0 && ! replace_p)
-		    {
-		      new_body = copy_insn (old_body);
-		      if (REG_NOTES (insn))
-			REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
-		    }
-		  PATTERN (insn) = new_body;
 		  old_set = single_set (insn);
 		  
 		  /* First see if this insn remains valid when we make
@@ -930,14 +920,6 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 	    {
 	      rtx new_src = plus_constant (to_rtx, offset);
 	      
-	      new_body = old_body;
-	      if (0 && ! replace_p)
-		{
-		  new_body = copy_insn (old_body);
-		  if (REG_NOTES (insn))
-		    REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
-		}
-	      PATTERN (insn) = new_body;
 	      old_set = single_set (insn);
 
 	      /* First see if this insn remains valid when we make the
@@ -1017,26 +999,11 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 
   if (val)
     {
-      /* If we aren't replacing things permanently and we changed something,
-	 make another copy to ensure that all the RTL is new.  Otherwise
-	 things can go wrong if curr_insn_transform swaps commutative operands
-	 and one is inside RTL that has been copied while the other is not.  */
-      new_body = old_body;
-      if (0 && ! replace_p)
-	{
-	  new_body = copy_insn (old_body);
-	  if (REG_NOTES (insn))
-	    REG_NOTES (insn) = copy_insn_1 (REG_NOTES (insn));
-	}
-      PATTERN (insn) = new_body;
-
-      val = false;
-
-      /* If we had a move insn but now we don't, re-recognize it.  This will
-	 cause spurious re-recognition if the old move had a PARALLEL since
-	 the new one still will, but we can't call single_set without
-	 having put NEW_BODY into the insn and the re-recognition won't
-	 hurt in this rare case.  */
+      /* If we had a move insn but now we don't, re-recognize it.
+	 This will cause spurious re-recognition if the old move had a
+	 PARALLEL since the new one still will, but we can't call
+	 single_set without having put new body into the insn and the
+	 re-recognition won't hurt in this rare case.  */
       id = lra_update_insn_recog_data (insn);
       static_id = id->insn_static_data;
     }
@@ -1075,25 +1042,24 @@ spill_pseudos (HARD_REG_SET set)
 	bitmap_ior_into (&to_process, &lra_reg_info[i].insn_bitmap);
       }
   IOR_HARD_REG_SET (lra_no_alloc_regs, set);
-  bitmap_clear (&to_process);
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
     if (bitmap_bit_p (&to_process, INSN_UID (insn)))
       {
 	lra_push_insn (insn);
 	lra_set_used_insn_alternative (insn, -1);
       }
+  bitmap_clear (&to_process);
 }
 
 /* Update all offsets and possibility for elimination on eliminable
-   registers.  See if anything that happened changes which
-   eliminations are valid.  If there are no any changes return false.
-   Otherwise, spill pseudos assigned to not eliminable pseudos,
-   restore offsets, and return true.  */
-static bool
-update_reg_eliminate (void)
+   registers.  Spill pseudos assigned to registers which became
+   uneliminable, update LRA_NO_ALLOC_REGS and ELIMINABLE_REG_SET.  Add
+   insns to INSNS_WITH_CHANGED_OFFSETS containing eliminable hard
+   registers whose offsets should be changed.  */
+static void
+update_reg_eliminate (bitmap insns_with_changed_offsets)
 {
   bool prev;
-  bool change_p = false;
   struct elim_table *ep, *ep1;
   HARD_REG_SET temp_hard_reg_set;
 
@@ -1127,7 +1093,6 @@ update_reg_eliminate (void)
 	    fprintf (lra_dump_file,
 		     "  Elimination %d to %d is not possible anymore\n",
 		     ep->from, ep->to);
-	  change_p = true;
 	  /* Mark that is not eliminable anymore.  */
 	  elimination_map[ep->from] = NULL;
 	  for (ep1 = ep + 1; ep1 < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep1++)
@@ -1151,6 +1116,9 @@ update_reg_eliminate (void)
 			 ep->from);
 	      self_elim_offsets[ep->from] = -ep->offset;
 	      SET_HARD_REG_BIT (temp_hard_reg_set, ep->from);
+	      if (ep->offset != 0)
+		bitmap_ior_into (insns_with_changed_offsets,
+				 &lra_reg_info[ep->from].insn_bitmap);
 	    }
 	}
 
@@ -1159,15 +1127,15 @@ update_reg_eliminate (void)
 #else
       INITIAL_FRAME_POINTER_OFFSET (ep->offset);
 #endif
-      if (elimination_map[ep->from] == ep
-	  && ep->previous_offset != ep->offset)
-	change_p = true;
     }
-  if (! change_p)
-    return false;
+  IOR_HARD_REG_SET (lra_no_alloc_regs, temp_hard_reg_set);
+  AND_COMPL_HARD_REG_SET (eliminable_regset, temp_hard_reg_set);
   spill_pseudos (temp_hard_reg_set);
   setup_elimination_map ();
-  return true;
+  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+    if (elimination_map[ep->from] == ep && ep->previous_offset != ep->offset)
+      bitmap_ior_into (insns_with_changed_offsets,
+		       &lra_reg_info[ep->from].insn_bitmap);
 }
 
 /* Initialize the table of registers to eliminate.  Pre-condition:
@@ -1176,7 +1144,7 @@ update_reg_eliminate (void)
    used for allocation because their identical elimination is not
    possible.  */
 static void
-init_elim_table (HARD_REG_SET *dont_use_regs)
+init_elim_table (void)
 {
   bool value_p;
   struct elim_table *ep;
@@ -1184,7 +1152,6 @@ init_elim_table (HARD_REG_SET *dont_use_regs)
   const struct elim_table_1 *ep1;
 #endif
 
-  CLEAR_HARD_REG_SET (*dont_use_regs);
   if (!reg_eliminate)
     reg_eliminate = XCNEWVEC (struct elim_table, NUM_ELIMINABLE_REGS);
 
@@ -1204,13 +1171,6 @@ init_elim_table (HARD_REG_SET *dont_use_regs)
 		       && frame_pointer_needed 
 		       && (! SUPPORTS_STACK_ALIGNMENT
 			   || ! stack_realign_fp)));
-      if (value_p && ep->from == ep->to)
-	{
-	  /* We do not support tricks to use elimination to find is
-	     the hard register needed.  */
-	  value_p = false;
-	  SET_HARD_REG_BIT (*dont_use_regs, ep->from);
-	}
       setup_can_eliminate (ep, value_p);
     }
 #else
@@ -1232,22 +1192,19 @@ init_elim_table (HARD_REG_SET *dont_use_regs)
     }
 }
 
-/* Entry function for initializeation of elimination once per
-   function.  Set up hard registers which can not be used in
-   allocation in *DONT_USE_REGS.  */
+/* Entry function for initialization of elimination once per
+   function.  */
 void
-lra_init_elimination (HARD_REG_SET *dont_use_regs)
+lra_init_elimination (void)
 {
   basic_block bb;
   rtx insn;
 
-  init_elim_table (dont_use_regs);
+  init_elim_table ();
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
     if (NONDEBUG_INSN_P (insn))
       mark_not_eliminable (PATTERN (insn));
-  if (frame_pointer_needed)
-    df_set_regs_ever_live (HARD_FRAME_POINTER_REGNUM, true);
   setup_elimination_map ();
 }
 
@@ -1299,17 +1256,35 @@ lra_eliminate (bool final_p)
   int i;
   basic_block bb;
   rtx insn, temp, mem_loc, invariant;
-  bitmap_head to_process;
+  bitmap_head insns_with_changed_offsets;
   struct elim_table *ep;
   int regs_num = max_reg_num ();
 #ifdef SECONDARY_MEMORY_NEEDED
   int mode;
 #endif
 
+  bitmap_initialize (&insns_with_changed_offsets, &reg_obstack);
   if (final_p)
-    gcc_assert (! update_reg_eliminate ());
-  else if (! update_reg_eliminate ())
-    return;
+    {
+#ifdef ENABLE_CHECKING
+      update_reg_eliminate (&insns_with_changed_offsets);
+      if (! bitmap_empty_p (&insns_with_changed_offsets))
+	gcc_unreachable ();
+#endif
+      /* We change eliminable hard registers in insns so we should do
+	 this for all insns containing any eliminable hard
+	 register.  */
+      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
+	if (elimination_map[ep->from] != NULL)
+	  bitmap_ior_into (&insns_with_changed_offsets,
+			   &lra_reg_info[ep->from].insn_bitmap);
+    }
+  else
+    {
+      update_reg_eliminate (&insns_with_changed_offsets);
+      if (bitmap_empty_p (&insns_with_changed_offsets))
+	return;
+    }
   if (lra_dump_file != NULL)
     {
       fprintf (lra_dump_file, "New elimination table:\n");
@@ -1339,15 +1314,11 @@ lra_eliminate (bool final_p)
 	= lra_eliminate_regs_1 (lra_secondary_memory[mode],
 				VOIDmode, final_p, ! final_p, false);
 #endif
-  bitmap_initialize (&to_process, &reg_obstack);
-  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
-    if (elimination_map[ep->from] != NULL)
-      bitmap_ior_into (&to_process, &lra_reg_info[ep->from].insn_bitmap);
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, temp)
       {
-	if (bitmap_bit_p (&to_process, INSN_UID (insn)))
+	if (bitmap_bit_p (&insns_with_changed_offsets, INSN_UID (insn)))
 	  process_insn_for_elimination (insn, final_p);
       }
-  bitmap_clear (&to_process);
+  bitmap_clear (&insns_with_changed_offsets);
 }
