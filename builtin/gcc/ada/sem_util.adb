@@ -333,6 +333,19 @@ package body Sem_Util is
       end if;
    end Apply_Compile_Time_Constraint_Error;
 
+   --------------------------------------
+   -- Available_Full_View_Of_Component --
+   --------------------------------------
+
+   function Available_Full_View_Of_Component (T : Entity_Id) return Boolean is
+      ST  : constant Entity_Id := Scope (T);
+      SCT : constant Entity_Id := Scope (Component_Type (T));
+   begin
+      return In_Open_Scopes (ST)
+        and then In_Open_Scopes (SCT)
+        and then Scope_Depth (ST) >= Scope_Depth (SCT);
+   end Available_Full_View_Of_Component;
+
    --------------------------------
    -- Bad_Predicated_Subtype_Use --
    --------------------------------
@@ -2739,7 +2752,7 @@ package body Sem_Util is
          end if;
 
       elsif Is_Entity_Name (A2) then
-         return Denotes_Same_Prefix (A2, A1);
+         return Denotes_Same_Prefix (A1 => A2, A2 => A1);
 
       elsif Nkind_In (A1, N_Selected_Component, N_Indexed_Component, N_Slice)
               and then
@@ -7345,6 +7358,34 @@ package body Sem_Util is
       end if;
    end Is_Fully_Initialized_Variant;
 
+   ----------------------------
+   -- Is_Inherited_Operation --
+   ----------------------------
+
+   function Is_Inherited_Operation (E : Entity_Id) return Boolean is
+      pragma Assert (Is_Overloadable (E));
+      Kind : constant Node_Kind := Nkind (Parent (E));
+   begin
+      return Kind = N_Full_Type_Declaration
+        or else Kind = N_Private_Extension_Declaration
+        or else Kind = N_Subtype_Declaration
+        or else (Ekind (E) = E_Enumeration_Literal
+                  and then Is_Derived_Type (Etype (E)));
+   end Is_Inherited_Operation;
+
+   -------------------------------------
+   -- Is_Inherited_Operation_For_Type --
+   -------------------------------------
+
+   function Is_Inherited_Operation_For_Type
+     (E   : Entity_Id;
+      Typ : Entity_Id) return Boolean
+   is
+   begin
+      return Is_Inherited_Operation (E)
+        and then Etype (Parent (E)) = Typ;
+   end Is_Inherited_Operation_For_Type;
+
    -----------------
    -- Is_Iterator --
    -----------------
@@ -7415,33 +7456,6 @@ package body Sem_Util is
       end if;
    end Is_LHS;
 
-   ----------------------------
-   -- Is_Inherited_Operation --
-   ----------------------------
-
-   function Is_Inherited_Operation (E : Entity_Id) return Boolean is
-      Kind : constant Node_Kind := Nkind (Parent (E));
-   begin
-      pragma Assert (Is_Overloadable (E));
-      return Kind = N_Full_Type_Declaration
-        or else Kind = N_Private_Extension_Declaration
-        or else Kind = N_Subtype_Declaration
-        or else (Ekind (E) = E_Enumeration_Literal
-                  and then Is_Derived_Type (Etype (E)));
-   end Is_Inherited_Operation;
-
-   -------------------------------------
-   -- Is_Inherited_Operation_For_Type --
-   -------------------------------------
-
-   function Is_Inherited_Operation_For_Type
-     (E : Entity_Id; Typ : Entity_Id) return Boolean
-   is
-   begin
-      return Is_Inherited_Operation (E)
-        and then Etype (Parent (E)) = Typ;
-   end Is_Inherited_Operation_For_Type;
-
    -----------------------------
    -- Is_Library_Level_Entity --
    -----------------------------
@@ -7461,6 +7475,17 @@ package body Sem_Util is
 
       return Enclosing_Dynamic_Scope (E) = Standard_Standard;
    end Is_Library_Level_Entity;
+
+   --------------------------------
+   -- Is_Limited_Class_Wide_Type --
+   --------------------------------
+
+   function Is_Limited_Class_Wide_Type (Typ : Entity_Id) return Boolean is
+   begin
+      return
+        Is_Class_Wide_Type (Typ)
+          and then Is_Limited_Type (Typ);
+   end Is_Limited_Class_Wide_Type;
 
    ---------------------------------
    -- Is_Local_Variable_Reference --

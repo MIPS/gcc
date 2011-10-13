@@ -3434,8 +3434,8 @@ package body Sem_Ch4 is
       --  of the high bound.
 
       procedure Check_Universal_Expression (N : Node_Id);
-      --  In Ada 83, reject bounds of a universal range that are not
-      --  literals or entity names.
+      --  In Ada83, reject bounds of a universal range that are not literals or
+      --  entity names.
 
       -----------------------
       -- Check_Common_Type --
@@ -5548,9 +5548,15 @@ package body Sem_Ch4 is
          end if;
 
          if T1 /= Standard_Void_Type
-           and then not Is_Limited_Type (T1)
-           and then not Is_Limited_Composite (T1)
            and then Has_Compatible_Type (R, T1)
+           and then
+             ((not Is_Limited_Type (T1)
+                and then not Is_Limited_Composite (T1))
+
+               or else
+                 (Is_Array_Type (T1)
+                   and then not Is_Limited_Type (Component_Type (T1))
+                   and then Available_Full_View_Of_Component (T1)))
          then
             if Found
               and then Base_Type (T1) /= Base_Type (T_F)

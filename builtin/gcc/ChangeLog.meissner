@@ -1,3 +1,8 @@
+2011-10-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 179931.
+	* REVISION: Update subversion id.
+
 2011-10-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (BUILTIN_FNCODE_BITS):  Add support for lazy builtin

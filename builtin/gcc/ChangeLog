@@ -1,3 +1,210 @@
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_set<mode>): Change V_128 iterator mode
+	to V.
+
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (maybe_optimize_var): Drop TREE_ADDRESSABLE
+	from vector or complex vars even if their DECL_UID is in not_reg_needs
+	bitmap.
+
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (reduc_umin_v8hi): New pattern.
+	* config/i386/i386.c (ix86_build_const_vector): Handle
+	also V32QI, V16QI, V16HI and V8HI modes.
+	(emit_reduc_half): New function.
+	(ix86_expand_reduc): Use phminposuw insn for V8HImode UMIN.
+	Use emit_reduc_half helper function.
+
+2011-10-13   Lawrence Crowl  <crowl@google.com>
+	     Diego Novillo  <dnovillo@google.com>
+
+	* lto-streamer-in.c (input_struct_function_base): Factor out of ...
+	(input_function): ... here.
+	* lto-streamer-out.c (output_struct_function_base): Factor out of ...
+	(output_function): ... here.
+
+2011-10-13  Gabriel Charette  <gchare@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* streamer-hooks.h (struct streamer_hooks): Add hooks
+	input_location and output_location.
+	* lto-streamer-in.c (lto_input_location): Use
+	streamer_hooks.input_location, if set.
+	* lto-streamer-out.c (lto_output_location): Use
+	streamer_hooks.output_location, if set.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50712
+	* ipa-split.c (split_function): Always re-gimplify parameters
+	when they are not gimple vals before passing them.  Properly
+	check for type compatibility.
+
+2011-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* function.c (gimplify_parameters): Set number of arguments of call to
+	BUILT_IN_ALLOCA_WITH_ALIGN to 2.
+
+2011-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Set MEM_READONLY_P
+	for static const strings.
+	* varasm.c (build_constant_desc): Generate the memory location of the
+	constant using gen_const_mem.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50698
+	* tree-data-ref.c (split_constant_offset_1): Also process
+	offsets of &MEM.
+
+2011-10-12  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.h: Do not force TARGET_VIS3 and TARGET_FMAF
+	to zero when assembler lacks support for such instructions.
+	* config/sparc/sparc.c (sparc_option_override): Clear MASK_VIS3
+	and MASK_FMAF in defaults when assembler lacks necessary support.
+
+2011-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_unpacks_lo_<mode>,
+	vec_unpacks_hi_<mode>, vec_unpacku_lo_<mode>,
+	vec_unpacku_hi_<mode>): Change VI124_128 mode to
+	VI124_AVX2.
+	* config/i386/i386.c (ix86_expand_sse_unpack): Handle
+	V32QImode, V16HImode and V8SImode for TARGET_AVX2.
+
+	* config/i386/sse.md (vec_avx2): New mode_attr.
+	(mulv16qi3): Macroize to cover also mulv32qi3 for
+	TARGET_AVX2 into ...
+	(mul<mode>3): ... this.
+
+	* config/i386/i386.md (UNSPEC_VPERMDI): Remove.
+	* config/i386/i386.c (ix86_expand_vec_perm): Handle
+	V16QImode and V32QImode for TARGET_AVX2.
+	(MAX_VECT_LEN): Increase to 32.
+	(expand_vec_perm_blend): Add support for 32-byte integer
+	vectors with TARGET_AVX2.
+	(valid_perm_using_mode_p): New function.
+	(expand_vec_perm_pshufb): Add support for 32-byte integer
+	vectors with TARGET_AVX2.
+	(expand_vec_perm_vpshufb2_vpermq): New function.
+	(expand_vec_perm_vpshufb2_vpermq_even_odd): New function.
+	(expand_vec_perm_even_odd_1): Handle 32-byte integer vectors
+	with TARGET_AVX2.
+	(ix86_expand_vec_perm_builtin_1): Try expand_vec_perm_vpshufb2_vpermq
+	and expand_vec_perm_vpshufb2_vpermq_even_odd.
+	* config/i386/sse.md (VEC_EXTRACT_EVENODD_MODE): Add for TARGET_AVX2
+	32-byte integer vector modes.
+	(vec_pack_trunc_<mode>): Use VI248_AVX2 instead of VI248_128.
+	(avx2_interleave_highv32qi, avx2_interleave_lowv32qi): Remove pasto.
+	(avx2_pshufdv3, avx2_pshuflwv3, avx2_pshufhwv3): Generate
+	4 new operands.
+	(avx2_pshufd_1, avx2_pshuflw_1, avx2_pshufhw_1): Don't use
+	match_dup, instead add 4 new operands and require they have
+	right cross-lane values.
+	(avx2_permv4di): Change into define_expand.
+	(avx2_permv4di_1): New instruction.
+	(avx2_permv2ti): Use nonimmediate_operand instead of register_operand
+	for "xm" constrained operand.
+	(VEC_PERM_AVX2): Add V32QI and V16QI for TARGET_AVX2.
+
+	* config/i386/sse.md (avx2_gathersi<mode>,
+	avx2_gatherdi<mode>, avx2_gatherdi<mode>256): Add clobber of
+	match_scratch, change memory_operand to register_operand,
+	add (mem:BLK (scratch)) use.
+	(*avx2_gathersi<mode>, *avx2_gatherdi<mode>,
+	*avx2_gatherdi<mode>256): Add clobber of match_scratch,
+	add earlyclobber to the output operand and match_scratch,
+	add (mem:BLK (scratch)) use, change the other mem to match_operand.
+	Use %p6 instead of %c6 in the pattern.
+	* config/i386/i386.c (ix86_expand_builtin): Adjust for
+	operand 2 being a Pmode register_operand instead of memory_operand.
+
+2011-10-12  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/i386.md (simple_return): Disable
+	if TARGET_SEH is active.
+
+2011-10-12  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_init_builtins): Fix unbalanced parentheses.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (maybe_skip_until): Cache also at the point
+	of the first store we visit in a basic-block.
+	(get_continuation_for_phi): Search for a candidate VUSE that
+	might dominates all others.  Do pairwise disambiguation against
+	that candidate.
+
+2011-10-12  Paul Koning  <pkoning@gcc.gnu.org>
+
+	PR tree-optimization/50189
+	* tree-vrp.c (extract_range_from_assert): Use the type of
+	the variable, not the limit.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50700
+	* tree-object-size.c (addr_object_size): Simplify and treat
+	MEM_REF bases consistently.
+
+2011-10-12  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* function.c (prepare_shrink_wrap, bb_active_p): New function.
+	(thread_prologue_and_epilogue_insns): Use bb_active_p.
+	Call prepare_shrink_wrap, then recompute bb_active_p for the
+	last block.
+
+2011-10-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/50565
+	* convert.c (convert_to_integer): Do not narrow operands of
+	pointer subtraction.
+
+2011-10-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.h (EMIT_EABI_ATTRIBUTE): New macro.  Used to
+	emit a .eabi_attribute assembler directive, possibly with a
+	comment attached.
+	* config/arm/arm.c (arm_file_start): Use the new macro.
+	* config/arm/arm-c.c (arm_output_c_attributes): Likewise.
+
+2011-10-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/49939
+	* config/avr/avr.md (*movqi): Rename to movqi_insn.
+	(*call_insn): Rename to call_insn.
+	(*call_value_insn): Rename to call_value_insn.
+	* config/avr/avr.c (avr_2word_insn_p): New static function.
+	(jump_over_one_insn_p): Use it.
+
+2011-10-12  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* expr.h (copy_blkmode_to_reg): Declare.
+	* expr.c (copy_blkmode_to_reg): New function.
+	(expand_assignment): Don't expand register RESULT_DECLs before
+	the lhs.  Use copy_blkmode_to_reg to copy BLKmode values into a
+	RESULT_DECL register.
+	(expand_expr_real_1): Handle BLKmode decls when looking for promotion.
+	* stmt.c (expand_return): Move BLKmode-to-register code into
+	copy_blkmode_to_reg.
+
+2011-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/49965
+	* config/sparc/sparc.md (mov<I:mode>cc): Do not save comparison code.
+	(mov<F:mode>cc): Likewise.
+
+2011-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* tree-ssa-address.c (copy_ref_info): Remove copy of TREE_THIS_NOTRAP.
+
 2011-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* tree.h (built_in_decls): Delete old interface with two parallel
@@ -484,16 +691,33 @@
 
 	PR middle-end/50527
 	* tree.c (build_common_builtin_nodes): Add local_define_builtin for
+	BUILT_IN_ALLOCA_WITH_ALIGN.  Mark that BUILT_IN_ALLOCA_WITH_ALIGN can
+	throw.
 	* builtins.c (expand_builtin_alloca): Handle BUILT_IN_ALLOCA_WITH_ALIGN
+	arglist.  Set align for	BUILT_IN_ALLOCA_WITH_ALIGN.
+	(expand_builtin): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
+	(is_inexpensive_builtin): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-ssa-ccp.c (evaluate_stmt): Set align for
+	BUILT_IN_ALLOCA_WITH_ALIGN.
+	(fold_builtin_alloca_for_var): Rename to ...
+	(fold_builtin_alloca_with_align): Set DECL_ALIGN from 2nd
+	BUILT_IN_ALLOCA_WITH_ALIGN argument.
+	(ccp_fold_stmt): Try folding BUILT_IN_ALLOCA_WITH_ALIGN using
+	fold_builtin_alloca_with_align.
+	(optimize_stack_restore): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* builtins.def (BUILT_IN_ALLOCA_WITH_ALIGN): Declare using
+	DEF_BUILTIN_STUB.
 	* ipa-pure-const.c (special_builtin_state): Handle
+	BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1)
+	(call_may_clobber_ref_p_1): Same.
 	* function.c (gimplify_parameters): Lower vla to
+	BUILT_IN_ALLOCA_WITH_ALIGN.
 	* gimplify.c (gimplify_vla_decl): Same.
 	* cfgexpand.c (expand_call_stmt): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-mudflap.c (mf_xform_statements): Same.
 	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary)
+	(mark_all_reaching_defs_necessary_1, propagate_necessity): Same.
 	* varasm.c (incorporeal_function_p): Same.
 	* tree-object-size.c (alloc_object_size): Same.
 	* gimple.c (gimple_build_call_from_tree): Same.

@@ -1,3 +1,125 @@
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/sse4_1-phminposuw-2.c: New test.
+	* gcc.target/i386/sse4_1-phminposuw-3.c: New test.
+	* gcc.target/i386/avx-vphminposuw-2.c: New test.
+	* gcc.target/i386/avx-vphminposuw-3.c: New test.
+
+2011-10-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr50712.c: Check ia32 instead of ilp32.
+
+2011-10-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/builtins-67.c: Guard iround and irint with HAVE_C99_RUNTIME.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50712
+	* gcc.target/i386/pr50712.c: New testcase.
+
+2011-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/memcpy-4.c: New test.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50698
+	* g++.dg/vect/pr50698.cc: New testcase.
+
+2011-10-12  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/powerpc/warn-1.c: Skip if not powerpc_vsx_ok.
+	* gcc.target/powerpc/warn-2.c: Ditto.
+
+	* gcc.target/powerpc/ppc-fma-3.c: Require powerpc_fprs.
+	* gcc.target/powerpc/ppc-fma-4.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-5.c: Likewise.
+	* gcc.target/powerpc/ppc-fma-7.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-11.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-3.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-7.c: Likewise.
+	* gcc.target/powerpc/ppc-fpconv-8.c: Likewise.
+	* gcc.target/powerpc/ppc-pow.c: Likewise.
+	* gcc.target/powerpc/recip-1.c: Likewise.
+	* gcc.target/powerpc/recip-2.c: Likewise.
+	* gcc.target/powerpc/recip-3.c: Likewise.
+	* gcc.target/powerpc/recip-4.c: Likewise.
+	* gcc.target/powerpc/recip-5.c: Likewise.
+
+2011-10-12  David S. Miller  <davem@davemloft.net>
+
+	* gcc.target/sparc/cmask.c: Remove 'vis3' target check and specify
+	'-mvis3' instead of 'mcpu=niagara3' in options.
+	* gcc.target/sparc/fhalve.c: Likewise.
+	* gcc.target/sparc/fnegop.c: Likewise.
+	* gcc.target/sparc/fpadds.c: Likewise.
+	* gcc.target/sparc/fshift.c: Likewise.
+	* gcc.target/sparc/fucmp.c: Likewise.
+	* gcc.target/sparc/lzd.c: Likewise.
+	* gcc.target/sparc/vis3misc.c: Likewise.
+	* gcc.target/sparc/xmul.c: Likewise.
+
+2011-10-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/vect1.ad[sb]: New test.
+	* gnat.dg/vect1_pkg.ads: New helper.
+	* gnat.dg/vect2.ad[sb]: New test.
+	* gnat.dg/vect2_pkg.ads: New helper.
+	* gnat.dg/vect3.ad[sb]: New test.
+	* gnat.dg/vect3_pkg.ads: New helper.
+	* gnat.dg/vect4.ad[sb]: New test.
+	* gnat.dg/vect4_pkg.ads: New helper.
+	* gnat.dg/vect5.ad[sb]: New test.
+	* gnat.dg/vect5_pkg.ads: New helper.
+	* gnat.dg/vect6.ad[sb]: New test.
+	* gnat.dg/vect6_pkg.ads: New helper.
+
+2011-10-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/fma_run_double_1.c: Add -mfpmath=sse.
+	* gcc.target/i386/fma_run_double_2.c: Likewise.
+	* gcc.target/i386/fma_run_double_3.c: Likewise.
+	* gcc.target/i386/fma_run_double_4.c: Likewise.
+	* gcc.target/i386/fma_run_double_5.c: Likewise.
+	* gcc.target/i386/fma_run_double_6.c: Likewise.
+	* gcc.target/i386/fma_run_float_1.c: Likewise.
+	* gcc.target/i386/fma_run_float_2.c: Likewise.
+	* gcc.target/i386/fma_run_float_3.c: Likewise.
+	* gcc.target/i386/fma_run_float_4.c: Likewise.
+	* gcc.target/i386/fma_run_float_5.c: Likewise.
+	* gcc.target/i386/fma_run_float_6.c: Likewise.
+
+	* gcc.target/i386/l_fma_double_1.c: Add -mtune=generic and
+	remove the extra dg-options.
+	* gcc.target/i386/l_fma_double_2.c: Likewise.
+	* gcc.target/i386/l_fma_double_3.c: Likewise.
+	* gcc.target/i386/l_fma_double_4.c: Likewise.
+	* gcc.target/i386/l_fma_double_5.c: Likewise.
+	* gcc.target/i386/l_fma_double_6.c: Likewise.
+	* gcc.target/i386/l_fma_float_1.c: Likewise.
+	* gcc.target/i386/l_fma_float_2.c: Likewise.
+	* gcc.target/i386/l_fma_float_3.c: Likewise.
+	* gcc.target/i386/l_fma_float_4.c: Likewise.
+	* gcc.target/i386/l_fma_float_5.c: Likewise.
+	* gcc.target/i386/l_fma_float_6.c: Likewise.
+
+2011-10-12  Paul Koning  <pkoning@gcc.gnu.org>
+
+	PR tree-optimization/50189
+	* g++.dg/torture/pr50189.C: New testcase.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50700
+	* gcc.dg/builtin-object-size-12.c: New testcase.
+
+2011-10-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/50565
+	* gcc.c-torture/compile/pr50565-1.c,
+	gcc.c-torture/compile/pr50565-2.c: New tests.
+
 2011-10-11  Jason Merrill  <jason@redhat.com>
 
 	PR c++/49855
