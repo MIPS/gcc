@@ -525,13 +525,14 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 }
 
 /* Set up a builtin function without adding it to the front end's binding.  */
-tree
-add_builtin_function_nobind (const char *name,
+static tree
+add_builtin_function_common (const char *name,
 			     tree type,
 			     int function_code,
 			     enum built_in_class cl,
 			     const char *library_name,
-			     tree attrs)
+			     tree attrs,
+			     tree (*hook) (tree))
 {
   tree   id = get_identifier (name);
   tree decl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL, id, type);
@@ -557,7 +558,7 @@ add_builtin_function_nobind (const char *name,
   else
     decl_attributes (&decl, NULL_TREE, 0);
 
-  return decl;
+  return hook (decl);
 
 }
 
@@ -571,18 +572,15 @@ add_builtin_function (const char *name,
 		      const char *library_name,
 		      tree attrs)
 {
-  tree decl = add_builtin_function_nobind (name, type, function_code, cl,
-					   library_name, attrs);
-
-  return lang_hooks.builtin_function (decl);
+  return add_builtin_function_common (name, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function);
 }
 
 /* Like add_builtin_function, but make sure the scope is the external scope.
-   This is used to delay putting in back end builtin functions until the ISA
-   that defines the builtin is declared via function specific target options,
-   which can save memory for machines like the x86_64 that have multiple ISAs.
-   If this points to the same function as builtin_function, the backend must
-   add all of the builtins at program initialization time.  */
+   This is used for lazy builtin functions that are created when the identifier
+   is frist used.  Some front ends might use the same target hook for this and
+   builtin_function.  */
 
 tree
 add_builtin_function_ext_scope (const char *name,
@@ -592,10 +590,29 @@ add_builtin_function_ext_scope (const char *name,
 				const char *library_name,
 				tree attrs)
 {
-  tree decl = add_builtin_function_nobind (name, type, function_code, cl,
-					   library_name, attrs);
+  return add_builtin_function_common (name, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function_ext_scope);
+}
 
-  return lang_hooks.builtin_function_ext_scope (decl);
+/* Like add_builtin_function, but add any additional setup needed for finishing
+   the declaration, but don't explicitly add it to the scope rules.  This is
+   for lazy builtins that are refered to by the common parts of the compiler
+   and the backend, but the user doesn't actually encode calls to the builtin
+   like malloc.  The front end may have disposed of the scope information by
+   the time the back end runs.  */
+
+tree
+add_builtin_function_nobind (const char *name,
+			     tree type,
+			     int function_code,
+			     enum built_in_class cl,
+			     const char *library_name,
+			     tree attrs)
+{
+  return add_builtin_function_common (name, type, function_code, cl,
+				      library_name, attrs,
+				      lang_hooks.builtin_function_nobind);
 }
 
 tree

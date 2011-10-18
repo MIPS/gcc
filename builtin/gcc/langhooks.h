@@ -448,12 +448,18 @@ struct lang_hooks
   tree (*builtin_function) (tree decl);
 
   /* Like builtin_function, but make sure the scope is the external scope.
-     This is used to delay putting in back end builtin functions until the ISA
-     that defines the builtin is declared via function specific target options,
-     which can save memory for machines like the x86_64 that have multiple
-     ISAs.  If this points to the same function as builtin_function, the
-     backend must add all of the builtins at program initialization time.  */
+     This is used for lazy builtin functions that are created when the
+     identifier is frist used.  Some front ends might use the same target hook
+     for this and builtin_function.  */
   tree (*builtin_function_ext_scope) (tree decl);
+
+  /* Like builtin_function, but add any additional setup needed for finishing
+     the declaration, but don't explicitly add it to the scope rules.  This is
+     for lazy builtins that are refered to by the common parts of the compiler
+     and the backend, but the user doesn't actually encode calls to the builtin
+     like malloc.  The front end may have disposed of the scope information by
+     the time the back end runs.  */
+  tree (*builtin_function_nobind) (tree decl);
 
 
   /* Create builtins in a lazy fashion if the front end supports it, otherwise
@@ -494,6 +500,9 @@ struct lang_hooks
   /* True if this language requires deep unsharing of tree nodes prior to
      gimplification.  */
   bool deep_unsharing;
+
+  /* True if this language should enable lazy builtins by default.  */
+  bool lazy_builtin_p;
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

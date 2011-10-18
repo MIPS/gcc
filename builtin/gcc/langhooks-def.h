@@ -111,6 +111,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE	LANG_HOOKS_BUILTIN_FUNCTION
+#define LANG_HOOKS_BUILTIN_FUNCTION_NOBIND	LANG_HOOKS_BUILTIN_FUNCTION
 #define LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY	add_builtin_function
 #define LANG_HOOKS_BUILTIN_LAZY_CREATE	lhd_builtin_lazy_create
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
@@ -121,6 +122,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_EH_PROTECT_CLEANUP_ACTIONS	NULL
 #define LANG_HOOKS_EH_USE_CXA_END_CLEANUP	false
 #define LANG_HOOKS_DEEP_UNSHARING	false
+#define LANG_HOOKS_LAZY_BUILTIN_P	false
 
 /* Attribute hooks.  */
 #define LANG_HOOKS_ATTRIBUTE_TABLE		NULL
@@ -306,6 +308,7 @@ extern void lhd_end_section (void);
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
   LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
+  LANG_HOOKS_BUILTIN_FUNCTION_NOBIND, \
   LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY, \
   LANG_HOOKS_BUILTIN_LAZY_CREATE, \
   LANG_HOOKS_INIT_TS,          \

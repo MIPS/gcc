@@ -1175,7 +1175,7 @@ Common Report Var(flag_graphite_identity) Optimization
 Enable Graphite Identity transformation
 
 flazy-builtin
-Common Report Var(flag_lazy_builtin) Optimization
+Common Report Var(flag_lazy_builtin) Optimization Init(-1)
 Don't create builtin nodes at compiler startup.
 
 flazy-builtin-debug

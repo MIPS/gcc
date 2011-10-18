@@ -3658,6 +3658,31 @@ c_builtin_function_ext_scope (tree decl)
 
   return decl;
 }
+
+tree
+c_builtin_function_nobind (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  tree   id = DECL_NAME (decl);
+
+  C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
+
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr,
+	     "---c_builtin_function_nobind (%s, decl=%p, %s, "
+	     "fncode=%d [%s], implicit=%s, proto=%s)\n",
+	     IDENTIFIER_POINTER (id),
+	     (void *)decl,
+	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
+	     (int)DECL_FUNCTION_CODE (decl),
+	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
+	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
+	      : "---"),
+	     C_DECL_IMPLICIT (decl) ? "true" : "false",
+	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false");
+
+  return decl;
+}
 
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited

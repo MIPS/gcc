@@ -4657,7 +4657,7 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
   tree id;
   bool lazy_p;
 
-  if (!flag_lazy_builtin)
+  if (flag_lazy_builtin <= 0)
     lazy_p = false;
 
   else if (cl == BUILT_IN_NORMAL)

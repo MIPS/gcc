@@ -887,6 +887,12 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
+  /* If -flazy-builtins is -1, let the language decide whether to allow lazy
+     builtins on not.  Right now, it is hard to get all of the details of C++
+     correct, so turn it off for C++.  */
+  if (flag_lazy_builtin < 0)
+    flag_lazy_builtin = lang_hooks.lazy_builtin_p;
+
   /* -Wextra implies the following flags
      unless explicitly overridden.  */
   if (warn_type_limits == -1)
