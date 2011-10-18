@@ -1672,7 +1672,7 @@ struct processor_costs atom_cost = {
   COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   17,					/* MOVE_RATIO */
-  2,				     /* cost for loading QImode using movzbl */
+  4,					/* cost for loading QImode using movzbl */
   {4, 4, 4},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
 					   Relative to reg-reg move (2).  */
@@ -35474,6 +35474,82 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
   return true;
 }
 
+/* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to simplify
+   a two vector permutation using 2 intra-lane interleave insns
+   and cross-lane shuffle for 32-byte vectors.  */
+
+static bool
+expand_vec_perm_interleave3 (struct expand_vec_perm_d *d)
+{
+  unsigned i, nelt;
+  rtx (*gen) (rtx, rtx, rtx);
+
+  if (d->op0 == d->op1)
+    return false;
+  if (TARGET_AVX2 && GET_MODE_SIZE (d->vmode) == 32)
+    ;
+  else if (TARGET_AVX && (d->vmode == V8SFmode || d->vmode == V4DFmode))
+    ;
+  else
+    return false;
+
+  nelt = d->nelt;
+  if (d->perm[0] != 0 && d->perm[0] != nelt / 2)
+    return false;
+  for (i = 0; i < nelt; i += 2)
+    if (d->perm[i] != d->perm[0] + i / 2
+	|| d->perm[i + 1] != d->perm[0] + i / 2 + nelt)
+      return false;
+
+  if (d->testing_p)
+    return true;
+
+  switch (d->vmode)
+    {
+    case V32QImode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv32qi;
+      else
+	gen = gen_vec_interleave_lowv32qi;
+      break;
+    case V16HImode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv16hi;
+      else
+	gen = gen_vec_interleave_lowv16hi;
+      break;
+    case V8SImode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv8si;
+      else
+	gen = gen_vec_interleave_lowv8si;
+      break;
+    case V4DImode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv4di;
+      else
+	gen = gen_vec_interleave_lowv4di;
+      break;
+    case V8SFmode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv8sf;
+      else
+	gen = gen_vec_interleave_lowv8sf;
+      break;
+    case V4DFmode:
+      if (d->perm[0])
+	gen = gen_vec_interleave_highv4df;
+      else
+	gen = gen_vec_interleave_lowv4df;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_insn (gen (d->target, d->op0, d->op1));
+  return true;
+}
+
 /* A subroutine of expand_vec_perm_even_odd_1.  Implement the double-word
    permutation with two pshufb insns and an ior.  We should have already
    failed all two instruction sequences.  */
@@ -35972,6 +36048,9 @@ ix86_expand_vec_perm_builtin_1 (struct expand_vec_perm_d *d)
   if (expand_vec_perm_pshufb2 (d))
     return true;
 
+  if (expand_vec_perm_interleave3 (d))
+    return true;
+
   /* Try sequences of four instructions.  */
 
   if (expand_vec_perm_vpshufb2_vpermq (d))
@@ -36130,6 +36209,67 @@ ix86_expand_vec_perm_builtin (tree exp)
     }
  exit_error:
   return CONST0_RTX (d.vmode);
+}
+
+bool
+ix86_expand_vec_perm_const (rtx operands[4])
+{
+  struct expand_vec_perm_d d;
+  int i, nelt, which;
+  rtx sel;
+
+  d.target = operands[0];
+  d.op0 = operands[1];
+  d.op1 = operands[2];
+  sel = operands[3];
+
+  d.vmode = GET_MODE (d.target);
+  gcc_assert (VECTOR_MODE_P (d.vmode));
+  d.nelt = nelt = GET_MODE_NUNITS (d.vmode);
+  d.testing_p = false;
+
+  gcc_assert (GET_CODE (sel) == CONST_VECTOR);
+  gcc_assert (XVECLEN (sel, 0) == nelt);
+
+  for (i = which = 0; i < nelt; ++i)
+    {
+      rtx e = XVECEXP (sel, 0, i);
+      int ei = INTVAL (e) & (2 * nelt - 1);
+
+      which |= (ei < nelt ? 1 : 2);
+      d.perm[i] = ei;
+    }
+
+  switch (which)
+    {
+    default:
+      gcc_unreachable();
+
+    case 3:
+      if (!rtx_equal_p (d.op0, d.op1))
+	break;
+
+      /* The elements of PERM do not suggest that only the first operand
+	 is used, but both operands are identical.  Allow easier matching
+	 of the permutation by folding the permutation into the single
+	 input vector.  */
+      for (i = 0; i < nelt; ++i)
+	if (d.perm[i] >= nelt)
+	  d.perm[i] -= nelt;
+      /* FALLTHRU */
+
+    case 1:
+      d.op1 = d.op0;
+      break;
+
+    case 2:
+      for (i = 0; i < nelt; ++i)
+        d.perm[i] -= nelt;
+      d.op0 = d.op1;
+      break;
+    }
+
+  return ix86_expand_vec_perm_builtin_1 (&d);
 }
 
 /* Implement targetm.vectorize.builtin_vec_perm_ok.  */

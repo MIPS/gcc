@@ -2980,6 +2980,9 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
         }
       break;
 
+    case BASES:
+      parameter_pack_p = true;
+      break;
     default:
       /* Not a parameter pack.  */
       break;
@@ -9127,6 +9130,15 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
       tree arg_pack = NULL_TREE;
       tree orig_arg = NULL_TREE;
 
+      if (TREE_CODE (parm_pack) == BASES)
+       {
+         if (BASES_DIRECT (parm_pack))
+           return calculate_direct_bases (tsubst_expr (BASES_TYPE (parm_pack),
+                                                        args, complain, in_decl, false));
+         else
+           return calculate_bases (tsubst_expr (BASES_TYPE (parm_pack),
+                                                 args, complain, in_decl, false));
+       }
       if (TREE_CODE (parm_pack) == PARM_DECL)
 	{
 	  if (!cp_unevaluated_operand)
@@ -10269,6 +10281,16 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    = tsubst_expr (DECL_INITIAL (t), args,
 			   complain, in_decl,
 			   /*integral_constant_expression_p=*/true);
+	else if (DECL_INITIAL (t))
+	  {
+	    /* Set up DECL_TEMPLATE_INFO so that we can get at the
+	       NSDMI in perform_member_init.  Still set DECL_INITIAL
+	       so that we know there is one.  */
+	    DECL_INITIAL (r) = void_zero_node;
+	    gcc_assert (DECL_LANG_SPECIFIC (r) == NULL);
+	    retrofit_lang_decl (r);
+	    DECL_TEMPLATE_INFO (r) = build_template_info (t, args);
+	  }
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
 	DECL_CHAIN (r) = NULL_TREE;
@@ -13937,8 +13959,8 @@ tsubst_copy_and_build (tree t,
       {
 	tree r = build_lambda_expr ();
 
-	tree type = tsubst (TREE_TYPE (t), args, complain, NULL_TREE);
-	TREE_TYPE (r) = type;
+	tree type = tsubst (LAMBDA_EXPR_CLOSURE (t), args, complain, NULL_TREE);
+	LAMBDA_EXPR_CLOSURE (r) = type;
 	CLASSTYPE_LAMBDA_EXPR (type) = r;
 
 	LAMBDA_EXPR_LOCATION (r)
@@ -18023,6 +18045,8 @@ instantiate_decl (tree d, int defer_ok,
     d = DECL_CLONED_FUNCTION (d);
 
   if (DECL_TEMPLATE_INSTANTIATED (d)
+      || (TREE_CODE (d) == FUNCTION_DECL
+	  && DECL_DEFAULTED_FN (d) && DECL_INITIAL (d))
       || DECL_TEMPLATE_SPECIALIZATION (d))
     /* D has already been instantiated or explicitly specialized, so
        there's nothing for us to do here.

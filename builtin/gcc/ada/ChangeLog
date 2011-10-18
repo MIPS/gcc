@@ -1,3 +1,124 @@
+2011-10-15  Tom Tromey  <tromey@redhat.com> 
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* gcc-interface/trans.c (gigi, Sloc_to_locus): Adjust to use the
+	new public ordinary map interface.
+
+2011-10-16  Tristan Gingold  <gingold@adacore.com>
+
+	* link.c (_AIX): Add support for GNU ld.        
+
+2011-10-16  Fedor Rybin  <frybin@adacore.com>
+
+	* gnat_ugn.texi: Fixing gnattest example names in the doc.
+	Adding explanation to additional tests usage.
+
+2011-10-16  Robert Dewar  <dewar@adacore.com>
+
+	* exp_ch6.adb, sem_ch6.adb: Minor reformatting.
+
+2011-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* a-convec.adb: Fix minor inconsistencies.
+
+2011-10-16  Matthew Heaney  <heaney@adacore.com>
+
+	* a-cusyqu.ads, a-cbsyqu.ads, a-cuprqu.ads, a-cbprqu.ads (package
+	Implementation): Specify pragma Implementation_Defined.
+
+2011-10-15  Nicolas Roche  <roche@adacore.com>
+
+	* gcc-interface/lang-specs.h: Ensure -mrtp switch is passed when using
+	either rtp-smp or ravenscar-cert-rtp runtimes.
+
+2011-10-15  Bob Duff  <duff@adacore.com>
+
+	* exp_ch6.adb (Add_Unconstrained_Actuals_To_Build_In_Place_Call):
+	Do not create a pool formal on unless RE_Root_Storage_Pool_Ptr
+	is available.
+	(Expand_N_Extended_Return_Statement): Do not create a renaming of the
+	build-in-place pool parameter unless RE_Root_Storage_Pool_Ptr is
+	available.
+	(Make_Build_In_Place_Call_In_Allocator): Add the user-defined
+	pool only if RE_Root_Storage_Pool_Ptr is available.
+	(Make_Build_In_Place_Call_In_Object_Declaration): Do not add a
+	pool actual unless RE_Root_Storage_Pool_Ptr is available.
+	* sem_ch6.adb (Create_Extra_Formals): Add build-in-place pool
+	formal only if RE_Root_Storage_Pool_Ptr is available.
+
+2011-10-15  Matthew Heaney  <heaney@adacore.com>
+
+	* a-cusyqu.ads, a-cbsyqu.ads, a-cuprqu.ads, a-cbprqu.ads (Queue
+	type): Specify Priority aspect for protected type.
+
+2011-10-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_disp.adb (Check_Premature_Freezing): If an untagged type
+	is a generic actual, it is a subtype of a type that was frozen
+	by the instantiation, and even if not marked frozen it does not
+	affect the construction of the dispatch table.
+
+2011-10-14  Robert Dewar  <dewar@adacore.com>
+
+	* make.adb, mlib-utl.adb, sem_util.adb, sem_ch4.adb: Minor code
+	reformatting.
+	* s-rident.ads: Add missing Compiler_Unit pragma.
+
+2011-10-14  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_res.adb: Minor reformatting.
+
+2011-10-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch6.adb (Add_Task_Actuals_To_Build_In_Place_Call):
+	Code and comment reformatting. Use BIP_Task_Master
+	when creating a _master.
+	(BIP_Formal_Suffix): Code reformatting. Correct the case for
+	BIP_Task_Master.
+	(Make_Build_In_Place_Call_In_Object_Declaration): Use
+	BIP_Task_Master when creating a reference to the enclosing
+	function's _master formal.
+	(Move_Activation_Chain): Use BIP_Task_Master when creating a reference
+	to the _master.
+	* exp_ch6.ads: Change BIP_Master to BIP_Task_Master.
+	(Needs_BIP_Finalization_Master): Alphabetized.
+	* sem_ch6.adb (Create_Extra_Formals): Update the usage of
+	BIP_Task_Master.
+
+2011-10-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* par-ch6.adb (P_Return_Object_Declaration): In Ada 2012 mode,
+	reject an aliased keyword on the object declaration of an extended
+	return statement. In older versions of the language indicate
+	that this is illegal in the standard.
+
+2011-10-14  Pascal Obry  <obry@adacore.com>
+
+	* sem_util.adb, sem_ch4.adb: Minor reformatting.
+
+2011-10-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb: Recognize properly procedure calls that are
+	transformed into code statements.
+
+2011-10-14  Vincent Celier  <celier@adacore.com>
+
+	* projects.texi: Minor fix in project example.
+
+2011-10-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb: Return objects are aliased if their type is
+	immutably limited as per AI05-0053.
+
+2011-10-14  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Op_And): Remove Short_Circuit_And_Or
+	expansion code (moved to sem_res) (Expand_N_Op_Or): Remove
+	Short_Circuit_And_Or expansion code (moved to sem_res).
+	* sem_res.adb (Resolve_Logical_Op): Add code to rewrite Boolean
+	"and" and "or" operators as short-circuit "and then" and "or
+	else", when pragma Short_Circuit_And_Or is active.
+
 2011-10-13  Robert Dewar  <dewar@adacore.com>
 
 	* sem_ch9.adb, sem_util.adb, sem_util.ads, exp_ch6.adb, sem_ch4.adb,

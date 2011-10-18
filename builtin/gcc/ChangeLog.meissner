@@ -1,5 +1,10 @@
 2011-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to subversion id 180165.
+	* REVISION: Update subversion id.
+
+2011-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* c-objc-common.h (LANG_HOOKS_BUILTIN_FUNCTION_NOBIND): Define.
 	(LANG_HOOKS_LAZY_BUILTIN_P): Enable lazy builtins for C, but not
 	C++.

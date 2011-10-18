@@ -3617,7 +3617,7 @@ gimplify_parameters (void)
 		       && compare_tree_int (DECL_SIZE_UNIT (parm),
 					    STACK_CHECK_MAX_VAR_SIZE) > 0))
 		{
-		  local = create_tmp_reg (type, get_name (parm));
+		  local = create_tmp_var (type, get_name (parm));
 		  DECL_IGNORED_P (local) = 0;
 		  /* If PARM was addressable, move that flag over
 		     to the local copy, as its address will be taken,
@@ -3625,6 +3625,9 @@ gimplify_parameters (void)
 		     as we'll query that flag during gimplification.  */
 		  if (TREE_ADDRESSABLE (parm))
 		    TREE_ADDRESSABLE (local) = 1;
+		  else if (TREE_CODE (type) == COMPLEX_TYPE
+			   || TREE_CODE (type) == VECTOR_TYPE)
+		    DECL_GIMPLE_REG_P (local) = 1;
 		}
 	      else
 		{
@@ -5527,6 +5530,20 @@ emit_return_into_block (bool simple_p, basic_block bb)
 }
 #endif
 
+/* Set JUMP_LABEL for a return insn.  */
+
+void
+set_return_jump_label (rtx returnjump)
+{
+  rtx pat = PATTERN (returnjump);
+  if (GET_CODE (pat) == PARALLEL)
+    pat = XVECEXP (pat, 0, 0);
+  if (ANY_RETURN_P (pat))
+    JUMP_LABEL (returnjump) = pat;
+  else
+    JUMP_LABEL (returnjump) = ret_rtx;
+}
+
 /* Return true if BB has any active insns.  */
 static bool
 bb_active_p (basic_block bb)
@@ -6062,7 +6079,7 @@ thread_prologue_and_epilogue_insns (void)
 	  emit_return_into_block (false, last_bb);
 	  epilogue_end = BB_END (last_bb);
 	  if (JUMP_P (epilogue_end))
-	    JUMP_LABEL (epilogue_end) = ret_rtx;
+	    set_return_jump_label (epilogue_end);
 	  single_succ_edge (last_bb)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
@@ -6127,15 +6144,7 @@ thread_prologue_and_epilogue_insns (void)
       inserted = true;
 
       if (JUMP_P (returnjump))
-	{
-	  rtx pat = PATTERN (returnjump);
-	  if (GET_CODE (pat) == PARALLEL)
-	    pat = XVECEXP (pat, 0, 0);
-	  if (ANY_RETURN_P (pat))
-	    JUMP_LABEL (returnjump) = pat;
-	  else
-	    JUMP_LABEL (returnjump) = ret_rtx;
-	}
+	set_return_jump_label (returnjump);
     }
   else
 #endif

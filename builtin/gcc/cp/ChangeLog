@@ -1,3 +1,148 @@
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50531
+	* pt.c (instantiate_decl): Recognize when a function defaulted
+	outside the class is already instantiated.
+
+	PR c++/50742
+	* decl.c (check_previous_goto_1): Handle using-decl.
+
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50500
+	DR 1082
+	* class.c (type_has_user_declared_move_constructor): New.
+	(type_has_user_declared_move_assign): New.
+	(add_implicitly_declared_members): Add lazy copy ops
+	even if there's a move.
+	* method.c (lazily_declare_fn): Delete implicit copies
+	if there's a move.
+	(maybe_explain_implicit_delete): Explain this.  Use inform rather
+	than error.
+	* cp-tree.h: Declare new fns.
+
+2011-10-18   Diego Novillo  <dnovillo@google.com>
+
+	* parser.c: Remove ENABLE_CHECKING markers around debugging
+	routines.
+	(cp_lexer_dump_tokens): Add arguments START_TOKEN and CURR_TOKEN.
+	Make static
+	When printing CURR_TOKEN surround it in [[ ]].
+	Start printing at START_TOKEN.
+	Update all users.
+	(cp_debug_print_tree_if_set): New.
+	(cp_debug_print_context): New.
+	(cp_debug_print_context_stack): New.
+	(cp_debug_print_flag): New.
+	(cp_debug_print_unparsed_function): New.
+	(cp_debug_print_unparsed_queues): New.
+	(cp_debug_parser_tokens): New.
+	(cp_debug_parser): New.
+	(cp_lexer_start_debugging): Set cp_lexer_debug_stream to stderr.
+	(cp_lexer_stop_debugging): Set cp_lexer_debug_stream to NULL.
+	* parser.h (cp_lexer_dump_tokens): Remove declaration.
+	(cp_debug_parser): Declare.
+
+2011-10-17  Michael Spertus  <mike_spertus@symantec.com>
+
+	* cp-tree.def: Add BASES as a new tree code.
+	* cp-tree.h (enum cp_trait_kind): Add CPTK_BASES, CPTK_DIRECT_BASES.
+	(BASES_TYPE, BASES_DIRECT): Define.
+	(calculate_bases, finish_bases, calculate_direct_bases): Declare.
+	* parser.c (cp_parser_trait_expr, cp_parser_template_argument_list,
+	(cp_parser_simple_type_specifier, cp_parser_save_nsdmi): Use them.
+	* pt.c (find_parameter_packs_r, tsubst_pack_expansion): Likewise.
+	* semantics.c (calculate_bases, finish_bases, calculate_direct_bases,
+	dfs_calculate_bases_pre, dfs_calculate_bases_post,
+	calculate_bases_helper): Define.
+
+2011-10-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50736
+	* parser.c (cp_parser_lambda_introducer): Check for more
+	invalid captures.
+
+2011-10-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/44524
+	* typeck.c (build_class_member_access_expr): Provide a better error
+	message for X.Y where X is a pointer to class type.
+	(finish_class_member_access_expr): Likewise.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* error.c (cp_diagnostic_starter): Pass the relevant location to
+	diagnostic_report_current_module.
+	(cp_diagnostic_finalizer): Call virt_loc_aware_diagnostic_finalizer.
+
+2011-10-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/48489
+	* typeck.c (finish_class_member_access_expr): Fix error call
+	for TREE_CODE (access_path) == TREE_BINFO.
+
+2011-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50732
+	* semantics.c (finish_trait_expr): Do not try to instantiate the
+	the base type of an __is_base_of trait.
+	(check_trait_type): Return a tree; use complete_type_or_else.
+
+2011-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50563
+	* parser.c (cp_parser_cache_group): Handle end==CPP_COMMA.
+	(cp_parser_save_nsdmi): Pass it.
+
+	PR c++/50707
+	* method.c (walk_field_subobs): Check for NSDMI before
+	complaining about uninitialized fields.
+
+	* pt.c (tsubst_decl) [FIELD_DECL]: Use void_zero_node
+	instead of error_mark_node as a placeholder.
+
+2011-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38174
+	* call.c (add_builtin_candidate): If two pointers have a composite
+	pointer type, generate a single candidate with that type.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50614
+	* cp-tree.h (VAR_TEMPL_TYPE_FIELD_OR_FUNCTION_DECL_CHECK): New.
+	(DECL_TEMPLATE_INFO): Use it.
+	* pt.c (tsubst_decl) [FIELD_DECL]: Set DECL_TEMPLATE_INFO
+	if the decl has an NSDMI.
+	* init.c (perform_member_init): Use it.
+
+	PR c++/50437
+	* cp-tree.h (struct tree_lambda_expr): Add closure field.
+	(LAMBDA_EXPR_CLOSURE): New.
+	* pt.c (tsubst_copy_and_build) [LAMBDA_EXPR]: Likewise.
+	* semantics.c (build_lambda_object): Use it instead of TREE_TYPE.
+	(begin_lambda_type, lambda_function, add_capture): Likewise.
+	(add_default_capture, lambda_expr_this_capture): Likewise.
+
+2011-10-13   Diego Novillo  <dnovillo@google.com>
+
+	* cp-tree.h (struct language_function): Rename in_function_try_handler
+	to x_in_function_try_handler.
+	Rename in_base_initializer to x_in_base_initializer.
+	Update all users.
+
+2011-10-13   Diego Novillo  <dnovillo@google.com>
+
+	* class.c (sorted_fields_type_new): Factor out of ...
+	(finish_struct_1): ... here.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* init.c (expand_aggr_init_1): Don't zero-initialize virtual
+	bases of a base subobject.
+
 2011-10-12  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/50594

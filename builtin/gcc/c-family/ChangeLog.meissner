@@ -1,5 +1,9 @@
 2011-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to subversion id 180165.
+
+2011-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* c-opts.c (c_common_post_options): Default -flazy-builtin to true
 	for C and false for C++ until issues with the C++ scoping rules
 	are ironed out.
