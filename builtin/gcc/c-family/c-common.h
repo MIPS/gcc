@@ -814,7 +814,7 @@ extern tree c_common_add_builtin_function_lazy (const char *name, tree type,
 
 /* Language hook to create lazy builtin with identifier IDENT, and optionally
    add it to the front end's symbol table.  */
-extern tree c_common_builtin_lazy_create (tree id, bool front_end_p);
+extern tree c_common_builtin_lazy_create (tree id);
 
 extern void disable_builtin_function (const char *);
 

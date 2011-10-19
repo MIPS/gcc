@@ -76,7 +76,7 @@ static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (tree, tree, bool, bool);
+static tree builtin_function_1 (tree, tree, bool);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, enum bad_spec_place, int, int, int, int,
@@ -3813,7 +3813,7 @@ cp_make_fname_decl (location_t loc, tree id, int type_dep)
 }
 
 static tree
-builtin_function_1 (tree decl, tree context, bool is_global, bool nobind_p)
+builtin_function_1 (tree decl, tree context, bool is_global)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
@@ -3829,9 +3829,6 @@ builtin_function_1 (tree decl, tree context, bool is_global, bool nobind_p)
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
 
   DECL_CONTEXT (decl) = context;
-
-  if (nobind_p)
-    return decl;
 
   if (is_global)
     pushdecl_top_level (decl);
@@ -3869,11 +3866,11 @@ cxx_builtin_function (tree decl)
     {
       tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node, false, false);
+      builtin_function_1 (decl2, std_node, false);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl, NULL_TREE, false, false);
+  return builtin_function_1 (decl, NULL_TREE, false);
 }
 
 /* Like cxx_builtin_function, but make sure the scope is the external scope.
@@ -3905,36 +3902,11 @@ cxx_builtin_function_ext_scope (tree decl)
     {
       tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node, true, false);
+      builtin_function_1 (decl2, std_node, true);
       pop_namespace ();
     }
 
-  decl = builtin_function_1 (decl, std_node, true, false);
-  return decl;
-}
-
-/* Like cxx_builtin_function, but add any additional setup needed for finishing
-   the declaration, but don't explicitly add it to the scope rules.  This is
-   for lazy builtins that are refered to by the common parts of the compiler
-   and the backend, but the user doesn't actually encode calls to the builtin
-   like malloc.  The front end may have disposed of the scope information by
-   the time the back end runs.  */
-
-tree
-cxx_builtin_function_nobind (tree decl)
-{
-  if (flag_lazy_builtin_debug)
-    fprintf (stderr, "---cxx_builtin_function_nobind (%s, decl=%p, %s, "
-	     "fncode=%d [%s])\n",
-	     IDENTIFIER_POINTER (DECL_NAME (decl)),
-	     (void *)decl,
-	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
-	     (int)DECL_FUNCTION_CODE (decl),
-	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
-	      : "---"));
-
-  decl = builtin_function_1 (decl, std_node, false, true);
+  decl = builtin_function_1 (decl, std_node, true);
   return decl;
 }
 

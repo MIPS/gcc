@@ -3631,7 +3631,7 @@ c_builtin_function_ext_scope (tree decl)
   if (flag_lazy_builtin_debug)
     fprintf (stderr,
 	     "---c_builtin_function_ext_scope (%s, decl=%p, %s, "
-	     "fncode=%d [%s], implicit=%s, proto=%s)\n",
+	     "fncode=%d [%s], implicit=%s, proto=%s%s%s)\n",
 	     IDENTIFIER_POINTER (id),
 	     (void *)decl,
 	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
@@ -3640,46 +3640,27 @@ c_builtin_function_ext_scope (tree decl)
 	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
 	      : "---"),
 	     C_DECL_IMPLICIT (decl) ? "true" : "false",
-	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false");
+	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false",
+	     external_scope ? "" : ", no external scope",
+	     I_SYMBOL_BINDING (id) ? ", previous binding" : "");
 
-  /* Should never be called on a symbol with a preexisting meaning.  */
-  gcc_assert (!I_SYMBOL_BINDING (id));
-
-  bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
-	BUILTINS_LOCATION);
-
-  /* Builtins in the implementation namespace are made visible without
-     needing to be explicitly declared.  See push_file_scope.  */
-  if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+  /* We might be called after the front end has finished by the backend wanting
+     to create builtin functions.  If so, don't bother adding the declaration
+     to the external scope.  Also, we should not have a binding at this point,
+     but if we do, don't try to bind it again.  */
+  if (external_scope && !I_SYMBOL_BINDING (id))
     {
-      DECL_CHAIN (decl) = visible_builtins;
-      visible_builtins = decl;
+      bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
+	    BUILTINS_LOCATION);
+
+      /* Builtins in the implementation namespace are made visible without
+	 needing to be explicitly declared.  See push_file_scope.  */
+      if (name[0] == '_' && (name[1] == '_' || ISUPPER (name[1])))
+	{
+	  DECL_CHAIN (decl) = visible_builtins;
+	  visible_builtins = decl;
+	}
     }
-
-  return decl;
-}
-
-tree
-c_builtin_function_nobind (tree decl)
-{
-  tree type = TREE_TYPE (decl);
-  tree   id = DECL_NAME (decl);
-
-  C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
-
-  if (flag_lazy_builtin_debug)
-    fprintf (stderr,
-	     "---c_builtin_function_nobind (%s, decl=%p, %s, "
-	     "fncode=%d [%s], implicit=%s, proto=%s)\n",
-	     IDENTIFIER_POINTER (id),
-	     (void *)decl,
-	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
-	     (int)DECL_FUNCTION_CODE (decl),
-	     ((DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL)
-	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
-	      : "---"),
-	     C_DECL_IMPLICIT (decl) ? "true" : "false",
-	     C_DECL_BUILTIN_PROTOTYPE (decl) ? "true" : "false");
 
   return decl;
 }

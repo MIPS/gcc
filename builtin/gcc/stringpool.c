@@ -107,12 +107,25 @@ ggc_alloc_string_stat (const char *contents, int length MEM_STAT_DECL)
 tree
 get_identifier (const char *text)
 {
+  tree ident;
   hashnode ht_node = ht_lookup (ident_hash,
 				(const unsigned char *) text,
 				strlen (text), HT_ALLOC);
 
   /* ht_node can't be NULL here.  */
-  return HT_IDENT_TO_GCC_IDENT (ht_node);
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+  /* If this identifier is lazy, create the builtin function upon use.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (ident))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---get_identifier (%s)\n",
+		 IDENTIFIER_POINTER (ident));
+
+      (void) builtin_lazy_create (ident);
+    }
+
+  return ident;
 }
 
 /* Identical to get_identifier, except that the length is assumed
@@ -121,12 +134,25 @@ get_identifier (const char *text)
 tree
 get_identifier_with_length (const char *text, size_t length)
 {
+  tree ident;
   hashnode ht_node = ht_lookup (ident_hash,
 				(const unsigned char *) text,
 				length, HT_ALLOC);
 
   /* ht_node can't be NULL here.  */
-  return HT_IDENT_TO_GCC_IDENT (ht_node);
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+  /* If this identifier is lazy, create the builtin function upon use.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (ident))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---get_identifier_with_length (%s)\n",
+		 IDENTIFIER_POINTER (ident));
+
+      (void) builtin_lazy_create (ident);
+    }
+
+  return ident;
 }
 
 /* If an identifier with the name TEXT (a null-terminated string) has
@@ -136,14 +162,27 @@ get_identifier_with_length (const char *text, size_t length)
 tree
 maybe_get_identifier (const char *text)
 {
+  tree ident;
   hashnode ht_node;
 
   ht_node = ht_lookup (ident_hash, (const unsigned char *) text,
 		       strlen (text), HT_NO_INSERT);
-  if (ht_node)
-    return HT_IDENT_TO_GCC_IDENT (ht_node);
+  if (!ht_node)
+    return NULL_TREE;
 
-  return NULL_TREE;
+  ident = HT_IDENT_TO_GCC_IDENT (ht_node);
+
+  /* If this identifier is lazy, create the builtin function upon use.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (ident))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---maybe_get_identifier (%s)\n",
+		 IDENTIFIER_POINTER (ident));
+
+      (void) builtin_lazy_create (ident);
+    }
+
+  return ident;
 }
 
 /* Report some basic statistics about the string pool.  */

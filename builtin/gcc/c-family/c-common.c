@@ -4662,8 +4662,74 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
   if (flag_lazy_builtin <= 0)
     lazy_p = false;
 
+  /* Force some builtins used by the optimization passes to be created
+     immediately.  */
   else if (cl == BUILT_IN_NORMAL)
-    lazy_p = true;
+    {
+      switch ((enum built_in_function)function_code)
+	{
+	case BUILT_IN_ADJUST_TRAMPOLINE:
+	case BUILT_IN_ALLOCA:
+	case BUILT_IN_ALLOCA_WITH_ALIGN:
+	case BUILT_IN_BSWAP32:
+	case BUILT_IN_BSWAP64:
+	case BUILT_IN_CLEAR_CACHE:
+	case BUILT_IN_FPRINTF:
+	case BUILT_IN_FPRINTF_CHK:
+	case BUILT_IN_INIT_TRAMPOLINE:
+	case BUILT_IN_LONGJMP:
+	case BUILT_IN_MEMCHR:
+	case BUILT_IN_MEMCPY:
+	case BUILT_IN_MEMCPY_CHK:
+	case BUILT_IN_MEMMOVE:
+	case BUILT_IN_MEMMOVE_CHK:
+	case BUILT_IN_MEMPCPY:
+	case BUILT_IN_MEMPCPY_CHK:
+	case BUILT_IN_MEMSET:
+	case BUILT_IN_MEMSET_CHK:
+	case BUILT_IN_NONLOCAL_GOTO:
+	case BUILT_IN_OBJECT_SIZE:
+	case BUILT_IN_PRINTF:
+	case BUILT_IN_PRINTF_CHK:
+	case BUILT_IN_PROFILE_FUNC_ENTER:
+	case BUILT_IN_PROFILE_FUNC_EXIT:
+	case BUILT_IN_RETURN_ADDRESS:
+	case BUILT_IN_SETJMP:
+	case BUILT_IN_SETJMP_DISPATCHER:
+	case BUILT_IN_SETJMP_RECEIVER:
+	case BUILT_IN_SETJMP_SETUP:
+	case BUILT_IN_SNPRINTF_CHK:
+	case BUILT_IN_SPRINTF:
+	case BUILT_IN_SPRINTF_CHK:
+	case BUILT_IN_STACK_RESTORE:
+	case BUILT_IN_STACK_SAVE:
+	case BUILT_IN_STPCPY_CHK:
+	case BUILT_IN_STPCPY:
+	case BUILT_IN_STRCAT_CHK:
+	case BUILT_IN_STRCAT:
+	case BUILT_IN_STRCHR:
+	case BUILT_IN_STRCMP:
+	case BUILT_IN_STRCPY:
+	case BUILT_IN_STRCPY_CHK:
+	case BUILT_IN_STRCSPN:
+	case BUILT_IN_STRLEN:
+	case BUILT_IN_STRNCAT_CHK:
+	case BUILT_IN_STRNCAT:
+	case BUILT_IN_STRNCPY_CHK:
+	case BUILT_IN_STRNCPY:
+	case BUILT_IN_VFPRINTF_CHK:
+	case BUILT_IN_VPRINTF:
+	case BUILT_IN_VPRINTF_CHK:
+	case BUILT_IN_VSNPRINTF_CHK:
+	case BUILT_IN_VSPRINTF_CHK:
+	  lazy_p = false;
+	  break;
+
+	default:
+	  lazy_p = true;
+	  break;
+	}
+    }
 
   else if (cl == BUILT_IN_MD)
     {
@@ -4708,7 +4774,7 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 /* Language hook to create lazy builtin with identifier IDENT, and optionally
    add it to the front end's symbol table.  */
 tree
-c_common_builtin_lazy_create (tree id, bool front_end_p)
+c_common_builtin_lazy_create (tree id)
 {
   unsigned uns_fncode;
   enum built_in_function fncode;
@@ -4720,7 +4786,7 @@ c_common_builtin_lazy_create (tree id, bool front_end_p)
   enum built_in_attribute attrs = ATTR_LAST;
   bool implicit_p = false;
   bool fallback_p = false;
-  tree decl, id2;
+  tree decl, id2, lib_decl;
   tree fntype_tree;
   tree fnattr_tree;
 
@@ -4738,7 +4804,6 @@ c_common_builtin_lazy_create (tree id, bool front_end_p)
 		 IDENTIFIER_POINTER (id),
 		 (long)(uns_fncode & ~LAZY_BUILTIN_MD));
 
-      gcc_assert (front_end_p);
       return targetm.builtin_decl (uns_fncode & ~LAZY_BUILTIN_MD, true);
     }
 
@@ -4786,55 +4851,61 @@ c_common_builtin_lazy_create (tree id, bool front_end_p)
       return builtin_info.decl[uns_fncode];
     }
 
-  lib_name = (fallback_p) ? main_name + strlen ("__builtin_") : NULL;
+  if (!fallback_p)
+    lib_name = NULL;
+
+  else
+    {
+      lib_name = main_name + strlen ("__builtin_");
+
+      /* If the decl using the library name has been created, use that.  */
+      if ((!strcmp (name, lib_name))
+	  && builtin_info.lib_decl[uns_fncode] != NULL_TREE
+	  && TREE_CODE (builtin_info.lib_decl[uns_fncode]) == FUNCTION_DECL)
+	{
+	  if (flag_lazy_builtin_debug)
+	    fprintf (stderr, "---lazy_builtin (%s, old lib decl)\n", name);
+
+	  return builtin_info.lib_decl[uns_fncode];
+	}
+    }
 
   if (flag_lazy_builtin_debug)
     fprintf (stderr,
-	     "---lazy_builtin (%s, %s, %s, lib=%s%s%s%s)\n",
+	     "---lazy_builtin (%s, %s, %s, lib=%s%s%s)\n",
 	     main_name,
 	     (bclass == BUILT_IN_NORMAL) ? built_in_names[uns_fncode] : "---",
 	     built_in_class_names[(int)bclass],
 	     (lib_name ? lib_name : "<null>"),
 	     (implicit_p ? ", implicit" : ""),
-	     (fallback_p ? ", fallback" : ""),
-	     front_end_p ? "" : ", no bind");
+	     (fallback_p ? ", fallback" : ""));
 
   fntype_tree = builtin_types[(int) fntype];
   fnattr_tree = built_in_attributes[(int) attrs];
 
-  /* If we aren't in the front end, just create the declaration, but don't try
-     to link it into the symbol tables.  */
+  /* Turn off the lazy builtin flag now before calling add_builtin so that we
+     don't get an endless loop.  */
+  id2 = builtin_info.decl[uns_fncode];
+  if (id2 && TREE_CODE (id2) == IDENTIFIER_NODE)
+    IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
 
-  if (!front_end_p)
-    {
-      id2 = get_identifier (name);
-      IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
-      decl = add_builtin_function_nobind (name, fntype_tree, fncode, bclass,
-					  lib_name, fnattr_tree);
-    }
+  id2 = builtin_info.lib_decl[uns_fncode];
+  if (id2 && TREE_CODE (id2) == IDENTIFIER_NODE)
+    IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
+
+  /* Now create the explicit and maybe implicit builtin.  */
+  decl = add_builtin_function_ext_scope (main_name, fntype_tree, fncode,
+					 bclass, lib_name, fnattr_tree);
+
+  if (builtin_info.lib_decl[uns_fncode] != NULL_TREE && lib_name != NULL)
+    lib_decl = add_builtin_function_ext_scope (lib_name, fntype_tree, fncode,
+					       bclass, NULL, fnattr_tree);
   else
-    {
-      /* If we are in the front end, possibly create both the implicit name and
-	 the explicit name.  */
-      id2 = get_identifier (main_name);
-      IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
-
-      decl = add_builtin_function_ext_scope (main_name, fntype_tree, fncode,
-					     bclass, lib_name, fnattr_tree);
-
-      if (front_end_p && builtin_info.both_p[uns_fncode] && lib_name != NULL)
-	{
-	  id2 = get_identifier (lib_name);
-	  IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
-
-	  (void) add_builtin_function_ext_scope (lib_name, fntype_tree, fncode,
-						 bclass, NULL, fnattr_tree);
-	}
-    }
+    lib_decl = NULL_TREE;
 
   builtin_info.decl[uns_fncode] = decl;
+  builtin_info.lib_decl[uns_fncode] = lib_decl;
   builtin_info.implicit_p[uns_fncode] = implicit_p;
-  builtin_info.both_p[uns_fncode] = false;
   return decl;
 }
 
@@ -5370,7 +5441,7 @@ def_builtin_1 (enum built_in_function fncode,
 	       bool both_p, bool fallback_p, bool nonansi_p,
 	       tree fnattrs, bool implicit_p)
 {
-  tree decl;
+  tree decl, lib_decl;
   const char *libname;
   size_t uns_fncode = (size_t)fncode;
 
@@ -5398,18 +5469,17 @@ def_builtin_1 (enum built_in_function fncode,
   else
     decl = lang_hooks.builtin_function (decl);
 
-  builtin_info.decl[uns_fncode] = decl;
-  builtin_info.implicit_p[uns_fncode] = implicit_p;
-  builtin_info.both_p[uns_fncode] = false;
-
   if (both_p
       && !flag_no_builtin && !builtin_function_disabled_p (libname)
       && !(nonansi_p && flag_no_nonansi_builtin))
-    {
-      builtin_info.both_p[uns_fncode] = true;
-      c_common_add_builtin_function_lazy (libname, libtype, fncode, fnclass,
-					  NULL, fnattrs);
-    }
+    lib_decl = c_common_add_builtin_function_lazy (libname, libtype, fncode,
+						   fnclass, NULL, fnattrs);
+  else
+    lib_decl = NULL_TREE;
+
+  builtin_info.decl[uns_fncode] = decl;
+  builtin_info.lib_decl[uns_fncode] = lib_decl;
+  builtin_info.implicit_p[uns_fncode] = implicit_p;
 }
 
 /* Nonzero if the type T promotes to int.  This is (nearly) the

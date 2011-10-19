@@ -595,26 +595,6 @@ add_builtin_function_ext_scope (const char *name,
 				      lang_hooks.builtin_function_ext_scope);
 }
 
-/* Like add_builtin_function, but add any additional setup needed for finishing
-   the declaration, but don't explicitly add it to the scope rules.  This is
-   for lazy builtins that are refered to by the common parts of the compiler
-   and the backend, but the user doesn't actually encode calls to the builtin
-   like malloc.  The front end may have disposed of the scope information by
-   the time the back end runs.  */
-
-tree
-add_builtin_function_nobind (const char *name,
-			     tree type,
-			     int function_code,
-			     enum built_in_class cl,
-			     const char *library_name,
-			     tree attrs)
-{
-  return add_builtin_function_common (name, type, function_code, cl,
-				      library_name, attrs,
-				      lang_hooks.builtin_function_nobind);
-}
-
 tree
 lhd_builtin_function (tree decl)
 {
@@ -680,14 +660,13 @@ lhd_end_section (void)
    calls built_in_lazy_create includes langhooks.h, so we need to jump to the
    hook here.  */
 tree
-builtin_lazy_create (tree ident, bool front_end_p)
+builtin_lazy_create (tree ident)
 {
-  return lang_hooks.builtin_lazy_create (ident, front_end_p);
+  return lang_hooks.builtin_lazy_create (ident);
 }
 
 tree
-lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED,
-			 bool front_end_p ATTRIBUTE_UNUSED)
+lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

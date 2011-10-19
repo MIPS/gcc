@@ -5928,20 +5928,23 @@ extern bool block_may_fallthru (const_tree);
 #define IDENTIFIER_LAZY_BUILTIN_P(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->base.protected_flag)
 
-/* The builtin_info structure holds the FUNCTION_DECL of the standard builtin
-   function, and a flag that says if the function is available implicitly, or
-   whether the user has to code explicit calls to __builtin_<xxx>.  */
+/* The builtin_info structure holds the FUNCTION_DECL/IDENTIFIER_NODE of the
+   standard builtin function and the library function, the and a flag that says
+   if the function is available implicitly, or whether the user has to code
+   explicit calls to __builtin_<xxx>.  If the function is to be created when
+   used, the IDENTIFIER_NODE will be stored in the decl and lib_decl
+   fields.  */
 
 typedef struct GTY(()) builtin_info_type_d {
-  tree decl[(int)END_BUILTINS];		/* function_decl or identifier.  */
+  tree decl[(int)END_BUILTINS];		/* explict function.  */
+  tree lib_decl[(int)END_BUILTINS];	/* library function.  */
   bool implicit_p[(int)END_BUILTINS];	/* function declared implicitly.  */
-  bool both_p[(int)END_BUILTINS];	/* declare both __builtin_xxx and xxx */
 } builtin_info_type;
 
 extern GTY(()) builtin_info_type builtin_info;
 
 /* Call front end or back end hook to create lazy builtin.  */
-extern tree builtin_lazy_create (tree, bool);
+extern tree builtin_lazy_create (tree);
 
 /* Valid builtin number.  */
 #define BUILTIN_VALID_P(FNCODE) \
@@ -5957,7 +5960,7 @@ builtin_decl_explicit (enum built_in_function fncode)
 
   bfn = builtin_info.decl[(size_t)fncode];
   if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
-    bfn = builtin_lazy_create (bfn, false);
+    bfn = builtin_lazy_create (bfn);
 
   return bfn;
 }
@@ -5975,7 +5978,7 @@ builtin_decl_implicit (enum built_in_function fncode)
 
   bfn = builtin_info.decl[uns_fncode];
   if (bfn && TREE_CODE (bfn) == IDENTIFIER_NODE)
-    bfn = builtin_lazy_create (bfn, false);
+    bfn = builtin_lazy_create (bfn);
 
   return bfn;
 }
@@ -5992,8 +5995,8 @@ set_builtin_decl (enum built_in_function fncode, tree decl, bool implicit_p)
 		       && (decl != NULL_TREE || !implicit_p));
 
   builtin_info.decl[uns_fncode] = decl;
+  builtin_info.lib_decl[uns_fncode] = NULL_TREE;
   builtin_info.implicit_p[uns_fncode] = implicit_p;
-  builtin_info.both_p[uns_fncode] = false;
 }
 
 /* Set the implicit flag for a builtin function.  */

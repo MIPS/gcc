@@ -259,7 +259,6 @@ typedef tree add_builtin_function_type (const char *name, tree type,
 
 extern add_builtin_function_type add_builtin_function;
 extern add_builtin_function_type add_builtin_function_ext_scope;
-extern add_builtin_function_type add_builtin_function_nobind;
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
 
@@ -453,15 +452,6 @@ struct lang_hooks
      for this and builtin_function.  */
   tree (*builtin_function_ext_scope) (tree decl);
 
-  /* Like builtin_function, but add any additional setup needed for finishing
-     the declaration, but don't explicitly add it to the scope rules.  This is
-     for lazy builtins that are refered to by the common parts of the compiler
-     and the backend, but the user doesn't actually encode calls to the builtin
-     like malloc.  The front end may have disposed of the scope information by
-     the time the back end runs.  */
-  tree (*builtin_function_nobind) (tree decl);
-
-
   /* Create builtins in a lazy fashion if the front end supports it, otherwise
      create the builtin function immediately.  This hook must have the same
      calling sequence as add_builtin_function.  */
@@ -469,7 +459,7 @@ struct lang_hooks
 
   /* Call the language hook to create lazy builtin with identifier IDENT, and
      optionally add it to the front end's symbol table.  */
-  tree (*builtin_lazy_create) (tree ident, bool front_end_p);
+  tree (*builtin_lazy_create) (tree ident);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);

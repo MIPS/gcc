@@ -90,8 +90,6 @@ extern void cp_common_init_ts (void);
 #define LANG_HOOKS_BUILTIN_FUNCTION cxx_builtin_function
 #undef  LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE cxx_builtin_function_ext_scope
-#undef  LANG_HOOKS_BUILTIN_FUNCTION_NOBIND
-#define LANG_HOOKS_BUILTIN_FUNCTION_NOBIND cxx_builtin_function_nobind
 #undef	LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY
 #define	LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY c_common_add_builtin_function_lazy
 #undef	LANG_HOOKS_BUILTIN_LAZY_CREATE
@@ -100,6 +98,11 @@ extern void cp_common_init_ts (void);
 #define LANG_HOOKS_TYPE_HASH_EQ	cxx_type_hash_eq
 #undef LANG_HOOKS_MISSING_NORETURN_OK_P
 #define LANG_HOOKS_MISSING_NORETURN_OK_P cp_missing_noreturn_ok_p
+
+/* There are still some bugs to be worked out with C++ scoping and lazy
+   builtins, so for now disable lazy builtins by default.  */
+#undef	LANG_HOOKS_LAZY_BUILTIN_P
+#define	LANG_HOOKS_LAZY_BUILTIN_P false		/* true */
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

@@ -1,3 +1,17 @@
+2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* decl.c (builtin_function_1): Add support for lazy builtin
+	functions that delay creating the FUNCTION_DECL node for most
+	builtin functions until the name is actually used.  Builtin
+	functions used by the optimization passes are created all of the
+	time.  Enable lazy builtins by default for C but not for C++.
+	Delete nobind hooks.
+	(cxx_builtin_function): Ditto.
+	(cxx_builtin_function_ext_scope): Ditto.
+	(cxx_builtin_function_nobind): Ditto.
+	* cp-objcp-common.h (LANG_HOOKS_BUILTIN_FUNCTION_NOBIND): Ditto.
+	(LANG_HOOKS_LAZY_BUILTIN_P): Ditto.
+
 2011-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to subversion id 180165.
