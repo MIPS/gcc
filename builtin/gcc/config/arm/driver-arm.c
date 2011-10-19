@@ -75,7 +75,7 @@ host_detect_local_cpu (int argc, const char **argv)
 {
   const char *val = NULL;
   char buf[128];
-  FILE *f;
+  FILE *f = NULL;
   bool arch;
   const struct vendor_cpu *cpu_table = NULL;
 
@@ -134,6 +134,10 @@ not_found:
     unsigned int i;
     unsigned int opt;
     const char *search[] = {NULL, "arch"};
+
+    if (f)
+      fclose (f);
+
     search[0] = argv[0];
     for (opt = 0; opt < ARRAY_SIZE (search); opt++)
       for (i = 0; i < ARRAY_SIZE (configure_default_options); i++)

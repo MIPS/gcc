@@ -1,5 +1,9 @@
 2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 180202.
+
+2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* decl.c (builtin_function_1): Add support for lazy builtin
 	functions that delay creating the FUNCTION_DECL node for most
 	builtin functions until the name is actually used.  Builtin

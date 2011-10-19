@@ -1,5 +1,10 @@
 2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 180202.
+	* REVISION: Update subversion id.
+
+2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* tree.h (builtin_info_type): Add support for lazy builtin
 	functions that delay creating the FUNCTION_DECL node for most
 	builtin functions until the name is actually used.  Builtin
