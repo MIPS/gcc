@@ -4673,11 +4673,14 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 	case BUILT_IN_ALLOCA_WITH_ALIGN:
 	case BUILT_IN_BSWAP32:
 	case BUILT_IN_BSWAP64:
+	case BUILT_IN_CALLOC:
 	case BUILT_IN_CLEAR_CACHE:
 	case BUILT_IN_FPRINTF:
 	case BUILT_IN_FPRINTF_CHK:
+	case BUILT_IN_FREE:
 	case BUILT_IN_INIT_TRAMPOLINE:
 	case BUILT_IN_LONGJMP:
+	case BUILT_IN_MALLOC:
 	case BUILT_IN_MEMCHR:
 	case BUILT_IN_MEMCPY:
 	case BUILT_IN_MEMCPY_CHK:
@@ -4693,6 +4696,7 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 	case BUILT_IN_PRINTF_CHK:
 	case BUILT_IN_PROFILE_FUNC_ENTER:
 	case BUILT_IN_PROFILE_FUNC_EXIT:
+	case BUILT_IN_REALLOC:
 	case BUILT_IN_RETURN_ADDRESS:
 	case BUILT_IN_SETJMP:
 	case BUILT_IN_SETJMP_DISPATCHER:
@@ -4703,20 +4707,20 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 	case BUILT_IN_SPRINTF_CHK:
 	case BUILT_IN_STACK_RESTORE:
 	case BUILT_IN_STACK_SAVE:
-	case BUILT_IN_STPCPY_CHK:
 	case BUILT_IN_STPCPY:
-	case BUILT_IN_STRCAT_CHK:
+	case BUILT_IN_STPCPY_CHK:
 	case BUILT_IN_STRCAT:
+	case BUILT_IN_STRCAT_CHK:
 	case BUILT_IN_STRCHR:
 	case BUILT_IN_STRCMP:
 	case BUILT_IN_STRCPY:
 	case BUILT_IN_STRCPY_CHK:
 	case BUILT_IN_STRCSPN:
 	case BUILT_IN_STRLEN:
-	case BUILT_IN_STRNCAT_CHK:
 	case BUILT_IN_STRNCAT:
-	case BUILT_IN_STRNCPY_CHK:
+	case BUILT_IN_STRNCAT_CHK:
 	case BUILT_IN_STRNCPY:
+	case BUILT_IN_STRNCPY_CHK:
 	case BUILT_IN_VFPRINTF_CHK:
 	case BUILT_IN_VPRINTF:
 	case BUILT_IN_VPRINTF_CHK:

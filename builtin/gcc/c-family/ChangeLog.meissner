@@ -1,3 +1,10 @@
+2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (c_common_add_builtin_function_lazy): Add more
+	builtins to the list that cannot be lazy.
+
+	* c-lex.c (c_lex_with_flags): Undo lazy builtin support here.
+
 2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 180202.

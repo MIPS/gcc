@@ -76,7 +76,7 @@ static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 			 int, int, tree);
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
-static tree builtin_function_1 (tree, tree, bool);
+static tree builtin_function_1 (tree, tree, bool, bool);
 static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, enum bad_spec_place, int, int, int, int,
@@ -3812,8 +3812,13 @@ cp_make_fname_decl (location_t loc, tree id, int type_dep)
   return decl;
 }
 
+/* Finish creating a builtin function DECL with context CONTEXT.  If IS_GLOBAL
+   is true, we want to create the function at the global scope level, and it is
+   used for creating lazy builtins as they are needed.  If IS_STD is true, we
+   are creating a lazy builtin that must be in the std namespace.  */
+
 static tree
-builtin_function_1 (tree decl, tree context, bool is_global)
+builtin_function_1 (tree decl, tree context, bool is_global, bool is_std)
 {
   tree          id = DECL_NAME (decl);
   const char *name = IDENTIFIER_POINTER (id);
@@ -3830,7 +3835,9 @@ builtin_function_1 (tree decl, tree context, bool is_global)
 
   DECL_CONTEXT (decl) = context;
 
-  if (is_global)
+  if (is_std)
+    pushdecl_with_scope (decl, NAMESPACE_LEVEL (std_node), false);
+  else if (is_global)
     pushdecl_top_level (decl);
   else
     pushdecl (decl);
@@ -3866,11 +3873,11 @@ cxx_builtin_function (tree decl)
     {
       tree decl2 = copy_node(decl);
       push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node, false);
+      builtin_function_1 (decl2, std_node, false, false);
       pop_namespace ();
     }
 
-  return builtin_function_1 (decl, NULL_TREE, false);
+  return builtin_function_1 (decl, NULL_TREE, false, false);
 }
 
 /* Like cxx_builtin_function, but make sure the scope is the external scope.
@@ -3883,12 +3890,13 @@ cxx_builtin_function_ext_scope (tree decl)
 {
 
   tree          id = DECL_NAME (decl);
+  tree	     decl2;
   const char *name = IDENTIFIER_POINTER (id);
 
   if (flag_lazy_builtin_debug)
     fprintf (stderr, "---cxx_builtin_function_ext_scope (%s, decl=%p, %s, "
 	     "fncode=%d [%s])\n",
-	     IDENTIFIER_POINTER (id),
+	     name,
 	     (void *)decl,
 	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
 	     (int)DECL_FUNCTION_CODE (decl),
@@ -3896,18 +3904,14 @@ cxx_builtin_function_ext_scope (tree decl)
 	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
 	      : "---"));
 
+  decl2 = builtin_function_1 (decl, std_node, true, false);
+
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
-    {
-      tree decl2 = copy_node(decl);
-      push_namespace (std_identifier);
-      builtin_function_1 (decl2, std_node, true);
-      pop_namespace ();
-    }
+    builtin_function_1 (copy_node (decl), std_node, true, true);
 
-  decl = builtin_function_1 (decl, std_node, true);
-  return decl;
+  return decl2;
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -8527,6 +8531,21 @@ grokdeclarator (const cp_declarator *declarator,
 	}
       if (id_declarator->kind == cdk_id)
 	break;
+    }
+
+
+  /* If this identifier is a lazy builtin whose function type has not yet been
+     created, create it now before doing the lookup.  */
+  if (name)
+    {
+      tree tname = get_identifier (name);
+      if (tname && IDENTIFIER_LAZY_BUILTIN_P (tname))
+	{
+	  if (flag_lazy_builtin_debug)
+	    fprintf (stderr, "---grokdeclarator (%s)\n", name);
+
+	  (void) builtin_lazy_create (tname);
+	}
     }
 
   /* [dcl.fct.edf]

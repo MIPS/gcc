@@ -1,3 +1,13 @@
+2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-decl.c (lookup_name): If we encounter a lazy builtin name,
+	create the declaration.
+	(lookup_name_in_scope): Ditto.
+
+	* stringpool.c (get_identifier): Delete lazy builtin code here.
+	(get_identifier_with_length): Ditto.
+	(maybe_get_identifier): Ditto.
+
 2011-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 180202.

@@ -3459,7 +3459,19 @@ pending_xref_error (void)
 tree
 lookup_name (tree name)
 {
-  struct c_binding *b = I_SYMBOL_BINDING (name);
+  struct c_binding *b;
+
+  /* If this identifier is a lazy builtin whose function type has not yet been
+     created, create it now before doing the lookup.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (name))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---lookup_name (%s)\n", IDENTIFIER_POINTER (name));
+
+      (void) builtin_lazy_create (name);
+    }
+
+  b = I_SYMBOL_BINDING (name);
   if (b && !b->invisible)
     {
       maybe_record_typedef_use (b->decl);
@@ -3474,6 +3486,17 @@ static tree
 lookup_name_in_scope (tree name, struct c_scope *scope)
 {
   struct c_binding *b;
+
+  /* If this identifier is a lazy builtin whose function type has not yet been
+     created, create it now before doing the lookup.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (name))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---lookup_name_in_scope (%s)\n",
+		 IDENTIFIER_POINTER (name));
+
+      (void) builtin_lazy_create (name);
+    }
 
   for (b = I_SYMBOL_BINDING (name); b; b = b->shadowed)
     if (B_IN_SCOPE (b, scope))
@@ -4988,6 +5011,17 @@ grokdeclarator (const struct c_declarator *declarator,
 	gcc_assert (!initialized);
       }
   }
+
+  /* If this identifier is a lazy builtin whose function type has not yet been
+     created, create it now before doing the lookup.  */
+  if (name && IDENTIFIER_LAZY_BUILTIN_P (name))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---grokdeclarator (%s)\n",
+		 IDENTIFIER_POINTER (name));
+
+      (void) builtin_lazy_create (name);
+    }
 
   /* A function definition's declarator must have the form of
      a function declarator.  */

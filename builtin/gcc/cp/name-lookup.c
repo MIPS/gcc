@@ -4518,6 +4518,18 @@ lookup_name_real_1 (tree name, int prefer_type, int nonclass, bool block_p,
   cxx_binding *iter;
   tree val = NULL_TREE;
 
+  /* If this identifier is a lazy builtin whose function type has not yet been
+     created, create it now before doing the lookup.  */
+  if (IDENTIFIER_LAZY_BUILTIN_P (name))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---lookup_name_read_1 (%s)\n",
+		 IDENTIFIER_POINTER (name));
+
+      (void) builtin_lazy_create (name);
+    }
+
+
   /* Conversion operators are handled specially because ordinary
      unqualified name lookup will not find template conversion
      operators.  */
