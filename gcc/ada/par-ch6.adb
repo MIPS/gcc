@@ -184,7 +184,7 @@ package body Ch6 is
       Scope.Table (Scope.Last).Ecol := Start_Column;
       Scope.Table (Scope.Last).Lreq := False;
 
-      --  Ada2005: scan leading NOT OVERRIDING indicator
+      --  Ada 2005: Scan leading NOT OVERRIDING indicator
 
       if Token = Tok_Not then
          Scan;  -- past NOT
@@ -675,10 +675,40 @@ package body Ch6 is
                   else
                      --  If the identifier is the first token on its line, then
                      --  let's assume that we have a missing begin and this is
-                     --  intended as a subprogram body.
+                     --  intended as a subprogram body. However, if the context
+                     --  is a function and the unit is a package declaration, a
+                     --  body would be illegal, so try for an unparenthesized
+                     --  expression function.
 
                      if Token_Is_At_Start_Of_Line then
-                        return False;
+                        declare
+                           --  The enclosing scope entry is a subprogram spec
+
+                           Spec_Node : constant Node_Id :=
+                                         Parent
+                                           (Scope.Table (Scope.Last).Labl);
+                           Lib_Node : Node_Id := Spec_Node;
+
+                        begin
+                           --  Check whether there is an enclosing scope that
+                           --  is a package declaration.
+
+                           if Scope.Last > 1 then
+                              Lib_Node  :=
+                                Parent (Scope.Table (Scope.Last - 1).Labl);
+                           end if;
+
+                           if Ada_Version >= Ada_2012
+                             and then
+                               Nkind (Lib_Node) = N_Package_Specification
+                             and then
+                               Nkind (Spec_Node) = N_Function_Specification
+                           then
+                              null;
+                           else
+                              return False;
+                           end if;
+                        end;
 
                      --  Otherwise we have to scan ahead. If the identifier is
                      --  followed by a colon or a comma, it is a declaration
@@ -1311,7 +1341,7 @@ package body Ch6 is
 
                if Token = Tok_Aliased then
                   if Ada_Version < Ada_2012 then
-                     Error_Msg_SC ("ALIASED parameter is an Ada2012 feature");
+                     Error_Msg_SC ("ALIASED parameter is an Ada 2012 feature");
                   else
                      Set_Aliased_Present (Specification_Node);
                   end if;
@@ -1646,6 +1676,14 @@ package body Ch6 is
       elsif Token = Tok_Aliased then
          Scan; -- past ALIASED
          Set_Aliased_Present (Decl_Node);
+
+         if Ada_Version < Ada_2012 then
+            Error_Msg_SC -- CODEFIX
+              ("ALIASED not allowed in extended return in Ada2012?");
+         else
+            Error_Msg_SC -- CODEFIX
+              ("ALIASED not allowed in extended return");
+         end if;
 
          if Token = Tok_Constant then
             Scan; -- past CONSTANT

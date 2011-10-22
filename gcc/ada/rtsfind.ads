@@ -498,6 +498,14 @@ package Rtsfind is
    --  value is required syntactically, but no real entry is required or
    --  needed. Use of this value will cause a fatal error in an RTE call.
 
+   --  Note that under no circumstances can any of these entities be defined
+   --  more than once in a given package, i.e. no overloading is allowed for
+   --  any entity that is found using rtsfind. A fatal error is given if this
+   --  rule is violated. The one exception is for Save_Occurrence, where the
+   --  RM mandates the overloading. In this case, the compiler only uses the
+   --  procedure, not the function, and the procedure must come first so that
+   --  the compiler finds it and not the function.
+
    type RE_Id is (
 
      RE_Null,
@@ -1155,6 +1163,7 @@ package Rtsfind is
      RE_Get_RACW,                        -- System.Partition_Interface
      RE_Get_RCI_Package_Receiver,        -- System.Partition_Interface
      RE_Get_Unique_Remote_Pointer,       -- System.Partition_Interface
+     RE_RACW_Stub_Type,                  -- System.Partition_Interface
      RE_RACW_Stub_Type_Access,           -- System.Partition_Interface
      RE_RAS_Proxy_Type_Access,           -- System.Partition_Interface
      RE_Raise_Program_Error_Unknown_Tag, -- System.Partition_Interface
@@ -1340,6 +1349,7 @@ package Rtsfind is
      RE_Allocate_Any,                    -- System.Storage_Pools
      RE_Deallocate_Any,                  -- System.Storage_Pools
      RE_Root_Storage_Pool,               -- System.Storage_Pools
+     RE_Root_Storage_Pool_Ptr,           -- System.Storage_Pools
 
      RE_Allocate_Any_Controlled,         -- System.Storage_Pools.Subpools
      RE_Deallocate_Any_Controlled,       -- System.Storage_Pools.Subpools
@@ -1644,6 +1654,7 @@ package Rtsfind is
      RE_Initialize_Protection,           -- System.Tasking.Protected_Objects
      RE_Finalize_Protection,             -- System.Tasking.Protected_Objects
      RE_Lock,                            -- System.Tasking.Protected_Objects
+     RE_Lock_Read_Only,                  -- System.Tasking.Protected_Objects
      RE_Get_Ceiling,                     -- System.Tasking.Protected_Objects
      RE_Set_Ceiling,                     -- System.Tasking.Protected_Objects
      RE_Unlock,                          -- System.Tasking.Protected_Objects
@@ -2349,6 +2360,7 @@ package Rtsfind is
      RE_Get_RACW                         => System_Partition_Interface,
      RE_Get_RCI_Package_Receiver         => System_Partition_Interface,
      RE_Get_Unique_Remote_Pointer        => System_Partition_Interface,
+     RE_RACW_Stub_Type                   => System_Partition_Interface,
      RE_RACW_Stub_Type_Access            => System_Partition_Interface,
      RE_RAS_Proxy_Type_Access            => System_Partition_Interface,
      RE_Raise_Program_Error_Unknown_Tag  => System_Partition_Interface,
@@ -2534,6 +2546,7 @@ package Rtsfind is
      RE_Allocate_Any                     => System_Storage_Pools,
      RE_Deallocate_Any                   => System_Storage_Pools,
      RE_Root_Storage_Pool                => System_Storage_Pools,
+     RE_Root_Storage_Pool_Ptr            => System_Storage_Pools,
 
      RE_Allocate_Any_Controlled          => System_Storage_Pools_Subpools,
      RE_Deallocate_Any_Controlled        => System_Storage_Pools_Subpools,
@@ -2873,6 +2886,7 @@ package Rtsfind is
      RE_Initialize_Protection            => System_Tasking_Protected_Objects,
      RE_Finalize_Protection              => System_Tasking_Protected_Objects,
      RE_Lock                             => System_Tasking_Protected_Objects,
+     RE_Lock_Read_Only                   => System_Tasking_Protected_Objects,
      RE_Get_Ceiling                      => System_Tasking_Protected_Objects,
      RE_Set_Ceiling                      => System_Tasking_Protected_Objects,
      RE_Unlock                           => System_Tasking_Protected_Objects,

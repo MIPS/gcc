@@ -959,6 +959,13 @@ package body Prj.Conf is
             end if;
          end loop;
 
+         --  Make sure that Obj_Dir ends with a directory separator
+
+         if Name_Buffer (Name_Len) /= Directory_Separator then
+            Name_Len := Name_Len + 1;
+            Name_Buffer (Name_Len) := Directory_Separator;
+         end if;
+
          declare
             Obj_Dir         : constant String := Name_Buffer (1 .. Name_Len);
             Config_Switches : Argument_List_Access;
@@ -1317,6 +1324,7 @@ package body Prj.Conf is
          Prj.Proc.Process_Project_Tree_Phase_1
            (In_Tree                => Project_Tree,
             Project                => Config,
+            Packages_To_Check      => Packages_To_Check,
             Success                => Success,
             From_Project_Node      => Config_Project_Node,
             From_Project_Node_Tree => Project_Node_Tree,
@@ -1458,6 +1466,7 @@ package body Prj.Conf is
       Process_Project_Tree_Phase_1
         (In_Tree                => Project_Tree,
          Project                => Main_Project,
+         Packages_To_Check      => Packages_To_Check,
          Success                => Success,
          From_Project_Node      => User_Project_Node,
          From_Project_Node_Tree => Project_Node_Tree,

@@ -29,6 +29,7 @@
 --  to complete the syntax checks. Certain pragmas are handled partially or
 --  completely by the parser (see Par.Prag for further details).
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Checks;   use Checks;
@@ -372,8 +373,12 @@ package body Sem_Prag is
 
    procedure Analyze_Pragma (N : Node_Id) is
       Loc     : constant Source_Ptr := Sloc (N);
-      Pname   : constant Name_Id    := Pragma_Name (N);
       Prag_Id : Pragma_Id;
+
+      Pname : Name_Id;
+      --  Name of the source pragma, or name of the corresponding aspect for
+      --  pragmas which originate in a source aspect. In the latter case, the
+      --  name may be different from the pragma name.
 
       Pragma_Exit : exception;
       --  This exception is used to exit pragma processing completely. It is
@@ -1052,6 +1057,7 @@ package body Sem_Prag is
                if Is_Compilation_Unit (Ent) then
                   declare
                      Decl : constant Node_Id := Unit_Declaration_Node (Ent);
+
                   begin
                      --  Case of pragma placed immediately after spec
 
@@ -4885,7 +4891,8 @@ package body Sem_Prag is
 
                   --  For the pragma case, climb homonym chain. This is
                   --  what implements allowing the pragma in the renaming
-                  --  case, with the result applying to the ancestors.
+                  --  case, with the result applying to the ancestors, and
+                  --  also allows Inline to apply to all previous homonyms.
 
                   if not From_Aspect_Specification (N) then
                      while Present (Homonym (Subp))
@@ -5307,6 +5314,26 @@ package body Sem_Prag is
 
             elsif Id = Name_No_Dependence then
                Check_Unit_Name (Expr);
+
+            --  Case of No_Specification_Of_Aspect => Identifier.
+
+            elsif Id = Name_No_Specification_Of_Aspect then
+               declare
+                  A_Id : Aspect_Id;
+
+               begin
+                  if Nkind (Expr) /= N_Identifier then
+                     A_Id := No_Aspect;
+                  else
+                     A_Id := Get_Aspect_Id (Chars (Expr));
+                  end if;
+
+                  if A_Id = No_Aspect then
+                     Error_Pragma_Arg ("invalid restriction name", Arg);
+                  else
+                     Set_Restriction_No_Specification_Of_Aspect (Expr, Warn);
+                  end if;
+               end;
 
             --  All other cases of restriction identifier present
 
@@ -6169,6 +6196,8 @@ package body Sem_Prag is
 
       --  Deal with unrecognized pragma
 
+      Pname := Pragma_Name (N);
+
       if not Is_Pragma_Name (Pname) then
          if Warn_On_Unrecognized_Pragma then
             Error_Msg_Name_1 := Pname;
@@ -6190,6 +6219,10 @@ package body Sem_Prag is
       --  Here to start processing for recognized pragma
 
       Prag_Id := Get_Pragma_Id (Pname);
+
+      if Present (Corresponding_Aspect (N)) then
+         Pname := Chars (Identifier (Corresponding_Aspect (N)));
+      end if;
 
       --  Preset arguments
 
@@ -9120,6 +9153,42 @@ package body Sem_Prag is
             end;
          end Ident;
 
+         ----------------------------
+         -- Implementation_Defined --
+         ----------------------------
+
+         --  pragma Implementation_Defined (local_NAME);
+
+         --  Marks previously declared entity as implementation defined. For
+         --  an overloaded entity, applies to the most recent homonym.
+
+         --  pragma Implementation_Defined;
+
+         --  The form with no arguments appears anywhere within a scope, most
+         --  typically a package spec, and indicates that all entities that are
+         --  defined within the package spec are Implementation_Defined.
+
+         when Pragma_Implementation_Defined => Implementation_Defined : declare
+            Ent : Entity_Id;
+
+         begin
+            Check_No_Identifiers;
+
+            --  Form with no arguments
+
+            if Arg_Count = 0 then
+               Set_Is_Implementation_Defined (Current_Scope);
+
+            --  Form with one argument
+
+            else
+               Check_Arg_Count (1);
+               Check_Arg_Is_Local_Name (Arg1);
+               Ent := Entity (Get_Pragma_Arg (Arg1));
+               Set_Is_Implementation_Defined (Ent);
+            end if;
+         end Implementation_Defined;
+
          -----------------
          -- Implemented --
          -----------------
@@ -10088,10 +10157,26 @@ package body Sem_Prag is
             if Typ = Any_Type then
                return;
 
-            elsif not Ekind_In (Typ, E_Private_Type,
-                                     E_Record_Type_With_Private,
-                                     E_Limited_Private_Type)
+            --  An invariant must apply to a private type, or appear in the
+            --  private part of a package spec and apply to a completion.
+
+            elsif Ekind_In (Typ, E_Private_Type,
+                                 E_Record_Type_With_Private,
+                                 E_Limited_Private_Type)
             then
+               null;
+
+            elsif In_Private_Part (Current_Scope)
+              and then Has_Private_Declaration (Typ)
+            then
+               null;
+
+            elsif In_Private_Part (Current_Scope) then
+               Error_Pragma_Arg
+                 ("pragma% only allowed for private type " &
+                  "declared in visible part", Arg1);
+
+            else
                Error_Pragma_Arg
                  ("pragma% only allowed for private type", Arg1);
             end if;
@@ -10749,16 +10834,23 @@ package body Sem_Prag is
          --  pragma Locking_Policy (policy_IDENTIFIER);
 
          when Pragma_Locking_Policy => declare
-            LP : Character;
-
+            subtype LP_Range is Name_Id
+              range First_Locking_Policy_Name .. Last_Locking_Policy_Name;
+            LP_Val : LP_Range;
+            LP     : Character;
          begin
             Check_Ada_83_Warning;
             Check_Arg_Count (1);
             Check_No_Identifiers;
             Check_Arg_Is_Locking_Policy (Arg1);
             Check_Valid_Configuration_Pragma;
-            Get_Name_String (Chars (Get_Pragma_Arg (Arg1)));
-            LP := Fold_Upper (Name_Buffer (1));
+            LP_Val := Chars (Get_Pragma_Arg (Arg1));
+
+            case LP_Val is
+               when Name_Ceiling_Locking            => LP := 'C';
+               when Name_Inheritance_Locking        => LP := 'I';
+               when Name_Concurrent_Readers_Locking => LP := 'R';
+            end case;
 
             if Locking_Policy /= ' '
               and then Locking_Policy /= LP
@@ -12149,12 +12241,21 @@ package body Sem_Prag is
 
             declare
                Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
+
             begin
                if Chars (Argx) = Name_Ravenscar then
                   Set_Ravenscar_Profile (N);
+
                elsif Chars (Argx) = Name_Restricted then
                   Set_Profile_Restrictions
-                    (Restricted, N, Warn => Treat_Restrictions_As_Warnings);
+                    (Restricted,
+                     N, Warn => Treat_Restrictions_As_Warnings);
+
+               elsif Chars (Argx) = Name_No_Implementation_Extensions then
+                  Set_Profile_Restrictions
+                    (No_Implementation_Extensions,
+                     N, Warn => Treat_Restrictions_As_Warnings);
+
                else
                   Error_Pragma_Arg ("& is not a valid profile", Argx);
                end if;
@@ -12176,11 +12277,18 @@ package body Sem_Prag is
 
             declare
                Argx : constant Node_Id := Get_Pragma_Arg (Arg1);
+
             begin
                if Chars (Argx) = Name_Ravenscar then
                   Set_Profile_Restrictions (Ravenscar, N, Warn => True);
+
                elsif Chars (Argx) = Name_Restricted then
                   Set_Profile_Restrictions (Restricted, N, Warn => True);
+
+               elsif Chars (Argx) = Name_No_Implementation_Extensions then
+                  Set_Profile_Restrictions
+                    (No_Implementation_Extensions, N, Warn => True);
+
                else
                   Error_Pragma_Arg ("& is not a valid profile", Argx);
                end if;
@@ -13654,19 +13762,18 @@ package body Sem_Prag is
                Error_Msg_N ("Unchecked_Union must not be tagged", Typ);
                return;
 
-            elsif Is_Limited_Type (Typ) then
+            elsif not Has_Discriminants (Typ) then
                Error_Msg_N
-                 ("Unchecked_Union must not be limited record type", Typ);
-               Explain_Limited_Type (Typ, Typ);
+                ("Unchecked_Union must have one discriminant", Typ);
                return;
 
-            else
-               if not Has_Discriminants (Typ) then
-                  Error_Msg_N
-                    ("Unchecked_Union must have one discriminant", Typ);
-                  return;
-               end if;
+            --  Note: in previous versions of GNAT we used to check for limited
+            --  types and give an error, but in fact the standard does allow
+            --  Unchecked_Union on limited types, so this check was removed.
 
+            --  Proceed with basic error checks completed
+
+            else
                Discr := First_Discriminant (Typ);
                while Present (Discr) loop
                   if No (Discriminant_Default_Value (Discr)) then
@@ -14637,6 +14744,7 @@ package body Sem_Prag is
       Pragma_Finalize_Storage_Only         =>  0,
       Pragma_Float_Representation          =>  0,
       Pragma_Ident                         => -1,
+      Pragma_Implementation_Defined        => -1,
       Pragma_Implemented                   => -1,
       Pragma_Implicit_Packing              =>  0,
       Pragma_Import                        => +2,

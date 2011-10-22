@@ -580,19 +580,19 @@ packages would be involved in the build process.
       @b{for} Object_Dir @b{use} "obj";
       @b{for} Exec_Dir @b{use} ".";
       @b{for} Main @b{use} ("proc.adb");
+
+      @b{package} Builder @b{is}  --<<<  for gnatmake and gprbuild
+      @b{end} Builder;
+
+      @b{package} Compiler @b{is} --<<<  for the compiler
+      @b{end} Compiler;
+
+      @b{package} Binder @b{is}   --<<<  for the binder
+      @b{end} Binder;
+
+      @b{package} Linker @b{is}   --<<<  for the linker
+      @b{end} Linker;
    @b{end} Build;
-
-   @b{package} Builder @b{is}  --<<<  for gnatmake and gprbuild
-   @b{end} Builder;
-
-   @b{package} Compiler @b{is} --<<<  for the compiler
-   @b{end} Compiler;
-
-   @b{package} Binder @b{is}   --<<<  for the binder
-   @b{end} Binder;
-
-   @b{package} Linker @b{is}   --<<<  for the linker
-   @b{end} Linker;
 @end smallexample
 
 @noindent
@@ -2015,8 +2015,16 @@ end Work;
 @end smallexample
 
 @noindent
-An extending project retains all the switches specified in the
-extended project.
+All packages that are not declared in the extending project are inherited from
+the project being extended, with their attributes, with the exception of
+@code{Linker'Linker_Options} which is never inherited. In particular, an
+extending project retains all the switches specified in the project being
+extended.
+
+At the project level, if they are not declared in the extending project, some
+attributes are inherited from the project being extended. They are:
+@code{Languages}, @code{Main} (for a root non library project) and
+@code{Library_Name} (for a project extending a library project)
 
 @menu
 * Project Hierarchy Extension::
@@ -2131,7 +2139,19 @@ meant to solve a few specific use cases that cannot be solved directly
 using standard projects. This section will go over a few of these use
 cases to try and explain what you can use aggregate projects for.
 
+@menu
+* Building all main units from a single project tree::
+* Building a set of projects with a single command::
+* Define a build environment::
+* Performance improvements in builder::
+* Syntax of aggregate projects::
+* package Builder in aggregate projects::
+@end menu
+
+@c -----------------------------------------------------------
+@node Building all main units from a single project tree
 @subsection Building all main units from a single project tree
+@c -----------------------------------------------------------
 
 Most often, an application is organized into modules and submodules,
 which are very conveniently represented as a project tree or graph
@@ -2184,7 +2204,10 @@ aggregate project, you will need to add "p.gpr" in the list of project
 files for the aggregate project, or the main unit will not be built when
 building the aggregate project.
 
+@c ---------------------------------------------------------
+@node Building a set of projects with a single command
 @subsection Building a set of projects with a single command
+@c ---------------------------------------------------------
 
 One other case is when you have multiple applications and libraries
 that are build independently from each other (but they can be build in
@@ -2223,7 +2246,10 @@ with Annex E.
    Aggregate projects can be used to build multiple partitions
 @end smallexample
 
+@c ---------------------------------------------
+@node Define a build environment
 @subsection Define a build environment
+@c ---------------------------------------------
 
 The environment variables at the time you launch gprbuild or gprbuild
 will influence the view these tools have of the project (PATH to find
@@ -2278,7 +2304,10 @@ project MyProject is
 end MyProject;
 @end smallexample
 
+@c --------------------------------------------
+@node Performance improvements in builder
 @subsection Performance improvements in builder
+@c --------------------------------------------
 
 The loading of aggregate projects is optimized in gprbuild and
 gnatmake, so that all files are searched for only once on the disk
@@ -2294,7 +2323,10 @@ can be compiled in parallel (through the usual -j switch) and this can
 be done while maximizing the use of CPUs (compared to launching
 multiple gprbuild and gnatmake commands in parallel).
 
+@c -------------------------------------
+@node Syntax of aggregate projects
 @subsection Syntax of aggregate projects
+@c -------------------------------------
 
 An aggregate project follows the general syntax of project files. The
 recommended extension is still @file{.gpr}. However, a special
@@ -2492,7 +2524,10 @@ P, which in particular might impact the list of source files in P.
 
 @end table
 
+@c ----------------------------------------------
+@node package Builder in aggregate projects
 @subsection package Builder in aggregate projects
+@c ----------------------------------------------
 
 As we mentioned before, only the package Builder can be specified in
 an aggregate project. In this package, only the following attributes
@@ -2572,7 +2607,7 @@ both depend on C. Here is an extra for all of these projects:
 
       project C is
           package Compiler is
-             for Default_Switches ("Ada") use ("-O3, "-gnatn");
+             for Default_Switches ("Ada") use ("-O3", "-gnatn");
              for Switches ("c_file1.adb") use ("-O0", "-g");
           end Compiler;
       end C;
@@ -2628,7 +2663,15 @@ project files (so possibly built with different compiler options) and
 yet create a single library (static or relocatable) out of the
 corresponding object files.
 
+@menu
+* Building aggregate library projects::
+* Syntax of aggregate library projects::
+@end menu
+
+@c ---------------------------------------------
+@node Building aggregate library projects
 @subsection Building aggregate library projects
+@c ---------------------------------------------
 
 For example, we can define an aggregate project Agg that groups A, B
 and C:
@@ -2674,7 +2717,10 @@ With the above aggregate library Builder package, the @code{-fPIC}
 option will be passed to the compiler when building any source code
 from projects @file{a.gpr}, @file{b.gpr} and @file{c.gpr}.
 
+@c ---------------------------------------------
+@node Syntax of aggregate library projects
 @subsection Syntax of aggregate library projects
+@c ---------------------------------------------
 
 An aggregate library project follows the general syntax of project
 files. The recommended extension is still @file{.gpr}. However, a special
@@ -2695,7 +2741,6 @@ project. Here is the (non exhaustive) list:
 @item Source_Files, Source_List_File and other attributes dealing with
   list of sources.
 @item Source_Dirs, Exec_Dir and Object_Dir
-@item Library_Dir, Library_Name and other library-related attributes
 @item Main
 @item Roots
 @item Externally_Built
@@ -3650,7 +3695,6 @@ end MyProj;
 * gnatmake and Project Files::
 * The GNAT Driver and Project Files::
 * The Development Environments::
-* Cleaning up with GPRclean::
 @end menu
 
 @c ---------------------------------------------
@@ -4517,73 +4561,3 @@ will be relative to this path. The root project directory is used if
 this value is not defined.
 
 @end table
-
-@c ---------------------------------------------
-@node Cleaning up with GPRclean
-@section Cleaning up with GPRclean
-@c ---------------------------------------------
-
-@noindent
-The GPRclean tool removes the files created by GPRbuild.
-At a minimum, to invoke GPRclean you must specify a main project file
-in a command such as @code{gprclean proj.gpr} or @code{gprclean -P proj.gpr}.
-
-Examples of invocation of GPRclean:
-
-@smallexample
-   gprclean -r prj1.gpr
-   gprclean -c -P prj2.gpr
-@end smallexample
-
-@menu
-* Switches for GPRclean::
-@end menu
-
-@c ---------------------------------------------
-@node Switches for GPRclean
-@subsection Switches for GPRclean
-@c ---------------------------------------------
-
-@noindent
-The switches for GPRclean are:
-
-@itemize @bullet
-@item @option{--config=<main config project file name>} : Specify the
-  configuration project file name
-
-@item @option{--autoconf=<config project file name>}
-
-  This specifies a configuration project file name that already exists or will
-  be created automatically. Option @option{--autoconf=}
-  cannot be specified more than once. If the configuration project file
-  specified with @option{--autoconf=} exists, then it is used. Otherwise,
-  @value{gprconfig} is invoked to create it automatically.
-
-@item @option{-c} : Only delete compiler-generated files. Do not delete
-  executables and libraries.
-
-@item @option{-f} : Force deletions of unwritable files
-
-@item @option{-F} : Display full project path name in brief error messages
-
-@item @option{-h} : Display this message
-
-@item @option{-n} : Do not delete files, only list files to delete
-
-@item @option{-P<proj>} : Use Project File @emph{<proj>}.
-
-@item @option{-q} : Be quiet/terse. There is no output, except to report
-  problems.
-
-@item @option{-r} : (recursive) Clean all projects referenced by the main
-  project directly or indirectly. Without this switch, GPRclean only
-  cleans the main project.
-
-@item @option{-v}  : Verbose mode
-
-@item @option{-vPx} : Specify verbosity when parsing Project Files.
-  x = 0 (default), 1 or 2.
-
-@item @option{-Xnm=val} : Specify an external reference for Project Files.
-
-@end itemize

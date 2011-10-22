@@ -43,10 +43,10 @@ extern void sparc_expand_epilogue (bool);
 extern void sparc_flat_expand_epilogue (bool);
 extern bool sparc_can_use_return_insn_p (void);
 extern int check_pic (int);
-extern int short_branch (int, int);
 extern void sparc_profile_hook (int);
 extern void sparc_override_options (void);
 extern void sparc_output_scratch_registers (FILE *);
+extern void sparc_target_macros (void);
 
 #ifdef RTX_CODE
 extern enum machine_mode select_cc_mode (enum rtx_code, rtx, rtx);
@@ -94,7 +94,6 @@ extern int fp_mov_p (rtx);
 extern int fp_high_losum_p (rtx);
 extern int mem_min_alignment (rtx, int);
 extern int pic_address_needs_scratch (rtx);
-extern int reg_unused_after (rtx, rtx);
 extern int register_ok_for_ldd (rtx);
 extern int memory_ok_for_ldd (rtx);
 extern int registers_ok_for_ldd_peep (rtx, rtx);
@@ -104,6 +103,9 @@ extern int v9_regcmp_p (enum rtx_code);
 extern int sparc_check_64 (rtx, rtx);
 extern rtx gen_df_reg (rtx, int);
 extern void sparc_expand_compare_and_swap_12 (rtx, rtx, rtx, rtx);
+extern const char *output_v8plus_mult (rtx, rtx *, const char *);
+extern void sparc_expand_vector_init (rtx, rtx);
+extern void sparc_expand_vec_perm_bmask(enum machine_mode, rtx);
 #endif /* RTX_CODE */
 
 #endif /* __SPARC_PROTOS_H__ */

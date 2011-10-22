@@ -38,8 +38,6 @@ pragma Polling (Off);
 --  Turn off polling, we do not want ATC polling to take place during tasking
 --  operations. It causes infinite loops and other problems.
 
-with Ada.Unchecked_Deallocation;
-
 with Interfaces.C;
 
 with System.Task_Info;
@@ -97,6 +95,9 @@ package body System.Task_Primitives.Operations is
    Dispatching_Policy : Character;
    pragma Import (C, Dispatching_Policy, "__gl_task_dispatching_policy");
 
+   Locking_Policy : Character;
+   pragma Import (C, Locking_Policy, "__gl_locking_policy");
+
    Foreign_Task_Elaborated : aliased Boolean := True;
    --  Used to identified fake tasks (i.e., non-Ada Threads)
 
@@ -136,6 +137,13 @@ package body System.Task_Primitives.Operations is
 
    package body Specific is separate;
    --  The body of this package is target specific
+
+   ----------------------------------
+   -- ATCB allocation/deallocation --
+   ----------------------------------
+
+   package body ATCB_Allocation is separate;
+   --  The body of this package is shared across several targets
 
    ---------------------------------
    -- Support for foreign threads --
@@ -255,19 +263,49 @@ package body System.Task_Primitives.Operations is
    is
       pragma Unreferenced (Prio);
 
-      Mutex_Attr : aliased pthread_mutexattr_t;
-      Result     : Interfaces.C.int;
-
    begin
-      Result := pthread_mutexattr_init (Mutex_Attr'Access);
-      pragma Assert (Result = 0);
+      if Locking_Policy = 'R' then
+         declare
+            RWlock_Attr : aliased pthread_rwlockattr_t;
+            Result      : Interfaces.C.int;
 
-      Result := pthread_mutex_init (L, Mutex_Attr'Access);
+         begin
+            --  Set the rwlock to prefer writer to avoid writers starvation
 
-      pragma Assert (Result = 0 or else Result = ENOMEM);
+            Result := pthread_rwlockattr_init (RWlock_Attr'Access);
+            pragma Assert (Result = 0);
 
-      if Result = ENOMEM then
-         raise Storage_Error with "Failed to allocate a lock";
+            Result := pthread_rwlockattr_setkind_np
+              (RWlock_Attr'Access,
+               PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+            pragma Assert (Result = 0);
+
+            Result := pthread_rwlock_init (L.RW'Access, RWlock_Attr'Access);
+
+            pragma Assert (Result = 0 or else Result = ENOMEM);
+
+            if Result = ENOMEM then
+               raise Storage_Error with "Failed to allocate a lock";
+            end if;
+         end;
+
+      else
+         declare
+            Mutex_Attr : aliased pthread_mutexattr_t;
+            Result     : Interfaces.C.int;
+
+         begin
+            Result := pthread_mutexattr_init (Mutex_Attr'Access);
+            pragma Assert (Result = 0);
+
+            Result := pthread_mutex_init (L.WO'Access, Mutex_Attr'Access);
+
+            pragma Assert (Result = 0 or else Result = ENOMEM);
+
+            if Result = ENOMEM then
+               raise Storage_Error with "Failed to allocate a lock";
+            end if;
+         end;
       end if;
    end Initialize_Lock;
 
@@ -300,7 +338,11 @@ package body System.Task_Primitives.Operations is
    procedure Finalize_Lock (L : not null access Lock) is
       Result : Interfaces.C.int;
    begin
-      Result := pthread_mutex_destroy (L);
+      if Locking_Policy = 'R' then
+         Result := pthread_rwlock_destroy (L.RW'Access);
+      else
+         Result := pthread_mutex_destroy (L.WO'Access);
+      end if;
       pragma Assert (Result = 0);
    end Finalize_Lock;
 
@@ -321,7 +363,12 @@ package body System.Task_Primitives.Operations is
    is
       Result : Interfaces.C.int;
    begin
-      Result := pthread_mutex_lock (L);
+      if Locking_Policy = 'R' then
+         Result := pthread_rwlock_wrlock (L.RW'Access);
+      else
+         Result := pthread_mutex_lock (L.WO'Access);
+      end if;
+
       Ceiling_Violation := Result = EINVAL;
 
       --  Assume the cause of EINVAL is a priority ceiling violation
@@ -358,8 +405,19 @@ package body System.Task_Primitives.Operations is
      (L                 : not null access Lock;
       Ceiling_Violation : out Boolean)
    is
+      Result : Interfaces.C.int;
    begin
-      Write_Lock (L, Ceiling_Violation);
+      if Locking_Policy = 'R' then
+         Result := pthread_rwlock_rdlock (L.RW'Access);
+      else
+         Result := pthread_mutex_lock (L.WO'Access);
+      end if;
+
+      Ceiling_Violation := Result = EINVAL;
+
+      --  Assume the cause of EINVAL is a priority ceiling violation
+
+      pragma Assert (Result = 0 or else Result = EINVAL);
    end Read_Lock;
 
    ------------
@@ -369,7 +427,11 @@ package body System.Task_Primitives.Operations is
    procedure Unlock (L : not null access Lock) is
       Result : Interfaces.C.int;
    begin
-      Result := pthread_mutex_unlock (L);
+      if Locking_Policy = 'R' then
+         Result := pthread_rwlock_unlock (L.RW'Access);
+      else
+         Result := pthread_mutex_unlock (L.WO'Access);
+      end if;
       pragma Assert (Result = 0);
    end Unlock;
 
@@ -731,15 +793,6 @@ package body System.Task_Primitives.Operations is
       end if;
    end Enter_Task;
 
-   --------------
-   -- New_ATCB --
-   --------------
-
-   function New_ATCB (Entry_Num : Task_Entry_Index) return Task_Id is
-   begin
-      return new Ada_Task_Control_Block (Entry_Num);
-   end New_ATCB;
-
    -------------------
    -- Is_Valid_Task --
    -------------------
@@ -978,12 +1031,7 @@ package body System.Task_Primitives.Operations is
    ------------------
 
    procedure Finalize_TCB (T : Task_Id) is
-      Result  : Interfaces.C.int;
-      Tmp     : Task_Id := T;
-      Is_Self : constant Boolean := T = Self;
-
-      procedure Free is new
-        Ada.Unchecked_Deallocation (Ada_Task_Control_Block, Task_Id);
+      Result : Interfaces.C.int;
 
    begin
       if not Single_Lock then
@@ -999,11 +1047,8 @@ package body System.Task_Primitives.Operations is
       end if;
 
       SC.Invalidate_Stack_Cache (T.Common.Compiler_Data.Pri_Stack_Info'Access);
-      Free (Tmp);
 
-      if Is_Self then
-         Specific.Set (null);
-      end if;
+      ATCB_Allocation.Free_ATCB (T);
    end Finalize_TCB;
 
    ---------------

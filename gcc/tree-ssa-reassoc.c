@@ -40,6 +40,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "cfgloop.h"
 #include "flags.h"
+#include "target.h"
+#include "params.h"
+#include "diagnostic-core.h"
 
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
@@ -1566,6 +1569,459 @@ optimize_ops_list (enum tree_code opcode,
     optimize_ops_list (opcode, ops);
 }
 
+/* The following functions are subroutines to optimize_range_tests and allow
+   it to try to change a logical combination of comparisons into a range
+   test.
+
+   For example, both
+	X == 2 || X == 5 || X == 3 || X == 4
+   and
+	X >= 2 && X <= 5
+   are converted to
+	(unsigned) (X - 2) <= 3
+
+   For more information see comments above fold_test_range in fold-const.c,
+   this implementation is for GIMPLE.  */
+
+struct range_entry
+{
+  tree exp;
+  tree low;
+  tree high;
+  bool in_p;
+  bool strict_overflow_p;
+  unsigned int idx, next;
+};
+
+/* This is similar to make_range in fold-const.c, but on top of
+   GIMPLE instead of trees.  */
+
+static void
+init_range_entry (struct range_entry *r, tree exp)
+{
+  int in_p;
+  tree low, high;
+  bool is_bool, strict_overflow_p;
+
+  r->exp = NULL_TREE;
+  r->in_p = false;
+  r->strict_overflow_p = false;
+  r->low = NULL_TREE;
+  r->high = NULL_TREE;
+  if (TREE_CODE (exp) != SSA_NAME || !INTEGRAL_TYPE_P (TREE_TYPE (exp)))
+    return;
+
+  /* Start with simply saying "EXP != 0" and then look at the code of EXP
+     and see if we can refine the range.  Some of the cases below may not
+     happen, but it doesn't seem worth worrying about this.  We "continue"
+     the outer loop when we've changed something; otherwise we "break"
+     the switch, which will "break" the while.  */
+  low = build_int_cst (TREE_TYPE (exp), 0);
+  high = low;
+  in_p = 0;
+  strict_overflow_p = false;
+  is_bool = false;
+  if (TYPE_PRECISION (TREE_TYPE (exp)) == 1)
+    {
+      if (TYPE_UNSIGNED (TREE_TYPE (exp)))
+	is_bool = true;
+      else
+	return;
+    }
+  else if (TREE_CODE (TREE_TYPE (exp)) == BOOLEAN_TYPE)
+    is_bool = true;
+
+  while (1)
+    {
+      gimple stmt;
+      enum tree_code code;
+      tree arg0, arg1, exp_type;
+      tree nexp;
+      location_t loc;
+
+      if (TREE_CODE (exp) != SSA_NAME)
+	break;
+
+      stmt = SSA_NAME_DEF_STMT (exp);
+      if (!is_gimple_assign (stmt))
+	break;
+
+      code = gimple_assign_rhs_code (stmt);
+      arg0 = gimple_assign_rhs1 (stmt);
+      if (TREE_CODE (arg0) != SSA_NAME)
+	break;
+      arg1 = gimple_assign_rhs2 (stmt);
+      exp_type = TREE_TYPE (exp);
+      loc = gimple_location (stmt);
+      switch (code)
+	{
+	case BIT_NOT_EXPR:
+	  if (TREE_CODE (TREE_TYPE (exp)) == BOOLEAN_TYPE)
+	    {
+	      in_p = !in_p;
+	      exp = arg0;
+	      continue;
+	    }
+	  break;
+	case SSA_NAME:
+	  exp = arg0;
+	  continue;
+	CASE_CONVERT:
+	  if (is_bool)
+	    goto do_default;
+	  if (TYPE_PRECISION (TREE_TYPE (arg0)) == 1)
+	    {
+	      if (TYPE_UNSIGNED (TREE_TYPE (arg0)))
+		is_bool = true;
+	      else
+		return;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (arg0)) == BOOLEAN_TYPE)
+	    is_bool = true;
+	  goto do_default;
+	case EQ_EXPR:
+	case NE_EXPR:
+	case LT_EXPR:
+	case LE_EXPR:
+	case GE_EXPR:
+	case GT_EXPR:
+	  is_bool = true;
+	  /* FALLTHRU */
+	default:
+	  if (!is_bool)
+	    return;
+	do_default:
+	  nexp = make_range_step (loc, code, arg0, arg1, exp_type,
+				  &low, &high, &in_p,
+				  &strict_overflow_p);
+	  if (nexp != NULL_TREE)
+	    {
+	      exp = nexp;
+	      gcc_assert (TREE_CODE (exp) == SSA_NAME);
+	      continue;
+	    }
+	  break;
+	}
+      break;
+    }
+  if (is_bool)
+    {
+      r->exp = exp;
+      r->in_p = in_p;
+      r->low = low;
+      r->high = high;
+      r->strict_overflow_p = strict_overflow_p;
+    }
+}
+
+/* Comparison function for qsort.  Sort entries
+   without SSA_NAME exp first, then with SSA_NAMEs sorted
+   by increasing SSA_NAME_VERSION, and for the same SSA_NAMEs
+   by increasing ->low and if ->low is the same, by increasing
+   ->high.  ->low == NULL_TREE means minimum, ->high == NULL_TREE
+   maximum.  */
+
+static int
+range_entry_cmp (const void *a, const void *b)
+{
+  const struct range_entry *p = (const struct range_entry *) a;
+  const struct range_entry *q = (const struct range_entry *) b;
+
+  if (p->exp != NULL_TREE && TREE_CODE (p->exp) == SSA_NAME)
+    {
+      if (q->exp != NULL_TREE && TREE_CODE (q->exp) == SSA_NAME)
+	{
+	  /* Group range_entries for the same SSA_NAME together.  */
+	  if (SSA_NAME_VERSION (p->exp) < SSA_NAME_VERSION (q->exp))
+	    return -1;
+	  else if (SSA_NAME_VERSION (p->exp) > SSA_NAME_VERSION (q->exp))
+	    return 1;
+	  /* If ->low is different, NULL low goes first, then by
+	     ascending low.  */
+	  if (p->low != NULL_TREE)
+	    {
+	      if (q->low != NULL_TREE)
+		{
+		  tree tem = fold_binary (LT_EXPR, boolean_type_node,
+					  p->low, q->low);
+		  if (tem && integer_onep (tem))
+		    return -1;
+		  tem = fold_binary (GT_EXPR, boolean_type_node,
+				     p->low, q->low);
+		  if (tem && integer_onep (tem))
+		    return 1;
+		}
+	      else
+		return 1;
+	    }
+	  else if (q->low != NULL_TREE)
+	    return -1;
+	  /* If ->high is different, NULL high goes last, before that by
+	     ascending high.  */
+	  if (p->high != NULL_TREE)
+	    {
+	      if (q->high != NULL_TREE)
+		{
+		  tree tem = fold_binary (LT_EXPR, boolean_type_node,
+					  p->high, q->high);
+		  if (tem && integer_onep (tem))
+		    return -1;
+		  tem = fold_binary (GT_EXPR, boolean_type_node,
+				     p->high, q->high);
+		  if (tem && integer_onep (tem))
+		    return 1;
+		}
+	      else
+		return -1;
+	    }
+	  else if (p->high != NULL_TREE)
+	    return 1;
+	  /* If both ranges are the same, sort below by ascending idx.  */
+	}
+      else
+	return 1;
+    }
+  else if (q->exp != NULL_TREE && TREE_CODE (q->exp) == SSA_NAME)
+    return -1;
+
+  if (p->idx < q->idx)
+    return -1;
+  else
+    {
+      gcc_checking_assert (p->idx > q->idx);
+      return 1;
+    }
+}
+
+/* Helper routine of optimize_range_test.
+   [EXP, IN_P, LOW, HIGH, STRICT_OVERFLOW_P] is a merged range for
+   RANGE and OTHERRANGE through OTHERRANGE + COUNT - 1 ranges,
+   OPCODE and OPS are arguments of optimize_range_tests.  Return
+   true if the range merge has been successful.  */
+
+static bool
+update_range_test (struct range_entry *range, struct range_entry *otherrange,
+		   unsigned int count, enum tree_code opcode,
+		   VEC (operand_entry_t, heap) **ops, tree exp, bool in_p,
+		   tree low, tree high, bool strict_overflow_p)
+{
+  tree op = VEC_index (operand_entry_t, *ops, range->idx)->op;
+  location_t loc = gimple_location (SSA_NAME_DEF_STMT (op));
+  tree tem = build_range_check (loc, TREE_TYPE (op), exp, in_p, low, high);
+  enum warn_strict_overflow_code wc = WARN_STRICT_OVERFLOW_COMPARISON;
+  gimple_stmt_iterator gsi;
+
+  if (tem == NULL_TREE)
+    return false;
+
+  if (strict_overflow_p && issue_strict_overflow_warning (wc))
+    warning_at (loc, OPT_Wstrict_overflow,
+		"assuming signed overflow does not occur "
+		"when simplifying range test");
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      struct range_entry *r;
+      fprintf (dump_file, "Optimizing range tests ");
+      print_generic_expr (dump_file, range->exp, 0);
+      fprintf (dump_file, " %c[", range->in_p ? '+' : '-');
+      print_generic_expr (dump_file, range->low, 0);
+      fprintf (dump_file, ", ");
+      print_generic_expr (dump_file, range->high, 0);
+      fprintf (dump_file, "]");
+      for (r = otherrange; r < otherrange + count; r++)
+	{
+	  fprintf (dump_file, " and %c[", r->in_p ? '+' : '-');
+	  print_generic_expr (dump_file, r->low, 0);
+	  fprintf (dump_file, ", ");
+	  print_generic_expr (dump_file, r->high, 0);
+	  fprintf (dump_file, "]");
+	}
+      fprintf (dump_file, "\n into ");
+      print_generic_expr (dump_file, tem, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  if (opcode == BIT_IOR_EXPR)
+    tem = invert_truthvalue_loc (loc, tem);
+
+  tem = fold_convert_loc (loc, TREE_TYPE (op), tem);
+  gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (op));
+  tem = force_gimple_operand_gsi (&gsi, tem, true, NULL_TREE, true,
+				  GSI_SAME_STMT);
+
+  VEC_index (operand_entry_t, *ops, range->idx)->op = tem;
+  range->exp = exp;
+  range->low = low;
+  range->high = high;
+  range->in_p = in_p;
+  range->strict_overflow_p = false;
+
+  for (range = otherrange; range < otherrange + count; range++)
+    {
+      VEC_index (operand_entry_t, *ops, range->idx)->op = error_mark_node;
+      range->exp = NULL_TREE;
+    }
+  return true;
+}
+
+/* Optimize range tests, similarly how fold_range_test optimizes
+   it on trees.  The tree code for the binary
+   operation between all the operands is OPCODE.  */
+
+static void
+optimize_range_tests (enum tree_code opcode,
+		      VEC (operand_entry_t, heap) **ops)
+{
+  unsigned int length = VEC_length (operand_entry_t, *ops), i, j, first;
+  operand_entry_t oe;
+  struct range_entry *ranges;
+  bool any_changes = false;
+
+  if (length == 1)
+    return;
+
+  ranges = XNEWVEC (struct range_entry, length);
+  for (i = 0; i < length; i++)
+    {
+      ranges[i].idx = i;
+      init_range_entry (ranges + i, VEC_index (operand_entry_t, *ops, i)->op);
+      /* For | invert it now, we will invert it again before emitting
+	 the optimized expression.  */
+      if (opcode == BIT_IOR_EXPR)
+	ranges[i].in_p = !ranges[i].in_p;
+    }
+
+  qsort (ranges, length, sizeof (*ranges), range_entry_cmp);
+  for (i = 0; i < length; i++)
+    if (ranges[i].exp != NULL_TREE && TREE_CODE (ranges[i].exp) == SSA_NAME)
+      break;
+
+  /* Try to merge ranges.  */
+  for (first = i; i < length; i++)
+    {
+      tree low = ranges[i].low;
+      tree high = ranges[i].high;
+      int in_p = ranges[i].in_p;
+      bool strict_overflow_p = ranges[i].strict_overflow_p;
+      int update_fail_count = 0;
+
+      for (j = i + 1; j < length; j++)
+	{
+	  if (ranges[i].exp != ranges[j].exp)
+	    break;
+	  if (!merge_ranges (&in_p, &low, &high, in_p, low, high,
+			     ranges[j].in_p, ranges[j].low, ranges[j].high))
+	    break;
+	  strict_overflow_p |= ranges[j].strict_overflow_p;
+	}
+
+      if (j == i + 1)
+	continue;
+
+      if (update_range_test (ranges + i, ranges + i + 1, j - i - 1, opcode,
+			     ops, ranges[i].exp, in_p, low, high,
+			     strict_overflow_p))
+	{
+	  i = j - 1;
+	  any_changes = true;
+	}
+      /* Avoid quadratic complexity if all merge_ranges calls would succeed,
+	 while update_range_test would fail.  */
+      else if (update_fail_count == 64)
+	i = j - 1;
+      else
+	++update_fail_count;
+    }
+
+  /* Optimize X == CST1 || X == CST2
+     if popcount (CST1 ^ CST2) == 1 into
+     (X & ~(CST1 ^ CST2)) == (CST1 & ~(CST1 ^ CST2)).
+     Similarly for ranges.  E.g.
+     X != 2 && X != 3 && X != 10 && X != 11
+     will be transformed by the above loop into
+     (X - 2U) <= 1U && (X - 10U) <= 1U
+     and this loop can transform that into
+     ((X & ~8) - 2U) <= 1U.  */
+  for (i = first; i < length; i++)
+    {
+      tree lowi, highi, lowj, highj, type, lowxor, highxor, tem, exp;
+
+      if (ranges[i].exp == NULL_TREE || ranges[i].in_p)
+	continue;
+      type = TREE_TYPE (ranges[i].exp);
+      if (!INTEGRAL_TYPE_P (type))
+	continue;
+      lowi = ranges[i].low;
+      if (lowi == NULL_TREE)
+	lowi = TYPE_MIN_VALUE (type);
+      highi = ranges[i].high;
+      if (highi == NULL_TREE)
+	continue;
+      for (j = i + 1; j < length && j < i + 64; j++)
+	{
+	  if (ranges[j].exp == NULL_TREE)
+	    continue;
+	  if (ranges[i].exp != ranges[j].exp)
+	    break;
+	  if (ranges[j].in_p)
+	    continue;
+	  lowj = ranges[j].low;
+	  if (lowj == NULL_TREE)
+	    continue;
+	  highj = ranges[j].high;
+	  if (highj == NULL_TREE)
+	    highj = TYPE_MAX_VALUE (type);
+	  tem = fold_binary (GT_EXPR, boolean_type_node,
+			     lowj, highi);
+	  if (tem == NULL_TREE || !integer_onep (tem))
+	    continue;
+	  lowxor = fold_binary (BIT_XOR_EXPR, type, lowi, lowj);
+	  if (lowxor == NULL_TREE || TREE_CODE (lowxor) != INTEGER_CST)
+	    continue;
+	  gcc_checking_assert (!integer_zerop (lowxor));
+	  tem = fold_binary (MINUS_EXPR, type, lowxor,
+			     build_int_cst (type, 1));
+	  if (tem == NULL_TREE)
+	    continue;
+	  tem = fold_binary (BIT_AND_EXPR, type, lowxor, tem);
+	  if (tem == NULL_TREE || !integer_zerop (tem))
+	    continue;
+	  highxor = fold_binary (BIT_XOR_EXPR, type, highi, highj);
+	  if (!tree_int_cst_equal (lowxor, highxor))
+	    continue;
+	  tem = fold_build1 (BIT_NOT_EXPR, type, lowxor);
+	  exp = fold_build2 (BIT_AND_EXPR, type, ranges[i].exp, tem);
+	  lowj = fold_build2 (BIT_AND_EXPR, type, lowi, tem);
+	  highj = fold_build2 (BIT_AND_EXPR, type, highi, tem);
+	  if (update_range_test (ranges + i, ranges + j, 1, opcode, ops, exp,
+				 ranges[i].in_p, lowj, highj,
+				 ranges[i].strict_overflow_p
+				 || ranges[j].strict_overflow_p))
+	    {
+	      any_changes = true;
+	      break;
+	    }
+	}
+    }
+
+  if (any_changes)
+    {
+      j = 0;
+      FOR_EACH_VEC_ELT (operand_entry_t, *ops, i, oe)
+	{
+	  if (oe->op == error_mark_node)
+	    continue;
+	  else if (i != j)
+	    VEC_replace (operand_entry_t, *ops, j, oe);
+	  j++;
+	}
+      VEC_truncate (operand_entry_t, *ops, j);
+    }
+
+  XDELETEVEC (ranges);
+}
+
 /* Return true if OPERAND is defined by a PHI node which uses the LHS
    of STMT in it's operands.  This is also known as a "destructive
    update" operation.  */
@@ -1617,6 +2073,62 @@ remove_visited_stmt_chain (tree var)
     }
 }
 
+/* This function checks three consequtive operands in
+   passed operands vector OPS starting from OPINDEX and
+   swaps two operands if it is profitable for binary operation
+   consuming OPINDEX + 1 abnd OPINDEX + 2 operands.
+
+   We pair ops with the same rank if possible.
+
+   The alternative we try is to see if STMT is a destructive
+   update style statement, which is like:
+   b = phi (a, ...)
+   a = c + b;
+   In that case, we want to use the destructive update form to
+   expose the possible vectorizer sum reduction opportunity.
+   In that case, the third operand will be the phi node. This
+   check is not performed if STMT is null.
+
+   We could, of course, try to be better as noted above, and do a
+   lot of work to try to find these opportunities in >3 operand
+   cases, but it is unlikely to be worth it.  */
+
+static void
+swap_ops_for_binary_stmt (VEC(operand_entry_t, heap) * ops,
+			  unsigned int opindex, gimple stmt)
+{
+  operand_entry_t oe1, oe2, oe3;
+
+  oe1 = VEC_index (operand_entry_t, ops, opindex);
+  oe2 = VEC_index (operand_entry_t, ops, opindex + 1);
+  oe3 = VEC_index (operand_entry_t, ops, opindex + 2);
+
+  if ((oe1->rank == oe2->rank
+       && oe2->rank != oe3->rank)
+      || (stmt && is_phi_for_stmt (stmt, oe3->op)
+	  && !is_phi_for_stmt (stmt, oe1->op)
+	  && !is_phi_for_stmt (stmt, oe2->op)))
+    {
+      struct operand_entry temp = *oe3;
+      oe3->op = oe1->op;
+      oe3->rank = oe1->rank;
+      oe1->op = temp.op;
+      oe1->rank= temp.rank;
+    }
+  else if ((oe1->rank == oe3->rank
+	    && oe2->rank != oe3->rank)
+	   || (stmt && is_phi_for_stmt (stmt, oe2->op)
+	       && !is_phi_for_stmt (stmt, oe1->op)
+	       && !is_phi_for_stmt (stmt, oe3->op)))
+    {
+      struct operand_entry temp = *oe2;
+      oe2->op = oe1->op;
+      oe2->rank = oe1->rank;
+      oe1->op = temp.op;
+      oe1->rank= temp.rank;
+    }
+}
+
 /* Recursively rewrite our linearized statements so that the operators
    match those in OPS[OPINDEX], putting the computation in rank
    order.  */
@@ -1629,53 +2141,10 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
   tree rhs2 = gimple_assign_rhs2 (stmt);
   operand_entry_t oe;
 
-  /* If we have three operands left, then we want to make sure the one
-     that gets the double binary op are the ones with the same rank.
-
-     The alternative we try is to see if this is a destructive
-     update style statement, which is like:
-     b = phi (a, ...)
-     a = c + b;
-     In that case, we want to use the destructive update form to
-     expose the possible vectorizer sum reduction opportunity.
-     In that case, the third operand will be the phi node.
-
-     We could, of course, try to be better as noted above, and do a
-     lot of work to try to find these opportunities in >3 operand
-     cases, but it is unlikely to be worth it.  */
+  /* If we have three operands left, then we want to make sure the ones
+     that get the double binary op are chosen wisely.  */
   if (opindex + 3 == VEC_length (operand_entry_t, ops))
-    {
-      operand_entry_t oe1, oe2, oe3;
-
-      oe1 = VEC_index (operand_entry_t, ops, opindex);
-      oe2 = VEC_index (operand_entry_t, ops, opindex + 1);
-      oe3 = VEC_index (operand_entry_t, ops, opindex + 2);
-
-      if ((oe1->rank == oe2->rank
-	   && oe2->rank != oe3->rank)
-	  || (is_phi_for_stmt (stmt, oe3->op)
-	      && !is_phi_for_stmt (stmt, oe1->op)
-	      && !is_phi_for_stmt (stmt, oe2->op)))
-	{
-	  struct operand_entry temp = *oe3;
-	  oe3->op = oe1->op;
-	  oe3->rank = oe1->rank;
-	  oe1->op = temp.op;
-	  oe1->rank= temp.rank;
-	}
-      else if ((oe1->rank == oe3->rank
-		&& oe2->rank != oe3->rank)
-	       || (is_phi_for_stmt (stmt, oe2->op)
-		   && !is_phi_for_stmt (stmt, oe1->op)
-		   && !is_phi_for_stmt (stmt, oe3->op)))
-	{
-	  struct operand_entry temp = *oe2;
-	  oe2->op = oe1->op;
-	  oe2->rank = oe1->rank;
-	  oe1->op = temp.op;
-	  oe1->rank= temp.rank;
-	}
-    }
+    swap_ops_for_binary_stmt (ops, opindex, stmt);
 
   /* The final recursion case for this function is that you have
      exactly two operations left.
@@ -1758,6 +2227,178 @@ rewrite_expr_tree (gimple stmt, unsigned int opindex,
   /* Recurse on the LHS of the binary operator, which is guaranteed to
      be the non-leaf side.  */
   rewrite_expr_tree (SSA_NAME_DEF_STMT (rhs1), opindex + 1, ops, moved);
+}
+
+/* Find out how many cycles we need to compute statements chain.
+   OPS_NUM holds number os statements in a chain.  CPU_WIDTH is a
+   maximum number of independent statements we may execute per cycle.  */
+
+static int
+get_required_cycles (int ops_num, int cpu_width)
+{
+  int res;
+  int elog;
+  unsigned int rest;
+
+  /* While we have more than 2 * cpu_width operands
+     we may reduce number of operands by cpu_width
+     per cycle.  */
+  res = ops_num / (2 * cpu_width);
+
+  /* Remained operands count may be reduced twice per cycle
+     until we have only one operand.  */
+  rest = (unsigned)(ops_num - res * cpu_width);
+  elog = exact_log2 (rest);
+  if (elog >= 0)
+    res += elog;
+  else
+    res += floor_log2 (rest) + 1;
+
+  return res;
+}
+
+/* Returns an optimal number of registers to use for computation of
+   given statements.  */
+
+static int
+get_reassociation_width (int ops_num, enum tree_code opc,
+			 enum machine_mode mode)
+{
+  int param_width = PARAM_VALUE (PARAM_TREE_REASSOC_WIDTH);
+  int width;
+  int width_min;
+  int cycles_best;
+
+  if (param_width > 0)
+    width = param_width;
+  else
+    width = targetm.sched.reassociation_width (opc, mode);
+
+  if (width == 1)
+    return width;
+
+  /* Get the minimal time required for sequence computation.  */
+  cycles_best = get_required_cycles (ops_num, width);
+
+  /* Check if we may use less width and still compute sequence for
+     the same time.  It will allow us to reduce registers usage.
+     get_required_cycles is monotonically increasing with lower width
+     so we can perform a binary search for the minimal width that still
+     results in the optimal cycle count.  */
+  width_min = 1;
+  while (width > width_min)
+    {
+      int width_mid = (width + width_min) / 2;
+
+      if (get_required_cycles (ops_num, width_mid) == cycles_best)
+	width = width_mid;
+      else if (width_min < width_mid)
+	width_min = width_mid;
+      else
+	break;
+    }
+
+  return width;
+}
+
+/* Recursively rewrite our linearized statements so that the operators
+   match those in OPS[OPINDEX], putting the computation in rank
+   order and trying to allow operations to be executed in
+   parallel.  */
+
+static void
+rewrite_expr_tree_parallel (gimple stmt, int width,
+			    VEC(operand_entry_t, heap) * ops)
+{
+  enum tree_code opcode = gimple_assign_rhs_code (stmt);
+  int op_num = VEC_length (operand_entry_t, ops);
+  int stmt_num = op_num - 1;
+  gimple *stmts = XALLOCAVEC (gimple, stmt_num);
+  int op_index = op_num - 1;
+  int stmt_index = 0;
+  int ready_stmts_end = 0;
+  int i = 0;
+  tree last_rhs1 = gimple_assign_rhs1 (stmt);
+  tree lhs_var;
+
+  /* We start expression rewriting from the top statements.
+     So, in this loop we create a full list of statements
+     we will work with.  */
+  stmts[stmt_num - 1] = stmt;
+  for (i = stmt_num - 2; i >= 0; i--)
+    stmts[i] = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmts[i+1]));
+
+  lhs_var = create_tmp_reg (TREE_TYPE (last_rhs1), NULL);
+  add_referenced_var (lhs_var);
+
+  for (i = 0; i < stmt_num; i++)
+    {
+      tree op1, op2;
+
+      /* Determine whether we should use results of
+	 already handled statements or not.  */
+      if (ready_stmts_end == 0
+	  && (i - stmt_index >= width || op_index < 1))
+	ready_stmts_end = i;
+
+      /* Now we choose operands for the next statement.  Non zero
+	 value in ready_stmts_end means here that we should use
+	 the result of already generated statements as new operand.  */
+      if (ready_stmts_end > 0)
+	{
+	  op1 = gimple_assign_lhs (stmts[stmt_index++]);
+	  if (ready_stmts_end > stmt_index)
+	    op2 = gimple_assign_lhs (stmts[stmt_index++]);
+	  else if (op_index >= 0)
+	    op2 = VEC_index (operand_entry_t, ops, op_index--)->op;
+	  else
+	    {
+	      gcc_assert (stmt_index < i);
+	      op2 = gimple_assign_lhs (stmts[stmt_index++]);
+	    }
+
+	  if (stmt_index >= ready_stmts_end)
+	    ready_stmts_end = 0;
+	}
+      else
+	{
+	  if (op_index > 1)
+	    swap_ops_for_binary_stmt (ops, op_index - 2, NULL);
+	  op2 = VEC_index (operand_entry_t, ops, op_index--)->op;
+	  op1 = VEC_index (operand_entry_t, ops, op_index--)->op;
+	}
+
+      /* If we emit the last statement then we should put
+	 operands into the last statement.  It will also
+	 break the loop.  */
+      if (op_index < 0 && stmt_index == i)
+	i = stmt_num - 1;
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Transforming ");
+	  print_gimple_stmt (dump_file, stmts[i], 0, 0);
+	}
+
+      /* We keep original statement only for the last one.  All
+	 others are recreated.  */
+      if (i == stmt_num - 1)
+	{
+	  gimple_assign_set_rhs1 (stmts[i], op1);
+	  gimple_assign_set_rhs2 (stmts[i], op2);
+	  update_stmt (stmts[i]);
+	}
+      else
+	stmts[i] = build_and_add_sum (lhs_var, op1, op2, opcode);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, " into ");
+	  print_gimple_stmt (dump_file, stmts[i], 0, 0);
+	}
+    }
+
+  remove_visited_stmt_chain (last_rhs1);
 }
 
 /* Transform STMT, which is really (A +B) + (C + D) into the left
@@ -2260,6 +2901,9 @@ reassociate_bb (basic_block bb)
 		  optimize_ops_list (rhs_code, &ops);
 		}
 
+	      if (rhs_code == BIT_IOR_EXPR || rhs_code == BIT_AND_EXPR)
+		optimize_range_tests (rhs_code, &ops);
+
 	      if (VEC_length (operand_entry_t, ops) == 1)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2282,7 +2926,21 @@ reassociate_bb (basic_block bb)
 		    }
 		}
 	      else
-		rewrite_expr_tree (stmt, 0, ops, false);
+		{
+		  enum machine_mode mode = TYPE_MODE (TREE_TYPE (lhs));
+		  int ops_num = VEC_length (operand_entry_t, ops);
+		  int width = get_reassociation_width (ops_num, rhs_code, mode);
+
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file,
+			     "Width = %d was chosen for reassociation\n", width);
+
+		  if (width > 1
+		      && VEC_length (operand_entry_t, ops) > 3)
+		    rewrite_expr_tree_parallel (stmt, width, ops);
+		  else
+		    rewrite_expr_tree (stmt, 0, ops, false);
+		}
 
 	      VEC_free (operand_entry_t, heap, ops);
 	    }

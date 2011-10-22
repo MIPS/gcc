@@ -264,6 +264,10 @@ package body Sem_Attr is
       --  If the prefix type is an enumeration type, set all its literals
       --  as referenced, since the image function could possibly end up
       --  referencing any of the literals indirectly. Same for Enum_Val.
+      --  Set the flag only if the reference is in the main code unit. Same
+      --  restriction when resolving 'Value; otherwise an improperly set
+      --  reference when analyzing an inlined body will lose a proper warning
+      --  on a useless with_clause.
 
       procedure Check_Fixed_Point_Type;
       --  Verify that prefix of attribute N is a fixed type
@@ -1225,8 +1229,17 @@ package body Sem_Attr is
 
       procedure Check_Enum_Image is
          Lit : Entity_Id;
+
       begin
-         if Is_Enumeration_Type (P_Base_Type) then
+         --  When an enumeration type appears in an attribute reference, all
+         --  literals of the type are marked as referenced. This must only be
+         --  done if the attribute reference appears in the current source.
+         --  Otherwise the information on references may differ between a
+         --  normal compilation and one that performs inlining.
+
+         if Is_Enumeration_Type (P_Base_Type)
+           and then In_Extended_Main_Code_Unit (N)
+         then
             Lit := First_Literal (P_Base_Type);
             while Present (Lit) loop
                Set_Referenced (Lit);
@@ -1906,7 +1919,7 @@ package body Sem_Attr is
          end if;
       end Validate_Non_Static_Attribute_Function_Call;
 
-   --   Start of processing for Analyze_Attribute
+   --  Start of processing for Analyze_Attribute
 
    begin
       --  Immediate return if unrecognized attribute (already diagnosed
@@ -2125,7 +2138,7 @@ package body Sem_Attr is
 
       case Attr_Id is
 
-         --  Attributes related to Ada2012 iterators. Attribute specifications
+         --  Attributes related to Ada 2012 iterators. Attribute specifications
          --  exist for these, but they cannot be queried.
 
          when Attribute_Constant_Indexing    |
@@ -3013,6 +3026,21 @@ package body Sem_Attr is
       when Attribute_Denorm =>
          Check_Floating_Point_Type_0;
          Set_Etype (N, Standard_Boolean);
+
+      ---------------------
+      -- Descriptor_Size --
+      ---------------------
+
+      when Attribute_Descriptor_Size =>
+         Check_E0;
+
+         if not Is_Entity_Name (P)
+           or else not Is_Type (Entity (P))
+         then
+            Error_Attr_P ("prefix of attribute % must denote a type");
+         end if;
+
+         Set_Etype (N, Universal_Integer);
 
       ------------
       -- Digits --
@@ -5016,7 +5044,15 @@ package body Sem_Attr is
 
          --  Case of enumeration type
 
-         if Is_Enumeration_Type (P_Type) then
+         --  When an enumeration type appears in an attribute reference, all
+         --  literals of the type are marked as referenced. This must only be
+         --  done if the attribute reference appears in the current source.
+         --  Otherwise the information on references may differ between a
+         --  normal compilation and one that performs inlining.
+
+         if Is_Enumeration_Type (P_Type)
+           and then In_Extended_Main_Code_Unit (N)
+         then
             Check_Restriction (No_Enumeration_Maps, N);
 
             --  Mark all enumeration literals as referenced, since the use of
@@ -6105,7 +6141,7 @@ package body Sem_Attr is
 
       case Id is
 
-         --  Attributes related to Ada2012 iterators (placeholder ???)
+         --  Attributes related to Ada 2012 iterators (placeholder ???)
 
          when Attribute_Constant_Indexing    => null;
          when Attribute_Default_Iterator     => null;
@@ -6245,6 +6281,13 @@ package body Sem_Attr is
       when Attribute_Denorm =>
          Fold_Uint
            (N, UI_From_Int (Boolean'Pos (Denorm_On_Target)), True);
+
+      ---------------------
+      -- Descriptor_Size --
+      ---------------------
+
+      when Attribute_Descriptor_Size =>
+         null;
 
       ------------
       -- Digits --

@@ -1300,7 +1300,9 @@ structural_comptypes (tree t1, tree t2, int strict)
       if (!cp_tree_equal (TYPENAME_TYPE_FULLNAME (t1),
 			  TYPENAME_TYPE_FULLNAME (t2)))
 	return false;
-      if (!same_type_p (TYPE_CONTEXT (t1), TYPE_CONTEXT (t2)))
+      /* Qualifiers don't matter on scopes.  */
+      if (!same_type_ignoring_top_level_qualifiers_p (TYPE_CONTEXT (t1),
+						      TYPE_CONTEXT (t2)))
 	return false;
       break;
 
@@ -1825,7 +1827,7 @@ decay_conversion (tree exp)
   /* FIXME remove? at least need to remember that this isn't really a
      constant expression if EXP isn't decl_constant_var_p, like with
      C_MAYBE_CONST_EXPR.  */
-  exp = decl_constant_value (exp);
+  exp = decl_constant_value_safe (exp);
   if (error_operand_p (exp))
     return error_mark_node;
 
@@ -2126,8 +2128,16 @@ build_class_member_access_expr (tree object, tree member,
   if (!CLASS_TYPE_P (object_type))
     {
       if (complain & tf_error)
-	error ("request for member %qD in %qE, which is of non-class type %qT",
-	       member, object, object_type);
+	{
+	  if (POINTER_TYPE_P (object_type)
+	      && CLASS_TYPE_P (TREE_TYPE (object_type)))
+	    error ("request for member %qD in %qE, which is of pointer "
+		   "type %qT (maybe you meant to use %<->%> ?)",
+		   member, object, object_type);
+	  else
+	    error ("request for member %qD in %qE, which is of non-class "
+		   "type %qT", member, object, object_type);
+	}
       return error_mark_node;
     }
 
@@ -2221,7 +2231,7 @@ build_class_member_access_expr (tree object, tree member,
 
 	  /* Convert to the base.  */
 	  object = build_base_path (PLUS_EXPR, object, binfo,
-				    /*nonnull=*/1);
+				    /*nonnull=*/1, complain);
 	  /* If we found the base successfully then we should be able
 	     to convert to it successfully.  */
 	  gcc_assert (object != error_mark_node);
@@ -2506,8 +2516,16 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
   if (!CLASS_TYPE_P (object_type))
     {
       if (complain & tf_error)
-	error ("request for member %qD in %qE, which is of non-class type %qT",
-	       name, object, object_type);
+	{
+	  if (POINTER_TYPE_P (object_type)
+	      && CLASS_TYPE_P (TREE_TYPE (object_type)))
+	    error ("request for member %qD in %qE, which is of pointer "
+		   "type %qT (maybe you meant to use %<->%> ?)",
+		   name, object, object_type);
+	  else
+	    error ("request for member %qD in %qE, which is of non-class "
+		   "type %qT", name, object, object_type);
+	}
       return error_mark_node;
     }
 
@@ -2589,7 +2607,9 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 	  if (member == NULL_TREE)
 	    {
 	      if (complain & tf_error)
-		error ("%qD has no member named %qE", object_type, name);
+		error ("%qD has no member named %qE",
+		       TREE_CODE (access_path) == TREE_BINFO
+		       ? TREE_TYPE (access_path) : object_type, name);
 	      return error_mark_node;
 	    }
 	  if (member == error_mark_node)
@@ -3073,7 +3093,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	  basetype = lookup_base (TREE_TYPE (TREE_TYPE (instance_ptr)),
 				  basetype, ba_check, NULL);
 	  instance_ptr = build_base_path (PLUS_EXPR, instance_ptr, basetype,
-					  1);
+					  1, tf_warning_or_error);
 	  if (instance_ptr == error_mark_node)
 	    return error_mark_node;
 	}
@@ -4187,9 +4207,19 @@ cp_build_binary_op (location_t location,
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
       else if (code0 == POINTER_TYPE && null_ptr_cst_p (op1))
-	result_type = type0;
+	{
+	  result_type = type0;
+	  if (extra_warnings && (complain & tf_warning))
+	    warning (OPT_Wextra,
+		     "ordered comparison of pointer with integer zero");
+	}
       else if (code1 == POINTER_TYPE && null_ptr_cst_p (op0))
-	result_type = type1;
+	{
+	  result_type = type1;
+	  if (extra_warnings && (complain & tf_warning))
+	    warning (OPT_Wextra,
+		     "ordered comparison of pointer with integer zero");
+	}
       else if (null_ptr_cst_p (op0) && null_ptr_cst_p (op1))
 	/* One of the operands must be of nullptr_t type.  */
         result_type = TREE_TYPE (nullptr_node);
@@ -5772,7 +5802,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       /* Convert from "B*" to "D*".  This function will check that "B"
 	 is not a virtual base of "D".  */
       expr = build_base_path (MINUS_EXPR, build_address (expr),
-			      base, /*nonnull=*/false);
+			      base, /*nonnull=*/false, complain);
       /* Convert the pointer to a reference -- but then remember that
 	 there are no expressions with reference type in C++.
 
@@ -5874,7 +5904,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       base = lookup_base (TREE_TYPE (type), TREE_TYPE (intype),
 			  c_cast_p ? ba_unique : ba_check,
 			  NULL);
-      expr = build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false);
+      expr = build_base_path (MINUS_EXPR, expr, base, /*nonnull=*/false,
+			      complain);
       return cp_fold_convert(type, expr);
     }
 
@@ -7510,7 +7541,7 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
       if (fndecl)
 	savew = warningcount, savee = errorcount;
       rhs = initialize_reference (type, rhs, /*decl=*/NULL_TREE,
-				  /*cleanup=*/NULL, complain);
+				  /*cleanup=*/NULL, flags, complain);
       if (fndecl)
 	{
 	  if (warningcount > savew)

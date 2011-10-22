@@ -367,7 +367,7 @@ determine_versionability (struct cgraph_node *node)
      present.  */
   if (node->alias || node->thunk.thunk_p)
     reason = "alias or thunk";
-  else if (!inline_summary (node)->versionable)
+  else if (!node->local.versionable)
     reason = "not a tree_versionable_function";
   else if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
     reason = "insufficient body availability";
@@ -376,7 +376,7 @@ determine_versionability (struct cgraph_node *node)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
 	     cgraph_node_name (node), node->uid, reason);
 
-  inline_summary (node)->versionable = (reason == NULL);
+  node->local.versionable = (reason == NULL);
 }
 
 /* Return true if it is at all technically possible to create clones of a
@@ -385,7 +385,7 @@ determine_versionability (struct cgraph_node *node)
 static bool
 ipcp_versionable_function_p (struct cgraph_node *node)
 {
-  return inline_summary (node)->versionable;
+  return node->local.versionable;
 }
 
 /* Structure holding accumulated information about callers of a node.  */
@@ -674,6 +674,20 @@ ipa_get_jf_ancestor_result (struct ipa_jump_func *jfunc, tree input)
     return NULL_TREE;
 }
 
+/* Extract the acual BINFO being described by JFUNC which must be a known type
+   jump function.  */
+
+static tree
+ipa_value_from_known_type_jfunc (struct ipa_jump_func *jfunc)
+{
+  tree base_binfo = TYPE_BINFO (jfunc->value.known_type.base_type);
+  if (!base_binfo)
+    return NULL_TREE;
+  return get_binfo_at_offset (base_binfo,
+			      jfunc->value.known_type.offset,
+			      jfunc->value.known_type.component_type);
+}
+
 /* Determine whether JFUNC evaluates to a known value (that is either a
    constant or a binfo) and if so, return it.  Otherwise return NULL. INFO
    describes the caller node so that pass-through jump functions can be
@@ -685,7 +699,7 @@ ipa_value_from_jfunc (struct ipa_node_params *info, struct ipa_jump_func *jfunc)
   if (jfunc->type == IPA_JF_CONST)
     return jfunc->value.constant;
   else if (jfunc->type == IPA_JF_KNOWN_TYPE)
-    return jfunc->value.base_binfo;
+    return ipa_value_from_known_type_jfunc (jfunc);
   else if (jfunc->type == IPA_JF_PASS_THROUGH
 	   || jfunc->type == IPA_JF_ANCESTOR)
     {
@@ -991,7 +1005,11 @@ propagate_accross_jump_function (struct cgraph_edge *cs,
       tree val;
 
       if (jfunc->type == IPA_JF_KNOWN_TYPE)
-	val = jfunc->value.base_binfo;
+	{
+	  val = ipa_value_from_known_type_jfunc (jfunc);
+	  if (!val)
+	    return set_lattice_contains_variable (dest_lat);
+	}
       else
 	val = jfunc->value.constant;
       return add_value_to_lattice (dest_lat, val, cs, NULL, 0);
@@ -2052,8 +2070,12 @@ find_more_values_for_callers_subset (struct cgraph_node *node,
 	  struct ipa_jump_func *jump_func;
 	  tree t;
 
+          if (i >= ipa_get_cs_argument_count (IPA_EDGE_REF (cs)))
+            {
+              newval = NULL_TREE;
+              break;
+            }
 	  jump_func = ipa_get_ith_jump_func (IPA_EDGE_REF (cs), i);
-
 	  t = ipa_value_from_jfunc (IPA_NODE_REF (cs->caller), jump_func);
 	  if (!t
 	      || (newval
@@ -2123,6 +2145,11 @@ perhaps_add_new_callers (struct cgraph_node *node, struct ipcp_value *val)
 		  if (!val)
 		    continue;
 
+		  if (i >= ipa_get_cs_argument_count (args))
+		    {
+		      insufficient = true;
+		      break;
+		    }
 		  jump_func = ipa_get_ith_jump_func (args, i);
 		  t = ipa_value_from_jfunc (caller_info, jump_func);
 		  if (!t || !values_equal_for_ipcp_p (val, t))
@@ -2449,14 +2476,11 @@ ipcp_generate_summary (void)
     fprintf (dump_file, "\nIPA constant propagation start:\n");
   ipa_register_cgraph_hooks ();
 
-  /* FIXME: We could propagate through thunks happily and we could be
-     even able to clone them, if needed.  Do that later.  */
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
       {
 	/* Unreachable nodes should have been eliminated before ipcp.  */
 	gcc_assert (node->needed || node->reachable);
-
-	inline_summary (node)->versionable = tree_versionable_function_p (node->decl);
+	node->local.versionable = tree_versionable_function_p (node->decl);
 	ipa_analyze_node (node);
       }
 }

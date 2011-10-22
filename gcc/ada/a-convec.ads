@@ -358,7 +358,7 @@ package Ada.Containers.Vectors is
       return Vector_Iterator_Interfaces.Reversible_Iterator'Class;
 
    function Iterate (Container : Vector; Start : Cursor)
-      return Vector_Iterator_Interfaces.Reversible_Iterator'class;
+      return Vector_Iterator_Interfaces.Reversible_Iterator'Class;
 
    generic
       with function "<" (Left, Right : Element_Type) return Boolean is <>;
@@ -409,8 +409,8 @@ private
    for Vector_Access'Storage_Size use 0;
 
    type Cursor is record
-      Container   : Vector_Access;
-      Index       : Index_Type := Index_Type'First;
+      Container : Vector_Access;
+      Index     : Index_Type := Index_Type'First;
    end record;
 
    procedure Write

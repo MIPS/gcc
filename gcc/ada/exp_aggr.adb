@@ -32,6 +32,7 @@ with Errout;   use Errout;
 with Expander; use Expander;
 with Exp_Util; use Exp_Util;
 with Exp_Ch3;  use Exp_Ch3;
+with Exp_Ch6;  use Exp_Ch6;
 with Exp_Ch7;  use Exp_Ch7;
 with Exp_Ch9;  use Exp_Ch9;
 with Exp_Disp; use Exp_Disp;
@@ -106,17 +107,14 @@ package body Exp_Aggr is
    ------------------------------------------------------
 
    function Build_Record_Aggr_Code
-     (N                             : Node_Id;
-      Typ                           : Entity_Id;
-      Lhs                           : Node_Id;
-      Is_Limited_Ancestor_Expansion : Boolean   := False) return List_Id;
+     (N   : Node_Id;
+      Typ : Entity_Id;
+      Lhs : Node_Id) return List_Id;
    --  N is an N_Aggregate or an N_Extension_Aggregate. Typ is the type of the
    --  aggregate. Target is an expression containing the location on which the
    --  component by component assignments will take place. Returns the list of
    --  assignments plus all other adjustments needed for tagged and controlled
-   --  types. Is_Limited_Ancestor_Expansion indicates that the function has
-   --  been called recursively to expand the limited ancestor to avoid copying
-   --  it.
+   --  types.
 
    procedure Convert_To_Assignments (N : Node_Id; Typ : Entity_Id);
    --  N is an N_Aggregate or an N_Extension_Aggregate. Typ is the type of the
@@ -230,6 +228,11 @@ package body Exp_Aggr is
    --  of conversion is pointless), but in the special case of a call from
    --  Packed_Array_Aggregate_Handled, we set this parameter to True, since
    --  these are cases we handle in there.
+
+   --  It would seem worthwhile to have a higher default value for Max_Others_
+   --  replicate, but aggregates in the compiler make this impossible: the
+   --  compiler bootstrap fails if Max_Others_Replicate is greater than 25.
+   --  This is unexpected ???
 
    procedure Expand_Array_Aggregate (N : Node_Id);
    --  This is the top-level routine to perform array aggregate expansion.
@@ -1731,10 +1734,9 @@ package body Exp_Aggr is
    ----------------------------
 
    function Build_Record_Aggr_Code
-     (N                             : Node_Id;
-      Typ                           : Entity_Id;
-      Lhs                           : Node_Id;
-      Is_Limited_Ancestor_Expansion : Boolean := False) return List_Id
+     (N   : Node_Id;
+      Typ : Entity_Id;
+      Lhs : Node_Id) return List_Id
    is
       Loc     : constant Source_Ptr := Sloc (N);
       L       : constant List_Id    := New_List;
@@ -2167,7 +2169,7 @@ package body Exp_Aggr is
                Rewrite (Expr,
                  Make_Attribute_Reference (Loc,
                    Attribute_Name => Name_Unrestricted_Access,
-                   Prefix         => New_Copy_Tree (Prefix (Lhs))));
+                   Prefix         => New_Copy_Tree (Lhs)));
                Set_Analyzed (Parent (Expr), False);
 
             else
@@ -2334,11 +2336,10 @@ package body Exp_Aggr is
                Generate_Finalization_Actions;
 
                Append_List_To (L,
-                  Build_Record_Aggr_Code (
-                    N   => Unqualify (Ancestor),
-                    Typ => Etype (Unqualify (Ancestor)),
-                    Lhs => Target,
-                    Is_Limited_Ancestor_Expansion => True));
+                  Build_Record_Aggr_Code
+                    (N   => Unqualify (Ancestor),
+                     Typ => Etype (Unqualify (Ancestor)),
+                     Lhs => Target));
 
             --  If the ancestor part is an expression "E", we generate
 
@@ -3397,6 +3398,15 @@ package body Exp_Aggr is
             begin
                Assoc := First (Component_Associations (N));
                while Present (Assoc) loop
+
+                  --  If this is a box association, flattening is in general
+                  --  not possible because at this point we cannot tell if the
+                  --  default is static or even exists.
+
+                  if Box_Present (Assoc) then
+                     return False;
+                  end if;
+
                   Choice := First (Choices (Assoc));
 
                   while Present (Choice) loop
@@ -3505,7 +3515,7 @@ package body Exp_Aggr is
                            --  active, if this is a preelaborable unit or a
                            --  predefined unit. This ensures that predefined
                            --  units get the same level of constant folding in
-                           --  Ada 95 and Ada 05, where their categorization
+                           --  Ada 95 and Ada 2005, where their categorization
                            --  has changed.
 
                            declare
@@ -4147,6 +4157,12 @@ package body Exp_Aggr is
                         return False;
                      end if;
 
+                  --  If association has a box, no way to determine yet
+                  --  whether default can be assigned in place.
+
+                  elsif Box_Present (Expr) then
+                     return False;
+
                   elsif not Safe_Component (Expression (Expr)) then
                      return False;
                   end if;
@@ -4604,6 +4620,21 @@ package body Exp_Aggr is
         or else Is_RTE (Ctyp, RE_Asm_Output_Operand)
       then
          return;
+
+      --  Do not expand an aggregate for an array type which contains tasks if
+      --  the aggregate is associated with an unexpanded return statement of a
+      --  build-in-place function. The aggregate is expanded when the related
+      --  return statement (rewritten into an extended return) is processed.
+      --  This delay ensures that any temporaries and initialization code
+      --  generated for the aggregate appear in the proper return block and
+      --  use the correct _chain and _master.
+
+      elsif Has_Task (Base_Type (Etype (N)))
+        and then Nkind (Parent (N)) = N_Simple_Return_Statement
+        and then Is_Build_In_Place_Function
+                   (Return_Applies_To (Return_Statement_Entity (Parent (N))))
+      then
+         return;
       end if;
 
       --  If the semantic analyzer has determined that aggregate N will raise
@@ -4694,7 +4725,6 @@ package body Exp_Aggr is
         and then Static_Elaboration_Desired (Current_Scope)
       then
          Convert_To_Positional (N, Max_Others_Replicate => 100);
-
       else
          Convert_To_Positional (N);
       end if;
@@ -5960,7 +5990,7 @@ package body Exp_Aggr is
 
          if Present (Component_Associations (N)) then
             Convert_To_Positional
-             (N, Max_Others_Replicate => 64, Handle_Bit_Packed => True);
+              (N, Max_Others_Replicate => 64, Handle_Bit_Packed => True);
             return Nkind (N) /= N_Aggregate;
          end if;
 

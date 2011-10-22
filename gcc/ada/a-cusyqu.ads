@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2004-2011, Free Software Foundation, Inc.         --
+--            Copyright (C) 2011, Free Software Foundation, Inc.            --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -46,6 +46,10 @@ package Ada.Containers.Unbounded_Synchronized_Queues is
 
    package Implementation is
 
+      --  All identifiers in this unit are implementation defined
+
+      pragma Implementation_Defined;
+
       type List_Type is tagged limited private;
 
       procedure Enqueue
@@ -82,9 +86,7 @@ package Ada.Containers.Unbounded_Synchronized_Queues is
    end Implementation;
 
    protected type Queue (Ceiling : System.Any_Priority := Default_Ceiling)
-     --  ???
-     --  with Priority => Ceiling is new Queue_Interfaces.Queue with
-     is new Queue_Interfaces.Queue with
+     with Priority => Ceiling is new Queue_Interfaces.Queue with
 
       overriding
       entry Enqueue (New_Item : Queue_Interfaces.Element_Type);

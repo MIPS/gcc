@@ -1163,7 +1163,12 @@ package body Sem_Ch9 is
    begin
       if No_Run_Time_Mode then
          Error_Msg_CRT ("protected type", N);
-         goto Leave;
+
+         if Has_Aspects (N) then
+            Analyze_Aspect_Specifications (N, Def_Id);
+         end if;
+
+         return;
       end if;
 
       Tasking_Used := True;
@@ -1204,6 +1209,13 @@ package body Sem_Ch9 is
       end if;
 
       Set_Is_Constrained (T, not Has_Discriminants (T));
+
+      --  If aspects are present, analyze them now. They can make references
+      --  to the discriminants of the type, but not to any components.
+
+      if Has_Aspects (N) then
+         Analyze_Aspect_Specifications (N, Def_Id);
+      end if;
 
       Analyze (Protected_Definition (N));
 
@@ -1286,11 +1298,6 @@ package body Sem_Ch9 is
             Expand_N_Protected_Type_Declaration (N);
             Process_Full_View (N, T, Def_Id);
          end if;
-      end if;
-
-   <<Leave>>
-      if Has_Aspects (N) then
-         Analyze_Aspect_Specifications (N, Def_Id);
       end if;
    end Analyze_Protected_Type_Declaration;
 
@@ -2001,10 +2008,18 @@ package body Sem_Ch9 is
 
       --  In the case of an incomplete type, use the full view, unless it's not
       --  present (as can occur for an incomplete view from a limited with).
+      --  Initialize the Corresponding_Record_Type (which overlays the Private
+      --  Dependents field of the incomplete view).
 
-      if Ekind (T) = E_Incomplete_Type and then Present (Full_View (T)) then
-         T := Full_View (T);
-         Set_Completion_Referenced (T);
+      if Ekind (T) = E_Incomplete_Type then
+         if Present (Full_View (T)) then
+            T := Full_View (T);
+            Set_Completion_Referenced (T);
+
+         else
+            Set_Ekind (T, E_Task_Type);
+            Set_Corresponding_Record_Type (T, Empty);
+         end if;
       end if;
 
       Set_Ekind              (T, E_Task_Type);
@@ -2037,6 +2052,10 @@ package body Sem_Ch9 is
       end if;
 
       Set_Is_Constrained (T, not Has_Discriminants (T));
+
+      if Has_Aspects (N) then
+         Analyze_Aspect_Specifications (N, Def_Id);
+      end if;
 
       if Present (Task_Definition (N)) then
          Analyze_Task_Definition (Task_Definition (N));
@@ -2091,10 +2110,6 @@ package body Sem_Ch9 is
             Expand_N_Task_Type_Declaration (N);
             Process_Full_View (N, T, Def_Id);
          end if;
-      end if;
-
-      if Has_Aspects (N) then
-         Analyze_Aspect_Specifications (N, Def_Id);
       end if;
    end Analyze_Task_Type_Declaration;
 
@@ -2373,7 +2388,7 @@ package body Sem_Ch9 is
          --  declaration must be limited.
 
          if Present (Interface_List (N))
-           and then not Is_Limited_Record (Priv_T)
+           and then not Is_Limited_Type (Priv_T)
          then
             Error_Msg_Sloc := Sloc (Priv_T);
             Error_Msg_N ("(Ada 2005) limited type declaration expected for " &

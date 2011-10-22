@@ -41,6 +41,7 @@
 with Ada.Unchecked_Conversion;
 with Interfaces.C;
 with System.Linux;
+with System.OS_Constants;
 
 package System.OS_Interface is
    pragma Preelaborate;
@@ -271,12 +272,14 @@ package System.OS_Interface is
    function To_pthread_t is
      new Ada.Unchecked_Conversion (unsigned_long, pthread_t);
 
-   type pthread_mutex_t     is limited private;
-   type pthread_cond_t      is limited private;
-   type pthread_attr_t      is limited private;
-   type pthread_mutexattr_t is limited private;
-   type pthread_condattr_t  is limited private;
-   type pthread_key_t       is private;
+   type pthread_mutex_t      is limited private;
+   type pthread_rwlock_t     is limited private;
+   type pthread_cond_t       is limited private;
+   type pthread_attr_t       is limited private;
+   type pthread_mutexattr_t  is limited private;
+   type pthread_rwlockattr_t is limited private;
+   type pthread_condattr_t   is limited private;
+   type pthread_key_t        is private;
 
    PTHREAD_CREATE_DETACHED : constant := 1;
 
@@ -356,6 +359,42 @@ package System.OS_Interface is
 
    function pthread_mutex_unlock (mutex : access pthread_mutex_t) return int;
    pragma Import (C, pthread_mutex_unlock, "pthread_mutex_unlock");
+
+   function pthread_rwlockattr_init
+     (attr : access pthread_rwlockattr_t) return int;
+   pragma Import (C, pthread_rwlockattr_init, "pthread_rwlockattr_init");
+
+   function pthread_rwlockattr_destroy
+     (attr : access pthread_rwlockattr_t) return int;
+   pragma Import (C, pthread_rwlockattr_destroy, "pthread_rwlockattr_destroy");
+
+   PTHREAD_RWLOCK_PREFER_READER_NP              : constant := 0;
+   PTHREAD_RWLOCK_PREFER_WRITER_NP              : constant := 1;
+   PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP : constant := 2;
+
+   function pthread_rwlockattr_setkind_np
+     (attr : access pthread_rwlockattr_t;
+      pref : int) return int;
+   pragma Import
+     (C, pthread_rwlockattr_setkind_np, "pthread_rwlockattr_setkind_np");
+
+   function pthread_rwlock_init
+     (mutex : access pthread_rwlock_t;
+      attr  : access pthread_rwlockattr_t) return int;
+   pragma Import (C, pthread_rwlock_init, "pthread_rwlock_init");
+
+   function pthread_rwlock_destroy
+     (mutex : access pthread_rwlock_t) return int;
+   pragma Import (C, pthread_rwlock_destroy, "pthread_rwlock_destroy");
+
+   function pthread_rwlock_rdlock (mutex : access pthread_rwlock_t) return int;
+   pragma Import (C, pthread_rwlock_rdlock, "pthread_rwlock_rdlock");
+
+   function pthread_rwlock_wrlock (mutex : access pthread_rwlock_t) return int;
+   pragma Import (C, pthread_rwlock_wrlock, "pthread_rwlock_wrlock");
+
+   function pthread_rwlock_unlock (mutex : access pthread_rwlock_t) return int;
+   pragma Import (C, pthread_rwlock_unlock, "pthread_rwlock_unlock");
 
    function pthread_condattr_init
      (attr : access pthread_condattr_t) return int;
@@ -533,7 +572,8 @@ package System.OS_Interface is
 
 private
 
-   type sigset_t is array (0 .. 127) of unsigned_char;
+   type sigset_t is
+     array (0 .. OS_Constants.SIZEOF_sigset - 1) of unsigned_char;
    pragma Convention (C, sigset_t);
    for sigset_t'Alignment use Interfaces.C.unsigned_long'Alignment;
 
@@ -557,35 +597,50 @@ private
    end record;
    pragma Convention (C, timespec);
 
+   type unsigned_long_long_t is mod 2 ** 64;
+   --  Local type only used to get the alignment of this type below
+
+   subtype char_array is Interfaces.C.char_array;
+
    type pthread_attr_t is record
-      detachstate   : int;
-      schedpolicy   : int;
-      schedparam    : struct_sched_param;
-      inheritsched  : int;
-      scope         : int;
-      guardsize     : size_t;
-      stackaddr_set : int;
-      stackaddr     : System.Address;
-      stacksize     : size_t;
+      Data : char_array (1 .. OS_Constants.PTHREAD_ATTR_SIZE);
    end record;
    pragma Convention (C, pthread_attr_t);
+   for pthread_attr_t'Alignment use Interfaces.C.unsigned_long'Alignment;
 
    type pthread_condattr_t is record
-      dummy : int;
+      Data : char_array (1 .. OS_Constants.PTHREAD_CONDATTR_SIZE);
    end record;
    pragma Convention (C, pthread_condattr_t);
+   for pthread_condattr_t'Alignment use Interfaces.C.int'Alignment;
 
    type pthread_mutexattr_t is record
-      mutexkind : int;
-   end record;
+      Data : char_array (1 .. OS_Constants.PTHREAD_MUTEXATTR_SIZE);
+   end  record;
    pragma Convention (C, pthread_mutexattr_t);
+   for pthread_mutexattr_t'Alignment use Interfaces.C.int'Alignment;
 
-   type pthread_mutex_t is new System.Linux.pthread_mutex_t;
+   type pthread_mutex_t is record
+      Data : char_array (1 .. OS_Constants.PTHREAD_MUTEX_SIZE);
+   end record;
+   pragma Convention (C, pthread_mutex_t);
+   for pthread_mutex_t'Alignment use Interfaces.C.unsigned_long'Alignment;
 
-   type unsigned_long_long_t is mod 2 ** 64;
-   --  Local type only used to get it's 'Alignment below
+   type pthread_rwlockattr_t is record
+      Data : char_array (1 .. OS_Constants.PTHREAD_RWLOCKATTR_SIZE);
+   end record;
+   pragma Convention (C, pthread_rwlockattr_t);
+   for pthread_rwlockattr_t'Alignment use Interfaces.C.unsigned_long'Alignment;
 
-   type pthread_cond_t is array (0 .. 47) of unsigned_char;
+   type pthread_rwlock_t is record
+      Data : char_array (1 .. OS_Constants.PTHREAD_RWLOCK_SIZE);
+   end record;
+   pragma Convention (C, pthread_rwlock_t);
+   for pthread_rwlock_t'Alignment use Interfaces.C.unsigned_long'Alignment;
+
+   type pthread_cond_t is record
+      Data : char_array (1 .. OS_Constants.PTHREAD_COND_SIZE);
+   end record;
    pragma Convention (C, pthread_cond_t);
    for pthread_cond_t'Alignment use unsigned_long_long_t'Alignment;
 

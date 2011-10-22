@@ -988,7 +988,6 @@ static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
 static tree rs6000_builtin_conversion (unsigned int, tree, tree);
-static tree rs6000_builtin_vec_perm (tree, tree *);
 static bool rs6000_builtin_support_vector_misalignment (enum
 							machine_mode,
 							const_tree,
@@ -1407,8 +1406,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 #undef TARGET_VECTORIZE_BUILTIN_CONVERSION
 #define TARGET_VECTORIZE_BUILTIN_CONVERSION rs6000_builtin_conversion
-#undef TARGET_VECTORIZE_BUILTIN_VEC_PERM
-#define TARGET_VECTORIZE_BUILTIN_VEC_PERM rs6000_builtin_vec_perm
 #undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
 #define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT		\
   rs6000_builtin_support_vector_misalignment
@@ -3475,65 +3472,6 @@ rs6000_builtin_support_vector_misalignment (enum machine_mode mode,
   return false;
 }
 
-/* Implement targetm.vectorize.builtin_vec_perm.  */
-tree
-rs6000_builtin_vec_perm (tree type, tree *mask_element_type)
-{
-  tree inner_type = TREE_TYPE (type);
-  bool uns_p = TYPE_UNSIGNED (inner_type);
-  tree d;
-
-  *mask_element_type = unsigned_char_type_node;
-
-  switch (TYPE_MODE (type))
-    {
-    case V16QImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_16QI]);
-      break;
-
-    case V8HImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_8HI]);
-      break;
-
-    case V4SImode:
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SI]);
-      break;
-
-    case V4SFmode:
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_4SF];
-      break;
-
-    case V2DFmode:
-      if (!TARGET_ALLOW_DF_PERMUTE)
-	return NULL_TREE;
-
-      d = rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DF];
-      break;
-
-    case V2DImode:
-      if (!TARGET_ALLOW_DF_PERMUTE)
-	return NULL_TREE;
-
-      d = (uns_p
-	   ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI_UNS]
-	   : rs6000_builtin_decls[ALTIVEC_BUILTIN_VPERM_2DI]);
-      break;
-
-    default:
-      return NULL_TREE;
-    }
-
-  gcc_assert (d);
-  return d;
-}
-
-
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
 static int
 rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
@@ -3739,7 +3677,7 @@ rs6000_builtin_vectorized_libmass (tree fndecl, tree type_out, tree type_in)
 	case BUILT_IN_SQRT:
 	case BUILT_IN_TAN:
 	case BUILT_IN_TANH:
-	  bdecl = implicit_built_in_decls[fn];
+	  bdecl = builtin_decl_implicit (fn);
 	  suffix = "d2";				/* pow -> powd2 */
 	  if (el_mode != DFmode
 	      || n != 2)
@@ -3776,7 +3714,7 @@ rs6000_builtin_vectorized_libmass (tree fndecl, tree type_out, tree type_in)
 	case BUILT_IN_SQRTF:
 	case BUILT_IN_TANF:
 	case BUILT_IN_TANHF:
-	  bdecl = implicit_built_in_decls[fn];
+	  bdecl = builtin_decl_implicit (fn);
 	  suffix = "4";					/* powf -> powf4 */
 	  if (el_mode != SFmode
 	      || n != 4)
@@ -4758,7 +4696,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
   /* Store value to stack temp.  Load vector element.  Splat.  However, splat
      of 64-bit items is not supported on Altivec.  */
-  if (all_same && GET_MODE_SIZE (mode) <= 4)
+  if (all_same && GET_MODE_SIZE (inner_mode) <= 4)
     {
       mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
@@ -9400,7 +9338,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       tree tmp = create_tmp_var (type, "va_arg_tmp");
       tree dest_addr = build_fold_addr_expr (tmp);
 
-      tree copy = build_call_expr (implicit_built_in_decls[BUILT_IN_MEMCPY],
+      tree copy = build_call_expr (builtin_decl_implicit (BUILT_IN_MEMCPY),
 				   3, dest_addr, addr, size_int (rsize * 4));
 
       gimplify_and_add (copy, pre_p);
@@ -12213,8 +12151,8 @@ rs6000_init_builtins (void)
 
 #if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
-  if (built_in_decls [BUILT_IN_CLOG])
-    set_user_assembler_name (built_in_decls [BUILT_IN_CLOG], "__clog");
+  if ((tdecl = builtin_decl_explicit (BUILT_IN_CLOG)) != NULL_TREE)
+    set_user_assembler_name (tdecl, "__clog");
 #endif
 
 #ifdef SUBTARGET_INIT_BUILTINS
@@ -17945,7 +17883,7 @@ compute_save_world_info (rs6000_stack_t *info_ptr)
   info_ptr->world_save_p
     = (WORLD_SAVE_P (info_ptr)
        && DEFAULT_ABI == ABI_DARWIN
-       && ! (cfun->calls_setjmp && flag_exceptions)
+       && !cfun->has_nonlocal_label
        && info_ptr->first_fp_reg_save == FIRST_SAVED_FP_REGNO
        && info_ptr->first_gp_reg_save == FIRST_SAVED_GP_REGNO
        && info_ptr->first_altivec_reg_save == FIRST_SAVED_ALTIVEC_REGNO
@@ -19303,7 +19241,8 @@ output_probe_stack_range (rtx reg1, rtx reg2)
   output_asm_insn ("{cal %0,%1(%0)|addi %0,%0,%1}", xops);
 
   /* Probe at TEST_ADDR and branch.  */
-  output_asm_insn ("{st|stw} 0,0(%0)", xops);
+  xops[1] = gen_rtx_REG (Pmode, 0);
+  output_asm_insn ("{st|stw} %1,0(%0)", xops);
   fprintf (asm_out_file, "\tb ");
   assemble_name_raw (asm_out_file, loop_lab);
   fputc ('\n', asm_out_file);

@@ -501,6 +501,21 @@ int sdb_label_count;
 int mips_dbx_regno[FIRST_PSEUDO_REGISTER];
 int mips_dwarf_regno[FIRST_PSEUDO_REGISTER];
 
+/* Information about the current function's epilogue, used only while
+   expanding it.  */
+static struct {
+  /* A list of queued REG_CFA_RESTORE notes.  */
+  rtx cfa_restores;
+
+  /* The CFA is currently defined as CFA_REG + CFA_OFFSET.  */
+  rtx cfa_reg;
+  HOST_WIDE_INT cfa_offset;
+
+  /* The offset of the CFA from the stack pointer while restoring
+     registers.  */
+  HOST_WIDE_INT cfa_restore_sp_offset;
+} mips_epilogue;
+
 /* The nesting depth of the PRINT_OPERAND '%(', '%<' and '%[' constructs.  */
 struct mips_asm_switch mips_noreorder = { "reorder", 0 };
 struct mips_asm_switch mips_nomacro = { "macro", 0 };
@@ -2522,9 +2537,7 @@ mips_unspec_offset_high (rtx temp, rtx base, rtx addr,
 static rtx
 gen_load_const_gp (rtx reg)
 {
-  return (Pmode == SImode
-	  ? gen_load_const_gp_si (reg)
-	  : gen_load_const_gp_di (reg));
+  return PMODE_INSN (gen_load_const_gp, (reg));
 }
 
 /* Return a pseudo register that contains the value of $gp throughout
@@ -2626,9 +2639,7 @@ mips_got_load (rtx temp, rtx addr, enum mips_symbol_type type)
   if (type == SYMBOL_GOTOFF_CALL)
     return mips_unspec_call (high, lo_sum_symbol);
   else
-    return (Pmode == SImode
-	    ? gen_unspec_gotsi (high, lo_sum_symbol)
-	    : gen_unspec_gotdi (high, lo_sum_symbol));
+    return PMODE_INSN (gen_unspec_got, (high, lo_sum_symbol));
 }
 
 /* If MODE is MAX_MACHINE_MODE, ADDR appears as a move operand, otherwise
@@ -5601,7 +5612,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = build2 (NE_EXPR, boolean_type_node, off,
+      t = build2 (NE_EXPR, boolean_type_node, unshare_expr (off),
 		  build_int_cst (TREE_TYPE (off), 0));
       addr = build3 (COND_EXPR, ptr_type_node, t, NULL_TREE, NULL_TREE);
 
@@ -5624,7 +5635,7 @@ mips_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  /* [9] Emit: ovfl = ((intptr_t) ovfl + osize - 1) & -osize.  */
 	  t = fold_build_pointer_plus_hwi (unshare_expr (ovfl), osize - 1);
 	  u = build_int_cst (TREE_TYPE (t), -osize);
-	  t = build2 (BIT_AND_EXPR, sizetype, t, u);
+	  t = build2 (BIT_AND_EXPR, TREE_TYPE (t), t, u);
 	  align = build2 (MODIFY_EXPR, TREE_TYPE (ovfl),
 			  unshare_expr (ovfl), t);
 	}
@@ -6676,9 +6687,7 @@ mips_expand_synci_loop (rtx begin, rtx end)
 
   /* Load INC with the cache line size (rdhwr INC,$1).  */
   inc = gen_reg_rtx (Pmode);
-  emit_insn (Pmode == SImode
-	     ? gen_rdhwr_synci_step_si (inc)
-	     : gen_rdhwr_synci_step_di (inc));
+  emit_insn (PMODE_INSN (gen_rdhwr_synci_step, (inc)));
 
   /* Check if inc is 0.  */
   cmp_result = gen_rtx_EQ (VOIDmode, inc, const0_rtx);
@@ -8193,6 +8202,15 @@ mips_frame_set (rtx mem, rtx reg)
 
   return set;
 }
+
+/* Record that the epilogue has restored call-saved register REG.  */
+
+static void
+mips_add_cfa_restore (rtx reg)
+{
+  mips_epilogue.cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg,
+					       mips_epilogue.cfa_restores);
+}
 
 /* If a MIPS16e SAVE or RESTORE instruction saves or restores register
    mips16e_s2_s8_regs[X], it must also save the registers in indexes
@@ -8371,20 +8389,25 @@ mips16e_collect_argument_saves (void)
 }
 
 /* Return a move between register REGNO and memory location SP + OFFSET.
-   Make the move a load if RESTORE_P, otherwise make it a frame-related
-   store.  */
+   REG_PARM_P is true if SP + OFFSET belongs to REG_PARM_STACK_SPACE.
+   Make the move a load if RESTORE_P, otherwise make it a store.  */
 
 static rtx
-mips16e_save_restore_reg (bool restore_p, HOST_WIDE_INT offset,
-			  unsigned int regno)
+mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
+			  HOST_WIDE_INT offset, unsigned int regno)
 {
   rtx reg, mem;
 
   mem = gen_frame_mem (SImode, plus_constant (stack_pointer_rtx, offset));
   reg = gen_rtx_REG (SImode, regno);
-  return (restore_p
-	  ? gen_rtx_SET (VOIDmode, reg, mem)
-	  : mips_frame_set (mem, reg));
+  if (restore_p)
+    {
+      mips_add_cfa_restore (reg);
+      return gen_rtx_SET (VOIDmode, reg, mem);
+    }
+  if (reg_parm_p)
+    return gen_rtx_SET (VOIDmode, mem, reg);
+  return mips_frame_set (mem, reg);
 }
 
 /* Return RTL for a MIPS16e SAVE or RESTORE instruction; RESTORE_P says which.
@@ -8446,7 +8469,8 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   for (i = 0; i < nargs; i++)
     {
       offset = top_offset + i * UNITS_PER_WORD;
-      set = mips16e_save_restore_reg (restore_p, offset, GP_ARG_FIRST + i);
+      set = mips16e_save_restore_reg (restore_p, true, offset,
+				      GP_ARG_FIRST + i);
       XVECEXP (pattern, 0, n++) = set;
     }
 
@@ -8458,7 +8482,7 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
       if (BITSET_P (*mask_ptr, regno))
 	{
 	  offset -= UNITS_PER_WORD;
-	  set = mips16e_save_restore_reg (restore_p, offset, regno);
+	  set = mips16e_save_restore_reg (restore_p, false, offset, regno);
 	  XVECEXP (pattern, 0, n++) = set;
 	  *mask_ptr &= ~(1 << regno);
 	}
@@ -9526,7 +9550,7 @@ mips_save_gp_to_cprestore_slot (rtx mem, rtx offset, rtx gp, rtx temp)
   if (TARGET_CPRESTORE_DIRECTIVE)
     {
       gcc_assert (gp == pic_offset_table_rtx);
-      emit_insn (gen_cprestore (mem, offset));
+      emit_insn (PMODE_INSN (gen_cprestore, (mem, offset)));
     }
   else
     mips_emit_move (mips_cprestore_slot (temp, false), gp);
@@ -9868,6 +9892,14 @@ mips_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
   mips_end_function_definition (fnname);
 }
 
+/* Emit an optimisation barrier for accesses to the current frame.  */
+
+static void
+mips_frame_barrier (void)
+{
+  emit_clobber (gen_frame_mem (BLKmode, stack_pointer_rtx));
+}
+
 /* Save register REG to MEM.  Make the instruction frame-related.  */
 
 static void
@@ -9913,9 +9945,8 @@ mips_emit_loadgp (void)
 	  mips_gnu_local_gp = gen_rtx_SYMBOL_REF (Pmode, "__gnu_local_gp");
 	  SYMBOL_REF_FLAGS (mips_gnu_local_gp) |= SYMBOL_FLAG_LOCAL;
 	}
-      emit_insn (Pmode == SImode
-		 ? gen_loadgp_absolute_si (pic_reg, mips_gnu_local_gp)
-		 : gen_loadgp_absolute_di (pic_reg, mips_gnu_local_gp));
+      emit_insn (PMODE_INSN (gen_loadgp_absolute,
+			     (pic_reg, mips_gnu_local_gp)));
       break;
 
     case LOADGP_OLDABI:
@@ -9926,17 +9957,14 @@ mips_emit_loadgp (void)
       addr = XEXP (DECL_RTL (current_function_decl), 0);
       offset = mips_unspec_address (addr, SYMBOL_GOTOFF_LOADGP);
       incoming_address = gen_rtx_REG (Pmode, PIC_FUNCTION_ADDR_REGNUM);
-      emit_insn (Pmode == SImode
-		 ? gen_loadgp_newabi_si (pic_reg, offset, incoming_address)
-		 : gen_loadgp_newabi_di (pic_reg, offset, incoming_address));
+      emit_insn (PMODE_INSN (gen_loadgp_newabi,
+			     (pic_reg, offset, incoming_address)));
       break;
 
     case LOADGP_RTP:
       base = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_BASE));
       index = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (VXWORKS_GOTT_INDEX));
-      emit_insn (Pmode == SImode
-		 ? gen_loadgp_rtp_si (pic_reg, base, index)
-		 : gen_loadgp_rtp_di (pic_reg, base, index));
+      emit_insn (PMODE_INSN (gen_loadgp_rtp, (pic_reg, base, index)));
       break;
 
     default:
@@ -9944,7 +9972,8 @@ mips_emit_loadgp (void)
     }
 
   if (TARGET_MIPS16)
-    emit_insn (gen_copygp_mips16 (pic_offset_table_rtx, pic_reg));
+    emit_insn (PMODE_INSN (gen_copygp_mips16,
+			   (pic_offset_table_rtx, pic_reg)));
 
   /* Emit a blockage if there are implicit uses of the GP register.
      This includes profiled functions, because FUNCTION_PROFILE uses
@@ -10014,6 +10043,7 @@ mips_expand_prologue (void)
 	  insn = mips16e_build_save_restore (false, &mask, &offset,
 					     nargs, step1);
 	  RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	  mips_frame_barrier ();
  	  size -= step1;
 
  	  /* Check if we need to save other registers.  */
@@ -10054,6 +10084,7 @@ mips_expand_prologue (void)
 	      insn = gen_add3_insn (stack_pointer_rtx, stack_pointer_rtx,
 				    GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	      mips_frame_barrier ();
 	      size -= step1;
 
 	      /* Start at the uppermost location for saving.  */
@@ -10114,6 +10145,7 @@ mips_expand_prologue (void)
 				    stack_pointer_rtx,
 				    GEN_INT (-step1));
 	      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+	      mips_frame_barrier ();
 	      size -= step1;
 	    }
 	  mips_for_each_saved_acc (size, mips_save_reg);
@@ -10154,6 +10186,7 @@ mips_expand_prologue (void)
 	    (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
 			  plus_constant (stack_pointer_rtx, -size)));
 	}
+      mips_frame_barrier ();
     }
 
   /* Set up the frame pointer, if we're using one.  */
@@ -10200,11 +10233,12 @@ mips_expand_prologue (void)
       temp = (SMALL_OPERAND (offset)
 	      ? gen_rtx_SCRATCH (Pmode)
 	      : MIPS_PROLOGUE_TEMP (Pmode));
-      emit_insn (gen_potential_cprestore (mem, GEN_INT (offset), gp, temp));
+      emit_insn (PMODE_INSN (gen_potential_cprestore,
+			     (mem, GEN_INT (offset), gp, temp)));
 
       mips_get_cprestore_base_and_offset (&base, &offset, true);
       mem = gen_frame_mem (Pmode, plus_constant (base, offset));
-      emit_insn (gen_use_cprestore (mem));
+      emit_insn (PMODE_INSN (gen_use_cprestore, (mem)));
     }
 
   /* We need to search back to the last use of K0 or K1.  */
@@ -10227,7 +10261,47 @@ mips_expand_prologue (void)
     emit_insn (gen_blockage ());
 }
 
-/* Emit instructions to restore register REG from slot MEM.  */
+/* Attach all pending register saves to the previous instruction.
+   Return that instruction.  */
+
+static rtx
+mips_epilogue_emit_cfa_restores (void)
+{
+  rtx insn;
+
+  insn = get_last_insn ();
+  gcc_assert (insn && !REG_NOTES (insn));
+  if (mips_epilogue.cfa_restores)
+    {
+      RTX_FRAME_RELATED_P (insn) = 1;
+      REG_NOTES (insn) = mips_epilogue.cfa_restores;
+      mips_epilogue.cfa_restores = 0;
+    }
+  return insn;
+}
+
+/* Like mips_epilogue_emit_cfa_restores, but also record that the CFA is
+   now at REG + OFFSET.  */
+
+static void
+mips_epilogue_set_cfa (rtx reg, HOST_WIDE_INT offset)
+{
+  rtx insn;
+
+  insn = mips_epilogue_emit_cfa_restores ();
+  if (reg != mips_epilogue.cfa_reg || offset != mips_epilogue.cfa_offset)
+    {
+      RTX_FRAME_RELATED_P (insn) = 1;
+      REG_NOTES (insn) = alloc_reg_note (REG_CFA_DEF_CFA,
+					 plus_constant (reg, offset),
+					 REG_NOTES (insn));
+      mips_epilogue.cfa_reg = reg;
+      mips_epilogue.cfa_offset = offset;
+    }
+}
+
+/* Emit instructions to restore register REG from slot MEM.  Also update
+   the cfa_restores list.  */
 
 static void
 mips_restore_reg (rtx reg, rtx mem)
@@ -10236,8 +10310,50 @@ mips_restore_reg (rtx reg, rtx mem)
      $7 instead and adjust the return insn appropriately.  */
   if (TARGET_MIPS16 && REGNO (reg) == RETURN_ADDR_REGNUM)
     reg = gen_rtx_REG (GET_MODE (reg), GP_REG_FIRST + 7);
+  else if (GET_MODE (reg) == DFmode && !TARGET_FLOAT64)
+    {
+      mips_add_cfa_restore (mips_subword (reg, true));
+      mips_add_cfa_restore (mips_subword (reg, false));
+    }
+  else
+    mips_add_cfa_restore (reg);
 
   mips_emit_save_slot_move (reg, mem, MIPS_EPILOGUE_TEMP (GET_MODE (reg)));
+  if (REGNO (reg) == REGNO (mips_epilogue.cfa_reg))
+    /* The CFA is currently defined in terms of the register whose
+       value we have just restored.  Redefine the CFA in terms of
+       the stack pointer.  */
+    mips_epilogue_set_cfa (stack_pointer_rtx,
+			   mips_epilogue.cfa_restore_sp_offset);
+}
+
+/* Emit code to set the stack pointer to BASE + OFFSET, given that
+   BASE + OFFSET is NEW_FRAME_SIZE bytes below the top of the frame.
+   BASE, if not the stack pointer, is available as a temporary.  */
+
+static void
+mips_deallocate_stack (rtx base, rtx offset, HOST_WIDE_INT new_frame_size)
+{
+  if (base == stack_pointer_rtx && offset == const0_rtx)
+    return;
+
+  mips_frame_barrier ();
+  if (offset == const0_rtx)
+    {
+      emit_move_insn (stack_pointer_rtx, base);
+      mips_epilogue_set_cfa (stack_pointer_rtx, new_frame_size);
+    }
+  else if (TARGET_MIPS16 && base != stack_pointer_rtx)
+    {
+      emit_insn (gen_add3_insn (base, base, offset));
+      mips_epilogue_set_cfa (base, new_frame_size);
+      emit_move_insn (stack_pointer_rtx, base);
+    }
+  else
+    {
+      emit_insn (gen_add3_insn (stack_pointer_rtx, base, offset));
+      mips_epilogue_set_cfa (stack_pointer_rtx, new_frame_size);
+    }
 }
 
 /* Emit any instructions needed before a return.  */
@@ -10266,7 +10382,7 @@ mips_expand_epilogue (bool sibcall_p)
 {
   const struct mips_frame_info *frame;
   HOST_WIDE_INT step1, step2;
-  rtx base, target, insn;
+  rtx base, adjust, insn;
 
   if (!sibcall_p && mips_can_use_return_insn ())
     {
@@ -10296,6 +10412,9 @@ mips_expand_epilogue (bool sibcall_p)
       base = hard_frame_pointer_rtx;
       step1 -= frame->hard_frame_pointer_offset;
     }
+  mips_epilogue.cfa_reg = base;
+  mips_epilogue.cfa_offset = step1;
+  mips_epilogue.cfa_restores = NULL_RTX;
 
   /* If we need to restore registers, deallocate as much stack as
      possible in the second step without going out of range.  */
@@ -10306,30 +10425,14 @@ mips_expand_epilogue (bool sibcall_p)
       step1 -= step2;
     }
 
-  /* Set TARGET to BASE + STEP1.  */
-  target = base;
-  if (step1 > 0)
+  /* Get an rtx for STEP1 that we can add to BASE.  */
+  adjust = GEN_INT (step1);
+  if (!SMALL_OPERAND (step1))
     {
-      rtx adjust;
-
-      /* Get an rtx for STEP1 that we can add to BASE.  */
-      adjust = GEN_INT (step1);
-      if (!SMALL_OPERAND (step1))
-	{
-	  mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
-	  adjust = MIPS_EPILOGUE_TEMP (Pmode);
-	}
-
-      /* Normal mode code can copy the result straight into $sp.  */
-      if (!TARGET_MIPS16)
-	target = stack_pointer_rtx;
-
-      emit_insn (gen_add3_insn (target, base, adjust));
+      mips_emit_move (MIPS_EPILOGUE_TEMP (Pmode), adjust);
+      adjust = MIPS_EPILOGUE_TEMP (Pmode);
     }
-
-  /* Copy TARGET into the stack pointer.  */
-  if (target != stack_pointer_rtx)
-    mips_emit_move (stack_pointer_rtx, target);
+  mips_deallocate_stack (base, adjust, step2);
 
   /* If we're using addressing macros, $gp is implicitly used by all
      SYMBOL_REFs.  We must emit a blockage insn before restoring $gp
@@ -10337,6 +10440,7 @@ mips_expand_epilogue (bool sibcall_p)
   if (TARGET_CALL_SAVED_GP && !TARGET_EXPLICIT_RELOCS)
     emit_insn (gen_blockage ());
 
+  mips_epilogue.cfa_restore_sp_offset = step2;
   if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0)
     {
       unsigned int regno, mask;
@@ -10357,7 +10461,9 @@ mips_expand_epilogue (bool sibcall_p)
 
       /* Restore the remaining registers and deallocate the final bit
 	 of the frame.  */
+      mips_frame_barrier ();
       emit_insn (restore);
+      mips_epilogue_set_cfa (stack_pointer_rtx, 0);
     }
   else
     {
@@ -10392,24 +10498,21 @@ mips_expand_epilogue (bool sibcall_p)
 	  offset -= UNITS_PER_WORD;
 
 	  /* If we don't use shoadow register set, we need to update SP.  */
-	  if (!cfun->machine->use_shadow_register_set_p && step2 > 0)
-	    emit_insn (gen_add3_insn (stack_pointer_rtx,
-				      stack_pointer_rtx,
-				      GEN_INT (step2)));
+	  if (!cfun->machine->use_shadow_register_set_p)
+	    mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
+	  else
+	    /* The choice of position is somewhat arbitrary in this case.  */
+	    mips_epilogue_emit_cfa_restores ();
 
 	  /* Move to COP0 Status.  */
 	  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_STATUS_REG_NUM),
 				    gen_rtx_REG (SImode, K0_REG_NUM)));
 	}
       else
-	{
-	  /* Deallocate the final bit of the frame.  */
-	  if (step2 > 0)
-	    emit_insn (gen_add3_insn (stack_pointer_rtx,
-				      stack_pointer_rtx,
-				      GEN_INT (step2)));
-	}
+	/* Deallocate the final bit of the frame.  */
+	mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
     }
+  gcc_assert (!mips_epilogue.cfa_restores);
 
   /* Add in the __builtin_eh_return stack adjustment.  We need to
      use a temporary in MIPS16 code.  */
@@ -10442,7 +10545,7 @@ mips_expand_epilogue (bool sibcall_p)
 	}
       else
 	{
-	  unsigned int regno;
+	  rtx pat;
 
 	  /* When generating MIPS16 code, the normal
 	     mips_for_each_saved_gpr_and_fpr path will restore the return
@@ -10450,11 +10553,21 @@ mips_expand_epilogue (bool sibcall_p)
 	  if (TARGET_MIPS16
 	      && !GENERATE_MIPS16E_SAVE_RESTORE
 	      && BITSET_P (frame->mask, RETURN_ADDR_REGNUM))
-	    regno = GP_REG_FIRST + 7;
+	    {
+	      /* simple_returns cannot rely on values that are only available
+		 on paths through the epilogue (because return paths that do
+		 not pass through the epilogue may nevertheless reuse a
+		 simple_return that occurs at the end of the epilogue).
+		 Use a normal return here instead.  */
+	      rtx reg = gen_rtx_REG (Pmode, GP_REG_FIRST + 7);
+	      pat = gen_return_internal (reg);
+	    }
 	  else
-	    regno = RETURN_ADDR_REGNUM;
-	  emit_jump_insn (gen_simple_return_internal (gen_rtx_REG (Pmode,
-								   regno)));
+	    {
+	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+	      pat = gen_simple_return_internal (reg);
+	    }
+	  emit_jump_insn (pat);
 	}
     }
 
@@ -15400,8 +15513,32 @@ mips_option_override (void)
 
   /* End of code shared with GAS.  */
 
-  /* If no -mlong* option was given, infer it from the other options.  */
-  if ((target_flags_explicit & MASK_LONG64) == 0)
+  /* If a -mlong* option was given, check that it matches the ABI,
+     otherwise infer the -mlong* setting from the other options.  */
+  if ((target_flags_explicit & MASK_LONG64) != 0)
+    {
+      if (TARGET_LONG64)
+	{
+	  if (mips_abi == ABI_N32)
+	    error ("%qs is incompatible with %qs", "-mabi=n32", "-mlong64");
+	  else if (mips_abi == ABI_32)
+	    error ("%qs is incompatible with %qs", "-mabi=32", "-mlong64");
+	  else if (mips_abi == ABI_O64 && TARGET_ABICALLS)
+	    /* We have traditionally allowed non-abicalls code to use
+	       an LP64 form of o64.  However, it would take a bit more
+	       effort to support the combination of 32-bit GOT entries
+	       and 64-bit pointers, so we treat the abicalls case as
+	       an error.  */
+	    error ("the combination of %qs and %qs is incompatible with %qs",
+		   "-mabi=o64", "-mabicalls", "-mlong64");
+	}
+      else
+	{
+	  if (mips_abi == ABI_64)
+	    error ("%qs is incompatible with %qs", "-mabi=64", "-mlong32");
+	}
+    }
+  else
     {
       if ((mips_abi == ABI_EABI && TARGET_64BIT) || mips_abi == ABI_64)
 	target_flags |= MASK_LONG64;

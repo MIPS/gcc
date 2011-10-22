@@ -236,6 +236,7 @@ Implementation Defined Attributes
 * Compiler_Version::
 * Code_Address::
 * Default_Bit_Order::
+* Descriptor_Size::
 * Elaborated::
 * Elab_Body::
 * Elab_Spec::
@@ -1013,7 +1014,8 @@ by any part of the GNAT compiler, except to generate corresponding note
 lines in the generated ALI file. For the format of these note lines, see
 the compiler source file lib-writ.ads. This pragma is intended for use by
 external tools, including ASIS@. The use of pragma Annotate does not
-affect the compilation process in any way.
+affect the compilation process in any way. This pragma may be used as
+a configuration pragma.
 
 @node Pragma Assert
 @unnumberedsec Pragma Assert
@@ -5718,6 +5720,7 @@ consideration, you should minimize the use of these attributes.
 * Compiler_Version::
 * Code_Address::
 * Default_Bit_Order::
+* Descriptor_Size::
 * Elaborated::
 * Elab_Body::
 * Elab_Spec::
@@ -5931,6 +5934,30 @@ permissible prefix), provides the value @code{System.Default_Bit_Order}
 as a @code{Pos} value (0 for @code{High_Order_First}, 1 for
 @code{Low_Order_First}).  This is used to construct the definition of
 @code{Default_Bit_Order} in package @code{System}.
+
+@node Descriptor_Size
+@unnumberedsec Descriptor_Size
+@cindex Descriptor
+@cindex Dope vector
+@findex Descriptor_Size
+@noindent
+Non-static attribute @code{Descriptor_Size} returns the size in bits of the
+descriptor allocated for a type.  The result is non-zero only for unconstrained
+array types and the returned value is of type universal integer.  In GNAT, an
+array descriptor contains bounds information and is located immediately before
+the first element of the array.
+
+@smallexample @c ada
+type Unconstr_Array is array (Positive range <>) of Boolean;
+Put_Line ("Descriptor size = " & Unconstr_Array'Descriptor_Size'Img);
+@end smallexample
+
+@noindent
+The attribute takes into account any additional padding due to type alignment.
+In the example above, the descriptor contains two values of type
+@code{Positive} representing the low and high bound.  Since @code{Positive} has
+a size of 31 bits and an alignment of 4, the descriptor size is @code{2 *
+Positive'Size + 2} or 64 bits.
 
 @node Elaborated
 @unnumberedsec Elaborated
@@ -7889,8 +7916,9 @@ Not followed.  This implementation is not targeted to such a domain.
 The implementation should use names that end with @samp{_Locking} for
 locking policies defined by the implementation.
 @end cartouche
-Followed.  A single implementation-defined locking policy is defined,
-whose name (@code{Inheritance_Locking}) follows this suggestion.
+Followed.  Two implementation-defined locking policies are defined,
+whose names (@code{Inheritance_Locking} and
+@code{Concurrent_Readers_Locking}) follow this suggestion.
 
 @cindex Entry queuing policies
 @unnumberedsec D.4(16): Entry Queuing Policies
@@ -9868,11 +9896,15 @@ The policy is the same as that of the underlying threads implementation.
 in a pragma @code{Locking_Policy}.  See D.3(4).
 @end cartouche
 @noindent
-The only implementation defined policy permitted in GNAT is
-@code{Inheritance_Locking}.  On targets that support this policy, locking
-is implemented by inheritance, i.e.@: the task owning the lock operates
+The two implementation defined policies permitted in GNAT are
+@code{Inheritance_Locking} and  @code{Conccurent_Readers_Locking}.  On
+targets that support the @code{Inheritance_Locking} policy, locking is
+implemented by inheritance, i.e.@: the task owning the lock operates
 at a priority equal to the highest priority of any task currently
-requesting the lock.
+requesting the lock.  On targets that support the
+@code{Conccurent_Readers_Locking} policy, locking is implemented with a
+read/write lock allowing multiple propected object functions to enter
+concurrently.
 
 @sp 1
 @cartouche

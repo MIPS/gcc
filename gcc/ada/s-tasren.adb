@@ -628,7 +628,7 @@ package body System.Tasking.Rendezvous is
                --  Requeue to a protected entry
 
                Called_PO := POE.To_Protection (Entry_Call.Called_PO);
-               STPE.Lock_Entries (Called_PO, Ceiling_Violation);
+               STPE.Lock_Entries_With_Status (Called_PO, Ceiling_Violation);
 
                if Ceiling_Violation then
                   pragma Assert (Ex = Ada.Exceptions.Null_Id);
@@ -1502,7 +1502,7 @@ package body System.Tasking.Rendezvous is
             --  Null_Body. Defer abort until it gets into the accept body.
 
             Uninterpreted_Data := Self_Id.Common.Call.Uninterpreted_Data;
-            Initialization.Defer_Abort (Self_Id);
+            Initialization.Defer_Abort_Nestable (Self_Id);
             STPO.Unlock (Self_Id);
 
          when Accept_Alternative_Completed =>

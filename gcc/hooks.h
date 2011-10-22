@@ -63,11 +63,13 @@ extern void hook_void_void (void);
 extern void hook_void_constcharptr (const char *);
 extern void hook_void_rtx_int (rtx, int);
 extern void hook_void_FILEptr_constcharptr (FILE *, const char *);
+extern bool hook_bool_FILEptr_rtx_false (FILE *, rtx);
 extern void hook_void_tree (tree);
 extern void hook_void_tree_treeptr (tree, tree *);
 extern void hook_void_int_int (int, int);
 extern void hook_void_gcc_optionsp (struct gcc_options *);
 
+extern int hook_int_uint_mode_1 (unsigned int, enum machine_mode);
 extern int hook_int_const_tree_0 (const_tree);
 extern int hook_int_const_tree_const_tree_1 (const_tree, const_tree);
 extern int hook_int_rtx_0 (rtx);

@@ -1859,9 +1859,12 @@ package body Sem_Ch8 is
               Statements (Handled_Statement_Sequence (New_Body)));
 
             --  The generated body does not freeze. It is analyzed when the
-            --  generated operation is frozen.
+            --  generated operation is frozen. This body is only needed if
+            --  expansion is enabled.
 
-            Append_Freeze_Action (Defining_Entity (New_Decl), New_Body);
+            if Expander_Active then
+               Append_Freeze_Action (Defining_Entity (New_Decl), New_Body);
+            end if;
 
             Result := Defining_Entity (New_Decl);
          end if;
@@ -2395,7 +2398,14 @@ package body Sem_Ch8 is
       elsif not Is_Entity_Name (Nam)
         or else not Is_Overloadable (Entity (Nam))
       then
-         Error_Msg_N ("expect valid subprogram name in renaming", N);
+         --  Do not mention the renaming if it comes from an instance
+
+         if not Is_Actual then
+            Error_Msg_N ("expect valid subprogram name in renaming", N);
+         else
+            Error_Msg_NE ("no visible subprogram for formal&", N, Nam);
+         end if;
+
          return;
       end if;
 
