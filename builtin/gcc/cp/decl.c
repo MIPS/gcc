@@ -3921,7 +3921,6 @@ static tree
 build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
 {
   tree fn = build_lang_decl (FUNCTION_DECL, name, type);
-
   DECL_EXTERNAL (fn) = 1;
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
