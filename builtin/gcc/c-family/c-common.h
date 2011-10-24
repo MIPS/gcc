@@ -803,18 +803,14 @@ extern tree c_build_qualified_type (tree, int);
    frontends.  */
 extern void c_common_nodes_and_builtins (void);
 
-/* Create builtins in a lazy fashion if the front end supports it, otherwise
-   create the builtin function immediately.  This hook must have the same
-   calling sequence as add_builtin_function.  */
-extern tree c_common_add_builtin_function_lazy (const char *name, tree type,
-						int function_code,
-						enum built_in_class cl,
-						const char *library_name,
-						tree attrs);
+/* Language hook to register lazy builtin with identifier IDENT.  */
+extern tree c_common_builtin_lazy_register (const char *name,
+					    unsigned fncode,
+					    enum built_in_class cl);
 
 /* Language hook to create lazy builtin with identifier IDENT.  */
-extern tree c_common_builtin_lazy_create (tree id, enum built_in_function,
-					  enum built_in_class);
+extern tree c_common_builtin_lazy_create (tree id, unsigned fncode,
+					  enum built_in_class cl);
 
 extern void disable_builtin_function (const char *);
 

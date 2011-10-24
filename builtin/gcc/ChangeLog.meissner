@@ -19,11 +19,23 @@
 	dependent lazy builtins here.  Change calling signuature of the
 	builtin_lazy_create language hook.  Add tracing under
 	-flazy-builtin-debug.
+	(lhd_builtin_lazy_register): New hook to register builtin
+	functions in a lazy fashion.
 
 	* langhooks.h (struct lang_hooks): Change signature of
-	builtin_lazy_create hook.
+	builtin_lazy_create hook.  Add builtin_lazy_register hook.  Delete
+	add_builtin_function_lazy hook.
 
 	* langhooks-def.h (lhd_builtin_lazy_create): Change signature.
+	(LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY): Delete, no longer used.
+	(lhd_builtin_add_builtin_function_lazy): Ditto.
+	(LANG_HOOKS_BUILTIN_LAZY_REGISTER): New hook.
+	(lhd_builtin_lazy_register): Ditto.
+	(LANG_HOOKS_INITIALIZER): Update hook initializations.
+
+	* c-obj-common.h (LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY): Delete
+	hook.
+	(LANG_HOOKS_BUILTIN_LAZY_REGISTER): Define new hook.
 
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

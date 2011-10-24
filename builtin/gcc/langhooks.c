@@ -655,38 +655,47 @@ lhd_end_section (void)
     }
 }
 
-/* Call the language hook to create lazy builtin with identifier IDENT, and
-   optionally add it to the front end's symbol table.  Not everything that
-   calls built_in_lazy_create includes langhooks.h, so we need to jump to the
-   hook here.  */
+/* Register an identifier that is a lazy builtin that will be expanded by
+   calling the builtin_lazy_create builtin.  If the front does not support lazy
+   builtins, only MD builtins are supported, and they are expanded immediately.
+   When the front end or back end hook is called, it is expected that all
+   varients of the builtin function will be created.  */
+
+tree
+lhd_builtin_lazy_register (const char *name ATTRIBUTE_UNUSED,
+			   unsigned fncode,
+			   enum built_in_class cl)
+{
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr, "---lhd_builtin_lazy_register (%s, %s, %u [%s])\n",
+	     name, built_in_class_names[(int)cl], fncode,
+	     (cl == BUILT_IN_NORMAL) ? built_in_names[fncode] : "---");
+
+  gcc_assert (cl == BUILT_IN_MD);
+  return targetm.builtin_decl (fncode, true);
+}
+
+/* Call the language or backend hook to create lazy builtin with identifier
+   IDENT, and add it to the front end's symbol table.  */
+
 tree
 builtin_lazy_create (tree ident)
 {
-  enum built_in_class bclass = builtin_lazy_function_class (ident);
   unsigned fncode = builtin_lazy_function_code (ident);
+  enum built_in_class cl = builtin_lazy_function_class (ident);
 
-  if (bclass == BUILT_IN_NORMAL || bclass == BUILT_IN_FRONTEND)
-    {
-      if (flag_lazy_builtin_debug)
-	fprintf (stderr, "---builtin_lazy_create (%s, %s, %u [%s]\n",
-		 IDENTIFIER_POINTER (ident),
-		 built_in_class_names[ (int)bclass ],
-		 fncode,
-		 built_in_names[fncode]);
+  if (flag_lazy_builtin_debug)
+    fprintf (stderr, "---builtin_lazy_create (%s, %s, %u [%s]\n",
+	     IDENTIFIER_POINTER (ident),
+	     built_in_class_names[ (int)cl ],
+	     fncode,
+	     (cl == BUILT_IN_NORMAL) ? built_in_names[fncode] : "---");
 
-      return lang_hooks.builtin_lazy_create (ident,
-					     (enum built_in_function)fncode,
-					     bclass);
-    }
+  if (cl == BUILT_IN_NORMAL || cl == BUILT_IN_FRONTEND)
+    return lang_hooks.builtin_lazy_create (ident, fncode, cl);
 
-  else if (bclass == BUILT_IN_MD)
-    {
-      if (flag_lazy_builtin_debug)
-	fprintf (stderr, "---builtin_lazy_create (%s, BUILT_IN_MD, %u\n",
-		 IDENTIFIER_POINTER (ident), fncode);
-
-      return targetm.builtin_decl (fncode, true);
-    }
+  else if (cl == BUILT_IN_MD)
+    return targetm.builtin_decl (fncode, true);
 
   else
     gcc_unreachable ();
@@ -694,7 +703,7 @@ builtin_lazy_create (tree ident)
 
 tree
 lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED,
-			 enum built_in_function fncode ATTRIBUTE_UNUSED,
+			 unsigned fncode ATTRIBUTE_UNUSED,
 			 enum built_in_class cl ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();

@@ -70,8 +70,9 @@ extern bool lhd_complain_wrong_lang_p (const struct cl_option *);
 extern bool lhd_handle_option (size_t, const char *, int, int, location_t,
 			       const struct cl_option_handlers *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *);
-extern tree lhd_builtin_lazy_create (tree, enum built_in_function,
-				     enum built_in_class);
+extern tree lhd_builtin_lazy_register (const char *, unsigned,
+				       enum built_in_class);
+extern tree lhd_builtin_lazy_create (tree, unsigned, enum built_in_class);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
@@ -111,7 +112,7 @@ extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 #define LANG_HOOKS_TYPES_COMPATIBLE_P	lhd_types_compatible_p
 #define LANG_HOOKS_BUILTIN_FUNCTION	lhd_builtin_function
 #define LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE	LANG_HOOKS_BUILTIN_FUNCTION
-#define LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY	add_builtin_function
+#define LANG_HOOKS_BUILTIN_LAZY_REGISTER lhd_builtin_lazy_register
 #define LANG_HOOKS_BUILTIN_LAZY_CREATE	lhd_builtin_lazy_create
 #define LANG_HOOKS_EXPR_TO_DECL		lhd_expr_to_decl
 #define LANG_HOOKS_TO_TARGET_CHARSET	lhd_to_target_charset
@@ -307,7 +308,7 @@ extern void lhd_end_section (void);
   LANG_HOOKS_GIMPLIFY_EXPR, \
   LANG_HOOKS_BUILTIN_FUNCTION, \
   LANG_HOOKS_BUILTIN_FUNCTION_EXT_SCOPE, \
-  LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY, \
+  LANG_HOOKS_BUILTIN_LAZY_REGISTER, \
   LANG_HOOKS_BUILTIN_LAZY_CREATE, \
   LANG_HOOKS_INIT_TS,          \
   LANG_HOOKS_EXPR_TO_DECL, \

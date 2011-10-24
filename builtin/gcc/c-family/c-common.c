@@ -4611,14 +4611,13 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 }
 
 /* Create builtins in a lazy fashion if the front end supports it, otherwise
-   create the builtin function immediately.  This hook must have the same
-   calling sequence as add_builtin_function.  */
-tree
+   create the builtin function immediately.  */
+
+static tree
 c_common_add_builtin_function_lazy (const char *name, tree type,
 				    int function_code, enum built_in_class cl,
 				    const char *library_name, tree attrs)
 {
-  tree id;
   bool lazy_p;
 
   if (flag_lazy_builtin <= 0)
@@ -4709,7 +4708,7 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
      for the identifier.  */
   if (lazy_p)
     {
-      id = maybe_get_identifier (name);
+      tree id = maybe_get_identifier (name);
       if (id != NULL_TREE)
 	lazy_p = false;
     }
@@ -4721,39 +4720,55 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 
   /* Mark the identiifer so the next use during parsing adds the function
      declaration.  */
-  id = get_identifier (name);
-  IDENTIFIER_LAZY_BUILTIN_P (id) = 1;
-  gcc_assert (builtin_lazy_function_code (id) == 0);
+  return c_common_builtin_lazy_register (name, function_code, cl);
+}
 
-  set_builtin_lazy_function_code (id, function_code, cl);
+/* Register an identifier that is a lazy builtin that will be expanded by
+   calling the builtin_lazy_create builtin.  If the front does not support lazy
+   builtins, only MD builtins are supported, and they are expanded immediately.
+   When the front end or back end hook is called, it is expected that all
+   varients of the builtin function will be created.  */
+
+tree
+c_common_builtin_lazy_register (const char *name,
+				unsigned uns_fncode,
+				enum built_in_class cl)
+{
+  /* Mark the identiifer so the next use during parsing adds the function
+     declaration.  */
+  tree id = get_identifier (name);
+
+  gcc_checking_assert (!IDENTIFIER_LAZY_BUILTIN_P (id));
+  gcc_checking_assert (builtin_lazy_function_code (id) == 0);
+  IDENTIFIER_LAZY_BUILTIN_P (id) = 1;
+
+  set_builtin_lazy_function_code (id, uns_fncode, cl);
 
   if (flag_lazy_builtin_debug)
-    {
-      if (cl != BUILT_IN_NORMAL)
-	fprintf (stderr, "---lazy_name (%s, %s, %u)\n", name,
-		 built_in_class_names[(int)cl], function_code);
-      else
-	fprintf (stderr, "---lazy_name (%s, BUILT_IN_NORMAL, %u [%s]\n", name,
-		 function_code, built_in_names[function_code]);
-    }
+    fprintf (stderr,
+	     "---c_common_builtin_lazy_register (%s, %s, %u [%s])\n",
+	     name, built_in_class_names[(int)cl], uns_fncode,
+	     (cl == BUILT_IN_NORMAL) ? built_in_names[uns_fncode] : "---");
 
   return id;
 }
 
-/* Language hook to create lazy builtin with identifier IDENT, and optionally
-   add it to the front end's symbol table.  */
+/* Language hook to create a standard or front end lazy builtin with identifier
+   IDENT.  Machine builtins go through the targetm builtin_decl hook
+   instead of going here.  At the moment, there are no front end builtins.  */
+
 tree
 c_common_builtin_lazy_create (tree id,
-			      enum built_in_function fncode,
+			      unsigned uns_fncode,
 			      enum built_in_class cl)
 {
-  enum built_in_class bclass = NOT_BUILT_IN;
   const char *main_name = NULL;
   const char *name = IDENTIFIER_POINTER (id);
   const char *lib_name = NULL;
   enum c_builtin_type fntype = BT_LAST;
   enum built_in_attribute attrs = ATTR_LAST;
-  unsigned uns_fncode = (unsigned)fncode;
+  enum built_in_function fncode = (enum built_in_function)uns_fncode;
+  bool return_lib_p = false;
   bool implicit_p = false;
   bool fallback_p = false;
   tree decl, id2, lib_decl;
@@ -4771,7 +4786,6 @@ c_common_builtin_lazy_create (tree id,
       if (NAME && COND)							\
 	{								\
 	  main_name = NAME;						\
-	  bclass = CLASS;						\
 	  fntype = TYPE;						\
 	  attrs = ATTRS;						\
 	  implicit_p = IMPLICIT;					\
@@ -4786,23 +4800,16 @@ c_common_builtin_lazy_create (tree id,
       gcc_unreachable ();
     }
 
-  if (bclass == NOT_BUILT_IN)
-    {
-      if (flag_lazy_builtin_debug)
-	fprintf (stderr, "---lazy_builtin (%s not found)\n", name);
-
-      gcc_unreachable ();
-    }
-
   /* If this is the __builtin_<xxx> name and it has already been created, just
      return that.  */
   gcc_assert (main_name != NULL);
-  if ((!strcmp (name, main_name))
-      && builtin_info.decl[uns_fncode] != NULL_TREE
-      && TREE_CODE (builtin_info.decl[uns_fncode]) == FUNCTION_DECL)
+  if (builtin_info.decl[uns_fncode] != NULL_TREE
+      && TREE_CODE (builtin_info.decl[uns_fncode]) == FUNCTION_DECL
+      && !strcmp (name, main_name))
     {
       if (flag_lazy_builtin_debug)
-	fprintf (stderr, "---lazy_builtin (%s, old decl)\n", name);
+	fprintf (stderr, "---c_common_builtin_lazy_create (%s, old decl)\n",
+		 name);
 
       return builtin_info.decl[uns_fncode];
     }
@@ -4815,12 +4822,14 @@ c_common_builtin_lazy_create (tree id,
       lib_name = main_name + strlen ("__builtin_");
 
       /* If the decl using the library name has been created, use that.  */
-      if ((!strcmp (name, lib_name))
-	  && builtin_info.lib_decl[uns_fncode] != NULL_TREE
-	  && TREE_CODE (builtin_info.lib_decl[uns_fncode]) == FUNCTION_DECL)
+      if (builtin_info.lib_decl[uns_fncode] != NULL_TREE
+	  && TREE_CODE (builtin_info.lib_decl[uns_fncode]) == FUNCTION_DECL
+	  && !strcmp (name, lib_name))
 	{
 	  if (flag_lazy_builtin_debug)
-	    fprintf (stderr, "---lazy_builtin (%s, old lib decl)\n", name);
+	    fprintf (stderr,
+		     "---c_common_builtin_lazy_create (%s, old lib decl)\n",
+		     name);
 
 	  return builtin_info.lib_decl[uns_fncode];
 	}
@@ -4828,10 +4837,10 @@ c_common_builtin_lazy_create (tree id,
 
   if (flag_lazy_builtin_debug)
     fprintf (stderr,
-	     "---lazy_builtin (%s, %s, %s, lib=%s%s%s)\n",
+	     "---c_common_builtin_lazy_create (%s, %s, %s, lib=%s%s%s)\n",
 	     main_name,
-	     (bclass == BUILT_IN_NORMAL) ? built_in_names[uns_fncode] : "---",
-	     built_in_class_names[(int)bclass],
+	     (cl == BUILT_IN_NORMAL) ? built_in_names[uns_fncode] : "---",
+	     built_in_class_names[(int)cl],
 	     (lib_name ? lib_name : "<null>"),
 	     (implicit_p ? ", implicit" : ""),
 	     (fallback_p ? ", fallback" : ""));
@@ -4843,26 +4852,36 @@ c_common_builtin_lazy_create (tree id,
      don't get an endless loop.  */
   id2 = builtin_info.decl[uns_fncode];
   if (id2 && TREE_CODE (id2) == IDENTIFIER_NODE)
-    IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
+    {
+      IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
+      set_builtin_lazy_function_code (id2, 0, NOT_BUILT_IN);
+    }
 
   id2 = builtin_info.lib_decl[uns_fncode];
   if (id2 && TREE_CODE (id2) == IDENTIFIER_NODE)
-    IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
+    {
+      IDENTIFIER_LAZY_BUILTIN_P (id2) = 0;
+      set_builtin_lazy_function_code (id2, 0, NOT_BUILT_IN);
 
-  /* Now create the explicit and maybe implicit builtin.  */
-  decl = add_builtin_function_ext_scope (main_name, fntype_tree, fncode,
-					 bclass, lib_name, fnattr_tree);
+      if (id == id2)
+	return_lib_p = true;
+    }
+
+  /* Now create the explicit implicit builtin and maybe the implicit library
+     builtin function.  */
+  decl = add_builtin_function_ext_scope (main_name, fntype_tree, fncode, cl,
+					 lib_name, fnattr_tree);
 
   if (builtin_info.lib_decl[uns_fncode] != NULL_TREE && lib_name != NULL)
     lib_decl = add_builtin_function_ext_scope (lib_name, fntype_tree, fncode,
-					       bclass, NULL, fnattr_tree);
+					       cl, NULL, fnattr_tree);
   else
     lib_decl = NULL_TREE;
 
   builtin_info.decl[uns_fncode] = decl;
   builtin_info.lib_decl[uns_fncode] = lib_decl;
   builtin_info.implicit_p[uns_fncode] = implicit_p;
-  return decl;
+  return (return_lib_p && lib_decl) ? lib_decl : decl;
 }
 
 /* Like get_identifier, but avoid warnings about null arguments when

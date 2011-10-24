@@ -452,15 +452,19 @@ struct lang_hooks
      for this and builtin_function.  */
   tree (*builtin_function_ext_scope) (tree decl);
 
-  /* Create builtins in a lazy fashion if the front end supports it, otherwise
-     create the builtin function immediately.  This hook must have the same
-     calling sequence as add_builtin_function.  */
-  add_builtin_function_type *add_builtin_function_lazy;
+  /* Register an identifier that is a lazy builtin that will be expanded by
+     calling the builtin_lazy_create builtin.  If the front does not support
+     lazy builtins, only MD builtins are supported, and they are expanded
+     immediately.  When the front end or back end hook is called, it is
+     expected that all varients of the builtin function will be created.
+     Return the IDENTIFIER_NODE of the function if it is lazy or the
+     declaration node if it was created immediately.  */
+  tree (*builtin_lazy_register) (const char *name, unsigned fncode,
+				 enum built_in_class cl);
 
   /* Call the language hook to create a standard or front end lazy builtin with
      identifier IDENT.  Machine builtins are handled via the targetm hook.  */
-  tree (*builtin_lazy_create) (tree ident, enum built_in_function,
-			       enum built_in_class);
+  tree (*builtin_lazy_create) (tree ident, unsigned, enum built_in_class);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);
