@@ -15,6 +15,8 @@
 
 	* cp-objcp-common.h (LANG_HOOKS_LAZY_BUILTIN_P): Disable lazy
 	builtins in C++ by default.
+	(LANG_HOOKS_ADD_BUILTIN_FUNCTION_LAZY): Delete hook.
+	(LANG_HOOKS_BUILTIN_LAZY_REGISTER): Define new hook.
 
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

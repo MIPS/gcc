@@ -10,8 +10,14 @@
 	to encode function code and class.  Improve debugging.
 	(c_common_builtin_lazy_create): New signature.  Don't handle MD
 	builtins here.  Add gcc_unreachable for default case.
+	(c_common_add_builtin_function_lazy): Make static, and move
+	creation of the lazy id to c_common_builtin_lazy_register.
+	(c_common_builtin_lazy_register): New hook to register lazy
+	builtin functions.
 
 	* c-common.h (c_common_builtin_lazy_create): Update signature.
+	(c_common_add_builtin_function_lazy): Delete.
+	(c_common_builtin_lazy_register): Add declaration.
 
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
