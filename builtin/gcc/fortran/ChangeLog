@@ -1,3 +1,37 @@
+2011-10-23  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* simplify.c (simplify_transformation_to_array): Fix memory leak.
+ 
+2011-10-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/50821
+	* check.c (gfc_check_ishftc): Check args are constant before 
+	extracting the integer.
+
+2011-10-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/50514
+	* check.c (less_than_bitsize1): Check |shift| <= bit_size(i).
+	(gfc_check_ishftc):  Check |shift| <= bit_size(i) and check
+	that size is positive.
+
+2011-10-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/50524
+	* resolve.c (resolve_ref): Check return value of resolve_substring().
+
+2011-10-20  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* io.c (match_dt_format): Match a user-defined operator or a kind
+	type prefixed string.
+
+2011-10-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/47023
+	* check.c (gfc_check_sizeof): Reject procedures as argument of SIZEOF.
+	* intrinsinc.texi (SIZEOF): Document it.
+	(STORAGE_SIZE): Fix special characters. Fix line breaks.
+
 2011-10-18  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/50420

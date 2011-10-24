@@ -2509,7 +2509,6 @@ static void ix86_compute_frame_layout (struct ix86_frame *);
 static bool ix86_expand_vector_init_one_nonzero (bool, enum machine_mode,
 						 rtx, rtx, int);
 static void ix86_add_new_builtins (HOST_WIDE_INT);
-static rtx ix86_expand_vec_perm_builtin (tree);
 static tree ix86_canonical_va_list_type (tree);
 static void predict_jump (int);
 static unsigned int split_stack_prologue_scratch_regno (void);
@@ -2596,7 +2595,7 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&bdver1_cost, 32, 24, 32, 7, 32},
   {&bdver2_cost, 32, 24, 32, 7, 32},
   {&btver1_cost, 32, 24, 32, 7, 32},
-  {&atom_cost, 16, 7, 16, 7, 16}
+  {&atom_cost, 16, 15, 16, 7, 16}
 };
 
 static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
@@ -19491,9 +19490,9 @@ ix86_expand_vec_perm (rtx operands[])
 	     stands for other 12 bytes.  */
 	  /* The bit whether element is from the same lane or the other
 	     lane is bit 4, so shift it up by 3 to the MSB position.  */
-	  emit_insn (gen_avx2_lshlv4di3 (gen_lowpart (V4DImode, t1),
-					 gen_lowpart (V4DImode, mask),
-					 GEN_INT (3)));
+	  emit_insn (gen_ashlv4di3 (gen_lowpart (V4DImode, t1),
+				    gen_lowpart (V4DImode, mask),
+				    GEN_INT (3)));
 	  /* Clear MSB bits from the mask just in case it had them set.  */
 	  emit_insn (gen_avx2_andnotv32qi3 (t2, vt, mask));
 	  /* After this t1 will have MSB set for elements from other lane.  */
@@ -25058,19 +25057,6 @@ enum ix86_builtins
 
   IX86_BUILTIN_CVTUDQ2PS,
 
-  IX86_BUILTIN_VEC_PERM_V2DF,
-  IX86_BUILTIN_VEC_PERM_V4SF,
-  IX86_BUILTIN_VEC_PERM_V2DI,
-  IX86_BUILTIN_VEC_PERM_V4SI,
-  IX86_BUILTIN_VEC_PERM_V8HI,
-  IX86_BUILTIN_VEC_PERM_V16QI,
-  IX86_BUILTIN_VEC_PERM_V2DI_U,
-  IX86_BUILTIN_VEC_PERM_V4SI_U,
-  IX86_BUILTIN_VEC_PERM_V8HI_U,
-  IX86_BUILTIN_VEC_PERM_V16QI_U,
-  IX86_BUILTIN_VEC_PERM_V4DF,
-  IX86_BUILTIN_VEC_PERM_V8SF,
-
   /* FMA4 instructions.  */
   IX86_BUILTIN_VFMADDSS,
   IX86_BUILTIN_VFMADDSD,
@@ -25779,19 +25765,6 @@ static const struct builtin_description bdesc_args[] =
   /* SSE2 */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_shufpd, "__builtin_ia32_shufpd", IX86_BUILTIN_SHUFPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_INT },
 
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v2df", IX86_BUILTIN_VEC_PERM_V2DF, UNKNOWN, (int) V2DF_FTYPE_V2DF_V2DF_V2DI },
-  { OPTION_MASK_ISA_SSE, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v4sf", IX86_BUILTIN_VEC_PERM_V4SF, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_V4SI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v2di", IX86_BUILTIN_VEC_PERM_V2DI, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI_V2DI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v4si", IX86_BUILTIN_VEC_PERM_V4SI, UNKNOWN, (int) V4SI_FTYPE_V4SI_V4SI_V4SI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v8hi", IX86_BUILTIN_VEC_PERM_V8HI, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v16qi", IX86_BUILTIN_VEC_PERM_V16QI, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v2di_u", IX86_BUILTIN_VEC_PERM_V2DI_U, UNKNOWN, (int) V2UDI_FTYPE_V2UDI_V2UDI_V2UDI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v4si_u", IX86_BUILTIN_VEC_PERM_V4SI_U, UNKNOWN, (int) V4USI_FTYPE_V4USI_V4USI_V4USI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v8hi_u", IX86_BUILTIN_VEC_PERM_V8HI_U, UNKNOWN, (int) V8UHI_FTYPE_V8UHI_V8UHI_V8UHI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v16qi_u", IX86_BUILTIN_VEC_PERM_V16QI_U, UNKNOWN, (int) V16UQI_FTYPE_V16UQI_V16UQI_V16UQI },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v4df", IX86_BUILTIN_VEC_PERM_V4DF, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_V4DI },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_nothing, "__builtin_ia32_vec_perm_v8sf", IX86_BUILTIN_VEC_PERM_V8SF, UNKNOWN, (int) V8SF_FTYPE_V8SF_V8SF_V8SI },
-
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movmskpd, "__builtin_ia32_movmskpd", IX86_BUILTIN_MOVMSKPD, UNKNOWN, (int) INT_FTYPE_V2DF  },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_pmovmskb, "__builtin_ia32_pmovmskb128", IX86_BUILTIN_PMOVMSKB128, UNKNOWN, (int) INT_FTYPE_V16QI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sqrtv2df2, "__builtin_ia32_sqrtpd", IX86_BUILTIN_SQRTPD, UNKNOWN, (int) V2DF_FTYPE_V2DF },
@@ -26316,12 +26289,12 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_psignv16hi3, "__builtin_ia32_psignw256", IX86_BUILTIN_PSIGNW256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_psignv8si3 , "__builtin_ia32_psignd256", IX86_BUILTIN_PSIGND256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V8SI },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_ashlv2ti3, "__builtin_ia32_pslldqi256", IX86_BUILTIN_PSLLDQI256, UNKNOWN, (int) V4DI_FTYPE_V4DI_INT_CONVERT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv16hi3, "__builtin_ia32_psllwi256", IX86_BUILTIN_PSLLWI256 , UNKNOWN, (int) V16HI_FTYPE_V16HI_SI_COUNT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv16hi3, "__builtin_ia32_psllw256", IX86_BUILTIN_PSLLW256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V8HI_COUNT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv8si3, "__builtin_ia32_pslldi256", IX86_BUILTIN_PSLLDI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_SI_COUNT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv8si3, "__builtin_ia32_pslld256", IX86_BUILTIN_PSLLD256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_COUNT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv4di3, "__builtin_ia32_psllqi256", IX86_BUILTIN_PSLLQI256, UNKNOWN, (int) V4DI_FTYPE_V4DI_INT_COUNT },
-  { OPTION_MASK_ISA_AVX2, CODE_FOR_avx2_lshlv4di3, "__builtin_ia32_psllq256", IX86_BUILTIN_PSLLQ256, UNKNOWN, (int) V4DI_FTYPE_V4DI_V2DI_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv16hi3, "__builtin_ia32_psllwi256", IX86_BUILTIN_PSLLWI256 , UNKNOWN, (int) V16HI_FTYPE_V16HI_SI_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv16hi3, "__builtin_ia32_psllw256", IX86_BUILTIN_PSLLW256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V8HI_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv8si3, "__builtin_ia32_pslldi256", IX86_BUILTIN_PSLLDI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_SI_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv8si3, "__builtin_ia32_pslld256", IX86_BUILTIN_PSLLD256, UNKNOWN, (int) V8SI_FTYPE_V8SI_V4SI_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv4di3, "__builtin_ia32_psllqi256", IX86_BUILTIN_PSLLQI256, UNKNOWN, (int) V4DI_FTYPE_V4DI_INT_COUNT },
+  { OPTION_MASK_ISA_AVX2, CODE_FOR_ashlv4di3, "__builtin_ia32_psllq256", IX86_BUILTIN_PSLLQ256, UNKNOWN, (int) V4DI_FTYPE_V4DI_V2DI_COUNT },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_ashrv16hi3, "__builtin_ia32_psrawi256", IX86_BUILTIN_PSRAWI256, UNKNOWN, (int) V16HI_FTYPE_V16HI_SI_COUNT },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_ashrv16hi3, "__builtin_ia32_psraw256", IX86_BUILTIN_PSRAW256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V8HI_COUNT },
   { OPTION_MASK_ISA_AVX2, CODE_FOR_ashrv8si3, "__builtin_ia32_psradi256", IX86_BUILTIN_PSRADI256, UNKNOWN, (int) V8SI_FTYPE_V8SI_SI_COUNT },
@@ -28699,20 +28672,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_VEC_SET_V4HI:
     case IX86_BUILTIN_VEC_SET_V16QI:
       return ix86_expand_vec_set_builtin (exp);
-
-    case IX86_BUILTIN_VEC_PERM_V2DF:
-    case IX86_BUILTIN_VEC_PERM_V4SF:
-    case IX86_BUILTIN_VEC_PERM_V2DI:
-    case IX86_BUILTIN_VEC_PERM_V4SI:
-    case IX86_BUILTIN_VEC_PERM_V8HI:
-    case IX86_BUILTIN_VEC_PERM_V16QI:
-    case IX86_BUILTIN_VEC_PERM_V2DI_U:
-    case IX86_BUILTIN_VEC_PERM_V4SI_U:
-    case IX86_BUILTIN_VEC_PERM_V8HI_U:
-    case IX86_BUILTIN_VEC_PERM_V16QI_U:
-    case IX86_BUILTIN_VEC_PERM_V4DF:
-    case IX86_BUILTIN_VEC_PERM_V8SF:
-      return ix86_expand_vec_perm_builtin (exp);
 
     case IX86_BUILTIN_INFQ:
     case IX86_BUILTIN_HUGE_VALQ:
@@ -31930,9 +31889,6 @@ struct expand_vec_perm_d
 
 static bool expand_vec_perm_1 (struct expand_vec_perm_d *d);
 static bool expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d);
-static int extract_vec_perm_cst (struct expand_vec_perm_d *, tree);
-static bool ix86_vectorize_builtin_vec_perm_ok (tree vec_type, tree mask);
-
 
 /* Get a vector mode of the same size as the original but with elements
    twice as wide.  This is only guaranteed to apply to integral vectors.  */
@@ -33682,6 +33638,8 @@ void ix86_emit_swdivsf (rtx res, rtx a, rtx b, enum machine_mode mode)
 
   /* a / b = a * ((rcp(b) + rcp(b)) - (b * rcp(b) * rcp (b))) */
 
+  b = force_reg (mode, b);
+
   /* x0 = rcp(b) estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
 			  gen_rtx_UNSPEC (mode, gen_rtvec (1, b),
@@ -33736,6 +33694,8 @@ void ix86_emit_swsqrtsf (rtx res, rtx a, enum machine_mode mode,
 
   /* sqrt(a)  = -0.5 * a * rsqrtss(a) * (a * rsqrtss(a) * rsqrtss(a) - 3.0)
      rsqrt(a) = -0.5     * rsqrtss(a) * (a * rsqrtss(a) * rsqrtss(a) - 3.0) */
+
+  a = force_reg (mode, a);
 
   /* x0 = rsqrt(a) estimate */
   emit_insn (gen_rtx_SET (VOIDmode, x0,
@@ -34620,64 +34580,6 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
     }
 }
 
-
-/* Implement targetm.vectorize.builtin_vec_perm.  */
-
-static tree
-ix86_vectorize_builtin_vec_perm (tree vec_type, tree *mask_type)
-{
-  tree itype = TREE_TYPE (vec_type);
-  bool u = TYPE_UNSIGNED (itype);
-  enum machine_mode vmode = TYPE_MODE (vec_type);
-  enum ix86_builtins fcode;
-  bool ok = TARGET_SSE2;
-
-  switch (vmode)
-    {
-    case V4DFmode:
-      ok = TARGET_AVX;
-      fcode = IX86_BUILTIN_VEC_PERM_V4DF;
-      goto get_di;
-    case V2DFmode:
-      fcode = IX86_BUILTIN_VEC_PERM_V2DF;
-    get_di:
-      itype = ix86_get_builtin_type (IX86_BT_DI);
-      break;
-
-    case V8SFmode:
-      ok = TARGET_AVX;
-      fcode = IX86_BUILTIN_VEC_PERM_V8SF;
-      goto get_si;
-    case V4SFmode:
-      ok = TARGET_SSE;
-      fcode = IX86_BUILTIN_VEC_PERM_V4SF;
-    get_si:
-      itype = ix86_get_builtin_type (IX86_BT_SI);
-      break;
-
-    case V2DImode:
-      fcode = u ? IX86_BUILTIN_VEC_PERM_V2DI_U : IX86_BUILTIN_VEC_PERM_V2DI;
-      break;
-    case V4SImode:
-      fcode = u ? IX86_BUILTIN_VEC_PERM_V4SI_U : IX86_BUILTIN_VEC_PERM_V4SI;
-      break;
-    case V8HImode:
-      fcode = u ? IX86_BUILTIN_VEC_PERM_V8HI_U : IX86_BUILTIN_VEC_PERM_V8HI;
-      break;
-    case V16QImode:
-      fcode = u ? IX86_BUILTIN_VEC_PERM_V16QI_U : IX86_BUILTIN_VEC_PERM_V16QI;
-      break;
-    default:
-      ok = false;
-      break;
-    }
-
-  if (!ok)
-    return NULL_TREE;
-
-  *mask_type = itype;
-  return ix86_builtins[(int) fcode];
-}
 
 /* Return a vector mode with twice as many elements as VMODE.  */
 /* ??? Consider moving this to a table generated by genmodes.c.  */
@@ -35992,7 +35894,7 @@ expand_vec_perm_vpshufb2_vpermq_even_odd (struct expand_vec_perm_d *d)
   vperm = force_reg (V32QImode, vperm);
 
   h = gen_reg_rtx (V32QImode);
-  op = gen_lowpart (V32QImode, d->op0);
+  op = gen_lowpart (V32QImode, d->op1);
   emit_insn (gen_avx2_pshufbv32qi3 (h, op, vperm));
 
   ior = gen_reg_rtx (V32QImode);
@@ -36121,6 +36023,16 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       return expand_vec_perm_vpshufb2_vpermq_even_odd (d);
 
     case V4DImode:
+      if (!TARGET_AVX2)
+	{
+	  struct expand_vec_perm_d d_copy = *d;
+	  d_copy.vmode = V4DFmode;
+	  d_copy.target = gen_lowpart (V4DFmode, d->target);
+	  d_copy.op0 = gen_lowpart (V4DFmode, d->op0);
+	  d_copy.op1 = gen_lowpart (V4DFmode, d->op1);
+	  return expand_vec_perm_even_odd_1 (&d_copy, odd);
+	}
+
       t1 = gen_reg_rtx (V4DImode);
       t2 = gen_reg_rtx (V4DImode);
 
@@ -36137,6 +36049,16 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       break;
 
     case V8SImode:
+      if (!TARGET_AVX2)
+	{
+	  struct expand_vec_perm_d d_copy = *d;
+	  d_copy.vmode = V8SFmode;
+	  d_copy.target = gen_lowpart (V8SFmode, d->target);
+	  d_copy.op0 = gen_lowpart (V8SFmode, d->op0);
+	  d_copy.op1 = gen_lowpart (V8SFmode, d->op1);
+	  return expand_vec_perm_even_odd_1 (&d_copy, odd);
+	}
+
       t1 = gen_reg_rtx (V8SImode);
       t2 = gen_reg_rtx (V8SImode);
 
@@ -36154,9 +36076,9 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       /* Swap the 2nd and 3rd position in each lane into
 	 { 0 2 1 3 8 a 9 b } and { 4 6 5 7 c e d f }.  */
       emit_insn (gen_avx2_pshufdv3 (t1, t1,
-				    GEN_INT (2 * 2 + 1 * 16 + 3 * 64)));
+				    GEN_INT (2 * 4 + 1 * 16 + 3 * 64)));
       emit_insn (gen_avx2_pshufdv3 (t2, t2,
-				    GEN_INT (2 * 2 + 1 * 16 + 3 * 64)));
+				    GEN_INT (2 * 4 + 1 * 16 + 3 * 64)));
 
       /* Now an vpunpck[lh]qdq will produce
 	 { 0 2 4 6 8 a c e } resp. { 1 3 5 7 9 b d f }.  */
@@ -36395,12 +36317,12 @@ expand_vec_perm_vpshufb4_vpermq2 (struct expand_vec_perm_d *d)
   return true;
 }
 
-/* The guts of ix86_expand_vec_perm_builtin, also used by the ok hook.
+/* The guts of ix86_expand_vec_perm_const, also used by the ok hook.
    With all of the interface bits taken care of, perform the expansion
    in D and return true on success.  */
 
 static bool
-ix86_expand_vec_perm_builtin_1 (struct expand_vec_perm_d *d)
+ix86_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
 {
   /* Try a single instruction expansion.  */
   if (expand_vec_perm_1 (d))
@@ -36459,146 +36381,11 @@ ix86_expand_vec_perm_builtin_1 (struct expand_vec_perm_d *d)
   return false;
 }
 
-/* Extract the values from the vector CST into the permutation array in D.
-   Return 0 on error, 1 if all values from the permutation come from the
-   first vector, 2 if all values from the second vector, and 3 otherwise.  */
-
-static int
-extract_vec_perm_cst (struct expand_vec_perm_d *d, tree cst)
-{
-  tree list = TREE_VECTOR_CST_ELTS (cst);
-  unsigned i, nelt = d->nelt;
-  int ret = 0;
-
-  for (i = 0; i < nelt; ++i, list = TREE_CHAIN (list))
-    {
-      unsigned HOST_WIDE_INT e;
-
-      if (!host_integerp (TREE_VALUE (list), 1))
-	return 0;
-      e = tree_low_cst (TREE_VALUE (list), 1);
-      if (e >= 2 * nelt)
-	return 0;
-
-      ret |= (e < nelt ? 1 : 2);
-      d->perm[i] = e;
-    }
-  gcc_assert (list == NULL);
-
-  /* For all elements from second vector, fold the elements to first.  */
-  if (ret == 2)
-    for (i = 0; i < nelt; ++i)
-      d->perm[i] -= nelt;
-
-  return ret;
-}
-
-static rtx
-ix86_expand_vec_perm_builtin (tree exp)
-{
-  struct expand_vec_perm_d d;
-  tree arg0, arg1, arg2;
-
-  arg0 = CALL_EXPR_ARG (exp, 0);
-  arg1 = CALL_EXPR_ARG (exp, 1);
-  arg2 = CALL_EXPR_ARG (exp, 2);
-
-  d.vmode = TYPE_MODE (TREE_TYPE (arg0));
-  d.nelt = GET_MODE_NUNITS (d.vmode);
-  d.testing_p = false;
-  gcc_assert (VECTOR_MODE_P (d.vmode));
-
-  if (TREE_CODE (arg2) != VECTOR_CST)
-    {
-      error_at (EXPR_LOCATION (exp),
-		"vector permutation requires vector constant");
-      goto exit_error;
-    }
-
-  switch (extract_vec_perm_cst (&d, arg2))
-    {
-    default:
-      gcc_unreachable();
-
-    case 0:
-      error_at (EXPR_LOCATION (exp), "invalid vector permutation constant");
-      goto exit_error;
-
-    case 3:
-      if (!operand_equal_p (arg0, arg1, 0))
-	{
-	  d.op0 = expand_expr (arg0, NULL_RTX, d.vmode, EXPAND_NORMAL);
-	  d.op0 = force_reg (d.vmode, d.op0);
-	  d.op1 = expand_expr (arg1, NULL_RTX, d.vmode, EXPAND_NORMAL);
-	  d.op1 = force_reg (d.vmode, d.op1);
-	  break;
-	}
-
-      /* The elements of PERM do not suggest that only the first operand
-	 is used, but both operands are identical.  Allow easier matching
-	 of the permutation by folding the permutation into the single
-	 input vector.  */
-      {
-	unsigned i, nelt = d.nelt;
-	for (i = 0; i < nelt; ++i)
-	  if (d.perm[i] >= nelt)
-	    d.perm[i] -= nelt;
-      }
-      /* FALLTHRU */
-
-    case 1:
-      d.op0 = expand_expr (arg0, NULL_RTX, d.vmode, EXPAND_NORMAL);
-      d.op0 = force_reg (d.vmode, d.op0);
-      d.op1 = d.op0;
-      break;
-
-    case 2:
-      d.op0 = expand_expr (arg1, NULL_RTX, d.vmode, EXPAND_NORMAL);
-      d.op0 = force_reg (d.vmode, d.op0);
-      d.op1 = d.op0;
-      break;
-    }
-
-  d.target = gen_reg_rtx (d.vmode);
-  if (ix86_expand_vec_perm_builtin_1 (&d))
-    return d.target;
-
-  /* For compiler generated permutations, we should never got here, because
-     the compiler should also be checking the ok hook.  But since this is a
-     builtin the user has access too, so don't abort.  */
-  switch (d.nelt)
-    {
-    case 2:
-      sorry ("vector permutation (%d %d)", d.perm[0], d.perm[1]);
-      break;
-    case 4:
-      sorry ("vector permutation (%d %d %d %d)",
-	     d.perm[0], d.perm[1], d.perm[2], d.perm[3]);
-      break;
-    case 8:
-      sorry ("vector permutation (%d %d %d %d %d %d %d %d)",
-	     d.perm[0], d.perm[1], d.perm[2], d.perm[3],
-	     d.perm[4], d.perm[5], d.perm[6], d.perm[7]);
-      break;
-    case 16:
-      sorry ("vector permutation "
-	     "(%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d)",
-	     d.perm[0], d.perm[1], d.perm[2], d.perm[3],
-	     d.perm[4], d.perm[5], d.perm[6], d.perm[7],
-	     d.perm[8], d.perm[9], d.perm[10], d.perm[11],
-	     d.perm[12], d.perm[13], d.perm[14], d.perm[15]);
-      break;
-    default:
-      gcc_unreachable ();
-    }
- exit_error:
-  return CONST0_RTX (d.vmode);
-}
-
 bool
 ix86_expand_vec_perm_const (rtx operands[4])
 {
   struct expand_vec_perm_d d;
+  unsigned char perm[MAX_VECT_LEN];
   int i, nelt, which;
   rtx sel;
 
@@ -36614,6 +36401,7 @@ ix86_expand_vec_perm_const (rtx operands[4])
 
   gcc_assert (GET_CODE (sel) == CONST_VECTOR);
   gcc_assert (XVECLEN (sel, 0) == nelt);
+  gcc_checking_assert (sizeof (d.perm) == sizeof (perm));
 
   for (i = which = 0; i < nelt; ++i)
     {
@@ -36622,6 +36410,7 @@ ix86_expand_vec_perm_const (rtx operands[4])
 
       which |= (ei < nelt ? 1 : 2);
       d.perm[i] = ei;
+      perm[i] = ei;
     }
 
   switch (which)
@@ -36653,20 +36442,46 @@ ix86_expand_vec_perm_const (rtx operands[4])
       break;
     }
 
-  return ix86_expand_vec_perm_builtin_1 (&d);
+  if (ix86_expand_vec_perm_const_1 (&d))
+    return true;
+
+  /* If the mask says both arguments are needed, but they are the same,
+     the above tried to expand with d.op0 == d.op1.  If that didn't work,
+     retry with d.op0 != d.op1 as that is what testing has been done with.  */
+  if (which == 3 && d.op0 == d.op1)
+    {
+      rtx seq;
+      bool ok;
+
+      memcpy (d.perm, perm, sizeof (perm));
+      d.op1 = gen_reg_rtx (d.vmode);
+      start_sequence ();
+      ok = ix86_expand_vec_perm_const_1 (&d);
+      seq = get_insns ();
+      end_sequence ();
+      if (ok)
+	{
+	  emit_move_insn (d.op1, d.op0);
+	  emit_insn (seq);
+	  return true;
+	}
+    }
+
+  return false;
 }
 
-/* Implement targetm.vectorize.builtin_vec_perm_ok.  */
+/* Implement targetm.vectorize.vec_perm_const_ok.  */
 
 static bool
-ix86_vectorize_builtin_vec_perm_ok (tree vec_type, tree mask)
+ix86_vectorize_vec_perm_const_ok (tree vec_type, tree mask)
 {
   struct expand_vec_perm_d d;
-  int vec_mask;
+  unsigned int i, nelt, which;
   bool ret, one_vec;
+  tree list;
 
   d.vmode = TYPE_MODE (vec_type);
-  d.nelt = GET_MODE_NUNITS (d.vmode);
+  d.nelt = nelt = GET_MODE_NUNITS (d.vmode);
   d.testing_p = true;
 
   /* Given sufficient ISA support we can just return true here
@@ -36684,13 +36499,29 @@ ix86_vectorize_builtin_vec_perm_ok (tree vec_type, tree mask)
 	return true;
     }
 
-  vec_mask = extract_vec_perm_cst (&d, mask);
+  /* Extract the values from the vector CST into the permutation
+     array in D.  */
+  list = TREE_VECTOR_CST_ELTS (mask);
+  for (i = which = 0; i < nelt; ++i, list = TREE_CHAIN (list))
+    {
+      unsigned HOST_WIDE_INT e;
+
+      gcc_checking_assert (host_integerp (TREE_VALUE (list), 1));
+      e = tree_low_cst (TREE_VALUE (list), 1);
+      gcc_assert (e < 2 * nelt);
+
+      which |= (e < nelt ? 1 : 2);
+      d.perm[i] = e;
+    }
+  gcc_assert (list == NULL);
+
+  /* For all elements from second vector, fold the elements to first.  */
+  if (which == 2)
+    for (i = 0; i < nelt; ++i)
+      d.perm[i] -= nelt;
 
   /* Check whether the mask can be applied to the vector type.  */
-  if (vec_mask < 0 || vec_mask > 3)
-    return false;
-
-  one_vec = (vec_mask != 3);
+  one_vec = (which != 3);
 
   /* Implementable with shufps or pshufd.  */
   if (one_vec && (d.vmode == V4SFmode || d.vmode == V4SImode))
@@ -36704,7 +36535,7 @@ ix86_vectorize_builtin_vec_perm_ok (tree vec_type, tree mask)
     d.op1 = gen_raw_REG (d.vmode, LAST_VIRTUAL_REGISTER + 3);
 
   start_sequence ();
-  ret = ix86_expand_vec_perm_builtin_1 (&d);
+  ret = ix86_expand_vec_perm_const_1 (&d);
   end_sequence ();
 
   return ret;
@@ -38072,12 +37903,9 @@ ix86_autovectorize_vector_sizes (void)
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST \
   ix86_builtin_vectorization_cost
-#undef TARGET_VECTORIZE_BUILTIN_VEC_PERM
-#define TARGET_VECTORIZE_BUILTIN_VEC_PERM \
-  ix86_vectorize_builtin_vec_perm
-#undef TARGET_VECTORIZE_BUILTIN_VEC_PERM_OK
-#define TARGET_VECTORIZE_BUILTIN_VEC_PERM_OK \
-  ix86_vectorize_builtin_vec_perm_ok
+#undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
+#define TARGET_VECTORIZE_VEC_PERM_CONST_OK \
+  ix86_vectorize_vec_perm_const_ok
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE \
   ix86_preferred_simd_mode
