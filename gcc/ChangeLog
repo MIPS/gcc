@@ -1,638 +1,913 @@
-2011-10-13  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assign.c (process_copy_to_form_allocno): Rename to
-	process_copy_to_form_thread.
-	(conflict_reload_pseudos): Rename to
-	conflict_reload_and_inheritance_pseudos.
-	(live_reload_pseudos): Rename to
-	live_reload_and_inheritance_pseudos.
-	(init_live_reload_pseudos): Rename to
-	init_live_reload_and_inheritance_pseudos.
-	(finish_live_reload_and_inheritance_pseudos): Rename to
-	finish_live_reload_pseudos.
-	(find_hard_regno_for): Add new argument try_only_hard_regno.  Use
-	live_pseudos_reg_renumber instead of reg_renumber.  Check
-	live_pseudos_reg_renumber when adding to
-	conflict_reload_and_inheritance_pseudos.  Process
-	preferred_hard_regno2 only if preferred_hard_regno1 is
-	non-negative.
-	(setup_try_hard_regno_pseudos): Use live_pseudos_reg_renumber
-	instead of reg_renumber.
-	(spill_for): Ditto.  Pass new parameter to find_hard_regno_for.
-	(assign_temporarily): Don't change reg_renumber.
-	(setup_live_pseudos_and_spill_after_equiv_moves): Only call
-	update_lives if lra_risky_equiv_subst_p is false.
-	(improve_inheritance): New function.
-	(assign_by_spills): Call improve_inheritance.
-
-	* lra.c (lra): Call lra_eliminate after lra_constraints.
-
-	* lra-constraints.c (contains_pseudo_p): Rename to contains_reg_p.
-	Add a new argument.  Modify it for new semantics.
-	(lra_risky_equiv_subst_p): New global var.
-	(lra_constraints): Set up lra_risky_equiv_subst_p.  Compare
-	get_equiv_substitution with right value.
-
-	* lra-eliminations.c (eliminate_regs_in_insn): Remove a dead
-	code.
-	(spill_pseudos): Clear to_process after its processing.
-	(update_reg_eliminate): Add a new argument.  Set it up.  Modify
-	lra_no_alloc_regs and eliminable_regset.
-	(init_elim_table): Remove the argument.  Permit elimination from a
-	register to itself.
-	(lra_init_elimination): Add a new argument.  Set it up.  Don't set
-	up liveness fo HARD_FRAME_POINTER_REGNUM.
-	(lra_eliminate): Rename to_process to insns_with_changed_offsets.
-	Call update_reg_eliminate with insns_with_changed_offsets.
-	Restructure code.  Add additional assertion on
-	insns_with_changed_offsets.
-
-	* lra.h (lra_init_elimination): New argument.
-
-	* lra-int.h (lra_risky_equiv_subst_p): New flag declaration.
-
-	* ira.c (ira_setup_eliminable_regset): Add a new argument.  Set
-	up liveness fo HARD_FRAME_POINTER_REGNUM if necessary.
-	(ira): Call ira_setup_eliminable_regset with a new parameter.
-
-	* ira.h (ira_setup_eliminable_regset): New argument.
-
-	* loop-invariant.c (calculate_loop_reg_pressure): Call
-	ira_setup_eliminable_regset with a new parameter.
-
-	* haifa-sched.c (sched_init): Ditto.
-
-2011-09-29  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-int.h (lra_get_copy): New prototype.
-
-	* lra.c (lra_get_copy): New function.
-
-	* lra-saves.c (lra_save_restore): Ignore scratches.
-
-	* lra-constraints.c (remove_inheritance_pseudos): Fix a typo in
-	checking remove_pseudos emptiness.
-
-	* lra-assign.c (reload_insn_num): Remove.
-	(struct regno_assign_info): New.
-	(regno_assign_info): New array.
-	(process_copy_to_form_allocno, init_regno_assign_info): New.
-	(finish_regno_assign_info): New.
-	(reload_pseudo_compare_func): Rewrite using threads.
-	(find_hard_regno_for): Check value for conflicting reload pseudos.
-	(spill_for): Use reload_pseudo_compare_func instead of
-	pseudo_compare_func.
-	(assign_by_spills): Print info about processed reload and
-	inheritance pseudos.
-	(lra_assign): Call init_regno_assign_info and
-	finish_regno_assign_info.
-
-2011-09-23  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* ira-int.h (struct target_ira_int): Remove
-	x_ira_reg_classes_intersect_p.
-	(ira_reg_classes_intersect_p): Remove.
-
-	* ira.h (struct target_ira): Add x_ira_reg_classes_intersect_p.
-	(ira_reg_classes_intersect_p): New macro.
-
-	* lra-int.h (struct lra_reg): Remove members first and next.  Add
-	restore_regno and val.
-	(lra_create_new_reg_with_unique_value): New.
-	(lra_set_regno_unique_value): New.
-	(lra_update_dup): Change prototype.
-	(lra_dont_inherit_pseudos): Remove.
-	(lra_matched_pseudos, lra_bound_pseudos): Remove.
-	(lra_update_dup): New function.
-
-	* lra.c (get_new_reg_value): New function.
-	(lra_create_new_reg_with_unique_value): Extract from ...
-	(lra_create_new_reg): Set up value from the pseudo.
-	(lra_set_regno_unique_value): New function.
-	(lra_update_dups): Use array as nops.
-	(last_reg_value): New static variable.
-	(init_reg_info): Initialize it.  Initialize restore_regno and val
-	for pseudos.
-	(expand_reg_info): Initialize restore_regno and val
-	for new pseudos.
-	(lra_bind_pseudos, lra_bound_pseudo_freq): Remove.
-	(remove_scratches): Use lra_update_dup instead of lra_update_dups.
-	(lra): Use lra_constraint_iter instead of first.  Clear
-	lra_matched_pseudos after the spill subpass.  Clear
-	lra_inheritance_pseudos before the spill subpass. Remove code with
-	lra_dont_inherit_pseudos.
-
-	* lra-spills.c (regno_freq_compare): Don't use
-	lra_bound_pseudo_freq.
-	(assign_stack_slot_num_and_sort_pseudos): Remove processing bound
-	pseudos.
-	(lra_spill): Ditto.  Use lra_update_dup instead of
-	lra_update_dups.
-
-	* lra-lives.c (process_bb_lives): Check lra_bound_pseudos for
-	subreg dying.
-
-	* lra-coalesce.c (lra_coalesce): Check lra_bound_pseudos instead
-	of lra_reg_info.
-
-	* lra-constraints.c (new_insn_uid_start): New static variable.
-	(get_reg_class): Don't check lra_inheritance_pseudos.
-	(in_class_p): Ditto.  Check new_insn_uid_start instead.
-	(change_class): Remove processing bound pseudos.
-	(lra_dont_inherit_pseudos): Rename to lra_matched_pseudos.
-	(lra_bound_pseudos): New global var.
-	(match_reload): Change prototype by using array of inputs.  Don't
-	create bound pseudos.  Set up lra_bound_pseudos instead.  Use
-	lra_create_new_reg_with_unique_value instead of
-	lra_create_new_reg.  Use lra_update_dup for output.
-	(check_and_process_move): Don't check lra_inheritance_pseudos.
-	(curr_insn_transform): Make goal_alt_matched as two-dimensional
-	array.  Use lra_update_dup instead of lra_update_dups.  Use
-	lra_set_regno_unique_value instead of setting
-	lra_dont_inherit_pseudos.
-	(lra_constraints): Initialize new_insn_uid_start.
-	(lra_constraints_init): Initialize lra_bound_pseudos.
-	(lra_constraints_finish): Clear lra_bound_pseudos.
-	(inherit_reload_reg): Set up restore_regno.  Inherit only spilled
-	pseudos.
-	(remove_inheritance_pseudos): Extract from ...
-	(lra_undo_inheritance): Clear and use restore_regno.
-
-	* lra-assigns.c (get_biggest_bound_mode_pseudo): Remove.
-	(get_biggest_bound_mode): Ditto.
-	(regno_allocno_class_array): New.
-	(reload_pseudo_compare_func, pseudo_compare_func): Use it.
-	(update_lives): Remove processing bound pseudos.
-	(get_allocation_profit): Remove.
-	(find_hard_regno_for): Remove processing bound pseudos.  Look only
-	at intersected class pseudos.  Use pseudo values for conflicts.
-	Use regno_allocno_class_array.
-	(lra_setup_reg_renumber): Remove processing bound pseudos.
-	(setup_try_hard_regno_pseudos): Don't use first bound pseudos.
-	(assign_temporarily): Remove processing bound pseudos.
-	(spill_for): Ditto.  Use regno_allocno_class_array.
-	(setup_live_pseudos_and_spill_after_equiv_moves): Remove
-	processing bound pseudos.  Use pseudo values for conflicts.
-	(assign_by_spills): Remove processing bound pseudos. Don't assign
-	hard registers to pseudos whose inheritance pseudos did not get a
-	hard register.  Use regno_allocno_class_array.
-	(lra_assign): Allocate, free, and initialize
-	regno_allocno_class_array.  Ignore spilling inheritance pseudos as
-	a change.
-
-	* emit-rtl.c (validate_subreg): Make any fp-mode subreg valid for LRA.
-
-2011-09-15  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra.c (remove_scratches): Rescan changed insns.
-	(lra): Call df_analyze after lr_save_restore if necessary.
-
-	* lra-int.h (lr_save_restore): Change the prototype.
-
-	* lra-saves.c (struct save_regs): Rename mem_reg to saved_value.
-	Add new member equiv_p.
-	(equiv_for_save): New function.
-	(update_live_info_p): New static variable.
-	(setup_save_regs): Add code to regno equivalence.
-	(insert_save_restore): Ditto.
-	(lra_save_restore): Return true if need to update live info.
-
-2011-09-12  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (best_reload_nregs): New variable.
-	(process_alt_operands): Add heuristics based on number regs
-	involved in relaods and based on '*' constraints.  Increase reject
-	for all failed non registers.
-	(curr_insn_transform, lra_inheritance): Formatting.
-
-        * lra-eliminations.c (mark_not_eliminable): Add check on hard
-	register before looping on eliminations.
-
-2011-09-09  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (equivalence_change_p): Rename to
-	debug_loc_equivalence_change_p.  Process subreg of reg whose
-	equivalence mode is unknown.
-
-2011-09-02  Vladimir Makarov  <vmakarov@redhat.com>
-
-	Revert:
-	2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
-	* lra-constraints.c (best_reload_nregs): New variable.
-	(process_alt_operands): Add preferences for smaller hard registers
-	involved.  Increase reject for all failed non registers.
-
-	* lra-eliminations.c (mark_not_eliminable): Add check on hard
-	register before looping on eliminations.
-
-2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (best_reload_nregs): New variable.
-	(process_alt_operands): Add preferences for smaller hard registers
-	involved.  Increase reject for all failed non registers.
-
-	* lra-eliminations.c (mark_not_eliminable): Add check on hard
-	register before looping on eliminations.
-
-2011-08-25  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra.c (remove_scratches): Don't rescan insn.
-
-2011-08-23  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-int.h (lra_debug_save_data): Remove.
-	(lra_save_restore): Change the prototype.
-
-	* lra.c (lra): Don't call df_analyze after lra_save_restore.
-	Don't call lra_create_live_ranges before the loop.  Call
-	lra_create_live_ranges before lra_spill if necessary.
-
-	* lra-saves.c: Rewrite.
-
-2011-08-04  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (uses_hard_regs_p): Use hard register
-	elimination.
-
-2011-08-03  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-int.h (lra_get_mode): Remove.
-
-	* lra-constraints.c (find_mode, get_op_mode): New.
-	(match_reload, curr_insn_transform, process_alt_operands): Use
-	get_op_mode instead of lra_get_mode.
-
-2011-08-02  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assigns.c (find_hard_regno_for): Don't do hard register
-	usage leveling for targets with conditional execution.
-
-2011-07-29  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (LOSER_COST_FACTOR, MAX_OVERALL_COST_BOUND):
-	New macros.
-	(process_alt_operands): Use the macros.  Adjust losers and
-	overall for reloads becuase of early clobbers.
-	(curr_insn_transform): Use MAX_OVERALL_COST_BOUND.
-	(lra_constraints): Fix typo with parentheses.
-
-	* lra-lives.c (process_bb_lives): Permit creation of copies
-	involving all new pseudos.
-
-	* lra-assigns.c (curr_update_hard_regno_preference_check): New variable.
-	(update_hard_regno_preference_check): Ditto.
-	(update_hard_regno_preference): New function.
-	(lra_setup_reg_renumber): Use update_hard_regno_preference.
-	(assign_by_spills): Initialize update_hard_regno_preference_check
-	and curr_update_hard_regno_preference_check.
-
-2011-07-26  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assign.c (setup_live_pseudos_and_spill_after_equiv_moves):
-	Remove the dead code.
-
-	* lra-constraints.c (goal_alternative*): Rename to goal_alt...
-	(goal_early_clobbered_nops_num, goal_early_clobbered_nops):
-	Remove.
-	(goal_alt_dont_inherit_ops_num, goal_alt_dont_inherit_ops): New
-	static variables.
-	(uses_hard_regs_p): New function.
-	(process_alt_operands): Rename curr_alternative to curr_alt...
-	Rename curr_early_clobbered_regs[_num] to
-	early_clobbered_regs[_num].  Add code for matching with early
-	clobber.  Add code to process and evaluate conflicts with early
-	clobbers.  Set up goal_alt_dont_inherit_ops_num,
-	goal_alt_dont_inherit_ops.
-	(early_clobber_reload_regs_num, early_clobber_reload_regs):
-	Remove.
-	(make_early_clobber_input_reload_reg, search_and_replace_reg): Ditto.
-	(create_early_clobber_reloads): Ditto.
-	(curr_insn_transform): Rename goal_alternative_matched to
-	goal_alt_matched.  Setup dont_inherit flag for early clobber
-	reload pseudo.  Don't call create_early_clobber_reloads.
-
-2011-07-07  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-int.h (lra_invalidate_insn_data): New prototype.
-
-	* lra.c (lra_invalidate_insn_data): Split out from ...
-	(lra_set_insn_deleted): ... here.
-
-	* lra-constraints.c (curr_insn_transform): Call
-	lra_invalidate_insn_data and return true for wrong asm insn.
-	(lra_constraints): Use dest_reg instead of SET_DEST (set).
-
-2011-07-06  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assigns.c (reload_pseudo_compare_func, find_hard_regno_for):
-	Use lra_get_allocno_class instead of lra_get_preferred_class.
-	(spill_for, assign_by_spills): Ditto.
-
-	* lra-constraints.c (get_try_hard_regno, get_reg_class): Use
-	lra_get_allocno_class instead of lra_get_preferred_class.
-	(make_early_clobber_input_reload_reg, inherit_reload_reg): Ditto.
-	(inherit_in_ebb): Ditto.
-	(equivalence_change_p): New function.
-	(lra_constraints): Call equivalence_change_p for debug insns.
-
-	* lra-int.h (lra_get_preferred_class): Rename to
-	lra_get_allocno_class and return allocno class.
-	(struct lra_reg): Add comments for members insn_bitmap, nrefs, and
-	freq.
-	(lra_operand_data, lra_static_insn_data): Add comment about future
-	changes and debug insns.
-
-	* lra.c (debug_operand_data, debug_insn_static_data): New
-	initialized varaibles.
-	(free_insn_recog_data, lra_get_insn_recog_data): Add code for
-	processing debug insns.
-	(lra_update_insn_recog_data, invalidate_insn_data_regno_info): Ditto.
-	(lra_update_insn_regno_info): Ditto.
-
-	* lra-eliminations.c (lra_eliminate_regs_1): Process asm operands
-	too.
-	(eliminate_regs_in_insn): Process debug insns too.
-
-	* lra-spills.c (lra_hard_reg_substitution): Process debug insns
-	too.
-
-	* lra-equivs.c (memref_used_between_p): Process debug insns too.
-
-	* ira.c (ira_setup_eliminable_regset): Initialize dont_use_regs
-	for reload.
-
-	* reginfo.c (allocate_reg_info, resize_reg_info): Initialize
-	allocno class as GENERAL_REGS.
-
-	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Restore
-	correct constraints for movzb.
-
-	* config/i386/i386.c (ix86_register_bank): Make AX as the most
-	preferable.
-
-2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (extract_loc_address_regs): Add an argument.
-	Don't process the reg as an index reg on the top address level
-	when it is added to the symbol.
-	(extract_address_regs): Pass new argument to
-	extract_loc_address_regs.
-
-2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (curr_insn_transform): Process operator
-	duplications.
-
-2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-constraints.c (lra_constraints): Check subreg for equiv init
-	insn.
-
-2011-06-23  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-int.h (struct lra_bb_info, lra_bb_info): Remove.
-
-	* lra.c (lra_bb_info, init_bb_info, finish_bb_info): Remove.
-	(lra): Remove calls of init_bb_info and finish_bb_info.
-
-	* lra-lives.c (live_regs): Remove.
-	(make_hard_regno_born, make_pseudo_live, make_pseudo_dead): Don't
-	update live_regs.
-	(process_bb_lives): Ditto.  Don't set up lra_bb_info.
-	(lra_create_live_ranges): Don't initialize/finalize live_regs.
-
-2011-06-22  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assign.c (live_range_hard_reg_pseudos): Make it a sparseset.
-	(live_range_hard_reg_pseudos, live_range_reload_pseudos): Ditto.
-	(init_live_reload_pseudos, finish_live_reload_pseudos): Work with
-	the above variables as sparsesets.
-	(find_hard_regno_for, spill_for): Ditto.
-	(setup_live_pseudos_and_spill_after_equiv_moves): Ditto.
-
-	* Makefile.in (lra-assign.o): Add missed sparseset.h.
-
-2011-06-15  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-assigns.c (live_pseudos_reg_renumber): New array.
-	(init_lives): Initialize the array.
-	(finish_lives): Free the array.
-	(update_lives): Update live_pseudos_reg_renumber.
-	(find_hard_regno_for): Use more bitmap_set_bit or bitmap_ior_into.
-	(spill_for): Ditto.
-	(setup_live_pseudos_and_spill_after_equiv): Ditto.
-
-	* lra-constraints.c (address_substitution): Rename to
-	equiv_address_substitution.
-
-2011-06-09  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-spills.c: Don't include toplev.h.
-
-	* lra-eliminations.c: Ditto.
-
-	* lra-lives.c: Ditto.
-
-	* lra-saves.c: Ditto.
-
-	* lra-coalesce.c: Ditto.
-
-	* lra-equivs.c: Ditto.
-
-	* lra.c: Ditto.
-	(lra): Skip coalescing after spills and some assignments.  Remove
-	live range creation before spills.
-
-	* lra-constraints.c: Don't include toplev.h.
-	(inherit_reload_reg): Invalidate used
-	alternative for changed insn.
-
-	* lra-assigns.c: Don't include toplev.h.
-	(assign_by_spills): Remove parameter. Clear all_spilled_pseudos if
-	necessary.  Fix typo in setting changed_pseudo_bitmap.  Don't set
-	up changed_pseudo_bitmap for reload pseudos.
-	(lra_assign): Return flag of spilling non-reload and
-	non-inheritance pseudos.
-
-	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): Remove
-	dependence on toplev.h.
-	(lra-constraints.o, lra-eliminations.o, lra-lives.o, lra-saves.o): Ditto.
-	(lra-spills.o): Ditto.
-
-	* lra-int.h (lra_assign): Don't include toplev.h.
-	Change return type.
-	* target.def (register_bank): Move description from tm.texi.in.
-
-	* doc/tm.texi.in (TARGET_REGISTER_BANK): Move description to target.def.
-
-	* doc/tm.texi: Update.
-
-2011-06-01  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra-eliminations.c (lra_eliminate_reg_if_possible): Fix a typo.
-	(process_insn_for_elimination): Invalidate insn data if the insn
-	code was changed.
-
-	* lra-constraints.c (check_and_process_move): Set up temporarily
-	reg_renumber for secondary_reload hook.
-	(process_addr_reg): Use class of elimination.
-	(curr_insn_transform): Remove subreg before address processing.
-
-2011-05-30  Vladimir Makarov  <vmakarov@redhat.com>
-
-	* lra.h: New file.
-
-	* lra-int.h: Ditto.
-
-	* lra.c: Ditto.
-
-	* lra-assigns.c: Ditto.
-
-	* lra-coalesce.c: Ditto.
-
-	* lra-constraints.c: Ditto.
-
-	* lra-eliminatios.c: Ditto.
-
-	* lra-equivs.c: Ditto.
-
-	* lra-lives.c: Ditto.
-
-	* lra-saves.c: Ditto.
-
-	* lra-spills.c: Ditto.
-
-	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): New entries.
-	(lra-constraints.o, lra-eliminatios.o, lra-equivs.o): Ditto.
-	(lra-lives.o, lra-saves.o, lra-spills.o): Ditto.
-	(dwarf2out.o): Add lra.h.
-	(ira.o): Ditto.
-
-	* common.opt (flra): New flag.
-
-	* ira.h (x_ira_class_subset_p): Move from
-	ira-int.h.
-	(ira_class_subset_p): Ditto, modify it.
-	(struct target_ira): New member x_ira_reg_class_subset.
-	(ira_reg_class_subset): New macro.
-	(struct ira_reg_equiv): New.
-	(ira_reg_equiv_len): Move from ira-int.h.
-	(ira_reg_equiv): New definitions.
-	(ira_expand_reg_equiv, ira_update_equiv_info_by_shuffle_insn): New
-	prototypes.
-
-	* ira-int.h (x_ira_class_subset_p): Move to ira.h.
-	(ira_class_subset_p): Ditto.
-	(ira_reg_equiv_len): Move to ira.h.
-	(ira_reg_equiv_invariant_p, ira_reg_equiv_const): Remove.
-	(ira_equiv_no_lvalue_p): New function.
-
-	* ira.c: Include lra.h.
-	(setup_reg_class_relations): Calculate ira_reg_class_subset.
-	(ira_init, ira_init_once): Initialize LRA.
-	(ira_finish_once): Finish LRA.
-	(ira_setup_eliminable_regset): Set frame_pointer_needed.  Call
-	lra_init_elimination.
-	(ira_reg_equiv_len): Move below.
-	(ira_reg_equiv_invariant_p): Remove.
-	(ira_reg_equiv_invariant_p, find_reg_equiv_invariant_const):
-	Remove.
-	(find_reg_equiv_invariant_const): Modify assertion.
-	(setup_reg_equiv_init, ira_update_equiv_info_by_shuffle_insn): New
-	functions.
-	(ira_reg_equiv): New variable.
-	(ira_expand_reg_equiv, init_reg_equiv, finish_reg_equiv): New
-	functions.
-	(no_equiv): Set up ira_reg_equiv instead of reg_rquiv_init.
-	(setup_reg_equiv): New function.
-	(ira): Call init_reg_equiv, setup_reg_equiv, setup_reg_equiv_init,
-	finish_reg_equiv.  Add code for LRA.
-
-	* ira-build.c (ira_flattening): Modify comments.
-
-	* ira-emit.c (create_new_reg): Call ira_expand_equiv.
-	(change_loop): Use ira_equiv_no_lvalue_p instead of
-	ira_reg_equiv_variant_p and ira_reg_equiv_const.
-	(emit_move_list): Call grow_reg_equivs and
-	ira_update_equiv_info_by_shuffle_insn.  Use ira_reg_equiv instead
-	of ira_reg_equiv_variant_p and ira_reg_equiv_const.
-
-	* ira-color.c (color_pass, move_spill_restore, coalesce_allocnos):
-	Use ira_equiv_no_lvalue_p instead of ira_reg_equiv_variant_p and
-	ira_reg_equiv_const.
-	(coalesce_spill_slots, ira_sort_regnos_for_alter_reg):  Ditto.
-
-	* dwarf2out.c (based_loc_descr): Call lra_eliminate_regs.
-	(compute_frame_pointer_to_fb_displacement): Ditto.
-
-	* emit-rtl.c (validate_subreg): Add code for LRA.
-
-	* expr.c (emit_move_insn_1): Add code for LRA.
-
-	* final.c (alter_subreg): Add code for LRA.
-
-	* jump.c (true_regnum): Add code for LRA.
-
-	* recog.c (general_operand, register_operand, scratch_operand):
-	Add code for LRA.
-
-	* reginfo.c (max_regno_since_last_resize): New variable.
-	(reg_preferred_class, reg_alternate_class, reg_allocno_class): Add
-	new assertion.
-	(allocate_reg_info): Add more elements than necessary, initialize
-	new elements.
-	(resize_reg_info): Ditto.
-	(reginfo_init): Initialize lengths of the arrays.
-	(setup_reg_classes): Change assertion.
-
-	* rtl.h (lra_in_progress): New definition.
-	(print_value_slim): New prototype.
-
-	* rtlanal.c (simplify_subreg_regno): Add code for LRA.
-
-	* sched-vis.c (print_value_slim): New function.
-
-	* target.def (register_bank): New hook.
-
-	* targhook.h (default_register_bank): New prototype.
-
-	* targhooks.c (default_register_bank): New function.
-
-	* doc/invoke.texi (-fno-lra): New option.
-
-	* doc/passes.texi: Describe LRA.
-
-	* doc/tm.texi.in (TARGET_REGISTER_BANK): New hook.
-
-	* doc/tm.texi (TARGET_REGISTER_BANK): Regenerate.
-
-	* config/h8300/constraints.md: Add lra_in_progress for constraint
-	"d".
-
-	* config/i386/i386.c (ix86_register_bank): New function.
-	(ix86_secondary_reload): Add code for LRA.
-	(TARGET_REGISTER_BANK): New macro.
-
-	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Fix
-	constraints.
-
-	* config/rs6000/rs6000.c: Include ira.h.
-	(rs6000_emit_move): Add code for LRA.
-	(rs6000_secondary_reload_class): Ditto.
-
-	* config/s390/s390.md (*movmem_short, *clrmem_short): Fix value
-	for cpu_facility.
-	(*cpmem_short): Ditto.
-
-	* config/s390/s390.c (s390_decompose_address): Add code for LRA.
-	(s390_secondary_reload): Ditto.
-	(s390_expand_plus_operand): Move plus generation.
-
-	* config/sparc/constraints.md: Add lra_in_progress for
-	constraint "U".
-
-	* config/xtensa/constraints.md: Add lra_in_progress for
-	constraints "R" and "T".
+2011-10-17  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50729
+	* tree-vrp.c (extract_range_from_unary_expr_1): Remove
+	redundant test.
+	(simplify_conversion_using_ranges): Properly test the
+	intermediate result.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* ggc.h (ggc_round_alloc_size): Declare new public entry point.
+	* ggc-none.c (ggc_round_alloc_size): New public stub function.
+	* ggc-page.c (ggc_alloced_size_order_for_request): New static
+	function.  Factorized from ggc_internal_alloc_stat.
+	(ggc_round_alloc_size): New public function.  Uses
+	ggc_alloced_size_order_for_request.
+	(ggc_internal_alloc_stat): Use ggc_alloced_size_order_for_request.
+	* ggc-zone.c (ggc_round_alloc_size): New public function extracted
+	from ggc_internal_alloc_zone_stat.
+	(ggc_internal_alloc_zone_stat): Use ggc_round_alloc_size.
+	* toplev.c (general_init): Initialize
+	line_table->alloced_size_for_request.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* input.c (ONE_K, ONE_M, SCALE, STAT_LABEL, FORMAT_AMOUNT): New
+	macros.
+	(num_expanded_macros_counter, num_macro_tokens_counter): Declare
+	new counters.
+	(dump_line_table_statistics): Define new function.
+	* input.h (dump_line_table_statistics): Declare new function.
+	* toplev.c (dump_memory_report): Call dump_line_table_statistics.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* doc/cppopts.texi: Document -fdebug-cpp.
+	* doc/invoke.texi: Add -fdebug-cpp to the list of preprocessor
+	options.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* gcc/diagnostic.h (diagnostic_report_current_module): Add a
+	location parameter.
+	* diagnostic.c (diagnostic_report_current_module): Add a location
+	parameter to the function definition.  Use it instead of
+	input_location.  Resolve the virtual location rather than just
+	looking up its map and risking to touch a resulting macro map.
+	(default_diagnostic_starter): Pass the relevant diagnostic
+	location to diagnostic_report_current_module.
+	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc): New.
+	(virt_loc_aware_diagnostic_finalizer): Likewise.
+	(diagnostic_report_current_function): Pass the
+	relevant location to diagnostic_report_current_module.
+	* tree-diagnostic.h (virt_loc_aware_diagnostic_finalizer): Declare
+	new function.
+	* toplev.c (general_init): By default, use the new
+	virt_loc_aware_diagnostic_finalizer as diagnostic finalizer.
+	* Makefile.in: Add vec.h dependency to tree-diagnostic.c.
+
+2011-10-15  Tom Tromey  <tromey@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* doc/cppopts.texi (-ftrack-macro-expansion): Document new option.
+	* doc/invoke.texi (-ftrack-macro-expansion): Add this to the list of
+	preprocessor related options.
+
+2011-10-15  Tom Tromey  <tromey@redhat>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	* input.h (struct expanded_location): Move to libcpp/line-map.h.
+	(LOCATION_COLUMN): New accessor
+	(in_system_header_at): Use linemap_location_in_system_header_p.
+	* diagnostic.c (diagnostic_report_current_module): Adjust to avoid
+	touching the internals of struct line_map.  Use the public API.
+	instead.
+	(diagnostic_report_diagnostic): Don't use relational operator '<'
+	on virtual locations.  Use linemap_location_before_p instead.
+	* input.c (expand_location): Adjust to expand to the tokens'
+	spelling location when macro location tracking is on.
+
+
+2011-10-08  Andi Kleen  <ak@linux.intel.com>
+
+	* ggc-page.c (GGC_QUIRE_SIZE): Increase to 512
+
+2011-10-13  Andi Kleen  <ak@linux.intel.com>
+
+	* toplev.c (compile_file): Rename __gnu_slim_lto to __gnu_lto_slim.
+
+2011-10-16  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/50727
+	* tree-vect-patterns.c (vect_operation_fits_smaller_type): Add
+	DEF_STMT to the list of statements to be replaced by the
+	pattern statements.
+
+2011-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/50615
+	* combine.c (distribute_notes) <REG_ARGS_SIZE>: Skip if I3 is a no-op.
+
+2011-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50596
+	* tree-vectorizer.h (NUM_PATTERNS): Increase to 7.
+	* tree-vect-patterns.c (vect_vect_recog_func_ptrs): Add
+	vect_recog_bool_pattern.
+	(check_bool_pattern, adjust_bool_pattern_cast,
+	adjust_bool_pattern, vect_recog_bool_pattern): New functions.
+
+2011-10-16  Ira Rosen  <ira.rosen@linaro.org>
+
+	* tree-vect-stmts.c (vectorizable_load): For SLP without permutation
+	treat the first load of the node as the first element in its
+	interleaving chain.
+	* tree-vect-slp.c (vect_get_and_check_slp_defs): Swap the operands if
+	necessary and possible.
+	(vect_build_slp_tree): Add new argument.  Allow load groups of any size
+	in basic blocks.  Keep all the loads for further permutation check.
+	Use the new argument to determine if there is a permutation.  Update
+	the recursive calls.
+	(vect_supported_load_permutation_p): Allow subchains of interleaving
+	chains in basic block vectorization.
+	(vect_analyze_slp_instance): Update the call to vect_build_slp_tree.
+	Check load permutation based on the new parameter.
+	(vect_schedule_slp_instance): Don't start from the first element in
+	interleaving chain unless the loads are permuted.
+
+2011-10-15  Jan Hubicka  <jh@suse.cz>
+
+	PR target/48668
+	PR target/50689
+	* cgraphunit.c (cgraph_expand_function): Expand thunks and alises
+	after function body.
+
+2011-10-15  Richard Henderson  <rth@redhat.com>
+
+	* tree-vect-slp.c: Include langhooks.h.
+	(vect_create_mask_and_perm): Emit VEC_PERM_EXPR, not a builtin.
+	(vect_transform_slp_perm_load): Use can_vec_perm_expr_p.  Simplify
+	mask creation for VEC_PERM_EXPR.
+	* tree-vect-stmts.c (perm_mask_for_reverse): Return the mask,
+	not the builtin.
+	(reverse_vec_elements): Emit VEC_PERM_EXPR not a builtin.
+	* Makefile.in (tree-vect-slp.o): Update dependency.
+	* optabs.c (can_vec_perm_expr_p): Allow NULL as unknown constant.
+
+2011-10-15  Alan Modra  <amodra@gmail.com>
+
+	PR bootstrap/50738
+	* ifcvt.c (dead_or_predicable): Revert accidental commit with
+	HAVE_simple_return test.
+
+2011-10-15  Alan Modra  <amodra@gmail.com>
+
+	* ifcvt.c (dead_or_predicable): Disable if-conversion when
+	doing so is likely to kill a shrink-wrapping opportunity.
+
+	PR rtl-optimization/49941
+	* jump.c (mark_jump_label_1): Set JUMP_LABEL for simple_return jumps.
+
+	* rtl.h (set_return_jump_label): Declare.
+	* function.c (set_return_jump_label): New function, extracted..
+	(thread_prologue_and_epilogue_insns): ..from here.  Use it in
+	another instance to set return jump_label.
+	* cfgrtl.c (force_nonfallthru_and_redirect): Use set_return_jump_label.
+	* reorg.c (find_end_label): Likewise.
+
+2011-10-14  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sol2.h: Protect -m{cpu,tune}=native handling
+	with a more complete cpp test.
+	* config/sparc/linux64.h: Likewise.
+	* config/sparc/linux.h: Likewise.
+	* config/sparc/sparc.opt (sparc_debug): New target variable.
+	(mdebug): New target option.
+	* config/sparc/sparc.h (MASK_DEBUG_OPTIONS, MASK_DEBUG_ALL,
+	TARGET_DEBUG_OPTIONS): New defines.
+	* config/sparc/sparc.c (debug_target_flag_bits,
+	debug_target_flags): New functions.
+	(sparc_option_override): Add name strings back to cpu_table[].
+	Parse -mdebug string.  When TARGET_DEBUG_OPTIONS is true, print
+	out the target flags before and after override processing as well
+	as the selected cpu.  If MASK_V8PLUS, make sure that the selected
+	cpu is at least v9.
+
+2011-10-15  Oleg Endo  <oleg.endo@t-online.de>
+
+	PR target/49263
+	* config/sh/sh.h (ZERO_EXTRACT_ANDMASK): New macro.
+	* config/sh/sh.c (sh_rtx_costs): Add test instruction case.
+	* config/sh/sh.md (tstsi_t): Name existing insn.  Make inner
+	and instruction commutative.
+	(tsthi_t, tstqi_t, tstqi_t_zero, tstsi_t_and_not,
+	tstsi_t_zero_extract_eq, tstsi_t_zero_extract_xor,
+	tstsi_t_zero_extract_subreg_xor_little,
+	tstsi_t_zero_extract_subreg_xor_big): New insns.
+	(*movsicc_t_false, *movsicc_t_true): Replace space with tab in
+	asm output.
+	(*andsi_compact): Reorder alternatives so that K08 is considered first.
+
+2011-10-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/50354
+	* config/sparc/linux64.h (TARGET_DEFAULT): Only override if the default
+	processor is at least V9 and TARGET_64BIT_DEFAULT is defined.
+
+2011-10-14  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* invoke.texi (AVR Options): Avoid \leq{}.
+
+2011-10-14  Kai Tietz  <ktietz@redhat.com>
+
+	* gimplify.c (gimplify_expr): Take care that for bitwise-binary
+	transformation the operands have compatible types.
+
+2011-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_widen_smult_hi_v8hi,
+	vec_widen_smult_lo_v8hi, vec_widen_umult_hi_v8hi,
+	vec_widen_umult_lo_v8hi): Macroize using VI2_AVX2
+	mode iterator and any_extend code iterator.
+	(vec_widen_<s>mult_hi_v8si, vec_widen_<s>mult_lo_v8si): New expanders.
+	(vec_widen_smult_hi_v4si, vec_widen_smult_lo_v4si): Enable
+	also for TARGET_SSE4_1 using pmuldq insn.
+	(sdot_prodv8hi): Macroize using VI2_AVX2 iterator.
+	(sse2_sse4_1): New code attr.
+	(udot_prodv4si): Macroize using any_extend code iterator.
+	(<s>dot_prodv8si): New expander.
+
+2011-10-14  Yakovlev Vladimir  <vladimir.b.yakovlev@intel.com>
+
+	* config/i386/i386.c (atom_cost): Changed cost for loading
+	QImode using movzbl.
+
+2011-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Fix typo in my
+	change on October 11th, 2011.
+
+2011-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_interleave_high<mode>,
+	vec_interleave_low<mode>): Add AVX2 expanders for VI_256 modes.
+	* config/i386/i386.c (expand_vec_perm_interleave3): New function.
+	(ix86_expand_vec_perm_builtin_1): Call it.
+
+2011-10-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	Fix thinko from r179765
+	* config/avr/avr.c (avr_option_override): Don't override
+	flag_omit_frame_pointer if not actually needed.
+
+2011-10-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/46278
+	* doc/invoke.texi (AVR Options): Document -mstrict-X.
+
+	* config/avr/avr.opt (-mstrict-X): New option.
+	(avr_strict_X): New variable reflecting -mstrict-X.
+	* config/avr/avr.c (avr_reg_ok_for_addr_p): Add parameter
+	outer_code and pass it down to avr_regno_mode_code_ok_for_base_p.
+	(avr_legitimate_address_p): Pass outer_code to
+	avr_reg_ok_for_addr_p and use that function in case PLUS.
+	(avr_mode_code_base_reg_class): Depend on avr_strict_X.
+	(avr_regno_mode_code_ok_for_base_p): Ditto, and depend on outer_code.
+	(avr_option_override): Disable -fcaller-saves if -mstrict-X is on.
+
+2011-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (neg<mode>2): Use VI_AVX2 iterator instead
+	of VI_128.
+
+	* config/i386/sse.md (mulv2di3): Macroize using VI8_AVX2 iterator.
+	(ashl<mode>3): Use VI248_AVX2 iterator instead of VI248_128.
+	Use <sseinsnmode> instead of TI in mode attr.
+
+2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	* config/arm/linux-atomic-64bit.c: New (based on linux-atomic.c).
+	* config/arm/linux-atomic.c: Change comment to point to 64bit version.
+	(SYNC_LOCK_RELEASE): Instantiate 64bit version.
+	* config/arm/t-linux-eabi: Pull in linux-atomic-64bit.c.
+
+2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	* config/arm/arm.c (arm_output_ldrex): Support ldrexd.
+	(arm_output_strex): Support strexd.
+	(arm_output_it): New helper to output it in Thumb2 mode only.
+	(arm_output_sync_loop): Support DI mode.  Change comment to
+	not support const_int.
+	(arm_expand_sync): Support DI mode.
+	* config/arm/arm.h (TARGET_HAVE_LDREXBHD): Split into LDREXBH
+	and LDREXD.
+	* config/arm/iterators.md (NARROW): move from sync.md.
+	(QHSD): New iterator for all current ARM integer modes.
+	(SIDI): New iterator for SI and DI modes only.
+	* config/arm/sync.md (sync_predtab): New mode_attr.
+	(sync_compare_and_swapsi): Fold into sync_compare_and_swap<mode>.
+	(sync_lock_test_and_setsi): Fold into sync_lock_test_and_setsi<mode>.
+	(sync_<sync_optab>si): Fold into sync_<sync_optab><mode>.
+	(sync_nandsi): Fold into sync_nand<mode>.
+	(sync_new_<sync_optab>si): Fold into sync_new_<sync_optab><mode>.
+	(sync_new_nandsi): Fold into sync_new_nand<mode>.
+	(sync_old_<sync_optab>si): Fold into sync_old_<sync_optab><mode>.
+	(sync_old_nandsi): Fold into sync_old_nand<mode>.
+	(sync_compare_and_swap<mode>): Support SI & DI.
+	(sync_lock_test_and_set<mode>): Likewise.
+	(sync_<sync_optab><mode>): Likewise.
+	(sync_nand<mode>): Likewise.
+	(sync_new_<sync_optab><mode>): Likewise.
+	(sync_new_nand<mode>): Likewise.
+	(sync_old_<sync_optab><mode>): Likewise.
+	(sync_old_nand<mode>): Likewise.
+	(arm_sync_compare_and_swapsi): Turn into iterator on SI & DI.
+	(arm_sync_lock_test_and_setsi): Likewise.
+	(arm_sync_new_<sync_optab>si): Likewise.
+	(arm_sync_new_nandsi): Likewise.
+	(arm_sync_old_<sync_optab>si): Likewise.
+	(arm_sync_old_nandsi): Likewise.
+	(arm_sync_compare_and_swap<mode> NARROW): use sync_predtab, fix indent.
+	(arm_sync_lock_test_and_setsi<mode> NARROW): Likewise.
+	(arm_sync_new_<sync_optab><mode> NARROW): Likewise.
+	(arm_sync_new_nand<mode> NARROW): Likewise.
+	(arm_sync_old_<sync_optab><mode> NARROW): Likewise.
+	(arm_sync_old_nand<mode> NARROW): Likewise.
+
+2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	PR target/48126
+	* config/arm/arm.c (arm_output_sync_loop): Move label before barrier.
+
+2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	* config/arm/arm.h (TARGET_HAVE_DMB_MCR): MCR Not available in Thumb1.
+
+2011-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* doc/invoke.texi ([Wformat-zero-length]): Tidy.
+
+2011-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.c (walk_stmt_load_store_addr_ops): Call visit_addr also
+	on COND_EXPR/VEC_COND_EXPR comparison operands if they are ADDR_EXPRs.
+
+2011-10-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50723
+	* ipa-split.c (split_function): Use GSI_CONTINUE_LINKING.
+
+2011-10-14  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	* gengtype.c (files_rules): Added rules for objc/objc-map.h and
+	objc/objc-map.c.
+
+2011-10-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/17212
+	* c-family/c.opt ([Wformat-zero-length]): Add C++ and Objective-C++.
+	* doc/invoke.texi: Update.
+
+2011-10-14  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR bootstrap/50699
+	* config/darwin.c (darwin_patch_builtin): Adjust argument type. Only
+	build for powerpc targets.  (darwin_patch_builtins): Only build for
+	powerpc targets.
+
+2011-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (*avx_cvtdq2pd256_2): Rename to...
+	(avx_cvtdq2pd256_2): ... this.
+	(sseunpackfltmode): New mode attr.
+	(vec_unpacks_float_hi_v8hi, vec_unpacks_float_lo_v8hi,
+	vec_unpacku_float_hi_v8hi, vec_unpacku_float_lo_v8hi): Macroize
+	using VI2_AVX2 iterator.
+	(vec_unpacku_float_hi_v8si, vec_unpacku_float_lo_v8si): New expanders.
+
+2011-10-13  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.md (plusminus): New code iterator.
+	(plusminus_insn): New code attr.
+	(addv2si3, subv2si3, addv4hi3, subv4hi3, addv2hi3, subv2hi3): Merge
+	using plusminus and plusminus_insn.
+	(fpadd64_vis, fpsub64_vis): Likewise.
+
+2011-10-13  Richard Henderson  <rth@redhat.com>
+
+	* doc/md.texi (vec_perm): Document fallback to byte permutation.
+	* genopinit.c (optabs): Add vec_perm_const.
+	* optabs.c (can_vec_perm_expr_p): Rename from expand_vec_perm_expr_p.
+	Reject non-vector modes.  Allow fallback to byte permutation.
+	(expand_vec_perm_expr_1): Split out from ...
+	(expand_vec_perm_expr): ... here.  Allow fallback to byte permutation.
+	* optabs.h (DOI_vec_perm_const, vec_perm_const_optab): New.
+	* tree-vect-generic.c (lower_vec_perm): Update for name change.
+
+2011-10-13  Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/altivec.md (vec_permv16qi): New pattern.
+
+	* config/rs6000/spu.md (vec_permv16qi): New pattern.
+
+	* config/i386/i386.c (ix86_expand_vec_perm_const): New.
+	* config/i386/i386-protos.h: Update.
+	* config/i386/sse.md (VEC_PERM_CONST): New mode iterator.
+	(vec_perm_const<VEC_PERM_CONST>): New expander.
+
+	* optabs.c (expand_vector_broadcast): New.
+	(expand_binop): Expand scalar shifts of vectors to vector shifts
+	of vectors, if the former isn't supported.
+	* tree-vect-generic.c (expand_vector_operations_1): Don't do that
+	here; always simplify to scalar shift of vector if possible.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Fix mode
+	test for vector splat.
+
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_set<mode>): Change V_128 iterator mode to V.
+
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (maybe_optimize_var): Drop TREE_ADDRESSABLE from vector
+	or complex vars even if their DECL_UID is in not_reg_needs bitmap.
+
+2011-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (reduc_umin_v8hi): New pattern.
+	* config/i386/i386.c (ix86_build_const_vector): Handle
+	also V32QI, V16QI, V16HI and V8HI modes.
+	(emit_reduc_half): New function.
+	(ix86_expand_reduc): Use phminposuw insn for V8HImode UMIN.
+	Use emit_reduc_half helper function.
+
+2011-10-13  Lawrence Crowl  <crowl@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* lto-streamer-in.c (input_struct_function_base): Factor out of ...
+	(input_function): ... here.
+	* lto-streamer-out.c (output_struct_function_base): Factor out of ...
+	(output_function): ... here.
+
+2011-10-13  Gabriel Charette  <gchare@google.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* streamer-hooks.h (struct streamer_hooks): Add hooks
+	input_location and output_location.
+	* lto-streamer-in.c (lto_input_location): Use
+	streamer_hooks.input_location, if set.
+	* lto-streamer-out.c (lto_output_location): Use
+	streamer_hooks.output_location, if set.
+
+2011-10-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC options): Document -mfix-at697f.
+	* config/sparc/sparc.opt (mfix-at697f): New option.
+	* config/sparc/sparc.c (TARGET_MACHINE_DEPENDENT_REORG): Define.
+	(sparc_reorg): New function.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50712
+	* ipa-split.c (split_function): Always re-gimplify parameters
+	when they are not gimple vals before passing them.  Properly
+	check for type compatibility.
+
+2011-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* function.c (gimplify_parameters): Set number of arguments of call to
+	BUILT_IN_ALLOCA_WITH_ALIGN to 2.
+
+2011-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Set MEM_READONLY_P
+	for static const strings.
+	* varasm.c (build_constant_desc): Generate the memory location of the
+	constant using gen_const_mem.
+
+2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50698
+	* tree-data-ref.c (split_constant_offset_1): Also process
+	offsets of &MEM.
+
+2011-10-12  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.md (UNSPEC_FPMERGE): Delete.
+	(UNSPEC_MUL16AU, UNSPEC_MUL8, UNSPEC_MUL8SU, UNSPEC_MULDSU): New
+	unspecs.
+	(fpmerge_vis): Remove inaccurate comment, represent using vec_select
+	of a vec_concat.
+	(vec_interleave_lowv8qi, vec_interleave_highv8qi): New insns.
+	(fmul8x16_vis, fmul8x16au_vis, fmul8sux16_vis, fmuld8sux16_vis):
+	Reimplement as unspecs and remove inaccurate comments.
+	(vis3_shift_patname): New code attr.
+	(<vis3_shift_insn><vbits>_vis): Rename to
+	"v<vis3_shift_patname><mode>3".
+	(vis3_addsub_ss_patname): New code attr.
+	(<vis3_addsub_ss_insn><vbits>_vis): Rename to
+	"<vis3_addsub_ss_patname><mode>3".
+	* config/sparc/sparc.c (sparc_vis_init_builtins): Update to
+	accommodate pattern name changes.
+
+	* config/sparc/sparc.h: Do not force TARGET_VIS3 and TARGET_FMAF
+	to zero when assembler lacks support for such instructions.
+	* config/sparc/sparc.c (sparc_option_override): Clear MASK_VIS3
+	and MASK_FMAF in defaults when assembler lacks necessary support.
+
+2011-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_unpacks_lo_<mode>,
+	vec_unpacks_hi_<mode>, vec_unpacku_lo_<mode>,
+	vec_unpacku_hi_<mode>): Change VI124_128 mode to VI124_AVX2.
+	* config/i386/i386.c (ix86_expand_sse_unpack): Handle
+	V32QImode, V16HImode and V8SImode for TARGET_AVX2.
+
+	* config/i386/sse.md (vec_avx2): New mode_attr.
+	(mulv16qi3): Macroize to cover also mulv32qi3 for TARGET_AVX2 into ...
+	(mul<mode>3): ... this.
+
+	* config/i386/i386.md (UNSPEC_VPERMDI): Remove.
+	* config/i386/i386.c (ix86_expand_vec_perm): Handle
+	V16QImode and V32QImode for TARGET_AVX2.
+	(MAX_VECT_LEN): Increase to 32.
+	(expand_vec_perm_blend): Add support for 32-byte integer
+	vectors with TARGET_AVX2.
+	(valid_perm_using_mode_p): New function.
+	(expand_vec_perm_pshufb): Add support for 32-byte integer
+	vectors with TARGET_AVX2.
+	(expand_vec_perm_vpshufb2_vpermq): New function.
+	(expand_vec_perm_vpshufb2_vpermq_even_odd): New function.
+	(expand_vec_perm_even_odd_1): Handle 32-byte integer vectors
+	with TARGET_AVX2.
+	(ix86_expand_vec_perm_builtin_1): Try expand_vec_perm_vpshufb2_vpermq
+	and expand_vec_perm_vpshufb2_vpermq_even_odd.
+	* config/i386/sse.md (VEC_EXTRACT_EVENODD_MODE): Add for TARGET_AVX2
+	32-byte integer vector modes.
+	(vec_pack_trunc_<mode>): Use VI248_AVX2 instead of VI248_128.
+	(avx2_interleave_highv32qi, avx2_interleave_lowv32qi): Remove pasto.
+	(avx2_pshufdv3, avx2_pshuflwv3, avx2_pshufhwv3): Generate
+	4 new operands.
+	(avx2_pshufd_1, avx2_pshuflw_1, avx2_pshufhw_1): Don't use
+	match_dup, instead add 4 new operands and require they have
+	right cross-lane values.
+	(avx2_permv4di): Change into define_expand.
+	(avx2_permv4di_1): New instruction.
+	(avx2_permv2ti): Use nonimmediate_operand instead of register_operand
+	for "xm" constrained operand.
+	(VEC_PERM_AVX2): Add V32QI and V16QI for TARGET_AVX2.
+
+	* config/i386/sse.md (avx2_gathersi<mode>,
+	avx2_gatherdi<mode>, avx2_gatherdi<mode>256): Add clobber of
+	match_scratch, change memory_operand to register_operand,
+	add (mem:BLK (scratch)) use.
+	(*avx2_gathersi<mode>, *avx2_gatherdi<mode>,
+	*avx2_gatherdi<mode>256): Add clobber of match_scratch,
+	add earlyclobber to the output operand and match_scratch,
+	add (mem:BLK (scratch)) use, change the other mem to match_operand.
+	Use %p6 instead of %c6 in the pattern.
+	* config/i386/i386.c (ix86_expand_builtin): Adjust for
+	operand 2 being a Pmode register_operand instead of memory_operand.
+
+2011-10-12  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/i386.md (simple_return): Disable if TARGET_SEH is active.
+
+2011-10-12  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.c (ia64_init_builtins): Fix unbalanced parentheses.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (maybe_skip_until): Cache also at the point
+	of the first store we visit in a basic-block.
+	(get_continuation_for_phi): Search for a candidate VUSE that
+	might dominates all others.  Do pairwise disambiguation against
+	that candidate.
+
+2011-10-12  Paul Koning  <pkoning@gcc.gnu.org>
+
+	PR tree-optimization/50189
+	* tree-vrp.c (extract_range_from_assert): Use the type of
+	the variable, not the limit.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50700
+	* tree-object-size.c (addr_object_size): Simplify and treat
+	MEM_REF bases consistently.
+
+2011-10-12  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* function.c (prepare_shrink_wrap, bb_active_p): New function.
+	(thread_prologue_and_epilogue_insns): Use bb_active_p.
+	Call prepare_shrink_wrap, then recompute bb_active_p for the
+	last block.
+
+2011-10-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/50565
+	* convert.c (convert_to_integer): Do not narrow operands of
+	pointer subtraction.
+
+2011-10-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/arm/arm.h (EMIT_EABI_ATTRIBUTE): New macro.  Used to
+	emit a .eabi_attribute assembler directive, possibly with a
+	comment attached.
+	* config/arm/arm.c (arm_file_start): Use the new macro.
+	* config/arm/arm-c.c (arm_output_c_attributes): Likewise.
+
+2011-10-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/49939
+	* config/avr/avr.md (*movqi): Rename to movqi_insn.
+	(*call_insn): Rename to call_insn.
+	(*call_value_insn): Rename to call_value_insn.
+	* config/avr/avr.c (avr_2word_insn_p): New static function.
+	(jump_over_one_insn_p): Use it.
+
+2011-10-12  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* expr.h (copy_blkmode_to_reg): Declare.
+	* expr.c (copy_blkmode_to_reg): New function.
+	(expand_assignment): Don't expand register RESULT_DECLs before
+	the lhs.  Use copy_blkmode_to_reg to copy BLKmode values into a
+	RESULT_DECL register.
+	(expand_expr_real_1): Handle BLKmode decls when looking for promotion.
+	* stmt.c (expand_return): Move BLKmode-to-register code into
+	copy_blkmode_to_reg.
+
+2011-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/49965
+	* config/sparc/sparc.md (mov<I:mode>cc): Do not save comparison code.
+	(mov<F:mode>cc): Likewise.
+
+2011-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* tree-ssa-address.c (copy_ref_info): Remove copy of TREE_THIS_NOTRAP.
+
+2011-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (built_in_decls): Delete old interface with two parallel
+	arrays to hold standard builtin declarations, and replace it with
+	a function based interface that can support creating builtins on
+	the fly in the future.  Change all uses, and poison the old
+	names.  Make sure 0 is not a legitimate builtin index.
+	(implicit_built_in_decls): Ditto.
+	(built_in_info): Ditto.
+	(BUILTIN_VALID_P): Ditto.
+	(builtin_decl_explicit): Ditto.
+	(builtin_decl_implicit): Ditto.
+	(set_builtin_decl): Ditto.
+	(set_builtin_decl_implicit_p): Ditto.
+	(builtin_decl_explicit_p): Ditto.
+	(builtin_decl_implicit_p): Ditto.
+	* tree-complex.c (expand_complex_libcall): Ditto.
+	* tree-loop-distribution.c (generate_memset_zero): Ditto.
+	* tree-ssa-strlen.c (get_string_length): Ditto.
+	(handle_builtin_strcpy): Ditto.
+	(handle_builtin_strcat): Ditto.
+	* tree.c (iterative_hash_expr): Ditto.
+	(local_define_builtin): Ditto.
+	(build_common_builtin_nodes): Ditto.
+	* builtins.c (built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	(built_in_info): Ditto
+	(expand_builtin_classify_type): Ditto.
+	(mathfn_built_in_1): Ditto.
+	(expand_builtin_cexpi): Ditto.
+	(expand_builtin_mempcpy_args): Ditto.
+	(expand_builtin_stpcpy): Ditto.
+	(gimplify_va_arg_expr): Ditto.
+	(expand_builtin_sync_operation): Ditto.
+	(build_builtin_expect_predicate): Ditto.
+	(fold_builtin_memory_op): Ditto.
+	(fold_builtin_strcpy): Ditto.
+	(fold_builtin_stpcpy): Ditto.
+	(fold_builtin_strncpy): Ditto.
+	(fold_builtin_interclass_mathfn): Ditto.
+	(fold_builtin_classify): Ditto.
+	(fold_builtin_2): Ditto.
+	(fold_builtin_strstr): Ditto.
+	(fold_builtin_strrchr): Ditto.
+	(fold_builtin_strpbrk): Ditto.
+	(fold_builtin_strcat): Ditto.
+	(fold_builtin_strncat): Ditto.
+	(fold_builtin_strcspn): Ditto.
+	(fold_builtin_fputs): Ditto.
+	(fold_builtin_sprintf): Ditto.
+	(fold_builtin_snprintf): Ditto.
+	(expand_builtin_memory_chk): Ditto.
+	(fold_builtin_memory_chk): Ditto.
+	(fold_builtin_stxcpy_chk): Ditto.
+	(fold_builtin_strncpy_chk): Ditto.
+	(fold_builtin_strcat_chk): Ditto.
+	(fold_builtin_strncat_chk): Ditto.
+	(fold_builtin_sprintf_chk_1): Ditto.
+	(fold_builtin_snprintf_chk_1): Ditto.
+	(fold_builtin_printf): Ditto.
+	(fold_builtin_fprintf): Ditto.
+	(fold_call_stmt): Ditto.
+	(set_builtin_user_assembler_name): Ditto.
+	* tree-emutls.c (emutls_common_1): Ditto.
+	* omp-low.c (scan_omp): Ditto.
+	(lower_rec_input_clauses): Ditto.
+	(lower_reduction_clauses): Ditto.
+	(expand_parallel_call): Ditto.
+	(expand_task_call): Ditto.
+	(maybe_catch_exception): Ditto.
+	(optimize_omp_library_calls): Ditto.
+	(expand_omp_for_generic): Ditto.
+	(expand_omp_for_static_nochunk): Ditto.
+	(expand_omp_for_static_chunk): Ditto.
+	(expand_omp_sections): Ditto.
+	(expand_omp_atomic_fetch_op): Ditto.
+	(expand_omp_atomic_pipeline): Ditto.
+	(expand_omp_atomic_mutex): Ditto.
+	(lower_omp_single_simple): Ditto.
+	(lower_omp_single_copy): Ditto.
+	(lower_omp_master): Ditto.
+	(lower_omp_ordered): Ditto.
+	(lower_omp_critical): Ditto.
+	* tree-ssa-ccp.c (optimize_stdarg_builtin): Ditto.
+	* builtins.c (DEF_BUILTIN_STUB): Ditto.
+	(BUILT_IN_NONE): Ditto.
+	* tree-ssa-math-opts.c (execute_optimize_bswap): Ditto.
+	* gimple-low.c (lower_function_body): Ditto.
+	(lower_builtin_setjmp): Ditto.
+	* c-decl.c (merge_decls): Ditto.
+	* tree-eh.c (lower_resx): Ditto.
+	(lower_resx): Ditto.
+	(lower_eh_dispatch): Ditto.
+	* function (gimplify_parameters): Ditto.
+	* c-typeck.c (build_function_call_vec): Ditto.
+	* gimplify.c (build_stack_save_restore): Ditto.
+	(gimplify_vla_decl): Ditto.
+	(gimplify_modify_expr_to_memcpy): Ditto.
+	(gimplify_modify_expr_to_memset): Ditto.
+	(gimplify_variable_sized_compare): Ditto.
+	(gimplify_function_tree): Ditto.
+	* calls.c (emit_call_1): Ditto.
+	* tree-ssa-forprop.c (simplify_builtin_call): Ditto.
+	* tree-nested.c (convert_nl_goto_reference): Ditto.
+	(convert_tramp_reference_op): Ditto.
+	(finalize_nesting_tree_1): Ditto.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
+	(tree_ssa_prefetch_arrays): Ditto.
+	* tree-streamer-in.c (streamer_get_builtin_tree): Ditto.
+	* system.h (built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Ditto.
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Ditto.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Ditto.
+	(ix86_veclibabi_svml): Ditto.
+	(ix86_veclibabi_acml): Ditto.
+	* config/vms/vms.c (vms_patch_builtins): Ditto.
+	* config/ia64/ia64.c (ia64_init_builtins): Ditto.
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Ditto.
+	(rs6000_builtin_vectorized_libmass): Ditto.
+	(rs6000_init_builtins): Ditto.
+	* config/darwin.c (darwin_override_options): Ditto.
+	(darwin_patch_builtin): Ditto.
+	(darwin_rename_builtins): Ditto.
+	* config/pa/pa.c (pa_init_builtins): Ditto.
+
+2011-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* tree.h (copy_ref_info): Expose existing function.
+	* tree-ssa-loop-ivopts.c (copy_ref_info): Move function to...
+	* tree-ssa-address.c (copy_ref_info): ...here, and remove static token.
+
+2011-10-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-protos.h (avr_mode_code_base_reg_class): New
+	prototype.
+	(avr_regno_mode_code_ok_for_base_p): New prototype.
+	* config/avr/avr.h (BASE_REG_CLASS): Remove.
+	(REGNO_OK_FOR_BASE_P): Remove.
+	(REG_OK_FOR_BASE_NOSTRICT_P): Remove.
+	(REG_OK_FOR_BASE_STRICT_P): Remove.
+	(MODE_CODE_BASE_REG_CLASS): New define.
+	(REGNO_MODE_CODE_OK_FOR_BASE_P): New define.
+	* config/avr/avr.c (avr_mode_code_base_reg_class): New function.
+	(avr_regno_mode_code_ok_for_base_p): New function.
+	(avr_reg_ok_for_addr_p): New static function.
+	(avr_legitimate_address_p): Use it.  Beautify.
+
+2011-10-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/50447
+	* config/avr/avr.md (cc): Add out_plus attribute alternative.
+	(addsi3): Use it.  Adapt avr_out_plus to new prototype.  Use
+	avr_out_plus for all CONST_INT addends.
+	* config/avr/avr-protos.h (avr_out_plus): Change prototype.
+	* config/avr/avr.c (notice_update_cc): Call avr_out_plus on
+	CC_OUT_PLUS.
+	(avr_out_plus_1): Change prototype and report effect on cc0.
+	(avr_out_plus): Ditto.
+	(adjust_insn_length): Adapt call to avr_out_plus to new prototype.
+
+2011-10-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_expand_special_args_builtin): Remove
+	the extra break.
+
+2011-10-11  Artjoms Sinkarovs  <artyom.shinkaroff@gmail.com>
+
+	* doc/invoke.texi: Document new warning.
+	* common.opt (Wvector-operation-performance): Define new warning.
+	* tree-vect-generic.c (expand_vector_piecewise): Warn about expanded
+	vector operation.
+	(exapnd_vector_parallel): Warn about expanded vector operation.
+	(lower_vec_shuffle): Warn about expanded vector operation.
+	* c-typeck.c (c_build_vec_perm_expr): Store correct location
+	when creating VEC_PERM_EXPR.
+
+2011-10-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50204
+	* tree-ssa-alias.c (get_continuation_for_phi_1): Split out
+	two argument handling from ...
+	(get_continuation_for_phi): ... here.  Handle arbitrary number
+	of PHI args.
+
+2011-10-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33067
+	* c-family/c-pretty-print.c (pp_c_floating_constant): Output
+	max_digits10 (in the ISO C++ WG N1822 sense) decimal digits.
+
+2011-10-11  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* modulo-sched.c: Fix comment typo.  Mention the possibility
+	of using scheduling windows of II+1 cycles.
+
+2011-10-11  Tristan Gingold  <gingold@adacore.com>
+
+	* doc/invoke.texi (C Dialect Options): Document
+	-fallow-parameterless-variadic-functions.
+	* c-parser.c (c_parser_parms_list_declarator): Handle it.
+
+2011-10-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_option_override): Set
+	flag_omit_frame_pointer to 0 if frame pointer is needed for unwinding.
+
+2011-10-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR bootstrap/50665
+	* optabs.h (DOI_vec_perm): Rename from OTI_vec_perm.  Move from enum
+	optab_index to enum direct_optab_index.
+	(vec_perm_optab): Update.
+
+2011-10-10  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/cris/cris.c (cris_preferred_reload_class): New function.
+	(TARGET_PREFERRED_RELOAD_CLASS): Define.
+	* config/cris/cris.h (PREFERRED_RELOAD_CLASS): Remove.
+
+2011-10-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (*tablejump_rjmp): Change insn condition to
+	!AVR_HAVE_JMP_CALL.
+	(*tablejump_lib): Change insn condition to AVR_HAVE_JMP_CALL.
+	(*tablejump_enh, *tablejump): Remove insns.
+	* config/avr/libgcc.S (__tablejump__): Use RET instead of EIND +
+	EIJMP for indirect jump.  Use LPM Z+ where available.
+
+2011-10-10  Richard Henderson  <rth@redhat.com>
+
+	* doc/md.texi (vec_perm_const): Fix typo in cindex.
+
+2011-10-10  Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Yakovlev Vladimir  <vladimir.b.yakovlev@intel.com>
+
+	* config/i386/sse.md (fma_fnmsub_<mode>): Fix a typo.
+
+2011-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/50389
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Do not
+	mark symbols for renaming.  Append the VUSE to all statements
+	that possibly can have one.
+
+2011-10-10  Richard Guenther  <rguenther@suse.de>
+
+	* ipa-split.c (pass_split_functions): Add verification TODOs.
+	(pass_feedback_split_functions): Likewise.
+
+2011-10-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/50195
+	* fold-const.c (fold_binary_loc): Canonicalize x*x to pow (x, 2)
+	only when optimizing.
+
+2011-10-10  Nick Clifton  <nickc@redhat.com>
+
+	PR middle-end/49801
+	* compare-elim.c (find_comparisons_in_bb): Use df_get_live_in and
+	df_get_live_out instead of accessing the bitmaps directly.
+	(execute_compare_elim_after_reload): Remove calls to df_set_flags,
+	df_live_add_problem and df_analyze.
 
 2011-10-10  Michael Matz  <matz@suse.de>
 
@@ -720,8 +995,7 @@
 	(get_sched_window): Adjust for above field and SCHED_* macro changes.
 	Use NODE_ASAP instead of SCHED_ASAP.
 	(try_scheduling_node_in_cycle): Remove node parameter.  Update
-	call to ps_add_node_check_conflicts.  Pass ids to the SCHED_*
-	macros.
+	call to ps_add_node_check_conflicts.  Pass ids to the SCHED_* macros.
 	(sms_schedule_by_order): Update call to try_scheduling_node_in_cycle.
 	(ps_insert_empty_row): Adjust for above field changes.
 	(compute_split_row): Use ids rather than nodes.
@@ -856,16 +1130,33 @@
 
 	PR middle-end/50527
 	* tree.c (build_common_builtin_nodes): Add local_define_builtin for
+	BUILT_IN_ALLOCA_WITH_ALIGN.  Mark that BUILT_IN_ALLOCA_WITH_ALIGN can
+	throw.
 	* builtins.c (expand_builtin_alloca): Handle BUILT_IN_ALLOCA_WITH_ALIGN
+	arglist.  Set align for	BUILT_IN_ALLOCA_WITH_ALIGN.
+	(expand_builtin): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
+	(is_inexpensive_builtin): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-ssa-ccp.c (evaluate_stmt): Set align for
+	BUILT_IN_ALLOCA_WITH_ALIGN.
+	(fold_builtin_alloca_for_var): Rename to ...
+	(fold_builtin_alloca_with_align): Set DECL_ALIGN from 2nd
+	BUILT_IN_ALLOCA_WITH_ALIGN argument.
+	(ccp_fold_stmt): Try folding BUILT_IN_ALLOCA_WITH_ALIGN using
+	fold_builtin_alloca_with_align.
+	(optimize_stack_restore): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* builtins.def (BUILT_IN_ALLOCA_WITH_ALIGN): Declare using
+	DEF_BUILTIN_STUB.
 	* ipa-pure-const.c (special_builtin_state): Handle
+	BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1)
+	(call_may_clobber_ref_p_1): Same.
 	* function.c (gimplify_parameters): Lower vla to
+	BUILT_IN_ALLOCA_WITH_ALIGN.
 	* gimplify.c (gimplify_vla_decl): Same.
 	* cfgexpand.c (expand_call_stmt): Handle BUILT_IN_ALLOCA_WITH_ALIGN.
 	* tree-mudflap.c (mf_xform_statements): Same.
 	* tree-ssa-dce.c (mark_stmt_if_obviously_necessary)
+	(mark_all_reaching_defs_necessary_1, propagate_necessity): Same.
 	* varasm.c (incorporeal_function_p): Same.
 	* tree-object-size.c (alloc_object_size): Same.
 	* gimple.c (gimple_build_call_from_tree): Same.
@@ -19036,8 +19327,6 @@
 
 2011-04-29  Jan Hubicka  <jh@suse.cz>
 
-	* gcc.dg/tree-ssa/inline-10.c: New testcase.
-	* gcc.dg/tree-ssa/inline-9.c: Disable partial inlining.
 	* ipa-inline.h (clause_t): Turn into unsigned int.
 	* ipa-inline-analysis.c (add_clause): Do more simplification.
 	(and_predicates): Shortcut more cases.
