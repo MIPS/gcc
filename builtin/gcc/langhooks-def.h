@@ -70,8 +70,8 @@ extern bool lhd_complain_wrong_lang_p (const struct cl_option *);
 extern bool lhd_handle_option (size_t, const char *, int, int, location_t,
 			       const struct cl_option_handlers *);
 extern tree lhd_callgraph_analyze_expr (tree *, int *);
-extern tree lhd_builtin_lazy_create (tree);
-
+extern tree lhd_builtin_lazy_create (tree, enum built_in_function,
+				     enum built_in_class);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, gimple_seq *, gimple_seq *);

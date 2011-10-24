@@ -1,3 +1,17 @@
+2011-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* decl.c (builtin_function_1): Deal with the pushdecl functions
+	possibly combining declarations, and returning a previous one
+	instead of the declaration we were given.
+	(cxx_builtin_function_ext_scope): Add name in std namespace before
+	the standard namespace for builtins that don't begin with '_'.
+	(grokdeclarator): If the identifier being declared refers to a
+	lazy builtin, create the builtin declaration before handling the
+	current declaration.
+
+	* cp-objcp-common.h (LANG_HOOKS_LAZY_BUILTIN_P): Disable lazy
+	builtins in C++ by default.
+
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* decl.c (builtin_function_1): Add support for putting the

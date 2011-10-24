@@ -1,3 +1,14 @@
+2011-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* c-common.c (lazy_builtin_fncode): Rewrite and move to tree.h.
+	(set_lazy_builtin_fncode): Ditto.
+	(c_common_add_builtin_function_lazy): Use new functions in tree.h
+	to encode function code and class.  Improve debugging.
+	(c_common_builtin_lazy_create): New signature.  Don't handle MD
+	builtins here.  Add gcc_unreachable for default case.
+
+	* c-common.h (c_common_builtin_lazy_create): Update signature.
+
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-common.c (c_common_add_builtin_function_lazy): Add more

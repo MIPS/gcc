@@ -1,3 +1,25 @@
+2011-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (struct tree_base): Add fields for encoding lazy builtin
+	functions in the identifier node.  Add inline functions to encode
+	and decode these values.
+	(BUILTIN_CLASS_BITS): Ditto.
+	(ADDRESS_SPACE_BITS): Ditto.
+	(LAZY_BUILTIN_BITS): Ditto.
+	(builtin_lazy_function_code): Ditto.
+	(builtin_lazy_function_class): Ditto.
+	(set_builtin_lazy_function_code): Ditto.
+
+	* langhooks.c (builtin_lazy_create): Move handling machine
+	dependent lazy builtins here.  Change calling signuature of the
+	builtin_lazy_create language hook.  Add tracing under
+	-flazy-builtin-debug.
+
+	* langhooks.h (struct lang_hooks): Change signature of
+	builtin_lazy_create hook.
+
+	* langhooks-def.h (lhd_builtin_lazy_create): Change signature.
+
 2011-10-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* c-decl.c (lookup_name): If we encounter a lazy builtin name,

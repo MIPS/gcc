@@ -3835,10 +3835,13 @@ builtin_function_1 (tree decl, tree context, bool is_global, bool is_std)
 
   DECL_CONTEXT (decl) = context;
 
+  /* Pushdecl_top_level and pushdecl_with_scope might merge the declaration
+     with an existing declaration, and return the existing declaration, instead
+     of the declaration we just created.  */
   if (is_std)
-    pushdecl_with_scope (decl, NAMESPACE_LEVEL (std_node), false);
+    decl = pushdecl_with_scope (decl, NAMESPACE_LEVEL (std_node), false);
   else if (is_global)
-    pushdecl_top_level (decl);
+    decl = pushdecl_top_level (decl);
   else
     pushdecl (decl);
 
@@ -3890,7 +3893,6 @@ cxx_builtin_function_ext_scope (tree decl)
 {
 
   tree          id = DECL_NAME (decl);
-  tree	     decl2;
   const char *name = IDENTIFIER_POINTER (id);
 
   if (flag_lazy_builtin_debug)
@@ -3904,14 +3906,12 @@ cxx_builtin_function_ext_scope (tree decl)
 	      ? built_in_names[(int)DECL_FUNCTION_CODE (decl)]
 	      : "---"));
 
-  decl2 = builtin_function_1 (decl, std_node, true, false);
-
   /* All builtins that don't begin with an '_' should additionally
      go in the 'std' namespace.  */
   if (name[0] != '_')
     builtin_function_1 (copy_node (decl), std_node, true, true);
 
-  return decl2;
+  return builtin_function_1 (decl, std_node, true, false);
 }
 
 /* Generate a FUNCTION_DECL with the typical flags for a runtime library
@@ -3921,6 +3921,7 @@ static tree
 build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
 {
   tree fn = build_lang_decl (FUNCTION_DECL, name, type);
+
   DECL_EXTERNAL (fn) = 1;
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
@@ -8535,7 +8536,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 
   /* If this identifier is a lazy builtin whose function type has not yet been
-     created, create it now before doing the lookup.  */
+     created, create it now before adding the declaration.  */
   if (name)
     {
       tree tname = get_identifier (name);
@@ -12508,6 +12509,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   tree ctype = NULL_TREE;
   tree fntype;
   tree restype;
+  tree name;
   int doing_friend = 0;
   cp_binding_level *bl;
   tree current_function_parms;
@@ -12518,6 +12520,18 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* Sanity check.  */
   gcc_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE);
   gcc_assert (TREE_CHAIN (void_list_node) == NULL_TREE);
+
+  /* If function name is a lazy builtin whose function type has not yet been
+     created, create it now before compiling the current function.  */
+  name = DECL_NAME (decl1);
+  if (name && IDENTIFIER_LAZY_BUILTIN_P (name))
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---start_preparsed_function (%s)\n",
+		 IDENTIFIER_POINTER (name));
+
+      (void) builtin_lazy_create (name);
+    }
 
   fntype = TREE_TYPE (decl1);
   if (TREE_CODE (fntype) == METHOD_TYPE)

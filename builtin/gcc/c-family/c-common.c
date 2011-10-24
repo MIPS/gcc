@@ -4621,31 +4621,6 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
     mudflap_init ();
 }
 
-/* Mark that this is a MD builtin instead of a standard one.  */
-#define LAZY_BUILTIN_MD (1u << BUILTIN_FNCODE_BITS)
-
-/* We encode the function id in two parts, using the 8 bit address_space field
-   in the tree_base type, and the 8 bit rid_code field in the cpp_hashtype
-   structure that is used to identify keywords.  */
-
-static inline unsigned
-lazy_builtin_fncode (tree node)
-{
-  return ((((IDENTIFIER_NODE_CHECK (node)->base.address_space)) << 8)
-	  | (C_RID_CODE (node) & 0xff));
-}
-
-static inline void
-set_lazy_builtin_fncode (tree node, unsigned value)
-{
-  IDENTIFIER_NODE_CHECK (node)->base.address_space = value >> 8;
-  C_SET_RID_CODE (node, value & 0xff);
-
-  /* Make sure the address_space and rid_code fields didn't change sizes and we
-     don't get the same value back.  */
-  gcc_checking_assert (value == lazy_builtin_fncode (node));
-}
-
 /* Create builtins in a lazy fashion if the front end supports it, otherwise
    create the builtin function immediately.  This hook must have the same
    calling sequence as add_builtin_function.  */
@@ -4654,8 +4629,6 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 				    int function_code, enum built_in_class cl,
 				    const char *library_name, tree attrs)
 {
-  unsigned fncode_and_cl;
-  unsigned cl_mask = 0;
   tree id;
   bool lazy_p;
 
@@ -4736,10 +4709,7 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
     }
 
   else if (cl == BUILT_IN_MD)
-    {
-      cl_mask = LAZY_BUILTIN_MD;
-      lazy_p = true;
-    }
+    lazy_p = true;
 
   else
     lazy_p = false;
@@ -4764,13 +4734,19 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
      declaration.  */
   id = get_identifier (name);
   IDENTIFIER_LAZY_BUILTIN_P (id) = 1;
-  gcc_assert (lazy_builtin_fncode (id) == 0);
+  gcc_assert (builtin_lazy_function_code (id) == 0);
 
-  fncode_and_cl = ((unsigned) function_code) | cl_mask;
-  set_lazy_builtin_fncode (id, fncode_and_cl);
+  set_builtin_lazy_function_code (id, function_code, cl);
 
   if (flag_lazy_builtin_debug)
-    fprintf (stderr, "---lazy_name (%s, 0x%x)\n", name, fncode_and_cl);
+    {
+      if (cl != BUILT_IN_NORMAL)
+	fprintf (stderr, "---lazy_name (%s, %s, %u)\n", name,
+		 built_in_class_names[(int)cl], function_code);
+      else
+	fprintf (stderr, "---lazy_name (%s, BUILT_IN_NORMAL, %u [%s]\n", name,
+		 function_code, built_in_names[function_code]);
+    }
 
   return id;
 }
@@ -4778,16 +4754,17 @@ c_common_add_builtin_function_lazy (const char *name, tree type,
 /* Language hook to create lazy builtin with identifier IDENT, and optionally
    add it to the front end's symbol table.  */
 tree
-c_common_builtin_lazy_create (tree id)
+c_common_builtin_lazy_create (tree id,
+			      enum built_in_function fncode,
+			      enum built_in_class cl)
 {
-  unsigned uns_fncode;
-  enum built_in_function fncode;
   enum built_in_class bclass = NOT_BUILT_IN;
   const char *main_name = NULL;
   const char *name = IDENTIFIER_POINTER (id);
   const char *lib_name = NULL;
   enum c_builtin_type fntype = BT_LAST;
   enum built_in_attribute attrs = ATTR_LAST;
+  unsigned uns_fncode = (unsigned)fncode;
   bool implicit_p = false;
   bool fallback_p = false;
   tree decl, id2, lib_decl;
@@ -4795,27 +4772,10 @@ c_common_builtin_lazy_create (tree id)
   tree fnattr_tree;
 
   gcc_checking_assert (IDENTIFIER_LAZY_BUILTIN_P (id));
-
-  uns_fncode = lazy_builtin_fncode (id);
-  fncode = (enum built_in_function)uns_fncode;
-
-  /* If this is a machine dependent builtin, let the backend create it.  */
-  if ((uns_fncode & LAZY_BUILTIN_MD) != 0)
-    {
-      if (flag_lazy_builtin_debug)
-	fprintf (stderr,
-		 "---lazy_create_md (%s, %ld)\n",
-		 IDENTIFIER_POINTER (id),
-		 (long)(uns_fncode & ~LAZY_BUILTIN_MD));
-
-      return targetm.builtin_decl (uns_fncode & ~LAZY_BUILTIN_MD, true);
-    }
+  gcc_checking_assert (cl == BUILT_IN_NORMAL);
 
   switch (fncode)
     {
-    default:
-      break;
-
 #define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, FALLBACK_P, \
 		    NONANSI_P, ATTRS, IMPLICIT, COND)			\
     case ENUM:								\
@@ -4832,6 +4792,9 @@ c_common_builtin_lazy_create (tree id)
 
 #include "builtins.def"
 #undef DEF_BUILTIN
+
+    default:
+      gcc_unreachable ();
     }
 
   if (bclass == NOT_BUILT_IN)

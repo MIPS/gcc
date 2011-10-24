@@ -662,11 +662,40 @@ lhd_end_section (void)
 tree
 builtin_lazy_create (tree ident)
 {
-  return lang_hooks.builtin_lazy_create (ident);
+  enum built_in_class bclass = builtin_lazy_function_class (ident);
+  unsigned fncode = builtin_lazy_function_code (ident);
+
+  if (bclass == BUILT_IN_NORMAL || bclass == BUILT_IN_FRONTEND)
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---builtin_lazy_create (%s, %s, %u [%s]\n",
+		 IDENTIFIER_POINTER (ident),
+		 built_in_class_names[ (int)bclass ],
+		 fncode,
+		 built_in_names[fncode]);
+
+      return lang_hooks.builtin_lazy_create (ident,
+					     (enum built_in_function)fncode,
+					     bclass);
+    }
+
+  else if (bclass == BUILT_IN_MD)
+    {
+      if (flag_lazy_builtin_debug)
+	fprintf (stderr, "---builtin_lazy_create (%s, BUILT_IN_MD, %u\n",
+		 IDENTIFIER_POINTER (ident), fncode);
+
+      return targetm.builtin_decl (fncode, true);
+    }
+
+  else
+    gcc_unreachable ();
 }
 
 tree
-lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED)
+lhd_builtin_lazy_create (tree ident ATTRIBUTE_UNUSED,
+			 enum built_in_function fncode ATTRIBUTE_UNUSED,
+			 enum built_in_class cl ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

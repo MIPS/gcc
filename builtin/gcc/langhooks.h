@@ -457,9 +457,10 @@ struct lang_hooks
      calling sequence as add_builtin_function.  */
   add_builtin_function_type *add_builtin_function_lazy;
 
-  /* Call the language hook to create lazy builtin with identifier IDENT, and
-     optionally add it to the front end's symbol table.  */
-  tree (*builtin_lazy_create) (tree ident);
+  /* Call the language hook to create a standard or front end lazy builtin with
+     identifier IDENT.  Machine builtins are handled via the targetm hook.  */
+  tree (*builtin_lazy_create) (tree ident, enum built_in_function,
+			       enum built_in_class);
 
   /* Used to set up the tree_contains_structure array for a frontend. */
   void (*init_ts) (void);

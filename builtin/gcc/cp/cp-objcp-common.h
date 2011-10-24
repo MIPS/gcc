@@ -102,7 +102,7 @@ extern void cp_common_init_ts (void);
 /* There are still some bugs to be worked out with C++ scoping and lazy
    builtins, so for now disable lazy builtins by default.  */
 #undef	LANG_HOOKS_LAZY_BUILTIN_P
-#define	LANG_HOOKS_LAZY_BUILTIN_P false		/* true */
+#define	LANG_HOOKS_LAZY_BUILTIN_P false /* true */
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

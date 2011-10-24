@@ -281,6 +281,9 @@ enum built_in_class
    to the enum since we need the enumb to fit in 2 bits.  */
 #define BUILT_IN_LAST (BUILT_IN_NORMAL + 1)
 
+/* Number of bits to hold a built_in_class enum.  */
+#define BUILTIN_CLASS_BITS 2
+
 /* Names for the above.  */
 extern const char *const built_in_class_names[4];
 
@@ -465,12 +468,25 @@ struct GTY(()) tree_base {
   unsigned user_align : 1;
   unsigned nameless_flag : 1;
 
-  unsigned spare : 12;
+  unsigned spare : 4;
 
-  /* This field is only used with type nodes; the only reason it is present
-     in tree_base instead of tree_type is to save space.  The size of the
-     field must be large enough to hold addr_space_t values.  */
-  unsigned address_space : 8;
+  /* Encode high part of lazy builtin function index for identifier node.  This
+     field could modified, and the encoding scheme for lazy builtins changed to
+     use discrete bits if we need more bits.  */
+
+#define LAZY_BUILTIN_BITS (8 - BUILTIN_CLASS_BITS)
+
+  ENUM_BITFIELD(built_in_class) built_in_class : BUILTIN_CLASS_BITS;
+  unsigned lazy_builtin : LAZY_BUILTIN_BITS;
+
+#define ADDRESS_SPACE_BITS 8
+
+  /* This field is only used with type nodes; the only reason it is present in
+     tree_base instead of tree_type is to save space.  The size of the field
+     must be large enough to hold addr_space_t values.  The lazy builtin
+     function encoding also uses this field only in identifier nodes for the
+     low part of the builtin function index.  */
+  unsigned address_space : ADDRESS_SPACE_BITS;
 };
 
 struct GTY(()) tree_typed {
@@ -3492,9 +3508,8 @@ extern VEC(tree, gc) **decl_debug_args_insert (tree);
 #define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
 
-/* Number of bits used to hold the builtin function index and the class.  */
+/* Number of bits used to hold the builtin function index.  */
 #define BUILTIN_FNCODE_BITS 11
-#define BUILTIN_CLASS_BITS 2
 
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
@@ -5954,7 +5969,8 @@ typedef struct GTY(()) builtin_info_type_d {
 
 extern GTY(()) builtin_info_type builtin_info;
 
-/* Call front end or back end hook to create lazy builtin.  */
+/* Call front end for standard builtins or back end hook for machine dependent
+   builtins that are created on demand..  */
 extern tree builtin_lazy_create (tree);
 
 /* Valid builtin number.  */
@@ -6043,6 +6059,43 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
+}
+
+/* Return the function code of a lazy builtin encoded in the identifier node in
+   two parts, using 2 bits for the class, and the 6 bit lazy_builtin and
+   address_space fields in the tree_base type.  */
+
+static inline unsigned
+builtin_lazy_function_code (tree node)
+{
+  tree lnode = IDENTIFIER_NODE_CHECK (node);
+  return (((lnode->base.lazy_builtin) << ADDRESS_SPACE_BITS)
+	  | (lnode->base.address_space));
+}
+
+/* Return the builtin class for a lazy builtin.  */
+
+static inline enum built_in_class
+builtin_lazy_function_class (tree node)
+{
+  return (enum built_in_class) IDENTIFIER_NODE_CHECK (node)->base.built_in_class;
+}
+
+/* Encode function id and builtin class in an identifier node.  */
+
+static inline void
+set_builtin_lazy_function_code (tree node, unsigned value,
+				enum built_in_class bclass)
+{
+  tree inode = IDENTIFIER_NODE_CHECK (node);
+  inode->base.lazy_builtin = value >> ADDRESS_SPACE_BITS;
+  inode->base.address_space = (value & ((1u << ADDRESS_SPACE_BITS) - 1));
+  inode->base.built_in_class = bclass;
+
+  /* Make sure the address_space and rid_code fields didn't change sizes and we
+     don't get the same value back.  */
+  gcc_checking_assert (value == builtin_lazy_function_code (node));
+  gcc_checking_assert ((int)bclass == (int)builtin_lazy_function_class (node));
 }
 
 #endif  /* GCC_TREE_H  */
