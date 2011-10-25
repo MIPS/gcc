@@ -1,9 +1,54 @@
+2011-10-21  Mike Stump  <mikestump@comcast.net>
+
+	* reload.c (regno_clobbered_p): Fix typo.
+
+2011-10-24  Dodji Seketeli  <dodji@redhat.com>
+
+	* input.c (expand_location): Rewrite using
+	linemap_resolve_location and linemap_expand_location.  Add a
+	comment.
+
+2011-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50596
+	* tree-vect-stmts.c (vect_mark_relevant): Only use
+	FOR_EACH_IMM_USE_FAST if lhs is SSA_NAME.
+	(vectorizable_store): If is_pattern_stmt_p look through
+	VIEW_CONVERT_EXPR on lhs.
+	* tree-vect-patterns.c (check_bool_pattern, adjust_bool_pattern):
+	Use unsigned type instead of signed.
+	(vect_recog_bool_pattern): Optimize also stores into bool memory in
+	addition to casts from bool to integral types.
+	(vect_mark_pattern_stmts): If pattern_stmt already has vinfo
+	created, don't create it again.
+
+2011-10-25  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/i386.c (ix86_frame_pointer_required): Require
+	frame-pointer, if setjmp is used for 32-bit ms-abi.
+
 2011-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* builtins.c (set_builtin_user_assembler_name): Remove extra
 	newline added in October 11th, 2011 change.
 
 2011-10-24  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/little-endian.opt: Delete.
+	* config.gcc: Remove references to config/sparc/little-endian.opt
+	* doc/invoke.texi: Remove documentation of -mlittl-endian on sparc.
+	* config/sparc/linux64.h: Delete references to -mlittle-endian.
+	* config/sparc/netbsd-elf.h: Likewise.
+	* config/sparc/openbsd64.h: Likewise.
+	* config/sparc/sparc.h: Likewise.
+	* config/sparc/sp64-elf.h: Likewise and delete overrides for
+	BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN.
+	* config/sparc/sparc.c (dump_target_flag_bits): Remove reference
+	to MASK_LITTLE_ENDIAN.
+	* config/sparc/sparc.opt (Mask(LITTLE_ENDIAN)): Delete.
+
+	* config/sparc/sparc.md: Only use F, G, and C constraints in FP
+	insns.  Only use D, Y, and Z constraints in vector insns.
 
 	* config/sparc/sparc.md (cpu_feature, enabled): New attributes.
 	(*movsi_insn_novis3, *movsi_insn_vis3): Consolidate into one pattern
