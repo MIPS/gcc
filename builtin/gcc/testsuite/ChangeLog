@@ -1,3 +1,65 @@
+2011-10-26  Tom de Vries <tom@codesourcery.com>
+
+	* gcc.c-torture/unsorted/HIcmp.c: Fix unaligned pointer.
+	* gcc.c-torture/unsorted/HIset.c: Same.
+	* gcc.c-torture/unsorted/SIcmp.c: Same.
+	* gcc.c-torture/unsorted/SIset.c: Same.
+	* gcc.c-torture/unsorted/SFset.c: Same.
+	* gcc.c-torture/unsorted/UHIcmp.c: Same.
+	* gcc.c-torture/unsorted/USIcmp.c: Same.
+	* gcc.c-torture/unsorted/DFcmp.c: Same.
+
+2011-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx2-i32gatherd-1.c: Adjust scan-assembler regex
+	to work also with -masm=intel and additionally test the xmm vs. ymm
+	register type combination on mask/dest and in vsib.
+	* gcc.target/i386/avx2-i32gatherd256-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherd256-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherd-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherpd-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherpd256-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherpd256-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherpd-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherps-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherps256-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherps256-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherps-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherq-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherq256-1.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherq256-3.c: Likewise.
+	* gcc.target/i386/avx2-i32gatherq-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherd-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherd256-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherd256-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherd-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherpd-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherpd256-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherpd256-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherpd-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherps-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherps256-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherps256-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherps-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherq-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherq256-1.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherq256-3.c: Likewise.
+	* gcc.target/i386/avx2-i64gatherq-3.c: Likewise.
+
+2011-10-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/50763
+	* gcc.dg/pr50763-2.c: New test.
+
+2011-10-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/format/ms_c90-printf-1.c, gcc.dg/format/ms_c90-scanf-1.c:
+	Update expected messages.
+
+2011-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/slp-multitypes-2.c: Do not XFAIL on SPARC 32-bit.
+
 2011-10-25  Jason Merrill  <jason@redhat.com>
 
 	PR c++/50866

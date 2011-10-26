@@ -1,8 +1,198 @@
-2011-10-21  Mike Stump  <mikestump@comcast.net>
+2011-10-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* reload.c (reload_inner_reg_of_subreg): Change type of return value
+	and type of OUTPUT parameter to bool and adjust.  Document MODE and
+	OUTPUT parameters.  Use HARD_REGISTER_P.  Reorder final condition
+	and improve associated comment.
+	(push_reload): Clarify and update comments about reloading of subregs.
+	Adjust calls to reload_inner_reg_of_subreg.  Compute the class upfront
+	for the reloading of subregs in the out case as well.
+
+2011-10-26  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/50826
+	* var-tracking.c (rtx_debug_expr_p): New.
+	(use_type): Don't use debug exprs to track non-VTA variables.
+
+2011-10-26  Jeff Law  <law@redhat.com>
+
+	* doc/invoke.texi (sink-frequency-threshold): Document.
+	* tree-ssa-sink.c: Include params.h.
+	(select_best_block): New function.
+	(statement_sink_location): Use it.
+	* params.def (SINK_FREQUENCY_THRESHOLD): New PARAM.
+
+2011-10-26  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/48108
+	* config/darwin.c (top level): Amend comments concerning LTO output.
+	(lto_section_num): New variable.  (darwin_lto_section_e): New GTY.
+	(LTO_SECTS_SECTION, LTO_INDEX_SECTION): New.
+	(LTO_NAMES_SECTION): Rename.
+	(darwin_asm_named_section): Record LTO section counts and switches
+	in a vec of darwin_lto_section_e.
+	(darwin_file_start): Remove unused code.
+	(darwin_file_end): Put an LTO section termination label.  Handle
+	output of the wrapped LTO sections, index and names table.
+
+2011-10-26  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_make_savres_rtx): Delete unneeded
+	declaration.
+	(rs6000_emit_stack_reset): Only return insn emitted when it adjusts sp.
+	(rs6000_make_savres_rtx): Rename to rs6000_emit_savres_rtx.  Use
+	simple_return in pattern, emit instruction, and set jump_label.
+	(rs6000_emit_prologue): Update for rs6000_emit_savres_rtx.  Use
+	simple_return rather than return.
+	(emit_cfa_restores): New function.
+	(rs6000_emit_epilogue): Emit cfa_restores when flag_shrink_wrap.
+	Add missing cfa_restores for SAVE_WORLD.  Add missing LR cfa_restore
+	when using out-of-line gpr restore.  Add missing LR and FP regs
+	cfa_restores for out-of-line fpr restore.  Consolidate code setting
+	up cfa_restores.  Formatting.  Use LR_REGNO define.
+	(rs6000_output_mi_thunk): Use simple_return rather than return.
+	* config/rs6000/rs6000.md (sibcall*, sibcall_value*): Likewise.
+	(return_internal*): Likewise.
+	(any_return, return_pred, return_str): New iterators.
+	(return, conditional return insns): Provide both return and
+	simple_return variants.
+	* config/rs6000/rs6000.h (EARLY_R12, LATE_R12): Define.
+	(REG_ALLOC_ORDER): Move r12 before call-saved regs when FIXED_R13.
+	Move r11 and r0 later to suit shrink-wrapping.
+
+2011-10-26  Richard Guenther  <rguenther@suse.de>
+
+	* lto-wrapper.c (run_gcc): Properly init/free obstack.
+
+2011-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (UNSPEC_VSIBADDR): New.
+	* config/i386/predicates.md (vsib_address_operand,
+	vsib_mem_operator): New predicates.
+	* config/i386/i386.c (ix86_print_operand_address): Handle
+	UNSPEC_VSIBADDR addresses.
+	* config/i386/sse.md (avx2_gathersi<mode>, avx2_gatherdi<mode>,
+	avx2_gatherdi<mode>256): Adjust expanders to use MEM with
+	UNSPEC_VSIBADDR address.
+	(*avx2_gathersi<mode>, *avx2_gatherdi<mode>, *avx2_gatherdi<mode>256):
+	Adjust insns to use MEM with UNSPEC_VSIBADDR address.
+
+2011-10-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/50763
+	* tree-ssa-tail-merge.c (replace_block_by): Update vops if phi_vuse1 or
+	phi_vuse2 is NULL_TREE only if bb1 dominates or is dominated by bb2.
+
+2011-10-26  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41844
+	* Makefile.in (lto-wrapper): Depend on and link against
+	opts-common.o.
+	(lto-wrapper.o): Depend on $(OPTS_H) and $(OPTIONS_H).
+	* lto-wrapper.c (get_options_from_collect_gcc_options): New function.
+	(run_gcc): Use it.  Filter out language specific options.
+
+2011-10-26  Andreas Tobler  <andreast@fgznet.ch>
+
+	* config/i386/freebsd64.h (LINK_SPEC): Emit the same warning as the
+	32-bit target does.
+
+2011-10-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR driver/46617
+	* gcc.c (main): Fix fatal_error string for translation.
+
+2011-10-25  Ian Lance Taylor  <iant@google.com>
+
+	* tree-eh.c (do_return_redirection): Remove return_value_p
+	parameter.  Change all callers.
+	(lower_try_finally_nofallthru): Remove local return_val.
+	(lower_try_finally_onedest): Likewise.
+	(lower_try_finally_copy): Likewise.
+	(lower_try_finally_switch): Likewise.
+
+2011-10-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/mmx.md (*mmx_maskmovq): Replace :SI with :P and
+	remove "&& !TARGET_64BIT"
+	(*mmx_maskmovq_rex): Removed.
+
+2011-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/46603
+	* reload.c (push_reload): In the out case, reload the subreg as well
+	as the reg if it has word mode.
+
+2011-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (add_gnat_descriptive_type_attribute): Temporarily
+	suppress debug info for the parent type.
+
+2011-10-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (ia64_profile_hook): Fix thinko.
+
+2011-10-25  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/sse.md (VEC_EXTRACT_EVENODD_MODE): Remove.
+	(vec_extract_even<mode>, vec_extract_odd<mode>): Remove.
+
+	* config/rs6000/altivec.md (vec_extract_evenv8hi,
+	vec_extract_evenv16qi, vec_extract_oddv4si,
+	vec_extract_oddv4sf): Remove.
+
+	* config/spu/spu.md (vec_extract_evenv4si, vec_extract_evenv4sf,
+	vec_extract_evenv8hi, vec_extract_evenv16qi, vec_extract_oddv4si,
+	vec_extract_oddv4sf, vec_extract_oddv8hi, vec_extract_oddv16qi,
+	vec_interleave_highv4sf, vec_interleave_lowv4sf,
+	vec_interleave_highv4si, vec_interleave_lowv4si,
+	vec_interleave_highv8hi, vec_interleave_lowv8hi,
+	vec_interleave_highv16qi, vec_interleave_lowv16qi): Remove.
+
+	* expr.c (expand_expr_real_2) [VEC_EXTRACT_EVEN_EXPR]: Use binop.
+	[VEC_EXTRACT_ODD_EXPR, VEC_INTERLEAVE_HIGH_EXPR]: Likewise.
+	[VEC_INTERLEAVE_LOW_EXPR]: Likewise.
+	* optabs.c (expand_binop): Implement vec_interleave_high_optab,
+	vec_interleave_low_optab, vec_extract_even_optab,
+	vec_extract_odd_optab with expand_vec_perm.
+	(can_vec_perm_for_code_p): New.
+	* optabs.h: Update.
+	* tree-vect-data-refs.c (vect_strided_store_supported): Allow for
+	fallback via can_vec_perm_for_code_p.
+	(vect_strided_load_supported): Likewise.
+	* tree-vect-generic.c (expand_vector_operations_1): Never lower
+	VEC_INTERLEAVE_HIGH_EXPR, VEC_INTERLEAVE_LOW_EXPR,
+	VEC_EXTRACT_EVEN_EXPR, VEC_EXTRACT_ODD_EXPR.
+
+	* target.def (vec_perm_const_ok): Change parameters to mode and
+	array of indicies.
+	* doc/tm.texi: Rebuild.
+	* config/i386/i386.c (ix86_vectorize_vec_perm_const_ok): Change
+	parameters to mode and array of indicies.
+	* expr.c (expand_expr_real_2) [VEC_PERM_EXPR]: Expand operands here.
+	* optabs.c (can_vec_perm_p): Rename from can_vec_perm_expr_p.
+	Change parameters to mode and array of indicies.
+	(expand_vec_perm_1): Rename from expand_vec_perm_expr_1.
+	(expand_vec_perm): Rename from expand_vec_perm_expr.  Change
+	parameters to mode and rtx inputs.  Try lowering to QImode
+	vec_perm_const before trying fully variable permutation.
+	* optabs.h: Update decls.
+	* tree-vect-generic.c (lower_vec_perm): Extract array of indices from
+	VECTOR_CST to pass to can_vec_perm_p.
+	* tree-vect-slp.c (vect_get_mask_element): Change mask parameter type
+	from int pointer to unsigned char pointer.
+	(vect_transform_slp_perm_load): Update for change to can_vec_perm_p.
+	* tree-vect-stmts.c (perm_mask_for_reverse): Likewise.
+
+	* tree.def (VEC_EXTRACT_EVEN_EXPR): Fix typo in text name.
+	(VEC_EXTRACT_ODD_EXPR, VEC_INTERLEAVE_HIGH_EXPR,
+	VEC_INTERLEAVE_LOW_EXPR): Likewise.
+
+2011-10-25  Mike Stump  <mikestump@comcast.net>
 
 	* reload.c (regno_clobbered_p): Fix typo.
 
-2011-10-24  Dodji Seketeli  <dodji@redhat.com>
+2011-10-25  Dodji Seketeli  <dodji@redhat.com>
 
 	* input.c (expand_location): Rewrite using
 	linemap_resolve_location and linemap_expand_location.  Add a
