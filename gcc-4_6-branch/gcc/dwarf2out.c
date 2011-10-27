@@ -15685,7 +15685,8 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 	 legitimate to make the Dwarf info refer to the whole register which
 	 contains the given subreg.  */
       if (REG_P (SUBREG_REG (rtl)) && subreg_lowpart_p (rtl))
-	loc_result = loc_descriptor (SUBREG_REG (rtl), mode, initialized);
+	loc_result = loc_descriptor (SUBREG_REG (rtl),
+				     GET_MODE (SUBREG_REG (rtl)), initialized);
       else
 	goto do_default;
       break;
@@ -23414,7 +23415,8 @@ dwarf2out_source_line (unsigned int line, const char *filename,
 	      fprintf (asm_out_file, " is_stmt %d", is_stmt ? 1 : 0);
 	      last_is_stmt = is_stmt;
 	    }
-	  if (SUPPORTS_DISCRIMINATOR && discriminator != 0)
+	  if (SUPPORTS_DISCRIMINATOR && discriminator != 0
+	      && (dwarf_version >= 4 || !dwarf_strict))
 	    fprintf (asm_out_file, " discriminator %d", discriminator);
 	  fputc ('\n', asm_out_file);
 
