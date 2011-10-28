@@ -4,6 +4,7 @@
 // { dg-options " -std=gnu++0x " { target *-*-cygwin *-*-darwin* } }
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
+// { dg-require-sched-yield "" }
  
 // Copyright (C) 2011 Free Software Foundation, Inc.
 //
@@ -40,8 +41,8 @@ int main()
 
   std::mutex                  m;
   std::condition_variable_any cond;
-  unsigned int                product=0;
-  const unsigned int          count=10;
+  unsigned int                product = 0;
+  const unsigned int          count = 10;
 
   // writing to stream causes timing changes which makes deadlock easier
   // to reproduce - do not remove
@@ -49,27 +50,31 @@ int main()
 
   // create consumers
   std::array<scoped_thread, 2> threads;
-  for(size_t i=0; i<threads.size(); ++i)
-    threads[i].t = std::thread( [&] {
-	  for(unsigned int i=0; i<count; ++i)
-	  {
-	    std::this_thread::yield();
-	    Lock lock(m);
-	    while(product==0)
-	      cond.wait(lock);
-	    out << "got product " << std::this_thread::get_id() << ' ' << product << std::endl;
-	    --product;
-	  }
-	} );
+  for (std::size_t i = 0; i < threads.size(); ++i)
+    threads[i].t
+      = std::thread( [&]
+		     {
+		       for (unsigned int i = 0; i < count; ++i)
+			 {
+			   std::this_thread::yield();
+			   Lock lock(m);
+			   while(product == 0)
+			     cond.wait(lock);
+			   out << "got product "
+			       << std::this_thread::get_id()
+			       << ' ' << product << std::endl;
+			   --product;
+			 }
+		     } );
 
   // single producer
-  for(size_t i=0; i<threads.size()*count; ++i)
-  {
-    std::this_thread::yield();
-    Lock lock(m);
-    ++product;
-    out << "setting product " << std::this_thread::get_id() << ' ' << product << std::endl;
-    cond.notify_one();
-  }
-
+  for (std::size_t i = 0; i < threads.size() * count; ++i)
+    {
+      std::this_thread::yield();
+      Lock lock(m);
+      ++product;
+      out << "setting product " << std::this_thread::get_id()
+	  << ' ' << product << std::endl;
+      cond.notify_one();
+    }
 }

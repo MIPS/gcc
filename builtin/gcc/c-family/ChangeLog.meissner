@@ -1,5 +1,9 @@
 2011-10-28  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 180628.
+
+2011-10-28  Michael Meissner  <meissner@the-meissners.org>
+
 	* c-lex.c (c_lex_with_flags): Add #if 0 code to create builtin
 	function as soon as the lazy builtin function is parsed.
 

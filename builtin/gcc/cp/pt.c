@@ -13741,14 +13741,12 @@ tsubst_copy_and_build (tree t,
 	else if (TREE_CODE (member) == SCOPE_REF
 		 && TREE_CODE (TREE_OPERAND (member, 1)) == TEMPLATE_ID_EXPR)
 	  {
-	    tree tmpl;
-	    tree args;
-
 	    /* Lookup the template functions now that we know what the
 	       scope is.  */
-	    tmpl = TREE_OPERAND (TREE_OPERAND (member, 1), 0);
-	    args = TREE_OPERAND (TREE_OPERAND (member, 1), 1);
-	    member = lookup_qualified_name (TREE_OPERAND (member, 0), tmpl,
+	    tree scope = TREE_OPERAND (member, 0);
+	    tree tmpl = TREE_OPERAND (TREE_OPERAND (member, 1), 0);
+	    tree args = TREE_OPERAND (TREE_OPERAND (member, 1), 1);
+	    member = lookup_qualified_name (scope, tmpl,
 					    /*is_type_p=*/false,
 					    /*complain=*/false);
 	    if (BASELINK_P (member))
@@ -13762,7 +13760,7 @@ tsubst_copy_and_build (tree t,
 	      }
 	    else
 	      {
-		qualified_name_lookup_error (object_type, tmpl, member,
+		qualified_name_lookup_error (scope, tmpl, member,
 					     input_location);
 		return error_mark_node;
 	      }
@@ -15717,7 +15715,7 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
         }
       else
 	{
-	  tree bad_old_arg, bad_new_arg;
+	  tree bad_old_arg = NULL_TREE, bad_new_arg = NULL_TREE;
 	  tree old_args = ARGUMENT_PACK_ARGS (old_pack);
 
 	  if (!comp_template_args_with_info (old_args, new_args,
