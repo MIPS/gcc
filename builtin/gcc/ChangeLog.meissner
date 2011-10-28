@@ -1,3 +1,8 @@
+2011-10-28  Michael Meissner  <meissner@the-meissners.org>
+
+	* c-decl.c (c_builtin_function): Change debug prints.
+	(c_builtin_function_ext_scope): Ditto.
+
 2011-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 180534.

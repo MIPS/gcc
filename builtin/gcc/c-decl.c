@@ -3615,7 +3615,7 @@ c_builtin_function (tree decl)
     fprintf (stderr,
 	     "---c_builtin_function (%s, decl=%p, %s, fncode=%d [%s], "
 	     "implicit=%s, proto=%s)\n",
-	     IDENTIFIER_POINTER (id),
+	     name,
 	     (void *)decl,
 	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
 	     (int)DECL_FUNCTION_CODE (decl),
@@ -3655,7 +3655,7 @@ c_builtin_function_ext_scope (tree decl)
     fprintf (stderr,
 	     "---c_builtin_function_ext_scope (%s, decl=%p, %s, "
 	     "fncode=%d [%s], implicit=%s, proto=%s%s%s)\n",
-	     IDENTIFIER_POINTER (id),
+	     name,
 	     (void *)decl,
 	     built_in_class_names[(int) DECL_BUILT_IN_CLASS (decl)],
 	     (int)DECL_FUNCTION_CODE (decl),

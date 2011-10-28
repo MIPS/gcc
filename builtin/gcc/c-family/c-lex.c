@@ -310,6 +310,19 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
     case CPP_NAME:
       *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+
+      /* If the identifier is bound as a lazy builtin, create the builtin the
+	 first time the identifier is used.  There might be some false hits if
+	 the identifier is used as a structure field or tag, but those are
+	 harmless if the function is added to the symbol table.  */
+      if (IDENTIFIER_LAZY_BUILTIN_P (*value))
+	{
+	  if (flag_lazy_builtin_debug)
+	    fprintf (stderr, "---c_lex_with_flags (%s)\n",
+		     IDENTIFIER_POINTER (*value));
+
+	  (void) builtin_lazy_create (*value);
+	}
       break;
 
     case CPP_NUMBER:
@@ -366,6 +379,21 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
 	    case CPP_NAME:
 	      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node.node));
+
+	      /* If the identifier is bound as a lazy builtin, create the
+		 builtin the first time the identifier is used.  There might be
+		 some false hits if the identifier is used as a structure field
+		 or tag, but those are harmless if the function is added to the
+		 symbol table.  */
+	      if (IDENTIFIER_LAZY_BUILTIN_P (*value))
+		{
+		  if (flag_lazy_builtin_debug)
+		    fprintf (stderr, "---c_lex_with_flags (%s) #2\n",
+			     IDENTIFIER_POINTER (*value));
+
+		  (void) builtin_lazy_create (*value);
+		}
+
 	      if (OBJC_IS_AT_KEYWORD (C_RID_CODE (*value))
 		  || OBJC_IS_CXX_KEYWORD (C_RID_CODE (*value)))
 		{

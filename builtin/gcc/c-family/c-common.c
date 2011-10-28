@@ -4835,18 +4835,20 @@ c_common_builtin_lazy_create (tree id,
 	}
     }
 
+  fntype_tree = builtin_types[(int) fntype];
+  fnattr_tree = built_in_attributes[(int) attrs];
+
   if (flag_lazy_builtin_debug)
     fprintf (stderr,
-	     "---c_common_builtin_lazy_create (%s, %s, %s, lib=%s%s%s)\n",
+	     "---c_common_builtin_lazy_create (%s, %s, %s, lib=%s, type=%p, attr=%p%s%s)\n",
 	     main_name,
 	     (cl == BUILT_IN_NORMAL) ? built_in_names[uns_fncode] : "---",
 	     built_in_class_names[(int)cl],
 	     (lib_name ? lib_name : "<null>"),
+	     (void *)fntype_tree,
+	     (void *)fnattr_tree,
 	     (implicit_p ? ", implicit" : ""),
 	     (fallback_p ? ", fallback" : ""));
-
-  fntype_tree = builtin_types[(int) fntype];
-  fnattr_tree = built_in_attributes[(int) attrs];
 
   /* Turn off the lazy builtin flag now before calling add_builtin so that we
      don't get an endless loop.  */
@@ -4874,7 +4876,7 @@ c_common_builtin_lazy_create (tree id,
 
   if (builtin_info.lib_decl[uns_fncode] != NULL_TREE && lib_name != NULL)
     lib_decl = add_builtin_function_ext_scope (lib_name, fntype_tree, fncode,
-					       cl, NULL, fnattr_tree);
+					       cl, lib_name, fnattr_tree);
   else
     lib_decl = NULL_TREE;
 

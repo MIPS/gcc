@@ -1,3 +1,11 @@
+2011-10-28  Michael Meissner  <meissner@the-meissners.org>
+
+	* c-lex.c (c_lex_with_flags): Add #if 0 code to create builtin
+	function as soon as the lazy builtin function is parsed.
+
+	* c-common.c (c_common_builtin_lazy_create): Trace type and
+	attrbute addresses.
+
 2011-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 180534.
