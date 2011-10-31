@@ -1,3 +1,263 @@
+2011-10-31  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.c (mark_modified): Moved up in the file.
+	(is_parm_modified_before_call): Renamed to
+	is_parm_modified_before_stmt, moved up in the file.
+	(load_from_unmodified_param): New function.
+	(compute_complex_assign_jump_func): Also attempt to create pass
+	through jump functions for values loaded from (addressable)
+	parameters.
+
+2011-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-stmts.c (vectorizable_shift): If op1 is vect_external_def
+	in a loop and has different type from op0, cast it to op0's type
+	before the loop first.  For slp give up.  Don't crash if op1_vectype
+	is NULL.
+
+2011-10-31  Paul Brook  <paul@codesourcery.com>
+
+	* cgraphunit.c: Don't mark clones as static constructors.
+
+2011-10-31  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc-ar: Do not include stdio.h.
+
+2011-10-31  Diego Novillo  <dnovillo@google.com>
+
+	* tree-streamer-out.c (pack_ts_base_value_fields): Emit
+	TYPE_ADDR_SPACE.
+	* tree-streamer-in.c (unpack_ts_base_value_fields): Read
+	TYPE_ADDR_SPACE.
+
+2011-10-30  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.c (vector_init_bshuffle): New function.
+	(vector_init_fpmerge): New function.
+	(sparc_expand_vector_init): Use them to improve non-const cases.
+
+	* dwarf2out.c (dwarf2out_var_location): When processing several
+	consecutive location notes, cache the result of next_real_insn().
+
+2011-10-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (avx2_vec_dup<mode>): Macroize insn from
+	avx2_vec_dup{v8sf,v4sf} using VF1 mode iterator.
+	(vec_dupv4sf): Remove expander.
+	(vec_dupv4sf): Merge from *vec_dupv4sf and *vec_dupv4sf_avx.
+	(vec_dupv2df): Remove expander.
+	(vec_dupv2df): Merge from *vec_dupv2df and *vec_dupv2df_sse3.
+	(*vec_concatv2df): Merge *vec_concatv2df_sse3.
+	(*vec_dupv4si): Merge *vec_dupv4si_avx.
+	(*vec_dupv2di): Merge *vec_dupv2di_sse3.
+
+2011-10-30  Dmitry Plotnikov  <dplotnikov@ispras.ru>
+
+	* tree-cfg.c (verify_gimple_assign_unary): Allow vector conversions.
+	* optabs.c (supportable_convert_operation): New function.
+	* optabs.h (supportable_convert_operation): New prototype.
+	* tree-vect-stmts.c (vectorizable_conversion): Change condition and
+	behavior for NONE modifier case.
+	* tree.h (VECTOR_INTEGER_TYPE_P): New macro.
+
+2011-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vectorizer.h (NUM_PATTERNS): Bump to 9.
+	* tree-vect-patterns.c (vect_recog_vector_vector_shift_pattern): New
+	function.
+	(vect_vect_recog_func_ptrs): Add it.
+
+2011-10-30  David S. Miller  <davem@davemloft.net>
+
+	* reorg.c (label_before_next_insn): New function.
+	(relax_delay_slots): Use it instead of prev_label.
+	* rtl.h (prev_label): Delete declaration.
+	* emit-rtl.c (prev_label): Remove.
+
+2011-10-30  Revital Eres  <revital.eres@linaro.org>
+
+	* modulo-sched.c (generate_prolog_epilog): Mark prolog and epilog
+	as BB_DISABLE_SCHEDULE.
+	(mark_loop_unsched): New function.
+	(sms_schedule): Call it.
+
+2011-10-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/50617
+	* config/pa/protos.h (attr_length_save_restore_dltp): Delete.
+	(cmpib_comparison_operator): Likewise.
+	(following_cal, output_and, output_ior, output_move_double,
+	output_fp_move_double, output_block_move, output_block_clear,
+	output_cbranch, output_lbranch, output_bb, output_bvb, output_dbra,
+	output_movb, output_parallel_movb, output_parallel_addb, output_call,
+	output_indirect_call, output_millicode_call, output_mul_insn,
+	output_div_insn, output_mod_insn, singlemove_string,
+	output_arg_descriptor, output_global_address, print_operand,
+	legitimize_pic_address, hppa_encode_label, symbolic_expression_p,
+	fmpyaddoperands, fmpysuboperands, emit_bcond_fp, emit_move_sequence,
+	emit_hpdiv_const, is_function_label_plus_const, jump_in_call_delay,
+	hppa_fpstore_bypass_p, attr_length_millicode_call, attr_length_call,
+	attr_length_indirect_call, return_addr_rtx, function_arg_padding,
+	insn_refs_are_delayed, get_deferred_plabel, ldil_cint_p, zdepi_cint_p,
+	output_ascii, compute_frame_size, and_mask_p, cint_ok_for_move,
+	hppa_expand_prologue, hppa_expand_epilogue, ior_mask_p,
+	compute_zdepdi_operands, output_64bit_and, output_64bit_ior,
+	reloc_needed, magic_milli, shadd_constant_p): Consistently prefix
+	exported functions and variables with "pa_".
+	* config/pa/predicates.md: Likewise.
+	* config/pa/pa64-hpux.h: likewise.
+	* config/pa/som.h: Likewise.
+	* config/pa/elf.h: Likewise.
+	* config/pa/pa64-linux.h: Likewise.
+	* config/pa/pa.md: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/pa/pa-linux.h: Likewise.
+	* config/pa/pa.h: Likewise.
+	* config/pa/constraints.md: Likewise.
+
+2011-10-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (xop_sha<mode>3): Rename from xop_ashl<mode>3.
+	Update all uses.
+	(xop_shl<mode>3): Rename from xop_lshl<mode>3.  Update all uses.
+	* config/i386/i386.c: Update all uses.
+
+2011-10-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (lshlv16qi3): Remove expander.
+	(lshrv16qi3): New expander.
+	(<shift_insn>v16qi3): Macroize expander from ashrv16qi3 and lshrv16qi3
+	using any_shiftrt code iterator. Cleanup.
+	(ashlv16qi3): Cleanup.
+	(ashrv2di3): Ditto.
+
+2011-10-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/50691
+	* config/pa/pa.c (emit_move_sequence): Legitimize TLS symbol
+	references.
+	(pa_legitimate_constant_p): Return false for TLS_MODEL_GLOBAL_DYNAMIC
+	and TLS_MODEL_LOCAL_DYNAMIC symbol references.
+
+2011-10-29  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/50887
+	* config/avr/avr.opt (-maccumulate-args): New option.
+	* config/avr/avr.h (STARTING_FRAME_OFFSET): Redefine to
+	avr_starting_frame_offset.
+	(ACCUMULATE_OUTGOING_ARGS): Define to avr_accumulate_outgoing_args.
+	* config/avr/avr.md (UNSPECV_WRITE_SP_IRQ_ON): Remove.
+	(UNSPECV_WRITE_SP_IRQ_OFF): Remove.
+	(UNSPECV_WRITE_SP): New constant.
+	(*addhi3_sp_R): Rewrite to...
+	(*addhi3_sp): ...this new insn.
+	(movhi_sp_r_irq_off, movhi_sp_r_irq_on): Combine to...
+	(movhi_sp_r): ...this new insn.
+	* config/avr/avr-protos.h (avr_accumulate_outgoing_args): New.
+	(avr_starting_frame_offset): New.
+	* config/avr/avr.c (avr_accumulate_outgoing_args): New function.
+	(avr_starting_frame_offset): New function.
+	(avr_outgoing_args_size): New static function.
+	(avr_initial_elimination_offset): Use it.
+	(avr_simple_epilogue): Use it.
+	(avr_asm_function_end_prologue): Use it.
+	(expand_epilogue): Use it.
+	(expand_prologue): Use it.  Break out code to...
+	(avr_prologue_setup_frame): ...this new static function.
+	(avr_can_eliminate): Allow eliminating to frame pointer if there
+	is one.
+	(avr_frame_pointer_required_p): Use frame pointer if target has a
+	nonlocal label.
+	* config/avr/constraints.md (R): Remove.
+	(Csp): New constraint.
+	* config/avr/predicates.md (avr_sp_immediate_operand): Use it.
+
+2011-10-29  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc-ar.c (target_machine): Add.
+
+2011-10-29  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/cris/cris.c (reg_ok_for_base_p, reg_ok_for_index_p,
+	cris_constant_index_p, cris_base_p, cris_index_p,
+	cris_base_or_autoincr_p, cris_bdap_index_p, cris_biap_index_p,
+	cris_legitimate_address_p): New functions.
+	(TARGET_LEGITIMATE_ADDRESS_P): Define.
+	(cris_pic_symbol_type, cris_valid_pic_const): Change arguments type
+	from rtx to const_rtx.
+	(cris_print_operand_address, cris_address_cost,
+	cris_side_effect_mode_ok):  Use
+	cris_constant_index_p, cris_base_p, cris_base_or_autoincr_p,
+	cris_biap_index_p and cris_bdap_index_p.
+	* config/cris/cris.h (CONSTANT_INDEX_P, BASE_P, BASE_OR_AUTOINCR_P,
+	BDAP_INDEX_P, BIAP_INDEX_P, GO_IF_LEGITIMATE_ADDRESS,
+	REG_OK_FOR_BASE_P, REG_OK_FOR_INDEX_P): Remove.
+	(EXTRA_CONSTRAINT_Q, EXTRA_CONSTRAINT_R, EXTRA_CONSTRAINT_T): Use
+	cris_constant_index_p, cris_base_p, cris_base_or_autoincr_p,
+	cris_biap_index_p and cris_bdap_index_p.
+	* config/cris/cris.md (moversideqi movemsideqi peephole2): Use
+	cris_base_p.
+	* config/cris/cris-protos.h (cris_constant_index_p, cris_base_p,
+	cris_base_or_autoincr_p, cris_bdap_index_p, cris_biap_index_p): New
+	prototype.
+	(cris_pic_symbol_type, cris_valid_pic_const): Update prototype.
+
+2011-10-21  Andi Kleen  <ak@linux.intel.com>
+
+	* ggc-page (PAGE_ALIGN): Add.
+	(alloc_page, ggc_pch_total_size, ggc_pch_this_base, ggc_pch_read):
+	Replace ROUND_UP with PAGE_ALIGN.
+
+2011-10-20  Andi Kleen  <ak@linux.intel.com>
+
+	* ggc-page (alloc_anon): Add check argument.
+	(alloc_page): Add fallback to 1 page allocation.
+	Adjust alloc_anon calls to new argument.
+
+2011-10-18  Andi Kleen  <ak@linux.intel.com>
+
+	* ggc-page (release_pages): First free large continuous
+	chunks in the madvise path.
+
+2011-10-18  Andi Kleen  <ak@linux.intel.com>
+
+	* ggc-page.c (alloc_pages): Always round up entry_size.
+
+2011-10-19  Andi Kleen  <ak@linux.intel.com>
+
+	* Makefile.in (MOSTLYCLEANFILES): Add gcc-ar/nm/ranlib.
+	(native): Add gcc-ar, gcc-nm, gcc-ranlib.
+	(AR_LIBS, gcc-ar, gcc-ar.o, gcc-ranlib, gcc-ranlib.o,
+	gcc-nm, gcc-nm.o, gcc-ranlib.c, gcc-nm.c): Add.
+	(install): Depend on install-gcc-ar.
+	(install-gcc-ar): Add.
+	(uninstall): Uninstall gcc-ar, gcc-nm, gcc-ranlib.
+	* gcc-ar.c: Add new file.
+
+2011-10-28  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.md (define_attr "type"): Add vecdouble.
+	* config/rs6000/vsx.md (VStype_simple, VStype_mul): Use vecdouble
+	type for V2DF.
+	(VStype_div): Use vector types for V2DF/V4SF.
+	(VStype_sqrt): Use *sqrt types.
+	(VS_spdp_type): Change type to vecdouble.
+	(*vsx_fmav2df4, *vsx_nfmsv2df4, vsx_xvcvdpsxws, vsx_xvcvdpuxws,
+	vsx_xvcvuxdsp, vsx_xvcvsxwdp, vsx_xvcvuxwdp, vsx_xvcvspsxds,
+	vsx_xvcvspuxds): Likewise.
+	(*vsx_fms<mode>4): Set type via <VStype_mul>.
+	(*vsx_eq_<mode>_p, *vsx_gt_<mode>_p, *vsx_ge_<mode>_p): Set type via
+	<VStype_simple>.
+	* config/rs6000/power7.md (power7-vecstore): Correct VSU pipe.
+	(power7-fpcompare, power7-sdiv, power7-ddiv, power7-sqrt,
+	power7-dsqrt): Correct insn latency.
+	(power7-vecsimple): Add veccmp type and correct dispatch/VSU values.
+	(power7-veccmp): Delete.
+	(power7-vecfloat): Correct latency/dispatch/VSU values.
+	(define_bypass "power7-vecfloat"): Correct latency and types.
+	(power7-veccomplex, power7-vecperm): Correct dispatch/VSU values.
+	(power7-vecdouble, power7-vecfdiv, power7-vecdiv): New.
+
 2011-10-28  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.md (shift_insn): Rename code attribute from

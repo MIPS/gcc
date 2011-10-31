@@ -1,3 +1,29 @@
+2011-10-31   Diego Novillo  <dnovillo@google.com>
+
+	* mangle.c (get_mangled_id): Factor from ...
+	(mangle_decl): ... here.
+	Call get_mangled_id.
+
+2011-10-25  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* NEWS (GCC 2.95): Refer to GNU/Linux instead of Linux.
+	(EGCS 1.0): Ditto.
+
+2011-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50901
+	* call.c (build_new_op_1): Handle ABS_EXPR together with the
+	other unary EXPR.
+
+2011-10-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+        2011-10-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50864
+	* pt.c (tsubst_copy_and_build): Fix qualified_name_lookup_error
+	call in case COMPONENT_REF.
+
 2011-10-28  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* pt.c (unify_pack_expansion): Initialize bad_old_arg and bad_new_arg.
