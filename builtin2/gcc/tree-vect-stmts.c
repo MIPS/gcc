@@ -1824,7 +1824,6 @@ vect_gen_widened_results_half (enum tree_code code,
   return new_stmt;
 }
 
-
 /* Check if STMT performs a conversion operation, that can be vectorized.
    If VEC_STMT is also passed, vectorize the STMT: create a vectorized
    stmt to replace it, put it in VEC_STMT, and insert it at BSI.
@@ -1853,7 +1852,6 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
   tree vectype_out, vectype_in;
   int ncopies, j;
   tree rhs_type;
-  tree builtin_decl;
   enum { NARROW, NONE, WIDEN } modifier;
   int i;
   VEC(tree,heap) *vec_oprnds0 = NULL;
@@ -1942,7 +1940,7 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
 
   /* Supportable by target?  */
   if ((modifier == NONE
-       && !targetm.vectorize.builtin_conversion (code, vectype_out, vectype_in))
+       && !supportable_convert_operation (code, vectype_out, vectype_in, &decl1, &code1))
       || (modifier == WIDEN
 	  && !supportable_widening_operation (code, stmt,
 					      vectype_out, vectype_in,
@@ -1992,19 +1990,28 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
 	  else
 	    vect_get_vec_defs_for_stmt_copy (dt, &vec_oprnds0, NULL);
 
-	  builtin_decl =
-	    targetm.vectorize.builtin_conversion (code,
-						  vectype_out, vectype_in);
 	  FOR_EACH_VEC_ELT (tree, vec_oprnds0, i, vop0)
-	    {
-	      /* Arguments are ready. create the new vector stmt.  */
-	      new_stmt = gimple_build_call (builtin_decl, 1, vop0);
-	      new_temp = make_ssa_name (vec_dest, new_stmt);
-	      gimple_call_set_lhs (new_stmt, new_temp);
-	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
-	      if (slp_node)
-		VEC_quick_push (gimple, SLP_TREE_VEC_STMTS (slp_node), new_stmt);
-	    }
+          {
+            /* Arguments are ready, create the new vector stmt.  */
+            if (code1 == CALL_EXPR)
+              {
+                new_stmt = gimple_build_call (decl1, 1, vop0);
+                new_temp = make_ssa_name (vec_dest, new_stmt);
+                gimple_call_set_lhs (new_stmt, new_temp);
+              }
+            else
+              {
+                gcc_assert (TREE_CODE_LENGTH (code) == unary_op);
+                new_stmt = gimple_build_assign_with_ops (code, vec_dest, vop0,
+                                                        NULL);
+                new_temp = make_ssa_name (vec_dest, new_stmt);
+                gimple_assign_set_lhs (new_stmt, new_temp);
+              }
+
+            vect_finish_stmt_generation (stmt, new_stmt, gsi);
+            if (slp_node)
+              VEC_quick_push (gimple, SLP_TREE_VEC_STMTS (slp_node), new_stmt);
+          }
 
 	  if (j == 0)
 	    STMT_VINFO_VEC_STMT (stmt_info) = *vec_stmt = new_stmt;
@@ -2446,7 +2453,10 @@ vectorizable_shift (gimple stmt, gimple_stmt_iterator *gsi,
       optab = optab_for_tree_code (code, vectype, optab_vector);
       if (vect_print_dump_info (REPORT_DETAILS))
         fprintf (vect_dump, "vector/vector shift/rotate found.");
-      if (TYPE_MODE (op1_vectype) != TYPE_MODE (vectype))
+      if (!op1_vectype)
+	op1_vectype = get_same_sized_vectype (TREE_TYPE (op1), vectype_out);
+      if (op1_vectype == NULL_TREE
+	  || TYPE_MODE (op1_vectype) != TYPE_MODE (vectype))
 	{
 	  if (vect_print_dump_info (REPORT_DETAILS))
 	    fprintf (vect_dump, "unusable type for last operand in"
@@ -2480,9 +2490,28 @@ vectorizable_shift (gimple stmt, gimple_stmt_iterator *gsi,
               /* Unlike the other binary operators, shifts/rotates have
                  the rhs being int, instead of the same type as the lhs,
                  so make sure the scalar is the right type if we are
-                 dealing with vectors of short/char.  */
+		 dealing with vectors of long long/long/short/char.  */
               if (dt[1] == vect_constant_def)
                 op1 = fold_convert (TREE_TYPE (vectype), op1);
+	      else if (!useless_type_conversion_p (TREE_TYPE (vectype),
+						   TREE_TYPE (op1)))
+		{
+		  if (slp_node
+		      && TYPE_MODE (TREE_TYPE (vectype))
+			 != TYPE_MODE (TREE_TYPE (op1)))
+		    {
+		      if (vect_print_dump_info (REPORT_DETAILS))
+		      fprintf (vect_dump, "unusable type for last operand in"
+					  " vector/vector shift/rotate.");
+			return false;
+		    }
+		  if (vec_stmt && !slp_node)
+		    {
+		      op1 = fold_convert (TREE_TYPE (vectype), op1);
+		      op1 = vect_init_vector (stmt, op1,
+					      TREE_TYPE (vectype), NULL);
+		    }
+		}
             }
         }
     }

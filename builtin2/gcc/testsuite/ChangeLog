@@ -1,3 +1,67 @@
+2011-10-31  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/ipa/ipcp-4.c: New test.
+
+2011-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/vshift-3.c: New test.
+	* gcc.dg/vshift-4.c: New test.
+	* gcc.dg/vshift-5.c: New test.
+
+2011-10-31  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* gfortran.dg/inquire_5.f90: Update testcase to match the standard
+	and current implementation.
+
+2011-10-31  Paul Brook  <paul@codesourcery.com>
+
+	* gcc.dg/constructor-1.c: New test.
+
+2011-10-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/50753
+	* gfortran.dg/dshift_3.f90: New test.
+
+2011-10-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/scal-to-vec2.c (dg-options): Add -fno-common to options on
+	hppa*-*-hpux*.
+	* gcc.dg/torture/vshuf-v8hi.c: Likewise.
+	* gcc.dg/torture/vshuf-v4si.c: Likewise.
+	* gcc.dg/torture/vshuf-v8si.c: Likewise.
+	* gcc.dg/torture/vshuf-v32qi.c: Likewise.
+	* gcc.dg/torture/vshuf-v4di.c: Likewise.
+	* gcc.dg/torture/vshuf-v2df.c: Likewise.
+	* gcc.dg/torture/vshuf-v16qi.c: Likewise.
+	* gcc.dg/torture/vshuf-v4sf.c: Likewise.
+	* gcc.dg/torture/vshuf-v8sf.c: Likewise.
+	* gcc.dg/torture/vshuf-v2di.c: Likewise.
+	* gcc.dg/torture/vshuf-v16hi.c: Likewise.
+	* gcc.dg/torture/vshuf-v4df.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-31.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-33.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-34.c: Likewise.
+	* gcc.dg/vector-compare-2.c: Likewise.
+
+2011-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50901
+	* g++.dg/cpp0x/pr50901.C: New.
+
+2011-10-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/fma-check.h (main): Use return 0 instead of exit (0).
+	* gcc.target/i386/fma4-check.h (main): Ditto.
+	* gcc.target/i386/xop-check.h (main): Ditto.
+
+2011-10-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+        2011-10-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50864
+	* g++.dg/template/crash109.C: New.
+
 2011-10-28  Jason Merrill  <jason@redhat.com>
 
 	* c-c++-common/dfp/pr33466.c: Adjust for user-defined literals.
