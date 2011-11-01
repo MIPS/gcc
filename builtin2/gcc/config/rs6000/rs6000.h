@@ -2277,10 +2277,18 @@ enum rs6000_btc
 #define RS6000_BTC_MEM	RS6000_BTC_MISC	/* load/store touches memory */
 #define RS6000_BTC_SAT	RS6000_BTC_MISC	/* VMX saturate sets VSCR register */
 
+/* Describe which type of builtin a given function is.  */
+enum rs6000_builtin_type {
+  RS6000_BUILTIN_NONE,		/* No builtin.  */
+  RS6000_BUILTIN_ALTIVEC,	/* Altivec, power6/power7 and Mac PPCs.  */
+  RS6000_BUILTIN_VSX,		/* VSX, power7.  */
+  RS6000_BUILTIN_PAIRED,	/* PAIRED simd instructions.  */
+  RS6000_BUILTIN_SPE,		/* SPE simd instructions.  */
+  RS6000_BUILTIN_OVERLOADED	/* Buildin depends on argument types.  */
+};
+
 #undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
-#define RS6000_BUILTIN(NAME, TYPE) NAME,
-#define RS6000_BUILTIN_EQUATE(NAME, VALUE) NAME = VALUE,
+#define RS6000_BUILTIN(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) ENUM,
 
 enum rs6000_builtins
 {
@@ -2290,7 +2298,6 @@ enum rs6000_builtins
 };
 
 #undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
 
 enum rs6000_builtin_type_index
 {

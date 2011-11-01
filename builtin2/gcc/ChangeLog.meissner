@@ -1,3 +1,22 @@
+2011-11-01  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000.h (enum rs6000_builtin_type): New enum to
+	simplify what switches are needed for builtin functions.
+	(RS6000_BUILTIN): Redefine for new builtin support.
+	(RS6000_BUILTIN_DELETE): Delete, no longer unsed.
+
+	* config/rs6000/rs6000.c (RS6000_BUILTIN): Redefine for new
+	builtin support.
+	(RS6000_BUILTIN_DELETE): Delete, no longer used.
+	(builtin_classify): Delete, merge into rs6000_builtin_info.
+	(rs6000_builtin_info): New const structure to hold types and such
+	for all rs6000 builtins.
+	(def_builtin): Use rs6000_builtin_info, not rs6000_classify.
+
+	* config/rs6000/rs6000-builtin.def: Start rewrite of the builtin
+	functions to consolidate all of the builtin informaton in one
+	place.
+
 2011-10-31  Michael Meissner  <meissner@the-meissners.org>
 
 	Merge up to 180705.

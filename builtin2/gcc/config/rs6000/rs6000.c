@@ -849,18 +849,27 @@ struct processor_costs ppca2_cost = {
 
 
 /* Table that classifies rs6000 builtin functions (pure, const, etc.).  */
-#undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
-#define RS6000_BUILTIN(NAME, TYPE) TYPE,
-#define RS6000_BUILTIN_EQUATE(NAME, VALUE)
+struct rs6000_builtin_info {
+  const char *name;		/* Builtin function name.  */
+  enum insn_code icode;		/* Function that does the builtin.  */
+  enum rs6000_btc btc;		/* Classification of the function.  */
+  enum machine_mode ret;	/* Return mode.  */
+  enum machine_mode arg1;	/* Arg1 mode.  */
+  enum machine_mode arg2;	/* Arg2 mode.  */
+  enum machine_mode arg3;	/* Arg3 mode. */
+};
 
-static const enum rs6000_btc builtin_classify[(int)RS6000_BUILTIN_COUNT] =
+#undef RS6000_BUILTIN
+#define RS6000_BUILTIN(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) \
+  { NAME, ICODE, BTC, RET, ARG1, ARG2, ARG3 },
+
+static const struct rs6000_builtin_info
+rs6000_builtin_info[(int)RS6000_BUILTIN_COUNT] =
 {
 #include "rs6000-builtin.def"
 };
 
 #undef RS6000_BUILTIN
-#undef RS6000_BUILTIN_EQUATE
 
 /* Support for -mveclibabi=<xxx> to control which vector library to use.  */
 static tree (*rs6000_veclib_handler) (tree, tree, tree);
@@ -9364,7 +9373,7 @@ def_builtin (int mask, const char *name, tree type, int code)
 			      NULL, NULL_TREE);
 
       gcc_assert (code >= 0 && code < (int)RS6000_BUILTIN_COUNT);
-      switch (builtin_classify[code])
+      switch (rs6000_builtin_info[code].btc)
 	{
 	default:
 	  gcc_unreachable ();

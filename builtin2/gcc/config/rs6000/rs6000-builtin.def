@@ -24,997 +24,1441 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* Before including this file, two macros must be defined:
-   RS6000_BUILTIN	 -- 2 arguments, the enum name, and classification
-   RS6000_BUILTIN_EQUATE -- 2 arguments, enum name and value */
+/* Before including this file, the RS6000_BUILTIN macro must be defined with the following arguments:
+
+   ENUM		-- Enumeration name.
+   NAME		-- String literal of the function name.
+   ICODE	-- Insn code of the rtl expander to create the function.
+   TYPE		-- Builtin type (altivec, vsx, etc.).
+   BTC		-- Classify the builtin attributes (pure, saturation, memory).
+   RET		-- Builtin return type.
+   ARG1		-- First argument type.
+   ARG2		-- Second argument type.
+   ARG3		-- Third argument type.  */
+
+#ifndef RS6000_OPTS_H
+#include "rs6000-opts.h"
+#endif
+
+#ifndef RS6000_BUILTIN_OLD
+#define RS6000_BUILTIN_OLD(ENUM, BTC)					\
+  RS6000_BUILTIN (ENUM,			/* enum name.  */		\
+		  NULL,			/* builtin name.  */		\
+		  CODE_FOR_nothing,	/* function code.  */		\
+		  RS6000_BUILTIN_NONE,	/* type of builtin.  */		\
+		  BTC,			/* classification.  */		\
+		  VOIDmode,		/* return type.  */		\
+		  VOIDmode,		/* first argument type.  */	\
+		  VOIDmode,		/* second argument type.  */	\
+		  VOIDmode)		/* third argument type.  */
+
+/* Helper macros that assume all of the arguments are the same mode.
+
+   Most of the builtins that take vector integer are const (only depend on the
+   arguments and do not read memory), unless they do saturation under Altivec,
+   which sets the SAT register.
+
+   For the floating point builtins, if rounding mode is on, then treat the
+   function as not reading global memory, but it can have arbitrary side
+   effects.  If it is off, then assume the function is a const function.  This
+   mimics the ATTR_MATHFN_FPROUNDING attribute in builtin-attribute.def that is
+   used for the math functions.  Comparisons don't depend on the rounding
+   mode.  */
+
+#define RS6000_BU_INT(ENUM, NAME, ICODE, TYPE, NUM, MODE)		\
+  RS6000_BUILTIN (ENUM, NAME, ICODE, TYPE, RS6000_BTC_CONST, MODE,	\
+		  ((NUM) >= 1) ? MODE : VOIDmode,			\
+		  ((NUM) >= 2) ? MODE : VOIDmode,			\
+		  ((NUM) >= 3) ? MODE : VOIDmode)
+
+#define RS6000_BU_PURE(ENUM, NAME, ICODE, TYPE, NUM, MODE)		\
+  RS6000_BUILTIN (ENUM, NAME, ICODE, TYPE, RS6000_BTC_PURE, MODE,	\
+		  ((NUM) >= 1) ? MODE : VOIDmode,			\
+		  ((NUM) >= 2) ? MODE : VOIDmode,			\
+		  ((NUM) >= 3) ? MODE : VOIDmode)
+
+#define RS6000_BU_SAT(ENUM, NAME, ICODE, TYPE, NUM, MODE)		\
+  RS6000_BUILTIN (ENUM, NAME, ICODE, TYPE, RS6000_BTC_MISC, MODE,	\
+		  ((NUM) >= 1) ? MODE : VOIDmode,			\
+		  ((NUM) >= 2) ? MODE : VOIDmode,			\
+		  ((NUM) >= 3) ? MODE : VOIDmode)
+
+#define RS6000_BU_FP(ENUM, NAME, ICODE, TYPE, NUM, MODE)		\
+  RS6000_BUILTIN (ENUM, NAME, ICODE, TYPE, RS6000_BTC_FP_PURE, MODE,	\
+		  ((NUM) >= 1) ? MODE : VOIDmode,			\
+		  ((NUM) >= 2) ? MODE : VOIDmode,			\
+		  ((NUM) >= 3) ? MODE : VOIDmode)
+
+#define RS6000_BU_FPC(ENUM, NAME, ICODE, TYPE, NUM, MODE)		\
+  RS6000_BUILTIN (ENUM, NAME, ICODE, TYPE, RS6000_BTC_CONST, MODE,	\
+		  ((NUM) >= 1) ? MODE : VOIDmode,			\
+		  ((NUM) >= 2) ? MODE : VOIDmode,			\
+		  ((NUM) >= 3) ? MODE : VOIDmode)
+
+
+/* Simplfy macros further using token pasting.  */
+#define RS6000_BUILTIN_AV RS6000_BUILTIN_ALTIVEC
+
+#define BU_V16QI(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V16QImode)			/* arguments */
+
+#define BU_V16QIS(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_SAT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V16QImode)			/* arguments */
+
+#define BU_V16QIU(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM ## _UNS,				/* ENUM */	\
+		 "__builtin_" NAME "_uns",		/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V16QImode)			/* arguments */
+
+#define BU_V8HI(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V8HImode)				/* arguments */
+
+#define BU_V8HIS(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_SAT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V8HImode)				/* arguments */
+
+#define BU_V8HIU(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM ## _UNS,				/* ENUM */	\
+		 "__builtin_" NAME "_uns",		/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V8HImode)				/* arguments */
+
+#define BU_V4SI(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V4SImode)				/* arguments */
+
+#define BU_V4SIS(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_SAT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V4SImode)				/* arguments */
+
+#define BU_V4SIU(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM ## _UNS,				/* ENUM */	\
+		 "__builtin_" NAME "_uns",		/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V4SImode)				/* arguments */
+
+#define BU_V4SF(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_FP (ENUM,					/* ENUM */	\
+		"__builtin_" NAME,			/* NAME */	\
+		CODE_FOR_ ## ICODE,			/* ICODE */	\
+		RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		NUM, V4SFmode)				/* arguments */
+
+#define BU_V4SFC(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_FPC (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V4SFmode)				/* arguments */
+
+#define BU_V2DI(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_INT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V2DImode)				/* arguments */
+
+#define BU_V2DI_S(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_SAT (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V2DImode)				/* arguments */
+
+
+#define BU_V2DF(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_FP (ENUM,					/* ENUM */	\
+		"__builtin_" NAME,			/* NAME */	\
+		CODE_FOR_ ## ICODE,			/* ICODE */	\
+		RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		NUM, V2DFmode)				/* arguments */
+
+#define BU_V2DFC(ENUM, NAME, ICODE, TYPE, NUM)				\
+  RS6000_BU_FPC (ENUM,					/* ENUM */	\
+		 "__builtin_" NAME,			/* NAME */	\
+		 CODE_FOR_ ## ICODE,			/* ICODE */	\
+		 RS6000_BUILTIN_ ## TYPE,		/* TYPE */	\
+		 NUM, V2DFmode)				/* arguments */
+#endif
+
+/* Don't use 0 as a valid builtin.  */
+RS6000_BUILTIN (RS6000_BUILTIN_DUMMY, NULL, CODE_FOR_nothing,
+		RS6000_BUILTIN_NONE, RS6000_BTC_MISC,
+		VOIDmode, VOIDmode, VOIDmode, VOIDmode)
+
+/* Altivec add builtins.  */
+BU_V16QI  (ALTIVEC_BUILTIN_VADDUBM, "altivec_vaddubm", addv16qi3,       AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VADDUHM, "altivec_vadduhm", addv8hi3,        AV, 2)
+BU_V4SI   (ALTIVEC_BUILTIN_VADDUWM, "altivec_vadduwm", addv4si3,        AV, 2)
+BU_V4SF   (ALTIVEC_BUILTIN_VADDFP,  "altivec_vaddfp",  addv4sf3,        AV, 2)
+BU_V4SI   (ALTIVEC_BUILTIN_VADDCUW, "altivec_vaddcuw", altivec_vaddcuw, AV, 2)
+BU_V16QIS (ALTIVEC_BUILTIN_VADDSBS, "altivec_vaddsbs", altivec_vaddsbs, AV, 2)
+BU_V8HIS  (ALTIVEC_BUILTIN_VADDSHS, "altivec_vaddshs", altivec_vaddshs, AV, 2)
+BU_V4SIS  (ALTIVEC_BUILTIN_VADDSWS, "altivec_vaddsws", altivec_vaddsws, AV, 2)
+BU_V16QIS (ALTIVEC_BUILTIN_VADDUBS, "altivec_vaddubs", altivec_vaddubs, AV, 2)
+BU_V8HIS  (ALTIVEC_BUILTIN_VADDUHS, "altivec_vadduhs", altivec_vadduhs, AV, 2)
+BU_V4SIS  (ALTIVEC_BUILTIN_VADDUWS, "altivec_vadduws", altivec_vadduws, AV, 2)
+
+/* Altivec subtract builtins.  */
+BU_V16QI  (ALTIVEC_BUILTIN_VSUBUBM,  "altivec_vsububm",  subv16qi3,       AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VSUBUHM,  "altivec_vsubuhm",  subv8hi3,        AV, 2)
+BU_V4SI   (ALTIVEC_BUILTIN_VSUBUWM,  "altivec_vsubuwm",  subv4si3,        AV, 2)
+BU_V4SF   (ALTIVEC_BUILTIN_VSUBFP,   "altivec_vsubfp",   subv4sf3,        AV, 2)
+BU_V4SI   (ALTIVEC_BUILTIN_VSUBCUW,  "altivec_vsubcuw",  altivec_vsubcuw, AV, 2)
+BU_V16QIS (ALTIVEC_BUILTIN_VSUBSBS,  "altivec_vsubsbs",  altivec_vsubsbs, AV, 2)
+BU_V8HIS  (ALTIVEC_BUILTIN_VSUBSHS,  "altivec_vsubshs",  altivec_vsubshs, AV, 2)
+BU_V4SIS  (ALTIVEC_BUILTIN_VSUBSWS,  "altivec_vsubsws",  altivec_vsubsws, AV, 2)
+BU_V16QIS (ALTIVEC_BUILTIN_VSUBUBS,  "altivec_vsububs",  altivec_vsububs, AV, 2)
+BU_V8HIS  (ALTIVEC_BUILTIN_VSUBUHS,  "altivec_vsubuhs",  altivec_vsubuhs, AV, 2)
+BU_V4SIS  (ALTIVEC_BUILTIN_VSUBUWS,  "altivec_vsubuws",  altivec_vsubuws, AV, 2)
+
+/* Altivec integer multiply builtins.  */
+BU_V16QI  (ALTIVEC_BUILTIN_VMULESB, "altivec_vmulesb", altivec_vmulesb, AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VMULESH, "altivec_vmulesh", altivec_vmulesh, AV, 2)
+BU_V16QI  (ALTIVEC_BUILTIN_VMULOSB, "altivec_vmulosb", altivec_vmulosb, AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VMULOSH, "altivec_vmulosh", altivec_vmulosh, AV, 2)
+
+BU_V16QI  (ALTIVEC_BUILTIN_VMULEUB, "altivec_vmuleub", altivec_vmuleub, AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VMULEUH, "altivec_vmuleuh", altivec_vmuleuh, AV, 2)
+BU_V16QI  (ALTIVEC_BUILTIN_VMULOUB, "altivec_vmuloub", altivec_vmuloub, AV, 2)
+BU_V8HI   (ALTIVEC_BUILTIN_VMULOUH, "altivec_vmulouh", altivec_vmulouh, AV, 2)
+
+BU_V16QIU (ALTIVEC_BUILTIN_VMULEUB, "altivec_vmuleub", altivec_vmuleub, AV, 2)
+BU_V8HIU  (ALTIVEC_BUILTIN_VMULEUH, "altivec_vmuleuh", altivec_vmuleuh, AV, 2)
+BU_V16QIU (ALTIVEC_BUILTIN_VMULOUB, "altivec_vmuloub", altivec_vmuloub, AV, 2)
+BU_V8HIU  (ALTIVEC_BUILTIN_VMULOUH, "altivec_vmulouh", altivec_vmulouh, AV, 2)
+
+/* Altivec multiply/sum builtins.  */
+/* TBD */
+
+/* Altivec sum across vector.  */
+/* TBD */
+
+/* Altivec integer average builtins.  */
+BU_V16QI (ALTIVEC_BUILTIN_VAVGUB, "altivec_vavgub", altivec_vavgub, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VAVGUH, "altivec_vavguh", altivec_vavguh, AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VAVGUW, "altivec_vavguw", altivec_vavguw, AV, 2)
+BU_V16QI (ALTIVEC_BUILTIN_VAVGSB, "altivec_vavgsb", altivec_vavgsb, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VAVGSH, "altivec_vavgsh", altivec_vavgsh, AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VAVGSW, "altivec_vavgsw", altivec_vavgsw, AV, 2)
+
+/* Altivec min/max builtins.  */
+BU_V16QI (ALTIVEC_BUILTIN_VMINUB, "altivec_vminub", uminv16qi3, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VMINUH, "altivec_vminuh", uminv8hi3,  AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VMINUW, "altivec_vminuw", uminv4si3,  AV, 2)
+BU_V16QI (ALTIVEC_BUILTIN_VMINSB, "altivec_vminsb", sminv16qi3, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VMINSH, "altivec_vminsh", sminv8hi3,  AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VMINSW, "altivec_vminsw", sminv4si3,  AV, 2)
+BU_V4SFC (ALTIVEC_BUILTIN_VMINFP, "altivec_vminfp", sminv4sf3,  AV, 2)
+
+BU_V16QI (ALTIVEC_BUILTIN_VMAXUB, "altivec_vmaxub", umaxv16qi3, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VMAXUH, "altivec_vmaxuh", umaxv8hi3,  AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VMAXUW, "altivec_vmaxuw", umaxv4si3,  AV, 2)
+BU_V16QI (ALTIVEC_BUILTIN_VMAXSB, "altivec_vmaxsb", smaxv16qi3, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VMAXSH, "altivec_vmaxsh", smaxv8hi3,  AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VMAXSW, "altivec_vmaxsw", smaxv4si3,  AV, 2)
+BU_V4SFC (ALTIVEC_BUILTIN_VMAXFP, "altivec_vmaxfp", smaxv4sf3,  AV, 2)
+
+/* Altivec compare builtins.  */
+/* TBD */
+
+/* Altivec logical builtins.  */
+BU_V4SI (ALTIVEC_BUILTIN_VAND,  "altivec_vand",  andv4si3,  AV, 2)
+BU_V4SI (ALTIVEC_BUILTIN_VANDC, "altivec_vandc", andcv4si3, AV, 2)
+BU_V4SI (ALTIVEC_BUILTIN_VOR,   "altivec_vor",   iorv4si3,  AV, 2)
+BU_V4SI (ALTIVEC_BUILTIN_VNOR,  "altivec_vnor",  norv4si3,  AV, 2)
+BU_V4SI (ALTIVEC_BUILTIN_VXOR,  "altivec_vxor",  xorv4si3,  AV, 2)
+
+/* Altivec rotate and shift builtins.  */
+BU_V16QI (ALTIVEC_BUILTIN_VRLB,  "altivec_vrlb", vrotlv16qi3,  AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VRLH,  "altivec_vrlh", vrotlv8hi3,   AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VRLW,  "altivec_vrlw", vrotlv4si3,   AV, 2)
+
+BU_V16QI (ALTIVEC_BUILTIN_VSLB,  "altivec_vslb", vashlv16qi3,  AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VSLH,  "altivec_vslh", vashlv8hi3,   AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VSLW,  "altivec_vslw", vashlv4si3,   AV, 2)
+
+BU_V16QI (ALTIVEC_BUILTIN_VSRB,  "altivec_vsrb", vlshrv16qi3,  AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VSRH,  "altivec_vsrh", vlshrv8hi3,   AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VSRW,  "altivec_vsrw", vlshrv4si3,   AV, 2)
+
+BU_V16QI (ALTIVEC_BUILTIN_VSRAB, "altivec_vsrab", vashrv16qi3, AV, 2)
+BU_V8HI  (ALTIVEC_BUILTIN_VSRAH, "altivec_vsrah", vashrv8hi3,  AV, 2)
+BU_V4SI  (ALTIVEC_BUILTIN_VSRAW, "altivec_vsraw", vashrv4si3,  AV, 2)
+
+#if 0
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcfux, "__builtin_altivec_vcfux", ALTIVEC_BUILTIN_VCFUX },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcfsx, "__builtin_altivec_vcfsx", ALTIVEC_BUILTIN_VCFSX },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vcmpbfp, "__builtin_altivec_vcmpbfp", ALTIVEC_BUILTIN_VCMPBFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv16qi, "__builtin_altivec_vcmpequb", ALTIVEC_BUILTIN_VCMPEQUB },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv8hi, "__builtin_altivec_vcmpequh", ALTIVEC_BUILTIN_VCMPEQUH },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv4si, "__builtin_altivec_vcmpequw", ALTIVEC_BUILTIN_VCMPEQUW },
+  { MASK_ALTIVEC, CODE_FOR_vector_eqv4sf, "__builtin_altivec_vcmpeqfp", ALTIVEC_BUILTIN_VCMPEQFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_gev4sf, "__builtin_altivec_vcmpgefp", ALTIVEC_BUILTIN_VCMPGEFP },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv16qi, "__builtin_altivec_vcmpgtub", ALTIVEC_BUILTIN_VCMPGTUB },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv16qi, "__builtin_altivec_vcmpgtsb", ALTIVEC_BUILTIN_VCMPGTSB },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv8hi, "__builtin_altivec_vcmpgtuh", ALTIVEC_BUILTIN_VCMPGTUH },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv8hi, "__builtin_altivec_vcmpgtsh", ALTIVEC_BUILTIN_VCMPGTSH },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtuv4si, "__builtin_altivec_vcmpgtuw", ALTIVEC_BUILTIN_VCMPGTUW },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv4si, "__builtin_altivec_vcmpgtsw", ALTIVEC_BUILTIN_VCMPGTSW },
+  { MASK_ALTIVEC, CODE_FOR_vector_gtv4sf, "__builtin_altivec_vcmpgtfp", ALTIVEC_BUILTIN_VCMPGTFP },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vctsxs, "__builtin_altivec_vctsxs", ALTIVEC_BUILTIN_VCTSXS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vctuxs, "__builtin_altivec_vctuxs", ALTIVEC_BUILTIN_VCTUXS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrghb, "__builtin_altivec_vmrghb", ALTIVEC_BUILTIN_VMRGHB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrghh, "__builtin_altivec_vmrghh", ALTIVEC_BUILTIN_VMRGHH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrghw, "__builtin_altivec_vmrghw", ALTIVEC_BUILTIN_VMRGHW },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrglb, "__builtin_altivec_vmrglb", ALTIVEC_BUILTIN_VMRGLB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrglh, "__builtin_altivec_vmrglh", ALTIVEC_BUILTIN_VMRGLH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vmrglw, "__builtin_altivec_vmrglw", ALTIVEC_BUILTIN_VMRGLW },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum, "__builtin_altivec_vpkuhum", ALTIVEC_BUILTIN_VPKUHUM },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum, "__builtin_altivec_vpkuwum", ALTIVEC_BUILTIN_VPKUWUM },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkpx, "__builtin_altivec_vpkpx", ALTIVEC_BUILTIN_VPKPX },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkshss, "__builtin_altivec_vpkshss", ALTIVEC_BUILTIN_VPKSHSS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkswss, "__builtin_altivec_vpkswss", ALTIVEC_BUILTIN_VPKSWSS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuhus, "__builtin_altivec_vpkuhus", ALTIVEC_BUILTIN_VPKUHUS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkshus, "__builtin_altivec_vpkshus", ALTIVEC_BUILTIN_VPKSHUS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkuwus, "__builtin_altivec_vpkuwus", ALTIVEC_BUILTIN_VPKUWUS },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vpkswus, "__builtin_altivec_vpkswus", ALTIVEC_BUILTIN_VPKSWUS },
+  { MASK_ALTIVEC, CODE_FOR_recipv4sf3, "__builtin_altivec_vrecipdivfp", ALTIVEC_BUILTIN_VRECIPFP },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsl, "__builtin_altivec_vsl", ALTIVEC_BUILTIN_VSL },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vslo, "__builtin_altivec_vslo", ALTIVEC_BUILTIN_VSLO },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vspltb, "__builtin_altivec_vspltb", ALTIVEC_BUILTIN_VSPLTB },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsplth, "__builtin_altivec_vsplth", ALTIVEC_BUILTIN_VSPLTH },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vspltw, "__builtin_altivec_vspltw", ALTIVEC_BUILTIN_VSPLTW },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsr, "__builtin_altivec_vsr", ALTIVEC_BUILTIN_VSR },
+  { MASK_ALTIVEC, CODE_FOR_altivec_vsro, "__builtin_altivec_vsro", ALTIVEC_BUILTIN_VSRO },
+  { MASK_ALTIVEC, CODE_FOR_vector_copysignv4sf3, "__builtin_altivec_copysignfp", ALTIVEC_BUILTIN_COPYSIGN_V4SF },
+
+  { MASK_VSX, CODE_FOR_addv2df3, "__builtin_vsx_xvadddp", VSX_BUILTIN_XVADDDP },
+  { MASK_VSX, CODE_FOR_subv2df3, "__builtin_vsx_xvsubdp", VSX_BUILTIN_XVSUBDP },
+  { MASK_VSX, CODE_FOR_mulv2df3, "__builtin_vsx_xvmuldp", VSX_BUILTIN_XVMULDP },
+  { MASK_VSX, CODE_FOR_divv2df3, "__builtin_vsx_xvdivdp", VSX_BUILTIN_XVDIVDP },
+  { MASK_VSX, CODE_FOR_recipv2df3, "__builtin_vsx_xvrecipdivdp", VSX_BUILTIN_RECIP_V2DF },
+  { MASK_VSX, CODE_FOR_sminv2df3, "__builtin_vsx_xvmindp", VSX_BUILTIN_XVMINDP },
+  { MASK_VSX, CODE_FOR_smaxv2df3, "__builtin_vsx_xvmaxdp", VSX_BUILTIN_XVMAXDP },
+  { MASK_VSX, CODE_FOR_vsx_tdivv2df3_fe, "__builtin_vsx_xvtdivdp_fe", VSX_BUILTIN_XVTDIVDP_FE },
+  { MASK_VSX, CODE_FOR_vsx_tdivv2df3_fg, "__builtin_vsx_xvtdivdp_fg", VSX_BUILTIN_XVTDIVDP_FG },
+  { MASK_VSX, CODE_FOR_vector_eqv2df, "__builtin_vsx_xvcmpeqdp", VSX_BUILTIN_XVCMPEQDP },
+  { MASK_VSX, CODE_FOR_vector_gtv2df, "__builtin_vsx_xvcmpgtdp", VSX_BUILTIN_XVCMPGTDP },
+  { MASK_VSX, CODE_FOR_vector_gev2df, "__builtin_vsx_xvcmpgedp", VSX_BUILTIN_XVCMPGEDP },
+
+  { MASK_VSX, CODE_FOR_addv4sf3, "__builtin_vsx_xvaddsp", VSX_BUILTIN_XVADDSP },
+  { MASK_VSX, CODE_FOR_subv4sf3, "__builtin_vsx_xvsubsp", VSX_BUILTIN_XVSUBSP },
+  { MASK_VSX, CODE_FOR_mulv4sf3, "__builtin_vsx_xvmulsp", VSX_BUILTIN_XVMULSP },
+  { MASK_VSX, CODE_FOR_divv4sf3, "__builtin_vsx_xvdivsp", VSX_BUILTIN_XVDIVSP },
+  { MASK_VSX, CODE_FOR_recipv4sf3, "__builtin_vsx_xvrecipdivsp", VSX_BUILTIN_RECIP_V4SF },
+  { MASK_VSX, CODE_FOR_sminv4bsf3, "__builtin_vsx_xvminsp", VSX_BUILTIN_XVMINSP },
+  { MASK_VSX, CODE_FOR_smaxv4sf3, "__builtin_vsx_xvmaxsp", VSX_BUILTIN_XVMAXSP },
+  { MASK_VSX, CODE_FOR_vsx_tdivv4sf3_fe, "__builtin_vsx_xvtdivsp_fe", VSX_BUILTIN_XVTDIVSP_FE },
+  { MASK_VSX, CODE_FOR_vsx_tdivv4sf3_fg, "__builtin_vsx_xvtdivsp_fg", VSX_BUILTIN_XVTDIVSP_FG },
+  { MASK_VSX, CODE_FOR_vector_eqv4sf, "__builtin_vsx_xvcmpeqsp", VSX_BUILTIN_XVCMPEQSP },
+  { MASK_VSX, CODE_FOR_vector_gtv4sf, "__builtin_vsx_xvcmpgtsp", VSX_BUILTIN_XVCMPGTSP },
+  { MASK_VSX, CODE_FOR_vector_gev4sf, "__builtin_vsx_xvcmpgesp", VSX_BUILTIN_XVCMPGESP },
+
+  { MASK_VSX, CODE_FOR_smindf3, "__builtin_vsx_xsmindp", VSX_BUILTIN_XSMINDP },
+  { MASK_VSX, CODE_FOR_smaxdf3, "__builtin_vsx_xsmaxdp", VSX_BUILTIN_XSMAXDP },
+  { MASK_VSX, CODE_FOR_vsx_tdivdf3_fe, "__builtin_vsx_xstdivdp_fe", VSX_BUILTIN_XSTDIVDP_FE },
+  { MASK_VSX, CODE_FOR_vsx_tdivdf3_fg, "__builtin_vsx_xstdivdp_fg", VSX_BUILTIN_XSTDIVDP_FG },
+  { MASK_VSX, CODE_FOR_vector_copysignv2df3, "__builtin_vsx_cpsgndp", VSX_BUILTIN_CPSGNDP },
+  { MASK_VSX, CODE_FOR_vector_copysignv4sf3, "__builtin_vsx_cpsgnsp", VSX_BUILTIN_CPSGNSP },
+
+  { MASK_VSX, CODE_FOR_vsx_concat_v2df, "__builtin_vsx_concat_2df", VSX_BUILTIN_CONCAT_2DF },
+  { MASK_VSX, CODE_FOR_vsx_concat_v2di, "__builtin_vsx_concat_2di", VSX_BUILTIN_CONCAT_2DI },
+  { MASK_VSX, CODE_FOR_vsx_splat_v2df, "__builtin_vsx_splat_2df", VSX_BUILTIN_SPLAT_2DF },
+  { MASK_VSX, CODE_FOR_vsx_splat_v2di, "__builtin_vsx_splat_2di", VSX_BUILTIN_SPLAT_2DI },
+  { MASK_VSX, CODE_FOR_vsx_xxmrghw_v4sf, "__builtin_vsx_xxmrghw", VSX_BUILTIN_XXMRGHW_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxmrghw_v4si, "__builtin_vsx_xxmrghw_4si", VSX_BUILTIN_XXMRGHW_4SI },
+  { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4sf, "__builtin_vsx_xxmrglw", VSX_BUILTIN_XXMRGLW_4SF },
+  { MASK_VSX, CODE_FOR_vsx_xxmrglw_v4si, "__builtin_vsx_xxmrglw_4si", VSX_BUILTIN_XXMRGLW_4SI },
+  { MASK_VSX, CODE_FOR_vec_interleave_lowv2df, "__builtin_vsx_mergel_2df", VSX_BUILTIN_VEC_MERGEL_V2DF },
+  { MASK_VSX, CODE_FOR_vec_interleave_lowv2di, "__builtin_vsx_mergel_2di", VSX_BUILTIN_VEC_MERGEL_V2DI },
+  { MASK_VSX, CODE_FOR_vec_interleave_highv2df, "__builtin_vsx_mergeh_2df", VSX_BUILTIN_VEC_MERGEH_V2DF },
+  { MASK_VSX, CODE_FOR_vec_interleave_highv2di, "__builtin_vsx_mergeh_2di", VSX_BUILTIN_VEC_MERGEH_V2DI },
+
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_add", ALTIVEC_BUILTIN_VEC_ADD },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vaddfp", ALTIVEC_BUILTIN_VEC_VADDFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduwm", ALTIVEC_BUILTIN_VEC_VADDUWM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhm", ALTIVEC_BUILTIN_VEC_VADDUHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubm", ALTIVEC_BUILTIN_VEC_VADDUBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_addc", ALTIVEC_BUILTIN_VEC_ADDC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_adds", ALTIVEC_BUILTIN_VEC_ADDS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddsws", ALTIVEC_BUILTIN_VEC_VADDSWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduws", ALTIVEC_BUILTIN_VEC_VADDUWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddshs", ALTIVEC_BUILTIN_VEC_VADDSHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vadduhs", ALTIVEC_BUILTIN_VEC_VADDUHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddsbs", ALTIVEC_BUILTIN_VEC_VADDSBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vaddubs", ALTIVEC_BUILTIN_VEC_VADDUBS },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_and", ALTIVEC_BUILTIN_VEC_AND },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_andc", ALTIVEC_BUILTIN_VEC_ANDC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_avg", ALTIVEC_BUILTIN_VEC_AVG },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsw", ALTIVEC_BUILTIN_VEC_VAVGSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavguw", ALTIVEC_BUILTIN_VEC_VAVGUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsh", ALTIVEC_BUILTIN_VEC_VAVGSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavguh", ALTIVEC_BUILTIN_VEC_VAVGUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgsb", ALTIVEC_BUILTIN_VEC_VAVGSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vavgub", ALTIVEC_BUILTIN_VEC_VAVGUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpb", ALTIVEC_BUILTIN_VEC_CMPB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpeq", ALTIVEC_BUILTIN_VEC_CMPEQ },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpeqfp", ALTIVEC_BUILTIN_VEC_VCMPEQFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequw", ALTIVEC_BUILTIN_VEC_VCMPEQUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequh", ALTIVEC_BUILTIN_VEC_VCMPEQUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpequb", ALTIVEC_BUILTIN_VEC_VCMPEQUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpge", ALTIVEC_BUILTIN_VEC_CMPGE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmpgt", ALTIVEC_BUILTIN_VEC_CMPGT },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtfp", ALTIVEC_BUILTIN_VEC_VCMPGTFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsw", ALTIVEC_BUILTIN_VEC_VCMPGTSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtuw", ALTIVEC_BUILTIN_VEC_VCMPGTUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsh", ALTIVEC_BUILTIN_VEC_VCMPGTSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtuh", ALTIVEC_BUILTIN_VEC_VCMPGTUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtsb", ALTIVEC_BUILTIN_VEC_VCMPGTSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vcmpgtub", ALTIVEC_BUILTIN_VEC_VCMPGTUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmple", ALTIVEC_BUILTIN_VEC_CMPLE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_cmplt", ALTIVEC_BUILTIN_VEC_CMPLT },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_copysign", ALTIVEC_BUILTIN_VEC_COPYSIGN },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_max", ALTIVEC_BUILTIN_VEC_MAX },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vmaxfp", ALTIVEC_BUILTIN_VEC_VMAXFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsw", ALTIVEC_BUILTIN_VEC_VMAXSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxuw", ALTIVEC_BUILTIN_VEC_VMAXUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsh", ALTIVEC_BUILTIN_VEC_VMAXSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxuh", ALTIVEC_BUILTIN_VEC_VMAXUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxsb", ALTIVEC_BUILTIN_VEC_VMAXSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmaxub", ALTIVEC_BUILTIN_VEC_VMAXUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mergeh", ALTIVEC_BUILTIN_VEC_MERGEH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghw", ALTIVEC_BUILTIN_VEC_VMRGHW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghh", ALTIVEC_BUILTIN_VEC_VMRGHH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrghb", ALTIVEC_BUILTIN_VEC_VMRGHB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mergel", ALTIVEC_BUILTIN_VEC_MERGEL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglw", ALTIVEC_BUILTIN_VEC_VMRGLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglh", ALTIVEC_BUILTIN_VEC_VMRGLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmrglb", ALTIVEC_BUILTIN_VEC_VMRGLB },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_min", ALTIVEC_BUILTIN_VEC_MIN },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vminfp", ALTIVEC_BUILTIN_VEC_VMINFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsw", ALTIVEC_BUILTIN_VEC_VMINSW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminuw", ALTIVEC_BUILTIN_VEC_VMINUW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsh", ALTIVEC_BUILTIN_VEC_VMINSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminuh", ALTIVEC_BUILTIN_VEC_VMINUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminsb", ALTIVEC_BUILTIN_VEC_VMINSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vminub", ALTIVEC_BUILTIN_VEC_VMINUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mule", ALTIVEC_BUILTIN_VEC_MULE },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuleub", ALTIVEC_BUILTIN_VEC_VMULEUB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulesb", ALTIVEC_BUILTIN_VEC_VMULESB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuleuh", ALTIVEC_BUILTIN_VEC_VMULEUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulesh", ALTIVEC_BUILTIN_VEC_VMULESH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_mulo", ALTIVEC_BUILTIN_VEC_MULO },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulosh", ALTIVEC_BUILTIN_VEC_VMULOSH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulouh", ALTIVEC_BUILTIN_VEC_VMULOUH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmulosb", ALTIVEC_BUILTIN_VEC_VMULOSB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vmuloub", ALTIVEC_BUILTIN_VEC_VMULOUB },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_nor", ALTIVEC_BUILTIN_VEC_NOR },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_or", ALTIVEC_BUILTIN_VEC_OR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_pack", ALTIVEC_BUILTIN_VEC_PACK },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuwum", ALTIVEC_BUILTIN_VEC_VPKUWUM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuhum", ALTIVEC_BUILTIN_VEC_VPKUHUM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packpx", ALTIVEC_BUILTIN_VEC_PACKPX },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packs", ALTIVEC_BUILTIN_VEC_PACKS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkswss", ALTIVEC_BUILTIN_VEC_VPKSWSS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuwus", ALTIVEC_BUILTIN_VEC_VPKUWUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkshss", ALTIVEC_BUILTIN_VEC_VPKSHSS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkuhus", ALTIVEC_BUILTIN_VEC_VPKUHUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_packsu", ALTIVEC_BUILTIN_VEC_PACKSU },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkswus", ALTIVEC_BUILTIN_VEC_VPKSWUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vpkshus", ALTIVEC_BUILTIN_VEC_VPKSHUS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_recipdiv", ALTIVEC_BUILTIN_VEC_RECIP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_rl", ALTIVEC_BUILTIN_VEC_RL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlw", ALTIVEC_BUILTIN_VEC_VRLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlh", ALTIVEC_BUILTIN_VEC_VRLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vrlb", ALTIVEC_BUILTIN_VEC_VRLB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sl", ALTIVEC_BUILTIN_VEC_SL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslw", ALTIVEC_BUILTIN_VEC_VSLW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslh", ALTIVEC_BUILTIN_VEC_VSLH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vslb", ALTIVEC_BUILTIN_VEC_VSLB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sll", ALTIVEC_BUILTIN_VEC_SLL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_slo", ALTIVEC_BUILTIN_VEC_SLO },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sr", ALTIVEC_BUILTIN_VEC_SR },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrw", ALTIVEC_BUILTIN_VEC_VSRW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrh", ALTIVEC_BUILTIN_VEC_VSRH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrb", ALTIVEC_BUILTIN_VEC_VSRB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sra", ALTIVEC_BUILTIN_VEC_SRA },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsraw", ALTIVEC_BUILTIN_VEC_VSRAW },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrah", ALTIVEC_BUILTIN_VEC_VSRAH },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsrab", ALTIVEC_BUILTIN_VEC_VSRAB },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_srl", ALTIVEC_BUILTIN_VEC_SRL },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sro", ALTIVEC_BUILTIN_VEC_SRO },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_sub", ALTIVEC_BUILTIN_VEC_SUB },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_vsubfp", ALTIVEC_BUILTIN_VEC_VSUBFP },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuwm", ALTIVEC_BUILTIN_VEC_VSUBUWM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuhm", ALTIVEC_BUILTIN_VEC_VSUBUHM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsububm", ALTIVEC_BUILTIN_VEC_VSUBUBM },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_subc", ALTIVEC_BUILTIN_VEC_SUBC },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_subs", ALTIVEC_BUILTIN_VEC_SUBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubsws", ALTIVEC_BUILTIN_VEC_VSUBSWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuws", ALTIVEC_BUILTIN_VEC_VSUBUWS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubshs", ALTIVEC_BUILTIN_VEC_VSUBSHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubuhs", ALTIVEC_BUILTIN_VEC_VSUBUHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsubsbs", ALTIVEC_BUILTIN_VEC_VSUBSBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsububs", ALTIVEC_BUILTIN_VEC_VSUBUBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sum4s", ALTIVEC_BUILTIN_VEC_SUM4S },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4shs", ALTIVEC_BUILTIN_VEC_VSUM4SHS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4sbs", ALTIVEC_BUILTIN_VEC_VSUM4SBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_vsum4ubs", ALTIVEC_BUILTIN_VEC_VSUM4UBS },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sum2s", ALTIVEC_BUILTIN_VEC_SUM2S },
+  { MASK_ALTIVEC, CODE_FOR_nothing, "__builtin_vec_sums", ALTIVEC_BUILTIN_VEC_SUMS },
+  { MASK_ALTIVEC|MASK_VSX, CODE_FOR_nothing, "__builtin_vec_xor", ALTIVEC_BUILTIN_VEC_XOR },
+
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_mul", VSX_BUILTIN_VEC_MUL },
+  { MASK_VSX, CODE_FOR_nothing, "__builtin_vec_div", VSX_BUILTIN_VEC_DIV },
+#endif
+
 
 /* AltiVec builtins.  */
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_4si,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_4si,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_8hi,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_8hi,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_16qi,	RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_16qi,	RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_4sf,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_4sf,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_2df,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_2df,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ST_INTERNAL_2di,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LD_INTERNAL_2di,		RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUBM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUHM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUWM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDCUW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUBS,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDSBS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUHS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDSHS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDUWS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VADDSWS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAND,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VANDC,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGUB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGUH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGUW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VAVGSW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCFUX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCFSX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCTSXS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCTUXS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPBFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUB,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUH,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUW,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGEFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUB,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSB,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUH,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSH,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUW,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSW,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEXPTEFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VLOGEFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMADDFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXUB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXUH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXUW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXSW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMAXFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMHADDSHS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMHRADDSHS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMLADDUHM,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGHB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGHH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGHW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGLB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGLH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMRGLW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMUBM,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMMBM,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMUHM,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMSHM,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMUHS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMSUMSHS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINUB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINUH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINUW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINSW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMINFP,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULEUB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULEUB_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULESB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULEUH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULEUH_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULESH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOUB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOUB_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOUH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOUH_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VMULOSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VNMSUBFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VNOR,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VOR,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_2DI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_4SI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_8HI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSEL_16QI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_2DI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_4SI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_8HI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPERM_16QI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUHUM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUWUM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKPX,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUHSS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKSHSS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUWSS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKSWSS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUHUS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKSHUS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKUWUS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VPKSWUS,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VREFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRFIM,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRFIN,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRFIP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRFIZ,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRLB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRLH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRLW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRSQRTFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRSQRTEFP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSL,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLO,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTISB,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTISH,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSPLTISW,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRAB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRAH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRAW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSR,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSRO,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUBM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUHM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUWM,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBFP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBCUW,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUBS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBSBS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUHS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBSHS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBUWS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUBSWS,			RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUM4UBS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUM4SBS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUM4SHS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUM2SWS,		RS6000_BTC_SAT)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSUMSWS,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VXOR,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLDOI_16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLDOI_8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLDOI_4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VSLDOI_4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKHSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKHPX,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKHSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKLSB,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKLPX,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VUPKLSH,			RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_MTVSCR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_MFVSCR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DSSALL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DSS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVSL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVSR,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DSTT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DSTST,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DSTSTT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_DST,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVEBX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVEHX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVEWX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVLX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVLXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVRX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_LVRXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVEBX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVEHX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVEWX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVLX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVLXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVRX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_STVRXL,			RS6000_BTC_MEM)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPBFP_P,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQFP_P,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUB_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUH_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQUW_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGEFP_P,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTFP_P,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSB_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSH_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTSW_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUB_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUH_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGTUW_P,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABSS_V4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABSS_V8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABSS_V16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABS_V4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABS_V4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABS_V8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_ABS_V16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_MASK_FOR_LOAD,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_MASK_FOR_STORE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_INIT_V4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_INIT_V8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_INIT_V16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_INIT_V4SF,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SET_V4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SET_V8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SET_V16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SET_V4SF,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXT_V4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXT_V8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXT_V16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXT_V4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_COPYSIGN_V4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VRECIPFP,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_4si,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_4si,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_8hi,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_8hi,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_16qi,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_16qi,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_4sf,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_4sf,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_2df,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_2df,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ST_INTERNAL_2di,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LD_INTERNAL_2di,		RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCFUX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCFSX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCTSXS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCTUXS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPBFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGEFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEXPTEFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VLOGEFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMADDFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMHADDSHS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMHRADDSHS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMLADDUHM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGHB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGHH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGHW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGLB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGLH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMRGLW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMUBM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMMBM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMUHM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMSHM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMUHS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VMSUMSHS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VNMSUBFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_2DI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_4SI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_8HI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSEL_16QI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_2DI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_4SI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_8HI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPERM_16QI_UNS,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUHUM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUWUM,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKPX,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUHSS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKSHSS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUWSS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKSWSS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUHUS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKSHUS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKUWUS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VPKSWUS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VREFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRFIM,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRFIN,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRFIP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRFIZ,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRSQRTFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRSQRTEFP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSL,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSLO,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTISB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTISH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSPLTISW,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSR,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSRO,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSUM4UBS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSUM4SBS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSUM4SHS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSUM2SWS,			RS6000_BTC_SAT)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSUMSWS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSLDOI_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSLDOI_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSLDOI_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VSLDOI_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKHSB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKHPX,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKHSH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKLSB,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKLPX,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VUPKLSH,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_MTVSCR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_MFVSCR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DSSALL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DSS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVSL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVSR,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DSTT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DSTST,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DSTSTT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_DST,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVEBX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVEHX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVEWX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVX,				RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVLX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVLXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVRX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_LVRXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVEBX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVEHX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVEWX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVLX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVLXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVRX,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_STVRXL,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPBFP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQFP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUB_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUH_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQUW_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGEFP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTFP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSB_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSH_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTSW_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUB_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUH_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGTUW_P,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABSS_V4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABSS_V8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABSS_V16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABS_V4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABS_V4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABS_V8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_ABS_V16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_MASK_FOR_LOAD,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_MASK_FOR_STORE,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_INIT_V4SI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_INIT_V8HI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_INIT_V16QI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_INIT_V4SF,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SET_V4SI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SET_V8HI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SET_V16QI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SET_V4SF,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXT_V4SI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXT_V8HI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXT_V16QI,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXT_V4SF,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_COPYSIGN_V4SF,		RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VRECIPFP,			RS6000_BTC_FP_PURE)
 
 /* Altivec overloaded builtins.  */
 /* For now, don't set the classification for overloaded functions.
    The function should be converted to the type specific instruction
    before we get to the point about classifying the builtin type.  */
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPEQ_P,		RS6000_BTC_MISC)
-RS6000_BUILTIN_EQUATE(ALTIVEC_BUILTIN_OVERLOADED_FIRST,
-		      ALTIVEC_BUILTIN_VCMPEQ_P)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGT_P,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VCMPGE_P,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ABS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ABSS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ADD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ADDC,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ADDS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_AND,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ANDC,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_AVG,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXTRACT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CEIL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPEQ,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPEQUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPEQUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPEQUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPGE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPGT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPLE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CMPLT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_COPYSIGN,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CTF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CTS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_CTU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_DST,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_DSTST,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_DSTSTT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_DSTT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_EXPTE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_FLOOR,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LDE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LDL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LOGE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVEBX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVEHX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVEWX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVLX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVLXL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVRX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVRXL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVSL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_LVSR,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MADD,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MADDS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MAX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MERGEH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MERGEL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MIN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MLADD,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MPERM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRADDS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGHB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGHH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGHW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGLB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGLH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MRGLW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MSUM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MSUMS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MTVSCR,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MULE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_MULO,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_NEARBYINT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_NMSUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_NOR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_OR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PACK,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PACKPX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PACKS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PACKSU,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PERM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RECIP,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RINT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ROUND,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RSQRT,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_RSQRTE,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SEL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SLD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SLL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SLO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_S16,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_S32,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_S8,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_U16,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_U32,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLAT_U8,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLTB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLTH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLTW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SQRT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SRA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SRL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SRO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_ST,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVEBX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVEHX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVEWX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVLX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVLXL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVRX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STVRXL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUBC,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUM2S,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUM4S,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SUMS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_TRUNC,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_UNPACKH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_UNPACKL,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDSBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDSHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDSWS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUBM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUHM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUWM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VADDUWS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGSW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VAVGUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCFSX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCFUX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPEQFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPEQUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPEQUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPEQUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTSW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VCMPGTUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXSW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMAXUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINSW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMINUW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGHB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGHH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGHW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGLB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGLH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMRGLW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMMBM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMSHM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMSHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMUBM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMUHM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMSUMUHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULESB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULESH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULEUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULEUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULOSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULOSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULOUB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VMULOUH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKSHSS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKSHUS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKSWSS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKSWUS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKUHUM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKUHUS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKUWUM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VPKUWUS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VRLB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VRLH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VRLW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSLB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSLH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSLW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSPLTB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSPLTH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSPLTW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRAB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRAH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRAW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSRW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBFP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBSBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBSHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBSWS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUBM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUHM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUWM,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUBUWS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUM4SBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUM4SHS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VSUM4UBS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKHPX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKHSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKHSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKLPX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKLSB,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_VUPKLSH,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_XOR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_STEP,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_PROMOTE,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_INSERT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(ALTIVEC_BUILTIN_VEC_SPLATS,		RS6000_BTC_MISC)
-RS6000_BUILTIN_EQUATE(ALTIVEC_BUILTIN_OVERLOADED_LAST,
-		      ALTIVEC_BUILTIN_VEC_SPLATS)
+#ifndef ALTIVEC_BUILTIN_OVERLOADED_FIRST
+#define ALTIVEC_BUILTIN_OVERLOADED_FIRST	ALTIVEC_BUILTIN_VCMPEQ_P
+#endif
+
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPEQ_P,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGT_P,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VCMPGE_P,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ABS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ABSS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ADD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ADDC,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ADDS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_AND,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ANDC,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_AVG,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXTRACT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CEIL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPEQUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPEQUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPEQUW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPGE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPGT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPLE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CMPLT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_COPYSIGN,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CTF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CTS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_CTU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_DST,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_DSTST,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_DSTSTT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_DSTT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_EXPTE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_FLOOR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LDE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LDL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LOGE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVEBX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVEHX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVEWX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVLX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVLXL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVRX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVRXL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVSL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_LVSR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MADD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MADDS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MAX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MERGEH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MERGEL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MIN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MLADD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MPERM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRADDS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGHB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGHH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGHW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGLB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGLH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MRGLW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MSUM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MSUMS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MTVSCR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MULE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_MULO,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_NEARBYINT,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_NMSUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_NOR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_OR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PACK,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PACKPX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PACKS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PACKSU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PERM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RECIP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RINT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ROUND,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RSQRT,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_RSQRTE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SEL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SLD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SLL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SLO,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_S16,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_S32,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_S8,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_U16,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_U32,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLAT_U8,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLTB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLTH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLTW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SQRT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SRA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SRL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SRO,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_ST,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVEBX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVEHX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVEWX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVLX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVLXL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVRX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STVRXL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUBC,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUBS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUM2S,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUM4S,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SUMS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_TRUNC,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_UNPACKH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_UNPACKL,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDFP,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDSBS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDSHS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDSWS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUBM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUBS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUHM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUHS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUWM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VADDUWS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGSW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VAVGUW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCFSX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCFUX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPEQFP,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPEQUB,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPEQUH,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPEQUW,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTFP,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTSB,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTSH,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTSW,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTUB,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTUH,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VCMPGTUW,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXFP,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXSW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMAXUW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINFP,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINSW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMINUW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGHB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGHH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGHW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGLB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGLH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMRGLW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMMBM,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMSHM,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMSHS,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMUBM,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMUHM,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMSUMUHS,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULESB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULESH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULEUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULEUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULOSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULOSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULOUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VMULOUH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKSHSS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKSHUS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKSWSS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKSWUS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKUHUM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKUHUS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKUWUM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VPKUWUS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VRLB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VRLH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VRLW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSLB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSLH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSLW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRAB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRAH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSRW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSPLTB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSPLTH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSPLTW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBFP,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBSBS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBSHS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBSWS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUBM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUBS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUHM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUHS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUWM,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUBUWS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUM4SBS,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUM4SHS,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VSUM4UBS,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKHPX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKHSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKHSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKLPX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKLSB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_VUPKLSH,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_XOR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_STEP,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_PROMOTE,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_INSERT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(ALTIVEC_BUILTIN_VEC_SPLATS,			RS6000_BTC_MISC)
+
+#ifndef ALTIVEC_BUILTIN_OVERLOADED_LAST
+#define ALTIVEC_BUILTIN_OVERLOADED_LAST	ALTIVEC_BUILTIN_VEC_SPLATS
+#endif
 
 /* SPE builtins.  */
-RS6000_BUILTIN(SPE_BUILTIN_EVADDW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVAND,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVANDC,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVDIVWS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVDIVWU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVEQV,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSADD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSDIV,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSMUL,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSSUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDDX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDHX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDWX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHESPLATX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHOSSPLATX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHOUSPLATX,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHEX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHOSX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHOUX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHSPLATX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWWSPLATX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMERGEHI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMERGEHILO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMERGELO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMERGELOHI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGSMFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGSMFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGSMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGSMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGUMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEGUMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMFAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMFANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSFAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSFANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHESSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHEUSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGSMFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGSMFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGSMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGSMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGUMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOGUMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMFAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMFANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSFAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSFANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOSSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMHOUSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLSMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLSMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLSSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLSSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUMIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWLUSIANW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSSFA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSSFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWSSFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWUMI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWUMIA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWUMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWUMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVNAND,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVNOR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVOR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVORC,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVRLW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSLW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSRWS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSRWU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDDX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDHX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDWX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWHEX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWHOX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWWEX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWWOX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBFW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVXOR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVABS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVADDSMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVADDSSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVADDUMIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVADDUSIAAW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCNTLSW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCNTLZW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVEXTSB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVEXTSH,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSABS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCFSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCFSI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCFUF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCFUI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTSF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTSI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTSIZ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTUF,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTUI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCTUIZ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSNABS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSNEG,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMRA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVNEG,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVRNDW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBFSMIAAW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBFSSIAAW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBFUMIAAW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBFUSIAAW,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVADDIW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDH,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLDW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHESPLAT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHOSSPLAT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLHHOUSPLAT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHOS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHOU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWHSPLAT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVLWWSPLAT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVRLWI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSLWI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSRWIS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSRWIU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDH,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTDW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWHE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWHO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWWE,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSTWWO,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSUBIFW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVAND,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVANDC,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVDIVWS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVDIVWU,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVEQV,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSADD,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSDIV,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSMUL,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSSUB,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDDX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDHX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDWX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHESPLATX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHOSSPLATX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHOUSPLATX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHEX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHOSX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHOUX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHSPLATX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWWSPLATX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMERGEHI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMERGEHILO,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMERGELO,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMERGELOHI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGSMFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGSMFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGSMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGSMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGUMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEGUMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMFAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMFANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSFAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSFANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHESSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHEUSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGSMFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGSMFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGSMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGSMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGUMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOGUMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMFAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMFANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSFAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSFANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOSSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMHOUSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLSMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLSMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLSSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLSSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUMI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUMIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWLUSIANW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMF,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMI,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSSF,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSSFA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSSFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWSSFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWUMI,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWUMIA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWUMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWUMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVNAND,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVNOR,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVOR,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVORC,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVRLW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSLW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSRWS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSRWU,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDDX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDHX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDWX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWHEX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWHOX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWWEX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWWOX,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBFW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVXOR,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVABS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDSMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDSSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDUMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDUSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCNTLSW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCNTLZW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVEXTSB,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVEXTSH,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSABS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCFSF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCFSI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCFUF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCFUI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTSF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTSI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTSIZ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTUF,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTUI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCTUIZ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSNABS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSNEG,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMRA,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVNEG,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVRNDW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBFSMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBFSSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBFUMIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBFUSIAAW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVADDIW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDD,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDH,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLDW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHESPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHOSSPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLHHOUSPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHE,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHOS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHOU,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWHSPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVLWWSPLAT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVRLWI,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSLWI,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSRWIS,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSRWIU,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDD,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDH,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTDW,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWHE,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWHO,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWWE,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSTWWO,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSUBIFW,			RS6000_BTC_MISC)
 
   /* Compares.  */
-RS6000_BUILTIN(SPE_BUILTIN_EVCMPEQ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCMPGTS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCMPGTU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCMPLTS,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVCMPLTU,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCMPEQ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCMPGT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSCMPLT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSTSTEQ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSTSTGT,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVFSTSTLT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCMPEQ,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCMPGTS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCMPGTU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCMPLTS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVCMPLTU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCMPEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCMPGT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSCMPLT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSTSTEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSTSTGT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVFSTSTLT,			RS6000_BTC_MISC)
 
 /* EVSEL compares.  */
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_CMPEQ,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_CMPGTS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_CMPGTU,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_CMPLTS,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_CMPLTU,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSCMPEQ,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSCMPGT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSCMPLT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSTSTEQ,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSTSTGT,		RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSEL_FSTSTLT,		RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_CMPEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_CMPGTS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_CMPGTU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_CMPLTS,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_CMPLTU,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSCMPEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSCMPGT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSCMPLT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSTSTEQ,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSTSTGT,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSEL_FSTSTLT,			RS6000_BTC_MISC)
 
-RS6000_BUILTIN(SPE_BUILTIN_EVSPLATFI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVSPLATI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSMAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUSIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSSIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHSMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUSIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHUMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSSFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSMFAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGUMIAA,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSSFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSMFAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGSMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_EVMWHGUMIAN,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_MTSPEFSCR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_MFSPEFSCR,			RS6000_BTC_MISC)
-RS6000_BUILTIN(SPE_BUILTIN_BRINC,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSPLATFI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVSPLATI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSMAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUSIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSSIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHSMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUSIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHUMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSSFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSMFAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGUMIAA,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSSFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSMFAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGSMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_EVMWHGUMIAN,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_MTSPEFSCR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_MFSPEFSCR,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(SPE_BUILTIN_BRINC,				RS6000_BTC_MISC)
 
 /* PAIRED builtins.  */
-RS6000_BUILTIN(PAIRED_BUILTIN_DIVV2SF3,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_ABSV2SF2,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_NEGV2SF2,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_SQRTV2SF2,		RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_ADDV2SF3,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_SUBV2SF3,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_RESV2SF2,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MULV2SF3,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MSUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MADD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_NMSUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_NMADD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_NABSV2SF2,		RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_SUM0,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_SUM1,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MULS0,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MULS1,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MERGE00,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MERGE01,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MERGE10,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MERGE11,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MADDS0,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_MADDS1,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_STX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_LX,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_SELV2SF4,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_CMPU0,			RS6000_BTC_MISC)
-RS6000_BUILTIN(PAIRED_BUILTIN_CMPU1,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_DIVV2SF3,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_ABSV2SF2,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_NEGV2SF2,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_SQRTV2SF2,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_ADDV2SF3,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_SUBV2SF3,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_RESV2SF2,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MULV2SF3,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MSUB,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MADD,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_NMSUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_NMADD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_NABSV2SF2,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_SUM0,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_SUM1,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MULS0,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MULS1,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MERGE00,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MERGE01,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MERGE10,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MERGE11,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MADDS0,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_MADDS1,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_STX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_LX,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_SELV2SF4,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_CMPU0,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(PAIRED_BUILTIN_CMPU1,			RS6000_BTC_MISC)
 
   /* VSX builtins.  */
-RS6000_BUILTIN(VSX_BUILTIN_LXSDX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVD2X_V2DF,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVD2X_V2DI,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVDSX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVW4X_V4SF,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVW4X_V4SI,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVW4X_V8HI,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_LXVW4X_V16QI,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXSDX,			RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVD2X_V2DF,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVD2X_V2DI,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVW4X_V4SF,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVW4X_V4SI,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVW4X_V8HI,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_STXVW4X_V16QI,		RS6000_BTC_MEM)
-RS6000_BUILTIN(VSX_BUILTIN_XSABSDP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XSADDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCMPODP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCMPUDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCPSGNDP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVDPSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVDPSXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVDPSXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVDPUXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVDPUXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVSPDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVSXDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSCVUXDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSDIVDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMADDADP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMADDMDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMAXDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMINDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMOVDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMSUBADP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMSUBMDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSMULDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNABSDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNEGDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNMADDADP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNMADDMDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNMSUBADP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSNMSUBMDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRDPI,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRDPIC,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRDPIM,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRDPIP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRDPIZ,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSREDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSRSQRTEDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSSQRTDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSSUBDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_CPSGNDP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_CPSGNSP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XSTDIVDP_FE,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSTDIVDP_FG,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSTSQRTDP_FE,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XSTSQRTDP_FG,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVABSDP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XVABSSP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XVADDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVADDSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPEQDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPEQSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGEDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGESP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGTDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGTSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPEQDP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPEQSP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGEDP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGESP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGTDP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCMPGTSP_P,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCPSGNDP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XVCPSGNSP,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPSXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPSXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPUXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPUXDS_UNS,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVDPUXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSPDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSPSXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSPSXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSPUXDS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSPUXWS,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSXDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSXDSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSXWDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVSXWSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVUXDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVUXDDP_UNS,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVUXDSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVUXWDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVCVUXWSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVDIVDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVDIVSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMADDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMADDSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMAXDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMAXSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMINDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMINSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMSUBDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMSUBSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMULDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVMULSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNABSDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNABSSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNEGDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNEGSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNMADDDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNMADDSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNMSUBDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVNMSUBSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRDPI,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRDPIC,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRDPIM,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRDPIP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRDPIZ,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVREDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRESP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSPI,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSPIC,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSPIM,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSPIP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSPIZ,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSQRTEDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVRSQRTESP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVSQRTDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVSQRTSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVSUBDP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVSUBSP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTDIVDP_FE,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTDIVDP_FG,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTDIVSP_FE,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTDIVSP_FG,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTSQRTDP_FE,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTSQRTDP_FG,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTSQRTSP_FE,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XVTSQRTSP_FG,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_2DI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_2DF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_4SI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_4SF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_8HI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_16QI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_2DI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_4SI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_8HI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSEL_16QI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_2DI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_2DF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_4SI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_4SF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_8HI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_16QI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_2DI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_4SI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_8HI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VPERM_16QI_UNS,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_4SF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_4SI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_8HI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXPERMDI_16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_CONCAT_2DF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_CONCAT_2DI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_SET_2DF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_SET_2DI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_SPLAT_2DF,			RS6000_BTC_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_SPLAT_2DI,			RS6000_BTC_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_XXMRGHW_4SF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXMRGHW_4SI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXMRGLW_4SF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXMRGLW_4SI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_16QI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_8HI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_4SI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_4SF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_2DI,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_XXSLDWI_2DF,			RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_INIT_V2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_INIT_V2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_SET_V2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_SET_V2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_EXT_V2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_EXT_V2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MERGEL_V2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MERGEL_V2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MERGEH_V2DF,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MERGEH_V2DI,		RS6000_BTC_CONST)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_RSQRT_V4SF,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_RSQRT_V2DF,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_RECIP_V4SF,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VSX_BUILTIN_RECIP_V2DF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXSDX,				RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVD2X_V2DF,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVD2X_V2DI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVDSX,				RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVW4X_V4SF,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVW4X_V4SI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVW4X_V8HI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_LXVW4X_V16QI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXSDX,				RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVD2X_V2DF,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVD2X_V2DI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVW4X_V4SF,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVW4X_V4SI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVW4X_V8HI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_STXVW4X_V16QI,			RS6000_BTC_MEM)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSABSDP,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSADDDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCMPODP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCMPUDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCPSGNDP,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVDPSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVDPSXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVDPSXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVDPUXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVDPUXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVSPDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVSXDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSCVUXDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSDIVDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMADDADP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMADDMDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMAXDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMINDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMOVDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMSUBADP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMSUBMDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSMULDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNABSDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNEGDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNMADDADP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNMADDMDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNMSUBADP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSNMSUBMDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRDPI,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRDPIC,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRDPIM,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRDPIP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRDPIZ,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSREDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSRSQRTEDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSSQRTDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSSUBDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_CPSGNDP,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_CPSGNSP,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSTDIVDP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSTDIVDP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSTSQRTDP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XSTSQRTDP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVABSDP,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVABSSP,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVADDDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVADDSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPEQDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPEQSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGEDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGESP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGTDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGTSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPEQDP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPEQSP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGEDP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGESP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGTDP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCMPGTSP_P,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCPSGNDP,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCPSGNSP,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPSXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPSXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPUXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPUXDS_UNS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVDPUXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSPDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSPSXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSPSXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSPUXDS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSPUXWS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSXDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSXDSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSXWDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVSXWSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVUXDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVUXDDP_UNS,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVUXDSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVUXWDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVCVUXWSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVDIVDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVDIVSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMADDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMADDSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMAXDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMAXSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMINDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMINSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMSUBDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMSUBSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMULDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVMULSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNABSDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNABSSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNEGDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNEGSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNMADDDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNMADDSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNMSUBDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVNMSUBSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRDPI,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRDPIC,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRDPIM,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRDPIP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRDPIZ,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVREDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRESP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSPI,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSPIC,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSPIM,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSPIP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSPIZ,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSQRTEDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVRSQRTESP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVSQRTDP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVSQRTSP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVSUBDP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVSUBSP,				RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTDIVDP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTDIVDP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTDIVSP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTDIVSP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTSQRTDP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTSQRTDP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTSQRTSP_FE,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XVTSQRTSP_FG,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_2DI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_4SI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_8HI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSEL_16QI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_2DI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_4SI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_8HI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VPERM_16QI_UNS,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXPERMDI_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_CONCAT_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_CONCAT_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_SET_2DF,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_SET_2DI,				RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_SPLAT_2DF,			RS6000_BTC_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_SPLAT_2DI,			RS6000_BTC_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXMRGHW_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXMRGHW_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXMRGLW_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXMRGLW_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_16QI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_8HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_4SI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_4SF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_XXSLDWI_2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_INIT_V2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_INIT_V2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_SET_V2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_SET_V2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_EXT_V2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_EXT_V2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MERGEL_V2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MERGEL_V2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MERGEH_V2DF,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MERGEH_V2DI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_RSQRT_V4SF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_RSQRT_V2DF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_RECIP_V4SF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_RECIP_V2DF,			RS6000_BTC_FP_PURE)
 
 /* VSX overloaded builtins, add the overloaded functions not present in
    Altivec.  */
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MUL,			RS6000_BTC_MISC)
-RS6000_BUILTIN_EQUATE(VSX_BUILTIN_OVERLOADED_FIRST,
-		      VSX_BUILTIN_VEC_MUL)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_MSUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_NMADD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUITLIN_VEC_NMSUB,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_DIV,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXMRGHW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXMRGLW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXPERMDI,		RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXSLDWI,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXSPLTD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_XXSPLTW,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_LD,			RS6000_BTC_MISC)
-RS6000_BUILTIN(VSX_BUILTIN_VEC_ST,			RS6000_BTC_MISC)
-RS6000_BUILTIN_EQUATE(VSX_BUILTIN_OVERLOADED_LAST,
-		      VSX_BUILTIN_VEC_ST)
+#ifndef VSX_BUILTIN_OVERLOADED_FIRST
+#define VSX_BUILTIN_OVERLOADED_FIRST	VSX_BUILTIN_VEC_MUL
+#endif
+
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MUL,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_MSUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_NMADD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUITLIN_VEC_NMSUB,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_DIV,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXMRGHW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXMRGLW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXPERMDI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXSLDWI,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXSPLTD,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_XXSPLTW,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_LD,				RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(VSX_BUILTIN_VEC_ST,				RS6000_BTC_MISC)
+
+#ifndef VSX_BUILTIN_OVERLOADED_LAST
+#define VSX_BUILTIN_OVERLOADED_LAST	VSX_BUILTIN_VEC_ST
+#endif
 
 /* Combined VSX/Altivec builtins.  */
-RS6000_BUILTIN(VECTOR_BUILTIN_FLOAT_V4SI_V4SF,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF,	RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VECTOR_BUILTIN_FIX_V4SF_V4SI,		RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(VECTOR_BUILTIN_FIXUNS_V4SF_V4SI,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VECTOR_BUILTIN_FLOAT_V4SI_V4SF,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VECTOR_BUILTIN_UNSFLOAT_V4SI_V4SF,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VECTOR_BUILTIN_FIX_V4SF_V4SI,		RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(VECTOR_BUILTIN_FIXUNS_V4SF_V4SI,		RS6000_BTC_FP_PURE)
 
 /* Power7 builtins, that aren't VSX instructions.  */
-RS6000_BUILTIN(POWER7_BUILTIN_BPERMD,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(POWER7_BUILTIN_BPERMD,			RS6000_BTC_CONST)
 
 /* Miscellaneous builtins.  */
-RS6000_BUILTIN(RS6000_BUILTIN_RECIP,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(RS6000_BUILTIN_RECIPF,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(RS6000_BUILTIN_RSQRTF,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(RS6000_BUILTIN_RSQRT,			RS6000_BTC_FP_PURE)
-RS6000_BUILTIN(RS6000_BUILTIN_BSWAP_HI,			RS6000_BTC_CONST)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_RECIP,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_RECIPF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_RSQRTF,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_RSQRT,			RS6000_BTC_FP_PURE)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_BSWAP_HI,			RS6000_BTC_CONST)
 
 /* Darwin CfString builtin.  */
-RS6000_BUILTIN(RS6000_BUILTIN_CFSTRING,			RS6000_BTC_MISC)
+RS6000_BUILTIN_OLD(RS6000_BUILTIN_CFSTRING,			RS6000_BTC_MISC)
