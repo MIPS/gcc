@@ -859,8 +859,8 @@ struct rs6000_builtin_info {
   enum machine_mode arg3;	/* Arg3 mode. */
 };
 
-#undef RS6000_BUILTIN
-#define RS6000_BUILTIN(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) \
+#undef BU_RS6000
+#define BU_RS6000(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) \
   { NAME, ICODE, BTC, RET, ARG1, ARG2, ARG3 },
 
 static const struct rs6000_builtin_info
@@ -869,7 +869,7 @@ rs6000_builtin_info[(int)RS6000_BUILTIN_COUNT] =
 #include "rs6000-builtin.def"
 };
 
-#undef RS6000_BUILTIN
+#undef BU_RS6000
 
 /* Support for -mveclibabi=<xxx> to control which vector library to use.  */
 static tree (*rs6000_veclib_handler) (tree, tree, tree);
@@ -9400,7 +9400,7 @@ def_builtin (int mask, const char *name, tree type, int code)
 	     a const function.  This mimics the ATTR_MATHFN_FPROUNDING
 	     attribute in builtin-attribute.def that is used for the math
 	     functions. */
-	case RS6000_BTC_FP_PURE:
+	case RS6000_BTC_FP:
 	  TREE_NOTHROW (t) = 1;
 	  if (flag_rounding_math)
 	    {

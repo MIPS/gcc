@@ -2270,12 +2270,13 @@ enum rs6000_btc
   RS6000_BTC_MISC,		/* assume builtin can do anything */
   RS6000_BTC_CONST,		/* builtin is a 'const' function.  */
   RS6000_BTC_PURE,		/* builtin is a 'pure' function.  */
-  RS6000_BTC_FP_PURE		/* builtin is 'pure' if rounding math.  */
+  RS6000_BTC_FP			/* builtin depends on fp rounding.  */
 };
 
 /* Convenience macros to document the instruction type.  */
 #define RS6000_BTC_MEM	RS6000_BTC_MISC	/* load/store touches memory */
 #define RS6000_BTC_SAT	RS6000_BTC_MISC	/* VMX saturate sets VSCR register */
+#define RS6000_BTC_FP_PURE RS6000_BTC_FP /* old name */
 
 /* Describe which type of builtin a given function is.  */
 enum rs6000_builtin_type {
@@ -2287,8 +2288,8 @@ enum rs6000_builtin_type {
   RS6000_BUILTIN_OVERLOADED	/* Buildin depends on argument types.  */
 };
 
-#undef RS6000_BUILTIN
-#define RS6000_BUILTIN(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) ENUM,
+#undef BU_RS6000
+#define BU_RS6000(ENUM, NAME, ICODE, TYPE, BTC, RET, ARG1, ARG2, ARG3) ENUM,
 
 enum rs6000_builtins
 {
@@ -2297,7 +2298,7 @@ enum rs6000_builtins
   RS6000_BUILTIN_COUNT
 };
 
-#undef RS6000_BUILTIN
+#undef BU_RS6000
 
 enum rs6000_builtin_type_index
 {
