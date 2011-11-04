@@ -1,3 +1,51 @@
+2011-11-04  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000-builtin.def: Complete rewrite, move more
+	builtin information into rs6000-buitlin.def.  Change some builtin
+	names to be more consistant.  Use a new mask variable for builtin
+	availability instead of using target_flags.  Add -mdebug=builtin
+	support.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Ditto.
+	(altivec_build_resolved_builtin): Ditto.
+	* common/config/rs6000/rs6000-common.c (rs6000_handle_option):
+	Ditto.
+	* config/rs6000/rs6000.opt (rs6000_builtin_mask): Ditto.
+	* config/rs6000/rs6000.h (MASK_DEBUG_BUILTIN): Ditto.
+	(MASK_DEBUG_ALL): Ditto.
+	(TARGET_DEBUG_BUILTIN): Ditto.
+	(enum rs6000_rtc): Ditto.
+	(RS6000_BTC_*): Ditto.
+	(RS6000_BTM_*): Ditto.
+	(rs6000_builtins): Ditto.
+	* config/rs6000/rs6000.c (rs6000_builtin_info): Ditto.
+	(builtin_classify): Ditto.
+	(rs6000_debug_reg_global): Ditto.
+	(rs6000_option_override_internal): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+	(rs6000_builtin_vectorized_function): Ditto.
+	(def_builtin): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_dst): Ditto.
+	(bdesc_2arg): Ditto.
+	(bdesc_altivec_preds): Ditto.
+	(bdesc_spe_predicates): Ditto.
+	(bdesc_spe_evsel): Ditto.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_expand_unop_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(spe_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+
+2011-11-03  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000-buitlin.def: Undo changes (subversion id
+	180801).
+	* config/rs6000/rs6000.h: Ditto.
+	* config/rs6000/rs6000.c: Ditto.
+
 2011-11-02  Michael Meissner  <meissner@the-meissners.org>
 
 	* config/rs6000/rs6000-builtin.def: Start rewrite of the builtin
@@ -7,13 +55,13 @@
 	* config/rs6000/rs6000.h (enum rs6000_builtin_type): New enum to
 	simplify what switches are needed for builtin functions.
 	(RS6000_BUILTIN): Delete, no longer used.
-	(RS6000_BUILTIN_DELETE): Ditto.
+	(RS6000_BUILTIN_EQUATE): Ditto.
 	(BU_RS6000): New replacement for RS6000_BUILTIN.
 
 	* config/rs6000/rs6000.c (BU_RS6000): New replacement for
 	RS6000_BUILTIN.
 	(RS6000_BUILTIN): Delete, no longer used.
-	(RS6000_BUILTIN_DELETE): Ditto.
+	(RS6000_BUILTIN_EQUATE): Ditto.
 	(builtin_classify): Delete, merge into rs6000_builtin_info.
 	(rs6000_builtin_info): New const structure to hold types and such
 	for all rs6000 builtins.
