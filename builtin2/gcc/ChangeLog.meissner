@@ -1,7 +1,7 @@
 2011-11-04  Michael Meissner  <meissner@the-meissners.org>
 
 	* config/rs6000/rs6000-builtin.def: Complete rewrite, move more
-	builtin information into rs6000-buitlin.def.  Change some builtin
+	builtin information into rs6000-builtin.def.  Change some builtin
 	names to be more consistant.  Use a new mask variable for builtin
 	availability instead of using target_flags.  Add -mdebug=builtin
 	support.
