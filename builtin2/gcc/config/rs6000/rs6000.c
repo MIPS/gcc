@@ -1069,9 +1069,6 @@ static rtx paired_expand_lv_builtin (enum insn_code, tree, rtx);
 static rtx paired_expand_stv_builtin (enum insn_code, tree);
 static rtx paired_expand_predicate_builtin (enum insn_code, tree, rtx);
 
-static void enable_mask_for_builtins (struct builtin_description *, int,
-				      enum rs6000_builtins,
-				      enum rs6000_builtins);
 static void spe_init_builtins (void);
 static rtx spe_expand_builtin (tree, rtx, bool *);
 static rtx spe_expand_stv_builtin (enum insn_code, tree);
@@ -9579,7 +9576,7 @@ static const struct builtin_description bdesc_dst[] =
 #define RS6000_BUILTIN_S(ENUM, NAME, MASK, ATTR, ICODE)
 #define RS6000_BUILTIN_X(ENUM, NAME, MASK, ATTR, ICODE)
 
-static struct builtin_description bdesc_2arg[] =
+static const struct builtin_description bdesc_2arg[] =
 {
 #include "rs6000-builtin.def"
 };
@@ -9640,7 +9637,7 @@ static const struct builtin_description bdesc_altivec_preds[] =
 
 #define RS6000_BUILTIN_X(ENUM, NAME, MASK, ATTR, ICODE)
 
-static struct builtin_description bdesc_spe_predicates[] =
+static const struct builtin_description bdesc_spe_predicates[] =
 {
 #include "rs6000-builtin.def"
 };
@@ -9670,7 +9667,7 @@ static struct builtin_description bdesc_spe_predicates[] =
 #define RS6000_BUILTIN_S(ENUM, NAME, MASK, ATTR, ICODE)
 #define RS6000_BUILTIN_X(ENUM, NAME, MASK, ATTR, ICODE)
 
-static struct builtin_description bdesc_spe_evsel[] =
+static const struct builtin_description bdesc_spe_evsel[] =
 {
 #include "rs6000-builtin.def"
 };
@@ -9763,7 +9760,7 @@ static const struct builtin_description bdesc_abs[] =
 #define RS6000_BUILTIN_S(ENUM, NAME, MASK, ATTR, ICODE)
 #define RS6000_BUILTIN_X(ENUM, NAME, MASK, ATTR, ICODE)
 
-static struct builtin_description bdesc_1arg[] =
+static const struct builtin_description bdesc_1arg[] =
 {
 #include "rs6000-builtin.def"
 };
@@ -9778,6 +9775,13 @@ static struct builtin_description bdesc_1arg[] =
 #undef RS6000_BUILTIN_Q
 #undef RS6000_BUILTIN_S
 #undef RS6000_BUILTIN_X
+
+/* Return true if a builtin function is overloaded.  */
+bool
+rs6000_overloaded_builtin_p (enum rs6000_builtins fncode)
+{
+  return (rs6000_builtin_info[(int)fncode].attr & RS6000_BTC_OVERLOADED) != 0;
+}
 
 
 static rtx
@@ -10607,12 +10611,10 @@ altivec_expand_builtin (tree exp, rtx target, bool *expandedp)
   tree arg0;
   rtx op0, pat;
   enum machine_mode tmode, mode0;
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  enum rs6000_builtins fcode
+    = (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
 
-  if ((fcode >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-       && fcode <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-      || (fcode >= VSX_BUILTIN_OVERLOADED_FIRST
-	  && fcode <= VSX_BUILTIN_OVERLOADED_LAST))
+  if (rs6000_overloaded_builtin_p (fcode))
     {
       *expandedp = true;
       error ("unresolved overload for Altivec builtin %qF", fndecl);
@@ -10869,30 +10871,30 @@ paired_expand_builtin (tree exp, rtx target, bool * expandedp)
 
 /* Binops that need to be initialized manually, but can be expanded
    automagically by rs6000_expand_binop_builtin.  */
-static struct builtin_description bdesc_2arg_spe[] =
+static const struct builtin_description bdesc_2arg_spe[] =
 {
-  { 0, CODE_FOR_spe_evlddx, "__builtin_spe_evlddx", SPE_BUILTIN_EVLDDX },
-  { 0, CODE_FOR_spe_evldwx, "__builtin_spe_evldwx", SPE_BUILTIN_EVLDWX },
-  { 0, CODE_FOR_spe_evldhx, "__builtin_spe_evldhx", SPE_BUILTIN_EVLDHX },
-  { 0, CODE_FOR_spe_evlwhex, "__builtin_spe_evlwhex", SPE_BUILTIN_EVLWHEX },
-  { 0, CODE_FOR_spe_evlwhoux, "__builtin_spe_evlwhoux", SPE_BUILTIN_EVLWHOUX },
-  { 0, CODE_FOR_spe_evlwhosx, "__builtin_spe_evlwhosx", SPE_BUILTIN_EVLWHOSX },
-  { 0, CODE_FOR_spe_evlwwsplatx, "__builtin_spe_evlwwsplatx", SPE_BUILTIN_EVLWWSPLATX },
-  { 0, CODE_FOR_spe_evlwhsplatx, "__builtin_spe_evlwhsplatx", SPE_BUILTIN_EVLWHSPLATX },
-  { 0, CODE_FOR_spe_evlhhesplatx, "__builtin_spe_evlhhesplatx", SPE_BUILTIN_EVLHHESPLATX },
-  { 0, CODE_FOR_spe_evlhhousplatx, "__builtin_spe_evlhhousplatx", SPE_BUILTIN_EVLHHOUSPLATX },
-  { 0, CODE_FOR_spe_evlhhossplatx, "__builtin_spe_evlhhossplatx", SPE_BUILTIN_EVLHHOSSPLATX },
-  { 0, CODE_FOR_spe_evldd, "__builtin_spe_evldd", SPE_BUILTIN_EVLDD },
-  { 0, CODE_FOR_spe_evldw, "__builtin_spe_evldw", SPE_BUILTIN_EVLDW },
-  { 0, CODE_FOR_spe_evldh, "__builtin_spe_evldh", SPE_BUILTIN_EVLDH },
-  { 0, CODE_FOR_spe_evlwhe, "__builtin_spe_evlwhe", SPE_BUILTIN_EVLWHE },
-  { 0, CODE_FOR_spe_evlwhou, "__builtin_spe_evlwhou", SPE_BUILTIN_EVLWHOU },
-  { 0, CODE_FOR_spe_evlwhos, "__builtin_spe_evlwhos", SPE_BUILTIN_EVLWHOS },
-  { 0, CODE_FOR_spe_evlwwsplat, "__builtin_spe_evlwwsplat", SPE_BUILTIN_EVLWWSPLAT },
-  { 0, CODE_FOR_spe_evlwhsplat, "__builtin_spe_evlwhsplat", SPE_BUILTIN_EVLWHSPLAT },
-  { 0, CODE_FOR_spe_evlhhesplat, "__builtin_spe_evlhhesplat", SPE_BUILTIN_EVLHHESPLAT },
-  { 0, CODE_FOR_spe_evlhhousplat, "__builtin_spe_evlhhousplat", SPE_BUILTIN_EVLHHOUSPLAT },
-  { 0, CODE_FOR_spe_evlhhossplat, "__builtin_spe_evlhhossplat", SPE_BUILTIN_EVLHHOSSPLAT }
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlddx, "__builtin_spe_evlddx", SPE_BUILTIN_EVLDDX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evldwx, "__builtin_spe_evldwx", SPE_BUILTIN_EVLDWX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evldhx, "__builtin_spe_evldhx", SPE_BUILTIN_EVLDHX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhex, "__builtin_spe_evlwhex", SPE_BUILTIN_EVLWHEX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhoux, "__builtin_spe_evlwhoux", SPE_BUILTIN_EVLWHOUX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhosx, "__builtin_spe_evlwhosx", SPE_BUILTIN_EVLWHOSX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwwsplatx, "__builtin_spe_evlwwsplatx", SPE_BUILTIN_EVLWWSPLATX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhsplatx, "__builtin_spe_evlwhsplatx", SPE_BUILTIN_EVLWHSPLATX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhesplatx, "__builtin_spe_evlhhesplatx", SPE_BUILTIN_EVLHHESPLATX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhousplatx, "__builtin_spe_evlhhousplatx", SPE_BUILTIN_EVLHHOUSPLATX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhossplatx, "__builtin_spe_evlhhossplatx", SPE_BUILTIN_EVLHHOSSPLATX },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evldd, "__builtin_spe_evldd", SPE_BUILTIN_EVLDD },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evldw, "__builtin_spe_evldw", SPE_BUILTIN_EVLDW },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evldh, "__builtin_spe_evldh", SPE_BUILTIN_EVLDH },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhe, "__builtin_spe_evlwhe", SPE_BUILTIN_EVLWHE },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhou, "__builtin_spe_evlwhou", SPE_BUILTIN_EVLWHOU },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhos, "__builtin_spe_evlwhos", SPE_BUILTIN_EVLWHOS },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwwsplat, "__builtin_spe_evlwwsplat", SPE_BUILTIN_EVLWWSPLAT },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlwhsplat, "__builtin_spe_evlwhsplat", SPE_BUILTIN_EVLWHSPLAT },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhesplat, "__builtin_spe_evlhhesplat", SPE_BUILTIN_EVLHHESPLAT },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhousplat, "__builtin_spe_evlhhousplat", SPE_BUILTIN_EVLHHOUSPLAT },
+  { RS6000_BTM_SPE, CODE_FOR_spe_evlhhossplat, "__builtin_spe_evlhhossplat", SPE_BUILTIN_EVLHHOSSPLAT }
 };
 
 /* Expand the builtin in EXP and store the result in TARGET.  Store
@@ -10909,7 +10911,7 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
   enum insn_code icode;
   enum machine_mode tmode, mode0;
   rtx pat, op0;
-  struct builtin_description *d;
+  const struct builtin_description *d;
   size_t i;
 
   *expandedp = true;
@@ -10949,17 +10951,17 @@ spe_expand_builtin (tree exp, rtx target, bool *expandedp)
       break;
     }
 
-  d = (struct builtin_description *) bdesc_2arg_spe;
+  d = bdesc_2arg_spe;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg_spe); ++i, ++d)
     if (d->code == fcode)
       return rs6000_expand_binop_builtin (d->icode, exp, target);
 
-  d = (struct builtin_description *) bdesc_spe_predicates;
+  d = bdesc_spe_predicates;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_predicates); ++i, ++d)
     if (d->code == fcode)
       return spe_expand_predicate_builtin (d->icode, exp, target);
 
-  d = (struct builtin_description *) bdesc_spe_evsel;
+  d = bdesc_spe_evsel;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_evsel); ++i, ++d)
     if (d->code == fcode)
       return spe_expand_evsel_builtin (d->icode, exp, target);
@@ -11414,13 +11416,13 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   gcc_assert (TARGET_ALTIVEC || TARGET_VSX || TARGET_SPE || TARGET_PAIRED_FLOAT);
 
   /* Handle simple unary operations.  */
-  d = (struct builtin_description *) bdesc_1arg;
+  d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
       return rs6000_expand_unop_builtin (d->icode, exp, target);
 
   /* Handle simple binary operations.  */
-  d = (struct builtin_description *) bdesc_2arg;
+  d = bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
     if (d->code == fcode)
       return rs6000_expand_binop_builtin (d->icode, exp, target);
@@ -11439,6 +11441,13 @@ rs6000_init_builtins (void)
 {
   tree tdecl;
   tree ftype;
+
+  if (TARGET_DEBUG_BUILTIN)
+    fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
+	     (TARGET_PAIRED_FLOAT) ? ", paired"	 : "",
+	     (TARGET_SPE)	   ? ", spe"	 : "",
+	     (TARGET_ALTIVEC)	   ? ", altivec" : "",
+	     (TARGET_VSX)	   ? ", vsx"	 : "");
 
   V2SI_type_node = build_vector_type (intSI_type_node, 2);
   V2SF_type_node = build_vector_type (float_type_node, 2);
@@ -11703,40 +11712,12 @@ rs6000_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
   return rs6000_builtin_decls[code];
 }
 
-/* Search through a set of builtins and enable the mask bits.
-   DESC is an array of builtins.
-   SIZE is the total number of builtins.
-   START is the builtin enum at which to start.
-   END is the builtin enum at which to end.  */
-static void
-enable_mask_for_builtins (struct builtin_description *desc, int size,
-			  enum rs6000_builtins start,
-			  enum rs6000_builtins end)
-{
-  int i;
-
-  for (i = 0; i < size; ++i)
-    if (desc[i].code == start)
-      break;
-
-  if (i == size)
-    return;
-
-  for (; i < size; ++i)
-    {
-      /* Flip all the bits on.  */
-      desc[i].mask = rs6000_builtin_mask;
-      if (desc[i].code == end)
-	break;
-    }
-}
-
 static void
 spe_init_builtins (void)
 {
   tree puint_type_node = build_pointer_type (unsigned_type_node);
   tree pushort_type_node = build_pointer_type (short_unsigned_type_node);
-  struct builtin_description *d;
+  const struct builtin_description *d;
   size_t i;
 
   tree v2si_ftype_4_v2si
@@ -11826,28 +11807,6 @@ spe_init_builtins (void)
                                 signed_char_type_node,
                                 NULL_TREE);
 
-  /* The initialization of the simple binary and unary builtins is
-     done in rs6000_common_init_builtins, but we have to enable the
-     mask bits here manually because we have run out of `target_flags'
-     bits.  We really need to redesign this mask business.  */
-
-  enable_mask_for_builtins ((struct builtin_description *) bdesc_2arg,
-			    ARRAY_SIZE (bdesc_2arg),
-			    SPE_BUILTIN_EVADDW,
-			    SPE_BUILTIN_EVXOR);
-  enable_mask_for_builtins ((struct builtin_description *) bdesc_1arg,
-			    ARRAY_SIZE (bdesc_1arg),
-			    SPE_BUILTIN_EVABS,
-			    SPE_BUILTIN_EVSUBFUSIAAW);
-  enable_mask_for_builtins ((struct builtin_description *) bdesc_spe_predicates,
-			    ARRAY_SIZE (bdesc_spe_predicates),
-			    SPE_BUILTIN_EVCMPEQ,
-			    SPE_BUILTIN_EVFSTSTLT);
-  enable_mask_for_builtins ((struct builtin_description *) bdesc_spe_evsel,
-			    ARRAY_SIZE (bdesc_spe_evsel),
-			    SPE_BUILTIN_EVSEL_CMPGTS,
-			    SPE_BUILTIN_EVSEL_FSTSTEQ);
-
   (*lang_hooks.decls.pushdecl)
     (build_decl (BUILTINS_LOCATION, TYPE_DECL,
 		 get_identifier ("__ev64_opaque__"),
@@ -11899,7 +11858,7 @@ spe_init_builtins (void)
   def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwwsplat", v2si_ftype_puint_int, SPE_BUILTIN_EVLWWSPLAT);
 
   /* Predicates.  */
-  d = (struct builtin_description *) bdesc_spe_predicates;
+  d = bdesc_spe_predicates;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_predicates); ++i, d++)
     {
       tree type;
@@ -11920,7 +11879,7 @@ spe_init_builtins (void)
     }
 
   /* Evsel predicates.  */
-  d = (struct builtin_description *) bdesc_spe_evsel;
+  d = bdesc_spe_evsel;
   for (i = 0; i < ARRAY_SIZE (bdesc_spe_evsel); ++i, d++)
     {
       tree type;
@@ -12235,12 +12194,8 @@ altivec_init_builtins (void)
     {
       enum machine_mode mode1;
       tree type;
-      bool is_overloaded = ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-			     && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-			    || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-				&& d->code <= VSX_BUILTIN_OVERLOADED_LAST));
 
-      if (is_overloaded)
+      if (rs6000_overloaded_builtin_p (d->code))
 	mode1 = VOIDmode;
       else
 	mode1 = insn_data[d->icode].operand[1].mode;
@@ -12663,10 +12618,7 @@ rs6000_common_init_builtins (void)
 	  continue;
 	}
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (rs6000_overloaded_builtin_p (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque_opaque
@@ -12707,10 +12659,7 @@ rs6000_common_init_builtins (void)
 	  continue;
 	}
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (rs6000_overloaded_builtin_p (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque_opaque))
 	    type = opaque_ftype_opaque_opaque
@@ -12759,7 +12708,7 @@ rs6000_common_init_builtins (void)
     }
 
   /* Add the simple unary operators.  */
-  d = (struct builtin_description *) bdesc_1arg;
+  d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     {
       enum machine_mode mode0, mode1;
@@ -12773,10 +12722,7 @@ rs6000_common_init_builtins (void)
 	  continue;
 	}
 
-      if ((d->code >= ALTIVEC_BUILTIN_OVERLOADED_FIRST
-	   && d->code <= ALTIVEC_BUILTIN_OVERLOADED_LAST)
-	  || (d->code >= VSX_BUILTIN_OVERLOADED_FIRST
-	      && d->code <= VSX_BUILTIN_OVERLOADED_LAST))
+      if (rs6000_overloaded_builtin_p (d->code))
 	{
 	  if (! (type = opaque_ftype_opaque))
 	    type = opaque_ftype_opaque

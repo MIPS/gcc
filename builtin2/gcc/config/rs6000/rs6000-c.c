@@ -3448,16 +3448,18 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 {
   VEC(tree,gc) *arglist = (VEC(tree,gc) *) passed_arglist;
   unsigned int nargs = VEC_length (tree, arglist);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  enum rs6000_builtins fcode
+    = (enum rs6000_builtins)DECL_FUNCTION_CODE (fndecl);
   tree fnargs = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
   tree types[3], args[3];
   const struct altivec_builtin_types *desc;
   unsigned int n;
 
-  if ((fcode < ALTIVEC_BUILTIN_OVERLOADED_FIRST
-       || fcode > ALTIVEC_BUILTIN_OVERLOADED_LAST)
-      && (fcode < VSX_BUILTIN_OVERLOADED_FIRST
-	  || fcode > VSX_BUILTIN_OVERLOADED_LAST))
+  if (TARGET_DEBUG_BUILTIN)
+    fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
+	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+  if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
   /* For now treat vec_splats and vec_promote as the same.  */

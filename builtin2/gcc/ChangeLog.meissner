@@ -1,10 +1,12 @@
-2011-11-04  Michael Meissner  <meissner@the-meissners.org>
+2011-11-06  Michael Meissner  <meissner@the-meissners.org>
 
-	* config/rs6000/rs6000-builtin.def: Complete rewrite, move more
-	builtin information into rs6000-builtin.def.  Change some builtin
-	names to be more consistant.  Use a new mask variable for builtin
-	availability instead of using target_flags.  Add -mdebug=builtin
-	support.
+	* config/rs6000/rs6000-builtin.def: Complete rewrite of how the
+	builtin indexes are defined, and how the builtins are defined,
+	move more builtin information into rs6000-builtin.def.  Change
+	some builtin names to be more consistant.  Use a new mask variable
+	for builtin availability instead of using target_flags to simplify
+	paired and spe builtins which were moved from target flags.  Add
+	-mdebug=builtin support.
 	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Ditto.
 	(altivec_build_resolved_builtin): Ditto.
 	* common/config/rs6000/rs6000-common.c (rs6000_handle_option):
@@ -23,6 +25,7 @@
 	(rs6000_option_override_internal): Ditto.
 	(rs6000_builtin_conversion): Ditto.
 	(rs6000_builtin_vectorized_function): Ditto.
+	(rs6000_overloaded_builtin_p): Ditto.
 	(def_builtin): Ditto.
 	(bdesc_3arg): Ditto.
 	(bdesc_dst): Ditto.
@@ -38,6 +41,7 @@
 	(spe_init_builtins): Ditto.
 	(altivec_init_builtins): Ditto.
 	(rs6000_common_init_builtins): Ditto.
+	* config/rs6000/rs6000-protos.h (rs6000_overloaded_builtin_p): Ditto.
 
 2011-11-03  Michael Meissner  <meissner@the-meissners.org>
 

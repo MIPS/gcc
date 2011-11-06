@@ -275,6 +275,16 @@
 		     | RS6000_BTC_TERNARY),				\
 		    CODE_FOR_nothing)			/* ICODE */
 
+/* xxpermdi and xxsldwi are overloaded functions, but had __builtin_vsx names
+   instead of __builtin_vec.  */
+#define BU_VSX_OVERLOAD_3V(ENUM, NAME)					\
+  RS6000_BUILTIN_3 (VSX_BUILTIN_VEC_ ## ENUM,		/* ENUM */	\
+		    "__builtin_vsx_" NAME,		/* NAME */	\
+		    RS6000_BTM_VSX,			/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_TERNARY),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
 #define BU_VSX_OVERLOAD_X(ENUM, NAME)					\
   RS6000_BUILTIN_X (VSX_BUILTIN_VEC_ ## ENUM,		/* ENUM */	\
 		    "__builtin_vec_" NAME,		/* NAME */	\
@@ -652,10 +662,6 @@ BU_ALTIVEC_X (VEC_EXT_V4SF,	"vec_ext_v4sf",     CONST)
    The function should be converted to the type specific instruction
    before we get to the point about classifying the builtin type.  */
 
-#ifndef ALTIVEC_BUILTIN_OVERLOADED_FIRST
-#define ALTIVEC_BUILTIN_OVERLOADED_FIRST ALTIVEC_BUILTIN_VEC_MADD
-#endif
-
 /* 3 argument Altivec overloaded builtins.  */
 BU_ALTIVEC_OVERLOAD_3 (MADD,       "madd")
 BU_ALTIVEC_OVERLOAD_3 (MADDS,      "madds")
@@ -878,10 +884,6 @@ BU_ALTIVEC_OVERLOAD_X (VCFUX,	   "vcfux")
 BU_ALTIVEC_OVERLOAD_X (VSPLTB,	   "vspltb")
 BU_ALTIVEC_OVERLOAD_X (VSPLTH,	   "vsplth")
 BU_ALTIVEC_OVERLOAD_X (VSPLTW,	   "vspltw")
-
-#ifndef ALTIVEC_BUILTIN_OVERLOADED_LAST
-#define ALTIVEC_BUILTIN_OVERLOADED_LAST ALTIVEC_BUILTIN_VEC_VSPLTW
-#endif
 
 /* 3 argument VSX builtins.  */
 BU_VSX_3 (XVMADDSP,           "xvmaddsp",       CONST, 	fmav4sf4)
@@ -1103,15 +1105,12 @@ BU_VSX_X (VEC_EXT_V2DI,	      "vec_ext_v2di",	CONST)
 
 /* VSX overloaded builtins, add the overloaded functions not present in
    Altivec.  */
-#ifndef VSX_BUILTIN_OVERLOADED_FIRST
-#define VSX_BUILTIN_OVERLOADED_FIRST VSX_BUILTIN_VEC_MSUB
-#endif
 
 /* 3 argument VSX overloaded builtins.  */
-BU_VSX_OVERLOAD_3 (MSUB,     "msub")
-BU_VSX_OVERLOAD_3 (NMADD,    "nmadd")
-BU_VSX_OVERLOAD_3 (XXPERMDI, "xxpermdi")
-BU_VSX_OVERLOAD_3 (XXSLDWI,  "xxsldwi")
+BU_VSX_OVERLOAD_3  (MSUB,     "msub")
+BU_VSX_OVERLOAD_3  (NMADD,    "nmadd")
+BU_VSX_OVERLOAD_3V (XXPERMDI, "xxpermdi")
+BU_VSX_OVERLOAD_3V (XXSLDWI,  "xxsldwi")
 
 /* 2 argument VSX overloaded builtin functions.  */
 BU_VSX_OVERLOAD_2 (MUL,	     "mul")
@@ -1124,10 +1123,6 @@ BU_VSX_OVERLOAD_2 (XXSPLTW,  "xxspltw")
 /* VSX builtins that are handled as special cases.  */
 BU_VSX_OVERLOAD_X (LD,	     "ld")
 BU_VSX_OVERLOAD_X (ST,	     "st")
-
-#ifndef VSX_BUILTIN_OVERLOADED_LAST
-#define VSX_BUILTIN_OVERLOADED_LAST VSX_BUILTIN_VEC_ST
-#endif
 
 /* 3 argument paired floating point builtins.  */
 BU_PAIRED_3 (MSUB,            "msub",           FP, 	fmsv2sf4)
@@ -1164,12 +1159,11 @@ BU_PAIRED_X (STX,	      "stx",		MISC)
 BU_PAIRED_X (LX,	      "lx",		MISC)
 
 /* Paired predicates.  */
-/* Place-holder.  Leave as first.  */
 BU_PAIRED_P (CMPU0,	"cmpu0",	CONST,	paired_cmpu0)
-/* Place-holder.  Leave as last.  */
 BU_PAIRED_P (CMPU1,	"cmpu1",	CONST,	paired_cmpu1)
 
-/* Place holder, leave as first spe builtin.  */
+/* PowerPC E500 builtins (SPE).  */
+
 BU_SPE_2 (EVADDW,	"evaddw",	MISC,	addv2si3)
 BU_SPE_2 (EVAND,	"evand",	MISC,	andv2si3)
 BU_SPE_2 (EVANDC,	"evandc",	MISC,	spe_evandc)
@@ -1309,12 +1303,9 @@ BU_SPE_2 (EVMWHGSMFAN,	"evmwhgsmfan",	MISC,	spe_evmwhgsmfan)
 BU_SPE_2 (EVMWHGSMIAN,	"evmwhgsmian",	MISC,	spe_evmwhgsmian)
 BU_SPE_2 (EVMWHGUMIAN,	"evmwhgumian",	MISC,	spe_evmwhgumian)
 BU_SPE_2 (BRINC,	"brinc",	MISC,	spe_brinc)
-
-/* Place-holder.  Leave as last binary SPE builtin.  */
 BU_SPE_2 (EVXOR,	"evxor",	MISC,	xorv2si3)
 
 /* SPE predicate builtins.  */
-/* Place-holder.  Leave as first.  */
 BU_SPE_P (EVCMPEQ,	"evcmpeq",	MISC,	spe_evcmpeq)
 BU_SPE_P (EVCMPGTS,	"evcmpgts",	MISC,	spe_evcmpgts)
 BU_SPE_P (EVCMPGTU,	"evcmpgtu",	MISC,	spe_evcmpgtu)
@@ -1325,11 +1316,9 @@ BU_SPE_P (EVFSCMPGT,	"evfscmpgt",	MISC,	spe_evfscmpgt)
 BU_SPE_P (EVFSCMPLT,	"evfscmplt",	MISC,	spe_evfscmplt)
 BU_SPE_P (EVFSTSTEQ,	"evfststeq",	MISC,	spe_evfststeq)
 BU_SPE_P (EVFSTSTGT,	"evfststgt",	MISC,	spe_evfststgt)
-  /* Place-holder.  Leave as last.  */
 BU_SPE_P (EVFSTSTLT,	"evfststlt",	MISC,	spe_evfststlt)
 
 /* SPE evsel builtins.  */
-  /* Place-holder.  Leave as first.  */
 BU_SPE_E (EVSEL_CMPGTS,	 "evsel_gts",	  MISC,	spe_evcmpgts)
 BU_SPE_E (EVSEL_CMPGTU,	 "evsel_gtu",	  MISC,	spe_evcmpgtu)
 BU_SPE_E (EVSEL_CMPLTS,	 "evsel_lts",	  MISC,	spe_evcmplts)
@@ -1340,11 +1329,8 @@ BU_SPE_E (EVSEL_FSCMPLT, "evsel_fslt",	  MISC,	spe_evfscmplt)
 BU_SPE_E (EVSEL_FSCMPEQ, "evsel_fseq",	  MISC,	spe_evfscmpeq)
 BU_SPE_E (EVSEL_FSTSTGT, "evsel_fststgt", MISC,	spe_evfststgt)
 BU_SPE_E (EVSEL_FSTSTLT, "evsel_fststlt", MISC,	spe_evfststlt)
-  /* Place-holder.  Leave as last.  */
 BU_SPE_E (EVSEL_FSTSTEQ, "evsel_fststeq", MISC,	spe_evfststeq)
 
-/* The SPE unary builtins must start with SPE_BUILTIN_EVABS and
-   end with SPE_BUILTIN_EVSUBFUSIAAW.  */
 BU_SPE_1 (EVABS,	"evabs",	CONST,	absv2si2)
 BU_SPE_1 (EVADDSMIAAW,	"evaddsmiaaw",	CONST,	spe_evaddsmiaaw)
 BU_SPE_1 (EVADDSSIAAW,	"evaddssiaaw",	CONST,	spe_evaddssiaaw)
@@ -1373,8 +1359,6 @@ BU_SPE_1 (EVRNDW,	"evrndw",	CONST,	spe_evrndw)
 BU_SPE_1 (EVSUBFSMIAAW,	"evsubfsmiaaw",	CONST,	spe_evsubfsmiaaw)
 BU_SPE_1 (EVSUBFSSIAAW,	"evsubfssiaaw",	CONST,	spe_evsubfssiaaw)
 BU_SPE_1 (EVSUBFUMIAAW,	"evsubfumiaaw",	CONST,	spe_evsubfumiaaw)
-
-  /* Place-holder.  Leave as last unary SPE builtin.  */
 BU_SPE_1 (EVSUBFUSIAAW,	"evsubfusiaaw",	CONST,	spe_evsubfusiaaw)
 
 /* SPE builtins that are handled as special cases.  */
