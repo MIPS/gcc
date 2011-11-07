@@ -1,3 +1,22 @@
+2011-11-07  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000-builtin.def: Add CELL support.
+	* config/rs6000/rs6000.h (RS6000_BTM_CELL): Ditto.
+	(RS6000_BTM_COMMON): Ditto.
+
+	* config/rs6000/rs6000.c (def_builtin): Drop mask argument, change
+	callers.  Create Altivec and VSX builtins all of the time for
+	power* systems, and give an error message if the appropriate
+	options are not in effect when the builtin is used.
+	(rs6000_invalid_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(rs6000_builtin_decl): Ditto.
+	(spe_init_builtins): Ditto.
+	(paired_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+
 2011-11-06  Michael Meissner  <meissner@the-meissners.org>
 
 	Merge up to 181065.

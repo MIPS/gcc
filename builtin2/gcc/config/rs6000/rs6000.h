@@ -2316,11 +2316,17 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_FRSQRTES	MASK_POPCNTB	/* FRSQRTES instruction.  */
 #define RS6000_BTM_POPCNTD	MASK_POPCNTD	/* Target supports ISA 2.06.  */
 #define RS6000_BTM_POWERPC	MASK_POWERPC	/* Target is powerpc.  */
+#define RS6000_BTM_CELL		MASK_FPRND	/* Target is cell powerpc.  */
 
-#define RS6000_BTM_COMMON	(RS6000_BTM_ALTIVEC |	\
-				 RS6000_BTM_VSX |	\
-				 RS6000_BTM_SPE |	\
-				 RS6000_BTM_PAIRED)
+#define RS6000_BTM_COMMON	(RS6000_BTM_ALTIVEC			\
+				 | RS6000_BTM_VSX			\
+				 | RS6000_BTM_FRE			\
+				 | RS6000_BTM_FRES			\
+				 | RS6000_BTM_FRSQRTE			\
+				 | RS6000_BTM_FRSQRTES			\
+				 | RS6000_BTM_POPCNTD			\
+				 | RS6000_BTM_POWERPC			\
+				 | RS6000_BTM_CELL)
 
 /* Define builtin enum index.  */
 

@@ -3455,12 +3455,12 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   const struct altivec_builtin_types *desc;
   unsigned int n;
 
+  if (!rs6000_overloaded_builtin_p (fcode))
+    return NULL_TREE;
+
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-
-  if (!rs6000_overloaded_builtin_p (fcode))
-    return NULL_TREE;
 
   /* For now treat vec_splats and vec_promote as the same.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_SPLATS

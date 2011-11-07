@@ -144,6 +144,15 @@
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_nothing)			/* ICODE */
 
+#define BU_ALTIVEC_C(ENUM, NAME, ATTR)					\
+  RS6000_BUILTIN_X (ALTIVEC_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_altivec_" NAME,		/* NAME */	\
+		    (RS6000_BTM_ALTIVEC			/* MASK */	\
+		     | RS6000_BTM_CELL),				\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_SPECIAL),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
 /* Altivec overloaded builtin function macros.  */
 #define BU_ALTIVEC_OVERLOAD_1(ENUM, NAME)				\
   RS6000_BUILTIN_1 (ALTIVEC_BUILTIN_VEC_ ## ENUM,	/* ENUM */	\
@@ -630,18 +639,18 @@ BU_ALTIVEC_X (LVEWX,		"lvewx",	    MEM)
 BU_ALTIVEC_X (LVXL,		"lvxl",		    MEM)
 BU_ALTIVEC_X (LVX,		"lvx",		    MEM)
 BU_ALTIVEC_X (STVX,		"stvx",		    MEM)
-BU_ALTIVEC_X (LVLX,		"lvlx",		    MEM)
-BU_ALTIVEC_X (LVLXL,		"lvlxl",	    MEM)
-BU_ALTIVEC_X (LVRX,		"lvrx",		    MEM)
-BU_ALTIVEC_X (LVRXL,		"lvrxl",	    MEM)
+BU_ALTIVEC_C (LVLX,		"lvlx",		    MEM)
+BU_ALTIVEC_C (LVLXL,		"lvlxl",	    MEM)
+BU_ALTIVEC_C (LVRX,		"lvrx",		    MEM)
+BU_ALTIVEC_C (LVRXL,		"lvrxl",	    MEM)
 BU_ALTIVEC_X (STVEBX,		"stvebx",	    MEM)
 BU_ALTIVEC_X (STVEHX,		"stvehx",	    MEM)
 BU_ALTIVEC_X (STVEWX,		"stvewx",	    MEM)
 BU_ALTIVEC_X (STVXL,		"stvxl",	    MEM)
-BU_ALTIVEC_X (STVLX,		"stvlx",	    MEM)
-BU_ALTIVEC_X (STVLXL,		"stvlxl",	    MEM)
-BU_ALTIVEC_X (STVRX,		"stvrx",	    MEM)
-BU_ALTIVEC_X (STVRXL,		"stvrxl",	    MEM)
+BU_ALTIVEC_C (STVLX,		"stvlx",	    MEM)
+BU_ALTIVEC_C (STVLXL,		"stvlxl",	    MEM)
+BU_ALTIVEC_C (STVRX,		"stvrx",	    MEM)
+BU_ALTIVEC_C (STVRXL,		"stvrxl",	    MEM)
 BU_ALTIVEC_X (MASK_FOR_LOAD,	"mask_for_load",    MISC)
 BU_ALTIVEC_X (MASK_FOR_STORE,	"mask_for_store",   MISC)
 BU_ALTIVEC_X (VEC_INIT_V4SI,	"vec_init_v4si",    CONST)

@@ -1045,7 +1045,7 @@ static int rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt,
                                               tree, int);
 static enum machine_mode rs6000_preferred_simd_mode (enum machine_mode);
 
-static void def_builtin (unsigned, const char *, tree, enum rs6000_builtins);
+static void def_builtin (const char *, tree, enum rs6000_builtins);
 static bool rs6000_vector_alignment_reachable (const_tree, bool);
 static void rs6000_init_builtins (void);
 static tree rs6000_builtin_decl (unsigned, bool);
@@ -3299,7 +3299,9 @@ rs6000_option_override_internal (bool global_init_p)
 			 | ((TARGET_FRSQRTE)	  ? RS6000_BTM_FRSQRTE	: 0)
 			 | ((TARGET_FRSQRTES)	  ? RS6000_BTM_FRSQRTES	: 0)
 			 | ((TARGET_POPCNTD)	  ? RS6000_BTM_POPCNTD	: 0)
-			 | ((TARGET_POWERPC)	  ? RS6000_BTM_POWERPC	: 0));
+			 | ((TARGET_POWERPC)	  ? RS6000_BTM_POWERPC	: 0)
+			 | ((rs6000_cpu
+			     == PROCESSOR_CELL)	  ? RS6000_BTM_CELL     : 0));
 
   /* Initialize all of the registers.  */
   rs6000_init_hard_regno_mode_ok (global_init_p);
@@ -9427,72 +9429,63 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 /* Builtins.  */
 
 static void
-def_builtin (unsigned mask, const char *name, tree type, enum rs6000_builtins code)
+def_builtin (const char *name, tree type, enum rs6000_builtins code)
 {
-  if ((mask & rs6000_builtin_mask) != 0)
+  tree t;
+  unsigned classify = rs6000_builtin_info[(int)code].mask;
+  const char *attr_string = "";
+
+  gcc_assert (name != NULL);
+  gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
+
+  if (rs6000_builtin_decls[(int)code])
+    fatal_error ("internal error: builtin function %s already processed", name);
+
+  rs6000_builtin_decls[(int)code] = t =
+    add_builtin_function (name, type, (int)code, BUILT_IN_MD, NULL, NULL_TREE);
+
+  /* Set any special attributes.  */
+  if ((classify & RS6000_BTC_CONST) != 0)
     {
-      tree t;
-      unsigned classify = rs6000_builtin_info[(int)code].mask;
-      const char *attr_string = "";
-
-      gcc_assert (name != NULL);
-      gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
-
-      if (rs6000_builtin_decls[(int)code])
-	fatal_error ("internal error: builtin function %s already processed",
-		     name);
-
-      rs6000_builtin_decls[(int)code] = t =
-        add_builtin_function (name, type, (int)code, BUILT_IN_MD,
-			      NULL, NULL_TREE);
-
-      /* Set any special attributes.  */
-      if ((classify & RS6000_BTC_CONST) != 0)
-	{
-	  /* const function, function only depends on the inputs.  */
-	  TREE_READONLY (t) = 1;
-	  TREE_NOTHROW (t) = 1;
-	  attr_string = ", pure";
-	}
-      else if ((classify & RS6000_BTC_PURE) != 0)
-	{
-	  /* pure function, function can read global memory, but does not set
-	     any external state.  */
-	  DECL_PURE_P (t) = 1;
-	  TREE_NOTHROW (t) = 1;
-	  attr_string = ", const";
-	}
-      else if ((classify & RS6000_BTC_FP) != 0)
-	{
-	  /* Function is a math function.  If rounding mode is on, then treat
-	     the function as not reading global memory, but it can have
-	     arbitrary side effects.  If it is off, then assume the function is
-	     a const function.  This mimics the ATTR_MATHFN_FPROUNDING
-	     attribute in builtin-attribute.def that is used for the math
-	     functions. */
-	  TREE_NOTHROW (t) = 1;
-	  if (flag_rounding_math)
-	    {
-	      DECL_PURE_P (t) = 1;
-	      DECL_IS_NOVOPS (t) = 1;
-	      attr_string = ", fp, pure";
-	    }
-	  else
-	    {
-	      TREE_READONLY (t) = 1;
-	      attr_string = ", fp, const";
-	    }
-	}
-      else if ((classify & RS6000_BTC_ATTR_MASK) != 0)
-	gcc_unreachable ();
-
-      if (TARGET_DEBUG_BUILTIN)
-	fprintf (stderr, "rs6000_builtin, code = %4d, %s%s\n",
-		 (int)code, name, attr_string);
+      /* const function, function only depends on the inputs.  */
+      TREE_READONLY (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      attr_string = ", pure";
     }
-  else if (TARGET_DEBUG_BUILTIN)
-    fprintf (stderr, "rs6000_builtin, code = %4d, %s, not defined\n",
-	     (int)code, name);
+  else if ((classify & RS6000_BTC_PURE) != 0)
+    {
+      /* pure function, function can read global memory, but does not set any
+	 external state.  */
+      DECL_PURE_P (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      attr_string = ", const";
+    }
+  else if ((classify & RS6000_BTC_FP) != 0)
+    {
+      /* Function is a math function.  If rounding mode is on, then treat the
+	 function as not reading global memory, but it can have arbitrary side
+	 effects.  If it is off, then assume the function is a const function.
+	 This mimics the ATTR_MATHFN_FPROUNDING attribute in
+	 builtin-attribute.def that is used for the math functions. */
+      TREE_NOTHROW (t) = 1;
+      if (flag_rounding_math)
+	{
+	  DECL_PURE_P (t) = 1;
+	  DECL_IS_NOVOPS (t) = 1;
+	  attr_string = ", fp, pure";
+	}
+      else
+	{
+	  TREE_READONLY (t) = 1;
+	  attr_string = ", fp, const";
+	}
+    }
+  else if ((classify & RS6000_BTC_ATTR_MASK) != 0)
+    gcc_unreachable ();
+
+  if (TARGET_DEBUG_BUILTIN)
+    fprintf (stderr, "rs6000_builtin, code = %4d, %s%s\n",
+	     (int)code, name, attr_string);
 }
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
@@ -11271,6 +11264,32 @@ spe_expand_evsel_builtin (enum insn_code icode, tree exp, rtx target)
   return target;
 }
 
+/* Raise an error message for a builtin function that is called without the
+   appropriate target options being set.  */
+
+static void
+rs6000_invalid_builtin (enum rs6000_builtins fncode)
+{
+  size_t uns_fncode = (size_t)fncode;
+  const char *name = rs6000_builtin_info[uns_fncode].name;
+  unsigned fnmask = rs6000_builtin_info[uns_fncode].mask;
+
+  gcc_assert (name != NULL);
+  if ((fnmask & RS6000_BTM_CELL) != 0)
+    error ("Builtin function %s is only valid for the cell processor", name);
+  else if ((fnmask & RS6000_BTM_VSX) != 0)
+    error ("Builtin function %s requires the -mvsx option", name);
+  else if ((fnmask & RS6000_BTM_ALTIVEC) != 0)
+    error ("Builtin function %s requires the -maltivec option", name);
+  else if ((fnmask & RS6000_BTM_PAIRED) != 0)
+    error ("Builtin function %s requires the -mpaired option", name);
+  else if ((fnmask & RS6000_BTM_SPE) != 0)
+    error ("Builtin function %s requires the -mspe option", name);
+  else
+    error ("Builtin function %s is not supported with the current options",
+	   name);
+}
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -11283,22 +11302,26 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 		       int ignore ATTRIBUTE_UNUSED)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  enum rs6000_builtins fcode
+    = (enum rs6000_builtins)DECL_FUNCTION_CODE (fndecl);
+  size_t uns_fcode = (size_t)fcode;
   const struct builtin_description *d;
   size_t i;
   rtx ret;
   bool success;
+  unsigned mask = rs6000_builtin_info[uns_fcode].mask;
+  bool func_valid_p = ((rs6000_builtin_mask & mask) == mask);
 
   if (TARGET_DEBUG_BUILTIN)
     {
-      enum insn_code icode = rs6000_builtin_info[fcode].icode;
-      const char *name1 = rs6000_builtin_info[fcode].name;
+      enum insn_code icode = rs6000_builtin_info[uns_fcode].icode;
+      const char *name1 = rs6000_builtin_info[uns_fcode].name;
       const char *name2 = ((icode != CODE_FOR_nothing)
 			   ? get_insn_name ((int)icode)
 			   : "nothing");
       const char *name3;
 
-      switch (rs6000_builtin_info[fcode].attr & RS6000_BTC_TYPE_MASK)
+      switch (rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK)
 	{
 	default:		   name3 = "unknown";	break;
 	case RS6000_BTC_SPECIAL:   name3 = "special";	break;
@@ -11313,11 +11336,18 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
 
       fprintf (stderr,
-	       "rs6000_expand_builtin, %s (%d), insn = %s (%d), type=%s\n",
+	       "rs6000_expand_builtin, %s (%d), insn = %s (%d), type=%s%s\n",
 	       (name1) ? name1 : "---", fcode,
 	       (name2) ? name2 : "---", (int)icode,
-	       name3);
+	       name3,
+	       func_valid_p ? "" : ", not valid");
     }	     
+
+  if (!func_valid_p)
+    {
+      rs6000_invalid_builtin (fcode);
+      return NULL_RTX;
+    }
 
   switch (fcode)
     {
@@ -11448,6 +11478,7 @@ rs6000_init_builtins (void)
 {
   tree tdecl;
   tree ftype;
+  enum machine_mode mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -11611,91 +11642,70 @@ rs6000_init_builtins (void)
   TYPE_NAME (pixel_V8HI_type_node) = tdecl;
   (*lang_hooks.decls.pushdecl) (tdecl);
 
-  if (TARGET_VSX)
-    {
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector double"),
-			  V2DF_type_node);
-      TYPE_NAME (V2DF_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector double"),
+		      V2DF_type_node);
+  TYPE_NAME (V2DF_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector long"),
-			  V2DI_type_node);
-      TYPE_NAME (V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector long"),
+		      V2DI_type_node);
+  TYPE_NAME (V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector unsigned long"),
-			  unsigned_V2DI_type_node);
-      TYPE_NAME (unsigned_V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector unsigned long"),
+		      unsigned_V2DI_type_node);
+  TYPE_NAME (unsigned_V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
-      tdecl = build_decl (BUILTINS_LOCATION,
-			  TYPE_DECL, get_identifier ("__vector __bool long"),
-			  bool_V2DI_type_node);
-      TYPE_NAME (bool_V2DI_type_node) = tdecl;
-      (*lang_hooks.decls.pushdecl) (tdecl);
-    }
+  tdecl = build_decl (BUILTINS_LOCATION,
+		      TYPE_DECL, get_identifier ("__vector __bool long"),
+		      bool_V2DI_type_node);
+  TYPE_NAME (bool_V2DI_type_node) = tdecl;
+  (*lang_hooks.decls.pushdecl) (tdecl);
 
+  /* Paired and SPE builtins are only available if you build a compiler with
+     the appropriate options, so only create those builtins with the
+     appropriate compiler option.  Create Altivec and VSX builtins on machines
+     with at least the general purpose extensions (970 and newer) to allow the
+     use of the target attribute.  */
   if (TARGET_PAIRED_FLOAT)
     paired_init_builtins ();
   if (TARGET_SPE)
     spe_init_builtins ();
-  if (TARGET_ALTIVEC)
+  if (TARGET_PPC_GPOPT || TARGET_ALTIVEC)
     altivec_init_builtins ();
-  if (TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT || TARGET_VSX)
+  if (TARGET_PPC_GPOPT || TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT)
     rs6000_common_init_builtins ();
-  if (TARGET_FRE)
-    {
-      ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
-				     RS6000_BUILTIN_RECIP,
-				     "__builtin_recipdiv");
-      def_builtin (RS6000_BTM_FRE, "__builtin_recipdiv", ftype,
-		   RS6000_BUILTIN_RECIP);
-    }
-  if (TARGET_FRES)
-    {
-      ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
-				     RS6000_BUILTIN_RECIPF,
-				     "__builtin_recipdivf");
-      def_builtin (RS6000_BTM_FRES, "__builtin_recipdivf", ftype,
-		   RS6000_BUILTIN_RECIPF);
-    }
-  if (TARGET_FRSQRTE)
-    {
-      ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
-				     RS6000_BUILTIN_RSQRT,
-				     "__builtin_rsqrt");
-      def_builtin (RS6000_BTM_FRSQRTE, "__builtin_rsqrt", ftype,
-		   RS6000_BUILTIN_RSQRT);
-    }
-  if (TARGET_FRSQRTES)
-    {
-      ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
-				     RS6000_BUILTIN_RSQRTF,
-				     "__builtin_rsqrtf");
-      def_builtin (RS6000_BTM_FRSQRTES, "__builtin_rsqrtf", ftype,
-		   RS6000_BUILTIN_RSQRTF);
-    }
-  if (TARGET_POPCNTD)
-    {
-      enum machine_mode mode = (TARGET_64BIT) ? DImode : SImode;
-      tree ftype = builtin_function_type (mode, mode, mode, VOIDmode,
-					  POWER7_BUILTIN_BPERMD,
-					  "__builtin_bpermd");
-      def_builtin (RS6000_BTM_POPCNTD, "__builtin_bpermd", ftype,
-		   POWER7_BUILTIN_BPERMD);
-    }
-  if (TARGET_POWERPC)
-    {
+
+  ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
+				 RS6000_BUILTIN_RECIP, "__builtin_recipdiv");
+  def_builtin ("__builtin_recipdiv", ftype, RS6000_BUILTIN_RECIP);
+
+  ftype = builtin_function_type (SFmode, SFmode, SFmode, VOIDmode,
+				 RS6000_BUILTIN_RECIPF, "__builtin_recipdivf");
+  def_builtin ("__builtin_recipdivf", ftype, RS6000_BUILTIN_RECIPF);
+
+  ftype = builtin_function_type (DFmode, DFmode, VOIDmode, VOIDmode,
+				 RS6000_BUILTIN_RSQRT, "__builtin_rsqrt");
+  def_builtin ("__builtin_rsqrt", ftype, RS6000_BUILTIN_RSQRT);
+
+  ftype = builtin_function_type (SFmode, SFmode, VOIDmode, VOIDmode,
+				 RS6000_BUILTIN_RSQRTF, "__builtin_rsqrtf");
+  def_builtin ("__builtin_rsqrtf", ftype, RS6000_BUILTIN_RSQRTF);
+
+  mode = (TARGET_64BIT) ? DImode : SImode;
+  ftype = builtin_function_type (mode, mode, mode, VOIDmode,
+				 POWER7_BUILTIN_BPERMD, "__builtin_bpermd");
+  def_builtin ("__builtin_bpermd", ftype, POWER7_BUILTIN_BPERMD);
+
       /* Don't use builtin_function_type here, as it maps HI/QI to SI.  */
-      tree ftype = build_function_type_list (unsigned_intHI_type_node,
-					     unsigned_intHI_type_node,
-					     NULL_TREE);
-      def_builtin (RS6000_BTM_POWERPC, "__builtin_bswap16", ftype,
-		   RS6000_BUILTIN_BSWAP_HI);
-    }
+  ftype = build_function_type_list (unsigned_intHI_type_node,
+				    unsigned_intHI_type_node,
+				    NULL_TREE);
+  def_builtin ("__builtin_bswap16", ftype, RS6000_BUILTIN_BSWAP_HI);
 
 #if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
@@ -11713,8 +11723,17 @@ rs6000_init_builtins (void)
 static tree
 rs6000_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
 {
+  unsigned fnmask;
+
   if (code >= RS6000_BUILTIN_COUNT)
     return error_mark_node;
+
+  fnmask = rs6000_builtin_info[code].mask;
+  if ((fnmask & rs6000_builtin_mask) != fnmask)
+    {
+      rs6000_invalid_builtin ((enum rs6000_builtins)code);
+      return error_mark_node;
+    }
 
   return rs6000_builtin_decls[code];
 }
@@ -11821,48 +11840,48 @@ spe_init_builtins (void)
 
   /* Initialize irregular SPE builtins.  */
 
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_mtspefscr", void_ftype_int, SPE_BUILTIN_MTSPEFSCR);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_mfspefscr", int_ftype_void, SPE_BUILTIN_MFSPEFSCR);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstddx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDDX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstdhx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDHX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstdwx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDWX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwhex", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWHEX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwhox", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWHOX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwwex", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWWEX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwwox", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWWOX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstdd", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDD);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstdh", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDH);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstdw", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDW);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwhe", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWHE);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwho", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWHO);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwwe", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWWE);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evstwwo", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWWO);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evsplatfi", v2si_ftype_signed_char, SPE_BUILTIN_EVSPLATFI);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evsplati", v2si_ftype_signed_char, SPE_BUILTIN_EVSPLATI);
+  def_builtin ("__builtin_spe_mtspefscr", void_ftype_int, SPE_BUILTIN_MTSPEFSCR);
+  def_builtin ("__builtin_spe_mfspefscr", int_ftype_void, SPE_BUILTIN_MFSPEFSCR);
+  def_builtin ("__builtin_spe_evstddx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDDX);
+  def_builtin ("__builtin_spe_evstdhx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDHX);
+  def_builtin ("__builtin_spe_evstdwx", void_ftype_v2si_pv2si_int, SPE_BUILTIN_EVSTDWX);
+  def_builtin ("__builtin_spe_evstwhex", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWHEX);
+  def_builtin ("__builtin_spe_evstwhox", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWHOX);
+  def_builtin ("__builtin_spe_evstwwex", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWWEX);
+  def_builtin ("__builtin_spe_evstwwox", void_ftype_v2si_puint_int, SPE_BUILTIN_EVSTWWOX);
+  def_builtin ("__builtin_spe_evstdd", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDD);
+  def_builtin ("__builtin_spe_evstdh", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDH);
+  def_builtin ("__builtin_spe_evstdw", void_ftype_v2si_pv2si_char, SPE_BUILTIN_EVSTDW);
+  def_builtin ("__builtin_spe_evstwhe", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWHE);
+  def_builtin ("__builtin_spe_evstwho", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWHO);
+  def_builtin ("__builtin_spe_evstwwe", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWWE);
+  def_builtin ("__builtin_spe_evstwwo", void_ftype_v2si_puint_char, SPE_BUILTIN_EVSTWWO);
+  def_builtin ("__builtin_spe_evsplatfi", v2si_ftype_signed_char, SPE_BUILTIN_EVSPLATFI);
+  def_builtin ("__builtin_spe_evsplati", v2si_ftype_signed_char, SPE_BUILTIN_EVSPLATI);
 
   /* Loads.  */
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlddx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDDX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evldwx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDWX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evldhx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDHX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhex", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHEX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhoux", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOUX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhosx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOSX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwwsplatx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWWSPLATX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhsplatx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHSPLATX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhesplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHESPLATX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhousplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOUSPLATX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhossplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOSSPLATX);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evldd", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDD);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evldw", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDW);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evldh", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDH);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhesplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHESPLAT);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhossplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOSSPLAT);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlhhousplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOUSPLAT);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhe", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHE);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhos", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOS);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhou", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOU);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwhsplat", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHSPLAT);
-  def_builtin (rs6000_builtin_mask, "__builtin_spe_evlwwsplat", v2si_ftype_puint_int, SPE_BUILTIN_EVLWWSPLAT);
+  def_builtin ("__builtin_spe_evlddx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDDX);
+  def_builtin ("__builtin_spe_evldwx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDWX);
+  def_builtin ("__builtin_spe_evldhx", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDHX);
+  def_builtin ("__builtin_spe_evlwhex", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHEX);
+  def_builtin ("__builtin_spe_evlwhoux", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOUX);
+  def_builtin ("__builtin_spe_evlwhosx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOSX);
+  def_builtin ("__builtin_spe_evlwwsplatx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWWSPLATX);
+  def_builtin ("__builtin_spe_evlwhsplatx", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHSPLATX);
+  def_builtin ("__builtin_spe_evlhhesplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHESPLATX);
+  def_builtin ("__builtin_spe_evlhhousplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOUSPLATX);
+  def_builtin ("__builtin_spe_evlhhossplatx", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOSSPLATX);
+  def_builtin ("__builtin_spe_evldd", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDD);
+  def_builtin ("__builtin_spe_evldw", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDW);
+  def_builtin ("__builtin_spe_evldh", v2si_ftype_pv2si_int, SPE_BUILTIN_EVLDH);
+  def_builtin ("__builtin_spe_evlhhesplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHESPLAT);
+  def_builtin ("__builtin_spe_evlhhossplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOSSPLAT);
+  def_builtin ("__builtin_spe_evlhhousplat", v2si_ftype_pushort_int, SPE_BUILTIN_EVLHHOUSPLAT);
+  def_builtin ("__builtin_spe_evlwhe", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHE);
+  def_builtin ("__builtin_spe_evlwhos", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOS);
+  def_builtin ("__builtin_spe_evlwhou", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHOU);
+  def_builtin ("__builtin_spe_evlwhsplat", v2si_ftype_puint_int, SPE_BUILTIN_EVLWHSPLAT);
+  def_builtin ("__builtin_spe_evlwwsplat", v2si_ftype_puint_int, SPE_BUILTIN_EVLWWSPLAT);
 
   /* Predicates.  */
   d = bdesc_spe_predicates;
@@ -11882,7 +11901,7 @@ spe_init_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 
   /* Evsel predicates.  */
@@ -11903,7 +11922,7 @@ spe_init_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 }
 
@@ -11935,11 +11954,11 @@ paired_init_builtins (void)
 			      NULL_TREE);
 
 
-  def_builtin (0, "__builtin_paired_lx", v2sf_ftype_long_pcfloat,
+  def_builtin ("__builtin_paired_lx", v2sf_ftype_long_pcfloat,
 	       PAIRED_BUILTIN_LX);
 
 
-  def_builtin (0, "__builtin_paired_stx", void_ftype_v2sf_long_pcfloat,
+  def_builtin ("__builtin_paired_stx", void_ftype_v2sf_long_pcfloat,
 	       PAIRED_BUILTIN_STX);
 
   /* Predicates.  */
@@ -11947,6 +11966,11 @@ paired_init_builtins (void)
   for (i = 0; i < ARRAY_SIZE (bdesc_paired_preds); ++i, d++)
     {
       tree type;
+
+      if (TARGET_DEBUG_BUILTIN)
+	fprintf (stderr, "paired pred #%d, insn = %s [%d], mode = %s\n",
+		 (int)i, get_insn_name (d->icode), (int)d->icode,
+		 GET_MODE_NAME (insn_data[d->icode].operand[1].mode));
 
       switch (insn_data[d->icode].operand[1].mode)
 	{
@@ -11957,7 +11981,7 @@ paired_init_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 }
 
@@ -11967,6 +11991,7 @@ altivec_init_builtins (void)
   const struct builtin_description *d;
   size_t i;
   tree ftype;
+  tree decl;
 
   tree pvoid_type_node = build_pointer_type (void_type_node);
 
@@ -12091,109 +12116,108 @@ altivec_init_builtins (void)
 				pcvoid_type_node, integer_type_node,
 				integer_type_node, NULL_TREE);
 
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_mtvscr", void_ftype_v4si, ALTIVEC_BUILTIN_MTVSCR);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_mfvscr", v8hi_ftype_void, ALTIVEC_BUILTIN_MFVSCR);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_dssall", void_ftype_void, ALTIVEC_BUILTIN_DSSALL);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_dss", void_ftype_int, ALTIVEC_BUILTIN_DSS);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVSL);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvsr", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVSR);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvebx", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEBX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvehx", v8hi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEHX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvewx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEWX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvxl", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVXL);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvx", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvewx", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVEWX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvxl", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVXL);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvebx", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVEBX);
-  def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvehx", void_ftype_v8hi_long_pvoid, ALTIVEC_BUILTIN_STVEHX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ld", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LD);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lde", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ldl", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDL);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvsl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSL);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvsr", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSR);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvebx", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEBX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvehx", v8hi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEHX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_lvewx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEWX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_st", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_ST);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ste", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_stl", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STL);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvewx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEWX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
+  def_builtin ("__builtin_altivec_mtvscr", void_ftype_v4si, ALTIVEC_BUILTIN_MTVSCR);
+  def_builtin ("__builtin_altivec_mfvscr", v8hi_ftype_void, ALTIVEC_BUILTIN_MFVSCR);
+  def_builtin ("__builtin_altivec_dssall", void_ftype_void, ALTIVEC_BUILTIN_DSSALL);
+  def_builtin ("__builtin_altivec_dss", void_ftype_int, ALTIVEC_BUILTIN_DSS);
+  def_builtin ("__builtin_altivec_lvsl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVSL);
+  def_builtin ("__builtin_altivec_lvsr", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVSR);
+  def_builtin ("__builtin_altivec_lvebx", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEBX);
+  def_builtin ("__builtin_altivec_lvehx", v8hi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEHX);
+  def_builtin ("__builtin_altivec_lvewx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVEWX);
+  def_builtin ("__builtin_altivec_lvxl", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVXL);
+  def_builtin ("__builtin_altivec_lvx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVX);
+  def_builtin ("__builtin_altivec_stvx", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVX);
+  def_builtin ("__builtin_altivec_stvewx", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVEWX);
+  def_builtin ("__builtin_altivec_stvxl", void_ftype_v4si_long_pvoid, ALTIVEC_BUILTIN_STVXL);
+  def_builtin ("__builtin_altivec_stvebx", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVEBX);
+  def_builtin ("__builtin_altivec_stvehx", void_ftype_v8hi_long_pvoid, ALTIVEC_BUILTIN_STVEHX);
+  def_builtin ("__builtin_vec_ld", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LD);
+  def_builtin ("__builtin_vec_lde", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDE);
+  def_builtin ("__builtin_vec_ldl", opaque_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LDL);
+  def_builtin ("__builtin_vec_lvsl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSL);
+  def_builtin ("__builtin_vec_lvsr", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVSR);
+  def_builtin ("__builtin_vec_lvebx", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEBX);
+  def_builtin ("__builtin_vec_lvehx", v8hi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEHX);
+  def_builtin ("__builtin_vec_lvewx", v4si_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVEWX);
+  def_builtin ("__builtin_vec_st", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_ST);
+  def_builtin ("__builtin_vec_ste", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STE);
+  def_builtin ("__builtin_vec_stl", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STL);
+  def_builtin ("__builtin_vec_stvewx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEWX);
+  def_builtin ("__builtin_vec_stvebx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEBX);
+  def_builtin ("__builtin_vec_stvehx", void_ftype_opaque_long_pvoid, ALTIVEC_BUILTIN_VEC_STVEHX);
 
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvd2x_v2df", v2df_ftype_long_pcvoid,
+  def_builtin ("__builtin_vsx_lxvd2x_v2df", v2df_ftype_long_pcvoid,
 	       VSX_BUILTIN_LXVD2X_V2DF);
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvd2x_v2di", v2di_ftype_long_pcvoid,
+  def_builtin ("__builtin_vsx_lxvd2x_v2di", v2di_ftype_long_pcvoid,
 	       VSX_BUILTIN_LXVD2X_V2DI);
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v4sf", v4sf_ftype_long_pcvoid,
+  def_builtin ("__builtin_vsx_lxvw4x_v4sf", v4sf_ftype_long_pcvoid,
 	       VSX_BUILTIN_LXVW4X_V4SF);
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v4si", v4si_ftype_long_pcvoid,
+  def_builtin ("__builtin_vsx_lxvw4x_v4si", v4si_ftype_long_pcvoid,
 	       VSX_BUILTIN_LXVW4X_V4SI);
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v8hi",
-	       v8hi_ftype_long_pcvoid, VSX_BUILTIN_LXVW4X_V8HI);
-  def_builtin (MASK_VSX, "__builtin_vsx_lxvw4x_v16qi",
-	       v16qi_ftype_long_pcvoid, VSX_BUILTIN_LXVW4X_V16QI);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvd2x_v2df",
-	       void_ftype_v2df_long_pvoid, VSX_BUILTIN_STXVD2X_V2DF);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvd2x_v2di",
-	       void_ftype_v2di_long_pvoid, VSX_BUILTIN_STXVD2X_V2DI);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v4sf",
-	       void_ftype_v4sf_long_pvoid, VSX_BUILTIN_STXVW4X_V4SF);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v4si",
-	       void_ftype_v4si_long_pvoid, VSX_BUILTIN_STXVW4X_V4SI);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v8hi",
-	       void_ftype_v8hi_long_pvoid, VSX_BUILTIN_STXVW4X_V8HI);
-  def_builtin (MASK_VSX, "__builtin_vsx_stxvw4x_v16qi",
-	       void_ftype_v16qi_long_pvoid, VSX_BUILTIN_STXVW4X_V16QI);
-  def_builtin (MASK_VSX, "__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
+  def_builtin ("__builtin_vsx_lxvw4x_v8hi", v8hi_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVW4X_V8HI);
+  def_builtin ("__builtin_vsx_lxvw4x_v16qi", v16qi_ftype_long_pcvoid,
+	       VSX_BUILTIN_LXVW4X_V16QI);
+  def_builtin ("__builtin_vsx_stxvd2x_v2df", void_ftype_v2df_long_pvoid,
+	       VSX_BUILTIN_STXVD2X_V2DF);
+  def_builtin ("__builtin_vsx_stxvd2x_v2di", void_ftype_v2di_long_pvoid,
+	       VSX_BUILTIN_STXVD2X_V2DI);
+  def_builtin ("__builtin_vsx_stxvw4x_v4sf", void_ftype_v4sf_long_pvoid,
+	       VSX_BUILTIN_STXVW4X_V4SF);
+  def_builtin ("__builtin_vsx_stxvw4x_v4si", void_ftype_v4si_long_pvoid,
+	       VSX_BUILTIN_STXVW4X_V4SI);
+  def_builtin ("__builtin_vsx_stxvw4x_v8hi", void_ftype_v8hi_long_pvoid,
+	       VSX_BUILTIN_STXVW4X_V8HI);
+  def_builtin ("__builtin_vsx_stxvw4x_v16qi", void_ftype_v16qi_long_pvoid,
+	       VSX_BUILTIN_STXVW4X_V16QI);
+  def_builtin ("__builtin_vec_vsx_ld", opaque_ftype_long_pcvoid,
 	       VSX_BUILTIN_VEC_LD);
-  def_builtin (MASK_VSX, "__builtin_vec_vsx_st", void_ftype_opaque_long_pvoid,
+  def_builtin ("__builtin_vec_vsx_st", void_ftype_opaque_long_pvoid,
 	       VSX_BUILTIN_VEC_ST);
 
-  if (rs6000_cpu == PROCESSOR_CELL)
-    {
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLXL);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRX);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRXL);
+  def_builtin ("__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
+  def_builtin ("__builtin_vec_splats", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_SPLATS);
+  def_builtin ("__builtin_vec_promote", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_PROMOTE);
 
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLX);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLXL);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRX);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRXL);
+  def_builtin ("__builtin_vec_sld", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_SLD);
+  def_builtin ("__builtin_vec_splat", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_SPLAT);
+  def_builtin ("__builtin_vec_extract", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_EXTRACT);
+  def_builtin ("__builtin_vec_insert", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_INSERT);
+  def_builtin ("__builtin_vec_vspltw", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTW);
+  def_builtin ("__builtin_vec_vsplth", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTH);
+  def_builtin ("__builtin_vec_vspltb", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTB);
+  def_builtin ("__builtin_vec_ctf", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTF);
+  def_builtin ("__builtin_vec_vcfsx", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFSX);
+  def_builtin ("__builtin_vec_vcfux", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFUX);
+  def_builtin ("__builtin_vec_cts", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTS);
+  def_builtin ("__builtin_vec_ctu", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTU);
 
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLX);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLXL);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRX);
-      def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRXL);
+  /* Cell builtins.  */
+  def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
+  def_builtin ("__builtin_altivec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLXL);
+  def_builtin ("__builtin_altivec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRX);
+  def_builtin ("__builtin_altivec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVRXL);
 
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLX);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLXL);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
-      def_builtin (MASK_ALTIVEC, "__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
-    }
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_step", int_ftype_opaque, ALTIVEC_BUILTIN_VEC_STEP);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_splats", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_SPLATS);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_promote", opaque_ftype_opaque, ALTIVEC_BUILTIN_VEC_PROMOTE);
+  def_builtin ("__builtin_vec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLX);
+  def_builtin ("__builtin_vec_lvlxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVLXL);
+  def_builtin ("__builtin_vec_lvrx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRX);
+  def_builtin ("__builtin_vec_lvrxl", v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_VEC_LVRXL);
 
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_sld", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_SLD);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_splat", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_SPLAT);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_extract", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_EXTRACT);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_insert", opaque_ftype_opaque_opaque_int, ALTIVEC_BUILTIN_VEC_INSERT);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltw", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTW);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_vsplth", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTH);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_vspltb", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VSPLTB);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ctf", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTF);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_vcfsx", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFSX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_vcfux", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_VCFUX);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_cts", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTS);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ctu", opaque_ftype_opaque_int, ALTIVEC_BUILTIN_VEC_CTU);
+  def_builtin ("__builtin_altivec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLX);
+  def_builtin ("__builtin_altivec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVLXL);
+  def_builtin ("__builtin_altivec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRX);
+  def_builtin ("__builtin_altivec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_STVRXL);
+
+  def_builtin ("__builtin_vec_stvlx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLX);
+  def_builtin ("__builtin_vec_stvlxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVLXL);
+  def_builtin ("__builtin_vec_stvrx",  void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRX);
+  def_builtin ("__builtin_vec_stvrxl", void_ftype_v16qi_long_pvoid, ALTIVEC_BUILTIN_VEC_STVRXL);
 
   /* Add the DST variants.  */
   d = bdesc_dst;
   for (i = 0; i < ARRAY_SIZE (bdesc_dst); i++, d++)
-    def_builtin (d->mask, d->name, void_ftype_pcvoid_int_int, d->code);
+    def_builtin (d->name, void_ftype_pcvoid_int_int, d->code);
 
   /* Initialize the predicates.  */
   d = bdesc_altivec_preds;
@@ -12231,7 +12255,7 @@ altivec_init_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 
   /* Initialize the abs* operators.  */
@@ -12264,31 +12288,25 @@ altivec_init_builtins (void)
 	  gcc_unreachable ();
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 
-  if (TARGET_ALTIVEC)
-    {
-      tree decl;
+  /* Initialize target builtin that implements
+     targetm.vectorize.builtin_mask_for_load.  */
 
-      /* Initialize target builtin that implements
-         targetm.vectorize.builtin_mask_for_load.  */
-
-      decl = add_builtin_function ("__builtin_altivec_mask_for_load",
-				   v16qi_ftype_long_pcvoid,
-				   ALTIVEC_BUILTIN_MASK_FOR_LOAD,
-				   BUILT_IN_MD, NULL, NULL_TREE);
-      TREE_READONLY (decl) = 1;
-      /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
-      altivec_builtin_mask_for_load = decl;
-    }
+  decl = add_builtin_function ("__builtin_altivec_mask_for_load",
+			       v16qi_ftype_long_pcvoid,
+			       ALTIVEC_BUILTIN_MASK_FOR_LOAD,
+			       BUILT_IN_MD, NULL, NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
+  altivec_builtin_mask_for_load = decl;
 
   /* Access to the vec_init patterns.  */
   ftype = build_function_type_list (V4SI_type_node, integer_type_node,
 				    integer_type_node, integer_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_init_v4si", ftype,
-	       ALTIVEC_BUILTIN_VEC_INIT_V4SI);
+  def_builtin ("__builtin_vec_init_v4si", ftype, ALTIVEC_BUILTIN_VEC_INIT_V4SI);
 
   ftype = build_function_type_list (V8HI_type_node, short_integer_type_node,
 				    short_integer_type_node,
@@ -12298,8 +12316,7 @@ altivec_init_builtins (void)
 				    short_integer_type_node,
 				    short_integer_type_node,
 				    short_integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_init_v8hi", ftype,
-	       ALTIVEC_BUILTIN_VEC_INIT_V8HI);
+  def_builtin ("__builtin_vec_init_v8hi", ftype, ALTIVEC_BUILTIN_VEC_INIT_V8HI);
 
   ftype = build_function_type_list (V16QI_type_node, char_type_node,
 				    char_type_node, char_type_node,
@@ -12310,101 +12327,78 @@ altivec_init_builtins (void)
 				    char_type_node, char_type_node,
 				    char_type_node, char_type_node,
 				    char_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_init_v16qi", ftype,
+  def_builtin ("__builtin_vec_init_v16qi", ftype,
 	       ALTIVEC_BUILTIN_VEC_INIT_V16QI);
 
   ftype = build_function_type_list (V4SF_type_node, float_type_node,
 				    float_type_node, float_type_node,
 				    float_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_init_v4sf", ftype,
-	       ALTIVEC_BUILTIN_VEC_INIT_V4SF);
+  def_builtin ("__builtin_vec_init_v4sf", ftype, ALTIVEC_BUILTIN_VEC_INIT_V4SF);
 
-  if (TARGET_VSX)
-    {
-      ftype = build_function_type_list (V2DF_type_node, double_type_node,
-					double_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_init_v2df", ftype,
-		   VSX_BUILTIN_VEC_INIT_V2DF);
+  /* VSX builtins.  */
+  ftype = build_function_type_list (V2DF_type_node, double_type_node,
+				    double_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_init_v2df", ftype, VSX_BUILTIN_VEC_INIT_V2DF);
 
-      ftype = build_function_type_list (V2DI_type_node, intDI_type_node,
-					intDI_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_init_v2di", ftype,
-		   VSX_BUILTIN_VEC_INIT_V2DI);
-    }
+  ftype = build_function_type_list (V2DI_type_node, intDI_type_node,
+				    intDI_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_init_v2di", ftype, VSX_BUILTIN_VEC_INIT_V2DI);
 
   /* Access to the vec_set patterns.  */
   ftype = build_function_type_list (V4SI_type_node, V4SI_type_node,
 				    intSI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v4si", ftype,
-	       ALTIVEC_BUILTIN_VEC_SET_V4SI);
+  def_builtin ("__builtin_vec_set_v4si", ftype, ALTIVEC_BUILTIN_VEC_SET_V4SI);
 
   ftype = build_function_type_list (V8HI_type_node, V8HI_type_node,
 				    intHI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v8hi", ftype,
-	       ALTIVEC_BUILTIN_VEC_SET_V8HI);
+  def_builtin ("__builtin_vec_set_v8hi", ftype, ALTIVEC_BUILTIN_VEC_SET_V8HI);
 
   ftype = build_function_type_list (V16QI_type_node, V16QI_type_node,
 				    intQI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_set_v16qi", ftype,
-	       ALTIVEC_BUILTIN_VEC_SET_V16QI);
+  def_builtin ("__builtin_vec_set_v16qi", ftype, ALTIVEC_BUILTIN_VEC_SET_V16QI);
 
   ftype = build_function_type_list (V4SF_type_node, V4SF_type_node,
 				    float_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC|MASK_VSX, "__builtin_vec_set_v4sf", ftype,
-	       ALTIVEC_BUILTIN_VEC_SET_V4SF);
+  def_builtin ("__builtin_vec_set_v4sf", ftype, ALTIVEC_BUILTIN_VEC_SET_V4SF);
 
-  if (TARGET_VSX)
-    {
-      ftype = build_function_type_list (V2DF_type_node, V2DF_type_node,
-					double_type_node,
-					integer_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_set_v2df", ftype,
-		   VSX_BUILTIN_VEC_SET_V2DF);
+  ftype = build_function_type_list (V2DF_type_node, V2DF_type_node,
+				    double_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_set_v2df", ftype, VSX_BUILTIN_VEC_SET_V2DF);
 
-      ftype = build_function_type_list (V2DI_type_node, V2DI_type_node,
-					intDI_type_node,
-					integer_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_set_v2di", ftype,
-		   VSX_BUILTIN_VEC_SET_V2DI);
-    }
+  ftype = build_function_type_list (V2DI_type_node, V2DI_type_node,
+				    intDI_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_set_v2di", ftype, VSX_BUILTIN_VEC_SET_V2DI);
 
   /* Access to the vec_extract patterns.  */
   ftype = build_function_type_list (intSI_type_node, V4SI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ext_v4si", ftype,
-	       ALTIVEC_BUILTIN_VEC_EXT_V4SI);
+  def_builtin ("__builtin_vec_ext_v4si", ftype, ALTIVEC_BUILTIN_VEC_EXT_V4SI);
 
   ftype = build_function_type_list (intHI_type_node, V8HI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ext_v8hi", ftype,
-	       ALTIVEC_BUILTIN_VEC_EXT_V8HI);
+  def_builtin ("__builtin_vec_ext_v8hi", ftype, ALTIVEC_BUILTIN_VEC_EXT_V8HI);
 
   ftype = build_function_type_list (intQI_type_node, V16QI_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC, "__builtin_vec_ext_v16qi", ftype,
-	       ALTIVEC_BUILTIN_VEC_EXT_V16QI);
+  def_builtin ("__builtin_vec_ext_v16qi", ftype, ALTIVEC_BUILTIN_VEC_EXT_V16QI);
 
   ftype = build_function_type_list (float_type_node, V4SF_type_node,
 				    integer_type_node, NULL_TREE);
-  def_builtin (MASK_ALTIVEC|MASK_VSX, "__builtin_vec_ext_v4sf", ftype,
-	       ALTIVEC_BUILTIN_VEC_EXT_V4SF);
+  def_builtin ("__builtin_vec_ext_v4sf", ftype, ALTIVEC_BUILTIN_VEC_EXT_V4SF);
 
-  if (TARGET_VSX)
-    {
-      ftype = build_function_type_list (double_type_node, V2DF_type_node,
-					integer_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_ext_v2df", ftype,
-		   VSX_BUILTIN_VEC_EXT_V2DF);
+  ftype = build_function_type_list (double_type_node, V2DF_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_ext_v2df", ftype, VSX_BUILTIN_VEC_EXT_V2DF);
 
-      ftype = build_function_type_list (intDI_type_node, V2DI_type_node,
-					integer_type_node, NULL_TREE);
-      def_builtin (MASK_VSX, "__builtin_vec_ext_v2di", ftype,
-		   VSX_BUILTIN_VEC_EXT_V2DI);
-    }
+  ftype = build_function_type_list (intDI_type_node, V2DI_type_node,
+				    integer_type_node, NULL_TREE);
+  def_builtin ("__builtin_vec_ext_v2di", ftype, VSX_BUILTIN_VEC_EXT_V2DI);
 }
 
 /* Hash function for builtin functions with up to 3 arguments and a return
@@ -12604,6 +12598,7 @@ rs6000_common_init_builtins (void)
   tree v2si_ftype_qi = NULL_TREE;
   tree v2si_ftype_v2si_qi = NULL_TREE;
   tree v2si_ftype_int_qi = NULL_TREE;
+  unsigned builtin_mask = rs6000_builtin_mask;
 
   if (!TARGET_PAIRED_FLOAT)
     {
@@ -12611,14 +12606,23 @@ rs6000_common_init_builtins (void)
       builtin_mode_to_type[V2SFmode][0] = opaque_V2SF_type_node;
     }
 
+  /* Paired and SPE builtins are only available if you build a compiler with
+     the appropriate options, so only create those builtins with the
+     appropriate compiler option.  Create Altivec and VSX builtins on machines
+     with at least the general purpose extensions (970 and newer) to allow the
+     use of the target attribute..  */
+
+  if (TARGET_PPC_GPOPT)
+    builtin_mask |= RS6000_BTM_COMMON;
+
   /* Add the ternary operators.  */
   d = bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
     {
       tree type;
-      int mask = d->mask;
+      unsigned mask = d->mask;
 
-      if ((mask & rs6000_builtin_mask) == 0)
+      if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
 	    fprintf (stderr, "rs6000_builtin, skip ternary %s\n", d->name);
@@ -12648,7 +12652,7 @@ rs6000_common_init_builtins (void)
 					d->code, d->name);
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 
   /* Add the binary operators.  */
@@ -12657,9 +12661,9 @@ rs6000_common_init_builtins (void)
     {
       enum machine_mode mode0, mode1, mode2;
       tree type;
-      int mask = d->mask;
+      unsigned mask = d->mask;
 
-      if ((mask & rs6000_builtin_mask) == 0)
+      if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
 	    fprintf (stderr, "rs6000_builtin, skip binary %s\n", d->name);
@@ -12711,7 +12715,7 @@ rs6000_common_init_builtins (void)
 					  d->code, d->name);
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 
   /* Add the simple unary operators.  */
@@ -12720,9 +12724,9 @@ rs6000_common_init_builtins (void)
     {
       enum machine_mode mode0, mode1;
       tree type;
-      int mask = d->mask;
+      unsigned mask = d->mask;
 
-      if ((mask & rs6000_builtin_mask) == 0)
+      if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
 	    fprintf (stderr, "rs6000_builtin, skip unary %s\n", d->name);
@@ -12760,7 +12764,7 @@ rs6000_common_init_builtins (void)
 					  d->code, d->name);
 	}
 
-      def_builtin (d->mask, d->name, type, d->code);
+      def_builtin (d->name, type, d->code);
     }
 }
 
