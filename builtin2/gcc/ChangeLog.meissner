@@ -1,5 +1,10 @@
 2011-11-06  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 181065.
+	* REVISION: Update subversion id.
+
+2011-11-06  Michael Meissner  <meissner@the-meissners.org>
+
 	* config/rs6000/rs6000-builtin.def: Complete rewrite of how the
 	builtin indexes are defined, and how the builtins are defined,
 	move more builtin information into rs6000-builtin.def.  Change

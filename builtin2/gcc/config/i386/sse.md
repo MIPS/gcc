@@ -233,11 +233,18 @@
 (define_mode_attr sseintvecmode
   [(V8SF "V8SI") (V4DF "V4DI")
    (V4SF "V4SI") (V2DF "V2DI")
-   (V4DF "V4DI") (V8SF "V8SI")
    (V8SI "V8SI") (V4DI "V4DI")
    (V4SI "V4SI") (V2DI "V2DI")
    (V16HI "V16HI") (V8HI "V8HI")
    (V32QI "V32QI") (V16QI "V16QI")])
+
+(define_mode_attr sseintvecmodelower
+  [(V8SF "v8si") (V4DF "v4di")
+   (V4SF "v4si") (V2DF "v2di")
+   (V8SI "v8si") (V4DI "v4di")
+   (V4SI "v4si") (V2DI "v2di")
+   (V16HI "v16hi") (V8HI "v8hi")
+   (V32QI "v32qi") (V16QI "v16qi")])
 
 ;; Mapping of vector modes to a vector mode of double size
 (define_mode_attr ssedoublevecmode
@@ -2224,48 +2231,23 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "DI")])
 
-(define_insn "avx_cvtdq2ps256"
-  [(set (match_operand:V8SF 0 "register_operand" "=x")
-	(float:V8SF (match_operand:V8SI 1 "nonimmediate_operand" "xm")))]
-  "TARGET_AVX"
-  "vcvtdq2ps\t{%1, %0|%0, %1}"
-  [(set_attr "type" "ssecvt")
-   (set_attr "prefix" "vex")
-   (set_attr "mode" "V8SF")])
-
-(define_insn "sse2_cvtdq2ps"
-  [(set (match_operand:V4SF 0 "register_operand" "=x")
-	(float:V4SF (match_operand:V4SI 1 "nonimmediate_operand" "xm")))]
+(define_insn "float<sseintvecmodelower><mode>2"
+  [(set (match_operand:VF1 0 "register_operand" "=x")
+	(float:VF1
+	  (match_operand:<sseintvecmode> 1 "nonimmediate_operand" "xm")))]
   "TARGET_SSE2"
   "%vcvtdq2ps\t{%1, %0|%0, %1}"
   [(set_attr "type" "ssecvt")
    (set_attr "prefix" "maybe_vex")
-   (set_attr "mode" "V4SF")])
+   (set_attr "mode" "<sseinsnmode>")])
 
-(define_expand "sse2_cvtudq2ps"
-  [(set (match_dup 5)
-	(float:V4SF (match_operand:V4SI 1 "nonimmediate_operand" "")))
-   (set (match_dup 6)
-	(lt:V4SF (match_dup 5) (match_dup 3)))
-   (set (match_dup 7)
-	(and:V4SF (match_dup 6) (match_dup 4)))
-   (set (match_operand:V4SF 0 "register_operand" "")
-	(plus:V4SF (match_dup 5) (match_dup 7)))]
-  "TARGET_SSE2"
+(define_expand "floatuns<sseintvecmodelower><mode>2"
+  [(match_operand:VF1 0 "register_operand" "")
+   (match_operand:<sseintvecmode> 1 "register_operand" "")]
+  "TARGET_SSE2 && (<MODE>mode == V4SFmode || TARGET_AVX2)"
 {
-  REAL_VALUE_TYPE TWO32r;
-  rtx x;
-  int i;
-
-  real_ldexp (&TWO32r, &dconst1, 32);
-  x = const_double_from_real_value (TWO32r, SFmode);
-
-  operands[3] = force_reg (V4SFmode, CONST0_RTX (V4SFmode));
-  operands[4] = force_reg (V4SFmode,
-			   ix86_build_const_vector (V4SFmode, 1, x));
-
-  for (i = 5; i < 8; i++)
-    operands[i] = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_convert_uns_vsivsf (operands[0], operands[1]);
+  DONE;
 })
 
 (define_insn "avx_cvtps2dq256"
@@ -2293,7 +2275,7 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
-(define_insn "avx_cvttps2dq256"
+(define_insn "fix_truncv8sfv8si2"
   [(set (match_operand:V8SI 0 "register_operand" "=x")
 	(fix:V8SI (match_operand:V8SF 1 "nonimmediate_operand" "xm")))]
   "TARGET_AVX"
@@ -2302,7 +2284,7 @@
    (set_attr "prefix" "vex")
    (set_attr "mode" "OI")])
 
-(define_insn "sse2_cvttps2dq"
+(define_insn "fix_truncv4sfv4si2"
   [(set (match_operand:V4SI 0 "register_operand" "=x")
 	(fix:V4SI (match_operand:V4SF 1 "nonimmediate_operand" "xm")))]
   "TARGET_SSE2"
@@ -2321,6 +2303,19 @@
    (set_attr "prefix_data16" "0")
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
+
+(define_expand "fixuns_trunc<mode><sseintvecmodelower>2"
+  [(match_operand:<sseintvecmode> 0 "register_operand" "")
+   (match_operand:VF1 1 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx tmp[3];
+  tmp[0] = ix86_expand_adjust_ufix_to_sfix_si (operands[1], &tmp[2]);
+  tmp[1] = gen_reg_rtx (<sseintvecmode>mode);
+  emit_insn (gen_fix_trunc<mode><sseintvecmodelower>2 (tmp[1], tmp[0]));
+  emit_insn (gen_xor<sseintvecmodelower>3 (operands[0], tmp[1], tmp[2]));
+  DONE;
+})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -2495,7 +2490,7 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "DI")])
 
-(define_insn "avx_cvtdq2pd256"
+(define_insn "floatv4siv4df2"
   [(set (match_operand:V4DF 0 "register_operand" "=x")
 	(float:V4DF (match_operand:V4SI 1 "nonimmediate_operand" "xm")))]
   "TARGET_AVX"
@@ -2591,7 +2586,7 @@
    (set_attr "athlon_decode" "vector")
    (set_attr "bdver1_decode" "double")])
 
-(define_insn "avx_cvttpd2dq256"
+(define_insn "fix_truncv4dfv4si2"
   [(set (match_operand:V4SI 0 "register_operand" "=x")
 	(fix:V4SI (match_operand:V4DF 1 "nonimmediate_operand" "xm")))]
   "TARGET_AVX"
@@ -2995,7 +2990,7 @@
   for (i = 2; i < 5; i++)
     tmp[i] = gen_reg_rtx (V4DFmode);
   emit_insn (gen_vec_extract_hi_v8si (tmp[5], operands[1]));
-  emit_insn (gen_avx_cvtdq2pd256 (tmp[2], tmp[5]));
+  emit_insn (gen_floatv4siv4df2 (tmp[2], tmp[5]));
   emit_insn (gen_rtx_SET (VOIDmode, tmp[3],
 			  gen_rtx_LT (V4DFmode, tmp[2], tmp[0])));
   emit_insn (gen_andv4df3 (tmp[4], tmp[3], tmp[1]));
@@ -3095,6 +3090,39 @@
   emit_insn (gen_vec_interleave_lowv2di (gen_lowpart (V2DImode, operands[0]),
 					 gen_lowpart (V2DImode, r1),
 					 gen_lowpart (V2DImode, r2)));
+  DONE;
+})
+
+(define_mode_attr ssepackfltmode
+  [(V4DF "V8SI") (V2DF "V4SI")])
+
+(define_expand "vec_pack_ufix_trunc_<mode>"
+  [(match_operand:<ssepackfltmode> 0 "register_operand" "")
+   (match_operand:VF2 1 "register_operand" "")
+   (match_operand:VF2 2 "register_operand" "")]
+  "TARGET_SSE2"
+{
+  rtx tmp[7];
+  tmp[0] = ix86_expand_adjust_ufix_to_sfix_si (operands[1], &tmp[2]);
+  tmp[1] = ix86_expand_adjust_ufix_to_sfix_si (operands[2], &tmp[3]);
+  tmp[4] = gen_reg_rtx (<ssepackfltmode>mode);
+  emit_insn (gen_vec_pack_sfix_trunc_<mode> (tmp[4], tmp[0], tmp[1]));
+  if (<ssepackfltmode>mode == V4SImode || TARGET_AVX2)
+    {
+      tmp[5] = gen_reg_rtx (<ssepackfltmode>mode);
+      ix86_expand_vec_extract_even_odd (tmp[5], tmp[2], tmp[3], 0);
+    }
+  else
+    {
+      tmp[5] = gen_reg_rtx (V8SFmode);
+      ix86_expand_vec_extract_even_odd (tmp[5], gen_lowpart (V8SFmode, tmp[2]),
+					gen_lowpart (V8SFmode, tmp[3]), 0);
+      tmp[5] = gen_lowpart (V8SImode, tmp[5]);
+    }
+  tmp[6] = expand_simple_binop (<ssepackfltmode>mode, XOR, tmp[4], tmp[5],
+				operands[0], 0, OPTAB_DIRECT);
+  if (tmp[6] != operands[0])
+    emit_move_insn (operands[0], tmp[6]);
   DONE;
 })
 
