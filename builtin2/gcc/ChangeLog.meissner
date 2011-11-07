@@ -1,5 +1,10 @@
 2011-11-07  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 181128.
+	* REVISION: Update subversion id.
+
+2011-11-07  Michael Meissner  <meissner@the-meissners.org>
+
 	* testsuite/gcc.target/powerpc/ppc-target-4.c: New test for
 	builtin functions being defined and undefined based on the #pragma
 	GCC target settings.

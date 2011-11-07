@@ -3270,7 +3270,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
       return error_mark_node;
     }
 
-  if (want_template && !DECL_CLASS_TEMPLATE_P (t))
+  if (want_template && !DECL_TYPE_TEMPLATE_P (t))
     {
       if (complain & tf_error)
 	error ("%<typename %T::%D%> names %q#T, which is not a class template",
@@ -3338,7 +3338,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
       if (tmpl && TREE_CODE (tmpl) == TYPE_DECL)
 	tmpl = maybe_get_template_decl_from_type_decl (tmpl);
 
-      if (!tmpl || !DECL_CLASS_TEMPLATE_P (tmpl))
+      if (!tmpl || !DECL_TYPE_TEMPLATE_P (tmpl))
 	{
 	  if (complain & tf_error)
 	    error ("no class template named %q#T in %q#T", name, context);
@@ -6049,9 +6049,12 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  /* This variable seems to be a non-dependent constant, so process
 	     its initializer.  If check_initializer returns non-null the
 	     initialization wasn't constant after all.  */
-	  tree init_code = check_initializer (decl, init, flags, &cleanups);
+	  tree init_code;
+	  cleanups = make_tree_vector ();
+	  init_code = check_initializer (decl, init, flags, &cleanups);
 	  if (init_code == NULL_TREE)
 	    init = NULL_TREE;
+	  release_tree_vector (cleanups);
 	}
       else if (!DECL_PRETTY_FUNCTION_P (decl))
 	/* Deduce array size even if the initializer is dependent.  */
@@ -6150,6 +6153,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 		error ("Java object %qD not allocated with %<new%>", decl);
 	      init = NULL_TREE;
 	    }
+	  cleanups = make_tree_vector ();
 	  init = check_initializer (decl, init, flags, &cleanups);
 	  /* Thread-local storage cannot be dynamically initialized.  */
 	  if (DECL_THREAD_LOCAL_P (decl) && init)
@@ -6320,6 +6324,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       unsigned i; tree t;
       FOR_EACH_VEC_ELT (tree, cleanups, i, t)
 	push_cleanup (decl, t, false);
+      release_tree_vector (cleanups);
     }
 
   if (was_readonly)
@@ -9742,6 +9747,11 @@ grokdeclarator (const cp_declarator *declarator,
 		      memfn_quals != TYPE_UNQUALIFIED,
 		      inlinep, friendp, raises != NULL_TREE);
 
+      if (declspecs->specs[(int)ds_alias])
+	/* Acknowledge that this was written:
+	     `using analias = atype;'.  */
+	TYPE_DECL_ALIAS_P (decl) = 1;
+
       return decl;
     }
 
@@ -13016,6 +13026,7 @@ save_function_data (tree decl)
   f->base.x_stmt_tree.x_cur_stmt_list = NULL;
   f->bindings = NULL;
   f->x_local_names = NULL;
+  f->base.local_typedefs = NULL;
 }
 
 

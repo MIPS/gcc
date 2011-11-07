@@ -7256,10 +7256,13 @@ expand_compare_and_swap_loop (rtx mem, rtx old_reg, rtx new_reg, rtx seq)
    atomically store VAL in MEM and return the previous value in MEM.
 
    MEMMODEL is the memory model variant to use.
-   TARGET is an option place to stick the return value.  */
+   TARGET is an optional place to stick the return value.  
+   USE_TEST_AND_SET indicates whether __sync_lock_test_and_set should be used
+   as a fall back if the atomic_exchange pattern does not exist.  */
 
 rtx
-expand_atomic_exchange (rtx target, rtx mem, rtx val, enum memmodel model)
+expand_atomic_exchange (rtx target, rtx mem, rtx val, enum memmodel model,
+			bool use_test_and_set)			
 {
   enum machine_mode mode = GET_MODE (mem);
   enum insn_code icode;
@@ -7284,31 +7287,39 @@ expand_atomic_exchange (rtx target, rtx mem, rtx val, enum memmodel model)
      acquire barrier.  If the pattern exists, and the memory model is stronger
      than acquire, add a release barrier before the instruction.
      The barrier is not needed if sync_lock_test_and_set doesn't exist since
-     it will expand into a compare-and-swap loop.  */
+     it will expand into a compare-and-swap loop.
 
-  icode = direct_optab_handler (sync_lock_test_and_set_optab, mode);
-  last_insn = get_last_insn ();
-  if ((icode != CODE_FOR_nothing) && (model == MEMMODEL_SEQ_CST || 
-				      model == MEMMODEL_RELEASE ||
-				      model == MEMMODEL_ACQ_REL))
-    expand_builtin_mem_thread_fence (model);
+     Some targets have non-compliant test_and_sets, so it would be incorrect
+     to emit a test_and_set in place of an __atomic_exchange.  The test_and_set
+     builtin shares this expander since exchange can always replace the
+     test_and_set.  */
 
-  if (icode != CODE_FOR_nothing)
+  if (use_test_and_set)
     {
-      struct expand_operand ops[3];
+      icode = direct_optab_handler (sync_lock_test_and_set_optab, mode);
+      last_insn = get_last_insn ();
+      if ((icode != CODE_FOR_nothing) && (model == MEMMODEL_SEQ_CST || 
+					  model == MEMMODEL_RELEASE ||
+					  model == MEMMODEL_ACQ_REL))
+	expand_builtin_mem_thread_fence (model);
 
-      create_output_operand (&ops[0], target, mode);
-      create_fixed_operand (&ops[1], mem);
-      /* VAL may have been promoted to a wider mode.  Shrink it if so.  */
-      create_convert_operand_to (&ops[2], val, mode, true);
-      if (maybe_expand_insn (icode, 3, ops))
-	return ops[0].value;
+      if (icode != CODE_FOR_nothing)
+	{
+	  struct expand_operand ops[3];
+
+	  create_output_operand (&ops[0], target, mode);
+	  create_fixed_operand (&ops[1], mem);
+	  /* VAL may have been promoted to a wider mode.  Shrink it if so.  */
+	  create_convert_operand_to (&ops[2], val, mode, true);
+	  if (maybe_expand_insn (icode, 3, ops))
+	    return ops[0].value;
+	}
+
+      /* Remove any fence that was inserted since a compare and swap loop is
+	 already a full memory barrier.  */
+      if (last_insn != get_last_insn ())
+	delete_insns_since (last_insn);
     }
-
-  /* Remove any fence we may have inserted since a compare and swap loop is a
-     full memory barrier.  */
-  if (last_insn != get_last_insn ())
-    delete_insns_since (last_insn);
 
   /* Otherwise, use a compare-and-swap loop for the exchange.  */
   if (can_compare_and_swap_p (mode))
@@ -7489,10 +7500,11 @@ expand_atomic_load (rtx target, rtx mem, enum memmodel model)
 /* This function expands the atomic store operation:
    Atomically store VAL in MEM.
    MEMMODEL is the memory model variant to use.
+   USE_RELEASE is true if __sync_lock_release can be used as a fall back.
    function returns const0_rtx if a pattern was emitted.  */
 
 rtx
-expand_atomic_store (rtx mem, rtx val, enum memmodel model)
+expand_atomic_store (rtx mem, rtx val, enum memmodel model, bool use_release)
 {
   enum machine_mode mode = GET_MODE (mem);
   enum insn_code icode;
@@ -7509,12 +7521,30 @@ expand_atomic_store (rtx mem, rtx val, enum memmodel model)
 	return const0_rtx;
     }
 
+  /* If using __sync_lock_release is a viable alternative, try it.  */
+  if (use_release)
+    {
+      icode = direct_optab_handler (sync_lock_release_optab, mode);
+      if (icode != CODE_FOR_nothing)
+	{
+	  create_fixed_operand (&ops[0], mem);
+	  create_input_operand (&ops[1], const0_rtx, mode);
+	  if (maybe_expand_insn (icode, 2, ops))
+	    {
+	      /* lock_release is only a release barrier.  */
+	      if (model == MEMMODEL_SEQ_CST)
+		expand_builtin_mem_thread_fence (model);
+	      return const0_rtx;
+	    }
+	}
+    }
+
   /* If the size of the object is greater than word size on this target,
      a default store will not be atomic, Try a mem_exchange and throw away
      the result.  If that doesn't work, don't do anything.  */
   if (GET_MODE_PRECISION(mode) > BITS_PER_WORD)
     {
-      rtx target = expand_atomic_exchange (NULL_RTX, mem, val, model);
+      rtx target = expand_atomic_exchange (NULL_RTX, mem, val, model, false);
       if (target)
         return const0_rtx;
       else
@@ -7549,43 +7579,74 @@ struct atomic_op_functions
   enum rtx_code reverse_code;
 };
 
-static const struct atomic_op_functions *
-get_atomic_op_for_code (enum rtx_code code)
-{
-  static const struct atomic_op_functions add_op = {
-    atomic_fetch_add_optab, atomic_add_fetch_optab, atomic_add_optab,
-    sync_old_add_optab, sync_new_add_optab, sync_add_optab, MINUS
-  }, sub_op = {
-    atomic_fetch_sub_optab, atomic_sub_fetch_optab, atomic_sub_optab,
-    sync_old_sub_optab, sync_new_sub_optab, sync_sub_optab, PLUS
-  }, xor_op = {
-    atomic_fetch_xor_optab, atomic_xor_fetch_optab, atomic_xor_optab,
-    sync_old_xor_optab, sync_new_xor_optab, sync_xor_optab, XOR
-  }, and_op = {
-    atomic_fetch_and_optab, atomic_and_fetch_optab, atomic_and_optab,
-    sync_old_and_optab, sync_new_and_optab, sync_and_optab, UNKNOWN
-  }, nand_op = {
-    atomic_fetch_nand_optab, atomic_nand_fetch_optab, atomic_nand_optab,
-    sync_old_nand_optab, sync_new_nand_optab, sync_nand_optab, UNKNOWN
-  }, ior_op = {
-    atomic_fetch_or_optab, atomic_or_fetch_optab, atomic_or_optab,
-    sync_old_ior_optab, sync_new_ior_optab, sync_ior_optab, UNKNOWN
-  };
 
+/* Fill in structure pointed to by OP with the various optab entries for an 
+   operation of type CODE.  */
+
+static void
+get_atomic_op_for_code (struct atomic_op_functions *op, enum rtx_code code)
+{
+  gcc_assert (op!= NULL);
+
+  /* If SWITCHABLE_TARGET is defined, then subtargets can be switched
+     in the source code during compilation, and the optab entries are not
+     computable until runtime.  Fill in the values at runtime.  */
   switch (code)
     {
     case PLUS:
-      return &add_op;
+      op->mem_fetch_before = atomic_fetch_add_optab;
+      op->mem_fetch_after = atomic_add_fetch_optab;
+      op->mem_no_result = atomic_add_optab;
+      op->fetch_before = sync_old_add_optab;
+      op->fetch_after = sync_new_add_optab;
+      op->no_result = sync_add_optab;
+      op->reverse_code = MINUS;
+      break;
     case MINUS:
-      return &sub_op;
+      op->mem_fetch_before = atomic_fetch_sub_optab;
+      op->mem_fetch_after = atomic_sub_fetch_optab;
+      op->mem_no_result = atomic_sub_optab;
+      op->fetch_before = sync_old_sub_optab;
+      op->fetch_after = sync_new_sub_optab;
+      op->no_result = sync_sub_optab;
+      op->reverse_code = PLUS;
+      break;
     case XOR:
-      return &xor_op;
+      op->mem_fetch_before = atomic_fetch_xor_optab;
+      op->mem_fetch_after = atomic_xor_fetch_optab;
+      op->mem_no_result = atomic_xor_optab;
+      op->fetch_before = sync_old_xor_optab;
+      op->fetch_after = sync_new_xor_optab;
+      op->no_result = sync_xor_optab;
+      op->reverse_code = XOR;
+      break;
     case AND:
-      return &and_op;
+      op->mem_fetch_before = atomic_fetch_and_optab;
+      op->mem_fetch_after = atomic_and_fetch_optab;
+      op->mem_no_result = atomic_and_optab;
+      op->fetch_before = sync_old_and_optab;
+      op->fetch_after = sync_new_and_optab;
+      op->no_result = sync_and_optab;
+      op->reverse_code = UNKNOWN;
+      break;
     case IOR:
-      return &ior_op;
+      op->mem_fetch_before = atomic_fetch_or_optab;
+      op->mem_fetch_after = atomic_or_fetch_optab;
+      op->mem_no_result = atomic_or_optab;
+      op->fetch_before = sync_old_ior_optab;
+      op->fetch_after = sync_new_ior_optab;
+      op->no_result = sync_ior_optab;
+      op->reverse_code = UNKNOWN;
+      break;
     case NOT:
-      return &nand_op;
+      op->mem_fetch_before = atomic_fetch_nand_optab;
+      op->mem_fetch_after = atomic_nand_fetch_optab;
+      op->mem_no_result = atomic_nand_optab;
+      op->fetch_before = sync_old_nand_optab;
+      op->fetch_after = sync_new_nand_optab;
+      op->no_result = sync_nand_optab;
+      op->reverse_code = UNKNOWN;
+      break;
     default:
       gcc_unreachable ();
     }
@@ -7671,22 +7732,22 @@ expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
 			enum memmodel model, bool after)
 {
   enum machine_mode mode = GET_MODE (mem);
-  const struct atomic_op_functions *optab;
+  struct atomic_op_functions optab;
   rtx result;
   bool unused_result = (target == const0_rtx);
 
-  optab = get_atomic_op_for_code (code);
+  get_atomic_op_for_code (&optab, code);
 
   /* Check for the case where the result isn't used and try those patterns.  */
   if (unused_result)
     {
       /* Try the memory model variant first.  */
-      result = maybe_emit_op (optab, target, mem, val, true, model, true);
+      result = maybe_emit_op (&optab, target, mem, val, true, model, true);
       if (result)
         return result;
 
       /* Next try the old style withuot a memory model.  */
-      result = maybe_emit_op (optab, target, mem, val, false, model, true);
+      result = maybe_emit_op (&optab, target, mem, val, false, model, true);
       if (result)
         return result;
 
@@ -7695,23 +7756,23 @@ expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
     }
 
   /* Try the __atomic version.  */
-  result = maybe_emit_op (optab, target, mem, val, true, model, after);
+  result = maybe_emit_op (&optab, target, mem, val, true, model, after);
   if (result)
     return result;
 
   /* Try the older __sync version.  */
-  result = maybe_emit_op (optab, target, mem, val, false, model, after);
+  result = maybe_emit_op (&optab, target, mem, val, false, model, after);
   if (result)
     return result;
 
   /* If the fetch value can be calculated from the other variation of fetch,
      try that operation.  */
-  if (after || optab->reverse_code != UNKNOWN || target == const0_rtx) 
+  if (after || optab.reverse_code != UNKNOWN || target == const0_rtx) 
     {
       /* Try the __atomic version, then the older __sync version.  */
-      result = maybe_emit_op (optab, target, mem, val, true, model, !after);
+      result = maybe_emit_op (&optab, target, mem, val, true, model, !after);
       if (!result)
-	result = maybe_emit_op (optab, target, mem, val, false, model, !after);
+	result = maybe_emit_op (&optab, target, mem, val, false, model, !after);
 
       if (result)
 	{
@@ -7722,7 +7783,7 @@ expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
 	  /* Issue compensation code.  Fetch_after  == fetch_before OP val.
 	     Fetch_before == after REVERSE_OP val.  */
 	  if (!after)
-	    code = optab->reverse_code;
+	    code = optab.reverse_code;
 	  result = expand_simple_binop (mode, code, result, val, NULL_RTX, true,
 					OPTAB_LIB_WIDEN);
 	  return result;

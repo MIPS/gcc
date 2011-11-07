@@ -1,5 +1,31 @@
 2011-11-07  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
+	* include/std/mutex (call_once): Store closure in __once_functor
+	as bound function wrapper might not be copyable.
+
+2011-11-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* include/bits/atomic_base.h (atomic_thread_fence): Revert.
+	(atomic_signal_fence): Revert.
+
+2011-11-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* include/bits/atomic_base.h (atomic_thread_fence): Call builtin.
+	(atomic_signal_fence): Call builtin.
+	(atomic_flag::test_and_set): Call __atomic_exchange when it is lockfree,
+	otherwise fall back to call __sync_lock_test_and_set.
+	(atomic_flag::clear): Call __atomic_store when it is lockfree,
+	otherwise fall back to call __sync_lock_release.
+
+2011-11-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/50982
+	* include/Makefile.am (${host_builddir}/gthr-posix.h): Reflect
+	gthr-posix.h move.
+	* include/Makefile.in: Regenerate.
+
+2011-11-07  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
 	* acinclude.m4 (GLIBCXX_CHECK_SC_NPROC_ONLN): Define.
 	(GLIBCXX_CHECK_PTHREADS_NUM_PROCESSORS_NP): Define.
 	(GLIBCXX_CHECK_SYSCTL_HW_NCPU): Define.

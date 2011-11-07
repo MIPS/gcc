@@ -1,3 +1,188 @@
+2011-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386-bultin-types.def (V8SI_FTYPE_V4DF_V4DF): Add.
+	* config/i386/i386.c (enum ix86_builtins): Add
+	IX86_BUILTIN_VEC_PACK_SFIX256.
+	(bdesc_args): Add __builtin_ia32_vec_pack_sfix256.
+	(ix86_expand_args_builtin): Handle V8SI_FTYPE_V4DF_V4DF.
+	(ix86_builtin_vectorized_function): Also vectorize lrint using
+	256-bit vectors for -mavx.
+
+2011-11-07  Anatoly Sokolov  <aesok@post.ru>
+
+	* config/cris/constraints.md: New file.
+	* config/cris/cris.h (REG_CLASS_FROM_LETTER, CONSTRAINT_LEN,
+	CRIS_CONST_OK_FOR_LETTER_P, CONST_OK_FOR_CONSTRAINT_P,
+	CONST_DOUBLE_OK_FOR_LETTER_P, EXTRA_MEMORY_CONSTRAINT,
+	EXTRA_CONSTRAINT, EXTRA_CONSTRAINT_Q, EXTRA_CONSTRAINT_R,
+	EXTRA_CONSTRAINT_T, EXTRA_CONSTRAINT_S, EXTRA_CONSTRAINT_U): Remove.
+	* config/cris/cris.c: Incule "tm-constrs.h".
+	(cris_print_operand): Use satisfies_constraint_O.
+	(cris_normal_notice_update_cc, cris_rtx_costs): Use
+	satisfies_constraint_I.
+	(cris_address_cost): Use satisfies_constraint_L.
+	* config/cris/cris.md: Include "constraints.md".
+	(*mov_side<mode>, *mov_sidesisf, *mov_side<mode>_mem,
+	*mov_sidesisf_mem, *clear_side<mode>, *ext_sideqihi,
+	*ext_side<mode>si, *op_side<mode>, *op_swap_side<mode>,
+	*extopqihi_side, *extop<mode>si_side, *extopqihi_swap_side,
+	*extop<mode>si_swap_side): Use satisfies_constraint_N and
+	satisfies_constraint_J.
+	(moversideqi movemsideqi mover2side peephole2): Use
+	satisfies_constraint_N and satisfies_constraint_J.
+	(andu peephole2): Use satisfies_constraint_I and
+	satisfies_constraint_O.
+
+2011-11-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_builtin_vectorized_function): Handle
+	BUILT_IN_IRINT, BUILT_IN_IRINTF, BUILT_IN_LLRINT and BUILT_IN_LLRINTF.
+
+2011-11-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* optabs.c (get_atomic_op_for_code): Fill in optab table at runtime so
+	SWITCHABLE_TARGET can change the values during compilation.
+	(expand_atomic_fetch_op): Handle parameter change ripples for
+	get_atomic_op_for_code call.
+
+2011-11-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* doc/extend.texi: Docuemnt behaviour change for __atomic_exchange and
+	__atomic_store.
+	* optabs.c (expand_atomic_exchange): Expand to __sync_lock_test_and_set
+	only when originated from that builtin.
+	(expand_atomic_store): Expand to __sync_lock_release when originated
+	from that builtin.
+	* builtins.c (expand_builtin_sync_lock_test_and_set): Add flag that
+	expand_atomic_exchange call originated from here.
+	(expand_builtin_sync_lock_release): Add flag that expand_atomic_store
+	call originated from here.
+	(expand_builtin_atomic_exchange): Add origination flag.
+	(expand_builtin_atomic_store): Add origination flag.
+	* expr.h (expand_atomic_exchange, expand_atomic_store): Add boolean
+	parameters to indicate implementation fall back options.
+
+2011-11-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (output_reload_in_const): Can handle CONSTANT_P
+	now, not only CONST_INT and CONST_DOUBLE.
+	(output_movqi): Use output_reload_in_const.
+	(output_reload_inhi): Ditto.
+	(output_reload_insisf): Move assertion to output_reload_in_const.
+	(avr_out_reload_inpsi): Ditto.
+
+2011-11-07  Nathan Sidwell  <nathan@acm.org>
+
+	* gcov.c (object_summary): Replace with ...
+	(object_runs): ... this.
+	(process_file): Remove functions with no data.
+	(generate_results): Ignore files with no lines.
+	(release_function): New helper, broken out of ...
+	(release_structures): ... here.  Use it.
+	(read_count_file): Adjust for new data file format.
+	(output_lines): Use object_runs.
+	* gcov-io.h (GCOV_TAG_OBJECT_SUMMARY): Obsolete.
+	(struct gcov_ctr_info): Move definition.
+	(struct gcov_fn_info): Add key field, use gcov_ctr_info for
+	trailing array.
+	(struct gcov_info): Add merge function array, remove mask and
+	counts.  Trailing array is array of pointers to function info.
+	* coverage.c (struct function_list): Replace counter numbers with
+	counter arrays.  Add fndecl field.  GTYify.
+	(counts_entry): Remove chain workspace.
+	(functions_head): GTYify.
+	(prg_n_ctrs): Remove.
+	(fn_v_ctrs): New.
+	(tree_ctr_tables): Remove.
+	(read_counts_file): Cope with blank entries and expect program
+	summaries before functions.  Don't warn on missing entries.
+	(coverage_counter_alloc): Allocate individual function arrays.
+	(tree_coverage_counter_ref, tree_coverage_counter_addr): Adjust
+	for individual function arrays.
+	(coverage_end_function): GTYify function list object. Finalize
+	function's counter arrays.
+	(build_var): New.  Create a counter-related variable with
+	appropriate linkage.
+	(build_fn_info_type): Adjust for new runtime structure.
+	(build_fn_info_value): Rename to ...
+	(build_fn_info): ... here.  Build new format data.
+	(build_ctr_info_type, build_ctr_info_value): Remove.
+	(build_info_type): New. Build new format data structure.
+	(build_info): Adjust for new format data.
+	(create_coverage): Likewise.
+	* gcov-dump.c (tag_function): Recognize placeholders.
+
+2011-11-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/constraints.md (Cm2): New constraint for int -2.
+	* config/avr/avr.md (addqi3): Use it. New alternatives for +/-2.
+	(*negqihi2): New insn.
+
+2011-11-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* dwarf2cfi.c (dwarf2out_frame_debug_expr): Check
+	HARD_FRAME_POINTER_REGNUM instead of hard_frame_pointer_rtx
+	in Rule 18.
+
+2011-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_builtin): If gather mask
+	argument is known to have all high bits set, pass pc_rtx as
+	second argument to the expander instead of op0.
+	* config/i386/sse.md (*avx2_gathersi<mode>_2,
+	*avx2_gatherdi<mode>_2): New patterns.
+	* config/i386/avx2intrin.h (_mm256_i32gather_pd,
+	_mm256_i64gather_pd, _mm256_i32gather_ps): Set mask using
+	_mm256_cmp_pd with zero vector arguments and _CMP_EQ_OQ instead of
+	_mm256_set1_pd.
+
+	PR tree-optimization/50789
+	* tree-vect-stmts.c (process_use): Add force argument, avoid
+	exist_non_indexing_operands_for_use_p check if true.
+	(vect_mark_stmts_to_be_vectorized): Adjust callers.  Handle
+	STMT_VINFO_GATHER_P.
+	(gen_perm_mask): New function.
+	(perm_mask_for_reverse): Use it.
+	(reverse_vec_element): Rename to...
+	(permute_vec_elements): ... this.  Add Y and MASK_VEC arguments,
+	generalize for any permutations.
+	(vectorizable_load): Adjust caller.  Handle STMT_VINFO_GATHER_P.
+	* target.def (TARGET_VECTORIZE_BUILTIN_GATHER): New hook.
+	* doc/tm.texi.in (TARGET_VECTORIZE_BUILTIN_GATHER): Document it.
+	* doc/tm.texi: Regenerate.
+	* tree-data-ref.c (initialize_data_dependence_relation,
+	compute_self_dependence): No longer static.
+	* tree-data-ref.h (initialize_data_dependence_relation,
+	compute_self_dependence): New prototypes.
+	* tree-vect-data-refs.c (vect_check_gather): New function.
+	(vect_analyze_data_refs): Detect possible gather load data
+	refs.
+	* tree-vectorizer.h (struct _stmt_vec_info): Add gather_p field.
+	(STMT_VINFO_GATHER_P): Define.
+	(vect_check_gather): New prototype.
+	* config/i386/i386-builtin-types.def: Add types for alternate
+	gather builtins.
+	* config/i386/sse.md (AVXMODE48P_DI): Remove.
+	(VEC_GATHER_MODE): Rename mode_attr to...
+	(VEC_GATHER_IDXSI): ... this.
+	(VEC_GATHER_IDXDI, VEC_GATHER_SRCDI): New mode_attrs.
+	(avx2_gathersi<mode>, *avx2_gathersi<mode>): Use <VEC_GATHER_IDXSI>
+	instead of <VEC_GATHER_MODE>.
+	(avx2_gatherdi<mode>): Use <VEC_GATHER_IDXDI> instead of
+	<<AVXMODE48P_DI> and <VEC_GATHER_SRCDI> instead of VEC_GATHER_MODE
+	on src and mask operands.
+	(*avx2_gatherdi<mode>): Likewise.  Use VEC_GATHER_MODE iterator
+	instead of AVXMODE48P_DI.
+	(avx2_gatherdi<mode>256, *avx2_gatherdi<mode>256): Removed.
+	* config/i386/i386.c (enum ix86_builtins): Add
+	IX86_BUILTIN_GATHERALTSIV4DF, IX86_BUILTIN_GATHERALTDIV8SF,
+	IX86_BUILTIN_GATHERALTSIV4DI and IX86_BUILTIN_GATHERALTDIV8SI.
+	(ix86_init_mmx_sse_builtins): Create those builtins.
+	(ix86_expand_builtin): Handle those builtins and adjust expansions
+	of other gather builtins.
+	(ix86_vectorize_builtin_gather): New function.
+	(TARGET_VECTORIZE_BUILTIN_GATHER): Define.
+
 2011-11-07  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/f16cintrin: Remove extra _X86INTRIN_H_INCLUDED check.
