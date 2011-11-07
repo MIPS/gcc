@@ -1,5 +1,42 @@
 2011-11-07  Michael Meissner  <meissner@the-meissners.org>
 
+	* testsuite/gcc.target/powerpc/ppc-target-4.c: New test for
+	builtin functions being defined and undefined based on the #pragma
+	GCC target settings.
+
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Don't expand
+	__vector, etc. unless altivec.
+	(rs6000_define_or_undefine_macro): New function to define or
+	undefine a macro.
+	(rs6000_target_modify_macros): Function to turn various
+	pre-defined macros on or off.
+	(rs6000_cpu_cpp_builtins): Call rs6000_target_modify_macros for
+	the common macros.
+
+	* config/rs6000/rs6000.c (rs6000_target_modify_macros_ptr): New
+	global pointer variable to record hook to change the macros based
+	on the #pragma GCC target setting.
+	(rs6000_builtin_mask_calculate): New function to calculate
+	rs6000_builtin_mask.
+	(rs6000_option_override_internal): Call it.
+	(rs6000_init_builtins): Use TARGET_EXTRA_BUILTINS to decide when
+	to define all of the Altivec and VSX builtins.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_builtin_mask_names): New list for debugging
+	rs6000_builtin_names.
+	(rs6000_pragma_target_parse): Call hook to set macros that should
+	defined or undefined.
+	(rs6000_function_specific_print): Print rs6000_builtin_mask.
+
+	* config/rs6000/rs6000.h (TARGET_EXTRA_BUILTINS): New macro to
+	determine when to define the Altivec and VSX builtins even if the
+	user did not initially pass -maltivec or -mvsx.
+	(REGISTER_TARGET_PRAGMAS): Update target macros hooks.
+
+	* config/rs6000/rs6000-protos.h (rs6000_target_modify_macros): Add
+	declaration.
+	(rs6000_target_modify_macros_ptr): Ditto.
+
 	Merge up to 181085.
 	* REVISION: Update subversion id.
 

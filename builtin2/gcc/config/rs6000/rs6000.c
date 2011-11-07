@@ -289,6 +289,11 @@ static struct
 /* 2 argument gen function typedef.  */
 typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
 
+/* Pointer to function (in rs6000-c.c) that can define or undefine target
+   macros that have changed.  Languages that don't support the preprocessor
+   don't link in rs6000-c.c, so we can't call it directly.  */
+void (*rs6000_target_modify_macros_ptr) (bool, int, unsigned);
+
 
 /* Target cpu costs.  */
 
@@ -2547,6 +2552,27 @@ darwin_rs6000_override_options (void)
 #define RS6000_DEFAULT_LONG_DOUBLE_SIZE 64
 #endif
 
+/* Return the builtin mask of the various options used that could affect which
+   builtins were used.  In the past we used target_flags, but we've run out of
+   bits, and some options like SPE and PAIRED are no longer in
+   target_flags.  */
+
+unsigned
+rs6000_builtin_mask_calculate (void)
+{
+  return (((TARGET_ALTIVEC)		    ? RS6000_BTM_ALTIVEC  : 0)
+	  | ((TARGET_VSX)		    ? RS6000_BTM_VSX	  : 0)
+	  | ((TARGET_SPE)		    ? RS6000_BTM_SPE	  : 0)
+	  | ((TARGET_PAIRED_FLOAT)	    ? RS6000_BTM_PAIRED	  : 0)
+	  | ((TARGET_FRE)		    ? RS6000_BTM_FRE	  : 0)
+	  | ((TARGET_FRES)		    ? RS6000_BTM_FRES	  : 0)
+	  | ((TARGET_FRSQRTE)		    ? RS6000_BTM_FRSQRTE  : 0)
+	  | ((TARGET_FRSQRTES)		    ? RS6000_BTM_FRSQRTES : 0)
+	  | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD  : 0)
+	  | ((TARGET_POWERPC)		    ? RS6000_BTM_POWERPC  : 0)
+	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL     : 0));
+}
+
 /* Override command line options.  Mostly we process the processor type and
    sometimes adjust other TARGET_ options.  */
 
@@ -3290,18 +3316,13 @@ rs6000_option_override_internal (bool global_init_p)
      builtins were used.  In the past we used target_flags, but we've run out
      of bits, and some options like SPE and PAIRED are no longer in
      target_flags.  */
-  rs6000_builtin_mask = (((TARGET_ALTIVEC)	  ? RS6000_BTM_ALTIVEC	: 0)
-			 | ((TARGET_VSX)	  ? RS6000_BTM_VSX	: 0)
-			 | ((TARGET_SPE)	  ? RS6000_BTM_SPE	: 0)
-			 | ((TARGET_PAIRED_FLOAT) ? RS6000_BTM_PAIRED	: 0)
-			 | ((TARGET_FRE)	  ? RS6000_BTM_FRE	: 0)
-			 | ((TARGET_FRES)	  ? RS6000_BTM_FRES	: 0)
-			 | ((TARGET_FRSQRTE)	  ? RS6000_BTM_FRSQRTE	: 0)
-			 | ((TARGET_FRSQRTES)	  ? RS6000_BTM_FRSQRTES	: 0)
-			 | ((TARGET_POPCNTD)	  ? RS6000_BTM_POPCNTD	: 0)
-			 | ((TARGET_POWERPC)	  ? RS6000_BTM_POWERPC	: 0)
-			 | ((rs6000_cpu
-			     == PROCESSOR_CELL)	  ? RS6000_BTM_CELL     : 0));
+  rs6000_builtin_mask = rs6000_builtin_mask_calculate ();
+  if (TARGET_DEBUG_BUILTIN || TARGET_DEBUG_TARGET)
+    fprintf (stderr, "new builtin mask = 0x%x%s%s%s%s\n", rs6000_builtin_mask,
+	     (rs6000_builtin_mask & RS6000_BTM_ALTIVEC) ? ", altivec" : "",
+	     (rs6000_builtin_mask & RS6000_BTM_VSX)     ? ", vsx"     : "",
+	     (rs6000_builtin_mask & RS6000_BTM_PAIRED)  ? ", paired"  : "",
+	     (rs6000_builtin_mask & RS6000_BTM_SPE)     ? ", spe" : "");
 
   /* Initialize all of the registers.  */
   rs6000_init_hard_regno_mode_ok (global_init_p);
@@ -11675,9 +11696,9 @@ rs6000_init_builtins (void)
     paired_init_builtins ();
   if (TARGET_SPE)
     spe_init_builtins ();
-  if (TARGET_PPC_GPOPT || TARGET_ALTIVEC)
+  if (TARGET_EXTRA_BUILTINS)
     altivec_init_builtins ();
-  if (TARGET_PPC_GPOPT || TARGET_ALTIVEC || TARGET_SPE || TARGET_PAIRED_FLOAT)
+  if (TARGET_EXTRA_BUILTINS || TARGET_SPE || TARGET_PAIRED_FLOAT)
     rs6000_common_init_builtins ();
 
   ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
@@ -12612,7 +12633,7 @@ rs6000_common_init_builtins (void)
      with at least the general purpose extensions (970 and newer) to allow the
      use of the target attribute..  */
 
-  if (TARGET_PPC_GPOPT)
+  if (TARGET_EXTRA_BUILTINS)
     builtin_mask |= RS6000_BTM_COMMON;
 
   /* Add the ternary operators.  */
@@ -26705,6 +26726,22 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "string",		MASK_STRING,		false, false },
 };
 
+/* Builtin mask mapping for printing the flags.  */
+static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
+{
+  { "altivec",		 RS6000_BTM_ALTIVEC,	false, false },
+  { "vsx",		 RS6000_BTM_VSX,	false, false },
+  { "spe",		 RS6000_BTM_SPE,	false, false },
+  { "paired",		 RS6000_BTM_PAIRED,	false, false },
+  { "fre",		 RS6000_BTM_FRE,	false, false },
+  { "fres",		 RS6000_BTM_FRES,	false, false },
+  { "frsqrte",		 RS6000_BTM_FRSQRTE,	false, false },
+  { "frsqrtes",		 RS6000_BTM_FRSQRTES,	false, false },
+  { "popcntd",		 RS6000_BTM_POPCNTD,	false, false },
+  { "powerpc",		 RS6000_BTM_POWERPC,	false, false },
+  { "cell",		 RS6000_BTM_CELL,	false, false },
+};
+
 /* Option variables that we want to support inside attribute((target)) and
    #pragma GCC target operations.  */
 
@@ -27007,7 +27044,11 @@ rs6000_valid_attribute_p (tree fndecl,
 bool
 rs6000_pragma_target_parse (tree args, tree pop_target)
 {
+  tree prev_tree = build_target_option_node ();
   tree cur_tree;
+  struct cl_target_option *prev_opt, *cur_opt;
+  unsigned prev_bumask, cur_bumask, diff_bumask;
+  int prev_flags, cur_flags, diff_flags;
   bool ret;
 
   if (TARGET_DEBUG_TARGET)
@@ -27044,11 +27085,43 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
       cur_tree = build_target_option_node ();
 
       if (!cur_tree)
-	ret = false;
+	{
+	  if (TARGET_DEBUG_BUILTIN || TARGET_DEBUG_TARGET)
+	    fprintf (stderr, "build_target_option_node returned NULL\n");
+	  return false;
+	}
     }
 
-  if (cur_tree)
-    target_option_current_node = cur_tree;
+  target_option_current_node = cur_tree;
+
+  /* If we have the preprocessor linked in (i.e. C or C++ languages), possibly
+     change the macros that are defined.  */
+  if (rs6000_target_modify_macros_ptr)
+    {
+      prev_opt    = TREE_TARGET_OPTION (prev_tree);
+      prev_bumask = prev_opt->x_rs6000_builtin_mask;
+      prev_flags  = prev_opt->x_target_flags;
+
+      cur_opt     = TREE_TARGET_OPTION (cur_tree);
+      cur_flags   = cur_opt->x_target_flags;
+      cur_bumask  = cur_opt->x_rs6000_builtin_mask;
+
+      diff_bumask = (prev_bumask ^ cur_bumask);
+      diff_flags  = (prev_flags  ^ cur_flags);
+
+      if ((diff_flags != 0) || (diff_bumask != 0))
+	{
+	  /* Delete old macros.  */
+	  rs6000_target_modify_macros_ptr (false,
+					   prev_flags & diff_flags,
+					   prev_bumask & diff_bumask);
+
+	  /* Define new macros.  */
+	  rs6000_target_modify_macros_ptr (true,
+					   cur_flags & diff_flags,
+					   cur_bumask & diff_bumask);
+	}
+    }
 
   return ret;
 }
@@ -27157,6 +27230,7 @@ rs6000_function_specific_print (FILE *file, int indent,
 {
   size_t i;
   int flags = ptr->x_target_flags;
+  unsigned bu_mask = ptr->x_rs6000_builtin_mask;
 
   /* Print the various mask options.  */
   for (i = 0; i < ARRAY_SIZE (rs6000_opt_masks); i++)
@@ -27176,6 +27250,15 @@ rs6000_function_specific_print (FILE *file, int indent,
 	fprintf (file, "%*s-m%s\n", indent, "",
 		 rs6000_opt_vars[i].name);
     }
+
+  /* Print the various builtin flags.  */
+  fprintf (file, "%*sbuiltin mask = 0x%x\n", indent, "", bu_mask);
+  for (i = 0; i < ARRAY_SIZE (rs6000_builtin_mask_names); i++)
+    if ((bu_mask & rs6000_builtin_mask_names[i].mask) != 0)
+      {
+	fprintf (file, "%*s%s builtins supported\n", indent, "",
+		 rs6000_builtin_mask_names[i].name);
+      }
 }
 
 

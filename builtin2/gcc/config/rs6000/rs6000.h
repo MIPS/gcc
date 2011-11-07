@@ -483,6 +483,24 @@ extern int rs6000_vector_align[];
 #define TARGET_FCTIDUZ	TARGET_POPCNTD
 #define TARGET_FCTIWUZ	TARGET_POPCNTD
 
+/* For power systems, we want to enable Altivec and VSX builtins even if the
+   user did not use -maltivec or -mvsx to allow the builtins to be used inside
+   of #pragma GCC target or the target attribute to change the code level for a
+   given system.  The SPE and Paired builtins are only enabled if you configure
+   the compiler for those builtins, and those machines don't support altivec or
+   VSX.  */
+
+#define TARGET_EXTRA_BUILTINS	(!TARGET_SPE && !TARGET_PAIRED_FLOAT	 \
+				 && ((TARGET_POWERPC64			 \
+				      || TARGET_PPC_GPOPT /* 970 */	 \
+				      || TARGET_POPCNTB	  /* ISA 2.02 */ \
+				      || TARGET_CMPB	  /* ISA 2.05 */ \
+				      || TARGET_POPCNTD	  /* ISA 2.06 */ \
+				      || TARGET_ALTIVEC			 \
+				      || TARGET_VSX)))
+
+
+
 /* E500 processors only support plain "sync", not lwsync.  */
 #define TARGET_NO_LWSYNC TARGET_E500
 
@@ -534,6 +552,7 @@ extern unsigned char rs6000_recip_bits[];
   c_register_pragma (0, "longcall", rs6000_pragma_longcall);	\
   targetm.target_option.pragma_parse = rs6000_pragma_target_parse; \
   targetm.resolve_overloaded_builtin = altivec_resolve_overloaded_builtin; \
+  rs6000_target_modify_macros_ptr = rs6000_target_modify_macros; \
 } while (0)
 
 /* Target #defines.  */
