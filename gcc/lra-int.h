@@ -70,7 +70,7 @@ struct lra_live_range
 
 typedef struct lra_copy *lra_copy_t;
 
-/* Copy between pseudos which affects assigning hard registes. */
+/* Copy between pseudos which affects assigning hard registers. */
 struct lra_copy
 {
   /* True if regno1 is the destination of the copy.  */
@@ -331,7 +331,7 @@ extern bool lra_assign (void);
 /* lra-coalesce.c: */
 
 extern int lra_coalesce_iter;
-extern void lra_coalesce (void);
+extern bool lra_coalesce (void);
 
 /* lra-saves.c: */
 
@@ -339,7 +339,8 @@ extern bool lra_save_restore (void);
 
 /* lra-spills.c:  */
 
-extern bool lra_spill (void);
+extern bool lra_need_for_spills_p (void);
+extern void lra_spill (void);
 extern void lra_hard_reg_substitution (void);
 
 

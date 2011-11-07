@@ -305,10 +305,10 @@ remove_pseudos (rtx *loc, rtx insn)
   return res;
 }
 
-/* Convert pseudos got memory into their stack slots, return true if
-   any such conversion was done, put insns to process on the stack
-   (that is all insns in which pseudos were changed to memory)  */
-static bool
+/* Convert pseudos got memory into their stack slots, put insns to
+   process on the stack (that is all insns in which pseudos were
+   changed to memory)  */
+static void
 spill_pseudos (void)
 {
   basic_block bb;
@@ -343,27 +343,37 @@ spill_pseudos (void)
       bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);
     }
   bitmap_clear (&spilled_pseudos);
-  if (bitmap_empty_p (&changed_insns))
-    return false;
   bitmap_clear (&changed_insns);
-  return true;
 }
 
-/* Change spilled pseudos into memory.  Returns true if we change some
-   pseudos into memory.  The function put changed insns on the stack.
-   That is all insns in which pseudos were changed to memory.  */
+/* Return true if we need to change some pseudos into memory.  */
 bool
+lra_need_for_spills_p (void)
+{
+  int i; max_regno = max_reg_num ();
+
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
+	&& ! lra_former_scratch_p (i))
+      return true;
+  return false;
+}
+
+/* Change spilled pseudos into memory.  The function put changed insns
+   on the stack.  That is all insns in which pseudos were changed to
+   memory.  */
+void
 lra_spill (void)
 {
   int i, n, curr_regno;
   int *pseudo_regnos;
-  bool changed_p;
 
   regs_num = max_reg_num ();
   pseudo_regnos = (int *) xmalloc (sizeof (int) * regs_num);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
     if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0)
       pseudo_regnos[n++] = i;
+  gcc_assert (n > 0);
   pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
 						 * regs_num);
   slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
@@ -392,12 +402,10 @@ lra_spill (void)
 	  fprintf (lra_dump_file, "\n");
 	}
     }
-  changed_p = spill_pseudos ();
+  spill_pseudos ();
   free (slots);
   free (pseudo_slots);
   free (pseudo_regnos);
-  /* Checking that elimination does not changed since last one.  */
-  return changed_p;
 }
 
 /* Final change of pseudos got hard registers into the corresponding
@@ -408,8 +416,9 @@ lra_hard_reg_substitution (void)
   int i, hard_regno;
   basic_block bb;
   rtx insn;
+  int max_regno = max_reg_num ();
 
-  for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     if (lra_reg_info[i].nrefs != 0
 	&& (hard_regno = lra_get_regno_hard_regno (i)) >= 0)
       SET_REGNO (regno_reg_rtx[i], hard_regno);

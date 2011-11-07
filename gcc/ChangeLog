@@ -1,3 +1,684 @@
+2011-11-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_coalesce, lra_spill): Change the prototype.
+	(lra_need_for_spills_p): New prototype.
+
+	* lra.c (lra): Move coalesce after assignment.  Call
+	lra_need_for_spills_p before lra_create_live_ranges.  Don't check
+	return value of lra_spill.
+
+	* lra-spills.c (spill_pseudos, lra_spill): Don't return value.
+	(lra_need_for_spills_p): New function.
+	(lra_hard_reg_substitution): Use max_reg_num instead of regs_num.
+
+	* lra-coalesce.c (lra_coalesce): Move side_effects call lower.
+	Check restore_regno.  Process only insns containing coalesced
+	pseudos for pseudo substitution.  Return flag that some moves were
+	coalesced.
+
+	* lra-constraints.c (get_final_hard_regno): Move up.
+	(get_op_class, emit_secondary_memory_move): New functions.
+	(check_and_process_move): Add code for quick validity check base
+	on move cost.  Use emit_secondary_memory_move.
+	(process_address): Don't use transformation base + disp => base +
+	new index.
+	(curr_reload_insn_check, reload_insn_check, reload_insn): Rename
+	correspondingly to curr_usage_insns_check, usage_insns_check, and
+	usage_insns.
+	(substitute_pseudo): New function.
+	(inherit_reload_reg): Change prototype.  Add code to reject
+	generated reload inheritance insns.  Change the generated
+	inheritance code for permitting not only move insns in the
+	inheritance.  Use substitute_pseudo.
+	(live_pseudos): New bitmap.
+	(update_ebb_live_info): New function.
+	(struct to_inherit): New.
+	(to_inherit): New array.
+	(to_inherit_num): New static variable.
+	(add_to_inherit): New function.
+	(inherit_in_ebb): Add code for inheritance in non-reload
+	functions.  Process debug insns too.
+	(lra_inheritance): Initialize/finalize check_only_pseudos and
+	live_pseudos.  Call update_ebb_live_info.
+	(remove_inheritance_pseudos): Process debug insns too.  Add
+	special cases to undo the inheritance transformations.
+
+2011-10-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (process_copy_to_form_allocno): Rename to
+	process_copy_to_form_thread.
+	(conflict_reload_pseudos): Rename to
+	conflict_reload_and_inheritance_pseudos.
+	(live_reload_pseudos): Rename to
+	live_reload_and_inheritance_pseudos.
+	(init_live_reload_pseudos): Rename to
+	init_live_reload_and_inheritance_pseudos.
+	(finish_live_reload_and_inheritance_pseudos): Rename to
+	finish_live_reload_pseudos.
+	(find_hard_regno_for): Add new argument try_only_hard_regno.  Use
+	live_pseudos_reg_renumber instead of reg_renumber.  Check
+	live_pseudos_reg_renumber when adding to
+	conflict_reload_and_inheritance_pseudos.  Process
+	preferred_hard_regno2 only if preferred_hard_regno1 is
+	non-negative.
+	(setup_try_hard_regno_pseudos): Use live_pseudos_reg_renumber
+	instead of reg_renumber.
+	(spill_for): Ditto.  Pass new parameter to find_hard_regno_for.
+	(assign_temporarily): Don't change reg_renumber.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Only call
+	update_lives if lra_risky_equiv_subst_p is false.
+	(improve_inheritance): New function.
+	(assign_by_spills): Call improve_inheritance.
+
+	* lra.c (lra): Call lra_eliminate after lra_constraints.
+
+	* lra-constraints.c (contains_pseudo_p): Rename to contains_reg_p.
+	Add a new argument.  Modify it for new semantics.
+	(lra_risky_equiv_subst_p): New global var.
+	(lra_constraints): Set up lra_risky_equiv_subst_p.  Compare
+	get_equiv_substitution with right value.
+
+	* lra-eliminations.c (eliminate_regs_in_insn): Remove a dead
+	code.
+	(spill_pseudos): Clear to_process after its processing.
+	(update_reg_eliminate): Add a new argument.  Set it up.  Modify
+	lra_no_alloc_regs and eliminable_regset.
+	(init_elim_table): Remove the argument.  Permit elimination from a
+	register to itself.
+	(lra_init_elimination): Add a new argument.  Set it up.  Don't set
+	up liveness fo HARD_FRAME_POINTER_REGNUM.
+	(lra_eliminate): Rename to_process to insns_with_changed_offsets.
+	Call update_reg_eliminate with insns_with_changed_offsets.
+	Restructure code.  Add additional assertion on
+	insns_with_changed_offsets.
+
+	* lra.h (lra_init_elimination): New argument.
+
+	* lra-int.h (lra_risky_equiv_subst_p): New flag declaration.
+
+	* ira.c (ira_setup_eliminable_regset): Add a new argument.  Set
+	up liveness fo HARD_FRAME_POINTER_REGNUM if necessary.
+	(ira): Call ira_setup_eliminable_regset with a new parameter.
+
+	* ira.h (ira_setup_eliminable_regset): New argument.
+
+	* loop-invariant.c (calculate_loop_reg_pressure): Call
+	ira_setup_eliminable_regset with a new parameter.
+
+	* haifa-sched.c (sched_init): Ditto.
+
+2011-09-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_copy): New prototype.
+
+	* lra.c (lra_get_copy): New function.
+
+	* lra-saves.c (lra_save_restore): Ignore scratches.
+
+	* lra-constraints.c (remove_inheritance_pseudos): Fix a typo in
+	checking remove_pseudos emptiness.
+
+	* lra-assign.c (reload_insn_num): Remove.
+	(struct regno_assign_info): New.
+	(regno_assign_info): New array.
+	(process_copy_to_form_allocno, init_regno_assign_info): New.
+	(finish_regno_assign_info): New.
+	(reload_pseudo_compare_func): Rewrite using threads.
+	(find_hard_regno_for): Check value for conflicting reload pseudos.
+	(spill_for): Use reload_pseudo_compare_func instead of
+	pseudo_compare_func.
+	(assign_by_spills): Print info about processed reload and
+	inheritance pseudos.
+	(lra_assign): Call init_regno_assign_info and
+	finish_regno_assign_info.
+
+2011-09-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira-int.h (struct target_ira_int): Remove
+	x_ira_reg_classes_intersect_p.
+	(ira_reg_classes_intersect_p): Remove.
+
+	* ira.h (struct target_ira): Add x_ira_reg_classes_intersect_p.
+	(ira_reg_classes_intersect_p): New macro.
+
+	* lra-int.h (struct lra_reg): Remove members first and next.  Add
+	restore_regno and val.
+	(lra_create_new_reg_with_unique_value): New.
+	(lra_set_regno_unique_value): New.
+	(lra_update_dup): Change prototype.
+	(lra_dont_inherit_pseudos): Remove.
+	(lra_matched_pseudos, lra_bound_pseudos): Remove.
+	(lra_update_dup): New function.
+
+	* lra.c (get_new_reg_value): New function.
+	(lra_create_new_reg_with_unique_value): Extract from ...
+	(lra_create_new_reg): Set up value from the pseudo.
+	(lra_set_regno_unique_value): New function.
+	(lra_update_dups): Use array as nops.
+	(last_reg_value): New static variable.
+	(init_reg_info): Initialize it.  Initialize restore_regno and val
+	for pseudos.
+	(expand_reg_info): Initialize restore_regno and val
+	for new pseudos.
+	(lra_bind_pseudos, lra_bound_pseudo_freq): Remove.
+	(remove_scratches): Use lra_update_dup instead of lra_update_dups.
+	(lra): Use lra_constraint_iter instead of first.  Clear
+	lra_matched_pseudos after the spill subpass.  Clear
+	lra_inheritance_pseudos before the spill subpass. Remove code with
+	lra_dont_inherit_pseudos.
+
+	* lra-spills.c (regno_freq_compare): Don't use
+	lra_bound_pseudo_freq.
+	(assign_stack_slot_num_and_sort_pseudos): Remove processing bound
+	pseudos.
+	(lra_spill): Ditto.  Use lra_update_dup instead of
+	lra_update_dups.
+
+	* lra-lives.c (process_bb_lives): Check lra_bound_pseudos for
+	subreg dying.
+
+	* lra-coalesce.c (lra_coalesce): Check lra_bound_pseudos instead
+	of lra_reg_info.
+
+	* lra-constraints.c (new_insn_uid_start): New static variable.
+	(get_reg_class): Don't check lra_inheritance_pseudos.
+	(in_class_p): Ditto.  Check new_insn_uid_start instead.
+	(change_class): Remove processing bound pseudos.
+	(lra_dont_inherit_pseudos): Rename to lra_matched_pseudos.
+	(lra_bound_pseudos): New global var.
+	(match_reload): Change prototype by using array of inputs.  Don't
+	create bound pseudos.  Set up lra_bound_pseudos instead.  Use
+	lra_create_new_reg_with_unique_value instead of
+	lra_create_new_reg.  Use lra_update_dup for output.
+	(check_and_process_move): Don't check lra_inheritance_pseudos.
+	(curr_insn_transform): Make goal_alt_matched as two-dimensional
+	array.  Use lra_update_dup instead of lra_update_dups.  Use
+	lra_set_regno_unique_value instead of setting
+	lra_dont_inherit_pseudos.
+	(lra_constraints): Initialize new_insn_uid_start.
+	(lra_constraints_init): Initialize lra_bound_pseudos.
+	(lra_constraints_finish): Clear lra_bound_pseudos.
+	(inherit_reload_reg): Set up restore_regno.  Inherit only spilled
+	pseudos.
+	(remove_inheritance_pseudos): Extract from ...
+	(lra_undo_inheritance): Clear and use restore_regno.
+
+	* lra-assigns.c (get_biggest_bound_mode_pseudo): Remove.
+	(get_biggest_bound_mode): Ditto.
+	(regno_allocno_class_array): New.
+	(reload_pseudo_compare_func, pseudo_compare_func): Use it.
+	(update_lives): Remove processing bound pseudos.
+	(get_allocation_profit): Remove.
+	(find_hard_regno_for): Remove processing bound pseudos.  Look only
+	at intersected class pseudos.  Use pseudo values for conflicts.
+	Use regno_allocno_class_array.
+	(lra_setup_reg_renumber): Remove processing bound pseudos.
+	(setup_try_hard_regno_pseudos): Don't use first bound pseudos.
+	(assign_temporarily): Remove processing bound pseudos.
+	(spill_for): Ditto.  Use regno_allocno_class_array.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Remove
+	processing bound pseudos.  Use pseudo values for conflicts.
+	(assign_by_spills): Remove processing bound pseudos. Don't assign
+	hard registers to pseudos whose inheritance pseudos did not get a
+	hard register.  Use regno_allocno_class_array.
+	(lra_assign): Allocate, free, and initialize
+	regno_allocno_class_array.  Ignore spilling inheritance pseudos as
+	a change.
+
+	* emit-rtl.c (validate_subreg): Make any fp-mode subreg valid for LRA.
+
+2011-09-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (remove_scratches): Rescan changed insns.
+	(lra): Call df_analyze after lr_save_restore if necessary.
+
+	* lra-int.h (lr_save_restore): Change the prototype.
+
+	* lra-saves.c (struct save_regs): Rename mem_reg to saved_value.
+	Add new member equiv_p.
+	(equiv_for_save): New function.
+	(update_live_info_p): New static variable.
+	(setup_save_regs): Add code to regno equivalence.
+	(insert_save_restore): Ditto.
+	(lra_save_restore): Return true if need to update live info.
+
+2011-09-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (best_reload_nregs): New variable.
+	(process_alt_operands): Add heuristics based on number regs
+	involved in relaods and based on '*' constraints.  Increase reject
+	for all failed non registers.
+	(curr_insn_transform, lra_inheritance): Formatting.
+
+        * lra-eliminations.c (mark_not_eliminable): Add check on hard
+	register before looping on eliminations.
+
+2011-09-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (equivalence_change_p): Rename to
+	debug_loc_equivalence_change_p.  Process subreg of reg whose
+	equivalence mode is unknown.
+
+2011-09-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Revert:
+	2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
+	* lra-constraints.c (best_reload_nregs): New variable.
+	(process_alt_operands): Add preferences for smaller hard registers
+	involved.  Increase reject for all failed non registers.
+
+	* lra-eliminations.c (mark_not_eliminable): Add check on hard
+	register before looping on eliminations.
+
+2011-08-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (best_reload_nregs): New variable.
+	(process_alt_operands): Add preferences for smaller hard registers
+	involved.  Increase reject for all failed non registers.
+
+	* lra-eliminations.c (mark_not_eliminable): Add check on hard
+	register before looping on eliminations.
+
+2011-08-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (remove_scratches): Don't rescan insn.
+
+2011-08-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_debug_save_data): Remove.
+	(lra_save_restore): Change the prototype.
+
+	* lra.c (lra): Don't call df_analyze after lra_save_restore.
+	Don't call lra_create_live_ranges before the loop.  Call
+	lra_create_live_ranges before lra_spill if necessary.
+
+	* lra-saves.c: Rewrite.
+
+2011-08-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (uses_hard_regs_p): Use hard register
+	elimination.
+
+2011-08-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_mode): Remove.
+
+	* lra-constraints.c (find_mode, get_op_mode): New.
+	(match_reload, curr_insn_transform, process_alt_operands): Use
+	get_op_mode instead of lra_get_mode.
+
+2011-08-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (find_hard_regno_for): Don't do hard register
+	usage leveling for targets with conditional execution.
+
+2011-07-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (LOSER_COST_FACTOR, MAX_OVERALL_COST_BOUND):
+	New macros.
+	(process_alt_operands): Use the macros.  Adjust losers and
+	overall for reloads becuase of early clobbers.
+	(curr_insn_transform): Use MAX_OVERALL_COST_BOUND.
+	(lra_constraints): Fix typo with parentheses.
+
+	* lra-lives.c (process_bb_lives): Permit creation of copies
+	involving all new pseudos.
+
+	* lra-assigns.c (curr_update_hard_regno_preference_check): New variable.
+	(update_hard_regno_preference_check): Ditto.
+	(update_hard_regno_preference): New function.
+	(lra_setup_reg_renumber): Use update_hard_regno_preference.
+	(assign_by_spills): Initialize update_hard_regno_preference_check
+	and curr_update_hard_regno_preference_check.
+
+2011-07-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (setup_live_pseudos_and_spill_after_equiv_moves):
+	Remove the dead code.
+
+	* lra-constraints.c (goal_alternative*): Rename to goal_alt...
+	(goal_early_clobbered_nops_num, goal_early_clobbered_nops):
+	Remove.
+	(goal_alt_dont_inherit_ops_num, goal_alt_dont_inherit_ops): New
+	static variables.
+	(uses_hard_regs_p): New function.
+	(process_alt_operands): Rename curr_alternative to curr_alt...
+	Rename curr_early_clobbered_regs[_num] to
+	early_clobbered_regs[_num].  Add code for matching with early
+	clobber.  Add code to process and evaluate conflicts with early
+	clobbers.  Set up goal_alt_dont_inherit_ops_num,
+	goal_alt_dont_inherit_ops.
+	(early_clobber_reload_regs_num, early_clobber_reload_regs):
+	Remove.
+	(make_early_clobber_input_reload_reg, search_and_replace_reg): Ditto.
+	(create_early_clobber_reloads): Ditto.
+	(curr_insn_transform): Rename goal_alternative_matched to
+	goal_alt_matched.  Setup dont_inherit flag for early clobber
+	reload pseudo.  Don't call create_early_clobber_reloads.
+
+2011-07-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_invalidate_insn_data): New prototype.
+
+	* lra.c (lra_invalidate_insn_data): Split out from ...
+	(lra_set_insn_deleted): ... here.
+
+	* lra-constraints.c (curr_insn_transform): Call
+	lra_invalidate_insn_data and return true for wrong asm insn.
+	(lra_constraints): Use dest_reg instead of SET_DEST (set).
+
+2011-07-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (reload_pseudo_compare_func, find_hard_regno_for):
+	Use lra_get_allocno_class instead of lra_get_preferred_class.
+	(spill_for, assign_by_spills): Ditto.
+
+	* lra-constraints.c (get_try_hard_regno, get_reg_class): Use
+	lra_get_allocno_class instead of lra_get_preferred_class.
+	(make_early_clobber_input_reload_reg, inherit_reload_reg): Ditto.
+	(inherit_in_ebb): Ditto.
+	(equivalence_change_p): New function.
+	(lra_constraints): Call equivalence_change_p for debug insns.
+
+	* lra-int.h (lra_get_preferred_class): Rename to
+	lra_get_allocno_class and return allocno class.
+	(struct lra_reg): Add comments for members insn_bitmap, nrefs, and
+	freq.
+	(lra_operand_data, lra_static_insn_data): Add comment about future
+	changes and debug insns.
+
+	* lra.c (debug_operand_data, debug_insn_static_data): New
+	initialized varaibles.
+	(free_insn_recog_data, lra_get_insn_recog_data): Add code for
+	processing debug insns.
+	(lra_update_insn_recog_data, invalidate_insn_data_regno_info): Ditto.
+	(lra_update_insn_regno_info): Ditto.
+
+	* lra-eliminations.c (lra_eliminate_regs_1): Process asm operands
+	too.
+	(eliminate_regs_in_insn): Process debug insns too.
+
+	* lra-spills.c (lra_hard_reg_substitution): Process debug insns
+	too.
+
+	* lra-equivs.c (memref_used_between_p): Process debug insns too.
+
+	* ira.c (ira_setup_eliminable_regset): Initialize dont_use_regs
+	for reload.
+
+	* reginfo.c (allocate_reg_info, resize_reg_info): Initialize
+	allocno class as GENERAL_REGS.
+
+	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Restore
+	correct constraints for movzb.
+
+	* config/i386/i386.c (ix86_register_bank): Make AX as the most
+	preferable.
+
+2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (extract_loc_address_regs): Add an argument.
+	Don't process the reg as an index reg on the top address level
+	when it is added to the symbol.
+	(extract_address_regs): Pass new argument to
+	extract_loc_address_regs.
+
+2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (curr_insn_transform): Process operator
+	duplications.
+
+2011-06-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (lra_constraints): Check subreg for equiv init
+	insn.
+
+2011-06-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (struct lra_bb_info, lra_bb_info): Remove.
+
+	* lra.c (lra_bb_info, init_bb_info, finish_bb_info): Remove.
+	(lra): Remove calls of init_bb_info and finish_bb_info.
+
+	* lra-lives.c (live_regs): Remove.
+	(make_hard_regno_born, make_pseudo_live, make_pseudo_dead): Don't
+	update live_regs.
+	(process_bb_lives): Ditto.  Don't set up lra_bb_info.
+	(lra_create_live_ranges): Don't initialize/finalize live_regs.
+
+2011-06-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (live_range_hard_reg_pseudos): Make it a sparseset.
+	(live_range_hard_reg_pseudos, live_range_reload_pseudos): Ditto.
+	(init_live_reload_pseudos, finish_live_reload_pseudos): Work with
+	the above variables as sparsesets.
+	(find_hard_regno_for, spill_for): Ditto.
+	(setup_live_pseudos_and_spill_after_equiv_moves): Ditto.
+
+	* Makefile.in (lra-assign.o): Add missed sparseset.h.
+
+2011-06-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (live_pseudos_reg_renumber): New array.
+	(init_lives): Initialize the array.
+	(finish_lives): Free the array.
+	(update_lives): Update live_pseudos_reg_renumber.
+	(find_hard_regno_for): Use more bitmap_set_bit or bitmap_ior_into.
+	(spill_for): Ditto.
+	(setup_live_pseudos_and_spill_after_equiv): Ditto.
+
+	* lra-constraints.c (address_substitution): Rename to
+	equiv_address_substitution.
+
+2011-06-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-spills.c: Don't include toplev.h.
+
+	* lra-eliminations.c: Ditto.
+
+	* lra-lives.c: Ditto.
+
+	* lra-saves.c: Ditto.
+
+	* lra-coalesce.c: Ditto.
+
+	* lra-equivs.c: Ditto.
+
+	* lra.c: Ditto.
+	(lra): Skip coalescing after spills and some assignments.  Remove
+	live range creation before spills.
+
+	* lra-constraints.c: Don't include toplev.h.
+	(inherit_reload_reg): Invalidate used
+	alternative for changed insn.
+
+	* lra-assigns.c: Don't include toplev.h.
+	(assign_by_spills): Remove parameter. Clear all_spilled_pseudos if
+	necessary.  Fix typo in setting changed_pseudo_bitmap.  Don't set
+	up changed_pseudo_bitmap for reload pseudos.
+	(lra_assign): Return flag of spilling non-reload and
+	non-inheritance pseudos.
+
+	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): Remove
+	dependence on toplev.h.
+	(lra-constraints.o, lra-eliminations.o, lra-lives.o, lra-saves.o): Ditto.
+	(lra-spills.o): Ditto.
+
+	* lra-int.h (lra_assign): Don't include toplev.h.
+	Change return type.
+	* target.def (register_bank): Move description from tm.texi.in.
+
+	* doc/tm.texi.in (TARGET_REGISTER_BANK): Move description to target.def.
+
+	* doc/tm.texi: Update.
+
+2011-06-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (lra_eliminate_reg_if_possible): Fix a typo.
+	(process_insn_for_elimination): Invalidate insn data if the insn
+	code was changed.
+
+	* lra-constraints.c (check_and_process_move): Set up temporarily
+	reg_renumber for secondary_reload hook.
+	(process_addr_reg): Use class of elimination.
+	(curr_insn_transform): Remove subreg before address processing.
+
+2011-05-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.h: New file.
+
+	* lra-int.h: Ditto.
+
+	* lra.c: Ditto.
+
+	* lra-assigns.c: Ditto.
+
+	* lra-coalesce.c: Ditto.
+
+	* lra-constraints.c: Ditto.
+
+	* lra-eliminatios.c: Ditto.
+
+	* lra-equivs.c: Ditto.
+
+	* lra-lives.c: Ditto.
+
+	* lra-saves.c: Ditto.
+
+	* lra-spills.c: Ditto.
+
+	* Makefile.in (lra.o, lra-assigns.o, lra-coalesce.o): New entries.
+	(lra-constraints.o, lra-eliminatios.o, lra-equivs.o): Ditto.
+	(lra-lives.o, lra-saves.o, lra-spills.o): Ditto.
+	(dwarf2out.o): Add lra.h.
+	(ira.o): Ditto.
+
+	* common.opt (flra): New flag.
+
+	* ira.h (x_ira_class_subset_p): Move from
+	ira-int.h.
+	(ira_class_subset_p): Ditto, modify it.
+	(struct target_ira): New member x_ira_reg_class_subset.
+	(ira_reg_class_subset): New macro.
+	(struct ira_reg_equiv): New.
+	(ira_reg_equiv_len): Move from ira-int.h.
+	(ira_reg_equiv): New definitions.
+	(ira_expand_reg_equiv, ira_update_equiv_info_by_shuffle_insn): New
+	prototypes.
+
+	* ira-int.h (x_ira_class_subset_p): Move to ira.h.
+	(ira_class_subset_p): Ditto.
+	(ira_reg_equiv_len): Move to ira.h.
+	(ira_reg_equiv_invariant_p, ira_reg_equiv_const): Remove.
+	(ira_equiv_no_lvalue_p): New function.
+
+	* ira.c: Include lra.h.
+	(setup_reg_class_relations): Calculate ira_reg_class_subset.
+	(ira_init, ira_init_once): Initialize LRA.
+	(ira_finish_once): Finish LRA.
+	(ira_setup_eliminable_regset): Set frame_pointer_needed.  Call
+	lra_init_elimination.
+	(ira_reg_equiv_len): Move below.
+	(ira_reg_equiv_invariant_p): Remove.
+	(ira_reg_equiv_invariant_p, find_reg_equiv_invariant_const):
+	Remove.
+	(find_reg_equiv_invariant_const): Modify assertion.
+	(setup_reg_equiv_init, ira_update_equiv_info_by_shuffle_insn): New
+	functions.
+	(ira_reg_equiv): New variable.
+	(ira_expand_reg_equiv, init_reg_equiv, finish_reg_equiv): New
+	functions.
+	(no_equiv): Set up ira_reg_equiv instead of reg_rquiv_init.
+	(setup_reg_equiv): New function.
+	(ira): Call init_reg_equiv, setup_reg_equiv, setup_reg_equiv_init,
+	finish_reg_equiv.  Add code for LRA.
+
+	* ira-build.c (ira_flattening): Modify comments.
+
+	* ira-emit.c (create_new_reg): Call ira_expand_equiv.
+	(change_loop): Use ira_equiv_no_lvalue_p instead of
+	ira_reg_equiv_variant_p and ira_reg_equiv_const.
+	(emit_move_list): Call grow_reg_equivs and
+	ira_update_equiv_info_by_shuffle_insn.  Use ira_reg_equiv instead
+	of ira_reg_equiv_variant_p and ira_reg_equiv_const.
+
+	* ira-color.c (color_pass, move_spill_restore, coalesce_allocnos):
+	Use ira_equiv_no_lvalue_p instead of ira_reg_equiv_variant_p and
+	ira_reg_equiv_const.
+	(coalesce_spill_slots, ira_sort_regnos_for_alter_reg):  Ditto.
+
+	* dwarf2out.c (based_loc_descr): Call lra_eliminate_regs.
+	(compute_frame_pointer_to_fb_displacement): Ditto.
+
+	* emit-rtl.c (validate_subreg): Add code for LRA.
+
+	* expr.c (emit_move_insn_1): Add code for LRA.
+
+	* final.c (alter_subreg): Add code for LRA.
+
+	* jump.c (true_regnum): Add code for LRA.
+
+	* recog.c (general_operand, register_operand, scratch_operand):
+	Add code for LRA.
+
+	* reginfo.c (max_regno_since_last_resize): New variable.
+	(reg_preferred_class, reg_alternate_class, reg_allocno_class): Add
+	new assertion.
+	(allocate_reg_info): Add more elements than necessary, initialize
+	new elements.
+	(resize_reg_info): Ditto.
+	(reginfo_init): Initialize lengths of the arrays.
+	(setup_reg_classes): Change assertion.
+
+	* rtl.h (lra_in_progress): New definition.
+	(print_value_slim): New prototype.
+
+	* rtlanal.c (simplify_subreg_regno): Add code for LRA.
+
+	* sched-vis.c (print_value_slim): New function.
+
+	* target.def (register_bank): New hook.
+
+	* targhook.h (default_register_bank): New prototype.
+
+	* targhooks.c (default_register_bank): New function.
+
+	* doc/invoke.texi (-fno-lra): New option.
+
+	* doc/passes.texi: Describe LRA.
+
+	* doc/tm.texi.in (TARGET_REGISTER_BANK): New hook.
+
+	* doc/tm.texi (TARGET_REGISTER_BANK): Regenerate.
+
+	* config/h8300/constraints.md: Add lra_in_progress for constraint
+	"d".
+
+	* config/i386/i386.c (ix86_register_bank): New function.
+	(ix86_secondary_reload): Add code for LRA.
+	(TARGET_REGISTER_BANK): New macro.
+
+	* config/i386/i386.md (*anddi_1, *andsi_1, *andhi_1): Fix
+	constraints.
+
+	* config/rs6000/rs6000.c: Include ira.h.
+	(rs6000_emit_move): Add code for LRA.
+	(rs6000_secondary_reload_class): Ditto.
+
+	* config/s390/s390.md (*movmem_short, *clrmem_short): Fix value
+	for cpu_facility.
+	(*cpmem_short): Ditto.
+
+	* config/s390/s390.c (s390_decompose_address): Add code for LRA.
+	(s390_secondary_reload): Ditto.
+	(s390_expand_plus_operand): Move plus generation.
+
+	* config/sparc/constraints.md: Add lra_in_progress for
+	constraint "U".
+
+	* config/xtensa/constraints.md: Add lra_in_progress for
+	constraints "R" and "T".
+
 2011-10-31  Paul Brook  <paul@codesourcery.com>
 
 	* cgraphunit.c: Don't mark clones as static constructors.

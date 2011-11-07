@@ -190,7 +190,7 @@ update_live_info (bitmap lr_bitmap)
 
 /* The major function for aggressive pseudo coalescing of moves only
    if the both pseudos were spilled and not bound.  */
-void
+bool
 lra_coalesce (void)
 {
   basic_block bb;
@@ -198,6 +198,7 @@ lra_coalesce (void)
   int i, n, mv_num, sregno, dregno;
   int coalesced_moves;
   int max_regno = max_reg_num ();
+  bitmap_head involved_insns_bitmap;
 
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
@@ -219,8 +220,13 @@ lra_coalesce (void)
 	    && REG_P (SET_DEST (set)) && REG_P (SET_SRC (set))
 	    && (sregno = REGNO (SET_SRC (set))) >= FIRST_PSEUDO_REGISTER
 	    && (dregno = REGNO (SET_DEST (set))) >= FIRST_PSEUDO_REGISTER
-	    && ! side_effects_p (set)
 	    && mem_move_p (sregno, dregno)
+	    /* Don't coalesce inheritance pseudos because spilled
+	       inheritance pseudos will be removed in subsequent 'undo
+	       inheritance' pass.  */
+	    && lra_reg_info[sregno].restore_regno < 0
+	    && lra_reg_info[dregno].restore_regno < 0
+	    && ! side_effects_p (set)
 	    /* Don't coalesces bound pseudos.  Bound pseudos has own
 	       rules for finding live ranges.  It is hard to maintain
 	       this info with coalescing and it is not worth to do
@@ -242,6 +248,7 @@ lra_coalesce (void)
   qsort (sorted_moves, mv_num, sizeof (rtx), move_freq_compare_func);
   /* Coalesced copies, most frequently executed first.  */
   bitmap_initialize (&coalesced_pseudos_bitmap, &reg_obstack);
+  bitmap_initialize (&involved_insns_bitmap, &reg_obstack);
   for (; mv_num != 0;)
     {
       for (i = 0; i < mv_num; i++)
@@ -260,8 +267,14 @@ lra_coalesce (void)
 	      if (lra_dump_file != NULL)
 		fprintf
 		  (lra_dump_file,
-		   "      Coalescing move %i:r%d-r%d (freq=%d)\n",
-		   INSN_UID (mv), sregno, dregno, BLOCK_FOR_INSN (mv)->frequency);
+		   "      Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
+		   INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
+		   dregno, ORIGINAL_REGNO (SET_DEST (set)),
+		   BLOCK_FOR_INSN (mv)->frequency);
+	      bitmap_ior_into (&involved_insns_bitmap,
+			       &lra_reg_info[sregno].insn_bitmap);
+	      bitmap_ior_into (&involved_insns_bitmap,
+			       &lra_reg_info[dregno].insn_bitmap);
 	      merge_pseudos (sregno, dregno);
 	      i++;
 	      break;
@@ -296,7 +309,8 @@ lra_coalesce (void)
       update_live_info (DF_LR_IN (bb));
       update_live_info (DF_LR_OUT (bb));
       FOR_BB_INSNS_SAFE (bb, insn, next)
-	if (INSN_P (insn))
+	if (INSN_P (insn)
+	    && bitmap_bit_p (&involved_insns_bitmap, INSN_UID (insn)))
 	  {
 	    if (! substitute (&insn))
 	      continue;
@@ -316,10 +330,12 @@ lra_coalesce (void)
     }
   bitmap_clear (&removed_pseudos_bitmap);
   bitmap_clear (&used_pseudos_bitmap);
+  bitmap_clear (&involved_insns_bitmap);
   bitmap_clear (&coalesced_pseudos_bitmap);
   if (lra_dump_file != NULL && coalesced_moves != 0)
     fprintf (lra_dump_file, "Coalesced Moves = %d\n", coalesced_moves);
   free (sorted_moves);
   free (next_coalesced_pseudo);
   free (first_coalesced_pseudo);
+  return coalesced_moves != 0;
 }
