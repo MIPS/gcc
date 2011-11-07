@@ -1,5 +1,8 @@
 2011-11-07  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 181085.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000-builtin.def: Add CELL support.
 	* config/rs6000/rs6000.h (RS6000_BTM_CELL): Ditto.
 	(RS6000_BTM_COMMON): Ditto.

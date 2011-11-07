@@ -1,3 +1,24 @@
+2011-11-07  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        PR libfortran/45723
+        * gfortran.dg/open_dev_null.f90: Remove testcase.
+
+2011-11-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lib/target-supports.exp (check_effective_target_sync_int_128):
+	Don't cache the result.
+	(check_effective_target_sync_long_long): Ditto.
+
+2011-11-07  Sergey Ostanevich  <sergos.gnu@gmail.com>
+
+	PR rtl-optimization/47698
+	* gcc.target/i386/47698.c: New test.
+
+2011-11-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35688
+	* g++.dg/ext/visibility/template7.C: New.
+
 2011-11-07  Terry Guo  <terry.guo@arm.com>
 
 	* gcc.target/arm/wmul-1.c: Adjust optimization level.
