@@ -12010,6 +12010,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       mark_used (t);
       return t;
 
+    case NAMESPACE_DECL:
+      return t;
+
     case OVERLOAD:
       /* An OVERLOAD will always be a non-dependent overload set; an
 	 overload set from function scope will just be represented with an
@@ -13105,6 +13108,28 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	}
       break;
 
+    case TRANSACTION_EXPR:
+      {
+	int flags = 0;
+	flags |= (TRANSACTION_EXPR_OUTER (t) ? TM_STMT_ATTR_OUTER : 0);
+	flags |= (TRANSACTION_EXPR_RELAXED (t) ? TM_STMT_ATTR_RELAXED : 0);
+
+        if (TRANSACTION_EXPR_IS_STMT (t))
+          {
+            stmt = begin_transaction_stmt (input_location, NULL, flags);
+            RECUR (TRANSACTION_EXPR_BODY (t));
+            finish_transaction_stmt (stmt, NULL, flags);
+          }
+        else
+          {
+            stmt = build_transaction_expr (EXPR_LOCATION (t),
+					   RECUR (TRANSACTION_EXPR_BODY (t)),
+					   flags);
+            return stmt;
+          }
+      }
+      break;
+
     case EXPR_PACK_EXPANSION:
       error ("invalid use of pack expansion expression");
       return error_mark_node;
@@ -13670,6 +13695,8 @@ tsubst_copy_and_build (tree t,
 		if (unq != function)
 		  {
 		    tree fn = unq;
+		    if (TREE_CODE (fn) == INDIRECT_REF)
+		      fn = TREE_OPERAND (fn, 0);
 		    if (TREE_CODE (fn) == COMPONENT_REF)
 		      fn = TREE_OPERAND (fn, 1);
 		    if (is_overloaded_fn (fn))
@@ -13679,7 +13706,9 @@ tsubst_copy_and_build (tree t,
 			       "and no declarations were found by "
 			       "argument-dependent lookup at the point "
 			       "of instantiation", function);
-		    if (DECL_CLASS_SCOPE_P (fn))
+		    if (!DECL_P (fn))
+		      /* Can't say anything more.  */;
+		    else if (DECL_CLASS_SCOPE_P (fn))
 		      {
 			inform (EXPR_LOC_OR_HERE (t),
 				"declarations in dependent base %qT are "
@@ -13871,7 +13900,9 @@ tsubst_copy_and_build (tree t,
 	if (member == error_mark_node)
 	  return error_mark_node;
 
-	if (object_type && !CLASS_TYPE_P (object_type))
+	if (type_dependent_expression_p (object))
+	  /* We can't do much here.  */;
+	else if (!CLASS_TYPE_P (object_type))
 	  {
 	    if (SCALAR_TYPE_P (object_type))
 	      {

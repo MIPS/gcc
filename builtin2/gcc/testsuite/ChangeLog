@@ -1,3 +1,78 @@
+2011-10-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50835
+	* g++.dg/template/lvalue2.C: New.
+
+2011-11-08  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/tree-ssa/20031015-1.c: Adjust.
+	* g++.dg/tree-ssa/ehcleanup-1.C: Ditto.
+	* g++.dg/eh/builtin1.C: Rewrite to not use local variables.
+	* g++.dg/eh/builtin2.C: Ditto.
+	* g++.dg/eh/builtin3.C: Ditto.
+
+2011-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx-cvt-2.c: Adjust for 32-byte integer vectors
+	being prefered even for -mavx.
+	* gcc.target/i386/avx-cvt-3.c: New test.
+
+2011-11-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51012
+	* gcc.dg/pr51012-1.c: New testcase.
+	* gcc.dg/pr51012-2.c: Likewise.
+
+2011-11-08  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/51010
+	* c-c++-common/uninit-pr51010.c: New testcase.
+
+2011-11-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_call_sqrtf,
+	check_effective_target_vect_call_copysignf,
+	check_effective_target_vect_call_lrint): New procedures.
+	* gcc.dg/vect/vect.exp: Run fast-math-bb-slp* tests using
+	$VECT_SLP_CFLAGS with -ffast-math.
+	* gcc.dg/vect/fast-math-vect-call-1.c: New test.
+	* gcc.dg/vect/fast-math-vect-call-2.c: New test.
+	* gcc.dg/vect/fast-math-bb-slp-call-1.c: New test.
+	* gcc.dg/vect/fast-math-bb-slp-call-2.c: New test.
+
+2011-11-07  Richard Henderson  <rth@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+	    Torvald Riegel  <triegel@redhat.com>
+
+	Merged from transactional-memory.
+
+	* g++.dg/dg.exp: Run transactional memory tests.
+	* g++.dg/tm: New directory with new tests.
+	* gcc.dg/tm: New directory with new tests.
+	* c-c++-common/tm: New directory with new tests.
+
+2011-11-08  Dodji Seketeli  <dodji@redhat.com>
+
+	Fix context handling of alias-declaration
+	* g++.dg/cpp0x/alias-decl-11.C: New test.
+
+2011-11-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50864
+	* g++.dg/parse/template26.C: New.
+	* g++.dg/template/crash45.C: Adjust dg-error string.
+
+2011-11-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50848
+	* g++.dg/template/lookup9.C: New.
+
+	PR c++/50863
+	* g++.dg/cpp0x/lambda/lambda-initlist1.C: New.
+
+	PR c++/50870
+	* g++.dg/cpp0x/decltype35.C: New.
+
 2011-11-07  Dodji Seketeli  <dodji@redhat.com>
 
 	Support C++11 alias-declaration

@@ -341,6 +341,8 @@ dump_alias_template_specialization (tree t, int flags)
 
   gcc_assert (alias_template_specialization_p (t));
 
+  if (!(flags & TFF_UNQUALIFIED_NAME))
+    dump_scope (CP_DECL_CONTEXT (TYPE_NAME (t)), flags);
   name = TYPE_IDENTIFIER (t);
   pp_cxx_tree_identifier (cxx_pp, name);
   dump_template_parms (TYPE_TEMPLATE_INFO (t),
@@ -1788,6 +1790,13 @@ dump_expr (tree t, int flags)
       dump_decl (t, ((flags & ~(TFF_DECL_SPECIFIERS|TFF_RETURN_TYPE
 				|TFF_TEMPLATE_HEADER))
 		     | TFF_NO_FUNCTION_ARGUMENTS));
+      break;
+
+    case SSA_NAME:
+      if (!DECL_ARTIFICIAL (SSA_NAME_VAR (t)))
+	dump_expr (SSA_NAME_VAR (t), flags);
+      else
+	pp_cxx_ws_string (cxx_pp, M_("<unknown>"));
       break;
 
     case INTEGER_CST:
