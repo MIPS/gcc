@@ -1041,7 +1041,6 @@ static tree rs6000_builtin_reciprocal (unsigned int, bool, bool);
 static tree rs6000_builtin_mask_for_load (void);
 static tree rs6000_builtin_mul_widen_even (tree);
 static tree rs6000_builtin_mul_widen_odd (tree);
-static tree rs6000_builtin_conversion (unsigned int, tree, tree);
 static bool rs6000_builtin_support_vector_misalignment (enum
 							machine_mode,
 							const_tree,
@@ -1456,8 +1455,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
 #undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
 #define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
-#undef TARGET_VECTORIZE_BUILTIN_CONVERSION
-#define TARGET_VECTORIZE_BUILTIN_CONVERSION rs6000_builtin_conversion
 #undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
 #define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT		\
   rs6000_builtin_support_vector_misalignment
@@ -3392,69 +3389,6 @@ rs6000_loop_align_max_skip (rtx label)
   return (1 << rs6000_loop_align (label)) - 1;
 }
 
-/* Implement targetm.vectorize.builtin_conversion.
-   Returns a decl of a function that implements conversion of an integer vector
-   into a floating-point vector, or vice-versa.  DEST_TYPE is the
-   destination type and SRC_TYPE the source type of the conversion.
-   Return NULL_TREE if it is not available.  */
-static tree
-rs6000_builtin_conversion (unsigned int tcode, tree dest_type, tree src_type)
-{
-  enum tree_code code = (enum tree_code) tcode;
-
-  switch (code)
-    {
-    case FIX_TRUNC_EXPR:
-      switch (TYPE_MODE (dest_type))
-	{
-	case V2DImode:
-	  if (!VECTOR_UNIT_VSX_P (V2DFmode))
-	    return NULL_TREE;
-
-	  return TYPE_UNSIGNED (dest_type)
-	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVDPUXDS_UNS]
-	    : rs6000_builtin_decls[VSX_BUILTIN_XVCVDPSXDS];
-
-	case V4SImode:
-	  if (VECTOR_UNIT_NONE_P (V4SImode) || VECTOR_UNIT_NONE_P (V4SFmode))
-	    return NULL_TREE;
-
-	  return TYPE_UNSIGNED (dest_type)
-	    ? rs6000_builtin_decls[ALTIVEC_BUILTIN_FIXUNS_V4SF_V4SI]
-	    : rs6000_builtin_decls[ALTIVEC_BUILTIN_FIX_V4SF_V4SI];
-
-	default:
-	  return NULL_TREE;
-	}
-
-    case FLOAT_EXPR:
-      switch (TYPE_MODE (src_type))
-	{
-	case V2DImode:
-	  if (!VECTOR_UNIT_VSX_P (V2DFmode))
-	    return NULL_TREE;
-
-	  return TYPE_UNSIGNED (src_type)
-	    ? rs6000_builtin_decls[VSX_BUILTIN_XVCVUXDDP]
-	    : rs6000_builtin_decls[VSX_BUILTIN_XVCVSXDDP];
-
-	case V4SImode:
-	  if (VECTOR_UNIT_NONE_P (V4SImode) || VECTOR_UNIT_NONE_P (V4SFmode))
-	    return NULL_TREE;
-
-	  return TYPE_UNSIGNED (src_type)
-	    ? rs6000_builtin_decls[ALTIVEC_BUILTIN_UNSFLOAT_V4SI_V4SF]
-	    : rs6000_builtin_decls[ALTIVEC_BUILTIN_FLOAT_V4SI_V4SF];
-
-	default:
-	  return NULL_TREE;
-	}
-
-    default:
-      return NULL_TREE;
-    }
-}
-
 /* Implement targetm.vectorize.builtin_mul_widen_even.  */
 static tree
 rs6000_builtin_mul_widen_even (tree type)
@@ -3857,6 +3791,12 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 {
   enum machine_mode in_mode, out_mode;
   int in_n, out_n;
+
+  if (TARGET_DEBUG_BUILTIN)
+    fprintf (stderr, "rs6000_builtin_vectorized_function (%s, %s, %s)\n",
+	     IDENTIFIER_POINTER (DECL_NAME (fndecl)),
+	     GET_MODE_NAME (TYPE_MODE (type_out)),
+	     GET_MODE_NAME (TYPE_MODE (type_in)));
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE

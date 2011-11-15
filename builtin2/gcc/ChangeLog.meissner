@@ -1,3 +1,16 @@
+2011-11-15  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/vector.md (floatuns<VEC_int><mode>2): Rename from
+	unsigned_float<VEC_int><mode>2.
+
+	* config/rs6000/rs6000-builtin.def (UNSFLOAT_V4SI_V4SF): Use
+	standard name floatuns instead of unsigned float.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_conversion): Delete, no
+	longer needed.
+	(TARGET_VECTORIZE_BUILTIN_CONVERSION): Ditto.
+	(rs6000_builtin_vectorized_function): Add -mdebug=builtin tracing.
+
 2011-11-08  Michael Meissner  <meissner@the-meissners.org>
 
 	Merge up to 181174.

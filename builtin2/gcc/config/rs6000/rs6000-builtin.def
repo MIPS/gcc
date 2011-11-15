@@ -595,7 +595,7 @@ BU_ALTIVEC_1 (VUPKLPX,	      "vupklpx",	CONST,	altivec_vupklpx)
 BU_ALTIVEC_1 (VUPKLSH,	      "vupklsh",	CONST,	altivec_vupklsh)
 
 BU_ALTIVEC_1 (FLOAT_V4SI_V4SF,    "float_sisf",	    FP,	floatv4siv4sf2)
-BU_ALTIVEC_1 (UNSFLOAT_V4SI_V4SF, "uns_float_sisf", FP, unsigned_floatv4siv4sf2)
+BU_ALTIVEC_1 (UNSFLOAT_V4SI_V4SF, "uns_float_sisf", FP, floatunsv4siv4sf2)
 BU_ALTIVEC_1 (FIX_V4SF_V4SI,      "fix_sfsi",       FP, fix_truncv4sfv4si2)
 BU_ALTIVEC_1 (FIXUNS_V4SF_V4SI,   "fixuns_sfsi",    FP, fixuns_truncv4sfv4si2)
 
