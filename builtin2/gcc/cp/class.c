@@ -359,6 +359,11 @@ build_base_path (enum tree_code code,
 	 V_BINFO.  That offset is an entry in D_BINFO's vtable.  */
       tree v_offset;
 
+      /* In a constructor template, current_in_charge_parm isn't set,
+	 and we might end up here via fold_non_dependent_expr.  */
+      if (fixed_type_p < 0 && !(cfun && current_in_charge_parm))
+	fixed_type_p = 0;
+
       if (fixed_type_p < 0 && in_base_initializer)
 	{
 	  /* In a base member initializer, we cannot rely on the
@@ -1053,11 +1058,6 @@ add_method (tree type, tree method, tree using_decl)
 	      if (DECL_CONTEXT (fn) == type)
 		/* Defer to the local function.  */
 		return false;
-	      if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
-		error ("repeated using declaration %q+D", using_decl);
-	      else
-		error ("using declaration %q+D conflicts with a previous using declaration",
-		       using_decl);
 	    }
 	  else
 	    {
@@ -1167,7 +1167,8 @@ handle_using_decl (tree using_decl, tree t)
 
   gcc_assert (!processing_template_decl && decl);
 
-  old_value = lookup_member (t, name, /*protect=*/0, /*want_type=*/false);
+  old_value = lookup_member (t, name, /*protect=*/0, /*want_type=*/false,
+			     tf_warning_or_error);
   if (old_value)
     {
       if (is_overloaded_fn (old_value))
@@ -3033,15 +3034,8 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_CODE (x) == USING_DECL)
 	{
-	  /* Prune the access declaration from the list of fields.  */
-	  *field = DECL_CHAIN (x);
-
 	  /* Save the access declarations for our caller.  */
 	  *access_decls = tree_cons (NULL_TREE, x, *access_decls);
-
-	  /* Since we've reset *FIELD there's no reason to skip to the
-	     next field.  */
-	  next = field;
 	  continue;
 	}
 
@@ -7290,7 +7284,7 @@ maybe_note_name_used_in_class (tree name, tree decl)
   /* If there's already a binding for this NAME, then we don't have
      anything to worry about.  */
   if (lookup_member (current_class_type, name,
-		     /*protect=*/0, /*want_type=*/false))
+		     /*protect=*/0, /*want_type=*/false, tf_warning_or_error))
     return;
 
   if (!current_class_stack[current_class_depth - 1].names_used)

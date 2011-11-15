@@ -1,5 +1,8 @@
 2011-11-15  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 181388.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/vector.md (floatuns<VEC_int><mode>2): Rename from
 	unsigned_float<VEC_int><mode>2.
 
