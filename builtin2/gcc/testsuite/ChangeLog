@@ -1,3 +1,46 @@
+2011-11-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51137
+	* g++.dg/template/virtual2.C: New.
+
+2011-11-17  Michael Matz  <matz@suse.de>
+
+	PR middle-end/50644
+	PR middle-end/50741
+	* g++.dg/tree-ssa/pr50741.C: New.
+
+2011-11-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/gcc-simulate-thread.exp (simulate-thread): Skip on
+	alpha*-*-*.
+
+2011-10-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tm/memopt-6.c: Cleanup tmedge tree dump.
+	* gcc.dg/tm/memopt-13.c: Cleanup tmmark tree dump.
+	* g++.dg/eh/array1.C: Cleanup gimple tree dump.
+
+2011-11-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39427
+	PR fortran/37829
+	* gfortran.dg/constructor_1.f90: New.
+	* gfortran.dg/constructor_2.f90: New.
+	* gfortran.dg/constructor_3.f90: New.
+	* gfortran.dg/constructor_4.f90: New.
+	* gfortran.dg/constructor_5.f90: New.
+	* gfortran.dg/constructor_6.f90: New.
+	* gfortran.dg/use_only_5.f90: New.
+	* gfortran.dg/c_ptr_tests_17.f90: New.
+	* gfortran.dg/c_ptr_tests_18.f90: New.
+	* gfortran.dg/used_types_25.f90: New.
+	* gfortran.dg/used_types_26.f90: New
+	* gfortran.dg/type_decl_3.f90: New.
+	* gfortran.dg/function_types_3.f90: Update dg-error.
+	* gfortran.dg/result_1.f90: Ditto.
+	* gfortran.dg/structure_constructor_3.f03: Ditto.
+	* gfortran.dg/structure_constructor_4.f03: Ditto.
+
 2011-10-16  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
 
 	* gcc.dg/vect/pr30858.c: Update expected output for
@@ -12,7 +55,7 @@
 
 2011-11-16  Razya Ladelsky  <razya@il.ibm.com>
 
-        PR tree-optimization/49960
+	PR tree-optimization/49960
 	* gcc.dg/autopar/pr49960.c: New test.
 	* gcc.dg/autopar/pr49960-1.c: New test.
 
