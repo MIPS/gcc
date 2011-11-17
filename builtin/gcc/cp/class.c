@@ -304,8 +304,13 @@ build_base_path (enum tree_code code,
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
   /* Don't bother with the calculations inside sizeof; they'll ICE if the
-     source type is incomplete and the pointer value doesn't matter.  */
-  if (cp_unevaluated_operand != 0)
+     source type is incomplete and the pointer value doesn't matter.  In a
+     template (even in fold_non_dependent_expr), we don't have vtables set
+     up properly yet, and the value doesn't matter there either; we're just
+     interested in the result of overload resolution.  */
+  if (cp_unevaluated_operand != 0
+      || (current_function_decl
+	  && uses_template_parms (current_function_decl)))
     {
       expr = build_nop (ptr_target_type, expr);
       if (!want_pointer)
@@ -1053,11 +1058,6 @@ add_method (tree type, tree method, tree using_decl)
 	      if (DECL_CONTEXT (fn) == type)
 		/* Defer to the local function.  */
 		return false;
-	      if (DECL_CONTEXT (fn) == DECL_CONTEXT (method))
-		error ("repeated using declaration %q+D", using_decl);
-	      else
-		error ("using declaration %q+D conflicts with a previous using declaration",
-		       using_decl);
 	    }
 	  else
 	    {
@@ -1167,7 +1167,8 @@ handle_using_decl (tree using_decl, tree t)
 
   gcc_assert (!processing_template_decl && decl);
 
-  old_value = lookup_member (t, name, /*protect=*/0, /*want_type=*/false);
+  old_value = lookup_member (t, name, /*protect=*/0, /*want_type=*/false,
+			     tf_warning_or_error);
   if (old_value)
     {
       if (is_overloaded_fn (old_value))
@@ -2720,6 +2721,13 @@ add_implicitly_declared_members (tree t,
 				 int cant_have_const_cctor,
 				 int cant_have_const_assignment)
 {
+  bool move_ok = false;
+
+  if (cxx_dialect >= cxx0x && !CLASSTYPE_DESTRUCTORS (t)
+      && !TYPE_HAS_COPY_CTOR (t) && !TYPE_HAS_COPY_ASSIGN (t)
+      && !type_has_move_constructor (t) && !type_has_move_assign (t))
+    move_ok = true;
+
   /* Destructor.  */
   if (!CLASSTYPE_DESTRUCTORS (t))
     {
@@ -2757,7 +2765,7 @@ add_implicitly_declared_members (tree t,
       TYPE_HAS_COPY_CTOR (t) = 1;
       TYPE_HAS_CONST_COPY_CTOR (t) = !cant_have_const_cctor;
       CLASSTYPE_LAZY_COPY_CTOR (t) = 1;
-      if (cxx_dialect >= cxx0x && !type_has_move_constructor (t))
+      if (move_ok)
 	CLASSTYPE_LAZY_MOVE_CTOR (t) = 1;
     }
 
@@ -2770,7 +2778,7 @@ add_implicitly_declared_members (tree t,
       TYPE_HAS_COPY_ASSIGN (t) = 1;
       TYPE_HAS_CONST_COPY_ASSIGN (t) = !cant_have_const_assignment;
       CLASSTYPE_LAZY_COPY_ASSIGN (t) = 1;
-      if (cxx_dialect >= cxx0x && !type_has_move_assign (t))
+      if (move_ok)
 	CLASSTYPE_LAZY_MOVE_ASSIGN (t) = 1;
     }
 
@@ -3033,15 +3041,8 @@ check_field_decls (tree t, tree *access_decls,
 
       if (TREE_CODE (x) == USING_DECL)
 	{
-	  /* Prune the access declaration from the list of fields.  */
-	  *field = DECL_CHAIN (x);
-
 	  /* Save the access declarations for our caller.  */
 	  *access_decls = tree_cons (NULL_TREE, x, *access_decls);
-
-	  /* Since we've reset *FIELD there's no reason to skip to the
-	     next field.  */
-	  next = field;
 	  continue;
 	}
 
@@ -7290,7 +7291,7 @@ maybe_note_name_used_in_class (tree name, tree decl)
   /* If there's already a binding for this NAME, then we don't have
      anything to worry about.  */
   if (lookup_member (current_class_type, name,
-		     /*protect=*/0, /*want_type=*/false))
+		     /*protect=*/0, /*want_type=*/false, tf_warning_or_error))
     return;
 
   if (!current_class_stack[current_class_depth - 1].names_used)

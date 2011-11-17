@@ -1,3 +1,137 @@
+2011-11-17  Jason Merrill  <jason@redhat.com>
+
+	* testsuite/21_strings/basic_string/cons/char/moveable2.cc
+	(tstring): Add defaulted move assignment.
+	* testsuite/21_strings/basic_string/cons/wchar_t/moveable2.cc
+	(tstring): Add defaulted move assignment.
+	* testsuite/util/testsuite_tr1.h (NoexceptMoveConsClass): Add
+	defaulted move assignment operator.
+	(NoexceptMoveAssignClass): Add defaulted move constructor.
+
+2011-11-17  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Status of piecewise construction
+	and ios_base::failure.
+	* doc/xml/manual/backwards_compatibility.xml: List headers in
+	alphabetical order.
+
+2011-11-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR libstdc++/51102
+	* include/bits/atomic_base.h (ATOMIC_BOOL_LOCK_FREE,
+	ATOMIC_POINTER_LOCK_FREE): New. Add missing macros.
+
+2011-11-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/51142
+	* include/debug/unordered_map (unordered_map<>::erase(iterator),
+	unordered_multimap<>::erase(iterator)): Add, consistently with
+	LWG 2059.
+	* include/debug/unordered_set (unordered_set<>::erase(iterator),
+	unordered_multiset<>::erase(iterator)): Likewise.
+	* include/debug/map.h (map<>::erase(iterator)): Likewise.
+	* include/debug/multimap.h (multimap<>::erase(iterator)): Likewise.
+	* include/profile/map.h (map<>::erase(iterator)): Likewise.
+	* include/profile/multimap.h (multimap<>::erase(iterator)): Likewise.
+	* include/bits/hashtable.h (_Hashtable<>::erase(iterator)): Likewise.
+	* include/bits/stl_map.h (map<>::erase(iterator)): Likewise.
+	* include/bits/stl_multimap.h (multimap<>::erase(iterator)): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree<>::erase(iterator)): Likewise.
+	* testsuite/23_containers/unordered_map/erase/51142.cc: New.
+	* testsuite/23_containers/multimap/modifiers/erase/51142.cc: Likewise.
+	* testsuite/23_containers/set/modifiers/erase/51142.cc: Likewise.
+	* testsuite/23_containers/unordered_multimap/erase/51142.cc: Likewise.
+	* testsuite/23_containers/unordered_set/erase/51142.cc: Likewise.
+	* testsuite/23_containers/multiset/modifiers/erase/51142.cc: Likewise.
+	* testsuite/23_containers/unordered_multiset/erase/51142.cc: Likewise.
+	* testsuite/23_containers/map/modifiers/erase/51142.cc: Likewise.
+
+2011-11-15  Jason Dick  <dickphd@gmail.com>
+
+	PR libstdc++/51133
+	* include/tr1/poly_hermite.tcc (__poly_hermite_recursion): Fix
+	wrong sign in recursion relation.
+
+2011-11-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/c_global/cmath (frexp, modf, remquo): Do not mark constexpr,
+	not viable anyway due to the pointer parameter.
+
+2011-11-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/c_global/cmath (atan2, fmod, pow, copysign, fdim,
+	fma, fmax, fmin, hypot, nextafter, remainder, remquo): Simplify
+	constraining on the return type.
+	* include/tr1/cmath (copysign, fdim, fma, fmax, fmin, hypot,
+	nextafter, remainder, remquo): Likewise.
+
+2011-11-13  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* using.xml: Use GNU/Linux.
+
+2011-11-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51060
+	* testsuite/25_algorithms/max/1.cc (test01): Drop references.
+	* testsuite/25_algorithms/min/1.cc (test01): Drop references.
+	* testsuite/25_algorithms/minmax/1.cc (test01): Drop references.
+
+2011-11-12  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/51083
+	* include/ext/type_traits.h (__promote): Only define __type member
+	for integral and floating point types, to prevent math functions
+	participating in overload resolution for other types.
+	(__promote_2, __promote_3, __promote_4): Use __promote in default
+	template argument values, so deduction only succeeds for integral and
+	floating point types.
+	* testsuite/26_numerics/cmath/51083.cc: New.
+	* testsuite/26_numerics/complex/51083.cc: New.
+	* testsuite/tr1/8_c_compatibility/cmath/51083.cc: New.
+	* testsuite/tr1/8_c_compatibility/complex/51083.cc: New.
+
+2011-11-10  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR middle-end/51038
+	* include/bits/atomic_base.h (atomic_thread_fence): Call built-in.
+	(atomic_signal_fence): Call built-in.
+	(test_and_set, clear): Call new atomic built-ins.
+
+2011-11-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/allocator.h (__shrink_to_fit_aux::_S_do_it): Create
+	the new object with the same allocator.
+	* testsuite/23_containers/vector/capacity/shrink_to_fit2.cc: New.
+
+2011-11-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/profile/unordered_map: Add missing copy constructors.
+	* include/profile/unordered_set: Likewise.
+
+2011-11-09  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/51027
+	* include/ext/pointer.h (rebind): Append missing ';'.
+
+2011-11-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/stl_vector.h (vector::_Alloc_traits): Make private.
+	* include/debug/vector: Add allocator-extended constructors, ensure
+	move assignment and swap have same allocator propagation semantics
+	and exceptions specification as base class.
+	* include/profile/vector: Likewise.
+	(vector::push_back(_Tp&&)): Forward argument as rvalue.
+	* testsuite/23_containers/vector/debug/alloc_prop.cc: New.
+	* doc/xml/manual/status_cxx2011.xml: Clarify status of container
+	requirements with respect to allocators.
+	(status.iso.200x): Add anchor for old ID to preserve existing links.
+
+2011-11-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Clarify status of container
+	requirements with respect to allocators.
+	(status.iso.200x): Add anchor for old ID to preserve existing links.
+
 2011-11-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* include/bits/shared_ptr_base.h (_Sp_counted_ptr): Make 'final'.
