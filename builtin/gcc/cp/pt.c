@@ -2870,7 +2870,7 @@ primary_template_instantiation_p (const_tree t)
     return DECL_LANG_SPECIFIC (t)
 	   && DECL_TEMPLATE_INSTANTIATION (t)
 	   && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (t));
-  else if (CLASS_TYPE_P (t))
+  else if (CLASS_TYPE_P (t) && !TYPE_DECL_ALIAS_P (TYPE_NAME (t)))
     return CLASSTYPE_TEMPLATE_INSTANTIATION (t)
 	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t));
   else if (TYPE_P (t)
@@ -13386,6 +13386,10 @@ tsubst_copy_and_build (tree t,
     case IMAGPART_EXPR:
       return build_x_unary_op (TREE_CODE (t), RECUR (TREE_OPERAND (t, 0)),
                                complain);
+
+    case FIX_TRUNC_EXPR:
+      return cp_build_unary_op (FIX_TRUNC_EXPR, RECUR (TREE_OPERAND (t, 0)),
+				0, complain);
 
     case ADDR_EXPR:
       op1 = TREE_OPERAND (t, 0);
