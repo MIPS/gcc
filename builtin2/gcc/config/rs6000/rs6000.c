@@ -16794,12 +16794,12 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
       /* Shift and mask OLDVAL into position with the word.  */
       oldval = convert_modes (SImode, mode, oldval, 1);
       oldval = expand_simple_binop (SImode, ASHIFT, oldval, shift,
-				    oldval, 1, OPTAB_LIB_WIDEN);
+				    NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       /* Shift and mask NEWVAL into position within the word.  */
       newval = convert_modes (SImode, mode, newval, 1);
       newval = expand_simple_binop (SImode, ASHIFT, newval, shift,
-				    newval, 1, OPTAB_LIB_WIDEN);
+				    NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       /* Prepare to adjust the return value.  */
       retval = gen_reg_rtx (SImode);
@@ -16887,7 +16887,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
       /* Shift and mask VAL into position with the word.  */
       val = convert_modes (SImode, mode, val, 1);
       val = expand_simple_binop (SImode, ASHIFT, val, shift,
-				 val, 1, OPTAB_LIB_WIDEN);
+				 NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       /* Prepare to adjust the return value.  */
       retval = gen_reg_rtx (SImode);
@@ -16940,7 +16940,7 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       /* Shift and mask VAL into position with the word.  */
       val = convert_modes (SImode, mode, val, 1);
       val = expand_simple_binop (SImode, ASHIFT, val, shift,
-				 val, 1, OPTAB_LIB_WIDEN);
+				 NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
       switch (code)
 	{
