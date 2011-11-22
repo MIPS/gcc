@@ -562,30 +562,33 @@ ENDF __udivmodhi4
 
 #if defined (L_divmodhi4)
 DEFUN __divmodhi4
-	.global	_div
+    .global _div
 _div:
-        bst     r_arg1H,7	; store sign of dividend
-        mov     __tmp_reg__,r_arg1H
-        eor     __tmp_reg__,r_arg2H   ; r0.7 is sign of result
-	rcall	__divmodhi4_neg1 ; dividend negative : negate
-	sbrc	r_arg2H,7
-	rcall	__divmodhi4_neg2 ; divisor negative : negate
-	XCALL	__udivmodhi4	; do the unsigned div/mod
-	rcall	__divmodhi4_neg1 ; correct remainder sign
-	tst	__tmp_reg__
-	brpl	__divmodhi4_exit
-__divmodhi4_neg2:
-	com	r_arg2H
-	neg	r_arg2L		; correct divisor/result sign
-	sbci	r_arg2H,0xff
-__divmodhi4_exit:
-	ret
+    bst     r_arg1H,7           ; store sign of dividend
+    mov     __tmp_reg__,r_arg2H
+    brtc    0f
+    com     __tmp_reg__         ; r0.7 is sign of result
+    rcall   __divmodhi4_neg1    ; dividend negative: negate
+0:
+    sbrc    r_arg2H,7
+    rcall   __divmodhi4_neg2    ; divisor negative: negate
+    XCALL   __udivmodhi4        ; do the unsigned div/mod
+    sbrc    __tmp_reg__,7
+    rcall   __divmodhi4_neg2    ; correct remainder sign
+    brtc    __divmodhi4_exit
 __divmodhi4_neg1:
-	brtc	__divmodhi4_exit
-	com	r_arg1H
-	neg	r_arg1L		; correct dividend/remainder sign
-	sbci	r_arg1H,0xff
-	ret
+    ;; correct dividend/remainder sign
+    com     r_arg1H
+    neg     r_arg1L
+    sbci    r_arg1H,0xff
+    ret
+__divmodhi4_neg2:
+    ;; correct divisor/result sign
+    com     r_arg2H
+    neg     r_arg2L
+    sbci    r_arg2H,0xff
+__divmodhi4_exit:
+    ret
 ENDF __divmodhi4
 #endif /* defined (L_divmodhi4) */
 
@@ -807,36 +810,39 @@ ENDF __udivmodsi4
 
 #if defined (L_divmodsi4)
 DEFUN __divmodsi4
-        bst     r_arg1HH,7	; store sign of dividend
-        mov     __tmp_reg__,r_arg1HH
-        eor     __tmp_reg__,r_arg2HH   ; r0.7 is sign of result
-	rcall	__divmodsi4_neg1 ; dividend negative : negate
-	sbrc	r_arg2HH,7
-	rcall	__divmodsi4_neg2 ; divisor negative : negate
-	XCALL	__udivmodsi4	; do the unsigned div/mod
-	rcall	__divmodsi4_neg1 ; correct remainder sign
-	rol	__tmp_reg__
-	brcc	__divmodsi4_exit
-__divmodsi4_neg2:
-	com	r_arg2HH
-	com	r_arg2HL
-	com	r_arg2H
-	neg	r_arg2L		; correct divisor/quotient sign
-	sbci	r_arg2H,0xff
-	sbci	r_arg2HL,0xff
-	sbci	r_arg2HH,0xff
-__divmodsi4_exit:
-	ret
+    mov     __tmp_reg__,r_arg2HH
+    bst     r_arg1HH,7          ; store sign of dividend
+    brtc    0f
+    com     __tmp_reg__         ; r0.7 is sign of result
+    rcall   __divmodsi4_neg1    ; dividend negative: negate
+0:
+    sbrc    r_arg2HH,7
+    rcall   __divmodsi4_neg2    ; divisor negative: negate
+    XCALL   __udivmodsi4        ; do the unsigned div/mod
+    sbrc    __tmp_reg__, 7      ; correct quotient sign
+    rcall   __divmodsi4_neg2
+    brtc    __divmodsi4_exit    ; correct remainder sign
 __divmodsi4_neg1:
-	brtc	__divmodsi4_exit
-	com	r_arg1HH
-	com	r_arg1HL
-	com	r_arg1H
-	neg	r_arg1L		; correct dividend/remainder sign
-	sbci	r_arg1H, 0xff
-	sbci	r_arg1HL,0xff
-	sbci	r_arg1HH,0xff
-	ret
+    ;; correct dividend/remainder sign
+    com     r_arg1HH
+    com     r_arg1HL
+    com     r_arg1H
+    neg     r_arg1L
+    sbci    r_arg1H, 0xff
+    sbci    r_arg1HL,0xff
+    sbci    r_arg1HH,0xff
+    ret
+__divmodsi4_neg2:
+    ;; correct divisor/quotient sign
+    com     r_arg2HH
+    com     r_arg2HL
+    com     r_arg2H
+    neg     r_arg2L
+    sbci    r_arg2H,0xff
+    sbci    r_arg2HL,0xff
+    sbci    r_arg2HH,0xff
+__divmodsi4_exit:
+    ret
 ENDF __divmodsi4
 #endif /* defined (L_divmodsi4) */
 
@@ -1174,6 +1180,52 @@ DEFUN __tablejump_elpm__
 #endif /* defined (__AVR_HAVE_ELPM__) */
 ENDF __tablejump_elpm__
 #endif /* defined (L_tablejump_elpm) */
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Loading n bytes from Flash; n = 3,4
+;; R22... = Flash[Z]
+;; Clobbers: __tmp_reg__
+
+#if (defined (L_load_3)        \
+     || defined (L_load_4))    \
+    && !defined (__AVR_HAVE_LPMX__)
+
+;; Destination
+#define D0  22
+#define D1  D0+1
+#define D2  D0+2
+#define D3  D0+3
+
+.macro  .load dest, n
+    lpm
+    mov     \dest, r0
+.if \dest != D0+\n-1
+    adiw    r30, 1
+.else
+    sbiw    r30, \n-1
+.endif
+.endm
+
+#if defined (L_load_3)
+DEFUN __load_3
+    push  D3
+    XCALL __load_4
+    pop   D3
+    ret
+ENDF __load_3
+#endif /* L_load_3 */
+
+#if defined (L_load_4)
+DEFUN __load_4
+    .load D0, 4
+    .load D1, 4
+    .load D2, 4
+    .load D3, 4
+    ret
+ENDF __load_4
+#endif /* L_load_4 */
+
+#endif /* L_load_3 || L_load_3 */
 
 
 .section .text.libgcc.builtins, "ax", @progbits

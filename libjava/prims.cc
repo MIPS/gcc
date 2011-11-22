@@ -38,6 +38,14 @@ details.  */
 #endif
 
 #ifndef DISABLE_GETENV_PROPERTIES
+#ifdef __GLIBC__
+/* glibc 2.15+ provides even for C++ inline optimized ::isspace etc.
+   Unfortunately those inlines are throw (), and call a function pointer
+   (which is throw () too, but with -fnon-call-exceptions this results
+   in a __cxa_call_unexpected call.  This macro disables the optimized
+   version.  */
+#define __NO_CTYPE 1
+#endif
 #include <ctype.h>
 #include <java-props.h>
 #define PROCESS_GCJ_PROPERTIES process_gcj_properties()

@@ -32,6 +32,7 @@ extern void ix86_setup_frame_addresses (void);
 
 extern HOST_WIDE_INT ix86_initial_elimination_offset (int, int);
 extern void ix86_expand_prologue (void);
+extern void ix86_maybe_emit_epilogue_vzeroupper (void);
 extern void ix86_expand_epilogue (int);
 extern void ix86_expand_split_stack_prologue (void);
 
@@ -93,6 +94,7 @@ extern bool ix86_binary_operator_ok (enum rtx_code, enum machine_mode, rtx[]);
 extern bool ix86_lea_outperforms (rtx, unsigned int, unsigned int,
 				  unsigned int, unsigned int);
 extern bool ix86_avoid_lea_for_add (rtx, rtx[]);
+extern bool ix86_use_lea_for_mov (rtx, rtx[]);
 extern bool ix86_avoid_lea_for_addr (rtx, rtx[]);
 extern void ix86_split_lea_for_addr (rtx[], enum machine_mode);
 extern bool ix86_lea_for_add_ok (rtx, rtx[]);

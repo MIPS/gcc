@@ -1,7 +1,7 @@
 /* Breadth-first and depth-first routines for
    searching multiple-inheritance lattice for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
+   1999, 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -427,7 +427,7 @@ lookup_field_1 (tree type, tree name, bool want_type)
 		    field = fields[i--];
 		  while (i >= lo && DECL_NAME (fields[i]) == name);
 		  if (TREE_CODE (field) != TYPE_DECL
-		      && !DECL_CLASS_TEMPLATE_P (field))
+		      && !DECL_TYPE_TEMPLATE_P (field))
 		    field = NULL_TREE;
 		}
 	      else
@@ -449,6 +449,8 @@ lookup_field_1 (tree type, tree name, bool want_type)
 #endif /* GATHER_STATISTICS */
   for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
     {
+      tree decl = field;
+
 #ifdef GATHER_STATISTICS
       n_fields_searched++;
 #endif /* GATHER_STATISTICS */
@@ -460,26 +462,20 @@ lookup_field_1 (tree type, tree name, bool want_type)
 	  if (temp)
 	    return temp;
 	}
-      if (TREE_CODE (field) == USING_DECL)
+
+      if (TREE_CODE (decl) == USING_DECL
+	  && DECL_NAME (decl) == name)
 	{
-	  /* We generally treat class-scope using-declarations as
-	     ARM-style access specifications, because support for the
-	     ISO semantics has not been implemented.  So, in general,
-	     there's no reason to return a USING_DECL, and the rest of
-	     the compiler cannot handle that.  Once the class is
-	     defined, USING_DECLs are purged from TYPE_FIELDS; see
-	     handle_using_decl.  However, we make special efforts to
-	     make using-declarations in class templates and class
-	     template partial specializations work correctly.  */
-	  if (!DECL_DEPENDENT_P (field))
+	  decl = strip_using_decl (decl);
+	  if (is_overloaded_fn (decl))
 	    continue;
 	}
 
-      if (DECL_NAME (field) == name
+      if (DECL_NAME (decl) == name
 	  && (!want_type
-	      || TREE_CODE (field) == TYPE_DECL
-	      || DECL_CLASS_TEMPLATE_P (field)))
-	return field;
+	      || TREE_CODE (decl) == TYPE_DECL
+	      || DECL_TYPE_TEMPLATE_P (decl)))
+	return decl;
     }
   /* Not found.  */
   if (name == vptr_identifier)
@@ -1028,11 +1024,7 @@ lookup_field_r (tree binfo, void *data)
      member with the same name, and if there's a function and a type
      with the same name, the type is hidden by the function.  */
   if (!lfi->want_type)
-    {
-      int idx = lookup_fnfields_1 (type, lfi->name);
-      if (idx >= 0)
-	nval = VEC_index (tree, CLASSTYPE_METHOD_VEC (type), idx);
-    }
+    nval = lookup_fnfields_slot (type, lfi->name);
 
   if (!nval)
     /* Look for a data member or type.  */
@@ -1046,7 +1038,7 @@ lookup_field_r (tree binfo, void *data)
   /* If we're looking up a type (as with an elaborated type specifier)
      we ignore all non-types we find.  */
   if (lfi->want_type && TREE_CODE (nval) != TYPE_DECL
-      && !DECL_CLASS_TEMPLATE_P (nval))
+      && !DECL_TYPE_TEMPLATE_P (nval))
     {
       if (lfi->name == TYPE_IDENTIFIER (type))
 	{
@@ -1155,7 +1147,8 @@ build_baselink (tree binfo, tree access_binfo, tree functions, tree optype)
    If nothing can be found return NULL_TREE and do not issue an error.  */
 
 tree
-lookup_member (tree xbasetype, tree name, int protect, bool want_type)
+lookup_member (tree xbasetype, tree name, int protect, bool want_type,
+	       tsubst_flags_t complain)
 {
   tree rval, rval_binfo = NULL_TREE;
   tree type = NULL_TREE, basetype_path = NULL_TREE;
@@ -1250,9 +1243,12 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 
   if (errstr && protect)
     {
-      error (errstr, name, type);
-      if (lfi.ambiguous)
-	print_candidates (lfi.ambiguous);
+      if (complain & tf_error)
+	{
+	  error (errstr, name, type);
+	  if (lfi.ambiguous)
+	    print_candidates (lfi.ambiguous);
+	}
       rval = error_mark_node;
     }
 
@@ -1269,7 +1265,8 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type)
 tree
 lookup_field (tree xbasetype, tree name, int protect, bool want_type)
 {
-  tree rval = lookup_member (xbasetype, name, protect, want_type);
+  tree rval = lookup_member (xbasetype, name, protect, want_type,
+			     tf_warning_or_error);
 
   /* Ignore functions, but propagate the ambiguity list.  */
   if (!error_operand_p (rval)
@@ -1285,7 +1282,8 @@ lookup_field (tree xbasetype, tree name, int protect, bool want_type)
 tree
 lookup_fnfields (tree xbasetype, tree name, int protect)
 {
-  tree rval = lookup_member (xbasetype, name, protect, /*want_type=*/false);
+  tree rval = lookup_member (xbasetype, name, protect, /*want_type=*/false,
+			     tf_warning_or_error);
 
   /* Ignore non-functions, but propagate the ambiguity list.  */
   if (!error_operand_p (rval)

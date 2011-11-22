@@ -14,6 +14,7 @@
 </info>
 
 <para>
+<anchor xml:id="status.iso.200x" /> <!-- preserve links to old section ID -->
 This table is based on the table of contents of ISO/IEC
 JTC1 SC22 WG21 Doc No: N3290 Date: 2011-04-11
 Final Draft International Standard, Standard for Programming Language C++
@@ -253,11 +254,10 @@ particular release.
       <entry/>
     </row>
     <row>
-      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>18.10</entry>
       <entry>Other runtime support</entry>
-      <entry>Partial</entry>
-      <entry>Missing <filename class="headerfile">&lt;cstdalign&gt;</filename> </entry>
+      <entry>Y</entry>
+      <entry/>
     </row>
     <row>
       <entry>
@@ -1374,10 +1374,12 @@ particular release.
       <entry/>
     </row>
     <row>
+      <?dbhtml bgcolor="#B0B0B0" ?>
       <entry>23.2.1</entry>
       <entry>General container requirements</entry>
-      <entry>Y</entry>
-      <entry/>
+      <entry>Partial</entry>
+      <entry>Only <code>vector</code> meets the requirements
+             relating to allocator use and propagation.</entry>
     </row>
     <row>
       <entry>23.2.2</entry>
