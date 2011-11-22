@@ -2098,6 +2098,8 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_S, "always_hint", tf[!!rs6000_always_hint]);
   fprintf (stderr, DEBUG_FMT_S, "align_branch",
 	   tf[!!rs6000_align_branch_targets]);
+  fprintf (stderr, DEBUG_FMT_S, "bc+8 opt.", tf[!!TARGET_SMALL_CBRANCH]);
+  fprintf (stderr, DEBUG_FMT_S, "isel", tf[!!TARGET_ISEL]);
   fprintf (stderr, DEBUG_FMT_D, "tls_size", rs6000_tls_size);
   fprintf (stderr, DEBUG_FMT_D, "long_double_size",
 	   rs6000_long_double_type_size);
@@ -2691,6 +2693,10 @@ rs6000_option_override_internal (bool global_init_p)
     target_flags |= (ISA_2_2_MASKS & ~target_flags_explicit);
   else if (TARGET_ALTIVEC)
     target_flags |= (MASK_PPC_GFXOPT & ~target_flags_explicit);
+
+  /* Possibly enable conditional branch + 8 optimizations on power7.  */
+  if (TARGET_SMALL_CBRANCH < 0)
+    TARGET_SMALL_CBRANCH = /* (rs6000_cpu == PROCESSOR_POWER7) */0;
 
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
@@ -16375,7 +16381,7 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
   enum rtx_code cond_code;
   rtx result = operands[0];
 
-  if (TARGET_ISEL && (mode == SImode || mode == DImode))
+  if (TARGET_ISEL_OR_SMALL_CBRANCH && (mode == SImode || mode == DImode))
     {
       rs6000_emit_sISEL (mode, operands);
       return;
@@ -16469,7 +16475,8 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   rtx cc_reg = XEXP (op, 0);
   enum machine_mode mode = GET_MODE (cc_reg);
   int cc_regno = REGNO (cc_reg) - CR0_REGNO;
-  int need_longbranch = label != NULL && get_attr_length (insn) == 8;
+  int need_longbranch = (label != NULL && insn != NULL_RTX
+			 && get_attr_length (insn) == 8);
   int really_reversed = reversed ^ need_longbranch;
   char *s = string;
   const char *ccode;
@@ -16538,7 +16545,8 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   /* Maybe we have a guess as to how likely the branch is.
      The old mnemonics don't have a way to specify this information.  */
   pred = "";
-  note = find_reg_note (insn, REG_BR_PROB, NULL_RTX);
+  note = ((insn == NULL_RTX)
+	  ? NULL_RTX : find_reg_note (insn, REG_BR_PROB, NULL_RTX));
   if (note != NULL_RTX)
     {
       /* PROB is the difference from 50%.  */
@@ -16863,7 +16871,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (GET_MODE (op1) != compare_mode
       /* In the isel case however, we can use a compare immediate, so
 	 op1 may be a small constant.  */
-      && (!TARGET_ISEL || !short_cint_operand (op1, VOIDmode)))
+      && (!TARGET_ISEL_OR_SMALL_CBRANCH || !short_cint_operand (op1, VOIDmode)))
     return 0;
   if (GET_MODE (true_cond) != result_mode)
     return 0;
@@ -16874,7 +16882,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      if it's too slow....  */
   if (!FLOAT_MODE_P (compare_mode))
     {
-      if (TARGET_ISEL)
+      if (TARGET_ISEL_OR_SMALL_CBRANCH)
 	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
       return 0;
     }
@@ -17037,8 +17045,21 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   rtx condition_rtx, cr;
   enum machine_mode mode = GET_MODE (dest);
   enum rtx_code cond_code;
-  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx);
+  typedef rtx (*func_ptr_type) (rtx, rtx, rtx, rtx, rtx);
+  func_ptr_type func;
   bool signedp;
+
+  static func_ptr_type cmove_funcs[2][2][2] =
+  {
+    {	/* TARGET_ISEL */
+      { gen_isel_signed_si, gen_isel_unsigned_si },	/* SImode */
+      { gen_isel_signed_di, gen_isel_unsigned_di },	/* DImode */
+    },
+    {	/* TARGET_SMALL_CBRANCH */
+      { gen_bcp8_signed_si, gen_bcp8_unsigned_si },	/* SImode */
+      { gen_bcp8_signed_di, gen_bcp8_unsigned_di },	/* DImode */
+    },
+  };
 
   if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
     return 0;
@@ -17050,10 +17071,7 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   cond_code = GET_CODE (condition_rtx);
   cr = XEXP (condition_rtx, 0);
   signedp = GET_MODE (cr) == CCmode;
-
-  isel_func = (mode == SImode
-	       ? (signedp ? gen_isel_signed_si : gen_isel_unsigned_si)
-	       : (signedp ? gen_isel_signed_di : gen_isel_unsigned_di));
+  func = cmove_funcs[(TARGET_SMALL_CBRANCH != 0)][(mode == DImode)][!signedp];
 
   switch (cond_code)
     {
@@ -17073,10 +17091,10 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
     }
 
   false_cond = force_reg (mode, false_cond);
-  if (true_cond != const0_rtx)
+  if (true_cond != const0_rtx || TARGET_SMALL_CBRANCH /* XXX fixme */)
     true_cond = force_reg (mode, true_cond);
 
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
+  emit_insn (func (dest, condition_rtx, true_cond, false_cond, cr));
 
   return 1;
 }
@@ -17097,6 +17115,29 @@ output_isel (rtx *operands)
     }
 
   return "isel %0,%2,%3,%j1";
+}
+
+/* Branch conditional + 8 optimization.  */
+
+const char *
+output_bcp8 (rtx *operands)
+{
+  const char *cbranch = output_cbranch (operands[1], "1f", 0, NULL_RTX);
+
+  if (cbranch && cbranch[0] != '\0')
+    output_asm_insn (cbranch, operands);
+
+  if (REG_P (operands[3]))
+    output_asm_insn ("mr %0,%3", operands);
+  else if (satisfies_constraint_I (operands[3]))
+    output_asm_insn ("li %0,%3", operands);
+  else if (satisfies_constraint_L (operands[3]))
+    output_asm_insn ("lis %0,%v3", operands);
+  else
+    gcc_unreachable ();
+
+  fputs ("1:\n", asm_out_file);
+  return "";
 }
 
 void
@@ -26145,6 +26186,11 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
+      if (TARGET_SMALL_CBRANCH)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
       if (outer_code == SET)
 	{
 	  if (XEXP (x, 1) == const0_rtx)
@@ -26166,6 +26212,11 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case GT:
     case LT:
     case UNORDERED:
+      if (TARGET_SMALL_CBRANCH)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
       if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
 	{
 	  if (TARGET_ISEL && !TARGET_MFCRF)

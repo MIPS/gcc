@@ -1,3 +1,37 @@
+2011-11-22  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000.opt (-msmall-cbranch): New switch, enable
+	branch conditional + 8 optimization (BC+8).
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print BC+8 and
+	isel optimizations if -mdebug=reg.
+	(rs6000_option_override_internal): Add support for BC+8
+	optimization.
+	(rs6000_emit_sCOND): Ditto.
+	(output_cbranch): Ditto.
+	(rs6000_emit_cmove): Ditto.
+	(ouptut_bcp8): Ditto.
+	(rs6000_rtx_costs): Ditto.
+
+	* config/rs6000/rs6000.h (TARGET_SMALL_CBRANCH64): New macros for
+	BC+8 optimization.
+	(TARGET_ISEL_OR_SMALL_CBRANCH): Ditto.
+	(TARGET_ISEL_OR_SMALL_CBRANCH64): Ditto.
+
+	* config/rs6000/rs6000.md (mov<mode>cc): Add support for BC+8
+	optimization.
+	(isel_signed_<mode>): Ditto.
+	(isel_unsigned_<mode>): Ditto.
+	(isel_reversed_signed_<mode>): Ditto.
+	(isel_reversed_unsigned_<mode>): Ditto.
+	(bcp8_signed_<mode>): Ditto.
+	(bcp8_unsigned_<mode>): Ditto.
+	(ne0si): Ditto.
+	(ne0di): Ditto.
+
+	* config/rs6000/rs6000-protos.h (output_bcp8): New function for
+	BC+8 optimization.
+
 2011-11-18  Michael Meissner  <meissner@the-meissners.org>
 
 	Clone tree from subversion id 181481.
