@@ -1,5 +1,10 @@
 2011-11-22  Michael Meissner  <meissner@the-meissners.org>
 
+	Merge up to 181632.
+	* REVISION: Update subversion id.
+
+2011-11-22  Michael Meissner  <meissner@the-meissners.org>
+
 	* config/rs6000/rs6000.opt (-msmall-cbranch): New switch, enable
 	branch conditional + 8 optimization (BC+8).
 
