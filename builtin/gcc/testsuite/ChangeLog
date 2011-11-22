@@ -1,3 +1,145 @@
+2011-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51074
+	* gcc.dg/vect/pr51074.c: New test.
+
+2011-11-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/51143
+	* g++.dg/cpp0x/alias-decl-16.C: New test.
+
+2011-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50765
+	* gcc.dg/pr50765.c: New test.
+
+2011-11-22  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+        * gcc.dg/vshift-1.c (main): Call rand instead of random.
+        * gcc.dg/vshift-3.c (main): Likewise.
+
+2011-11-22  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* gcc.dg/tm/20100615.c: Adjust for Darwin tm_clone_table section name.
+
+2011-11-22  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* gcc.misc-tests/gcov-16.c: Adjust scan-assembler for Darwin.
+	* gcc.misc-tests/gcov-17.c: Likewise.
+	* g++.dg/gcov/gcov-8.C: Likewise.
+	* g++.dg/gcov/gcov-9.C: Likewise.
+
+2011-11-21  Torvald Riegel  <triegel@redhat.com>
+
+	* g++.dg/tm/pr47747.C: New test.
+
+2011-11-21  Torvald Riegel  <triegel@redhat.com>
+
+	* g++.dg/tm/template-2.C: New test.
+
+2011-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/50827
+	* gcc.dg/pr50827.c: New test.
+
+2011-11-21  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/50958
+	* g++.dg/cpp0x/udlit-declare-neg.C: Adjust.
+	* g++.dg/cpp0x/udlit-implicit-conv-neg.C: New.
+	* g++.dg/cpp0x/udlit-member.C: Adjust.
+	* g++.dg/cpp0x/udlit-raw-length.C: New.
+	* g++.dg/cpp0x/udlit-raw-op-string-neg.C: Adjust.
+	* g++.dg/cpp0x/udlit-resolve.C: New.
+	* c-c++-common/dfp/pr33466.c: Adjust.
+
+2011-11-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp
+	(check_effective_target_ultrasparc_vis2_hw): Call check_runtime
+	with ultrasparc_vis2_hw.
+	(check_effective_target_ultrasparc_vis3_hw): Call check_runtime
+	with ultrasparc_vis3_hw.
+
+2011-11-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* c-c++-common/tm/malloc.c: Scan tree dumps for std::malloc if
+	*-*-solaris2* && c++.
+
+2011-11-20  Joey Ye  <joey.ye@arm.com>
+
+	* gcc.dg/volatile-bitfields-1.c: New.
+
+2011-11-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48322
+	* g++.dg/cpp0x/variadic120.C: New.
+	* g++.dg/cpp0x/sfinae26.C: Adjust.
+
+	* g++.dg/cpp0x/sfinae11.C: Adjust.
+	* g++.dg/cpp0x/sfinae26.C: Adjust.
+	* g++.dg/template/unify11.C: Adjust.
+
+2011-11-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51230
+	* g++.dg/template/error46.C: New.
+
+2011-11-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/51235
+	* gcc.target/i386/pr51235.c: New test.
+
+	PR target/51236
+	* gcc.target/i386/pr51236.c: New test.
+
+2011-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr32.adb: New test.
+	* gnat.dg/discr32_pkg.ads: New helper.
+
+2011-11-20  Nathan Sidwell  <nathan@acm.org>
+
+	PR gcov-profile/51113
+	* gcc.misc-tests/gcov-13.c: Check gcovpart-13b coverage
+	* gcc.misc-tests/gcov-16.c: New.
+	* gcc.misc-tests/gcov-17.c: New.
+	* g++.dg/gcov/gcov-8.C: New.
+	* g++.dg/gcov/gcov-9.C: New.
+	* g++.dg/gcov/gcov-10.C: New.
+
+2011-11-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/51194
+	* g++.dg/cpp0x/alias-decl-15.C: New test.
+
+2011-11-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51216
+	* g++.dg/cpp0x/pr51216.C: New.
+
+2011-11-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/delay-slot-2.c: New test.
+
+2011-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/assert4.c: Test __linux__, not __gnu_linux__.
+
+2011-11-18  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/51188
+	* g++.dg/lookup/using46.C: New.
+	* g++.dg/lookup/using47.C: New.
+	* g++.dg/lookup/using48.C: New.
+	* g++.dg/lookup/using49.C: New.
+	* g++.dg/lookup/using50.C: New.
+
+2011-11-18  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.c-torture/compile/pr44707.c: Do not assume assembler
+	supports /* ... */ comments.
+
 2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51150

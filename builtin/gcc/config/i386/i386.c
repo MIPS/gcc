@@ -1783,18 +1783,18 @@ struct processor_costs atom_cost = {
   /* stringop_algs for memcpy.  
      SSE loops works best on Atom, but fall back into non-SSE unrolled loop variant
      if that fails.  */
-  {{{libcall, {{4096, sse_loop}, {4096, unrolled_loop}, {-1, libcall}}}, /* Known alignment.  */
-    {libcall, {{4096, sse_loop}, {4096, unrolled_loop}, {-1, libcall}}}},
-   {{libcall, {{2048, sse_loop}, {2048, unrolled_loop}, {-1, libcall}}}, /* Unknown alignment.  */
-    {libcall, {{2048, sse_loop}, {2048, unrolled_loop},
+  {{{libcall, {{4096, unrolled_loop}, {-1, libcall}}}, /* Known alignment.  */
+    {libcall, {{4096, unrolled_loop}, {-1, libcall}}}},
+   {{libcall, {{2048, unrolled_loop}, {-1, libcall}}}, /* Unknown alignment.  */
+    {libcall, {{2048, unrolled_loop},
 	       {-1, libcall}}}}},
 
   /* stringop_algs for memset.  */
-  {{{libcall, {{4096, sse_loop}, {4096, unrolled_loop}, {-1, libcall}}}, /* Known alignment.  */
-    {libcall, {{4096, sse_loop}, {4096, unrolled_loop}, {-1, libcall}}}},
-   {{libcall, {{1024, sse_loop}, {1024, unrolled_loop},	 /* Unknown alignment.  */
+  {{{libcall, {{4096, unrolled_loop}, {-1, libcall}}}, /* Known alignment.  */
+    {libcall, {{4096, unrolled_loop}, {-1, libcall}}}},
+   {{libcall, {{1024, unrolled_loop},	 /* Unknown alignment.  */
 	       {-1, libcall}}},
-    {libcall, {{2048, sse_loop}, {2048, unrolled_loop},
+    {libcall, {{2048, unrolled_loop},
 	       {-1, libcall}}}}},
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
@@ -19619,8 +19619,12 @@ ix86_expand_int_vcond (rtx operands[])
   cop0 = operands[4];
   cop1 = operands[5];
 
-  /* XOP supports all of the comparisons on all vector int types.  */
-  if (!TARGET_XOP)
+  /* XOP supports all of the comparisons on all 128-bit vector int types.  */
+  if (TARGET_XOP
+      && (mode == V16QImode || mode == V8HImode
+	  || mode == V4SImode || mode == V2DImode))
+    ;
+  else
     {
       /* Canonicalize the comparison to EQ, GT, GTU.  */
       switch (code)
@@ -25341,6 +25345,7 @@ enum ix86_builtins
   IX86_BUILTIN_CVTTPS2DQ,
 
   IX86_BUILTIN_MOVNTI,
+  IX86_BUILTIN_MOVNTI64,
   IX86_BUILTIN_MOVNTPD,
   IX86_BUILTIN_MOVNTDQ,
 
@@ -26414,7 +26419,7 @@ static const struct builtin_description bdesc_special_args[] =
 
   /* SSE or 3DNow!A  */
   { OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_3DNOW_A, CODE_FOR_sse_sfence, "__builtin_ia32_sfence", IX86_BUILTIN_SFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
-  { OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_3DNOW_A, CODE_FOR_sse_movntdi, "__builtin_ia32_movntq", IX86_BUILTIN_MOVNTQ, UNKNOWN, (int) VOID_FTYPE_PULONGLONG_ULONGLONG },
+  { OPTION_MASK_ISA_SSE | OPTION_MASK_ISA_3DNOW_A, CODE_FOR_sse_movntq, "__builtin_ia32_movntq", IX86_BUILTIN_MOVNTQ, UNKNOWN, (int) VOID_FTYPE_PULONGLONG_ULONGLONG },
 
   /* SSE2 */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_lfence, "__builtin_ia32_lfence", IX86_BUILTIN_LFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
@@ -26423,7 +26428,8 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movdqu, "__builtin_ia32_storedqu", IX86_BUILTIN_STOREDQU, UNKNOWN, (int) VOID_FTYPE_PCHAR_V16QI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2df, "__builtin_ia32_movntpd", IX86_BUILTIN_MOVNTPD, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V2DF },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2di, "__builtin_ia32_movntdq", IX86_BUILTIN_MOVNTDQ, UNKNOWN, (int) VOID_FTYPE_PV2DI_V2DI },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntsi, "__builtin_ia32_movnti", IX86_BUILTIN_MOVNTI, UNKNOWN, (int) VOID_FTYPE_PINT_INT },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntisi, "__builtin_ia32_movnti", IX86_BUILTIN_MOVNTI, UNKNOWN, (int) VOID_FTYPE_PINT_INT },
+  { OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_64BIT, CODE_FOR_sse2_movntidi, "__builtin_ia32_movnti64", IX86_BUILTIN_MOVNTI64, UNKNOWN, (int) VOID_FTYPE_PLONGLONG_LONGLONG },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movupd, "__builtin_ia32_loadupd", IX86_BUILTIN_LOADUPD, UNKNOWN, (int) V2DF_FTYPE_PCDOUBLE },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movdqu, "__builtin_ia32_loaddqu", IX86_BUILTIN_LOADDQU, UNKNOWN, (int) V16QI_FTYPE_PCCHAR },
 
@@ -29409,6 +29415,7 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case VOID_FTYPE_PFLOAT_V4SF:
     case VOID_FTYPE_PDOUBLE_V4DF:
     case VOID_FTYPE_PDOUBLE_V2DF:
+    case VOID_FTYPE_PLONGLONG_LONGLONG:
     case VOID_FTYPE_PULONGLONG_ULONGLONG:
     case VOID_FTYPE_PINT_INT:
       nargs = 1;
@@ -30010,7 +30017,7 @@ rdrand_step:
       icode = CODE_FOR_avx2_gatherdiv8sf;
       goto gather_gen;
     case IX86_BUILTIN_GATHERALTSIV4DI:
-      icode = CODE_FOR_avx2_gathersiv4df;
+      icode = CODE_FOR_avx2_gathersiv4di;
       goto gather_gen;
     case IX86_BUILTIN_GATHERALTDIV8SI:
       icode = CODE_FOR_avx2_gatherdiv8si;
