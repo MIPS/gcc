@@ -14,14 +14,11 @@ uint32	runtime_panicking;
 static Lock paniclk;
 
 void
-runtime_initpanic(void)
-{
-	runtime_initlock(&paniclk);
-}
-
-void
 runtime_startpanic(void)
 {
+	M *m;
+
+	m = runtime_m();
 	if(m->dying) {
 		runtime_printf("panic during panic\n");
 		runtime_exit(3);
@@ -56,7 +53,6 @@ runtime_dopanic(int32 unused __attribute__ ((unused)))
 		// Wait forever without chewing up cpu.
 		// It will exit when it's done.
 		static Lock deadlock;
-		runtime_initlock(&deadlock);
 		runtime_lock(&deadlock);
 		runtime_lock(&deadlock);
 	}
@@ -163,8 +159,10 @@ runtime_atoi(const byte *p)
 uint32
 runtime_fastrand1(void)
 {
+	M *m;
 	uint32 x;
 
+	m = runtime_m();
 	x = m->fastrand;
 	x += x;
 	if(x & 0x80000000L)

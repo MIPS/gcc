@@ -4064,6 +4064,19 @@ package body Sem_Ch3 is
 
       T := Process_Subtype (Subtype_Indication (N), N, Id, 'P');
 
+      --  Class-wide equivalent types of records with unknown discriminants
+      --  involve the generation of an itype which serves as the private view
+      --  of a constrained record subtype. In such cases the base type of the
+      --  current subtype we are processing is the private itype. Use the full
+      --  of the private itype when decorating various attributes.
+
+      if Is_Itype (T)
+        and then Is_Private_Type (T)
+        and then Present (Full_View (T))
+      then
+         T := Full_View (T);
+      end if;
+
       --  Inherit common attributes
 
       Set_Is_Generic_Type   (Id, Is_Generic_Type   (Base_Type (T)));
@@ -11786,7 +11799,12 @@ package body Sem_Ch3 is
          --  needed, since checks may cause duplication of the expressions
          --  which must not be reevaluated.
 
-         if Full_Expander_Active then
+         --  The forced evaluation removes side effects from expressions,
+         --  which should occur also in Alfa mode. Otherwise, we end up with
+         --  unexpected insertions of actions at places where this is not
+         --  supposed to occur, e.g. on default parameters of a call.
+
+         if Expander_Active then
             Force_Evaluation (Low_Bound (R));
             Force_Evaluation (High_Bound (R));
          end if;
@@ -18326,7 +18344,12 @@ package body Sem_Ch3 is
             --  if needed, before applying checks, since checks may cause
             --  duplication of the expression without forcing evaluation.
 
-            if Full_Expander_Active then
+            --  The forced evaluation removes side effects from expressions,
+            --  which should occur also in Alfa mode. Otherwise, we end up with
+            --  unexpected insertions of actions at places where this is not
+            --  supposed to occur, e.g. on default parameters of a call.
+
+            if Expander_Active then
                Force_Evaluation (Lo);
                Force_Evaluation (Hi);
             end if;
@@ -18436,7 +18459,12 @@ package body Sem_Ch3 is
 
       --  Case of other than an explicit N_Range node
 
-      elsif Full_Expander_Active then
+      --  The forced evaluation removes side effects from expressions, which
+      --  should occur also in Alfa mode. Otherwise, we end up with unexpected
+      --  insertions of actions at places where this is not supposed to occur,
+      --  e.g. on default parameters of a call.
+
+      elsif Expander_Active then
          Get_Index_Bounds (R, Lo, Hi);
          Force_Evaluation (Lo);
          Force_Evaluation (Hi);
