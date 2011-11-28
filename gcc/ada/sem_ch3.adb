@@ -726,12 +726,32 @@ package body Sem_Ch3 is
 
       --  If the access definition is the return type of another access to
       --  function, scope is the current one, because it is the one of the
-      --  current type declaration.
+      --  current type declaration, except for the pathological case below.
 
       if Nkind_In (Related_Nod, N_Object_Declaration,
                                 N_Access_Function_Definition)
       then
          Anon_Scope := Current_Scope;
+
+         --  A pathological case: function returning access functions that
+         --  return access functions, etc. Each anonymous access type created
+         --  is in the enclosing scope of the outermost function.
+
+         declare
+            Par : Node_Id;
+
+         begin
+            Par := Related_Nod;
+            while Nkind_In (Par, N_Access_Function_Definition,
+                                 N_Access_Definition)
+            loop
+               Par := Parent (Par);
+            end loop;
+
+            if Nkind (Par) = N_Function_Specification then
+               Anon_Scope := Scope (Defining_Entity (Par));
+            end if;
+         end;
 
       --  For the anonymous function result case, retrieve the scope of the
       --  function specification's associated entity rather than using the
@@ -1876,7 +1896,9 @@ package body Sem_Ch3 is
             --  (Ada 2005: AI-230): Accessibility check for anonymous
             --  components
 
-            if Type_Access_Level (Etype (E)) > Type_Access_Level (T) then
+            if Type_Access_Level (Etype (E)) >
+               Deepest_Type_Access_Level (T)
+            then
                Error_Msg_N
                  ("expression has deeper access level than component " &
                   "(RM 3.10.2 (12.2))", E);
@@ -2664,8 +2686,8 @@ package body Sem_Ch3 is
       --  Process expression, replacing error by integer zero, to avoid
       --  cascaded errors or aborts further along in the processing
 
-      --  Replace Error by integer zero, which seems least likely to
-      --  cause cascaded errors.
+      --  Replace Error by integer zero, which seems least likely to cause
+      --  cascaded errors.
 
       if E = Error then
          Rewrite (E, Make_Integer_Literal (Sloc (E), Uint_0));
@@ -4041,6 +4063,19 @@ package body Sem_Ch3 is
       end if;
 
       T := Process_Subtype (Subtype_Indication (N), N, Id, 'P');
+
+      --  Class-wide equivalent types of records with unknown discriminants
+      --  involve the generation of an itype which serves as the private view
+      --  of a constrained record subtype. In such cases the base type of the
+      --  current subtype we are processing is the private itype. Use the full
+      --  of the private itype when decorating various attributes.
+
+      if Is_Itype (T)
+        and then Is_Private_Type (T)
+        and then Present (Full_View (T))
+      then
+         T := Full_View (T);
+      end if;
 
       --  Inherit common attributes
 
@@ -11764,6 +11799,11 @@ package body Sem_Ch3 is
          --  needed, since checks may cause duplication of the expressions
          --  which must not be reevaluated.
 
+         --  The forced evaluation removes side effects from expressions,
+         --  which should occur also in Alfa mode. Otherwise, we end up with
+         --  unexpected insertions of actions at places where this is not
+         --  supposed to occur, e.g. on default parameters of a call.
+
          if Expander_Active then
             Force_Evaluation (Low_Bound (R));
             Force_Evaluation (High_Bound (R));
@@ -13318,18 +13358,18 @@ package body Sem_Ch3 is
 
       --  Check for case of a derived subprogram for the instantiation of a
       --  formal derived tagged type, if so mark the subprogram as dispatching
-      --  and inherit the dispatching attributes of the parent subprogram. The
+      --  and inherit the dispatching attributes of the actual subprogram. The
       --  derived subprogram is effectively renaming of the actual subprogram,
       --  so it needs to have the same attributes as the actual.
 
       if Present (Actual_Subp)
-        and then Is_Dispatching_Operation (Parent_Subp)
+        and then Is_Dispatching_Operation (Actual_Subp)
       then
          Set_Is_Dispatching_Operation (New_Subp);
 
-         if Present (DTC_Entity (Parent_Subp)) then
-            Set_DTC_Entity (New_Subp, DTC_Entity (Parent_Subp));
-            Set_DT_Position (New_Subp, DT_Position (Parent_Subp));
+         if Present (DTC_Entity (Actual_Subp)) then
+            Set_DTC_Entity (New_Subp, DTC_Entity (Actual_Subp));
+            Set_DT_Position (New_Subp, DT_Position (Actual_Subp));
          end if;
       end if;
 
@@ -16178,19 +16218,41 @@ package body Sem_Ch3 is
       elsif not Comes_From_Source (Original_Comp) then
          return True;
 
-      --  If we are in the body of an instantiation, the component is visible
-      --  even when the parent type (possibly defined in an enclosing unit or
-      --  in a parent unit) might not.
-
-      elsif In_Instance_Body then
-         return True;
-
       --  Discriminants are always visible
 
       elsif Ekind (Original_Comp) = E_Discriminant
         and then not Has_Unknown_Discriminants (Original_Scope)
       then
          return True;
+
+      --  If we are in the body of an instantiation, the component is visible
+      --  if the parent type is non-private, or in  an enclosing scope. The
+      --  scope stack is not present when analyzing an instance body, so we
+      --  must inspect the chain of scopes explicitly.
+
+      elsif In_Instance_Body then
+         if not Is_Private_Type (Scope (C)) then
+            return True;
+
+         else
+            declare
+               S : Entity_Id;
+
+            begin
+               S := Current_Scope;
+               while Present (S)
+                 and then S /= Standard_Standard
+               loop
+                  if S = Type_Scope then
+                     return True;
+                  end if;
+
+                  S := Scope (S);
+               end loop;
+
+               return False;
+            end;
+         end if;
 
       --  If the component has been declared in an ancestor which is currently
       --  a private type, then it is not visible. The same applies if the
@@ -18282,6 +18344,11 @@ package body Sem_Ch3 is
             --  if needed, before applying checks, since checks may cause
             --  duplication of the expression without forcing evaluation.
 
+            --  The forced evaluation removes side effects from expressions,
+            --  which should occur also in Alfa mode. Otherwise, we end up with
+            --  unexpected insertions of actions at places where this is not
+            --  supposed to occur, e.g. on default parameters of a call.
+
             if Expander_Active then
                Force_Evaluation (Lo);
                Force_Evaluation (Hi);
@@ -18391,6 +18458,11 @@ package body Sem_Ch3 is
          end if;
 
       --  Case of other than an explicit N_Range node
+
+      --  The forced evaluation removes side effects from expressions, which
+      --  should occur also in Alfa mode. Otherwise, we end up with unexpected
+      --  insertions of actions at places where this is not supposed to occur,
+      --  e.g. on default parameters of a call.
 
       elsif Expander_Active then
          Get_Index_Bounds (R, Lo, Hi);
@@ -19570,17 +19642,16 @@ package body Sem_Ch3 is
    --  do not know the exact end points at the time of the declaration. This
    --  is true for three reasons:
 
-   --     A size clause may affect the fudging of the end-points
-   --     A small clause may affect the values of the end-points
-   --     We try to include the end-points if it does not affect the size
+   --     A size clause may affect the fudging of the end-points.
+   --     A small clause may affect the values of the end-points.
+   --     We try to include the end-points if it does not affect the size.
 
-   --  This means that the actual end-points must be established at the point
-   --  when the type is frozen. Meanwhile, we first narrow the range as
-   --  permitted (so that it will fit if necessary in a small specified size),
-   --  and then build a range subtree with these narrowed bounds.
-
-   --  Set_Fixed_Range constructs the range from real literal values, and sets
-   --  the range as the Scalar_Range of the given fixed-point type entity.
+   --  This means that the actual end-points must be established at the
+   --  point when the type is frozen. Meanwhile, we first narrow the range
+   --  as permitted (so that it will fit if necessary in a small specified
+   --  size), and then build a range subtree with these narrowed bounds.
+   --  Set_Fixed_Range constructs the range from real literal values, and
+   --  sets the range as the Scalar_Range of the given fixed-point type entity.
 
    --  The parent of this range is set to point to the entity so that it is
    --  properly hooked into the tree (unlike normal Scalar_Range entries for
@@ -19605,6 +19676,12 @@ package body Sem_Ch3 is
    begin
       Set_Scalar_Range (E, S);
       Set_Parent (S, E);
+
+      --  Before the freeze point, the bounds of a fixed point are universal
+      --  and carry the corresponding type.
+
+      Set_Etype (Low_Bound (S),  Universal_Real);
+      Set_Etype (High_Bound (S), Universal_Real);
    end Set_Fixed_Range;
 
    ----------------------------------

@@ -4,6 +4,7 @@
    Use of this source code is governed by a BSD-style
    license that can be found in the LICENSE file.  */
 
+#include "runtime.h"
 #include "go-assert.h"
 #include "go-panic.h"
 #include "channel.h"
@@ -16,14 +17,14 @@ __go_builtin_close (struct __go_channel *channel)
 {
   int i;
 
+  if (channel == NULL)
+    __go_panic_msg ("close of nil channel");
+
   i = pthread_mutex_lock (&channel->lock);
   __go_assert (i == 0);
 
   while (channel->selected_for_send)
-    {
-      i = pthread_cond_wait (&channel->cond, &channel->lock);
-      __go_assert (i == 0);
-    }
+    runtime_cond_wait (&channel->cond, &channel->lock);
 
   if (channel->is_closed)
     {

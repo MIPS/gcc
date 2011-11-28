@@ -25,8 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "diagnostic-core.h"
-#include "rtl.h"
 #include "hard-reg-set.h"
+#include "rtl.h"
 #include "insn-config.h"
 #include "recog.h"
 #include "target.h"
@@ -1918,6 +1918,7 @@ alloc_reg_note (enum reg_note kind, rtx datum, rtx list)
     case REG_CC_USER:
     case REG_LABEL_TARGET:
     case REG_LABEL_OPERAND:
+    case REG_TM:
       /* These types of register notes use an INSN_LIST rather than an
 	 EXPR_LIST, so that copying is done right and dumps look
 	 better.  */

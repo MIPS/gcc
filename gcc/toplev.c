@@ -599,6 +599,7 @@ compile_file (void)
 
       output_shared_constant_pool ();
       output_object_blocks ();
+  finish_tm_clone_pairs ();
 
       /* Write out any pending weak symbol declarations.  */
       weak_finish ();
@@ -1331,6 +1332,11 @@ process_options (void)
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
+
+  /* One region RA really helps to decrease the code size.  */
+  if (flag_ira_region == IRA_REGION_AUTODETECT)
+    flag_ira_region
+      = optimize_size || !optimize ? IRA_REGION_ONE : IRA_REGION_MIXED;
 
   /* Unrolling all loops implies that standard loop unrolling must also
      be done.  */

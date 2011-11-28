@@ -29,7 +29,7 @@
 
 with Ada.Containers.Generic_Array_Sort;
 with Ada.Unchecked_Deallocation;
-with System;  use type System.Address;
+with System; use type System.Address;
 
 package body Ada.Containers.Indefinite_Vectors is
 
@@ -39,15 +39,17 @@ package body Ada.Containers.Indefinite_Vectors is
    procedure Free is
      new Ada.Unchecked_Deallocation (Element_Type, Element_Access);
 
-   type Iterator is new
-     Vector_Iterator_Interfaces.Reversible_Iterator with record
+   type Iterator is new Limited_Controlled and
+     Vector_Iterator_Interfaces.Reversible_Iterator with
+   record
       Container : Vector_Access;
       Index     : Index_Type;
    end record;
 
-   overriding function First (Object : Iterator) return Cursor;
+   overriding procedure Finalize (Object : in out Iterator);
 
-   overriding function Last (Object : Iterator) return Cursor;
+   overriding function First (Object : Iterator) return Cursor;
+   overriding function Last  (Object : Iterator) return Cursor;
 
    overriding function Next
      (Object   : Iterator;
@@ -616,6 +618,20 @@ package body Ada.Containers.Indefinite_Vectors is
          Count);
    end Append;
 
+   ------------
+   -- Assign --
+   ------------
+
+   procedure Assign (Target : in out Vector; Source : Vector) is
+   begin
+      if Target'Address = Source'Address then
+         return;
+      end if;
+
+      Target.Clear;
+      Target.Append (Source);
+   end Assign;
+
    --------------
    -- Capacity --
    --------------
@@ -697,6 +713,34 @@ package body Ada.Containers.Indefinite_Vectors is
    begin
       return Find_Index (Container, Item) /= No_Index;
    end Contains;
+
+   ----------
+   -- Copy --
+   ----------
+
+   function Copy
+     (Source   : Vector;
+      Capacity : Count_Type := 0) return Vector
+   is
+      C : Count_Type;
+
+   begin
+      if Capacity = 0 then
+         C := Source.Length;
+
+      elsif Capacity >= Source.Length then
+         C := Capacity;
+
+      else
+         raise Capacity_Error
+           with "Requested capacity is less than Source length";
+      end if;
+
+      return Target : Vector do
+         Target.Reserve_Capacity (C);
+         Target.Assign (Source);
+      end return;
+   end Copy;
 
    ------------
    -- Delete --
@@ -1063,6 +1107,18 @@ package body Ada.Containers.Indefinite_Vectors is
       end;
    end Finalize;
 
+   procedure Finalize (Object : in out Iterator) is
+   begin
+      if Object.Container /= null then
+         declare
+            B : Natural renames Object.Container.all.Busy;
+
+         begin
+            B := B - 1;
+         end;
+      end if;
+   end Finalize;
+
    ----------
    -- Find --
    ----------
@@ -1087,7 +1143,7 @@ package body Ada.Containers.Indefinite_Vectors is
          if Container.Elements.EA (J) /= null
            and then Container.Elements.EA (J).all = Item
          then
-            return (Container'Unchecked_Access, J);
+            return (Container'Unrestricted_Access, J);
          end if;
       end loop;
 
@@ -1125,7 +1181,7 @@ package body Ada.Containers.Indefinite_Vectors is
          return No_Element;
       end if;
 
-      return (Container'Unchecked_Access, Index_Type'First);
+      return (Container'Unrestricted_Access, Index_Type'First);
    end First;
 
    function First (Object : Iterator) return Cursor is
@@ -1226,16 +1282,26 @@ package body Ada.Containers.Indefinite_Vectors is
          I, J : Index_Type'Base;
 
       begin
-         if Target.Last < Index_Type'First then
-            Move (Target => Target, Source => Source);
+
+         --  The semantics of Merge changed slightly per AI05-0021. It was
+         --  originally the case that if Target and Source denoted the same
+         --  container object, then the GNAT implementation of Merge did
+         --  nothing. However, it was argued that RM05 did not precisely
+         --  specify the semantics for this corner case. The decision of the
+         --  ARG was that if Target and Source denote the same non-empty
+         --  container object, then Program_Error is raised.
+
+         if Source.Last < Index_Type'First then  -- Source is empty
             return;
          end if;
 
          if Target'Address = Source'Address then
-            return;
+            raise Program_Error with
+              "Target and Source denote same non-empty container";
          end if;
 
-         if Source.Last < Index_Type'First then
+         if Target.Last < Index_Type'First then  -- Target is empty
+            Move (Target => Target, Source => Source);
             return;
          end if;
 
@@ -1930,7 +1996,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Before.Container /= null
-        and then Before.Container /= Container'Unchecked_Access
+        and then Before.Container /= Container'Unrestricted_Access
       then
          raise Program_Error with "Before cursor denotes wrong container";
       end if;
@@ -1966,7 +2032,8 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Before.Container /= null
-        and then Before.Container /= Vector_Access'(Container'Unchecked_Access)
+        and then Before.Container /=
+                   Vector_Access'(Container'Unrestricted_Access)
       then
          raise Program_Error with "Before cursor denotes wrong container";
       end if;
@@ -1977,7 +2044,7 @@ package body Ada.Containers.Indefinite_Vectors is
          then
             Position := No_Element;
          else
-            Position := (Container'Unchecked_Access, Before.Index);
+            Position := (Container'Unrestricted_Access, Before.Index);
          end if;
 
          return;
@@ -1999,7 +2066,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
       Insert (Container, Index, New_Item);
 
-      Position := Cursor'(Container'Unchecked_Access, Index);
+      Position := Cursor'(Container'Unrestricted_Access, Index);
    end Insert;
 
    procedure Insert
@@ -2012,7 +2079,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Before.Container /= null
-        and then Before.Container /= Container'Unchecked_Access
+        and then Before.Container /= Container'Unrestricted_Access
       then
          raise Program_Error with "Before cursor denotes wrong container";
       end if;
@@ -2049,7 +2116,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Before.Container /= null
-        and then Before.Container /= Container'Unchecked_Access
+        and then Before.Container /= Container'Unrestricted_Access
       then
          raise Program_Error with "Before cursor denotes wrong container";
       end if;
@@ -2060,7 +2127,7 @@ package body Ada.Containers.Indefinite_Vectors is
          then
             Position := No_Element;
          else
-            Position := (Container'Unchecked_Access, Before.Index);
+            Position := (Container'Unrestricted_Access, Before.Index);
          end if;
 
          return;
@@ -2082,7 +2149,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
       Insert (Container, Index, New_Item, Count);
 
-      Position := (Container'Unchecked_Access, Index);
+      Position := (Container'Unrestricted_Access, Index);
    end Insert;
 
    ------------------
@@ -2413,7 +2480,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Before.Container /= null
-        and then Before.Container /= Container'Unchecked_Access
+        and then Before.Container /= Container'Unrestricted_Access
       then
          raise Program_Error with "Before cursor denotes wrong container";
       end if;
@@ -2424,7 +2491,7 @@ package body Ada.Containers.Indefinite_Vectors is
          then
             Position := No_Element;
          else
-            Position := (Container'Unchecked_Access, Before.Index);
+            Position := (Container'Unrestricted_Access, Before.Index);
          end if;
 
          return;
@@ -2446,7 +2513,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
       Insert_Space (Container, Index, Count);
 
-      Position := Cursor'(Container'Unchecked_Access, Index);
+      Position := Cursor'(Container'Unrestricted_Access, Index);
    end Insert_Space;
 
    --------------
@@ -2466,15 +2533,14 @@ package body Ada.Containers.Indefinite_Vectors is
      (Container : Vector;
       Process   : not null access procedure (Position : Cursor))
    is
-      V : Vector renames Container'Unrestricted_Access.all;
-      B : Natural renames V.Busy;
+      B : Natural renames Container'Unrestricted_Access.all.Busy;
 
    begin
       B := B + 1;
 
       begin
          for Indx in Index_Type'First .. Container.Last loop
-            Process (Cursor'(Container'Unchecked_Access, Indx));
+            Process (Cursor'(Container'Unrestricted_Access, Indx));
          end loop;
       exception
          when others =>
@@ -2488,9 +2554,16 @@ package body Ada.Containers.Indefinite_Vectors is
    function Iterate (Container : Vector)
       return Vector_Iterator_Interfaces.Reversible_Iterator'class
    is
-      It : constant Iterator := (Container'Unchecked_Access, Index_Type'First);
+      B  : Natural renames Container'Unrestricted_Access.all.Busy;
+
    begin
-      return It;
+      return It : constant Iterator :=
+                    (Limited_Controlled with
+                       Container => Container'Unrestricted_Access,
+                       Index     => Index_Type'First)
+      do
+         B := B + 1;
+      end return;
    end Iterate;
 
    function Iterate
@@ -2498,10 +2571,16 @@ package body Ada.Containers.Indefinite_Vectors is
       Start     : Cursor)
       return Vector_Iterator_Interfaces.Reversible_Iterator'class
    is
-      It : constant Iterator :=
-             (Container'Unchecked_Access, Start.Index);
+      B  : Natural renames Container'Unrestricted_Access.all.Busy;
+
    begin
-      return It;
+      return It : constant Iterator :=
+                    (Limited_Controlled with
+                       Container => Container'Unrestricted_Access,
+                       Index     => Start.Index)
+      do
+         B := B + 1;
+      end return;
    end Iterate;
 
    ----------
@@ -2514,7 +2593,7 @@ package body Ada.Containers.Indefinite_Vectors is
          return No_Element;
       end if;
 
-      return (Container'Unchecked_Access, Container.Last);
+      return (Container'Unrestricted_Access, Container.Last);
    end Last;
 
    function Last (Object : Iterator) return Cursor is
@@ -3261,7 +3340,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
    begin
       if Position.Container /= null
-        and then Position.Container /= Container'Unchecked_Access
+        and then Position.Container /= Container'Unrestricted_Access
       then
          raise Program_Error with "Position cursor denotes wrong container";
       end if;
@@ -3278,7 +3357,7 @@ package body Ada.Containers.Indefinite_Vectors is
          if Container.Elements.EA (Indx) /= null
            and then Container.Elements.EA (Indx).all = Item
          then
-            return (Container'Unchecked_Access, Indx);
+            return (Container'Unrestricted_Access, Indx);
          end if;
       end loop;
 
@@ -3324,7 +3403,7 @@ package body Ada.Containers.Indefinite_Vectors is
 
       begin
          for Indx in reverse Index_Type'First .. Container.Last loop
-            Process (Cursor'(Container'Unchecked_Access, Indx));
+            Process (Cursor'(Container'Unrestricted_Access, Indx));
          end loop;
       exception
          when others =>
@@ -3439,7 +3518,7 @@ package body Ada.Containers.Indefinite_Vectors is
          return No_Element;
       end if;
 
-      return Cursor'(Container'Unchecked_Access, Index);
+      return Cursor'(Container'Unrestricted_Access, Index);
    end To_Cursor;
 
    --------------
