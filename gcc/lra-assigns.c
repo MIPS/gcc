@@ -537,8 +537,9 @@ lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
     fprintf (lra_dump_file, "      Assign %d to %sr%d (freq=%d)\n",
 	     reg_renumber[regno],
 	     regno < lra_constraint_new_regno_start
-	     ? "" : bitmap_bit_p (&lra_inheritance_pseudos, regno)
-	     ? "inheritance " : "reload ",
+	     ? ""
+	     : bitmap_bit_p (&lra_inheritance_pseudos, regno) ? "inheritance "
+	     : bitmap_bit_p (&lra_split_pseudos, regno) ? "split " : "reload ",
 	     regno, lra_reg_info[regno].freq);
   if (hard_regno >= 0)
     {
@@ -554,17 +555,6 @@ static bitmap_head ignore_pseudos_bitmap;
 /* Bitmaps used to contain spill pseudos for given pseudo hard regno
    and best spill pseudos for given pseudo (and best hard regno).  */
 static bitmap_head spill_pseudos_bitmap, best_spill_pseudos_bitmap;
-
-/* Bitmap used to contain all posible candidates which might get a
-   hard register after spilling for given pseudo hard regno.  */
-static bitmap_head assign_candidates_bitmap;
-/* Array used to contain and sort the possible candidates (see
-   above).  */
-static int *assign_candidates;
-
-/* Array used to contain assigned pseudos during a try of spilling
-   pseudos.  */
-static int *assigned_pseudos;
 
 /* Current pseudo check for validity of elements in
    TRY_HARD_REG_PSEUDOS.  */
@@ -692,7 +682,8 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
 	if ((int) spill_regno >= lra_constraint_new_regno_start
 	    /* ??? */
-	    && ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno))
+	    && ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
+	    && ! bitmap_bit_p (&lra_split_pseudos, spill_regno))
 	  goto fail;
       insn_pseudos_num = 0;
       if (lra_dump_file != NULL)
@@ -804,7 +795,9 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 		 ((int) spill_regno < lra_constraint_new_regno_start
 		  ? ""
 		  : bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
-		  ? "inheritance " : "reload "),
+		  ? "inheritance "
+		  : bitmap_bit_p (&lra_split_pseudos, spill_regno)
+		  ? "split " : "reload "),
 		 spill_regno, reg_renumber[spill_regno],
 		 lra_reg_info[spill_regno].freq, regno);
       update_lives (spill_regno, true);
@@ -990,9 +983,6 @@ assign_by_spills (void)
   bitmap_initialize (&ignore_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&spill_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&best_spill_pseudos_bitmap, &reg_obstack);
-  bitmap_initialize (&assign_candidates_bitmap, &reg_obstack);
-  assign_candidates = (int *) xmalloc (sizeof (int) * max_reg_num ());
-  assigned_pseudos = (int *) xmalloc (sizeof (int) * max_reg_num ());
   update_hard_regno_preference_check = (int *) xmalloc (sizeof (int)
 							* max_reg_num ());
   memset (update_hard_regno_preference_check, 0,
@@ -1019,11 +1009,13 @@ assign_by_spills (void)
 		     regno_assign_info[regno_assign_info[regno].first].freq);
 	  hard_regno = find_hard_regno_for (regno, &cost, -1);
 	  if (hard_regno < 0
-	      && ! bitmap_bit_p (&lra_inheritance_pseudos, regno))
+	      && ! bitmap_bit_p (&lra_inheritance_pseudos, regno)
+	      && ! bitmap_bit_p (&lra_split_pseudos, regno))
 	    hard_regno = spill_for (regno, &all_spilled_pseudos);
 	  if (hard_regno < 0)
 	    {
-	      if (! bitmap_bit_p (&lra_inheritance_pseudos, regno))
+	      if (! bitmap_bit_p (&lra_inheritance_pseudos, regno)
+		  && ! bitmap_bit_p (&lra_split_pseudos, regno))
 		sorted_pseudos[nfails++] = regno;
 	    }
 	  else
@@ -1084,17 +1076,24 @@ assign_by_spills (void)
     }
   improve_inheritance ();
   bitmap_clear (&changed_insns);
-  /* Inheritance pseudo can be assigned and after that spilled.  We
-     should look at the final result.  */
+  /* We can not assign to inherited pseudos if any its inheritance
+     pseudo did not get hard register because undo inheritance pass
+     will extend live range of such inherited pseudos.  */
   bitmap_initialize (&do_not_assign_nonreload_pseudos, &reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, u, bi)
-    if (reg_renumber[u] < 0
-	&& (restore_regno = lra_reg_info[u].restore_regno) >= 0)
+    if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
+	&& ((reg_renumber[u] < 0
+	     && bitmap_bit_p (&lra_inheritance_pseudos, u))
+	    || (reg_renumber[u] >= 0
+		&& bitmap_bit_p (&lra_split_pseudos, u))))
       bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     if (((i < lra_constraint_new_regno_start
 	  && ! bitmap_bit_p (&do_not_assign_nonreload_pseudos, i))
-	 || bitmap_bit_p (&lra_inheritance_pseudos, i))
+	 || (bitmap_bit_p (&lra_inheritance_pseudos, i)
+	     && lra_reg_info[i].restore_regno >= 0)
+	 || (bitmap_bit_p (&lra_split_pseudos, i)
+	     && lra_reg_info[i].restore_regno >= 0))
 	&& reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
 	&& regno_allocno_class_array[i] != NO_REGS)
       sorted_pseudos[n++] = i;
@@ -1117,9 +1116,6 @@ assign_by_spills (void)
 	}
     }
   free (update_hard_regno_preference_check);
-  free (assigned_pseudos);
-  free (assign_candidates);
-  bitmap_clear (&assign_candidates_bitmap);
   bitmap_clear (&best_spill_pseudos_bitmap);
   bitmap_clear (&spill_pseudos_bitmap);
   bitmap_clear (&ignore_pseudos_bitmap);

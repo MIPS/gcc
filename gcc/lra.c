@@ -2065,8 +2065,11 @@ int lra_in_progress;
 /* Start of reload pseudo regnos before the new spill pass.  */ 
 int lra_constraint_new_regno_start;
 
-/* Inheritance pseudo regnos breore the new spill pass.  */ 
+/* Inheritance pseudo regnos before the new spill pass.  */ 
 bitmap_head lra_inheritance_pseudos;
+
+/* Split pseudo regnos before the new spill pass.  */ 
+bitmap_head lra_split_pseudos;
 
 /* First UID of insns generated before a new spill pass.  */
 int lra_constraint_new_insn_uid_start;
@@ -2122,12 +2125,6 @@ lra (FILE *f)
       if (! call_used_regs[i] && ! fixed_regs[i] && ! LOCAL_REGNO (i))
 	df_set_regs_ever_live (i, true);
 
-  if (flag_caller_saves)
-    {
-      if (lra_save_restore ())
-	df_analyze ();
-    }
-
   /* We don't DF from now and avoid its using because it is to
      expensive when a lot of RTL changes are made.  */
   df_set_flags (DF_NO_INSN_RESCAN);
@@ -2140,6 +2137,7 @@ lra (FILE *f)
   /* It is needed for the 1st coalescing.  */
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
+  bitmap_initialize (&lra_split_pseudos, &reg_obstack);
   live_p = false;
   for (;;)
     {
@@ -2149,7 +2147,8 @@ lra (FILE *f)
 	     if there were no RTL transformations in
 	     lra_constraints.  */
 	  if (! lra_constraints (lra_constraint_iter == 0)
-	      && (lra_constraint_iter > 1 || ! scratch_p))
+	      && (lra_constraint_iter > 1
+		  || (! scratch_p && ! caller_save_needed)))
 	    break;
 	  /* Constraint transformations may result in that eliminable
 	     hard regs become uneliminable and pseudos which use them
@@ -2175,6 +2174,7 @@ lra (FILE *f)
 	    live_p = false;
 	}
       bitmap_clear (&lra_inheritance_pseudos);
+      bitmap_clear (&lra_split_pseudos);
       if (! lra_need_for_spills_p ())
 	break;
       if (! live_p)

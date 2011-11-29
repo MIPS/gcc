@@ -1259,9 +1259,6 @@ lra_eliminate (bool final_p)
   bitmap_head insns_with_changed_offsets;
   struct elim_table *ep;
   int regs_num = max_reg_num ();
-#ifdef SECONDARY_MEMORY_NEEDED
-  int mode;
-#endif
 
   bitmap_initialize (&insns_with_changed_offsets, &reg_obstack);
   if (final_p)
@@ -1307,13 +1304,6 @@ lra_eliminate (bool final_p)
 	  fprintf (lra_dump_file,
 		   "Updating elimination of equiv for reg %d\n", i);
       }
-#ifdef SECONDARY_MEMORY_NEEDED
-  for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
-    if (lra_secondary_memory[mode] != NULL_RTX)
-      lra_secondary_memory[mode]
-	= lra_eliminate_regs_1 (lra_secondary_memory[mode],
-				VOIDmode, final_p, ! final_p, false);
-#endif
   FOR_EACH_BB (bb)
     FOR_BB_INSNS_SAFE (bb, insn, temp)
       {

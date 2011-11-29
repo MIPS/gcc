@@ -1,3 +1,74 @@
+2011-11-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_MODE): New
+	macro.
+
+	* config/rs6000/rs6000-protos.h
+	(rs6000_secondary_memory_needed_mode): New prototype.
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Rewrite the code for
+	LRA for emitting secondary memory moves based on class of the
+	pseudo denoting the secondary memory.
+	(rs6000_secondary_memory_needed_mode): New function.
+	(rs6000_check_sdmode): Do nothing for LRA.
+
+	* config/i386/i386.c (inline_secondary_memory_needed): Switch off
+	an assert for LRA.
+
+	* lra-int.h (lra_split_pseudos): New external.
+
+	* lra-assigns.c (lra_setup_reg_renumber): Add code for printing
+	split pseudos.
+	(assign_candidates_bitmap, assign_candidates, assigned_pseudos):
+	Remove.
+	(spill_for): Add code for dealing with the split pseudos.
+	(assign_by_spills): Ditto.
+
+	* lra.c (lra_split_pseudos): New bitmap.
+	(lra): Initialize and finalize lra_split_pseudos.  Remove call of
+	lra_save_restore.  Always do inheritance/split pass on the first
+	iteration when caller_save_needed.
+
+	* lra-constraints.c (lra_secondary_memory): Remove.
+	(get_secondary_mem): Ditto.
+	(get_reload_reg): Make value of output reload pseudo unique.
+	(emit_secondary_memory_move): Rename emit_spill_move.  Process
+	subregs.
+	(check_and_process_move): Add new argument.  Don't emit secondary
+	memory moves, only report them.  Make values of scratch and
+	secondary pseudos unique.
+	(curr_insn_transform): Emit secondary memory moves only if insn
+	does not satisfy all constraints.
+	(MAX_RELOAD_INSNS_NUMBER): Increase it to LRA_MAX_INSN_RELOADS.
+	(lra_contraints_init): Remove code initializing
+	lra_secondary_memory.
+	(usage_insns_check): Remove.
+	(reloads_num, calls_num): New.
+	(struct usage_insns): New.
+	(usage_insns): Change the type.
+	(inherit_reload_reg): Improve formatting.  Add more asserts.
+	(need_for_call_save_p, need_for_split_p, choose_split_class): New
+	functions.
+	(split_pseudo): New function.
+	(update_ebb_live_info): Process insns even if EBB contains one BB.
+	(get_live_on_other_edges, get_non_debug_insn): New functions.
+	(temp_bitmap): New bitmap.
+	(add_next_usage_insn): New function.
+	(inherit_in_ebb): Change the prototype.  Add code for pseudo range
+	splitting.
+	(lra_inheritance): Call update_ebb_live_info if the changes were
+	made in inherit_in_ebb.
+	(get_pseudo_regno): New function.
+	(remove_inheritance_pseudos): Add code for undoing pseudo live
+	range split and dealing with subregs.  Update debug info too.
+	(lra_undo_inheritance): Add code for undoing pseudo live range
+	split.  Add prining more debug info.
+
+	* lra-saves.c: Remove.
+
+	* Makefile.in (OBJS): Remove lra-saves.o
+	(lra-saves.o): Remove the entry.
+
 2011-11-15  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/i386/i386elf.h (ASM_OUTPUT_ASCII): Change STRING_LIMIT to

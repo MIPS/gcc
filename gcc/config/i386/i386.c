@@ -31278,7 +31278,7 @@ inline_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
       || MAYBE_MMX_CLASS_P (class1) != MMX_CLASS_P (class1)
       || MAYBE_MMX_CLASS_P (class2) != MMX_CLASS_P (class2))
     {
-      gcc_assert (!strict);
+      gcc_assert (!strict || lra_in_progress);
       return true;
     }
 

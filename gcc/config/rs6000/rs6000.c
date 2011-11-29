@@ -6956,8 +6956,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   if (lra_in_progress
       && mode == SDmode
-      && MEM_P (operands[0])
-      && rtx_equal_p (operands[0], cfun->machine->sdmode_stack_slot)
+      && REG_P (operands[0]) && REGNO (operands[0]) >= FIRST_PSEUDO_REGISTER
+      && reg_preferred_class (REGNO (operands[0])) == NO_REGS
       && (REG_P (operands[1])
 	  || (GET_CODE (operands[1]) == SUBREG
 	      && REG_P (SUBREG_REG (operands[1])))))
@@ -6973,19 +6973,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  regno = ira_class_hard_regs[cl][0];
 	}
       if (FP_REGNO_P (regno))
-	{
-	  rtx mem = adjust_address_nv (operands[0], DDmode, 0);
-
-	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
-	  emit_insn (gen_movsd_store (mem, operands[1]));
-	}
+	emit_insn (gen_movsd_store (operands[0], operands[1]));
       else if (INT_REGNO_P (regno))
-	{
-	  rtx mem = adjust_address_nv (operands[0], mode, 4);
-
-	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
-	  emit_insn (gen_movsd_hardfloat (mem, operands[1]));
-	}
+	emit_insn (gen_movsd_hardfloat (operands[0], operands[1]));
       else
 	gcc_unreachable();
       return;
@@ -6995,8 +6985,8 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       && (REG_P (operands[0])
 	  || (GET_CODE (operands[0]) == SUBREG
 	      && REG_P (SUBREG_REG (operands[0]))))
-      && MEM_P (operands[1])
-      && rtx_equal_p (operands[1], cfun->machine->sdmode_stack_slot))
+      && REG_P (operands[1]) && REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER
+      && reg_preferred_class (REGNO (operands[1])) == NO_REGS)
     {
       int regno = REGNO (GET_CODE (operands[0]) == SUBREG
 			 ? SUBREG_REG (operands[0]) : operands[0]);
@@ -7009,19 +6999,9 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  regno = ira_class_hard_regs[cl][0];
 	}
       if (FP_REGNO_P (regno))
-	{
-	  rtx mem = adjust_address_nv (operands[1], DDmode, 0);
-
-	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
-	  emit_insn (gen_movsd_load (operands[0], mem));
-	}
+	emit_insn (gen_movsd_load (operands[0], operands[1]));
       else if (INT_REGNO_P (regno))
-	{
-	  rtx mem = adjust_address_nv (operands[1], mode, 4);
-
-	  mem = eliminate_regs (mem, VOIDmode, NULL_RTX);
-	  emit_insn (gen_movsd_hardfloat (operands[0], mem));
-	}
+	emit_insn (gen_movsd_hardfloat (operands[0], operands[1]));
       else
 	gcc_unreachable();
       return;
@@ -14156,6 +14136,17 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
   return ret;
 }
 
+/* Return the mode to be used for memory when a secondary memory
+   location is needed.  For SDmode values we need to use DDmode, in
+   all other cases we can use the same mode.  */
+enum machine_mode
+rs6000_secondary_memory_needed_mode (enum machine_mode mode)
+{
+  if (mode == SDmode)
+    return DDmode;
+  return mode;
+}
+
 static tree
 rs6000_check_sdmode (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
@@ -14699,6 +14690,10 @@ rs6000_alloc_sdmode_stack_slot (void)
   gimple_stmt_iterator gsi;
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
+  /* We use a different approach for dealing with the secondary
+     memmory in LRA.  */
+  if (flag_lra)
+    return;
 
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
