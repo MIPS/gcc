@@ -62,7 +62,7 @@
 	(remove_inheritance_pseudos): Add code for undoing pseudo live
 	range split and dealing with subregs.  Update debug info too.
 	(lra_undo_inheritance): Add code for undoing pseudo live range
-	split.  Add prining more debug info.
+	split.  Add printing more debug info.
 
 	* lra-saves.c: Remove.
 
