@@ -2576,7 +2576,7 @@ lto_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
   if (fclass == BUILT_IN_NORMAL)
     {
       gcc_assert (fcode < END_BUILTINS);
-      result = built_in_decls[fcode];
+      result = builtin_decl_explicit (fcode);
       gcc_assert (result);
     }
   else if (fclass == BUILT_IN_MD)

@@ -4811,7 +4811,7 @@ gfc_trans_allocate (gfc_code * code)
 			      slen);
 
       dlen = build_call_expr_loc (input_location,
-			      built_in_decls[BUILT_IN_MEMCPY], 3,
+				  builtin_decl_explicit (BUILT_IN_MEMCPY), 3,
 		gfc_build_addr_expr (pvoid_type_node, se.expr), errmsg, slen);
 
       tmp = fold_build2_loc (input_location, NE_EXPR, boolean_type_node, stat,
@@ -4970,7 +4970,7 @@ gfc_trans_deallocate (gfc_code *code)
 			      slen);
 
       dlen = build_call_expr_loc (input_location,
-			      built_in_decls[BUILT_IN_MEMCPY], 3,
+				  builtin_decl_explicit (BUILT_IN_MEMCPY), 3,
 		gfc_build_addr_expr (pvoid_type_node, se.expr), errmsg, slen);
 
       tmp = fold_build2_loc (input_location, NE_EXPR, boolean_type_node, astat,

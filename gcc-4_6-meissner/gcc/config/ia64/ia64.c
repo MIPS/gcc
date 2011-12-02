@@ -10196,8 +10196,10 @@ ia64_init_builtins (void)
   /* Fwrite on VMS is non-standard.  */
   if (TARGET_ABI_OPEN_VMS)
     {
-      implicit_built_in_decls[(int) BUILT_IN_FWRITE] = NULL_TREE;
-      implicit_built_in_decls[(int) BUILT_IN_FWRITE_UNLOCKED] = NULL_TREE;
+      if (builtin_decl_implicit_p (BUILT_IN_WRITE))
+	set_builtin_decl_implicit_p (BUILT_IN_WRITE, false);
+      if (builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED))
+	set_builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED, false);
     }
 
 #define def_builtin(name, type, code)					\
@@ -10218,15 +10220,12 @@ ia64_init_builtins (void)
 
   if (TARGET_HPUX)
     {
-      if (built_in_decls [BUILT_IN_FINITE])
-	set_user_assembler_name (built_in_decls [BUILT_IN_FINITE],
-	  "_Isfinite");
-      if (built_in_decls [BUILT_IN_FINITEF])
-	set_user_assembler_name (built_in_decls [BUILT_IN_FINITEF],
-	  "_Isfinitef");
-      if (built_in_decls [BUILT_IN_FINITEL])
-	set_user_assembler_name (built_in_decls [BUILT_IN_FINITEL],
-	  "_Isfinitef128");
+      if ((decl = builtin_decl_explicit (BUILT_IN_FINITE))) != NULL_TREE)
+	set_user_assembler_name (decl, "_Isfinite");
+      if ((decl = builtin_decl_explicit (BUILT_IN_FINITEF))) != NULL_TREE)
+	set_user_assembler_name (decl, "_Isfinitef");
+      if ((decl = builtin_decl_explicit (BUILT_IN_FINITEL))) != NULL_TREE)
+	set_user_assembler_name (decl, "_Isfinitef128");
     }
 }
 

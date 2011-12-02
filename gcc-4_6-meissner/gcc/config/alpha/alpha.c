@@ -6645,8 +6645,10 @@ alpha_init_builtins (void)
 
   /* Fwrite on VMS is non-standard.  */
 #if TARGET_ABI_OPEN_VMS
-  implicit_built_in_decls[(int) BUILT_IN_FWRITE] = NULL_TREE;
-  implicit_built_in_decls[(int) BUILT_IN_FWRITE_UNLOCKED] = NULL_TREE;
+  if (builtin_decl_implicit_p (BUILT_IN_WRITE))
+    set_builtin_decl_implicit_p (BUILT_IN_WRITE, false);
+  if (builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED))
+    set_builtin_decl_implicit_p (BUILT_IN_WRITE_UNLOCKED, false);
 #endif
 
   ftype = build_function_type (dimode_integer_type_node, void_list_node);
