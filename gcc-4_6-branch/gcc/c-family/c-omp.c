@@ -76,7 +76,7 @@ c_finish_omp_barrier (location_t loc)
 {
   tree x;
 
-  x = built_in_decls[BUILT_IN_GOMP_BARRIER];
+  x = builtin_decl_explicit (BUILT_IN_GOMP_BARRIER);
   x = build_call_expr_loc (loc, x, 0);
   add_stmt (x);
 }
@@ -90,7 +90,7 @@ c_finish_omp_taskwait (location_t loc)
 {
   tree x;
 
-  x = built_in_decls[BUILT_IN_GOMP_TASKWAIT];
+  x = builtin_decl_explicit (BUILT_IN_GOMP_TASKWAIT);
   x = build_call_expr_loc (loc, x, 0);
   add_stmt (x);
 }
@@ -169,7 +169,7 @@ c_finish_omp_flush (location_t loc)
 {
   tree x;
 
-  x = built_in_decls[BUILT_IN_SYNCHRONIZE];
+  x = builtin_decl_explicit (BUILT_IN_SYNCHRONIZE);
   x = build_call_expr_loc (loc, x, 0);
   add_stmt (x);
 }

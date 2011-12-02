@@ -271,7 +271,8 @@ gfc_trans_io_runtime_check (tree cond, tree var, int error_code,
       cond = fold_convert (long_integer_type_node, cond);
       tmp = build_int_cst (long_integer_type_node, 0);
       cond = build_call_expr_loc (input_location,
-			      built_in_decls[BUILT_IN_EXPECT], 2, cond, tmp);
+				  builtin_decl_explicit (BUILT_IN_EXPECT),
+				  2, cond, tmp);
       cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt (input_location));

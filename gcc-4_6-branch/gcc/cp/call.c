@@ -6401,7 +6401,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	      arg1 = save_expr (arg1);
 	      test = build2 (EQ_EXPR, boolean_type_node, arg0, arg1);
 	    }
-	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
+	  t = builtin_decl_implicit (BUILT_IN_MEMCPY);
 	  t = build_call_n (t, 3, arg0, arg1, arg2);
 
 	  t = convert (TREE_TYPE (arg0), t);
