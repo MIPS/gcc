@@ -115,6 +115,10 @@ int rs6000_cpu_index = -1
 TargetVariable
 int rs6000_tune_index = -1
 
+;; Mask of what builtin functions are allowed
+TargetVariable
+unsigned int rs6000_builtin_mask
+
 ;; Debug flags
 TargetVariable
 unsigned int rs6000_debug

@@ -176,6 +176,8 @@ extern bool rs6000_save_toc_in_prologue_p (void);
 extern bool rs6000_tls_referenced_p (rtx);
 
 extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
+extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
+extern unsigned rs6000_builtin_mask_calculate (void);
 
 /* Declare functions in rs6000-c.c */
 
@@ -184,6 +186,8 @@ extern void rs6000_cpu_cpp_builtins (struct cpp_reader *);
 #ifdef TREE_CODE
 extern bool rs6000_pragma_target_parse (tree, tree);
 #endif
+extern void rs6000_target_modify_macros (bool, int, unsigned);
+extern void (*rs6000_target_modify_macros_ptr) (bool, int, unsigned);
 
 #if TARGET_MACHO
 char *output_call (rtx, rtx *, int, int);
