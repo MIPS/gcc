@@ -4521,15 +4521,14 @@
   [(set (match_operand:V4DF 0 "register_operand"         "=x,x")
 	(vec_select:V4DF
 	  (vec_concat:V8DF
-	    (match_operand:V4DF 1 "nonimmediate_operand" "xm,x")
-	    (match_operand:V4DF 2 "nonimmediate_operand" " 1,xm"))
+	    (match_operand:V4DF 1 "nonimmediate_operand" " x,m")
+	    (match_operand:V4DF 2 "nonimmediate_operand" "xm,1"))
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 2) (const_int 6)])))]
-  "TARGET_AVX
-   && (!MEM_P (operands[1]) || rtx_equal_p (operands[1], operands[2]))"
+  "TARGET_AVX"
   "@
-   vmovddup\t{%1, %0|%0, %1}
-   vunpcklpd\t{%2, %1, %0|%0, %1, %2}"
+   vunpcklpd\t{%2, %1, %0|%0, %1, %2}
+   vmovddup\t{%1, %0|%0, %1}"
   [(set_attr "type" "sselog")
    (set_attr "prefix" "vex")
    (set_attr "mode" "V4DF")])
@@ -10465,8 +10464,8 @@
   [(set (match_operand:SSEMODE 0 "register_operand" "=x,x")
 	(if_then_else:SSEMODE
 	  (match_operand:SSEMODE 3 "nonimmediate_operand" "x,m")
-	  (match_operand:SSEMODE 1 "vector_move_operand" "x,x")
-	  (match_operand:SSEMODE 2 "vector_move_operand" "xm,x")))]
+	  (match_operand:SSEMODE 1 "register_operand" "x,x")
+	  (match_operand:SSEMODE 2 "nonimmediate_operand" "xm,x")))]
   "TARGET_XOP"
   "vpcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}"
   [(set_attr "type" "sse4arg")])
@@ -10475,8 +10474,8 @@
   [(set (match_operand:AVX256MODE 0 "register_operand" "=x,x")
 	(if_then_else:AVX256MODE
 	  (match_operand:AVX256MODE 3 "nonimmediate_operand" "x,m")
-	  (match_operand:AVX256MODE 1 "vector_move_operand" "x,x")
-	  (match_operand:AVX256MODE 2 "vector_move_operand" "xm,x")))]
+	  (match_operand:AVX256MODE 1 "register_operand" "x,x")
+	  (match_operand:AVX256MODE 2 "nonimmediate_operand" "xm,x")))]
   "TARGET_XOP"
   "vpcmov\t{%3, %2, %1, %0|%0, %1, %2, %3}"
   [(set_attr "type" "sse4arg")])
@@ -12007,8 +12006,7 @@
   [(set (match_operand:AVXMODEF2P 0 "register_operand" "=x")
 	(unspec:AVXMODEF2P
 	  [(match_operand:AVXMODEF2P 1 "memory_operand" "m")
-	   (match_operand:<avxpermvecmode> 2 "register_operand" "x")
-	   (match_dup 0)]
+	   (match_operand:<avxpermvecmode> 2 "register_operand" "x")]
 	  UNSPEC_MASKLOAD))]
   "TARGET_AVX"
   "vmaskmov<ssemodesuffix>\t{%1, %2, %0|%0, %2, %1}"

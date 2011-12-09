@@ -1,3 +1,21 @@
+2011-12-09  Michael Meissner  <meissner@the-meissners.org>
+
+	Merge up to 182172.
+	* REVISION: Update subversion id.
+
+	Backport from the mainline
+	2011-12-08  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000.c (altivec_expand_builtin): Call
+	expand_call to return a valid funciton instead of return
+	cosnt0_rtx/NULL_RTX if there was an error with the builtin.
+	(altivec_expand_ld_builtin): Ditto.
+	(rs6000_inner_target_options): If VSX is selected as a target
+	attribute or pragma, enable ALTIVEC also.
+	(rs6000_pragma_target_parse): Call rs6000_option_override_internal
+	to do all of the standard processing when switching options,
+	including redefining appropriate macros.
+
 2011-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from the mainline

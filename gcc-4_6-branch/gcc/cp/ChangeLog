@@ -1,3 +1,124 @@
+2011-11-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51265
+	* semantics.c (finish_decltype_type): Handle PTRMEM_CST.
+
+2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51150
+	* pt.c (tsubst_copy_and_build): Handle FIX_TRUNC_EXPR.
+
+2011-11-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50870
+	* pt.c (tsubst_copy): Handle NAMESPACE_DECL.
+	(tsubst_copy_and_build) [COMPONENT_REF]: Handle a still-dependent
+	object.
+
+2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c++/50608
+	* semantics.c (finish_offsetof): Adjust call to fold_offsetof.
+	* typeck.c (cp_build_addr_expr_1): Call fold_offsetof_1.
+
+2011-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50901
+	* call.c (build_new_op_1): Handle ABS_EXPR together with the
+	other unary EXPR.
+
+2011-10-26  Release Manager
+
+	* GCC 4.6.2 released.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50793
+	* tree.c (bot_manip): Propagate AGGR_INIT_ZERO_FIRST.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50787
+	* parser.c (cp_parser_initializer_clause): Don't call
+	maybe_constant_value here.
+
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50531
+	* pt.c (instantiate_decl): Recognize when a function defaulted
+	outside the class is already instantiated.
+
+2011-10-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Backport from mainline
+	2011-06-06  Nicola Pero  <nicola.pero@meta-innovation.com>,
+
+	PR obj-c++/48275
+	* parser.c (cp_parser_objc_at_property_declaration): Allow setter
+	and getter names to use all the allowed method names.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* init.c (expand_aggr_init_1): Don't zero-initialize virtual
+	bases of a base subobject.
+
+2011-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49216
+	* init.c (build_vec_init): Avoid crash on new int[1]{}.
+
+	PR c++/49855
+	PR c++/49896
+	* call.c (perform_implicit_conversion_flags): Do perform
+	scalar conversions in templates.
+	* pt.c (tsubst_copy, tsubst_copy_and_build): Handle CONVERT_EXPR.
+
+2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* mangle.c (write_type): Handle CV qualifiers for decimal classes.
+
+2011-10-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50611
+	* pt.c (tsubst_copy_and_build): If (complain & tf_error) is false
+	do not call unqualified_name_lookup_error.
+
+2011-10-09  Jakub Jelinek  <jakub@redhat.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* pt.c (reregister_specialization): Use htab_find instead of
+	htab_find_slot with INSERT.
+
+2011-09-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46105
+	* typeck.c (structural_comptypes): Ignore cv-quals on typename scope.
+
+	PR c++/50508
+	* semantics.c (cxx_eval_logical_expression): Use tree_int_cst_equal
+	rather than ==.
+
+2011-09-23  Jason Merrill  <jason@redhat.com>
+
+	Core 253 - allow const objects with no initializer or
+	user-provided default constructor if the defaulted constructor
+	initializes all the subobjects.
+	PR c++/20039
+	PR c++/42844
+	* class.c (default_init_uninitialized_part): New.
+	* cp-tree.h: Declare it.
+	* decl.c (check_for_uninitialized_const_var): Use it.
+	* init.c (perform_member_init): Likewise.
+	(build_new_1): Likewise.
+	* method.c (walk_field_subobs): Likewise.
+
+2011-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50491
+	* semantics.c (potential_constant_expression_1): Handle USING_DECL.
+
 2011-09-17  Jason Merrill  <jason@redhat.com>
 
 	PR c++/50442

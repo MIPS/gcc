@@ -18,6 +18,10 @@
 #error "__VSX__ should not be defined."
 #endif
 
+#pragma GCC target("vsx")
+#include <altivec.h>
+#pragma GCC reset_options
+
 #pragma GCC push_options
 #pragma GCC target("altivec,no-vsx")
 
@@ -29,16 +33,14 @@
 #error "__VSX__ should not be defined."
 #endif
 
-void av_add (float *a, float *b, float *c)
+void
+av_add (vector float *a, vector float *b, vector float *c)
 {
   unsigned long i;
   unsigned long n = SIZE / 4;
-  __vector float *av_a = (__vector float *)a;
-  __vector float *av_b = (__vector float *)b;
-  __vector float *av_c = (__vector float *)c;
 
   for (i = 0; i < n; i++)
-    av_a[i] = __builtin_altivec_vaddfp (av_b[i], av_c[i]);
+    a[i] = vec_add (b[i], c[i]);
 }
 
 #pragma GCC target("vsx")
@@ -51,16 +53,14 @@ void av_add (float *a, float *b, float *c)
 #error "__VSX__ should be defined."
 #endif
 
-void vsx_add (float *a, float *b, float *c)
+void
+vsx_add (vector float *a, vector float *b, vector float *c)
 {
   unsigned long i;
   unsigned long n = SIZE / 4;
-  __vector float *vsx_a = (__vector float *)a;
-  __vector float *vsx_b = (__vector float *)b;
-  __vector float *vsx_c = (__vector float *)c;
 
   for (i = 0; i < n; i++)
-    vsx_a[i] = __builtin_vsx_xvaddsp (vsx_b[i], vsx_c[i]);
+    a[i] = vec_add (b[i], c[i]);
 }
 
 #pragma GCC pop_options
@@ -74,7 +74,8 @@ void vsx_add (float *a, float *b, float *c)
 #error "__VSX__ should not be defined."
 #endif
 
-void norm_add (float *a, float *b, float *c)
+void
+norm_add (float *a, float *b, float *c)
 {
   unsigned long i;
 

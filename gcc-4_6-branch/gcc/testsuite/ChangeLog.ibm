@@ -1,7 +1,13 @@
-2011-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2011-12-09  Michael Meissner  <meissner@the-meissners.org>
 
 	Backport from trunk
-	2011-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	2011-12-08  Michael Meissner  <meissner@the-meissners.org>
+
+	* gcc.target/powerpc/recip-5.c: Disable running on any system that
+	does not support VSX.
+
+	Backport from trunk
+	2011-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/ppc-target-4.c: New file to test target
 	specific functions enabling target specific builtins.
