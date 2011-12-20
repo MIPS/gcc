@@ -2724,7 +2724,7 @@ execute (void)
 #if !(defined (__MSDOS__) || defined (OS2) || defined (VMS))
 	    /* For ICEs in cc1, cc1obj, cc1plus see if it is
 	       reproducible or not.  */
-	    char *p;
+	    const char *p;
 	    if (WEXITSTATUS (status) == ICE_EXIT_CODE
 		&& i == 0
 		&& (p = strrchr (commands[0].argv[0], DIR_SEPARATOR))
