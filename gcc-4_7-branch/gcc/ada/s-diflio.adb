@@ -1,14 +1,14 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                  GNAT RUN-TIME LIBRARY (GNARL) COMPONENTS                --
+--                         GNAT RUN-TIME COMPONENTS                         --
 --                                                                          --
 --                    S Y S T E M . D I M _ F L O A T _ I O                 --
 --                                                                          --
---                                  B o d y                                 --
+--                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--            Copyright (C) 2011, Free Software Foundation, Inc.            --
 --                                                                          --
--- GNARL is free software; you can  redistribute it  and/or modify it under --
+-- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
 -- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
@@ -24,8 +24,8 @@
 -- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
 -- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University.       --
--- Extensive contributions were provided by Ada Core Technologies, Inc.     --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -41,9 +41,9 @@ package body System.Dim_Float_IO is
      (File : File_Type;
       Item : Num_Dim_Float;
       Unit : String := "";
-      Fore : Field := Default_Fore;
-      Aft  : Field := Default_Aft;
-      Exp  : Field := Default_Exp)
+      Fore : Field  := Default_Fore;
+      Aft  : Field  := Default_Aft;
+      Exp  : Field  := Default_Exp)
    is
    begin
       Num_Dim_Float_IO.Put (File, Item, Fore, Aft, Exp);
@@ -53,9 +53,9 @@ package body System.Dim_Float_IO is
    procedure Put
      (Item : Num_Dim_Float;
       Unit : String := "";
-      Fore : Field := Default_Fore;
-      Aft  : Field := Default_Aft;
-      Exp  : Field := Default_Exp)
+      Fore : Field  := Default_Fore;
+      Aft  : Field  := Default_Aft;
+      Exp  : Field  := Default_Exp)
    is
    begin
       Num_Dim_Float_IO.Put (Item, Fore, Aft, Exp);
@@ -66,8 +66,8 @@ package body System.Dim_Float_IO is
      (To   : out String;
       Item : Num_Dim_Float;
       Unit : String := "";
-      Aft  : Field := Default_Aft;
-      Exp  : Field := Default_Exp)
+      Aft  : Field  := Default_Aft;
+      Exp  : Field  := Default_Exp)
    is
    begin
       Num_Dim_Float_IO.Put (To, Item, Aft, Exp);

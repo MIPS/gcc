@@ -1,6 +1,89 @@
+2011-12-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51611
+	* g++.dg/cpp0x/nsdmi-virtual1.C: New.
+
+2011-12-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51305
+	* g++.dg/cpp0x/constexpr-noexcept6.C: New.
+
+2011-12-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51644
+	PR middle-end/51647
+	* gcc.dg/pr51644.c: New test.
+	* g++.dg/warn/Wreturn-4.C: New test.
+
+2011-12-21  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* gcc.dg/vect/no-section-anchors-vect-31.c: Adjust array size and test
+	diag-scans to fix fail on AVX.
+	* gcc.dg/vect/no-section-anchors-vect-36.c: Ditto.
+	* gcc.dg/vect/no-section-anchors-vect-64.c: Ditto.
+	* gcc.dg/vect/no-section-anchors-vect-66.c: Ditto.
+	* gcc.dg/vect/no-section-anchors-vect-68.c: Ditto.
+	* gcc.dg/vect/no-section-anchors-vect-69.c: Ditto.
+	* gcc.dg/vect/no-vfa-vect-dv-2.c: Adjust dg-scans.
+	* gcc.dg/vect/pr45752.c: Ditto.
+	* gcc.dg/vect/slp-perm-4.c: Ditto.
+	* gcc.dg/vect/slp-perm-9.c: Ditto.
+	* gcc.dg/vect/vect-33.c: Ditto.
+	* gcc.dg/vect/vect-35.c: Ditto.
+	* gcc.dg/vect/vect-6-big-array.c: Ditto.
+	* gcc.dg/vect/vect-6.c: Ditto.
+	* gcc.dg/vect/vect-91.c: Ditto.
+	* gcc.dg/vect/vect-all-big-array.c: Ditto.
+	* gcc.dg/vect/vect-all.c: Ditto.
+	* gcc.dg/vect/vect-multitypes-1.c: Ditto.
+	* gcc.dg/vect/vect-outer-4c.c: Ditto.
+	* gcc.dg/vect/vect-outer-5.c: Ditto.
+	* gcc.dg/vect/vect-over-widen-1.c: Ditto.
+	* gcc.dg/vect/vect-over-widen-3.c: Ditto.
+	* gcc.dg/vect/vect-over-widen-4.c: Ditto.
+	* gcc.dg/vect/vect-peel-1.c: Ditto.
+	* gcc.dg/vect/vect-peel-2.c: Ditto.
+	* gcc.dg/vect/vect-peel-3.c: Ditto.
+	* gcc.dg/vect/vect-reduc-pattern-1b.c: Ditto.
+	* gcc.dg/vect/vect-reduc-pattern-1c.c: Ditto.
+	* gcc.dg/vect/vect-reduc-pattern-2b.c: Ditto.
+	* gcc.dg/vect/wrapv-vect-reduc-pattern-2c.c: Ditto.
+	* lib/target-supports.exp (check_avx_available): New function.
+	(check_effective_target_vect_sizes_32B_16B): Ditto.
+	(check_prefer_avx128): Ditto.
+	(check_effective_target_vect_aligned_arrays): Add handling of AVX.
+	(check_effective_target_vect_multiple_sizes): Ditto.
+
+2011-12-21  Enkovich Ilya  <ilya.enkovich@intel.com>
+
+	PR target/50038
+	* gcc.dg/pr50038.c: New test.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/opt/ctor1.C: New test.
+
+2011-12-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51621
+	* g++.dg/cpp0x/constexpr-ice5.C: New.
+
+2011-12-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c11-version-1.c, gcc.dg/c11-version-2.c,
+	gcc.dg/c94-version-1.c, gcc.dg/c99-version-1.c,
+	gcc.dg/gnu11-version-1.c: New tests.
+
+2011-12-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/51200
+	* gcc.target/arm/volatile-bitfields-4.c: New test.
+	* c-c++-common/abi-bf.c: New test.
+
+2011-12-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/49951
+	* g++.dg/gcov/gcov-2.C: Adjust.
 
 2011-12-20  Paolo Carlini  <paolo.carlini@oracle.com>
 

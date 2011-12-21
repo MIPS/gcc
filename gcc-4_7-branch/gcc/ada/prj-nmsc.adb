@@ -1020,6 +1020,57 @@ package body Prj.Nmsc is
      (Project : Project_Id;
       Data    : in out Tree_Processing_Data)
    is
+      procedure Check_Aggregate
+        (Project : Project_Id;
+         Data    : in out Tree_Processing_Data);
+      --  Check the aggregate project attributes, reject any not supported
+      --  attributes.
+
+      ---------------------
+      -- Check_Aggregate --
+      ---------------------
+
+      procedure Check_Aggregate
+        (Project : Project_Id;
+         Data    : in out Tree_Processing_Data)
+      is
+         procedure Check_Not_Defined (Name : Name_Id);
+         --  Report an error if Var is defined
+
+         -----------------------
+         -- Check_Not_Defined --
+         -----------------------
+
+         procedure Check_Not_Defined (Name : Name_Id) is
+            Var : constant Prj.Variable_Value :=
+                    Prj.Util.Value_Of
+                      (Name,
+                       Project.Decl.Attributes,
+                       Data.Tree.Shared);
+         begin
+            if not Var.Default then
+               Error_Msg_Name_1 := Name;
+               Error_Msg
+                 (Data.Flags, "wrong attribute %% in aggregate library",
+                  Var.Location, Project);
+            end if;
+         end Check_Not_Defined;
+
+      --  Start of processing for Check_Not_Defined
+
+      begin
+         Check_Not_Defined (Snames.Name_Library_Dir);
+         Check_Not_Defined (Snames.Name_Library_Interface);
+         Check_Not_Defined (Snames.Name_Library_Name);
+         Check_Not_Defined (Snames.Name_Library_Ali_Dir);
+         Check_Not_Defined (Snames.Name_Library_Src_Dir);
+         Check_Not_Defined (Snames.Name_Library_Options);
+         Check_Not_Defined (Snames.Name_Library_Standalone);
+         Check_Not_Defined (Snames.Name_Library_Kind);
+         Check_Not_Defined (Snames.Name_Leading_Library_Options);
+         Check_Not_Defined (Snames.Name_Library_Version);
+      end Check_Aggregate;
+
       Shared   : constant Shared_Project_Tree_Data_Access := Data.Tree.Shared;
       Prj_Data : Project_Processing_Data;
 
@@ -1058,7 +1109,12 @@ package body Prj.Nmsc is
 
       Check_Configuration (Project, Data);
 
-      if Project.Qualifier /= Aggregate then
+      --  For aggregate project checks that no library attributes are defined
+
+      if Project.Qualifier = Aggregate then
+         Check_Aggregate (Project, Data);
+
+      else
          Check_Library_Attributes (Project, Data);
          Check_Package_Naming (Project, Data);
 
@@ -2155,6 +2211,24 @@ package body Prj.Nmsc is
                            Attribute.Value.Location, Project);
                   end;
 
+               elsif
+                 Attribute.Name = Name_Library_Encapsulated_Supported
+               then
+                  declare
+                     pragma Unsuppress (All_Checks);
+                  begin
+                     Project.Config.Lib_Encapsulated_Supported :=
+                       Boolean'Value (Get_Name_String (Attribute.Value.Value));
+                  exception
+                     when Constraint_Error =>
+                        Error_Msg
+                          (Data.Flags,
+                           "invalid value """
+                             & Get_Name_String (Attribute.Value.Value)
+                             & """ for Library_Encapsulated_Supported",
+                           Attribute.Value.Location, Project);
+                  end;
+
                elsif Attribute.Name = Name_Shared_Library_Prefix then
                   Project.Config.Shared_Lib_Prefix :=
                     File_Name_Type (Attribute.Value.Value);
@@ -2778,36 +2852,39 @@ package body Prj.Nmsc is
    is
       Shared : constant Shared_Project_Tree_Data_Access := Data.Tree.Shared;
 
-      Attributes   : constant Prj.Variable_Id := Project.Decl.Attributes;
+      Attributes     : constant Prj.Variable_Id := Project.Decl.Attributes;
 
-      Lib_Dir      : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_Dir, Attributes, Shared);
+      Lib_Dir        : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Dir, Attributes, Shared);
 
-      Lib_Name     : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_Name, Attributes, Shared);
+      Lib_Name       : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Name, Attributes, Shared);
 
-      Lib_Version  : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_Version, Attributes, Shared);
+      Lib_Standalone : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Standalone,
+                            Attributes, Shared);
 
-      Lib_ALI_Dir  : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_Ali_Dir, Attributes, Shared);
+      Lib_Version    : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Version, Attributes, Shared);
 
-      Lib_GCC      : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_GCC, Attributes, Shared);
+      Lib_ALI_Dir    : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Ali_Dir, Attributes, Shared);
 
-      The_Lib_Kind : constant Prj.Variable_Value :=
-                       Prj.Util.Value_Of
-                         (Snames.Name_Library_Kind, Attributes, Shared);
+      Lib_GCC        : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_GCC, Attributes, Shared);
+
+      The_Lib_Kind   : constant Prj.Variable_Value :=
+                         Prj.Util.Value_Of
+                           (Snames.Name_Library_Kind, Attributes, Shared);
 
       Imported_Project_List : Project_List;
-
-      Continuation : String_Access := No_Continuation_String'Access;
-
+      Continuation          : String_Access := No_Continuation_String'Access;
       Support_For_Libraries : Library_Support;
 
       Library_Directory_Present : Boolean;
@@ -2855,8 +2932,8 @@ package body Prj.Nmsc is
                         Continuation := Continuation_String'Access;
                      end if;
 
-                  elsif (not Unchecked_Shared_Lib_Imports)
-                        and then Project.Library_Kind /= Static
+                  elsif not Unchecked_Shared_Lib_Imports
+                    and then Project.Library_Kind /= Static
                   then
                      Error_Msg
                        (Data.Flags,
@@ -2869,7 +2946,29 @@ package body Prj.Nmsc is
                end if;
 
             elsif Project.Library_Kind /= Static
+              and then not Lib_Standalone.Default
+              and then Get_Name_String (Lib_Standalone.Value) = "encapsulated"
+              and then Proj.Library_Kind /= Static
+            then
+               --  An encapsulated library must depend only on static libraries
+
+               Error_Msg_Name_1 := Project.Name;
+               Error_Msg_Name_2 := Proj.Name;
+
+               Error_Msg
+                 (Data.Flags,
+                  Continuation.all &
+                    "encapsulated library project %% cannot import shared " &
+                    "library project %%",
+                  Project.Location, Project);
+               Continuation := Continuation_String'Access;
+
+            elsif Project.Library_Kind /= Static
               and then Proj.Library_Kind = Static
+              and then
+                (Lib_Standalone.Default
+                  or else
+                    Get_Name_String (Lib_Standalone.Value) /= "encapsulated")
             then
                Error_Msg_Name_1 := Project.Name;
                Error_Msg_Name_2 := Proj.Name;
@@ -3145,7 +3244,6 @@ package body Prj.Nmsc is
 
             when others =>
                null;
-
          end case;
       end if;
 
@@ -3405,7 +3503,6 @@ package body Prj.Nmsc is
                   Imported_Project_List := Imported_Project_List.Next;
                end loop;
             end if;
-
          end if;
       end if;
 
@@ -4311,6 +4408,12 @@ package body Prj.Nmsc is
                                  Project.Decl.Attributes,
                                  Shared);
 
+      Lib_Standalone      : constant Prj.Variable_Value :=
+                              Prj.Util.Value_Of
+                                (Snames.Name_Library_Standalone,
+                                 Project.Decl.Attributes,
+                                 Shared);
+
       Lib_Auto_Init       : constant Prj.Variable_Value :=
                               Prj.Util.Value_Of
                                 (Snames.Name_Library_Auto_Init,
@@ -4355,8 +4458,17 @@ package body Prj.Nmsc is
       --  It is a stand-alone library project file if attribute
       --  Library_Interface is defined.
 
-      if not Lib_Interfaces.Default then
+      if Lib_Interfaces.Default then
+         if not Lib_Standalone.Default
+           and then Get_Name_String (Lib_Standalone.Value) /= "no"
+         then
+            Error_Msg
+              (Data.Flags,
+               "Library_Standalone valid only if Library_Interface is set",
+               Lib_Standalone.Location, Project);
+         end if;
 
+      else
          --  The name of a stand-alone library needs to have the syntax of an
          --  Ada identifier.
 
@@ -4402,7 +4514,34 @@ package body Prj.Nmsc is
             Unit           : Name_Id;
 
          begin
-            Project.Standalone_Library := True;
+            if Lib_Standalone.Default then
+               Project.Standalone_Library := Standard;
+
+            else
+               Get_Name_String (Lib_Standalone.Value);
+               To_Lower (Name_Buffer (1 .. Name_Len));
+
+               if Name_Buffer (1 .. Name_Len) = "standard" then
+                  Project.Standalone_Library := Standard;
+
+               elsif Name_Buffer (1 .. Name_Len) = "encapsulated" then
+                  Project.Standalone_Library := Encapsulated;
+
+               elsif Name_Buffer (1 .. Name_Len) = "no" then
+                  Project.Standalone_Library := No;
+                  Error_Msg
+                    (Data.Flags,
+                     "wrong value for Library_Standalone "
+                     & "when Library_Interface defined",
+                     Lib_Standalone.Location, Project);
+
+               else
+                  Error_Msg
+                    (Data.Flags,
+                     "invalid value for attribute Library_Standalone",
+                     Lib_Standalone.Location, Project);
+               end if;
+            end if;
 
             --  Library_Interface cannot be an empty list
 
@@ -8121,8 +8260,8 @@ package body Prj.Nmsc is
          when Warning | Error =>
             declare
                Msg : constant String :=
-                       "<there are no "
-                       & Lang_Name & " sources in this project";
+                      "<there are no "
+                      & Lang_Name & " sources in this project";
 
             begin
                Error_Msg_Warn := Data.Flags.When_No_Sources = Warning;

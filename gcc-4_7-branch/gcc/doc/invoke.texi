@@ -385,7 +385,7 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
--freciprocal-math -fregmove -frename-registers -freorder-blocks @gol
+-freciprocal-math -free -fregmove -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
@@ -1557,11 +1557,12 @@ ISO C99.  Note that this standard is not yet fully supported; see
 @w{@uref{http://gcc.gnu.org/c99status.html}} for more information.  The
 names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 
-@item c1x
-ISO C1X, the draft of the next revision of the ISO C standard.
-Support is limited and experimental and features enabled by this
-option may be changed or removed if changed in or removed from the
-standard draft.
+@item c11
+@itemx c1x
+@itemx iso9899:2011
+ISO C11, the 2011 revision of the ISO C standard.
+Support is incomplete and experimental.  The name @samp{c1x} is
+deprecated.
 
 @item gnu90
 @itemx gnu89
@@ -1573,10 +1574,10 @@ is the default for C code.
 GNU dialect of ISO C99.  When ISO C99 is fully implemented in GCC,
 this will become the default.  The name @samp{gnu9x} is deprecated.
 
+@item gnu11
 @item gnu1x
-GNU dialect of ISO C1X.  Support is limited and experimental and
-features enabled by this option may be changed or removed if changed
-in or removed from the standard draft.
+GNU dialect of ISO C11.  Support is incomplete and experimental.  The
+name @samp{gnu1x} is deprecated.
 
 @item c++98
 The 1998 ISO C++ standard plus amendments. Same as @option{-ansi} for
@@ -6707,6 +6708,14 @@ Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 Perform a number of minor optimizations that are relatively expensive.
 
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -free
+@opindex free
+Attempt to remove redundant extension instructions.  This is especially
+helpful for the x86-64 architecture which implicitly zero-extends in 64-bit
+registers after writing to their lower 32-bit half.
+
+Enabled for x86 at levels @option{-O2}, @option{-O3}.
 
 @item -foptimize-register-move
 @itemx -fregmove
