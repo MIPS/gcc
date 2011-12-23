@@ -1,3 +1,9 @@
+2011-12-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (update_auto_inc_notes): Rename to update_reg_notes.  Make
+	it unconditional.  Remove REG_DEAD and REG_UNUSED too.  Make call
+	of add_auto_inc_notes conditional.
+
 2011-11-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_MODE): New

@@ -2032,10 +2032,14 @@ add_auto_inc_notes (rtx insn, rtx x)
     }
 }
 
-/* DF infrastructure does not deal with REG_INC notes -- so update
-   them here.  */
+#endif
+
+/* Remove all REG_DEAD and REG_UNUSED notes and regenerate REG_INC.
+   We change pseudos by hard registers without notification of DF and
+   that can make the notes obsolete.  DF-infrastructure does not deal
+   with REG_INC notes -- so we should regenerate them here.  */
 static void
-update_auto_inc_notes (void)
+update_reg_notes (void)
 {
   rtx *pnote;
   basic_block bb;
@@ -2048,16 +2052,18 @@ update_auto_inc_notes (void)
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
-	    if (REG_NOTE_KIND (*pnote) == REG_INC)
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD
+		|| REG_NOTE_KIND (*pnote) == REG_UNUSED
+		|| REG_NOTE_KIND (*pnote) == REG_INC)
 	      *pnote = XEXP (*pnote, 1);
 	    else
 	      pnote = &XEXP (*pnote, 1);
 	  }
+#ifdef AUTO_INC_DEC
 	add_auto_inc_notes (insn, PATTERN (insn));
+#endif
       }
 }
-
-#endif
 
 /* Set to 1 while in lra.  */
 int lra_in_progress;
@@ -2204,9 +2210,7 @@ lra (FILE *f)
   regstat_free_n_sets_and_refs ();
   regstat_free_ri ();
   reload_completed = 1;
-#ifdef AUTO_INC_DEC
-  update_auto_inc_notes ();
-#endif
+  update_reg_notes ();
   finish_subregs_of_mode ();
 
   inserted_p = fixup_abnormal_edges ();
