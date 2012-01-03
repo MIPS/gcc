@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
@@ -18433,6 +18433,11 @@ gen_compile_unit_die (const char *filename)
 	language = DW_LANG_ObjC;
       else if (strcmp (language_string, "GNU Objective-C++") == 0)
 	language = DW_LANG_ObjC_plus_plus;
+      else if (dwarf_version >= 5 || !dwarf_strict)
+	{
+	  if (strcmp (language_string, "GNU Go") == 0)
+	    language = DW_LANG_Go;
+	}
     }
 
   add_AT_unsigned (die, DW_AT_language, language);
@@ -20544,7 +20549,7 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
       macinfo_entry e;
       e.code = DW_MACINFO_start_file;
       e.lineno = lineno;
-      e.info = xstrdup (filename);
+      e.info = ggc_strdup (filename);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20590,7 +20595,7 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
 	}
       e.code = DW_MACINFO_define;
       e.lineno = lineno;
-      e.info = xstrdup (buffer);;
+      e.info = ggc_strdup (buffer);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20617,7 +20622,7 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 	}
       e.code = DW_MACINFO_undef;
       e.lineno = lineno;
-      e.info = xstrdup (buffer);
+      e.info = ggc_strdup (buffer);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20657,8 +20662,6 @@ output_macinfo_op (macinfo_entry *ref)
     {
     case DW_MACINFO_start_file:
       fd = lookup_filename (ref->info);
-      if (fd->filename == ref->info)
-	fd->filename = ggc_strdup (fd->filename);
       file_num = maybe_emit_file (fd);
       dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
       dw2_asm_output_data_uleb128 (ref->lineno,
@@ -20797,8 +20800,8 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
   linebuf_len = strlen (linebuf);
 
   /* The group name format is: wmN.[<encoded filename>.]<lineno>.<md5sum>  */
-  grp_name = XNEWVEC (char, 4 + encoded_filename_len + linebuf_len + 1
-		      + 16 * 2 + 1);
+  grp_name = XALLOCAVEC (char, 4 + encoded_filename_len + linebuf_len + 1
+			 + 16 * 2 + 1);
   memcpy (grp_name, DWARF_OFFSET_SIZE == 4 ? "wm4." : "wm8.", 4);
   tail = grp_name + 4;
   if (encoded_filename_len)
@@ -20819,14 +20822,13 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
   inc = VEC_index (macinfo_entry, macinfo_table, idx - 1);
   inc->code = DW_MACRO_GNU_transparent_include;
   inc->lineno = 0;
-  inc->info = grp_name;
+  inc->info = ggc_strdup (grp_name);
   if (*macinfo_htab == NULL)
     *macinfo_htab = htab_create (10, htab_macinfo_hash, htab_macinfo_eq, NULL);
   /* Avoid emitting duplicates.  */
   slot = htab_find_slot (*macinfo_htab, inc, INSERT);
   if (*slot != NULL)
     {
-      free (CONST_CAST (char *, inc->info));
       inc->code = 0;
       inc->info = NULL;
       /* If such an entry has been used before, just emit
@@ -20841,7 +20843,6 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
 	   i++)
 	{
 	  cur->code = 0;
-	  free (CONST_CAST (char *, cur->info));
 	  cur->info = NULL;
 	}
     }
@@ -20904,7 +20905,6 @@ output_macinfo (void)
 	  if (!VEC_empty (macinfo_entry, files))
 	    {
 	      macinfo_entry *file = VEC_last (macinfo_entry, files);
-	      free (CONST_CAST (char *, file->info));
 	      VEC_pop (macinfo_entry, files);
 	    }
 	  break;
@@ -20934,10 +20934,6 @@ output_macinfo (void)
 	  break;
 	}
       output_macinfo_op (ref);
-      /* For DW_MACINFO_start_file ref->info has been copied into files
-	 vector.  */
-      if (ref->code != DW_MACINFO_start_file)
-	free (CONST_CAST (char *, ref->info));
       ref->info = NULL;
       ref->code = 0;
     }
@@ -20971,7 +20967,6 @@ output_macinfo (void)
 				       ref->lineno);
 	  ASM_OUTPUT_LABEL (asm_out_file, label);
 	  ref->code = 0;
-	  free (CONST_CAST (char *, ref->info));
 	  ref->info = NULL;
 	  dw2_asm_output_data (2, 4, "DWARF macro version number");
 	  if (DWARF_OFFSET_SIZE == 8)
@@ -20984,7 +20979,6 @@ output_macinfo (void)
       case DW_MACINFO_undef:
 	output_macinfo_op (ref);
 	ref->code = 0;
-	free (CONST_CAST (char *, ref->info));
 	ref->info = NULL;
 	break;
       default:
@@ -22496,15 +22490,8 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context
-			  && (TREE_CODE (context) == FUNCTION_DECL
-			      || TREE_CODE (context) == NAMESPACE_DECL));
-
-	      origin = lookup_decl_die (context);
-	      if (origin)
-	        add_child_die (origin, die);
-	      else
-	        add_child_die (comp_unit_die (), die);
+	      origin = get_context_die (context);
+	      add_child_die (origin, die);
 	    }
 	}
     }

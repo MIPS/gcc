@@ -264,6 +264,7 @@ procedure GNATCmd is
    procedure Set_Library_For
      (Project           : Project_Id;
       Tree              : Project_Tree_Ref;
+      In_Aggregate_Lib  : Boolean;
       Libraries_Present : in out Boolean);
    --  If Project is a library project, add the correct -L and -l switches to
    --  the linker invocation.
@@ -1264,9 +1265,10 @@ procedure GNATCmd is
    procedure Set_Library_For
      (Project           : Project_Id;
       Tree              : Project_Tree_Ref;
+      In_Aggregate_Lib  : Boolean;
       Libraries_Present : in out Boolean)
    is
-      pragma Unreferenced (Tree);
+      pragma Unreferenced (Tree, In_Aggregate_Lib);
 
       Path_Option : constant String_Access :=
                       MLib.Linker_Library_Path_Option;
@@ -2091,7 +2093,7 @@ begin
             begin
                if Pkg /= No_Package then
 
-                  --  First, check if there is a single main specified.
+                  --  First, check if there is a single main specified
 
                   for J in 1  .. Last_Switches.Last loop
                      if Last_Switches.Table (J) (1) /= '-' then
