@@ -1,3 +1,14 @@
+2012-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-fpconv-1.c: Adjust tests for generating
+	tradational fp instructions where possible, instead of just using
+	VSX operations.
+	* gcc.target/powerpc/ppc-fpconv-5.c: Likewise.
+	* gcc.target/powerpc/ppc-round.c: Likewise.
+	* gcc.target/powerpc/recip-3.c: Likewise.
+	* gcc.target/powerpc/pr42747: Likewise.
+	* gcc.target/powerpc/pr48258-2.c: Likewise.
+
 2011-12-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from mainline, subversion id 182732.

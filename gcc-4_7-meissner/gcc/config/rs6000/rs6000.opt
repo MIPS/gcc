@@ -232,7 +232,7 @@ Target Undocumented Report Var(TARGET_ALIGN_BRANCH_TARGETS) Init(-1)
 ; Explicitly set/unset whether rs6000_align_branch_targets is set
 
 msmall-cbranch
-Target Undocumented Report Var(TARGET_SMALL_CBRANCH) Init(-1)
+Target Undocumented Report Var(TARGET_SMALL_CBRANCH) Init(-1) Save
 ; Enable/disable conditional branch + 8 optimizations
 
 mvectorize-builtins

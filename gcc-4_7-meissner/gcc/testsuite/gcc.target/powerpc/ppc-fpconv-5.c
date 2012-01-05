@@ -4,10 +4,8 @@
 /* { dg-options "-O3 -mcpu=power7 -ffast-math" } */
 /* { dg-final { scan-assembler-times "fctiwz" 2 } } */
 /* { dg-final { scan-assembler-times "fctiwuz" 2 } } */
-/* { dg-final { scan-assembler-times "fctidz" 1 } } */
-/* { dg-final { scan-assembler-times "fctiduz" 1 } } */
-/* { dg-final { scan-assembler-times "xscvdpsxds" 1 } } */
-/* { dg-final { scan-assembler-times "xscvdpuxds" 1 } } */
+/* { dg-final { scan-assembler-times "fctidz\|xscvdpsxds" 2 } } */
+/* { dg-final { scan-assembler-times "fctiduz\|xscvdpuxds" 2 } } */
 
 void float_to_int  (int *dest, float  src) { *dest = (int) src; }
 void double_to_int (int *dest, double src) { *dest = (int) src; }

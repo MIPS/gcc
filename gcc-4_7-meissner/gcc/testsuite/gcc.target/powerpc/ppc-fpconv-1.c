@@ -6,8 +6,8 @@
 /* { dg-final { scan-assembler-times "lfiwzx" 2 } } */
 /* { dg-final { scan-assembler-times "fcfids" 3 } } */
 /* { dg-final { scan-assembler-times "fcfidus" 1 } } */
-/* { dg-final { scan-assembler-times "xscvsxddp" 3 } } */
-/* { dg-final { scan-assembler-times "xscvuxddp" 1 } } */
+/* { dg-final { scan-assembler-times "xscvsxddp\|fcfid\ " 3 } } */
+/* { dg-final { scan-assembler-times "xscvuxddp\|fcfidu\ " 1 } } */
 
 void int_to_float (float *dest, int *src)
 {

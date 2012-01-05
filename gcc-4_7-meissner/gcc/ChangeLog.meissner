@@ -1,3 +1,51 @@
+2012-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-msmall-cbranch): Add Save attribute.
+
+	* config/rs6000/rs6000.c (rs6000_opt_vars): Add small-cbranch.
+	(rs6000_inner_target_options): Fix typo.
+
+	* config/rs6000/vsx.md (vsx_adddf3): For scalar operations in the
+	FPR registers, use the non-VSX instruction.
+	(vsx_add<mode>3): Likewise.
+	(vsx_subdf3): Likewise.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_muldf3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_divdf3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_negdf2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_absdf2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabsdf2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_sqrtdf2): Likewise.
+	(vsx_sqrt<mode>2): Likewise.
+	(vsx_rsqrtedf2): Likewise.
+	(vsx_rsqrte<mode>2): Likewise.
+	(vsx_vmadf4): Likewise.
+	(vsx_fmav4sf4): Likewise.
+	(vsx_fmsdf4): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfmadf4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_nfmsdf4): Likewise.
+	(vsx_nfmsv4sf4): Likewise.
+	(vsx_cmpdf_internal1): Likewise.
+	(vsx_floatdidf2): Likewise.
+	(vsx_float<VSi><mode>2): Likewise.
+	(vsx_floatunsdidf2): Likewise.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_truncdfdi2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_truncdfdi2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+
+	* config/rs6000/rs6000.md (movdf_hardfloat64_mfpgpr): Use
+	traditional fmr, load/store before VSX ops.
+	(movdf_hardfloat64): Likeise.
+
 2011-12-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	(move changes from meissner-bc8 branch here)

@@ -5,7 +5,7 @@
 /* { dg-final { scan-assembler-times "xvadddp" 1 } } */
 /* { dg-final { scan-assembler-times "xvmindp" 1 } } */
 /* { dg-final { scan-assembler-times "xvmaxdp" 1 } } */
-/* { dg-final { scan-assembler-times "xsadddp" 1 } } */
+/* { dg-final { scan-assembler-times "xsadddp\|fadd" 1 } } */
 /* { dg-final { scan-assembler-times "xsmindp" 1 } } */
 /* { dg-final { scan-assembler-times "xsmaxdp" 1 } } */
 /* { dg-final { scan-assembler-not "xxsldwi" } } */
