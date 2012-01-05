@@ -1,3 +1,98 @@
+2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51762
+	* calls.c (emit_call_1): For noreturn calls force a REG_ARGS_SIZE
+	note when !ACCUMULATE_OUTGOING_ARGS.
+
+2012-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vrp.c (extract_range_from_binary_expr_1): Remove duplicated
+	condition.
+	(extract_range_from_unary_expr_1): Avoid useless computations.
+
+2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/51767
+	* cfgrtl.c (force_nonfallthru_and_redirect): Force addition
+	of jump_block and add an extra edge for degenerated asm gotos.
+
+	PR middle-end/51768
+	* stmt.c (check_unique_operand_names): Don't ICE during error
+	reporting if i is from labels chain.
+
+	PR middle-end/44777
+	* profile.c (branch_prob): Split bbs that have exit edge
+	and need a fake entry edge too.
+
+2012-01-05  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/49710
+	* cfgloopmanip.c (remove_path): Walk loop hiearchy upwards when
+	unlooping loops.
+
+2012-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/50490
+	* tree-streamer-out.c (write_ts_optimization): New function.
+	(streamer_write_tree_body): Call it.
+	* tree-streamer-in.c (lto_input_ts_optimization): New function.
+	(streamer_read_tree_body): Call it.
+	* lto-streamer-out.c (lto_is_streamable): Handle OPTIMIZATION_NODE.
+
+2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51761
+	* gimple.h (struct gimplify_ctx): Add in_cleanup_point_expr
+	field.
+	* gimplify.c (gimplify_cleanup_point_expr): Save and set
+	in_cleanup_point_expr before gimplify_stmt call and restore it
+	afterwards.
+	(gimplify_target_expr): Don't add {CLOBBER} cleanup if
+	in_cleanup_point_expr is false.
+
+2012-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/51764
+	* common.opt (Wmudflap, fmudflap, fmudflapth, fmudflapir): Move
+	to c.opt.
+	* toplev.c (process_options): Reject combining mudflap and LTO.
+	* tree-nomudflap.c (nogo): Use sorry instead of internal_error.
+
+2012-01-05  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51760
+	* tree-ssa-ccp.c (likely_value): Drop UNDEFINED to CONSTANT,
+	not VARYING.
+	(bit_value_unop): Handle UNDEFINED operands.
+	(bit_value_binop): Likewise.
+
+2012-01-05  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_replace_prefix): Remove.
+	(avr_asm_named_section): Use ACONCAT instead of avr_replace_prefix.
+	(avr_asm_function_rodata_section): Ditto.
+	(avr_asm_select_section): Ditto.
+
+2012-01-05  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* reload.c (find_reloads): Adjust LABEL_NUSES on REG_LABEL_OPERAND
+	insertion.
+
+2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/51648
+	* tree-cfg.c (need_fake_edge_p): Return true also for noreturn
+	calls that have any non-fake successor edges.
+
+	PR debug/51746
+	* var-tracking.c (add_stores): For COND_EXEC allow oval to be NULL.
+
+2012-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/51624
+	* tree-sra.c (build_ref_for_model): When replicating a chain of
+	COMPONENT_REFs, stop as soon as the offset would become negative.
+
 2012-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/51695
@@ -46,6 +141,11 @@
 	(alpha64-dec-*vms*, alpha*-dec-*vms*)
 	(ia64-hp-*vms*): Remove.
 	* config/vms/xm-vms64.h: Delete.
+
+2012-01-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/51472
+	* trans-mem.c (expand_assign_tm): Handle TM_MEMMOVE loads correctly.
 
 2012-01-04  Aldy Hernandez  <aldyh@redhat.com>
 
