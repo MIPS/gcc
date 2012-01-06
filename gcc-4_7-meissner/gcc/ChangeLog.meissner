@@ -1,3 +1,13 @@
+2012-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add DF
+	reload patterns if -mvsx-scalar-memory.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp): Allow xscvspdp to be
+	generated, even -mno-vsx-scalar-double was used.
+	(vsx_xscvdpsp_scalar): Likewise.
+	(vsx_xscvspdp_scalar2): Likewise.
+
 2012-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-msmall-cbranch): Add Save attribute.

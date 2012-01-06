@@ -2334,6 +2334,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
+	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+	    {
+	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_di_store;
+	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_di_load;
+	    }
 	}
       else
 	{
@@ -2349,6 +2354,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
+	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+	    {
+	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_si_store;
+	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_si_load;
+	    }
 	}
     }
 
