@@ -1,3 +1,74 @@
+2012-01-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/execute/doloop-1.c,
+	gcc.c-torture/execute/doloop-2.c: New tests.
+
+2012-01-09  Martin Jambor  <mjambor@suse.cz>
+
+        PR tree-optimization/51759
+	* g++.dg/ipa/pr51759.C: New test.
+
+2012-01-09  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline:
+	2011-11-04  Jiangning Liu  <jiangning.liu@arm.com>
+
+	PR rtl-optimization/38644
+	* gcc.target/arm/stack-red-zone.c: New.
+
+2012-01-09  Andrew Stubbs  <ams@codesourcery.com>
+
+	Backport from mainline:
+
+	2012-01-06  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.target/arm/headmerge-2.c: Adjust scan pattern.
+
+2012-01-06  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR middle-end/48660
+	* g++.dg/pr48660.C: New test.
+
+2012-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/overflow.lst: Add cb20004.
+
+2012-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20120104-1.c: New test.
+
+2012-01-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49651
+	* gcc.dg/tree-ssa/pta-ptrarith-1.c: Adjust.
+	* gcc.dg/tree-ssa/pta-ptrarith-2.c: Likewise.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-11-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51042
+	* gcc.dg/torture/pr51042.c: New testcase.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51070
+	* gcc.dg/torture/pr51070.c: New testcase.
+	* gcc.dg/torture/pr51070-2.c: Likewise.
+
+2011-12-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/49951
+	* g++.dg/gcov/gcov-2.C: Adjust.
+
+2012-01-01  Thomas König  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/51502
+	* lib/gcc-dg.exp (scan-module-absence):  New function.
+	* gfortran.dg/implicit_pure_2.f90:  New test.
+
 2011-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
