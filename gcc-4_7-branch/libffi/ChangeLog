@@ -1,3 +1,8 @@
+2012-01-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (i?86-*-*): Set TARGET to X86_64.
+	* configure: Regenerate.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* src/powerpc/linux64.S: Add .note.GNU-stack on Linux.

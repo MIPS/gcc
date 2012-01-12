@@ -522,6 +522,21 @@ class Type
   static bool
   are_compatible_for_binop(const Type* t1, const Type* t2);
 
+  // Return true if two types are compatible for use with the
+  // comparison operator.  IS_EQUALITY_OP is true if this is an
+  // equality comparison, false if it is an ordered comparison.  This
+  // is an equivalence relation.  If this returns false, and REASON is
+  // not NULL, it sets *REASON.
+  static bool
+  are_compatible_for_comparison(bool is_equality_op, const Type *t1,
+				const Type *t2, std::string* reason);
+
+  // Return true if a type is comparable with itself.  This is true of
+  // most types, but false for, e.g., function types.
+  bool
+  is_comparable() const
+  { return Type::are_compatible_for_comparison(true, this, this, NULL); }
+
   // Return true if a value with type RHS is assignable to a variable
   // with type LHS.  This is not an equivalence relation.  If this
   // returns false, and REASON is not NULL, it sets *REASON.
@@ -548,6 +563,13 @@ class Type
   // WITHIN is not NULL if we are looking at fields in a named type.
   bool
   has_hidden_fields(const Named_type* within, std::string* reason) const;
+
+  // Return true if values of this type can be compared using an
+  // identity function which gets nothing but a pointer to the value
+  // and a size.
+  bool
+  compare_is_identity(Gogo* gogo) const
+  { return this->do_compare_is_identity(gogo); }
 
   // Return a hash code for this type for the method hash table.
   // Types which are equivalent according to are_identical will have
@@ -839,6 +861,41 @@ class Type
   std::string
   mangled_name(Gogo*) const;
 
+  // If the size of the type can be determined, set *PSIZE to the size
+  // in bytes and return true.  Otherwise, return false.  This queries
+  // the backend.
+  bool
+  backend_type_size(Gogo*, unsigned int* psize);
+
+  // If the alignment of the type can be determined, set *PALIGN to
+  // the alignment in bytes and return true.  Otherwise, return false.
+  bool
+  backend_type_align(Gogo*, unsigned int* palign);
+
+  // If the alignment of a struct field of this type can be
+  // determined, set *PALIGN to the alignment in bytes and return
+  // true.  Otherwise, return false.
+  bool
+  backend_type_field_align(Gogo*, unsigned int* palign);
+
+  // Whether the backend size is known.
+  bool
+  is_backend_type_size_known(Gogo*);
+
+  // Get the hash and equality functions for a type.
+  void
+  type_functions(Gogo*, Named_type* name, Function_type* hash_fntype,
+		 Function_type* equal_fntype, Named_object** hash_fn,
+		 Named_object** equal_fn);
+
+  // Write the hash and equality type functions.
+  void
+  write_specific_type_functions(Gogo*, Named_type*,
+				const std::string& hash_name,
+				Function_type* hash_fntype,
+				const std::string& equal_name,
+				Function_type* equal_fntype);
+
   // Export the type.
   void
   export_type(Export* exp) const
@@ -866,6 +923,9 @@ class Type
   do_has_pointer() const
   { return false; }
 
+  virtual bool
+  do_compare_is_identity(Gogo*) const = 0;
+
   virtual unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -877,7 +937,6 @@ class Type
 
   virtual void
   do_reflection(Gogo*, std::string*) const = 0;
-
 
   virtual void
   do_mangled_name(Gogo*, std::string*) const = 0;
@@ -1002,18 +1061,24 @@ class Type
   void
   make_type_descriptor_var(Gogo*);
 
-  // Return the name of the type descriptor variable for an unnamed
-  // type.
+  // Return the name of the type descriptor variable.  If NAME is not
+  // NULL, it is the name to use.
   std::string
-  unnamed_type_descriptor_var_name(Gogo*);
+  type_descriptor_var_name(Gogo*, Named_type* name);
 
-  // Return the name of the type descriptor variable for a named type.
-  std::string
-  type_descriptor_var_name(Gogo*);
+  // Return true if the type descriptor for this type should be
+  // defined in some other package.  If NAME is not NULL, it is the
+  // name of this type.  If this returns true it sets *PACKAGE to the
+  // package where the type descriptor is defined.
+  bool
+  type_descriptor_defined_elsewhere(Named_type* name, const Package** package);
 
-  // Get the hash and equality functions for a type.
+  // Build the hash and equality type functions for a type which needs
+  // specific functions.
   void
-  type_functions(const char** hash_fn, const char** equal_fn) const;
+  specific_type_functions(Gogo*, Named_type*, Function_type* hash_fntype,
+			  Function_type* equal_fntype, Named_object** hash_fn,
+			  Named_object** equal_fn);
 
   // Build a composite literal for the uncommon type information.
   Expression*
@@ -1096,6 +1161,14 @@ class Type
 
   // A list of builtin named types.
   static std::vector<Named_type*> named_builtin_types;
+
+  // A map from types which need specific type functions to the type
+  // functions themselves.
+  typedef std::pair<Named_object*, Named_object*> Hash_equal_fn;
+  typedef Unordered_map_hash(const Type*, Hash_equal_fn, Type_hash_identical,
+			     Type_identical) Type_functions;
+
+  static Type_functions type_functions_table;
 
   // The type classification.
   Type_classification classification_;
@@ -1313,7 +1386,31 @@ class Integer_type : public Type
   bool
   is_identical(const Integer_type* t) const;
 
- protected:
+  // Whether this is the type "byte" or another name for "byte".
+  bool
+  is_byte() const
+  { return this->is_byte_; }
+
+  // Mark this as the "byte" type.
+  void
+  set_is_byte()
+  { this->is_byte_ = true; }
+
+  // Whether this is the type "rune" or another name for "rune".
+  bool
+  is_rune() const
+  { return this->is_rune_; }
+
+  // Mark this as the "rune" type.
+  void
+  set_is_rune()
+  { this->is_rune_ = true; }
+
+protected:
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return true; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -1333,8 +1430,8 @@ class Integer_type : public Type
   Integer_type(bool is_abstract, bool is_unsigned, int bits,
 	       int runtime_type_kind)
     : Type(TYPE_INTEGER),
-      is_abstract_(is_abstract), is_unsigned_(is_unsigned), bits_(bits),
-      runtime_type_kind_(runtime_type_kind)
+      is_abstract_(is_abstract), is_unsigned_(is_unsigned), is_byte_(false),
+      is_rune_(false), bits_(bits), runtime_type_kind_(runtime_type_kind)
   { }
 
   // Map names of integer types to the types themselves.
@@ -1345,6 +1442,10 @@ class Integer_type : public Type
   bool is_abstract_;
   // True if this is an unsigned type.
   bool is_unsigned_;
+  // True if this is the byte type.
+  bool is_byte_;
+  // True if this is the rune type.
+  bool is_rune_;
   // The number of bits.
   int bits_;
   // The runtime type code used in the type descriptor for this type.
@@ -1383,6 +1484,10 @@ class Float_type : public Type
   is_identical(const Float_type* t) const;
 
  protected:
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -1448,6 +1553,10 @@ class Complex_type : public Type
   is_identical(const Complex_type* t) const;
 
  protected:
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -1503,6 +1612,10 @@ class String_type : public Type
   bool
   do_has_pointer() const
   { return true; }
+
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
 
   Btype*
   do_get_backend(Gogo*);
@@ -1618,6 +1731,10 @@ class Function_type : public Type
   do_has_pointer() const
   { return true; }
 
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -1697,6 +1814,10 @@ class Pointer_type : public Type
 
   bool
   do_has_pointer() const
+  { return true; }
+
+  bool
+  do_compare_is_identity(Gogo*) const
   { return true; }
 
   unsigned int
@@ -1888,7 +2009,7 @@ class Struct_type : public Type
 		  Location) const;
 
   // Return the total number of fields, including embedded fields.
-  // This is the number of values which can appear in a conversion to
+  // This is the number of values that can appear in a conversion to
   // this type.
   unsigned int
   total_field_count() const;
@@ -1937,12 +2058,26 @@ class Struct_type : public Type
   traverse_field_types(Traverse* traverse)
   { return this->do_traverse(traverse); }
 
+  // If the offset of field INDEX in the backend implementation can be
+  // determined, set *POFFSET to the offset in bytes and return true.
+  // Otherwise, return false.
+  bool
+  backend_field_offset(Gogo*, unsigned int index, unsigned int* poffset);
+
   // Import a struct type.
   static Struct_type*
   do_import(Import*);
 
   static Type*
   make_struct_type_descriptor_type();
+
+  // Write the hash function for this type.
+  void
+  write_hash_function(Gogo*, Named_type*, Function_type*, Function_type*);
+
+  // Write the equality function for this type.
+  void
+  write_equal_function(Gogo*, Named_type*);
 
  protected:
   int
@@ -1953,6 +2088,9 @@ class Struct_type : public Type
 
   bool
   do_has_pointer() const;
+
+  bool
+  do_compare_is_identity(Gogo*) const;
 
   unsigned int
   do_hash_for_method(Gogo*) const;
@@ -2052,6 +2190,14 @@ class Array_type : public Type
   static Type*
   make_slice_type_descriptor_type();
 
+  // Write the hash function for this type.
+  void
+  write_hash_function(Gogo*, Named_type*, Function_type*, Function_type*);
+
+  // Write the equality function for this type.
+  void
+  write_equal_function(Gogo*, Named_type*);
+
  protected:
   int
   do_traverse(Traverse* traverse);
@@ -2064,6 +2210,9 @@ class Array_type : public Type
   {
     return this->length_ == NULL || this->element_type_->has_pointer();
   }
+
+  bool
+  do_compare_is_identity(Gogo*) const;
 
   unsigned int
   do_hash_for_method(Gogo*) const;
@@ -2155,6 +2304,10 @@ class Map_type : public Type
   do_has_pointer() const
   { return true; }
 
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -2235,6 +2388,10 @@ class Channel_type : public Type
 
   bool
   do_has_pointer() const
+  { return true; }
+
+  bool
+  do_compare_is_identity(Gogo*) const
   { return true; }
 
   unsigned int
@@ -2348,6 +2505,10 @@ class Interface_type : public Type
   do_has_pointer() const
   { return true; }
 
+  bool
+  do_compare_is_identity(Gogo*) const
+  { return false; }
+
   unsigned int
   do_hash_for_method(Gogo*) const;
 
@@ -2389,8 +2550,9 @@ class Named_type : public Type
       local_methods_(NULL), all_methods_(NULL),
       interface_method_tables_(NULL), pointer_interface_method_tables_(NULL),
       location_(location), named_btype_(NULL), dependencies_(),
-      is_visible_(true), is_error_(false), is_converted_(false),
-      is_circular_(false), seen_(false), seen_in_get_backend_(false)
+      is_visible_(true), is_error_(false), is_placeholder_(false),
+      is_converted_(false), is_circular_(false), seen_(false),
+      seen_in_compare_is_identity_(false), seen_in_get_backend_(false)
   { }
 
   // Return the associated Named_object.  This holds the actual name.
@@ -2480,6 +2642,11 @@ class Named_type : public Type
   bool
   is_named_error_type() const;
 
+  // Return whether this type is comparable.  If REASON is not NULL,
+  // set *REASON when returning false.
+  bool
+  named_type_is_comparable(std::string* reason) const;
+
   // Add a method to this type.
   Named_object*
   add_method(const std::string& name, Function*);
@@ -2549,6 +2716,13 @@ class Named_type : public Type
   add_dependency(Named_type* nt)
   { this->dependencies_.push_back(nt); }
 
+  // Return true if the size and alignment of the backend
+  // representation of this type is known.  This is always true after
+  // types have been converted, but may be false beforehand.
+  bool
+  is_named_backend_type_size_known() const
+  { return this->named_btype_ != NULL && !this->is_placeholder_; }
+
   // Export the type.
   void
   export_named_type(Export*, const std::string& name) const;
@@ -2571,6 +2745,9 @@ class Named_type : public Type
 
   bool
   do_has_pointer() const;
+
+  bool
+  do_compare_is_identity(Gogo*) const;
 
   unsigned int
   do_hash_for_method(Gogo*) const;
@@ -2640,8 +2817,11 @@ class Named_type : public Type
   bool is_visible_;
   // Whether this type is erroneous.
   bool is_error_;
+  // Whether the current value of named_btype_ is a placeholder for
+  // which the final size of the type is not known.
+  bool is_placeholder_;
   // Whether this type has been converted to the backend
-  // representation.
+  // representation.  Implies that is_placeholder_ is false.
   bool is_converted_;
   // Whether this is a pointer or function type which refers to the
   // type itself.
@@ -2651,6 +2831,8 @@ class Named_type : public Type
   // This is mutable because it is always reset to false when the
   // function exits.
   mutable bool seen_;
+  // Like seen_, but used only by do_compare_is_identity.
+  mutable bool seen_in_compare_is_identity_;
   // Like seen_, but used only by do_get_backend.
   bool seen_in_get_backend_;
 };
@@ -2703,6 +2885,10 @@ class Forward_declaration_type : public Type
   bool
   do_has_pointer() const
   { return this->real_type()->has_pointer(); }
+
+  bool
+  do_compare_is_identity(Gogo* gogo) const
+  { return this->real_type()->compare_is_identity(gogo); }
 
   unsigned int
   do_hash_for_method(Gogo* gogo) const
