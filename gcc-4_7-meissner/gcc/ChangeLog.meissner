@@ -1,5 +1,8 @@
 2012-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to subversion id, 183138.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/vsx.md: Undo 2012-01-05 change.
 	* config/rs6000/rs6000.md: Likewise.
 

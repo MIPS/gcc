@@ -13563,18 +13563,23 @@ tsubst_copy_and_build (tree t,
     case GT_EXPR:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
-      return build_x_binary_op
-	(TREE_CODE (t),
-	 RECUR (TREE_OPERAND (t, 0)),
-	 (TREE_NO_WARNING (TREE_OPERAND (t, 0))
-	  ? ERROR_MARK
-	  : TREE_CODE (TREE_OPERAND (t, 0))),
-	 RECUR (TREE_OPERAND (t, 1)),
-	 (TREE_NO_WARNING (TREE_OPERAND (t, 1))
-	  ? ERROR_MARK
-	  : TREE_CODE (TREE_OPERAND (t, 1))),
-	 /*overload=*/NULL,
-	 complain);
+      {
+	tree r = build_x_binary_op
+	  (TREE_CODE (t),
+	   RECUR (TREE_OPERAND (t, 0)),
+	   (TREE_NO_WARNING (TREE_OPERAND (t, 0))
+	    ? ERROR_MARK
+	    : TREE_CODE (TREE_OPERAND (t, 0))),
+	   RECUR (TREE_OPERAND (t, 1)),
+	   (TREE_NO_WARNING (TREE_OPERAND (t, 1))
+	    ? ERROR_MARK
+	    : TREE_CODE (TREE_OPERAND (t, 1))),
+	   /*overload=*/NULL,
+	   complain);
+	if (EXPR_P (r) && TREE_NO_WARNING (t))
+	  TREE_NO_WARNING (r) = TREE_NO_WARNING (t);
+	return r;
+      }
 
     case SCOPE_REF:
       return tsubst_qualified_id (t, args, complain, in_decl, /*done=*/true,
@@ -15466,7 +15471,7 @@ resolve_overloaded_unification (tree tparms,
 	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
 	      if (try_one_overload (tparms, targs, tempargs, parm,
 				    elem, strict, sub_strict, addr_p, explain_p)
-		  && (!goodfn || !decls_match (goodfn, elem)))
+		  && (!goodfn || !same_type_p (goodfn, elem)))
 		{
 		  goodfn = elem;
 		  ++good;
@@ -16267,6 +16272,8 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       idx = TEMPLATE_TYPE_IDX (parm);
       targ = TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx);
       tparm = TREE_VALUE (TREE_VEC_ELT (tparms, idx));
+      if (tparm == error_mark_node)
+	return unify_invalid (explain_p);
 
       /* Check for mixed types and values.  */
       if ((TREE_CODE (parm) == TEMPLATE_TYPE_PARM
@@ -16880,7 +16887,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 
     default:
       /* An unresolved overload is a nondeduced context.  */
-      if (type_unknown_p (parm))
+      if (is_overloaded_fn (parm) || type_unknown_p (parm))
 	return unify_success (explain_p);
       gcc_assert (EXPR_P (parm));
 

@@ -1,6 +1,6 @@
 /* Routines for manipulation of expression nodes.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011
+   2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -4264,13 +4264,17 @@ gfc_is_coarray (gfc_expr *e)
     {
       case REF_COMPONENT:
 	comp = ref->u.c.component;
-        if (comp->attr.pointer || comp->attr.allocatable)
+	if (comp->ts.type == BT_CLASS && comp->attr.class_ok
+	    && (CLASS_DATA (comp)->attr.class_pointer
+		|| CLASS_DATA (comp)->attr.allocatable))
 	  {
 	    coindexed = false;
-	    if (comp->ts.type == BT_CLASS && comp->attr.class_ok)
-	      coarray = CLASS_DATA (comp)->attr.codimension;
-	    else
-	      coarray = comp->attr.codimension;
+	    coarray = CLASS_DATA (comp)->attr.codimension;
+	  }
+        else if (comp->attr.pointer || comp->attr.allocatable)
+	  {
+	    coindexed = false;
+	    coarray = comp->attr.codimension;
 	  }
         break;
 
@@ -4690,9 +4694,24 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       return FAILURE;
     }
 
-  if (!pointer && gfc_implicit_pure (NULL) && gfc_impure_variable (sym))
-    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+  if (!pointer && context && gfc_implicit_pure (NULL)
+      && gfc_impure_variable (sym))
+    {
+      gfc_namespace *ns;
+      gfc_symbol *sym;
 
+      for (ns = gfc_current_ns; ns; ns = ns->parent)
+	{
+	  sym = ns->proc_name;
+	  if (sym == NULL)
+	    break;
+	  if (sym->attr.flavor == FL_PROCEDURE)
+	    {
+	      sym->attr.implicit_pure = 0;
+	      break;
+	    }
+	}
+    }
   /* Check variable definition context for associate-names.  */
   if (!pointer && sym->assoc)
     {

@@ -1135,6 +1135,63 @@ Expression::make_temporary_reference(Temporary_statement* statement,
   return new Temporary_reference_expression(statement, location);
 }
 
+// Class Set_and_use_temporary_expression.
+
+// Return the type.
+
+Type*
+Set_and_use_temporary_expression::do_type()
+{
+  return this->statement_->type();
+}
+
+// Take the address.
+
+void
+Set_and_use_temporary_expression::do_address_taken(bool)
+{
+  this->statement_->set_is_address_taken();
+}
+
+// Return the backend representation.
+
+tree
+Set_and_use_temporary_expression::do_get_tree(Translate_context* context)
+{
+  Bvariable* bvar = this->statement_->get_backend_variable(context);
+  tree var_tree = var_to_tree(bvar);
+  tree expr_tree = this->expr_->get_tree(context);
+  if (var_tree == error_mark_node || expr_tree == error_mark_node)
+    return error_mark_node;
+  Location loc = this->location();
+  return build2_loc(loc.gcc_location(), COMPOUND_EXPR, TREE_TYPE(var_tree),
+		    build2_loc(loc.gcc_location(), MODIFY_EXPR, void_type_node,
+			       var_tree, expr_tree),
+		    var_tree);
+}
+
+// Dump.
+
+void
+Set_and_use_temporary_expression::do_dump_expression(
+    Ast_dump_context* ast_dump_context) const
+{
+  ast_dump_context->ostream() << '(';
+  ast_dump_context->dump_temp_variable_name(this->statement_);
+  ast_dump_context->ostream() << " = ";
+  this->expr_->dump_expression(ast_dump_context);
+  ast_dump_context->ostream() << ')';
+}
+
+// Make a set-and-use temporary.
+
+Set_and_use_temporary_expression*
+Expression::make_set_and_use_temporary(Temporary_statement* statement,
+				       Expression* expr, Location location)
+{
+  return new Set_and_use_temporary_expression(statement, expr, location);
+}
+
 // A sink expression--a use of the blank identifier _.
 
 class Sink_expression : public Expression
@@ -3325,9 +3382,11 @@ Type_conversion_expression::do_lower(Gogo*, Named_object*,
   if (type->is_slice_type())
     {
       Type* element_type = type->array_type()->element_type()->forwarded();
-      bool is_byte = element_type == Type::lookup_integer_type("uint8");
-      bool is_int = element_type == Type::lookup_integer_type("int");
-      if (is_byte || is_int)
+      bool is_byte = (element_type->integer_type() != NULL
+		      && element_type->integer_type()->is_byte());
+      bool is_rune = (element_type->integer_type() != NULL
+		      && element_type->integer_type()->is_rune());
+      if (is_byte || is_rune)
 	{
 	  std::string s;
 	  if (val->string_constant_value(&s))
@@ -3633,8 +3692,7 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
       tree len = a->length_tree(gogo, expr_tree);
       len = fold_convert_loc(this->location().gcc_location(), integer_type_node,
                              len);
-      if (e->integer_type()->is_unsigned()
-	  && e->integer_type()->bits() == 8)
+      if (e->integer_type()->is_byte())
 	{
 	  static tree byte_array_to_string_fndecl;
 	  ret = Gogo::call_builtin(&byte_array_to_string_fndecl,
@@ -3649,7 +3707,7 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
 	}
       else
 	{
-	  go_assert(e == Type::lookup_integer_type("int"));
+	  go_assert(e->integer_type()->is_rune());
 	  static tree int_array_to_string_fndecl;
 	  ret = Gogo::call_builtin(&int_array_to_string_fndecl,
 				   this->location(),
@@ -3666,8 +3724,7 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
     {
       Type* e = type->array_type()->element_type()->forwarded();
       go_assert(e->integer_type() != NULL);
-      if (e->integer_type()->is_unsigned()
-	  && e->integer_type()->bits() == 8)
+      if (e->integer_type()->is_byte())
 	{
 	  tree string_to_byte_array_fndecl = NULL_TREE;
 	  ret = Gogo::call_builtin(&string_to_byte_array_fndecl,
@@ -3680,7 +3737,7 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
 	}
       else
 	{
-	  go_assert(e == Type::lookup_integer_type("int"));
+	  go_assert(e->integer_type()->is_rune());
 	  tree string_to_int_array_fndecl = NULL_TREE;
 	  ret = Gogo::call_builtin(&string_to_int_array_fndecl,
 				   this->location(),
@@ -4468,11 +4525,38 @@ Unary_expression::do_check_types(Gogo*)
 tree
 Unary_expression::do_get_tree(Translate_context* context)
 {
+  Location loc = this->location();
+
+  // Taking the address of a set-and-use-temporary expression requires
+  // setting the temporary and then taking the address.
+  if (this->op_ == OPERATOR_AND)
+    {
+      Set_and_use_temporary_expression* sut =
+	this->expr_->set_and_use_temporary_expression();
+      if (sut != NULL)
+	{
+	  Temporary_statement* temp = sut->temporary();
+	  Bvariable* bvar = temp->get_backend_variable(context);
+	  tree var_tree = var_to_tree(bvar);
+	  Expression* val = sut->expression();
+	  tree val_tree = val->get_tree(context);
+	  if (var_tree == error_mark_node || val_tree == error_mark_node)
+	    return error_mark_node;
+	  tree addr_tree = build_fold_addr_expr_loc(loc.gcc_location(),
+						    var_tree);
+	  return build2_loc(loc.gcc_location(), COMPOUND_EXPR,
+			    TREE_TYPE(addr_tree),
+			    build2_loc(sut->location().gcc_location(),
+				       MODIFY_EXPR, void_type_node,
+				       var_tree, val_tree),
+			    addr_tree);
+	}
+    }
+
   tree expr = this->expr_->get_tree(context);
   if (expr == error_mark_node)
     return error_mark_node;
 
-  Location loc = this->location();
   switch (this->op_)
     {
     case OPERATOR_PLUS:
@@ -5398,7 +5482,8 @@ Binary_expression::eval_complex(Operator op, Type* left_type,
 // constants.
 
 Expression*
-Binary_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
+Binary_expression::do_lower(Gogo* gogo, Named_object*,
+			    Statement_inserter* inserter, int)
 {
   Location location = this->location();
   Operator op = this->op_;
@@ -5727,7 +5812,181 @@ Binary_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
       mpz_clear(right_val);
     }
 
+  // Lower struct and array comparisons.
+  if (op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ)
+    {
+      if (left->type()->struct_type() != NULL)
+	return this->lower_struct_comparison(gogo, inserter);
+      else if (left->type()->array_type() != NULL
+	       && !left->type()->is_slice_type())
+	return this->lower_array_comparison(gogo, inserter);
+    }
+
   return this;
+}
+
+// Lower a struct comparison.
+
+Expression*
+Binary_expression::lower_struct_comparison(Gogo* gogo,
+					   Statement_inserter* inserter)
+{
+  Struct_type* st = this->left_->type()->struct_type();
+  Struct_type* st2 = this->right_->type()->struct_type();
+  if (st2 == NULL)
+    return this;
+  if (st != st2 && !Type::are_identical(st, st2, false, NULL))
+    return this;
+  if (!Type::are_compatible_for_comparison(true, this->left_->type(),
+					   this->right_->type(), NULL))
+    return this;
+
+  // See if we can compare using memcmp.  As a heuristic, we use
+  // memcmp rather than field references and comparisons if there are
+  // more than two fields.
+  if (st->compare_is_identity(gogo) && st->total_field_count() > 2)
+    return this->lower_compare_to_memcmp(gogo, inserter);
+
+  Location loc = this->location();
+
+  Expression* left = this->left_;
+  Temporary_statement* left_temp = NULL;
+  if (left->var_expression() == NULL
+      && left->temporary_reference_expression() == NULL)
+    {
+      left_temp = Statement::make_temporary(left->type(), NULL, loc);
+      inserter->insert(left_temp);
+      left = Expression::make_set_and_use_temporary(left_temp, left, loc);
+    }
+
+  Expression* right = this->right_;
+  Temporary_statement* right_temp = NULL;
+  if (right->var_expression() == NULL
+      && right->temporary_reference_expression() == NULL)
+    {
+      right_temp = Statement::make_temporary(right->type(), NULL, loc);
+      inserter->insert(right_temp);
+      right = Expression::make_set_and_use_temporary(right_temp, right, loc);
+    }
+
+  Expression* ret = Expression::make_boolean(true, loc);
+  const Struct_field_list* fields = st->fields();
+  unsigned int field_index = 0;
+  for (Struct_field_list::const_iterator pf = fields->begin();
+       pf != fields->end();
+       ++pf, ++field_index)
+    {
+      if (field_index > 0)
+	{
+	  if (left_temp == NULL)
+	    left = left->copy();
+	  else
+	    left = Expression::make_temporary_reference(left_temp, loc);
+	  if (right_temp == NULL)
+	    right = right->copy();
+	  else
+	    right = Expression::make_temporary_reference(right_temp, loc);
+	}
+      Expression* f1 = Expression::make_field_reference(left, field_index,
+							loc);
+      Expression* f2 = Expression::make_field_reference(right, field_index,
+							loc);
+      Expression* cond = Expression::make_binary(OPERATOR_EQEQ, f1, f2, loc);
+      ret = Expression::make_binary(OPERATOR_ANDAND, ret, cond, loc);
+    }
+
+  if (this->op_ == OPERATOR_NOTEQ)
+    ret = Expression::make_unary(OPERATOR_NOT, ret, loc);
+
+  return ret;
+}
+
+// Lower an array comparison.
+
+Expression*
+Binary_expression::lower_array_comparison(Gogo* gogo,
+					  Statement_inserter* inserter)
+{
+  Array_type* at = this->left_->type()->array_type();
+  Array_type* at2 = this->right_->type()->array_type();
+  if (at2 == NULL)
+    return this;
+  if (at != at2 && !Type::are_identical(at, at2, false, NULL))
+    return this;
+  if (!Type::are_compatible_for_comparison(true, this->left_->type(),
+					   this->right_->type(), NULL))
+    return this;
+
+  // Call memcmp directly if possible.  This may let the middle-end
+  // optimize the call.
+  if (at->compare_is_identity(gogo))
+    return this->lower_compare_to_memcmp(gogo, inserter);
+
+  // Call the array comparison function.
+  Named_object* hash_fn;
+  Named_object* equal_fn;
+  at->type_functions(gogo, this->left_->type()->named_type(), NULL, NULL,
+		     &hash_fn, &equal_fn);
+
+  Location loc = this->location();
+
+  Expression* func = Expression::make_func_reference(equal_fn, NULL, loc);
+
+  Expression_list* args = new Expression_list();
+  args->push_back(this->operand_address(inserter, this->left_));
+  args->push_back(this->operand_address(inserter, this->right_));
+  args->push_back(Expression::make_type_info(at, TYPE_INFO_SIZE));
+
+  Expression* ret = Expression::make_call(func, args, false, loc);
+
+  if (this->op_ == OPERATOR_NOTEQ)
+    ret = Expression::make_unary(OPERATOR_NOT, ret, loc);
+
+  return ret;
+}
+
+// Lower a struct or array comparison to a call to memcmp.
+
+Expression*
+Binary_expression::lower_compare_to_memcmp(Gogo*, Statement_inserter* inserter)
+{
+  Location loc = this->location();
+
+  Expression* a1 = this->operand_address(inserter, this->left_);
+  Expression* a2 = this->operand_address(inserter, this->right_);
+  Expression* len = Expression::make_type_info(this->left_->type(),
+					       TYPE_INFO_SIZE);
+
+  Expression* call = Runtime::make_call(Runtime::MEMCMP, loc, 3, a1, a2, len);
+
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0);
+  Expression* zero = Expression::make_integer(&zval, NULL, loc);
+  mpz_clear(zval);
+
+  return Expression::make_binary(this->op_, call, zero, loc);
+}
+
+// Return the address of EXPR, cast to unsafe.Pointer.
+
+Expression*
+Binary_expression::operand_address(Statement_inserter* inserter,
+				   Expression* expr)
+{
+  Location loc = this->location();
+
+  if (!expr->is_addressable())
+    {
+      Temporary_statement* temp = Statement::make_temporary(expr->type(), NULL,
+							    loc);
+      inserter->insert(temp);
+      expr = Expression::make_set_and_use_temporary(temp, expr, loc);
+    }
+  expr = Expression::make_unary(OPERATOR_AND, expr, loc);
+  static_cast<Unary_expression*>(expr)->set_does_not_escape();
+  Type* void_type = Type::make_void_type();
+  Type* unsafe_pointer_type = Type::make_pointer_type(void_type);
+  return Expression::make_cast(unsafe_pointer_type, expr, loc);
 }
 
 // Return the integer constant value, if it has one.
@@ -6072,49 +6331,28 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
 
     case OPERATOR_EQEQ:
     case OPERATOR_NOTEQ:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && type->complex_type() == NULL
-	  && !type->is_string_type()
-	  && type->points_to() == NULL
-	  && !type->is_nil_type()
-	  && !type->is_boolean_type()
-	  && type->interface_type() == NULL
-	  && (type->array_type() == NULL
-	      || type->array_type()->length() != NULL)
-	  && type->map_type() == NULL
-	  && type->channel_type() == NULL
-	  && type->function_type() == NULL)
-	{
-	  error_at(location,
-		   ("expected integer, floating, complex, string, pointer, "
-		    "boolean, interface, slice, map, channel, "
-		    "or function type"));
-	  return false;
-	}
-      if ((type->is_slice_type()
-	   || type->map_type() != NULL
-	   || type->function_type() != NULL)
-	  && !otype->is_nil_type())
-	{
-	  error_at(location,
-		   ("slice, map, and function types may only "
-		    "be compared to nil"));
-	  return false;
-	}
+      {
+	std::string reason;
+	if (!Type::are_compatible_for_comparison(true, type, otype, &reason))
+	  {
+	    error_at(location, "%s", reason.c_str());
+	    return false;
+	  }
+      }
       break;
 
     case OPERATOR_LT:
     case OPERATOR_LE:
     case OPERATOR_GT:
     case OPERATOR_GE:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && !type->is_string_type())
-	{
-	  error_at(location, "expected integer, floating, or string type");
-	  return false;
-	}
+      {
+	std::string reason;
+	if (!Type::are_compatible_for_comparison(false, type, otype, &reason))
+	  {
+	    error_at(location, "%s", reason.c_str());
+	    return false;
+	  }
+      }
       break;
 
     case OPERATOR_PLUS:
@@ -7741,35 +7979,32 @@ Builtin_call_expression::do_integer_constant_value(bool iota_is_constant,
 	return false;
       if (arg_type->named_type() != NULL)
 	arg_type->named_type()->convert(this->gogo_);
-      tree arg_type_tree = type_to_tree(arg_type->get_backend(this->gogo_));
-      if (arg_type_tree == error_mark_node)
-	return false;
-      unsigned long val_long;
+
+      unsigned int ret;
       if (this->code_ == BUILTIN_SIZEOF)
 	{
-	  tree type_size = TYPE_SIZE_UNIT(arg_type_tree);
-	  go_assert(TREE_CODE(type_size) == INTEGER_CST);
-	  if (TREE_INT_CST_HIGH(type_size) != 0)
-	    return false;
-	  unsigned HOST_WIDE_INT val_wide = TREE_INT_CST_LOW(type_size);
-	  val_long = static_cast<unsigned long>(val_wide);
-	  if (val_long != val_wide)
+	  if (!arg_type->backend_type_size(this->gogo_, &ret))
 	    return false;
 	}
       else if (this->code_ == BUILTIN_ALIGNOF)
 	{
 	  if (arg->field_reference_expression() == NULL)
-	    val_long = go_type_alignment(arg_type_tree);
+	    {
+	      if (!arg_type->backend_type_align(this->gogo_, &ret))
+		return false;
+	    }
 	  else
 	    {
 	      // Calling unsafe.Alignof(s.f) returns the alignment of
 	      // the type of f when it is used as a field in a struct.
-	      val_long = go_field_alignment(arg_type_tree);
+	      if (!arg_type->backend_type_field_align(this->gogo_, &ret))
+		return false;
 	    }
 	}
       else
 	go_unreachable();
-      mpz_set_ui(val, val_long);
+
+      mpz_set_ui(val, ret);
       *ptype = NULL;
       return true;
     }
@@ -7787,21 +8022,12 @@ Builtin_call_expression::do_integer_constant_value(bool iota_is_constant,
 	return false;
       if (st->named_type() != NULL)
 	st->named_type()->convert(this->gogo_);
-      tree struct_tree = type_to_tree(st->get_backend(this->gogo_));
-      go_assert(TREE_CODE(struct_tree) == RECORD_TYPE);
-      tree field = TYPE_FIELDS(struct_tree);
-      for (unsigned int index = farg->field_index(); index > 0; --index)
-	{
-	  field = DECL_CHAIN(field);
-	  go_assert(field != NULL_TREE);
-	}
-      HOST_WIDE_INT offset_wide = int_byte_position (field);
-      if (offset_wide < 0)
+      unsigned int offset;
+      if (!st->struct_type()->backend_field_offset(this->gogo_,
+						   farg->field_index(),
+						   &offset))
 	return false;
-      unsigned long offset_long = static_cast<unsigned long>(offset_wide);
-      if (offset_long != static_cast<unsigned HOST_WIDE_INT>(offset_wide))
-	return false;
-      mpz_set_ui(val, offset_long);
+      mpz_set_ui(val, offset);
       return true;
     }
   return false;
@@ -8280,19 +8506,19 @@ Builtin_call_expression::do_check_types(Gogo*)
 	    break;
 	  }
 
-	Type* e2;
 	if (arg2_type->is_slice_type())
-	  e2 = arg2_type->array_type()->element_type();
-	else if (arg2_type->is_string_type())
-	  e2 = Type::lookup_integer_type("uint8");
-	else
 	  {
-	    this->report_error(_("right argument must be a slice or a string"));
-	    break;
+	    Type* e2 = arg2_type->array_type()->element_type();
+	    if (!Type::are_identical(e1, e2, true, NULL))
+	      this->report_error(_("element types must be the same"));
 	  }
-
-	if (!Type::are_identical(e1, e2, true, NULL))
-	  this->report_error(_("element types must be the same"));
+	else if (arg2_type->is_string_type())
+	  {
+	    if (e1->integer_type() == NULL || !e1->integer_type()->is_byte())
+	      this->report_error(_("first argument must be []byte"));
+	  }
+	else
+	    this->report_error(_("second argument must be slice or string"));
       }
       break;
 
@@ -8316,7 +8542,7 @@ Builtin_call_expression::do_check_types(Gogo*)
 	  {
 	    const Array_type* at = args->front()->type()->array_type();
 	    const Type* e = at->element_type()->forwarded();
-	    if (e == Type::lookup_integer_type("uint8"))
+	    if (e->integer_type() != NULL && e->integer_type()->is_byte())
 	      break;
 	  }
 
@@ -8874,7 +9100,8 @@ Builtin_call_expression::do_get_tree(Translate_context* context)
 	tree arg2_len;
 	tree element_size;
 	if (arg2->type()->is_string_type()
-	    && element_type == Type::lookup_integer_type("uint8"))
+	    && element_type->integer_type() != NULL
+	    && element_type->integer_type()->is_byte())
 	  {
 	    arg2_tree = save_expr(arg2_tree);
 	    arg2_val = String_type::bytes_tree(gogo, arg2_tree);
@@ -9716,7 +9943,11 @@ Call_expression::do_get_tree(Translate_context* context)
 	      fn = build_fold_addr_expr_loc(location.gcc_location(),
                                             excess_fndecl);
 	      for (int i = 0; i < nargs; ++i)
-		args[i] = ::convert(excess_type, args[i]);
+		{
+		  if (SCALAR_FLOAT_TYPE_P(TREE_TYPE(args[i]))
+		      || COMPLEX_FLOAT_TYPE_P(TREE_TYPE(args[i])))
+		    args[i] = ::convert(excess_type, args[i]);
+		}
 	    }
 	}
     }
@@ -13696,25 +13927,26 @@ Type_info_expression::do_type()
 tree
 Type_info_expression::do_get_tree(Translate_context* context)
 {
-  tree type_tree = type_to_tree(this->type_->get_backend(context->gogo()));
-  if (type_tree == error_mark_node)
-    return error_mark_node;
-
-  tree val_type_tree = type_to_tree(this->type()->get_backend(context->gogo()));
-  go_assert(val_type_tree != error_mark_node);
-
-  if (this->type_info_ == TYPE_INFO_SIZE)
-    return fold_convert_loc(BUILTINS_LOCATION, val_type_tree,
-			    TYPE_SIZE_UNIT(type_tree));
-  else
+  Btype* btype = this->type_->get_backend(context->gogo());
+  Gogo* gogo = context->gogo();
+  size_t val;
+  switch (this->type_info_)
     {
-      unsigned int val;
-      if (this->type_info_ == TYPE_INFO_ALIGNMENT)
-	val = go_type_alignment(type_tree);
-      else
-	val = go_field_alignment(type_tree);
-      return build_int_cstu(val_type_tree, val);
+    case TYPE_INFO_SIZE:
+      val = gogo->backend()->type_size(btype);
+      break;
+    case TYPE_INFO_ALIGNMENT:
+      val = gogo->backend()->type_alignment(btype);
+      break;
+    case TYPE_INFO_FIELD_ALIGNMENT:
+      val = gogo->backend()->type_field_alignment(btype);
+      break;
+    default:
+      go_unreachable();
     }
+  tree val_type_tree = type_to_tree(this->type()->get_backend(gogo));
+  go_assert(val_type_tree != error_mark_node);
+  return build_int_cstu(val_type_tree, val);
 }
 
 // Dump ast representation for a type info expression.

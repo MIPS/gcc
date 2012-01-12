@@ -4386,8 +4386,7 @@ extern tree build_nonshared_array_type (tree, tree);
 extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
 extern tree build_function_type (tree, tree);
 extern tree build_function_type_list (tree, ...);
-extern tree build_function_type_skip_args (tree, bitmap);
-extern tree build_function_decl_skip_args (tree, bitmap);
+extern tree build_function_decl_skip_args (tree, bitmap, bool);
 extern tree build_varargs_function_type_list (tree, ...);
 extern tree build_function_type_array (tree, int, tree *);
 extern tree build_varargs_function_type_array (tree, int, tree *);
@@ -4428,6 +4427,7 @@ tree_low_cst (const_tree t, int pos)
   return TREE_INT_CST_LOW (t);
 }
 #endif
+extern HOST_WIDE_INT size_low_cst (const_tree);
 extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
 extern unsigned int tree_int_cst_min_precision (tree, bool);

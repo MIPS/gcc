@@ -1,6 +1,6 @@
 /* Deal with interfaces.
    Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010
+   2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -3168,9 +3168,13 @@ matching_typebound_op (gfc_expr** tb_base,
 	gfc_symbol* derived;
 	gfc_try result;
 
+	while (base->expr->expr_type == EXPR_OP
+	       && base->expr->value.op.op == INTRINSIC_PARENTHESES)
+	  base->expr = base->expr->value.op.op1;
+
 	if (base->expr->ts.type == BT_CLASS)
 	  {
-	    if (!gfc_expr_attr (base->expr).class_ok)
+	    if (CLASS_DATA (base->expr) == NULL)
 	      continue;
 	    derived = CLASS_DATA (base->expr)->ts.u.derived;
 	  }
@@ -3256,6 +3260,14 @@ build_compcall_for_operator (gfc_expr* e, gfc_actual_arglist* actual,
   e->value.compcall.base_object = base;
   e->value.compcall.ignore_pass = 1;
   e->value.compcall.assign = 0;
+  if (e->ts.type == BT_UNKNOWN
+	&& target->function)
+    {
+      if (target->is_generic)
+	e->ts = target->u.generic->specific->u.specific->n.sym->ts;
+      else
+	e->ts = target->u.specific->n.sym->ts;
+    }
 }
 
 

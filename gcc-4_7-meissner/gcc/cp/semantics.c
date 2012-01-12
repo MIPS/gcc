@@ -4,7 +4,7 @@
    and during the instantiation of template functions.
 
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-		 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+		 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -4067,6 +4067,8 @@ finish_omp_clauses (tree clauses)
 	  t = maybe_convert_cond (t);
 	  if (t == error_mark_node)
 	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
 	  OMP_CLAUSE_IF_EXPR (c) = t;
 	  break;
 
@@ -4075,6 +4077,8 @@ finish_omp_clauses (tree clauses)
 	  t = maybe_convert_cond (t);
 	  if (t == error_mark_node)
 	    remove = true;
+	  else if (!processing_template_decl)
+	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
 	  OMP_CLAUSE_FINAL_EXPR (c) = t;
 	  break;
 
@@ -4089,7 +4093,12 @@ finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    OMP_CLAUSE_NUM_THREADS_EXPR (c) = mark_rvalue_use (t);
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	      OMP_CLAUSE_NUM_THREADS_EXPR (c) = t;
+	    }
 	  break;
 
 	case OMP_CLAUSE_SCHEDULE:
@@ -4105,7 +4114,12 @@ finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = mark_rvalue_use (t);
+	    {
+	      t = mark_rvalue_use (t);
+	      if (!processing_template_decl)
+		t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+	      OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
+	    }
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
@@ -5127,7 +5141,7 @@ finish_static_assert (tree condition, tree message, location_t location,
       if (TREE_CODE (condition) == INTEGER_CST 
           && integer_zerop (condition))
         /* Report the error. */
-        error ("static assertion failed: %E", message);
+        error ("static assertion failed: %s", TREE_STRING_POINTER (message));
       else if (condition && condition != error_mark_node)
 	{
 	  error ("non-constant condition for static assertion");
@@ -6051,7 +6065,8 @@ cx_check_missing_mem_inits (tree fun, tree body, bool complain)
 	      /* It's OK to skip a member with a trivial constexpr ctor.
 	         A constexpr ctor that isn't trivial should have been
 	         added in by now.  */
-	      gcc_checking_assert (!TYPE_HAS_COMPLEX_DFLT (ftype));
+	      gcc_checking_assert (!TYPE_HAS_COMPLEX_DFLT (ftype)
+				   || errorcount != 0);
 	      continue;
 	    }
 	  error ("uninitialized member %qD in %<constexpr%> constructor",
@@ -6561,7 +6576,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
   else
     {
       result = entry->result;
-      if (!result || (result == error_mark_node && !allow_non_constant))
+      if (!result || result == error_mark_node)
 	result = (cxx_eval_constant_expression
 		  (&new_call, new_call.fundef->body,
 		   allow_non_constant, addr,
