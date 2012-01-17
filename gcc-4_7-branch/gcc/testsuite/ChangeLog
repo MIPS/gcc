@@ -1,3 +1,164 @@
+2012-01-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51869
+	* gfortran.dg/realloc_on_assign_9.f90: New.
+
+2012-01-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR other/51165
+	* gcc.dg/tm/memopt-3.c: Remove xfail.
+	* gcc.dg/tm/memopt-4.c: Remove xfail.
+	* gcc.dg/tm/memopt-5.c: Remove xfail.
+	* gcc.dg/tm/memopt-7.c: Remove xfail.
+
+2012-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51877
+	* gcc.c-torture/execute/pr51877.c: New test.
+
+2012-01-17  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* gcc.dg/vect/no-section-anchors-vect-69.c: Change
+	{!vect_align_arrays} to vect_sizes_32B_16B.
+	* gcc.dg/vect/vect-multitypes-1.c: Ditto.
+	* gcc.dg/vect/vect-peel-3.c: Ditto.
+
+2012-01-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51854
+	* g++.dg/abi/mangle60.C: New.
+
+	PR c++/51827
+	* g++.dg/pch/mangle1.{C,Hs}: New.
+
+2012-01-16  Mikael Morin  <mikael@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50981
+	* gfortran.dg/elemental_optional_args_3.f90: New
+	* gfortran.dg/elemental_optional_args_4.f90: New
+
+2012-01-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51809
+	* gfortran.dg/use_20.f90: New
+
+2012-01-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51868
+	* g++.dg/cpp0x/rv-bitfield.C: New.
+	* g++.dg/cpp0x/rv-bitfield2.C: New.
+
+2012-01-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	* gfortran.dg/class_array_3.f03: Remove the explicit loop in
+	subroutine 'qsort' and use index array to assign the result.
+
+2012-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51865
+	* gcc.dg/pr51865.c: New test.
+
+2012-01-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-4.c: Expect 4 threaded edges for MIPS.
+
+2012-01-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/code-readable-2.c: Allow the jump table address
+	to be loaded from the constant pool, rather than via %hi and %lo.
+
+2012-01-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/51821
+	* gcc.dg/pr51821.c: New test.
+
+2012-01-15  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gcc.dg/torture/pr8081.c: Fix char signedness assumption.
+
+2012-01-14  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* g++.dg/cpp0x/constexpr-rom.C: Add -G0 where applicable.
+
+2012-01-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51800
+	* gfortran.dg/init_flag_8.f90: New.
+	* gfortran.dg/init_flag_9.f90: New.
+
+2011-01-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51816
+	* gfortran.dg/use_18.f90: New.
+	* gfortran.dg/use_19.f90: New.
+
+2012-01-13  Ian Lance Taylor  <iant@google.com>
+
+	PR c++/50012
+	* g++.dg/warn/Wsign-compare-4.C: New.
+
+2012-01-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/48351
+	* gfortran.dg/alloc_comp_assign.f03: New.
+	* gfortran.dg/allocatable_scalar_9.f90: Reduce count of
+	__BUILTIN_FREE from 38 to 32.
+
+2012-01-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/20681
+	* g++.dg/warn/Wreturn-type-7.C: New.
+
+2012-01-13  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.c-torture/execute/20120111-1.c: Fix wrong int = int32_t
+	assumption.
+	* g++.dg/ipa/pr51759.C: Fix assumption sizeof(int) > 2.
+	* gcc.dg/cpp/warn-multichar.c: Fix to work on int=16 platforms.
+	* gcc.dg/cpp/warn-multichar-2.c: Ditto.
+	* gcc.dg/debug/dwarf2/pr49871.c: Add dg-require-effective-target
+	int32plus because of big array needed.
+	* gcc.dg/pr50527.c: Don't FAIL if sizeof(void*) = 2
+	* gcc.dg/lto/20090218-2_1.c: Fix prototype of malloc, memcpy.
+
+2012-01-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51813
+	* g++.dg/ext/visibility/template9.C: New.
+
+	PR c++/51620
+	* g++.dg/cpp0x/defaulted34.C: New.
+	* g++.dg/template/virtual3.C: New.
+
+2012-01-13  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/8081
+	* gcc.dg/torture/pr8081.c: New testcase.
+
+2012-01-13  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.dg/pr46309.c: Set branch cost to greater 1 for avr.
+
+2012-01-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51714
+	* g++.dg/ext/stmtexpr14.C: New.
+
+2012-01-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/51633
+	* g++.dg/cpp0x/constexpr-diag4.C: New test.
+
+2012-01-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48051
+	* g++.dg/abi/mangle48.C: Test qualified-names, too.
+	* g++.dg/abi/mangle58.C: Likewise.
+
+	PR c++/51403
+	* g++.dg/template/arg8.C: New.
+
 2012-01-12  Ira Rosen  <irar@il.ibm.com>
 
 	PR tree-optimization/51799
@@ -147,7 +308,7 @@
 	PR gcov-profile/51717
 	* gcc.misc-tests/gcov-13.c: Skip on 32-bit hppa*-*-hpux*.
 	* gcc.misc-tests/gcov-14.c: Likewise.
- 
+
 2012-01-06  Jason Merrill  <jason@redhat.com>
 
 	* g++.dg/parse/new5.C: New.
@@ -156,7 +317,7 @@
 
 	PR testsuite/51655
 	* c-c++-common/tm/memcpy-1.c: Declare memcpy instead of
-	including <string.h>. 
+	including <string.h>.
 
 2012-01-06  Jason Merrill  <jason@redhat.com>
 
