@@ -537,6 +537,6 @@ msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
 
-mswitch-table-absolute-addr
-Target Report Var(TARGET_SWITCH_TABLE_ABSOLUTE_ADDR) Save
+mswitch-absolute-address
+Target Report Var(TARGET_SWITCH_ABSOLUTE_ADDRESS) Save
 Control whether switch tables use absolute or pc-relative addresses

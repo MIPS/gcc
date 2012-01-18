@@ -201,7 +201,7 @@
    jump tables with absolute addresses.  */
 
 #undef  JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION (!TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
+#define JUMP_TABLES_IN_TEXT_SECTION (!TARGET_SWITCH_ABSOLUTE_ADDRESS)
 
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef  SUBTARGET_EXTRA_SPECS

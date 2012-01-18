@@ -279,7 +279,7 @@ extern int dot_symbols;
    jump tables with absolute addresses.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION \
-  (TARGET_64BIT && !TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
+  (TARGET_64BIT && !TARGET_SWITCH_ABSOLUTE_ADDRESS)
 
 /* The linux ppc64 ABI isn't explicit on whether aggregates smaller
    than a doubleword should be padded upward or downward.  You could
