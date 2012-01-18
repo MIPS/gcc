@@ -20,6 +20,8 @@
 	(tablejump<mode>): Likewise.
 	(tablejump<mode>_internal1): Likewise.
 
+	* doc/invoke.texi (-mswitch-absolute-address): Document.
+
 2012-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to subversion id, 183138.
