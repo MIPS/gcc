@@ -255,6 +255,7 @@ do {									\
 				   && !optimize_size)
 
 /* Put jump tables in read-only memory, rather than in .text.  */
+#undef  JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 
 /* Prefix and suffix to use to saving floating point.  */

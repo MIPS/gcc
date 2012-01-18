@@ -275,9 +275,11 @@ extern int dot_symbols;
 #define TARGET_ALIGN_NATURAL 1
 #endif
 
-/* Indicate that jump tables go in the text section.  */
+/* Indicate that jump tables go in the text section, unless we are generating
+   jump tables with absolute addresses.  */
 #undef  JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION TARGET_64BIT
+#define JUMP_TABLES_IN_TEXT_SECTION \
+  (TARGET_64BIT && !TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
 
 /* The linux ppc64 ABI isn't explicit on whether aggregates smaller
    than a doubleword should be padded upward or downward.  You could

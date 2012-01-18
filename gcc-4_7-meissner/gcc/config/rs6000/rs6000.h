@@ -1813,13 +1813,13 @@ do {									     \
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
-#define CASE_VECTOR_MODE SImode
+#define CASE_VECTOR_MODE (TARGET_SWITCH_TABLE_ABSOLUTE_ADDR ? Pmode : SImode)
 
 /* Define as C expression which evaluates to nonzero if the tablejump
    instruction expects the table to contain offsets from the address of the
    table.
    Do not define this if the table should contain absolute addresses.  */
-#define CASE_VECTOR_PC_RELATIVE 1
+#define CASE_VECTOR_PC_RELATIVE (!TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
@@ -2251,6 +2251,19 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
        assemble_name (FILE, buf);			\
        putc ('\n', FILE);				\
      } while (0)
+
+/* This is how to output an element of a case-vector that is absolute.  */
+
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)				\
+  do { char buf[100];							\
+       fputs ((TARGET_64BIT) ? "\t.quad " : "\t.long ", FILE);		\
+       ASM_GENERATE_INTERNAL_LABEL (buf, "L", VALUE);			\
+       assemble_name (FILE, buf);					\
+       putc ('\n', FILE);						\
+     } while (0)
+
+/* Whether jump tables are emitted in the text section or not.  */
+#define JUMP_TABLES_IN_TEXT_SECTION (!TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
 
 /* This is how to output an assembler line
    that says to advance the location counter

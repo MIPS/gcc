@@ -197,9 +197,11 @@
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
   (!(FIRST) ? upward : FUNCTION_ARG_PADDING (MODE, TYPE))
 
-/* Indicate that jump tables go in the text section.  */
+/* Indicate that jump tables go in the text section unless we are generating
+   jump tables with absolute addresses.  */
 
-#define JUMP_TABLES_IN_TEXT_SECTION 1
+#undef  JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION (!TARGET_SWITCH_TABLE_ABSOLUTE_ADDR)
 
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef  SUBTARGET_EXTRA_SPECS

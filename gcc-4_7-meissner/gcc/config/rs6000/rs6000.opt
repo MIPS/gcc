@@ -536,3 +536,7 @@ Use/do not use r11 to hold the static link in calls to functions via pointers.
 msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
+
+mswitch-table-absolute-addr
+Target Report Var(TARGET_SWITCH_TABLE_ABSOLUTE_ADDR) Save
+Control whether switch tables use absolute or pc-relative addresses
