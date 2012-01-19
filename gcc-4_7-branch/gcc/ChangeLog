@@ -1,3 +1,67 @@
+2012-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libmudflap/40778
+	* tree-mudflap.c (mf_artificial): New function.
+	(execute_mudflap_function_ops, execute_mudflap_function_decls,
+	mx_register_decls, mudflap_enqueue_decl): Use it.
+
+	PR target/51876
+	* config/arm/neon.md (*neon_vswp<mode>): Fix up operand
+	numbers in the insn pattern.
+
+2012-01-19  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/46590
+	* cfgexpand.c (add_scope_conflicts_1): New old_conflicts argument,
+	use it in remembering which conflicts we already created.
+	(add_scope_conflicts): Adjust call to above, (de)allocate helper
+	bitmap.
+
+2012-01-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR lto/51280
+	* lto-wrapper.c (run_gcc): Pass -fgnu_tm on.
+	(merge_and_complain): Same.
+
+2012-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/50237
+	* config/initfini-array.h: Guard content of the header
+	with #ifdef HAVE_INITFINI_ARRAY.
+	* configure.ac: Move gcc_AC_INITFINI_ARRAY much later into the file.
+	Add initfini-array.h to tm_file here.
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): For non-ia64 do a linker
+	test.
+	* config.gcc: Don't add initfini-array.h to tm_file here.
+	* configure: Regenerated.
+
+2012-01-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/51505
+	* df-problems.c (df_kill_notes): New parameter live. Update comment.
+	Remove REG_EQUAL/REG_EQUIV notes referring to dead registers.
+	(df_note_bb_compute): Update the call to df_kill_notes. 
+
+2012-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
+	* trans-mem.c (requires_barrier): Remove call to is_global_var.
+
+2012-01-18  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa.c (useless_type_conversion_p): Remove special-casing
+	of conversions to void *.
+
+2012-01-17  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR middle-end/50325
+	PR middle-end/51192
+	* optabs.h (simplify_expand_binop): Declare.
+	* optabs.c (simplify_expand_binop): Make global.
+	* expmed.c (store_bit_field_1): Use simplify_expand_binop on big
+	endian targets if the source cannot be exactly covered by word
+	mode chunks.
+
 2012-01-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR bootstrap/51872
