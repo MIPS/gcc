@@ -5807,6 +5807,9 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	  if (complain & tf_error)
 	    {
 	      int errs = errorcount, warns = warningcount;
+	      if (processing_template_decl
+		  && !require_potential_constant_expression (expr))
+		return NULL_TREE;
 	      expr = cxx_constant_value (expr);
 	      if (errorcount > errs || warningcount > warns)
 		inform (EXPR_LOC_OR_HERE (expr),
@@ -19525,6 +19528,11 @@ value_dependent_expression_p (tree expression)
 	    return true;
 	return false;
       }
+
+    case STMT_EXPR:
+      /* Treat a GNU statement expression as dependent to avoid crashing
+	 under fold_non_dependent_expr; it can't be constant.  */
+      return true;
 
     default:
       /* A constant expression is value-dependent if any subexpression is

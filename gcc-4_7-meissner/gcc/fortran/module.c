@@ -4351,7 +4351,11 @@ load_needed (pointer_info *p)
 
   mio_symbol (sym);
   sym->attr.use_assoc = 1;
-  if (only_flag)
+
+  /* Mark as only or rename for later diagnosis for explicitly imported
+     but not used warnings; don't mark internal symbols such as __vtab,
+     __def_init etc.  */
+  if (only_flag && sym->name[0] != '_' && sym->name[1] != '_')
     sym->attr.use_only = 1;
   if (p->u.rsym.renamed)
     sym->attr.use_rename = 1;
@@ -4465,7 +4469,7 @@ read_module (void)
   int i;
   int ambiguous, j, nuse, symbol;
   pointer_info *info, *q;
-  gfc_use_rename *u;
+  gfc_use_rename *u = NULL;
   gfc_symtree *st;
   gfc_symbol *sym;
 
@@ -4574,8 +4578,9 @@ read_module (void)
 	    p = name;
 
 	  /* Exception: Always import vtabs & vtypes.  */
-	  if (p == NULL && (strncmp (name, "__vtab_", 5) == 0
-			    || strncmp (name, "__vtype_", 6) == 0))
+	  if (p == NULL && name[0] == '_'
+	      && (strncmp (name, "__vtab_", 5) == 0
+		  || strncmp (name, "__vtype_", 6) == 0))
 	    p = name;
 
 	  /* Skip symtree nodes not in an ONLY clause, unless there
@@ -4641,7 +4646,10 @@ read_module (void)
 	      if (strcmp (name, p) != 0)
 		sym->attr.use_rename = 1;
 
-	      sym->attr.use_only = only_flag;
+	      if (name[0] != '_'
+		  || (strncmp (name, "__vtab_", 5) != 0
+		      && strncmp (name, "__vtype_", 6) != 0))
+		sym->attr.use_only = only_flag;
 
 	      /* Store the symtree pointing to this symbol.  */
 	      info->u.rsym.symtree = st;
@@ -4678,6 +4686,8 @@ read_module (void)
 	}
 
       mio_interface (&gfc_current_ns->op[i]);
+      if (u && !gfc_current_ns->op[i])
+	u->found = 0;
     }
 
   mio_rparen ();
@@ -6093,6 +6103,31 @@ gfc_use_module (gfc_use_list *module)
 }
 
 
+/* Remove duplicated intrinsic operators from the rename list. */
+
+static void
+rename_list_remove_duplicate (gfc_use_rename *list)
+{
+  gfc_use_rename *seek, *last;
+
+  for (; list; list = list->next)
+    if (list->op != INTRINSIC_USER && list->op != INTRINSIC_NONE)
+      {
+	last = list;
+	for (seek = list->next; seek; seek = last->next)
+	  {
+	    if (list->op == seek->op)
+	      {
+		last->next = seek->next;
+		free (seek);
+	      }
+	    else
+	      last = seek;
+	  }
+      }
+}
+
+
 /* Process all USE directives.  */
 
 void
@@ -6171,6 +6206,7 @@ gfc_use_modules (void)
   for (; module_list; module_list = next)
     {
       next = module_list->next;
+      rename_list_remove_duplicate (module_list->rename);
       gfc_use_module (module_list);
       if (module_list->intrinsic)
 	free_rename (module_list->rename);

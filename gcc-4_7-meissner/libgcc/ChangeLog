@@ -1,3 +1,10 @@
+2012-01-15  Chung-Lin Tang  <cltang@codesourcery.com>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/libgcc-mips16.ver (__mips16_rdhwr): Add.
+	* config/mips/mips16.S (__mips16_rdhwr): New function.
+	* config/mips/t-mips16 (LIB1ASMFUNCS): Add _m16rdhwr.
+
 2012-01-11  Nathan Sidwell  <nathan@acm.org>
 
 	* libgcov.c (__gcov_init): Ignore objects with no functions.
@@ -11,7 +18,7 @@
 	(__movmemx_qi, __movmemx_hi): New functions.
 	(__xload_2, __xload_3, __xload_4): Rewrite to fit new __pgmx
 	semantics.
-	
+
 2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* config/sparc/sol2-unwind.h (sparc64_is_sighandler): Check that the
@@ -74,6 +81,10 @@
 2011-12-21  Tristan Gingold  <gingold@adacore.com>
 
 	* config/ia64/fde-vms.c (UNW_IVMS_MODE): Define.
+
+2011-12-21  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/morestack.S: Simplify CFI opcodes throughout.
 
 2011-12-20  Ian Lance Taylor  <iant@google.com>
 

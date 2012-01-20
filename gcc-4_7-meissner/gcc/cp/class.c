@@ -6195,6 +6195,18 @@ finish_struct (tree t, tree attributes)
 	if (DECL_PURE_VIRTUAL_P (x))
 	  VEC_safe_push (tree, gc, CLASSTYPE_PURE_VIRTUALS (t), x);
       complete_vars (t);
+      /* We need to add the target functions to the CLASSTYPE_METHOD_VEC if
+	 an enclosing scope is a template class, so that this function be
+	 found by lookup_fnfields_1 when the using declaration is not
+	 instantiated yet.  */
+      for (x = TYPE_FIELDS (t); x; x = DECL_CHAIN (x))
+	if (TREE_CODE (x) == USING_DECL)
+	  {
+	    tree fn = strip_using_decl (x);
+	    if (is_overloaded_fn (fn))
+	      for (; fn; fn = OVL_NEXT (fn))
+		add_method (t, OVL_CURRENT (fn), x);
+	  }
 
       /* Remember current #pragma pack value.  */
       TYPE_PRECISION (t) = maximum_field_alignment;
@@ -8351,6 +8363,18 @@ build_vtbl_initializer (tree binfo,
 				      build_fold_addr_expr (fn));
 		  init = abort_fndecl_addr;
 		}
+	    }
+	  /* Likewise for deleted virtuals.  */
+	  else if (DECL_DELETED_FN (fn_original))
+	    {
+	      fn = get_identifier ("__cxa_deleted_virtual");
+	      if (!get_global_value_if_present (fn, &fn))
+		fn = push_library_fn (fn, (build_function_type_list
+					   (void_type_node, NULL_TREE)),
+				      NULL_TREE);
+	      if (!TARGET_VTABLE_USES_DESCRIPTORS)
+		init = fold_convert (vfunc_ptr_type_node,
+				     build_fold_addr_expr (fn));
 	    }
 	  else
 	    {

@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "tree-inline.h"
-#include "tree-mudflap.h"
 #include "intl.h"
 #include "toplev.h"
 #include "flags.h"
@@ -995,6 +994,15 @@ finish_range_for_decl (tree range_for_stmt, tree decl, tree expr)
 tree
 finish_break_stmt (void)
 {
+  /* In switch statements break is sometimes stylistically used after
+     a return statement.  This can lead to spurious warnings about
+     control reaching the end of a non-void function when it is
+     inlined.  Note that we are calling block_may_fallthru with
+     language specific tree nodes; this works because
+     block_may_fallthru returns true when given something it does not
+     understand.  */
+  if (!block_may_fallthru (cur_stmt_list))
+    return void_zero_node;
   return add_stmt (build_stmt (input_location, BREAK_STMT));
 }
 
@@ -2663,20 +2671,6 @@ finish_member_declaration (tree decl)
     {
       if (TREE_CODE (decl) == USING_DECL)
 	{
-	  /* We need to add the target functions to the
-	     CLASSTYPE_METHOD_VEC if an enclosing scope is a template
-	     class, so that this function be found by lookup_fnfields_1
-	     when the using declaration is not instantiated yet.  */
-
-	  tree target_decl = strip_using_decl (decl);
-	  if (dependent_type_p (current_class_type)
-	      && is_overloaded_fn (target_decl))
-	    {
-	      tree t = target_decl;
-	      for (; t; t = OVL_NEXT (t))
-		add_method (current_class_type, OVL_CURRENT (t), decl);
-	    }
-
 	  /* For now, ignore class-scope USING_DECLS, so that
 	     debugging backends do not see them. */
 	  DECL_IGNORED_P (decl) = 1;
@@ -5930,6 +5924,8 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
 	    break;
 	}
     }
+  else if (EXPR_P (body))
+    ok = build_data_member_initialization (body, &vec);
   else
     gcc_assert (errorcount > 0);
   if (ok)
