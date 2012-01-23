@@ -1,3 +1,30 @@
+2012-01-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51398
+	* pt.c (parameter_of_template_p): Skip error_mark_node parameters.
+
+2012-01-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51925
+	* class.c (add_method): Set OVL_USED for using-decls.
+	* tree.c (ovl_scope): New.
+	* cp-tree.h: Declare it.
+	* parser.c (cp_parser_template_name): Use it.
+	* semantics.c (baselink_for_fns): Likewise.
+	* name-lookup.c (set_inherited_value_binding_p): Likewise.
+
+2012-01-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51402
+	* pt.c (lookup_template_class_1): Check context returned by
+	tsubst for error_mark_node.
+
+2012-01-19  Kai Tietz  <ktietz@redhat.com>
+
+	PR c++/51344
+	* decl2.c (save_template_attributes): Use merge_attributes
+	instead of chaining up via TREE_CHAIN.
+
 2012-01-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/51889
