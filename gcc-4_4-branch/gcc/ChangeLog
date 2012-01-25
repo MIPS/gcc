@@ -1,3 +1,8 @@
+2012-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Put
+	space after -mxop/-mfma4/-mbmi/-mtbm switch instead of before.
+
 2011-08-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/50179

@@ -696,13 +696,13 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       if (has_lwp)
 	options = concat (options, "-mlwp ", NULL);
       if (has_fma4)
-	options = concat (options, " -mfma4", NULL);
+	options = concat (options, "-mfma4 ", NULL);
       if (has_xop)
-	options = concat (options, " -mxop", NULL);
+	options = concat (options, "-mxop ", NULL);
       if (has_bmi)
-	options = concat (options, " -mbmi", NULL);
+	options = concat (options, "-mbmi ", NULL);
       if (has_tbm)
-	options = concat (options, " -mtbm", NULL);
+	options = concat (options, "-mtbm ", NULL);
 
       if (has_avx)
 	options = concat (options, "-mavx ", NULL);
