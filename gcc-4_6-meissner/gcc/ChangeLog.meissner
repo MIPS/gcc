@@ -1,0 +1,5 @@
+2012-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from ibm/gcc-4_6-branch, subversion id 183110.
+	* REVISION: Update subversion id.
+
