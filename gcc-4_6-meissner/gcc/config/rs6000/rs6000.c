@@ -17133,47 +17133,6 @@ rs6000_decompose_offsettable_memref (rtx op, rtx *base, HOST_WIDE_INT *offset)
   return false;
 }
 
-/* Return 1 if two memory references are adjacent.  This is useful for
-     optimizing code that chases through balanced binary trees or tries and
-     loads up either the right or left pointer depending on a condition.  We
-     assume adjacent loads will be in the same cache line, so the second load
-     is 'free'.  The internal version returns the base/offset for each op,
-     while the external version doesn't.  */
-
-static inline bool
-rs6000_adjacent_memref_internal_p (rtx op0,
-				   rtx op1,
-				   HOST_WIDE_INT *offset0,
-				   HOST_WIDE_INT *offset1)
-{
-  rtx base0, base1;
-  enum machine_mode mode0 = GET_MODE (op0);
-  enum machine_mode mode1 = GET_MODE (op1);
-  HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
-
-  if (mode0 != mode1
-      || !rs6000_decompose_offsettable_memref (op0, &base0, offset0)
-      || !rs6000_decompose_offsettable_memref (op1, &base1, offset1))
-    return false;
-
-  if (!rtx_equal_p (base0, base1))
-    return false;
-
-  if (((*offset0 + size) == *offset1)
-      || ((*offset1 + size) == *offset0))
-    return true;
-
-  return false;
-}
-
-bool
-rs6000_adjacent_memref_p (rtx op0, rtx op1)
-{
-  HOST_WIDE_INT offset0, offset1;
-
-  return rs6000_adjacent_memref_internal_p (op0, op1, &offset0, &offset1);
-}
-
 /* Do any machine specific optimization of conditional moves.  On the rs6000,
    if both sides of the conditional move are memory operations that seem to be
    within the same cache block, then the second load is 'free', and we use
@@ -17187,14 +17146,37 @@ rs6000_cmove_md_extra (rtx dest, rtx compare, rtx op0, rtx op1)
 {
   enum machine_mode mode0 = GET_MODE (op0);
   enum machine_mode mode1 = GET_MODE (op1);
+  HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
+  HOST_WIDE_INT line_size = L1_CACHE_LINE_SIZE;
+  HOST_WIDE_INT offset0 = -1;
+  HOST_WIDE_INT offset1 = -1;
   rtx ret = NULL_RTX;
+  rtx base0, base1;
 
   if (!TARGET_ADJACENT_MEMORY_CMOVE || !TARGET_ISEL || mode0 != mode1
       || !MEM_P (op0) || !MEM_P (op1) || !INTEGRAL_MODE_P (mode0))
     return NULL_RTX;
 
-  if (!rs6000_adjacent_memref_p (op0, op1))
-    return NULL_RTX;
+  /* Are memory references reg+offset?  */
+  if (!rs6000_decompose_offsettable_memref (op0, &base0, &offset0))
+    return false;
+
+  if (!rs6000_decompose_offsettable_memref (op1, &base1, &offset1))
+    return false;
+
+  /* Are the base pointers the same?  */
+  if (!rtx_equal_p (base0, base1))
+    return false;
+
+  /* Are the two fields aligned on a word/double word boundary?  */
+  if ((offset0 % size) != 0 || (offset1 % size) != 0)
+    return false;
+
+  /* Are the memory locations in different cache lines?  */
+  if (line_size == 0
+      || line_size < 2*size
+      || (offset0 / line_size) != (offset1 / line_size))
+    return false;
 
   start_sequence ();
   if (rs6000_emit_int_cmove (dest, compare,

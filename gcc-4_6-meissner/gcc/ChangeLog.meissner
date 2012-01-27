@@ -9,9 +9,6 @@
 	* ifcvt.c (noce_process_if_block): Call cmove_md_extra hook to
 	allow the machine to provide machine specific conditonal moves.
 
-	* config/rs6000/rs6000-protos.h (rs6000_adjacent_memref_p): Add
-	declaration.
-
 	* config/rs6000/rs6000.opt (-madjacent-memory-cmove): New switch
 	to optimize conditional moves of two adjacent memory locations.
 
@@ -19,8 +16,6 @@
 	-madjacent-memory-cmove.
 	(TARGET_CMOVE_MD_EXTRA): Likewise.
 	(rs6000_decompose_offsettable_memref): Likewise.
-	(rs6000_adjacent_memref_internal_p): Likewise.
-	(rs6000_adjacent_memref_p): Likewise.
 	(rs6000_emit_cmove): Likewise.
 
 2012-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
