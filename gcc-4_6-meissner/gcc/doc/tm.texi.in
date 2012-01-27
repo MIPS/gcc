@@ -10749,11 +10749,11 @@ conditional execution instructions instead of a branch.  A value of
 1 if it does use cc0.
 @end defmac
 
-@hook TARGET_IFCVT_TWO_MEMORY_P
-This function returns whether we can optimize a conditional move with
-a comparison @var{cmp} and two values in memory (@var{op0} and
-@var{op1}).  The default is not to allow two memory operations in a
-conditional move operation.
+@hook TARGET_CMOVE_MD_EXTRA
+This function returns the insn for any machine specific conditional
+moves to set @var{dest} to @var{op0} if @var{compare} is non-zero or
+@var{op1} if it is zero.  The function returns a null pointer
+if there are no machine specific conditional moves.
 @end deftypefn
 
 @defmac IFCVT_MODIFY_TESTS (@var{ce_info}, @var{true_expr}, @var{false_expr})

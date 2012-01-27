@@ -1,6 +1,6 @@
 /* If-conversion support.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010
-   2012.
+   2011, 2012.
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -757,7 +757,6 @@ static int noce_try_store_flag_mask (struct noce_if_info *);
 static rtx noce_emit_cmove (struct noce_if_info *, rtx, enum rtx_code, rtx,
 			    rtx, rtx, rtx);
 static int noce_try_cmove (struct noce_if_info *);
-static int noce_try_cmove_mem (struct noce_if_info *);
 static int noce_try_cmove_arith (struct noce_if_info *);
 static rtx noce_get_alt_condition (struct noce_if_info *, rtx, rtx *);
 static int noce_try_minmax (struct noce_if_info *);
@@ -1477,52 +1476,6 @@ noce_try_cmove (struct noce_if_info *if_info)
     }
 
   return FALSE;
-}
-
-/* Optimize a cmove with two memory operations.  A machine may decide to allow
-   loading up adjacent memory words that are in the same cache line and doing a
-   cmove on the values in registers.  This can help speed up code that
-   processes binary trees/tries that goes through a linked list, loading up the
-   right or left pointers.  */
-
-static int
-noce_try_cmove_mem (struct noce_if_info *if_info)
-{
-  rtx a = if_info->a;
-  rtx b = if_info->b;
-  rtx cond = if_info->cond;
-  enum rtx_code code;
-  rtx target, seq;
-
-  if (!MEM_P (a) || !MEM_P (b)
-      || MEM_ADDR_SPACE (a) != MEM_ADDR_SPACE (b)
-      || !targetm.ifcvt_two_memory_p (cond, a, b))
-    return FALSE;
-
-  start_sequence ();
-
-  code = GET_CODE (if_info->cond);
-  target = noce_emit_cmove (if_info, if_info->x, code, XEXP (cond, 0),
-			    XEXP (cond, 1), a, b);
-
-  if (target)
-    {
-      if (target != if_info->x)
-	noce_emit_move_insn (if_info->x, target);
-
-      seq = end_ifcvt_sequence (if_info);
-      if (!seq)
-	return FALSE;
-
-      emit_insn_before_setloc (seq, if_info->jump,
-			       INSN_LOCATOR (if_info->insn_a));
-      return TRUE;
-    }
-  else
-    {
-      end_sequence ();
-      return FALSE;
-    }
 }
 
 /* Try more complex cases involving conditional_move.  */
@@ -2472,7 +2425,7 @@ noce_process_if_block (struct noce_if_info *if_info)
   basic_block join_bb = if_info->join_bb;	/* JOIN */
   rtx jump = if_info->jump;
   rtx cond = if_info->cond;
-  rtx insn_a, insn_b;
+  rtx insn_a, insn_b, insn;
   rtx set_a, set_b;
   rtx orig_x, x, a, b;
 
@@ -2660,15 +2613,20 @@ noce_process_if_block (struct noce_if_info *if_info)
 	goto success;
       if (noce_try_store_flag_mask (if_info))
 	goto success;
-      if (HAVE_conditional_move)
-	{
-	  if (noce_try_cmove_mem (if_info))
-	    goto success;
-	  if (noce_try_cmove_arith (if_info))
-	    goto success;
-	}
+      if (HAVE_conditional_move
+	  && noce_try_cmove_arith (if_info))
+	goto success;
       if (noce_try_sign_mask (if_info))
 	goto success;
+    }
+
+  /* Does the machine have any conditional moves that we don't support?  */
+  insn = targetm.cmove_md_extra (x, cond, a, b);
+  if (insn)
+    {
+      emit_insn_before_setloc (insn, if_info->jump,
+			       INSN_LOCATOR (if_info->insn_a));
+      goto success;
     }
 
   if (!else_bb && set_b)
