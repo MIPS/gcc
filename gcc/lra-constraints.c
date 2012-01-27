@@ -254,10 +254,6 @@ get_reload_reg (enum op_type type, enum machine_mode mode, rtx original,
 
   if (type == OP_OUT)
     {
-      /* Unique value is needed when we need reloads for pseudo which
-	 occurs as earlier clobber output and input operands to
-	 guarantee that the both reload pseudos have unique value and
-	 can not be assigned to the same hard register.  */
       *result_reg
 	= lra_create_new_reg_with_unique_value (mode, original, rclass, title);
       return true;
@@ -3315,8 +3311,9 @@ int lra_constraint_iter;
 
 /* True if we substituted equiv which needs checking register
    allocation correctness because the equivalent value contains
-   allocatiable hard registers.  */
-bool lra_risky_equiv_subst_p;
+   allocatiable hard registers or when we restore multi-register
+   pseudo.  */
+bool lra_risky_transformations_p;
 
 /* Entry function of LRA constraint pass.  Return true if the
    constraint pass did change the code.  */
@@ -3338,7 +3335,7 @@ lra_constraints (bool first_p)
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
        MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
-  lra_risky_equiv_subst_p = false;
+  lra_risky_transformations_p = false;
   new_insn_uid_start = get_max_uid ();
   new_regno_start = first_p ? lra_constraint_new_regno_start : max_reg_num ();
   for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
@@ -3451,7 +3448,7 @@ lra_constraints (bool first_p)
 		      print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
 		    }
 		  if (contains_reg_p (x, true, false))
-		    lra_risky_equiv_subst_p = true;
+		    lra_risky_transformations_p = true;
 		  lra_set_insn_deleted (curr_insn);
 		  continue;
 		}
@@ -4320,7 +4317,11 @@ inherit_in_ebb (rtx head, rtx tail)
 					  dst_regno)
 			&& split_pseudo (true, dst_regno, curr_insn,
 					 next_usage_insns))
-		      change_p = true;
+		      {
+			if (reg->subreg_p)
+			  lra_risky_transformations_p = true;
+			change_p = true;
+		      }
 		    if (! reg->subreg_p)
 		      {
 			HARD_REG_SET s;
@@ -4344,7 +4345,8 @@ inherit_in_ebb (rtx head, rtx tail)
 	  to_inherit_num = 0;
 	  /* Process insn usages.  */
 	  for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	    if (reg->type != OP_OUT
+	    if ((reg->type != OP_OUT
+		 || (reg->type == OP_OUT && reg->subreg_p))
 		&& (src_regno = reg->regno) >= FIRST_PSEUDO_REGISTER
 		&& src_regno < lra_constraint_new_regno_start)
 	      {
@@ -4379,7 +4381,11 @@ inherit_in_ebb (rtx head, rtx tail)
 			&& NONDEBUG_INSN_P (curr_insn)
 			&& split_pseudo (false, src_regno, curr_insn,
 					 next_usage_insns))
-		      ok_p = change_p = true;
+		      {
+			if (reg->subreg_p)
+			  lra_risky_transformations_p = true;
+			ok_p = change_p = true;
+		      }
 		    if (NONDEBUG_INSN_P (curr_insn))
 		      lra_add_hard_reg_set (reg_renumber[src_regno],
 					    PSEUDO_REGNO_MODE (src_regno),

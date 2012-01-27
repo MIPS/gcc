@@ -829,13 +829,17 @@ static int *sorted_pseudos;
    contains pseudos assigned to hard registers.  Such equivalence
    usage might create new conflicts of pseudos with hard registers
    (like ones used for parameter passing or call clobbered ones) or
-   other pseudos assigned to the same hard registers.  Process pseudos
-   assigned to hard registers (most frequently used first), spill if a
-   conflict is found, and mark the spilled pseudos in
-   SPILLED_PSEUDO_BITMAP.  Set up LIVE_HARD_REG_PSEUDOS from pseudos,
-   assigned to hard registers. */
+   other pseudos assigned to the same hard registers.  Another very
+   rare risky transformation is restoring whole multi-register pseudo
+   when only one subreg lives and unused hard register is used already
+   for something else.
+
+   Process pseudos assigned to hard registers (most frequently used
+   first), spill if a conflict is found, and mark the spilled pseudos
+   in SPILLED_PSEUDO_BITMAP.  Set up LIVE_HARD_REG_PSEUDOS from
+   pseudos, assigned to hard registers. */
 static void
-setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
+setup_live_pseudos_and_spill_after_risky_transforms (bitmap spilled_pseudo_bitmap)
 {
   int p, i, j, n, regno, hard_regno;
   unsigned int k, conflict_regno;
@@ -848,12 +852,12 @@ setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     if (reg_renumber[i] >= 0 && lra_reg_info[i].nrefs > 0)
       {
-	if (lra_risky_equiv_subst_p)
+	if (lra_risky_transformations_p)
 	  sorted_pseudos[n++] = i;
 	else
 	  update_lives (i, false);
       }
-  if (! lra_risky_equiv_subst_p)
+  if (! lra_risky_transformations_p)
     return;
   qsort (sorted_pseudos, n, sizeof (int), pseudo_compare_func);
   for (i = 0; i < n; i++)
@@ -896,7 +900,7 @@ setup_live_pseudos_and_spill_after_equiv_moves (bitmap spilled_pseudo_bitmap)
 	lra_hard_reg_usage[hard_regno + j] -= lra_reg_info[regno].freq;
       reg_renumber[regno] = -1;
       if (lra_dump_file != NULL)
-	fprintf (lra_dump_file, "    Spill r%d after reg equiv. moves\n",
+	fprintf (lra_dump_file, "    Spill r%d after risky transformations\n",
 		 regno);
     }
 }
@@ -1149,7 +1153,7 @@ lra_assign (void)
     regno_allocno_class_array[i] = lra_get_allocno_class (i);
   init_regno_assign_info ();
   bitmap_initialize (&all_spilled_pseudos, &reg_obstack);
-  setup_live_pseudos_and_spill_after_equiv_moves (&all_spilled_pseudos);
+  setup_live_pseudos_and_spill_after_risky_transforms (&all_spilled_pseudos);
   /* Setup insns to process.  */
   bitmap_initialize (&changed_pseudo_bitmap, &reg_obstack);
   init_live_reload_and_inheritance_pseudos ();
