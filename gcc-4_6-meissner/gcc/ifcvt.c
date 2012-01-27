@@ -756,6 +756,7 @@ static int noce_try_store_flag_mask (struct noce_if_info *);
 static rtx noce_emit_cmove (struct noce_if_info *, rtx, enum rtx_code, rtx,
 			    rtx, rtx, rtx);
 static int noce_try_cmove (struct noce_if_info *);
+static int noce_try_cmove_mem (struct noce_if_info *);
 static int noce_try_cmove_arith (struct noce_if_info *);
 static rtx noce_get_alt_condition (struct noce_if_info *, rtx, rtx *);
 static int noce_try_minmax (struct noce_if_info *);
@@ -1475,6 +1476,52 @@ noce_try_cmove (struct noce_if_info *if_info)
     }
 
   return FALSE;
+}
+
+/* Optimize a cmove with two memory operations.  A machine may decide to allow
+   loading up adjacent memory words that are in the same cache line and doing a
+   cmove on the values in registers.  This can help speed up code that
+   processes binary trees/tries that goes through a linked list, loading up the
+   right or left pointers.  */
+
+static int
+noce_try_cmove_mem (struct noce_if_info *if_info)
+{
+  rtx a = if_info->a;
+  rtx b = if_info->b;
+  rtx cond = if_info->cond;
+  enum rtx_code code;
+  rtx target, seq;
+
+  if (!MEM_P (a) || !MEM_P (b)
+      || MEM_ADDR_SPACE (a) != MEM_ADDR_SPACE (b)
+      || !targetm.ifcvt_two_memory_p (cond, a, b))
+    return FALSE;
+
+  start_sequence ();
+
+  code = GET_CODE (if_info->cond);
+  target = noce_emit_cmove (if_info, if_info->x, code, XEXP (cond, 0),
+			    XEXP (cond, 1), a, b);
+
+  if (target)
+    {
+      if (target != if_info->x)
+	noce_emit_move_insn (if_info->x, target);
+
+      seq = end_ifcvt_sequence (if_info);
+      if (!seq)
+	return FALSE;
+
+      emit_insn_before_setloc (seq, if_info->jump,
+			       INSN_LOCATOR (if_info->insn_a));
+      return TRUE;
+    }
+  else
+    {
+      end_sequence ();
+      return FALSE;
+    }
 }
 
 /* Try more complex cases involving conditional_move.  */
@@ -2612,9 +2659,13 @@ noce_process_if_block (struct noce_if_info *if_info)
 	goto success;
       if (noce_try_store_flag_mask (if_info))
 	goto success;
-      if (HAVE_conditional_move
-	  && noce_try_cmove_arith (if_info))
-	goto success;
+      if (HAVE_conditional_move)
+	{
+	  if (noce_try_cmove_mem (if_info))
+	    goto success;
+	  if (noce_try_cmove_arith (if_info))
+	    goto success;
+	}
       if (noce_try_sign_mask (if_info))
 	goto success;
     }

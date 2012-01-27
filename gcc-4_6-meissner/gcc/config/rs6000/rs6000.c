@@ -1267,6 +1267,7 @@ static bool rs6000_can_eliminate (const int, const int);
 static void rs6000_conditional_register_usage (void);
 static void rs6000_trampoline_init (rtx, tree, rtx);
 static bool rs6000_cannot_force_const_mem (rtx);
+static bool rs6000_ifcvt_two_memory_p (rtx, rtx, rtx);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1720,6 +1721,9 @@ static const struct default_options rs6000_option_optimization_table[] =
 
 #undef TARGET_SET_CURRENT_FUNCTION
 #define TARGET_SET_CURRENT_FUNCTION rs6000_set_current_function
+
+#undef TARGET_IFCVT_TWO_MEMORY_P
+#define TARGET_IFCVT_TWO_MEMORY_P rs6000_ifcvt_two_memory_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -17093,9 +17097,82 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
   return 1;
 }
 
-/* Emit a conditional move: move TRUE_COND to DEST if OP of the
-   operands of the last comparison is nonzero/true, FALSE_COND if it
-   is zero/false.  Return 0 if the hardware has no such operation.  */
+/* If a memory reference is an offsettable memory reference, return true and
+   return the base part and offset.  */
+
+static inline bool
+rs6000_decompose_offsettable_memref (rtx op, rtx *base, HOST_WIDE_INT *offset)
+{
+  rtx addr, right, left;
+
+  *base = NULL_RTX;
+  *offset = -1;
+
+  if (!MEM_P (op))
+    return false;
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) == REG)
+    {
+      *base = addr;
+      *offset = 0;
+      return true;
+    }
+  else if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+    {
+      right = XEXP (addr, 0);
+      left = XEXP (addr, 1);
+      if (!REG_P (right) || GET_CODE (left) != CONST_INT)
+	return false;
+
+      *base = right;
+      *offset = INTVAL (left);
+      return true;
+    }
+
+  return false;
+}
+
+/* Return 1 if two memory references are adjacent.  This is useful for
+     optimizing code that chases through balanced binary trees or tries and
+     loads up either the right or left pointer depending on a condition.  We
+     assume adjacent loads will be in the same cache line, so the second load
+     is 'free'.  The internal version returns the base/offset for each op,
+     while the external version doesn't.  */
+
+static inline bool
+rs6000_adjacent_memref_internal_p (rtx op0,
+				   rtx op1,
+				   HOST_WIDE_INT *offset0,
+				   HOST_WIDE_INT *offset1)
+{
+  rtx base0, base1;
+  enum machine_mode mode0 = GET_MODE (op0);
+  enum machine_mode mode1 = GET_MODE (op1);
+  HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
+
+  if (mode0 != mode1
+      || !rs6000_decompose_offsettable_memref (op0, &base0, offset0)
+      || !rs6000_decompose_offsettable_memref (op1, &base1, offset1))
+    return false;
+
+  if (!rtx_equal_p (base0, base1))
+    return false;
+
+  if (((*offset0 + size) == *offset1)
+      || ((*offset1 + size) == *offset0))
+    return true;
+
+  return false;
+}
+
+bool
+rs6000_adjacent_memref_p (rtx op0, rtx op1)
+{
+  HOST_WIDE_INT offset0, offset1;
+
+  return rs6000_adjacent_memref_internal_p (op0, op1, &offset0, &offset1);
+}
 
 int
 rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
@@ -17118,6 +17195,38 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (GET_MODE (true_cond) != result_mode)
     return 0;
   if (GET_MODE (false_cond) != result_mode)
+    return 0;
+
+  /* Only allow memory operands for doing a conditional move of two adjacent
+     memory references.  This is useful for optimizing code that chases through
+     balanced binary trees or tries and loads up either the right or left
+     pointer depending on a condition.  We assume adjacent loads will be in the
+     same cache line, so the second load is 'free', particularly compared to
+     the cost of branches.  */
+  if (MEM_P (true_cond))
+    {
+      HOST_WIDE_INT true_offset, false_offset;
+
+      if (!TARGET_ADJACENT_MEMORY_CMOVE || !TARGET_ISEL || !MEM_P (false_cond)
+	  || !INTEGRAL_MODE_P (compare_mode)
+	  || !rs6000_adjacent_memref_internal_p (true_cond, false_cond,
+						 &true_offset, &false_offset))
+	return 0;
+
+      /* Load memory in ascending order.  */
+      if (true_offset < false_offset)
+	{
+	  true_cond = force_reg (GET_MODE (true_cond), true_cond);
+	  false_cond = force_reg (GET_MODE (false_cond), false_cond);
+	}
+      else
+	{
+	  false_cond = force_reg (GET_MODE (false_cond), false_cond);
+	  true_cond = force_reg (GET_MODE (true_cond), true_cond);
+	}
+      return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
+    }
+  else if (MEM_P (false_cond))
     return 0;
 
   /* First, work out if the hardware can do this at all, or
@@ -28100,6 +28209,24 @@ bool
 rs6000_save_toc_in_prologue_p (void)
 {
   return (cfun && cfun->machine && cfun->machine->save_toc_in_prologue);
+}
+
+/* Return if we can optimize a conditional move of two values in memory. */
+
+static bool
+rs6000_ifcvt_two_memory_p (rtx compare  ATTRIBUTE_UNUSED,
+			   rtx op0,
+			   rtx op1)
+{
+  enum machine_mode mode = GET_MODE (op0);
+
+  if (!TARGET_ADJACENT_MEMORY_CMOVE || !TARGET_ISEL || !INTEGRAL_MODE_P (mode))
+    return false;
+
+  if (!rs6000_adjacent_memref_p (op0, op1))
+    return false;
+
+  return true;
 }
 
 #include "gt-rs6000.h"

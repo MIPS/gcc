@@ -1444,3 +1444,15 @@
 
   return 1;
 })
+
+;; Return 1 if the operand is either a gpc_reg_operand or if it is a memory
+;; reference that uses register+offset addressing.  This is used for
+;; recognizing: a = (b) ? c : d; where c and d are adjancent memory references
+;; and it is faster to load both operands and do conditional move, then to do
+;; the normal branch.
+(define_predicate "reg_or_offsettable_mem_operand"
+  (ior (match_operand 0 "gpc_reg_operand")
+       (and (match_test "TARGET_ADJACENT_MEMORY_CMOVE")
+	    (and (match_operand 0 "memory_operand")
+		 (match_test "offsettable_nonstrict_memref_p (op)")))))
+

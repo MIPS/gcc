@@ -183,3 +183,4 @@ extern const struct default_options empty_optimization_table[];
 
 extern void *default_get_pch_validity (size_t *);
 extern const char *default_pch_valid_p (const void *, size_t);
+extern bool default_ifcvt_two_memory_p (rtx, rtx, rtx);

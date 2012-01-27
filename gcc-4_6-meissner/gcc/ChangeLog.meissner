@@ -1,5 +1,38 @@
 2012-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* target.def (ifcvt_two_memory_p): New hook to say whether we can
+	do a conditional move with two memory inputs.  By default, the
+	hook returns false.
+	* tm.texi.in (TARGET_IFCVT_TWO_MEMORY_P): Likewise.
+	* tm.texi (TARGET_IFCVT_TWO_MEMORY_P): Likewise.
+	* targhooks.h (default_ifcvt_two_memory_p): Likewise.
+	* targhooks.c (default_ifcvt_two_memory_p): Likewise.
+	* ifcvt.c (noce_try_cmove_mem): If we have a conditional move with
+	two memory inputs, see if the backend is prepared to accept it.
+	(noce_process_if_block): Call noce_try_cmove_mem.
+
+	* config/rs6000/predicates.md (reg_or_offsettable_mem_operand):
+	New predicate to allow either register or offsetable addresses.
+
+	* config/rs6000/rs6000-protos.h (rs6000_adjacent_memref_p): Add
+	declaration.
+
+	* config/rs6000/rs6000.opt (-madjacent-memory-cmove): New switch
+	to optimize conditional moves of two adjacent memory locations.
+
+	* config/rs6000/rs6000.c (rs6000_ifcvt_two_memory_p): Add support
+	for -madjacent-memory-cmove.
+	(TARGET_IFCVT_TWO_MEMORY_P): Likewise.
+	(rs6000_decompose_offsettable_memref): Likewise.
+	(rs6000_adjacent_memref_internal_p): Likewise.
+	(rs6000_adjacent_memref_p): Likewise.
+	(rs6000_emit_cmove): Likewise.
+
+	* config/rs6000/rs6000.md (mov<mode>cc): Allow memory operands if
+	-madjacent-memory-cmove.
+
+2012-01-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from ibm/gcc-4_6-branch, subversion id 183110.
 	* REVISION: Update subversion id.
 

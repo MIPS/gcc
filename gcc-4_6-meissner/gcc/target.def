@@ -1530,6 +1530,16 @@ DEFHOOK
  bool, (struct ao_ref_s *ref),
  default_ref_may_alias_errno)
 
+/* Return whether we can optimize a conditional move with a
+   branch cost of BRCOST and comparison CMP, of two values in
+   memory (OP0 and OP1).  The default is not to allow two
+   memory operations in a conditional move operation.  */
+DEFHOOK
+(ifcvt_two_memory_p,
+ "",
+ bool, (rtx cmp, rtx op0, rtx op1),
+ default_ifcvt_two_memory_p)
+
 /* Support for named address spaces.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_ADDR_SPACE_"

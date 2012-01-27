@@ -1514,6 +1514,16 @@ default_pch_valid_p (const void *data_p, size_t len)
   return NULL;
 }
 
+/* Return if we can optimize a conditional move of two values in memory. */
+
+bool
+default_ifcvt_two_memory_p (rtx compare ATTRIBUTE_UNUSED,
+			    rtx op0 ATTRIBUTE_UNUSED,
+			    rtx op1 ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 const struct default_options empty_optimization_table[] =
   {
     { OPT_LEVELS_NONE, 0, NULL, 0 }
