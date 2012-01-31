@@ -17108,7 +17108,7 @@ rs6000_decompose_offsettable_memref (rtx op, rtx *base, HOST_WIDE_INT *offset)
   *base = NULL_RTX;
   *offset = -1;
 
-  if (!MEM_P (op))
+  if (!MEM_P (op) || side_effects_p (op) || volatile_refs_p (op))
     return false;
 
   addr = XEXP (op, 0);
@@ -17147,13 +17147,13 @@ rs6000_cmove_md_extra (rtx dest, rtx compare, rtx op0, rtx op1)
   enum machine_mode mode0 = GET_MODE (op0);
   enum machine_mode mode1 = GET_MODE (op1);
   HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
-  HOST_WIDE_INT line_size = L1_CACHE_LINE_SIZE;
+  HOST_WIDE_INT line_size = TARGET_CMOVE_ADJACENT_MEMORY;
   HOST_WIDE_INT offset0 = -1;
   HOST_WIDE_INT offset1 = -1;
   rtx ret = NULL_RTX;
   rtx base0, base1;
 
-  if (!TARGET_ADJACENT_MEMORY_CMOVE || !TARGET_ISEL || mode0 != mode1
+  if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1
       || !MEM_P (op0) || !MEM_P (op1) || !INTEGRAL_MODE_P (mode0))
     return NULL_RTX;
 
@@ -17173,15 +17173,14 @@ rs6000_cmove_md_extra (rtx dest, rtx compare, rtx op0, rtx op1)
     return false;
 
   /* Are the memory locations in different cache lines?  */
-  if (line_size == 0
-      || line_size < 2*size
-      || (offset0 / line_size) != (offset1 / line_size))
+  if ((offset0 / line_size) != (offset1 / line_size))
     return false;
 
   start_sequence ();
-  if (rs6000_emit_int_cmove (dest, compare,
-			     force_reg (mode0, op0),
-			     force_reg (mode1, op1)))
+  if (rs6000_emit_int_cmove (dest,
+			     copy_rtx (compare),
+			     force_reg (mode0, copy_rtx (op0)),
+			     force_reg (mode1, copy_rtx (op1))))
     ret = get_insns ();
   end_sequence ();
   return ret;

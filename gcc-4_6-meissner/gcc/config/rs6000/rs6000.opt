@@ -473,6 +473,10 @@ msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
 
-madjacent-memory-cmove
-Target Undocumented Var(TARGET_ADJACENT_MEMORY_CMOVE) Init(0) Save
-; Control whether we optimize (a) ? b : c where b and c are adjancent memory locations
+mcmove-adjacent-memory
+Target Report Var(TARGET_CMOVE_ADJACENT_MEMORY,16) Init(0) Save
+Control whether we load both sides of a conditional move if they are adjacent in memory.
+
+mcmove-adjacent-memory=
+Target Report RejectNegative Joined UInteger Var(TARGET_CMOVE_ADJACENT_MEMORY)
+Modify the line size for figuring out if the two memory items are adjacent.
