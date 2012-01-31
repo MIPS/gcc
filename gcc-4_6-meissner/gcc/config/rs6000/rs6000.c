@@ -17159,22 +17159,22 @@ rs6000_cmove_md_extra (rtx dest, rtx compare, rtx op0, rtx op1)
 
   /* Are memory references reg+offset?  */
   if (!rs6000_decompose_offsettable_memref (op0, &base0, &offset0))
-    return false;
+    return NULL_RTX;
 
   if (!rs6000_decompose_offsettable_memref (op1, &base1, &offset1))
-    return false;
+    return NULL_RTX;
 
   /* Are the base pointers the same?  */
   if (!rtx_equal_p (base0, base1))
-    return false;
+    return NULL_RTX;
 
   /* Are the two fields aligned on a word/double word boundary?  */
   if ((offset0 % size) != 0 || (offset1 % size) != 0)
-    return false;
+    return NULL_RTX;
 
   /* Are the memory locations in different cache lines?  */
   if ((offset0 / line_size) != (offset1 / line_size))
-    return false;
+    return NULL_RTX;
 
   start_sequence ();
   if (rs6000_emit_int_cmove (dest,
