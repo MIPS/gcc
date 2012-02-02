@@ -1,5 +1,12 @@
 2012-02-02  Peter Bergner  <bergner@vnet.ibm.com>
 
+	Backport from mainline.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):
+	Set rs6000_always_hint to false for 476.
+
+2012-02-02  Peter Bergner  <bergner@vnet.ibm.com>
+
 	Backport from pre-committed mainline patch.
 
 	* config/rs6000/dfp.md (floatdidd2): New define_insn.
