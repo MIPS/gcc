@@ -1,3 +1,9 @@
+2012-02-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from pre-committed mainline patch.
+
+	* config/rs6000/dfp.md (floatdidd2): New define_insn.
+
 2012-01-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/49642
