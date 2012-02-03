@@ -1,5 +1,5 @@
 /* Statement Analysis and Transformation for Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
@@ -150,6 +150,8 @@ vect_mark_relevant (VEC(gimple,heap) **worklist, gimple stmt,
           use_operand_p use_p;
           gimple use_stmt;
           tree lhs;
+	  loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
+	  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
 
           if (is_gimple_assign (stmt))
             lhs = gimple_assign_lhs (stmt);
@@ -165,6 +167,9 @@ vect_mark_relevant (VEC(gimple,heap) **worklist, gimple stmt,
 		if (is_gimple_debug (USE_STMT (use_p)))
 		  continue;
 		use_stmt = USE_STMT (use_p);
+
+		if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
+		  continue;
 
 		if (vinfo_for_stmt (use_stmt)
 		    && STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (use_stmt)))
@@ -2420,7 +2425,9 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
      from supportable_*_operation, and store them in the correct order
      for future use in vect_create_vectorized_*_stmts ().  */
   vec_dsts = VEC_alloc (tree, heap, multi_step_cvt + 1);
-  vec_dest = vect_create_destination_var (scalar_dest, vectype_out);
+  vec_dest = vect_create_destination_var (scalar_dest,
+					  (cvt_type && modifier == WIDEN)
+					  ? cvt_type : vectype_out);
   VEC_quick_push (tree, vec_dsts, vec_dest);
 
   if (multi_step_cvt)
@@ -2435,7 +2442,9 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
     }
 
   if (cvt_type)
-    vec_dest = vect_create_destination_var (scalar_dest, cvt_type);
+    vec_dest = vect_create_destination_var (scalar_dest,
+					    modifier == WIDEN
+					    ? vectype_out : cvt_type);
 
   if (!slp_node)
     {

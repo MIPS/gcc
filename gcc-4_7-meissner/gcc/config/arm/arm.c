@@ -3680,6 +3680,10 @@ arm_libcall_uses_aapcs_base (const_rtx libcall)
       add_libcall (libcall_htab,
 		   convert_optab_libfunc (trunc_optab, HFmode, SFmode));
       add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfix_optab, SImode, DFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufix_optab, SImode, DFmode));
+      add_libcall (libcall_htab,
 		   convert_optab_libfunc (sfix_optab, DImode, DFmode));
       add_libcall (libcall_htab,
 		   convert_optab_libfunc (ufix_optab, DImode, DFmode));
@@ -20928,7 +20932,11 @@ neon_split_vcombine (rtx operands[3])
   rtx destlo, desthi;
 
   if (src1 == dest && src2 == dest + halfregs)
-    return;
+    {
+      /* No-op move.  Can't split to nothing; emit something.  */
+      emit_note (NOTE_INSN_DELETED);
+      return;
+    }
 
   /* Preserve register attributes for variable tracking.  */
   destlo = gen_rtx_REG_offset (operands[0], halfmode, dest, 0);
@@ -24664,7 +24672,12 @@ int
 arm_count_output_move_double_insns (rtx *operands)
 {
   int count;
-  output_move_double (operands, false, &count);
+  rtx ops[2];
+  /* output_move_double may modify the operands array, so call it
+     here on a copy of the array.  */
+  ops[0] = operands[0];
+  ops[1] = operands[1];
+  output_move_double (ops, false, &count);
   return count;
 }
 

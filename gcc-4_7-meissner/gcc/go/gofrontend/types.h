@@ -401,6 +401,10 @@ class Type
   static Integer_type*
   make_abstract_integer_type();
 
+  // Make an abstract type for a character constant.
+  static Integer_type*
+  make_abstract_character_type();
+
   // Make a named integer type with a specified size.
   // RUNTIME_TYPE_KIND is the code to use in reflection information,
   // to distinguish int and int32.
@@ -1373,6 +1377,10 @@ class Integer_type : public Type
   // Create an abstract integer type.
   static Integer_type*
   create_abstract_integer_type();
+
+  // Create an abstract character type.
+  static Integer_type*
+  create_abstract_character_type();
 
   // Whether this is an abstract integer type.
   bool
@@ -2674,6 +2682,11 @@ class Named_type : public Type
   is_builtin() const
   { return Linemap::is_predeclared_location(this->location_); }
 
+  // Whether this is an alias.  There are currently two aliases: byte
+  // and rune.
+  bool
+  is_alias() const;
+
   // Whether this is a circular type: a pointer or function type that
   // refers to itself, which is not possible in C.
   bool
@@ -2924,7 +2937,7 @@ class Forward_declaration_type : public Type
 
   // Add a method declaration to this type.
   Named_object*
-  add_method_declaration(const std::string& name, Function_type*,
+  add_method_declaration(const std::string& name, Package*, Function_type*,
 			 Location);
 
  protected:

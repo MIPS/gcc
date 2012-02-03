@@ -367,14 +367,14 @@ static int nonzero_sign_valid;
 /* Record one modification to rtl structure
    to be undone by storing old_contents into *where.  */
 
-enum undo_kind { UNDO_RTX, UNDO_INT, UNDO_MODE };
+enum undo_kind { UNDO_RTX, UNDO_INT, UNDO_MODE, UNDO_LINKS };
 
 struct undo
 {
   struct undo *next;
   enum undo_kind kind;
-  union { rtx r; int i; enum machine_mode m; } old_contents;
-  union { rtx *r; int *i; } where;
+  union { rtx r; int i; enum machine_mode m; struct insn_link *l; } old_contents;
+  union { rtx *r; int *i; struct insn_link **l; } where;
 };
 
 /* Record a bunch of changes to be undone, up to MAX_UNDO of them.
@@ -789,6 +789,34 @@ do_SUBST_MODE (rtx *into, enum machine_mode newval)
 }
 
 #define SUBST_MODE(INTO, NEWVAL)  do_SUBST_MODE(&(INTO), (NEWVAL))
+
+#ifndef HAVE_cc0
+/* Similar to SUBST, but NEWVAL is a LOG_LINKS expression.  */
+
+static void
+do_SUBST_LINK (struct insn_link **into, struct insn_link *newval)
+{
+  struct undo *buf;
+  struct insn_link * oldval = *into;
+
+  if (oldval == newval)
+    return;
+
+  if (undobuf.frees)
+    buf = undobuf.frees, undobuf.frees = buf->next;
+  else
+    buf = XNEW (struct undo);
+
+  buf->kind = UNDO_LINKS;
+  buf->where.l = into;
+  buf->old_contents.l = oldval;
+  *into = newval;
+
+  buf->next = undobuf.undos, undobuf.undos = buf;
+}
+
+#define SUBST_LINK(oldval, newval) do_SUBST_LINK (&oldval, newval)
+#endif
 
 /* Subroutine of try_combine.  Determine whether the replacement patterns
    NEWPAT, NEWI2PAT and NEWOTHERPAT are cheaper according to insn_rtx_cost
@@ -1672,6 +1700,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED,
   rtx link;
 #endif
   bool all_adjacent = true;
+  int (*is_volatile_p) (const_rtx);
 
   if (succ)
     {
@@ -1920,11 +1949,17 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED,
       && REG_P (dest) && REGNO (dest) < FIRST_PSEUDO_REGISTER)
     return 0;
 
-  /* If there are any volatile insns between INSN and I3, reject, because
-     they might affect machine state.  */
+  /* If INSN contains volatile references (specifically volatile MEMs),
+     we cannot combine across any other volatile references.
+     Even if INSN doesn't contain volatile references, any intervening
+     volatile insn might affect machine state.  */
 
+  is_volatile_p = volatile_refs_p (PATTERN (insn))
+    ? volatile_refs_p
+    : volatile_insn_p;
+    
   for (p = NEXT_INSN (insn); p != i3; p = NEXT_INSN (p))
-    if (INSN_P (p) && p != succ && p != succ2 && volatile_insn_p (PATTERN (p)))
+    if (INSN_P (p) && p != succ && p != succ2 && is_volatile_p (PATTERN (p)))
       return 0;
 
   /* If INSN contains an autoincrement or autodecrement, make sure that
@@ -2865,6 +2900,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
 		 SET_DEST (PATTERN (i1)));
+	  SUBST_LINK (LOG_LINKS (i2), alloc_insn_link (i1, LOG_LINKS (i2)));
 	}
     }
 #endif
@@ -4493,6 +4529,9 @@ undo_all (void)
 	  break;
 	case UNDO_MODE:
 	  adjust_reg_mode (*undo->where.r, undo->old_contents.m);
+	  break;
+	case UNDO_LINKS:
+	  *undo->where.l = undo->old_contents.l;
 	  break;
 	default:
 	  gcc_unreachable ();

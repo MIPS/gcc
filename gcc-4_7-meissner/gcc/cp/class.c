@@ -1118,6 +1118,8 @@ add_method (tree type, tree method, tree using_decl)
 
   /* Add the new binding.  */
   overload = build_overload (method, current_fns);
+  if (using_decl && TREE_CODE (overload) == OVERLOAD)
+    OVL_USED (overload) = true;
 
   if (conv_p)
     TYPE_HAS_CONVERSION (type) = 1;
@@ -4428,7 +4430,12 @@ set_method_tm_attributes (tree t)
       tree vchain;
       for (vchain = BINFO_VIRTUALS (TYPE_BINFO (t)); vchain;
 	   vchain = TREE_CHAIN (vchain))
-	set_one_vmethod_tm_attributes (t, BV_FN (vchain));
+	{
+	  fndecl = BV_FN (vchain);
+	  if (DECL_THUNK_P (fndecl))
+	    fndecl = THUNK_TARGET (fndecl);
+	  set_one_vmethod_tm_attributes (t, fndecl);
+	}
     }
 
   /* If the class doesn't have an attribute, nothing more to do.  */
@@ -4903,7 +4910,27 @@ explain_non_literal_class (tree t)
 	      "is not a copy or move constructor", t);
       if (TYPE_HAS_DEFAULT_CONSTRUCTOR (t)
 	  && !type_has_user_provided_default_constructor (t))
-	explain_invalid_constexpr_fn (locate_ctor (t));
+	{
+	  /* Note that we can't simply call locate_ctor because when the
+	     constructor is deleted it just returns NULL_TREE.  */
+	  tree fns;
+	  for (fns = CLASSTYPE_CONSTRUCTORS (t); fns; fns = OVL_NEXT (fns))
+	    {
+	      tree fn = OVL_CURRENT (fns);
+	      tree parms = TYPE_ARG_TYPES (TREE_TYPE (fn));
+
+	      parms = skip_artificial_parms_for (fn, parms);
+
+	      if (sufficient_parms_p (parms))
+		{
+		  if (DECL_DELETED_FN (fn))
+		    maybe_explain_implicit_delete (fn);
+		  else
+		    explain_invalid_constexpr_fn (fn);
+		  break;
+		}
+	    }
+	}
     }
   else
     {
