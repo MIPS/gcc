@@ -1536,7 +1536,7 @@ DEFHOOK
 DEFHOOK
 (cmove_md_extra,
  "",
- rtx, (rtx dest, rtx compare, rtx op0, rtx op1),
+ rtx, (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0, rtx op1),
  default_cmove_md_extra)
 
 /* Support for named address spaces.  */

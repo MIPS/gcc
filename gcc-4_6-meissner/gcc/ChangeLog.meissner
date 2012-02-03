@@ -1,3 +1,38 @@
+2012-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/tm.texi (TARGET_CMOVE_MD_EXTRA): Add argument giving the if
+	convert pass number.
+	* doc/tm.texi.in (TARGET_CMOVE_MD_EXTRA): Likewise.
+	* target.h (enum ifcvt_pass): Likewise.
+	* target.def (cmove_md_extra): Likewise.
+	* ifcvt.c (find_if_header): Likewise.
+	(noce_find_if_block): Likewise.
+	(struct noce_if_info): Likewise.
+	(noce_process_if_block): Likewise.
+	(if_convert): Likewise.
+	(rest_of_handle_if_conversion): Likewise.
+	(gate_handle_if_after_combine): Likewise.
+	(gate_handle_if_after_reload): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_cmove_adjacent_memory_p):
+	New declaraiton.
+
+	* config/rs6000/rs6000.c (rs6000_cmove_md_extra): Take if convert
+	pass argument.  Don't do anything after reload.  Instead of using
+	force_reg for memory operations, generate new RTL that isn't split
+	until after reload.
+	(rs6000_cmove_adjacent_memory_p): Split tests from
+	rs6000_cmove_md_extra.
+	(rs6000_emit_int_cmove): If memory operands, generate insns using
+	a pattern that isn't split until after reload.  Don't force memory
+	into registers.
+
+	* config/rs6000/rs6000.md (UNSPEC_CMOVE): New unspec.
+	(isel_adjacent_mem_<mode>): New insns for conditional move
+	adjacenet move operation.
+	(isel_adjacent_mem2_<mode>): Likewise.
+	(isel_adjacent_mem2_rev_<mode>): Likewise.
+
 2012-01-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Change

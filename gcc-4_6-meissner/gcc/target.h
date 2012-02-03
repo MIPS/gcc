@@ -131,6 +131,14 @@ enum vect_cost_for_stmt
   vec_perm
 };
 
+/* Passes of if-conversion.  */
+enum ifcvt_pass
+{
+  ifcvt_before_combine,
+  ifcvt_after_combine,
+  ifcvt_after_reload
+};
+
 /* Sets of optimization levels at which an option may be enabled by
    default_options_optimization.  */
 enum opt_levels
