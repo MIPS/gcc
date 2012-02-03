@@ -16595,7 +16595,13 @@ output_isel (rtx *operands)
 const char *
 output_bcp8 (rtx *operands)
 {
-  const char *cbranch = output_cbranch (operands[1], "1f", 0, NULL_RTX);
+  const char *cbranch;
+
+  /* Make sure branch and follow instruction don't cross a page boundary.  */
+  if (TARGET_SMALL_CBRANCH > 1)
+    fprintf (asm_out_file, "\t.p2align %d,,31\n", TARGET_SMALL_CBRANCH);
+
+  cbranch = output_cbranch (operands[1], "1f", 0, NULL_RTX);
 
   if (cbranch && cbranch[0] != '\0')
     output_asm_insn (cbranch, operands);
