@@ -58,7 +58,6 @@
 #include "tree-flow.h"
 #include "intl.h"
 #include "params.h"
-#include "dbgcnt.h"
 #include "tm-constrs.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
@@ -17150,9 +17149,6 @@ rs6000_cmove_adjacent_memory_p (rtx op0, rtx op1)
 
   if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1
       || !MEM_P (op0) || !MEM_P (op1) || !INTEGRAL_MODE_P (mode0))
-    return false;
-
-  if (!dbg_cnt_is_enabled (if_after_combine))
     return false;
 
   /* Are memory references reg+offset?  */
