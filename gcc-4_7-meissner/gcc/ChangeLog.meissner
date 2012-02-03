@@ -1,5 +1,8 @@
 2012-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 183876
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.opt (-msmall-cbranch=): Allow an integer
 	argument to specify the alignment of the jump insn.
 	* config/rs6000/rs6000.c (output_bcp8): Likewise.
