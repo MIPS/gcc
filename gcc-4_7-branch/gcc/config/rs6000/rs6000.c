@@ -2964,7 +2964,8 @@ rs6000_option_override_internal (bool global_init_p)
 			&& rs6000_cpu != PROCESSOR_POWER6
 			&& rs6000_cpu != PROCESSOR_POWER7
 			&& rs6000_cpu != PROCESSOR_PPCA2
-			&& rs6000_cpu != PROCESSOR_CELL);
+			&& rs6000_cpu != PROCESSOR_CELL
+			&& rs6000_cpu != PROCESSOR_PPC476);
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5
 			 || rs6000_cpu == PROCESSOR_POWER7);
@@ -3539,8 +3540,12 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
       case vec_to_scalar:
       case scalar_to_vec:
       case cond_branch_not_taken:
-      case vec_perm:
         return 1;
+
+      case vec_perm:
+	if (!TARGET_VSX)
+	  return 1;
+	return 2;
 
       case cond_branch_taken:
         return 3;
@@ -7005,17 +7010,14 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
   if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128
       && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
-      /* DImode is used, not DFmode, because simplify_gen_subreg doesn't
-	 know how to get a DFmode SUBREG of a TFmode.  */
-      enum machine_mode imode = (TARGET_E500_DOUBLE ? DFmode : DImode);
-      rs6000_emit_move (simplify_gen_subreg (imode, operands[0], mode, 0),
-			simplify_gen_subreg (imode, operands[1], mode, 0),
-			imode);
-      rs6000_emit_move (simplify_gen_subreg (imode, operands[0], mode,
-					     GET_MODE_SIZE (imode)),
-			simplify_gen_subreg (imode, operands[1], mode,
-					     GET_MODE_SIZE (imode)),
-			imode);
+      rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
+			simplify_gen_subreg (DFmode, operands[1], mode, 0),
+			DFmode);
+      rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode,
+					     GET_MODE_SIZE (DFmode)),
+			simplify_gen_subreg (DFmode, operands[1], mode,
+					     GET_MODE_SIZE (DFmode)),
+			DFmode);
       return;
     }
 

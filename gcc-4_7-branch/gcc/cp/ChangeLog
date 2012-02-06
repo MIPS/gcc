@@ -1,3 +1,34 @@
+2012-02-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52088
+	* cvt.c (build_expr_type_conversion): Check for template conversion.
+
+2012-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52043
+	* cp-tree.h (PACK_EXPANSION_LOCAL_P): New.
+	* pt.c (make_pack_expansion, tsubst_initializer_list): Set it.
+	(tsubst_pack_expansion): Check it.
+
+2012-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51327
+	* class.c (explain_non_literal_class): Correctly handle implicitly
+	deleted constructors.
+
+2012-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/51852
+	* pt.c (tsubst_pack_expansion): Delete and restore
+	local_specialization whenever need_local_specialization, not just
+	when saved_local_specializations is non-NULL.
+
+2012-01-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51370
+	* error.c (dump_decl, [TEMPLATE_ID_EXPR]): Handle error_mark_node
+	as TREE_OPERAND (t, 1).
+
 2012-01-24  Jason Merrill  <jason@redhat.com>
 
 	PR c++/51917

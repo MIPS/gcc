@@ -880,7 +880,7 @@ Gogo::declare_function(const std::string& name, Function_type* type,
       else if (rtype->forward_declaration_type() != NULL)
 	{
 	  Forward_declaration_type* ftype = rtype->forward_declaration_type();
-	  return ftype->add_method_declaration(name, type, location);
+	  return ftype->add_method_declaration(name, NULL, type, location);
 	}
       else
 	go_unreachable();
@@ -1205,13 +1205,13 @@ Specific_type_functions::type(Type* t)
     {
     case Type::TYPE_NAMED:
       {
+	Named_type* nt = t->named_type();
 	if (!t->compare_is_identity(this->gogo_) && t->is_comparable())
-	  t->type_functions(this->gogo_, t->named_type(), NULL, NULL, &hash_fn,
-			    &equal_fn);
+	  t->type_functions(this->gogo_, nt, NULL, NULL, &hash_fn, &equal_fn);
 
 	// If this is a struct type, we don't want to make functions
 	// for the unnamed struct.
-	Type* rt = t->named_type()->real_type();
+	Type* rt = nt->real_type();
 	if (rt->struct_type() == NULL)
 	  {
 	    if (Type::traverse(rt, this) == TRAVERSE_EXIT)
@@ -1219,8 +1219,20 @@ Specific_type_functions::type(Type* t)
 	  }
 	else
 	  {
-	    if (rt->struct_type()->traverse_field_types(this) == TRAVERSE_EXIT)
-	      return TRAVERSE_EXIT;
+	    // If this type is defined in another package, then we don't
+	    // need to worry about the unexported fields.
+	    bool is_defined_elsewhere = nt->named_object()->package() != NULL;
+	    const Struct_field_list* fields = rt->struct_type()->fields();
+	    for (Struct_field_list::const_iterator p = fields->begin();
+		 p != fields->end();
+		 ++p)
+	      {
+		if (is_defined_elsewhere
+		    && Gogo::is_hidden_name(p->field_name()))
+		  continue;
+		if (Type::traverse(p->type(), this) == TRAVERSE_EXIT)
+		  return TRAVERSE_EXIT;
+	      }
 	  }
 
 	return TRAVERSE_SKIP_COMPONENTS;
@@ -3836,6 +3848,24 @@ Variable::add_preinit_statement(Gogo* gogo, Statement* s)
   b->set_end_location(s->location());
 }
 
+// Whether this variable has a type.
+
+bool
+Variable::has_type() const
+{
+  if (this->type_ == NULL)
+    return false;
+
+  // A variable created in a type switch case nil does not actually
+  // have a type yet.  It will be changed to use the initializer's
+  // type in determine_type.
+  if (this->is_type_switch_var_
+      && this->type_->is_nil_constant_as_type())
+    return false;
+
+  return true;
+}
+
 // In an assignment which sets a variable to a tuple of EXPR, return
 // the type of the first element of the tuple.
 
@@ -4295,11 +4325,12 @@ Type_declaration::add_method(const std::string& name, Function* function)
 
 Named_object*
 Type_declaration::add_method_declaration(const std::string&  name,
+					 Package* package,
 					 Function_type* type,
 					 Location location)
 {
-  Named_object* ret = Named_object::make_function_declaration(name, NULL, type,
-							      location);
+  Named_object* ret = Named_object::make_function_declaration(name, package,
+							      type, location);
   this->methods_.push_back(ret);
   return ret;
 }

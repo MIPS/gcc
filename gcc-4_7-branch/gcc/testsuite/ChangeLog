@@ -1,7 +1,411 @@
+2012-02-06  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32373
+	* gfortran.dg/vect/vect-8.f90:  Use vect_double effective target.
+	Remove module.
+
+2012-02-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52088
+	* g++.dg/template/conv13.C: New.
+
+2012-02-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/52115
+	* gcc.c-torture/compile/pr52115.c: New testcase.
+
+2012-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52129
+	* gcc.c-torture/execute/pr52129.c: New test.
+
+2012-02-06  Andrey Belevantsev  <abel@ispras.ru>
+
+	* gcc.dg/pr48374.c: Actually add the test I forgot 
+	in the 2012-01-25 commit.
+
+2012-02-05  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR fortran/32373
+	* gfortran.dg/vect/vect-8.f90:  New test case.
+
+2012-02-05  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR fortran/48847
+	* gfortran.dg/warn_unused_dummy_argument_3.f90:  New test.
+
+2012-02-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52102
+	* gfortran.dg/class_48.f90 : Add test of allocate class array
+	component with source in subroutine test3.  Remove commenting
+	out in subroutine test4, since branching on unitialized variable
+	is now fixed (no PR for this last.).
+
+2012-02-05  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/tree-prof/stringop-2.c (main): Add a nomips16 attribute
+	on MIPS targets.
+	* gfortran.dg/pr45636.f90: XFAIL for MIPS16 targets.
+
+2012-02-05  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/52125
+	* lib/target-supports.exp (check_effective_target_mips_rel): New.
+	* gcc.dg/pr48774.c: Skip on MIPS REL targets.
+
+2012-02-05  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/target-supports.exp (check_effective_target_mips_llsc): New.
+	(check_effective_target_sync_int_long): Use it.
+	(check_effective_target_sync_char_short): Likewise.
+	* gcc.target/mips/atomic-memory-1.c: Restrict error check to mips_llsc.
+
+2012-02-05  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51972
+	* gfortran.dg/class_48.f90: Add some further checks.
+
+2012-02-05  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/52091
+	* gcc.dg/vect/pr52091.c: New test.
+
+2012-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52113
+	* gcc.target/avr/pr52113.c: New test.
+
+2012-02-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52092
+	* gcc.c-torture/compile/pr52092.c: New test.
+
+2012-02-02  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/41587
+	* gfortran.dg/class_array_10.f03: New test.
+
+	PR fortran/46356
+	* gfortran.dg/class_array_11.f03: New test.
+
+	PR fortran/51754
+	* gfortran.dg/class_array_12.f03: New test.
+
+2012-02-02  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52012
+	* gfortran.dg/realloc_on_assign_11.f90: New test.
+
+2012-02-02  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52093
+	* gfortran.dg/shape_7.f90: New.
+
+2012-02-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips-prepend-1.c: New test.
+
+2012-02-02 Jan Hubicka  <jh@suse.cz>
+	   Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/51998
+	* testsuite/gcc.dg/alias-12.c: New testcase.
+	* testsuite/gcc.dg/alias-13.c: New testcase.
+
+2012-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52086
+	* gcc.dg/pr52086.c: New test.
+
+	PR tree-optimization/52073
+	* gcc.c-torture/compile/pr52073.c: New test.
+
+2012-02-01  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR fortran/51958
+	* gfortran.dg/function_optimize_10.f90:  New test.
+
+2012-02-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* go.test/go-test.exp (go-gc-tests): xfail test/nilptr.go runtime
+	test on alpha*-*-*.
+
+2012-02-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52024
+	* gfortran.dg/typebound_operator_14.f90: New.
+
+2012-02-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52059
+	* gfortran.dg/elemental_function_1.f90: New.
+
+2012-02-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR rtl-optimization/51374
+	* gcc.target/avr/torture/pr51374-1.c:
+	Also fail if SBIS is seen.
+
+2012-02-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR rtl-optimization/51374
+	* gcc.target/avr/torture/pr51374-1.c: New.
+
+2012-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52024
+	* gfortran.dg/typebound_generic_11.f90: New.
+
+2012-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52029
+	* gfortran.dg/class_49.f90: New.
+
+2012-01-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52013
+	* gfortran.dg/elemental_args_check_6.f90: New.
+
+2012-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52043
+	* g++.dg/cpp0x/variadic122.C: New.
+
+2012-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52012
+	* gfortran.dg/realloc_on_assign_10.f90: New test.
+
+2012-01-31  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51528
+	* gcc.dg/torture/pr51528.c: New testcase.
+
+2012-01-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR go/48501
+	* lib/go.exp (go_target_compile): Append timeout= to options.
+	* go.test/go-test.exp (go-gc-tests): Add dg-timeout-factor for
+	select5-out.go test on alpha*-*-* targets.
+
+2012-01-30  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/extend-1.c (TEST_CHAR): Use signed char.
+	(TEST_SHORT): Reformat in the same way.
+	* gcc.target/mips/octeon-exts-6.c (TEST_CHAR): Use signed char.
+	(TEST_SHORT): Reformat in the same way.
+	* gcc.target/mips/octeon2-lx-1.c (TEST): Make sign explicit.
+	* gcc.target/mips/pr37362.c: Skip for mips-sde-elf.
+	* gcc.target/mips/mmcount-ra-address-1.c (bazl): Add NOMIPS16.
+	* gcc.target/mips/mmcount-ra-address-2.c (bar): Likewise.
+	* gcc.target/mips/mmcount-ra-address-3.c (bar): Likewise.
+
+2012-01-30  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/51835
+	* gcc.target/arm/pr51835.c: New testcase.
+
+2012-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/52028
+	* gcc.dg/torture/pr52028.c: New testcase.
+	* gfortran.dg/ldist-pr45199.f: Adjust.
+	* gcc.dg/tree-ssa/ldist-16.c: Likewise.
+	* gcc.dg/tree-ssa/ldist-17.c: Likewise.
+	* gcc.dg/tree-ssa/ldist-pr45948.c: Likewise.
+
+2012-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/52027
+	* gcc.dg/tree-prof/pr52027.c: New test.
+
+	PR tree-optimization/52046
+	* gcc.dg/pr52046.c: New test.
+
+	PR debug/52048
+	* g++.dg/other/pr52048.C: New test.
+
+2012-01-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/52045
+	* gcc.dg/pr52045.c: New testcase.
+
+2012-01-30  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* gcc.target/arm/di-longlong64-sync-withldrexd.c: Accept
+	new code generated for __sync_lock_release.
+
+2012-01-30  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/dfp/fe-convert-2.c: Force use of soft dfp on s390 and s390x.
+
+2012-01-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/51875
+	* gfortran.dg/guality/pr41558.f90: Skip on 32-bit hppa*-*-hpux*.
+
+	* g++.dg/ext/visibility/template10.C: Fix typo.
+
+	* gcc.dg/tm/pr51472.c: Add -fno-common option on hppa-*-hpux*.
+
+2012-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51327
+	* g++.dg/cpp0x/constexpr-ice6.C: New.
+
+2012-01-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/41600
+	* gfortran.dg/default_initialization_6.f90: New.
+
+2012-01-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51972
+	* gfortran.dg/class_allocate_12.f90: Enable disabled test.
+	* gfortran.dg/class_48.f90: New.
+
+2012-01-29  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/51808
+	* gfortran.dg/module_md5_1.f90: Update MD5 sum.
+
+2012-01-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51972
+	* gfortran.dg/class_allocate_12.f90: New.
+
+2012-01-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/torture/pr50444.c: Fix dg directives.
+
+2012-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52006
+	* gcc.target/arm/pr52006.c: New test.
+
+2012-01-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR testsuite/52011
+	* gcc.dg/lto/trans-mem.h: New file.
+	* gcc.dg/lto/trans-mem-2_0.c: Include it.
+	* gcc.dg/lto/trans-mem-1_1.c: Same.
+	* gcc.dg/lto/trans-mem-4_1.c: Same.
+	* gcc.dg/lto/trans-mem-3_1.c: Same.
+
+2012-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52022
+	* gfortran.dg/dummy_procedure_7.f90: New.
+
+2012-01-27  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* g++.dg/cpp0x/constexpr-rom.C: Don't add -G0 on *-*-darwin*
+	*-*-aix* alpha*-*-osf* alpha*-*-*vms*.
+
+2012-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/51852
+	* g++.dg/other/gc5.C: New test.
+
+2012-01-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50444
+	* gcc.dg/torture/pr50444.c: New testcase.
+
+2012-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51970
+	PR fortran/51977
+	* gfortran.dg/move_alloc_13.f90: New.
+
+2012-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51953
+	* gfortran.dg/allocate_alloc_opt_13.f90: New.
+	* gfortran.dg/allocate_alloc_opt_4.f90: Add -std=f2003
+	and change dg-error string.
+
+2012-01-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52016
+	* gfortran.dg/elemental_args_check_5.f90: New.
+
+2012-01-27  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/51959
+	* g++.dg/torture/pr51959.C: New testcase.
+
+2012-01-27  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/51990
+	* gcc.dg/pr51990.c: New test.
+	* gcc.dg/pr51990-2.c: Same.
+
+2012-01-27  Paul Thomas  <pault@gcc.gnu.org>
+	    Tobias Burnus <burnus@gcc.gnu.org>
+
+	PR fortran/48705
+	* gfortran.dg/class_allocate_11.f03: New.
+
+	PR fortran/51870
+	PR fortran/51943
+	PR fortran/51946
+	* gfortran.dg/class_allocate_7.f03: New.
+	* gfortran.dg/class_allocate_8.f03: New.
+	* gfortran.dg/class_allocate_9.f03: New.
+	* gfortran.dg/class_allocate_10.f03: New.
+
+2012-01-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr34.adb: New test.
+	* gnat.dg/discr34_pkg.ads: New helper.
+
+2012-01-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr33.adb: New test.
+
+2012-01-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/limited_with3.ad[sb): New test.
+	* gnat.dg/limited_with3_pkg1.ad[sb]: New helper.
+	* gnat.dg/limited_with3_pkg2.ads: Likewise.
+	* gnat.dg/limited_with3_pkg3.ads: Likewise.
+
+2012-01-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/stack_usage1.adb: New test.
+	* gnat.dg/stack_usage1_pkg.ad[sb]: New helper.
+
+	* gcc.dg/pr44194-1.c: Remove superfluous include directive.
+	* gcc.dg/pr44194-2.c: Likewise.
+
+2012-01-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51370
+	* g++.dg/template/crash112.C: New.
+
+2012-01-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/atomic-flag.c: Adjust for __GCC_ATOMIC_TEST_AND_SET_TRUEVAL.
+
 2012-01-26  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
-	* gcc.dg/ssa-dom-thread-4.c: Set -mbranch-cost=2 for s390 and
-          s390x.
+	* gfortran.dg/reassoc_4.f: Use dg-additional-options.
+
+2012-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51895
+	* g++.dg/opt/pr51895.C: New test.
+
+2012-01-26  Michael Matz  <matz@suse.de>
+
+	PR tree-optimization/48794
+	* gfortran.dg/gomp/pr48794-2.f90: New testcase.
+
+2012-01-26  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/ssa-dom-thread-4.c: Set -mbranch-cost=2 for s390 and s390x.
 
 2012-01-26  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
@@ -31,8 +435,7 @@
 
 2012-01-25  Ian Lance Taylor  <iant@google.com>
 
-	* go.test/go-test.exp (go-gc-tests): Handle a few more test
-	lines.
+	* go.test/go-test.exp (go-gc-tests): Handle a few more test lines.
 
 2012-01-25  Tobias Burnus  <burnus@net-b.de>
 
@@ -148,8 +551,7 @@
 2012-01-23  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
 	* lib/target-supports.exp
-	(check_effective_target_vect_extract_even_odd): Handle
-	ARM neon.
+	(check_effective_target_vect_extract_even_odd): Handle ARM neon.
 	(check_effective_target_vect_interleave): Likewise.
 
 2012-01-22  Jason Merrill  <jason@redhat.com>
@@ -164,6 +566,7 @@
 	* g++.dg/torture/pr51344.C: Limit to x86.
 
 2012-01-23  Greta Yorsh  <Greta.Yorsh@arm.com>
+
 	* c-c++-common/tm/omp.c: Require target with pthread support.
 
 2012-01-23  Richard Guenther  <rguenther@suse.de>
@@ -233,8 +636,8 @@
 	PR target/51915
 	* gcc.target/arm/pr51915.c: New test.
 
-2012-01-20   Cary Coutant  <ccoutant@google.com>
-	     Dodji Seketeli  <dodji@redhat.com>
+2012-01-20  Cary Coutant  <ccoutant@google.com>
+	    Dodji Seketeli  <dodji@redhat.com>
 
 	PR debug/45682
 	* g++.dg/debug/dwarf2/nested-3.C: New test.
