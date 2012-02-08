@@ -17147,8 +17147,8 @@ rs6000_cmove_adjacent_memory_p (rtx op0, rtx op1)
   HOST_WIDE_INT offset1 = -1;
   rtx base0, base1;
 
-  if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1
-      || !MEM_P (op0) || !MEM_P (op1) || !INTEGRAL_MODE_P (mode0))
+  if (!TARGET_ISEL || mode0 != mode1 || !MEM_P (op0) || !MEM_P (op1)
+      || !INTEGRAL_MODE_P (mode0))
     return false;
 
   /* Are memory references reg+offset?  */
@@ -17160,6 +17160,16 @@ rs6000_cmove_adjacent_memory_p (rtx op0, rtx op1)
 
   /* Are the base pointers the same?  */
   if (!rtx_equal_p (base0, base1))
+    return false;
+
+  /* As a special case if the line size is 1 and pointers are the same size as
+     the data, don't check if the fields are aligned or in the same cache
+     block, but convert the code to load either address and do an ISEL on the
+     two addresses.  */
+  if (line_size == 1 && Pmode == mode0)
+    return true;
+
+  if (line_size < 2*size)
     return false;
 
   /* Are the two fields aligned on a word/double word boundary?  */
@@ -17186,15 +17196,23 @@ rs6000_cmove_md_extra (enum ifcvt_pass pass, rtx dest, rtx compare, rtx op0,
 		       rtx op1)
 {
   rtx ret = NULL_RTX;
-  rtx cmp_op0, cmp_op1, cmp_new;
   enum rtx_code cmp_code = GET_CODE (compare);
-  enum machine_mode cmp_mode = GET_MODE (compare);
+  rtx cmp_op0, cmp_op1;
 
   if (pass == ifcvt_after_reload)
     return NULL_RTX;
 
+  /* Only do this optimization for simple comparisons.  */
   if (GET_RTX_CLASS (cmp_code) != RTX_COMPARE
       && GET_RTX_CLASS (cmp_code) != RTX_COMM_COMPARE)
+    return NULL_RTX;
+
+  cmp_op0 = XEXP (compare, 0);
+  if (!REG_P (cmp_op0))
+    return NULL_RTX;
+
+  cmp_op1 = XEXP (compare, 1);
+  if (!REG_P (cmp_op1) && cmp_op1 != const0_rtx)
     return NULL_RTX;
 
   if (!rs6000_cmove_adjacent_memory_p (op0, op1))
@@ -17202,17 +17220,11 @@ rs6000_cmove_md_extra (enum ifcvt_pass pass, rtx dest, rtx compare, rtx op0,
 
   start_sequence ();
 
-  /* Make sure comparison is just registers or constants.  */
-  cmp_op0 = copy_rtx (XEXP (compare, 0));
-  cmp_op1 = copy_rtx (XEXP (compare, 1));
-  if (!REG_P (cmp_op0))
-    cmp_op0 = force_reg (GET_MODE (cmp_op0), cmp_op0);
-  if (!REG_P (cmp_op1) && GET_CODE (cmp_op1) != CONST_INT)
-    cmp_op1 = force_reg (GET_MODE (cmp_op1), cmp_op1);
-  cmp_new = gen_rtx_fmt_ee (cmp_code, cmp_mode, cmp_op0, cmp_op1);
-
-  if (rs6000_emit_int_cmove (copy_rtx (dest), cmp_new,
-			     copy_rtx (op0), copy_rtx (op1)))
+  dest = copy_rtx_if_shared (dest);
+  compare = copy_rtx_if_shared (compare);
+  op0 = copy_rtx_if_shared (op0);
+  op1 = copy_rtx_if_shared (op1);
+  if (rs6000_emit_int_cmove (dest, compare, op0, op1))
     ret = get_insns ();
   end_sequence ();
   return ret;
@@ -17431,7 +17443,7 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       if (!signedp)
 	return 0;
 
-      isel_func = ((mode == SImode)
+      isel_func = (mode == SImode
 		   ? gen_isel_adjacent_mem_si
 		   : gen_isel_adjacent_mem_di);
     }
