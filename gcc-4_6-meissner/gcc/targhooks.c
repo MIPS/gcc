@@ -1518,7 +1518,8 @@ default_pch_valid_p (const void *data_p, size_t len)
    independent code.  */
 
 rtx
-default_cmove_md_extra (rtx dest ATTRIBUTE_UNUSED,
+default_cmove_md_extra (enum ifcvt_pass if_pass ATTRIBUTE_UNUSED,
+			rtx dest ATTRIBUTE_UNUSED,
 			rtx compare ATTRIBUTE_UNUSED,
 			rtx op0 ATTRIBUTE_UNUSED,
 			rtx op1 ATTRIBUTE_UNUSED)
