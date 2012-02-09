@@ -1,3 +1,157 @@
+2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline 
+	2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/52140
+	* dojump.c (do_compare_rtx_and_jump): Use SCALAR_FLOAT_MODE_P.
+
+2012-02-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline 
+	2012-01-20  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/51106
+	* function.c (instantiate_virtual_regs_in_insn): Use
+	delete_insn_and_edges when removing a wrong asm insn.
+
+2012-02-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/51994
+	* expr.c (get_inner_reference): If there is an offset, add a negative
+	bit position to it (if any).
+
+2012-02-07  Kai Tietz  <ktietz@redhat.com>
+            Dave Korn  <dave.korn.cygwin@gmail.com>
+
+        PR target/40068
+        * config/i386/winnt-cxx.c (i386_pe_adjust_class_at_definition):
+        Take care that typinfo gets dllexport-attribute.
+
+2012-02-07  Alan Modra  <amodra@gmail.com>
+
+	PR target/52107
+	* config/rs6000/rs6000.c (rs6000_emit_move): Don't create DImode
+	subregs of TFmode.
+
+2012-02-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-11-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/51118
+	* fold-const.c (fold_checksum_tree): Check for TS_TYPED structure
+	before using TREE_TYPE accessor on expr.
+
+2012-01-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline r183796
+	PR rtl-optimization/51374
+	* combine.c (can_combine_p): Don't allow volatile_refs_p insns
+	to cross other volatile_refs_p insns.
+
+2012-01-31  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	Backport from mainline.
+	2011-01-31  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	config/arm/thumb2.md (thumb2_mov_notscc): Use MVN for true
+	condition.
+
+2012-01-31  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("*ashr<mode>3_and"): Add missing z196 flag
+	to srak instruction.
+
+2012-01-30  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from mainline.
+	2012-01-30  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/51835
+	* config/arm/arm.c (arm_libcall_uses_aapcs_base): Use correct ABI
+	for __aeabi_d2iz/__aeabi_d2uiz with hard-float.
+
+2012-01-30  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline.
+	2012-01-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/50313
+	* config/arm/arm.c (arm_load_pic_register): Use
+	gen_pic_load_addr_unified. Delete calls to gen_pic_load_addr_32bit
+	, gen_pic_add_dot_plus_eight and gen_pic_add_dot_plus_four.
+	(arm_pic_static_addr): Likewise.
+	(arm_rtx_costs_1): Adjust cost for UNSPEC_PIC_UNIFIED.
+	(arm_note_pic_base): Handle UNSPEC_PIC_UNIFIED.
+	* config/arm/arm.md (UNSPEC_PIC_UNIFIED): Define.
+	(pic_load_addr_unified): New.
+
+2012-01-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_eq): Also compare if both
+	bases are dereferenced.
+
+2012-01-24  Richard Guenther  <rguenther@suse.de>
+
+	Forward-port to branch
+	2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: If
+	op0 isn't sufficiently aligned and there is movmisalignM
+	insn for mode, use it to load op0 into a temporary register.
+
+2012-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgrtl.c (rtl_dump_bb): Do not dump insns for {ENTRY|EXIT}_BLOCK.
+
+2012-01-19  Quentin Neill  <quentin.neill@amd.com>
+
+	PR target/48743
+	* config/i386/driver-i386.c (host_detect_local_cpu): Also check
+	family to distinguish PROCESSOR_ATHLON.
+
+2012-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49642
+	* ipa-split.c (forbidden_dominators): New variable.
+	(check_forbidden_calls): New function.
+	(dominated_by_forbidden): Likewise.
+	(consider_split): Check for forbidden dominators.
+	(execute_split_functions): Initialize and free forbidden
+	dominators info; call check_forbidden_calls.
+
+2012-01-18  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.md (call_value_indirect_aix32): Fix typo
+	in mode of operand[4].
+
+2012-01-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/51821
+	* recog.c (peep2_find_free_register): Determine clobbered registers
+	from insn pattern.
+
+2012-01-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline r183129
+	PR target/51756
+	* config/avr/avr.c (avr_encode_section_info): Test for absence of
+	DECL_EXTERNAL when checking for initializers of progmem variables.
+
+22012-01-12  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	Backport from mainline
+	2012-01-11  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	* config/arm/arm.md (mov_notscc): Use MVN for false condition.
+
+2012-01-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*zero_extendsidi2_rex64): Correct movl template.
+	(x86_shift<mode>_adj_1): Remove operand constraint from operand 3.
+
 2012-01-10  Joseph Myers  <joseph@codesourcery.com>
 
 	Revert:
@@ -19,8 +173,7 @@
 
 2012-01-09  Richard Sandiford  <rdsandiford@googlemail.com>
 
-	* config/mips/mips.md (loadgp_newabi_<mode>): Add missing
-	earlyclobber.
+	* config/mips/mips.md (loadgp_newabi_<mode>): Add missing earlyclobber.
 
 2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -80,8 +233,7 @@
 	PR tree-optimization/49651
 	* tree-ssa-structalias.c (type_can_have_subvars): New function.
 	(var_can_have_subvars): Use it.
-	(get_constraint_for_1): Only consider subfields if there
-	can be any.
+	(get_constraint_for_1): Only consider subfields if there can be any.
 
 2012-01-03  Sandra Loosemore  <sandra@codesourcery.com>
 
@@ -122,8 +274,7 @@
 
 	PR target/51623
 	* config/rs6000/rs6000.c (rs6000_assemble_integer): Don't call
-	unlikely_text_section_p.  Instead check for being in a code
-	section.
+	unlikely_text_section_p.  Instead check for being in a code section.
 
 2011-12-23  Richard Guenther  <rguenther@suse.de>
 
