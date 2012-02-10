@@ -1,3 +1,28 @@
+2012-02-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (struct lra_reg): New member call_p.
+
+	* lra-lives.c (lra_create_live_ranges): Clear call_p for the pseudo.
+	(process_bb_lives): Setup call_p.
+
+	* lra-assigns.c (find_hard_regno_for): Add code to setup and use
+	impossible_start_hard_regs.
+	(setup_live_pseudos_and_spill_after_risky): Consider
+	conflict_hard_regs to.
+	(lra_assign): Add checking pseudos crossing calls and using call
+	used hard regs.
+
+	* lra-constraints.c (extract_loc_address_regs): Fix the typo in
+	using code1 instead of code0.
+	(exchange_plus_ops): New function.
+	(process_address): Use it.
+	(split_pseudo): Rename and change semantics of the first
+	parameter.
+	(inherit_in_ebb): Process only output non-subreg pseudos as
+	a definition for the split.  In this case don't invalidate usages
+	for splitting.  Always add usage insn for splitting in case of
+	used pseudos or defined subregs of multi-reg pseudos.
+
 2012-01-27  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_risky_equiv_subst_p): Rename to

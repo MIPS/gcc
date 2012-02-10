@@ -477,7 +477,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	  {
 	    extract_loc_address_regs (false, mode, arg0_loc, true, PLUS, code1,
 				      modify_p, ad);
-	    if (code1 == MULT)
+	    if (code0 == MULT)
 	      ad->index_loc = arg0_loc;
 	    extract_loc_address_regs (false, mode, arg1_loc, false, PLUS,
 				      code0, modify_p, ad);
@@ -2363,6 +2363,18 @@ equiv_address_substitution (struct address *ad, rtx *addr_loc,
   return change_p;
 }
 
+/* Exchange operands of plus X. */
+static void
+exchange_plus_ops (rtx x)
+{
+  rtx op0;
+
+  gcc_assert (GET_CODE (x) == PLUS);
+  op0 = XEXP (x, 0);
+  XEXP (x, 0) = XEXP (x, 1);
+  XEXP (x, 1) = op0;
+}
+
 /* Major function to make reloads for address in operand NOP.  Add to
    reloads to the list *BEFORE and *AFTER.  We might need to add
    reloads to *AFTER because of inc/dec, {pre, post} modify in the
@@ -2489,6 +2501,14 @@ process_address (int nop, rtx *before, rtx *after)
 	  if (CONSTANT_P (XEXP (*addr_loc, 1)))
 	    XEXP (*addr_loc, 1) = XEXP (*addr_loc, 0);
 	  XEXP (*addr_loc, 0) = new_reg;
+	  /* Some targets like ARM, accept address operands in
+	     specific order -- try exchange them if necessary.  */
+	  if (! valid_address_p (mode, *addr_loc, as))
+	    {
+	      exchange_plus_ops (*addr_loc);
+	      if (! valid_address_p (mode, *addr_loc, as))
+		exchange_plus_ops (*addr_loc);
+	    }
 	}
     }
   else if (ad.index_reg_loc == NULL)
@@ -2505,6 +2525,14 @@ process_address (int nop, rtx *before, rtx *after)
       /* base + scale * index + disp => new base + scale * index  */
       new_reg = base_plus_disp_to_reg (mode, &ad);
       *addr_loc = gen_rtx_PLUS (Pmode, new_reg, *ad.index_loc);
+      if (! valid_address_p (mode, *addr_loc, as))
+	{
+	  /* Some targets like ARM, accept address operands in
+	     specific order -- try exchange them if necessary.  */
+	  exchange_plus_ops (*addr_loc);
+	  if (! valid_address_p (mode, *addr_loc, as))
+	    exchange_plus_ops (*addr_loc);
+	}
     }
   *before = get_insns ();
   end_sequence ();
@@ -3790,7 +3818,7 @@ choose_split_class (enum reg_class allocno_class,
 #endif
 }
 
-/* Do split transformation for insn INSN defining (if DEF_P) or
+/* Do split transformation for insn INSN defining or
    using ORIGINAL_REGNO where the subsequent insn(s) in EBB (remember
    we traverse insns in the backward direction) for the original regno
    is NEXT_USAGE_INSNS.  The transformations look like
@@ -3808,10 +3836,10 @@ choose_split_class (enum reg_class allocno_class,
      <- ... p ...         <- ... p ...
 
    where p is an original pseudo got a hard register and s is a new
-   split pseudo.  Return true if we succeed in such
-   transformation.  */
+   split pseudo.  The save is put before INSN if BEFORE_P is true.
+   Return true if we succeed in such transformation.  */
 static bool
-split_pseudo (bool def_p, int original_regno, rtx insn, rtx next_usage_insns)
+split_pseudo (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 {
   enum reg_class rclass = lra_get_allocno_class (original_regno);
   rtx original_reg = regno_reg_rtx[original_regno];
@@ -3855,6 +3883,7 @@ split_pseudo (bool def_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   if (NEXT_INSN (save) != NULL_RTX)
     {
+      gcc_assert (! call_save_p);
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file,
@@ -3877,6 +3906,7 @@ split_pseudo (bool def_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   if (NEXT_INSN (restore) != NULL_RTX)
     {
+      gcc_assert (! call_save_p);
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file,
@@ -3890,15 +3920,6 @@ split_pseudo (bool def_p, int original_regno, rtx insn, rtx next_usage_insns)
       return false;
     }
   after_p = usage_insns[original_regno].after_p;
-  if (! def_p)
-    {
-      /* We now have a new usage insn for original regno.  */
-      usage_insns[original_regno].check = curr_usage_insns_check;
-      usage_insns[original_regno].insns = save;
-      usage_insns[original_regno].reloads_num = reloads_num;
-      usage_insns[original_regno].calls_num = calls_num;
-      usage_insns[original_regno].after_p = false;
-    }
   lra_reg_info[REGNO (new_reg)].restore_regno = original_regno;
   bitmap_set_bit (&check_only_pseudos, REGNO (new_reg));
   bitmap_set_bit (&check_only_pseudos, original_regno);
@@ -3923,14 +3944,14 @@ split_pseudo (bool def_p, int original_regno, rtx insn, rtx next_usage_insns)
 			  -1, 0);
 	}
     }
-  gcc_assert ((usage_insn != insn || (after_p && ! def_p))
-	      && NONDEBUG_INSN_P (usage_insn));
+  gcc_assert (NONDEBUG_INSN_P (usage_insn));
+  gcc_assert (usage_insn != insn || (after_p && before_p));
   lra_process_new_insns (usage_insn, after_p ? NULL_RTX : restore,
 			 after_p ? restore : NULL_RTX,
 			 call_save_p
 			 ?  "Add pseudo<-save" : "Add pseudo<-split");
-  lra_process_new_insns (insn, def_p ? NULL_RTX : save,
-			 def_p ? save : NULL_RTX,
+  lra_process_new_insns (insn, before_p ? save : NULL_RTX,
+			 before_p ? NULL_RTX : save,
 			 call_save_p
 			 ?  "Add save<-pseudo" : "Add split<-pseudo");
   if (lra_dump_file != NULL)
@@ -4311,28 +4332,23 @@ inherit_in_ebb (rtx head, rtx tail)
 		  }
 		/* We can not process one pseudo twice here
 		   because of usage_insns invalidation.  */
-		if (reg_renumber[dst_regno] >= 0)
+		if (reg_renumber[dst_regno] >= 0 && ! reg->subreg_p
+		    && reg->type == OP_OUT)
 		  {
+		    HARD_REG_SET s;
+		    
 		    if (need_for_split_p (potential_reload_hard_regs,
 					  dst_regno)
-			&& split_pseudo (true, dst_regno, curr_insn,
+			&& split_pseudo (false, dst_regno, curr_insn,
 					 next_usage_insns))
-		      {
-			if (reg->subreg_p)
-			  lra_risky_transformations_p = true;
-			change_p = true;
-		      }
-		    if (! reg->subreg_p)
-		      {
-			HARD_REG_SET s;
-			
-			CLEAR_HARD_REG_SET (s);
-			lra_add_hard_reg_set (reg_renumber[dst_regno],
-					      PSEUDO_REGNO_MODE (dst_regno),
-					      &s);
-			AND_COMPL_HARD_REG_SET (live_hard_regs, s);
-		      }
+		      change_p = true;
+		    CLEAR_HARD_REG_SET (s);
+		    lra_add_hard_reg_set (reg_renumber[dst_regno],
+					  PSEUDO_REGNO_MODE (dst_regno), &s);
+		    AND_COMPL_HARD_REG_SET (live_hard_regs, s);
 		  }
+		if (reg_renumber[dst_regno] < 0
+		    || (reg->type == OP_OUT && ! reg->subreg_p))
 		/* Invalidate.  */
 		usage_insns[dst_regno].check = 0;
 	      }
@@ -4357,18 +4373,17 @@ inherit_in_ebb (rtx head, rtx tail)
 			    = usage_insns[src_regno].insns) != NULL_RTX
 			&& NONDEBUG_INSN_P (curr_insn))
 		      add_to_inherit (src_regno, next_usage_insns);
-		    /* Add usages.  */
 		    else
+		      /* Add usages.  */
 		      add_next_usage_insn (src_regno, curr_insn, reloads_num);
 		  }
 		else if (reg_renumber[src_regno] >= 0)
 		  {
-		    bool ok_p = false;
-		    
+		    rtx use_insn = curr_insn;
+
 		    if (usage_insns[src_regno].check == curr_usage_insns_check
 			&& (next_usage_insns
 			    = usage_insns[src_regno].insns) != NULL_RTX
-			&& reg->type == OP_IN
 			/* To avoid processing the pseudo twice or
 			   more.  */
 			&& ((GET_CODE (next_usage_insns) != INSN_LIST
@@ -4379,19 +4394,23 @@ inherit_in_ebb (rtx head, rtx tail)
 			&& need_for_split_p (potential_reload_hard_regs,
 					     src_regno)
 			&& NONDEBUG_INSN_P (curr_insn)
-			&& split_pseudo (false, src_regno, curr_insn,
+			&& split_pseudo (CALL_P (curr_insn) && reg->type == OP_IN,
+					 src_regno, curr_insn,
 					 next_usage_insns))
 		      {
 			if (reg->subreg_p)
 			  lra_risky_transformations_p = true;
-			ok_p = change_p = true;
+			change_p = true;
+			/* Invalidate.  */
+			usage_insns[src_regno].check = 0;
+			if (CALL_P (curr_insn) && reg->type == OP_IN)
+			  use_insn = PREV_INSN (curr_insn);
 		      }
 		    if (NONDEBUG_INSN_P (curr_insn))
 		      lra_add_hard_reg_set (reg_renumber[src_regno],
 					    PSEUDO_REGNO_MODE (src_regno),
 					    &live_hard_regs);
-		    if (! ok_p)
-		      add_next_usage_insn (src_regno, curr_insn, reloads_num);
+		      add_next_usage_insn (src_regno, use_insn, reloads_num);
 		  }
 	      }
 	  for (i = 0; i < to_inherit_num; i++)
@@ -4442,7 +4461,8 @@ inherit_in_ebb (rtx head, rtx tail)
 				 "  ----------------------------------\n");
 			head_p = false;
 		      }
-		    if (split_pseudo (false, j, first_insn, next_usage_insns))
+		    if (split_pseudo (true, j, first_insn,
+				      next_usage_insns))
 		      change_p = true;
 		  }
 		usage_insns[j].check = 0;

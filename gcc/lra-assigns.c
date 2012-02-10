@@ -304,11 +304,14 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
   int best_cost = INT_MAX, best_bank = INT_MAX, best_usage = INT_MAX;
   lra_live_range_t r;
   int p, i, j, rclass_size, best_hard_regno, bank, hard_regno;
+  int hr, conflict_hr, nregs;
+  enum machine_mode biggest_mode;
   unsigned int k, conflict_regno;
   int val;
   enum reg_class rclass;
   bitmap_iterator bi;
   bool *rclass_intersect_p;
+  HARD_REG_SET impossible_start_hard_regs;
 
   COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
   rclass = regno_allocno_class_array[regno];
@@ -317,6 +320,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
   sparseset_clear (conflict_reload_and_inheritance_pseudos);
   sparseset_clear (live_range_hard_reg_pseudos);
   IOR_HARD_REG_SET (conflict_set, lra_reg_info[regno].conflict_hard_regs);
+  biggest_mode = lra_reg_info[regno].biggest_mode;
   for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
     {
       EXECUTE_IF_SET_IN_BITMAP (&live_hard_reg_pseudos[r->start], 0, k, bi)
@@ -370,8 +374,26 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 #endif
   sparseset_clear_bit (conflict_reload_and_inheritance_pseudos, regno);
   val = lra_reg_info[regno].val;
+  CLEAR_HARD_REG_SET (impossible_start_hard_regs);
   EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
-    if (val != lra_reg_info[conflict_regno].val)
+    if (val == lra_reg_info[conflict_regno].val)
+      {
+	conflict_hr = live_pseudos_reg_renumber[conflict_regno];
+	nregs = (hard_regno_nregs[conflict_hr]
+		 [lra_reg_info[conflict_regno].biggest_mode]);
+	/* Remember about multi-register pseudos.  For example, 2 hard
+	   register pseudos can start on the same hard register but can
+	   not start on HR and HR+1/HR-1.  */ 
+	for (hr = conflict_hr + 1;
+	     hr < FIRST_PSEUDO_REGISTER && hr < conflict_hr + nregs;
+	     hr++)
+	  SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
+	for (hr = conflict_hr - 1;
+	     hr >= 0 && hr + hard_regno_nregs[hr][biggest_mode] > conflict_hr;
+	     hr--)
+	  SET_HARD_REG_BIT (impossible_start_hard_regs, hr);
+      }
+    else
       {
 	lra_add_hard_reg_set (live_pseudos_reg_renumber[conflict_regno],
 			      lra_reg_info[conflict_regno].biggest_mode,
@@ -424,7 +446,8 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 					     conflict_set)
 	  /* We can not use prohibited_class_mode_regs because it is
 	     defined not for all classes.  */
-	  && HARD_REGNO_MODE_OK (hard_regno, PSEUDO_REGNO_MODE (regno)))
+	  && HARD_REGNO_MODE_OK (hard_regno, PSEUDO_REGNO_MODE (regno))
+	  && ! TEST_HARD_REG_BIT (impossible_start_hard_regs, hard_regno))
 	{
 	  if (hard_regno_costs_check[hard_regno]
 	      != curr_hard_regno_costs_check)
@@ -881,9 +904,13 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap spilled_pseudo_bitma
 	    }
 	}
       COPY_HARD_REG_SET (conflict_set, lra_no_alloc_regs);
+      IOR_HARD_REG_SET (conflict_set, lra_reg_info[regno].conflict_hard_regs);
       val = lra_reg_info[regno].val;
       EXECUTE_IF_SET_IN_SPARSESET (live_range_hard_reg_pseudos, conflict_regno)
-	if (val != lra_reg_info[conflict_regno].val)
+	if (val != lra_reg_info[conflict_regno].val
+	    /* If it is multi-register pseudos they should start on
+	       the same hard register.  */
+	    || hard_regno != reg_renumber[conflict_regno])
 	  lra_add_hard_reg_set (reg_renumber[conflict_regno],
 				lra_reg_info[conflict_regno].biggest_mode,
 				&conflict_set);
@@ -893,7 +920,6 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap spilled_pseudo_bitma
 	  continue;
 	}
       bitmap_set_bit (spilled_pseudo_bitmap, regno);
-      hard_regno = reg_renumber[regno];
       for (j = 0;
 	   j < hard_regno_nregs[hard_regno][PSEUDO_REGNO_MODE (regno)];
 	   j++)
@@ -1154,6 +1180,15 @@ lra_assign (void)
   init_regno_assign_info ();
   bitmap_initialize (&all_spilled_pseudos, &reg_obstack);
   setup_live_pseudos_and_spill_after_risky_transforms (&all_spilled_pseudos);
+#ifdef ENABLE_CHECKING
+  for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
+    if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
+	&& lra_reg_info[i].call_p
+	&& lra_hard_reg_set_intersection_p (reg_renumber[i],
+					    PSEUDO_REGNO_MODE (i),
+					    call_used_reg_set))
+      gcc_unreachable ();
+#endif
   /* Setup insns to process.  */
   bitmap_initialize (&changed_pseudo_bitmap, &reg_obstack);
   init_live_reload_and_inheritance_pseudos ();

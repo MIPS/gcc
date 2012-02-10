@@ -608,6 +608,9 @@ process_bb_lives (basic_block bb)
 		SET_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs);
 	      IOR_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs,
 				call_used_reg_set);
+#ifdef ENABLE_CHECKING
+	      lra_reg_info[i].call_p = true;
+#endif
 	    }
 	}
       
@@ -931,6 +934,9 @@ lra_create_live_ranges (bool all_p)
 	lra_reg_info[i].biggest_mode = GET_MODE (regno_reg_rtx[i]);
       else
 	lra_reg_info[i].biggest_mode = VOIDmode;
+#ifdef ENABLE_CHECKING
+      lra_reg_info[i].call_p = false;
+#endif
       if (i >= FIRST_PSEUDO_REGISTER
 	  && lra_reg_info[i].nrefs != 0 && (hard_regno = reg_renumber[i]) >= 0)
 	lra_hard_reg_usage[hard_regno] += lra_reg_info[i].freq;
