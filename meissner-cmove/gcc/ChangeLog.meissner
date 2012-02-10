@@ -1,3 +1,8 @@
+2012-02-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 184104.
+	* REVISION: Update subversion id.
+
 2012-02-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* target.def (cmove_md_extra): New hook that is called from
