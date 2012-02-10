@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
+   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -1446,6 +1446,19 @@ default_pch_valid_p (const void *data_p, size_t len)
       }
 
   return NULL;
+}
+
+/* Machine specific conditional moves that are not handled by the machine
+   independent code.  */
+
+rtx
+default_cmove_md_extra (enum ifcvt_pass if_pass ATTRIBUTE_UNUSED,
+			rtx dest ATTRIBUTE_UNUSED,
+			rtx compare ATTRIBUTE_UNUSED,
+			rtx op0 ATTRIBUTE_UNUSED,
+			rtx op1 ATTRIBUTE_UNUSED)
+{
+  return NULL_RTX;
 }
 
 #include "gt-targhooks.h"

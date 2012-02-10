@@ -1534,6 +1534,14 @@ DEFHOOK
  bool, (struct ao_ref_s *ref),
  default_ref_may_alias_errno)
 
+/* Machine specific conditional moves that are not handled by the machine
+   independent code.  */
+DEFHOOK
+(cmove_md_extra,
+ "",
+ rtx, (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0, rtx op1),
+ default_cmove_md_extra)
+
 /* Support for named address spaces.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_ADDR_SPACE_"

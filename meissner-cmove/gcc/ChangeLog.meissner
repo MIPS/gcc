@@ -1,5 +1,31 @@
 2012-02-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* target.def (cmove_md_extra): New hook that is called from
+	ifcvt.c to allow the backend to generate additional conditional
+	moves that aren't handled by the machine independent code.  Add
+	support to call the hook at the appropriate places.
+	* targhooks.h (default_cmove_md_extra): Likewise.
+	* targhooks.c (default_cmove_md_extra): Likewise.
+	* target.h (enum ifcvt_pass): Likewise.
+	* ifcvt.c (find_if_header): Likewise.
+	(noce_find_if_block): Likewise.
+	(struct noce_if_info): Likewise.
+	(noce_process_if_block): Likewise.
+	(cond_move_process_if_block): Likewise.
+	(if_convert): Likewise.
+	(rest_of_handle_if_conversion): Likewise.
+	(rest_of_handle_if_after_combine): Likewise.
+	(rest_of_handle_if_after_reload): Likewise.
+	* doc/tm.texi (TARGET_CMOVE_MD_EXTRA): Likewise.
+	* doc/tm.texi.in (TARGET_CMOVE_MD_EXTRA): Likewise.
+
+	* config/rs6000/rs6000.opt (-mcmove-adjacent-memory): Add support
+	for a new switch to optimize conditional moves where each side is
+	a memory reference and the memory locations are adjacent.
+	* config/rs6000/rs6000.c (rs6000_cmove_md_extra): Likewise.
+	(TARGET_CMOVE_MD_EXTRA): Likewise.
+	(rs6000_decompose_offsettable_memref): Likewise.
+
 	Clone branch at subvesion id 184062.
 	* REVISION: New file.
 

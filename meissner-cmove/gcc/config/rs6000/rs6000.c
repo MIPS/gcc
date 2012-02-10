@@ -1229,6 +1229,7 @@ static bool rs6000_legitimate_constant_p (enum machine_mode, rtx);
 static bool rs6000_save_toc_in_prologue_p (void);
 static void rs6000_code_end (void) ATTRIBUTE_UNUSED;
 static void rs6000_set_up_by_prologue (struct hard_reg_set_container *);
+static rtx rs6000_cmove_md_extra (enum ifcvt_pass, rtx, rtx, rtx, rtx);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1672,6 +1673,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_CMOVE_MD_EXTRA
+#define TARGET_CMOVE_MD_EXTRA rs6000_cmove_md_extra
 
 
 /* Simplifications for entries below.  */
@@ -16339,6 +16343,133 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
 						op_true,
 						op_false)));
   return 1;
+}
+
+/* If a memory reference is an offsettable memory reference, return true and
+   return the base part and offset.  */
+
+static inline bool
+rs6000_decompose_offsettable_memref (rtx op, rtx *base, HOST_WIDE_INT *offset)
+{
+  rtx addr, right, left;
+
+  *base = NULL_RTX;
+  *offset = -1;
+
+  if (!MEM_P (op) || side_effects_p (op) || volatile_refs_p (op))
+    return false;
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) == REG)
+    {
+      *base = addr;
+      *offset = 0;
+      return true;
+    }
+  else if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
+    {
+      right = XEXP (addr, 0);
+      left = XEXP (addr, 1);
+      if (!REG_P (right) || GET_CODE (left) != CONST_INT)
+	return false;
+
+      *base = right;
+      *offset = INTVAL (left);
+      return true;
+    }
+
+  return false;
+}
+
+/* Do any machine specific optimization of conditional moves.  On the rs6000,
+   if both sides of the conditional move are memory operations that seem to be
+   within the same cache block, then the second load is 'free', and we use
+   load/load/isel if the user enables the option.  This is useful for balanced
+   binary trees/tries where you chase through a list following either the right
+   or left pointers.  If the pointer to the memory address aren't appropriately
+   aligned, then this could potentially cause a page fault or a trap.  */
+
+static rtx
+rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
+		       rtx op1)
+{
+  enum machine_mode mode0 = GET_MODE (op0);
+  enum machine_mode mode1 = GET_MODE (op1);
+  HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
+  HOST_WIDE_INT op0_size = size;
+  HOST_WIDE_INT op1_size = size;
+  HOST_WIDE_INT line_size = TARGET_CMOVE_ADJACENT_MEMORY;
+  HOST_WIDE_INT offset0 = -1;
+  HOST_WIDE_INT offset1 = -1;
+  rtx op0_no_extend = op0;
+  rtx op1_no_extend = op1;
+  rtx ret = NULL_RTX;
+  rtx base0, base1, cmp_op0, cmp_op1;
+  enum rtx_code cmp_code = GET_CODE (compare);
+
+  if (if_pass == ifcvt_after_reload)
+    return NULL_RTX;
+
+  /* Allow sign/zero extend.  */
+  if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+    {
+      op0_no_extend = XEXP (op0, 0);
+      op0_size = GET_MODE_SIZE (GET_MODE (op0_no_extend));
+    }
+
+  if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
+    {
+      op1_no_extend = XEXP (op1, 0);
+      op1_size = GET_MODE_SIZE (GET_MODE (op1_no_extend));
+    }
+
+  if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1
+      || !MEM_P (op0_no_extend) || !MEM_P (op1_no_extend)
+      || !INTEGRAL_MODE_P (mode0))
+    return NULL_RTX;
+
+  /* Only do this optimization for simple comparisons.  */
+  if (GET_RTX_CLASS (cmp_code) != RTX_COMPARE
+      && GET_RTX_CLASS (cmp_code) != RTX_COMM_COMPARE)
+    return NULL_RTX;
+
+  cmp_op0 = XEXP (compare, 0);
+  if (!REG_P (cmp_op0))
+    return NULL_RTX;
+
+  cmp_op1 = XEXP (compare, 1);
+  if (!REG_P (cmp_op1) && cmp_op1 != const0_rtx)
+    return NULL_RTX;
+
+  /* Are memory references reg+offset?  */
+  if (!rs6000_decompose_offsettable_memref (op0_no_extend, &base0, &offset0))
+    return NULL_RTX;
+
+  if (!rs6000_decompose_offsettable_memref (op1_no_extend, &base1, &offset1))
+    return NULL_RTX;
+
+  /* Are the base pointers the same?  */
+  if (!rtx_equal_p (base0, base1))
+    return NULL_RTX;
+
+  /* Are the two fields aligned on a word/double word boundary?  */
+  if ((offset0 % op0_size) != 0 || (offset1 % op1_size) != 0)
+    return NULL_RTX;
+
+  /* Are the memory locations in different cache lines?  */
+  if ((offset0 / line_size) != (offset1 / line_size))
+    return NULL_RTX;
+
+  start_sequence ();
+  /* We reverse op0/op1 here because we are replacing an if statement, where it
+     jumps to do the ELSE part if the condition is true.  */
+  if (rs6000_emit_int_cmove (dest,
+			     copy_rtx (compare),
+			     force_reg (mode1, copy_rtx (op1)),
+			     force_reg (mode0, copy_rtx (op0))))
+    ret = get_insns ();
+  end_sequence ();
+  return ret;
 }
 
 /* Emit a conditional move: move TRUE_COND to DEST if OP of the

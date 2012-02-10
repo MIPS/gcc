@@ -10749,6 +10749,16 @@ conditional execution instructions instead of a branch.  A value of
 1 if it does use cc0.
 @end defmac
 
+@hook TARGET_CMOVE_MD_EXTRA
+This function returns the insn for any machine specific conditional
+moves to set @var{dest} to @var{op0} if @var{compare} is non-zero or
+@var{op1} if it is zero.  The function returns a null pointer if there
+are no machine specific conditional moves.  The @var{if_pass} argument
+is @var{ifcvt_before_combine} on the first pass of if conversion,
+@var{ifcvt_after_cobmine} on the second pass of if conversion, and
+@var{ifcvt_after_reload} on the third pass of if conversion.
+@end deftypefn
+
 @defmac IFCVT_MODIFY_TESTS (@var{ce_info}, @var{true_expr}, @var{false_expr})
 Used if the target needs to perform machine-dependent modifications on the
 conditionals used for turning basic blocks into conditionally executed code.

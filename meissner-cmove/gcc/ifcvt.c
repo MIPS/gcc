@@ -1,6 +1,6 @@
 /* If-conversion support.
    Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010,
-   2011
+   2011, 2012
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -97,9 +97,9 @@ static rtx noce_get_condition (rtx, rtx *, bool);
 static int noce_operand_ok (const_rtx);
 static void merge_if_block (ce_if_block_t *);
 static int find_cond_trap (basic_block, edge, edge);
-static basic_block find_if_header (basic_block, int);
+static basic_block find_if_header (basic_block, int, enum ifcvt_pass);
 static int block_jumps_and_fallthru_p (basic_block, basic_block);
-static int noce_find_if_block (basic_block, edge, edge, int);
+static int noce_find_if_block (basic_block, edge, edge, int, enum ifcvt_pass);
 static int cond_exec_find_if_block (ce_if_block_t *);
 static int find_if_case_1 (basic_block, edge, edge);
 static int find_if_case_2 (basic_block, edge, edge);
@@ -746,7 +746,7 @@ struct noce_if_info
      COND_EARLIEST, or NULL_RTX.  In the former case, the insn
      operands are still valid, as if INSN_B was moved down below
      the jump.  */
-  rtx insn_a, insn_b;
+  rtx insn_a, insn_b, insn;
 
   /* The SET_SRC of INSN_A and INSN_B.  */
   rtx a, b;
@@ -762,6 +762,9 @@ struct noce_if_info
 
   /* Estimated cost of the particular branch instruction.  */
   int branch_cost;
+
+  /* Which ifcvt pass this is.  */
+  enum ifcvt_pass if_pass;
 };
 
 static rtx noce_emit_store_flag (struct noce_if_info *, rtx, int, int);
@@ -2438,7 +2441,7 @@ noce_process_if_block (struct noce_if_info *if_info)
   basic_block join_bb = if_info->join_bb;	/* JOIN */
   rtx jump = if_info->jump;
   rtx cond = if_info->cond;
-  rtx insn_a, insn_b;
+  rtx insn_a, insn_b, insn;
   rtx set_a, set_b;
   rtx orig_x, x, a, b;
 
@@ -2533,7 +2536,19 @@ noce_process_if_block (struct noce_if_info *if_info)
 
   /* Don't operate on sources that may trap or are volatile.  */
   if (! noce_operand_ok (a) || ! noce_operand_ok (b))
-    return FALSE;
+    {
+      /* Give the back end a chance to handle conditional moves that aren't
+	 supported here.  The machine still might have some way of handling
+	 sources that trap or are volatile.  */
+      insn = targetm.cmove_md_extra (if_info->if_pass, x, cond, a, b);
+      if (insn)
+	{
+	  emit_insn_before_setloc (insn, jump, INSN_LOCATOR (insn_a));
+	  goto success;
+	}
+
+      return FALSE;
+    }
 
  retry:
   /* Set up the info block for our subroutines.  */
@@ -2631,6 +2646,16 @@ noce_process_if_block (struct noce_if_info *if_info)
 	goto success;
       if (noce_try_sign_mask (if_info))
 	goto success;
+    }
+
+  /* Give the back end a chance to handle conditional moves that aren't
+     supported here.  */
+  insn = targetm.cmove_md_extra (if_info->if_pass, x, cond, a, b);
+  if (insn)
+    {
+      emit_insn_before_setloc (insn, if_info->jump,
+			       INSN_LOCATOR (if_info->insn_a));
+      goto success;
     }
 
   if (!else_bb && set_b)
@@ -2976,7 +3001,7 @@ cond_move_process_if_block (struct noce_if_info *if_info)
 
 static int
 noce_find_if_block (basic_block test_bb, edge then_edge, edge else_edge,
-		    int pass)
+		    int pass, enum ifcvt_pass if_pass)
 {
   basic_block then_bb, else_bb, join_bb;
   bool then_else_reversed = false;
@@ -3076,6 +3101,7 @@ noce_find_if_block (basic_block test_bb, edge then_edge, edge else_edge,
   if_info.then_else_reversed = then_else_reversed;
   if_info.branch_cost = BRANCH_COST (optimize_bb_for_speed_p (test_bb),
 				     predictable_edge_p (then_edge));
+  if_info.if_pass = if_pass;
 
   /* Do the real work.  */
 
@@ -3207,7 +3233,7 @@ merge_if_block (struct ce_if_block * ce_info)
    first block if some transformation was done.  Return NULL otherwise.  */
 
 static basic_block
-find_if_header (basic_block test_bb, int pass)
+find_if_header (basic_block test_bb, int pass, enum ifcvt_pass if_pass)
 {
   ce_if_block_t ce_info;
   edge then_edge;
@@ -3259,7 +3285,7 @@ find_if_header (basic_block test_bb, int pass)
 #endif
 
   if (!reload_completed
-      && noce_find_if_block (test_bb, then_edge, else_edge, pass))
+      && noce_find_if_block (test_bb, then_edge, else_edge, pass, if_pass))
     goto success;
 
   if (reload_completed
@@ -4334,7 +4360,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 /* Main entry point for all if-conversion.  */
 
 static void
-if_convert (void)
+if_convert (enum ifcvt_pass if_pass)
 {
   basic_block bb;
   int pass;
@@ -4380,7 +4406,7 @@ if_convert (void)
 	{
           basic_block new_bb;
           while (!df_get_bb_dirty (bb)
-                 && (new_bb = find_if_header (bb, pass)) != NULL)
+                 && (new_bb = find_if_header (bb, pass, if_pass)) != NULL)
             bb = new_bb;
 	}
 
@@ -4450,7 +4476,7 @@ rest_of_handle_if_conversion (void)
       if (dump_file)
         dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      if_convert ();
+      if_convert (ifcvt_before_combine);
     }
 
   cleanup_cfg (0);
@@ -4490,7 +4516,7 @@ gate_handle_if_after_combine (void)
 static unsigned int
 rest_of_handle_if_after_combine (void)
 {
-  if_convert ();
+  if_convert (ifcvt_after_combine);
   return 0;
 }
 
@@ -4525,7 +4551,7 @@ gate_handle_if_after_reload (void)
 static unsigned int
 rest_of_handle_if_after_reload (void)
 {
-  if_convert ();
+  if_convert (ifcvt_after_reload);
   return 0;
 }
 

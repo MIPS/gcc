@@ -148,6 +148,14 @@ enum vect_cost_for_stmt
   vec_perm
 };
 
+/* Passes of if-conversion.  */
+enum ifcvt_pass
+{
+  ifcvt_before_combine,
+  ifcvt_after_combine,
+  ifcvt_after_reload
+};
+
 /* The target structure.  This holds all the backend hooks.  */
 #define DEFHOOKPOD(NAME, DOC, TYPE, INIT) TYPE NAME;
 #define DEFHOOK(NAME, DOC, TYPE, PARAMS, INIT) TYPE (* NAME) PARAMS;

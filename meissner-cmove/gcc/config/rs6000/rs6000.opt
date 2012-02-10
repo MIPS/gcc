@@ -1,7 +1,7 @@
 ; Options for the rs6000 port of the compiler
 ;
-; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Free Software
-; Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+; Free Software Foundation, Inc.
 ; Contributed by Aldy Hernandez <aldy@quesejoda.com>.
 ;
 ; This file is part of GCC.
@@ -532,3 +532,11 @@ Use/do not use r11 to hold the static link in calls to functions via pointers.
 msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
+
+mcmove-adjacent-memory
+Target Report Var(TARGET_CMOVE_ADJACENT_MEMORY,16) Init(0) Save
+Control whether we load both sides of a conditional move if they are adjacent in memory.
+
+mcmove-adjacent-memory=
+Target Report RejectNegative Joined UInteger Var(TARGET_CMOVE_ADJACENT_MEMORY)
+Modify the line size for figuring out if the two memory items are adjacent.
