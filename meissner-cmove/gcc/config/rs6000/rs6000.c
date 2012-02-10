@@ -16417,17 +16417,22 @@ rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
   if (if_pass == ifcvt_after_reload)
     return NULL_RTX;
 
-  /* Allow sign/zero extend.  */
-  if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+  /* Allow sign/zero extend, but only do before combine, since the force_reg
+     will split the load and the sign/zero extend.  Combine will join these
+     back together.  */
+  if (if_pass == ifcvt_before_combine)
     {
-      op0_no_extend = XEXP (op0, 0);
-      op0_size = GET_MODE_SIZE (GET_MODE (op0_no_extend));
-    }
+      if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
+	{
+	  op0_no_extend = XEXP (op0, 0);
+	  op0_size = GET_MODE_SIZE (GET_MODE (op0_no_extend));
+	}
 
-  if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
-    {
-      op1_no_extend = XEXP (op1, 0);
-      op1_size = GET_MODE_SIZE (GET_MODE (op1_no_extend));
+      if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
+	{
+	  op1_no_extend = XEXP (op1, 0);
+	  op1_size = GET_MODE_SIZE (GET_MODE (op1_no_extend));
+	}
     }
 
   if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1

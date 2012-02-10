@@ -746,7 +746,7 @@ struct noce_if_info
      COND_EARLIEST, or NULL_RTX.  In the former case, the insn
      operands are still valid, as if INSN_B was moved down below
      the jump.  */
-  rtx insn_a, insn_b, insn;
+  rtx insn_a, insn_b;
 
   /* The SET_SRC of INSN_A and INSN_B.  */
   rtx a, b;
