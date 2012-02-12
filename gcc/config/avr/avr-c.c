@@ -36,10 +36,39 @@
 void
 avr_register_target_pragmas (void)
 {
-  c_register_addr_space ("__pgm", ADDR_SPACE_PGM);
+  int i;
+
+  gcc_assert (ADDR_SPACE_GENERIC == ADDR_SPACE_RAM);
+
+  /* Register address spaces.  The order must be the same as in the respective
+     enum from avr.h (or designated initialized must be used in avr.c).  */
+
+  for (i = 0; avr_addrspace[i].name; i++)
+    {
+      gcc_assert (i == avr_addrspace[i].id);
+
+      if (!ADDR_SPACE_GENERIC_P (i))
+        c_register_addr_space (avr_addrspace[i].name, avr_addrspace[i].id);
+    }
 }
 
 
+/* Transorm LO into uppercase and write the result to UP.
+   You must provide enough space for UP.  Return UP.  */
+
+static char*
+avr_toupper (char *up, const char *lo)
+{
+  char *up0 = up;
+  
+  for (; *lo; lo++, up++)
+    *up = TOUPPER (*lo);
+
+  *up = '\0';
+
+  return up0;
+}
+             
 /* Worker function for TARGET_CPU_CPP_BUILTINS.  */
 
 void
@@ -84,7 +113,7 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
       cpp_define (pfile, "__AVR_2_BYTE_PC__");
     }
 
-  if (avr_current_device->short_sp)
+  if (AVR_HAVE_8BIT_SP)
     cpp_define (pfile, "__AVR_HAVE_8BIT_SP__");
   else
     cpp_define (pfile, "__AVR_HAVE_16BIT_SP__");
@@ -100,6 +129,9 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
         cpp_define (pfile, "__AVR_ERRATA_SKIP_JMP_CALL__");
     }
 
+  cpp_define_formatted (pfile, "__AVR_SFR_OFFSET__=0x%x",
+                        avr_current_arch->sfr_offset);
+    
   /* Define builtin macros so that the user can easily query if or if not
      non-generic address spaces (and which) are supported.
      This is only supported for C.  For C++, a language extension is needed
@@ -108,7 +140,17 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
   
   if (!strcmp (lang_hooks.name, "GNU C"))
     {
-      cpp_define (pfile, "__PGM=__pgm");
+      int i;
+      
+      for (i = 0; avr_addrspace[i].name; i++)
+        if (!ADDR_SPACE_GENERIC_P (i))
+          {
+            const char *name = avr_addrspace[i].name;
+            char *Name = (char*) alloca (1 + strlen (name));
+
+            cpp_define_formatted (pfile, "%s=%s",
+                                  avr_toupper (Name, name), name);
+          }
     }
 
   /* Define builtin macros so that the user can
@@ -121,6 +163,8 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
   cpp_define (pfile, "__BUILTIN_AVR_WDR");
   cpp_define (pfile, "__BUILTIN_AVR_SLEEP");
   cpp_define (pfile, "__BUILTIN_AVR_SWAP");
+  cpp_define (pfile, "__BUILTIN_AVR_MAP8");
+  cpp_define (pfile, "__BUILTIN_AVR_MAP16");
   cpp_define (pfile, "__BUILTIN_AVR_DELAY_CYCLES");
 
   cpp_define (pfile, "__BUILTIN_AVR_FMUL");

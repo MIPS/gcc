@@ -436,6 +436,14 @@ lookup_field_1 (tree type, tree name, bool want_type)
 		    field = fields[i++];
 		  while (i < hi && DECL_NAME (fields[i]) == name);
 		}
+
+	      if (field)
+	      	{
+	      	  field = strip_using_decl (field);
+	      	  if (is_overloaded_fn (field))
+	      	    field = NULL_TREE;
+	      	}
+
 	      return field;
 	    }
 	}
@@ -531,7 +539,11 @@ int
 at_function_scope_p (void)
 {
   tree cs = current_scope ();
-  return cs && TREE_CODE (cs) == FUNCTION_DECL;
+  /* Also check cfun to make sure that we're really compiling
+     this function (as opposed to having set current_function_decl
+     for access checking or some such).  */
+  return (cs && TREE_CODE (cs) == FUNCTION_DECL
+	  && cfun && cfun->decl == current_function_decl);
 }
 
 /* Returns true if the innermost active scope is a class scope.  */
@@ -1163,7 +1175,9 @@ lookup_member (tree xbasetype, tree name, int protect, bool want_type,
 
   const char *errstr = 0;
 
-  if (name == error_mark_node)
+  if (name == error_mark_node
+      || xbasetype == NULL_TREE
+      || xbasetype == error_mark_node)
     return NULL_TREE;
 
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
@@ -1535,6 +1549,9 @@ adjust_result_of_qualified_name_lookup (tree decl,
 			   NULL);
 	}
     }
+
+  if (BASELINK_P (decl))
+    BASELINK_QUALIFIED_P (decl) = true;
 
   return decl;
 }

@@ -65,7 +65,8 @@ get_indirect_mem (enum machine_mode mode)
 {
   if (indirect_mem[mode] == NULL_RTX)
     {
-      enum reg_class rclass = base_reg_class (mode, MEM, SCRATCH);
+      enum reg_class rclass = base_reg_class (mode, ADDR_SPACE_GENERIC,
+					      MEM, SCRATCH);
 
       indirect_mem[mode]
 	 = gen_rtx_MEM (mode, regno_reg_rtx [ira_class_hard_regs[rclass][0]]);
@@ -324,18 +325,18 @@ ok_for_index_p_nonstrict (rtx reg)
    pseudo-registers should count as OK.  Arguments as for
    regno_ok_for_base_p.  */
 static inline bool
-ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode,
+ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode, addr_space_t as,
 			 enum rtx_code outer_code, enum rtx_code index_code)
 {
   unsigned regno = REGNO (reg);
 
   if (regno >= FIRST_PSEUDO_REGISTER)
     return true;
-  return ok_for_base_p_1 (regno, mode, outer_code, index_code);
+  return ok_for_base_p_1 (regno, mode, as, outer_code, index_code);
 }
 
-/* Process address part (or all address if TOP_P) with location *LOC
-   to extract address characteristics.
+/* Process address part in space AS (or all address if TOP_P) with
+   location *LOC to extract address characteristics.
 
    If CONTEXT_P is false, we are looking at the base part of an
    address, otherwise we are looking at the index part.
@@ -344,7 +345,7 @@ ok_for_base_p_nonstrict (rtx reg, enum machine_mode mode,
    give the context that the rtx appears in; MODIFY_P if *LOC is
    modified.  */
 static void
-extract_loc_address_regs (bool top_p, enum machine_mode mode,
+extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 			  rtx *loc, bool context_p, enum rtx_code outer_code,
 			  enum rtx_code index_code,
 			  bool modify_p, struct address *ad)
@@ -398,7 +399,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	   must be in the first operand.  */
 	if (MAX_REGS_PER_ADDRESS == 1)
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
 	    gcc_assert (CONSTANT_P (arg1)); /* It should be a displacement.  */
 	    ad->disp_loc = arg1_loc;
@@ -407,12 +408,13 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	   just record registers in any non-constant operands.  We
 	   assume here, as well as in the tests below, that all
 	   addresses are in canonical form.  */
-	else if (INDEX_REG_CLASS == base_reg_class (VOIDmode, PLUS, SCRATCH))
+	else if (INDEX_REG_CLASS
+		 == base_reg_class (VOIDmode, as, PLUS, SCRATCH))
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
 	    if (! CONSTANT_P (arg1))
-	      extract_loc_address_regs (false, mode, arg1_loc, true, PLUS,
+	      extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
 					code0, modify_p, ad);
 	    else
 	      ad->disp_loc = arg1_loc;
@@ -422,8 +424,8 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	   change what class the first operand must be.  */
 	else if (code1 == CONST_INT || code1 == CONST_DOUBLE)
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, context_p, PLUS,
-				      code1, modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg0_loc, context_p,
+				      PLUS, code1, modify_p, ad);
 	    ad->disp_loc = arg1_loc;
 	  }
 	/* If the second operand is a symbolic constant, the first
@@ -431,7 +433,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	   all the address.  */
 	else if (code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc,
+	    extract_loc_address_regs (false, mode, as, arg0_loc,
 				      top_p ? true : context_p, PLUS, code1,
 				      modify_p, ad);
 	    ad->disp_loc = arg1_loc;
@@ -442,54 +444,54 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg0) < FIRST_PSEUDO_REGISTER
 		 && ((base_ok_p
-		      = ok_for_base_p_nonstrict (arg0, mode, PLUS, REG))
+		      = ok_for_base_p_nonstrict (arg0, mode, as, PLUS, REG))
 		     || ok_for_index_p_nonstrict (arg0)))
 	  {
-	    extract_loc_address_regs
-	      (false, mode, arg0_loc, ! base_ok_p, PLUS, REG, modify_p, ad);
-	    extract_loc_address_regs
-	      (false, mode, arg1_loc, base_ok_p, PLUS, REG, modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg0_loc, ! base_ok_p,
+				      PLUS, REG, modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg1_loc, base_ok_p,
+				      PLUS, REG, modify_p, ad);
 	  }
 	else if (code0 == REG && code1 == REG
 		 && REGNO (arg1) < FIRST_PSEUDO_REGISTER
 		 && ((base_ok_p
-		      = ok_for_base_p_nonstrict (arg1, mode, PLUS, REG))
+		      = ok_for_base_p_nonstrict (arg1, mode, as, PLUS, REG))
 		     || ok_for_index_p_nonstrict (arg1)))
 	  {
-	    extract_loc_address_regs 
-	      (false, mode, arg0_loc, base_ok_p, PLUS, REG, modify_p, ad);
-	    extract_loc_address_regs 
-	      (false, mode, arg1_loc, ! base_ok_p, PLUS, REG, modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg0_loc, base_ok_p,
+				      PLUS, REG, modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg1_loc, ! base_ok_p,
+				      PLUS, REG, modify_p, ad);
 	  }
 	/* If one operand is known to be a pointer, it must be the
 	   base with the other operand the index.  Likewise if the
 	   other operand is a MULT.  */
 	else if ((code0 == REG && REG_POINTER (arg0)) || code1 == MULT)
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
 	    if (code1 == MULT)
 	      ad->index_loc = arg1_loc;
-	    extract_loc_address_regs (false, mode, arg1_loc, true, PLUS, code0,
-				      modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
+				      code0, modify_p, ad);
 	  }
 	else if ((code1 == REG && REG_POINTER (arg1)) || code0 == MULT)
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, true, PLUS, code1,
-				      modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg0_loc, true, PLUS,
+				      code1, modify_p, ad);
 	    if (code0 == MULT)
 	      ad->index_loc = arg0_loc;
-	    extract_loc_address_regs (false, mode, arg1_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg1_loc, false, PLUS,
 				      code0, modify_p, ad);
 	  }
 	/* Otherwise, count equal chances that each might be a base or
 	   index register.  This case should be rare.  */
 	else
 	  {
-	    extract_loc_address_regs (false, mode, arg0_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
-	    extract_loc_address_regs (false, mode, arg1_loc, true, PLUS, code0,
-				      modify_p, ad);
+	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
+				      code0, modify_p, ad);
 	  }
       }
       break;
@@ -499,21 +501,21 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 	 up in the wrong place.  */
     case POST_MODIFY:
     case PRE_MODIFY:
-      extract_loc_address_regs (false, mode, &XEXP (x, 0), false, code,
-				GET_CODE (XEXP (XEXP (x, 1), 1)), true,
-				ad);
+      extract_loc_address_regs (false, mode, as, &XEXP (x, 0), false,
+				code, GET_CODE (XEXP (XEXP (x, 1), 1)),
+				true, ad);
       gcc_assert (rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)));
       ad->base_reg_loc2 = &XEXP (XEXP (x, 1), 0);
       if (REG_P (XEXP (XEXP (x, 1), 1)))
-	extract_loc_address_regs (false, mode, &XEXP (XEXP (x, 1), 1), true,
-				  code, REG, modify_p, ad);
+	extract_loc_address_regs (false, mode, as, &XEXP (XEXP (x, 1), 1),
+				  true, code, REG, modify_p, ad);
       break;
 
     case POST_INC:
     case PRE_INC:
     case POST_DEC:
     case PRE_DEC:
-      extract_loc_address_regs (false, mode, &XEXP (x, 0), false, code,
+      extract_loc_address_regs (false, mode, as, &XEXP (x, 0), false, code,
 				SCRATCH, true, ad);
       break;
 
@@ -536,19 +538,19 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode,
 
 	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
 	  if (fmt[i] == 'e')
-	    extract_loc_address_regs (false, mode, &XEXP (x, i), context_p,
+	    extract_loc_address_regs (false, mode, as, &XEXP (x, i), context_p,
 				      code, SCRATCH, modify_p, ad);
       }
     }
 }
 
 
-/* Extract address characteristics in address with location *LOC.
-   Return them in AD.  Parameter OUTER_CODE for MEM should be MEM.
-   Parameter OUTER_CODE for 'p' constraint should be ADDRESS and
-   MEM_MODE should be VOIDmode.  */
+/* Extract address characteristics in address with location *LOC in
+   space AS.  Return them in AD.  Parameter OUTER_CODE for MEM should
+   be MEM.  Parameter OUTER_CODE for 'p' constraint should be ADDRESS
+   and MEM_MODE should be VOIDmode.  */
 static void
-extract_address_regs (enum machine_mode mem_mode,
+extract_address_regs (enum machine_mode mem_mode, addr_space_t as,
 		      rtx *loc, enum rtx_code outer_code, struct address *ad)
 {
   ad->base_reg_loc = ad->base_reg_loc2
@@ -556,8 +558,8 @@ extract_address_regs (enum machine_mode mem_mode,
   ad->base_outer_code = SCRATCH;
   ad->index_code = SCRATCH;
   ad->base_modify_p = false;
-  extract_loc_address_regs (true, mem_mode, loc, false, outer_code, SCRATCH,
-			    false, ad);  
+  extract_loc_address_regs (true, mem_mode, as, loc, false, outer_code,
+			    SCRATCH, false, ad);  
   if (ad->index_loc == NULL)
     /* SUBREG ??? */
     ad->index_loc = ad->index_reg_loc;
@@ -886,7 +888,8 @@ reg_class_from_constraints (const char *p)
 
       case 'p':
 	op_class = (reg_class_subunion
-		    [op_class][base_reg_class (VOIDmode, ADDRESS, SCRATCH)]);
+		    [op_class][base_reg_class (VOIDmode, ADDR_SPACE_GENERIC,
+					       ADDRESS, SCRATCH)]);
 	break;
 	
       case 'g':
@@ -901,7 +904,8 @@ reg_class_from_constraints (const char *p)
 	    if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 	      op_class
 		= (reg_class_subunion
-		   [op_class][base_reg_class (VOIDmode, ADDRESS, SCRATCH)]);
+		   [op_class][base_reg_class (VOIDmode, ADDR_SPACE_GENERIC,
+					      ADDRESS, SCRATCH)]);
 #endif
 	    break;
 	  }
@@ -1354,7 +1358,7 @@ uses_hard_regs_p (rtx *loc, HARD_REG_SET set)
       enum machine_mode mode = GET_MODE (x);
       rtx *addr_loc = &XEXP (x, 0);
 
-      extract_address_regs (mode, addr_loc, MEM, &ad);
+      extract_address_regs (mode, MEM_ADDR_SPACE (x), addr_loc, MEM, &ad);
       if (ad.base_reg_loc != NULL)
 	{
 	  if (uses_hard_regs_p (ad.base_reg_loc, set))
@@ -1688,7 +1692,8 @@ process_alt_operands (int only_alternative)
 		  }
 		  
 		case 'p':
-		  cl = base_reg_class (VOIDmode, ADDRESS, SCRATCH);
+		  cl = base_reg_class (VOIDmode, ADDR_SPACE_GENERIC,
+				       ADDRESS, SCRATCH);
 		  this_alternative = reg_class_subunion[this_alternative][cl];
 		  IOR_HARD_REG_SET (this_alternative_set, reg_class_contents[cl]);
 		  if (costly_p)
@@ -1863,7 +1868,8 @@ process_alt_operands (int only_alternative)
 			  
 			  /* If we didn't already win, we can reload
 			     the address into a base register.  */
-			  cl = base_reg_class (VOIDmode, ADDRESS, SCRATCH);
+			  cl = base_reg_class (VOIDmode, ADDR_SPACE_GENERIC,
+					       ADDRESS, SCRATCH);
 			  this_alternative
 			    = reg_class_subunion[this_alternative][cl];
 			  IOR_HARD_REG_SET (this_alternative_set,
@@ -2248,27 +2254,29 @@ valid_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 #endif
 }
 
-/* Make reload base reg + disp from address AD of memory with MODE
-   into a new pseudo.  Return the new pseudo.  */
+/* Make reload base reg + disp from address AD in space AS of memory
+   with MODE into a new pseudo.  Return the new pseudo.  */
 static rtx
-base_plus_disp_to_reg (enum machine_mode mode, struct address *ad)
+base_plus_disp_to_reg (enum machine_mode mode, addr_space_t as,
+		       struct address *ad)
 {
   enum reg_class cl;
   rtx new_reg;
 
   gcc_assert (ad->base_reg_loc != NULL && ad->disp_loc != NULL);
-  cl = base_reg_class (mode, ad->base_outer_code, ad->index_code);
+  cl = base_reg_class (mode, as, ad->base_outer_code, ad->index_code);
   new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "base + disp");
   lra_emit_add (new_reg, *ad->base_reg_loc, *ad->disp_loc);
   return new_reg;
 }
 
-/* Make substitution in address AD with location ADDR_LOC.  Update AD
-   and ADDR_LOC if it is necessary.  Return true if a substitution was
-   made.  */
+/* Make substitution in address AD in space AS with location ADDR_LOC.
+   Update AD and ADDR_LOC if it is necessary.  Return true if a
+   substitution was made.  */
 static bool
 equiv_address_substitution (struct address *ad, rtx *addr_loc,
-			    enum machine_mode mode, enum rtx_code code)
+			    enum machine_mode mode, addr_space_t as,
+			    enum rtx_code code)
 {
   rtx base_reg, new_base_reg, index_reg, new_index_reg;
   HOST_WIDE_INT disp, scale;
@@ -2345,7 +2353,7 @@ equiv_address_substitution (struct address *ad, rtx *addr_loc,
       else
 	{
 	  *addr_loc = gen_rtx_PLUS (Pmode, *addr_loc, GEN_INT (disp));
-	  extract_address_regs (mode, addr_loc, code, ad);
+	  extract_address_regs (mode, as, addr_loc, code, ad);
 	}
       change_p = true;
     }
@@ -2419,9 +2427,9 @@ process_address (int nop, rtx *before, rtx *after)
     return false;
   if (GET_CODE (*addr_loc) == AND)
     addr_loc = &XEXP (*addr_loc, 0);
-  extract_address_regs (mode, addr_loc, code, &ad);
+  extract_address_regs (mode, as, addr_loc, code, &ad);
   saved_base_reg = saved_base_reg2 = saved_index_reg = NULL_RTX;
-  change_p = equiv_address_substitution (&ad, addr_loc, mode, code);
+  change_p = equiv_address_substitution (&ad, addr_loc, mode, as, code);
   if (ad.base_reg_loc != NULL)
     {
       if (process_addr_reg (ad.base_reg_loc, before,
@@ -2429,7 +2437,7 @@ process_address (int nop, rtx *before, rtx *after)
 			     && find_regno_note (curr_insn, REG_DEAD,
 						 REGNO (*ad.base_reg_loc)) == NULL
 			     ? after : NULL),
-			    base_reg_class (mode, ad.base_outer_code,
+			    base_reg_class (mode, as, ad.base_outer_code,
 					    ad.index_code)))
 	change_p = true;
       if (ad.base_reg_loc2 != NULL)
@@ -2483,7 +2491,7 @@ process_address (int nop, rtx *before, rtx *after)
       if (ad.index_reg_loc == NULL)
 	{
 	  /* disp => new_base  */
-	  enum reg_class cl = base_reg_class (mode, SCRATCH, SCRATCH);
+	  enum reg_class cl = base_reg_class (mode, as, SCRATCH, SCRATCH);
 	  
 	  new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "disp");
 	  lra_emit_move (new_reg, *ad.disp_loc);
@@ -2492,7 +2500,7 @@ process_address (int nop, rtx *before, rtx *after)
       else
 	{
 	  /* index * scale + disp => new base + index * scale  */
-	  enum reg_class cl = base_reg_class (mode, SCRATCH, SCRATCH);
+	  enum reg_class cl = base_reg_class (mode, as, SCRATCH, SCRATCH);
 
 	  gcc_assert (INDEX_REG_CLASS != NO_REGS);
 	  new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "disp");
@@ -2517,13 +2525,13 @@ process_address (int nop, rtx *before, rtx *after)
 	 because of some bad practice used in machine descriptions
 	 (see comments for emit_spill_move).  */
       /* base + disp => new base  */
-      new_reg = base_plus_disp_to_reg (mode, &ad);
+      new_reg = base_plus_disp_to_reg (mode, as, &ad);
       *addr_loc = new_reg;
     }
   else
     {
       /* base + scale * index + disp => new base + scale * index  */
-      new_reg = base_plus_disp_to_reg (mode, &ad);
+      new_reg = base_plus_disp_to_reg (mode, as, &ad);
       *addr_loc = gen_rtx_PLUS (Pmode, new_reg, *ad.index_loc);
       if (! valid_address_p (mode, *addr_loc, as))
 	{
@@ -3096,7 +3104,8 @@ curr_insn_transform (void)
 	  enum rtx_code code = GET_CODE (*loc);
 
 	  push_to_sequence (before);
-	  rclass = base_reg_class (GET_MODE (op), MEM, SCRATCH);
+	  rclass = base_reg_class (GET_MODE (op), MEM_ADDR_SPACE (op),
+				   MEM, SCRATCH);
 	  if (code == PRE_DEC || code == POST_DEC
 	      || code == PRE_INC || code == POST_INC
 	      || code == PRE_MODIFY || code == POST_MODIFY)

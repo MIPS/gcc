@@ -545,7 +545,7 @@ enum reg_class
 
 #define BASE_REG_CLASS GENERAL_REGS
 
-#define MODE_CODE_BASE_REG_CLASS(MODE, OCODE, ICODE)	\
+#define MODE_CODE_BASE_REG_CLASS(MODE, AS, OCODE, ICODE)	\
   ((OCODE) != POST_INC ? BASE_REG_CLASS : GENNONACR_REGS)
 
 #define INDEX_REG_CLASS GENERAL_REGS
@@ -560,7 +560,7 @@ enum reg_class
 
 /* REGNO_OK_FOR_BASE_P seems to be obsolete wrt. this one, but not yet
    documented as such.  */
-#define REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, OCODE, ICODE)	\
+#define REGNO_MODE_CODE_OK_FOR_BASE_P(REGNO, MODE, AS, OCODE, ICODE)	\
  (REGNO_OK_FOR_BASE_P (REGNO)						\
   && ((OCODE) != POST_INC						\
       || !((REGNO) == CRIS_ACR_REGNUM					\
@@ -710,12 +710,6 @@ struct cum_args {int regs;};
 #define FUNCTION_ARG_REGNO_P(REGNO)			\
  ((REGNO) >= CRIS_FIRST_ARG_REG				\
   && (REGNO) < CRIS_FIRST_ARG_REG + (CRIS_MAX_ARGS_IN_REGS))
-
-
-/* Node: Scalar Return */
-
-#define FUNCTION_VALUE_REGNO_P(N) cris_function_value_regno_p (N)
-
 
 
 /* Node: Aggregate Return */

@@ -1973,7 +1973,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_EPILOGUE_BEG:
-	  (*debug_hooks->begin_epilogue) (last_linenum, last_filename);
+          if (!DECL_IGNORED_P (current_function_decl))
+            (*debug_hooks->begin_epilogue) (last_linenum, last_filename);
 	  targetm.asm_out.function_begin_epilogue (file);
 	  break;
 
@@ -3588,7 +3589,7 @@ output_addr_const (FILE *file, rtx x)
       break;
 
     case CONST_INT:
-      fprint_w (file, INTVAL (x));
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       break;
 
     case CONST:
@@ -3742,33 +3743,6 @@ sprint_ul_rev (char *s, unsigned long value)
     }
   while (value != 0);
   return i;
-}
-
-/* Write a signed HOST_WIDE_INT as decimal to a file, fast. */
-
-void
-fprint_w (FILE *f, HOST_WIDE_INT value)
-{
-  /* python says: len(str(2**64)) == 20 */
-  char s[20];
-  int i;
-
-  if (value >= 0)
-    i = sprint_ul_rev (s, (unsigned long) value);
-  else
-    {
-      /* Cast to long long to output max negative correctly! */
-      i = sprint_ul_rev (s, ((unsigned long long) value) * -1);
-      putc('-', f);
-    }
-
-  /* It's probably too small to bother with string reversal and fputs. */
-  do
-    {
-      i--;
-      putc (s[i], f);
-    }
-  while (i != 0);
 }
 
 /* Write an unsigned long as decimal to a file, fast. */

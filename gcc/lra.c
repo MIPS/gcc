@@ -751,8 +751,10 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 
 		case 'p':
 		  op_alt->is_address = 1;
-		  op_alt->cl = reg_class_subunion[(int) op_alt->cl]
-		      [(int) base_reg_class (VOIDmode, ADDRESS, SCRATCH)];
+		  op_alt->cl = (reg_class_subunion[(int) op_alt->cl]
+				[(int) base_reg_class (VOIDmode,
+						       ADDR_SPACE_GENERIC,
+						       ADDRESS, SCRATCH)]);
 		  break;
 
 		case 'g':
@@ -773,8 +775,8 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		      op_alt->cl
 			= (reg_class_subunion
 			   [(int) op_alt->cl]
-			   [(int) base_reg_class (VOIDmode, ADDRESS,
-						  SCRATCH)]);
+			   [(int) base_reg_class (VOIDmode, ADDR_SPACE_GENERIC,
+						  ADDRESS, SCRATCH)]);
 		      break;
 		    }
 
@@ -2211,7 +2213,6 @@ lra (FILE *f)
   regstat_free_ri ();
   reload_completed = 1;
   update_reg_notes ();
-  finish_subregs_of_mode ();
 
   inserted_p = fixup_abnormal_edges ();
 

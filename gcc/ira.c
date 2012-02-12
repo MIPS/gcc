@@ -406,11 +406,12 @@ int ira_spilled_reg_stack_slots_num;
    stack slots used in current function so far.  */
 struct ira_spilled_reg_stack_slot *ira_spilled_reg_stack_slots;
 
-/* Correspondingly overall cost of the allocation, cost of the
-   allocnos assigned to hard-registers, cost of the allocnos assigned
-   to memory, cost of loads, stores and register move insns generated
-   for pseudo-register live range splitting (see ira-emit.c).  */
-int ira_overall_cost;
+/* Correspondingly overall cost of the allocation, overall cost before
+   reload, cost of the allocnos assigned to hard-registers, cost of
+   the allocnos assigned to memory, cost of loads, stores and register
+   move insns generated for pseudo-register live range splitting (see
+   ira-emit.c).  */
+int ira_overall_cost, overall_cost_before;
 int ira_reg_cost, ira_mem_cost;
 int ira_load_cost, ira_store_cost, ira_shuffle_cost;
 int ira_move_loops_num, ira_additional_jumps_num;
@@ -717,7 +718,7 @@ ira_print_disposition (FILE *f)
 	if ((bb = ALLOCNO_LOOP_TREE_NODE (a)->bb) != NULL)
 	  fprintf (f, "b%-3d", bb->index);
 	else
-	  fprintf (f, "l%-3d", ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
+	  fprintf (f, "l%-3d", ALLOCNO_LOOP_TREE_NODE (a)->loop_num);
 	if (ALLOCNO_HARD_REGNO (a) >= 0)
 	  fprintf (f, " %3d", ALLOCNO_HARD_REGNO (a));
 	else
@@ -2452,7 +2453,7 @@ validate_equiv_mem_from_store (rtx dest, const_rtx set ATTRIBUTE_UNUSED,
   if ((REG_P (dest)
        && reg_overlap_mentioned_p (dest, equiv_mem))
       || (MEM_P (dest)
-	  && true_dependence (dest, VOIDmode, equiv_mem, rtx_varies_p)))
+	  && true_dependence (dest, VOIDmode, equiv_mem)))
     equiv_mem_modified = 1;
 }
 
@@ -2706,7 +2707,7 @@ memref_referenced_p (rtx memref, rtx x)
 				      reg_equiv[REGNO (x)].replacement));
 
     case MEM:
-      if (true_dependence (memref, VOIDmode, x, rtx_varies_p))
+      if (true_dependence (memref, VOIDmode, x))
 	return 1;
       break;
 
@@ -3726,19 +3727,17 @@ struct loops ira_loops;
    mode or when the conflict table is too big.  */
 bool ira_conflicts_p;
 
+/* Saved between IRA and reload.  */
+static int saved_flag_ira_share_spill_slots;
+
 /* This is the main entry of IRA.  */
 static void
 ira (FILE *f)
 {
-  int overall_cost_before, allocated_reg_info_size;
+  int allocated_reg_info_size;
   bool loops_p;
   int max_regno_before_ira, ira_max_point_before_emit;
   int rebuild_p;
-  int saved_flag_ira_share_spill_slots;
-  basic_block bb;
-  bool need_dce = false;
-
-  timevar_push (TV_IRA);
 
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
@@ -3813,15 +3812,16 @@ ira (FILE *f)
   ira_move_loops_num = ira_additional_jumps_num = 0;
 
   ira_assert (current_loops == NULL);
-  flow_loops_find (&ira_loops);
-  record_loop_exits ();
-  current_loops = &ira_loops;
+  if (flag_ira_region == IRA_REGION_ALL || flag_ira_region == IRA_REGION_MIXED)
+    {
+      flow_loops_find (&ira_loops);
+      record_loop_exits ();
+      current_loops = &ira_loops;
+    }
 
   if (internal_flag_ira_verbose > 0 && ira_dump_file != NULL)
     fprintf (ira_dump_file, "Building IRA IR\n");
-  loops_p = ira_build (optimize
-		       && (flag_ira_region == IRA_REGION_ALL
-			   || flag_ira_region == IRA_REGION_MIXED));
+  loops_p = ira_build ();
 
   ira_assert (ira_conflicts_p || !loops_p);
 
@@ -3930,14 +3930,25 @@ ira (FILE *f)
 	      max_regno * sizeof (struct ira_spilled_reg_stack_slot));
     }
   allocate_initial_values (reg_equivs);
+}
 
-  timevar_pop (TV_IRA);
+static void
+do_reload (void)
+{
+  basic_block bb;
+  bool need_dce;
+
+  if (flag_ira_verbose < 10)
+    ira_dump_file = dump_file;
 
   timevar_push (TV_RELOAD);
   if (flag_lra)
     {
-      flow_loops_free (&ira_loops);
-      free_dominance_info (CDI_DOMINATORS);
+      if (current_loops != NULL)
+	{
+	  flow_loops_free (&ira_loops);
+	  free_dominance_info (CDI_DOMINATORS);
+	}
       FOR_ALL_BB (bb)
 	bb->loop_father = NULL;
       current_loops = NULL;
@@ -3952,17 +3963,16 @@ ira (FILE *f)
 	 LRA.  */
       VEC_free (reg_equivs_t, gc, reg_equivs);
       reg_equivs = NULL;
+      need_dce = false;
     }
   else
     {
       df_set_flags (DF_NO_INSN_RESCAN);
       build_insn_chain ();
       
-      need_dce = !reload (get_insns (), ira_conflicts_p);
+      need_dce = reload (get_insns (), ira_conflicts_p);
 
-      finish_subregs_of_mode ();
     }
-
 
   timevar_pop (TV_RELOAD);
 
@@ -3983,8 +3993,11 @@ ira (FILE *f)
   if (! flag_lra)
     {
       ira_destroy ();
-      flow_loops_free (&ira_loops);
-      free_dominance_info (CDI_DOMINATORS);
+      if (current_loops != NULL)
+	{
+	  flow_loops_free (&ira_loops);
+	  free_dominance_info (CDI_DOMINATORS);
+	}
       FOR_ALL_BB (bb)
 	bb->loop_father = NULL;
       current_loops = NULL;
@@ -4021,15 +4034,7 @@ ira (FILE *f)
 
   timevar_pop (TV_IRA);
 }
-
 
-
-static bool
-gate_ira (void)
-{
-  return true;
-}
-
 /* Run the integrated register allocator.  */
 static unsigned int
 rest_of_handle_ira (void)
@@ -4043,16 +4048,42 @@ struct rtl_opt_pass pass_ira =
  {
   RTL_PASS,
   "ira",                                /* name */
-  gate_ira,                             /* gate */
+  NULL,                                 /* gate */
   rest_of_handle_ira,		        /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_NONE,	                        /* tv_id */
+  TV_IRA,	                        /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_dump_func                        /* todo_flags_finish */
+ }
+};
+
+static unsigned int
+rest_of_handle_reload (void)
+{
+  do_reload ();
+  return 0;
+}
+
+struct rtl_opt_pass pass_reload =
+{
+ {
+  RTL_PASS,
+  "reload",                             /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_reload,	        /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_RELOAD,	                        /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func | TODO_ggc_collect     /* todo_flags_finish */
  }
 };

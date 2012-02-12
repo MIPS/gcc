@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2011, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1817,7 +1817,7 @@ gnat_build_constructor (tree type, VEC(constructor_elt,gc) *v)
   FOR_EACH_CONSTRUCTOR_ELT (v, n_elmts, obj, val)
     {
       /* The predicate must be in keeping with output_constructor.  */
-      if (!TREE_CONSTANT (val)
+      if ((!TREE_CONSTANT (val) && !TREE_STATIC (val))
 	  || (TREE_CODE (type) == RECORD_TYPE
 	      && CONSTRUCTOR_BITFIELD_P (obj)
 	      && !initializer_constant_valid_for_bitfield_p (val))
@@ -2003,9 +2003,10 @@ build_call_alloc_dealloc_proc (tree gnu_obj, tree gnu_size, tree gnu_type,
   tree gnu_proc = gnat_to_gnu (gnat_proc);
   tree gnu_call;
 
-  /* The storage pools are obviously always tagged types, but the
-     secondary stack uses the same mechanism and is not tagged.  */
-  if (Is_Tagged_Type (Etype (gnat_pool)))
+  /* A storage pool's underlying type is a record type (for both predefined
+     storage pools and GNAT simple storage pools). The secondary stack uses
+     the same mechanism, but its pool object (SS_Pool) is an integer.  */
+  if (Is_Record_Type (Underlying_Type (Etype (gnat_pool))))
     {
       /* The size is the third parameter; the alignment is the
 	 same type.  */
@@ -2126,7 +2127,7 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
 
       return
 	build2 (COMPOUND_EXPR, TREE_TYPE (aligning_field_addr),
-		build_binary_op (MODIFY_EXPR, NULL_TREE,
+		build_binary_op (INIT_EXPR, NULL_TREE,
 				 storage_ptr_slot, storage_ptr),
 		aligning_field_addr);
     }
@@ -2279,12 +2280,12 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 	  CONSTRUCTOR_APPEND_ELT (v, DECL_CHAIN (TYPE_FIELDS (storage_type)),
 				  init);
 	  storage_init
-	    = build_binary_op (MODIFY_EXPR, NULL_TREE, storage_deref,
+	    = build_binary_op (INIT_EXPR, NULL_TREE, storage_deref,
 			       gnat_build_constructor (storage_type, v));
 	}
       else
 	storage_init
-	  = build_binary_op (MODIFY_EXPR, NULL_TREE,
+	  = build_binary_op (INIT_EXPR, NULL_TREE,
 			     build_component_ref (storage_deref, NULL_TREE,
 						  TYPE_FIELDS (storage_type),
 						  false),
@@ -2332,7 +2333,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
       storage_deref = build_unary_op (INDIRECT_REF, NULL_TREE, storage);
       TREE_THIS_NOTRAP (storage_deref) = 1;
       storage_init
-	= build_binary_op (MODIFY_EXPR, NULL_TREE, storage_deref, init);
+	= build_binary_op (INIT_EXPR, NULL_TREE, storage_deref, init);
       return build2 (COMPOUND_EXPR, result_type, storage_init, storage);
     }
 

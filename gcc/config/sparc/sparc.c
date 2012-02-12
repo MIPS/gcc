@@ -779,6 +779,10 @@ char sparc_hard_reg_printed[8];
 #undef TARGET_PRINT_OPERAND_ADDRESS
 #define TARGET_PRINT_OPERAND_ADDRESS sparc_print_operand_address
 
+/* The value stored by LDSTUB.  */
+#undef TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
+#define TARGET_ATOMIC_TEST_AND_SET_TRUEVAL 0xff
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 static void
@@ -1159,6 +1163,21 @@ sparc_option_override (void)
     case PROCESSOR_NATIVE:
       gcc_unreachable ();
     };
+
+  if (sparc_memory_model == SMM_DEFAULT)
+    {
+      /* Choose the memory model for the operating system.  */
+      enum sparc_memory_model_type os_default = SUBTARGET_DEFAULT_MEMORY_MODEL;
+      if (os_default != SMM_DEFAULT)
+	sparc_memory_model = os_default;
+      /* Choose the most relaxed model for the processor.  */
+      else if (TARGET_V9)
+	sparc_memory_model = SMM_RMO;
+      else if (TARGET_V8)
+	sparc_memory_model = SMM_PSO;
+      else
+	sparc_memory_model = SMM_SC;
+    }
 
 #ifdef TARGET_DEFAULT_LONG_DOUBLE_128
   if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
@@ -4957,8 +4976,9 @@ sparc_expand_prologue (void)
       else if (size <= 8192)
 	{
 	  insn = emit_insn (gen_stack_pointer_inc (GEN_INT (-4096)));
-	  /* %sp is still the CFA register.  */
 	  RTX_FRAME_RELATED_P (insn) = 1;
+
+	  /* %sp is still the CFA register.  */
 	  insn = emit_insn (gen_stack_pointer_inc (GEN_INT (4096 - size)));
 	}
       else
@@ -4981,8 +5001,18 @@ sparc_expand_prologue (void)
       else if (size <= 8192)
 	{
 	  emit_window_save (GEN_INT (-4096));
+
 	  /* %sp is not the CFA register anymore.  */
 	  emit_insn (gen_stack_pointer_inc (GEN_INT (4096 - size)));
+
+	  /* Make sure no %fp-based store is issued until after the frame is
+	     established.  The offset between the frame pointer and the stack
+	     pointer is calculated relative to the value of the stack pointer
+	     at the end of the function prologue, and moving instructions that
+	     access the stack via the frame pointer between the instructions
+	     that decrement the stack pointer could result in accessing the
+	     register window save area, which is volatile.  */
+	  emit_insn (gen_frame_blockage ());
 	}
       else
 	{
@@ -10849,11 +10879,95 @@ sparc_mangle_type (const_tree type)
 }
 #endif
 
+/* Expand a membar instruction for various use cases.  Both the LOAD_STORE
+   and BEFORE_AFTER arguments of the form X_Y.  They are two-bit masks where
+   bit 0 indicates that X is true, and bit 1 indicates Y is true.  */
+
+void
+sparc_emit_membar_for_model (enum memmodel model,
+			     int load_store, int before_after)
+{
+  /* Bits for the MEMBAR mmask field.  */
+  const int LoadLoad = 1;
+  const int StoreLoad = 2;
+  const int LoadStore = 4;
+  const int StoreStore = 8;
+
+  int mm = 0, implied = 0;
+
+  switch (sparc_memory_model)
+    {
+    case SMM_SC:
+      /* Sequential Consistency.  All memory transactions are immediately
+	 visible in sequential execution order.  No barriers needed.  */
+      implied = LoadLoad | StoreLoad | LoadStore | StoreStore;
+      break;
+
+    case SMM_TSO:
+      /* Total Store Ordering: all memory transactions with store semantics
+	 are followed by an implied StoreStore.  */
+      implied |= StoreStore;
+      /* FALLTHRU */
+
+    case SMM_PSO:
+      /* Partial Store Ordering: all memory transactions with load semantics
+	 are followed by an implied LoadLoad | LoadStore.  */
+      implied |= LoadLoad | LoadStore;
+
+      /* If we're not looking for a raw barrer (before+after), then atomic
+	 operations get the benefit of being both load and store.  */
+      if (load_store == 3 && before_after == 2)
+	implied |= StoreLoad | StoreStore;
+      /* FALLTHRU */
+
+    case SMM_RMO:
+      /* Relaxed Memory Ordering: no implicit bits.  */
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (before_after & 1)
+    {
+      if (model == MEMMODEL_ACQUIRE
+          || model == MEMMODEL_ACQ_REL
+          || model == MEMMODEL_SEQ_CST)
+	{
+	  if (load_store & 1)
+	    mm |= LoadLoad | LoadStore;
+	  if (load_store & 2)
+	    mm |= StoreLoad | StoreStore;
+	}
+    }
+  if (before_after & 2)
+    {
+      if (model == MEMMODEL_RELEASE
+	  || model == MEMMODEL_ACQ_REL
+	  || model == MEMMODEL_SEQ_CST)
+	{
+	  if (load_store & 1)
+	    mm |= LoadLoad | StoreLoad;
+	  if (load_store & 2)
+	    mm |= LoadStore | StoreStore;
+	}
+    }
+
+  /* Remove the bits implied by the system memory model.  */
+  mm &= ~implied;
+
+  /* For raw barriers (before+after), always emit a barrier.
+     This will become a compile-time barrier if needed.  */
+  if (mm || before_after == 3)
+    emit_insn (gen_membar (GEN_INT (mm)));
+}
+
 /* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
    compare and swap on the word containing the byte or half-word.  */
 
-void
-sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
+static void
+sparc_expand_compare_and_swap_12 (rtx bool_result, rtx result, rtx mem,
+				  rtx oldval, rtx newval)
 {
   rtx addr1 = force_reg (Pmode, XEXP (mem, 0));
   rtx addr = gen_reg_rtx (Pmode);
@@ -10878,7 +10992,7 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
   set_mem_alias_set (memsi, ALIAS_SET_MEMORY_BARRIER);
   MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
 
-  val = force_reg (SImode, memsi);
+  val = copy_to_reg (memsi);
 
   emit_insn (gen_rtx_SET (VOIDmode, off,
 			  gen_rtx_XOR (SImode, off,
@@ -10924,13 +11038,17 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
   emit_insn (gen_rtx_SET (VOIDmode, newvalue,
 			  gen_rtx_IOR (SImode, newv, val)));
 
-  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldvalue, newvalue));
+  emit_move_insn (bool_result, const1_rtx);
+
+  emit_insn (gen_atomic_compare_and_swapsi_1 (res, memsi, oldvalue, newvalue));
 
   emit_cmp_and_jump_insns (res, oldvalue, EQ, NULL, SImode, 0, end_label);
 
   emit_insn (gen_rtx_SET (VOIDmode, resv,
 			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
 				       res)));
+
+  emit_move_insn (bool_result, const0_rtx);
 
   cc = gen_compare_reg_1 (NE, resv, val);
   emit_insn (gen_rtx_SET (VOIDmode, val, resv));
@@ -10948,6 +11066,49 @@ sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
 			  gen_rtx_LSHIFTRT (SImode, res, off)));
 
   emit_move_insn (result, gen_lowpart (GET_MODE (result), res));
+}
+
+/* Expand code to perform a compare-and-swap.  */
+
+void
+sparc_expand_compare_and_swap (rtx operands[])
+{
+  rtx bval, retval, mem, oldval, newval;
+  enum machine_mode mode;
+  enum memmodel model;
+
+  bval = operands[0];
+  retval = operands[1];
+  mem = operands[2];
+  oldval = operands[3];
+  newval = operands[4];
+  model = (enum memmodel) INTVAL (operands[6]);
+  mode = GET_MODE (mem);
+
+  sparc_emit_membar_for_model (model, 3, 1);
+
+  if (reg_overlap_mentioned_p (retval, oldval))
+    oldval = copy_to_reg (oldval);
+
+  if (mode == QImode || mode == HImode)
+    sparc_expand_compare_and_swap_12 (bval, retval, mem, oldval, newval);
+  else
+    {
+      rtx (*gen) (rtx, rtx, rtx, rtx);
+      rtx x;
+
+      if (mode == SImode)
+	gen = gen_atomic_compare_and_swapsi_1;
+      else
+	gen = gen_atomic_compare_and_swapdi_1;
+      emit_insn (gen (retval, mem, oldval, newval));
+
+      x = emit_store_flag (bval, EQ, retval, oldval, mode, 1, 1);
+      if (x != bval)
+	convert_move (bval, x, 1);
+    }
+
+  sparc_emit_membar_for_model (model, 3, 2);
 }
 
 void
@@ -11324,49 +11485,47 @@ vector_init_bshuffle (rtx target, rtx elt, enum machine_mode mode,
   emit_insn (final_insn);
 }
 
+/* Subroutine of sparc_expand_vector_init.  Emit code to initialize
+   all fields of TARGET to ELT in V8QI by means of VIS FPMERGE insn.  */
+
 static void
-vector_init_fpmerge (rtx target, rtx elt, enum machine_mode inner_mode)
+vector_init_fpmerge (rtx target, rtx elt)
 {
-  rtx t1, t2, t3, t3_low;
+  rtx t1, t2, t2_low, t3, t3_low;
 
   t1 = gen_reg_rtx (V4QImode);
-  elt = convert_modes (SImode, inner_mode, elt, true);
+  elt = convert_modes (SImode, QImode, elt, true);
   emit_move_insn (gen_lowpart (SImode, t1), elt);
 
-  t2 = gen_reg_rtx (V4QImode);
-  emit_move_insn (t2, t1);
+  t2 = gen_reg_rtx (V8QImode);
+  t2_low = gen_lowpart (V4QImode, t2);
+  emit_insn (gen_fpmerge_vis (t2, t1, t1));
 
   t3 = gen_reg_rtx (V8QImode);
   t3_low = gen_lowpart (V4QImode, t3);
+  emit_insn (gen_fpmerge_vis (t3, t2_low, t2_low));
 
-  emit_insn (gen_fpmerge_vis (t3, t1, t2));
-  emit_move_insn (t1, t3_low);
-  emit_move_insn (t2, t3_low);
-
-  emit_insn (gen_fpmerge_vis (t3, t1, t2));
-  emit_move_insn (t1, t3_low);
-  emit_move_insn (t2, t3_low);
-
-  emit_insn (gen_fpmerge_vis (gen_lowpart (V8QImode, target), t1, t2));
+  emit_insn (gen_fpmerge_vis (target, t3_low, t3_low));
 }
 
+/* Subroutine of sparc_expand_vector_init.  Emit code to initialize
+   all fields of TARGET to ELT in V4HI by means of VIS FALIGNDATA insn.  */
+
 static void
-vector_init_faligndata (rtx target, rtx elt, enum machine_mode inner_mode)
+vector_init_faligndata (rtx target, rtx elt)
 {
   rtx t1 = gen_reg_rtx (V4HImode);
+  int i;
 
-  elt = convert_modes (SImode, inner_mode, elt, true);
-
+  elt = convert_modes (SImode, HImode, elt, true);
   emit_move_insn (gen_lowpart (SImode, t1), elt);
 
   emit_insn (gen_alignaddrsi_vis (gen_reg_rtx (SImode),
 				  force_reg (SImode, GEN_INT (6)),
-				  CONST0_RTX (SImode)));
+				  const0_rtx));
 
-  emit_insn (gen_faligndatav4hi_vis (target, t1, target));
-  emit_insn (gen_faligndatav4hi_vis (target, t1, target));
-  emit_insn (gen_faligndatav4hi_vis (target, t1, target));
-  emit_insn (gen_faligndatav4hi_vis (target, t1, target));
+  for (i = 0; i < 4; i++)
+    emit_insn (gen_faligndatav4hi_vis (target, t1, target));
 }
 
 /* Emit code to initialize TARGET to values for individual fields VALS.  */
@@ -11374,9 +11533,9 @@ vector_init_faligndata (rtx target, rtx elt, enum machine_mode inner_mode)
 void
 sparc_expand_vector_init (rtx target, rtx vals)
 {
-  enum machine_mode mode = GET_MODE (target);
-  enum machine_mode inner_mode = GET_MODE_INNER (mode);
-  int n_elts = GET_MODE_NUNITS (mode);
+  const enum machine_mode mode = GET_MODE (target);
+  const enum machine_mode inner_mode = GET_MODE_INNER (mode);
+  const int n_elts = GET_MODE_NUNITS (mode);
   int i, n_var = 0;
   bool all_same;
   rtx mem;
@@ -11432,12 +11591,12 @@ sparc_expand_vector_init (rtx target, rtx vals)
 	}
       if (mode == V8QImode)
 	{
-	  vector_init_fpmerge (target, XVECEXP (vals, 0, 0), inner_mode);
+	  vector_init_fpmerge (target, XVECEXP (vals, 0, 0));
 	  return;
 	}
       if (mode == V4HImode)
 	{
-	  vector_init_faligndata (target, XVECEXP (vals, 0, 0), inner_mode);
+	  vector_init_faligndata (target, XVECEXP (vals, 0, 0));
 	  return;
 	}
     }
@@ -11614,6 +11773,71 @@ sparc_expand_vcond (enum machine_mode mode, rtx *operands, int ccode, int fcode)
   emit_insn (gen_rtx_SET (VOIDmode, gsr, cmask));
 
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], bshuf));
+}
+
+/* On sparc, any mode which naturally allocates into the float
+   registers should return 4 here.  */
+
+unsigned int
+sparc_regmode_natural_size (enum machine_mode mode)
+{
+  int size = UNITS_PER_WORD;
+
+  if (TARGET_ARCH64)
+    {
+      enum mode_class mclass = GET_MODE_CLASS (mode);
+
+      if (mclass == MODE_FLOAT || mclass == MODE_VECTOR_INT)
+	size = 4;
+    }
+
+  return size;
+}
+
+/* Return TRUE if it is a good idea to tie two pseudo registers
+   when one has mode MODE1 and one has mode MODE2.
+   If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
+   for any hard reg, then this must be FALSE for correct output.
+
+   For V9 we have to deal with the fact that only the lower 32 floating
+   point registers are 32-bit addressable.  */
+
+bool
+sparc_modes_tieable_p (enum machine_mode mode1, enum machine_mode mode2)
+{
+  enum mode_class mclass1, mclass2;
+  unsigned short size1, size2;
+
+  if (mode1 == mode2)
+    return true;
+
+  mclass1 = GET_MODE_CLASS (mode1);
+  mclass2 = GET_MODE_CLASS (mode2);
+  if (mclass1 != mclass2)
+    return false;
+
+  if (! TARGET_V9)
+    return true;
+
+  /* Classes are the same and we are V9 so we have to deal with upper
+     vs. lower floating point registers.  If one of the modes is a
+     4-byte mode, and the other is not, we have to mark them as not
+     tieable because only the lower 32 floating point register are
+     addressable 32-bits at a time.
+
+     We can't just test explicitly for SFmode, otherwise we won't
+     cover the vector mode cases properly.  */
+
+  if (mclass1 != MODE_FLOAT && mclass1 != MODE_VECTOR_INT)
+    return true;
+
+  size1 = GET_MODE_SIZE (mode1);
+  size2 = GET_MODE_SIZE (mode2);
+  if ((size1 > 4 && size2 == 4)
+      || (size2 > 4 && size1 == 4))
+    return false;
+
+  return true;
 }
 
 #include "gt-sparc.h"
