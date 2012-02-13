@@ -1,0 +1,9 @@
+2012-02-13  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/safe_base.h
+	(_Safe_iterator_base::_M_get_mutex): Remove.
+	(_Safe_sequence_base::_M_mutex): Add, use it...
+	(_Safe_sequence_base::_M_get_mutex): ...here.
+	* src/c++11/debug.cc:
+	(anonymous::get_safe_base_mutex): Remove.
+

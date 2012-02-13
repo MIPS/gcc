@@ -104,9 +104,6 @@ namespace __gnu_debug
 
     ~_Safe_iterator_base() { this->_M_detach(); }
 
-    /** For use in _Safe_iterator. */
-    __gnu_cxx::__mutex& _M_get_mutex() throw ();
-
   public:
     /** Attaches this iterator to the given sequence, detaching it
      *	from whatever sequence it was attached to originally. If the
@@ -187,6 +184,9 @@ namespace __gnu_debug
     /// The container version number. This number may never be 0.
     mutable unsigned int _M_version;
 
+    /** For use in _Safe_sequence. */
+    __gnu_cxx::__mutex _M_mutex;
+
   protected:
     // Initialize with a version number of 1 and no iterators
     _Safe_sequence_base()
@@ -226,7 +226,8 @@ namespace __gnu_debug
     _M_swap(_Safe_sequence_base& __x);
 
     /** For use in _Safe_sequence. */
-    __gnu_cxx::__mutex& _M_get_mutex() throw ();
+    __gnu_cxx::__mutex& _M_get_mutex() throw ()
+    { return _M_mutex; }
 
   public:
     /** Invalidates all iterators. */

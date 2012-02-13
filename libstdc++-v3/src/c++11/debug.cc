@@ -28,30 +28,16 @@
 #include <debug/safe_unordered_container.h>
 #include <debug/safe_iterator.h>
 #include <debug/safe_local_iterator.h>
-#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
-#include <functional>
 
 using namespace std;
 
 namespace
 {
-  /** Returns different instances of __mutex depending on the passed address
-   *  in order to limit contention without breaking current library binary
-   *  compatibility. */
-  __gnu_cxx::__mutex&
-  get_safe_base_mutex(void* __address)
-  {
-    const size_t mask = 0xf;
-    static __gnu_cxx::__mutex safe_base_mutex[mask + 1];
-    const size_t index = _Hash_impl::hash(__address) & mask;
-    return safe_base_mutex[index];
-  }
-
   void
   swap_its(__gnu_debug::_Safe_sequence_base& __lhs,
 	   __gnu_debug::_Safe_iterator_base*& __lhs_its,
@@ -251,11 +237,6 @@ namespace __gnu_debug
       }
   }
 
-  __gnu_cxx::__mutex&
-  _Safe_sequence_base::
-  _M_get_mutex() throw ()
-  { return get_safe_base_mutex(this); }
-
   void
   _Safe_sequence_base::
   _M_attach(_Safe_iterator_base* __it, bool __constant)
@@ -369,11 +350,6 @@ namespace __gnu_debug
     return (!_M_singular() 
 	    && !__x._M_singular() && _M_sequence == __x._M_sequence);
   }
-
-  __gnu_cxx::__mutex&
-  _Safe_iterator_base::
-  _M_get_mutex() throw ()
-  { return get_safe_base_mutex(_M_sequence); }
 
   _Safe_unordered_container_base*
   _Safe_local_iterator_base::
