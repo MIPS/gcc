@@ -1940,6 +1940,7 @@ check_rtl (bool final_p)
 		   legitimate if they satisfies the constraints and
 		   will be checked by insn constraints which we
 		   ignore here.  */
+		&& GET_CODE (XEXP (op, 0)) != UNSPEC
 		&& GET_CODE (XEXP (op, 0)) != PRE_DEC
 		&& GET_CODE (XEXP (op, 0)) != PRE_INC
 		&& GET_CODE (XEXP (op, 0)) != POST_DEC
