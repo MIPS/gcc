@@ -3795,12 +3795,12 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 }
 
 /* Return class for the split pseudo created from original pseudo with
-   ALLOCNO_CLASS and MODE which got a hard register with
-   HARD_REG_CLASS.  We choose subclass of ALLOCNO_CLASS which results
-   in no secondary memory movements.  */
+   ALLOCNO_CLASS and MODE which got a hard register HARD_REGNO We
+   choose subclass of ALLOCNO_CLASS which contains HARD_REGNO and
+   results in no secondary memory movements.  */
 static enum reg_class
 choose_split_class (enum reg_class allocno_class,
-		    enum reg_class hard_reg_class ATTRIBUTE_UNUSED,
+		    int hard_regno ATTRIBUTE_UNUSED,
 		    enum machine_mode mode ATTRIBUTE_UNUSED)
 {
 #ifndef SECONDARY_MEMORY_NEEDED
@@ -3808,15 +3808,14 @@ choose_split_class (enum reg_class allocno_class,
 #else
   int i;
   enum reg_class cl, best_cl = NO_REGS;
+  enum reg_class hard_reg_class = REGNO_REG_CLASS (hard_regno);
   
-  if (allocno_class == hard_reg_class
-      && ! SECONDARY_MEMORY_NEEDED (hard_reg_class, hard_reg_class, mode))
-    best_cl = hard_reg_class;
   for (i = 0;
        (cl = reg_class_subclasses[allocno_class][i]) != LIM_REG_CLASSES;
        i++)
     if (! SECONDARY_MEMORY_NEEDED (cl, hard_reg_class, mode)
 	&& ! SECONDARY_MEMORY_NEEDED (hard_reg_class, cl, mode)
+	&& TEST_HARD_REG_BIT (reg_class_contents[cl], hard_regno)
 	&& (best_cl == NO_REGS
 	    || (hard_reg_set_subset_p (reg_class_contents[best_cl],
 				       reg_class_contents[cl])
@@ -3860,9 +3859,6 @@ split_pseudo (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "    ((((((((((((((((((((((((((((((((((((((((((((((((\n");
-  rclass = choose_split_class (rclass,
-			       REGNO_REG_CLASS (reg_renumber[original_regno]),
-			       GET_MODE (original_reg));
   if (call_save_p)
     {
       enum machine_mode sec_mode;
@@ -3877,6 +3873,21 @@ split_pseudo (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   else
     {
+      rclass = choose_split_class (rclass,
+				   reg_renumber[original_regno],
+				   GET_MODE (original_reg));
+      if (rclass == NO_REGS)
+	{
+	  if (lra_dump_file != NULL)
+	    {
+	      fprintf (lra_dump_file,
+		       "    Rejecting split of %d: no good reg class\n",
+		       original_regno);
+	      fprintf (lra_dump_file,
+		       "    ))))))))))))))))))))))))))))))))))))))))))))))))\n");
+	    }
+	  return false;
+	}
       new_reg = lra_create_new_reg (GET_MODE (original_reg), original_reg,
 				    rclass, "split");
       reg_renumber[REGNO (new_reg)] = reg_renumber[original_regno];

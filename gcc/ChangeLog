@@ -1,3 +1,10 @@
+2012-02-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (choose_split_class ): Pass hard_regno instead
+	of its class.  Check that the class containts hard_regno.
+	(split_pseudo): Reject splitting if choose_split_class returns
+	NO_REGS.
+
 2012-02-13  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.c (check_rtl): Ignore addr with UNSPEC.
