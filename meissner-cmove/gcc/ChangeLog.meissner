@@ -1,3 +1,8 @@
+2012-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_cmove_md_extra): Don't allow the
+	test to contain non-integral values.
+
 2012-02-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* ifcvt.c (struct noce_if_info): Eliminate extra field that was

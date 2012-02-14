@@ -16446,11 +16446,12 @@ rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
     return NULL_RTX;
 
   cmp_op0 = XEXP (compare, 0);
-  if (!REG_P (cmp_op0))
+  if (!REG_P (cmp_op0) || !INTEGRAL_MODE_P (GET_MODE (cmp_op0)))
     return NULL_RTX;
 
   cmp_op1 = XEXP (compare, 1);
-  if (!REG_P (cmp_op1) && cmp_op1 != const0_rtx)
+  if ((!REG_P (cmp_op1) && cmp_op1 != const0_rtx)
+      || !INTEGRAL_MODE_P (GET_MODE (cmp_op1)))
     return NULL_RTX;
 
   /* Are memory references reg+offset?  */
