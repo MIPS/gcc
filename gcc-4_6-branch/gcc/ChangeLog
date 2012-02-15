@@ -1,6 +1,165 @@
+2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/52199
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Use
+	force_reg instead of copy_to_reg for better optimization.  Force
+	non-register or memory operands into a register.
+
+2012-02-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46886
+	* tree-flow.h (do_while_loop_p): Declare.
+	* tree-ssa-loop-ch.c (do_while_loop_p): Export.
+	* tree-parloops.c (parallelize_loops): Only parallelize do-while
+	loops.
+
+2012-02-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/51921
+	PR target/52205
+	* config/sparc/sol2-unwind.h (sparc64_is_sighandler): Add support for
+	Solaris 11 and slightly reformat.
+	(sparc_is_sighandler): Likewise.
+
+2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51950
+	* dwarf2out.c (clone_tree_hash): New function.
+	(copy_decls_walk): Use it instead of clone_tree.
+
+	PR c/52181
+	* c-decl.c (merge_decls): Copy DECL_USER_ALIGN bit from olddecl to
+	newdecl.
+
+	2012-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* cselib.c (dump_cselib_val): Don't assume l->setting_insn is
+	non-NULL.
+
+	PR middle-end/52230
+	* omp-low.c (expand_omp_for): If a static schedule without
+	chunk size has NULL region->cont, force fd.chunk_size to be
+	integer_zero_node.
+
+	PR bootstrap/51969
+	Backported from mainline
+	2011-11-08  Michael Matz  <matz@suse.de>
+
+	* gengtype.c (write_field_root): Avoid out-of-scope access of newv.
+
+2012-02-14  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from mainline.
+	2011-06-08  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_libcall_uses_aapcs_base): Use correct ABI
+	for double-precision helper functions in hard-float mode if only
+	single-precision arithmetic is supported in hardware.
+
+2012-02-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* compare-elim.c (find_comparisons_in_bb): Eliminate only compares
+	having the same mode as previous compare.
+
+2012-02-09  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	Backported from mainline
+	2011-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49536
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size):
+	For non-scalar inner types use a scalar type according to
+	the scalar inner mode.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52139
+	* cfgrtl.c (cfg_layout_merge_blocks): If BB_END
+	is a BARRIER after emit_insn_after_noloc, move BB_END
+	to the last non-BARRIER insn before it.
+
+	2012-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52060
+	* combine.c (try_combine): Add i0src_copy and i0src_copy2 variables,
+	copy i1src to i1src_copy whenever added_sets_2 && i1_feeds_i2_n already
+	before i1dest -> i1src substitution in newpat, copy i0src to i0src_copy
+	and/or i0src_copy2 when needed.
+
+	PR middle-end/52074
+	* expr.c (expand_expr_addr_expr_1): For CONSTANT_CLASS_P or CONST_DECL
+	if modifier < EXPAND_SUM call force_operand on the result.
+
+	2012-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52129
+	* calls.c (mem_overlaps_already_clobbered_arg_p): If val is
+	CONST_INT_P, subtract resp. add crtl->args.pretend_args_size to it.
+
+	2012-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48071
+	* diagnostic.c (diagnostic_finish): Remove trailing newlines.
+
+	2012-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52006
+	* config/arm/arm.md (pic_add_dot_plus_eight peephole2): Use
+	arm_general_register_operand predicate for operand 2 instead of
+	register_operand.
+
+	2012-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libmudflap/40778
+	* tree-mudflap.c (mf_artificial): New function.
+	(execute_mudflap_function_ops, execute_mudflap_function_decls,
+	mx_register_decls, mudflap_enqueue_decl): Use it.
+
+	2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/51767
+	* cfgrtl.c (force_nonfallthru_and_redirect): Force addition
+	of jump_block and add an extra edge for degenerated asm gotos.
+
+	PR middle-end/51768
+	* stmt.c (check_unique_operand_names): Don't ICE during error
+	reporting if i is from labels chain.
+
+	PR middle-end/44777
+	* profile.c (branch_prob): Split bbs that have exit edge
+	and need a fake entry edge too.
+
+	2012-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51695
+	* dwarf2out.c (output_loc_list): For now drop >= 64KB expressions
+	in .debug_loc on the floor.
+
+	2011-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/51360
+	* c-parser.c (c_parser_omp_clause_num_threads,
+	c_parser_omp_clause_schedule): Call mark_exp_read.
+
+	PR debug/51517
+	* tree-ssa-coalesce.c (coalesce_ssa_name): For !optimize, test
+	!DECL_IGNORED_P instead of !DECL_ARTIFICIAL.
+
 2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
 
-	Backport from mainline 
+	Backport from mainline
 	2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
 
 	PR middle-end/52140
@@ -8,7 +167,7 @@
 
 2012-02-09  Andrey Belevantsev  <abel@ispras.ru>
 
-	Backport from mainline 
+	Backport from mainline
 	2012-01-20  Andrey Belevantsev  <abel@ispras.ru>
 
 	PR target/51106
@@ -22,11 +181,11 @@
 	bit position to it (if any).
 
 2012-02-07  Kai Tietz  <ktietz@redhat.com>
-            Dave Korn  <dave.korn.cygwin@gmail.com>
+	    Dave Korn  <dave.korn.cygwin@gmail.com>
 
-        PR target/40068
-        * config/i386/winnt-cxx.c (i386_pe_adjust_class_at_definition):
-        Take care that typinfo gets dllexport-attribute.
+	PR target/40068
+	* config/i386/winnt-cxx.c (i386_pe_adjust_class_at_definition):
+	Take care that typinfo gets dllexport-attribute.
 
 2012-02-07  Alan Modra  <amodra@gmail.com>
 

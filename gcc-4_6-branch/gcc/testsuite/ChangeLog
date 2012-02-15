@@ -1,3 +1,76 @@
+2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/52199
+	* gcc.target/powerpc/pr52199.c: New file.
+
+2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/52247
+	* g++.dg/template/asmgoto1.C: New test.
+
+	PR c/52181
+	* c-c++-common/pr52181.c: New test.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52139
+	* gcc.dg/pr52139.c: New test.
+
+	2012-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52060
+	* gcc.dg/torture/pr52060.c: New test.
+
+	PR middle-end/52074
+	* gcc.c-torture/compile/pr52074.c: New test.
+
+	2012-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52129
+	* gcc.c-torture/execute/pr52129.c: New test.
+
+	2012-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52006
+	* gcc.target/arm/pr52006.c: New test.
+
+	2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/51767
+	* gcc.c-torture/compile/pr51767.c: New test.
+
+	PR middle-end/51768
+	* c-c++-common/pr51768.c: New test.
+
+	PR middle-end/44777
+	* gcc.dg/tree-prof/pr44777.c: New test.
+
+	2012-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51695
+	* gcc.dg/pr51695.c: New test.
+
+	2012-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/51669
+	* g++.dg/gomp/pr51669.C: New test.
+
+	2011-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/51360
+	* gcc.dg/gomp/pr51360.c: New test.
+	* g++.dg/gomp/pr51360.C: New test.
+	* g++.dg/gomp/pr51360-2.C: New test.
+
 2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
