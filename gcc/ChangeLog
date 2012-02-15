@@ -1,3 +1,7 @@
+2012-02-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-coalesce.c (lra_coalesce): Check the split pseudos too.
+
 2012-02-14  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (choose_split_class ): Pass hard_regno instead

@@ -195,10 +195,12 @@ lra_coalesce (void)
 {
   basic_block bb;
   rtx mv, set, insn, next, *sorted_moves;
-  int i, n, mv_num, sregno, dregno;
+  int i, n, mv_num, sregno, dregno, restore_regno;
+  unsigned int regno;
   int coalesced_moves;
   int max_regno = max_reg_num ();
-  bitmap_head involved_insns_bitmap;
+  bitmap_head involved_insns_bitmap, split_origin_bitmap;
+  bitmap_iterator bi;
 
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
@@ -210,6 +212,11 @@ lra_coalesce (void)
     first_coalesced_pseudo[i] = next_coalesced_pseudo[i] = i;
   sorted_moves = (rtx *) xmalloc (get_max_uid () * sizeof (rtx));
   mv_num = 0;
+  /* Collect pseudos whose live ranges were split.  */
+  bitmap_initialize (&split_origin_bitmap, &reg_obstack);
+  EXECUTE_IF_SET_IN_BITMAP (&lra_split_pseudos, 0, regno, bi)
+    if ((restore_regno = lra_reg_info[regno].restore_regno) >= 0)
+      bitmap_set_bit (&split_origin_bitmap, restore_regno);
   /* Collect moves.  */
   coalesced_moves = 0;
   FOR_EACH_BB (bb)
@@ -226,6 +233,12 @@ lra_coalesce (void)
 	       inheritance' pass.  */
 	    && lra_reg_info[sregno].restore_regno < 0
 	    && lra_reg_info[dregno].restore_regno < 0
+	    /* We undo splits for spilled pseudos whose live ranges
+	       were split.  So don't coalesce them, it is not
+	       necessary and the undo transformations would be
+	       wrong.  */
+	    && ! bitmap_bit_p (&split_origin_bitmap, sregno)
+	    && ! bitmap_bit_p (&split_origin_bitmap, dregno)
 	    && ! side_effects_p (set)
 	    /* Don't coalesces bound pseudos.  Bound pseudos has own
 	       rules for finding live ranges.  It is hard to maintain
@@ -245,6 +258,7 @@ lra_coalesce (void)
 						lra_reg_info[dregno].live_ranges))
 	  sorted_moves[mv_num++] = insn;
     }
+  bitmap_clear (&removed_pseudos_bitmap);
   qsort (sorted_moves, mv_num, sizeof (rtx), move_freq_compare_func);
   /* Coalesced copies, most frequently executed first.  */
   bitmap_initialize (&coalesced_pseudos_bitmap, &reg_obstack);
