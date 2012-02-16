@@ -1,3 +1,9 @@
+2012-02-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (choose_split_class): Check allocno_class too.
+	(split_pseudo): Print more debug info about split rejecting
+	because of reg class.
+
 2012-02-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-coalesce.c (lra_coalesce): Check the split pseudos too.

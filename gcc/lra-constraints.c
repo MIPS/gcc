@@ -3810,6 +3810,9 @@ choose_split_class (enum reg_class allocno_class,
   enum reg_class cl, best_cl = NO_REGS;
   enum reg_class hard_reg_class = REGNO_REG_CLASS (hard_regno);
   
+  if (! SECONDARY_MEMORY_NEEDED (allocno_class, allocno_class, mode)
+      && TEST_HARD_REG_BIT (reg_class_contents[allocno_class], hard_regno))
+    return allocno_class;
   for (i = 0;
        (cl = reg_class_subclasses[allocno_class][i]) != LIM_REG_CLASSES;
        i++)
@@ -3881,8 +3884,13 @@ split_pseudo (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 	  if (lra_dump_file != NULL)
 	    {
 	      fprintf (lra_dump_file,
-		       "    Rejecting split of %d: no good reg class\n",
-		       original_regno);
+		       "    Rejecting split of %d(%s): "
+		       "no good reg class for %d(%s)\n",
+		       original_regno,
+		       reg_class_names[lra_get_allocno_class (original_regno)],
+		       reg_renumber[original_regno],
+		       reg_class_names[REGNO_REG_CLASS
+				       (reg_renumber[original_regno])]);
 	      fprintf (lra_dump_file,
 		       "    ))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	    }
