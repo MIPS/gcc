@@ -522,8 +522,8 @@ Expression::convert_interface_to_interface(Translate_context* context,
       // first field is just the type descriptor of the object.
       go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)),
 			"__type_descriptor") == 0);
-      go_assert(TREE_TYPE(field) == TREE_TYPE(rhs_type_descriptor));
-      elt->value = rhs_type_descriptor;
+      elt->value = fold_convert_loc(location.gcc_location(),
+				    TREE_TYPE(field), rhs_type_descriptor);
     }
   else
     {
@@ -10027,7 +10027,8 @@ Call_expression::do_get_tree(Translate_context* context)
 
   // This is to support builtin math functions when using 80387 math.
   tree excess_type = NULL_TREE;
-  if (TREE_CODE(fndecl) == FUNCTION_DECL
+  if (optimize
+      && TREE_CODE(fndecl) == FUNCTION_DECL
       && DECL_IS_BUILTIN(fndecl)
       && DECL_BUILT_IN_CLASS(fndecl) == BUILT_IN_NORMAL
       && nargs > 0
