@@ -311,6 +311,7 @@ struct processor_costs {
   const int l2_cache_size;	/* size of l2 cache, in kilobytes.  */
   const int simultaneous_prefetches; /* number of parallel prefetch
 					operations.  */
+  const enum rs6000_iabs_t iabs; /* Preferred way to do int ABS.  */
 };
 
 const struct processor_costs *rs6000_cost;
@@ -330,10 +331,11 @@ struct processor_costs size32_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  32,
-  0,
-  0,
-  0,
+  32,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -349,10 +351,11 @@ struct processor_costs size64_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  128,
-  0,
-  0,
-  0,
+  128,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -372,6 +375,7 @@ struct processor_costs rios1_cost = {
   64,			/* l1 cache */
   512,			/* l2 cache */
   0,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -391,6 +395,7 @@ struct processor_costs rios2_cost = {
   256,			/* l1 cache */
   1024,			/* l2 cache */
   0,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -410,6 +415,7 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -429,6 +435,7 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -448,6 +455,7 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -467,6 +475,7 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -486,6 +495,7 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -505,6 +515,7 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -524,6 +535,7 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -543,6 +555,7 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -562,6 +575,7 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -581,6 +595,7 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -600,6 +615,7 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -619,6 +635,7 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -639,6 +656,7 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -658,6 +676,7 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -677,6 +696,7 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -696,6 +716,7 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -715,6 +736,7 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -734,6 +756,7 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -753,6 +776,7 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -772,6 +796,7 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -791,6 +816,7 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -810,6 +836,7 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -829,6 +856,7 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -848,6 +876,7 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  RS6000_IABS_DEFAULT,	/* iabs */
 };
 
 
@@ -1966,6 +1995,16 @@ rs6000_debug_reg_global (void)
     "other"
   };
 
+  /* Map enum rs6000_iabs_t to string.  */
+  static const char *rs6000_debug_iabs[] = {
+    "default",
+    "none",
+    "power",
+    "shift",
+    "isel",
+    "bcp8",
+  };
+
   fprintf (stderr, "Register information: (last virtual reg = %d)\n",
 	   LAST_VIRTUAL_REGISTER);
   rs6000_debug_reg_print (0, 31, "gr");
@@ -2171,6 +2210,8 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
   fprintf (stderr, DEBUG_FMT_X, "Builtin mask", rs6000_builtin_mask);
+  fprintf (stderr, DEBUG_FMT_S, "iabs",
+	   rs6000_debug_iabs[(int)rs6000_iabs_method]);
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -3331,6 +3372,25 @@ rs6000_option_override_internal (bool global_init_p)
 	  else
 	    rs6000_recip_control |= mask;
 	}
+    }
+
+  /* Set how we want to do integer absolute value.  Honor an explicit
+     -mno-isel.  */
+  if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
+    rs6000_iabs_method = rs6000_cost->iabs;
+
+  if (rs6000_iabs_method == RS6000_IABS_ISEL && !TARGET_ISEL
+      && (target_flags_explicit & MASK_ISEL))
+    rs6000_iabs_method = RS6000_IABS_SHIFT;
+
+  else if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
+    {
+      if (TARGET_POWER)
+	rs6000_iabs_method = RS6000_IABS_POWER;
+      else if (TARGET_ISEL)
+	rs6000_iabs_method = RS6000_IABS_ISEL;
+      else
+	rs6000_iabs_method = RS6000_IABS_SHIFT;
     }
 
   /* Set the builtin mask of the various options used that could affect which
@@ -15968,17 +16028,22 @@ rs6000_emit_cbranch (enum machine_mode mode, rtx operands[])
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   INSN is the insn.  */
+   INSN is the insn.
+
+   MAYBE_LONGBRANCH is non-zero if possibly this branch is a branch around a
+   branch.  */
 
 char *
-output_cbranch (rtx op, const char *label, int reversed, rtx insn)
+output_cbranch (rtx op, const char *label, int reversed, rtx insn,
+		int maybe_longbranch)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
   rtx cc_reg = XEXP (op, 0);
   enum machine_mode mode = GET_MODE (cc_reg);
   int cc_regno = REGNO (cc_reg) - CR0_REGNO;
-  int need_longbranch = label != NULL && get_attr_length (insn) == 8;
+  int need_longbranch = (maybe_longbranch && label != NULL
+			 && get_attr_length (insn) == 8);
   int really_reversed = reversed ^ need_longbranch;
   char *s = string;
   const char *ccode;

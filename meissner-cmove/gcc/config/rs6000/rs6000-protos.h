@@ -100,7 +100,7 @@ extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 extern void rs6000_emit_sISEL (enum machine_mode, rtx[]);
 extern void rs6000_emit_sCOND (enum machine_mode, rtx[]);
 extern void rs6000_emit_cbranch (enum machine_mode, rtx[]);
-extern char * output_cbranch (rtx, const char *, int, rtx);
+extern char * output_cbranch (rtx, const char *, int, rtx, int);
 extern char * output_e500_flip_gt_bit (rtx, rtx);
 extern const char * output_probe_stack_range (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);

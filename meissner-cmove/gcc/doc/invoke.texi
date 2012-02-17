@@ -824,6 +824,7 @@ See RS/6000 and PowerPC Options.
 -mblock-move-inline-limit=@var{num} @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
+-miabs=@var{name} @gol
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
@@ -16484,6 +16485,29 @@ This switch enables or disables the generation of ISEL instructions.
 @item -misel=@var{yes/no}
 This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
+
+@item -miabs=@var{none/default/shift/isel/bcp8}
+@opindex miabs
+Specify the method to use to optimize integer absolute value.
+
+@option{-miabs=none} says to let the machine independent code handle
+absolute value.
+
+@option{-miabs=default} says to use the default code generation method
+for absolute value.
+
+@option{-miabs=shift} says to use a 3 instruction sequence involving
+shifting, xor, and subtraction to do absolute value.  This is the
+default behavior unless the @option{-misel} option is used.
+
+@option{-miabs=isel} says to generate the ISEL instruction.  If
+@option{-misel} is not specified, ISELs are only generated for
+absolute value.  If the @option{-misel} option is specified, this is
+the default behavior.
+
+@option{-miabs=bcp8} says to generate code for absolute value using a
+branch conditional instruction over a move operation, which is
+optimized on some machines.
 
 @item -mspe
 @itemx -mno-spe

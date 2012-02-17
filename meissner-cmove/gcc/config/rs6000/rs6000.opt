@@ -540,3 +540,28 @@ Control whether we load both sides of a conditional move if they are adjacent in
 mcmove-adjacent-memory=
 Target Report RejectNegative Joined UInteger Var(TARGET_CMOVE_ADJACENT_MEMORY)
 Modify the line size for figuring out if the two memory items are adjacent.
+
+miabs=
+Target RejectNegative Joined Enum(rs6000_iabs_t) Var(rs6000_iabs_method) Init(RS6000_IABS_DEFAULT) Save
+-miabs=	Specify how to do integer ABS (default, none, shift, isel, bcp8)
+
+Enum
+Name(rs6000_iabs_t) Type(enum rs6000_iabs_t)
+
+EnumValue
+Enum(rs6000_iabs_t) String(default) Value(RS6000_IABS_DEFAULT)
+
+EnumValue
+Enum(rs6000_iabs_t) String(none) Value(RS6000_IABS_NONE)
+
+EnumValue
+Enum(rs6000_iabs_t) String(power) Value(RS6000_IABS_POWER)
+
+EnumValue
+Enum(rs6000_iabs_t) String(shift) Value(RS6000_IABS_SHIFT)
+
+EnumValue
+Enum(rs6000_iabs_t) String(isel) Value(RS6000_IABS_ISEL)
+
+EnumValue
+Enum(rs6000_iabs_t) String(bcp8) Value(RS6000_IABS_BCP8)

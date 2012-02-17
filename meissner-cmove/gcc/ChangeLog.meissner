@@ -1,3 +1,48 @@
+2012-02-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-miabs=): New switch to control how
+	the compiler optimizes integer absolute value.
+
+	* config/rs6000/rs6000.c (struct processor_costs): Add iabs field
+	to say preferred method of optimizing integer absolute value.  Add
+	field to all cost structures.
+	(rs6000_debug_reg_global): Print out the preferred way to do
+	integer absolute value.
+	(rs6000_option_override_internal): Add support for -miabs=<xxx>.
+	(output_cbranch): Add argument for bc+8 support.
+
+	* config/rs6000/rs6000.h (ISEL_LIMITED_OK_P): New macro to
+	validate limited ISEL handling.
+
+	* config/rs6000/rs6000.md (ISEL_IABS): New flag for generating
+	ISEL in limited cases without enabling ISEL in general.
+	(ISEL_BCP8): New flag for doing branch conditional + 8 support.
+	(abs<mode>2): Rewrite integer absolute value to provide different
+	methods for doing the absolute value.  Combine 32-bit and 64-bit.
+	Split insns for ABS before register allocation.
+	(abssi2): Likewise.
+	(abssi2_power): Likewise.
+	(abs<mode>2_isel): Likewise.
+	(nabs<mode>2_isel): Likewise.
+	(nabs<mode>2): Likewise.
+	(abssi2_nopower): Likewise.
+	(nabs_power): Likewise.
+	(nabs_nopower): Likewise.
+	(isel_limited_signed_<mode>): Likewise.
+	(isel_limited_reverse_signed_<mode>): Likewise.
+	(bcp8_<mode>): Likewise.
+	(absdi2): Likewise.
+	(absdi2_internal): Likewise.
+	(nabsdi2): Likewise.
+	(branch insns): Add new parameter to output_cbranch call.
+
+	* config/rs6000/rs6000-opts.h (enum rs6000_iabs_t): New
+	enumeration to specify how to optimize abs.
+
+	* config/rs6000/rs6000-protos.h (output_cbranch): Add argument.
+
+	* doc/invoke.texi (RS/6000 & PowerPC options): Document -miabs.
+
 2012-02-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_cmove_md_extra): Don't allow the

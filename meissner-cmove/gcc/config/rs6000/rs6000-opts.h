@@ -140,6 +140,16 @@ enum rs6000_vector {
   VECTOR_SPE,			/* Use SPE for vector processing */
   VECTOR_OTHER			/* Some other vector unit */
 };
+/* Describe how to do integer ABS and negative ABS.  */
+enum rs6000_iabs_t {
+  RS6000_IABS_DEFAULT,		/* Do ABS the default way.  */
+  RS6000_IABS_NONE,		/* Don't do ABS, let MI code generate it.  */
+  RS6000_IABS_POWER,		/* Do ABS via power instruction.  */
+  RS6000_IABS_SHIFT,		/* Do ABS via shift/xor/subtract.  */
+  RS6000_IABS_ISEL,		/* Do ABS via isel.  */
+  RS6000_IABS_BCP8		/* Do ABS via branch cond.+8.  */
+};
+
 
 /* No enumeration is defined to index the -mcpu= values (entries in
    processor_target_table), with the type int being used instead, but
