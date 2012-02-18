@@ -856,7 +856,7 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
+  RS6000_IABS_SHIFT,	/* iabs (prefer shift over isel/bc+8) */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -2833,6 +2833,14 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_ALTIVEC)
     target_flags |= (MASK_PPC_GFXOPT & ~target_flags_explicit);
 
+  /* ISA 2.06 lists ISEL as being phased in, but we may not always want to use
+     it by default, so note where we can use it in limited cases.  However, if
+     the user explicitly says -mno-isel, honor that, and don't use ISEL, even
+     in a limited case.  */
+  rs6000_isel_limited = (TARGET_ISEL
+			 || ((TARGET_VSX || TARGET_POPCNTD)
+			     && ((target_flags_explicit & MASK_ISEL) == 0)));
+
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
   if (rs6000_block_move_inline_limit == 0
@@ -3377,11 +3385,17 @@ rs6000_option_override_internal (bool global_init_p)
   /* Set how we want to do integer absolute value.  Honor an explicit
      -mno-isel.  */
   if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
-    rs6000_iabs_method = rs6000_cost->iabs;
+    {
+      rs6000_iabs_method = rs6000_cost->iabs;
+      if (!rs6000_isel_limited && rs6000_iabs_method == RS6000_IABS_ISEL)
+	rs6000_iabs_method = RS6000_IABS_SHIFT;
+    }
 
-  if (rs6000_iabs_method == RS6000_IABS_ISEL && !TARGET_ISEL
-      && (target_flags_explicit & MASK_ISEL))
-    rs6000_iabs_method = RS6000_IABS_SHIFT;
+  if (rs6000_iabs_method == RS6000_IABS_ISEL && !rs6000_isel_limited)
+    {
+      warning (0, "-miabs=isel is not available using the current options.");
+      rs6000_iabs_method = RS6000_IABS_SHIFT;
+    }
 
   else if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
     {
@@ -27299,6 +27313,28 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
     offsetof (struct cl_target_option, x_rs6000_default_long_calls), },
 };
 
+/* Option variables to set various enums.  */
+
+enum rs6000_opt_enum_t {
+  TARGET_NONE,
+  TARGET_IABS			/* -miabs=<xxx> */
+};
+
+struct rs6000_opt_enum {
+  const char *name;		/* option name.  */
+  enum rs6000_opt_enum_t which;	/* which enum to set.  */
+  int value;			/* value to set.  */
+};
+
+static struct rs6000_opt_enum const rs6000_opt_enums[] =
+{
+  { "iabs=none",	TARGET_IABS,	(int)RS6000_IABS_NONE },
+  { "iabs=shift",	TARGET_IABS,	(int)RS6000_IABS_SHIFT },
+  { "iabs=isel",	TARGET_IABS,	(int)RS6000_IABS_ISEL },
+  { "iabs=bcp8",	TARGET_IABS,	(int)RS6000_IABS_BCP8 },
+};
+
+
 /* Inner function to handle attribute((target("..."))) and #pragma GCC target
    parsing.  Return true if there were no errors.  */
 
@@ -27393,6 +27429,29 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			size_t j = rs6000_opt_vars[i].global_offset;
 			*((int *) ((char *)&global_options + j)) = !invert;
 			error_p = false;
+			not_valid_p = true;
+			break;
+		      }
+		}
+
+	      if (error_p && !not_valid_p && !invert)
+		{
+		  for (i = 0; i < ARRAY_SIZE (rs6000_opt_enums); i++)
+		    if (strcmp (r, rs6000_opt_enums[i].name) == 0)
+		      {
+			int value = rs6000_opt_enums[i].value;
+			error_p = false;
+			not_valid_p = true;
+			switch (rs6000_opt_enums[i].which)
+			  {
+			  case TARGET_NONE:
+			  default:
+			    gcc_unreachable ();
+
+			  case TARGET_IABS:
+			    rs6000_iabs_method = (enum rs6000_iabs_t) value;
+			    break;
+			  }
 			break;
 		      }
 		}

@@ -79,6 +79,10 @@ enum rs6000_cmodel rs6000_current_cmodel = CMODEL_SMALL
 TargetVariable
 unsigned int rs6000_recip_control
 
+;; Whether ISEL is available even if it is not enabled for all uses
+TargetVariable
+unsigned char rs6000_isel_limited
+
 ;; Mask of what builtin functions are allowed
 TargetVariable
 unsigned int rs6000_builtin_mask

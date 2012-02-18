@@ -1,3 +1,25 @@
+2012-02-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (rs6000_isel_limited): New target
+	variable.
+
+	* config/rs6000/rs6000.c (power7_cost): Prefer classical shift
+	method to do integer ABS over isel or branch conditional + 8.
+	(rs6000_option_override_internal): Set rs6000_isel_limited if we
+	have ISA 2.06 options, but -misel was not set explicitly.  Warn if
+	-miabs=isel was used but ISEL is not available.
+	(rs6000_inner_target_options): Allow setting the iabs options.
+
+	* config/rs6000/rs6000.h (ISEL_LIMITED_OK_P): Test whether we can
+	do limited ISEL instructions.
+
+	* config/rs6000/rs6000.md (abs<mode>2): Check whether we can issue
+	ISEL in a limited fashion.
+	(nabs<mode>2): Likewise.
+
+	* doc/invoke.texi (RS/6000 & PowerPC options): Update -miabs=
+	documentation.
+
 2012-02-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-miabs=): New switch to control how

@@ -16490,20 +16490,24 @@ This switch has been deprecated.  Use @option{-misel} and
 @opindex miabs
 Specify the method to use to optimize integer absolute value.
 
-@option{-miabs=none} says to let the machine independent code handle
-absolute value.
+@option{-miabs=none} tells the compiler to let the machine independent
+code handle absolute value.
 
-@option{-miabs=default} says to use the default code generation method
-for absolute value.
+@option{-miabs=default} tells the compiler to use the default code
+generation method for absolute value.
 
-@option{-miabs=shift} says to use a 3 instruction sequence involving
-shifting, xor, and subtraction to do absolute value.  This is the
-default behavior unless the @option{-misel} option is used.
+@option{-miabs=shift} tells the compiler to use a 3 instruction
+sequence involving shifting, xor, and subtraction to do absolute
+value.  This is the default behavior unless the @option{-misel} option
+is in effect, and both of the @option{-mpopcntd} or @option{-mvsx}
+options are not set.  The power7 system defaults to using
+@option{-miabs=shift} even if @option{-misel} is used.
 
-@option{-miabs=isel} says to generate the ISEL instruction.  If
-@option{-misel} is not specified, ISELs are only generated for
-absolute value.  If the @option{-misel} option is specified, this is
-the default behavior.
+@option{-miabs=isel} says to generate the ISEL instruction.  You must
+use @option{-misel}, @option{-mpopcntd}, or @option{-mvsx} to use
+@option{-miabs=isel}.  If @option{-misel} is not specified, ISELs are
+only generated for absolute value.  If the @option{-misel} option is
+specified, this is the default behavior.
 
 @option{-miabs=bcp8} says to generate code for absolute value using a
 branch conditional instruction over a move operation, which is
