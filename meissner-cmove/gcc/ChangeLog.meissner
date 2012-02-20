@@ -7,9 +7,13 @@
 	field to say preferred method of optimizing integer minimum and
 	maximum.  Add field to all cost structures.
 	(rs6000_debug_reg_global): Print out the preferred way to do
-	integer minimum and maximum.
+	integer minimum and maximum.  Rework printing iabs.
 	(rs6000_option_override_internal): Add support for
-	-miminmax=<xxx>.  Rearrange -miabs= code.
+	-miminmax=<xxx>.  Rearrange -miabs= code.  Add support for
+	resetting it in target attribute/pragma handling.
+	(rs6000_inner_target_options): Add support for -miminmax=.
+	(rs6000_valid_attribute_p): Reset -miabs=, -miminmax=.
+	(rs6000_pragma_target_parse): Likewise.
 
 	* config/rs6000/rs6000.h (ISEL_LIMITED_OK_P): Add support for
 	doing limited isels for -miminmax=.
