@@ -140,6 +140,7 @@ enum rs6000_vector {
   VECTOR_SPE,			/* Use SPE for vector processing */
   VECTOR_OTHER			/* Some other vector unit */
 };
+
 /* Describe how to do integer ABS and negative ABS.  */
 enum rs6000_iabs_t {
   RS6000_IABS_DEFAULT,		/* Do ABS the default way.  */
@@ -147,9 +148,19 @@ enum rs6000_iabs_t {
   RS6000_IABS_POWER,		/* Do ABS via power instruction.  */
   RS6000_IABS_SHIFT,		/* Do ABS via shift/xor/subtract.  */
   RS6000_IABS_ISEL,		/* Do ABS via isel.  */
-  RS6000_IABS_BCP8		/* Do ABS via branch cond.+8.  */
+  RS6000_IABS_BCP8,		/* Do ABS via branch cond.+8.  */
+  RS6000_IABS_TARGET		/* internal to rs6000_target_options.  */
 };
 
+/* Describe how to do integer min/max. */
+enum rs6000_iminmax_t {
+  RS6000_IMINMAX_DEFAULT,	/* Do MIN/MAX the default way.  */
+  RS6000_IMINMAX_NONE,		/* Don't do MIN/MAX in powerpc backend.  */
+  RS6000_IMINMAX_POWER,		/* Do MIN/MAX for power systems */
+  RS6000_IMINMAX_ISEL,		/* Do MIN/MAX via isel.   */
+  RS6000_IMINMAX_BCP8,		/* Do MIN/MAX via branch cond.+8.  */
+  RS6000_IMINMAX_TARGET		/* internal to rs6000_target_options.  */
+};
 
 /* No enumeration is defined to index the -mcpu= values (entries in
    processor_target_table), with the type int being used instead, but

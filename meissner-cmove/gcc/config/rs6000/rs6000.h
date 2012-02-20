@@ -465,9 +465,10 @@ extern int rs6000_vector_align[];
 #define CHECK_E500_OPTIONS do { } while (0)
 
 /* Whether ISEL is supported in certain limited ways.  */
-#define ISEL_LIMITED_OK_P(NUM)						\
+#define ISEL_LIMITED_OK_P(N)						\
   (rs6000_isel_limited							\
-   && (NUM == ISEL_IABS && rs6000_iabs_method == RS6000_IABS_ISEL))
+   && ((N == ISEL_IABS && rs6000_iabs_method == RS6000_IABS_ISEL)	\
+       || (N == ISEL_IMINMAX && rs6000_iminmax_method == RS6000_IMINMAX_ISEL)))
 
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or

@@ -569,3 +569,25 @@ Enum(rs6000_iabs_t) String(isel) Value(RS6000_IABS_ISEL)
 
 EnumValue
 Enum(rs6000_iabs_t) String(bcp8) Value(RS6000_IABS_BCP8)
+
+miminmax=
+Target RejectNegative Joined Enum(rs6000_iminmax_t) Var(rs6000_iminmax_method) Init(RS6000_IMINMAX_DEFAULT) Save
+-miminmax=	Specify how to do integer MIN/MAX (default, none, isel, bcp8)
+
+Enum
+Name(rs6000_iminmax_t) Type(enum rs6000_iminmax_t)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(default) Value(RS6000_IMINMAX_DEFAULT)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(none) Value(RS6000_IMINMAX_NONE)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(power) Value(RS6000_IMINMAX_POWER)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(isel) Value(RS6000_IMINMAX_ISEL)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(bcp8) Value(RS6000_IMINMAX_BCP8)

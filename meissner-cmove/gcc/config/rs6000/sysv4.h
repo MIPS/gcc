@@ -230,8 +230,10 @@ do {									\
 #define	PROCESSOR_DEFAULT PROCESSOR_PPC750
 
 /* SVR4 only defined for PowerPC, so short-circuit POWER patterns.  */
+#ifndef KEEP_POWER
 #undef  TARGET_POWER
 #define TARGET_POWER 0
+#endif
 
 #define FIXED_R2 1
 /* System V.4 uses register 13 as a pointer to the small data area,

@@ -1,3 +1,28 @@
+2012-02-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-miminmax=): New switch to control how
+	the compiler optimizes integer min/max operations.
+
+	* config/rs6000/rs6000.c (struct processor_costs): Add iminmax
+	field to say preferred method of optimizing integer minimum and
+	maximum.  Add field to all cost structures.
+	(rs6000_debug_reg_global): Print out the preferred way to do
+	integer minimum and maximum.
+	(rs6000_option_override_internal): Add support for
+	-miminmax=<xxx>.  Rearrange -miabs= code.
+
+	* config/rs6000/rs6000.h (ISEL_LIMITED_OK_P): Add support for
+	doing limited isels for -miminmax=.
+
+	* config/rs6000/rs6000.md (ISEL_IMINMIAX): Preparation for
+	supporting -miminmax=.
+
+	* config/rs6000/rs6000-opts.h (enum rs6000_iminmax_t): New
+	enumeration for supporting -miminmax=.
+
+	* config/rs6000/sysv4.h (TARGET_POWER): If KEEP_POWER is defined,
+	don't redefine this to be 0, so old power code can be tested.
+
 2012-02-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (rs6000_isel_limited): New target
