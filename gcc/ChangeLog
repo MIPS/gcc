@@ -1,3 +1,8 @@
+2012-02-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (inherit_in_ebb): Put split save before jump
+	using the pseudo.
+
 2012-02-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (choose_split_class): Check allocno_class too.

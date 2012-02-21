@@ -4407,8 +4407,11 @@ inherit_in_ebb (rtx head, rtx tail)
 		  }
 		else if (reg_renumber[src_regno] >= 0)
 		  {
+		    bool before_p;
 		    rtx use_insn = curr_insn;
 
+		    before_p = (JUMP_P (curr_insn)
+				|| (CALL_P (curr_insn) && reg->type == OP_IN));
 		    if (usage_insns[src_regno].check == curr_usage_insns_check
 			&& (next_usage_insns
 			    = usage_insns[src_regno].insns) != NULL_RTX
@@ -4422,8 +4425,7 @@ inherit_in_ebb (rtx head, rtx tail)
 			&& need_for_split_p (potential_reload_hard_regs,
 					     src_regno)
 			&& NONDEBUG_INSN_P (curr_insn)
-			&& split_pseudo (CALL_P (curr_insn) && reg->type == OP_IN,
-					 src_regno, curr_insn,
+			&& split_pseudo (before_p, src_regno, curr_insn,
 					 next_usage_insns))
 		      {
 			if (reg->subreg_p)
@@ -4431,7 +4433,7 @@ inherit_in_ebb (rtx head, rtx tail)
 			change_p = true;
 			/* Invalidate.  */
 			usage_insns[src_regno].check = 0;
-			if (CALL_P (curr_insn) && reg->type == OP_IN)
+			if (before_p)
 			  use_insn = PREV_INSN (curr_insn);
 		      }
 		    if (NONDEBUG_INSN_P (curr_insn))
