@@ -1,28 +1,55 @@
-2012-02-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2012-02-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.opt (-miminmax=): New switch to control how
-	the compiler optimizes integer min/max operations.
+	* config/rs6000/rs6000.opt (TARGET_ISEL_LIMITED): Rename from
+	rs6000_isel_limited.
+	(-mabs=): Rename enum values.
+	(-miminmax=): New switch to control how the compiler optimizes
+	integer min/max operations.
 
 	* config/rs6000/rs6000.c (struct processor_costs): Add iminmax
 	field to say preferred method of optimizing integer minimum and
-	maximum.  Add field to all cost structures.
+	maximum.  Add field to all cost structures.  Rename IABS
+	enumeration values.
 	(rs6000_debug_reg_global): Print out the preferred way to do
 	integer minimum and maximum.  Rework printing iabs.
 	(rs6000_option_override_internal): Add support for
 	-miminmax=<xxx>.  Rearrange -miabs= code.  Add support for
-	resetting it in target attribute/pragma handling.
-	(rs6000_inner_target_options): Add support for -miminmax=.
+	resetting it in target attribute/pragma handling.  Rename
+	rs6000_isel_limited to TARGET_ISEL_LIMITED.  Clear bits for
+	abs/min/max  options we don't support.
+	(enum rs6000_opt_enum_t): Rename enum values.  Add support for
+	-miminmax=.
+	(rs6000_opt_enums): Likewise.
+	(rs6000_inner_target_options): Likewise.
 	(rs6000_valid_attribute_p): Reset -miabs=, -miminmax=.
 	(rs6000_pragma_target_parse): Likewise.
 
-	* config/rs6000/rs6000.h (ISEL_LIMITED_OK_P): Add support for
-	doing limited isels for -miminmax=.
+	* config/rs6000/rs6000.h (TARGET_ISEL*): New macros to describe
+	which code generation method of integer absolute value to
+	generate.
+	(TARGET_IMINMAX*): New macros to describe which code generation
+	method of integer minimum and maximum to generate.
+	(ISEL_LIMITED_OK_P): Add support -miminmiax=.
 
 	* config/rs6000/rs6000.md (ISEL_IMINMIAX): Preparation for
 	supporting -miminmax=.
+	(abs<mode>2): Switch to using bitmasks for the different code
+	generation methods instead of an enumeration.
+	(nabs<mode>2): Likewise.
 
-	* config/rs6000/rs6000-opts.h (enum rs6000_iminmax_t): New
-	enumeration for supporting -miminmax=.
+	* config/rs6000/rs6000-opts.h (COND_MODE_*): New macros for
+	bitmasks to specify the different methods to use for integer
+	absolute value, mininum, maximum, conditional move, etc.
+	(enum rs6000_iabs_t): Rework to use bitmasks.  Rename enumeration
+	values.
+	(IABS_BIT_P): New accessor macro.
+	(IABS_CLEAR_BIT): Likewise.
+	(IABS_SET): Likewise.
+	(enum rs6000_iminmax_t): New enumeration for supporting
+	-miminmax=.
+	(IMINMAX_BIT_P): New accessor macro.
+	(IMINMAX_CLEAR_BIT): Likewise.
+	(IMINMAX_SET): Likewise.
 
 	* config/rs6000/sysv4.h (TARGET_POWER): If KEEP_POWER is defined,
 	don't redefine this to be 0, so old power code can be tested.

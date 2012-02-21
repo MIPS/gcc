@@ -141,26 +141,61 @@ enum rs6000_vector {
   VECTOR_OTHER			/* Some other vector unit */
 };
 
+/* Bitmasks used for all integer conditional mode operations (absolute value,
+   minimum, maximu, conditional move, set condtional, etc.).  */
+#define COND_MODE_NONE		0x0000	/* Use MI code.  */
+#define COND_MODE_POWER		0x0001	/* Use power abs/nabs.  */
+#define COND_MODE_ISEL		0x0002	/* Use ISEL. */
+#define COND_MODE_BCP8		0x0004	/* Use branch cond+8.   */
+#define COND_MODE_SHIFT		0x0008	/* Use shift/xor/neg. */
+#define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
+
 /* Describe how to do integer ABS and negative ABS.  */
 enum rs6000_iabs_t {
-  RS6000_IABS_DEFAULT,		/* Do ABS the default way.  */
-  RS6000_IABS_NONE,		/* Don't do ABS, let MI code generate it.  */
-  RS6000_IABS_POWER,		/* Do ABS via power instruction.  */
-  RS6000_IABS_SHIFT,		/* Do ABS via shift/xor/subtract.  */
-  RS6000_IABS_ISEL,		/* Do ABS via isel.  */
-  RS6000_IABS_BCP8,		/* Do ABS via branch cond.+8.  */
-  RS6000_IABS_TARGET		/* internal to rs6000_target_options.  */
+  IABS_UNSET		= COND_MODE_UNSET,
+  IABS_NONE		= COND_MODE_NONE,
+  IABS_POWER_ONLY	= COND_MODE_POWER,
+  IABS_ISEL_ONLY	= COND_MODE_ISEL,
+  IABS_BCP8_ONLY	= COND_MODE_BCP8,
+  IABS_SHIFT_ONLY	= COND_MODE_SHIFT,
+
+  IABS_POWER		= (COND_MODE_SHIFT | COND_MODE_POWER),
+  IABS_ISEL		= (COND_MODE_SHIFT | COND_MODE_ISEL),
+  IABS_BCP8		= (COND_MODE_SHIFT | COND_MODE_BCP8),
+  IABS_SHIFT		= COND_MODE_SHIFT,
+  IABS_POWERPC		= (COND_MODE_SHIFT | COND_MODE_ISEL),
+  IABS_DEFAULT		= (COND_MODE_SHIFT | COND_MODE_ISEL | COND_MODE_POWER)
 };
 
-/* Describe how to do integer min/max. */
+#define IABS_BIT_P(MASK) (((unsigned)rs6000_iabs_method & (MASK)) != 0)
+
+#define IABS_CLEAR_BIT(MASK)						\
+  (rs6000_iabs_method							\
+   = (enum rs6000_iabs_t)(((unsigned)rs6000_iabs_method) & ~(MASK)))
+
+#define IABS_SET(VALUE) (rs6000_iabs_method = (enum rs6000_iabs_t)(VALUE))
+
+/* Describe how to do integer minimum and maximum.  These are represented as
+   bit masks, so that if a particular pattern is not valid (such as the
+   presence of the ISEL instruction), other patterns can be tried.  */
 enum rs6000_iminmax_t {
-  RS6000_IMINMAX_DEFAULT,	/* Do MIN/MAX the default way.  */
-  RS6000_IMINMAX_NONE,		/* Don't do MIN/MAX in powerpc backend.  */
-  RS6000_IMINMAX_POWER,		/* Do MIN/MAX for power systems */
-  RS6000_IMINMAX_ISEL,		/* Do MIN/MAX via isel.   */
-  RS6000_IMINMAX_BCP8,		/* Do MIN/MAX via branch cond.+8.  */
-  RS6000_IMINMAX_TARGET		/* internal to rs6000_target_options.  */
+  IMINMAX_UNSET		= COND_MODE_UNSET,
+  IMINMAX_NONE		= COND_MODE_NONE,
+  IMINMAX_POWER		= COND_MODE_POWER,
+  IMINMAX_ISEL		= COND_MODE_ISEL,
+  IMINMAX_BCP8		= COND_MODE_BCP8,
+  IMINMAX_POWERPC	= COND_MODE_ISEL,
+  IMINMAX_DEFAULT	= (COND_MODE_POWER | COND_MODE_ISEL)
 };
+
+#define IMINMAX_BIT_P(MASK) (((unsigned)rs6000_iminmax_method & (MASK)) != 0)
+
+#define IMINMAX_CLEAR_BIT(MASK)						\
+  (rs6000_iminmax_method						\
+   = (enum rs6000_iminmax_t)(((unsigned)rs6000_iminmax_method) & ~(MASK)))
+
+#define IMINMAX_SET(VALUE)						\
+  (rs6000_iminmax_method = (enum rs6000_iminmax_t)(VALUE))
 
 /* No enumeration is defined to index the -mcpu= values (entries in
    processor_target_table), with the type int being used instead, but

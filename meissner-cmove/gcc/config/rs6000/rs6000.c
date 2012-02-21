@@ -336,8 +336,8 @@ struct processor_costs size32_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -357,8 +357,8 @@ struct processor_costs size64_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -378,8 +378,8 @@ struct processor_costs rios1_cost = {
   64,			/* l1 cache */
   512,			/* l2 cache */
   0,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -399,8 +399,8 @@ struct processor_costs rios2_cost = {
   256,			/* l1 cache */
   1024,			/* l2 cache */
   0,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -420,8 +420,8 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -441,8 +441,8 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -462,8 +462,8 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -483,8 +483,8 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -504,8 +504,8 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -525,8 +525,8 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -546,8 +546,8 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -567,8 +567,8 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -588,8 +588,8 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -609,8 +609,8 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -630,8 +630,8 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -651,8 +651,8 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -673,8 +673,8 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -694,8 +694,8 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -715,8 +715,8 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -736,8 +736,8 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -757,8 +757,8 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -778,8 +778,8 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -799,8 +799,8 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -820,8 +820,8 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -841,8 +841,8 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -862,8 +862,8 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -883,8 +883,8 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
-  RS6000_IABS_SHIFT,	/* iabs (prefer shift over isel/bc+8) */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_SHIFT,		/* iabs (prefer shift over isel/bc+8) */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -904,8 +904,8 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  RS6000_IABS_DEFAULT,	/* iabs */
-  RS6000_IMINMAX_DEFAULT, /* iminmax */
+  IABS_POWERPC,		/* iabs */
+  IMINMAX_POWERPC,	/* iminmax */
 };
 
 
@@ -2008,13 +2008,12 @@ rs6000_debug_reg_global (void)
   int m;
   char costly_num[20];
   char nop_num[20];
+  char cond_buffer[128];
   const char *costly_str;
   const char *nop_str;
   const char *trace_str;
   const char *abi_str;
   const char *cmodel_str;
-  const char *iabs_str;
-  const char *iminmax_str;
 
   /* Map enum rs6000_vector to string.  */
   static const char *rs6000_debug_vector_unit[] = {
@@ -2232,32 +2231,41 @@ rs6000_debug_reg_global (void)
 	   (int)RS6000_BUILTIN_COUNT);
   fprintf (stderr, DEBUG_FMT_X, "Builtin mask", rs6000_builtin_mask);
 
-  switch (rs6000_iabs_method)
+  cond_buffer[0] = '\0';
+  if (TARGET_IABS_NONE)
+    fprintf (stderr, DEBUG_FMT_S, "iabs", "none");
+  else
     {
-    case RS6000_IABS_DEFAULT: iabs_str = "default"; break;
-    case RS6000_IABS_NONE:    iabs_str = "none";    break;
-    case RS6000_IABS_POWER:   iabs_str = "power";   break;
-    case RS6000_IABS_SHIFT:   iabs_str = "shift";   break;
-    case RS6000_IABS_ISEL:    iabs_str = "isel";    break;
-    case RS6000_IABS_BCP8:    iabs_str = "bc+8";    break;
-    case RS6000_IABS_TARGET:  iabs_str = "target";  break;
-    default:		      iabs_str = "unknown"; break;
+      if (TARGET_IABS_POWER)
+	strcat (cond_buffer, ", power");
+      if (TARGET_IABS_ISEL)
+	strcat (cond_buffer, ", isel");
+      if (TARGET_IABS_BCP8)
+	strcat (cond_buffer, ", bc+8");
+      if (TARGET_IABS_SHIFT)
+	strcat (cond_buffer, ", shift");
+      if (cond_buffer[0])
+	fprintf (stderr, DEBUG_FMT_S, "iabs", cond_buffer+2);
+      else
+	fprintf (stderr, DEBUG_FMT_S, "iabs", "unknown");
     }
 
-  fprintf (stderr, DEBUG_FMT_S, "iabs", iabs_str);
-
-  switch (rs6000_iminmax_method)
+  cond_buffer[0] = '\0';
+  if (TARGET_IMINMAX_NONE)
+    fprintf (stderr, DEBUG_FMT_S, "iminmax", "none");
+  else
     {
-    case RS6000_IMINMAX_DEFAULT: iminmax_str = "default"; break;
-    case RS6000_IMINMAX_NONE:	 iminmax_str = "none";    break;
-    case RS6000_IMINMAX_POWER:	 iminmax_str = "power";   break;
-    case RS6000_IMINMAX_ISEL:	 iminmax_str = "isel";    break;
-    case RS6000_IMINMAX_BCP8:	 iminmax_str = "bc+8";    break;
-    case RS6000_IMINMAX_TARGET:	 iminmax_str = "target";  break;
-    default:			 iminmax_str = "unknown"; break;
+      if (TARGET_IMINMAX_POWER)
+	strcat (cond_buffer, ", power");
+      if (TARGET_IMINMAX_ISEL)
+	strcat (cond_buffer, ", isel");
+      if (TARGET_IMINMAX_BCP8)
+	strcat (cond_buffer, ", bc+8");
+      if (cond_buffer[0])
+	fprintf (stderr, DEBUG_FMT_S, "iminmax", cond_buffer+2);
+      else
+	fprintf (stderr, DEBUG_FMT_S, "iminmax", "unknown");
     }
-
-  fprintf (stderr, DEBUG_FMT_S, "iminmax", iminmax_str);
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2879,14 +2887,6 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_ALTIVEC)
     target_flags |= (MASK_PPC_GFXOPT & ~target_flags_explicit);
 
-  /* ISA 2.06 lists ISEL as being phased in, but we may not always want to use
-     it by default, so note where we can use it in limited cases.  However, if
-     the user explicitly says -mno-isel, honor that, and don't use ISEL, even
-     in a limited case.  */
-  rs6000_isel_limited = (TARGET_ISEL
-			 || ((TARGET_VSX || TARGET_POPCNTD)
-			     && ((target_flags_explicit & MASK_ISEL) == 0)));
-
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
   if (rs6000_block_move_inline_limit == 0
@@ -3428,69 +3428,33 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* Set how we want to do integer absolute value, and minimum/maximum.  Honor
-     an explicit -mno-isel.  If the user used target attributes or pragmas, use
-     the command line if specified, and it doesn't conflict with the current
-     target options.  */
-  if (rs6000_iabs_method == RS6000_IABS_TARGET)
+  /* Determine if ISEL is available even if it is not enabled for all uses.  ISA 2.06
+     defines ISEL for all environments.  On power7, it is a mixed bag of whether
+     we want to use it all of the time.  This macro says when ISEL can be used in
+     those limited cases.  If the user said -mno-isel, honor that request.  */
+  TARGET_ISEL_LIMITED = (!TARGET_ISEL
+			 && ((target_flags_explicit & MASK_ISEL) == 0)
+			 && (TARGET_POPCNTD || TARGET_VSX));
+
+  /* Set how we want to do integer absolute value, and minimum/maximum.  Remove
+     any bits for options that we don't support with the current target
+     instructions.  */
+  if (TARGET_IABS_UNSET)
+    rs6000_iabs_method = rs6000_cost->iabs;
+
+  if (TARGET_IMINMAX_UNSET)
+    rs6000_iminmax_method = rs6000_cost->iminmax;
+
+  if (!TARGET_ISEL && !TARGET_ISEL_LIMITED)
     {
-      rs6000_iabs_method = global_options_set.x_rs6000_iabs_method;
-      if (!rs6000_isel_limited && rs6000_iabs_method == RS6000_IABS_ISEL)
-	rs6000_iabs_method = RS6000_IABS_DEFAULT;
+      IABS_CLEAR_BIT (COND_MODE_ISEL);
+      IMINMAX_CLEAR_BIT (COND_MODE_ISEL);
     }
 
-  if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
+  if (!TARGET_POWER)
     {
-      if (TARGET_POWER)
-	rs6000_iabs_method = RS6000_IABS_POWER;
-      else
-	{
-	  rs6000_iabs_method = rs6000_cost->iabs;
-	  if (!rs6000_isel_limited && rs6000_iabs_method == RS6000_IABS_ISEL)
-	    rs6000_iabs_method = RS6000_IABS_SHIFT;
-
-	  else if (rs6000_iabs_method == RS6000_IABS_DEFAULT)
-	    rs6000_iabs_method = ((TARGET_ISEL)
-				  ? RS6000_IABS_ISEL
-				  : RS6000_IABS_SHIFT);
-	}
-    }
-
-  else if (rs6000_iabs_method == RS6000_IABS_ISEL && !rs6000_isel_limited)
-    {
-      warning (0, "-miabs=isel is not available using the current options.");
-      rs6000_iabs_method = RS6000_IABS_SHIFT;
-    }
-
-  if (rs6000_iminmax_method == RS6000_IMINMAX_TARGET)
-    {
-      rs6000_iminmax_method = global_options_set.x_rs6000_iminmax_method;
-      if (!rs6000_isel_limited && rs6000_iminmax_method == RS6000_IMINMAX_ISEL)
-	rs6000_iminmax_method = RS6000_IMINMAX_DEFAULT;
-    }
-
-  if (rs6000_iminmax_method == RS6000_IMINMAX_DEFAULT)
-    {
-      if (TARGET_POWER)
-	rs6000_iminmax_method = RS6000_IMINMAX_POWER;
-      else
-	{
-	  rs6000_iminmax_method = rs6000_cost->iminmax;
-	  if (!rs6000_isel_limited
-	      && rs6000_iminmax_method == RS6000_IMINMAX_ISEL)
-	    rs6000_iminmax_method = RS6000_IMINMAX_NONE;
-
-	  else if (rs6000_iminmax_method == RS6000_IMINMAX_DEFAULT)
-	    rs6000_iminmax_method = ((TARGET_ISEL)
-				     ? RS6000_IMINMAX_ISEL
-				     : RS6000_IMINMAX_NONE);
-	}
-    }
-
-  else if (rs6000_iminmax_method == RS6000_IMINMAX_ISEL && !rs6000_isel_limited)
-    {
-      warning (0, "-miminmax=isel is not available using the current options.");
-      rs6000_iminmax_method = RS6000_IMINMAX_NONE;
+      IABS_CLEAR_BIT (COND_MODE_POWER);
+      IMINMAX_CLEAR_BIT (COND_MODE_POWER);
     }
 
   /* Set the builtin mask of the various options used that could affect which
@@ -27402,9 +27366,8 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
 /* Option variables to set various enums.  */
 
 enum rs6000_opt_enum_t {
-  TARGET_NONE,
-  TARGET_IABS,			/* -miabs=<xxx> */
-  TARGET_IMINMAX		/* -miminmax=<xxx> */
+  TARGET_ENUM_IABS,		/* -miabs=<xxx> */
+  TARGET_ENUM_IMINMAX		/* -miminmax=<xxx> */
 };
 
 struct rs6000_opt_enum {
@@ -27415,16 +27378,19 @@ struct rs6000_opt_enum {
 
 static struct rs6000_opt_enum const rs6000_opt_enums[] =
 {
-  { "iabs=none",	TARGET_IABS,	(int)RS6000_IABS_NONE },
-  { "iabs=power",	TARGET_IABS,	(int)RS6000_IABS_POWER },
-  { "iabs=shift",	TARGET_IABS,	(int)RS6000_IABS_SHIFT },
-  { "iabs=isel",	TARGET_IABS,	(int)RS6000_IABS_ISEL },
-  { "iabs=bcp8",	TARGET_IABS,	(int)RS6000_IABS_BCP8 },
+  { "iabs=none",	TARGET_ENUM_IABS,	(int)IABS_NONE },
+  { "iabs=power",	TARGET_ENUM_IABS,	(int)IABS_POWER },
+  { "iabs=powerpc",	TARGET_ENUM_IABS,	(int)IABS_POWERPC },
+  { "iabs=shift",	TARGET_ENUM_IABS,	(int)IABS_SHIFT },
+  { "iabs=isel",	TARGET_ENUM_IABS,	(int)IABS_ISEL },
+  { "iabs=bcp8",	TARGET_ENUM_IABS,	(int)IABS_BCP8 },
+  { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_DEFAULT },
 
-  { "iminmax=none",	TARGET_IMINMAX,	(int)RS6000_IMINMAX_NONE },
-  { "iminmax=power",	TARGET_IMINMAX,	(int)RS6000_IMINMAX_POWER },
-  { "iminmax=isel",	TARGET_IMINMAX,	(int)RS6000_IMINMAX_ISEL },
-  { "iminmax=bcp8",	TARGET_IMINMAX,	(int)RS6000_IMINMAX_BCP8 },
+  { "iminmax=none",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_NONE },
+  { "iminmax=power",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_POWER },
+  { "iminmax=powerpc",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_POWERPC },
+  { "iminmax=isel",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_ISEL },
+  { "iminmax=bcp8",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_BCP8 },
 };
 
 
@@ -27537,16 +27503,15 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			not_valid_p = true;
 			switch (rs6000_opt_enums[i].which)
 			  {
-			  case TARGET_NONE:
 			  default:
 			    gcc_unreachable ();
 
-			  case TARGET_IABS:
-			    rs6000_iabs_method = (enum rs6000_iabs_t) value;
+			  case TARGET_ENUM_IABS:
+			    IABS_SET (value);
+			    break;
 
-			  case TARGET_IMINMAX:
-			    rs6000_iminmax_method
-			      = (enum rs6000_iminmax_t) value;
+			  case TARGET_ENUM_IMINMAX:
+			    IMINMAX_SET (value);
 			    break;
 			  }
 			break;
@@ -27695,11 +27660,14 @@ rs6000_valid_attribute_p (tree fndecl,
 			     TREE_OPTIMIZATION (func_optimize));
 
   /* The target attributes may also change some optimization flags, so update
-     the optimization options if necessary.  */
+     the optimization options if necessary.  Reset the conditional mode options
+     if the user did not specify them on the command line.  */
   cl_target_option_save (&cur_target, &global_options);
   rs6000_cpu_index = rs6000_tune_index = -1;
-  rs6000_iabs_method = RS6000_IABS_TARGET;
-  rs6000_iminmax_method = RS6000_IMINMAX_TARGET;
+  if (global_options_set.x_rs6000_iabs_method == IABS_UNSET)
+    rs6000_iabs_method = IABS_UNSET;
+  if (global_options_set.x_rs6000_iminmax_method == IMINMAX_UNSET)
+    rs6000_iminmax_method = IMINMAX_UNSET;
 
   ret = rs6000_inner_target_options (args, true);
 
@@ -27783,8 +27751,10 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
   else
     {
       rs6000_cpu_index = rs6000_tune_index = -1;
-      rs6000_iabs_method = RS6000_IABS_TARGET;
-      rs6000_iminmax_method = RS6000_IMINMAX_TARGET;
+      if (global_options_set.x_rs6000_iabs_method == IABS_UNSET)
+	rs6000_iabs_method = IABS_UNSET;
+      if (global_options_set.x_rs6000_iminmax_method == IMINMAX_UNSET)
+	rs6000_iminmax_method = IMINMAX_UNSET;
 
       if (!rs6000_inner_target_options (args, false)
 	  || !rs6000_option_override_internal (false)
