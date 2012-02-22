@@ -241,6 +241,11 @@ case "${host_os}" in
     else
       os_include_dir="os/gnu-linux"
     fi
+    case "${host_cpu}" in
+      powerpc* | rs6000)
+	OPTIMIZE_CXXFLAGS="${OPTIMIZE_CXXFLAGS} -DIN_LIBSTDCXX"
+	;;
+    esac
     ;;
   hpux*)
     os_include_dir="os/hpux"
