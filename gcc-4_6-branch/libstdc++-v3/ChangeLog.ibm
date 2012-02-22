@@ -1,0 +1,9 @@
+2012-02-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* configure.host: Set OPTIMIZE_CXXFLAGS to -DIN_LIBSTDCXX for
+	powerpc*-linux.
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): New define.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+	* include/ext/atomicity.h (__exchange_and_add): Use them.
+	(__atomic_add): Likewise.
