@@ -1,5 +1,20 @@
 2012-02-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Add ABS, SMIN, SMAX,
+	UMIN, UMAX costs.
+
+	* config/rs6000/rs6000.md (smin<mode>3): Rewrite signed integer
+	minimum, maximum to use -miminmax= to select which code generation
+	strategy to use.  Delete old patterns.
+	(sminsi3): Likewise.
+	(smin/smax splitters): Likewise.
+	(smax<mode>3): Likewise.
+	(smaxsi3): Likewise.
+	(smindi3): Likewise.
+	(smaxdi3): Likewise.
+	(dozsi3): Name pattern.
+	(dozsi3_cmp): Likewise.
+
 	* config/rs6000/rs6000.opt (TARGET_ISEL_LIMITED): Rename from
 	rs6000_isel_limited.
 	(-mabs=): Rename enum values.

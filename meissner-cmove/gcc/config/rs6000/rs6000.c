@@ -25857,9 +25857,45 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total = COSTS_N_INSNS (1);
       return false;
 
+    case ABS:
+      if (GET_MODE_CLASS (mode) == MODE_INT && IABS_POWER)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
+      else if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else
+	{
+	  *total = COSTS_N_INSNS (3);
+	  return true;
+	}
+
+    case SMIN:
+    case SMAX:
+    case UMIN:
+    case UMAX:
+      if (GET_MODE_CLASS (mode) == MODE_INT && IMINMAX_POWER)
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
+      else if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else
+	{
+	  *total = COSTS_N_INSNS (3);
+	  return true;
+	}
+
     case COMPARE:
     case NEG:
-    case ABS:
       if (!FLOAT_MODE_P (mode))
 	{
 	  *total = COSTS_N_INSNS (1);
