@@ -1103,6 +1103,9 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file, "    Using elimination %d to %d now\n",
 			 ep1->from, ep1->to);
+	      /* Prevent the hard register into which we eliminate now
+		 from the usage for pseudos.  */
+	      SET_HARD_REG_BIT (temp_hard_reg_set, ep1->to);
 	      gcc_assert (ep1->previous_offset == 0);
 	      ep1->previous_offset = ep->offset;
 	    }

@@ -1,3 +1,8 @@
+2012-02-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (update_reg_eliminate): Make hard register
+	unallocatable when we make it a result of the elimination.
+
 2012-02-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (narrow_reload_pseudo_class): New function.
