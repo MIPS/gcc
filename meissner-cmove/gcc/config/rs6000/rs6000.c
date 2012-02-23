@@ -357,8 +357,8 @@ struct processor_costs size64_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -441,8 +441,8 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -462,8 +462,8 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -483,8 +483,8 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -504,8 +504,8 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -525,8 +525,8 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -567,8 +567,8 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -588,8 +588,8 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -609,8 +609,8 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -630,8 +630,8 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -651,8 +651,8 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -673,8 +673,8 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -694,8 +694,8 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -715,8 +715,8 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -736,8 +736,8 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -757,8 +757,8 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -778,8 +778,8 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -799,8 +799,8 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -820,8 +820,8 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -841,8 +841,8 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -862,8 +862,8 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -884,7 +884,7 @@ struct processor_costs power7_cost = {
   256,			/* l2 cache */
   12,			/* prefetch streams */
   IABS_SHIFT,		/* iabs (prefer shift over isel/bc+8) */
-  IMINMAX_POWERPC,	/* iminmax */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -904,8 +904,8 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  IABS_POWERPC,		/* iabs */
-  IMINMAX_POWERPC,	/* iminmax */
+  IABS_DEFAULT,		/* iabs */
+  IMINMAX_DEFAULT,	/* iminmax */
 };
 
 
@@ -1134,7 +1134,7 @@ static rtx spe_expand_builtin (tree, rtx, bool *);
 static rtx spe_expand_stv_builtin (enum insn_code, tree);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
-static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
+static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx, int);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void debug_stack_info (rs6000_stack_t *);
 
@@ -2236,8 +2236,6 @@ rs6000_debug_reg_global (void)
     fprintf (stderr, DEBUG_FMT_S, "iabs", "none");
   else
     {
-      if (TARGET_IABS_POWER)
-	strcat (cond_buffer, ", power");
       if (TARGET_IABS_ISEL)
 	strcat (cond_buffer, ", isel");
       if (TARGET_IABS_BCP8)
@@ -2255,8 +2253,6 @@ rs6000_debug_reg_global (void)
     fprintf (stderr, DEBUG_FMT_S, "iminmax", "none");
   else
     {
-      if (TARGET_IMINMAX_POWER)
-	strcat (cond_buffer, ", power");
       if (TARGET_IMINMAX_ISEL)
 	strcat (cond_buffer, ", isel");
       if (TARGET_IMINMAX_BCP8)
@@ -3449,12 +3445,6 @@ rs6000_option_override_internal (bool global_init_p)
     {
       IABS_CLEAR_BIT (COND_MODE_ISEL);
       IMINMAX_CLEAR_BIT (COND_MODE_ISEL);
-    }
-
-  if (!TARGET_POWER)
-    {
-      IABS_CLEAR_BIT (COND_MODE_POWER);
-      IMINMAX_CLEAR_BIT (COND_MODE_POWER);
     }
 
   /* Set the builtin mask of the various options used that could affect which
@@ -15997,7 +15987,8 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 void
 rs6000_emit_sISEL (enum machine_mode mode ATTRIBUTE_UNUSED, rtx operands[])
 {
-  rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx);
+  rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx,
+			 ISEL_GENERAL);
 }
 
 void
@@ -16611,7 +16602,8 @@ rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
   if (rs6000_emit_int_cmove (dest,
 			     copy_rtx (compare),
 			     force_reg (mode1, copy_rtx (op1)),
-			     force_reg (mode0, copy_rtx (op0))))
+			     force_reg (mode0, copy_rtx (op0)),
+			     ISEL_GENERAL))
     ret = get_insns ();
   end_sequence ();
   return ret;
@@ -16622,7 +16614,8 @@ rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
    is zero/false.  Return 0 if the hardware has no such operation.  */
 
 int
-rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
+		   int isel_type)
 {
   enum rtx_code code = GET_CODE (op);
   rtx op0 = XEXP (op, 0);
@@ -16649,7 +16642,8 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (!FLOAT_MODE_P (compare_mode))
     {
       if (TARGET_ISEL)
-	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
+	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond,
+				      isel_type);
       return 0;
     }
   else if (TARGET_HARD_FLOAT && !TARGET_FPRS
@@ -16806,13 +16800,13 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 /* Same as above, but for ints (isel).  */
 
 static int
-rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
+		       int isel_type)
 {
   rtx condition_rtx, cr;
   enum machine_mode mode = GET_MODE (dest);
   enum rtx_code cond_code;
-  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx);
-  bool signedp;
+  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx, rtx);
 
   if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
     return 0;
@@ -16823,11 +16817,8 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   condition_rtx = rs6000_generate_compare (op, mode);
   cond_code = GET_CODE (condition_rtx);
   cr = XEXP (condition_rtx, 0);
-  signedp = GET_MODE (cr) == CCmode;
 
-  isel_func = (mode == SImode
-	       ? (signedp ? gen_isel_signed_si : gen_isel_unsigned_si)
-	       : (signedp ? gen_isel_signed_di : gen_isel_unsigned_di));
+  isel_func = (mode == SImode) ? gen_isel_si : gen_isel_di;
 
   switch (cond_code)
     {
@@ -16850,7 +16841,8 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (true_cond != const0_rtx)
     true_cond = force_reg (mode, true_cond);
 
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
+  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr,
+			GEN_INT (isel_type)));
 
   return 1;
 }
@@ -25858,32 +25850,11 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case ABS:
-      if (GET_MODE_CLASS (mode) == MODE_INT && IABS_POWER)
-	{
-	  *total = COSTS_N_INSNS (1);
-	  return true;
-	}
-      else if (FLOAT_MODE_P (mode))
-	{
-	  *total = rs6000_cost->fp;
-	  return true;
-	}
-      else
-	{
-	  *total = COSTS_N_INSNS (3);
-	  return true;
-	}
-
     case SMIN:
     case SMAX:
     case UMIN:
     case UMAX:
-      if (GET_MODE_CLASS (mode) == MODE_INT && IMINMAX_POWER)
-	{
-	  *total = COSTS_N_INSNS (2);
-	  return true;
-	}
-      else if (FLOAT_MODE_P (mode))
+      if (FLOAT_MODE_P (mode))
 	{
 	  *total = rs6000_cost->fp;
 	  return true;
@@ -27415,16 +27386,12 @@ struct rs6000_opt_enum {
 static struct rs6000_opt_enum const rs6000_opt_enums[] =
 {
   { "iabs=none",	TARGET_ENUM_IABS,	(int)IABS_NONE },
-  { "iabs=power",	TARGET_ENUM_IABS,	(int)IABS_POWER },
-  { "iabs=powerpc",	TARGET_ENUM_IABS,	(int)IABS_POWERPC },
   { "iabs=shift",	TARGET_ENUM_IABS,	(int)IABS_SHIFT },
   { "iabs=isel",	TARGET_ENUM_IABS,	(int)IABS_ISEL },
   { "iabs=bcp8",	TARGET_ENUM_IABS,	(int)IABS_BCP8 },
   { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_DEFAULT },
 
   { "iminmax=none",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_NONE },
-  { "iminmax=power",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_POWER },
-  { "iminmax=powerpc",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_POWERPC },
   { "iminmax=isel",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_ISEL },
   { "iminmax=bcp8",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_BCP8 },
 };

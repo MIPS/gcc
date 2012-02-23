@@ -469,7 +469,6 @@ extern int rs6000_vector_align[];
 #define TARGET_IABS		(rs6000_iabs_method != IABS_NONE)
 #define TARGET_IABS_NONE	(rs6000_iabs_method == IABS_NONE)
 #define TARGET_IABS_UNSET	(rs6000_iabs_method == IABS_UNSET)
-#define TARGET_IABS_POWER	IABS_BIT_P (COND_MODE_POWER)
 #define TARGET_IABS_ISEL	IABS_BIT_P (COND_MODE_ISEL)
 #define TARGET_IABS_BCP8	IABS_BIT_P (COND_MODE_BCP8)
 #define TARGET_IABS_SHIFT	IABS_BIT_P (COND_MODE_SHIFT)
@@ -479,15 +478,20 @@ extern int rs6000_vector_align[];
 #define TARGET_IMINMAX		(rs6000_iminmax_method != IMINMAX_NONE)
 #define TARGET_IMINMAX_NONE	(rs6000_iminmax_method == IMINMAX_NONE)
 #define TARGET_IMINMAX_UNSET	(rs6000_iminmax_method == IMINMAX_UNSET)
-#define TARGET_IMINMAX_POWER	IMINMAX_BIT_P (COND_MODE_POWER)
 #define TARGET_IMINMAX_ISEL	IMINMAX_BIT_P (COND_MODE_ISEL)
 #define TARGET_IMINMAX_BCP8	IMINMAX_BIT_P (COND_MODE_BCP8)
 
-/* Whether ISEL is supported in certain limited ways.  */
-#define ISEL_LIMITED_OK_P(N)						\
-  (TARGET_ISEL_LIMITED							\
-   && ((N == ISEL_IABS && TARGET_IABS_ISEL)				\
-       || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL)))
+/* Whether ISEL is supported or not.  Normally we use -misel to determine
+   whether to do it, but with the power7 it is useful to generate ISEL in
+   limited cases, without enabling the general use of ISEL.  While the branch
+   conditional + 8 optimizations use RTL that is the same as ISEL, it isn't an
+   actual ISEL instruction.  */
+
+#define ISEL_OK_P(N)							\
+  ((TARGET_ISEL && (N) != ISEL_BCP8)					\
+   || (TARGET_ISEL_LIMITED						\
+       && ((N == ISEL_IABS && TARGET_IABS_ISEL)				\
+	   || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL))))
 
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or

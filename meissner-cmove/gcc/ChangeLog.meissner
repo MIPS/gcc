@@ -1,3 +1,59 @@
+2012-02-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-miabs=): Delete power, powerpc
+	suboptions.
+	(-miminmax=): Likewise.
+
+	* config/rs6000/rs6000.c (cost structures): Remote power/powerpc
+	options.
+	(rs6000_emit_int_cmove): Add argument to specify type argument to
+	ISEL.  Change callers.  Always add type argument to ISEL.  Delete
+	old isel_signed, isel_unsigned patterns.
+	(rs6000_emit_sISEL): Likewise.
+	(rs6000_cmove_md_extra): Likewise.
+	(rs6000_emit_cmove): Likewise.
+	(rs6000_debug_reg_global): Delete -miabs={power,powerpc} and
+	-miminmax={power, powerpc} options.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_rtx_costs): Likewise.
+	(rs6000_opt_enums): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_IABS_POWER): Delete.
+	(TARGET_IMINMAX_POWER): Likewise.
+	(ISEL_OK_P): Rename from ISEL_LIMITED_OK_P, add in normal -misel
+	support.
+
+	* config/rs6000/rs6000.md (ISEL_GENERAL): New constant, for normal
+	isel operations.
+	(smin<mode>3): Drop power support.  Fold isel, isel_limited cases
+	together.
+	(smax<mode>3): Likewise.
+	(umin<mode>3): Rewrite umin/umax to be like smin/smax.  Drop old
+	power support.  Delete old uminsi3/umindi3/umaxsi3/umaxdi3.
+	(uminsi3): Likewise.
+	(umaxsi3): Likewise.
+	(umindi3): Likewise.
+	(umaxdi3): Likewise.
+	(abs<mode>2): Drop old power support.  Combine isel, isel_limited
+	cases.
+	(nabs<mode>2): Likewise.
+	(isel_signed_<mode>): Likewise.
+	(isel_unsigned_<mode>): Likewise.
+	(isel_reversed_signed_<mode>): Likewise.
+	(isel_reversed_unsigned_<mode>): Likewise.
+	(isel_limited_signed_<mode>): Likewise.
+	(isel_limited_reversed_signed_<mode>): Likewise.
+	(mov<mode>cc): Pass new argument to rs6000_emit_cmove.
+	(movsfcc): Likewise.
+	(movdfcc): Likewise.
+
+	* config/rs6000/rs6000-opts.h (COND_MODE_*): Drop power options.
+	(enum rs6000_iabs_t): Likewise.
+	(enum rs6000_iminmax_t): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_cmove): Update
+	prototype.
+
 2012-02-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_rtx_costs): Add ABS, SMIN, SMAX,

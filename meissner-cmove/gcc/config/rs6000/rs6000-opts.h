@@ -144,27 +144,23 @@ enum rs6000_vector {
 /* Bitmasks used for all integer conditional mode operations (absolute value,
    minimum, maximu, conditional move, set condtional, etc.).  */
 #define COND_MODE_NONE		0x0000	/* Use MI code.  */
-#define COND_MODE_POWER		0x0001	/* Use power abs/nabs.  */
-#define COND_MODE_ISEL		0x0002	/* Use ISEL. */
-#define COND_MODE_BCP8		0x0004	/* Use branch cond+8.   */
-#define COND_MODE_SHIFT		0x0008	/* Use shift/xor/neg. */
+#define COND_MODE_ISEL		0x0001	/* Use ISEL. */
+#define COND_MODE_BCP8		0x0002	/* Use branch cond+8.   */
+#define COND_MODE_SHIFT		0x0004	/* Use shift/xor/neg. */
 #define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
 
 /* Describe how to do integer ABS and negative ABS.  */
 enum rs6000_iabs_t {
   IABS_UNSET		= COND_MODE_UNSET,
   IABS_NONE		= COND_MODE_NONE,
-  IABS_POWER_ONLY	= COND_MODE_POWER,
   IABS_ISEL_ONLY	= COND_MODE_ISEL,
   IABS_BCP8_ONLY	= COND_MODE_BCP8,
   IABS_SHIFT_ONLY	= COND_MODE_SHIFT,
 
-  IABS_POWER		= (COND_MODE_SHIFT | COND_MODE_POWER),
   IABS_ISEL		= (COND_MODE_SHIFT | COND_MODE_ISEL),
   IABS_BCP8		= (COND_MODE_SHIFT | COND_MODE_BCP8),
   IABS_SHIFT		= COND_MODE_SHIFT,
-  IABS_POWERPC		= (COND_MODE_SHIFT | COND_MODE_ISEL),
-  IABS_DEFAULT		= (COND_MODE_SHIFT | COND_MODE_ISEL | COND_MODE_POWER)
+  IABS_DEFAULT		= (COND_MODE_SHIFT | COND_MODE_ISEL)
 };
 
 #define IABS_BIT_P(MASK) (((unsigned)rs6000_iabs_method & (MASK)) != 0)
@@ -181,11 +177,9 @@ enum rs6000_iabs_t {
 enum rs6000_iminmax_t {
   IMINMAX_UNSET		= COND_MODE_UNSET,
   IMINMAX_NONE		= COND_MODE_NONE,
-  IMINMAX_POWER		= COND_MODE_POWER,
   IMINMAX_ISEL		= COND_MODE_ISEL,
   IMINMAX_BCP8		= COND_MODE_BCP8,
-  IMINMAX_POWERPC	= COND_MODE_ISEL,
-  IMINMAX_DEFAULT	= (COND_MODE_POWER | COND_MODE_ISEL)
+  IMINMAX_DEFAULT	= COND_MODE_ISEL
 };
 
 #define IMINMAX_BIT_P(MASK) (((unsigned)rs6000_iminmax_method & (MASK)) != 0)

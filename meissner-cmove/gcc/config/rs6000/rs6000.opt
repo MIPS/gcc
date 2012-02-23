@@ -559,12 +559,6 @@ EnumValue
 Enum(rs6000_iabs_t) String(none) Value(IABS_NONE)
 
 EnumValue
-Enum(rs6000_iabs_t) String(power) Value(IABS_POWER)
-
-EnumValue
-Enum(rs6000_iabs_t) String(powerpc) Value(IABS_POWERPC)
-
-EnumValue
 Enum(rs6000_iabs_t) String(shift) Value(IABS_SHIFT)
 
 EnumValue
@@ -585,12 +579,6 @@ Enum(rs6000_iminmax_t) String(default) Value(IMINMAX_DEFAULT)
 
 EnumValue
 Enum(rs6000_iminmax_t) String(none) Value(IMINMAX_NONE)
-
-EnumValue
-Enum(rs6000_iminmax_t) String(power) Value(IMINMAX_POWER)
-
-EnumValue
-Enum(rs6000_iminmax_t) String(powerpc) Value(IMINMAX_POWERPC)
 
 EnumValue
 Enum(rs6000_iminmax_t) String(isel) Value(IMINMAX_ISEL)
