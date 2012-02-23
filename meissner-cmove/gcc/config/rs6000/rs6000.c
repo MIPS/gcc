@@ -16857,10 +16857,15 @@ output_isel (rtx *operands)
   if (code == GE || code == GEU || code == LE || code == LEU || code == NE)
     {
       gcc_assert (GET_CODE (operands[2]) == REG
-		  && GET_CODE (operands[3]) == REG);
+		  && (GET_CODE (operands[3]) == REG
+		      || (operands[3] == const0_rtx)));
       PUT_CODE (operands[1], reverse_condition (code));
       return "isel %0,%3,%2,%j1";
     }
+
+  gcc_assert ((GET_CODE (operands[2]) == REG
+	       || (operands[2] == const0_rtx))
+	      && GET_CODE (operands[3]) == REG);
 
   return "isel %0,%2,%3,%j1";
 }
@@ -16897,6 +16902,101 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   gcc_assert (target);
   if (target != dest)
     emit_move_insn (dest, target);
+}
+
+/* Expand integer minimum/maximum during the split phase into the actual
+   instructions.  Use either the ISEL instruction or a special branch
+   conditional+8 instruction.  */
+
+void
+rs6000_expand_iminmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
+{
+  enum machine_mode mode = GET_MODE (op0);
+  rtx cc;
+  rtx cond;
+  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx, rtx);
+  rtx (*bcp8_func) (rtx, rtx, rtx, rtx, rtx);
+  enum rtx_code cmp_code, rev_code;
+  enum machine_mode cc_mode;
+  bool allow_zero_p;
+
+  gcc_assert (TARGET_IMINMAX_ISEL || TARGET_IMINMAX_BCP8);
+
+  if (mode == SImode)
+    {
+      isel_func = gen_isel_si;
+      bcp8_func = gen_bcp8_si;
+    }
+  else if (mode == DImode)
+    {
+      isel_func = gen_isel_di;
+      bcp8_func = gen_bcp8_di;
+    }
+  else
+    gcc_unreachable ();
+
+  switch (code)
+    {
+    case SMIN:
+      cmp_code = LT;
+      rev_code = GT;
+      allow_zero_p = true;
+      cc_mode = CCmode;
+      break;
+
+    case SMAX:
+      cmp_code = GT;
+      rev_code = LT;
+      allow_zero_p = true;
+      cc_mode = CCmode;
+      break;
+
+    case UMIN:
+      cmp_code = LTU;
+      rev_code = GTU;
+      allow_zero_p = false;
+      cc_mode = CCUNSmode;
+      break;
+
+    case UMAX:
+      cmp_code = GTU;
+      rev_code = LTU;
+      allow_zero_p = false;
+      cc_mode = CCUNSmode;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Set the CR register.  */
+  cc = gen_reg_rtx (cc_mode);
+  emit_insn (gen_rtx_SET (VOIDmode, cc, gen_rtx_COMPARE (cc_mode, op0, op1)));
+
+  /* Generate the ISEL or branch conditional + 8 forms.  */
+  if (TARGET_IMINMAX_ISEL)
+    {
+      /* Special case 0 which can be loaded by ISEL, but we need to swap the
+	 sense of the test so that the 0 is in the true case.  */
+      if (allow_zero_p && op1 == const0_rtx)
+	{
+	  cmp_code = rev_code;
+	  op1 = op0;
+	  op0 = const0_rtx;
+	}
+      else
+	op1 = force_reg (mode, op1);
+
+      cond = gen_rtx_fmt_ee (cmp_code, cc_mode, cc, const0_rtx);
+      emit_insn (isel_func (dest, cond, op0, op1, cc, GEN_INT (ISEL_IMINMAX)));
+    }
+  else
+    {
+      cond = gen_rtx_fmt_ee (cmp_code, cc_mode, cc, const0_rtx);
+      emit_insn (bcp8_func (dest, cond, cc, op0, op1));
+    }
+
+  return;
 }
 
 /* A subroutine of the atomic operation splitters.  Jump to LABEL if

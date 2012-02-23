@@ -161,6 +161,12 @@
     (match_operand 0 "short_cint_operand")
     (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if op is a register or 0
+(define_predicate "reg_or_zero_operand"
+  (if_then_else (match_code "const_int")
+    (match_test "INTVAL (op) == 0")
+    (match_operand 0 "gpc_reg_operand")))
+
 ;; Return 1 if op is a constant integer valid whose negation is valid for
 ;; D field or non-special register register.
 ;; Do not allow a constant zero because all patterns that call this
