@@ -1,14 +1,98 @@
-2012-01-21  Georg-Johann Lay  <avr@gjlay.de>
+2012-02-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/52290
+	* c-decl.c (start_function): Exit early if decl1 is not FUNTION_DECL.
+
+2012-02-23  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (code_stdname): Add ior, xor.
+	(xior): New code iterator.
+	(*<code_stdname><mode>qi.byte0): Use xior instead of ior.
+	(*<code_stdname><mode>qi.byte1-3): Ditto.
+
+2012-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/52019
+	* ipa-split.c (find_return_bb, find_retval, visit_bb): Ignore
+	CLOBBER stmts.
+
+2012-02-23  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* acinclude.m4: Use HAVE_INITFINI_ARRAY_SUPPORT instead of
+	HAVE_INITFINI_ARRAY to work around namespace pollution in
+	certain versions of newlib system headers.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* config/initfini-array.h: Use HAVE_INITFINI_ARRAY_SUPPORT
+	instead of HAVE_INITFINI_ARRAY.
+
+2012-02-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52330
+	* config/i386/i386.c (ix86_print_operand) <case 'H'>: Error out if x
+	is not offsettable memory reference.
+
+2012-02-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/18145
+	* config/avr/avr.c (avr_asm_output_aligned_decl_common): Skip
+	setting avr_need_clear_bss_p for __gnu_lto* symbols.
+
+2012-02-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.h (avr_accumulate_outgoing_args): Return int.
+	* config/avr/avr.c (avr_accumulate_outgoing_args): Return int.
+
+2012-02-22  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (LIB_TLS_SPEC): Enforce use of alternate thread
+	library on Solaris 8 even without TLS support.
+	* configure: Regenerate.
+
+2012-02-22  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/52329
+	* gimple-fold.c (fold_stmt_1): Also canonicalize ADDR_EXPRs
+	for GIMPLE_DEBUG stmts.
+
+2012-02-22  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/51782
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Set address space
+	according to the base object.
+
+2012-02-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR rtl-optimization/50063
+	* config/avr/avr.md (movhi_sp_r): Handle -1 (unknown IRQ state)
+	and 2 (8-bit SP) in operand 2.
+	* config/avr/avr.c (avr_prologue_setup_frame): Adjust prologue
+	setup to use movhi_sp_r instead of vanilla move to write SP.
+	Adjust REG_CFA notes to superseed unspec.
+	(expand_epilogue): Adjust epilogue setup to use movhi_sp_r instead
+	of vanilla move.
+	As function body might contain CLI or SEI: Use irq_state 0 (IRQ
+	known to be off) only with TARGET_NO_INTERRUPTS. Never use
+	irq_state 1 (IRQ known to be on) here.
+
+2012-02-21  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* ira.c (check_allocation): Use REG_WORDS_BIG_ENDIAN, not
+	WORDS_BIG_ENDIAN.
+	* ira-color.c (setup_profitable_hard_regs, check_hard_reg_p,
+	assign_hard_reg): Likewise.
+
+2012-02-21  Georg-Johann Lay  <avr@gjlay.de>
 
 	* config/avr/avr.md (neghi2): Remove "!d,0" alternative. Tweak "r,0".
 
-2012-01-21  Georg-Johann Lay  <avr@gjlay.de>
+2012-02-21  Georg-Johann Lay  <avr@gjlay.de>
 
 	* config/avr/avr.md
 	(*dec-and-branchhi!=-1.d.clobber): New text peephole.
 	(*dec-and-branchhi!=-1.l.clobber): New text peephole.
 
-2012-01-21  Georg-Johann Lay  <avr@gjlay.de>
+2012-02-21  Georg-Johann Lay  <avr@gjlay.de>
 
 	* config/avr/avr-protos.h (avr_accumulate_outgoing_args): Move
 	prototype from here to...
@@ -17,7 +101,7 @@
 2012-02-21  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR target/52294
-	* thumb2.md (thumb2_shiftsi3_short): Split register and 	
+	* thumb2.md (thumb2_shiftsi3_short): Split register and
 	immediate shifts.  For register shifts tie operands 0 and 1.
 	(peephole2 for above): Check that register-controlled shifts
 	have suitably tied operands.
@@ -372,8 +456,7 @@
 2012-02-14  Bernd Schmidt  <bernds@codesourcery.com>
 
 	* haifa-sched.c (prune_ready_list): Ensure that if there is a
-	sched-group insn, it either remains alone or the entire list is
-	pruned.
+	sched-group insn, it either remains alone or the entire list is pruned.
 
 2012-02-14  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
@@ -493,8 +576,8 @@
 	* gcc.c (LINK_COMMAND_SPEC): Deal with -fgnu-tm.
 	(GTM_SELF_SPECS): Define if not already defined.
 	(driver_self_specs): Add GTM_SELF_SPECS.
-        * config/darwin.h (LINK_COMMAND_SPEC_A): Deal with -fgnu-tm.
-        (GTM_SELF_SPECS): Define.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Deal with -fgnu-tm.
+	(GTM_SELF_SPECS): Define.
 	* config/i386/cygwin.h (GTM_SELF_SPECS): Likewise.
 	* config/i386/mingw32.h (GTM_SELF_SPECS): Likewise.
 
@@ -503,13 +586,11 @@
 	* cselib.c (expand_loc): Return sp, fp, hfp or cfa base reg right
 	away if seen.
 
-	* cselib.c (dump_cselib_val): Don't assume l->setting_insn is
-	non-NULL.
+	* cselib.c (dump_cselib_val): Don't assume l->setting_insn is non-NULL.
 
 	PR middle-end/52230
-	* omp-low.c (expand_omp_for): If a static schedule without
-	chunk size has NULL region->cont, force fd.chunk_size to be
-	integer_zero_node.
+	* omp-low.c (expand_omp_for): If a static schedule without chunk size
+	has NULL region->cont, force fd.chunk_size to be integer_zero_node.
 
 2012-02-13  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -533,7 +614,7 @@
 	disallow changes from SFmode to mode with different size in FP regs.
 
 2012-02-12  Robert Millan  <rmh@gnu.org>
-            Gerald Pfeifer <gerald@pfeifer.com>
+	    Gerald Pfeifer <gerald@pfeifer.com>
 
 	* ginclude/stddef.h [__FreeBSD_kernel__] (__size_t): Do not define.
 	Tweak comment.
@@ -557,8 +638,7 @@
 2012-02-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/52132
-	* reg-stack.c (subst_stack_regs_in_debug_insn): Don't use
-	get_true_reg.
+	* reg-stack.c (subst_stack_regs_in_debug_insn): Don't use get_true_reg.
 
 2012-02-11  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -919,8 +999,8 @@
 	* config/mips/mips-dspr2.md (mips_prepend): Mask operand 3 rather
 	than operand 2.
 
-2012-02-02 Jan Hubicka  <jh@suse.cz>
-	   Tom de Vries  <tom@codesourcery.com>
+2012-02-02  Jan Hubicka  <jh@suse.cz>
+	    Tom de Vries  <tom@codesourcery.com>
 
 	PR middle-end/51998
 	* cgraphunit.c (cgraph_analyze_function): Break cyclic aliases.
