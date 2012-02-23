@@ -800,6 +800,30 @@ get_op_mode (int nop)
   return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
 }
 
+/* If REG is a reload pseudo, try to make its class satisfying CL.  */
+static void
+narrow_reload_pseudo_class (rtx reg, enum reg_class cl)
+{
+  int regno;
+  enum reg_class rclass;
+
+  /* Do not make more accurate class from reloads generated.  They are
+     mostly moves with a lot of constraints.  Making more accurate
+     class may results in very narrow class and impossibility of find
+     registers for several reloads of one insn.  */
+  if (INSN_UID (curr_insn) >= new_insn_uid_start)
+    return;
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+  if (! REG_P (reg) || (regno = REGNO (reg)) < new_regno_start)
+    return;
+  rclass = get_reg_class (regno);
+  rclass = ira_reg_class_subset[rclass][cl];
+  if (rclass == NO_REGS)
+    return;
+  change_class (regno, rclass, "      Change", true);
+}
+
 /* Generate reloads for matching OUT and INS (array of input operand
    numbers with end marker -1) with reg class GOAL_CLASS.  Add input
    and output reloads correspondingly to the lists *BEFORE and
@@ -853,6 +877,11 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 						goal_class, "");
       bitmap_set_bit (&lra_matched_pseudos, REGNO (new_in_reg));
     }
+  /* In and out operand can be got from transformations before
+     processing constraints.  So the pseudos might have inaccurate
+     class and we should make their classes more accurate.  */
+  narrow_reload_pseudo_class (in_rtx, goal_class);
+  narrow_reload_pseudo_class (out_rtx, goal_class);
   push_to_sequence (*before);
   lra_emit_move (new_in_reg, in_rtx);
   *before = get_insns ();
@@ -1252,6 +1281,10 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
   return change_p;
 }
 
+#ifndef SLOW_UNALIGNED_ACCESS
+#define SLOW_UNALIGNED_ACCESS(mode, align) 0
+#endif
+
 /* Make reloads for subreg in operand NOP with internal subreg mode
    REG_MODE, add new reloads for further processing.  Return true if
    any reload was generated.  */
@@ -1272,7 +1305,14 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
   
   mode = GET_MODE (operand);
   reg = SUBREG_REG (operand);
-  if (MEM_P (reg) || (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER))
+  /* If we change address for paradoxical subreg of memory, the
+     address might violate the necessary alignment or the access might
+     be slow.  So take this into consideration.  */
+  if ((MEM_P (reg)
+       && ((! STRICT_ALIGNMENT
+	    && ! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (reg)))
+	   || MEM_ALIGN (reg) >= GET_MODE_ALIGNMENT (mode)))
+      || (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER))
     {
       alter_subreg (curr_id->operand_loc[nop]);
       return true;
@@ -1296,7 +1336,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
       enum reg_class rclass
 	= (enum reg_class) targetm.preferred_reload_class (reg, ALL_REGS);
 
-      if (get_reload_reg (type, reg_mode, reg, rclass, NULL, &new_reg)
+      if (get_reload_reg (type, reg_mode, reg, rclass, "subreg reg", &new_reg)
 	  && type != OP_OUT)
 	{
 	  push_to_sequence (before);
@@ -2796,6 +2836,11 @@ curr_insn_transform (void)
 	lra_update_dup (curr_id, i);
       }
   
+  if (change_p)
+    /* Changes in the insn might result in that we can not satisfy
+       constraints in lately used alternative of the insn.  */
+    lra_set_used_insn_alternative (curr_insn, -1);
+
  try_swapped:
 
   reused_alternative_num = curr_id->used_insn_alternative;

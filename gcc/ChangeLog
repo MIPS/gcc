@@ -1,3 +1,13 @@
+2012-02-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (narrow_reload_pseudo_class): New function.
+	(match_reload): Call it.
+	(SLOW_UNALIGNED_ACCESS): Define the macro.
+	(simplify_operand_subreg): Do not change address of improperly
+	aligned memory.
+	(curr_insn_transform): Invalidate used alternative if the insn is
+	changed.
+
 2012-02-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (inherit_in_ebb): Put split save before jump
