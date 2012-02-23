@@ -1,5 +1,10 @@
 2012-02-23  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-constraints.c (inherit_in_ebb): Don't do inheritance from
+	output of a jump.
+
+2012-02-23  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-eliminations.c (update_reg_eliminate): Make hard register
 	unallocatable when we make it a result of the elimination.
 

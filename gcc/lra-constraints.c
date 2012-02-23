@@ -4363,8 +4363,9 @@ inherit_in_ebb (rtx head, rtx tail)
 	{
 	  reloads_num++;
 	  /* 'original_pseudo <- reload_pseudo'.  */
-	  if (inherit_reload_reg (true, false, dst_regno, cl,
-				  curr_insn, next_usage_insns))
+	  if (! JUMP_P (curr_insn)
+	      && inherit_reload_reg (true, false, dst_regno, cl,
+				     curr_insn, next_usage_insns))
 	    change_p = true;
 	  /* Invalidate.  */
 	  usage_insns[dst_regno].check = 0;
@@ -4425,9 +4426,11 @@ inherit_in_ebb (rtx head, rtx tail)
 		/* Invalidate.  */
 		usage_insns[dst_regno].check = 0;
 	      }
-	  for (i = 0; i < to_inherit_num; i++)
-	    if (inherit_reload_reg (true, false, to_inherit[i].regno, ALL_REGS,
-				    curr_insn, to_inherit[i].insns))
+	  if (! JUMP_P (curr_insn))
+	    for (i = 0; i < to_inherit_num; i++)
+	      if (inherit_reload_reg (true, false, to_inherit[i].regno,
+				      ALL_REGS, curr_insn,
+				      to_inherit[i].insns))
 	      change_p = true;
 	  if (CALL_P (curr_insn))
 	    calls_num++;
