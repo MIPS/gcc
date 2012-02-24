@@ -1,3 +1,15 @@
+2012-02-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (improve_inheritance): Add an argument.  Set it
+	up.  Don't change allocation of a reload pseudo.
+	(assign_by_spills): Pass parameter to improve_inheritance.
+
+	* lra-constraints.c (extract_loc_address_regs): Process memory as
+	a register.
+	(process_addr_reg): Reload memory.
+	(process_alt_operands): Use get_op_mode instead of GET_MODE.
+	(process_address): Use find_reg_note instead of find_regno_note.
+
 2012-02-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (inherit_in_ebb): Don't do inheritance from

@@ -935,10 +935,10 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap spilled_pseudo_bitma
    pseudos to the connected pseudos.  We need this because inheritance
    pseudos are allocated after reload pseudos in the thread and when
    we assign a hard register to a reload pseudo we don't know yet that
-   the connected inheritance pseudos can get the same hard
-   register.  */
+   the connected inheritance pseudos can get the same hard register.
+   Add pseudos with changed allocation to bitmap CHANGED_PSEUDOS.  */
 static void
-improve_inheritance (void)
+improve_inheritance (bitmap changed_pseudos)
 {
   unsigned int k;
   int regno, another_regno, hard_regno, another_hard_regno, cost, i, n;
@@ -969,7 +969,11 @@ improve_inheritance (void)
 	    }
 	  else
 	    gcc_unreachable ();
-	  if ((another_hard_regno = reg_renumber[another_regno]) >= 0
+	  /* Don't change reload pseudo allocation.  It might have
+	     this allocation for a purpose (e.g. bound to another
+	     pseudo) and changing it can result in LRA cycling.  */
+	  if (another_regno < lra_constraint_new_regno_start
+	      && (another_hard_regno = reg_renumber[another_regno]) >= 0
 	      && another_hard_regno != hard_regno)
 	    {
 	      if (lra_dump_file != NULL)
@@ -983,6 +987,7 @@ improve_inheritance (void)
 		assign_hard_regno (hard_regno, another_regno);
 	      else
 		assign_hard_regno (another_hard_regno, another_regno);
+	      bitmap_set_bit (changed_pseudos, another_regno);
 	    }
 	}
     }
@@ -1104,7 +1109,7 @@ assign_by_spills (void)
 	  }
       n = nfails;
     }
-  improve_inheritance ();
+  improve_inheritance (&changed_pseudo_bitmap);
   bitmap_clear (&changed_insns);
   /* We can not assign to inherited pseudos if any its inheritance
      pseudo did not get hard register because undo inheritance pass

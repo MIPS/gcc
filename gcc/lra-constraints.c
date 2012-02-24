@@ -295,7 +295,9 @@ get_reload_reg (enum op_type type, enum machine_mode mode, rtx original,
 
 /* The page contains code to extract memory address parts.  */
 
-/* Info about base and index regs of an address.  */
+/* Info about base and index regs of an address.  In some rare cases,
+   base/index register can be actually memory.  In this case we will
+   reload it.  */
 struct address
 {
   rtx *base_reg_loc;  /* NULL if there is no a base register.  */
@@ -519,6 +521,13 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 				SCRATCH, true, ad);
       break;
 
+      /* We process memory as a register.  That means we flatten
+	 addresses.  In other words, the final code will never
+	 contains memory in an address even if the target supports
+	 such addresses (it is too rare these days).  Memory also can
+	 occur in address as a result some previous transformations
+	 like equivalence substitution.  */
+    case MEM:
     case REG:
       if (context_p)
 	ad->index_reg_loc = loc;
@@ -1228,6 +1237,26 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
   enum machine_mode mode;
   bool change_p = false;
 
+  mode = GET_MODE (reg);
+  if (MEM_P (reg))
+    {
+      /* Always reload memory in an address even if the target
+	 supports such addresses.  */
+      new_reg = lra_create_new_reg_with_unique_value (mode, reg, cl, "address");
+      push_to_sequence (*before);
+      lra_emit_move (new_reg, reg);
+      *before = get_insns ();
+      end_sequence ();
+      *loc = new_reg;
+      if (after != NULL)
+	{
+	  push_to_sequence (*after);
+	  lra_emit_move (reg, new_reg);
+	  *after = get_insns ();
+	  end_sequence ();
+	}
+      return true;
+    }
   gcc_assert (REG_P (reg));
   final_regno = regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
@@ -1257,7 +1286,6 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
     }
   if (*loc != reg || ! in_class_p (final_regno, cl, &new_class))
     {
-      mode = GET_MODE (reg);
       reg = *loc;
       if (get_reload_reg (OP_IN, mode, reg, cl, "address", &new_reg))
 	{
@@ -1564,7 +1592,7 @@ process_alt_operands (int only_alternative)
 	    }
       
 	  op = no_subreg_operand[nop];
-	  mode = GET_MODE (*curr_id->operand_loc[nop]);
+	  mode = get_op_mode (nop);
 
 	  win = did_match = winreg = offmemok = constmemok = false;
 	  badop = true;
@@ -2474,8 +2502,8 @@ process_address (int nop, rtx *before, rtx *after)
     {
       if (process_addr_reg (ad.base_reg_loc, before,
 			    (ad.base_modify_p
-			     && find_regno_note (curr_insn, REG_DEAD,
-						 REGNO (*ad.base_reg_loc)) == NULL
+			     && find_reg_note (curr_insn, REG_DEAD,
+					       *ad.base_reg_loc) == NULL
 			     ? after : NULL),
 			    base_reg_class (mode, as, ad.base_outer_code,
 					    ad.index_code)))
