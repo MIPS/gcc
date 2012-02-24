@@ -22667,6 +22667,28 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 		}
             break;
 
+          case TYPE_ISEL:
+            /* Move the ISEL/BC+8 on power7 further away if possible.  */
+            if (rs6000_cpu_attr == CPU_POWER7
+                && recog_memoized (dep_insn)
+                && (INSN_CODE (dep_insn) >= 0))
+
+              switch (get_attr_type (dep_insn))
+                {
+                case TYPE_CMP:
+                case TYPE_COMPARE:
+                case TYPE_DELAYED_COMPARE:
+                case TYPE_IMUL_COMPARE:
+                case TYPE_LMUL_COMPARE:
+                case TYPE_FPCOMPARE:
+                case TYPE_CR_LOGICAL:
+                case TYPE_DELAYED_CR:
+		  return cost + 5;
+		default:
+		  break;
+		}
+            break;
+
           case TYPE_STORE:
           case TYPE_STORE_U:
           case TYPE_STORE_UX:
@@ -23832,6 +23854,7 @@ insn_must_be_first_in_group (rtx insn)
         case TYPE_FPSTORE_UX:
         case TYPE_MFJMPR:
         case TYPE_MTJMPR:
+	case TYPE_ISEL:
           return true;
         default:
           break;
