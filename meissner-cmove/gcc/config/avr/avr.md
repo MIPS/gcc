@@ -68,7 +68,7 @@
    UNSPEC_FMULSU
    UNSPEC_COPYSIGN
    UNSPEC_IDENTITY
-   UNSPEC_MAP_BITS
+   UNSPEC_INSERT_BITS
    ])
 
 (define_c_enum "unspecv"
@@ -144,7 +144,7 @@
    ashlhi, ashrhi, lshrhi,
    ashlsi, ashrsi, lshrsi,
    ashlpsi, ashrpsi, lshrpsi,
-   map_bits,
+   insert_bits,
    no"
   (const_string "no"))
 
@@ -155,9 +155,10 @@
 ;; ijmp : ISA has no EICALL/EIJMP        eijmp : ISA has EICALL/EIJMP
 ;; lpm  : ISA has no LPMX                lpmx  : ISA has LPMX
 ;; elpm : ISA has ELPM but no ELPMX      elpmx : ISA has ELPMX
+;; no_xmega: non-XMEGA core              xmega : XMEGA core
 
 (define_attr "isa"
-  "mov,movw, rjmp,jmp, ijmp,eijmp, lpm,lpmx, elpm,elpmx,
+  "mov,movw, rjmp,jmp, ijmp,eijmp, lpm,lpmx, elpm,elpmx, no_xmega,xmega,
    standard"
   (const_string "standard"))
 
@@ -204,6 +205,14 @@
          (and (eq_attr "isa" "elpmx")
               (match_test "AVR_HAVE_ELPMX"))
          (const_int 1)
+
+         (and (eq_attr "isa" "xmega")
+              (match_test "AVR_XMEGA"))
+         (const_int 1)
+
+         (and (eq_attr "isa" "no_xmega")
+              (match_test "!AVR_XMEGA"))
+         (const_int 1)
          ] (const_int 0)))
 
 
@@ -221,6 +230,8 @@
 ;; Define two incarnations so that we can build the cross product.
 (define_code_iterator any_extend  [sign_extend zero_extend])
 (define_code_iterator any_extend2 [sign_extend zero_extend])
+
+(define_code_iterator xior [xor ior])
 
 ;; Define code attributes
 (define_code_attr extend_su
@@ -245,6 +256,8 @@
   [(ashift   "ashl")
    (ashiftrt "ashr")
    (lshiftrt "lshr")
+   (ior      "ior")
+   (xor      "xor")
    (rotate   "rotl")])
 
 ;;========================================================================
@@ -574,21 +587,26 @@
 
 ;; Move register $1 to the Stack Pointer register SP.
 ;; This insn is emit during function prologue/epilogue generation.
-;;    $2 = 0: We know that IRQs are off
-;;    $2 = 1: We know that IRQs are on
-;; Remaining cases when the state of the I-Flag is unknown are
-;; handled by generic movhi insn.
+;;    $2 =  0: We know that IRQs are off
+;;    $2 =  1: We know that IRQs are on
+;;    $2 =  2: SP has 8 bits only, IRQ state does not matter
+;;    $2 = -1: We don't know anything about IRQ on/off
+;; Always write SP via unspec, see PR50063
 
 (define_insn "movhi_sp_r"
-  [(set (match_operand:HI 0 "stack_register_operand"                "=q,q")
-        (unspec_volatile:HI [(match_operand:HI 1 "register_operand"  "r,r")
-                             (match_operand:HI 2 "const_int_operand" "L,P")]
+  [(set (match_operand:HI 0 "stack_register_operand"                "=q,q,q,q,q")
+        (unspec_volatile:HI [(match_operand:HI 1 "register_operand"  "r,r,r,r,r")
+                             (match_operand:HI 2 "const_int_operand" "L,P,N,K,LPN")]
                             UNSPECV_WRITE_SP))]
-  "!AVR_HAVE_8BIT_SP"
+  ""
   "@
-	out __SP_H__,%B1\;out __SP_L__,%A1
-	cli\;out __SP_H__,%B1\;sei\;out __SP_L__,%A1"
-  [(set_attr "length" "2,4")
+	out %B0,%B1\;out %A0,%A1
+	cli\;out %B0,%B1\;sei\;out %A0,%A1
+	in __tmp_reg__,__SREG__\;cli\;out %B0,%B1\;out __SREG__,__tmp_reg__\;out %A0,%A1
+	out %A0,%A1
+	out %A0,%A1\;out %B0,%B1"
+  [(set_attr "length" "2,4,5,1,2")
+   (set_attr "isa" "no_xmega,no_xmega,no_xmega,*,xmega")
    (set_attr "cc" "none")])
 
 (define_peephole2
@@ -3796,15 +3814,14 @@
    (set_attr "cc" "set_n")])
 
 (define_insn "neghi2"
-  [(set (match_operand:HI 0 "register_operand"       "=!d,r,&r")
-	(neg:HI (match_operand:HI 1 "register_operand" "0,0,r")))]
+  [(set (match_operand:HI 0 "register_operand"        "=r,&r")
+        (neg:HI (match_operand:HI 1 "register_operand" "0,r")))]
   ""
   "@
-	com %B0\;neg %A0\;sbci %B0,lo8(-1)
-	com %B0\;neg %A0\;sbc %B0,__zero_reg__\;inc %B0
+	neg %B0\;neg %A0\;sbc %B0,__zero_reg__
 	clr %A0\;clr %B0\;sub %A0,%A1\;sbc %B0,%B1"
-  [(set_attr "length" "3,4,4")
-   (set_attr "cc" "set_czn,set_n,set_czn")])
+  [(set_attr "length" "3,4")
+   (set_attr "cc" "set_czn")])
 
 (define_insn "negpsi2"
   [(set (match_operand:PSI 0 "register_operand"        "=!d,r,&r")
@@ -4908,7 +4925,7 @@
 
 ;; ************************* Peepholes ********************************
 
-(define_peephole
+(define_peephole ; "*dec-and-branchsi!=-1.d.clobber"
   [(parallel [(set (match_operand:SI 0 "d_register_operand" "")
                    (plus:SI (match_dup 0)
                             (const_int -1)))
@@ -4949,7 +4966,7 @@
     return "";
   })
 
-(define_peephole
+(define_peephole ; "*dec-and-branchhi!=-1"
   [(set (match_operand:HI 0 "d_register_operand" "")
         (plus:HI (match_dup 0)
                  (const_int -1)))
@@ -4985,7 +5002,81 @@
     return "";
   })
 
-(define_peephole
+;; Same as above but with clobber flavour of addhi3
+(define_peephole ; "*dec-and-branchhi!=-1.d.clobber"
+  [(parallel [(set (match_operand:HI 0 "d_register_operand" "")
+                   (plus:HI (match_dup 0)
+                            (const_int -1)))
+              (clobber (scratch:QI))])
+   (parallel [(set (cc0)
+                   (compare (match_dup 0)
+                            (const_int -1)))
+              (clobber (match_operand:QI 1 "d_register_operand" ""))])
+   (set (pc)
+        (if_then_else (ne (cc0)
+                          (const_int 0))
+                      (label_ref (match_operand 2 "" ""))
+                      (pc)))]
+  ""
+  {
+    CC_STATUS_INIT;
+    if (test_hard_reg_class (ADDW_REGS, operands[0]))
+      output_asm_insn ("sbiw %0,1", operands);
+    else
+      output_asm_insn ("subi %A0,1" CR_TAB
+                       "sbc %B0,__zero_reg__", operands);
+
+    switch (avr_jump_mode (operands[2], insn))
+      {
+      case 1:
+        return "brcc %2";
+      case 2:
+        return "brcs .+2\;rjmp %2";
+      case 3:
+        return "brcs .+4\;jmp %2";
+      }
+
+    gcc_unreachable();
+    return "";
+  })
+
+;; Same as above but with clobber flavour of addhi3
+(define_peephole ; "*dec-and-branchhi!=-1.l.clobber"
+  [(parallel [(set (match_operand:HI 0 "l_register_operand" "")
+                   (plus:HI (match_dup 0)
+                            (const_int -1)))
+              (clobber (match_operand:QI 3 "d_register_operand" ""))])
+   (parallel [(set (cc0)
+                   (compare (match_dup 0)
+                            (const_int -1)))
+              (clobber (match_operand:QI 1 "d_register_operand" ""))])
+   (set (pc)
+        (if_then_else (ne (cc0)
+                          (const_int 0))
+                      (label_ref (match_operand 2 "" ""))
+                      (pc)))]
+  ""
+  {
+    CC_STATUS_INIT;
+      output_asm_insn ("ldi %3,1"   CR_TAB
+                       "sub %A0,%3" CR_TAB
+                       "sbc %B0,__zero_reg__", operands);
+
+    switch (avr_jump_mode (operands[2], insn))
+      {
+      case 1:
+        return "brcc %2";
+      case 2:
+        return "brcs .+2\;rjmp %2";
+      case 3:
+        return "brcs .+4\;jmp %2";
+      }
+
+    gcc_unreachable();
+    return "";
+  })
+
+(define_peephole ; "*dec-and-branchqi!=-1"
   [(set (match_operand:QI 0 "d_register_operand" "")
         (plus:QI (match_dup 0)
                  (const_int -1)))
@@ -5264,28 +5355,20 @@
   [(set_attr "length" "9")
    (set_attr "cc" "clobber")])
 
-(define_insn "map_bitsqi"
-  [(set (match_operand:QI 0 "register_operand"             "=d")
-        (unspec:QI [(match_operand:SI 1 "const_int_operand" "n")
-                    (match_operand:QI 2 "register_operand"  "r")]
-                   UNSPEC_MAP_BITS))]
-  ""
-  {
-    return avr_out_map_bits (insn, operands, NULL);
-  }
-  [(set_attr "adjust_len" "map_bits")
-   (set_attr "cc" "clobber")])
 
-(define_insn "map_bitshi"
-  [(set (match_operand:HI 0 "register_operand"               "=&r")
-        (unspec:HI [(match_operand:DI 1 "const_double_operand" "n")
-                    (match_operand:HI 2 "register_operand"     "r")]
-                   UNSPEC_MAP_BITS))]
+;; __builtin_avr_insert_bits
+
+(define_insn "insert_bits"
+  [(set (match_operand:QI 0 "register_operand"              "=r  ,d  ,r")
+        (unspec:QI [(match_operand:SI 1 "const_int_operand"  "C0f,Cxf,C0f")
+                    (match_operand:QI 2 "register_operand"   "r  ,r  ,r")
+                    (match_operand:QI 3 "nonmemory_operand"  "n  ,0  ,0")]
+                   UNSPEC_INSERT_BITS))]
   ""
   {
-    return avr_out_map_bits (insn, operands, NULL);
+    return avr_out_insert_bits (operands, NULL);
   }
-  [(set_attr "adjust_len" "map_bits")
+  [(set_attr "adjust_len" "insert_bits")
    (set_attr "cc" "clobber")])
 
 
@@ -5881,24 +5964,28 @@
 ;; in particular when subreg lowering (-fsplit-wide-types) is turned on.
 ;; That switch obfuscates things here and in many other places.
 
-(define_insn_and_split "*ior<mode>qi.byte0"
+;; "*iorhiqi.byte0"   "*iorpsiqi.byte0"   "*iorsiqi.byte0"
+;; "*xorhiqi.byte0"   "*xorpsiqi.byte0"   "*xorsiqi.byte0"
+(define_insn_and_split "*<code_stdname><mode>qi.byte0"
   [(set (match_operand:HISI 0 "register_operand"                 "=r")
-        (ior:HISI
+        (xior:HISI
          (zero_extend:HISI (match_operand:QI 1 "register_operand" "r"))
          (match_operand:HISI 2 "register_operand"                 "0")))]
   ""
   "#"
   "reload_completed"
   [(set (match_dup 3)
-        (ior:QI (match_dup 3)
-                (match_dup 1)))]
+        (xior:QI (match_dup 3)
+                 (match_dup 1)))]
   {
     operands[3] = simplify_gen_subreg (QImode, operands[0], <MODE>mode, 0);
   })
 
-(define_insn_and_split "*ior<mode>qi.byte1-3"
+;; "*iorhiqi.byte1-3"  "*iorpsiqi.byte1-3"  "*iorsiqi.byte1-3"
+;; "*xorhiqi.byte1-3"  "*xorpsiqi.byte1-3"  "*xorsiqi.byte1-3"
+(define_insn_and_split "*<code_stdname><mode>qi.byte1-3"
   [(set (match_operand:HISI 0 "register_operand"                              "=r")
-        (ior:HISI
+        (xior:HISI
          (ashift:HISI (zero_extend:HISI (match_operand:QI 1 "register_operand" "r"))
                       (match_operand:QI 2 "const_8_16_24_operand"              "n"))
          (match_operand:HISI 3 "register_operand"                              "0")))]
@@ -5906,8 +5993,8 @@
   "#"
   "&& reload_completed"
   [(set (match_dup 4)
-        (ior:QI (match_dup 4)
-                (match_dup 1)))]
+        (xior:QI (match_dup 4)
+                 (match_dup 1)))]
   {
     int byteno = INTVAL(operands[2]) / BITS_PER_UNIT;
     operands[4] = simplify_gen_subreg (QImode, operands[0], <MODE>mode, byteno);

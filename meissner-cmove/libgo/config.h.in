@@ -12,6 +12,9 @@
 /* Define to 1 if you have the `faccessat' function. */
 #undef HAVE_FACCESSAT
 
+/* Define to 1 if you have the `fallocate' function. */
+#undef HAVE_FALLOCATE
+
 /* Define to 1 if you have the `fchmodat' function. */
 #undef HAVE_FCHMODAT
 
@@ -105,9 +108,17 @@
 /* Define to 1 if <math.h> defines struct exception */
 #undef HAVE_STRUCT_EXCEPTION
 
+/* Define to 1 if the compiler provides the __sync_add_and_fetch function for
+   uint64 */
+#undef HAVE_SYNC_ADD_AND_FETCH_8
+
 /* Define to 1 if the compiler provides the __sync_bool_compare_and_swap
    function for uint32 */
 #undef HAVE_SYNC_BOOL_COMPARE_AND_SWAP_4
+
+/* Define to 1 if the compiler provides the __sync_bool_compare_and_swap
+   function for uint64 */
+#undef HAVE_SYNC_BOOL_COMPARE_AND_SWAP_8
 
 /* Define to 1 if the compiler provides the __sync_fetch_and_add function for
    uint32 */
@@ -122,6 +133,9 @@
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
+/* Define to 1 if you have the <sys/mount.h> header file. */
+#undef HAVE_SYS_MOUNT_H
+
 /* Define to 1 if you have the <sys/prctl.h> header file. */
 #undef HAVE_SYS_PRCTL_H
 
@@ -133,6 +147,9 @@
 
 /* Define to 1 if you have the <sys/socket.h> header file. */
 #undef HAVE_SYS_SOCKET_H
+
+/* Define to 1 if you have the <sys/statfs.h> header file. */
+#undef HAVE_SYS_STATFS_H
 
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
@@ -148,6 +165,9 @@
 
 /* Define to 1 if you have the <sys/utsname.h> header file. */
 #undef HAVE_SYS_UTSNAME_H
+
+/* Define to 1 if you have the <sys/vfs.h> header file. */
+#undef HAVE_SYS_VFS_H
 
 /* Define to 1 if you have the `tee' function. */
 #undef HAVE_TEE
@@ -173,6 +193,9 @@
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
+
+/* Define if makecontext expects top of stack in uc_stack. */
+#undef MAKECONTEXT_STACK_TOP
 
 /* Name of package */
 #undef PACKAGE
@@ -224,3 +247,6 @@
 #  undef WORDS_BIGENDIAN
 # endif
 #endif
+
+/* Define to `long int' if <sys/types.h> does not define. */
+#undef off_t

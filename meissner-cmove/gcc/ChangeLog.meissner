@@ -1,5 +1,8 @@
 2012-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 184562.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.c (rs6000_adjust_cost): Increase the cost
 	on power7 to force the compare futher away from the ISEL or BC+8
 	instruction.
