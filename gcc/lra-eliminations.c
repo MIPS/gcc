@@ -789,6 +789,8 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       /* Check for setting an eliminable register.  */
       if ((ep = get_elimination (regno)) != NULL)
 	{
+	  bool delete_p = replace_p;
+
 #ifdef HARD_FRAME_POINTER_REGNUM
 	  /* If this is setting the frame pointer register to the
 	     hardware frame pointer register and this is an
@@ -799,67 +801,72 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 	  if (ep->from == FRAME_POINTER_REGNUM
 	      && ep->to == HARD_FRAME_POINTER_REGNUM)
 	    {
-	      rtx base = SET_SRC (old_set);
-	      rtx base_insn = insn;
-	      HOST_WIDE_INT offset = 0;
-	      
-	      while (base != ep->to_rtx)
+	      if (replace_p)
 		{
-		  rtx prev_insn, prev_set;
-		  
-		  if (GET_CODE (base) == PLUS && CONST_INT_P (XEXP (base, 1)))
-		    {
-		      offset += INTVAL (XEXP (base, 1));
-		      base = XEXP (base, 0);
-		    }
-		  else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
-			   && (prev_set = single_set (prev_insn)) != 0
-			   && rtx_equal_p (SET_DEST (prev_set), base))
-		    {
-		      base = SET_SRC (prev_set);
-		      base_insn = prev_insn;
-		    }
-		  else
-		    break;
-		}
-	      
-	      if (base == ep->to_rtx)
-		{
-		  rtx src;
-		  
-		  offset = (! replace_p
-			    ? offset - (ep->offset - ep->previous_offset)
-			    : offset);
-		  src = plus_constant (ep->to_rtx, offset);
-		  
-		  old_set = single_set (insn);
-		  
-		  /* First see if this insn remains valid when we make
-		     the change.  If not, keep the INSN_CODE the same
-		     and let reload fit it up.  */
-		  validate_change (insn, &SET_SRC (old_set), src, 1);
-		  validate_change (insn, &SET_DEST (old_set),
-				   replace_p ? ep->to_rtx : ep->from_rtx, 1);
-		  if (! apply_change_group ())
-		    {
-		      SET_SRC (old_set) = src;
-		      SET_DEST (old_set)
-			= replace_p ? ep->to_rtx : ep->from_rtx;
-		    }
-
+		  SET_DEST (old_set) = ep->to_rtx;
 		  lra_update_insn_recog_data (insn);
 		  return;
 		}
+	      else
+		{
+		  rtx base = SET_SRC (old_set);
+		  HOST_WIDE_INT offset = 0;
+		  rtx base_insn = insn;
+
+		  while (base != ep->to_rtx)
+		    {
+		      rtx prev_insn, prev_set;
+		      
+		      if (GET_CODE (base) == PLUS
+			  && CONST_INT_P (XEXP (base, 1)))
+			{
+			  offset += INTVAL (XEXP (base, 1));
+			  base = XEXP (base, 0);
+			}
+		      else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
+			       && (prev_set = single_set (prev_insn)) != 0
+			       && rtx_equal_p (SET_DEST (prev_set), base))
+			{
+			  base = SET_SRC (prev_set);
+			  base_insn = prev_insn;
+			}
+		      else
+			break;
+		    }
+
+		  if (base == ep->to_rtx)
+		    {
+		      rtx src;
+		      
+		      offset -= (ep->offset - ep->previous_offset);
+		      src = plus_constant (ep->to_rtx, offset);
+		      
+		      /* First see if this insn remains valid when we
+			 make the change.  If not, keep the INSN_CODE
+			 the same and let reload fit it up.  */
+		      validate_change (insn, &SET_SRC (old_set), src, 1);
+		      validate_change (insn, &SET_DEST (old_set),
+				       ep->from_rtx, 1);
+		      if (! apply_change_group ())
+			{
+			  SET_SRC (old_set) = src;
+			  SET_DEST (old_set) = ep->from_rtx;
+			}
+		      lra_update_insn_recog_data (insn);
+		      return;
+		    }
+		}
+
+	     
+	      /* We can't delete this insn, but needn't process it
+		 since it won't be used unless something changes. */
+	      delete_p = false;
 	    }
 #endif
 	  
-	  /* In this case this insn isn't serving a useful purpose.
-	     We delete it.
-	     
-	     If REPLACE_P isn't set, we can't delete this insn, but
-	     needn't process it since it won't be used unless
-	     something changes.  */
-	  if (replace_p)
+	  /* This insn isn't serving a useful purpose.  We delete it
+	     when REPLACE is set.  */
+	  if (delete_p)
 	    lra_delete_dead_insn (insn);
 	  return;
 	}

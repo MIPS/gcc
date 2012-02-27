@@ -1,3 +1,9 @@
+2012-02-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (eliminate_regs_in_insn): Rewrite by
+	separating case with REPLACE_P for insn setting
+	FRAME_POINTER_REGNUM.
+
 2012-02-24  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assigns.c (improve_inheritance): Add an argument.  Set it
