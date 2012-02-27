@@ -1,3 +1,126 @@
+2012-02-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/52352
+	* config/i386/i386.md (*movabs<mode>_1): Enable only for
+	TARGET_LP64.
+	(*movabs<mode>_2): Likewise.
+
+2012-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52375
+	* config/arm/neon.md (vashr<mode>3, vlshr<mode>3): Use
+	s_register_operand in the test instead of REG_P.  Don't call
+	gen_reg_rtx if it won't be used.
+
+	PR tree-optimization/52376
+	* ipa-split.c (split_function): Ignore CLOBBER stmts.
+
+2012-02-27  Stuart Henderson  <shenders@gcc.gnu.org>
+
+	* ifcvt.c (noce_get_condition): Check condition variable is not
+	small_register_classes_for_mode_p before accepting.
+
+2012-02-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movabs<mode>_1): Fix operand 1 constraints.
+
+2012-02-27  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	Revert:
+	2012-01-09  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+	* config/arm/arm-cores.def (cortex-a15): Use cortex_a15_tune for
+	tuning parameters.
+	* config/arm/arm.c (arm_cortex_a15_tune): New static variable.
+
+2012-02-27  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.h: Delete dead GO_IF_LEGITIMATE_INDEX macro.
+
+2012-02-26  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/predicates.md: Remove blank lines.
+	* config/sh/sh.c: Fix typos in comments.
+	* config/sh/constraints.md: Likewise.
+	* config/sh/sh.md: Remove blank lines.
+	Fix typos in comments.  Use ;; as comment characters.
+
+2012-02-26  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (match_pcrel_step2): Fix instruction pattern.
+	(replace_mov_pcrel_step2): Ditto.
+
+2012-02-25  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/52001
+	* alias.c (refs_newer_value_cb, refs_newer_value_p): New.
+	(get_addr): Walk canonical value's locs.  Avoid returning VALUEs
+	and locs that reference values newer than the non-canonical value
+	at hand.  Return the canonical value as a worst case.
+	(memrefs_conflict_p): Walk canonical value's locs.
+
+	PR debug/52001
+	* cselib.c (preserve_only_constants): Rename to...
+	(preserve_constants_and_equivs): ... this.  Split out...
+	(invariant_or_equiv_p): ... this.  Preserve plus expressions
+	of other preserved expressions too.
+	(cselib_reset_table): Adjust.
+	* var-tracking.c (reverse_op): Use canonical value to build
+	reverse operation.
+
+2012-02-23  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/i386.c (ix86_delegitimize_address): Handle
+	UNSPEC_PCREL plus displacement.
+
+2012-02-24  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/52261
+	* config/avr/avr.c (avr_out_movhi_mr_r_xmega): Use base
+	to test for unusedness in st X addressing.
+
+2012-02-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/52361
+	* gimple.c (walk_gimple_op): Use predicates with less redundant tests.
+	(is_gimple_reg_type): Move inline ...
+	* gimple.h (is_gimple_reg_type): ... here.
+
+2012-02-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/52361
+	* passes.c (execute_function_todo): When verifying SSA form
+	verify gimple form first.
+	* tree-ssa.c (verify_ssa): Do not verify gimple form here.
+
+2012-02-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/52355
+	* fold-const.c (fold_addr_of_array_ref_difference): New function.
+	(fold_binary_loc): Use it to extend the existing &a[i] - &a[j] folding.
+
+2012-02-13  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* tree-if-conv (predicate_scalar_phi): Commentary typo fix.
+
+2012-02-23  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* tree-phinodes.c (make_phi_node): Mark static.
+	* tree-flow.h (make_phi_node): Remove extern decl.
+	* doc/gimple.texi (make_phi_node): Remove documentation.
+
+2012-02-23  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* tree-into-ssa (update_ssa): Avoid trailing whitespace in dump_file.
+	* tree-ssa-sccvn.c (print_scc): Ditto.
+
+2012-02-23  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* doc/passes.texi (Full redundancy elimination): Fix typo.
+
+2012-02-23  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* doc/invoke.texi (-fdse, -fdce): Remove duplicate entries.
+
 2012-02-23  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR bootstrap/52287
