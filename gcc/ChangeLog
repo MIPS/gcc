@@ -1,3 +1,9 @@
+2012-02-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (check_and_process_move): Process source first
+	for the secondary move.
+	(process_alt_operands): Increase cost for scratch allocations.
+
 2012-02-27  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-eliminations.c (eliminate_regs_in_insn): Rewrite by

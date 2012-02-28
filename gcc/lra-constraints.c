@@ -1097,19 +1097,19 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   sri.prev_sri = NULL;
   sri.icode = CODE_FOR_nothing;
   sri.extra_cost = 0;
-  if (dclass != NO_REGS)
-    {
-      in_p = true;
-      rclass = dclass;
-      x = sreg;
-      xclass = sclass;
-    }
-  else if (sclass != NO_REGS)
+  if (sclass != NO_REGS)
     {
       in_p = false;
       rclass = sclass;
       x = dreg;
       xclass = dclass;
+    }
+  else if (dclass != NO_REGS)
+    {
+      in_p = true;
+      rclass = dclass;
+      x = sreg;
+      xclass = sclass;
     }
   else
     return false;
@@ -2027,6 +2027,14 @@ process_alt_operands (int only_alternative)
 				      this_costly_alternative, NULL))
 			reject++;
 		    }
+		  /* We simulate the behaviour of old reload here.
+		     Although scratches need hard registers and it
+		     might result in spilling other pseudos, no reload
+		     insns are generated for the scratches.  So it
+		     might cost something but probably less than old
+		     reload pass believes. */
+		  if (lra_former_scratch_p (REGNO (operand_reg[nop])))
+		    reject += LOSER_COST_FACTOR;
 		}
 	    }
 	  else if (did_match)
