@@ -336,8 +336,8 @@ struct processor_costs size32_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -357,8 +357,8 @@ struct processor_costs size64_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -378,8 +378,8 @@ struct processor_costs rios1_cost = {
   64,			/* l1 cache */
   512,			/* l2 cache */
   0,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -399,8 +399,8 @@ struct processor_costs rios2_cost = {
   256,			/* l1 cache */
   1024,			/* l2 cache */
   0,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -420,8 +420,8 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -441,8 +441,8 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -462,8 +462,8 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -483,8 +483,8 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -504,8 +504,8 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -525,8 +525,8 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -546,8 +546,8 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -567,8 +567,8 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -588,8 +588,8 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -609,8 +609,8 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -630,8 +630,8 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -651,8 +651,8 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -673,8 +673,8 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -694,8 +694,8 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -715,8 +715,8 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -736,8 +736,8 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -757,8 +757,8 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -778,8 +778,8 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -799,8 +799,8 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -820,8 +820,8 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -841,8 +841,8 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -862,8 +862,8 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -884,7 +884,7 @@ struct processor_costs power7_cost = {
   256,			/* l2 cache */
   12,			/* prefetch streams */
   IABS_SHIFT,		/* iabs (prefer shift over isel/bc+8) */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IMINMAX_BCP8,		/* iminmax (prefer bc+8 over isel) */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -904,8 +904,8 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  IABS_DEFAULT,		/* iabs */
-  IMINMAX_DEFAULT,	/* iminmax */
+  IABS_UNSET,		/* iabs */
+  IMINMAX_UNSET,	/* iminmax */
 };
 
 
@@ -1287,7 +1287,6 @@ static bool rs6000_legitimate_constant_p (enum machine_mode, rtx);
 static bool rs6000_save_toc_in_prologue_p (void);
 static void rs6000_code_end (void) ATTRIBUTE_UNUSED;
 static void rs6000_set_up_by_prologue (struct hard_reg_set_container *);
-static rtx rs6000_cmove_md_extra (enum ifcvt_pass, rtx, rtx, rtx, rtx);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1731,9 +1730,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
-
-#undef TARGET_CMOVE_MD_EXTRA
-#define TARGET_CMOVE_MD_EXTRA rs6000_cmove_md_extra
 
 
 /* Simplifications for entries below.  */
@@ -3434,12 +3430,28 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Set how we want to do integer absolute value, and minimum/maximum.  Remove
      any bits for options that we don't support with the current target
-     instructions.  */
-  if (TARGET_IABS_UNSET)
-    rs6000_iabs_method = rs6000_cost->iabs;
+     instructions.  If the user explicitly says -misel then enable it by
+     default, but don't enable isel by default if the use of ISEL is
+     limited to cases where we expect it to win.  */
+  if (rs6000_iabs_method == IABS_UNSET)
+    {
+      if (rs6000_cost->iabs != IABS_UNSET)
+	rs6000_iabs_method = rs6000_cost->iabs;
+      else if (TARGET_ISEL)
+	rs6000_iabs_method = IABS_ISEL;
+      else
+	rs6000_iabs_method = IABS_SHIFT;
+    }
 
-  if (TARGET_IMINMAX_UNSET)
-    rs6000_iminmax_method = rs6000_cost->iminmax;
+  if (rs6000_iminmax_method == IMINMAX_UNSET)
+    {
+      if (rs6000_cost->iminmax != IMINMAX_UNSET)
+	rs6000_iminmax_method = rs6000_cost->iminmax;
+      else if (TARGET_ISEL)
+	rs6000_iminmax_method = IMINMAX_ISEL;
+      else
+	rs6000_iminmax_method = IMINMAX_NONE;
+    }
 
   if (!TARGET_ISEL && !TARGET_ISEL_LIMITED)
     {
@@ -16469,143 +16481,6 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
   return 1;
 }
 
-/* If a memory reference is an offsettable memory reference, return true and
-   return the base part and offset.  */
-
-static inline bool
-rs6000_decompose_offsettable_memref (rtx op, rtx *base, HOST_WIDE_INT *offset)
-{
-  rtx addr, right, left;
-
-  *base = NULL_RTX;
-  *offset = -1;
-
-  if (!MEM_P (op) || side_effects_p (op) || volatile_refs_p (op))
-    return false;
-
-  addr = XEXP (op, 0);
-  if (GET_CODE (addr) == REG)
-    {
-      *base = addr;
-      *offset = 0;
-      return true;
-    }
-  else if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
-    {
-      right = XEXP (addr, 0);
-      left = XEXP (addr, 1);
-      if (!REG_P (right) || GET_CODE (left) != CONST_INT)
-	return false;
-
-      *base = right;
-      *offset = INTVAL (left);
-      return true;
-    }
-
-  return false;
-}
-
-/* Do any machine specific optimization of conditional moves.  On the rs6000,
-   if both sides of the conditional move are memory operations that seem to be
-   within the same cache block, then the second load is 'free', and we use
-   load/load/isel if the user enables the option.  This is useful for balanced
-   binary trees/tries where you chase through a list following either the right
-   or left pointers.  If the pointer to the memory address aren't appropriately
-   aligned, then this could potentially cause a page fault or a trap.  */
-
-static rtx
-rs6000_cmove_md_extra (enum ifcvt_pass if_pass, rtx dest, rtx compare, rtx op0,
-		       rtx op1)
-{
-  enum machine_mode mode0 = GET_MODE (op0);
-  enum machine_mode mode1 = GET_MODE (op1);
-  HOST_WIDE_INT size = GET_MODE_SIZE (mode0);
-  HOST_WIDE_INT op0_size = size;
-  HOST_WIDE_INT op1_size = size;
-  HOST_WIDE_INT line_size = TARGET_CMOVE_ADJACENT_MEMORY;
-  HOST_WIDE_INT offset0 = -1;
-  HOST_WIDE_INT offset1 = -1;
-  rtx op0_no_extend = op0;
-  rtx op1_no_extend = op1;
-  rtx ret = NULL_RTX;
-  rtx base0, base1, cmp_op0, cmp_op1;
-  enum rtx_code cmp_code = GET_CODE (compare);
-
-  if (if_pass == ifcvt_after_reload)
-    return NULL_RTX;
-
-  /* Allow sign/zero extend, but only do before combine, since the force_reg
-     will split the load and the sign/zero extend.  Combine will join these
-     back together.  */
-  if (if_pass == ifcvt_before_combine)
-    {
-      if (GET_CODE (op0) == SIGN_EXTEND || GET_CODE (op0) == ZERO_EXTEND)
-	{
-	  op0_no_extend = XEXP (op0, 0);
-	  op0_size = GET_MODE_SIZE (GET_MODE (op0_no_extend));
-	}
-
-      if (GET_CODE (op1) == SIGN_EXTEND || GET_CODE (op1) == ZERO_EXTEND)
-	{
-	  op1_no_extend = XEXP (op1, 0);
-	  op1_size = GET_MODE_SIZE (GET_MODE (op1_no_extend));
-	}
-    }
-
-  if (!TARGET_ISEL || line_size < 2*size || mode0 != mode1
-      || !MEM_P (op0_no_extend) || !MEM_P (op1_no_extend)
-      || !INTEGRAL_MODE_P (mode0))
-    return NULL_RTX;
-
-  /* Only do this optimization for simple comparisons.  */
-  if (GET_RTX_CLASS (cmp_code) != RTX_COMPARE
-      && GET_RTX_CLASS (cmp_code) != RTX_COMM_COMPARE)
-    return NULL_RTX;
-
-  cmp_op0 = XEXP (compare, 0);
-  if (!REG_P (cmp_op0) || !INTEGRAL_MODE_P (GET_MODE (cmp_op0)))
-    return NULL_RTX;
-
-  cmp_op1 = XEXP (compare, 1);
-  if (GET_CODE (cmp_op1) == CONST_INT)
-    ;
-  else if (REG_P (cmp_op1) && INTEGRAL_MODE_P (GET_MODE (cmp_op1)))
-    ;
-  else
-    return NULL_RTX;
-
-  /* Are memory references reg+offset?  */
-  if (!rs6000_decompose_offsettable_memref (op0_no_extend, &base0, &offset0))
-    return NULL_RTX;
-
-  if (!rs6000_decompose_offsettable_memref (op1_no_extend, &base1, &offset1))
-    return NULL_RTX;
-
-  /* Are the base pointers the same?  */
-  if (!rtx_equal_p (base0, base1))
-    return NULL_RTX;
-
-  /* Are the two fields aligned on a word/double word boundary?  */
-  if ((offset0 % op0_size) != 0 || (offset1 % op1_size) != 0)
-    return NULL_RTX;
-
-  /* Are the memory locations in different cache lines?  */
-  if ((offset0 / line_size) != (offset1 / line_size))
-    return NULL_RTX;
-
-  start_sequence ();
-  /* We reverse op0/op1 here because we are replacing an if statement, where it
-     jumps to do the ELSE part if the condition is true.  */
-  if (rs6000_emit_int_cmove (dest,
-			     copy_rtx (compare),
-			     force_reg (mode1, copy_rtx (op1)),
-			     force_reg (mode0, copy_rtx (op0)),
-			     ISEL_GENERAL))
-    ret = get_insns ();
-  end_sequence ();
-  return ret;
-}
-
 /* Emit a conditional move: move TRUE_COND to DEST if OP of the
    operands of the last comparison is nonzero/true, FALSE_COND if it
    is zero/false.  Return 0 if the hardware has no such operation.  */
@@ -22631,11 +22506,14 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                to it, will be generated by reload.  */
             return TARGET_POWER ? 5 : 4;
           case TYPE_BRANCH:
-            /* Leave some extra cycles between a compare and its
-               dependent branch, to inhibit expensive mispredicts.  */
+            /* Leave some extra cycles between a compare and its dependent
+               branch, to inhibit expensive mispredicts.  However, for power7,
+               try to schedule the cmp next to the branch so they are in the
+               same dispatch group.  */
 	    if (recog_memoized (dep_insn) && (INSN_CODE (dep_insn) >= 0))
 	      {
-		switch (get_attr_type (dep_insn))
+		enum attr_type dep_type = get_attr_type (dep_insn);
+		switch (dep_type)
 		  {
 		  case TYPE_CMP:
 		  case TYPE_COMPARE:
@@ -22648,6 +22526,11 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 		    if (TARGET_ADJUST_COST_COMPARE_BRANCH >= 0)
 		      return TARGET_ADJUST_COST_COMPARE_BRANCH;
 
+		    else if (rs6000_cpu_attr == CPU_POWER7
+			     && (dep_type == TYPE_CMP
+				 || dep_type == TYPE_COMPARE
+				 || dep_type == TYPE_CR_LOGICAL))
+		      return 0;
 		    else if (rs6000_cpu_attr == CPU_PPC603
 			     || rs6000_cpu_attr == CPU_PPC604
 			     || rs6000_cpu_attr == CPU_PPC604E
@@ -27517,11 +27400,12 @@ static struct rs6000_opt_enum const rs6000_opt_enums[] =
   { "iabs=shift",	TARGET_ENUM_IABS,	(int)IABS_SHIFT },
   { "iabs=isel",	TARGET_ENUM_IABS,	(int)IABS_ISEL },
   { "iabs=bcp8",	TARGET_ENUM_IABS,	(int)IABS_BCP8 },
-  { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_DEFAULT },
+  { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_UNSET },
 
   { "iminmax=none",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_NONE },
   { "iminmax=isel",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_ISEL },
   { "iminmax=bcp8",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_BCP8 },
+  { "iminmax=default",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_UNSET },
 };
 
 

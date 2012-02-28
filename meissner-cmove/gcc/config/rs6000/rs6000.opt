@@ -537,14 +537,6 @@ msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
 
-mcmove-adjacent-memory
-Target Report Var(TARGET_CMOVE_ADJACENT_MEMORY,16) Init(0) Save
-Control whether we load both sides of a conditional move if they are adjacent in memory.
-
-mcmove-adjacent-memory=
-Target Report RejectNegative Joined UInteger Var(TARGET_CMOVE_ADJACENT_MEMORY)
-Modify the line size for figuring out if the two memory items are adjacent.
-
 madjust-cost-compare-branch=
 Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_BRANCH) Init(-1)
 Adjust the cost of a comparison to a branch
@@ -561,7 +553,7 @@ Enum
 Name(rs6000_iabs_t) Type(enum rs6000_iabs_t)
 
 EnumValue
-Enum(rs6000_iabs_t) String(default) Value(IABS_DEFAULT)
+Enum(rs6000_iabs_t) String(default) Value(IABS_UNSET)
 
 EnumValue
 Enum(rs6000_iabs_t) String(none) Value(IABS_NONE)
@@ -583,7 +575,7 @@ Enum
 Name(rs6000_iminmax_t) Type(enum rs6000_iminmax_t)
 
 EnumValue
-Enum(rs6000_iminmax_t) String(default) Value(IMINMAX_DEFAULT)
+Enum(rs6000_iminmax_t) String(default) Value(IMINMAX_UNSET)
 
 EnumValue
 Enum(rs6000_iminmax_t) String(none) Value(IMINMAX_NONE)
