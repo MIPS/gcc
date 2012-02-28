@@ -1,5 +1,14 @@
 2012-02-28  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-constraints.c (get_op_mode): Use mode from the machine
+	description first.
+	(match_reload, process_addr_reg, simplify_operand_subreg)
+	(curr_insn_transform): Put after-reloads before already existing
+	ones.
+	(process_address): Use find_regno_note instead find_reg_note.
+
+2012-02-28  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-constraints.c (check_and_process_move): Process source first
 	for the secondary move.
 	(process_alt_operands): Increase cost for scratch allocations.

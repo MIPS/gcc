@@ -796,14 +796,16 @@ find_mode (rtx *where, enum machine_mode outer_mode, rtx *what)
 static inline enum machine_mode
 get_op_mode (int nop)
 {
-  rtx *loc = curr_id->operand_loc[nop];
-  enum machine_mode mode = GET_MODE (*loc);
+  rtx *loc;
+  enum machine_mode mode = curr_static_id->operand[nop].mode;
 
-  /* Take mode from the operand first.  */
+  /* Take mode from the machine description first.  */
   if (mode != VOIDmode)
     return mode;
-  /* Take mode from the machine description second.  */
-  if ((mode = curr_static_id->operand[nop].mode) != VOIDmode)
+  loc = curr_id->operand_loc[nop];
+  /* Take mode from the operand second.  */
+  mode = GET_MODE (*loc);
+  if (mode != VOIDmode)
     return mode;
   /* Here is a very rare case.  Take mode from the context.  */
   return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
@@ -900,8 +902,9 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
   lra_update_dups (curr_id, ins);
   if (find_reg_note (curr_insn, REG_UNUSED, out_rtx) == NULL_RTX)
     {
-      push_to_sequence (*after);
+      start_sequence ();
       lra_emit_move (out_rtx, new_out_reg);
+      emit_insn (*after);
       *after = get_insns ();
       end_sequence ();
     }
@@ -1250,8 +1253,9 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
       *loc = new_reg;
       if (after != NULL)
 	{
-	  push_to_sequence (*after);
+	  start_sequence ();
 	  lra_emit_move (reg, new_reg);
+	  emit_insn (*after);
 	  *after = get_insns ();
 	  end_sequence ();
 	}
@@ -1297,8 +1301,9 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
       *loc = new_reg;
       if (after != NULL)
 	{
-	  push_to_sequence (*after);
+	  start_sequence ();
 	  lra_emit_move (reg, new_reg);
+	  emit_insn (*after);
 	  *after = get_insns ();
 	  end_sequence ();
 	}
@@ -1374,8 +1379,9 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
 	}
       if (type != OP_IN)
 	{
-	  push_to_sequence (after);
+	  start_sequence ();
 	  lra_emit_move (reg, new_reg);
+	  emit_insn (after);
 	  after = get_insns ();
 	  end_sequence ();
 	}
@@ -2508,13 +2514,13 @@ process_address (int nop, rtx *before, rtx *after)
   change_p = equiv_address_substitution (&ad, addr_loc, mode, as, code);
   if (ad.base_reg_loc != NULL)
     {
-      if (process_addr_reg (ad.base_reg_loc, before,
-			    (ad.base_modify_p
-			     && find_reg_note (curr_insn, REG_DEAD,
-					       *ad.base_reg_loc) == NULL
-			     ? after : NULL),
-			    base_reg_class (mode, as, ad.base_outer_code,
-					    ad.index_code)))
+      if (process_addr_reg
+	  (ad.base_reg_loc, before,
+	   (ad.base_modify_p && REG_P (*ad.base_reg_loc)
+	    && find_regno_note (curr_insn, REG_DEAD,
+				REGNO (*ad.base_reg_loc)) == NULL
+	    ? after : NULL),
+	   base_reg_class (mode, as, ad.base_outer_code, ad.index_code)))
 	change_p = true;
       if (ad.base_reg_loc2 != NULL)
 	*ad.base_reg_loc2 = *ad.base_reg_loc;
@@ -3248,8 +3254,9 @@ curr_insn_transform (void)
 	    {
 	      if (find_reg_note (curr_insn, REG_UNUSED, old) == NULL_RTX)
 		{
-		  push_to_sequence (after);
+		  start_sequence ();
 		  lra_emit_move (old, new_reg);
+		  emit_insn (after);
 		  after = get_insns ();
 		  end_sequence ();
 		}
