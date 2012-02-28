@@ -545,6 +545,14 @@ mcmove-adjacent-memory=
 Target Report RejectNegative Joined UInteger Var(TARGET_CMOVE_ADJACENT_MEMORY)
 Modify the line size for figuring out if the two memory items are adjacent.
 
+madjust-cost-compare-branch=
+Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_BRANCH) Init(-1)
+Adjust the cost of a comparison to a branch
+
+madjust-cost-compare-isel=
+Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_ISEL) Init(-1)
+Adjust the cost of a comparison to an isel instruction
+
 miabs=
 Target RejectNegative Joined Enum(rs6000_iabs_t) Var(rs6000_iabs_method) Init(IABS_UNSET) Save
 -miabs=	Specify how to do integer ABS (default, none, shift, isel, bcp8)

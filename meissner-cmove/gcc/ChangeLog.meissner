@@ -1,3 +1,19 @@
+2012-02-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-madjust-cost-compare-branch): New
+	switch to adjust cost values for compare and branch/isel.
+	(-madjust-cost-compare-isel): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_adjust_cost): If either
+	-madjust-cost-compare-branch or -madjust-cost-compare-isel are
+	used, adjust the cost between the compare and the branch/isel.
+
+	* config/rs6000/rs6000.md (bcp8_<mode>): Change type to branch
+	instead of isel.
+
+	* doc/invoke.texi (RS/6000 & PowerPC options): Update
+	documentation for new switches.
+
 2012-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 184562.

@@ -22633,58 +22633,66 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
           case TYPE_BRANCH:
             /* Leave some extra cycles between a compare and its
                dependent branch, to inhibit expensive mispredicts.  */
-            if ((rs6000_cpu_attr == CPU_PPC603
-                 || rs6000_cpu_attr == CPU_PPC604
-                 || rs6000_cpu_attr == CPU_PPC604E
-                 || rs6000_cpu_attr == CPU_PPC620
-                 || rs6000_cpu_attr == CPU_PPC630
-                 || rs6000_cpu_attr == CPU_PPC750
-                 || rs6000_cpu_attr == CPU_PPC7400
-                 || rs6000_cpu_attr == CPU_PPC7450
-                 || rs6000_cpu_attr == CPU_POWER4
-                 || rs6000_cpu_attr == CPU_POWER5
-		 || rs6000_cpu_attr == CPU_POWER7
-                 || rs6000_cpu_attr == CPU_CELL)
-                && recog_memoized (dep_insn)
-                && (INSN_CODE (dep_insn) >= 0))
+	    if (recog_memoized (dep_insn) && (INSN_CODE (dep_insn) >= 0))
+	      {
+		switch (get_attr_type (dep_insn))
+		  {
+		  case TYPE_CMP:
+		  case TYPE_COMPARE:
+		  case TYPE_DELAYED_COMPARE:
+		  case TYPE_IMUL_COMPARE:
+		  case TYPE_LMUL_COMPARE:
+		  case TYPE_FPCOMPARE:
+		  case TYPE_CR_LOGICAL:
+		  case TYPE_DELAYED_CR:
+		    if (TARGET_ADJUST_COST_COMPARE_BRANCH >= 0)
+		      return TARGET_ADJUST_COST_COMPARE_BRANCH;
 
-              switch (get_attr_type (dep_insn))
-                {
-                case TYPE_CMP:
-                case TYPE_COMPARE:
-                case TYPE_DELAYED_COMPARE:
-                case TYPE_IMUL_COMPARE:
-                case TYPE_LMUL_COMPARE:
-                case TYPE_FPCOMPARE:
-                case TYPE_CR_LOGICAL:
-                case TYPE_DELAYED_CR:
-		  return cost + 2;
-		default:
-		  break;
-		}
-            break;
+		    else if (rs6000_cpu_attr == CPU_PPC603
+			     || rs6000_cpu_attr == CPU_PPC604
+			     || rs6000_cpu_attr == CPU_PPC604E
+			     || rs6000_cpu_attr == CPU_PPC620
+			     || rs6000_cpu_attr == CPU_PPC630
+			     || rs6000_cpu_attr == CPU_PPC750
+			     || rs6000_cpu_attr == CPU_PPC7400
+			     || rs6000_cpu_attr == CPU_PPC7450
+			     || rs6000_cpu_attr == CPU_POWER4
+			     || rs6000_cpu_attr == CPU_POWER5
+			     || rs6000_cpu_attr == CPU_POWER7
+			     || rs6000_cpu_attr == CPU_CELL)
+		      return cost + 2;
+		    break;
+		  default:
+		    break;
+		  }
+	      }
+	    break;
 
           case TYPE_ISEL:
             /* Move the ISEL/BC+8 on power7 further away if possible.  */
-            if (rs6000_cpu_attr == CPU_POWER7
-                && recog_memoized (dep_insn)
-                && (INSN_CODE (dep_insn) >= 0))
+	    if (recog_memoized (dep_insn) && (INSN_CODE (dep_insn) >= 0))
+	      {
+		switch (get_attr_type (dep_insn))
+		  {
+		  case TYPE_CMP:
+		  case TYPE_COMPARE:
+		  case TYPE_DELAYED_COMPARE:
+		  case TYPE_IMUL_COMPARE:
+		  case TYPE_LMUL_COMPARE:
+		  case TYPE_FPCOMPARE:
+		  case TYPE_CR_LOGICAL:
+		  case TYPE_DELAYED_CR:
+		    if (TARGET_ADJUST_COST_COMPARE_ISEL >= 0)
+		      return TARGET_ADJUST_COST_COMPARE_ISEL;
 
-              switch (get_attr_type (dep_insn))
-                {
-                case TYPE_CMP:
-                case TYPE_COMPARE:
-                case TYPE_DELAYED_COMPARE:
-                case TYPE_IMUL_COMPARE:
-                case TYPE_LMUL_COMPARE:
-                case TYPE_FPCOMPARE:
-                case TYPE_CR_LOGICAL:
-                case TYPE_DELAYED_CR:
-		  return cost + 5;
-		default:
-		  break;
-		}
-            break;
+		    else if (rs6000_cpu_attr == CPU_POWER7)
+		      return cost + 5;
+		    break;
+		  default:
+		    break;
+		  }
+	      }
+	    break;
 
           case TYPE_STORE:
           case TYPE_STORE_U:

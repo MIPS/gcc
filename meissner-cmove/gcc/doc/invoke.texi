@@ -824,7 +824,6 @@ See RS/6000 and PowerPC Options.
 -mblock-move-inline-limit=@var{num} @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
--miabs=@var{name} @gol
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
@@ -842,7 +841,10 @@ See RS/6000 and PowerPC Options.
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
 -mcmove-adjacent-memory -mno-cmove-adjacent-memory @gol
--mcmove-adjacent-memory=@var{size}}
+-mcmove-adjacent-memory=@var{size} @gol
+-miabs=@var{name} -miminmax=@var{name} @gol
+-madjust-cost-compare-branch=@var{value} @gol
+-madjust-cost-compare-isel=@var{value}}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -16503,33 +16505,6 @@ This switch enables or disables the generation of ISEL instructions.
 This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
 
-@item -miabs=@var{none/default/shift/isel/bcp8}
-@opindex miabs
-Specify the method to use to optimize integer absolute value.
-
-@option{-miabs=none} tells the compiler to let the machine independent
-code handle absolute value.
-
-@option{-miabs=default} tells the compiler to use the default code
-generation method for absolute value.
-
-@option{-miabs=shift} tells the compiler to use a 3 instruction
-sequence involving shifting, xor, and subtraction to do absolute
-value.  This is the default behavior unless the @option{-misel} option
-is in effect, and both of the @option{-mpopcntd} or @option{-mvsx}
-options are not set.  The power7 system defaults to using
-@option{-miabs=shift} even if @option{-misel} is used.
-
-@option{-miabs=isel} says to generate the ISEL instruction.  You must
-use @option{-misel}, @option{-mpopcntd}, or @option{-mvsx} to use
-@option{-miabs=isel}.  If @option{-misel} is not specified, ISELs are
-only generated for absolute value.  If the @option{-misel} option is
-specified, this is the default behavior.
-
-@option{-miabs=bcp8} says to generate code for absolute value using a
-branch conditional instruction over a move operation, which is
-optimized on some machines.
-
 @item -mspe
 @itemx -mno-spe
 @opindex mspe
@@ -17277,6 +17252,71 @@ line.
 The argument @var{size} is used to override the default of the number
 of bytes that the compiler uses to decide if two fields are adjacent.
 By default, the value @var{16} is used.
+
+@item -miabs=@var{none/default/shift/isel/bcp8}
+@opindex miabs
+Specify the method to use to optimize integer absolute value.
+
+@option{-miabs=none} tells the compiler to let the machine independent
+code handle absolute value.
+
+@option{-miabs=default} tells the compiler to use the default code
+generation method for integer absolute value.
+
+@option{-miabs=shift} tells the compiler to use a 3 instruction
+sequence involving shifting, xor, and subtraction to do absolute
+value.  This is the default behavior unless the @option{-misel} option
+is in effect, and both of the @option{-mpopcntd} or @option{-mvsx}
+options are not set.  The power7 system defaults to using
+@option{-miabs=shift} even if @option{-misel} is used.
+
+@option{-miabs=isel} says to generate the ISEL instruction for integer
+absolute value.  You must use @option{-misel}, @option{-mpopcntd}, or
+@option{-mvsx} to use @option{-miabs=isel}.  If @option{-misel} is not
+specified, ISELs are only generated for absolute value.  If the
+@option{-misel} option is specified, this is the default behavior.
+
+@option{-miabs=bcp8} says to generate code for absolute value using a
+branch conditional instruction over a move operation, which is
+optimized on some machines.
+
+@item -minmmax=@var{none/default/isel/bcp8}
+@opindex miminmax
+Specify the method to use to optimize integer minimum and maximum
+operations.
+
+@option{-miminmax=none} tells the compiler to let the machine
+independent code handle integer minimum and maximum.
+
+@option{-miminmax=default} tells the compiler to use the default code
+generation method for integer minimum and maximum operations.
+
+@option{-miminmax=isel} tells the compiler to generate the ISEL
+instruction.  You must use @option{-misel}, @option{-mpopcntd}, or
+@option{-mvsx} to use @option{-miminmax=isel}.  If @option{-miminmax}
+is not specified, ISELs are only generated for integer minimum and
+maximum.  If the @option{-misel} option is specified, this is the
+default behavior.
+
+@option{-miabs=bcp8} says to generate code for integer minimum and
+maximum using a branch conditional instruction over a move operation,
+which is optimized on some machines.
+
+@item -madjust-cost-compare-branch=@var{value}
+@opindex madjust-cost-compare-branch
+Adjust the cost between a compare instruction and the branch that uses
+the compare.  Larger values will mean that the scheduler will try to
+place more instructions between the compare and the branch
+instruction.  Some machines perform better if the compare is in the
+same dispatch group as the branch, and setting the cost to 0 can help
+on those machines.
+
+@item -madjust-cost-compare-isel=@var{value}
+@opindex madjust-cost-compare-isel
+Adjust the cost between a compare instruction and the ISEL instruction
+that uses the compare.  Larger values will mean that the scheduler
+will try to place more instructions between the compare and the branch
+instruction.
 @end table
 
 @node RX Options
