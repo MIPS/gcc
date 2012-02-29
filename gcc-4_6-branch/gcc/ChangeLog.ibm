@@ -1,3 +1,11 @@
+2012-02-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+
+	PR tree-optimization/52424
+	* tree-ssa-dom.c (dom_opt_leave_block): Push a marker before
+	calling dom_thread_across_edge.
+
 2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 184287 (to get fix for PR 52199).
