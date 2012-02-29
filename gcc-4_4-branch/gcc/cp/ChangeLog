@@ -1,3 +1,31 @@
+2012-01-19  Kai Tietz  <ktietz@redhat.com>
+
+	PR c++/51344
+	* decl2.c (save_template_attributes): Use merge_attributes
+	instead of chaining up via TREE_CHAIN.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50793
+	* tree.c (bot_manip): Propagate AGGR_INIT_ZERO_FIRST.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* init.c (expand_aggr_init_1): Don't zero-initialize virtual
+	bases of a base subobject.
+
+	Backported from 4.6 branch
+	2011-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/48035
+	* init.c (build_zero_init_1): Extracted from build_zero_init.
+	Add FIELD_SIZE argument, if non-NULL and field bit_position
+	as not smaller than that, don't add that field's initializer.
+	Pass DECL_SIZE as last argument to build_zero_init_1
+	for DECL_FIELD_IS_BASE fields.
+	(build_zero_init): Use build_zero_init_1.
+
 2011-07-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* Make-lang.in (cp/decl.o): Depend on pointer-set.h.
