@@ -1,6 +1,6 @@
 // std::messages implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2009, 2010
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2009, 2010, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -84,22 +84,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _S_destroy_c_locale(_M_c_locale_messages); 
     }
 
-  template<typename _CharT>
-    typename messages<_CharT>::catalog 
-    messages<_CharT>::do_open(const basic_string<char>& __s, 
-			      const locale&) const
-    { 
-      // No error checking is done, assume the catalog exists and can
-      // be used.
-      textdomain(__s.c_str());
-      return 0;
-    }
-
-  template<typename _CharT>
-    void    
-    messages<_CharT>::do_close(catalog) const 
-    { }
-
    // messages_byname
    template<typename _CharT>
      messages_byname<_CharT>::messages_byname(const char* __s, size_t __refs)
@@ -126,6 +110,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   this->_S_create_c_locale(this->_M_c_locale_messages, __s); 
 	 }
      }
+
+    template<>
+      typename messages<char>::catalog
+      messages<char>::do_open(const basic_string<char>&,
+			      const locale&) const;
+
+    template<>
+      void
+      messages<char>::do_close(catalog) const;
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+    template<>
+      typename messages<wchar_t>::catalog
+      messages<wchar_t>::do_open(const basic_string<char>&,
+				 const locale&) const;
+
+    template<>
+      void
+      messages<wchar_t>::do_close(catalog) const;
+#endif
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
