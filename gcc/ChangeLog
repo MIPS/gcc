@@ -1,3 +1,18 @@
+2012-03-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-lives.c (pseudos_live_through_calls): New sparseset.
+	(pseudos_live_through_setjumps): Ditto.
+	(check_pseudos_live_through_calls): New function.
+	(process_bb_lives): Use the sparsesets and the function.
+	(lra_create_live_ranges): Allocate and free sparsesets
+	pseudos_live_through_calls and pseudos_live_through_setjumps.
+
+	* lra-constraints.c (check_and_process_move): Try secondary reload
+	for source and destination.
+
+	* jump.c (true_regnum): Use hard_regno for subreg_get_info when
+	lra is in progress.
+
 2012-02-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (get_op_mode): Use mode from the machine

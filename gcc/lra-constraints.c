@@ -1042,11 +1042,11 @@ emit_spill_move (bool to_p, rtx mem_pseudo, rtx val, int code)
 static bool
 check_and_process_move (bool *change_p, bool *sec_mem_p)
 {
-  int regno;
-  rtx set, dest, src, dreg, sr, dr, sreg, new_reg, before, x, scratch_reg;
-  enum reg_class dclass, sclass, xclass, rclass, secondary_class;
+  int sregno, dregno;
+  rtx set, dest, src, dreg, sr, dr, sreg, new_reg, before, scratch_reg;
+  enum reg_class dclass, sclass, secondary_class;
+  enum machine_mode sreg_mode;
   secondary_reload_info sri;
-  bool in_p, temp_assign_p;
 
   *sec_mem_p = *change_p = false;
   if ((set = single_set (curr_insn)) == NULL || side_effects_p (set))
@@ -1081,6 +1081,7 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
        work with such classes through their implementation of
        machine-dependent hooks like secondary_memory_needed.  */
     return false;
+  sreg_mode = GET_MODE (sreg);
   sr = get_equiv_substitution (sreg);
   if (sr != sreg)
     sreg = copy_rtx (sr);
@@ -1100,44 +1101,44 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   sri.prev_sri = NULL;
   sri.icode = CODE_FOR_nothing;
   sri.extra_cost = 0;
-  if (sclass != NO_REGS)
-    {
-      in_p = false;
-      rclass = sclass;
-      x = dreg;
-      xclass = dclass;
-    }
-  else if (dclass != NO_REGS)
-    {
-      in_p = true;
-      rclass = dclass;
-      x = sreg;
-      xclass = sclass;
-    }
-  else
-    return false;
-  temp_assign_p = false;
+  secondary_class = NO_REGS;
   /* Set up hard register for a reload pseudo for hook
      secondary_reload because some targets just ignore pseudos in the
      hook.  */
-  if (xclass != NO_REGS
-      && REG_P (x) && (regno = REGNO (x)) >= new_regno_start
-      && lra_get_regno_hard_regno (regno) < 0)
-    {
-      reg_renumber[regno] = ira_class_hard_regs[xclass][0];
-      temp_assign_p = true;
-    }
-  secondary_class
-    = (enum reg_class) targetm.secondary_reload (in_p, x, (reg_class_t) rclass,
-						 GET_MODE (src), &sri);
-  if (temp_assign_p)
-    reg_renumber [REGNO (x)] = -1;
+  if (dclass != NO_REGS
+      && REG_P (dreg) && (dregno = REGNO (dreg)) >= new_regno_start
+      && lra_get_regno_hard_regno (dregno) < 0)
+    reg_renumber[dregno] = ira_class_hard_regs[dclass][0];
+  else
+    dregno = -1;
+  if (sclass != NO_REGS
+      && REG_P (sreg) && (sregno = REGNO (sreg)) >= new_regno_start
+      && lra_get_regno_hard_regno (sregno) < 0)
+    reg_renumber[sregno] = ira_class_hard_regs[sclass][0];
+  else
+    sregno = -1;
+  if (sclass != NO_REGS)
+    secondary_class
+      = (enum reg_class) targetm.secondary_reload (false, dest,
+						   (reg_class_t) sclass,
+						   GET_MODE (src), &sri);
+  if (sclass == NO_REGS
+      || ((secondary_class != NO_REGS || sri.icode != CODE_FOR_nothing)
+	  && dclass != NO_REGS))
+    secondary_class
+      = (enum reg_class) targetm.secondary_reload (true, sreg,
+						   (reg_class_t) dclass,
+						   sreg_mode, &sri);
+  if (sregno >= 0)
+    reg_renumber [sregno] = -1;
+  if (dregno >= 0)
+    reg_renumber [dregno] = -1;
   if (secondary_class == NO_REGS && sri.icode == CODE_FOR_nothing)
     return false;
   *change_p = true;
   new_reg = NULL_RTX;
   if (secondary_class != NO_REGS)
-    new_reg = lra_create_new_reg_with_unique_value (GET_MODE (sreg), NULL_RTX,
+    new_reg = lra_create_new_reg_with_unique_value (sreg_mode, NULL_RTX,
 						    secondary_class,
 						    "secondary");
   start_sequence ();
@@ -1160,8 +1161,8 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   lra_process_new_insns (curr_insn, before, NULL_RTX, "Inserting the move");
   if (new_reg != NULL_RTX)
     {
-      if (GET_CODE (SET_SRC (set)) == SUBREG)
-	SUBREG_REG (SET_SRC (set)) = new_reg;
+      if (GET_CODE (src) == SUBREG)
+	SUBREG_REG (src) = new_reg;
       else
 	SET_SRC (set) = new_reg;
     }

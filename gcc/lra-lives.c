@@ -69,6 +69,16 @@ static int curr_point;
 /* Pseudos live at current point in the scan.  */
 static sparseset pseudos_live;
 
+/* Pseudos probably living through calls and setjumps.  As setjump is
+   a call too, if a bit in PSEUDOS_LIVE_THROUGH_SETJUMPS is set up
+   then the corresponding bit in PSEUDOS_LIVE_THROUGH_CALLS is set up
+   too.  These data are necessary for cases when only one subreg of a
+   multi-reg pseudo is set up after a call.  So we decide it is
+   probably live when traversing bb backward.  We are sure about
+   living when we see its usage or definition of the pseudo.  */
+static sparseset pseudos_live_through_calls;
+static sparseset pseudos_live_through_setjumps;
+
 /* Set of hard regs (except eliminable ones) currently live.  */
 static HARD_REG_SET hard_regs_live;
 
@@ -466,6 +476,28 @@ lra_setup_reload_pseudo_preferenced_hard_reg (int regno,
     }
 }
 
+/* Check that REGNO living through calls and setjumps, set up conflict
+   regs, and clear corresponding bits in PSEUDOS_LIVE_THROUGH_CALLS and
+   PSEUDOS_LIVE_THROUGH_SETJUMPS.  */
+static inline void
+check_pseudos_live_through_calls (int regno)
+{
+  if (! sparseset_bit_p (pseudos_live_through_calls, regno))
+    return;
+  sparseset_clear_bit (pseudos_live_through_calls, regno);
+  IOR_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs,
+		    call_used_reg_set);
+#ifdef ENABLE_CHECKING
+  lra_reg_info[regno].call_p = true;
+#endif
+  if (! sparseset_bit_p (pseudos_live_through_setjumps, regno))
+    return;
+  sparseset_clear_bit (pseudos_live_through_setjumps, regno);
+  /* Don't allocate pseudos that cross setjmps or any call, if this
+     function receives a nonlocal goto.  */
+  SET_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs);
+}
+
 /* Process insns of the basic block BB to update pseudo live ranges,
    pseudo hard register conflicts.  */
 static void
@@ -480,6 +512,8 @@ process_bb_lives (basic_block bb)
 
   reg_live_out = DF_LR_OUT (bb);
   sparseset_clear (pseudos_live);
+  sparseset_clear (pseudos_live_through_calls);
+  sparseset_clear (pseudos_live_through_setjumps);
   REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_out);
   AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
   AND_COMPL_HARD_REG_SET (hard_regs_live, lra_no_alloc_regs);
@@ -571,7 +605,10 @@ process_bb_lives (basic_block bb)
 	 that are live at the time of the definition.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_IN)
-	  mark_regno_live (reg->regno, reg->biggest_mode);
+	  {
+	    mark_regno_live (reg->regno, reg->biggest_mode);
+	    check_pseudos_live_through_calls (reg->regno);
+	  }
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_IN)
@@ -596,22 +633,13 @@ process_bb_lives (basic_block bb)
 
       if (call_p)
 	{
-	  /* The current set of live pseudos are live across the
-	     call.  */
-	  EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
-	    {
-	      /* Don't allocate pseudos that cross setjmps or any
-		 call, if this function receives a nonlocal goto.  */
-	      if (cfun->has_nonlocal_label
-		  || find_reg_note (curr_insn, REG_SETJMP,
-				    NULL_RTX) != NULL_RTX)
-		SET_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs);
-	      IOR_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs,
-				call_used_reg_set);
-#ifdef ENABLE_CHECKING
-	      lra_reg_info[i].call_p = true;
-#endif
-	    }
+	  sparseset_ior (pseudos_live_through_calls,
+			 pseudos_live_through_calls, pseudos_live);
+	  if (cfun->has_nonlocal_label
+	      || find_reg_note (curr_insn, REG_SETJMP,
+				NULL_RTX) != NULL_RTX)
+	    sparseset_ior (pseudos_live_through_setjumps,
+			   pseudos_live_through_setjumps, pseudos_live);
 	}
       
       incr_curr_point (freq);
@@ -621,7 +649,10 @@ process_bb_lives (basic_block bb)
       /* Mark each used value as live.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_IN)
-	  mark_regno_live (reg->regno, reg->biggest_mode);
+	  {
+	    mark_regno_live (reg->regno, reg->biggest_mode);
+	    check_pseudos_live_through_calls (reg->regno);
+	  }
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_IN)
@@ -711,6 +742,10 @@ process_bb_lives (basic_block bb)
   
   EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
     mark_pseudo_dead (i);
+
+  EXECUTE_IF_SET_IN_SPARSESET (pseudos_live_through_calls, i)
+    if (bitmap_bit_p (DF_LR_IN (bb), i))
+      check_pseudos_live_through_calls (i);
   
   incr_curr_point (freq);
 }
@@ -943,6 +978,8 @@ lra_create_live_ranges (bool all_p)
     }
   lra_free_copies ();
   pseudos_live = sparseset_alloc (max_regno);
+  pseudos_live_through_calls = sparseset_alloc (max_regno);
+  pseudos_live_through_setjumps = sparseset_alloc (max_regno);
   start_living = sparseset_alloc (max_regno);
   start_dying = sparseset_alloc (max_regno);
   dead_set = sparseset_alloc (max_regno);
@@ -961,6 +998,8 @@ lra_create_live_ranges (bool all_p)
   sparseset_free (dead_set);
   sparseset_free (start_dying);
   sparseset_free (start_living);
+  sparseset_free (pseudos_live_through_calls);
+  sparseset_free (pseudos_live_through_setjumps);
   sparseset_free (pseudos_live);
   compress_live_ranges ();
 }
