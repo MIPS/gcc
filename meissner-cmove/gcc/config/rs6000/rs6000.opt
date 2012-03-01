@@ -545,6 +545,14 @@ madjust-cost-compare-isel=
 Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_ISEL) Init(-1)
 Adjust the cost of a comparison to an isel instruction
 
+madjust-cost-power7-branch
+Target Undocumented Var(TARGET_ADJUST_COST_POWER7_BRANCH) Init(1) Save
+; Enable/disable setting branch cost to 0 on power7 between cmp and branch
+
+madjust-cost-power7-isel
+Target Undocumented Var(TARGET_ADJUST_COST_POWER7_ISEL) Init(1) Save
+; Enable/disable increasing branch cost to 0 on power7 between cmp and isel
+
 miabs=
 Target RejectNegative Joined Enum(rs6000_iabs_t) Var(rs6000_iabs_method) Init(IABS_UNSET) Save
 -miabs=	Specify how to do integer ABS (default, none, shift, isel, bcp8)

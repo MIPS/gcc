@@ -22527,6 +22527,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 		      return TARGET_ADJUST_COST_COMPARE_BRANCH;
 
 		    else if (rs6000_cpu_attr == CPU_POWER7
+			     && TARGET_ADJUST_COST_POWER7_BRANCH
 			     && (dep_type == TYPE_CMP
 				 || dep_type == TYPE_COMPARE
 				 || dep_type == TYPE_CR_LOGICAL))
@@ -22568,7 +22569,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 		    if (TARGET_ADJUST_COST_COMPARE_ISEL >= 0)
 		      return TARGET_ADJUST_COST_COMPARE_ISEL;
 
-		    else if (rs6000_cpu_attr == CPU_POWER7)
+		    else if (rs6000_cpu_attr == CPU_POWER7
+			     && TARGET_ADJUST_COST_POWER7_ISEL)
 		      return cost + 5;
 		    break;
 		  default:
