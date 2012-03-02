@@ -3624,6 +3624,8 @@ finish_omp_clauses (tree clauses)
 	      error ("num_threads expression must be integral");
 	      remove = true;
 	    }
+	  else
+	    OMP_CLAUSE_NUM_THREADS_EXPR (c) = mark_rvalue_use (t);
 	  break;
 
 	case OMP_CLAUSE_SCHEDULE:
@@ -3638,6 +3640,8 @@ finish_omp_clauses (tree clauses)
 	      error ("schedule chunk size expression must be integral");
 	      remove = true;
 	    }
+	  else
+	    OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = mark_rvalue_use (t);
 	  break;
 
 	case OMP_CLAUSE_NOWAIT:
