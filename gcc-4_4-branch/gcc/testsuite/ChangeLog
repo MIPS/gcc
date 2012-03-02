@@ -1,3 +1,13 @@
+2010-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/45695
+	* gcc.c-torture/execute/pr45695.c: New test.
+
+2010-08-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/44858
+	* gcc.c-torture/execute/pr44858.c: New test.
+
 2012-02-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR c/52290
