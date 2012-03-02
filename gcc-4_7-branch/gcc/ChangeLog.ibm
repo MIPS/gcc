@@ -1,0 +1,6 @@
+2012-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from gcc-4_7-branch, subversion id 184816.
+
+	* REVISION: New file, track merged revision file.
+
