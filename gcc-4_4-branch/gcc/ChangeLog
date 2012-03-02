@@ -1,3 +1,9 @@
+2010-12-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/46885
+	* tree-parloops.c (canonicalize_loop_ivs): Use gsi_last_bb                                                                                 
+	instead of gsi_last_nondebug_bb.
+
 2010-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/45695

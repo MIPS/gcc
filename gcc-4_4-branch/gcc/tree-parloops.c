@@ -1505,7 +1505,7 @@ canonicalize_loop_ivs (struct loop *loop, htab_t reduction_list, tree *nit)
 	gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
     }
 
-  gsi = gsi_last_nondebug_bb (loop->latch);
+  gsi = gsi_last_bb (loop->latch);
   create_iv (build_int_cst_type (type, 0), build_int_cst (type, 1), NULL_TREE,
 	     loop, &gsi, true, &var_before, NULL);
 
