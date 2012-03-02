@@ -1,3 +1,9 @@
+2009-12-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/42229
+	* cfgloopmanip.c (remove_path): Avoid cancelling loops
+	twice.
+
 2009-06-30  Wei Guozhi  <carrot@google.com>
 
 	* config/i386/i386.c (memory_address_length): Check existence of base
