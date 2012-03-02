@@ -1184,11 +1184,11 @@ check_operand_nalternatives (tree outputs, tree inputs)
 static bool
 check_unique_operand_names (tree outputs, tree inputs, tree labels)
 {
-  tree i, j;
+  tree i, j, i_name = NULL_TREE;
 
   for (i = outputs; i ; i = TREE_CHAIN (i))
     {
-      tree i_name = TREE_PURPOSE (TREE_PURPOSE (i));
+      i_name = TREE_PURPOSE (TREE_PURPOSE (i));
       if (! i_name)
 	continue;
 
@@ -1199,7 +1199,7 @@ check_unique_operand_names (tree outputs, tree inputs, tree labels)
 
   for (i = inputs; i ; i = TREE_CHAIN (i))
     {
-      tree i_name = TREE_PURPOSE (TREE_PURPOSE (i));
+      i_name = TREE_PURPOSE (TREE_PURPOSE (i));
       if (! i_name)
 	continue;
 
@@ -1213,7 +1213,7 @@ check_unique_operand_names (tree outputs, tree inputs, tree labels)
 
   for (i = labels; i ; i = TREE_CHAIN (i))
     {
-      tree i_name = TREE_PURPOSE (i);
+      i_name = TREE_PURPOSE (i);
       if (! i_name)
 	continue;
 
@@ -1228,8 +1228,7 @@ check_unique_operand_names (tree outputs, tree inputs, tree labels)
   return true;
 
  failure:
-  error ("duplicate asm operand name %qs",
-	 TREE_STRING_POINTER (TREE_PURPOSE (TREE_PURPOSE (i))));
+  error ("duplicate asm operand name %qs", TREE_STRING_POINTER (i_name));
   return false;
 }
 
