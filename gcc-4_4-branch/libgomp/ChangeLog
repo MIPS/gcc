@@ -1,3 +1,32 @@
+2011-08-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/42041
+	PR fortran/46752
+	* task.c (omp_in_final): New function.
+	(gomp_init_task): Initialize final_task.
+	(GOMP_task): Remove unused attribute from flags.  Handle final
+	tasks.
+	(GOMP_taskyield): New function.
+	(omp_in_final): Return true if if (false) or final (true) task
+	or descendant of final (true).
+	* fortran.c (omp_in_final_): New function.
+	* libgomp.map (OMP_3.1): Export omp_in_final and omp_in_final_.
+	(GOMP_3.0): Export GOMP_taskyield.
+	* env.c (gomp_nthreads_var_list, gomp_nthreads_var_list_len): New
+	variables.
+	(parse_unsigned_long_list): New function.
+	(initialize_env): Use it for OMP_NUM_THREADS.  Call parse_boolean
+	with "OMP_PROC_BIND".  If OMP_PROC_BIND=true, call gomp_init_affinity
+	even if parse_affinity returned false.
+	* config/linux/affinity.c (gomp_init_affinity): Handle
+	gomp_cpu_affinity_len == 0.
+	* libgomp_g.h (GOMP_taskyield): New prototype.
+	* libgomp.h (struct gomp_task): Add final_task field.
+	(gomp_nthreads_var_list, gomp_nthreads_var_list_len): New externs.
+	* team.c (gomp_team_start): Override new task's nthreads_var icv
+	if list form OMP_NUM_THREADS has been used and it has value for
+	the new nesting level.
+
 2011-05-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/48894

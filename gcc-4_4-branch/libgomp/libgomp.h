@@ -226,6 +226,7 @@ extern gomp_mutex_t gomp_remaining_threads_lock;
 extern unsigned long gomp_max_active_levels_var;
 extern unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
 extern unsigned long gomp_available_cpus, gomp_managed_threads;
+extern unsigned long *gomp_nthreads_var_list, gomp_nthreads_var_list_len;
 
 enum gomp_task_kind
 {
@@ -251,6 +252,7 @@ struct gomp_task
   enum gomp_task_kind kind;
   bool in_taskwait;
   bool in_tied_task;
+  bool final_task;
   gomp_sem_t taskwait_sem;
 };
 
