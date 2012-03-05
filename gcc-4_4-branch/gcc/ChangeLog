@@ -1,3 +1,20 @@
+2011-11-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/f16cintrin: Remove extra _X86INTRIN_H_INCLUDED check.
+
+2011-11-06  Quentin Neill  <quentin.neill@amd.com>
+
+	Fix r180999, update ChangeLog
+	* config.gcc: Add f16cintrin.h.
+	* config/i386/f16cintrin.h: Add missing endif.
+
+2011-11-05  Quentin Neill  <quentin.neill@amd.com>
+
+	Piledriver f16cintrin.h fix.
+	* config/i386/f16cintrin.h: Contents moved from immintrin.h.
+	* config/i386/immintrin.h: Include f16cintrin.h.
+	* config.gcc (i[34567]86-*-*, x86_64-*-*): Add f16cintrin.h.
+
 2012-01-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/51767
