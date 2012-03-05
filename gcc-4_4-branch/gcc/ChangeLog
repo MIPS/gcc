@@ -1,3 +1,9 @@
+2011-12-19  Quentin Neill  <quentin.neill@amd.com>
+
+	PR target/48743
+	* config/i386/driver-i386.c (host_detect_local_cpu): Also check
+	family to distinguish PROCESSOR_ATHLON.
+
 2011-11-07  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/f16cintrin: Remove extra _X86INTRIN_H_INCLUDED check.
