@@ -1,3 +1,10 @@
+2012-03-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (simplify_operand_subreg): Treat out subreg
+	operand which is a part of the pseudo as in/out one.
+	(get_live_on_other_edges): Move lower and add non-input operands
+	of jump to the bitmap.
+
 2012-03-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-lives.c (pseudos_live_through_calls): New sparseset.

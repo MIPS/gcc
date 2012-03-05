@@ -1371,7 +1371,8 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
 	= (enum reg_class) targetm.preferred_reload_class (reg, ALL_REGS);
 
       if (get_reload_reg (type, reg_mode, reg, rclass, "subreg reg", &new_reg)
-	  && type != OP_OUT)
+	  && (type != OP_OUT
+	      || GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)))
 	{
 	  push_to_sequence (before);
 	  lra_emit_move (new_reg, reg);
@@ -4214,21 +4215,6 @@ add_to_inherit (int regno, rtx insns)
   to_inherit[to_inherit_num++].insns = insns;
 }
 
-/* Set up RES by registers living on edges FROM except edege (FROM,
-   TO).  */
-static void
-get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
-{
-  edge e;
-  edge_iterator ei;
-
-  gcc_assert (to != NULL);
-  bitmap_clear (res);
-  FOR_EACH_EDGE (e, ei, from->succs)
-    if (e->dest != to)
-      bitmap_ior_into (res, DF_LR_IN (e->dest));
-}
-	
 /* Return first (if FIRST_P) or last non-debug insn in basic block BB.
    Return null if there are no non-debug insns in the block.  */
 static rtx
@@ -4245,6 +4231,31 @@ get_non_debug_insn (bool first_p, basic_block bb)
   return insn;
 }
 
+/* Set up RES by registers living on edges FROM except edge (FROM, TO)
+   or by registers set up in a jump insn in BB FROM.  */
+static void
+get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
+{
+  int regno;
+  rtx last;
+  struct lra_insn_reg *reg;
+  edge e;
+  edge_iterator ei;
+
+  gcc_assert (to != NULL);
+  bitmap_clear (res);
+  FOR_EACH_EDGE (e, ei, from->succs)
+    if (e->dest != to)
+      bitmap_ior_into (res, DF_LR_IN (e->dest));
+  if ((last = get_non_debug_insn (false, from)) == NULL_RTX || ! JUMP_P (last))
+    return;
+  curr_id = lra_get_insn_recog_data (last);
+  for (reg = curr_id->regs; reg != NULL; reg = reg->next)
+    if (reg->type != OP_IN
+	&& (regno = reg->regno) >= FIRST_PSEUDO_REGISTER)
+      bitmap_set_bit (res, regno);
+}
+	
 /* Used as a temporary results of some bitmap calculations.  */
 static bitmap_head temp_bitmap;
 
