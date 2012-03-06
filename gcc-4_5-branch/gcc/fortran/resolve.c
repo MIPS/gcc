@@ -1211,7 +1211,7 @@ resolve_intrinsic (gfc_symbol *sym, locus *loc)
      gfc_find_subroutine directly to check whether it is a function or
      subroutine.  */
 
-  if ((isym = gfc_find_function (sym->name)))
+  if (!sym->attr.subroutine  && (isym = gfc_find_function (sym->name)))
     {
       if (sym->ts.type != BT_UNKNOWN && gfc_option.warn_surprising
 	  && !sym->attr.implicit_type)
@@ -6172,10 +6172,19 @@ gfc_expr_to_initialize (gfc_expr *e)
 	for (i = 0; i < ref->u.ar.dimen; i++)
 	  ref->u.ar.start[i] = ref->u.ar.end[i] = ref->u.ar.stride[i] = NULL;
 
-	result->rank = ref->u.ar.dimen;
 	break;
       }
 
+  if (result->shape != NULL)
+    {
+      for (i = 0; i < result->rank; i++)
+	mpz_clear (result->shape[i]);
+      gfc_free (result->shape);
+      result->shape = NULL;
+    }
+
+  /* Recalculate rank, shape, etc.  */
+  gfc_resolve_expr (result);
   return result;
 }
 
@@ -6402,7 +6411,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 	}
     }
 
-  if (pointer || dimension == 0)
+  if (dimension == 0)
     return SUCCESS;
 
   /* Make sure the next-to-last reference node is an array specification.  */

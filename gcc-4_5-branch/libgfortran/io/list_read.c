@@ -353,12 +353,7 @@ eat_separator (st_parameter_dt *dtp)
 	      if (c == '!')
 		{
 		  eat_line (dtp);
-		  c = next_char (dtp);
-		  if (c == '!')
-		    {
-		      eat_line (dtp);
-		      c = next_char (dtp);
-		    }
+		  c = '\n';
 		}
 	    }
 	  while (c == '\n' || c == '\r' || c == ' ' || c == '\t');
@@ -2078,7 +2073,6 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		      do not allow excess data to be processed.  */
 		  if (is_array_section == 1
 		      || !(compile_options.allow_std & GFC_STD_GNU)
-		      || !dtp->u.p.ionml->touched
 		      || dtp->u.p.ionml->type == GFC_DTYPE_DERIVED)
 		    ls[dim].end = ls[dim].start;
 		  else

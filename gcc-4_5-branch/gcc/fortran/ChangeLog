@@ -1,3 +1,67 @@
+2012-03-06  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2012-03-02  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52452
+	* resolve.c (resolve_intrinsic): Don't search for a
+	function if we know that it is a subroutine.
+
+2012-02-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52335
+	* io.c (gfc_match_open): Remove bogus F2003 DELIM= check.
+
+2012-01-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52022
+	* trans-expr.c (gfc_conv_procedure_call): Fix passing
+	of functions, which return allocatables.
+
+2011-10-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50659
+	* expr.c (replace_symbol): Only do replacement if the symbol is a dummy.
+
+2011-10-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50273
+	* trans-common.c (translate_common): Fix -Walign-commons check.
+
+2011-09-01  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50050
+	* resolve.c (gfc_expr_to_initialize): Don't copy rank.
+	Free copied shape.  Recalculate shape and rank.
+
+2011-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50163
+	* check_init_expr (check_init_expr): Return when an error occured.
+
+2011-08-16  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/42051
+	PR fortran/43896
+	PR fortran/49962
+	* trans-expr.c (gfc_conv_derived_to_class): Handle array-valued
+	functions with CLASS formal arguments.
+
+2011-07-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49708
+	* resolve.c (resolve_allocate_expr): Fix diagnostics for pointers.
+
+2011-06-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/45786
+	* interface.c (gfc_equivalent_op):  New function.
+	(gfc_check_interface):  Use gfc_equivalent_op instead
+	of switch statement.
+	* decl.c (access_attr_decl):  Also set access to an
+	equivalent operator.
+
 2011-04-28  Release Manager
 
 	* GCC 4.5.3 released.

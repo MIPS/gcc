@@ -627,6 +627,17 @@ sparc_handle_option (size_t code, const char *arg, int value ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Specify default optimizations.  */
+
+void
+sparc_optimization_options (int l ATTRIBUTE_UNUSED, int s ATTRIBUTE_UNUSED)
+{
+  /* Disable save slot sharing for call-clobbered registers by default.
+     The IRA sharing algorithm works on single registers only and this
+     pessimizes for double floating-point registers.  */
+  flag_ira_share_save_slots = 0;
+}
+
 /* Validate and override various options, and do some machine dependent
    initialization.  */
 
@@ -4225,8 +4236,9 @@ sparc_expand_prologue (void)
       else if (actual_fsize <= 8192)
 	{
 	  insn = emit_insn (gen_stack_pointer_inc (GEN_INT (-4096)));
-	  /* %sp is still the CFA register.  */
 	  RTX_FRAME_RELATED_P (insn) = 1;
+
+	  /* %sp is still the CFA register.  */
 	  insn
 	    = emit_insn (gen_stack_pointer_inc (GEN_INT (4096-actual_fsize)));
 	}
@@ -4248,8 +4260,18 @@ sparc_expand_prologue (void)
       else if (actual_fsize <= 8192)
 	{
 	  insn = emit_insn (gen_save_register_window (GEN_INT (-4096)));
+
 	  /* %sp is not the CFA register anymore.  */
 	  emit_insn (gen_stack_pointer_inc (GEN_INT (4096-actual_fsize)));
+
+	  /* Make sure no %fp-based store is issued until after the frame is
+	     established.  The offset between the frame pointer and the stack
+	     pointer is calculated relative to the value of the stack pointer
+	     at the end of the function prologue, and moving instructions that
+	     access the stack via the frame pointer between the instructions
+	     that decrement the stack pointer could result in accessing the
+	     register window save area, which is volatile.  */
+	  emit_insn (gen_frame_blockage ());
 	}
       else
 	{
@@ -4421,18 +4443,20 @@ output_return (rtx insn)
 	     machinery occupies the delay slot.  */
 	  gcc_assert (! final_sequence);
 
-	  if (! flag_delayed_branch)
-	    fputs ("\tadd\t%fp, %g1, %fp\n", asm_out_file);
+          if (flag_delayed_branch)
+	    {
+	      if (TARGET_V9)
+		fputs ("\treturn\t%i7+8\n", asm_out_file);
+	      else
+		fputs ("\trestore\n\tjmp\t%o7+8\n", asm_out_file);
 
-	  if (TARGET_V9)
-	    fputs ("\treturn\t%i7+8\n", asm_out_file);
+	      fputs ("\t add\t%sp, %g1, %sp\n", asm_out_file);
+	    }
 	  else
-	    fputs ("\trestore\n\tjmp\t%o7+8\n", asm_out_file);
-
-	  if (flag_delayed_branch)
-	    fputs ("\t add\t%sp, %g1, %sp\n", asm_out_file);
-	  else
-	    fputs ("\t nop\n", asm_out_file);
+	    {
+	      fputs ("\trestore\n\tadd\t%sp, %g1, %sp\n", asm_out_file);
+	      fputs ("\tjmp\t%o7+8\n\t nop\n", asm_out_file);
+	    }
 	}
       else if (final_sequence)
 	{

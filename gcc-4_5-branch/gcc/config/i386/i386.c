@@ -11872,6 +11872,13 @@ print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case 'H':
+	  if (!offsettable_memref_p (x))
+	    {
+	      output_operand_lossage ("operand is not an offsettable memory "
+				      "reference, invalid operand "
+				      "code 'H'");
+	      return;
+	    }
 	  /* It doesn't actually matter what mode we use here, as we're
 	     only going to use this for printing.  */
 	  x = adjust_address_nv (x, DImode, 8);
@@ -16200,11 +16207,15 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
     }
   else if (TARGET_XOP)
     {
-      rtx pcmov = gen_rtx_SET (mode, dest,
-			       gen_rtx_IF_THEN_ELSE (mode, cmp,
-						     op_true,
-						     op_false));
-      emit_insn (pcmov);
+      op_true = force_reg (mode, op_true);
+
+      if (!nonimmediate_operand (op_false, mode))
+	op_false = force_reg (mode, op_false);
+
+      emit_insn (gen_rtx_SET (mode, dest,
+			      gen_rtx_IF_THEN_ELSE (mode, cmp,
+						    op_true,
+						    op_false)));
     }
   else
     {
@@ -30664,6 +30675,11 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 
 #undef TARGET_ASM_CODE_END
 #define TARGET_ASM_CODE_END ix86_code_end
+
+#if TARGET_MACHO
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS darwin_rename_builtins
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

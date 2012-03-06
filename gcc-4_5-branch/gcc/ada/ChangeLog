@@ -1,3 +1,18 @@
+2012-01-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/46192
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <object>: In the case of a
+	renaming, preserve the volatileness through the indirection, if any.
+
+2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (addressable_p) <COMPONENT_REF>: Fix thinko.
+
+2011-07-14  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR ada/46350
+	* s-taprop-hpux-dce.adb (Abort_Task): Remove unnecessary cast.
+
 2011-04-28  Release Manager
 
 	* GCC 4.5.3 released.

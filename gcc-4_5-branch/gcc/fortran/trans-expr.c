@@ -2638,12 +2638,14 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
   ss = gfc_walk_expr (e);
   if (ss == gfc_ss_terminator)
     {
+      parmse->ss = NULL;
       gfc_conv_expr_reference (parmse, e);
       tmp = fold_convert (TREE_TYPE (ctree), parmse->expr);
       gfc_add_modify (&parmse->pre, ctree, tmp);
     }
   else
     {
+      parmse->ss = ss;
       gfc_conv_expr (parmse, e);
       gfc_add_modify (&parmse->pre, ctree, parmse->expr);
     }
@@ -3035,7 +3037,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			      && e->symtree->n.sym->attr.dummy))
 			  || (e->expr_type == EXPR_VARIABLE
 			      && gfc_is_proc_ptr_comp (e, NULL))
-			  || fsym->attr.allocatable))
+			  || (fsym->attr.allocatable
+			      && fsym->attr.flavor != FL_PROCEDURE)))
 		    {
 		      /* Scalar pointer dummy args require an extra level of
 			 indirection. The null pointer already contains
