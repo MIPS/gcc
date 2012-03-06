@@ -1,3 +1,141 @@
+2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	PR target/50310
+	* config/rs6000/vector.md (vector_uneq<mode>): Add support for
+	UNEQ, LTGT, ORDERED, and UNORDERED IEEE vector comparisons.
+	(vector_ltgt<mode>): Likewise.
+	(vector_ordered<mode>): Likewise.
+	(vector_unordered<mode>): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_vector_compare_inner):
+	Likewise.
+
+2012-03-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline
+	2012-03-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/52408
+	* config/pa/pa.md (zvdep_imm32): Change type of variable x from int to
+	unsigned HOST_WIDE_INT.
+	(zvdep_imm64): Likewise.
+	(vdepi_ior): Change type of variable x from int to HOST_WIDE_INT.
+	(vdepi_and): Likewise.
+	Likewise for unamed 64-bit patterns.
+	* config/pa/predicates.md (lhs_lshift_cint_operand): Update comment.
+
+2012-03-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/52425
+	Backport from mainline
+	2011-05-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_delegitimize_address): Handle
+	UNSPEC_MOVE_PIC pattern.
+
+2012-03-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2012-03-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_set_<mode>): Reorder operands.
+
+2012-03-02  Bill Schmidt <wschmidt@linux.vnet.ibm.com>
+	    Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/50031
+	PR tree-optimization/50969
+	* targhooks.c (default_builtin_vectorization_cost): Handle
+	vec_promote_demote.
+	* target.h (enum vect_cost_for_stmt): Add vec_promote_demote.
+	* tree-vect-loop.c (vect_get_single_scalar_iteraion_cost): Handle
+	all types of reduction and pattern statements.
+	(vect_estimate_min_profitable_iters): Likewise.
+	* tree-vect-stmts.c (vect_model_promotion_demotion_cost): New function.
+	(vect_model_store_cost): Use vec_perm rather than vector_stmt for
+	statement cost.
+	(vect_model_load_cost): Likewise.
+	(vect_get_load_cost): Likewise; add dump logic for explicit realigns.
+	(vectorizable_type_demotion): Call vect_model_promotion_demotion_cost.
+	(vectorizable_type_promotion): Likewise.
+	* config/spu/spu.c (spu_builtin_vectorization_cost): Handle
+	vec_promote_demote.
+	* config/i386/i386.c (ix86_builtin_vectorization_cost): Likewise.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorization_cost): Update
+	vec_perm for VSX and handle vec_promote_demote.
+
+2012-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.6.4.
+	* DEV-PHASE: Set to prerelease.
+
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-02-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2012-02-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-11-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/51118
+	* fold-const.c (fold_checksum_tree): Check for TS_TYPED structure
+	before using TREE_TYPE accessor on expr.
+
+2012-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from trunk
+	2012-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/52286
+	* fold-const.c (fold_binary_loc): For (X & C1) | C2
+	optimization use double_int_to_tree instead of build_int_cst_wide,
+	rewrite to use double_int vars.
+
+2012-02-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/52290
+	* c-decl.c (start_function): Exit early if decl1 is not FUNTION_DECL.
+
+2012-02-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52330
+	* config/i386/i386.c (ix86_print_operand) <case 'H'>: Error out if x
+	is not offsettable memory reference.
+
+2012-02-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/52294
+	* thumb2.md (thumb2_shiftsi3_short): Split register and
+	immediate shifts.  For register shifts tie operands 0 and 1.
+	(peephole2 for above): Check that register-controlled shifts
+	have suitably tied operands.
+
+2012-02-21  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("fixuns_trunc<mode>si2"): Replace
+	TARGET_HARD_FLOAT with TARGET_HARD_DFP.
+
+2012-02-20  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/52238
+	* stor-layout.c (place_field): Handle desired_align for
+	ms-bitfields, too.
+
+2012-02-20  Kai Tietz  <ktietz@redhat.com>
+
+	PR libstdc++/52300
+	* gthr.h (GTHREAD_USE_WEAK): Define as zero for mingw.
+
+2012-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/52260
+	* dwarf2out.c (copy_decls_walk): Fill in *slot before traversing
+	children with clone_tree_hash, not after it.
+
 2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
@@ -3654,7 +3792,8 @@
 	PR lto/47497
 	* lto-symtab.c (lto_cgraph_replace_node): Do not set thunk.alias.
 	(lto_symtab_merge_cgraph_nodes_1): Update thunk.alias pointers here.
-	* cgraph.h (cgraph_same_body_alias, cgraph_add_thunk): Add node pointers.
+	* cgraph.h (cgraph_same_body_alias, cgraph_add_thunk): Add node
+	pointers.
 	* cgraph.c (cgraph_same_body_alias_1, cgraph_same_body_alias,
 	cgraph_add_thunk): Add node pointers.
 	* lto-cgraph.c (lto_output_node): Verify that thunks&aliases are

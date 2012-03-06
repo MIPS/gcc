@@ -1,6 +1,7 @@
-// Profiling set/multiset implementation -*- C++ -*-
+// { dg-do compile }
+// { dg-options "-std=gnu++0x" }
 
-// Copyright (C) 2009 Free Software Foundation, Inc.
+// Copyright (C) 2012 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -12,24 +13,16 @@
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
-// Under Section 7 of GPL version 3, you are granted additional
-// permissions described in the GCC Runtime Library Exception, version
-// 3.1, as published by the Free Software Foundation.
-
+//
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-/** @file profile/set
- *  This file is a GNU profile extension to the Standard C++ Library.
- */
+#include <unordered_set>
 
-#ifndef _GLIBCXX_PROFILE_SET
-#define _GLIBCXX_PROFILE_SET 1
-
-#include <set>
-#include <profile/set.h>
-#include <profile/multiset.h>
-
-#endif
+// libstdc++/52309
+struct value {};
+struct hash { std::size_t operator()(const value&) const; };
+bool operator==(value const&, value const&);
+std::unordered_set<value, hash> set;
+bool z = (set == set);
