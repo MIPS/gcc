@@ -1,3 +1,40 @@
+2012-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/52132
+	* reg-stack.c (subst_stack_regs_in_debug_insn): Don't use
+	get_true_reg.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/52165
+	* var-tracking.c (emit_note_insn_var_location): If
+	EMIT_NOTE_BEFORE_INSN and insn is NOTE_INSN_CALL_ARG_LOCATION,
+	emit it before next non-NOTE_INSN_CALL_ARG_LOCATION
+	non-NOTE_DURING_CALL_P insn.
+
+2012-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (main): Don't look for lto-wrapper or lto-wrapper
+	or LTOPLUGINSONAME if have_c.
+
+2012-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/51722
+	* dwarf2out.c (dwarf2out_start_source_file, dwarf2out_define,
+	dwarf2out_undef): Allocate e.info using ggc_strdup instead
+	of xstrdup.
+	(output_macinfo_op): Don't ggc_strdup fd->filename.
+	(optimize_macinfo_range): Allocate grp_name using XALLOCAVEC,
+	then ggc_strdup it.  Don't free inc->info or cur->info.
+	(output_macinfo): Don't free ref->info or file->info.
+
+2012-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51683
+	* tree-ssa-propagate.c (substitute_and_fold): Don't optimize away
+	calls with side-effects.
+	* tree-ssa-ccp.c (ccp_fold_stmt): Likewise.
+
 2012-03-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	Backport from mainline
