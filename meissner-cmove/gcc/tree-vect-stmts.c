@@ -4099,9 +4099,8 @@ vect_gen_perm_mask (tree vectype, unsigned char *sel)
   if (!can_vec_perm_p (TYPE_MODE (vectype), false, sel))
     return NULL;
 
-  mask_elt_type
-    = lang_hooks.types.type_for_size
-    (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (vectype))), 1);
+  mask_elt_type = lang_hooks.types.type_for_mode
+		    (int_mode_for_mode (TYPE_MODE (TREE_TYPE (vectype))), 1);
   mask_type = get_vectype_for_scalar_type (mask_elt_type);
 
   mask_vec = NULL;
@@ -4659,7 +4658,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
      nested within an outer-loop that is being vectorized.  */
 
   if (nested_in_vect_loop
-      && (TREE_INT_CST_LOW (STMT_VINFO_DR_STEP (stmt_info))
+      && (TREE_INT_CST_LOW (DR_STEP (dr))
 	  % GET_MODE_SIZE (TYPE_MODE (vectype)) != 0))
     {
       gcc_assert (alignment_support_scheme != dr_explicit_realign_optimized);

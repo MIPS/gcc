@@ -1,3 +1,8 @@
+2012-03-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 185061.
+	* REVISION: Update subversion id.
+
 2012-03-01  Michael Meissner  <meissner@the-meissners.org>
 
 	* config/rs6000/rs6000.opt (-madjust-cost-power7-branch): New
