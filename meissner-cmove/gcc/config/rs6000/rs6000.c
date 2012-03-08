@@ -22511,7 +22511,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
             /* Move the ISEL/BC+8 on power7 further away if possible.  */
 	    if (recog_memoized (dep_insn) && (INSN_CODE (dep_insn) >= 0))
 	      {
-		switch (get_attr_type (dep_insn))
+		enum attr_type dep_type = get_attr_type (dep_insn);
+		switch (dep_type)
 		  {
 		  case TYPE_CMP:
 		  case TYPE_COMPARE:
@@ -22521,6 +22522,22 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 		  case TYPE_FPCOMPARE:
 		  case TYPE_CR_LOGICAL:
 		  case TYPE_DELAYED_CR:
+
+		    /* If this is a BC+8, treat it as a branch, instead
+		       of isel.  */
+		    if (rs6000_cpu_attr == CPU_POWER7
+			&& get_attr_isel_type (dep_insn) == ISEL_TYPE_BCP8)
+		      {
+			if (TARGET_ADJUST_COST_COMPARE_BRANCH >= 0)
+			  return TARGET_ADJUST_COST_COMPARE_BRANCH;
+
+			else if (TARGET_ADJUST_COST_POWER7_BRANCH
+				 && (dep_type == TYPE_CMP
+				     || dep_type == TYPE_COMPARE
+				     || dep_type == TYPE_CR_LOGICAL))
+			  return 0;
+		      }
+
 		    if (TARGET_ADJUST_COST_COMPARE_ISEL >= 0)
 		      return TARGET_ADJUST_COST_COMPARE_ISEL;
 

@@ -1,3 +1,15 @@
+2012-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/power7.md (power7-integer): Remove isel.
+	(power7-isel): New reservation, isel takes 4 cycles on power7.
+
+	* config/rs6000/rs6000.c (rs6000_adjust_cost): Add support for
+	differentiating a real ISEL from a bc+8 scheduled like an ISEL.
+
+	* config/rs6000/rs6000.md (isel_type): New attribute to
+	distinguish between isel and bc+8.
+	(bcp8_<mode>): Set type to be isel on power7, define isel_type.
+
 2012-03-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 185061.
