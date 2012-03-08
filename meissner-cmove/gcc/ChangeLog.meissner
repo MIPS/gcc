@@ -1,5 +1,19 @@
 2012-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (processor_costs): Add clz, isel, bc+8
+	cost fields.
+	(*_costs): Update all processor costs to include new fields.
+	(rs6000_init_hard_regno_mode_ok): Print new fields if
+	-mdebug=reg.
+	(rs6000_clz_cost): New functions to return count leading zeros,
+	isel, and branch conditional + 8 costs, depending on whether we
+	are optimizing for speed or size.
+	(rs6000_isel_cost): Likewise.
+	(rs6000_bcp8_cost): Likewise.
+	(rs6000_rtx_costs): For FMA, if outer code is NEG, cost is 0.
+	Adjust costs for the CLZ, ISEL, and branch conditional + 8
+	instructions.
+
 	* config/rs6000/power7.md (power7-integer): Remove isel.
 	(power7-isel): New reservation, isel takes 4 cycles on power7.
 
