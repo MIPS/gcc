@@ -25705,14 +25705,11 @@ rs6000_clz_cost (bool speed)
 static inline int
 rs6000_isel_cost (bool speed)
 {
-  if (!speed)
+  if (!speed || rs6000_cost->isel_cost == 0)
     return COSTS_N_INSNS (1);
-
-  else if (rs6000_cost->isel_cost != 0)
-    return rs6000_cost->isel_cost;
 
   else
-    return COSTS_N_INSNS (1);
+    return rs6000_cost->isel_cost;
 }
 
 /* Return cost of a branch conditional + 8 instruction.  */
@@ -25724,7 +25721,7 @@ rs6000_bcp8_cost (bool speed)
     return COSTS_N_INSNS (2);
 
   else if (rs6000_cost->bcp8_cost != 0)
-    rs6000_cost->bcp8_cost;
+    return rs6000_cost->bcp8_cost;
 
   else
     return COSTS_N_INSNS (BRANCH_COST(speed, 0) + 1);
