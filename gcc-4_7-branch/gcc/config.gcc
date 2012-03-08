@@ -242,7 +242,18 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
+ # Avoid special cases that are not obsolete
+   arm*-*-*eabi*			\
+ )
+     ;;
    alpha*-dec-osf5.1*			\
+ | arm*-*-ecos-elf			\
+ | arm*-*-elf				\
+ | arm*-*-freebsd*			\
+ | arm*-*-linux*			\
+ | arm*-*-rtems*			\
+ | arm*-*-uclinux*			\
+ | arm*-wince-pe*			\
  | mips-sgi-irix6.5			\
  | mips*-*-openbsd*			\
  | score-*				\
@@ -1707,6 +1718,8 @@ microblaze*-*-*)
 mips-sgi-irix6.5*)
 	tm_file="elfos.h ${tm_file} mips/iris6.h"
 	tmake_file="mips/t-irix6 t-slibgcc"
+	c_target_objs="irix6-c.o"
+	cxx_target_objs="irix6-c.o"
 	extra_options="${extra_options} rpath.opt mips/iris6.opt"
 	target_cpu_default="MASK_ABICALLS"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
@@ -3043,11 +3056,19 @@ case "${target}" in
 
 		case "$with_fpu" in
 		"" \
-		| fpa | fpe2 | fpe3 | maverick | vfp | vfp3 | vfpv3 \
+		| vfp | vfp3 | vfpv3 \
 		| vfpv3-fp16 | vfpv3-d16 | vfpv3-d16-fp16 | vfpv3xd \
 		| vfpv3xd-fp16 | neon | neon-fp16 | vfpv4 | vfpv4-d16 \
 		| fpv4-sp-d16 | neon-vfpv4)
 			# OK
+			;;
+		fpa | fpe2 | fpe3 | maverick)
+    			if test "x$enable_obsolete" != xyes; then
+			    echo "*** Configuration option --with-fpu=${with_fpu} is obsolete." >&2
+			    echo "*** Specify --enable-obsolete to build it anyway." >&2
+      			    echo "*** Support will be REMOVED in the next major release of GCC." >&2
+      			    exit 1
+			fi
 			;;
 		*)
 			echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1

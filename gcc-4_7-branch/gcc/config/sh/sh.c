@@ -575,6 +575,11 @@ static const struct attribute_spec sh_attribute_table[] =
 /* Machine-specific symbol_ref flags.  */
 #define SYMBOL_FLAG_FUNCVEC_FUNCTION    (SYMBOL_FLAG_MACH_DEP << 0)
 
+/* The tas.b instruction sets the 7th bit in the byte, i.e. 0x80.  This value
+   is used by optabs.c atomic op expansion code as well as in sync.md.  */
+#undef TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
+#define TARGET_ATOMIC_TEST_AND_SET_TRUEVAL 0x80
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Implement TARGET_OPTION_OVERRIDE macro.  Validate and override 
@@ -9199,13 +9204,6 @@ int
 fldi_ok (void)
 {
   return 1;
-}
-
-int
-tertiary_reload_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-  return code == MEM || (TARGET_SH4 && code == CONST_DOUBLE);
 }
 
 /* Return the TLS type for TLS symbols, 0 for otherwise.  */
