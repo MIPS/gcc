@@ -58,9 +58,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.Map;
 
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.InnerClassNode;
 
 public class Main
 {
@@ -100,6 +102,9 @@ public class Main
 
   // Map class names to lists of Text objects.
   HashMap<String,ArrayList<Text>> textMap = new HashMap<String,ArrayList<Text>>();
+
+  // Set of classes which have been parsed
+  Set<String> parsed = new HashSet<String>();
 
   void readCommandFile(String textFileName) throws OptionException
   {
@@ -248,7 +253,7 @@ public class Main
       {
         if (cniOrJniSeen && cni)
           throw new OptionException("only one of -jni or -cni may be used");
-	cniOrJniSeen = true;
+        cniOrJniSeen = true;
         cni = false;
       }
     });
@@ -258,7 +263,7 @@ public class Main
       {
         if (cniOrJniSeen && ! cni)
           throw new OptionException("only one of -jni or -cni may be used");
-	cniOrJniSeen = true;
+        cniOrJniSeen = true;
         cni = true;
       }
     });
@@ -317,19 +322,66 @@ public class Main
     return result;
   }
 
-  private void writeHeaders(HashMap<File,ClassWrapper> klasses, Printer printer)
+  private void writeHeaders(Map<File,ClassWrapper> klasses, Printer printer)
       throws IOException
   {
     Iterator<Map.Entry<File,ClassWrapper>> i = klasses.entrySet().iterator();
     while (i.hasNext())
       {
-	Map.Entry<File,ClassWrapper> e = i.next();
-	File file = e.getKey();
+        Map.Entry<File,ClassWrapper> e = i.next();
+        File file = e.getKey();
         ClassWrapper klass = e.getValue();
         if (verbose)
           System.err.println("[writing " + klass + " as " + file + "]");
         printer.printClass(file, klass);
       }
+  }
+
+  private Map<File,ClassWrapper> parseClasses(Iterator<Object> inputs)
+    throws IOException
+  {
+    Map<File,ClassWrapper> results = new HashMap<File,ClassWrapper>();
+    while (inputs.hasNext())
+      {
+        // Let user specify either kind of class name or a
+        // file name.
+        Object item = inputs.next();
+        ClassWrapper klass;
+        File filename;
+        if (item instanceof File)
+          {
+            // Load class from file.
+            if (verbose)
+              System.err.println("[reading file " + item + "]");
+            klass = getClass((File) item);
+            filename = new File(klass.name);
+          }
+        else
+          {
+            // Load class given the class name.
+            String className = ((String) item).replace('.', '/');
+            if (verbose)
+              System.err.println("[reading class " + className + "]");
+            // Use the name the user specified, even if it is
+            // different from the ultimate class name.
+            filename = new File(className);
+            klass = getClass(className);
+          }
+        results.put(filename, klass);
+        parsed.add(item.toString());
+
+        // Check to see if there are inner classes to also parse
+        Iterator<?> innerClasses = klass.innerClasses.iterator();
+        HashSet<Object> innerNames = new HashSet<Object>();
+        while (innerClasses.hasNext())
+          {
+            String innerName = ((InnerClassNode) innerClasses.next()).name;
+            if (!parsed.contains(innerName))
+              innerNames.add(innerName);
+          }
+        results.putAll(parseClasses(innerNames.iterator()));
+      }
+    return results;
   }
 
   protected void postParse(String[] names)
@@ -385,36 +437,7 @@ public class Main
           }
       }
 
-    Iterator<Object> i = klasses.iterator();
-    HashMap<File,ClassWrapper> results = new HashMap<File,ClassWrapper>();
-    while (i.hasNext())
-      {
-        // Let user specify either kind of class name or a
-        // file name.
-        Object item = i.next();
-        ClassWrapper klass;
-	File filename;
-        if (item instanceof File)
-          {
-            // Load class from file.
-            if (verbose)
-              System.err.println("[reading file " + item + "]");
-            klass = getClass((File) item);
-	    filename = new File(klass.name);
-          }
-        else
-          {
-            // Load class given the class name.
-            String className = ((String) item).replace('.', '/');
-            if (verbose)
-              System.err.println("[reading class " + className + "]");
-	    // Use the name the user specified, even if it is
-	    // different from the ultimate class name.
-	    filename = new File(className);
-            klass = getClass(className);
-          }
-        results.put(filename, klass);
-      }
+    Map<File, ClassWrapper> results = parseClasses(klasses.iterator());
 
     writeHeaders(results, printer);
   }
@@ -452,12 +475,12 @@ public class Main
         URL url = loader.findResource(resource);
         if (url == null)
           throw new IOException("can't find class file " + resource
-				+ " in " + loader);
+                                + " in " + loader);
         InputStream is = url.openStream();
         ClassWrapper result = readClass(is);
         classMap.put(name, result);
       }
-    return (ClassWrapper) classMap.get(name);
+    return classMap.get(name);
   }
 
   public static void main(String[] args) throws IOException

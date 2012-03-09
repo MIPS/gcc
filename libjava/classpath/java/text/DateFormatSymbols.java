@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.text.spi.DateFormatSymbolsProvider;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -89,7 +90,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   static
   {
     properties = new Properties();
-    try 
+    try
       {
         properties.load(DateFormatSymbols.class.getResourceAsStream("metazones.properties"));
       }
@@ -125,9 +126,58 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   transient String[] dateFormats;
   transient String[] timeFormats;
 
-  private static String[] getStringArray(ResourceBundle res, String name)
-  { 
-    return res.getString(name).split("\u00ae");
+  /**
+   * Compiles a string array for a property using data from each of the locales in the
+   * hierarchy as necessary.
+   *
+   * @param bundles the locale hierarchy, starting with the most specific.
+   * @param name the name of the property.
+   * @param size the size the array should be when complete.
+   * @return a completed string array.
+   */
+  private static String[] getStringArray(List<ResourceBundle> bundles, String name, int size)
+  {
+    return getStringArray(bundles, name, size, null);
+  }
+
+  /**
+   * Compiles a string array for a property using data from each of the locales in the
+   * hierarchy as necessary.  If non-null, the fallback array is also used for "sideways"
+   * inheritance (e.g. if there is no short name for a month, the long name is used rather
+   * than the empty string).
+   *
+   * @param bundles the locale hierarchy, starting with the most specific.
+   * @param name the name of the property.
+   * @param size the size the array should be when complete.
+   * @param fallback an array of long name fallback strings for data with both long and short names.
+   * @return a completed string array.
+   */
+  private static String[] getStringArray(List<ResourceBundle> bundles, String name, int size,
+                                         String[] fallback)
+  {
+    String[] data = new String[size];
+    Arrays.fill(data, "");
+    // Populate array with data from each locale back to the root, starting with the most specific
+    for (int a = 0; a < bundles.size(); ++a)
+      {
+        String localeData = bundles.get(a).getString(name);
+        String[] array = localeData.split("\u00ae", size);
+        for (int b = 0; b < data.length; ++b)
+          {
+            if (array.length > b && array[b] != null && data[b].isEmpty() && !array[b].isEmpty())
+              data[b] = array[b];
+          }
+      }
+    // Replace any remaining empty strings with data from the fallback array, if non-null
+    if (fallback != null && fallback.length == size)
+      {
+        for (int a = 0; a < data.length; ++a)
+          {
+            if (data[a].isEmpty() && fallback[a] != null && !fallback[a].isEmpty())
+              data[a] = fallback[a];
+          }
+      }
+    return data;
   }
 
   private String[][] getZoneStrings(ResourceBundle res, Locale locale)
@@ -135,116 +185,116 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
     List<String[]> allZones = new ArrayList<String[]>();
     try
       {
-	Map<String,String[]> systemZones = new HashMap<String,String[]>();
-	while (true)
-	  {
-	    int index = 0;
-	    String country = locale.getCountry();
-	    String data = res.getString("zoneStrings");
-	    String[] zones = data.split("\u00a9");
-	    for (int a = 0; a < zones.length; ++a)
-	      {
-		String[] strings = zones[a].split("\u00ae");
-		String type = properties.getProperty(strings[0] + "." + country);
-		if (type == null)
-		  type = properties.getProperty(strings[0] + ".DEFAULT");
-		if (type != null)
-		  strings[0] = type;
-		if (strings.length < 5)
-		  {
-		    String[] newStrings = new String[5];
-		    System.arraycopy(strings, 0, newStrings, 0, strings.length);
-		    for (int b = strings.length; b < newStrings.length; ++b)
-		      newStrings[b] = "";
-		    strings = newStrings;
-		  }
-		String[] existing = systemZones.get(strings[0]);
-		if (existing != null && existing.length > 1)
-		  {
-		    for (int b = 1; b < existing.length; ++b)
-		      if (!existing[b].equals(""))
-			strings[b] = existing[b];	   
-		  }
-		systemZones.put(strings[0], strings);
-	      }
-	    if (res.getLocale() == Locale.ROOT)
-	      break;
-	    else
-	      res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation", 
-					     LocaleHelper.getFallbackLocale(res.getLocale()),
-					     ClassLoader.getSystemClassLoader());
-	  }
-	/* Final sanity check for missing values */
-	for (String[] zstrings : systemZones.values())
-	  {
-	    if (zstrings[1].equals("") && zstrings[2].equals(""))
-	      {
-		for (Map.Entry<Object,Object> entry : properties.entrySet())
-		  {
-		    String val = (String) entry.getValue();
-		    if (val.equals(zstrings[0]))
-		      {
-			String key = (String) entry.getKey();
-			String metazone = key.substring(0, key.indexOf("."));
-			String type = properties.getProperty(metazone + "." + locale.getCountry());
-			if (type == null)
-			  type = properties.getProperty(metazone + ".DEFAULT");
-			if (type != null)
-			  {
-			    String[] ostrings = systemZones.get(type);
-			    zstrings[1] = ostrings[1];
-			    zstrings[2] = ostrings[2];
-			  }
-		      }
-		  }
-	      }
-	  }
-	allZones.addAll(systemZones.values());	
+        Map<String,String[]> systemZones = new HashMap<String,String[]>();
+        while (true)
+          {
+            int index = 0;
+            String country = locale.getCountry();
+            String data = res.getString("zoneStrings");
+            String[] zones = data.split("\u00a9");
+            for (int a = 0; a < zones.length; ++a)
+              {
+                String[] strings = zones[a].split("\u00ae");
+                String type = properties.getProperty(strings[0] + "." + country);
+                if (type == null)
+                  type = properties.getProperty(strings[0] + ".DEFAULT");
+                if (type != null)
+                  strings[0] = type;
+                if (strings.length < 5)
+                  {
+                    String[] newStrings = new String[5];
+                    System.arraycopy(strings, 0, newStrings, 0, strings.length);
+                    for (int b = strings.length; b < newStrings.length; ++b)
+                      newStrings[b] = "";
+                    strings = newStrings;
+                  }
+                String[] existing = systemZones.get(strings[0]);
+                if (existing != null && existing.length > 1)
+                  {
+                    for (int b = 1; b < existing.length; ++b)
+                      if (!existing[b].equals(""))
+                        strings[b] = existing[b];
+                  }
+                systemZones.put(strings[0], strings);
+              }
+            if (res.getLocale() == Locale.ROOT)
+              break;
+            else
+              res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
+                                             LocaleHelper.getFallbackLocale(res.getLocale()),
+                                             ClassLoader.getSystemClassLoader());
+          }
+        /* Final sanity check for missing values */
+        for (String[] zstrings : systemZones.values())
+          {
+            if (zstrings[1].equals("") && zstrings[2].equals(""))
+              {
+                for (Map.Entry<Object,Object> entry : properties.entrySet())
+                  {
+                    String val = (String) entry.getValue();
+                    if (val.equals(zstrings[0]))
+                      {
+                        String key = (String) entry.getKey();
+                        String metazone = key.substring(0, key.indexOf("."));
+                        String type = properties.getProperty(metazone + "." + locale.getCountry());
+                        if (type == null)
+                          type = properties.getProperty(metazone + ".DEFAULT");
+                        if (type != null)
+                          {
+                            String[] ostrings = systemZones.get(type);
+                            zstrings[1] = ostrings[1];
+                            zstrings[2] = ostrings[2];
+                          }
+                      }
+                  }
+              }
+          }
+        allZones.addAll(systemZones.values());
       }
     catch (MissingResourceException e)
       {
-	/* This means runtime support for the locale
-	 * is not available, so we just include providers. */
+        /* This means runtime support for the locale
+         * is not available, so we just include providers. */
       }
     for (TimeZoneNameProvider p :
-	   ServiceLoader.load(TimeZoneNameProvider.class))
+           ServiceLoader.load(TimeZoneNameProvider.class))
       {
-	for (Locale loc : p.getAvailableLocales())
-	  {
-	    if (loc.equals(locale))
-	      {
-		for (String id : TimeZone.getAvailableIDs())
-		  {
-		    String[] z = new String[5];
-		    z[0] = id;
-		    z[1] = p.getDisplayName(id, false,
-					    TimeZone.LONG,
-					    locale);
-		    z[2] = p.getDisplayName(id, false,
-					    TimeZone.SHORT,
-					    locale);
-		    z[3] = p.getDisplayName(id, true,
-					    TimeZone.LONG,
-					    locale);
-		    z[4] = p.getDisplayName(id, true,
-					    TimeZone.SHORT,
-					    locale);
-		    allZones.add(z);
-		  }
-		break;
-	      }
-	  }
+        for (Locale loc : p.getAvailableLocales())
+          {
+            if (loc.equals(locale))
+              {
+                for (String id : TimeZone.getAvailableIDs())
+                  {
+                    String[] z = new String[5];
+                    z[0] = id;
+                    z[1] = p.getDisplayName(id, false,
+                                            TimeZone.LONG,
+                                            locale);
+                    z[2] = p.getDisplayName(id, false,
+                                            TimeZone.SHORT,
+                                            locale);
+                    z[3] = p.getDisplayName(id, true,
+                                            TimeZone.LONG,
+                                            locale);
+                    z[4] = p.getDisplayName(id, true,
+                                            TimeZone.SHORT,
+                                            locale);
+                    allZones.add(z);
+                  }
+                break;
+              }
+          }
       }
     return allZones.toArray(new String[allZones.size()][]);
   }
-  
-  private String[] formatsForKey(ResourceBundle res, String key) 
+
+  private String[] formatsForKey(ResourceBundle res, String key)
   {
     String[] values = new String[formatPrefixes.length];
-    
+
     for (int i = 0; i < formatPrefixes.length; i++)
       values[i] = res.getString(formatPrefixes[i] + key);
-  
+
     return values;
   }
 
@@ -256,7 +306,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
    * call {@link #getInstance(java.util.Locale)} instead.
    *
    * @param locale The locale for which date formatting symbols should
-   *               be loaded. 
+   *               be loaded.
    * @throws MissingResourceException if the resources for the specified
    *                                  locale could not be found or loaded.
    * @see #getInstance(java.util.Locale)
@@ -264,17 +314,26 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   public DateFormatSymbols (Locale locale)
     throws MissingResourceException
   {
+    ClassLoader ldr = ClassLoader.getSystemClassLoader();
+    List<ResourceBundle> bundles = new ArrayList<ResourceBundle>();
     ResourceBundle res
-      = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation", locale,
-      				 ClassLoader.getSystemClassLoader());
-
-    ampms = getStringArray(res, "ampms");
-    eras = getStringArray(res, "eras");
+      = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation", locale, ldr);
+    bundles.add(res);
+    Locale resLocale = res.getLocale();
+    while (resLocale != Locale.ROOT)
+      {
+        res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
+                                       LocaleHelper.getFallbackLocale(resLocale), ldr);
+        bundles.add(res);
+        resLocale = res.getLocale();
+      }
+    ampms = getStringArray(bundles, "ampms", 2);
+    eras = getStringArray(bundles, "eras", 2);
     localPatternChars = res.getString("localPatternChars");
-    months = getStringArray(res, "months");
-    shortMonths = getStringArray(res, "shortMonths");
-    shortWeekdays = getStringArray(res, "shortWeekdays");
-    weekdays = getStringArray(res, "weekdays");
+    months = getStringArray(bundles, "months", 13);
+    shortMonths = getStringArray(bundles, "shortMonths", 13, months);
+    weekdays = getStringArray(bundles, "weekdays", 8);
+    shortWeekdays = getStringArray(bundles, "shortWeekdays", 8, weekdays);
     dateFormats = formatsForKey(res, "DateFormat");
     timeFormats = formatsForKey(res, "TimeFormat");
     runtimeZoneStrings = getZoneStrings(res, locale);
@@ -290,7 +349,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
    *                                  locale could not be found or loaded.
    * @see #getInstance()
    */
-  public DateFormatSymbols() 
+  public DateFormatSymbols()
     throws MissingResourceException
   {
     this (Locale.getDefault());
@@ -323,7 +382,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   /**
     * This method returns the pattern character information for this
     * object.  This is an 18 character string that contains the characters
-    * that are used in creating the date formatting strings in 
+    * that are used in creating the date formatting strings in
     * <code>SimpleDateFormat</code>.   The following are the character
     * positions in the string and which format character they correspond
     * to (the character in parentheses is the default value in the US English
@@ -386,7 +445,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   }
 
   /**
-   * This method returns the list of strings used for displaying abbreviated 
+   * This method returns the list of strings used for displaying abbreviated
    * weekday names (e.g., "Sun" and "Mon").  This is an eight element
    * <code>String</code> array indexed by <code>Calendar.SUNDAY</code>
    * through <code>Calendar.SATURDAY</code>.  Note that the first element
@@ -476,7 +535,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
     * This method sets the list of characters used to specific date/time
     * formatting strings.
     * This is an 18 character string that contains the characters
-    * that are used in creating the date formatting strings in 
+    * that are used in creating the date formatting strings in
     * <code>SimpleDateFormat</code>.   The following are the character
     * positions in the string and which format character they correspond
     * to (the character in parentheses is the default value in the US English
@@ -615,8 +674,8 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
       return false;
     for (int i = xa.length;  --i >= 0; )
       {
-	if (! equals(xa[i], ya[i]))
-	  return false;
+        if (! equals(xa[i], ya[i]))
+          return false;
       }
     return true;
   }
@@ -643,7 +702,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
    * <li> Is an instance of <code>DateFormatSymbols</code>.</li>
    * <li> Contains identical formatting symbols to this object.</li>
    * </ul>
-   * 
+   *
    * @param obj The <code>Object</code> to test for equality against.
    *
    * @return <code>true</code> if the specified object is equal to this one,
@@ -655,13 +714,13 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
       return false;
     DateFormatSymbols other = (DateFormatSymbols) obj;
     return (equals(ampms, other.ampms)
-	    && equals(eras, other.eras)
-	    && equals(localPatternChars, other.localPatternChars)
-	    && equals(months, other.months)
-	    && equals(shortMonths, other.shortMonths)
-	    && equals(shortWeekdays, other.shortWeekdays)
-	    && equals(weekdays, other.weekdays)
-	    && equals(zoneStrings, other.zoneStrings));
+            && equals(eras, other.eras)
+            && equals(localPatternChars, other.localPatternChars)
+            && equals(months, other.months)
+            && equals(shortMonths, other.shortMonths)
+            && equals(shortWeekdays, other.shortWeekdays)
+            && equals(weekdays, other.weekdays)
+            && equals(zoneStrings, other.zoneStrings));
   }
 
   /**
@@ -674,8 +733,8 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
     try
       {
         return super.clone ();
-      } 
-    catch (CloneNotSupportedException e) 
+      }
+    catch (CloneNotSupportedException e)
       {
         return null;
       }
@@ -689,13 +748,13 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   public int hashCode ()
   {
     return (hashCode(ampms)
-	    ^ hashCode(eras)
-	    ^ hashCode(localPatternChars)
-	    ^ hashCode(months)
-	    ^ hashCode(shortMonths)
-	    ^ hashCode(shortWeekdays)
-	    ^ hashCode(weekdays)
-	    ^ hashCode(zoneStrings));
+            ^ hashCode(eras)
+            ^ hashCode(localPatternChars)
+            ^ hashCode(months)
+            ^ hashCode(shortMonths)
+            ^ hashCode(shortWeekdays)
+            ^ hashCode(weekdays)
+            ^ hashCode(zoneStrings));
   }
 
   /**
@@ -705,7 +764,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
    * {@link java.text.spi.DateFormatSymbolsProvider} instances.
    * This is equivalent to calling
    * <code>getInstance(Locale.getDefault())</code>.
-   * 
+   *
    * @return a {@link DateFormatSymbols} instance for the default
    *         locale.
    * @since 1.6
@@ -720,7 +779,7 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
    * specified locale obtained from either the runtime itself
    * or one of the installed
    * {@link java.text.spi.DateFormatSymbolsProvider} instances.
-   * 
+   *
    * @param locale the locale for which an instance should be
    *               returned.
    * @return a {@link DateFormatSymbols} instance for the specified
@@ -733,27 +792,27 @@ public class DateFormatSymbols implements java.io.Serializable, Cloneable
   {
     try
       {
-	DateFormatSymbols syms = new DateFormatSymbols(locale);
-	return syms;
+        DateFormatSymbols syms = new DateFormatSymbols(locale);
+        return syms;
       }
     catch (MissingResourceException e)
       {
-	/* This means runtime support for the locale
-	 * is not available, so we check providers. */
+        /* This means runtime support for the locale
+         * is not available, so we check providers. */
       }
     for (DateFormatSymbolsProvider p :
-	   ServiceLoader.load(DateFormatSymbolsProvider.class))
+           ServiceLoader.load(DateFormatSymbolsProvider.class))
       {
-	for (Locale loc : p.getAvailableLocales())
-	  {
-	    if (loc.equals(locale))
-	      {
-		DateFormatSymbols syms = p.getInstance(locale);
-		if (syms != null)
-		  return syms;
-		break;
-	      }
-	  }
+        for (Locale loc : p.getAvailableLocales())
+          {
+            if (loc.equals(locale))
+              {
+                DateFormatSymbols syms = p.getInstance(locale);
+                if (syms != null)
+                  return syms;
+                break;
+              }
+          }
       }
     return getInstance(LocaleHelper.getFallbackLocale(locale));
   }
