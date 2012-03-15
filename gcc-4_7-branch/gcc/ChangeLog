@@ -1,3 +1,62 @@
+2012-03-15  Jakub Jelinek  <jakub@redhat.com>
+	    Andrew Pinski  <apinski@cavium.com>
+
+	PR middle-end/52592
+	* builtins.c (expand_builtin_int_roundingfn_2): If expanding
+	BUILT_IN_IR{INT,OUND}* using optab fails, emit lr{int,ound}*
+	calls instead of __builtin_ir{int,ound}*.
+
+2012-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/52582
+	* config/rs6000/rs6000.c (call_ABI_of_interest): Return true
+	if c_node is NULL.
+
+2012-03-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (-std=c99), doc/standards.texi (C language):
+	Refer to GCC 4.7 version of c99status.html.
+
+2012-03-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-03-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/linux64.h (OPTION_TARGET_CPU_DEFAULT): Do not
+	redefine to be NULL if the current bit-size is different from the
+	configured bit-size.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If the
+	cpu is defaulted, use PROCESSOR_DEFAULT and PROCESSOR_DEFAULT64 to
+	set the default tuning.  Add asserts to make sure the cpu and tune
+	indexes are defined.  Fix tests for cpu/tune index to use >= 0 to
+	test whether the index is set, instead of > 0.
+	(rs6000_file_start): Do not reset the default cpu if the current
+	bit-size is different from the configured bit-size.
+
+2012-03-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/install.texi (Specific, i?86-*-solaris2.[89]): Update
+	binutils reference.
+	(Specific, i?86-*-solaris2.10): Remove GCC 4.0 reference.
+	Update binutils references.
+	(Specific, *-*-solaris2*): Mention bundled GCC in Solaris 10 and 11.
+	Update binutils reference.
+	Update Sun as/GNU ld caveat.
+	Document binutils largefile requirement for LTO plugin.
+	Remove reference to alternate libpthread.
+
+2012-03-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/install.texi (Specific, alpha*-dec-osf5.1): Update binutils
+	reference.
+	(Specific, mips-sgi-irix6): Likewise.
+
+2012-03-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (gcc_cv_as_ix86_tlsldmplt): Add label.
+	* configure: Regenerate.
+
 2012-03-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/51902
