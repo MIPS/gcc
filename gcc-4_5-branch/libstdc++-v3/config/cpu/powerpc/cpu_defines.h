@@ -33,7 +33,6 @@
 // Integer divide instructions don't trap on PowerPC.
 #define __glibcxx_integral_traps false
 
-#ifdef IN_LIBSTDCXX
 #ifdef __PPC64__
 #define __rs6000_atomic_fetch_and_add_acquire_32(mem, constant) \
 ({							\
@@ -95,6 +94,5 @@
   __tmpval;						\
 })
 #endif /* __PPC64__ */
-#endif /* IN_LIBSTDCXX */
 
 #endif
