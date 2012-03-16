@@ -46,7 +46,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   static inline _Atomic_word 
   __exchange_and_add(volatile _Atomic_word* __mem, int __val)
   { 
-#if defined (IN_LIBSTDCXX) && defined (__PPC__)
+#ifdef __PPC__
     if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == 1)
       return __rs6000_atomic_fetch_and_add_acquire_32 (__mem, __val);
     else if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == -1)
@@ -58,7 +58,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   static inline void
   __atomic_add(volatile _Atomic_word* __mem, int __val)
   { 
-#if defined (IN_LIBSTDCXX) && defined (__PPC__)
+#ifdef __PPC__
     if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == 1)
       __rs6000_atomic_fetch_and_add_acquire_32 (__mem, __val);
     else if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == -1)

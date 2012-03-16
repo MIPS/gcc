@@ -1,3 +1,14 @@
+2012-03-16  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/cpu/powerpc/cpu_defines.h: Remove #ifdef IN_LIBSTDCXX test.
+	* include/ext/atomicity.h: Likewise.
+
+	Revert:
+	2012-02-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* configure.host: Set OPTIMIZE_CXXFLAGS to -DIN_LIBSTDCXX for
+	powerpc*-linux.
+
 2012-02-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* configure.host: Set OPTIMIZE_CXXFLAGS to -DIN_LIBSTDCXX for
