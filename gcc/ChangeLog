@@ -1,3 +1,8 @@
+2012-03-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/i386/i386.c (ix86_register_bank): Add special treatment
+	for BP, R12, and R13.
+
 2012-03-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (simplify_operand_subreg): Treat out subreg
