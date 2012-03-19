@@ -30508,14 +30508,21 @@ ix86_free_from_memory (enum machine_mode mode)
 static int
 ix86_register_bank (int hard_regno)
 {
+  /* ebp and r13 as the base always wants a displacement, r12 as the
+     base always wants an index.  So discourage their usage in an
+     address.  */
+  if (hard_regno == R12_REG || hard_regno == R13_REG)
+    return 4;
+  if (hard_regno == BP_REG)
+    return 2;
   /* New x86-64 int registers result in bigger code size.  Discourage
      them.  */
   if (FIRST_REX_INT_REG <= hard_regno && hard_regno <= LAST_REX_INT_REG)
-    return 2;
+    return 3;
   /* New x86-64 SSE registers result in bigger code size.  Discourage
      them.  */
   if (FIRST_REX_SSE_REG <= hard_regno && hard_regno <= LAST_REX_SSE_REG)
-    return 2;
+    return 3;
   /* Usage of AX register results in smaller code.  Prefer it.  */
   if (hard_regno == 0)
     return 0;
