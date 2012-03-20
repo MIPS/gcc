@@ -481,6 +481,16 @@ extern int rs6000_vector_align[];
 #define TARGET_IMINMAX_ISEL	IMINMAX_BIT_P (COND_MODE_ISEL)
 #define TARGET_IMINMAX_BCP8	IMINMAX_BIT_P (COND_MODE_BCP8)
 
+/* Feature macros to say whether a particular setcc method is supported.  */
+#define TARGET_SETCC		(rs6000_setcc_method != SETCC_NONE)
+#define TARGET_SETCC_NONE	(rs6000_setcc_method == SETCC_NONE)
+#define TARGET_SETCC_UNSET	(rs6000_setcc_method == SETCC_UNSET)
+#define TARGET_SETCC_ISEL	SETCC_BIT_P (COND_MODE_ISEL)
+#define TARGET_SETCC_BCP8	SETCC_BIT_P (COND_MODE_BCP8)
+#define TARGET_SETCC_MFCR	(SETCC_BIT_P (COND_MODE_MFCR)		\
+				 && !SETCC_BIT_P (COND_MODE_ISEL)	\
+				 && !SETCC_BIT_P (COND_MODE_BCP8))
+
 /* Whether ISEL is supported or not.  Normally we use -misel to determine
    whether to do it, but with the power7 it is useful to generate ISEL in
    limited cases, without enabling the general use of ISEL.  While the branch
@@ -491,7 +501,8 @@ extern int rs6000_vector_align[];
   ((TARGET_ISEL && (N) != ISEL_BCP8)					\
    || (TARGET_ISEL_LIMITED						\
        && ((N == ISEL_IABS && TARGET_IABS_ISEL)				\
-	   || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL))))
+	   || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL)		\
+	   || (N == ISEL_SETCC && TARGET_SETCC_ISEL))))
 
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or

@@ -1,3 +1,74 @@
+2012-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-msetcc=): New option to control how
+	the compiler generates code for set conditional operations.
+
+	* config/rs6000/rs6000.c (COSTS_DEFAULTS): New macro to default
+	all of the fields for count leading zeros, integer select, branch
+	conditional + 8, and the various defaults for conditional
+	operations.
+	(size32_cost): Use COSTS_DEFAULTS.
+	(size64_cost): Likewise.
+	(rios1_cost): Likewise.
+	(rios2_cost): Likewise.
+	(rs64a_cost): Likewise.
+	(mpccore_cost): Likewise.
+	(ppc403_cost): Likewise.
+	(ppc405_cost): Likewise.
+	(ppc440_cost): Likewise.
+	(ppc476_cost): Likewise.
+	(ppc601_cost): Likewise.
+	(ppc603_cost): Likewise.
+	(ppc604_cost): Likewise.
+	(ppc604e_cost): Likewise.
+	(ppc620_cost): Likewise.
+	(ppc630_cost): Likewise.
+	(ppccell_cost): Likewise.
+	(ppc750_cost): Likewise.
+	(ppc7450_cost): Likewise.
+	(ppc8540_cost): Likewise.
+	(ppce300c2c3_cost): Likewise.
+	(ppce500mc_cost): Likewise.
+	(ppce500mc64_cost): Likewise.
+	(titan_cost): Likewise.
+	(power4_cost): Likewise.
+	(power6_cost): Likewise.
+	(ppca2_cost): Likewise.
+	(power7_cost): Add defaults for -msetcc=.
+	(rs6000_debug_reg_global): Print out -msetcc= defaults.
+	(rs6000_option_override_internal): Add suport for -msetcc=.
+	(rs6000_valid_attribute_p): Likewise.
+	(rs6000_pragma_target_parse): Likewise.
+	(rs6000_emit_sISEL): Add argument for the ISEL type.
+	(rs6000_emit_sCOND): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SETCC): New macros for -msetcc=
+	support.
+	(TARGET_SETCC_NONE): Likewise.
+	(TARGET_SETCC_UNSET): Likewise.
+	(TARGET_SETCC_ISEL): Likewise.
+	(TARGET_SETCC_BCP8): Likewise.
+	(TARGET_SETCC_MFCR): Likewise.
+	(ISEL_OK_P): Add support for -msetcc=isel.
+
+	* config/rs6000/rs6000.md (ISEL_SETCC): New flag for -msetcc=.
+	(cstore<mode>4): Add support for different setcc modes.
+	(set cc insns): Likewise.
+	(setcc_bcp8): New insns for -msetcc=bcp8.
+
+	* config/rs6000/rs6000-opts.h (COND_MODE_MFCR): Add support for
+	-msetcc=.
+	(enum rs6000_setcc): Likewise.
+	(SETCC_BIT_P): Likewise.
+	(SETCC_CLEAR_BIT): Likewise.
+	(SETCC_SET): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_sISEL): Add isel type
+	argument.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -msetcc=
+	option.
+
 2012-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (processor_costs): Add clz, isel, bc+8

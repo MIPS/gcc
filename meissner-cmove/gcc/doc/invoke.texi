@@ -840,7 +840,7 @@ See RS/6000 and PowerPC Options.
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
--miabs=@var{name} -miminmax=@var{name} @gol
+-miabs=@var{name} -miminmax=@var{name} -msetcc=@var{name} @gol
 -madjust-cost-compare-branch=@var{value} @gol
 -madjust-cost-compare-isel=@var{value}}
 
@@ -17460,7 +17460,8 @@ options are not set.  The power7 system defaults to using
 absolute value.  You must use @option{-misel}, @option{-mpopcntd}, or
 @option{-mvsx} to use @option{-miabs=isel}.  If @option{-misel} is not
 specified, ISELs are only generated for absolute value.  If the
-@option{-misel} option is specified, this is the default behavior.
+@option{-misel} option is specified, this is the default behavior,
+except on power7, which defaults to @option{-miabs=shift}.
 
 @option{-miabs=bcp8} says to generate code for absolute value using a
 branch conditional instruction over a move operation, which is
@@ -17469,9 +17470,9 @@ optimized on some machines.
 @item -minmmax=@var{none/default/isel/bcp8}
 @opindex miminmax
 Specify the method to use to optimize integer minimum and maximum
-operations.  In
-general, you should select the appropriate @option{-mtune=} or
-@option{-mcpu=} option instead of using this option.
+operations.  In general, you should select the appropriate
+@option{-mtune=} or @option{-mcpu=} option instead of using this
+option.
 
 @option{-miminmax=none} tells the compiler to let the machine
 independent code handle integer minimum and maximum.
@@ -17481,14 +17482,42 @@ generation method for integer minimum and maximum operations.
 
 @option{-miminmax=isel} tells the compiler to generate the ISEL
 instruction.  You must use @option{-misel}, @option{-mpopcntd}, or
-@option{-mvsx} to use @option{-miminmax=isel}.  If @option{-miminmax}
-is not specified, ISELs are only generated for integer minimum and
-maximum.  If the @option{-misel} option is specified, this is the
-default behavior.
+@option{-mvsx} to use @option{-miminmax=isel}.  If @option{-misel} is
+not specified, ISELs are only generated for integer minimum and
+maximum if you use @option{-miminmax=isel}.  If the @option{-misel}
+option is specified, this is the default behavior.
 
-@option{-miabs=bcp8} says to generate code for integer minimum and
+@option{-miminmax=bcp8} says to generate code for integer minimum and
 maximum using a branch conditional instruction over a move operation,
 which is optimized on some machines.
+
+@item -msetcc=@var{none/default/isel/bcp8/mfcr}
+@opindex msetcc
+Specify the method to use to optimize setting an integer variable to 0
+or 1 depending on a comparison.  In general, you should select the
+appropriate @option{-mtune=} or @option{-mcpu=} option instead of
+using this option.
+
+@option{-msetcc=none} tells the compiler to let the machine
+independent code handle setting an integer based on a comparison.
+
+@option{-msetcc=default} tells the compiler to use the default code
+generation method for setting an integer to the result of a
+comparison.
+
+@option{-msetcc=isel} tells the compiler to generate the ISEL
+instruction when setting an integer to the result of a comparison.
+You must use @option{-misel}, @option{-mpopcntd}, or @option{-mvsx} to
+use @option{-msetcc=isel}.  If @option{-msetcc} is not specified,
+ISELs are only generated for integer minimum and maximum.
+
+@option{-msetcc=bcp8} says to generate code for setting a variable to
+the result of a comparsion using a branch conditional instruction over
+a move operation, which is optimized on some machines.
+
+@option{-msetcc=mfcr} says to generate code for setting a variable to
+the result of a comparsion using move from condition code register
+instructions.
 
 @item -madjust-cost-compare-branch=@var{value}
 @opindex madjust-cost-compare-branch

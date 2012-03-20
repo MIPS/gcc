@@ -147,6 +147,7 @@ enum rs6000_vector {
 #define COND_MODE_ISEL		0x0001	/* Use ISEL. */
 #define COND_MODE_BCP8		0x0002	/* Use branch cond+8.   */
 #define COND_MODE_SHIFT		0x0004	/* Use shift/xor/neg. */
+#define COND_MODE_MFCR		0x0008	/* Use move from CR.  */
 #define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
 
 /* Describe how to do integer ABS and negative ABS.  */
@@ -188,6 +189,28 @@ enum rs6000_iminmax_t {
 
 #define IMINMAX_SET(VALUE)						\
   (rs6000_iminmax_method = (enum rs6000_iminmax_t)(VALUE))
+
+/* Describe how to set an integer from a comparsion to 0 or 1.  These are
+   represented as bitmasks, so that other patterns can be tried if an ISEL is
+   not allowed.  */
+enum rs6000_setcc_t {
+  SETCC_UNSET		= COND_MODE_UNSET,
+  SETCC_NONE		= COND_MODE_NONE,
+  SETCC_ISEL_ONLY	= COND_MODE_ISEL,
+  SETCC_BCP8_ONLY	= COND_MODE_BCP8,
+  SETCC_MFCR		= COND_MODE_MFCR,
+  SETCC_ISEL		= COND_MODE_MFCR | COND_MODE_ISEL,
+  SETCC_BCP8		= COND_MODE_MFCR | COND_MODE_BCP8
+};
+
+#define SETCC_BIT_P(MASK) (((unsigned)rs6000_setcc_method & (MASK)) != 0)
+
+#define SETCC_CLEAR_BIT(MASK)						\
+  (rs6000_setcc_method							\
+   = (enum rs6000_setcc_t)(((unsigned)rs6000_setcc_method) & ~(MASK)))
+
+#define SETCC_SET(VALUE)						\
+  (rs6000_setcc_method = (enum rs6000_setcc_t)(VALUE))
 
 /* No enumeration is defined to index the -mcpu= values (entries in
    processor_target_table), with the type int being used instead, but

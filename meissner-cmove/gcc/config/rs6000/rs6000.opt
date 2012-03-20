@@ -593,3 +593,25 @@ Enum(rs6000_iminmax_t) String(isel) Value(IMINMAX_ISEL)
 
 EnumValue
 Enum(rs6000_iminmax_t) String(bcp8) Value(IMINMAX_BCP8)
+
+msetcc=
+Target RejectNegative Joined Enum(rs6000_setcc_t) Var(rs6000_setcc_method) Init(SETCC_UNSET) Save
+-msetcc=	Specify how to do set an integer to a comparison (default, none, isel, bcp8, mrcr)
+
+Enum
+Name(rs6000_setcc_t) Type(enum rs6000_setcc_t)
+
+EnumValue
+Enum(rs6000_setcc_t) String(default) Value(SETCC_UNSET)
+
+EnumValue
+Enum(rs6000_setcc_t) String(none) Value(SETCC_NONE)
+
+EnumValue
+Enum(rs6000_setcc_t) String(isel) Value(SETCC_ISEL)
+
+EnumValue
+Enum(rs6000_setcc_t) String(bcp8) Value(SETCC_BCP8)
+
+EnumValue
+Enum(rs6000_setcc_t) String(mfcr) Value(SETCC_MFCR)

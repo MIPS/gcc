@@ -97,7 +97,7 @@ extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 					       enum rtx_code);
-extern void rs6000_emit_sISEL (enum machine_mode, rtx[]);
+extern void rs6000_emit_sISEL (enum machine_mode, rtx[], int);
 extern void rs6000_emit_sCOND (enum machine_mode, rtx[]);
 extern void rs6000_emit_cbranch (enum machine_mode, rtx[]);
 extern char * output_cbranch (rtx, const char *, int, rtx, int);
