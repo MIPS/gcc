@@ -962,6 +962,24 @@
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "ne,le,ge,leu,geu,ordered")))
 
+;; Return 1 if OP is a comparison operation where we are doing SCC insns
+;; via the MFCR instruction or doing EQ via count leading zeros
+(define_predicate "scc_cr_comparison_operand"
+  (and (match_operand 0 "branch_comparison_operator")
+       (ior (and (match_test "TARGET_SETCC_EQ")
+		 (match_code "eq"))
+	    (and (match_test "TARGET_SETCC_MFCR")
+		 (match_code "lt,gt,ltu,gtu,unordered")))))
+
+;; Return 1 if OP is the inverst of a comparison operator where we are doing
+;; SCC insns via the MFCR instruction or doing EQ via count leading zeros
+(define_predicate "scc_rev_cr_comparison_operand"
+  (and (match_operand 0 "branch_comparison_operator")
+       (ior (and (match_test "TARGET_SETCC_EQ")
+		 (match_code "ne"))
+	    (and (match_test "TARGET_SETCC_MFCR")
+		 (match_code "le,ge,leu,geu,ordered")))))
+
 ;; Return 1 if OP is a comparison operation that is valid for a branch
 ;; insn, which is true if the corresponding bit in the CC register is set.
 (define_predicate "branch_positive_comparison_operator"
