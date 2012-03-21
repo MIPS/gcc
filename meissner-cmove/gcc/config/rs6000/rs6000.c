@@ -2262,6 +2262,8 @@ rs6000_debug_reg_global (void)
 	strcat (cond_buffer, ", bc+8");
       if (TARGET_SETCC_MFCR)
 	strcat (cond_buffer, ", mfcr");
+      if (TARGET_SETCC_EQ)
+	strcat (cond_buffer, ", eq");
       if (cond_buffer[0])
 	fprintf (stderr, DEBUG_FMT_S, "setcc", cond_buffer+2);
       else
@@ -3476,7 +3478,7 @@ rs6000_option_override_internal (bool global_init_p)
       else if (TARGET_ISEL)
 	rs6000_setcc_method = SETCC_ISEL;
       else
-	rs6000_setcc_method = SETCC_MFCR;
+	rs6000_setcc_method = SETCC_MFCR_EQ;
     }
 
   if (!TARGET_ISEL && !TARGET_ISEL_LIMITED)
@@ -15987,6 +15989,30 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
   enum rtx_code cond_code;
   rtx result = operands[0];
 
+  /* Use count leading zeros for EQ on integer ops.  */
+  if (TARGET_SETCC_EQ && GET_CODE (operands[1]) == EQ
+      && mode == GET_MODE (operands[0])
+      && (mode == SImode
+	  || (mode == DImode && TARGET_POWERPC64)))
+    {
+      rtx opa = XEXP (operands[1], 0);
+      rtx opb = XEXP (operands[1], 1);
+      if (INTEGRAL_MODE_P (GET_MODE (opa)))
+	{
+	  if (mode == SImode)
+	    {
+	      emit_insn (gen_setcc_eqsi (operands[0], opa, opb));
+	      return;
+	    }
+	  else if (mode == DImode)
+	    {
+	      emit_insn (gen_setcc_eqdi (operands[0], opa, opb));
+	      return;
+	    }
+	}
+    }
+
+  /* Handle using ISEL for setcc for integers.  */
   if (TARGET_SETCC_ISEL && (mode == SImode || mode == DImode))
     {
       rs6000_emit_sISEL (mode, operands, ISEL_SETCC);
@@ -15995,6 +16021,21 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
 
   condition_rtx = rs6000_generate_compare (operands[1], mode);
   cond_code = GET_CODE (condition_rtx);
+
+  /* Use branch conditional + 8 to do setcc.  */
+  if (TARGET_SETCC_BCP8)
+    {
+      emit_insn (gen_setcc_bcp8si (result, condition_rtx,
+				   XEXP (condition_rtx, 0)));
+      return;
+    }
+
+  /* Use ISEL for things like floating point.  */
+  if (TARGET_SETCC_ISEL)
+    {
+      rs6000_emit_sISEL (mode, operands, ISEL_SETCC);
+      return;
+    }
 
   if (FLOAT_MODE_P (mode)
       && !TARGET_FPRS && TARGET_HARD_FLOAT)
@@ -16662,34 +16703,65 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   enum machine_mode mode = GET_MODE (dest);
   enum rtx_code cond_code;
   rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx, rtx);
+  rtx (*setcc_isel_func) (rtx, rtx, rtx);
+  rtx (*setcc_isel_rev_func) (rtx, rtx, rtx);
+  bool reverse_p = false;
 
-  if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
+  if (mode == SImode)
+    {
+      isel_func = gen_isel_si;
+      setcc_isel_func = gen_setcc_iselsi;
+      setcc_isel_rev_func = gen_setcc_isel_revsi;
+    }
+  else if (mode == DImode && TARGET_POWERPC64)
+    {
+      isel_func = gen_isel_di;
+      setcc_isel_func = gen_setcc_iseldi;
+      setcc_isel_rev_func = gen_setcc_isel_revdi;
+    }
+  else
     return 0;
 
   /* We still have to do the compare, because isel doesn't do a
      compare, it just looks at the CRx bits set by a previous compare
      instruction.  */
-  condition_rtx = rs6000_generate_compare (op, mode);
+  condition_rtx = rs6000_generate_compare (op, GET_MODE (XEXP (op, 0)));
   cond_code = GET_CODE (condition_rtx);
   cr = XEXP (condition_rtx, 0);
 
-  isel_func = (mode == SImode) ? gen_isel_si : gen_isel_di;
-
   switch (cond_code)
     {
-    case LT: case GT: case LTU: case GTU: case EQ:
-      /* isel handles these directly.  */
+    /* isel handles these directly.  */
+    case LT: case GT: case LTU: case GTU: case EQ: case UNORDERED:
+      break;
+
+    /* We need to swap the sense of the comparison.  */
+    case LE: case GE: case LEU: case GEU: case NE: case ORDERED:
+      reverse_p = true;
       break;
 
     default:
-      /* We need to swap the sense of the comparison.  */
-      {
-	rtx t = true_cond;
-	true_cond = false_cond;
-	false_cond = t;
-	PUT_CODE (condition_rtx, reverse_condition (cond_code));
-      }
-      break;
+      return 0;
+    }
+
+  /* Convert to using setcc form for 0/1.  */
+  if (TARGET_SETCC_ISEL && true_cond == const1_rtx
+      && false_cond == const0_rtx)
+    {
+      if (reverse_p)
+	emit_insn (setcc_isel_rev_func (dest, op, cr));
+      else
+	emit_insn (setcc_isel_func (dest, op, cr));
+      return 1;
+    }
+
+  /* Do normal ISEL, handing reversing the condition if needed.  */
+  if (reverse_p)
+    {
+      rtx t = true_cond;
+      true_cond = false_cond;
+      false_cond = t;
+      PUT_CODE (condition_rtx, reverse_condition (cond_code));
     }
 
   false_cond = force_reg (mode, false_cond);
@@ -25640,7 +25712,7 @@ rs6000_clz_cost (bool speed)
 static inline int
 rs6000_isel_cost (bool speed)
 {
-  if (!speed || rs6000_cost->isel_cost == 0)
+  if (!speed)
     return COSTS_N_INSNS (1);
 
   else

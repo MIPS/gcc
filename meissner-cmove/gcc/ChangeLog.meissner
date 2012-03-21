@@ -1,3 +1,42 @@
+2012-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-msetcc): Add support for isel-eq,
+	bcp8-eq, and mfcr-eq to use count leading zeros/xor for equality
+	of 0.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print eq,
+	states for -msetcc=.
+	(rs6000_option_override_internal): Make default -msetcc=mfrc-eq.
+	(rs6000_emit_sCOND): Add explicit support for EQ optimization
+	using count leading zero and xor.  Make isel optimizations work
+	for floating point compares.  Add branch conditional + 8 support.
+	(rs6000_emit_int_cmove): Map <test> ? 1 : 0 back into setcc
+	forms.  Add support for floating point compares.
+	(rs6000_isel_cost): Drop tests for cost structure having 0 as the
+	isel cost.
+
+	* config/rs6000/rs6000.h (TARGET_SETCC_EQ_ONLY): New macro for
+	specifying special EQ optimization.
+	(TARGET_SETCC_EQ): Likewise.
+
+	* config/rs6000/rs6000.md (cstore<mode>): Add support for
+	-msetcc=isel and -msetcc=bcp8.
+	(setcc<mode>): Name pattern.  Add support for -msetcc=isel and
+	-msetcc=bcp8.  Split mfcr and rlwinm instructions.
+	(setcc<mode>_internal1): Likewise.
+	(setcc<mode>_internal2): Likewise.
+	(eq<mode>): Name pattern, add support for -mseticc=eq.
+	(setcc_bcp8<mode>): New pattern for -msetcc=bcp8.
+	(setcc_isel<mode>): New pattern for -msetcc=isel.
+	(setcc_isel_rev<mode>): Likewise.
+
+	* config/rs6000/rs6000.h (COND_MODE_EQ): New bit for optimizing
+	EQ to count leading zero/xor.
+	(enum rs6000_setcc_t): Add new cases to allow specifying EQ
+	optimization and base optimization for setcc.
+
+	* config/rs6000/rs6000.opt (-msetcc=): Update documentation.
+
 2012-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-msetcc=): New option to control how

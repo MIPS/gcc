@@ -611,7 +611,20 @@ EnumValue
 Enum(rs6000_setcc_t) String(isel) Value(SETCC_ISEL)
 
 EnumValue
+Enum(rs6000_setcc_t) String(isel-eq) Value(SETCC_ISEL_EQ)
+
+EnumValue
 Enum(rs6000_setcc_t) String(bcp8) Value(SETCC_BCP8)
 
 EnumValue
-Enum(rs6000_setcc_t) String(mfcr) Value(SETCC_MFCR)
+Enum(rs6000_setcc_t) String(bcp8-eq) Value(SETCC_BCP8_EQ)
+
+EnumValue
+Enum(rs6000_setcc_t) String(mfcr) Value(SETCC_MFCR_ONLY)
+
+EnumValue
+Enum(rs6000_setcc_t) String(mfcr-eq) Value(SETCC_MFCR_EQ)
+
+EnumValue
+Enum(rs6000_setcc_t) String(eq) Value(SETCC_EQ_ONLY)
+

@@ -148,6 +148,7 @@ enum rs6000_vector {
 #define COND_MODE_BCP8		0x0002	/* Use branch cond+8.   */
 #define COND_MODE_SHIFT		0x0004	/* Use shift/xor/neg. */
 #define COND_MODE_MFCR		0x0008	/* Use move from CR.  */
+#define COND_MODE_EQ		0x0010	/* Use special ops for ==.  */
 #define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
 
 /* Describe how to do integer ABS and negative ABS.  */
@@ -198,9 +199,13 @@ enum rs6000_setcc_t {
   SETCC_NONE		= COND_MODE_NONE,
   SETCC_ISEL_ONLY	= COND_MODE_ISEL,
   SETCC_BCP8_ONLY	= COND_MODE_BCP8,
-  SETCC_MFCR		= COND_MODE_MFCR,
+  SETCC_MFCR_ONLY	= COND_MODE_MFCR,
+  SETCC_EQ_ONLY		= COND_MODE_EQ,
   SETCC_ISEL		= COND_MODE_MFCR | COND_MODE_ISEL,
-  SETCC_BCP8		= COND_MODE_MFCR | COND_MODE_BCP8
+  SETCC_BCP8		= COND_MODE_MFCR | COND_MODE_BCP8,
+  SETCC_MFCR_EQ		= COND_MODE_MFCR | COND_MODE_EQ,
+  SETCC_ISEL_EQ		= COND_MODE_MFCR | COND_MODE_EQ | COND_MODE_ISEL,
+  SETCC_BCP8_EQ		= COND_MODE_MFCR | COND_MODE_EQ | COND_MODE_BCP8
 };
 
 #define SETCC_BIT_P(MASK) (((unsigned)rs6000_setcc_method & (MASK)) != 0)

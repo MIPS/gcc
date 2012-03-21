@@ -17491,7 +17491,7 @@ option is specified, this is the default behavior.
 maximum using a branch conditional instruction over a move operation,
 which is optimized on some machines.
 
-@item -msetcc=@var{none/default/isel/bcp8/mfcr}
+@item -msetcc=@var{none/default/eq/isel/bcp8/mfcr/mfcr-eq/isel-eq/bcp8-eq}
 @opindex msetcc
 Specify the method to use to optimize setting an integer variable to 0
 or 1 depending on a comparison.  In general, you should select the
@@ -17504,6 +17504,11 @@ independent code handle setting an integer based on a comparison.
 @option{-msetcc=default} tells the compiler to use the default code
 generation method for setting an integer to the result of a
 comparison.
+
+@option{-msetcc=eq} tells the compiler to generate code for setting a
+variable to the result of an equality comparsion to use the count
+leading zeros instruction.  All other comparsions are done with the
+machine independent code generation.
 
 @option{-msetcc=isel} tells the compiler to generate the ISEL
 instruction when setting an integer to the result of a comparison.
@@ -17518,6 +17523,21 @@ a move operation, which is optimized on some machines.
 @option{-msetcc=mfcr} says to generate code for setting a variable to
 the result of a comparsion using move from condition code register
 instructions.
+
+@option{-msetcc=mfcr-eq} tells the compiler to generate code for
+setting a variable to the result of an equality comparsion to use the
+count leading zeros instruction.  For other comparisons, the compiler
+will generate code using the @option{-msetcc=mfcr} option.
+
+@option{-msetcc=isel-eq} tells the compiler to generate code for
+setting a variable to the result of an equality comparsion to use the
+count leading zeros instruction.  For other comparisons, the compiler
+will generate code using the @option{-msetcc=isel} option.
+
+@option{-msetcc=bcp8-eq} tells the compiler to generate code for
+setting a variable to the result of an equality comparsion to use the
+count leading zeros instruction.  For other comparisons, the compiler
+will generate code using the @option{-msetcc=bcp8} option.
 
 @item -madjust-cost-compare-branch=@var{value}
 @opindex madjust-cost-compare-branch
