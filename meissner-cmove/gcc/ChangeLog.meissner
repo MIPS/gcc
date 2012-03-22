@@ -1,3 +1,10 @@
+2012-03-22  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/predicates.md (scc_cr_comparison_operand): Delete.
+
+	* config/rs6000/rs6000.md (unnamed setcc optimizers): Rework these
+	changes.
+
 2012-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (scc_cr_comparison_operand): New
@@ -7,7 +14,7 @@
 
 	* config/rs6000/rs6000.md (unnamed setcc optimizers): Restrict the
 	optimizers to not to work if we are doing setcc via ISEL or branch
-	conditional + 8. 
+	conditional + 8.
 
 	* config/rs6000/rs6000.opt (-msetcc): Add support for isel-eq,
 	bcp8-eq, and mfcr-eq to use count leading zeros/xor for equality
