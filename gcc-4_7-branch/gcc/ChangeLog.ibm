@@ -1,3 +1,8 @@
+2012-03-22  Michael Meissner  <meissner@the-meissners.org>
+
+	Merge up to 185696.
+	* REVISION: Update subversion id.
+
 2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline

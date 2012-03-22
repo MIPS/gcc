@@ -1,3 +1,77 @@
+2012-03-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-03-20 mainline r185583.
+
+	* gcc.target/avr/progmem.h (pgm_read_char): Define depending on
+	__AVR_HAVE_LPMX__
+
+	Backport from 2012-03-20 mainline r185570.
+
+        PR target/49868
+        * gcc.target/avr/torture/addr-space-2.h: New file.
+        * gcc.target/avr/torture/addr-space-2-g.h: New test.
+        * gcc.target/avr/torture/addr-space-2-0.h: New test.
+        * gcc.target/avr/torture/addr-space-2-1.h: New test.
+        * gcc.target/avr/torture/addr-space-2-x.h: New test.
+	
+	Backport from 2012-03-12 mainline r185255.
+
+        PR target/49868
+        * gcc.target/avr/torture/addr-space-1.h: New file.
+        * gcc.target/avr/torture/addr-space-g.h: New test.
+        * gcc.target/avr/torture/addr-space-0.h: New test.
+        * gcc.target/avr/torture/addr-space-1.h: New test.
+        * gcc.target/avr/torture/addr-space-x.h: New test.
+
+2012-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/52521
+	* g++.dg/cpp0x/udlit-args2.C: New test.
+
+	2012-03-13  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR c/52577
+	* gcc.dg/Wunused-var-3.c: New test.
+
+2012-03-22  Release Manager
+
+	* GCC 4.7.0 released.
+
+2012-03-20  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/auto32.C: New.
+
+2012-03-15  Jakub Jelinek  <jakub@redhat.com>
+	    Andrew Pinski  <apinski@cavium.com>
+
+	PR middle-end/52592
+	* gcc.dg/pr52592.c: New test.
+
+2012-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/52582
+	* g++.dg/opt/pr52582.C: New test.
+
+2012-03-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/52450
+	* gcc.dg/torture/pr52402.c: Skip execution on 32-bit hppa*-*-hpux*.
+
+	* gcc.dg/torture/pr52407.c: Add -fno-common option on hppa*-*-hpux*.
+
+2012-03-10  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52469
+	* gfortran.dg/proc_ptr_34.f90: New.
+
+2012-03-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52521
+	* g++.dg/cpp0x/udlit-mangle.C: New.
+
 2012-03-04  Georg-Johann Lay  <avr@gjlay.de>
 
 	Backport from mainline r184894.
