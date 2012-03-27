@@ -1205,6 +1205,11 @@ flra
 Common Report Var(flag_lra) Init(1)
 Use local RA pass instead of reload.
 
+flra-reg-spill
+Common Report Var(flag_lra_reg_spill) Init(1)
+Spill pseudos occured only in move insns into available regs of different
+class instead of memory if it is profitable
+
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1)
 Force bitfield accesses to match their type width

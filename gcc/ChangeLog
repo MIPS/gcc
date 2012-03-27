@@ -1,3 +1,48 @@
+2012-03-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (flra-reg-spill): New option.
+
+	* doc/tm.texi (TARGET_SPILL_CLASS, TARGET_SPILL_CLASS_MODE): New
+	hooks.
+
+	* target.def (spill_class, spill_class_mode): New hooks.
+
+	* target.h: Include tm.h.
+
+	* lra-int.h (lra_reg_spill_p): New external.
+
+	* lra.c (lra_reg_spill_p): New global var.
+	(setup_reg_spill_flag): New function.
+	(lra): Call setup_reg_spill_flag.  Use lra_reg_spill_p as an
+	argument for lra_create_live_ranges before spill sub-pass.
+
+	* lra-spills.c: Include ira.h.
+	(spill_hard_reg): New array.
+	(struct slot): Add new memebr hard_regno.
+	(assign_slot): Rename to assign_mem_slot.
+	(assign_spill_hard_regs): New function.
+	(add_pseudo_to_slot): Ditto.
+	(assign_stack_slot_num_and_sort_pseudos): Rewrite using
+	add_pseudo_to_slot.
+	(remove_pseudos): Use spill_hard_reg.
+	(lra_spill): Allocate, initialize, and free spill_hard_reg.
+	Sort pseudo_regnos and call assign_spill_hard_regs.
+
+	* lra-assign.c (assign_hard_regno): Use the biggest mode instead
+	of the pseudo mode.
+
+	* Makefile.in (lra-spills.c): Add dependence on ira.h.
+
+	* config/i386/i386.h (enum ix86_tune_indices): Add
+	X86_TUNE_GENERAL_REGS_SSE_SPILL.
+	(TARGET_GENERAL_REGS_SSE_SPILL): New macro.
+
+	* config/i386/i386.c (initial_ix86_tune_features): Add entry for
+	X86_TUNE_GENERAL_REGS_SSE_SPILL.
+	(ix86_spill_class): New function.
+	(ix86_spill_class_mode): Ditto.
+	(TARGET_SPILL_CLASS, TARGET_SPILL_CLASS_MODE): Define macros.
+
 2012-03-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/i386/i386.c (ix86_register_bank): Add special treatment

@@ -2086,6 +2086,26 @@ int lra_constraint_new_insn_uid_start;
 /* File used for output of LRA debug information.  */
 FILE *lra_dump_file;
 
+/* True if we should try spill into registers of different classes
+   instead of memory.  */
+bool lra_reg_spill_p;
+
+/* Set up value LRA_REG_SPILL_P.  */
+static void
+setup_reg_spill_flag (void)
+{
+  int cl;
+
+  if (flag_lra_reg_spill && targetm.spill_class != NULL)
+    for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
+      if (targetm.spill_class ((enum reg_class) cl) != NO_REGS)
+	{
+	  lra_reg_spill_p = true;
+	  return;
+	}
+  lra_reg_spill_p = false;
+}
+
 /* Major LRA entry function.  F is a file should be used to dump LRA
    debug info.  */
 void
@@ -2107,6 +2127,8 @@ lra (FILE *f)
 
   lra_live_range_iter = lra_coalesce_iter = 0;
   lra_constraint_iter = lra_inheritance_iter = lra_undo_inheritance_iter = 0;
+
+  setup_reg_spill_flag ();
 
   /* We can not set up reload_in_progress because it prevents new
      pseudo creation.  */
@@ -2188,7 +2210,9 @@ lra (FILE *f)
 	break;
       if (! live_p)
 	{
-	  lra_create_live_ranges (false);
+	  /* We need full live info for spilling pseudos into
+	     registers instead of memory.  */
+	  lra_create_live_ranges (lra_reg_spill_p);
 	  live_p = true;
 	}
       lra_spill ();

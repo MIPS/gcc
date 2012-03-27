@@ -41,11 +41,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "target.h"
 #include "lra-int.h"
+#include "ira.h"
 #include "df.h"
 
 
 /* Max regno at the start of the pass.  */
 static int regs_num;
+
+/* Map spilled regno -> hard regno used instead of memory for
+   spilling.  */
+static rtx *spill_hard_reg;
 
 /* The structure describes stack slot of a spilled pseudo.  */
 struct pseudo_slot
@@ -67,10 +72,12 @@ struct slot
 {
   /* First pseudo with given stack slot.  */
   int regno;
+  /* Hard reg into which the slot pseudos are spilled.  */
+  int hard_regno;
   /* Memory representing the all stack slot.  It can be different from
      memory representing a pseudo belonging to give stack slot because
-     pseudo can be placed in a part of the corresponding stack
-     slot.  */
+     pseudo can be placed in a part of the corresponding stack slot.
+     The value is NULL for pseudos spilled into a hard reg.  */
   rtx mem;
   /* Combined live ranges of all pseudos belonging to give slot.  It
      is used to define can a new spilled pseudo use given stack
@@ -87,7 +94,7 @@ static int slots_num;
 /* Set up memory of the spilled pseudo I.  The function can allocate
    the corresponding stack slot if it is not done yet.  */
 static void
-assign_slot (int i)
+assign_mem_slot (int i)
 {
   rtx x = NULL_RTX;
   enum machine_mode mode = GET_MODE (regno_reg_rtx[i]);
@@ -200,63 +207,161 @@ pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   return regno1 - regno2;
 }
 
-/* Assign stack slot number to them pseudo-register numbers in array
-   PSEUDO_REGNOS of length N.  Sort them for subsequent assigning
-   stack slots.  */
+static int
+assign_spill_hard_regs (int *pseudo_regnos, int n)
+{
+  int i, k, p, regno, res, spill_class_size, hard_regno, nr;
+  enum reg_class rclass, spill_class;
+  enum machine_mode mode;
+  lra_live_range_t r;
+  rtx insn, set;
+  basic_block bb;
+  HARD_REG_SET conflict_hard_regs;
+  bitmap_head ok_insn_bitmap;
+  bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
+  /* Hard registers which can not be used for any purpose at given
+     program point because they are unallocatable or already allocated
+     for other pseudos.  */ 
+  HARD_REG_SET *reserved_hard_regs;
+
+  if (! lra_reg_spill_p)
+    return n;
+  /* Set up reserved hard regs for every program point.  */
+  reserved_hard_regs = (HARD_REG_SET *) xmalloc (sizeof (HARD_REG_SET)
+						 * lra_live_max_point);
+  for (p = 0; p < lra_live_max_point; p++)
+    COPY_HARD_REG_SET (reserved_hard_regs[p], lra_no_alloc_regs);
+  for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
+    if (lra_reg_info[i].nrefs != 0
+	&& (hard_regno = lra_get_regno_hard_regno (i)) >= 0)
+      for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
+	for (p = r->start; p <= r->finish; p++)
+	  lra_add_hard_reg_set (hard_regno, lra_reg_info[i].biggest_mode,
+				&reserved_hard_regs[p]);
+  bitmap_initialize (&ok_insn_bitmap, &reg_obstack);
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (DEBUG_INSN_P (insn)
+	  || ((set = single_set (insn)) != NULL_RTX
+	      && REG_P (SET_SRC (set)) && REG_P (SET_DEST (set))))
+	bitmap_set_bit (&ok_insn_bitmap, INSN_UID (insn));
+  for (res = i = 0; i < n; i++)
+    {
+      regno = pseudo_regnos[i];
+      rclass = lra_get_allocno_class (regno);
+      if (bitmap_bit_p (set_jump_crosses, regno)
+	  || (spill_class = targetm.spill_class (rclass)) == NO_REGS
+	  || (targetm.spill_class_mode (rclass, spill_class,
+					PSEUDO_REGNO_MODE (regno))
+	      != PSEUDO_REGNO_MODE (regno))
+	  || bitmap_intersect_compl_p (&lra_reg_info[regno].insn_bitmap,
+				       &ok_insn_bitmap))
+	{
+	  pseudo_regnos[res++] = regno;
+	  continue;
+	}
+      COPY_HARD_REG_SET (conflict_hard_regs,
+			 lra_reg_info[regno].conflict_hard_regs);
+      for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
+	for (p = r->start; p <= r->finish; p++)
+	  IOR_HARD_REG_SET (conflict_hard_regs, reserved_hard_regs[p]);
+      spill_class = targetm.spill_class (lra_get_allocno_class (regno));
+      gcc_assert (spill_class != NO_REGS);
+      spill_class_size = ira_class_hard_regs_num[spill_class];
+      mode = lra_reg_info[regno].biggest_mode;
+      for (k = 0; k < spill_class_size; k++)
+	{
+	  hard_regno = ira_class_hard_regs[spill_class][k];
+	  if (! lra_hard_reg_set_intersection_p (hard_regno, mode,
+						 conflict_hard_regs))
+	    break;
+	}
+      if (k >= spill_class_size)
+	{
+	   /* There is no available regs -- assign memory.  */
+	  pseudo_regnos[res++] = regno;
+	  continue;
+	}
+      if (lra_dump_file != NULL)
+	fprintf (lra_dump_file, "  Spill r%d into hr%d\n", regno, hard_regno);
+      /* Update reserved_hard_regs.  */
+      for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
+	for (p = r->start; p <= r->finish; p++)
+	  lra_add_hard_reg_set (hard_regno, lra_reg_info[regno].biggest_mode,
+				&reserved_hard_regs[p]);
+      spill_hard_reg[regno]
+	= gen_raw_REG (PSEUDO_REGNO_MODE (regno), hard_regno);
+      for (nr = 0;
+	   nr < hard_regno_nregs[hard_regno][lra_reg_info[regno].biggest_mode];
+	   nr++);
+      df_set_regs_ever_live (hard_regno + nr, true);
+    }
+  bitmap_clear (&ok_insn_bitmap);
+  free (reserved_hard_regs);
+  return res;
+}
+
+/* Add pseudo REGNO to slot SLOT_NUM.  */
+static void
+add_pseudo_to_slot (int regno, int slot_num)
+{
+  struct pseudo_slot *first;
+
+  if (slots[slot_num].regno < 0)
+    {
+      /* It is the first pseudo in the slot.  */
+      slots[slot_num].regno = regno;
+      pseudo_slots[regno].first = &pseudo_slots[regno];
+      pseudo_slots[regno].next = NULL;
+    }
+  else
+    {
+      first = pseudo_slots[regno].first = &pseudo_slots[slots[slot_num].regno];
+      pseudo_slots[regno].next = pseudo_slots[slots[slot_num].regno].next;
+      first->next = &pseudo_slots[regno];
+    }
+  pseudo_slots[regno].mem = NULL_RTX;
+  pseudo_slots[regno].slot_num = slot_num;
+  slots[slot_num].live_ranges
+    = lra_merge_live_ranges (slots[slot_num].live_ranges,
+			     lra_copy_live_range_list
+			     (lra_reg_info[regno].live_ranges));
+}
+
+/* Assign stack slot number to pseudo-register numbers in array
+   PSEUDO_REGNOS of length N.  Sort pseudos for subsequent assigning
+   memory stack slots.  */
 static void
 assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 {
   int i, j, regno;
-  struct pseudo_slot *first;
-  bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
 
-  /* Sort regnos according their frequencies.  */
-  qsort (pseudo_regnos, n, sizeof (int), regno_freq_compare);
+  slots_num = 0;
   /* Assign stack slot numbers to spilled pseudos, use smaller numbers
      for most frequently used pseudos.  */
-  slots_num = 0;
   for (i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
-      j = -1;
       if (! flag_ira_share_spill_slots)
 	j = slots_num;
       else
 	{
-	  if (bitmap_bit_p (set_jump_crosses, regno))
-	    j = slots_num; /* assign a new slot */
+	  for (j = 0; j < slots_num; j++)
+	    if (slots[j].hard_regno < 0
+		&& ! (lra_intersected_live_ranges_p
+		      (slots[j].live_ranges,
+		       lra_reg_info[regno].live_ranges)))
+	      break;
 	}
-      if (j < 0)
-	for (j = 0; j < slots_num; j++)
-	  if (! lra_intersected_live_ranges_p (slots[j].live_ranges,
-					       lra_reg_info[regno].live_ranges))
-	    break;
       if (j >= slots_num)
 	{
 	  /* New slot.  */
 	  slots[j].live_ranges = NULL;
-	  slots[j].regno = -1;
+	  slots[j].regno = slots[j].hard_regno = -1;
 	  slots[j].mem = NULL_RTX;
 	  slots_num++;
 	}
-      pseudo_slots[regno].mem = NULL_RTX;
-      pseudo_slots[regno].slot_num = j;
-      if (slots[j].regno < 0)
-	{
-	  slots[j].regno = regno;
-	  pseudo_slots[regno].first = &pseudo_slots[regno];
-	  pseudo_slots[regno].next = NULL;
-	}
-      else
-	{
-	  first = pseudo_slots[regno].first = &pseudo_slots[slots[j].regno];
-	  pseudo_slots[regno].next = pseudo_slots[slots[j].regno].next;
-	  first->next = &pseudo_slots[regno];
-	}
-      slots[j].live_ranges = (lra_merge_live_ranges
-			      (slots[j].live_ranges,
-			       lra_copy_live_range_list
-			       (lra_reg_info[regno].live_ranges)));
+      add_pseudo_to_slot (regno, j);
     }
   /* Sort regnos according to their slot numbers.  */
   qsort (pseudo_regnos, n, sizeof (int), pseudo_reg_slot_compare);
@@ -270,6 +375,7 @@ remove_pseudos (rtx *loc, rtx insn)
 {
   int i;
   bool res;
+  rtx hard_reg;
   const char *fmt;
   enum rtx_code code;
 
@@ -284,7 +390,8 @@ remove_pseudos (rtx *loc, rtx insn)
 	 into scratches back.  */
       && ! lra_former_scratch_p (i))
     {
-      *loc = copy_rtx (pseudo_slots[i].mem);
+      hard_reg = spill_hard_reg[i];
+      *loc = copy_rtx (hard_reg != NULL_RTX ? hard_reg : pseudo_slots[i].mem);
       return true;
     }
 
@@ -338,6 +445,8 @@ spill_pseudos (void)
 		       "Changing spilled pseudos to memory in insn #%u\n",
 		       INSN_UID (insn));
 	    lra_push_insn (insn);
+	    if (lra_reg_spill_p)
+	      lra_set_used_insn_alternative_by_uid (INSN_UID (insn), -1);
 	  }
       bitmap_and_compl_into (DF_LR_IN (bb), &spilled_pseudos);
       bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);
@@ -369,29 +478,33 @@ lra_spill (void)
   int *pseudo_regnos;
 
   regs_num = max_reg_num ();
+  spill_hard_reg = (rtx *) xmalloc (sizeof (rtx) * regs_num);
   pseudo_regnos = (int *) xmalloc (sizeof (int) * regs_num);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
-    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0)
-      pseudo_regnos[n++] = i;
+    if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
+	/* We do not want to assign memory for former scratches.  */
+	&& ! lra_former_scratch_p (i))
+      {
+	spill_hard_reg[i] = NULL_RTX;
+	pseudo_regnos[n++] = i;
+      }
   gcc_assert (n > 0);
   pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
 						 * regs_num);
   slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
+  /* Sort regnos according their frequencies.  */
+  qsort (pseudo_regnos, n, sizeof (int), regno_freq_compare);
+  n = assign_spill_hard_regs (pseudo_regnos, n);
   assign_stack_slot_num_and_sort_pseudos (pseudo_regnos, n);
   for (i = 0; i < n; i++)
-    /* We do not want to assign memory for former scratches.  */
-    if (! lra_former_scratch_p (pseudo_regnos[i]))
-      assign_slot (pseudo_regnos[i]);
+    if (pseudo_slots[pseudo_regnos[i]].mem == NULL_RTX)
+      assign_mem_slot (pseudo_regnos[i]);
   if (lra_dump_file != NULL)
     {
       for (i = 0; i < slots_num; i++)
 	{
-	  if (slots[i].mem == NULL_RTX)
-	    /* It can happen for scratch registers.  */
-	    fprintf (lra_dump_file, "  Slot %d regnos (no memory):", i);
-	  else
-	    fprintf (lra_dump_file, "  Slot %d regnos (width = %d):", i,
-		     GET_MODE_SIZE (GET_MODE (slots[i].mem)));
+	  fprintf (lra_dump_file, "  Slot %d regnos (width = %d):", i,
+		   GET_MODE_SIZE (GET_MODE (slots[i].mem)));
 	  for (curr_regno = slots[i].regno;;
 	       curr_regno = pseudo_slots[curr_regno].next - pseudo_slots)
 	    {

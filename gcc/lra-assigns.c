@@ -840,7 +840,7 @@ assign_hard_regno (int hard_regno, int regno)
   lra_setup_reg_renumber (regno, hard_regno, true);
   update_lives (regno, false);
   for (i = 0;
-       i < hard_regno_nregs[hard_regno][PSEUDO_REGNO_MODE (regno)];
+       i < hard_regno_nregs[hard_regno][lra_reg_info[regno].biggest_mode];
        i++)
     df_set_regs_ever_live (hard_regno + i, true);
 }

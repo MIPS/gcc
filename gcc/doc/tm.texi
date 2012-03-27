@@ -11348,6 +11348,14 @@ false for naked functions.  The default implementation always returns true.
 @end deftypefn
 
 @deftypevr {Target Hook} {unsigned HOST_WIDE_INT} TARGET_CONST_ANCHOR
+
+@deftypefn {Target Hook} {enum reg_class} TARGET_SPILL_CLASS (enum @var{reg_class})
+This hook defines a class of registers which could be used for spilled pseudos  of given class instead of memory
+@end deftypefn
+
+@deftypefn {Target Hook} {enum machine_mode} TARGET_SPILL_CLASS_MODE (enum @var{reg_class}, enum @var{reg_class}, enum @var{machine_mode})
+This hook defines mode in which a pseudo of given mode and of the first  register class can be spilled into the second register class
+@end deftypefn
 On some architectures it can take multiple instructions to synthesize
 a constant.  If there is another constant already in a register that
 is close enough in value then it is preferable that the new constant

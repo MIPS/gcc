@@ -2176,7 +2176,11 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_REASSOC_FP_TO_PARALLEL: Try to produce parallel computations
      during reassociation of fp computation.  */
-  m_ATOM
+  m_ATOM,
+
+  /* X86_TUNE_GENERAL_REGS_SSE_SPILL: Try to spill general regs to SSE
+     regs instead of memory.  */
+  m_COREI7 | m_CORE2I7
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -38431,6 +38435,39 @@ ix86_autovectorize_vector_sizes (void)
   return (TARGET_AVX && !TARGET_PREFER_AVX128) ? 32 | 16 : 0;
 }
 
+
+
+/* Return class of registers which could be used for pseudo of class
+   RCLASS for spilling instead of memory.  Return NO_REGS if it is not
+   possible or non-profitable.  */
+static enum reg_class
+ix86_spill_class (enum reg_class rclass)
+{
+  if (TARGET_SSE && TARGET_GENERAL_REGS_SSE_SPILL
+      && hard_reg_set_subset_p (reg_class_contents[rclass],
+				reg_class_contents[GENERAL_REGS]))
+    return SSE_REGS;
+  return NO_REGS;
+}
+
+/* Return mode in which pseudo of MODE and RCLASS can be spilled into
+   a register of class SPILL_CLASS.  Return VOIDmode if it is not
+   possible.  */
+static enum machine_mode
+ix86_spill_class_mode (enum reg_class rclass, enum reg_class spill_class,
+		       enum machine_mode mode)
+{
+  if (! TARGET_SSE || ! TARGET_GENERAL_REGS_SSE_SPILL
+      || ! hard_reg_set_subset_p (reg_class_contents[rclass],
+				  reg_class_contents[GENERAL_REGS])
+      || spill_class != SSE_REGS)
+    return VOIDmode;
+  if (mode == SImode || (TARGET_64BIT && mode == DImode))
+    return mode;
+  return VOIDmode;
+}
+
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -38748,6 +38785,12 @@ ix86_autovectorize_vector_sizes (void)
 #undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS darwin_rename_builtins
 #endif
+
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS ix86_spill_class
+
+#undef TARGET_SPILL_CLASS_MODE
+#define TARGET_SPILL_CLASS_MODE ix86_spill_class_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -1940,6 +1940,23 @@ DEFHOOKPOD
  "",
  unsigned HOST_WIDE_INT, 0)
 
+/* Determine class of registers which could be used for spilled
+   pseudos instead of memory.  */
+DEFHOOK
+(spill_class,
+ "This hook defines a class of registers which could be used for spilled pseudos\
+  of given class instead of memory",
+ enum reg_class, (enum reg_class),
+ NULL)
+
+/* Determine mode for spilling pseudos into registers instead of memory.  */
+DEFHOOK
+(spill_class_mode,
+ "This hook defines mode in which a pseudo of given mode and of the first\
+  register class can be spilled into the second register class",
+ enum machine_mode, (enum reg_class, enum reg_class, enum machine_mode),
+ NULL)
+
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
 HOOK_VECTOR (TARGET_CALLS, calls)
