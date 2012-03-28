@@ -965,6 +965,10 @@ fpermissive
 C++ ObjC++
 Downgrade conformance errors to warnings
 
+fpl
+C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl)
+Add point-lookout instrumentation
+
 fplan9-extensions
 C ObjC Var(flag_plan9_extensions)
 Enable Plan 9 language extensions
