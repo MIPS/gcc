@@ -3948,8 +3948,9 @@ Parse::return_stat()
 	   ++p)
 	{
 	  Named_object* no = this->gogo_->lookup((*p)->name(), NULL);
-	  go_assert(no != NULL);
-	  if (!no->is_result_variable())
+	  if (no == NULL)
+	    go_assert(saw_errors());
+	  else if (!no->is_result_variable())
 	    error_at(location, "%qs is shadowed during return",
 		     (*p)->message_name().c_str());
 	}
@@ -3970,7 +3971,7 @@ Parse::if_stat()
 
   bool saw_simple_stat = false;
   Expression* cond = NULL;
-  bool saw_send_stmt;
+  bool saw_send_stmt = false;
   if (this->simple_stat_may_start_here())
     {
       cond = this->simple_stat(false, &saw_send_stmt, NULL, NULL);

@@ -678,13 +678,13 @@ package body Exp_Attr is
 
       case Id is
 
-         --  Attributes related to Ada 2012 iterators (placeholder ???)
+      --  Attributes related to Ada 2012 iterators (placeholder ???)
 
-         when Attribute_Constant_Indexing    => null;
-         when Attribute_Default_Iterator     => null;
-         when Attribute_Implicit_Dereference => null;
-         when Attribute_Iterator_Element     => null;
-         when Attribute_Variable_Indexing    => null;
+      when Attribute_Constant_Indexing    => null;
+      when Attribute_Default_Iterator     => null;
+      when Attribute_Implicit_Dereference => null;
+      when Attribute_Iterator_Element     => null;
+      when Attribute_Variable_Indexing    => null;
 
       ------------
       -- Access --
@@ -5368,6 +5368,15 @@ package body Exp_Attr is
          Validity_Checks_On := Save_Validity_Checks_On;
       end Valid;
 
+      -------------------
+      -- Valid_Scalars --
+      -------------------
+
+      when Attribute_Valid_Scalars => Valid_Scalars : declare
+      begin
+         raise Program_Error;
+      end Valid_Scalars;
+
       -----------
       -- Value --
       -----------
@@ -5672,7 +5681,8 @@ package body Exp_Attr is
            Attribute_Definite                     |
            Attribute_Null_Parameter               |
            Attribute_Passed_By_Reference          |
-           Attribute_Pool_Address                 =>
+           Attribute_Pool_Address                 |
+           Attribute_Scalar_Storage_Order         =>
          null;
 
       --  The following attributes are also handled by the back end, but return
@@ -5700,10 +5710,12 @@ package body Exp_Attr is
            Attribute_Enabled                      |
            Attribute_Epsilon                      |
            Attribute_Fast_Math                    |
+           Attribute_First_Valid                  |
            Attribute_Has_Access_Values            |
            Attribute_Has_Discriminants            |
            Attribute_Has_Tagged_Values            |
            Attribute_Large                        |
+           Attribute_Last_Valid                   |
            Attribute_Machine_Emax                 |
            Attribute_Machine_Emin                 |
            Attribute_Machine_Mantissa             |

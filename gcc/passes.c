@@ -1430,11 +1430,6 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
-      NEXT_PASS (pass_init_function);
-      NEXT_PASS (pass_jump);
-      NEXT_PASS (pass_rtl_eh);
-      NEXT_PASS (pass_initial_value_sets);
-      NEXT_PASS (pass_unshare_all_rtl);
       NEXT_PASS (pass_instantiate_virtual_regs);
       NEXT_PASS (pass_into_cfg_layout_mode);
       NEXT_PASS (pass_jump2);
@@ -1725,11 +1720,14 @@ execute_function_todo (void *data)
 #if defined ENABLE_CHECKING
   if (flags & TODO_verify_ssa
       || (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA)))
-    verify_ssa (true);
+    {
+      verify_gimple_in_cfg (cfun);
+      verify_ssa (true);
+    }
+  else if (flags & TODO_verify_stmts)
+    verify_gimple_in_cfg (cfun);
   if (flags & TODO_verify_flow)
     verify_flow_info ();
-  if (flags & TODO_verify_stmts)
-    verify_gimple_in_cfg (cfun);
   if (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA))
     verify_loop_closed_ssa (false);
   if (flags & TODO_verify_rtl_sharing)

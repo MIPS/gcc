@@ -510,7 +510,8 @@ class Type
 
   // Verify the type.  This is called after parsing, and verifies that
   // types are complete and meet the language requirements.  This
-  // returns false if the type is invalid.
+  // returns false if the type is invalid and we should not continue
+  // traversing it.
   bool
   verify()
   { return this->do_verify(); }
@@ -678,6 +679,14 @@ class Type
   const Complex_type*
   complex_type() const
   { return this->convert<const Complex_type, TYPE_COMPLEX>(); }
+
+  // Return whether this is a numeric type.
+  bool
+  is_numeric_type() const
+  {
+    Type_classification tc = this->base()->classification_;
+    return tc == TYPE_INTEGER || tc == TYPE_FLOAT || tc == TYPE_COMPLEX;
+  }
 
   // Return true if this is a boolean type.
   bool

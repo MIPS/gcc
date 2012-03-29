@@ -703,7 +703,7 @@ proper position among the other output files.  */
 # define SYSROOT_HEADERS_SUFFIX_SPEC ""
 #endif
 
-static const char *asm_debug;
+static const char *asm_debug = ASM_DEBUG_SPEC;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
@@ -2958,7 +2958,7 @@ display_help (void)
   fputs (_("  -pass-exit-codes         Exit with highest error code from a phase\n"), stdout);
   fputs (_("  --help                   Display this information\n"), stdout);
   fputs (_("  --target-help            Display target specific command line options\n"), stdout);
-  fputs (_("  --help={target|optimizers|warnings|params|[^]{joined|separate|undocumented}}[,...]\n"), stdout);
+  fputs (_("  --help={common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...]\n"), stdout);
   fputs (_("                           Display specific types of command line options\n"), stdout);
   if (! verbose_flag)
     fputs (_("  (Use '-v --help' to display command line options of sub-processes)\n"), stdout);
@@ -6117,10 +6117,6 @@ main (int argc, char **argv)
   char **old_argv = argv;
   struct cl_decoded_option *decoded_options;
   unsigned int decoded_options_count;
-
-  /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
-     on ?: in file-scope variable initializations.  */
-  asm_debug = ASM_DEBUG_SPEC;
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))

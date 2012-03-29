@@ -1266,14 +1266,6 @@ address space @code{__flash@var{N}}.
 The compiler will set the @code{RAMPZ} segment register approptiately 
 before reading data by means of the @code{ELPM} instruction.
 
-On devices with less 64@tie{}kiB flash segments as indicated by the address
-space, the compiler will cut down the segment number to a number the
-device actually supports. Counting starts at@tie{}@code{0}
-for space @code{__flash}. For example, if you access address space
-@code{__flash3} on an ATmega128 device with two 64@tie{}kiB flash segments,
-the compiler will generate a read from @code{__flash1}, i.e.@: it
-will load @code{RAMPZ} with@tie{}@code{1} before reading.
-
 @item __memx
 @cindex @code{__memx} AVR Named Address Spaces
 This is a 24-bit address space that linearizes flash and RAM:
@@ -2727,7 +2719,8 @@ Use this attribute on the ARM, AVR, CR16, Epiphany, M32C, M32R/D, m68k, MeP, MIP
 RL78, RX and Xstormy16 ports to indicate that the specified function is an
 interrupt handler.  The compiler will generate function entry and exit
 sequences suitable for use in an interrupt handler when this attribute
-is present.
+is present.  With Epiphany targets it may also generate a special section with
+code to initialize the interrupt vector table.
 
 Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, MicroBlaze,
 and SH processors can be specified via the @code{interrupt_handler} attribute.
@@ -2745,6 +2738,48 @@ Permissible values for this parameter are: IRQ, FIQ, SWI, ABORT and UNDEF@.
 
 On ARMv7-M the interrupt type is ignored, and the attribute means the function
 may be called with a word aligned stack pointer.
+
+On Epiphany targets one or more optional parameters can be added like this:
+
+@smallexample
+void __attribute__ ((interrupt ("dma0, dma1"))) universal_dma_handler ();
+@end smallexample
+
+Permissible values for these parameters are: @w{@code{reset}},
+@w{@code{software_exception}}, @w{@code{page_miss}},
+@w{@code{timer0}}, @w{@code{timer1}}, @w{@code{message}},
+@w{@code{dma0}}, @w{@code{dma1}}, @w{@code{wand}} and @w{@code{swi}}.
+Multiple parameters indicate that multiple entries in the interrupt
+vector table should be initialized for this function, i.e. for each
+parameter @w{@var{name}}, a jump to the function will be emitted in
+the section @w{ivt_entry_@var{name}}.  The parameter(s) may be omitted
+entirely, in which case no interrupt vector table entry will be provided.
+
+Note, on Epiphany targets, interrupts are enabled inside the function
+unless the @code{disinterrupt} attribute is also specified.
+
+On Epiphany targets, you can also use the following attribute to
+modify the behavior of an interrupt handler:
+@table @code
+@item forwarder_section
+@cindex @code{forwarder_section} attribute
+The interrupt handler may be in external memory which cannot be
+reached by a branch instruction, so generate a local memory trampoline
+to transfer control.  The single parameter identifies the section where
+the trampoline will be placed.
+@end table
+
+The following examples are all valid uses of these attributes on
+Epiphany targets:
+@smallexample
+void __attribute__ ((interrupt)) universal_handler ();
+void __attribute__ ((interrupt ("dma1"))) dma1_handler ();
+void __attribute__ ((interrupt ("dma0, dma1"))) universal_dma_handler ();
+void __attribute__ ((interrupt ("timer0"), disinterrupt))
+  fast_timer_handler ();
+void __attribute__ ((interrupt ("dma0, dma1"), forwarder_section ("tramp")))
+  external_dma_handler ();
+@end smallexample
 
 On MIPS targets, you can use the following attributes to modify the behavior
 of an interrupt handler:
@@ -8817,7 +8852,18 @@ might increase delay time. @code{ticks} must be a compile time
 integer constant; delays with a variable number of cycles are not supported.
 
 @smallexample
-     unsigned char __builtin_avr_insert_bits (unsigned long map, unsigned char bits, unsigned char val)
+char __builtin_avr_flash_segment (const __memx void*)
+@end smallexample
+
+@noindent
+This built-in takes a byte address to the 24-bit
+@ref{AVR Named Address Spaces,address space} @code{__memx} and returns
+the number of the flash segment (the 64 KiB chunk) where the address
+points to.  Counting starts at @code{0}.
+If the address does not point to flash memory, return @code{-1}.
+
+@smallexample
+unsigned char __builtin_avr_insert_bits (unsigned long map, unsigned char bits, unsigned char val)
 @end smallexample
 
 @noindent
@@ -14095,10 +14141,9 @@ adding a call to the @code{.init} section.
 @node Symbol-Renaming Pragmas
 @subsection Symbol-Renaming Pragmas
 
-For compatibility with the Solaris and Tru64 UNIX system headers, GCC
+For compatibility with the Solaris system headers, GCC
 supports two @code{#pragma} directives which change the name used in
-assembly for a given declaration.  @code{#pragma extern_prefix} is only
-available on platforms whose system headers need it. To get this effect
+assembly for a given declaration. To get this effect
 on all platforms supported by GCC, use the asm labels extension (@pxref{Asm
 Labels}).
 
@@ -14109,19 +14154,9 @@ Labels}).
 This pragma gives the C function @var{oldname} the assembly symbol
 @var{newname}.  The preprocessor macro @code{__PRAGMA_REDEFINE_EXTNAME}
 will be defined if this pragma is available (currently on all platforms).
-
-@item extern_prefix @var{string}
-@cindex pragma, extern_prefix
-
-This pragma causes all subsequent external function and variable
-declarations to have @var{string} prepended to their assembly symbols.
-This effect may be terminated with another @code{extern_prefix} pragma
-whose argument is an empty string.  The preprocessor macro
-@code{__PRAGMA_EXTERN_PREFIX} will be defined if this pragma is
-available (currently only on Tru64 UNIX)@.
 @end table
 
-These pragmas and the asm labels extension interact in a complicated
+This pragma and the asm labels extension interact in a complicated
 manner.  Here are some corner cases you may want to be aware of.
 
 @enumerate
@@ -14140,17 +14175,6 @@ the name does not change.
 
 @item The @var{oldname} used by @code{#pragma redefine_extname} is
 always the C-language name.
-
-@item If @code{#pragma extern_prefix} is in effect, and a declaration
-occurs with an asm label attached, the prefix is silently ignored for
-that declaration.
-
-@item If @code{#pragma extern_prefix} and @code{#pragma redefine_extname}
-apply to the same declaration, whichever triggered first wins, and a
-warning issues if they contradict each other.  (We would like to have
-@code{#pragma redefine_extname} always win, for consistency with asm
-labels, but if @code{#pragma extern_prefix} triggers first we have no
-way of knowing that that happened.)
 @end enumerate
 
 @node Structure-Packing Pragmas
@@ -15138,16 +15162,7 @@ GNU/Linux or Solaris 2, or on Microsoft Windows, G++ supports the
 Borland model.  On other systems, G++ implements neither automatic
 model.
 
-A future version of G++ will support a hybrid model whereby the compiler
-will emit any instantiations for which the template definition is
-included in the compile, and store template definitions and
-instantiation context information into the object file for the rest.
-The link wrapper will extract that information as necessary and invoke
-the compiler to produce the remaining instantiations.  The linker will
-then combine duplicate instantiations.
-
-In the mean time, you have the following options for dealing with
-template instantiations:
+You have the following options for dealing with template instantiations:
 
 @enumerate
 @item
@@ -15209,9 +15224,10 @@ compile it without @option{-fno-implicit-templates} so you get all of the
 instances required by your explicit instantiations (but not by any
 other files) without having to specify them as well.
 
-G++ has extended the template instantiation syntax given in the ISO
-standard to allow forward declaration of explicit instantiations
-(with @code{extern}), instantiation of the compiler support data for a
+The ISO C++ 2011 standard allows forward declaration of explicit
+instantiations (with @code{extern}). G++ supports explicit instantiation
+declarations in C++98 mode and has extended the template instantiation
+syntax to support instantiation of the compiler support data for a
 template class (i.e.@: the vtable) without instantiating any of its
 members (with @code{inline}), and instantiation of only the static data
 members of a template class, without the support data or member

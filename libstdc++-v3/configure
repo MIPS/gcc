@@ -644,8 +644,6 @@ GLIBCXX_LDBL_COMPAT_TRUE
 ENABLE_VISIBILITY_FALSE
 ENABLE_VISIBILITY_TRUE
 libtool_VERSION
-ENABLE_SYMVERS_SOL2_FALSE
-ENABLE_SYMVERS_SOL2_TRUE
 ENABLE_SYMVERS_SUN_FALSE
 ENABLE_SYMVERS_SUN_TRUE
 ENABLE_SYMVERS_DARWIN_FALSE
@@ -11499,7 +11497,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11502 "configure"
+#line 11500 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11605,7 +11603,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11608 "configure"
+#line 11606 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -14963,7 +14961,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 14966 "configure"
+#line 14964 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15298,7 +15296,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15301 "configure"
+#line 15299 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15333,7 +15331,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15336 "configure"
+#line 15334 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15368,7 +15366,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15371 "configure"
+#line 15369 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15404,7 +15402,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15407 "configure"
+#line 15405 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15484,7 +15482,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15487 "configure"
+#line 15485 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15526,7 +15524,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15529 "configure"
+#line 15527 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15560,7 +15558,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15563 "configure"
+#line 15561 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -17304,109 +17302,38 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
-  case "$host" in
-    *-*-solaris2.*)
-      # Solaris 8 FCS only had an overload for double std::abs(double) in
-      # <iso/math_iso.h>.  Patches 111721-04 (SPARC) and 112757-01 (x86)
-      # introduced the full set also found from Solaris 9 onwards.
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for float std::abs(float) overload" >&5
-$as_echo_n "checking for float std::abs(float) overload... " >&6; }
-      if test "${glibcxx_cv_abs_float+set}" = set; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for gets declaration" >&5
+$as_echo_n "checking for gets declaration... " >&6; }
+  if test "${glibcxx_cv_gets+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
 
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include <math.h>
-	   namespace std {
-	     inline float abs(float __x)
-	     {  return __builtin_fabsf(__x); }
+#include <stdio.h>
+	   namespace test
+	   {
+              using ::gets;
 	   }
 
 _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"; then :
-  glibcxx_cv_abs_float=no
+  glibcxx_cv_gets=yes
 else
-  glibcxx_cv_abs_float=yes
+  glibcxx_cv_gets=no
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 
 
-      # autoheader cannot handle indented templates.
+  if test $glibcxx_cv_gets = yes; then
 
+$as_echo "#define HAVE_GETS 1" >>confdefs.h
 
-
-      if test $glibcxx_cv_abs_float = yes; then
-	$as_echo "#define __CORRECT_ISO_CPP_MATH_H_PROTO1 1" >>confdefs.h
-
-      else
-	$as_echo "#define __CORRECT_ISO_CPP_MATH_H_PROTO2 1" >>confdefs.h
-
-      fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_abs_float" >&5
-$as_echo "$glibcxx_cv_abs_float" >&6; }
-      ;;
-  esac
-
-  ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
-
-
-
-  ac_ext=cpp
-ac_cpp='$CXXCPP $CPPFLAGS'
-ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
-
-
-  case "$host" in
-    *-*-solaris2.*)
-      # Solaris 8 FCS lacked the overloads for long std::abs(long) and
-      # ldiv_t std::div(long, long) in <iso/stdlib_iso.h>.  Patches 109607-02
-      # (SPARC) and 109608-02 (x86) introduced them.
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for long std::abs(long) overload" >&5
-$as_echo_n "checking for long std::abs(long) overload... " >&6; }
-      if test "${glibcxx_cv_abs_long+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <stdlib.h>
-	   namespace std {
-	     inline long
-	     abs(long __i) { return labs(__i); }
-	   }
-
-_ACEOF
-if ac_fn_cxx_try_compile "$LINENO"; then :
-  glibcxx_cv_abs_long=no
-else
-  glibcxx_cv_abs_long=yes
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-fi
-
-
-      # autoheader cannot handle indented templates.
-
-      if test $glibcxx_cv_abs_long = yes; then
-	$as_echo "#define __CORRECT_ISO_CPP_STDLIB_H_PROTO 1" >>confdefs.h
-
-      fi
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_abs_long" >&5
-$as_echo "$glibcxx_cv_abs_long" >&6; }
-      ;;
-  esac
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_gets" >&5
+$as_echo "$glibcxx_cv_gets" >&6; }
 
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -63665,7 +63592,7 @@ done
     ;;
   *-solaris*)
     case "$target" in
-      *-solaris2.8 | *-solaris2.9 | *-solaris2.10)
+      *-solaris2.9 | *-solaris2.10)
 
   # If we're not using GNU ld, then there's no point in even trying these
   # tests.  Check for that first.  We should have already tested for gld
@@ -64998,18 +64925,15 @@ if test $enable_symvers != no ; then
      # The Solaris 2 runtime linker doesn't support the GNU extension of
      # binding the same symbol to different versions
      solaris2*)
-       symvers_renaming=no  ;;
+       ;;
      # Other platforms with GNU symbol versioning (GNU/Linux, more?) do.
      *)
 
 $as_echo "#define HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT 1" >>confdefs.h
 
-       symvers_renaming=yes  ;;
+       ;;
     esac
-else
-    symvers_renaming=no
 fi
-
 
 # Now, set up compatibility support, if any.
 # In addition, need this to deal with std::size_t mangling in
@@ -65577,9 +65501,9 @@ main ()
 _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"; then :
   case $target_os in
-	  # gthreads support breaks symbol versioning on Solaris 8/9 (PR
+	  # gthreads support breaks symbol versioning on Solaris 9 (PR
 	  # libstdc++/52189).
-          solaris2.[89]*)
+          solaris2.9*)
 	    if test x$enable_symvers = xno; then
 	      ac_has_gthreads=yes
 	    elif test x$enable_libstdcxx_threads = xyes; then
@@ -66201,15 +66125,6 @@ else
 fi
 
 
-    if test $symvers_renaming = no; then
-  ENABLE_SYMVERS_SOL2_TRUE=
-  ENABLE_SYMVERS_SOL2_FALSE='#'
-else
-  ENABLE_SYMVERS_SOL2_TRUE='#'
-  ENABLE_SYMVERS_SOL2_FALSE=
-fi
-
-
     if test $enable_libstdcxx_visibility = yes; then
   ENABLE_VISIBILITY_TRUE=
   ENABLE_VISIBILITY_FALSE='#'
@@ -66635,10 +66550,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_SYMVERS_SUN_TRUE}" && test -z "${ENABLE_SYMVERS_SUN_FALSE}"; then
   as_fn_error "conditional \"ENABLE_SYMVERS_SUN\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${ENABLE_SYMVERS_SOL2_TRUE}" && test -z "${ENABLE_SYMVERS_SOL2_FALSE}"; then
-  as_fn_error "conditional \"ENABLE_SYMVERS_SOL2\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_VISIBILITY_TRUE}" && test -z "${ENABLE_VISIBILITY_FALSE}"; then

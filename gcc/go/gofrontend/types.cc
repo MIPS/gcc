@@ -622,16 +622,24 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
 				  std::string* reason)
 {
   // Do some checks first.  Make sure the types are defined.
-  if (rhs != NULL
-      && rhs->forwarded()->forward_declaration_type() == NULL
-      && rhs->is_void_type())
+  if (rhs != NULL && !rhs->is_undefined())
     {
-      if (reason != NULL)
-	*reason = "non-value used as value";
-      return false;
+      if (rhs->is_void_type())
+	{
+	  if (reason != NULL)
+	    *reason = "non-value used as value";
+	  return false;
+	}
+      if (rhs->is_call_multiple_result_type())
+	{
+	  if (reason != NULL)
+	    reason->assign(_("multiple value function call in "
+			     "single value context"));
+	  return false;
+	}
     }
 
-  if (lhs != NULL && lhs->forwarded()->forward_declaration_type() == NULL)
+  if (lhs != NULL && !lhs->is_undefined())
     {
       // Any value may be assigned to the blank identifier.
       if (lhs->is_sink_type())
@@ -639,9 +647,7 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
 
       // All fields of a struct must be exported, or the assignment
       // must be in the same package.
-      if (check_hidden_fields
-	  && rhs != NULL
-	  && rhs->forwarded()->forward_declaration_type() == NULL)
+      if (check_hidden_fields && rhs != NULL && !rhs->is_undefined())
 	{
 	  if (lhs->has_hidden_fields(NULL, reason)
 	      || rhs->has_hidden_fields(NULL, reason))
@@ -715,9 +721,6 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
     {
       if (rhs->interface_type() != NULL)
 	reason->assign(_("need explicit conversion"));
-      else if (rhs->is_call_multiple_result_type())
-	reason->assign(_("multiple value function call in "
-			 "single value context"));
       else if (lhs->named_type() != NULL && rhs->named_type() != NULL)
 	{
 	  size_t len = (lhs->named_type()->name().length()
@@ -1787,6 +1790,12 @@ Type::write_specific_type_functions(Gogo* gogo, Named_type* name,
 {
   Location bloc = Linemap::predeclared_location();
 
+  if (gogo->specific_type_functions_are_written())
+    {
+      go_assert(saw_errors());
+      return;
+    }
+
   Named_object* hash_fn = gogo->start_function(hash_name, hash_fntype, false,
 					       bloc);
   gogo->start_block(bloc);
@@ -2221,15 +2230,13 @@ Type::is_backend_type_size_known(Gogo* gogo)
 	  return true;
 	else
 	  {
-	    mpz_t ival;
-	    mpz_init(ival);
-	    Type* dummy;
-	    bool length_known = at->length()->integer_constant_value(true,
-								     ival,
-								     &dummy);
-	    mpz_clear(ival);
-	    if (!length_known)
+	    Numeric_constant nc;
+	    if (!at->length()->numeric_constant_value(&nc))
 	      return false;
+	    mpz_t ival;
+	    if (!nc.to_int(&ival))
+	      return false;
+	    mpz_clear(ival);
 	    return at->element_type()->is_backend_type_size_known(gogo);
 	  }
       }
@@ -3741,8 +3748,12 @@ Function_type::copy_with_receiver(Type* receiver_type) const
   go_assert(!this->is_method());
   Typed_identifier* receiver = new Typed_identifier("", receiver_type,
 						    this->location_);
-  return Type::make_function_type(receiver, this->parameters_,
-				  this->results_, this->location_);
+  Function_type* ret = Type::make_function_type(receiver, this->parameters_,
+						this->results_,
+						this->location_);
+  if (this->is_varargs_)
+    ret->set_is_varargs();
+  return ret;
 }
 
 // Make a function type.
@@ -4116,7 +4127,6 @@ Struct_type::do_verify()
   Struct_field_list* fields = this->fields_;
   if (fields == NULL)
     return true;
-  bool ret = true;
   for (Struct_field_list::iterator p = fields->begin();
        p != fields->end();
        ++p)
@@ -4126,7 +4136,6 @@ Struct_type::do_verify()
 	{
 	  error_at(p->location(), "struct field type is incomplete");
 	  p->set_type(Type::make_error_type());
-	  ret = false;
 	}
       else if (p->is_anonymous())
 	{
@@ -4134,19 +4143,17 @@ Struct_type::do_verify()
 	    {
 	      error_at(p->location(), "embedded type may not be a pointer");
 	      p->set_type(Type::make_error_type());
-	      return false;
 	    }
-	  if (t->points_to() != NULL
-	      && t->points_to()->interface_type() != NULL)
+	  else if (t->points_to() != NULL
+		   && t->points_to()->interface_type() != NULL)
 	    {
 	      error_at(p->location(),
 		       "embedded type may not be pointer to interface");
 	      p->set_type(Type::make_error_type());
-	      return false;
 	    }
 	}
     }
-  return ret;
+  return true;
 }
 
 // Whether this contains a pointer.
@@ -5097,17 +5104,22 @@ Array_type::is_identical(const Array_type* t, bool errors_are_identical) const
       // Try to determine the lengths.  If we can't, assume the arrays
       // are not identical.
       bool ret = false;
-      mpz_t v1;
-      mpz_init(v1);
-      Type* type1;
-      mpz_t v2;
-      mpz_init(v2);
-      Type* type2;
-      if (l1->integer_constant_value(true, v1, &type1)
-	  && l2->integer_constant_value(true, v2, &type2))
-	ret = mpz_cmp(v1, v2) == 0;
-      mpz_clear(v1);
-      mpz_clear(v2);
+      Numeric_constant nc1, nc2;
+      if (l1->numeric_constant_value(&nc1)
+	  && l2->numeric_constant_value(&nc2))
+	{
+	  mpz_t v1;
+	  if (nc1.to_int(&v1))
+	    {
+	      mpz_t v2;
+	      if (nc2.to_int(&v2))
+		{
+		  ret = mpz_cmp(v1, v2) == 0;
+		  mpz_clear(v2);
+		}
+	      mpz_clear(v1);
+	    }
+	}
       return ret;
     }
 
@@ -5145,57 +5157,43 @@ Array_type::verify_length()
       return false;
     }
 
-  mpz_t val;
-  mpz_init(val);
-  Type* vt;
-  if (!this->length_->integer_constant_value(true, val, &vt))
+  Numeric_constant nc;
+  if (!this->length_->numeric_constant_value(&nc))
     {
-      mpfr_t fval;
-      mpfr_init(fval);
-      if (!this->length_->float_constant_value(fval, &vt))
-	{
-	  if (this->length_->type()->integer_type() != NULL
-	      || this->length_->type()->float_type() != NULL)
-	    error_at(this->length_->location(),
-		     "array bound is not constant");
-	  else
-	    error_at(this->length_->location(),
-		     "array bound is not numeric");
-	  mpfr_clear(fval);
-	  mpz_clear(val);
-	  return false;
-	}
-      if (!mpfr_integer_p(fval))
-	{
-	  error_at(this->length_->location(),
-		   "array bound truncated to integer");
-	  mpfr_clear(fval);
-	  mpz_clear(val);
-	  return false;
-	}
-      mpz_init(val);
-      mpfr_get_z(val, fval, GMP_RNDN);
-      mpfr_clear(fval);
+      if (this->length_->type()->integer_type() != NULL
+	  || this->length_->type()->float_type() != NULL)
+	error_at(this->length_->location(), "array bound is not constant");
+      else
+	error_at(this->length_->location(), "array bound is not numeric");
+      return false;
     }
 
-  if (mpz_sgn(val) < 0)
+  unsigned long val;
+  switch (nc.to_unsigned_long(&val))
     {
-      error_at(this->length_->location(), "negative array bound");
-      mpz_clear(val);
+    case Numeric_constant::NC_UL_VALID:
+      break;
+    case Numeric_constant::NC_UL_NOTINT:
+      error_at(this->length_->location(), "array bound truncated to integer");
       return false;
+    case Numeric_constant::NC_UL_NEGATIVE:
+      error_at(this->length_->location(), "negative array bound");
+      return false;
+    case Numeric_constant::NC_UL_BIG:
+      error_at(this->length_->location(), "array bound overflows");
+      return false;
+    default:
+      go_unreachable();
     }
 
   Type* int_type = Type::lookup_integer_type("int");
-  int tbits = int_type->integer_type()->bits();
-  int vbits = mpz_sizeinbase(val, 2);
-  if (vbits + 1 > tbits)
+  unsigned int tbits = int_type->integer_type()->bits();
+  if (sizeof(val) <= tbits * 8
+      && val >> (tbits - 1) != 0)
     {
       error_at(this->length_->location(), "array bound overflows");
-      mpz_clear(val);
       return false;
     }
-
-  mpz_clear(val);
 
   return true;
 }
@@ -5206,10 +5204,7 @@ bool
 Array_type::do_verify()
 {
   if (!this->verify_length())
-    {
-      this->length_ = Expression::make_error(this->length_->location());
-      return false;
-    }
+    this->length_ = Expression::make_error(this->length_->location());
   return true;
 }
 
@@ -5451,11 +5446,11 @@ Array_type::get_length_tree(Gogo* gogo)
   go_assert(this->length_ != NULL);
   if (this->length_tree_ == NULL_TREE)
     {
+      Numeric_constant nc;
       mpz_t val;
-      mpz_init(val);
-      Type* t;
-      if (this->length_->integer_constant_value(true, val, &t))
+      if (this->length_->numeric_constant_value(&nc) && nc.to_int(&val))
 	{
+	  Type* t = nc.type();
 	  if (t == NULL)
 	    t = Type::lookup_integer_type("int");
 	  else if (t->is_abstract())
@@ -5466,8 +5461,6 @@ Array_type::get_length_tree(Gogo* gogo)
 	}
       else
 	{
-	  mpz_clear(val);
-
 	  // Make up a translation context for the array length
 	  // expression.  FIXME: This won't work in general.
 	  Translate_context context(gogo, NULL, NULL, NULL);
@@ -5818,23 +5811,17 @@ Array_type::do_reflection(Gogo* gogo, std::string* ret) const
   ret->push_back('[');
   if (this->length_ != NULL)
     {
-      mpz_t val;
-      mpz_init(val);
-      Type* type;
-      if (!this->length_->integer_constant_value(true, val, &type))
-	error_at(this->length_->location(),
-		 "array length must be integer constant expression");
-      else if (mpz_cmp_si(val, 0) < 0)
-	error_at(this->length_->location(), "array length is negative");
-      else if (mpz_cmp_ui(val, mpz_get_ui(val)) != 0)
-	error_at(this->length_->location(), "array length is too large");
+      Numeric_constant nc;
+      unsigned long val;
+      if (!this->length_->numeric_constant_value(&nc)
+	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+	error_at(this->length_->location(), "invalid array length");
       else
 	{
 	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", mpz_get_ui(val));
+	  snprintf(buf, sizeof buf, "%lu", val);
 	  ret->append(buf);
 	}
-      mpz_clear(val);
     }
   ret->push_back(']');
 
@@ -5850,23 +5837,17 @@ Array_type::do_mangled_name(Gogo* gogo, std::string* ret) const
   this->append_mangled_name(this->element_type_, gogo, ret);
   if (this->length_ != NULL)
     {
-      mpz_t val;
-      mpz_init(val);
-      Type* type;
-      if (!this->length_->integer_constant_value(true, val, &type))
-	error_at(this->length_->location(),
-		 "array length must be integer constant expression");
-      else if (mpz_cmp_si(val, 0) < 0)
-	error_at(this->length_->location(), "array length is negative");
-      else if (mpz_cmp_ui(val, mpz_get_ui(val)) != 0)
-	error_at(this->length_->location(), "array size is too large");
+      Numeric_constant nc;
+      unsigned long val;
+      if (!this->length_->numeric_constant_value(&nc)
+	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+	error_at(this->length_->location(), "invalid array length");
       else
 	{
 	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", mpz_get_ui(val));
+	  snprintf(buf, sizeof buf, "%lu", val);
 	  ret->append(buf);
 	}
-      mpz_clear(val);
     }
   ret->push_back('e');
 }
@@ -5899,10 +5880,7 @@ Map_type::do_verify()
 {
   // The runtime support uses "map[void]void".
   if (!this->key_type_->is_comparable() && !this->key_type_->is_void_type())
-    {
-      error_at(this->location_, "invalid map key type");
-      return false;
-    }
+    error_at(this->location_, "invalid map key type");
   return true;
 }
 
@@ -7885,7 +7863,6 @@ Named_type::do_verify()
   if (this->local_methods_ != NULL)
     {
       Struct_type* st = this->type_->struct_type();
-      bool found_dup = false;
       if (st != NULL)
 	{
 	  for (Bindings::const_declarations_iterator p =
@@ -7899,12 +7876,9 @@ Named_type::do_verify()
 		  error_at(p->second->location(),
 			   "method %qs redeclares struct field name",
 			   Gogo::message_name(name).c_str());
-		  found_dup = true;
 		}
 	    }
 	}
-      if (found_dup)
-	return false;
     }
 
   return true;
