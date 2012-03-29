@@ -19,7 +19,7 @@
 
 ;;; Unused letters:
 ;;;     B     H           T  W
-;;;           h  k          v
+;;;           h  k 
 
 ;; Integer register constraints.
 ;; It is not necessary to define 'r' here.
@@ -84,6 +84,9 @@
 
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
+
+(define_register_constraint "v" "TARGET_PL ? BND_REGS : NO_REGS"
+ "@internal Any bound register.")
 
 ;; We use the Y prefix to denote any number of conditional register sets:
 ;;  z	First SSE register.

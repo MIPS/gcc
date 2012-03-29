@@ -76,6 +76,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_RDRND	OPTION_ISA_RDRND
 #define TARGET_F16C	OPTION_ISA_F16C
 #define TARGET_RTM      OPTION_ISA_RTM
+#define TARGET_PL	OPTION_ISA_PL
 
 #define TARGET_LP64	(TARGET_64BIT && !TARGET_X32)
 
@@ -884,7 +885,7 @@ enum target_cpu_default
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 53
+#define FIRST_PSEUDO_REGISTER 57
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER.  */
@@ -913,7 +914,9 @@ enum target_cpu_default
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      2,   2,   2,   2,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     2,   2,    2,    2,    2,    2,    2,    2 }
+     2,   2,    2,    2,    2,    2,    2,    2,		\
+/*  b0,b1,b2,b3*/						\
+     0, 0, 0, 0 }  
 
 
 /* 1 for registers not available across function calls.
@@ -941,7 +944,9 @@ enum target_cpu_default
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      1,   1,   1,   1,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     1,   1,    1,    1,    1,    1,    1,    1 }
+     1,   1,    1,    1,    1,    1,    1,    1,		\
+/*b0,b1,b2,b3*/							\
+   1, 1, 1, 1 }
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -956,7 +961,7 @@ enum target_cpu_default
 {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,\
    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,	\
    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,  \
-   48, 49, 50, 51, 52 }
+   48, 49, 50, 51, 52, 53, 54, 55, 56 }
 
 /* ADJUST_REG_ALLOC_ORDER is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
@@ -1015,6 +1020,9 @@ enum target_cpu_default
   ((MODE == V1DImode) || (MODE) == DImode				\
    || (MODE) == V2SImode || (MODE) == SImode				\
    || (MODE) == V4HImode || (MODE) == V8QImode)
+
+#define VALID_BND_REG_MODE(MODE) \
+  (TARGET_64BIT? (MODE) == CDImode : (MODE) == CSImode)
 
 #define VALID_DFP_MODE_P(MODE) \
   ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
@@ -1110,6 +1118,9 @@ enum target_cpu_default
 #define FIRST_REX_SSE_REG  (LAST_REX_INT_REG + 1)
 #define LAST_REX_SSE_REG   (FIRST_REX_SSE_REG + 7)
 
+#define FIRST_BND_REG  (LAST_REX_SSE_REG + 1) 
+#define LAST_BND_REG   (FIRST_BND_REG + 3)
+
 /* Override this in other tm.h files to cope with various OS lossage
    requiring a frame pointer.  */
 #ifndef SUBTARGET_FRAME_POINTER_REQUIRED
@@ -1195,6 +1206,7 @@ enum reg_class
   FLOAT_INT_REGS,
   INT_SSE_REGS,
   FLOAT_INT_SSE_REGS,
+  BND_REGS,
   ALL_REGS, LIM_REG_CLASSES
 };
 
@@ -1243,6 +1255,7 @@ enum reg_class
    "FLOAT_INT_REGS",			\
    "INT_SSE_REGS",			\
    "FLOAT_INT_SSE_REGS",		\
+   "BND_REGS",				\
    "ALL_REGS" }
 
 /* Define which registers fit in which classes.  This is an initializer
@@ -1252,30 +1265,31 @@ enum reg_class
    is adjusted by TARGET_CONDITIONAL_REGISTER_USAGE for the 64-bit ABI
    in effect.  */
 
-#define REG_CLASS_CONTENTS						\
-{     { 0x00,     0x0 },						\
-      { 0x01,     0x0 }, { 0x02, 0x0 },	/* AREG, DREG */		\
-      { 0x04,     0x0 }, { 0x08, 0x0 },	/* CREG, BREG */		\
-      { 0x10,     0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
-      { 0x03,     0x0 },		/* AD_REGS */			\
-      { 0x07,     0x0 },		/* CLOBBERED_REGS */		\
-      { 0x0f,     0x0 },		/* Q_REGS */			\
-  { 0x1100f0,  0x1fe0 },		/* NON_Q_REGS */		\
-      { 0x7f,  0x1fe0 },		/* INDEX_REGS */		\
-  { 0x1100ff,     0x0 },		/* LEGACY_REGS */		\
-  { 0x1100ff,  0x1fe0 },		/* GENERAL_REGS */		\
-     { 0x100,     0x0 }, { 0x0200, 0x0 },/* FP_TOP_REG, FP_SECOND_REG */\
-    { 0xff00,     0x0 },		/* FLOAT_REGS */		\
-  { 0x200000,     0x0 },		/* SSE_FIRST_REG */		\
-{ 0x1fe00000,0x1fe000 },		/* SSE_REGS */			\
-{ 0xe0000000,    0x1f },		/* MMX_REGS */			\
-{ 0x1fe00100,0x1fe000 },		/* FP_TOP_SSE_REG */		\
-{ 0x1fe00200,0x1fe000 },		/* FP_SECOND_SSE_REG */		\
-{ 0x1fe0ff00,0x1fe000 },		/* FLOAT_SSE_REGS */		\
-   { 0x1ffff,  0x1fe0 },		/* FLOAT_INT_REGS */		\
-{ 0x1fe100ff,0x1fffe0 },		/* INT_SSE_REGS */		\
-{ 0x1fe1ffff,0x1fffe0 },		/* FLOAT_INT_SSE_REGS */	\
-{ 0xffffffff,0x1fffff }							\
+#define REG_CLASS_CONTENTS							\
+{     { 0x00,      0x0 },							\
+      { 0x01,      0x0 }, { 0x02, 0x0 },	/* AREG, DREG */		\
+      { 0x04,      0x0 }, { 0x08, 0x0 },	/* CREG, BREG */		\
+      { 0x10,      0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
+      { 0x03,      0x0 },			/* AD_REGS */			\
+      { 0x07,      0x0 },			/* CLOBBERED_REGS */		\
+      { 0x0f,      0x0 },			/* Q_REGS */			\
+  { 0x1100f0,   0x1fe0 },			/* NON_Q_REGS */		\
+      { 0x7f,   0x1fe0 },			/* INDEX_REGS */		\
+  { 0x1100ff,      0x0 },			/* LEGACY_REGS */		\
+  { 0x1100ff,   0x1fe0 },			/* GENERAL_REGS */		\
+     { 0x100,      0x0 }, { 0x0200, 0x0 },	/* FP_TOP_REG, FP_SECOND_REG */	\
+    { 0xff00,      0x0 },			/* FLOAT_REGS */		\
+  { 0x200000,      0x0 },			/* SSE_FIRST_REG */		\
+{ 0x1fe00000, 0x1fe000 },			/* SSE_REGS */			\
+{ 0xe0000000,     0x1f },			/* MMX_REGS */			\
+{ 0x1fe00100, 0x1fe000 },			/* FP_TOP_SSE_REG */		\
+{ 0x1fe00200, 0x1fe000 },			/* FP_SECOND_SSE_REG */		\
+{ 0x1fe0ff00, 0x1fe000 },			/* FLOAT_SSE_REGS */		\
+   { 0x1ffff,   0x1fe0 },			/* FLOAT_INT_REGS */		\
+{ 0x1fe100ff, 0x1fffe0 },			/* INT_SSE_REGS */		\
+{ 0x1fe1ffff, 0x1fffe0 },			/* FLOAT_INT_SSE_REGS */	\
+{        0x0,0x1e00000 },			/* BND_REGS */			\
+{ 0xffffffff,0x1ffffff }							\
 }
 
 /* The same information, inverted:
@@ -1341,6 +1355,9 @@ enum reg_class
 
 #define CC_REG_P(X) (REG_P (X) && CC_REGNO_P (REGNO (X)))
 #define CC_REGNO_P(X) ((X) == FLAGS_REG || (X) == FPSR_REG)
+
+#define BND_REGNO_P(N) IN_RANGE ((N), FIRST_BND_REG, LAST_BND_REG)
+#define ANY_BND_REG_P(X) (REG_P (X) && BND_REGNO_P (REGNO (X)))
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -1848,7 +1865,8 @@ do {							\
  "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",		\
  "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",		\
  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",			\
- "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"}
+ "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",	\
+ "b0", "b1", "b2", "b3" }
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
