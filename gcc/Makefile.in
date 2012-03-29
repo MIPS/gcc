@@ -1375,6 +1375,7 @@ OBJS = \
 	tree-outof-ssa.o \
 	tree-parloops.o \
 	tree-phinodes.o \
+	tree-pl.o \
 	tree-predcom.o \
 	tree-pretty-print.o \
 	tree-profile.o \
@@ -2696,6 +2697,11 @@ tree-nomudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(C_TREE_H) $(C_COMMON_H) $(GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    output.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h \
    $(GGC_H) gt-tree-mudflap.h $(TREE_PASS_H) $(DIAGNOSTIC_CORE_H)
+tree-pl.o : tree-pl.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
+   $(GIMPLE_H) $(DIAGNOSTIC_H) $(DEMANGLE_H) $(HASHTAB_H) langhooks.h \
+   $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(CGRAPH_H) $(GGC_H) \
+   $(BASIC_BLOCK_H) $(FLAGS_H) $(FUNCTION_H) $(TM_P_H) $(TREE_FLOW_H) \
+   $(DIAGNOSTIC_CORE_H) $(GIMPLE_H) tree-iterator.h
 tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-iterator.h $(SCEV_H) langhooks.h \
