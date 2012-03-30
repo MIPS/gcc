@@ -31407,7 +31407,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (FP_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
-  if (BND_REGNO_P (regno))
+  if (TARGET_PL && BND_REGNO_P (regno))
     return VALID_BND_REG_MODE(mode);
   if (SSE_REGNO_P (regno))
     {

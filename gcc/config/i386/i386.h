@@ -1022,7 +1022,7 @@ enum target_cpu_default
    || (MODE) == V4HImode || (MODE) == V8QImode)
 
 #define VALID_BND_REG_MODE(MODE) \
-  (TARGET_64BIT? (MODE) == CDImode : (MODE) == CSImode)
+  (TARGET_PL && (TARGET_64BIT? (MODE) == CDImode : (MODE) == CSImode))
 
 #define VALID_DFP_MODE_P(MODE) \
   ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)
