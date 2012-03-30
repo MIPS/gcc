@@ -29432,7 +29432,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
-/*    case IX86_BUILTIN_BNDMK:
+    case IX86_BUILTIN_BNDMK:
       arg0 = CALL_EXPR_ARG (exp, 0);
       op0 = expand_normal (arg0);
       mode0 = insn_data[TARGET_64BIT? CODE_FOR_bnd_mkCDI:CODE_FOR_bnd_mkCSI].operand[0].mode;
@@ -29458,7 +29458,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
         return 0;
       emit_insn (pat);
       return 0;
-*/
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
