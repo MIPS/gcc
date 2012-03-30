@@ -38,8 +38,12 @@ static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator gsi);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
+static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
+static tree pl_make_addressed_object_bounds (tree obj,
+					     gimple_stmt_iterator *iter);
+static tree pl_get_bounds_for_var_decl (tree var);
 static bool pl_find_bounds_walker (tree node, gimple def_stmt, void *data);
-static tree pl_find_bounds (tree ptr);
+static tree pl_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static void pl_check_mem_access (tree first, tree last, tree bounds,
 				 gimple_stmt_iterator *instr_gsi,
 				 location_t location, tree dirflag);
@@ -179,34 +183,16 @@ static tree
 pl_get_zero_bounds (void)
 {
   static tree zero_bounds = NULL_TREE;
-  gimple_stmt_iterator gsi;
-  gimple stmt;
-  basic_block bb;
 
   if (zero_bounds)
     return zero_bounds;
 
-  /* If we need zero bounds we just create them once
-     at functions start and then use it everywhere in
-     function.  */
-  stmt = gimple_build_call (pl_mkbnd_fndecl, 2,
-			    integer_zero_node, integer_minus_one_node);
-  bb = ENTRY_BLOCK_PTR->next_bb;
-  gsi = gsi_start_bb (bb);
-  gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
-
-  zero_bounds = create_tmp_reg (pl_bnd_record, NULL);
-  add_referenced_var (zero_bounds);
-  zero_bounds = make_ssa_name (zero_bounds, stmt);
-  gimple_call_set_lhs (stmt, zero_bounds);
-
-  update_stmt (stmt);
-
   if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Created zero bounds: ");
-      print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
-    }
+    fprintf (dump_file, "Creating zero bounds...");
+
+  zero_bounds = pl_make_bounds (integer_zero_node,
+				integer_minus_one_node,
+				NULL);
 
   return zero_bounds;
 }
@@ -355,6 +341,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (assign);
   location_t loc = gimple_location (assign);
+  gimple_stmt_iterator iter;
   tree bounds = NULL_TREE;
   tree ptr;
   tree addr;
@@ -388,7 +375,8 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case SSA_NAME:
-      bounds = pl_find_bounds (gimple_assign_rhs1 (assign));
+      iter = gsi_for_stmt (assign);
+      bounds = pl_find_bounds (gimple_assign_rhs1 (assign), &iter);
       break;
 
     default:
@@ -450,7 +438,110 @@ pl_find_bounds_walker (tree node, gimple def_stmt, void *data)
 }
 
 static tree
-pl_find_bounds (tree ptr)
+pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
+{
+  gimple_seq seq, stmts;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  tree bounds;
+
+  if (iter)
+    gsi = *iter;
+  else
+    {
+      basic_block bb = ENTRY_BLOCK_PTR->next_bb;
+      gsi = gsi_start_bb (bb);
+    }
+
+  seq = gimple_seq_alloc ();
+
+  lb = force_gimple_operand (lb, &stmts, true, NULL_TREE);
+  gimple_seq_add_seq (&seq, stmts);
+
+  size = force_gimple_operand (size, &stmts, true, NULL_TREE);
+  gimple_seq_add_seq (&seq, stmts);
+
+  stmt = gimple_build_call (pl_mkbnd_fndecl, 2, lb, size);
+
+  bounds = create_tmp_reg (pl_bnd_record, NULL);
+  add_referenced_var (bounds);
+  bounds = make_ssa_name (bounds, stmt);
+  gimple_call_set_lhs (stmt, bounds);
+
+  gimple_seq_add_stmt (&seq, stmt);
+
+  gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Made bounds: ");
+      print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+      if (iter)
+	fprintf (dump_file, "At function entry");
+      else
+	{
+	  fprintf (dump_file, "  Inserted before statement: ");
+	  print_gimple_stmt (dump_file, gsi_stmt (gsi), 0, TDF_VOPS|TDF_MEMSYMS);
+	}
+    }
+
+  /* update_stmt (stmt); */
+
+  return bounds;
+}
+
+static tree
+pl_get_bounds_for_var_decl (tree var)
+{
+  tree bounds;
+  tree lb;
+  tree size;
+
+  gcc_assert (TREE_CODE (var) == VAR_DECL);
+
+  bounds = pl_get_registered_bounds (var);
+
+  if (bounds)
+    return bounds;
+
+  lb = fold_convert (pl_uintptr_type,
+		     fold_build1 (ADDR_EXPR,
+				  build_pointer_type (TREE_TYPE (var)), var));
+  size = DECL_SIZE (var);
+  bounds = pl_make_bounds (lb, size, NULL);
+
+  pl_register_bounds (var, bounds);
+
+  return bounds;
+}
+
+static tree
+pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter)
+{
+  tree bounds;
+
+  switch (TREE_CODE (obj))
+    {
+    case VAR_DECL:
+      bounds = pl_get_bounds_for_var_decl (obj);
+      break;
+
+    default:
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "pl_make_addressed_object_bounds: "
+		   "unexpected object of type %s\n",
+		   tree_code_name[TREE_CODE (obj)]);
+	  print_node (dump_file, "", obj, 0);
+	}
+      internal_error ("Unexpected tree code %s", tree_code_name[TREE_CODE (obj)]);
+    }
+
+  return bounds;
+}
+
+static tree
+pl_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 {
   tree bounds = NULL_TREE;
 
@@ -460,9 +551,13 @@ pl_find_bounds (tree ptr)
       bounds = pl_get_registered_bounds (ptr);
       if (!bounds)
 	{
-	  walk_use_def_chains (ptr, pl_find_bounds_walker, NULL, true);
+	  walk_use_def_chains (ptr, pl_find_bounds_walker, iter, true);
 	  bounds = pl_get_registered_bounds (ptr);
 	}
+      break;
+
+    case ADDR_EXPR:
+      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (ptr, 0), iter);
       break;
 
     default:
@@ -580,7 +675,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
                              fold_build2_loc (loc, PLUS_EXPR, pl_uintptr_type,
 					  fold_convert (pl_uintptr_type, addr_first),
 					  size),
-                             integer_one_node);
+                             size_one_node);
       }
       break;
 
@@ -624,7 +719,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
       return;
     }
 
-  bounds = pl_find_bounds (ptr);
+  bounds = pl_find_bounds (ptr, iter);
   pl_check_mem_access (addr_first, addr_last, bounds, iter, loc, dirflag);
 
   /* We need to generate bndstx in case pointer is stored.  */
