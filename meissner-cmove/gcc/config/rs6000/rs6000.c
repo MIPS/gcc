@@ -1846,6 +1846,68 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
+/* Return the cost of a count leading zeros instruction.  */
+
+static inline int
+rs6000_clz_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->clz_cost;
+}
+
+/* Return cost of an ISEL instruction.  */
+
+static inline int
+rs6000_isel_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->isel_cost;
+}
+
+/* Return cost of a branch conditional + 8 instruction.  */
+
+static inline int
+rs6000_bcp8_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (2);
+
+  else if (rs6000_cost->bcp8_cost != 0)
+    return rs6000_cost->bcp8_cost;
+
+  else
+    return COSTS_N_INSNS (BRANCH_COST(speed, 0) + 1);
+}
+
+/* Return cost of moving a value from a CR register to a GPR.  */
+
+static inline int
+rs6000_mfcr_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->mfcr_cost;
+}
+
+/* Return cost of doing a logical operation on a CR register.  */
+
+static inline int
+rs6000_crlogical_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->crlogical_cost;
+}
+
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -2624,6 +2686,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
+      bool speed = optimize_insn_for_speed_p ();
+
       if (TARGET_DEBUG_REG)
 	rs6000_debug_reg_global ();
 
@@ -2646,6 +2710,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 		 "count leading zero cost         = %d\n"
 		 "isel cost                       = %d\n"
 		 "branch conditional + 8 cost     = %d\n"
+		 "mfcr cost                       = %d\n"
+		 "CR logical cost                 = %d\n"
 		 "\n",
 		 rs6000_cost->mulsi,
 		 rs6000_cost->mulsi_const,
@@ -2661,9 +2727,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 		 rs6000_cost->l1_cache_size,
 		 rs6000_cost->l2_cache_size,
 		 rs6000_cost->simultaneous_prefetches,
-		 rs6000_cost->clz_cost,
-		 rs6000_cost->isel_cost,
-		 rs6000_cost->bcp8_cost);
+		 rs6000_clz_cost (speed),
+		 rs6000_isel_cost (speed),
+		 rs6000_bcp8_cost (speed),
+		 rs6000_mfcr_cost (speed),
+		 rs6000_crlogical_cost (speed));
     }
 }
 
@@ -25773,67 +25841,6 @@ rs6000_xcoff_file_end (void)
 	 asm_out_file);
 }
 #endif /* TARGET_XCOFF */
-
-/* Return the cost of a count leading zeros instruction.  */
-
-static inline int
-rs6000_clz_cost (bool speed)
-{
-  if (!speed)
-    return COSTS_N_INSNS (1);
-
-  else
-    return rs6000_cost->clz_cost;
-}
-
-/* Return cost of an ISEL instruction.  */
-
-static inline int
-rs6000_isel_cost (bool speed)
-{
-  if (!speed)
-    return COSTS_N_INSNS (1);
-
-  else
-    return rs6000_cost->isel_cost;
-}
-
-/* Return cost of a branch conditional + 8 instruction.  */
-
-static inline int
-rs6000_bcp8_cost (bool speed)
-{
-  if (!speed)
-    return COSTS_N_INSNS (2);
-
-  else if (rs6000_cost->bcp8_cost != 0)
-    return rs6000_cost->bcp8_cost;
-
-  else
-    return COSTS_N_INSNS (BRANCH_COST(speed, 0) + 1);
-}
-
-/* Return cost of moving a value from a CR register to a GPR.  */
-
-static inline int
-rs6000_mfcr_cost (bool speed)
-{
-  if (!speed)
-    return COSTS_N_INSNS (1);
-
-  return rs6000_cost->mfcr_cost;
-}
-
-/* Return cost of doing a logical operation on a CR register.  */
-
-static inline int
-rs6000_crlogical_cost (bool speed)
-{
-  if (!speed)
-    return COSTS_N_INSNS (1);
-
-  return rs6000_cost->crlogical_cost;
-}
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be

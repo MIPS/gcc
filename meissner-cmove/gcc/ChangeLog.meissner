@@ -23,6 +23,8 @@
 	(rs6000_crlogical_cost): New function for the cost of doing a CR
 	logical operation.
 	(rs6000_rtx_costs): Adjust costs for set conditional operation.
+	(rs6000_init_hard_regno_mode_ok): Use the cost functions for
+	-mdebug=reg.
 
 	* config/rs6000/rs6000.h (IFCVT_MODIFY_INSN): New macro to modify
 	an insn for conditional execution.
