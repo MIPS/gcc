@@ -2686,7 +2686,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
-      bool speed = optimize_insn_for_speed_p ();
+      bool speed = (optimize && !optimize_size);
 
       if (TARGET_DEBUG_REG)
 	rs6000_debug_reg_global ();
