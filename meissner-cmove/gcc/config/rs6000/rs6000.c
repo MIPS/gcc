@@ -314,6 +314,8 @@ struct processor_costs {
   const int clz_cost;		 /* cost of count leading zero */
   const int isel_cost;		 /* If >0, cost of an ISEL instruction.  */
   const int bcp8_cost;		 /* If >0, cost of branch conditional + 8.  */
+  const int mfcr_cost;		 /* cost of moving from a CR register.  */
+  const int crlogical_cost;	 /* cost of a CR logical operation.  */
   const enum rs6000_iabs_t iabs;	/* Preferred way to do int ABS.  */
   const enum rs6000_iminmax_t iminmax;	/* Preferred way to do int MIN/MAX.  */
   const enum rs6000_setcc_t setcc;	/* Preferred way to do set<cc>.  */
@@ -321,16 +323,32 @@ struct processor_costs {
 
 const struct processor_costs *rs6000_cost;
 
-/* Default costs for set count leading zero, isel, branch conditional + 8, and
-   preferred way to do integer absolute value, integer minimum/maximu, and set
-   conditional.  */
-#define COSTS_DEFAULTS(CLZ)						\
+/* Default costs for set count leading zero, isel, branch conditional + 8.  */
+#define DEFAULT_COSTS2(CLZ, ISEL, BCP8, MFCR, CRLOGICAL)		\
   COSTS_N_INSNS (CLZ),		/* count leading zero cost */		\
-  COSTS_N_INSNS (1),		/* isel cost */				\
-  0,				/* branch conditional + 8 cost */	\
-  IABS_UNSET,			/* iabs */				\
-  IMINMAX_UNSET,		/* iminmax */				\
-  SETCC_UNSET			/* setcc */
+  COSTS_N_INSNS (ISEL),		/* isel cost */				\
+  COSTS_N_INSNS (BCP8),		/* branch conditional + 8 cost */	\
+  COSTS_N_INSNS (MFCR),		/* move from CR cost */			\
+  COSTS_N_INSNS (CRLOGICAL)	/* CR register logical op. cost */	\
+
+#define DEFAULT_COSTS()			DEFAULT_COSTS2 (0, 4, 0, 3, 2)
+#define DEFAULT_COSTS_C(C)		DEFAULT_COSTS2 (C, 4, 0, 3, 2)
+#define DEFAULT_COSTS_S(S)		DEFAULT_COSTS2 (0, S, 0, 3, 2)
+#define DEFAULT_COSTS_C_S(C,S)		DEFAULT_COSTS2 (C, S, 0, 3, 2)
+#define DEFAULT_COSTS_C_S_B(C,S,B)	DEFAULT_COSTS2 (C, S, B, 3, 2)
+
+/* Default method to do integer absolute value, integer minimum/maximum, and
+   set conditional.  */
+#define DEFAULT_METHODS2(ABS, MINMAX, SETCC)					\
+  ABS,				/* integer absolute method */		\
+  MINMAX,			/* integer min/max method */		\
+  SETCC				/* set conditional method */
+
+#define DEFAULT_METHODS()						\
+  DEFAULT_METHODS2(IABS_UNSET, IMINMAX_UNSET, SETCC_UNSET)
+
+#define DEFAULT_METHODS_A_M_S(ABS, MINMAX, SETCC)			\
+  DEFAULT_METHODS2(ABS, MINMAX, SETCC)
 
 /* Processor costs (relative to an add) */
 
@@ -351,7 +369,8 @@ struct processor_costs size32_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -371,7 +390,8 @@ struct processor_costs size64_cost = {
   0,			/* l1 cache */
   0,			/* l2 cache */
   0,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -391,7 +411,8 @@ struct processor_costs rios1_cost = {
   64,			/* l1 cache */
   512,			/* l2 cache */
   0,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -411,7 +432,8 @@ struct processor_costs rios2_cost = {
   256,			/* l1 cache */
   1024,			/* l2 cache */
   0,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -431,7 +453,8 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -451,7 +474,8 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -471,7 +495,8 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -491,7 +516,8 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -511,7 +537,8 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -531,7 +558,8 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -551,7 +579,8 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -571,7 +600,8 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -591,7 +621,8 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -611,7 +642,8 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -631,7 +663,8 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -651,7 +684,8 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -672,7 +706,8 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -692,7 +727,8 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -712,7 +748,8 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -732,7 +769,8 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS_S (6),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -752,7 +790,8 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -772,7 +811,8 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS_S (6),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -792,7 +832,8 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -812,7 +853,8 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -832,7 +874,8 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -852,7 +895,8 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  COSTS_DEFAULTS (2),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS_C (2),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -872,12 +916,12 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
-  COSTS_N_INSNS (2),	/* count leading zeros cost */
-  COSTS_N_INSNS (4),	/* isel cost */
-  COSTS_N_INSNS (4),	/* branch conditional + 8 cost */
-  IABS_SHIFT,		/* iabs (prefer shift over isel/bc+8) */
-  IMINMAX_BCP8,		/* iminmax (prefer bc+8 over isel) */
-  SETCC_UNSET,		/* setcc */
+			/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS_C_S_B (2, 2, 2), 
+			/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS_A_M_S (IABS_SHIFT,		/* integer abs */
+			 IMINMAX_BCP8,		/* integer min/max */
+			 SETCC_BCP8_EQ),	/* set conditional */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -897,7 +941,8 @@ struct processor_costs ppca2_cost = {
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
-  COSTS_DEFAULTS (1),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
+  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
 };
 
 
@@ -16088,6 +16133,40 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
     }
 }
 
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.
+
+   On the powerpc, only allow 1 insn to be converted to be conditionally
+   executed.  Otherwise for:
+	if (a > b) *p++ = c;
+
+   we get back to back conditional branches:
+		cmpd 7,3,4
+		bgt 7,1f
+		stb 5,0(6)
+	1:
+		bgt 7,1f
+	        addi 6,6,1
+	1:
+
+   The power7 handles the register form of the logical instructions, but not
+   the immediate form.  If we have an immediate, put it in a pseudo op.
+   */
+
+rtx
+rs6000_ifcvt_modify_insn (ce_if_block_t *ce_info, rtx pattern, rtx insn)
+{
+  if (!ce_info || !pattern || !insn)
+    return NULL_RTX;
+
+  if ((ce_info->num_then_insns + ce_info->num_else_insns) != 1)
+    return NULL_RTX;
+
+  return pattern;
+}
+
 /* Emit a branch of kind CODE to location LOC.  */
 
 void
@@ -25734,6 +25813,28 @@ rs6000_bcp8_cost (bool speed)
     return COSTS_N_INSNS (BRANCH_COST(speed, 0) + 1);
 }
 
+/* Return cost of moving a value from a CR register to a GPR.  */
+
+static inline int
+rs6000_mfcr_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->mfcr_cost;
+}
+
+/* Return cost of doing a logical operation on a CR register.  */
+
+static inline int
+rs6000_crlogical_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->crlogical_cost;
+}
+
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -25847,6 +25948,17 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case PLUS:
+      if (TARGET_SETCC_BCP8)
+	{
+	  enum rtx_class rclass = GET_RTX_CLASS (GET_CODE (XEXP (x, 0)));
+	  if (rclass == RTX_COMPARE || rclass == RTX_COMM_COMPARE)
+	    {
+	      *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+	      return true;
+	    }
+	}
+      /* fall through */
+
     case MINUS:
       if (FLOAT_MODE_P (mode))
 	*total = rs6000_cost->fp;
@@ -26020,10 +26132,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return true;
 	}
       else
-	{
-	  *total = COSTS_N_INSNS (3);
-	  return true;
-	}
+	break;
 
     case COMPARE:
     case NEG:
@@ -26087,49 +26196,111 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case EQ:
+      if (TARGET_SETCC_EQ && outer_code == SET && XEXP (x, 1) == const0_rtx
+	  && (mode == SImode || mode == DImode))
+	{
+	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
+	  return true;
+	}
+      /* fall through */
+
     case GTU:
     case LTU:
       /* Carry bit requires mode == Pmode.
 	 NEG or PLUS already counted so only add one.  */
-      if (mode == Pmode
+      if (TARGET_SETCC_MFCR && mode == Pmode
 	  && (outer_code == NEG || outer_code == PLUS))
 	{
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
-      if (outer_code == SET)
+      if (outer_code == SET
+	  && XEXP (x, 1) != const0_rtx
+	  && mode == Pmode)
 	{
-	  if (XEXP (x, 1) == const0_rtx)
-	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
-	      return true;
-	    }
-	  else if (mode == Pmode)
-	    {
-	      *total = COSTS_N_INSNS (3);
-	      return false;
-	    }
+	  *total = COSTS_N_INSNS (3);
+	  return false;
 	}
       /* FALLTHRU */
 
     case GT:
     case LT:
     case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
+      if (outer_code == SET)
 	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
+	  if (TARGET_SETCC_BCP8)
+	    *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+	  else if (TARGET_SETCC_ISEL)
+	    *total = rs6000_isel_cost (speed) + COSTS_N_INSNS (3);
 	  else
-	    *total = COSTS_N_INSNS (2);
+	    *total = rs6000_mfcr_cost (speed) + COSTS_N_INSNS (1);
+	  return true;
+	}
+      if (outer_code == PLUS && TARGET_SETCC_BCP8)
+	{
+	  *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
 	  return true;
 	}
       /* CC COMPARE.  */
       if (outer_code == COMPARE)
 	{
 	  *total = 0;
+	  return true;
+	}
+      break;
+
+    case NE:
+      if (TARGET_SETCC_EQ)
+	{
+	  if (XEXP (x, 1) == const0_rtx && (mode == SImode || mode == DImode))
+	    {
+	      if (outer_code == SET)
+		{
+		  *total = COSTS_N_INSNS (3) + rs6000_clz_cost (speed);
+		  return true;
+		}
+	      else if (outer_code == NEG)
+		{
+		  *total = COSTS_N_INSNS (4) + rs6000_clz_cost (speed);
+		  return true;
+		}
+	    }
+	}
+      /* fall through */
+
+    case GE:
+    case GEU:
+    case LE:
+    case LEU:
+    case ORDERED:
+      if (outer_code == SET)
+	{
+	  if (TARGET_SETCC_BCP8)
+	    *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+	  else if (TARGET_SETCC_ISEL)
+	    *total = rs6000_isel_cost (speed) + COSTS_N_INSNS (2);
+	  else
+	    *total = (rs6000_mfcr_cost (speed) + rs6000_crlogical_cost (speed)
+		      + COSTS_N_INSNS (1));
+	  return true;
+	}
+      if (outer_code == PLUS && TARGET_SETCC_BCP8)
+	{
+	  *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+	  return true;
+	}
+      /* CC COMPARE.  */
+      if (outer_code == COMPARE)
+	{
+	  *total = 0;
+	  return true;
+	}
+      break;
+
+    case COND_EXEC:
+      if (TARGET_SETCC_BCP8)
+	{
+	  *total = rs6000_bcp8_cost (speed);
 	  return true;
 	}
       break;

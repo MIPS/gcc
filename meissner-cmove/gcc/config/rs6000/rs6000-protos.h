@@ -178,6 +178,10 @@ extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
 extern unsigned rs6000_builtin_mask_calculate (void);
 
+#ifdef BB_HEAD
+extern rtx rs6000_ifcvt_modify_insn (ce_if_block_t *, rtx, rtx);
+#endif
+
 /* Declare functions in rs6000-c.c */
 
 extern void rs6000_pragma_longcall (struct cpp_reader *);

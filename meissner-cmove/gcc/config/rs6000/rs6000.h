@@ -506,6 +506,13 @@ extern int rs6000_vector_align[];
 	   || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL)		\
 	   || (N == ISEL_SETCC && TARGET_SETCC_ISEL))))
 
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.  */
+#define IFCVT_MODIFY_INSN(CE_INFO, PATTERN, INSN) \
+  (PATTERN) = rs6000_ifcvt_modify_insn (CE_INFO, PATTERN, INSN)
+
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or
    XILINX.  */

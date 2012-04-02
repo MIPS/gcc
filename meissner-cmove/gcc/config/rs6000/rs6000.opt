@@ -553,6 +553,10 @@ madjust-cost-power7-isel
 Target Undocumented Var(TARGET_ADJUST_COST_POWER7_ISEL) Init(1) Save
 ; Enable/disable increasing branch cost to 0 on power7 between cmp and isel
 
+mbcp8-cond-exec
+Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(1) Save
+; Enable/disable doing conditional execution with branch conditional + 8
+
 miabs=
 Target RejectNegative Joined Enum(rs6000_iabs_t) Var(rs6000_iabs_method) Init(IABS_UNSET) Save
 -miabs=	Specify how to do integer ABS (default, none, shift, isel, bcp8)
@@ -596,7 +600,7 @@ Enum(rs6000_iminmax_t) String(bcp8) Value(IMINMAX_BCP8)
 
 msetcc=
 Target RejectNegative Joined Enum(rs6000_setcc_t) Var(rs6000_setcc_method) Init(SETCC_UNSET) Save
--msetcc=	Specify how to do set an integer to a comparison (default, none, isel, bcp8, mrcr)
+-msetcc=	Specify how to do set an integer to a comparison (default, none, isel, bcp8, mfcr, isel-eq, bcp8-eq, mfcr-eq, eq)
 
 Enum
 Name(rs6000_setcc_t) Type(enum rs6000_setcc_t)

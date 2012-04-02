@@ -17512,13 +17512,14 @@ machine independent code generation.
 
 @option{-msetcc=isel} tells the compiler to generate the ISEL
 instruction when setting an integer to the result of a comparison.
-You must use @option{-misel}, @option{-mpopcntd}, or @option{-mvsx} to
-use @option{-msetcc=isel}.  If @option{-msetcc} is not specified,
-ISELs are only generated for integer minimum and maximum.
+You must use @option{-misel}, @option{-mcpu=power7},
+@option{-mpopcntd}, or @option{-mvsx} to use @option{-msetcc=isel}.
 
 @option{-msetcc=bcp8} says to generate code for setting a variable to
 the result of a comparsion using a branch conditional instruction over
-a move operation, which is optimized on some machines.
+next instruction, which is optimized on some machines.  The compiler
+will also optimize branches over other single instructions that are
+known to be handled fast in the target machine.
 
 @option{-msetcc=mfcr} says to generate code for setting a variable to
 the result of a comparsion using move from condition code register
@@ -17537,7 +17538,9 @@ will generate code using the @option{-msetcc=isel} option.
 @option{-msetcc=bcp8-eq} tells the compiler to generate code for
 setting a variable to the result of an equality comparsion to use the
 count leading zeros instruction.  For other comparisons, the compiler
-will generate code using the @option{-msetcc=bcp8} option.
+will generate code using the @option{-msetcc=bcp8} option.  The
+compiler will also optimize branches over other single instructions
+that are known to be handled fast in the target machine.
 
 @item -madjust-cost-compare-branch=@var{value}
 @opindex madjust-cost-compare-branch

@@ -1,3 +1,60 @@
+2012-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mbcp8-cond-exec): New switch to
+	control whether to do conditional execution support with branch
+	conditional + 8 support.
+
+	* config/rs6000/rs6000.c (struct processor_costs): Add MFCR and CR
+	logical costs.
+	(DEFAULT_COSTS): Replace COSTS_DEFAULT with more targeted macros.
+	Split the macros into the costs and the default methods.
+	(DEFAULT_COSTS_C): Likewise.
+	(DEFAULT_COSTS_S): Likewise.
+	(DEFAULT_COSTS_C_S): Likewise.
+	(DEFAULT_COSTS_C_S_B): Likewise.
+	(DEFAULT_METHODS): Likewise.
+	(DEFAULT_METHODS_A_M_S): Likewise.
+	(*_cost structures): Likewise.
+	(rs6000_ifcvt_modify_insn): New function to allow a single
+	conditional instruction to be optimized with branch conditional +
+	8 support.
+	(rs6000_mfcr_cost): New function for the cost of doing a MFCR
+	function.
+	(rs6000_crlogical_cost): New function for the cost of doing a CR
+	logical operation.
+	(rs6000_rtx_costs): Adjust costs for set conditional operation.
+
+	* config/rs6000/rs6000.h (IFCVT_MODIFY_INSN): New macro to modify
+	an insn for conditional execution.
+
+	* config/rs6000/predicates.md (bcp8_bool_operator): New predicate
+	for determining whether we can optimize logical operations with
+	branch conditional + 8.
+	(bcp8_store_operand): New predicate to determining whether a store
+	is eligable for conditional execution with branch conditional+8.
+
+	* config/rs6000/rs6000.md (isel_<mode>): Always use 'isel' as
+	type for both ISELs and branch conditional + 8.  Use isel_type to
+	distinguish between the two.
+	(isel_reversed_<mode>): Likewise.
+	(bcp8_<mode>): Likewise.
+	(setcc_bcp8<mode>): Likewise.
+	(setcc_isel<mode>): Likewise.
+	(bcp8_cond_exec_bool<mode>): Add support to use cond_exec for
+	branch condtional + 8 optimizations.
+	(bcp8_cond_exec_add<mode>): Likewise.
+	(bcp8_cond_exec_store<mode>): Likewise.
+	(setcc_neg_bcp8<mode>): Add support for negating a set
+	conditional.
+	(setcc_add_bcp8<mode>): Add support for adding a set conditional
+	operation if branch condtional + 8 is used.
+
+	* config/rs6000/rs6000-protos.h (rs6000_ifcvt_modify_insn): Add
+	declaration.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Update -msetcc=
+	documentation.
+
 2012-03-22  Michael Meissner  <meissner@the-meissners.org>
 
 	* config/rs6000/predicates.md (scc_cr_comparison_operand): Delete.
