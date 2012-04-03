@@ -26097,6 +26097,11 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total = COSTS_N_INSNS (1);
       return false;
 
+    case LO_SUM:
+    case TRUNCATE:
+      *total = 0;
+      return false;
+
     case ABS:
       if (FLOAT_MODE_P (mode))
 	{
@@ -26178,8 +26183,17 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case CALL:
+      break;
+
     case IF_THEN_ELSE:
-      if (!speed)
+      /* Is it a conditional jump?  */
+      if ((GET_CODE (XEXP (x, 1)) == LABEL_REF || XEXP (x, 1) == pc_rtx)
+	  || (GET_CODE (XEXP (x, 2)) == LABEL_REF || XEXP (x, 2) == pc_rtx))
+	{
+	  *total = 0;
+	  return true;
+	}
+      else if (!speed)
 	{
 	  *total = COSTS_N_INSNS (1);
 	  return true;
@@ -26243,7 +26257,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	    *total = rs6000_mfcr_cost (speed) + COSTS_N_INSNS (1);
 	  return true;
 	}
-      if (outer_code == PLUS && TARGET_SETCC_BCP8)
+      if (TARGET_SETCC_BCP8 && (outer_code == PLUS || outer_code == NEG))
 	{
 	  *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
 	  return true;
@@ -26291,7 +26305,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 		      + COSTS_N_INSNS (1));
 	  return true;
 	}
-      if (outer_code == PLUS && TARGET_SETCC_BCP8)
+      if (TARGET_SETCC_BCP8 && (outer_code == PLUS || outer_code == NEG))
 	{
 	  *total = rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
 	  return true;
@@ -26314,6 +26328,25 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     default:
       break;
+    }
+
+  if (TARGET_DEBUG_COST
+      && !((code == PC)
+	   || (code == CALL)
+	   || (code == USE)
+	   || (code == CLOBBER)
+	   || (code == SET && (outer_code == INSN || outer_code == PARALLEL))))
+    {
+      fprintf (stderr,
+	       "rs6000_rtx_costs unhandled insn, code = %s, outer_code = %s, "
+	       "opno = %d, total = %d, speed = %s, x:\n",
+	       GET_RTX_NAME (code),
+	       GET_RTX_NAME (outer_code),
+	       opno,
+	       *total,
+	       speed ? "true" : "false");
+
+      debug_rtx (x);
     }
 
   return false;
