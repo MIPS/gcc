@@ -83,6 +83,10 @@ unsigned int rs6000_recip_control
 TargetVariable
 unsigned char TARGET_ISEL_LIMITED
 
+;; Whether we should optimize for branch conditional+8
+TargetVariable
+unsigned char TARGET_BCP8
+
 ;; Mask of what builtin functions are allowed
 TargetVariable
 unsigned int rs6000_builtin_mask
@@ -631,4 +635,3 @@ Enum(rs6000_setcc_t) String(mfcr-eq) Value(SETCC_MFCR_EQ)
 
 EnumValue
 Enum(rs6000_setcc_t) String(eq) Value(SETCC_EQ_ONLY)
-

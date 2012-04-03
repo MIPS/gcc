@@ -489,9 +489,10 @@ extern int rs6000_vector_align[];
 #define TARGET_SETCC_ISEL	SETCC_BIT_P (COND_MODE_ISEL)
 #define TARGET_SETCC_BCP8	SETCC_BIT_P (COND_MODE_BCP8)
 #define TARGET_SETCC_EQ		SETCC_BIT_P (COND_MODE_EQ)
-#define TARGET_SETCC_MFCR	(SETCC_BIT_P (COND_MODE_MFCR)		\
-				 && !SETCC_BIT_P (COND_MODE_ISEL)	\
-				 && !SETCC_BIT_P (COND_MODE_BCP8))
+#define TARGET_SETCC_MFCR	SETCC_BIT2_P (COND_MODE_MFCR,		\
+					      COND_MODE_ISEL_OR_BCP8)
+
+#define TARGET_SETCC_ISEL_OR_BCP8 SETCC_BIT_P (COND_MODE_ISEL_OR_BCP8)
 
 /* Whether ISEL is supported or not.  Normally we use -misel to determine
    whether to do it, but with the power7 it is useful to generate ISEL in

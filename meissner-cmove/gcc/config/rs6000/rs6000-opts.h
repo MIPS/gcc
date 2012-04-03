@@ -141,8 +141,15 @@ enum rs6000_vector {
   VECTOR_OTHER			/* Some other vector unit */
 };
 
+/* No enumeration is defined to index the -mcpu= values (entries in
+   processor_target_table), with the type int being used instead, but
+   we need to distinguish the special "native" value.  */
+#define RS6000_CPU_OPTION_NATIVE -1
+
 /* Bitmasks used for all integer conditional mode operations (absolute value,
-   minimum, maximu, conditional move, set condtional, etc.).  */
+   minimum, maximu, conditional move, set condtional, etc.). These are
+   represented as bit masks, to allow -mno-isel to turn off the ISEL support
+   without affecting the other methods.  */
 #define COND_MODE_NONE		0x0000	/* Use MI code.  */
 #define COND_MODE_ISEL		0x0001	/* Use ISEL. */
 #define COND_MODE_BCP8		0x0002	/* Use branch cond+8.   */
@@ -150,6 +157,8 @@ enum rs6000_vector {
 #define COND_MODE_MFCR		0x0008	/* Use move from CR.  */
 #define COND_MODE_EQ		0x0010	/* Use special ops for ==.  */
 #define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
+
+#define COND_MODE_ISEL_OR_BCP8	(COND_MODE_ISEL | COND_MODE_BCP8)
 
 /* Describe how to do integer ABS and negative ABS.  */
 enum rs6000_iabs_t {
@@ -172,9 +181,7 @@ enum rs6000_iabs_t {
 
 #define IABS_SET(VALUE) (rs6000_iabs_method = (enum rs6000_iabs_t)(VALUE))
 
-/* Describe how to do integer minimum and maximum.  These are represented as
-   bit masks, so that if a particular pattern is not valid (such as the
-   presence of the ISEL instruction), other patterns can be tried.  */
+/* Describe how to do integer minimum and maximum.  */
 enum rs6000_iminmax_t {
   IMINMAX_UNSET		= COND_MODE_UNSET,
   IMINMAX_NONE		= COND_MODE_NONE,
@@ -191,9 +198,7 @@ enum rs6000_iminmax_t {
 #define IMINMAX_SET(VALUE)						\
   (rs6000_iminmax_method = (enum rs6000_iminmax_t)(VALUE))
 
-/* Describe how to set an integer from a comparsion to 0 or 1.  These are
-   represented as bitmasks, so that other patterns can be tried if an ISEL is
-   not allowed.  */
+/* Describe how to set an integer from a comparsion to 0 or 1.  */
 enum rs6000_setcc_t {
   SETCC_UNSET		= COND_MODE_UNSET,
   SETCC_NONE		= COND_MODE_NONE,
@@ -210,16 +215,14 @@ enum rs6000_setcc_t {
 
 #define SETCC_BIT_P(MASK) (((unsigned)rs6000_setcc_method & (MASK)) != 0)
 
+#define SETCC_BIT2_P(SET, CLEAR)					\
+  (((unsigned)rs6000_setcc_method & ((SET) | (CLEAR))) == (SET))
+
 #define SETCC_CLEAR_BIT(MASK)						\
   (rs6000_setcc_method							\
    = (enum rs6000_setcc_t)(((unsigned)rs6000_setcc_method) & ~(MASK)))
 
 #define SETCC_SET(VALUE)						\
   (rs6000_setcc_method = (enum rs6000_setcc_t)(VALUE))
-
-/* No enumeration is defined to index the -mcpu= values (entries in
-   processor_target_table), with the type int being used instead, but
-   we need to distinguish the special "native" value.  */
-#define RS6000_CPU_OPTION_NATIVE -1
 
 #endif

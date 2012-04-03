@@ -339,7 +339,7 @@ const struct processor_costs *rs6000_cost;
 
 /* Default method to do integer absolute value, integer minimum/maximum, and
    set conditional.  */
-#define DEFAULT_METHODS2(ABS, MINMAX, SETCC)					\
+#define DEFAULT_METHODS2(ABS, MINMAX, SETCC)				\
   ABS,				/* integer absolute method */		\
   MINMAX,			/* integer min/max method */		\
   SETCC				/* set conditional method */
@@ -3559,6 +3559,9 @@ rs6000_option_override_internal (bool global_init_p)
 			 && ((target_flags_explicit & MASK_ISEL) == 0)
 			 && (TARGET_POPCNTD || TARGET_VSX));
 
+  /* Determine if we should optimize for branch conditional + 8.  */
+  TARGET_BCP8 = (!TARGET_ISEL && (TARGET_POPCNTD || TARGET_VSX));
+
   /* Set how we want to do integer absolute value, and minimum/maximum.  Remove
      any bits for options that we don't support with the current target
      instructions.  If the user explicitly says -misel then enable it by
@@ -3567,39 +3570,70 @@ rs6000_option_override_internal (bool global_init_p)
   if (rs6000_iabs_method == IABS_UNSET)
     {
       if (rs6000_cost->iabs != IABS_UNSET)
-	rs6000_iabs_method = rs6000_cost->iabs;
+	{
+	  rs6000_iabs_method = rs6000_cost->iabs;
+	  if (TARGET_IABS_ISEL && !TARGET_ISEL
+	      && !TARGET_ISEL_LIMITED)
+	    {
+	      rs6000_iabs_method = IABS_SHIFT;
+	    }
+	}
+      else if (TARGET_BCP8)
+	rs6000_iabs_method = IABS_BCP8;
       else if (TARGET_ISEL)
 	rs6000_iabs_method = IABS_ISEL;
       else
 	rs6000_iabs_method = IABS_SHIFT;
     }
+  else if (TARGET_IABS_ISEL && !TARGET_ISEL
+	   && !TARGET_ISEL_LIMITED)
+    error ("The current machine does not support -miabs=isel.");
 
   if (rs6000_iminmax_method == IMINMAX_UNSET)
     {
       if (rs6000_cost->iminmax != IMINMAX_UNSET)
-	rs6000_iminmax_method = rs6000_cost->iminmax;
+	{
+	  rs6000_iminmax_method = rs6000_cost->iminmax;
+	  if (TARGET_IMINMAX_ISEL && !TARGET_ISEL
+	      && !TARGET_ISEL_LIMITED)
+	    {
+	      rs6000_iminmax_method
+		= ((TARGET_BCP8) ? IMINMAX_BCP8 : IMINMAX_NONE);
+	    }
+	}
+      else if (TARGET_BCP8)
+	rs6000_iminmax_method = IMINMAX_BCP8;
       else if (TARGET_ISEL)
 	rs6000_iminmax_method = IMINMAX_ISEL;
       else
 	rs6000_iminmax_method = IMINMAX_NONE;
     }
+  else if (TARGET_IMINMAX_ISEL && !TARGET_ISEL
+	   && !TARGET_ISEL_LIMITED)
+    error ("The current machine does not support -miminmax=isel.");
 
   if (rs6000_setcc_method == SETCC_UNSET)
     {
       if (rs6000_cost->setcc != SETCC_UNSET)
-	rs6000_setcc_method = rs6000_cost->setcc;
+	{
+	  rs6000_setcc_method = rs6000_cost->setcc;
+	  if (TARGET_SETCC_ISEL && !TARGET_ISEL
+	      && !TARGET_ISEL_LIMITED)
+	    {
+	      rs6000_setcc_method
+		= ((TARGET_BCP8) ? SETCC_BCP8_EQ : SETCC_MFCR_EQ);
+	    }
+	}
+      else if (TARGET_BCP8)
+	rs6000_setcc_method = SETCC_BCP8_EQ;
       else if (TARGET_ISEL)
-	rs6000_setcc_method = SETCC_ISEL;
+	rs6000_setcc_method = SETCC_ISEL_EQ;
       else
 	rs6000_setcc_method = SETCC_MFCR_EQ;
     }
-
-  if (!TARGET_ISEL && !TARGET_ISEL_LIMITED)
-    {
-      IABS_CLEAR_BIT (COND_MODE_ISEL);
-      IMINMAX_CLEAR_BIT (COND_MODE_ISEL);
-      SETCC_CLEAR_BIT (COND_MODE_ISEL);
-    }
+  else if (TARGET_SETCC_ISEL && !TARGET_ISEL
+	   && !TARGET_ISEL_LIMITED)
+    error ("The current machine does not support -msetcc=isel.");
 
   /* Set the builtin mask of the various options used that could affect which
      builtins were used.  In the past we used target_flags, but we've run out
@@ -16673,7 +16707,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   if (GET_MODE (op1) != compare_mode
       /* In the isel case however, we can use a compare immediate, so
 	 op1 may be a small constant.  */
-      && (!TARGET_ISEL || !short_cint_operand (op1, VOIDmode)))
+      && (!TARGET_SETCC_ISEL_OR_BCP8 || !short_cint_operand (op1, VOIDmode)))
     return 0;
   if (GET_MODE (true_cond) != result_mode)
     return 0;
@@ -16684,7 +16718,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
      if it's too slow....  */
   if (!FLOAT_MODE_P (compare_mode))
     {
-      if (TARGET_ISEL)
+      if (TARGET_SETCC_ISEL_OR_BCP8)
 	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond,
 				      isel_type);
       return 0;
@@ -16850,18 +16884,24 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   enum machine_mode mode = GET_MODE (dest);
   enum rtx_code cond_code;
   rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx, rtx);
+  rtx (*bcp8_func) (rtx, rtx, rtx, rtx, rtx);
   rtx (*setcc_isel_func) (rtx, rtx, rtx);
   rtx (*setcc_isel_rev_func) (rtx, rtx, rtx);
   bool reverse_p = false;
 
+  if (!TARGET_SETCC_ISEL_OR_BCP8)
+    return 0;
+
   if (mode == SImode)
     {
       isel_func = gen_isel_si;
+      bcp8_func = gen_bcp8_si;
       setcc_isel_func = gen_setcc_iselsi;
       setcc_isel_rev_func = gen_setcc_isel_revsi;
     }
   else if (mode == DImode && TARGET_POWERPC64)
     {
+      bcp8_func = gen_bcp8_di;
       isel_func = gen_isel_di;
       setcc_isel_func = gen_setcc_iseldi;
       setcc_isel_rev_func = gen_setcc_isel_revdi;
@@ -16876,47 +16916,73 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   cond_code = GET_CODE (condition_rtx);
   cr = XEXP (condition_rtx, 0);
 
-  switch (cond_code)
+  /* ISEL support.  */
+  if (TARGET_SETCC_ISEL)
     {
-    /* isel handles these directly.  */
-    case LT: case GT: case LTU: case GTU: case EQ: case UNORDERED:
-      break;
+      switch (cond_code)
+	{
+	  /* isel handles these directly.  */
+	case LT: case GT: case LTU: case GTU: case EQ: case UNORDERED:
+	  break;
 
-    /* We need to swap the sense of the comparison.  */
-    case LE: case GE: case LEU: case GEU: case NE: case ORDERED:
-      reverse_p = true;
-      break;
+	  /* We need to swap the sense of the comparison.  */
+	case LE: case GE: case LEU: case GEU: case NE: case ORDERED:
+	  reverse_p = true;
+	  break;
 
-    default:
-      return 0;
-    }
+	default:
+	  return 0;
+	}
 
-  /* Convert to using setcc form for 0/1.  */
-  if (TARGET_SETCC_ISEL && true_cond == const1_rtx
-      && false_cond == const0_rtx)
-    {
+      /* Convert to using setcc form for 0/1.  */
+      if (true_cond == const1_rtx && false_cond == const0_rtx)
+	{
+	  if (reverse_p)
+	    emit_insn (setcc_isel_rev_func (dest, op, cr));
+	  else
+	    emit_insn (setcc_isel_func (dest, op, cr));
+	  return 1;
+	}
+
+      /* Do normal ISEL, handing reversing the condition if needed.  */
       if (reverse_p)
-	emit_insn (setcc_isel_rev_func (dest, op, cr));
-      else
-	emit_insn (setcc_isel_func (dest, op, cr));
-      return 1;
+	{
+	  rtx t = true_cond;
+	  true_cond = false_cond;
+	  false_cond = t;
+	  PUT_CODE (condition_rtx, reverse_condition (cond_code));
+	}
+
+      false_cond = force_reg (mode, false_cond);
+      if (true_cond != const0_rtx)
+	true_cond = force_reg (mode, true_cond);
+
+      emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr,
+			    GEN_INT (isel_type)));
     }
 
-  /* Do normal ISEL, handing reversing the condition if needed.  */
-  if (reverse_p)
+  /* Branch conditional + 8 support.  */
+  else
     {
-      rtx t = true_cond;
-      true_cond = false_cond;
-      false_cond = t;
-      PUT_CODE (condition_rtx, reverse_condition (cond_code));
+      /* Reverse the condition if the false case is an appropriate integer
+	 constant, since LI/LIS will fit in the slot after the branch.  */
+      if (GET_CODE (false_cond) == CONST_INT
+	  && GET_CODE (true_cond) != CONST_INT
+	  && (satisfies_constraint_I (false_cond)
+	      || satisfies_constraint_L (false_cond)))
+	{
+	  rtx t = true_cond;
+	  true_cond = false_cond;
+	  false_cond = t;
+	  PUT_CODE (condition_rtx, reverse_condition (cond_code));
+	}
+
+      true_cond = force_reg (mode, true_cond);
+      if (!add_operand (false_cond, mode))
+	false_cond = force_reg (mode, false_cond);
+
+      emit_insn (bcp8_func (dest, condition_rtx, cr, true_cond, false_cond));
     }
-
-  false_cond = force_reg (mode, false_cond);
-  if (true_cond != const0_rtx)
-    true_cond = force_reg (mode, true_cond);
-
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr,
-			GEN_INT (isel_type)));
 
   return 1;
 }
@@ -26205,14 +26271,21 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return false;
 	}
       else if (INTEGRAL_MODE_P (mode)
-	       && (TARGET_ISEL || TARGET_ISEL_LIMITED)
 	       && XEXP (x, 1) != pc_rtx
 	       && GET_CODE (XEXP (x, 1)) != LABEL_REF
 	       && XEXP (x, 2) != pc_rtx
 	       && GET_CODE (XEXP (x, 2)) != LABEL_REF)
 	{
-	  *total = rs6000_isel_cost (speed);
-	  return false;
+	  if (TARGET_SETCC_ISEL)
+	    {
+	      *total = rs6000_isel_cost (speed);
+	      return false;
+	    }
+	  else if (TARGET_SETCC_BCP8)
+	    {
+	      *total = rs6000_bcp8_cost (speed);
+	      return false;
+	    }
 	}
       break;
 

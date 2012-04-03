@@ -1,5 +1,27 @@
 2012-04-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.opt (TARGET_BCP8): New TargetVariable.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Set
+	TARGET_BCP8.  Add error messages if user selects a method with
+	isel on a machine that doesn't support the instruction.
+	(rs6000_emit_cmove): Add conditional moves to -msetcc= option.
+	(rs6000_emit_int_cmove): Likewise.
+	(rs6000_rtx_costs): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SETCC_MFCR): Simplify.
+	(TARGET_SETCC_ISEL_OR_BCP8): New macro to for either -msetcc=isel
+	or -msetcc=bc8 in setcc.
+
+	* config/rs6000/rs6000.md (mov<mode>cc): Add support for using
+	branch conditional + 8 for conditional moves.
+	(ne0si): Only match if setcc is done via mfcr.
+
+	* config/rs6000/rs6000-opts.h (COND_MODE_ISEL_OR_BCP8): New macro
+	for either ISEL or BC+8.
+	(SETCC_BIT2_P): New macro to test if some options are set and some
+	aren't.
+
 	* config/rs6000/rs6000.c (rs6000_rtx_costs): Add support for
 	LO_SUM, TRUNCATE.  If -mdebug=cost, print out insns that aren't
 	handled.
