@@ -350,6 +350,20 @@ mode_for_size (unsigned int size, enum mode_class mclass, int limit)
   return BLKmode;
 }
 
+enum machine_mode
+mode_for_bound (unsigned int size, enum mode_class mclass)
+{
+  enum machine_mode mode;
+ 
+  /* Get the first mode which has this size, in the specified class.  */
+  for (mode = GET_CLASS_NARROWEST_MODE (mclass); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    if (GET_MODE_SIZE (mode) == (size/8))
+      return mode;
+ 
+  return BLKmode;
+}
+
 /* Similar, except passed a tree node.  */
 
 enum machine_mode
@@ -2119,6 +2133,15 @@ layout_type (tree type)
       TYPE_ALIGN (type) = 1;
       TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type, VOIDmode);
+      break;
+
+    case BOUND_TYPE:
+      //TYPE_ALIGN (type) = 1;
+      //TYPE_USER_ALIGN (type) = 0;
+      SET_TYPE_MODE (type,
+                     mode_for_bound (TYPE_PRECISION (type), MODE_BOUND));
+      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case OFFSET_TYPE:

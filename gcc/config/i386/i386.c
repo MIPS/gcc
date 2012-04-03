@@ -6296,6 +6296,8 @@ classify_argument (enum machine_mode mode, const_tree type,
       classes[0] = X86_64_SSE_CLASS;
       return 1;
     case BLKmode:
+    case BND32mode:
+    case BND64mode:
     case VOIDmode:
       return 0;
     default:
@@ -13844,7 +13846,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) &&  ! ANY_BND_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -25829,8 +25831,10 @@ enum ix86_builtins
   IX86_BUILTIN_XTEST,
 
   /* PL */
-  IX86_BUILTIN_BNDMK,
-  IX86_BUILTIN_BNDSTX, 
+  IX86_BUILTIN_BNDMK32,
+  IX86_BUILTIN_BNDMK64,
+  IX86_BUILTIN_BNDSTX32,
+  IX86_BUILTIN_BNDSTX64, 
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -26175,6 +26179,11 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xbegin, "__builtin_ia32_xbegin", IX86_BUILTIN_XBEGIN, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xend, "__builtin_ia32_xend", IX86_BUILTIN_XEND, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
+
+  /* PL */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd64, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd32, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
+
 };
 
 /* Builtins with variable number of arguments.  */
@@ -27001,8 +27010,8 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph256, "__builtin_ia32_vcvtps2ph256", IX86_BUILTIN_CVTPS2PH256, UNKNOWN, (int) V8HI_FTYPE_V8SF_INT },
 
   /* PL */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkCDI, "__builtin_ia32_bndmk", IX86_BUILTIN_BNDMK, UNKNOWN, (int) BND64_FTYPE_PVOID },
- { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxCDI, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd64, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd32, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
 
   /* BMI2 */
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_si3, "__builtin_ia32_bzhi_si", IX86_BUILTIN_BZHI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
@@ -27748,16 +27757,10 @@ static void
 ix86_init_builtin_types (void)
 {
   tree float128_type_node, float80_type_node;
-  tree bound_type_node;
 
-  bound_type_node = TARGET_64BIT
-                             ? build_complex_type(long_long_unsigned_type_node)
-                             : build_complex_type(unsigned_type_node);
-
-//  bound_type_node = TARGET_64BIT ?  int128_unsigned_type_node
-//                                    : long_long_unsigned_type_node;
-
-  lang_hooks.types.register_builtin_type (bound_type_node, "__bnd");
+  lang_hooks.types.register_builtin_type (TARGET_64BIT ? 
+                                            bound64_type_node :
+                                            bound32_type_node, "__bnd");
 
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
@@ -29432,31 +29435,32 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
-    case IX86_BUILTIN_BNDMK:
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      op0 = expand_normal (arg0);
-      mode0 = insn_data[TARGET_64BIT? CODE_FOR_bnd_mkCDI:CODE_FOR_bnd_mkCSI].operand[0].mode;
-      //target = gen_reg_rtx (TImode);
-      pat = GEN_FCN (TARGET_64BIT? CODE_FOR_bnd_mkCDI:CODE_FOR_bnd_mkCSI) (target, gen_rtx_MEM (Pmode, op0));
-      if (! pat)
-        return 0;
-      emit_insn (pat);
-      return target;
-
-    case IX86_BUILTIN_BNDSTX:
+    case IX86_BUILTIN_BNDMK32:
+    case IX86_BUILTIN_BNDMK64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
-      //arg2 = CALL_EXPR_ARG (exp, 2);
+      op0 = expand_normal (arg0);
+      if (!REG_P (op0))
+        op0 = copy_to_mode_reg (Pmode, op0);
+      op1 = expand_normal (arg1);
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd_mkbnd64 (target, op0, op1)
+                 : gen_bnd_mkbnd32 (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDSTX32:
+    case IX86_BUILTIN_BNDSTX64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
-      //op2 = expand_normal (arg2);
-      //target = gen_reg_rtx (TImode);
-      pat = GEN_FCN (TARGET_64BIT? CODE_FOR_bnd_mkCDI:CODE_FOR_bnd_mkCSI) (gen_rtx_MEM (Pmode, op0), 
-                                        gen_rtx_MEM (Pmode, op1), 
-                                        target);
-      if (! pat)
-        return 0;
-      emit_insn (pat);
+      op2 = expand_normal (arg2);
+      if (!REG_P (op2))
+        op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd_stxbnd64 (op0, op1, op2) 
+                 : gen_bnd_stxbnd32 (op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_MASKMOVQ:

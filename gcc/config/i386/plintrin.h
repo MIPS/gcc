@@ -5,13 +5,21 @@
 //typedef __int128 __bnd;
 
 extern __inline __bnd __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-__pl_bndmk (void* p)
+__pl_bndmk (void* p, int b)
 {
-  return __builtin_ia32_bndmk (p);
+#ifdef  __x86_64__
+  return __builtin_ia32_bndmk64 (p, b);
+#else
+  return __builtin_ia32_bndmk32 (p, b);
+#endif
 }
 
 extern __inline void  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __pl_bndstx (void* p1, void* p2, __bnd b)
 {
-  return __builtin_ia32_bndstx (p1, p2, b);
+#ifdef  __x86_64__
+  return __builtin_ia32_bndstx64 (p1, p2, b);
+#else
+  return __builtin_ia32_bndstx32 (p1, p2, b);
+#endif
 }
