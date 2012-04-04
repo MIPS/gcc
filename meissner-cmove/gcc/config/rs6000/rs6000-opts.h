@@ -146,83 +146,30 @@ enum rs6000_vector {
    we need to distinguish the special "native" value.  */
 #define RS6000_CPU_OPTION_NATIVE -1
 
-/* Bitmasks used for all integer conditional mode operations (absolute value,
-   minimum, maximu, conditional move, set condtional, etc.). These are
-   represented as bit masks, to allow -mno-isel to turn off the ISEL support
-   without affecting the other methods.  */
-#define COND_MODE_NONE		0x0000	/* Use MI code.  */
-#define COND_MODE_ISEL		0x0001	/* Use ISEL. */
-#define COND_MODE_BCP8		0x0002	/* Use branch cond+8.   */
-#define COND_MODE_SHIFT		0x0004	/* Use shift/xor/neg. */
-#define COND_MODE_MFCR		0x0008	/* Use move from CR.  */
-#define COND_MODE_EQ		0x0010	/* Use special ops for ==.  */
-#define COND_MODE_UNSET		-1	/* Preferences not yet set.  */
-
-#define COND_MODE_ISEL_OR_BCP8	(COND_MODE_ISEL | COND_MODE_BCP8)
-
 /* Describe how to do integer ABS and negative ABS.  */
 enum rs6000_iabs_t {
-  IABS_UNSET		= COND_MODE_UNSET,
-  IABS_NONE		= COND_MODE_NONE,
-  IABS_ISEL_ONLY	= COND_MODE_ISEL,
-  IABS_BCP8_ONLY	= COND_MODE_BCP8,
-  IABS_SHIFT_ONLY	= COND_MODE_SHIFT,
-
-  IABS_ISEL		= (COND_MODE_SHIFT | COND_MODE_ISEL),
-  IABS_BCP8		= (COND_MODE_SHIFT | COND_MODE_BCP8),
-  IABS_SHIFT		= COND_MODE_SHIFT
+  IABS_DEFAULT,			/* Use defaults.  */
+  IABS_NONE,			/* No powerpc specific support.  */
+  IABS_ISEL,			/* Use the ISEL instruction.  */
+  IABS_BCP8,			/* Use branch conditional + 8.  */
+  IABS_SHIFT			/* Use shift/xor/sub.  */
 };
-
-#define IABS_BIT_P(MASK) (((unsigned)rs6000_iabs_method & (MASK)) != 0)
-
-#define IABS_CLEAR_BIT(MASK)						\
-  (rs6000_iabs_method							\
-   = (enum rs6000_iabs_t)(((unsigned)rs6000_iabs_method) & ~(MASK)))
-
-#define IABS_SET(VALUE) (rs6000_iabs_method = (enum rs6000_iabs_t)(VALUE))
 
 /* Describe how to do integer minimum and maximum.  */
 enum rs6000_iminmax_t {
-  IMINMAX_UNSET		= COND_MODE_UNSET,
-  IMINMAX_NONE		= COND_MODE_NONE,
-  IMINMAX_ISEL		= COND_MODE_ISEL,
-  IMINMAX_BCP8		= COND_MODE_BCP8
+  IMINMAX_DEFAULT,		/* Use defaults. */
+  IMINMAX_NONE,			/* No powerpc specific support.  */
+  IMINMAX_ISEL,			/* Use the ISEL instruction.  */
+  IMINMAX_BCP8			/* Use branch conditional + 8.  */
 };
-
-#define IMINMAX_BIT_P(MASK) (((unsigned)rs6000_iminmax_method & (MASK)) != 0)
-
-#define IMINMAX_CLEAR_BIT(MASK)						\
-  (rs6000_iminmax_method						\
-   = (enum rs6000_iminmax_t)(((unsigned)rs6000_iminmax_method) & ~(MASK)))
-
-#define IMINMAX_SET(VALUE)						\
-  (rs6000_iminmax_method = (enum rs6000_iminmax_t)(VALUE))
 
 /* Describe how to set an integer from a comparsion to 0 or 1.  */
 enum rs6000_setcc_t {
-  SETCC_UNSET		= COND_MODE_UNSET,
-  SETCC_NONE		= COND_MODE_NONE,
-  SETCC_ISEL_ONLY	= COND_MODE_ISEL,
-  SETCC_BCP8_ONLY	= COND_MODE_BCP8,
-  SETCC_MFCR_ONLY	= COND_MODE_MFCR,
-  SETCC_EQ_ONLY		= COND_MODE_EQ,
-  SETCC_ISEL		= COND_MODE_MFCR | COND_MODE_ISEL,
-  SETCC_BCP8		= COND_MODE_MFCR | COND_MODE_BCP8,
-  SETCC_MFCR_EQ		= COND_MODE_MFCR | COND_MODE_EQ,
-  SETCC_ISEL_EQ		= COND_MODE_MFCR | COND_MODE_EQ | COND_MODE_ISEL,
-  SETCC_BCP8_EQ		= COND_MODE_MFCR | COND_MODE_EQ | COND_MODE_BCP8
+  SETCC_DEFAULT,		/* Use defaults.  */
+  SETCC_NONE,			/* No powerpc specific support.  */
+  SETCC_ISEL,			/* Use the ISEL instruction.  */
+  SETCC_BCP8,			/* Use branch conditional + 8.  */
+  SETCC_MFCR			/* Use move from condition register.  */
 };
-
-#define SETCC_BIT_P(MASK) (((unsigned)rs6000_setcc_method & (MASK)) != 0)
-
-#define SETCC_BIT2_P(SET, CLEAR)					\
-  (((unsigned)rs6000_setcc_method & ((SET) | (CLEAR))) == (SET))
-
-#define SETCC_CLEAR_BIT(MASK)						\
-  (rs6000_setcc_method							\
-   = (enum rs6000_setcc_t)(((unsigned)rs6000_setcc_method) & ~(MASK)))
-
-#define SETCC_SET(VALUE)						\
-  (rs6000_setcc_method = (enum rs6000_setcc_t)(VALUE))
 
 #endif

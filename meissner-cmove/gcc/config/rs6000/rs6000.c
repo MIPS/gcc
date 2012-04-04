@@ -316,9 +316,11 @@ struct processor_costs {
   const int bcp8_cost;		 /* If >0, cost of branch conditional + 8.  */
   const int mfcr_cost;		 /* cost of moving from a CR register.  */
   const int crlogical_cost;	 /* cost of a CR logical operation.  */
-  const enum rs6000_iabs_t iabs;	/* Preferred way to do int ABS.  */
-  const enum rs6000_iminmax_t iminmax;	/* Preferred way to do int MIN/MAX.  */
-  const enum rs6000_setcc_t setcc;	/* Preferred way to do set<cc>.  */
+  const enum rs6000_iabs_t iabs;	/* default method for int. abs.  */
+  const enum rs6000_iminmax_t iminmax;	/* default method for int. min/max.  */
+  const enum rs6000_setcc_t setcc;	/* default method for set cond.  */
+  const bool bcp8;			/* whether to enable BC+8.  */
+  const bool eq_ne;			/* whether to enable ==/!= opts.  */
 };
 
 const struct processor_costs *rs6000_cost;
@@ -337,18 +339,19 @@ const struct processor_costs *rs6000_cost;
 #define DEFAULT_COSTS_C_S(C,S)		DEFAULT_COSTS2 (C, S, 0, 3, 2)
 #define DEFAULT_COSTS_C_S_B(C,S,B)	DEFAULT_COSTS2 (C, S, B, 3, 2)
 
-/* Default method to do integer absolute value, integer minimum/maximum, and
-   set conditional.  */
-#define DEFAULT_METHODS2(ABS, MINMAX, SETCC)				\
-  ABS,				/* integer absolute method */		\
-  MINMAX,			/* integer min/max method */		\
-  SETCC				/* set conditional method */
+/* Default code generation straties.  */
+#define DEFAULT_METHODS2(IABS, IMINMAX, SETCC, BCP8, EQ_NE)		\
+  IABS,				/* integer absolute value.  */		\
+  IMINMAX,			/* integer minimum/maximum.  */		\
+  SETCC,			/* set conditional.  */			\
+  BCP8,				/* whether to enable bc+8.  */		\
+  EQ_NE				/* whether to enable ==/!= opts.  */
 
 #define DEFAULT_METHODS()						\
-  DEFAULT_METHODS2(IABS_UNSET, IMINMAX_UNSET, SETCC_UNSET)
+  DEFAULT_METHODS2 (IABS_DEFAULT, IMINMAX_DEFAULT, SETCC_DEFAULT, false, true)
 
-#define DEFAULT_METHODS_A_M_S(ABS, MINMAX, SETCC)			\
-  DEFAULT_METHODS2(ABS, MINMAX, SETCC)
+#define DEFAULT_METHODS_P7()						\
+  DEFAULT_METHODS2 (IABS_SHIFT, IMINMAX_BCP8, SETCC_BCP8, true, true)
 
 /* Processor costs (relative to an add) */
 
@@ -370,7 +373,7 @@ struct processor_costs size32_cost = {
   0,			/* l2 cache */
   0,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -391,7 +394,7 @@ struct processor_costs size64_cost = {
   0,			/* l2 cache */
   0,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on RIOS1 processors.  */
@@ -412,7 +415,7 @@ struct processor_costs rios1_cost = {
   512,			/* l2 cache */
   0,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on RIOS2 processors.  */
@@ -433,7 +436,7 @@ struct processor_costs rios2_cost = {
   1024,			/* l2 cache */
   0,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -454,7 +457,7 @@ struct processor_costs rs64a_cost = {
   2048,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -475,7 +478,7 @@ struct processor_costs mpccore_cost = {
   16,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -496,7 +499,7 @@ struct processor_costs ppc403_cost = {
   16,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -517,7 +520,7 @@ struct processor_costs ppc405_cost = {
   128,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -538,7 +541,7 @@ struct processor_costs ppc440_cost = {
   256,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -559,7 +562,7 @@ struct processor_costs ppc476_cost = {
   512,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -580,7 +583,7 @@ struct processor_costs ppc601_cost = {
   256,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -601,7 +604,7 @@ struct processor_costs ppc603_cost = {
   64,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -622,7 +625,7 @@ struct processor_costs ppc604_cost = {
   512,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -643,7 +646,7 @@ struct processor_costs ppc604e_cost = {
   1024,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -664,7 +667,7 @@ struct processor_costs ppc620_cost = {
   1024,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -685,7 +688,7 @@ struct processor_costs ppc630_cost = {
   1024,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -707,7 +710,7 @@ struct processor_costs ppccell_cost = {
   512,			/* l2 cache */
   6,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -728,7 +731,7 @@ struct processor_costs ppc750_cost = {
   512,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -749,7 +752,7 @@ struct processor_costs ppc7450_cost = {
   1024,			/* l2 cache */
   1,			/* streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -770,7 +773,7 @@ struct processor_costs ppc8540_cost = {
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
   DEFAULT_COSTS_S (6),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -791,7 +794,7 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -812,7 +815,7 @@ struct processor_costs ppce500mc_cost = {
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
   DEFAULT_COSTS_S (6),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -833,7 +836,7 @@ struct processor_costs ppce500mc64_cost = {
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -854,7 +857,7 @@ struct processor_costs titan_cost = {
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -875,7 +878,7 @@ struct processor_costs power4_cost = {
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -896,7 +899,7 @@ struct processor_costs power6_cost = {
   2048,			/* l2 cache */
   16,			/* prefetch streams */
   DEFAULT_COSTS_C (2),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -918,10 +921,7 @@ struct processor_costs power7_cost = {
   12,			/* prefetch streams */
 			/* clz/isel/bc+8/conditional costs */
   DEFAULT_COSTS_C_S_B (2, 2, 2), 
-			/* default way to to iabs/minmax/setcc */
-  DEFAULT_METHODS_A_M_S (IABS_SHIFT,		/* integer abs */
-			 IMINMAX_BCP8,		/* integer min/max */
-			 SETCC_BCP8_EQ),	/* set conditional */
+  DEFAULT_METHODS_P7 (), /* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -942,7 +942,7 @@ struct processor_costs ppca2_cost = {
   2048,			/* l2 cache */
   16,			/* prefetch streams */
   DEFAULT_COSTS (),	/* clz/isel/bc+8/conditional costs */
-  DEFAULT_METHODS (),	/* default way to to iabs/minmax/setcc */
+  DEFAULT_METHODS (),	/* default way to do iabs/minmax/setcc/bc+8/==/!=.  */
 };
 
 
@@ -2103,12 +2103,14 @@ rs6000_debug_reg_global (void)
   int m;
   char costly_num[20];
   char nop_num[20];
-  char cond_buffer[128];
   const char *costly_str;
   const char *nop_str;
   const char *trace_str;
   const char *abi_str;
   const char *cmodel_str;
+  const char *iabs_str;
+  const char *iminmax_str;
+  const char *setcc_str;
 
   /* Map enum rs6000_vector to string.  */
   static const char *rs6000_debug_vector_unit[] = {
@@ -2326,57 +2328,60 @@ rs6000_debug_reg_global (void)
 	   (int)RS6000_BUILTIN_COUNT);
   fprintf (stderr, DEBUG_FMT_X, "Builtin mask", rs6000_builtin_mask);
 
-  cond_buffer[0] = '\0';
-  if (TARGET_IABS_NONE)
-    fprintf (stderr, DEBUG_FMT_S, "iabs", "none");
-  else
+  switch (rs6000_iabs_method)
     {
-      if (TARGET_IABS_ISEL)
-	strcat (cond_buffer, ", isel");
-      if (TARGET_IABS_BCP8)
-	strcat (cond_buffer, ", bc+8");
-      if (TARGET_IABS_SHIFT)
-	strcat (cond_buffer, ", shift");
-      if (cond_buffer[0])
-	fprintf (stderr, DEBUG_FMT_S, "iabs", cond_buffer+2);
-      else
-	fprintf (stderr, DEBUG_FMT_S, "iabs", "unknown");
+    case IABS_DEFAULT:	iabs_str = "default";	break;;
+    case IABS_NONE:	iabs_str = "none";	break;;
+    case IABS_ISEL:	iabs_str = "isel";	break;;
+    case IABS_BCP8:	iabs_str = "bcp8";	break;;
+    case IABS_SHIFT:	iabs_str = "shift";	break;;
+    default:		iabs_str = "unknown";	break;;
     }
 
-  cond_buffer[0] = '\0';
-  if (TARGET_IMINMAX_NONE)
-    fprintf (stderr, DEBUG_FMT_S, "iminmax", "none");
-  else
+  fprintf (stderr, DEBUG_FMT_S, "iabs", iabs_str);
+
+  switch (rs6000_iminmax_method)
     {
-      if (TARGET_IMINMAX_ISEL)
-	strcat (cond_buffer, ", isel");
-      if (TARGET_IMINMAX_BCP8)
-	strcat (cond_buffer, ", bc+8");
-      if (cond_buffer[0])
-	fprintf (stderr, DEBUG_FMT_S, "iminmax", cond_buffer+2);
-      else
-	fprintf (stderr, DEBUG_FMT_S, "iminmax", "unknown");
+    case IMINMAX_DEFAULT: iminmax_str = "default"; break;;
+    case IMINMAX_NONE:	  iminmax_str = "none";	   break;;
+    case IMINMAX_ISEL:	  iminmax_str = "isel";	   break;;
+    case IMINMAX_BCP8:	  iminmax_str = "bcp8";	   break;;
+    default:		  iminmax_str = "unknown"; break;;
     }
 
-  cond_buffer[0] = '\0';
-  if (TARGET_SETCC_NONE)
-    fprintf (stderr, DEBUG_FMT_S, "setcc", "none");
-  else
+  fprintf (stderr, DEBUG_FMT_S, "iminmax", iminmax_str);
+
+  switch (rs6000_setcc_method)
     {
-      if (TARGET_SETCC_ISEL)
-	strcat (cond_buffer, ", isel");
-      if (TARGET_SETCC_BCP8)
-	strcat (cond_buffer, ", bc+8");
-      if (TARGET_SETCC_MFCR)
-	strcat (cond_buffer, ", mfcr");
-      if (TARGET_SETCC_EQ)
-	strcat (cond_buffer, ", eq");
-      if (cond_buffer[0])
-	fprintf (stderr, DEBUG_FMT_S, "setcc", cond_buffer+2);
-      else
-	fprintf (stderr, DEBUG_FMT_S, "setcc", "unknown");
+    case SETCC_DEFAULT: setcc_str = "default";	break;;
+    case SETCC_NONE:	setcc_str = "none";	break;;
+    case SETCC_ISEL:	setcc_str = "isel";	break;;
+    case SETCC_BCP8:	setcc_str = "bcp8";	break;;
+    case SETCC_MFCR:	setcc_str = "mfcr";	break;;
+    default:		setcc_str = "unknown";	break;;
     }
 
+  fprintf (stderr, DEBUG_FMT_S, "setcc", setcc_str);
+
+  if (TARGET_SETCC_EQ)
+    fprintf (stderr, DEBUG_FMT_S, "eq-ne", "true");
+
+  if (TARGET_BCP8)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
+
+  if (TARGET_BCP8 && TARGET_BCP8_COND_EXEC)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8-cond-exec", "true");
+
+  if (TARGET_ISEL)
+    fprintf (stderr, DEBUG_FMT_S, "isel", "true");
+  else if (TARGET_ISEL_LIMITED)
+    fprintf (stderr, DEBUG_FMT_S, "isel", "limited");
+
+  if (TARGET_VSX)
+    fprintf (stderr, DEBUG_FMT_S, "vsx", "true");
+
+  if (TARGET_ALTIVEC)
+    fprintf (stderr, DEBUG_FMT_S, "altivec", "true");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2825,6 +2830,7 @@ rs6000_option_override_internal (bool global_init_p)
   struct cl_target_option *main_target_opt
     = ((global_init_p || target_option_default_node == NULL)
        ? NULL : TREE_TARGET_OPTION (target_option_default_node));
+  bool have_isel;
 
   /* On 64-bit Darwin, power alignment is ABI-incompatible with some C
      library functions, so warn about it. The flag may be useful for
@@ -3559,81 +3565,63 @@ rs6000_option_override_internal (bool global_init_p)
 			 && ((target_flags_explicit & MASK_ISEL) == 0)
 			 && (TARGET_POPCNTD || TARGET_VSX));
 
-  /* Determine if we should optimize for branch conditional + 8.  */
-  TARGET_BCP8 = (!TARGET_ISEL && (TARGET_POPCNTD || TARGET_VSX));
+  have_isel = (TARGET_ISEL || TARGET_ISEL_LIMITED);
 
-  /* Set how we want to do integer absolute value, and minimum/maximum.  Remove
-     any bits for options that we don't support with the current target
-     instructions.  If the user explicitly says -misel then enable it by
-     default, but don't enable isel by default if the use of ISEL is
-     limited to cases where we expect it to win.  */
-  if (rs6000_iabs_method == IABS_UNSET)
+  /* Determine if we should optimize for branch conditional + 8.  */
+  if (TARGET_BCP8 == -1)
+    TARGET_BCP8 = (!TARGET_ISEL && rs6000_cost->bcp8);
+
+  /* Determine if we should enable ==/!= optimizations.  */
+  if (TARGET_SETCC_EQ == -1)
+    TARGET_SETCC_EQ = rs6000_cost->eq_ne;
+
+  /* Determine how to do integer absolute value.  By default, don't use branch
+     conditional + 8 or ISEL on power7 to do IABS, since the traditional way of
+     using shifts is faster.  */
+  if (rs6000_iabs_method == IABS_DEFAULT)
     {
-      if (rs6000_cost->iabs != IABS_UNSET)
-	{
-	  rs6000_iabs_method = rs6000_cost->iabs;
-	  if (TARGET_IABS_ISEL && !TARGET_ISEL
-	      && !TARGET_ISEL_LIMITED)
-	    {
-	      rs6000_iabs_method = IABS_SHIFT;
-	    }
-	}
-      else if (TARGET_BCP8)
-	rs6000_iabs_method = IABS_BCP8;
+      if (rs6000_cost->iabs != IABS_DEFAULT
+	  && (rs6000_cost->iabs != IABS_ISEL || have_isel))
+	rs6000_iabs_method = rs6000_cost->iabs;
       else if (TARGET_ISEL)
 	rs6000_iabs_method = IABS_ISEL;
       else
 	rs6000_iabs_method = IABS_SHIFT;
     }
-  else if (TARGET_IABS_ISEL && !TARGET_ISEL
-	   && !TARGET_ISEL_LIMITED)
+  else if (TARGET_IABS_ISEL && !have_isel)
     error ("The current machine does not support -miabs=isel.");
 
-  if (rs6000_iminmax_method == IMINMAX_UNSET)
+  /* Determine how to do set conditional and integer conditional move.  */
+  if (rs6000_setcc_method == SETCC_DEFAULT)
     {
-      if (rs6000_cost->iminmax != IMINMAX_UNSET)
-	{
-	  rs6000_iminmax_method = rs6000_cost->iminmax;
-	  if (TARGET_IMINMAX_ISEL && !TARGET_ISEL
-	      && !TARGET_ISEL_LIMITED)
-	    {
-	      rs6000_iminmax_method
-		= ((TARGET_BCP8) ? IMINMAX_BCP8 : IMINMAX_NONE);
-	    }
-	}
+      if (rs6000_cost->setcc != SETCC_DEFAULT
+	  && (rs6000_cost->setcc != SETCC_ISEL || have_isel))
+	rs6000_setcc_method = rs6000_cost->setcc;
       else if (TARGET_BCP8)
+	rs6000_setcc_method = SETCC_BCP8;
+      else if (have_isel)
+	rs6000_setcc_method = SETCC_ISEL;
+      else
+	rs6000_setcc_method = SETCC_MFCR;
+    }
+  else if (TARGET_SETCC_ISEL && !have_isel)
+    error ("The current machine does not support -msetcc=isel.");
+
+  /* Determine how to do integer minimum and maximum.  */
+  if (rs6000_iminmax_method == IMINMAX_DEFAULT)
+    {
+      if (rs6000_cost->iminmax != IMINMAX_DEFAULT
+	  && (rs6000_cost->iminmax != IMINMAX_ISEL || have_isel))
+	rs6000_iminmax_method = rs6000_cost->iminmax;
+      else if (TARGET_SETCC_BCP8)
 	rs6000_iminmax_method = IMINMAX_BCP8;
-      else if (TARGET_ISEL)
+      else if (TARGET_SETCC_ISEL)
 	rs6000_iminmax_method = IMINMAX_ISEL;
       else
 	rs6000_iminmax_method = IMINMAX_NONE;
     }
-  else if (TARGET_IMINMAX_ISEL && !TARGET_ISEL
-	   && !TARGET_ISEL_LIMITED)
+  else if (TARGET_IMINMAX_ISEL && !have_isel)
     error ("The current machine does not support -miminmax=isel.");
-
-  if (rs6000_setcc_method == SETCC_UNSET)
-    {
-      if (rs6000_cost->setcc != SETCC_UNSET)
-	{
-	  rs6000_setcc_method = rs6000_cost->setcc;
-	  if (TARGET_SETCC_ISEL && !TARGET_ISEL
-	      && !TARGET_ISEL_LIMITED)
-	    {
-	      rs6000_setcc_method
-		= ((TARGET_BCP8) ? SETCC_BCP8_EQ : SETCC_MFCR_EQ);
-	    }
-	}
-      else if (TARGET_BCP8)
-	rs6000_setcc_method = SETCC_BCP8_EQ;
-      else if (TARGET_ISEL)
-	rs6000_setcc_method = SETCC_ISEL_EQ;
-      else
-	rs6000_setcc_method = SETCC_MFCR_EQ;
-    }
-  else if (TARGET_SETCC_ISEL && !TARGET_ISEL
-	   && !TARGET_ISEL_LIMITED)
-    error ("The current machine does not support -msetcc=isel.");
 
   /* Set the builtin mask of the various options used that could affect which
      builtins were used.  In the past we used target_flags, but we've run out
@@ -27822,13 +27810,20 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
   { "longcall",
     offsetof (struct gcc_options, x_rs6000_default_long_calls),
     offsetof (struct cl_target_option, x_rs6000_default_long_calls), },
+  { "bcp8",
+    offsetof (struct gcc_options, x_TARGET_BCP8),
+    offsetof (struct cl_target_option, x_TARGET_BCP8), },
+  { "eq-ne",
+    offsetof (struct gcc_options, x_TARGET_SETCC_EQ),
+    offsetof (struct cl_target_option, x_TARGET_SETCC_EQ), },
 };
 
 /* Option variables to set various enums.  */
 
 enum rs6000_opt_enum_t {
   TARGET_ENUM_IABS,		/* -miabs=<xxx> */
-  TARGET_ENUM_IMINMAX		/* -miminmax=<xxx> */
+  TARGET_ENUM_IMINMAX,		/* -miminmax=<xxx> */
+  TARGET_ENUM_SETCC		/* -msetcc=<xxx> */
 };
 
 struct rs6000_opt_enum {
@@ -27843,12 +27838,18 @@ static struct rs6000_opt_enum const rs6000_opt_enums[] =
   { "iabs=shift",	TARGET_ENUM_IABS,	(int)IABS_SHIFT },
   { "iabs=isel",	TARGET_ENUM_IABS,	(int)IABS_ISEL },
   { "iabs=bcp8",	TARGET_ENUM_IABS,	(int)IABS_BCP8 },
-  { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_UNSET },
+  { "iabs=default",	TARGET_ENUM_IABS,	(int)IABS_DEFAULT },
 
   { "iminmax=none",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_NONE },
   { "iminmax=isel",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_ISEL },
   { "iminmax=bcp8",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_BCP8 },
-  { "iminmax=default",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_UNSET },
+  { "iminmax=default",	TARGET_ENUM_IMINMAX,	(int)IMINMAX_DEFAULT },
+
+  { "isetcc=none",	TARGET_ENUM_SETCC,	(int)SETCC_NONE },
+  { "isetcc=isel",	TARGET_ENUM_SETCC,	(int)SETCC_ISEL },
+  { "isetcc=bcp8",	TARGET_ENUM_SETCC,	(int)SETCC_BCP8 },
+  { "isetcc=mfcr",	TARGET_ENUM_SETCC,	(int)SETCC_MFCR },
+  { "isetcc=default",	TARGET_ENUM_SETCC,	(int)SETCC_DEFAULT },
 };
 
 
@@ -27965,11 +27966,16 @@ rs6000_inner_target_options (tree args, bool attr_p)
 			    gcc_unreachable ();
 
 			  case TARGET_ENUM_IABS:
-			    IABS_SET (value);
+			    rs6000_iabs_method = (enum rs6000_iabs_t)value;
 			    break;
 
 			  case TARGET_ENUM_IMINMAX:
-			    IMINMAX_SET (value);
+			    rs6000_iminmax_method
+			      = (enum rs6000_iminmax_t)value;
+			    break;
+
+			  case TARGET_ENUM_SETCC:
+			    rs6000_setcc_method = (enum rs6000_setcc_t)value;
 			    break;
 			  }
 			break;
@@ -28123,12 +28129,12 @@ rs6000_valid_attribute_p (tree fndecl,
      if the user did not specify them on the command line.  */
   cl_target_option_save (&cur_target, &global_options);
   rs6000_cpu_index = rs6000_tune_index = -1;
-  if (global_options_set.x_rs6000_iabs_method == IABS_UNSET)
-    rs6000_iabs_method = IABS_UNSET;
-  if (global_options_set.x_rs6000_iminmax_method == IMINMAX_UNSET)
-    rs6000_iminmax_method = IMINMAX_UNSET;
-  if (global_options_set.x_rs6000_setcc_method == SETCC_UNSET)
-    rs6000_setcc_method = SETCC_UNSET;
+  if (global_options_set.x_rs6000_iabs_method == IABS_DEFAULT)
+    rs6000_iabs_method = IABS_DEFAULT;
+  if (global_options_set.x_rs6000_iminmax_method == IMINMAX_DEFAULT)
+    rs6000_iminmax_method = IMINMAX_DEFAULT;
+  if (global_options_set.x_rs6000_setcc_method == SETCC_DEFAULT)
+    rs6000_setcc_method = SETCC_DEFAULT;
 
   ret = rs6000_inner_target_options (args, true);
 
@@ -28214,12 +28220,12 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
   else
     {
       rs6000_cpu_index = rs6000_tune_index = -1;
-      if (global_options_set.x_rs6000_iabs_method == IABS_UNSET)
-	rs6000_iabs_method = IABS_UNSET;
-      if (global_options_set.x_rs6000_iminmax_method == IMINMAX_UNSET)
-	rs6000_iminmax_method = IMINMAX_UNSET;
-      if (global_options_set.x_rs6000_setcc_method == SETCC_UNSET)
-	rs6000_setcc_method = SETCC_UNSET;
+      if (global_options_set.x_rs6000_iabs_method == IABS_DEFAULT)
+	rs6000_iabs_method = IABS_DEFAULT;
+      if (global_options_set.x_rs6000_iminmax_method == IMINMAX_DEFAULT)
+	rs6000_iminmax_method = IMINMAX_DEFAULT;
+      if (global_options_set.x_rs6000_setcc_method == SETCC_DEFAULT)
+	rs6000_setcc_method = SETCC_DEFAULT;
 
       if (!rs6000_inner_target_options (args, false)
 	  || !rs6000_option_override_internal (false)

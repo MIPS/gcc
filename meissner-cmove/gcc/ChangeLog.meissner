@@ -1,3 +1,51 @@
+2012-04-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (TARGET_BCP8): Delete.
+	(-mbcp8): New switch to control whether branch conditional + 8
+	optimizations are done.
+	(-meq-ne): New switch to control whether ==/!= optimizations are
+	done.
+	(-miabs=): Use IABS_DEFAULT, not IABS_UNSET.
+	(-miminmax=): Use IMINMAX_DEFAULT, not IMINMAX_UNSET.
+	(-msetcc=): Use SETCC_DEFAULT, not SETCC_UNSET.  Delete the -eq
+	variations.
+
+	* config/rs6000/rs6000.c (processor_costs): Change the methods
+	fields to include defaults for bc+8 and eq/ne optimizations.
+	Change iabs, iminmax, setcc options from bitfields to plain
+	enumerations.  Add error messages if user selects an isel option
+	without enabling ISEL.  Add setcc support to target pragma and
+	attribute.  Use *_DEFAULT instead of *_UNSET.
+	(*_cost structures): Likewise.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_opt_var): Likewise.
+	(rs6000_opt_enum): Likewise.
+	(rs6000_inner_target_options): Likewise.
+	(rs6000_valid_attribute_p): Likewise.
+	(rs6000_pragma_target_parse): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_IABS_*): Change iabs, iminmax,
+	setcc options from bitfields to plain enumerations.
+	(TARGET_IMINMAX_*): Likewise.
+	(TARGET_SETCC_*): Likewise.
+
+	* config/rs6000/rs6000.md (ISEL_GENERAL): Delete.
+	(mov<mode>cc): Use ISEL_SETCC instead of ISEL_GENERAL.
+	(cstore<mode>4): Add support for TARGET_SETCC_EQ being a separate
+	option.
+	(ne0si): Likewise.
+	(ne0di): Likewise.
+
+	* config/rs6000/rs6000-opts.h (COND_MODE_*): Delete.
+	(IABS_*): Change from being a bitfield to plain enumeration.
+	(IMINMAX_*): Likewise.
+	(SETCC_*): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Update -miabs=,
+	-miminmax=, -msetcc= documentation.  Add -mbcp8, -meq-ne
+	documentation.
+
 2012-04-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (TARGET_BCP8): New TargetVariable.

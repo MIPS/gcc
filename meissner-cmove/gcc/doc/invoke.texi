@@ -841,6 +841,7 @@ See RS/6000 and PowerPC Options.
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
 -miabs=@var{name} -miminmax=@var{name} -msetcc=@var{name} @gol
+-meq-ne -mno-eq-ne -mbcp8 -mno-bcp8 @gol
 -madjust-cost-compare-branch=@var{value} @gol
 -madjust-cost-compare-isel=@var{value}}
 
@@ -17437,6 +17438,22 @@ a pointer on AIX and 64-bit Linux systems.  If the TOC value is not
 saved in the prologue, it is saved just before the call through the
 pointer.  The @option{-mno-save-toc-indirect} option is the default.
 
+@item -mbcp8
+@itemx -mno-bcp8
+@opindex mbcp8
+Generate (do not generate) code to optimize instructions to use a
+branch around a single instruction that is from a limited class of
+instructions.  The @option{-mbcp8} option is set by default if you set
+the @option{-mcpu=power7}, @option{-mvsx}, or @option{-mpopcntd}
+options.
+
+@item -meq-ne
+@itemx -mno-eq-ne
+@opindex meq-ne
+Generate (do not generate) code to use the count leading zero and
+shift instructions to optimize integer equality and in-equality
+tests.  This option is on by default.
+
 @item -miabs=@var{none/default/shift/isel/bcp8}
 @opindex miabs
 Specify the method to use to optimize integer absolute value.  In
@@ -17452,16 +17469,14 @@ generation method for integer absolute value.
 @option{-miabs=shift} tells the compiler to use a 3 instruction
 sequence involving shifting, xor, and subtraction to do absolute
 value.  This is the default behavior unless the @option{-misel} option
-is in effect, and both of the @option{-mpopcntd} or @option{-mvsx}
-options are not set.  The power7 system defaults to using
-@option{-miabs=shift} even if @option{-misel} is used.
+is in effect.
 
 @option{-miabs=isel} says to generate the ISEL instruction for integer
-absolute value.  You must use @option{-misel}, @option{-mpopcntd}, or
-@option{-mvsx} to use @option{-miabs=isel}.  If @option{-misel} is not
-specified, ISELs are only generated for absolute value.  If the
-@option{-misel} option is specified, this is the default behavior,
-except on power7, which defaults to @option{-miabs=shift}.
+absolute value.  You must use @option{-misel}, @option{-mpopcntd},
+@option{-mvsx}, or an appropriate @option{-mcpu=} option to use
+@option{-miabs=isel}.  If @option{-misel} is not specified, ISELs are
+only generated for absolute value.  If the @option{-misel} option is
+specified, this is the default behavior.
 
 @option{-miabs=bcp8} says to generate code for absolute value using a
 branch conditional instruction over a move operation, which is
@@ -17481,17 +17496,19 @@ independent code handle integer minimum and maximum.
 generation method for integer minimum and maximum operations.
 
 @option{-miminmax=isel} tells the compiler to generate the ISEL
-instruction.  You must use @option{-misel}, @option{-mpopcntd}, or
-@option{-mvsx} to use @option{-miminmax=isel}.  If @option{-misel} is
-not specified, ISELs are only generated for integer minimum and
-maximum if you use @option{-miminmax=isel}.  If the @option{-misel}
-option is specified, this is the default behavior.
+instruction.  You must use @option{-misel}, @option{-mpopcntd},
+@option{-mvsx} or an appropriate @option{-mcpu=} option to use
+@option{-miminmax=isel}.  If @option{-misel} is not specified, ISELs
+are only generated for integer minimum and maximum if you use
+@option{-miminmax=isel}.  If the @option{-misel} option is specified,
+this is the default behavior.
 
 @option{-miminmax=bcp8} says to generate code for integer minimum and
 maximum using a branch conditional instruction over a move operation,
-which is optimized on some machines.
+which is optimized on some machines.  If @option{-mbcp8} is enabled,
+@option{-miminmax=bcp8} is the default code generation strategy.
 
-@item -msetcc=@var{none/default/eq/isel/bcp8/mfcr/mfcr-eq/isel-eq/bcp8-eq}
+@item -msetcc=@var{none/default/isel/bcp8/mfcr}
 @opindex msetcc
 Specify the method to use to optimize setting an integer variable to 0
 or 1 depending on a comparison.  In general, you should select the
@@ -17505,42 +17522,23 @@ independent code handle setting an integer based on a comparison.
 generation method for setting an integer to the result of a
 comparison.
 
-@option{-msetcc=eq} tells the compiler to generate code for setting a
-variable to the result of an equality comparsion to use the count
-leading zeros instruction.  All other comparsions are done with the
-machine independent code generation.
-
 @option{-msetcc=isel} tells the compiler to generate the ISEL
 instruction when setting an integer to the result of a comparison.
-You must use @option{-misel}, @option{-mcpu=power7},
-@option{-mpopcntd}, or @option{-mvsx} to use @option{-msetcc=isel}.
+You must use @option{-misel}, @option{-mpopcntd}, @option{-mvsx}, or
+an appropriate @option{-mcpu=} option to use @option{-msetcc=isel}.
 
 @option{-msetcc=bcp8} says to generate code for setting a variable to
 the result of a comparsion using a branch conditional instruction over
 next instruction, which is optimized on some machines.  The compiler
 will also optimize branches over other single instructions that are
-known to be handled fast in the target machine.
+known to be handled fast in the target machine.  If @option{-mbcp8} is
+in effect, and @option{-misel} is not, @option{-msetcc=bcp8} is the
+default behaviour.
 
 @option{-msetcc=mfcr} says to generate code for setting a variable to
 the result of a comparsion using move from condition code register
-instructions.
-
-@option{-msetcc=mfcr-eq} tells the compiler to generate code for
-setting a variable to the result of an equality comparsion to use the
-count leading zeros instruction.  For other comparisons, the compiler
-will generate code using the @option{-msetcc=mfcr} option.
-
-@option{-msetcc=isel-eq} tells the compiler to generate code for
-setting a variable to the result of an equality comparsion to use the
-count leading zeros instruction.  For other comparisons, the compiler
-will generate code using the @option{-msetcc=isel} option.
-
-@option{-msetcc=bcp8-eq} tells the compiler to generate code for
-setting a variable to the result of an equality comparsion to use the
-count leading zeros instruction.  For other comparisons, the compiler
-will generate code using the @option{-msetcc=bcp8} option.  The
-compiler will also optimize branches over other single instructions
-that are known to be handled fast in the target machine.
+instructions.  This is the default behavior if the target machine
+cannot do the ISEL instruction and @option{-mno-bcp8} is in effect.
 
 @item -madjust-cost-compare-branch=@var{value}
 @opindex madjust-cost-compare-branch

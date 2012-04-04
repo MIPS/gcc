@@ -468,31 +468,28 @@ extern int rs6000_vector_align[];
    supported.  */
 #define TARGET_IABS		(rs6000_iabs_method != IABS_NONE)
 #define TARGET_IABS_NONE	(rs6000_iabs_method == IABS_NONE)
-#define TARGET_IABS_UNSET	(rs6000_iabs_method == IABS_UNSET)
-#define TARGET_IABS_ISEL	IABS_BIT_P (COND_MODE_ISEL)
-#define TARGET_IABS_BCP8	IABS_BIT_P (COND_MODE_BCP8)
-#define TARGET_IABS_SHIFT	IABS_BIT_P (COND_MODE_SHIFT)
+#define TARGET_IABS_DEFAULT	(rs6000_iabs_method == IABS_DEFAULT)
+#define TARGET_IABS_ISEL	(rs6000_iabs_method == IABS_ISEL)
+#define TARGET_IABS_BCP8	(rs6000_iabs_method == IABS_BCP8)
+#define TARGET_IABS_SHIFT	(rs6000_iabs_method == IABS_SHIFT)
 
 /* Feature macros to say whether a particular integer minimum and maximum
    method is supported.  */
 #define TARGET_IMINMAX		(rs6000_iminmax_method != IMINMAX_NONE)
 #define TARGET_IMINMAX_NONE	(rs6000_iminmax_method == IMINMAX_NONE)
-#define TARGET_IMINMAX_UNSET	(rs6000_iminmax_method == IMINMAX_UNSET)
-#define TARGET_IMINMAX_ISEL	IMINMAX_BIT_P (COND_MODE_ISEL)
-#define TARGET_IMINMAX_BCP8	IMINMAX_BIT_P (COND_MODE_BCP8)
+#define TARGET_IMINMAX_DEFAULT	(rs6000_iminmax_method == IMINMAX_DEFAULT)
+#define TARGET_IMINMAX_ISEL	(rs6000_iminmax_method == IMINMAX_ISEL)
+#define TARGET_IMINMAX_BCP8	(rs6000_iminmax_method == IMINMAX_BCP8)
 
 /* Feature macros to say whether a particular setcc method is supported.  */
 #define TARGET_SETCC		(rs6000_setcc_method != SETCC_NONE)
 #define TARGET_SETCC_NONE	(rs6000_setcc_method == SETCC_NONE)
-#define TARGET_SETCC_UNSET	(rs6000_setcc_method == SETCC_UNSET)
-#define TARGET_SETCC_EQ_ONLY	(rs6000_setcc_method == SETCC_EQ_ONLY)
-#define TARGET_SETCC_ISEL	SETCC_BIT_P (COND_MODE_ISEL)
-#define TARGET_SETCC_BCP8	SETCC_BIT_P (COND_MODE_BCP8)
-#define TARGET_SETCC_EQ		SETCC_BIT_P (COND_MODE_EQ)
-#define TARGET_SETCC_MFCR	SETCC_BIT2_P (COND_MODE_MFCR,		\
-					      COND_MODE_ISEL_OR_BCP8)
+#define TARGET_SETCC_DEFAULT	(rs6000_setcc_method == SETCC_DEFAULT)
+#define TARGET_SETCC_ISEL	(rs6000_setcc_method == SETCC_ISEL)
+#define TARGET_SETCC_BCP8	(rs6000_setcc_method == SETCC_BCP8)
+#define TARGET_SETCC_MFCR	(rs6000_setcc_method == SETCC_MFCR)
 
-#define TARGET_SETCC_ISEL_OR_BCP8 SETCC_BIT_P (COND_MODE_ISEL_OR_BCP8)
+#define TARGET_SETCC_ISEL_OR_BCP8 (TARGET_SETCC_ISEL || TARGET_SETCC_BCP8)
 
 /* Whether ISEL is supported or not.  Normally we use -misel to determine
    whether to do it, but with the power7 it is useful to generate ISEL in
