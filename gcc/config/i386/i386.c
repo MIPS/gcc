@@ -25835,6 +25835,12 @@ enum ix86_builtins
   IX86_BUILTIN_BNDMK64,
   IX86_BUILTIN_BNDSTX32,
   IX86_BUILTIN_BNDSTX64, 
+  IX86_BUILTIN_BNDLDX32,
+  IX86_BUILTIN_BNDLDX64,
+  IX86_BUILTIN_BNDCL32,
+  IX86_BUILTIN_BNDCL64,
+  IX86_BUILTIN_BNDCU32,
+  IX86_BUILTIN_BNDCU64,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -26183,6 +26189,12 @@ static const struct builtin_description bdesc_special_args[] =
   /* PL */
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd64, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd32, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd64, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd32, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd64, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd32, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd64, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd32, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
 
 };
 
@@ -29463,6 +29475,43 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd_stxbnd32 (op0, op1, op2));
       return 0;
 
+    case IX86_BUILTIN_BNDLDX32:
+    case IX86_BUILTIN_BNDLDX64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+      if (!REG_P (op2))
+        op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd_ldxbnd64 (op0, op1, op2)
+                 : gen_bnd_ldxbnd32 (op0, op1, op2));
+      return 0;
+
+    case IX86_BUILTIN_BNDCL32:
+    case IX86_BUILTIN_BNDCL64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd_clbnd64 (op0, op1)
+                 : gen_bnd_clbnd32 (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_BNDCU32:
+    case IX86_BUILTIN_BNDCU64: 
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_normal (arg0); 
+      op1 = expand_normal (arg1); 
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd_cubnd64 (op0, op1) 
+                 : gen_bnd_cubnd32 (op0, op1));
+      return 0;
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
@@ -29983,6 +30032,18 @@ ix86_builtin_pl_function (unsigned fcode)
     case BUILT_IN_PL_BNDSTX:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDSTX64]
 	: ix86_builtins[IX86_BUILTIN_BNDSTX32];
+
+    case BUILT_IN_PL_BNDLDX:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDLDX64]
+        : ix86_builtins[IX86_BUILTIN_BNDLDX32];
+
+    case BUILT_IN_PL_BNDCL:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCL64]
+        : ix86_builtins[IX86_BUILTIN_BNDCL32];
+
+    case BUILT_IN_PL_BNDCU:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
+        : ix86_builtins[IX86_BUILTIN_BNDCU32];
 
     default:
       return NULL_TREE;

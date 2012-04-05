@@ -803,6 +803,9 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 /* PL support.  */
 DEF_BUILTIN_STUB (BUILT_IN_PL_BNDMK, "__pl_bndmk")
 DEF_BUILTIN_STUB (BUILT_IN_PL_BNDSTX, "__pl_bndstx")
+DEF_BUILTIN_STUB (BUILT_IN_PL_BNDCL, "__pl_bndcl")
+DEF_BUILTIN_STUB (BUILT_IN_PL_BNDCU, "__pl_bndcu")
+DEF_BUILTIN_STUB (BUILT_IN_PL_BNDLDX, "__pl_bndldx")
 
 /* Synchronization Primitives.  */
 #include "sync-builtins.def"
