@@ -10966,6 +10966,12 @@ If @var{code} is out of range the function should return
 
 @deftypefn {Target Hook} rtx TARGET_EXPAND_BUILTIN (tree @var{exp}, rtx @var{target}, rtx @var{subtarget}, enum machine_mode @var{mode}, int @var{ignore})
 
+@deftypefn {Target Hook} tree TARGET_BUILTIN_PL_FUNCTION (unsigned @var{fcode})
+Point Lookout instrumentation pass uses this hook to obtain
+target-specific functions which implement generic Point Lookout
+builtins.
+@end deftypefn
+
 Expand a call to a machine specific built-in function that was set up by
 @samp{TARGET_INIT_BUILTINS}.  @var{exp} is the expression for the
 function call; the result should go to @var{target} if that is

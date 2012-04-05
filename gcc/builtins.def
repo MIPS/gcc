@@ -800,6 +800,10 @@ DEF_BUILTIN_STUB (BUILT_IN_EH_POINTER, "__builtin_eh_pointer")
 DEF_BUILTIN_STUB (BUILT_IN_EH_FILTER, "__builtin_eh_filter")
 DEF_BUILTIN_STUB (BUILT_IN_EH_COPY_VALUES, "__builtin_eh_copy_values")
 
+/* PL support.  */
+DEF_BUILTIN_STUB (BUILT_IN_PL_BNDMK, "__pl_bndmk")
+DEF_BUILTIN_STUB (BUILT_IN_PL_BNDSTX, "__pl_bndstx")
+
 /* Synchronization Primitives.  */
 #include "sync-builtins.def"
 

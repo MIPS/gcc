@@ -1232,6 +1232,16 @@ DEFHOOK
  (tree exp, rtx target, rtx subtarget, enum machine_mode mode, int ignore),
  default_expand_builtin)
 
+/* Return target-specific builtin function which implements
+   generic Point Lookout builtin.  */
+DEFHOOK
+(builtin_pl_function,
+ "Point Lookout instrumentation pass uses this hook to obtain\n\
+target-specific functions which implement generic Point Lookout\n\
+builtins.",
+ tree, (unsigned fcode),
+ hook_tree_uint_null)
+
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to
    implement a crude form of function overloading.  The result is a

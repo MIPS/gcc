@@ -29971,6 +29971,26 @@ rdrand_step:
   gcc_unreachable ();
 }
 
+static tree
+ix86_builtin_pl_function (unsigned fcode)
+{
+  switch (fcode)
+    {
+    case BUILT_IN_PL_BNDMK:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDMK64]
+	: ix86_builtins[IX86_BUILTIN_BNDMK32];
+
+    case BUILT_IN_PL_BNDSTX:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDSTX64]
+	: ix86_builtins[IX86_BUILTIN_BNDSTX32];
+
+    default:
+      return NULL_TREE;
+    }
+
+  gcc_unreachable ();
+}
+
 /* Returns a function decl for a vectorized version of the builtin function
    with builtin function code FN and the result vector type TYPE, or NULL_TREE
    if it is not available.  */
@@ -39037,6 +39057,8 @@ ix86_autovectorize_vector_sizes (void)
 #define TARGET_BUILTIN_DECL ix86_builtin_decl
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
+#undef TARGET_BUILTIN_PL_FUNCTION
+#define TARGET_BUILTIN_PL_FUNCTION ix86_builtin_pl_function
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \

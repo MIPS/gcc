@@ -6847,6 +6847,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	maybe_emit_free_warning (exp);
       break;
 
+    case BUILT_IN_PL_BNDMK:
+    case BUILT_IN_PL_BNDSTX:
+      /* Point Lookout expanding is target specific.
+	 No generic function should be used.  */
+      gcc_unreachable ();
+      break;
+
     default:	/* just do library call, if unknown builtin */
       break;
     }
