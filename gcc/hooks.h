@@ -76,6 +76,7 @@ extern int hook_int_rtx_0 (rtx);
 extern int hook_int_rtx_bool_0 (rtx, bool);
 
 extern tree hook_tree_const_tree_null (const_tree);
+extern tree hook_tree_uint_null (unsigned);
 
 extern tree hook_tree_tree_tree_null (tree, tree);
 extern tree hook_tree_tree_tree_tree_null (tree, tree, tree);
