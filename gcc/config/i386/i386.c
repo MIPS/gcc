@@ -2252,6 +2252,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   /* SSE REX registers */
   SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS,
   SSE_REGS, SSE_REGS,
+  /* PL bound registers */
+  BND_REGS, BND_REGS, BND_REGS, BND_REGS,
 };
 
 /* The "default" register map used in 32bit mode.  */
@@ -2265,6 +2267,7 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* The "default" register map used in 64bit mode.  */
@@ -2278,6 +2281,7 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
   25, 26, 27, 28, 29, 30, 31, 32,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -2343,6 +2347,7 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* Define parameter passing and return registers.  */
@@ -2685,6 +2690,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrdrnd",	OPTION_MASK_ISA_RDRND },
     { "-mf16c",		OPTION_MASK_ISA_F16C },
     { "-mrtm",		OPTION_MASK_ISA_RTM },
+    { "-mpl",           OPTION_MASK_ISA_PL },
   };
 
   /* Flag options.  */
@@ -2950,6 +2956,7 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_AVX2		(HOST_WIDE_INT_1 << 30)
 #define PTA_BMI2	 	(HOST_WIDE_INT_1 << 31)
 #define PTA_RTM		 	(HOST_WIDE_INT_1 << 32)
+#define PTA_PL                  (HOST_WIDE_INT_1 << 33)
 /* if this reaches 64, need to widen struct pta flags below */
 
   static struct pta
@@ -3426,6 +3433,9 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_RTM
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_RTM))
 	  ix86_isa_flags |= OPTION_MASK_ISA_RTM;
+        if (processor_alias_table[i].flags & PTA_PL
+            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_PL))
+          ix86_isa_flags |= OPTION_MASK_ISA_PL;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4084,6 +4094,13 @@ ix86_conditional_register_usage (void)
       for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
 	reg_names[i] = "";
     }
+
+  /* Support bound registers only for PL mode.  */
+  if (! TARGET_PL)
+    {
+      for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
+	fixed_regs[i] = 1, reg_names[i] = "";
+    }
 }
 
 
@@ -4247,6 +4264,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("rdrnd",	OPT_mrdrnd),
     IX86_ATTR_ISA ("f16c",	OPT_mf16c),
     IX86_ATTR_ISA ("rtm",	OPT_mrtm),
+    IX86_ATTR_ISA ("pl",       OPT_mpl),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -6278,6 +6296,8 @@ classify_argument (enum machine_mode mode, const_tree type,
       classes[0] = X86_64_SSE_CLASS;
       return 1;
     case BLKmode:
+    case BND32mode:
+    case BND64mode:
     case VOIDmode:
       return 0;
     default:
@@ -13826,7 +13846,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) &&  ! ANY_BND_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -25810,6 +25830,12 @@ enum ix86_builtins
   IX86_BUILTIN_XABORT,
   IX86_BUILTIN_XTEST,
 
+  /* PL */
+  IX86_BUILTIN_BNDMK32,
+  IX86_BUILTIN_BNDMK64,
+  IX86_BUILTIN_BNDSTX32,
+  IX86_BUILTIN_BNDSTX64, 
+
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
   IX86_BUILTIN_BEXTR64,
@@ -26153,6 +26179,11 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xbegin, "__builtin_ia32_xbegin", IX86_BUILTIN_XBEGIN, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xend, "__builtin_ia32_xend", IX86_BUILTIN_XEND, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
+
+  /* PL */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd64, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd32, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
+
 };
 
 /* Builtins with variable number of arguments.  */
@@ -26978,6 +27009,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph, "__builtin_ia32_vcvtps2ph", IX86_BUILTIN_CVTPS2PH, UNKNOWN, (int) V8HI_FTYPE_V4SF_INT },
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph256, "__builtin_ia32_vcvtps2ph256", IX86_BUILTIN_CVTPS2PH256, UNKNOWN, (int) V8HI_FTYPE_V8SF_INT },
 
+  /* PL */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd64, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd32, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
+
   /* BMI2 */
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_si3, "__builtin_ia32_bzhi_si", IX86_BUILTIN_BZHI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_di3, "__builtin_ia32_bzhi_di", IX86_BUILTIN_BZHI64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
@@ -27723,6 +27758,10 @@ ix86_init_builtin_types (void)
 {
   tree float128_type_node, float80_type_node;
 
+  lang_hooks.types.register_builtin_type (TARGET_64BIT ? 
+                                            bound64_type_node :
+                                            bound32_type_node, "__bnd");
+
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
   if (TYPE_MODE (float80_type_node) != XFmode)
@@ -27740,6 +27779,8 @@ ix86_init_builtin_types (void)
   TYPE_PRECISION (float128_type_node) = 128;
   layout_type (float128_type_node);
   lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
+
+  
 
   /* This macro is built by i386-builtin-types.awk.  */
   DEFINE_BUILTIN_PRIMITIVE_TYPES;
@@ -29394,6 +29435,34 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
+    case IX86_BUILTIN_BNDMK32:
+    case IX86_BUILTIN_BNDMK64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      op0 = expand_normal (arg0);
+      if (!REG_P (op0))
+        op0 = copy_to_mode_reg (Pmode, op0);
+      op1 = expand_normal (arg1);
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd_mkbnd64 (target, op0, op1)
+                 : gen_bnd_mkbnd32 (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDSTX32:
+    case IX86_BUILTIN_BNDSTX64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+      if (!REG_P (op2))
+        op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd_stxbnd64 (op0, op1, op2) 
+                 : gen_bnd_stxbnd32 (op0, op1, op2));
+      return 0;
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
@@ -31342,6 +31411,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (FP_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
+  if (TARGET_PL && BND_REGNO_P (regno))
+    return VALID_BND_REG_MODE(mode);
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -31976,6 +32047,10 @@ x86_order_regs_for_local_alloc (void)
    for (i = FIRST_SSE_REG; i <= LAST_SSE_REG; i++)
      reg_alloc_order [pos++] = i;
    for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
+     reg_alloc_order [pos++] = i;
+
+   /* PL bound registers.  */
+   for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
      reg_alloc_order [pos++] = i;
 
    /* x87 registers.  */
