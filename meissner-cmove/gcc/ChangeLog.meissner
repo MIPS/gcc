@@ -1,5 +1,10 @@
 2012-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 186201.
+	* REVISION: Update subversion id.
+
+2012-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_reg_class_expensive): Make moves
 	between two register classes that each need to go through memory
 	or GPRs to be really expensive.  Make CR moves use the mfcr cost
