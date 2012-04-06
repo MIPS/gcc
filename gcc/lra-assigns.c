@@ -1142,7 +1142,6 @@ assign_by_spills (void)
       hard_regno = find_hard_regno_for (regno, &cost, -1);
       if (hard_regno >= 0)
 	{
-	  bitmap_set_bit (&changed_pseudo_bitmap, regno);
 	  assign_hard_regno (hard_regno, regno);
 	  /* We change allocation for non-reload pseudo on
 	     this iteration -- mark it for invalidation used

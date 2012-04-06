@@ -828,7 +828,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
       if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (op)))
 	{
 	  mode = GET_MODE (op);
-	  if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
+	  if (GET_MODE_SIZE (mode) > REGMODE_NATURAL_SIZE (mode))
 	    subreg_p = true;
 	}
     }
@@ -1480,7 +1480,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
       if (GET_MODE_SIZE (mode) < GET_MODE_SIZE (GET_MODE (x)))
 	{
 	  mode = GET_MODE (x);
-	  if (GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
+	  if (GET_MODE_SIZE (mode) > REGMODE_NATURAL_SIZE (mode))
 	    subreg_p = true;
 	}
     }

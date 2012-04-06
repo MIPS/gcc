@@ -20,6 +20,18 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* Return the allocno reg class of REGNO.  If it is a reload pseudo,
+   the pseudo should finally get hard register of the allocno
+   class.  */
+static inline enum reg_class
+lra_get_allocno_class (int regno)
+{
+  resize_reg_info ();
+  return reg_allocno_class (regno);
+}
+
+extern rtx lra_create_new_reg (enum machine_mode, rtx, enum reg_class,
+			       const char *);
 extern void lra_init_elimination (void);
 extern rtx lra_eliminate_regs (rtx, enum machine_mode, rtx);
 extern void lra (FILE *);

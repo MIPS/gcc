@@ -38,16 +38,6 @@ lra_get_regno_hard_regno (int regno)
   return reg_renumber[regno];
 }
 
-/* Return the allocno reg class of REGNO.  If it is a reload pseudo,
-   the pseudo should finally get hard register of the allocno
-   class.  */
-static inline enum reg_class
-lra_get_allocno_class (int regno)
-{
-  resize_reg_info ();
-  return reg_allocno_class (regno);
-}
-
 typedef struct lra_live_range *lra_live_range_t;
 
 /* The structure describes program points where a given pseudo lives.
@@ -254,8 +244,6 @@ extern void lra_push_insn_and_update_insn_regno_info (rtx);
 
 extern rtx lra_create_new_reg_with_unique_value (enum machine_mode, rtx,
 						 enum reg_class, const char *);
-extern rtx lra_create_new_reg (enum machine_mode, rtx, enum reg_class,
-			       const char *);
 extern void lra_set_regno_unique_value (int);
 extern void lra_invalidate_insn_data (rtx);
 extern void lra_set_insn_deleted (rtx);

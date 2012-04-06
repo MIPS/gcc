@@ -1,3 +1,17 @@
+2012-04-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/mips/mips.c: Include lra.h.
+	(mips_expand_fcc_reload): Add code for LRA.
+
+	* lra-int.h (lra_get_allocno_class, lra_create_new_reg): Move to ...
+
+	* lra.h: ... here.
+
+	* lra.c (collect_non_operand_hard_regs): Use REGMODE_NATURAL_SIZE.
+
+	* lra-assign.c (assign_by_spills): Set up changed_pseudo_bitmap
+	for pseudo got a hard reg.
+
 2012-03-27  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* common.opt (flra-reg-spill): New option.

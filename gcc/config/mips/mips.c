@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "target-globals.h"
 #include "opts.h"
+#include "lra.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -6664,11 +6665,26 @@ mips_expand_fcc_reload (rtx dest, rtx src, rtx scratch)
   if (MEM_P (src))
     src = adjust_address (src, SFmode, 0);
   else if (REG_P (src) || GET_CODE (src) == SUBREG)
-    src = gen_rtx_REG (SFmode, true_regnum (src));
+    {
+      if (! flag_lra)
+	src = gen_rtx_REG (SFmode, true_regnum (src));
+      else if (GET_MODE (src) != SFmode)
+	src = gen_rtx_SUBREG (SFmode,
+			      GET_CODE (src) == SUBREG ? SUBREG_REG (src) : src,
+			      0);
+    }
 
-  fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
-  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + MAX_FPRS_PER_FMT);
-
+  if (flag_lra)
+    {
+      enum reg_class rclass = lra_get_allocno_class (REGNO (scratch));
+      fp1 = lra_create_new_reg (SFmode, NULL_RTX, rclass, "new scratch");
+      fp2 = lra_create_new_reg (SFmode, NULL_RTX, rclass, "zero");
+    }
+  else
+    {
+      fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
+      fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + MAX_FPRS_PER_FMT);
+    }
   mips_emit_move (copy_rtx (fp1), src);
   mips_emit_move (copy_rtx (fp2), CONST0_RTX (SFmode));
   emit_insn (gen_slt_sf (dest, fp2, fp1));
