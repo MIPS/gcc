@@ -29468,6 +29468,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
+      if (!REG_P (op1))
+	op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
       if (!REG_P (op2))
         op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
       emit_insn (TARGET_64BIT 
@@ -29479,16 +29481,14 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_BNDLDX64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
-      arg2 = CALL_EXPR_ARG (exp, 2);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
-      op2 = expand_normal (arg2);
-      if (!REG_P (op2))
-        op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+      if (!REG_P (op1))
+        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
       emit_insn (TARGET_64BIT
-                 ? gen_bnd_ldxbnd64 (op0, op1, op2)
-                 : gen_bnd_ldxbnd32 (op0, op1, op2));
-      return 0;
+                 ? gen_bnd_ldxbnd64 (target, op0, op1)
+                 : gen_bnd_ldxbnd32 (target, op0, op1));
+      return target;
 
     case IX86_BUILTIN_BNDCL32:
     case IX86_BUILTIN_BNDCL64:

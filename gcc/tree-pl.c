@@ -58,11 +58,6 @@ static void pl_process_stmt(gimple_stmt_iterator *iter, tree *tp,
 			    location_t loc, tree dirflag);
 
 static GTY (()) tree pl_arg_bnd_register_fntype;
-static GTY (()) tree pl_bndldx_register_fntype;
-static GTY (()) tree pl_bndstx_register_fntype;
-static GTY (()) tree pl_checkl_register_fntype;
-static GTY (()) tree pl_checku_register_fntype;
-static GTY (()) tree pl_mkbnd_register_fntype;
 static GTY (()) tree pl_ret_bnd_register_fntype;
 static GTY (()) tree pl_arg_bnd_fndecl;
 static GTY (()) tree pl_bndldx_fndecl;
@@ -131,20 +126,18 @@ pl_check_mem_access (tree first, tree last, tree bounds,
   gimple stmt;
   tree node;
 
-  return;
-
   seq = gimple_seq_alloc ();
 
   node = force_gimple_operand (first, &stmts, true, NULL_TREE);
   gimple_seq_add_seq (&seq, stmts);
 
-  stmt = gimple_build_call (pl_checkl_fndecl, 2, node, bounds);
+  stmt = gimple_build_call (pl_checkl_fndecl, 2, bounds, node);
   gimple_seq_add_stmt (&seq, stmt);
 
   node = force_gimple_operand (last, &stmts, true, NULL_TREE);
   gimple_seq_add_seq (&seq, stmts);
 
-  stmt = gimple_build_call (pl_checku_fndecl, 2, node, bounds);
+  stmt = gimple_build_call (pl_checku_fndecl, 2, bounds, node);
   gimple_seq_add_stmt (&seq, stmt);
 
   gsi_insert_seq_before (instr_gsi, seq, GSI_SAME_STMT);
@@ -200,9 +193,6 @@ pl_get_entry_block (void)
       basic_block prev_entry = ENTRY_BLOCK_PTR->next_bb;
       edge e = find_edge (ENTRY_BLOCK_PTR, prev_entry);
       entry_block = split_edge (e);
-      //entry_block = create_empty_bb (ENTRY_BLOCK_PTR);
-      //make_edge (ENTRY_BLOCK_PTR, entry_block, EDGE_FALLTHRU);
-      //redirect_edge_pred (e, entry_block);
     }
 
   return entry_block;
@@ -233,6 +223,8 @@ pl_build_bound_for_arg_ptr (tree arg, int arg_no)
   gimple_stmt_iterator gsi;
   gimple stmt;
   basic_block bb;
+
+  gcc_assert (TREE_CODE (arg) == PARM_DECL);
 
   /* Check if we've already built required bounds.  */
   bounds = pl_get_registered_bounds (arg);
@@ -584,7 +576,7 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
 	  print_gimple_stmt (dump_file, gsi_stmt (gsi), 0, TDF_VOPS|TDF_MEMSYMS);
 	}
       else
-	fprintf (dump_file, "At function entry");
+	fprintf (dump_file, "At function entry\n");
     }
 
   /* update_stmt (stmt); */
@@ -609,11 +601,13 @@ pl_get_bounds_for_var_decl (tree var)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Building bounds for var decl ");
-      print_node (dump_file, "", var, 0);
+      print_generic_expr (dump_file, var, 0);
     }
 
   lb = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (var)), var);
-  size = DECL_SIZE (var);
+  /* We need size in bytes rounded up.  */
+  size = build_int_cst (size_type_node,
+			(tree_low_cst (DECL_SIZE (var), 1) + 7) / 8);
   bounds = pl_make_bounds (lb, size, NULL);
 
   pl_register_bounds (var, bounds);
@@ -932,7 +926,7 @@ pl_make_builtin (enum tree_code category, const char *name, tree type)
   TREE_PUBLIC (decl) = 1;
 
   DECL_SOURCE_LOCATION (decl) = BUILTINS_LOCATION;
-  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;
+  /*  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;*/
 
   /* lang_hooks.decls.pushdecl (decl);  */
 
@@ -975,32 +969,16 @@ pl_init (void)
   /* Build types for intrinsic functions.  */
   pl_arg_bnd_register_fntype =
     build_function_type_list (pl_bound_type, integer_type_node, NULL_TREE);
-  pl_bndldx_register_fntype =
-    build_function_type_list (pl_bound_type, ptr_type_node, ptr_type_node,
-			      NULL_TREE);
-  pl_bndstx_register_fntype =
-    build_function_type_list (void_type_node, ptr_type_node, ptr_type_node,
-			      pl_bound_type, NULL_TREE);
-  pl_checku_register_fntype =
-    build_function_type_list (void_type_node, ptr_type_node, pl_bound_type,
-			      NULL_TREE);
-  pl_checkl_register_fntype = pl_checku_register_fntype;
-  pl_mkbnd_register_fntype =
-    build_function_type_list (pl_bound_type, ptr_type_node,
-			      ptr_type_node, NULL_TREE);
   pl_ret_bnd_register_fntype = build_function_type_list (pl_bound_type,
 							 NULL_TREE);
 
   /* Build declarations for intrinsic functions.  */
   pl_arg_bnd_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_arg_bnd",
 				       pl_arg_bnd_register_fntype);
-  pl_bndldx_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_bndldx",
-				      pl_bndldx_register_fntype);
+  pl_bndldx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDLDX);
   pl_bndstx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDSTX);
-  pl_checku_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_checku",
-				      pl_checku_register_fntype);
-  pl_checkl_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_checkl",
-				      pl_checkl_register_fntype);
+  pl_checkl_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCL);
+  pl_checku_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCU);
   pl_bndmk_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDMK);
   pl_ret_bnd_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_ret_bnd",
 				       pl_ret_bnd_register_fntype);
