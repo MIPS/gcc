@@ -26450,6 +26450,33 @@ rs6000_debug_address_cost (rtx x, bool speed)
   return ret;
 }
 
+/* Expensive register classes.  If we are trying to move from one expensive
+   class to a different class, such as moving from a float register to the CTR
+   register, bump up the cost.  */
+static bool
+rs6000_reg_class_expensive (reg_class_t rc)
+{
+  switch (rc)
+    {
+    case FLOAT_REGS:
+    case VSX_REGS:
+    case ALTIVEC_REGS:
+    case VRSAVE_REGS:
+    case VSCR_REGS:
+    case SPE_ACC_REGS:
+    case SPEFSCR_REGS:
+    case MQ_REGS:
+    case CA_REGS:
+    case LINK_REGS:
+    case CTR_REGS:
+    case LINK_OR_CTR_REGS:
+    case CR0_REGS:
+    case CR_REGS:
+      return true;
+    }
+
+  return false;
+}
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
@@ -26476,10 +26503,20 @@ rs6000_register_move_cost (enum machine_mode mode,
 	ret = (rs6000_memory_move_cost (mode, rclass, false)
 	       + rs6000_memory_move_cost (mode, GENERAL_REGS, false));
 
-      /* It's more expensive to move CR_REGS than CR0_REGS because of the
-	 shift.  */
-      else if (rclass == CR_REGS)
-	ret = 4;
+      /* Moving to/from CR registers is somewhat expensive, and it is even more
+	 expensive to move CR_REGS than CR0_REGS because of the shift.  */
+      else if (rclass == CR_REGS || rclass == CR0_REGS)
+	{
+	  if (reg_classes_intersect_p (to, CR_REGS)
+	      && reg_classes_intersect_p (from, CR_REGS))
+	    ret = 2;
+	  else
+	    {
+	      ret = 2 * (rs6000_mfcr_cost (true) / COSTS_N_INSNS (1));
+	      if (rclass == CR_REGS)
+		ret += 2;
+	    }
+	}
 
       /* For those processors that have slow LR/CTR moves, make them more
          expensive than memory in order to bias spills to memory .*/
@@ -26503,10 +26540,19 @@ rs6000_register_move_cost (enum machine_mode mode,
   else if (reg_classes_intersect_p (to, from))
     ret = (mode == TFmode || mode == TDmode) ? 4 : 2;
 
-  /* Everything else has to go through GENERAL_REGS.  */
   else
-    ret = (rs6000_register_move_cost (mode, GENERAL_REGS, to)
-	   + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+    {
+      /* Everything else has to go through GENERAL_REGS.  */
+      /* Make going from a FPR to CR/LR/CTR/special very expensive.  */
+      if (to != from
+	  && rs6000_reg_class_expensive (to)
+	  && rs6000_reg_class_expensive (from))
+	ret = 100;
+      else
+	ret = (rs6000_register_move_cost (mode, GENERAL_REGS, to)
+	       + rs6000_register_move_cost (mode, from, GENERAL_REGS));
+    }
+
 
   if (TARGET_DEBUG_COST)
     {

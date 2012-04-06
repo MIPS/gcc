@@ -1,3 +1,17 @@
+2012-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_reg_class_expensive): Make moves
+	between two register classes that each need to go through memory
+	or GPRs to be really expensive.  Make CR moves use the mfcr cost
+	function.
+	(rs6000_register_move_cost): Likewise.
+
+	* config/rs6000/rs6000.md (CR): New mode iterator for all CCmodes.
+	(ICR): New mode iterator for all integer CCmodes.
+	(sel mode attribute): Delete, no longer used.
+	(cmp<ICR:mode>_and_add<GPR:mode>): Merge combiner paths together.
+	Add 64-bit support.
+
 2012-04-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (TARGET_BCP8): Delete.
