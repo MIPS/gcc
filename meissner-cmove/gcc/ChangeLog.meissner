@@ -1,3 +1,13 @@
+2012-04-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	user explicitly says -misel, but defaults are branch conditional+8
+	use isel instead of bc+8 for set conditional and integer minimum
+	and maximum.
+
+	* config/rs6000/rs6000.md (cmp<ICR:mode>_and_add<GPR:mode>):
+	Delete April 6th change.
+
 2012-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 186203.

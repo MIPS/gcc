@@ -3604,11 +3604,15 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_IABS_ISEL && !have_isel)
     error ("The current machine does not support -miabs=isel.");
 
-  /* Determine how to do set conditional and integer conditional move.  */
+  /* Determine how to do set conditional and integer conditional move.  If the
+     user explicitly said -misel, use that instead of branch conditional+8.  */
   if (rs6000_setcc_method == SETCC_DEFAULT)
     {
-      if (rs6000_cost->setcc != SETCC_DEFAULT
-	  && (rs6000_cost->setcc != SETCC_ISEL || have_isel))
+      if (rs6000_cost->setcc == SETCC_BCP8 && TARGET_ISEL
+	  && (target_flags_explicit & MASK_ISEL) == 0)
+	rs6000_setcc_method = SETCC_ISEL;
+      else if (rs6000_cost->setcc != SETCC_DEFAULT
+	       && (rs6000_cost->setcc != SETCC_ISEL || have_isel))
 	rs6000_setcc_method = rs6000_cost->setcc;
       else if (TARGET_BCP8)
 	rs6000_setcc_method = SETCC_BCP8;
@@ -3620,11 +3624,15 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_SETCC_ISEL && !have_isel)
     error ("The current machine does not support -msetcc=isel.");
 
-  /* Determine how to do integer minimum and maximum.  */
+  /* Determine how to do integer minimum and maximum.  If the user explicitly
+     said -misel, use that instead of branch conditional+8.  */
   if (rs6000_iminmax_method == IMINMAX_DEFAULT)
     {
-      if (rs6000_cost->iminmax != IMINMAX_DEFAULT
-	  && (rs6000_cost->iminmax != IMINMAX_ISEL || have_isel))
+      if (rs6000_cost->iminmax == IMINMAX_BCP8 && TARGET_ISEL
+	  && (target_flags_explicit & MASK_ISEL) != 0)
+	rs6000_iminmax_method = IMINMAX_ISEL;
+      else if (rs6000_cost->iminmax != IMINMAX_DEFAULT
+	       && (rs6000_cost->iminmax != IMINMAX_ISEL || have_isel))
 	rs6000_iminmax_method = rs6000_cost->iminmax;
       else if (TARGET_SETCC_BCP8)
 	rs6000_iminmax_method = IMINMAX_BCP8;
