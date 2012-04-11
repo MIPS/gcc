@@ -2493,6 +2493,7 @@ enum x86_64_reg_class
     X86_64_SSESF_CLASS,
     X86_64_SSEDF_CLASS,
     X86_64_SSEUP_CLASS,
+    X86_64_BND_CLASS,
     X86_64_X87_CLASS,
     X86_64_X87UP_CLASS,
     X86_64_COMPLEX_X87_CLASS,
@@ -5786,6 +5787,10 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	 and DFmode arguments.  Warn for mismatching ABI.  */
       cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl, true);
     }
+
+  /* All bound registers are available for argument passing.  */
+  cum->bnd_nregs = LAST_BND_REG - FIRST_BND_REG + 1;
+  cum->bnd_regno = FIRST_BND_REG;
 }
 
 /* Return the "natural" mode for TYPE.  In most cases, this is just TYPE_MODE.
@@ -6296,10 +6301,12 @@ classify_argument (enum machine_mode mode, const_tree type,
       classes[0] = X86_64_SSE_CLASS;
       return 1;
     case BLKmode:
-    case BND32mode:
-    case BND64mode:
     case VOIDmode:
       return 0;
+    case BND32mode:
+    case BND64mode:
+      classes[0] = X86_64_BND_CLASS;
+      return 1;
     default:
       gcc_assert (VECTOR_MODE_P (mode));
 
@@ -6321,13 +6328,14 @@ classify_argument (enum machine_mode mode, const_tree type,
    class.  Return 0 iff parameter should be passed in memory.  */
 static int
 examine_argument (enum machine_mode mode, const_tree type, int in_return,
-		  int *int_nregs, int *sse_nregs)
+		  int *int_nregs, int *sse_nregs, int *bnd_nregs)
 {
   enum x86_64_reg_class regclass[MAX_CLASSES];
   int n = classify_argument (mode, type, regclass, 0);
 
   *int_nregs = 0;
   *sse_nregs = 0;
+  *bnd_nregs = 0;
   if (!n)
     return 0;
   for (n--; n >= 0; n--)
@@ -6341,6 +6349,9 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_SSESF_CLASS:
       case X86_64_SSEDF_CLASS:
 	(*sse_nregs)++;
+	break;
+      case X86_64_BND_CLASS:
+	(*bnd_nregs)++;
 	break;
       case X86_64_NO_CLASS:
       case X86_64_SSEUP_CLASS:
@@ -6364,7 +6375,8 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
 static rtx
 construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     const_tree type, int in_return, int nintregs, int nsseregs,
-		     const int *intreg, int sse_regno)
+		     int nbndregs, const int *intreg, int sse_regno,
+		     int bnd_regno)
 {
   /* The following variables hold the static issued_error state.  */
   static bool issued_sse_arg_error;
@@ -6378,7 +6390,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   int n;
   int i;
   int nexps = 0;
-  int needed_sseregs, needed_intregs;
+  int needed_sseregs, needed_intregs, needed_bndregs;
   rtx exp[MAX_CLASSES];
   rtx ret;
 
@@ -6386,9 +6398,10 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   if (!n)
     return NULL;
   if (!examine_argument (mode, type, in_return, &needed_intregs,
-			 &needed_sseregs))
+			 &needed_sseregs, &needed_bndregs))
     return NULL;
-  if (needed_intregs > nintregs || needed_sseregs > nsseregs)
+  if (needed_intregs > nintregs || needed_sseregs > nsseregs
+      || needed_bndregs > nbndregs)
     return NULL;
 
   /* We allowed the user to turn off SSE for kernel mode.  Don't crash if
@@ -6442,6 +6455,12 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 	  return gen_reg_or_parallel (mode, orig_mode,
 				      SSE_REGNO (sse_regno));
 	break;
+      case X86_64_BND_CLASS:
+	/* We pass bound on register only if next pointer may
+	   be passed on register too.  */
+	return nintregs > 0
+	  ? gen_rtx_REG (mode, FIRST_BND_REG + bnd_regno)
+	  : NULL;
       case X86_64_X87_CLASS:
       case X86_64_COMPLEX_X87_CLASS:
 	return gen_rtx_REG (mode, FIRST_STACK_REG);
@@ -6661,6 +6680,16 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	    }
 	}
       break;
+
+    case BND32mode:
+    case BND64mode:
+      cum->bnd_nregs -= 1;
+      cum->bnd_regno += 1;
+      if (cum->bnd_nregs <= 0)
+	{
+	  cum->bnd_nregs = 0;
+	  cum->bnd_regno = 0;
+	}
     }
 }
 
@@ -6668,19 +6697,22 @@ static void
 function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT words, bool named)
 {
-  int int_nregs, sse_nregs;
+  int int_nregs, sse_nregs, bnd_nregs;
 
   /* Unnamed 256bit vector mode parameters are passed on stack.  */
   if (!named && VALID_AVX256_REG_MODE (mode))
     return;
 
-  if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs)
-      && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs)
+  if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs)
+      && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs
+      && bnd_nregs <= cum->bnd_nregs && (bnd_nregs == 0 || cum->nregs > 0))
     {
       cum->nregs -= int_nregs;
       cum->sse_nregs -= sse_nregs;
+      cum->bnd_nregs -= bnd_nregs;
       cum->regno += int_nregs;
       cum->sse_regno += sse_nregs;
+      cum->bnd_regno += bnd_nregs;
     }
   else
     {
@@ -6894,9 +6926,9 @@ function_arg_64 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   return construct_container (mode, orig_mode, type, 0, cum->nregs,
-			      cum->sse_nregs,
+			      cum->sse_nregs, cum->bnd_nregs,
 			      &x86_64_int_parameter_registers [cum->regno],
-			      cum->sse_regno);
+			      cum->sse_regno, cum->bnd_regno);
 }
 
 static rtx
@@ -7358,7 +7390,8 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   ret = construct_container (mode, orig_mode, valtype, 1,
 			     X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
-			     x86_64_int_return_registers, 0);
+			     X86_64_BND_REGPARM_MAX,
+			     x86_64_int_return_registers, 0, 0);
 
   /* For zero sized structures, construct_container returns NULL, but we
      need to keep rest of compiler happy by returning meaningful value.  */
@@ -7497,8 +7530,9 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
 static bool ATTRIBUTE_UNUSED
 return_in_memory_64 (const_tree type, enum machine_mode mode)
 {
-  int needed_intregs, needed_sseregs;
-  return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
+  int needed_intregs, needed_sseregs, needed_bndregs;
+  return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs,
+			    &needed_bndregs);
 }
 
 static bool ATTRIBUTE_UNUSED
@@ -8023,8 +8057,9 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
     default:
       container = construct_container (nat_mode, TYPE_MODE (type),
 				       type, 0, X86_64_REGPARM_MAX,
-				       X86_64_SSE_REGPARM_MAX, intreg,
-				       0);
+				       X86_64_SSE_REGPARM_MAX,
+				       X86_64_BND_REGPARM_MAX, intreg,
+				       0, 0);
       break;
     }
 
@@ -8034,14 +8069,15 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   if (container)
     {
-      int needed_intregs, needed_sseregs;
+      int needed_intregs, needed_sseregs, needed_bndregs;
       bool need_temp;
       tree int_addr, sse_addr;
 
       lab_false = create_artificial_label (UNKNOWN_LOCATION);
       lab_over = create_artificial_label (UNKNOWN_LOCATION);
 
-      examine_argument (nat_mode, type, 0, &needed_intregs, &needed_sseregs);
+      examine_argument (nat_mode, type, 0, &needed_intregs, &needed_sseregs,
+			&needed_bndregs);
 
       need_temp = (!REG_P (container)
 		   && ((needed_intregs && TYPE_ALIGN (type) > 64)
@@ -25841,6 +25877,10 @@ enum ix86_builtins
   IX86_BUILTIN_BNDCL64,
   IX86_BUILTIN_BNDCU32,
   IX86_BUILTIN_BNDCU64,
+  IX86_BUILTIN_BNDARG32,
+  IX86_BUILTIN_BNDARG64,
+  IX86_BUILTIN_BNDRET32,
+  IX86_BUILTIN_BNDRET64,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -26189,13 +26229,12 @@ static const struct builtin_description bdesc_special_args[] =
   /* PL */
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd64, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd32, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd64, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd32, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd64, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd32, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PVOID_PVOID },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd64, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd32, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd64, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
   { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd32, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
-
 };
 
 /* Builtins with variable number of arguments.  */
@@ -27714,6 +27753,16 @@ ix86_init_mmx_sse_builtins (void)
       ftype = (enum ix86_builtin_func_type) d->flag;
       def_builtin_const (d->mask, d->name, ftype, d->code);
     }
+
+  /* Add PL instructions.  */
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndarg32",
+		 BND32_FTYPE_INT, IX86_BUILTIN_BNDARG32);
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndarg64",
+		 BND64_FTYPE_INT, IX86_BUILTIN_BNDARG64);
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
+		 BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
+		 BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
 }
 
 /* Internal method for ix86_init_builtins.  */
@@ -29455,6 +29504,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       if (!REG_P (op0))
         op0 = copy_to_mode_reg (Pmode, op0);
       op1 = expand_normal (arg1);
+      if (!REG_P (op1))
+        op1 = copy_to_mode_reg (Pmode, op1);
       emit_insn (TARGET_64BIT 
                  ? gen_bnd_mkbnd64 (target, op0, op1)
                  : gen_bnd_mkbnd32 (target, op0, op1));
@@ -29496,6 +29547,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
+      if (!REG_P (op0))
+        op0 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
       emit_insn (TARGET_64BIT
                  ? gen_bnd_clbnd64 (op0, op1)
                  : gen_bnd_clbnd32 (op0, op1));
@@ -29507,10 +29560,52 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg1 = CALL_EXPR_ARG (exp, 1);
       op0 = expand_normal (arg0); 
       op1 = expand_normal (arg1); 
+      if (!REG_P (op0))
+        op0 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
       emit_insn (TARGET_64BIT
                  ? gen_bnd_cubnd64 (op0, op1) 
                  : gen_bnd_cubnd32 (op0, op1));
       return 0;
+
+    case IX86_BUILTIN_BNDARG32:
+    case IX86_BUILTIN_BNDARG64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      gcc_assert (TREE_CODE (arg0) == PARM_DECL);
+
+      op0 = DECL_RTL (arg0);
+      if (REG_P (op0))
+	{
+	  tree args = DECL_ARGUMENTS (cfun->decl);
+	  unsigned ptr_no = 0;
+	  
+	  while (args != arg0)
+	    {
+	      enum tree_code arg_type = TREE_CODE (TREE_TYPE (args));
+	      if (arg_type == POINTER_TYPE
+		  || arg_type == ARRAY_TYPE
+		  || arg_type == REFERENCE_TYPE)
+		ptr_no++;
+	      args = TREE_CHAIN (args);
+	    }
+	  if (FIRST_BND_REG + ptr_no <= LAST_BND_REG)
+	    return gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+				FIRST_BND_REG + ptr_no);
+	}
+      else if (MEM_P (op0))
+	{
+	  op0 = XEXP (op0, 0);
+	  
+	}
+      else
+	gcc_unreachable ();
+
+      return target;
+
+    case IX86_BUILTIN_BNDRET32:
+    case IX86_BUILTIN_BNDRET64:
+      target = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+			    FIRST_BND_REG);
+      return target;
 
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
@@ -30044,6 +30139,14 @@ ix86_builtin_pl_function (unsigned fcode)
     case BUILT_IN_PL_BNDCU:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
         : ix86_builtins[IX86_BUILTIN_BNDCU32];
+
+    case BUILT_IN_PL_BNDARG:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDARG64]
+	: ix86_builtins[IX86_BUILTIN_BNDARG32];
+
+    case BUILT_IN_PL_BNDRET:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]
+	: ix86_builtins[IX86_BUILTIN_BNDRET32];
 
     default:
       return NULL_TREE;

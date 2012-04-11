@@ -25,8 +25,7 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
-static tree pl_make_builtin (enum tree_code category, const char *name,
-			     tree type);
+static void pl_fix_function_decl (void);
 static void pl_init (void);
 static void pl_fini (void);
 static void pl_register_bounds (tree ptr, tree bnd);
@@ -34,8 +33,7 @@ static tree pl_get_registered_bounds (tree ptr);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static void pl_transform_function (void);
-static tree pl_build_bound_for_arg_ptr (tree arg, int arg_no);
-static tree pl_get_bound_for_arg_ptr (tree arg);
+static tree pl_get_bound_for_parm (tree parm);
 static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator gsi);
@@ -57,8 +55,6 @@ static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 static void pl_process_stmt(gimple_stmt_iterator *iter, tree *tp,
 			    location_t loc, tree dirflag);
 
-static GTY (()) tree pl_arg_bnd_register_fntype;
-static GTY (()) tree pl_ret_bnd_register_fntype;
 static GTY (()) tree pl_arg_bnd_fndecl;
 static GTY (()) tree pl_bndldx_fndecl;
 static GTY (()) tree pl_bndstx_fndecl;
@@ -69,6 +65,9 @@ static GTY (()) tree pl_ret_bnd_fndecl;
 
 static GTY (()) tree pl_bound_type;
 static GTY (()) tree pl_uintptr_type;
+
+static basic_block entry_block;
+static tree zero_bounds;
 
 static void
 pl_transform_function (void)
@@ -186,8 +185,6 @@ pl_get_registered_bounds (tree ptr)
 static basic_block
 pl_get_entry_block (void)
 {
-  static basic_block entry_block = NULL;
-
   if (!entry_block)
     {
       basic_block prev_entry = ENTRY_BLOCK_PTR->next_bb;
@@ -201,8 +198,6 @@ pl_get_entry_block (void)
 static tree
 pl_get_zero_bounds (void)
 {
-  static tree zero_bounds = NULL_TREE;
-
   if (zero_bounds)
     return zero_bounds;
 
@@ -217,60 +212,11 @@ pl_get_zero_bounds (void)
 }
 
 static tree
-pl_build_bound_for_arg_ptr (tree arg, int arg_no)
-{
-  tree bounds;
-  gimple_stmt_iterator gsi;
-  gimple stmt;
-  basic_block bb;
-
-  gcc_assert (TREE_CODE (arg) == PARM_DECL);
-
-  /* Check if we've already built required bounds.  */
-  bounds = pl_get_registered_bounds (arg);
-  if (bounds)
-    return bounds;
-
-  stmt = gimple_build_call (pl_arg_bnd_fndecl, 1,
-			    build_int_cst (integer_type_node, arg_no));
-  bb = pl_get_entry_block ();
-  gsi = gsi_start_bb (bb);
-  gsi_insert_before (&gsi, stmt, GSI_CONTINUE_LINKING);
-
-  bounds = create_tmp_reg (pl_bound_type, NULL);
-  add_referenced_var (bounds);
-  bounds = make_ssa_name (bounds, stmt);
-  gimple_call_set_lhs (stmt, bounds);
-
-  update_stmt (stmt);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Built bounds for arg_%d ( ", arg_no);
-      print_generic_expr (dump_file, arg, 0);
-
-      fprintf (dump_file, " [");
-      print_generic_expr (dump_file, bounds, 0);
-      fprintf (dump_file, " of type ");
-      print_generic_expr (dump_file, TREE_TYPE (bounds), 0);
-      fprintf (dump_file, " ]");
-
-      fprintf (dump_file, "): ");
-      print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
-    }
-
-  pl_register_bounds (arg, bounds);
-
-  return bounds;
-}
-
-static tree
 pl_build_returned_bound (gimple call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree bounds;
   gimple stmt;
-  basic_block bb;
 
   stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
   gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
@@ -296,40 +242,32 @@ pl_build_returned_bound (gimple call)
 }
 
 static tree
-pl_get_bound_for_arg_ptr (tree arg)
+pl_get_bound_for_parm (tree parm)
 {
-  tree type = TREE_TYPE (arg);
-  tree decl = cfun->decl;
-  tree args = DECL_ARGUMENTS (decl);
-  int ptr_no = 0;
+  tree bounds;
 
-  while (args != arg)
+  bounds = pl_get_registered_bounds (parm);
+
+  /* NULL bounds mean parm is not a pointer and
+     zero bounds should be returned.  */
+  if (!bounds)
     {
-      enum tree_code arg_type = TREE_CODE (TREE_TYPE (args));
-      if (arg_type == POINTER_TYPE
-	  || arg_type == ARRAY_TYPE
-	  || arg_type == REFERENCE_TYPE)
-	ptr_no++;
-      args = TREE_CHAIN (args);
+      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (parm)));
+      bounds = pl_get_zero_bounds ();
     }
 
-  switch (TREE_CODE (type))
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
-    case POINTER_TYPE:
-    case ARRAY_TYPE:
-    case REFERENCE_TYPE:
-      return pl_build_bound_for_arg_ptr (arg, ptr_no);
-      break;
-
-    case OFFSET_TYPE:
-      fprintf (stderr, "pl_get_bound_for_arg_ptr: OFFSET_TYPE is NYI\n");
-      gcc_unreachable ();
-      break;
-
-    default:
-      /* For non pointer types use zero bounds.  */
-      return pl_get_zero_bounds ();
+      fprintf (dump_file, "Using bounds ");
+      print_generic_expr (dump_file, bounds, 0);
+      fprintf (dump_file, " for parm ");
+      print_generic_expr (dump_file, parm, 0);
+      fprintf (dump_file, " of type ");
+      print_generic_expr (dump_file, TREE_TYPE (parm), 0);
+      fprintf (dump_file, ".\n");
     }
+
+  return bounds;
 }
 
 static tree
@@ -420,15 +358,8 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       ptr = TREE_OPERAND (rhs1, 0);
       offs = TREE_OPERAND (rhs1, 1);
 
-      if (POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (offs))))
-	{
-	  /* In this case we must use bndldx to load bounds.  */
-	  addr = fold_build_pointer_plus_loc (loc, ptr, offs);
-	  bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
-	}
-      else
-	/* If we load a non pointer value then use zero bounds.  */
-	bounds = pl_get_zero_bounds ();
+      addr = fold_build_pointer_plus_loc (loc, ptr, offs);
+      bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
       break;
 
     case ARRAY_REF:
@@ -441,7 +372,13 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	pl_parse_array_and_component_ref (rhs1, &ptr, &elt, &component,
 					  &bitfield);
 	iter = gsi_for_stmt (assign);
-	bounds = pl_find_bounds (ptr, &iter);
+	if (component)
+	  bounds = pl_find_bounds (ptr, &iter);
+	else
+	  {
+	    addr = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (rhs1)), rhs1);
+	    bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
+	  }
       }
       break;
 
@@ -492,7 +429,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       switch (TREE_CODE (var))
 	{
 	case PARM_DECL:
-	  bounds = pl_get_bound_for_arg_ptr (var);
+	  bounds = pl_get_bound_for_parm (var);
 	  pl_register_bounds (node, bounds);
 	  break;
 
@@ -688,7 +625,7 @@ pl_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 	  if (gimple_code (def_stmt) == GIMPLE_PHI)
 	    {
 	      gimple phi_bnd = gsi_stmt (*iter);
-	      int i;
+	      unsigned i;
 
 	      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
 		{
@@ -918,23 +855,70 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
     }
 }
 
-static tree
-pl_make_builtin (enum tree_code category, const char *name, tree type)
+/* Add input bound arguments declaration to the current
+   function declaration.  */
+static void
+pl_fix_function_decl (void)
 {
-  tree decl = build_decl (UNKNOWN_LOCATION,
-			  category, get_identifier (name), type);
-  TREE_PUBLIC (decl) = 1;
+  tree decl = cfun->decl;
+  tree arg = DECL_ARGUMENTS (decl);
+  tree prev_arg = NULL_TREE;
+  int bnd_no = 0;
 
-  DECL_SOURCE_LOCATION (decl) = BUILTINS_LOCATION;
-  /*  DECL_BUILT_IN_CLASS (decl) = BUILT_IN_MD;*/
+  /* Nothing to do if function has no input arguments.  */
+  if (!arg)
+    return;
 
-  /* lang_hooks.decls.pushdecl (decl);  */
+  /* Go through all input pointers and create bound
+     declaration for each of them.  Bound declaration
+     is placed right before pointer arg.  Also make
+     and register ssa name for each bound.  */
+  while (arg)
+    {
+      if (POINTER_TYPE_P (TREE_TYPE (arg)))
+	{
+	  char name_buf[20];
+	  tree name;
+	  tree bounds;
 
-  /* Declared by the compiler.  */
-  DECL_ARTIFICIAL (decl) = 1;
-  /* No debug info for it.  */
-  DECL_IGNORED_P (decl) = 1;
-  return decl;
+	  sprintf (name_buf, "__arg_bnd.%d", bnd_no++);
+	  name = get_identifier (name_buf);
+
+	  bounds = build_decl (UNKNOWN_LOCATION, PARM_DECL, name,
+				 pl_bound_type);
+	  DECL_ARG_TYPE (bounds) = pl_bound_type;
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Built bounds '");
+	      print_generic_expr (dump_file, bounds, 0);
+	      fprintf (dump_file, "' for arg '");
+	      print_generic_expr (dump_file, arg, 0);
+	      fprintf (dump_file, "' of type '");
+	      print_generic_expr (dump_file, TREE_TYPE (arg), 0);
+	      fprintf (dump_file, "'\n");
+	    }
+
+	  if (prev_arg)
+	    {
+	      TREE_CHAIN (prev_arg) = bounds;
+	      TREE_CHAIN (bounds) = arg;
+	    }
+	  else
+	    {
+	      TREE_CHAIN (bounds) = DECL_ARGUMENTS (decl);
+	      DECL_ARGUMENTS (decl) = bounds;
+	    }
+
+	  bounds = make_ssa_name (bounds, gimple_build_nop ());
+	  SSA_NAME_IS_DEFAULT_DEF (bounds) = 1;
+
+	  pl_register_bounds (arg, bounds);
+	}
+
+      prev_arg = arg;
+      arg = TREE_CHAIN (arg);
+    }
 }
 
 static void
@@ -944,44 +928,20 @@ pl_init (void)
   pl_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 				   NULL);
 
-  /* Build bound structure type.  */
-  /*
-  tree field_lb = build_decl (UNKNOWN_LOCATION, FIELD_DECL,
-			      get_identifier ("lb"), ptr_type_node);
-  tree field_ub = build_decl (UNKNOWN_LOCATION, FIELD_DECL,
-			      get_identifier ("ub"), ptr_type_node);
-  pl_bound_type = make_node (RECORD_TYPE);
-  DECL_CONTEXT (field_lb) = pl_bound_type;
-  DECL_CONTEXT (field_ub) = pl_bound_type;
-  DECL_CHAIN (field_lb) = field_ub;
-  TYPE_FIELDS (pl_bound_type) = field_lb;
-  TYPE_NAME (pl_bound_type) = get_identifier ("__bnd");
-  layout_type (pl_bound_type);
+  entry_block = NULL;
+  zero_bounds = NULL_TREE;
 
-  pl_bound_type = TARGET_64BIT ? int128_unsigned_type_node : long_long_unsigned_type_node;
-  pl_bound_type = build_complex_type (TARGET_64BIT
-				      ? long_long_unsigned_type_node
-				      : unsigned_type_node);
-  */
   pl_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
   pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 
-  /* Build types for intrinsic functions.  */
-  pl_arg_bnd_register_fntype =
-    build_function_type_list (pl_bound_type, integer_type_node, NULL_TREE);
-  pl_ret_bnd_register_fntype = build_function_type_list (pl_bound_type,
-							 NULL_TREE);
-
-  /* Build declarations for intrinsic functions.  */
-  pl_arg_bnd_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_arg_bnd",
-				       pl_arg_bnd_register_fntype);
+  /* Build declarations for builtin functions.  */
+  pl_arg_bnd_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDARG);
   pl_bndldx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDLDX);
   pl_bndstx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDSTX);
   pl_checkl_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCL);
   pl_checku_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCU);
   pl_bndmk_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDMK);
-  pl_ret_bnd_fndecl = pl_make_builtin (FUNCTION_DECL, "__pl_ret_bnd",
-				       pl_ret_bnd_register_fntype);
+  pl_ret_bnd_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDRET);
 }
 
 static void
@@ -996,6 +956,7 @@ pl_execute (void)
   //TODO: check we need to instrument this function
   pl_init ();
 
+  pl_fix_function_decl ();
   pl_transform_function ();
 
   pl_fini ();
