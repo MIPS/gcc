@@ -473,6 +473,7 @@ cgraph_create_node_1 (void)
 {
   struct cgraph_node *node = cgraph_allocate_node ();
 
+  node->symbol.type = SYMTAB_FUNCTION;
   node->next = cgraph_nodes;
   node->order = cgraph_order++;
   if (cgraph_nodes)
@@ -2437,10 +2438,9 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	    push_cfun (DECL_STRUCT_FUNCTION (fndecl));
 	    current_function_decl = fndecl;
 	    gimple_register_cfg_hooks ();
-	    tree_lowering_passes (fndecl);
 	    bitmap_obstack_initialize (NULL);
-	    if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
-	      execute_pass_list (pass_early_local_passes.pass.sub);
+	    execute_pass_list (all_lowering_passes);
+	    execute_pass_list (pass_early_local_passes.pass.sub);
 	    bitmap_obstack_release (NULL);
 	    pop_cfun ();
 	    current_function_decl = NULL;
@@ -2467,7 +2467,7 @@ cgraph_add_new_function (tree fndecl, bool lowered)
 	if (!gimple_in_ssa_p (DECL_STRUCT_FUNCTION (fndecl)))
 	  execute_pass_list (pass_early_local_passes.pass.sub);
 	bitmap_obstack_release (NULL);
-	tree_rest_of_compilation (fndecl);
+	tree_rest_of_compilation (node);
 	pop_cfun ();
 	current_function_decl = NULL;
 	break;
