@@ -97,16 +97,17 @@ extern void print_operand (FILE *, rtx, int);
 extern void print_operand_address (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 					       enum rtx_code);
-extern void rs6000_emit_sISEL (enum machine_mode, rtx[]);
+extern void rs6000_emit_sISEL (enum machine_mode, rtx[], int);
 extern void rs6000_emit_sCOND (enum machine_mode, rtx[]);
 extern void rs6000_emit_cbranch (enum machine_mode, rtx[]);
-extern char * output_cbranch (rtx, const char *, int, rtx);
+extern char * output_cbranch (rtx, const char *, int, rtx, int);
 extern char * output_e500_flip_gt_bit (rtx, rtx);
 extern const char * output_probe_stack_range (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
-extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
+extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx, int);
 extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
+extern void rs6000_expand_iminmax (rtx, enum rtx_code, rtx, rtx);
 extern void rs6000_expand_atomic_compare_and_swap (rtx op[]);
 extern void rs6000_expand_atomic_exchange (rtx op[]);
 extern void rs6000_expand_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
@@ -176,6 +177,10 @@ extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
 extern unsigned rs6000_builtin_mask_calculate (void);
+
+#ifdef BB_HEAD
+extern rtx rs6000_ifcvt_modify_insn (ce_if_block_t *, rtx, rtx);
+#endif
 
 /* Declare functions in rs6000-c.c */
 

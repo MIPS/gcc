@@ -1,7 +1,7 @@
 ; Options for the rs6000 port of the compiler
 ;
-; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Free Software
-; Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+; Free Software Foundation, Inc.
 ; Contributed by Aldy Hernandez <aldy@quesejoda.com>.
 ;
 ; This file is part of GCC.
@@ -78,6 +78,10 @@ enum rs6000_cmodel rs6000_current_cmodel = CMODEL_SMALL
 ;; What type of reciprocal estimation instructions to generate
 TargetVariable
 unsigned int rs6000_recip_control
+
+;; Whether ISEL is available even if it is not enabled for all uses
+TargetVariable
+unsigned char TARGET_ISEL_LIMITED
 
 ;; Mask of what builtin functions are allowed
 TargetVariable
@@ -532,3 +536,94 @@ Use/do not use r11 to hold the static link in calls to functions via pointers.
 msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
+
+madjust-cost-compare-branch=
+Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_BRANCH) Init(-1)
+Adjust the cost of a comparison to a branch
+
+madjust-cost-compare-isel=
+Target Report RejectNegative Joined UInteger Var(TARGET_ADJUST_COST_COMPARE_ISEL) Init(-1)
+Adjust the cost of a comparison to an isel instruction
+
+madjust-cost-power7-branch
+Target Undocumented Var(TARGET_ADJUST_COST_POWER7_BRANCH) Init(1) Save
+; Enable/disable setting branch cost to 0 on power7 between cmp and branch
+
+madjust-cost-power7-isel
+Target Undocumented Var(TARGET_ADJUST_COST_POWER7_ISEL) Init(1) Save
+; Enable/disable increasing branch cost to 0 on power7 between cmp and isel
+
+mbcp8
+Target Report Var(TARGET_BCP8) Init(-1) Save
+Enable/disable branch conditional + 8 optimizations
+
+mbcp8-cond-exec
+Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(1) Save
+; Enable/disable doing conditional execution with branch conditional + 8
+
+meq-ne
+Target Report Var(TARGET_EQ_NE) Init(-1) Save
+Enable/disable special EQ/NE optimizations
+
+miabs=
+Target Report RejectNegative Joined Enum(rs6000_iabs_t) Var(rs6000_iabs_method) Init(IABS_DEFAULT) Save
+-miabs=	Specify how to do integer ABS (default, none, shift, isel, bcp8)
+
+Enum
+Name(rs6000_iabs_t) Type(enum rs6000_iabs_t)
+
+EnumValue
+Enum(rs6000_iabs_t) String(default) Value(IABS_DEFAULT)
+
+EnumValue
+Enum(rs6000_iabs_t) String(none) Value(IABS_NONE)
+
+EnumValue
+Enum(rs6000_iabs_t) String(shift) Value(IABS_SHIFT)
+
+EnumValue
+Enum(rs6000_iabs_t) String(isel) Value(IABS_ISEL)
+
+EnumValue
+Enum(rs6000_iabs_t) String(bcp8) Value(IABS_BCP8)
+
+miminmax=
+Target Report RejectNegative Joined Enum(rs6000_iminmax_t) Var(rs6000_iminmax_method) Init(IMINMAX_DEFAULT) Save
+-miminmax=	Specify how to do integer MIN/MAX (default, none, isel, bcp8)
+
+Enum
+Name(rs6000_iminmax_t) Type(enum rs6000_iminmax_t)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(default) Value(IMINMAX_DEFAULT)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(none) Value(IMINMAX_NONE)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(isel) Value(IMINMAX_ISEL)
+
+EnumValue
+Enum(rs6000_iminmax_t) String(bcp8) Value(IMINMAX_BCP8)
+
+msetcc=
+Target Report RejectNegative Joined Enum(rs6000_setcc_t) Var(rs6000_setcc_method) Init(SETCC_DEFAULT) Save
+-msetcc=	Specify how to do set an integer to a comparison (default, none, isel, bcp8, mfcr)
+
+Enum
+Name(rs6000_setcc_t) Type(enum rs6000_setcc_t)
+
+EnumValue
+Enum(rs6000_setcc_t) String(default) Value(SETCC_DEFAULT)
+
+EnumValue
+Enum(rs6000_setcc_t) String(none) Value(SETCC_NONE)
+
+EnumValue
+Enum(rs6000_setcc_t) String(isel) Value(SETCC_ISEL)
+
+EnumValue
+Enum(rs6000_setcc_t) String(bcp8) Value(SETCC_BCP8)
+
+EnumValue
+Enum(rs6000_setcc_t) String(mfcr) Value(SETCC_MFCR)

@@ -464,6 +464,53 @@ extern int rs6000_vector_align[];
 #define TARGET_E500_DOUBLE 0
 #define CHECK_E500_OPTIONS do { } while (0)
 
+/* Feature macros to say whether a particular integer absolute method is
+   supported.  */
+#define TARGET_IABS		(rs6000_iabs_method != IABS_NONE)
+#define TARGET_IABS_NONE	(rs6000_iabs_method == IABS_NONE)
+#define TARGET_IABS_DEFAULT	(rs6000_iabs_method == IABS_DEFAULT)
+#define TARGET_IABS_ISEL	(rs6000_iabs_method == IABS_ISEL)
+#define TARGET_IABS_BCP8	(rs6000_iabs_method == IABS_BCP8)
+#define TARGET_IABS_SHIFT	(rs6000_iabs_method == IABS_SHIFT)
+
+/* Feature macros to say whether a particular integer minimum and maximum
+   method is supported.  */
+#define TARGET_IMINMAX		(rs6000_iminmax_method != IMINMAX_NONE)
+#define TARGET_IMINMAX_NONE	(rs6000_iminmax_method == IMINMAX_NONE)
+#define TARGET_IMINMAX_DEFAULT	(rs6000_iminmax_method == IMINMAX_DEFAULT)
+#define TARGET_IMINMAX_ISEL	(rs6000_iminmax_method == IMINMAX_ISEL)
+#define TARGET_IMINMAX_BCP8	(rs6000_iminmax_method == IMINMAX_BCP8)
+
+/* Feature macros to say whether a particular setcc method is supported.  */
+#define TARGET_SETCC		(rs6000_setcc_method != SETCC_NONE)
+#define TARGET_SETCC_NONE	(rs6000_setcc_method == SETCC_NONE)
+#define TARGET_SETCC_DEFAULT	(rs6000_setcc_method == SETCC_DEFAULT)
+#define TARGET_SETCC_ISEL	(rs6000_setcc_method == SETCC_ISEL)
+#define TARGET_SETCC_BCP8	(rs6000_setcc_method == SETCC_BCP8)
+#define TARGET_SETCC_MFCR	(rs6000_setcc_method == SETCC_MFCR)
+
+#define TARGET_SETCC_ISEL_OR_BCP8 (TARGET_SETCC_ISEL || TARGET_SETCC_BCP8)
+
+/* Whether ISEL is supported or not.  Normally we use -misel to determine
+   whether to do it, but with the power7 it is useful to generate ISEL in
+   limited cases, without enabling the general use of ISEL.  While the branch
+   conditional + 8 optimizations use RTL that is the same as ISEL, it isn't an
+   actual ISEL instruction.  */
+
+#define ISEL_OK_P(N)							\
+  ((TARGET_ISEL && (N) != ISEL_BCP8)					\
+   || (TARGET_ISEL_LIMITED						\
+       && ((N == ISEL_IABS && TARGET_IABS_ISEL)				\
+	   || (N == ISEL_IMINMAX && TARGET_IMINMAX_ISEL)		\
+	   || (N == ISEL_SETCC && TARGET_SETCC_ISEL))))
+
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.  */
+#define IFCVT_MODIFY_INSN(CE_INFO, PATTERN, INSN) \
+  (PATTERN) = rs6000_ifcvt_modify_insn (CE_INFO, PATTERN, INSN)
+
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or
    XILINX.  */

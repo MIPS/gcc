@@ -146,4 +146,30 @@ enum rs6000_vector {
    we need to distinguish the special "native" value.  */
 #define RS6000_CPU_OPTION_NATIVE -1
 
+/* Describe how to do integer ABS and negative ABS.  */
+enum rs6000_iabs_t {
+  IABS_DEFAULT,			/* Use defaults.  */
+  IABS_NONE,			/* No powerpc specific support.  */
+  IABS_ISEL,			/* Use the ISEL instruction.  */
+  IABS_BCP8,			/* Use branch conditional + 8.  */
+  IABS_SHIFT			/* Use shift/xor/sub.  */
+};
+
+/* Describe how to do integer minimum and maximum.  */
+enum rs6000_iminmax_t {
+  IMINMAX_DEFAULT,		/* Use defaults. */
+  IMINMAX_NONE,			/* No powerpc specific support.  */
+  IMINMAX_ISEL,			/* Use the ISEL instruction.  */
+  IMINMAX_BCP8			/* Use branch conditional + 8.  */
+};
+
+/* Describe how to set an integer from a comparsion to 0 or 1.  */
+enum rs6000_setcc_t {
+  SETCC_DEFAULT,		/* Use defaults.  */
+  SETCC_NONE,			/* No powerpc specific support.  */
+  SETCC_ISEL,			/* Use the ISEL instruction.  */
+  SETCC_BCP8,			/* Use branch conditional + 8.  */
+  SETCC_MFCR			/* Use move from condition register.  */
+};
+
 #endif

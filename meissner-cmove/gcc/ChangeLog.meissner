@@ -1,5 +1,196 @@
 2012-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/power7.md (power7-integer): Split isel handling
+	off to separate reservation, make isel 4 cycles.
+	(power7-isel): Likewise.
+
+	* config/rs6000/rs6000.opt (TARGET_ISEL_LIMITED): New target
+	variable, hold whether we can do an ISEL instruction, even if
+	-misel was not selected.
+	(-madjust-cost-compare-branch=): New debug switch to adjust the
+	cost of a compare to a branch.
+	(-madjust-cost-compare-isel=): New debug switch to adjust the cost
+	of a comparison to isel.
+	(-madjust-cost-power7-branch): New debug switch to enable/disable
+	setting branch cost to 0 on power7 between cmp and branch.
+	(-mbcp8): New switch to enable/disable branch conditional+8
+	optimizations.
+	(-mbcp8-cond-exec): New switch to enable/disable conditional
+	execution using branch conditional+8 support.
+	(-meq-ne): New switch to enable EQ/NE optimizations.
+	(-miabs=): New switch to control how integer absolute value is
+	done.
+	(-miminmax=): New switch to control how integer minimum and
+	maximum are done.
+	(-msetcc=): New switch to control how set conditional is done.
+
+	* config/rs6000/rs6000.c (struct processor_costs): Add new cost
+	fields and methods for doing integer absolute value, integer
+	minimum/maximum, and set conditional.
+	(DEFAULT_COSTS2): New macros for defining the default costs and
+	conditional code generation methods.
+	(DEFAULT_COSTS): Likewise.
+	(DEFAULT_COSTS_C): Likewise.
+	(DEFAULT_COSTS_S): Likewise.
+	(DEFAULT_COSTS_C_S): Likewise.
+	(DEFAULT_COSTS_C_S_B): Likewise.
+	(DEFAULT_METHODS2): Likewise.
+	(DEFAULT_METHODS): Likewise.
+	(DEFAULT_METHODS_P7): Likewise.
+	(size32_cost): Initialize new costs and methods fields.
+	(size64_cost): Likewise.
+	(rios1_cost): Likewise.
+	(rios2_cost): Likewise.
+	(rs64a_cost): Likewise.
+	(mpccore_cost): Likewise.
+	(ppc403_cost): Likewise.
+	(ppc405_cost): Likewise.
+	(ppc440_cost): Likewise.
+	(ppc476_cost): Likewise.
+	(ppc601_cost): Likewise.
+	(ppc603_cost): Likewise.
+	(ppc604_cost): Likewise.
+	(ppc604e_cost): Likewise.
+	(ppc620_cost): Likewise.
+	(ppc630_cost): Likewise.
+	(ppccell_cost): Likewise.
+	(ppc750_cost): Likewise.
+	(ppc7450_cost): Likewise.
+	(ppc8540_cost): Likewise.
+	(ppce300c2d3_cost): Likewise.
+	(ppc500mc_cost): Likewise.
+	(ppce500mc64_cost): Likewise.
+	(titan_cost): Likewise.
+	(power4_cost): Likewise.
+	(power6_cost): Likewise.
+	(power7_cost): Likewise.
+	(ppca2_cost): Likewise.
+	(rs6000_clz_cost): Helper inline function to return costs.
+	(rs6000_isel_cost): Likewise.
+	(rs6000_bcp8_cost): Likewise.
+	(rs6000_mfcr_cost): Likewise.
+	(rs6000_crlogical_cost): Likewise.
+	(rs6000_debug_reg_global): Print new costs and methods.
+	(rs6000_option_override_internal): Add support for setting up the
+	best way to generate integer absolute value, integer
+	minimum/maximum, and set conditional.
+	(rs6000_emit_sISEL): Take a new argument giving the ISEL type.
+	Update callers.
+	(rs6000_emit_sCOND): Likewise.
+	(rs6000_ifcvt_modify_insn): If branch conditional+8 optimizations,
+	allow a single instruction to be optimized via BC+8.
+	(rs6000_emit_cbranch): Take new argument that says this branch may
+	be a branch around a branch.  Update callers.
+	(rs6000_emit_cmove): Take argument for ISEL type.  Add support for
+	branch conditional+8 optimizaitons.
+	(rs6000_emit_int_cmove): Likewise.
+	(output_isel): Allow 0 in false case for GE, GEU, LE, LEU, or NE.
+	Add assertion.
+	(rs6000_expand_iminmax): New function, expand integer minimum and
+	maximum.
+	(rs6000_adjust_cost): On power7, adjust costs for compare feeding
+	into branch to try and move the compare next to the branch, and
+	for compare feeding into isel to make the compare more expensive.
+	(rs6000_opt_vars): Allow integer absolute value, integer
+	minimum/maximum, set conditional, and branch conditional+8 to be
+	be changed with target attribute/pragma.
+	(enum rs6000_opt_enum_t): Likewise.
+	(struct rs6000_opt_enum): Likewise.
+	(rs6000_opt_enums): Likewise.
+	(rs6000_inner_target_options): Likewise.
+	(rs6000_valid_attribute_p): Likewise.
+	(rs6000_pragma_target_parse): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_IABS*): New macros to describe
+	which method to use for integer absolute value.
+	(TARGET_IMINMAX*): New macros to describe which method to use for
+	integer minimum and maximum.
+	(TARGET_SETCC*): New macros to describe which method to use for
+	set conditional, and conditional move operations.
+	(ISEL_OK_P): New macro to say whether ISEL or branch conditional+8
+	is valid.
+	(IFCVT_MODIFY_INSN): If branch conditional+8, optimize certain
+	instructions into using conditional execution.
+
+	* config/rs6000/predicates.md (reg_or_zero_operand): New
+	match_operand predicate to match 0 or register.
+	(bcp8_bool_operator): New match_operator predicate to say whether
+	an operation can be optimized with branch conditional+8.
+	(bcp8_store_operator): Likewise.
+
+	* config/rs6000/rs6000.md (ISEL*): New constants to define the
+	various types of ISEL (integer select).
+	(UNSPEC_SETCC): New unspec for set conditional.
+	(isel_type): New attribute to distinguish between isel and branch
+	conditonal+8.
+	(CR): New iterator for all condition code modes.
+	(ICR): New iterator for all integer condition code modes.
+	(sel mode attribute): Delete, no longer used.
+	(smin<mode>3): Combine 32-bit and 64-bit modes.  Add support for
+	-miminmax= to change the method for integer minimum and maximum
+	functions.  Add support for -miabso= to change the method for
+	integer absolute value.  Add support for -msetcc= to change the
+	method for set conditional.  Combine isel patterns.  Add branch
+	conditional+8
+	optimizations.
+	(sminsi3): Likewise.
+	(smindi3): Likewise.
+	(smax<mode>3): Likewise.
+	(smaxsi3): Likewise.
+	(smaxdi3): Likewise.
+	(umin<mode>3): Likewise.
+	(uminsi3): Likewise.
+	(umindi3): Likewise.
+	(umax<mode>3): Likewise.
+	(umaxsi3): Likewise.
+	(umaxdi3): Likewise.
+	(abs<mode>2): Likewise.
+	(abssi2_power): Likewise.
+	(abssi2_isel): Likewise.
+	(absdi2): Likewise.
+	(absdi2_internal): Likewise.
+	(abs<mode>2_isel): Likewise.
+	(nabs<mode>2): Likewise.
+	(nabs_power): Likewise.
+	(nabs_nopower): Likewise.
+	(nabsdi2): Likewise.
+	(mov<mode>cc): Likewise.
+	(isel_<mode>): Likewise.
+	(isel_signed_<mode>): Likewise.
+	(isel_unsigned_<mode>): Likewise.
+	(isel_reversed_<mode>): Likewise.
+	(isel_reversed_signed_<mode>): Likewise.
+	(isel_reversed_unsigned_<mode>): Likewise.
+	(bcp8_<mode>): Likewise.
+	(movsfcc): Likewise.
+	(movdfcc): Likewise.
+	(setcc_bcp8<mode>): Likewise.
+	(setcc_add_bcp8<mode>): Likewise.
+	(setcc_isel<mode>): Likewise.
+	(setcc_isel_rev<mode>): Likewise.
+	(bcp8_cond_exec_bool<mode>): Add conditional execution support for
+	branch conditional+8 optimizations.
+	(bcp8_cond_exec_add<mode>): Likewise.
+	(bcp8_cond_exec_store<mode>): Likewise.
+	(dozsi3): Name power pattern.
+	(dozsi3_cmp): Likewise.
+	(unnamed branch insns): Update output_cbranch calling sequence.
+
+	* config/rs6000/rs6000-opts.h (enum rs6000_iabs_t): New
+	enumerations for integer absolute, integer minimum/maximum, and
+	set conditional code generation methods.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_sISEL): Update call
+	signature.
+	(output_cbranch): Likewise.
+	(rs6000_emit_cmove): Likewise.
+	(rs6000_expand_iminmax): New function.
+	(rs6000_ifcvt_modify_insn): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document new
+	switches.
+
+2012-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Recreate branch, based off of subversion id 186203.
 	* REVISION: New file.
-
