@@ -2363,7 +2363,7 @@ rs6000_debug_reg_global (void)
 
   fprintf (stderr, DEBUG_FMT_S, "setcc", setcc_str);
 
-  if (TARGET_SETCC_EQ)
+  if (TARGET_EQ_NE)
     fprintf (stderr, DEBUG_FMT_S, "eq-ne", "true");
 
   if (TARGET_BCP8)
@@ -2832,6 +2832,8 @@ rs6000_option_override_internal (bool global_init_p)
     = ((global_init_p || target_option_default_node == NULL)
        ? NULL : TREE_TARGET_OPTION (target_option_default_node));
   bool have_isel;
+  bool explicit_isel;
+  bool explicit_bcp8;
 
   /* On 64-bit Darwin, power alignment is ABI-incompatible with some C
      library functions, so warn about it. The flag may be useful for
@@ -3574,6 +3576,7 @@ rs6000_option_override_internal (bool global_init_p)
      defines ISEL for all environments.  On power7, it is a mixed bag of whether
      we want to use it all of the time.  This macro says when ISEL can be used in
      those limited cases.  If the user said -mno-isel, honor that request.  */
+  explicit_isel = TARGET_ISEL && ((target_flags_explicit & MASK_ISEL) != 0);
   TARGET_ISEL_LIMITED = (!TARGET_ISEL
 			 && ((target_flags_explicit & MASK_ISEL) == 0)
 			 && (TARGET_POPCNTD || TARGET_VSX));
@@ -3582,19 +3585,24 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Determine if we should optimize for branch conditional + 8.  */
   if (TARGET_BCP8 == -1)
-    TARGET_BCP8 = (!TARGET_ISEL && rs6000_cost->bcp8);
-
-  /* Determine if we should enable ==/!= optimizations.  */
-  if (TARGET_SETCC_EQ == -1)
-    TARGET_SETCC_EQ = rs6000_cost->eq_ne;
+    {
+      TARGET_BCP8 = (!TARGET_ISEL && rs6000_cost->bcp8);
+      explicit_bcp8 = false;
+    }
+  else
+    explicit_bcp8 = (TARGET_BCP8 != 0);
 
   /* Determine how to do integer absolute value.  By default, don't use branch
      conditional + 8 or ISEL on power7 to do IABS, since the traditional way of
      using shifts is faster.  */
   if (rs6000_iabs_method == IABS_DEFAULT)
     {
-      if (rs6000_cost->iabs != IABS_DEFAULT
-	  && (rs6000_cost->iabs != IABS_ISEL || have_isel))
+      if (explicit_bcp8)
+	rs6000_iabs_method = IABS_BCP8;
+      else if (explicit_isel)
+	rs6000_iabs_method = IABS_ISEL;
+      else if (rs6000_cost->iabs != IABS_DEFAULT
+	       && (rs6000_cost->iabs != IABS_ISEL || have_isel))
 	rs6000_iabs_method = rs6000_cost->iabs;
       else if (TARGET_ISEL)
 	rs6000_iabs_method = IABS_ISEL;
@@ -3605,11 +3613,13 @@ rs6000_option_override_internal (bool global_init_p)
     error ("The current machine does not support -miabs=isel.");
 
   /* Determine how to do set conditional and integer conditional move.  If the
-     user explicitly said -misel, use that instead of branch conditional+8.  */
+     user explicitly said -misel or -mbcp8 on the command line, use that
+     instead of the default.  */
   if (rs6000_setcc_method == SETCC_DEFAULT)
     {
-      if (rs6000_cost->setcc == SETCC_BCP8 && TARGET_ISEL
-	  && (target_flags_explicit & MASK_ISEL) == 0)
+      if (explicit_bcp8)
+	rs6000_setcc_method = SETCC_BCP8;
+      else if (explicit_isel)
 	rs6000_setcc_method = SETCC_ISEL;
       else if (rs6000_cost->setcc != SETCC_DEFAULT
 	       && (rs6000_cost->setcc != SETCC_ISEL || have_isel))
@@ -3624,19 +3634,27 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_SETCC_ISEL && !have_isel)
     error ("The current machine does not support -msetcc=isel.");
 
+  /* Determine if we should enable ==/!= optimizations.  */
+  if (TARGET_EQ_NE == -1)
+    TARGET_EQ_NE = (TARGET_SETCC && rs6000_cost->eq_ne);
+  else if (TARGET_EQ_NE && !TARGET_SETCC)
+    error ("You cannot use -msetcc=none and -meq-ne together");
+
   /* Determine how to do integer minimum and maximum.  If the user explicitly
-     said -misel, use that instead of branch conditional+8.  */
+     said -misel or -mbcp8 on the command line, use that instead of the
+     default.  */
   if (rs6000_iminmax_method == IMINMAX_DEFAULT)
     {
-      if (rs6000_cost->iminmax == IMINMAX_BCP8 && TARGET_ISEL
-	  && (target_flags_explicit & MASK_ISEL) != 0)
+      if (explicit_bcp8)
+	rs6000_iminmax_method = IMINMAX_BCP8;
+      else if (explicit_isel)
 	rs6000_iminmax_method = IMINMAX_ISEL;
       else if (rs6000_cost->iminmax != IMINMAX_DEFAULT
 	       && (rs6000_cost->iminmax != IMINMAX_ISEL || have_isel))
 	rs6000_iminmax_method = rs6000_cost->iminmax;
-      else if (TARGET_SETCC_BCP8)
+      else if (TARGET_BCP8)
 	rs6000_iminmax_method = IMINMAX_BCP8;
-      else if (TARGET_SETCC_ISEL)
+      else if (have_isel)
 	rs6000_iminmax_method = IMINMAX_ISEL;
       else
 	rs6000_iminmax_method = IMINMAX_NONE;
@@ -16136,34 +16154,31 @@ void
 rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
 {
   rtx condition_rtx;
-  enum machine_mode op_mode;
+  enum machine_mode op_mode, res_mode;
   enum rtx_code cond_code;
   rtx result = operands[0];
+  rtx tmp, tmp2;
+  bool reverse_p = false;
 
-  /* Use count leading zeros for EQ on integer ops.  */
-  if (TARGET_SETCC_EQ && GET_CODE (operands[1]) == EQ
-      && mode == GET_MODE (operands[0])
-      && (mode == SImode
-	  || (mode == DImode && TARGET_POWERPC64)))
+  /* Use count leading zeros for EQ on 32-bit integer ops.  Don't handle 64-bit
+     right now.  */
+  if (TARGET_EQ_NE
+      && (GET_CODE (operands[1]) == EQ || GET_CODE (operands[1]) == NE)
+      && mode == SImode && GET_MODE (XEXP (operands[1], 0)) == mode)
     {
       rtx opa = XEXP (operands[1], 0);
       rtx opb = XEXP (operands[1], 1);
-      if (INTEGRAL_MODE_P (GET_MODE (opa)))
-	{
-	  if (mode == SImode)
-	    {
-	      emit_insn (gen_setcc_eqsi (operands[0], opa, opb));
-	      return;
-	    }
-	  else if (mode == DImode)
-	    {
-	      emit_insn (gen_setcc_eqdi (operands[0], opa, opb));
-	      return;
-	    }
-	}
+      rtx tmp = ((GET_CODE (operands[1]) == NE && can_create_pseudo_p ())
+		 ? gen_reg_rtx (mode) : operands[0]);
+
+      emit_insn (gen_setcc_eqsi (tmp, opa, opb));
+      if (GET_CODE (operands[1]) == NE)
+	emit_insn (gen_xorsi3 (operands[0], tmp, const1_rtx));
+      return;
     }
 
-  /* Handle using ISEL for setcc for integers.  */
+  /* Use ISEL for integer setcc before creating the comparison in a CR
+     register.  */
   if (TARGET_SETCC_ISEL && (mode == SImode || mode == DImode))
     {
       rs6000_emit_sISEL (mode, operands, ISEL_SETCC);
@@ -16181,13 +16196,7 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
       return;
     }
 
-  /* Use ISEL for things like floating point.  */
-  if (TARGET_SETCC_ISEL)
-    {
-      rs6000_emit_sISEL (mode, operands, ISEL_SETCC);
-      return;
-    }
-
+  /* E500 floating point in GPRS.  */
   if (FLOAT_MODE_P (mode)
       && !TARGET_FPRS && TARGET_HARD_FLOAT)
     {
@@ -16205,37 +16214,56 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
       return;
     }
 
+  /* If we are generating a condition that is the reverse of a CR condition,
+     flip the test via XOR rather than doing a CRNOT operation.  */
   if (cond_code == NE
       || cond_code == GE || cond_code == LE
       || cond_code == GEU || cond_code == LEU
       || cond_code == ORDERED || cond_code == UNGE || cond_code == UNLE)
     {
-      rtx not_result = gen_reg_rtx (CCEQmode);
-      rtx not_op, rev_cond_rtx;
-      enum machine_mode cc_mode;
-
-      cc_mode = GET_MODE (XEXP (condition_rtx, 0));
-
-      rev_cond_rtx = gen_rtx_fmt_ee (rs6000_reverse_condition (cc_mode, cond_code),
-				     SImode, XEXP (condition_rtx, 0), const0_rtx);
-      not_op = gen_rtx_COMPARE (CCEQmode, rev_cond_rtx, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, not_result, not_op));
-      condition_rtx = gen_rtx_EQ (VOIDmode, not_result, const0_rtx);
+      PUT_CODE (condition_rtx, reverse_condition (cond_code));
+      reverse_p = true;
     }
 
   op_mode = GET_MODE (XEXP (operands[1], 0));
   if (op_mode == VOIDmode)
     op_mode = GET_MODE (XEXP (operands[1], 1));
 
-  if (TARGET_POWERPC64 && (op_mode == DImode || FLOAT_MODE_P (mode)))
+  res_mode = (TARGET_POWERPC64) ? DImode : SImode;
+  PUT_MODE (condition_rtx, res_mode);
+  if (TARGET_POWERPC64)
     {
-      PUT_MODE (condition_rtx, DImode);
-      convert_move (result, condition_rtx, 0);
+      if (!reverse_p)
+	convert_move (result, condition_rtx, 0);
+      else  if (can_create_pseudo_p ())
+	{
+	  tmp = gen_reg_rtx (DImode);
+	  tmp2 = gen_reg_rtx (DImode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp, condition_rtx));
+	  emit_insn (gen_xordi3 (tmp2, tmp, const1_rtx));
+	  convert_move (result, tmp2, 0);
+	}
+      else
+	{
+	  convert_move (result, condition_rtx, 0);
+	  emit_insn (gen_xorsi3 (result, result, const1_rtx));
+	}
     }
   else
     {
-      PUT_MODE (condition_rtx, SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+      if (!reverse_p)
+	emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+      else  if (can_create_pseudo_p ())
+	{
+	  tmp = gen_reg_rtx (SImode);
+	  emit_insn (gen_rtx_SET (VOIDmode, tmp, condition_rtx));
+	  emit_insn (gen_xorsi3 (result, tmp, const1_rtx));
+	}
+      else
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+	  emit_insn (gen_xorsi3 (result, result, const1_rtx));
+	}
     }
 }
 
@@ -26294,7 +26322,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case EQ:
-      if (TARGET_SETCC_EQ && outer_code == SET && XEXP (x, 1) == const0_rtx
+      if (TARGET_EQ_NE && outer_code == SET && XEXP (x, 1) == const0_rtx
 	  && (mode == SImode || mode == DImode))
 	{
 	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
@@ -26348,7 +26376,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case NE:
-      if (TARGET_SETCC_EQ)
+      if (TARGET_EQ_NE)
 	{
 	  if (XEXP (x, 1) == const0_rtx && (mode == SImode || mode == DImode))
 	    {
@@ -27876,8 +27904,8 @@ static struct rs6000_opt_var const rs6000_opt_vars[] =
     offsetof (struct gcc_options, x_TARGET_BCP8),
     offsetof (struct cl_target_option, x_TARGET_BCP8), },
   { "eq-ne",
-    offsetof (struct gcc_options, x_TARGET_SETCC_EQ),
-    offsetof (struct cl_target_option, x_TARGET_SETCC_EQ), },
+    offsetof (struct gcc_options, x_TARGET_EQ_NE),
+    offsetof (struct cl_target_option, x_TARGET_EQ_NE), },
 };
 
 /* Option variables to set various enums.  */

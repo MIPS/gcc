@@ -1,4 +1,40 @@
+2012-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-meq-ne): Rename from TARGET_SETCC_EQ
+	to TARGET_EQ_NE.  Disallow -meq-ne and -msetcc=none.  Change all
+	uses.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.md: Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_emit_sCOND): Do not use crnot to
+	reverse the sense of a comparison, instead do the reverse
+	comparison and use XOR afterwards.  Drop support for using ISEL
+	for floating point conversions.  Temporarily drop support for EQ
+	optimizations on 64-bit.
+
+2012-04-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If the
+	explicitly says -mbcp8 or -misel on the command line, use that for
+	the defaults, overriding the processor defaults.  Do not allow
+	-msetcc=none and -meq-ne.
+
+	* config/rs6000/rs6000.md (cstore<mode>4): Only force negative
+	integers into a register for unsigned comparisons.  Remove special
+	handling of NE, LT, LE, GT, GE.  Don't allow use of ISEL for
+	floating point comparisons.  For 64-bit, generate comparison in
+	DImode and convert later to SImode.
+
 2012-04-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sCOND): If we have a
+	condition where we need to reverse the sense of the test, issue an
+	XOR instruction after we have extracted the cr instead of doing a
+	CRNOT instruction.
+
+	* config/rs6000/rs6000.md (cstore<mode>4): Only push negative
+	constants into a register if unsigned comparison.  Delete failing
+	early for SNE or relational comparisions against 0.
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
 	user explicitly says -misel, but defaults are branch conditional+8

@@ -562,7 +562,7 @@ Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(1) Save
 ; Enable/disable doing conditional execution with branch conditional + 8
 
 meq-ne
-Target Report Var(TARGET_SETCC_EQ) Init(-1) Save
+Target Report Var(TARGET_EQ_NE) Init(-1) Save
 Enable/disable special EQ/NE optimizations
 
 miabs=
