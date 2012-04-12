@@ -6463,7 +6463,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 	/* We pass bound on register only if next pointer may
 	   be passed on register too.  */
 	return nintregs > 0
-	  ? gen_rtx_REG (mode, FIRST_BND_REG + bnd_regno)
+	  ? gen_rtx_REG (mode, bnd_regno)
 	  : NULL;
       case X86_64_X87_CLASS:
       case X86_64_COMPLEX_X87_CLASS:
@@ -7331,6 +7331,10 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   /* Floating point return values in %st(0) (unless -mno-fp-ret-in-387).  */
   else if (X87_FLOAT_MODE_P (mode) && TARGET_FLOAT_RETURNS_IN_80387)
     regno = FIRST_FLOAT_REG;
+
+  /* Bounds are returnd in the first bound register.  */
+  else if (mode == BND32mode)
+    regno = FIRST_BND_REG;
   else
     /* Most things go in %eax.  */
     regno = AX_REG;
@@ -7395,7 +7399,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
   ret = construct_container (mode, orig_mode, valtype, 1,
 			     X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
 			     X86_64_BND_REGPARM_MAX,
-			     x86_64_int_return_registers, 0, 0);
+			     x86_64_int_return_registers, 0, FIRST_BND_REG);
 
   /* For zero sized structures, construct_container returns NULL, but we
      need to keep rest of compiler happy by returning meaningful value.  */
@@ -7410,7 +7414,9 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
 {
   unsigned int regno = AX_REG;
 
-  if (TARGET_SSE)
+  if (mode == BND64mode)
+    regno = FIRST_BND_REG;
+  else if (TARGET_SSE)
     {
       switch (GET_MODE_SIZE (mode))
         {
@@ -25881,10 +25887,10 @@ enum ix86_builtins
   IX86_BUILTIN_BNDCL64,
   IX86_BUILTIN_BNDCU32,
   IX86_BUILTIN_BNDCU64,
-  IX86_BUILTIN_BNDARG32,
-  IX86_BUILTIN_BNDARG64,
   IX86_BUILTIN_BNDRET32,
   IX86_BUILTIN_BNDRET64,
+  IX86_BUILTIN_BNDBIND32,
+  IX86_BUILTIN_BNDBIND64,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -27759,10 +27765,10 @@ ix86_init_mmx_sse_builtins (void)
     }
 
   /* Add PL instructions.  */
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndarg32",
-		 BND32_FTYPE_INT, IX86_BUILTIN_BNDARG32);
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndarg64",
-		 BND64_FTYPE_INT, IX86_BUILTIN_BNDARG64);
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds32",
+		 PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
+    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds64",
+		 PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
     def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
 		 BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
     def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
@@ -29571,45 +29577,37 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd_cubnd32 (op0, op1));
       return 0;
 
-    case IX86_BUILTIN_BNDARG32:
-    case IX86_BUILTIN_BNDARG64:
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      gcc_assert (TREE_CODE (arg0) == PARM_DECL);
-
-      op0 = DECL_RTL (arg0);
-      if (REG_P (op0))
-	{
-	  tree args = DECL_ARGUMENTS (cfun->decl);
-	  unsigned ptr_no = 0;
-	  
-	  while (args != arg0)
-	    {
-	      enum tree_code arg_type = TREE_CODE (TREE_TYPE (args));
-	      if (arg_type == POINTER_TYPE
-		  || arg_type == ARRAY_TYPE
-		  || arg_type == REFERENCE_TYPE)
-		ptr_no++;
-	      args = TREE_CHAIN (args);
-	    }
-	  if (FIRST_BND_REG + ptr_no <= LAST_BND_REG)
-	    return gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
-				FIRST_BND_REG + ptr_no);
-	}
-      else if (MEM_P (op0))
-	{
-	  op0 = XEXP (op0, 0);
-	  
-	}
-      else
-	gcc_unreachable ();
-
-      return target;
-
     case IX86_BUILTIN_BNDRET32:
     case IX86_BUILTIN_BNDRET64:
       target = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
       return target;
+
+    case IX86_BUILTIN_BNDBIND32:
+    case IX86_BUILTIN_BNDBIND64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+
+      /* Size was passed but we need to use size - 1 in bndmk.  */
+      arg2 = fold_build2 (MINUS_EXPR, TREE_TYPE (arg2), arg2,
+			  integer_one_node);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+
+      if (!REG_P (op0))
+        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op0);
+      if (!REG_P (op1))
+        op2 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
+
+      emit_insn( gen_bnd_mkbnd64 (gen_rtx_REG (TARGET_64BIT
+					       ? BND64mode
+					       : BND32mode,
+					       FIRST_BND_REG),
+				  op1, op2));
+      return op0;
 
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
@@ -30143,10 +30141,6 @@ ix86_builtin_pl_function (unsigned fcode)
     case BUILT_IN_PL_BNDCU:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
         : ix86_builtins[IX86_BUILTIN_BNDCU32];
-
-    case BUILT_IN_PL_BNDARG:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDARG64]
-	: ix86_builtins[IX86_BUILTIN_BNDARG32];
 
     case BUILT_IN_PL_BNDRET:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]

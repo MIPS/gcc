@@ -4716,6 +4716,44 @@ gimple_return_set_retval (gimple gs, tree retval)
   gimple_set_op (gs, 0, retval);
 }
 
+/* Return the second return value for GIMPLE_RETURN GS.  */
+
+static inline tree
+gimple_return_retval2 (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gimple_op (gs, 1);
+}
+
+
+/* Set RETVAL to be the second return value for GIMPLE_RETURN GS.  */
+
+static inline void
+gimple_return_set_retval2 (gimple gs, tree retval)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gimple_set_op (gs, 1, retval);
+}
+
+/* Return the third return value for GIMPLE_RETURN GS.  */
+
+static inline tree
+gimple_return_retval3 (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gimple_op (gs, 2);
+}
+
+
+/* Set RETVAL to be the third return value for GIMPLE_RETURN GS.  */
+
+static inline void
+gimple_return_set_retval3 (gimple gs, tree retval)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gimple_set_op (gs, 2, retval);
+}
+
 
 /* Returns true when the gimple statment STMT is any of the OpenMP types.  */
 

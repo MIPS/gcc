@@ -349,12 +349,7 @@ struct register_pass_info
   enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
-<<<<<<< HEAD
-extern void tree_lowering_passes (tree decl);
-
 extern struct gimple_opt_pass pass_pl;
-=======
->>>>>>> 5126701d2d8f5d123867da7395956842631e99ce
 extern struct gimple_opt_pass pass_mudflap_1;
 extern struct gimple_opt_pass pass_mudflap_2;
 extern struct gimple_opt_pass pass_lower_cf;

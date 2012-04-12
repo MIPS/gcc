@@ -1552,7 +1552,7 @@ expand_null_return_1 (void)
    from the current function.  */
 
 void
-expand_return (tree retval)
+expand_return (tree retval, tree retval2, tree retval3)
 {
   rtx result_rtl;
   rtx val = 0;
@@ -1581,6 +1581,25 @@ expand_return (tree retval)
     retval_rhs = retval;
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
+
+  if (retval2 && REG_P (result_rtl))
+    {
+      rtx reg;
+
+      gcc_assert (BOUND_TYPE_P (TREE_TYPE (retval2)));
+      gcc_assert (!retval3);
+
+      reg = targetm.calls.function_value (TREE_TYPE (retval2),
+					  current_function_decl,
+					  0);
+      emit_move_insn (reg, expand_normal (retval2));
+    }
+  else
+    {
+      /* Bound values fo this case are not supported yet. */
+      gcc_assert (!retval2);
+      gcc_assert (!retval3);
+    }
 
   /* If we are returning the RESULT_DECL, then the value has already
      been stored into it, so we don't have to do anything special.  */

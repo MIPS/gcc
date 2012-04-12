@@ -3,7 +3,7 @@
 #endif
 
 //typedef __int128 __bnd;
-
+/*
 extern __inline __bnd __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __pl_bndmk (void* p, int b)
 {
@@ -53,4 +53,13 @@ __pl_bndcu (__bnd b, void* p1)
   return __builtin_ia32_bndcu32 (b, p1);     
 #endif
 }
-
+*/
+extern __inline void *  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+__pl_bind_bounds (void *p, void* lb, size_t size)
+{
+#ifdef  __x86_64__
+  return __builtin_ia32_bind_bounds64 (p, lb, size);
+#else
+  return __builtin_ia32_bind_bounds32 (p, lb, size);
+#endif
+}

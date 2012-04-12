@@ -25,7 +25,8 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
-static void pl_fix_function_decl (void);
+static void pl_fix_function_decl (tree decl, bool make_ssa_names);
+static void pl_fix_function_decls (void);
 static void pl_init (void);
 static void pl_fini (void);
 static void pl_register_bounds (tree ptr, tree bnd);
@@ -52,10 +53,13 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 					      tree *elt, bool *component,
 					      bool *bitfield);
-static void pl_process_stmt(gimple_stmt_iterator *iter, tree *tp,
-			    location_t loc, tree dirflag);
+static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
+static void pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
+static void pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
+			     location_t loc, tree dirflag);
+static void pl_mark_stmt (gimple s);
+static bool pl_marked_stmt (gimple s);
 
-static GTY (()) tree pl_arg_bnd_fndecl;
 static GTY (()) tree pl_bndldx_fndecl;
 static GTY (()) tree pl_bndstx_fndecl;
 static GTY (()) tree pl_checkl_fndecl;
@@ -68,6 +72,25 @@ static GTY (()) tree pl_uintptr_type;
 
 static basic_block entry_block;
 static tree zero_bounds;
+
+static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
+
+static const char *BOUND_TMP_NAME = "__bound_tmp";
+
+static void
+pl_mark_stmt (gimple s)
+{
+  void **slot;
+
+  slot = htab_find_slot (pl_marked_stmts, s, INSERT);
+  *slot = s;
+}
+
+static bool
+pl_marked_stmt (gimple s)
+{
+  return htab_find (pl_marked_stmts, s) != NULL;
+}
 
 static void
 pl_transform_function (void)
@@ -84,6 +107,9 @@ pl_transform_function (void)
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
           gimple s = gsi_stmt (i);
+
+	  if (pl_marked_stmt (s))
+	    continue;
 
           switch (gimple_code (s))
             {
@@ -104,8 +130,16 @@ pl_transform_function (void)
                   pl_process_stmt (&i, gimple_return_retval_ptr (s),
 				   gimple_location (s),
 				   integer_zero_node);
+
+		  /* Additionall we need to add bounds
+		     to return statement.  */
+		  pl_add_bounds_to_ret_stmt (&i);
                 }
               break;
+
+	    case GIMPLE_CALL:
+	      pl_add_bounds_to_call_stmt (&i);
+	      break;
 
             default:
               ;
@@ -114,6 +148,119 @@ pl_transform_function (void)
       bb = next;
     }
   while (bb && bb->index <= saved_last_basic_block);
+}
+
+/* Add bound retvals to return statement pointed by GSI.  */
+
+static void
+pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
+{
+  gimple ret = gsi_stmt (*gsi);
+  tree retval = gimple_return_retval (ret);
+  tree ret_decl = DECL_RESULT (cfun->decl);
+
+  if (!retval)
+    return;
+
+  switch TREE_CODE (TREE_TYPE (ret_decl))
+    {
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+    case ARRAY_TYPE:
+      gimple_return_set_retval2 (ret, pl_find_bounds (retval, gsi));
+      break;
+
+      /* TODO: Add support for structures which may
+	 be returned on registers.  */
+
+    default:
+      break;
+    }
+
+  update_stmt (ret);
+}
+
+/* Add bound arguments to call statement pointed by GSI.  */
+
+static void
+pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
+{
+  gimple call = gsi_stmt (*gsi);
+  unsigned arg_no = 0;
+  unsigned new_arg_no = 0;
+  unsigned bnd_arg_cnt = 0;
+  unsigned arg_cnt = 0;
+  tree fn_decl = TREE_OPERAND (gimple_call_fn (call), 0);
+  tree arg;
+  tree lhs;
+  gimple new_call;
+
+  /* Do nothing if builtin is called.  */
+  if (DECL_BUILT_IN_CLASS (fn_decl) != NOT_BUILT_IN)
+    return;
+
+  /* Get number of arguments and bound arguments from
+     functiond declaration.  */
+  for (arg = DECL_ARGUMENTS (fn_decl); arg; arg = TREE_CHAIN (arg))
+    {
+      if (BOUND_TYPE_P (TREE_TYPE (arg)))
+	bnd_arg_cnt++;
+      arg_cnt++;
+    }
+
+  /* Now add number of additional bound arguments for pointers
+     passed to vararg functions.  */
+  for (arg_no = arg_cnt - bnd_arg_cnt;
+       arg_no < gimple_call_num_args (call);
+       arg_no++)
+    {
+      if (POINTER_TYPE_P (gimple_call_arg (call, arg_no)))
+	arg_cnt++;
+    }
+
+  new_call = gimple_alloc (GIMPLE_CALL, arg_cnt + 3);
+  memcpy (new_call, call, sizeof (struct gimple_statement_call));
+  gimple_set_num_ops (new_call, arg_cnt + 3);
+  gimple_set_op (new_call, 0, gimple_op (call, 0));
+  gimple_set_op (new_call, 1, gimple_op (call, 1));
+  gimple_set_op (new_call, 2, gimple_op (call, 2));
+
+  arg_no = 0;
+  for (arg = DECL_ARGUMENTS (fn_decl); arg; arg = TREE_CHAIN (arg))
+    {
+      tree call_arg = gimple_call_arg (call, arg_no);
+
+      if (BOUND_TYPE_P (TREE_TYPE (arg)))
+	{
+	  tree bounds = pl_find_bounds (call_arg, gsi);
+	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
+	}
+      else
+	{
+	  gimple_call_set_arg (new_call, new_arg_no++, call_arg);
+	  arg_no++;
+	}
+    }
+
+  for ( ; arg_no < gimple_call_num_args (call); arg_no++)
+    {
+      tree call_arg = gimple_call_arg (call, arg_no);
+      if (POINTER_TYPE_P (call_arg))
+	gimple_call_set_arg (new_call, new_arg_no++,
+			     pl_find_bounds (call_arg, gsi));
+      gimple_call_set_arg (new_call, new_arg_no++, call_arg);
+    }
+
+  lhs = gimple_call_lhs (call);
+  if (lhs)
+    {
+      gcc_assert (TREE_CODE (lhs) == SSA_NAME);
+
+      gimple_call_set_lhs (new_call, lhs);
+      SSA_NAME_DEF_STMT (lhs) = new_call;
+    }
+
+  gsi_replace (gsi, new_call, true);
 }
 
 static void
@@ -131,12 +278,14 @@ pl_check_mem_access (tree first, tree last, tree bounds,
   gimple_seq_add_seq (&seq, stmts);
 
   stmt = gimple_build_call (pl_checkl_fndecl, 2, bounds, node);
+  pl_mark_stmt (stmt);
   gimple_seq_add_stmt (&seq, stmt);
 
   node = force_gimple_operand (last, &stmts, true, NULL_TREE);
   gimple_seq_add_seq (&seq, stmts);
 
   stmt = gimple_build_call (pl_checku_fndecl, 2, bounds, node);
+  pl_mark_stmt (stmt);
   gimple_seq_add_stmt (&seq, stmt);
 
   gsi_insert_seq_before (instr_gsi, seq, GSI_SAME_STMT);
@@ -219,9 +368,10 @@ pl_build_returned_bound (gimple call)
   gimple stmt;
 
   stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
+  pl_mark_stmt (stmt);
   gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 
-  bounds = create_tmp_reg (pl_bound_type, NULL);
+  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
   add_referenced_var (bounds);
   bounds = make_ssa_name (bounds, stmt);
   gimple_call_set_lhs (stmt, bounds);
@@ -283,7 +433,8 @@ pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi)
   gimple_seq_add_seq (&seq, stmts);
 
   stmt = gimple_build_call (pl_bndldx_fndecl, 2, addr, ptr);
-  bounds = create_tmp_reg (pl_bound_type, NULL);
+  pl_mark_stmt (stmt);
+  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
   add_referenced_var (bounds);
   bounds = make_ssa_name (bounds, stmt);
   gimple_call_set_lhs (stmt, bounds);
@@ -319,6 +470,7 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
   gimple_seq_add_seq (&seq, stmts);
 
   stmt = gimple_build_call (pl_bndstx_fndecl, 3, addr, ptr, bounds);
+  pl_mark_stmt (stmt);
 
   gimple_seq_add_stmt (&seq, stmt);
 
@@ -453,7 +605,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       break;
 
     case GIMPLE_PHI:
-      bounds = create_tmp_reg (pl_bound_type, NULL);
+      bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
       add_referenced_var (bounds);
 
       stmt = create_phi_node (bounds, gimple_bb (def_stmt));
@@ -493,8 +645,9 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
   gimple_seq_add_seq (&seq, stmts);
 
   stmt = gimple_build_call (pl_bndmk_fndecl, 2, lb, size);
+  pl_mark_stmt (stmt);
 
-  bounds = create_tmp_reg (pl_bound_type, NULL);
+  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
   add_referenced_var (bounds);
   bounds = make_ssa_name (bounds, stmt);
   gimple_call_set_lhs (stmt, bounds);
@@ -855,15 +1008,26 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
     }
 }
 
-/* Add input bound arguments declaration to the current
-   function declaration.  */
+/* Add input bound arguments declaration to the function
+   declaration DECL.  Do nothing if function already have
+   bound arguments.  If MAKE_SSA_NAMES is set then ssa name
+   is created and registered as a bound for each added
+   argument.  */
 static void
-pl_fix_function_decl (void)
+pl_fix_function_decl (tree decl, bool make_ssa_names)
 {
-  tree decl = cfun->decl;
   tree arg = DECL_ARGUMENTS (decl);
   tree prev_arg = NULL_TREE;
+  bool fixed = false;
   int bnd_no = 0;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file,
+	       "Building bound arguments for funtion declaration '");
+      print_generic_expr (dump_file, decl, 0);
+      fprintf (dump_file, "'\n");
+    }
 
   /* Nothing to do if function has no input arguments.  */
   if (!arg)
@@ -872,10 +1036,26 @@ pl_fix_function_decl (void)
   /* Go through all input pointers and create bound
      declaration for each of them.  Bound declaration
      is placed right before pointer arg.  Also make
-     and register ssa name for each bound.  */
+     register ssa name for each bound if needed.  */
   while (arg)
     {
-      if (POINTER_TYPE_P (TREE_TYPE (arg)))
+      /* Bound argument may appear only if the
+	 declaration has been already fixed.  */
+      if (BOUND_TYPE_P (TREE_TYPE (arg)))
+	{
+	  if (make_ssa_names)
+	    {
+	      tree bounds = make_ssa_name (arg, gimple_build_nop ());
+	      SSA_NAME_IS_DEFAULT_DEF (bounds) = 1;
+	      pl_register_bounds (arg, bounds);
+
+	      fixed = true;
+	    }
+	  else
+	    return;
+	}
+
+      if (POINTER_TYPE_P (TREE_TYPE (arg)) && !fixed)
 	{
 	  char name_buf[20];
 	  tree name;
@@ -890,7 +1070,7 @@ pl_fix_function_decl (void)
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
-	      fprintf (dump_file, "Built bounds '");
+	      fprintf (dump_file, "  Built bounds '");
 	      print_generic_expr (dump_file, bounds, 0);
 	      fprintf (dump_file, "' for arg '");
 	      print_generic_expr (dump_file, arg, 0);
@@ -922,11 +1102,30 @@ pl_fix_function_decl (void)
 }
 
 static void
+pl_fix_function_decls (void)
+{
+  basic_block bb;
+  gimple_stmt_iterator i;
+
+  pl_fix_function_decl (cfun->decl, true);
+
+  FOR_ALL_BB (bb)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      {
+	gimple stmt = gsi_stmt (i);
+	if (is_gimple_call (stmt))
+	  pl_fix_function_decl (TREE_OPERAND (gimple_call_fn (stmt), 0),
+				false);
+      }
+}
+
+static void
 pl_init (void)
 {
-  /* Allocate hash table for bounds.  */
   pl_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 				   NULL);
+  pl_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
+				     NULL);
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
@@ -935,7 +1134,6 @@ pl_init (void)
   pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 
   /* Build declarations for builtin functions.  */
-  pl_arg_bnd_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDARG);
   pl_bndldx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDLDX);
   pl_bndstx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDSTX);
   pl_checkl_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCL);
@@ -956,7 +1154,7 @@ pl_execute (void)
   //TODO: check we need to instrument this function
   pl_init ();
 
-  pl_fix_function_decl ();
+  pl_fix_function_decls ();
   pl_transform_function ();
 
   pl_fini ();

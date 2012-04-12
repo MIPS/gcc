@@ -919,7 +919,7 @@ enum target_cpu_default
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
      2,   2,    2,    2,    2,    2,    2,    2,		\
 /*  b0,b1,b2,b3*/						\
-     0, 0, 0, 0 }  
+     0, 0, 0, 0 }
 
 
 /* 1 for registers not available across function calls.

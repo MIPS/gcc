@@ -5226,7 +5226,7 @@ extern void expand_goto (tree);
 
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
-extern void expand_return (tree);
+extern void expand_return (tree, tree, tree);
 
 /* In tree-eh.c */
 extern void using_eh_for_cleanups (void);
