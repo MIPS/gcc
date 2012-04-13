@@ -1172,6 +1172,7 @@ static rtx spe_expand_stv_builtin (enum insn_code, tree);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
 static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx, int);
+static bool rs6000_have_conditional_execution (void);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void debug_stack_info (rs6000_stack_t *);
 
@@ -1767,6 +1768,10 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_HAVE_CONDITIONAL_EXECUTION
+#define TARGET_HAVE_CONDITIONAL_EXECUTION rs6000_have_conditional_execution
+
 
 
 /* Simplifications for entries below.  */
@@ -17016,6 +17021,14 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   return 1;
 }
 
+/* Return true if we have conditional execution.  */
+static bool
+rs6000_have_conditional_execution (void)
+{
+  return (TARGET_SETCC_BCP8 && TARGET_BCP8_COND_EXEC);
+}
+
+/* Ouptut an ISEL (integer select) instruction.  */
 const char *
 output_isel (rtx *operands)
 {
