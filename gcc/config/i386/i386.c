@@ -29597,10 +29597,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
 
-      if (!REG_P (op0))
-        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op0);
       if (!REG_P (op1))
-        op2 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
+        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
+      if (!REG_P (op2))
+        op2 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op2);
 
       emit_insn( gen_bnd_mkbnd64 (gen_rtx_REG (TARGET_64BIT
 					       ? BND64mode
