@@ -1,3 +1,39 @@
+2012-04-06  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline
+	2012-03-07  Walter Lee  <walt@tilera.com>
+
+	* config/tilepro/atomic.c: Rename "atomic_" prefix to
+	"arch_atomic_".
+	(atomic_xor): Rename and move definition to
+	config/tilepro/atomic.h.
+	(atomic_nand): Ditto.
+	* config/tilepro/atomic.h: Rename "atomic_" prefix to
+	"arch_atomic_".
+	(arch_atomic_xor): Move from config/tilepro/atomic.c.
+	(arch_atomic_nand): Ditto.
+
+2012-04-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-04-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/linux-unwind.h (RT_SIGRETURN_SYSCALL): Update x32
+	system call number.
+
+2012-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/unwind-ia64.c (uw_install_context): Manually save LC
+	if it hasn't been previously saved.
+
+2012-03-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-03-28 mainline r185907.
+
+	PR target/52737
+	* config/avr/lib1funcs.S: Use __AVR_HAVE_SPH__ for SP_H checks
+	instead of __AVR_HAVE_8BIT_SP__.
+
 2012-03-22  Georg-Johann Lay  <avr@gjlay.de>
 
 	Backport from 2012-03-07 mainline r185033.

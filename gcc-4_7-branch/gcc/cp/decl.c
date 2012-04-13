@@ -4420,7 +4420,8 @@ start_decl (const cp_declarator *declarator,
     }
 
   /* If #pragma weak was used, mark the decl weak now.  */
-  maybe_apply_pragma_weak (decl);
+  if (!processing_template_decl)
+    maybe_apply_pragma_weak (decl);
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DECLARED_INLINE_P (decl)
@@ -10573,6 +10574,17 @@ check_default_argument (tree decl, tree arg)
 	       decl_type, TREE_TYPE (arg));
 
       return error_mark_node;
+    }
+
+  if (warn_zero_as_null_pointer_constant
+      && c_inhibit_evaluation_warnings == 0
+      && (POINTER_TYPE_P (decl_type) || TYPE_PTR_TO_MEMBER_P (decl_type))
+      && null_ptr_cst_p (arg)
+      && !NULLPTR_TYPE_P (TREE_TYPE (arg)))
+    {
+      warning (OPT_Wzero_as_null_pointer_constant,
+	       "zero as null pointer constant");
+      return nullptr_node;
     }
 
   /* [dcl.fct.default]

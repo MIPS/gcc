@@ -1,3 +1,74 @@
+2012-04-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/52942
+	* include/bits/stl_function.h (_Identity, _Select1st, _Select2nd):
+	In C++11 mode do not derive from std::unary_function.
+	* include/ext/functional (identity, select1st, select2nd): Adjust.
+	* testsuite/23_containers/unordered_map/requirements/52942.cc: New.
+	* testsuite/23_containers/unordered_set/requirements/52942.cc: Likewise.
+
+2012-04-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/52924
+	* include/bits/shared_ptr_base.h (_Sp_counted_deleter): Add
+	user-defined destructor.
+	(_Sp_counted_inplace): Likewise.
+	* testsuite/20_util/shared_ptr/cons/52924.cc: New.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error
+	line numbers.
+
+2012-04-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/performance/30_threads/future/polling.cc: Adjust.
+
+2012-04-11  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/52591
+	* include/bits/stl_vector.h (vector::operator=(vector&&)): Dispatch
+	to _M_move_assign depending on whether allocator is moved.
+	(vector::_M_move_assign): Add overloaded functions.
+	* testsuite/23_containers/vector/52591.cc: New.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+2012-04-09  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/52476
+	* include/bits/hashtable.h (_Hashtable<>::_M_rehash_aux): Add.
+	(_Hashtable<>::_M_rehash): Use the latter.
+	* testsuite/23_containers/unordered_multimap/insert/52476.cc: New.
+	* testsuite/23_containers/unordered_multiset/insert/52476.cc: New.
+
+2012-04-09  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2012-03-28  Terry Guo  <terry.guo@arm.com>
+
+	* testsuite/Makefile.am (TEST_GCC_EXEC_PREFIX): New.
+	* testsuite/Makefile.in: Regenerated.
+
+2012-03-30  Jeffrey Yasskin  <jyasskin@gcc.gnu.org>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/52799
+	* include/bits/deque.tcc (emplace): Fix thinko, replace push_front
+	-> emplace_front, and likewise for *_back.
+	* testsuite/23_containers/deque/modifiers/emplace/52799.cc: New.
+	* testsuite/23_containers/list/modifiers/emplace/52799.cc: Likewise.
+	* testsuite/23_containers/vector/modifiers/emplace/52799.cc: Likewise.
+
+2012-03-23  David S. Miller  <davem@davemloft.net>
+
+	* config/abi/post/sparc-linux-gnu/baseline_symbols.txt: Update.
+
 2012-03-23  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/forward_list.h: Fix comments.
