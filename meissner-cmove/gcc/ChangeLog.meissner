@@ -1,3 +1,85 @@
+2012-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sCOND): Add 64-bit result
+	target support.  Return true/false so cstore can FAIL.  Rewrite
+	how bcp8/isel are done.  Rather than doing a CRNOT on the CR, do
+	an XORI on the result afterards.
+	(rs6000_expand_inminmax): Rename bcp8<mode> and isel<mode>
+	patterns.  Rework ISEL support.
+	(rs6000_emit_int_cmove): Likewise.
+
+	* config/rs6000/rs6000.md (abs<mode>2): Rename bcp8<mode> and
+	isel<mode> patterns.  Make isel an expander so we don't have to
+	test whether to reverse the test or not.
+	(nambs<mode>2): Likewise.
+	(isel<mode>): Likewise.
+	(isel_normal<mode>): Likewise.
+	(isel_reversed<mode>): Likewise.
+	(bcp8<mode>): Likewise.
+	(TARGET_POWER doz patterns): Delete old TARGET_POWER only insns.
+	(eqsi_power): Likewise.
+	(unnamed power only setcc insns): Likewise.
+	(cstore<mode>4): For branch conditional+8 and ISEL systems, create
+	64-bit values on 64-bit systems.
+	(setcc<mode>): Go through all setcc patterns and add
+	TARGET_SETCC_MFCR.  Name the patterns.  Split the MFCR and the
+	RLWINM to enable scheduling between the patterns.  Combine 32-bit
+	and 64-bit patterns where we can.
+	(setcc<mode>_internal1): Likewise.
+	(setcc<mode>_internal2): Likewise.
+	(setcc<mode>_internal3): Likewise.
+	(setcc<mode>_internal4): Likewise.
+	(leu<mode>): Likewise.
+	(leu<mode>_compare): Likewise.
+	(plus_leu<mode>): Likewise.
+	(plus_leu_comparesi): Likewise.
+	(plus_leu_compare2si): Likewise.
+	(neg_leu<mode>): Likewise.
+	(and_neg_leu<mode>): Likewise.
+	(and_compare_leusi): Likewise.
+	(and_compare2_leusi): Likewise.
+	(ltu<mode>): Likewise.
+	(ltu<mode>_compare): Likewise.
+	(plus_ltu<mode>): Likewise.
+	(plus_ltu<mode>_compare): Likewise.
+	(neg_ltu<mode>): Likewise.
+	(geu<mode>): Likewise.
+	(geu<mode>_compare): Likewise.
+	(plus_geu<mode>): Likewise.
+	(plus_geu2si): Likewise.
+	(plus_geu3si): Likewise.
+	(neg_geu<mode>): Likewise.
+	(and_neg_geu<mode>): Likewise.
+	(and_neg_geu2si): Likewise.
+	(and_neg_geu3si): Likewise.
+	(plus_gt0<mode>): Likewise.
+	(plus_gt0xsi): Likewise.
+	(compare_plus_gtdi): Likewise.
+	(compare_plus_gtsi): Likewise.
+	(compare_plus_gt2di): Likewise.
+	(gtu<mode>): Likewise.
+	(gtu<mode>_compare): Likewise.
+	(plus_gtu<mode>): Likewise.
+	(neg_gtu<mode>): Likewise.
+	(setcc_neg_bcp8disi): Add pattern to avoid extsw for -(a <op> b)
+	when using branch conditional+8.
+	(setcc_isel<mode>): Make this an expander, rename actual pattern.
+	Eliminate clobber of scratch register, and create new pseudo at
+	split time.  Use force_reg to load 0/1 so we can share the
+	constants.
+	(setcc_isel_normal<mode>): Likewise.
+	(setcc_isel_reverse<mode>): Likewise.
+	(setcc_neg_isel<mode>): Add patterns to reconize -(a <op> b) when
+	using ISEL.  Add sign extension support for negation.
+	(setcc_neg_iseldisi): Likewise.
+	(setcc_neg_isel_rev<mode>): Likewise.
+	(setcc_neg_isel_revdisi): Likewise.
+	(setcc_plus_isel<mode>): Reconize + ISEL setcc.
+	(setcc_plus_bcp8<mode>): Rename.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_sCOND): Update call
+	signature.
+
 2012-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/power7.md (power7-integer): Split isel handling

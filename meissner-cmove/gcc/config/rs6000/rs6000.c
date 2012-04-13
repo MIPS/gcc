@@ -16150,23 +16150,71 @@ rs6000_emit_sISEL (enum machine_mode mode ATTRIBUTE_UNUSED, rtx operands[],
 			 isel_type);
 }
 
-void
+/* Emit the RTL for set conditional.  On 64-bit systems using ISEL or branch
+   conditional+8, support setting the target to be DImode instead of
+   SImode.  */
+bool
 rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
 {
   rtx condition_rtx;
   enum machine_mode op_mode;
-  enum rtx_code cond_code;
   rtx result = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx op3 = operands[3];
+  enum machine_mode result_mode = GET_MODE (result);
+  enum rtx_code cond_code = GET_CODE (op1);
+  bool reverse_p = false;
 
-  if (TARGET_ISEL && (mode == SImode || mode == DImode))
+  /* Take care of the possibility that operands[3] might be negative but
+     this might be a logical operation.  That insn doesn't exist.  */
+  if (GET_CODE (op3) == CONST_INT && INTVAL (op3) < 0
+      && (cond_code == LEU || cond_code == LTU || cond_code == GEU
+	  || cond_code == GTU))
     {
-      rs6000_emit_sISEL (mode, operands, ISEL_SETCC);
-      return;
+      op3 = force_reg (mode, op3);
+      op1 = gen_rtx_fmt_ee (cond_code, GET_MODE (operands[1]), op2, op3);
+    }
+
+  /* For SEQ, comparisons with zero should be done with an scc insns.  However,
+     due to the order that combine see the resulting insns, we must, in fact,
+     allow SEQ for integers.  Fail in the cases we don't want to handle or are
+     best handled by portable code.  */
+  if (TARGET_SETCC_MFCR && op3 == const0_rtx
+      && (cond_code == LT || cond_code == LE || cond_code == GT
+	  || cond_code == GE))
+    return false;
+
+  /* Use count leading zeros for EQ/NE.  */
+  if (TARGET_EQ_NE && (cond_code == EQ || cond_code == NE)
+      && GET_MODE_CLASS (mode) == MODE_INT
+      && (result_mode == mode || can_create_pseudo_p ()))
+    {
+      rtx opa = XEXP (operands[1], 0);
+      rtx opb = XEXP (operands[1], 1);
+      rtx result2 = ((result_mode == mode)
+		     ? result : gen_reg_rtx (mode));
+
+      rtx op_eq = gen_rtx_fmt_ee (EQ, mode, opa, opb);
+      if (cond_code == EQ)
+	emit_insn (gen_rtx_SET (VOIDmode, result2, op_eq));
+      else
+	{
+	  rtx op_xor = gen_rtx_fmt_ee (XOR, mode, result2, const1_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, result2, op_eq));
+	  emit_insn (gen_rtx_SET (VOIDmode, result2, op_xor));
+	}
+
+      if (result != result2)
+	convert_move (result, result2, 0);
+
+      return true;
     }
 
   condition_rtx = rs6000_generate_compare (operands[1], mode);
   cond_code = GET_CODE (condition_rtx);
 
+  /* E500 floating point in GPRS.  */
   if (FLOAT_MODE_P (mode)
       && !TARGET_FPRS && TARGET_HARD_FLOAT)
     {
@@ -16181,41 +16229,39 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
 	emit_insn (gen_e500_flip_gt_bit (t, t));
 
       emit_insn (gen_move_from_CR_gt_bit (result, t));
-      return;
+      return true;
     }
 
-  if (cond_code == NE
-      || cond_code == GE || cond_code == LE
-      || cond_code == GEU || cond_code == LEU
-      || cond_code == ORDERED || cond_code == UNGE || cond_code == UNLE)
+  /* If we are generating a condition that is the reverse of a CR condition,
+     flip the test via XOR rather than doing a CRNOT operation.  */
+  if (TARGET_SETCC_MFCR
+      && (cond_code == NE || cond_code == GE || cond_code == LE
+	  || cond_code == GEU || cond_code == LEU || cond_code == ORDERED
+	  || cond_code == UNGE || cond_code == UNLE))
     {
-      rtx not_result = gen_reg_rtx (CCEQmode);
-      rtx not_op, rev_cond_rtx;
-      enum machine_mode cc_mode;
-
-      cc_mode = GET_MODE (XEXP (condition_rtx, 0));
-
-      rev_cond_rtx = gen_rtx_fmt_ee (rs6000_reverse_condition (cc_mode, cond_code),
-				     SImode, XEXP (condition_rtx, 0), const0_rtx);
-      not_op = gen_rtx_COMPARE (CCEQmode, rev_cond_rtx, const0_rtx);
-      emit_insn (gen_rtx_SET (VOIDmode, not_result, not_op));
-      condition_rtx = gen_rtx_EQ (VOIDmode, not_result, const0_rtx);
+      PUT_CODE (condition_rtx, reverse_condition (cond_code));
+      reverse_p = true;
     }
 
   op_mode = GET_MODE (XEXP (operands[1], 0));
   if (op_mode == VOIDmode)
     op_mode = GET_MODE (XEXP (operands[1], 1));
 
-  if (TARGET_POWERPC64 && (op_mode == DImode || FLOAT_MODE_P (mode)))
-    {
-      PUT_MODE (condition_rtx, DImode);
-      convert_move (result, condition_rtx, 0);
-    }
+  PUT_MODE (condition_rtx, result_mode);
+  if (!reverse_p)
+    emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+
   else
     {
-      PUT_MODE (condition_rtx, SImode);
-      emit_insn (gen_rtx_SET (VOIDmode, result, condition_rtx));
+      rtx tmp = (can_create_pseudo_p ()
+		 ? gen_reg_rtx (result_mode) : result);
+      rtx op_xor = gen_rtx_fmt_ee (XOR, result_mode, tmp, const1_rtx);
+
+      emit_insn (gen_rtx_SET (VOIDmode, tmp, condition_rtx));
+      emit_insn (gen_rtx_SET (VOIDmode, result, op_xor));
     }
+
+  return true;
 }
 
 /* A C expression to modify the code described by the conditional if
@@ -16869,7 +16915,6 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx, rtx);
   rtx (*bcp8_func) (rtx, rtx, rtx, rtx, rtx);
   rtx (*setcc_isel_func) (rtx, rtx, rtx);
-  rtx (*setcc_isel_rev_func) (rtx, rtx, rtx);
   bool reverse_p = false;
 
   if (!TARGET_SETCC_ISEL_OR_BCP8)
@@ -16877,24 +16922,22 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
 
   if (mode == SImode)
     {
-      isel_func = gen_isel_si;
-      bcp8_func = gen_bcp8_si;
+      isel_func = gen_iselsi;
+      bcp8_func = gen_bcp8si;
       setcc_isel_func = gen_setcc_iselsi;
-      setcc_isel_rev_func = gen_setcc_isel_revsi;
     }
   else if (mode == DImode && TARGET_POWERPC64)
     {
-      bcp8_func = gen_bcp8_di;
-      isel_func = gen_isel_di;
+      bcp8_func = gen_bcp8di;
+      isel_func = gen_iseldi;
       setcc_isel_func = gen_setcc_iseldi;
-      setcc_isel_rev_func = gen_setcc_isel_revdi;
     }
   else
     return 0;
 
-  /* We still have to do the compare, because isel doesn't do a
-     compare, it just looks at the CRx bits set by a previous compare
-     instruction.  */
+  /* We still have to do the compare, because isel and branch conditional+8
+     doesn't do a compare, it just looks at the CRx bits set by a previous
+     compare instruction.  */
   condition_rtx = rs6000_generate_compare (op, GET_MODE (XEXP (op, 0)));
   cond_code = GET_CODE (condition_rtx);
   cr = XEXP (condition_rtx, 0);
@@ -16902,6 +16945,19 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
   /* ISEL support.  */
   if (TARGET_SETCC_ISEL)
     {
+      /* Convert to using setcc form for 0/1.  */
+      if (true_cond == const1_rtx && false_cond == const0_rtx)
+	{
+	  emit_insn (setcc_isel_func (dest, op, cr));
+	  return 1;
+	}
+      else if (true_cond == const0_rtx && false_cond == const1_rtx)
+	{
+	  PUT_CODE (condition_rtx, reverse_condition (cond_code));
+	  emit_insn (setcc_isel_func (dest, op, cr));
+	  return 1;
+	}
+
       switch (cond_code)
 	{
 	  /* isel handles these directly.  */
@@ -16915,16 +16971,6 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
 
 	default:
 	  return 0;
-	}
-
-      /* Convert to using setcc form for 0/1.  */
-      if (true_cond == const1_rtx && false_cond == const0_rtx)
-	{
-	  if (reverse_p)
-	    emit_insn (setcc_isel_rev_func (dest, op, cr));
-	  else
-	    emit_insn (setcc_isel_func (dest, op, cr));
-	  return 1;
 	}
 
       /* Do normal ISEL, handing reversing the condition if needed.  */
@@ -17047,13 +17093,13 @@ rs6000_expand_iminmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
 
   if (mode == SImode)
     {
-      isel_func = gen_isel_si;
-      bcp8_func = gen_bcp8_si;
+      isel_func = gen_iselsi;
+      bcp8_func = gen_bcp8si;
     }
   else if (mode == DImode)
     {
-      isel_func = gen_isel_di;
-      bcp8_func = gen_bcp8_di;
+      isel_func = gen_iseldi;
+      bcp8_func = gen_bcp8di;
     }
   else
     gcc_unreachable ();
@@ -17272,7 +17318,7 @@ rs6000_adjust_atomic_subword (rtx orig_mem, rtx *pshift, rtx *pmask)
 }
 
 /* A subroutine of the various atomic expanders.  For sub-word operands,
-   combine OLDVAL and NEWVAL via MASK.  Returns a new pseduo.  */
+   combine OLDVAL and NEWVAL via MASK.  Returns a new pseudo.  */
 
 static rtx
 rs6000_mask_atomic_subword (rtx oldval, rtx newval, rtx mask)
