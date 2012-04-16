@@ -558,7 +558,7 @@ Target Report Var(TARGET_BCP8) Init(-1) Save
 Enable/disable branch conditional + 8 optimizations
 
 mbcp8-cond-exec
-Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(1) Save
+Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(-1) Save
 ; Enable/disable doing conditional execution with branch conditional + 8
 
 meq-ne

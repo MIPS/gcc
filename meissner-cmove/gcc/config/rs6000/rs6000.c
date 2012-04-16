@@ -2374,7 +2374,7 @@ rs6000_debug_reg_global (void)
   if (TARGET_BCP8)
     fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
 
-  if (TARGET_BCP8 && TARGET_BCP8_COND_EXEC)
+  if (TARGET_BCP8_COND_EXEC)
     fprintf (stderr, DEBUG_FMT_S, "bcp8-cond-exec", "true");
 
   if (TARGET_ISEL)
@@ -3596,6 +3596,9 @@ rs6000_option_override_internal (bool global_init_p)
     }
   else
     explicit_bcp8 = (TARGET_BCP8 != 0);
+
+  if (TARGET_BCP8_COND_EXEC == -1)
+    TARGET_BCP8_COND_EXEC = TARGET_BCP8;
 
   /* Determine how to do integer absolute value.  By default, don't use branch
      conditional + 8 or ISEL on power7 to do IABS, since the traditional way of
@@ -17025,7 +17028,7 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond,
 static bool
 rs6000_have_conditional_execution (void)
 {
-  return (TARGET_SETCC_BCP8 && TARGET_BCP8_COND_EXEC);
+  return (TARGET_BCP8_COND_EXEC);
 }
 
 /* Ouptut an ISEL (integer select) instruction.  */

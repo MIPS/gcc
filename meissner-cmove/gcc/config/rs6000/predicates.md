@@ -945,6 +945,10 @@
 						   GET_MODE (XEXP (op, 0))),
 			  1"))))
 
+(define_predicate "int_branch_comparison_operator"
+   (and (match_operand 0 "branch_comparison_operator")
+	(match_test "GET_MODE (XEXP (op, 0)) != CCFPmode")))
+
 (define_predicate "rs6000_cbranch_operator"
   (if_then_else (match_test "TARGET_HARD_FLOAT && !TARGET_FPRS")
 		(match_operand 0 "ordered_comparison_operator")
