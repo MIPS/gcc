@@ -6690,10 +6690,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->bnd_nregs -= 1;
       cum->bnd_regno += 1;
       if (cum->bnd_nregs <= 0)
-	{
-	  cum->bnd_nregs = 0;
-	  cum->bnd_regno = 0;
-	}
+	cum->bnd_nregs = 0;
     }
 }
 
@@ -6702,14 +6699,20 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT words, bool named)
 {
   int int_nregs, sse_nregs, bnd_nregs;
+  bool no_more_bound_regs;
 
   /* Unnamed 256bit vector mode parameters are passed on stack.  */
   if (!named && VALID_AVX256_REG_MODE (mode))
     return;
 
+  /* If we have no more registers for pointers after previous
+     arg allocation then we cannot allocate register for bound
+     arg any more.  */
+  no_more_bound_regs = cum->nregs <= 0;
+
   if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs)
       && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs
-      && bnd_nregs <= cum->bnd_nregs && (bnd_nregs == 0 || cum->nregs > 0))
+      && bnd_nregs <= cum->bnd_nregs)
     {
       cum->nregs -= int_nregs;
       cum->sse_nregs -= sse_nregs;
@@ -6723,6 +6726,14 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       int align = ix86_function_arg_boundary (mode, type) / BITS_PER_WORD;
       cum->words = (cum->words + align - 1) & ~(align - 1);
       cum->words += words;
+    }
+
+  /* We set regno to be (LAST_BND_REG + 1) to force next bound
+     to be loaded using (%sp - 4) for address translation.  */
+  if (no_more_bound_regs)
+    {
+      cum->bnd_nregs = 0;
+      cum->bnd_regno = LAST_BND_REG + 1;
     }
 }
 
@@ -30153,6 +30164,85 @@ ix86_builtin_pl_function (unsigned fcode)
   gcc_unreachable ();
 }
 
+static rtx
+ix86_load_bounds (cumulative_args_t cum_v, rtx parm)
+{
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+  rtx addr;
+  rtx ptr;
+  rtx reg;
+
+  if (REG_P (parm))
+    {
+      /* We do not expect non register bounds for register
+	 parameters other than R8 and R9.  */
+      gcc_assert (REGNO (parm) == R8_REG || REGNO (parm) == R9_REG);
+
+      /* Here we have the case when more than five pointers are
+	 passed on registers.  In this case we are out of bound
+	 registers and have to use bndldx to load bound.  RA and
+	 RA + 4 are used for address translation in bndldx.  */
+      if (cum->bnd_regno == LAST_BND_REG + 1)
+	{
+	  addr = plus_constant (arg_pointer_rtx, -8);
+	  cum->bnd_regno++;
+	}
+      else
+	addr = plus_constant (arg_pointer_rtx, -4);
+
+      ptr = parm;
+    }
+  else if (MEM_P (parm))
+    {
+      addr = XEXP (parm, 0);
+      ptr = copy_to_mode_reg (Pmode, parm);
+    }
+  else
+    gcc_unreachable ();
+
+  reg = gen_reg_rtx (TARGET_64BIT ? BND64mode : BND32mode);
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd_ldxbnd64 (reg, addr, ptr)
+	     : gen_bnd_ldxbnd32 (reg, addr, ptr));
+
+  return reg;
+}
+
+static rtx
+ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
+		   rtx bounds, bool reversed)
+{
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
+  if (REG_P (addr))
+    {
+      /* Non register bounds comes only for parameters in
+	 R8 and R9.  */
+      gcc_assert (REGNO (addr) == R8_REG || REGNO (addr) == R9_REG);
+
+      if (cum->bnd_regno == LAST_BND_REG + 1)
+	{
+	  addr = plus_constant (stack_pointer_rtx, reversed ? -8 : -4);
+	  cum->bnd_regno++;
+	}
+      else
+	addr = plus_constant (stack_pointer_rtx, reversed ? -4 : -8);
+    }
+  else if (MEM_P (addr))
+    addr = XEXP (addr, 0);
+  else
+    gcc_unreachable ();
+
+  if (!REG_P (ptr))
+    ptr = copy_to_mode_reg (Pmode, ptr);
+
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd_stxbnd64 (addr, ptr, bounds)
+	     : gen_bnd_stxbnd32 (addr, ptr, bounds));
+
+  return NULL_RTX;
+}
+
 /* Returns a function decl for a vectorized version of the builtin function
    with builtin function code FN and the result vector type TYPE, or NULL_TREE
    if it is not available.  */
@@ -39219,8 +39309,15 @@ ix86_autovectorize_vector_sizes (void)
 #define TARGET_BUILTIN_DECL ix86_builtin_decl
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
+
 #undef TARGET_BUILTIN_PL_FUNCTION
 #define TARGET_BUILTIN_PL_FUNCTION ix86_builtin_pl_function
+
+#undef TARGET_LOAD_BOUNDS_FOR_ARG
+#define TARGET_LOAD_BOUNDS_FOR_ARG ix86_load_bounds
+
+#undef TARGET_STORE_BOUNDS_FOR_ARG
+#define TARGET_STORE_BOUNDS_FOR_ARG ix86_store_bounds
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \

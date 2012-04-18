@@ -59,6 +59,8 @@ struct arg_data
   rtx value;
   /* Initially-compute RTL value for argument; only for const functions.  */
   rtx initial_value;
+  /* Pushed value.  */
+  rtx pushed_value;
   /* Register to pass this argument in, 0 if passed on stack, or an
      PARALLEL if the arg is to be copied into multiple non-contiguous
      registers.  */
@@ -127,7 +129,8 @@ static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 cumulative_args_t);
 static void precompute_register_parameters (int, struct arg_data *, int *);
-static int store_one_arg (struct arg_data *, rtx, int, int, int);
+static int store_one_arg (cumulative_args_t, struct arg_data *, rtx, int,
+			  int, int);
 static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
@@ -1292,9 +1295,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	*must_preallocate = 1;
 
       /* Compute the stack-size of this argument.  */
-      if (args[i].reg == 0 || args[i].partial != 0
-	  || reg_parm_stack_space > 0
-	  || args[i].pass_on_stack)
+      if ((args[i].reg == 0 || args[i].partial != 0
+	   || reg_parm_stack_space > 0
+	   || args[i].pass_on_stack)
+	  && !BOUND_TYPE_P (type))
 	locate_and_pad_parm (mode, type,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
 			     1,
@@ -1555,7 +1559,8 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  /* Skip this parm if it will not be passed on the stack.  */
 	  if (! args[i].pass_on_stack
-	      && args[i].reg != 0
+	      && (args[i].reg != 0
+		  || BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
 	      && args[i].partial == 0)
 	    continue;
 
@@ -3011,11 +3016,12 @@ expand_call (tree exp, rtx target, int ignore)
 
       for (i = 0; i < num_actuals; i++)
 	{
-	  if (args[i].reg == 0 || args[i].pass_on_stack)
+	  if ((args[i].reg == 0 || args[i].pass_on_stack)
+	      && ! BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
 	    {
 	      rtx before_arg = get_last_insn ();
 
-	      if (store_one_arg (&args[i], argblock, flags,
+	      if (store_one_arg (args_so_far, &args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
 				 reg_parm_stack_space)
 		  || (pass == 0
@@ -3042,11 +3048,12 @@ expand_call (tree exp, rtx target, int ignore)
 	 This is the last place a block-move can happen.  */
       if (reg_parm_seen)
 	for (i = 0; i < num_actuals; i++)
-	  if (args[i].partial != 0 && ! args[i].pass_on_stack)
+	  if (args[i].partial != 0 && ! args[i].pass_on_stack
+	      && ! BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
 	    {
 	      rtx before_arg = get_last_insn ();
 
-	      if (store_one_arg (&args[i], argblock, flags,
+	      if (store_one_arg (args_so_far, &args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
 				 reg_parm_stack_space)
 		  || (pass == 0
@@ -3054,6 +3061,18 @@ expand_call (tree exp, rtx target, int ignore)
 							 &args[i], 1)))
 		sibcall_failure = 1;
 	    }
+
+      /* Now we know addresses of all args and may allocate
+	 non register bounds.  */
+      for (i = 0; i < num_actuals; i++)
+	{
+	  if (!args[i].reg && BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
+	    {
+	      store_one_arg (args_so_far, &args[i], argblock, flags,
+			     adjusted_args_size.var != 0,
+			     reg_parm_stack_space);
+	    }
+	}
 
       /* If we pushed args in forward order, perform stack alignment
 	 after pushing the last arg.  */
@@ -4333,7 +4352,8 @@ emit_library_call_value (rtx orgfun, rtx value,
    zero otherwise.  */
 
 static int
-store_one_arg (struct arg_data *arg, rtx argblock, int flags,
+store_one_arg (cumulative_args_t args_so_far,
+	       struct arg_data *arg, rtx argblock, int flags,
 	       int variable_size ATTRIBUTE_UNUSED, int reg_parm_stack_space)
 {
   tree pval = arg->tree_value;
@@ -4488,6 +4508,17 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   if (arg->value == arg->stack)
     /* If the value is already in the stack slot, we are done.  */
     ;
+  else if (arg->mode == BND64mode || arg->mode == BND32mode)
+    {
+      struct arg_data *prev_arg = PUSH_ARGS_REVERSED ? arg + 1 : arg - 1;
+      rtx addr = prev_arg->reg ? prev_arg->reg : prev_arg->stack;
+      rtx ptr = prev_arg->pushed_value
+	? prev_arg->pushed_value
+	: prev_arg->value;
+
+      targetm.calls.store_bounds_for_arg (args_so_far, ptr, addr,
+					  arg->value, PUSH_ARGS_REVERSED);
+    }
   else if (arg->mode != BLKmode)
     {
       int size;
@@ -4541,7 +4572,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       /* Unless this is a partially-in-register argument, the argument is now
 	 in the stack.  */
       if (partial == 0)
-	arg->value = arg->stack;
+	{
+	  arg->pushed_value = arg->value;
+	  arg->value = arg->stack;
+	}
     }
   else
     {
@@ -4652,7 +4686,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 it's properly aligned for word-by-word copying or something
 	 like that.  It's not clear that this is always correct.  */
       if (partial == 0)
-	arg->value = arg->stack_slot;
+	{
+	  arg->pushed_value = arg->value;
+	  arg->value = arg->stack_slot;
+	}
     }
 
   if (arg->reg && GET_CODE (arg->reg) == PARALLEL)

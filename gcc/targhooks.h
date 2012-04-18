@@ -178,3 +178,7 @@ extern enum machine_mode default_get_reg_raw_mode(int);
 
 extern void *default_get_pch_validity (size_t *);
 extern const char *default_pch_valid_p (const void *, size_t);
+
+extern rtx default_load_bounds_for_arg (cumulative_args_t, rtx);
+extern rtx default_store_bounds_for_arg (cumulative_args_t, rtx, rtx, rtx,
+					 bool);

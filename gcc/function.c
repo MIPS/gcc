@@ -2310,7 +2310,8 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* NAMED_ARG is a misnomer.  We really mean 'non-variadic'. */
   if (!cfun->stdarg)
     data->named_arg = 1;  /* No variadic parms.  */
-  else if (DECL_CHAIN (parm))
+  else if ((DECL_CHAIN (parm) && !BOUND_TYPE_P (TREE_TYPE (DECL_CHAIN (parm))))
+	   || DECL_CHAIN (DECL_CHAIN (parm)))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
   else if (targetm.calls.strict_argument_naming (all->args_so_far))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
@@ -2488,19 +2489,22 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 	}
     }
 
-  locate_and_pad_parm (data->promoted_mode, data->passed_type, in_regs,
-		       entry_parm ? data->partial : 0, current_function_decl,
-		       &all->stack_args_size, &data->locate);
+  if (entry_parm || !BOUND_TYPE_P (data->passed_type))
+    {
+      locate_and_pad_parm (data->promoted_mode, data->passed_type, in_regs,
+			   entry_parm ? data->partial : 0, current_function_decl,
+			   &all->stack_args_size, &data->locate);
 
-  /* Update parm_stack_boundary if this parameter is passed in the
-     stack.  */
-  if (!in_regs && crtl->parm_stack_boundary < data->locate.boundary)
-    crtl->parm_stack_boundary = data->locate.boundary;
+      /* Update parm_stack_boundary if this parameter is passed in the
+	 stack.  */
+      if (!in_regs && crtl->parm_stack_boundary < data->locate.boundary)
+	crtl->parm_stack_boundary = data->locate.boundary;
 
-  /* Adjust offsets to include the pretend args.  */
-  pretend_bytes = all->extra_pretend_bytes - pretend_bytes;
-  data->locate.slot_offset.constant += pretend_bytes;
-  data->locate.offset.constant += pretend_bytes;
+      /* Adjust offsets to include the pretend args.  */
+      pretend_bytes = all->extra_pretend_bytes - pretend_bytes;
+      data->locate.slot_offset.constant += pretend_bytes;
+      data->locate.offset.constant += pretend_bytes;
+    }
 
   data->entry_parm = entry_parm;
 }
@@ -2512,8 +2516,11 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
+  /* Bounds are never passed on stack.  */
+  if (BOUND_TYPE_P (data->passed_type))
+    return false;
   /* Trivially true if we've no incoming register.  */
-  if (data->entry_parm == NULL)
+  else if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
      since we've arranged to drop the entire argument on the stack.  */
@@ -3301,6 +3308,7 @@ static void
 assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
+  rtx prev_entry_parm = NULL_RTX;
   tree parm;
   VEC(tree, heap) *fnargs;
   unsigned i;
@@ -3357,6 +3365,12 @@ assign_parms (tree fndecl)
 	  assign_parm_find_stack_rtl (parm, &data);
 	  assign_parm_adjust_entry_rtl (&data);
 	}
+      else if (!data.entry_parm && BOUND_TYPE_P (TREE_TYPE (parm)))
+	{
+	  data.entry_parm
+	    = targetm.calls.load_bounds_for_arg (all.args_so_far,
+						 prev_entry_parm);
+	}
 
       /* Record permanently how this parm was passed.  */
       if (data.passed_pointer)
@@ -3365,9 +3379,15 @@ assign_parms (tree fndecl)
 	    = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (data.passed_type)),
 			   data.entry_parm);
 	  set_decl_incoming_rtl (parm, incoming_rtl, true);
+
+	  /* Assert if pointer is passes by pointer because this
+	     case is not covered by PL code yet.  */
+	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (data.passed_type)));
 	}
       else
 	set_decl_incoming_rtl (parm, data.entry_parm, false);
+
+      prev_entry_parm = data.entry_parm;
 
       /* Update info on where next arg arrives in registers.  */
       targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,

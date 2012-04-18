@@ -5075,6 +5075,16 @@ to use as the return of @code{__builtin_saveregs}.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SETUP_INCOMING_VARARGS (cumulative_args_t @var{args_so_far}, enum machine_mode @var{mode}, tree @var{type}, int *@var{pretend_args_size}, int @var{second_time})
+
+@deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (cumulative_args_t, @var{rtx})
+Extend pass uses this hook to emit insn for arg
+bounds in case bounds are not passed on register.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_STORE_BOUNDS_FOR_ARG (cumulative_args_t, @var{rtx}, @var{rtx}, @var{rtx}, @var{bool})
+Extend pass uses this hook to emit insn for arg
+bounds in case bounds are not passed on register.
+@end deftypefn
 This target hook offers an alternative to using
 @code{__builtin_saveregs} and defining the hook
 @code{TARGET_EXPAND_BUILTIN_SAVEREGS}.  Use it to store the anonymous

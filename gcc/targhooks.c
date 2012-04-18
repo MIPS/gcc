@@ -1449,4 +1449,21 @@ default_pch_valid_p (const void *data_p, size_t len)
   return NULL;
 }
 
+rtx
+default_load_bounds_for_arg (cumulative_args_t cum_v ATTRIBUTE_UNUSED,
+			     rtx parm ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_store_bounds_for_arg (cumulative_args_t cum_v ATTRIBUTE_UNUSED,
+			      rtx val ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      rtx bounds ATTRIBUTE_UNUSED,
+			      bool reversed ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 #include "gt-targhooks.h"
