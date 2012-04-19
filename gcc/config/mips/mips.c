@@ -6661,30 +6661,15 @@ mips_expand_fcc_reload (rtx dest, rtx src, rtx scratch)
 {
   rtx fp1, fp2;
 
+  gcc_assert (! flag_lra);
   /* Change the source to SFmode.  */
   if (MEM_P (src))
     src = adjust_address (src, SFmode, 0);
   else if (REG_P (src) || GET_CODE (src) == SUBREG)
-    {
-      if (! flag_lra)
-	src = gen_rtx_REG (SFmode, true_regnum (src));
-      else if (GET_MODE (src) != SFmode)
-	src = gen_rtx_SUBREG (SFmode,
-			      GET_CODE (src) == SUBREG ? SUBREG_REG (src) : src,
-			      0);
-    }
+    src = gen_rtx_REG (SFmode, true_regnum (src));
 
-  if (flag_lra)
-    {
-      enum reg_class rclass = lra_get_allocno_class (REGNO (scratch));
-      fp1 = lra_create_new_reg (SFmode, NULL_RTX, rclass, "new scratch");
-      fp2 = lra_create_new_reg (SFmode, NULL_RTX, rclass, "zero");
-    }
-  else
-    {
-      fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
-      fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + MAX_FPRS_PER_FMT);
-    }
+  fp1 = gen_rtx_REG (SFmode, REGNO (scratch));
+  fp2 = gen_rtx_REG (SFmode, REGNO (scratch) + MAX_FPRS_PER_FMT);
   mips_emit_move (copy_rtx (fp1), src);
   mips_emit_move (copy_rtx (fp2), CONST0_RTX (SFmode));
   emit_insn (gen_slt_sf (dest, fp2, fp1));
@@ -11154,6 +11139,18 @@ mips_preferred_reload_class (rtx x, reg_class_t rclass)
     rclass = M16_REGS;
 
   return rclass;
+}
+
+/* Implement TARGET_SECONDARY_RELOAD.  */
+
+static reg_class_t
+mips_secondary_reload (bool in_p, rtx x, reg_class_t reload_class_i,
+		       enum machine_mode reload_mode,
+		       secondary_reload_info *sri)
+{
+  if (flag_lra)
+    return NO_REGS;
+  return default_secondary_reload (in_p, x, reload_class_i, reload_mode, sri);
 }
 
 /* RCLASS is a class involved in a REGISTER_MOVE_COST calculation.
@@ -17353,6 +17350,9 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mips_preferred_reload_class
+
+#undef  TARGET_SECONDARY_RELOAD
+#define TARGET_SECONDARY_RELOAD mips_secondary_reload
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START mips_file_start

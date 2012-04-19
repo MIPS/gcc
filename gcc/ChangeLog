@@ -1,3 +1,10 @@
+2012-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/mips/mips.c (mips_expand_fcc_reload): Remove code for
+	LRA.  Add an assertion.
+	(mips_secondary_reload): New function.
+	(TARGET_SECONDARY_RELOAD): Redefine.
+
 2012-04-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/mips/mips.c: Include lra.h.
