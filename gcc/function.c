@@ -2310,8 +2310,9 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* NAMED_ARG is a misnomer.  We really mean 'non-variadic'. */
   if (!cfun->stdarg)
     data->named_arg = 1;  /* No variadic parms.  */
-  else if ((DECL_CHAIN (parm) && !BOUND_TYPE_P (TREE_TYPE (DECL_CHAIN (parm))))
-	   || DECL_CHAIN (DECL_CHAIN (parm)))
+  else if (DECL_CHAIN (parm)
+	   && (!BOUND_TYPE_P (TREE_TYPE (DECL_CHAIN (parm)))
+	       || DECL_CHAIN (DECL_CHAIN (parm))))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
   else if (targetm.calls.strict_argument_naming (all->args_so_far))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
