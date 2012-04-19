@@ -29525,6 +29525,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       if (!REG_P (op0))
         op0 = copy_to_mode_reg (Pmode, op0);
       op1 = expand_normal (arg1);
+      op1 = expand_normal (build2 (PLUS_EXPR, TREE_TYPE (arg1),
+				   arg1, integer_minus_one_node));
       if (!REG_P (op1))
         op1 = copy_to_mode_reg (Pmode, op1);
       emit_insn (TARGET_64BIT 

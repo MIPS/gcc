@@ -33,6 +33,7 @@ static void pl_register_bounds (tree ptr, tree bnd);
 static tree pl_get_registered_bounds (tree ptr);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
+static tree pl_get_none_bounds (void);
 static void pl_transform_function (void);
 static tree pl_get_bound_for_parm (tree parm);
 static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
@@ -72,6 +73,7 @@ static GTY (()) tree pl_uintptr_type;
 
 static basic_block entry_block;
 static tree zero_bounds;
+static tree none_bounds;
 
 static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
 
@@ -190,21 +192,48 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   unsigned new_arg_no = 0;
   unsigned bnd_arg_cnt = 0;
   unsigned arg_cnt = 0;
-  tree fn_decl = TREE_OPERAND (gimple_call_fn (call), 0);
+  tree fndecl = gimple_call_fndecl (call);
+  tree first_formal_arg;
   tree arg;
   tree lhs;
   gimple new_call;
 
-  /* Do nothing if builtin is called.  */
-  if (DECL_BUILT_IN_CLASS (fn_decl) == BUILT_IN_MD)
+  /* Do nothing if back-end builtin is called.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return;
 
-  /* Get number of arguments and bound arguments from
-     functiond declaration.  */
-  for (arg = DECL_ARGUMENTS (fn_decl); arg; arg = TREE_CHAIN (arg))
+  if (fndecl)
+    first_formal_arg = DECL_ARGUMENTS (fndecl);
+  else
     {
-      if (BOUND_TYPE_P (TREE_TYPE (arg)))
+      tree fntype;
+      tree fnptr = gimple_call_fn (call);
+      gcc_assert (TREE_CODE (fnptr) == SSA_NAME);
+
+      fntype = TREE_TYPE (TREE_TYPE (fnptr));
+      gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE);
+
+      first_formal_arg = TYPE_ARG_TYPES (fntype);
+    }
+
+  /* Get number of arguments and bound arguments from
+     functiond declaration or function pointer type.  */
+  for (arg = first_formal_arg;
+       arg && (fndecl || arg != void_list_node);
+       arg = TREE_CHAIN (arg))
+    {
+      if (fndecl && BOUND_TYPE_P (TREE_TYPE (arg)))
 	bnd_arg_cnt++;
+
+      /* Currently we do not fix function types. Therefore
+	 look for pointer args and but count arg_cnt like
+	 if it was fixed.  */
+      if (!fndecl && POINTER_TYPE_P (TREE_VALUE (arg)))
+	{
+	  bnd_arg_cnt++;
+	  arg_cnt++;
+	}
+
       arg_cnt++;
     }
 
@@ -227,9 +256,11 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple_set_op (new_call, 2, gimple_op (call, 2));
 
   arg_no = 0;
-  for (arg = DECL_ARGUMENTS (fn_decl); arg; arg = TREE_CHAIN (arg))
+  for (arg = first_formal_arg;
+       arg && (fndecl || arg != void_list_node);
+       arg = TREE_CHAIN (arg))
     {
-      if (BOUND_TYPE_P (TREE_TYPE (arg)))
+      if (fndecl && BOUND_TYPE_P (TREE_TYPE (arg)))
 	{
 	  tree prev_arg = gimple_call_arg (call, arg_no - 1);
 	  tree bounds = pl_find_bounds (prev_arg, gsi);
@@ -237,9 +268,14 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 	}
       else
 	{
-	  tree call_arg = gimple_call_arg (call, arg_no);
+	  tree call_arg = gimple_call_arg (call, arg_no++);
 	  gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-	  arg_no++;
+
+	  if (!fndecl && POINTER_TYPE_P (TREE_VALUE (arg)))
+	    {
+	      tree bounds = pl_find_bounds (call_arg, gsi);
+	      gimple_call_set_arg (new_call, new_arg_no++, bounds);
+	    }
 	}
     }
 
@@ -355,10 +391,26 @@ pl_get_zero_bounds (void)
     fprintf (dump_file, "Creating zero bounds...");
 
   zero_bounds = pl_make_bounds (integer_zero_node,
-				integer_minus_one_node,
+				integer_zero_node,
 				NULL);
 
   return zero_bounds;
+}
+
+static tree
+pl_get_none_bounds (void)
+{
+  if (none_bounds)
+    return none_bounds;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Creating none bounds...");
+
+  none_bounds = pl_make_bounds (integer_minus_one_node,
+				build_int_cst (size_type_node, 2),
+				NULL);
+
+  return none_bounds;
 }
 
 static tree
@@ -758,6 +810,10 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter)
       }
       break;
 
+    case FUNCTION_DECL:
+      bounds = pl_get_zero_bounds ();
+      break;
+
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -816,6 +872,11 @@ pl_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 
     case ADDR_EXPR:
       bounds = pl_make_addressed_object_bounds (TREE_OPERAND (ptr, 0), iter);
+      break;
+
+    case INTEGER_CST:
+      /* For all constants return zero bounds.  */
+      bounds = pl_get_zero_bounds ();
       break;
 
     default:
@@ -1133,8 +1194,11 @@ pl_fix_function_decls (void)
       {
 	gimple stmt = gsi_stmt (i);
 	if (is_gimple_call (stmt))
-	  pl_fix_function_decl (TREE_OPERAND (gimple_call_fn (stmt), 0),
-				false);
+	  {
+	    tree fndecl = gimple_call_fndecl (stmt);
+	    if (fndecl)
+	      pl_fix_function_decl (fndecl, false);
+	  }
       }
 }
 
@@ -1148,6 +1212,7 @@ pl_init (void)
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
+  none_bounds = NULL_TREE;
 
   pl_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
   pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
