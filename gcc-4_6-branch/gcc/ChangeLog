@@ -1,9 +1,107 @@
+2012-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/52775
+	* config/rs6000/rs6000.h (TARGET_FCFID): Add TARGET_PPC_GPOPT to
+	the list of options to enable the FCFID instruction.
+
+2012-04-12  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/49448
+	* config.gcc (arm*-*-linux*): Use an unambiguous pattern for
+	detecting big-endian triplets.
+
+2012-04-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/52894
+	* varasm.c (process_pending_assemble_externals): Set
+	pending_assemble_externals_processed true.
+	(assemble_external): Call assemble_external_real if the pending
+	assemble externals have been processed.
+
+2012-04-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/52717
+	* config/sparc/sparc.c (sparc_file_end): Set TREE_PUBLIC explicitly on
+	the DECL generated for the special GOT helper.
+
+2012-04-06  Matt Turner  <mattst88@gmail.com>
+
+	* doc/install.texi: Correct typo "-mno-lsc" -> "-mno-llsc".
+
+2012-03-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (avx_h<plusminus_insn>v4df3): Fix results
+	crossing 128bit lane boundary.
+
+2012-03-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backported from mainline
+	2012-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52698
+	* config/i386/i386-protos.h (ix86_legitimize_reload_address):
+	New prototype.
+	* config/i386/i386.h (LEGITIMIZE_RELOAD_ADDRESS): New define.
+	* config/i386/i386.c: Include reload.h.
+	(ix86_legitimize_reload_address): New function.
+
+2012-03-28  Joey Ye  <joey.ye@arm.com>
+
+	Backported from mainline
+	2011-12-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/51200
+	* expr.c (store_field): Avoid a direct store if the mode is larger
+	than the size of the bit field.
+	* stor-layout.c (layout_decl): If flag_strict_volatile_bitfields,
+	treat non-volatile bit fields like volatile ones.
+	* toplev.c (process_options): Disallow combination of
+	-fstrict-volatile-bitfields and ABI versions less than 2.
+	* config/arm/arm.c (arm_option_override): Don't enable
+	flag_strict_volatile_bitfields if the ABI version is less than 2.
+	* config/h8300/h8300.c (h8300_option_override): Likewise.
+	* config/rx/rx.c (rx_option_override): Likewise.
+	* config/m32c/m32c.c (m32c_option_override): Likewise.
+	* config/sh/sh.c (sh_option_override): Likewise.
+
+	2011-12-22  Joey Ye  <joey.ye@arm.com>
+
+	* toplev.c (process_options): Fix typo.
+
+2012-03-28  Martin Jambor  <mjambor@suse.cz>
+
+	Backported from mainline
+	2012-03-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/52693
+	* tree-sra.c (sra_modify_assign): Do not call
+	load_assign_lhs_subreplacements when working with an unscalarizable
+	region.
+
+2012-03-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/52741
+
+	Revert r181936 from 2011-12-02 for:
+	* config/avr/libgcc.S (__prologue_saves__, __epilogue_restores__)
+	* config/avr/avr.md (movhi_sp_r_irq_off, movhi_sp_r_irq_on)
+	* config/avr/avr.c (output_movhi, avr_file_start)
+
+2012-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52736
+	* config/i386/sse.md (sse2_loadlpd splitter): Use offset 0
+	instead of 8 in adjust_address.
+
 2012-03-24  Jan Hubicka  <jh@suse.cz>
 
 	Backport from mainline
 	PR regression/52696
 	* predict.c (predict_paths_for_bb): Fix typo.
-	
+
 2012-03-24  Jan Hubicka  <jh@suse.cz>
 
 	Backport from mainline
@@ -11,8 +109,8 @@
 	* cgraph.c (cgraph_remove_node_and_inline_clones): Add FORBIDDEN_NODE
 	parameter.
 	* cgraph.h (cgraph_remove_node_and_inline_clones): Update prototype.
-	* ipa-inline-transform.c (save_inline_function_body): Remove copied clone
-	if needed.
+	* ipa-inline-transform.c (save_inline_function_body): Remove copied
+	clone if needed.
 	* tree-inline.c (delete_unreachable_blocks_update_callgraph): Update.
 
 2012-03-24  Steven Bosscher  <steven@gcc.gnu.org>
@@ -77,8 +175,7 @@
 	(vector_ltgt<mode>): Likewise.
 	(vector_ordered<mode>): Likewise.
 	(vector_unordered<mode>): Likewise.
-	* config/rs6000/rs6000.c (rs6000_emit_vector_compare_inner):
-	Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_vector_compare_inner): Likewise.
 
 2012-03-04  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
