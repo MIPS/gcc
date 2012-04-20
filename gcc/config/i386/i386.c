@@ -26248,14 +26248,14 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
 
   /* PL */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd64, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_stxbnd32, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd64, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PVOID_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_ldxbnd32, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PVOID_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd64, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_clbnd32, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd64, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_cubnd32, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -27082,8 +27082,8 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph256, "__builtin_ia32_vcvtps2ph256", IX86_BUILTIN_CVTPS2PH256, UNKNOWN, (int) V8HI_FTYPE_V8SF_INT },
 
   /* PL */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd64, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd_mkbnd32, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
 
   /* BMI2 */
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_si3, "__builtin_ia32_bzhi_si", IX86_BUILTIN_BZHI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
@@ -29521,17 +29521,18 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_BNDMK64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
+
+      /* Builtin arg1 is size of block but instruction op1 should
+	 be (size - 1).  */
       op0 = expand_normal (arg0);
-      if (!REG_P (op0))
-        op0 = copy_to_mode_reg (Pmode, op0);
-      op1 = expand_normal (arg1);
-      op1 = expand_normal (build2 (PLUS_EXPR, TREE_TYPE (arg1),
-				   arg1, integer_minus_one_node));
-      if (!REG_P (op1))
-        op1 = copy_to_mode_reg (Pmode, op1);
+      op1 = expand_normal (fold_build2 (PLUS_EXPR, TREE_TYPE (arg1),
+					arg1, integer_minus_one_node));
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
       emit_insn (TARGET_64BIT 
-                 ? gen_bnd_mkbnd64 (target, op0, op1)
-                 : gen_bnd_mkbnd32 (target, op0, op1));
+                 ? gen_bnd64_mk (target, op0, op1)
+                 : gen_bnd32_mk (target, op0, op1));
       return target;
 
     case IX86_BUILTIN_BNDSTX32:
@@ -29539,55 +29540,66 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
+
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
-      if (!REG_P (op1))
-	op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
-      if (!REG_P (op2))
-        op2 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+      op2 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+
       emit_insn (TARGET_64BIT 
-                 ? gen_bnd_stxbnd64 (op0, op1, op2) 
-                 : gen_bnd_stxbnd32 (op0, op1, op2));
+                 ? gen_bnd64_stx (op0, op1, op2) 
+                 : gen_bnd32_stx (op0, op1, op2));
       return 0;
 
     case IX86_BUILTIN_BNDLDX32:
     case IX86_BUILTIN_BNDLDX64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
+
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
-      if (!REG_P (op1))
-        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
       emit_insn (TARGET_64BIT
-                 ? gen_bnd_ldxbnd64 (target, op0, op1)
-                 : gen_bnd_ldxbnd32 (target, op0, op1));
+                 ? gen_bnd64_ldx (target, op0, op1)
+                 : gen_bnd32_ldx (target, op0, op1));
       return target;
 
     case IX86_BUILTIN_BNDCL32:
     case IX86_BUILTIN_BNDCL64:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
+
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
-      if (!REG_P (op0))
-        op0 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+
+      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op1 = force_reg (Pmode, op1);
+
       emit_insn (TARGET_64BIT
-                 ? gen_bnd_clbnd64 (op0, op1)
-                 : gen_bnd_clbnd32 (op0, op1));
+                 ? gen_bnd64_cl (op0, op1)
+                 : gen_bnd32_cl (op0, op1));
       return 0;
 
     case IX86_BUILTIN_BNDCU32:
     case IX86_BUILTIN_BNDCU64: 
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
+
       op0 = expand_normal (arg0); 
       op1 = expand_normal (arg1); 
-      if (!REG_P (op0))
-        op0 = copy_to_mode_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+
+      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op1 = force_reg (Pmode, op1);
+
       emit_insn (TARGET_64BIT
-                 ? gen_bnd_cubnd64 (op0, op1) 
-                 : gen_bnd_cubnd32 (op0, op1));
+                 ? gen_bnd64_cu (op0, op1) 
+                 : gen_bnd32_cu (op0, op1));
       return 0;
 
     case IX86_BUILTIN_BNDRET32:
@@ -29602,24 +29614,23 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
 
-      /* Size was passed but we need to use size - 1 in bndmk.  */
-      arg2 = fold_build2 (MINUS_EXPR, TREE_TYPE (arg2), arg2,
-			  integer_one_node);
+      /* Size was passed but we need to use (size - 1) in bndmk.  */
+      arg2 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg2), arg2,
+			  integer_minus_one_node);
 
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
 
-      if (!REG_P (op1))
-        op1 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op1);
-      if (!REG_P (op2))
-        op2 = copy_to_mode_reg (TARGET_64BIT ? DImode : SImode, op2);
+      op1 = force_reg (Pmode, op1);
+      op2 = force_reg (Pmode, op2);
 
-      emit_insn( gen_bnd_mkbnd64 (gen_rtx_REG (TARGET_64BIT
-					       ? BND64mode
-					       : BND32mode,
-					       FIRST_BND_REG),
-				  op1, op2));
+      /* Bounds are bound to return value, so put them into b0.  */
+      emit_insn( TARGET_64BIT
+		 ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
+				 op1, op2)
+		 : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
+				 op1, op2));
       return op0;
 
     case IX86_BUILTIN_MASKMOVQ:
@@ -30204,8 +30215,8 @@ ix86_load_bounds (cumulative_args_t cum_v, rtx parm)
 
   reg = gen_reg_rtx (TARGET_64BIT ? BND64mode : BND32mode);
   emit_insn (TARGET_64BIT
-	     ? gen_bnd_ldxbnd64 (reg, addr, ptr)
-	     : gen_bnd_ldxbnd32 (reg, addr, ptr));
+	     ? gen_bnd64_ldx (reg, addr, ptr)
+	     : gen_bnd32_ldx (reg, addr, ptr));
 
   return reg;
 }
@@ -30239,8 +30250,8 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
     ptr = copy_to_mode_reg (Pmode, ptr);
 
   emit_insn (TARGET_64BIT
-	     ? gen_bnd_stxbnd64 (addr, ptr, bounds)
-	     : gen_bnd_stxbnd32 (addr, ptr, bounds));
+	     ? gen_bnd64_stx (addr, ptr, bounds)
+	     : gen_bnd32_stx (addr, ptr, bounds));
 
   return NULL_RTX;
 }
