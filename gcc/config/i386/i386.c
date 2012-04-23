@@ -14017,6 +14017,7 @@ get_some_local_dynamic_name (void)
    ~ -- print "i" if TARGET_AVX2, "f" otherwise.
    @ -- print a segment register of thread base pointer load
    ^ -- print addr32 prefix if TARGET_64BIT and Pmode != word_mode
+   ! -- print PL prefix for jxx/call/ret instructions if required.
  */
 
 void
@@ -14534,6 +14535,11 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("addr32 ", file);
 	  return;
 
+	case '!':
+	  if (TARGET_PL && flag_pl)
+	    fputs ("repne ", file);
+	  return;
+
 	default:
 	    output_operand_lossage ("invalid operand code '%c'", code);
 	}
@@ -14674,7 +14680,7 @@ static bool
 ix86_print_operand_punct_valid_p (unsigned char code)
 {
   return (code == '@' || code == '*' || code == '+' || code == '&'
-	  || code == ';' || code == '~' || code == '^');
+	  || code == ';' || code == '~' || code == '^' || code == '!');
 }
 
 /* Print a memory operand whose address is ADDR.  */
@@ -23326,13 +23332,13 @@ ix86_output_call_insn (rtx insn, rtx call_op)
   if (SIBLING_CALL_P (insn))
     {
       if (direct_p)
-	xasm = "jmp\t%P0";
+	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
       else if (TARGET_SEH)
-	xasm = "rex.W jmp %A0";
+	xasm = "%!rex.W jmp %A0";
       else
-	xasm = "jmp\t%A0";
+	xasm = "%!jmp\t%A0";
 
       output_asm_insn (xasm, &call_op);
       return "";
@@ -23369,9 +23375,9 @@ ix86_output_call_insn (rtx insn, rtx call_op)
     }
 
   if (direct_p)
-    xasm = "call\t%P0";
+    xasm = "%!call\t%P0";
   else
-    xasm = "call\t%A0";
+    xasm = "%!call\t%A0";
 
   output_asm_insn (xasm, &call_op);
 
