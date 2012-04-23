@@ -2875,6 +2875,10 @@ as below:
 A target hook which returns the register bank number to which the  register @var{hard_regno} belongs to.  The smaller the number, the  more preferable the hard register usage (when all other conditions are  the same).  This hook can be used to prefer some hard register over  others in LRA.  For example, some x86-64 register usage needs  additional prefix which makes instructions longer.  The hook can  return bigger bank number for such registers make them less favorable  and as result making the generated code smaller.    The default version of this target hook returns always zero.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_DIFFERENT_ADDR_DISPLACEMENT_P (void)
+A target hook which returns true if an address with the same structure  can have different maximal legitimate displacement.  For example, the  displacement can depend on memory mode or on operand combinations in  the insn.    The default version of this target hook returns always false.
+@end deftypefn
+
 @node Old Constraints
 @section Obsolete Macros for Defining Constraints
 @cindex defining constraints, obsolete method

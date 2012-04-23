@@ -2300,6 +2300,18 @@ DEFHOOK
  int, (int),
  default_register_bank)
 
+/* Return true if maximal address displacement can be different.  */
+DEFHOOK
+(different_addr_displacement_p,
+ "A target hook which returns true if an address with the same structure\
+  can have different maximal legitimate displacement.  For example, the\
+  displacement can depend on memory mode or on operand combinations in\
+  the insn.\
+  \
+  The default version of this target hook returns always false.",
+ bool, (void),
+ default_different_addr_displacement_p)
+
 /* Return the class for a secondary reload, and fill in extra information.  */
 DEFHOOK
 (secondary_reload,

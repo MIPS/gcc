@@ -1,3 +1,25 @@
+2012-04-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* targhooks.h (default_different_addr_displacement_p): Declare.
+
+	* targhooks.c (default_different_addr_displacement_p): New
+	function.
+
+	* target.def (different_addr_displacement_p): New hook.
+
+	* rtlanal.c (simplify_subreg_regno): Permit ARG_POINTER_REGNUM
+	for LRA.
+
+	* lra-spills.c (spill_pseudos): Check
+	different_addr_displacement_p to invalidate insn alternative.
+
+	* config/pa/pa.c (TARGET_DIFFERENT_ADDR_DISPLACEMENT_P): Redefine
+	it.
+	(pa_secondary_reload): Return NO_REGS for LRA.
+	(pa_different_addr_displacement_p): New function.
+
+	* doc/tm.texi: Rebuild.
+
 2012-04-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/mips/mips.c (mips_expand_fcc_reload): Remove code for

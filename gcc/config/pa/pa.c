@@ -188,6 +188,7 @@ static enum machine_mode pa_c_mode_for_suffix (char);
 static section *pa_function_section (tree, enum node_frequency, bool, bool);
 static bool pa_cannot_force_const_mem (enum machine_mode, rtx);
 static bool pa_legitimate_constant_p (enum machine_mode, rtx);
+static bool pa_different_addr_displacement_p (void);
 
 /* The following extra sections are only used for SOM.  */
 static GTY(()) section *som_readonly_data_section;
@@ -383,6 +384,9 @@ static size_t n_deferred_plabels = 0;
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P pa_legitimate_constant_p
+
+#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P pa_different_addr_displacement_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5848,6 +5852,9 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
   int regno;
   enum reg_class rclass = (enum reg_class) rclass_i;
 
+  if (lra_in_progress)
+    return NO_REGS;
+
   /* Handle the easy stuff first.  */
   if (rclass == R1_REGS)
     return NO_REGS;
@@ -10335,6 +10342,14 @@ pa_legitimate_constant_p (enum machine_mode mode, rtx x)
   if (function_label_operand (x, mode))
     return false;
 
+  return true;
+}
+
+/* Implement TARGET_DIFFERENT_ADDR_DISPLACEMENT_P.  */
+
+static bool
+pa_different_addr_displacement_p (void)
+{
   return true;
 }
 

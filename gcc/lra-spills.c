@@ -445,8 +445,8 @@ spill_pseudos (void)
 		       "Changing spilled pseudos to memory in insn #%u\n",
 		       INSN_UID (insn));
 	    lra_push_insn (insn);
-	    if (lra_reg_spill_p)
-	      lra_set_used_insn_alternative_by_uid (INSN_UID (insn), -1);
+	    if (lra_reg_spill_p || targetm.different_addr_displacement_p ())
+	      lra_set_used_insn_alternative (insn, -1);
 	  }
       bitmap_and_compl_into (DF_LR_IN (bb), &spilled_pseudos);
       bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);
