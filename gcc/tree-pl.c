@@ -56,8 +56,9 @@ static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 					      bool *bitfield);
 static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
 static void pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
-static void pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
-			     location_t loc, tree dirflag);
+static void pl_process_stmt (gimple_stmt_iterator *iter, tree node,
+			     location_t loc, tree dirflag,
+			     tree access_offs, tree access_size);
 static void pl_mark_stmt (gimple s);
 static bool pl_marked_stmt (gimple s);
 
@@ -116,22 +117,26 @@ pl_transform_function (void)
           switch (gimple_code (s))
             {
             case GIMPLE_ASSIGN:
-	      pl_process_stmt (&i, gimple_assign_lhs_ptr (s),
-			       gimple_location (s), integer_one_node);
-	      pl_process_stmt (&i, gimple_assign_rhs1_ptr (s),
-			       gimple_location (s), integer_zero_node);
+	      pl_process_stmt (&i, gimple_assign_lhs (s),
+			       gimple_location (s), integer_one_node,
+			       NULL_TREE, NULL_TREE);
+	      pl_process_stmt (&i, gimple_assign_rhs1 (s),
+			       gimple_location (s), integer_zero_node,
+			       NULL_TREE, NULL_TREE);
 	      grhs_class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
 	      if (grhs_class == GIMPLE_BINARY_RHS)
-		pl_process_stmt (&i, gimple_assign_rhs2_ptr (s),
-				 gimple_location (s), integer_zero_node);
+		pl_process_stmt (&i, gimple_assign_rhs2 (s),
+				 gimple_location (s), integer_zero_node,
+				 NULL_TREE, NULL_TREE);
               break;
 
             case GIMPLE_RETURN:
               if (gimple_return_retval (s) != NULL_TREE)
                 {
-                  pl_process_stmt (&i, gimple_return_retval_ptr (s),
+                  pl_process_stmt (&i, gimple_return_retval (s),
 				   gimple_location (s),
-				   integer_zero_node);
+				   integer_zero_node,
+				   NULL_TREE, NULL_TREE);
 
 		  /* Additionall we need to add bounds
 		     to return statement.  */
@@ -592,7 +597,8 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	  bounds = pl_find_bounds (ptr, iter);
 	else
 	  {
-	    addr = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (rhs1)), rhs1);
+	    addr = fold_build1 (ADDR_EXPR,
+				build_pointer_type (TREE_TYPE (rhs1)), rhs1);
 	    bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
 	  }
       }
@@ -603,6 +609,12 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case POINTER_PLUS_EXPR:
       iter = gsi_for_stmt (assign);
       bounds = pl_find_bounds (rhs1, iter);
+      break;
+
+    case VAR_DECL:
+      addr = fold_build1 (ADDR_EXPR,
+			  build_pointer_type (TREE_TYPE (rhs1)), rhs1);
+      bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
       break;
 
     case INTEGER_CST:
@@ -825,6 +837,10 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator iter)
       bounds = pl_get_zero_bounds ();
       break;
 
+    case MEM_REF:
+      bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
+      break;
+
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -975,14 +991,13 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 }
 
 static void
-pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
-		 location_t loc, tree dirflag)
+pl_process_stmt (gimple_stmt_iterator *iter, tree node,
+		 location_t loc, tree dirflag,
+		 tree access_offs, tree access_size)
 {
-  tree node = *tp;
   tree node_type = TREE_TYPE (node);
-  tree size = TYPE_SIZE_UNIT (node_type);
+  tree size = access_size ? access_size : TYPE_SIZE_UNIT (node_type);
   tree addr_first = NULL_TREE; /* address of the first accessed byte */
-  tree addr_end = NULL_TREE; /* address of the byte past the last accessed byte */
   tree addr_last = NULL_TREE; /* address of the last accessed byte */
   tree ptr = NULL_TREE; /* a pointer used for dereference */
   tree bounds;
@@ -1030,28 +1045,18 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
           }
         else
           addr_first = build1 (ADDR_EXPR, build_pointer_type (node_type), node);
-
-        addr_last = fold_build2_loc (loc, MINUS_EXPR, pl_uintptr_type,
-                             fold_build2_loc (loc, PLUS_EXPR, pl_uintptr_type,
-					  fold_convert (pl_uintptr_type, addr_first),
-					  size),
-                             size_one_node);
       }
       break;
 
     case INDIRECT_REF:
       ptr = TREE_OPERAND (node, 0);
       addr_first = ptr;
-      addr_end = fold_build_pointer_plus_loc (loc, addr_first, size);
-      addr_last = fold_build_pointer_plus_hwi_loc (loc, addr_end, -1);
       break;
 
     case MEM_REF:
       ptr = TREE_OPERAND (node, 0);
       addr_first = fold_build_pointer_plus_loc (loc, ptr,
 						TREE_OPERAND (node, 1));
-      addr_end = fold_build_pointer_plus_loc (loc, addr_first, size);
-      addr_last = fold_build_pointer_plus_hwi_loc (loc, addr_end, -1);
       break;
 
     case TARGET_MEM_REF:
@@ -1069,16 +1074,57 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree *tp,
       break;
 
     case BIT_FIELD_REF:
-      printf("BIT_FIELD_REF\n");
-      debug_gimple_stmt(gsi_stmt(*iter));
-      debug_tree(node);
-      gcc_unreachable ();
+      {
+	tree offs, rem, bpu;
+
+	gcc_assert (!access_offs);
+	gcc_assert (!access_size);
+
+	bpu = bitsize_int (BITS_PER_UNIT);
+	offs = fold_convert (size_type_node, TREE_OPERAND (node, 2));
+	rem = size_binop_loc (loc, TRUNC_MOD_EXPR, offs, bpu);
+	offs = size_binop_loc (loc, TRUNC_DIV_EXPR, offs, bpu);
+
+	size = fold_convert (bitsizetype, TREE_OPERAND (node, 1));
+        size = size_binop_loc (loc, PLUS_EXPR, size, rem);
+        size = size_binop_loc (loc, CEIL_DIV_EXPR, size, bpu);
+        size = fold_convert (size_type_node, size);
+
+	pl_process_stmt (iter, TREE_OPERAND (node, 0), loc,
+			 dirflag, offs, size);
+	return;
+      }
+      break;
+
+    case VAR_DECL:
+      if (dirflag != integer_one_node)
+	return;
+
+      safe = 1;
+      addr_first = fold_build1 (ADDR_EXPR,
+				build_pointer_type (TREE_TYPE (node)), node);
       break;
 
     default:
       return;
     }
 
+  /* If addr_last was not computed then use (addr_first + size - 1)
+     expression to compute it.  */
+  if (!addr_last)
+    {
+      addr_last = fold_build_pointer_plus_loc (loc, addr_first, size);
+      addr_last = fold_build_pointer_plus_hwi_loc (loc, addr_last, -1);
+    }
+
+  /* Shift both first_addr and last_addr by access_offs if specified.  */
+  if (access_offs)
+    {
+      addr_first = fold_build_pointer_plus_loc (loc, addr_first, access_offs);
+      addr_last = fold_build_pointer_plus_loc (loc, addr_last, access_offs);
+    }
+
+  /* Generate bndcl/bndcu checks if memory access is not safe.  */
   if (!safe)
     {
       bounds = pl_find_bounds (ptr, *iter);

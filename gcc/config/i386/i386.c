@@ -30252,8 +30252,8 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
   else
     gcc_unreachable ();
 
-  if (!REG_P (ptr))
-    ptr = copy_to_mode_reg (Pmode, ptr);
+  ptr = force_reg (Pmode, ptr);
+  bounds = force_reg (GET_MODE (bounds), bounds);
 
   emit_insn (TARGET_64BIT
 	     ? gen_bnd64_stx (addr, ptr, bounds)
