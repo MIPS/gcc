@@ -53,7 +53,9 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 				 location_t location, tree dirflag);
 static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 					      tree *elt, bool *component,
-					      bool *bitfield);
+					      bool *bitfield,
+					      tree *chk_field_ptr,
+					      tree *chk_field_size);
 static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
 static void pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
 static void pl_process_stmt (gimple_stmt_iterator *iter, tree node,
@@ -586,12 +588,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case ARRAY_REF:
     case COMPONENT_REF:
       {
+	addr = fold_build1 (ADDR_EXPR,
+			    build_pointer_type (TREE_TYPE (rhs1)), rhs1);
+	bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
+	/*
 	tree elt;
+	tree field_ptr;
+	tree field_size;
 	bool component;
 	bool bitfield;
 
 	pl_parse_array_and_component_ref (rhs1, &ptr, &elt, &component,
-					  &bitfield);
+					  &bitfield, &field_ptr, &field_size);
 	iter = gsi_for_stmt (assign);
 	if (component)
 	  bounds = pl_find_bounds (ptr, iter);
@@ -601,6 +609,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 				build_pointer_type (TREE_TYPE (rhs1)), rhs1);
 	    bounds = pl_build_bndldx (addr, node, gsi_for_stmt (assign));
 	  }
+	*/
       }
       break;
 
@@ -620,6 +629,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case INTEGER_CST:
       bounds = pl_get_zero_bounds ();
       break;
+
+    case CONSTRUCTOR:
+      /*
+	    {
+	      unsigned int idx;
+	      tree purp, val;
+	      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs1), idx, purp, val)
+	      {
+	      }
+	    }
+      */
+      /* fall thru */
 
     default:
       internal_error ("pl_compute_bounds_for_assignment: Unexpected RHS code %s",
@@ -821,15 +842,21 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator iter)
       break;
 
     case ARRAY_REF:
+    case COMPONENT_REF:
       {
 	tree elt;
 	tree ptr;
+	tree field_ptr;
+	tree field_size;
 	bool component;
 	bool bitfield;
 
 	pl_parse_array_and_component_ref (obj, &ptr, &elt, &component,
-					  &bitfield);
-	bounds = pl_find_bounds (ptr, iter);
+					  &bitfield, &field_ptr, &field_size);
+	if (field_ptr)
+	  bounds = pl_make_bounds (field_ptr, field_size, &iter);
+	else
+	  bounds = pl_find_bounds (ptr, iter);
       }
       break;
 
@@ -935,7 +962,9 @@ pl_find_bounds (tree ptr, gimple_stmt_iterator iter)
 static void
 pl_parse_array_and_component_ref (tree node, tree *ptr,
 				  tree *elt, bool *component,
-				  bool *bitfield)
+				  bool *bitfield,
+				  tree *chk_field_ptr,
+				  tree *chk_field_size)
 {
   tree var = TREE_OPERAND (node, 0);
 
@@ -943,6 +972,17 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
   *bitfield = (TREE_CODE (node) == COMPONENT_REF
 	       && DECL_BIT_FIELD_TYPE (TREE_OPERAND (node, 1)));
   *elt = NULL_TREE;
+
+  if (TREE_CODE (node) == COMPONENT_REF)
+    {
+      *chk_field_ptr = node;
+      *chk_field_size = DECL_SIZE (TREE_OPERAND (node, 1));
+    }
+  else
+    {
+      *chk_field_ptr = NULL_TREE;
+      *chk_field_size = NULL_TREE;
+    }
 
   while (true)
     {
@@ -955,21 +995,36 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	{
 	  *component = false;
 	  var = TREE_OPERAND (var, 0);
+	  *chk_field_ptr = NULL_TREE;
+	  *chk_field_size = NULL_TREE;
 	}
       else if (TREE_CODE (var) == COMPONENT_REF)
-	var = TREE_OPERAND (var, 0);
+	{
+	  if (!*chk_field_ptr)
+	    {
+	      *chk_field_ptr = var;
+	      *chk_field_size = DECL_SIZE (TREE_OPERAND (var, 1));
+	    }
+
+	  var = TREE_OPERAND (var, 0);
+	}
       else if (INDIRECT_REF_P (var)
 	       || TREE_CODE (var) == MEM_REF)
 	{
+	  *component = false;
 	  *ptr = TREE_OPERAND (var, 0);
+	  *chk_field_ptr = NULL_TREE;
+	  *chk_field_size = NULL_TREE;
 	  break;
 	}
       else if (TREE_CODE (var) == VIEW_CONVERT_EXPR)
 	{
+	  gcc_unreachable (); /* look at it later */
+
 	  var = TREE_OPERAND (var, 0);
 	  if (CONSTANT_CLASS_P (var)
 	      && TREE_CODE (var) != STRING_CST)
-	    return;
+	    break;
 	}
       else
 	{
@@ -978,14 +1033,20 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 		      || TREE_CODE (var) == RESULT_DECL
 		      || TREE_CODE (var) == STRING_CST);
 
-	  if (*component)
-	    return;
-	  else
+	  if (*chk_field_ptr)
 	    {
-	      *ptr = build1 (ADDR_EXPR,
-			     build_pointer_type (TREE_TYPE (var)), var);
-	      break;
+	      HOST_WIDE_INT size = (tree_low_cst (*chk_field_size, 1) + 7) / 8;
+	      tree field_type = TREE_TYPE (TREE_OPERAND (*chk_field_ptr, 1));
+	      *chk_field_ptr = fold_build1 (ADDR_EXPR,
+					    build_pointer_type (field_type),
+					    copy_node (*chk_field_ptr));
+	      /* Size should be in bytes but now it is in bits.  */
+	      *chk_field_size = build_int_cst (size_type_node, size);
 	    }
+
+	  *ptr = build1 (ADDR_EXPR,
+			 build_pointer_type (TREE_TYPE (var)), var);
+	  break;
 	}
     }
 }
@@ -999,6 +1060,8 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
   tree size = access_size ? access_size : TYPE_SIZE_UNIT (node_type);
   tree addr_first = NULL_TREE; /* address of the first accessed byte */
   tree addr_last = NULL_TREE; /* address of the last accessed byte */
+  tree field_ptr = NULL_TREE; /* address of field we access into */
+  tree field_size = NULL_TREE; /* sizeof field we access into */
   tree ptr = NULL_TREE; /* a pointer used for dereference */
   tree bounds;
   bool safe = false;
@@ -1011,11 +1074,11 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
     case COMPONENT_REF:
       {
 	bool bitfield;
-	bool component;
 	tree elt;
 
 	pl_parse_array_and_component_ref (node, &ptr, &elt, &safe,
-					  &bitfield);
+					  &bitfield, &field_ptr,
+					  &field_size);
 
 	/* Break if there is no dereference and operation is safe.  */
 	if (safe)
@@ -1127,7 +1190,14 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
   /* Generate bndcl/bndcu checks if memory access is not safe.  */
   if (!safe)
     {
-      bounds = pl_find_bounds (ptr, *iter);
+      /* If we have an access into field then make bounds
+	 using computed field pointer and size. Otherwise
+	 find bounds by used pointer.  */
+      if (field_ptr)
+	bounds = pl_make_bounds (field_ptr, field_size, iter);
+      else
+	bounds = pl_find_bounds (ptr, *iter);
+
       pl_check_mem_access (addr_first, addr_last, bounds, iter, loc, dirflag);
     }
 
@@ -1138,8 +1208,17 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 
       gcc_assert ( gimple_code(stmt) == GIMPLE_ASSIGN);
 
-      bounds = pl_compute_bounds_for_assignment (NULL_TREE, stmt);
-      pl_build_bndstx (addr_first, gimple_assign_rhs1 (stmt), bounds, *iter);
+      if (TREE_CLOBBER_P (gimple_assign_rhs1 (stmt)))
+	{
+	  /* Probably we should perform bndstx with zero bounds for all
+	     clobbered pointers.  Currently just ignore it.  */
+	}
+      else
+	{
+	  bounds = pl_compute_bounds_for_assignment (NULL_TREE, stmt);
+	  pl_build_bndstx (addr_first, gimple_assign_rhs1 (stmt),
+			   bounds, *iter);
+	}
     }
 }
 
