@@ -1,0 +1,5 @@
+2012-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from gcc-4.7, subversion id 186830.
+	* REVISION: New file.
+
