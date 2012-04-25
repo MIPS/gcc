@@ -797,15 +797,18 @@ static inline enum machine_mode
 get_op_mode (int nop)
 {
   rtx *loc;
-  enum machine_mode mode = curr_static_id->operand[nop].mode;
+  enum machine_mode mode;
+  bool md_first_p = asm_noperands (PATTERN (curr_insn)) < 0;
 
   /* Take mode from the machine description first.  */
-  if (mode != VOIDmode)
+  if (md_first_p && (mode = curr_static_id->operand[nop].mode) != VOIDmode)
     return mode;
   loc = curr_id->operand_loc[nop];
   /* Take mode from the operand second.  */
   mode = GET_MODE (*loc);
   if (mode != VOIDmode)
+    return mode;
+  if (! md_first_p && (mode = curr_static_id->operand[nop].mode) != VOIDmode)
     return mode;
   /* Here is a very rare case.  Take mode from the context.  */
   return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
@@ -858,14 +861,20 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	  reg = new_in_reg
 	    = lra_create_new_reg_with_unique_value (inmode, in_rtx,
 						    goal_class, "");
-	  new_out_reg = gen_lowpart_SUBREG (outmode, reg);
+	  if (SCALAR_INT_MODE_P (inmode))
+	    new_out_reg = gen_lowpart_SUBREG (outmode, reg);
+	  else
+	    new_out_reg = gen_rtx_SUBREG (outmode, reg, 0);
 	}
       else
 	{
 	  reg = new_out_reg
 	    = lra_create_new_reg_with_unique_value (outmode, out_rtx,
 						    goal_class, "");
-	  new_in_reg = gen_lowpart_SUBREG (inmode, new_out_reg);
+	  if (SCALAR_INT_MODE_P (outmode))
+	    new_in_reg = gen_lowpart_SUBREG (inmode, new_out_reg);
+	  else
+	    new_in_reg = gen_rtx_SUBREG (inmode, new_out_reg, 0);
 	}
       bitmap_set_bit (&lra_matched_pseudos, REGNO (reg));
       bitmap_set_bit (&lra_bound_pseudos, REGNO (reg));
@@ -3247,7 +3256,7 @@ curr_insn_transform (void)
 	      && type != OP_OUT)
 	    {
 	      push_to_sequence (before);
-	      lra_emit_move (new_reg, *loc);
+	      lra_emit_move (new_reg, old);
 	      before = get_insns ();
 	      end_sequence ();
 	    }
@@ -3257,7 +3266,12 @@ curr_insn_transform (void)
 	      if (find_reg_note (curr_insn, REG_UNUSED, old) == NULL_RTX)
 		{
 		  start_sequence ();
-		  lra_emit_move (old, new_reg);
+		  /* We don't want sharing subregs as the pseudo can
+		     get a memory and the memory can be processed
+		     several times for eliminations.  */
+		  lra_emit_move (GET_CODE (old) == SUBREG && type == OP_INOUT
+				 ? copy_rtx (old) : old,
+				 new_reg);
 		  emit_insn (after);
 		  after = get_insns ();
 		  end_sequence ();

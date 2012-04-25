@@ -1,3 +1,10 @@
+2012-04-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (get_op_mode): Take mode from operand first
+	for asm.
+	(match_reload): Use gen_lowpart_SUBREG for scalar int modes.
+	(curr_insn_transform): Unshare subregs for inout operands.
+
 2012-04-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* targhooks.h (default_different_addr_displacement_p): Declare.
