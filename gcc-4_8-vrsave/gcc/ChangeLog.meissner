@@ -1,5 +1,24 @@
+2012-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mvrsave-setjmp): New switch to
+	control whether to set the VRSAVE register for all Altivec
+	registers used, or just the non-volatile registers that setjmp and
+	longjump must restore.
+
+	* config/rs6000/rs6000.c (struct rs6000_vrsave): New state to
+	support -mvrsave-setjmp.
+	(struct machine_function): Likewise.
+	(rs6000_debug_reg_global): Print -mvrsave-setjmp status as well as
+	several other options.
+	(rs6000_option_override_internal): Initialize -mvrsave-setjmp.
+	(compute_vrsave_mask): Add -mvrsave-setjmp support.
+
+	* doc/invoke.texi (IBM RS/6000 and PowerPC Options): Document
+	-mvrsave-setjmp.
+
 2012-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Clone branch from subversion id 186824.
+	Clone branch from gcc-4.7, subversion id 186830.
 	* REVISION: New file.
+
 
