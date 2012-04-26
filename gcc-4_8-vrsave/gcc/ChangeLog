@@ -1,3 +1,241 @@
+2012-04-26  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* sched-deps.c (fixup_sched_groups): Rename to...
+	(chain_to_prev_insn): ...this.
+	(chain_to_prev_insn_p): New function.
+	(deps_analyze_insn): Use it instead of SCHED_GROUP_P.
+
+2012-04-26  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* sched-int.h (_haifa_insn_data): Move priority_status.
+	Add model_index.
+	(INSN_MODEL_INDEX): New macro.
+	* haifa-sched.c (insn_delay): New function.
+	(sched_regno_pressure_class): Update commentary.
+	(mark_regno_birth_or_death): Pass the liveness bitmap and
+	pressure array as arguments, instead of using curr_reg_live and
+	curr_reg_pressure.  Only update the pressure if the bit in the
+	liveness set has changed.
+	(initiate_reg_pressure_info): Always trust the live-in set for
+	SCHED_PRESSURE_MODEL.
+	(initiate_bb_reg_pressure_info): Update call to
+	mark_regno_birth_or_death.
+	(dep_list_size): Take the list as argument.
+	(calculate_reg_deaths): New function, extracted from...
+	(setup_insn_reg_pressure_info): ...here.
+	(MODEL_BAR): New macro.
+	(model_pressure_data, model_insn_info, model_pressure_limit)
+	(model_pressure_group): New structures.
+	(model_schedule, model_worklist, model_insns, model_num_insns)
+	(model_curr_point, model_before_pressure, model_next_priority):
+	New variables.
+	(MODEL_PRESSURE_DATA, MODEL_MAX_PRESSURE, MODEL_REF_PRESSURE)
+	(MODEL_INSN_INFO, MODEL_INSN): New macros.
+	(model_index, model_update_limit_points_in_group): New functions.
+	(model_update_limit_points, model_last_use_except): Likewise.
+	(model_start_update_pressure, model_update_pressure): Likewise.
+	(model_recompute, model_spill_cost, model_excess_group_cost): Likewise.
+	(model_excess_cost, model_dump_pressure_points): Likewise.
+	(model_set_excess_costs): Likewise.
+	(rank_for_schedule): Extend SCHED_PRIORITY_WEIGHTED ordering to
+	SCHED_PRIORITY_MODEL.  Use insn_delay.  Use the order in the model
+	schedule as an alternative tie-breaker.  Update the call to
+	dep_list_size.
+	(ready_sort): Call model_set_excess_costs.
+	(update_register_pressure): Update call to mark_regno_birth_or_death.
+	Rely on that function to check liveness rather than doing it here.
+	(model_classify_pressure, model_order_p, model_add_to_worklist_at)
+	(model_remove_from_worklist, model_add_to_worklist, model_promote_insn)
+	(model_add_to_schedule, model_analyze_insns, model_init_pressure_group)
+	(model_record_pressure, model_record_pressures): New functions.
+	(model_record_final_pressures, model_add_successors_to_worklist)
+	(model_promote_predecessors, model_choose_insn): Likewise.
+	(model_reset_queue_indices, model_dump_pressure_summary): Likewise.
+	(model_start_schedule, model_finalize_pressure_group): Likewise.
+	(model_end_schedule): Likewise.
+	(schedule_insn): Say when we're scheduling the next instruction
+	in the model schedule.
+	(schedule_insn): Handle SCHED_PRESSURE_MODEL.
+	(queue_to_ready): Do not add instructions that are
+	MAX_SCHED_READY_INSNS beyond the current point of the model schedule.
+	Always allow the next instruction in the model schedule to be added.
+	(debug_ready_list): Print the INSN_REG_PRESSURE_EXCESS_COST_CHANGE
+	and delay for SCHED_PRESSURE_MODEL too.
+	(prune_ready_list): Extend SCHED_PRIORITY_WEIGHTED handling to
+	SCHED_PRIORITY_MODEL, but also take the DFA into account.
+	(schedule_block): Call model_start_schedule and model_end_schedule.
+	Extend SCHED_PRIORITY_WEIGHTED stall handling to SCHED_PRIORITY_MODEL.
+	(sched_init): Extend INSN_REG_PRESSURE_EXCESS_COST_CHANGE handling
+	to SCHED_PRESSURE_MODEL, but don't allocate saved_reg_live or
+	region_ref_regs.
+	(sched_finish): Update accordingly.
+	(fix_tick_ready): Extend INSN_REG_PRESSURE_EXCESS_COST_CHANGE handling
+	to SCHED_PRESSURE_MODEL.
+	(add_jump_dependencies): Update call to dep_list_size.
+	(haifa_finish_h_i_d): Fix leak of max_reg_pressure.
+	(haifa_init_insn): Extend INSN_REG_PRESSURE_EXCESS_COST_CHANGE handling
+	to SCHED_PRESSURE_MODEL.
+	* sched-deps.c (init_insn_reg_pressure_info): Likewise, but don't
+	allocate INSN_MAX_REG_PRESSURE for SCHED_PRESSURE_MODEL.
+	(sched_analyze_insn): Extend INSN_REG_PRESSURE_EXCESS_COST_CHANGE
+	handling to SCHED_PRESSURE_MODEL.
+
+2012-04-26  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* common.opt (fsched-pressure-algorithm=): New option.
+	* flag-types.h (sched_pressure_algorithm): New enum.
+	* sched-int.h (sched_pressure_p): Replace with...
+	(sched_pressure): ...this new variable.
+	* haifa-sched.c (sched_pressure_p): Replace with...
+	(sched_pressure): ...this new variable.
+	(sched_regno_pressure_class, rank_for_schedule, ready_sort)
+	(update_reg_and_insn_max_reg_pressure, schedule_insn)
+	(debug_ready_list, prune_ready_list, schedule_block, sched_init)
+	(sched_finish, fix_tick_ready, haifa_init_insn): Update accordingly.
+	* sched-deps.c (init_insn_reg_pressure_info): Likewise.
+	(sched_analyze_insn): Likewise.
+	* sched-rgn.c (schedule_region): Likewise.
+	* config/m68k/m68k.c (m68k_sched_variable_issue): Likewise.
+
+2012-04-26  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* PR middle-end/52997
+	* ira.c (find_moveable_pseudos): Call resize_reg_info.
+
+	PR middle-end/52940
+	* machmode.h (CLASS_HAS_WIDER_MODES_P): True for MODE_PARTIAL_INT.
+	* expr.c (convert_move): Honor unsignedp when extending partial int
+	modes.
+	* genmodes.c (complete_mode): Don't clear component field of partial
+	int modes.
+	(emit_mode_inner): Don't emit it however.
+	(calc_wider_mode): Partial int modes widen to their component.
+
+2012-04-26  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/niagara4.md: New file.
+	* config/sparc/sparc.md: Include it.
+	* config/sparc/sparc.c (niagara4_costs): New processor costs.
+	(sparc_option_override): Use it.
+	(sparc_use_sched_lookahead): Return 2 for niagara4.
+	(sparc_issue_rate): Likewise.
+
+	* config/sparc/sparc.md (attr type): Delete 'fgm_cmp'.
+	(fpack16_vis, fpackfix_vis, fpack32_vis): Set type to fgm_pack.
+	(fmul8x16_vis, fmul8x16au_vis, fmul8x16al_vis, fmul8sux16_vis,
+	fmul8ulx16_vis, fmuld8sux16_vis, fmuld8ulx16_vis): Set type to
+	fgm_mul.
+	(alignaddrsi_vis, alignaddrdi_vis, alignaddrlsi_vis,
+	alignaddrldi_vis): Set type to gsr.
+	(pdist_vis, pdistn<mode>_vis): Set type to fgm_pdsit.
+	(fcmp<code><GCM:gcm_name><P:mode>_vis, cmask8<P:mode>_vis,
+	cmask16<P:mode>_vis, cmask32<P:mode>_vis, fchksm16_vis,
+	v<vis3_shift_patname><mode>3, fmean16_vis,
+	fp<plusminus_insn>64_vis, <vis3_addsub_ss_patname><mode>3,
+	fucmp<code>8<P:mode>_vis): Set type to fga.
+	* config/sparc/ultra1_2.md: Remove refrences to fgm_cmp.
+	* config/sparc/niagara.md: Likewise.
+	* config/sparc/niagara2.md: Likewise.
+	* config/sparc/ultra3.md: Likewise, and fix type matching for
+	us3_ialuX reservation.
+
+2012-04-26  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* reload.c (find_reloads): Change the loop nesting when trying an
+	alternative with swapped operands.
+
+2012-04-26  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc): Fix
+	comment. Delete unused parameter first_exp_point_map.
+	(virt_loc_aware_diagnostic_finalizer): Update call.
+
+2012-04-26  Michael Hope  <michael.hope@linaro.org>
+	    Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/arm/linux-eabi.h (GLIBC_DYNAMIC_LINKER_SOFT_FLOAT): Define.
+	(GLIBC_DYNAMIC_LINKER_HARD_FLOAT): Define.
+	(GLIBC_DYNAMIC_LINKER_DEFAULT): Define.
+	(GLIBC_DYNAMIC_LINKER):	Redefine to use the hard float path.
+
+2012-04-25  Sriraman Tallam  <tmsriram@google.com>
+
+	* doc/extend.texi: Document avx2 support.
+	* config/i386/i386.c (fold_builtin_cpu): Add avx2.
+
+2012-04-26  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/53120
+	* config/cris/cris.md ("*andhi_lowpart_v32")
+	("*andqi_lowpart_v32"): Change first input-only operand from
+	a (match_operand ...) to (match_dup 0).  Drop alternatives with
+	const_int-matching constraints for redundancy.
+	("*andhi_lowpart_non_v32", "*andqi_lowpart_non_v32"): Ditto.  Drop
+	three-operand alternative.
+
+2012-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/53110
+	* config/i386/i386.md (and<mode>3): For andq $0xffffffff, reg
+	instead expand it as zero extension.
+
+2012-04-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR debug/52857
+	* dwarf2out.c (dbx_reg_number): Assert return value !=
+	INVALID_REGNUM.
+
+2012-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* common.opt (flag_debug_types_section): Default to 0.
+	(dwarf_version): Default to 4.
+	(dwarf_record_gcc_switches): Default to 1.
+	(dwarf_strict): Default to 0.
+	* toplev.c (process_options): Don't handle dwarf_strict
+	or dwarf_version here.
+	* config/vxworks.c (vxworks_override_options): Don't
+	test whether dwarf_strict or dwarf_version are negative,
+	instead test !global_options_set.x_dwarf_*.
+	* config/darwin.c (darwin_override_options): Default to
+	dwarf_version 2.
+	* doc/invoke.texi: Note that -gdwarf-4, -grecord-gcc-switches
+	and -fno-debug-types-section are now the default.
+
+2012-04-25  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c: Update toplevel comment.
+	(tree_rest_of_compilation): Merge into cgraph_expand_function.
+	(cgraph_analyze_function): Make static.
+	(cgraph_decide_is_function_needed): Make static.
+	(cgraph_add_new_function): Use expand_function instead of
+	rest_of_compilation.
+	(clone_of_p, verify_edge_count_and_frequency, cgraph_debug_gimple_stmt,
+	verify_edge_corresponds_to_fndecl, verify_cgraph_node, verify_cgraph):
+	Move to cgraph.c
+	(cgraph_inline_p): Remove.
+	(cgraph_preserve_function_body_p): Move to ipa-inline-transform.
+	(init_cgraph): Add comment.
+	* cgraphbuild.c (record_reference, mark_address, mark_load,
+	mark_store): Do not call analyze_expr hook.
+	* cgraph.c: Update toplevel comment.
+	(clone_of_p, verify_edge_count_and_frequency, cgraph_debug_gimple_stmt,
+	verify_edge_corresponds_to_fndecl, verify_cgraph_node, verify_cgraph):
+	Move fere from cgraphunit.c
+	(cgraph_mark_force_output_node): Move to cgraph.h
+	* cgraph.h: Reorder so the comments match the function placement.
+	(cgraph_analyze_function, cgraph_decide_is_function_needed): Remove.
+	(cgraph_mark_force_output_node): Move here from cgraph.c
+	* tree.c (free_lang_data): Do not clear analyze_expr hook.
+	* ipa-inline-transform.c (preserve_function_body_p): New function.
+	(inline_transform): Update.
+	* langhooks.c (lhd_callgraph_analyze_expr): Remove.
+	* langhooks.h (lang_hooks_for_callgraph): Remove.
+	(lang_hooks): Remove callgraph.
+	* tree-inline.c (expand_call_inline): Do not use cgraph_inline_p.
+	* varpool.c: Remove out of date comment.
+	* langhooks-def.h (lhd_callgraph_analyze_expr): Remove.
+	(LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR): Remove.
+
 2012-04-25  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/53089 
