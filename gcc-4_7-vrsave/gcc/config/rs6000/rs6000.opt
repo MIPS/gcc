@@ -321,6 +321,10 @@ mvrsave
 Target Report Var(TARGET_ALTIVEC_VRSAVE) Save
 Generate VRSAVE instructions when generating AltiVec code
 
+mvrsave-setjmp
+Target Report Var(TARGET_VRSAVE_SETJMP) Save Init(-1)
+If -mvrsave, only generate VRSAVE instructions for use with setjmp/longjmp.
+
 mvrsave=no
 Target RejectNegative Alias(mvrsave) NegativeAlias
 Deprecated option.  Use -mno-vrsave instead

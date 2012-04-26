@@ -1,0 +1,6 @@
+2012-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vrsave-1.c: New file to test -mvrsave and
+	-mvrsave-setjmp.
+	* gcc.target/powerpc/vrsave-2.c: Likewise.
+	* gcc.target/powerpc/vrsave-3.c: Likewise.

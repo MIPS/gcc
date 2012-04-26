@@ -828,7 +828,7 @@ See RS/6000 and PowerPC Options.
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
 -mgen-cell-microcode -mwarn-cell-microcode @gol
--mvrsave -mno-vrsave @gol
+-mvrsave -mno-vrsave -mvrsave-setjmp -mno-vrsave-setjmp @gol
 -mmulhw -mno-mulhw @gol
 -mdlmzb -mno-dlmzb @gol
 -mfloat-gprs=yes  -mfloat-gprs=no -mfloat-gprs=single -mfloat-gprs=double @gol
@@ -16475,7 +16475,22 @@ enhancements.
 @itemx -mno-vrsave
 @opindex mvrsave
 @opindex mno-vrsave
-Generate VRSAVE instructions when generating AltiVec code.
+Update the @code{VRSAVE} special purpose register when generating
+AltiVec code to track which vector registers are live.
+
+@item -mvrsave-setjmp
+@itemx -mno-vrsave-setjmp
+@opindex mvrsave-setjmp
+@opindex mno-vrsave-setjmp
+If @option{-mvrsave} is enabled, only update the @code{VRSAVE} special
+purpose register to track non-volatile vector registers that must be
+saved with the @code{setjmp} function and restored with the
+@code{longjmp} function.  When the AltiVec instructions were
+introduced, some kernels depended on using the @code{VRSAVE} special
+purpose register to identify which registers to save in a context
+swap, but newer linux kernels do not use @code{VRSAVE} in this
+fashion.  This is on by default for power6 and power7 systems and off
+otherwise.
 
 @item -mgen-cell-microcode
 @opindex mgen-cell-microcode

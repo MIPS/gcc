@@ -117,6 +117,14 @@ typedef struct rs6000_stack {
   int savres_strategy;
 } rs6000_stack_t;
 
+/* Information for calculating the VRSAVE mask.  */
+typedef struct GTY(()) rs6000_vrsave
+{
+  unsigned int nv_regs;		/* mask of non-volatile registers.  */
+  bool leaf_p;			/* is the function a leaf?  */
+  bool initialized_p;		/* whether we have set up this struct.  */
+} rs6000_vrsave_t;
+
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct GTY(()) machine_function
@@ -141,6 +149,8 @@ typedef struct GTY(()) machine_function
      64-bits wide and is allocated early enough so that the offset
      does not overflow the 16-bit load/store offset field.  */
   rtx sdmode_stack_slot;
+  /* Information needed for calculating the VRSAVE mask.  */
+  rs6000_vrsave_t vrsave;
 } machine_function;
 
 /* Support targetm.vectorize.builtin_mask_for_load.  */
@@ -2167,6 +2177,17 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
   fprintf (stderr, DEBUG_FMT_X, "Builtin mask", rs6000_builtin_mask);
+  fprintf (stderr, DEBUG_FMT_S, "altivec", tf[!!TARGET_ALTIVEC]);
+  fprintf (stderr, DEBUG_FMT_S, "vsx", tf[!!TARGET_VSX]);
+  fprintf (stderr, DEBUG_FMT_S, "popcntb", tf[!!TARGET_POPCNTB]);
+  fprintf (stderr, DEBUG_FMT_S, "popcntd", tf[!!TARGET_POPCNTD]);
+  fprintf (stderr, DEBUG_FMT_S, "fre", tf[!!TARGET_FRE]);
+  fprintf (stderr, DEBUG_FMT_S, "fres", tf[!!TARGET_FRES]);
+  fprintf (stderr, DEBUG_FMT_S, "frsqrte", tf[!!TARGET_FRSQRTE]);
+  fprintf (stderr, DEBUG_FMT_S, "frsqrtes", tf[!!TARGET_FRSQRTES]);
+  fprintf (stderr, DEBUG_FMT_S, "vrsave", tf[!!TARGET_ALTIVEC_VRSAVE]);
+  fprintf (stderr, DEBUG_FMT_S, "vrsave-setjmp",
+	   tf[!!TARGET_VRSAVE_SETJMP]);
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -2906,6 +2927,11 @@ rs6000_option_override_internal (bool global_init_p)
       if (!global_options_set.x_TARGET_ALTIVEC_VRSAVE)
 	TARGET_ALTIVEC_VRSAVE = rs6000_altivec_abi;
     }
+
+  /* Unset vrsave-volatile on power6/power7 systems.  */
+  if (TARGET_VRSAVE_SETJMP < 0)
+    TARGET_VRSAVE_SETJMP = (TARGET_ALTIVEC_VRSAVE
+			    && (TARGET_CMPB || TARGET_VSX));
 
   /* Set the Darwin64 ABI as default for 64-bit Darwin.  
      So far, the only darwin64 targets are also MACH-O.  */
@@ -17363,7 +17389,7 @@ first_altivec_reg_to_save (void)
   return i;
 }
 
-/* Return a 32-bit mask of the AltiVec registers we need to set in
+/* Calculate the 32-bit mask of the AltiVec registers we need to set in
    VRSAVE.  Bit n of the return value is 1 if Vn is live.  The MSB in
    the 32-bit word is 0.  */
 
@@ -17385,7 +17411,34 @@ compute_vrsave_mask (void)
       mask |= ALTIVEC_REG_BIT (i);
 
   if (mask == 0)
-    return mask;
+    return 0;
+
+  /* If -mvrsave-setjmp, only set VRSAVE to non-volatile registers set across a
+     call.  We cache the result of leaf_function_p, since it is not valid when
+     the last call to compute_vrsave_mask is made.  */
+  if (TARGET_VRSAVE_SETJMP && cfun->machine)
+    {
+      struct machine_function *machine = cfun->machine;
+      if (!machine->vrsave.initialized_p)
+	{
+	  unsigned int nv_regs = 0;
+
+	  machine->vrsave.initialized_p = true;
+	  machine->vrsave.leaf_p = leaf_function_p ();
+
+	  for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)
+	    {
+	      if (!call_used_regs[i])
+		nv_regs |= ALTIVEC_REG_BIT (i);
+	    }
+
+	  machine->vrsave.nv_regs = nv_regs;
+	}
+
+      mask &= machine->vrsave.nv_regs;
+      if (mask == 0 || machine->vrsave.leaf_p)
+	return 0;
+    }
 
   /* Next, remove the argument registers from the set.  These must
      be in the VRSAVE mask set by the caller, so we don't need to add
