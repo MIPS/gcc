@@ -14537,7 +14537,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
 	case '!':
 	  if (TARGET_PL && flag_pl)
-	    fputs ("repne ", file);
+	    /*fputs ("repne ", file);*/
+	    fputs (".byte 0xf2\n\t", file);
 	  return;
 
 	default:

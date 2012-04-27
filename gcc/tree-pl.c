@@ -39,6 +39,7 @@ static tree pl_get_bound_for_parm (tree parm);
 static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator gsi);
+static tree pl_build_returned_bound (gimple call);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
@@ -434,13 +435,30 @@ pl_get_none_bounds (void)
 static tree
 pl_build_returned_bound (gimple call)
 {
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  gimple_stmt_iterator gsi;
   tree bounds;
   gimple stmt;
 
   stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
   pl_mark_stmt (stmt);
-  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+
+  /* If call may throw then we have to insert new
+     statement to the next BB.  Otherwise insert
+     it right after call.  */
+  if (stmt_can_throw_internal (call))
+    {
+      basic_block bb = gimple_bb (call);
+
+      gcc_assert (EDGE_COUNT (bb->succs) == 2);
+
+      gsi = gsi_start_bb (FALLTHRU_EDGE (bb)->dest);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
+  else
+    {
+      gsi = gsi_for_stmt (call);
+      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+    }
 
   bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
   add_referenced_var (bounds);
