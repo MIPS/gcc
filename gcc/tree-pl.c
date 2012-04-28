@@ -205,6 +205,8 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   tree arg;
   tree lhs;
   gimple new_call;
+  ssa_op_iter iter;
+  tree op;
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
@@ -296,13 +298,9 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 			     pl_find_bounds (call_arg, *gsi));
     }
 
-  lhs = gimple_call_lhs (call);
-  if (lhs)
+  FOR_EACH_SSA_TREE_OPERAND (op, call, iter, SSA_OP_ALL_DEFS)
     {
-      gcc_assert (TREE_CODE (lhs) == SSA_NAME);
-
-      gimple_call_set_lhs (new_call, lhs);
-      SSA_NAME_DEF_STMT (lhs) = new_call;
+      SSA_NAME_DEF_STMT (op) = new_call;
     }
 
   gsi_replace (gsi, new_call, true);
