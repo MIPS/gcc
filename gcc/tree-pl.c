@@ -928,8 +928,6 @@ pl_find_bounds (tree ptr, gimple_stmt_iterator iter)
 		  tree arg = gimple_phi_arg_def (def_stmt, i);
 		  tree arg_bnd;
 
-		  gcc_assert (arg && (TREE_CODE (arg) == SSA_NAME));
-
 		  arg_bnd = pl_find_bounds (arg, iter);
 
 		  add_phi_arg (phi_bnd, arg_bnd,
@@ -1139,10 +1137,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       break;
 
     case TARGET_MEM_REF:
-      printf("TARGET_MEM_REF\n");
-      debug_gimple_stmt(gsi_stmt(*iter));
-      debug_tree(node);
-      gcc_unreachable ();
+      addr_first = tree_mem_ref_addr (ptr_type_node, node);
       break;
 
     case ARRAY_RANGE_REF:
