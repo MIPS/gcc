@@ -1,3 +1,11 @@
+2012-04-30  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): Consolidate 32-bit and
+	64-bit versions.
+	Remove use of __typeof.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+
 2012-03-16  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/cpu/powerpc/cpu_defines.h: Remove #ifdef IN_LIBSTDCXX test.
