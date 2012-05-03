@@ -577,6 +577,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
   enum tree_code rhs_code = gimple_assign_rhs_code (assign);
   location_t loc = gimple_location (assign);
   tree rhs1 = gimple_assign_rhs1 (assign);
+  tree rhs2 = gimple_assign_rhs2 (assign);
   tree bounds = NULL_TREE;
   gimple_stmt_iterator iter;
   tree ptr;
@@ -635,6 +636,21 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case NOP_EXPR:
       iter = gsi_for_stmt (assign);
       bounds = pl_find_bounds (rhs1, iter);
+      break;
+
+    case PLUS_EXPR:
+      if (POINTER_TYPE_P (TREE_TYPE (rhs1)))
+	{
+	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs2)));
+	  bounds = pl_find_bounds (rhs1, iter);
+	}
+      else if (POINTER_TYPE_P (TREE_TYPE (rhs2)))
+	{
+	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs1)));
+	  bounds = pl_find_bounds (rhs2, iter);
+	}
+      else
+	bounds = pl_get_zero_bounds ();
       break;
 
     case VAR_DECL:
