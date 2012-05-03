@@ -632,6 +632,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case SSA_NAME:
     case ADDR_EXPR:
     case POINTER_PLUS_EXPR:
+    case NOP_EXPR:
       iter = gsi_for_stmt (assign);
       bounds = pl_find_bounds (rhs1, iter);
       break;
