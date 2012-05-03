@@ -1241,8 +1241,9 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (!host_integerp (DECL_SIZE_UNIT (var), 1))
+  else if (! valid_constant_size_p (DECL_SIZE_UNIT (var)))
     {
+      /* Reject variables which cover more than half of the address-space.  */
       if (really_expand)
 	{
 	  error ("size of variable %q+D is too large", var);
@@ -3729,7 +3730,8 @@ expand_gimple_basic_block (basic_block bb)
      block to be in GIMPLE, instead of RTL.  Therefore, we need to
      access the BB sequence directly.  */
   stmts = bb_seq (bb);
-  bb->il.gimple = NULL;
+  bb->il.gimple.seq = NULL;
+  bb->il.gimple.phi_nodes = NULL;
   rtl_profile_for_bb (bb);
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
