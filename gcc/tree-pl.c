@@ -639,18 +639,12 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case PLUS_EXPR:
-      if (POINTER_TYPE_P (TREE_TYPE (rhs1)))
-	{
-	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs2)));
-	  bounds = pl_find_bounds (rhs1, iter);
-	}
-      else if (POINTER_TYPE_P (TREE_TYPE (rhs2)))
-	{
-	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs1)));
-	  bounds = pl_find_bounds (rhs2, iter);
-	}
-      else
-	bounds = pl_get_zero_bounds ();
+      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs2)));
+      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs1)));
+      bounds = pl_get_zero_bounds ();
+      /* TODO:L We may be not so conservative and try to look for bounds
+	 for both rhs1. If only one of them is not zero_bounds then
+	 use it; otherwise use zero_bounds.  */
       break;
 
     case VAR_DECL:
