@@ -1137,6 +1137,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       break;
 
     case TARGET_MEM_REF:
+      ptr = TMR_BASE (node);
       addr_first = tree_mem_ref_addr (ptr_type_node, node);
       break;
 
