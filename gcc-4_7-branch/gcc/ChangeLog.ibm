@@ -1,3 +1,8 @@
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 187134 (to get fix for PR 53199)
+	* REVISION: Update subversion id.
+
 2012-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 186392 (to get fix for PR 52775)
