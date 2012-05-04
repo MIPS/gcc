@@ -1,3 +1,46 @@
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/53199
+	* gcc.target/powwerpc/pr53199.c: New file.
+
+2012-05-03  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2012-05-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/52605
+	* g++.dg/lto/pr52605_0.C: New test.
+
+2012-05-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53186
+	* g++.dg/other/final2.C: New.
+
+2012-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/53174
+	* gcc.dg/pr53174.c: New test.
+
+	PR target/53187
+	* gcc.target/arm/pr53187.c: New test.
+	* gcc.c-torture/compile/pr53187.c: New test.
+
+2012-05-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53144
+	* gcc.dg/torture/pr53144.c: New testcase.
+
+2012-05-02  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2012-04-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52864
+	* gfortran.dg/pointer_intent_6.f90: New.
+
 2012-05-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/53163

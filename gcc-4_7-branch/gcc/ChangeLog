@@ -1,3 +1,57 @@
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/53199
+	* config/rs6000/rs6000.md (bswapdi splitters): If
+	-mavoid-indexed-addresses (or -mcpu=power6 which sets it by
+	default) is used, generate an alternate sequence that does not
+	depend on using indexed addressing.
+
+2012-05-03  David S. Miller  <davem@davemloft.net>
+
+	PR target/52684
+	* config/sparc/sparc.c (emit_soft_tfmode_libcall): If we pass a
+	MEM directly into a libcall, mark it's MEM_EXPR as addressable.
+	(sparc_emit_float_lib_cmp): Likewise.
+
+2012-05-04  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2012-05-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/52605
+	* dwarf2out.c (dwarf2out_decl): Only lookup die representing context
+	of a variable when the contect is a function.
+
+2012-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR plugins/53126
+	* gcc-ar.c (main): If GCC_EXEC_PREFIX is set in env,
+	append program name to it and pass that as first argument
+	to make_relative_prefix.  Always pass standard_libexec_prefix
+	as last argument to make_relative_prefix.  If
+	make_relative_prefix returns NULL, fall back to
+	standard_libexec_prefix.
+
+	PR debug/53174
+	* tree-predcom.c (remove_stmt): Call reset_debug_uses on stmts being
+	removed.
+
+	PR target/53187
+	* config/arm/arm.c (arm_select_cc_mode): If x has MODE_CC class
+	mode, return that mode.
+
+2012-05-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53144
+	* tree-ssa-sccvn.c (vn_reference_lookup_or_insert_constant_for_pieces):
+	Rename to ...
+	(vn_reference_lookup_or_insert_for_pieces): ... this.  Properly deal
+	with SSA name values.
+	(vn_reference_lookup_3): Adjust callers.
+
 2012-05-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/53163
