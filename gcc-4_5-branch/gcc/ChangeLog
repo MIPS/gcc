@@ -1,3 +1,140 @@
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/53199
+	* config/rs6000/rs6000.md (bswapdi splitters): If
+	-mavoid-indexed-addresses (or -mcpu=power6 which sets it by
+	default) is used, generate an alternate sequence that does not
+	depend on using indexed addressing.
+
+2012-05-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2011-10-21 4.6-branch 180303.
+
+	PR target/50820
+	* config/avr/libgcc.S (__EIND__): New define to 0x3C.
+	(__tablejump__): Consistently use EIND for indirect jump/call.
+	(__tablejump_elpm__): Ditto.
+
+2012-05-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2011-05-30 4.6-branch r174427.
+
+	PR target/45263
+	* config/avr/libgcc.S (__do_global_ctors, __do_global_dtors):
+	Don't use r20 around calls of __tablejump_elpm__
+
+2012-05-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2011-07-11 4.6-branch r176143
+
+	PR target/39633
+	* config/avr/avr.c (notice_update_cc): For ashiftrt:QI, only
+	offsets 1..5 set cc0 in a usable way.
+
+2012-05-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2011-07-08 4.6-branch r176055.
+
+	PR target/46779
+	* config/avr/avr.c (avr_hard_regno_mode_ok): Rewrite.
+	In particular, allow 8-bit values in r28 and r29.
+	(avr_hard_regno_scratch_ok): Disallow any register that might be
+	part of the frame pointer.
+	(avr_hard_regno_rename_ok): Same.
+	(avr_legitimate_address_p): Don't allow SUBREGs.
+
+2012-04-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-04-27  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR target/53138
+	* config/i386/i386.md (x86_mov<mode>cc_0_m1_neg): Add clobber.
+
+2012-04-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	struct siginfo vs. siginfo_t
+
+	Backport from trunk (but apply to gcc/):
+
+	2012-04-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/alpha/linux-unwind.h (alpha_fallback_frame_state): Use
+	siginfo_t instead of struct siginfo.
+	* config/bfin/linux-unwind.h (bfin_fallback_frame_state): Likewise.
+	* config/i386/linux-unwind.h (x86_fallback_frame_state): Likewise.
+	* config/ia64/linux-unwind.h (ia64_fallback_frame_state)
+	(ia64_handle_unwabi): Likewise.
+	* config/mips/linux-unwind.h (mips_fallback_frame_state): Likewise.
+	* config/pa/linux-unwind.h (pa32_fallback_frame_state): Likewise.
+	* config/sh/linux-unwind.h (shmedia_fallback_frame_state)
+	(sh_fallback_frame_state): Likewise.
+	* config/xtensa/linux-unwind.h (xtensa_fallback_frame_state): Likewise.
+
+2012-04-12  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/49448
+	* config.gcc (arm*-*-linux*): Use an unambiguous pattern for
+	detecting big-endian triplets.
+
+2012-04-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR middle-end/52894
+	* varasm.c (process_pending_assemble_externals): Set
+	pending_assemble_externals_processed true.
+	(assemble_external): Call assemble_external_real if the pending
+	assemble externals have been processed.
+
+2012-04-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/52717
+	* config/sparc/sparc.c (sparc_file_end): Set TREE_PUBLIC explicitly on
+	the DECL generated for the special GOT helper.
+
+2012-04-06  Matt Turner  <mattst88@gmail.com>
+
+	* doc/install.texi: Correct typo "-mno-lsc" -> "-mno-llsc".
+
+2012-03-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (avx_h<plusminus_insn>v4df3): Fix results
+	crossing 128bit lane boundary.
+
+2012-03-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backported from mainline
+	2012-03-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52698
+	* config/i386/i386-protos.h (ix86_legitimize_reload_address):
+	New prototype.
+	* config/i386/i386.h (LEGITIMIZE_RELOAD_ADDRESS): New define.
+	* config/i386/i386.c: Include reload.h.
+	(ix86_legitimize_reload_address): New function.
+
+2012-03-28  Martin Jambor  <mjambor@suse.cz>
+
+	Backported from mainline
+	2012-03-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/52693
+	* tree-sra.c (sra_modify_assign): Do not call
+	load_assign_lhs_subreplacements when working with an unscalarizable
+	region.
+
+2012-03-24  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/52640
+	* varasm.c: Include pointer-set.h.
+	(pending_assemble_externals_set): New pointer set.
+	(process_pending_assemble_externals): Destroy the pointer set.
+	(assemble_external): See if decl is in pending_assemble_externals_set,
+	and add it to pending_assemble_externals if necessary.
+	(init_varasm_once): Allocate pending_assemble_externals_set.
+
 2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
