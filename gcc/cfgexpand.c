@@ -1990,6 +1990,87 @@ mark_transaction_restart_calls (gimple stmt)
     }
 }
 
+
+/* Expand a GIMPLE_ATOMIC statement STMT into RTL.  */
+static void
+expand_atomic_stmt (gimple stmt)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (stmt);
+  bool emitted = false;
+  bool try_inline;
+
+  /* Fences, test_and_set, and clear operations are required to be inlined.  */
+  try_inline = flag_inline_atomics || (kind == GIMPLE_ATOMIC_FENCE) ||
+	       (kind == GIMPLE_ATOMIC_TEST_AND_SET) ||
+	       (kind == GIMPLE_ATOMIC_CLEAR);
+
+  /* Try emitting inline code if requsted.  */
+  if (try_inline)
+    {
+      switch (kind)
+	{
+	case GIMPLE_ATOMIC_LOAD:
+	  emitted = expand_gimple_atomic_load (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_STORE:
+	  emitted = expand_gimple_atomic_store (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_EXCHANGE:
+	  emitted = expand_gimple_atomic_exchange (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+	  emitted = expand_gimple_atomic_compare_exchange (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_FETCH_OP:
+	  emitted = expand_gimple_atomic_fetch_op (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_OP_FETCH:
+	  emitted = expand_gimple_atomic_op_fetch (stmt);
+	  break;
+
+	case GIMPLE_ATOMIC_TEST_AND_SET:
+	  expand_gimple_atomic_test_and_set (stmt);
+	  return;
+
+	case GIMPLE_ATOMIC_CLEAR:
+	  expand_gimple_atomic_clear (stmt);
+	  return;
+
+	case GIMPLE_ATOMIC_FENCE:
+	  expand_gimple_atomic_fence (stmt);
+	  return;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* If no code was emitted, issue a library call.  */
+  if (!emitted)
+    {
+      switch (kind)
+        {
+	case GIMPLE_ATOMIC_LOAD:
+	case GIMPLE_ATOMIC_STORE:
+	case GIMPLE_ATOMIC_EXCHANGE:
+	case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+	case GIMPLE_ATOMIC_FETCH_OP:
+	case GIMPLE_ATOMIC_OP_FETCH:
+	  expand_gimple_atomic_library_call (stmt);
+	  return;
+
+	default:
+	  /* The remaining kinds must be inlined or unsupported.  */
+	  gcc_unreachable ();
+	}
+    }
+}
+
 /* A subroutine of expand_gimple_stmt_1, expanding one GIMPLE_CALL
    statement STMT.  */
 
@@ -2079,6 +2160,118 @@ expand_call_stmt (gimple stmt)
   mark_transaction_restart_calls (stmt);
 }
 
+
+/* A subroutine of expand_gimple_assign, Take care of moving the RHS of an
+   assignment into TARGET which is of type TARGET_TREE_TYPE.   Moves can
+   be NONTEMPORAL.  */
+
+void
+expand_gimple_assign_move (tree target_tree_type, rtx target, rtx rhs,
+			   bool nontemporal) 
+{
+  bool promoted = false;
+
+  if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
+    promoted = true;
+
+  if (rhs == target)
+    ;
+  else if (promoted)
+    {
+      int unsignedp = SUBREG_PROMOTED_UNSIGNED_P (target);
+      /* If TEMP is a VOIDmode constant, use convert_modes to make
+	 sure that we properly convert it.  */
+      if (CONSTANT_P (rhs) && GET_MODE (rhs) == VOIDmode)
+	{
+	  rhs = convert_modes (GET_MODE (target),
+				TYPE_MODE (target_tree_type),
+				rhs, unsignedp);
+	  rhs = convert_modes (GET_MODE (SUBREG_REG (target)),
+				GET_MODE (target), rhs, unsignedp);
+	}
+
+      convert_move (SUBREG_REG (target), rhs, unsignedp);
+    }
+  else if (nontemporal && emit_storent_insn (target, rhs))
+    ;
+  else
+    {
+      rhs = force_operand (rhs, target);
+      if (rhs != target)
+	emit_move_insn (target, rhs);
+    }
+}
+
+/* A subroutine of expand_gimple_stmt_1, expanding one GIMPLE_CALL
+   statement STMT.  */
+
+static void
+expand_gimple_assign (gimple stmt)
+{
+  tree lhs = gimple_assign_lhs (stmt);
+
+  /* Tree expand used to fiddle with |= and &= of two bitfield
+     COMPONENT_REFs here.  This can't happen with gimple, the LHS
+     of binary assigns must be a gimple reg.  */
+
+  if (TREE_CODE (lhs) != SSA_NAME
+      || get_gimple_rhs_class (gimple_expr_code (stmt))
+	 == GIMPLE_SINGLE_RHS)
+    {
+      tree rhs = gimple_assign_rhs1 (stmt);
+      gcc_assert (get_gimple_rhs_class (gimple_expr_code (stmt))
+		  == GIMPLE_SINGLE_RHS);
+      if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs))
+	SET_EXPR_LOCATION (rhs, gimple_location (stmt));
+      if (TREE_CLOBBER_P (rhs))
+	/* This is a clobber to mark the going out of scope for
+	   this LHS.  */
+	;
+      else
+	expand_assignment (lhs, rhs,
+			   gimple_assign_nontemporal_move_p (stmt));
+    }
+  else
+    {
+      rtx target, temp;
+      bool nontemporal = gimple_assign_nontemporal_move_p (stmt);
+      struct separate_ops ops;
+      bool promoted = false;
+
+      target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
+	promoted = true;
+
+      ops.code = gimple_assign_rhs_code (stmt);
+      ops.type = TREE_TYPE (lhs);
+      switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
+	{
+	  case GIMPLE_TERNARY_RHS:
+	    ops.op2 = gimple_assign_rhs3 (stmt);
+	    /* Fallthru */
+	  case GIMPLE_BINARY_RHS:
+	    ops.op1 = gimple_assign_rhs2 (stmt);
+	    /* Fallthru */
+	  case GIMPLE_UNARY_RHS:
+	    ops.op0 = gimple_assign_rhs1 (stmt);
+	    break;
+	  default:
+	    gcc_unreachable ();
+	}
+      ops.location = gimple_location (stmt);
+
+      /* If we want to use a nontemporal store, force the value to
+	 register first.  If we store into a promoted register,
+	 don't directly expand to target.  */
+      temp = nontemporal || promoted ? NULL_RTX : target;
+      temp = expand_expr_real_2 (&ops, temp, GET_MODE (target),
+				 EXPAND_NORMAL);
+
+      expand_gimple_assign_move (TREE_TYPE (lhs), target, temp, nontemporal);
+    }
+}
+
+
 /* A subroutine of expand_gimple_stmt, expanding one gimple statement
    STMT that doesn't require special handling for outgoing edges.  That
    is no tailcalls and no GIMPLE_COND.  */
@@ -2115,6 +2308,9 @@ expand_gimple_stmt_1 (gimple stmt)
     case GIMPLE_CALL:
       expand_call_stmt (stmt);
       break;
+    case GIMPLE_ATOMIC:
+      expand_atomic_stmt (stmt);
+      break;
 
     case GIMPLE_RETURN:
       op0 = gimple_return_retval (stmt);
@@ -2147,94 +2343,7 @@ expand_gimple_stmt_1 (gimple stmt)
       break;
 
     case GIMPLE_ASSIGN:
-      {
-	tree lhs = gimple_assign_lhs (stmt);
-
-	/* Tree expand used to fiddle with |= and &= of two bitfield
-	   COMPONENT_REFs here.  This can't happen with gimple, the LHS
-	   of binary assigns must be a gimple reg.  */
-
-	if (TREE_CODE (lhs) != SSA_NAME
-	    || get_gimple_rhs_class (gimple_expr_code (stmt))
-	       == GIMPLE_SINGLE_RHS)
-	  {
-	    tree rhs = gimple_assign_rhs1 (stmt);
-	    gcc_assert (get_gimple_rhs_class (gimple_expr_code (stmt))
-			== GIMPLE_SINGLE_RHS);
-	    if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs))
-	      SET_EXPR_LOCATION (rhs, gimple_location (stmt));
-	    if (TREE_CLOBBER_P (rhs))
-	      /* This is a clobber to mark the going out of scope for
-		 this LHS.  */
-	      ;
-	    else
-	      expand_assignment (lhs, rhs,
-				 gimple_assign_nontemporal_move_p (stmt));
-	  }
-	else
-	  {
-	    rtx target, temp;
-	    bool nontemporal = gimple_assign_nontemporal_move_p (stmt);
-	    struct separate_ops ops;
-	    bool promoted = false;
-
-	    target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
-	    if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
-	      promoted = true;
-
-	    ops.code = gimple_assign_rhs_code (stmt);
-	    ops.type = TREE_TYPE (lhs);
-	    switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
-	      {
-		case GIMPLE_TERNARY_RHS:
-		  ops.op2 = gimple_assign_rhs3 (stmt);
-		  /* Fallthru */
-		case GIMPLE_BINARY_RHS:
-		  ops.op1 = gimple_assign_rhs2 (stmt);
-		  /* Fallthru */
-		case GIMPLE_UNARY_RHS:
-		  ops.op0 = gimple_assign_rhs1 (stmt);
-		  break;
-		default:
-		  gcc_unreachable ();
-	      }
-	    ops.location = gimple_location (stmt);
-
-	    /* If we want to use a nontemporal store, force the value to
-	       register first.  If we store into a promoted register,
-	       don't directly expand to target.  */
-	    temp = nontemporal || promoted ? NULL_RTX : target;
-	    temp = expand_expr_real_2 (&ops, temp, GET_MODE (target),
-				       EXPAND_NORMAL);
-
-	    if (temp == target)
-	      ;
-	    else if (promoted)
-	      {
-		int unsignedp = SUBREG_PROMOTED_UNSIGNED_P (target);
-		/* If TEMP is a VOIDmode constant, use convert_modes to make
-		   sure that we properly convert it.  */
-		if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode)
-		  {
-		    temp = convert_modes (GET_MODE (target),
-					  TYPE_MODE (ops.type),
-					  temp, unsignedp);
-		    temp = convert_modes (GET_MODE (SUBREG_REG (target)),
-					  GET_MODE (target), temp, unsignedp);
-		  }
-
-		convert_move (SUBREG_REG (target), temp, unsignedp);
-	      }
-	    else if (nontemporal && emit_storent_insn (target, temp))
-	      ;
-	    else
-	      {
-		temp = force_operand (temp, target);
-		if (temp != target)
-		  emit_move_insn (target, temp);
-	      }
-	  }
-      }
+      expand_gimple_assign (stmt);
       break;
 
     default:

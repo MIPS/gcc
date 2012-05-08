@@ -111,6 +111,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_DEBUG:
+    case GIMPLE_ATOMIC:
       for (i = 0; i < gimple_num_ops (stmt); i++)
 	{
 	  tree op = gimple_op (stmt, i);
@@ -144,6 +145,10 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
 				 IFN_LAST, gimple_call_internal_fn (stmt));
 	  else
 	    stream_write_tree (ob, gimple_call_fntype (stmt), true);
+	}
+      if (is_gimple_atomic (stmt))
+	{
+	  stream_write_tree (ob, gimple_atomic_type (stmt), true);
 	}
       break;
 

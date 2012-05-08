@@ -141,6 +141,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_DEBUG:
+    case GIMPLE_ATOMIC:
       for (i = 0; i < num_ops; i++)
 	{
 	  tree op = stream_read_tree (ib, data_in);
@@ -226,6 +227,10 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	      (stmt, streamer_read_enum (ib, internal_fn, IFN_LAST));
 	  else
 	    gimple_call_set_fntype (stmt, stream_read_tree (ib, data_in));
+	}
+      if (is_gimple_atomic (stmt))
+	{
+	  gimple_atomic_set_type (stmt, stream_read_tree (ib, data_in));
 	}
       break;
 

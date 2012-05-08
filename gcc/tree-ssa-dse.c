@@ -213,7 +213,7 @@ dse_optimize_stmt (gimple_stmt_iterator gsi)
   if (is_gimple_call (stmt) && gimple_call_fndecl (stmt))
     return;
 
-  if (gimple_has_volatile_ops (stmt))
+  if (is_gimple_atomic (stmt) || gimple_has_volatile_ops (stmt))
     return;
 
   if (is_gimple_assign (stmt))

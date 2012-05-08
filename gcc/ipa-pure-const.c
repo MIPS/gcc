@@ -712,6 +712,11 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
           local->looping = true;
 	}
       return;
+    case GIMPLE_ATOMIC:
+      if (dump_file)
+	fprintf (dump_file, "    atomic is not const/pure");
+      local->pure_const_state = IPA_NEITHER;
+      return;
     default:
       break;
     }

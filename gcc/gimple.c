@@ -200,6 +200,199 @@ gimple_build_return (tree retval)
   return s;
 }
 
+static gimple
+gimple_build_atomic_raw (enum gimple_atomic_kind k, tree target_type,
+			 unsigned nargs, ...)
+{
+  va_list ap;
+  unsigned i;
+  gimple s;
+
+  /* Calculate the size of the atomic operand vector.  */
+  switch (k) 
+    {
+    case GIMPLE_ATOMIC_FENCE:
+      i = 1;
+      break;
+
+    case GIMPLE_ATOMIC_CLEAR:
+      i = 2;
+      break;
+
+    case GIMPLE_ATOMIC_LOAD:
+    case GIMPLE_ATOMIC_STORE:
+    case GIMPLE_ATOMIC_TEST_AND_SET:
+      i = 3;
+      break;
+
+    case GIMPLE_ATOMIC_EXCHANGE:
+    case GIMPLE_ATOMIC_FETCH_OP:
+    case GIMPLE_ATOMIC_OP_FETCH:
+      i = 4;
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+      i = 7;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  s = gimple_build_with_ops (GIMPLE_ATOMIC, ERROR_MARK, i);
+
+  gimple_atomic_set_kind (s, k);
+  gimple_atomic_set_type (s, target_type);
+  gimple_set_has_volatile_ops (s, true);
+
+  /* No winitialize any of the fields which are passed in.  */
+  va_start (ap, nargs);
+  for (i = 0; i < nargs; i++)
+    gimple_set_op (s, i, va_arg (ap, tree));
+  va_end (ap);
+
+  return s;
+}
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_LOAD kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_load (tree type, tree target, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 2, order, target);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_STORE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_store (tree type, tree target, tree expr, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_STORE, type, 3, order, target,
+			       expr);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_EXCHANGE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_exchange (tree type, tree target, tree expr, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 3, order, target,
+			       expr);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_COMPARE_EXCHANGE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPECTED is the value thought to be in the atomic memory location.
+   EXPR is the expression to be stored if EXPECTED matches.
+   SUCCESS is the memory model to be used for a success operation.
+   FAIL is the memory model to be used for a failed operation.
+   WEAK is true if this is a weak compare_exchange, otherwise it is strong.  */
+
+gimple
+gimple_build_atomic_compare_exchange (tree type, tree target, tree expected,
+				      tree expr, tree success, tree fail,
+				      bool weak)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_COMPARE_EXCHANGE, type, 5, success,
+			       target, expr, expected, fail);
+  gimple_atomic_set_weak (s, weak);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_FETCH_OP kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   OP is the tree code for the operation to be performed.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_fetch_op (tree type, tree target, tree expr,
+			      enum tree_code op, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FETCH_OP, type, 3, order, target,
+			       expr);
+  gimple_atomic_set_op_code (s, op);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_OP_FETCH kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   OP is the tree code for the operation to be performed.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_op_fetch (tree type, tree target, tree expr,
+			      enum tree_code op, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_OP_FETCH, type, 3, order, target,
+			       expr);
+  gimple_atomic_set_op_code (s, op);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_TEST_AND_SET kind.
+   TARGET is the atomic memory location being operated on.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_test_and_set (tree target, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_TEST_AND_SET, boolean_type_node, 2,
+			       order, target);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_CLEAR kind.
+   TARGET is the atomic memory location being operated on.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_clear (tree target, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_CLEAR, boolean_type_node, 2, order,
+			       target);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_FENCE kind.
+   ORDER is the memory model to be used.
+   THREAD is true if this is a thread barrier, otherwise it is a
+   signal barrier for just the local CPU.  */
+
+gimple
+gimple_build_atomic_fence (tree order, bool thread)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FENCE, NULL_TREE, 1, order);
+  gimple_atomic_set_thread_fence (s, thread);
+  return s;
+}
+
 /* Reset alias information on call S.  */
 
 void
@@ -1517,6 +1710,35 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	}
+      break;
+
+    case GIMPLE_ATOMIC:
+      if (wi)
+	wi->val_only = true;
+
+      /* Walk the RHS.  */
+      for (i = 0; i < gimple_atomic_num_rhs (stmt) ; i++)
+       {
+ 	 ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
+			  pset);
+	 if (ret)
+	   return ret;
+       }
+
+      if (wi)
+	wi->is_lhs = true;
+
+      for (i = 0; i < gimple_atomic_num_lhs (stmt) ; i++)
+       {
+ 	 ret = walk_tree (gimple_atomic_lhs_ptr (stmt, i), callback_op, wi,
+			  pset);
+	 if (ret)
+	   return ret;
+       }
+
+      if (wi)
+	wi->is_lhs = false;
+
       break;
 
     case GIMPLE_CALL:
@@ -5281,6 +5503,20 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	    }
 	}
     }
+  else if (is_gimple_atomic (stmt) && visit_addr)
+      {
+        switch (gimple_atomic_kind (stmt))
+	  {
+	    tree t;
+	    case GIMPLE_ATOMIC_FENCE:
+	    break;
+
+	    default:
+	    t = gimple_atomic_target (stmt);
+	    if (TREE_CODE (t) == ADDR_EXPR)
+	      ret |= visit_addr (stmt, TREE_OPERAND (t, 0), data);
+	  }
+      }
   else if (is_gimple_call (stmt))
     {
       if (visit_store)

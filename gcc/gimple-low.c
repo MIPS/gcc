@@ -404,6 +404,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_NOP:
     case GIMPLE_ASM:
     case GIMPLE_ASSIGN:
+    case GIMPLE_ATOMIC:
     case GIMPLE_PREDICT:
     case GIMPLE_LABEL:
     case GIMPLE_EH_MUST_NOT_THROW:

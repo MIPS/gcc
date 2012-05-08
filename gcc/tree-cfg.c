@@ -4073,6 +4073,41 @@ verify_gimple_return (gimple stmt)
   return false;
 }
 
+/* Verify that STMT is a valid GIMPLE_ATOMIC statement.  */
+
+static bool
+verify_gimple_atomic (gimple stmt)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (stmt);
+
+  switch (kind)
+    {
+    case GIMPLE_ATOMIC_LOAD:
+      break;
+
+    case GIMPLE_ATOMIC_STORE:
+    case GIMPLE_ATOMIC_EXCHANGE:
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+      break;
+
+    case GIMPLE_ATOMIC_FETCH_OP:
+    case GIMPLE_ATOMIC_OP_FETCH:
+      break;
+
+    case GIMPLE_ATOMIC_TEST_AND_SET:
+    case GIMPLE_ATOMIC_CLEAR:
+      break;
+
+    case GIMPLE_ATOMIC_FENCE:
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+  return false;
+}
 
 /* Verify the contents of a GIMPLE_GOTO STMT.  Returns true when there
    is a problem, otherwise false.  */
@@ -4173,6 +4208,9 @@ verify_gimple_stmt (gimple stmt)
     {
     case GIMPLE_ASSIGN:
       return verify_gimple_assign (stmt);
+
+    case GIMPLE_ATOMIC:
+      return verify_gimple_atomic (stmt);
 
     case GIMPLE_LABEL:
       return verify_gimple_label (stmt);

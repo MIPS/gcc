@@ -3565,6 +3565,15 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 	break;
       }
 
+    case GIMPLE_ATOMIC:
+      /* Treat this like a call for now, it may expand into a call.  */
+      if (gimple_atomic_kind (stmt) != GIMPLE_ATOMIC_FENCE)
+	cost = gimple_num_ops (stmt) *
+	       estimate_move_cost (TREE_TYPE (gimple_atomic_target (stmt)));
+      else
+        cost = 1;
+      break;
+
     case GIMPLE_RETURN:
       return weights->return_cost;
 

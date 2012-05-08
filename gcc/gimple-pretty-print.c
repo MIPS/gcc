@@ -749,6 +749,268 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
+/* Dump the tree opcode for an atomic_fetch stmt GS into BUFFER.  */
+
+static void
+dump_gimple_atomic_kind_op (pretty_printer *buffer, const_gimple gs)
+{
+  switch (gimple_atomic_op_code (gs))
+    {
+    case PLUS_EXPR:
+      pp_string (buffer, "ADD");
+    break;
+
+    case MINUS_EXPR:
+      pp_string (buffer, "SUB");
+    break;
+
+    case BIT_AND_EXPR:
+      pp_string (buffer, "AND");
+    break;
+
+    case BIT_IOR_EXPR:
+      pp_string (buffer, "OR");
+    break;
+
+    case BIT_XOR_EXPR:
+      pp_string (buffer, "XOR");
+    break;
+
+    case BIT_NOT_EXPR:	/* This is used for NAND in the builtins.  */
+      pp_string (buffer, "NAND");
+    break;
+
+    default:
+     gcc_unreachable ();
+    }
+}
+
+/* Dump a memory order node ORDER. BUFFER, SPC and FLAGS are as in
+   dump_generic_node.  */
+
+static void
+dump_gimple_atomic_order (pretty_printer *buffer, tree t, int spc, int flags)
+{
+  enum memmodel order;
+
+  if (TREE_CODE (t) != INTEGER_CST)
+    {
+      dump_generic_node (buffer, t, spc, flags, false);
+      return;
+    }
+
+  order = (enum memmodel) TREE_INT_CST_LOW (t);
+  switch (order)
+    {
+    case MEMMODEL_RELAXED:
+      pp_string (buffer, "RELAXED");
+      break;
+
+    case MEMMODEL_CONSUME:
+      pp_string (buffer, "CONSUME");
+      break;
+
+    case MEMMODEL_ACQUIRE:
+      pp_string (buffer, "ACQUIRE");
+      break;
+
+    case MEMMODEL_RELEASE:
+      pp_string (buffer, "RELEASE");
+      break;
+
+    case MEMMODEL_ACQ_REL:
+      pp_string (buffer, "ACQ_REL");
+      break;
+
+    case MEMMODEL_SEQ_CST:
+      pp_string (buffer, "SEQ_CST");
+      break;
+
+    default:
+      gcc_unreachable ();
+      break;
+    }
+}
+
+/* Dump the appropriate suffix size for an atomic statement GS into BUFFER.  */
+
+static void
+dump_gimple_atomic_type_size (pretty_printer *buffer, const_gimple gs)
+{
+  tree t = gimple_atomic_type (gs);
+  unsigned n = TREE_INT_CST_LOW (TYPE_SIZE (t));
+  switch (n)
+    {
+    case 8:
+      pp_string (buffer, "_1 <");
+      break;
+
+    case 16:
+      pp_string (buffer, "_2 <");
+      break;
+
+    case 32:
+      pp_string (buffer, "_4 <");
+      break;
+
+    case 64:
+      pp_string (buffer, "_8 <");
+      break;
+
+    case 128:
+      pp_string (buffer, "_16 <");
+      break;
+
+    default:
+      pp_string (buffer, " <");
+      break;
+    }
+}
+
+/* Dump the atomic statement GS.  BUFFER, SPC and FLAGS are as in
+   dump_gimple_stmt.  */
+
+static void
+dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
+{
+  if (gimple_atomic_num_lhs (gs) == 1)
+    {
+      dump_generic_node (buffer, gimple_atomic_lhs (gs, 0), spc, flags, false);
+      pp_string (buffer, " = ");
+    }
+  else if (gimple_atomic_num_lhs (gs) > 1)
+    {
+      /* The first LHS is still optional, so print both results only if the
+         first one is present.  */
+      if (gimple_atomic_lhs (gs, 0))
+        {
+	  pp_string (buffer, "(");
+
+	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 0), spc, flags,
+			     false);
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 1), spc, flags,
+			     false);
+	  pp_string (buffer, ") = ");
+	}
+      else
+       {
+	  /* Otherwise just print the result that has to be there.  */
+	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 1), spc, flags,
+			     false);
+	  pp_string (buffer, " = ");
+       }
+    }
+   
+  switch (gimple_atomic_kind (gs))
+    {
+    case GIMPLE_ATOMIC_LOAD:
+      pp_string (buffer, "ATOMIC_LOAD");
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_STORE:
+      pp_string (buffer, "ATOMIC_STORE");
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_EXCHANGE:
+      pp_string (buffer, "ATOMIC_EXCHANGE");
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+      pp_string (buffer, "ATOMIC_COMPARE_EXCHANGE_");
+      if (gimple_atomic_weak (gs))
+	pp_string (buffer, "WEAK");
+      else
+	pp_string (buffer, "STRONG");
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expected (gs), spc, flags,
+			false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_fail_order (gs), spc,
+				flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_FETCH_OP:
+      pp_string (buffer, "ATOMIC_FETCH_");
+      dump_gimple_atomic_kind_op (buffer, gs);
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_OP_FETCH:
+      pp_string (buffer, "ATOMIC_");
+      dump_gimple_atomic_kind_op (buffer, gs);
+      pp_string (buffer, "_FETCH");
+      dump_gimple_atomic_type_size (buffer, gs);
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_TEST_AND_SET:
+      pp_string (buffer, "ATOMIC_TEST_AND_SET <");
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_CLEAR:
+      pp_string (buffer, "ATOMIC_CLEAR <");
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_FENCE:
+      if (gimple_atomic_thread_fence (gs))
+	pp_string (buffer, "ATOMIC_THREAD_FENCE <");
+      else
+	pp_string (buffer, "ATOMIC_SIGNAL_FENCE <");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    default:
+     gcc_unreachable ();
+    }
+}
+
 
 /* Dump the switch statement GS.  BUFFER, SPC and FLAGS are as in
    dump_gimple_stmt.  */
@@ -1918,6 +2180,10 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_CALL:
       dump_gimple_call (buffer, gs, spc, flags);
+      break;
+
+    case GIMPLE_ATOMIC:
+      dump_gimple_atomic (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_COND:

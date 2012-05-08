@@ -295,6 +295,7 @@ mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
     case GIMPLE_ASM:
     case GIMPLE_RESX:
     case GIMPLE_RETURN:
+    case GIMPLE_ATOMIC:
       mark_stmt_necessary (stmt, true);
       return;
 
@@ -919,6 +920,12 @@ propagate_necessity (struct edge_list *el)
 		  if (!ref_may_be_aliased (arg))
 		    mark_aliased_reaching_defs_necessary (stmt, arg);
 		}
+	    }
+	  else if (is_gimple_atomic (stmt))
+	    {
+	      /* We may be able to lessen this with more relaxed memory
+	         models, but for now, its a full barrier.  */
+	      mark_all_reaching_defs_necessary (stmt);
 	    }
 	  else if (gimple_assign_single_p (stmt))
 	    {

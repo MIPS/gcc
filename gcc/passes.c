@@ -1188,6 +1188,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_refactor_eh);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
+  NEXT_PASS (pass_lower_atomics);
   NEXT_PASS (pass_warn_function_return);
   NEXT_PASS (pass_build_cgraph_edges);
   *p = NULL;
