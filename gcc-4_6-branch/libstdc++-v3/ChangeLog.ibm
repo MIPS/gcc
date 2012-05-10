@@ -1,3 +1,14 @@
+2012-05-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* include/ext/atomicity.h (__exchange_and_add_nb): New.
+	(__exchange_and_add_dispatch_nb): Likewise.
+	* include/bits/basic_string.h (_M_dispose): Declare inline.
+	Use __exchange_and_add_dispatch_nb and _GLIBCXX_WRITE_MEM_BARRIER;
+	(_M_refcopy): Declare inline.
+	Use __exchange_and_add_dispatch_nb and _GLIBCXX_READ_MEM_BARRIER;
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_32): New define.
+
 2012-04-30  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/cpu/powerpc/cpu_defines.h

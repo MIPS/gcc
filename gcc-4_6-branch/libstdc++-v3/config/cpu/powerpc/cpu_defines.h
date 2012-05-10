@@ -65,4 +65,19 @@
   (_Atomic_word)__tmpval;				\
 })
 
+#define __rs6000_atomic_fetch_and_add_32(mem, constant) \
+({							\
+  long __tmpval;					\
+  _Atomic_word __tmp0;					\
+  __asm __volatile (					\
+    "1:	lwarx %0,0,%3\n"				\
+    "	addi %1,%0,%4\n"				\
+    "	stwcx. %1,0,%3\n"				\
+    "	bne- 1b\n"					\
+    : "=&b" (__tmpval), "=&r" (__tmp0), "=m" (*mem)	\
+    : "b" (mem), "i" (constant), "m" (*mem)		\
+    : "cr0", "memory");					\
+  (_Atomic_word)__tmpval;				\
+})
+
 #endif

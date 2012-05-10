@@ -228,7 +228,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	static _Rep*
 	_S_create(size_type, size_type, const _Alloc&);
 
-	void
+	inline void
 	_M_dispose(const _Alloc& __a)
 	{
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
@@ -237,10 +237,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    {
 	      // Be race-detector-friendly.  For more info see bits/c++config.
 	      _GLIBCXX_SYNCHRONIZATION_HAPPENS_BEFORE(&this->_M_refcount);
-	      if (__gnu_cxx::__exchange_and_add_dispatch(&this->_M_refcount,
-							 -1) <= 0)
+	      if (__gnu_cxx::__exchange_and_add_dispatch_nb(&this->_M_refcount,
+							    -1) <= 0)
 		{
 		  _GLIBCXX_SYNCHRONIZATION_HAPPENS_AFTER(&this->_M_refcount);
+		  _GLIBCXX_WRITE_MEM_BARRIER;
 		  _M_destroy(__a);
 		}
 	    }
@@ -249,13 +250,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	void
 	_M_destroy(const _Alloc&) throw();
 
-	_CharT*
+	inline _CharT*
 	_M_refcopy() throw()
 	{
 #ifndef _GLIBCXX_FULLY_DYNAMIC_STRING
 	  if (__builtin_expect(this != &_S_empty_rep(), false))
 #endif
-            __gnu_cxx::__atomic_add_dispatch(&this->_M_refcount, 1);
+	    {
+	      if (__gnu_cxx::__exchange_and_add_dispatch_nb(&this->_M_refcount,
+							    1) == 0)
+		_GLIBCXX_READ_MEM_BARRIER;
+	    }
 	  return _M_refdata();
 	}  // XXX MT
 

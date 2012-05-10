@@ -55,6 +55,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
     return __sync_fetch_and_add(__mem, __val); }
 
+  static inline _Atomic_word 
+  __exchange_and_add_nb(volatile _Atomic_word* __mem, int __val)
+  { 
+#ifdef __PPC__
+    if (sizeof (*__mem) == 4)
+      return __rs6000_atomic_fetch_and_add_32 (__mem, __val);
+    else
+#endif
+    return __sync_fetch_and_add(__mem, __val); }
+
   static inline void
   __atomic_add(volatile _Atomic_word* __mem, int __val)
   { 
@@ -95,6 +105,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #ifdef __GTHREADS
     if (__gthread_active_p())
       return __exchange_and_add(__mem, __val);
+    else
+      return __exchange_and_add_single(__mem, __val);
+#else
+    return __exchange_and_add_single(__mem, __val);
+#endif
+  }
+
+  static inline _Atomic_word
+  __attribute__ ((__unused__))
+  __exchange_and_add_dispatch_nb(_Atomic_word* __mem, int __val)
+  {
+#ifdef __GTHREADS
+    if (__gthread_active_p())
+      return __exchange_and_add_nb(__mem, __val);
     else
       return __exchange_and_add_single(__mem, __val);
 #else
