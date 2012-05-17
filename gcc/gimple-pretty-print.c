@@ -749,42 +749,6 @@ dump_gimple_call (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
-/* Dump the tree opcode for an atomic_fetch stmt GS into BUFFER.  */
-
-static void
-dump_gimple_atomic_kind_op (pretty_printer *buffer, const_gimple gs)
-{
-  switch (gimple_atomic_op_code (gs))
-    {
-    case PLUS_EXPR:
-      pp_string (buffer, "ADD");
-    break;
-
-    case MINUS_EXPR:
-      pp_string (buffer, "SUB");
-    break;
-
-    case BIT_AND_EXPR:
-      pp_string (buffer, "AND");
-    break;
-
-    case BIT_IOR_EXPR:
-      pp_string (buffer, "OR");
-    break;
-
-    case BIT_XOR_EXPR:
-      pp_string (buffer, "XOR");
-    break;
-
-    case BIT_NOT_EXPR:	/* This is used for NAND in the builtins.  */
-      pp_string (buffer, "NAND");
-    break;
-
-    default:
-     gcc_unreachable ();
-    }
-}
-
 /* Dump a memory order node ORDER. BUFFER, SPC and FLAGS are as in
    dump_generic_node.  */
 
@@ -837,34 +801,8 @@ dump_gimple_atomic_order (pretty_printer *buffer, tree t, int spc, int flags)
 static void
 dump_gimple_atomic_type_size (pretty_printer *buffer, const_gimple gs)
 {
-  tree t = gimple_atomic_type (gs);
-  unsigned n = TREE_INT_CST_LOW (TYPE_SIZE (t));
-  switch (n)
-    {
-    case 8:
-      pp_string (buffer, "_1 <");
-      break;
-
-    case 16:
-      pp_string (buffer, "_2 <");
-      break;
-
-    case 32:
-      pp_string (buffer, "_4 <");
-      break;
-
-    case 64:
-      pp_string (buffer, "_8 <");
-      break;
-
-    case 128:
-      pp_string (buffer, "_16 <");
-      break;
-
-    default:
-      pp_string (buffer, " <");
-      break;
-    }
+  pp_string (buffer, gimple_atomic_type_size_string (gs));
+  pp_string (buffer, " <");
 }
 
 /* Dump the atomic statement GS.  BUFFER, SPC and FLAGS are as in
@@ -958,7 +896,7 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_ATOMIC_FETCH_OP:
       pp_string (buffer, "ATOMIC_FETCH_");
-      dump_gimple_atomic_kind_op (buffer, gs);
+      pp_string (buffer, gimple_atomic_op_name (gs));
       dump_gimple_atomic_type_size (buffer, gs);
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
       pp_string (buffer, ", ");
@@ -970,7 +908,7 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
 
     case GIMPLE_ATOMIC_OP_FETCH:
       pp_string (buffer, "ATOMIC_");
-      dump_gimple_atomic_kind_op (buffer, gs);
+      pp_string (buffer, gimple_atomic_op_name (gs));
       pp_string (buffer, "_FETCH");
       dump_gimple_atomic_type_size (buffer, gs);
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);

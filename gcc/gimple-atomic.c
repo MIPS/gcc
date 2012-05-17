@@ -203,15 +203,201 @@ get_atomic_lhs_rtx (gimple stmt, unsigned index)
 
 /* Expand STMT into a library call.  */
 
+static VEC(tree,gc) *
+create_atomic_library_args (gimple stmt, VEC(tree,gc) *params)
+{
+  bool generic = gimple_atomic_generic (stmt);
+
+  /* Generic's require the size be the first argument.  */
+  if (generic)
+    {
+      tree t = TYPE_SIZE_UNIT (gimple_atomic_type (stmt));
+      VEC_quick_push (tree, params, t);
+    }
+
+  switch (gimple_atomic_kind (stmt))
+    {
+    case GIMPLE_ATOMIC_LOAD:
+      VEC_quick_push (tree, params, gimple_atomic_target (stmt));
+      if (generic)
+	VEC_quick_push (tree, params, gimple_atomic_return (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_order (stmt));
+      break;
+      
+    case GIMPLE_ATOMIC_STORE:
+      VEC_quick_push (tree, params, gimple_atomic_target (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_expr (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_order (stmt));
+      break;
+ 
+    case GIMPLE_ATOMIC_EXCHANGE:
+      VEC_quick_push (tree, params, gimple_atomic_target (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_expr (stmt));
+      if (generic)
+	VEC_quick_push (tree, params, gimple_atomic_return (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_order (stmt));
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+      VEC_quick_push (tree, params, gimple_atomic_target (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_expected (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_expr (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_order (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_fail_order (stmt));
+      break;
+
+    case GIMPLE_ATOMIC_FETCH_OP:
+    case GIMPLE_ATOMIC_OP_FETCH:
+      VEC_quick_push (tree, params, gimple_atomic_target (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_expr (stmt));
+      VEC_quick_push (tree, params, gimple_atomic_order (stmt));
+      break;
+
+    default:
+      /* The other atomic kinds cannot generate external library calls.  */
+      gcc_unreachable ();
+    }
+
+  return params;
+}
+
+const char *
+gimple_atomic_op_name (const_gimple gs)
+{
+  switch (gimple_atomic_op_code (gs))
+    {
+    case GIMPLE_ATOMIC_ARITH_OP_ADD:
+      return "ADD";
+
+    case GIMPLE_ATOMIC_ARITH_OP_SUB:
+      return "SUB";
+
+    case GIMPLE_ATOMIC_ARITH_OP_AND:
+      return "AND";
+
+    case GIMPLE_ATOMIC_ARITH_OP_OR:
+      return "OR";
+
+    case GIMPLE_ATOMIC_ARITH_OP_XOR:
+      return "XOR";
+
+    case GIMPLE_ATOMIC_ARITH_OP_NAND:
+      return "NAND";
+
+    default:
+      break;
+    }
+  gcc_unreachable ();
+}
+
+
+const char *
+gimple_atomic_type_size_string (const_gimple gs)
+{
+  tree t = gimple_atomic_type (gs);
+  unsigned n = TREE_INT_CST_LOW (TYPE_SIZE (t));
+  switch (n)
+    {
+    case 8:
+      return "_1";
+    case 16:
+      return "_2";
+    case 32:
+      return "_4";
+    case 64:
+      return "_8";
+    case 128:
+      return "_16";
+    default:
+      break;
+    }
+  return "";
+}
+
+static tree
+atomic_library_name (gimple stmt, tree *t) 
+{
+  char name[30];
+  tree fn, fntype;
+
+  if (gimple_atomic_generic (stmt))
+    fntype = void_type_node;
+  else
+    fntype = gimple_atomic_type (stmt);
+
+  strcpy (name,"__atomic_");
+  switch (gimple_atomic_kind (stmt))
+    {
+    case GIMPLE_ATOMIC_LOAD:
+      strcat (name, "load");
+      break;
+    case GIMPLE_ATOMIC_STORE:
+      strcat (name, "store");
+      fntype = void_type_node;
+      break;
+    case GIMPLE_ATOMIC_EXCHANGE:
+      strcat (name, "exchange");
+      break;
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+      strcat (name, "compare_exchange");
+      fntype = boolean_type_node;
+      break;
+    case GIMPLE_ATOMIC_FETCH_OP:
+      strcat (name, "fetch_");
+      strcat (name, gimple_atomic_op_name (stmt));
+      break;
+    case GIMPLE_ATOMIC_OP_FETCH:
+      strcat (name, gimple_atomic_op_name (stmt));
+      strcat (name, "_fetch");
+      break;
+    default:
+     gcc_unreachable ();
+    }
+
+  if (!gimple_atomic_generic (stmt))
+    strcat (name, gimple_atomic_type_size_string (stmt));
+
+  fn = build_fn_decl (name, fntype);
+  *t = fntype;
+  return fn;
+}
+
 void
 expand_gimple_atomic_library_call (gimple stmt) 
 {
+  bool generic = gimple_atomic_generic (stmt);
+  unsigned nargs;
+  VEC(tree,gc) *params;
+  tree call_exp, t;
+  unsigned x;
+
   /* Verify the models if inlining hasn't been attempted.  */
-  if (!flag_inline_atomics)
+  if (generic || !flag_inline_atomics)
     get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
 
-  /* Trigger error to come and look so we can complete writing this.  */
-  gcc_assert (stmt == NULL);
+  params = VEC_alloc (tree, gc, gimple_num_ops (stmt) + 1);
+  create_atomic_library_args (stmt, params);
+  nargs = VEC_length (tree, params);
+
+  call_exp = build_vl_exp (CALL_EXPR, nargs + 3);
+  CALL_EXPR_FN (call_exp) = atomic_library_name (stmt, &t);
+  TREE_TYPE (call_exp) = t;
+  TREE_SIDE_EFFECTS (call_exp) = 1;
+  TREE_NOTHROW (call_exp) = 1;
+  SET_EXPR_LOCATION (call_exp, gimple_location (stmt));
+  TREE_BLOCK (call_exp) = gimple_block (stmt);
+
+  for (x = 0; x < nargs; x++)
+   CALL_EXPR_ARG (call_exp, x) = VEC_index (tree, params, x);
+
+  /* TODO need to worry about debug args?  */
+
+  if (gimple_atomic_num_lhs (stmt) > 0)
+    expand_assignment (gimple_atomic_lhs (stmt, 0), call_exp, false);
+  else
+    expand_expr_real_1 (call_exp, const0_rtx, VOIDmode, EXPAND_NORMAL, NULL);
+
+  /* mark_transaction_restart_calls (stmt);  TODO  need this?  */
 }
 
 /* Expand atomic load STMT into RTL.  Return true if successful.  */
@@ -370,21 +556,21 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
 /* Return the RTL code for the tree operation TCODE.  */
 
 static enum rtx_code
-rtx_code_from_tree_code (enum tree_code tcode)
+rtx_code_from_atomic_op (enum gimple_atomic_arith_op op)
 {
-  switch (tcode)
+  switch (op)
     {
-    case PLUS_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_ADD:
       return PLUS;
-    case MINUS_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_SUB:
       return MINUS;
-    case BIT_AND_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_AND:
       return AND;
-    case BIT_IOR_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_OR:
       return IOR;
-    case BIT_XOR_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_XOR:
       return XOR;
-    case BIT_NOT_EXPR:
+    case GIMPLE_ATOMIC_ARITH_OP_NAND:
       return NOT;
     default :
       error ("invalid operation type in atomic fetch operation");
@@ -415,7 +601,7 @@ expand_atomic_fetch (gimple stmt, bool fetch_after)
   /* Expand the operands.  */
   mem = expand_atomic_target (gimple_atomic_target (stmt), mode);
   val = expand_expr_force_mode (gimple_atomic_expr (stmt), mode);
-  rcode = rtx_code_from_tree_code (gimple_atomic_op_code (stmt));
+  rcode = rtx_code_from_atomic_op (gimple_atomic_op_code (stmt));
 
   rtl_lhs = get_atomic_lhs_rtx (stmt, 0);
   rtl_rhs = expand_atomic_fetch_op (rtl_lhs, mem, val, rcode, model,
@@ -601,6 +787,7 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
   tree target;
   tree expr;
   tree type;
+  tree return_arg;
   enum tree_code op;
   bool fetch_op;
   gimple stmt = gsi_stmt (*gsi_p);
@@ -611,12 +798,16 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
   fcode = DECL_FUNCTION_CODE (fndecl);
 
   switch (fcode) {
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
-    case BUILT_IN_ATOMIC_STORE:
     case BUILT_IN_ATOMIC_LOAD:
-    case BUILT_IN_ATOMIC_EXCHANGE:
-      /* Do nothing for the generic functions at the moment.  */
-      return;
+      gcc_checking_assert (gimple_call_num_args (stmt) == 3);
+      target = gimple_call_arg (stmt, 0);
+      return_arg = gimple_call_arg (stmt, 1);
+      order = gimple_call_arg (stmt, 2);
+
+      gcc_checking_assert (POINTER_TYPE_P (TREE_TYPE (target)));
+      type = TREE_TYPE (TREE_TYPE (target));
+      s = gimple_build_atomic_load (type, target, order, return_arg);
+      break;
 
     case BUILT_IN_ATOMIC_LOAD_N:
     case BUILT_IN_ATOMIC_LOAD_1:
@@ -624,13 +815,52 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
     case BUILT_IN_ATOMIC_LOAD_4:
     case BUILT_IN_ATOMIC_LOAD_8:
     case BUILT_IN_ATOMIC_LOAD_16:
-      gcc_assert (gimple_call_num_args (stmt) == 2);
-      order = gimple_call_arg (stmt, 1);
+      gcc_checking_assert (gimple_call_num_args (stmt) == 2);
       target = gimple_call_arg (stmt, 0);
+      order = gimple_call_arg (stmt, 1);
       type = atomic_func_type (fcode - BUILT_IN_ATOMIC_LOAD_N);
-      s = gimple_build_atomic_load (type, target, order);
+      s = gimple_build_atomic_load (type, target, order, NULL_TREE);
       if (gimple_call_lhs (stmt))
         gimple_atomic_set_lhs (s, 0, gimple_call_lhs (stmt));
+      break;
+
+   case BUILT_IN_ATOMIC_STORE:
+      gcc_assert (gimple_call_num_args (stmt) == 3);
+      target = gimple_call_arg (stmt, 0);
+      expr = gimple_call_arg (stmt, 1);
+      order = gimple_call_arg (stmt, 2);
+
+      gcc_checking_assert (POINTER_TYPE_P (TREE_TYPE (target)));
+      type = TREE_TYPE (TREE_TYPE (target));
+      s = gimple_build_atomic_store (type, target, expr, order);
+      gimple_atomic_set_generic (s, true);
+      break;
+
+    case BUILT_IN_ATOMIC_STORE_N:
+    case BUILT_IN_ATOMIC_STORE_1:
+    case BUILT_IN_ATOMIC_STORE_2:
+    case BUILT_IN_ATOMIC_STORE_4:
+    case BUILT_IN_ATOMIC_STORE_8:
+    case BUILT_IN_ATOMIC_STORE_16:
+      gcc_assert (gimple_call_num_args (stmt) == 3);
+      target = gimple_call_arg (stmt, 0);
+      expr = gimple_call_arg (stmt, 1);
+      order = gimple_call_arg (stmt, 2);
+      type = atomic_func_type (fcode - BUILT_IN_ATOMIC_STORE_N);
+      s = gimple_build_atomic_store (type, target, expr, order);
+      break;
+
+
+    case BUILT_IN_ATOMIC_EXCHANGE:
+      gcc_assert (gimple_call_num_args (stmt) == 4);
+      target = gimple_call_arg (stmt, 0);
+      expr = gimple_call_arg (stmt, 1);
+      return_arg = gimple_call_arg (stmt, 2);
+      order = gimple_call_arg (stmt, 3);
+
+      gcc_checking_assert (POINTER_TYPE_P (TREE_TYPE (target)));
+      type = TREE_TYPE (TREE_TYPE (target));
+      s = gimple_build_atomic_exchange (type, target, expr, order, return_arg);
       break;
 
 
@@ -645,11 +875,12 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
       expr = gimple_call_arg (stmt, 1);
       order = gimple_call_arg (stmt, 2);
       type = atomic_func_type (fcode - BUILT_IN_ATOMIC_EXCHANGE_N);
-      s = gimple_build_atomic_exchange (type, target, expr, order);
+      s = gimple_build_atomic_exchange (type, target, expr, order, NULL_TREE);
       if (gimple_call_lhs (stmt))
         gimple_atomic_set_lhs (s, 0, gimple_call_lhs (stmt));
       break;
 
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
@@ -670,6 +901,20 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
 	    is_weak = true;
 	order = gimple_call_arg (stmt, 4);
 	fail = gimple_call_arg (stmt, 5);
+
+	/* The generic form of compare exchange is trivial.  */
+	if (fcode == BUILT_IN_ATOMIC_COMPARE_EXCHANGE)
+	  {
+	    gcc_checking_assert (POINTER_TYPE_P (TREE_TYPE (target)));
+	    type = TREE_TYPE (TREE_TYPE (target));
+	    s = gimple_build_atomic_compare_exchange (type, target, expected,
+						      expr, order, fail,
+						      is_weak);
+	    gimple_atomic_set_generic (s , true);
+	    gimple_atomic_set_lhs (s, 0, gimple_call_lhs (stmt));
+	    break;
+	  }
+	type = atomic_func_type (fcode - BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N);
 
 	/* TODO : Translate the original
 	   bool = cmp_xch (t,expect,...)
@@ -698,13 +943,18 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
 	/* deref_tmp = *tmp1 */
 	deref = build2 (MEM_REF, tmp2_type, tmp1, 
 			build_int_cst_wide (tmp1_type, 0, 0));
+	/* If *expected is not integral, convert it.  */
+	if (!INTEGRAL_TYPE_P (tmp2_type))
+	  {
+	    tmp2_type = type;
+	    deref = build1 (VIEW_CONVERT_EXPR, tmp2_type, deref);
+	  }
 	deref_tmp = create_tmp_var (tmp2_type, "cmpxchg_d");
 	s = gimple_build_assign (deref_tmp, deref);
 	gimple_set_location (s, gimple_location (stmt));
 	gsi_insert_before (gsi_p, s, GSI_SAME_STMT);
 
         /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
-	type = atomic_func_type (fcode - BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N);
 	s = gimple_build_atomic_compare_exchange (type, target, deref_tmp, expr,
 						  order, fail, is_weak);
 	gimple_atomic_set_lhs (s, 0, gimple_call_lhs (stmt));
@@ -716,25 +966,22 @@ lower_atomic_call (gimple_stmt_iterator *gsi_p)
 	gsi_insert_before (gsi_p, s, GSI_SAME_STMT);
 
 	/* *tmp1 = tmp2  */
+	if (tmp2_type != TREE_TYPE (tmp1_type))
+	  {
+	    tree tmp3;
+	    tmp2_type = TREE_TYPE (tmp1_type);
+	    tmp2 = build1 (VIEW_CONVERT_EXPR, tmp2_type, tmp2);
+	    tmp3 = create_tmp_var (tmp2_type, "cmpxchg_t");
+	    s = gimple_build_assign (tmp3, tmp2);
+	    gimple_set_location (s, gimple_location (stmt));
+	    gsi_insert_before (gsi_p, s, GSI_SAME_STMT);
+	    tmp2 = tmp3;
+	  }
 	deref = build2 (MEM_REF, tmp2_type, tmp1, 
 			build_int_cst_wide (tmp1_type, 0, 0));
 	s = gimple_build_assign (deref, tmp2);
 	break;
       }
-
-    case BUILT_IN_ATOMIC_STORE_N:
-    case BUILT_IN_ATOMIC_STORE_1:
-    case BUILT_IN_ATOMIC_STORE_2:
-    case BUILT_IN_ATOMIC_STORE_4:
-    case BUILT_IN_ATOMIC_STORE_8:
-    case BUILT_IN_ATOMIC_STORE_16:
-      gcc_assert (gimple_call_num_args (stmt) == 3);
-      target = gimple_call_arg (stmt, 0);
-      expr = gimple_call_arg (stmt, 1);
-      order = gimple_call_arg (stmt, 2);
-      type = atomic_func_type (fcode - BUILT_IN_ATOMIC_STORE_N);
-      s = gimple_build_atomic_store (type, target, expr, order);
-      break;
 
     case BUILT_IN_ATOMIC_ADD_FETCH_N:
     case BUILT_IN_ATOMIC_ADD_FETCH_1:

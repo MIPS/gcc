@@ -2004,6 +2004,10 @@ expand_atomic_stmt (gimple stmt)
 	       (kind == GIMPLE_ATOMIC_TEST_AND_SET) ||
 	       (kind == GIMPLE_ATOMIC_CLEAR);
 
+  /* Generic functions can not be inlined.  */
+  if (gimple_atomic_generic (stmt))
+    try_inline = false;
+
   /* Try emitting inline code if requsted.  */
   if (try_inline)
     {

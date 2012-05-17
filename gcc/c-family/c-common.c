@@ -9507,43 +9507,6 @@ get_atomic_generic_size (location_t loc, tree function, VEC(tree,gc) *params)
 }
 
 
-/* This will take an __atomic_ generic FUNCTION call, and add a size parameter N
-   at the beginning of the parameter list PARAMS representing the size of the
-   objects.  This is to match the library ABI requirement.  LOC is the location
-   of the function call.  
-   The new function is returned if it needed rebuilding, otherwise NULL_TREE is
-   returned to allow the external call to be constructed.  */
-
-static tree
-add_atomic_size_parameter (unsigned n, location_t loc, tree function, 
-			   VEC(tree,gc) *params)
-{
-  tree size_node;
-
-  /* Insert a SIZE_T parameter as the first param.  If there isn't
-     enough space, allocate a new vector and recursively re-build with that.  */
-  if (!VEC_space (tree, params, 1))
-    {
-      unsigned int z, len;
-      VEC(tree,gc) *vec;
-      tree f;
-
-      len = VEC_length (tree, params);
-      vec = VEC_alloc (tree, gc, len + 1);
-      for (z = 0; z < len; z++)
-	VEC_quick_push (tree, vec, VEC_index (tree, params, z));
-      f = build_function_call_vec (loc, function, vec, NULL);
-      VEC_free (tree, gc, vec);
-      return f;
-    }
-
-  /* Add the size parameter and leave as a function call for processing.  */
-  size_node = build_int_cst (size_type_node, n);
-  VEC_quick_insert (tree, params, 0, size_node);
-  return NULL_TREE;
-}
-
-
 /* This will process an __atomic_exchange function call, determine whether it
    needs to be mapped to the _N variation, or turned into a library call.
    LOC is the location of the builtin call.
@@ -9571,7 +9534,7 @@ resolve_overloaded_atomic_exchange (location_t loc, tree function,
   /* If not a lock-free size, change to the library generic format.  */
   if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
     {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
+      *new_return = NULL_TREE;
       return true;
     }
 
@@ -9636,18 +9599,7 @@ resolve_overloaded_atomic_compare_exchange (location_t loc, tree function,
   /* If not a lock-free size, change to the library generic format.  */
   if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
     {
-      /* The library generic format does not have the weak parameter, so 
-	 remove it from the param list.  Since a parameter has been removed,
-	 we can be sure that there is room for the SIZE_T parameter, meaning
-	 there will not be a recursive rebuilding of the parameter list, so
-	 there is no danger this will be done twice.  */
-      if (n > 0)
-        {
-	  VEC_replace (tree, params, 3, VEC_index (tree, params, 4));
-	  VEC_replace (tree, params, 4, VEC_index (tree, params, 5));
-	  VEC_truncate (tree, params, 5);
-	}
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
+      *new_return = NULL_TREE;
       return true;
     }
 
@@ -9712,7 +9664,7 @@ resolve_overloaded_atomic_load (location_t loc, tree function,
   /* If not a lock-free size, change to the library generic format.  */
   if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
     {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
+      *new_return = NULL_TREE;
       return true;
     }
 
@@ -9772,7 +9724,7 @@ resolve_overloaded_atomic_store (location_t loc, tree function,
   /* If not a lock-free size, change to the library generic format.  */
   if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
     {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
+      *new_return = NULL_TREE;
       return true;
     }
 
