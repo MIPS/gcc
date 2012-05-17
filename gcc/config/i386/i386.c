@@ -30242,11 +30242,11 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
 
       if (cum->bnd_regno == LAST_BND_REG + 1)
 	{
-	  addr = plus_constant (stack_pointer_rtx, reversed ? -8 : -4);
+	  addr = plus_constant (stack_pointer_rtx, reversed ? -4 : -8);
 	  cum->bnd_regno++;
 	}
       else
-	addr = plus_constant (stack_pointer_rtx, reversed ? -4 : -8);
+	addr = plus_constant (stack_pointer_rtx, reversed ? -8 : -4);
     }
   else if (MEM_P (addr))
     addr = XEXP (addr, 0);
