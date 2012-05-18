@@ -30201,14 +30201,14 @@ ix86_load_bounds (cumulative_args_t cum_v, rtx parm)
       /* Here we have the case when more than five pointers are
 	 passed on registers.  In this case we are out of bound
 	 registers and have to use bndldx to load bound.  RA and
-	 RA + 4 are used for address translation in bndldx.  */
+	 RA - 8 are used for address translation in bndldx.  */
       if (cum->bnd_regno == LAST_BND_REG + 1)
 	{
 	  addr = plus_constant (arg_pointer_rtx, -8);
 	  cum->bnd_regno++;
 	}
       else
-	addr = plus_constant (arg_pointer_rtx, -4);
+	addr = plus_constant (arg_pointer_rtx, -16);
 
       ptr = parm;
     }
@@ -30242,11 +30242,11 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
 
       if (cum->bnd_regno == LAST_BND_REG + 1)
 	{
-	  addr = plus_constant (stack_pointer_rtx, reversed ? -4 : -8);
+	  addr = plus_constant (stack_pointer_rtx, reversed ? -16 : -8);
 	  cum->bnd_regno++;
 	}
       else
-	addr = plus_constant (stack_pointer_rtx, reversed ? -8 : -4);
+	addr = plus_constant (stack_pointer_rtx, reversed ? -8 : -16);
     }
   else if (MEM_P (addr))
     addr = XEXP (addr, 0);
