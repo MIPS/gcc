@@ -1,3 +1,8 @@
+2012-05-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (need_for_split_p): Split only when there are at
+	least 3 potential reloads instead of 2.
+
 2012-04-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (get_op_mode): Take mode from operand first

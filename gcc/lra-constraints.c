@@ -3894,7 +3894,7 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 {
   gcc_assert (reg_renumber[regno] >= 0);
   return ((TEST_HARD_REG_BIT (potential_reload_hard_regs, reg_renumber[regno])
-	   && usage_insns[regno].reloads_num + 1 < reloads_num)
+	   && usage_insns[regno].reloads_num + 2 < reloads_num)
 	  || need_for_call_save_p (regno));
 }
 
