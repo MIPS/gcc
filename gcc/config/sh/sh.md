@@ -1,6 +1,6 @@
 ;;- Machine description for Renesas / SuperH SH.
 ;;  Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-;;  2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+;;  2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
 ;;  Free Software Foundation, Inc.
 ;;  Contributed by Steve Chamberlain (sac@cygnus.com).
 ;;  Improved by Jim Wilson (wilson@cygnus.com).
@@ -3568,15 +3568,6 @@ label:
 ;;
 ;; shift left
 
-(define_insn "ashlsi3_sh2a"
-  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(ashift:SI (match_operand:SI 1 "arith_reg_operand" "0")
-		   (match_operand:SI 2 "arith_reg_operand" "r")))]
-  "TARGET_SH2A"
-  "shad	%2,%0"
-  [(set_attr "type" "arith")
-   (set_attr "length" "4")])
-
 ;; This pattern is used by init_expmed for computing the costs of shift
 ;; insns.
 
@@ -3585,14 +3576,14 @@ label:
 	(ashift:SI (match_operand:SI 1 "arith_reg_operand" "0,0,0,0")
 		   (match_operand:SI 2 "nonmemory_operand" "r,M,P27,?ri")))
    (clobber (match_scratch:SI 3 "=X,X,X,&r"))]
-  "TARGET_SH3
+  "(TARGET_SH3 || TARGET_SH2A)
    || (TARGET_SH1 && satisfies_constraint_P27 (operands[2]))"
   "@
    shld	%2,%0
    add	%0,%0
    shll%O2	%0
    #"
-  "TARGET_SH3
+  "(TARGET_SH3 || TARGET_SH2A)
    && reload_completed
    && CONST_INT_P (operands[2])
    && ! satisfies_constraint_P27 (operands[2])"
@@ -3671,7 +3662,7 @@ label:
   if (CONST_INT_P (operands[2])
       && sh_dynamicalize_shift_p (operands[2]))
     operands[2] = force_reg (SImode, operands[2]);
-  if (TARGET_SH3)
+  if (TARGET_SH3 || TARGET_SH2A)
     {
       emit_insn (gen_ashlsi3_std (operands[0], operands[1], operands[2]));
       DONE;
@@ -3727,15 +3718,6 @@ label:
 ;
 ; arithmetic shift right
 ;
-
-(define_insn "ashrsi3_sh2a"
-  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(ashiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
-		   (neg:SI (match_operand:SI 2 "arith_reg_operand" "r"))))]
-  "TARGET_SH2A"
-  "shad	%2,%0"
-  [(set_attr "type" "dyn_shift")
-   (set_attr "length" "4")])
 
 (define_insn "ashrsi3_k"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
@@ -3831,7 +3813,7 @@ label:
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
 	(ashiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (neg:SI (match_operand:SI 2 "arith_reg_operand" "r"))))]
-  "TARGET_SH3"
+  "TARGET_SH3 || TARGET_SH2A"
   "shad	%2,%0"
   [(set_attr "type" "dyn_shift")])
 
@@ -3879,20 +3861,11 @@ label:
 
 ;; logical shift right
 
-(define_insn "lshrsi3_sh2a"
-  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
-	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
-		     (neg:SI (match_operand:SI 2 "arith_reg_operand" "r"))))]
-  "TARGET_SH2A"
-  "shld	%2,%0"
-  [(set_attr "type" "dyn_shift")
-   (set_attr "length" "4")])
-
 (define_insn "lshrsi3_d"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
 	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "0")
 		     (neg:SI (match_operand:SI 2 "arith_reg_operand" "r"))))]
-  "TARGET_SH3"
+  "TARGET_SH3 || TARGET_SH2A"
   "shld	%2,%0"
   [(set_attr "type" "dyn_shift")])
 
@@ -3973,7 +3946,8 @@ label:
   if (CONST_INT_P (operands[2])
       && sh_dynamicalize_shift_p (operands[2]))
     operands[2] = force_reg (SImode, operands[2]);
-  if (TARGET_SH3 && arith_reg_operand (operands[2], GET_MODE (operands[2])))
+  if ((TARGET_SH3 || TARGET_SH2A)
+      && arith_reg_operand (operands[2], GET_MODE (operands[2])))
     {
       rtx count = copy_to_mode_reg (SImode, operands[2]);
       emit_insn (gen_negsi2 (count, count));
@@ -4431,8 +4405,6 @@ label:
   "sub	r63, %1, %0"
   [(set_attr "type" "arith_media")])
 
-
-
 ;; Don't expand immediately because otherwise neg:DI (abs:DI) will not be
 ;; combined.
 (define_expand "negdi2"
@@ -4522,7 +4494,6 @@ label:
 		 const0_rtx));
   DONE;
 }")
-
 
 ;; The SH4 202 can do zero-offset branches without pipeline stalls.
 ;; This can be used as some kind of conditional execution, which is useful
@@ -5494,7 +5465,7 @@ label:
   operands[3] = gen_rtx_REG (DImode, REGNO (operands[2]));
 }")
 
-/* When storing r0, we have to avoid reg+reg addressing.  */
+;; When storing r0, we have to avoid reg+reg addressing.
 (define_insn "movhi_i"
   [(set (match_operand:HI 0 "general_movdst_operand"   "=r,r,r,r,m,r,l,r")
 	(match_operand:HI 1 "general_movsrc_operand" "Q,rI08,m,t,r,l,r,i"))]
@@ -7498,7 +7469,7 @@ label:
    (set_attr "fp_set" "unknown")])
 
 ;; This is TBR relative jump instruction for SH2A architecture.
-;; Its use is enabled assigning an attribute "function_vector"
+;; Its use is enabled by assigning an attribute "function_vector"
 ;; and the vector number to a function during its declaration.
 
 (define_insn "call_valuei_tbr_rel"
@@ -9607,8 +9578,6 @@ mov.l\\t1f,r0\\n\\
    DONE;
 ")
 
-
-
 ;; sne moves the complement of the T reg to DEST like this:
 ;;      cmp/eq ...
 ;;      mov    #-1,temp
@@ -9630,7 +9599,6 @@ mov.l\\t1f,r0\\n\\
 {
   operands[1] = gen_reg_rtx (SImode);
 }")
-
 
 ;; Recognize mov #-1/negc/neg sequence, and change it to movt/add #-1.
 ;; This prevents a regression that occurred when we switched from xor to
@@ -9684,7 +9652,6 @@ mov.l\\t1f,r0\\n\\
    sh_emit_compare_and_set (operands, DFmode);
    DONE;
 ")
-
 
 ;; -------------------------------------------------------------------------
 ;; Instructions to cope with inline literal tables
@@ -12714,7 +12681,7 @@ mov.l\\t1f,r0\\n\\
   [(set_attr "type" "arith_media")
    (set_attr "highpart" "ignore")])
 
-/* These are useful to expand ANDs and as combiner patterns.  */
+;; These are useful to expand ANDs and as combiner patterns.
 (define_insn_and_split "mshfhi_l_di"
   [(set (match_operand:DI 0 "arith_reg_dest" "=r,f")
 	(ior:DI (lshiftrt:DI (match_operand:DI 1 "arith_reg_or_0_operand" "rZ,f")
@@ -13693,3 +13660,5 @@ mov.l\\t1f,r0\\n\\
   "ld%M1.q\t%m1, %0\;ld%M2.q\t%m2, %3\;cmpeq\t%0, %3, %0\;movi\t0, %3"
   [(set_attr "type" "other")
    (set_attr "length" "16")])
+
+(include "sync.md")

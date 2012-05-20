@@ -1,7 +1,7 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
+   2012 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7651,6 +7651,8 @@ build_fold_addr_expr_loc (location_t loc, tree t)
   return build_fold_addr_expr_with_type_loc (loc, t, ptrtype);
 }
 
+static bool vec_cst_ctor_to_array (tree, tree *);
+
 /* Fold a unary expression of code CODE and type TYPE with operand
    OP0.  Return the folded expression if folding is successful.
    Otherwise, return NULL_TREE.  */
@@ -8294,6 +8296,44 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	}
       return NULL_TREE;
 
+    case VEC_UNPACK_LO_EXPR:
+    case VEC_UNPACK_HI_EXPR:
+    case VEC_UNPACK_FLOAT_LO_EXPR:
+    case VEC_UNPACK_FLOAT_HI_EXPR:
+      {
+	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	tree *elts, vals = NULL_TREE;
+	enum tree_code subcode;
+
+	gcc_assert (TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg0)) == nelts * 2);
+	if (TREE_CODE (arg0) != VECTOR_CST)
+	  return NULL_TREE;
+
+	elts = XALLOCAVEC (tree, nelts * 2);
+	if (!vec_cst_ctor_to_array (arg0, elts))
+	  return NULL_TREE;
+
+	if ((!BYTES_BIG_ENDIAN) ^ (code == VEC_UNPACK_LO_EXPR
+				   || code == VEC_UNPACK_FLOAT_LO_EXPR))
+	  elts += nelts;
+
+	if (code == VEC_UNPACK_LO_EXPR || code == VEC_UNPACK_HI_EXPR)
+	  subcode = NOP_EXPR;
+	else
+	  subcode = FLOAT_EXPR;
+
+	for (i = 0; i < nelts; i++)
+	  {
+	    elts[i] = fold_convert_const (subcode, TREE_TYPE (type), elts[i]);
+	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
+	      return NULL_TREE;
+	  }
+
+	for (i = 0; i < nelts; i++)
+	  vals = tree_cons (NULL_TREE, elts[nelts - i - 1], vals);
+	return build_vector (type, vals);
+      }
+
     default:
       return NULL_TREE;
     } /* switch (code) */
@@ -8846,6 +8886,17 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      indirect_base0 = true;
 	    }
 	  offset0 = TREE_OPERAND (arg0, 1);
+	  if (host_integerp (offset0, 0))
+	    {
+	      HOST_WIDE_INT off = size_low_cst (offset0);
+	      if ((HOST_WIDE_INT) (((unsigned HOST_WIDE_INT) off)
+				   * BITS_PER_UNIT)
+		  / BITS_PER_UNIT == (HOST_WIDE_INT) off)
+		{
+		  bitpos0 = off * BITS_PER_UNIT;
+		  offset0 = NULL_TREE;
+		}
+	    }
 	}
 
       base1 = arg1;
@@ -8869,6 +8920,17 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      indirect_base1 = true;
 	    }
 	  offset1 = TREE_OPERAND (arg1, 1);
+	  if (host_integerp (offset1, 0))
+	    {
+	      HOST_WIDE_INT off = size_low_cst (offset1);
+	      if ((HOST_WIDE_INT) (((unsigned HOST_WIDE_INT) off)
+				   * BITS_PER_UNIT)
+		  / BITS_PER_UNIT == (HOST_WIDE_INT) off)
+		{
+		  bitpos1 = off * BITS_PER_UNIT;
+		  offset1 = NULL_TREE;
+		}
+	    }
 	}
 
       /* A local variable can never be pointed to by
@@ -9607,6 +9669,44 @@ fold_vec_perm (tree type, tree arg0, tree arg1, const unsigned char *sel)
 	vals = tree_cons (NULL_TREE, elts[3 * nelts - i - 1], vals);
       return build_vector (type, vals);
     }
+}
+
+/* Try to fold a pointer difference of type TYPE two address expressions of
+   array references AREF0 and AREF1 using location LOC.  Return a
+   simplified expression for the difference or NULL_TREE.  */
+
+static tree
+fold_addr_of_array_ref_difference (location_t loc, tree type,
+				   tree aref0, tree aref1)
+{
+  tree base0 = TREE_OPERAND (aref0, 0);
+  tree base1 = TREE_OPERAND (aref1, 0);
+  tree base_offset = build_int_cst (type, 0);
+
+  /* If the bases are array references as well, recurse.  If the bases
+     are pointer indirections compute the difference of the pointers.
+     If the bases are equal, we are set.  */
+  if ((TREE_CODE (base0) == ARRAY_REF
+       && TREE_CODE (base1) == ARRAY_REF
+       && (base_offset
+	   = fold_addr_of_array_ref_difference (loc, type, base0, base1)))
+      || (INDIRECT_REF_P (base0)
+	  && INDIRECT_REF_P (base1)
+	  && (base_offset = fold_binary_loc (loc, MINUS_EXPR, type,
+					     TREE_OPERAND (base0, 0),
+					     TREE_OPERAND (base1, 0))))
+      || operand_equal_p (base0, base1, 0))
+    {
+      tree op0 = fold_convert_loc (loc, type, TREE_OPERAND (aref0, 1));
+      tree op1 = fold_convert_loc (loc, type, TREE_OPERAND (aref1, 1));
+      tree esz = fold_convert_loc (loc, type, array_ref_element_size (aref0));
+      tree diff = build2 (MINUS_EXPR, type, op0, op1);
+      return fold_build2_loc (loc, PLUS_EXPR, type,
+			      base_offset,
+			      fold_build2_loc (loc, MULT_EXPR, type,
+					       diff, esz));
+    }
+  return NULL_TREE;
 }
 
 /* Fold a binary expression of code CODE and type TYPE with operands
@@ -10520,19 +10620,11 @@ fold_binary_loc (location_t loc,
 	  && TREE_CODE (arg1) == ADDR_EXPR
 	  && TREE_CODE (TREE_OPERAND (arg1, 0)) == ARRAY_REF)
         {
-	  tree aref0 = TREE_OPERAND (arg0, 0);
-	  tree aref1 = TREE_OPERAND (arg1, 0);
-	  if (operand_equal_p (TREE_OPERAND (aref0, 0),
-			       TREE_OPERAND (aref1, 0), 0))
-	    {
-	      tree op0 = fold_convert_loc (loc, type, TREE_OPERAND (aref0, 1));
-	      tree op1 = fold_convert_loc (loc, type, TREE_OPERAND (aref1, 1));
-	      tree esz = array_ref_element_size (aref0);
-	      tree diff = build2 (MINUS_EXPR, type, op0, op1);
-	      return fold_build2_loc (loc, MULT_EXPR, type, diff,
-			          fold_convert_loc (loc, type, esz));
-
-	    }
+	  tree tem = fold_addr_of_array_ref_difference (loc, type,
+							TREE_OPERAND (arg0, 0),
+							TREE_OPERAND (arg1, 0));
+	  if (tem)
+	    return tem;
 	}
 
       if (FLOAT_TYPE_P (type)
@@ -10897,66 +10989,50 @@ fold_binary_loc (location_t loc,
 	  && TREE_CODE (arg1) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
 	{
-	  unsigned HOST_WIDE_INT hi1, lo1, hi2, lo2, hi3, lo3, mlo, mhi;
+	  double_int c1, c2, c3, msk;
 	  int width = TYPE_PRECISION (type), w;
-	  hi1 = TREE_INT_CST_HIGH (TREE_OPERAND (arg0, 1));
-	  lo1 = TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1));
-	  hi2 = TREE_INT_CST_HIGH (arg1);
-	  lo2 = TREE_INT_CST_LOW (arg1);
+	  c1 = tree_to_double_int (TREE_OPERAND (arg0, 1));
+	  c2 = tree_to_double_int (arg1);
 
 	  /* If (C1&C2) == C1, then (X&C1)|C2 becomes (X,C2).  */
-	  if ((hi1 & hi2) == hi1 && (lo1 & lo2) == lo1)
+	  if (double_int_equal_p (double_int_and (c1, c2), c1))
 	    return omit_one_operand_loc (loc, type, arg1,
-				     TREE_OPERAND (arg0, 0));
+					 TREE_OPERAND (arg0, 0));
 
-	  if (width > HOST_BITS_PER_WIDE_INT)
-	    {
-	      mhi = (unsigned HOST_WIDE_INT) -1
-		    >> (2 * HOST_BITS_PER_WIDE_INT - width);
-	      mlo = -1;
-	    }
-	  else
-	    {
-	      mhi = 0;
-	      mlo = (unsigned HOST_WIDE_INT) -1
-		    >> (HOST_BITS_PER_WIDE_INT - width);
-	    }
+	  msk = double_int_mask (width);
 
 	  /* If (C1|C2) == ~0 then (X&C1)|C2 becomes X|C2.  */
-	  if ((~(hi1 | hi2) & mhi) == 0 && (~(lo1 | lo2) & mlo) == 0)
+	  if (double_int_zero_p (double_int_and_not (msk,
+						     double_int_ior (c1, c2))))
 	    return fold_build2_loc (loc, BIT_IOR_EXPR, type,
-				TREE_OPERAND (arg0, 0), arg1);
+				    TREE_OPERAND (arg0, 0), arg1);
 
 	  /* Minimize the number of bits set in C1, i.e. C1 := C1 & ~C2,
 	     unless (C1 & ~C2) | (C2 & C3) for some C3 is a mask of some
 	     mode which allows further optimizations.  */
-	  hi1 &= mhi;
-	  lo1 &= mlo;
-	  hi2 &= mhi;
-	  lo2 &= mlo;
-	  hi3 = hi1 & ~hi2;
-	  lo3 = lo1 & ~lo2;
+	  c1 = double_int_and (c1, msk);
+	  c2 = double_int_and (c2, msk);
+	  c3 = double_int_and_not (c1, c2);
 	  for (w = BITS_PER_UNIT;
 	       w <= width && w <= HOST_BITS_PER_WIDE_INT;
 	       w <<= 1)
 	    {
 	      unsigned HOST_WIDE_INT mask
 		= (unsigned HOST_WIDE_INT) -1 >> (HOST_BITS_PER_WIDE_INT - w);
-	      if (((lo1 | lo2) & mask) == mask
-		  && (lo1 & ~mask) == 0 && hi1 == 0)
+	      if (((c1.low | c2.low) & mask) == mask
+		  && (c1.low & ~mask) == 0 && c1.high == 0)
 		{
-		  hi3 = 0;
-		  lo3 = mask;
+		  c3 = uhwi_to_double_int (mask);
 		  break;
 		}
 	    }
-	  if (hi3 != hi1 || lo3 != lo1)
+	  if (!double_int_equal_p (c3, c1))
 	    return fold_build2_loc (loc, BIT_IOR_EXPR, type,
-				fold_build2_loc (loc, BIT_AND_EXPR, type,
-					     TREE_OPERAND (arg0, 0),
-					     build_int_cst_wide (type,
-								 lo3, hi3)),
-				arg1);
+				    fold_build2_loc (loc, BIT_AND_EXPR, type,
+						     TREE_OPERAND (arg0, 0),
+						     double_int_to_tree (type,
+									 c3)),
+				    arg1);
 	}
 
       /* (X & Y) | Y is (X, Y).  */
@@ -13461,42 +13537,72 @@ fold_binary_loc (location_t loc,
       /* An ASSERT_EXPR should never be passed to fold_binary.  */
       gcc_unreachable ();
 
-    case VEC_EXTRACT_EVEN_EXPR:
-    case VEC_EXTRACT_ODD_EXPR:
-    case VEC_INTERLEAVE_HIGH_EXPR:
-    case VEC_INTERLEAVE_LOW_EXPR:
-      if ((TREE_CODE (arg0) == VECTOR_CST
-	   || TREE_CODE (arg0) == CONSTRUCTOR)
-	  && (TREE_CODE (arg1) == VECTOR_CST
-	      || TREE_CODE (arg1) == CONSTRUCTOR))
-	{
-	  unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
-	  unsigned char *sel = XALLOCAVEC (unsigned char, nelts);
+    case VEC_PACK_TRUNC_EXPR:
+    case VEC_PACK_FIX_TRUNC_EXPR:
+      {
+	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	tree *elts, vals = NULL_TREE;
 
-	  for (i = 0; i < nelts; i++)
-	    switch (code)
-	      {
-	      case VEC_EXTRACT_EVEN_EXPR:
-		sel[i] = i * 2;
-		break;
-	      case VEC_EXTRACT_ODD_EXPR:
-		sel[i] = i * 2 + 1;
-		break;
-	      case VEC_INTERLEAVE_HIGH_EXPR:
-		sel[i] = (i + (BYTES_BIG_ENDIAN ? 0 : nelts)) / 2
-			 + ((i & 1) ? nelts : 0);
-		break;
-	      case VEC_INTERLEAVE_LOW_EXPR:
-		sel[i] = (i + (BYTES_BIG_ENDIAN ? nelts : 0)) / 2
-			 + ((i & 1) ? nelts : 0);
-		break;
-	      default:
-		gcc_unreachable ();
-	      }
+	gcc_assert (TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg0)) == nelts / 2
+		    && TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg1)) == nelts / 2);
+	if (TREE_CODE (arg0) != VECTOR_CST || TREE_CODE (arg1) != VECTOR_CST)
+	  return NULL_TREE;
 
-	  return fold_vec_perm (type, arg0, arg1, sel);
-	}
-      return NULL_TREE;
+	elts = XALLOCAVEC (tree, nelts);
+	if (!vec_cst_ctor_to_array (arg0, elts)
+	    || !vec_cst_ctor_to_array (arg1, elts + nelts / 2))
+	  return NULL_TREE;
+
+	for (i = 0; i < nelts; i++)
+	  {
+	    elts[i] = fold_convert_const (code == VEC_PACK_TRUNC_EXPR
+					  ? NOP_EXPR : FIX_TRUNC_EXPR,
+					  TREE_TYPE (type), elts[i]);
+	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
+	      return NULL_TREE;
+	  }
+
+	for (i = 0; i < nelts; i++)
+	  vals = tree_cons (NULL_TREE, elts[nelts - i - 1], vals);
+	return build_vector (type, vals);
+      }
+
+    case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_WIDEN_MULT_HI_EXPR:
+      {
+	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	tree *elts, vals = NULL_TREE;
+
+	gcc_assert (TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg0)) == nelts * 2
+		    && TYPE_VECTOR_SUBPARTS (TREE_TYPE (arg1)) == nelts * 2);
+	if (TREE_CODE (arg0) != VECTOR_CST || TREE_CODE (arg1) != VECTOR_CST)
+	  return NULL_TREE;
+
+	elts = XALLOCAVEC (tree, nelts * 4);
+	if (!vec_cst_ctor_to_array (arg0, elts)
+	    || !vec_cst_ctor_to_array (arg1, elts + nelts * 2))
+	  return NULL_TREE;
+
+	if ((!BYTES_BIG_ENDIAN) ^ (code == VEC_WIDEN_MULT_LO_EXPR))
+	  elts += nelts;
+
+	for (i = 0; i < nelts; i++)
+	  {
+	    elts[i] = fold_convert_const (NOP_EXPR, TREE_TYPE (type), elts[i]);
+	    elts[i + nelts * 2]
+	      = fold_convert_const (NOP_EXPR, TREE_TYPE (type),
+				    elts[i + nelts * 2]);
+	    if (elts[i] == NULL_TREE || elts[i + nelts * 2] == NULL_TREE)
+	      return NULL_TREE;
+	    elts[i] = const_binop (MULT_EXPR, elts[i], elts[i + nelts * 2]);
+	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
+	      return NULL_TREE;
+	  }
+
+	for (i = 0; i < nelts; i++)
+	  vals = tree_cons (NULL_TREE, elts[nelts - i - 1], vals);
+	return build_vector (type, vals);
+      }
 
     default:
       return NULL_TREE;

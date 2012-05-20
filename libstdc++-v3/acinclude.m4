@@ -49,7 +49,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE], [
   # Keep these sync'd with the list in Makefile.am.  The first provides an
   # expandable list at autoconf time; the second provides an expandable list
   # (i.e., shell variable) at configure time.
-  m4_define([glibcxx_SUBDIRS],[include libsupc++ python src doc po testsuite])
+  m4_define([glibcxx_SUBDIRS],[include libsupc++ python src src/c++98 src/c++11 doc po testsuite])
   SUBDIRS='glibcxx_SUBDIRS'
 
   # These need to be absolute paths, yet at the same time need to
@@ -631,7 +631,7 @@ AC_DEFUN([GLIBCXX_CONFIGURE_TESTSUITE], [
 
 
 dnl
-dnl Does any necessary configuration of the documentation directory.
+dnl Does any necessary configuration for docbook in the docs directory.
 dnl
 dnl XSLTPROC must be set before this
 dnl
@@ -642,7 +642,7 @@ dnl  XSL_STYLE_DIR
 dnl
 AC_DEFUN([GLIBCXX_CONFIGURE_DOCBOOK], [
 
-AC_MSG_CHECKING([for stylesheets used in generation of documentation])
+AC_MSG_CHECKING([for docbook stylesheets for documentation creation])
 glibcxx_stylesheets=no
 if test x${XSLTPROC} = xyes && echo '<title/>' | xsltproc --noout --nonet --xinclude http://docbook.sourceforge.net/release/xsl-ns/current/xhtml-1_1/docbook.xsl - 2>/dev/null; then
   glibcxx_stylesheets=yes
@@ -669,6 +669,18 @@ if test x"$glibcxx_local_stylesheets" = x"yes"; then
 else
   glibcxx_stylesheets=no
 fi
+
+# Check for epub3 dependencies.
+AC_MSG_CHECKING([for epub3 stylesheets for documentation creation])
+glibcxx_epub_stylesheets=no
+if test x"$glibcxx_local_stylesheets" = x"yes"; then
+   if test -f "$XSL_STYLE_DIR/epub3/chunk.xsl"; then
+      glibcxx_epub_stylesheets=yes
+   fi
+fi
+AC_MSG_RESULT($glibcxx_epub_stylesheets)
+AM_CONDITIONAL(BUILD_EPUB, test x"$glibcxx_epub_stylesheets" = x"yes")
+
 ])
 
 
@@ -717,7 +729,7 @@ AC_DEFUN([GLIBCXX_EXPORT_FLAGS], [
   # OPTIMIZE_CXXFLAGS = -O3 -fstrict-aliasing -fvtable-gc
   AC_SUBST(OPTIMIZE_CXXFLAGS)
 
-  WARN_FLAGS='-Wall -Wextra -Wwrite-strings -Wcast-qual'
+  WARN_FLAGS='-Wall -Wextra -Wwrite-strings -Wcast-qual -Wabi'
   AC_SUBST(WARN_FLAGS)
 ])
 
@@ -1725,26 +1737,26 @@ AC_DEFUN([GLIBCXX_CHECK_MATH_PROTO], [
 	     {  return __builtin_fabsf(__x); }
 	   }
 	])],
-        [glibcxx_cv_abs_float=no],
-        [glibcxx_cv_abs_float=yes]
+	[glibcxx_cv_abs_float=no],
+	[glibcxx_cv_abs_float=yes]
       )])
 
       # autoheader cannot handle indented templates.
       AH_VERBATIM([__CORRECT_ISO_CPP_MATH_H_PROTO1],
-        [/* Define if all C++ overloads are available in <math.h>.  */
+	[/* Define if all C++ overloads are available in <math.h>.  */
 #if __cplusplus >= 199711L
 #undef __CORRECT_ISO_CPP_MATH_H_PROTO1
 #endif])
       AH_VERBATIM([__CORRECT_ISO_CPP_MATH_H_PROTO2],
-        [/* Define if only double std::abs(double) is available in <math.h>.  */
+	[/* Define if only double std::abs(double) is available in <math.h>.  */
 #if __cplusplus >= 199711L
 #undef __CORRECT_ISO_CPP_MATH_H_PROTO2
 #endif])
 
       if test $glibcxx_cv_abs_float = yes; then
-        AC_DEFINE(__CORRECT_ISO_CPP_MATH_H_PROTO1)
+	AC_DEFINE(__CORRECT_ISO_CPP_MATH_H_PROTO1)
       else
-        AC_DEFINE(__CORRECT_ISO_CPP_MATH_H_PROTO2)
+	AC_DEFINE(__CORRECT_ISO_CPP_MATH_H_PROTO2)
       fi
       AC_MSG_RESULT($glibcxx_cv_abs_float)
       ;;
@@ -1775,23 +1787,52 @@ AC_DEFUN([GLIBCXX_CHECK_STDLIB_PROTO], [
 	     inline long
 	     abs(long __i) { return labs(__i); }
 	   }
-        ])],
-        [glibcxx_cv_abs_long=no],
-        [glibcxx_cv_abs_long=yes]
+	])],
+	[glibcxx_cv_abs_long=no],
+	[glibcxx_cv_abs_long=yes]
       )])
 
       # autoheader cannot handle indented templates.
       AH_VERBATIM([__CORRECT_ISO_CPP_STDLIB_H_PROTO],
-        [/* Define if all C++ overloads are available in <stdlib.h>.  */
+	[/* Define if all C++ overloads are available in <stdlib.h>.  */
 #if __cplusplus >= 199711L
 #undef __CORRECT_ISO_CPP_STDLIB_H_PROTO
 #endif])
       if test $glibcxx_cv_abs_long = yes; then
-        AC_DEFINE(__CORRECT_ISO_CPP_STDLIB_H_PROTO, 1)
+	AC_DEFINE(__CORRECT_ISO_CPP_STDLIB_H_PROTO, 1)
       fi
       AC_MSG_RESULT($glibcxx_cv_abs_long)
       ;;
   esac
+
+  AC_LANG_RESTORE
+])
+
+dnl
+dnl Check whether required C++ overloads are present in <stdio.h>.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_STDIO_PROTO], [
+
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+
+  AC_MSG_CHECKING([for gets declaration])
+  AC_CACHE_VAL(glibcxx_cv_gets, [
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+	  [#include <stdio.h>
+	   namespace test 
+	   {
+              using ::gets;
+	   }
+	])],
+	[glibcxx_cv_gets=yes],
+	[glibcxx_cv_gets=no]
+      )])
+
+  if test $glibcxx_cv_gets = yes; then
+    AC_DEFINE(HAVE_GETS, 1, [Define if gets is available in <stdio.h>.])
+  fi
+  AC_MSG_RESULT($glibcxx_cv_gets)
 
   AC_LANG_RESTORE
 ])
@@ -2483,7 +2524,7 @@ template<typename T>
 
 int main()
 {
-  typename same<double, __float128>::type      f1;	
+  typename same<double, __float128>::type      f1;
   typename same<long double, __float128>::type f2;
 }
 EOF
@@ -2673,7 +2714,7 @@ AC_DEFUN([GLIBCXX_ENABLE_PCH], [
 dnl
 dnl Check for atomic builtins.
 dnl See:
-dnl http://gcc.gnu.org/onlinedocs/gcc/Atomic-Builtins.html#Atomic-Builtins
+dnl http://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
 dnl
 dnl This checks to see if the host supports the compiler-generated
 dnl builtins for atomic operations for various integral sizes. Note, this
@@ -2682,12 +2723,6 @@ dnl that are used should be checked.
 dnl
 dnl Note:
 dnl libgomp and libgfortran use a link test, see CHECK_SYNC_FETCH_AND_ADD.
-dnl
-dnl Defines:
-dnl  _GLIBCXX_ATOMIC_BUILTINS_1
-dnl  _GLIBCXX_ATOMIC_BUILTINS_2
-dnl  _GLIBCXX_ATOMIC_BUILTINS_4
-dnl  _GLIBCXX_ATOMIC_BUILTINS_8
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
   AC_LANG_SAVE
@@ -2720,19 +2755,16 @@ AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
       [typedef bool atomic_type;
        atomic_type c1;
        atomic_type c2;
-       const atomic_type c3(0);
-       __sync_fetch_and_add(&c1, c2);
-       __sync_val_compare_and_swap(&c1, c3, c2);
-       __sync_lock_test_and_set(&c1, c3);
-       __sync_lock_release(&c1);
-       __sync_synchronize();],
+       atomic_type c3(0);
+       __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+       __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+				   __ATOMIC_RELAXED);
+       __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+       __atomic_load_n(&c1, __ATOMIC_RELAXED);
+      ],
       [glibcxx_cv_atomic_bool=yes],
       [glibcxx_cv_atomic_bool=no])
   ])
-  if test $glibcxx_cv_atomic_bool = yes; then
-    AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_1, 1,
-      [Define if builtin atomic operations for bool are supported on this host.])
-  fi
   AC_MSG_RESULT($glibcxx_cv_atomic_bool)
 
   AC_MSG_CHECKING([for atomic builtins for short])
@@ -2742,19 +2774,16 @@ AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
       [typedef short atomic_type;
        atomic_type c1;
        atomic_type c2;
-       const atomic_type c3(0);
-       __sync_fetch_and_add(&c1, c2);
-       __sync_val_compare_and_swap(&c1, c3, c2);
-       __sync_lock_test_and_set(&c1, c3);
-       __sync_lock_release(&c1);
-       __sync_synchronize();],
+       atomic_type c3(0);
+       __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+       __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+				   __ATOMIC_RELAXED);
+       __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+       __atomic_load_n(&c1, __ATOMIC_RELAXED);
+      ],
       [glibcxx_cv_atomic_short=yes],
       [glibcxx_cv_atomic_short=no])
   ])
-  if test $glibcxx_cv_atomic_short = yes; then
-    AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_2, 1,
-      [Define if builtin atomic operations for short are supported on this host.])
-  fi
   AC_MSG_RESULT($glibcxx_cv_atomic_short)
 
   AC_MSG_CHECKING([for atomic builtins for int])
@@ -2764,19 +2793,16 @@ AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
       [typedef int atomic_type;
        atomic_type c1;
        atomic_type c2;
-       const atomic_type c3(0);
-       __sync_fetch_and_add(&c1, c2);
-       __sync_val_compare_and_swap(&c1, c3, c2);
-       __sync_lock_test_and_set(&c1, c3);
-       __sync_lock_release(&c1);
-       __sync_synchronize();],
+       atomic_type c3(0);
+       __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+       __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+				   __ATOMIC_RELAXED);
+       __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+       __atomic_load_n(&c1, __ATOMIC_RELAXED);
+      ],
       [glibcxx_cv_atomic_int=yes],
       [glibcxx_cv_atomic_int=no])
   ])
-  if test $glibcxx_cv_atomic_int = yes; then
-    AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_4, 1,
-      [Define if builtin atomic operations for int are supported on this host.])
-  fi
   AC_MSG_RESULT($glibcxx_cv_atomic_int)
 
   AC_MSG_CHECKING([for atomic builtins for long long])
@@ -2786,19 +2812,16 @@ AC_DEFUN([GLIBCXX_ENABLE_ATOMIC_BUILTINS], [
       [typedef long long atomic_type;
        atomic_type c1;
        atomic_type c2;
-       const atomic_type c3(0);
-       __sync_fetch_and_add(&c1, c2);
-       __sync_val_compare_and_swap(&c1, c3, c2);
-       __sync_lock_test_and_set(&c1, c3);
-       __sync_lock_release(&c1);
-       __sync_synchronize();],
+       atomic_type c3(0);
+       __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+       __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+				   __ATOMIC_RELAXED);
+       __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+       __atomic_load_n(&c1, __ATOMIC_RELAXED);
+      ],
       [glibcxx_cv_atomic_long_long=yes],
       [glibcxx_cv_atomic_long_long=no])
   ])
-  if test $glibcxx_cv_atomic_long_long = yes; then
-    AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_8, 1,
-      [Define if builtin atomic operations for long long are supported on this host.])
-  fi
   AC_MSG_RESULT($glibcxx_cv_atomic_long_long)
 
   else
@@ -2817,23 +2840,22 @@ int main()
   typedef bool atomic_type;
   atomic_type c1;
   atomic_type c2;
-  const atomic_type c3(0);
-  __sync_fetch_and_add(&c1, c2);
-  __sync_val_compare_and_swap(&c1, c3, c2);
-  __sync_lock_test_and_set(&c1, c3);
-  __sync_lock_release(&c1);
-  __sync_synchronize();
+  atomic_type c3(0);
+  __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+  __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+			      __ATOMIC_RELAXED);
+  __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+  __atomic_load_n(&c1, __ATOMIC_RELAXED);
+
   return 0;
 }
 EOF
 
     AC_MSG_CHECKING([for atomic builtins for bool])
     if AC_TRY_EVAL(ac_compile); then
-      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+      if grep __atomic_ conftest.s >/dev/null 2>&1 ; then
 	glibcxx_cv_atomic_bool=no
       else
-      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_1, 1,
-      [Define if builtin atomic operations for bool are supported on this host.])
 	glibcxx_cv_atomic_bool=yes
       fi
     fi
@@ -2847,23 +2869,22 @@ int main()
   typedef short atomic_type;
   atomic_type c1;
   atomic_type c2;
-  const atomic_type c3(0);
-  __sync_fetch_and_add(&c1, c2);
-  __sync_val_compare_and_swap(&c1, c3, c2);
-  __sync_lock_test_and_set(&c1, c3);
-  __sync_lock_release(&c1);
-  __sync_synchronize();
+  atomic_type c3(0);
+  __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+  __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+			      __ATOMIC_RELAXED);
+  __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+  __atomic_load_n(&c1, __ATOMIC_RELAXED);
+
   return 0;
 }
 EOF
 
     AC_MSG_CHECKING([for atomic builtins for short])
     if AC_TRY_EVAL(ac_compile); then
-      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+      if grep __atomic_ conftest.s >/dev/null 2>&1 ; then
 	glibcxx_cv_atomic_short=no
       else
-      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_2, 1,
-      [Define if builtin atomic operations for short are supported on this host.])
 	glibcxx_cv_atomic_short=yes
       fi
     fi
@@ -2878,23 +2899,22 @@ int main()
   typedef int atomic_type;
   atomic_type c1;
   atomic_type c2;
-  const atomic_type c3(0);
-  __sync_fetch_and_add(&c1, c2);
-  __sync_val_compare_and_swap(&c1, c3, c2);
-  __sync_lock_test_and_set(&c1, c3);
-  __sync_lock_release(&c1);
-  __sync_synchronize();
+  atomic_type c3(0);
+  __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+  __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+			      __ATOMIC_RELAXED);
+  __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+  __atomic_load_n(&c1, __ATOMIC_RELAXED);
+
   return 0;
 }
 EOF
 
     AC_MSG_CHECKING([for atomic builtins for int])
     if AC_TRY_EVAL(ac_compile); then
-      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+      if grep __atomic_ conftest.s >/dev/null 2>&1 ; then
 	glibcxx_cv_atomic_int=no
       else
-      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_4, 1,
-	[Define if builtin atomic operations for int are supported on this host.])
 	glibcxx_cv_atomic_int=yes
       fi
     fi
@@ -2908,23 +2928,22 @@ int main()
   typedef long long atomic_type;
   atomic_type c1;
   atomic_type c2;
-  const atomic_type c3(0);
-  __sync_fetch_and_add(&c1, c2);
-  __sync_val_compare_and_swap(&c1, c3, c2);
-  __sync_lock_test_and_set(&c1, c3);
-  __sync_lock_release(&c1);
-  __sync_synchronize();
+  atomic_type c3(0);
+  __atomic_fetch_add(&c1, c2, __ATOMIC_RELAXED);
+  __atomic_compare_exchange_n(&c1, &c2, c3, true, __ATOMIC_ACQ_REL,
+			      __ATOMIC_RELAXED);
+  __atomic_test_and_set(&c1, __ATOMIC_RELAXED);
+  __atomic_load_n(&c1, __ATOMIC_RELAXED);
+
   return 0;
 }
 EOF
 
     AC_MSG_CHECKING([for atomic builtins for long long])
     if AC_TRY_EVAL(ac_compile); then
-      if grep __sync_ conftest.s >/dev/null 2>&1 ; then
+      if grep __atomic_ conftest.s >/dev/null 2>&1 ; then
 	glibcxx_cv_atomic_long_long=no
       else
-      AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS_8, 1,
-      [Define if builtin atomic operations for long long are supported on this host.])
 	glibcxx_cv_atomic_long_long=yes
       fi
     fi
@@ -2936,8 +2955,13 @@ EOF
   CXXFLAGS="$old_CXXFLAGS"
   AC_LANG_RESTORE
 
-  # Set atomicity_dir to builtins if either of above tests pass.
-  if test $glibcxx_cv_atomic_int = yes || test $glibcxx_cv_atomic_bool = yes ; then
+  # Set atomicity_dir to builtins if all of above tests pass.
+  if test $glibcxx_cv_atomic_bool = yes \
+     && test $glibcxx_cv_atomic_short = yes \
+     && test $glibcxx_cv_atomic_int = yes \
+     && test $glibcxx_cv_atomic_long_long = yes ; then
+    AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS, 1,
+    [Define if the compiler supports C++11 atomics.])
     atomicity_dir=cpu/generic/atomicity_builtins
   fi
 
@@ -3269,17 +3293,14 @@ if test $enable_symvers != no ; then
      # The Solaris 2 runtime linker doesn't support the GNU extension of
      # binding the same symbol to different versions
      solaris2*)
-       symvers_renaming=no  ;;
+       ;;
      # Other platforms with GNU symbol versioning (GNU/Linux, more?) do.
      *)
        AC_DEFINE(HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT, 1,
 	 [Define to 1 if the target runtime linker supports binding the same symbol to different versions.])
-       symvers_renaming=yes  ;;
+       ;;
     esac
-else
-    symvers_renaming=no
 fi
-GLIBCXX_CONDITIONAL(ENABLE_SYMVERS_SOL2, test $symvers_renaming = no)
 
 # Now, set up compatibility support, if any.
 # In addition, need this to deal with std::size_t mangling in
@@ -3333,7 +3354,14 @@ dnl Check if gthread implementation defines the types and functions
 dnl required by the c++0x thread library.  Conforming gthread
 dnl implementations can define __GTHREADS_CXX0X to enable use with c++0x.
 dnl
+dnl GLIBCXX_ENABLE_SYMVERS must be done before this.
+dnl
 AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
+  GLIBCXX_ENABLE(libstdcxx-threads,auto,,[enable C++11 threads support])
+
+  if test x$enable_libstdcxx_threads = xauto || 
+     test x$enable_libstdcxx_threads = xyes; then
+
   AC_LANG_SAVE
   AC_LANG_CPLUSPLUS
 
@@ -3353,13 +3381,13 @@ AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
     [
       // In case of POSIX threads check _POSIX_TIMEOUTS.
       #if (defined(_PTHREADS) \
-          && (!defined(_POSIX_TIMEOUTS) || _POSIX_TIMEOUTS <= 0))
+	  && (!defined(_POSIX_TIMEOUTS) || _POSIX_TIMEOUTS <= 0))
       #error
       #endif
     ], [ac_gthread_use_mutex_timedlock=1], [ac_gthread_use_mutex_timedlock=0])
 
   AC_DEFINE_UNQUOTED(_GTHREAD_USE_MUTEX_TIMEDLOCK, $ac_gthread_use_mutex_timedlock,
-                     [Define to 1 if mutex_timedlock is available.])
+		     [Define to 1 if mutex_timedlock is available.])
 
   if test $ac_gthread_use_mutex_timedlock = 1 ; then res_mutex_timedlock=yes ;
   else res_mutex_timedlock=no ; fi
@@ -3372,7 +3400,28 @@ AC_DEFUN([GLIBCXX_CHECK_GTHREADS], [
       #ifndef __GTHREADS_CXX0X
       #error
       #endif
-    ], [ac_has_gthreads=yes], [ac_has_gthreads=no])
+    ], [case $target_os in
+	  # gthreads support breaks symbol versioning on Solaris 8/9 (PR
+	  # libstdc++/52189).
+          solaris2.[[89]]*)
+	    if test x$enable_symvers = xno; then
+	      ac_has_gthreads=yes
+	    elif test x$enable_libstdcxx_threads = xyes; then
+	      AC_MSG_WARN([You have requested C++11 threads support, but])
+	      AC_MSG_WARN([this breaks symbol versioning.])
+	      ac_has_gthreads=yes
+	    else
+	      ac_has_gthreads=no
+	    fi
+	    ;;
+	  *)
+	    ac_has_gthreads=yes
+	    ;;
+        esac],
+       [ac_has_gthreads=no])
+  else
+    ac_has_gthreads=no
+  fi
 
   AC_MSG_RESULT([$ac_has_gthreads])
 
@@ -3547,6 +3596,38 @@ AC_DEFUN([GLIBCXX_CHECK_SYSCTL_HW_NCPU], [
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
 ])
+
+dnl
+dnl Check to see if python pretty printing can be activated.
+dnl
+dnl --with-python-dir=dir
+dnl installs directory into $prefix/dir
+AC_DEFUN([GLIBCXX_ENABLE_PYTHON], [
+
+AC_MSG_CHECKING([for custom python install directory])
+AC_ARG_WITH([python-dir],
+	    AS_HELP_STRING([--with-python-dir],
+			   [the location to install Python modules. This path is relative starting from the prefix.]),
+	    [with_python_dir=$withval], [with_python_dir="no"])
+AC_MSG_RESULT(${with_python_dir})
+
+# Needed for installing Python modules during make install.
+python_mod_dir="${with_python_dir}"
+AC_SUBST(python_mod_dir)
+GLIBCXX_CONDITIONAL(ENABLE_PYTHONDIR, test $python_mod_dir != no)
+])
+
+dnl
+dnl Check to see if -Werror is disabled.
+dnl
+dnl --enable-werror/--disable-werror
+AC_DEFUN([GLIBCXX_ENABLE_WERROR], [
+  AC_MSG_CHECKING([for -Werror])
+  GLIBCXX_ENABLE(werror,$1,,[turns on -Werror])
+  AC_MSG_RESULT($enable_werror)
+  GLIBCXX_CONDITIONAL(ENABLE_WERROR, test $enable_werror = yes)
+])
+
 
 # Macros from the top-level gcc directory.
 m4_include([../config/gc++filt.m4])

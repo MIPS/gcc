@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -161,6 +161,20 @@ package body Ada.Containers.Hashed_Sets is
       HT_Ops.Adjust (Container.HT);
    end Adjust;
 
+   procedure Adjust (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            HT : Hash_Table_Type renames Control.Container.all.HT;
+            B : Natural renames HT.Busy;
+            L : Natural renames HT.Lock;
+         begin
+            B := B + 1;
+            L := L + 1;
+         end;
+      end if;
+   end Adjust;
+
    ------------
    -- Assign --
    ------------
@@ -197,6 +211,42 @@ package body Ada.Containers.Hashed_Sets is
    begin
       HT_Ops.Clear (Container.HT);
    end Clear;
+
+   ------------------------
+   -- Constant_Reference --
+   ------------------------
+
+   function Constant_Reference
+     (Container : aliased Set;
+      Position  : Cursor) return Constant_Reference_Type
+   is
+   begin
+      if Position.Container = null then
+         raise Constraint_Error with "Position cursor has no element";
+      end if;
+
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong container";
+      end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Constant_Reference");
+
+      declare
+         HT : Hash_Table_Type renames Position.Container.all.HT;
+         B : Natural renames HT.Busy;
+         L : Natural renames HT.Lock;
+      begin
+         return R : constant Constant_Reference_Type :=
+                      (Element => Position.Node.Element'Access,
+                       Control =>
+                         (Controlled with Container'Unrestricted_Access))
+         do
+            B := B + 1;
+            L := L + 1;
+         end return;
+      end;
+   end Constant_Reference;
 
    --------------
    -- Contains --
@@ -523,6 +573,22 @@ package body Ada.Containers.Hashed_Sets is
    procedure Finalize (Container : in out Set) is
    begin
       HT_Ops.Finalize (Container.HT);
+   end Finalize;
+
+   procedure Finalize (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            HT : Hash_Table_Type renames Control.Container.all.HT;
+            B : Natural renames HT.Busy;
+            L : Natural renames HT.Lock;
+         begin
+            B := B - 1;
+            L := L - 1;
+         end;
+
+         Control.Container := null;
+      end if;
    end Finalize;
 
    ----------
@@ -1100,6 +1166,14 @@ package body Ada.Containers.Hashed_Sets is
       raise Program_Error with "attempt to stream set cursor";
    end Read;
 
+   procedure Read
+     (Stream : not null access Root_Stream_Type'Class;
+      Item   : out Constant_Reference_Type)
+   is
+   begin
+      raise Program_Error with "attempt to stream reference";
+   end Read;
+
    ---------------
    -- Read_Node --
    ---------------
@@ -1655,6 +1729,14 @@ package body Ada.Containers.Hashed_Sets is
       raise Program_Error with "attempt to stream set cursor";
    end Write;
 
+   procedure Write
+     (Stream : not null access Root_Stream_Type'Class;
+      Item   : Constant_Reference_Type)
+   is
+   begin
+      raise Program_Error with "attempt to stream reference";
+   end Write;
+
    ----------------
    -- Write_Node --
    ----------------
@@ -1690,6 +1772,38 @@ package body Ada.Containers.Hashed_Sets is
            Key_Type  => Key_Type,
            Hash      => Hash,
            Equivalent_Keys => Equivalent_Key_Node);
+
+      ------------------------
+      -- Constant_Reference --
+      ------------------------
+
+      function Constant_Reference
+        (Container : aliased Set;
+         Key       : Key_Type) return Constant_Reference_Type
+      is
+         Node : constant Node_Access :=
+                  Key_Keys.Find (Container.HT, Key);
+
+      begin
+         if Node = null then
+            raise Constraint_Error with "Key not in set";
+         end if;
+
+         declare
+            HT : Hash_Table_Type renames Container'Unrestricted_Access.all.HT;
+            B : Natural renames HT.Busy;
+            L : Natural renames HT.Lock;
+         begin
+            return R : constant Constant_Reference_Type :=
+                         (Element => Node.Element'Access,
+                          Control =>
+                            (Controlled with Container'Unrestricted_Access))
+            do
+               B := B + 1;
+               L := L + 1;
+            end return;
+         end;
+      end Constant_Reference;
 
       --------------
       -- Contains --
@@ -1801,6 +1915,66 @@ package body Ada.Containers.Hashed_Sets is
 
          return Key (Position.Node.Element);
       end Key;
+
+      ----------
+      -- Read --
+      ----------
+
+      procedure Read
+        (Stream : not null access Root_Stream_Type'Class;
+         Item   : out Reference_Type)
+      is
+      begin
+         raise Program_Error with "attempt to stream reference";
+      end Read;
+
+      ------------------------------
+      -- Reference_Preserving_Key --
+      ------------------------------
+
+      function Reference_Preserving_Key
+        (Container : aliased in out Set;
+         Position  : Cursor) return Reference_Type
+      is
+      begin
+         if Position.Container = null then
+            raise Constraint_Error with "Position cursor has no element";
+         end if;
+
+         if Position.Container /= Container'Unrestricted_Access then
+            raise Program_Error with
+              "Position cursor designates wrong container";
+         end if;
+
+         pragma Assert
+           (Vet (Position),
+            "bad cursor in function Reference_Preserving_Key");
+
+         --  Some form of finalization will be required in order to actually
+         --  check that the key-part of the element designated by Position has
+         --  not changed.  ???
+
+         return (Element => Position.Node.Element'Access);
+      end Reference_Preserving_Key;
+
+      function Reference_Preserving_Key
+        (Container : aliased in out Set;
+         Key       : Key_Type) return Reference_Type
+      is
+         Node : constant Node_Access :=
+                  Key_Keys.Find (Container.HT, Key);
+
+      begin
+         if Node = null then
+            raise Constraint_Error with "Key not in set";
+         end if;
+
+         --  Some form of finalization will be required in order to actually
+         --  check that the key-part of the element designated by Key has not
+         --  changed.  ???
+
+         return (Element => Node.Element'Access);
+      end Reference_Preserving_Key;
 
       -------------
       -- Replace --
@@ -1922,6 +2096,18 @@ package body Ada.Containers.Hashed_Sets is
 
          raise Program_Error with "key was modified";
       end Update_Element_Preserving_Key;
+
+      -----------
+      -- Write --
+      -----------
+
+      procedure Write
+        (Stream : not null access Root_Stream_Type'Class;
+         Item   : Reference_Type)
+      is
+      begin
+         raise Program_Error with "attempt to stream reference";
+      end Write;
 
    end Generic_Keys;
 

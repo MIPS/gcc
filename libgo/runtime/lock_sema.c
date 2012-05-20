@@ -2,21 +2,23 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build darwin netbsd openbsd plan9 windows
+
 #include "runtime.h"
 
 // This implementation depends on OS-specific implementations of
 //
-//	uintptr runtime.semacreate(void)
+//	uintptr runtime_semacreate(void)
 //		Create a semaphore, which will be assigned to m->waitsema.
 //		The zero value is treated as absence of any semaphore,
 //		so be sure to return a non-zero value.
 //
-//	int32 runtime.semasleep(int64 ns)
+//	int32 runtime_semasleep(int64 ns)
 //		If ns < 0, acquire m->waitsema and return 0.
 //		If ns >= 0, try to acquire m->waitsema for at most ns nanoseconds.
 //		Return 0 if the semaphore was acquired, -1 if interrupted or timed out.
 //
-//	int32 runtime.semawakeup(M *mp)
+//	int32 runtime_semawakeup(M *mp)
 //		Wake up mp, which is or will soon be sleeping on mp->waitsema.
 //
 
@@ -32,9 +34,11 @@ enum
 void
 runtime_lock(Lock *l)
 {
+	M *m;
 	uintptr v;
 	uint32 i, spin;
 
+	m = runtime_m();
 	if(m->locks++ < 0)
 		runtime_throw("runtime_lock: lock count");
 
@@ -91,7 +95,7 @@ runtime_unlock(Lock *l)
 	uintptr v;
 	M *mp;
 
-	if(--m->locks < 0)
+	if(--runtime_m()->locks < 0)
 		runtime_throw("runtime_unlock: lock count");
 
 	for(;;) {
@@ -144,6 +148,9 @@ runtime_notewakeup(Note *n)
 void
 runtime_notesleep(Note *n)
 {
+	M *m;
+
+	m = runtime_m();
 	if(m->waitsema == 0)
 		m->waitsema = runtime_semacreate();
 	if(!runtime_casp(&n->waitm, nil, m)) {  // must be LOCKED (got wakeup)
@@ -158,6 +165,7 @@ runtime_notesleep(Note *n)
 void
 runtime_notetsleep(Note *n, int64 ns)
 {
+	M *m;
 	M *mp;
 	int64 deadline, now;
 
@@ -166,6 +174,7 @@ runtime_notetsleep(Note *n, int64 ns)
 		return;
 	}
 
+	m = runtime_m();
 	if(m->waitsema == 0)
 		m->waitsema = runtime_semacreate();
 

@@ -622,12 +622,13 @@ layout_decl (tree decl, unsigned int known_align)
 	  /* See if we can use an ordinary integer mode for a bit-field.
 	     Conditions are: a fixed size that is correct for another mode,
 	     occupying a complete byte or bytes on proper boundary,
-	     and not volatile or not -fstrict-volatile-bitfields.  */
+	     and not -fstrict-volatile-bitfields.  If the latter is set,
+	     we unfortunately can't check TREE_THIS_VOLATILE, as a cast
+	     may make a volatile object later.  */
 	  if (TYPE_SIZE (type) != 0
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
 	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	      && !(TREE_THIS_VOLATILE (decl)
-		   && flag_strict_volatile_bitfields > 0))
+	      && flag_strict_volatile_bitfields <= 0)
 	    {
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
@@ -1140,15 +1141,14 @@ place_field (record_layout_info rli, tree field)
     }
 
   /* Does this field automatically have alignment it needs by virtue
-     of the fields that precede it and the record's own alignment?
-     We already align ms_struct fields, so don't re-align them.  */
-  if (known_align < desired_align
-      && !targetm.ms_bitfield_layout_p (rli->t))
+     of the fields that precede it and the record's own alignment?  */
+  if (known_align < desired_align)
     {
       /* No, we need to skip space before this field.
 	 Bump the cumulative size to multiple of field alignment.  */
 
-      if (DECL_SOURCE_LOCATION (field) != BUILTINS_LOCATION)
+      if (!targetm.ms_bitfield_layout_p (rli->t)
+          && DECL_SOURCE_LOCATION (field) != BUILTINS_LOCATION)
 	warning (OPT_Wpadded, "padding struct to align %q+D", field);
 
       /* If the alignment is still within offset_align, just align
@@ -1170,7 +1170,8 @@ place_field (record_layout_info rli, tree field)
 
       if (! TREE_CONSTANT (rli->offset))
 	rli->offset_align = desired_align;
-
+      if (targetm.ms_bitfield_layout_p (rli->t))
+	rli->prev_field = NULL;
     }
 
   /* Handle compatibility with PCC.  Note that if the record has any

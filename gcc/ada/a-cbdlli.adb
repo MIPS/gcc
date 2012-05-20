@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,6 +28,7 @@
 ------------------------------------------------------------------------------
 
 with Ada.Finalization; use Ada.Finalization;
+
 with System; use type System.Address;
 
 package body Ada.Containers.Bounded_Doubly_Linked_Lists is
@@ -80,6 +81,11 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       New_Node  : Count_Type);
 
    function Vet (Position : Cursor) return Boolean;
+   --  Checks invariants of the cursor and its designated container, as a
+   --  simple way of detecting dangling references (see operation Free for a
+   --  description of the detection mechanism), returning True if all checks
+   --  pass. Invocations of Vet are used here as the argument of pragma Assert,
+   --  so the checks are performed only when assertions are enabled.
 
    ---------
    -- "=" --
@@ -129,24 +135,23 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       if Container.Free >= 0 then
          New_Node := Container.Free;
 
-         --  We always perform the assignment first, before we
-         --  change container state, in order to defend against
-         --  exceptions duration assignment.
+         --  We always perform the assignment first, before we change container
+         --  state, in order to defend against exceptions duration assignment.
 
          N (New_Node).Element := New_Item;
          Container.Free := N (New_Node).Next;
 
       else
-         --  A negative free store value means that the links of the nodes
-         --  in the free store have not been initialized. In this case, the
-         --  nodes are physically contiguous in the array, starting at the
-         --  index that is the absolute value of the Container.Free, and
-         --  continuing until the end of the array (Nodes'Last).
+         --  A negative free store value means that the links of the nodes in
+         --  the free store have not been initialized. In this case, the nodes
+         --  are physically contiguous in the array, starting at the index that
+         --  is the absolute value of the Container.Free, and continuing until
+         --  the end of the array (Nodes'Last).
 
          New_Node := abs Container.Free;
 
-         --  As above, we perform this assignment first, before modifying
-         --  any container state.
+         --  As above, we perform this assignment first, before modifying any
+         --  container state.
 
          N (New_Node).Element := New_Item;
          Container.Free := Container.Free - 1;
@@ -164,24 +169,23 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       if Container.Free >= 0 then
          New_Node := Container.Free;
 
-         --  We always perform the assignment first, before we
-         --  change container state, in order to defend against
-         --  exceptions duration assignment.
+         --  We always perform the assignment first, before we change container
+         --  state, in order to defend against exceptions duration assignment.
 
          Element_Type'Read (Stream, N (New_Node).Element);
          Container.Free := N (New_Node).Next;
 
       else
-         --  A negative free store value means that the links of the nodes
-         --  in the free store have not been initialized. In this case, the
-         --  nodes are physically contiguous in the array, starting at the
-         --  index that is the absolute value of the Container.Free, and
-         --  continuing until the end of the array (Nodes'Last).
+         --  A negative free store value means that the links of the nodes in
+         --  the free store have not been initialized. In this case, the nodes
+         --  are physically contiguous in the array, starting at the index that
+         --  is the absolute value of the Container.Free, and continuing until
+         --  the end of the array (Nodes'Last).
 
          New_Node := abs Container.Free;
 
-         --  As above, we perform this assignment first, before modifying
-         --  any container state.
+         --  As above, we perform this assignment first, before modifying any
+         --  container state.
 
          Element_Type'Read (Stream, N (New_Node).Element);
          Container.Free := Container.Free - 1;
@@ -296,6 +300,33 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
       Free (Container, X);
    end Clear;
+
+   ------------------------
+   -- Constant_Reference --
+   ------------------------
+
+   function Constant_Reference
+     (Container : aliased List;
+      Position  : Cursor) return Constant_Reference_Type
+   is
+   begin
+      if Position.Container = null then
+         raise Constraint_Error with "Position cursor has no element";
+      end if;
+
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong container";
+      end if;
+
+      pragma Assert (Vet (Position), "bad cursor in Constant_Reference");
+
+      declare
+         N : Node_Type renames Container.Nodes (Position.Node);
+      begin
+         return (Element => N.Element'Access);
+      end;
+   end Constant_Reference;
 
    --------------
    -- Contains --
@@ -656,7 +687,7 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       --  When an element is deleted from the list container, its node becomes
       --  inactive, and so we set its Prev component to a negative value, to
       --  indicate that it is now inactive. This provides a useful way to
-      --  detect a dangling cursor reference.
+      --  detect a dangling cursor reference (and which is used in Vet).
 
       N (X).Prev := -1;  -- Node is deallocated (not on active list)
 
@@ -674,7 +705,10 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          --  inactive immediately precedes the start of the free store. All
          --  we need to do is move the start of the free store back by one.
 
-         N (X).Next := 0;  -- not strictly necessary, but marginally safer
+         --  Note: initializing Next to zero is not strictly necessary but
+         --  seems cleaner and marginally safer.
+
+         N (X).Next := 0;
          Container.Free := Container.Free + 1;
 
       else
@@ -794,7 +828,6 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
             if RN (RI.Node).Element < LN (LI.Node).Element then
                declare
                   RJ : Cursor := RI;
-                  pragma Warnings (Off, RJ);
                begin
                   RI.Node := RN (RI.Node).Next;
                   Splice (Target, LI, Source, RJ);
@@ -1035,7 +1068,9 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          Container.Last := New_Node;
          N (Container.Last).Next := 0;
 
-      elsif Before = 0 then  -- means append
+      --  Before = zero means append
+
+      elsif Before = 0 then
          pragma Assert (N (Container.Last).Next = 0);
 
          N (Container.Last).Next := New_Node;
@@ -1044,7 +1079,9 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          Container.Last := New_Node;
          N (Container.Last).Next := 0;
 
-      elsif Before = Container.First then  -- means prepend
+      --  Before = Container.First means prepend
+
+      elsif Before = Container.First then
          pragma Assert (N (Container.First).Prev = 0);
 
          N (Container.First).Prev := New_Node;
@@ -1532,30 +1569,27 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
    -- Reference --
    ---------------
 
-   function Constant_Reference (Container : List; Position : Cursor)
-   return Constant_Reference_Type is
+   function Reference
+     (Container : aliased in out List;
+      Position  : Cursor) return Reference_Type
+   is
    begin
-      pragma Unreferenced (Container);
-
       if Position.Container = null then
          raise Constraint_Error with "Position cursor has no element";
       end if;
 
-      return (Element =>
-         Position.Container.Nodes (Position.Node).Element'Unrestricted_Access);
-   end Constant_Reference;
-
-   function Reference (Container : List; Position : Cursor)
-   return Reference_Type is
-   begin
-      pragma Unreferenced (Container);
-
-      if Position.Container = null then
-         raise Constraint_Error with "Position cursor has no element";
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong container";
       end if;
 
-      return (Element =>
-         Position.Container.Nodes (Position.Node).Element'Unrestricted_Access);
+      pragma Assert (Vet (Position), "bad cursor in function Reference");
+
+      declare
+         N : Node_Type renames Container.Nodes (Position.Node);
+      begin
+         return (Element => N.Element'Access);
+      end;
    end Reference;
 
    ---------------------
@@ -2129,20 +2163,17 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       declare
          L : List renames Position.Container.all;
          N : Node_Array renames L.Nodes;
+
       begin
          if L.Length = 0 then
             return False;
          end if;
 
-         if L.First = 0
-           or L.First > L.Capacity
-         then
+         if L.First = 0 or L.First > L.Capacity then
             return False;
          end if;
 
-         if L.Last = 0
-           or L.Last > L.Capacity
-         then
+         if L.Last = 0 or L.Last > L.Capacity then
             return False;
          end if;
 
@@ -2157,6 +2188,14 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          if Position.Node > L.Capacity then
             return False;
          end if;
+
+         --  An invariant of an active node is that its Previous and Next
+         --  components are non-negative. Operation Free sets the Previous
+         --  component of the node to the value -1 before actually deallocating
+         --  the node, to mark the node as inactive. (By "dellocating" we mean
+         --  only that the node is linked onto a list of inactive nodes used
+         --  for storage.) This marker gives us a simple way to detect a
+         --  dangling reference to a node.
 
          if N (Position.Node).Prev < 0 then  -- see Free
             return False;
@@ -2180,8 +2219,8 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
             return False;
          end if;
 
-         --  If we get here, we know that this disjunction is true:
-         --  N (Position.Node).Prev /= 0 or else Position.Node = L.First
+         pragma Assert (N (Position.Node).Prev /= 0
+                          or else Position.Node = L.First);
 
          if N (Position.Node).Next = 0
            and then Position.Node /= L.Last
@@ -2189,8 +2228,8 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
             return False;
          end if;
 
-         --  If we get here, we know that this disjunction is true:
-         --  N (Position.Node).Next /= 0 or else Position.Node = L.Last
+         pragma Assert (N (Position.Node).Next /= 0
+                          or else Position.Node = L.Last);
 
          if L.Length = 1 then
             return L.First = L.Last;
@@ -2236,21 +2275,21 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
             return False;
          end if;
 
-         --  Eliminate earlier disjunct
+         --  Eliminate earlier possibility
 
          if Position.Node = L.First then
             return True;
          end if;
 
-         --  If we get here, we know (disjunctive syllogism) that this
-         --  predicate is true: N (Position.Node).Prev /= 0
+         pragma Assert (N (Position.Node).Prev /= 0);
 
-         if Position.Node = L.Last then  -- eliminates earlier disjunct
+         --  ELiminate another possibility
+
+         if Position.Node = L.Last then
             return True;
          end if;
 
-         --  If we get here, we know (disjunctive syllogism) that this
-         --  predicate is true: N (Position.Node).Next /= 0
+         pragma Assert (N (Position.Node).Next /= 0);
 
          if N (N (Position.Node).Next).Prev /= Position.Node then
             return False;

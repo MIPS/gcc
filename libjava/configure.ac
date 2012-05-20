@@ -898,13 +898,8 @@ case "${host}" in
         SYSTEMSPEC="-lunicows $SYSTEMSPEC"
       fi
     ;;
-    *-*-darwin9*)
+    *-*-darwin[[912]]*)
       SYSTEMSPEC="%{!Zdynamiclib:%{!Zbundle:-allow_stack_execute}}"
-    ;;
-    *-*-darwin[[12]]*)
-      # Something is incompatible with pie, would be nice to fix it and
-      # remove -no_pie.  PR49461
-      SYSTEMSPEC="-no_pie %{!Zdynamiclib:%{!Zbundle:-allow_stack_execute}}"
     ;;
     *)
       SYSTEMSPEC=
@@ -1150,9 +1145,14 @@ case "$THREADS" in
     # FIXME: In Java we are able to detect thread death at the end of
     # Thread.run() so we should be able to clean up the exception handling
     # contexts ourselves.
-    THREADSTARTFILESPEC='crtmt%O%s'
+    case "$host" in
+    *-w64-mingw*)
+      ;;
+    *)
+      THREADSTARTFILESPEC='crtmt%O%s'
+      ;;
+    esac
     ;;
-
  none)
     THREADH=no-threads.h
     ;;
@@ -1737,6 +1737,7 @@ case "${host}" in
     ;;
  i?86-*-linux*)
     SIGNAL_HANDLER=include/i386-signal.h
+    SIGNAL_HANDLER_AUX=include/x86_64-signal.h
     ;;
 # ia64-*)
 #    SYSDEP_SOURCES=sysdep/ia64.c

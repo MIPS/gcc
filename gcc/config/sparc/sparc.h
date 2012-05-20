@@ -894,18 +894,21 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
 
-/* Defines invalid mode changes.  Borrowed from pa64-regs.h.
+/* Defines invalid mode changes.  Borrowed from the PA port.
 
    SImode loads to floating-point registers are not zero-extended.
    The definition for LOAD_EXTEND_OP specifies that integer loads
    narrower than BITS_PER_WORD will be zero-extended.  As a result,
    we inhibit changes from SImode unless they are to a mode that is
-   identical in size.  */
+   identical in size.
+
+   Likewise for SFmode, since word-mode paradoxical subregs are
+   problematic on big-endian architectures.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
   (TARGET_ARCH64						\
-   && (FROM) == SImode						\
-   && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   && GET_MODE_SIZE (FROM) == 4					\
+   && GET_MODE_SIZE (TO) != 4					\
    ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
 
 /* This is the order in which to allocate registers normally.
@@ -1755,3 +1758,8 @@ extern int sparc_indent_opcode;
 #define MASK_DEBUG_ALL			MASK_DEBUG_OPTIONS
 
 #define TARGET_DEBUG_OPTIONS		(sparc_debug & MASK_DEBUG_OPTIONS)
+
+/* By default, use the weakest memory model for the cpu.  */
+#ifndef SUBTARGET_DEFAULT_MEMORY_MODEL
+#define SUBTARGET_DEFAULT_MEMORY_MODEL	SMM_DEFAULT
+#endif

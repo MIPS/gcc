@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -47,6 +47,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch7;  use Sem_Ch7;
@@ -643,9 +644,7 @@ package body Sem_Ch10 is
       --  up not analyzed, it means that the parent did not contain a stub for
       --  it, or that there errors were detected in some ancestor.
 
-      if Nkind (Unit_Node) = N_Subunit
-        and then not Analyzed (Lib_Unit)
-      then
+      if Nkind (Unit_Node) = N_Subunit and then not Analyzed (Lib_Unit) then
          Semantics (Lib_Unit);
 
          if not Analyzed (Proper_Body (Unit_Node)) then
@@ -806,9 +805,20 @@ package body Sem_Ch10 is
 
                   begin
                      Set_Comes_From_Source_Default (False);
+
+                     --  Checks for redundant USE TYPE clauses have a special
+                     --  exception for the synthetic spec we create here. This
+                     --  special case relies on the two compilation units
+                     --  sharing the same context clause.
+
+                     --  Note: We used to do a shallow copy (New_Copy_List),
+                     --  which defeated those checks and also created malformed
+                     --  trees (subtype mark shared by two distinct
+                     --  N_Use_Type_Clause nodes) which crashed the compiler.
+
                      Lib_Unit :=
                        Make_Compilation_Unit (Loc,
-                         Context_Items => New_Copy_List (Context_Items (N)),
+                         Context_Items => Context_Items (N),
                          Unit =>
                            Make_Subprogram_Declaration (Sloc (N),
                              Specification =>
@@ -1952,6 +1962,12 @@ package body Sem_Ch10 is
       Enclosing_Child : Entity_Id := Empty;
       Svg             : constant Suppress_Array := Scope_Suppress;
 
+      Save_Cunit_Restrictions : constant Save_Cunit_Boolean_Restrictions :=
+                                  Cunit_Boolean_Restrictions_Save;
+      --  Save non-partition wide restrictions before processing the subunit.
+      --  All subunits are analyzed with config restrictions reset and we need
+      --  to restore these saved values at the end.
+
       procedure Analyze_Subunit_Context;
       --  Capture names in use clauses of the subunit. This must be done before
       --  re-installing parent declarations, because items in the context must
@@ -2165,6 +2181,15 @@ package body Sem_Ch10 is
    --  Start of processing for Analyze_Subunit
 
    begin
+      --  For subunit in main extended unit, we reset the configuration values
+      --  for the non-partition-wide restrictions. For other units reset them.
+
+      if In_Extended_Main_Source_Unit (N) then
+         Restore_Config_Cunit_Boolean_Restrictions;
+      else
+         Reset_Cunit_Boolean_Restrictions;
+      end if;
+
       if Style_Check then
          declare
             Nam : Node_Id := Name (Unit (N));
@@ -2270,6 +2295,10 @@ package body Sem_Ch10 is
             end loop;
          end;
       end if;
+
+      --  Deal with restore of restrictions
+
+      Cunit_Boolean_Restrictions_Restore (Save_Cunit_Restrictions);
    end Analyze_Subunit;
 
    ----------------------------
@@ -2666,7 +2695,14 @@ package body Sem_Ch10 is
             Generate_Reference (Par_Name, Pref);
 
          else
-            Set_Name (N, Make_Null (Sloc (N)));
+            pragma Assert (Serious_Errors_Detected /= 0);
+
+            --  Mark the node to indicate that a related error has been posted.
+            --  This defends further compilation passes against improper use of
+            --  the invalid WITH clause node.
+
+            Set_Error_Posted (N);
+            Set_Name (N, Error);
             return;
          end if;
       end if;
@@ -2900,32 +2936,11 @@ package body Sem_Ch10 is
 
       function Build_Unit_Name (Nam : Node_Id) return Node_Id is
          Ent      : Entity_Id;
-         Renaming : Entity_Id;
          Result   : Node_Id;
 
       begin
          if Nkind (Nam) = N_Identifier then
-
-            --  If the parent unit P in the name of the with_clause for P.Q is
-            --  a renaming of package R, then the entity of the parent is set
-            --  to R, but the identifier retains Chars (P) to be consistent
-            --  with the source (see details in lib-load). However the implicit
-            --  with_clause for the parent must make the entity for P visible,
-            --  because P.Q may be used as a prefix within the current unit.
-            --  The entity for P is the current_entity with that name, because
-            --  the package renaming declaration for it has just been analyzed.
-            --  Note that this case can only happen if P.Q has already appeared
-            --  in a previous with_clause in a related unit, such as the
-            --  library body of the current unit.
-
-            if Chars (Nam) /= Chars (Entity (Nam)) then
-               Renaming := Current_Entity (Nam);
-               pragma Assert (Renamed_Entity (Renaming) = Entity (Nam));
-               return New_Occurrence_Of (Renaming, Loc);
-
-            else
-               return New_Occurrence_Of (Entity (Nam), Loc);
-            end if;
+            return New_Occurrence_Of (Entity (Nam), Loc);
 
          else
             Ent := Entity (Nam);
@@ -3320,7 +3335,7 @@ package body Sem_Ch10 is
                   procedure License_Error is
                   begin
                      Error_Msg_N
-                       ("?license of with'ed unit & may be inconsistent",
+                       ("?license of withed unit & may be inconsistent",
                         Name (Item));
                   end License_Error;
 
@@ -4088,6 +4103,7 @@ package body Sem_Ch10 is
          if Nkind (Item) /= N_With_Clause
            or else Implicit_With (Item)
            or else Limited_Present (Item)
+           or else Error_Posted (Item)
          then
             null;
 

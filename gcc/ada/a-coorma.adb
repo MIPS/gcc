@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -252,6 +252,20 @@ package body Ada.Containers.Ordered_Maps is
       Adjust (Container.Tree);
    end Adjust;
 
+   procedure Adjust (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            T : Tree_Type renames Control.Container.all.Tree;
+            B : Natural renames T.Busy;
+            L : Natural renames T.Lock;
+         begin
+            B := B + 1;
+            L := L + 1;
+         end;
+      end if;
+   end Adjust;
+
    ------------
    -- Assign --
    ------------
@@ -323,11 +337,63 @@ package body Ada.Containers.Ordered_Maps is
    ------------------------
 
    function Constant_Reference
+     (Container : aliased Map;
+      Position  : Cursor) return Constant_Reference_Type
+   is
+   begin
+      if Position.Container = null then
+         raise Constraint_Error with
+           "Position cursor has no element";
+      end if;
+
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong map";
+      end if;
+
+      pragma Assert (Vet (Container.Tree, Position.Node),
+                     "Position cursor in Constant_Reference is bad");
+
+      declare
+         T : Tree_Type renames Position.Container.all.Tree;
+         B : Natural renames T.Busy;
+         L : Natural renames T.Lock;
+      begin
+         return R : constant Constant_Reference_Type :=
+                      (Element => Position.Node.Element'Access,
+                       Control => (Controlled with Position.Container))
+         do
+            B := B + 1;
+            L := L + 1;
+         end return;
+      end;
+   end Constant_Reference;
+
+   function Constant_Reference
      (Container : Map;
       Key       : Key_Type) return Constant_Reference_Type
    is
+      Node : constant Node_Access := Key_Ops.Find (Container.Tree, Key);
+
    begin
-      return (Element => Container.Element (Key)'Unrestricted_Access);
+      if Node = null then
+         raise Constraint_Error with "key not in map";
+      end if;
+
+      declare
+         T : Tree_Type renames Container'Unrestricted_Access.all.Tree;
+         B : Natural renames T.Busy;
+         L : Natural renames T.Lock;
+      begin
+         return R : constant Constant_Reference_Type :=
+                      (Element => Node.Element'Access,
+                       Control =>
+                         (Controlled with Container'Unrestricted_Access))
+         do
+            B := B + 1;
+            L := L + 1;
+         end return;
+      end;
    end Constant_Reference;
 
    --------------
@@ -499,10 +565,25 @@ package body Ada.Containers.Ordered_Maps is
       if Object.Container /= null then
          declare
             B : Natural renames Object.Container.all.Tree.Busy;
-
          begin
             B := B - 1;
          end;
+      end if;
+   end Finalize;
+
+   procedure Finalize (Control : in out Reference_Control_Type) is
+   begin
+      if Control.Container /= null then
+         declare
+            T : Tree_Type renames Control.Container.all.Tree;
+            B : Natural renames T.Busy;
+            L : Natural renames T.Lock;
+         begin
+            B := B - 1;
+            L := L - 1;
+         end;
+
+         Control.Container := null;
       end if;
    end Finalize;
 
@@ -512,13 +593,9 @@ package body Ada.Containers.Ordered_Maps is
 
    function Find (Container : Map; Key : Key_Type) return Cursor is
       Node : constant Node_Access := Key_Ops.Find (Container.Tree, Key);
-
    begin
-      if Node = null then
-         return No_Element;
-      end if;
-
-      return Cursor'(Container'Unrestricted_Access, Node);
+      return (if Node = null then No_Element
+                else Cursor'(Container'Unrestricted_Access, Node));
    end Find;
 
    -----------
@@ -778,10 +855,8 @@ package body Ada.Containers.Ordered_Maps is
    begin
       if L.Key < R.Key then
          return False;
-
       elsif R.Key < L.Key then
          return False;
-
       else
          return L.Element = R.Element;
       end if;
@@ -1257,12 +1332,63 @@ package body Ada.Containers.Ordered_Maps is
    ---------------
 
    function Reference
-     (Container : Map;
-      Key       : Key_Type)
-      return Reference_Type
+     (Container : aliased in out Map;
+      Position  : Cursor) return Reference_Type
    is
    begin
-      return (Element => Container.Element (Key)'Unrestricted_Access);
+      if Position.Container = null then
+         raise Constraint_Error with
+           "Position cursor has no element";
+      end if;
+
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong map";
+      end if;
+
+      pragma Assert (Vet (Container.Tree, Position.Node),
+                     "Position cursor in function Reference is bad");
+
+      declare
+         T : Tree_Type renames Position.Container.all.Tree;
+         B : Natural renames T.Busy;
+         L : Natural renames T.Lock;
+      begin
+         return R : constant Reference_Type :=
+                      (Element => Position.Node.Element'Access,
+                       Control => (Controlled with Position.Container))
+         do
+            B := B + 1;
+            L := L + 1;
+         end return;
+      end;
+   end Reference;
+
+   function Reference
+     (Container : aliased in out Map;
+      Key       : Key_Type) return Reference_Type
+   is
+      Node : constant Node_Access := Key_Ops.Find (Container.Tree, Key);
+
+   begin
+      if Node = null then
+         raise Constraint_Error with "key not in map";
+      end if;
+
+      declare
+         T : Tree_Type renames Container'Unrestricted_Access.all.Tree;
+         B : Natural renames T.Busy;
+         L : Natural renames T.Lock;
+      begin
+         return R : constant Reference_Type :=
+                      (Element => Node.Element'Access,
+                       Control =>
+                         (Controlled with Container'Unrestricted_Access))
+         do
+            B := B + 1;
+            L := L + 1;
+         end return;
+      end;
    end Reference;
 
    -------------

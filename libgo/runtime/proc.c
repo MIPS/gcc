@@ -29,6 +29,11 @@ extern void * __splitstack_resetcontext(void *context[10], size_t *);
 extern void *__splitstack_find(void *, void *, size_t *, void **, void **,
 			       void **);
 
+extern void __splitstack_block_signals (int *, int *);
+
+extern void __splitstack_block_signals_context (void *context[10], int *,
+						int *);
+
 #endif
 
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
@@ -42,7 +47,6 @@ extern void *__splitstack_find(void *, void *, size_t *, void **, void **,
 #endif
 
 static void schedule(G*);
-static M *startm(void);
 
 typedef struct Sched Sched;
 
@@ -55,6 +59,54 @@ G	runtime_g0;	// idle goroutine for m0
 
 static __thread G *g;
 static __thread M *m;
+
+#ifndef SETCONTEXT_CLOBBERS_TLS
+
+static inline void
+initcontext(void)
+{
+}
+
+static inline void
+fixcontext(ucontext_t *c __attribute__ ((unused)))
+{
+}
+
+# else
+
+# if defined(__x86_64__) && defined(__sun__)
+
+// x86_64 Solaris 10 and 11 have a bug: setcontext switches the %fs
+// register to that of the thread which called getcontext.  The effect
+// is that the address of all __thread variables changes.  This bug
+// also affects pthread_self() and pthread_getspecific.  We work
+// around it by clobbering the context field directly to keep %fs the
+// same.
+
+static __thread greg_t fs;
+
+static inline void
+initcontext(void)
+{
+	ucontext_t c;
+
+	getcontext(&c);
+	fs = c.uc_mcontext.gregs[REG_FSBASE];
+}
+
+static inline void
+fixcontext(ucontext_t* c)
+{
+	c->uc_mcontext.gregs[REG_FSBASE] = fs;
+}
+
+# else
+
+#  error unknown case for SETCONTEXT_CLOBBERS_TLS
+
+# endif
+
+#endif
 
 // We can not always refer to the TLS variables directly.  The
 // compiler will call tls_get_addr to get the address of the variable,
@@ -128,6 +180,9 @@ struct Sched {
 	volatile uint32 atomic;	// atomic scheduling word (see below)
 
 	int32 profilehz;	// cpu profiling rate
+
+	bool init;  // running initialization
+	bool lockmain;  // init called runtime.LockOSThread
 
 	Note	stopped;	// one g can set waitstop and wait here for m's to stop
 };
@@ -241,7 +296,9 @@ runtime_gogo(G* newg)
 #endif
 	g = newg;
 	newg->fromgogo = true;
+	fixcontext(&newg->context);
 	setcontext(&newg->context);
+	runtime_throw("gogo setcontext returned");
 }
 
 // Save context and call fn passing g as a parameter.  This is like
@@ -252,6 +309,8 @@ static void runtime_mcall(void (*)(G*)) __attribute__ ((noinline));
 static void
 runtime_mcall(void (*pfn)(G*))
 {
+	M *mp;
+	G *gp;
 #ifndef USING_SPLIT_STACK
 	int i;
 #endif
@@ -260,27 +319,45 @@ runtime_mcall(void (*pfn)(G*))
 	// collector.
 	__builtin_unwind_init();
 
-	if(g == m->g0)
+	mp = m;
+	gp = g;
+	if(gp == mp->g0)
 		runtime_throw("runtime: mcall called on m->g0 stack");
 
-	if(g != nil) {
+	if(gp != nil) {
 
 #ifdef USING_SPLIT_STACK
 		__splitstack_getcontext(&g->stack_context[0]);
 #else
-		g->gcnext_sp = &i;
+		gp->gcnext_sp = &i;
 #endif
-		g->fromgogo = false;
-		getcontext(&g->context);
+		gp->fromgogo = false;
+		getcontext(&gp->context);
+
+		// When we return from getcontext, we may be running
+		// in a new thread.  That means that m and g may have
+		// changed.  They are global variables so we will
+		// reload them, but the addresses of m and g may be
+		// cached in our local stack frame, and those
+		// addresses may be wrong.  Call functions to reload
+		// the values for this thread.
+		mp = runtime_m();
+		gp = runtime_g();
 	}
-	if (g == nil || !g->fromgogo) {
+	if (gp == nil || !gp->fromgogo) {
 #ifdef USING_SPLIT_STACK
-		__splitstack_setcontext(&m->g0->stack_context[0]);
+		__splitstack_setcontext(&mp->g0->stack_context[0]);
 #endif
-		m->g0->entry = (byte*)pfn;
-		m->g0->param = g;
-		g = m->g0;
-		setcontext(&m->g0->context);
+		mp->g0->entry = (byte*)pfn;
+		mp->g0->param = gp;
+
+		// It's OK to set g directly here because this case
+		// can not occur if we got here via a setcontext to
+		// the getcontext call just above.
+		g = mp->g0;
+
+		fixcontext(&mp->g0->context);
+		setcontext(&mp->g0->context);
 		runtime_throw("runtime: mcall function returned");
 	}
 }
@@ -292,11 +369,7 @@ runtime_mcall(void (*pfn)(G*))
 //	make & queue new G
 //	call runtime_mstart
 //
-// The new G does:
-//
-//	call main_init_function
-//	call initdone
-//	call main_main
+// The new G calls runtime_main.
 void
 runtime_schedinit(void)
 {
@@ -308,6 +381,8 @@ runtime_schedinit(void)
 	m->g0 = g;
 	m->curg = g;
 	g->m = m;
+
+	initcontext();
 
 	m->nomemprof++;
 	runtime_mallocinit();
@@ -338,6 +413,37 @@ runtime_schedinit(void)
 	// Can not enable GC until all roots are registered.
 	// mstats.enablegc = 1;
 	m->nomemprof--;
+}
+
+extern void main_init(void) __asm__ ("__go_init_main");
+extern void main_main(void) __asm__ ("main.main");
+
+// The main goroutine.
+void
+runtime_main(void)
+{
+	// Lock the main goroutine onto this, the main OS thread,
+	// during initialization.  Most programs won't care, but a few
+	// do require certain calls to be made by the main thread.
+	// Those can arrange for main.main to run in the main thread
+	// by calling runtime.LockOSThread during initialization
+	// to preserve the lock.
+	runtime_LockOSThread();
+	runtime_sched.init = true;
+	main_init();
+	runtime_sched.init = false;
+	if(!runtime_sched.lockmain)
+		runtime_UnlockOSThread();
+
+	// For gccgo we have to wait until after main is initialized
+	// to enable GC, because initializing main registers the GC
+	// roots.
+	mstats.enablegc = 1;
+
+	main_main();
+	runtime_exit(0);
+	for(;;)
+		*(int32*)0 = 0;
 }
 
 // Lock the scheduler.
@@ -438,7 +544,7 @@ mcommoninit(M *m)
 	runtime_atomicstorep((void**)&runtime_allm, m);
 
 	m->id = runtime_sched.mcount++;
-	m->fastrand = 0x49f6428aUL + m->id;
+	m->fastrand = 0x49f6428aUL + m->id + runtime_cputicks();
 
 	if(m->mcache == nil)
 		m->mcache = runtime_allocmcache();
@@ -796,7 +902,7 @@ runtime_starttheworld(bool extra)
 		// but m is not running a specific goroutine,
 		// so set the helpgc flag as a signal to m's
 		// first schedule(nil) to mcpu-- and grunning--.
-		m = startm();
+		m = runtime_newm();
 		m->helpgc = 1;
 		runtime_sched.grunning++;
 	}
@@ -810,6 +916,8 @@ runtime_mstart(void* mp)
 	m = (M*)mp;
 	g = m->g0;
 
+	initcontext();
+
 	g->entry = nil;
 	g->param = nil;
 
@@ -820,7 +928,9 @@ runtime_mstart(void* mp)
 	__splitstack_getcontext(&g->stack_context[0]);
 #else
 	g->gcinitial_sp = &mp;
-	g->gcstack_size = StackMin;
+	// Setting gcstack_size to 0 is a marker meaning that gcinitial_sp
+	// is the top of the stack, not the bottom.
+	g->gcstack_size = 0;
 	g->gcnext_sp = &mp;
 #endif
 	getcontext(&g->context);
@@ -833,6 +943,14 @@ runtime_mstart(void* mp)
 		*(int*)0x21 = 0x21;
 	}
 	runtime_minit();
+
+#ifdef USING_SPLIT_STACK
+	{
+	  int dont_block_signals = 0;
+	  __splitstack_block_signals(&dont_block_signals, nil);
+	}
+#endif
+
 	schedule(nil);
 	return nil;
 }
@@ -846,8 +964,6 @@ struct CgoThreadStart
 };
 
 // Kick off new m's as needed (up to mcpumax).
-// There are already `other' other cpus that will
-// start looking for goroutines shortly.
 // Sched is locked.
 static void
 matchmg(void)
@@ -865,13 +981,14 @@ matchmg(void)
 
 		// Find the m that will run gp.
 		if((mp = mget(gp)) == nil)
-			mp = startm();
+			mp = runtime_newm();
 		mnextg(mp, gp);
 	}
 }
 
-static M*
-startm(void)
+// Create a new m.  It will start off with a call to runtime_mstart.
+M*
+runtime_newm(void)
 {
 	M *m;
 	pthread_attr_t attr;
@@ -1105,6 +1222,7 @@ runtime_exitsyscall(void)
 	runtime_memclr(gp->gcregs, sizeof gp->gcregs);
 }
 
+// Allocate a new g, with a stack big enough for stacksize bytes.
 G*
 runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 {
@@ -1113,9 +1231,13 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 	newg = runtime_malloc(sizeof(G));
 	if(stacksize >= 0) {
 #if USING_SPLIT_STACK
+		int dont_block_signals = 0;
+
 		*ret_stack = __splitstack_makecontext(stacksize,
 						      &newg->stack_context[0],
 						      ret_stacksize);
+		__splitstack_block_signals_context(&newg->stack_context[0],
+						   &dont_block_signals, nil);
 #else
 		*ret_stack = runtime_mallocgc(stacksize, FlagNoProfiling|FlagNoGC, 0, 0);
 		*ret_stacksize = stacksize;
@@ -1124,6 +1246,26 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 #endif
 	}
 	return newg;
+}
+
+/* For runtime package testing.  */
+
+void runtime_testing_entersyscall(void)
+  __asm__("libgo_runtime.runtime.entersyscall");
+
+void
+runtime_testing_entersyscall()
+{
+	runtime_entersyscall();
+}
+
+void runtime_testing_exitsyscall(void)
+  __asm__("libgo_runtime.runtime.exitsyscall");
+
+void
+runtime_testing_exitsyscall()
+{
+	runtime_exitsyscall();
 }
 
 G*
@@ -1137,11 +1279,17 @@ __go_go(void (*fn)(void*), void* arg)
 
 	if((newg = gfget()) != nil){
 #ifdef USING_SPLIT_STACK
+		int dont_block_signals = 0;
+
 		sp = __splitstack_resetcontext(&newg->stack_context[0],
 					       &spsize);
+		__splitstack_block_signals_context(&newg->stack_context[0],
+						   &dont_block_signals, nil);
 #else
 		sp = newg->gcinitial_sp;
 		spsize = newg->gcstack_size;
+		if(spsize == 0)
+			runtime_throw("bad spsize in __go_go");
 		newg->gcnext_sp = sp;
 #endif
 	} else {
@@ -1168,6 +1316,9 @@ __go_go(void (*fn)(void*), void* arg)
 
 	getcontext(&newg->context);
 	newg->context.uc_stack.ss_sp = sp;
+#ifdef MAKECONTEXT_STACK_TOP
+	newg->context.uc_stack.ss_sp += spsize;
+#endif
 	newg->context.uc_stack.ss_size = spsize;
 	makecontext(&newg->context, kickoff, 0);
 
@@ -1233,16 +1384,7 @@ runtime_Gosched(void)
 	runtime_gosched();
 }
 
-void runtime_LockOSThread (void)
-  __asm__ ("libgo_runtime.runtime.LockOSThread");
-
-void
-runtime_LockOSThread(void)
-{
-	m->lockedg = g;
-	g->lockedm = m;
-}
-
+// Implementation of runtime.GOMAXPROCS.
 // delete when scheduler is stronger
 int32
 runtime_gomaxprocsfunc(int32 n)
@@ -1282,12 +1424,24 @@ runtime_gomaxprocsfunc(int32 n)
 	return ret;
 }
 
-void runtime_UnlockOSThread (void)
-  __asm__ ("libgo_runtime.runtime.UnlockOSThread");
+void
+runtime_LockOSThread(void)
+{
+	if(m == &runtime_m0 && runtime_sched.init) {
+		runtime_sched.lockmain = true;
+		return;
+	}
+	m->lockedg = g;
+	g->lockedm = m;
+}
 
 void
 runtime_UnlockOSThread(void)
 {
+	if(m == &runtime_m0 && runtime_sched.init) {
+		runtime_sched.lockmain = false;
+		return;
+	}
 	m->lockedg = nil;
 	g->lockedm = nil;
 }
@@ -1296,6 +1450,17 @@ bool
 runtime_lockedOSThread(void)
 {
 	return g->lockedm != nil && m->lockedg != nil;
+}
+
+// for testing of callbacks
+
+_Bool runtime_golockedOSThread(void)
+  asm("libgo_runtime.runtime.golockedOSThread");
+
+_Bool
+runtime_golockedOSThread(void)
+{
+	return runtime_lockedOSThread();
 }
 
 // for testing of wire, unwire
@@ -1327,6 +1492,7 @@ static struct {
 	uintptr pcbuf[100];
 } prof;
 
+// Called if we receive a SIGPROF signal.
 void
 runtime_sigprof(uint8 *pc __attribute__ ((unused)),
 		uint8 *sp __attribute__ ((unused)),
@@ -1349,6 +1515,7 @@ runtime_sigprof(uint8 *pc __attribute__ ((unused)),
 	runtime_unlock(&prof);
 }
 
+// Arrange to call fn with a traceback hz times a second.
 void
 runtime_setcpuprofilerate(void (*fn)(uintptr*, int32), int32 hz)
 {

@@ -30,7 +30,7 @@ runtime_futexsleep(uint32 *addr, uint32 val, int64 ns)
 	else {
 		ts.tv_sec = ns/1000000000LL;
 		ts.tv_nsec = ns%1000000000LL;
-		// Avoid overflowdefs
+		// Avoid overflow
 		if(ts.tv_sec > 1<<30)
 			ts.tv_sec = 1<<30;
 		tsp = &ts;
@@ -61,6 +61,10 @@ runtime_futexwakeup(uint32 *addr, uint32 cnt)
 	runtime_printf("futexwakeup addr=%p returned %lld\n", addr, (long long)ret);
 	*(int32*)0x1006 = 0x1006;
 }
+
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
 
 static int32
 getproccount(void)
@@ -98,4 +102,10 @@ void
 runtime_osinit(void)
 {
 	runtime_ncpu = getproccount();
+}
+
+void
+runtime_goenvs(void)
+{
+	runtime_goenvs_unix();
 }

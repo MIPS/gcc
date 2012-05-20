@@ -157,8 +157,6 @@ static rtx find_base_value (rtx);
 static int mems_in_disjoint_alias_sets_p (const_rtx, const_rtx);
 static int insert_subset_children (splay_tree_node, void*);
 static alias_set_entry get_alias_set_entry (alias_set_type);
-static const_rtx fixed_scalar_and_varying_struct_p (const_rtx, const_rtx, rtx, rtx,
-						    bool (*) (const_rtx, bool));
 static int aliases_everything_p (const_rtx);
 static bool nonoverlapping_component_refs_p (const_tree, const_tree);
 static tree decl_for_component_ref (tree);
@@ -1542,7 +1540,8 @@ rtx
 find_base_term (rtx x)
 {
   cselib_val *val;
-  struct elt_loc_list *l;
+  struct elt_loc_list *l, *f;
+  rtx ret;
 
 #if defined (FIND_BASE_TERM)
   /* Try machine-dependent ways to find the base term.  */
@@ -1591,12 +1590,26 @@ find_base_term (rtx x)
 
     case VALUE:
       val = CSELIB_VAL_PTR (x);
+      ret = NULL_RTX;
+
       if (!val)
-	return 0;
-      for (l = val->locs; l; l = l->next)
-	if ((x = find_base_term (l->loc)) != 0)
-	  return x;
-      return 0;
+	return ret;
+
+      f = val->locs;
+      /* Temporarily reset val->locs to avoid infinite recursion.  */
+      val->locs = NULL;
+
+      for (l = f; l; l = l->next)
+	if (GET_CODE (l->loc) == VALUE
+	    && CSELIB_VAL_PTR (l->loc)->locs
+	    && !CSELIB_VAL_PTR (l->loc)->locs->next
+	    && CSELIB_VAL_PTR (l->loc)->locs->loc == x)
+	  continue;
+	else if ((ret = find_base_term (l->loc)) != 0)
+	  break;
+
+      val->locs = f;
+      return ret;
 
     case LO_SUM:
       /* The standard form is (lo_sum reg sym) so look only at the
@@ -1760,6 +1773,29 @@ base_alias_check (rtx x, rtx y, enum machine_mode x_mode,
   return 1;
 }
 
+/* Callback for for_each_rtx, that returns 1 upon encountering a VALUE
+   whose UID is greater than the int uid that D points to.  */
+
+static int
+refs_newer_value_cb (rtx *x, void *d)
+{
+  if (GET_CODE (*x) == VALUE && CSELIB_VAL_PTR (*x)->uid > *(int *)d)
+    return 1;
+
+  return 0;
+}
+
+/* Return TRUE if EXPR refers to a VALUE whose uid is greater than
+   that of V.  */
+
+static bool
+refs_newer_value_p (rtx expr, rtx v)
+{
+  int minuid = CSELIB_VAL_PTR (v)->uid;
+
+  return for_each_rtx (&expr, refs_newer_value_cb, &minuid);
+}
+
 /* Convert the address X into something we can use.  This is done by returning
    it unchanged unless it is a value; in the latter case we call cselib to get
    a more useful rtx.  */
@@ -1775,12 +1811,32 @@ get_addr (rtx x)
   v = CSELIB_VAL_PTR (x);
   if (v)
     {
+      bool have_equivs = cselib_have_permanent_equivalences ();
+      if (have_equivs)
+	v = canonical_cselib_val (v);
       for (l = v->locs; l; l = l->next)
 	if (CONSTANT_P (l->loc))
 	  return l->loc;
       for (l = v->locs; l; l = l->next)
-	if (!REG_P (l->loc) && !MEM_P (l->loc))
+	if (!REG_P (l->loc) && !MEM_P (l->loc)
+	    /* Avoid infinite recursion when potentially dealing with
+	       var-tracking artificial equivalences, by skipping the
+	       equivalences themselves, and not choosing expressions
+	       that refer to newer VALUEs.  */
+	    && (!have_equivs
+		|| (GET_CODE (l->loc) != VALUE
+		    && !refs_newer_value_p (l->loc, x))))
 	  return l->loc;
+      if (have_equivs)
+	{
+	  for (l = v->locs; l; l = l->next)
+	    if (REG_P (l->loc)
+		|| (GET_CODE (l->loc) != VALUE
+		    && !refs_newer_value_p (l->loc, x)))
+	      return l->loc;
+	  /* Return the canonical value.  */
+	  return v->val_rtx;
+	}
       if (v->locs)
 	return v->locs->loc;
     }
@@ -1860,7 +1916,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	{
 	  struct elt_loc_list *l = NULL;
 	  if (CSELIB_VAL_PTR (x))
-	    for (l = CSELIB_VAL_PTR (x)->locs; l; l = l->next)
+	    for (l = canonical_cselib_val (CSELIB_VAL_PTR (x))->locs;
+		 l; l = l->next)
 	      if (REG_P (l->loc) && rtx_equal_for_memref_p (l->loc, y))
 		break;
 	  if (l)
@@ -1878,7 +1935,8 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	{
 	  struct elt_loc_list *l = NULL;
 	  if (CSELIB_VAL_PTR (y))
-	    for (l = CSELIB_VAL_PTR (y)->locs; l; l = l->next)
+	    for (l = canonical_cselib_val (CSELIB_VAL_PTR (y))->locs;
+		 l; l = l->next)
 	      if (REG_P (l->loc) && rtx_equal_for_memref_p (l->loc, x))
 		break;
 	  if (l)
@@ -2063,11 +2121,9 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
    changed.  A volatile and non-volatile reference can be interchanged
    though.
 
-   A MEM_IN_STRUCT reference at a non-AND varying address can never
-   conflict with a non-MEM_IN_STRUCT reference at a fixed address.  We
-   also must allow AND addresses, because they may generate accesses
-   outside the object being referenced.  This is used to generate
-   aligned addresses from unaligned addresses, for instance, the alpha
+   We also must allow AND addresses, because they may generate accesses
+   outside the object being referenced.  This is used to generate aligned
+   addresses from unaligned addresses, for instance, the alpha
    storeqi_unaligned pattern.  */
 
 /* Read dependence: X is read after read in MEM takes place.  There can
@@ -2077,39 +2133,6 @@ int
 read_dependence (const_rtx mem, const_rtx x)
 {
   return MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem);
-}
-
-/* Returns MEM1 if and only if MEM1 is a scalar at a fixed address and
-   MEM2 is a reference to a structure at a varying address, or returns
-   MEM2 if vice versa.  Otherwise, returns NULL_RTX.  If a non-NULL
-   value is returned MEM1 and MEM2 can never alias.  VARIES_P is used
-   to decide whether or not an address may vary; it should return
-   nonzero whenever variation is possible.
-   MEM1_ADDR and MEM2_ADDR are the addresses of MEM1 and MEM2.  */
-
-static const_rtx
-fixed_scalar_and_varying_struct_p (const_rtx mem1, const_rtx mem2, rtx mem1_addr,
-				   rtx mem2_addr,
-				   bool (*varies_p) (const_rtx, bool))
-{
-  if (! flag_strict_aliasing)
-    return NULL_RTX;
-
-  if (MEM_ALIAS_SET (mem2)
-      && MEM_SCALAR_P (mem1) && MEM_IN_STRUCT_P (mem2)
-      && !varies_p (mem1_addr, 1) && varies_p (mem2_addr, 1))
-    /* MEM1 is a scalar at a fixed address; MEM2 is a struct at a
-       varying address.  */
-    return mem1;
-
-  if (MEM_ALIAS_SET (mem1)
-      && MEM_IN_STRUCT_P (mem1) && MEM_SCALAR_P (mem2)
-      && varies_p (mem1_addr, 1) && !varies_p (mem2_addr, 1))
-    /* MEM2 is a scalar at a fixed address; MEM1 is a struct at a
-       varying address.  */
-    return mem2;
-
-  return NULL_RTX;
 }
 
 /* Returns nonzero if something about the mode or address format MEM1
@@ -2376,8 +2399,6 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 /* Helper for true_dependence and canon_true_dependence.
    Checks for true dependence: X is read after store in MEM takes place.
 
-   VARIES is the function that should be used as rtx_varies function.
-
    If MEM_CANONICALIZED is FALSE, then X_ADDR and MEM_ADDR should be
    NULL_RTX, and the canonical addresses of MEM and X are both computed
    here.  If MEM_CANONICALIZED, then MEM must be already canonicalized.
@@ -2388,8 +2409,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 
 static int
 true_dependence_1 (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
-		   const_rtx x, rtx x_addr, bool (*varies) (const_rtx, bool),
-		   bool mem_canonicalized)
+		   const_rtx x, rtx x_addr, bool mem_canonicalized)
 {
   rtx base;
   int ret;
@@ -2481,21 +2501,16 @@ true_dependence_1 (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
   if (mem_mode == BLKmode || GET_MODE (x) == BLKmode)
     return 1;
 
-  if (fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr, varies))
-    return 0;
-
   return rtx_refs_may_alias_p (x, mem, true);
 }
 
 /* True dependence: X is read after store in MEM takes place.  */
 
 int
-true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
-		 bool (*varies) (const_rtx, bool))
+true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x)
 {
   return true_dependence_1 (mem, mem_mode, NULL_RTX,
-			    x, NULL_RTX, varies,
-			    /*mem_canonicalized=*/false);
+			    x, NULL_RTX, /*mem_canonicalized=*/false);
 }
 
 /* Canonical true dependence: X is read after store in MEM takes place.
@@ -2506,11 +2521,10 @@ true_dependence (const_rtx mem, enum machine_mode mem_mode, const_rtx x,
 
 int
 canon_true_dependence (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
-		       const_rtx x, rtx x_addr, bool (*varies) (const_rtx, bool))
+		       const_rtx x, rtx x_addr)
 {
   return true_dependence_1 (mem, mem_mode, mem_addr,
-			    x, x_addr, varies,
-			    /*mem_canonicalized=*/true);
+			    x, x_addr, /*mem_canonicalized=*/true);
 }
 
 /* Returns nonzero if a write to X might alias a previous read from
@@ -2520,7 +2534,6 @@ static int
 write_dependence_p (const_rtx mem, const_rtx x, int writep)
 {
   rtx x_addr, mem_addr;
-  const_rtx fixed_scalar;
   rtx base;
   int ret;
 
@@ -2581,14 +2594,6 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
     return ret;
 
   if (nonoverlapping_memrefs_p (x, mem, false))
-    return 0;
-
-  fixed_scalar
-    = fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr,
-					 rtx_addr_varies_p);
-
-  if ((fixed_scalar == mem && !aliases_everything_p (x))
-      || (fixed_scalar == x && !aliases_everything_p (mem)))
     return 0;
 
   return rtx_refs_may_alias_p (x, mem, false);
@@ -2671,10 +2676,6 @@ may_alias_p (const_rtx mem, const_rtx x)
      at MEM_ADDR, rather than XEXP (mem, 0).  */
   if (GET_CODE (mem_addr) == AND)
     return 1;
-
-  if (fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr,
-                                         rtx_addr_varies_p))
-    return 0;
 
   /* TBAA not valid for loop_invarint */
   return rtx_refs_may_alias_p (x, mem, false);

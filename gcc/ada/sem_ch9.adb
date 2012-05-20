@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -953,7 +953,7 @@ package body Sem_Ch9 is
                Error_Msg_N ("entry family low bound must be '>'= ^!", D_Sdef);
             end if;
 
-            <<Skip_LB>>
+         <<Skip_LB>>
             if Is_Generic_Type (Etype (D_Sdef))
               or else In_Instance
               or else Error_Posted (D_Sdef)
@@ -979,7 +979,7 @@ package body Sem_Ch9 is
                Error_Msg_N ("entry family high bound must be '<'= ^!", D_Sdef);
             end if;
 
-            <<Skip_UB>>
+         <<Skip_UB>>
             null;
          end;
       end if;
@@ -1393,6 +1393,7 @@ package body Sem_Ch9 is
       Target_Obj  : Node_Id := Empty;
       Req_Scope   : Entity_Id;
       Outer_Ent   : Entity_Id;
+      Synch_Type  : Entity_Id;
 
    begin
       Tasking_Used := True;
@@ -1548,13 +1549,23 @@ package body Sem_Ch9 is
 
       --  Ada 2012 (AI05-0030): Potential dispatching requeue statement. The
       --  target type must be a concurrent interface class-wide type and the
-      --  target must be a procedure, flagged by pragma Implemented.
+      --  target must be a procedure, flagged by pragma Implemented. The
+      --  target may be an access to class-wide type, in which case it must
+      --  be dereferenced.
+
+      if Present (Target_Obj) then
+         Synch_Type := Etype (Target_Obj);
+
+         if Is_Access_Type (Synch_Type) then
+            Synch_Type := Designated_Type (Synch_Type);
+         end if;
+      end if;
 
       Is_Disp_Req :=
         Ada_Version >= Ada_2012
           and then Present (Target_Obj)
-          and then Is_Class_Wide_Type (Etype (Target_Obj))
-          and then Is_Concurrent_Interface (Etype (Target_Obj))
+          and then Is_Class_Wide_Type (Synch_Type)
+          and then Is_Concurrent_Interface (Synch_Type)
           and then Ekind (Entry_Id) = E_Procedure
           and then Has_Rep_Pragma (Entry_Id, Name_Implemented);
 

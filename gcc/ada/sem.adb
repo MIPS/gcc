@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -37,6 +37,7 @@ with Nlists;   use Nlists;
 with Output;   use Output;
 with Restrict; use Restrict;
 with Sem_Attr; use Sem_Attr;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch2;  use Sem_Ch2;
 with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch4;  use Sem_Ch4;
@@ -375,7 +376,7 @@ package body Sem is
             Analyze_Unary_Op (N);
 
          when N_Op_Mod =>
-            Analyze_Arithmetic_Op (N);
+            Analyze_Mod (N);
 
          when N_Op_Multiply =>
             Analyze_Arithmetic_Op (N);
@@ -1554,6 +1555,24 @@ package body Sem is
       end if;
    end Semantics;
 
+   --------
+   -- ss --
+   --------
+
+   function ss (Index : Int) return Scope_Stack_Entry is
+   begin
+      return Scope_Stack.Table (Index);
+   end ss;
+
+   ---------
+   -- sst --
+   ---------
+
+   function sst return Scope_Stack_Entry is
+   begin
+      return ss (Scope_Stack.Last);
+   end sst;
+
    ------------------------
    -- Walk_Library_Items --
    ------------------------
@@ -1601,7 +1620,7 @@ package body Sem is
       --  an instance spec, do the body last.
 
       procedure Do_Withed_Unit (Withed_Unit : Node_Id);
-      --  Apply Do_Unit_And_Dependents to a unit in a context clause.
+      --  Apply Do_Unit_And_Dependents to a unit in a context clause
 
       procedure Process_Bodies_In_Context (Comp : Node_Id);
       --  The main unit and its spec may depend on bodies that contain generics

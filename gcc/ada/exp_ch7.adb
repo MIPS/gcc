@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1210,10 +1210,8 @@ package body Exp_Ch7 is
 
             Finalizer_Decls := New_List;
 
-            if Exceptions_OK then
-               Build_Object_Declarations
-                 (Finalizer_Data, Finalizer_Decls, Loc, For_Package);
-            end if;
+            Build_Object_Declarations
+              (Finalizer_Data, Finalizer_Decls, Loc, For_Package);
 
             --  Since the total number of controlled objects is always known,
             --  build a subtype of Natural with precise bounds. This allows
@@ -1374,6 +1372,37 @@ package body Exp_Ch7 is
             Fin_Id :=
               Make_Defining_Identifier (Loc,
                 Chars => New_External_Name (Name_uFinalizer));
+
+            --  The visibility semantics of AT_END handlers force a strange
+            --  separation of spec and body for stack-related finalizers:
+
+            --     declare : Enclosing_Scope
+            --        procedure _finalizer;
+            --     begin
+            --        <controlled objects>
+            --        procedure _finalizer is
+            --           ...
+            --     at end
+            --        _finalizer;
+            --     end;
+
+            --  Both spec and body are within the same construct and scope, but
+            --  the body is part of the handled sequence of statements. This
+            --  placement confuses the elaboration mechanism on targets where
+            --  AT_END handlers are expanded into "when all others" handlers:
+
+            --     exception
+            --        when all others =>
+            --           _finalizer;  --  appears to require elab checks
+            --     at end
+            --        _finalizer;
+            --     end;
+
+            --  Since the compiler guarantees that the body of a _finalizer is
+            --  always inserted in the same construct where the AT_END handler
+            --  resides, there is no need for elaboration checks.
+
+            Set_Kill_Elaboration_Checks (Fin_Id);
          end if;
 
          --  Step 2: Creation of the finalizer specification
@@ -1787,7 +1816,7 @@ package body Exp_Ch7 is
                  and then Needs_Finalization (Obj_Typ)
                  and then not (Ekind (Obj_Id) = E_Constant
                                 and then not Has_Completion (Obj_Id))
-                 and then not Is_Tag_To_CW_Conversion (Obj_Id)
+                 and then not Is_Tag_To_Class_Wide_Conversion (Obj_Id)
                then
                   Processing_Actions;
 
@@ -1865,10 +1894,7 @@ package body Exp_Ch7 is
 
             --  Specific cases of object renamings
 
-            elsif Nkind (Decl) = N_Object_Renaming_Declaration
-              and then Nkind (Name (Decl)) = N_Explicit_Dereference
-              and then Nkind (Prefix (Name (Decl))) = N_Identifier
-            then
+            elsif Nkind (Decl) = N_Object_Renaming_Declaration then
                Obj_Id  := Defining_Identifier (Decl);
                Obj_Typ := Base_Type (Etype (Obj_Id));
 
@@ -1889,6 +1915,19 @@ package body Exp_Ch7 is
                  and then Is_Return_Object (Obj_Id)
                  and then Present (Return_Flag_Or_Transient_Decl (Obj_Id))
                then
+                  Processing_Actions (Has_No_Init => True);
+
+               --  Detect a case where a source object has been initialized by
+               --  a controlled function call which was later rewritten as a
+               --  class-wide conversion of Ada.Tags.Displace.
+
+               --     Obj : Class_Wide_Type := Function_Call (...);
+
+               --     Temp : ... := Function_Call (...)'reference;
+               --     Obj  : Class_Wide_Type renames
+               --              (... Ada.Tags.Displace (Temp));
+
+               elsif Is_Displacement_Of_Ctrl_Function_Result (Obj_Id) then
                   Processing_Actions (Has_No_Init => True);
                end if;
 
@@ -2839,14 +2878,14 @@ package body Exp_Ch7 is
    --------------------------
 
    procedure Build_Finalizer_Call (N : Node_Id; Fin_Id : Entity_Id) is
-      Loc : constant Source_Ptr := Sloc (N);
-      HSS : Node_Id := Handled_Statement_Sequence (N);
-
       Is_Prot_Body : constant Boolean :=
                        Nkind (N) = N_Subprogram_Body
                          and then Is_Protected_Subprogram_Body (N);
       --  Determine whether N denotes the protected version of a subprogram
       --  which belongs to a protected type.
+
+      Loc : constant Source_Ptr := Sloc (N);
+      HSS : Node_Id;
 
    begin
       --  Do not perform this expansion in Alfa mode because we do not create
@@ -2858,6 +2897,7 @@ package body Exp_Ch7 is
 
       --  The At_End handler should have been assimilated by the finalizer
 
+      HSS := Handled_Statement_Sequence (N);
       pragma Assert (No (At_End_Proc (HSS)));
 
       --  If the construct to be cleaned up is a protected subprogram body, the
@@ -2943,9 +2983,14 @@ package body Exp_Ch7 is
    begin
       pragma Assert (Decls /= No_List);
 
+      --  Always set the proper location as it may be needed even when
+      --  exception propagation is forbidden.
+
+      Data.Loc := Loc;
+
       if Restriction_Active (No_Exception_Propagation) then
-         Data.Abort_Id := Empty;
-         Data.E_Id := Empty;
+         Data.Abort_Id  := Empty;
+         Data.E_Id      := Empty;
          Data.Raised_Id := Empty;
          return;
       end if;
@@ -2953,7 +2998,6 @@ package body Exp_Ch7 is
       Data.Abort_Id  := Make_Temporary (Loc, 'A');
       Data.E_Id      := Make_Temporary (Loc, 'E');
       Data.Raised_Id := Make_Temporary (Loc, 'R');
-      Data.Loc       := Loc;
 
       --  In certain scenarios, finalization can be triggered by an abort. If
       --  the finalization itself fails and raises an exception, the resulting
@@ -4893,12 +4937,10 @@ package body Exp_Ch7 is
       --  Start of processing for Build_Adjust_Or_Finalize_Statements
 
       begin
-         Build_Indices;
+         Finalizer_Decls := New_List;
 
-         if Exceptions_OK then
-            Finalizer_Decls := New_List;
-            Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
-         end if;
+         Build_Indices;
+         Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
 
          Comp_Ref :=
            Make_Indexed_Component (Loc,
@@ -5168,14 +5210,11 @@ package body Exp_Ch7 is
       --  Start of processing for Build_Initialize_Statements
 
       begin
-         Build_Indices;
-
          Counter_Id := Make_Temporary (Loc, 'C');
+         Finalizer_Decls := New_List;
 
-         if Exceptions_OK then
-            Finalizer_Decls := New_List;
-            Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
-         end if;
+         Build_Indices;
+         Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
 
          --  Generate the block which houses the finalization call, the index
          --  guard and the handler which triggers Program_Error later on.
@@ -5881,10 +5920,8 @@ package body Exp_Ch7 is
       --  Start of processing for Build_Adjust_Statements
 
       begin
-         if Exceptions_OK then
-            Finalizer_Decls := New_List;
-            Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
-         end if;
+         Finalizer_Decls := New_List;
+         Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
 
          if Nkind (Typ_Def) = N_Derived_Type_Definition then
             Rec_Def := Record_Extension_Part (Typ_Def);
@@ -6458,10 +6495,8 @@ package body Exp_Ch7 is
       --  Start of processing for Build_Finalize_Statements
 
       begin
-         if Exceptions_OK then
-            Finalizer_Decls := New_List;
-            Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
-         end if;
+         Finalizer_Decls := New_List;
+         Build_Object_Declarations (Finalizer_Data, Finalizer_Decls, Loc);
 
          if Nkind (Typ_Def) = N_Derived_Type_Definition then
             Rec_Def := Record_Extension_Part (Typ_Def);

@@ -61,24 +61,23 @@ SYM(_ITM_beginTransaction):
 	cfi_startproc
 #ifdef __x86_64__
 	leaq	8(%rsp), %rax
-	movq	(%rsp), %r8
-	subq	$72, %rsp
-	cfi_def_cfa_offset(80)
+	subq	$56, %rsp
+	cfi_def_cfa_offset(64)
 	movq	%rax, (%rsp)
-	movq	%r8, 8(%rsp)
-	movq	%rbx, 16(%rsp)
-	movq	%rbp, 24(%rsp)
-	movq	%r12, 32(%rsp)
-	movq	%r13, 40(%rsp)
-	movq	%r14, 48(%rsp)
-	movq	%r15, 56(%rsp)
+	movq	%rbx, 8(%rsp)
+	movq	%rbp, 16(%rsp)
+	movq	%r12, 24(%rsp)
+	movq	%r13, 32(%rsp)
+	movq	%r14, 40(%rsp)
+	movq	%r15, 48(%rsp)
 	movq	%rsp, %rsi
 	call	SYM(GTM_begin_transaction)
-	addq	$72, %rsp
+	addq	$56, %rsp
 	cfi_def_cfa_offset(8)
 	ret
 #else
 	leal	4(%esp), %ecx
+	movl	4(%esp), %eax
 	subl	$28, %esp
 	cfi_def_cfa_offset(32)
 	movl	%ecx, 8(%esp)
@@ -113,31 +112,30 @@ SYM(_ITM_beginTransaction):
 SYM(GTM_longjmp):
 	cfi_startproc
 #ifdef __x86_64__
-	movq	(%rdi), %rcx
-	movq	8(%rdi), %rdx
-	movq	16(%rdi), %rbx
-	movq	24(%rdi), %rbp
-	movq	32(%rdi), %r12
-	movq	40(%rdi), %r13
-	movq	48(%rdi), %r14
-	movq	56(%rdi), %r15
-	movl	%esi, %eax
-	cfi_def_cfa(%rcx, 0)
-	cfi_register(%rip, %rdx)
+	movq	(%rsi), %rcx
+	movq	8(%rsi), %rbx
+	movq	16(%rsi), %rbp
+	movq	24(%rsi), %r12
+	movq	32(%rsi), %r13
+	movq	40(%rsi), %r14
+	movq	48(%rsi), %r15
+	movl	%edi, %eax
+	cfi_def_cfa(%rsi, 0)
+	cfi_offset(%rip, 56)
+	cfi_register(%rsp, %rcx)
 	movq	%rcx, %rsp
-	jmp	*%rdx
+	jmp	*56(%rsi)
 #else
-	xchgl	%eax, %edx
 	movl	(%edx), %ecx
 	movl	4(%edx), %ebx
 	movl	8(%edx), %esi
 	movl	12(%edx), %edi
 	movl	16(%edx), %ebp
-	movl	20(%edx), %edx
-	cfi_def_cfa(%ecx, 0)
-	cfi_register(%eip, %edx)
+	cfi_def_cfa(%edx, 0)
+	cfi_offset(%eip, 20)
+	cfi_register(%esp, %ecx)
 	movl	%ecx, %esp
-	jmp	*%edx
+	jmp	*20(%edx)
 #endif
 	cfi_endproc
 

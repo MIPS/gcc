@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -60,6 +60,7 @@ with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch10; use Sem_Ch10;
 with Sem_Ch12; use Sem_Ch12;
 with Sem_Ch13; use Sem_Ch13;
+with Sem_Dim;  use Sem_Dim;
 with Sem_Disp; use Sem_Disp;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
@@ -187,9 +188,9 @@ package body Sem_Ch6 is
       New_E  : Entity_Id) return Boolean;
    --  Enforce the rule given in 12.3(18): a private operation in an instance
    --  overrides an inherited operation only if the corresponding operation
-   --  was overriding in the generic. This can happen for primitive operations
-   --  of types derived (in the generic unit) from formal private or formal
-   --  derived types.
+   --  was overriding in the generic. This needs to be checked for primitive
+   --  operations of types derived (in the generic unit) from formal private
+   --  or formal derived types.
 
    procedure Make_Inequality_Operator (S : Entity_Id);
    --  Create the declaration for an inequality operator that is implicitly
@@ -272,7 +273,6 @@ package body Sem_Ch6 is
       Spec     : constant Node_Id    := Specification (N);
 
       Def_Id :  Entity_Id;
-      pragma Unreferenced (Def_Id);
 
       Prev :  Entity_Id;
       --  If the expression is a completion, Prev is the entity whose
@@ -281,6 +281,7 @@ package body Sem_Ch6 is
       New_Body : Node_Id;
       New_Decl : Node_Id;
       New_Spec : Node_Id;
+      Ret      : Node_Id;
 
    begin
       --  This is one of the occasions on which we transform the tree during
@@ -291,7 +292,31 @@ package body Sem_Ch6 is
       --  determine whether this is possible.
 
       Inline_Processing_Required := True;
-      New_Spec := Copy_Separate_Tree (Spec);
+
+      --  Create a specification for the generated body. Types and defauts in
+      --  the profile are copies of the spec, but new entities must be created
+      --  for the unit name and the formals.
+
+      New_Spec := New_Copy_Tree (Spec);
+      Set_Defining_Unit_Name (New_Spec,
+        Make_Defining_Identifier (Sloc (Defining_Unit_Name (Spec)),
+          Chars (Defining_Unit_Name (Spec))));
+
+      if Present (Parameter_Specifications (New_Spec)) then
+         declare
+            Formal_Spec : Node_Id;
+         begin
+            Formal_Spec := First (Parameter_Specifications (New_Spec));
+            while Present (Formal_Spec) loop
+               Set_Defining_Identifier
+                 (Formal_Spec,
+                  Make_Defining_Identifier (Sloc (Formal_Spec),
+                    Chars => Chars (Defining_Identifier (Formal_Spec))));
+               Next (Formal_Spec);
+            end loop;
+         end;
+      end if;
+
       Prev     := Current_Entity_In_Scope (Defining_Entity (Spec));
 
       --  If there are previous overloadable entities with the same name,
@@ -302,15 +327,15 @@ package body Sem_Ch6 is
          Prev     := Find_Corresponding_Spec (N);
       end if;
 
+      Ret := Make_Simple_Return_Statement (LocX, Expression (N));
+
       New_Body :=
         Make_Subprogram_Body (Loc,
           Specification              => New_Spec,
           Declarations               => Empty_List,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (LocX,
-              Statements => New_List (
-                Make_Simple_Return_Statement (LocX,
-                  Expression => Expression (N)))));
+              Statements => New_List (Ret)));
 
       if Present (Prev) and then Ekind (Prev) = E_Generic_Function then
 
@@ -331,6 +356,10 @@ package body Sem_Ch6 is
         and then Comes_From_Source (Prev)
       then
          Set_Has_Completion (Prev, False);
+
+         --  For navigation purposes, indicate that the function is a body
+
+         Generate_Reference (Prev, Defining_Entity (N), 'b', Force => True);
          Rewrite (N, New_Body);
          Analyze (N);
 
@@ -341,6 +370,26 @@ package body Sem_Ch6 is
 
          if Has_Completion (Prev) then
             Set_Is_Inlined (Prev);
+
+            --  The formals of the expression function are body formals,
+            --  and do not appear in the ali file, which will only contain
+            --  references to the formals of the original subprogram spec.
+
+            declare
+               F1 : Entity_Id;
+               F2 : Entity_Id;
+
+            begin
+               F1 := First_Formal (Def_Id);
+               F2 := First_Formal (Prev);
+
+               while Present (F1) loop
+                  Set_Spec_Entity (F1, F2);
+                  Next_Formal (F1);
+                  Next_Formal (F2);
+               end loop;
+            end;
+
          else
             Set_Is_Inlined (Defining_Entity (New_Body));
          end if;
@@ -358,10 +407,13 @@ package body Sem_Ch6 is
 
          --  To prevent premature freeze action, insert the new body at the end
          --  of the current declarations, or at the end of the package spec.
+         --  However, resolve usage names now, to prevent spurious visibility
+         --  on later entities.
 
          declare
-            Decls : List_Id          := List_Containing (N);
-            Par   : constant Node_Id := Parent (Decls);
+            Decls : List_Id            := List_Containing (N);
+            Par   : constant Node_Id   := Parent (Decls);
+            Id    : constant Entity_Id := Defining_Entity (New_Decl);
 
          begin
             if Nkind (Par) = N_Package_Specification
@@ -373,6 +425,10 @@ package body Sem_Ch6 is
             end if;
 
             Insert_After (Last (Decls), New_Body);
+            Push_Scope (Id);
+            Install_Formals (Id);
+            Preanalyze_Spec_Expression (Expression  (Ret), Etype (Id));
+            End_Scope;
          end;
       end if;
 
@@ -1487,7 +1543,7 @@ package body Sem_Ch6 is
          if Returns_Object then
             if Nkind (N) = N_Extended_Return_Statement then
                Error_Msg_N
-                 ("extended return statements cannot be nested; use `RETURN;`",
+                 ("extended return statement cannot be nested (use `RETURN;`)",
                   N);
 
             --  Case of a simple return statement with a value inside extended
@@ -1496,7 +1552,7 @@ package body Sem_Ch6 is
             else
                Error_Msg_N
                  ("return nested in extended return statement cannot return " &
-                  "value; use `RETURN;`", N);
+                  "value (use `RETURN;`)", N);
             end if;
          end if;
 
@@ -1517,6 +1573,8 @@ package body Sem_Ch6 is
 
       Kill_Current_Values (Last_Assignment_Only => True);
       Check_Unreachable_Code (N);
+
+      Analyze_Dimension (N);
    end Analyze_Return_Statement;
 
    -------------------------------------
@@ -3123,7 +3181,6 @@ package body Sem_Ch6 is
 
          Set_Defining_Unit_Name (Specification (Null_Body),
            Make_Defining_Identifier (Loc, Chars (Defining_Entity (N))));
-         Set_Corresponding_Body (N, Defining_Entity (Null_Body));
 
          Form := First (Parameter_Specifications (Specification (Null_Body)));
          while Present (Form) loop
@@ -3160,8 +3217,12 @@ package body Sem_Ch6 is
       end if;
 
       Designator := Analyze_Subprogram_Specification (Specification (N));
+
+      --  A reference may already have been generated for the unit name, in
+      --  which case the following call is redundant. However it is needed for
+      --  declarations that are the rewriting of an expression function.
+
       Generate_Definition (Designator);
-      --  ??? why this call, already in Analyze_Subprogram_Specification
 
       if Debug_Flag_C then
          Write_Str ("==> subprogram spec ");
@@ -3177,7 +3238,13 @@ package body Sem_Ch6 is
       then
          Set_Has_Completion (Designator);
 
-         if Present (Null_Body) then
+         --  Null procedures are always inlined, but generic formal subprograms
+         --  which appear as such in the internal instance of formal packages,
+         --  need no completion and are not marked Inline.
+
+         if Present (Null_Body)
+           and then Nkind (N) /= N_Formal_Concrete_Subprogram_Declaration
+         then
             Set_Corresponding_Body (N, Defining_Entity (Null_Body));
             Set_Body_To_Inline (N, Null_Body);
             Set_Is_Inlined (Designator);
@@ -3252,9 +3319,16 @@ package body Sem_Ch6 is
                               and then Null_Present (Specification (N)))
             then
                Error_Msg_Name_1 := Chars (Defining_Entity (N));
-               Error_Msg_N
-                 ("(Ada 2005) interface subprogram % must be abstract or null",
-                  N);
+
+               --  Specialize error message based on procedures vs. functions,
+               --  since functions can't be null subprograms.
+
+               if Ekind (Designator) = E_Procedure then
+                  Error_Msg_N
+                    ("interface procedure % must be abstract or null", N);
+               else
+                  Error_Msg_N ("interface function % must be abstract", N);
+               end if;
             end if;
          end;
       end if;
@@ -3348,9 +3422,15 @@ package body Sem_Ch6 is
          Check_SPARK_Restriction ("user-defined operator is not allowed", N);
       end if;
 
-      --  Proceed with analysis
+      --  Proceed with analysis. Do not emit a cross-reference entry if the
+      --  specification comes from an expression function, because it may be
+      --  the completion of a previous declaration. It is is not, the cross-
+      --  reference entry will be emitted for the new subprogram declaration.
 
-      Generate_Definition (Designator);
+      if Nkind (Parent (N)) /= N_Expression_Function then
+         Generate_Definition (Designator);
+      end if;
+
       Set_Contract (Designator, Make_Contract (Sloc (Designator)));
 
       if Nkind (N) = N_Function_Specification then
@@ -7793,6 +7873,22 @@ package body Sem_Ch6 is
                --  If no match found, then the new subprogram does not
                --  override in the generic (nor in the instance).
 
+               --  If the type in question is not abstract, and the subprogram
+               --  is, this will be an error if the new operation is in the
+               --  private part of the instance. Emit a warning now, which will
+               --  make the subsequent error message easier to understand.
+
+               if not Is_Abstract_Type (F_Typ)
+                 and then Is_Abstract_Subprogram (Prev_E)
+                 and then In_Private_Part (Current_Scope)
+               then
+                  Error_Msg_Node_2 := F_Typ;
+                  Error_Msg_NE
+                    ("private operation& in generic unit does not override " &
+                     "any primitive operation of& (RM 12.3 (18))?",
+                     New_E, New_E);
+               end if;
+
                return True;
             end;
          end if;
@@ -8936,7 +9032,7 @@ package body Sem_Ch6 is
                               Set_Is_Immediately_Visible (E, False);
                            else
                               --  Work done in Override_Dispatching_Operation,
-                              --  so nothing else need to be done here.
+                              --  so nothing else needs to be done here.
 
                               null;
                            end if;
@@ -9505,14 +9601,14 @@ package body Sem_Ch6 is
                Default :=  Expression (Param_Spec);
 
                if Is_Scalar_Type (Etype (Default)) then
-                  if Nkind
-                       (Parameter_Type (Param_Spec)) /= N_Access_Definition
+                  if Nkind (Parameter_Type (Param_Spec)) /=
+                                              N_Access_Definition
                   then
                      Formal_Type := Entity (Parameter_Type (Param_Spec));
-
                   else
-                     Formal_Type := Access_Definition
-                       (Related_Nod, Parameter_Type (Param_Spec));
+                     Formal_Type :=
+                       Access_Definition
+                         (Related_Nod, Parameter_Type (Param_Spec));
                   end if;
 
                   Apply_Scalar_Range_Check (Default, Formal_Type);
@@ -9530,12 +9626,34 @@ package body Sem_Ch6 is
             Num_Out_Params := Num_Out_Params + 1;
          end if;
 
+         --  Skip remaining processing if formal type was in error
+
+         if Etype (Formal) = Any_Type or else Error_Posted (Formal) then
+            goto Next_Parameter;
+         end if;
+
          --  Force call by reference if aliased
 
          if Is_Aliased (Formal) then
             Set_Mechanism (Formal, By_Reference);
+
+            --  Warn if user asked this to be passed by copy
+
+            if Convention (Formal_Type) = Convention_Ada_Pass_By_Copy then
+               Error_Msg_N
+                 ("?cannot pass aliased parameter & by copy", Formal);
+            end if;
+
+         --  Force mechanism if type has Convention Ada_Pass_By_Ref/Copy
+
+         elsif Convention (Formal_Type) = Convention_Ada_Pass_By_Copy then
+            Set_Mechanism (Formal, By_Copy);
+
+         elsif Convention (Formal_Type) = Convention_Ada_Pass_By_Reference then
+            Set_Mechanism (Formal, By_Reference);
          end if;
 
+      <<Next_Parameter>>
          Next (Param_Spec);
       end loop;
 

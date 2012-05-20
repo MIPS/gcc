@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from GCC.
    Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
@@ -1177,7 +1177,8 @@ dwarf2out_switch_text_section (void)
 
   var_location_switch_text_section ();
 
-  set_cur_line_info_table (sect);
+  if (cold_text_section != NULL)
+    set_cur_line_info_table (sect);
 }
 
 /* And now, the subset of the debugging information support code necessary
@@ -3302,11 +3303,12 @@ static int should_move_die_to_comdat (dw_die_ref);
 static dw_die_ref clone_as_declaration (dw_die_ref);
 static dw_die_ref clone_die (dw_die_ref);
 static dw_die_ref clone_tree (dw_die_ref);
-static void copy_declaration_context (dw_die_ref, dw_die_ref);
+static dw_die_ref copy_declaration_context (dw_die_ref, dw_die_ref);
 static void generate_skeleton_ancestor_tree (skeleton_chain_node *);
 static void generate_skeleton_bottom_up (skeleton_chain_node *);
 static dw_die_ref generate_skeleton (dw_die_ref);
 static dw_die_ref remove_child_or_replace_with_skeleton (dw_die_ref,
+                                                         dw_die_ref,
                                                          dw_die_ref);
 static void break_out_comdat_types (dw_die_ref);
 static dw_die_ref copy_ancestor_tree (dw_die_ref, dw_die_ref, htab_t);
@@ -7070,16 +7072,18 @@ clone_as_declaration (dw_die_ref die)
   return clone;
 }
 
-/* Copy the declaration context to the new compile unit DIE.  This includes
+/* Copy the declaration context to the new type unit DIE.  This includes
    any surrounding namespace or type declarations.  If the DIE has an
    AT_specification attribute, it also includes attributes and children
-   attached to the specification.  */
+   attached to the specification, and returns a pointer to the original
+   parent of the declaration DIE.  Returns NULL otherwise.  */
 
-static void
+static dw_die_ref
 copy_declaration_context (dw_die_ref unit, dw_die_ref die)
 {
   dw_die_ref decl;
   dw_die_ref new_decl;
+  dw_die_ref orig_parent = NULL;
 
   decl = get_AT_ref (die, DW_AT_specification);
   if (decl == NULL)
@@ -7089,6 +7093,10 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
       unsigned ix;
       dw_die_ref c;
       dw_attr_ref a;
+
+      /* The original DIE will be changed to a declaration, and must
+         be moved to be a child of the original declaration DIE.  */
+      orig_parent = decl->die_parent;
 
       /* Copy the type node pointer from the new DIE to the original
          declaration DIE so we can forward references later.  */
@@ -7118,6 +7126,8 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
           add_AT_specification (die, new_decl);
         }
     }
+
+  return orig_parent;
 }
 
 /* Generate the skeleton ancestor tree for the given NODE, then clone
@@ -7201,17 +7211,23 @@ generate_skeleton (dw_die_ref die)
   return node.new_die;
 }
 
-/* Remove the DIE from its parent, possibly replacing it with a cloned
-   declaration.  The original DIE will be moved to a new compile unit
-   so that existing references to it follow it to the new location.  If
-   any of the original DIE's descendants is a declaration, we need to
-   replace the original DIE with a skeleton tree and move the
-   declarations back into the skeleton tree.  */
+/* Remove the CHILD DIE from its parent, possibly replacing it with a cloned
+   declaration.  The original DIE is moved to a new compile unit so that
+   existing references to it follow it to the new location.  If any of the
+   original DIE's descendants is a declaration, we need to replace the
+   original DIE with a skeleton tree and move the declarations back into the
+   skeleton tree.  */
 
 static dw_die_ref
-remove_child_or_replace_with_skeleton (dw_die_ref child, dw_die_ref prev)
+remove_child_or_replace_with_skeleton (dw_die_ref unit, dw_die_ref child,
+				       dw_die_ref prev)
 {
-  dw_die_ref skeleton;
+  dw_die_ref skeleton, orig_parent;
+
+  /* Copy the declaration context to the type unit DIE.  If the returned
+     ORIG_PARENT is not NULL, the skeleton needs to be added as a child of
+     that DIE.  */
+  orig_parent = copy_declaration_context (unit, child);
 
   skeleton = generate_skeleton (child);
   if (skeleton == NULL)
@@ -7219,7 +7235,19 @@ remove_child_or_replace_with_skeleton (dw_die_ref child, dw_die_ref prev)
   else
     {
       skeleton->die_id.die_type_node = child->die_id.die_type_node;
-      replace_child (child, skeleton, prev);
+
+      /* If the original DIE was a specification, we need to put
+         the skeleton under the parent DIE of the declaration.
+	 This leaves the original declaration in the tree, but
+	 it will be pruned later since there are no longer any
+	 references to it.  */
+      if (orig_parent != NULL)
+	{
+	  remove_child_with_prev (child, prev);
+	  add_child_die (orig_parent, skeleton);
+	}
+      else
+	replace_child (child, skeleton, prev);
     }
 
   return skeleton;
@@ -7264,11 +7292,9 @@ break_out_comdat_types (dw_die_ref die)
         generate_type_signature (c, type_node);
 
         /* Copy the declaration context, attributes, and children of the
-           declaration into the new compile unit DIE.  */
-	copy_declaration_context (unit, c);
-
-        /* Remove this DIE from the main CU.  */
-	replacement = remove_child_or_replace_with_skeleton (c, prev);
+           declaration into the new type unit DIE, then remove this DIE
+	   from the main CU (or replace it with a skeleton if necessary).  */
+	replacement = remove_child_or_replace_with_skeleton (unit, c, prev);
 
         /* Break out nested types into their own type units.  */
         break_out_comdat_types (c);
@@ -7381,6 +7407,32 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
   return copy;
 }
 
+/* Like clone_tree, but additionally enter all the children into
+   the hash table decl_table.  */
+
+static dw_die_ref
+clone_tree_hash (dw_die_ref die, htab_t decl_table)
+{
+  dw_die_ref c;
+  dw_die_ref clone = clone_die (die);
+  struct decl_table_entry *entry;
+  void **slot = htab_find_slot_with_hash (decl_table, die,
+					  htab_hash_pointer (die), INSERT);
+  /* Assert that DIE isn't in the hash table yet.  If it would be there
+     before, the ancestors would be necessarily there as well, therefore
+     clone_tree_hash wouldn't be called.  */
+  gcc_assert (*slot == HTAB_EMPTY_ENTRY);
+  entry = XCNEW (struct decl_table_entry);
+  entry->orig = die;
+  entry->copy = clone;
+  *slot = entry;
+
+  FOR_EACH_CHILD (die, c,
+		  add_child_die (clone, clone_tree_hash (c, decl_table)));
+
+  return clone;
+}
+
 /* Walk the DIE and its children, looking for references to incomplete
    or trivial types that are unmarked (i.e., that are not in the current
    type_unit).  */
@@ -7417,11 +7469,7 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
           else
             {
               dw_die_ref parent = unit;
-              dw_die_ref copy = clone_tree (targ);
-
-              /* Make sure the cloned tree is marked as part of the
-                 type unit.  */
-              mark_dies (copy);
+	      dw_die_ref copy = clone_die (targ);
 
               /* Record in DECL_TABLE that TARG has been copied.
                  Need to do this now, before the recursive call,
@@ -7431,6 +7479,14 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
               entry->orig = targ;
               entry->copy = copy;
               *slot = entry;
+
+	      FOR_EACH_CHILD (targ, c,
+			      add_child_die (copy,
+					     clone_tree_hash (c, decl_table)));
+
+              /* Make sure the cloned tree is marked as part of the
+                 type unit.  */
+              mark_dies (copy);
 
               /* If TARG has surrounding context, copy its ancestor tree
                  into the new type unit.  */
@@ -8166,6 +8222,13 @@ output_loc_list (dw_loc_list_ref list_head)
       /* Don't output an entry that starts and ends at the same address.  */
       if (strcmp (curr->begin, curr->end) == 0 && !curr->force)
 	continue;
+      size = size_of_locs (curr->expr);
+      /* If the expression is too large, drop it on the floor.  We could
+	 perhaps put it into DW_TAG_dwarf_procedure and refer to that
+	 in the expression, but >= 64KB expressions for a single value
+	 in a single range are unlikely very useful.  */
+      if (size > 0xffff)
+	continue;
       if (!have_multiple_function_sections)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
@@ -8184,7 +8247,6 @@ output_loc_list (dw_loc_list_ref list_head)
 			       "Location list end address (%s)",
 			       list_head->ll_symbol);
 	}
-      size = size_of_locs (curr->expr);
 
       /* Output the block length for this list of location operations.  */
       gcc_assert (size <= 0xffff);
@@ -9867,13 +9929,17 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	   useful source coordinates anyway.  */
 	name = DECL_NAME (name);
       add_name_attribute (mod_type_die, IDENTIFIER_POINTER (name));
-      add_gnat_descriptive_type_attribute (mod_type_die, type, context_die);
-      if (TYPE_ARTIFICIAL (type))
-	add_AT_flag (mod_type_die, DW_AT_artificial, 1);
     }
   /* This probably indicates a bug.  */
   else if (mod_type_die && mod_type_die->die_tag == DW_TAG_base_type)
-    add_name_attribute (mod_type_die, "__unknown__");
+    {
+      name = TYPE_NAME (type);
+      if (name
+	  && TREE_CODE (name) == TYPE_DECL)
+	name = DECL_NAME (name);
+      add_name_attribute (mod_type_die,
+			  name ? IDENTIFIER_POINTER (name) : "__unknown__");
+    }
 
   if (qualified_type)
     equate_type_number_to_die (qualified_type, mod_type_die);
@@ -9890,6 +9956,10 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 
   if (sub_die != NULL)
     add_AT_die_ref (mod_type_die, DW_AT_type, sub_die);
+
+  add_gnat_descriptive_type_attribute (mod_type_die, type, context_die);
+  if (TYPE_ARTIFICIAL (type))
+    add_AT_flag (mod_type_die, DW_AT_artificial, 1);
 
   return mod_type_die;
 }
@@ -10642,6 +10712,13 @@ const_ok_for_output_1 (rtx *rtlp, void *data ATTRIBUTE_UNUSED)
 #endif
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
+      return 1;
+    }
+
+  if (targetm.const_not_ok_for_debug_p (rtl))
+    {
+      expansion_failed (NULL_TREE, rtl,
+			"Expression rejected for debug by the backend.\n");
       return 1;
     }
 
@@ -15417,11 +15494,7 @@ add_gnat_descriptive_type_attribute (dw_die_ref die, tree type,
   dtype_die = lookup_type_die (dtype);
   if (!dtype_die)
     {
-      /* The descriptive type indirectly references TYPE if this is also the
-	 case for TYPE itself.  Do not deal with the circularity here.  */
-      TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type)) = 1;
       gen_type_die (dtype, context_die);
-      TYPE_DECL_SUPPRESS_DEBUG (TYPE_STUB_DECL (type)) = 0;
       dtype_die = lookup_type_die (dtype);
       gcc_assert (dtype_die);
     }
@@ -16308,9 +16381,6 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 
   array_die = new_die (DW_TAG_array_type, scope_die, type);
   add_name_attribute (array_die, type_tag (type));
-  add_gnat_descriptive_type_attribute (array_die, type, context_die);
-  if (TYPE_ARTIFICIAL (type))
-    add_AT_flag (array_die, DW_AT_artificial, 1);
   equate_type_number_to_die (type, array_die);
 
   if (TREE_CODE (type) == VECTOR_TYPE)
@@ -16369,6 +16439,10 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 #endif
 
   add_type_attribute (array_die, element_type, 0, 0, context_die);
+
+  add_gnat_descriptive_type_attribute (array_die, type, context_die);
+  if (TYPE_ARTIFICIAL (type))
+    add_AT_flag (array_die, DW_AT_artificial, 1);
 
   if (get_AT (array_die, DW_AT_name))
     add_pubtype (type, array_die);
@@ -16613,9 +16687,6 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 			  scope_die_for (type, context_die), type);
       equate_type_number_to_die (type, type_die);
       add_name_attribute (type_die, type_tag (type));
-      add_gnat_descriptive_type_attribute (type_die, type, context_die);
-      if (TYPE_ARTIFICIAL (type))
-	add_AT_flag (type_die, DW_AT_artificial, 1);
       if (dwarf_version >= 4 || !dwarf_strict)
 	{
 	  if (ENUM_IS_SCOPED (type))
@@ -16671,6 +16742,10 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	    add_AT_int (enum_die, DW_AT_const_value,
 			tree_low_cst (value, tree_int_cst_sgn (value) > 0));
 	}
+
+      add_gnat_descriptive_type_attribute (type_die, type, context_die);
+      if (TYPE_ARTIFICIAL (type))
+	add_AT_flag (type_die, DW_AT_artificial, 1);
     }
   else
     add_AT_flag (type_die, DW_AT_declaration, 1);
@@ -18426,6 +18501,11 @@ gen_compile_unit_die (const char *filename)
 	language = DW_LANG_ObjC;
       else if (strcmp (language_string, "GNU Objective-C++") == 0)
 	language = DW_LANG_ObjC_plus_plus;
+      else if (dwarf_version >= 5 || !dwarf_strict)
+	{
+	  if (strcmp (language_string, "GNU Go") == 0)
+	    language = DW_LANG_Go;
+	}
     }
 
   add_AT_unsigned (die, DW_AT_language, language);
@@ -18578,12 +18658,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
       if (old_die)
 	add_AT_specification (type_die, old_die);
       else
-	{
-	  add_name_attribute (type_die, type_tag (type));
-	  add_gnat_descriptive_type_attribute (type_die, type, context_die);
-	  if (TYPE_ARTIFICIAL (type))
-	    add_AT_flag (type_die, DW_AT_artificial, 1);
-	}
+	add_name_attribute (type_die, type_tag (type));
     }
   else
     remove_AT (type_die, DW_AT_declaration);
@@ -18615,6 +18690,10 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
       push_decl_scope (type);
       gen_member_die (type, type_die);
       pop_decl_scope ();
+
+      add_gnat_descriptive_type_attribute (type_die, type, context_die);
+      if (TYPE_ARTIFICIAL (type))
+	add_AT_flag (type_die, DW_AT_artificial, 1);
 
       /* GNU extension: Record what type our vtable lives in.  */
       if (TYPE_VFIELD (type))
@@ -18842,8 +18921,9 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
 
       /* Use the DIE of the containing namespace as the parent DIE of
          the type description DIE we want to generate.  */
-      if (DECL_CONTEXT (TYPE_NAME (type))
-	  && TREE_CODE (DECL_CONTEXT (TYPE_NAME (type))) == NAMESPACE_DECL)
+      if (DECL_FILE_SCOPE_P (TYPE_NAME (type))
+	  || (DECL_CONTEXT (TYPE_NAME (type))
+	      && TREE_CODE (DECL_CONTEXT (TYPE_NAME (type))) == NAMESPACE_DECL))
 	context_die = get_context_die (DECL_CONTEXT (TYPE_NAME (type)));
 
       TREE_ASM_WRITTEN (type) = 1;
@@ -20536,7 +20616,7 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
       macinfo_entry e;
       e.code = DW_MACINFO_start_file;
       e.lineno = lineno;
-      e.info = xstrdup (filename);
+      e.info = ggc_strdup (filename);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20582,7 +20662,7 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
 	}
       e.code = DW_MACINFO_define;
       e.lineno = lineno;
-      e.info = xstrdup (buffer);;
+      e.info = ggc_strdup (buffer);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20609,7 +20689,7 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 	}
       e.code = DW_MACINFO_undef;
       e.lineno = lineno;
-      e.info = xstrdup (buffer);
+      e.info = ggc_strdup (buffer);
       VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
     }
 }
@@ -20649,8 +20729,6 @@ output_macinfo_op (macinfo_entry *ref)
     {
     case DW_MACINFO_start_file:
       fd = lookup_filename (ref->info);
-      if (fd->filename == ref->info)
-	fd->filename = ggc_strdup (fd->filename);
       file_num = maybe_emit_file (fd);
       dw2_asm_output_data (1, DW_MACINFO_start_file, "Start new file");
       dw2_asm_output_data_uleb128 (ref->lineno,
@@ -20789,8 +20867,8 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
   linebuf_len = strlen (linebuf);
 
   /* The group name format is: wmN.[<encoded filename>.]<lineno>.<md5sum>  */
-  grp_name = XNEWVEC (char, 4 + encoded_filename_len + linebuf_len + 1
-		      + 16 * 2 + 1);
+  grp_name = XALLOCAVEC (char, 4 + encoded_filename_len + linebuf_len + 1
+			 + 16 * 2 + 1);
   memcpy (grp_name, DWARF_OFFSET_SIZE == 4 ? "wm4." : "wm8.", 4);
   tail = grp_name + 4;
   if (encoded_filename_len)
@@ -20811,14 +20889,13 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
   inc = VEC_index (macinfo_entry, macinfo_table, idx - 1);
   inc->code = DW_MACRO_GNU_transparent_include;
   inc->lineno = 0;
-  inc->info = grp_name;
+  inc->info = ggc_strdup (grp_name);
   if (*macinfo_htab == NULL)
     *macinfo_htab = htab_create (10, htab_macinfo_hash, htab_macinfo_eq, NULL);
   /* Avoid emitting duplicates.  */
   slot = htab_find_slot (*macinfo_htab, inc, INSERT);
   if (*slot != NULL)
     {
-      free (CONST_CAST (char *, inc->info));
       inc->code = 0;
       inc->info = NULL;
       /* If such an entry has been used before, just emit
@@ -20833,7 +20910,6 @@ optimize_macinfo_range (unsigned int idx, VEC (macinfo_entry, gc) *files,
 	   i++)
 	{
 	  cur->code = 0;
-	  free (CONST_CAST (char *, cur->info));
 	  cur->info = NULL;
 	}
     }
@@ -20894,11 +20970,7 @@ output_macinfo (void)
 	  break;
 	case DW_MACINFO_end_file:
 	  if (!VEC_empty (macinfo_entry, files))
-	    {
-	      macinfo_entry *file = VEC_last (macinfo_entry, files);
-	      free (CONST_CAST (char *, file->info));
-	      VEC_pop (macinfo_entry, files);
-	    }
+	    VEC_pop (macinfo_entry, files);
 	  break;
 	case DW_MACINFO_define:
 	case DW_MACINFO_undef:
@@ -20926,10 +20998,6 @@ output_macinfo (void)
 	  break;
 	}
       output_macinfo_op (ref);
-      /* For DW_MACINFO_start_file ref->info has been copied into files
-	 vector.  */
-      if (ref->code != DW_MACINFO_start_file)
-	free (CONST_CAST (char *, ref->info));
       ref->info = NULL;
       ref->code = 0;
     }
@@ -20963,7 +21031,6 @@ output_macinfo (void)
 				       ref->lineno);
 	  ASM_OUTPUT_LABEL (asm_out_file, label);
 	  ref->code = 0;
-	  free (CONST_CAST (char *, ref->info));
 	  ref->info = NULL;
 	  dw2_asm_output_data (2, 4, "DWARF macro version number");
 	  if (DWARF_OFFSET_SIZE == 8)
@@ -20976,7 +21043,6 @@ output_macinfo (void)
       case DW_MACINFO_undef:
 	output_macinfo_op (ref);
 	ref->code = 0;
-	free (CONST_CAST (char *, ref->info));
 	ref->info = NULL;
 	break;
       default:
@@ -22488,15 +22554,8 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context
-			  && (TREE_CODE (context) == FUNCTION_DECL
-			      || TREE_CODE (context) == NAMESPACE_DECL));
-
-	      origin = lookup_decl_die (context);
-	      if (origin)
-	        add_child_die (origin, die);
-	      else
-	        add_child_die (comp_unit_die (), die);
+	      origin = get_context_die (context);
+	      add_child_die (origin, die);
 	    }
 	}
     }

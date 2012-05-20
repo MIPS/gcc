@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Checks;   use Checks;
@@ -482,6 +483,13 @@ package body Exp_Util is
             Utyp := Base_Type (Utyp);
          end if;
 
+         --  When dealing with an internally built full view for a type with
+         --  unknown discriminants, use the original record type.
+
+         if Is_Underlying_Record_View (Utyp) then
+            Utyp := Etype (Utyp);
+         end if;
+
          return TSS (Utyp, TSS_Finalize_Address);
       end Find_Finalize_Address;
 
@@ -755,7 +763,30 @@ package body Exp_Util is
 
          Append_To (Actuals, New_Reference_To (Addr_Id, Loc));
          Append_To (Actuals, New_Reference_To (Size_Id, Loc));
-         Append_To (Actuals, New_Reference_To (Alig_Id, Loc));
+
+         if Is_Allocate or else not Is_Class_Wide_Type (Desig_Typ) then
+            Append_To (Actuals, New_Reference_To (Alig_Id, Loc));
+
+         --  For deallocation of class wide types we obtain the value of
+         --  alignment from the Type Specific Record of the deallocated object.
+         --  This is needed because the frontend expansion of class-wide types
+         --  into equivalent types confuses the backend.
+
+         else
+            --  Generate:
+            --     Obj.all'Alignment
+
+            --  ... because 'Alignment applied to class-wide types is expanded
+            --  into the code that reads the value of alignment from the TSD
+            --  (see Expand_N_Attribute_Reference)
+
+            Append_To (Actuals,
+              Unchecked_Convert_To (RTE (RE_Storage_Offset),
+                Make_Attribute_Reference (Loc,
+                  Prefix         =>
+                    Make_Explicit_Dereference (Loc, Relocate_Node (Expr)),
+                  Attribute_Name => Name_Alignment)));
+         end if;
 
          --  h) Is_Controlled
 
@@ -854,6 +885,7 @@ package body Exp_Util is
             else
                Append_To (Actuals, New_Reference_To (Standard_True, Loc));
             end if;
+
          else
             Append_To (Actuals, New_Reference_To (Standard_False, Loc));
          end if;
@@ -892,8 +924,7 @@ package body Exp_Util is
                   --  P : Root_Storage_Pool
 
                    Make_Parameter_Specification (Loc,
-                     Defining_Identifier =>
-                       Make_Temporary (Loc, 'P'),
+                     Defining_Identifier => Make_Temporary (Loc, 'P'),
                      Parameter_Type =>
                        New_Reference_To (RTE (RE_Root_Storage_Pool), Loc)),
 
@@ -901,22 +932,22 @@ package body Exp_Util is
 
                    Make_Parameter_Specification (Loc,
                      Defining_Identifier => Addr_Id,
-                     Out_Present => Is_Allocate,
-                     Parameter_Type =>
+                     Out_Present         => Is_Allocate,
+                     Parameter_Type      =>
                        New_Reference_To (RTE (RE_Address), Loc)),
 
                   --  S : Storage_Count
 
                    Make_Parameter_Specification (Loc,
                      Defining_Identifier => Size_Id,
-                     Parameter_Type =>
+                     Parameter_Type      =>
                        New_Reference_To (RTE (RE_Storage_Count), Loc)),
 
                   --  L : Storage_Count
 
                    Make_Parameter_Specification (Loc,
                      Defining_Identifier => Alig_Id,
-                     Parameter_Type =>
+                     Parameter_Type      =>
                        New_Reference_To (RTE (RE_Storage_Count), Loc)))),
 
              Declarations => No_List,
@@ -925,8 +956,7 @@ package body Exp_Util is
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => New_List (
                    Make_Procedure_Call_Statement (Loc,
-                     Name =>
-                       New_Reference_To (Proc_To_Call, Loc),
+                     Name => New_Reference_To (Proc_To_Call, Loc),
                      Parameter_Associations => Actuals)))));
 
          --  The newly generated Allocate / Deallocate becomes the default
@@ -3910,6 +3940,92 @@ package body Exp_Util is
       return True;
    end Is_All_Null_Statements;
 
+   ---------------------------------------------
+   -- Is_Displacement_Of_Ctrl_Function_Result --
+   ---------------------------------------------
+
+   function Is_Displacement_Of_Ctrl_Function_Result
+     (Obj_Id : Entity_Id) return Boolean
+   is
+      function Initialized_By_Ctrl_Function (N : Node_Id) return Boolean;
+      --  Determine whether object declaration N is initialized by a controlled
+      --  function call.
+
+      function Is_Displace_Call (N : Node_Id) return Boolean;
+      --  Determine whether a particular node is a call to Ada.Tags.Displace.
+      --  The call might be nested within other actions such as conversions.
+
+      ----------------------------------
+      -- Initialized_By_Ctrl_Function --
+      ----------------------------------
+
+      function Initialized_By_Ctrl_Function (N : Node_Id) return Boolean is
+         Expr : constant Node_Id := Original_Node (Expression (N));
+      begin
+         return
+            Nkind (Expr) = N_Function_Call
+              and then Needs_Finalization (Etype (Expr));
+      end Initialized_By_Ctrl_Function;
+
+      ----------------------
+      -- Is_Displace_Call --
+      ----------------------
+
+      function Is_Displace_Call (N : Node_Id) return Boolean is
+         Call : Node_Id := N;
+
+      begin
+         --  Strip various actions which may precede a call to Displace
+
+         loop
+            if Nkind (Call) = N_Explicit_Dereference then
+               Call := Prefix (Call);
+
+            elsif Nkind_In (Call, N_Type_Conversion,
+                                  N_Unchecked_Type_Conversion)
+            then
+               Call := Expression (Call);
+
+            else
+               exit;
+            end if;
+         end loop;
+
+         return
+           Nkind (Call) = N_Function_Call
+             and then Is_RTE (Entity (Name (Call)), RE_Displace);
+      end Is_Displace_Call;
+
+      --  Local variables
+
+      Decl      : constant Node_Id   := Parent (Obj_Id);
+      Obj_Typ   : constant Entity_Id := Base_Type (Etype (Obj_Id));
+      Orig_Decl : constant Node_Id   := Original_Node (Decl);
+
+   --  Start of processing for Is_Displacement_Of_Ctrl_Function_Result
+
+   begin
+      --  Detect the following case:
+
+      --     Obj : Class_Wide_Type := Function_Call (...);
+
+      --  which is rewritten into:
+
+      --     Temp : ... := Function_Call (...)'reference;
+      --     Obj  : Class_Wide_Type renames (... Ada.Tags.Displace (Temp));
+
+      --  when the return type of the function and the class-wide type require
+      --  dispatch table pointer displacement.
+
+      return
+        Nkind (Decl) = N_Object_Renaming_Declaration
+          and then Nkind (Orig_Decl) = N_Object_Declaration
+          and then Comes_From_Source (Orig_Decl)
+          and then Initialized_By_Ctrl_Function (Orig_Decl)
+          and then Is_Class_Wide_Type (Obj_Typ)
+          and then Is_Displace_Call (Renamed_Object (Obj_Id));
+   end Is_Displacement_Of_Ctrl_Function_Result;
+
    ------------------------------
    -- Is_Finalizable_Transient --
    ------------------------------
@@ -3943,6 +4059,13 @@ package body Exp_Util is
 
       function Is_Allocated (Trans_Id : Entity_Id) return Boolean;
       --  Determine whether transient object Trans_Id is allocated on the heap
+
+      function Is_Iterated_Container
+        (Trans_Id   : Entity_Id;
+         First_Stmt : Node_Id) return Boolean;
+      --  Determine whether transient object Trans_Id denotes a container which
+      --  is in the process of being iterated in the statement list starting
+      --  from First_Stmt.
 
       ---------------------------
       -- Initialized_By_Access --
@@ -4158,6 +4281,92 @@ package body Exp_Util is
              and then Nkind (Expr) = N_Allocator;
       end Is_Allocated;
 
+      ---------------------------
+      -- Is_Iterated_Container --
+      ---------------------------
+
+      function Is_Iterated_Container
+        (Trans_Id   : Entity_Id;
+         First_Stmt : Node_Id) return Boolean
+      is
+         Aspect : Node_Id;
+         Call   : Node_Id;
+         Iter   : Entity_Id;
+         Param  : Node_Id;
+         Stmt   : Node_Id;
+         Typ    : Entity_Id;
+
+      begin
+         --  It is not possible to iterate over containers in non-Ada 2012 code
+
+         if Ada_Version < Ada_2012 then
+            return False;
+         end if;
+
+         Typ := Etype (Trans_Id);
+
+         --  Handle access type created for secondary stack use
+
+         if Is_Access_Type (Typ) then
+            Typ := Designated_Type (Typ);
+         end if;
+
+         --  Look for aspect Default_Iterator
+
+         if Has_Aspects (Parent (Typ)) then
+            Aspect := Find_Aspect (Typ, Aspect_Default_Iterator);
+
+            if Present (Aspect) then
+               Iter := Entity (Aspect);
+
+               --  Examine the statements following the container object and
+               --  look for a call to the default iterate routine where the
+               --  first parameter is the transient. Such a call appears as:
+
+               --     It : Access_To_CW_Iterator :=
+               --            Iterate (Tran_Id.all, ...)'reference;
+
+               Stmt := First_Stmt;
+               while Present (Stmt) loop
+
+                  --  Detect an object declaration which is initialized by a
+                  --  secondary stack function call.
+
+                  if Nkind (Stmt) = N_Object_Declaration
+                    and then Present (Expression (Stmt))
+                    and then Nkind (Expression (Stmt)) = N_Reference
+                    and then Nkind (Prefix (Expression (Stmt))) =
+                               N_Function_Call
+                  then
+                     Call := Prefix (Expression (Stmt));
+
+                     --  The call must invoke the default iterate routine of
+                     --  the container and the transient object must appear as
+                     --  the first actual parameter. Skip any calls whose names
+                     --  are not entities.
+
+                     if Is_Entity_Name (Name (Call))
+                       and then Entity (Name (Call)) = Iter
+                       and then Present (Parameter_Associations (Call))
+                     then
+                        Param := First (Parameter_Associations (Call));
+
+                        if Nkind (Param) = N_Explicit_Dereference
+                          and then Entity (Prefix (Param)) = Trans_Id
+                        then
+                           return True;
+                        end if;
+                     end if;
+                  end if;
+
+                  Next (Stmt);
+               end loop;
+            end if;
+         end if;
+
+         return False;
+      end Is_Iterated_Container;
+
    --  Start of processing for Is_Finalizable_Transient
 
    begin
@@ -4198,7 +4407,13 @@ package body Exp_Util is
 
           --  Do not consider conversions of tags to class-wide types
 
-          and then not Is_Tag_To_CW_Conversion (Obj_Id);
+          and then not Is_Tag_To_Class_Wide_Conversion (Obj_Id)
+
+          --  Do not consider containers in the context of iterator loops. Such
+          --  transient objects must exist for as long as the loop is around,
+          --  otherwise any operation carried out by the iterator will fail.
+
+          and then not Is_Iterated_Container (Obj_Id, Decl);
    end Is_Finalizable_Transient;
 
    ---------------------------------
@@ -4722,11 +4937,13 @@ package body Exp_Util is
       end if;
    end Is_Renamed_Object;
 
-   -----------------------------
-   -- Is_Tag_To_CW_Conversion --
-   -----------------------------
+   -------------------------------------
+   -- Is_Tag_To_Class_Wide_Conversion --
+   -------------------------------------
 
-   function Is_Tag_To_CW_Conversion (Obj_Id : Entity_Id) return Boolean is
+   function Is_Tag_To_Class_Wide_Conversion
+     (Obj_Id : Entity_Id) return Boolean
+   is
       Expr : constant Node_Id := Expression (Parent (Obj_Id));
 
    begin
@@ -4735,7 +4952,7 @@ package body Exp_Util is
           and then Present (Expr)
           and then Nkind (Expr) = N_Unchecked_Type_Conversion
           and then Etype (Expression (Expr)) = RTE (RE_Tag);
-   end Is_Tag_To_CW_Conversion;
+   end Is_Tag_To_Class_Wide_Conversion;
 
    ----------------------------
    -- Is_Untagged_Derivation --
@@ -6886,7 +7103,7 @@ package body Exp_Util is
               and then Needs_Finalization (Obj_Typ)
               and then not (Ekind (Obj_Id) = E_Constant
                               and then not Has_Completion (Obj_Id))
-              and then not Is_Tag_To_CW_Conversion (Obj_Id)
+              and then not Is_Tag_To_Class_Wide_Conversion (Obj_Id)
             then
                return True;
 
@@ -6935,10 +7152,7 @@ package body Exp_Util is
 
          --  Specific cases of object renamings
 
-         elsif Nkind (Decl) = N_Object_Renaming_Declaration
-           and then Nkind (Name (Decl)) = N_Explicit_Dereference
-           and then Nkind (Prefix (Name (Decl))) = N_Identifier
-         then
+         elsif Nkind (Decl) = N_Object_Renaming_Declaration then
             Obj_Id  := Defining_Identifier (Decl);
             Obj_Typ := Base_Type (Etype (Obj_Id));
 
@@ -6959,6 +7173,19 @@ package body Exp_Util is
               and then Is_Return_Object (Obj_Id)
               and then Present (Return_Flag_Or_Transient_Decl (Obj_Id))
             then
+               return True;
+
+            --  Detect a case where a source object has been initialized by a
+            --  controlled function call which was later rewritten as a class-
+            --  wide conversion of Ada.Tags.Displace.
+
+            --     Obj : Class_Wide_Type := Function_Call (...);
+
+            --     Temp : ... := Function_Call (...)'reference;
+            --     Obj  : Class_Wide_Type renames
+            --              (... Ada.Tags.Displace (Temp));
+
+            elsif Is_Displacement_Of_Ctrl_Function_Result (Obj_Id) then
                return True;
             end if;
 
