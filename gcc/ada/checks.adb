@@ -1240,7 +1240,9 @@ package body Checks is
       --  partial view that is constrained.
 
       elsif Ada_Version >= Ada_2005
-        and then Has_Constrained_Partial_View (Base_Type (T_Typ))
+        and then Effectively_Has_Constrained_Partial_View
+                   (Typ  => Base_Type (T_Typ),
+                    Scop => Current_Scope)
       then
          return;
       end if;
@@ -2396,6 +2398,15 @@ package body Checks is
                else
                   Apply_Scalar_Range_Check
                     (Expr, Target_Type, Fixed_Int => Conv_OK);
+
+                  --  If the target type has predicates, we need to indicate
+                  --  the need for a check, even if Determine_Range finds
+                  --  that the value is within bounds. This may be the case
+                  --  e.g for a division with a constant denominator.
+
+                  if Has_Predicates (Target_Type) then
+                     Enable_Range_Check (Expr);
+                  end if;
                end if;
             end if;
          end;

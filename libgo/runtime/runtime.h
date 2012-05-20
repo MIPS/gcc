@@ -6,7 +6,6 @@
 
 #include "config.h"
 
-#define _GNU_SOURCE
 #include "go-assert.h"
 #include <setjmp.h>
 #include <signal.h>
@@ -53,13 +52,23 @@ typedef	struct	G		G;
 typedef	union	Lock		Lock;
 typedef	struct	M		M;
 typedef	union	Note		Note;
+typedef	struct	SigTab		SigTab;
 typedef	struct	MCache		MCache;
 typedef struct	FixAlloc	FixAlloc;
+typedef	struct	Hchan		Hchan;
+typedef	struct	Timers		Timers;
+typedef	struct	Timer		Timer;
 
-typedef	struct	__go_defer_stack	Defer;
-typedef	struct	__go_panic_stack	Panic;
 typedef	struct	__go_open_array		Slice;
 typedef	struct	__go_string		String;
+typedef struct	__go_interface		Iface;
+typedef	struct	__go_empty_interface	Eface;
+typedef	struct	__go_type_descriptor	Type;
+typedef	struct	__go_defer_stack	Defer;
+typedef	struct	__go_panic_stack	Panic;
+
+typedef struct	__go_func_type		FuncType;
+typedef struct	__go_map_type		MapType;
 
 /*
  * per-cpu declaration.
@@ -125,6 +134,7 @@ struct	G
 	bool	fromgogo;	// reached from gogo
 	int16	status;
 	int32	goid;
+	uint32	selgen;		// valid sudog pointer
 	const char*	waitreason;	// if status==Gwaiting
 	G*	schedlink;
 	bool	readyonstop;
@@ -170,9 +180,23 @@ struct	M
 	uint32	waitsemalock;
 };
 
+struct	SigTab
+{
+	int32	sig;
+	int32	flags;
+};
+enum
+{
+	SigCatch = 1<<0,
+	SigIgnore = 1<<1,
+	SigRestart = 1<<2,
+	SigQueue = 1<<3,
+	SigPanic = 1<<4,
+};
+
 /* Macros.  */
 
-#ifdef __WINDOWS__
+#ifdef GOOS_windows
 enum {
    Windows = 1
 };
@@ -182,6 +206,38 @@ enum {
 };
 #endif
 
+struct	Timers
+{
+	Lock;
+	G	*timerproc;
+	bool		sleeping;
+	bool		rescheduling;
+	Note	waitnote;
+	Timer	**t;
+	int32	len;
+	int32	cap;
+};
+
+// Package time knows the layout of this structure.
+// If this struct changes, adjust ../time/sleep.go:/runtimeTimer.
+struct	Timer
+{
+	int32	i;		// heap index
+
+	// Timer wakes up at when, and then at when+period, ... (period > 0 only)
+	// each time calling f(now, arg) in the timer goroutine, so f must be
+	// a well-behaved function and not block.
+	int64	when;
+	int64	period;
+	void	(*f)(int64, Eface);
+	Eface	arg;
+};
+
+/*
+ * defined macros
+ *    you need super-gopher-guru privilege
+ *    to add this list.
+ */
 #define	nelem(x)	(sizeof(x)/sizeof((x)[0]))
 #define	nil		((void*)0)
 #define USED(v)		((void) v)
@@ -210,22 +266,27 @@ void	runtime_args(int32, byte**);
 void	runtime_osinit();
 void	runtime_goargs(void);
 void	runtime_goenvs(void);
-void	runtime_throw(const char*);
+void	runtime_goenvs_unix(void);
+void	runtime_throw(const char*) __attribute__ ((noreturn));
+void	runtime_panicstring(const char*) __attribute__ ((noreturn));
 void*	runtime_mal(uintptr);
 void	runtime_schedinit(void);
 void	runtime_initsig(int32);
-String	runtime_gostringnocopy(byte*);
+String	runtime_gostringnocopy(const byte*);
 void*	runtime_mstart(void*);
 G*	runtime_malg(int32, byte**, size_t*);
 void	runtime_minit(void);
 void	runtime_mallocinit(void);
 void	runtime_gosched(void);
+void	runtime_tsleep(int64);
+M*	runtime_newm(void);
 void	runtime_goexit(void);
 void	runtime_entersyscall(void) __asm__("libgo_syscall.syscall.entersyscall");
 void	runtime_exitsyscall(void) __asm__("libgo_syscall.syscall.exitsyscall");
 void	siginit(void);
 bool	__go_sigsend(int32 sig);
 int64	runtime_nanotime(void);
+int64	runtime_cputicks(void);
 
 void	runtime_stoptheworld(void);
 void	runtime_starttheworld(bool);
@@ -274,22 +335,24 @@ void	runtime_semawakeup(M*);
 void	runtime_futexsleep(uint32*, uint32, int64);
 void	runtime_futexwakeup(uint32*, uint32);
 
+/*
+ * runtime go-called
+ */
+void	runtime_panic(Eface);
 
 /* Functions.  */
+#define runtime_panic __go_panic
 #define runtime_printf printf
 #define runtime_malloc(s) __go_alloc(s)
 #define runtime_free(p) __go_free(p)
-#define runtime_memclr(buf, size) __builtin_memset((buf), 0, (size))
 #define runtime_strcmp(s1, s2) __builtin_strcmp((s1), (s2))
 #define runtime_mcmp(a, b, s) __builtin_memcmp((a), (b), (s))
 #define runtime_memmove(a, b, s) __builtin_memmove((a), (b), (s))
-#define runtime_exit(s) _exit(s)
+#define runtime_exit(s) exit(s)
 MCache*	runtime_allocmcache(void);
 void	free(void *v);
 struct __go_func_type;
 bool	runtime_addfinalizer(void*, void(*fn)(void*), const struct __go_func_type *);
-#define runtime_mmap mmap
-#define runtime_munmap(p, s) munmap((p), (s))
 #define runtime_cas(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
 #define runtime_casp(pval, old, new) __sync_bool_compare_and_swap (pval, old, new)
 #define runtime_xadd(p, v) __sync_add_and_fetch (p, v)
@@ -304,16 +367,28 @@ void	runtime_startpanic(void);
 void	runtime_ready(G*);
 const byte*	runtime_getenv(const char*);
 int32	runtime_atoi(const byte*);
+uint32	runtime_fastrand1(void);
+
 void	runtime_sigprof(uint8 *pc, uint8 *sp, uint8 *lr, G *gp);
 void	runtime_resetcpuprofiler(int32);
 void	runtime_setcpuprofilerate(void(*)(uintptr*, int32), int32);
-uint32	runtime_fastrand1(void);
+void	runtime_usleep(uint32);
+
 void	runtime_semacquire(uint32 volatile *);
 void	runtime_semrelease(uint32 volatile *);
 int32	runtime_gomaxprocsfunc(int32 n);
 void	runtime_procyield(uint32);
 void	runtime_osyield(void);
-void	runtime_usleep(uint32);
+void	runtime_LockOSThread(void) __asm__("libgo_runtime.runtime.LockOSThread");
+void	runtime_UnlockOSThread(void) __asm__("libgo_runtime.runtime.UnlockOSThread");
+
+/*
+ * low level C-called
+ */
+#define runtime_mmap mmap
+#define runtime_munmap munmap
+#define runtime_madvise madvise
+#define runtime_memclr(buf, size) __builtin_memset((buf), 0, (size))
 
 struct __go_func_type;
 void reflect_call(const struct __go_func_type *, const void *, _Bool, _Bool,
@@ -324,5 +399,4 @@ void reflect_call(const struct __go_func_type *, const void *, _Bool, _Bool,
 void __wrap_rtems_task_variable_add(void **);
 #endif
 
-/* Temporary.  */
-void	runtime_cond_wait(pthread_cond_t*, pthread_mutex_t*);
+void	runtime_time_scan(void (*)(byte*, int64));

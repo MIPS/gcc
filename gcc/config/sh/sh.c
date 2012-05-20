@@ -724,8 +724,15 @@ sh_option_override (void)
   else
     sh_divsi3_libfunc = "__sdivsi3";
   if (sh_branch_cost == -1)
-    sh_branch_cost
-      = TARGET_SH5 ? 1 : ! TARGET_SH2 || TARGET_HARD_SH4 ? 2 : 1;
+    {
+      sh_branch_cost = 1;
+
+      /*  The SH1 does not have delay slots, hence we get a pipeline stall
+	  at every branch.  The SH4 is superscalar, so the single delay slot
+	  is not sufficient to keep both pipelines filled.  */
+      if (! TARGET_SH2 || TARGET_HARD_SH4)
+	sh_branch_cost = 2;
+    }
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (! VALID_REGISTER_P (regno))
@@ -842,7 +849,7 @@ sh_option_override (void)
     sh_fix_range (sh_fixed_range_str);
 
   /* This target defaults to strict volatile bitfields.  */
-  if (flag_strict_volatile_bitfields < 0)
+  if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
     flag_strict_volatile_bitfields = 1;
 }
 
@@ -1843,7 +1850,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
 }
 
 /* ??? How should we distribute probabilities when more than one branch
-   is generated.  So far we only have soem ad-hoc observations:
+   is generated.  So far we only have some ad-hoc observations:
    - If the operands are random, they are likely to differ in both parts.
    - If comparing items in a hash chain, the operands are random or equal;
      operation should be EQ or NE.
@@ -3266,7 +3273,7 @@ expand_ashiftrt (rtx *operands)
   char func[18];
   int value;
 
-  if (TARGET_SH3)
+  if (TARGET_SH3 || TARGET_SH2A)
     {
       if (!CONST_INT_P (operands[2]))
 	{
@@ -3715,7 +3722,7 @@ shl_sext_kind (rtx left_rtx, rtx size_rtx, int *costp)
 	    }
 	}
     }
-  if (TARGET_SH3)
+  if (TARGET_SH3 || TARGET_SH2A)
     {
       /* Try to use a dynamic shift.  */
       cost = shift_insns[32 - insize] + 1 + SH_DYNAMIC_SHIFT_COST;
@@ -5373,7 +5380,7 @@ sh_reorg (void)
 
   /* If relaxing, generate pseudo-ops to associate function calls with
      the symbols they call.  It does no harm to not generate these
-     pseudo-ops.  However, when we can generate them, it enables to
+     pseudo-ops.  However, when we can generate them, it enables the
      linker to potentially relax the jsr to a bsr, and eliminate the
      register load and, possibly, the constant pool entry.  */
 
@@ -9194,13 +9201,6 @@ fldi_ok (void)
   return 1;
 }
 
-int
-tertiary_reload_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-  return code == MEM || (TARGET_SH4 && code == CONST_DOUBLE);
-}
-
 /* Return the TLS type for TLS symbols, 0 for otherwise.  */
 enum tls_model
 tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -9252,7 +9252,7 @@ reg_unused_after (rtx reg, rtx insn)
 
 #if 0
       /* If this is a label that existed before reload, then the register
-	 if dead here.  However, if this is a label added by reorg, then
+	 is dead here.  However, if this is a label added by reorg, then
 	 the register may still be live here.  We can't tell the difference,
 	 so we just ignore labels completely.  */
       if (code == CODE_LABEL)
@@ -9562,7 +9562,7 @@ sh_legitimate_index_p (enum machine_mode mode, rtx op)
 	{
 	  int size;
 
-	  /* Check if this the address of an unaligned load / store.  */
+	  /* Check if this is the address of an unaligned load / store.  */
 	  if (mode == VOIDmode)
 	    return CONST_OK_FOR_I06 (INTVAL (op));
 
@@ -12432,6 +12432,14 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
   if (rclass != GENERAL_REGS && REG_P (x)
       && TARGET_REGISTER_P (REGNO (x)))
     return GENERAL_REGS;
+
+ /* If here fall back to loading FPUL register through general registers.
+    This case can happen when movsi_ie insn is picked initially to
+    load/store the FPUL register from/to another register, and then the
+    other register is allocated on the stack.  */
+  if (rclass == FPUL_REGS && true_regnum (x) == -1)
+    return GENERAL_REGS;
+
   return NO_REGS;
 }
 

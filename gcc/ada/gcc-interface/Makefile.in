@@ -1,5 +1,5 @@
 # Makefile for GNU Ada Compiler (GNAT).
-#   Copyright (C) 1994-2011 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2012 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -252,7 +252,6 @@ TOOLS_LIBS = targext.o link.o ../../libcommon-target.a ../../libcommon.a \
 # Convert the target variable into a space separated list of architecture,
 # manufacturer, and operating system and assign each of those to its own
 # variable.
-
 host:=$(subst -, ,$(host_canonical))
 targ:=$(subst -, ,$(target))
 arch:=$(word 1,$(targ))
@@ -268,14 +267,22 @@ endif
 # Both . and srcdir are used, in that order,
 # so that tm.h and config.h will be found in the compilation
 # subdirectory rather than in the source directory.
-INCLUDES = -I- -I. -I.. -I$(srcdir)/ada -I$(srcdir) -I$(srcdir)/config \
-	-I$(srcdir)/../include
+INCLUDES = -I- -I. -I.. -I$(srcdir)/ada -I$(srcdir) -I$(srcdir)/../include
 
 ADA_INCLUDES = -I- -I. -I$(srcdir)/ada
 
-INCLUDES_FOR_SUBDIR = -iquote . -iquote .. -iquote ../.. \
-		      -iquote $(fsrcdir)/ada -iquote $(fsrcdir) \
-		      -I$(fsrcdir)/../include
+# Likewise, but valid for subdirectories of the current dir.
+# FIXME: for VxWorks, we cannot add $(fsrcdir) because the regs.h file in
+# that directory conflicts with a system header file.
+ifneq ($(findstring vxworks,$(osys)),)
+  INCLUDES_FOR_SUBDIR = -iquote . -iquote .. -iquote ../.. \
+			-iquote $(fsrcdir)/ada \
+			-I$(fsrcdir)/../include
+else
+  INCLUDES_FOR_SUBDIR = -iquote . -iquote .. -iquote ../.. \
+			-iquote $(fsrcdir)/ada -iquote $(fsrcdir) \
+			-I$(fsrcdir)/../include
+endif
 
 ADA_INCLUDES_FOR_SUBDIR = -I. -I$(fsrcdir)/ada
 
@@ -423,13 +430,11 @@ ATOMICS_BUILTINS_TARGET_PAIRS = \
 X86_TARGET_PAIRS = \
   a-numaux.ads<a-numaux-x86.ads \
   a-numaux.adb<a-numaux-x86.adb \
-  g-bytswa.adb<g-bytswa-x86.adb \
   s-atocou.adb<s-atocou-x86.adb
 
 X86_64_TARGET_PAIRS = \
   a-numaux.ads<a-numaux-x86.ads \
   a-numaux.adb<a-numaux-x86.adb \
-  g-bytswa.adb<g-bytswa-x86.adb \
   s-atocou.adb<s-atocou-builtin.adb
 
 LIB_VERSION = $(strip $(shell grep ' Library_Version :' $(fsrcpfx)ada/gnatvsn.ads | sed -e 's/.*"\(.*\)".*/\1/'))
@@ -667,7 +672,7 @@ ifeq ($(strip $(filter-out e500% powerpc% wrs vxworksmils,$(targ))),)
   s-thread.adb<s-thread-ae653.adb \
   s-tpopsp.adb<s-tpopsp-vxworks.adb \
   s-vxwork.ads<s-vxwork-ppc.ads \
-  system.ads<system-vxworks-ppc.ads \
+  system.ads<system-vxworks-ppc-mils.ads \
   $(ATOMICS_TARGET_PAIRS) \
   $(ATOMICS_BUILTINS_TARGET_PAIRS) \
   $(DUMMY_SOCKETS_TARGET_PAIRS)
@@ -1095,9 +1100,21 @@ ifeq ($(strip $(filter-out %86 linux%,$(arch) $(osys))),)
   a-exetim.ads<a-exetim-default.ads \
   s-linux.ads<s-linux.ads \
   s-osinte.adb<s-osinte-posix.adb \
-  system.ads<system-linux-x86.ads \
-  $(ATOMICS_TARGET_PAIRS) \
-  $(X86_TARGET_PAIRS)
+  $(ATOMICS_TARGET_PAIRS)
+
+  LIBGNAT_TARGET_PAIRS_32 = \
+  $(X86_TARGET_PAIRS) \
+  system.ads<system-linux-x86.ads
+
+  LIBGNAT_TARGET_PAIRS_64 = \
+  $(X86_64_TARGET_PAIRS) \
+  system.ads<system-linux-x86_64.ads
+
+  ifeq ($(strip $(MULTISUBDIR)),/64)
+    LIBGNAT_TARGET_PAIRS += $(LIBGNAT_TARGET_PAIRS_64)
+  else
+    LIBGNAT_TARGET_PAIRS += $(LIBGNAT_TARGET_PAIRS_32)
+  endif
 
   ifeq ($(strip $(filter-out xenomai,$(THREAD_KIND))),)
     LIBGNAT_TARGET_PAIRS += \
@@ -1468,10 +1485,6 @@ hyphen = _
 LN = cp -p
 LN_S = cp -p
 
-.SUFFIXES: .sym
-
-.o.sym:
-	@ gnu:[bin]vmssymvec $<
 endif
 
 ifeq ($(strip $(filter-out alpha64 ia64 dec hp vms% openvms% alphavms%,$(targ))),)
@@ -1547,16 +1560,11 @@ ifeq ($(strip $(filter-out alpha64 ia64 dec hp vms% openvms% alphavms%,$(targ)))
     endif
   endif
 
-adamsg.o: adamsg.msg
-	-$(DECC) --cc=message adamsg.msg -o adamsg.o
-
   EXTRA_GNATMAKE_OBJS = mlib-tgt-vms_common.o
 
   GMEM_LIB = gmemlib
   EH_MECHANISM=-gcc
   GNATLIB_SHARED=gnatlib-shared-vms
-  EXTRA_LIBGNAT_SRCS+=adamsg.msg
-  EXTRA_LIBGNAT_OBJS+=adamsg.o
   EXTRA_GNATRTL_NONTASKING_OBJS+=s-po32gl.o
   EXTRA_GNATRTL_TASKING_OBJS=s-tpopde.o
   EXTRA_GNATTOOLS = \
@@ -1573,18 +1581,35 @@ ifeq ($(strip $(filter-out avr none powerpc% eabispe leon% erc32% unknown elf,$(
   indepsw.adb<indepsw-gnu.adb
 endif
 
-ifeq ($(strip $(filter-out cygwin32% mingw32% pe,$(osys))),)
-  LIBGNAT_TARGET_PAIRS = \
+ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(osys))),)
+  # Cygwin provides a full Posix environment, and so we use the default
+  # versions of s-memory and g-socthi rather than the Windows-specific
+  # MinGW versions.  Ideally we would use all the default versions for
+  # Cygwin and none of the MinGW versions, but for historical reasons
+  # the Cygwin port has always been a CygMing frankenhybrid and it is
+  # a long-term project to disentangle them.
+  ifeq ($(strip $(filter-out cygwin%,$(osys))),)
+    WIN_SO_PREFIX=cyg
+    LIBGNAT_TARGET_PAIRS = \
+    s-memory.adb<s-memory.adb \
+    g-socthi.ads<g-socthi.ads \
+    g-socthi.adb<g-socthi.adb
+  else
+    WIN_SO_PREFIX=lib
+    LIBGNAT_TARGET_PAIRS = \
+    s-memory.adb<s-memory-mingw.adb \
+    g-socthi.ads<g-socthi-mingw.ads \
+    g-socthi.adb<g-socthi-mingw.adb
+  endif
+  WIN_SO_INSTALL_DIR = $(bindir)
+  LIBGNAT_TARGET_PAIRS += \
   a-dirval.adb<a-dirval-mingw.adb \
   a-excpol.adb<a-excpol-abort.adb \
   s-gloloc.adb<s-gloloc-mingw.adb \
   s-inmaop.adb<s-inmaop-dummy.adb \
-  s-memory.adb<s-memory-mingw.adb \
   s-taspri.ads<s-taspri-mingw.ads \
   s-tasinf.adb<s-tasinf-mingw.adb \
   s-tasinf.ads<s-tasinf-mingw.ads \
-  g-socthi.ads<g-socthi-mingw.ads \
-  g-socthi.adb<g-socthi-mingw.adb \
   g-stsifd.adb<g-stsifd-sockets.adb \
   g-soliop.ads<g-soliop-mingw.ads \
   $(ATOMICS_TARGET_PAIRS)
@@ -2216,8 +2241,8 @@ LIBGNAT_SRCS = adadecode.c adadecode.h adaint.c adaint.h	\
   argv.c cio.c cstreams.c errno.c exit.c cal.c ctrl_c.c env.c env.h	\
   arit64.c raise.h raise.c sysdep.c aux-io.c init.c initialize.c	\
   locales.c seh_init.c final.c tracebak.c tb-alvms.c tb-alvxw.c         \
-  tb-gcc.c expect.c mkdir.c socket.c gsocket.h targext.c \
-  terminals.c $(EXTRA_LIBGNAT_SRCS)
+  tb-gcc.c expect.c mkdir.c socket.c gsocket.h targext.c terminals.c	\
+  thread.c $(EXTRA_LIBGNAT_SRCS)
 
 LIBGNAT_OBJS = adadecode.o adaint.o argv.o cio.o cstreams.o ctrl_c.o	\
   errno.o exit.o env.o raise.o sysdep.o aux-io.o init.o initialize.o	\
@@ -2427,11 +2452,14 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 #     for shared libraries on some targets, e.g. on HP-UX where the x
 #     permission is required.
 #     Also install the .dSYM directories if they exist (these directories
-#     contain the debug information for the shared libraries on darwin)
+#     contain the debug information for the shared libraries on darwin),
+#     and the windows import libraries if they exist.
+	libpfx=$(if $(WIN_SO_PREFIX),$(WIN_SO_PREFIX),lib); \
+	librtlobjdir=$(if $(WIN_SO_INSTALL_DIR),$(WIN_SO_INSTALL_DIR),$(ADA_RTL_OBJ_DIR)); \
 	for file in gnat gnarl; do \
-	   if [ -f $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) ]; then \
-	      $(INSTALL) $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
-			 $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   if [ -f $(RTSDIR)/$${libpfx}$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) ]; then \
+	      $(INSTALL) $(RTSDIR)/$${libpfx}$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
+			 $(DESTDIR)$${librtlobjdir}; \
 	   fi; \
 	   if [ -f $(RTSDIR)/lib$${file}$(soext) ]; then \
 	      $(LN_S) lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext) \
@@ -2440,6 +2468,10 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 	   if [ -d $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM ]; then \
 	      $(CP) -r $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext).dSYM \
 	        $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
+	   fi; \
+	   if [ -f $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext)$(arext) ]; then \
+	      $(INSTALL_DATA) $(RTSDIR)/lib$${file}$(hyphen)$(LIBRARY_VERSION)$(soext)$(arext) \
+			 $(DESTDIR)$(ADA_RTL_OBJ_DIR); \
 	   fi; \
 	done
 # This copy must be done preserving the date on the original file.
@@ -2513,7 +2545,7 @@ OSCONS_CC=`echo "$(GCC_FOR_TARGET)" \
   | sed -e 's^\./xgcc^../../xgcc^' -e 's^-B./^-B../../^'`
 OSCONS_CPP=$(OSCONS_CC) $(GNATLIBCFLAGS) -E -C \
   -DTARGET=\"$(target)\" $(fsrcpfx)ada/s-oscons-tmplt.c > s-oscons-tmplt.i
-OSCONS_EXTRACT=$(OSCONS_CC) -S s-oscons-tmplt.i
+OSCONS_EXTRACT=$(OSCONS_CC) $(GNATLIBCFLAGS) -S s-oscons-tmplt.i
 endif
 
 ./bldtools/oscons/xoscons: xoscons.adb xutil.ads xutil.adb
@@ -2652,16 +2684,18 @@ gnatlib-shared-win32:
 	cd $(RTSDIR); `echo "$(GCC_FOR_TARGET)" \
                 | sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'` -shared -shared-libgcc \
 		$(PICFLAG_FOR_TARGET) \
-		-o libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-o $(WIN_SO_PREFIX)gnat$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-Wl,-out-implib,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)$(arext) \
 		$(GNATRTL_NONTASKING_OBJS) $(LIBGNAT_OBJS) \
-		$(SO_OPTS)libgnat$(hyphen)$(LIBRARY_VERSION)$(soext) $(MISCLIB)
+		$(SO_OPTS)$(WIN_SO_PREFIX)gnat$(hyphen)$(LIBRARY_VERSION)$(soext) $(MISCLIB)
 	cd $(RTSDIR); `echo "$(GCC_FOR_TARGET)" \
                 | sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'` -shared -shared-libgcc \
 		$(PICFLAG_FOR_TARGET) \
-		-o libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-o $(WIN_SO_PREFIX)gnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		-Wl,-out-implib,libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext)$(arext) \
 		$(GNATRTL_TASKING_OBJS) \
-		$(SO_OPTS)libgnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
-		$(THREADSLIB) -Wl,libgnat$(hyphen)$(LIBRARY_VERSION)$(soext)
+		$(SO_OPTS)$(WIN_SO_PREFIX)gnarl$(hyphen)$(LIBRARY_VERSION)$(soext) \
+		$(THREADSLIB) -L. -lgnat$(hyphen)$(LIBRARY_VERSION)
 
 gnatlib-shared-darwin:
 	$(MAKE) $(FLAGS_TO_PASS) \
@@ -2732,16 +2766,24 @@ gnatlib-shared:
 	     PICFLAG_FOR_TARGET="$(PICFLAG_FOR_TARGET)" \
              $(GNATLIB_SHARED)
 
+# When building a SJLJ runtime for VxWorks, in addition to forcing
+# ZCX_By_default to True, we need to ensure that -crtbe linker options
+# is not passed. Otherwise we will end with weak symbols on 
+# __register_frame_info and __deregister_frame_info. The VxWorks 5.x
+# will issue an error on weak symbols.
 gnatlib-sjlj:
 	$(MAKE) $(FLAGS_TO_PASS) EH_MECHANISM="" \
 	THREAD_KIND="$(THREAD_KIND)" ../stamp-gnatlib1-$(RTSDIR)
 	sed -e 's/ZCX_By_Default.*/ZCX_By_Default            : constant Boolean := False;/' $(RTSDIR)/system.ads > $(RTSDIR)/s.ads
-	$(MV) $(RTSDIR)/s.ads $(RTSDIR)/system.ads
+	cat $(RTSDIR)/s.ads | grep -v "Linker_Options.*-crtbe" > $(RTSDIR)/s2.ads
+	$(RM) $(RTSDIR)/s.ads
+	$(MV) $(RTSDIR)/s2.ads $(RTSDIR)/system.ads
 	$(MAKE) $(FLAGS_TO_PASS) \
 	     EH_MECHANISM="" \
 	     GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
+	     FORCE_DEBUG_ADAFLAGS="$(FORCE_DEBUG_ADAFLAGS)" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
 	     PICFLAG_FOR_TARGET="$(PICFLAG_FOR_TARGET)" gnatlib
@@ -2756,6 +2798,7 @@ gnatlib-zcx:
 	     GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
 	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
+	     FORCE_DEBUG_ADAFLAGS="$(FORCE_DEBUG_ADAFLAGS)" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
 	     PICFLAG_FOR_TARGET="$(PICFLAG_FOR_TARGET)" gnatlib

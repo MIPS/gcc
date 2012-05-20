@@ -5794,13 +5794,10 @@ void
 assemble_alias (tree decl, tree target)
 {
   tree target_decl;
-  bool is_weakref = false;
 
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     {
       tree alias = DECL_ASSEMBLER_NAME (decl);
-
-      is_weakref = true;
 
       ultimate_transparent_alias_target (&target);
 
@@ -5838,12 +5835,6 @@ assemble_alias (tree decl, tree target)
 #endif
     }
   TREE_USED (decl) = 1;
-
-  /* A quirk of the initial implementation of aliases required that the user
-     add "extern" to all of them.  Which is silly, but now historical.  Do
-     note that the symbol is in fact locally defined.  */
-  if (! is_weakref)
-    DECL_EXTERNAL (decl) = 0;
 
   /* Allow aliases to aliases.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -6920,11 +6911,14 @@ default_binds_local_p_1 (const_tree exp, int shlib)
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
     local_p = true;
-  /* Weakrefs may not bind locally, even though the weakref itself is
-     always static and therefore local.
-     FIXME: We can resolve this more curefuly by looking at the weakref
-     alias.  */
-  else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp)))
+  /* Weakrefs may not bind locally, even though the weakref itself is always
+     static and therefore local.  Similarly, the resolver for ifunc functions
+     might resolve to a non-local function.
+     FIXME: We can resolve the weakref case more curefuly by looking at the
+     weakref alias.  */
+  else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp))
+	   || (TREE_CODE (exp) == FUNCTION_DECL
+	       && lookup_attribute ("ifunc", DECL_ATTRIBUTES (exp))))
     local_p = false;
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))
@@ -7664,7 +7658,7 @@ get_elf_initfini_array_priority_section (int priority,
       sprintf (buf, "%s.%.5u", 
 	       constructor_p ? ".init_array" : ".fini_array",
 	       priority);
-      sec = get_section (buf, SECTION_WRITE, NULL_TREE);
+      sec = get_section (buf, SECTION_WRITE | SECTION_NOTYPE, NULL_TREE);
     }
   else
     {
@@ -7672,16 +7666,16 @@ get_elf_initfini_array_priority_section (int priority,
 	{
 	  if (elf_init_array_section == NULL)
 	    elf_init_array_section
-	      = get_unnamed_section (0, output_section_asm_op,
-				     "\t.section\t.init_array");
+	      = get_section (".init_array",
+			     SECTION_WRITE | SECTION_NOTYPE, NULL_TREE);
 	  sec = elf_init_array_section;
 	}
       else
 	{
 	  if (elf_fini_array_section == NULL)
 	    elf_fini_array_section
-	      = get_unnamed_section (0, output_section_asm_op,
-				     "\t.section\t.fini_array");
+	      = get_section (".fini_array",
+			     SECTION_WRITE | SECTION_NOTYPE, NULL_TREE);
 	  sec = elf_fini_array_section;
 	}
     }

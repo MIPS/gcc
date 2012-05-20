@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -125,6 +125,7 @@ package Rtsfind is
       Ada_Exceptions,
       Ada_Finalization,
       Ada_Interrupts,
+      Ada_Numerics,
       Ada_Real_Time,
       Ada_Streams,
       Ada_Strings,
@@ -143,6 +144,10 @@ package Rtsfind is
       --  Children of Ada.Interrupts
 
       Ada_Interrupts_Names,
+
+      --  Children of Ada.Numerics
+
+      Ada_Numerics_Generic_Elementary_Functions,
 
       --  Children of Ada.Real_Time
 
@@ -223,6 +228,7 @@ package Rtsfind is
       System_Concat_7,
       System_Concat_8,
       System_Concat_9,
+      System_Dim,
       System_DSA_Services,
       System_DSA_Types,
       System_Exception_Table,
@@ -262,6 +268,7 @@ package Rtsfind is
       System_Img_Uns,
       System_Img_WChar,
       System_Interrupts,
+      System_Long_Long_Float_Expon,
       System_Machine_Code,
       System_Mantissa,
       System_Memcop,
@@ -371,6 +378,11 @@ package Rtsfind is
       System_WWd_Enum,
       System_WWd_Wchar,
 
+      --  Children of System.Dim
+
+      System_Dim_Float_IO,
+      System_Dim_Integer_IO,
+
       --  Children of System.Multiprocessors
 
       System_Multiprocessors_Dispatching_Domains,
@@ -412,6 +424,11 @@ package Rtsfind is
      Ada_Interrupts_Names .. Ada_Interrupts_Names;
    --  Range of values for children of Ada.Interrupts
 
+   subtype Ada_Numerics_Child is Ada_Child
+     range Ada_Numerics_Generic_Elementary_Functions ..
+           Ada_Numerics_Generic_Elementary_Functions;
+   --  Range of values for children of Ada.Numerics
+
    subtype Ada_Real_Time_Child is Ada_Child
      range Ada_Real_Time_Delays .. Ada_Real_Time_Timing_Events;
    --  Range of values for children of Ada.Real_Time
@@ -443,6 +460,10 @@ package Rtsfind is
    subtype System_Child is RTU_Id
      range System_Address_Image .. System_Tasking_Stages;
    --  Range of values for children or grandchildren of System
+
+   subtype System_Dim_Child is RTU_Id
+     range System_Dim_Float_IO .. System_Dim_Integer_IO;
+   --  Range of values for children of System.Dim
 
    subtype System_Multiprocessors_Child is RTU_Id
      range System_Multiprocessors_Dispatching_Domains ..
@@ -570,6 +591,7 @@ package Rtsfind is
      RE_Unbounded_String,                -- Ada.Strings.Unbounded
 
      RE_Access_Level,                    -- Ada.Tags
+     RE_Alignment,                       -- Ada.Tags
      RE_Address_Array,                   -- Ada.Tags
      RE_Addr_Ptr,                        -- Ada.Tags
      RE_Base_Address,                    -- Ada.Tags
@@ -587,6 +609,7 @@ package Rtsfind is
      RE_External_Tag,                    -- Ada.Tags
      RO_TA_External_Tag,                 -- Ada.Tags
      RE_Get_Access_Level,                -- Ada.Tags
+     RE_Get_Alignment,                   -- Ada.Tags
      RE_Get_Entry_Index,                 -- Ada.Tags
      RE_Get_Offset_Index,                -- Ada.Tags
      RE_Get_Prim_Op_Kind,                -- Ada.Tags
@@ -863,6 +886,8 @@ package Rtsfind is
      RE_Register_Interrupt_Handler,      -- System.Interrupts
      RE_Static_Interrupt_Protection,     -- System.Interrupts
      RE_System_Interrupt_Id,             -- System.Interrupts
+
+     RE_Expon_LLF,                       -- System.Long_Long_Float_Expon
 
      RE_Asm_Insn,                        -- System.Machine_Code
      RE_Asm_Input_Operand,               -- System.Machine_Code
@@ -1768,6 +1793,7 @@ package Rtsfind is
      RE_Unbounded_String                 => Ada_Strings_Unbounded,
 
      RE_Access_Level                     => Ada_Tags,
+     RE_Alignment                        => Ada_Tags,
      RE_Address_Array                    => Ada_Tags,
      RE_Addr_Ptr                         => Ada_Tags,
      RE_Base_Address                     => Ada_Tags,
@@ -1785,6 +1811,7 @@ package Rtsfind is
      RE_External_Tag                     => Ada_Tags,
      RO_TA_External_Tag                  => Ada_Tags,
      RE_Get_Access_Level                 => Ada_Tags,
+     RE_Get_Alignment                    => Ada_Tags,
      RE_Get_Entry_Index                  => Ada_Tags,
      RE_Get_Offset_Index                 => Ada_Tags,
      RE_Get_Prim_Op_Kind                 => Ada_Tags,
@@ -2061,6 +2088,8 @@ package Rtsfind is
      RE_Register_Interrupt_Handler       => System_Interrupts,
      RE_Static_Interrupt_Protection      => System_Interrupts,
      RE_System_Interrupt_Id              => System_Interrupts,
+
+     RE_Expon_LLF                        => System_Long_Long_Float_Expon,
 
      RE_Asm_Insn                         => System_Machine_Code,
      RE_Asm_Input_Operand                => System_Machine_Code,

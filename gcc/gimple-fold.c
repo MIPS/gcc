@@ -1,5 +1,5 @@
 /* Statement simplification on GIMPLE.
-   Copyright (C) 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2010, 2011, 2012 Free Software Foundation, Inc.
    Split out from tree-ssa-ccp.c.
 
 This file is part of GCC.
@@ -591,8 +591,11 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   for (i = gsi_last (stmts); !gsi_end_p (i); gsi_prev (&i))
     {
       new_stmt = gsi_stmt (i);
-      if (gimple_assign_single_p (new_stmt)
-	  && !is_gimple_reg (gimple_assign_lhs (new_stmt)))
+      if ((gimple_assign_single_p (new_stmt)
+	   && !is_gimple_reg (gimple_assign_lhs (new_stmt)))
+	  || (is_gimple_call (new_stmt)
+	      && (gimple_call_flags (new_stmt)
+		  & (ECF_NOVOPS | ECF_PURE | ECF_CONST | ECF_NORETURN)) == 0))
 	{
 	  tree vdef;
 	  if (!laststore)
@@ -600,7 +603,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
 	  else
 	    vdef = make_ssa_name (gimple_vop (cfun), new_stmt);
 	  gimple_set_vdef (new_stmt, vdef);
-	  if (TREE_CODE (vdef) == SSA_NAME)
+	  if (vdef && TREE_CODE (vdef) == SSA_NAME)
 	    SSA_NAME_DEF_STMT (vdef) = new_stmt;
 	  laststore = new_stmt;
 	}
@@ -834,6 +837,7 @@ gimple_fold_builtin (gimple stmt)
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
     case BUILT_IN_STRNCPY_CHK:
+    case BUILT_IN_STPNCPY_CHK:
       arg_idx = 2;
       type = 2;
       break;
@@ -940,12 +944,14 @@ gimple_fold_builtin (gimple stmt)
       break;
 
     case BUILT_IN_STRNCPY_CHK:
+    case BUILT_IN_STPNCPY_CHK:
       if (val[2] && is_gimple_val (val[2]) && nargs == 4)
-	result = fold_builtin_strncpy_chk (loc, gimple_call_arg (stmt, 0),
+	result = fold_builtin_stxncpy_chk (loc, gimple_call_arg (stmt, 0),
                                            gimple_call_arg (stmt, 1),
                                            gimple_call_arg (stmt, 2),
                                            gimple_call_arg (stmt, 3),
-					   val[2]);
+					   val[2], ignore,
+					   DECL_FUNCTION_CODE (callee));
       break;
 
     case BUILT_IN_SNPRINTF_CHK:
@@ -1108,23 +1114,12 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	}
     }
 
-  /* Check whether propagating into the function address made the
-     call direct, and thus possibly non-inlineable.
-     ???  This asks for a more conservative setting of the non-inlinable
-     flag, namely true for all indirect calls.  But that would require
-     that we can re-compute the flag conservatively, thus it isn't
-     ever initialized from something else than return/argument type
-     checks .  */
-  callee = gimple_call_fndecl (stmt);
-  if (callee
-      && !gimple_check_call_matching_types (stmt, callee))
-    gimple_call_set_cannot_inline (stmt, true);
-
   if (inplace)
     return changed;
 
   /* Check for builtins that CCP can handle using information not
      available in the generic fold routines.  */
+  callee = gimple_call_fndecl (stmt);
   if (callee && DECL_BUILT_IN (callee))
     {
       tree result = gimple_fold_builtin (stmt);
@@ -1251,6 +1246,18 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace)
 	      tree tem = maybe_fold_reference (val, false);
 	      if (tem)
 		{
+		  gimple_debug_bind_set_value (stmt, tem);
+		  changed = true;
+		}
+	    }
+	  else if (val
+		   && TREE_CODE (val) == ADDR_EXPR)
+	    {
+	      tree ref = TREE_OPERAND (val, 0);
+	      tree tem = maybe_fold_reference (ref, false);
+	      if (tem)
+		{
+		  tem = build_fold_addr_expr_with_type (tem, TREE_TYPE (val));
 		  gimple_debug_bind_set_value (stmt, tem);
 		  changed = true;
 		}
@@ -2528,8 +2535,10 @@ gimple_fold_stmt_to_constant_1 (gimple stmt, tree (*valueize) (tree))
 	      if (CONVERT_EXPR_CODE_P (subcode)
 		  && POINTER_TYPE_P (TREE_TYPE (lhs))
 		  && POINTER_TYPE_P (TREE_TYPE (op0))
-		  && (TYPE_ADDR_SPACE (TREE_TYPE (lhs))
-		      == TYPE_ADDR_SPACE (TREE_TYPE (op0))))
+		  && TYPE_ADDR_SPACE (TREE_TYPE (lhs))
+		     == TYPE_ADDR_SPACE (TREE_TYPE (op0))
+		  && TYPE_MODE (TREE_TYPE (lhs))
+		     == TYPE_MODE (TREE_TYPE (op0)))
 		return op0;
 
               return

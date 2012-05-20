@@ -39,6 +39,7 @@ pragma Elaborate_All
   (Ada.Containers.Red_Black_Trees.Generic_Bounded_Set_Operations);
 
 with Ada.Finalization; use Ada.Finalization;
+
 with System; use type System.Address;
 
 package body Ada.Containers.Bounded_Ordered_Sets is
@@ -401,6 +402,35 @@ package body Ada.Containers.Bounded_Ordered_Sets is
       return Node.Color;
    end Color;
 
+   ------------------------
+   -- Constant_Reference --
+   ------------------------
+
+   function Constant_Reference
+     (Container : aliased Set;
+      Position  : Cursor) return Constant_Reference_Type
+   is
+   begin
+      if Position.Container = null then
+         raise Constraint_Error with "Position cursor has no element";
+      end if;
+
+      if Position.Container /= Container'Unrestricted_Access then
+         raise Program_Error with
+           "Position cursor designates wrong container";
+      end if;
+
+      pragma Assert
+        (Vet (Container, Position.Node),
+         "bad cursor in Constant_Reference");
+
+      declare
+         N : Node_Type renames Container.Nodes (Position.Node);
+      begin
+         return (Element => N.Element'Access);
+      end;
+   end Constant_Reference;
+
    --------------
    -- Contains --
    --------------
@@ -580,7 +610,6 @@ package body Ada.Containers.Bounded_Ordered_Sets is
       if Object.Container /= null then
          declare
             B : Natural renames Object.Container.all.Busy;
-
          begin
             B := B - 1;
          end;
@@ -696,6 +725,28 @@ package body Ada.Containers.Bounded_Ordered_Sets is
          return (if Node = 0 then No_Element
                  else Cursor'(Container'Unrestricted_Access, Node));
       end Ceiling;
+
+      ------------------------
+      -- Constant_Reference --
+      ------------------------
+
+      function Constant_Reference
+        (Container : aliased Set;
+         Key       : Key_Type) return Constant_Reference_Type
+      is
+         Node : constant Count_Type := Key_Keys.Find (Container, Key);
+
+      begin
+         if Node = 0 then
+            raise Constraint_Error with "key not in set";
+         end if;
+
+         declare
+            N : Node_Type renames Container.Nodes (Node);
+         begin
+            return (Element => N.Element'Access);
+         end;
+      end Constant_Reference;
 
       --------------
       -- Contains --
@@ -822,6 +873,69 @@ package body Ada.Containers.Bounded_Ordered_Sets is
          return Key (Position.Container.Nodes (Position.Node).Element);
       end Key;
 
+      ----------
+      -- Read --
+      ----------
+
+      procedure  Read
+        (Stream : not null access Root_Stream_Type'Class;
+         Item   : out Reference_Type)
+      is
+      begin
+         raise Program_Error with "attempt to stream reference";
+      end Read;
+
+      ------------------------------
+      -- Reference_Preserving_Key --
+      ------------------------------
+
+      function Reference_Preserving_Key
+        (Container : aliased in out Set;
+         Position  : Cursor) return Reference_Type
+      is
+      begin
+         if Position.Container = null then
+            raise Constraint_Error with "Position cursor has no element";
+         end if;
+
+         if Position.Container /= Container'Unrestricted_Access then
+            raise Program_Error with
+              "Position cursor designates wrong container";
+         end if;
+
+         pragma Assert
+           (Vet (Container, Position.Node),
+            "bad cursor in function Reference_Preserving_Key");
+
+         --  Some form of finalization will be required in order to actually
+         --  check that the key-part of the element designated by Position has
+         --  not changed.  ???
+
+         declare
+            N : Node_Type renames Container.Nodes (Position.Node);
+         begin
+            return (Element => N.Element'Access);
+         end;
+      end Reference_Preserving_Key;
+
+      function Reference_Preserving_Key
+        (Container : aliased in out Set;
+         Key       : Key_Type) return Reference_Type
+      is
+         Node : constant Count_Type := Key_Keys.Find (Container, Key);
+
+      begin
+         if Node = 0 then
+            raise Constraint_Error with "key not in set";
+         end if;
+
+         declare
+            N : Node_Type renames Container.Nodes (Node);
+         begin
+            return (Element => N.Element'Access);
+         end;
+      end Reference_Preserving_Key;
+
       -------------
       -- Replace --
       -------------
@@ -900,45 +1014,9 @@ package body Ada.Containers.Bounded_Ordered_Sets is
          raise Program_Error with "key was modified";
       end Update_Element_Preserving_Key;
 
-      function Reference_Preserving_Key
-        (Container : aliased in out Set;
-         Key       : Key_Type) return Constant_Reference_Type
-      is
-         Position : constant Cursor := Find (Container, Key);
-
-      begin
-         if Position.Node = 0 then
-            raise Constraint_Error with "Position cursor has no element";
-         end if;
-
-         return
-           (Element =>
-              Container.Nodes (Position.Node).Element'Unrestricted_Access);
-      end Reference_Preserving_Key;
-
-      function Reference_Preserving_Key
-        (Container : aliased in out Set;
-         Key       : Key_Type) return Reference_Type
-      is
-         Position : constant Cursor := Find (Container, Key);
-
-      begin
-         if Position.Node = 0 then
-            raise Constraint_Error with "Position cursor has no element";
-         end if;
-
-         return
-           (Element =>
-              Container.Nodes (Position.Node).Element'Unrestricted_Access);
-      end Reference_Preserving_Key;
-
-      procedure  Read
-        (Stream : not null access Root_Stream_Type'Class;
-         Item   : out Reference_Type)
-      is
-      begin
-         raise Program_Error with "attempt to stream reference";
-      end Read;
+      -----------
+      -- Write --
+      -----------
 
       procedure Write
         (Stream : not null access Root_Stream_Type'Class;
@@ -1584,22 +1662,6 @@ package body Ada.Containers.Bounded_Ordered_Sets is
    begin
       raise Program_Error with "attempt to stream reference";
    end Read;
-
-   ---------------
-   -- Reference --
-   ---------------
-
-   function Constant_Reference (Container : Set; Position : Cursor)
-   return Constant_Reference_Type
-   is
-   begin
-      if Position.Container = null then
-         raise Constraint_Error with "Position cursor has no element";
-      end if;
-
-      return (Element =>
-        Container.Nodes (Position.Node).Element'Unrestricted_Access);
-   end Constant_Reference;
 
    -------------
    -- Replace --

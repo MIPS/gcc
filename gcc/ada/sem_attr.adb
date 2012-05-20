@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -52,6 +52,7 @@ with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Ch10; use Sem_Ch10;
+with Sem_Dim;  use Sem_Dim;
 with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
@@ -4527,7 +4528,8 @@ package body Sem_Attr is
       -- Storage_Pool --
       ------------------
 
-      when Attribute_Storage_Pool => Storage_Pool :
+      when Attribute_Storage_Pool        |
+           Attribute_Simple_Storage_Pool => Storage_Pool :
       begin
          Check_E0;
 
@@ -4545,7 +4547,38 @@ package body Sem_Attr is
                Set_Entity (N, RTE (RE_Global_Pool_Object));
             end if;
 
-            Set_Etype (N, Class_Wide_Type (RTE (RE_Root_Storage_Pool)));
+            if Attr_Id = Attribute_Storage_Pool then
+               if Present (Get_Rep_Pragma (Etype (Entity (N)),
+                                           Name_Simple_Storage_Pool_Type))
+               then
+                  Error_Msg_Name_1 := Aname;
+                  Error_Msg_N ("cannot use % attribute for type with simple " &
+                               "storage pool?", N);
+                  Error_Msg_N
+                     ("\Program_Error will be raised at run time?", N);
+
+                  Rewrite
+                    (N, Make_Raise_Program_Error
+                          (Sloc (N), Reason => PE_Explicit_Raise));
+               end if;
+
+               Set_Etype (N, Class_Wide_Type (RTE (RE_Root_Storage_Pool)));
+
+            --  In the Simple_Storage_Pool case, verify that the pool entity is
+            --  actually of a simple storage pool type, and set the attribute's
+            --  type to the pool object's type.
+
+            else
+               if not Present (Get_Rep_Pragma (Etype (Entity (N)),
+                                               Name_Simple_Storage_Pool_Type))
+               then
+                  Error_Attr_P
+                    ("cannot use % attribute for type without simple " &
+                     "storage pool");
+               end if;
+
+               Set_Etype (N, Etype (Entity (N)));
+            end if;
 
             --  Validate_Remote_Access_To_Class_Wide_Type for attribute
             --  Storage_Pool since this attribute is not defined for such
@@ -4635,9 +4668,29 @@ package body Sem_Attr is
          Check_Type;
          Check_E0;
 
-         if Is_Remote_Access_To_Class_Wide_Type (P_Type) then
-            Rewrite (N,
-              New_Occurrence_Of (Corresponding_Stub_Type (P_Type), Loc));
+         if Is_Remote_Access_To_Class_Wide_Type (Base_Type (P_Type)) then
+
+            --  For a real RACW [sub]type, use corresponding stub type
+
+            if not Is_Generic_Type (P_Type) then
+               Rewrite (N,
+                 New_Occurrence_Of
+                   (Corresponding_Stub_Type (Base_Type (P_Type)), Loc));
+
+            --  For a generic type (that has been marked as an RACW using the
+            --  Remote_Access_Type aspect or pragma), use a generic RACW stub
+            --  type. Note that if the actual is not a remote access type, the
+            --  instantiation will fail.
+
+            else
+               --  Note: we go to the underlying type here because the view
+               --  returned by RTE (RE_RACW_Stub_Type) might be incomplete.
+
+               Rewrite (N,
+                 New_Occurrence_Of
+                   (Underlying_Type (RTE (RE_RACW_Stub_Type)), Loc));
+            end if;
+
          else
             Error_Attr_P
               ("prefix of% attribute must be remote access to classwide");
@@ -5618,40 +5671,6 @@ package body Sem_Attr is
    --  Start of processing for Eval_Attribute
 
    begin
-      --  No folding in spec expression that comes from source where the prefix
-      --  is an unfrozen entity. This avoids premature folding in cases like:
-
-      --    procedure DefExprAnal is
-      --       type R is new Integer;
-      --       procedure P (Arg : Integer := R'Size);
-      --       for R'Size use 64;
-      --       procedure P (Arg : Integer := R'Size) is
-      --       begin
-      --          Put_Line (Arg'Img);
-      --       end P;
-      --    begin
-      --       P;
-      --    end;
-
-      --  which should print 64 rather than 32. The exclusion of non-source
-      --  constructs from this test comes from some internal usage in packed
-      --  arrays, which otherwise fails, could use more analysis perhaps???
-
-      --  We do however go ahead with generic actual types, otherwise we get
-      --  some regressions, probably these types should be frozen anyway???
-
-      if In_Spec_Expression
-        and then Comes_From_Source (N)
-        and then not (Is_Entity_Name (P)
-                       and then
-                        (Is_Frozen (Entity (P))
-                          or else (Is_Type (Entity (P))
-                                    and then
-                                      Is_Generic_Actual_Type (Entity (P)))))
-      then
-         return;
-      end if;
-
       --  Acquire first two expressions (at the moment, no attributes take more
       --  than two expressions in any case).
 
@@ -7944,6 +7963,7 @@ package body Sem_Attr is
            Attribute_Priority                   |
            Attribute_Read                       |
            Attribute_Result                     |
+           Attribute_Simple_Storage_Pool        |
            Attribute_Storage_Pool               |
            Attribute_Storage_Size               |
            Attribute_Storage_Unit               |
@@ -8632,8 +8652,9 @@ package body Sem_Attr is
                  and then
                    (Ada_Version < Ada_2005
                      or else
-                       not Has_Constrained_Partial_View
-                             (Designated_Type (Base_Type (Typ))))
+                       not Effectively_Has_Constrained_Partial_View
+                             (Typ => Designated_Type (Base_Type (Typ)),
+                              Scop => Current_Scope))
                then
                   null;
 
@@ -8647,7 +8668,6 @@ package body Sem_Attr is
                   then
                      declare
                         D : constant Node_Id := Declaration_Node (Entity (P));
-
                      begin
                         Error_Msg_N ("aliased object has explicit bounds?",
                           D);
@@ -9199,6 +9219,7 @@ package body Sem_Attr is
 
       --  Finally perform static evaluation on the attribute reference
 
+      Analyze_Dimension (N);
       Eval_Attribute (N);
    end Resolve_Attribute;
 
