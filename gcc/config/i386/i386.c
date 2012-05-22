@@ -25909,6 +25909,8 @@ enum ix86_builtins
   IX86_BUILTIN_BNDRET64,
   IX86_BUILTIN_BNDBIND32,
   IX86_BUILTIN_BNDBIND64,
+  IX86_BUILTIN_BNDINT32,
+  IX86_BUILTIN_BNDINT64,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -27783,14 +27785,19 @@ ix86_init_mmx_sse_builtins (void)
     }
 
   /* Add PL instructions.  */
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds32",
-		 PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds64",
-		 PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
-		 BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
-    def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
-		 BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds32",
+	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds64",
+	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
+	       BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
+	       BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
+
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint32",
+	       BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint64",
+	       BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
 }
 
 /* Internal method for ix86_init_builtins.  */
@@ -29640,6 +29647,75 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 				 op1, op2));
       return op0;
 
+    case IX86_BUILTIN_BNDINT32:
+    case IX86_BUILTIN_BNDINT64:
+      {
+	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
+	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
+	rtx res = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	arg1 = CALL_EXPR_ARG (exp, 1);
+
+	op0 = expand_normal (arg0);
+	op1 = expand_normal (arg1);
+
+	/* We need to move bounds to memory before any computations.  */
+	if (!MEM_P (op0))
+	  {
+	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_insn (gen_move_insn (m1, op0));
+	  }
+	else
+	  m1 = op0;
+
+	if (!MEM_P (op1))
+	  {
+	    m2 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_move_insn (m2, op1);
+	  }
+	else
+	  m2 = op1;
+
+	/* Generate mem expression to be used for access to LB and UB.  */
+	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	m2h1 = gen_rtx_MEM (hmode, XEXP (m2, 0));
+	m2h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m2, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	rh1 = gen_rtx_MEM (hmode, XEXP (res, 0));
+	rh2 = gen_rtx_MEM (hmode,
+			   gen_rtx_PLUS (Pmode, XEXP (res, 0),
+					 GEN_INT (GET_MODE_SIZE (hmode))));
+
+	/* Allocate temporaries.  */
+	t1 = gen_reg_rtx (hmode);
+	t2 = gen_reg_rtx (hmode);
+
+	/* Compute LB.  */
+	emit_move_insn (t1, m1h1);
+	emit_move_insn (t2, m2h1);
+	t3 = ix86_expand_compare (LTU, t1, t2);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	emit_move_insn (rh1, t1);
+
+	/* Compute UB.  UB are stored in 1's complement form.  Therefore
+	   we also use LTU here.  */
+	emit_move_insn (t1, m1h2);
+	emit_move_insn (t2, m2h2);
+	t3 = ix86_expand_compare (LTU, t1, t2);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	emit_move_insn (rh2, t1);
+
+	return res;
+      }
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
@@ -30176,6 +30252,10 @@ ix86_builtin_pl_function (unsigned fcode)
     case BUILT_IN_PL_BNDRET:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]
 	: ix86_builtins[IX86_BUILTIN_BNDRET32];
+
+    case BUILT_IN_PL_INTERSECT:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT64]
+	: ix86_builtins[IX86_BUILTIN_BNDINT32];
 
     default:
       return NULL_TREE;
