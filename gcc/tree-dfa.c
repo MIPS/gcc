@@ -503,24 +503,23 @@ referenced_var_lookup (struct function *fn, unsigned int uid)
    Return true if it required insertion.  */
 
 static bool
-referenced_var_check_and_insert (tree to)
+referenced_var_check_and_insert (tree to, struct function *fn)
 {
-  tree h, *loc;
+  tree *loc;
   struct tree_decl_minimal in;
   unsigned int uid = DECL_UID (to);
 
   in.uid = uid;
-  h = (tree) htab_find_with_hash (gimple_referenced_vars (cfun), &in, uid);
-  if (h)
+  loc = (tree *) htab_find_slot_with_hash (gimple_referenced_vars (fn),
+					   &in, uid, INSERT);
+  if (*loc)
     {
       /* DECL_UID has already been entered in the table.  Verify that it is
 	 the same entry as TO.  See PR 27793.  */
-      gcc_assert (h == to);
+      gcc_assert (*loc == to);
       return false;
     }
 
-  loc = (tree *) htab_find_slot_with_hash (gimple_referenced_vars (cfun),
-					   &in, uid, INSERT);
   *loc = to;
   return true;
 }
@@ -575,26 +574,18 @@ set_default_def (tree var, tree def)
 /* Add VAR to the list of referenced variables if it isn't already there.  */
 
 bool
-add_referenced_var (tree var)
+add_referenced_var_1 (tree var, struct function *fn)
 {
-  gcc_assert (DECL_P (var));
+  gcc_checking_assert (TREE_CODE (var) == VAR_DECL
+		       || TREE_CODE (var) == PARM_DECL
+		       || TREE_CODE (var) == RESULT_DECL);
+
   if (!*DECL_VAR_ANN_PTR (var))
     create_var_ann (var);
 
   /* Insert VAR into the referenced_vars hash table if it isn't present.  */
-  if (referenced_var_check_and_insert (var))
-    {
-      /* Scan DECL_INITIAL for pointer variables as they may contain
-	 address arithmetic referencing the address of other
-	 variables.  As we are only interested in directly referenced
-	 globals or referenced locals restrict this to initializers
-	 than can refer to local variables.  */
-      if (DECL_INITIAL (var)
-          && DECL_CONTEXT (var) == current_function_decl)
-      	walk_tree (&DECL_INITIAL (var), find_vars_r, NULL, 0);
-
-      return true;
-    }
+  if (referenced_var_check_and_insert (var, fn))
+    return true;
 
   return false;
 }
