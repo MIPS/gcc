@@ -1027,7 +1027,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
       tree node_type = TREE_TYPE (TREE_OPERAND (node, 1));
       tree field_ptr = fold_build1 (ADDR_EXPR,
 				    build_pointer_type (node_type),
-				    copy_node (node));
+				    node);
 
       *bounds = pl_make_bounds (field_ptr,
 				build_int_cst (size_type_node, size),
@@ -1038,7 +1038,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
       tree node_type = TREE_TYPE (var);
       tree field_ptr = fold_build1 (ADDR_EXPR,
 				    build_pointer_type (node_type),
-				    copy_node (var));
+				    var);
 
       if (innermost_bounds)
 	*bounds = pl_make_bounds (field_ptr, array_ref_element_size (node),
