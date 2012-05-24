@@ -1236,9 +1236,7 @@ package body Sem_Util is
       --  Loop through sequence of basic declarative items
 
       Outer : while Present (Decl) loop
-         if Nkind (Decl) /= N_Subprogram_Body
-           and then Nkind (Decl) /= N_Package_Body
-           and then Nkind (Decl) /= N_Task_Body
+         if not Nkind_In (Decl, N_Subprogram_Body, N_Package_Body, N_Task_Body)
            and then Nkind (Decl) not in N_Body_Stub
          then
             Next (Decl);
@@ -3041,10 +3039,32 @@ package body Sem_Util is
         and then Is_Entity_Name (Renamed_Object (Id))
       then
          return Effective_Extra_Accessibility (Entity (Renamed_Object (Id)));
+      else
+         return Extra_Accessibility (Id);
       end if;
-
-      return Extra_Accessibility (Id);
    end Effective_Extra_Accessibility;
+
+   ------------------------------
+   -- Enclosing_Comp_Unit_Node --
+   ------------------------------
+
+   function Enclosing_Comp_Unit_Node (N : Node_Id) return Node_Id is
+      Current_Node : Node_Id;
+
+   begin
+      Current_Node := N;
+      while Present (Current_Node)
+        and then Nkind (Current_Node) /= N_Compilation_Unit
+      loop
+         Current_Node := Parent (Current_Node);
+      end loop;
+
+      if Nkind (Current_Node) /= N_Compilation_Unit then
+         return Empty;
+      else
+         return Current_Node;
+      end if;
+   end Enclosing_Comp_Unit_Node;
 
    --------------------------
    -- Enclosing_CPP_Parent --
@@ -3149,14 +3169,16 @@ package body Sem_Util is
    -- Enclosing_Lib_Unit_Entity --
    -------------------------------
 
-   function Enclosing_Lib_Unit_Entity return Entity_Id is
+   function Enclosing_Lib_Unit_Entity
+      (E : Entity_Id := Current_Scope) return Entity_Id
+   is
       Unit_Entity : Entity_Id;
 
    begin
       --  Look for enclosing library unit entity by following scope links.
       --  Equivalent to, but faster than indexing through the scope stack.
 
-      Unit_Entity := Current_Scope;
+      Unit_Entity := E;
       while (Present (Scope (Unit_Entity))
         and then Scope (Unit_Entity) /= Standard_Standard)
         and not Is_Child_Unit (Unit_Entity)
@@ -3166,28 +3188,6 @@ package body Sem_Util is
 
       return Unit_Entity;
    end Enclosing_Lib_Unit_Entity;
-
-   -----------------------------
-   -- Enclosing_Lib_Unit_Node --
-   -----------------------------
-
-   function Enclosing_Lib_Unit_Node (N : Node_Id) return Node_Id is
-      Current_Node : Node_Id;
-
-   begin
-      Current_Node := N;
-      while Present (Current_Node)
-        and then Nkind (Current_Node) /= N_Compilation_Unit
-      loop
-         Current_Node := Parent (Current_Node);
-      end loop;
-
-      if Nkind (Current_Node) /= N_Compilation_Unit then
-         return Empty;
-      end if;
-
-      return Current_Node;
-   end Enclosing_Lib_Unit_Node;
 
    -----------------------
    -- Enclosing_Package --
@@ -3573,20 +3573,19 @@ package body Sem_Util is
       if Present (C)
         and then Restriction_Check_Required (SPARK)
       then
-
          declare
             Enclosing_Subp : constant Node_Id := Enclosing_Subprogram (Def_Id);
             Enclosing_Pack : constant Node_Id := Enclosing_Package (Def_Id);
             Other_Scope    : constant Node_Id := Enclosing_Dynamic_Scope (C);
-         begin
 
+         begin
             --  ... unless the new declaration is in a subprogram, and the
             --  visible declaration is a variable declaration or a parameter
             --  specification outside that subprogram.
 
             if Present (Enclosing_Subp)
               and then Nkind_In (Parent (C), N_Object_Declaration,
-                                 N_Parameter_Specification)
+                                             N_Parameter_Specification)
               and then not Scope_Within_Or_Same (Other_Scope, Enclosing_Subp)
             then
                null;
@@ -6270,6 +6269,37 @@ package body Sem_Util is
       return False;
    end In_Parameter_Specification;
 
+   -------------------------------------
+   -- In_Reverse_Storage_Order_Record --
+   -------------------------------------
+
+   function In_Reverse_Storage_Order_Record (N : Node_Id) return Boolean is
+      Pref : Node_Id;
+   begin
+      Pref := N;
+
+      --  Climb up indexed components
+
+      loop
+         case Nkind (Pref) is
+            when N_Selected_Component =>
+               Pref := Prefix (Pref);
+               exit;
+
+            when N_Indexed_Component =>
+               Pref := Prefix (Pref);
+
+            when others =>
+               Pref := Empty;
+               exit;
+         end case;
+      end loop;
+
+      return Present (Pref)
+               and then Is_Record_Type (Etype (Pref))
+               and then Reverse_Storage_Order (Etype (Pref));
+   end In_Reverse_Storage_Order_Record;
+
    --------------------------------------
    -- In_Subprogram_Or_Concurrent_Unit --
    --------------------------------------
@@ -7587,6 +7617,34 @@ package body Sem_Util is
    -------------------------
 
    function Is_Object_Reference (N : Node_Id) return Boolean is
+
+      function Is_Internally_Generated_Renaming (N : Node_Id) return Boolean;
+      --  Determine whether N is the name of an internally-generated renaming
+
+      --------------------------------------
+      -- Is_Internally_Generated_Renaming --
+      --------------------------------------
+
+      function Is_Internally_Generated_Renaming (N : Node_Id) return Boolean is
+         P : Node_Id;
+
+      begin
+         P := N;
+         while Present (P) loop
+            if Nkind (P) = N_Object_Renaming_Declaration then
+               return not Comes_From_Source (P);
+            elsif Is_List_Member (P) then
+               return False;
+            end if;
+
+            P := Parent (P);
+         end loop;
+
+         return False;
+      end Is_Internally_Generated_Renaming;
+
+   --  Start of processing for Is_Object_Reference
+
    begin
       if Is_Entity_Name (N) then
          return Present (Entity (N)) and then Is_Object (Entity (N));
@@ -7632,6 +7690,14 @@ package body Sem_Util is
 
             when N_Unchecked_Type_Conversion =>
                return True;
+
+            --  Allow string literals to act as objects as long as they appear
+            --  in internally-generated renamings. The expansion of iterators
+            --  may generate such renamings when the range involves a string
+            --  literal.
+
+            when N_String_Literal =>
+               return Is_Internally_Generated_Renaming (Parent (N));
 
             when others =>
                return False;
@@ -8607,6 +8673,16 @@ package body Sem_Util is
              and then not Is_Access_Constant (Etype (Prefix (N))))
            or else
              Is_Variable_Prefix (Original_Node (Prefix (N)));
+
+      --  in Ada 2012, the dereference may have been added for a type with
+      --  a declared implicit dereference aspect.
+
+      elsif Nkind (N) = N_Explicit_Dereference
+        and then Present (Etype (Orig_Node))
+        and then  Ada_Version >= Ada_2012
+        and then Has_Implicit_Dereference (Etype (Orig_Node))
+      then
+         return True;
 
       --  A function call is never a variable
 

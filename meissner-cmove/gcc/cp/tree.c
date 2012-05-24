@@ -2025,7 +2025,7 @@ break_out_target_exprs (tree t)
    expressions  */
 
 tree
-build_min_nt (enum tree_code code, ...)
+build_min_nt_loc (location_t loc, enum tree_code code, ...)
 {
   tree t;
   int length;
@@ -2037,6 +2037,7 @@ build_min_nt (enum tree_code code, ...)
   va_start (p, code);
 
   t = make_node (code);
+  SET_EXPR_LOCATION (t, loc);
   length = TREE_CODE_LENGTH (code);
 
   for (i = 0; i < length; i++)
@@ -2598,8 +2599,8 @@ maybe_dummy_object (tree type, tree* binfop)
 	   && context == nonlambda_method_basetype ())
     /* In a lambda, need to go through 'this' capture.  */
     decl = (build_x_indirect_ref
-	    ((lambda_expr_this_capture
-	      (CLASSTYPE_LAMBDA_EXPR (current_class_type))),
+	    (input_location, (lambda_expr_this_capture
+			      (CLASSTYPE_LAMBDA_EXPR (current_class_type))),
 	     RO_NULL, tf_warning_or_error));
   else
     decl = build_dummy_object (context);
@@ -2773,7 +2774,7 @@ zero_init_p (const_tree t)
     return 1;
 
   /* NULL pointers to data members are initialized with -1.  */
-  if (TYPE_PTRMEM_P (t))
+  if (TYPE_PTRDATAMEM_P (t))
     return 0;
 
   /* Classes that contain types that can't be zero-initialized, cannot
@@ -3508,7 +3509,7 @@ cp_fix_function_decl_p (tree decl)
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */
       if (!node || !node->alias
-	  || !VEC_length (ipa_ref_t, node->ref_list.references))
+	  || !VEC_length (ipa_ref_t, node->symbol.ref_list.references))
 	return true;
     }
 

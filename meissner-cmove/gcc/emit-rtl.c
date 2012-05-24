@@ -970,6 +970,22 @@ void
 set_reg_attrs_from_value (rtx reg, rtx x)
 {
   int offset;
+  bool can_be_reg_pointer = true;
+
+  /* Don't call mark_reg_pointer for incompatible pointer sign
+     extension.  */
+  while (GET_CODE (x) == SIGN_EXTEND
+	 || GET_CODE (x) == ZERO_EXTEND
+	 || GET_CODE (x) == TRUNCATE
+	 || (GET_CODE (x) == SUBREG && subreg_lowpart_p (x)))
+    {
+#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
+      if ((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
+	  || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	can_be_reg_pointer = false;
+#endif
+      x = XEXP (x, 0);
+    }
 
   /* Hard registers can be reused for multiple purposes within the same
      function, so setting REG_ATTRS, REG_POINTER and REG_POINTER_ALIGN
@@ -983,14 +999,14 @@ set_reg_attrs_from_value (rtx reg, rtx x)
       if (MEM_OFFSET_KNOWN_P (x))
 	REG_ATTRS (reg) = get_reg_attrs (MEM_EXPR (x),
 					 MEM_OFFSET (x) + offset);
-      if (MEM_POINTER (x))
+      if (can_be_reg_pointer && MEM_POINTER (x))
 	mark_reg_pointer (reg, 0);
     }
   else if (REG_P (x))
     {
       if (REG_ATTRS (x))
 	update_reg_offset (reg, x, offset);
-      if (REG_POINTER (x))
+      if (can_be_reg_pointer && REG_POINTER (x))
 	mark_reg_pointer (reg, REGNO_POINTER_ALIGN (REGNO (x)));
     }
 }
@@ -2076,7 +2092,7 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 
   /* Convert a possibly large offset to a signed value within the
      range of the target address space.  */
-  address_mode = targetm.addr_space.address_mode (attrs.addrspace);
+  address_mode = get_address_mode (memref);
   pbits = GET_MODE_BITSIZE (address_mode);
   if (HOST_BITS_PER_WIDE_INT > pbits)
     {
@@ -2094,9 +2110,10 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 	  && (unsigned HOST_WIDE_INT) offset
 	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
 	addr = gen_rtx_LO_SUM (address_mode, XEXP (addr, 0),
-			       plus_constant (XEXP (addr, 1), offset));
+			       plus_constant (address_mode,
+					      XEXP (addr, 1), offset));
       else
-	addr = plus_constant (addr, offset);
+	addr = plus_constant (address_mode, addr, offset);
     }
 
   new_rtx = change_address_1 (memref, mode, addr, validate);
@@ -2162,7 +2179,7 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
   struct mem_attrs attrs, *defattrs;
 
   attrs = *get_mem_attrs (memref);
-  address_mode = targetm.addr_space.address_mode (attrs.addrspace);
+  address_mode = get_address_mode (memref);
   new_rtx = simplify_gen_binary (PLUS, address_mode, addr, offset);
 
   /* At this point we don't know _why_ the address is invalid.  It

@@ -1,3 +1,11 @@
+2012-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure: Regenerated.
+
+2012-04-11  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* testsuite/lib/libgomp.exp: Add -fno-diagnostics-show-caret.
+
 2012-03-31  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR bootstrap/52812

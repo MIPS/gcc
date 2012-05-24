@@ -1258,7 +1258,7 @@ insert_const_anchor (HOST_WIDE_INT anchor, rtx reg, HOST_WIDE_INT offs,
   if (!elt)
     elt = insert (anchor_exp, NULL, hash, mode);
 
-  exp = plus_constant (reg, offs);
+  exp = plus_constant (mode, reg, offs);
   /* REG has just been inserted and the hash codes recomputed.  */
   mention_regs (exp);
   hash = HASH (exp, mode);
@@ -1333,7 +1333,7 @@ find_reg_offset_for_const (struct table_elt *anchor_elt, HOST_WIDE_INT offs,
 	  if (!REG_P (elt->exp) && !exp_equiv_p (elt->exp, elt->exp, 1, false))
 	    continue;
 
-	  x = plus_constant (elt->exp, offs);
+	  x = plus_constant (GET_MODE (elt->exp), elt->exp, offs);
 	  if (REG_P (x)
 	      || (GET_CODE (x) == PLUS
 		  && IN_RANGE (INTVAL (XEXP (x, 1)),
@@ -2218,7 +2218,7 @@ use_related_value (rtx x, struct table_elt *elt)
 
   offset = (get_integer_term (x) - get_integer_term (p->exp));
   /* Note: OFFSET may be 0 if P->xexp and X are related by commutativity.  */
-  return plus_constant (q->exp, offset);
+  return plus_constant (q->mode, q->exp, offset);
 }
 
 
@@ -2622,7 +2622,7 @@ exp_equiv_p (const_rtx x, const_rtx y, int validate, bool for_gcse)
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
 
-  /* MEMs refering to different address space are not equivalent.  */
+  /* MEMs referring to different address space are not equivalent.  */
   if (code == MEM && MEM_ADDR_SPACE (x) != MEM_ADDR_SPACE (y))
     return 0;
 
@@ -3567,7 +3567,7 @@ fold_rtx (rtx x, rtx insn)
 	    {
 	      rtx y = lookup_as_function (XEXP (x, 0), PLUS);
 	      if (y && CONST_INT_P (XEXP (y, 1)))
-		return fold_rtx (plus_constant (copy_rtx (y),
+		return fold_rtx (plus_constant (mode, copy_rtx (y),
 						-INTVAL (const_arg1)),
 				 NULL_RTX);
 	    }
@@ -3786,8 +3786,12 @@ equiv_constant (rtx x)
 	    }
 	}
 
-      /* Otherwise see if we already have a constant for the inner REG.  */
+      /* Otherwise see if we already have a constant for the inner REG,
+	 and if that is enough to calculate an equivalent constant for
+	 the subreg.  Note that the upper bits of paradoxical subregs
+	 are undefined, so they cannot be said to equal anything.  */
       if (REG_P (SUBREG_REG (x))
+	  && GET_MODE_SIZE (mode) <= GET_MODE_SIZE (imode)
 	  && (new_rtx = equiv_constant (SUBREG_REG (x))) != 0)
         return simplify_subreg (mode, new_rtx, imode, SUBREG_BYTE (x));
 
@@ -4312,7 +4316,8 @@ canonicalize_insn (rtx insn, struct set **psets, int n_sets)
   if (CALL_P (insn))
     {
       for (tem = CALL_INSN_FUNCTION_USAGE (insn); tem; tem = XEXP (tem, 1))
-	XEXP (tem, 0) = canon_reg (XEXP (tem, 0), insn);
+	if (GET_CODE (XEXP (tem, 0)) != SET)
+	  XEXP (tem, 0) = canon_reg (XEXP (tem, 0), insn);
     }
 
   if (GET_CODE (x) == SET && GET_CODE (SET_SRC (x)) == CALL)

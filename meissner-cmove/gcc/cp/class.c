@@ -1,6 +1,7 @@
 /* Functions related to building classes and their related objects.
    Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011,
+   2012
    Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
@@ -3218,8 +3219,7 @@ check_field_decls (tree t, tree *access_decls,
 	 to members which might hold dynamic memory. So do not warn
 	 for pointers to functions or pointers to members.  */
       if (TYPE_PTR_P (type)
-	  && !TYPE_PTRFN_P (type)
-	  && !TYPE_PTR_TO_MEMBER_P (type))
+	  && !TYPE_PTRFN_P (type))
 	has_pointers = true;
 
       if (CLASS_TYPE_P (type))
@@ -5144,9 +5144,6 @@ check_bases_and_members (tree t)
 		 give the synthesis error.  */
 	      error ("%q+D declared to take const reference, but implicit "
 		     "declaration would take non-const", fn);
-	    else if (imp_const_p && !fn_const_p)
-	      error ("%q+D declared to take non-const reference cannot be "
-		     "defaulted in the class body", fn);
 	  }
 	defaulted_late_check (fn);
       }
