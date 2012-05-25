@@ -16022,12 +16022,18 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
 
   /* If we are generating a condition that is the reverse of a CR condition,
      flip the test via XOR rather than doing a CRNOT operation.  */
-  if (TARGET_SETCC_MFCR
-      && (cond_code == NE || cond_code == GE || cond_code == LE
-	  || cond_code == GEU || cond_code == LEU || cond_code == ORDERED
-	  || cond_code == UNGE || cond_code == UNLE))
+  if ((TARGET_SETCC_MFCR
+       && (cond_code == NE || cond_code == GE || cond_code == LE
+	   || cond_code == GEU || cond_code == LEU || cond_code == ORDERED
+	   || cond_code == UNGE || cond_code == UNLE))
+      || (TARGET_SETCC_ISEL
+	  && (cond_code == UNLT || cond_code == UNLE || cond_code == UNGT
+	      || cond_code == UNGE)))
     {
-      PUT_CODE (condition_rtx, reverse_condition (cond_code));
+      cond_code = (FLOAT_MODE_P (mode)
+		   ? reverse_condition_maybe_unordered (cond_code)
+		   : reverse_condition (cond_code));
+      PUT_CODE (condition_rtx, cond_code);
       reverse_p = true;
     }
 

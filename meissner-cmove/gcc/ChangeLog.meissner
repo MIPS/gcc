@@ -1,3 +1,9 @@
+2012-05-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_sCOND): For floating point
+	compares, call reverse_condition_maybe_unordered instead of
+	reverse_condition.
+
 2012-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 187843.
