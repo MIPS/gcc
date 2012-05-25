@@ -549,10 +549,10 @@ typedef struct avr_args {
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)		\
   avr_output_addr_vec_elt(STREAM, VALUE)
 
-#define ASM_OUTPUT_ALIGN(STREAM, POWER)			\
-  do {							\
-      if ((POWER) > 1)					\
-          fprintf (STREAM, "\t.p2align\t%d\n", POWER);	\
+#define ASM_OUTPUT_ALIGN(STREAM, POWER)                 \
+  do {                                                  \
+    if ((POWER) > 0)                                    \
+      fprintf (STREAM, "\t.p2align\t%d\n", POWER);      \
   } while (0)
 
 #define CASE_VECTOR_MODE HImode
@@ -699,6 +699,10 @@ struct GTY(()) machine_function
 
   /* 'true' if a callee might be tail called */
   int sibcall_fails;
+
+  /* 'true' if the above is_foo predicates are sanity-checked to avoid
+     multiple diagnose for the same function.  */
+  int attributes_checked_p;
 };
 
 /* AVR does not round pushes, but the existance of this macro is
