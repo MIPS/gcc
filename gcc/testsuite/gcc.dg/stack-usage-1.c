@@ -2,7 +2,7 @@
 /* { dg-options "-fstack-usage" } */
 
 /* This is aimed at testing basic support for -fstack-usage in the back-ends.
-   See the SPARC back-end for an example (grep flag_stack_usage in sparc.c).
+   See the SPARC back-end for example (grep flag_stack_usage_info in sparc.c).
    Once it is implemented, adjust SIZE below so that the stack usage for the
    function FOO is reported as 256 or 264 in the stack usage (.su) file.
    Then check that this is the actual stack usage in the assembly file.  */
@@ -10,7 +10,11 @@
 #if defined(__i386__)
 #  define SIZE 248
 #elif defined(__x86_64__)
-#  define SIZE 356
+#  ifndef _WIN64
+#    define SIZE 356
+#  else
+#    define SIZE (256 - 24)
+#  endif
 #elif defined (__sparc__)
 #  if defined (__arch64__)
 #    define SIZE 76
@@ -52,6 +56,8 @@
 #  define SIZE 160 /* 256 -  96 bytes for register save area */
 #elif defined (__SPU__)
 #  define SIZE 224
+#elif defined (__epiphany__)
+#  define SIZE (256 - __EPIPHANY_STACK_OFFSET__)
 #else
 #  define SIZE 256
 #endif

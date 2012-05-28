@@ -80,7 +80,6 @@ namespace __gnu_parallel
       *  @param __result Begin iterator of output sequence.
       *  @param __bin_op Associative binary function.
       *  @param __n Length of sequence.
-      *  @param __num_threads Number of threads to use.
       *  @return End iterator of output sequence.
       */
   template<typename _IIter,
@@ -184,7 +183,10 @@ namespace __gnu_parallel
 					__bin_op, __sums[__iam]);
       } //parallel
 
+      for (_ThreadIndex __i = 0; __i < __num_threads; ++__i)
+	__sums[__i].~_ValueType();
       ::operator delete(__sums);
+
       delete[] __borders;
 
       return __result + __n;
