@@ -1419,7 +1419,12 @@ d_unqualified_name (struct d_info *di)
 
       ret = d_operator_name (di);
       if (ret != NULL && ret->type == DEMANGLE_COMPONENT_OPERATOR)
-	di->expansion += sizeof "operator" + ret->u.s_operator.op->len - 2;
+	{
+	  di->expansion += sizeof "operator" + ret->u.s_operator.op->len - 2;
+	  if (!strcmp (ret->u.s_operator.op->code, "li"))
+	    ret = d_make_comp (di, DEMANGLE_COMPONENT_UNARY, ret,
+			       d_source_name (di));
+	}
       return ret;
     }
   else if (peek == 'C' || peek == 'D')
@@ -1596,6 +1601,7 @@ const struct demangle_operator_info cplus_demangle_operators[] =
   { "ix", NL ("[]"),        2 },
   { "lS", NL ("<<="),       2 },
   { "le", NL ("<="),        2 },
+  { "li", NL ("operator\"\" "), 1 },
   { "ls", NL ("<<"),        2 },
   { "lt", NL ("<"),         2 },
   { "mI", NL ("-="),        2 },
@@ -2263,6 +2269,11 @@ cplus_demangle_type (struct d_info *di)
 	  ret = d_make_comp (di, DEMANGLE_COMPONENT_PACK_EXPANSION,
 			     cplus_demangle_type (di), NULL);
 	  can_subst = 1;
+	  break;
+
+	case 'a':
+	  /* auto */
+	  ret = d_make_name (di, "auto", 4);
 	  break;
 	  
 	case 'f':
@@ -3704,6 +3715,7 @@ d_find_pack (struct d_print_info *dpi,
     case DEMANGLE_COMPONENT_SUB_STD:
     case DEMANGLE_COMPONENT_CHARACTER:
     case DEMANGLE_COMPONENT_FUNCTION_PARAM:
+    case DEMANGLE_COMPONENT_UNNAMED_TYPE:
       return NULL;
 
     case DEMANGLE_COMPONENT_EXTENDED_OPERATOR:

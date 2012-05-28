@@ -1,5 +1,5 @@
 /* Support routines for Value Range Propagation (VRP).
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>.
 
@@ -695,17 +695,22 @@ get_value_range (const_tree var)
   /* If VAR is a default definition of a parameter, the variable can
      take any value in VAR's type.  */
   sym = SSA_NAME_VAR (var);
-  if (SSA_NAME_IS_DEFAULT_DEF (var)
-      && TREE_CODE (sym) == PARM_DECL)
+  if (SSA_NAME_IS_DEFAULT_DEF (var))
     {
-      /* Try to use the "nonnull" attribute to create ~[0, 0]
-	 anti-ranges for pointers.  Note that this is only valid with
-	 default definitions of PARM_DECLs.  */
-      if (POINTER_TYPE_P (TREE_TYPE (sym))
-	  && nonnull_arg_p (sym))
+      if (TREE_CODE (sym) == PARM_DECL)
+	{
+	  /* Try to use the "nonnull" attribute to create ~[0, 0]
+	     anti-ranges for pointers.  Note that this is only valid with
+	     default definitions of PARM_DECLs.  */
+	  if (POINTER_TYPE_P (TREE_TYPE (sym))
+	      && nonnull_arg_p (sym))
+	    set_value_range_to_nonnull (vr, TREE_TYPE (sym));
+	  else
+	    set_value_range_to_varying (vr);
+	}
+      else if (TREE_CODE (sym) == RESULT_DECL
+	       && DECL_BY_REFERENCE (sym))
 	set_value_range_to_nonnull (vr, TREE_TYPE (sym));
-      else
-	set_value_range_to_varying (vr);
     }
 
   return vr;
@@ -2398,6 +2403,7 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
       && code != ROUND_DIV_EXPR
       && code != TRUNC_MOD_EXPR
       && code != RSHIFT_EXPR
+      && code != LSHIFT_EXPR
       && code != MIN_EXPR
       && code != MAX_EXPR
       && code != BIT_AND_EXPR
@@ -2589,6 +2595,40 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 	}
 
       extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
+      return;
+    }
+  else if (code == LSHIFT_EXPR)
+    {
+      /* If we have a LSHIFT_EXPR with any shift values outside [0..prec-1],
+	 then drop to VR_VARYING.  Outside of this range we get undefined
+	 behavior from the shift operation.  We cannot even trust
+	 SHIFT_COUNT_TRUNCATED at this stage, because that applies to rtl
+	 shifts, and the operation at the tree level may be widened.  */
+      if (vr1.type != VR_RANGE
+	  || !value_range_nonnegative_p (&vr1)
+	  || TREE_CODE (vr1.max) != INTEGER_CST
+	  || compare_tree_int (vr1.max, TYPE_PRECISION (expr_type) - 1) == 1)
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+
+      /* We can map shifts by constants to MULT_EXPR handling.  */
+      if (range_int_cst_singleton_p (&vr1))
+	{
+	  value_range_t vr1p = { VR_RANGE, NULL_TREE, NULL_TREE, NULL };
+	  vr1p.min
+	    = double_int_to_tree (expr_type,
+				  double_int_lshift (double_int_one,
+						     TREE_INT_CST_LOW (vr1.min),
+						     TYPE_PRECISION (expr_type),
+						     false));
+	  vr1p.max = vr1p.min;
+	  extract_range_from_multiplicative_op_1 (vr, MULT_EXPR, &vr0, &vr1p);
+	  return;
+	}
+
+      set_value_range_to_varying (vr);
       return;
     }
   else if (code == TRUNC_DIV_EXPR
@@ -3242,8 +3282,8 @@ extract_range_from_cond_expr (value_range_t *vr, gimple stmt)
     set_value_range_to_varying (&vr1);
 
   /* The resulting value range is the union of the operand ranges */
-  vrp_meet (&vr0, &vr1);
   copy_value_range (vr, &vr0);
+  vrp_meet (vr, &vr1);
 }
 
 
@@ -3420,7 +3460,9 @@ adjust_range_with_scev (value_range_t *vr, struct loop *loop,
     {
       double_int nit;
 
-      if (estimated_loop_iterations (loop, true, &nit))
+      /* We are only entering here for loop header PHI nodes, so using
+	 the number of latch executions is the correct thing to use.  */
+      if (max_loop_iterations (loop, &nit))
 	{
 	  value_range_t maxvr = { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL };
 	  double_int dtmp;
@@ -4338,6 +4380,34 @@ extract_code_and_val_from_cond_with_ops (tree name, enum tree_code cond_code,
   return true;
 }
 
+/* Find out smallest RES where RES > VAL && (RES & MASK) == RES, if any
+   (otherwise return VAL).  VAL and MASK must be zero-extended for
+   precision PREC.  If SGNBIT is non-zero, first xor VAL with SGNBIT
+   (to transform signed values into unsigned) and at the end xor
+   SGNBIT back.  */
+
+static double_int
+masked_increment (double_int val, double_int mask, double_int sgnbit,
+		  unsigned int prec)
+{
+  double_int bit = double_int_one, res;
+  unsigned int i;
+
+  val = double_int_xor (val, sgnbit);
+  for (i = 0; i < prec; i++, bit = double_int_add (bit, bit))
+    {
+      res = mask;
+      if (double_int_zero_p (double_int_and (res, bit)))
+	continue;
+      res = double_int_sub (bit, double_int_one);
+      res = double_int_and_not (double_int_add (val, bit), res);
+      res = double_int_and (res, mask);
+      if (double_int_ucmp (res, val) > 0)
+	return double_int_xor (res, sgnbit);
+    }
+  return double_int_xor (val, sgnbit);
+}
+
 /* Try to register an edge assertion for SSA name NAME on edge E for
    the condition COND contributing to the conditional jump pointed to by BSI.
    Invert the condition COND if INVERT is true.
@@ -4459,6 +4529,382 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  register_new_assert_for (name2, tmp, comp_code, val, NULL, e, bsi);
 
 	  retval = true;
+	}
+    }
+
+  if (TREE_CODE_CLASS (comp_code) == tcc_comparison
+      && TREE_CODE (val) == INTEGER_CST)
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      tree name2 = NULL_TREE, names[2], cst2 = NULL_TREE;
+      tree val2 = NULL_TREE;
+      double_int mask = double_int_zero;
+      unsigned int prec = TYPE_PRECISION (TREE_TYPE (val));
+
+      /* Add asserts for NAME cmp CST and NAME being defined
+	 as NAME = (int) NAME2.  */
+      if (!TYPE_UNSIGNED (TREE_TYPE (val))
+	  && (comp_code == LE_EXPR || comp_code == LT_EXPR
+	      || comp_code == GT_EXPR || comp_code == GE_EXPR)
+	  && gimple_assign_cast_p (def_stmt))
+	{
+	  name2 = gimple_assign_rhs1 (def_stmt);
+	  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
+	      && TYPE_UNSIGNED (TREE_TYPE (name2))
+	      && prec == TYPE_PRECISION (TREE_TYPE (name2))
+	      && (comp_code == LE_EXPR || comp_code == GT_EXPR
+		  || !tree_int_cst_equal (val,
+					  TYPE_MIN_VALUE (TREE_TYPE (val))))
+	      && live_on_edge (e, name2)
+	      && !has_single_use (name2))
+	    {
+	      tree tmp, cst;
+	      enum tree_code new_comp_code = comp_code;
+
+	      cst = fold_convert (TREE_TYPE (name2),
+				  TYPE_MIN_VALUE (TREE_TYPE (val)));
+	      /* Build an expression for the range test.  */
+	      tmp = build2 (PLUS_EXPR, TREE_TYPE (name2), name2, cst);
+	      cst = fold_build2 (PLUS_EXPR, TREE_TYPE (name2), cst,
+				 fold_convert (TREE_TYPE (name2), val));
+	      if (comp_code == LT_EXPR || comp_code == GE_EXPR)
+		{
+		  new_comp_code = comp_code == LT_EXPR ? LE_EXPR : GT_EXPR;
+		  cst = fold_build2 (MINUS_EXPR, TREE_TYPE (name2), cst,
+				     build_int_cst (TREE_TYPE (name2), 1));
+		}
+
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "Adding assert for ");
+		  print_generic_expr (dump_file, name2, 0);
+		  fprintf (dump_file, " from ");
+		  print_generic_expr (dump_file, tmp, 0);
+		  fprintf (dump_file, "\n");
+		}
+
+	      register_new_assert_for (name2, tmp, new_comp_code, cst, NULL,
+				       e, bsi);
+
+	      retval = true;
+	    }
+	}
+
+      /* Add asserts for NAME cmp CST and NAME being defined as
+	 NAME = NAME2 >> CST2.
+
+	 Extract CST2 from the right shift.  */
+      if (is_gimple_assign (def_stmt)
+	  && gimple_assign_rhs_code (def_stmt) == RSHIFT_EXPR)
+	{
+	  name2 = gimple_assign_rhs1 (def_stmt);
+	  cst2 = gimple_assign_rhs2 (def_stmt);
+	  if (TREE_CODE (name2) == SSA_NAME
+	      && host_integerp (cst2, 1)
+	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
+	      && IN_RANGE (tree_low_cst (cst2, 1), 1, prec - 1)
+	      && prec <= 2 * HOST_BITS_PER_WIDE_INT
+	      && prec == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (val)))
+	      && live_on_edge (e, name2)
+	      && !has_single_use (name2))
+	    {
+	      mask = double_int_mask (tree_low_cst (cst2, 1));
+	      val2 = fold_binary (LSHIFT_EXPR, TREE_TYPE (val), val, cst2);
+	    }
+	}
+      if (val2 != NULL_TREE
+	  && TREE_CODE (val2) == INTEGER_CST
+	  && simple_cst_equal (fold_build2 (RSHIFT_EXPR,
+					    TREE_TYPE (val),
+					    val2, cst2), val))
+	{
+	  enum tree_code new_comp_code = comp_code;
+	  tree tmp, new_val;
+
+	  tmp = name2;
+	  if (comp_code == EQ_EXPR || comp_code == NE_EXPR)
+	    {
+	      if (!TYPE_UNSIGNED (TREE_TYPE (val)))
+		{
+		  tree type = build_nonstandard_integer_type (prec, 1);
+		  tmp = build1 (NOP_EXPR, type, name2);
+		  val2 = fold_convert (type, val2);
+		}
+	      tmp = fold_build2 (MINUS_EXPR, TREE_TYPE (tmp), tmp, val2);
+	      new_val = double_int_to_tree (TREE_TYPE (tmp), mask);
+	      new_comp_code = comp_code == EQ_EXPR ? LE_EXPR : GT_EXPR;
+	    }
+	  else if (comp_code == LT_EXPR || comp_code == GE_EXPR)
+	    new_val = val2;
+	  else
+	    {
+	      double_int maxval
+		= double_int_max_value (prec, TYPE_UNSIGNED (TREE_TYPE (val)));
+	      mask = double_int_ior (tree_to_double_int (val2), mask);
+	      if (double_int_equal_p (mask, maxval))
+		new_val = NULL_TREE;
+	      else
+		new_val = double_int_to_tree (TREE_TYPE (val2), mask);
+	    }
+
+	  if (new_val)
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "Adding assert for ");
+		  print_generic_expr (dump_file, name2, 0);
+		  fprintf (dump_file, " from ");
+		  print_generic_expr (dump_file, tmp, 0);
+		  fprintf (dump_file, "\n");
+		}
+
+	      register_new_assert_for (name2, tmp, new_comp_code, new_val,
+				       NULL, e, bsi);
+	      retval = true;
+	    }
+	}
+
+      /* Add asserts for NAME cmp CST and NAME being defined as
+	 NAME = NAME2 & CST2.
+
+	 Extract CST2 from the and.  */
+      names[0] = NULL_TREE;
+      names[1] = NULL_TREE;
+      cst2 = NULL_TREE;
+      if (is_gimple_assign (def_stmt)
+	  && gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR)
+	{
+	  name2 = gimple_assign_rhs1 (def_stmt);
+	  cst2 = gimple_assign_rhs2 (def_stmt);
+	  if (TREE_CODE (name2) == SSA_NAME
+	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
+	      && TREE_CODE (cst2) == INTEGER_CST
+	      && !integer_zerop (cst2)
+	      && prec <= 2 * HOST_BITS_PER_WIDE_INT
+	      && (prec > 1
+		  || TYPE_UNSIGNED (TREE_TYPE (val))))
+	    {
+	      gimple def_stmt2 = SSA_NAME_DEF_STMT (name2);
+	      if (gimple_assign_cast_p (def_stmt2))
+		{
+		  names[1] = gimple_assign_rhs1 (def_stmt2);
+		  if (!CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt2))
+		      || !INTEGRAL_TYPE_P (TREE_TYPE (names[1]))
+		      || (TYPE_PRECISION (TREE_TYPE (name2))
+			  != TYPE_PRECISION (TREE_TYPE (names[1])))
+		      || !live_on_edge (e, names[1])
+		      || has_single_use (names[1]))
+		    names[1] = NULL_TREE;
+		}
+	      if (live_on_edge (e, name2)
+		  && !has_single_use (name2))
+		names[0] = name2;
+	    }
+	}
+      if (names[0] || names[1])
+	{
+	  double_int minv, maxv = double_int_zero, valv, cst2v;
+	  double_int tem, sgnbit;
+	  bool valid_p = false, valn = false, cst2n = false;
+	  enum tree_code ccode = comp_code;
+
+	  valv = double_int_zext (tree_to_double_int (val), prec);
+	  cst2v = double_int_zext (tree_to_double_int (cst2), prec);
+	  if (!TYPE_UNSIGNED (TREE_TYPE (val)))
+	    {
+	      valn = double_int_negative_p (double_int_sext (valv, prec));
+	      cst2n = double_int_negative_p (double_int_sext (cst2v, prec));
+	    }
+	  /* If CST2 doesn't have most significant bit set,
+	     but VAL is negative, we have comparison like
+	     if ((x & 0x123) > -4) (always true).  Just give up.  */
+	  if (!cst2n && valn)
+	    ccode = ERROR_MARK;
+	  if (cst2n)
+	    sgnbit = double_int_zext (double_int_lshift (double_int_one,
+							 prec - 1, prec,
+							 false), prec);
+	  else
+	    sgnbit = double_int_zero;
+	  minv = double_int_and (valv, cst2v);
+	  switch (ccode)
+	    {
+	    case EQ_EXPR:
+	      /* Minimum unsigned value for equality is VAL & CST2
+		 (should be equal to VAL, otherwise we probably should
+		 have folded the comparison into false) and
+		 maximum unsigned value is VAL | ~CST2.  */
+	      maxv = double_int_ior (valv, double_int_not (cst2v));
+	      maxv = double_int_zext (maxv, prec);
+	      valid_p = true;
+	      break;
+	    case NE_EXPR:
+	      tem = double_int_ior (valv, double_int_not (cst2v));
+	      tem = double_int_zext (tem, prec);
+	      /* If VAL is 0, handle (X & CST2) != 0 as (X & CST2) > 0U.  */
+	      if (double_int_zero_p (valv))
+		{
+		  cst2n = false;
+		  sgnbit = double_int_zero;
+		  goto gt_expr;
+		}
+	      /* If (VAL | ~CST2) is all ones, handle it as
+		 (X & CST2) < VAL.  */
+	      if (double_int_equal_p (tem, double_int_mask (prec)))
+		{
+		  cst2n = false;
+		  valn = false;
+		  sgnbit = double_int_zero;
+		  goto lt_expr;
+		}
+	      if (!cst2n
+		  && double_int_negative_p (double_int_sext (cst2v, prec)))
+		sgnbit = double_int_zext (double_int_lshift (double_int_one,
+							     prec - 1, prec,
+							     false), prec);
+	      if (!double_int_zero_p (sgnbit))
+		{
+		  if (double_int_equal_p (valv, sgnbit))
+		    {
+		      cst2n = true;
+		      valn = true;
+		      goto gt_expr;
+		    }
+		  if (double_int_equal_p (tem, double_int_mask (prec - 1)))
+		    {
+		      cst2n = true;
+		      goto lt_expr;
+		    }
+		  if (!cst2n)
+		    sgnbit = double_int_zero;
+		}
+	      break;
+	    case GE_EXPR:
+	      /* Minimum unsigned value for >= if (VAL & CST2) == VAL
+		 is VAL and maximum unsigned value is ~0.  For signed
+		 comparison, if CST2 doesn't have most significant bit
+		 set, handle it similarly.  If CST2 has MSB set,
+		 the minimum is the same, and maximum is ~0U/2.  */
+	      if (!double_int_equal_p (minv, valv))
+		{
+		  /* If (VAL & CST2) != VAL, X & CST2 can't be equal to
+		     VAL.  */
+		  minv = masked_increment (valv, cst2v, sgnbit, prec);
+		  if (double_int_equal_p (minv, valv))
+		    break;
+		}
+	      maxv = double_int_mask (prec - (cst2n ? 1 : 0));
+	      valid_p = true;
+	      break;
+	    case GT_EXPR:
+	    gt_expr:
+	      /* Find out smallest MINV where MINV > VAL
+		 && (MINV & CST2) == MINV, if any.  If VAL is signed and
+		 CST2 has MSB set, compute it biased by 1 << (prec - 1).  */
+	      minv = masked_increment (valv, cst2v, sgnbit, prec);
+	      if (double_int_equal_p (minv, valv))
+		break;
+	      maxv = double_int_mask (prec - (cst2n ? 1 : 0));
+	      valid_p = true;
+	      break;
+	    case LE_EXPR:
+	      /* Minimum unsigned value for <= is 0 and maximum
+		 unsigned value is VAL | ~CST2 if (VAL & CST2) == VAL.
+		 Otherwise, find smallest VAL2 where VAL2 > VAL
+		 && (VAL2 & CST2) == VAL2 and use (VAL2 - 1) | ~CST2
+		 as maximum.
+		 For signed comparison, if CST2 doesn't have most
+		 significant bit set, handle it similarly.  If CST2 has
+		 MSB set, the maximum is the same and minimum is INT_MIN.  */
+	      if (double_int_equal_p (minv, valv))
+		maxv = valv;
+	      else
+		{
+		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  if (double_int_equal_p (maxv, valv))
+		    break;
+		  maxv = double_int_sub (maxv, double_int_one);
+		}
+	      maxv = double_int_ior (maxv, double_int_not (cst2v));
+	      maxv = double_int_zext (maxv, prec);
+	      minv = sgnbit;
+	      valid_p = true;
+	      break;
+	    case LT_EXPR:
+	    lt_expr:
+	      /* Minimum unsigned value for < is 0 and maximum
+		 unsigned value is (VAL-1) | ~CST2 if (VAL & CST2) == VAL.
+		 Otherwise, find smallest VAL2 where VAL2 > VAL
+		 && (VAL2 & CST2) == VAL2 and use (VAL2 - 1) | ~CST2
+		 as maximum.
+		 For signed comparison, if CST2 doesn't have most
+		 significant bit set, handle it similarly.  If CST2 has
+		 MSB set, the maximum is the same and minimum is INT_MIN.  */
+	      if (double_int_equal_p (minv, valv))
+		{
+		  if (double_int_equal_p (valv, sgnbit))
+		    break;
+		  maxv = valv;
+		}
+	      else
+		{
+		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  if (double_int_equal_p (maxv, valv))
+		    break;
+		}
+	      maxv = double_int_sub (maxv, double_int_one);
+	      maxv = double_int_ior (maxv, double_int_not (cst2v));
+	      maxv = double_int_zext (maxv, prec);
+	      minv = sgnbit;
+	      valid_p = true;
+	      break;
+	    default:
+	      break;
+	    }
+	  if (valid_p
+	      && !double_int_equal_p (double_int_zext (double_int_sub (maxv,
+								       minv),
+						       prec),
+				      double_int_mask (prec)))
+	    {
+	      tree tmp, new_val, type;
+	      int i;
+
+	      for (i = 0; i < 2; i++)
+		if (names[i])
+		  {
+		    double_int maxv2 = maxv;
+		    tmp = names[i];
+		    type = TREE_TYPE (names[i]);
+		    if (!TYPE_UNSIGNED (type))
+		      {
+			type = build_nonstandard_integer_type (prec, 1);
+			tmp = build1 (NOP_EXPR, type, names[i]);
+		      }
+		    if (!double_int_zero_p (minv))
+		      {
+			tmp = build2 (PLUS_EXPR, type, tmp,
+				      double_int_to_tree (type,
+							  double_int_neg (minv)));
+			maxv2 = double_int_sub (maxv, minv);
+		      }
+		    new_val = double_int_to_tree (type, maxv2);
+
+		    if (dump_file)
+		      {
+			fprintf (dump_file, "Adding assert for ");
+			print_generic_expr (dump_file, names[i], 0);
+			fprintf (dump_file, " from ");
+			print_generic_expr (dump_file, tmp, 0);
+			fprintf (dump_file, "\n");
+		      }
+
+		    register_new_assert_for (names[i], tmp, LE_EXPR,
+					     new_val, NULL, e, bsi);
+		    retval = true;
+		  }
+	    }
 	}
     }
 
@@ -6442,13 +6888,17 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
 {
   if (vr0->type == VR_UNDEFINED)
     {
-      copy_value_range (vr0, vr1);
+      /* Drop equivalences.  See PR53465.  */
+      set_value_range (vr0, vr1->type, vr1->min, vr1->max, NULL);
       return;
     }
 
   if (vr1->type == VR_UNDEFINED)
     {
-      /* Nothing to do.  VR0 already has the resulting range.  */
+      /* VR0 already has the resulting range, just drop equivalences.
+	 See PR53465.  */
+      if (vr0->equiv)
+	bitmap_clear (vr0->equiv);
       return;
     }
 
@@ -6590,6 +7040,7 @@ vrp_visit_phi_node (gimple phi)
   tree lhs = PHI_RESULT (phi);
   value_range_t *lhs_vr = get_value_range (lhs);
   value_range_t vr_result = { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL };
+  bool first = true;
   int edges, old_edges;
   struct loop *l;
 
@@ -6646,7 +7097,11 @@ vrp_visit_phi_node (gimple phi)
 	      fprintf (dump_file, "\n");
 	    }
 
-	  vrp_meet (&vr_result, &vr_arg);
+	  if (first)
+	    copy_value_range (&vr_result, &vr_arg);
+	  else
+	    vrp_meet (&vr_result, &vr_arg);
+	  first = false;
 
 	  if (vr_result.type == VR_VARYING)
 	    break;
@@ -7870,12 +8325,6 @@ execute_vrp (void)
   scev_initialize ();
 
   insert_range_assertions ();
-
-  /* Estimate number of iterations - but do not use undefined behavior
-     for this.  We can't do this lazily as other functions may compute
-     this using undefined behavior.  */
-  free_numbers_of_iterations_estimates ();
-  estimate_numbers_of_iterations (false);
 
   to_remove_edges = VEC_alloc (edge, heap, 10);
   to_update_switch_stmts = VEC_alloc (switch_update, heap, 5);

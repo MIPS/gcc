@@ -11,6 +11,17 @@
 
 uint32	runtime_panicking;
 
+int32
+runtime_gotraceback(void)
+{
+	const byte *p;
+
+	p = runtime_getenv("GOTRACEBACK");
+	if(p == nil || p[0] == '\0')
+		return 1;	// default is on
+	return runtime_atoi(p);
+}
+
 static Lock paniclk;
 
 void
@@ -31,20 +42,26 @@ runtime_startpanic(void)
 void
 runtime_dopanic(int32 unused __attribute__ ((unused)))
 {
-	/*
+	G* g;
 	static bool didothers;
 
+	g = runtime_g();
 	if(g->sig != 0)
-		runtime_printf("[signal %x code=%p addr=%p pc=%p]\n",
-			g->sig, g->sigcode0, g->sigcode1, g->sigpc);
+		runtime_printf("[signal %x code=%p addr=%p]\n",
+			g->sig, (void*)(g->sigcode0), (void*)(g->sigcode1));
 
 	if(runtime_gotraceback()){
+		if(g != runtime_m()->g0) {
+			runtime_printf("\n");
+			runtime_goroutineheader(g);
+			runtime_traceback();
+			runtime_goroutinetrailer(g);
+		}
 		if(!didothers) {
 			didothers = true;
 			runtime_tracebackothers(g);
 		}
 	}
-	*/
 
 	runtime_unlock(&paniclk);
 	if(runtime_xadd(&runtime_panicking, -1) != 0) {
@@ -74,7 +91,7 @@ void
 runtime_panicstring(const char *s)
 {
 	Eface err;
-	
+
 	if(runtime_m()->gcing) {
 		runtime_printf("panic: %s\n", s);
 		runtime_throw("panic during gc");
@@ -86,8 +103,8 @@ runtime_panicstring(const char *s)
 static int32	argc;
 static byte**	argv;
 
-extern Slice os_Args asm ("libgo_os.os.Args");
-extern Slice syscall_Envs asm ("libgo_syscall.syscall.Envs");
+extern Slice os_Args asm ("os.Args");
+extern Slice syscall_Envs asm ("syscall.Envs");
 
 void
 runtime_args(int32 c, byte **v)
@@ -101,7 +118,7 @@ runtime_goargs(void)
 {
 	String *s;
 	int32 i;
-	
+
 	// for windows implementation see "os" package
 	if(Windows)
 		return;
@@ -119,7 +136,7 @@ runtime_goenvs_unix(void)
 {
 	String *s;
 	int32 i, n;
-	
+
 	for(n=0; argv[argc+1+n] != 0; n++)
 		;
 
@@ -184,6 +201,19 @@ runtime_fastrand1(void)
 	return x;
 }
 
+static struct root_list runtime_roots =
+{ nil,
+  { { &syscall_Envs, sizeof syscall_Envs },
+    { &os_Args, sizeof os_Args },
+    { nil, 0 } },
+};
+
+void
+runtime_check(void)
+{
+	__go_register_gc_roots(&runtime_roots);
+}
+
 int64
 runtime_cputicks(void)
 {
@@ -197,21 +227,24 @@ runtime_cputicks(void)
 #endif
 }
 
-struct funcline_go_return
+bool
+runtime_showframe(const unsigned char *s)
 {
-  String retfile;
-  int32 retline;
-};
+	static int32 traceback = -1;
+	
+	if(traceback < 0)
+		traceback = runtime_gotraceback();
+	return traceback > 1 || (__builtin_strchr((const char*)s, '.') != nil && __builtin_memcmp(s, "runtime.", 7) != 0);
+}
 
-struct funcline_go_return
-runtime_funcline_go(void *f, uintptr targetpc)
-  __asm__("libgo_runtime.runtime.funcline_go");
-
-struct funcline_go_return
-runtime_funcline_go(void *f __attribute__((unused)),
-		    uintptr targetpc __attribute__((unused)))
+bool
+runtime_isInf(float64 f, int32 sign)
 {
-  struct funcline_go_return ret;
-  runtime_memclr(&ret, sizeof ret);
-  return ret;
+	if(!__builtin_isinf(f))
+		return false;
+	if(sign == 0)
+		return true;
+	if(sign > 0)
+		return f > 0;
+	return f < 0;
 }

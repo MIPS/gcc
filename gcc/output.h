@@ -187,6 +187,7 @@ extern int decode_reg_name (const char *);
 extern int decode_reg_name_and_count (const char *, int *);
 
 extern void assemble_alias (tree, tree);
+extern void do_assemble_alias (tree, tree);
 
 extern void default_assemble_visibility (tree, int);
 
@@ -446,8 +447,8 @@ extern void no_asm_to_stream (FILE *);
 #define SECTION_STYLE_MASK 0x600000	/* bits used for SECTION_STYLE */
 #define SECTION_COMMON   0x800000	/* contains common data */
 #define SECTION_RELRO	 0x1000000	/* data is readonly after relocation processing */
-#define SECTION_MACH_DEP 0x2000000	/* subsequent bits reserved for target */
-#define SECTION_EXCLUDE  0x4000000      /* discarded by the linker */
+#define SECTION_EXCLUDE  0x2000000	/* discarded by the linker */
+#define SECTION_MACH_DEP 0x4000000	/* subsequent bits reserved for target */
 
 /* This SECTION_STYLE is used for unnamed sections that we can switch
    to using a special assembler directive.  */

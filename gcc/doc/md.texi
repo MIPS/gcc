@@ -4417,12 +4417,10 @@ Similar, for other arithmetic operations.
 @cindex @code{fma@var{m}4} instruction pattern
 @item @samp{fma@var{m}4}
 Multiply operand 2 and operand 1, then add operand 3, storing the
-result in operand 0.  All operands must have mode @var{m}.  This
-pattern is used to implement the @code{fma}, @code{fmaf}, and
-@code{fmal} builtin functions from the ISO C99 standard.  The
-@code{fma} operation may produce different results than doing the
-multiply followed by the add if the machine does not perform a
-rounding step between the operations.
+result in operand 0 without doing an intermediate rounding step.  All
+operands must have mode @var{m}.  This pattern is used to implement
+the @code{fma}, @code{fmaf}, and @code{fmal} builtin functions from
+the ISO C99 standard.
 
 @cindex @code{fms@var{m}4} instruction pattern
 @item @samp{fms@var{m}4}
@@ -4735,6 +4733,10 @@ Other shift and rotate instructions, analogous to the
 @item @samp{vashl@var{m}3}, @samp{vashr@var{m}3}, @samp{vlshr@var{m}3}, @samp{vrotl@var{m}3}, @samp{vrotr@var{m}3}
 Vector shift and rotate instructions that take vectors as operand 2
 instead of a scalar type.
+
+@cindex @code{bswap@var{m}2} instruction pattern
+@item @samp{bswap@var{m}2}
+Reverse the order of bytes of operand 1 and store the result in operand 0.
 
 @cindex @code{neg@var{m}2} instruction pattern
 @cindex @code{ssneg@var{m}2} instruction pattern
@@ -5610,6 +5612,13 @@ the stack farthest from the current stack pointer that you need to validate.
 Normally, on platforms where this pattern is needed, you would obtain the
 stack limit from a global or thread-specific variable or register.
 
+@cindex @code{probe_stack_address} instruction pattern
+@item @samp{probe_stack_address}
+If stack checking (@pxref{Stack Checking}) can be done on your system by
+probing the stack but without the need to actually access it, define this
+pattern and signal an error if the stack has overflowed.  The single operand
+is the memory address in the stack that needs to be probed.
+
 @cindex @code{probe_stack} instruction pattern
 @item @samp{probe_stack}
 If stack checking (@pxref{Stack Checking}) can be done on your system by
@@ -5876,7 +5885,7 @@ from a compare-and-swap operation, if defined.
 @itemx @samp{sync_old_ior@var{mode}}, @samp{sync_old_and@var{mode}}
 @itemx @samp{sync_old_xor@var{mode}}, @samp{sync_old_nand@var{mode}}
 
-These patterns are emit code for an atomic operation on memory,
+These patterns emit code for an atomic operation on memory,
 and return the value that the memory contained before the operation.
 Operand 0 is the result value, operand 1 is the memory on which the
 atomic operation is performed, and operand 2 is the second operand
@@ -6028,7 +6037,7 @@ performed.  Operand 1 is the second operand to the binary operator.
 Operand 2 is the memory model to be used by the operation.
 
 If these patterns are not defined, attempts will be made to use legacy
-@code{sync} patterns, or equivilent patterns which return a result.  If
+@code{sync} patterns, or equivalent patterns which return a result.  If
 none of these are available a compare-and-swap loop will be used.
 
 @cindex @code{atomic_fetch_add@var{mode}} instruction pattern
@@ -6070,7 +6079,7 @@ performed.  Operand 2 is the second operand to the binary operator.
 Operand 3 is the memory model to be used by the operation.
 
 If these patterns are not defined, attempts will be made to use legacy
-@code{sync} patterns, or equivilent patterns which return the result before
+@code{sync} patterns, or equivalent patterns which return the result before
 the operation followed by the arithmetic operation required to produce the
 result.  If none of these are available a compare-and-swap loop will be
 used.
@@ -6127,7 +6136,7 @@ If this pattern is not defined, then a plain move pattern is generated.
 This pattern, if defined, compares a @code{ptr_mode} value from the
 memory in operand 1 with the memory in operand 0 without leaving the
 value in a register afterward and branches to operand 2 if the values
-weren't equal.
+were equal.
 
 If this pattern is not defined, then a plain compare pattern and
 conditional branch pattern is used.
@@ -7703,12 +7712,7 @@ scheduled.
 
 @var{name} is a string specifying one of a fixed set of flags to test.
 Test the flags @code{forward} and @code{backward} to determine the
-direction of a conditional branch.  Test the flags @code{very_likely},
-@code{likely}, @code{very_unlikely}, and @code{unlikely} to determine
-if a conditional branch is expected to be taken.
-
-If the @code{very_likely} flag is true, then the @code{likely} flag is also
-true.  Likewise for the @code{very_unlikely} and @code{unlikely} flags.
+direction of a conditional branch.
 
 This example describes a conditional branch delay slot which
 can be nullified for forward branches that are taken (annul-true) or
@@ -7724,11 +7728,6 @@ for backward branches which are not taken (annul-false).
 @end smallexample
 
 The @code{forward} and @code{backward} flags are false if the current
-@code{insn} being scheduled is not a conditional branch.
-
-The @code{very_likely} and @code{likely} flags are true if the
-@code{insn} being scheduled is not a conditional branch.
-The @code{very_unlikely} and @code{unlikely} flags are false if the
 @code{insn} being scheduled is not a conditional branch.
 
 @code{attr_flag} is only used during delay slot scheduling and has no

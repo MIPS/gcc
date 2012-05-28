@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Debug;    use Debug;
 with Elists;
 with Errout;   use Errout;
 with Exp_CG;
+with Exp_Ch6;  use Exp_Ch6;
 with Fmap;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
@@ -266,6 +267,12 @@ procedure Gnat1drv is
 
          Force_ALI_Tree_File := True;
          Try_Semantics := True;
+
+         --  Enable Exception_Extra_Info for now, to avoid extra messages
+         --  on controlled operations.
+         --  ??? To be revised.
+
+         Exception_Extra_Info := True;
       end if;
 
       --  Set Configurable_Run_Time mode if system.ads flag set
@@ -286,6 +293,12 @@ procedure Gnat1drv is
 
       if Debug_Flag_Dot_A then
          Ttypes.Target_Strict_Alignment := True;
+      end if;
+
+      --  Increase size of allocated entities if debug flag -gnatd.N is set
+
+      if Debug_Flag_Dot_NN then
+         Atree.Num_Extension_Nodes := Atree.Num_Extension_Nodes + 1;
       end if;
 
       --  Disable static allocation of dispatch tables if -gnatd.t or if layout
@@ -343,6 +356,13 @@ procedure Gnat1drv is
       else
          Suppress_Options (Overflow_Check) := True;
       end if;
+
+      --  Set default for atomic synchronization. As this synchronization
+      --  between atomic accesses can be expensive, and not typically needed
+      --  on some targets, an optional target parameter can turn the option
+      --  off. Note Atomic Synchronization is implemented as check.
+
+      Suppress_Options (Atomic_Synchronization) := not Atomic_Sync_Default;
 
       --  Set switch indicating if we can use N_Expression_With_Actions
 
@@ -1160,6 +1180,7 @@ begin
       Errout.Finalize (Last_Call => True);
       Errout.Output_Messages;
       List_Rep_Info;
+      List_Inlining_Info;
 
       --  Only write the library if the backend did not generate any error
       --  messages. Otherwise signal errors to the driver program so that

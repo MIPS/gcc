@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1111,6 +1111,12 @@ package Sinfo is
    --    handler is deleted during optimization. For further details on why
    --    this is required, see Exp_Ch11.Remove_Handler_Entries.
 
+   --  Has_Dereference_Action (Flag13-Sem)
+   --    This flag is present in N_Explicit_Dereference nodes. It is set to
+   --    indicate that the expansion has aready produced a call to primitive
+   --    Dereference of a System.Checked_Pools.Checked_Pool implementation.
+   --    Such dereference actions are produced for debugging purposes.
+
    --  Has_Dynamic_Length_Check (Flag10-Sem)
    --    This flag is present in all expression nodes. It is set to indicate
    --    that one of the routines in unit Checks has generated a length check
@@ -1226,6 +1232,9 @@ package Sinfo is
    --    'Address or 'Tag attribute. ???There are other implicit with clauses
    --    as well.
 
+   --  Implicit_With_From_Instantiation (Flag12-Sem)
+   --     Set in N_With_Clause nodes from generic instantiations.
+
    --  Import_Interface_Present (Flag16-Sem)
    --     This flag is set in an Interface or Import pragma if a matching
    --     pragma of the other kind is also present. This is used to avoid
@@ -1252,7 +1261,7 @@ package Sinfo is
    --    to the node for the spec of the instance, inserted as part of the
    --    semantic processing for instantiations in Sem_Ch12.
 
-   --  Is_Accessibility_Actual (Flag12-Sem)
+   --  Is_Accessibility_Actual (Flag13-Sem)
    --    Present in N_Parameter_Association nodes. True if the parameter is
    --    an extra actual that carries the accessibility level of the actual
    --    for an access parameter, in a function that dispatches on result and
@@ -3189,6 +3198,7 @@ package Sinfo is
       --  Prefix (Node3)
       --  Actual_Designated_Subtype (Node4-Sem)
       --  Atomic_Sync_Required (Flag14-Sem)
+      --  Has_Dereference_Action (Flag13-Sem)
       --  plus fields for expression
 
       -------------------------------
@@ -5805,6 +5815,7 @@ package Sinfo is
       --  Elaborate_Desirable (Flag11-Sem)
       --  Private_Present (Flag15) set if with_clause has private keyword
       --  Implicit_With (Flag16-Sem)
+      --  Implicit_With_From_Instantiation (Flag12-Sem)
       --  Limited_Present (Flag17) set if LIMITED is present
       --  Limited_View_Installed (Flag18-Sem)
       --  Unreferenced_In_Spec (Flag7-Sem)
@@ -6969,7 +6980,7 @@ package Sinfo is
       --  N_Contract
       --  Sloc points to the subprogram's name
       --  Spec_PPC_List (Node1) (set to Empty if none)
-      --  Spec_TC_List (Node2) (set to Empty if none)
+      --  Spec_CTC_List (Node2) (set to Empty if none)
 
       --  Spec_PPC_List points to a list of Precondition and Postcondition
       --  pragma nodes for preconditions and postconditions declared in the
@@ -6978,11 +6989,12 @@ package Sinfo is
       --  Note that this includes precondition/postcondition pragmas generated
       --  to correspond to Pre/Post aspects.
 
-      --  Spec_TC_List points to a list of Test_Case pragma nodes for
-      --  test-cases declared in the spec of the entry/subprogram. The last
-      --  pragma encountered is at the head of this list, so it is in reverse
-      --  order of textual appearance. Note that this includes test-case
-      --  pragmas generated to correspond to Test_Case aspects.
+      --  Spec_CTC_List points to a list of Contract_Case and Test_Case pragma
+      --  nodes for contract-cases and test-cases declared in the spec of the
+      --  entry/subprogram. The last pragma encountered is at the head of this
+      --  list, so it is in reverse order of textual appearance. Note that
+      --  this includes contract-case and test-case pragmas generated from
+      --  Contract_Case and Test_Case aspects.
 
       -------------------
       -- Expanded_Name --
@@ -8519,6 +8531,9 @@ package Sinfo is
    function Has_Created_Identifier
      (N : Node_Id) return Boolean;    -- Flag15
 
+   function Has_Dereference_Action
+     (N : Node_Id) return Boolean;    -- Flag13
+
    function Has_Dynamic_Length_Check
      (N : Node_Id) return Boolean;    -- Flag10
 
@@ -8590,6 +8605,9 @@ package Sinfo is
 
    function Implicit_With
      (N : Node_Id) return Boolean;    -- Flag16
+
+   function Implicit_With_From_Instantiation
+     (N : Node_Id) return Boolean;    -- Flag12
 
    function Import_Interface_Present
      (N : Node_Id) return Boolean;    -- Flag16
@@ -8963,7 +8981,7 @@ package Sinfo is
    function Spec_PPC_List
      (N : Node_Id) return Node_Id;    -- Node1
 
-   function Spec_TC_List
+   function Spec_CTC_List
      (N : Node_Id) return Node_Id;    -- Node2
 
    function Specification
@@ -9500,6 +9518,9 @@ package Sinfo is
    procedure Set_Has_Created_Identifier
      (N : Node_Id; Val : Boolean := True);    -- Flag15
 
+   procedure Set_Has_Dereference_Action
+     (N : Node_Id; Val : Boolean := True);    -- Flag13
+
    procedure Set_Has_Dynamic_Length_Check
      (N : Node_Id; Val : Boolean := True);    -- Flag10
 
@@ -9571,6 +9592,9 @@ package Sinfo is
 
    procedure Set_Implicit_With
      (N : Node_Id; Val : Boolean := True);    -- Flag16
+
+   procedure Set_Implicit_With_From_Instantiation
+     (N : Node_Id; Val : Boolean := True);    -- Flag12
 
    procedure Set_Import_Interface_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag16
@@ -9944,7 +9968,7 @@ package Sinfo is
    procedure Set_Spec_PPC_List
      (N : Node_Id; Val : Node_Id);            -- Node1
 
-   procedure Set_Spec_TC_List
+   procedure Set_Spec_CTC_List
      (N : Node_Id; Val : Node_Id);            -- Node2
 
    procedure Set_Specification
@@ -11590,7 +11614,7 @@ package Sinfo is
 
      N_Contract =>
        (1 => False,   --  Spec_PPC_List (Node1)
-        2 => False,   --  Spec_TC_List (Node2)
+        2 => False,   --  Spec_CTC_List (Node2)
         3 => False,   --  unused
         4 => False,   --  unused
         5 => False),  --  unused
@@ -11936,6 +11960,7 @@ package Sinfo is
    pragma Inline (Handled_Statement_Sequence);
    pragma Inline (Handler_List_Entry);
    pragma Inline (Has_Created_Identifier);
+   pragma Inline (Has_Dereference_Action);
    pragma Inline (Has_Dynamic_Length_Check);
    pragma Inline (Has_Dynamic_Range_Check);
    pragma Inline (Has_Init_Expression);
@@ -11958,6 +11983,7 @@ package Sinfo is
    pragma Inline (High_Bound);
    pragma Inline (Identifier);
    pragma Inline (Implicit_With);
+   pragma Inline (Implicit_With_From_Instantiation);
    pragma Inline (Interface_List);
    pragma Inline (Interface_Present);
    pragma Inline (Includes_Infinities);
@@ -12084,7 +12110,7 @@ package Sinfo is
    pragma Inline (Shift_Count_OK);
    pragma Inline (Source_Type);
    pragma Inline (Spec_PPC_List);
-   pragma Inline (Spec_TC_List);
+   pragma Inline (Spec_CTC_List);
    pragma Inline (Specification);
    pragma Inline (Split_PPC);
    pragma Inline (Statements);
@@ -12260,6 +12286,7 @@ package Sinfo is
    pragma Inline (Set_Handled_Statement_Sequence);
    pragma Inline (Set_Handler_List_Entry);
    pragma Inline (Set_Has_Created_Identifier);
+   pragma Inline (Set_Has_Dereference_Action);
    pragma Inline (Set_Has_Dynamic_Length_Check);
    pragma Inline (Set_Has_Init_Expression);
    pragma Inline (Set_Has_Local_Raise);
@@ -12407,7 +12434,7 @@ package Sinfo is
    pragma Inline (Set_Shift_Count_OK);
    pragma Inline (Set_Source_Type);
    pragma Inline (Set_Spec_PPC_List);
-   pragma Inline (Set_Spec_TC_List);
+   pragma Inline (Set_Spec_CTC_List);
    pragma Inline (Set_Specification);
    pragma Inline (Set_Split_PPC);
    pragma Inline (Set_Statements);
