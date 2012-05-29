@@ -1,3 +1,90 @@
+2012-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/52178
+	* tree-inline.c (remap_gimple_op_r): Fix handling of FIELD_DECL.
+	* tree.c (RETURN_TRUE_IF_VAR): Do not return true for PLACEHOLDER_EXPR.
+
+2012-05-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-linux64: Delete the 32-bit multilib that uses
+	software floating point emulation.  No longer build the multilibs
+	with -mstrict-align.
+
+2012-05-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/53008
+	* trans-mem.c (ipa_tm_create_version_alias): Output new_node if
+	accessed indirectly.
+	(ipa_tm_create_version): Same.
+
+2012-05-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53474
+	* config/i386/i386.c (ix86_print_operand) <case 'O'>: Print '.' here.
+	<case 'C', case 'c', case 'F', case 'f'>: Print '.' only for C and c.
+
+2012-05-25  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	PR target/53435
+	* config/i386/i386.c (ix86_expand_vec_perm): Use correct op.
+	(ix86_expand_vec_perm): Use int mode instead of float.
+	(expand_vec_perm_pshufb): Remove handling of useseless type
+	conversion.
+
+2012-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/52362
+	* config.gcc (i[34567]86-*-mingw* | x86_64-*-mingw*): Set gas and
+	gnu_ld variables to yes.
+	* configure.ac (HAVE_GNU_LD): Move to after config.gcc inclusion.
+	(HAVE_GNU_AS): Likewise.
+	* config.in: Regenerate.
+	* configure: Likewise.
+
+2012-05-25  Tristan Gingold  <gingold@adacore.com>
+
+	* config/i386/i386.c (struct ix86_frame): Remove unused frame field.
+	(ix86_compute_frame_layout): Fix type of stack_alignment_needed
+	and preferred_alignment.
+
+2012-05-25  Tristan Gingold  <gingold@adacore.com>
+
+	* common/config/ia64/ia64-common.c (ia64_except_unwind_info): Fix typo.
+
+2012-05-25  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* fold-const.c (optimize_bit_field_compare): Abort early in the strict
+	volatile bitfields case.
+
+2012-05-24  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Change
+	rs6000_sched_costly_dep default to true_store_to_load_dep_costly.
+	(adjacent_mem_locations): Move some code to and call...
+	(get_memref_parts): ...new function.
+	(mem_locations_overlap): New function.
+	(rs6000_adjust_priority): Adjust calls to is_load_insn/is_store_insn.
+	(is_mem_ref): Rename to...
+	(find_mem_ref): ...this. Return MEM rtx.
+	(get_store_dest): Remove function.
+	(is_load_insn1, is_load_insn, is_store_insn1, is_store_insn): Add
+	new parameter and adjust calls.
+	(rs6000_is_costly_dependence): Update calls for extra arg. Make sure
+	mem refs overlap for true_store_to_load_dep_costly.
+	(rs6000_sched_reorder2): Update calls for extra arg. Adjust args
+	passed to adjacent_mem_locations.
+	(is_costly_group): Walk resolved dependency list.
+	(force_new_group): Emit group ending nop for Power6/Power7.
+	* config/rs6000/rs6000.md (UNSPEC_GRP_END_NOP): New enum value.
+	(group_ending_nop): New define_insn.
+
+2012-05-24  Dodji Seketeli  <dodji@redhat.com>
+
+	Make unwound macro expansion trace less redundant
+	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc): Don't print
+	context of macro definition in the trace, when it's redundant.
+	Update comments.
+
 2012-05-24  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/53460
@@ -63,20 +150,24 @@
 	symbol_alias_set_t, symbol_alias_set_destroy,
 	symbol_alias_set_contains, propagate_aliases_backward): Remove.
 	* toplev.c (compile_file): Do not call finish_aliases_2
-	* cgraphunit.c (cgraph_process_new_functions): Do not call finish_aliases_1.
+	* cgraphunit.c (cgraph_process_new_functions): Do not call
+	finish_aliases_1.
 	(handle_alias_pairs): Output diagnostics about aliases to externals.
 	(assemble_thunks_and_aliases): Use do_assemble_alias.
 	(output_weakrefs): Likewise.
 	(finalize_compilation_unit): Do not call finish_aliases_1.
-	* ipa.c (symtab_remove_unreachable_nodes): De not call remove_unreachable_alias_pairs.
+	* ipa.c (symtab_remove_unreachable_nodes): De not call
+	remove_unreachable_alias_pairs.
 	* varasm.c (do_assemble_alias): Export.
-	(symbol_alias_set_create, symbol_alias_set_destroy, symbol_alias_set_contains,
-	symbol_alias_set_insert, propagate_aliases_forward, propagate_aliases_backward,
-	propagate_aliases_backward, trivially_visible_alias, trivially_defined_alias,
-	remove_unreachable_alias_pairs, finish_aliases_1, finish_aliases_2, 
-	assemble_alias): Remove.
+	(symbol_alias_set_create, symbol_alias_set_destroy,
+	symbol_alias_set_contains, symbol_alias_set_insert,
+	propagate_aliases_forward, propagate_aliases_backward,
+	propagate_aliases_backward, trivially_visible_alias,
+	trivially_defined_alias, remove_unreachable_alias_pairs,
+	finish_aliases_1, finish_aliases_2, assemble_alias): Remove.
 	* output.h (do_assemble_alias): Declare.
-	* varpool.c (varpool_remove_unreferenced_decls): Do not call finish_aliases_1.
+	* varpool.c (varpool_remove_unreferenced_decls): Do not call
+	finish_aliases_1.
 
 2012-05-23  Martin Jambor  <mjambor@suse.cz>
 
@@ -149,15 +240,13 @@
 	* lto-streamer-in.c (input_cfg): Likewise.
 	* tree-inline.c (initialize_cfun): Likewise.
 	* tree-into-ssa.c (rewrite_into_ssa): Likewise.
-	* omp-low.c (expand_omp_taskreg): Likewise.  Avoid switching
-	cfun.
+	* omp-low.c (expand_omp_taskreg): Likewise.  Avoid switching cfun.
 	* gimple.c (is_gimple_reg): Optimize the SSA_NAME case,
 	virtual operands are not registers.
 
 2012-05-22  Richard Guenther  <rguenther@suse.de>
 
-	* tree-cfg.c (verify_gimple_assign_unary): Fix typo in previous
-	commit.
+	* tree-cfg.c (verify_gimple_assign_unary): Fix typo in previous commit.
 
 2012-05-22  Richard Guenther  <rguenther@suse.de>
 
@@ -169,8 +258,7 @@
 
 	* tree-flow.h (add_referenced_var_1): Declare.
 	(add_referenced_var): Define.
-	* tree-dfa.c (referenced_var_check_and_insert): Avoid one hash
-	lookup.
+	* tree-dfa.c (referenced_var_check_and_insert): Avoid one hash lookup.
 	(add_referenced_var): Rename to ...
 	(add_referenced_var_1): ... this.  Take struct function argument.
 
