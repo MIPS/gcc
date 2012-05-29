@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "optabs.h"
 #include "reload.h"
-#include "integrate.h"
 #include "function.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
@@ -5939,7 +5938,7 @@ pa_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 	}
 
       /* Request a secondary reload with a general scratch register
-	 for everthing else.  ??? Could symbolic operands be handled
+	 for everything else.  ??? Could symbolic operands be handled
 	 directly when generating non-pic PA 2.0 code?  */
       sri->icode = (in_p
 		    ? direct_optab_handler (reload_in_optab, mode)

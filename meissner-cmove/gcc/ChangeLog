@@ -1,3 +1,369 @@
+2012-05-29  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* integrate.c: Remove.
+	* integrate.h: Remove.
+	* Makefile.in: Remove make rules for integrate.c and INTEGRATE_H.
+	* config/arm/t-arm: Remove INTEGRATE_H dependency for target files.
+	* config/rs6000/t-rs6000: Likewise
+	* config/spu/t-spu-elf: Likewise.
+	* function.h (get_hard_reg_initial_val, has_hard_reg_initial_val,
+	get_hard_reg_initial_reg, emit_initial_value_sets): Move prototypes
+	from integrate.h to here.
+	(initial_value_entry): New prototype.
+	* reload.h (allocate_initial_values): Remove prototype.
+	* tree.h (set_decl_abstract_flags, set_decl_origin_self): Likewise.
+	* cse.c (fixed_base_plus_p): Don't handle virtual registers for
+	integrate.c.
+	* dwarf2out.c (set_decl_origin_self, set_block_origin_self,
+	set_decl_abstract_flags, set_block_abstract_flags): Move from
+	integrate.c to here, the only user.
+	* expmed.c (extract_fixed_bit_field): Remove outdated comment
+	about integrate.c.
+	* function.c: Don't include integrate.h.
+	(struct initial_value_pair, struct initial_value_struct,
+	get_hard_reg_initial_val, has_hard_reg_initial_val,
+	get_hard_reg_initial_reg, emit_initial_value_sets): Move from
+	integrate.c to here.
+	(initial_value_entry): New function.
+	* genemit.c (main): Don't print integrate.h include line.
+	* ira.c: Don't include integrate.h.
+	(allocate_initial_values): Move from integrate.c to here.
+	(ira): Update allocate_initial_values call.
+	* tree-inline.c: Don't include integrate.h.
+	(function_attribute_inlinable_p): Moved from integrate.c to here.
+	* cfgexpand.c: Don't include integrate.h.
+	* except.c: Likewise.
+	* langhooks.c: Likewise.
+	* passes.c: Likewise.
+	* toplev.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/epiphany/epiphany.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/score/score.c: Likewise.
+	* config/picochip/picochip.c: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/microblaze/microblaze.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/m32r/m32r.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/c6x/c6x.c: Include function.h instead of integrate.h.
+	* config/tilegx/tilegx.c: Likewise.
+	* config/tilepro/tilepro.c: Likewise.
+
+2012-05-29  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/t-avr (s-avr-mmcu-texi): Call 
+	gen-avr-mmcu-texi$(build_exeext) via ./ and don't assume . is in PATH.
+	
+2012-05-29  Michael Matz  <matz@suse.de>
+
+	* rtl.h (assign_stack_temp, assign_stack_temp_for_type,
+	assign_temp): Remove 'keep' argument.
+	(mark_temp_addr_taken): Remove prototype.
+	* tree.h (expand_decl): Remove prototype.
+	* function.c (struct temp_slot): Remove addr_taken and keep
+	member.
+	(assign_stack_temp_for_type) Don't initialize above, remove
+	keep argument.
+	(assign_stack_temp, assign_temp): Remove keep argument.
+	(mark_temp_addr_taken): Remove.
+	(preserve_temp_slots): Remove handling of addr_taken and keep
+	members.
+	(free_temp_slots): Ditto.
+	* expr.c (expand_expr_real_1 <COMPOUND_LITERAL_EXPR>): Remove
+	dead code.
+	* stmt.c (expand_asm_operands): Remove dead code.
+	(expand_decl): Remove.
+	* c-decl.c (finish_struct): Don't call expand_decl.
+	* builtins.c (expand_builtin_cexpi): Adjust calls to assign_temp
+	and assign_stack_temp.
+	* calls.c (save_fixed_argument_area, initialize_argument_information,
+	expand_call, emit_library_call_value_1, store_one_arg): Ditto.
+	* expmed.c (extract_bit_field_1): Ditto.
+	* expr.c (emit_group_load_1, emit_group_store,
+	copy_blkmode_from_reg, emit_push_insn, expand_assignment,
+	store_field, expand_constructor, expand_cond_expr_using_cmove,
+	expand_expr_real_2, expand_expr_real_1): Ditto.
+	* stmt.c (expand_asm_operands, expand_return): Ditto.
+
+	* function.c (pop_temp_slots): Call free_temp_slots.
+	* calls.c (store_one_arg): Don't call preserve_temp_slots or
+	free_temp_slots.
+	* expr.c (expand_assignment): Don't call free_temp_slots.
+
+	* config/arm/arm.c (neon_expand_vector_init): Ditto.
+	* config/i386/i386.c (ix86_expand_vector_set): Ditto.
+	(ix86_expand_vector_extract): Ditto.
+	* config/ia64/ia64.c (spill_xfmode_rfmode_operand,
+	ia64_expand_movxf_movrf): Ditto.
+	* config/mips/mips.c (mips_expand_vi_general): Ditto.
+	* config/mmix/mmix.md (floatdisf2, floatunsdisf2, truncdfsf2,
+	extendsfdf2): Ditto.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init,
+	rs6000_expand_vector_set, rs6000_expand_vector_extract,
+	rs6000_allocate_stack_temp): Ditto.
+	* config/rs6000/rs6000.md (fix_trunctfsi2_fprs): Ditto.
+	* config/sparc/sparc.c (emit_soft_tfmode_libcall,
+	sparc_emit_float_lib_cmp, sparc_emit_float_lib_cmp,
+	sparc_expand_vector_init): Ditto.
+
+2012-05-29  Michael Matz  <matz@suse.de>
+
+	* c-tree.h (c_expand_decl): Remove prototype.
+
+	* expr.c (expand_expr_real_1 <normal_inner_ref>): Don't allocate
+	a kept temp.
+	(expand_expr_real_1 <COMPOUND_LITERAL_EXPR>): Make unreachable.
+	* gimple-fold.c (canonicalize_constructor_val): Canonicalize 
+	COMPOUND_LITERAL_EXPR.
+	* function.c (expand_function_start): Don't call expand_decl,
+	instead assert that we have RTL assigned.
+	* tree-ssa-live.c (remove_unused_locals): Clear
+	nonlocal_goto_save_area if its backing variable is removed.
+	* stmt.c (expand_asm_operands): Remove handling of non-lvalues
+	as mem inputs.
+	(expand_decl): Assert that this does nothing.
+	* calls.c (expand_call): Don't call mark_temp_addr_taken.
+
+2012-05-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53516
+	* tree-data-ref.c (stmt_with_adjacent_zero_store_dr_p): Reject
+	bitfield accesses.
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Likewise.
+
+2012-05-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* LANGUAGES: Fix typos.
+	* Makefile.in: Fix typos.
+	* alias.c: Fix typos.
+	* auto-inc-dec.c: Fix typos.
+	* bb-reorder.c: Fix typos.
+	* cfgcleanup.c: Fix typos.
+	* cgraph.c: Fix typos.
+	* cgraph.h: Fix typos.
+	* cgraphunit.c: Fix typos.
+	* collect2-aix.h: Fix typos.
+	* collect2.c: Fix typos.
+	* compare-elim.c: Fix typos.
+	* config/alpha/vms.h: Fix typos.
+	* config/arm/README-interworking: Fix typos.
+	* config/arm/arm.c: Fix typos.
+	* config/arm/iterators.md: Fix typos.
+	* config/arm/vxworks.h: Fix typos.
+	* config/avr/avr.c: Fix typos.
+	* config/avr/avr.h: Fix typos.
+	* config/avr/avr.md: Fix typos.
+	* config/avr/builtins.def: Fix typos.
+	* config/c6x/c6x.c: Fix typos.
+	* config/cr16/cr16.c: Fix typos.
+	* config/cr16/cr16.md: Fix typos.
+	* config/cris/cris.md: Fix typos.
+	* config/darwin.c: Fix typos.
+	* config/darwin.opt: Fix typos.
+	* config/i386/i386-c.c: Fix typos.
+	* config/i386/i386.c: Fix typos.
+	* config/ia64/ia64.c: Fix typos.
+	* config/m68k/cf.md: Fix typos.
+	* config/mep/mep.c: Fix typos.
+	* config/microblaze/microblaze.c: Fix typos.
+	* config/microblaze/microblaze.h: Fix typos.
+	* config/mn10300/mn10300.c: Fix typos.
+	* config/mn10300/mn10300.md: Fix typos.
+	* config/pa/pa.c: Fix typos.
+	* config/picochip/picochip.h: Fix typos.
+	* config/rs6000/a2.md: Fix typos.
+	* config/rs6000/rs6000.c: Fix typos.
+	* config/rs6000/vector.md: Fix typos.
+	* config/rx/rx.md: Fix typos.
+	* config/rx/rx.opt: Fix typos.
+	* config/s390/2097.md: Fix typos.
+	* config/s390/s390.c: Fix typos.
+	* config/s390/s390.h: Fix typos.
+	* config/sh/sh.c: Fix typos.
+	* config/sh/sh.md: Fix typos.
+	* config/sparc/sync.md: Fix typos.
+	* config/spu/spu.c: Fix typos.
+	* config/spu/spu.md: Fix typos.
+	* config/vms/vms.c: Fix typos.
+	* config/vxworks-dummy.h: Fix typos.
+	* config/vxworks.h: Fix typos.
+	* cselib.c: Fix typos.
+	* df-scan.c: Fix typos.
+	* df.h: Fix typos.
+	* doc/extend.texi: Fix typos.
+	* doc/install.texi: Fix typos.
+	* doc/invoke.texi: Fix typos.
+	* doc/md.texi: Fix typos.
+	* doc/plugins.texi: Fix typos.
+	* doc/rtl.texi: Fix typos.
+	* dse.c: Fix typos.
+	* dwarf2asm.c: Fix typos.
+	* dwarf2out.c: Fix typos.
+	* except.h: Fix typos.
+	* expr.c: Fix typos.
+	* fold-const.c: Fix typos.
+	* gcc.c: Fix typos.
+	* gcse.c: Fix typos.
+	* genautomata.c: Fix typos.
+	* gengtype-state.c: Fix typos.
+	* gengtype.c: Fix typos.
+	* genhooks.c: Fix typos.
+	* gimple-fold.c: Fix typos.
+	* gimple-pretty-print.c: Fix typos.
+	* gimple.c: Fix typos.
+	* gimple.h: Fix typos.
+	* gimplify.c: Fix typos.
+	* graphite-interchange.c: Fix typos.
+	* graphite-sese-to-poly.c: Fix typos.
+	* ifcvt.c: Fix typos.
+	* input.c: Fix typos.
+	* ipa-cp.c: Fix typos.
+	* ipa-inline-analysis.c: Fix typos.
+	* ipa-inline-transform.c: Fix typos.
+	* ipa-inline.c: Fix typos.
+	* ipa-pure-const.c: Fix typos.
+	* ipa-ref.h: Fix typos.
+	* ipa-reference.c: Fix typos.
+	* ipa-utils.c: Fix typos.
+	* ipa.c: Fix typos.
+	* ira-emit.c: Fix typos.
+	* ira-lives.c: Fix typos.
+	* lto-streamer.c: Fix typos.
+	* lto-streamer.h: Fix typos.
+	* lto-wrapper.c: Fix typos.
+	* mcf.c: Fix typos.
+	* mode-switching.c: Fix typos.
+	* modulo-sched.c: Fix typos.
+	* plugin.c: Fix typos.
+	* postreload.c: Fix typos.
+	* sched-deps.c: Fix typos.
+	* sel-sched-ir.c: Fix typos.
+	* sel-sched-ir.h: Fix typos.
+	* sel-sched.c: Fix typos.
+	* sese.c: Fix typos.
+	* stor-layout.c: Fix typos.
+	* target-hooks-macros.h: Fix typos.
+	* target.def: Fix typos.
+	* trans-mem.c: Fix typos.
+	* tree-eh.c: Fix typos.
+	* tree-predcom.c: Fix typos.
+	* tree-sra.c: Fix typos.
+	* tree-ssa-address.c: Fix typos.
+	* tree-ssa-loop-ivopts.c: Fix typos.
+	* tree-ssa-loop-niter.c: Fix typos.
+	* tree-ssa-math-opts.c: Fix typos.
+	* tree-ssa-pre.c: Fix typos.
+	* tree-ssa-propagate.c: Fix typos.
+	* tree-ssa-reassoc.c: Fix typos.
+	* tree-ssa-sccvn.c: Fix typos.
+	* tree-ssa-ter.c: Fix typos.
+	* tree-ssa-uninit.c: Fix typos.
+	* tree-ssanames.c: Fix typos.
+	* tree-vect-generic.c: Fix typos.
+	* tree-vect-slp.c: Fix typos.
+	* tree.c: Fix typos.
+	* tree.h: Fix typos.
+	* varasm.c: Fix typos.
+	* varpool.c: Fix typos.
+
+2012-05-29  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/include/texinfo.tex: Update to version 2012-05-16.16.
+
+2012-05-29  Richard Guenther  <rguenther@suse.de>
+
+	* tree-dfa.c (find_vars_r): Do not call add_referenced_vars
+	for globals.
+	(add_referenced_var_1): Re-organize.  Assert we are not
+	called for globals.
+	(remove_referenced_var): Likewise.
+	* varpool.c (add_new_static_var): Use create_tmp_var_raw.
+	* tree-mudflap.c (execute_mudflap_function_ops): Do not
+	call add_referenced_var on globals.
+	* matrix-reorg.c (transform_access_sites): Likewise.
+
+2012-05-29  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* alias.c (reg_known_value): Make this a VEC.
+	(reg_known_equiv_p): Make this an sbitmap.
+	(reg_known_value_size): Remove.
+	(get_reg_known_value, set_reg_known_value, get_reg_known_equiv_p,
+	set_reg_known_equiv_p): Update for reg_known_value and
+	reg_known_value_size data structure change.
+	(init_alias_analysis, end_alias_analysis): Likewise.
+
+2012-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/53510
+	* input.c (read_line): Use XRESIZEVEC instead of XNEWVEC
+	to avoid leaking memory.  No need to handle memory allocation
+	failure.  Double string_len on each reallocation instead of
+	adding 2.
+	* gcov.c (read_line): Likewise.
+
+2012-05-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config/cris/cris.h (TARGET_HAS_BREAK, TARGET_TRAP_USING_BREAK8):
+	New macros.
+	* config/cris/cris.md ("trap"): Define, enabled for
+	TARGET_TRAP_USING_BREAK8.
+	* config/cris/cris.opt (mtrap-using-break8): New option.
+
+2012-05-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/25137
+	* doc/invoke.texi: Document -Wmissing-braces not enabled by -Wall
+	for C++.
+
+2012-05-28  Hans-Peter Nilsson  <hp@axis.com>
+
+	* doc/md.texi (stack_protect_test): Remove negation of branch to
+	label.
+	(Standard Names): Fix typos in documentation of atomic patterns.
+
+2012-05-27  Nathan Sidwell  <nathan@acm.org>
+
+	* tree.c (build_constructor): Propagate TREE_SIDE_EFFECTS.
+
+2012-05-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53220
+	* c-typeck.c (array_to_pointer_conversion): Give -Wc++-compat warning
+	about array compound literals.
+
+2012-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgcleanup.c (try_optimize_cfg): Do not delete forwarder blocks
+	if CLEANUP_NO_INSN_DEL.
+	* cfgrtl.c (unique_locus_on_edge_between_p): New function extracted
+	from cfg_layout_merge_blocks.
+	(emit_nop_for_unique_locus_between): New function.
+	(rtl_merge_blocks): Invoke emit_nop_for_unique_locus_between.
+	(cfg_layout_merge_blocks): Likewise.
+
+2012-05-26  Dimitrios Apostolou  <jimis@gmx.net>
+	    Paolo Bonzini  <bonzini@gnu.org>
+
+	* df-scan.c (df_def_record_1): Assert a parallel must contain an
+	EXPR_LIST at this point.  Receive the LOC and move its extraction...
+	(df_defs_record): ... here. Change if-else to a switch statement.
+	(df_find_hard_reg_defs, df_find_hard_reg_defs_1): New.
+	(df_get_call_refs): Changed defs_generated from bitmap to HARD_REG_SET
+	and compute it from df_find_hard_reg_defs(). Record DF_REF_BASE
+	DEFs in REGNO order. Use HARD_REG_SET instead of bitmap for
+	regs_invalidated_by_call.
+	(df_insn_refs_collect): Record DF_REF_REGULAR DEFs after
+	df_get_call_refs().
+
 2012-05-25  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR lto/52178
@@ -1142,7 +1508,8 @@
 	* doc/options.texi (EnabledBy): Document
 	* opts.c: Include opts.h and options.h before tm.h.
 	(finish_options): Do not handle some sub-options here...
-	(common_handle_option): ... instead call common_handle_option_auto here.
+	(common_handle_option): ... instead call common_handle_option_auto
+	here.
 	* optc-gen.awk: Handle EnabledBy.
 	* opth-gen.awk: Declare common_handle_option_auto.
 	* common.opt (Wuninitialized): Use EnabledBy. Delete Init.

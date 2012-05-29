@@ -1,3 +1,74 @@
+2012-05-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53516
+	* gcc.dg/torture/pr53516.c: New testcase.
+
+2012-05-29  Dodji Seketeli  <dodji@redhat.com>
+
+	PR preprocessor/53229
+	* gcc.dg/cpp/paste6.c: Force to run without
+	-ftrack-macro-expansion.
+	* gcc.dg/cpp/paste8.c: Likewise.
+	* gcc.dg/cpp/paste8-2.c: New test, like paste8.c but run with
+	-ftrack-macro-expansion.
+	* gcc.dg/cpp/paste12.c: Force to run without
+	-ftrack-macro-expansion.
+	* gcc.dg/cpp/paste12-2.c: New test, like paste12.c but run with
+	-ftrack-macro-expansion.
+	* gcc.dg/cpp/paste13.c: Likewise.
+	* gcc.dg/cpp/paste14.c: Likewise.
+	* gcc.dg/cpp/paste14-2.c: New test, like paste14.c but run with
+	-ftrack-macro-expansion.
+	* gcc.dg/cpp/paste18.c: New test.
+
+2012-05-29  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.target/cris/torture/trap-1.c,
+	gcc.target/cris/torture/trap-2.c,
+	gcc.target/cris/torture/trap-3.c,
+	gcc.target/cris/torture/trap-v0.c,
+	gcc.target/cris/torture/trap-v3.c: New tests.
+
+2012-05-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/25137
+	* g++.dg/warn/Wbraces3.C: New.
+	* g++.dg/warn/Wbraces4.C: Likewise.
+
+2012-05-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53505
+	* c-c++-common/torture/pr53505.c: New test.
+
+2012-05-27  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/stmt-expr-4.c: New.
+
+2012-05-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53491
+	* g++.dg/parse/crash60.C: New.
+
+2012-05-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53220
+	* c-c++-common/array-lit.c: New.
+	* g++.dg/ext/complit12.C: #if 0 out decay-to-pointer test.
+
+2012-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/50294
+	* gnat.dg/array21.adb: New test.
+
+2012-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming5.adb: Adjust dg-final directive.
+
+2012-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/32054
+	* g++.dg/other/anon-union3.C: New.
+
 2012-05-25  Ian Lance Taylor  <iant@google.com>
 
 	* gcc.dg/split-6.c: New test.
