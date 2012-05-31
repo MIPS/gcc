@@ -1,3 +1,10 @@
+2011-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45566
+	* except.c (convert_to_eh_region_ranges): Emit queued no-region
+	notes from other section in hot/cold partitioning even if
+	last_action is -3.  Increment call_site_base.
+
 2012-03-13  Release Manager
 
 	* GCC 4.4.7 released.
