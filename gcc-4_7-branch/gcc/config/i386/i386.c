@@ -2186,7 +2186,7 @@ unsigned char ix86_arch_features[X86_ARCH_LAST];
 /* Feature tests against the various architecture variations, used to create
    ix86_arch_features based on the processor mask.  */
 static unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
-  /* X86_ARCH_CMOVE: Conditional move was added for pentiumpro.  */
+  /* X86_ARCH_CMOV: Conditional move was added for pentiumpro.  */
   ~(m_386 | m_486 | m_PENT | m_K6),
 
   /* X86_ARCH_CMPXCHG: Compare and exchange was added for 80486.  */
@@ -3424,7 +3424,7 @@ ix86_option_override_internal (bool main_args_p)
 	   -mtune (rather than -march) points us to a processor that has them.
 	   However, the VIA C3 gives a SIGILL, so we only do that for i686 and
 	   higher processors.  */
-	if (TARGET_CMOVE
+	if (TARGET_CMOV
 	    && (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE)))
 	  x86_prefetch_sse = true;
 	break;
@@ -3699,12 +3699,6 @@ ix86_option_override_internal (bool main_args_p)
 		 "for correctness", prefix, suffix);
       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
     }
-
-  /* For sane SSE instruction set generation we need fcomi instruction.
-     It is safe to enable all CMOVE instructions.  Also, RDRAND intrinsic
-     expands to a sequence that includes conditional move. */
-  if (TARGET_SSE || TARGET_RDRND)
-    TARGET_CMOVE = 1;
 
   /* Figure out what ASM_GENERATE_INTERNAL_LABEL builds as a prefix.  */
   {
@@ -19803,7 +19797,7 @@ ix86_expand_vec_perm (rtx operands[])
 	      t1 = gen_reg_rtx (V8SImode);
 	      t2 = gen_reg_rtx (V8SImode);
 	      emit_insn (gen_avx2_permvarv8si (t1, op0, mask));
-	      emit_insn (gen_avx2_permvarv8si (t2, op0, mask));
+	      emit_insn (gen_avx2_permvarv8si (t2, op1, mask));
 	      goto merge_two;
 	    }
 	  return;
@@ -19836,10 +19830,10 @@ ix86_expand_vec_perm (rtx operands[])
 
         case V4SFmode:
 	  t1 = gen_reg_rtx (V8SFmode);
-	  t2 = gen_reg_rtx (V8SFmode);
-	  mask = gen_lowpart (V4SFmode, mask);
+	  t2 = gen_reg_rtx (V8SImode);
+	  mask = gen_lowpart (V4SImode, mask);
 	  emit_insn (gen_avx_vec_concatv8sf (t1, op0, op1));
-	  emit_insn (gen_avx_vec_concatv8sf (t2, mask, mask));
+	  emit_insn (gen_avx_vec_concatv8si (t2, mask, mask));
 	  emit_insn (gen_avx2_permvarv8sf (t1, t1, t2));
 	  emit_insn (gen_avx_vextractf128v8sf (target, t1, const0_rtx));
 	  return;
@@ -28961,8 +28955,8 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       arg_adjust = 0;
       if (optimize
 	  || target == 0
-	  || GET_MODE (target) != tmode
-	  || !insn_p->operand[0].predicate (target, tmode))
+	  || !register_operand (target, tmode)
+	  || GET_MODE (target) != tmode)
 	target = gen_reg_rtx (tmode);
     }
 
@@ -35862,7 +35856,7 @@ expand_vec_perm_pshufb (struct expand_vec_perm_d *d)
       else if (vmode == V32QImode)
 	emit_insn (gen_avx2_pshufbv32qi3 (target, op0, vperm));
       else
-	emit_insn (gen_avx2_permvarv8si (target, vperm, op0));
+	emit_insn (gen_avx2_permvarv8si (target, op0, vperm));
     }
   else
     {
