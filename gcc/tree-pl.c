@@ -623,6 +623,10 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       bounds = pl_find_bounds (rhs1, iter);
       break;
 
+    case TARGET_MEM_REF:
+      bounds = pl_find_bounds (TMR_BASE (rhs1), iter);
+      break;
+
     case PLUS_EXPR:
       gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs2)));
       gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs1)));
