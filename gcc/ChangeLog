@@ -1,3 +1,17 @@
+2012-06-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (struct usage_insns): Use registers instead
+	pseudos in comments about splitting.
+	(check_only_pseudos): Rename to check_only_regs.
+	(need_for_call_save_p): Assert that argument is a pseudo regno.
+	(need_for_split_p): Process hard reg too.
+	(split_pseudo): Rename to split_reg, process hard reg too.
+	(live_pseudos): Rename to live_regs.
+	(inherit_in_ebb): Process hard regs too for splitting.
+	(get_pseudo_regno): Rename to get_regno.  Process hard reg too.
+	(remove_inheritance_pseudos): Process hard regs too.
+	(lra_undo_inheritance): Ditto.
+
 2012-05-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (need_for_split_p): Split only when there are at
