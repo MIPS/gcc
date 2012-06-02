@@ -636,6 +636,25 @@ count_occurrences (const_rtx x, const_rtx find, int count_dest)
 }
 
 
+/* Return TRUE if OP is a register or subreg of a register that
+   holds an unsigned quantity.  Otherwise, return FALSE.  */
+
+bool
+unsigned_reg_p (rtx op)
+{
+  if (REG_P (op)
+      && REG_EXPR (op)
+      && TYPE_UNSIGNED (TREE_TYPE (REG_EXPR (op))))
+    return true;
+
+  if (GET_CODE (op) == SUBREG
+      && SUBREG_PROMOTED_UNSIGNED_P (op))
+    return true;
+
+  return false;
+}
+
+
 /* Nonzero if register REG appears somewhere within IN.
    Also works if REG is not a register; in this case it checks
    for a subexpression of IN that is Lisp "equal" to REG.  */
