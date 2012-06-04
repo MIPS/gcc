@@ -1,3 +1,12 @@
+2012-06-04  Pat Haugen <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2012-05-24  Pat Haugen <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/lhs-1.c: New.
+	* gcc.target/powerpc/lhs-2.c: New.
+	* gcc.target/powerpc/lhs-3.c: New.
+
 2012-01-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/49642
