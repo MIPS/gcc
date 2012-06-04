@@ -153,6 +153,9 @@ struct	G
 	// uintptr	sigpc;
 	uintptr	gopc;	// pc of go statement that created this goroutine
 
+	int32	ncgo;
+	struct cgoalloc *cgoalloc;
+
 	Traceback* traceback;
 
 	ucontext_t	context;
@@ -174,6 +177,7 @@ struct	M
 	int32	profilehz;
 	int32	helpgc;
 	uint32	fastrand;
+	uint64	ncgocall;
 	Note	havenextg;
 	G*	nextg;
 	M*	alllink;	// on allm
@@ -490,6 +494,7 @@ uintptr	runtime_memlimit(void);
 void	runtime_setprof(bool);
 
 void	runtime_time_scan(void (*)(byte*, int64));
+void	runtime_trampoline_scan(void (*)(byte *, int64));
 
 void	runtime_setsig(int32, bool, bool);
 #define runtime_setitimer setitimer
