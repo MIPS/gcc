@@ -1,3 +1,42 @@
+2012-06-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2011-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gthr-posix.h (__gthread_active_p): Do not use preprocessor
+	conditionals and comments inside macro arguments.
+
+2012-06-04  Edmar Wienskoski  <edmar@freescale.com>
+
+	PR target/53559
+	* config/rs6000/altivec.md (altivec_stvlx): Change machine mode of
+	operands.
+	(altivec_stvlxl): Ditto.
+	(altivec_stvrx): Ditto.
+	(altivec_stvrxl): Ditto.
+
+2012-06-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-06-04 mainline r188172
+
+	PR target/46261
+	* config/avr/avr-stdint.h: New file.
+	* config.gcc (avr-*-*,tm_file): Use avr/avr-stdint.h instead of
+	newlib-stdint.h
+
+2012-06-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/52999
+	* config/pa/pa.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(pa_section_type_flags): New.
+	* config/pa/pa.h (LEGITIMATE_CONSTANT_P): Revert previous change.
+
+2012-05-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53541
+	* tree-pretty-print.c (dump_generic_node): Guard against
+	NULL_TREE TREE_TYPE when dumping MEM_REF offset type.
+
 2012-05-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
