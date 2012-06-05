@@ -84,7 +84,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "timevar.h"
 #include "tree-pass.h"
-#include "output.h"
 #include "reload.h"
 #include "df.h"
 #include "ira-int.h"
@@ -606,7 +605,7 @@ change_loop (ira_loop_tree_node_t node)
 		  == ALLOCNO_HARD_REGNO (parent_allocno))
 	      && (ALLOCNO_HARD_REGNO (allocno) < 0
 		  || (parent->reg_pressure[pclass] + 1
-		      <= ira_available_class_regs[pclass])
+		      <= ira_class_hard_regs_num[pclass])
 		  || TEST_HARD_REG_BIT (ira_prohibited_mode_move_regs
 					[ALLOCNO_MODE (allocno)],
 					ALLOCNO_HARD_REGNO (allocno))
