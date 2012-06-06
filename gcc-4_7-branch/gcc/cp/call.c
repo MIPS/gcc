@@ -4630,7 +4630,7 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	  && TREE_CODE (arg3_type) == ENUMERAL_TYPE)
         {
           if (complain & tf_warning)
-            warning (0, 
+            warning (OPT_Wenum_compare, 
                      "enumeral mismatch in conditional expression: %qT vs %qT",
                      arg2_type, arg3_type);
         }
@@ -8014,6 +8014,12 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
     {
       int static_1 = DECL_STATIC_FUNCTION_P (cand1->fn);
       int static_2 = DECL_STATIC_FUNCTION_P (cand2->fn);
+
+      if (DECL_CONSTRUCTOR_P (cand1->fn)
+	  && is_list_ctor (cand1->fn) != is_list_ctor (cand2->fn))
+	/* We're comparing a near-match list constructor and a near-match
+	   non-list constructor.  Just treat them as unordered.  */
+	return 0;
 
       gcc_assert (static_1 != static_2);
 
