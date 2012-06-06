@@ -2844,11 +2844,26 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
     }
   else
     {
+      gimple_stmt_iterator gsi;
+
       bb = BB_VINFO_BB (bb_vinfo);
-      res = compute_data_dependences_for_bb (bb, true,
-					     &BB_VINFO_DATAREFS (bb_vinfo),
-					     &BB_VINFO_DDRS (bb_vinfo));
-      if (!res)
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  if (!find_data_references_in_stmt (NULL, stmt,
+					     &BB_VINFO_DATAREFS (bb_vinfo)))
+	    {
+	      /* Mark the rest of the basic-block as unvectorizable.  */
+	      for (; !gsi_end_p (gsi); gsi_next (&gsi))
+		{
+		  stmt = gsi_stmt (gsi);
+		  STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (stmt)) = false;
+		}
+	      break;
+	    }
+	}
+      if (!compute_all_dependences (BB_VINFO_DATAREFS (bb_vinfo),
+				    &BB_VINFO_DDRS (bb_vinfo), NULL, true))
 	{
 	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
 	    fprintf (vect_dump, "not vectorized: basic block contains function"
@@ -2972,10 +2987,6 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
           return false;
         }
 
-      base = unshare_expr (DR_BASE_ADDRESS (dr));
-      offset = unshare_expr (DR_OFFSET (dr));
-      init = unshare_expr (DR_INIT (dr));
-
       if (stmt_can_throw_internal (stmt))
         {
           if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
@@ -2996,6 +3007,32 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 	    free_data_ref (dr);
           return false;
         }
+
+      if (TREE_CODE (DR_REF (dr)) == COMPONENT_REF
+	  && DECL_BIT_FIELD (TREE_OPERAND (DR_REF (dr), 1)))
+	{
+          if (vect_print_dump_info (REPORT_UNVECTORIZED_LOCATIONS))
+            {
+              fprintf (vect_dump, "not vectorized: statement is bitfield "
+                       "access ");
+              print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
+            }
+
+          if (bb_vinfo)
+            {
+              STMT_VINFO_VECTORIZABLE (stmt_info) = false;
+              stop_bb_analysis = true;
+              continue;
+            }
+
+	  if (gather)
+	    free_data_ref (dr);
+          return false;
+	}
+
+      base = unshare_expr (DR_BASE_ADDRESS (dr));
+      offset = unshare_expr (DR_OFFSET (dr));
+      init = unshare_expr (DR_INIT (dr));
 
       if (is_gimple_call (stmt))
 	{

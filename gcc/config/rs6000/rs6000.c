@@ -40,8 +40,8 @@
 #include "except.h"
 #include "function.h"
 #include "output.h"
+#include "dbxout.h"
 #include "basic-block.h"
-#include "integrate.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -746,6 +746,44 @@ struct processor_costs ppce500mc64_cost = {
   COSTS_N_INSNS (14),   /* divsi */
   COSTS_N_INSNS (14),   /* divdi */
   COSTS_N_INSNS (4),    /* fp */
+  COSTS_N_INSNS (10),   /* dmul */
+  COSTS_N_INSNS (36),   /* sdiv */
+  COSTS_N_INSNS (66),   /* ddiv */
+  64,			/* cache line size */
+  32,			/* l1 cache */
+  128,			/* l2 cache */
+  1,			/* prefetch streams /*/
+};
+
+/* Instruction costs on PPCE5500 processors.  */
+static const
+struct processor_costs ppce5500_cost = {
+  COSTS_N_INSNS (5),    /* mulsi */
+  COSTS_N_INSNS (5),    /* mulsi_const */
+  COSTS_N_INSNS (4),    /* mulsi_const9 */
+  COSTS_N_INSNS (5),    /* muldi */
+  COSTS_N_INSNS (14),   /* divsi */
+  COSTS_N_INSNS (14),   /* divdi */
+  COSTS_N_INSNS (7),    /* fp */
+  COSTS_N_INSNS (10),   /* dmul */
+  COSTS_N_INSNS (36),   /* sdiv */
+  COSTS_N_INSNS (66),   /* ddiv */
+  64,			/* cache line size */
+  32,			/* l1 cache */
+  128,			/* l2 cache */
+  1,			/* prefetch streams /*/
+};
+
+/* Instruction costs on PPCE6500 processors.  */
+static const
+struct processor_costs ppce6500_cost = {
+  COSTS_N_INSNS (5),    /* mulsi */
+  COSTS_N_INSNS (5),    /* mulsi_const */
+  COSTS_N_INSNS (4),    /* mulsi_const9 */
+  COSTS_N_INSNS (5),    /* muldi */
+  COSTS_N_INSNS (14),   /* divsi */
+  COSTS_N_INSNS (14),   /* divdi */
+  COSTS_N_INSNS (7),    /* fp */
   COSTS_N_INSNS (10),   /* dmul */
   COSTS_N_INSNS (36),   /* sdiv */
   COSTS_N_INSNS (66),   /* ddiv */
@@ -2077,7 +2115,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   /* TODO add SPE and paired floating point vector support.  */
 
-  /* Register class constaints for the constraints that depend on compile
+  /* Register class constraints for the constraints that depend on compile
      switches.  */
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;
@@ -2328,7 +2366,7 @@ darwin_rs6000_override_options (void)
 
   /* Unless the user (not the configurer) has explicitly overridden
      it with -mcpu=G3 or -mno-altivec, then 10.5+ targets default to
-     G4 unless targetting the kernel.  */
+     G4 unless targeting the kernel.  */
   if (!flag_mkernel
       && !flag_apple_kext
       && strverscmp (darwin_macosx_version_min, "10.5") >= 0
@@ -2520,10 +2558,16 @@ rs6000_option_override_internal (bool global_init_p)
     error ("target attribute or pragma changes SPE ABI");
 
   if (rs6000_cpu == PROCESSOR_PPCE300C2 || rs6000_cpu == PROCESSOR_PPCE300C3
-      || rs6000_cpu == PROCESSOR_PPCE500MC || rs6000_cpu == PROCESSOR_PPCE500MC64)
+      || rs6000_cpu == PROCESSOR_PPCE500MC || rs6000_cpu == PROCESSOR_PPCE500MC64
+      || rs6000_cpu == PROCESSOR_PPCE5500)
     {
       if (TARGET_ALTIVEC)
 	error ("AltiVec not supported in this target");
+      if (TARGET_SPE)
+	error ("SPE not supported in this target");
+    }
+  if (rs6000_cpu == PROCESSOR_PPCE6500)
+    {
       if (TARGET_SPE)
 	error ("SPE not supported in this target");
     }
@@ -2621,7 +2665,9 @@ rs6000_option_override_internal (bool global_init_p)
      user's opinion, though.  */
   if (rs6000_block_move_inline_limit == 0
       && (rs6000_cpu == PROCESSOR_PPCE500MC
-	  || rs6000_cpu == PROCESSOR_PPCE500MC64))
+	  || rs6000_cpu == PROCESSOR_PPCE500MC64
+	  || rs6000_cpu == PROCESSOR_PPCE5500
+	  || rs6000_cpu == PROCESSOR_PPCE6500))
     rs6000_block_move_inline_limit = 128;
 
   /* store_one_arg depends on expand_block_move to handle at least the
@@ -2768,6 +2814,8 @@ rs6000_option_override_internal (bool global_init_p)
     case PROCESSOR_PPC8548:
     case PROCESSOR_PPCE500MC:
     case PROCESSOR_PPCE500MC64:
+    case PROCESSOR_PPCE5500:
+    case PROCESSOR_PPCE6500:
 
       rs6000_single_float = TARGET_E500_SINGLE || TARGET_E500_DOUBLE;
       rs6000_double_float = TARGET_E500_DOUBLE;
@@ -2812,7 +2860,9 @@ rs6000_option_override_internal (bool global_init_p)
 				 || rs6000_cpu == PROCESSOR_POWER6
 				 || rs6000_cpu == PROCESSOR_POWER7
 				 || rs6000_cpu == PROCESSOR_PPCE500MC
-				 || rs6000_cpu == PROCESSOR_PPCE500MC64);
+				 || rs6000_cpu == PROCESSOR_PPCE500MC64
+				 || rs6000_cpu == PROCESSOR_PPCE5500
+				 || rs6000_cpu == PROCESSOR_PPCE6500);
 
   /* Allow debug switches to override the above settings.  These are set to -1
      in rs6000.opt to indicate the user hasn't directly set the switch.  */
@@ -3033,6 +3083,14 @@ rs6000_option_override_internal (bool global_init_p)
 
       case PROCESSOR_PPCE500MC64:
 	rs6000_cost = &ppce500mc64_cost;
+	break;
+
+      case PROCESSOR_PPCE5500:
+	rs6000_cost = &ppce5500_cost;
+	break;
+
+      case PROCESSOR_PPCE6500:
+	rs6000_cost = &ppce6500_cost;
 	break;
 
       case PROCESSOR_TITAN:
@@ -4576,7 +4634,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      of 64-bit items is not supported on Altivec.  */
   if (all_same && GET_MODE_SIZE (inner_mode) <= 4)
     {
-      mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
+      mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode));
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
 		      XVECEXP (vals, 0, 0));
       x = gen_rtx_UNSPEC (VOIDmode,
@@ -4612,7 +4670,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
   /* Construct the vector in memory one field at a time
      and load the whole vector.  */
-  mem = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
+  mem = assign_stack_temp (mode, GET_MODE_SIZE (mode));
   for (i = 0; i < n_elts; i++)
     emit_move_insn (adjust_address_nv (mem, inner_mode,
 				    i * GET_MODE_SIZE (inner_mode)),
@@ -4641,7 +4699,7 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
     }
 
   /* Load single variable value.  */
-  mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode), 0);
+  mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode));
   emit_move_insn (adjust_address_nv (mem, inner_mode, 0), val);
   x = gen_rtx_UNSPEC (VOIDmode,
 		      gen_rtvec (1, const0_rtx), UNSPEC_LVE);
@@ -4696,7 +4754,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
     }
 
   /* Allocate mode-sized buffer.  */
-  mem = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
+  mem = assign_stack_temp (mode, GET_MODE_SIZE (mode));
 
   emit_move_insn (mem, vec);
 
@@ -15361,6 +15419,16 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
   else
     comp_mode = CCmode;
 
+  /* If we have an unsigned compare, make sure we don't have a signed value as
+     an immediate.  */
+  if (comp_mode == CCUNSmode && GET_CODE (op1) == CONST_INT
+      && INTVAL (op1) < 0)
+    {
+      op0 = copy_rtx_if_shared (op0);
+      op1 = force_reg (GET_MODE (op0), op1);
+      cmp = gen_rtx_fmt_ee (code, GET_MODE (cmp), op0, op1);
+    }
+
   /* First, the compare.  */
   compare_result = gen_reg_rtx (comp_mode);
 
@@ -16112,6 +16180,11 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (GET_MODE (true_cond) != result_mode)
     return 0;
   if (GET_MODE (false_cond) != result_mode)
+    return 0;
+
+  /* Don't allow using floating point comparisons for integer results for
+     now.  */
+  if (FLOAT_MODE_P (compare_mode) && !FLOAT_MODE_P (result_mode))
     return 0;
 
   /* First, work out if the hardware can do this at all, or
@@ -19109,6 +19182,9 @@ rs6000_emit_stack_reset (rs6000_stack_t *info,
   return NULL_RTX;
 }
 
+/* Return the register number used as a pointer by out-of-line
+   save/restore functions.  */
+
 static inline unsigned
 ptr_regno_for_savres (int sel)
 {
@@ -19846,6 +19922,9 @@ rs6000_emit_prologue (void)
 	  int sel = SAVRES_SAVE | SAVRES_VR;
 	  unsigned ptr_regno = ptr_regno_for_savres (sel);
 
+	  if (using_static_chain_p
+	      && ptr_regno == STATIC_CHAIN_REGNUM)
+	    ptr_regno = 12;
 	  if (REGNO (frame_reg_rtx) != ptr_regno)
 	    START_USE (ptr_regno);
 	  ptr_reg = gen_rtx_REG (Pmode, ptr_regno);
@@ -19954,9 +20033,9 @@ rs6000_emit_prologue (void)
       int offset;
       int save_regno;
 
-      /* Get VRSAVE onto a GPR.  Note that ABI_V4 might be using r12
-	 as frame_reg_rtx and r11 as the static chain pointer for
-	 nested functions.  */
+      /* Get VRSAVE onto a GPR.  Note that ABI_V4 and ABI_DARWIN might
+	 be using r12 as frame_reg_rtx and r11 as the static chain
+	 pointer for nested functions.  */
       save_regno = 12;
       if (DEFAULT_ABI == ABI_AIX && !using_static_chain_p)
 	save_regno = 11;
@@ -22416,6 +22495,8 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                  || rs6000_cpu_attr == CPU_PPC750
                  || rs6000_cpu_attr == CPU_PPC7400
                  || rs6000_cpu_attr == CPU_PPC7450
+                 || rs6000_cpu_attr == CPU_PPCE5500
+                 || rs6000_cpu_attr == CPU_PPCE6500
                  || rs6000_cpu_attr == CPU_POWER4
                  || rs6000_cpu_attr == CPU_POWER5
 		 || rs6000_cpu_attr == CPU_POWER7
@@ -22991,6 +23072,8 @@ rs6000_issue_rate (void)
   case CPU_PPCE300C3:
   case CPU_PPCE500MC:
   case CPU_PPCE500MC64:
+  case CPU_PPCE5500:
+  case CPU_PPCE6500:
   case CPU_TITAN:
     return 2;
   case CPU_RIOS2:
@@ -27812,7 +27895,7 @@ rs6000_allocate_stack_temp (enum machine_mode mode,
 			    bool offsettable_p,
 			    bool reg_reg_p)
 {
-  rtx stack = assign_stack_temp (mode, GET_MODE_SIZE (mode), 0);
+  rtx stack = assign_stack_temp (mode, GET_MODE_SIZE (mode));
   rtx addr = XEXP (stack, 0);
   int strict_p = (reload_in_progress || reload_completed);
 

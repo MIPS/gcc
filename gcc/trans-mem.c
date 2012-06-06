@@ -1778,7 +1778,7 @@ static struct tm_region *all_tm_regions;
 static bitmap_obstack tm_obstack;
 
 
-/* A subroutine of tm_region_init.  Record the existance of the
+/* A subroutine of tm_region_init.  Record the existence of the
    GIMPLE_TRANSACTION statement in a tree of tm_region elements.  */
 
 static struct tm_region *
@@ -2591,6 +2591,7 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
+      bool do_next = true;
       gimple stmt = gsi_stmt (gsi);
 
       /* ??? TM_COMMIT (and any other tm builtin function) in a nested
@@ -2612,6 +2613,7 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 	      make_tm_edge (stmt, bb, region);
 	      bb = e->dest;
 	      gsi = gsi_start_bb (bb);
+	      do_next = false;
 	    }
 
 	  /* Delete any tail-call annotation that may have been added.
@@ -2620,7 +2622,8 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 	  gimple_call_set_tail (stmt, false);
 	}
 
-      gsi_next (&gsi);
+      if (do_next)
+	gsi_next (&gsi);
     }
 }
 
