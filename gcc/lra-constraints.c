@@ -3954,9 +3954,10 @@ choose_split_class (enum reg_class allocno_class,
      ...                  p <- s    (new insn -- restore)
      <- ... p ...         <- ... p ...
 
-   where p is an original pseudo got a hard register and s is a new
-   split pseudo.  The save is put before INSN if BEFORE_P is true.
-   Return true if we succeed in such transformation.  */
+   where p is an original pseudo got a hard register or a hard
+   register and s is a new split pseudo.  The save is put before INSN
+   if BEFORE_P is true.  Return true if we succeed in such
+   transformation.  */
 static bool
 split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 {
@@ -4097,11 +4098,11 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
   lra_process_new_insns (usage_insn, after_p ? NULL_RTX : restore,
 			 after_p ? restore : NULL_RTX,
 			 call_save_p
-			 ?  "Add pseudo<-save" : "Add pseudo<-split");
+			 ?  "Add reg<-save" : "Add reg<-split");
   lra_process_new_insns (insn, before_p ? save : NULL_RTX,
 			 before_p ? NULL_RTX : save,
 			 call_save_p
-			 ?  "Add save<-pseudo" : "Add split<-pseudo");
+			 ?  "Add save<-reg" : "Add split<-reg");
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "    ))))))))))))))))))))))))))))))))))))))))))))))))\n");
@@ -4337,7 +4338,7 @@ inherit_in_ebb (rtx head, rtx tail)
 {
   int i, src_regno, dst_regno;
   bool change_p, succ_p;
-  rtx prev_insn, next_usage_insns, set,  first_insn, last_insn;
+  rtx prev_insn, next_usage_insns, set,  first_insn, last_insn, next_insn;
   enum reg_class cl;
   struct lra_insn_reg *reg;
   basic_block last_processed_bb, curr_bb = NULL;
@@ -4377,8 +4378,12 @@ inherit_in_ebb (rtx head, rtx tail)
 	  last_insn = get_non_debug_insn (false, curr_bb);
 	  after_p = (last_insn != NULL_RTX && ! JUMP_P (last_insn)
 		     && (! CALL_P (last_insn)
-			 || find_reg_note (last_insn,
-					   REG_NORETURN, NULL) == NULL_RTX));
+			 || (find_reg_note (last_insn,
+					   REG_NORETURN, NULL) == NULL_RTX
+			     && ((next_insn
+				  = next_nonnote_nondebug_insn (last_insn))
+				 == NULL_RTX
+				 || GET_CODE (next_insn) != BARRIER))));
 	  REG_SET_TO_HARD_REG_SET (live_hard_regs, DF_LR_OUT (curr_bb));
 	  IOR_HARD_REG_SET (live_hard_regs, eliminable_regset);
 	  IOR_HARD_REG_SET (live_hard_regs, lra_no_alloc_regs);

@@ -1,3 +1,9 @@
+2012-06-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (split_reg): Fix comments and printing debug
+	titles.
+	(inherit_in_ebb): Check barrier too.
+
 2012-06-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (struct usage_insns): Use registers instead
