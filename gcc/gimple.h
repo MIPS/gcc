@@ -1917,7 +1917,8 @@ static inline enum gimple_atomic_kind
 gimple_atomic_kind (const_gimple gs)
 {
   gcc_checking_assert (is_gimple_atomic (gs));
-  return (gs->gsbase.subcode & GF_ATOMIC_KIND) >> GF_ATOMIC_KIND_SHIFT;
+  return (enum gimple_atomic_kind) ((gs->gsbase.subcode & GF_ATOMIC_KIND) 
+				    >> GF_ATOMIC_KIND_SHIFT);
 }
 
 /* Set the kind of atomic operation GS to K.  */
