@@ -23193,7 +23193,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	XMM12_REG, XMM13_REG, XMM14_REG,
 	XMM15_REG, SI_REG, DI_REG
   };
-  rtx vec[ARRAY_SIZE (clobbered_registers) + 3];
+  rtx vec[ARRAY_SIZE (clobbered_registers) + 4];
   rtx use = NULL, call;
   unsigned int vec_len;
 
@@ -23244,6 +23244,14 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   if (retval)
     call = gen_rtx_SET (VOIDmode, retval, call);
   vec[vec_len++] = call;
+
+  if (retval)
+    {
+      rtx b0 = gen_rtx_REG (BND64mode, FIRST_BND_REG);
+      rtx unspec = gen_rtx_UNSPEC (BND64mode,
+				   gen_rtvec (1, b0), UNSPEC_BNDRET);
+      vec[vec_len++] = gen_rtx_SET (BND64mode, b0, unspec);
+    }
 
   if (pop)
     {

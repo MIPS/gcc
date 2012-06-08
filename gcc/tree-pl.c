@@ -44,6 +44,7 @@ static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator iter);
+static tree pl_generate_extern_var_bounds (tree var);
 static tree pl_get_bounds_for_var_decl (tree var);
 static tree pl_get_bounds_for_string_cst (tree cst);
 static tree pl_get_bounds_by_definition (tree node, gimple def_stmt,
@@ -221,10 +222,12 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree fntype;
       tree fnptr = gimple_call_fn (call);
-      gcc_assert (TREE_CODE (fnptr) == SSA_NAME);
+      gcc_assert (TREE_CODE (fnptr) == SSA_NAME
+		  || TREE_CODE (fnptr) == OBJ_TYPE_REF);
 
       fntype = TREE_TYPE (TREE_TYPE (fnptr));
-      gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE);
+      gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
+		  || TREE_CODE (fntype) == METHOD_TYPE);
 
       first_formal_arg = TYPE_ARG_TYPES (fntype);
     }
@@ -787,6 +790,53 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
   return bounds;
 }
 
+/* When var has incomplete type we cannot get size to compute its bounds.
+   In such cases we generate code to compute var bounds using special
+   symbols pointing its begin and end.  */
+static tree
+pl_generate_extern_var_bounds (tree var)
+{
+  const char *prefix = "__pl_end_of_";
+  const char *var_name = IDENTIFIER_POINTER (DECL_NAME (var));
+  tree bounds;
+  tree end_decl;
+  tree var_end;
+  tree lb;
+  tree size;
+  char *end_name;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Generating bounds for extern symbol '");
+      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, "'\n");
+    }
+
+  end_name = (char *) xmalloc (strlen (var_name) + strlen (prefix) + 1);
+  strcpy (end_name, prefix);
+  strcat (end_name, var_name);
+
+  end_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			 get_identifier (end_name), TREE_TYPE (var));
+  TREE_PUBLIC (end_decl) = 1;
+  DECL_EXTERNAL (end_decl) = 1;
+  DECL_ARTIFICIAL (end_decl) = 1;
+
+  lb = build1 (ADDR_EXPR,
+	       build_pointer_type (TREE_TYPE (var)), var);
+  var_end = build1 (ADDR_EXPR,
+		    build_pointer_type (TREE_TYPE (end_decl)), end_decl);
+  size = size_binop (MINUS_EXPR,
+		     fold_convert (pl_uintptr_type, var_end),
+		     fold_convert (pl_uintptr_type, lb));
+
+  bounds = pl_make_bounds (lb, size, NULL);
+
+  free (end_name);
+
+  return bounds;
+}
+
 static tree
 pl_get_bounds_for_var_decl (tree var)
 {
@@ -809,10 +859,16 @@ pl_get_bounds_for_var_decl (tree var)
     }
 
   lb = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (var)), var);
-  /* We need size in bytes rounded up.  */
-  size = build_int_cst (size_type_node,
-			(tree_low_cst (DECL_SIZE (var), 1) + 7) / 8);
-  bounds = pl_make_bounds (lb, size, NULL);
+
+  if (DECL_SIZE (var))
+    {
+      /* We need size in bytes rounded up.  */
+      size = build_int_cst (size_type_node,
+			    (tree_low_cst (DECL_SIZE (var), 1) + 7) / 8);
+      bounds = pl_make_bounds (lb, size, NULL);
+    }
+  else
+    bounds = pl_generate_extern_var_bounds (var);
 
   pl_register_bounds (var, bounds);
 
@@ -1001,7 +1057,8 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator iter)
 	    fprintf (dump_file, "Bounds intersection: ");
 	    print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
 	    fprintf (dump_file, "  inserted before statement: ");
-	    print_gimple_stmt (dump_file, gsi_stmt (iter), 0, TDF_VOPS|TDF_MEMSYMS);
+	    print_gimple_stmt (dump_file, gsi_stmt (iter), 0,
+			       TDF_VOPS|TDF_MEMSYMS);
 	  }
 
 	return bounds;
@@ -1040,18 +1097,23 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
     }
   else if (TREE_CODE (node) == ARRAY_REF)
     {
-      tree node_type = TREE_TYPE (var);
-      tree field_ptr = fold_build1 (ADDR_EXPR,
-				    build_pointer_type (node_type),
-				    var);
+      tree array_addr;
+
+      array_addr = build1 (ADDR_EXPR,
+			   build_pointer_type (TREE_TYPE (var)), var);
+
+      *bounds = pl_find_bounds (array_addr, iter);
+
+      precise_bounds = true;
 
       if (innermost_bounds)
-	*bounds = pl_make_bounds (field_ptr, array_ref_element_size (node),
-				  &iter);
-      else
 	{
-	  *bounds = pl_find_bounds (field_ptr, iter);
-	  precise_bounds = true;
+	  tree lb = build1 (ADDR_EXPR,
+			   build_pointer_type (TREE_TYPE (node)), node);
+	  tree elem_bounds = pl_make_bounds (lb, array_ref_element_size (node),
+					     &iter);
+
+	  *bounds = pl_intersect_bounds (elem_bounds, *bounds, iter);
 	}
     }
 
