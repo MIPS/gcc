@@ -1,5 +1,5 @@
 /* Build live ranges for pseudos.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -219,7 +219,7 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 	first = r1;
       else
 	last->next = r1;
-      gcc_assert (r1->next == NULL);
+      lra_assert (r1->next == NULL);
     }
   else if (r2 != NULL)
     {
@@ -227,11 +227,11 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 	first = r2;
       else
 	last->next = r2;
-      gcc_assert (r2->next == NULL);
+      lra_assert (r2->next == NULL);
     }
   else
     {
-      gcc_assert (last->next == NULL);
+      lra_assert (last->next == NULL);
     }
   return first;
 }
@@ -284,7 +284,7 @@ make_hard_regno_born (int regno)
 {
   unsigned int i;
 
-  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+  lra_assert (regno < FIRST_PSEUDO_REGISTER);
   if (TEST_HARD_REG_BIT (lra_no_alloc_regs, regno)
       || TEST_HARD_REG_BIT (hard_regs_live, regno))
     return;
@@ -302,7 +302,7 @@ make_hard_regno_dead (int regno)
   if (TEST_HARD_REG_BIT (lra_no_alloc_regs, regno)
       || ! TEST_HARD_REG_BIT (hard_regs_live, regno))
     return;
-  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+  lra_assert (regno < FIRST_PSEUDO_REGISTER);
   sparseset_set_bit (start_dying, regno);
   CLEAR_HARD_REG_BIT (hard_regs_live, regno);
 }
@@ -315,8 +315,8 @@ mark_pseudo_live (int regno)
 {
   lra_live_range_t p;
 
-  gcc_assert (regno >= FIRST_PSEUDO_REGISTER);
-  gcc_assert (! sparseset_bit_p (pseudos_live, regno));
+  lra_assert (regno >= FIRST_PSEUDO_REGISTER);
+  lra_assert (! sparseset_bit_p (pseudos_live, regno));
   sparseset_set_bit (pseudos_live, regno);
   IOR_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs, hard_regs_live);
   
@@ -335,14 +335,14 @@ mark_pseudo_dead (int regno)
 {
   lra_live_range_t p;
 
-  gcc_assert (regno >= FIRST_PSEUDO_REGISTER);
-  gcc_assert (sparseset_bit_p (pseudos_live, regno));
+  lra_assert (regno >= FIRST_PSEUDO_REGISTER);
+  lra_assert (sparseset_bit_p (pseudos_live, regno));
   sparseset_clear_bit (pseudos_live, regno);
   sparseset_set_bit (start_dying, regno);
   if (complete_info_p || lra_get_regno_hard_regno (regno) < 0)
     {
       p = lra_reg_info[regno].live_ranges;
-      gcc_assert (p != NULL);
+      lra_assert (p != NULL);
       p->finish = curr_point;
     }
 }
@@ -426,7 +426,7 @@ void
 lra_setup_reload_pseudo_preferenced_hard_reg (int regno,
 					      int hard_regno, int profit)
 {
-  gcc_assert (regno >= lra_constraint_new_regno_start);
+  lra_assert (regno >= lra_constraint_new_regno_start);
   if (lra_reg_info[regno].preferred_hard_regno1 == hard_regno)
     lra_reg_info[regno].preferred_hard_regno_profit1 += profit;
   else if (lra_reg_info[regno].preferred_hard_regno2 == hard_regno)
@@ -814,7 +814,7 @@ remove_some_program_points_and_update_live_ranges (void)
     {
       for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
 	{
-	  gcc_assert (r->start <= r->finish);
+	  lra_assert (r->start <= r->finish);
 	  SET_BIT (born, r->start);
 	  SET_BIT (dead, r->finish);
 	}

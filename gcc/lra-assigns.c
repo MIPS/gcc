@@ -1,5 +1,5 @@
 /* Assign reload pseudos.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -68,7 +68,7 @@ process_copy_to_form_thread (int regno1, int regno2, int copy_freq)
 {
   int last, regno1_first, regno2_first;
 
-  gcc_assert (regno1 >= lra_constraint_new_regno_start
+  lra_assert (regno1 >= lra_constraint_new_regno_start
 	      && regno2 >= lra_constraint_new_regno_start);
   regno1_first = regno_assign_info[regno1].first;
   regno2_first = regno_assign_info[regno2].first;
@@ -84,7 +84,7 @@ process_copy_to_form_thread (int regno1, int regno2, int copy_freq)
 	+= regno_assign_info[regno2_first].freq;
     }
   regno_assign_info[regno1_first].freq -= 2 * copy_freq;
-  gcc_assert (regno_assign_info[regno1_first].freq >= 0);
+  lra_assert (regno_assign_info[regno1_first].freq >= 0);
 }
 
 /* Initialize REGNO_ASSIGN_INFO and form threads.  */
@@ -132,7 +132,7 @@ reload_pseudo_compare_func (const void *v1p, const void *v2p)
   enum reg_class cl2 = regno_allocno_class_array[r2];
   int diff;
   
-  gcc_assert (r1 >= lra_constraint_new_regno_start
+  lra_assert (r1 >= lra_constraint_new_regno_start
 	      && r2 >= lra_constraint_new_regno_start);
   
   /* Prefer to assign reload registers with smaller classes first to
@@ -406,7 +406,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 			       conflict_regno)
     if (val != lra_reg_info[conflict_regno].val)
       {
-	gcc_assert (live_pseudos_reg_renumber[conflict_regno] < 0);
+	lra_assert (live_pseudos_reg_renumber[conflict_regno] < 0);
 	if ((hard_regno
 	     = lra_reg_info[conflict_regno].preferred_hard_regno1) >= 0)
 	  {
@@ -432,7 +432,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
   /* That is important for allocation of multi-word pseudos.  */
   IOR_COMPL_HARD_REG_SET (conflict_set, reg_class_contents[rclass]);
   /* ?!? may be cover class for the old.  */
-  gcc_assert (rclass != NO_REGS);
+  lra_assert (rclass != NO_REGS);
   rclass_size = ira_class_hard_regs_num[rclass];
   best_hard_regno = -1;
   for (i = 0; i < rclass_size; i++)
@@ -550,7 +550,7 @@ lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
   if ((hr = hard_regno) < 0)
     hr = reg_renumber[regno];
   reg_renumber[regno] = hard_regno;
-  gcc_assert (hr >= 0);
+  lra_assert (hr >= 0);
   for (i = 0; i < hard_regno_nregs[hr][PSEUDO_REGNO_MODE (regno)]; i++)
     if (hard_regno < 0)
       lra_hard_reg_usage[hr + i] -= lra_reg_info[regno].freq;
@@ -668,7 +668,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
   bitmap_iterator bi, bi2;
 
   rclass = regno_allocno_class_array[regno];
-  gcc_assert (reg_renumber[regno] < 0 && rclass != NO_REGS);
+  lra_assert (reg_renumber[regno] < 0 && rclass != NO_REGS);
   bitmap_clear (&ignore_pseudos_bitmap);
   bitmap_clear (&best_spill_pseudos_bitmap);
   EXECUTE_IF_SET_IN_BITMAP (&lra_reg_info[regno].insn_bitmap, 0, uid, bi)
@@ -696,7 +696,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	{
 	  if (try_hard_reg_pseudos_check[hard_regno + j] != curr_pseudo_check)
 	    continue;
-	  gcc_assert (! bitmap_empty_p (&try_hard_reg_pseudos[hard_regno + j]));
+	  lra_assert (! bitmap_empty_p (&try_hard_reg_pseudos[hard_regno + j]));
 	  bitmap_ior_into (&spill_pseudos_bitmap,
 			   &try_hard_reg_pseudos[hard_regno + j]);
 	}
@@ -836,7 +836,7 @@ assign_hard_regno (int hard_regno, int regno)
 {
   int i;
 
-  gcc_assert (hard_regno >= 0);
+  lra_assert (hard_regno >= 0);
   lra_setup_reg_renumber (regno, hard_regno, true);
   update_lives (regno, false);
   for (i = 0;
@@ -887,7 +887,7 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap spilled_pseudo_bitma
     {
       regno = sorted_pseudos[i];
       hard_regno = reg_renumber[regno];
-      gcc_assert (hard_regno >= 0);
+      lra_assert (hard_regno >= 0);
       mode = lra_reg_info[regno].biggest_mode;
       sparseset_clear (live_range_hard_reg_pseudos);
       for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
@@ -954,7 +954,7 @@ improve_inheritance (bitmap changed_pseudos)
     {
       regno = sorted_pseudos[i];
       hard_regno = reg_renumber[regno];
-      gcc_assert (hard_regno >= 0);
+      lra_assert (hard_regno >= 0);
       for (cp = lra_reg_info[regno].copies; cp != NULL; cp = next_cp)
 	{
 	  if (cp->regno1 == regno)
@@ -1063,7 +1063,7 @@ assign_by_spills (void)
 	}
       if (nfails == 0)
 	break;
-      gcc_assert (iter == 0);
+      lra_assert (iter == 0);
       /* This is a very rare event.  We can not assign a hard
 	 register to reload pseudo because the hard register was
 	 assigned to another reload pseudo on a previous

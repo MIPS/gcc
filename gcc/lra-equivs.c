@@ -1,5 +1,5 @@
 /* Dealing with equivalences.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -76,7 +76,7 @@ resize_regno_equiv (int max_ind)
   if (lra_regno_equiv_init_insns == NULL)
     {
       lra_regno_equiv_size = expanded_size;
-      gcc_assert (lra_regno_equiv_mem_loc == NULL
+      lra_assert (lra_regno_equiv_mem_loc == NULL
 		  && lra_regno_equiv_const == NULL
 		  && lra_regno_equiv_invariant == NULL);
       lra_regno_equiv_init_insns
@@ -587,7 +587,7 @@ update_equiv_regs (void)
 	  note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
 	  if (note)
 	    {
-	      gcc_assert (REG_P (dest));
+	      lra_assert (REG_P (dest));
 	      regno = REGNO (dest);
 
 	      /* Note that we don't want to clear
@@ -851,7 +851,7 @@ update_equiv_regs (void)
 		   not used, flow would have deleted the setting
 		   insns.)  Hence there can only be one insn in
 		   regno_equiv[REGNO].init_insns.  */
-		gcc_assert (regno_equiv[regno].init_insns
+		lra_assert (regno_equiv[regno].init_insns
 			    && !XEXP (regno_equiv[regno].init_insns, 1));
 		equiv_insn = XEXP (regno_equiv[regno].init_insns, 0);
 

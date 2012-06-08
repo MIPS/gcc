@@ -1,5 +1,5 @@
 /* Change pseudos by memory.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -105,7 +105,7 @@ assign_mem_slot (int i)
   unsigned int min_align = max_ref_width * BITS_PER_UNIT;
   int adjust = 0;
 
-  gcc_assert (regno_reg_rtx[i] != NULL_RTX && REG_P (regno_reg_rtx[i])
+  lra_assert (regno_reg_rtx[i] != NULL_RTX && REG_P (regno_reg_rtx[i])
 	      && lra_reg_info[i].nrefs != 0 && reg_renumber[i] < 0);
   
   x = slots[pseudo_slots[i].slot_num].mem;
@@ -266,7 +266,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	for (p = r->start; p <= r->finish; p++)
 	  IOR_HARD_REG_SET (conflict_hard_regs, reserved_hard_regs[p]);
       spill_class = targetm.spill_class (lra_get_allocno_class (regno));
-      gcc_assert (spill_class != NO_REGS);
+      lra_assert (spill_class != NO_REGS);
       spill_class_size = ira_class_hard_regs_num[spill_class];
       mode = lra_reg_info[regno].biggest_mode;
       for (k = 0; k < spill_class_size; k++)
@@ -488,7 +488,7 @@ lra_spill (void)
 	spill_hard_reg[i] = NULL_RTX;
 	pseudo_regnos[n++] = i;
       }
-  gcc_assert (n > 0);
+  lra_assert (n > 0);
   pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
 						 * regs_num);
   slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
@@ -548,7 +548,7 @@ lra_hard_reg_substitution (void)
 
 	      if (GET_CODE (op) == SUBREG && REG_P (SUBREG_REG (op)))
 		{
-		  gcc_assert (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER);
+		  lra_assert (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER);
 		  alter_subreg (id->operand_loc[i]);
 		  lra_update_dup (id, i);
 		}

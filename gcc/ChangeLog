@@ -1,3 +1,36 @@
+2012-06-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c: Add 2012 to copyright header.  Use lra_assert
+	instead of gcc_assert.
+
+	* lra-coalesce.c: Ditto.
+
+	* lra-eliminations.c: Ditto.
+
+	* lra-equivs.c: Ditto.
+
+	* lra-lives.c: Ditto.
+
+	* lra-spills.c: Ditto.
+
+	* lra.c: Ditto.
+	(insn_recog_data_len): Rename to lra_insn_recog_data_len.
+	(insn_recog_data): Rename to lra_insn_recog_data.
+	(lra_get_insn_recog_data): Rename to lra_set_insn_recog_data.
+	Remove code for accessing cached value.
+
+	* lra-constraints.c: Add 2012 to copyright header.  Use lra_assert
+	instead of gcc_assert.
+	(check_and_process_move): Remove unnecessary side_effects_p call.
+
+	* lra-int.h: Ditto.
+	(lra_assert): Define it.
+	(lra_insn_recog_data_len, lra_insn_recog_data): New externals.
+	(lra_get_insn_recog_data): Rename to lra_set_insn_recog_data.
+	(lra_get_insn_recog_data): New inline function.
+
+	* lra.h: Add 2012 to copyright.
+
 2012-06-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (split_reg): Fix comments and printing debug

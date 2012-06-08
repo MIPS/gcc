@@ -1,5 +1,5 @@
 /* Local Register Allocator (LRA) intercommunication header file.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
@@ -22,6 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "lra.h"
 #include "bitmap.h"
 #include "insn-attr.h"
+
+#ifdef ENABLE_CHECKING
+#define lra_assert(c) gcc_assert (c)
+#else
+/* Always define and include C, so that warnings for empty body in an
+  ‘if’ statement and unused variable do not occur.  */
+#define lra_assert(c) ((void)(0 && (c)))
+#endif
 
 /* The parameter used to prevent infinite reloading for an insn.  Each
    insn operands might require a reload and, if it is a memory, its
@@ -233,6 +241,9 @@ extern bool lra_reg_spill_p;
 
 extern HARD_REG_SET lra_no_alloc_regs;
 
+extern int lra_insn_recog_data_len;
+extern lra_insn_recog_data_t *lra_insn_recog_data;
+
 extern bitmap_head lra_constraint_insn_stack_bitmap;
 extern VEC (rtx, heap) *lra_constraint_insn_stack;
 
@@ -254,7 +265,7 @@ extern void lra_update_dups (lra_insn_recog_data_t, signed char *);
 
 extern void lra_process_new_insns (rtx, rtx, rtx, const char *);
 
-extern lra_insn_recog_data_t lra_get_insn_recog_data (rtx);
+extern lra_insn_recog_data_t lra_set_insn_recog_data (rtx);
 extern lra_insn_recog_data_t lra_update_insn_recog_data (rtx);
 extern void lra_set_used_insn_alternative (rtx, int);
 extern void lra_set_used_insn_alternative_by_uid (int, int);
@@ -361,7 +372,7 @@ lra_hard_reg_set_intersection_p (int hard_regno, enum machine_mode mode,
 {
   int i;
 
-  gcc_assert (hard_regno >= 0);
+  lra_assert (hard_regno >= 0);
   for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
       return true;
@@ -414,4 +425,23 @@ lra_update_dup (lra_insn_recog_data_t id, int nop)
   for (i = 0; i < static_id->n_dups; i++)
     if (static_id->dup_num[i] == nop)
       *id->dup_loc[i] = *id->operand_loc[nop];
+}
+
+/* Return info about INSN.  Set up the info if it is not done yet.  */
+static inline lra_insn_recog_data_t
+lra_get_insn_recog_data (rtx insn)
+{
+  lra_insn_recog_data_t data;
+  unsigned int uid = INSN_UID (insn);
+
+  if (lra_insn_recog_data_len > (int) uid
+      && (data = lra_insn_recog_data[uid]) != NULL)
+    {
+      /* Check that we did not change insn structure without updating
+	 the info.  */
+      lra_assert (data->insn == insn
+		  && (INSN_CODE (insn) < 0 || data->icode == INSN_CODE (insn)));
+      return data;
+    }
+  return lra_set_insn_recog_data (insn);
 }

@@ -1,5 +1,5 @@
 /* Coalesce spilled pseudos.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -269,7 +269,7 @@ lra_coalesce (void)
 	{
 	  mv = sorted_moves[i];
 	  set = single_set (mv);
-	  gcc_assert (set != NULL && REG_P (SET_SRC (set))
+	  lra_assert (set != NULL && REG_P (SET_SRC (set))
 		      && REG_P (SET_DEST (set)));
 	  sregno = REGNO (SET_SRC (set));
 	  dregno = REGNO (SET_DEST (set));
@@ -299,7 +299,7 @@ lra_coalesce (void)
 	{
 	  mv = sorted_moves[i];
 	  set = single_set (mv);
-	  gcc_assert (set != NULL && REG_P (SET_SRC (set))
+	  lra_assert (set != NULL && REG_P (SET_SRC (set))
 		      && REG_P (SET_DEST (set)));
 	  sregno = REGNO (SET_SRC (set));
 	  dregno = REGNO (SET_DEST (set));

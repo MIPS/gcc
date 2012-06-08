@@ -1,5 +1,5 @@
 /* Code for RTL transformations to satisfy insn constraints.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -271,7 +271,7 @@ get_reload_reg (enum op_type type, enum machine_mode mode, rtx original,
     }
   else
     {
-      gcc_assert (! side_effects_p (original));
+      lra_assert (! side_effects_p (original));
       res_p = false;
       *result_reg = curr_insn_input_reloads[i].reg;
       regno = REGNO (*result_reg);
@@ -285,7 +285,7 @@ get_reload_reg (enum op_type type, enum machine_mode mode, rtx original,
       if (lra_dump_file != NULL)
 	 fprintf (lra_dump_file, "\n");
     }
-  gcc_assert (curr_insn_input_reloads_num < LRA_MAX_INSN_RELOADS);
+  lra_assert (curr_insn_input_reloads_num < LRA_MAX_INSN_RELOADS);
   curr_insn_input_reloads[curr_insn_input_reloads_num].input = original;
   curr_insn_input_reloads[curr_insn_input_reloads_num++].reg = *result_reg;
   return res_p;
@@ -403,7 +403,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	  {
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
-	    gcc_assert (CONSTANT_P (arg1)); /* It should be a displacement.  */
+	    lra_assert (CONSTANT_P (arg1)); /* It should be a displacement.  */
 	    ad->disp_loc = arg1_loc;
 	  }
 	/* If index and base registers are the same on this machine,
@@ -506,7 +506,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
       extract_loc_address_regs (false, mode, as, &XEXP (x, 0), false,
 				code, GET_CODE (XEXP (XEXP (x, 1), 1)),
 				true, ad);
-      gcc_assert (rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)));
+      lra_assert (rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)));
       ad->base_reg_loc2 = &XEXP (XEXP (x, 1), 0);
       if (REG_P (XEXP (XEXP (x, 1), 1)))
 	extract_loc_address_regs (false, mode, as, &XEXP (XEXP (x, 1), 1),
@@ -583,7 +583,7 @@ extract_address_regs (enum machine_mode mem_mode, addr_space_t as,
 int
 lra_constraint_offset (int regno, enum machine_mode mode)
 {
-  gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+  lra_assert (regno < FIRST_PSEUDO_REGISTER);
   /* On a WORDS_BIG_ENDIAN machine, point to the last register of a
      multiple hard register group of scalar integer registers, so that
      for example (reg:DI 0) and (reg:SI 1) will be considered the same
@@ -1058,7 +1058,7 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   secondary_reload_info sri;
 
   *sec_mem_p = *change_p = false;
-  if ((set = single_set (curr_insn)) == NULL || side_effects_p (set))
+  if ((set = single_set (curr_insn)) == NULL)
     return false;
   dreg = dest = SET_DEST (set);
   sreg = src = SET_SRC (set);
@@ -1271,7 +1271,7 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
 	}
       return true;
     }
-  gcc_assert (REG_P (reg));
+  lra_assert (REG_P (reg));
   final_regno = regno = REGNO (reg);
   if (regno < FIRST_PSEUDO_REGISTER)
     {
@@ -1634,7 +1634,7 @@ process_alt_operands (int only_alternative)
 
 	  /* An empty constraint should be excluded by the fast
 	     track.  */
-	  gcc_assert (*p != 0 && *p != ',');
+	  lra_assert (*p != 0 && *p != ',');
   
 	  /* Scan this alternative's specs for this operand; set WIN
 	     if the operand fits any letter in this alternative.
@@ -1681,7 +1681,7 @@ process_alt_operands (int only_alternative)
 		    m = strtoul (p, &end, 10);
 		    p = end;
 		    len = 0;
-		    gcc_assert (nop > m);
+		    lra_assert (nop > m);
 		    
 		    this_alternative_matches = m;
 		    lra_get_hard_regno_and_offset (*curr_id->operand_loc[m],
@@ -1754,7 +1754,7 @@ process_alt_operands (int only_alternative)
 			if (operand_reg[nop] == NULL_RTX
 			    || (find_regno_note (curr_insn, REG_DEAD,
 						 REGNO (operand_reg[nop]))
-				== NULL_RTX))
+				 == NULL_RTX))
 			  reject += 2;
 		      }
 		    /* This can be fixed with reloads if the operand
@@ -2265,7 +2265,7 @@ process_alt_operands (int only_alternative)
 	  else
 	    {
 	      /* Remember pseudos used for match reloads are never inherited.  */
-	      gcc_assert (curr_alt_matches[i] >= 0);
+	      lra_assert (curr_alt_matches[i] >= 0);
 	      curr_alt_win[curr_alt_matches[i]] = false;
 	    }
 	  curr_alt_win[i] = curr_alt_match_win[i] = false;
@@ -2336,7 +2336,7 @@ valid_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 		 rtx addr, addr_space_t as)
 {
 #ifdef GO_IF_LEGITIMATE_ADDRESS
-  gcc_assert (ADDR_SPACE_GENERIC_P (as));
+  lra_assert (ADDR_SPACE_GENERIC_P (as));
   GO_IF_LEGITIMATE_ADDRESS (mode, addr, win);
   return 0;
   
@@ -2356,7 +2356,7 @@ base_plus_disp_to_reg (enum machine_mode mode, addr_space_t as,
   enum reg_class cl;
   rtx new_reg;
 
-  gcc_assert (ad->base_reg_loc != NULL && ad->disp_loc != NULL);
+  lra_assert (ad->base_reg_loc != NULL && ad->disp_loc != NULL);
   cl = base_reg_class (mode, as, ad->base_outer_code, ad->index_code);
   new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "base + disp");
   lra_emit_add (new_reg, *ad->base_reg_loc, *ad->disp_loc);
@@ -2420,7 +2420,7 @@ equiv_address_substitution (struct address *ad, rtx *addr_loc,
   scale = 1;
   if (ad->index_loc != NULL && GET_CODE (*ad->index_loc) == MULT)
     {
-      gcc_assert (CONST_INT_P (XEXP (*ad->index_loc, 1)));
+      lra_assert (CONST_INT_P (XEXP (*ad->index_loc, 1)));
       scale = INTVAL (XEXP (*ad->index_loc, 1));
     }
   if (index_reg != new_index_reg)
@@ -2470,7 +2470,7 @@ exchange_plus_ops (rtx x)
 {
   rtx op0;
 
-  gcc_assert (GET_CODE (x) == PLUS);
+  lra_assert (GET_CODE (x) == PLUS);
   op0 = XEXP (x, 0);
   XEXP (x, 0) = XEXP (x, 1);
   XEXP (x, 1) = op0;
@@ -2595,9 +2595,9 @@ process_address (int nop, rtx *before, rtx *after)
 	  /* index * scale + disp => new base + index * scale  */
 	  enum reg_class cl = base_reg_class (mode, as, SCRATCH, SCRATCH);
 
-	  gcc_assert (INDEX_REG_CLASS != NO_REGS);
+	  lra_assert (INDEX_REG_CLASS != NO_REGS);
 	  new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "disp");
-	  gcc_assert (GET_CODE (*addr_loc) == PLUS);
+	  lra_assert (GET_CODE (*addr_loc) == PLUS);
 	  lra_emit_move (new_reg, *ad.disp_loc);
 	  if (CONSTANT_P (XEXP (*addr_loc, 1)))
 	    XEXP (*addr_loc, 1) = XEXP (*addr_loc, 0);
@@ -2668,9 +2668,9 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
 
   if (GET_CODE (value) == PRE_MODIFY || GET_CODE (value) == POST_MODIFY)
     {
-      gcc_assert (GET_CODE (XEXP (value, 1)) == PLUS
+      lra_assert (GET_CODE (XEXP (value, 1)) == PLUS
 		  || GET_CODE (XEXP (value, 1)) == MINUS);
-      gcc_assert (rtx_equal_p (XEXP (XEXP (value, 1), 0), XEXP (value, 0)));
+      lra_assert (rtx_equal_p (XEXP (XEXP (value, 1), 0), XEXP (value, 0)));
       plus_p = GET_CODE (XEXP (value, 1)) == PLUS;
       inc = XEXP (XEXP (value, 1), 1);
     }
@@ -2857,7 +2857,7 @@ curr_insn_transform (void)
       if (subst != old)
 	{
 	  subst = copy_rtx (subst);
-	  gcc_assert (REG_P (old));
+	  lra_assert (REG_P (old));
 	  if (GET_CODE (op) == SUBREG)
 	    SUBREG_REG (op) = subst;
 	  else
@@ -3012,9 +3012,9 @@ curr_insn_transform (void)
       rtx new_reg, set, src, dest;
       enum machine_mode sec_mode;
 
-      gcc_assert (sec_mem_p);
+      lra_assert (sec_mem_p);
       set = single_set (curr_insn);
-      gcc_assert (set != NULL_RTX && ! side_effects_p (set));
+      lra_assert (set != NULL_RTX && ! side_effects_p (set));
       dest = SET_DEST (set);
       src = SET_SRC (set);
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
@@ -3025,7 +3025,7 @@ curr_insn_transform (void)
       new_reg = lra_create_new_reg (sec_mode, NULL_RTX,
 				    NO_REGS, "secondary");
       /* If the mode is changed, it should be wider.  */
-      gcc_assert (GET_MODE_SIZE (GET_MODE (new_reg))
+      lra_assert (GET_MODE_SIZE (GET_MODE (new_reg))
 		  >= GET_MODE_SIZE (GET_MODE (src)));
       after = emit_spill_move (false, new_reg, dest, INSN_CODE (curr_insn));
       lra_process_new_insns (curr_insn, NULL_RTX, after,
@@ -3037,7 +3037,7 @@ curr_insn_transform (void)
     }
 #endif
 
-  gcc_assert (goal_alt_number >= 0);
+  lra_assert (goal_alt_number >= 0);
   lra_set_used_insn_alternative (curr_insn, goal_alt_number);
 
   if (lra_dump_file != NULL)
@@ -3070,7 +3070,7 @@ curr_insn_transform (void)
 	  ;
 	/* We allows matching one output operand and several input
 	   operands.  */
-	gcc_assert (k == 0
+	lra_assert (k == 0
 		    || (curr_static_id->operand[j].type == OP_OUT
 			&& curr_static_id->operand[i].type == OP_IN
 			&& (curr_static_id->operand
@@ -3100,7 +3100,7 @@ curr_insn_transform (void)
 
 	    if (new_class != NO_REGS && get_reg_class (regno) != new_class)
 	      {
-		gcc_assert (ok_p);
+		lra_assert (ok_p);
 		change_class (regno, new_class, "      Change", true);
 	      }
 	  }
@@ -3301,7 +3301,7 @@ curr_insn_transform (void)
 	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
       else
 	{
-	  gcc_assert (INSN_CODE (curr_insn) < 0);
+	  lra_assert (INSN_CODE (curr_insn) < 0);
 	  error_for_asm (curr_insn,
 			 "inconsistent operand constraints in an %<asm%>");
 	  /* Avoid further trouble with this insn.  */
@@ -3613,7 +3613,7 @@ lra_constraints (bool first_p)
 	    int j, nregs = hard_regno_nregs[hard_regno][PSEUDO_REGNO_MODE (i)];
 	    
 	    for (j = 0; j < nregs; j++)
-	      gcc_assert (df_regs_ever_live_p (hard_regno + j));
+	      lra_assert (df_regs_ever_live_p (hard_regno + j));
 	  }
     }
 #endif
@@ -3756,7 +3756,7 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
   rtx original_reg = regno_reg_rtx[original_regno];
   rtx new_reg, new_insns, usage_insn;
 
-  gcc_assert (! usage_insns[original_regno].after_p);
+  lra_assert (! usage_insns[original_regno].after_p);
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "    <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
@@ -3840,13 +3840,13 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
       if (GET_CODE (next_usage_insns) != INSN_LIST)
 	{
 	  usage_insn = next_usage_insns;
-	  gcc_assert (NONDEBUG_INSN_P (usage_insn));
+	  lra_assert (NONDEBUG_INSN_P (usage_insn));
 	  next_usage_insns = NULL;
 	}
       else
 	{
 	  usage_insn = XEXP (next_usage_insns, 0);
-	  gcc_assert (DEBUG_INSN_P (usage_insn));
+	  lra_assert (DEBUG_INSN_P (usage_insn));
 	  next_usage_insns = XEXP (next_usage_insns, 1);
 	}
       substitute_pseudo (&usage_insn, original_regno, new_reg);
@@ -3870,7 +3870,7 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
 static inline bool
 need_for_call_save_p (int regno)
 {
-  gcc_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
+  lra_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
   return (usage_insns[regno].calls_num < calls_num
 	  && (lra_hard_reg_set_intersection_p
 	      (reg_renumber[regno], PSEUDO_REGNO_MODE (regno),
@@ -3894,7 +3894,7 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 {
   int hard_regno = regno < FIRST_PSEUDO_REGISTER ? regno : reg_renumber[regno];
 
-  gcc_assert (hard_regno >= 0);
+  lra_assert (hard_regno >= 0);
   return ((TEST_HARD_REG_BIT (potential_reload_hard_regs, hard_regno)
 	   && ! TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno)
 	   && (usage_insns[regno].reloads_num
@@ -3982,7 +3982,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
       call_save_p = need_for_call_save_p (original_regno);
     }
   original_reg = regno_reg_rtx[original_regno];
-  gcc_assert (hard_regno >= 0);
+  lra_assert (hard_regno >= 0);
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "    ((((((((((((((((((((((((((((((((((((((((((((((((\n");
@@ -4032,7 +4032,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   if (NEXT_INSN (save) != NULL_RTX)
     {
-      gcc_assert (! call_save_p);
+      lra_assert (! call_save_p);
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file,
@@ -4055,7 +4055,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   if (NEXT_INSN (restore) != NULL_RTX)
     {
-      gcc_assert (! call_save_p);
+      lra_assert (! call_save_p);
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file,
@@ -4081,7 +4081,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 	  break;
 	}
       usage_insn = XEXP (next_usage_insns, 0);
-      gcc_assert (DEBUG_INSN_P (usage_insn));
+      lra_assert (DEBUG_INSN_P (usage_insn));
       next_usage_insns = XEXP (next_usage_insns, 1);
       substitute_pseudo (&usage_insn, original_regno, new_reg);
       lra_update_insn_regno_info (usage_insn);
@@ -4093,8 +4093,8 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 			  -1, 0);
 	}
     }
-  gcc_assert (NONDEBUG_INSN_P (usage_insn));
-  gcc_assert (usage_insn != insn || (after_p && before_p));
+  lra_assert (NONDEBUG_INSN_P (usage_insn));
+  lra_assert (usage_insn != insn || (after_p && before_p));
   lra_process_new_insns (usage_insn, after_p ? NULL_RTX : restore,
 			 after_p ? restore : NULL_RTX,
 			 call_save_p
@@ -4240,7 +4240,7 @@ add_to_inherit (int regno, rtx insns)
   for (i = 0; i < to_inherit_num; i++)
     if (to_inherit[i].regno == regno)
       return;
-  gcc_assert (to_inherit_num < LRA_MAX_INSN_RELOADS);
+  lra_assert (to_inherit_num < LRA_MAX_INSN_RELOADS);
   to_inherit[to_inherit_num].regno = regno;
   to_inherit[to_inherit_num++].insns = insns;
 }
@@ -4272,7 +4272,7 @@ get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
   edge e;
   edge_iterator ei;
 
-  gcc_assert (to != NULL);
+  lra_assert (to != NULL);
   bitmap_clear (res);
   FOR_EACH_EDGE (e, ei, from->succs)
     if (e->dest != to)
@@ -4851,7 +4851,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
 			  == lra_reg_info[prev_sregno].restore_regno)
 		      && ! bitmap_bit_p (remove_pseudos, prev_sregno))
 		    {
-		      gcc_assert (GET_MODE (SET_SRC (prev_set))
+		      lra_assert (GET_MODE (SET_SRC (prev_set))
 				  == GET_MODE (regno_reg_rtx[sregno]));
 		      if (GET_CODE (SET_SRC (set)) == SUBREG)
 			SUBREG_REG (SET_SRC (set)) = SET_SRC (prev_set);

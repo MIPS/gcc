@@ -1,5 +1,5 @@
 /* LRA (local register allocator) driver and LRA utilities.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -78,7 +78,7 @@ lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
 
   if (original == NULL_RTX || (mode = GET_MODE (original)) == VOIDmode)
     mode = md_mode;
-  gcc_assert (mode != VOIDmode);
+  lra_assert (mode != VOIDmode);
   new_reg = gen_reg_rtx (mode);
   if (original == NULL_RTX || ! REG_P (original))
     {
@@ -231,7 +231,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	{
 	  /* Its is not an address generation.  Probably we have no 3 op
 	     add.  Last chance is to use 2-op add insn.  */
-	  gcc_assert (x != y && x != z);
+	  lra_assert (x != y && x != z);
 	  emit_move_insn (x, z);
 	  insn = gen_add2_insn (x, y);
 	  emit_insn (insn);
@@ -243,7 +243,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	  if (disp == NULL_RTX)
 	    {
 	      /* Generate x = index_scale; x = x + base.  */
-	      gcc_assert (index_scale != NULL_RTX && base != NULL_RTX);
+	      lra_assert (index_scale != NULL_RTX && base != NULL_RTX);
 	      emit_move_insn (x, index_scale);
 	      insn = gen_add2_insn (x, base);
 	      emit_insn (insn);
@@ -251,7 +251,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	  else if (scale == NULL_RTX)
 	    {
 	      /* Try x = base + disp.  */
-	      gcc_assert (base != NULL_RTX);
+	      lra_assert (base != NULL_RTX);
 	      last = get_last_insn ();
 	      insn = emit_move_insn (x, gen_rtx_PLUS (GET_MODE (base),
 						      base, disp));
@@ -511,10 +511,10 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
 {
   struct lra_static_insn_data *data;
 
-  gcc_assert (icode < CODE_FOR_nothing);
+  lra_assert (icode < CODE_FOR_nothing);
   if (icode >= 0 && (data = insn_code_data[icode]) != NULL)
     return data;
-  gcc_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
+  lra_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
   data = ((struct lra_static_insn_data *)
 	  xmalloc (sizeof (struct lra_static_insn_data)
 		   + sizeof (struct lra_operand_data) * nop
@@ -551,17 +551,17 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
 }
 
 /* The current length of the following array.  */
-static int insn_recog_data_len;
+int lra_insn_recog_data_len;
 
 /* Map INSN_UID -> the insn recog data (NULL if unknown).  */
-static lra_insn_recog_data_t *insn_recog_data;
+lra_insn_recog_data_t *lra_insn_recog_data;
 
 /* Initialize LRA data about insns.  */
 static void
 init_insn_recog_data (void)
 {
-  insn_recog_data_len = 0;
-  insn_recog_data = NULL;
+  lra_insn_recog_data_len = 0;
+  lra_insn_recog_data = NULL;
   init_insn_regs ();
 }
 
@@ -571,16 +571,16 @@ check_and_expand_insn_recog_data (int index)
 {
   int i, old;
 
-  if (insn_recog_data_len > index)
+  if (lra_insn_recog_data_len > index)
     return;
-  old = insn_recog_data_len;
-  insn_recog_data_len = index * 3 / 2 + 1;
-  insn_recog_data
-    = (lra_insn_recog_data_t *) xrealloc (insn_recog_data,
-					  insn_recog_data_len
+  old = lra_insn_recog_data_len;
+  lra_insn_recog_data_len = index * 3 / 2 + 1;
+  lra_insn_recog_data
+    = (lra_insn_recog_data_t *) xrealloc (lra_insn_recog_data,
+					  lra_insn_recog_data_len
 					  * sizeof (lra_insn_recog_data_t));
-  for (i = old; i < insn_recog_data_len; i++)
-    insn_recog_data[i] = NULL;
+  for (i = old; i < lra_insn_recog_data_len; i++)
+    lra_insn_recog_data[i] = NULL;
 }
 
 /* Finish LRA DATA about insn.  */
@@ -616,11 +616,11 @@ finish_insn_recog_data (void)
   int i;
   lra_insn_recog_data_t data;
 
-  for (i = 0; i < insn_recog_data_len; i++)
-    if ((data = insn_recog_data[i]) != NULL)
+  for (i = 0; i < lra_insn_recog_data_len; i++)
+    if ((data = lra_insn_recog_data[i]) != NULL)
       free_insn_recog_data (data);
   finish_insn_regs ();
-  free (insn_recog_data);
+  free (lra_insn_recog_data);
 }
 
 /* Setup info about operands in alternatives of LRA DATA of insn.  */
@@ -701,11 +701,11 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		  if (static_data->commutative < 0)
 		    static_data->commutative = i;
 		  else
-		    gcc_assert (data->icode < 0); /* Asm  */
+		    lra_assert (data->icode < 0); /* Asm  */
 
 		  /* The last operand should not be marked
 		     commutative.  */
-		  gcc_assert (i != nop - 1);
+		  lra_assert (i != nop - 1);
 		  break;
 
 		case '?':
@@ -912,10 +912,10 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
   return list;
 }
 
-/* Return info about INSN.  Set up the info if it is not set up
+/* Set up and return info about INSN.  Set up the info if it is not set up
    yet.  */
 lra_insn_recog_data_t
-lra_get_insn_recog_data (rtx insn)
+lra_set_insn_recog_data (rtx insn)
 {
   lra_insn_recog_data_t data;
   int i, n, icode;
@@ -924,14 +924,6 @@ lra_get_insn_recog_data (rtx insn)
   struct lra_static_insn_data *insn_static_data;
 
   check_and_expand_insn_recog_data (uid);
-  if ((data = insn_recog_data[uid]) != NULL)
-    {
-      /* Check that we did not change insn strcuture without updating
-	 the info.  */
-      gcc_assert (data->insn == insn
-		  && (INSN_CODE (insn) < 0 || data->icode == INSN_CODE (insn)));
-      return data;
-    }
   if (DEBUG_INSN_P (insn))
     icode = -1;
   else
@@ -943,7 +935,7 @@ lra_get_insn_recog_data (rtx insn)
     }
   data
     = (lra_insn_recog_data_t) xmalloc (sizeof (struct lra_insn_recog_data));
-  insn_recog_data[uid] = data;
+  lra_insn_recog_data[uid] = data;
   data->insn = insn;
   data->used_insn_alternative = -1;
   data->icode = icode;
@@ -976,7 +968,7 @@ lra_get_insn_recog_data (rtx insn)
 	{
 	  /* expand_asm_operands makes sure there aren't too many
 	     operands.  */
-	  gcc_assert (nop <= MAX_RECOG_OPERANDS);
+	  lra_assert (nop <= MAX_RECOG_OPERANDS);
 	  if (nop != 0)
 	    data->operand_loc = (rtx **) xmalloc (nop * sizeof (rtx *));
 	  /* Now get the operand values and constraints out of the
@@ -1042,7 +1034,7 @@ lra_get_insn_recog_data (rtx insn)
 	bool *bp;
 
 	n = insn_static_data->n_alternatives;
-	gcc_assert (n >= 0);
+	lra_assert (n >= 0);
 	data->alternative_enabled_p
 	  = bp = (bool *) xmalloc (n * sizeof (bool));
 	/* Cache the insn because we don't want to call extract_insn
@@ -1085,7 +1077,7 @@ lra_get_insn_recog_data (rtx insn)
 	    && REG_P (XEXP (XEXP (link, 0), 0)))
 	  {
 	    regno = REGNO (XEXP (XEXP (link, 0), 0));
-	    gcc_assert (regno < FIRST_PSEUDO_REGISTER);
+	    lra_assert (regno < FIRST_PSEUDO_REGISTER);
 	    /* It is an argument register.  */
 	    for (i = (hard_regno_nregs
 		      [regno][GET_MODE (XEXP (XEXP (link, 0), 0))]) - 1;
@@ -1148,8 +1140,8 @@ get_insn_recog_data_by_uid (int uid)
 {
   lra_insn_recog_data_t data;
 
-  data = insn_recog_data[uid];
-  gcc_assert (data != NULL);
+  data = lra_insn_recog_data[uid];
+  lra_assert (data != NULL);
   return data;
 }
 
@@ -1159,10 +1151,10 @@ invalidate_insn_recog_data (int uid)
 {
   lra_insn_recog_data_t data;
 
-  data = insn_recog_data[uid];
-  gcc_assert (data != NULL);
+  data = lra_insn_recog_data[uid];
+  lra_assert (data != NULL);
   free_insn_recog_data (data);
-  insn_recog_data[uid] = NULL;
+  lra_insn_recog_data[uid] = NULL;
 }
 
 /* Update all the insn info about INSN.  It is usually called when
@@ -1176,7 +1168,7 @@ lra_update_insn_recog_data (rtx insn)
   struct lra_static_insn_data *insn_static_data;
   
   check_and_expand_insn_recog_data (uid);
-  if ((data = insn_recog_data[uid]) != NULL
+  if ((data = lra_insn_recog_data[uid]) != NULL
       && data->icode != INSN_CODE (insn))
     {
       invalidate_insn_data_regno_info (data, insn, get_insn_freq (insn));
@@ -1198,7 +1190,7 @@ lra_update_insn_recog_data (rtx insn)
       nop = asm_noperands (PATTERN (insn));
       if (nop >= 0)
 	{
-	  gcc_assert (nop == data->insn_static_data->n_operands);
+	  lra_assert (nop == data->insn_static_data->n_operands);
 	  /* Now get the operand values and constraints out of the
 	     insn.  */
 	  decode_asm_operands (PATTERN (insn), NULL,
@@ -1209,7 +1201,7 @@ lra_update_insn_recog_data (rtx insn)
 	    int i;
 
 	    for (i = 0; i < nop; i++)
-	      gcc_assert
+	      lra_assert
 		(insn_static_data->operand[i].mode == operand_mode[i]
 		 && insn_static_data->operand[i].constraint == constraints[i]
 		 && ! insn_static_data->operand[i].is_operator);
@@ -1221,7 +1213,7 @@ lra_update_insn_recog_data (rtx insn)
 	int i;
 
 	for (i = 0; i < insn_static_data->n_operands; i++)
-	  gcc_assert
+	  lra_assert
 	    (insn_static_data->operand[i].type
 	     == (insn_static_data->operand[i].constraint[0] == '=' ? OP_OUT
 		 : insn_static_data->operand[i].constraint[0] == '+' ? OP_INOUT
@@ -1246,14 +1238,14 @@ lra_update_insn_recog_data (rtx insn)
 	
 	n = insn_static_data->n_alternatives;
 	bp = data->alternative_enabled_p;
-	gcc_assert (n >= 0 && bp != NULL);
+	lra_assert (n >= 0 && bp != NULL);
 	/* Cache the insn to prevent extract_insn call from
 	   get_attr_enabled.  */
 	recog_data.insn = insn;
        	for (i = 0; i < n; i++)
 	  {
 	    which_alternative = i;
-	    gcc_assert (bp[i] == get_attr_enabled (insn));
+	    lra_assert (bp[i] == get_attr_enabled (insn));
 	  }
       }
 #endif
@@ -1280,8 +1272,8 @@ lra_set_used_insn_alternative_by_uid (int uid, int alt)
   lra_insn_recog_data_t data;
 
   check_and_expand_insn_recog_data (uid);
-  data = insn_recog_data[uid];
-  gcc_assert (data != NULL);
+  data = lra_insn_recog_data[uid];
+  lra_assert (data != NULL);
   data->used_insn_alternative = alt;
 }
 
@@ -1416,7 +1408,7 @@ lra_create_copy (int regno1, int regno2, int freq)
   bool regno1_dest_p;
   lra_copy_t cp;
 
-  gcc_assert (regno1 != regno2);
+  lra_assert (regno1 != regno2);
   regno1_dest_p = true;
   if (regno1 > regno2)
     {
@@ -1508,7 +1500,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 	      if (curr->early_clobber != early_clobber)
 		curr->early_clobber = true;
 	    }
-	  gcc_assert (curr != NULL);
+	  lra_assert (curr != NULL);
 	}
       return;
     }
@@ -1571,8 +1563,8 @@ get_insn_freq (rtx insn)
     return REG_FREQ_FROM_BB (bb);
   else
     {
-      gcc_assert
-	(insn_recog_data[INSN_UID (insn)]->insn_static_data->n_operands == 0);
+      lra_assert
+	(lra_insn_recog_data[INSN_UID (insn)]->insn_static_data->n_operands == 0);
       /* We don't care about such insn, e.g. it might be jump with
 	 addr_vec.  */
       return 1;
@@ -1602,7 +1594,7 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx insn,
 	{
 	  lra_reg_info[i].nrefs--;
 	  lra_reg_info[i].freq -= freq;
-	  gcc_assert (lra_reg_info[i].nrefs >= 0 && lra_reg_info[i].freq >= 0);
+	  lra_assert (lra_reg_info[i].nrefs >= 0 && lra_reg_info[i].freq >= 0);
 	}
     }
   data->regs = NULL;
@@ -1696,7 +1688,7 @@ lra_push_insn (rtx insn)
 void
 lra_push_insn_by_uid (unsigned int uid)
 {
-  lra_push_insn (insn_recog_data[uid]->insn);
+  lra_push_insn (lra_insn_recog_data[uid]->insn);
 }
 
 /* Put INSN on the stack and update its reg info.  */
@@ -1872,7 +1864,7 @@ restore_scratches (void)
 	{
 	  /* It should be only case when scratch register with chosen
 	     constraint 'X' did not get memory or hard register.  */
-	  gcc_assert (lra_former_scratch_p (regno));
+	  lra_assert (lra_former_scratch_p (regno));
 	  *id->operand_loc[loc->nop]
 	    = gen_rtx_SCRATCH (GET_MODE (*id->operand_loc[loc->nop]));
 	  lra_update_dup (id, loc->nop);
@@ -1902,7 +1894,7 @@ check_rtl (bool final_p)
   rtx insn;
   lra_insn_recog_data_t id;
 
-  gcc_assert (! final_p || reload_completed);
+  lra_assert (! final_p || reload_completed);
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
     if (NONDEBUG_INSN_P (insn)
@@ -1915,7 +1907,7 @@ check_rtl (bool final_p)
 	if (final_p)
 	  {
 	    extract_insn (insn);
-	    gcc_assert (constrain_operands (1));
+	    lra_assert (constrain_operands (1));
 	    continue;
 	  }
 	if (insn_invalid_p (insn))

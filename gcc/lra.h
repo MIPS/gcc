@@ -1,6 +1,6 @@
 /* Communication between the Local Register Allocator (LRA) and
    the rest of the compiler.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 

@@ -1,5 +1,5 @@
 /* Code for RTL register eliminations.
-   Copyright (C) 2010, 2011
+   Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -243,7 +243,7 @@ get_elimination (int hard_regno)
   self_elim_table.from_rtx
     = self_elim_table.to_rtx
     = eliminable_reg_rtx[hard_regno];
-  gcc_assert (self_elim_table.from_rtx != NULL);
+  lra_assert (self_elim_table.from_rtx != NULL);
   self_elim_table.offset = offset;
   return &self_elim_table;
 }
@@ -775,7 +775,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 
   if (icode < 0 && asm_noperands (PATTERN (insn)) < 0 && ! DEBUG_INSN_P (insn))
     {
-      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+      lra_assert (GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
 		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
 		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
@@ -975,7 +975,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 		 eliminate this reg.  */
 	      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 		   ep++)
-		gcc_assert (ep->from_rtx != orig_operand[i]
+		lra_assert (ep->from_rtx != orig_operand[i]
 			    || ! ep->can_eliminate);
 	    }
 
@@ -1113,7 +1113,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	      /* Prevent the hard register into which we eliminate now
 		 from the usage for pseudos.  */
 	      SET_HARD_REG_BIT (temp_hard_reg_set, ep1->to);
-	      gcc_assert (ep1->previous_offset == 0);
+	      lra_assert (ep1->previous_offset == 0);
 	      ep1->previous_offset = ep->offset;
 	    }
 	  else
@@ -1225,7 +1225,7 @@ lra_eliminate_reg_if_possible (rtx *loc)
   int regno;
   struct elim_table *ep;
 
-  gcc_assert (REG_P (*loc));
+  lra_assert (REG_P (*loc));
   if ((regno = REGNO (*loc)) >= FIRST_PSEUDO_REGISTER
       /* Virtual registers are not allocatable. ??? */
       || ! TEST_HARD_REG_BIT (lra_no_alloc_regs, regno))
