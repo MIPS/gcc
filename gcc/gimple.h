@@ -83,7 +83,7 @@ enum gimple_rhs_class
 			   name, a _DECL, a _REF, etc.  */
 };
 
-/* Amount to shift gf_mask value to get field.  */
+/* Amount to shift gf_mask value to access these atomic fields.  */
 #define GF_ATOMIC_KIND_SHIFT		0
 #define GF_ATOMIC_ARITH_OP_SHIFT	4
 
@@ -477,10 +477,13 @@ enum gimple_atomic_arith_op
    EXCHANGE	| ORDER | TARGET | EXPR  | RET      |
    COMPARE_EXCHG| ORDER | TARGET | EXPR  | EXPECTED | FAIL_ORDER | RET | LHS |
 
+   The atomic kind is encoded in the subword.
+   The operation for FETCH_OP and OP_FETCH is also encoded in the subword.
 
    This allows all the RHS values to be contiguous, and located at the same
-   index.  THE LHS is views from right to left, and allows more than 1 value
-   as required by compare_exchange.  They also are contiguous.
+   index for the different kinds.  THE LHS is views from right to left, and 
+   allows more than 1 value as required by compare_exchange.  They also are 
+   contiguous.
 */
 
 struct GTY(()) gimple_statement_atomic
@@ -1938,7 +1941,8 @@ gimple_atomic_op_code (const_gimple gs)
 {
   gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_FETCH_OP
 		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_OP_FETCH);
-  return (gs->gsbase.subcode & GF_ATOMIC_ARITH_OP) >> GF_ATOMIC_ARITH_OP_SHIFT;
+  return (enum gimple_atomic_arith_op)((gs->gsbase.subcode & GF_ATOMIC_ARITH_OP)
+				       >> GF_ATOMIC_ARITH_OP_SHIFT);
 }
 
 /* Set the arithmetic operation tree code for atomic operation GS.  */
@@ -2056,7 +2060,7 @@ gimple_atomic_set_weak (gimple gs, bool weak)
 }
 
 /* Return the generic flag of atomic operation GS.  This can be checked for
-   any kind of atomic operation, but will always be flase for operations
+   any kind of atomic operation, but will always be false for operations
    which do not have a generic mode.  */
 
 static inline bool
