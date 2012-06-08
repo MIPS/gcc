@@ -1,5 +1,15 @@
 2012-06-08  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* emit-rtl.c (validate_subreg): Don't check offset for LRA and
+	floating point modes.
+
+	* lra.c (lra): Call lra_hard_reg_substitution after resetting
+	lra_in_progress.
+
+	* lra-constraints.c (match_reload): Unshare new regs.
+
+2012-06-08  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-assigns.c: Add 2012 to copyright header.  Use lra_assert
 	instead of gcc_assert.
 

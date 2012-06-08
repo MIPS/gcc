@@ -872,9 +872,9 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	    = lra_create_new_reg_with_unique_value (outmode, out_rtx,
 						    goal_class, "");
 	  if (SCALAR_INT_MODE_P (outmode))
-	    new_in_reg = gen_lowpart_SUBREG (inmode, new_out_reg);
+	    new_in_reg = gen_lowpart_SUBREG (inmode, reg);
 	  else
-	    new_in_reg = gen_rtx_SUBREG (inmode, new_out_reg, 0);
+	    new_in_reg = gen_rtx_SUBREG (inmode, reg, 0);
 	}
       bitmap_set_bit (&lra_matched_pseudos, REGNO (reg));
       bitmap_set_bit (&lra_bound_pseudos, REGNO (reg));
@@ -903,7 +903,7 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
   narrow_reload_pseudo_class (in_rtx, goal_class);
   narrow_reload_pseudo_class (out_rtx, goal_class);
   push_to_sequence (*before);
-  lra_emit_move (new_in_reg, in_rtx);
+  lra_emit_move (copy_rtx (new_in_reg), in_rtx);
   *before = get_insns ();
   end_sequence ();
   for (i = 0; (in = ins[i]) >= 0; i++)
@@ -912,7 +912,7 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
   if (find_reg_note (curr_insn, REG_UNUSED, out_rtx) == NULL_RTX)
     {
       start_sequence ();
-      lra_emit_move (out_rtx, new_out_reg);
+      lra_emit_move (out_rtx, copy_rtx (new_out_reg));
       emit_insn (*after);
       *after = get_insns ();
       end_sequence ();
