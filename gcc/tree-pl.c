@@ -45,7 +45,7 @@ static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator iter);
 static tree pl_generate_extern_var_bounds (tree var);
-static tree pl_get_bounds_for_var_decl (tree var);
+static tree pl_get_bounds_for_decl (tree decl);
 static tree pl_get_bounds_for_string_cst (tree cst);
 static tree pl_get_bounds_by_definition (tree node, gimple def_stmt,
 					 gimple_stmt_iterator *iter);
@@ -838,39 +838,45 @@ pl_generate_extern_var_bounds (tree var)
 }
 
 static tree
-pl_get_bounds_for_var_decl (tree var)
+pl_get_bounds_for_decl (tree decl)
 {
   tree bounds;
   tree lb;
   tree size;
 
-  gcc_assert (TREE_CODE (var) == VAR_DECL);
+  gcc_assert (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL);
 
-  bounds = pl_get_registered_bounds (var);
+  bounds = pl_get_registered_bounds (decl);
 
   if (bounds)
     return bounds;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Building bounds for var decl ");
-      print_generic_expr (dump_file, var, 0);
+      fprintf (dump_file, "Building bounds for decl ");
+      print_generic_expr (dump_file, decl, 0);
       fprintf (dump_file, "\n");
     }
 
-  lb = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (var)), var);
+  lb = fold_build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (decl)), decl);
 
-  if (DECL_SIZE (var))
+  if (DECL_SIZE (decl))
     {
       /* We need size in bytes rounded up.  */
       size = build_int_cst (size_type_node,
-			    (tree_low_cst (DECL_SIZE (var), 1) + 7) / 8);
+			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
       bounds = pl_make_bounds (lb, size, NULL);
     }
   else
-    bounds = pl_generate_extern_var_bounds (var);
+    {
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      warning (0, "using zero bounds for var with incomplete type\n");
+      bounds = pl_get_zero_bounds ();
+      /*bounds = pl_generate_extern_var_bounds (decl);*/
+    }
 
-  pl_register_bounds (var, bounds);
+  pl_register_bounds (decl, bounds);
 
   return bounds;
 }
@@ -906,7 +912,8 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator iter)
   switch (TREE_CODE (obj))
     {
     case VAR_DECL:
-      bounds = pl_get_bounds_for_var_decl (obj);
+    case PARM_DECL:
+      bounds = pl_get_bounds_for_decl (obj);
       break;
 
     case STRING_CST:
@@ -1105,7 +1112,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
       *bounds = pl_find_bounds (array_addr, iter);
 
       precise_bounds = true;
-
+      /* According to C standard we may use such pointer to access whole array
       if (innermost_bounds)
 	{
 	  tree lb = build1 (ADDR_EXPR,
@@ -1114,7 +1121,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 					     &iter);
 
 	  *bounds = pl_intersect_bounds (elem_bounds, *bounds, iter);
-	}
+	  }*/
     }
 
   while (true)
