@@ -161,6 +161,12 @@
     (match_operand 0 "short_cint_operand")
     (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if op is a register or 0
+(define_predicate "reg_or_zero_operand"
+  (if_then_else (match_code "const_int")
+    (match_test "INTVAL (op) == 0")
+    (match_operand 0 "gpc_reg_operand")))
+
 ;; Return 1 if op is a constant integer valid whose negation is valid for
 ;; D field or non-special register register.
 ;; Do not allow a constant zero because all patterns that call this
@@ -930,6 +936,10 @@
 						   GET_MODE (XEXP (op, 0))),
 			  1"))))
 
+(define_predicate "int_branch_comparison_operator"
+   (and (match_operand 0 "branch_comparison_operator")
+	(match_test "GET_MODE (XEXP (op, 0)) != CCFPmode")))
+
 (define_predicate "rs6000_cbranch_operator"
   (if_then_else (match_test "TARGET_HARD_FLOAT && !TARGET_FPRS")
 		(match_operand 0 "ordered_comparison_operator")
@@ -1441,6 +1451,25 @@
     }
 
   return 1;
+})
+
+;; Return 1 if the boolean operator is suitable for using as the single
+;; instruction that is branched around in the branch conditional + 8 (BCP8)
+;; optimizations. BC+8 optimization for the 3 boolean operators is register
+;; only.
+
+(define_predicate "bcp8_bool_operator"
+  (match_code "and,ior,xor")
+{
+  rtx op0, op1;
+
+  if (mode == SImode || (mode == DImode && TARGET_POWERPC64))
+    {
+      op0 = XEXP (op, 0);
+      op1 = XEXP (op, 1);
+      return gpc_reg_operand (op0, mode) && gpc_reg_operand (op1, mode);
+    }
+  return 0;
 })
 
 ;; Return 1 if OP is a stack tie operand.

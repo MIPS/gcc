@@ -822,6 +822,8 @@ See RS/6000 and PowerPC Options.
 -mblock-move-inline-limit=@var{num} @gol
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
+-mbcp8 -mno-bcp8 @gol
+-mbcp8-cond-exec -mno-bcp8-cond-exec @gol
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
@@ -16757,11 +16759,46 @@ This is a PowerPC 32-bit SYSV ABI option.
 @itemx -mno-isel
 @opindex misel
 @opindex mno-isel
-This switch enables or disables the generation of ISEL instructions.
+This switch enables or disables the generation of ISEL instructions
+for conditional integer moves.
 
 @item -misel=@var{yes/no}
 This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
+
+@item -mbcp8
+@itemx -mno-bcp8
+@opindex mbcp8
+@opindex mno-bcp8
+This switch enables or disables the generation of explict conditional
+branch around a single limited instruction (bc+8) to generate
+conditional integer moves.  This is enabled by default for the
+@option{-mcpu=power7} target if the @option{-misel} option is not
+used.
+
+@item -mbcp8-cond-exec
+@itemx -mno-bcp8-cond-exec
+@opindex mbcp8-cond-exec
+@opindex mno-bcp8-cond-exec
+This switch enables or disables the generation of explict conditional
+branch around a single limited instruction (bc+8) beyond simple
+integer conditional moves.  This is enabled by default for the
+@option{-mcpu=power7} target if neither the @option{-misel} nor the
+@option{-mno-bcp8} options are not used.
+
+@item -mabs-cntlz
+@itemx -mno-abs-cntlz
+@opindex mabs-cntlz
+@opindex mno-abs-cntlz
+This switch enables or disables the use of the count leading zero
+instruction for integer absolute value instead of ISEL or branch
+conditional + 8, even if @option{-misel} or @option{-mbcp8} was
+passed.  This is enabled by default for @option{-mcpu=power7}.
+
+branch around a single limited instruction (bc+8) to generate
+conditional integer moves.  This is enabled by default for the
+@option{-mcpu=power7} target if the @option{-misel} option is not
+used.
 
 @item -mspe
 @itemx -mno-spe

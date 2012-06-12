@@ -1,3 +1,94 @@
+2012-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (reg_or_zero_operand): New predicate
+	for branch conditional + 8 support.
+	(int_branch_comparison_operator): Likewise.
+	(bcp8_bool_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_sISEL): Add support
+	for branch conditional + 8 support via the -mbcp8 switch.  Add
+	additional support for use branch conditional + 8 for conditional
+	execution.  Turn bc+8 on by default for power7 unless -misel.
+	Delete rs6000_emit_sISEL.  Make conditional branch functions
+	return true/false depending on whether they could create the
+	branch.  Use the return value in conditional move expanders to
+	FAIL if necessary.  Add support for -mabs-cntlz to use the
+	traditional code for integer absolute value, even if -misel or
+	-mbcp8 is used.  Add more cost fields to the cost structures.
+	Combine integer minimum/maximum SI/DI patterns.  Delete some of
+	the old power min/max/abs insns.  Improve ISEL code when the true
+	value is 0.
+	* config/rs6000/rs6000.c (struct processor_costs): Likewise.
+	(DEFAULT_COSTS2): Likewise.
+	(DEFAULT_COSTS): Likewise.
+	(DEFAULT_COSTS_POWER6): Likewise.
+	(DEFAULT_COSTS_POWER7): Likewise.
+	(DEFAULT_COSTS_ISEL): Likewise.
+	(*_cost structures): Likewise.
+	(TARGET_HAVE_CONDITIONAL_EXECUTION): Likewise.
+	(rs6000_clz_cost): Likewise.
+	(rs6000_cmp_cost): Likewise.
+	(rs6000_adjacent_cmp_cost): Likewise.
+	(rs6000_isel_cost): Likewise.
+	(rs6000_bcp8_cost): Likewise.
+	(rs6000_mfcr_cost): Likewise.
+	(rs6000_crlogical_cost): Likewise.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_emit_sISEL): Likewise.
+	(rs6000_emit_sCOND): Likewise.
+	(rs6000_emit_cbranch): Likewise.
+	(rs6000_emit_cmove): Likewise.
+	(rs6000_emit_int_cmove): Likewise.
+	(rs6000_have_conditional_execution): Likewise.
+	(rs6000_expand_int_abs): Likewise.
+	(rs6000_expand_int_minmax): Likewise.
+	* config/rs6000/rs6000.h (TARGET_INT_MINMAX): Likewise.
+	* config/rs6000/rs6000.md (isel_type): Likewise.
+	(CR): Likewise.
+	(ICR): Likewise.
+	(sminsi3): Likewise.
+	(smindi3): Likewise.
+	(smin<mode>3): Likewise.
+	(smaxsi3): Likewise.
+	(smaxdi3): Likewise.
+	(smax<mode>3): Likewise.
+	(uminsi3): Likewise.
+	(umindi3): Likewise.
+	(umin<mode>3): Likewise.
+	(umaxsi3): Likewise.
+	(umaxdi3): Likewise.
+	(umax<mode>3): Likewise.
+	(unnamed power min/max/abs insns/splitters): Likewise.
+	(abssi2): Likewise.
+	(absdi2): Likewise.
+	(abs<mode>2): Likewise.
+	(abssi2_power): Likewise.
+	(abs<mode>2_isel): Likewise.
+	(nabs<mode>2_isel): Likewise.
+	(abssi2_nopower): Likewise.
+	(absdi2_isel): Likewise.
+	(absdi2_internal): Likewise.
+	(nabs_power): Likewise.
+	(nabs_nopower): Likewise.
+	(mov<mode>cc): Likewise.
+	(mov<mode>cc_internal): Likewise.
+	(isel_signed_<mode>): Likewise.
+	(isel_unsigned_<mode>): Likewise.
+	(isel_normal_<mode>): Likewise.
+	(isel_reveresed_<mode>): Likewise.
+	(isel_reverse_signed_<mode>): Likewise.
+	(isel_reverse_unsigned_<mode>): Likewise.
+	(bcp8<mode>): Likewise.
+	(bcp8_cond_exec_bool<mode>): Likewise.
+	(bcp8_cond_exec_add<mode>): Likewise.
+	(conditional branch insns): Likewise.
+	(conditional return insns): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mbcp8,
+	-mno-bcp8, -mbcp8-cond-exec, -mno-bcp8-cond-exec, -mabs-cntlz, and
+	-mno-abs-cntlz.
+
 2012-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch, subversion id 188280.

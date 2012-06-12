@@ -1,7 +1,7 @@
 ; Options for the rs6000 port of the compiler
 ;
-; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Free Software
-; Foundation, Inc.
+; Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+; Free Software Foundation, Inc.
 ; Contributed by Aldy Hernandez <aldy@quesejoda.com>.
 ;
 ; This file is part of GCC.
@@ -344,6 +344,18 @@ Deprecated option.  Use -mno-isel instead
 misel=yes
 Target RejectNegative Alias(misel)
 Deprecated option.  Use -misel instead
+
+mbcp8
+Target Report Var(TARGET_BCP8) Init(-1) Save
+Enable/disable branch conditional + 8 optimizations
+
+mbcp8-cond-exec
+Target Undocumented Var(TARGET_BCP8_COND_EXEC) Init(-1) Save
+Enable/disable doing conditional execution with branch conditional + 8
+
+mabs-cntlz
+Target Report Var(TARGET_ABS_CNTLZ) Init(-1) Save
+Enable/disable using the CNTLZ instruction for integer absolute value
 
 mspe
 Target Var(rs6000_spe) Save
