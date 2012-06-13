@@ -85,6 +85,9 @@
 	(bcp8_cond_exec_add<mode>): Likewise.
 	(conditional branch insns): Likewise.
 	(conditional return insns): Likewise.
+	* config/rs6000/rs6000.opt (-mbcp8): Likewise.
+	(-mbcp8-cond-exec): Likewise.
+	(-mabs-cntlz): Likewise.
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mbcp8,
 	-mno-bcp8, -mbcp8-cond-exec, -mno-bcp8-cond-exec, -mabs-cntlz, and
 	-mno-abs-cntlz.
