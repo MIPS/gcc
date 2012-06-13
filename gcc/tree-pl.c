@@ -34,6 +34,7 @@ static tree pl_get_registered_bounds (tree ptr);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
+static bool pl_valid_bounds (tree bounds);
 static void pl_transform_function (void);
 static tree pl_get_bound_for_parm (tree parm);
 static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
@@ -577,6 +578,15 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
     }
 }
 
+static bool
+pl_valid_bounds (tree bounds)
+{
+  if (bounds == zero_bounds || bounds == none_bounds)
+    return false;
+
+  return true;
+}
+
 static tree
 pl_compute_bounds_for_assignment (tree node, gimple assign)
 {
@@ -630,13 +640,25 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       bounds = pl_find_bounds (TMR_BASE (rhs1), iter);
       break;
 
+    case MINUS_EXPR:
     case PLUS_EXPR:
-      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs2)));
-      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (rhs1)));
-      bounds = pl_get_zero_bounds ();
-      /* TODO:L We may be not so conservative and try to look for bounds
-	 for both rhs1. If only one of them is not zero_bounds then
-	 use it; otherwise use zero_bounds.  */
+    case BIT_AND_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+      {
+	tree bnd1 = pl_find_bounds (rhs1, iter);
+	tree bnd2 = pl_find_bounds (rhs2, iter);
+
+	if (!pl_valid_bounds (bnd1))
+	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
+	    bounds = bnd2;
+	  else
+	    bounds = pl_get_none_bounds ();
+	else if (!pl_valid_bounds (bnd2))
+	  bounds = bnd1;
+	else
+	  bounds = pl_get_none_bounds ();
+      }
       break;
 
     case VAR_DECL:
@@ -1005,7 +1027,7 @@ pl_find_bounds (tree ptr, gimple_stmt_iterator iter)
 
     case INTEGER_CST:
       /* For all constants return zero bounds.  */
-      bounds = pl_get_zero_bounds ();
+      bounds = pl_get_none_bounds ();
       break;
 
     default:
