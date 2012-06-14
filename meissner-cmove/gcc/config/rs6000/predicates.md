@@ -1461,15 +1461,9 @@
 (define_predicate "bcp8_bool_operator"
   (match_code "and,ior,xor")
 {
-  rtx op0, op1;
-
-  if (mode == SImode || (mode == DImode && TARGET_POWERPC64))
-    {
-      op0 = XEXP (op, 0);
-      op1 = XEXP (op, 1);
-      return gpc_reg_operand (op0, mode) && gpc_reg_operand (op1, mode);
-    }
-  return 0;
+ return ((mode == SImode || (mode == DImode && TARGET_POWERPC64))
+	 && gpc_reg_operand (XEXP (op, 0), mode)
+	 && gpc_reg_operand (XEXP (op, 1), mode));
 })
 
 ;; Return 1 if OP is a stack tie operand.

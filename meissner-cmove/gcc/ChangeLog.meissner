@@ -1,3 +1,26 @@
+2012-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (bcp8_bool_operator): Simplify
+	code.
+
+	* config/rs6000/rs6000.opt (-mbcp8-cond-exec): Delete.
+
+	* config/rs6000/rs6000.c (rs6000_have_conditional_execution):
+	Delete.
+	(TARGET_HAVE_CONDITIONAL_EXECUTION): Likewise.
+	(rs6000_debug_reg_global): Delete -mbcp8-cond-exec.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_emit_cmove): Test for TARGET_BCP8 as well as TARGET_ISEL.
+	(rs6000_rtx_costs): Likewise.
+
+	* config/rs6000/rs6000.md (bcp8<move>): Allow target to be either
+	of the inputs.
+	(bcp8_cond_exec_bool<mode>): Delete.
+	(bcp8_cond_exec_add<mode>): Delete.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Delete
+	-bcp8-cond-exec.
+
 2012-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (reg_or_zero_operand): New predicate

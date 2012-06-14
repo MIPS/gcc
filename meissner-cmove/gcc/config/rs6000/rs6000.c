@@ -1055,7 +1055,6 @@ static void spe_init_builtins (void);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
 static bool rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
-static bool rs6000_have_conditional_execution (void);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void is_altivec_return_reg (rtx, void *);
 int easy_vector_constant (rtx, enum machine_mode);
@@ -1555,8 +1554,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
 
-#undef TARGET_HAVE_CONDITIONAL_EXECUTION
-#define TARGET_HAVE_CONDITIONAL_EXECUTION rs6000_have_conditional_execution
 
 
 /* Simplifications for entries below.  */
@@ -2143,9 +2140,6 @@ rs6000_debug_reg_global (void)
 
   if (TARGET_BCP8)
     fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
-
-  if (TARGET_BCP8_COND_EXEC)
-    fprintf (stderr, DEBUG_FMT_S, "bcp8-cond-exec", "true");
 
   if (TARGET_ISEL)
     fprintf (stderr, DEBUG_FMT_S, "isel", "true");
@@ -3429,9 +3423,6 @@ rs6000_option_override_internal (bool global_init_p)
       else
 	TARGET_BCP8 = 0;
     }
-
-  if (TARGET_BCP8_COND_EXEC == -1)
-    TARGET_BCP8_COND_EXEC = TARGET_BCP8;
 
   /* Determine whether to use CNTLZ for integer absolute value, or perhaps use
      ISEL or branch conditional + 8 if either is available.  */
@@ -16409,7 +16400,8 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (GET_MODE (op1) != compare_mode
       /* In the isel case however, we can use a compare immediate, so
 	 op1 may be a small constant.  */
-      && (!TARGET_ISEL || !short_cint_operand (op1, VOIDmode)))
+      && ((!TARGET_ISEL && !TARGET_BCP8)
+	  || !short_cint_operand (op1, VOIDmode)))
     return false;
   if (GET_MODE (true_cond) != result_mode)
     return false;
@@ -16425,7 +16417,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      if it's too slow....  */
   if (!FLOAT_MODE_P (compare_mode))
     {
-      if (TARGET_ISEL)
+      if (TARGET_ISEL || TARGET_BCP8)
 	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
       return false;
     }
@@ -16637,13 +16629,6 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
 
   return true;
-}
-
-/* Return true if we have conditional execution.  */
-static bool
-rs6000_have_conditional_execution (void)
-{
-  return (TARGET_BCP8_COND_EXEC);
 }
 
 const char *
@@ -26275,7 +26260,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  if (XEXP (x, 1) == const0_rtx)
 	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
+	      if ((TARGET_ISEL || TARGET_BCP8) && !TARGET_MFCRF)
 		*total = COSTS_N_INSNS (8);
 	      else
 		*total = COSTS_N_INSNS (2);
@@ -26294,7 +26279,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case UNORDERED:
       if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
 	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
+	  if ((TARGET_ISEL || TARGET_BCP8) && !TARGET_MFCRF)
 	    *total = COSTS_N_INSNS (8);
 	  else
 	    *total = COSTS_N_INSNS (2);
