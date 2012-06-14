@@ -13,8 +13,10 @@
 	(rs6000_emit_cmove): Test for TARGET_BCP8 as well as TARGET_ISEL.
 	(rs6000_rtx_costs): Likewise.
 
-	* config/rs6000/rs6000.md (bcp8<move>): Allow target to be either
-	of the inputs.
+	* config/rs6000/rs6000.md (mov<mode>cc): Use comparison_operator,
+	not scc_comparison_operator.
+	(bcp8<move>): Allow target to be either of the inputs.  Use
+	TARGET_BCP8.
 	(bcp8_cond_exec_bool<mode>): Delete.
 	(bcp8_cond_exec_add<mode>): Delete.
 
