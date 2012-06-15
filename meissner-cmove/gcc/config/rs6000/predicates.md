@@ -1453,19 +1453,6 @@
   return 1;
 })
 
-;; Return 1 if the boolean operator is suitable for using as the single
-;; instruction that is branched around in the branch conditional + 8 (BCP8)
-;; optimizations. BC+8 optimization for the 3 boolean operators is register
-;; only.
-
-(define_predicate "bcp8_bool_operator"
-  (match_code "and,ior,xor")
-{
- return ((mode == SImode || (mode == DImode && TARGET_POWERPC64))
-	 && gpc_reg_operand (XEXP (op, 0), mode)
-	 && gpc_reg_operand (XEXP (op, 1), mode));
-})
-
 ;; Return 1 if OP is a stack tie operand.
 (define_predicate "tie_operand"
   (match_code "parallel")
