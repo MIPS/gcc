@@ -1,6 +1,7 @@
 2012-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (bcp8_bool_operator): Delete.
+	(int_branch_comparison_operator): Likewise.
 
 2012-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
