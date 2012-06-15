@@ -3877,6 +3877,9 @@ need_for_call_save_p (int regno)
 	       call_used_reg_set)));
 }
 
+/* Registers cannot be involved in splitting in the current EBB.  */
+static bitmap_head ebb_global_regs;
+
 /* Return true if we need a split for hard register REGNO or pseudo
    REGNO which was assigned to a hard register.
    POTENTIAL_RELOAD_HARD_REGS contains hard registers which might be
@@ -3898,7 +3901,11 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
   return ((TEST_HARD_REG_BIT (potential_reload_hard_regs, hard_regno)
 	   && ! TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno)
 	   && (usage_insns[regno].reloads_num
-	       + (regno < FIRST_PSEUDO_REGISTER ? 0 : 2) < reloads_num))
+	       + (regno < FIRST_PSEUDO_REGISTER ? 0 : 2) < reloads_num)
+	   && ((regno < FIRST_PSEUDO_REGISTER
+		&& ! bitmap_bit_p (&ebb_global_regs, regno))
+	       || (regno >= FIRST_PSEUDO_REGISTER && lra_reg_info[regno].nrefs > 3
+		   && bitmap_bit_p (&ebb_global_regs, regno))))
 	  || (regno >= FIRST_PSEUDO_REGISTER && need_for_call_save_p (regno)));
 }
 
@@ -4683,12 +4690,15 @@ lra_inheritance (void)
   bitmap_initialize (&check_only_regs, &reg_obstack);
   bitmap_initialize (&live_regs, &reg_obstack);
   bitmap_initialize (&temp_bitmap, &reg_obstack);
+  bitmap_initialize (&ebb_global_regs, &reg_obstack);
   FOR_EACH_BB (bb)
     {
       start_bb = bb;
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "EBB");
       /* Form a EBB starting with BB.  */
+      bitmap_clear (&ebb_global_regs);
+      bitmap_ior_into (&ebb_global_regs, DF_LR_IN (bb));
       for (;;)
 	{
 	  if (lra_dump_file != NULL)
@@ -4702,6 +4712,7 @@ lra_inheritance (void)
 	    break;
 	  bb = bb->next_bb;
 	}
+      bitmap_ior_into (&ebb_global_regs, DF_LR_OUT (bb));
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "\n");
       if (inherit_in_ebb (BB_HEAD (start_bb), BB_END (bb)))
@@ -4709,6 +4720,7 @@ lra_inheritance (void)
 	   inherit_in_ebb.  */
 	update_ebb_live_info (BB_HEAD (start_bb), BB_END (bb));
     }
+  bitmap_clear (&ebb_global_regs);
   bitmap_clear (&temp_bitmap);
   bitmap_clear (&live_regs);
   bitmap_clear (&check_only_regs);

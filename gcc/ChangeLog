@@ -1,3 +1,9 @@
+2012-06-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (ebb_global_regs): New.
+	(need_for_split_p): Use it.
+	(lra_inheritance): Allocate/deallocate/set it.
+
 2012-06-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* emit-rtl.c (validate_subreg): Don't check offset for LRA and
