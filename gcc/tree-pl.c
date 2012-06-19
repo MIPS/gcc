@@ -91,6 +91,7 @@ static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
 static VEC(tree,gc) *var_inits = NULL;
+const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
 static void
 pl_mark_stmt (gimple s)
@@ -117,6 +118,8 @@ pl_register_var_initializer (tree var)
     return;
 
   gcc_assert (TREE_CODE (var) == VAR_DECL);
+
+  print_generic_expr (stdout, var, 0);
 
   init = DECL_INITIAL (var);
   gcc_assert (init && init != error_mark_node);

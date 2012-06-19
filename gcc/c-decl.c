@@ -9992,7 +9992,6 @@ for_each_global_decl (void (*callback) (tree decl))
   for (decl = BLOCK_VARS (ext_block); decl; decl = TREE_CHAIN (decl))
     callback (decl);
 }
-static const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
 static tree
 pl_start_static_initializer ()
@@ -10044,8 +10043,12 @@ pl_generate_static_initializer ()
   if (!flag_pl)
     return;
 
-  body = pl_start_static_initializer ();
   var_inits = pl_get_initialized_vars ();
+
+  if (!var_inits)
+    return;
+
+  body = pl_start_static_initializer ();
 
   FOR_EACH_VEC_ELT (tree, var_inits, i, var)
     {
