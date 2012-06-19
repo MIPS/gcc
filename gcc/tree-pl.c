@@ -21,6 +21,7 @@
 #include "ggc.h"
 #include "cgraph.h"
 #include "gimple.h"
+#include "tree-pl.h"
 
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
@@ -89,6 +90,9 @@ static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
+static VEC(tree,gc) *var_inits = NULL;
+const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
+
 static void
 pl_mark_stmt (gimple s)
 {
@@ -102,6 +106,33 @@ static bool
 pl_marked_stmt (gimple s)
 {
   return htab_find (pl_marked_stmts, s) != NULL;
+}
+
+extern void
+pl_register_var_initializer (tree var)
+{
+  tree init;
+  tree var_addr;
+
+  if (!flag_pl)
+    return;
+
+  gcc_assert (TREE_CODE (var) == VAR_DECL);
+
+  print_generic_expr (stdout, var, 0);
+
+  init = DECL_INITIAL (var);
+  gcc_assert (init && init != error_mark_node);
+
+  if (TREE_STATIC (var)
+      && POINTER_TYPE_P (TREE_TYPE (var)))
+    VEC_safe_push (tree, gc, var_inits, var);
+}
+
+extern VEC(tree,gc) *
+pl_get_initialized_vars ()
+{
+  return var_inits;
 }
 
 static void

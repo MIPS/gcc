@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "plugin.h"
+#include "tree-pl.h"
 
 
 /* Initialization routine for this file.  */
@@ -1655,6 +1656,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  maybe_warn_string_init (TREE_TYPE (d), init);
 		  finish_decl (d, init_loc, init.value,
 		      	       init.original_type, asm_name);
+
+		  if (DECL_INITIAL (d) != error_mark_node)
+		    pl_register_var_initializer (d);
 		}
 	    }
 	  else
