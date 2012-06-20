@@ -1,3 +1,8 @@
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* gcc.dg/torture/pr53703.c: New test.
+
 2012-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from gcc-4_7-branch, subversion id 184832.

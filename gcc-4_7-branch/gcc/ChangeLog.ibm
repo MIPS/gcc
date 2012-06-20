@@ -1,3 +1,9 @@
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* tree-ssa-phiopt.c (hoist_adjacent_loads): Skip virtual phis;
+	correctly set bb_for_def[12].
+
 2012-06-12  Bill Schmidt  <wschmidt@linux.ibm.com>
 
 	* opts.c: Add -fhoist-adjacent-loads to -O2 and above.
