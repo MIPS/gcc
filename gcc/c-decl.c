@@ -9994,7 +9994,7 @@ for_each_global_decl (void (*callback) (tree decl))
 }
 
 static tree
-pl_start_static_initializer ()
+pl_start_static_initializer (void)
 {
   static int no = 0;
   char id[sizeof (PLSI_IDENTIFIER) + 1 /* '\0' */ + 32];
@@ -10024,6 +10024,7 @@ pl_start_static_initializer ()
   TREE_STATIC (current_function_decl) = 1;
   DECL_ARTIFICIAL (current_function_decl) = 1;
   DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
+  DECL_PL_STATIC_INIT (current_function_decl) = 1;
 
   store_parm_decls_from (args);
 
@@ -10033,7 +10034,7 @@ pl_start_static_initializer ()
 }
 
 static void
-pl_generate_static_initializer ()
+pl_generate_static_initializer (void)
 {
   int i;
   tree var;

@@ -3717,7 +3717,7 @@ clear_decl_external (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 }
 
 static tree
-pl_start_static_initializer ()
+pl_start_static_initializer (void)
 {
   static int no = 0;
   char id[sizeof (PLSI_IDENTIFIER) + 1 /* '\0' */ + 32];
@@ -3735,6 +3735,7 @@ pl_start_static_initializer ()
   TREE_STATIC (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
   DECL_STATIC_CONSTRUCTOR (decl) = 1;
+  DECL_PL_STATIC_INIT (decl) = 1;
 
   lang_hooks.decls.pushdecl (decl);
 
@@ -3743,44 +3744,10 @@ pl_start_static_initializer ()
   body = begin_compound_stmt (BCS_FN_BODY);
 
   return body;
-  /*
-  tree body;
-  struct c_declarator *id_decl;
-  struct c_arg_info *args;
-  struct c_declarator *fn_decl;
-  struct c_declspecs *fn_spec;
-  tree attrs;
-
-  sprintf (id, "%s_%u", PLSI_IDENTIFIER, no++);
-  id_decl = build_id_declarator (get_identifier (id));
-
-  args = build_arg_info ();
-  args->types = build_void_list_node ();
-
-  fn_decl = build_function_declarator (args, id_decl);
-
-  attrs = build_tree_list (get_identifier ("constructor"), NULL_TREE);
-
-  fn_spec = build_null_declspecs ();
-  fn_spec->type = void_type_node;
-  fn_spec->typespec_word = cts_void;
-
-  start_function (fn_spec, fn_decl, NULL);
-  TREE_PUBLIC (current_function_decl) = 0;
-  TREE_STATIC (current_function_decl) = 1;
-  DECL_ARTIFICIAL (current_function_decl) = 1;
-  DECL_STATIC_CONSTRUCTOR (current_function_decl) = 1;
-
-  store_parm_decls_from (args);
-
-  body = c_begin_compound_stmt (true);
-
-  return body;
-  */
 }
 
 static void
-pl_generate_static_initializer ()
+pl_generate_static_initializer (void)
 {
   int i;
   tree var;
@@ -3801,15 +3768,11 @@ pl_generate_static_initializer ()
     {
       tree val = DECL_INITIAL (var);
       tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
-      /*c_finish_expr_stmt (UNKNOWN_LOCATION, modify);*/
       finish_expr_stmt (modify);
     }
 
   finish_compound_stmt (body);
   expand_or_defer_fn (finish_function (0));
-  /*  body = end_compound_stmt (UNKNOWN_LOCATION, body, true);
-  add_stmt (body);
-  finish_function ();*/
 }
 
 /* This routine is called at the end of compilation.

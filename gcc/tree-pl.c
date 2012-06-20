@@ -26,6 +26,7 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
+static bool pl_type_has_pointer (tree type);
 static void pl_fix_function_decl (tree decl, bool make_ssa_names);
 static void pl_fix_function_decls (void);
 static void pl_init (void);
@@ -108,6 +109,26 @@ pl_marked_stmt (gimple s)
   return htab_find (pl_marked_stmts, s) != NULL;
 }
 
+static bool
+pl_type_has_pointer (tree type)
+{
+  bool res = false;
+
+  if (POINTER_TYPE_P (type))
+    res = true;
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	res = res || pl_type_has_pointer (TREE_TYPE (field));
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    res = pl_type_has_pointer (TREE_TYPE (type));
+
+  return res;
+}
+
 extern void
 pl_register_var_initializer (tree var)
 {
@@ -119,13 +140,11 @@ pl_register_var_initializer (tree var)
 
   gcc_assert (TREE_CODE (var) == VAR_DECL);
 
-  print_generic_expr (stdout, var, 0);
-
   init = DECL_INITIAL (var);
   gcc_assert (init && init != error_mark_node);
 
   if (TREE_STATIC (var)
-      && POINTER_TYPE_P (TREE_TYPE (var)))
+      && pl_type_has_pointer (TREE_TYPE (var)))
     VEC_safe_push (tree, gc, var_inits, var);
 }
 
@@ -147,12 +166,15 @@ pl_transform_function (void)
   do
     {
       next = bb->next_bb;
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); )
         {
           gimple s = gsi_stmt (i);
 
 	  if (pl_marked_stmt (s))
-	    continue;
+	    {
+	      gsi_next (&i);
+	      continue;
+	    }
 
           switch (gimple_code (s))
             {
@@ -191,6 +213,14 @@ pl_transform_function (void)
             default:
               ;
             }
+
+	  /* We do not need any statements in static initializer except
+	     created in PL pass.  */
+	  if (DECL_PL_STATIC_INIT (cfun->decl)
+	      && gimple_code (s) == GIMPLE_ASSIGN)
+	    gsi_remove (&i, true);
+	  else
+	    gsi_next (&i);
         }
       bb = next;
     }
@@ -1349,7 +1379,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       if (dirflag != integer_one_node)
 	return;
 
-      safe = 1;
+      safe = true;
       addr_first = fold_build1 (ADDR_EXPR,
 				build_pointer_type (TREE_TYPE (node)), node);
       break;
@@ -1372,6 +1402,10 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       addr_first = fold_build_pointer_plus_loc (loc, addr_first, access_offs);
       addr_last = fold_build_pointer_plus_loc (loc, addr_last, access_offs);
     }
+
+  /* Assume all memory accesses in static initializers are safe. */
+  if (DECL_PL_STATIC_INIT (cfun->decl))
+    safe = true;
 
   /* Generate bndcl/bndcu checks if memory access is not safe.  */
   if (!safe)

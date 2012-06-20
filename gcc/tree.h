@@ -3513,6 +3513,10 @@ extern VEC(tree, gc) **decl_debug_args_insert (tree);
 #define DECL_HAS_DEBUG_ARGS_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.has_debug_args_flag)
 
+/* Nonzero if a FUNCTION_DECL is PL static initializer.  */
+#define DECL_PL_STATIC_INIT(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.pl_static_init)
+
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
 #define DECL_STRUCT_FUNCTION(NODE) \
@@ -3587,8 +3591,9 @@ struct GTY(()) tree_function_decl {
   unsigned looping_const_or_pure_flag : 1;
   unsigned has_debug_args_flag : 1;
   unsigned tm_clone_flag : 1;
+  unsigned pl_static_init : 1;
 
-  /* 1 bit left */
+  /* 0 bits left */
 };
 
 /* The source language of the translation-unit.  */
