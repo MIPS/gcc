@@ -784,6 +784,11 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 	  pl_register_bounds (node, bounds);
 	  break;
 
+	case VAR_DECL:
+	  bounds = pl_get_none_bounds ();
+	  pl_register_bounds (node, bounds);
+	  break;
+
 	default:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
