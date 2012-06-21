@@ -167,14 +167,19 @@ pl_finish_file (void)
     return;
 
   FOR_EACH_VEC_ELT (tree, var_inits, i, var)
-    {
-      tree val = DECL_INITIAL (var);
-      tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
-      append_to_statement_list (modify, &stmts);
-    }
+    /* !!! We must check that var is actually emitted and we need
+       and may initialize its bounds.  Currently addressable_flag
+       is checked.  Probably rtl, section_name or other fields
+       should be checked.  */
+    if (TREE_ADDRESSABLE (var))
+      {
+	tree val = DECL_INITIAL (var);
+	tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
+	append_to_statement_list (modify, &stmts);
+      }
 
-  cgraph_build_static_cdtor ('I', stmts,
-                             MAX_RESERVED_INIT_PRIORITY-1);
+  if (stmts)
+    cgraph_build_static_cdtor ('I', stmts, MAX_RESERVED_INIT_PRIORITY-1);
 
   VEC_free (tree, heap, var_inits);
   var_inits = NULL;
