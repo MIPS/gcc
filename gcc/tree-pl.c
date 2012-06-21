@@ -43,6 +43,7 @@ static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator gsi);
 static tree pl_build_returned_bound (gimple call);
+static void pl_handle_struct_copy (gimple stmt);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
@@ -121,7 +122,8 @@ pl_type_has_pointer (tree type)
       tree field;
 
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-	res = res || pl_type_has_pointer (TREE_TYPE (field));
+	if (TREE_CODE (field) == FIELD_DECL)
+	  res = res || pl_type_has_pointer (TREE_TYPE (field));
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     res = pl_type_has_pointer (TREE_TYPE (type));
@@ -179,7 +181,7 @@ pl_finish_file (void)
       }
 
   if (stmts)
-    cgraph_build_static_cdtor ('I', stmts, MAX_RESERVED_INIT_PRIORITY-1);
+    cgraph_build_static_cdtor ('P', stmts, MAX_RESERVED_INIT_PRIORITY-1);
 
   VEC_free (tree, heap, var_inits);
   var_inits = NULL;
@@ -1309,6 +1311,20 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 }
 
 static void
+pl_handle_struct_copy (gimple stmt)
+{
+  tree lhs = gimple_assign_lhs (stmt);
+  tree rhs = gimple_assign_rhs1 (stmt);
+
+  gcc_assert (TREE_CODE (lhs) == VAR_DECL);
+  gcc_assert (TREE_CODE (rhs) == VAR_DECL
+	      || TREE_CODE (rhs) == PARM_DECL
+	      || TREE_CODE (rhs) == CONSTRUCTOR);
+
+
+}
+
+static void
 pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 		 location_t loc, tree dirflag,
 		 tree access_offs, tree access_size)
@@ -1453,22 +1469,24 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
     }
 
   /* We need to generate bndstx in case pointer is stored.  */
-  if (dirflag == integer_one_node && POINTER_TYPE_P (node_type))
+  if (dirflag == integer_one_node && pl_type_has_pointer (node_type))
     {
       gimple stmt = gsi_stmt (*iter);
+      tree rhs1 = gimple_assign_rhs1 (stmt);
 
-      gcc_assert ( gimple_code(stmt) == GIMPLE_ASSIGN);
-
-      if (TREE_CLOBBER_P (gimple_assign_rhs1 (stmt)))
+      if (TREE_CLOBBER_P (rhs1))
 	{
 	  /* Probably we should perform bndstx with zero bounds for all
 	     clobbered pointers.  Currently just ignore it.  */
 	}
+      else if (RECORD_OR_UNION_TYPE_P (node_type))
+	{
+	  pl_handle_struct_copy (stmt);
+	}
       else
 	{
 	  bounds = pl_compute_bounds_for_assignment (NULL_TREE, stmt);
-	  pl_build_bndstx (addr_first, gimple_assign_rhs1 (stmt),
-			   bounds, *iter);
+	  pl_build_bndstx (addr_first, rhs1, bounds, *iter);
 	}
     }
 }
