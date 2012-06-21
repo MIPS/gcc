@@ -91,7 +91,7 @@ static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
-static VEC(tree,gc) *var_inits = NULL;
+static VEC(tree,heap) *var_inits = NULL;
 const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
 static void
@@ -129,14 +129,14 @@ pl_type_has_pointer (tree type)
   return res;
 }
 
-extern void
+extern bool
 pl_register_var_initializer (tree var)
 {
   tree init;
   tree var_addr;
 
   if (!flag_pl)
-    return;
+    return false;
 
   gcc_assert (TREE_CODE (var) == VAR_DECL);
 
@@ -145,13 +145,39 @@ pl_register_var_initializer (tree var)
 
   if (TREE_STATIC (var)
       && pl_type_has_pointer (TREE_TYPE (var)))
-    VEC_safe_push (tree, gc, var_inits, var);
+    {
+      VEC_safe_push (tree, heap, var_inits, var);
+      return true;
+    }
+
+  return false;
 }
 
-extern VEC(tree,gc) *
-pl_get_initialized_vars ()
+extern void
+pl_finish_file (void)
 {
-  return var_inits;
+  tree stmts = NULL_TREE;
+  int i;
+  tree var;
+
+  if (!var_inits)
+    return;
+
+  if (seen_error ())
+    return;
+
+  FOR_EACH_VEC_ELT (tree, var_inits, i, var)
+    {
+      tree val = DECL_INITIAL (var);
+      tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
+      append_to_statement_list (modify, &stmts);
+    }
+
+  cgraph_build_static_cdtor ('I', stmts,
+                             MAX_RESERVED_INIT_PRIORITY-1);
+
+  VEC_free (tree, heap, var_inits);
+  var_inits = NULL;
 }
 
 static void

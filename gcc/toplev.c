@@ -588,6 +588,9 @@ compile_file (void)
       if (flag_mudflap)
 	mudflap_finish_file ();
 
+      if (flag_pl)
+	pl_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();

@@ -3716,65 +3716,6 @@ clear_decl_external (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
   return false;
 }
 
-static tree
-pl_start_static_initializer (void)
-{
-  static int no = 0;
-  char id[sizeof (PLSI_IDENTIFIER) + 1 /* '\0' */ + 32];
-  tree type;
-  tree decl;
-  tree body;
-
-  sprintf (id, "%s_%u", PLSI_IDENTIFIER, no);
-
-  type = build_function_type_list (void_type_node, NULL_TREE);
-  decl = build_lang_decl (FUNCTION_DECL,
-			  get_identifier (id),
-			  type);
-  TREE_PUBLIC (decl) = 0;
-  TREE_STATIC (decl) = 1;
-  DECL_ARTIFICIAL (decl) = 1;
-  DECL_STATIC_CONSTRUCTOR (decl) = 1;
-  DECL_PL_STATIC_INIT (decl) = 1;
-
-  lang_hooks.decls.pushdecl (decl);
-
-  start_preparsed_function (decl, NULL_TREE, SF_PRE_PARSED);
-
-  body = begin_compound_stmt (BCS_FN_BODY);
-
-  return body;
-}
-
-static void
-pl_generate_static_initializer (void)
-{
-  int i;
-  tree var;
-  tree body;
-  VEC(tree,gc) *var_inits;
-
-  if (!flag_pl)
-    return;
-
-  var_inits = pl_get_initialized_vars ();
-
-  if (!var_inits)
-    return;
-
-  body = pl_start_static_initializer ();
-
-  FOR_EACH_VEC_ELT (tree, var_inits, i, var)
-    {
-      tree val = DECL_INITIAL (var);
-      tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
-      finish_expr_stmt (modify);
-    }
-
-  finish_compound_stmt (body);
-  expand_or_defer_fn (finish_function (0));
-}
-
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -3837,8 +3778,6 @@ cp_write_global_declarations (void)
      instantiated, etc., etc.  */
 
   emit_support_tinfos ();
-
-  pl_generate_static_initializer ();
 
   do
     {
