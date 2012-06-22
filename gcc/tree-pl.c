@@ -1322,9 +1322,9 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator iter)
     {
       if (POINTER_TYPE_P (type))
 	{
-	  tree bounds = pl_find_bounds
-	  /* !!! FIX !!! */
-	  gcc_unreachable ();
+	  tree bounds = pl_find_bounds (rhs, iter);
+	  tree addr = fold_build1 (ADDR_EXPR, build_pointer_type (type), lhs);
+	  pl_build_bndstx (addr, rhs, bounds, iter);
 	}
       else if (RECORD_OR_UNION_TYPE_P (type))
 	{
@@ -1518,7 +1518,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       else if (TREE_CODE (rhs1) == VAR_DECL
 	       || TREE_CODE (rhs1) == CONSTRUCTOR)
 	{
-	  pl_copy_bounds_for_assign (node, rhs1);
+	  pl_copy_bounds_for_assign (node, rhs1, *iter);
 	}
       else
 	{
