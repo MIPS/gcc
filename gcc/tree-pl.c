@@ -43,7 +43,8 @@ static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator gsi);
 static tree pl_build_returned_bound (gimple call);
-static void pl_handle_struct_copy (gimple stmt);
+static void pl_copy_bounds_for_assign (tree lhs, tree rhs,
+				       gimple_stmt_iterator iter);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
@@ -474,7 +475,7 @@ pl_register_bounds (tree ptr, tree bnd)
 }
 
 static tree
-pl_get_registered_bounds (tree ptr)
+<pl_get_registered_bounds (tree ptr)
 {
   struct tree_map *res, in;
   in.base.from = ptr;
@@ -1311,17 +1312,50 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 }
 
 static void
-pl_handle_struct_copy (gimple stmt)
+pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator iter)
 {
-  tree lhs = gimple_assign_lhs (stmt);
-  tree rhs = gimple_assign_rhs1 (stmt);
+  tree type = TREE_TYPE (rhs);
 
-  gcc_assert (TREE_CODE (lhs) == VAR_DECL);
-  gcc_assert (TREE_CODE (rhs) == VAR_DECL
-	      || TREE_CODE (rhs) == PARM_DECL
-	      || TREE_CODE (rhs) == CONSTRUCTOR);
+  if (TREE_CODE (rhs) == VAR_DECL
+      || TREE_CODE (rhs) == ARRAY_REF
+      || TREE_CODE (rhs) == COMPONENT_REF)
+    {
+      if (POINTER_TYPE_P (type))
+	{
+	  tree bounds = pl_find_bounds
+	  /* !!! FIX !!! */
+	  gcc_unreachable ();
+	}
+      else if (RECORD_OR_UNION_TYPE_P (type))
+	{
+	  tree field;
 
-
+	  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	    if (TREE_CODE (field) == FIELD_DECL
+		&& pl_type_has_pointer (TREE_TYPE (field)))
+	      {
+		pl_handle_struct_field_copy (lhs, rhs, field);
+	      }
+	  /* !!! FIX !!! */
+	  gcc_unreachable ();
+	}
+      else if (TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  /* !!! FIX !!! */
+	  gcc_unreachable ();
+	}
+      else
+	gcc_unreachable ();
+    }
+  else if (TREE_CODE (rhs) == CONSTRUCTOR)
+    {
+      /* !!! FIX !!! */
+      internal_error("pl_copy_bounds_for_assign: "
+		     "CONSTRUCTOR expressions are NYI");
+    }
+  else
+    internal_error("pl_copy_bounds_for_assign: unexpected RHS code: %s",
+		   tree_code_name[TREE_CODE (rhs)]);
 }
 
 static void
@@ -1474,14 +1508,17 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       gimple stmt = gsi_stmt (*iter);
       tree rhs1 = gimple_assign_rhs1 (stmt);
 
+      pl_copy_bounds_for_assign (node, rhs1);
+
       if (TREE_CLOBBER_P (rhs1))
 	{
 	  /* Probably we should perform bndstx with zero bounds for all
 	     clobbered pointers.  Currently just ignore it.  */
 	}
-      else if (RECORD_OR_UNION_TYPE_P (node_type))
+      else if (TREE_CODE (rhs1) == VAR_DECL
+	       || TREE_CODE (rhs1) == CONSTRUCTOR)
 	{
-	  pl_handle_struct_copy (stmt);
+	  pl_copy_bounds_for_assign (node, rhs1);
 	}
       else
 	{
