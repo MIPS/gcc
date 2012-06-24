@@ -387,12 +387,6 @@ the effect you need.  Overriding this macro may be avoidable by overriding
 @code{LINK_GCC_C_SEQUENCE_SPEC} instead.
 @end defmac
 
-@defmac LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
-A nonzero value causes @command{collect2} to remove duplicate @option{-L@var{directory}} search
-directories from linking commands.  Do not give it a nonzero value if
-removing duplicate search directories changes the linker's semantics.
-@end defmac
-
 @hook TARGET_ALWAYS_STRIP_DOTDOT
 
 @defmac MULTILIB_DEFAULTS
@@ -1628,12 +1622,24 @@ The string can contain more than one keyword.  If so, separate them with
 spaces, and write first any length keyword, then @code{unsigned} if
 appropriate, and finally @code{int}.  The string must exactly match one
 of the data type names defined in the function
-@code{init_decl_processing} in the file @file{c-decl.c}.  You may not
-omit @code{int} or change the order---that would cause the compiler to
-crash on startup.
+@code{c_common_nodes_and_builtins} in the file @file{c-family/c-common.c}.
+You may not omit @code{int} or change the order---that would cause the
+compiler to crash on startup.
 
 If you don't define this macro, the default is @code{"long unsigned
 int"}.
+@end defmac
+
+@defmac SIZETYPE
+GCC defines internal types (@code{sizetype}, @code{ssizetype},
+@code{bitsizetype} and @code{sbitsizetype}) for expressions
+dealing with size.  This macro is a C expression for a string describing
+the name of the data type from which the precision of @code{sizetype}
+is extracted.
+
+The string has the same restrictions as @code{SIZE_TYPE} string.
+
+If you don't define this macro, the default is @code{SIZE_TYPE}.
 @end defmac
 
 @defmac PTRDIFF_TYPE
@@ -2858,6 +2864,12 @@ as below:
 @end defmac
 
 @hook TARGET_REGISTER_BANK
+
+@hook TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+
+@hook TARGET_SPILL_CLASS
+
+@hook TARGET_SPILL_CLASS_MODE
 
 @node Old Constraints
 @section Obsolete Macros for Defining Constraints
@@ -5461,8 +5473,10 @@ The code of the hook should not alter the substructure of
 @var{x}.  If it transforms @var{x} into a more legitimate form, it
 should return the new @var{x}.
 
-It is not necessary for this hook to come up with a legitimate address.
-The compiler has standard ways of doing so in all cases.  In fact, it
+It is not necessary for this hook to come up with a legitimate address,
+with the exception of native TLS addresses (@pxref{Emulated TLS}).
+The compiler has standard ways of doing so in all cases.  In fact, if
+the target supports only emulated TLS, it
 is safe to omit this hook or make it return @var{x} if it cannot find
 a valid way to legitimize the address.  But often a machine-dependent
 strategy can generate better code.
@@ -9388,6 +9402,8 @@ tables, and hence is desirable if it works.
 
 @hook TARGET_WANT_DEBUG_PUB_SECTIONS
 
+@hook TARGET_FORCE_AT_COMP_DIR
+
 @hook TARGET_DELAY_SCHED2
 
 @hook TARGET_DELAY_VARTRACK
@@ -10071,6 +10087,8 @@ unloaded. The default is to return false.
 
 @hook TARGET_CXX_ADJUST_CLASS_AT_DEFINITION
 
+@hook TARGET_CXX_DECL_MANGLING_CONTEXT
+
 @node Named Address Spaces
 @section Adding support for named address spaces
 @cindex named address spaces
@@ -10639,8 +10657,6 @@ how to build this object file.
 Define this macro if macros should be expanded in the
 arguments of @samp{#pragma pack}.
 @end defmac
-
-@hook TARGET_HANDLE_PRAGMA_EXTERN_PREFIX
 
 @defmac TARGET_DEFAULT_PACK_STRUCT
 If your target requires a structure packing default other than 0 (meaning
@@ -11239,5 +11255,10 @@ value of @code{TARGET_CONST_ANCHOR} is a power of 2.  For example, on
 MIPS, where add-immediate takes a 16-bit signed value,
 @code{TARGET_CONST_ANCHOR} is set to @samp{0x8000}.  The default value
 is zero, which disables this optimization.  @end deftypevr
+
+@hook TARGET_MEMMODEL_CHECK
+Validate target specific memory model mask bits. When NULL no target specific
+memory model bits are allowed.
+@end deftypefn
 
 @hook TARGET_ATOMIC_TEST_AND_SET_TRUEVAL

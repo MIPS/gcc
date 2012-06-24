@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "c-family/c-pragma.h"
 #include "c-family/c-objc.h"
-#include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
 
@@ -174,7 +173,7 @@ init_reswords (void)
   tree id;
   int mask = 0;
 
-  if (cxx_dialect != cxx0x)
+  if (cxx_dialect < cxx0x)
     mask |= D_CXX0X;
   if (flag_no_asm)
     mask |= D_ASM | D_EXT;

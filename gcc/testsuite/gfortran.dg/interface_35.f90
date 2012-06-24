@@ -1,5 +1,5 @@
 ! { dg-do compile }
-! { dg-options "-std=f2008" }
+! { dg-options "-std=f2003" }
 !
 ! PR fortran/48112 (module_m)
 ! PR fortran/48279 (sidl_string_array, s_Hard)
@@ -70,10 +70,8 @@ contains
     integer, intent(in) :: a
   end subroutine
 
-  integer function get1 (s) ! { dg-error "Extension: Internal procedure .get1. in generic interface .get." }
+  integer function get1 (s) ! { dg-error "Fortran 2008: Internal procedure .get1. in generic interface .get." }
     integer :: s
   end function
 
 end
-
-! { dg-final { cleanup-modules "module_m module_m2 s_hard sidl_string_array" } }

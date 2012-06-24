@@ -103,6 +103,8 @@ HaveSpan:
 	runtime_MSpanList_Remove(s);
 	s->state = MSpanInUse;
 	mstats.heap_idle -= s->npages<<PageShift;
+	mstats.heap_released -= s->npreleased<<PageShift;
+	s->npreleased = 0;
 
 	if(s->npages > npage) {
 		// Trim extra and put it back in the heap.
@@ -189,7 +191,7 @@ MHeap_Grow(MHeap *h, uintptr npage)
 			v = runtime_MHeap_SysAlloc(h, ask);
 		}
 		if(v == nil) {
-			runtime_printf("runtime: out of memory: cannot allocate %llu-byte block (%llu in use)\n", (unsigned long long)ask, (unsigned long long)mstats.heap_sys);
+			runtime_printf("runtime: out of memory: cannot allocate %D-byte block (%D in use)\n", (uint64)ask, mstats.heap_sys);
 			return false;
 		}
 	}
@@ -275,11 +277,13 @@ MHeap_FreeLocked(MHeap *h, MSpan *s)
 	PageID p;
 
 	if(s->state != MSpanInUse || s->ref != 0) {
-		// runtime_printf("MHeap_FreeLocked - span %p ptr %p state %d ref %d\n", s, s->start<<PageShift, s->state, s->ref);
+		runtime_printf("MHeap_FreeLocked - span %p ptr %p state %d ref %d\n", s, s->start<<PageShift, s->state, s->ref);
 		runtime_throw("MHeap_FreeLocked - invalid free");
 	}
 	mstats.heap_idle += s->npages<<PageShift;
 	s->state = MSpanFree;
+	s->unusedsince = 0;
+	s->npreleased = 0;
 	runtime_MSpanList_Remove(s);
 	sp = (uintptr*)(s->start<<PageShift);
 
@@ -292,6 +296,7 @@ MHeap_FreeLocked(MHeap *h, MSpan *s)
 		*tp |= *sp;	// propagate "needs zeroing" mark
 		s->start = t->start;
 		s->npages += t->npages;
+		s->npreleased = t->npreleased; // absorb released pages
 		p -= t->npages;
 		h->map[p] = s;
 		runtime_MSpanList_Remove(t);
@@ -304,6 +309,7 @@ MHeap_FreeLocked(MHeap *h, MSpan *s)
 		tp = (uintptr*)(t->start<<PageShift);
 		*sp |= *tp;	// propagate "needs zeroing" mark
 		s->npages += t->npages;
+		s->npreleased += t->npreleased;
 		h->map[p + s->npages - 1] = s;
 		runtime_MSpanList_Remove(t);
 		t->state = MSpanDead;
@@ -317,8 +323,86 @@ MHeap_FreeLocked(MHeap *h, MSpan *s)
 		runtime_MSpanList_Insert(&h->free[s->npages], s);
 	else
 		runtime_MSpanList_Insert(&h->large, s);
+}
 
-	// TODO(rsc): IncrementalScavenge() to return memory to OS.
+// Release (part of) unused memory to OS.
+// Goroutine created at startup.
+// Loop forever.
+void
+runtime_MHeap_Scavenger(void* dummy)
+{
+	MHeap *h;
+	MSpan *s, *list;
+	uint64 tick, now, forcegc, limit;
+	uint32 k, i;
+	uintptr released, sumreleased;
+	const byte *env;
+	bool trace;
+	Note note;
+
+	USED(dummy);
+
+	// If we go two minutes without a garbage collection, force one to run.
+	forcegc = 2*60*1e9;
+	// If a span goes unused for 5 minutes after a garbage collection,
+	// we hand it back to the operating system.
+	limit = 5*60*1e9;
+	// Make wake-up period small enough for the sampling to be correct.
+	if(forcegc < limit)
+		tick = forcegc/2;
+	else
+		tick = limit/2;
+
+	trace = false;
+	env = runtime_getenv("GOGCTRACE");
+	if(env != nil)
+		trace = runtime_atoi(env) > 0;
+
+	h = &runtime_mheap;
+	for(k=0;; k++) {
+		runtime_noteclear(&note);
+		runtime_entersyscall();
+		runtime_notetsleep(&note, tick);
+		runtime_exitsyscall();
+
+		runtime_lock(h);
+		now = runtime_nanotime();
+		if(now - mstats.last_gc > forcegc) {
+			runtime_unlock(h);
+			runtime_gc(1);
+			runtime_lock(h);
+			now = runtime_nanotime();
+			if (trace)
+				runtime_printf("scvg%d: GC forced\n", k);
+		}
+		sumreleased = 0;
+		for(i=0; i < nelem(h->free)+1; i++) {
+			if(i < nelem(h->free))
+				list = &h->free[i];
+			else
+				list = &h->large;
+			if(runtime_MSpanList_IsEmpty(list))
+				continue;
+			for(s=list->next; s != list; s=s->next) {
+				if(s->unusedsince != 0 && (now - s->unusedsince) > limit) {
+					released = (s->npages - s->npreleased) << PageShift;
+					mstats.heap_released += released;
+					sumreleased += released;
+					s->npreleased = s->npages;
+					runtime_SysUnused((void*)(s->start << PageShift), s->npages << PageShift);
+				}
+			}
+		}
+		runtime_unlock(h);
+
+		if(trace) {
+			if(sumreleased > 0)
+				runtime_printf("scvg%d: %p MB released\n", k, sumreleased>>20);
+			runtime_printf("scvg%d: inuse: %D, idle: %D, sys: %D, released: %D, consumed: %D (MB)\n",
+				k, mstats.heap_inuse>>20, mstats.heap_idle>>20, mstats.heap_sys>>20,
+				mstats.heap_released>>20, (mstats.heap_sys - mstats.heap_released)>>20);
+		}
+	}
 }
 
 // Initialize a new span with the given start and npages.
@@ -333,6 +417,8 @@ runtime_MSpan_Init(MSpan *span, PageID start, uintptr npages)
 	span->ref = 0;
 	span->sizeclass = 0;
 	span->state = 0;
+	span->unusedsince = 0;
+	span->npreleased = 0;
 }
 
 // Initialize an empty doubly-linked list.
@@ -365,7 +451,7 @@ void
 runtime_MSpanList_Insert(MSpan *list, MSpan *span)
 {
 	if(span->next != nil || span->prev != nil) {
-		// runtime_printf("failed MSpanList_Insert %p %p %p\n", span, span->next, span->prev);
+		runtime_printf("failed MSpanList_Insert %p %p %p\n", span, span->next, span->prev);
 		runtime_throw("MSpanList_Insert");
 	}
 	span->next = list->next;

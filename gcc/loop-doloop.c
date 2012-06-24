@@ -31,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "cfgloop.h"
-#include "output.h"
 #include "params.h"
 #include "target.h"
 
@@ -747,7 +746,6 @@ doloop_optimize_loops (void)
   iv_analysis_done ();
 
 #ifdef ENABLE_CHECKING
-  verify_dominators (CDI_DOMINATORS);
   verify_loop_structure ();
 #endif
 }

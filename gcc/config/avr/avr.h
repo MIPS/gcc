@@ -46,11 +46,12 @@ struct base_arch_s
   /* Core have 'EICALL' and 'EIJMP' instructions.  */
   int have_eijmp_eicall;
 
-  /* Reserved for xmega architecture.  */
-  int reserved;
+  /* This is an XMEGA core.  */
+  int xmega_p;
 
-  /* Reserved for xmega architecture.  */
-  int reserved2;
+  /* This core has the RAMPD special function register
+     and thus also the RAMPX, RAMPY and RAMPZ registers.  */
+  int have_rampd;
   
   /* Default start of data section address for architecture.  */
   int default_data_section_start;
@@ -59,9 +60,7 @@ struct base_arch_s
      SFR-address = RAM-address - sfr_offset  */
   int sfr_offset;
 
-  /* Number of 64k segments in the flash.  */
-  int n_segments;
-
+  /* Architecture id to built-in define __AVR_ARCH__ (NULL -> no macro) */
   const char *const macro;
   
   /* Architecture name.  */
@@ -83,7 +82,12 @@ enum avr_arch
   ARCH_AVR4,
   ARCH_AVR5,
   ARCH_AVR51,
-  ARCH_AVR6
+  ARCH_AVR6,
+  ARCH_AVRXMEGA2,
+  ARCH_AVRXMEGA4,
+  ARCH_AVRXMEGA5,
+  ARCH_AVRXMEGA6,
+  ARCH_AVRXMEGA7
 };
 
 struct mcu_type_s {
@@ -122,8 +126,19 @@ struct mcu_type_s {
   /* Start of data section.  */
   int data_section_start;
   
+  /* Number of 64k segments in the flash.  */
+  int n_flash;
+
   /* Name of device library.  */
   const char *const library_name; 
+};
+
+struct arch_info_s {
+  /* Architecture ID.  */
+  enum avr_arch arch;
+
+  /* textinfo source to describe the archtiecture.  */
+  const char *texinfo;
 };
 
 /* Preprocessor macros to define depending on MCU type.  */
@@ -175,12 +190,37 @@ enum
 #define AVR_HAVE_LPMX (avr_current_arch->have_movw_lpmx)
 #define AVR_HAVE_ELPM (avr_current_arch->have_elpm)
 #define AVR_HAVE_ELPMX (avr_current_arch->have_elpmx)
-#define AVR_HAVE_RAMPZ (avr_current_arch->have_elpm)
+#define AVR_HAVE_RAMPD (avr_current_arch->have_rampd)
+#define AVR_HAVE_RAMPX (avr_current_arch->have_rampd)
+#define AVR_HAVE_RAMPY (avr_current_arch->have_rampd)
+#define AVR_HAVE_RAMPZ (avr_current_arch->have_elpm             \
+                        || avr_current_arch->have_rampd)
 #define AVR_HAVE_EIJMP_EICALL (avr_current_arch->have_eijmp_eicall)
-#define AVR_HAVE_8BIT_SP (avr_current_device->short_sp || TARGET_TINY_STACK)
+
+/* Handling of 8-bit SP versus 16-bit SP is as follows:
+
+   -msp8 is used internally to select the right multilib for targets with
+   8-bit SP.  -msp8 is set automatically by DRIVER_SELF_SPECS for devices
+   with 8-bit SP or by multilib generation machinery.  If a frame pointer is
+   needed and SP is only 8 bits wide, SP is zero-extended to get FP.
+
+   TARGET_TINY_STACK is triggered by -mtiny-stack which is a user option.
+   This option has no effect on multilib selection.  It serves to save some
+   bytes on 16-bit SP devices by only changing SP_L and leaving SP_H alone.
+
+   These two properties are reflected by built-in macros __AVR_SP8__ resp.
+   __AVR_HAVE_8BIT_SP__ and __AVR_HAVE_16BIT_SP__.  During multilib generation
+   there is always __AVR_SP8__ == __AVR_HAVE_8BIT_SP__.  */
+
+#define AVR_HAVE_8BIT_SP                                                \
+  (avr_current_device->short_sp || TARGET_TINY_STACK || avr_sp8)
+
+#define AVR_HAVE_SPH (!avr_sp8)
 
 #define AVR_2_BYTE_PC (!AVR_HAVE_EIJMP_EICALL)
 #define AVR_3_BYTE_PC (AVR_HAVE_EIJMP_EICALL)
+
+#define AVR_XMEGA (avr_current_arch->xmega_p)
 
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 0
@@ -362,6 +402,11 @@ enum reg_class {
 
 #define REGNO_OK_FOR_INDEX_P(NUM) 0
 
+#define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)                    \
+  (((REGNO) < 18 && (REGNO) + GET_MODE_SIZE (MODE) > 18)               \
+   || ((REGNO) < REG_Y && (REGNO) + GET_MODE_SIZE (MODE) > REG_Y)      \
+   || ((REGNO) < REG_Z && (REGNO) + GET_MODE_SIZE (MODE) > REG_Z))
+
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P hook_bool_mode_true
 
 #define STACK_PUSH_CODE POST_DEC
@@ -512,10 +557,10 @@ typedef struct avr_args {
 #define ASM_OUTPUT_ADDR_VEC_ELT(STREAM, VALUE)		\
   avr_output_addr_vec_elt(STREAM, VALUE)
 
-#define ASM_OUTPUT_ALIGN(STREAM, POWER)			\
-  do {							\
-      if ((POWER) > 1)					\
-          fprintf (STREAM, "\t.p2align\t%d\n", POWER);	\
+#define ASM_OUTPUT_ALIGN(STREAM, POWER)                 \
+  do {                                                  \
+    if ((POWER) > 0)                                    \
+      fprintf (STREAM, "\t.p2align\t%d\n", POWER);      \
   } while (0)
 
 #define CASE_VECTOR_MODE HImode
@@ -564,13 +609,16 @@ extern const char *avr_device_to_arch (int argc, const char **argv);
 extern const char *avr_device_to_data_start (int argc, const char **argv);
 extern const char *avr_device_to_startfiles (int argc, const char **argv);
 extern const char *avr_device_to_devicelib (int argc, const char **argv);
+extern const char *avr_device_to_sp8 (int argc, const char **argv);
 
-#define EXTRA_SPEC_FUNCTIONS \
-  { "device_to_arch", avr_device_to_arch }, \
+#define EXTRA_SPEC_FUNCTIONS                            \
+  { "device_to_arch", avr_device_to_arch },             \
   { "device_to_data_start", avr_device_to_data_start }, \
-  { "device_to_startfile", avr_device_to_startfiles }, \
-  { "device_to_devicelib", avr_device_to_devicelib },
+  { "device_to_startfile", avr_device_to_startfiles },  \
+  { "device_to_devicelib", avr_device_to_devicelib },   \
+  { "device_to_sp8", avr_device_to_sp8 },
 
+#define DRIVER_SELF_SPECS " %:device_to_sp8(%{mmcu=*:%*}) "
 #define CPP_SPEC ""
 
 #define CC1_SPEC ""
@@ -582,7 +630,9 @@ extern const char *avr_device_to_devicelib (int argc, const char **argv);
    pass to `cc1plus'.  */
 
 #define ASM_SPEC "%{mmcu=avr25:-mmcu=avr2;mmcu=avr35:-mmcu=avr3;mmcu=avr31:-mmcu=avr3;mmcu=avr51:-mmcu=avr5;\
-mmcu=*:-mmcu=%*}"
+mmcu=*:-mmcu=%*} \
+%{mmcu=*:%{!mmcu=avr2:%{!mmcu=at90s8515:%{!mmcu=avr31:%{!mmcu=atmega103:\
+-mno-skip-bug}}}}}"
 
 #define LINK_SPEC "\
 %{mrelax:--relax\
@@ -657,12 +707,20 @@ struct GTY(()) machine_function
 
   /* 'true' if a callee might be tail called */
   int sibcall_fails;
+
+  /* 'true' if the above is_foo predicates are sanity-checked to avoid
+     multiple diagnose for the same function.  */
+  int attributes_checked_p;
 };
 
-/* AVR does not round pushes, but the existance of this macro is
+/* AVR does not round pushes, but the existence of this macro is
    required in order for pushes to be generated.  */
 #define PUSH_ROUNDING(X)	(X)
 
+/* Define prototype here to avoid build warning.  Some files using
+   ACCUMULATE_OUTGOING_ARGS (directly or indirectly) include
+   tm.h but not tm_p.h.  */
+extern int avr_accumulate_outgoing_args (void);
 #define ACCUMULATE_OUTGOING_ARGS avr_accumulate_outgoing_args()
 
 #define INIT_EXPANDERS avr_init_expanders()

@@ -2196,19 +2196,26 @@ package body Sem_Ch3 is
                Spec := Specification (Original_Node (Decl));
                Sent := Defining_Unit_Name (Spec);
 
+               --  Analyze preconditions and postconditions
+
                Prag := Spec_PPC_List (Contract (Sent));
                while Present (Prag) loop
                   Analyze_PPC_In_Decl_Part (Prag, Sent);
                   Prag := Next_Pragma (Prag);
                end loop;
 
-               Check_Subprogram_Contract (Sent);
+               --  Analyze contract-cases and test-cases
 
-               Prag := Spec_TC_List (Contract (Sent));
+               Prag := Spec_CTC_List (Contract (Sent));
                while Present (Prag) loop
-                  Analyze_TC_In_Decl_Part (Prag, Sent);
+                  Analyze_CTC_In_Decl_Part (Prag, Sent);
                   Prag := Next_Pragma (Prag);
                end loop;
+
+               --  At this point, entities have been attached to identifiers.
+               --  This is required to be able to detect suspicious contracts.
+
+               Check_Subprogram_Contract (Sent);
             end if;
 
             Next (Decl);
@@ -3163,6 +3170,24 @@ package body Sem_Ch3 is
          Set_Etype (Id, T);
          Resolve (E, T);
 
+         --  No further action needed if E is a call to an inlined function
+         --  which returns an unconstrained type and it has been expanded into
+         --  a procedure call. In that case N has been replaced by an object
+         --  declaration without initializing expression and it has been
+         --  analyzed (see Expand_Inlined_Call).
+
+         if Debug_Flag_Dot_K
+           and then Expander_Active
+           and then Nkind (E) = N_Function_Call
+           and then Nkind (Name (E)) in N_Has_Entity
+           and then Is_Inlined (Entity (Name (E)))
+           and then not Is_Constrained (Etype (E))
+           and then Analyzed (N)
+           and then No (Expression (N))
+         then
+            return;
+         end if;
+
          --  If E is null and has been replaced by an N_Raise_Constraint_Error
          --  node (which was marked already-analyzed), we need to set the type
          --  to something other than Any_Access in order to keep gigi happy.
@@ -3566,80 +3591,6 @@ package body Sem_Ch3 is
             Check_Restriction (No_Nested_Finalization, N);
          else
             Validate_Controlled_Object (Id);
-         end if;
-
-         --  Generate a warning when an initialization causes an obvious ABE
-         --  violation. If the init expression is a simple aggregate there
-         --  shouldn't be any initialize/adjust call generated. This will be
-         --  true as soon as aggregates are built in place when possible.
-
-         --  ??? at the moment we do not generate warnings for temporaries
-         --  created for those aggregates although Program_Error might be
-         --  generated if compiled with -gnato.
-
-         if Is_Controlled (Etype (Id))
-            and then Comes_From_Source (Id)
-         then
-            declare
-               BT : constant Entity_Id := Base_Type (Etype (Id));
-
-               Implicit_Call : Entity_Id;
-               pragma Warnings (Off, Implicit_Call);
-               --  ??? what is this for (never referenced!)
-
-               function Is_Aggr (N : Node_Id) return Boolean;
-               --  Check that N is an aggregate
-
-               -------------
-               -- Is_Aggr --
-               -------------
-
-               function Is_Aggr (N : Node_Id) return Boolean is
-               begin
-                  case Nkind (Original_Node (N)) is
-                     when N_Aggregate | N_Extension_Aggregate =>
-                        return True;
-
-                     when N_Qualified_Expression |
-                          N_Type_Conversion      |
-                          N_Unchecked_Type_Conversion =>
-                        return Is_Aggr (Expression (Original_Node (N)));
-
-                     when others =>
-                        return False;
-                  end case;
-               end Is_Aggr;
-
-            begin
-               --  If no underlying type, we already are in an error situation.
-               --  Do not try to add a warning since we do not have access to
-               --  prim-op list.
-
-               if No (Underlying_Type (BT)) then
-                  Implicit_Call := Empty;
-
-               --  A generic type does not have usable primitive operators.
-               --  Initialization calls are built for instances.
-
-               elsif Is_Generic_Type (BT) then
-                  Implicit_Call := Empty;
-
-               --  If the init expression is not an aggregate, an adjust call
-               --  will be generated
-
-               elsif Present (E) and then not Is_Aggr (E) then
-                  Implicit_Call := Find_Prim_Op (BT, Name_Adjust);
-
-               --  If no init expression and we are not in the deferred
-               --  constant case, an Initialize call will be generated
-
-               elsif No (E) and then not Constant_Present (N) then
-                  Implicit_Call := Find_Prim_Op (BT, Name_Initialize);
-
-               else
-                  Implicit_Call := Empty;
-               end if;
-            end;
          end if;
       end if;
 
@@ -4389,11 +4340,16 @@ package body Sem_Ch3 is
 
             when E_Incomplete_Type =>
                if Ada_Version >= Ada_2005 then
-                  Set_Ekind (Id, E_Incomplete_Subtype);
 
-                  --  Ada 2005 (AI-412): Decorate an incomplete subtype
-                  --  of an incomplete type visible through a limited
-                  --  with clause.
+                  --  In Ada 2005 an incomplete type can be explicitly tagged:
+                  --  propagate indication.
+
+                  Set_Ekind              (Id, E_Incomplete_Subtype);
+                  Set_Is_Tagged_Type     (Id, Is_Tagged_Type (T));
+                  Set_Private_Dependents (Id, New_Elmt_List);
+
+                  --  Ada 2005 (AI-412): Decorate an incomplete subtype of an
+                  --  incomplete type visible through a limited with clause.
 
                   if From_With_Type (T)
                     and then Present (Non_Limited_View (T))
@@ -7728,21 +7684,27 @@ package body Sem_Ch3 is
 
       if Is_Record_Type (Derived_Type) then
 
-         --  Ekind (Parent_Base) is not necessarily E_Record_Type since
-         --  Parent_Base can be a private type or private extension.
+         declare
+            Parent_Full : Entity_Id;
 
-         if Present (Full_View (Parent_Base)) then
+         begin
+            --  Ekind (Parent_Base) is not necessarily E_Record_Type since
+            --  Parent_Base can be a private type or private extension. Go
+            --  to the full view here to get the E_Record_Type specific flags.
+
+            if Present (Full_View (Parent_Base)) then
+               Parent_Full := Full_View (Parent_Base);
+            else
+               Parent_Full := Parent_Base;
+            end if;
+
             Set_OK_To_Reorder_Components
-              (Derived_Type,
-               OK_To_Reorder_Components (Full_View (Parent_Base)));
+              (Derived_Type, OK_To_Reorder_Components (Parent_Full));
             Set_Reverse_Bit_Order
-              (Derived_Type, Reverse_Bit_Order (Full_View (Parent_Base)));
-         else
-            Set_OK_To_Reorder_Components
-              (Derived_Type, OK_To_Reorder_Components (Parent_Base));
-            Set_Reverse_Bit_Order
-              (Derived_Type, Reverse_Bit_Order (Parent_Base));
-         end if;
+              (Derived_Type, Reverse_Bit_Order (Parent_Full));
+            Set_Reverse_Storage_Order
+              (Derived_Type, Reverse_Storage_Order (Parent_Full));
+         end;
       end if;
 
       --  Direct controlled types do not inherit Finalize_Storage_Only flag
@@ -14968,7 +14930,15 @@ package body Sem_Ch3 is
             then
                Set_Ekind (Id, Ekind (Prev));         --  will be reset later
                Set_Class_Wide_Type (Id, Class_Wide_Type (Prev));
-               Set_Etype (Class_Wide_Type (Id), Id);
+
+               --  If the incomplete type is completed by a private declaration
+               --  the class-wide type remains associated with the incomplete
+               --  type, to prevent order-of-elaboration issues in gigi, else
+               --  we associate the class-wide type with the known full view.
+
+               if Nkind (N) /= N_Private_Type_Declaration then
+                  Set_Etype (Class_Wide_Type (Id), Id);
+               end if;
             end if;
 
          --  Case of full declaration of private type
@@ -15568,12 +15538,35 @@ package body Sem_Ch3 is
       Typ_For_Constraint : Entity_Id;
       Constraint         : Elist_Id) return Node_Id
    is
+      function Root_Corresponding_Discriminant
+        (Discr : Entity_Id) return Entity_Id;
+      --  Given a discriminant, traverse the chain of inherited discriminants
+      --  and return the topmost discriminant.
+
       function Search_Derivation_Levels
         (Ti                    : Entity_Id;
          Discrim_Values        : Elist_Id;
          Stored_Discrim_Values : Boolean) return Node_Or_Entity_Id;
       --  This is the routine that performs the recursive search of levels
       --  as described above.
+
+      -------------------------------------
+      -- Root_Corresponding_Discriminant --
+      -------------------------------------
+
+      function Root_Corresponding_Discriminant
+        (Discr : Entity_Id) return Entity_Id
+      is
+         D : Entity_Id;
+
+      begin
+         D := Discr;
+         while Present (Corresponding_Discriminant (D)) loop
+            D := Corresponding_Discriminant (D);
+         end loop;
+
+         return D;
+      end Root_Corresponding_Discriminant;
 
       ------------------------------
       -- Search_Derivation_Levels --
@@ -15749,7 +15742,7 @@ package body Sem_Ch3 is
 
       --  ??? hack to disappear when this routine is gone
 
-      if  Nkind (Result) = N_Defining_Identifier then
+      if Nkind (Result) = N_Defining_Identifier then
          declare
             D : Entity_Id;
             E : Elmt_Id;
@@ -15758,7 +15751,7 @@ package body Sem_Ch3 is
             D := First_Discriminant (Typ_For_Constraint);
             E := First_Elmt (Constraint);
             while Present (D) loop
-               if Corresponding_Discriminant (D) = Discriminant then
+               if Root_Corresponding_Discriminant (D) = Discriminant then
                   return Node (E);
                end if;
 

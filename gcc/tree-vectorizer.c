@@ -65,7 +65,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
 #include "timevar.h"
@@ -320,11 +319,9 @@ increase_alignment (void)
   struct varpool_node *vnode;
 
   /* Increase the alignment of all global arrays for vectorization.  */
-  for (vnode = varpool_nodes_queue;
-       vnode;
-       vnode = vnode->next_needed)
+  FOR_EACH_DEFINED_VARIABLE (vnode)
     {
-      tree vectype, decl = vnode->decl;
+      tree vectype, decl = vnode->symbol.decl;
       tree t;
       unsigned int alignment;
 

@@ -22,8 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_CFGLOOP_H
 
 #include "basic-block.h"
-/* For rtx_code.  */
-#include "rtl.h"
 #include "vecprim.h"
 #include "double-int.h"
 
@@ -44,6 +42,14 @@ enum lpt_dec
 struct GTY (()) lpt_decision {
   enum lpt_dec decision;
   unsigned times;
+};
+
+/* The type of extend applied to an IV.  */
+enum iv_extend_code
+{
+  IV_SIGN_EXTEND,
+  IV_ZERO_EXTEND,
+  IV_UNKNOWN_EXTEND
 };
 
 /* The structure describing a bound on number of iterations of a loop.  */
@@ -278,11 +284,16 @@ gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
-void estimate_numbers_of_iterations_loop (struct loop *, bool);
-HOST_WIDE_INT estimated_loop_iterations_int (struct loop *, bool);
-HOST_WIDE_INT max_stmt_executions_int (struct loop *, bool);
-bool estimated_loop_iterations (struct loop *, bool, double_int *);
-bool max_stmt_executions (struct loop *, bool, double_int *);
+void estimate_numbers_of_iterations_loop (struct loop *);
+void record_niter_bound (struct loop *, double_int, bool, bool);
+bool estimated_loop_iterations (struct loop *, double_int *);
+bool max_loop_iterations (struct loop *, double_int *);
+HOST_WIDE_INT estimated_loop_iterations_int (struct loop *);
+HOST_WIDE_INT max_loop_iterations_int (struct loop *);
+bool max_stmt_executions (struct loop *, double_int *);
+bool estimated_stmt_executions (struct loop *, double_int *);
+HOST_WIDE_INT max_stmt_executions_int (struct loop *);
+HOST_WIDE_INT estimated_stmt_executions_int (struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (const struct loop *loop);
@@ -337,8 +348,9 @@ struct rtx_iv
      see the description above).  */
   rtx base, step;
 
-  /* The type of extend applied to it (SIGN_EXTEND, ZERO_EXTEND or UNKNOWN).  */
-  enum rtx_code extend;
+  /* The type of extend applied to it (IV_SIGN_EXTEND, IV_ZERO_EXTEND,
+     or IV_UNKNOWN_EXTEND).  */
+  enum iv_extend_code extend;
 
   /* Operations applied in the extended mode.  */
   rtx delta, mult;

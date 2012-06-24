@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
-#include "output.h"
 
 /* Friend data structures are described in cp-tree.h.  */
 
@@ -232,12 +231,15 @@ make_friend_class (tree type, tree friend_type, bool complain)
 
          So don't complain in C++0x mode.  */
       if (cxx_dialect < cxx0x)
-	pedwarn (input_location, complain ? 0 : OPT_pedantic,
+	pedwarn (input_location, complain ? 0 : OPT_Wpedantic,
 		 "invalid type %qT declared %<friend%>", friend_type);
       return;
     }
 
   friend_type = cv_unqualified (friend_type);
+
+  if (check_for_bare_parameter_packs (friend_type))
+    return;
 
   if (friend_depth)
     /* If the TYPE is a template then it makes sense for it to be

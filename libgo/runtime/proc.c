@@ -8,6 +8,11 @@
 #include <unistd.h>
 
 #include "config.h"
+
+#ifdef HAVE_DL_ITERATE_PHDR
+#include <link.h>
+#endif
+
 #include "runtime.h"
 #include "arch.h"
 #include "defs.h"
@@ -36,17 +41,21 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 
 #endif
 
+#ifndef PTHREAD_STACK_MIN
+# define PTHREAD_STACK_MIN 8192
+#endif
+
 #if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
-# ifdef PTHREAD_STACK_MIN
-#  define StackMin PTHREAD_STACK_MIN
-# else
-#  define StackMin 8192
-# endif
+# define StackMin PTHREAD_STACK_MIN
 #else
 # define StackMin 2 * 1024 * 1024
 #endif
 
+uintptr runtime_stacks_sys;
+
 static void schedule(G*);
+
+static void gtraceback(G*);
 
 typedef struct Sched Sched;
 
@@ -133,6 +142,46 @@ runtime_m(void)
 }
 
 int32	runtime_gcwaiting;
+
+// The static TLS size.  See runtime_newm.
+static int tlssize;
+
+#ifdef HAVE_DL_ITERATE_PHDR
+
+// Called via dl_iterate_phdr.
+
+static int
+addtls(struct dl_phdr_info* info, size_t size __attribute__ ((unused)), void *data)
+{
+	size_t *total = (size_t *)data;
+	unsigned int i;
+
+	for(i = 0; i < info->dlpi_phnum; ++i) {
+		if(info->dlpi_phdr[i].p_type == PT_TLS)
+			*total += info->dlpi_phdr[i].p_memsz;
+	}
+	return 0;
+}
+
+// Set the total TLS size.
+
+static void
+inittlssize()
+{
+	size_t total = 0;
+
+	dl_iterate_phdr(addtls, (void *)&total);
+	tlssize = total;
+}
+
+#else
+
+static void
+inittlssize()
+{
+}
+
+#endif
 
 // Go scheduler
 //
@@ -309,6 +358,8 @@ static void runtime_mcall(void (*)(G*)) __attribute__ ((noinline));
 static void
 runtime_mcall(void (*pfn)(G*))
 {
+	M *mp;
+	G *gp;
 #ifndef USING_SPLIT_STACK
 	int i;
 #endif
@@ -317,31 +368,54 @@ runtime_mcall(void (*pfn)(G*))
 	// collector.
 	__builtin_unwind_init();
 
-	if(g == m->g0)
+	mp = m;
+	gp = g;
+	if(gp == mp->g0)
 		runtime_throw("runtime: mcall called on m->g0 stack");
 
-	if(g != nil) {
+	if(gp != nil) {
 
 #ifdef USING_SPLIT_STACK
 		__splitstack_getcontext(&g->stack_context[0]);
 #else
-		g->gcnext_sp = &i;
+		gp->gcnext_sp = &i;
 #endif
-		g->fromgogo = false;
-		getcontext(&g->context);
+		gp->fromgogo = false;
+		getcontext(&gp->context);
+
+		// When we return from getcontext, we may be running
+		// in a new thread.  That means that m and g may have
+		// changed.  They are global variables so we will
+		// reload them, but the addresses of m and g may be
+		// cached in our local stack frame, and those
+		// addresses may be wrong.  Call functions to reload
+		// the values for this thread.
+		mp = runtime_m();
+		gp = runtime_g();
+
+		if(gp->traceback != nil)
+			gtraceback(gp);
 	}
-	if (g == nil || !g->fromgogo) {
+	if (gp == nil || !gp->fromgogo) {
 #ifdef USING_SPLIT_STACK
-		__splitstack_setcontext(&m->g0->stack_context[0]);
+		__splitstack_setcontext(&mp->g0->stack_context[0]);
 #endif
-		m->g0->entry = (byte*)pfn;
-		m->g0->param = g;
-		g = m->g0;
-		fixcontext(&m->g0->context);
-		setcontext(&m->g0->context);
+		mp->g0->entry = (byte*)pfn;
+		mp->g0->param = gp;
+
+		// It's OK to set g directly here because this case
+		// can not occur if we got here via a setcontext to
+		// the getcontext call just above.
+		g = mp->g0;
+
+		fixcontext(&mp->g0->context);
+		setcontext(&mp->g0->context);
 		runtime_throw("runtime: mcall function returned");
 	}
 }
+
+// Keep trace of scavenger's goroutine for deadlock detection.
+static G *scvg;
 
 // The bootstrap sequence is:
 //
@@ -364,6 +438,7 @@ runtime_schedinit(void)
 	g->m = m;
 
 	initcontext();
+	inittlssize();
 
 	m->nomemprof++;
 	runtime_mallocinit();
@@ -384,7 +459,9 @@ runtime_schedinit(void)
 			n = maxgomaxprocs;
 		runtime_gomaxprocs = n;
 	}
-	setmcpumax(runtime_gomaxprocs);
+	// wait for the main goroutine to start before taking
+	// GOMAXPROCS into account.
+	setmcpumax(1);
 	runtime_singleproc = runtime_gomaxprocs == 1;
 
 	canaddmcpu();	// mcpu++ to account for bootstrap m
@@ -410,7 +487,10 @@ runtime_main(void)
 	// by calling runtime.LockOSThread during initialization
 	// to preserve the lock.
 	runtime_LockOSThread();
+	// From now on, newgoroutines may use non-main threads.
+	setmcpumax(runtime_gomaxprocs);
 	runtime_sched.init = true;
+	scvg = __go_go(runtime_MHeap_Scavenger, nil);
 	main_init();
 	runtime_sched.init = false;
 	if(!runtime_sched.lockmain)
@@ -420,6 +500,11 @@ runtime_main(void)
 	// to enable GC, because initializing main registers the GC
 	// roots.
 	mstats.enablegc = 1;
+
+	// The deadlock detection has false negatives.
+	// Let scvg start up, to eliminate the false negative
+	// for the trivial program func main() { select{} }.
+	runtime_gosched();
 
 	main_main();
 	runtime_exit(0);
@@ -489,17 +574,83 @@ runtime_goroutineheader(G *g)
 }
 
 void
-runtime_tracebackothers(G *me)
+runtime_goroutinetrailer(G *g)
 {
-	G *g;
+	if(g != nil && g->gopc != 0 && g->goid != 1) {
+		struct __go_string fn;
+		struct __go_string file;
+		int line;
 
+		if(__go_file_line(g->gopc - 1, &fn, &file, &line)) {
+			runtime_printf("created by %s\n", fn.__data);
+			runtime_printf("\t%s:%d\n", file.__data, line);
+		}
+	}
+}
+
+struct Traceback
+{
+	G* gp;
+	uintptr pcbuf[100];
+	int32 c;
+};
+
+void
+runtime_tracebackothers(G * volatile me)
+{
+	G * volatile g;
+	Traceback traceback;
+
+	traceback.gp = me;
 	for(g = runtime_allg; g != nil; g = g->alllink) {
 		if(g == me || g->status == Gdead)
 			continue;
 		runtime_printf("\n");
 		runtime_goroutineheader(g);
-		// runtime_traceback(g->sched.pc, g->sched.sp, 0, g);
+
+		// Our only mechanism for doing a stack trace is
+		// _Unwind_Backtrace.  And that only works for the
+		// current thread, not for other random goroutines.
+		// So we need to switch context to the goroutine, get
+		// the backtrace, and then switch back.
+
+		// This means that if g is running or in a syscall, we
+		// can't reliably print a stack trace.  FIXME.
+		if(g->status == Gsyscall || g->status == Grunning) {
+			runtime_printf("no stack trace available\n");
+			runtime_goroutinetrailer(g);
+			continue;
+		}
+
+		g->traceback = &traceback;
+
+#ifdef USING_SPLIT_STACK
+		__splitstack_getcontext(&me->stack_context[0]);
+#endif
+		getcontext(&me->context);
+
+		if(g->traceback != nil) {
+			runtime_gogo(g);
+		}
+
+		runtime_printtrace(traceback.pcbuf, traceback.c);
+		runtime_goroutinetrailer(g);
 	}
+}
+
+// Do a stack trace of gp, and then restore the context to
+// gp->dotraceback.
+
+static void
+gtraceback(G* gp)
+{
+	Traceback* traceback;
+
+	traceback = gp->traceback;
+	gp->traceback = nil;
+	traceback->c = runtime_callers(1, traceback->pcbuf,
+		sizeof traceback->pcbuf / sizeof traceback->pcbuf[0]);
+	runtime_gogo(traceback->gp);
 }
 
 // Mark this g as m's idle goroutine.
@@ -517,18 +668,20 @@ runtime_idlegoroutine(void)
 static void
 mcommoninit(M *m)
 {
-	// Add to runtime_allm so garbage collector doesn't free m
-	// when it is just in a register or thread-local storage.
-	m->alllink = runtime_allm;
-	// runtime_Cgocalls() iterates over allm w/o schedlock,
-	// so we need to publish it safely.
-	runtime_atomicstorep((void**)&runtime_allm, m);
-
 	m->id = runtime_sched.mcount++;
 	m->fastrand = 0x49f6428aUL + m->id + runtime_cputicks();
 
 	if(m->mcache == nil)
 		m->mcache = runtime_allocmcache();
+
+	runtime_callers(1, m->createstack, nelem(m->createstack));
+
+	// Add to runtime_allm so garbage collector doesn't free m
+	// when it is just in a register or thread-local storage.
+	m->alllink = runtime_allm;
+	// runtime_NumCgoCall() iterates over allm w/o schedlock,
+	// so we need to publish it safely.
+	runtime_atomicstorep(&runtime_allm, m);
 }
 
 // Try to increment mcpu.  Report whether succeeded.
@@ -765,9 +918,27 @@ top:
 		mput(m);
 	}
 
-	v = runtime_atomicload(&runtime_sched.atomic);
-	if(runtime_sched.grunning == 0)
+	// Look for deadlock situation.
+	// There is a race with the scavenger that causes false negatives:
+	// if the scavenger is just starting, then we have
+	//	scvg != nil && grunning == 0 && gwait == 0
+	// and we do not detect a deadlock.  It is possible that we should
+	// add that case to the if statement here, but it is too close to Go 1
+	// to make such a subtle change.  Instead, we work around the
+	// false negative in trivial programs by calling runtime.gosched
+	// from the main goroutine just before main.main.
+	// See runtime_main above.
+	//
+	// On a related note, it is also possible that the scvg == nil case is
+	// wrong and should include gwait, but that does not happen in
+	// standard Go programs, which all start the scavenger.
+	//
+	if((scvg == nil && runtime_sched.grunning == 0) ||
+	   (scvg != nil && runtime_sched.grunning == 1 && runtime_sched.gwait == 0 &&
+	    (scvg->status == Grunning || scvg->status == Gsyscall))) {
 		runtime_throw("all goroutines are asleep - deadlock!");
+	}
+
 	m->nextg = nil;
 	m->waitnextg = 1;
 	runtime_noteclear(&m->havenextg);
@@ -776,6 +947,7 @@ top:
 	// Entersyscall might have decremented mcpu too, but if so
 	// it will see the waitstop and take the slow path.
 	// Exitsyscall never increments mcpu beyond mcpumax.
+	v = runtime_atomicload(&runtime_sched.atomic);
 	if(atomic_waitstop(v) && atomic_mcpu(v) <= atomic_mcpumax(v)) {
 		// set waitstop = 0 (known to be 1)
 		runtime_xadd(&runtime_sched.atomic, -1<<waitstopShift);
@@ -932,6 +1104,11 @@ runtime_mstart(void* mp)
 	}
 #endif
 
+	// Install signal handlers; after minit so that minit can
+	// prepare the thread to be able to handle the signals.
+	if(m == &runtime_m0)
+		runtime_initsig();
+
 	schedule(nil);
 	return nil;
 }
@@ -974,6 +1151,7 @@ runtime_newm(void)
 	M *m;
 	pthread_attr_t attr;
 	pthread_t tid;
+	size_t stacksize;
 
 	m = runtime_malloc(sizeof(M));
 	mcommoninit(m);
@@ -984,10 +1162,17 @@ runtime_newm(void)
 	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
 		runtime_throw("pthread_attr_setdetachstate");
 
-#ifndef PTHREAD_STACK_MIN
-#define PTHREAD_STACK_MIN 8192
-#endif
-	if(pthread_attr_setstacksize(&attr, PTHREAD_STACK_MIN) != 0)
+	stacksize = PTHREAD_STACK_MIN;
+
+	// With glibc before version 2.16 the static TLS size is taken
+	// out of the stack size, and we get an error or a crash if
+	// there is not enough stack space left.  Add it back in if we
+	// can, in case the program uses a lot of TLS space.  FIXME:
+	// This can be disabled in glibc 2.16 and later, if the bug is
+	// indeed fixed then.
+	stacksize += tlssize;
+
+	if(pthread_attr_setstacksize(&attr, stacksize) != 0)
 		runtime_throw("pthread_attr_setstacksize");
 
 	if(pthread_create(&tid, &attr, runtime_mstart, m) != 0)
@@ -1033,6 +1218,7 @@ schedule(G *gp)
 				m->lockedg = nil;
 			}
 			gp->idlem = nil;
+			runtime_memclr(&gp->context, sizeof gp->context);
 			gfput(gp);
 			if(--runtime_sched.gcount == 0)
 				runtime_exit(0);
@@ -1105,9 +1291,12 @@ runtime_entersyscall(void)
 {
 	uint32 v;
 
+	if(m->profilehz > 0)
+		runtime_setprof(false);
+
 	// Leave SP around for gc and traceback.
 #ifdef USING_SPLIT_STACK
-	g->gcstack = __splitstack_find(NULL, NULL, &g->gcstack_size,
+	g->gcstack = __splitstack_find(nil, nil, &g->gcstack_size,
 				       &g->gcnext_segment, &g->gcnext_sp,
 				       &g->gcinitial_sp);
 #else
@@ -1116,9 +1305,7 @@ runtime_entersyscall(void)
 
 	// Save the registers in the g structure so that any pointers
 	// held in registers will be seen by the garbage collector.
-	// We could use getcontext here, but setjmp is more efficient
-	// because it doesn't need to save the signal mask.
-	setjmp(g->gcregs);
+	getcontext(&g->gcregs);
 
 	g->status = Gsyscall;
 
@@ -1163,9 +1350,11 @@ runtime_exitsyscall(void)
 	// find that we still have mcpu <= mcpumax, then we can
 	// start executing Go code immediately, without having to
 	// schedlock/schedunlock.
+	// Also do fast return if any locks are held, so that
+	// panic code can use syscalls to open a file.
 	gp = g;
 	v = runtime_xadd(&runtime_sched.atomic, (1<<mcpuShift));
-	if(m->profilehz == runtime_sched.profilehz && atomic_mcpu(v) <= atomic_mcpumax(v)) {
+	if((m->profilehz == runtime_sched.profilehz && atomic_mcpu(v) <= atomic_mcpumax(v)) || m->locks > 0) {
 		// There's a cpu for us, so we can run.
 		gp->status = Grunning;
 		// Garbage collector isn't running (since we are),
@@ -1174,7 +1363,10 @@ runtime_exitsyscall(void)
 		gp->gcstack = nil;
 #endif
 		gp->gcnext_sp = nil;
-		runtime_memclr(gp->gcregs, sizeof gp->gcregs);
+		runtime_memclr(&gp->gcregs, sizeof gp->gcregs);
+
+		if(m->profilehz > 0)
+			runtime_setprof(true);
 		return;
 	}
 
@@ -1200,7 +1392,7 @@ runtime_exitsyscall(void)
 	gp->gcstack = nil;
 #endif
 	gp->gcnext_sp = nil;
-	runtime_memclr(gp->gcregs, sizeof gp->gcregs);
+	runtime_memclr(&gp->gcregs, sizeof gp->gcregs);
 }
 
 // Allocate a new g, with a stack big enough for stacksize bytes.
@@ -1224,6 +1416,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 		*ret_stacksize = stacksize;
 		newg->gcinitial_sp = *ret_stack;
 		newg->gcstack_size = stacksize;
+		runtime_xadd(&runtime_stacks_sys, stacksize);
 #endif
 	}
 	return newg;
@@ -1232,7 +1425,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 /* For runtime package testing.  */
 
 void runtime_testing_entersyscall(void)
-  __asm__("libgo_runtime.runtime.entersyscall");
+  __asm__("runtime.entersyscall");
 
 void
 runtime_testing_entersyscall()
@@ -1241,7 +1434,7 @@ runtime_testing_entersyscall()
 }
 
 void runtime_testing_exitsyscall(void)
-  __asm__("libgo_runtime.runtime.exitsyscall");
+  __asm__("runtime.exitsyscall");
 
 void
 runtime_testing_exitsyscall()
@@ -1254,7 +1447,7 @@ __go_go(void (*fn)(void*), void* arg)
 {
 	byte *sp;
 	size_t spsize;
-	G * volatile newg;	// volatile to avoid longjmp warning
+	G *newg;
 
 	schedlock();
 
@@ -1295,16 +1488,26 @@ __go_go(void (*fn)(void*), void* arg)
 	if(sp == nil)
 		runtime_throw("nil g->stack0");
 
-	getcontext(&newg->context);
-	newg->context.uc_stack.ss_sp = sp;
-	newg->context.uc_stack.ss_size = spsize;
-	makecontext(&newg->context, kickoff, 0);
+	{
+		// Avoid warnings about variables clobbered by
+		// longjmp.
+		byte * volatile vsp = sp;
+		size_t volatile vspsize = spsize;
+		G * volatile vnewg = newg;
 
-	newprocreadylocked(newg);
-	schedunlock();
+		getcontext(&vnewg->context);
+		vnewg->context.uc_stack.ss_sp = vsp;
+#ifdef MAKECONTEXT_STACK_TOP
+		vnewg->context.uc_stack.ss_sp += vspsize;
+#endif
+		vnewg->context.uc_stack.ss_size = vspsize;
+		makecontext(&vnewg->context, kickoff, 0);
 
-	return newg;
-//printf(" goid=%d\n", newg->goid);
+		newprocreadylocked(vnewg);
+		schedunlock();
+
+		return vnewg;
+	}
 }
 
 // Put on gfree list.  Sched must be locked.
@@ -1345,7 +1548,7 @@ rundefer(void)
 	}
 }
 
-void runtime_Goexit (void) asm ("libgo_runtime.runtime.Goexit");
+void runtime_Goexit (void) asm ("runtime.Goexit");
 
 void
 runtime_Goexit(void)
@@ -1354,7 +1557,7 @@ runtime_Goexit(void)
 	runtime_goexit();
 }
 
-void runtime_Gosched (void) asm ("libgo_runtime.runtime.Gosched");
+void runtime_Gosched (void) asm ("runtime.Gosched");
 
 void
 runtime_Gosched(void)
@@ -1433,7 +1636,7 @@ runtime_lockedOSThread(void)
 // for testing of callbacks
 
 _Bool runtime_golockedOSThread(void)
-  asm("libgo_runtime.runtime.golockedOSThread");
+  asm("runtime.golockedOSThread");
 
 _Bool
 runtime_golockedOSThread(void)
@@ -1448,11 +1651,17 @@ runtime_mid()
 	return m->id;
 }
 
-int32 runtime_Goroutines (void)
-  __asm__ ("libgo_runtime.runtime.Goroutines");
+int32 runtime_NumGoroutine (void)
+  __asm__ ("runtime.NumGoroutine");
 
 int32
-runtime_Goroutines()
+runtime_NumGoroutine()
+{
+	return runtime_sched.gcount;
+}
+
+int32
+runtime_gcount(void)
 {
 	return runtime_sched.gcount;
 }
@@ -1477,7 +1686,7 @@ runtime_sigprof(uint8 *pc __attribute__ ((unused)),
 		uint8 *lr __attribute__ ((unused)),
 		G *gp __attribute__ ((unused)))
 {
-	// int32 n;
+	int32 n;
 
 	if(prof.fn == nil || prof.hz == 0)
 		return;
@@ -1487,9 +1696,9 @@ runtime_sigprof(uint8 *pc __attribute__ ((unused)),
 		runtime_unlock(&prof);
 		return;
 	}
-	// n = runtime_gentraceback(pc, sp, lr, gp, 0, prof.pcbuf, nelem(prof.pcbuf));
-	// if(n > 0)
-	// 	prof.fn(prof.pcbuf, n);
+	n = runtime_callers(0, prof.pcbuf, nelem(prof.pcbuf));
+	if(n > 0)
+		prof.fn(prof.pcbuf, n);
 	runtime_unlock(&prof);
 }
 

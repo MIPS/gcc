@@ -97,6 +97,8 @@ extern char arm_arch_name[];
 	  builtin_define ("__XSCALE__");		\
 	if (arm_arch_iwmmxt)				\
 	  builtin_define ("__IWMMXT__");		\
+	if (arm_arch_iwmmxt2)				\
+	  builtin_define ("__IWMMXT2__");		\
 	if (TARGET_AAPCS_BASED)				\
 	  {						\
 	    if (arm_pcs_default == ARM_PCS_AAPCS_VFP)	\
@@ -194,7 +196,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_MAVERICK		(arm_fpu_desc->model == ARM_FP_MODEL_MAVERICK)
 #define TARGET_VFP		(arm_fpu_desc->model == ARM_FP_MODEL_VFP)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
+#define TARGET_IWMMXT2			(arm_arch_iwmmxt2)
 #define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_32BIT)
+#define TARGET_REALLY_IWMMXT2		(TARGET_IWMMXT2 && TARGET_32BIT)
 #define TARGET_IWMMXT_ABI (TARGET_32BIT && arm_abi == ARM_ABI_IWMMXT)
 #define TARGET_ARM                      (! TARGET_THUMB)
 #define TARGET_EITHER			1 /* (TARGET_ARM | TARGET_THUMB) */
@@ -409,6 +413,9 @@ extern int arm_arch_cirrus;
 
 /* Nonzero if this chip supports Intel XScale with Wireless MMX technology.  */
 extern int arm_arch_iwmmxt;
+
+/* Nonzero if this chip supports Intel Wireless MMX2 technology.  */
+extern int arm_arch_iwmmxt2;
 
 /* Nonzero if this chip is an XScale.  */
 extern int arm_arch_xscale;
@@ -1151,16 +1158,6 @@ enum reg_class
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
   arm_small_register_classes_for_mode_p 
 
-/* Given an rtx X being reloaded into a reg required to be
-   in class CLASS, return the class of reg to actually use.
-   In general this is just CLASS, but for the Thumb core registers and
-   immediate constants we prefer a LO_REGS class or a subset.  */
-#define PREFERRED_RELOAD_CLASS(X, CLASS)		\
-  (TARGET_32BIT ? (CLASS) :				\
-   ((CLASS) == GENERAL_REGS || (CLASS) == HI_REGS	\
-    || (CLASS) == NO_REGS || (CLASS) == STACK_REG	\
-   ? LO_REGS : (CLASS)))
-
 /* Must leave BASE_REGS reloads alone */
 #define THUMB_SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, X)		\
   ((CLASS) != LO_REGS && (CLASS) != BASE_REGS				\
@@ -1622,6 +1619,30 @@ typedef struct
 #define HAVE_POST_MODIFY_DISP TARGET_32BIT
 #define HAVE_PRE_MODIFY_REG   TARGET_32BIT
 #define HAVE_POST_MODIFY_REG  TARGET_32BIT
+
+enum arm_auto_incmodes
+  {
+    ARM_POST_INC,
+    ARM_PRE_INC,
+    ARM_POST_DEC,
+    ARM_PRE_DEC
+  };
+
+#define ARM_AUTOINC_VALID_FOR_MODE_P(mode, code) \
+  (TARGET_32BIT && arm_autoinc_modes_ok_p (mode, code))
+#define USE_LOAD_POST_INCREMENT(mode) \
+  ARM_AUTOINC_VALID_FOR_MODE_P(mode, ARM_POST_INC)
+#define USE_LOAD_PRE_INCREMENT(mode)  \
+  ARM_AUTOINC_VALID_FOR_MODE_P(mode, ARM_PRE_INC)
+#define USE_LOAD_POST_DECREMENT(mode) \
+  ARM_AUTOINC_VALID_FOR_MODE_P(mode, ARM_POST_DEC)
+#define USE_LOAD_PRE_DECREMENT(mode)  \
+  ARM_AUTOINC_VALID_FOR_MODE_P(mode, ARM_PRE_DEC)
+
+#define USE_STORE_PRE_DECREMENT(mode) USE_LOAD_PRE_DECREMENT(mode)
+#define USE_STORE_PRE_INCREMENT(mode) USE_LOAD_PRE_INCREMENT(mode)
+#define USE_STORE_POST_DECREMENT(mode) USE_LOAD_POST_DECREMENT(mode)
+#define USE_STORE_POST_INCREMENT(mode) USE_LOAD_POST_INCREMENT(mode)
 
 /* Macros to check register numbers against specific register classes.  */
 

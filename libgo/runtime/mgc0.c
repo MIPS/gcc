@@ -4,6 +4,8 @@
 
 // Garbage collector.
 
+#include <unistd.h>
+
 #include "runtime.h"
 #include "arch.h"
 #include "malloc.h"
@@ -61,6 +63,21 @@ enum {
 
 #define bitMask (bitBlockBoundary | bitAllocated | bitMarked | bitSpecial)
 
+// Holding worldsema grants an M the right to try to stop the world.
+// The procedure is:
+//
+//	runtime_semacquire(&runtime_worldsema);
+//	m->gcing = 1;
+//	runtime_stoptheworld();
+//
+//	... do stuff ...
+//
+//	m->gcing = 0;
+//	runtime_semrelease(&runtime_worldsema);
+//	runtime_starttheworld();
+//
+uint32 runtime_worldsema = 1;
+
 // TODO: Make these per-M.
 static uint64 nhandoff;
 
@@ -91,7 +108,6 @@ struct FinBlock
 	int32 cap;
 	Finalizer fin[1];
 };
-
 
 static G *fing;
 static FinBlock *finq; // list of finalizers that are to be executed
@@ -143,7 +159,7 @@ scanblock(byte *b, int64 n)
 	bool keepworking;
 
 	if((int64)(uintptr)n != n || n < 0) {
-		// runtime_printf("scanblock %p %lld\n", b, (long long)n);
+		runtime_printf("scanblock %p %D\n", b, n);
 		runtime_throw("scanblock");
 	}
 
@@ -174,7 +190,7 @@ scanblock(byte *b, int64 n)
 		// Each iteration scans the block b of length n, queueing pointers in
 		// the work buffer.
 		if(Debug > 1)
-			runtime_printf("scanblock %p %lld\n", b, (long long) n);
+			runtime_printf("scanblock %p %D\n", b, n);
 
 		vp = (void**)b;
 		n >>= (2+PtrSize/8);  /* n /= PtrSize (4 or 8) */
@@ -330,7 +346,7 @@ debug_scanblock(byte *b, int64 n)
 		runtime_throw("debug_scanblock without DebugMark");
 
 	if((int64)(uintptr)n != n || n < 0) {
-		//runtime_printf("debug_scanblock %p %D\n", b, n);
+		runtime_printf("debug_scanblock %p %D\n", b, n);
 		runtime_throw("debug_scanblock");
 	}
 
@@ -640,14 +656,6 @@ markfin(void *v)
 	scanblock(v, size);
 }
 
-struct root_list {
-	struct root_list *next;
-	struct root {
-		void *decl;
-		size_t size;
-	} roots[];
-};
-
 static struct root_list* roots;
 
 void
@@ -695,6 +703,7 @@ mark(void (*scan)(byte*, int64))
 	scan((byte*)&runtime_allm, sizeof runtime_allm);
 	runtime_MProf_Mark(scan);
 	runtime_time_scan(scan);
+	runtime_trampoline_scan(scan);
 
 	// mark stacks
 	for(gp=runtime_allg; gp!=nil; gp=gp->alllink) {
@@ -778,9 +787,11 @@ sweep(void)
 	byte *p;
 	MCache *c;
 	byte *arena_start;
+	int64 now;
 
 	m = runtime_m();
 	arena_start = runtime_mheap.arena_start;
+	now = runtime_nanotime();
 
 	for(;;) {
 		s = work.spans;
@@ -788,6 +799,11 @@ sweep(void)
 			break;
 		if(!runtime_casp(&work.spans, s, s->allnext))
 			continue;
+
+		// Stamp newly unused spans. The scavenger will use that
+		// info to potentially give back some pages to the OS.
+		if(s->state == MSpanFree && s->unusedsince == 0)
+			s->unusedsince = now;
 
 		if(s->state != MSpanInUse)
 			continue;
@@ -875,11 +891,6 @@ runtime_gchelper(void)
 		runtime_notewakeup(&work.alldone);
 }
 
-// Semaphore, not Lock, so that the goroutine
-// reschedules when there is contention rather
-// than spinning.
-static uint32 gcsema = 1;
-
 // Initialized from $GOGC.  GOGC=off means no gc.
 //
 // Next gc is after we've allocated an extra amount of
@@ -910,7 +921,7 @@ cachestats(void)
 	uint64 stacks_sys;
 
 	stacks_inuse = 0;
-	stacks_sys = 0;
+	stacks_sys = runtime_stacks_sys;
 	for(m=runtime_allm; m; m=m->alllink) {
 		runtime_purgecachedstats(m);
 		// stacks_inuse += m->stackalloc->inuse;
@@ -968,9 +979,9 @@ runtime_gc(int32 force)
 	if(gcpercent < 0)
 		return;
 
-	runtime_semacquire(&gcsema);
+	runtime_semacquire(&runtime_worldsema);
 	if(!force && mstats.heap_alloc < mstats.next_gc) {
-		runtime_semrelease(&gcsema);
+		runtime_semrelease(&runtime_worldsema);
 		return;
 	}
 
@@ -1012,7 +1023,7 @@ runtime_gc(int32 force)
 	stealcache();
 	cachestats();
 
-	mstats.next_gc = mstats.heap_alloc+mstats.heap_alloc*gcpercent/100;
+	mstats.next_gc = mstats.heap_alloc+(mstats.heap_alloc-runtime_stacks_sys)*gcpercent/100;
 	m->gcing = 0;
 
 	m->locks++;	// disable gc during the mallocs in newproc
@@ -1032,21 +1043,22 @@ runtime_gc(int32 force)
 	obj1 = mstats.nmalloc - mstats.nfree;
 
 	t3 = runtime_nanotime();
+	mstats.last_gc = t3;
 	mstats.pause_ns[mstats.numgc%nelem(mstats.pause_ns)] = t3 - t0;
 	mstats.pause_total_ns += t3 - t0;
 	mstats.numgc++;
 	if(mstats.debuggc)
-		runtime_printf("pause %llu\n", (unsigned long long)t3-t0);
+		runtime_printf("pause %D\n", t3-t0);
 
 	if(gctrace) {
-		runtime_printf("gc%d(%d): %llu+%llu+%llu ms %llu -> %llu MB %llu -> %llu (%llu-%llu) objects %llu handoff\n",
-			mstats.numgc, work.nproc, (unsigned long long)(t1-t0)/1000000, (unsigned long long)(t2-t1)/1000000, (unsigned long long)(t3-t2)/1000000,
-			(unsigned long long)heap0>>20, (unsigned long long)heap1>>20, (unsigned long long)obj0, (unsigned long long)obj1,
-			(unsigned long long) mstats.nmalloc, (unsigned long long)mstats.nfree,
-			(unsigned long long) nhandoff);
+		runtime_printf("gc%d(%d): %D+%D+%D ms, %D -> %D MB %D -> %D (%D-%D) objects\n",
+			mstats.numgc, work.nproc, (t1-t0)/1000000, (t2-t1)/1000000, (t3-t2)/1000000,
+			heap0>>20, heap1>>20, obj0, obj1,
+			mstats.nmalloc, mstats.nfree);
 	}
-
-	runtime_semrelease(&gcsema);
+	
+	runtime_MProf_GC();
+	runtime_semrelease(&runtime_worldsema);
 
 	// If we could have used another helper proc, start one now,
 	// in the hope that it will be available next time.
@@ -1066,25 +1078,25 @@ runtime_gc(int32 force)
 }
 
 void runtime_ReadMemStats(MStats *)
-  __asm__("libgo_runtime.runtime.ReadMemStats");
+  __asm__("runtime.ReadMemStats");
 
 void
 runtime_ReadMemStats(MStats *stats)
 {
 	M *m;
 
-	// Have to acquire gcsema to stop the world,
+	// Have to acquire worldsema to stop the world,
 	// because stoptheworld can only be used by
 	// one goroutine at a time, and there might be
 	// a pending garbage collection already calling it.
-	runtime_semacquire(&gcsema);
+	runtime_semacquire(&runtime_worldsema);
 	m = runtime_m();
 	m->gcing = 1;
 	runtime_stoptheworld();
 	cachestats();
 	*stats = mstats;
 	m->gcing = 0;
-	runtime_semrelease(&gcsema);
+	runtime_semrelease(&runtime_worldsema);
 	runtime_starttheworld(false);
 }
 
@@ -1140,8 +1152,8 @@ runtime_markallocated(void *v, uintptr n, bool noptr)
 {
 	uintptr *b, obits, bits, off, shift;
 
-	// if(0)
-		// runtime_printf("markallocated %p+%p\n", v, n);
+	if(0)
+		runtime_printf("markallocated %p+%p\n", v, n);
 
 	if((byte*)v+n > (byte*)runtime_mheap.arena_used || (byte*)v < runtime_mheap.arena_start)
 		runtime_throw("markallocated: bad pointer");
@@ -1172,8 +1184,8 @@ runtime_markfreed(void *v, uintptr n)
 {
 	uintptr *b, obits, bits, off, shift;
 
-	// if(0)
-		// runtime_printf("markallocated %p+%p\n", v, n);
+	if(0)
+		runtime_printf("markallocated %p+%p\n", v, n);
 
 	if((byte*)v+n > (byte*)runtime_mheap.arena_used || (byte*)v < runtime_mheap.arena_start)
 		runtime_throw("markallocated: bad pointer");
@@ -1215,7 +1227,7 @@ runtime_checkfreed(void *v, uintptr n)
 	bits = *b>>shift;
 	if((bits & bitAllocated) != 0) {
 		runtime_printf("checkfreed %p+%p: off=%p have=%p\n",
-			v, (void*)n, (void*)off, (void*)(bits & bitMask));
+			v, n, off, bits & bitMask);
 		runtime_throw("checkfreed: not freed");
 	}
 }
@@ -1319,6 +1331,8 @@ runtime_setblockspecial(void *v, bool s)
 void
 runtime_MHeap_MapBits(MHeap *h)
 {
+	size_t page_size;
+
 	// Caller has added extra mappings to the arena.
 	// Add extra mappings of bitmap words as needed.
 	// We allocate extra bitmap pieces in chunks of bitmapChunk.
@@ -1331,6 +1345,9 @@ runtime_MHeap_MapBits(MHeap *h)
 	n = (n+bitmapChunk-1) & ~(bitmapChunk-1);
 	if(h->bitmap_mapped >= n)
 		return;
+
+	page_size = getpagesize();
+	n = (n+page_size-1) & ~(page_size-1);
 
 	runtime_SysMap(h->arena_start - n, n - h->bitmap_mapped);
 	h->bitmap_mapped = n;

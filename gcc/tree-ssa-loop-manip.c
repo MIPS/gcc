@@ -25,13 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "tree-flow.h"
 #include "tree-dump.h"
 #include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
-#include "cfglayout.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"
 #include "tree-inline.h"
@@ -1096,7 +1094,6 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
-  verify_dominators (CDI_DOMINATORS);
   verify_loop_structure ();
   verify_loop_closed_ssa (true);
 #endif

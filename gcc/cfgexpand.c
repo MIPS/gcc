@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssaexpand.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "cfgloop.h"
+#include "regs.h" /* For reg_renumber.  */
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
 
 /* This variable holds information helping the rewriting of SSA trees
@@ -325,70 +327,6 @@ stack_var_conflict_p (size_t x, size_t y)
   if (!a->conflicts || !b->conflicts)
     return false;
   return bitmap_bit_p (a->conflicts, y);
-}
-
-/* Returns true if TYPE is or contains a union type.  */
-
-static bool
-aggregate_contains_union_type (tree type)
-{
-  tree field;
-
-  if (TREE_CODE (type) == UNION_TYPE
-      || TREE_CODE (type) == QUAL_UNION_TYPE)
-    return true;
-  if (TREE_CODE (type) == ARRAY_TYPE)
-    return aggregate_contains_union_type (TREE_TYPE (type));
-  if (TREE_CODE (type) != RECORD_TYPE)
-    return false;
-
-  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL)
-      if (aggregate_contains_union_type (TREE_TYPE (field)))
-	return true;
-
-  return false;
-}
-
-/* A subroutine of expand_used_vars.  If two variables X and Y have alias
-   sets that do not conflict, then do add a conflict for these variables
-   in the interference graph.  We also need to make sure to add conflicts
-   for union containing structures.  Else RTL alias analysis comes along
-   and due to type based aliasing rules decides that for two overlapping
-   union temporaries { short s; int i; } accesses to the same mem through
-   different types may not alias and happily reorders stores across
-   life-time boundaries of the temporaries (See PR25654).  */
-
-static void
-add_alias_set_conflicts (void)
-{
-  size_t i, j, n = stack_vars_num;
-
-  for (i = 0; i < n; ++i)
-    {
-      tree type_i = TREE_TYPE (stack_vars[i].decl);
-      bool aggr_i = AGGREGATE_TYPE_P (type_i);
-      bool contains_union;
-
-      contains_union = aggregate_contains_union_type (type_i);
-      for (j = 0; j < i; ++j)
-	{
-	  tree type_j = TREE_TYPE (stack_vars[j].decl);
-	  bool aggr_j = AGGREGATE_TYPE_P (type_j);
-	  if (aggr_i != aggr_j
-	      /* Either the objects conflict by means of type based
-		 aliasing rules, or we need to add a conflict.  */
-	      || !objects_must_conflict_p (type_i, type_j)
-	      /* In case the types do not conflict ensure that access
-		 to elements will conflict.  In case of unions we have
-		 to be careful as type based aliasing rules may say
-		 access to the same memory does not conflict.  So play
-		 safe and add a conflict in this case when
-                 -fstrict-aliasing is used.  */
-              || (contains_union && flag_strict_aliasing))
-	    add_stack_var_conflict (i, j);
-	}
-    }
 }
 
 /* Callback for walk_stmt_ops.  If OP is a decl touched by add_stack_var
@@ -870,7 +808,7 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
   /* If this fails, we've overflowed the stack frame.  Error nicely?  */
   gcc_assert (offset == trunc_int_for_mode (offset, Pmode));
 
-  x = plus_constant (base, offset);
+  x = plus_constant (Pmode, base, offset);
   x = gen_rtx_MEM (DECL_MODE (SSAVAR (decl)), x);
 
   if (TREE_CODE (decl) != SSA_NAME)
@@ -1238,8 +1176,9 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
       if (really_expand)
         expand_one_register_var (origvar);
     }
-  else if (!host_integerp (DECL_SIZE_UNIT (var), 1))
+  else if (! valid_constant_size_p (DECL_SIZE_UNIT (var)))
     {
+      /* Reject variables which cover more than half of the address-space.  */
       if (really_expand)
 	{
 	  error ("size of variable %q+D is too large", var);
@@ -1485,9 +1424,9 @@ estimated_stack_frame_size (struct cgraph_node *node)
   tree var;
   tree old_cur_fun_decl = current_function_decl;
   referenced_var_iterator rvi;
-  struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
+  struct function *fn = DECL_STRUCT_FUNCTION (node->symbol.decl);
 
-  current_function_decl = node->decl;
+  current_function_decl = node->symbol.decl;
   push_cfun (fn);
 
   gcc_checking_assert (gimple_referenced_vars (fn));
@@ -1622,10 +1561,6 @@ expand_used_vars (void)
   if (stack_vars_num > 0)
     {
       add_scope_conflicts ();
-      /* Due to the way alias sets work, no variables with non-conflicting
-	 alias sets may be assigned the same address.  Add conflicts to
-	 reflect this.  */
-      add_alias_set_conflicts ();
 
       /* If stack protection is enabled, we don't share space between
 	 vulnerable data and non-vulnerable data.  */
@@ -1938,6 +1873,8 @@ expand_gimple_cond (basic_block bb, gimple stmt)
   false_edge->flags |= EDGE_FALLTHRU;
   new_bb->count = false_edge->count;
   new_bb->frequency = EDGE_FREQUENCY (false_edge);
+  if (current_loops && bb->loop_father)
+    add_bb_to_loop (new_bb, bb->loop_father);
   new_edge = make_edge (new_bb, dest, 0);
   new_edge->probability = REG_BR_PROB_BASE;
   new_edge->count = new_bb->count;
@@ -2830,6 +2767,7 @@ expand_debug_expr (tree exp)
 	}
       /* FALLTHROUGH */
     case INDIRECT_REF:
+      inner_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0)));
       op0 = expand_debug_expr (TREE_OPERAND (exp, 0));
       if (!op0)
 	return NULL;
@@ -2847,7 +2785,7 @@ expand_debug_expr (tree exp)
 	  if (!op1 || !CONST_INT_P (op1))
 	    return NULL;
 
-	  op0 = plus_constant (op0, INTVAL (op1));
+	  op0 = plus_constant (inner_mode, op0, INTVAL (op1));
 	}
 
       if (POINTER_TYPE_P (TREE_TYPE (exp)))
@@ -3341,8 +3279,10 @@ expand_debug_expr (tree exp)
 		  && (bitoffset % BITS_PER_UNIT) == 0
 		  && bitsize > 0
 		  && bitsize == maxsize)
-		return plus_constant (gen_rtx_DEBUG_IMPLICIT_PTR (mode, decl),
-				      bitoffset / BITS_PER_UNIT);
+		{
+		  rtx base = gen_rtx_DEBUG_IMPLICIT_PTR (mode, decl);
+		  return plus_constant (mode, base, bitoffset / BITS_PER_UNIT);
+		}
 	    }
 
 	  return NULL;
@@ -3354,9 +3294,22 @@ expand_debug_expr (tree exp)
       return op0;
 
     case VECTOR_CST:
-      exp = build_constructor_from_list (TREE_TYPE (exp),
-					 TREE_VECTOR_CST_ELTS (exp));
-      /* Fall through.  */
+      {
+	unsigned i;
+
+	op0 = gen_rtx_CONCATN
+	  (mode, rtvec_alloc (TYPE_VECTOR_SUBPARTS (TREE_TYPE (exp))));
+
+	for (i = 0; i < VECTOR_CST_NELTS (exp); ++i)
+	  {
+	    op1 = expand_debug_expr (VECTOR_CST_ELT (exp, i));
+	    if (!op1)
+	      return NULL;
+	    XVECEXP (op0, 0, i) = op1;
+	  }
+
+	return op0;
+      }
 
     case CONSTRUCTOR:
       if (TREE_CLOBBER_P (exp))
@@ -3711,7 +3664,8 @@ expand_gimple_basic_block (basic_block bb)
      block to be in GIMPLE, instead of RTL.  Therefore, we need to
      access the BB sequence directly.  */
   stmts = bb_seq (bb);
-  bb->il.gimple = NULL;
+  bb->il.gimple.seq = NULL;
+  bb->il.gimple.phi_nodes = NULL;
   rtl_profile_for_bb (bb);
   init_rtl_bb_info (bb);
   bb->flags |= BB_RTL;
@@ -4103,6 +4057,8 @@ construct_init_block (void)
 				   ENTRY_BLOCK_PTR);
   init_block->frequency = ENTRY_BLOCK_PTR->frequency;
   init_block->count = ENTRY_BLOCK_PTR->count;
+  if (current_loops && ENTRY_BLOCK_PTR->loop_father)
+    add_bb_to_loop (init_block, ENTRY_BLOCK_PTR->loop_father);
   if (e)
     {
       first_block = e->dest;
@@ -4170,6 +4126,8 @@ construct_exit_block (void)
 				   EXIT_BLOCK_PTR->prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
+  if (current_loops && EXIT_BLOCK_PTR->loop_father)
+    add_bb_to_loop (exit_block, EXIT_BLOCK_PTR->loop_father);
 
   ix = 0;
   while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
@@ -4360,8 +4318,14 @@ gimple_expand_cfg (void)
   SA.partition_to_pseudo = (rtx *)xcalloc (SA.map->num_partitions,
 					   sizeof (rtx));
 
+  /* Make sure all values used by the optimization passes have sane
+     defaults.  */
+  reg_renumber = 0;
+
   /* Some backends want to know that we are expanding to RTL.  */
   currently_expanding_to_rtl = 1;
+  /* Dominators are not kept up-to-date as we may create new basic-blocks.  */
+  free_dominance_info (CDI_DOMINATORS);
 
   rtl_profile_for_bb (ENTRY_BLOCK_PTR);
 
@@ -4527,7 +4491,11 @@ gimple_expand_cfg (void)
   if (MAY_HAVE_DEBUG_INSNS)
     expand_debug_locations ();
 
-  execute_free_datastructures ();
+  /* Free stuff we no longer need after GIMPLE optimizations.  */
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  delete_tree_cfg_annotations ();
+
   timevar_push (TV_OUT_OF_SSA);
   finish_out_of_ssa (&SA);
   timevar_pop (TV_OUT_OF_SSA);
@@ -4535,6 +4503,8 @@ gimple_expand_cfg (void)
   timevar_push (TV_POST_EXPAND);
   /* We are no longer in SSA form.  */
   cfun->gimple_df->in_ssa_p = false;
+  if (current_loops)
+    loops_state_clear (LOOP_CLOSED_SSA);
 
   /* Expansion is used by optimization passes too, set maybe_hot_insn_p
      conservatively to true until they are all profile aware.  */
@@ -4608,13 +4578,36 @@ gimple_expand_cfg (void)
   sbitmap_free (blocks);
   purge_all_dead_edges ();
 
-  compact_blocks ();
-
   expand_stack_alignment ();
+
+  /* Fixup REG_EQUIV notes in the prologue if there are tailcalls in this
+     function.  */
+  if (crtl->tail_call_emit)
+    fixup_tail_calls ();
+
+  /* After initial rtl generation, call back to finish generating
+     exception support code.  We need to do this before cleaning up
+     the CFG as the code does not expect dead landing pads.  */
+  if (cfun->eh->region_tree != NULL)
+    finish_eh_generation ();
+
+  /* Remove unreachable blocks, otherwise we cannot compute dominators
+     which are needed for loop state verification.  As a side-effect
+     this also compacts blocks.
+     ???  We cannot remove trivially dead insns here as for example
+     the DRAP reg on i?86 is not magically live at this point.
+     gcc.c-torture/execute/ipa-sra-2.c execution, -Os -m32 fails otherwise.  */
+  cleanup_cfg (CLEANUP_NO_INSN_DEL);
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
 #endif
+
+  /* Initialize pseudos allocated for hard registers.  */
+  emit_initial_value_sets ();
+
+  /* And finally unshare all RTL.  */
+  unshare_all_rtl ();
 
   /* There's no need to defer outputting this function any more; we
      know we want to output it.  */
@@ -4665,7 +4658,9 @@ gimple_expand_cfg (void)
      the common parent easily.  */
   set_block_levels (DECL_INITIAL (cfun->decl), 0);
   default_rtl_profile ();
+
   timevar_pop (TV_POST_EXPAND);
+
   return 0;
 }
 

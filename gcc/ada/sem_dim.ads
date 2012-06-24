@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---           Copyright (C) 2011-2012, Free Software Foundation, Inc.        --
+--          Copyright (C) 2011-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -137,7 +137,7 @@ package Sem_Dim is
    --  restricted to Integer exponent. This routine deals only with rational
    --  exponent which is not an integer if Btyp is a dimensioned type.
 
-   procedure Expand_Put_Call_With_Dimension_Symbol (N : Node_Id);
+   procedure Expand_Put_Call_With_Symbol (N : Node_Id);
    --  Determine whether N denotes a subprogram call to one of the routines
    --  defined in System.Dim.Float_IO or System.Dim.Integer_IO and add an
    --  extra actual to the call to represent the symbolic representation of

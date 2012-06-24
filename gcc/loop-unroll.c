@@ -27,9 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "params.h"
-#include "output.h"
 #include "expr.h"
 #include "hashtab.h"
 #include "recog.h"
@@ -198,7 +196,6 @@ unroll_and_peel_loops (int flags)
       if (check)
 	{
 #ifdef ENABLE_CHECKING
-	  verify_dominators (CDI_DOMINATORS);
 	  verify_loop_structure ();
 #endif
 	}
@@ -255,7 +252,6 @@ peel_loops_completely (int flags)
 	{
 	  peel_loop_completely (loop);
 #ifdef ENABLE_CHECKING
-	  verify_dominators (CDI_DOMINATORS);
 	  verify_loop_structure ();
 #endif
 	}
@@ -859,7 +855,9 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
     }
 
   /* If we have profile feedback, check whether the loop rolls.  */
-  if (loop->header->count && expected_loop_iterations (loop) < 2 * nunroll)
+  if ((loop->header->count
+       && expected_loop_iterations (loop) < 2 * nunroll)
+      || desc->niter_max < 2 * nunroll)
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");
@@ -1402,8 +1400,9 @@ decide_unroll_stupid (struct loop *loop, int flags)
     }
 
   /* If we have profile feedback, check whether the loop rolls.  */
-  if (loop->header->count
-      && expected_loop_iterations (loop) < 2 * nunroll)
+  if ((loop->header->count
+       && expected_loop_iterations (loop) < 2 * nunroll)
+      || desc->niter_max < 2 * nunroll)
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");

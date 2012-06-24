@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -482,6 +482,13 @@ package body Switch.C is
                      Generate_Processed_File := True;
                      Ptr := Ptr + 1;
 
+                  --  -gnatei (max number of instantiations)
+
+                  when 'i' =>
+                     Ptr := Ptr + 1;
+                     Scan_Pos
+                       (Switch_Chars, Max, Ptr, Maximum_Instantiations, C);
+
                   --  -gnateI (index of unit in multi-unit source)
 
                   when 'I' =>
@@ -507,6 +514,24 @@ package body Switch.C is
 
                      Mapping_File_Name :=
                        new String'(Switch_Chars (Ptr .. Max));
+                     return;
+
+                  --  -gnateO= (object path file)
+
+                  when 'O' =>
+                     Store_Switch := False;
+                     Ptr := Ptr + 1;
+
+                     --  Check for '='
+
+                     if Ptr >= Max or else Switch_Chars (Ptr) /= '=' then
+                        Bad_Switch ("-gnateO");
+
+                     else
+                        Object_Path_File_Name :=
+                          new String'(Switch_Chars (Ptr + 1 .. Max));
+                     end if;
+
                      return;
 
                   --  -gnatep (preprocessing data file)
@@ -627,12 +652,6 @@ package body Switch.C is
                Ptr := Ptr + 1;
                Usage_Requested := True;
 
-            --  Processing for H switch
-
-            when 'H' =>
-               Ptr := Ptr + 1;
-               HLO_Active := True;
-
             --  Processing for i switch
 
             when 'i' =>
@@ -712,6 +731,17 @@ package body Switch.C is
             when 'n' =>
                Ptr := Ptr + 1;
                Inline_Active := True;
+
+               --  There may be a digit (1 or 2) appended to the switch
+
+               if Ptr <= Max then
+                  C := Switch_Chars (Ptr);
+
+                  if C in '1' .. '2' then
+                     Ptr := Ptr + 1;
+                     Inline_Level := Character'Pos (C) - Character'Pos ('0');
+                  end if;
+               end if;
 
             --  Processing for N switch
 

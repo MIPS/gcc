@@ -1331,7 +1331,11 @@
 	 These aren't used when dyld support is enabled (it is by default) */
 #     define DATASTART ((ptr_t) get_etext())
 #     define DATAEND	((ptr_t) get_end())
-#     define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     ifdef HAVE_PTHREAD_GET_STACKADDR_NP
+#       define STACKBOTTOM (ptr_t)pthread_get_stackaddr_np(pthread_self())
+#     else
+#       define STACKBOTTOM ((ptr_t) 0xc0000000)
+#     endif
 #     define USE_MMAP
 #     define USE_MMAP_ANON
 #     define USE_ASM_PUSH_REGS
@@ -1970,8 +1974,13 @@
 
 # ifdef X86_64
 #   define MACH_TYPE "X86_64"
-#   define ALIGNMENT 8
-#   define CPP_WORDSZ 64
+#   ifdef __ILP32__
+#     define ALIGNMENT 4
+#     define CPP_WORDSZ 32
+#   else
+#     define ALIGNMENT 8
+#     define CPP_WORDSZ 64
+#   endif
 #   ifndef HBLKSIZE
 #     define HBLKSIZE 4096
 #   endif
@@ -2014,7 +2023,11 @@
 	 These aren't used when dyld support is enabled (it is by default) */
 #     define DATASTART ((ptr_t) get_etext())
 #     define DATAEND	((ptr_t) get_end())
-#     define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#     ifdef HAVE_PTHREAD_GET_STACKADDR_NP
+#       define STACKBOTTOM (ptr_t)pthread_get_stackaddr_np(pthread_self())
+#     else
+#       define STACKBOTTOM ((ptr_t) 0x7fff5fc00000)
+#     endif
 #     define USE_MMAP
 #     define USE_MMAP_ANON
 #     ifdef GC_DARWIN_THREADS

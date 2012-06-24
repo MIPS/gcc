@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Debug;    use Debug;
 with Elists;
 with Errout;   use Errout;
 with Exp_CG;
+with Exp_Ch6;  use Exp_Ch6;
 with Fmap;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
@@ -117,9 +118,7 @@ procedure Gnat1drv is
       --  Debug flag -gnatd.I is a synonym for Generate_SCIL and requires code
       --  generation.
 
-      if Debug_Flag_Dot_II
-        and then Operating_Mode = Generate_Code
-      then
+      if Debug_Flag_Dot_II and then Operating_Mode = Generate_Code then
          Generate_SCIL := True;
       end if;
 
@@ -288,6 +287,12 @@ procedure Gnat1drv is
          Ttypes.Target_Strict_Alignment := True;
       end if;
 
+      --  Increase size of allocated entities if debug flag -gnatd.N is set
+
+      if Debug_Flag_Dot_NN then
+         Atree.Num_Extension_Nodes := Atree.Num_Extension_Nodes + 1;
+      end if;
+
       --  Disable static allocation of dispatch tables if -gnatd.t or if layout
       --  is enabled. The front end's layout phase currently treats types that
       --  have discriminant-dependent arrays as not being static even when a
@@ -343,6 +348,13 @@ procedure Gnat1drv is
       else
          Suppress_Options (Overflow_Check) := True;
       end if;
+
+      --  Set default for atomic synchronization. As this synchronization
+      --  between atomic accesses can be expensive, and not typically needed
+      --  on some targets, an optional target parameter can turn the option
+      --  off. Note Atomic Synchronization is implemented as check.
+
+      Suppress_Options (Atomic_Synchronization) := not Atomic_Sync_Default;
 
       --  Set switch indicating if we can use N_Expression_With_Actions
 
@@ -492,6 +504,17 @@ procedure Gnat1drv is
          --  which is more complex to formally verify than the original source.
 
          Tagged_Type_Expansion := False;
+      end if;
+
+      --  If the inlining level has not been set by the user, compute it from
+      --  the optimization level: 1 at -O1/-O2 (and -Os), 2 at -O3 and above.
+
+      if Inline_Level = 0 then
+         if Optimization_Level < 3 then
+            Inline_Level := 1;
+         else
+            Inline_Level := 2;
+         end if;
       end if;
    end Adjust_Global_Switches;
 
@@ -1160,6 +1183,7 @@ begin
       Errout.Finalize (Last_Call => True);
       Errout.Output_Messages;
       List_Rep_Info;
+      List_Inlining_Info;
 
       --  Only write the library if the backend did not generate any error
       --  messages. Otherwise signal errors to the driver program so that

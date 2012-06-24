@@ -60,16 +60,17 @@ struct innermost_loop_behavior
 };
 
 /* Describes the evolutions of indices of the memory reference.  The indices
-   are indices of the ARRAY_REFs and the operands of INDIRECT_REFs.
-   For ARRAY_REFs, BASE_OBJECT is the reference with zeroed indices
-   (note that this reference does not have to be valid, if zero does not
-   belong to the range of the array; hence it is not recommended to use
-   BASE_OBJECT in any code generation).  For INDIRECT_REFs, the address is
-   set to the loop-invariant part of the address of the object, except for
-   the constant offset.  For the examples above,
+   are indices of the ARRAY_REFs, indexes in artificial dimensions
+   added for member selection of records and the operands of MEM_REFs.
+   BASE_OBJECT is the part of the reference that is loop-invariant
+   (note that this reference does not have to cover the whole object
+   being accessed, in which case UNCONSTRAINED_BASE is set; hence it is
+   not recommended to use BASE_OBJECT in any code generation).
+   For the examples above,
 
-   base_object:        a[0].b[0][0]                   *(p + x + 4B * j_0)
+   base_object:        a                              *(p + x + 4B * j_0)
    indices:            {j_0, +, 1}_2                  {16, +, 4}_2
+		       4
 		       {i_0, +, 1}_1
 		       {j_0, +, 1}_2
 */
@@ -81,18 +82,17 @@ struct indices
 
   /* A list of chrecs.  Access functions of the indices.  */
   VEC(tree,heap) *access_fns;
+
+  /* Whether BASE_OBJECT is an access representing the whole object
+     or whether the access could not be constrained.  */
+  bool unconstrained_base;
 };
 
 struct dr_alias
 {
   /* The alias information that should be used for new pointers to this
-     location.  SYMBOL_TAG is either a DECL or a SYMBOL_MEMORY_TAG.  */
+     location.  */
   struct ptr_info_def *ptr_info;
-
-  /* The set of virtual operands corresponding to this memory reference,
-     serving as a description of the alias information for the memory
-     reference.  This could be eliminated if we had alias oracle.  */
-  bitmap vops;
 };
 
 /* An integer vector.  A vector formally consists of an element of a vector
@@ -169,8 +169,6 @@ am_vector_index_for_loop (struct access_matrix *access_matrix, int loop_num)
   gcc_unreachable();
 }
 
-int access_matrix_get_index_for_parameter (tree, struct access_matrix *);
-
 struct data_reference
 {
   /* A pointer to the statement that contains this DR.  */
@@ -201,6 +199,7 @@ struct data_reference
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
 #define DR_BASE_OBJECT(DR)         (DR)->indices.base_object
+#define DR_UNCONSTRAINED_BASE(DR)  (DR)->indices.unconstrained_base
 #define DR_ACCESS_FNS(DR)	   (DR)->indices.access_fns
 #define DR_ACCESS_FN(DR, I)        VEC_index (tree, DR_ACCESS_FNS (DR), I)
 #define DR_NUM_DIMENSIONS(DR)      VEC_length (tree, DR_ACCESS_FNS (DR))
@@ -370,22 +369,6 @@ DEF_VEC_ALLOC_P(ddr_p,heap);
 #define DDR_REVERSED_P(DDR) DDR->reversed_p
 
 
-
-/* Describes a location of a memory reference.  */
-
-typedef struct data_ref_loc_d
-{
-  /* Position of the memory reference.  */
-  tree *pos;
-
-  /* True if the memory reference is read.  */
-  bool is_read;
-} data_ref_loc;
-
-DEF_VEC_O (data_ref_loc);
-DEF_VEC_ALLOC_O (data_ref_loc, heap);
-
-bool get_references_in_stmt (gimple, VEC (data_ref_loc, heap) **);
 bool dr_analyze_innermost (struct data_reference *, struct loop *);
 extern bool compute_data_dependences_for_loop (struct loop *, bool,
 					       VEC (loop_p, heap) **,
@@ -394,23 +377,13 @@ extern bool compute_data_dependences_for_loop (struct loop *, bool,
 extern bool compute_data_dependences_for_bb (basic_block, bool,
                                              VEC (data_reference_p, heap) **,
                                              VEC (ddr_p, heap) **);
-extern void print_direction_vector (FILE *, lambda_vector, int);
-extern void print_dir_vectors (FILE *, VEC (lambda_vector, heap) *, int);
-extern void print_dist_vectors (FILE *, VEC (lambda_vector, heap) *, int);
-extern void dump_subscript (FILE *, struct subscript *);
-extern void dump_ddrs (FILE *, VEC (ddr_p, heap) *);
-extern void dump_dist_dir_vectors (FILE *, VEC (ddr_p, heap) *);
+extern void debug_ddrs (VEC (ddr_p, heap) *);
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void debug_data_reference (struct data_reference *);
-extern void dump_data_references (FILE *, VEC (data_reference_p, heap) *);
 extern void debug_data_references (VEC (data_reference_p, heap) *);
 extern void debug_data_dependence_relation (struct data_dependence_relation *);
-extern void dump_data_dependence_relation (FILE *,
-					   struct data_dependence_relation *);
 extern void dump_data_dependence_relations (FILE *, VEC (ddr_p, heap) *);
 extern void debug_data_dependence_relations (VEC (ddr_p, heap) *);
-extern void dump_data_dependence_direction (FILE *,
-					    enum data_dependence_direction);
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (VEC (ddr_p, heap) *);
 extern void free_data_ref (data_reference_p);
@@ -430,7 +403,6 @@ extern bool compute_all_dependences (VEC (data_reference_p, heap) *,
 extern tree find_data_references_in_bb (struct loop *, basic_block,
                                         VEC (data_reference_p, heap) **);
 
-extern void create_rdg_vertices (struct graph *, VEC (gimple, heap) *);
 extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
@@ -552,6 +524,9 @@ typedef struct rdg_vertex
   /* The statement represented by this vertex.  */
   gimple stmt;
 
+  /* Vector of data-references in this statement.  */
+  VEC(data_reference_p, heap) *datarefs;
+
   /* True when the statement contains a write to memory.  */
   bool has_mem_write;
 
@@ -560,15 +535,15 @@ typedef struct rdg_vertex
 } *rdg_vertex_p;
 
 #define RDGV_STMT(V)     ((struct rdg_vertex *) ((V)->data))->stmt
+#define RDGV_DATAREFS(V) ((struct rdg_vertex *) ((V)->data))->datarefs
 #define RDGV_HAS_MEM_WRITE(V) ((struct rdg_vertex *) ((V)->data))->has_mem_write
 #define RDGV_HAS_MEM_READS(V) ((struct rdg_vertex *) ((V)->data))->has_mem_reads
 #define RDG_STMT(RDG, I) RDGV_STMT (&(RDG->vertices[I]))
+#define RDG_DATAREFS(RDG, I) RDGV_DATAREFS (&(RDG->vertices[I]))
 #define RDG_MEM_WRITE_STMT(RDG, I) RDGV_HAS_MEM_WRITE (&(RDG->vertices[I]))
 #define RDG_MEM_READS_STMT(RDG, I) RDGV_HAS_MEM_READS (&(RDG->vertices[I]))
 
-void dump_rdg_vertex (FILE *, struct graph *, int);
 void debug_rdg_vertex (struct graph *, int);
-void dump_rdg_component (FILE *, struct graph *, int, bitmap);
 void debug_rdg_component (struct graph *, int);
 void dump_rdg (FILE *, struct graph *);
 void debug_rdg (struct graph *);
@@ -634,32 +609,26 @@ index_in_loop_nest (int var, VEC (loop_p, heap) *loop_nest)
   return var_index;
 }
 
-void stores_from_loop (struct loop *, VEC (gimple, heap) **);
-void stores_zero_from_loop (struct loop *, VEC (gimple, heap) **);
-void remove_similar_memory_refs (VEC (gimple, heap) **);
 bool rdg_defs_used_in_other_loops_p (struct graph *, int);
-bool have_similar_memory_accesses (gimple, gimple);
-bool stmt_with_adjacent_zero_store_dr_p (gimple);
 
-/* Returns true when STRIDE is equal in absolute value to the size of
-   the unit type of TYPE.  */
+/* Returns true when the data reference DR the form "A[i] = ..."
+   with a stride equal to its unit type size.  */
 
 static inline bool
-stride_of_unit_type_p (tree stride, tree type)
+adjacent_dr_p (struct data_reference *dr)
 {
-  return tree_int_cst_equal (fold_unary (ABS_EXPR, TREE_TYPE (stride),
-					 stride),
-			     TYPE_SIZE_UNIT (type));
-}
+  /* If this is a bitfield store bail out.  */
+  if (TREE_CODE (DR_REF (dr)) == COMPONENT_REF
+      && DECL_BIT_FIELD (TREE_OPERAND (DR_REF (dr), 1)))
+    return false;
 
-/* Determines whether RDG vertices V1 and V2 access to similar memory
-   locations, in which case they have to be in the same partition.  */
+  if (!DR_STEP (dr)
+      || TREE_CODE (DR_STEP (dr)) != INTEGER_CST)
+    return false;
 
-static inline bool
-rdg_has_similar_memory_accesses (struct graph *rdg, int v1, int v2)
-{
-  return have_similar_memory_accesses (RDG_STMT (rdg, v1),
-				       RDG_STMT (rdg, v2));
+  return tree_int_cst_equal (fold_unary (ABS_EXPR, TREE_TYPE (DR_STEP (dr)),
+					 DR_STEP (dr)),
+			     TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr))));
 }
 
 /* In tree-data-ref.c  */

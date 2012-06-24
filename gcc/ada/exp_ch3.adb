@@ -1883,9 +1883,10 @@ package body Exp_Ch3 is
 
          procedure Build_Offset_To_Top_Function (Iface_Comp : Entity_Id);
          --  Generate:
-         --    function Fxx (O : in Rec_Typ) return Storage_Offset is
+         --    function Fxx (O : Address) return Storage_Offset is
+         --       type Acc is access all <Typ>;
          --    begin
-         --       return O.Iface_Comp'Position;
+         --       return Acc!(O).Iface_Comp'Position;
          --    end Fxx;
 
          ----------------------------------
@@ -1896,6 +1897,7 @@ package body Exp_Ch3 is
             Body_Node : Node_Id;
             Func_Id   : Entity_Id;
             Spec_Node : Node_Id;
+            Acc_Type  : Entity_Id;
 
          begin
             Func_Id := Make_Temporary (Loc, 'F');
@@ -1912,7 +1914,7 @@ package body Exp_Ch3 is
                   Make_Defining_Identifier (Loc, Name_uO),
                 In_Present          => True,
                 Parameter_Type      =>
-                  New_Reference_To (Rec_Type, Loc))));
+                  New_Reference_To (RTE (RE_Address), Loc))));
             Set_Result_Definition (Spec_Node,
               New_Reference_To (RTE (RE_Storage_Offset), Loc));
 
@@ -1924,7 +1926,19 @@ package body Exp_Ch3 is
 
             Body_Node := New_Node (N_Subprogram_Body, Loc);
             Set_Specification (Body_Node, Spec_Node);
-            Set_Declarations (Body_Node, New_List);
+
+            Acc_Type := Make_Temporary (Loc, 'T');
+            Set_Declarations (Body_Node, New_List (
+              Make_Full_Type_Declaration (Loc,
+                Defining_Identifier => Acc_Type,
+                Type_Definition     =>
+                  Make_Access_To_Object_Definition (Loc,
+                    All_Present            => True,
+                    Null_Exclusion_Present => False,
+                    Constant_Present       => False,
+                    Subtype_Indication     =>
+                      New_Reference_To (Rec_Type, Loc)))));
+
             Set_Handled_Statement_Sequence (Body_Node,
               Make_Handled_Sequence_Of_Statements (Loc,
                 Statements     => New_List (
@@ -1933,7 +1947,9 @@ package body Exp_Ch3 is
                       Make_Attribute_Reference (Loc,
                         Prefix         =>
                           Make_Selected_Component (Loc,
-                            Prefix        => Make_Identifier (Loc, Name_uO),
+                            Prefix        =>
+                              Unchecked_Convert_To (Acc_Type,
+                                Make_Identifier (Loc, Name_uO)),
                             Selector_Name =>
                               New_Reference_To (Iface_Comp, Loc)),
                         Attribute_Name => Name_Position)))));
@@ -2619,6 +2635,100 @@ package body Exp_Ch3 is
                   else
                      Actions := Build_Assignment (Id, Expression (Decl));
                   end if;
+
+               --  CPU, Dispatching_Domain, Priority and Size components are
+               --  filled with the corresponding rep item expression of the
+               --  concurrent type (if any).
+
+               elsif Ekind (Scope (Id)) = E_Record_Type
+                 and then Present (Corresponding_Concurrent_Type (Scope (Id)))
+                 and then (Chars (Id) = Name_uCPU                or else
+                           Chars (Id) = Name_uDispatching_Domain or else
+                           Chars (Id) = Name_uPriority)
+               then
+                  declare
+                     Exp   : Node_Id;
+                     Nam   : Name_Id;
+                     Ritem : Node_Id;
+
+                  begin
+                     if Chars (Id) = Name_uCPU then
+                        Nam := Name_CPU;
+
+                     elsif Chars (Id) = Name_uDispatching_Domain then
+                        Nam := Name_Dispatching_Domain;
+
+                     elsif Chars (Id) = Name_uPriority then
+                        Nam := Name_Priority;
+                     end if;
+
+                     --  Get the Rep Item (aspect specification, attribute
+                     --  definition clause or pragma) of the corresponding
+                     --  concurrent type.
+
+                     Ritem :=
+                       Get_Rep_Item
+                         (Corresponding_Concurrent_Type (Scope (Id)), Nam);
+
+                     if Present (Ritem) then
+
+                        --  Pragma case
+
+                        if Nkind (Ritem) = N_Pragma then
+                           Exp := First (Pragma_Argument_Associations (Ritem));
+
+                           if Nkind (Exp) = N_Pragma_Argument_Association then
+                              Exp := Expression (Exp);
+                           end if;
+
+                           --  Conversion for Priority expression
+
+                           if Nam = Name_Priority then
+                              if Pragma_Name (Ritem) = Name_Priority
+                                and then not GNAT_Mode
+                              then
+                                 Exp := Convert_To (RTE (RE_Priority), Exp);
+                              else
+                                 Exp :=
+                                   Convert_To (RTE (RE_Any_Priority), Exp);
+                              end if;
+                           end if;
+
+                        --  Aspect/Attribute definition clause case
+
+                        else
+                           Exp := Expression (Ritem);
+
+                           --  Conversion for Priority expression
+
+                           if Nam = Name_Priority then
+                              if Chars (Ritem) = Name_Priority
+                                and then not GNAT_Mode
+                              then
+                                 Exp := Convert_To (RTE (RE_Priority), Exp);
+                              else
+                                 Exp :=
+                                   Convert_To (RTE (RE_Any_Priority), Exp);
+                              end if;
+                           end if;
+                        end if;
+
+                        --  Conversion for Dispatching_Domain value
+
+                        if Nam = Name_Dispatching_Domain then
+                           Exp :=
+                             Unchecked_Convert_To
+                               (RTE (RE_Dispatching_Domain_Access), Exp);
+                        end if;
+
+                        Actions := Build_Assignment (Id, Exp);
+
+                     --  Nothing needed if no Rep Item
+
+                     else
+                        Actions := No_List;
+                     end if;
+                  end;
 
                --  Composite component with its own Init_Proc
 
@@ -4820,6 +4930,17 @@ package body Exp_Ch3 is
                       Subtype_Mark        => New_Occurrence_Of (Typ, Loc),
                       Name => Convert_Tag_To_Interface (Typ, Tag_Comp)));
 
+                  --  If the original entity comes from source, then mark the
+                  --  new entity as needing debug information, even though it's
+                  --  defined by a generated renaming that does not come from
+                  --  source, so that Materialize_Entity will be set on the
+                  --  entity when Debug_Renaming_Declaration is called during
+                  --  analysis.
+
+                  if Comes_From_Source (Def_Id) then
+                     Set_Debug_Info_Needed (Defining_Identifier (N));
+                  end if;
+
                   Analyze (N, Suppress => All_Checks);
 
                   --  Replace internal identifier of rewritten node by the
@@ -4829,10 +4950,12 @@ package body Exp_Ch3 is
                   --  object renaming declaration ---because these identifiers
                   --  were previously added by Enter_Name to the current scope.
                   --  We must preserve the homonym chain of the source entity
-                  --  as well.
+                  --  as well. We must also preserve the kind of the entity,
+                  --  which may be a constant.
 
                   Set_Chars (Defining_Identifier (N), Chars (Def_Id));
                   Set_Homonym (Defining_Identifier (N), Homonym (Def_Id));
+                  Set_Ekind (Defining_Identifier (N), Ekind (Def_Id));
                   Exchange_Entities (Defining_Identifier (N), Def_Id);
                end;
             end if;
@@ -5063,7 +5186,7 @@ package body Exp_Ch3 is
             --  renaming that does not come from source.
 
             if Comes_From_Source (Defining_Identifier (N)) then
-               Set_Needs_Debug_Info (Defining_Identifier (N));
+               Set_Debug_Info_Needed (Defining_Identifier (N));
             end if;
 
             --  Now call the routine to generate debug info for the renaming
@@ -6115,9 +6238,8 @@ package body Exp_Ch3 is
 
       --  This is done unconditionally to ensure that tools can be linked
       --  properly with user programs compiled with older language versions.
-      --  It might be worth including a switch to revert to a non-composable
-      --  equality for untagged records, even though no program depending on
-      --  non-composability has surfaced ???
+      --  In addition, this is needed because "=" composes for bounded strings
+      --  in all language versions (see Exp_Ch4.Expand_Composite_Equality).
 
       elsif Comes_From_Source (Def_Id)
         and then Convention (Def_Id) = Convention_Ada

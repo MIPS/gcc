@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "diagnostic-core.h"
 #include "flags.h"
 #include "function.h"
@@ -37,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "except.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
 #include "tree-scalar-evolution.h"
@@ -793,7 +791,6 @@ repair_loop_structures (void)
 #endif
   scev_reset ();
 
-  loops_state_clear (LOOPS_NEED_FIXUP);
   timevar_pop (TV_REPAIR_LOOPS);
 }
 

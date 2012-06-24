@@ -329,6 +329,7 @@ extern enum cmodel sparc_cmodel;
 %{mcpu=sparclite86x:-Asparclite} \
 %{mcpu=f930:-Asparclite} %{mcpu=f934:-Asparclite} \
 %{mcpu=v8:-Av8} \
+%{mcpu=leon:-Av8} \
 %{mv8plus:-Av8plus} \
 %{mcpu=v9:-Av9} \
 %{mcpu=ultrasparc:%{!mv8plus:-Av9a}} \
@@ -894,18 +895,21 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 #define REGNO_REG_CLASS(REGNO) sparc_regno_reg_class[(REGNO)]
 
-/* Defines invalid mode changes.  Borrowed from pa64-regs.h.
+/* Defines invalid mode changes.  Borrowed from the PA port.
 
    SImode loads to floating-point registers are not zero-extended.
    The definition for LOAD_EXTEND_OP specifies that integer loads
    narrower than BITS_PER_WORD will be zero-extended.  As a result,
    we inhibit changes from SImode unless they are to a mode that is
-   identical in size.  */
+   identical in size.
+
+   Likewise for SFmode, since word-mode paradoxical subregs are
+   problematic on big-endian architectures.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
   (TARGET_ARCH64						\
-   && (FROM) == SImode						\
-   && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
+   && GET_MODE_SIZE (FROM) == 4					\
+   && GET_MODE_SIZE (TO) != 4					\
    ? reg_classes_intersect_p (CLASS, FP_REGS) : 0)
 
 /* This is the order in which to allocate registers normally.
@@ -1100,15 +1104,12 @@ extern char leaf_reg_remap[];
   {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
    { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM} }
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			\
-  do {									\
-    if ((TO) == STACK_POINTER_REGNUM)					\
-      (OFFSET) = sparc_compute_frame_size (get_frame_size (),		\
-					   current_function_is_leaf);	\
-    else								\
-      (OFFSET) = 0;							\
-    (OFFSET) += SPARC_STACK_BIAS;					\
-  } while (0)
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 		\
+  do								\
+    {								\
+      (OFFSET) = sparc_initial_elimination_offset ((TO));	\
+    }								\
+  while (0)
 
 /* Keep the stack pointer constant throughout the function.
    This is both an optimization and a necessity: longjmp
@@ -1269,11 +1270,11 @@ do {									\
    return an rtx for the address of the word in the frame
    that holds the dynamic chain--the previous frame's address.  */
 #define DYNAMIC_CHAIN_ADDRESS(frame)	\
-  plus_constant (frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
+  plus_constant (Pmode, frame, 14 * UNITS_PER_WORD + SPARC_STACK_BIAS)
 
 /* Given an rtx for the frame pointer,
    return an rtx for the address of the frame.  */
-#define FRAME_ADDR_RTX(frame) plus_constant (frame, SPARC_STACK_BIAS)
+#define FRAME_ADDR_RTX(frame) plus_constant (Pmode, frame, SPARC_STACK_BIAS)
 
 /* The return address isn't on the stack, it is in a register, so we can't
    access it from the current frame pointer.  We can access it from the
@@ -1295,7 +1296,7 @@ do {									\
   ((count == -1)				\
    ? gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM)			\
    : gen_rtx_MEM (Pmode,			\
-		  memory_address (Pmode, plus_constant (frame, \
+		  memory_address (Pmode, plus_constant (Pmode, frame, \
 							15 * UNITS_PER_WORD \
 							+ SPARC_STACK_BIAS))))
 
@@ -1305,7 +1306,8 @@ do {									\
    is something you can return to.  */
 #define INCOMING_RETURN_ADDR_REGNUM 15
 #define INCOMING_RETURN_ADDR_RTX \
-  plus_constant (gen_rtx_REG (word_mode, INCOMING_RETURN_ADDR_REGNUM), 8)
+  plus_constant (word_mode, \
+		 gen_rtx_REG (word_mode, INCOMING_RETURN_ADDR_REGNUM), 8)
 #define DWARF_FRAME_RETURN_COLUMN \
   DWARF_FRAME_REGNUM (INCOMING_RETURN_ADDR_REGNUM)
 

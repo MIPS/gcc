@@ -1,5 +1,6 @@
 ! { dg-do run }
 ! { dg-add-options ieee }
+! { dg-skip-if "Too big for local store" { spu-*-* } { "*" } { "" } }
 !
 !     Solve a diffusion problem using an object-oriented approach
 !
@@ -497,4 +498,3 @@ contains
     end select
   end subroutine
 end program test_pde_solver
-! { dg-final { cleanup-modules "pde_specific define_pde_objects cartesian_2d_objects base_pde_objects" } }

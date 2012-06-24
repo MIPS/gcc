@@ -34,10 +34,28 @@ extern "C"
 #include "backend.h"
 #include "types.h"
 
+// Forward declarations so that we don't have to make types.h #include
+// backend.h.
+
+static void
+get_backend_struct_fields(Gogo* gogo, const Struct_field_list* fields,
+			  bool use_placeholder,
+			  std::vector<Backend::Btyped_identifier>* bfields);
+
+static void
+get_backend_slice_fields(Gogo* gogo, Array_type* type, bool use_placeholder,
+			 std::vector<Backend::Btyped_identifier>* bfields);
+
+static void
+get_backend_interface_fields(Gogo* gogo, Interface_type* type,
+			     bool use_placeholder,
+			     std::vector<Backend::Btyped_identifier>* bfields);
+
 // Class Type.
 
 Type::Type(Type_classification classification)
-  : classification_(classification), btype_(NULL), type_descriptor_var_(NULL)
+  : classification_(classification), btype_is_placeholder_(false),
+    btype_(NULL), type_descriptor_var_(NULL)
 {
 }
 
@@ -604,16 +622,24 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
 				  std::string* reason)
 {
   // Do some checks first.  Make sure the types are defined.
-  if (rhs != NULL
-      && rhs->forwarded()->forward_declaration_type() == NULL
-      && rhs->is_void_type())
+  if (rhs != NULL && !rhs->is_undefined())
     {
-      if (reason != NULL)
-	*reason = "non-value used as value";
-      return false;
+      if (rhs->is_void_type())
+	{
+	  if (reason != NULL)
+	    *reason = "non-value used as value";
+	  return false;
+	}
+      if (rhs->is_call_multiple_result_type())
+	{
+	  if (reason != NULL)
+	    reason->assign(_("multiple value function call in "
+			     "single value context"));
+	  return false;
+	}
     }
 
-  if (lhs != NULL && lhs->forwarded()->forward_declaration_type() == NULL)
+  if (lhs != NULL && !lhs->is_undefined())
     {
       // Any value may be assigned to the blank identifier.
       if (lhs->is_sink_type())
@@ -621,9 +647,7 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
 
       // All fields of a struct must be exported, or the assignment
       // must be in the same package.
-      if (check_hidden_fields
-	  && rhs != NULL
-	  && rhs->forwarded()->forward_declaration_type() == NULL)
+      if (check_hidden_fields && rhs != NULL && !rhs->is_undefined())
 	{
 	  if (lhs->has_hidden_fields(NULL, reason)
 	      || rhs->has_hidden_fields(NULL, reason))
@@ -697,9 +721,6 @@ Type::are_assignable_check_hidden(const Type* lhs, const Type* rhs,
     {
       if (rhs->interface_type() != NULL)
 	reason->assign(_("need explicit conversion"));
-      else if (rhs->is_call_multiple_result_type())
-	reason->assign(_("multiple value function call in "
-			 "single value context"));
       else if (lhs->named_type() != NULL && rhs->named_type() != NULL)
 	{
 	  size_t len = (lhs->named_type()->name().length()
@@ -895,7 +916,11 @@ Btype*
 Type::get_backend(Gogo* gogo)
 {
   if (this->btype_ != NULL)
-    return this->btype_;
+    {
+      if (this->btype_is_placeholder_ && gogo->named_types_are_converted())
+	this->finish_backend(gogo);
+      return this->btype_;
+    }
 
   if (this->forward_declaration_type() != NULL
       || this->named_type() != NULL)
@@ -964,6 +989,189 @@ Type::get_btype_without_hash(Gogo* gogo)
       this->btype_ = bt;
     }
   return this->btype_;
+}
+
+// Get the backend representation of a type without forcing the
+// creation of the backend representation of all supporting types.
+// This will return a backend type that has the correct size but may
+// be incomplete.  E.g., a pointer will just be a placeholder pointer,
+// and will not contain the final representation of the type to which
+// it points.  This is used while converting all named types to the
+// backend representation, to avoid problems with indirect references
+// to types which are not yet complete.  When this is called, the
+// sizes of all direct references (e.g., a struct field) should be
+// known, but the sizes of indirect references (e.g., the type to
+// which a pointer points) may not.
+
+Btype*
+Type::get_backend_placeholder(Gogo* gogo)
+{
+  if (gogo->named_types_are_converted())
+    return this->get_backend(gogo);
+  if (this->btype_ != NULL)
+    return this->btype_;
+
+  Btype* bt;
+  switch (this->classification_)
+    {
+    case TYPE_ERROR:
+    case TYPE_VOID:
+    case TYPE_BOOLEAN:
+    case TYPE_INTEGER:
+    case TYPE_FLOAT:
+    case TYPE_COMPLEX:
+    case TYPE_STRING:
+    case TYPE_NIL:
+      // These are simple types that can just be created directly.
+      return this->get_backend(gogo);
+
+    case TYPE_FUNCTION:
+      {
+	Location loc = this->function_type()->location();
+	bt = gogo->backend()->placeholder_pointer_type("", loc, true);
+      }
+      break;
+
+    case TYPE_POINTER:
+      {
+	Location loc = Linemap::unknown_location();
+	bt = gogo->backend()->placeholder_pointer_type("", loc, false);
+      }
+      break;
+
+    case TYPE_STRUCT:
+      // We don't have to make the struct itself be a placeholder.  We
+      // are promised that we know the sizes of the struct fields.
+      // But we may have to use a placeholder for any particular
+      // struct field.
+      {
+	std::vector<Backend::Btyped_identifier> bfields;
+	get_backend_struct_fields(gogo, this->struct_type()->fields(),
+				  true, &bfields);
+	bt = gogo->backend()->struct_type(bfields);
+      }
+      break;
+
+    case TYPE_ARRAY:
+      if (this->is_slice_type())
+	{
+	  std::vector<Backend::Btyped_identifier> bfields;
+	  get_backend_slice_fields(gogo, this->array_type(), true, &bfields);
+	  bt = gogo->backend()->struct_type(bfields);
+	}
+      else
+	{
+	  Btype* element = this->array_type()->get_backend_element(gogo, true);
+	  Bexpression* len = this->array_type()->get_backend_length(gogo);
+	  bt = gogo->backend()->array_type(element, len);
+	}
+      break;
+	
+    case TYPE_MAP:
+    case TYPE_CHANNEL:
+      // All maps and channels have the same backend representation.
+      return this->get_backend(gogo);
+
+    case TYPE_INTERFACE:
+      if (this->interface_type()->is_empty())
+	return Interface_type::get_backend_empty_interface_type(gogo);
+      else
+	{
+	  std::vector<Backend::Btyped_identifier> bfields;
+	  get_backend_interface_fields(gogo, this->interface_type(), true,
+				       &bfields);
+	  bt = gogo->backend()->struct_type(bfields);
+	}
+      break;
+
+    case TYPE_NAMED:
+    case TYPE_FORWARD:
+      // Named types keep track of their own dependencies and manage
+      // their own placeholders.
+      return this->get_backend(gogo);
+
+    case TYPE_SINK:
+    case TYPE_CALL_MULTIPLE_RESULT:
+    default:
+      go_unreachable();
+    }
+
+  this->btype_ = bt;
+  this->btype_is_placeholder_ = true;
+  return bt;
+}
+
+// Complete the backend representation.  This is called for a type
+// using a placeholder type.
+
+void
+Type::finish_backend(Gogo* gogo)
+{
+  go_assert(this->btype_ != NULL);
+  if (!this->btype_is_placeholder_)
+    return;
+
+  switch (this->classification_)
+    {
+    case TYPE_ERROR:
+    case TYPE_VOID:
+    case TYPE_BOOLEAN:
+    case TYPE_INTEGER:
+    case TYPE_FLOAT:
+    case TYPE_COMPLEX:
+    case TYPE_STRING:
+    case TYPE_NIL:
+      go_unreachable();
+
+    case TYPE_FUNCTION:
+      {
+	Btype* bt = this->do_get_backend(gogo);
+	if (!gogo->backend()->set_placeholder_function_type(this->btype_, bt))
+	  go_assert(saw_errors());
+      }
+      break;
+
+    case TYPE_POINTER:
+      {
+	Btype* bt = this->do_get_backend(gogo);
+	if (!gogo->backend()->set_placeholder_pointer_type(this->btype_, bt))
+	  go_assert(saw_errors());
+      }
+      break;
+
+    case TYPE_STRUCT:
+      // The struct type itself is done, but we have to make sure that
+      // all the field types are converted.
+      this->struct_type()->finish_backend_fields(gogo);
+      break;
+
+    case TYPE_ARRAY:
+      // The array type itself is done, but make sure the element type
+      // is converted.
+      this->array_type()->finish_backend_element(gogo);
+      break;
+	
+    case TYPE_MAP:
+    case TYPE_CHANNEL:
+      go_unreachable();
+
+    case TYPE_INTERFACE:
+      // The interface type itself is done, but make sure the method
+      // types are converted.
+      this->interface_type()->finish_backend_methods(gogo);
+      break;
+
+    case TYPE_NAMED:
+    case TYPE_FORWARD:
+      go_unreachable();
+
+    case TYPE_SINK:
+    case TYPE_CALL_MULTIPLE_RESULT:
+    default:
+      go_unreachable();
+    }
+
+  this->btype_is_placeholder_ = false;
 }
 
 // Return a pointer to the type descriptor for this type.
@@ -1093,15 +1301,10 @@ Type::type_descriptor_var_name(Gogo* gogo, Named_type* nt)
     go_assert(in_function == NULL);
   else
     {
-      const std::string& unique_prefix(no->package() == NULL
-				       ? gogo->unique_prefix()
-				       : no->package()->unique_prefix());
-      const std::string& package_name(no->package() == NULL
-				      ? gogo->package_name()
-				      : no->package()->name());
-      ret.append(unique_prefix);
-      ret.append(1, '.');
-      ret.append(package_name);
+      const std::string& pkgpath(no->package() == NULL
+				 ? gogo->pkgpath_symbol()
+				 : no->package()->pkgpath_symbol());
+      ret.append(pkgpath);
       ret.append(1, '.');
       if (in_function != NULL)
 	{
@@ -1109,7 +1312,20 @@ Type::type_descriptor_var_name(Gogo* gogo, Named_type* nt)
 	  ret.append(1, '.');
 	}
     }
-  ret.append(no->name());
+
+  // FIXME: This adds in pkgpath twice for hidden symbols, which is
+  // pointless.
+  const std::string& name(no->name());
+  if (!Gogo::is_hidden_name(name))
+    ret.append(name);
+  else
+    {
+      ret.append(1, '.');
+      ret.append(Gogo::pkgpath_for_symbol(Gogo::hidden_name_pkgpath(name)));
+      ret.append(1, '.');
+      ret.append(Gogo::unpack_hidden_name(name));
+    }
+
   return ret;
 }
 
@@ -1532,7 +1748,7 @@ Type::specific_type_functions(Gogo* gogo, Named_type* name,
       base_name = name->name();
       const Named_object* in_function = name->in_function();
       if (in_function != NULL)
-	base_name += '$' + in_function->name();
+	base_name += '$' + Gogo::unpack_hidden_name(in_function->name());
     }
   std::string hash_name = base_name + "$hash";
   std::string equal_name = base_name + "$equal";
@@ -1581,6 +1797,12 @@ Type::write_specific_type_functions(Gogo* gogo, Named_type* name,
 				    Function_type* equal_fntype)
 {
   Location bloc = Linemap::predeclared_location();
+
+  if (gogo->specific_type_functions_are_written())
+    {
+      go_assert(saw_errors());
+      return;
+    }
 
   Named_object* hash_fn = gogo->start_function(hash_name, hash_fntype, false,
 					       bloc);
@@ -1763,15 +1985,10 @@ Type::uncommon_type_constructor(Gogo* gogo, Type* uncommon_type,
       else
 	{
 	  const Package* package = no->package();
-	  const std::string& unique_prefix(package == NULL
-					   ? gogo->unique_prefix()
-					   : package->unique_prefix());
-	  const std::string& package_name(package == NULL
-					  ? gogo->package_name()
-					  : package->name());
-	  n.assign(unique_prefix);
-	  n.append(1, '.');
-	  n.append(package_name);
+	  const std::string& pkgpath(package == NULL
+				     ? gogo->pkgpath()
+				     : package->pkgpath());
+	  n.assign(pkgpath);
 	  if (name->in_function() != NULL)
 	    {
 	      n.append(1, '.');
@@ -1882,7 +2099,8 @@ Type::method_constructor(Gogo*, Type* method_type,
     vals->push_back(Expression::make_nil(bloc));
   else
     {
-      s = Expression::make_string(Gogo::hidden_name_prefix(method_name), bloc);
+      s = Expression::make_string(Gogo::hidden_name_pkgpath(method_name),
+				  bloc);
       vals->push_back(Expression::make_unary(OPERATOR_AND, s, bloc));
     }
 
@@ -2016,15 +2234,13 @@ Type::is_backend_type_size_known(Gogo* gogo)
 	  return true;
 	else
 	  {
-	    mpz_t ival;
-	    mpz_init(ival);
-	    Type* dummy;
-	    bool length_known = at->length()->integer_constant_value(true,
-								     ival,
-								     &dummy);
-	    mpz_clear(ival);
-	    if (!length_known)
+	    Numeric_constant nc;
+	    if (!at->length()->numeric_constant_value(&nc))
 	      return false;
+	    mpz_t ival;
+	    if (!nc.to_int(&ival))
+	      return false;
+	    mpz_clear(ival);
 	    return at->element_type()->is_backend_type_size_known(gogo);
 	  }
       }
@@ -2059,7 +2275,8 @@ Type::backend_type_size(Gogo* gogo, unsigned int *psize)
 {
   if (!this->is_backend_type_size_known(gogo))
     return false;
-  size_t size = gogo->backend()->type_size(this->get_backend(gogo));
+  Btype* bt = this->get_backend_placeholder(gogo);
+  size_t size = gogo->backend()->type_size(bt);
   *psize = static_cast<unsigned int>(size);
   if (*psize != size)
     return false;
@@ -2074,7 +2291,8 @@ Type::backend_type_align(Gogo* gogo, unsigned int *palign)
 {
   if (!this->is_backend_type_size_known(gogo))
     return false;
-  size_t align = gogo->backend()->type_alignment(this->get_backend(gogo));
+  Btype* bt = this->get_backend_placeholder(gogo);
+  size_t align = gogo->backend()->type_alignment(bt);
   *palign = static_cast<unsigned int>(align);
   if (*palign != align)
     return false;
@@ -2089,7 +2307,8 @@ Type::backend_type_field_align(Gogo* gogo, unsigned int *palign)
 {
   if (!this->is_backend_type_size_known(gogo))
     return false;
-  size_t a = gogo->backend()->type_field_alignment(this->get_backend(gogo));
+  Btype* bt = this->get_backend_placeholder(gogo);
+  size_t a = gogo->backend()->type_field_alignment(bt);
   *palign = static_cast<unsigned int>(a);
   if (*palign != a)
     return false;
@@ -2387,7 +2606,7 @@ Integer_type::do_get_backend(Gogo* gogo)
 Expression*
 Integer_type::do_type_descriptor(Gogo* gogo, Named_type* name)
 {
-  go_assert(name != NULL);
+  go_assert(name != NULL || saw_errors());
   return this->plain_type_descriptor(gogo, this->runtime_type_kind_, name);
 }
 
@@ -2522,7 +2741,7 @@ Float_type::do_get_backend(Gogo* gogo)
 Expression*
 Float_type::do_type_descriptor(Gogo* gogo, Named_type* name)
 {
-  go_assert(name != NULL);
+  go_assert(name != NULL || saw_errors());
   return this->plain_type_descriptor(gogo, this->runtime_type_kind_, name);
 }
 
@@ -2649,7 +2868,7 @@ Complex_type::do_get_backend(Gogo* gogo)
 Expression*
 Complex_type::do_type_descriptor(Gogo* gogo, Named_type* name)
 {
-  go_assert(name != NULL);
+  go_assert(name != NULL || saw_errors());
   return this->plain_type_descriptor(gogo, this->runtime_type_kind_, name);
 }
 
@@ -2712,6 +2931,15 @@ String_type::do_get_backend(Gogo* gogo)
 
       Type* b = gogo->lookup_global("byte")->type_value();
       Type* pb = Type::make_pointer_type(b);
+
+      // We aren't going to get back to this field to finish the
+      // backend representation, so force it to be finished now.
+      if (!gogo->named_types_are_converted())
+	{
+	  pb->get_backend_placeholder(gogo);
+	  pb->finish_backend(gogo);
+	}
+
       fields[0].name = "__data";
       fields[0].btype = pb->get_backend(gogo);
       fields[0].location = Linemap::predeclared_location();
@@ -2894,9 +3122,7 @@ Function_type::is_valid_redeclaration(const Function_type* t,
   // A redeclaration of a function is required to use the same names
   // for the receiver and parameters.
   if (this->receiver() != NULL
-      && this->receiver()->name() != t->receiver()->name()
-      && this->receiver()->name() != Import::import_marker
-      && t->receiver()->name() != Import::import_marker)
+      && this->receiver()->name() != t->receiver()->name())
     {
       if (reason != NULL)
 	*reason = "receiver name changed";
@@ -2912,9 +3138,7 @@ Function_type::is_valid_redeclaration(const Function_type* t,
 	   p2 != parms2->end();
 	   ++p2, ++p1)
 	{
-	  if (p1->name() != p2->name()
-	      && p1->name() != Import::import_marker
-	      && p2->name() != Import::import_marker)
+	  if (p1->name() != p2->name())
 	    {
 	      if (reason != NULL)
 		*reason = "parameter name changed";
@@ -2943,9 +3167,7 @@ Function_type::is_valid_redeclaration(const Function_type* t,
 	   res2 != results2->end();
 	   ++res2, ++res1)
 	{
-	  if (res1->name() != res2->name()
-	      && res1->name() != Import::import_marker
-	      && res2->name() != Import::import_marker)
+	  if (res1->name() != res2->name())
 	    {
 	      if (reason != NULL)
 		*reason = "result name changed";
@@ -3117,7 +3339,7 @@ Function_type::do_hash_for_method(Gogo* gogo) const
 // Get the backend representation for a function type.
 
 Btype*
-Function_type::get_function_backend(Gogo* gogo)
+Function_type::do_get_backend(Gogo* gogo)
 {
   Backend::Btyped_identifier breceiver;
   if (this->receiver_ != NULL)
@@ -3167,46 +3389,6 @@ Function_type::get_function_backend(Gogo* gogo)
 
   return gogo->backend()->function_type(breceiver, bparameters, bresults,
 					this->location());
-}
-
-// A hash table mapping function types to their backend placeholders.
-
-Function_type::Placeholders Function_type::placeholders;
-
-// Get the backend representation for a function type.  If we are
-// still converting types, and this types has multiple results, return
-// a placeholder instead.  We do this because for multiple results we
-// build a struct, and we need to make sure that all the types in the
-// struct are valid before we create the struct.
-
-Btype*
-Function_type::do_get_backend(Gogo* gogo)
-{
-  if (!gogo->named_types_are_converted()
-      && this->results_ != NULL
-      && this->results_->size() > 1)
-    {
-      Btype* placeholder =
-	gogo->backend()->placeholder_pointer_type("", this->location(), true);
-      Function_type::placeholders.push_back(std::make_pair(this, placeholder));
-      return placeholder;
-    }
-  return this->get_function_backend(gogo);
-}
-
-// Convert function types after all named types are converted.
-
-void
-Function_type::convert_types(Gogo* gogo)
-{
-  for (Placeholders::const_iterator p = Function_type::placeholders.begin();
-       p != Function_type::placeholders.end();
-       ++p)
-    {
-      Btype* bt = p->first->get_function_backend(gogo);
-      if (!gogo->backend()->set_placeholder_function_type(p->second, bt))
-	go_assert(saw_errors());
-    }
 }
 
 // The type of a function type descriptor.
@@ -3432,6 +3614,8 @@ Function_type::do_export(Export* exp) const
 	    first = false;
 	  else
 	    exp->write_c_string(", ");
+	  exp->write_name(p->name());
+	  exp->write_c_string(" ");
 	  if (!is_varargs || p + 1 != this->parameters_->end())
 	    exp->write_type(p->type());
 	  else
@@ -3447,7 +3631,7 @@ Function_type::do_export(Export* exp) const
   if (results != NULL)
     {
       exp->write_c_string(" ");
-      if (results->size() == 1)
+      if (results->size() == 1 && results->begin()->name().empty())
 	exp->write_type(results->begin()->type());
       else
 	{
@@ -3461,6 +3645,8 @@ Function_type::do_export(Export* exp) const
 		first = false;
 	      else
 		exp->write_c_string(", ");
+	      exp->write_name(p->name());
+	      exp->write_c_string(" ");
 	      exp->write_type(p->type());
 	    }
 	  exp->write_c_string(")");
@@ -3483,6 +3669,9 @@ Function_type::do_import(Import* imp)
       parameters = new Typed_identifier_list();
       while (true)
 	{
+	  std::string name = imp->read_name();
+	  imp->require_c_string(" ");
+
 	  if (imp->match_c_string("..."))
 	    {
 	      imp->advance(3);
@@ -3492,8 +3681,8 @@ Function_type::do_import(Import* imp)
 	  Type* ptype = imp->read_type();
 	  if (is_varargs)
 	    ptype = Type::make_array_type(ptype, NULL);
-	  parameters->push_back(Typed_identifier(Import::import_marker,
-						 ptype, imp->location()));
+	  parameters->push_back(Typed_identifier(name, ptype,
+						 imp->location()));
 	  if (imp->peek_char() != ',')
 	    break;
 	  go_assert(!is_varargs);
@@ -3512,17 +3701,18 @@ Function_type::do_import(Import* imp)
       if (imp->peek_char() != '(')
 	{
 	  Type* rtype = imp->read_type();
-	  results->push_back(Typed_identifier(Import::import_marker, rtype,
-					      imp->location()));
+	  results->push_back(Typed_identifier("", rtype, imp->location()));
 	}
       else
 	{
 	  imp->advance(1);
 	  while (true)
 	    {
+	      std::string name = imp->read_name();
+	      imp->require_c_string(" ");
 	      Type* rtype = imp->read_type();
-	      results->push_back(Typed_identifier(Import::import_marker,
-						  rtype, imp->location()));
+	      results->push_back(Typed_identifier(name, rtype,
+						  imp->location()));
 	      if (imp->peek_char() != ',')
 		break;
 	      imp->require_c_string(", ");
@@ -3562,8 +3752,12 @@ Function_type::copy_with_receiver(Type* receiver_type) const
   go_assert(!this->is_method());
   Typed_identifier* receiver = new Typed_identifier("", receiver_type,
 						    this->location_);
-  return Type::make_function_type(receiver, this->parameters_,
-				  this->results_, this->location_);
+  Function_type* ret = Type::make_function_type(receiver, this->parameters_,
+						this->results_,
+						this->location_);
+  if (this->is_varargs_)
+    ret->set_is_varargs();
+  return ret;
 }
 
 // Make a function type.
@@ -3595,7 +3789,7 @@ Pointer_type::do_hash_for_method(Gogo* gogo) const
   return this->to_type_->hash_for_method(gogo) << 4;
 }
 
-// The tree for a pointer type.
+// Get the backend representation for a pointer type.
 
 Btype*
 Pointer_type::do_get_backend(Gogo* gogo)
@@ -3937,7 +4131,6 @@ Struct_type::do_verify()
   Struct_field_list* fields = this->fields_;
   if (fields == NULL)
     return true;
-  bool ret = true;
   for (Struct_field_list::iterator p = fields->begin();
        p != fields->end();
        ++p)
@@ -3947,7 +4140,6 @@ Struct_type::do_verify()
 	{
 	  error_at(p->location(), "struct field type is incomplete");
 	  p->set_type(Type::make_error_type());
-	  ret = false;
 	}
       else if (p->is_anonymous())
 	{
@@ -3955,19 +4147,17 @@ Struct_type::do_verify()
 	    {
 	      error_at(p->location(), "embedded type may not be a pointer");
 	      p->set_type(Type::make_error_type());
-	      return false;
 	    }
-	  if (t->points_to() != NULL
-	      && t->points_to()->interface_type() != NULL)
+	  else if (t->points_to() != NULL
+		   && t->points_to()->interface_type() != NULL)
 	    {
 	      error_at(p->location(),
 		       "embedded type may not be pointer to interface");
 	      p->set_type(Type::make_error_type());
-	      return false;
 	    }
 	}
     }
-  return ret;
+  return true;
 }
 
 // Whether this contains a pointer.
@@ -4346,6 +4536,7 @@ Struct_type::method_function(const std::string& name, bool* is_ambiguous) const
 
 static void
 get_backend_struct_fields(Gogo* gogo, const Struct_field_list* fields,
+			  bool use_placeholder,
 			  std::vector<Backend::Btyped_identifier>* bfields)
 {
   bfields->resize(fields->size());
@@ -4355,7 +4546,9 @@ get_backend_struct_fields(Gogo* gogo, const Struct_field_list* fields,
        ++p, ++i)
     {
       (*bfields)[i].name = Gogo::unpack_hidden_name(p->field_name());
-      (*bfields)[i].btype = p->type()->get_backend(gogo);
+      (*bfields)[i].btype = (use_placeholder
+			     ? p->type()->get_backend_placeholder(gogo)
+			     : p->type()->get_backend(gogo));
       (*bfields)[i].location = p->location();
     }
   go_assert(i == fields->size());
@@ -4367,8 +4560,23 @@ Btype*
 Struct_type::do_get_backend(Gogo* gogo)
 {
   std::vector<Backend::Btyped_identifier> bfields;
-  get_backend_struct_fields(gogo, this->fields_, &bfields);
+  get_backend_struct_fields(gogo, this->fields_, false, &bfields);
   return gogo->backend()->struct_type(bfields);
+}
+
+// Finish the backend representation of the fields of a struct.
+
+void
+Struct_type::finish_backend_fields(Gogo* gogo)
+{
+  const Struct_field_list* fields = this->fields_;
+  if (fields != NULL)
+    {
+      for (Struct_field_list::const_iterator p = fields->begin();
+	   p != fields->end();
+	   ++p)
+	p->type()->get_backend(gogo);
+    }
 }
 
 // The type of a struct type descriptor.
@@ -4464,7 +4672,7 @@ Struct_type::do_type_descriptor(Gogo* gogo, Named_type* name)
 	fvals->push_back(Expression::make_nil(bloc));
       else
 	{
-	  std::string n = Gogo::hidden_name_prefix(pf->field_name());
+	  std::string n = Gogo::hidden_name_pkgpath(pf->field_name());
 	  Expression* s = Expression::make_string(n, bloc);
 	  fvals->push_back(Expression::make_unary(OPERATOR_AND, s, bloc));
 	}
@@ -4776,8 +4984,8 @@ Struct_type::backend_field_offset(Gogo* gogo, unsigned int index,
 {
   if (!this->is_backend_type_size_known(gogo))
     return false;
-  size_t offset = gogo->backend()->type_field_offset(this->get_backend(gogo),
-						     index);
+  Btype* bt = this->get_backend_placeholder(gogo);
+  size_t offset = gogo->backend()->type_field_offset(bt, index);
   *poffset = static_cast<unsigned int>(offset);
   if (*poffset != offset)
     return false;
@@ -4900,17 +5108,22 @@ Array_type::is_identical(const Array_type* t, bool errors_are_identical) const
       // Try to determine the lengths.  If we can't, assume the arrays
       // are not identical.
       bool ret = false;
-      mpz_t v1;
-      mpz_init(v1);
-      Type* type1;
-      mpz_t v2;
-      mpz_init(v2);
-      Type* type2;
-      if (l1->integer_constant_value(true, v1, &type1)
-	  && l2->integer_constant_value(true, v2, &type2))
-	ret = mpz_cmp(v1, v2) == 0;
-      mpz_clear(v1);
-      mpz_clear(v2);
+      Numeric_constant nc1, nc2;
+      if (l1->numeric_constant_value(&nc1)
+	  && l2->numeric_constant_value(&nc2))
+	{
+	  mpz_t v1;
+	  if (nc1.to_int(&v1))
+	    {
+	      mpz_t v2;
+	      if (nc2.to_int(&v2))
+		{
+		  ret = mpz_cmp(v1, v2) == 0;
+		  mpz_clear(v2);
+		}
+	      mpz_clear(v1);
+	    }
+	}
       return ret;
     }
 
@@ -4948,57 +5161,43 @@ Array_type::verify_length()
       return false;
     }
 
-  mpz_t val;
-  mpz_init(val);
-  Type* vt;
-  if (!this->length_->integer_constant_value(true, val, &vt))
+  Numeric_constant nc;
+  if (!this->length_->numeric_constant_value(&nc))
     {
-      mpfr_t fval;
-      mpfr_init(fval);
-      if (!this->length_->float_constant_value(fval, &vt))
-	{
-	  if (this->length_->type()->integer_type() != NULL
-	      || this->length_->type()->float_type() != NULL)
-	    error_at(this->length_->location(),
-		     "array bound is not constant");
-	  else
-	    error_at(this->length_->location(),
-		     "array bound is not numeric");
-	  mpfr_clear(fval);
-	  mpz_clear(val);
-	  return false;
-	}
-      if (!mpfr_integer_p(fval))
-	{
-	  error_at(this->length_->location(),
-		   "array bound truncated to integer");
-	  mpfr_clear(fval);
-	  mpz_clear(val);
-	  return false;
-	}
-      mpz_init(val);
-      mpfr_get_z(val, fval, GMP_RNDN);
-      mpfr_clear(fval);
+      if (this->length_->type()->integer_type() != NULL
+	  || this->length_->type()->float_type() != NULL)
+	error_at(this->length_->location(), "array bound is not constant");
+      else
+	error_at(this->length_->location(), "array bound is not numeric");
+      return false;
     }
 
-  if (mpz_sgn(val) < 0)
+  unsigned long val;
+  switch (nc.to_unsigned_long(&val))
     {
-      error_at(this->length_->location(), "negative array bound");
-      mpz_clear(val);
+    case Numeric_constant::NC_UL_VALID:
+      break;
+    case Numeric_constant::NC_UL_NOTINT:
+      error_at(this->length_->location(), "array bound truncated to integer");
       return false;
+    case Numeric_constant::NC_UL_NEGATIVE:
+      error_at(this->length_->location(), "negative array bound");
+      return false;
+    case Numeric_constant::NC_UL_BIG:
+      error_at(this->length_->location(), "array bound overflows");
+      return false;
+    default:
+      go_unreachable();
     }
 
   Type* int_type = Type::lookup_integer_type("int");
-  int tbits = int_type->integer_type()->bits();
-  int vbits = mpz_sizeinbase(val, 2);
-  if (vbits + 1 > tbits)
+  unsigned int tbits = int_type->integer_type()->bits();
+  if (sizeof(val) <= tbits * 8
+      && val >> (tbits - 1) != 0)
     {
       error_at(this->length_->location(), "array bound overflows");
-      mpz_clear(val);
       return false;
     }
-
-  mpz_clear(val);
 
   return true;
 }
@@ -5009,10 +5208,7 @@ bool
 Array_type::do_verify()
 {
   if (!this->verify_length())
-    {
-      this->length_ = Expression::make_error(this->length_->location());
-      return false;
-    }
+    this->length_ = Expression::make_error(this->length_->location());
   return true;
 }
 
@@ -5254,11 +5450,16 @@ Array_type::get_length_tree(Gogo* gogo)
   go_assert(this->length_ != NULL);
   if (this->length_tree_ == NULL_TREE)
     {
+      Numeric_constant nc;
       mpz_t val;
-      mpz_init(val);
-      Type* t;
-      if (this->length_->integer_constant_value(true, val, &t))
+      if (this->length_->numeric_constant_value(&nc) && nc.to_int(&val))
 	{
+	  if (mpz_sgn(val) < 0)
+	    {
+	      this->length_tree_ = error_mark_node;
+	      return this->length_tree_;
+	    }
+	  Type* t = nc.type();
 	  if (t == NULL)
 	    t = Type::lookup_integer_type("int");
 	  else if (t->is_abstract())
@@ -5269,8 +5470,6 @@ Array_type::get_length_tree(Gogo* gogo)
 	}
       else
 	{
-	  mpz_clear(val);
-
 	  // Make up a translation context for the array length
 	  // expression.  FIXME: This won't work in general.
 	  Translate_context context(gogo, NULL, NULL, NULL);
@@ -5295,13 +5494,15 @@ Array_type::get_length_tree(Gogo* gogo)
 // size which does not fit in int.
 
 static void
-get_backend_slice_fields(Gogo* gogo, Array_type* type,
+get_backend_slice_fields(Gogo* gogo, Array_type* type, bool use_placeholder,
 			 std::vector<Backend::Btyped_identifier>* bfields)
 {
   bfields->resize(3);
 
   Type* pet = Type::make_pointer_type(type->element_type());
-  Btype* pbet = pet->get_backend(gogo);
+  Btype* pbet = (use_placeholder
+		 ? pet->get_backend_placeholder(gogo)
+		 : pet->get_backend(gogo));
   Location ploc = Linemap::predeclared_location();
 
   Backend::Btyped_identifier* p = &(*bfields)[0];
@@ -5333,22 +5534,26 @@ Array_type::do_get_backend(Gogo* gogo)
   if (this->length_ == NULL)
     {
       std::vector<Backend::Btyped_identifier> bfields;
-      get_backend_slice_fields(gogo, this, &bfields);
+      get_backend_slice_fields(gogo, this, false, &bfields);
       return gogo->backend()->struct_type(bfields);
     }
   else
     {
-      Btype* element = this->get_backend_element(gogo);
+      Btype* element = this->get_backend_element(gogo, false);
       Bexpression* len = this->get_backend_length(gogo);
       return gogo->backend()->array_type(element, len);
     }
 }
 
 // Return the backend representation of the element type.
+
 Btype*
-Array_type::get_backend_element(Gogo* gogo)
+Array_type::get_backend_element(Gogo* gogo, bool use_placeholder)
 {
-  return this->element_type_->get_backend(gogo);
+  if (use_placeholder)
+    return this->element_type_->get_backend_placeholder(gogo);
+  else
+    return this->element_type_->get_backend(gogo);
 }
 
 // Return the backend representation of the length.
@@ -5357,6 +5562,22 @@ Bexpression*
 Array_type::get_backend_length(Gogo* gogo)
 {
   return tree_to_expr(this->get_length_tree(gogo));
+}
+
+// Finish backend representation of the array.
+
+void
+Array_type::finish_backend_element(Gogo* gogo)
+{
+  Type* et = this->array_type()->element_type();
+  et->get_backend(gogo);
+  if (this->is_slice_type())
+    {
+      // This relies on the fact that we always use the same
+      // structure for a pointer to any given type.
+      Type* pet = Type::make_pointer_type(et);
+      pet->get_backend(gogo);
+    }
 }
 
 // Return a tree for a pointer to the values in ARRAY.
@@ -5599,23 +5820,17 @@ Array_type::do_reflection(Gogo* gogo, std::string* ret) const
   ret->push_back('[');
   if (this->length_ != NULL)
     {
-      mpz_t val;
-      mpz_init(val);
-      Type* type;
-      if (!this->length_->integer_constant_value(true, val, &type))
-	error_at(this->length_->location(),
-		 "array length must be integer constant expression");
-      else if (mpz_cmp_si(val, 0) < 0)
-	error_at(this->length_->location(), "array length is negative");
-      else if (mpz_cmp_ui(val, mpz_get_ui(val)) != 0)
-	error_at(this->length_->location(), "array length is too large");
+      Numeric_constant nc;
+      unsigned long val;
+      if (!this->length_->numeric_constant_value(&nc)
+	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+	error_at(this->length_->location(), "invalid array length");
       else
 	{
 	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", mpz_get_ui(val));
+	  snprintf(buf, sizeof buf, "%lu", val);
 	  ret->append(buf);
 	}
-      mpz_clear(val);
     }
   ret->push_back(']');
 
@@ -5631,23 +5846,17 @@ Array_type::do_mangled_name(Gogo* gogo, std::string* ret) const
   this->append_mangled_name(this->element_type_, gogo, ret);
   if (this->length_ != NULL)
     {
-      mpz_t val;
-      mpz_init(val);
-      Type* type;
-      if (!this->length_->integer_constant_value(true, val, &type))
-	error_at(this->length_->location(),
-		 "array length must be integer constant expression");
-      else if (mpz_cmp_si(val, 0) < 0)
-	error_at(this->length_->location(), "array length is negative");
-      else if (mpz_cmp_ui(val, mpz_get_ui(val)) != 0)
-	error_at(this->length_->location(), "array size is too large");
+      Numeric_constant nc;
+      unsigned long val;
+      if (!this->length_->numeric_constant_value(&nc)
+	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+	error_at(this->length_->location(), "invalid array length");
       else
 	{
 	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", mpz_get_ui(val));
+	  snprintf(buf, sizeof buf, "%lu", val);
 	  ret->append(buf);
 	}
-      mpz_clear(val);
     }
   ret->push_back('e');
 }
@@ -5680,10 +5889,7 @@ Map_type::do_verify()
 {
   // The runtime support uses "map[void]void".
   if (!this->key_type_->is_comparable() && !this->key_type_->is_void_type())
-    {
-      error_at(this->location_, "invalid map key type");
-      return false;
-    }
+    error_at(this->location_, "invalid map key type");
   return true;
 }
 
@@ -6252,7 +6458,7 @@ Interface_type::finalize_methods()
 	}
 
       Named_type* nt = t->named_type();
-      if (nt != NULL)
+      if (nt != NULL && it->parse_methods_ != NULL)
 	{
 	  std::vector<Named_type*>::const_iterator q;
 	  for (q = seen.begin(); q != seen.end(); ++q)
@@ -6354,7 +6560,11 @@ bool
 Interface_type::is_identical(const Interface_type* t,
 			     bool errors_are_identical) const
 {
-  go_assert(this->methods_are_finalized_ && t->methods_are_finalized_);
+  // If methods have not been finalized, then we are asking whether
+  // func redeclarations are the same.  This is an error, so for
+  // simplicity we say they are never the same.
+  if (!this->methods_are_finalized_ || !t->methods_are_finalized_)
+    return false;
 
   // We require the same methods with the same types.  The methods
   // have already been sorted.
@@ -6651,6 +6861,7 @@ Interface_type::get_backend_empty_interface_type(Gogo* gogo)
 
 static void
 get_backend_interface_fields(Gogo* gogo, Interface_type* type,
+			     bool use_placeholder,
 			     std::vector<Backend::Btyped_identifier>* bfields)
 {
   Location loc = type->location();
@@ -6668,8 +6879,37 @@ get_backend_interface_fields(Gogo* gogo, Interface_type* type,
        p != type->methods()->end();
        ++p, ++i)
     {
+      // The type of the method in Go only includes the parameters.
+      // The actual method also has a receiver, which is always a
+      // pointer.  We need to add that pointer type here in order to
+      // generate the correct type for the backend.
+      Function_type* ft = p->type()->function_type();
+      go_assert(ft->receiver() == NULL);
+
+      const Typed_identifier_list* params = ft->parameters();
+      Typed_identifier_list* mparams = new Typed_identifier_list();
+      if (params != NULL)
+	mparams->reserve(params->size() + 1);
+      Type* vt = Type::make_pointer_type(Type::make_void_type());
+      mparams->push_back(Typed_identifier("", vt, ft->location()));
+      if (params != NULL)
+	{
+	  for (Typed_identifier_list::const_iterator pp = params->begin();
+	       pp != params->end();
+	       ++pp)
+	    mparams->push_back(*pp);
+	}
+
+      Typed_identifier_list* mresults = (ft->results() == NULL
+					 ? NULL
+					 : ft->results()->copy());
+      Function_type* mft = Type::make_function_type(NULL, mparams, mresults,
+						    ft->location());
+
       mfields[i].name = Gogo::unpack_hidden_name(p->name());
-      mfields[i].btype = p->type()->get_backend(gogo);
+      mfields[i].btype = (use_placeholder
+			  ? mft->get_backend_placeholder(gogo)
+			  : mft->get_backend(gogo));
       mfields[i].location = loc;
       // Sanity check: the names should be sorted.
       go_assert(p->name() > last_name);
@@ -6709,11 +6949,29 @@ Interface_type::do_get_backend(Gogo* gogo)
       this->interface_btype_ =
 	gogo->backend()->placeholder_struct_type("", this->location_);
       std::vector<Backend::Btyped_identifier> bfields;
-      get_backend_interface_fields(gogo, this, &bfields);
+      get_backend_interface_fields(gogo, this, false, &bfields);
       if (!gogo->backend()->set_placeholder_struct_type(this->interface_btype_,
 							bfields))
 	this->interface_btype_ = gogo->backend()->error_type();
       return this->interface_btype_;
+    }
+}
+
+// Finish the backend representation of the methods.
+
+void
+Interface_type::finish_backend_methods(Gogo* gogo)
+{
+  if (!this->interface_type()->is_empty())
+    {
+      const Typed_identifier_list* methods = this->methods();
+      if (methods != NULL)
+	{
+	  for (Typed_identifier_list::const_iterator p = methods->begin();
+	       p != methods->end();
+	       ++p)
+	    p->type()->get_backend(gogo);
+	}
     }
 }
 
@@ -6802,7 +7060,7 @@ Interface_type::do_type_descriptor(Gogo* gogo, Named_type* name)
 	    mvals->push_back(Expression::make_nil(bloc));
 	  else
 	    {
-	      s = Gogo::hidden_name_prefix(pm->name());
+	      s = Gogo::hidden_name_pkgpath(pm->name());
 	      e = Expression::make_string(s, bloc);
 	      mvals->push_back(Expression::make_unary(OPERATOR_AND, e, bloc));
 	    }
@@ -6851,11 +7109,15 @@ Interface_type::do_reflection(Gogo* gogo, std::string* ret) const
 	    {
 	      if (!Gogo::is_hidden_name(p->name()))
 		ret->append(p->name());
+	      else if (gogo->pkgpath_from_option())
+		ret->append(p->name().substr(1));
 	      else
 		{
-		  // This matches what the gc compiler does.
-		  std::string prefix = Gogo::hidden_name_prefix(p->name());
-		  ret->append(prefix.substr(prefix.find('.') + 1));
+		  // If no -fgo-pkgpath option, backward compatibility
+		  // for how this used to work before -fgo-pkgpath was
+		  // introduced.
+		  std::string pkgpath = Gogo::hidden_name_pkgpath(p->name());
+		  ret->append(pkgpath.substr(pkgpath.find('.') + 1));
 		  ret->push_back('.');
 		  ret->append(Gogo::unpack_hidden_name(p->name()));
 		}
@@ -6920,7 +7182,7 @@ Interface_type::do_export(Export* exp) const
 	{
 	  if (pm->name().empty())
 	    {
-	      exp->write_c_string("$ ");
+	      exp->write_c_string("? ");
 	      exp->write_type(pm->type());
 	    }
 	  else
@@ -6944,6 +7206,8 @@ Interface_type::do_export(Export* exp) const
 			first = false;
 		      else
 			exp->write_c_string(", ");
+		      exp->write_name(pp->name());
+		      exp->write_c_string(" ");
 		      if (!is_varargs || pp + 1 != parameters->end())
 			exp->write_type(pp->type());
 		      else
@@ -6961,7 +7225,7 @@ Interface_type::do_export(Export* exp) const
 	      if (results != NULL)
 		{
 		  exp->write_c_string(" ");
-		  if (results->size() == 1)
+		  if (results->size() == 1 && results->begin()->name().empty())
 		    exp->write_type(results->begin()->type());
 		  else
 		    {
@@ -6976,6 +7240,8 @@ Interface_type::do_export(Export* exp) const
 			    first = false;
 			  else
 			    exp->write_c_string(", ");
+			  exp->write_name(p->name());
+			  exp->write_c_string(" ");
 			  exp->write_type(p->type());
 			}
 		      exp->write_c_string(")");
@@ -7002,7 +7268,7 @@ Interface_type::do_import(Import* imp)
     {
       std::string name = imp->read_identifier();
 
-      if (name == "$")
+      if (name == "?")
 	{
 	  imp->require_c_string(" ");
 	  Type* t = imp->read_type();
@@ -7022,6 +7288,9 @@ Interface_type::do_import(Import* imp)
 	  parameters = new Typed_identifier_list;
 	  while (true)
 	    {
+	      std::string name = imp->read_name();
+	      imp->require_c_string(" ");
+
 	      if (imp->match_c_string("..."))
 		{
 		  imp->advance(3);
@@ -7031,8 +7300,8 @@ Interface_type::do_import(Import* imp)
 	      Type* ptype = imp->read_type();
 	      if (is_varargs)
 		ptype = Type::make_array_type(ptype, NULL);
-	      parameters->push_back(Typed_identifier(Import::import_marker,
-						     ptype, imp->location()));
+	      parameters->push_back(Typed_identifier(name, ptype,
+						     imp->location()));
 	      if (imp->peek_char() != ',')
 		break;
 	      go_assert(!is_varargs);
@@ -7051,17 +7320,18 @@ Interface_type::do_import(Import* imp)
 	  if (imp->peek_char() != '(')
 	    {
 	      Type* rtype = imp->read_type();
-	      results->push_back(Typed_identifier(Import::import_marker,
-						  rtype, imp->location()));
+	      results->push_back(Typed_identifier("", rtype, imp->location()));
 	    }
 	  else
 	    {
 	      imp->advance(1);
 	      while (true)
 		{
+		  std::string name = imp->read_name();
+		  imp->require_c_string(" ");
 		  Type* rtype = imp->read_type();
-		  results->push_back(Typed_identifier(Import::import_marker,
-						      rtype, imp->location()));
+		  results->push_back(Typed_identifier(name, rtype,
+						      imp->location()));
 		  if (imp->peek_char() != ',')
 		    break;
 		  imp->require_c_string(", ");
@@ -7567,6 +7837,11 @@ Find_type_use::type(Type* type)
 	  this->find_type_->add_dependency(type->named_type());
 	  break;
 
+	case Type::TYPE_NAMED:
+	case Type::TYPE_FORWARD:
+	  go_assert(saw_errors());
+	  break;
+
 	case Type::TYPE_VOID:
 	case Type::TYPE_SINK:
 	case Type::TYPE_FUNCTION:
@@ -7575,8 +7850,6 @@ Find_type_use::type(Type* type)
 	case Type::TYPE_MAP:
 	case Type::TYPE_CHANNEL:
 	case Type::TYPE_INTERFACE:
-	case Type::TYPE_NAMED:
-	case Type::TYPE_FORWARD:
 	default:
 	  go_unreachable();
 	}
@@ -7590,6 +7863,10 @@ Find_type_use::type(Type* type)
 bool
 Named_type::do_verify()
 {
+  if (this->is_verified_)
+    return true;
+  this->is_verified_ = true;
+
   Find_type_use find(this);
   Type::traverse(this->type_, &find);
   if (find.found())
@@ -7607,7 +7884,6 @@ Named_type::do_verify()
   if (this->local_methods_ != NULL)
     {
       Struct_type* st = this->type_->struct_type();
-      bool found_dup = false;
       if (st != NULL)
 	{
 	  for (Bindings::const_declarations_iterator p =
@@ -7621,12 +7897,9 @@ Named_type::do_verify()
 		  error_at(p->second->location(),
 			   "method %qs redeclares struct field name",
 			   Gogo::message_name(name).c_str());
-		  found_dup = true;
 		}
 	    }
 	}
-      if (found_dup)
-	return false;
     }
 
   return true;
@@ -7678,20 +7951,14 @@ Named_type::do_hash_for_method(Gogo* gogo) const
   // where we are going to be comparing named types for equality.  In
   // other cases, which are cases where the runtime is going to
   // compare hash codes to see if the types are the same, we need to
-  // include the package prefix and name in the hash.
+  // include the pkgpath in the hash.
   if (gogo != NULL && !Gogo::is_hidden_name(name) && !this->is_builtin())
     {
       const Package* package = this->named_object()->package();
       if (package == NULL)
-	{
-	  ret = Type::hash_string(gogo->unique_prefix(), ret);
-	  ret = Type::hash_string(gogo->package_name(), ret);
-	}
+	ret = Type::hash_string(gogo->pkgpath(), ret);
       else
-	{
-	  ret = Type::hash_string(package->unique_prefix(), ret);
-	  ret = Type::hash_string(package->name(), ret);
-	}
+	ret = Type::hash_string(package->pkgpath(), ret);
     }
 
   return ret;
@@ -7709,6 +7976,11 @@ Named_type::convert(Gogo* gogo)
     return;
 
   this->create_placeholder(gogo);
+
+  // If we are called to turn unsafe.Sizeof into a constant, we may
+  // not have verified the type yet.  We have to make sure it is
+  // verified, since that sets the list of dependencies.
+  this->verify();
 
   // Convert all the dependencies.  If they refer indirectly back to
   // this type, they will pick up the intermediate tree we just
@@ -7747,7 +8019,7 @@ Named_type::convert(Gogo* gogo)
       {
 	std::vector<Backend::Btyped_identifier> bfields;
 	get_backend_struct_fields(gogo, base->struct_type()->fields(),
-				  &bfields);
+				  true, &bfields);
 	if (!gogo->backend()->set_placeholder_struct_type(bt, bfields))
 	  bt = gogo->backend()->error_type();
       }
@@ -7757,7 +8029,7 @@ Named_type::convert(Gogo* gogo)
       // Slice types were completed in create_placeholder.
       if (!base->is_slice_type())
 	{
-	  Btype* bet = base->array_type()->get_backend_element(gogo);
+	  Btype* bet = base->array_type()->get_backend_element(gogo, true);
 	  Bexpression* blen = base->array_type()->get_backend_length(gogo);
 	  if (!gogo->backend()->set_placeholder_array_type(bt, bet, blen))
 	    bt = gogo->backend()->error_type();
@@ -7889,7 +8161,7 @@ Named_type::create_placeholder(Gogo* gogo)
       // because we can fill them in completely here with the final
       // size.
       std::vector<Backend::Btyped_identifier> bfields;
-      get_backend_slice_fields(gogo, base->array_type(), &bfields);
+      get_backend_slice_fields(gogo, base->array_type(), true, &bfields);
       if (!gogo->backend()->set_placeholder_struct_type(bt, bfields))
 	this->named_btype_ = gogo->backend()->error_type();
     }
@@ -7900,7 +8172,8 @@ Named_type::create_placeholder(Gogo* gogo)
       // because we can fill them in completely here with the final
       // size.
       std::vector<Backend::Btyped_identifier> bfields;
-      get_backend_interface_fields(gogo, base->interface_type(), &bfields);
+      get_backend_interface_fields(gogo, base->interface_type(), true,
+				   &bfields);
       if (!gogo->backend()->set_placeholder_struct_type(bt, bfields))
 	this->named_btype_ = gogo->backend()->error_type();
     }
@@ -7959,9 +8232,33 @@ Named_type::do_get_backend(Gogo* gogo)
     case TYPE_NIL:
     case TYPE_MAP:
     case TYPE_CHANNEL:
+      return bt;
+
     case TYPE_STRUCT:
+      if (!this->seen_in_get_backend_)
+	{
+	  this->seen_in_get_backend_ = true;
+	  base->struct_type()->finish_backend_fields(gogo);
+	  this->seen_in_get_backend_ = false;
+	}
+      return bt;
+
     case TYPE_ARRAY:
+      if (!this->seen_in_get_backend_)
+	{
+	  this->seen_in_get_backend_ = true;
+	  base->array_type()->finish_backend_element(gogo);
+	  this->seen_in_get_backend_ = false;
+	}
+      return bt;
+
     case TYPE_INTERFACE:
+      if (!this->seen_in_get_backend_)
+	{
+	  this->seen_in_get_backend_ = true;
+	  base->interface_type()->finish_backend_methods(gogo);
+	  this->seen_in_get_backend_ = false;
+	}
       return bt;
 
     case TYPE_FUNCTION:
@@ -8038,11 +8335,25 @@ Named_type::do_reflection(Gogo* gogo, std::string* ret) const
     }
   if (!this->is_builtin())
     {
+      // We handle -fgo-prefix and -fgo-pkgpath differently here for
+      // compatibility with how the compiler worked before
+      // -fgo-pkgpath was introduced.  When -fgo-pkgpath is specified,
+      // we use it to make a unique reflection string, so that the
+      // type canonicalization in the reflect package will work.  In
+      // order to be compatible with the gc compiler, we put tabs into
+      // the package path, so that the reflect methods can discard it.
       const Package* package = this->named_object_->package();
-      if (package != NULL)
-	ret->append(package->name());
-      else
-	ret->append(gogo->package_name());
+      if (gogo->pkgpath_from_option())
+	{
+	  ret->push_back('\t');
+	  ret->append(package != NULL
+		      ? package->pkgpath_symbol()
+		      : gogo->pkgpath_symbol());
+	  ret->push_back('\t');
+	}
+      ret->append(package != NULL
+		  ? package->package_name()
+		  : gogo->package_name());
       ret->push_back('.');
     }
   if (this->in_function_ != NULL)
@@ -8069,15 +8380,10 @@ Named_type::do_mangled_name(Gogo* gogo, std::string* ret) const
     go_assert(this->in_function_ == NULL);
   else
     {
-      const std::string& unique_prefix(no->package() == NULL
-				       ? gogo->unique_prefix()
-				       : no->package()->unique_prefix());
-      const std::string& package_name(no->package() == NULL
-				      ? gogo->package_name()
-				      : no->package()->name());
-      name = unique_prefix;
-      name.append(1, '.');
-      name.append(package_name);
+      const std::string& pkgpath(no->package() == NULL
+				 ? gogo->pkgpath_symbol()
+				 : no->package()->pkgpath_symbol());
+      name = pkgpath;
       name.append(1, '.');
       if (this->in_function_ != NULL)
 	{
@@ -9201,9 +9507,9 @@ Forward_declaration_type::do_mangled_name(Gogo* gogo, std::string* ret) const
       const Named_object* no = this->named_object();
       std::string name;
       if (no->package() == NULL)
-	name = gogo->package_name();
+	name = gogo->pkgpath_symbol();
       else
-	name = no->package()->name();
+	name = no->package()->pkgpath_symbol();
       name += '.';
       name += Gogo::unpack_hidden_name(no->name());
       char buf[20];

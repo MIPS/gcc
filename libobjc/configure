@@ -2329,13 +2329,6 @@ if test "${enable_objc_gc+set}" = set; then :
     OBJC_GCFLAGS='-DOBJC_WITH_GC=1'
     OBJC_BOEHM_GC='libobjc_gc$(libsuffix).la'
     OBJC_BOEHM_GC_INCLUDES='-I$(top_srcdir)/../boehm-gc/include -I../boehm-gc/include'
-    case "${host}" in
-      alpha*-dec-osf*)
-        # boehm-gc headers include <pthread.h>, which needs to be compiled
-	# with -pthread on Tru64 UNIX.
-        OBJC_GCFLAGS="${OBJC_GCFLAGS} -pthread"
-	;;
-    esac
     ;;
 esac
 else
@@ -6079,7 +6072,14 @@ s390*-*linux*|s390*-*tpf*|sparc*-*linux*)
 	    LD="${LD-ld} -m elf_i386_fbsd"
 	    ;;
 	  x86_64-*linux*)
-	    LD="${LD-ld} -m elf_i386"
+	    case `/usr/bin/file conftest.o` in
+	      *x86-64*)
+		LD="${LD-ld} -m elf32_x86_64"
+		;;
+	      *)
+		LD="${LD-ld} -m elf_i386"
+		;;
+	    esac
 	    ;;
 	  ppc64-*linux*|powerpc64-*linux*)
 	    LD="${LD-ld} -m elf32ppclinux"

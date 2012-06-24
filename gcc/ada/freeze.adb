@@ -49,6 +49,7 @@ with Sem_Cat;  use Sem_Cat;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch7;  use Sem_Ch7;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch9;  use Sem_Ch9;
 with Sem_Ch13; use Sem_Ch13;
 with Sem_Eval; use Sem_Eval;
 with Sem_Mech; use Sem_Mech;
@@ -1323,6 +1324,12 @@ package body Freeze is
             --  for a description of how we handle aspect visibility).
 
             elsif Has_Delayed_Aspects (E) then
+
+               --  Retrieve the visibility to the discriminants in order to
+               --  analyze properly the aspects.
+
+               Push_Scope_And_Install_Discriminants (E);
+
                declare
                   Ritem : Node_Id;
 
@@ -1339,6 +1346,8 @@ package body Freeze is
                      Ritem := Next_Rep_Item (Ritem);
                   end loop;
                end;
+
+               Uninstall_Discriminants_And_Pop_Scope (E);
             end if;
 
             --  If an incomplete type is still not frozen, this may be a
@@ -1536,6 +1545,10 @@ package body Freeze is
       procedure Add_To_Result (N : Node_Id);
       --  N is a freezing action to be appended to the Result
 
+      function After_Last_Declaration return Boolean;
+      --  If Loc is a freeze_entity that appears after the last declaration
+      --  in the scope, inhibit error messages on late completion.
+
       procedure Check_Current_Instance (Comp_Decl : Node_Id);
       --  Check that an Access or Unchecked_Access attribute with a prefix
       --  which is the current instance type can only be applied when the type
@@ -1545,10 +1558,6 @@ package body Freeze is
       --  Give warning for modulus of 8, 16, 32, or 64 given as an explicit
       --  integer literal without an explicit corresponding size clause. The
       --  caller has checked that Utype is a modular integer type.
-
-      function After_Last_Declaration return Boolean;
-      --  If Loc is a freeze_entity that appears after the last declaration
-      --  in the scope, inhibit error messages on late completion.
 
       procedure Freeze_Record_Type (Rec : Entity_Id);
       --  Freeze each component, handle some representation clauses, and freeze
@@ -2129,20 +2138,58 @@ package body Freeze is
             Next_Entity (Comp);
          end loop;
 
+         ADC := Get_Attribute_Definition_Clause
+                  (Rec, Attribute_Scalar_Storage_Order);
+
+         if Present (ADC) then
+
+            --  Check compatibility of Scalar_Storage_Order with Bit_Order, if
+            --  the former is specified.
+
+            if Reverse_Bit_Order (Rec) /= Reverse_Storage_Order (Rec) then
+
+               --  Note: report error on Rec, not on ADC, as ADC may apply to
+               --  an ancestor type.
+
+               Error_Msg_Sloc := Sloc (ADC);
+               Error_Msg_N
+                 ("scalar storage order for& specified# inconsistent with "
+                  & "bit order", Rec);
+            end if;
+
+            --  Warn if there is a Scalar_Storage_Order but no component clause
+
+            if not Placed_Component then
+               Error_Msg_N
+                 ("?scalar storage order specified but no component clause",
+                  ADC);
+            end if;
+         end if;
+
          --  Deal with Bit_Order aspect specifying a non-default bit order
 
-         if Reverse_Bit_Order (Rec) and then Base_Type (Rec) = Rec then
+         ADC := Get_Attribute_Definition_Clause (Rec, Attribute_Bit_Order);
+
+         if Present (ADC) and then Base_Type (Rec) = Rec then
             if not Placed_Component then
-               ADC :=
-                 Get_Attribute_Definition_Clause (Rec, Attribute_Bit_Order);
-               Error_Msg_N ("?Bit_Order specification has no effect", ADC);
+               Error_Msg_N ("?bit order specification has no effect", ADC);
                Error_Msg_N
                  ("\?since no component clauses were specified", ADC);
 
             --  Here is where we do the processing for reversed bit order
 
-            else
+            elsif Reverse_Bit_Order (Rec)
+              and then not Reverse_Storage_Order (Rec)
+            then
                Adjust_Record_For_Reverse_Bit_Order (Rec);
+
+            --  Case where we have both an explicit Bit_Order and the same
+            --  Scalar_Storage_Order: leave record untouched, the back-end
+            --  will take care of required layout conversions.
+
+            else
+               null;
+
             end if;
          end if;
 
@@ -2162,8 +2209,8 @@ package body Freeze is
 
          if Is_Base_Type (Rec) and then Convention (Rec) = Convention_Ada then
             if (Has_Discriminants (Rec) and then Debug_Flag_Dot_V)
-                  or else
-               (not Has_Discriminants (Rec) and then Debug_Flag_Dot_R)
+                 or else
+                   (not Has_Discriminants (Rec) and then Debug_Flag_Dot_R)
             then
                Set_OK_To_Reorder_Components (Rec);
             end if;
@@ -2477,39 +2524,15 @@ package body Freeze is
          end;
       end if;
 
-      --  Deal with delayed aspect specifications. The analysis of the aspect
-      --  is required to be delayed to the freeze point, so we evaluate the
-      --  pragma or attribute definition clause in the tree at this point.
+      --  Deal with delayed aspect specifications. The analysis of the
+      --  aspect is required to be delayed to the freeze point, so we
+      --  evaluate the pragma or attribute definition clause in the tree at
+      --  this point. We also analyze the aspect specification node at the
+      --  freeze point when the aspect doesn't correspond to
+      --  pragma/attribute definition clause.
 
       if Has_Delayed_Aspects (E) then
-         declare
-            Ritem : Node_Id;
-            Aitem : Node_Id;
-
-         begin
-            --  Look for aspect specification entries for this entity
-
-            Ritem := First_Rep_Item (E);
-            while Present (Ritem) loop
-               if Nkind (Ritem) = N_Aspect_Specification
-                 and then Entity (Ritem) = E
-                 and then Is_Delayed_Aspect (Ritem)
-                 and then Scope (E) = Current_Scope
-               then
-                  Aitem := Aspect_Rep_Item (Ritem);
-
-                  --  Skip if this is an aspect with no corresponding pragma
-                  --  or attribute definition node (such as Default_Value).
-
-                  if Present (Aitem) then
-                     Set_Parent (Aitem, Ritem);
-                     Analyze (Aitem);
-                  end if;
-               end if;
-
-               Next_Rep_Item (Ritem);
-            end loop;
-         end;
+         Evaluate_Aspects_At_Freeze_Point (E);
       end if;
 
       --  Here to freeze the entity
@@ -2519,7 +2542,6 @@ package body Freeze is
       --  Case of entity being frozen is other than a type
 
       if not Is_Type (E) then
-
          --  If entity is exported or imported and does not have an external
          --  name, now is the time to provide the appropriate default name.
          --  Skip this if the entity is stubbed, since we don't need a name
@@ -4114,7 +4136,6 @@ package body Freeze is
             if Present (Get_Rep_Pragma (E, Name_Simple_Storage_Pool_Type))
               and then (Is_Base_Type (E) or else Has_Private_Declaration (E))
             then
-
                --  If the type is marked Has_Private_Declaration, then this is
                --  a full type for a private type that was specified with the
                --  pragma Simple_Storage_Pool_Type, and here we ensure that the
@@ -4127,7 +4148,6 @@ package body Freeze is
                     and then not Is_Private_Type (E)
                   then
                      Error_Msg_Name_1 := Name_Simple_Storage_Pool_Type;
-
                      Error_Msg_N
                        ("pragma% can only apply to full type that is an " &
                         "explicitly limited type", E);
@@ -4197,6 +4217,7 @@ package body Freeze is
                      end if;
 
                      if Etype (Pool_Op_Formal) /= Expected_Type then
+
                         --  If the pool type was expected for this formal, then
                         --  this will not be considered a candidate operation
                         --  for the simple pool, so we unset OK_Formal so that
@@ -4243,8 +4264,8 @@ package body Freeze is
                   begin
                      pragma Assert
                        (Op_Name = Name_Allocate
-                          or else Op_Name = Name_Deallocate
-                          or else Op_Name = Name_Storage_Size);
+                         or else Op_Name = Name_Deallocate
+                         or else Op_Name = Name_Storage_Size);
 
                      Error_Msg_Name_1 := Op_Name;
 
@@ -4270,7 +4291,6 @@ package body Freeze is
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_In_Parameter, Pool_Type,
                                  "Pool", Is_OK);
-
                            else
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_In_Out_Parameter, Pool_Type,
@@ -4295,7 +4315,6 @@ package body Freeze is
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_Out_Parameter,
                                  Address_Type, "Storage_Address", Is_OK);
-
                            elsif Op_Name = Name_Deallocate then
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_In_Parameter,
@@ -4310,7 +4329,6 @@ package body Freeze is
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_In_Parameter,
                                  Stg_Cnt_Type, "Size_In_Storage_Units", Is_OK);
-
                               Validate_Simple_Pool_Op_Formal
                                 (Op, Formal, E_In_Parameter,
                                  Stg_Cnt_Type, "Alignment", Is_OK);
@@ -4338,6 +4356,7 @@ package body Freeze is
                                      "storage pool type", Pool_Type);
 
                      elsif Present (Found_Op) then
+
                         --  Simple pool operations can't be abstract
 
                         if Is_Abstract_Subprogram (Found_Op) then
@@ -4373,9 +4392,7 @@ package body Freeze is
 
                begin
                   Validate_Simple_Pool_Operation (Name_Allocate);
-
                   Validate_Simple_Pool_Operation (Name_Deallocate);
-
                   Validate_Simple_Pool_Operation (Name_Storage_Size);
                end Validate_Simple_Pool_Ops;
             end if;
@@ -4412,10 +4429,12 @@ package body Freeze is
          --  the size and alignment values. This processing is not required for
          --  generic types, since generic types do not play any part in code
          --  generation, and so the size and alignment values for such types
-         --  are irrelevant.
+         --  are irrelevant. Ditto for types declared within a generic unit,
+         --  which may have components that depend on generic parameters, and
+         --  that will be recreated in an instance.
 
-         if Is_Generic_Type (E) then
-            return Result;
+         if Inside_A_Generic then
+            null;
 
          --  Otherwise we call the layout procedure
 
@@ -4679,13 +4698,15 @@ package body Freeze is
             Id := Defining_Unit_Name (Specification (P));
 
             if Nkind (Id) = N_Defining_Identifier
-              and then (Is_Init_Proc (Id)              or else
-                        Is_TSS (Id, TSS_Stream_Input)  or else
-                        Is_TSS (Id, TSS_Stream_Output) or else
-                        Is_TSS (Id, TSS_Stream_Read)   or else
-                        Is_TSS (Id, TSS_Stream_Write)  or else
+              and then (Is_Init_Proc (Id)                    or else
+                        Is_TSS (Id, TSS_Stream_Input)        or else
+                        Is_TSS (Id, TSS_Stream_Output)       or else
+                        Is_TSS (Id, TSS_Stream_Read)         or else
+                        Is_TSS (Id, TSS_Stream_Write)        or else
                         Nkind (Original_Node (P)) =
-                          N_Subprogram_Renaming_Declaration)
+                          N_Subprogram_Renaming_Declaration  or else
+                        Nkind (Original_Node (P)) =
+                          N_Expression_Function)
             then
                return True;
             else
@@ -5072,9 +5093,9 @@ package body Freeze is
         or else Ekind (Current_Scope) = E_Void
       then
          declare
-            N            : constant Node_Id    := Current_Scope;
-            Freeze_Nodes : List_Id             := No_List;
-            Pos          : Int                 := Scope_Stack.Last;
+            N            : constant Node_Id := Current_Scope;
+            Freeze_Nodes : List_Id          := No_List;
+            Pos          : Int              := Scope_Stack.Last;
 
          begin
             if Present (Desig_Typ) then
@@ -5090,13 +5111,18 @@ package body Freeze is
             end if;
 
             --  The current scope may be that of a constrained component of
-            --  an enclosing record declaration, which is above the current
-            --  scope in the scope stack.
+            --  an enclosing record declaration, or of a loop of an enclosing
+            --  quantified expression, which is above the current scope in the
+            --  scope stack. Indeed in the context of a quantified expression,
+            --  a scope is created and pushed above the current scope in order
+            --  to emulate the loop-like behavior of the quantified expression.
             --  If the expression is within a top-level pragma, as for a pre-
             --  condition on a library-level subprogram, nothing to do.
 
             if not Is_Compilation_Unit (Current_Scope)
-              and then Is_Record_Type (Scope (Current_Scope))
+              and then (Is_Record_Type (Scope (Current_Scope))
+                         or else Nkind (Parent (Current_Scope)) =
+                                   N_Quantified_Expression)
             then
                Pos := Pos - 1;
             end if;

@@ -61,7 +61,7 @@
 #define FUNC_IS_NORETURN_P(decl) (TREE_THIS_VOLATILE (decl))
 
 /* Predicate that holds when we need to save registers even for 'noreturn'
-   functions, to accomodate for unwinding.  */
+   functions, to accommodate for unwinding.  */
 #define MUST_SAVE_REGS_P() \
   (flag_unwind_tables || (flag_exceptions && !UI_SJLJ))
 
@@ -1851,7 +1851,7 @@ cr16_create_dwarf_for_multi_push (rtx insn)
 	      tmp = gen_rtx_SET (VOIDmode,
 				 gen_frame_mem (mode,
 						plus_constant
-						(stack_pointer_rtx,
+						(Pmode, stack_pointer_rtx,
 						 total_push_bytes - offset)),
 				 reg);
 	      RTX_FRAME_RELATED_P (tmp) = 1;

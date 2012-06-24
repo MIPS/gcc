@@ -98,16 +98,6 @@ struct case_node
 typedef struct case_node case_node;
 typedef struct case_node *case_node_ptr;
 
-/* These are used by estimate_case_costs and balance_case_nodes.  */
-
-/* This must be a signed type, and non-ANSI compilers lack signed char.  */
-static short cost_table_[129];
-static int use_cost_table;
-static int cost_table_initialized;
-
-/* Special care is needed because we allow -1, but TREE_INT_CST_LOW
-   is unsigned.  */
-#define COST_TABLE(I)  cost_table_[(unsigned HOST_WIDE_INT) ((I) + 1)]
 
 static int n_occurrences (int, const char *);
 static bool tree_conflicts_with_clobbers_p (tree, HARD_REG_SET *);
@@ -117,7 +107,6 @@ static bool check_unique_operand_names (tree, tree, tree);
 static char *resolve_operand_name_1 (char *, tree, tree, tree);
 static void expand_null_return_1 (void);
 static void expand_value_return (rtx);
-static int estimate_case_costs (case_node_ptr);
 static bool lshift_cheap_p (void);
 static int case_bit_test_cmp (const void *, const void *);
 static void emit_case_bit_tests (tree, tree, tree, tree, case_node_ptr, rtx);
@@ -838,7 +827,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 	}
       else
 	{
-	  op = assign_temp (type, 0, 0, 1);
+	  op = assign_temp (type, 0, 1);
 	  op = validize_mem (op);
 	  if (!MEM_P (op) && TREE_CODE (TREE_VALUE (tail)) == SSA_NAME)
 	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (TREE_VALUE (tail)), op);
@@ -921,31 +910,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 		 at this point.  Ignore it: clearly this *is* a memory.  */
 	    }
 	  else
-	    {
-	      warning (0, "use of memory input without lvalue in "
-		       "asm operand %d is deprecated", i + noutputs);
-
-	      if (CONSTANT_P (op))
-		{
-		  rtx mem = force_const_mem (TYPE_MODE (type), op);
-		  if (mem)
-		    op = validize_mem (mem);
-		  else
-		    op = force_reg (TYPE_MODE (type), op);
-		}
-	      if (REG_P (op)
-		  || GET_CODE (op) == SUBREG
-		  || GET_CODE (op) == CONCAT)
-		{
-		  tree qual_type = build_qualified_type (type,
-							 (TYPE_QUALS (type)
-							  | TYPE_QUAL_CONST));
-		  rtx memloc = assign_temp (qual_type, 1, 1, 1);
-		  memloc = validize_mem (memloc);
-		  emit_move_insn (memloc, op);
-		  op = memloc;
-		}
-	    }
+	    gcc_unreachable ();
 	}
 
       generating_concat_p = old_generating_concat_p;
@@ -1472,102 +1437,6 @@ expand_expr_stmt (tree exp)
   free_temp_slots ();
 }
 
-/* Warn if EXP contains any computations whose results are not used.
-   Return 1 if a warning is printed; 0 otherwise.  LOCUS is the
-   (potential) location of the expression.  */
-
-int
-warn_if_unused_value (const_tree exp, location_t locus)
-{
- restart:
-  if (TREE_USED (exp) || TREE_NO_WARNING (exp))
-    return 0;
-
-  /* Don't warn about void constructs.  This includes casting to void,
-     void function calls, and statement expressions with a final cast
-     to void.  */
-  if (VOID_TYPE_P (TREE_TYPE (exp)))
-    return 0;
-
-  if (EXPR_HAS_LOCATION (exp))
-    locus = EXPR_LOCATION (exp);
-
-  switch (TREE_CODE (exp))
-    {
-    case PREINCREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
-    case PREDECREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-    case MODIFY_EXPR:
-    case INIT_EXPR:
-    case TARGET_EXPR:
-    case CALL_EXPR:
-    case TRY_CATCH_EXPR:
-    case WITH_CLEANUP_EXPR:
-    case EXIT_EXPR:
-    case VA_ARG_EXPR:
-      return 0;
-
-    case BIND_EXPR:
-      /* For a binding, warn if no side effect within it.  */
-      exp = BIND_EXPR_BODY (exp);
-      goto restart;
-
-    case SAVE_EXPR:
-    case NON_LVALUE_EXPR:
-      exp = TREE_OPERAND (exp, 0);
-      goto restart;
-
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_ANDIF_EXPR:
-      /* In && or ||, warn if 2nd operand has no side effect.  */
-      exp = TREE_OPERAND (exp, 1);
-      goto restart;
-
-    case COMPOUND_EXPR:
-      if (warn_if_unused_value (TREE_OPERAND (exp, 0), locus))
-	return 1;
-      /* Let people do `(foo (), 0)' without a warning.  */
-      if (TREE_CONSTANT (TREE_OPERAND (exp, 1)))
-	return 0;
-      exp = TREE_OPERAND (exp, 1);
-      goto restart;
-
-    case COND_EXPR:
-      /* If this is an expression with side effects, don't warn; this
-	 case commonly appears in macro expansions.  */
-      if (TREE_SIDE_EFFECTS (exp))
-	return 0;
-      goto warn;
-
-    case INDIRECT_REF:
-      /* Don't warn about automatic dereferencing of references, since
-	 the user cannot control it.  */
-      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == REFERENCE_TYPE)
-	{
-	  exp = TREE_OPERAND (exp, 0);
-	  goto restart;
-	}
-      /* Fall through.  */
-
-    default:
-      /* Referencing a volatile value is a side effect, so don't warn.  */
-      if ((DECL_P (exp) || REFERENCE_CLASS_P (exp))
-	  && TREE_THIS_VOLATILE (exp))
-	return 0;
-
-      /* If this is an expression which has no operands, there is no value
-	 to be unused.  There are no such language-independent codes,
-	 but front ends may define such.  */
-      if (EXPRESSION_CLASS_P (exp) && TREE_OPERAND_LENGTH (exp) == 0)
-	return 0;
-
-    warn:
-      warning_at (locus, OPT_Wunused_value, "value computed is not used");
-      return 1;
-    }
-}
-
 
 /* Generate RTL to return from the current function, with no value.
    (That is, we do not do anything about returning any value.)  */
@@ -1710,7 +1579,7 @@ expand_return (tree retval)
       tree ot = TREE_TYPE (DECL_RESULT (current_function_decl));
       tree nt = build_qualified_type (ot, TYPE_QUALS (ot) | TYPE_QUAL_CONST);
 
-      val = assign_temp (nt, 0, 0, 1);
+      val = assign_temp (nt, 0, 1);
       val = expand_expr (retval_rhs, val, GET_MODE (val), EXPAND_NORMAL);
       val = force_not_mem (val);
       /* Return the calculated value.  */
@@ -1796,111 +1665,6 @@ expand_nl_goto_receiver (void)
   emit_insn (gen_blockage ());
 }
 
-/* Generate RTL for the automatic variable declaration DECL.
-   (Other kinds of declarations are simply ignored if seen here.)  */
-
-void
-expand_decl (tree decl)
-{
-  tree type;
-
-  type = TREE_TYPE (decl);
-
-  /* For a CONST_DECL, set mode, alignment, and sizes from those of the
-     type in case this node is used in a reference.  */
-  if (TREE_CODE (decl) == CONST_DECL)
-    {
-      DECL_MODE (decl) = TYPE_MODE (type);
-      DECL_ALIGN (decl) = TYPE_ALIGN (type);
-      DECL_SIZE (decl) = TYPE_SIZE (type);
-      DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (type);
-      return;
-    }
-
-  /* Otherwise, only automatic variables need any expansion done.  Static and
-     external variables, and external functions, will be handled by
-     `assemble_variable' (called from finish_decl).  TYPE_DECL requires
-     nothing.  PARM_DECLs are handled in `assign_parms'.  */
-  if (TREE_CODE (decl) != VAR_DECL)
-    return;
-
-  if (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
-    return;
-
-  /* Create the RTL representation for the variable.  */
-
-  if (type == error_mark_node)
-    SET_DECL_RTL (decl, gen_rtx_MEM (BLKmode, const0_rtx));
-
-  else if (DECL_SIZE (decl) == 0)
-    {
-      /* Variable with incomplete type.  */
-      rtx x;
-      if (DECL_INITIAL (decl) == 0)
-	/* Error message was already done; now avoid a crash.  */
-	x = gen_rtx_MEM (BLKmode, const0_rtx);
-      else
-	/* An initializer is going to decide the size of this array.
-	   Until we know the size, represent its address with a reg.  */
-	x = gen_rtx_MEM (BLKmode, gen_reg_rtx (Pmode));
-
-      set_mem_attributes (x, decl, 1);
-      SET_DECL_RTL (decl, x);
-    }
-  else if (use_register_for_decl (decl))
-    {
-      /* Automatic variable that can go in a register.  */
-      enum machine_mode reg_mode = promote_decl_mode (decl, NULL);
-
-      SET_DECL_RTL (decl, gen_reg_rtx (reg_mode));
-
-      /* Note if the object is a user variable.  */
-      if (!DECL_ARTIFICIAL (decl))
-	  mark_user_reg (DECL_RTL (decl));
-
-      if (POINTER_TYPE_P (type))
-	mark_reg_pointer (DECL_RTL (decl),
-			  TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-    }
-
-  else
-    {
-      rtx oldaddr = 0;
-      rtx addr;
-      rtx x;
-
-      /* Variable-sized decls are dealt with in the gimplifier.  */
-      gcc_assert (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST);
-
-      /* If we previously made RTL for this decl, it must be an array
-	 whose size was determined by the initializer.
-	 The old address was a register; set that register now
-	 to the proper address.  */
-      if (DECL_RTL_SET_P (decl))
-	{
-	  gcc_assert (MEM_P (DECL_RTL (decl)));
-	  gcc_assert (REG_P (XEXP (DECL_RTL (decl), 0)));
-	  oldaddr = XEXP (DECL_RTL (decl), 0);
-	}
-
-      /* Set alignment we actually gave this decl.  */
-      DECL_ALIGN (decl) = (DECL_MODE (decl) == BLKmode ? BIGGEST_ALIGNMENT
-			   : GET_MODE_BITSIZE (DECL_MODE (decl)));
-      DECL_USER_ALIGN (decl) = 0;
-
-      x = assign_temp (decl, 1, 1, 1);
-      set_mem_attributes (x, decl, 1);
-      SET_DECL_RTL (decl, x);
-
-      if (oldaddr)
-	{
-	  addr = force_operand (XEXP (DECL_RTL (decl), 0), oldaddr);
-	  if (addr != oldaddr)
-	    emit_move_insn (oldaddr, addr);
-	}
-    }
-}
-
 /* Emit code to save the current value of stack.  */
 rtx
 expand_stack_save (void)
@@ -1929,66 +1693,25 @@ expand_stack_restore (tree var)
    fed to us in descending order from the sorted vector of case labels used
    in the tree part of the middle end.  So the list we construct is
    sorted in ascending order.  The bounds on the case range, LOW and HIGH,
-   are converted to case's index type TYPE.  */
+   are converted to case's index type TYPE.  Note that the original type
+   of the case index in the source code is usually "lost" during
+   gimplification due to type promotion, but the case labels retain the
+   original type.  */
 
 static struct case_node *
 add_case_node (struct case_node *head, tree type, tree low, tree high,
                tree label, alloc_pool case_node_pool)
 {
-  tree min_value, max_value;
   struct case_node *r;
 
-  gcc_assert (TREE_CODE (low) == INTEGER_CST);
-  gcc_assert (!high || TREE_CODE (high) == INTEGER_CST);
-
-  min_value = TYPE_MIN_VALUE (type);
-  max_value = TYPE_MAX_VALUE (type);
-
-  /* If there's no HIGH value, then this is not a case range; it's
-     just a simple case label.  But that's just a degenerate case
-     range.
-     If the bounds are equal, turn this into the one-value case.  */
-  if (!high || tree_int_cst_equal (low, high))
-    {
-      /* If the simple case value is unreachable, ignore it.  */
-      if ((TREE_CODE (min_value) == INTEGER_CST
-            && tree_int_cst_compare (low, min_value) < 0)
-	  || (TREE_CODE (max_value) == INTEGER_CST
-	      && tree_int_cst_compare (low, max_value) > 0))
-	return head;
-      low = fold_convert (type, low);
-      high = low;
-    }
-  else
-    {
-      /* If the entire case range is unreachable, ignore it.  */
-      if ((TREE_CODE (min_value) == INTEGER_CST
-            && tree_int_cst_compare (high, min_value) < 0)
-	  || (TREE_CODE (max_value) == INTEGER_CST
-	      && tree_int_cst_compare (low, max_value) > 0))
-	return head;
-
-      /* If the lower bound is less than the index type's minimum
-	 value, truncate the range bounds.  */
-      if (TREE_CODE (min_value) == INTEGER_CST
-            && tree_int_cst_compare (low, min_value) < 0)
-	low = min_value;
-      low = fold_convert (type, low);
-
-      /* If the upper bound is greater than the index type's maximum
-	 value, truncate the range bounds.  */
-      if (TREE_CODE (max_value) == INTEGER_CST
-	  && tree_int_cst_compare (high, max_value) > 0)
-	high = max_value;
-      high = fold_convert (type, high);
-    }
-
+  gcc_checking_assert (low);
+  gcc_checking_assert (! high || (TREE_TYPE (low) == TREE_TYPE (high)));
 
   /* Add this label to the chain.  Make sure to drop overflow flags.  */
   r = (struct case_node *) pool_alloc (case_node_pool);
-  r->low = build_int_cst_wide (TREE_TYPE (low), TREE_INT_CST_LOW (low),
+  r->low = build_int_cst_wide (type, TREE_INT_CST_LOW (low),
 			       TREE_INT_CST_HIGH (low));
-  r->high = build_int_cst_wide (TREE_TYPE (high), TREE_INT_CST_LOW (high),
+  r->high = build_int_cst_wide (type, TREE_INT_CST_LOW (high),
 				TREE_INT_CST_HIGH (high));
   r->code_label = label;
   r->parent = r->left = NULL;
@@ -2258,9 +1981,12 @@ expand_case (gimple stmt)
 	  gcc_assert (low);
 	  high = CASE_HIGH (elt);
 
-	  /* Discard empty ranges.  */
-	  if (high && tree_int_cst_lt (high, low))
-	    continue;
+	  /* The canonical from of a case label in GIMPLE is that a simple case
+	     has an empty CASE_HIGH.  For the casesi and tablejump expanders,
+	     the back ends want simple cases to have high == low.  */
+	  gcc_assert (! high || tree_int_cst_lt (low, high));
+	  if (! high)
+	    high = low;
 
 	  case_list = add_case_node (case_list, index_type, low, high,
                                      CASE_LABEL (elt), case_node_pool);
@@ -2306,16 +2032,10 @@ expand_case (gimple stmt)
       BITMAP_FREE (label_bitmap);
 
       /* cleanup_tree_cfg removes all SWITCH_EXPR with a single
-	 destination, such as one with a default case only.  However,
-	 it doesn't remove cases that are out of range for the switch
-	 type, so we may still get a zero here.  */
-      if (count == 0)
-	{
-	  if (default_label)
-	    emit_jump (default_label);
-          free_alloc_pool (case_node_pool);
-	  return;
-	}
+	 destination, such as one with a default case only.
+	 It also removes cases that are out of range for the switch
+	 type, so we should never get a zero here.  */
+      gcc_assert (count > 0);
 
       /* Compute span of values.  */
       range = fold_build2 (MINUS_EXPR, index_type, maxval, minval);
@@ -2349,9 +2069,6 @@ expand_case (gimple stmt)
 	       /* RANGE may be signed, and really large ranges will show up
 		  as negative numbers.  */
 	       || compare_tree_int (range, 0) < 0
-#ifndef ASM_OUTPUT_ADDR_DIFF_ELT
-	       || flag_pic
-#endif
 	       || !flag_jump_tables
 	       || TREE_CONSTANT (index_expr)
 	       /* If neither casesi or tablejump is available, we can
@@ -2381,7 +2098,11 @@ expand_case (gimple stmt)
 	  do_pending_stack_adjust ();
 
 	  if (MEM_P (index))
-	    index = copy_to_reg (index);
+	    {
+	      index = copy_to_reg (index);
+	      if (TREE_CODE (index_expr) == SSA_NAME)
+		set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (index_expr), index);
+	    }
 
 	  /* We generate a binary decision tree to select the
 	     appropriate target code.  This is done as follows:
@@ -2396,7 +2117,6 @@ expand_case (gimple stmt)
 	     decision tree an unconditional jump to the
 	     default code is emitted.  */
 
-	  use_cost_table = estimate_case_costs (case_list);
 	  balance_case_nodes (&case_list, NULL);
 	  emit_case_nodes (index, case_list, default_label, index_type);
 	  if (default_label)
@@ -2495,86 +2215,6 @@ do_jump_if_equal (enum machine_mode mode, rtx op0, rtx op1, rtx label,
 			   NULL_RTX, NULL_RTX, label, -1);
 }
 
-/* Not all case values are encountered equally.  This function
-   uses a heuristic to weight case labels, in cases where that
-   looks like a reasonable thing to do.
-
-   Right now, all we try to guess is text, and we establish the
-   following weights:
-
-	chars above space:	16
-	digits:			16
-	default:		12
-	space, punct:		8
-	tab:			4
-	newline:		2
-	other "\" chars:	1
-	remaining chars:	0
-
-   If we find any cases in the switch that are not either -1 or in the range
-   of valid ASCII characters, or are control characters other than those
-   commonly used with "\", don't treat this switch scanning text.
-
-   Return 1 if these nodes are suitable for cost estimation, otherwise
-   return 0.  */
-
-static int
-estimate_case_costs (case_node_ptr node)
-{
-  tree min_ascii = integer_minus_one_node;
-  tree max_ascii = build_int_cst (TREE_TYPE (node->high), 127);
-  case_node_ptr n;
-  int i;
-
-  /* If we haven't already made the cost table, make it now.  Note that the
-     lower bound of the table is -1, not zero.  */
-
-  if (! cost_table_initialized)
-    {
-      cost_table_initialized = 1;
-
-      for (i = 0; i < 128; i++)
-	{
-	  if (ISALNUM (i))
-	    COST_TABLE (i) = 16;
-	  else if (ISPUNCT (i))
-	    COST_TABLE (i) = 8;
-	  else if (ISCNTRL (i))
-	    COST_TABLE (i) = -1;
-	}
-
-      COST_TABLE (' ') = 8;
-      COST_TABLE ('\t') = 4;
-      COST_TABLE ('\0') = 4;
-      COST_TABLE ('\n') = 2;
-      COST_TABLE ('\f') = 1;
-      COST_TABLE ('\v') = 1;
-      COST_TABLE ('\b') = 1;
-    }
-
-  /* See if all the case expressions look like text.  It is text if the
-     constant is >= -1 and the highest constant is <= 127.  Do all comparisons
-     as signed arithmetic since we don't want to ever access cost_table with a
-     value less than -1.  Also check that none of the constants in a range
-     are strange control characters.  */
-
-  for (n = node; n; n = n->right)
-    {
-      if (tree_int_cst_lt (n->low, min_ascii)
-	  || tree_int_cst_lt (max_ascii, n->high))
-	return 0;
-
-      for (i = (HOST_WIDE_INT) TREE_INT_CST_LOW (n->low);
-	   i <= (HOST_WIDE_INT) TREE_INT_CST_LOW (n->high); i++)
-	if (COST_TABLE (i) < 0)
-	  return 0;
-    }
-
-  /* All interesting values are within the range of interesting
-     ASCII characters.  */
-  return 1;
-}
-
 /* Take an ordered list of case nodes
    and transform them into a near optimal binary tree,
    on the assumption that any target code selection value is as
@@ -2593,7 +2233,6 @@ balance_case_nodes (case_node_ptr *head, case_node_ptr parent)
   np = *head;
   if (np)
     {
-      int cost = 0;
       int i = 0;
       int ranges = 0;
       case_node_ptr *npp;
@@ -2604,14 +2243,7 @@ balance_case_nodes (case_node_ptr *head, case_node_ptr parent)
       while (np)
 	{
 	  if (!tree_int_cst_equal (np->low, np->high))
-	    {
-	      ranges++;
-	      if (use_cost_table)
-		cost += COST_TABLE (TREE_INT_CST_LOW (np->high));
-	    }
-
-	  if (use_cost_table)
-	    cost += COST_TABLE (TREE_INT_CST_LOW (np->low));
+	    ranges++;
 
 	  i++;
 	  np = np->right;
@@ -2622,37 +2254,9 @@ balance_case_nodes (case_node_ptr *head, case_node_ptr parent)
 	  /* Split this list if it is long enough for that to help.  */
 	  npp = head;
 	  left = *npp;
-	  if (use_cost_table)
-	    {
-	      /* Find the place in the list that bisects the list's total cost,
-		 Here I gets half the total cost.  */
-	      int n_moved = 0;
-	      i = (cost + 1) / 2;
-	      while (1)
-		{
-		  /* Skip nodes while their cost does not reach that amount.  */
-		  if (!tree_int_cst_equal ((*npp)->low, (*npp)->high))
-		    i -= COST_TABLE (TREE_INT_CST_LOW ((*npp)->high));
-		  i -= COST_TABLE (TREE_INT_CST_LOW ((*npp)->low));
-		  if (i <= 0)
-		    break;
-		  npp = &(*npp)->right;
-		  n_moved += 1;
-		}
-	      if (n_moved == 0)
-		{
-		  /* Leave this branch lopsided, but optimize left-hand
-		     side and fill in `parent' fields for right-hand side.  */
-		  np = *head;
-		  np->parent = parent;
-		  balance_case_nodes (&np->left, np);
-		  for (; np->right; np = np->right)
-		    np->right->parent = np;
-		  return;
-		}
-	    }
+
 	  /* If there are just three nodes, split at the middle one.  */
-	  else if (i == 3)
+	  if (i == 3)
 	    npp = &(*npp)->right;
 	  else
 	    {

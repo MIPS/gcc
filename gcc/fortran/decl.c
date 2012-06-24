@@ -586,7 +586,7 @@ cleanup:
 /************************ Declaration statements *********************/
 
 
-/* Auxilliary function to merge DIMENSION and CODIMENSION array specs.  */
+/* Auxiliary function to merge DIMENSION and CODIMENSION array specs.  */
 
 static void
 merge_array_spec (gfc_array_spec *from, gfc_array_spec *to, bool copy)
@@ -1658,7 +1658,10 @@ scalar:
       bool delayed = (gfc_state_stack->sym == c->ts.u.derived)
 		     || (!c->ts.u.derived->components
 			 && !c->ts.u.derived->attr.zero_comp);
-      return gfc_build_class_symbol (&c->ts, &c->attr, &c->as, delayed);
+      gfc_try t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as, delayed);
+
+      if (t != FAILURE)
+	t = t2;
     }
 
   return t;
@@ -1712,7 +1715,7 @@ match_pointer_init (gfc_expr **init, int procptr)
       return MATCH_ERROR;
     }
 
-  /* Match NULL() initilization.  */
+  /* Match NULL() initialization.  */
   m = gfc_match_null (init);
   if (m != MATCH_NO)
     return m;
@@ -2232,7 +2235,7 @@ kind_expr:
      C interoperable kind (and store the fact).	 */
   if (e->ts.is_c_interop == 1)
     {
-      /* Mark this as c interoperable if being declared with one
+      /* Mark this as C interoperable if being declared with one
 	 of the named constants from iso_c_binding.  */
       ts->is_c_interop = e->ts.is_iso_c;
       ts->f90_type = e->ts.f90_type;
@@ -2530,10 +2533,10 @@ done:
   ts->kind = kind == 0 ? gfc_default_character_kind : kind;
   ts->deferred = deferred;
 
-  /* We have to know if it was a c interoperable kind so we can
+  /* We have to know if it was a C interoperable kind so we can
      do accurate type checking of bind(c) procs, etc.  */
   if (kind != 0)
-    /* Mark this as c interoperable if being declared with one
+    /* Mark this as C interoperable if being declared with one
        of the named constants from iso_c_binding.  */
     ts->is_c_interop = is_iso_c;
   else if (len != NULL)
@@ -2600,9 +2603,31 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
     }
 
 
-  m = gfc_match (" type ( %n", name);
+  m = gfc_match (" type (");
   matched_type = (m == MATCH_YES);
-  
+  if (matched_type)
+    {
+      gfc_gobble_whitespace ();
+      if (gfc_peek_ascii_char () == '*')
+	{
+	  if ((m = gfc_match ("*)")) != MATCH_YES)
+	    return m;
+	  if (gfc_current_state () == COMP_DERIVED)
+	    {
+	      gfc_error ("Assumed type at %C is not allowed for components");
+	      return MATCH_ERROR;
+	    }
+	  if (gfc_notify_std (GFC_STD_F2008_TS, "TS 29113: Assumed type "
+			  "at %C") == FAILURE)
+	    return MATCH_ERROR;
+	  ts->type = BT_ASSUMED;
+	  return MATCH_YES;
+	}
+
+      m = gfc_match ("%n", name);
+      matched_type = (m == MATCH_YES);
+    }
+
   if ((matched_type && strcmp ("integer", name) == 0)
       || (!matched_type && gfc_match (" integer") == MATCH_YES))
     {
@@ -2741,7 +2766,7 @@ gfc_match_decl_type_spec (gfc_typespec *ts, int implicit_flag)
   /* Search for the name but allow the components to be defined later.  If
      type = -1, this typespec has been seen in a function declaration but
      the type could not be accessed at that point.  The actual derived type is
-     stored in a symtree with the first letter of the name captialized; the
+     stored in a symtree with the first letter of the name capitalized; the
      symtree with the all lower-case name contains the associated
      generic function.  */
   dt_name = gfc_get_string ("%c%s",
@@ -3175,7 +3200,7 @@ gfc_match_import (void)
 	  if (sym->attr.generic && (sym = gfc_find_dt_in_generic (sym)))
 	    {
 	      /* The actual derived type is stored in a symtree with the first
-		 letter of the name captialized; the symtree with the all
+		 letter of the name capitalized; the symtree with the all
 		 lower-case name contains the associated generic function. */
 	      st = gfc_new_symtree (&gfc_current_ns->sym_root,
 			gfc_get_string ("%c%s",
@@ -3239,7 +3264,7 @@ static match
 match_attr_spec (void)
 {
   /* Modifiers that can exist in a type statement.  */
-  typedef enum
+  enum
   { GFC_DECL_BEGIN = 0,
     DECL_ALLOCATABLE = GFC_DECL_BEGIN, DECL_DIMENSION, DECL_EXTERNAL,
     DECL_IN, DECL_OUT, DECL_INOUT, DECL_INTRINSIC, DECL_OPTIONAL,
@@ -3247,8 +3272,7 @@ match_attr_spec (void)
     DECL_PUBLIC, DECL_SAVE, DECL_TARGET, DECL_VALUE, DECL_VOLATILE,
     DECL_IS_BIND_C, DECL_CODIMENSION, DECL_ASYNCHRONOUS, DECL_CONTIGUOUS,
     DECL_NONE, GFC_DECL_END /* Sentinel */
-  }
-  decl_types;
+  };
 
 /* GFC_DECL_END is the sentinel, index starts at 0.  */
 #define NUM_DECL GFC_DECL_END
@@ -3786,8 +3810,9 @@ match_attr_spec (void)
 	}
     }
 
-  /* Module variables implicitly have the SAVE attribute.  */
-  if (gfc_current_state () == COMP_MODULE && !current_attr.save)
+  /* Since Fortran 2008 module variables implicitly have the SAVE attribute.  */
+  if (gfc_current_state () == COMP_MODULE && !current_attr.save
+      && (gfc_option.allow_std & GFC_STD_F2008) != 0)
     current_attr.save = SAVE_IMPLICIT;
 
   colon_seen = 1;
@@ -3819,7 +3844,7 @@ set_binding_label (const char **dest_label, const char *sym_name,
     }
 
   if (curr_binding_label)
-    /* Binding label given; store in temp holder til have sym.  */
+    /* Binding label given; store in temp holder till have sym.  */
     *dest_label = curr_binding_label;
   else
     {
@@ -3854,9 +3879,9 @@ gfc_verify_c_interop (gfc_typespec *ts)
 	   ? SUCCESS : FAILURE;
   else if (ts->type == BT_CLASS)
     return FAILURE;
-  else if (ts->is_c_interop != 1)
+  else if (ts->is_c_interop != 1 && ts->type != BT_ASSUMED)
     return FAILURE;
-  
+
   return SUCCESS;
 }
 
@@ -3908,7 +3933,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
     {
       tmp_sym = tmp_sym->result;
       /* Make sure it wasn't an implicitly typed result.  */
-      if (tmp_sym->attr.implicit_type)
+      if (tmp_sym->attr.implicit_type && gfc_option.warn_c_binding_type)
 	{
 	  gfc_warning ("Implicitly declared BIND(C) function '%s' at "
                        "%L may not be C interoperable", tmp_sym->name,
@@ -3929,7 +3954,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
       if (gfc_verify_c_interop (&(tmp_sym->ts)) != SUCCESS)
 	{
 	  /* See if we're dealing with a sym in a common block or not.	*/
-	  if (is_in_common == 1)
+	  if (is_in_common == 1 && gfc_option.warn_c_binding_type)
 	    {
 	      gfc_warning ("Variable '%s' in common block '%s' at %L "
                            "may not be a C interoperable "
@@ -3943,7 +3968,7 @@ verify_bind_c_sym (gfc_symbol *tmp_sym, gfc_typespec *ts,
                 gfc_error ("Type declaration '%s' at %L is not C "
                            "interoperable but it is BIND(C)",
                            tmp_sym->name, &(tmp_sym->declared_at));
-              else
+              else if (gfc_option.warn_c_binding_type)
                 gfc_warning ("Variable '%s' at %L "
                              "may not be a C interoperable "
                              "kind but it is bind(c)",
@@ -4832,6 +4857,13 @@ match_procedure_decl (void)
   m = match_attr_spec();
   if (m == MATCH_ERROR)
     return MATCH_ERROR;
+
+  if (proc_if && proc_if->attr.is_bind_c && !current_attr.is_bind_c)
+    {
+      current_attr.is_bind_c = 1;
+      has_name_equals = 0;
+      curr_binding_label = NULL;
+    }
 
   /* Get procedure symbols.  */
   for(num=1;;num++)
@@ -7832,7 +7864,7 @@ match_binding_attributes (gfc_typebound_proc* ba, bool generic, bool ppc)
   bool seen_ptr = false;
   match m = MATCH_YES;
 
-  /* Intialize to defaults.  Do so even before the MATCH_NO check so that in
+  /* Initialize to defaults.  Do so even before the MATCH_NO check so that in
      this case the defaults are in there.  */
   ba->access = ACCESS_UNKNOWN;
   ba->pass_arg = NULL;

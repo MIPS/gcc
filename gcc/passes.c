@@ -53,12 +53,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "params.h"
 #include "reload.h"
-#include "dwarf2asm.h"
-#include "integrate.h"
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
-#include "cfglayout.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
@@ -74,24 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
-#include "tree-pretty-print.h"
-
-#if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
-#include "dwarf2out.h"
-#endif
-
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-#include "dbxout.h"
-#endif
-
-#ifdef SDB_DEBUGGING_INFO
-#include "sdbout.h"
-#endif
-
-#ifdef XCOFF_DEBUGGING_INFO
-#include "xcoffout.h"		/* Needed for external data
-				   declarations for e.g. AIX 4.x.  */
-#endif
+#include "tree-pretty-print.h" /* for dump_function_header */
 
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.
@@ -186,6 +166,7 @@ rest_of_decl_compilation (tree decl,
       if ((at_end
 	   || !DECL_DEFER_OUTPUT (decl)
 	   || DECL_INITIAL (decl))
+	  && (TREE_CODE (decl) != VAR_DECL || !DECL_HAS_VALUE_EXPR_P (decl))
 	  && !DECL_EXTERNAL (decl))
 	{
 	  /* When reading LTO unit, we also read varpool, so do not
@@ -281,6 +262,107 @@ finish_optimization_passes (void)
   timevar_pop (TV_DUMP);
 }
 
+static unsigned int
+execute_all_early_local_passes (void)
+{
+  /* Once this pass (and its sub-passes) are complete, all functions
+     will be in SSA form.  Technically this state change is happening
+     a tad early, since the sub-passes have not yet run, but since
+     none of the sub-passes are IPA passes and do not create new
+     functions, this is ok.  We're setting this value for the benefit
+     of IPA passes that follow.  */
+  if (cgraph_state < CGRAPH_STATE_IPA_SSA)
+    cgraph_state = CGRAPH_STATE_IPA_SSA;
+  return 0;
+}
+
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_early_local_passes (void)
+{
+	  /* Don't bother doing anything if the program has errors.  */
+  return (!seen_error () && !in_lto_p);
+}
+
+struct simple_ipa_opt_pass pass_early_local_passes =
+{
+ {
+  SIMPLE_IPA_PASS,
+  "early_local_cleanups",		/* name */
+  gate_all_early_local_passes,		/* gate */
+  execute_all_early_local_passes,	/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_EARLY_LOCAL,			/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_remove_functions	 		/* todo_flags_finish */
+ }
+};
+
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_early_optimizations (void)
+{
+  return (optimize >= 1
+	  /* Don't bother doing anything if the program has errors.  */
+	  && !seen_error ());
+}
+
+static struct gimple_opt_pass pass_all_early_optimizations =
+{
+ {
+  GIMPLE_PASS,
+  "early_optimizations",		/* name */
+  gate_all_early_optimizations,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_NONE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
+
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_optimizations (void)
+{
+  return (optimize >= 1
+	  /* Don't bother doing anything if the program has errors.
+	     We have to pass down the queue if we already went into SSA */
+	  && (!seen_error () || gimple_in_ssa_p (cfun)));
+}
+
+static struct gimple_opt_pass pass_all_optimizations =
+{
+ {
+  GIMPLE_PASS,
+  "*all_optimizations",			/* name */
+  gate_all_optimizations,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_OPTIMIZE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
+
 static bool
 gate_rest_of_compilation (void)
 {
@@ -289,10 +371,10 @@ gate_rest_of_compilation (void)
   return !(rtl_dump_and_exit || flag_syntax_only || seen_error ());
 }
 
-struct gimple_opt_pass pass_rest_of_compilation =
+static struct rtl_opt_pass pass_rest_of_compilation =
 {
  {
-  GIMPLE_PASS,
+  RTL_PASS,
   "*rest_of_compilation",               /* name */
   gate_rest_of_compilation,             /* gate */
   NULL,                                 /* execute */
@@ -314,7 +396,7 @@ gate_postreload (void)
   return reload_completed;
 }
 
-struct rtl_opt_pass pass_postreload =
+static struct rtl_opt_pass pass_postreload =
 {
  {
   RTL_PASS,
@@ -602,22 +684,18 @@ dump_passes (void)
 
   create_pass_tab();
 
-  n = cgraph_nodes;
-  while (n)
-    {
-      if (DECL_STRUCT_FUNCTION (n->decl))
-        {
-          node = n;
-          break;
-        }
-      n = n->next;
-    }
+  FOR_EACH_DEFINED_FUNCTION (n)
+    if (DECL_STRUCT_FUNCTION (n->symbol.decl))
+      {
+	node = n;
+	break;
+      }
 
   if (!node)
     return;
 
-  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-  current_function_decl = node->decl;
+  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+  current_function_decl = node->symbol.decl;
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
@@ -709,7 +787,7 @@ enable_disable_pass (const char *arg, bool is_enable)
       if (is_enable)
         error ("unknown pass %s specified in -fenable", phase_name);
       else
-        error ("unknown pass %s specified in -fdisble", phase_name);
+        error ("unknown pass %s specified in -fdisable", phase_name);
       free (argstr);
       return;
     }
@@ -1151,19 +1229,24 @@ register_pass (struct register_pass_info *pass_info)
 /* Construct the pass tree.  The sequencing of passes is driven by
    the cgraph routines:
 
-   cgraph_finalize_compilation_unit ()
+   finalize_compilation_unit ()
        for each node N in the cgraph
 	   cgraph_analyze_function (N)
 	       cgraph_lower_function (N) -> all_lowering_passes
 
-   If we are optimizing, cgraph_optimize is then invoked:
+   If we are optimizing, compile is then invoked:
 
-   cgraph_optimize ()
+   compile ()
        ipa_passes () 			-> all_small_ipa_passes
-       cgraph_expand_all_functions ()
+					-> Analysis of all_regular_ipa_passes
+	* possible LTO streaming at copmilation time *
+					-> Execution of all_regular_ipa_passes
+	* possible LTO streaming at link time *
+					-> all_late_ipa_passes
+       expand_all_functions ()
            for each node N in the cgraph
-	       cgraph_expand_function (N)
-		  tree_rest_of_compilation (DECL (N))  -> all_passes
+	       expand_function (N)      -> Transformation of all_regular_ipa_passes
+				        -> all_passes
 */
 
 void
@@ -1274,6 +1357,7 @@ init_optimization_passes (void)
   p = &all_late_ipa_passes;
   NEXT_PASS (pass_ipa_pta);
   *p = NULL;
+
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
@@ -1290,7 +1374,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_forwprop);
-      NEXT_PASS (pass_call_cdce);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
 	 alias information also rewrites no longer addressed
@@ -1303,6 +1386,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
+      NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
@@ -1429,14 +1513,9 @@ init_optimization_passes (void)
   NEXT_PASS (pass_rest_of_compilation);
     {
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
-      NEXT_PASS (pass_init_function);
-      NEXT_PASS (pass_jump);
-      NEXT_PASS (pass_rtl_eh);
-      NEXT_PASS (pass_initial_value_sets);
-      NEXT_PASS (pass_unshare_all_rtl);
       NEXT_PASS (pass_instantiate_virtual_regs);
       NEXT_PASS (pass_into_cfg_layout_mode);
-      NEXT_PASS (pass_jump2);
+      NEXT_PASS (pass_jump);
       NEXT_PASS (pass_lower_subreg);
       NEXT_PASS (pass_df_initialize_opt);
       NEXT_PASS (pass_cse);
@@ -1498,6 +1577,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_thread_prologue_and_epilogue);
 	  NEXT_PASS (pass_rtl_dse2);
 	  NEXT_PASS (pass_stack_adjustments);
+	  NEXT_PASS (pass_jump2);
 	  NEXT_PASS (pass_peephole2);
 	  NEXT_PASS (pass_if_after_reload);
 	  NEXT_PASS (pass_regrename);
@@ -1566,12 +1646,12 @@ do_per_function (void (*callback) (void *data), void *data)
   else
     {
       struct cgraph_node *node;
-      for (node = cgraph_nodes; node; node = node->next)
-	if (node->analyzed && gimple_has_body_p (node->decl)
-	    && (!node->clone_of || node->decl != node->clone_of->decl))
+      FOR_EACH_DEFINED_FUNCTION (node)
+	if (gimple_has_body_p (node->symbol.decl)
+	    && (!node->clone_of || node->symbol.decl != node->clone_of->symbol.decl))
 	  {
-	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-	    current_function_decl = node->decl;
+	    push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	    current_function_decl = node->symbol.decl;
 	    callback (data);
 	    if (!flag_wpa)
 	      {
@@ -1618,8 +1698,8 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  node->process = 0;
 	  if (cgraph_function_with_gimple_body_p (node))
 	    {
-	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-	      current_function_decl = node->decl;
+	      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	      current_function_decl = node->symbol.decl;
 	      callback (data);
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
@@ -1724,11 +1804,14 @@ execute_function_todo (void *data)
 #if defined ENABLE_CHECKING
   if (flags & TODO_verify_ssa
       || (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA)))
-    verify_ssa (true);
+    {
+      verify_gimple_in_cfg (cfun);
+      verify_ssa (true);
+    }
+  else if (flags & TODO_verify_stmts)
+    verify_gimple_in_cfg (cfun);
   if (flags & TODO_verify_flow)
     verify_flow_info ();
-  if (flags & TODO_verify_stmts)
-    verify_gimple_in_cfg (cfun);
   if (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA))
     verify_loop_closed_ssa (false);
   if (flags & TODO_verify_rtl_sharing)
@@ -1764,13 +1847,13 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      cgraph_remove_unreachable_nodes (true, dump_file);
+      symtab_remove_unreachable_nodes (true, dump_file);
     }
 
-  if ((flags & TODO_dump_cgraph) && dump_file && !current_function_decl)
+  if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
     {
       gcc_assert (!cfun);
-      dump_cgraph (dump_file);
+      dump_symtab (dump_file);
       /* Flush the file.  If verification fails, we won't be able to
 	 close the file before aborting.  */
       fflush (dump_file);
@@ -2049,7 +2132,7 @@ execute_one_pass (struct opt_pass *pass)
       bool applied = false;
       do_per_function (apply_ipa_transforms, (void *)&applied);
       if (applied)
-        cgraph_remove_unreachable_nodes (true, dump_file);
+        symtab_remove_unreachable_nodes (true, dump_file);
       /* Restore current_pass.  */
       current_pass = pass;
     }
@@ -2238,7 +2321,7 @@ ipa_write_summaries (void)
 	     ordering then matches the one IPA-passes get in their stmt_fixup
 	     hooks.  */
 
-	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
@@ -2247,8 +2330,8 @@ ipa_write_summaries (void)
     }
   vset = varpool_node_set_new ();
 
-  for (vnode = varpool_nodes; vnode; vnode = vnode->next)
-    if (vnode->needed && (!vnode->alias || vnode->alias_of))
+  FOR_EACH_DEFINED_VARIABLE (vnode)
+    if ((!vnode->alias || vnode->alias_of))
       varpool_node_set_add (vset, vnode);
 
   ipa_write_summaries_1 (set, vset);
@@ -2319,9 +2402,9 @@ ipa_write_optimization_summaries (cgraph_node_set set, varpool_node_set vset)
 	 For functions newly born at WPA stage we need to initialize
 	 the uids here.  */
       if (node->analyzed
-	  && gimple_has_body_p (node->decl))
+	  && gimple_has_body_p (node->symbol.decl))
 	{
-	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
@@ -2559,11 +2642,11 @@ function_called_by_processed_nodes_p (void)
        e;
        e = e->next_caller)
     {
-      if (e->caller->decl == current_function_decl)
+      if (e->caller->symbol.decl == current_function_decl)
         continue;
       if (!cgraph_function_with_gimple_body_p (e->caller))
         continue;
-      if (TREE_ASM_WRITTEN (e->caller->decl))
+      if (TREE_ASM_WRITTEN (e->caller->symbol.decl))
         continue;
       if (!e->caller->process && !e->caller->global.inlined_to)
       	break;

@@ -446,7 +446,7 @@ pp_c_specifier_qualifier_list (c_pretty_printer *pp, tree t)
 {
   const enum tree_code code = TREE_CODE (t);
 
-  if (TREE_CODE (t) != POINTER_TYPE)
+  if (!(pp->flags & pp_c_flag_gnu_v3) && code != POINTER_TYPE)
     pp_c_type_qualifier_list (pp, t);
   switch (code)
     {
@@ -494,6 +494,8 @@ pp_c_specifier_qualifier_list (c_pretty_printer *pp, tree t)
       pp_simple_type_specifier (pp, t);
       break;
     }
+  if ((pp->flags & pp_c_flag_gnu_v3) && code != POINTER_TYPE)
+    pp_c_type_qualifier_list (pp, t);
 }
 
 /* parameter-type-list:
@@ -1372,7 +1374,15 @@ pp_c_initializer_list (c_pretty_printer *pp, tree e)
 
     case VECTOR_TYPE:
       if (TREE_CODE (e) == VECTOR_CST)
-	pp_c_expression_list (pp, TREE_VECTOR_CST_ELTS (e));
+	{
+	  unsigned i;
+	  for (i = 0; i < VECTOR_CST_NELTS (e); ++i)
+	    {
+	      if (i > 0)
+		pp_separate_with (pp, ',');
+	      pp_expression (pp, VECTOR_CST_ELT (e, i));
+	    }
+	}
       else
 	break;
       return;

@@ -1,6 +1,6 @@
 /* RunTime Type Identification
    Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008, 2009, 2010, 2011
+   2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
-#include "output.h"
 #include "convert.h"
 #include "target.h"
 #include "c-family/c-pragma.h"
@@ -100,7 +99,7 @@ VEC(tree,gc) *unemitted_tinfo_decls;
    and are generated as needed. */
 static GTY (()) VEC(tinfo_s,gc) *tinfo_descs;
 
-static tree ifnonnull (tree, tree);
+static tree ifnonnull (tree, tree, tsubst_flags_t);
 static tree tinfo_name (tree, bool);
 static tree build_dynamic_cast_1 (tree, tree, tsubst_flags_t);
 static tree throw_bad_cast (void);
@@ -337,7 +336,8 @@ build_typeid (tree exp)
          This is an lvalue use of expr then.  */
       exp = mark_lvalue_use (exp);
       exp = stabilize_reference (exp);
-      cond = cp_convert (boolean_type_node, TREE_OPERAND (exp, 0));
+      cond = cp_convert (boolean_type_node, TREE_OPERAND (exp, 0),
+			 tf_warning_or_error);
     }
 
   exp = get_tinfo_decl_dynamic (exp);
@@ -499,12 +499,13 @@ get_typeid (tree type)
    RESULT, it must have previously had a save_expr applied to it.  */
 
 static tree
-ifnonnull (tree test, tree result)
+ifnonnull (tree test, tree result, tsubst_flags_t complain)
 {
   return build3 (COND_EXPR, TREE_TYPE (result),
 		 build2 (EQ_EXPR, boolean_type_node, test,
-			 cp_convert (TREE_TYPE (test), nullptr_node)),
-		 cp_convert (TREE_TYPE (result), nullptr_node),
+			 cp_convert (TREE_TYPE (test), nullptr_node,
+				     complain)),
+		 cp_convert (TREE_TYPE (result), nullptr_node, complain),
 		 result);
 }
 
@@ -551,7 +552,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 
   if (tc == POINTER_TYPE)
     {
-      expr = decay_conversion (expr);
+      expr = decay_conversion (expr, complain);
       exprtype = TREE_TYPE (expr);
 
       /* If T is a pointer type, v shall be an rvalue of a pointer to
@@ -597,7 +598,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 
       /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
       expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
-				   LOOKUP_NORMAL, NULL_TREE);
+				   LOOKUP_NORMAL, NULL_TREE, complain);
     }
 
   /* The dynamic_cast operator shall not cast away constness.  */
@@ -645,7 +646,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  expr1 = build_headof (expr);
 	  if (TREE_TYPE (expr1) != type)
 	    expr1 = build1 (NOP_EXPR, type, expr1);
-	  return ifnonnull (expr, expr1);
+	  return ifnonnull (expr, expr1, complain);
 	}
       else
 	{
@@ -753,12 +754,12 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	      neq = cp_truthvalue_conversion (result);
 	      return cp_convert (type,
 				 build3 (COND_EXPR, TREE_TYPE (result),
-					 neq, result, bad));
+					 neq, result, bad), complain);
 	    }
 
 	  /* Now back to the type we want from a void*.  */
-	  result = cp_convert (type, result);
-	  return ifnonnull (expr, result);
+	  result = cp_convert (type, result, complain);
+	  return ifnonnull (expr, result, complain);
 	}
     }
   else
@@ -774,6 +775,8 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 tree
 build_dynamic_cast (tree type, tree expr, tsubst_flags_t complain)
 {
+  tree r;
+
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
 
@@ -784,9 +787,12 @@ build_dynamic_cast (tree type, tree expr, tsubst_flags_t complain)
       return convert_from_reference (expr);
     }
 
-  return convert_from_reference (build_dynamic_cast_1 (type, expr, complain));
+  r = convert_from_reference (build_dynamic_cast_1 (type, expr, complain));
+  if (r != error_mark_node)
+    maybe_warn_about_useless_cast (type, expr, complain);
+  return r;
 }
-
+
 /* Return the runtime bit mask encoding the qualifiers of TYPE.  */
 
 static int
@@ -811,7 +817,7 @@ static bool
 target_incomplete_p (tree type)
 {
   while (true)
-    if (TYPE_PTRMEM_P (type))
+    if (TYPE_PTRDATAMEM_P (type))
       {
 	if (!COMPLETE_TYPE_P (TYPE_PTRMEM_CLASS_TYPE (type)))
 	  return true;
@@ -931,7 +937,8 @@ tinfo_base_init (tinfo_s *ti, tree target)
 
   v = VEC_alloc (constructor_elt, gc, 2);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, vtable_ptr);
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, decay_conversion (name_decl));
+  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+			  decay_conversion (name_decl, tf_warning_or_error));
 
   init = build_constructor (init_list_type_node, v);
   TREE_CONSTANT (init) = 1;

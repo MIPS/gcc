@@ -69,7 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
@@ -79,7 +78,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "ggc.h"
 #include "insn-config.h"
-#include "recog.h"
 #include "pointer-set.h"
 #include "hashtab.h"
 #include "tree-chrec.h"
@@ -102,6 +100,7 @@ along with GCC; see the file COPYING3.  If not see
    cost of different addressing modes.  This should be moved to a TBD
    interface between the GIMPLE and RTL worlds.  */
 #include "expr.h"
+#include "recog.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -115,7 +114,7 @@ along with GCC; see the file COPYING3.  If not see
 static inline HOST_WIDE_INT
 avg_loop_niter (struct loop *loop)
 {
-  HOST_WIDE_INT niter = max_stmt_executions_int (loop, false);
+  HOST_WIDE_INT niter = estimated_stmt_executions_int (loop);
   if (niter == -1)
     return AVG_LOOP_NITER (loop);
 
@@ -1411,7 +1410,8 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
 
   len = TREE_OPERAND_LENGTH (expr);
   for (i = 0; i < len; i++)
-    if (!expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
+    if (TREE_OPERAND (expr, i)
+	&& !expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
       return false;
 
   return true;
@@ -2361,8 +2361,12 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
   cstepi = int_cst_value (step);
 
   mem_mode = TYPE_MODE (TREE_TYPE (*use->op_p));
-  if ((HAVE_PRE_INCREMENT && GET_MODE_SIZE (mem_mode) == cstepi)
-      || (HAVE_PRE_DECREMENT && GET_MODE_SIZE (mem_mode) == -cstepi))
+  if (((USE_LOAD_PRE_INCREMENT (mem_mode)
+	|| USE_STORE_PRE_INCREMENT (mem_mode))
+       && GET_MODE_SIZE (mem_mode) == cstepi)
+      || ((USE_LOAD_PRE_DECREMENT (mem_mode)
+	   || USE_STORE_PRE_DECREMENT (mem_mode))
+	  && GET_MODE_SIZE (mem_mode) == -cstepi))
     {
       enum tree_code code = MINUS_EXPR;
       tree new_base;
@@ -2379,8 +2383,12 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
       add_candidate_1 (data, new_base, step, important, IP_BEFORE_USE, use,
 		       use->stmt);
     }
-  if ((HAVE_POST_INCREMENT && GET_MODE_SIZE (mem_mode) == cstepi)
-      || (HAVE_POST_DECREMENT && GET_MODE_SIZE (mem_mode) == -cstepi))
+  if (((USE_LOAD_POST_INCREMENT (mem_mode)
+	|| USE_STORE_POST_INCREMENT (mem_mode))
+       && GET_MODE_SIZE (mem_mode) == cstepi)
+      || ((USE_LOAD_POST_DECREMENT (mem_mode)
+	   || USE_STORE_POST_DECREMENT (mem_mode))
+	  && GET_MODE_SIZE (mem_mode) == -cstepi))
     {
       add_candidate_1 (data, base, step, important, IP_AFTER_USE, use,
 		       use->stmt);
@@ -2405,28 +2413,26 @@ add_candidate (struct ivopts_data *data,
     add_autoinc_candidates (data, base, step, important, use);
 }
 
-/* Add a standard "0 + 1 * iteration" iv candidate for a
-   type with SIZE bits.  */
-
-static void
-add_standard_iv_candidates_for_size (struct ivopts_data *data,
-				     unsigned int size)
-{
-  tree type = lang_hooks.types.type_for_size (size, true);
-  add_candidate (data, build_int_cst (type, 0), build_int_cst (type, 1),
-		 true, NULL);
-}
-
 /* Adds standard iv candidates.  */
 
 static void
 add_standard_iv_candidates (struct ivopts_data *data)
 {
-  add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE);
+  add_candidate (data, integer_zero_node, integer_one_node, true, NULL);
 
   /* The same for a double-integer type if it is still fast enough.  */
-  if (BITS_PER_WORD >= INT_TYPE_SIZE * 2)
-    add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE * 2);
+  if (TYPE_PRECISION
+        (long_integer_type_node) > TYPE_PRECISION (integer_type_node)
+      && TYPE_PRECISION (long_integer_type_node) <= BITS_PER_WORD)
+    add_candidate (data, build_int_cst (long_integer_type_node, 0),
+		   build_int_cst (long_integer_type_node, 1), true, NULL);
+
+  /* The same for a double-integer type if it is still fast enough.  */
+  if (TYPE_PRECISION
+        (long_long_integer_type_node) > TYPE_PRECISION (long_integer_type_node)
+      && TYPE_PRECISION (long_long_integer_type_node) <= BITS_PER_WORD)
+    add_candidate (data, build_int_cst (long_long_integer_type_node, 0),
+		   build_int_cst (long_long_integer_type_node, 1), true, NULL);
 }
 
 
@@ -3316,25 +3322,29 @@ get_address_cost (bool symbol_present, bool var_present,
       reg0 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
       reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 2);
 
-      if (HAVE_PRE_DECREMENT)
+      if (USE_LOAD_PRE_DECREMENT (mem_mode) 
+	  || USE_STORE_PRE_DECREMENT (mem_mode))
 	{
 	  addr = gen_rtx_PRE_DEC (address_mode, reg0);
 	  has_predec[mem_mode]
 	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
-      if (HAVE_POST_DECREMENT)
+      if (USE_LOAD_POST_DECREMENT (mem_mode) 
+	  || USE_STORE_POST_DECREMENT (mem_mode))
 	{
 	  addr = gen_rtx_POST_DEC (address_mode, reg0);
 	  has_postdec[mem_mode]
 	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
-      if (HAVE_PRE_INCREMENT)
+      if (USE_LOAD_PRE_INCREMENT (mem_mode) 
+	  || USE_STORE_PRE_DECREMENT (mem_mode))
 	{
 	  addr = gen_rtx_PRE_INC (address_mode, reg0);
 	  has_preinc[mem_mode]
 	    = memory_address_addr_space_p (mem_mode, addr, as);
 	}
-      if (HAVE_POST_INCREMENT)
+      if (USE_LOAD_POST_INCREMENT (mem_mode) 
+	  || USE_STORE_POST_INCREMENT (mem_mode))
 	{
 	  addr = gen_rtx_POST_INC (address_mode, reg0);
 	  has_postinc[mem_mode]
@@ -4693,10 +4703,10 @@ may_eliminate_iv (struct ivopts_data *data,
       period_value = tree_to_double_int (period);
       if (double_int_ucmp (max_niter, period_value) > 0)
         {
-          /* See if we can take advantage of infered loop bound information.  */
+          /* See if we can take advantage of inferred loop bound information.  */
           if (data->loop_single_exit_p)
             {
-              if (!estimated_loop_iterations (loop, true, &max_niter))
+              if (!max_loop_iterations (loop, &max_niter))
                 return false;
               /* The loop bound is already adjusted by adding 1.  */
               if (double_int_ucmp (max_niter, period_value) > 0)
@@ -4806,7 +4816,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
   /* When the condition is a comparison of the candidate IV against
      zero, prefer this IV.
 
-     TODO: The constant that we're substracting from the cost should
+     TODO: The constant that we're subtracting from the cost should
      be target-dependent.  This information should be added to the
      target costs for each backend.  */
   if (!infinite_cost_p (elim_cost) /* Do not try to decrease infinite! */
@@ -6260,10 +6270,7 @@ rewrite_use_nonlinear_expr (struct ivopts_data *data,
 	  /* As this isn't a plain copy we have to reset alignment
 	     information.  */
 	  if (SSA_NAME_PTR_INFO (comp))
-	    {
-	      SSA_NAME_PTR_INFO (comp)->align = 1;
-	      SSA_NAME_PTR_INFO (comp)->misalign = 0;
-	    }
+	    mark_ptr_info_alignment_unknown (SSA_NAME_PTR_INFO (comp));
 	}
     }
 

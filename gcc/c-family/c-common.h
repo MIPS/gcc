@@ -390,7 +390,7 @@ extern const unsigned int num_c_common_reswords;
 #define int32_type_node			c_global_trees[CTI_INT32_TYPE]
 #define int64_type_node			c_global_trees[CTI_INT64_TYPE]
 #define uint8_type_node			c_global_trees[CTI_UINT8_TYPE]
-#define uint16_type_node		c_global_trees[CTI_UINT16_TYPE]
+#define c_uint16_type_node		c_global_trees[CTI_UINT16_TYPE]
 #define c_uint32_type_node		c_global_trees[CTI_UINT32_TYPE]
 #define c_uint64_type_node		c_global_trees[CTI_UINT64_TYPE]
 #define int_least8_type_node		c_global_trees[CTI_INT_LEAST8_TYPE]
@@ -544,8 +544,6 @@ extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
 			       location_t, tree, tree);
 extern tree build_indirect_ref (location_t, tree, ref_operator);
 
-extern int c_expand_decl (tree);
-
 extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
 				  void *);
@@ -649,7 +647,9 @@ enum cxx_dialect {
   cxx03 = cxx98,
   /* C++11  */
   cxx0x,
-  cxx11 = cxx0x
+  cxx11 = cxx0x,
+  /* C++1y (C++17?) */
+  cxx1y
 };
 
 /* The C++ dialect being used. C++98 is the default.  */
@@ -770,6 +770,7 @@ extern bool strict_aliasing_warning (tree, tree, tree);
 extern void warnings_for_convert_and_check (tree, tree, tree);
 extern tree convert_and_check (tree, tree);
 extern void overflow_warning (location_t, tree);
+extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
 extern void check_main_parameter_types (tree decl);
@@ -918,6 +919,7 @@ extern bool lvalue_p (const_tree);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
+extern tree c_build_vec_perm_expr (location_t, tree, tree, tree);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
@@ -1115,5 +1117,7 @@ struct GTY(()) tree_userdef_literal {
   (TREE_TYPE (USERDEF_LITERAL_VALUE (NODE)))
 
 extern tree build_userdef_literal (tree suffix_id, tree value, tree num_string);
+
+extern void convert_vector_to_pointer_for_subscript (location_t, tree*, tree);
 
 #endif /* ! GCC_C_COMMON_H */

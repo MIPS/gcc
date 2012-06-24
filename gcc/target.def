@@ -678,11 +678,11 @@ DEFHOOK
    of INSN on CPU that are not described in DFA.
    READY_TRY and N_READY represent the current state of search in the
    optimization space.  The target can filter out instructions that
-   should not be tried after issueing INSN by setting corresponding
+   should not be tried after issuing INSN by setting corresponding
    elements in READY_TRY to non-zero.
    INSN is the instruction being evaluated.
    PREV_DATA is a pointer to target-specific data corresponding
-   to a state before issueing INSN.  */
+   to a state before issuing INSN.  */
 DEFHOOK
 (first_cycle_multipass_issue,
  "",
@@ -696,7 +696,7 @@ DEFHOOK
    described in DFA.
    READY_TRY and N_READY represent the current state of search in the
    optimization space.  The target can filter out instructions that
-   should not be tried after issueing INSN by setting corresponding
+   should not be tried after issuing INSN by setting corresponding
    elements in READY_TRY to non-zero.  */
 DEFHOOK
 (first_cycle_multipass_backtrack,
@@ -1940,22 +1940,11 @@ DEFHOOKPOD
  "",
  unsigned HOST_WIDE_INT, 0)
 
-/* Determine class of registers which could be used for spilled
-   pseudos instead of memory.  */
+/* Defines, which target-dependent bits (upper 16) are used by port  */
 DEFHOOK
-(spill_class,
- "This hook defines a class of registers which could be used for spilled pseudos\
-  of given class instead of memory",
- enum reg_class, (enum reg_class),
- NULL)
-
-/* Determine mode for spilling pseudos into registers instead of memory.  */
-DEFHOOK
-(spill_class_mode,
- "This hook defines mode in which a pseudo of given mode and of the first\
-  register class can be spilled into the second register class",
- enum machine_mode, (enum reg_class, enum reg_class, enum machine_mode),
- NULL)
+(memmodel_check,
+ "",
+ unsigned HOST_WIDE_INT, (unsigned HOST_WIDE_INT val), NULL)
 
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
@@ -2311,6 +2300,23 @@ DEFHOOK
   The default version of this target hook returns always false.",
  bool, (void),
  default_different_addr_displacement_p)
+
+/* Determine class of registers which could be used for spilled
+   pseudos instead of memory.  */
+DEFHOOK
+(spill_class,
+ "This hook defines a class of registers which could be used for spilled pseudos\
+  of given class instead of memory",
+ enum reg_class, (enum reg_class),
+ NULL)
+
+/* Determine mode for spilling pseudos into registers instead of memory.  */
+DEFHOOK
+(spill_class_mode,
+ "This hook defines mode in which a pseudo of given mode and of the first\
+  register class can be spilled into the second register class",
+ enum machine_mode, (enum reg_class, enum reg_class, enum machine_mode),
+ NULL)
 
 /* Return the class for a secondary reload, and fill in extra information.  */
 DEFHOOK
@@ -2766,11 +2772,6 @@ DEFHOOKPOD
  "",
  bool, false)
 
-DEFHOOKPOD
-(handle_pragma_extern_prefix,
-"True if @code{#pragma extern_prefix} is to be supported.",
- bool, 0)
-
 /* True if the target is allowed to reorder memory accesses unless
    synchronization is explicitly requested.  */
 DEFHOOKPOD
@@ -2790,6 +2791,13 @@ DEFHOOKPOD
  "True if the @code{.debug_pubtypes} and @code{.debug_pubnames} sections\
  should be emitted.  These sections are not used on most platforms, and\
  in particular GDB does not use them.",
+ bool, false)
+
+DEFHOOKPOD
+(force_at_comp_dir,
+ "True if the @code{DW_AT_comp_dir} attribute should be emitted for each \
+ compilation unit.  This attribute is required for the darwin linker \
+ to emit debug information.",
  bool, false)
 
 DEFHOOKPOD

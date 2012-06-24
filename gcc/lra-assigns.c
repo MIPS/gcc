@@ -109,8 +109,8 @@ init_regno_assign_info (void)
 	&& (regno2 = cp->regno2) >= lra_constraint_new_regno_start
 	&& reg_renumber[regno1] < 0 && lra_reg_info[regno1].nrefs != 0
 	&& reg_renumber[regno2] < 0 && lra_reg_info[regno2].nrefs != 0
-	&& (ira_available_class_regs[regno_allocno_class_array[regno1]]
-	    == ira_available_class_regs[regno_allocno_class_array[regno2]]))
+	&& (ira_class_hard_regs_num[regno_allocno_class_array[regno1]]
+	    == ira_class_hard_regs_num[regno_allocno_class_array[regno2]]))
       process_copy_to_form_thread (regno1, regno2, cp->freq);
 }
 
@@ -137,8 +137,8 @@ reload_pseudo_compare_func (const void *v1p, const void *v2p)
   
   /* Prefer to assign reload registers with smaller classes first to
      guarantee assignment to all reload registers.  */
-  if ((diff = (ira_available_class_regs[cl1]
-	       - ira_available_class_regs[cl2])) != 0)
+  if ((diff = (ira_class_hard_regs_num[cl1]
+	       - ira_class_hard_regs_num[cl2])) != 0)
     return diff;
   if ((diff = (regno_assign_info[regno_assign_info[r2].first].freq
 	       - regno_assign_info[regno_assign_info[r1].first].freq)) != 0)

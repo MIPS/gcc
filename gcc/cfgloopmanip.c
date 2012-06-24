@@ -27,9 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
-#include "cfghooks.h"
-#include "output.h"
 #include "tree-flow.h"
 
 static void copy_loops_to (struct loop **, int,
@@ -1727,6 +1724,8 @@ fix_loop_structure (bitmap changed_bbs)
 
   if (record_exits)
     record_loop_exits ();
+
+  loops_state_clear (LOOPS_NEED_FIXUP);
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure ();

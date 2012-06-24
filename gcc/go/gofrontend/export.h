@@ -14,6 +14,7 @@ class Gogo;
 class Import_init;
 class Bindings;
 class Type;
+class Package;
 
 // Codes used for the builtin types.  These are all negative to make
 // them easily distinct from the codes assigned by Export::write_type.
@@ -116,7 +117,7 @@ class Export : public String_dump
   // Export the identifiers in BINDINGS which are marked for export.
   // The exporting is done via a series of calls to THIS->STREAM_.  If
   // is nothing to export, this->stream_->write will not be called.
-  // UNIQUE_PREFIX is a prefix for all global symbols.
+  // PKGPATH is the package path.
   // PACKAGE_PRIORITY is the priority to use for this package.
   // IMPORT_INIT_FN is the name of the import initialization function
   // for this package; it will be empty if none is needed.
@@ -124,8 +125,9 @@ class Export : public String_dump
   // imported packages.
   void
   export_globals(const std::string& package_name,
-		 const std::string& unique_prefix,
+		 const std::string& pkgpath,
 		 int package_priority,
+		 const std::map<std::string, Package*>& imports,
 		 const std::string& import_init_fn,
 		 const std::set<Import_init>& imported_init_fns,
 		 const Bindings* bindings);
@@ -145,6 +147,10 @@ class Export : public String_dump
   write_bytes(const char* bytes, size_t length)
   { this->stream_->write_bytes(bytes, length); }
 
+  // Write a name to the export stream.  If NAME is empty, write "?".
+  void
+  write_name(const std::string& name);
+
   // Write out a type.  This handles references back to previous
   // definitions.
   void
@@ -153,6 +159,10 @@ class Export : public String_dump
  private:
   Export(const Export&);
   Export& operator=(const Export&);
+
+  // Write out the imported packages.
+  void
+  write_imports(const std::map<std::string, Package*>& imports);
 
   // Write out the imported initialization functions.
   void
@@ -172,6 +182,8 @@ class Export : public String_dump
   Type_refs type_refs_;
   // Index number of next type.
   int type_index_;
+  // Packages we have written out.
+  Unordered_set(const Package*) packages_;
 };
 
 // An export streamer which puts the export stream in a named section.

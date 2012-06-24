@@ -296,7 +296,7 @@ package body Prj is
          when Makefile =>
             return Extend_Name (Source_File_Name, Makefile_Dependency_Suffix);
 
-         when ALI_File =>
+         when ALI_File | ALI_Closure =>
             return Extend_Name (Source_File_Name, ALI_Dependency_Suffix);
       end case;
    end Dependency_Name;
@@ -1893,6 +1893,7 @@ package body Prj is
       is
          Agg : Aggregated_Project_List;
          Ctx : Project_Context;
+
       begin
          Action (Project, Tree, Context);
 
@@ -1901,8 +1902,7 @@ package body Prj is
               (In_Aggregate_Lib      => True,
                From_Encapsulated_Lib =>
                  Context.From_Encapsulated_Lib
-                   or else
-                 Project.Standalone_Library = Encapsulated);
+                   or else Project.Standalone_Library = Encapsulated);
 
             Agg := Project.Aggregated_Projects;
             while Agg /= null loop
@@ -1911,6 +1911,8 @@ package body Prj is
             end loop;
          end if;
       end Recursive_Process;
+
+   --  Start of processing for For_Project_And_Aggregated_Context
 
    begin
       Recursive_Process

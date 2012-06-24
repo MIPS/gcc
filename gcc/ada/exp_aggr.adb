@@ -5157,9 +5157,9 @@ package body Exp_Aggr is
       -- Compile_Time_Known_Composite_Value --
       ----------------------------------------
 
-      function Compile_Time_Known_Composite_Value (N : Node_Id) return Boolean
+      function Compile_Time_Known_Composite_Value
+        (N : Node_Id) return Boolean
       is
-
       begin
          --  If we have an entity name, then see if it is the name of a
          --  constant and if so, test the corresponding constant value.
@@ -5168,15 +5168,14 @@ package body Exp_Aggr is
             declare
                E : constant Entity_Id := Entity (N);
                V : Node_Id;
-
             begin
                if Ekind (E) /= E_Constant then
                   return False;
+               else
+                  V := Constant_Value (E);
+                  return Present (V)
+                    and then Compile_Time_Known_Composite_Value (V);
                end if;
-
-               V := Constant_Value (E);
-               return Present (V)
-                 and then Compile_Time_Known_Composite_Value (V);
             end;
 
          --  We have a value, see if it is compile time known
@@ -6031,9 +6030,9 @@ package body Exp_Aggr is
          end if;
 
          --  At this stage we have a suitable aggregate for handling at compile
-         --  time (the only remaining checks are that the values of expressions
-         --  in the aggregate are compile time known (check is performed by
-         --  Get_Component_Val), and that any subtypes or ranges are statically
+         --  time. The only remaining checks are that the values of expressions
+         --  in the aggregate are compile-time known (checks are performed by
+         --  Get_Component_Val, and that any subtypes or ranges are statically
          --  known.
 
          --  If the aggregate is not fully positional at this stage, then
@@ -6078,12 +6077,49 @@ package body Exp_Aggr is
             Expr : Node_Id;
             --  Next expression from positional parameters of aggregate
 
+            Enclosing_Aggregate : Node_Id;
+
+            In_Reverse_Storage_Order_Record : Boolean;
+            --  True if we are within an aggregate of a record type with
+            --  reversed storage order.
+
          begin
+            --  Determine whether we are in a reversed storage order record
+            --  aggregate.
+
+            In_Reverse_Storage_Order_Record := False;
+            Enclosing_Aggregate := Parent (N);
+            while Present (Enclosing_Aggregate) loop
+               if Nkind (Enclosing_Aggregate) = N_Component_Association then
+                  null;
+
+               elsif Nkind (Enclosing_Aggregate) /= N_Aggregate then
+                  exit;
+
+               elsif Is_Record_Type (Etype (Enclosing_Aggregate))
+                 and then Reverse_Storage_Order (Etype (Enclosing_Aggregate))
+               then
+                  In_Reverse_Storage_Order_Record := True;
+                  exit;
+               end if;
+
+               Enclosing_Aggregate := Parent (Enclosing_Aggregate);
+            end loop;
+
             --  For little endian, we fill up the low order bits of the target
             --  value. For big endian we fill up the high order bits of the
             --  target value (which is a left justified modular value).
 
-            if Bytes_Big_Endian xor Debug_Flag_8 then
+            --  Above comment needs extending for the code below, which is by
+            --  the way incomprehensible, I have no idea what a xor b xor c
+            --  means, and it hurts my brain to try to figure it out???
+            --  Let's introduce a new variable, perhaps Effectively_Big_Endian
+            --  and compute it with clearer code ???
+
+            if Bytes_Big_Endian
+              xor Debug_Flag_8
+              xor In_Reverse_Storage_Order_Record
+            then
                Shift := Csiz * (Len - 1);
                Incr  := -Csiz;
             else

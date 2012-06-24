@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
@@ -257,13 +256,11 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
   else if (is_gimple_call (stmt)
            && gimple_call_lhs (stmt) != NULL_TREE)
     {
-      gimple new_stmt;
-
       tree expr = NULL_TREE;
+      bool res;
       propagate_tree_value (&expr, val);
-      new_stmt = gimple_build_assign (gimple_call_lhs (stmt), expr);
-      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-      gsi_replace (gsi, new_stmt, false);
+      res = update_call_from_tree (gsi, expr);
+      gcc_assert (res);
     }
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
     propagate_tree_value (gimple_switch_index_ptr (stmt), val);

@@ -21,7 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "output.h"
 #include "tree-pretty-print.h"
 #include "tree-dump.h"
 #include "pointer-set.h"
@@ -812,7 +811,7 @@ aff_combination_constant_multiple_p (aff_tree *val, aff_tree *div,
 
 /* Prints the affine VAL to the FILE. */
 
-void
+static void
 print_aff (FILE *file, aff_tree *val)
 {
   unsigned i;

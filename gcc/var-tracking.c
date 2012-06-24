@@ -96,7 +96,6 @@
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "flags.h"
-#include "output.h"
 #include "insn-config.h"
 #include "reload.h"
 #include "sbitmap.h"
@@ -116,6 +115,7 @@
 #include "pointer-set.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "alias.h"
 
 /* var-tracking.c assumes that tree code with the same value as VALUE rtx code
    has no chance to appear in REG_EXPR/MEM_EXPRs and isn't a decl.
@@ -320,6 +320,19 @@ typedef struct loc_exp_dep_s
 
 DEF_VEC_O (loc_exp_dep);
 
+/* This data structure holds information about the depth of a variable
+   expansion.  */
+typedef struct expand_depth_struct
+{
+  /* This measures the complexity of the expanded expression.  It
+     grows by one for each level of expansion that adds more than one
+     operand.  */
+  int complexity;
+  /* This counts the number of ENTRY_VALUE expressions in an
+     expansion.  We want to minimize their use.  */
+  int entryvals;
+} expand_depth;
+
 /* This data structure is allocated for one-part variables at the time
    of emitting notes.  */
 struct onepart_aux
@@ -338,7 +351,7 @@ struct onepart_aux
      a change notification from any of its active dependencies.  */
   rtx from;
   /* The depth of the cur_loc expression.  */
-  int depth;
+  expand_depth depth;
   /* Dependencies actively used when expand FROM into cur_loc.  */
   VEC (loc_exp_dep, none) deps;
 };
@@ -460,6 +473,9 @@ static alloc_pool loc_chain_pool;
 
 /* Alloc pool for struct shared_hash_def.  */
 static alloc_pool shared_hash_pool;
+
+/* Alloc pool for struct loc_exp_dep_s for NOT_ONEPART variables.  */
+static alloc_pool loc_exp_dep_pool;
 
 /* Changed variables, notes will be emitted for them.  */
 static htab_t changed_variables;
@@ -798,7 +814,7 @@ static HOST_WIDE_INT cfa_base_offset;
 static inline rtx
 compute_cfa_pointer (HOST_WIDE_INT adjustment)
 {
-  return plus_constant (cfa_base_rtx, adjustment + cfa_base_offset);
+  return plus_constant (Pmode, cfa_base_rtx, adjustment + cfa_base_offset);
 }
 
 /* Adjustment for hard_frame_pointer_rtx to cfa base reg,
@@ -1939,6 +1955,111 @@ var_regno_delete (dataflow_set *set, int regno)
   *reg = NULL;
 }
 
+/* Hold parameters for the hashtab traversal function
+   drop_overlapping_mem_locs, see below.  */
+
+struct overlapping_mems
+{
+  dataflow_set *set;
+  rtx loc, addr;
+};
+
+/* Remove all MEMs that overlap with COMS->LOC from the location list
+   of a hash table entry for a value.  COMS->ADDR must be a
+   canonicalized form of COMS->LOC's address, and COMS->LOC must be
+   canonicalized itself.  */
+
+static int
+drop_overlapping_mem_locs (void **slot, void *data)
+{
+  struct overlapping_mems *coms = (struct overlapping_mems *)data;
+  dataflow_set *set = coms->set;
+  rtx mloc = coms->loc, addr = coms->addr;
+  variable var = (variable) *slot;
+
+  if (var->onepart == ONEPART_VALUE)
+    {
+      location_chain loc, *locp;
+      bool changed = false;
+      rtx cur_loc;
+
+      gcc_assert (var->n_var_parts == 1);
+
+      if (shared_var_p (var, set->vars))
+	{
+	  for (loc = var->var_part[0].loc_chain; loc; loc = loc->next)
+	    if (GET_CODE (loc->loc) == MEM
+		&& canon_true_dependence (mloc, GET_MODE (mloc), addr,
+					  loc->loc, NULL))
+	      break;
+
+	  if (!loc)
+	    return 1;
+
+	  slot = unshare_variable (set, slot, var, VAR_INIT_STATUS_UNKNOWN);
+	  var = (variable)*slot;
+	  gcc_assert (var->n_var_parts == 1);
+	}
+
+      if (VAR_LOC_1PAUX (var))
+	cur_loc = VAR_LOC_FROM (var);
+      else
+	cur_loc = var->var_part[0].cur_loc;
+
+      for (locp = &var->var_part[0].loc_chain, loc = *locp;
+	   loc; loc = *locp)
+	{
+	  if (GET_CODE (loc->loc) != MEM
+	      || !canon_true_dependence (mloc, GET_MODE (mloc), addr,
+					 loc->loc, NULL))
+	    {
+	      locp = &loc->next;
+	      continue;
+	    }
+
+	  *locp = loc->next;
+	  /* If we have deleted the location which was last emitted
+	     we have to emit new location so add the variable to set
+	     of changed variables.  */
+	  if (cur_loc == loc->loc)
+	    {
+	      changed = true;
+	      var->var_part[0].cur_loc = NULL;
+	      if (VAR_LOC_1PAUX (var))
+		VAR_LOC_FROM (var) = NULL;
+	    }
+	  pool_free (loc_chain_pool, loc);
+	}
+
+      if (!var->var_part[0].loc_chain)
+	{
+	  var->n_var_parts--;
+	  changed = true;
+	}
+      if (changed)
+	variable_was_changed (var, set);
+    }
+
+  return 1;
+}
+
+/* Remove from SET all VALUE bindings to MEMs that overlap with LOC.  */
+
+static void
+clobber_overlapping_mems (dataflow_set *set, rtx loc)
+{
+  struct overlapping_mems coms;
+
+  coms.set = set;
+  coms.loc = canon_rtx (loc);
+  coms.addr = canon_rtx (get_addr (XEXP (loc, 0)));
+
+  set->traversed_vars = set->vars;
+  htab_traverse (shared_hash_htab (set->vars),
+		 drop_overlapping_mem_locs, &coms);
+  set->traversed_vars = NULL;
+}
+
 /* Set the location of DV, OFFSET as the MEM LOC.  */
 
 static void
@@ -1981,6 +2102,7 @@ var_mem_delete_and_set (dataflow_set *set, rtx loc, bool modify,
   tree decl = MEM_EXPR (loc);
   HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
 
+  clobber_overlapping_mems (set, loc);
   decl = var_debug_decl (decl);
 
   if (initialized == VAR_INIT_STATUS_UNKNOWN)
@@ -2001,6 +2123,7 @@ var_mem_delete (dataflow_set *set, rtx loc, bool clobber)
   tree decl = MEM_EXPR (loc);
   HOST_WIDE_INT offset = INT_MEM_OFFSET (loc);
 
+  clobber_overlapping_mems (set, loc);
   decl = var_debug_decl (decl);
   if (clobber)
     clobber_variable_part (set, NULL, dv_from_decl (decl), offset, NULL);
@@ -2043,6 +2166,9 @@ val_bind (dataflow_set *set, rtx val, rtx loc, bool modified)
   else if (MEM_P (loc))
     {
       struct elt_loc_list *l = CSELIB_VAL_PTR (val)->locs;
+
+      if (modified)
+	clobber_overlapping_mems (set, loc);
 
       if (l && GET_CODE (l->loc) == VALUE)
 	l = canonical_cselib_val (CSELIB_VAL_PTR (l->loc))->locs;
@@ -4896,17 +5022,6 @@ find_use_val (rtx x, enum machine_mode mode, struct count_use_info *cui)
   return NULL;
 }
 
-/* Helper function to get mode of MEM's address.  */
-
-static inline enum machine_mode
-get_address_mode (rtx mem)
-{
-  enum machine_mode mode = GET_MODE (XEXP (mem, 0));
-  if (mode != VOIDmode)
-    return mode;
-  return targetm.addr_space.address_mode (MEM_ADDR_SPACE (mem));
-}
-
 /* Replace all registers and addresses in an expression with VALUE
    expressions that map back to them, unless the expression is a
    register.  If no mapping is or can be performed, returns NULL.  */
@@ -5333,6 +5448,10 @@ reverse_op (rtx val, const_rtx expr, rtx insn)
   v = cselib_lookup (XEXP (src, 0), GET_MODE (XEXP (src, 0)), 0, VOIDmode);
   if (!v || !cselib_preserved_value_p (v))
     return;
+
+  /* Use canonical V to avoid creating multiple redundant expressions
+     for different VALUES equivalent to V.  */
+  v = canonical_cselib_val (v);
 
   /* Adding a reverse op isn't useful if V already has an always valid
      location.  Ignore ENTRY_VALUE, while it is always constant, we should
@@ -5965,7 +6084,8 @@ prepare_call_arguments (basic_block bb, rtx insn)
       HOST_WIDE_INT token
 	= tree_low_cst (OBJ_TYPE_REF_TOKEN (obj_type_ref), 0);
       if (token)
-	clobbered = plus_constant (clobbered, token * GET_MODE_SIZE (mode));
+	clobbered = plus_constant (mode, clobbered,
+				   token * GET_MODE_SIZE (mode));
       clobbered = gen_rtx_MEM (mode, clobbered);
       x = gen_rtx_CONCAT (mode, gen_rtx_CLOBBER (VOIDmode, pc_rtx), clobbered);
       call_arguments
@@ -6267,29 +6387,41 @@ compute_bb_dataflow (basic_block bb)
 	    {
 	      rtx loc = mo->u.loc;
 	      rtx val, vloc, uloc;
+	      rtx dstv, srcv;
 
 	      vloc = loc;
 	      uloc = XEXP (vloc, 1);
 	      val = XEXP (vloc, 0);
 	      vloc = uloc;
 
+	      if (GET_CODE (uloc) == SET)
+		{
+		  dstv = SET_DEST (uloc);
+		  srcv = SET_SRC (uloc);
+		}
+	      else
+		{
+		  dstv = uloc;
+		  srcv = NULL;
+		}
+
 	      if (GET_CODE (val) == CONCAT)
 		{
-		  vloc = XEXP (val, 1);
+		  dstv = vloc = XEXP (val, 1);
 		  val = XEXP (val, 0);
 		}
 
 	      if (GET_CODE (vloc) == SET)
 		{
-		  rtx vsrc = SET_SRC (vloc);
+		  srcv = SET_SRC (vloc);
 
-		  gcc_assert (val != vsrc);
+		  gcc_assert (val != srcv);
 		  gcc_assert (vloc == uloc || VAL_NEEDS_RESOLUTION (loc));
 
-		  vloc = SET_DEST (vloc);
+		  dstv = vloc = SET_DEST (vloc);
 
 		  if (VAL_NEEDS_RESOLUTION (loc))
-		    val_resolve (out, val, vsrc, insn);
+		    val_resolve (out, val, srcv, insn);
 		}
 	      else if (VAL_NEEDS_RESOLUTION (loc))
 		{
@@ -6305,45 +6437,55 @@ compute_bb_dataflow (basic_block bb)
 		      if (REG_P (uloc))
 			var_reg_delete (out, uloc, true);
 		      else if (MEM_P (uloc))
-			var_mem_delete (out, uloc, true);
+			{
+			  gcc_assert (MEM_P (dstv));
+			  gcc_assert (MEM_ATTRS (dstv) == MEM_ATTRS (uloc));
+			  var_mem_delete (out, dstv, true);
+			}
 		    }
 		  else
 		    {
 		      bool copied_p = VAL_EXPR_IS_COPIED (loc);
-		      rtx set_src = NULL;
+		      rtx src = NULL, dst = uloc;
 		      enum var_init_status status = VAR_INIT_STATUS_INITIALIZED;
 
 		      if (GET_CODE (uloc) == SET)
 			{
-			  set_src = SET_SRC (uloc);
-			  uloc = SET_DEST (uloc);
+			  src = SET_SRC (uloc);
+			  dst = SET_DEST (uloc);
 			}
 
 		      if (copied_p)
 			{
 			  if (flag_var_tracking_uninit)
 			    {
-			      status = find_src_status (in, set_src);
+			      status = find_src_status (in, src);
 
 			      if (status == VAR_INIT_STATUS_UNKNOWN)
-				status = find_src_status (out, set_src);
+				status = find_src_status (out, src);
 			    }
 
-			  set_src = find_src_set_src (in, set_src);
+			  src = find_src_set_src (in, src);
 			}
 
-		      if (REG_P (uloc))
-			var_reg_delete_and_set (out, uloc, !copied_p,
-						status, set_src);
-		      else if (MEM_P (uloc))
-			var_mem_delete_and_set (out, uloc, !copied_p,
-						status, set_src);
+		      if (REG_P (dst))
+			var_reg_delete_and_set (out, dst, !copied_p,
+						status, srcv);
+		      else if (MEM_P (dst))
+			{
+			  gcc_assert (MEM_P (dstv));
+			  gcc_assert (MEM_ATTRS (dstv) == MEM_ATTRS (dst));
+			  var_mem_delete_and_set (out, dstv, !copied_p,
+						  status, srcv);
+			}
 		    }
 		}
 	      else if (REG_P (uloc))
 		var_regno_delete (out, REGNO (uloc));
+	      else if (MEM_P (uloc))
+		clobber_overlapping_mems (out, uloc);
 
-	      val_store (out, val, vloc, insn, true);
+	      val_store (out, val, dstv, insn, true);
 	    }
 	    break;
 
@@ -7487,7 +7629,7 @@ struct expand_loc_callback_data
 
   /* The maximum depth among the sub-expressions under expansion.
      Zero indicates no expansion so far.  */
-  int depth;
+  expand_depth depth;
 };
 
 /* Allocate the one-part auxiliary data structure for VAR, with enough
@@ -7532,7 +7674,8 @@ loc_exp_dep_alloc (variable var, int count)
       VAR_LOC_1PAUX (var) = XNEWVAR (struct onepart_aux, allocsize);
       *VAR_LOC_DEP_LSTP (var) = NULL;
       VAR_LOC_FROM (var) = NULL;
-      VAR_LOC_DEPTH (var) = 0;
+      VAR_LOC_DEPTH (var).complexity = 0;
+      VAR_LOC_DEPTH (var).entryvals = 0;
     }
   VEC_embedded_init (loc_exp_dep, VAR_LOC_DEP_VEC (var), count);
 }
@@ -7584,8 +7727,13 @@ loc_exp_insert_dep (variable var, rtx x, htab_t vars)
   if (VAR_LOC_DEP_LST (xvar) && VAR_LOC_DEP_LST (xvar)->dv == var->dv)
     return;
 
-  VEC_quick_push (loc_exp_dep, VAR_LOC_DEP_VEC (var), NULL);
-  led = VEC_last (loc_exp_dep, VAR_LOC_DEP_VEC (var));
+  if (var->onepart == NOT_ONEPART)
+    led = (loc_exp_dep *) pool_alloc (loc_exp_dep_pool);
+  else
+    {
+      VEC_quick_push (loc_exp_dep, VAR_LOC_DEP_VEC (var), NULL);
+      led = VEC_last (loc_exp_dep, VAR_LOC_DEP_VEC (var));
+    }
   led->dv = var->dv;
   led->value = x;
 
@@ -7661,8 +7809,12 @@ notify_dependents_of_resolved_value (variable ivar, htab_t vars)
 
 	  gcc_checking_assert (dv_changed_p (dv));
 	}
-      else if (!dv_changed_p (dv))
-	continue;
+      else
+	{
+	  gcc_checking_assert (dv_onepart_p (dv) != NOT_ONEPART);
+	  if (!dv_changed_p (dv))
+	    continue;
+      }
 
       var = (variable) htab_find_with_hash (vars, dv, dv_htab_hash (dv));
 
@@ -7687,21 +7839,26 @@ static rtx vt_expand_loc_callback (rtx x, bitmap regs,
 /* Return the combined depth, when one sub-expression evaluated to
    BEST_DEPTH and the previous known depth was SAVED_DEPTH.  */
 
-static inline int
-update_depth (int saved_depth, int best_depth)
+static inline expand_depth
+update_depth (expand_depth saved_depth, expand_depth best_depth)
 {
   /* If we didn't find anything, stick with what we had.  */
-  if (!best_depth)
+  if (!best_depth.complexity)
     return saved_depth;
 
   /* If we found hadn't found anything, use the depth of the current
      expression.  Do NOT add one extra level, we want to compute the
      maximum depth among sub-expressions.  We'll increment it later,
      if appropriate.  */
-  if (!saved_depth)
+  if (!saved_depth.complexity)
     return best_depth;
 
-  if (saved_depth < best_depth)
+  /* Combine the entryval count so that regardless of which one we
+     return, the entryval count is accurate.  */
+  best_depth.entryvals = saved_depth.entryvals
+    = best_depth.entryvals + saved_depth.entryvals;
+
+  if (saved_depth.complexity < best_depth.complexity)
     return best_depth;
   else
     return saved_depth;
@@ -7723,12 +7880,14 @@ vt_expand_var_loc_chain (variable var, bitmap regs, void *data, bool *pendrecp)
   bool pending_recursion;
   rtx loc_from = NULL;
   struct elt_loc_list *cloc = NULL;
-  int depth = 0, saved_depth = elcd->depth;
+  expand_depth depth = { 0, 0 }, saved_depth = elcd->depth;
+  int wanted_entryvals, found_entryvals = 0;
 
   /* Clear all backlinks pointing at this, so that we're not notified
      while we're active.  */
   loc_exp_dep_clear (var);
 
+ retry:
   if (var->onepart == ONEPART_VALUE)
     {
       cselib_val *val = CSELIB_VAL_PTR (dv_as_value (var->dv));
@@ -7741,13 +7900,15 @@ vt_expand_var_loc_chain (variable var, bitmap regs, void *data, bool *pendrecp)
   first_child = result_first_child = last_child
     = VEC_length (rtx, elcd->expanding);
 
+  wanted_entryvals = found_entryvals;
+
   /* Attempt to expand each available location in turn.  */
   for (next = loc = var->n_var_parts ? var->var_part[0].loc_chain : NULL;
        loc || cloc; loc = next)
     {
       result_first_child = last_child;
 
-      if (!loc || (GET_CODE (loc->loc) == ENTRY_VALUE && cloc))
+      if (!loc)
 	{
 	  loc_from = cloc->loc;
 	  next = loc;
@@ -7763,7 +7924,7 @@ vt_expand_var_loc_chain (variable var, bitmap regs, void *data, bool *pendrecp)
 
       gcc_checking_assert (!unsuitable_loc (loc_from));
 
-      elcd->depth = 0;
+      elcd->depth.complexity = elcd->depth.entryvals = 0;
       result = cselib_expand_value_rtx_cb (loc_from, regs, EXPR_DEPTH,
 					   vt_expand_loc_callback, data);
       last_child = VEC_length (rtx, elcd->expanding);
@@ -7772,21 +7933,46 @@ vt_expand_var_loc_chain (variable var, bitmap regs, void *data, bool *pendrecp)
 	{
 	  depth = elcd->depth;
 
-	  gcc_checking_assert (depth || result_first_child == last_child);
+	  gcc_checking_assert (depth.complexity
+			       || result_first_child == last_child);
 
 	  if (last_child - result_first_child != 1)
-	    depth++;
+	    {
+	      if (!depth.complexity && GET_CODE (result) == ENTRY_VALUE)
+		depth.entryvals++;
+	      depth.complexity++;
+	    }
 
-	  if (depth <= EXPR_USE_DEPTH)
-	    break;
+	  if (depth.complexity <= EXPR_USE_DEPTH)
+	    {
+	      if (depth.entryvals <= wanted_entryvals)
+		break;
+	      else if (!found_entryvals || depth.entryvals < found_entryvals)
+		found_entryvals = depth.entryvals;
+	    }
 
 	  result = NULL;
 	}
 
       /* Set it up in case we leave the loop.  */
-      depth = 0;
+      depth.complexity = depth.entryvals = 0;
       loc_from = NULL;
       result_first_child = first_child;
+    }
+
+  if (!loc_from && wanted_entryvals < found_entryvals)
+    {
+      /* We found entries with ENTRY_VALUEs and skipped them.  Since
+	 we could not find any expansions without ENTRY_VALUEs, but we
+	 found at least one with them, go back and get an entry with
+	 the minimum number ENTRY_VALUE count that we found.  We could
+	 avoid looping, but since each sub-loc is already resolved,
+	 the re-expansion should be trivial.  ??? Should we record all
+	 attempted locs as dependencies, so that we retry the
+	 expansion should any of them change, in the hope it can give
+	 us a new entry without an ENTRY_VALUE?  */
+      VEC_truncate (rtx, elcd->expanding, first_child);
+      goto retry;
     }
 
   /* Register all encountered dependencies as active.  */
@@ -7801,7 +7987,7 @@ vt_expand_var_loc_chain (variable var, bitmap regs, void *data, bool *pendrecp)
   VAR_LOC_FROM (var) = loc_from;
   VAR_LOC_DEPTH (var) = depth;
 
-  gcc_checking_assert (!depth == !result);
+  gcc_checking_assert (!depth.complexity == !result);
 
   elcd->depth = update_depth (saved_depth, depth);
 
@@ -7889,7 +8075,7 @@ vt_expand_loc_callback (rtx x, bitmap regs,
       gcc_checking_assert (!NO_LOC_P (x));
       gcc_checking_assert (var->var_part[0].cur_loc);
       gcc_checking_assert (VAR_LOC_1PAUX (var));
-      gcc_checking_assert (VAR_LOC_1PAUX (var)->depth);
+      gcc_checking_assert (VAR_LOC_1PAUX (var)->depth.complexity);
 
       elcd->depth = update_depth (elcd->depth, VAR_LOC_1PAUX (var)->depth);
 
@@ -7963,7 +8149,7 @@ resolve_expansions_pending_recursion (VEC (rtx, stack) *pending)
       (d).vars = (v);						\
       (d).expanding = VEC_alloc (rtx, stack, 4);		\
       (d).pending = VEC_alloc (rtx, stack, 4);			\
-      (d).depth = 0;						\
+      (d).depth.complexity = (d).depth.entryvals = 0;		\
     }								\
   while (0)
 /* Finalize expand_loc_callback_data D, resolved to location L.  */
@@ -8083,11 +8269,23 @@ emit_note_insn_var_location (void **varp, void *data)
 	  else if (last_limit > VAR_PART_OFFSET (var, i))
 	    continue;
 	  offset = VAR_PART_OFFSET (var, i);
-	  if (!var->var_part[i].cur_loc)
+	  loc2 = var->var_part[i].cur_loc;
+	  if (loc2 && GET_CODE (loc2) == MEM
+	      && GET_CODE (XEXP (loc2, 0)) == VALUE)
+	    {
+	      rtx depval = XEXP (loc2, 0);
+
+	      loc2 = vt_expand_loc (loc2, vars);
+
+	      if (loc2)
+		loc_exp_insert_dep (var, depval, vars);
+	    }
+	  if (!loc2)
 	    {
 	      complete = false;
 	      continue;
 	    }
+	  gcc_checking_assert (GET_CODE (loc2) != VALUE);
 	  for (lc = var->var_part[i].loc_chain; lc; lc = lc->next)
 	    if (var->var_part[i].cur_loc == lc->loc)
 	      {
@@ -8095,7 +8293,6 @@ emit_note_insn_var_location (void **varp, void *data)
 		break;
 	      }
 	  gcc_assert (lc);
-	  loc2 = var->var_part[i].cur_loc;
 	}
 
       offsets[n_var_parts] = offset;
@@ -8309,7 +8506,6 @@ notify_dependents_of_changed_value (rtx val, htab_t htab,
   while ((led = VAR_LOC_DEP_LST (var)))
     {
       decl_or_value ldv = led->dv;
-      void **islot;
       variable ivar;
 
       /* Deactivate and remove the backlink, as it was “used up”.  It
@@ -8334,13 +8530,34 @@ notify_dependents_of_changed_value (rtx val, htab_t htab,
 	  VEC_safe_push (rtx, stack, *changed_values_stack, dv_as_rtx (ldv));
 	  break;
 
-	default:
-	  islot = htab_find_slot_with_hash (htab, ldv, dv_htab_hash (ldv),
-					    NO_INSERT);
-	  ivar = (variable) *islot;
+	case ONEPART_VDECL:
+	  ivar = (variable) htab_find_with_hash (htab, ldv, dv_htab_hash (ldv));
 	  gcc_checking_assert (!VAR_LOC_DEP_LST (ivar));
 	  variable_was_changed (ivar, NULL);
 	  break;
+
+	case NOT_ONEPART:
+	  pool_free (loc_exp_dep_pool, led);
+	  ivar = (variable) htab_find_with_hash (htab, ldv, dv_htab_hash (ldv));
+	  if (ivar)
+	    {
+	      int i = ivar->n_var_parts;
+	      while (i--)
+		{
+		  rtx loc = ivar->var_part[i].cur_loc;
+
+		  if (loc && GET_CODE (loc) == MEM
+		      && XEXP (loc, 0) == val)
+		    {
+		      variable_was_changed (ivar, NULL);
+		      break;
+		    }
+		}
+	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
 	}
     }
 }
@@ -8677,29 +8894,41 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 	    {
 	      rtx loc = mo->u.loc;
 	      rtx val, vloc, uloc;
+	      rtx dstv, srcv;
 
 	      vloc = loc;
 	      uloc = XEXP (vloc, 1);
 	      val = XEXP (vloc, 0);
 	      vloc = uloc;
 
+	      if (GET_CODE (uloc) == SET)
+		{
+		  dstv = SET_DEST (uloc);
+		  srcv = SET_SRC (uloc);
+		}
+	      else
+		{
+		  dstv = uloc;
+		  srcv = NULL;
+		}
+
 	      if (GET_CODE (val) == CONCAT)
 		{
-		  vloc = XEXP (val, 1);
+		  dstv = vloc = XEXP (val, 1);
 		  val = XEXP (val, 0);
 		}
 
 	      if (GET_CODE (vloc) == SET)
 		{
-		  rtx vsrc = SET_SRC (vloc);
+		  srcv = SET_SRC (vloc);
 
-		  gcc_assert (val != vsrc);
+		  gcc_assert (val != srcv);
 		  gcc_assert (vloc == uloc || VAL_NEEDS_RESOLUTION (loc));
 
-		  vloc = SET_DEST (vloc);
+		  dstv = vloc = SET_DEST (vloc);
 
 		  if (VAL_NEEDS_RESOLUTION (loc))
-		    val_resolve (set, val, vsrc, insn);
+		    val_resolve (set, val, srcv, insn);
 		}
 	      else if (VAL_NEEDS_RESOLUTION (loc))
 		{
@@ -8715,39 +8944,49 @@ emit_notes_in_bb (basic_block bb, dataflow_set *set)
 		      if (REG_P (uloc))
 			var_reg_delete (set, uloc, true);
 		      else if (MEM_P (uloc))
-			var_mem_delete (set, uloc, true);
+			{
+			  gcc_assert (MEM_P (dstv));
+			  gcc_assert (MEM_ATTRS (dstv) == MEM_ATTRS (uloc));
+			  var_mem_delete (set, dstv, true);
+			}
 		    }
 		  else
 		    {
 		      bool copied_p = VAL_EXPR_IS_COPIED (loc);
-		      rtx set_src = NULL;
+		      rtx src = NULL, dst = uloc;
 		      enum var_init_status status = VAR_INIT_STATUS_INITIALIZED;
 
 		      if (GET_CODE (uloc) == SET)
 			{
-			  set_src = SET_SRC (uloc);
-			  uloc = SET_DEST (uloc);
+			  src = SET_SRC (uloc);
+			  dst = SET_DEST (uloc);
 			}
 
 		      if (copied_p)
 			{
-			  status = find_src_status (set, set_src);
+			  status = find_src_status (set, src);
 
-			  set_src = find_src_set_src (set, set_src);
+			  src = find_src_set_src (set, src);
 			}
 
-		      if (REG_P (uloc))
-			var_reg_delete_and_set (set, uloc, !copied_p,
-						status, set_src);
-		      else if (MEM_P (uloc))
-			var_mem_delete_and_set (set, uloc, !copied_p,
-						status, set_src);
+		      if (REG_P (dst))
+			var_reg_delete_and_set (set, dst, !copied_p,
+						status, srcv);
+		      else if (MEM_P (dst))
+			{
+			  gcc_assert (MEM_P (dstv));
+			  gcc_assert (MEM_ATTRS (dstv) == MEM_ATTRS (dst));
+			  var_mem_delete_and_set (set, dstv, !copied_p,
+						  status, srcv);
+			}
 		    }
 		}
 	      else if (REG_P (uloc))
 		var_regno_delete (set, REGNO (uloc));
+	      else if (MEM_P (uloc))
+		clobber_overlapping_mems (set, uloc);
 
-	      val_store (set, val, vloc, insn, true);
+	      val_store (set, val, dstv, insn, true);
 
 	      emit_notes_for_changes (next_insn, EMIT_NOTE_BEFORE_INSN,
 				      set->vars);
@@ -8856,9 +9095,13 @@ vt_emit_notes (void)
   emit_notes = true;
 
   if (MAY_HAVE_DEBUG_INSNS)
-    dropped_values = htab_create (cselib_get_next_uid () * 2,
-				  variable_htab_hash, variable_htab_eq,
-				  variable_htab_free);
+    {
+      dropped_values = htab_create (cselib_get_next_uid () * 2,
+				    variable_htab_hash, variable_htab_eq,
+				    variable_htab_free);
+      loc_exp_dep_pool = create_alloc_pool ("loc_exp_dep pool",
+					    sizeof (loc_exp_dep), 64);
+    }
 
   dataflow_set_init (&cur);
 
@@ -8883,7 +9126,11 @@ vt_emit_notes (void)
   dataflow_set_destroy (&cur);
 
   if (MAY_HAVE_DEBUG_INSNS)
-    htab_delete (dropped_values);
+    {
+      free_alloc_pool (loc_exp_dep_pool);
+      loc_exp_dep_pool = NULL;
+      htab_delete (dropped_values);
+    }
 
   emit_notes = false;
 }
@@ -8969,7 +9216,8 @@ vt_add_function_parameter (tree parm)
 	off += INTVAL (XEXP (XEXP (incoming, 0), 1));
       incoming
 	= replace_equiv_address_nv (incoming,
-				    plus_constant (arg_pointer_rtx, off));
+				    plus_constant (Pmode,
+						   arg_pointer_rtx, off));
     }
 
 #ifdef HAVE_window_save

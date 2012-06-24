@@ -31,7 +31,6 @@
 #include "conditions.h"
 #include "insn-flags.h"
 #include "insn-attr.h"
-#include "integrate.h"
 #include "recog.h"
 #include "tree.h"
 #include "function.h"
@@ -190,7 +189,7 @@ enum reg_class microblaze_regno_to_class[] =
 /* MicroBlaze specific machine attributes.
    interrupt_handler - Interrupt handler attribute to add interrupt prologue 
 		       and epilogue and use appropriate interrupt return.
-   save_volatiles    - Similiar to interrupt handler, but use normal return.  */
+   save_volatiles    - Similar to interrupt handler, but use normal return.  */
 int interrupt_handler;
 int save_volatiles;
 
@@ -341,7 +340,8 @@ double_memory_operand (rtx op, enum machine_mode mode)
     return 1;
 
   return memory_address_p ((GET_MODE_CLASS (mode) == MODE_INT
-			    ? SImode : SFmode), plus_constant (addr, 4));
+			    ? SImode : SFmode),
+			   plus_constant (Pmode, addr, 4));
 }
 
 /* Implement REG_OK_FOR_BASE_P -and- REG_OK_FOR_INDEX_P.  */
@@ -808,8 +808,8 @@ microblaze_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length)
   microblaze_block_move_straight (dest, src, MAX_MOVE_BYTES);
 
   /* Move on to the next block.  */
-  emit_move_insn (src_reg, plus_constant (src_reg, MAX_MOVE_BYTES));
-  emit_move_insn (dest_reg, plus_constant (dest_reg, MAX_MOVE_BYTES));
+  emit_move_insn (src_reg, plus_constant (Pmode, src_reg, MAX_MOVE_BYTES));
+  emit_move_insn (dest_reg, plus_constant (Pmode, dest_reg, MAX_MOVE_BYTES));
 
   /* Emit the test & branch.  */
   emit_insn (gen_cbranchsi4 (gen_rtx_NE (SImode, src_reg, final_src),

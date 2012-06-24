@@ -100,8 +100,8 @@ runtime_makechan_c(ChanType *t, int64 hint)
 	c->dataqsiz = hint;
 
 	if(debug)
-		runtime_printf("makechan: chan=%p; elemsize=%lld; elemalign=%d; dataqsiz=%d\n",
-			c, (long long)elem->__size, elem->__align, c->dataqsiz);
+		runtime_printf("makechan: chan=%p; elemsize=%D; elemalign=%d; dataqsiz=%d\n",
+			c, (int64)elem->__size, elem->__align, c->dataqsiz);
 
 	return c;
 }
@@ -109,7 +109,7 @@ runtime_makechan_c(ChanType *t, int64 hint)
 // For reflect
 //	func makechan(typ *ChanType, size uint32) (chan)
 uintptr reflect_makechan(ChanType *, uint32)
-  asm ("libgo_reflect.reflect.makechan");
+  asm ("reflect.makechan");
 
 uintptr
 reflect_makechan(ChanType *t, uint32 size)
@@ -409,11 +409,20 @@ closed:
 void
 __go_send_small(ChanType *t, Hchan* c, uint64 val)
 {
-	byte b[sizeof(uint64)];
+	union
+	{
+		byte b[sizeof(uint64)];
+		uint64 v;
+	} u;
+	byte *p;
 
-	runtime_memclr(b, sizeof(uint64));
-	__builtin_memcpy(b, &val, t->__element_type->__size);
-	runtime_chansend(t, c, b, nil);
+	u.v = val;
+#ifndef WORDS_BIGENDIAN
+	p = u.b;
+#else
+	p = u.b + sizeof(uint64) - t->__element_type->__size;
+#endif
+	runtime_chansend(t, c, p, nil);
 }
 
 // The compiler generates a call to __go_send_big to send a value
@@ -433,9 +442,15 @@ __go_receive_small(ChanType *t, Hchan* c)
 		byte b[sizeof(uint64)];
 		uint64 v;
 	} u;
+	byte *p;
 
 	u.v = 0;
-	runtime_chanrecv(t, c, u.b, nil, nil);
+#ifndef WORDS_BIGENDIAN
+	p = u.b;
+#else
+	p = u.b + sizeof(uint64) - t->__element_type->__size;
+#endif
+	runtime_chanrecv(t, c, p, nil, nil);
 	return u.v;
 }
 
@@ -553,7 +568,7 @@ runtime_selectnbrecv2(ChanType *t, byte *v, _Bool *received, Hchan *c)
 // the actual data if it fits, or else a pointer to the data.
 
 _Bool reflect_chansend(ChanType *, Hchan *, uintptr, _Bool)
-  __asm__("libgo_reflect.reflect.chansend");
+  __asm__("reflect.chansend");
 
 _Bool
 reflect_chansend(ChanType *t, Hchan *c, uintptr val, _Bool nb)
@@ -590,7 +605,7 @@ struct chanrecv_ret
 };
 
 struct chanrecv_ret reflect_chanrecv(ChanType *, Hchan *, _Bool)
-  __asm__("libgo_reflect.reflect.chanrecv");
+  __asm__("reflect.chanrecv");
 
 struct chanrecv_ret
 reflect_chanrecv(ChanType *t, Hchan *c, _Bool nb)
@@ -647,6 +662,10 @@ newselect(int32 size, Select **selp)
 	if(size > 1)
 		n = size-1;
 
+	// allocate all the memory we need in a single allocation
+	// start with Select with size cases
+	// then lockorder with size entries
+	// then pollorder with size entries
 	sel = runtime_mal(sizeof(*sel) +
 		n*sizeof(sel->scase[0]) +
 		size*sizeof(sel->lockorder[0]) +
@@ -654,8 +673,8 @@ newselect(int32 size, Select **selp)
 
 	sel->tcase = size;
 	sel->ncase = 0;
-	sel->pollorder = (void*)(sel->scase + size);
-	sel->lockorder = (void*)(sel->pollorder + size);
+	sel->lockorder = (void*)(sel->scase + size);
+	sel->pollorder = (void*)(sel->lockorder + size);
 	*selp = sel;
 
 	if(debug)
@@ -1142,7 +1161,7 @@ __go_builtin_close(Hchan *c)
 // For reflect
 //	func chanclose(c chan)
 
-void reflect_chanclose(uintptr) __asm__("libgo_reflect.reflect.chanclose");
+void reflect_chanclose(uintptr) __asm__("reflect.chanclose");
 
 void
 reflect_chanclose(uintptr c)
@@ -1153,7 +1172,7 @@ reflect_chanclose(uintptr c)
 // For reflect
 //	func chanlen(c chan) (len int32)
 
-int32 reflect_chanlen(uintptr) __asm__("libgo_reflect.reflect.chanlen");
+int32 reflect_chanlen(uintptr) __asm__("reflect.chanlen");
 
 int32
 reflect_chanlen(uintptr ca)
@@ -1178,7 +1197,7 @@ __go_chan_len(Hchan *c)
 // For reflect
 //	func chancap(c chan) (cap int32)
 
-int32 reflect_chancap(uintptr) __asm__("libgo_reflect.reflect.chancap");
+int32 reflect_chancap(uintptr) __asm__("reflect.chancap");
 
 int32
 reflect_chancap(uintptr ca)

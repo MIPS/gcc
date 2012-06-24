@@ -54,11 +54,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "ggc.h"
 #include "tm_p.h"
-#include "integrate.h"
 #include "langhooks.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "cfglayout.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
@@ -496,12 +494,12 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size,
   /* If we have already instantiated virtual registers, return the actual
      address relative to the frame pointer.  */
   if (virtuals_instantiated)
-    addr = plus_constant (frame_pointer_rtx,
+    addr = plus_constant (Pmode, frame_pointer_rtx,
 			  trunc_int_for_mode
 			  (slot_offset + bigend_correction
 			   + STARTING_FRAME_OFFSET, Pmode));
   else
-    addr = plus_constant (virtual_stack_vars_rtx,
+    addr = plus_constant (Pmode, virtual_stack_vars_rtx,
 			  trunc_int_for_mode
 			  (slot_offset + bigend_correction,
 			   Pmode));
@@ -527,7 +525,6 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
   return assign_stack_local_1 (mode, size, align, ASLK_RECORD_PAD);
 }
 
-
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.
    We record each allocated temporary in the following structure.
@@ -540,11 +537,7 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
    result could be in a temporary, we preserve it if we can determine which
    one it is in.  If we cannot determine which temporary may contain the
    result, all temporaries are preserved.  A temporary is preserved by
-   pretending it was allocated at the previous nesting level.
-
-   Automatic variables are also assigned temporary slots, at the nesting
-   level where they are defined.  They are marked a "kept" so that
-   free_temp_slots will not free them.  */
+   pretending it was allocated at the previous nesting level.  */
 
 struct GTY(()) temp_slot {
   /* Points to next temporary slot.  */
@@ -564,12 +557,8 @@ struct GTY(()) temp_slot {
   unsigned int align;
   /* Nonzero if this temporary is currently in use.  */
   char in_use;
-  /* Nonzero if this temporary has its address taken.  */
-  char addr_taken;
   /* Nesting level at which this slot is being used.  */
   int level;
-  /* Nonzero if this should survive a call to free_temp_slots.  */
-  int keep;
   /* The offset of the slot from the frame_pointer, including extra space
      for alignment.  This info is for combine_temp_slots.  */
   HOST_WIDE_INT base_offset;
@@ -581,6 +570,7 @@ struct GTY(()) temp_slot {
 /* A table of addresses that represent a stack slot.  The table is a mapping
    from address RTXen to a temp slot.  */
 static GTY((param_is(struct temp_slot_address_entry))) htab_t temp_slot_address_table;
+static size_t n_temp_slots_in_use;
 
 /* Entry for the above hash table.  */
 struct GTY(()) temp_slot_address_entry {
@@ -657,6 +647,7 @@ make_slot_available (struct temp_slot *temp)
   insert_slot_to_list (temp, &avail_temp_slots);
   temp->in_use = 0;
   temp->level = -1;
+  n_temp_slots_in_use--;
 }
 
 /* Compute the hash value for an address -> temp slot mapping.
@@ -709,7 +700,7 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
   const struct temp_slot_address_entry *t;
   t = (const struct temp_slot_address_entry *) *slot;
   if (! t->temp_slot->in_use)
-    *slot = NULL;
+    htab_clear_slot (temp_slot_address_table, slot);
   return 1;
 }
 
@@ -717,9 +708,13 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
 static void
 remove_unused_temp_slot_addresses (void)
 {
-  htab_traverse (temp_slot_address_table,
-		 remove_unused_temp_slot_addresses_1,
-		 NULL);
+  /* Use quicker clearing if there aren't any active temp slots.  */
+  if (n_temp_slots_in_use)
+    htab_traverse (temp_slot_address_table,
+		   remove_unused_temp_slot_addresses_1,
+		   NULL);
+  else
+    htab_empty (temp_slot_address_table);
 }
 
 /* Find the temp slot corresponding to the object at address X.  */
@@ -775,17 +770,11 @@ find_temp_slot_from_address (rtx x)
    SIZE is the size in units of the space required.  We do no rounding here
    since assign_stack_local will do any required rounding.
 
-   KEEP is 1 if this slot is to be retained after a call to
-   free_temp_slots.  Automatic variables for a block are allocated
-   with this flag.  KEEP values of 2 or 3 were needed respectively
-   for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
-   or for SAVE_EXPRs, but they are now unused.
-
    TYPE is the type that will be used for the stack slot.  */
 
 rtx
 assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
-			    int keep, tree type)
+			    tree type)
 {
   unsigned int align;
   struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
@@ -794,9 +783,6 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
   gcc_assert (size != -1);
-
-  /* These are now unused.  */
-  gcc_assert (keep <= 1);
 
   align = get_stack_local_alignment (type, mode);
 
@@ -846,7 +832,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	  if (best_p->size - rounded_size >= alignment)
 	    {
 	      p = ggc_alloc_temp_slot ();
-	      p->in_use = p->addr_taken = 0;
+	      p->in_use = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
 	      p->full_size = best_p->full_size - rounded_size;
@@ -918,10 +904,9 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
   p = selected;
   p->in_use = 1;
-  p->addr_taken = 0;
   p->type = type;
   p->level = temp_slot_level;
-  p->keep = keep;
+  n_temp_slots_in_use++;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -946,26 +931,25 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 }
 
 /* Allocate a temporary stack slot and record it for possible later
-   reuse.  First three arguments are same as in preceding function.  */
+   reuse.  First two arguments are same as in preceding function.  */
 
 rtx
-assign_stack_temp (enum machine_mode mode, HOST_WIDE_INT size, int keep)
+assign_stack_temp (enum machine_mode mode, HOST_WIDE_INT size)
 {
-  return assign_stack_temp_for_type (mode, size, keep, NULL_TREE);
+  return assign_stack_temp_for_type (mode, size, NULL_TREE);
 }
 
 /* Assign a temporary.
    If TYPE_OR_DECL is a decl, then we are doing it on behalf of the decl
    and so that should be used in error messages.  In either case, we
    allocate of the given type.
-   KEEP is as for assign_stack_temp.
    MEMORY_REQUIRED is 1 if the result must be addressable stack memory;
    it is 0 if a register is OK.
    DONT_PROMOTE is 1 if we should not promote values in register
    to wider modes.  */
 
 rtx
-assign_temp (tree type_or_decl, int keep, int memory_required,
+assign_temp (tree type_or_decl, int memory_required,
 	     int dont_promote ATTRIBUTE_UNUSED)
 {
   tree type, decl;
@@ -1011,7 +995,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
 	  size = 1;
 	}
 
-      tmp = assign_stack_temp_for_type (mode, size, keep, type);
+      tmp = assign_stack_temp_for_type (mode, size, type);
       return tmp;
     }
 
@@ -1139,32 +1123,10 @@ update_temp_slot_address (rtx old_rtx, rtx new_rtx)
   insert_temp_slot_address (new_rtx, p);
 }
 
-/* If X could be a reference to a temporary slot, mark the fact that its
-   address was taken.  */
-
-void
-mark_temp_addr_taken (rtx x)
-{
-  struct temp_slot *p;
-
-  if (x == 0)
-    return;
-
-  /* If X is not in memory or is at a constant address, it cannot be in
-     a temporary slot.  */
-  if (!MEM_P (x) || CONSTANT_P (XEXP (x, 0)))
-    return;
-
-  p = find_temp_slot_from_address (XEXP (x, 0));
-  if (p != 0)
-    p->addr_taken = 1;
-}
-
 /* If X could be a reference to a temporary slot, mark that slot as
    belonging to the to one level higher than the current level.  If X
    matched one of our slots, just mark that one.  Otherwise, we can't
-   easily predict which it is, so upgrade all of them.  Kept slots
-   need not be touched.
+   easily predict which it is, so upgrade all of them.
 
    This is called when an ({...}) construct occurs and a statement
    returns a value in memory.  */
@@ -1174,43 +1136,18 @@ preserve_temp_slots (rtx x)
 {
   struct temp_slot *p = 0, *next;
 
-  /* If there is no result, we still might have some objects whose address
-     were taken, so we need to make sure they stay around.  */
   if (x == 0)
-    {
-      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-	{
-	  next = p->next;
-
-	  if (p->addr_taken)
-	    move_slot_to_level (p, temp_slot_level - 1);
-	}
-
-      return;
-    }
+    return;
 
   /* If X is a register that is being used as a pointer, see if we have
-     a temporary slot we know it points to.  To be consistent with
-     the code below, we really should preserve all non-kept slots
-     if we can't find a match, but that seems to be much too costly.  */
+     a temporary slot we know it points to.  */
   if (REG_P (x) && REG_POINTER (x))
     p = find_temp_slot_from_address (x);
 
   /* If X is not in memory or is at a constant address, it cannot be in
-     a temporary slot, but it can contain something whose address was
-     taken.  */
+     a temporary slot.  */
   if (p == 0 && (!MEM_P (x) || CONSTANT_P (XEXP (x, 0))))
-    {
-      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-	{
-	  next = p->next;
-
-	  if (p->addr_taken)
-	    move_slot_to_level (p, temp_slot_level - 1);
-	}
-
-      return;
-    }
+    return;
 
   /* First see if we can find a match.  */
   if (p == 0)
@@ -1218,23 +1155,8 @@ preserve_temp_slots (rtx x)
 
   if (p != 0)
     {
-      /* Move everything at our level whose address was taken to our new
-	 level in case we used its address.  */
-      struct temp_slot *q;
-
       if (p->level == temp_slot_level)
-	{
-	  for (q = *temp_slots_at_level (temp_slot_level); q; q = next)
-	    {
-	      next = q->next;
-
-	      if (p != q && q->addr_taken)
-		move_slot_to_level (q, temp_slot_level - 1);
-	    }
-
-	  move_slot_to_level (p, temp_slot_level - 1);
-	  p->addr_taken = 0;
-	}
+	move_slot_to_level (p, temp_slot_level - 1);
       return;
     }
 
@@ -1242,9 +1164,7 @@ preserve_temp_slots (rtx x)
   for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
     {
       next = p->next;
-
-      if (!p->keep)
-	move_slot_to_level (p, temp_slot_level - 1);
+      move_slot_to_level (p, temp_slot_level - 1);
     }
 }
 
@@ -1260,12 +1180,8 @@ free_temp_slots (void)
   for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
     {
       next = p->next;
-
-      if (!p->keep)
-	{
-	  make_slot_available (p);
-	  some_available = true;
-	}
+      make_slot_available (p);
+      some_available = true;
     }
 
   if (some_available)
@@ -1289,22 +1205,7 @@ push_temp_slots (void)
 void
 pop_temp_slots (void)
 {
-  struct temp_slot *p, *next;
-  bool some_available = false;
-
-  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-    {
-      next = p->next;
-      make_slot_available (p);
-      some_available = true;
-    }
-
-  if (some_available)
-    {
-      remove_unused_temp_slot_addresses ();
-      combine_temp_slots ();
-    }
-
+  free_temp_slots ();
   temp_slot_level--;
 }
 
@@ -1317,6 +1218,7 @@ init_temp_slots (void)
   avail_temp_slots = 0;
   used_temp_slots = 0;
   temp_slot_level = 0;
+  n_temp_slots_in_use = 0;
 
   /* Set up the table to map addresses to temp slots.  */
   if (! temp_slot_address_table)
@@ -1326,6 +1228,133 @@ init_temp_slots (void)
 					       NULL);
   else
     htab_empty (temp_slot_address_table);
+}
+
+/* Functions and data structures to keep track of the values hard regs
+   had at the start of the function.  */
+
+/* Private type used by get_hard_reg_initial_reg, get_hard_reg_initial_val,
+   and has_hard_reg_initial_val..  */
+typedef struct GTY(()) initial_value_pair {
+  rtx hard_reg;
+  rtx pseudo;
+} initial_value_pair;
+/* ???  This could be a VEC but there is currently no way to define an
+   opaque VEC type.  This could be worked around by defining struct
+   initial_value_pair in function.h.  */
+typedef struct GTY(()) initial_value_struct {
+  int num_entries;
+  int max_entries;
+  initial_value_pair * GTY ((length ("%h.num_entries"))) entries;
+} initial_value_struct;
+
+/* If a pseudo represents an initial hard reg (or expression), return
+   it, else return NULL_RTX.  */
+
+rtx
+get_hard_reg_initial_reg (rtx reg)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return NULL_RTX;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    if (rtx_equal_p (ivs->entries[i].pseudo, reg))
+      return ivs->entries[i].hard_reg;
+
+  return NULL_RTX;
+}
+
+/* Make sure that there's a pseudo register of mode MODE that stores the
+   initial value of hard register REGNO.  Return an rtx for such a pseudo.  */
+
+rtx
+get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+{
+  struct initial_value_struct *ivs;
+  rtx rv;
+
+  rv = has_hard_reg_initial_val (mode, regno);
+  if (rv)
+    return rv;
+
+  ivs = crtl->hard_reg_initial_vals;
+  if (ivs == 0)
+    {
+      ivs = ggc_alloc_initial_value_struct ();
+      ivs->num_entries = 0;
+      ivs->max_entries = 5;
+      ivs->entries = ggc_alloc_vec_initial_value_pair (5);
+      crtl->hard_reg_initial_vals = ivs;
+    }
+
+  if (ivs->num_entries >= ivs->max_entries)
+    {
+      ivs->max_entries += 5;
+      ivs->entries = GGC_RESIZEVEC (initial_value_pair, ivs->entries,
+				    ivs->max_entries);
+    }
+
+  ivs->entries[ivs->num_entries].hard_reg = gen_rtx_REG (mode, regno);
+  ivs->entries[ivs->num_entries].pseudo = gen_reg_rtx (mode);
+
+  return ivs->entries[ivs->num_entries++].pseudo;
+}
+
+/* See if get_hard_reg_initial_val has been used to create a pseudo
+   for the initial value of hard register REGNO in mode MODE.  Return
+   the associated pseudo if so, otherwise return NULL.  */
+
+rtx
+has_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+{
+  struct initial_value_struct *ivs;
+  int i;
+
+  ivs = crtl->hard_reg_initial_vals;
+  if (ivs != 0)
+    for (i = 0; i < ivs->num_entries; i++)
+      if (GET_MODE (ivs->entries[i].hard_reg) == mode
+	  && REGNO (ivs->entries[i].hard_reg) == regno)
+	return ivs->entries[i].pseudo;
+
+  return NULL_RTX;
+}
+
+unsigned int
+emit_initial_value_sets (void)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  int i;
+  rtx seq;
+
+  if (ivs == 0)
+    return 0;
+
+  start_sequence ();
+  for (i = 0; i < ivs->num_entries; i++)
+    emit_move_insn (ivs->entries[i].pseudo, ivs->entries[i].hard_reg);
+  seq = get_insns ();
+  end_sequence ();
+
+  emit_insn_at_entry (seq);
+  return 0;
+}
+
+/* Return the hardreg-pseudoreg initial values pair entry I and
+   TRUE if I is a valid entry, or FALSE if I is not a valid entry.  */
+bool
+initial_value_entry (int i, rtx *hreg, rtx *preg)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  if (!ivs || i >= ivs->num_entries)
+    return false;
+
+  *hreg = ivs->entries[i].hard_reg;
+  *preg = ivs->entries[i].pseudo;
+  return true;
 }
 
 /* These routines are responsible for converting virtual register references
@@ -1449,7 +1478,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
       new_rtx = instantiate_new_reg (x, &offset);
       if (new_rtx)
 	{
-	  *loc = plus_constant (new_rtx, offset);
+	  *loc = plus_constant (GET_MODE (x), new_rtx, offset);
 	  if (changed)
 	    *changed = true;
 	}
@@ -1459,7 +1488,7 @@ instantiate_virtual_regs_in_rtx (rtx *loc, void *data)
       new_rtx = instantiate_new_reg (XEXP (x, 0), &offset);
       if (new_rtx)
 	{
-	  new_rtx = plus_constant (new_rtx, offset);
+	  new_rtx = plus_constant (GET_MODE (x), new_rtx, offset);
 	  *loc = simplify_gen_binary (PLUS, GET_MODE (x), new_rtx, XEXP (x, 1));
 	  if (changed)
 	    *changed = true;
@@ -3998,18 +4027,35 @@ generate_setjmp_warnings (void)
 
 
 /* Reverse the order of elements in the fragment chain T of blocks,
-   and return the new head of the chain (old last element).  */
+   and return the new head of the chain (old last element).
+   In addition to that clear BLOCK_SAME_RANGE flags when needed
+   and adjust BLOCK_SUPERCONTEXT from the super fragment to
+   its super fragment origin.  */
 
 static tree
 block_fragments_nreverse (tree t)
 {
-  tree prev = 0, block, next;
+  tree prev = 0, block, next, prev_super = 0;
+  tree super = BLOCK_SUPERCONTEXT (t);
+  if (BLOCK_FRAGMENT_ORIGIN (super))
+    super = BLOCK_FRAGMENT_ORIGIN (super);
   for (block = t; block; block = next)
     {
       next = BLOCK_FRAGMENT_CHAIN (block);
       BLOCK_FRAGMENT_CHAIN (block) = prev;
+      if ((prev && !BLOCK_SAME_RANGE (prev))
+	  || (BLOCK_FRAGMENT_CHAIN (BLOCK_SUPERCONTEXT (block))
+	      != prev_super))
+	BLOCK_SAME_RANGE (block) = 0;
+      prev_super = BLOCK_SUPERCONTEXT (block);
+      BLOCK_SUPERCONTEXT (block) = super;
       prev = block;
     }
+  t = BLOCK_FRAGMENT_ORIGIN (t);
+  if (BLOCK_FRAGMENT_CHAIN (BLOCK_SUPERCONTEXT (t))
+      != prev_super)
+    BLOCK_SAME_RANGE (t) = 0;
+  BLOCK_SUPERCONTEXT (t) = super;
   return prev;
 }
 
@@ -4026,11 +4072,15 @@ blocks_nreverse_all (tree t)
     {
       next = BLOCK_CHAIN (block);
       BLOCK_CHAIN (block) = prev;
-      BLOCK_SUBBLOCKS (block) = blocks_nreverse_all (BLOCK_SUBBLOCKS (block));
       if (BLOCK_FRAGMENT_CHAIN (block)
 	  && BLOCK_FRAGMENT_ORIGIN (block) == NULL_TREE)
-	BLOCK_FRAGMENT_CHAIN (block)
-	  = block_fragments_nreverse (BLOCK_FRAGMENT_CHAIN (block));
+	{
+	  BLOCK_FRAGMENT_CHAIN (block)
+	    = block_fragments_nreverse (BLOCK_FRAGMENT_CHAIN (block));
+	  if (!BLOCK_SAME_RANGE (BLOCK_FRAGMENT_CHAIN (block)))
+	    BLOCK_SAME_RANGE (block) = 0;
+	}
+      BLOCK_SUBBLOCKS (block) = blocks_nreverse_all (BLOCK_SUBBLOCKS (block));
       prev = block;
     }
   return prev;
@@ -4085,6 +4135,7 @@ static void
 reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 {
   rtx insn;
+  tree prev_beg = NULL_TREE, prev_end = NULL_TREE;
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     {
@@ -4098,12 +4149,17 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 	      gcc_assert (BLOCK_FRAGMENT_ORIGIN (block) == NULL_TREE);
 	      origin = block;
 
+	      if (prev_end)
+		BLOCK_SAME_RANGE (prev_end) = 0;
+	      prev_end = NULL_TREE;
+
 	      /* If we have seen this block before, that means it now
 		 spans multiple address regions.  Create a new fragment.  */
 	      if (TREE_ASM_WRITTEN (block))
 		{
 		  tree new_block = copy_node (block);
 
+		  BLOCK_SAME_RANGE (new_block) = 0;
 		  BLOCK_FRAGMENT_ORIGIN (new_block) = origin;
 		  BLOCK_FRAGMENT_CHAIN (new_block)
 		    = BLOCK_FRAGMENT_CHAIN (origin);
@@ -4113,6 +4169,11 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		  block = new_block;
 		}
 
+	      if (prev_beg == current_block && prev_beg)
+		BLOCK_SAME_RANGE (block) = 1;
+
+	      prev_beg = origin;
+
 	      BLOCK_SUBBLOCKS (block) = 0;
 	      TREE_ASM_WRITTEN (block) = 1;
 	      /* When there's only one block for the entire function,
@@ -4120,10 +4181,22 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		 will cause infinite recursion.  */
 	      if (block != current_block)
 		{
+		  tree super;
 		  if (block != origin)
-		    gcc_assert (BLOCK_SUPERCONTEXT (origin) == current_block);
-
-		  BLOCK_SUPERCONTEXT (block) = current_block;
+		    gcc_assert (BLOCK_SUPERCONTEXT (origin) == current_block
+				|| BLOCK_FRAGMENT_ORIGIN (BLOCK_SUPERCONTEXT
+								      (origin))
+				   == current_block);
+		  if (VEC_empty (tree, *p_block_stack))
+		    super = current_block;
+		  else
+		    {
+		      super = VEC_last (tree, *p_block_stack);
+		      gcc_assert (super == current_block
+				  || BLOCK_FRAGMENT_ORIGIN (super)
+				     == current_block);
+		    }
+		  BLOCK_SUPERCONTEXT (block) = super;
 		  BLOCK_CHAIN (block) = BLOCK_SUBBLOCKS (current_block);
 		  BLOCK_SUBBLOCKS (current_block) = block;
 		  current_block = origin;
@@ -4134,7 +4207,19 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 	    {
 	      NOTE_BLOCK (insn) = VEC_pop (tree, *p_block_stack);
 	      current_block = BLOCK_SUPERCONTEXT (current_block);
+	      if (BLOCK_FRAGMENT_ORIGIN (current_block))
+		current_block = BLOCK_FRAGMENT_ORIGIN (current_block);
+	      prev_beg = NULL_TREE;
+	      prev_end = BLOCK_SAME_RANGE (NOTE_BLOCK (insn))
+			 ? NOTE_BLOCK (insn) : NULL_TREE;
 	    }
+	}
+      else
+	{
+	  prev_beg = NULL_TREE;
+	  if (prev_end)
+	    BLOCK_SAME_RANGE (prev_end) = 0;
+	  prev_end = NULL_TREE;
 	}
     }
 }
@@ -4502,33 +4587,6 @@ init_function_start (tree subr)
     warning (OPT_Waggregate_return, "function returns an aggregate");
 }
 
-/* Make sure all values used by the optimization passes have sane defaults.  */
-unsigned int
-init_function_for_compilation (void)
-{
-  reg_renumber = 0;
-  return 0;
-}
-
-struct rtl_opt_pass pass_init_function =
-{
- {
-  RTL_PASS,
-  "*init_function",                     /* name */
-  NULL,                                 /* gate */
-  init_function_for_compilation,        /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
-};
-
 
 void
 expand_main_function (void)
@@ -4759,11 +4817,8 @@ expand_function_start (tree subr)
       tree t_save;
       rtx r_save;
 
-      /* ??? We need to do this save early.  Unfortunately here is
-	 before the frame variable gets declared.  Help out...  */
       tree var = TREE_OPERAND (cfun->nonlocal_goto_save_area, 0);
-      if (!DECL_RTL_SET_P (var))
-	expand_decl (var);
+      gcc_assert (DECL_RTL_SET_P (var));
 
       t_save = build4 (ARRAY_REF,
 		       TREE_TYPE (TREE_TYPE (cfun->nonlocal_goto_save_area)),
@@ -4796,9 +4851,6 @@ expand_function_start (tree subr)
   /* If we are doing generic stack checking, the probe should go here.  */
   if (flag_stack_check == GENERIC_STACK_CHECK)
     stack_check_probe_note = emit_note (NOTE_INSN_DELETED);
-
-  /* Make sure there is a line number after the function entry setup code.  */
-  force_next_line_note ();
 }
 
 /* Undo the effects of init_dummy_function_start.  */
@@ -4943,7 +4995,6 @@ expand_function_end (void)
 
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
-  force_next_line_note ();
   set_curr_insn_source_location (input_location);
 
   /* Before the return label (if any), clobber the return
@@ -5286,6 +5337,10 @@ requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
 
   if (CALL_P (insn))
     return !SIBLING_CALL_P (insn);
+
+  /* We need a frame to get the unique CFA expected by the unwinder.  */
+  if (cfun->can_throw_non_call_exceptions && can_throw_internal (insn))
+    return true;
 
   CLEAR_HARD_REG_SET (hardregs);
   for (df_rec = DF_INSN_DEFS (insn); *df_rec; df_rec++)

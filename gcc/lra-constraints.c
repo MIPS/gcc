@@ -426,19 +426,19 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	   change what class the first operand must be.  */
 	else if (code1 == CONST_INT || code1 == CONST_DOUBLE)
 	  {
+	    ad->disp_loc = arg1_loc;
 	    extract_loc_address_regs (false, mode, as, arg0_loc, context_p,
 				      PLUS, code1, modify_p, ad);
-	    ad->disp_loc = arg1_loc;
 	  }
 	/* If the second operand is a symbolic constant, the first
 	   operand must be an index register but only if this part is
 	   all the address.  */
 	else if (code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
 	  {
+	    ad->disp_loc = arg1_loc;
 	    extract_loc_address_regs (false, mode, as, arg0_loc,
 				      top_p ? true : context_p, PLUS, code1,
 				      modify_p, ad);
-	    ad->disp_loc = arg1_loc;
 	  }
 	/* If both operands are registers but one is already a hard
 	   register of index or reg-base class, give the other the
@@ -492,7 +492,8 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	  {
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
-	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg1_loc,
+				      ad->base_reg_loc != NULL, PLUS,
 				      code0, modify_p, ad);
 	  }
       }
@@ -539,17 +540,40 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	  ad->base_modify_p = modify_p;
 	}
       break;
-
     default:
       {
 	const char *fmt = GET_RTX_FORMAT (code);
 	int i;
 
-	for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-	  if (fmt[i] == 'e')
-	    extract_loc_address_regs (false, mode, as, &XEXP (x, i), context_p,
-				      code, SCRATCH, modify_p, ad);
+	if (GET_RTX_LENGTH (code) != 1
+	    || fmt[0] != 'e' || GET_CODE (XEXP (x, 0)) != UNSPEC)
+	  {
+	    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+	      if (fmt[i] == 'e')
+		extract_loc_address_regs (false, mode, as, &XEXP (x, i), context_p,
+					  code, SCRATCH, modify_p, ad);
+	    break;
+	  }
+	/* fall through for case UNARY_OP (UNSPEC ...)  */
       }
+
+    case UNSPEC:
+      if (ad->disp_loc == NULL)
+	ad->disp_loc = loc;
+      else if (ad->base_reg_loc == NULL)
+	{
+	  ad->base_reg_loc = loc;
+	  ad->base_outer_code = outer_code;
+	  ad->index_code = index_code;
+	  ad->base_modify_p = modify_p;
+	}
+      else
+	{
+	  lra_assert (ad->index_reg_loc == NULL);
+	  ad->index_reg_loc = loc;
+	}
+      break;
+
     }
 }
 
@@ -1251,7 +1275,7 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
   bool change_p = false;
 
   mode = GET_MODE (reg);
-  if (MEM_P (reg))
+  if (! REG_P (reg))
     {
       /* Always reload memory in an address even if the target
 	 supports such addresses.  */
@@ -2442,7 +2466,7 @@ equiv_address_substitution (struct address *ad, rtx *addr_loc,
   if (disp != 0)
     {
       if (ad->disp_loc != NULL)
-	*ad->disp_loc = plus_constant (*ad->disp_loc, disp);
+	*ad->disp_loc = plus_constant (Pmode, *ad->disp_loc, disp);
       else
 	{
 	  *addr_loc = gen_rtx_PLUS (Pmode, *addr_loc, GEN_INT (disp));
@@ -2883,7 +2907,8 @@ curr_insn_transform (void)
      finding an alternative because of memory constraints.  */
   before = after = NULL_RTX;
   for (i = 0; i < n_operands; i++)
-    if (process_address (i, &before, &after))
+    if (! curr_static_id->operand[i].is_operator
+	&& process_address (i, &before, &after))
       {
 	change_p = true;
 	lra_update_dup (curr_id, i);
@@ -2963,8 +2988,6 @@ curr_insn_transform (void)
   if (goal_alt_swapped)
     {
       rtx tem;
-      rtx x;
-      int dup1, dup2;
 
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "  Commutative operand exchange in insn %u\n",
@@ -2976,19 +2999,8 @@ curr_insn_transform (void)
       *curr_id->operand_loc[commutative + 1] = tem;
 
       /* Swap the duplicates too.  */
-      for (dup1 = dup2 = -1, i = 0; i < n_dups; i++)
-	if (curr_static_id->dup_num[i] == commutative)
-	  dup1 = i;
-	else if  (curr_static_id->dup_num[i] == commutative + 1)
-	  dup2 = i;
-      
-      if (dup1 >= 0 && dup2 >= 0)
-	{
-	  x = *curr_id->dup_loc[dup1];
-	  *curr_id->dup_loc[dup1] = *curr_id->dup_loc[dup2];
-	  *curr_id->dup_loc[dup2] = x;
-	}
-
+      lra_update_dup (curr_id, commutative);
+      lra_update_dup (curr_id, commutative + 1);
       change_p = true;
     }
 
@@ -3775,7 +3787,7 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
       return false;
     }
   if ((ira_class_subset_p[cl][rclass] && cl != rclass)
-      || ira_available_class_regs[cl] < ira_available_class_regs[rclass])
+      || ira_class_hard_regs_num[cl] < ira_class_hard_regs_num[rclass])
     {
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "    Use smallest class of %s and %s\n",

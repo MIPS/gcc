@@ -181,9 +181,9 @@ form_sum (rtx x, rtx y)
     mode = Pmode;
 
   if (CONST_INT_P (x))
-    return plus_constant (y, INTVAL (x));
+    return plus_constant (mode, y, INTVAL (x));
   else if (CONST_INT_P (y))
-    return plus_constant (x, INTVAL (y));
+    return plus_constant (mode, x, INTVAL (y));
   else if (CONSTANT_P (x))
     tem = x, x = y, y = tem;
 
@@ -306,9 +306,10 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	      rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
 	      
 	      if (update_p)
-		return plus_constant (to, ep->offset - ep->previous_offset);
+		return plus_constant (GET_MODE (x), to,
+				      ep->offset - ep->previous_offset);
 	      else if (full_p)
-		return plus_constant (to, ep->offset);
+		return plus_constant (GET_MODE (x), to, ep->offset);
 	      else
 		return to;
 	    }
@@ -361,7 +362,8 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 		return to;
 	      else
 		return gen_rtx_PLUS (Pmode, to,
-				     plus_constant (XEXP (x, 1), offset));
+				     plus_constant (Pmode,
+						    XEXP (x, 1), offset));
 	    }
 
 	  /* If the register is not eliminable, we are done since the other
@@ -414,12 +416,14 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	      
 	      if (update_p)
 		return
-		  plus_constant (gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
+		  plus_constant (Pmode,
+				 gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
 				 (ep->offset - ep->previous_offset)
 				 * INTVAL (XEXP (x, 1)));
 	      else if (full_p)
 		return
-		  plus_constant (gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
+		  plus_constant (Pmode,
+				 gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
 				 ep->offset * INTVAL (XEXP (x, 1)));
 	      else
 		return gen_rtx_MULT (Pmode, to, XEXP (x, 1));
@@ -839,7 +843,8 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 		      rtx src;
 		      
 		      offset -= (ep->offset - ep->previous_offset);
-		      src = plus_constant (ep->to_rtx, offset);
+		      src = plus_constant (GET_MODE (SET_SRC (old_set)),
+					   ep->to_rtx, offset);
 		      
 		      /* First see if this insn remains valid when we
 			 make the change.  If not, keep the INSN_CODE
@@ -925,7 +930,8 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 	     before.  */
 	  if (offset == 0 || plus_src)
 	    {
-	      rtx new_src = plus_constant (to_rtx, offset);
+	      rtx new_src = plus_constant (GET_MODE (XEXP (plus_cst_src, 0)),
+					   to_rtx, offset);
 	      
 	      old_set = single_set (insn);
 

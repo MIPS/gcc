@@ -1910,7 +1910,7 @@ check_rtl (bool final_p)
 	    lra_assert (constrain_operands (1));
 	    continue;
 	  }
-	if (insn_invalid_p (insn))
+	if (insn_invalid_p (insn, false))
 	  fatal_insn_not_found (insn);
 	if (asm_noperands (PATTERN (insn)) >= 0)
 	  continue;

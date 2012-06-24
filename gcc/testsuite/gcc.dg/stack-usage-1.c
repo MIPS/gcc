@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-fstack-usage" } */
+/* { dg-options "-fstack-usage -fomit-frame-pointer" { target { sh-*-* } } } */
 
 /* This is aimed at testing basic support for -fstack-usage in the back-ends.
    See the SPARC back-end for example (grep flag_stack_usage_info in sparc.c).
@@ -10,7 +11,11 @@
 #if defined(__i386__)
 #  define SIZE 248
 #elif defined(__x86_64__)
-#  define SIZE 356
+#  ifndef _WIN64
+#    define SIZE 356
+#  else
+#    define SIZE (256 - 24)
+#  endif
 #elif defined (__sparc__)
 #  if defined (__arch64__)
 #    define SIZE 76
@@ -54,6 +59,8 @@
 #  define SIZE 224
 #elif defined (__epiphany__)
 #  define SIZE (256 - __EPIPHANY_STACK_OFFSET__)
+#elif defined (__RL78__)
+#  define SIZE 254
 #else
 #  define SIZE 256
 #endif

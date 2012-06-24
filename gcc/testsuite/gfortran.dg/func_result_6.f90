@@ -63,11 +63,9 @@ if (ptr /= 2) call abort()
 bar = gen()
 if (ptr /= 77) call abort()
 contains
-  function foo() ! { dg-warning "Extension: Internal procedure .foo. in generic interface" }
+  function foo()
     integer, allocatable :: foo(:)
     allocate(foo(2))
     foo = [33, 77]
   end function foo
 end subroutine test
-
-! { dg-final { cleanup-modules "m" } }
