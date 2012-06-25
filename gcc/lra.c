@@ -2217,8 +2217,8 @@ lra (FILE *f)
     }
   restore_scratches ();
   lra_eliminate (true);
-  lra_in_progress = 0;
   lra_hard_reg_substitution ();
+  lra_in_progress = 0;
   lra_clear_live_ranges ();
   lra_live_ranges_finish ();
   lra_contraints_finish ();

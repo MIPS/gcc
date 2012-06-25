@@ -540,7 +540,8 @@ lra_hard_reg_substitution (void)
       if (INSN_P (insn))
 	{
 	  lra_insn_recog_data_t id;
-	  
+	  bool insn_change_p = false;
+
 	  id = lra_get_insn_recog_data (insn);
 	  for (i = id->insn_static_data->n_operands - 1; i >= 0; i--)
 	    {
@@ -549,9 +550,12 @@ lra_hard_reg_substitution (void)
 	      if (GET_CODE (op) == SUBREG && REG_P (SUBREG_REG (op)))
 		{
 		  lra_assert (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER);
-		  alter_subreg (id->operand_loc[i]);
+		  alter_subreg (id->operand_loc[i], true);
 		  lra_update_dup (id, i);
+		  insn_change_p = true;
 		}
 	    }
+	  if (insn_change_p)
+	    lra_update_operator_dups (id);
 	}
 }

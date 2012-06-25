@@ -427,6 +427,25 @@ lra_update_dup (lra_insn_recog_data_t id, int nop)
       *id->dup_loc[i] = *id->operand_loc[nop];
 }
 
+/* Process operator duplications in insn with ID.  We do it after
+   operands processing.  Generally speaking, we could do this probably
+   simulteniously with operands because a common practice is to
+   enumerate the operators after their operands.  */
+static inline void
+lra_update_operator_dups (lra_insn_recog_data_t id)
+{
+  int i;
+  struct lra_static_insn_data *static_id = id->insn_static_data;
+
+  for (i = 0; i < static_id->n_dups; i++)
+    {
+      int ndup = static_id->dup_num[i];
+      
+      if (static_id->operand[ndup].is_operator)
+	*id->dup_loc[i] = *id->operand_loc[ndup];
+    }
+}
+
 /* Return info about INSN.  Set up the info if it is not done yet.  */
 static inline lra_insn_recog_data_t
 lra_get_insn_recog_data (rtx insn)

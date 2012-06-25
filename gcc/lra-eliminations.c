@@ -569,7 +569,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 
 	    {
 	      SUBREG_REG (x) = new_rtx;
-	      alter_subreg (&x);
+	      alter_subreg (&x, false);
 	      return x;
 	    }
 	  else

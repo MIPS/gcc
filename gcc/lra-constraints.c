@@ -1381,7 +1381,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
 	   || MEM_ALIGN (reg) >= GET_MODE_ALIGNMENT (mode)))
       || (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER))
     {
-      alter_subreg (curr_id->operand_loc[nop]);
+      alter_subreg (curr_id->operand_loc[nop], false);
       return true;
     }
   /* Force reload if this is a constant or PLUS or if there may be a
@@ -2804,7 +2804,6 @@ curr_insn_transform (void)
   int i, j, k;
   int n_operands;
   int n_alternatives;
-  int n_dups;
   int commutative;
   signed char goal_alt_matched[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
   rtx before, after;
@@ -2839,7 +2838,6 @@ curr_insn_transform (void)
 
   n_operands = curr_static_id->n_operands;
   n_alternatives = curr_static_id->n_alternatives;
-  n_dups = curr_static_id->n_dups;
 
   /* Just return "no reloads" if insn has no operands with
      constraints.  */
@@ -3326,18 +3324,7 @@ curr_insn_transform (void)
     change_p = true;
   if (change_p)
     {
-      /* Process operator duplications.  We do it here to guarantee
-	 their processing after operands processing.  Generally
-	 speaking, we could do this probably in the previous loop
-	 because a common practice is to enumerate the operators after
-	 their operands.  */
-      for (i = 0; i < n_dups; i++)
-	{
-	  int ndup = curr_static_id->dup_num[i];
-
-	  if (curr_static_id->operand[ndup].is_operator)
-	    *curr_id->dup_loc[i] = *curr_id->operand_loc[ndup];
-	}
+      lra_update_operator_dups (curr_id);
       /* Something changes -- process the insn.  */
       lra_update_insn_regno_info (curr_insn);
     }

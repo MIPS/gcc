@@ -583,7 +583,7 @@ gen_rtx_REG (enum machine_mode mode, unsigned int regno)
      Also don't do this when we are making new REGs in reload, since
      we don't want to get confused with the real pointers.  */
 
-  if (mode == Pmode && !reload_in_progress)
+  if (mode == Pmode && !reload_in_progress && !lra_in_progress)
     {
       if (regno == FRAME_POINTER_REGNUM
 	  && (!reload_completed || frame_pointer_needed))
@@ -6167,6 +6167,31 @@ locator_eq (int loc1, int loc2)
   if (locator_location (loc1) != locator_location (loc2))
     return false;
   return locator_scope (loc1) == locator_scope (loc2);
+}
+
+
+/* Return true if memory model MODEL requires a pre-operation (release-style)
+   barrier or a post-operation (acquire-style) barrier.  While not universal,
+   this function matches behavior of several targets.  */
+
+bool
+need_atomic_barrier_p (enum memmodel model, bool pre)
+{
+  switch (model)
+    {
+    case MEMMODEL_RELAXED:
+    case MEMMODEL_CONSUME:
+      return false;
+    case MEMMODEL_RELEASE:
+      return pre;
+    case MEMMODEL_ACQUIRE:
+      return !pre;
+    case MEMMODEL_ACQ_REL:
+    case MEMMODEL_SEQ_CST:
+      return true;
+    default:
+      gcc_unreachable ();
+    }
 }
 
 #include "gt-emit-rtl.h"

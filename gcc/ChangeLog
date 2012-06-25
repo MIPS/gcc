@@ -1,3 +1,36 @@
+2012-06-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* output.h (alter_subreg): Add new argument.
+
+	* sdbout.c (sdbout_symbol): Pass new argument to alter_subreg.
+
+	* dbxout.c (dbxout_symbol_location): Ditto.
+
+	* final.c (final_scan_insn, cleanup_subreg_operands): Ditto.
+	(walk_alter_subreg, output_operand): Ditto.
+	(alter_subreg): Add new argument.
+
+	* emit-rtl.c (gen_rtx_REG): Add lra_in_progress.
+
+	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p):
+	Always pass true to legitimate_constant_pool_address_p when
+	lra_in_progress.
+	(rs6000_legitimate_address_p): Ditto.
+
+	* lra-int.h (lra_update_operator_dups): New.
+
+	* lra.c (lra): Put lra_in_progress after
+	lra_hard_reg_substitution.
+
+	* lra-spills.c (lra_hard_reg_substitution): Pass new argument to
+	alter_subreg.  Call lra_update_operator_dups.
+
+	* lra-eliminations.c (lra_eliminate_regs_1):  Pass new argument to
+	alter_subreg.
+
+	* lra-constraints.c (simplify_operand_subreg): Ditto.
+	(curr_insn_transform): Use lra_update_operator_dups.
+
 2012-06-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.c (check_rtl): Add arg to insn_invalid_p call.
@@ -409,6 +442,487 @@
 
 	* Makefile.in (OBJS): Remove lra-saves.o
 	(lra-saves.o): Remove the entry.
+
+2012-06-23  Richard Henderson  <rth@redhat.com>
+
+	PR target/53749
+	* config/i386/i386.c (ix86_rtx_costs): Add reasonable costs for
+	V*QImode shifts and multiply.
+	(ix86_expand_vecop_qihi): Support shifts.
+	* config/i386/i386.md (any_shift): New code iterator.
+	* config/i386/sse.md (ashlv16qi3): Merge ...
+	(<any_shiftrt>v16qi3): ... into ...
+	(<any_shift><VI1_AVX2>3): ... here.  Use ix86_expand_vecop_qihi
+	to support SSE and AVX.
+
+	* config/i386/i386.c (ix86_expand_sse_unpack): Split operands[]
+	parameter into src and dest.
+	* config/i386/sse.md (vec_unpacku_hi_<V124_AVX2>): Update call.
+	(vec_unpacks_hi_<V124_AVX2>): Likewise.
+	(vec_unpacku_lo_<V124_AVX2>): Likewise.
+	(vec_unpacks_lo_<V124_AVX2>): Likewise.
+	* config/i386/i386-protos.h: Update.
+
+	* config/i386/sse.md (mul<VI1_AVX2>3): Change from insn_and_split to
+	pure expander; move expansion code ...
+	* config/i386/i386.c (ix86_expand_vecop_qihi): ... here.  New function.
+	* config/i386/i386-protos.h: Update.
+
+2012-06-22  Edmar Wienskoski  <edmar@freescale.com>
+
+	* config/rs6000/rs6000.md (define_attr "type"): New type popcnt.
+	(popcntb<mode>2): Add attribute type popcnt.
+	(popcntd<mode>2): Ditto.
+	* config/rs6000/power4.md (define_insn_reservation): Add type popcnt.
+	* config/rs6000/power5.md (define_insn_reservation): Ditto.
+	* config/rs6000/power7.md (define_insn_reservation): Ditto.
+	* config/rs6000/476.md (define_insn_reservation): Ditto.
+	* config/rs6000/power6.md (define_insn_reservation): New
+	reservation for popcnt instructions.
+
+2012-06-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Update -mpreferred-stack-boundary=3 warning.
+
+2012-06-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/53383
+	* doc/invoke.texi: Add a warning for -mpreferred-stack-boundary=3.
+
+	* config/i386/i386.c (ix86_option_override_internal): Allow
+	-mpreferred-stack-boundary=3 for 64-bit if SSE is disabled.
+
+	* config/i386/i386.h (MIN_STACK_BOUNDARY): Set to 64 for 64-bit
+	if SSE is disabled.
+
+2012-06-22  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* double-int.c (double_int_multiple_of): New function.
+	* double-int.h (double_int_multiple_of): New decl.
+	* tree-ssa-loop-ivopts.c (add_cost, zero_cost): Remove undefs.
+	(mbc_entry_hash): New forward decl.
+	(mbc_entry_eq): Likewise.
+	(zero_cost): Change to no_cost.
+	(mult_costs): New static var.
+	(cost_tables_exist): Likewise.
+	(initialize_costs): New function.
+	(finalize_costs): Likewise.
+	(tree_ssa_iv_optimize_init): Call initialize_costs.
+	(add_cost): Change to add_regs_cost; distinguish costs by speed.
+	(multiply_regs_cost): New function.
+	(add_const_cost): Likewise.
+	(extend_or_trunc_reg_cost): Likewise.
+	(negate_reg_cost): Likewise.
+	(multiply_by_cost): Change to multiply_by_const_cost; distinguish
+	costs by speed.
+	(get_address_cost): Change add_cost to add_regs_cost; change
+	multiply_by_cost to multiply_by_const_cost.
+	(force_expr_to_var_cost): Change zero_cost to no_cost; change
+	add_cost to add_regs_cost; change multiply_by_cost to
+	multiply_by_const_cost.
+	(split_cost): Change zero_cost to no_cost.
+	(ptr_difference_cost): Likewise.
+	(difference_cost): Change zero_cost to no_cost; change multiply_by_cost
+	to multiply_by_const_cost.
+	(get_computation_cost_at): Change add_cost to add_regs_cost; change
+	multiply_by_cost to multiply_by_const_cost.
+	(determine_use_iv_cost_generic): Change zero_cost to no_cost.
+	(determine_iv_cost): Change add_cost to add_regs_cost.
+	(iv_ca_new): Change zero_cost to no_cost.
+	(tree_ssa_iv_optimize_finalize): Call finalize_costs.
+	* tree-ssa-address.c (most_expensive_mult_to_index): Change
+	multiply_by_cost to multiply_by_const_cost.
+	* tree-flow.h (multiply_by_cost): Change to multiply_by_const_cost.
+	(add_regs_cost): New decl.
+	(multiply_regs_cost): Likewise.
+	(add_const_cost): Likewise.
+	(extend_or_trunc_reg_cost): Likewise.
+	(negate_reg_cost): Likewise.
+
+2012-06-22  Richard Guenther  <rguenther@suse.de>
+
+	Merge from graphite branch
+	2011-08-10  Sebastian Pop <sebpop@gmail.com>
+    
+	* graphite-sese-to-poly.c (build_scop_drs): Fix memory leak.
+
+	2012-01-13  Tobias Grosser  <tobias@grosser.es>
+
+	* tree-flow.h (parallelized_function_p): Declare.
+	* tree-parloops.c (parallelized_function_p): Export.
+	* graphite.c (graphite_transform_loops): Do not run graphite on
+	already parallel functions.
+
+2012-06-22  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_pre_atomic_barrier): Pass in and
+	return mem.  Convert to indirect addressing if not indirect or
+	indexed.  Adjust all callers.
+
+2012-06-22  Richard Guenther  <rguenther@suse.de>
+
+	* gcov-iov.c: Include bconfig.h and system.h.
+
+2012-06-22  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* doc/include/texinfo.tex: Update to version 2012-06-05.14.
+
+2012-06-22  Richard Guenther  <rguenther@suse.de>
+
+	PR gcov-profile/53744
+	* gcov-iov.c (main): Treat "" and "prerelease" the same.
+
+2012-06-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/53704
+	* dwarf2out.c (gen_compile_unit_die): Use DW_LANG_Fortran90 as language
+	for GNU Fortran if in strict DWARF2 mode.
+
+2012-06-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-live.c (remove_unused_scope_block_p): Remove again
+	DECL_IGNORED_P non-reg vars even if they are used.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/53671
+	PR debug/49888
+	* var-tracking.c (vt_get_canonicalize_base): New.
+	(vt_canonicalize_addr, vt_stack_offset_p): New.
+	(vt_canon_true_dep): New.
+	(drop_overlapping_mem_locs): Use vt_canon_true_dep.
+	(clobber_overlaping_mems): Use vt_canonicalize_addr.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/53671
+	PR debug/49888
+	* var-tracking.c (vt_initialize): Record initial offset between
+	arg pointer and stack pointer.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/53671
+	PR debug/49888
+	* var-tracking.c (vt_init_cfa_base): Drop redundant recording of
+	CFA base.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/53671
+	PR debug/49888
+	* alias.c (memrefs_conflict_p): Improve handling of AND for
+	alignment.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	* ddg.c (build_intra_loop_deps): Discard deps of nondebug on debug.
+
+2012-06-21  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/53682
+	* cselib.c (promote_debug_loc): Don't crash on NULL argument.
+
+2012-06-21  Meador Inge  <meadori@codesourcery.com>
+
+	PR c/53702
+	* c-decl.c (c_push_function_context): Restore the behavior to reuse
+	the language function allocated for -Wunused-local-typedefs.
+	(c_pop_function_context): If necessary, clear the language function
+	created in c_push_function_context.  Always clear out the
+	x_cur_stmt_list field of the restored language function.
+
+2012-06-21   Sterling Augustine  <saugustine@google.com>
+             Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (is_cu_die, is_namespace_die, is_class_die,
+	add_AT_pubnames, add_enumerator_pubname, want_pubnames): New functions.
+	(comdat_type_struct): New field 'skeleton_die'.
+	(breakout_comdat_types): Update it.
+	(add_pubname): Rework logic.  Call is_class_die, is_cu_die and
+	is_namespace_die.  Fix minor style violation.  Call want_pubnames.
+	(add_pubname_string): Call want_pubnames.
+	(add_pubtype): Rework logic for calculating type name.  Call
+	is_namespace_die.  Call want_pubnames.
+	(output_pubnames): Move conditional logic deciding when to produce the
+	section from dwarf2out_finish.  Use new skeleton_die field.
+	(base_type_die): Call add_pubtype.
+	(gen_enumeration_type_die): Unconditionally call add_pubtype.
+	(gen_subprogram_die): Adjust calls to add_pubname.
+	(gen_namespace_die): Call add_pubname_string.
+	(dwarf2out_finish): Call add_AT_pubnames; Move logic on when to
+	produce pubnames and pubtypes sections to output_pubnames.
+	* common.opt (-gpubnames): New option.
+	* doc/invoke.texi: Document it.
+
+2012-06-21  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/m32c/m32c-pragma.c: Remove unnecessary includes.
+
+2012-06-21  Michael Matz  <matz@suse.de>
+
+	PR middle-end/53688
+	* builtins.c (get_memory_rtx): Always build an all-aliasing MEM_REF
+	with correct size.
+
+2012-06-21  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (estimate_num_insns): Estimate call cost for
+	tailcalls properly.
+
+2012-06-20  Rüdiger Sonderfeld  <ruediger@c-plusplus.de>
+
+	* tree.h (DECL_SOURCE_COLUMN): New accessor.
+
+2012-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (SINCOS): New int iterator.
+	(sincos): New int attribute.
+	(*<sincos>xf2_i387): Macroize insn from *{sin,cos}xf2_i387 using
+	SINCOS int iterator.
+	(*<sincos>_extend<mode>xf2_i387): Macroize insn from
+	*{sin,cos}_extend<mode>xf2_i387 using SINCOS int iterator.
+
+2012-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (RDFSGSBASE): New int iterator.
+	(WRFSGSBASE): Ditto.
+	(fsgs): New int attribute.
+	(rd<fsgs>base<mode>): Macroize insn from rd<fsgs>base<mode> using
+	RDFSGSBASE int iterator.
+	(wr<fsgs>base<mode>): Macroize insn from wr<fsgs>base<mode> using
+	WRFSGSBASE int iterator.
+
+2012-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (<rounding_insn><mode>2): Macroize expander
+	from {floor,ceil,btrunc}<mode>2 using FIST_ROUNDING int iterator.
+	(l<rounding_insn><MODEF:mode><SWI48:mode>2): Macroize expander
+	from l{floor,ceil}<MODEF:mode><SWI48:mode>2 using FIST_ROUNDING
+	int iterator.
+
+2012-06-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* system.h: Poison ASM_OUTPUT_IDENT and IDENT_ASM_OP.
+
+2012-06-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30318
+	* tree-vrp.c (range_int_cst_p): Do not reject overflowed
+	constants here.
+	(range_int_cst_singleton_p): But explicitely here.
+	(zero_nonzero_bits_from_vr): And here.
+	(extract_range_from_binary_expr_1): Re-implement PLUS_EXPR
+	to cover all cases we can perform arbitrary precision
+	arithmetic with double-ints.
+	(intersect_ranges): Handle adjacent anti-ranges.
+
+2012-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (rounding_insn): New int attribute.
+	(<rounding_insn>xf2): Macroize insn from
+	{floor,ceil,btrunc}xf2 using FRNDINT_ROUNDING int iterator.
+	(l<rounding_insn>xf<mode>2): Rename from l<rounding>xf<mode>2.
+
+2012-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (IEEE_MAXMIN): New int iterator.
+	(ieee_maxmin): New int attribute.
+	(*ieee_s<ieee_maxmin><mode>3): Macroize insn from
+	*ieee_s{max,min}<mode>3 using IEEE_MAXMIN int iterator.
+
+2012-06-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/arm/arm.h (EMIT_EABI_ATTRIBUTE): Remove.
+	* config/arm/arm.c: Do not include c-pragma.h.
+	(arm_emit_eabi_attribute): New function based on EMIT_EABI_ATTRIBUTE.
+	(arm_file_start): Replace uses of EMIT_EABI_ATTRIBUTE with calls
+	to arm_emit_eabi_attribute.
+	* arm-c.c: Do not include output.h.
+	(arm_output_c_attributes): Replace use of EMIT_EABI_ATTRIBUTE with a
+	call to arm_emit_eabi_attribute.
+	* config/arm/arm-protos.h (arm_emit_eabi_attribute): Prototype it.
+
+2012-06-20  Richard Guenther  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_can_force_dr_alignment_p):
+	Allow adjusting alignment of user-aligned decls again.
+
+2012-06-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/rl78/rl78-c.c: Remove unnecessary includes.
+
+2012-06-20  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/cris/cris.c: Include cgraph.h.
+	(cris_option_override): Do not set non-existing flag_no_gcc_ident.
+
+2012-06-19  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* emit-rtl.c (need_atomic_barrier_p): New function.
+	* emit-rtl.h (need_atomic_barrier_p): Declare it.
+	* config/alpha/alpha.c (alpha_{pre,post}_atomic_barrier): Use it.
+	* config/arm/arm.c (arm_{pre,post}_atomic_barrier): Use it.
+	* config/tilegx/tilegx.c (tile_{pre,post}_atomic_barrier): Use it.
+	* config/mips/mips.c (mips_{pre,post}_atomic_barrier_p): Remove.
+	(mips_process_sync_loop): Use generic version instead.
+
+2012-06-19  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/mips/mips.c (mips_process_sync_loop): Emit cmp result only if
+	it is used.
+
+2012-06-19  Tom de Vries  <vries@codesourcery.com>
+	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/mips/constraints.md (ZR): New constraint.
+	* config/mips/predicates.md (mem_noofs_operand): New predicate.
+	* config/mips/mips.c (mips_print_operand): Handle new print modifier.
+	* config/mips/mips.h (TARGET_XLP): Define.
+	(TARGET_SYNC_AFTER_SC): Update.
+	(ISA_HAS_SWAP, ISA_HAS_LDADD): Define.
+	* config/mips/sync.md (atomic_exchange, atomic_fetch_add): Use
+	XLP-specific swap and ldadd patterns.
+	(atomic_exchange_swap, atomic_fetch_add_ldadd): New patterns.
+
+2012-06-19  Tom de Vries  <vries@codesourcery.com>
+	    Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* config/mips/mips.c (mips_emit_pre_atomic_barrier_p,)
+	(mips_emit_post_atomic_barrier_p): New static functions.
+	(mips_process_sync_loop): Use them.  Emit sync memory barriers in
+	accordance with memory model semantics.  Add return of CMP result for
+	compare_and_swap.
+	* config/mips/mips.md: Update comment.
+	(sync_cmp): New attribute.
+	(sync_memmodel): New attribute replacing sync_release_barrier.
+	* config/mips/sync.md (UNSPEC_ATOMIC_COMPARE_AND_SWAP,)
+	(UNSPEC_ATOMIC_EXCHANGE, UNSPEC_ATOMIC_FETCH_OP): New constants.
+	(sync_lock_test_and_set, test_and_set_12): Update.
+	(atomic_compare_and_swap, atomic_exchange, atomic_exchange_llsc,)
+	(atomic_fetch_add, atomic_fetch_add_llsc): New patterns.
+
+2012-06-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/spe.md (*mov_si<mode>_e500_subreg0): Rename to
+	mov_si<mode>_e500_subreg0.
+	(*mov_si<mode>_e500_subreg0_elf_low)
+	(*mov_si<mode>_e500_subreg4_elf_low): New patterns.
+
+2012-06-19  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c: Include params.h.
+	(alpha_option_override): Initialize PARAM_L1_CACHE_LINE_SIZE,
+	PARAM_L1_CACHE_SIZE, PARAM_L2_CACHE_SIZE for the cpu tuning.
+
+2012-06-19  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* doc/tm.texi.in (TARGET_OBJC_DECLARE_UNRESOLVED_CLASS_REFERENCE,
+	TARGET_OBJC_DECLARE_CLASS_DEFINITION): Add @hooks.
+	(ASM_DECLARE_CLASS_REFERENCE, ASM_DECLARE_UNRESOLVED_REFERENCE):
+	Remove.
+	* doc/tm.texi: Regenerate.
+	* config/darwin.h (ASM_OUTPUT_LABELREF): Remove special case for
+	.objc_class_name_*.
+	* config/darwin-c.c: Include target.h.
+	(darwin_objc_declare_unresolved_class_reference): New function.
+	(darwin_objc_declare_class_definition): New function.
+	(TARGET_OBJC_DECLARE_UNRESOLVED_CLASS_REFERENCE): Define.
+	(TARGET_OBJC_DECLARE_CLASS_DEFINITION): Define.
+
+2012-06-19  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* target.def (output_ident): New hook.
+	* targhooks.h (default_asm_output_ident_directive): Add prototype.
+	* varasm.c (assemble_asm): Only prefix a tab if the string does not
+	already start with one.
+	(default_asm_output_ident_directive): New function to emit
+	.ident as a top-level asm node while parsing, or directly to
+	asm_out_file after parsing.
+	* toplev.c (compile_file): Print a GCC .ident with
+	targetm.asm_out.output_ident.
+	* doc/tm.texi.in (ASM_OUTPUT_IDENT): Remove documentation for macro.
+	(TARGET_ASM_OUTPUT_IDENT): Add @hook for this.
+	* doc/tm.texi: Update.
+
+	* config/elfos.h (ASM_OUTPUT_IDENT, IDENT_ASM_OP): Remove.
+	(TARGET_ASM_OUTPUT_IDENT): Define.
+	* config/i386/djgpp.h (IDENT_ASM_OP): Remove.
+	* config/i386/gas.h (ASM_OUTPUT_IDENT): Remove.
+	* config/arm/aout.h (ASM_OUTPUT_IDENT): Remove.
+	* config/sparc/sparc.h (IDENT_ASM_OP): Remove.
+	(TARGET_ASM_OUTPUT_IDENT): Define.
+	* config/picochip/picochip.h (IDENT_ASM_OP): Remove.
+	(TARGET_ASM_OUTPUT_IDENT): Define.
+
+	* config/cris/cris-protos.h (cris_asm_output_ident): Add prototype.
+	* config/cris/cris.c (cris_asm_output_ident): New function.
+	* config/cris/cris.h (ASM_OUTPUT_IDENT, IDENT_ASM_OP): Remove.
+
+	* config/microblaze/microblaze-protos.h (microblaze_asm_output_ident):
+	Add prototype.
+	* config/microblaze/microblaze.c: Include cgraph.h for add_asm_node.
+	(microblaze_asm_output_ident): Rewrite to work similar to
+	default_asm_output_ident_directive for front-end .idents.
+	* config/microblaze/microblaze.h (ASM_OUTPUT_IDENT): Remove.
+	(TARGET_ASM_OUTPUT_IDENT): Define.
+
+	* config/mips/mips.h (ASM_OUTPUT_IDENT): Remove.
+	* config/mips/sde.h (IDENT_ASM_OP, ASM_OUTPUT_IDENT): Remove.
+
+	* config/rx/rx.c: Include cgraph.h for add_asm_node.
+	(rx_asm_output_ident): New function, similar to
+	default_asm_output_ident_directive, but handle AS100 syntax also, so
+	that #ident also works for rx in AS100 syntax.
+	(TARGET_ASM_OUTPUT_IDENT): Define.
+	* config/rx/rx.h (IDENT_ASM_OP): Remove.
+
+	* Makefile.in: Fix dependencies for c-family/c-lex.o.
+
+2012-06-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (FIST_ROUNDING): New int iterator.
+	(rounding): Handle UNSPEC_FIST_{FLOOR,CEIL}.
+	(ROUNDING): Ditto.
+	(*fist<mode>2_<rounding>_1): Macroize insn from
+	*fist<mode>2_{floor,ceil}_1 using FIST_ROUNDING int iterator.
+	(fistdi2_<rounding>): Macroize insn from
+	fistdi2_{floor,ceil} using FIST_ROUNDING int iterator.
+	(fistdi2_<rounding>_with_temp and splitters): Macroize insn and
+	corresponding splitters from fistdi2_{floor,ceil} and corresponding
+	splitters using FIST_ROUNDING int iterator.
+	(fist<mode>2_<rounding>): Macroize insn from
+	fist<mode>2_{floor,ceil} using FIST_ROUNDING int iterator.
+	(fist<mode>2_<rounding>_with_temp and splitters): Macroize insn and
+	corresponding splitters from fist<mode>2_{floor,ceil} and corresponding
+	splitters using FIST_ROUNDING int iterator.
+	(l<rounding>xf<mode>2): Macroize expander from l{floor,ceil}xf<mode>2
+	using FIST_ROUNDING int iterator.
+
+2012-06-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386-protos.h (ix86_expand_sse2_mulv4si3): Declare.
+	* config/i386/i386.c (ix86_expand_sse2_mulv4si3): New.
+	* config/i386/predicates.md (nonimmediate_or_const_vector_operand): New.
+	* config/i386/sse.md (sse2_mulv4si3): Delete.
+	(mul<VI4_AVX2>3): Use ix86_expand_sse2_mulv4si3 and
+	nonimmediate_or_const_vector_operand.
+
+2012-06-19  Richard Henderson  <rth@redhat.com>
+
+	* expmed.c (struct init_expmed_rtl): Split ...
+	(init_expmed_one_mode): ... out of ...
+	(init_expmed): ... here.  Initialize integer vector modes also.
+	(synth_mult): Handle integer vector modes.
+	(choose_mult_variant): Likewise.
+	(expand_mult_const): Likewise.
+	(expand_mult): Likewise.
+	* machmode.h (GET_MODE_UNIT_BITSIZE): New.
+
+2012-06-19  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_rtx_costs): Handle CONST_VECTOR, and
+	integral vector modes.
 
 2012-06-19  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -8049,7 +8563,7 @@
 	* tree.h (warn_if_unused_value): Move declaration from here.
 	* stmt.c (warn_if_unused_value): Move definition from here.
 
-2010-04-10  Michael Matz  <matz@suse.de>
+2012-04-10  Michael Matz  <matz@suse.de>
 
 	* tree-vectorizer.h (_loop_vec_info.strided_stores): Rename to
 	grouped_stores.
@@ -12776,7 +13290,7 @@
 	* config/alpha/alpha.c (alpha_option_override): Default to
 	full IEEE compliance mode for Go language.
 
-2011-01-29  Tijl Coosemans  <tijl@coosemans.org>
+2012-01-29  Tijl Coosemans  <tijl@coosemans.org>
 
 	* config/freebsd-spec.h [TARGET_LIBC_PROVIDES_SSP]
 	(LINK_SSP_SPEC): Define.
@@ -13359,7 +13873,7 @@
 
 	* cfgrtl.c (rtl_dump_bb): Do not dump insns for {ENTRY|EXIT}_BLOCK.
 
-2011-01-20  Tijl Coosemans  <tijl@coosemans.org>
+2012-01-20  Tijl Coosemans  <tijl@coosemans.org>
 
 	* config/i386/i386.c: Fix checks for !TARGET_MACHO.
 	* config/rs6000/rs6000.c: Likewise.

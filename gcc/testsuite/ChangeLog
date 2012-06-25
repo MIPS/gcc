@@ -1,3 +1,75 @@
+2012-06-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/47710
+	PR fortran/53328
+	* gfortran.dg/typebound_generic_12.f03: New.
+	* gfortran.dg/typebound_generic_13.f03: New.
+
+2012-06-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/lto15.ad[sb]: New test.
+
+2012-06-21  Meador Inge  <meadori@codesourcery.com>
+
+	PR c/53702
+	* gcc.dg/Wunused-local-typedefs.c: New testcase.
+
+2012-06-21  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* testsuite/gcc.dg/pch/ident-1.c: New test.
+	* testsuite/gcc.dg/pch/ident-1.hs: Header file for new test.
+
+2012-06-21  Michael Matz  <matz@suse.de>
+
+	PR middle-end/53688
+	* gcc.c-torture/execute/pr53688.c: New test.
+
+2012-06-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/30318
+	* gcc.dg/tree-ssa/vrp69.c: New testcase.
+
+2012-06-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	* g++.dg/debug/dwarf2/nested-3.C: Add ARM comment character to regexp.
+
+2012-06-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/clearcapv2.map: New file.
+	* gcc.target/i386/i386.exp: Try it first before clearcap.map.
+
+2012-06-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/stack-usage-1.c: Remove dg-options line for sh targets
+	and add __sh__ case.
+
+2012-06-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52637
+	* g++.dg/debug/localclass1.C: New.
+
+2012-06-16 Ville Voutilainen <ville.voutilainen@gmail.com>
+
+	* g++.dg/cpp0x/override4.C: New.
+
+2012-06-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53651
+	* g++.dg/cpp0x/decltype37.C: New.
+
+2012-06-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/stack-usage-1.c: Use sh*-*-* instead of sh-*-*.
+
+2012-06-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c-torture/compile/vector-5.c,
+	gcc.c-torture/compile/vector-6.c: New tests.
+
+2012-06-19  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/pr33329.c: Change multiplier constant to 12345.
+
 2012-06-19  Richard Guenther  <rguenther@suse.de>
 
 	* gcc.dg/tree-ssa/vrp68.c: Adjust testcase.

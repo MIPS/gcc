@@ -2534,7 +2534,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	      {
 		rtx src1, src2;
 		if (GET_CODE (SET_SRC (set)) == SUBREG)
-		  SET_SRC (set) = alter_subreg (&SET_SRC (set));
+		  SET_SRC (set) = alter_subreg (&SET_SRC (set), true);
 
 		src1 = SET_SRC (set);
 		src2 = NULL_RTX;
@@ -2542,10 +2542,10 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		  {
 		    if (GET_CODE (XEXP (SET_SRC (set), 0)) == SUBREG)
 		      XEXP (SET_SRC (set), 0)
-			= alter_subreg (&XEXP (SET_SRC (set), 0));
+			= alter_subreg (&XEXP (SET_SRC (set), 0), true);
 		    if (GET_CODE (XEXP (SET_SRC (set), 1)) == SUBREG)
 		      XEXP (SET_SRC (set), 1)
-			= alter_subreg (&XEXP (SET_SRC (set), 1));
+			= alter_subreg (&XEXP (SET_SRC (set), 1), true);
 		    if (XEXP (SET_SRC (set), 1)
 			== CONST0_RTX (GET_MODE (XEXP (SET_SRC (set), 0))))
 		      src2 = XEXP (SET_SRC (set), 0);
@@ -2943,7 +2943,7 @@ cleanup_subreg_operands (rtx insn)
 	 expression directly.  */
       if (GET_CODE (*recog_data.operand_loc[i]) == SUBREG)
 	{
-	  recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i]);
+	  recog_data.operand[i] = alter_subreg (recog_data.operand_loc[i], true);
 	  changed = true;
 	}
       else if (GET_CODE (recog_data.operand[i]) == PLUS
@@ -2956,7 +2956,7 @@ cleanup_subreg_operands (rtx insn)
     {
       if (GET_CODE (*recog_data.dup_loc[i]) == SUBREG)
 	{
-	  *recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i]);
+	  *recog_data.dup_loc[i] = alter_subreg (recog_data.dup_loc[i], true);
 	  changed = true;
 	}
       else if (GET_CODE (*recog_data.dup_loc[i]) == PLUS
@@ -2968,11 +2968,11 @@ cleanup_subreg_operands (rtx insn)
     df_insn_rescan (insn);
 }
 
-/* If X is a SUBREG, replace it with a REG or a MEM,
-   based on the thing it is a subreg of.  */
+/* If X is a SUBREG, try to replace it with a REG or a MEM, based on
+   the thing it is a subreg of.  Do it anyway if FINAL_P.  */
 
 rtx
-alter_subreg (rtx *xp)
+alter_subreg (rtx *xp, bool final_p)
 {
   rtx x = *xp;
   rtx y = SUBREG_REG (x);
@@ -2996,7 +2996,7 @@ alter_subreg (rtx *xp)
             offset += difference % UNITS_PER_WORD;
         }
 
-      if (! lra_in_progress)
+      if (final_p)
 	*xp = adjust_address (y, GET_MODE (x), offset);
       else
 	*xp = adjust_address_nv (y, GET_MODE (x), offset);
@@ -3008,7 +3008,7 @@ alter_subreg (rtx *xp)
 
       if (new_rtx != 0)
 	*xp = new_rtx;
-      else if (! lra_in_progress && REG_P (y))
+      else if (final_p && REG_P (y))
 	{
 	  /* Simplify_subreg can't handle some REG cases, but we have to.  */
 	  unsigned int regno;
@@ -3048,7 +3048,7 @@ walk_alter_subreg (rtx *xp, bool *changed)
 
     case SUBREG:
       *changed = true;
-      return alter_subreg (xp);
+      return alter_subreg (xp, true);
 
     default:
       break;
@@ -3633,7 +3633,7 @@ void
 output_operand (rtx x, int code ATTRIBUTE_UNUSED)
 {
   if (x && GET_CODE (x) == SUBREG)
-    x = alter_subreg (&x);
+    x = alter_subreg (&x, true);
 
   /* X must not be a pseudo reg.  */
   gcc_assert (!x || !REG_P (x) || REGNO (x) < FIRST_PSEUDO_REGISTER);
