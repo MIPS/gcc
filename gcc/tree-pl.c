@@ -1318,7 +1318,9 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator iter)
 
   if (TREE_CODE (rhs) == VAR_DECL
       || TREE_CODE (rhs) == ARRAY_REF
-      || TREE_CODE (rhs) == COMPONENT_REF)
+      || TREE_CODE (rhs) == COMPONENT_REF
+      || TREE_CODE (rhs) == MEM_REF
+      || TREE_CODE (rhs) == TARGET_MEM_REF)
     {
       if (POINTER_TYPE_P (type))
 	{
