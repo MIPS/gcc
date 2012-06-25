@@ -1,3 +1,48 @@
+2012-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (scc_comparison_operator): Add
+	support for floating point comparisons to allow fcmpu to drive
+	ISEL and branch conditional + 8.
+	(scc_rev_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_ifcvt_modify_insn): New
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mbcp8-nop): New switch to add a NOP
+	between compare and branch conditional + 8 insn.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add support
+	for -mbcp8-nop.
+	(rs6000_option_override_internal): If -Os, prefer ISEL over branch
+	conditional + 8.  Add support for -mbcp8-nop.
+	(rs6000_ifcvt_modify_insn): New target hook, don't allow back to
+	back ISEL or branch conditional + 8.
+	(rs6000_emit_cmove): Move all INT processing to
+	rs6000_emit_int_cmove.  Add hooks for future VSX optimizations.
+	Rearrange code somewhat.
+	(rs6000_emit_int_cmove): Rewrite code, push force_reg's back to
+	the md file.
+	(rs6000_emit_vsx_cmove): Stub for future use to generate XXSEL
+	instruction.
+	(output_isel): Allow 3rd argument to be 0 for reversed tests.
+	(rs6000_expand_int_minmax): Pass the code to use for the test,
+	rather than min/max as argument.
+
+	* config/rs6000/rs6000.h (IFCVT_MODIFY_INSN): Define target hook
+	to control if conversion on rs6000.
+
+	* config/rs6000/rs6000.md (smin<mode>3): Change calling sequence
+	to rs6000_expand_int_minmax.
+	(smax<mode>3): Likewise.
+	(umin<mode>3): Likewise.
+	(umax<mode>3): Likewise.
+	(mov<mode>cc_internal): For ISEL, flip test if possible to allow 0
+	to be in the appropriate slot without loading into a register.
+	(bcp8<mode>): Add support for -mbcp8-nop.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mbcp8-nop and -mno-bcp8-nop.
+
 2012-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (bcp8_bool_operator): Delete.

@@ -349,6 +349,10 @@ mbcp8
 Target Report Var(TARGET_BCP8) Init(-1) Save
 Enable/disable branch conditional + 8 optimizations
 
+mbcp8-nop
+Target Report Var(TARGET_BCP8_NOP) Init(0) Save
+Add/do not add a NOP between a comparison and a branch conditional + 8 in some cases
+
 mabs-cntlz
 Target Report Var(TARGET_ABS_CNTLZ) Init(-1) Save
 Enable/disable using the CNTLZ instruction for integer absolute value

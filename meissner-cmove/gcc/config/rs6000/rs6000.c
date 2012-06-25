@@ -326,7 +326,7 @@ struct processor_costs {
 const struct processor_costs *rs6000_cost;
 
 /* Default costs for set count leading zero, isel, branch conditional + 8.  */
-#define DEFAULT_COSTS2(CLZ, CMP, ACMP, ISEL, BCP8, MFCR, CRL, PBCP8, PCNTLZ) \
+#define DEFAULT_COSTS2(CLZ, CMP, ACMP, ISEL, BCP8, MFCR, CRL, PB, PC)	\
   COSTS_N_INSNS (CLZ),		/* count leading zero cost.  */		\
   COSTS_N_INSNS (CMP),		/* compare cost.  */			\
   COSTS_N_INSNS (ACMP),		/* adjacent compare cost.  */		\
@@ -334,8 +334,8 @@ const struct processor_costs *rs6000_cost;
   COSTS_N_INSNS (BCP8),		/* branch conditional + 8 cost.  */	\
   COSTS_N_INSNS (MFCR),		/* move from CR cost.  */		\
   COSTS_N_INSNS (CRL),		/* CR register logical op. cost */	\
-  PBCP8,			/* prefer BC+8 over ISEL.  */		\
-  PCNTLZ			/* prefer CNTLZ for abs.  */
+  PB,				/* prefer BC+8 over ISEL.  */		\
+  PC				/* prefer CNTLZ for abs.  */
 
 #define DEFAULT_COSTS() \
   DEFAULT_COSTS2 (1, 3, 3, 1, 0, 3, 2, false, true)
@@ -2141,6 +2141,9 @@ rs6000_debug_reg_global (void)
   if (TARGET_BCP8)
     fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
 
+  if (TARGET_BCP8_NOP)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8-nop", "true");
+
   if (TARGET_ISEL)
     fprintf (stderr, DEBUG_FMT_S, "isel", "true");
 
@@ -3396,7 +3399,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Determine if we should optimize for branch conditional + 8.  Determine
      whether to use ISEL or branch conditional + 8 if both are set or
-     preferred.  Honor an explicit switch from the user.  */
+     preferred.  Honor an explicit switch from the user.  If we are optimizing
+     for space, prefer ISEL over branch conditional + 8.  */
   if (TARGET_BCP8 < 0)
     TARGET_BCP8 = rs6000_cost->prefer_bcp8;
 
@@ -3406,22 +3410,19 @@ rs6000_option_override_internal (bool global_init_p)
       bool explicit_bcp8 = (global_options_set.x_TARGET_BCP8 != 0);
       bool want_bcp8;
 
-      if (explicit_isel && explicit_bcp8)
-	want_bcp8 = rs6000_cost->prefer_bcp8;
-
-      else if (explicit_isel)
+      if (explicit_isel && !explicit_bcp8)
 	want_bcp8 = false;
 
-      else if (explicit_bcp8)
+      else if (explicit_bcp8 && !explicit_isel)
 	want_bcp8 = true;
 
       else
-	want_bcp8 = rs6000_cost->prefer_bcp8;
+	want_bcp8 = optimize_insn_for_speed_p () && rs6000_cost->prefer_bcp8;
 
       if (want_bcp8)
 	target_flags &= ~MASK_ISEL;
       else
-	TARGET_BCP8 = 0;
+	TARGET_BCP8 = TARGET_BCP8_NOP = 0;
     }
 
   /* Determine whether to use CNTLZ for integer absolute value, or perhaps use
@@ -15963,6 +15964,26 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
     }
 }
 
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.
+
+   On the powerpc, only allow 1 insn to be converted to be conditionally
+   executed.   */
+
+rtx
+rs6000_ifcvt_modify_insn (ce_if_block_t *ce_info, rtx pattern, rtx insn)
+{
+  if (!ce_info || !pattern || !insn)
+    return NULL_RTX;
+
+  if ((ce_info->num_then_insns + ce_info->num_else_insns) != 1)
+    return NULL_RTX;
+
+  return pattern;
+}
+
 /* Emit a branch of kind CODE to location LOC.  */
 
 void
@@ -16396,33 +16417,24 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   rtx temp;
   bool is_against_zero;
 
-  /* These modes should always match.  */
-  if (GET_MODE (op1) != compare_mode
-      /* In the isel case however, we can use a compare immediate, so
-	 op1 may be a small constant.  */
-      && ((!TARGET_ISEL && !TARGET_BCP8)
-	  || !short_cint_operand (op1, VOIDmode)))
+  if (GET_MODE_CLASS (result_mode) == MODE_INT)
+    return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
+
+  if (!FLOAT_MODE_P (result_mode))
+    return false;
+
+  /* These modes should always match for floating point cmoves.  */
+  if (result_mode != compare_mode)
+    return false;
+  if (GET_MODE (op1) != compare_mode)
     return false;
   if (GET_MODE (true_cond) != result_mode)
     return false;
   if (GET_MODE (false_cond) != result_mode)
     return false;
 
-  /* Don't allow using floating point comparisons for integer results for
-     now.  */
-  if (FLOAT_MODE_P (compare_mode) && !FLOAT_MODE_P (result_mode))
-    return false;
-
-  /* First, work out if the hardware can do this at all, or
-     if it's too slow....  */
-  if (!FLOAT_MODE_P (compare_mode))
-    {
-      if (TARGET_ISEL || TARGET_BCP8)
-	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
-      return false;
-    }
-  else if (TARGET_HARD_FLOAT && !TARGET_FPRS
-	   && SCALAR_FLOAT_MODE_P (compare_mode))
+  if (TARGET_HARD_FLOAT && !TARGET_FPRS
+      && SCALAR_FLOAT_MODE_P (compare_mode))
     return false;
 
   is_against_zero = op1 == CONST0_RTX (compare_mode);
@@ -16572,15 +16584,15 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   return true;
 }
 
-/* Same as above, but for ints (isel).  */
+/* Integer conditional move support.  */
 
 static bool
 rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
-  rtx condition_rtx, cr;
+  rtx cond_rtx, cr;
   enum machine_mode mode = GET_MODE (dest);
-  enum rtx_code cond_code;
-  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx);
+  enum machine_mode cond_mode = GET_MODE (XEXP (op, 0));
+  rtx insn;
 
   if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
     return false;
@@ -16588,47 +16600,30 @@ rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (!TARGET_ISEL && !TARGET_BCP8)
     return false;
 
-  /* We still have to do the compare, because isel doesn't do a
-     compare, it just looks at the CRx bits set by a previous compare
-     instruction.  */
-  condition_rtx = rs6000_generate_compare (op, mode);
-  cond_code = GET_CODE (condition_rtx);
-  cr = XEXP (condition_rtx, 0);
-  isel_func = (mode == SImode ? gen_movsicc_internal : gen_movdicc_internal);
-
-  if (TARGET_ISEL)
+  if (cond_mode == VOIDmode)
     {
-      switch (cond_code)
-	{
-	case LT: case GT: case LTU: case GTU: case EQ:
-	  /* isel handles these directly.  */
-	  break;
+      cond_mode = GET_MODE (XEXP (op, 1));
+      if (cond_mode == VOIDmode)
+	return false;
+    }
 
-	default:
-	  /* We need to swap the sense of the comparison.  */
-	  {
-	    rtx t = true_cond;
-	    true_cond = false_cond;
-	    false_cond = t;
-	    PUT_CODE (condition_rtx, reverse_condition (cond_code));
-	  }
-	  break;
-	}
+  /* Do the compare, because isel/branch conditional + 8 don't do a compare, it
+     just looks at the CRx bits set by a previous compare instruction.  */
+  cond_rtx = rs6000_generate_compare (op, cond_mode);
+  cr = XEXP (cond_rtx, 0);
 
-      false_cond = force_reg (mode, false_cond);
-      if (true_cond != const0_rtx)
-	true_cond = force_reg (mode, true_cond);
+  if (mode == SImode)
+    insn = gen_movsicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
+  else
+    insn = gen_movdicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
+
+  if (insn)
+    {
+      emit_insn (insn);
+      return true;
     }
   else
-    {
-      true_cond = force_reg (mode, true_cond);
-      if (!add_operand (false_cond, mode))
-	false_cond = force_reg (mode, false_cond);
-    }
-
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
-
-  return true;
+    return false;
 }
 
 const char *
@@ -16641,7 +16636,8 @@ output_isel (rtx *operands)
   if (code == GE || code == GEU || code == LE || code == LEU || code == NE)
     {
       gcc_assert (GET_CODE (operands[2]) == REG
-		  && GET_CODE (operands[3]) == REG);
+		  && (GET_CODE (operands[3]) == REG
+		      || operands[3] == const0_rtx));
       PUT_CODE (operands[1], reverse_condition (code));
       return "isel %0,%3,%2,%j1";
     }
@@ -16721,7 +16717,7 @@ rs6000_expand_int_abs (rtx dest, rtx src, bool neg_abs_p)
 bool
 rs6000_expand_int_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
 {
-  enum rtx_code cmp_code, rev_code;
+  enum machine_mode mode = GET_MODE (dest);
   rtx cond;
 
   if (!can_create_pseudo_p ())
@@ -16730,43 +16726,19 @@ rs6000_expand_int_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   if (!TARGET_ISEL && !TARGET_BCP8)
     return false;
 
-  switch (code)
-    {
-    default:
-      return false;
+  if (!gpc_reg_operand (op0, mode))
+    op0 = force_reg (mode, op0);
 
-    case SMIN:
-      cmp_code = LT;
-      rev_code = GT;
-      break;
+  if (!gpc_reg_operand (op1, mode)
+      && (TARGET_ISEL
+	  || GET_CODE (op1) != CONST_INT
+	  || ((code == LT || code == GT)
+	      && !satisfies_constraint_I (op1))
+	  || ((code == LTU || code == GTU)
+	      && !satisfies_constraint_K (op1))))
+    op1 = force_reg (mode, op1);
 
-    case SMAX:
-      cmp_code = GT;
-      rev_code = LT;
-      break;
-
-    case UMIN:
-      cmp_code = LTU;
-      rev_code = GTU;
-      break;
-
-    case UMAX:
-      cmp_code = GTU;
-      rev_code = LTU;
-      break;
-    }
-
-  /* ISEL can eliminate an instruction if the true value is 0.  */
-  if (TARGET_ISEL && op1 == const0_rtx)
-    cond = gen_rtx_fmt_ee (rev_code, GET_MODE (dest), op1, op0);
-
-  /* BC+8 can eliminate an instruction if the false value is constant.  */
-  else if (TARGET_BCP8 && GET_CODE (op0) == CONST_INT)
-    cond = gen_rtx_fmt_ee (rev_code, GET_MODE (dest), op1, op0);
-
-  else
-    cond = gen_rtx_fmt_ee (cmp_code, GET_MODE (dest), op0, op1);
-
+  cond = gen_rtx_fmt_ee (code, mode, op0, op1);
   return rs6000_emit_int_cmove (dest, cond, op0, op1);
 }
 
