@@ -3406,6 +3406,26 @@ output_asm_insn (const char *templ, rtx *operands)
 		    output_addr_const (asm_out_file, operands[opnum]);
 		  }
 	      }
+	    else if (letter == 'i')
+	      {
+		/* 'i' means we should output sum of opnum
+		   and (opnum + 1) operands as an address.
+		   opnum operand must be base of address.  */
+		rtx addr = gen_rtx_PLUS (Pmode, operands[opnum],
+					 operands[opnum + 1]);
+		output_address (addr);
+	      }
+	    else if (letter == 'I')
+	      {
+		/* 'I' means we should output sum of opnum
+		   and (opnum + 1) operands as an address.
+		   (opnum + 1) operand must be index of address.  */
+		rtx index = gen_rtx_MULT (Pmode, operands[opnum + 1],
+					  const1_rtx);
+		rtx addr = gen_rtx_PLUS (Pmode, operands[opnum], index);
+
+		output_address (addr);
+	      }
 	    else
 	      output_operand (operands[opnum], letter);
 
