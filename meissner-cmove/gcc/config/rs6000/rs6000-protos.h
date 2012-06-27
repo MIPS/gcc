@@ -137,6 +137,7 @@ extern rtx rs6000_address_for_fpconvert (rtx);
 extern rtx rs6000_address_for_altivec (rtx);
 extern rtx rs6000_allocate_stack_temp (enum machine_mode, bool, bool);
 extern int rs6000_loop_align (rtx);
+extern const char *rs6000_output_compare_nop (int, rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

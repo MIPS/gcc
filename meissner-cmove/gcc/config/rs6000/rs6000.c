@@ -2141,8 +2141,8 @@ rs6000_debug_reg_global (void)
   if (TARGET_BCP8)
     fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
 
-  if (TARGET_BCP8_NOP)
-    fprintf (stderr, DEBUG_FMT_S, "bcp8-nop", "true");
+  if (TARGET_COMPARE_NOP)
+    fprintf (stderr, DEBUG_FMT_D, "compare-nop", TARGET_COMPARE_NOP);
 
   if (TARGET_ISEL)
     fprintf (stderr, DEBUG_FMT_S, "isel", "true");
@@ -3422,8 +3422,16 @@ rs6000_option_override_internal (bool global_init_p)
       if (want_bcp8)
 	target_flags &= ~MASK_ISEL;
       else
-	TARGET_BCP8 = TARGET_BCP8_NOP = 0;
+	TARGET_BCP8 = 0;
     }
+
+  /* If we want branch conditional + 8, default -mcompare-nop at high
+     optimization levels.  */
+  if (TARGET_COMPARE_NOP < 0)
+    TARGET_COMPARE_NOP = (global_options_set.x_TARGET_COMPARE_NOP != 0
+			  && TARGET_BCP8
+			  && optimize_insn_for_speed_p ()
+			  && optimize >= 3);
 
   /* Determine whether to use CNTLZ for integer absolute value, or perhaps use
      ISEL or branch conditional + 8 if either is available.  */
@@ -28529,6 +28537,56 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
       && TARGET_MINIMAL_TOC
       && get_pool_size () != 0)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
+}
+
+/* Power7 has a performance problem if the comparison and branch/ISEL are back
+   to back, and the branch/ISEL is at the end of a cache block, performance
+   suffers.  Return true if we should emit a group ending nop.  For the normal
+   case, we only consider a comparison feeding an ISEL or branch condtional + 8
+   instruction.  In the -mcompare-nop=extra case, put the NOPs in front of
+   normal conditional branches as well.  */
+
+const char *
+rs6000_output_compare_nop (int regno, rtx insn)
+{
+  rtx next_insn, pattern, src, dest;
+  enum machine_mode mode;
+  bool do_nop = false;
+
+  if (!TARGET_COMPARE_NOP || !insn)
+    return "";
+
+  next_insn = next_nonnote_insn_bb (insn);
+  if (!next_insn)
+    return "";
+
+  if ((GET_CODE (next_insn) == INSN
+       || GET_CODE (next_insn) == JUMP_INSN)
+      && GET_CODE (PATTERN (next_insn)) == SET
+      && GET_CODE (SET_SRC (PATTERN (next_insn))) == IF_THEN_ELSE)
+    {
+      pattern = PATTERN (next_insn);
+      src = SET_SRC (pattern);
+      dest = SET_DEST (pattern);
+      mode = GET_MODE (dest);
+
+      if (regno_use_in (regno, XEXP (src, 0)))
+	{
+	  /* ISEL or branch conditional+8?  */
+	  if (REG_P (dest) && INT_REGNO_P (REGNO (dest))
+	      && (mode == SImode || mode == DImode))
+	    do_nop = true;
+
+	  /* Normal conditional branch in extended mode?  */
+	  else if (TARGET_COMPARE_NOP > 1 && dest == pc_rtx)
+	    do_nop = true;
+	}
+    }
+
+  if (do_nop)
+    return ".p2alignl 5,0x60420000,4\t\t# group ending nop";
+
+  return "";
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

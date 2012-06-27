@@ -823,7 +823,7 @@ See RS/6000 and PowerPC Options.
 -misel -mno-isel @gol
 -misel=yes  -misel=no @gol
 -mbcp8 -mno-bcp8 @gol
--mbcp8-nop -mno-bcp8-nop @gol
+-mcompare-nop -mno-compare-nop -mcompare-nop=extra @gol
 -mspe -mno-spe @gol
 -mspe=yes  -mspe=no @gol
 -mpaired @gol
@@ -16776,13 +16776,18 @@ conditional integer moves.  This is enabled by default for the
 @option{-mcpu=power7} target if the @option{-misel} option is not
 used.
 
-@item -mbcp8-nop
-@itemx -mno-bcp8-nop
-@opindex mbcp8-nop
-@opindex mno-bcp8-nop
-This switch enables or disables the generation of a NOP between the
-compare and the branch around a single limited instruction in certain
-cases.  This option is not enabled by default.
+@item -mcompare-nop
+@itemx -mno-compare-nop
+@itemx -mcompare-nop=extra
+@opindex mcompare-nop
+@opindex mno-compare-nop
+@opindex mcompare-nop=extra
+This switch enables or disables the generation of a group ending NOP
+between the compare and the branch or ISEL instruction in certain
+cases.  If you select @option{-mcompare-nop=extra}, it will add NOPs
+in front of normal branches as well as branch conditional + 8 or ISEL
+instructions.  The @option{-mcompare-nop} option is set if
+@option{-mbcp8} is used along iwth @option{-O3} if it is unset.
 
 @item -mabs-cntlz
 @itemx -mno-abs-cntlz
