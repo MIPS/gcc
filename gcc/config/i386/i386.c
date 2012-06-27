@@ -11611,8 +11611,17 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	{
 	  if (n >= 4)
 	    return 0;
-	  addends[n++] = XEXP (op, 1);
-	  op = XEXP (op, 0);
+
+	  if (GET_CODE (XEXP (op, 1)) == PLUS)
+	    {
+	      addends[n++] = XEXP (op, 0);
+	      op = XEXP (op, 1);
+	    }
+	  else
+	    {
+	      addends[n++] = XEXP (op, 1);
+	      op = XEXP (op, 0);
+	    }
 	}
       while (GET_CODE (op) == PLUS);
       if (n >= 4)
