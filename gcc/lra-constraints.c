@@ -4344,7 +4344,7 @@ inherit_in_ebb (rtx head, rtx tail)
 {
   int i, src_regno, dst_regno;
   bool change_p, succ_p;
-  rtx prev_insn, next_usage_insns, set,  first_insn, last_insn, next_insn;
+  rtx prev_insn, next_usage_insns, set, first_insn, last_insn, next_insn;
   enum reg_class cl;
   struct lra_insn_reg *reg;
   basic_block last_processed_bb, curr_bb = NULL;
@@ -4353,7 +4353,6 @@ inherit_in_ebb (rtx head, rtx tail)
   unsigned int j;
   bitmap_iterator bi;
   bool head_p, after_p;
-
 
   change_p = false;
   curr_usage_insns_check++;
@@ -4536,7 +4535,41 @@ inherit_in_ebb (rtx head, rtx tail)
 				      to_inherit[i].insns))
 	      change_p = true;
 	  if (CALL_P (curr_insn))
-	    calls_num++;
+	    {
+	      rtx cheap, pat, dest, restore;
+	      int regno, hard_regno;
+
+	      calls_num++;
+	      if ((cheap = find_reg_note (curr_insn,
+					  REG_RETURNED, NULL_RTX)) != NULL_RTX
+		  && ((cheap = XEXP (cheap, 0)), true)
+		  && (regno = REGNO (cheap)) >= FIRST_PSEUDO_REGISTER
+		  && (hard_regno = reg_renumber[regno]) >= 0
+		  /* If there are pending saves/restores, the
+		     optimization is not worth.  */
+		  && usage_insns[regno].calls_num == calls_num - 1
+		  && TEST_HARD_REG_BIT (call_used_reg_set, hard_regno))
+		{
+		  /* Restore the pseudo from the call result as
+		     REG_RETURNED note says that the pseudo value is
+		     in the call result and the pseudo is an argument
+		     of the call.  */
+		  pat = PATTERN (curr_insn);
+		  if (GET_CODE (pat) == PARALLEL)
+		    pat = XVECEXP (pat, 0, 0);
+		  dest = SET_DEST (pat);
+		  start_sequence ();
+		  emit_move_insn (cheap, copy_rtx (dest));
+		  restore = get_insns ();
+		  end_sequence ();
+		  lra_process_new_insns (curr_insn, NULL, restore,
+					 "Inserting call parameter restore");
+		  /* We don't need to save/restore of the pseudo from
+		     this call.  */
+		  usage_insns[regno].calls_num = calls_num;
+		  bitmap_set_bit (&check_only_regs, regno);
+		}
+	    }
 	  to_inherit_num = 0;
 	  /* Process insn usages.  */
 	  for (reg = curr_id->regs; reg != NULL; reg = reg->next)

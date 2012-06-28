@@ -1,3 +1,8 @@
+2012-06-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (inherit_in_ebb): Implement restoring argument
+	pseudo value from the call result.
+
 2012-06-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* output.h (alter_subreg): Add new argument.
