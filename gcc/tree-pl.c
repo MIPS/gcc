@@ -622,25 +622,6 @@ pl_force_gimple_call_op (tree op, gimple_seq *seq)
 
   gimple_seq_add_seq (seq, stmts);
 
-  /*
-  if ((is_gimple_reg_type (TREE_TYPE (op)) && !is_gimple_val (op))
-      || (!is_gimple_reg_type (TREE_TYPE (op)) && !is_gimple_lvalue (op)))
-    {
-      tree tmp;
-      gimple stmt;
-
-      stmt = gimple_build_assign_with_ops (TREE_CODE (op), NULL_TREE,
-					   op, NULL_TREE);
-      tmp = create_tmp_reg (TREE_TYPE (op), NULL);
-      add_referenced_var (tmp);
-      tmp = make_ssa_name (tmp, stmt);
-      gimple_assign_set_lhs (stmt, tmp);
-
-      gimple_seq_add_stmt (seq, stmt);
-
-      op = tmp;
-    }
-  */
   return op;
 }
 
@@ -1101,9 +1082,13 @@ pl_find_bounds (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
     case MEM_REF:
     case ARRAY_REF:
     case COMPONENT_REF:
-    case TARGET_MEM_REF:
     case VAR_DECL:
       addr = build_fold_addr_expr (ptr_src);
+      bounds = pl_build_bndldx (addr, ptr, iter);
+      break;
+
+    case TARGET_MEM_REF:
+      addr = tree_mem_ref_addr (ptr_type_node, ptr_src);
       bounds = pl_build_bndldx (addr, ptr, iter);
       break;
 
@@ -1327,7 +1312,9 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
   if (POINTER_TYPE_P (type))
     {
       tree bounds = pl_find_bounds (rhs, NULL_TREE, iter);
-      tree addr = fold_build1 (ADDR_EXPR, build_pointer_type (type), lhs);
+      tree addr = TREE_CODE (lhs) == TARGET_MEM_REF
+	? tree_mem_ref_addr (ptr_type_node, lhs)
+	: build_fold_addr_expr (lhs);
       pl_build_bndstx (addr, rhs, bounds, iter);
     }
   else if (RECORD_OR_UNION_TYPE_P (type))
