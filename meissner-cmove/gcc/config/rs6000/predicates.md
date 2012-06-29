@@ -963,6 +963,30 @@
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "eq,lt,gt,ltu,gtu,unordered")))
 
+;; Return 1 if OP is a comparison operation that is valid for a branch
+;; insn for signed integer comparisons
+(define_predicate "signed_branch_comparison_operator"
+  (match_code "eq,ne,lt,le,gt,ge")
+{
+  enum machine_mode op0_mode = GET_MODE (XEXP (op, 0));
+  enum machine_mode op1_mode = GET_MODE (XEXP (op, 1));
+
+  return ((op0_mode == SImode || (TARGET_POWERPC64 && op0_mode == DImode))
+	  && ((op0_mode == op1_mode) || (op1_mode == VOIDmode)));
+})
+
+;; Return 1 if OP is a comparison operation that is valid for a branch
+;; insn for unsigned integer comparisons
+(define_predicate "unsigned_branch_comparison_operator"
+  (match_code "ltu,leu,gtu,geu")
+{
+  enum machine_mode op0_mode = GET_MODE (XEXP (op, 0));
+  enum machine_mode op1_mode = GET_MODE (XEXP (op, 1));
+
+  return ((op0_mode == SImode || (TARGET_POWERPC64 && op0_mode == DImode))
+	  && ((op0_mode == op1_mode) || (op1_mode == VOIDmode)));
+})
+
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.
 (define_predicate "load_multiple_operation"
   (match_code "parallel")

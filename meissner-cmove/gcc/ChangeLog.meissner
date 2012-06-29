@@ -1,3 +1,32 @@
+2012-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (signed_branch_comparison_operator):
+	New predicate.
+	(unsigned_branch_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_compare_nop):
+	Delete -mcompare-nop and go back to -mbcp8-nop.  Add support for
+	using the combiner to merge the compare and bc+8 directly.  Add
+	-mbcp8-merge debug option.
+	(rs6000_previous_compare_p): Likewise.
+	(rs6000_output_bcp8): Likewise.
+	* config/rs6000/rs6000.opt (-mcompare-nop): Likewise.
+	(-mbcp8-merge): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_output_compare_nop): Likewise.
+	(rs6000_previous_compare_p): Likewise.
+	(rs6000_output_bcp8): Likewise.
+	* config/rs6000/rs6000.md (GPR2): Likewise.
+	(bcp8<mode>): Likewise.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(cmp<mode>_internal1): Likewise.
+	(cmpsi_internal2): Likewise.
+	(cmpdi_internal2): Likewise.
+	* config/rs6000/rs6000.opt (RS/6000 and PowerPC Options):
+	Likewise.
+
 2012-06-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_output_compare_nop): Add

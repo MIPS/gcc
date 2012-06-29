@@ -2141,8 +2141,8 @@ rs6000_debug_reg_global (void)
   if (TARGET_BCP8)
     fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
 
-  if (TARGET_COMPARE_NOP)
-    fprintf (stderr, DEBUG_FMT_D, "compare-nop", TARGET_COMPARE_NOP);
+  if (TARGET_BCP8_NOP)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8-nop", "true");
 
   if (TARGET_ISEL)
     fprintf (stderr, DEBUG_FMT_S, "isel", "true");
@@ -3417,21 +3417,16 @@ rs6000_option_override_internal (bool global_init_p)
 	want_bcp8 = true;
 
       else
-	want_bcp8 = optimize_insn_for_speed_p () && rs6000_cost->prefer_bcp8;
+	want_bcp8 = !optimize_size && rs6000_cost->prefer_bcp8;
 
       if (want_bcp8)
 	target_flags &= ~MASK_ISEL;
       else
-	TARGET_BCP8 = 0;
+	TARGET_BCP8 = TARGET_BCP8_NOP = 0;
     }
 
-  /* If we want branch conditional + 8, default -mcompare-nop at high
-     optimization levels.  */
-  if (TARGET_COMPARE_NOP < 0)
-    TARGET_COMPARE_NOP = (global_options_set.x_TARGET_COMPARE_NOP != 0
-			  && TARGET_BCP8
-			  && optimize_insn_for_speed_p ()
-			  && optimize >= 3);
+  if (TARGET_BCP8_NOP < 0)
+    TARGET_BCP8_NOP = (TARGET_BCP8 && (optimize >= 3));
 
   /* Determine whether to use CNTLZ for integer absolute value, or perhaps use
      ISEL or branch conditional + 8 if either is available.  */
@@ -28539,53 +28534,114 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 }
 
-/* Power7 has a performance problem if the comparison and branch/ISEL are back
-   to back, and the branch/ISEL is at the end of a cache block, performance
-   suffers.  Return true if we should emit a group ending nop.  For the normal
-   case, we only consider a comparison feeding an ISEL or branch condtional + 8
-   instruction.  In the -mcompare-nop=extra case, put the NOPs in front of
-   normal conditional branches as well.  */
+/* Look back on the insn chain and see if the previous insn set the condtion
+   code.  This is to enable putting a group ending NOP if a branch conditional
+   + 8 would be in the last word in a cache block.  INSN is the current insn,
+   and CC_REG is the condition code register that is used in the current
+   instruction.  */
 
-const char *
-rs6000_output_compare_nop (int regno, rtx insn)
+bool
+rs6000_previous_compare_p (rtx insn, rtx cc_reg)
 {
-  rtx next_insn, pattern, src, dest;
-  enum machine_mode mode;
-  bool do_nop = false;
+  rtx prev_insn = prev_nonnote_insn_bb (insn);
 
-  if (!TARGET_COMPARE_NOP || !insn)
-    return "";
-
-  next_insn = next_nonnote_insn_bb (insn);
-  if (!next_insn)
-    return "";
-
-  if ((GET_CODE (next_insn) == INSN
-       || GET_CODE (next_insn) == JUMP_INSN)
-      && GET_CODE (PATTERN (next_insn)) == SET
-      && GET_CODE (SET_SRC (PATTERN (next_insn))) == IF_THEN_ELSE)
+  if (prev_insn && GET_CODE (prev_insn) == INSN)
     {
-      pattern = PATTERN (next_insn);
-      src = SET_SRC (pattern);
-      dest = SET_DEST (pattern);
-      mode = GET_MODE (dest);
+      rtx pattern = single_set (prev_insn);
 
-      if (regno_use_in (regno, XEXP (src, 0)))
+      if (pattern && GET_CODE (SET_SRC (pattern)) == COMPARE
+	  && rtx_equal_p (SET_DEST (pattern), cc_reg))
+	return true;
+
+      else
 	{
-	  /* ISEL or branch conditional+8?  */
-	  if (REG_P (dest) && INT_REGNO_P (REGNO (dest))
-	      && (mode == SImode || mode == DImode))
-	    do_nop = true;
+	  pattern = PATTERN (prev_insn);
 
-	  /* Normal conditional branch in extended mode?  */
-	  else if (TARGET_COMPARE_NOP > 1 && dest == pc_rtx)
-	    do_nop = true;
+	  if (GET_CODE (pattern) == PARALLEL)
+	    {
+	      int i;
+
+	      for (i = 0; i < XVECLEN (pattern, 0); i++)
+		{
+		  rtx sub = XVECEXP (pattern, 0, i);
+		  switch (GET_CODE (sub))
+		    {
+		    case USE:
+		    case CLOBBER:
+		      break;
+
+		    case SET:
+		      if (GET_CODE (SET_SRC (sub)) == COMPARE
+			  && rtx_equal_p (SET_DEST (sub), cc_reg))
+			return true;
+
+		    default:
+		      return false;
+		    }
+		}
+	    }
 	}
     }
 
-  if (do_nop)
-    return ".p2alignl 5,0x60420000,4\t\t# group ending nop";
+  return false;
+}
 
+/* Output a branch conditional + 8 (bc+8) sequence to set DEST based on the
+   comparison COND to either TRUE_VALUE or FALSE_VALUE.
+
+   Power7 has a performance problem if the comparison and bc+8 are back to
+   back, and the bc+8 is at the end of a cache block.  If bc+8 nops are
+   enabled, we tell the assembler to insert a group ending nop using .p2alignl
+   and the nop is only inserted if the jump would be in the last word of a
+   32-byte block.
+
+   INSN is the insn for the instruction.
+
+   If REVERSE_P is true, reverse the sense of the jump.
+
+   If EMIT_NOP_P is true, emit the group ending nop unless -mno-bcp8-nop.  */
+
+const char *
+rs6000_output_bcp8 (rtx dest,
+		    rtx cond,
+		    rtx true_value,
+		    rtx false_value,
+		    rtx insn,
+		    bool reverse_p,
+		    bool emit_nop_p)
+{
+  rtx operands[2];
+  rtx op;
+
+  operands[0] = dest;
+  operands[1] = op = (reverse_p) ? true_value : false_value;
+
+  /* Possibly emit the group ending nop.  */
+  if (TARGET_BCP8_NOP && emit_nop_p)
+    fprintf (asm_out_file,
+	     "\t.p2alignl 5,0x60420000,4\t\t%s ori r2,r2,0\n",
+	     ASM_COMMENT_START);
+
+  /* Emit the branch.  */
+  output_asm_insn (output_cbranch (cond, "1f", reverse_p, insn, false),
+		   operands);
+
+  /* Now emit the single instruction to set the destination.  */
+  if (GET_CODE (op) == CONST_INT)
+    {
+      if (satisfies_constraint_I (op))
+	output_asm_insn ("{lil|li} %0,%1", operands);
+      else if (satisfies_constraint_L (op))
+	output_asm_insn ("{liu|lis} %0,%v1", operands);
+      else
+	gcc_unreachable ();
+    }
+  else if (gpc_reg_operand (op, GET_MODE (op)))
+    output_asm_insn ("mr %0,%1", operands);
+  else
+    gcc_unreachable ();
+
+  fputs ("1:\n", asm_out_file);
   return "";
 }
 

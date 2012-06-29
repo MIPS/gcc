@@ -349,13 +349,13 @@ mbcp8
 Target Report Var(TARGET_BCP8) Init(-1) Save
 Enable/disable branch conditional + 8 optimizations
 
-mcompare-nop
-Target Report Var(TARGET_COMPARE_NOP) Init(-1) Save
-Add/do not add a NOP between a comparison and a branch/ISEL in some cases
+mbcp8-nop
+Target Report Var(TARGET_BCP8_NOP) Init(-1) Save
+Add/do not add a NOP between a comparison and a branch conditional + 8 in some cases
 
-mcompare-nop=extra
-Target Report Var(TARGET_COMPARE_NOP, 2) Save
-More aggresive form of -mcompare-nop
+mbcp8-merge
+Target Report Var(TARGET_BCP8_MERGE) Init(1) Save
+; debug switch, turn off bc+8 merge of the comparison and branch
 
 mabs-cntlz
 Target Report Var(TARGET_ABS_CNTLZ) Init(-1) Save
