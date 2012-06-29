@@ -1,3 +1,8 @@
+2012-06-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (get_op_class): Don't process SUBREG.
+	(check_and_process_move): Simplify the code.
+
 2012-06-28  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (inherit_in_ebb): Implement restoring argument

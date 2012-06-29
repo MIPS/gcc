@@ -1006,15 +1006,14 @@ get_final_hard_regno (int hard_regno, int offset)
 
 /* Return register class of OP.  That is a class of the hard register
    itself (if OP is a hard register), or class of assigned hard
-   register to the pseudo (if OP is pseudo or its subregister), or
-   class of unassigned pseudo (if OP is reload pseudo or its
-   subregister).  Return NO_REGS otherwise.  */
+   register to the pseudo (if OP is pseudo), or class of unassigned
+   pseudo (if OP is reload pseudo).  Return NO_REGS otherwise.  */
 static enum reg_class
 get_op_class (rtx op)
 {
   int regno, hard_regno, offset;
 
-  if (! REG_P (op) && (GET_CODE (op) != SUBREG || ! REG_P (SUBREG_REG (op))))
+  if (! REG_P (op))
     return NO_REGS;
   lra_get_hard_regno_and_offset (op, &hard_regno, &offset);
   if (hard_regno >= 0)
@@ -1022,8 +1021,6 @@ get_op_class (rtx op)
       hard_regno = get_final_hard_regno (hard_regno, offset);
       return REGNO_REG_CLASS (hard_regno);
     }
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
   /* Reload pseudo will get a hard register in any case.  */
   if ((regno = REGNO (op)) >= new_regno_start)
     return lra_get_allocno_class (regno);
@@ -1088,14 +1085,10 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   sreg = src = SET_SRC (set);
   /* Quick check on the right move insn which does not need
      reloads.  */
-  dclass = get_op_class (dest);
-  if (dclass != NO_REGS)
-    {
-      sclass = get_op_class (src);
-      if (sclass != NO_REGS
-	  && targetm.register_move_cost (GET_MODE (src), dclass, sclass) == 2)
-	return true;
-    }
+  if ((dclass = get_op_class (dest)) != NO_REGS
+      && (sclass = get_op_class (src)) != NO_REGS
+      && targetm.register_move_cost (GET_MODE (src), dclass, sclass) == 2)
+    return true;
   if (GET_CODE (dest) == SUBREG)
     dreg = SUBREG_REG (dest);
   if (GET_CODE (src) == SUBREG)
