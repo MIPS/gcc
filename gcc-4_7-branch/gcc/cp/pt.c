@@ -7564,7 +7564,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
 	  /* A local class.  Make sure the decl gets registered properly.  */
 	  if (context == current_function_decl)
-	    pushtag (DECL_NAME (gen_tmpl), t, /*tag_scope=*/ts_current);
+	    pushtag (DECL_NAME (gen_tmpl), t, /*tag_scope=*/ts_global);
 
 	  if (comp_template_args (CLASSTYPE_TI_ARGS (template_type), arglist))
 	    /* This instantiation is another name for the primary
@@ -9393,7 +9393,9 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 		 late-specified return type).  Even if it exists, it might
 		 have the wrong value for a recursive call.  Just make a
 		 dummy decl, since it's only used for its type.  */
-	      arg_pack = tsubst_decl (parm_pack, args, complain);
+	      /* Copy before tsubsting so that we don't recurse into any
+		 later PARM_DECLs.  */
+	      arg_pack = tsubst_decl (copy_node (parm_pack), args, complain);
 	      if (arg_pack && FUNCTION_PARAMETER_PACK_P (arg_pack))
 		/* Partial instantiation of the parm_pack, we can't build
 		   up an argument pack yet.  */
