@@ -963,28 +963,59 @@
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "eq,lt,gt,ltu,gtu,unordered")))
 
-;; Return 1 if OP is a comparison operation that is valid for a branch
-;; insn for signed integer comparisons
-(define_predicate "signed_branch_comparison_operator"
-  (match_code "eq,ne,lt,le,gt,ge")
+;; Return 1 if OP is an unsigned integer comparison
+(define_predicate "unsigned_comparison_operator"
+  (match_code "ltu,leu,gtu,geu"))
+
+;; Return 1 if OP is a signed integer comparison
+(define_predicate "signed_comparison_operator"
+  (match_code "eq,ne,lt,le,gt,ge"))
+
+;; Return 1 if OP is a comparison operation that is valid for a branch insn for
+;; integer comparisons used in merging the comparison and branch conditional +
+;; 8 into a single insn.
+(define_predicate "bcp8_comparison_operator"
+  (ior (match_operand 0 "signed_comparison_operator")
+       (match_operand 0 "unsigned_comparison_operator"))
 {
-  enum machine_mode op0_mode = GET_MODE (XEXP (op, 0));
-  enum machine_mode op1_mode = GET_MODE (XEXP (op, 1));
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  enum machine_mode op0_mode = GET_MODE (op0);
+  enum machine_mode op1_mode = GET_MODE (op1);
 
-  return ((op0_mode == SImode || (TARGET_POWERPC64 && op0_mode == DImode))
-	  && ((op0_mode == op1_mode) || (op1_mode == VOIDmode)));
-})
+  if (op0_mode != SImode && (!TARGET_POWERPC64 || op0_mode != DImode))
+    return 0;
 
-;; Return 1 if OP is a comparison operation that is valid for a branch
-;; insn for unsigned integer comparisons
-(define_predicate "unsigned_branch_comparison_operator"
-  (match_code "ltu,leu,gtu,geu")
-{
-  enum machine_mode op0_mode = GET_MODE (XEXP (op, 0));
-  enum machine_mode op1_mode = GET_MODE (XEXP (op, 1));
+  if (!gpc_reg_operand (op0, op0_mode))
+    return 0;
 
-  return ((op0_mode == SImode || (TARGET_POWERPC64 && op0_mode == DImode))
-	  && ((op0_mode == op1_mode) || (op1_mode == VOIDmode)));
+  if (op0_mode == op1_mode)
+    return gpc_reg_operand (op1, op1_mode);
+
+  if (op1_mode != VOIDmode || GET_CODE (op1) != CONST_INT)
+    return 0;
+
+  switch (GET_CODE (op))
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case LE:
+    case GT:
+    case GE:
+      return satisfies_constraint_I (op1);
+
+    case LTU:
+    case LEU:
+    case GTU:
+    case GEU:
+      return satisfies_constraint_K (op1);
+
+    default:
+      break;
+    }
+
+  return 0;
 })
 
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.

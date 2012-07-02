@@ -16024,7 +16024,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn,
   enum rtx_code code = GET_CODE (op);
   rtx cc_reg = XEXP (op, 0);
   enum machine_mode mode = GET_MODE (cc_reg);
-  int cc_regno = REGNO (cc_reg) - CR0_REGNO;
+  int cc_regno = 
+    (REGNO ((GET_CODE (cc_reg) == SUBREG) ? SUBREG_REG (cc_reg) : cc_reg)
+     - CR0_REGNO);
   int need_longbranch = (maybe_longbranch && label != NULL
 			 && get_attr_length (insn) == 8);
   int really_reversed = reversed ^ need_longbranch;
@@ -28534,6 +28536,7 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 }
 
+
 /* Look back on the insn chain and see if the previous insn set the condtion
    code.  This is to enable putting a group ending NOP if a branch conditional
    + 8 would be in the last word in a cache block.  INSN is the current insn,
@@ -28610,8 +28613,8 @@ rs6000_output_bcp8 (rtx dest,
 		    bool reverse_p,
 		    bool emit_nop_p)
 {
-  rtx operands[2];
-  rtx op;
+  rtx operands[3];
+  rtx op, op1;
 
   operands[0] = dest;
   operands[1] = op = (reverse_p) ? true_value : false_value;
@@ -28627,19 +28630,54 @@ rs6000_output_bcp8 (rtx dest,
 		   operands);
 
   /* Now emit the single instruction to set the destination.  */
-  if (GET_CODE (op) == CONST_INT)
+  switch (GET_CODE (op))
     {
+    case REG:
+    case SUBREG:
+      gcc_assert (gpc_reg_operand (op, GET_MODE (op)));
+      output_asm_insn ("mr %0,%1", operands);
+      break;
+
+    case CONST_INT:
       if (satisfies_constraint_I (op))
 	output_asm_insn ("{lil|li} %0,%1", operands);
       else if (satisfies_constraint_L (op))
 	output_asm_insn ("{liu|lis} %0,%v1", operands);
       else
 	gcc_unreachable ();
+      break;
+
+    case AND:
+    case IOR:
+    case XOR:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      gcc_assert (gpc_reg_operand (op1, GET_MODE (op1)));
+      operands[2] = op1;
+
+      output_asm_insn ("%q1 %0,%2", operands);
+      break;
+
+    case PLUS:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      operands[2] = op1;
+
+      if (gpc_reg_operand (op1, GET_MODE (op1)))
+	output_asm_insn ("{cax|add} %0,%0,%2", operands);
+      else if (GET_CODE (op1) != CONST_INT)
+	gcc_unreachable ();
+      else if (satisfies_constraint_I (op1))
+	output_asm_insn ("{cal %0,%2(%0)|addi %0,%0,%2}", operands);
+      else if (satisfies_constraint_L (op1))
+	output_asm_insn ("{cau|addis} %0,%0,%v2", operands);
+      else
+	gcc_unreachable ();
+      break;
+
+    default:
+      gcc_unreachable ();
     }
-  else if (gpc_reg_operand (op, GET_MODE (op)))
-    output_asm_insn ("mr %0,%1", operands);
-  else
-    gcc_unreachable ();
 
   fputs ("1:\n", asm_out_file);
   return "";

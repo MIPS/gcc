@@ -1,3 +1,19 @@
+2012-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (bcp8_comparison_operator): Merge
+	signed_branch_comparison_operator and unsigned_branch_comparison
+	operator together into bcp8_comparison_operator.
+	(signed_branch_comparison_operator): Likewise.
+	(signed_branch_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000.c (output_cbranch): Allow SUBREG's.
+	(rs6000_output_bcp8): Add support for other BC+8 operations.
+
+	* config/rs6000/rs6000.md (bcp8<GPR:mode>_cmp<GPR2:mode>): Merge
+	signed and unsigned bc+8 operations into a single combiner op.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(bcp8<GPR:mode>_unsigned<GPR2:mode>): Likewise.
+
 2012-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (signed_branch_comparison_operator):
