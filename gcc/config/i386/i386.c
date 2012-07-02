@@ -11973,6 +11973,14 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
   return !ix86_legitimate_constant_p (mode, x);
 }
 
+/* Nonzero if the sum of passed values VAL1 and VAL2 is
+   a valid address operand.  */
+bool
+ix86_decomposed_address_p (rtx val1, rtx val2)
+{
+  enum machine_mode mode = GET_MODE (val1);
+  return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
+}
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and

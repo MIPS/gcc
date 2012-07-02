@@ -63,6 +63,7 @@ extern bool ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern bool ix86_expand_strlen (rtx, rtx, rtx, rtx);
 
 extern bool constant_address_p (rtx);
+extern bool ix86_decomposed_address_p (rtx val1, rtx val2);
 extern bool legitimate_pic_operand_p (rtx);
 extern bool legitimate_pic_address_disp_p (rtx);
 extern bool ix86_legitimize_reload_address (rtx, enum machine_mode,

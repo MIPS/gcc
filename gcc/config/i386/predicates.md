@@ -873,34 +873,6 @@
   return true;
 })
 
-;; Return true if operand is an address operand
-;; with default segment which can be encoded with
-;; null base.
-(define_predicate "address_no_base_operand"
-  (match_operand 0 "address_operand")
-{
-  struct ix86_address parts;
-  int ok;
-
-  ok = ix86_decompose_address (op, &parts);
-  gcc_assert (ok);
-  return parts.seg == SEG_DEFAULT && !(parts.base && parts.index);
-})
-
-;; Return true if operand is an address operand
-;; with default segment which can be encoded with
-;; null index.
-(define_predicate "address_no_index_operand"
-  (match_operand 0 "address_operand")
-{
-  struct ix86_address parts;
-  int ok;
-
-  ok = ix86_decompose_address (op, &parts);
-  gcc_assert (ok);
-  return parts.seg == SEG_DEFAULT && !parts.index;
-})
-
 (define_predicate "vsib_mem_operator"
   (match_code "mem"))
 
