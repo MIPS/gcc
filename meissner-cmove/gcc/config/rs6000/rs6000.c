@@ -26072,11 +26072,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case FMA:
-      if (mode == SFmode)
+      if (outer_code == NEG)
+	*total = 0;
+      else if (mode == SFmode)
 	*total = rs6000_cost->fp;
       else
 	*total = rs6000_cost->dmul;
-      break;
+      return false;
 
     case DIV:
     case MOD:
@@ -26112,9 +26114,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total += COSTS_N_INSNS (2);
       return false;
 
+    case CLZ:
+      *total = rs6000_clz_cost (speed);
+      return false;
+
     case CTZ:
     case FFS:
-      *total = COSTS_N_INSNS (4);
+      *total = COSTS_N_INSNS (3) + rs6000_clz_cost (speed);
       return false;
 
     case POPCOUNT:
@@ -26134,7 +26140,6 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       /* FALLTHRU */
 
     case AND:
-    case CLZ:
     case IOR:
     case XOR:
     case ZERO_EXTRACT:
@@ -26170,9 +26175,59 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total = COSTS_N_INSNS (1);
       return false;
 
+    case LO_SUM:
+    case TRUNCATE:
+      *total = 0;
+      return false;
+
+    case ABS:
+      if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else if (TARGET_ISEL && !TARGET_ABS_CNTLZ)
+	{
+	  *total = rs6000_cmp_cost (speed) + rs6000_isel_cost (speed);
+	  return true;
+	}
+      else if (TARGET_BCP8 && !TARGET_ABS_CNTLZ)
+	{
+	  *total = rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed);
+	  return true;
+	}
+      else
+	{
+	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
+	  return true;
+	}
+
+    case SMIN:
+    case SMAX:
+    case UMIN:
+    case UMAX:
+      if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else if (TARGET_ISEL)
+	{
+	  *total = (rs6000_cmp_cost (speed) + COSTS_N_INSNS (1)
+		    + rs6000_isel_cost (speed));
+	  return true;
+	}
+      else if (TARGET_BCP8)
+	{
+	  *total = (rs6000_cmp_cost (speed) + COSTS_N_INSNS (1)
+		    + rs6000_bcp8_cost (speed));
+	  return true;
+	}
+      else
+	break;
+
     case COMPARE:
     case NEG:
-    case ABS:
       if (!FLOAT_MODE_P (mode))
 	{
 	  *total = COSTS_N_INSNS (1);
@@ -26208,8 +26263,17 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case CALL:
+      break;
+
     case IF_THEN_ELSE:
-      if (!speed)
+      /* Is it a conditional jump?  */
+      if ((GET_CODE (XEXP (x, 1)) == LABEL_REF || XEXP (x, 1) == pc_rtx)
+	  || (GET_CODE (XEXP (x, 2)) == LABEL_REF || XEXP (x, 2) == pc_rtx))
+	{
+	  *total = 0;
+	  return true;
+	}
+      else if (!speed)
 	{
 	  *total = COSTS_N_INSNS (1);
 	  return true;
@@ -26220,9 +26284,34 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = rs6000_cost->fp;
 	  return false;
 	}
+      else if (INTEGRAL_MODE_P (mode)
+	       && XEXP (x, 1) != pc_rtx
+	       && GET_CODE (XEXP (x, 1)) != LABEL_REF
+	       && XEXP (x, 2) != pc_rtx
+	       && GET_CODE (XEXP (x, 2)) != LABEL_REF)
+	{
+	  if (TARGET_ISEL)
+	    {
+	      *total = rs6000_cmp_cost (speed) + rs6000_isel_cost (speed);
+	      return false;
+	    }
+	  else if (TARGET_BCP8)
+	    {
+	      *total = rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed);
+	      return false;
+	    }
+	}
       break;
 
     case EQ:
+      if (outer_code == SET && XEXP (x, 1) == const0_rtx
+	  && (mode == SImode || mode == DImode))
+	{
+	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
+	  return true;
+	}
+      /* fall through */
+
     case GTU:
     case LTU:
       /* Carry bit requires mode == Pmode.
@@ -26233,33 +26322,57 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
-      if (outer_code == SET)
+      if (outer_code == SET
+	  && XEXP (x, 1) != const0_rtx
+	  && mode == Pmode)
 	{
-	  if (XEXP (x, 1) == const0_rtx)
-	    {
-	      if ((TARGET_ISEL || TARGET_BCP8) && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
-	      return true;
-	    }
-	  else if (mode == Pmode)
-	    {
-	      *total = COSTS_N_INSNS (3);
-	      return false;
-	    }
+	  *total = COSTS_N_INSNS (3);
+	  return false;
 	}
       /* FALLTHRU */
 
     case GT:
     case LT:
     case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
+      if (outer_code == SET)
 	{
-	  if ((TARGET_ISEL || TARGET_BCP8) && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
+	  if (TARGET_BCP8)
+	    *total = (rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed)
+		      + COSTS_N_INSNS (1));
+	  else if (TARGET_ISEL)
+	    *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed)
+		      + COSTS_N_INSNS (3));
 	  else
-	    *total = COSTS_N_INSNS (2);
+	    *total = (rs6000_cmp_cost (speed) + rs6000_mfcr_cost (speed)
+		      + COSTS_N_INSNS (1));
+	  return true;
+	}
+      /* CC COMPARE.  */
+      if (outer_code == COMPARE)
+	{
+	  *total = 0;
+	  return true;
+	}
+      break;
+
+
+    case NE:
+    case GE:
+    case GEU:
+    case LE:
+    case LEU:
+    case ORDERED:
+      if (outer_code == SET)
+	{
+	  if (TARGET_BCP8)
+	    *total = (rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed)
+		      + COSTS_N_INSNS (1));
+	  else if (TARGET_ISEL)
+	    *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed)
+		      + COSTS_N_INSNS (2));
+	  else
+	    *total = (rs6000_cmp_cost (speed) + rs6000_mfcr_cost (speed)
+		      + rs6000_crlogical_cost (speed) + COSTS_N_INSNS (1));
 	  return true;
 	}
       /* CC COMPARE.  */
@@ -26272,6 +26385,25 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     default:
       break;
+    }
+
+  if (TARGET_DEBUG_COST
+      && !((code == PC)
+	   || (code == CALL)
+	   || (code == USE)
+	   || (code == CLOBBER)
+	   || (code == SET && (outer_code == INSN || outer_code == PARALLEL))))
+    {
+      fprintf (stderr,
+	       "rs6000_rtx_costs unhandled insn, code = %s, outer_code = %s, "
+	       "opno = %d, total = %d, speed = %s, x:\n",
+	       GET_RTX_NAME (code),
+	       GET_RTX_NAME (outer_code),
+	       opno,
+	       *total,
+	       speed ? "true" : "false");
+
+      debug_rtx (x);
     }
 
   return false;
