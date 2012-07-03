@@ -707,7 +707,8 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
 static bool
 pl_valid_bounds (tree bounds)
 {
-  if (bounds == zero_bounds || bounds == none_bounds)
+  if (bounds == zero_bounds || bounds == none_bounds
+      || bounds == error_mark_node)
     return false;
 
   return true;
@@ -738,6 +739,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case VAR_DECL:
+    case PARM_DECL:
     case SSA_NAME:
     case ADDR_EXPR:
     case POINTER_PLUS_EXPR:
@@ -768,6 +770,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       }
       break;
 
+    case BIT_NOT_EXPR:
+    case NEGATE_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case EQ_EXPR:
+    case MULT_EXPR:
+      bounds = pl_get_none_bounds ();
+      break;
+
+    case COND_EXPR:
+      internal_error ("pl_compute_bounds_for_assignment: COND_EXPR is NYI");
+      break;
 
     case CONSTRUCTOR:
       /*
