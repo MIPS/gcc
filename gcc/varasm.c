@@ -2057,7 +2057,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     }
 
   /* Output reference to the end of the var for PL purposes.  */
-  if (0)
+  if (flag_pl_incomplete_type)
     if (!SYMBOL_REF_HAS_BLOCK_INFO_P (symbol) || !SYMBOL_REF_BLOCK (symbol))
     {
       const char *prefix = "__pl_end_of_";
