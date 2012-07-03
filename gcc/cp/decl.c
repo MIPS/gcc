@@ -1463,6 +1463,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    {
 	      error ("declaration of template %q#D", newdecl);
 	      error ("conflicts with previous declaration %q+#D", olddecl);
+	      return error_mark_node;
 	    }
 	  else if (TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)) == FUNCTION_DECL
 		   && TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == FUNCTION_DECL
@@ -12569,7 +12570,7 @@ incremented enumerator value is too large for %<long%>");
        a function could mean local to a class method.  */
     decl = build_decl (loc, CONST_DECL, name, type);
   
-  DECL_CONTEXT (decl) = FROB_CONTEXT (context);
+  DECL_CONTEXT (decl) = enumtype;
   TREE_CONSTANT (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_INITIAL (decl) = value;
