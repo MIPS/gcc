@@ -304,12 +304,12 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	  if ((ep = get_elimination (regno)) != NULL)
 	    {
 	      rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
-	      
+
 	      if (update_p)
-		return plus_constant (GET_MODE (x), to,
+		return plus_constant (Pmode, to,
 				      ep->offset - ep->previous_offset);
 	      else if (full_p)
-		return plus_constant (GET_MODE (x), to, ep->offset);
+		return plus_constant (Pmode, to, ep->offset);
 	      else
 		return to;
 	    }
@@ -843,8 +843,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 		      rtx src;
 		      
 		      offset -= (ep->offset - ep->previous_offset);
-		      src = plus_constant (GET_MODE (SET_SRC (old_set)),
-					   ep->to_rtx, offset);
+		      src = plus_constant (Pmode, ep->to_rtx, offset);
 		      
 		      /* First see if this insn remains valid when we
 			 make the change.  If not, keep the INSN_CODE
@@ -930,8 +929,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 	     before.  */
 	  if (offset == 0 || plus_src)
 	    {
-	      rtx new_src = plus_constant (GET_MODE (XEXP (plus_cst_src, 0)),
-					   to_rtx, offset);
+	      rtx new_src = plus_constant (GET_MODE (to_rtx), to_rtx, offset);
 	      
 	      old_set = single_set (insn);
 

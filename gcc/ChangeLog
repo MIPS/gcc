@@ -1,3 +1,9 @@
+2012-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (lra_eliminate_regs_1): Use Pmode for
+	plus_constant calls.
+	(eliminate_regs_in_insn): Ditto.
+
 2012-06-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (get_op_class): Don't process SUBREG.
