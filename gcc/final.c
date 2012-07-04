@@ -3411,8 +3411,46 @@ output_asm_insn (const char *templ, rtx *operands)
 		/* 'i' means we should output sum of opnum
 		   and (opnum + 1) operands as an address.
 		   opnum operand must be base of address.  */
-		rtx addr = gen_rtx_PLUS (Pmode, operands[opnum],
-					 operands[opnum + 1]);
+
+		/* To make sure that operands[opnum] is emitted
+		   as a base we add MULT expression to index
+		   if required.  */
+		rtx addr;
+
+		if (GET_CODE (operands[opnum + 1]) == REG)
+		  {
+		    operands[opnum + 1] = gen_rtx_MULT (Pmode,
+							operands[opnum + 1],
+							const1_rtx);
+		  }
+		else
+		  {
+		    rtx size = operands[opnum + 1];
+		    while (GET_CODE (size) == PLUS)
+		      {
+			if (GET_CODE (XEXP (size, 0)) == REG)
+			  {
+			    rtx reg = XEXP (size, 0);
+			    XEXP (size, 0) = gen_rtx_MULT (Pmode, reg,
+							   const1_rtx);
+			  }
+			else if (GET_CODE (XEXP (size, 1)) == REG)
+			  {
+			    rtx reg = XEXP (size, 1);
+			    XEXP (size, 1) = gen_rtx_MULT (Pmode, reg,
+							   const1_rtx);
+			  }
+			else if (GET_CODE (XEXP (size, 0)) == PLUS)
+			  size = XEXP (size, 0);
+			else if (GET_CODE (XEXP (size, 1)) == PLUS)
+			  size = XEXP (size, 1);
+			else
+			  break;
+		      }
+		  }
+
+		addr = gen_rtx_PLUS (Pmode, operands[opnum + 1],
+					 operands[opnum]);
 		output_address (addr);
 	      }
 	    else if (letter == 'I')

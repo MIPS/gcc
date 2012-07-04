@@ -32,7 +32,6 @@ static void pl_fix_function_decls (void);
 static void pl_init (void);
 static void pl_fini (void);
 static void pl_register_bounds (tree ptr, tree bnd);
-static tree pl_get_registered_bounds (tree ptr);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
@@ -281,24 +280,20 @@ pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
   gimple ret = gsi_stmt (*gsi);
   tree retval = gimple_return_retval (ret);
   tree ret_decl = DECL_RESULT (cfun->decl);
+  tree bounds;
 
   if (!retval)
     return;
 
-  switch TREE_CODE (TREE_TYPE (ret_decl))
+  if (POINTER_TYPE_P (TREE_TYPE (ret_decl)))
     {
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-    case ARRAY_TYPE:
-      gimple_return_set_retval2 (ret, pl_find_bounds (retval, gsi));
-      break;
-
-      /* TODO: Add support for structures which may
-	 be returned on registers.  */
-
-    default:
-      break;
+      bounds = pl_find_bounds (retval, gsi);
+      gimple_return_set_retval2 (ret, bounds);
+      pl_register_bounds (ret_decl, bounds);
     }
+
+  /* TODO: Add support for structures which may
+     be returned on registers.  */
 
   update_stmt (ret);
 }
@@ -489,7 +484,7 @@ pl_register_bounds (tree ptr, tree bnd)
     }
 }
 
-static tree
+tree
 pl_get_registered_bounds (tree ptr)
 {
   struct tree_map *res, in;

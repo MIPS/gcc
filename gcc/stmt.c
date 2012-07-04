@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pretty-print.h"
 #include "bitmap.h"
 #include "params.h"
+#include "tree-pl.h"
 
 
 /* Functions and data structures for expanding case statements.  */
@@ -1514,7 +1515,47 @@ expand_value_return (rtx val)
 
   tree decl = DECL_RESULT (current_function_decl);
   rtx return_reg = DECL_RTL (decl);
-  if (return_reg != val)
+  rtx return_reg_val = 0;
+  rtx return_reg_bnd = 0;
+
+  /* Separate bound registers and value registers.  */
+  if (flag_pl && GET_CODE (return_reg) == PARALLEL)
+    {
+      int i;
+      int val_num = 0;
+      int bnd_num = 0;
+      rtx *val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+      rtx *bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+
+      for (i = 0; i < XVECLEN (return_reg, 0); i++)
+	{
+	  rtx reg = XEXP (XVECEXP (return_reg, 0, i), 0);
+
+	  if (!reg)
+	    continue;
+
+	  if (BOUND_MODE_P (GET_MODE (reg)))
+	    bnd_tmps[bnd_num++] = XVECEXP (return_reg, 0, i);
+	  else
+	    val_tmps[val_num++] = XVECEXP (return_reg, 0, i);
+	}
+
+      gcc_assert (val_num);
+      if (val_num == 1)
+	return_reg_val = XEXP (val_tmps[0], 0);
+      else
+	return_reg_val = gen_rtx_PARALLEL (VOIDmode,
+					   gen_rtvec_v (val_num, val_tmps));
+
+      if (bnd_num == 1)
+	return_reg_bnd = XEXP (bnd_tmps[0], 0);
+      else if (bnd_num > 1)
+	internal_error ("Multiple returned bounds are NYI");
+    }
+  else
+    return_reg_val = return_reg;
+
+  if (return_reg_val != val)
     {
       tree funtype = TREE_TYPE (current_function_decl);
       tree type = TREE_TYPE (decl);
@@ -1529,10 +1570,24 @@ expand_value_return (rtx val)
       if (mode != old_mode)
 	val = convert_modes (mode, old_mode, val, unsignedp);
 
-      if (GET_CODE (return_reg) == PARALLEL)
-	emit_group_load (return_reg, val, type, int_size_in_bytes (type));
+      if (GET_CODE (return_reg_val) == PARALLEL)
+	emit_group_load (return_reg_val, val, type, int_size_in_bytes (type));
       else
-	emit_move_insn (return_reg, val);
+	emit_move_insn (return_reg_val, val);
+    }
+
+  if (flag_pl && return_reg_bnd)
+    {
+      tree bounds = pl_get_registered_bounds (decl);
+      if (bounds)
+	{
+	  rtx bnd_rtl = expand_normal (bounds);
+
+	  if (GET_CODE (return_reg_val) == PARALLEL)
+	    internal_error ("Multiple returned bounds are NYI");
+	  else
+	    emit_move_insn (return_reg_bnd, bnd_rtl);
+	}
     }
 
   expand_null_return_1 ();
@@ -1552,7 +1607,7 @@ expand_null_return_1 (void)
    from the current function.  */
 
 void
-expand_return (tree retval, tree retval2, tree retval3)
+expand_return (tree retval)
 {
   rtx result_rtl;
   rtx val = 0;
@@ -1581,25 +1636,6 @@ expand_return (tree retval, tree retval2, tree retval3)
     retval_rhs = retval;
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
-
-  if (retval2 && REG_P (result_rtl))
-    {
-      rtx reg;
-
-      gcc_assert (BOUND_TYPE_P (TREE_TYPE (retval2)));
-      gcc_assert (!retval3);
-
-      reg = targetm.calls.function_value (TREE_TYPE (retval2),
-					  current_function_decl,
-					  0);
-      emit_move_insn (reg, expand_normal (retval2));
-    }
-  else
-    {
-      /* Bound values fo this case are not supported yet. */
-      gcc_assert (!retval2);
-      gcc_assert (!retval3);
-    }
 
   /* If we are returning the RESULT_DECL, then the value has already
      been stored into it, so we don't have to do anything special.  */

@@ -2091,7 +2091,7 @@ expand_call_stmt (gimple stmt)
 static void
 expand_gimple_stmt_1 (gimple stmt)
 {
-  tree op0, op1, op2;
+  tree op0;
 
   set_curr_insn_source_location (gimple_location (stmt));
   set_curr_insn_block (gimple_block (stmt));
@@ -2123,8 +2123,6 @@ expand_gimple_stmt_1 (gimple stmt)
 
     case GIMPLE_RETURN:
       op0 = gimple_return_retval (stmt);
-      op1 = gimple_return_retval2 (stmt);
-      op2 = gimple_return_retval3 (stmt);
 
       if (op0 && op0 != error_mark_node)
 	{
@@ -2150,7 +2148,7 @@ expand_gimple_stmt_1 (gimple stmt)
       if (!op0)
 	expand_null_return ();
       else
-	expand_return (op0, op1, op2);
+	expand_return (op0);
       break;
 
     case GIMPLE_ASSIGN:

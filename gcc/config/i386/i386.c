@@ -6348,6 +6348,8 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	(*int_nregs)++;
+	if (flag_pl && in_return && POINTER_TYPE_P (type))
+	  (*bnd_nregs)++;
 	break;
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
@@ -6401,6 +6403,11 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   n = classify_argument (mode, type, regclass, 0);
   if (!n)
     return NULL;
+
+  /* We need one more value to return bounds of the returned pointer.  */
+  if (flag_pl && in_return && POINTER_TYPE_P (type))
+    regclass[n++] = X86_64_BND_CLASS;
+
   if (!examine_argument (mode, type, in_return, &needed_intregs,
 			 &needed_sseregs, &needed_bndregs))
     return NULL;
@@ -6578,6 +6585,14 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 						SSE_REGNO (sse_regno)),
 				   GEN_INT (pos*8));
 	    sse_regno++;
+	    break;
+	  case X86_64_BND_CLASS:
+	    tmpmode = TARGET_64BIT ? BND64mode : BND32mode;
+	    exp [nexps++]
+	      = gen_rtx_EXPR_LIST (VOIDmode,
+				   gen_rtx_REG (tmpmode, bnd_regno),
+				   GEN_INT (0));
+	    bnd_regno++;
 	    break;
 	  default:
 	    gcc_unreachable ();
@@ -7321,6 +7336,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 		   const_tree fntype, const_tree fn)
 {
   unsigned int regno;
+  rtx res;
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
      we normally prevent this case when mmx is not available.  However
@@ -7363,7 +7379,18 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   /* OImode shouldn't be used directly.  */
   gcc_assert (mode != OImode);
 
-  return gen_rtx_REG (orig_mode, regno);
+  res = gen_rtx_REG (orig_mode, regno);
+
+  if (flag_pl && POINTER_TYPE_P (TREE_TYPE (fntype)))
+    {
+      rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+			    FIRST_BND_REG);
+      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
+      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+    }
+
+  return res;
 }
 
 static rtx
@@ -7421,9 +7448,11 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 }
 
 static rtx
-function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
+function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
+		      const_tree valtype)
 {
   unsigned int regno = AX_REG;
+  rtx res;
 
   if (mode == BND64mode)
     regno = FIRST_BND_REG;
@@ -7445,7 +7474,19 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
 	  break;
         }
     }
-  return gen_rtx_REG (orig_mode, regno);
+
+  res = gen_rtx_REG (orig_mode, regno);
+
+  if (flag_pl && POINTER_TYPE_P (valtype))
+    {
+      rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+			    FIRST_BND_REG);
+      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
+      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+    }
+
+  return res;
 }
 
 static rtx
@@ -7460,7 +7501,7 @@ ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
   fntype = fn ? TREE_TYPE (fn) : fntype_or_decl;
 
   if (TARGET_64BIT && ix86_function_type_abi (fntype) == MS_ABI)
-    return function_value_ms_64 (orig_mode, mode);
+    return function_value_ms_64 (orig_mode, mode, valtype);
   else if (TARGET_64BIT)
     return function_value_64 (orig_mode, mode, valtype);
   else
@@ -11611,17 +11652,8 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	{
 	  if (n >= 4)
 	    return 0;
-
-	  if (GET_CODE (XEXP (op, 1)) == PLUS)
-	    {
-	      addends[n++] = XEXP (op, 0);
-	      op = XEXP (op, 1);
-	    }
-	  else
-	    {
-	      addends[n++] = XEXP (op, 1);
-	      op = XEXP (op, 0);
-	    }
+	  addends[n++] = XEXP (op, 1);
+	  op = XEXP (op, 0);
 	}
       while (GET_CODE (op) == PLUS);
       if (n >= 4)
