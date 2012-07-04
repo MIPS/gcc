@@ -225,18 +225,22 @@ lra_get_elimation_hard_regno (int hard_regno)
   return ep->to;
 }
 
-/* Return elimination which will be used for HARD_REGNO, NULL otherwise.  */
+/* Return elimination which will be used for hard reg REG, NULL
+   otherwise.  */
 static struct elim_table *
-get_elimination (int hard_regno)
+get_elimination (rtx reg)
 {
+  int hard_regno;
   struct elim_table *ep;
   HOST_WIDE_INT offset;
 
-  if (hard_regno < 0 || hard_regno >= FIRST_PSEUDO_REGISTER)
+  lra_assert (REG_P (reg));
+  if ((hard_regno = REGNO (reg)) < 0 || hard_regno >= FIRST_PSEUDO_REGISTER)
     return NULL;
-  if ((ep = elimination_map[hard_regno]) != NULL
-      || (offset = self_elim_offsets[hard_regno]) == 0)
-    return ep;
+  if ((ep = elimination_map[hard_regno]) != NULL)
+    return ep->from_rtx != reg ? NULL : ep;
+  if ((offset = self_elim_offsets[hard_regno]) == 0)
+    return NULL;
   /* This is an iteration to restore offsets just after HARD_REGNO
      stopped to be eliminable.  */
   self_elim_table.from = self_elim_table.to = hard_regno;
@@ -268,7 +272,6 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 {
   enum rtx_code code = GET_CODE (x);
   struct elim_table *ep;
-  int regno;
   rtx new_rtx;
   int i, j;
   const char *fmt;
@@ -295,24 +298,18 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case REG:
-      regno = REGNO (x);
-
       /* First handle the case where we encounter a bare register that
 	 is eliminable.  Replace it with a PLUS.  */
-      if (regno < FIRST_PSEUDO_REGISTER)
+      if ((ep = get_elimination (x)) != NULL)
 	{
-	  if ((ep = get_elimination (regno)) != NULL)
-	    {
-	      rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
-
-	      if (update_p)
-		return plus_constant (Pmode, to,
-				      ep->offset - ep->previous_offset);
-	      else if (full_p)
-		return plus_constant (Pmode, to, ep->offset);
-	      else
-		return to;
-	    }
+	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
+	  
+	  if (update_p)
+	    return plus_constant (Pmode, to, ep->offset - ep->previous_offset);
+	  else if (full_p)
+	    return plus_constant (Pmode, to, ep->offset);
+	  else
+	    return to;
 	}
       return x;
 
@@ -333,11 +330,9 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
     case PLUS:
       /* If this is the sum of an eliminable register and a constant, rework
 	 the sum.  */
-      if (REG_P (XEXP (x, 0))
-	  && (regno = REGNO (XEXP (x, 0))) < FIRST_PSEUDO_REGISTER
-	  && CONSTANT_P (XEXP (x, 1)))
+      if (REG_P (XEXP (x, 0)) && CONSTANT_P (XEXP (x, 1)))
 	{
-	  if ((ep = get_elimination (regno)) != NULL)
+	  if ((ep = get_elimination (XEXP (x, 0))) != NULL)
 	    {
 	      HOST_WIDE_INT offset;
 	      rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
@@ -407,27 +402,25 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	 so that we have (plus (mult ..) ..).  This is needed in order
 	 to keep load-address insns valid.   This case is pathological.
 	 We ignore the possibility of overflow here.  */
-      if (REG_P (XEXP (x, 0))
-	  && (regno = REGNO (XEXP (x, 0))) < FIRST_PSEUDO_REGISTER
-	  && CONST_INT_P (XEXP (x, 1)))
-	  if ((ep = get_elimination (regno)) != NULL)
-	    {
-	      rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
-	      
-	      if (update_p)
-		return
-		  plus_constant (Pmode,
-				 gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
-				 (ep->offset - ep->previous_offset)
-				 * INTVAL (XEXP (x, 1)));
-	      else if (full_p)
-		return
-		  plus_constant (Pmode,
-				 gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
-				 ep->offset * INTVAL (XEXP (x, 1)));
-	      else
-		return gen_rtx_MULT (Pmode, to, XEXP (x, 1));
-	    }
+      if (REG_P (XEXP (x, 0)) && CONST_INT_P (XEXP (x, 1))
+	  && (ep = get_elimination (XEXP (x, 0))) != NULL)
+	{
+	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
+	  
+	  if (update_p)
+	    return
+	      plus_constant (Pmode,
+			     gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
+			     (ep->offset - ep->previous_offset)
+			     * INTVAL (XEXP (x, 1)));
+	  else if (full_p)
+	    return
+	      plus_constant (Pmode,
+			     gen_rtx_MULT (Pmode, to, XEXP (x, 1)),
+			     ep->offset * INTVAL (XEXP (x, 1)));
+	  else
+	    return gen_rtx_MULT (Pmode, to, XEXP (x, 1));
+	}
       
       /* ... fall through ...  */
 
@@ -769,7 +762,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
   int icode = recog_memoized (insn);
   rtx old_set = single_set (insn);
   bool val;
-  int i, regno;
+  int i;
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
   struct elim_table *ep;
@@ -787,93 +780,88 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       return;
     }
 
+  /* Check for setting an eliminable register.  */
   if (old_set != 0 && REG_P (SET_DEST (old_set))
-      && (regno = REGNO (SET_DEST (old_set))) < FIRST_PSEUDO_REGISTER)
+      && (ep = get_elimination (SET_DEST (old_set))) != NULL)
     {
-      /* Check for setting an eliminable register.  */
-      if ((ep = get_elimination (regno)) != NULL)
-	{
-	  bool delete_p = replace_p;
-
+      bool delete_p = replace_p;
+      
 #ifdef HARD_FRAME_POINTER_REGNUM
-	  /* If this is setting the frame pointer register to the
-	     hardware frame pointer register and this is an
-	     elimination that will be done (tested above), this insn
-	     is really adjusting the frame pointer downward to
-	     compensate for the adjustment done before a nonlocal
-	     goto.  */
-	  if (ep->from == FRAME_POINTER_REGNUM
-	      && ep->to == HARD_FRAME_POINTER_REGNUM)
+      /* If this is setting the frame pointer register to the hardware
+	 frame pointer register and this is an elimination that will
+	 be done (tested above), this insn is really adjusting the
+	 frame pointer downward to compensate for the adjustment done
+	 before a nonlocal goto.  */
+      if (ep->from == FRAME_POINTER_REGNUM
+	  && ep->to == HARD_FRAME_POINTER_REGNUM)
+	{
+	  if (replace_p)
 	    {
-	      if (replace_p)
+	      SET_DEST (old_set) = ep->to_rtx;
+	      lra_update_insn_recog_data (insn);
+	      return;
+	    }
+	  else
+	    {
+	      rtx base = SET_SRC (old_set);
+	      HOST_WIDE_INT offset = 0;
+	      rtx base_insn = insn;
+	      
+	      while (base != ep->to_rtx)
 		{
-		  SET_DEST (old_set) = ep->to_rtx;
+		  rtx prev_insn, prev_set;
+		  
+		  if (GET_CODE (base) == PLUS && CONST_INT_P (XEXP (base, 1)))
+		    {
+		      offset += INTVAL (XEXP (base, 1));
+		      base = XEXP (base, 0);
+		    }
+		  else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
+			   && (prev_set = single_set (prev_insn)) != 0
+			   && rtx_equal_p (SET_DEST (prev_set), base))
+		    {
+		      base = SET_SRC (prev_set);
+		      base_insn = prev_insn;
+		    }
+		  else
+		    break;
+		}
+	      
+	      if (base == ep->to_rtx)
+		{
+		  rtx src;
+		  
+		  offset -= (ep->offset - ep->previous_offset);
+		  src = plus_constant (Pmode, ep->to_rtx, offset);
+		  
+		  /* First see if this insn remains valid when we
+		     make the change.  If not, keep the INSN_CODE
+		     the same and let reload fit it up.  */
+		  validate_change (insn, &SET_SRC (old_set), src, 1);
+		  validate_change (insn, &SET_DEST (old_set),
+				   ep->from_rtx, 1);
+		  if (! apply_change_group ())
+		    {
+		      SET_SRC (old_set) = src;
+		      SET_DEST (old_set) = ep->from_rtx;
+		    }
 		  lra_update_insn_recog_data (insn);
 		  return;
 		}
-	      else
-		{
-		  rtx base = SET_SRC (old_set);
-		  HOST_WIDE_INT offset = 0;
-		  rtx base_insn = insn;
-
-		  while (base != ep->to_rtx)
-		    {
-		      rtx prev_insn, prev_set;
-		      
-		      if (GET_CODE (base) == PLUS
-			  && CONST_INT_P (XEXP (base, 1)))
-			{
-			  offset += INTVAL (XEXP (base, 1));
-			  base = XEXP (base, 0);
-			}
-		      else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
-			       && (prev_set = single_set (prev_insn)) != 0
-			       && rtx_equal_p (SET_DEST (prev_set), base))
-			{
-			  base = SET_SRC (prev_set);
-			  base_insn = prev_insn;
-			}
-		      else
-			break;
-		    }
-
-		  if (base == ep->to_rtx)
-		    {
-		      rtx src;
-		      
-		      offset -= (ep->offset - ep->previous_offset);
-		      src = plus_constant (Pmode, ep->to_rtx, offset);
-		      
-		      /* First see if this insn remains valid when we
-			 make the change.  If not, keep the INSN_CODE
-			 the same and let reload fit it up.  */
-		      validate_change (insn, &SET_SRC (old_set), src, 1);
-		      validate_change (insn, &SET_DEST (old_set),
-				       ep->from_rtx, 1);
-		      if (! apply_change_group ())
-			{
-			  SET_SRC (old_set) = src;
-			  SET_DEST (old_set) = ep->from_rtx;
-			}
-		      lra_update_insn_recog_data (insn);
-		      return;
-		    }
-		}
-
-	     
-	      /* We can't delete this insn, but needn't process it
-		 since it won't be used unless something changes. */
-	      delete_p = false;
 	    }
-#endif
 	  
-	  /* This insn isn't serving a useful purpose.  We delete it
-	     when REPLACE is set.  */
-	  if (delete_p)
-	    lra_delete_dead_insn (insn);
-	  return;
+	  
+	  /* We can't delete this insn, but needn't process it
+	     since it won't be used unless something changes. */
+	  delete_p = false;
 	}
+#endif
+      
+      /* This insn isn't serving a useful purpose.  We delete it
+	 when REPLACE is set.  */
+      if (delete_p)
+	lra_delete_dead_insn (insn);
+      return;
     }
 
   /* We allow one special case which happens to work on all machines we
@@ -909,8 +897,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       if (GET_CODE (reg) == SUBREG)
 	reg = SUBREG_REG (reg);
 
-      if (REG_P (reg) && (regno = REGNO (reg)) < FIRST_PSEUDO_REGISTER
-	  && (ep = get_elimination (regno)) != NULL)
+      if (REG_P (reg) && (ep = get_elimination (reg)) != NULL)
 	{
 	  rtx to_rtx = replace_p ? ep->to_rtx : ep->from_rtx;
 	  
@@ -1234,7 +1221,7 @@ lra_eliminate_reg_if_possible (rtx *loc)
       /* Virtual registers are not allocatable. ??? */
       || ! TEST_HARD_REG_BIT (lra_no_alloc_regs, regno))
     return;
-  if ((ep = get_elimination (regno)) != NULL)
+  if ((ep = get_elimination (*loc)) != NULL)
     *loc = ep->to_rtx;
 }
 
