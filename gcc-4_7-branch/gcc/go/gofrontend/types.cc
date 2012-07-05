@@ -7863,6 +7863,10 @@ Find_type_use::type(Type* type)
 bool
 Named_type::do_verify()
 {
+  if (this->is_verified_)
+    return true;
+  this->is_verified_ = true;
+
   Find_type_use find(this);
   Type::traverse(this->type_, &find);
   if (find.found())
@@ -7972,6 +7976,11 @@ Named_type::convert(Gogo* gogo)
     return;
 
   this->create_placeholder(gogo);
+
+  // If we are called to turn unsafe.Sizeof into a constant, we may
+  // not have verified the type yet.  We have to make sure it is
+  // verified, since that sets the list of dependencies.
+  this->verify();
 
   // Convert all the dependencies.  If they refer indirectly back to
   // this type, they will pick up the intermediate tree we just
@@ -8328,14 +8337,23 @@ Named_type::do_reflection(Gogo* gogo, std::string* ret) const
     {
       // We handle -fgo-prefix and -fgo-pkgpath differently here for
       // compatibility with how the compiler worked before
-      // -fgo-pkgpath was introduced.
+      // -fgo-pkgpath was introduced.  When -fgo-pkgpath is specified,
+      // we use it to make a unique reflection string, so that the
+      // type canonicalization in the reflect package will work.  In
+      // order to be compatible with the gc compiler, we put tabs into
+      // the package path, so that the reflect methods can discard it.
       const Package* package = this->named_object_->package();
       if (gogo->pkgpath_from_option())
-	ret->append(package != NULL ? package->pkgpath() : gogo->pkgpath());
-      else
-	ret->append(package != NULL
-		    ? package->package_name()
-		    : gogo->package_name());
+	{
+	  ret->push_back('\t');
+	  ret->append(package != NULL
+		      ? package->pkgpath_symbol()
+		      : gogo->pkgpath_symbol());
+	  ret->push_back('\t');
+	}
+      ret->append(package != NULL
+		  ? package->package_name()
+		  : gogo->package_name());
       ret->push_back('.');
     }
   if (this->in_function_ != NULL)
