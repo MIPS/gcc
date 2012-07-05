@@ -1,5 +1,6 @@
 2012-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(mrmcmove28)
 	* config/rs6000/rs6000.c (rs6000_rtx_costs_comparison): New
 	function to break out common code for rs6000_rtx_costs on
 	comparisons.
