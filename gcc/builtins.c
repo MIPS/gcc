@@ -12109,7 +12109,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2))
+      if (va_start_p && (nargs != 2) && (nargs != 3 || !flag_pl))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
