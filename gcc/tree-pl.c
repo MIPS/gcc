@@ -826,8 +826,13 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       switch (TREE_CODE (var))
 	{
 	case PARM_DECL:
-	case VAR_DECL:
 	  bounds = pl_find_bounds (var, iter);
+	  pl_register_bounds (node, bounds);
+	  break;
+
+	case VAR_DECL:
+	  /* For uninitialized pointers use none bounds.  */
+	  bounds = pl_get_none_bounds ();
 	  pl_register_bounds (node, bounds);
 	  break;
 
