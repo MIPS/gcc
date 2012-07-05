@@ -1,10 +1,20 @@
+2012-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs_comparison): New
+	function to break out common code for rs6000_rtx_costs on
+	comparisons.
+	(rs6000_rtx_costs): Make all comparison costs add in special
+	optimizations, etc.
+
 2012-07-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(mrmcmove27)
 	* config/rs6000/rs6000.c (rs6000_rtx_costs): Update costs to more
 	accurately reflect modern processors.
 
 2012-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(mrmcmove26)
 	* config/rs6000/predicates.md (bcp8_comparison_operator): Merge
 	signed_branch_comparison_operator and unsigned_branch_comparison
 	operator together into bcp8_comparison_operator.

@@ -25931,6 +25931,43 @@ rs6000_xcoff_file_end (void)
 }
 #endif /* TARGET_XCOFF */
 
+/* Helper function for rs6000_rtx_costs that calculates the common costs for
+   comparison.  */
+
+static bool
+rs6000_rtx_costs_comparison (int outer_code, int *total, bool speed, bool crnot)
+{
+  if (outer_code == SET)
+    {
+      int costs = rs6000_cmp_cost (speed);
+      if (TARGET_BCP8)
+	/* cmp; li <ret>,0; bc+8; li <ret>,1.  */
+	costs += rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+      else if (TARGET_ISEL)
+	/* cmp; li <tmp>,1; isel <ret>,r0,<tmp>.  */
+	costs += rs6000_isel_cost (speed) + COSTS_N_INSNS (1);
+      else
+	{
+	  /* cmp; mfcr; rlwinm.  */
+	  costs += rs6000_mfcr_cost (speed) + COSTS_N_INSNS (1);
+
+	  /* Account for crnot if we need to reverse the sense of the test.  */
+	  if (crnot)
+	    costs += rs6000_crlogical_cost (speed);
+	}
+
+      *total = costs;
+      return true;
+    }
+  else if (outer_code == COMPARE)
+    {
+      *total = 0;
+      return true;
+    }
+
+  return false;
+}
+
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -26213,8 +26250,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	}
       else if (TARGET_ISEL)
 	{
-	  *total = (rs6000_cmp_cost (speed) + COSTS_N_INSNS (1)
-		    + rs6000_isel_cost (speed));
+	  *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed));
 	  return true;
 	}
       else if (TARGET_BCP8)
@@ -26273,11 +26309,6 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = 0;
 	  return true;
 	}
-      else if (!speed)
-	{
-	  *total = COSTS_N_INSNS (1);
-	  return true;
-	}
       else if (FLOAT_MODE_P (mode)
 	       && TARGET_PPC_GFXOPT && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
@@ -26288,99 +26319,153 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	       && XEXP (x, 1) != pc_rtx
 	       && GET_CODE (XEXP (x, 1)) != LABEL_REF
 	       && XEXP (x, 2) != pc_rtx
-	       && GET_CODE (XEXP (x, 2)) != LABEL_REF)
+	       && GET_CODE (XEXP (x, 2)) != LABEL_REF
+	       && (TARGET_ISEL || TARGET_BCP8))
 	{
+	  rtx cmp = XEXP (x, 0);
+
+	  /* If this is a merged bc+8, add in the costs of the comparison.  */
+	  int costs
+	    = ((COMPARISON_P (cmp)
+		&& GET_MODE_CLASS (GET_MODE (XEXP (cmp, 0))) != MODE_CC)
+	       ? rs6000_cmp_cost (speed) : 0);
+
 	  if (TARGET_ISEL)
-	    {
-	      *total = rs6000_cmp_cost (speed) + rs6000_isel_cost (speed);
-	      return false;
-	    }
-	  else if (TARGET_BCP8)
-	    {
-	      *total = rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed);
-	      return false;
-	    }
+	    costs += rs6000_isel_cost (speed);
+	  else
+	    costs += rs6000_bcp8_cost (speed);
+
+	  *total = costs;
+	  return true;
 	}
+      break;
+
+    case NE:
+      if (outer_code == SET && (mode == SImode || mode == DImode))
+	{
+	  /* Add xor if not comparing against 0.  */
+	  int costs = ((XEXP (x, 1) == const0_rtx) ? 0 : COSTS_N_INSNS (1));
+
+	  /* cntlzw; srwi;  xori.  */
+	  costs += rs6000_clz_cost (speed) + COSTS_N_INSNS (2);
+
+	  *total = costs;
+	  return true;
+	}
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
       break;
 
     case EQ:
-      if (outer_code == SET && XEXP (x, 1) == const0_rtx
-	  && (mode == SImode || mode == DImode))
+      if (outer_code == SET && (mode == SImode || mode == DImode))
 	{
-	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
+	  /* Add xor if not comparing against 0.  */
+	  int costs = ((XEXP (x, 1) == const0_rtx) ? 0 : COSTS_N_INSNS (1));
+
+	  /* cntlzw; srwi.  */
+	  costs += rs6000_clz_cost (speed) + COSTS_N_INSNS (1);
+
+	  *total = costs;
 	  return true;
 	}
-      /* fall through */
-
-    case GTU:
-    case LTU:
       /* Carry bit requires mode == Pmode.
 	 NEG or PLUS already counted so only add one.  */
+      else if (mode == Pmode
+	       && (outer_code == NEG || outer_code == PLUS))
+	{
+	  /* Optional xor; subfic; addze.  */
+	  *total = COSTS_N_INSNS ((XEXP (x, 1) == const0_rtx) ? 1 : 2);
+	  return true;
+	}
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
+
+    case GTU:
+      if (outer_code == SET && XEXP (x, 1) == const0_rtx)
+	{
+	  /* cntlzw; srwi; xori.  */
+	  *total = rs6000_clz_cost (speed) + COSTS_N_INSNS (2);
+	  return false;
+	}
+      /* fall through.  */
+
+    case LTU:
+      /* Carry bit requires mode == Pmode.
+	 NEG or PLUS already counted so only add 1.  */
       if (mode == Pmode
 	  && (outer_code == NEG || outer_code == PLUS))
 	{
+	  /* subfc; addze.  */
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
-      if (outer_code == SET
-	  && XEXP (x, 1) != const0_rtx
-	  && mode == Pmode)
+      else if (outer_code == SET && mode == Pmode)
 	{
+	  /* subfc; subfe; neg.  */
 	  *total = COSTS_N_INSNS (3);
 	  return false;
 	}
-      /* FALLTHRU */
-
-    case GT:
-    case LT:
-    case UNORDERED:
-      if (outer_code == SET)
-	{
-	  if (TARGET_BCP8)
-	    *total = (rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed)
-		      + COSTS_N_INSNS (1));
-	  else if (TARGET_ISEL)
-	    *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed)
-		      + COSTS_N_INSNS (3));
-	  else
-	    *total = (rs6000_cmp_cost (speed) + rs6000_mfcr_cost (speed)
-		      + COSTS_N_INSNS (1));
-	  return true;
-	}
-      /* CC COMPARE.  */
-      if (outer_code == COMPARE)
-	{
-	  *total = 0;
-	  return true;
-	}
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
       break;
 
+    case GT:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srawi; subf; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
 
-    case NE:
     case GE:
-    case GEU:
+      if (XEXP (x, 1) == const0_rtx)
+	/* nor; srwi.  */
+	return COSTS_N_INSNS (2);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case LT:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srwi.  */
+	return COSTS_N_INSNS (1);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
+
     case LE:
+      if (XEXP (x, 1) == const0_rtx)
+	/* addi; or; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case GEU:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srawi; subf; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
     case LEU:
+      if (XEXP (x, 1) == const0_rtx)
+	/* cntlzw; srwi.  */
+	return rs6000_clz_cost (speed) + COSTS_N_INSNS (1);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case UNORDERED:
+      if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
     case ORDERED:
-      if (outer_code == SET)
-	{
-	  if (TARGET_BCP8)
-	    *total = (rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed)
-		      + COSTS_N_INSNS (1));
-	  else if (TARGET_ISEL)
-	    *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed)
-		      + COSTS_N_INSNS (2));
-	  else
-	    *total = (rs6000_cmp_cost (speed) + rs6000_mfcr_cost (speed)
-		      + rs6000_crlogical_cost (speed) + COSTS_N_INSNS (1));
-	  return true;
-	}
-      /* CC COMPARE.  */
-      if (outer_code == COMPARE)
-	{
-	  *total = 0;
-	  return true;
-	}
+      if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
       break;
 
     default:
