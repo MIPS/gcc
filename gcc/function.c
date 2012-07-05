@@ -1611,6 +1611,10 @@ instantiate_virtual_regs_in_insn (rtx insn)
       x = recog_data.operand[i];
       switch (GET_CODE (x))
 	{
+	case PLUS:
+	  for_each_rtx (&x, instantiate_virtual_regs_in_rtx, NULL);
+	  break;
+
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
