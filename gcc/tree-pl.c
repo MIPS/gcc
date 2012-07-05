@@ -826,12 +826,8 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       switch (TREE_CODE (var))
 	{
 	case PARM_DECL:
-	  bounds = pl_get_bound_for_parm (var);
-	  pl_register_bounds (node, bounds);
-	  break;
-
 	case VAR_DECL:
-	  bounds = pl_get_none_bounds ();
+	  bounds = pl_find_bounds (var, iter);
 	  pl_register_bounds (node, bounds);
 	  break;
 
@@ -1130,6 +1126,10 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       bounds = pl_build_bndldx (addr, ptr, iter);
       break;
 
+    case PARM_DECL:
+      bounds = pl_get_bound_for_parm (ptr_src);
+      break;
+
     case TARGET_MEM_REF:
       addr = tree_mem_ref_addr (ptr_type_node, ptr_src);
       bounds = pl_build_bndldx (addr, ptr, iter);
@@ -1158,7 +1158,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		  tree arg = gimple_phi_arg_def (def_stmt, i);
 		  tree arg_bnd;
 
-		  arg_bnd = pl_find_bounds (arg, &phi_iter);
+		  arg_bnd = pl_find_bounds_no_error (arg, &phi_iter);
 
 		  add_phi_arg (phi_bnd, arg_bnd,
 			       gimple_phi_arg_edge (def_stmt, i),
