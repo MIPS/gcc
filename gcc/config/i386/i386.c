@@ -12012,6 +12012,17 @@ ix86_decomposed_address_p (rtx val1, rtx val2)
 {
   enum machine_mode mode = GET_MODE (val1);
   return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
+
+  /*
+  if (!REG_P (val2))
+    return false;
+
+  if (is_index && (REGNO (val2) == VIRTUAL_INCOMING_ARGS_REGNUM
+		   || REGNO (val2) == VIRTUAL_STACK_VARS_REGNUM
+		   || REGNO (val2) == VIRTUAL_OUTGOING_ARGS_REGNUM))
+    return false;
+
+  return true; */
 }
 
 /* Nonzero if the constant value X is a legitimate general operand
@@ -29636,6 +29647,16 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = force_reg (Pmode, op0);
       op1 = force_reg (Pmode, op1);
 
+      /* Avoid registers which connot be used as index.  */
+      if (REGNO (op1) == VIRTUAL_INCOMING_ARGS_REGNUM
+	  || REGNO (op1) == VIRTUAL_STACK_VARS_REGNUM
+	  || REGNO (op1) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  emit_move_insn (temp, op1);
+	  op1 = temp;
+	}
+
       emit_insn (TARGET_64BIT
                  ? gen_bnd64_ldx (target, op0, op1)
                  : gen_bnd32_ldx (target, op0, op1));
@@ -30391,6 +30412,17 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
     gcc_unreachable ();
 
   ptr = force_reg (Pmode, ptr);
+
+  /* Avoid registers which connot be used as index.  */
+  if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM
+      || REGNO (ptr) == VIRTUAL_STACK_VARS_REGNUM
+      || REGNO (ptr) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+    {
+      rtx temp = gen_reg_rtx (Pmode);
+      emit_move_insn (temp, ptr);
+      ptr = temp;
+    }
+
   bounds = force_reg (GET_MODE (bounds), bounds);
 
   emit_insn (TARGET_64BIT
