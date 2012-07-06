@@ -1,3 +1,34 @@
+2012-07-03  Michael Hope  <michael.hope@linaro.org>
+
+	PR c++/53814
+	* g++.dg/cpp0x/nullptr28.C: Change selector for explicit
+	options.
+
+2012-06-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53790
+	* gcc.dg/torture/pr53790.c: New testcase.
+
+2012-06-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/52988
+	* g++.dg/cpp0x/nullptr28.C: New.
+
+2012-06-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* gcc.dg/stack-usage-1.c: Remove dg-options line for sh targets
+	and add __sh__ case.
+
+2012-06-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/53597
+	* gfortran.dg/save_4.f90: New.
+
+2012-06-13  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/53621
+	* gcc.dg/stack-usage-1.c: Force -fomit-frame-pointer on SH.
+
 2012-06-05  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/50619

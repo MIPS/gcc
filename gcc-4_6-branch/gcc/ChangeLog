@@ -1,3 +1,70 @@
+2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53433
+	* tree-ssa-ccp.c (get_base_constructor): Do not return an
+	error_mark_node DECL_INITIAL.
+
+2012-07-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/38474
+	* ipa-prop.c (compute_known_type_jump_func): Check for a BINFO before
+	checking for a dynamic type change.
+
+2012-06-28  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53790
+	* expr.c (expand_expr_real_1): Verify if the type is complete
+	before inspecting its size.
+
+2012-06-22  Richard Guenther  <rguenther@suse.de>
+
+	* gcov-iov.c: Include bconfig.h and system.h.
+
+2012-06-22  Richard Guenther  <rguenther@suse.de>
+
+	PR gcov-profile/53744
+	* gcov-iov.c (main): Treat "" and "prerelease" the same.
+
+2012-06-19  Joey Ye  <joey.ye@arm.com>
+
+	Backported from mainline
+	2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	* config/arm/arm.h (TARGET_HAVE_DMB_MCR): MCR Not available in Thumb1.
+
+2012-06-18  Joey Ye  <joey.ye@arm.com>
+
+	Backported from mainline
+	2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	PR target/48126
+	* config/arm/arm.c (arm_output_sync_loop): Move label before barrier.
+
+2012-06-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2012-06-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (vcvtph2ps): Fix vec_select selector.
+
+2012-06-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2012-06-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.h (MAX_PCREL17F_OFFSET): Define.
+	* config/pa/pa.c (pa_attr_length_millicode_call): Use
+	MAX_PCREL17F_OFFSET instead of fixed offset.
+	(pa_attr_length_call): Likewise.
+	(pa_attr_length_indirect_call): Likewise.
+
+2012-06-12  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/53621
+	* config/sh/sh.c (sh_option_override): Don't force
+	 flag_omit_frame_pointer and maccumulate_outgoing_args.
+	* config/sh/sh.opt (maccumulate-outgoing-args): Init as Var.
+
 2012-06-05  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
@@ -40,7 +107,7 @@
 2012-05-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
-        2012-05-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2012-05-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR target/53385
 	* config/rs6000/rs6000.c (print_operand): Revise code that unsafely
@@ -71,8 +138,7 @@
 	2012-04-12  Richard Guenther  <rguenther@suse.de>
 
 	PR c/52862
-	* convert.c (convert_to_pointer): Remove special-casing of
-	zero.
+	* convert.c (convert_to_pointer): Remove special-casing of zero.
 
 2012-05-21  Joseph Myers  <joseph@codesourcery.com>
 
