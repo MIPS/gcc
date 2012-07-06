@@ -371,6 +371,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
       return;
 
     case PLUS:
+    case LO_SUM:
       /* When we have an address that is a sum, we must determine
 	 whether registers are "base" or "index" regs.  If there is a
 	 sum of two registers, we must choose one to be the
@@ -399,11 +400,10 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 
 	/* If this machine only allows one register per address, it
 	   must be in the first operand.  */
-	if (MAX_REGS_PER_ADDRESS == 1)
+	if (MAX_REGS_PER_ADDRESS == 1 || code == LO_SUM)
 	  {
-	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, code,
 				      code1, modify_p, ad);
-	    lra_assert (CONSTANT_P (arg1)); /* It should be a displacement.  */
 	    ad->disp_loc = arg1_loc;
 	  }
 	/* If index and base registers are the same on this machine,
@@ -2600,12 +2600,41 @@ process_address (int nop, rtx *before, rtx *after)
     {
       if (ad.index_reg_loc == NULL)
 	{
-	  /* disp => new_base  */
+	  int code = -1;
 	  enum reg_class cl = base_reg_class (mode, as, SCRATCH, SCRATCH);
 	  
 	  new_reg = lra_create_new_reg (Pmode, NULL_RTX, cl, "disp");
-	  lra_emit_move (new_reg, *ad.disp_loc);
-	  *ad.disp_loc = new_reg;
+#ifdef HAVE_lo_sum
+	  {
+	    rtx insn;
+	    rtx last = get_last_insn ();
+
+	    /* disp => lo_sum (new_base, disp)  */
+	    insn = emit_insn (gen_rtx_SET
+			      (VOIDmode, new_reg,
+			       gen_rtx_HIGH (Pmode, copy_rtx (*ad.disp_loc))));
+	    code = recog_memoized (insn);
+	    if (code >= 0)
+	      {
+		rtx save = *ad.disp_loc;
+
+		*ad.disp_loc = gen_rtx_LO_SUM (Pmode, new_reg, *ad.disp_loc);
+		if (! valid_address_p (mode, *ad.disp_loc, as))
+		  {
+		    *ad.disp_loc = save;
+		    code = -1;
+		  }
+	      }
+	    if (code < 0)
+	      delete_insns_since (last);
+	  }
+#endif
+	  if (code < 0)
+	    {
+	      /* disp => new_base  */
+	      lra_emit_move (new_reg, *ad.disp_loc);
+	      *ad.disp_loc = new_reg;
+	    }
 	}
       else
 	{

@@ -5378,9 +5378,13 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 
   if (TARGET_ELF || TARGET_MACHO)
     {
+      bool toc_ok_p;
+
       if (DEFAULT_ABI != ABI_AIX && DEFAULT_ABI != ABI_DARWIN && flag_pic)
 	return false;
-      if (TARGET_TOC)
+      toc_ok_p = (lra_in_progress && TARGET_CMODEL != CMODEL_SMALL
+		  && small_toc_ref (x, VOIDmode));
+      if (TARGET_TOC && ! toc_ok_p)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
@@ -5390,7 +5394,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 		   && (mode == DFmode || mode == DDmode))))
 	return false;
 
-      return CONSTANT_P (x);
+      return CONSTANT_P (x) || toc_ok_p;
     }
 
   return false;
