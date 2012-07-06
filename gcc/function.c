@@ -5137,6 +5137,11 @@ expand_function_end (void)
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
 
+      if (flag_pl && GET_CODE (outgoing) == PARALLEL)
+	{
+	  outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
+	}
+
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */
       REG_FUNCTION_VALUE_P (outgoing) = 1;
