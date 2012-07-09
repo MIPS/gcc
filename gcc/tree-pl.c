@@ -49,7 +49,7 @@ static void pl_copy_bounds_for_assign (tree lhs, tree rhs,
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
 static tree pl_make_addressed_object_bounds (tree obj,
-					     gimple_stmt_iterator iter,
+					     gimple_stmt_iterator *iter,
 					     bool always_narrow_fields);
 static tree pl_generate_extern_var_bounds (tree var);
 static tree pl_get_bounds_for_decl (tree decl);
@@ -68,13 +68,13 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 				 gimple_stmt_iterator iter,
 				 location_t location, tree dirflag);
 static tree pl_intersect_bounds (tree bounds1, tree bounds2,
-				 gimple_stmt_iterator iter);
+				 gimple_stmt_iterator *iter);
 static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
 static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 					      tree *elt, bool *component,
 					      bool *bitfield,
 					      tree *bounds,
-					      gimple_stmt_iterator iter,
+					      gimple_stmt_iterator *iter,
 					      bool innermost_bounds,
 					      bool always_narrow);
 static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
@@ -1062,7 +1062,7 @@ pl_get_bounds_for_string_cst (tree cst)
 }
 
 static tree
-pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator iter,
+pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 				 bool always_narrow_fields)
 {
   tree bounds;
@@ -1099,7 +1099,7 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator iter,
       break;
 
     case MEM_REF:
-      bounds = pl_find_bounds (TREE_OPERAND (obj, 0), &iter);
+      bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
       break;
 
     default:
@@ -1189,7 +1189,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		  tree arg = gimple_phi_arg_def (def_stmt, i);
 		  tree arg_bnd;
 
-		  arg_bnd = pl_find_bounds_no_error (arg, &phi_iter);
+		  arg_bnd = pl_find_bounds_no_error (arg, NULL);
 
 		  add_phi_arg (phi_bnd, arg_bnd,
 			       gimple_phi_arg_edge (def_stmt, i),
@@ -1202,7 +1202,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case ADDR_EXPR:
-      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), *iter,
+      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter,
 						always_narrow_fields);
       break;
 
@@ -1276,7 +1276,7 @@ pl_find_bounds_no_error (tree ptr, gimple_stmt_iterator *iter)
 }
 
 static tree
-pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator iter)
+pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 {
   if (!bounds1 || bounds1 == error_mark_node)
     return bounds2;
@@ -1298,14 +1298,14 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator iter)
 
 	gimple_seq_add_stmt (&seq, stmt);
 
-	gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
+	gsi_insert_seq_before (iter, seq, GSI_SAME_STMT);
 
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  {
 	    fprintf (dump_file, "Bounds intersection: ");
 	    print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
 	    fprintf (dump_file, "  inserted before statement: ");
-	    print_gimple_stmt (dump_file, gsi_stmt (iter), 0,
+	    print_gimple_stmt (dump_file, gsi_stmt (*iter), 0,
 			       TDF_VOPS|TDF_MEMSYMS);
 	  }
 
@@ -1333,7 +1333,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 				  tree *elt, bool *component,
 				  bool *bitfield,
 				  tree *bounds,
-				  gimple_stmt_iterator iter,
+				  gimple_stmt_iterator *iter,
 				  bool innermost_bounds,
 				  bool always_narrow)
 {
@@ -1356,14 +1356,14 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
       *bounds = pl_make_bounds (field_ptr,
 				build_int_cst (size_type_node, size),
-				&iter);
+				iter);
     }
   else if (TREE_CODE (node) == ARRAY_REF)
     {
       tree array_addr;
 
       array_addr = build_fold_addr_expr (var);
-      *bounds = pl_find_bounds_narrowed (array_addr, &iter);
+      *bounds = pl_find_bounds_narrowed (array_addr, iter);
 
       precise_bounds = true;
     }
@@ -1386,7 +1386,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
 	  if (!*bounds || !precise_bounds)
 	    {
-	      tree array_bounds = pl_find_bounds_narrowed (array_addr, &iter);
+	      tree array_bounds = pl_find_bounds_narrowed (array_addr, iter);
 	      *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
 	      precise_bounds = true;
 	    }
@@ -1406,7 +1406,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
 	      *bounds = pl_make_bounds (field_ptr,
 					build_int_cst (size_type_node, size),
-					&iter);
+					iter);
 	    }
 	}
       else if (INDIRECT_REF_P (var)
@@ -1417,7 +1417,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
 	  if (!*bounds || !precise_bounds)
 	    {
-	      *bounds = pl_intersect_bounds (pl_find_bounds (*ptr, &iter),
+	      *bounds = pl_intersect_bounds (pl_find_bounds (*ptr, iter),
 					     *bounds, iter);
 	      precise_bounds = true;
 	    }
@@ -1590,7 +1590,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  }
 
 	pl_parse_array_and_component_ref (node, &ptr, &elt, &safe,
-					  &bitfield, &bounds, *iter, false,
+					  &bitfield, &bounds, iter, false,
 					  false);
 
 	/* Break if there is no dereference and operation is safe.  */
