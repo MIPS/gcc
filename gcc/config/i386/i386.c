@@ -12006,13 +12006,18 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
 }
 
 /* Nonzero if the sum of passed values VAL1 and VAL2 is
-   a valid address operand.  */
+   a valid address operand.  If IS_INDEX is non zero then
+   VAL2 must be an index in reulting address.  Otherwise VAL2
+   is a base of resultng address.  */
 bool
-ix86_decomposed_address_p (rtx val1, rtx val2)
+ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index)
 {
   enum machine_mode mode = GET_MODE (val1);
-  return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
 
+  if (is_index)
+    val2 = gen_rtx_MULT (mode, val2, const1_rtx);
+
+  return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
   /*
   if (!REG_P (val2))
     return false;

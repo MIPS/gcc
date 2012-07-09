@@ -26,6 +26,7 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
+static tree pl_get_tmp_var (void);
 static bool pl_type_has_pointer (tree type);
 static void pl_fix_function_decl (tree decl, bool make_ssa_names);
 static void pl_fix_function_decls (void);
@@ -99,6 +100,7 @@ static GTY (()) tree pl_uintptr_type;
 static basic_block entry_block;
 static tree zero_bounds;
 static tree none_bounds;
+static tree tmp_var;
 
 static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
 
@@ -120,6 +122,18 @@ static bool
 pl_marked_stmt (gimple s)
 {
   return htab_find (pl_marked_stmts, s) != NULL;
+}
+
+static tree
+pl_get_tmp_var (void)
+{
+  if (!tmp_var)
+    {
+      tmp_var = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
+      add_referenced_var (tmp_var);
+    }
+
+  return tmp_var;
 }
 
 static bool
@@ -570,9 +584,7 @@ pl_build_returned_bound (gimple call)
       gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
     }
 
-  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
-  add_referenced_var (bounds);
-  bounds = make_ssa_name (bounds, stmt);
+  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   update_stmt (stmt);
@@ -649,9 +661,7 @@ pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
 
   stmt = gimple_build_call (pl_bndldx_fndecl, 2, addr, ptr);
   pl_mark_stmt (stmt);
-  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
-  add_referenced_var (bounds);
-  bounds = make_ssa_name (bounds, stmt);
+  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -714,7 +724,6 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (assign);
   tree rhs1 = gimple_assign_rhs1 (assign);
-  tree rhs2 = gimple_assign_rhs2 (assign);
   tree bounds = NULL_TREE;
   gimple_stmt_iterator iter = gsi_for_stmt (assign);
 
@@ -750,6 +759,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
       {
+	tree rhs2 = gimple_assign_rhs2 (assign);
 	tree bnd1 = pl_find_bounds (rhs1, &iter);
 	tree bnd2 = pl_find_bounds (rhs2, &iter);
 
@@ -775,7 +785,23 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case COND_EXPR:
-      internal_error ("pl_compute_bounds_for_assignment: COND_EXPR is NYI");
+      {
+	tree val1 = gimple_assign_rhs2 (assign);
+	tree val2 = gimple_assign_rhs3 (assign);
+	tree bnd1 = pl_find_bounds (val1, &iter);
+	tree bnd2 = pl_find_bounds (val2, &iter);
+	gimple stmt;
+
+	if (bnd1 == bnd2)
+	  bounds = bnd1;
+	else
+	  {
+	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
+	    stmt = gimple_build_assign_with_ops3 (COND_EXPR, bounds,
+						  rhs1, bnd1, bnd2);
+	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
+	  }
+      }
       break;
 
     case CONSTRUCTOR:
@@ -856,10 +882,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       break;
 
     case GIMPLE_PHI:
-      bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
-      add_referenced_var (bounds);
-
-      stmt = create_phi_node (bounds, gimple_bb (def_stmt));
+      stmt = create_phi_node (pl_get_tmp_var (), gimple_bb (def_stmt));
       bounds = gimple_phi_result (stmt);
       *iter = gsi_for_stmt (stmt);
 
@@ -895,9 +918,7 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
   stmt = gimple_build_call (pl_bndmk_fndecl, 2, lb, size);
   pl_mark_stmt (stmt);
 
-  bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
-  add_referenced_var (bounds);
-  bounds = make_ssa_name (bounds, stmt);
+  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -1272,9 +1293,7 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator iter)
 	stmt = gimple_build_call (pl_intersect_fndecl, 2, bounds1, bounds2);
 	pl_mark_stmt (stmt);
 
-	bounds = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
-	add_referenced_var (bounds);
-	bounds = make_ssa_name (bounds, stmt);
+	bounds = make_ssa_name (pl_get_tmp_var (), stmt);
 	gimple_call_set_lhs (stmt, bounds);
 
 	gimple_seq_add_stmt (&seq, stmt);
@@ -1832,6 +1851,7 @@ pl_init (void)
   entry_block = NULL;
   zero_bounds = NULL_TREE;
   none_bounds = NULL_TREE;
+  tmp_var = NULL_TREE;
 
   pl_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
   pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
