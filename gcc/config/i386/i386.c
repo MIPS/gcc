@@ -5442,7 +5442,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
     return size;
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
-  if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
+  if (aggregate_value_p (TREE_TYPE (funtype), fundecl ? fundecl : funtype)
       && !ix86_keep_aggregate_return_pointer (funtype))
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
