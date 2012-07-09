@@ -1127,8 +1127,13 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     case ARRAY_REF:
     case COMPONENT_REF:
     case VAR_DECL:
-      addr = build_fold_addr_expr (ptr_src);
-      bounds = pl_build_bndldx (addr, ptr, iter);
+      if (POINTER_TYPE_P (TREE_TYPE (ptr_src)))
+	{
+	  addr = build_fold_addr_expr (ptr_src);
+	  bounds = pl_build_bndldx (addr, ptr, iter);
+	}
+      else
+	bounds = pl_get_none_bounds ();
       break;
 
     case PARM_DECL:
