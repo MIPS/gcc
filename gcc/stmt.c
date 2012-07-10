@@ -1520,38 +1520,7 @@ expand_value_return (rtx val)
 
   /* Separate bound registers and value registers.  */
   if (flag_pl && GET_CODE (return_reg) == PARALLEL)
-    {
-      int i;
-      int val_num = 0;
-      int bnd_num = 0;
-      rtx *val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
-      rtx *bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
-
-      for (i = 0; i < XVECLEN (return_reg, 0); i++)
-	{
-	  rtx reg = XEXP (XVECEXP (return_reg, 0, i), 0);
-
-	  if (!reg)
-	    continue;
-
-	  if (BOUND_MODE_P (GET_MODE (reg)))
-	    bnd_tmps[bnd_num++] = XVECEXP (return_reg, 0, i);
-	  else
-	    val_tmps[val_num++] = XVECEXP (return_reg, 0, i);
-	}
-
-      gcc_assert (val_num);
-      if (val_num == 1)
-	return_reg_val = XEXP (val_tmps[0], 0);
-      else
-	return_reg_val = gen_rtx_PARALLEL (VOIDmode,
-					   gen_rtvec_v (val_num, val_tmps));
-
-      if (bnd_num == 1)
-	return_reg_bnd = XEXP (bnd_tmps[0], 0);
-      else if (bnd_num > 1)
-	internal_error ("Multiple returned bounds are NYI");
-    }
+    pl_split_returned_reg (return_reg, &return_reg_val, &return_reg_bnd);
   else
     return_reg_val = return_reg;
 

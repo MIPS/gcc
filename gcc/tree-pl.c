@@ -22,6 +22,7 @@
 #include "cgraph.h"
 #include "gimple.h"
 #include "tree-pl.h"
+#include "rtl.h"
 
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
@@ -93,6 +94,8 @@ static GTY (()) tree pl_checku_fndecl;
 static GTY (()) tree pl_bndmk_fndecl;
 static GTY (()) tree pl_ret_bnd_fndecl;
 static GTY (()) tree pl_intersect_fndecl;
+static GTY (()) tree pl_user_intersect_fndecl;
+static GTY (()) tree pl_bind_intersect_fndecl;
 
 static GTY (()) tree pl_bound_type;
 static GTY (()) tree pl_uintptr_type;
@@ -134,6 +137,49 @@ pl_get_tmp_var (void)
     }
 
   return tmp_var;
+}
+
+void
+pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
+		       rtx *return_reg_bnd)
+{
+  int i;
+  int val_num = 0;
+  int bnd_num = 0;
+  rtx *val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+  rtx *bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+
+  if (GET_CODE (return_reg) != PARALLEL)
+    {
+      *return_reg_val = return_reg;
+      return;
+    }
+
+  for (i = 0; i < XVECLEN (return_reg, 0); i++)
+    {
+      rtx reg = XEXP (XVECEXP (return_reg, 0, i), 0);
+
+      if (!reg)
+	continue;
+
+      if (BOUND_MODE_P (GET_MODE (reg)))
+	bnd_tmps[bnd_num++] = XVECEXP (return_reg, 0, i);
+      else
+	val_tmps[val_num++] = XVECEXP (return_reg, 0, i);
+    }
+
+  gcc_assert (val_num);
+
+  if (val_num == 1)
+    *return_reg_val = XEXP (val_tmps[0], 0);
+  else
+    *return_reg_val = gen_rtx_PARALLEL (VOIDmode,
+					gen_rtvec_v (val_num, val_tmps));
+
+  if (bnd_num == 1)
+    *return_reg_bnd = XEXP (bnd_tmps[0], 0);
+  else if (bnd_num > 1)
+    internal_error ("Multiple returned bounds are NYI");
 }
 
 static bool
@@ -328,46 +374,56 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple new_call;
   ssa_op_iter iter;
   tree op;
+  bool use_fntype = false;
 
   /* Do nothing if back-end builtin is called.  */
-  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
+      && fndecl != pl_user_intersect_fndecl)
     return;
 
-  if (fndecl)
+  if (fndecl && DECL_ARGUMENTS (fndecl))
     first_formal_arg = DECL_ARGUMENTS (fndecl);
   else
     {
       tree fntype;
       tree fnptr = gimple_call_fn (call);
-      gcc_assert (TREE_CODE (fnptr) == SSA_NAME
-		  || TREE_CODE (fnptr) == OBJ_TYPE_REF);
+      /*gcc_assert (TREE_CODE (fnptr) == SSA_NAME
+	|| TREE_CODE (fnptr) == OBJ_TYPE_REF);*/
 
       fntype = TREE_TYPE (TREE_TYPE (fnptr));
       gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
 		  || TREE_CODE (fntype) == METHOD_TYPE);
 
       first_formal_arg = TYPE_ARG_TYPES (fntype);
+      use_fntype = true;
     }
 
   /* Get number of arguments and bound arguments from
      functiond declaration or function pointer type.  */
   for (arg = first_formal_arg;
-       arg && (fndecl || arg != void_list_node);
+       arg && (!use_fntype || arg != void_list_node);
        arg = TREE_CHAIN (arg))
     {
-      if (fndecl && BOUND_TYPE_P (TREE_TYPE (arg)))
+      if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)))
 	bnd_arg_cnt++;
 
       /* Currently we do not fix function types. Therefore
 	 look for pointer args and but count arg_cnt like
 	 if it was fixed.  */
-      if (!fndecl && POINTER_TYPE_P (TREE_VALUE (arg)))
+      if (use_fntype && POINTER_TYPE_P (TREE_VALUE (arg)))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
 	}
 
       arg_cnt++;
+    }
+
+  if (fndecl == pl_user_intersect_fndecl)
+    {
+      fndecl = pl_bind_intersect_fndecl;
+      arg_cnt = 4;
+      bnd_arg_cnt = 1;
     }
 
   /* Now add number of additional bound arguments for pointers
@@ -385,29 +441,37 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   memcpy (new_call, call, sizeof (struct gimple_statement_call));
   gimple_set_num_ops (new_call, arg_cnt + 3);
   gimple_set_op (new_call, 0, gimple_op (call, 0));
-  gimple_set_op (new_call, 1, gimple_op (call, 1));
+  if (fndecl == pl_bind_intersect_fndecl)
+    {
+      gimple_set_op (new_call, 1, build_fold_addr_expr (fndecl));
+      gimple_call_set_fntype (new_call, TREE_TYPE (fndecl));
+    }
+  else
+    gimple_set_op (new_call, 1, gimple_op (call, 1));
   gimple_set_op (new_call, 2, gimple_op (call, 2));
 
   arg_no = 0;
   for (arg = first_formal_arg;
-       arg && (fndecl || arg != void_list_node);
+       arg && (!use_fntype || arg != void_list_node);
        arg = TREE_CHAIN (arg))
     {
-      if (fndecl && BOUND_TYPE_P (TREE_TYPE (arg)))
+      if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)) && bnd_arg_cnt)
 	{
 	  tree prev_arg = gimple_call_arg (call, arg_no - 1);
 	  tree bounds = pl_find_bounds_no_error (prev_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
+	  bnd_arg_cnt--;
 	}
       else
 	{
 	  tree call_arg = gimple_call_arg (call, arg_no++);
 	  gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
-	  if (!fndecl && POINTER_TYPE_P (TREE_VALUE (arg)))
+	  if (use_fntype && POINTER_TYPE_P (TREE_VALUE (arg)) && bnd_arg_cnt)
 	    {
 	      tree bounds = pl_find_bounds_no_error (call_arg, gsi);
 	      gimple_call_set_arg (new_call, new_arg_no++, bounds);
+	      bnd_arg_cnt--;
 	    }
 	}
     }
@@ -416,10 +480,11 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree call_arg = gimple_call_arg (call, arg_no);
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-      if (POINTER_TYPE_P (TREE_TYPE (call_arg)))
+      if (POINTER_TYPE_P (TREE_TYPE (call_arg)) && bnd_arg_cnt)
 	{
 	  tree bounds = pl_find_bounds_no_error (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
+	  bnd_arg_cnt--;
 	}
     }
 
@@ -1864,6 +1929,10 @@ pl_init (void)
   pl_bndmk_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDMK);
   pl_ret_bnd_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDRET);
   pl_intersect_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_INTERSECT);
+  pl_user_intersect_fndecl
+    = targetm.builtin_pl_function (BUILT_IN_PL_USER_INTERSECT);
+  pl_bind_intersect_fndecl
+    = targetm.builtin_pl_function (BUILT_IN_PL_BIND_INTERSECT);
 }
 
 static void

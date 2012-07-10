@@ -2991,6 +2991,16 @@ expand_call (tree exp, rtx target, int ignore)
 	    }
 	}
 
+      /* Currently returnd bound registers are not used in following code.
+	 Remove them.  */
+      if (flag_pl && valreg && GET_CODE (valreg) == PARALLEL)
+	{
+	  rtx bnd = 0;
+	  rtx val = 0;
+	  pl_split_returned_reg (valreg, &val, &bnd);
+	  valreg = val;
+	}
+
       /* Precompute all register parameters.  It isn't safe to compute anything
 	 once we have started filling any specific hard regs.  */
       precompute_register_parameters (num_actuals, args, &reg_parm_seen);

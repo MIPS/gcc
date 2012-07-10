@@ -808,6 +808,8 @@ DEF_BUILTIN_STUB (BUILT_IN_PL_BNDCU, "__pl_bndcu")
 DEF_BUILTIN_STUB (BUILT_IN_PL_BNDLDX, "__pl_bndldx")
 DEF_BUILTIN_STUB (BUILT_IN_PL_BNDRET, "__pl_bndret")
 DEF_BUILTIN_STUB (BUILT_IN_PL_INTERSECT, "__pl_intersect")
+DEF_BUILTIN_STUB (BUILT_IN_PL_USER_INTERSECT, "__pl_user_intersect")
+DEF_BUILTIN_STUB (BUILT_IN_PL_BIND_INTERSECT, "__pl_bind_intersect")
 
 /* Synchronization Primitives.  */
 #include "sync-builtins.def"

@@ -63,3 +63,13 @@ __pl_bind_bounds (void *p, void* lb, size_t size)
   return __builtin_ia32_bind_bounds32 (p, lb, size);
 #endif
 }
+
+extern __inline void *  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+__pl_intersect_bounds (void *p, void* lb, size_t size)
+{
+#ifdef  __x86_64__
+  return __builtin_ia32_intersect_bounds64 (p, lb, size);
+#else
+  return __builtin_ia32_intersect_bounds32 (p, lb, size);
+#endif
+}
