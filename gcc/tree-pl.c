@@ -401,7 +401,9 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   /* Get number of arguments and bound arguments from
      functiond declaration or function pointer type.  */
   for (arg = first_formal_arg;
-       arg && (!use_fntype || arg != void_list_node);
+       arg && (!use_fntype
+	       || (arg != void_list_node
+		   && TREE_VALUE (arg) != void_type_node));
        arg = TREE_CHAIN (arg))
     {
       if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)))
@@ -433,7 +435,10 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
        arg_no++)
     {
       if (POINTER_TYPE_P (TREE_TYPE (gimple_call_arg (call, arg_no))))
-	arg_cnt++;
+	{
+	  arg_cnt++;
+	  bnd_arg_cnt++;
+	}
       arg_cnt++;
     }
 
@@ -452,7 +457,9 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   arg_no = 0;
   for (arg = first_formal_arg;
-       arg && (!use_fntype || arg != void_list_node);
+       arg && (!use_fntype
+	       || (arg != void_list_node
+		   && TREE_VALUE (arg) != void_type_node));
        arg = TREE_CHAIN (arg))
     {
       if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)) && bnd_arg_cnt)
