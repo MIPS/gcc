@@ -8847,6 +8847,7 @@ static void
 output_aranges_header (unsigned long length, const char *label)
 {
   unsigned i;
+
   if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
     dw2_asm_output_data (4, 0xffffffff,
       "Initial length escape value indicating 64-bit DWARF extension");
@@ -17817,7 +17818,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
       if (fde->comdat)
 	{
-	  if (context_die == comp_unit_die ())
+	  if (context_die == comp_unit_die () || context_die == NULL)
 	    record_comdat_key (subr_die, DECL_COMDAT_GROUP (decl));
 	  else
 	    /* FIXME what to do about nested comdat functions?  */
