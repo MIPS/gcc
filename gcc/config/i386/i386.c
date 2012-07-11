@@ -7381,7 +7381,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && POINTER_TYPE_P (TREE_TYPE (fntype)))
+  if (flag_pl && (!fntype || POINTER_TYPE_P (TREE_TYPE (fntype))))
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);

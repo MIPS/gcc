@@ -1722,12 +1722,12 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	gcc_assert (!access_offs);
 	gcc_assert (!access_size);
 
-	bpu = bitsize_int (BITS_PER_UNIT);
+	bpu = fold_convert (size_type_node, bitsize_int (BITS_PER_UNIT));
 	offs = fold_convert (size_type_node, TREE_OPERAND (node, 2));
 	rem = size_binop_loc (loc, TRUNC_MOD_EXPR, offs, bpu);
 	offs = size_binop_loc (loc, TRUNC_DIV_EXPR, offs, bpu);
 
-	size = fold_convert (bitsizetype, TREE_OPERAND (node, 1));
+	size = fold_convert (size_type_node, TREE_OPERAND (node, 1));
         size = size_binop_loc (loc, PLUS_EXPR, size, rem);
         size = size_binop_loc (loc, CEIL_DIV_EXPR, size, bpu);
         size = fold_convert (size_type_node, size);
