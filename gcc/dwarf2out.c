@@ -8761,14 +8761,14 @@ output_pubnames (VEC (pubname_entry, gc) * names)
       if (pub->die->die_tag == DW_TAG_enumerator && !pub->die->die_mark)
         continue;
 
-      /* We shouldn't see pubnames for DIEs outside of the main CU.  */
-      if (names == pubname_table)
-	gcc_assert (pub->die->die_mark);
-
       /* Skip COMDAT functions, as they have their own CUs.  */
       if (pub->die->die_tag == DW_TAG_subprogram
 	  && lookup_comdat_key (pub->die))
 	continue;
+
+      /* We shouldn't see pubnames for other DIEs outside of the main CU.  */
+      if (names == pubname_table)
+	gcc_assert (pub->die->die_mark);
 
       if (names != pubtype_table
 	  || pub->die->die_offset != 0
@@ -8797,6 +8797,9 @@ output_pubnames (VEC (pubname_entry, gc) * names)
     }
 
   dw2_asm_output_data (DWARF_OFFSET_SIZE, 0, NULL);
+
+  if (names != pubname_table)
+    return;
 
   /* Now output the pubnames for COMDAT function CUs.  */
   for (node = limbo_die_list; node; node = node->next)
