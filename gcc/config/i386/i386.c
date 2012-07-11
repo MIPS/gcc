@@ -5724,6 +5724,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
       cum->nregs = (cum->call_abi == SYSV_ABI
                    ? X86_64_REGPARM_MAX
                    : X86_64_MS_REGPARM_MAX);
+
+      /* All bound registers are available for argument passing.  */
+      cum->bnd_nregs = LAST_BND_REG - FIRST_BND_REG + 1;
     }
   if (TARGET_SSE)
     {
@@ -5765,6 +5768,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->warn_avx = 0;
 	  cum->warn_sse = 0;
 	  cum->warn_mmx = 0;
+	  cum->bnd_nregs = 0;
 	  return;
 	}
 
@@ -5785,6 +5789,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	    }
 	  else
 	    cum->nregs = ix86_function_regparm (fntype, fndecl);
+	  cum->bnd_nregs = cum->nregs;
 	}
 
       /* Set up the number of SSE registers used for passing SFmode
@@ -5792,8 +5797,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
       cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl, true);
     }
 
-  /* All bound registers are available for argument passing.  */
-  cum->bnd_nregs = LAST_BND_REG - FIRST_BND_REG + 1;
   cum->bnd_regno = FIRST_BND_REG;
 }
 
@@ -6618,6 +6621,13 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT bytes,
 			 HOST_WIDE_INT words)
 {
+  bool no_more_bound_regs;
+
+  /* If we have no more registers for pointers after previous
+     arg allocation then we cannot allocate register for bound
+     arg any more.  */
+  no_more_bound_regs = cum->nregs <= 0;
+
   switch (mode)
     {
     default:
@@ -6706,6 +6716,14 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->bnd_regno += 1;
       if (cum->bnd_nregs <= 0)
 	cum->bnd_nregs = 0;
+    }
+
+  /* We set regno to be (LAST_BND_REG + 1) to force next bound
+     to be loaded using (%sp - 4) for address translation.  */
+  if (no_more_bound_regs)
+    {
+      cum->bnd_nregs = 0;
+      cum->bnd_regno = LAST_BND_REG + 1;
     }
 }
 
@@ -6822,6 +6840,12 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
   switch (mode)
     {
     default:
+      break;
+
+    case BND32mode:
+    case BND64mode:
+      if (cum->bnd_nregs > 0)
+	return gen_rtx_REG (mode, cum->bnd_regno);
       break;
 
     case BLKmode:
