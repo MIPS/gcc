@@ -396,5 +396,9 @@ mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
+mfix-cn63xxp1
+Target Report
+Replace bad prefetch with 'PREF 28'
+
 noasmopt
 Driver

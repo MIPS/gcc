@@ -1,3 +1,12 @@
+2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	Ported the support for mfix-cn63xxp1
+	2012-07-13  Andrew Pinski  <apinski@cavium.com>
+	    Chandrakala Chavva  <cchavva@caviumnetworks.com>
+
+	* config/mips/mips.opt (mfix-cn63xxp1): New option.
+	* config/mips/mips.h (ASM_SPEC): Add mfix-cn63xxp1.
+
 2014-01-29  Andrew Pinski  <apinski@cavium.com>
 
 	* opts.c (default_options_table): Enable unroll-loops at -O3 and above.
