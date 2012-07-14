@@ -3365,6 +3365,75 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
   return x;
 }
 
+/* In the name of slightly smaller debug output, and to cater to
+   general assembler lossage, recognize various UNSPEC sequences
+   and turn them back into a direct symbol reference.  */
+
+static rtx
+mips_delegitimize_address (rtx orig_x)
+{
+  orig_x = delegitimize_mem_from_attrs (orig_x);
+
+  /* Turn (PLUS:DI (XX)
+                   (CONST:DI (UNSPEC:DI [(A)] SYMBOL_64_LOW)))
+     into A.  */
+  /* Turn (PLUS:DI (XX)
+                   (CONST:DI (PLUS:DI (UNSPEC:DI [(A)] SYMBOL_64_LOW) (const_int)))
+     into (PLUS:DI A (const_int)).  */
+  /* Turn (PLUS:DI (ASHIFT:DI (CONST:DI (UNSPEC:DI [(A)] SYMBOL_64_HIGH)) (32) )
+                   (XX))
+     into A.  */
+  /* Turn (PLUS:DI (ASHIFT:DI (CONST:DI (PLUS:DI (UNSPEC:DI [(A)] SYMBOL_64_HIGH)
+					(const_int))) (32))
+		   (XX))
+     into (PLUS:DI A (const_int)).  */
+  if (GET_CODE (orig_x) == PLUS)
+    {
+      rtx addon = NULL_RTX;
+      rtx inconst1 = XEXP (orig_x, 1);
+      enum mips_symbol_type type = SYMBOL_64_LOW;
+
+      /* Strip the possible LO_SUM.*/
+      if (GET_CODE (inconst1) == LO_SUM)
+	inconst1 = XEXP (inconst1, 1);
+
+      /* If we don't have a const on the right hand side, see if
+	 we have a shift of a const. */
+      if (GET_CODE (inconst1) != CONST
+	  && GET_CODE (XEXP (orig_x, 0)) == ASHIFT
+	  && XEXP (XEXP (orig_x, 0), 1) == GEN_INT (32))
+	{
+	  inconst1 = XEXP (XEXP (orig_x, 0), 0);
+
+	  if (GET_CODE (inconst1) == LO_SUM)
+	    inconst1 = XEXP (inconst1, 1);
+	  type = SYMBOL_64_HIGH;
+	}
+
+      if (GET_CODE (inconst1) != CONST)
+	return orig_x;
+
+      inconst1 = XEXP (inconst1, 0);
+	
+      if (GET_CODE (inconst1) == PLUS
+	  && CONST_INT_P (XEXP (inconst1, 1)))
+	{
+	  addon = XEXP (inconst1, 1);
+	  inconst1 = XEXP (inconst1, 0);
+	}
+      if (GET_CODE (inconst1) == UNSPEC
+	  && XINT (inconst1, 1) == UNSPEC_ADDRESS_FIRST + type)
+	{
+	  rtx symbol = XVECEXP (inconst1, 0, 0);
+	  if (addon != NULL_RTX)
+	    symbol = simplify_gen_binary (PLUS, GET_MODE (symbol), symbol, addon);
+	  return symbol;
+	}
+    }
+
+  return orig_x;
+}
+
 /* Load VALUE into DEST.  TEMP is as for mips_force_temporary.  */
 
 void
@@ -19196,6 +19265,9 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS mips_legitimize_address
+
+#undef TARGET_DELEGITIMIZE_ADDRESS
+#define TARGET_DELEGITIMIZE_ADDRESS mips_delegitimize_address
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE mips_output_function_prologue

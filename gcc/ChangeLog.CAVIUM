@@ -492,6 +492,12 @@
 	* testsuite/gcc.dg/octeon/cvmx-shared-8.c: New file.
 	* testsuite/gcc.dg/octeon/cvmx-shared-9.c: New file.
 
+2012-07-13  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4258
+	* config/mips/mips.c (mips_delegitimize_address): New function.
+	(TARGET_DELEGITIMIZE_ADDRESS): Define.
+
 2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported the support for mfix-cn63xxp1
