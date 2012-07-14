@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -mfma4 -mtune=generic" } */
+/* { dg-options "-O3 -mfma4 -mtune=generic -fno-unroll-loops" } */
 
 #ifndef SIZE
 #define SIZE 1024
