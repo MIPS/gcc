@@ -503,6 +503,11 @@
 	* testsuite/gcc.dg/octeon/cvmx-shared-8.c: New file.
 	* testsuite/gcc.dg/octeon/cvmx-shared-9.c: New file.
 
+2012-07-15  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.c-torture/unsorted/dump-noaddr.x (dump_compare): Use
+	an absolute dump base instead of a relative one.
+
 2012-07-13  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4258
