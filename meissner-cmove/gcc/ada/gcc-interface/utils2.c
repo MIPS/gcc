@@ -1912,10 +1912,12 @@ build_simple_component_ref (tree record_variable, tree component,
 	  break;
 
       /* Next, see if we're looking for an inherited component in an extension.
-	 If so, look thru the extension directly.  */
+	 If so, look thru the extension directly, but not if the type contains
+	 a placeholder, as it might be needed for a later substitution.  */
       if (!new_field
 	  && TREE_CODE (record_variable) == VIEW_CONVERT_EXPR
 	  && TYPE_ALIGN_OK (record_type)
+	  && !type_contains_placeholder_p (record_type)
 	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (record_variable, 0)))
 	     == RECORD_TYPE
 	  && TYPE_ALIGN_OK (TREE_TYPE (TREE_OPERAND (record_variable, 0))))
@@ -2287,7 +2289,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
       /* If the size overflows, pass -1 so Storage_Error will be raised.  */
       if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-	size = ssize_int (-1);
+	size = size_int (-1);
 
       storage = build_call_alloc_dealloc (NULL_TREE, size, storage_type,
 					  gnat_proc, gnat_pool, gnat_node);
@@ -2345,7 +2347,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
   /* If the size overflows, pass -1 so Storage_Error will be raised.  */
   if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-    size = ssize_int (-1);
+    size = size_int (-1);
 
   storage = convert (result_type,
 		     build_call_alloc_dealloc (NULL_TREE, size, type,

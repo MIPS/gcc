@@ -428,6 +428,7 @@ extern void debug_loop_num (unsigned, int);
 extern void print_loops (FILE *, int);
 extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
+extern void group_case_labels_stmt (gimple);
 extern void group_case_labels (void);
 extern gimple first_stmt (basic_block);
 extern gimple last_stmt (basic_block);
@@ -497,10 +498,9 @@ extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
 extern bool stmt_references_abnormal_ssa_name (gimple);
-extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
-				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern tree get_addr_base_and_unit_offset (tree, HOST_WIDE_INT *);
 extern void find_referenced_vars_in (gimple);
+extern void dump_enumerated_decls (FILE *, int);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -772,12 +772,7 @@ extern void make_eh_edges (gimple);
 extern bool make_eh_dispatch_edges (gimple);
 extern edge redirect_eh_edge (edge, basic_block);
 extern void redirect_eh_dispatch_edge (gimple, edge, basic_block);
-extern bool tree_could_trap_p (tree);
-extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
-					   bool, tree, bool *);
-extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
 extern bool stmt_could_throw_p (gimple);
-extern bool tree_could_throw_p (tree);
 extern bool stmt_can_throw_internal (gimple);
 extern bool stmt_can_throw_external (gimple);
 extern void add_stmt_to_eh_lp_fn (struct function *, gimple, int);
@@ -815,7 +810,14 @@ bool expr_invariant_in_loop_p (struct loop *, tree);
 bool stmt_invariant_in_loop_p (struct loop *, gimple);
 bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode,
 				      addr_space_t);
-unsigned multiply_by_cost (HOST_WIDE_INT, enum machine_mode, bool);
+void initialize_costs (void);
+void finalize_costs (void);
+unsigned multiply_by_const_cost (HOST_WIDE_INT, enum machine_mode, bool);
+unsigned add_regs_cost (enum machine_mode, bool);
+unsigned multiply_regs_cost (enum machine_mode, bool);
+unsigned add_const_cost (enum machine_mode, bool);
+unsigned extend_or_trunc_reg_cost (tree, tree, bool);
+unsigned negate_reg_cost (enum machine_mode, bool);
 bool may_be_nonaddressable_p (tree expr);
 
 /* In tree-ssa-threadupdate.c.  */
@@ -862,6 +864,9 @@ void warn_function_noreturn (tree);
 
 /* In tree-ssa-ter.c  */
 bool stmt_is_replaceable_p (gimple);
+
+/* In tree-parloops.c  */
+bool parallelized_function_p (tree);
 
 #include "tree-flow-inline.h"
 

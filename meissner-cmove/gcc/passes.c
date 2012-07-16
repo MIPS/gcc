@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "graph.h"
 #include "regs.h"
-#include "timevar.h"
 #include "diagnostic-core.h"
 #include "params.h"
 #include "reload.h"
@@ -1374,7 +1373,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_forwprop);
-      NEXT_PASS (pass_call_cdce);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
 	 alias information also rewrites no longer addressed
@@ -1387,6 +1385,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
+      NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
@@ -1463,6 +1462,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
+      NEXT_PASS (pass_strength_reduction);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -1515,7 +1515,7 @@ init_optimization_passes (void)
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
       NEXT_PASS (pass_instantiate_virtual_regs);
       NEXT_PASS (pass_into_cfg_layout_mode);
-      NEXT_PASS (pass_jump2);
+      NEXT_PASS (pass_jump);
       NEXT_PASS (pass_lower_subreg);
       NEXT_PASS (pass_df_initialize_opt);
       NEXT_PASS (pass_cse);
@@ -1577,6 +1577,7 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_thread_prologue_and_epilogue);
 	  NEXT_PASS (pass_rtl_dse2);
 	  NEXT_PASS (pass_stack_adjustments);
+	  NEXT_PASS (pass_jump2);
 	  NEXT_PASS (pass_peephole2);
 	  NEXT_PASS (pass_if_after_reload);
 	  NEXT_PASS (pass_regrename);

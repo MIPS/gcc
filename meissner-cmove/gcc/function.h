@@ -22,11 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_FUNCTION_H
 #define GCC_FUNCTION_H
 
-#include "tree.h"
 #include "hashtab.h"
+#include "vec.h"
 #include "vecprim.h"
-#include "tm.h"		/* For CUMULATIVE_ARGS.  */
-#include "hard-reg-set.h"
+#include "vecir.h"
+#include "machmode.h"
+#include "tm.h"			/* For CUMULATIVE_ARGS.  */
+#include "hard-reg-set.h"	/* For HARD_REG_SET in struct rtl_data. */
+#include "input.h"		/* For location_t.  */
 
 /* Stack of pending (incomplete) sequences saved by `start_sequence'.
    Each element describes one pending sequence.
@@ -69,10 +72,6 @@ struct GTY(()) emit_status {
   /* INSN_UID for next debug insn emitted.  Only used if
      --param min-nondebug-insn-uid=<value> is given with nonzero value.  */
   int x_cur_debug_insn_uid;
-
-  /* Location the last line-number NOTE emitted.
-     This is used to avoid generating duplicates.  */
-  location_t x_last_location;
 
   /* The length of the regno_pointer_align, regno_decl, and x_regno_reg_rtx
      vectors.  Since these vectors are needed during the expansion phase when
@@ -444,6 +443,22 @@ struct GTY(()) rtl_data {
   /* True if we performed shrink-wrapping for the current function.  */
   bool shrink_wrapped;
 
+  /* Nonzero if function being compiled doesn't modify the stack pointer
+     (ignoring the prologue and epilogue).  This is only valid after
+     pass_stack_ptr_mod has run.  */
+  bool sp_is_unchanging;
+
+  /* Nonzero if function being compiled doesn't contain any calls
+     (ignoring the prologue and epilogue).  This is set prior to
+     local register allocation and is valid for the remaining
+     compiler passes.  */
+  bool is_leaf;
+
+  /* Nonzero if the function being compiled is a leaf function which only
+     uses leaf registers.  This is valid after reload (specifically after
+     sched2) and is useful only if the port defines LEAF_REGISTERS.  */
+  bool uses_only_leaf_regs;
+
   /* Like regs_ever_live, but 1 if a reg is set or clobbered from an
      asm.  Unlike regs_ever_live, elements of this array corresponding
      to eliminable regs (like the frame pointer) are set if an asm
@@ -615,6 +630,10 @@ struct GTY(()) function {
      exceptions.  */
   unsigned int can_throw_non_call_exceptions : 1;
 
+  /* Nonzero if instructions that may throw exceptions but don't otherwise
+     contribute to the execution of the program can be deleted.  */
+  unsigned int can_delete_dead_exceptions : 1;
+
   /* Fields below this point are not set for abstract functions; see
      allocate_struct_function.  */
 
@@ -744,6 +763,7 @@ extern void clobber_return_register (void);
 extern rtx get_arg_pointer_save_area (void);
 
 /* Returns the name of the current function.  */
+extern const char *function_name (struct function *);
 extern const char *current_function_name (void);
 
 extern void do_warn_unused_parameter (tree);

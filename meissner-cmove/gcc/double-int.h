@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GENERATOR_FILE
 #include <gmp.h>
 #endif
-#include "coretypes.h"
 
 /* A large integer is currently represented as a pair of HOST_WIDE_INTs.
    It therefore represents a number with precision of
@@ -149,6 +148,8 @@ double_int double_int_umod (double_int, double_int, unsigned);
 double_int double_int_divmod (double_int, double_int, bool, unsigned, double_int *);
 double_int double_int_sdivmod (double_int, double_int, unsigned, double_int *);
 double_int double_int_udivmod (double_int, double_int, unsigned, double_int *);
+
+bool double_int_multiple_of (double_int, double_int, bool, double_int *);
 
 double_int double_int_setbit (double_int, unsigned);
 int double_int_ctz (double_int);

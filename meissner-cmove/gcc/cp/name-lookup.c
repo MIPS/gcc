@@ -1854,7 +1854,7 @@ identifier_type_value_1 (tree id)
     return REAL_IDENTIFIER_TYPE_VALUE (id);
   /* Have to search for it. It must be on the global level, now.
      Ask lookup_name not to return non-types.  */
-  id = lookup_name_real (id, 2, 1, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+  id = lookup_name_real (id, 2, 1, /*block_p=*/true, 0, 0);
   if (id)
     return TREE_TYPE (id);
   return NULL_TREE;
@@ -1964,6 +1964,11 @@ constructor_name_p (tree name, tree type)
     return false;
 
   if (TREE_CODE (name) != IDENTIFIER_NODE)
+    return false;
+
+  /* These don't have names.  */
+  if (TREE_CODE (type) == DECLTYPE_TYPE
+      || TREE_CODE (type) == TYPEOF_TYPE)
     return false;
 
   ctor_name = constructor_name_full (type);
@@ -4054,7 +4059,7 @@ ambiguous_decl (struct scope_binding *old, cxx_binding *new_binding, int flags)
 	    /* If we expect types or namespaces, and not templates,
 	       or this is not a template class.  */
 	    if ((LOOKUP_QUALIFIERS_ONLY (flags)
-		 && !DECL_CLASS_TEMPLATE_P (val)))
+		 && !DECL_TYPE_TEMPLATE_P (val)))
 	      val = NULL_TREE;
 	    break;
 	  case TYPE_DECL:
@@ -4345,7 +4350,6 @@ lookup_qualified_name (tree scope, tree name, bool is_type_p, bool complain)
     {
       struct scope_binding binding = EMPTY_SCOPE_BINDING;
 
-      flags |= LOOKUP_COMPLAIN;
       if (is_type_p)
 	flags |= LOOKUP_PREFER_TYPES;
       if (qualified_lookup_using_namespace (name, scope, &binding, flags))
@@ -4772,7 +4776,7 @@ lookup_name_real (tree name, int prefer_type, int nonclass, bool block_p,
 tree
 lookup_name_nonclass (tree name)
 {
-  return lookup_name_real (name, 0, 1, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+  return lookup_name_real (name, 0, 1, /*block_p=*/true, 0, 0);
 }
 
 tree
@@ -4780,22 +4784,20 @@ lookup_function_nonclass (tree name, VEC(tree,gc) *args, bool block_p)
 {
   return
     lookup_arg_dependent (name,
-			  lookup_name_real (name, 0, 1, block_p, 0,
-					    LOOKUP_COMPLAIN),
+			  lookup_name_real (name, 0, 1, block_p, 0, 0),
 			  args, false);
 }
 
 tree
 lookup_name (tree name)
 {
-  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, LOOKUP_COMPLAIN);
+  return lookup_name_real (name, 0, 0, /*block_p=*/true, 0, 0);
 }
 
 tree
 lookup_name_prefer_type (tree name, int prefer_type)
 {
-  return lookup_name_real (name, prefer_type, 0, /*block_p=*/true,
-			   0, LOOKUP_COMPLAIN);
+  return lookup_name_real (name, prefer_type, 0, /*block_p=*/true, 0, 0);
 }
 
 /* Look up NAME for type used in elaborated name specifier in
@@ -5799,7 +5801,16 @@ pushtag_1 (tree name, tree type, tag_scope scope)
 	 class.)  */
       if (TYPE_CONTEXT (type)
 	  && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL)
-	VEC_safe_push (tree, gc, local_classes, type);
+	{
+	  if (processing_template_decl)
+	    {
+	      /* Push a DECL_EXPR so we call pushtag at the right time in
+		 template instantiation rather than in some nested context.  */
+	      add_decl_expr (decl);
+	    }
+	  else
+	    VEC_safe_push (tree, gc, local_classes, type);
+	}
     }
   if (b->kind == sk_class
       && !COMPLETE_TYPE_P (current_class_type))

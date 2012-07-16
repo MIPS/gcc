@@ -57,12 +57,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "cfglayout.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
 #include "df.h"
-#include "timevar.h"
 #include "vecprim.h"
 #include "params.h"
 #include "bb-reorder.h"
@@ -92,22 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Similar, but round to the next highest integer that meets the
    alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
-
-/* Nonzero if function being compiled doesn't contain any calls
-   (ignoring the prologue and epilogue).  This is set prior to
-   local register allocation and is valid for the remaining
-   compiler passes.  */
-int current_function_is_leaf;
-
-/* Nonzero if function being compiled doesn't modify the stack pointer
-   (ignoring the prologue and epilogue).  This is only valid after
-   pass_stack_ptr_mod has run.  */
-int current_function_sp_is_unchanging;
-
-/* Nonzero if the function being compiled is a leaf function which only
-   uses leaf registers.  This is valid after reload (specifically after
-   sched2) and is useful only if the port defines LEAF_REGISTERS.  */
-int current_function_uses_only_leaf_regs;
 
 /* Nonzero once virtual register instantiation has been done.
    assign_stack_local uses frame_pointer_rtx when this is nonzero.
@@ -571,6 +553,7 @@ struct GTY(()) temp_slot {
 /* A table of addresses that represent a stack slot.  The table is a mapping
    from address RTXen to a temp slot.  */
 static GTY((param_is(struct temp_slot_address_entry))) htab_t temp_slot_address_table;
+static size_t n_temp_slots_in_use;
 
 /* Entry for the above hash table.  */
 struct GTY(()) temp_slot_address_entry {
@@ -647,6 +630,7 @@ make_slot_available (struct temp_slot *temp)
   insert_slot_to_list (temp, &avail_temp_slots);
   temp->in_use = 0;
   temp->level = -1;
+  n_temp_slots_in_use--;
 }
 
 /* Compute the hash value for an address -> temp slot mapping.
@@ -699,7 +683,7 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
   const struct temp_slot_address_entry *t;
   t = (const struct temp_slot_address_entry *) *slot;
   if (! t->temp_slot->in_use)
-    *slot = NULL;
+    htab_clear_slot (temp_slot_address_table, slot);
   return 1;
 }
 
@@ -707,9 +691,13 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
 static void
 remove_unused_temp_slot_addresses (void)
 {
-  htab_traverse (temp_slot_address_table,
-		 remove_unused_temp_slot_addresses_1,
-		 NULL);
+  /* Use quicker clearing if there aren't any active temp slots.  */
+  if (n_temp_slots_in_use)
+    htab_traverse (temp_slot_address_table,
+		   remove_unused_temp_slot_addresses_1,
+		   NULL);
+  else
+    htab_empty (temp_slot_address_table);
 }
 
 /* Find the temp slot corresponding to the object at address X.  */
@@ -901,6 +889,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   p->in_use = 1;
   p->type = type;
   p->level = temp_slot_level;
+  n_temp_slots_in_use++;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -1212,6 +1201,7 @@ init_temp_slots (void)
   avail_temp_slots = 0;
   used_temp_slots = 0;
   temp_slot_level = 0;
+  n_temp_slots_in_use = 0;
 
   /* Set up the table to map addresses to temp slots.  */
   if (! temp_slot_address_table)
@@ -4670,7 +4660,8 @@ stack_protect_epilogue (void)
   if (JUMP_P (tmp))
     predict_insn_def (tmp, PRED_NORETURN, TAKEN);
 
-  expand_expr_stmt (targetm.stack_protect_fail ());
+  expand_call (targetm.stack_protect_fail (), NULL_RTX, /*ignore=*/true);
+  free_temp_slots ();
   emit_label (label);
 }
 
@@ -4844,9 +4835,6 @@ expand_function_start (tree subr)
   /* If we are doing generic stack checking, the probe should go here.  */
   if (flag_stack_check == GENERIC_STACK_CHECK)
     stack_check_probe_note = emit_note (NOTE_INSN_DELETED);
-
-  /* Make sure there is a line number after the function entry setup code.  */
-  force_next_line_note ();
 }
 
 /* Undo the effects of init_dummy_function_start.  */
@@ -4991,7 +4979,6 @@ expand_function_end (void)
 
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
-  force_next_line_note ();
   set_curr_insn_source_location (input_location);
 
   /* Before the return label (if any), clobber the return
@@ -6751,13 +6738,20 @@ reposition_prologue_and_epilogue_notes (void)
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
 
+/* Returns the name of function FN.  */
+const char *
+function_name (struct function *fn)
+{
+  if (fn == NULL)
+    return "(nofn)";
+  return lang_hooks.decl_printable_name (fn->decl, 2);
+}
+
 /* Returns the name of the current function.  */
 const char *
 current_function_name (void)
 {
-  if (cfun == NULL)
-    return "<none>";
-  return lang_hooks.decl_printable_name (cfun->decl, 2);
+  return function_name (cfun);
 }
 
 
@@ -6765,7 +6759,7 @@ static unsigned int
 rest_of_handle_check_leaf_regs (void)
 {
 #ifdef LEAF_REGISTERS
-  current_function_uses_only_leaf_regs
+  crtl->uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
   return 0;

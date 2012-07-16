@@ -52,7 +52,6 @@
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
-#include "cfglayout.h"
 #include "cfgloop.h"
 #include "sched-int.h"
 #include "gimple.h"
@@ -1338,10 +1337,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
-#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
-#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
-#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
-#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 #undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
 #define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT		\
   rs6000_builtin_support_vector_misalignment
@@ -1353,6 +1348,14 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE \
   rs6000_preferred_simd_mode
+#undef TARGET_VECTORIZE_INIT_COST
+#define TARGET_VECTORIZE_INIT_COST rs6000_init_cost
+#undef TARGET_VECTORIZE_ADD_STMT_COST
+#define TARGET_VECTORIZE_ADD_STMT_COST rs6000_add_stmt_cost
+#undef TARGET_VECTORIZE_FINISH_COST
+#define TARGET_VECTORIZE_FINISH_COST rs6000_finish_cost
+#undef TARGET_VECTORIZE_DESTROY_COST_DATA
+#define TARGET_VECTORIZE_DESTROY_COST_DATA rs6000_destroy_cost_data
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -3514,53 +3517,6 @@ rs6000_loop_align_max_skip (rtx label)
   return (1 << rs6000_loop_align (label)) - 1;
 }
 
-/* Implement targetm.vectorize.builtin_mul_widen_even.  */
-static tree
-rs6000_builtin_mul_widen_even (tree type)
-{
-  if (!TARGET_ALTIVEC)
-    return NULL_TREE;
-
-  switch (TYPE_MODE (type))
-    {
-    case V8HImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
-
-    case V16QImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
-    default:
-      return NULL_TREE;
-    }
-}
-
-/* Implement targetm.vectorize.builtin_mul_widen_odd.  */
-static tree
-rs6000_builtin_mul_widen_odd (tree type)
-{
-  if (!TARGET_ALTIVEC)
-    return NULL_TREE;
-
-  switch (TYPE_MODE (type))
-    {
-    case V8HImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
-
-    case V16QImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
-    default:
-      return NULL_TREE;
-    }
-}
-
-
 /* Return true iff, data reference of TYPE can reach vector alignment (16)
    after applying N number of iterations.  This routine does not determine
    how may iterations are required to reach desired alignment.  */
@@ -3633,6 +3589,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
                                    tree vectype, int misalign)
 {
   unsigned elements;
+  tree elem_type;
 
   switch (type_of_cost)
     {
@@ -3732,6 +3689,18 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
         return 2;
 
+      case vec_construct:
+	elements = TYPE_VECTOR_SUBPARTS (vectype);
+	elem_type = TREE_TYPE (vectype);
+	/* 32-bit vectors loaded into registers are stored as double
+	   precision, so we need n/2 converts in addition to the usual
+	   n/2 merges to construct a vector of short floats from them.  */
+	if (SCALAR_FLOAT_TYPE_P (elem_type)
+	    && TYPE_PRECISION (elem_type) == 32)
+	  return elements + 1;
+	else
+	  return elements / 2 + 1;
+
       default:
         gcc_unreachable ();
     }
@@ -3777,6 +3746,59 @@ rs6000_preferred_simd_mode (enum machine_mode mode)
       && mode == SFmode)
     return V2SFmode;
   return word_mode;
+}
+
+/* Implement targetm.vectorize.init_cost.  */
+
+static void *
+rs6000_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
+{
+  unsigned *cost = XNEW (unsigned);
+  *cost = 0;
+  return cost;
+}
+
+/* Implement targetm.vectorize.add_stmt_cost.  */
+
+static unsigned
+rs6000_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
+		      struct _stmt_vec_info *stmt_info, int misalign)
+{
+  unsigned *cost = (unsigned *) data;
+  unsigned retval = 0;
+
+  if (flag_vect_cost_model)
+    {
+      tree vectype = stmt_vectype (stmt_info);
+      int stmt_cost = rs6000_builtin_vectorization_cost (kind, vectype,
+							 misalign);
+      /* Statements in an inner loop relative to the loop being
+	 vectorized are weighted more heavily.  The value here is
+	 arbitrary and could potentially be improved with analysis.  */
+      if (stmt_in_inner_loop_p (stmt_info))
+	count *= 50;  /* FIXME.  */
+
+      retval = (unsigned) (count * stmt_cost);
+      *cost += retval;
+    }
+
+  return retval;
+}
+
+/* Implement targetm.vectorize.finish_cost.  */
+
+static unsigned
+rs6000_finish_cost (void *data)
+{
+  return *((unsigned *) data);
+}
+
+/* Implement targetm.vectorize.destroy_cost_data.  */
+
+static void
+rs6000_destroy_cost_data (void *data)
+{
+  free (data);
 }
 
 /* Handler for the Mathematical Acceleration Subsystem (mass) interface to a
@@ -16846,9 +16868,19 @@ emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
 
 /* Expand barriers before and after a load_locked/store_cond sequence.  */
 
-static void
-rs6000_pre_atomic_barrier (enum memmodel model)
+static rtx
+rs6000_pre_atomic_barrier (rtx mem, enum memmodel model)
 {
+  rtx addr = XEXP (mem, 0);
+  int strict_p = (reload_in_progress || reload_completed);
+
+  if (!legitimate_indirect_address_p (addr, strict_p)
+      && !legitimate_indexed_address_p (addr, strict_p))
+    {
+      addr = force_reg (Pmode, addr);
+      mem = replace_equiv_address_nv (mem, addr);
+    }
+
   switch (model)
     {
     case MEMMODEL_RELAXED:
@@ -16865,6 +16897,7 @@ rs6000_pre_atomic_barrier (enum memmodel model)
     default:
       gcc_unreachable ();
     }
+  return mem;
 }
 
 static void
@@ -17003,7 +17036,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   else if (reg_overlap_mentioned_p (retval, oldval))
     oldval = copy_to_reg (oldval);
 
-  rs6000_pre_atomic_barrier (mod_s);
+  mem = rs6000_pre_atomic_barrier (mem, mod_s);
 
   label1 = NULL_RTX;
   if (!is_weak)
@@ -17088,7 +17121,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
       mode = SImode;
     }
 
-  rs6000_pre_atomic_barrier (model);
+  mem = rs6000_pre_atomic_barrier (mem, model);
 
   label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
   emit_label (XEXP (label, 0));
@@ -17172,7 +17205,7 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       mode = SImode;
     }
 
-  rs6000_pre_atomic_barrier (model);
+  mem = rs6000_pre_atomic_barrier (mem, model);
 
   label = gen_label_rtx ();
   emit_label (label);
@@ -17978,7 +18011,7 @@ rs6000_stack_info (void)
 				 - info_ptr->first_altivec_reg_save);
 
   /* Does this function call anything?  */
-  info_ptr->calls_p = (! current_function_is_leaf
+  info_ptr->calls_p = (! crtl->is_leaf 
 		       || cfun->machine->ra_needs_full_frame);
 
   /* Determine if we need to save the condition code registers.  */

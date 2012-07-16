@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "intl.h"
 #include "gimple.h"
 #include "pointer-set.h"
@@ -770,7 +770,9 @@ finish_static_data_member_decl (tree decl,
   if (! processing_template_decl)
     VEC_safe_push (tree, gc, pending_statics, decl);
 
-  if (LOCAL_CLASS_P (current_class_type))
+  if (LOCAL_CLASS_P (current_class_type)
+      /* We already complained about the template definition.  */
+      && !DECL_TEMPLATE_INSTANTIATION (decl))
     permerror (input_location, "local class %q#T shall not have static data member %q#D",
 	       current_class_type, decl);
 
@@ -4017,11 +4019,11 @@ cp_write_global_declarations (void)
   candidates = collect_candidates_for_java_method_aliases ();
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_CGRAPH);
+  timevar_start (TV_PHASE_OPT_GEN);
 
   finalize_compilation_unit ();
 
-  timevar_stop (TV_PHASE_CGRAPH);
+  timevar_stop (TV_PHASE_OPT_GEN);
   timevar_start (TV_PHASE_CHECK_DBGINFO);
 
   /* Now, issue warnings about static, but not defined, functions,
@@ -4202,6 +4204,10 @@ mark_used (tree decl)
   TREE_USED (decl) = 1;
   if (DECL_CLONED_FUNCTION_P (decl))
     TREE_USED (DECL_CLONED_FUNCTION (decl)) = 1;
+
+  /* Mark enumeration types as used.  */
+  if (TREE_CODE (decl) == CONST_DECL)
+    used_types_insert (DECL_CONTEXT (decl));
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DELETED_FN (decl))

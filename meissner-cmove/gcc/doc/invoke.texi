@@ -182,7 +182,7 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
--fconserve-space  -fconstexpr-depth=@var{n}  -ffriend-injection @gol
+-fconstexpr-depth=@var{n}  -ffriend-injection @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs @gol
 -ffor-scope  -fno-for-scope  -fno-gnu-keywords @gol
@@ -373,7 +373,7 @@ Objective-C and Objective-C++ Dialects}.
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
--floop-block -floop-interchange -floop-strip-mine @gol
+-floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
@@ -405,7 +405,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsplit-ivs-in-unroller -fsplit-wide-types -fstack-protector @gol
 -fstack-protector-all -fstrict-aliasing -fstrict-overflow @gol
 -fthread-jumps -ftracer -ftree-bit-ccp @gol
--ftree-builtin-call-dce -ftree-ccp -ftree-ch -ftree-copy-prop @gol
+-ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
+-ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
 -ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
 -ftree-loop-if-convert-stores -ftree-loop-im @gol
@@ -479,7 +480,7 @@ Objective-C and Objective-C++ Dialects}.
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
 -mlittle-endian  -mbig-endian  -mwords-little-endian @gol
--mfloat-abi=@var{name}  -mfpe @gol
+-mfloat-abi=@var{name} @gol
 -mfp16-format=@var{name}
 -mthumb-interwork  -mno-thumb-interwork @gol
 -mcpu=@var{name}  -march=@var{name}  -mfpu=@var{name}  @gol
@@ -976,7 +977,7 @@ See S/390 and zSeries Options.
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
 @gccoptlist{-fcall-saved-@var{reg}  -fcall-used-@var{reg} @gol
 -ffixed-@var{reg}  -fexceptions @gol
--fnon-call-exceptions  -funwind-tables @gol
+-fnon-call-exceptions  -fdelete-dead-exceptions  -funwind-tables @gol
 -fasynchronous-unwind-tables @gol
 -finhibit-size-directive  -finstrument-functions @gol
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
@@ -991,6 +992,7 @@ See S/390 and zSeries Options.
 -fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym} @gol
 -fno-stack-limit -fsplit-stack @gol
 -fleading-underscore  -ftls-model=@var{model} @gol
+-fstack-reuse=@var{reuse_level} @gol
 -ftrapv  -fwrapv  -fbounds-check @gol
 -fvisibility -fstrict-volatile-bitfields -fsync-libcalls}
 @end table
@@ -1948,18 +1950,6 @@ return value even without this option.  In all other cases, when
 @code{operator new} has a non-empty exception specification, memory
 exhaustion is signalled by throwing @code{std::bad_alloc}.  See also
 @samp{new (nothrow)}.
-
-@item -fconserve-space
-@opindex fconserve-space
-Put uninitialized or run-time-initialized global variables into the
-common segment, as C does.  This saves space in the executable at the
-cost of not diagnosing duplicate definitions.  If you compile with this
-flag and your program mysteriously crashes after @code{main()} has
-completed, you may have an object that is being destroyed twice because
-two definitions are merged.
-
-This option is no longer useful on most targets, now that support has
-been added for putting variables into BSS without making them common.
 
 @item -fconstexpr-depth=@var{n}
 @opindex fconstexpr-depth
@@ -4808,6 +4798,10 @@ most expressive format available (DWARF 2, stabs, or the native format
 if neither of those are supported), including GDB extensions if at all
 possible.
 
+@item -gpubnames
+@opindex gpubnames
+Generate dwarf .debug_pubnames and .debug_pubtypes sections.
+
 @item -gstabs
 @opindex gstabs
 Produce debugging information in stabs format (if that is supported),
@@ -7376,6 +7370,13 @@ GIMPLE -> GRAPHITE -> GIMPLE transformation.  Some minimal optimizations
 are also performed by the code generator CLooG, like index splitting and
 dead code elimination in loops.
 
+@item -floop-nest-optimize
+@opindex floop-nest-optimize
+Enable the ISL based loop nest optimizer.  This is a generic loop nest
+optimizer based on the Pluto optimization algorithms.  It calculates a loop
+structure optimized for data-locality and parallelism.  This option
+is experimental.
+
 @item -floop-parallelize-all
 @opindex floop-parallelize-all
 Use the Graphite data dependence analysis to identify loops that can
@@ -7503,6 +7504,24 @@ Perform copy renaming on trees.  This pass attempts to rename compiler
 temporaries to other variables at copy locations, usually resulting in
 variable names which more closely resemble the original variables.  This flag
 is enabled by default at @option{-O} and higher.
+
+@item -ftree-coalesce-inlined-vars
+Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
+combine small user-defined variables too, but only if they were inlined
+from other functions.  It is a more limited form of
+@option{-ftree-coalesce-vars}.  This may harm debug information of such
+inlined variables, but it will keep variables of the inlined-into
+function apart from each other, such that they are more likely to
+contain the expected values in a debugging session.  This was the
+default in GCC versions older than 4.7.
+
+@item -ftree-coalesce-vars
+Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
+combine small user-defined variables too, instead of just compiler
+temporaries.  This may severely limit the ability to debug an optimized
+program compiled with @option{-fno-var-tracking-assignments}.  In the
+negated form, this flag prevents SSA coalescing of user variables,
+including inlined ones.  This option is enabled by default.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -10837,20 +10856,12 @@ Linux, and not all architectures are recognized.  If the auto-detect is
 unsuccessful the option has no effect.
 
 @item -mfpu=@var{name}
-@itemx -mfpe=@var{number}
-@itemx -mfp=@var{number}
 @opindex mfpu
-@opindex mfpe
-@opindex mfp
 This specifies what floating-point hardware (or hardware emulation) is
-available on the target.  Permissible names are: @samp{fpa}, @samp{fpe2},
-@samp{fpe3}, @samp{maverick}, @samp{vfp}, @samp{vfpv3}, @samp{vfpv3-fp16},
-@samp{vfpv3-d16}, @samp{vfpv3-d16-fp16}, @samp{vfpv3xd}, @samp{vfpv3xd-fp16},
-@samp{neon}, @samp{neon-fp16}, @samp{vfpv4}, @samp{vfpv4-d16},
-@samp{fpv4-sp-d16} and @samp{neon-vfpv4}.
-@option{-mfp} and @option{-mfpe} are synonyms for
-@option{-mfpu}=@samp{fpe}@var{number}, for compatibility with older versions
-of GCC@.
+available on the target.  Permissible names are: @samp{vfp}, @samp{vfpv3},
+@samp{vfpv3-fp16}, @samp{vfpv3-d16}, @samp{vfpv3-d16-fp16}, @samp{vfpv3xd},
+@samp{vfpv3xd-fp16}, @samp{neon}, @samp{neon-fp16}, @samp{vfpv4},
+@samp{vfpv4-d16}, @samp{fpv4-sp-d16} and @samp{neon-vfpv4}.
 
 If @option{-msoft-float} is specified this specifies the format of
 floating-point values.
@@ -13575,6 +13586,21 @@ applicable to individual functions.
 Attempt to keep the stack boundary aligned to a 2 raised to @var{num}
 byte boundary.  If @option{-mpreferred-stack-boundary} is not specified,
 the default is 4 (16 bytes or 128 bits).
+
+@strong{Warning:} When generating code for the x86-64 architecture with
+SSE extensions disabled, @option{-mpreferred-stack-boundary=3} can be
+used to keep the stack boundary aligned to 8 byte boundary.  Since
+x86-64 ABI require 16 byte stack alignment, this is ABI incompatible and
+intended to be used in controlled environment where stack space is
+important limitation.  This option will lead to wrong code when functions
+compiled with 16 byte stack alignment (such as functions from a standard
+library) are called with misaligned stack.  In this case, SSE
+instructions may lead to misaligned memory access traps.  In addition,
+variable arguments will be handled incorrectly for 16 byte aligned
+objects (including x87 long double and __int128), leading to wrong
+results.  You must build all modules with
+@option{-mpreferred-stack-boundary=3}, including any libraries.  This
+includes the system libraries and startup modules.
 
 @item -mincoming-stack-boundary=@var{num}
 @opindex mincoming-stack-boundary
@@ -18342,14 +18368,12 @@ is in effect.
 @itemx -mno-fused-madd
 @opindex mfused-madd
 @opindex mno-fused-madd
-If the processor type supports it, setting @code{-mfused-madd} will allow the
-usage of the @code{fmac} instruction (floating-point multiply-accumulate) for
-regular calculations.  Enabling this option might generate faster code but also
-produce different numeric floating-point results compared to strict IEEE 754
-arithmetic.  @code{-mfused-madd} is enabled by default by option
-@option{-funsafe-math-optimizations}.  Setting @code{-mno-fused-madd} will
-disallow the usage of the @code{fmac} instruction for regular calculations
-even if @option{-funsafe-math-optimizations} is in effect.
+Generate code that uses (does not use) the floating-point multiply and
+accumulate instructions.  These instructions are generated by default
+if hardware floating point is used.  The machine-dependent
+@option{-mfused-madd} option is now mapped to the machine-independent
+@option{-ffp-contract=fast} option, and @option{-mno-fused-madd} is
+mapped to @option{-ffp-contract=off}.
 
 @item -mfsca
 @itemx -mno-fsca
@@ -19319,6 +19343,84 @@ indices used to access arrays are within the declared range.  This is
 currently only supported by the Java and Fortran front ends, where
 this option defaults to true and false respectively.
 
+@item -fstack-reuse=@var{reuse-level}
+@opindex fstack_reuse
+This option controls stack space reuse for user declared local/auto variables
+and compiler generated temporaries.  @var{reuse_level} can be @samp{all},
+@samp{named_vars}, or @samp{none}. @samp{all} enables stack reuse for all
+local variables and temporaries, @samp{named_vars} enables the reuse only for
+user defined local variables with names, and @samp{none} disables stack reuse
+completely. The default value is @samp{all}. The option is needed when the
+program extends the lifetime of a scoped local variable or a compiler generated
+temporary beyond the end point defined by the language.  When a lifetime of
+a variable ends, and if the variable lives in memory, the optimizing compiler
+has the freedom to reuse its stack space with other temporaries or scoped
+local variables whose live range does not overlap with it. Legacy code extending
+local lifetime will likely to break with the stack reuse optimization.
+
+For example,
+
+@smallexample
+   int *p;
+   @{
+     int local1;
+
+     p = &local1;
+     local1 = 10;
+     ....
+   @}
+   @{
+      int local2;
+      local2 = 20;
+      ...
+   @}
+
+   if (*p == 10)  // out of scope use of local1
+     @{
+
+     @}
+@end smallexample
+
+Another example:
+@smallexample
+
+   struct A
+   @{
+       A(int k) : i(k), j(k) @{ @}
+       int i;
+       int j;
+   @};
+
+   A *ap;
+
+   void foo(const A& ar)
+   @{
+      ap = &ar;
+   @}
+
+   void bar()
+   @{
+      foo(A(10)); // temp object's lifetime ends when foo returns
+
+      @{
+        A a(20);
+        ....
+      @}
+      ap->i+= 10;  // ap references out of scope temp whose space
+                   // is reused with a. What is the value of ap->i?
+   @}
+
+@end smallexample
+
+The lifetime of a compiler generated temporary is well defined by the C++
+standard. When a lifetime of a temporary ends, and if the temporary lives
+in memory, the optimizing compiler has the freedom to reuse its stack
+space with other temporaries or scoped local variables whose live range
+does not overlap with it. However some of the legacy code relies on
+the behavior of older compilers in which temporaries' stack space is
+not reused, the aggressive stack reuse can lead to runtime errors. This
+option is used to control the temporary stack reuse optimization.
+
 @item -ftrapv
 @opindex ftrapv
 This option generates traps for signed overflow on addition, subtraction,
@@ -19354,6 +19456,14 @@ not exist everywhere.  Moreover, it only allows @emph{trapping}
 instructions to throw exceptions, i.e.@: memory references or floating-point
 instructions.  It does not allow exceptions to be thrown from
 arbitrary signal handlers such as @code{SIGALRM}.
+
+@item -fdelete-dead-exceptions
+@opindex fdelete-dead-exceptions
+Consider that instructions that may throw exceptions but don't otherwise
+contribute to the execution of the program can be optimized away.
+This option is enabled by default for the Ada front end, as permitted by
+the Ada language specification.
+Optimization passes that cause dead exceptions to be removed are enabled independently at different optimization levels.
 
 @item -funwind-tables
 @opindex funwind-tables

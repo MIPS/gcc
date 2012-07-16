@@ -374,7 +374,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "recog.h"
 #include "params.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "output.h"
 #include "except.h"
@@ -4175,7 +4174,7 @@ ira (FILE *f)
   /* Determine if the current function is a leaf before running IRA
      since this can impact optimizations done by the prologue and
      epilogue thus changing register elimination offsets.  */
-  current_function_is_leaf = leaf_function_p ();
+  crtl->is_leaf = leaf_function_p ();
 
   if (resize_reg_info () && flag_ira_loop_pressure)
     ira_set_pseudo_classes (ira_dump_file);

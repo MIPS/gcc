@@ -27,9 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "obstack.h"
 #include "basic-block.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "params.h"
 #include "expr.h"
+#include "dumpfile.h"
 
 /* This pass moves constant conditions out of loops, duplicating the loop
    in progress, i.e. this code:

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "rtl.h"
+#include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -36,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "ggc.h"
 #include "hashtab.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 #include "cselib.h"
 #include "params.h"
 #include "alloc-pool.h"
@@ -322,7 +323,7 @@ new_elt_loc_list (cselib_val *val, rtx loc)
 static inline void
 promote_debug_loc (struct elt_loc_list *l)
 {
-  if (l->setting_insn && DEBUG_INSN_P (l->setting_insn)
+  if (l && l->setting_insn && DEBUG_INSN_P (l->setting_insn)
       && (!cselib_current_insn || !DEBUG_INSN_P (cselib_current_insn)))
     {
       n_debug_values--;

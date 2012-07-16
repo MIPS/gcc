@@ -30,9 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "tree-pass.h"
-#include "timevar.h"
+#include "dumpfile.h"
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-affine.h"
@@ -556,7 +554,7 @@ most_expensive_mult_to_index (tree type, struct mem_address *parts,
 	  || !multiplier_allowed_in_address_p (coef, TYPE_MODE (type), as))
 	continue;
 
-      acost = multiply_by_cost (coef, address_mode, speed);
+      acost = multiply_by_const_cost (coef, address_mode, speed);
 
       if (acost > best_mult_cost)
 	{

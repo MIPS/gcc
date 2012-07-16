@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "obstack.h"
@@ -172,7 +173,7 @@ resolve_procedure_interface (gfc_symbol *sym)
       sym->ts.interface = ifc;
       sym->attr.function = ifc->attr.function;
       sym->attr.subroutine = ifc->attr.subroutine;
-      gfc_copy_formal_args (sym, ifc);
+      gfc_copy_formal_args (sym, ifc, IFSRC_DECL);
 
       sym->attr.allocatable = ifc->attr.allocatable;
       sym->attr.pointer = ifc->attr.pointer;
@@ -1152,7 +1153,7 @@ resolve_structure_cons (gfc_expr *expr, int init)
 	    }
 
 	  if (s2 && !gfc_compare_interfaces (comp->ts.interface, s2, name, 0, 1,
-					     err, sizeof (err)))
+					     err, sizeof (err), NULL, NULL))
 	    {
 	      gfc_error ("Interface mismatch for procedure-pointer component "
 			 "'%s' in structure constructor at %L: %s",
@@ -1957,7 +1958,6 @@ resolve_elemental_actual (gfc_expr *expr, gfc_code *c)
 		       "ELEMENTAL procedure unless there is a non-optional "
 		       "argument with the same rank (12.4.1.5)",
 		       arg->expr->symtree->n.sym->name, &arg->expr->where);
-	  return FAILURE;
 	}
     }
 
@@ -6986,6 +6986,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 	}
     }
 
+  /* Check for F08:C628.  */
   if (allocatable == 0 && pointer == 0)
     {
       gfc_error ("Allocate-object at %L must be ALLOCATABLE or a POINTER",
@@ -11020,8 +11021,8 @@ static gfc_try
 check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
 			     const char* generic_name, locus where)
 {
-  gfc_symbol* sym1;
-  gfc_symbol* sym2;
+  gfc_symbol *sym1, *sym2;
+  const char *pass1, *pass2;
 
   gcc_assert (t1->specific && t2->specific);
   gcc_assert (!t1->specific->is_generic);
@@ -11045,8 +11046,20 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
     }
 
   /* Compare the interfaces.  */
+  if (t1->specific->nopass)
+    pass1 = NULL;
+  else if (t1->specific->pass_arg)
+    pass1 = t1->specific->pass_arg;
+  else
+    pass1 = t1->specific->u.specific->n.sym->formal->sym->name;
+  if (t2->specific->nopass)
+    pass2 = NULL;
+  else if (t2->specific->pass_arg)
+    pass2 = t2->specific->pass_arg;
+  else
+    pass2 = t2->specific->u.specific->n.sym->formal->sym->name;  
   if (gfc_compare_interfaces (sym1, sym2, sym2->name, !t1->is_operator, 0,
-			      NULL, 0))
+			      NULL, 0, pass1, pass2))
     {
       gfc_error ("'%s' and '%s' for GENERIC '%s' at %L are ambiguous",
 		 sym1->name, sym2->name, generic_name, &where);
@@ -11252,6 +11265,22 @@ resolve_typebound_intrinsic_op (gfc_symbol* derived, gfc_intrinsic_op op,
 
       if (!gfc_check_operator_interface (target_proc, op, p->where))
 	goto error;
+
+      /* Add target to non-typebound operator list.  */
+      if (!target->specific->deferred && !derived->attr.use_assoc
+	  && p->access != ACCESS_PRIVATE)
+	{
+	  gfc_interface *head, *intr;
+	  if (gfc_check_new_interface (derived->ns->op[op], target_proc,
+				       p->where) == FAILURE)
+	    return FAILURE;
+	  head = derived->ns->op[op];
+	  intr = gfc_get_interface ();
+	  intr->sym = target_proc;
+	  intr->where = p->where;
+	  intr->next = head;
+	  derived->ns->op[op] = intr;
+	}
     }
 
   return SUCCESS;
@@ -11761,7 +11790,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	      c->ts.interface = ifc;
 	      c->attr.function = ifc->attr.function;
 	      c->attr.subroutine = ifc->attr.subroutine;
-	      gfc_copy_formal_args_ppc (c, ifc);
+	      gfc_copy_formal_args_ppc (c, ifc, IFSRC_DECL);
 
 	      c->attr.pure = ifc->attr.pure;
 	      c->attr.elemental = ifc->attr.elemental;

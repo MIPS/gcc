@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "df.h"
 #include "cselib.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "alias.h"
@@ -2628,7 +2627,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
      them.  */
   if ((GET_CODE (PATTERN (insn)) == CLOBBER)
       || volatile_refs_p (PATTERN (insn))
-      || insn_could_throw_p (insn)
+      || (!cfun->can_delete_dead_exceptions && !insn_nothrow_p (insn))
       || (RTX_FRAME_RELATED_P (insn))
       || find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX))
     insn_info->cannot_delete = true;

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "cpplib.h"
 #include "ggc.h"
+#include "tree.h"
 
 /* In order for the format checking to accept the C frontend
    diagnostic framework extensions, you must include this file before
@@ -919,6 +920,7 @@ extern bool lvalue_p (const_tree);
 
 extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
 extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
+extern tree c_build_vec_perm_expr (location_t, tree, tree, tree);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
@@ -1019,7 +1021,6 @@ extern void c_common_read_pch (cpp_reader *pfile, const char *name, int fd,
 extern void c_common_write_pch (void);
 extern void c_common_no_more_pch (void);
 extern void c_common_pch_pragma (cpp_reader *pfile, const char *);
-extern void c_common_print_pch_checksum (FILE *f);
 
 /* In *-checksum.c */
 extern const unsigned char executable_checksum[16];

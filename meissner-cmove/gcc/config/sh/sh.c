@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "basic-block.h"
 #include "df.h"
-#include "cfglayout.h"
 #include "intl.h"
 #include "sched-int.h"
 #include "params.h"
@@ -304,6 +303,7 @@ static int mov_insn_size (enum machine_mode, bool);
 static int max_mov_insn_displacement (enum machine_mode, bool);
 static int mov_insn_alignment_mask (enum machine_mode, bool);
 static HOST_WIDE_INT disp_addr_displacement (rtx);
+static bool sequence_insn_p (rtx);
 
 static void sh_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
@@ -751,8 +751,6 @@ sh_option_override (void)
     if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))
       sh_additional_register_names[regno][0] = '\0';
 
-  flag_omit_frame_pointer = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);
-
   if ((flag_pic && ! TARGET_PREFERGOT)
       || (TARGET_SHMEDIA && !TARGET_PT_FIXED))
     flag_no_function_cse = 1;
@@ -784,22 +782,17 @@ sh_option_override (void)
 	flag_schedule_insns = 0;
     }
 
-    if ((target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS) == 0)
-       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
-
-  /* Unwind info is not correct around the CFG unless either a frame 
-     pointer is present or M_A_O_A is set.  Fixing this requires rewriting 
-     unwind info generation to be aware of the CFG and propagating states 
+  /* Unwind info is not correct around the CFG unless either a frame
+     pointer is present or M_A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
      around edges.  */
   if ((flag_unwind_tables || flag_asynchronous_unwind_tables
-       || flag_exceptions || flag_non_call_exceptions)   
-      && flag_omit_frame_pointer
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
+       || flag_exceptions || flag_non_call_exceptions)
+      && flag_omit_frame_pointer && !TARGET_ACCUMULATE_OUTGOING_ARGS)
     {
-      if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "unwind tables currently require either a frame pointer "
-		 "or -maccumulate-outgoing-args for correctness");
-      target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
+      warning (0, "unwind tables currently require either a frame pointer "
+	       "or -maccumulate-outgoing-args for correctness");
+      TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
     }
 
   /* Unwinding with -freorder-blocks-and-partition does not work on this
@@ -878,13 +871,6 @@ sh_option_override (void)
 
   if (flag_unsafe_math_optimizations)
     {
-      /* Enable fmac insn for "a * b + c" SFmode calculations when -ffast-math
-	 is enabled and -mno-fused-madd is not specified by the user.
-	 The fmac insn can't be enabled by default due to the implied
-	 FMA semantics.   See also PR target/29100.  */
-      if (global_options_set.x_TARGET_FMAC == 0)
-	TARGET_FMAC = 1;
-
       /* Enable fsca insn for SH4A if not otherwise specified by the user.  */
       if (global_options_set.x_TARGET_FSCA == 0 && TARGET_SH4A_FP)
 	TARGET_FSCA = 1;
@@ -1889,7 +1875,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 void
 expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
 {
-  rtx (*branch_expander) (rtx) = gen_branch_true;
+  rtx (*branch_expander) (rtx, rtx) = gen_branch_true;
   rtx jump;
 
   comparison = prepare_cbranch_operands (operands, SImode, comparison);
@@ -1903,7 +1889,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
   emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, T_REG),
                           gen_rtx_fmt_ee (comparison, SImode,
                                           operands[1], operands[2])));
-  jump = emit_jump_insn (branch_expander (operands[3]));
+  jump = emit_jump_insn (branch_expander (operands[3], get_t_reg_rtx ()));
   if (probability >= 0)
     add_reg_note (jump, REG_BR_PROB, GEN_INT (probability));
 
@@ -1956,7 +1942,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       if (TARGET_CMPEQDI_T)
 	{
 	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_true (operands[3]));
+	  emit_jump_insn (gen_branch_true (operands[3], get_t_reg_rtx ()));
 	  return true;
 	}
       msw_skip = NE;
@@ -1984,7 +1970,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       if (TARGET_CMPEQDI_T)
 	{
 	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_false (operands[3]));
+	  emit_jump_insn (gen_branch_false (operands[3], get_t_reg_rtx ()));
 	  return true;
 	}
       msw_taken = NE;
@@ -2319,9 +2305,9 @@ sh_emit_compare_and_branch (rtx *operands, enum machine_mode mode)
     sh_emit_set_t_insn (gen_ieee_ccmpeqsf_t (op0, op1), mode);
 
   if (branch_code == code)
-    emit_jump_insn (gen_branch_true (operands[3]));
+    emit_jump_insn (gen_branch_true (operands[3], get_t_reg_rtx ()));
   else
-    emit_jump_insn (gen_branch_false (operands[3]));
+    emit_jump_insn (gen_branch_false (operands[3], get_t_reg_rtx ()));
 }
 
 void
@@ -2355,7 +2341,7 @@ sh_emit_compare_and_set (rtx *operands, enum machine_mode mode)
             {
               lab = gen_label_rtx ();
               sh_emit_scc_to_t (EQ, op0, op1);
-              emit_jump_insn (gen_branch_true (lab));
+              emit_jump_insn (gen_branch_true (lab, get_t_reg_rtx ()));
               code = GT;
            }
           else
@@ -3375,7 +3361,7 @@ gen_shifty_op (int code, rtx *operands)
       if (code == LSHIFTRT)
 	{
 	  emit_insn (gen_rotlsi3_1 (operands[0], operands[0]));
-	  emit_insn (gen_movt (operands[0]));
+	  emit_insn (gen_movt (operands[0], get_t_reg_rtx ()));
 	  return;
 	}
       else if (code == ASHIFT)
@@ -4809,7 +4795,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	 delay slot scheduler.  */
       if (JUMP_P (from) && !JUMP_TABLE_DATA_P (from) 
 	  && get_attr_type (from) == TYPE_CBRANCH
-	  && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (from)))) != SEQUENCE)
+	  && ! sequence_insn_p (from))
 	inc += 2;
 
       if (found_si)
@@ -6490,11 +6476,10 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      emit_insn (GEN_MOV (const_reg, GEN_INT (size)));
 	      insn = emit_fn (GEN_ADD3 (reg, reg, const_reg));
 	    }
-	  if (! epilogue_p)
-	    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			  gen_rtx_SET (VOIDmode, reg,
-				       gen_rtx_PLUS (SImode, reg,
-						     GEN_INT (size))));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_rtx_SET (VOIDmode, reg,
+				     gen_rtx_PLUS (SImode, reg,
+						   GEN_INT (size))));
 	}
     }
 }
@@ -6539,7 +6524,7 @@ push (int rn)
 static void
 pop (int rn)
 {
-  rtx x;
+  rtx x, sp_reg, reg;
   if (rn == FPUL_REG)
     x = gen_pop_fpul ();
   else if (rn == FPSCR_REG)
@@ -6557,7 +6542,18 @@ pop (int rn)
     x = gen_pop (gen_rtx_REG (SImode, rn));
 
   x = emit_insn (x);
+
+  sp_reg = gen_rtx_REG (SImode, STACK_POINTER_REGNUM);
+  reg = copy_rtx (GET_CODE (PATTERN (x)) == PARALLEL
+		  ? SET_DEST (XVECEXP (PATTERN (x), 0, 0))
+		  : SET_DEST (PATTERN (x)));
+  add_reg_note (x, REG_CFA_RESTORE, reg);
+  add_reg_note (x, REG_CFA_ADJUST_CFA,
+		gen_rtx_SET (SImode, sp_reg,
+			     plus_constant (SImode, sp_reg,
+					    GET_MODE_SIZE (GET_MODE (reg)))));
   add_reg_note (x, REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM));
+  RTX_FRAME_RELATED_P (x) = 1;
 }
 
 /* Generate code to push the regs specified in the mask.  */
@@ -6888,7 +6884,7 @@ sh_media_register_for_return (void)
   int regno;
   int tr0_used;
 
-  if (! current_function_is_leaf)
+  if (! crtl->is_leaf)
     return -1;
   if (lookup_attribute ("interrupt_handler",
 			DECL_ATTRIBUTES (current_function_decl)))
@@ -7440,14 +7436,14 @@ sh_expand_epilogue (bool sibcall_p)
 	 See PR/18032 and PR/40313.  */
       emit_insn (gen_blockage ());
       output_stack_adjust (frame_size, hard_frame_pointer_rtx, e,
-			   &live_regs_mask, false);
+			   &live_regs_mask, true);
 
       /* We must avoid moving the stack pointer adjustment past code
 	 which reads from the local frame, else an interrupt could
 	 occur after the SP adjustment and clobber data in the local
 	 frame.  */
       emit_insn (gen_blockage ());
-      emit_insn (GEN_MOV (stack_pointer_rtx, hard_frame_pointer_rtx));
+      frame_insn (GEN_MOV (stack_pointer_rtx, hard_frame_pointer_rtx));
     }
   else if (frame_size)
     {
@@ -7457,7 +7453,7 @@ sh_expand_epilogue (bool sibcall_p)
 	 frame.  */
       emit_insn (gen_blockage ());
       output_stack_adjust (frame_size, stack_pointer_rtx, e,
-			   &live_regs_mask, false);
+			   &live_regs_mask, true);
     }
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
@@ -7674,7 +7670,7 @@ sh_expand_epilogue (bool sibcall_p)
   output_stack_adjust (crtl->args.pretend_args_size
 		       + save_size + d_rounding
 		       + crtl->args.info.stack_regs * 8,
-		       stack_pointer_rtx, e, NULL, false);
+		       stack_pointer_rtx, e, NULL, true);
 
   if (crtl->calls_eh_return)
     emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -9314,6 +9310,15 @@ sh_cfun_resbank_handler_p (void)
               != NULL_TREE) && TARGET_SH2A);
 }
 
+/* Returns true if the current function has a "trap_exit" attribute set.  */
+
+bool
+sh_cfun_trap_exit_p (void)
+{
+  return lookup_attribute ("trap_exit", DECL_ATTRIBUTES (current_function_decl))
+	 != NULL_TREE;
+}
+
 /* Implement TARGET_CHECK_PCH_TARGET_FLAGS.  */
 
 static const char *
@@ -9509,6 +9514,15 @@ reg_unused_after (rtx reg, rtx insn)
 
 #include "ggc.h"
 
+static GTY(()) rtx t_reg_rtx;
+rtx
+get_t_reg_rtx (void)
+{
+  if (! t_reg_rtx)
+    t_reg_rtx = gen_rtx_REG (SImode, T_REG);
+  return t_reg_rtx;
+}
+
 static GTY(()) rtx fpscr_rtx;
 rtx
 get_fpscr_rtx (void)
@@ -9648,6 +9662,26 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == ';')
 #endif
 
+static bool
+sequence_insn_p (rtx insn)
+{
+  rtx prev, next, pat;
+
+  prev = PREV_INSN (insn);
+  if (prev == NULL)
+    return false;
+
+  next = NEXT_INSN (prev);
+  if (next == NULL)
+    return false;
+
+  pat = PATTERN (next);
+  if (pat == NULL)
+    return false;
+
+  return GET_CODE (pat) == SEQUENCE;
+}
+
 int
 sh_insn_length_adjustment (rtx insn)
 {
@@ -9658,7 +9692,7 @@ sh_insn_length_adjustment (rtx insn)
 	&& GET_CODE (PATTERN (insn)) != CLOBBER)
        || CALL_P (insn)
        || (JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)))
-      && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE
+      && ! sequence_insn_p (insn)
       && get_attr_needs_delay_slot (insn) == NEEDS_DELAY_SLOT_YES)
     return 2;
 
@@ -9667,7 +9701,7 @@ sh_insn_length_adjustment (rtx insn)
   if (sh_cpu_attr == CPU_SH2E
       && JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)
       && get_attr_type (insn) == TYPE_CBRANCH
-      && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE)
+      && ! sequence_insn_p (insn))
     return 2;
 
   /* sh-dsp parallel processing insn take four bytes instead of two.  */
@@ -10482,7 +10516,7 @@ sh_allocate_initial_value (rtx hard_reg)
 
   if (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG))
     {
-      if (current_function_is_leaf
+      if (crtl->is_leaf
 	  && ! sh_pr_n_sets ()
 	  && ! (TARGET_SHCOMPACT
 		&& ((crtl->args.info.call_cookie
@@ -11231,7 +11265,6 @@ static struct builtin_description bdesc[] =
   { CODE_FOR_fsina_s,	"__builtin_sh_media_FSINA_S", SH_BLTIN_SISF, 0 },
   { CODE_FOR_fipr,	"__builtin_sh_media_FIPR_S", SH_BLTIN_3, 0 },
   { CODE_FOR_ftrv,	"__builtin_sh_media_FTRV_S", SH_BLTIN_3, 0 },
-  { CODE_FOR_mac_media,	"__builtin_sh_media_FMAC_S", SH_BLTIN_3, 0 },
   { CODE_FOR_sqrtdf2,	"__builtin_sh_media_FSQRT_D", SH_BLTIN_2, 0 },
   { CODE_FOR_sqrtsf2,	"__builtin_sh_media_FSQRT_S", SH_BLTIN_2, 0 },
   { CODE_FOR_fsrra_s,	"__builtin_sh_media_FSRRA_S", SH_BLTIN_2, 0 },
@@ -11769,7 +11802,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  current_function_uses_only_leaf_regs = 1;
+  crtl->uses_only_leaf_regs = 1;
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -12055,7 +12088,7 @@ sh_expand_t_scc (rtx operands[])
     result = gen_reg_rtx (SImode);
   val = INTVAL (op1);
   if ((code == EQ && val == 1) || (code == NE && val == 0))
-    emit_insn (gen_movt (result));
+    emit_insn (gen_movt (result, get_t_reg_rtx ()));
   else if ((code == EQ && val == 0) || (code == NE && val == 1))
     emit_insn (gen_movnegt (result));
   else if (code == EQ || code == NE)

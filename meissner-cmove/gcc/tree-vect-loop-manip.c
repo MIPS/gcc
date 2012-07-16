@@ -27,12 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
+#include "tree-pass.h"
 #include "cfgloop.h"
-#include "cfglayout.h" /* for can_copy_bbs_p and copy_bbs */
 #include "diagnostic-core.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"

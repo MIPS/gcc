@@ -499,9 +499,11 @@ default_builtin_vectorized_conversion (unsigned int code ATTRIBUTE_UNUSED,
 
 int
 default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
-                                    tree vectype ATTRIBUTE_UNUSED,
+                                    tree vectype,
                                     int misalign ATTRIBUTE_UNUSED)
 {
+  unsigned elements;
+
   switch (type_of_cost)
     {
       case scalar_stmt:
@@ -523,6 +525,10 @@ default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case cond_branch_taken:
         return 3;
+
+      case vec_construct:
+	elements = TYPE_VECTOR_SUBPARTS (vectype);
+	return elements / 2 + 1;
 
       default:
         gcc_unreachable ();
@@ -988,6 +994,64 @@ unsigned int
 default_autovectorize_vector_sizes (void)
 {
   return 0;
+}
+
+/* By default, the cost model just accumulates the inside_loop costs for
+   a vectorized loop or block.  So allocate an unsigned int, set it to
+   zero, and return its address.  */
+
+void *
+default_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
+{
+  unsigned *cost = XNEW (unsigned);
+  *cost = 0;
+  return cost;
+}
+
+/* By default, the cost model looks up the cost of the given statement
+   kind and mode, multiplies it by the occurrence count, accumulates
+   it into the cost, and returns the cost added.  */
+
+unsigned
+default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
+		       struct _stmt_vec_info *stmt_info, int misalign)
+{
+  unsigned *cost = (unsigned *) data;
+  unsigned retval = 0;
+
+  if (flag_vect_cost_model)
+    {
+      tree vectype = stmt_vectype (stmt_info);
+      int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
+							  misalign);
+      /* Statements in an inner loop relative to the loop being
+	 vectorized are weighted more heavily.  The value here is
+	 arbitrary and could potentially be improved with analysis.  */
+      if (stmt_in_inner_loop_p (stmt_info))
+	count *= 50;  /* FIXME.  */
+
+      retval = (unsigned) (count * stmt_cost);
+      *cost += retval;
+    }
+
+  return retval;
+}
+
+/* By default, the cost model just returns the accumulated
+   inside_loop cost.  */
+
+unsigned
+default_finish_cost (void *data)
+{
+  return *((unsigned *) data);
+}
+
+/* Free the cost data.  */
+
+void
+default_destroy_cost_data (void *data)
+{
+  free (data);
 }
 
 /* Determine whether or not a pointer mode is valid. Assume defaults
