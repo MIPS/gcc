@@ -1377,6 +1377,18 @@
 
 2012-07-16  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #2845
+	* target.h (gcc_target): Add mode_for_extraction_insv.
+	* expmed.c (store_bit_field_1): Use mode_for_extraction_insv
+	and split out into ...
+	(store_bit_field_2): Here.
+	* target-def.h (TARGET_MODE_FOR_EXTRACTION_INSV): Define.
+	(TARGET_INITIALIZER): Add TARGET_MODE_FOR_EXTRACTION_INSV.
+	* config/mips/mips.c (mips_mode_for_extraction_insv): New function.
+	(TARGET_MODE_FOR_EXTRACTION_INSV): Define.
+
+2012-07-16  Andrew Pinski  <apinski@cavium.com>
+
 	* tree-pass.h (pass_profile_loop_bounds): New variable.
 	* timevar.def (TV_PROFILE_LOOP_BOUNDS): New time var.
 	* tree-ssa-loop.c (tree_profile_loop_bounds): New function.

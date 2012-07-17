@@ -918,6 +918,55 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   return true;
 }
 
+
+static bool
+store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
+		   unsigned HOST_WIDE_INT bitnum, 
+		   unsigned HOST_WIDE_INT bitregion_start,
+		   unsigned HOST_WIDE_INT bitregion_end,
+		   enum machine_mode fieldmode,
+		   rtx value, bool fallback_p);
+
+/* A subroutine of store_bit_field, with the same arguments, except OP_MODE is the
+   mode which tried to use for the inseration.  Return true if the operation
+   could be implemented.
+   If FALLBACK_P is true, fall back to store_fixed_bit_field if we have
+   no other way of implementing the operation.  If FALLBACK_P is false,
+   return false instead.  */
+static bool
+store_bit_field_2 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
+		   unsigned HOST_WIDE_INT bitnum, 
+		   unsigned HOST_WIDE_INT bitregion_start,
+		   unsigned HOST_WIDE_INT bitregion_end,
+		   enum machine_mode fieldmode,
+		   rtx value, enum machine_mode op_mode, bool fallback_p)
+{
+  enum machine_mode *modes;
+  unsigned int unit = (MEM_P (str_rtx)) ? BITS_PER_UNIT : GET_MODE_BITSIZE (op_mode);
+  if (MEM_P (str_rtx) || targetm.mode_for_extraction_insv == NULL)
+    return store_bit_field_2 (str_rtx, bitsize,
+		   bitnum, bitregion_start,
+		   bitregion_end, fieldmode,
+		   value, op_mode, fallback_p);
+  modes = targetm.mode_for_extraction_insv();
+  gcc_assert (*modes != BLKmode);
+  while (modes[1] != BLKmode)
+    {
+      if (GET_MODE (str_rtx) == *modes)
+	if (store_bit_field_2 (str_rtx, bitsize,
+			       bitnum, bitregion_start,
+			       bitregion_end, fieldmode,
+			       value, *modes, false))
+	  return true;
+      modes++;
+    }
+  
+  return store_bit_field_2 (str_rtx, bitsize,
+			    bitnum, bitregion_start,
+			    bitregion_end, fieldmode,
+			    value, *modes, fallback_p);
+}
+
 /* Generate code to store value from rtx VALUE
    into a bit-field within structure STR_RTX
    containing BITSIZE bits starting at bit BITNUM.
