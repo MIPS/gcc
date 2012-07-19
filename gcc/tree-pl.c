@@ -34,6 +34,8 @@ static void pl_fix_function_decls (void);
 static void pl_init (void);
 static void pl_fini (void);
 static void pl_register_bounds (tree ptr, tree bnd);
+static void pl_register_addr_bounds (tree ptr, tree bnd);
+static tree pl_get_registered_addr_bounds (tree ptr);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
@@ -54,6 +56,7 @@ static tree pl_make_addressed_object_bounds (tree obj,
 					     bool always_narrow_fields);
 static tree pl_generate_extern_var_bounds (tree var);
 static tree pl_get_bounds_for_decl (tree decl);
+static tree pl_get_bounds_for_decl_addr (tree decl);
 static tree pl_get_bounds_for_string_cst (tree cst);
 static tree pl_get_bounds_by_definition (tree node, gimple def_stmt,
 					 gimple_stmt_iterator *iter);
@@ -545,6 +548,8 @@ pl_check_mem_access (tree first, tree last, tree bounds,
 
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t pl_reg_bounds;
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+     htab_t pl_reg_addr_bounds;
 
 static void
 pl_register_bounds (tree ptr, tree bnd)
@@ -578,6 +583,43 @@ pl_get_registered_bounds (tree ptr)
   in.hash = htab_hash_pointer (ptr);
 
   res = (struct tree_map *) htab_find_with_hash (pl_reg_bounds,
+						 &in, in.hash);
+
+  return res ? res->to : NULL_TREE;
+}
+
+static void
+pl_register_addr_bounds (tree ptr, tree bnd)
+{
+  struct tree_map **slot, *map;
+
+  map = ggc_alloc_tree_map ();
+  map->hash = htab_hash_pointer (ptr);
+  map->base.from = ptr;
+  map->to = bnd;
+
+  slot = (struct tree_map **)
+    htab_find_slot_with_hash (pl_reg_addr_bounds, map, map->hash, INSERT);
+  *slot = map;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Regsitered bound ");
+      print_generic_expr (dump_file, bnd, 0);
+      fprintf (dump_file, " for address of ");
+      print_generic_expr (dump_file, ptr, 0);
+      fprintf (dump_file, "\n");
+    }
+}
+
+static tree
+pl_get_registered_addr_bounds (tree ptr)
+{
+  struct tree_map *res, in;
+  in.base.from = ptr;
+  in.hash = htab_hash_pointer (ptr);
+
+  res = (struct tree_map *) htab_find_with_hash (pl_reg_addr_bounds,
 						 &in, in.hash);
 
   return res ? res->to : NULL_TREE;
@@ -1111,6 +1153,50 @@ pl_get_bounds_for_decl (tree decl)
 }
 
 static tree
+pl_get_bounds_for_decl_addr (tree decl)
+{
+  tree bounds;
+  tree lb;
+  tree size;
+
+  gcc_assert (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == PARM_DECL);
+
+  bounds = pl_get_registered_addr_bounds (decl);
+
+  if (bounds)
+    return bounds;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Building bounds for address of decl ");
+      print_generic_expr (dump_file, decl, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  lb = build_fold_addr_expr (decl);
+
+  if (DECL_SIZE (decl))
+    {
+      /* We need size in bytes rounded up.  */
+      size = build_int_cst (size_type_node,
+			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
+      bounds = pl_make_bounds (lb, size, NULL);
+    }
+  else
+    {
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      /*warning (0, "using zero bounds for var with incomplete type\n");*/
+      /*bounds = pl_get_zero_bounds ();*/
+      bounds = pl_generate_extern_var_bounds (decl);
+    }
+
+  pl_register_addr_bounds (decl, bounds);
+
+  return bounds;
+}
+
+static tree
 pl_get_bounds_for_string_cst (tree cst)
 {
   tree bounds;
@@ -1143,7 +1229,7 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
     {
     case VAR_DECL:
     case PARM_DECL:
-      bounds = pl_get_bounds_for_decl (obj);
+      bounds = pl_get_bounds_for_decl_addr (obj);
       break;
 
     case STRING_CST:
@@ -1916,6 +2002,8 @@ static void
 pl_init (void)
 {
   pl_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
+				   NULL);
+  pl_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 				   NULL);
   pl_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
 				     NULL);
