@@ -949,7 +949,7 @@ process_subob_fn (tree fn, bool move_p, tree *spec_p, bool *trivial_p,
 
   /* Core 1402: A non-trivial copy op suppresses the implicit
      declaration of the move ctor/op=.  */
-  if (move_p && !move_fn_p (fn) && !trivial_fn_p (fn))
+  if (no_implicit_p && move_p && !move_fn_p (fn) && !trivial_fn_p (fn))
     *no_implicit_p = true;
 
   if (constexpr_p && !DECL_DECLARED_CONSTEXPR_P (fn))
@@ -1120,6 +1120,9 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
   if (spec_p)
     *spec_p = (cxx_dialect >= cxx0x ? noexcept_true_spec : empty_except_spec);
 
+  if (no_implicit_p)
+    *no_implicit_p = false;
+
   if (deleted_p)
     {
       /* "The closure type associated with a lambda-expression has a deleted
@@ -1195,9 +1198,6 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
   if (trivial_p)
     *trivial_p = expected_trivial;
 
-  if (no_implicit_p)
-    *no_implicit_p = false;
-
   /* The TYPE_HAS_COMPLEX_* flags tell us about constraints from base
      class versions and other properties of the type.  But a subobject
      class can be trivially copyable and yet have overload resolution
@@ -1225,6 +1225,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
 
   ++cp_unevaluated_operand;
   ++c_inhibit_evaluation_warnings;
+  push_deferring_access_checks (dk_no_deferred);
 
   scope = push_scope (ctype);
 
@@ -1342,6 +1343,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
 
   pop_scope (scope);
 
+  pop_deferring_access_checks ();
   --cp_unevaluated_operand;
   --c_inhibit_evaluation_warnings;
 }

@@ -88,6 +88,14 @@ package body Freeze is
    --  Apply legality checks to address clauses for object declarations,
    --  at the point the object is frozen.
 
+   procedure Check_Component_Storage_Order
+     (Encl_Type : Entity_Id;
+      Comp      : Entity_Id);
+   --  For an Encl_Type that has a Scalar_Storage_Order attribute definition
+   --  clause, verify that the component type is compatible. For arrays,
+   --  Comp is Empty; for records, it is the entity of the component under
+   --  consideration.
+
    procedure Check_Strict_Alignment (E : Entity_Id);
    --  E is a base type. If E is tagged or has a component that is aliased
    --  or tagged or contains something this is aliased or tagged, set
@@ -1007,6 +1015,76 @@ package body Freeze is
    begin
       Set_Size_Known_At_Compile_Time (T, Size_Known (T));
    end Check_Compile_Time_Size;
+
+   -----------------------------------
+   -- Check_Component_Storage_Order --
+   -----------------------------------
+
+   procedure Check_Component_Storage_Order
+     (Encl_Type : Entity_Id;
+      Comp      : Entity_Id)
+   is
+      Comp_Type : Entity_Id;
+      Comp_Def  : Node_Id;
+      Err_Node  : Node_Id;
+      ADC       : Node_Id;
+
+      Comp_Byte_Aligned : Boolean;
+      --  Set True for the record case, when Comp starts on a byte boundary
+      --  (in which case it is allowed to have different storage order).
+
+   begin
+      --  Record case
+
+      if Present (Comp) then
+         Err_Node  := Comp;
+         Comp_Type := Etype (Comp);
+         Comp_Def  := Component_Definition (Parent (Comp));
+
+         Comp_Byte_Aligned :=
+           Present (Component_Clause (Comp))
+             and then Normalized_First_Bit (Comp) mod System_Storage_Unit = 0;
+
+      --  Array case
+
+      else
+         Err_Node  := Encl_Type;
+         Comp_Type := Component_Type (Encl_Type);
+         Comp_Def  := Component_Definition
+                        (Type_Definition (Declaration_Node (Encl_Type)));
+
+         Comp_Byte_Aligned := False;
+      end if;
+
+      --  Note: the Reverse_Storage_Order flag is set on the base type, but
+      --  the attribute definition clause is attached to the first subtype.
+
+      Comp_Type := Base_Type (Comp_Type);
+      ADC := Get_Attribute_Definition_Clause
+               (First_Subtype (Comp_Type),
+                Attribute_Scalar_Storage_Order);
+
+      if Is_Record_Type (Comp_Type) or else Is_Array_Type (Comp_Type) then
+         if No (ADC) then
+            Error_Msg_N ("nested composite must have explicit scalar "
+                         & "storage order", Err_Node);
+
+         elsif (Reverse_Storage_Order (Encl_Type)
+                  /=
+                Reverse_Storage_Order (Etype (Comp_Type)))
+           and then not Comp_Byte_Aligned
+         then
+            Error_Msg_N
+              ("type of non-byte-aligned component must have same scalar "
+               & "storage order as enclosing composite", Err_Node);
+         end if;
+
+      elsif Aliased_Present (Comp_Def) then
+         Error_Msg_N
+           ("aliased component not permitted for type with "
+            & "explicit Scalar_Storage_Order", Err_Node);
+      end if;
+   end Check_Component_Storage_Order;
 
    -----------------------------
    -- Check_Debug_Info_Needed --
@@ -2202,12 +2280,21 @@ package body Freeze is
             end if;
 
             --  Warn if there is a Scalar_Storage_Order but no component clause
+            --  (or pragma Pack).
 
-            if not Placed_Component then
+            if not (Placed_Component or else Is_Packed (Rec)) then
                Error_Msg_N
                  ("?scalar storage order specified but no component clause",
                   ADC);
             end if;
+
+            --  Check attribute on component types
+
+            Comp := First_Component (Rec);
+            while Present (Comp) loop
+               Check_Component_Storage_Order (Rec, Comp);
+               Next_Component (Comp);
+            end loop;
          end if;
 
          --  Deal with Bit_Order aspect specifying a non-default bit order
@@ -2215,7 +2302,7 @@ package body Freeze is
          ADC := Get_Attribute_Definition_Clause (Rec, Attribute_Bit_Order);
 
          if Present (ADC) and then Base_Type (Rec) = Rec then
-            if not Placed_Component then
+            if not (Placed_Component or else Is_Packed (Rec)) then
                Error_Msg_N ("?bit order specification has no effect", ADC);
                Error_Msg_N
                  ("\?since no component clauses were specified", ADC);
@@ -2939,6 +3026,21 @@ package body Freeze is
                      end if;
                   end if;
                end;
+
+               --  Pre/Post conditions are implemented through a subprogram in
+               --  the corresponding body, and therefore are not checked on an
+               --  imported subprogram for which the body is not available.
+
+               if Is_Subprogram (E)
+                 and then Is_Imported (E)
+                 and then Present (Contract (E))
+                 and then Present (Spec_PPC_List (Contract (E)))
+               then
+                  Error_Msg_NE ("pre/post conditions on imported subprogram "
+                     & "are not enforced?",
+                     E, Spec_PPC_List (Contract (E)));
+               end if;
+
             end if;
 
             --  Must freeze its parent first if it is a derived subprogram
@@ -3672,6 +3774,14 @@ package body Freeze is
                      end if;
                   end if;
 
+                  --  Check for scalar storage order
+
+                  if Present (Get_Attribute_Definition_Clause
+                                (E, Attribute_Scalar_Storage_Order))
+                  then
+                     Check_Component_Storage_Order (E, Empty);
+                  end if;
+
                --  Processing that is done only for subtypes
 
                else
@@ -3781,24 +3891,6 @@ package body Freeze is
                return Result;
             end if;
 
-            --  If the Class_Wide_Type is an Itype (when type is the anonymous
-            --  parent of a derived type) and it is a library-level entity,
-            --  generate an itype reference for it. Otherwise, its first
-            --  explicit reference may be in an inner scope, which will be
-            --  rejected by the back-end.
-
-            if Is_Itype (E)
-              and then Is_Compilation_Unit (Scope (E))
-            then
-               declare
-                  Ref : constant Node_Id := Make_Itype_Reference (Loc);
-
-               begin
-                  Set_Itype (Ref, E);
-                  Add_To_Result (Ref);
-               end;
-            end if;
-
             --  The equivalent type associated with a class-wide subtype needs
             --  to be frozen to ensure that its layout is done.
 
@@ -3808,15 +3900,42 @@ package body Freeze is
                Freeze_And_Append (Equivalent_Type (E), N, Result);
             end if;
 
-         --  For a record (sub)type, freeze all the component types (RM
-         --  13.14(15). We test for E_Record_(sub)Type here, rather than using
-         --  Is_Record_Type, because we don't want to attempt the freeze for
-         --  the case of a private type with record extension (we will do that
-         --  later when the full type is frozen).
+            --  Generate an itype reference for a library-level class-wide type
+            --  at the freeze point. Otherwise the first explicit reference to
+            --  the type may appear in an inner scope which will be rejected by
+            --  the back-end.
 
-         elsif Ekind (E) = E_Record_Type
-           or else Ekind (E) = E_Record_Subtype
-         then
+            if Is_Itype (E)
+              and then Is_Compilation_Unit (Scope (E))
+            then
+               declare
+                  Ref : constant Node_Id := Make_Itype_Reference (Loc);
+
+               begin
+                  Set_Itype (Ref, E);
+
+                  --  From a gigi point of view, a class-wide subtype derives
+                  --  from its record equivalent type. As a result, the itype
+                  --  reference must appear after the freeze node of the
+                  --  equivalent type or gigi will reject the reference.
+
+                  if Ekind (E) = E_Class_Wide_Subtype
+                    and then Present (Equivalent_Type (E))
+                  then
+                     Insert_After (Freeze_Node (Equivalent_Type (E)), Ref);
+                  else
+                     Add_To_Result (Ref);
+                  end if;
+               end;
+            end if;
+
+         --  For a record type or record subtype, freeze all component types
+         --  (RM 13.14(15)). We test for E_Record_(sub)Type here, rather than
+         --  using Is_Record_Type, because we don't want to attempt the freeze
+         --  for the case of a private type with record extension (we will do
+         --  that later when the full type is frozen).
+
+         elsif Ekind_In (E, E_Record_Type, E_Record_Subtype) then
             Freeze_Record_Type (E);
 
          --  For a concurrent type, freeze corresponding record type. This

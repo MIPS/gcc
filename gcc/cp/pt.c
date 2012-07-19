@@ -116,8 +116,6 @@ enum template_base_result {
 
 static void push_access_scope (tree);
 static void pop_access_scope (tree);
-static void push_deduction_access_scope (tree);
-static void pop_deduction_access_scope (tree);
 static bool resolve_overloaded_unification (tree, tree, tree, tree,
 					    unification_kind_t, int,
 					    bool);
@@ -8336,7 +8334,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 
 /* Perform (or defer) access check for typedefs that were referenced
    from within the template TMPL code.
-   This is a subroutine of instantiate_template and instantiate_class_template.
+   This is a subroutine of instantiate_decl and instantiate_class_template.
    TMPL is the template to consider and TARGS is the list of arguments of
    that template.  */
 
@@ -8372,7 +8370,8 @@ perform_typedefs_access_check (tree tmpl, tree targs)
          of the use of the typedef.  */
       input_location = iter->locus;
       perform_or_defer_access_check (TYPE_BINFO (type_scope),
-				     type_decl, type_decl);
+				     type_decl, type_decl,
+				     tf_warning_or_error);
     }
     input_location = saved_location;
 }
@@ -8879,7 +8878,7 @@ instantiate_class_template_1 (tree type)
      added to the template at parsing time. Let's get those and perform
      the access checks then.  */
   perform_typedefs_access_check (pattern, args);
-  perform_deferred_access_checks ();
+  perform_deferred_access_checks (tf_warning_or_error);
   pop_nested_class ();
   maximum_field_alignment = saved_maximum_field_alignment;
   if (!fn_context)
@@ -10237,8 +10236,12 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
       break;
 
     case USING_DECL:
-      /* We reach here only for member using decls.  */
-      if (DECL_DEPENDENT_P (t))
+      /* We reach here only for member using decls.  We also need to check
+	 uses_template_parms because DECL_DEPENDENT_P is not set for a
+	 using-declaration that designates a member of the current
+	 instantiation (c++/53549).  */
+      if (DECL_DEPENDENT_P (t)
+	  || uses_template_parms (USING_DECL_SCOPE (t)))
 	{
 	  r = do_class_using_decl
 	    (tsubst_copy (USING_DECL_SCOPE (t), args, complain, in_decl),
@@ -14263,9 +14266,10 @@ deduction_tsubst_fntype (tree fn, tree targs, tsubst_flags_t complain)
 
   input_location = DECL_SOURCE_LOCATION (fn);
   ++deduction_depth;
-  push_deduction_access_scope (fn);
+  /* We will do access checks in instantiate_template.  */
+  push_deferring_access_checks (dk_deferred);
   r = tsubst (fntype, targs, complain, NULL_TREE);
-  pop_deduction_access_scope (fn);
+  pop_deferring_access_checks ();
   --deduction_depth;
 
   if (excessive_deduction_depth)
@@ -14285,6 +14289,23 @@ deduction_tsubst_fntype (tree fn, tree targs, tsubst_flags_t complain)
   return r;
 }
 
+/* We're out of SFINAE context now, so generate diagnostics for the access
+   errors we saw earlier when instantiating D from TMPL and ARGS.  */
+
+static void
+recheck_decl_substitution (tree d, tree tmpl, tree args)
+{
+  tree pattern = DECL_TEMPLATE_RESULT (tmpl);
+  tree type = TREE_TYPE (pattern);
+  location_t loc = input_location;
+
+  push_access_scope (d);
+  input_location = DECL_SOURCE_LOCATION (pattern);
+  tsubst (type, args, tf_warning_or_error, d);
+  input_location = loc;
+  pop_access_scope (d);
+}
+
 /* Instantiate the indicated variable or function template TMPL with
    the template arguments in TARG_PTR.  */
 
@@ -14295,6 +14316,7 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
   tree fndecl;
   tree gen_tmpl;
   tree spec;
+  bool access_ok = true;
 
   if (tmpl == error_mark_node)
     return error_mark_node;
@@ -14342,7 +14364,11 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
 	      || fndecl == NULL_TREE);
 
   if (spec != NULL_TREE)
-    return spec;
+    {
+      if (FNDECL_RECHECK_ACCESS_P (spec) && (complain & tf_error))
+	recheck_decl_substitution (spec, gen_tmpl, targ_ptr);
+      return spec;
+    }
 
   if (check_instantiated_args (gen_tmpl, INNERMOST_TEMPLATE_ARGS (targ_ptr),
 			       complain))
@@ -14372,24 +14398,22 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
   pop_from_top_level ();
 
   if (fndecl == error_mark_node)
-    return error_mark_node;
-
-  /* Now we know the specialization, compute access previously
-     deferred.  */
-  push_access_scope (fndecl);
-
-  /* Some typedefs referenced from within the template code need to be access
-     checked at template instantiation time, i.e now. These types were
-     added to the template at parsing time. Let's get those and perfom
-     the acces checks then.  */
-  perform_typedefs_access_check (DECL_TEMPLATE_RESULT (tmpl), targ_ptr);
-  perform_deferred_access_checks ();
-  pop_access_scope (fndecl);
-  pop_deferring_access_checks ();
+    {
+      pop_deferring_access_checks ();
+      return error_mark_node;
+    }
 
   /* The DECL_TI_TEMPLATE should always be the immediate parent
      template, not the most general template.  */
   DECL_TI_TEMPLATE (fndecl) = tmpl;
+
+  /* Now we know the specialization, compute access previously
+     deferred.  */
+  push_access_scope (fndecl);
+  if (!perform_deferred_access_checks (complain))
+    access_ok = false;
+  pop_access_scope (fndecl);
+  pop_deferring_access_checks ();
 
   /* If we've just instantiated the main entry point for a function,
      instantiate all the alternate entry points as well.  We do this
@@ -14398,6 +14422,16 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
   if (DECL_CHAIN (gen_tmpl) && DECL_CLONED_FUNCTION_P (DECL_CHAIN (gen_tmpl)))
     clone_function_decl (fndecl, /*update_method_vec_p=*/0);
 
+  if (!access_ok)
+    {
+      if (!(complain & tf_error))
+	{
+	  /* Remember to reinstantiate when we're out of SFINAE so the user
+	     can see the errors.  */
+	  FNDECL_RECHECK_ACCESS_P (fndecl) = true;
+	}
+      return error_mark_node;
+    }
   return fndecl;
 }
 
@@ -14411,36 +14445,6 @@ instantiate_template (tree tmpl, tree orig_args, tsubst_flags_t complain)
   ret = instantiate_template_1 (tmpl, orig_args,  complain);
   timevar_pop (TV_TEMPLATE_INST);
   return ret;
-}
-
-/* We're going to do deduction substitution on the type of TMPL, a function
-   template.  In C++11 mode, push into that access scope.  In C++03 mode,
-   disable access checking.  */
-
-static void
-push_deduction_access_scope (tree tmpl)
-{
-  if (cxx_dialect >= cxx0x)
-    {
-      int ptd = processing_template_decl;
-      push_access_scope (DECL_TEMPLATE_RESULT (tmpl));
-      /* Preserve processing_template_decl across push_to_top_level.  */
-      if (ptd && !processing_template_decl)
-	++processing_template_decl;
-    }
-  else
-    push_deferring_access_checks (dk_no_check);
-}
-
-/* And pop back out.  */
-
-static void
-pop_deduction_access_scope (tree tmpl)
-{
-  if (cxx_dialect >= cxx0x)
-    pop_access_scope (DECL_TEMPLATE_RESULT (tmpl));
-  else
-    pop_deferring_access_checks ();
 }
 
 /* PARM is a template parameter pack for FN.  Returns true iff
@@ -18244,35 +18248,6 @@ instantiate_decl (tree d, int defer_ok,
   if (TREE_CODE (d) == FUNCTION_DECL)
     maybe_instantiate_noexcept (d);
 
-  /* Recheck the substitutions to obtain any warning messages
-     about ignoring cv qualifiers.  Don't do this for artificial decls,
-     as it breaks the context-sensitive substitution for lambda op(). */
-  if (!defer_ok && !DECL_ARTIFICIAL (d))
-    {
-      tree gen = DECL_TEMPLATE_RESULT (gen_tmpl);
-      tree type = TREE_TYPE (gen);
-
-      /* Make sure that we can see identifiers, and compute access
-	 correctly.  D is already the target FUNCTION_DECL with the
-	 right context.  */
-      push_access_scope (d);
-
-      if (TREE_CODE (gen) == FUNCTION_DECL)
-	{
-	  tsubst (DECL_ARGUMENTS (gen), gen_args, tf_warning_or_error, d);
-          tsubst_exception_specification (type, gen_args, tf_warning_or_error,
-                                          d, /*defer_ok*/true);
-	  /* Don't simply tsubst the function type, as that will give
-	     duplicate warnings about poor parameter qualifications.
-	     The function arguments are the same as the decl_arguments
-	     without the top level cv qualifiers.  */
-	  type = TREE_TYPE (type);
-	}
-      tsubst (type, gen_args, tf_warning_or_error, d);
-
-      pop_access_scope (d);
-    }
-
   /* Defer all other templates, unless we have been explicitly
      forbidden from doing so.  */
   if (/* If there is no definition, we cannot instantiate the
@@ -18425,6 +18400,13 @@ instantiate_decl (tree d, int defer_ok,
 
       /* Set up context.  */
       start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
+
+      /* Some typedefs referenced from within the template code need to be
+	 access checked at template instantiation time, i.e now. These
+	 types were added to the template at parsing time. Let's get those
+	 and perform the access checks then.  */
+      perform_typedefs_access_check (DECL_TEMPLATE_RESULT (gen_tmpl),
+				     gen_args);
 
       /* Create substitution entries for the parameters.  */
       subst_decl = DECL_TEMPLATE_RESULT (template_for_substitution (d));

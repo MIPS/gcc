@@ -119,10 +119,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
-#include "tree-dump.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -2358,9 +2355,11 @@ optimize_unreachable (gimple_stmt_iterator i)
   FOR_EACH_EDGE (e, ei, bb->preds)
     {
       gsi = gsi_last_bb (e->src);
-      stmt = gsi_stmt (gsi);
+      if (gsi_end_p (gsi))
+	continue;
 
-      if (stmt && gimple_code (stmt) == GIMPLE_COND)
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) == GIMPLE_COND)
 	{
 	  if (e->flags & EDGE_TRUE_VALUE)
 	    gimple_cond_make_false (stmt);

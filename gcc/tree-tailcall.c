@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -597,7 +596,7 @@ add_successor_phi_arg (edge e, tree var, tree phi_arg)
       break;
 
   gcc_assert (!gsi_end_p (gsi));
-  add_phi_arg (gsi_stmt (gsi), phi_arg, e, UNKNOWN_LOCATION, NULL);
+  add_phi_arg (gsi_stmt (gsi), phi_arg, e, UNKNOWN_LOCATION);
 }
 
 /* Creates a GIMPLE statement which computes the operation specified by
@@ -853,7 +852,7 @@ eliminate_tail_call (struct tailcall *t)
       phi = gsi_stmt (gsi);
       gcc_assert (param == SSA_NAME_VAR (PHI_RESULT (phi)));
 
-      add_phi_arg (phi, arg, e, gimple_location (stmt), gimple_block (stmt));
+      add_phi_arg (phi, arg, e, gimple_location (stmt));
       gsi_next (&gsi);
     }
 
@@ -948,7 +947,7 @@ create_tailcall_accumulator (const char *label, basic_block bb, tree init)
   phi = create_phi_node (tmp, bb);
   /* RET_TYPE can be a float when -ffast-maths is enabled.  */
   add_phi_arg (phi, fold_convert (ret_type, init), single_pred_edge (bb),
-	       UNKNOWN_LOCATION, NULL);
+	       UNKNOWN_LOCATION);
   return PHI_RESULT (phi);
 }
 
@@ -1012,7 +1011,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 		phi = create_phi_node (name, first);
 		SSA_NAME_DEF_STMT (name) = phi;
 		add_phi_arg (phi, new_name, single_pred_edge (first),
-			     EXPR_LOCATION (param), NULL);
+			     EXPR_LOCATION (param));
 	      }
 	  phis_constructed = true;
 	}
