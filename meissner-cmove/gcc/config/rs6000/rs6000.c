@@ -1092,6 +1092,7 @@ static bool rs6000_debug_cannot_change_mode_class (enum machine_mode,
 						   enum machine_mode,
 						   enum reg_class);
 static bool rs6000_save_toc_in_prologue_p (void);
+static bool rs6000_small_register_classes_for_mode_p (enum machine_mode);
 
 rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode, int, int,
 					     int, int *)
@@ -1556,6 +1557,10 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
+  rs6000_small_register_classes_for_mode_p
 
 
 
@@ -2183,8 +2188,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_regno_regclass[r] = ALTIVEC_REGS;
 
   rs6000_regno_regclass[CR0_REGNO] = CR0_REGS;
-  for (r = CR1_REGNO; r <= CR7_REGNO; ++r)
-    rs6000_regno_regclass[r] = CR_REGS;
+  rs6000_regno_regclass[CR1_REGNO] = CR0167_REGS;
+  rs6000_regno_regclass[CR2_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR3_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR4_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR5_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR6_REGNO] = CR0167_REGS;
+  rs6000_regno_regclass[CR7_REGNO] = CR0167_REGS;
 
   rs6000_regno_regclass[MQ_REGNO] = MQ_REGS;
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
@@ -14265,6 +14275,10 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
 
+  /* Prefer not to use the saved CR registers for reloading.  */
+  if (rclass == CR_REGS || rclass == CR0167_REGS)
+    return CR0167_REGS;
+
   /* For VSX, prefer the traditional registers for 64-bit values because we can
      use the non-VSX loads.  Prefer the Altivec registers if Altivec is
      handling the vector operations (i.e. V16QI, V8HI, and V4SI), or if we
@@ -14438,7 +14452,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
     return NO_REGS;
 
   /* We can copy among the CR registers.  */
-  if ((rclass == CR_REGS || rclass == CR0_REGS)
+  if ((rclass == CR_REGS || rclass == CR0_REGS || rclass == CR0167_REGS)
       && regno >= 0 && CR_REGNO_P (regno))
     return NO_REGS;
 
@@ -14522,6 +14536,20 @@ rs6000_debug_cannot_change_mode_class (enum machine_mode from,
 
   return ret;
 }
+
+/* True for MODE if the target expects that registers in this mode will be
+   allocated to registers in a small register class.  The compiler is allowed
+   to use registers explicitly used in the rtl as spill registers but it should
+   prevent extending the lifetime of these registers.
+
+   On the rs6000, make the CR registers a small register class.  */
+
+static bool
+rs6000_small_register_classes_for_mode_p (enum machine_mode mode)
+{
+  return (GET_MODE_CLASS (mode) == MODE_CC);
+}
+
 
 /* Given a comparison operation, return the bit number in CCR to test.  We
    know this is a valid comparison.
@@ -26592,7 +26620,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
       /* It's more expensive to move CR_REGS than CR0_REGS because of the
 	 shift.  */
-      else if (rclass == CR_REGS)
+      else if (rclass == CR_REGS || rclass == CR0167_REGS)
 	ret = 4;
 
       /* For those processors that have slow LR/CTR moves, make them more

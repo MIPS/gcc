@@ -2024,6 +2024,10 @@ Any VSX register
 @item y
 @samp{CR} register (condition register)
 
+@item wc
+@samp{CR} register (condition register) that is not saved across
+calls, numbers 0, 1, 6, and 7.
+
 @item z
 @samp{XER[CA]} carry bit (part of the XER register)
 

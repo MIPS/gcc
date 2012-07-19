@@ -1,5 +1,5 @@
 ;; Constraint definitions for RS6000
-;; Copyright (C) 2006, 2007, 2009, 2010 Free Software Foundation, Inc.
+;; Copyright (C) 2006, 2007, 2009, 2010, 2012 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -69,6 +69,10 @@
 
 ;; any VSX register
 (define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
+  "@internal")
+
+;; Any CR register that is not a saved/fixed register (i.e. CR0, CR1, CR6, CR7)
+(define_register_constraint "wc" "CR0167_REGS"
   "@internal")
 
 ;; Altivec style load/store that ignores the bottom bits of the address

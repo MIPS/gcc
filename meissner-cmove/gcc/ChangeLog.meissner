@@ -1,5 +1,39 @@
+2012-07-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove32)
+	* config/rs6000/constraints.md (wc constraint): New constraint for
+	the volatile CR registers.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	support for the wc constraint for volatile CR registers.
+	(rs6000_preferred_reload_class): Likewise.
+	(rs6000_secondary_reload_class): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_small_register_classes_for_mode_p): New target hook to say
+	CR registers are small register classes.
+	(TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P): Likewise.
+
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Disable
+	caller save for CR registers.
+	(enum reg_class): Add support for the wc constraint for volatile
+	CR registers.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+
+	* config/rs6000/rs6000.md (bcp8<mode>): Prefer volatile CRs over
+	saved CRs.
+	(bcp8<GPR:mode>_cmp<GPR2:mode>): Likewise.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document wc.
+
 2012-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	(mrmcmove31)
+	Intermediate step where all CR's had new wc constraint, and all
+	compares, etc. were rewritten.  Code never checked in and
+	rewritten.
+
+	(mrmcmove30)
 	Merge up to 189545.
 	* REVISION: Update subversion id.
 
