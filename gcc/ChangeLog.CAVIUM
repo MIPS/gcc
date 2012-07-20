@@ -1330,6 +1330,12 @@
 
 	* testsuite/gcc.dg/octeon/test-backtrace.h: New header.
 
+2012-07-20  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #2056
+	* config/mips/mips.c (mips_expand_ext_as_unaligned_load): 
+	Accept DImode dest when the width is that of SImode.
+
 2012-07-19  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* testsuite/gcc.dg/octeon/README: New file about this directory.
