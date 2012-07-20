@@ -127,6 +127,10 @@ mmfcrf
 Target Report Mask(MFCRF) Save
 Use PowerPC V2.01 single field mfcr instruction
 
+mmfcrf-prolog
+Target Report Var(TARGET_MFCRF_PROLOG) Save
+Use PowerPC V2.01 single field mfcr instruction in the prolog
+
 mpopcntb
 Target Report Mask(POPCNTB) Save
 Use PowerPC V2.02 popcntb instruction
