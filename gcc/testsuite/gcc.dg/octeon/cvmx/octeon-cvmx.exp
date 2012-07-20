@@ -1,0 +1,72 @@
+load_lib gcc-dg.exp
+
+set octeon_make_options ""
+			
+# ??? needs_status_wrapper does not work yet.  You need to manually
+# print the exit code.  Return empty string if compilation passed.
+
+proc cvmx_target_compile { source dest type options } {
+    global additional_files
+    global octeon_make_options
+
+    verbose "cvmx_target_compile: $source $dest $type $options\n"
+    set dir [file dirname $source]
+    set name [file tail $source]
+
+    foreach i $options {
+	if [regexp "^additional_flags=" $i] {
+	    regsub "^additional_flags=" $i "" tmp
+	    append cflags " $tmp"
+	} else {
+	    error "cvmx_target_compile: $i uknown option"
+	}
+    }
+
+    if {$type == "executable"} {
+	set exe $dest
+    } elseif {$type == "assembly"} {
+	append cflags " -save-temps"
+	set exe "[file rootname $dest].exe"
+    } else {
+	error "cvmx_target_compile invoked with unsupported type, $type."
+    }
+
+    set app [cvmx_compile $exe $dir $name $additional_files $cflags "" \
+		 $octeon_make_options]
+    if {$app == "" } {
+	return "exit status is 1";
+    }
+
+    if {$type == "executable"} {
+	file copy $app $dest
+    } elseif {$type == "assembly" } {
+	set appdir [file dirname $app]
+	set root [file rootname $name]
+	set asm $appdir/$root.s
+	file copy $asm $dest
+    }
+    return
+}
+
+# Override this function from gcc-dg.exp to invoke cvmx_target_compile
+# instead of gcc_target_compile.
+
+proc gcc-dg-test { prog do_what extra_tool_flags } {
+    return [gcc-dg-test-1 cvmx_target_compile $prog $do_what $extra_tool_flags]
+}
+
+# Directive dg-octeon-makefile-options to add custom make opts.
+
+proc dg-octeon-make-options { line opt } {
+    global octeon_make_options
+    append octeon_make_options $opt " "
+}
+
+# Ensure that the library will be reloaded upon next load_lib to
+# restore the original definition of gcc-dg-test.
+array unset loaded_libs gcc-dg.exp
+
+dg-init
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.{c,cc}]] \
+	"" ""
+dg-finish

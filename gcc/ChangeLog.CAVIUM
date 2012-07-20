@@ -1,5 +1,13 @@
-2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
+2012-07-19  Adam Nemet  <anemet@caviumnetworks.com>
 
+	* testsuite/gcc.dg/octeon/cvmx/octeon-cvmx.exp: New file.
+	* testsuite/gcc.dg/octeon/cvmx/bt-1.c: New test.
+	* testsuite/gcc.dg/octeon/cvmx/bt-2.c: New test.
+	* testsuite/gcc.dg/octeon/cvmx/bt-3.c: New test.
+	* testsuite/gcc.dg/octeon/cvmx/bt-4.c: New test.
+	* testsuite/gcc.dg/octeon/cvmx/bt-5.c: New test.
+
+2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
 	Ported the patch to support Octeon.
 	2012-07-19  Andrew Pinski  <apinski@cavium.com>
 		Adam Nemet  <anemet@caviumnetworks.com>
