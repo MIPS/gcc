@@ -1,5 +1,9 @@
 2012-07-19  Adam Nemet  <anemet@caviumnetworks.com>
 
+	* testsuite/gcc.dg/octeon/README: New file about this directory.
+
+2012-07-19  Adam Nemet  <anemet@caviumnetworks.com>
+
 	* testsuite/gcc.dg/octeon/cvmx/octeon-cvmx.exp: New file.
 	* testsuite/gcc.dg/octeon/cvmx/bt-1.c: New test.
 	* testsuite/gcc.dg/octeon/cvmx/bt-2.c: New test.

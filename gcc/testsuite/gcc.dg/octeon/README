@@ -1,0 +1,19 @@
+This directory contains tests to check Octeon instructions and the Octeon
+programming model.
+
+If you want to confirm that a toolchain can generate Octeon instructions at
+least the following tests should pass:
+
+BADD: badd-1.c
+BBIT: bbit-6.c
+CINS: cins-1.c
+EXTS: ext-15.c
+MADD: madd-1.c
+MSUB: madd-3.c
+DMUL: mul-2.c
+POP:  pop-1.c
+DPOP: pop-2.c
+SAA:  saa-1.c
+SAAD: saa-2.c
+SEQ:  seq-1.c
+ULD/USD: unaligned-1.c
