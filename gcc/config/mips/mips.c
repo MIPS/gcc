@@ -7796,6 +7796,52 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
       dest = gen_reg_rtx (SImode);
     }
 
+  /* Handle HI unaligned load specially.  */
+  if (ISA_HAS_EXT_INS
+      && GET_MODE_BITSIZE (HImode) == width
+      && (REG_P (dest) || GET_CODE (dest) == SUBREG)
+      && GET_CODE (src) == MEM
+      && GET_MODE (src) == QImode
+      && MEM_ALIGN (src) < width
+      && (bitpos % BITS_PER_UNIT == 0)
+      /* If this is a stack variable, the load can be done by a load followed by a shift. */
+      && !reg_mentioned_p (virtual_stack_vars_rtx, src))
+    {
+      rtx first = adjust_address (src, QImode, 0);
+      rtx second = adjust_address (src, QImode, 1);
+      rtx lo, hi, dest2 = gen_reg_rtx (SImode), dest3 = gen_reg_rtx (SImode);
+
+      if (TARGET_BIG_ENDIAN)
+	{
+	  lo = second;
+	  hi = first;
+	}
+      else
+	{
+	  lo = first;
+	  hi = second;
+	}
+      emit_move_insn (dest2, gen_rtx_ZERO_EXTEND (SImode, lo));
+      emit_move_insn (dest3, gen_rtx_ZERO_EXTEND (SImode, hi));
+      emit_insn (gen_insvsi (dest2, GEN_INT (8), GEN_INT (8), dest3));
+      if (GET_MODE (dest) == DImode)
+	{
+          /* If the dest mode is DI, then we can just sign extend from
+             SI to DI (which is considered as free) as the sign bit for
+             SI is equal to 0. */
+	  if (unsigned_p)
+	    emit_insn (gen_extendsidi2 (dest, dest2));
+	  else
+	    emit_insn (gen_extendhidi2 (dest, dest2));
+	}
+      /* If this is a sign extract, then sign extend the code to the
+	 register. */
+      else if (!unsigned_p)
+        emit_insn (gen_extendhisi2 (dest, dest2));
+
+      return true;
+    }
+
   if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
     return false;
 

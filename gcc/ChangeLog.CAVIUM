@@ -406,6 +406,13 @@
 	* testsuite/gcc.target/mips/unaligned-4.c: New testcase.
 	* testsuite/gcc.target/mips/unaligned-3.c: New testcase.
 
+2012-07-20  Andrew Pinski  <apinski@caviumnetworks.com>
+
+	Bug #380
+	* config/mips/mips.c (mips_expand_ext_as_unaligned_load): Handle
+	unaligned loads of 16bits too.
+	* testsuite/gcc.target/mips/unaligned-2.c: New testcase.
+
 2012-07-20  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* testsuite/gcc.dg/octeon/test-backtrace.h: New header.
