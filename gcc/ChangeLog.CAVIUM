@@ -421,6 +421,14 @@
 
 2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>
 
+        * tree-ssa-loop-unswitch.c (tree_ssa_unswitch_loops): Look at all loop
+        not just the inner most ones.
+        (tree_unswitch_loop): Remove the assert about the loop being the inner
+        most loop.
+	* testsuite/gcc.dg/alias-10.c: Update testcase for the number of unswitching.
+
+2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>
+
 	* testsuite/gcc.dg/invalid-call-1.c: Fix testcase.
 
 2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>

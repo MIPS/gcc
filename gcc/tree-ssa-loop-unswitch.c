@@ -92,7 +92,7 @@ tree_ssa_unswitch_loops (void)
   HOST_WIDE_INT iterations;
 
   /* Go through inner loops (only original ones).  */
-  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, ";; Considering loop %d\n", loop->num);
@@ -376,10 +376,9 @@ tree_unswitch_single_loop (struct loop *loop, int num)
   return true;
 }
 
-/* Unswitch a LOOP w.r. to given basic block UNSWITCH_ON.  We only support
-   unswitching of innermost loops.  COND is the condition determining which
-   loop is entered -- the new loop is entered if COND is true.  Returns NULL
-   if impossible, new loop otherwise.  */
+/* Unswitch a LOOP w.r. to given basic block UNSWITCH_ON.  COND is the
+   condition determining which loop is entered -- the new loop is
+   entered if COND is true.  Returns NULL if impossible, new loop otherwise.  */
 
 static struct loop *
 tree_unswitch_loop (struct loop *loop,
@@ -391,7 +390,6 @@ tree_unswitch_loop (struct loop *loop,
   /* Some sanity checking.  */
   gcc_assert (flow_bb_inside_loop_p (loop, unswitch_on));
   gcc_assert (EDGE_COUNT (unswitch_on->succs) == 2);
-  gcc_assert (loop->inner == NULL);
 
   extract_true_false_edges_from_block (unswitch_on, &edge_true, &edge_false);
   prob_true = edge_true->probability;
