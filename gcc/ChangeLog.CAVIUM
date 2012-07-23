@@ -421,6 +421,13 @@
 
 2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>
 
+        Bug #2022
+        * sched-deps.c (create_mem_store_deps): New function.
+        (sched_analyze_1): Use create_mem_store_deps.
+        (sched_analyze_2): For prefetches, cause a write memory barrior.
+
+2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>
+
         * tree-ssa-loop-unswitch.c (tree_ssa_unswitch_loops): Look at all loop
         not just the inner most ones.
         (tree_unswitch_loop): Remove the assert about the loop being the inner
