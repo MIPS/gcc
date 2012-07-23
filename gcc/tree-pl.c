@@ -27,6 +27,9 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
+static void pl_add_new_phi_bounds (tree bounds);
+static int pl_remove_valid_phi_bounds (void **slot, void *res);
+static void pl_recheck_invalid_phi_bounds (void);
 static tree pl_get_tmp_var (void);
 static bool pl_type_has_pointer (tree type);
 static void pl_fix_function_decl (tree decl, bool make_ssa_names);
@@ -109,6 +112,7 @@ static tree none_bounds;
 static tree tmp_var;
 
 static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
+static GTY ((param_is (union tree_node))) htab_t pl_invalid_phi_bounds;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
@@ -183,6 +187,52 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
     *return_reg_bnd = XEXP (bnd_tmps[0], 0);
   else if (bnd_num > 1)
     internal_error ("Multiple returned bounds are NYI");
+}
+
+static void
+pl_add_new_phi_bounds (tree bounds)
+{
+  void **slot;
+
+  gcc_assert (TREE_CODE (bounds) == SSA_NAME);
+
+  slot = htab_find_slot (pl_invalid_phi_bounds, bounds, INSERT);
+  *slot = bounds;
+}
+
+static int
+pl_remove_valid_phi_bounds (void **slot, void *res)
+{
+  tree bounds = (tree)*slot;
+  gimple phi = SSA_NAME_DEF_STMT (bounds);
+  unsigned i;
+
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
+    {
+      tree phi_arg = gimple_phi_arg_def (phi, i);
+      if (phi_arg && pl_valid_bounds (phi_arg))
+	{
+	  htab_clear_slot (pl_invalid_phi_bounds, slot);
+	  *((bool *)res) = true;
+	  return 1;
+	}
+    }
+
+  return 1;
+}
+
+static void
+pl_recheck_invalid_phi_bounds (void)
+{
+  bool changed = true;
+
+  while (changed)
+    {
+      changed = false;
+      htab_traverse (pl_invalid_phi_bounds,
+		     pl_remove_valid_phi_bounds,
+		     &changed);
+    }
 }
 
 static bool
@@ -830,6 +880,11 @@ pl_valid_bounds (tree bounds)
       || bounds == error_mark_node)
     return false;
 
+  if (TREE_CODE (bounds) == SSA_NAME
+      && SSA_NAME_DEF_STMT (bounds)
+      && gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
+    return !htab_find (pl_invalid_phi_bounds, bounds);
+
   return true;
 }
 
@@ -1001,6 +1056,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       *iter = gsi_for_stmt (stmt);
 
       pl_register_bounds (node, bounds);
+      pl_add_new_phi_bounds (bounds);
       break;
 
     default:
@@ -1353,6 +1409,8 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 			       gimple_phi_arg_edge (def_stmt, i),
 			       UNKNOWN_LOCATION);
 		}
+
+	      pl_recheck_invalid_phi_bounds ();
 	    }
 
 	  gcc_assert (bounds == pl_get_registered_bounds (ptr_src));
@@ -2007,6 +2065,9 @@ pl_init (void)
 				   NULL);
   pl_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
 				     NULL);
+  pl_invalid_phi_bounds = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
+					   NULL);
+
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
