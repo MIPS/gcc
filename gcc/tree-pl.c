@@ -27,9 +27,16 @@
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
-static void pl_add_new_phi_bounds (tree bounds);
-static int pl_remove_valid_phi_bounds (void **slot, void *res);
-static void pl_recheck_invalid_phi_bounds (void);
+static int pl_may_complete_phi_bounds (void **slot, void *res);
+static bool pl_may_finish_incomplete_bounds (void);
+static int pl_find_valid_phi_bounds (void **slot, void *res);
+static int pl_recompute_phi_bounds (void **slot, void *res);
+static int pl_mark_invalid_bounds_walker (void **slot, void *res);
+static void pl_mark_completed_bounds (tree bounds);
+static bool pl_completed_bounds (tree bounds);
+static void pl_finish_incomplete_bounds (void);
+static void pl_erase_completed_bounds (void);
+static void pl_erase_incomplete_bounds (void);
 static tree pl_get_tmp_var (void);
 static bool pl_type_has_pointer (tree type);
 static void pl_fix_function_decl (tree decl, bool make_ssa_names);
@@ -39,9 +46,12 @@ static void pl_fini (void);
 static void pl_register_bounds (tree ptr, tree bnd);
 static void pl_register_addr_bounds (tree ptr, tree bnd);
 static tree pl_get_registered_addr_bounds (tree ptr);
+static void pl_register_incomplete_bounds (tree bounds, tree ptr);
+static bool pl_incomplete_bounds (tree bounds);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
+static void pl_mark_invalid_bounds (tree bounds);
 static bool pl_valid_bounds (tree bounds);
 static void pl_transform_function (void);
 static tree pl_get_bound_for_parm (tree parm);
@@ -110,9 +120,17 @@ static basic_block entry_block;
 static tree zero_bounds;
 static tree none_bounds;
 static tree tmp_var;
+static tree incomplete_bounds;
 
 static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
-static GTY ((param_is (union tree_node))) htab_t pl_invalid_phi_bounds;
+static GTY ((param_is (union tree_node))) htab_t pl_invalid_bounds;
+static GTY ((param_is (union tree_node))) htab_t pl_completed_bounds_map;
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+     htab_t pl_reg_bounds;
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+     htab_t pl_reg_addr_bounds;
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+     htab_t pl_incomplete_bounds_map;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
@@ -189,31 +207,74 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
     internal_error ("Multiple returned bounds are NYI");
 }
 
-static void
-pl_add_new_phi_bounds (tree bounds)
+static int
+pl_may_complete_phi_bounds (void **slot, void *res)
 {
-  void **slot;
+  struct tree_map *map = (struct tree_map *)*slot;
+  tree bounds = map->base.from;
+  gimple phi;
+  unsigned i;
 
   gcc_assert (TREE_CODE (bounds) == SSA_NAME);
 
-  slot = htab_find_slot (pl_invalid_phi_bounds, bounds, INSERT);
-  *slot = bounds;
-}
+  phi = SSA_NAME_DEF_STMT (bounds);
 
-static int
-pl_remove_valid_phi_bounds (void **slot, void *res)
-{
-  tree bounds = (tree)*slot;
-  gimple phi = SSA_NAME_DEF_STMT (bounds);
-  unsigned i;
+  gcc_assert (phi && gimple_code (phi) == GIMPLE_PHI);
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
       tree phi_arg = gimple_phi_arg_def (phi, i);
-      if (phi_arg && pl_valid_bounds (phi_arg))
+      if (!phi_arg)
 	{
-	  htab_clear_slot (pl_invalid_phi_bounds, slot);
+	  *((bool *)res) = false;
+	  /* Do not need to traverse further.  */
+	  return 0;
+	}
+    }
+
+  return 1;
+}
+
+static bool
+pl_may_finish_incomplete_bounds (void)
+{
+  bool res = true;
+
+  htab_traverse (pl_incomplete_bounds_map,
+		 pl_may_complete_phi_bounds,
+		 &res);
+
+  return res;
+}
+
+static int
+pl_find_valid_phi_bounds (void **slot, void *res)
+{
+  struct tree_map *map = (struct tree_map *)*slot;
+  tree bounds = map->base.from;
+  gimple phi;
+  unsigned i;
+
+  gcc_assert (TREE_CODE (bounds) == SSA_NAME);
+
+  if (pl_completed_bounds (bounds))
+    return 1;
+
+  phi = SSA_NAME_DEF_STMT (bounds);
+
+  gcc_assert (phi && gimple_code (phi) == GIMPLE_PHI);
+
+  for (i = 0; i < gimple_phi_num_args (phi); i++)
+    {
+      tree phi_arg = gimple_phi_arg_def (phi, i);
+
+      gcc_assert (phi_arg);
+
+      if (pl_valid_bounds (phi_arg) && !pl_incomplete_bounds (phi_arg))
+	{
 	  *((bool *)res) = true;
+	  pl_mark_completed_bounds (bounds);
+	  pl_recompute_phi_bounds (slot, NULL);
 	  return 1;
 	}
     }
@@ -221,18 +282,76 @@ pl_remove_valid_phi_bounds (void **slot, void *res)
   return 1;
 }
 
-static void
-pl_recheck_invalid_phi_bounds (void)
+static int
+pl_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
 {
-  bool changed = true;
+  struct tree_map *map = (struct tree_map *)*slot;
+  tree bounds = map->base.from;
+  tree ptr = map->to;
+  gimple bounds_phi;
+  gimple ptr_phi;
+  unsigned i;
 
-  while (changed)
+  gcc_assert (TREE_CODE (bounds) == SSA_NAME);
+  gcc_assert (TREE_CODE (ptr) == SSA_NAME);
+
+  bounds_phi = SSA_NAME_DEF_STMT (bounds);
+  ptr_phi = SSA_NAME_DEF_STMT (ptr);
+
+  gcc_assert (bounds_phi && gimple_code (bounds_phi) == GIMPLE_PHI);
+  gcc_assert (ptr_phi && gimple_code (ptr_phi) == GIMPLE_PHI);
+
+  for (i = 0; i < gimple_phi_num_args (bounds_phi); i++)
     {
-      changed = false;
-      htab_traverse (pl_invalid_phi_bounds,
-		     pl_remove_valid_phi_bounds,
-		     &changed);
+      tree ptr_arg = gimple_phi_arg_def (ptr_phi, i);
+      tree bound_arg = pl_find_bounds_no_error (ptr_arg, NULL);
+
+      add_phi_arg (bounds_phi, bound_arg,
+		   gimple_phi_arg_edge (ptr_phi, i),
+		   UNKNOWN_LOCATION);
     }
+
+  return 1;
+}
+
+static int
+pl_mark_invalid_bounds_walker (void **slot, void *res ATTRIBUTE_UNUSED)
+{
+  struct tree_map *map = (struct tree_map *)*slot;
+  tree bounds = map->base.from;
+  pl_mark_invalid_bounds (bounds);
+  pl_mark_completed_bounds (bounds);
+  return 1;
+}
+
+static void
+pl_finish_incomplete_bounds (void)
+{
+  bool found_valid;
+
+  while (found_valid)
+    {
+      found_valid = false;
+
+      htab_traverse (pl_incomplete_bounds_map,
+		     pl_find_valid_phi_bounds,
+		     &found_valid);
+
+      if (found_valid)
+	htab_traverse (pl_incomplete_bounds_map,
+		       pl_recompute_phi_bounds,
+		       NULL);
+    }
+
+  htab_traverse (pl_incomplete_bounds_map,
+		 pl_mark_invalid_bounds_walker,
+		 NULL);
+  htab_traverse (pl_incomplete_bounds_map,
+		 pl_recompute_phi_bounds,
+		 &found_valid);
+
+  pl_erase_completed_bounds ();
+  pl_erase_incomplete_bounds ();
 }
 
 static bool
@@ -596,15 +715,13 @@ pl_check_mem_access (tree first, tree last, tree bounds,
     }
 }
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t pl_reg_bounds;
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t pl_reg_addr_bounds;
-
 static void
 pl_register_bounds (tree ptr, tree bnd)
 {
   struct tree_map **slot, *map;
+
+  if (bnd == incomplete_bounds)
+    return;
 
   map = ggc_alloc_tree_map ();
   map->hash = htab_hash_pointer (ptr);
@@ -643,6 +760,9 @@ pl_register_addr_bounds (tree ptr, tree bnd)
 {
   struct tree_map **slot, *map;
 
+  if (bnd == incomplete_bounds)
+    return;
+
   map = ggc_alloc_tree_map ();
   map->hash = htab_hash_pointer (ptr);
   map->base.from = ptr;
@@ -673,6 +793,50 @@ pl_get_registered_addr_bounds (tree ptr)
 						 &in, in.hash);
 
   return res ? res->to : NULL_TREE;
+}
+
+static void
+pl_register_incomplete_bounds (tree bounds, tree ptr)
+{
+  struct tree_map **slot, *map;
+
+  map = ggc_alloc_tree_map ();
+  map->hash = htab_hash_pointer (ptr);
+  map->base.from = bounds;
+  map->to = ptr;
+
+  slot = (struct tree_map **)
+    htab_find_slot_with_hash (pl_incomplete_bounds_map, map, map->hash, INSERT);
+  *slot = map;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Regsitered incomplete bounds ");
+      print_generic_expr (dump_file, bounds, 0);
+      fprintf (dump_file, " for ");
+      print_generic_expr (dump_file, ptr, 0);
+      fprintf (dump_file, "\n");
+    }
+}
+
+static bool
+pl_incomplete_bounds (tree bounds)
+{
+  struct tree_map *res, in;
+
+  if (bounds == incomplete_bounds)
+    return true;
+
+  if (pl_completed_bounds (bounds))
+    return false;
+
+  in.base.from = bounds;
+  in.hash = htab_hash_pointer (bounds);
+
+  res = (struct tree_map *) htab_find_with_hash (pl_incomplete_bounds_map,
+						 &in, in.hash);
+
+  return res != NULL;
 }
 
 static basic_block
@@ -873,6 +1037,22 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
     }
 }
 
+static void
+pl_mark_invalid_bounds (tree bounds)
+{
+  void **slot;
+
+  slot = htab_find_slot (pl_invalid_bounds, bounds, INSERT);
+  *slot = bounds;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Marked bounds ");
+      print_generic_expr (dump_file, bounds, 0);
+      fprintf (dump_file, " as invalid\n");
+    }
+}
+
 static bool
 pl_valid_bounds (tree bounds)
 {
@@ -880,12 +1060,44 @@ pl_valid_bounds (tree bounds)
       || bounds == error_mark_node)
     return false;
 
-  if (TREE_CODE (bounds) == SSA_NAME
-      && SSA_NAME_DEF_STMT (bounds)
-      && gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
-    return !htab_find (pl_invalid_phi_bounds, bounds);
+  if (htab_find (pl_invalid_bounds, bounds) != NULL)
+    return false;
 
   return true;
+}
+
+static void
+pl_mark_completed_bounds (tree bounds)
+{
+  void **slot;
+
+  slot = htab_find_slot (pl_completed_bounds_map, bounds, INSERT);
+  *slot = bounds;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Marked bounds ");
+      print_generic_expr (dump_file, bounds, 0);
+      fprintf (dump_file, " as completed\n");
+    }
+}
+
+static bool
+pl_completed_bounds (tree bounds)
+{
+  return htab_find (pl_completed_bounds_map, bounds) != NULL;
+}
+
+static void
+pl_erase_completed_bounds (void)
+{
+  htab_empty (pl_completed_bounds_map);
+}
+
+static void
+pl_erase_incomplete_bounds (void)
+{
+  htab_empty (pl_incomplete_bounds_map);
 }
 
 static tree
@@ -932,7 +1144,9 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	tree bnd1 = pl_find_bounds (rhs1, &iter);
 	tree bnd2 = pl_find_bounds (rhs2, &iter);
 
-	if (!pl_valid_bounds (bnd1))
+	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
+	  bounds = incomplete_bounds;
+	else if (!pl_valid_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
 	    bounds = bnd2;
 	  else
@@ -961,7 +1175,9 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	tree bnd2 = pl_find_bounds (val2, &iter);
 	gimple stmt;
 
-	if (bnd1 == bnd2)
+	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
+	  bounds = incomplete_bounds;
+	else if (bnd1 == bnd2)
 	  bounds = bnd1;
 	else
 	  {
@@ -969,6 +1185,9 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	    stmt = gimple_build_assign_with_ops3 (COND_EXPR, bounds,
 						  rhs1, bnd1, bnd2);
 	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
+
+	    if (!pl_valid_bounds (bnd1) && !pl_valid_bounds (bnd2))
+	      pl_mark_invalid_bounds (bounds);
 	  }
       }
       break;
@@ -1056,7 +1275,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       *iter = gsi_for_stmt (stmt);
 
       pl_register_bounds (node, bounds);
-      pl_add_new_phi_bounds (bounds);
+      pl_register_incomplete_bounds (bounds, node);
       break;
 
     default:
@@ -1410,10 +1629,12 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 			       UNKNOWN_LOCATION);
 		}
 
-	      pl_recheck_invalid_phi_bounds ();
+	      if (pl_may_finish_incomplete_bounds ())
+		pl_finish_incomplete_bounds ();
 	    }
 
-	  gcc_assert (bounds == pl_get_registered_bounds (ptr_src));
+	  gcc_assert (bounds == pl_get_registered_bounds (ptr_src)
+		      || pl_incomplete_bounds (bounds));
 	}
       break;
 
@@ -2062,16 +2283,20 @@ pl_init (void)
   pl_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 				   NULL);
   pl_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-				   NULL);
+					NULL);
+  pl_incomplete_bounds_map = htab_create_ggc (31, tree_map_hash, tree_map_eq,
+					      NULL);
   pl_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
 				     NULL);
-  pl_invalid_phi_bounds = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
-					   NULL);
-
+  pl_invalid_bounds = htab_create_ggc (31, htab_hash_pointer,
+				       htab_eq_pointer, NULL);
+  pl_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
+					     htab_eq_pointer, NULL);
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
   none_bounds = NULL_TREE;
+  incomplete_bounds = integer_zero_node;
   tmp_var = NULL_TREE;
 
   pl_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
