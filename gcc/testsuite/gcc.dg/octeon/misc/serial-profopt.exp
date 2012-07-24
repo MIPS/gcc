@@ -1,0 +1,140 @@
+# Copyright 2007 Cavium Networks, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+load_lib scangcda.exp
+set tp "$subdir/serial-profopt.exp:"
+
+for {set pass 0} {$pass < 2} {incr pass} {
+
+    set cflags {-O2 -fprofile-generate}
+    if {$pass == 1} {
+	append tp { [with buffered I/O]}
+	lappend cflags {-DBUFFERED}
+    }
+    # The bootflag break is only applicable to serial.
+    if {![string match "octeon-elf-serial*" [target_info name]]} {
+	unsupported "$tp serial-only test"
+	return
+    }
+    # remote_file functionality is very basic for a real remote host.
+    if [is_remote host] {
+	unsupported "$tp serial-only test"
+	return
+    }
+    # Appear as PASS->UNSUPPORTED transition if we no longer run this test.
+    pass "$tp serial-only test"
+
+
+    set app profopt
+    set log profopt.log
+    set module profopt.c
+
+    set app [cvmx_compile $app $srcdir/$subdir $module "" \
+		 $cflags $cflags ""]
+    if {$app == "" } {
+    fail "$tp compilation"
+    return;
+    }
+    pass "$tp compilation"
+
+    remote_open target
+
+    set debug [board_info target octeon_uart]
+    set console [board_info target octeon_uart]
+
+    set status [octeon_elf_load_and_boot target $app debug=1 break=0]
+    remote_expect target 10 {
+	"ERROR: Using debug and break" { pass "$tp error on break with debug" }
+	timeout { fail "$tp error on break with debug" }
+    }
+
+    set OCTEON_NUMCORES 2
+    set status [octeon_elf_load_and_boot target $app break]
+    if { $status != 0 } {
+	remote_close target
+	return
+    }
+    unset OCTEON_NUMCORES
+
+    remote_expect target 10 {
+	"Starting to spin." { pass "$tp starting to spin" }
+	timeout { fail "$tp starting to spin" }
+    }
+
+    # If the program is using the uart, ^c will not break in.  Keep doing
+    # it until we start dumping the files.
+    set cont 1
+    for {set retry 0} {$cont && $retry < 10000} {incr retry} {
+	remote_send target "\003"
+	remote_expect target 0 {
+	    # break does not seem to work from here.
+	    "Dumping files" { set cont 0 }
+	}
+    }
+    send_log "Continuing after sending ^C $retry times\n"
+
+    # We dump around 100K of data here.  Increase the expect buffer.
+    match_max 200000
+    remote_expect target 60 {
+	-re ".*Done dumping.*Done dumping" { pass "$tp done dumping" }
+	timeout {
+	    fail "$tp done dumping"
+	    return
+	}
+    }
+    # Restore default.
+    match_max -d
+
+    set f [open $log w]
+    puts $f $expect_out(buffer)
+    close $f
+
+    set status [remote_exec host oct-uudecode $log]
+    if { [lindex $status 0] != 0 } {
+	send_log "oct-uudecode: [lindex $status 1]\n"
+    }
+
+    set appdir [file dirname $app]
+    set root [file rootname $module]
+    set gcda0 [glob -nocomplain $appdir/obj*/$root.gcda0]
+    set gcda1 [glob -nocomplain $appdir/obj*/$root.gcda1]
+
+    if { $gcda0 == "" } {
+	fail "$tp gcda0 exists"
+	remote_close target
+	return 
+    }
+    pass "$tp gcda0 exists"
+
+    if { $gcda1 == "" } {
+	fail "$tp gcda1 exists"
+	remote_close target
+	return 
+    }
+    pass "$tp gcda1 exists"
+
+    if { [llength [glob -nocomplain $appdir/obj*/cvmx-*.gcda0]] > 5
+	 && [llength [glob -nocomplain $appdir/obj*/cvmx-*.gcda1]] > 5 } {
+	pass "$tp cvmx-*.gcda* files exist"
+    } else {
+	fail "$tp cvmx-*.gcda* files exist"
+    }
+
+    check_gcda "$tp gcda0" $gcda0 { { arcs 50 } }
+    check_gcda "$tp gcda1" $gcda1 { { arcs 100 } }
+
+    remote_close target
+}

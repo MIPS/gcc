@@ -1,0 +1,77 @@
+# Copyright 2008 Cavium Networks, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Check that RTLD_NEXT never resolves to lazy evaluation stubs since
+# that creates an infinite-loop situation.  With the example below
+# shlib b wraps the function f from shlib a using the dlsym(RTLD_NEXT)
+# mechanism.  Since shlib u also references symbol f it will have a
+# lazy evaluation stub.  When b tries to RTLD_NEXT to the original def
+# of f in shlib a, it gets a pointer to u's lazy evaluation stub which
+# again will resolve to f in shlib b -- starting the cycle over.
+
+set tp "$subdir/rtld_next.exp:"
+
+if ![istarget *-octeon-linux*] {
+    return;
+}
+
+set a rtld_next-a
+set b rtld_next-b
+set u rtld_next-u
+set m rtld_next-m
+
+set shared_flags "additional_flags=-fPIC additional_flags=-shared"
+if { [gcc_target_compile $srcdir/$subdir/${a}.c lib${a}.so executable \
+	  $shared_flags] != "" } {
+    fail "$tp Compiling $a"
+    return
+}
+pass "$tp Compiling $a"
+
+if { [gcc_target_compile $srcdir/$subdir/${b}.c lib${b}.so executable \
+	 "$shared_flags additional_flags=-ldl"] != "" } {
+    fail "$tp Compiling $b"
+    return
+}
+pass "$tp Compiling $b"
+
+if { [gcc_target_compile $srcdir/$subdir/${u}.c lib${u}.so executable \
+	 $shared_flags] != "" } {
+    fail "$tp Compiling $u"
+    return
+}
+pass "$tp Compiling $u"
+
+foreach { i } "-Wl,-rpath,. lib${b}.so lib${u}.so lib${a}.so" {
+    lappend flags "additional_flags=$i"
+}
+
+if { [gcc_target_compile $srcdir/$subdir/${m}.c ${m} executable $flags ] != "" } {
+    fail "$tp Compiling $m"
+    return
+}
+pass "$tp Compiling $m"
+
+remote_download target lib${a}.so
+remote_download target lib${b}.so
+remote_download target lib${u}.so
+
+set result [gcc_load ./$m]
+if { [lindex $result 0] == "pass" } {
+    pass "$tp run"
+} else {
+    fail "$tp run"
+}
