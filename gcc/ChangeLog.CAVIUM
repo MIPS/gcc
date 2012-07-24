@@ -178,6 +178,10 @@
 
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/lib/profopt.exp: Delete also the .gcda on the build machine.
+
+2012-07-24  Andrew Pinski  <apinski@cavium.com>
+
         * regcprop.c (maybe_mode_change): Return the reg in the
         new mode if the copy was done in the same mode size.
         * config/mips/mips.md (extendsidi2): Add expanding in

@@ -264,7 +264,8 @@ proc profopt-execute { src } {
 
 	# Remove old profiling and performance data files.
 	foreach ext $prof_ext {
-	    remote_file target delete $tmpdir/$base.$ext
+	    remote_file target delete $base.$ext
+	    remote_file build delete $base.$ext
 	}
 	if [info exists perf_ext] {
 	    profopt-cleanup $testcase $perf_ext
