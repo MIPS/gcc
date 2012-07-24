@@ -768,6 +768,8 @@ BUILD_CPPFLAGS= -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 GCC_INSTALL_NAME := $(shell echo gcc|sed '$(program_transform_name)')
 GCC_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcc|sed '$(program_transform_name)')
 CPP_INSTALL_NAME := $(shell echo cpp|sed '$(program_transform_name)')
+GCOV_DUMP_INSTALL_NAME := \
+  $(shell echo gcov-dump|sed '$(program_transform_name)')
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
 
 # Setup the testing framework, if you have one
@@ -3195,7 +3197,13 @@ install-common: native lang.install-common installdirs
 # using -dumpspecs.  We remove any old version because it would
 # otherwise override the specs built into the driver.
 	rm -f $(DESTDIR)$(libsubdir)/specs
-# Install gcov if it was compiled.
+# Install gcov and gcov-dump if it was compiled.
+	-if [ -f gcov-dump$(exeext) ]; \
+	then \
+	    rm -f $(DESTDIR)$(bindir)/$(GCOV_DUMP_INSTALL_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) gcov-dump$(exeext) \
+	      $(DESTDIR)$(bindir)/$(GCOV_DUMP_INSTALL_NAME)$(exeext); \
+	fi
 	-if [ -f gcov$(exeext) ]; \
 	then \
 	    rm -f $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \

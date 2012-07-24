@@ -176,6 +176,11 @@
         * config/mips/mips.md (extv<mode>): Use sll for
         extraction of the lower 32bits.
 
+2012-07-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* Makefile.in (GCOV_DUMP_INSTALL_NAME): New variable.
+	(install-common): Install gcov-dump also.
+
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/lib/profopt.exp: Delete also the .gcda on the build machine.
