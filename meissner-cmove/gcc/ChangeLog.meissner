@@ -1,3 +1,14 @@
+2012-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove34)
+	* config/rs6000/rs6000.md (mfcrf): New insn, move from CR
+	specifying only one register with no other data movement, not used
+	right now.
+	(movesi_from_cr): If -mmfcrf, -mmfcrf-prolog, and only one CR
+	register was saved, use the new mfocrf instructions.  Undo 7/20
+	changes.
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Undo 7/20 changes.
+
 2012-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	(mrmcmove33)

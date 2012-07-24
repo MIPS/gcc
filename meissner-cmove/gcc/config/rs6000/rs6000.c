@@ -19945,37 +19945,11 @@ rs6000_emit_prologue (void)
       && REGNO (frame_reg_rtx) != cr_save_regno
       && !(using_static_chain_p && cr_save_regno == 11))
     {
-      rtx set, setcr;
-      int single_cr = -1;
-      int cr;
+      rtx set;
 
       cr_save_rtx = gen_rtx_REG (SImode, cr_save_regno);
       START_USE (cr_save_regno);
-
-      /* If we are only saving one CR, we can use mfcrf instead of mfcr.  */
-      if (TARGET_MFCRF_PROLOG && TARGET_MFCRF)
-	{
-	  for (cr = CR2_REGNO; cr <= CR4_REGNO; cr++)
-	    {
-	      if (df_regs_ever_live_p (cr))
-		{
-		  if (single_cr > 0)
-		    {
-		      single_cr = -1;
-		      break;
-		    }
-		  else
-		    single_cr = cr;
-		}
-	    }
-	}
-
-      if (single_cr > 0)
-	setcr = gen_mfcrf (cr_save_rtx, gen_rtx_REG (CCmode, single_cr));
-      else
-	setcr = gen_movesi_from_cr (cr_save_rtx);
-
-      insn = emit_insn (setcr);
+      insn = emit_insn (gen_movesi_from_cr (cr_save_rtx));
       RTX_FRAME_RELATED_P (insn) = 1;
       /* Now, there's no way that dwarf2out_frame_debug_expr is going
 	 to understand '(unspec:SI [(reg:CC 68) ...] UNSPEC_MOVESI_FROM_CR)'.
