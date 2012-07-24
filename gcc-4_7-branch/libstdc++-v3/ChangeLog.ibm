@@ -1,0 +1,6 @@
+2012-07-24  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* include/decimal/decimal.h (_DEFINE_DECIMAL_UNARY_OP): Use _Op as
+	a unary operator.

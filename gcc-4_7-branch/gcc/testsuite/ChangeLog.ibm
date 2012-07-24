@@ -1,3 +1,11 @@
+2012-07-24  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* g++.dg/dfp/pr54036-1.C: New test.
+	* g++.dg/dfp/pr54036-2.C: Likewise.
+	* g++.dg/dfp/pr54036-3.C: Likewise.
+
 2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
 
 	PR tree-optimization/53703
