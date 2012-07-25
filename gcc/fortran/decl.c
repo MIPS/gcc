@@ -589,10 +589,17 @@ cleanup:
 
 /* Auxiliary function to merge DIMENSION and CODIMENSION array specs.  */
 
-static void
+static gfc_try
 merge_array_spec (gfc_array_spec *from, gfc_array_spec *to, bool copy)
 {
   int i;
+
+  if ((from->type == AS_ASSUMED_RANK && to->corank)
+      || (to->type == AS_ASSUMED_RANK && from->corank))
+    {
+      gfc_error ("The assumed-rank array at %C shall not have a codimension");
+      return FAILURE;
+    }
 
   if (to->rank == 0 && from->rank > 0)
     {
@@ -639,6 +646,8 @@ merge_array_spec (gfc_array_spec *from, gfc_array_spec *to, bool copy)
 	    }
 	}
     }
+
+  return SUCCESS;
 }
 
 
@@ -1092,29 +1101,15 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	    retval = FAILURE;
 
           /* Make sure that if it has the dimension attribute, that it is
-	     either assumed size or explicit shape.  */
-	  if (sym->as != NULL)
-	    {
-	      if (sym->as->type == AS_ASSUMED_SHAPE)
-		{
-		  gfc_error ("Assumed-shape array '%s' at %L cannot be an "
-			     "argument to the procedure '%s' at %L because "
-			     "the procedure is BIND(C)", sym->name,
-			     &(sym->declared_at), sym->ns->proc_name->name,
-			     &(sym->ns->proc_name->declared_at));
-		  retval = FAILURE;
-		}
-
-	      if (sym->as->type == AS_DEFERRED)
-		{
-		  gfc_error ("Deferred-shape array '%s' at %L cannot be an "
-			     "argument to the procedure '%s' at %L because "
-			     "the procedure is BIND(C)", sym->name,
-			     &(sym->declared_at), sym->ns->proc_name->name,
- 			     &(sym->ns->proc_name->declared_at));
-		  retval = FAILURE;
-		}
-	  }
+	     either assumed size or explicit shape. Deferred shape is already
+	     covered by the pointer/allocatable attribute.  */
+	  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SHAPE
+	      && gfc_notify_std (GFC_STD_F2008_TS, "Assumed-shape array '%s' "
+			      "at %L as dummy argument to the BIND(C) "
+			      "procedure '%s' at %L", sym->name,
+			      &(sym->declared_at), sym->ns->proc_name->name,
+			      &(sym->ns->proc_name->declared_at)) == FAILURE)
+	    retval = FAILURE;
 	}
     }
 
@@ -1810,8 +1805,12 @@ variable_decl (int elem)
 
   if (m == MATCH_NO)
     as = gfc_copy_array_spec (current_as);
-  else if (current_as)
-    merge_array_spec (current_as, as, true);
+  else if (current_as
+	   && merge_array_spec (current_as, as, true) == FAILURE)
+    {
+      m = MATCH_ERROR;
+      goto cleanup;
+    }
 
   if (gfc_option.flag_cray_pointer)
     cp_as = gfc_copy_array_spec (as);
@@ -3523,7 +3522,8 @@ match_attr_spec (void)
 	    current_as = as;
 	  else if (m == MATCH_YES)
 	    {
-	      merge_array_spec (as, current_as, false);
+	      if (merge_array_spec (as, current_as, false) == FAILURE)
+		m = MATCH_ERROR;
 	      free (as);
 	    }
 

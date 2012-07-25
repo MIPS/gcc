@@ -717,7 +717,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 
   if (opts->x_flag_exceptions
       && opts->x_flag_reorder_blocks_and_partition
-      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))
+      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not work "
@@ -732,7 +732,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_unwind_tables
       && !targetm_common.unwind_tables_default
       && opts->x_flag_reorder_blocks_and_partition
-      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))
+      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not support "
@@ -749,7 +749,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
       && (!targetm_common.have_named_sections
 	  || (opts->x_flag_unwind_tables
 	      && targetm_common.unwind_tables_default
-	      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))))
+	      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not work "
@@ -1593,8 +1593,6 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_profile_arc_flag = value;
       if (!opts_set->x_flag_profile_values)
 	opts->x_flag_profile_values = value;
-      if (!opts_set->x_flag_value_profile_transformations)
-	opts->x_flag_value_profile_transformations = value;
       if (!opts_set->x_flag_inline_functions)
 	opts->x_flag_inline_functions = value;
       /* FIXME: Instrumentation we insert makes ipa-reference bitmaps
