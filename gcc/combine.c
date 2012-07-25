@@ -6244,6 +6244,7 @@ simplify_set (rtx x)
   if (GET_MODE_CLASS (mode) == MODE_INT && HWI_COMPUTABLE_MODE_P (mode))
     {
       src = force_to_mode (src, mode, ~(unsigned HOST_WIDE_INT) 0, 0);
+      src = combine_simplify_rtx (src, VOIDmode, 0, 0);
       SUBST (SET_SRC (x), src);
     }
 

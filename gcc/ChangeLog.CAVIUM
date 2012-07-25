@@ -1,3 +1,14 @@
+2012-07-24  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #3201
+	* combine.c (simplify_set): After force_to_mode is called, simplify
+	the rtl.
+
+	* testsuite/gcc.target/mips/ext-10.c: New testcase.
+	* testsuite/gcc.target/mips/ext-9.c: New testcase.
+	* testsuite/gcc.target/mips/ins-3.c: New testcase.
+	* testsuite/gcc.target/mips/truncate-9.c: New testcase.
+
 2012-07-24  Adam Nemet  <anemet@caviumnetworks.com>
             Andrew Pinski  <apinski@cavium.com>
             Chandrakala Chavva  <cchavva@caviumnetworks.com>
