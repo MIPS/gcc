@@ -1,3 +1,10 @@
+2012-07-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* include/decimal/decimal.h (_DEFINE_DECIMAL_UNARY_OP): Use _Op as
+	a unary operator.
+
 2012-05-10  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* include/ext/atomicity.h (__exchange_and_add_nb): New.
