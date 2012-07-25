@@ -105,6 +105,22 @@
        (match_code "const_int")
        (match_test "low_bitmask_len (mode, INTVAL (op)) > 16")))
 
+(define_predicate "bitmask_operand"
+  (and (match_code "const_int")
+       (and (not (match_operand 0 "uns_arith_operand"))
+	    (match_test "mips_bitmask_p (INTVAL (op))"))))
+
+(define_predicate "bottom_bitmask_operand"
+  (and (match_code "const_int")
+       (and (match_operand 0 "bitmask_operand")
+	    (match_test "mips_bottom_bitmask_p (INTVAL (op))"))))
+
+(define_predicate "inverse_bitmask_operand"
+  (and (match_code "const_int")
+       (and (not (match_operand 0 "uns_arith_operand"))
+	    (and (not (match_operand 0 "bottom_bitmask_operand"))
+		 (match_test "mips_bitmask_p (~ INTVAL (op))")))))
+
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
        (and (not (match_test "TARGET_MIPS16"))

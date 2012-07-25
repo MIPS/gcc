@@ -1,3 +1,22 @@
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
+            Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/mips-protos.h (mips_bitmask, mips_bitmask_p,
+        mips_bottom_bitmask_p): Declare them.
+	* config/mips/mips.c (mips_bitmask, mips_bitmask_p,
+        mips_bottom_bitmask_p): New functions.
+	* config/mips/mips.md (*insv<mode>_internal1): New pattern to
+	match a bottom insert.
+	(*insv<mode>_internal2): Likewise.
+	(*insv<mode>_internal3): New pattern to
+	match an insert.
+	(*insv<mode>_internal4): Likewise.
+        * config/mips/predicates.md (bitmask_operand
+        bottom_bitmask_operand, inverse_bitmask_operand):
+        New predicates.
+
+	* testsuite/gcc.target/mips/ins-4.c: New testcase.
+
 2012-07-25  Adam Nemet  <anemet@caviumnetworks.com>
             Andrew Pinski  <apinski@cavium.com>
 

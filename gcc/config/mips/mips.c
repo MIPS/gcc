@@ -7847,6 +7847,69 @@ mask_low_and_shift_len (enum machine_mode mode, rtx mask, rtx shift)
   shval = INTVAL (shift) & (GET_MODE_BITSIZE (mode) - 1);
   return exact_log2 ((UINTVAL (mask) >> shval) + 1);
 }
+
+/* If X is a bitmask (consists of one consecutive block of ones)
+   return the position of the bottom bit and set *LEN to the length of
+   the bitmask.  Otherwise return -1.  MODE is the operation this
+   constant is used with.  If VOIDmode LEN is not used an can be
+   passed as NULL.  */
+
+int
+mips_bitmask (unsigned HOST_WIDE_INT x, int *len, enum machine_mode mode)
+{
+  int top, bottom;
+
+  top = floor_log2 (x);
+  if (top == HOST_BITS_PER_WIDE_INT - 1)
+    x = -x;
+  else
+    x = ((unsigned HOST_WIDE_INT) 1 << (top + 1)) - x;
+
+  bottom = exact_log2 (x);
+  if (mode == VOIDmode || bottom == -1)
+    return bottom;
+
+  if (mode == SImode && top > 31)
+    {
+      if (top == 63)
+	top = 31;
+      else
+	gcc_unreachable ();
+    }
+
+  *len = top - bottom + 1;
+  return bottom;
+}
+
+/* True if X is a bitmask (consists of one consecutive block of
+   ones).  */
+
+bool
+mips_bitmask_p (unsigned HOST_WIDE_INT x)
+{
+  return ISA_HAS_EXT_INS && mips_bitmask (x, NULL, VOIDmode) != -1;
+}
+
+/* True if X is a bitmask in MODE and the starting of the bitmask is at
+   0 and the length is the same as POS. */
+bool
+mips_bitmask_ins_p (unsigned HOST_WIDE_INT x, int pos, enum machine_mode mode)
+{
+  int len, position;
+  if (!ISA_HAS_EXT_INS)
+    return 0;
+  position = mips_bitmask (x, &len, mode);
+  return position == 0 && len == pos;
+}
+
+/* True if X is a bitmask (consists of one consecutive block of
+   ones) and only the bottom bits are set.  */
+
+bool
+mips_bottom_bitmask_p (unsigned HOST_WIDE_INT x)
+{
+  return ISA_HAS_EXT_INS && mips_bitmask (x, NULL, VOIDmode) == 0;
+}
 
 /* Return true if -msplit-addresses is selected and should be honored.
 
