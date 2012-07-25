@@ -3906,7 +3906,12 @@
 			  (match_operand 2 "const_int_operand" "")
 			  (match_operand 3 "const_int_operand" "")))]
   "ISA_HAS_EXTS && UINTVAL (operands[2]) <= 32"
-  "exts\t%0,%1,%3,%m2"
+{
+  /* To be able to find truncates, use sll for extration of the lower 32bits. */
+  if (UINTVAL (operands[2]) == 32 && UINTVAL (operands[3]) == 0)
+    return "sll\t%0,%1,0";
+  return "exts\t%0,%1,%3,%m2";
+}
   [(set_attr "type"     "arith")
    (set_attr "mode"     "<MODE>")])
 

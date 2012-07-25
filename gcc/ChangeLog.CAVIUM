@@ -1,3 +1,8 @@
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
+
+        * config/mips/mips.md (extv<mode>): Use sll for
+        extraction of the lower 32bits.
+
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
         * regrename.c (maybe_mode_change): Return the reg in the
