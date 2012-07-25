@@ -442,6 +442,23 @@
         * testsuite/gcc.dg/octeon/trunc-9.c: New testcase.
 
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
+
+        Start of Bug #4220
+        * tree-ssa-sccvn.c (simplify_binary_expression): Add looked_up argument.
+        Get the first operand full expression for PLUS, IOR, and AND expressions also.
+        Try to simplify (type)a + CST if there is a + CST exists already when type is
+        just a different signedness of the type of a.
+        (simplify_unary_expression): Add looked_up argument.
+        Try to simplify (type)(a+CST) if there exists a (type)a where the type is
+        just a difference signedness of the type of a.
+        (try_to_simplify): Add looked_up argument.  Update calls to
+        simplify_binary_expression and simplify_unary_expression.
+        (visit_use): Update call to try_to_simplify.
+        Set was_simplified to true if try_to_simplify's looked_up is true.
+        * tree-ssa-sccvn.h (struct vn_ssa_aux): New field was_simplified.
+        * tree-ssa-pre.c (eliminate): Do an insert when the VN said we should.
+
+2012-07-24  Andrew Pinski  <apinski@cavium.com>
             Adam Nemet  <anemet@caviumnetworks.com>
 
         * tree-ssa-loop-ivopts.c (rewrite_use_address): Create an aligned type

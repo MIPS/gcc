@@ -182,6 +182,8 @@ typedef struct vn_ssa_aux
      insertion of such with EXPR as definition is required before
      a use can be created of it.  */
   unsigned needs_insertion : 1;
+
+  unsigned was_simplified : 1;
 } *vn_ssa_aux_t;
 
 typedef enum { VN_NOWALK, VN_WALK, VN_WALKREWRITE } vn_lookup_kind;

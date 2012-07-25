@@ -4183,7 +4183,8 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      tree val = VN_INFO (lhs)->valnum;
 	      if (val != VN_TOP
 		  && TREE_CODE (val) == SSA_NAME
-		  && VN_INFO (val)->needs_insertion
+ 	          && (VN_INFO (val)->needs_insertion
+                      || VN_INFO (val)->was_simplified)
 		  && VN_INFO (val)->expr != NULL_TREE
 		  && (sprime = eliminate_insert (&gsi, val)) != NULL_TREE)
 		eliminate_push_avail (sprime);
