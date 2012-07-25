@@ -8758,7 +8758,6 @@ output_pubnames (VEC (pubname_entry, gc) * names)
   unsigned i;
   unsigned long pubnames_length = size_of_pubnames (names);
   pubname_ref pub;
-  limbo_die_node *node;
 
   if (!want_pubnames () || !info_section_emitted)
     return;
@@ -8819,26 +8818,23 @@ output_pubnames (VEC (pubname_entry, gc) * names)
     return;
 
   /* Now output the pubnames for COMDAT function CUs.  */
-  for (node = limbo_die_list; node; node = node->next)
+  FOR_EACH_VEC_ELT (pubname_entry, names, i, pub)
     {
-      dw_die_ref cu = node->die;
-      dw_die_ref die;
-      tree key = lookup_comdat_key (cu);
+      dw_die_ref die = pub->die;
+      tree key;
       char *label;
-      const char *name;
       unsigned long size;
 
+      /* Now we're only interested in COMDAT functions.  */
+      if (die->die_tag != DW_TAG_subprogram)
+	continue;
+
+      key = lookup_comdat_key (pub->die);
       if (!key)
 	continue;
 
-      die = cu->die_child->die_sib;
-      if (die->die_tag == DW_TAG_imported_unit)
-	die = die->die_sib;
-      gcc_assert (die->die_tag == DW_TAG_subprogram);
-      name = get_AT_string (die, DW_AT_name);
-
-      size = (DWARF_PUBNAMES_HEADER_SIZE + strlen (name) + DWARF_OFFSET_SIZE
-	      + 1 + DWARF_OFFSET_SIZE);
+      size = (DWARF_PUBNAMES_HEADER_SIZE + strlen (pub->name)
+	      + DWARF_OFFSET_SIZE + 1 + DWARF_OFFSET_SIZE);
 
       label = XALLOCAVEC (char, IDENTIFIER_LENGTH (key) + 10);
       ASM_GENERATE_INTERNAL_LABEL (label, IDENTIFIER_POINTER (key), 0);
@@ -8847,11 +8843,11 @@ output_pubnames (VEC (pubname_entry, gc) * names)
 				     SECTION_DEBUG | SECTION_LINKONCE,
 				     key);
 
-      output_pubnames_header (size, label, cu_size (cu));
+      output_pubnames_header (size, label, cu_size (die->die_parent));
       dw2_asm_output_data (DWARF_OFFSET_SIZE, die->die_offset,
 			   "DIE offset");
 
-      dw2_asm_output_nstring (name, -1, "external name");
+      dw2_asm_output_nstring (pub->name, -1, "external name");
       dw2_asm_output_data (DWARF_OFFSET_SIZE, 0, NULL);
     }
 }
