@@ -405,6 +405,15 @@ maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
 		   enum machine_mode new_mode, unsigned int regno,
 		   unsigned int copy_regno ATTRIBUTE_UNUSED)
 {
+  /*  If we are using the register in the copy mode (if the number of hard
+      registers is the same), just used the reg with the new mode.  */
+  if (GET_MODE_SIZE (copy_mode) == GET_MODE_SIZE (new_mode)
+      && hard_regno_nregs[copy_regno][copy_mode] ==
+         hard_regno_nregs[copy_regno][new_mode]
+      && hard_regno_nregs[regno][copy_mode] ==
+         hard_regno_nregs[copy_regno][new_mode])
+    return gen_rtx_raw_REG (new_mode, regno);
+
   if (GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (orig_mode)
       && GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (new_mode))
     return NULL_RTX;

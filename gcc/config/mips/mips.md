@@ -3345,20 +3345,24 @@
 ;; the GPR and LO cases because we don't usually know during pre-reload
 ;; scheduling whether an operand will be LO or not.
 (define_insn_and_split "extendsidi2"
-  [(set (match_operand:DI 0 "register_operand" "=d,l,d")
-        (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "0,0,m")))]
+  [(set (match_operand:DI 0 "register_operand" "=d,l,d,d")
+        (sign_extend:DI (match_operand:SI 1 "nonimmediate_operand" "0,0,m,?d")))]
   "TARGET_64BIT"
   "@
    #
    #
-   lw\t%0,%1"
-  "&& reload_completed && register_operand (operands[1], VOIDmode)"
+   lw\t%0,%1
+   #"
+  "&& reload_completed && REG_P (operands[1])"
   [(const_int 0)]
 {
-  emit_note (NOTE_INSN_DELETED);
+  if (REGNO (operands[0]) != REGNO (operands[1]))
+    emit_move_insn (operands[0], gen_rtx_REG (DImode, REGNO (operands[1])));
+  else
+    emit_note (NOTE_INSN_DELETED);
   DONE;
 }
-  [(set_attr "move_type" "move,move,load")
+  [(set_attr "move_type" "move,move,load,move")
    (set_attr "mode" "DI")])
 
 (define_expand "extend<SHORT:mode><GPR:mode>2"

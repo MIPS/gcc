@@ -1,5 +1,14 @@
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
+        * regrename.c (maybe_mode_change): Return the reg in the
+        new mode if the copy was done in the same mode size.
+        * config/mips/mips.md (extendsidi2): Add expanding in
+        a different register; split the move in DImode.
+
+        * testsuite/gcc.target/mips/extra-move-1.c: new testcase.
+
+2012-07-24  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.target/mips/ext-10.c: Remove check for octeon
 	target and use -mgp64 for the options.
 	* testsuite/gcc.target/mips/ext-9.c: Likewise.
