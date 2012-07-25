@@ -6415,6 +6415,7 @@ rewrite_use_address (struct ivopts_data *data,
   tree base_hint = NULL_TREE;
   tree ref, iv;
   bool ok;
+  tree type;
 
   adjust_iv_update_pos (cand, use);
   ok = get_computation_aff (data->current_loop, use, cand, use->stmt, &aff);
@@ -6436,7 +6437,13 @@ rewrite_use_address (struct ivopts_data *data,
     base_hint = var_at_stmt (data->current_loop, cand, use->stmt);
 
   iv = var_at_stmt (data->current_loop, cand, use->stmt);
-  ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff,
+  type = TREE_TYPE (*use->op_p);
+  if (TREE_CODE (*use->op_p) == COMPONENT_REF)
+    {
+      unsigned align = DECL_ALIGN (TREE_OPERAND (*use->op_p, 1));
+      type = build_aligned_type (type, align);
+    }
+  ref = create_mem_ref (&bsi, type, &aff,
 			reference_alias_ptr_type (*use->op_p),
 			iv, base_hint, data->speed);
   copy_ref_info (ref, *use->op_p);
