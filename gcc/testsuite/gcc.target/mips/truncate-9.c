@@ -1,5 +1,4 @@
-/* { dg-do compile { target *-octeon-* } } */
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -mgp64" } */
 /* { dg-final { scan-assembler "dext"  } } */
 /* { dg-final { scan-assembler-not "andi" } } */
 

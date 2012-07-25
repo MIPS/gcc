@@ -1,4 +1,4 @@
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -mgp64" } */
 /* Make sure that IV-opts does not produce an unaligned access
    for p[i].s as it can be done using an aligned load. */
 /* { dg-final { scan-assembler-not "uld\\t|ldr\\t" } } */

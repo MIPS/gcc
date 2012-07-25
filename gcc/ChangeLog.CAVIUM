@@ -1,5 +1,17 @@
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.target/mips/ext-10.c: Remove check for octeon
+	target and use -mgp64 for the options.
+	* testsuite/gcc.target/mips/ext-9.c: Likewise.
+	* testsuite/gcc.target/mips/ins-3.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-7.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-8.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-9.c: Likewise.
+	* testsuite/gcc.target/mips/unaligned-3.c: Likewise.
+	* testsuite/gcc.target/mips/unaligned-4.c: Likewise.
+
+2012-07-24  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #3201
 	* combine.c (simplify_set): After force_to_mode is called, simplify
 	the rtl.
