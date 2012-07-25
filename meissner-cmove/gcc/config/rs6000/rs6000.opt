@@ -128,8 +128,12 @@ Target Report Mask(MFCRF) Save
 Use PowerPC V2.01 single field mfcr instruction
 
 mmfcrf-prolog
-Target Report Var(TARGET_MFCRF_PROLOG) Save
+Target Report Var(TARGET_MFCRF_PROLOG) Save Init(-1)
 Use PowerPC V2.01 single field mfcr instruction in the prolog
+
+mmfcrf-split
+Target Report Var(TARGET_MFCRF_SPLIT) Save Init(-1)
+Split the mfcr and shift instructions for set conditional
 
 mpopcntb
 Target Report Mask(POPCNTB) Save

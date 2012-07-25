@@ -1,3 +1,38 @@
+2012-07-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove35)
+	* config/rs6000/rs6000-protos.h (print_operand_cr_bits): New
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mmfcrf-prolog): Default to -1.
+	(-mmfcrf-split): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	-mmfcrf set -mmfcrf-prolog and -mmfcrf-split if they were not
+	explicitly set by the user.
+	(print_operand_cr_bits): Return the integer number for the various
+	print_operand tests that operate on CR registers.
+	(print_operand): Move CR register code to print_operand_cr_bits
+	and call it.
+
+	* config/rs6000/rs6000.md (UNSPEC_MFCRF_EXTRACT): New unspec.
+	(UNSPEC_MFCRF_EXTRACT2): Likewise.
+	(movcc_internal1): Split moves of CR to GPR.  Add support for
+	DImode on 64-bit systems.  Add support for -mmfcrf-split.  Name
+	unnamed patterns.
+	(mov<mode>_mfcr): Likewise.
+	(mov<mode>_shift): Likewise.
+	(movcc_internal1 splitter): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_move): Likewise.
+	(mov<GPR:mode>_mfcr_shift): Likewise.
+	(mov<GPR:mode>_mfcr_shift2): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_move splitter): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_setcr): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_shift2): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_shift2 splitter): Likewise.
+	(mfcr peepholes): Disable combining mfcr's on -mmfcrf machines.
+
 2012-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	(mrmcmove34)

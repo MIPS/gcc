@@ -799,6 +799,7 @@ See RS/6000 and PowerPC Options.
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mmfcrf  -mno-mfcrf -mmfcrf-prolog  -mno-mfcrf-prolog @gol
+-mmfcrf-split -mno-mfcrf-split @gol
 -mpopcntb  -mno-popcntb -mpopcntd -mno-popcntd @gol
 -mfprnd  -mno-fprnd @gol
 -mcmpb -mno-cmpb -mmfpgpr -mno-mfpgpr -mhard-dfp -mno-hard-dfp @gol
@@ -16537,6 +16538,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-mfcrf
 @itemx -mmfcrf-prolog
 @itemx -mno-mfcrf-prolog
+@itemx -mmfcrf-split
+@itemx -mno-mfcrf-split
 @itemx -mpopcntb
 @itemx -mno-popcntb
 @itemx -mpopcntd
@@ -16566,6 +16569,8 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @opindex mno-mfcrf
 @opindex mmfcrf-prolog
 @opindex mno-mfcrf-prolog
+@opindex mmfcrf-split
+@opindex mno-mfcrf-split
 @opindex mpopcntb
 @opindex mno-popcntb
 @opindex mpopcntd
@@ -16615,9 +16620,14 @@ The @option{-mmfcrf} option allows GCC to generate the move from
 condition register field instruction implemented on the POWER4
 processor and other processors that support the PowerPC V2.01
 architecture.
-The @option{-mmfcrf-prolog} option allows GCC to use the PowerPC
-V2.01 move from condition register field instructions in the prolog of
-the function as well as within the code.
+The @option{-mmfcrf-prolog} option allows GCC to use the PowerPC V2.01
+move from condition register field instructions in the prolog of the
+function as well as within the code.  This is enabled by default if
+@option{-mmfcrf} is set.
+The @option{-mmfcrf-split} option allows GCC to split the move from
+condition register field instruciton from the shift that extracts the
+particular value to allow for better instruction scheduling.  This is
+enabled by default if @option{-mmfcrf} is set.
 The @option{-mpopcntb} option allows GCC to generate the popcount and
 double-precision FP reciprocal estimate instruction implemented on the
 POWER5 processor and other processors that support the PowerPC V2.02

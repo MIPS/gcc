@@ -3447,6 +3447,13 @@ rs6000_option_override_internal (bool global_init_p)
     TARGET_ABS_CNTLZ = ((!TARGET_ISEL && !TARGET_BCP8)
 			|| rs6000_cost->prefer_abs_cntlz);
 
+  /* See if we should enable the mfcrf extra options.  */
+  if (TARGET_MFCRF_PROLOG < 0)
+    TARGET_MFCRF_PROLOG = (TARGET_MFCRF != 0);
+
+  if (TARGET_MFCRF_SPLIT < 0)
+    TARGET_MFCRF_SPLIT = (TARGET_MFCRF != 0);
+
   /* Set the builtin mask of the various options used that could affect which
      builtins were used.  In the past we used target_flags, but we've run out
      of bits, and some options like SPE and PAIRED are no longer in
@@ -14785,6 +14792,98 @@ rs6000_output_function_entry (FILE *file, const char *fname)
   RS6000_OUTPUT_BASENAME (file, fname);
 }
 
+/* Helper function for print_operand that returns the correct number for the
+   various shifts to extract CR fields.  The mfcr split functions in rs6000.md
+   also use this.  */
+
+int
+print_operand_cr_bits (rtx x, int code)
+{
+  int ret = -1;
+
+  switch (code)
+    {
+    default:
+      gcc_unreachable ();
+
+    case 'c':
+      /* X is a CR register.  Print the number of the GT bit of the CR.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 1;
+      break;
+
+    case 'D':
+      /* Like 'J' but get to the GT bit only.  */
+      /* Bit 1 is GT bit.  Add one for shift count in rlinm for scc.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 2;
+      break;
+
+    case 'E':
+      /* X is a CR register.  Print the number of the EQ bit of the CR */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 2;
+      break;
+
+    case 'f':
+      /* X is a CR register.  Print the shift count needed to move it
+	 to the high-order four bits.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 'F':
+      /* Similar, but print the count for the rotate in the opposite
+	 direction.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 32 - 4 * (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 'j':
+      /* Write the bit number in CCR for jump.  */
+      ret = ccr_bit (x, 0);
+      break;
+
+    case 'J':
+      /* Similar, but add one for shift count in rlinm for scc and pass
+	 scc flag to `ccr_bit'.  */
+      ret = ccr_bit (x, 1);
+      if (ret == 31)
+	ret = 0;
+      else if (ret >= 0)
+	ret++;
+      break;
+
+    case 'Q':
+    case 'R':
+      /* X is a CR register.  Print the mask for `mtcrf'.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 128 >> (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 't':
+      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	{
+	  /* Bit 3 is OV bit.  */
+	  ret = 4 * (REGNO (x) - CR0_REGNO) + 3;
+
+	  /* If we want bit 31, write a shift count of zero, not 32.  */
+	  ret = (ret == 31) ? 0 : ret + 1;
+	}
+      break;
+    }
+
+  if (ret < 0)
+    {
+      char lossage[30];
+      sprintf (lossage, "invalid %%%%%c value", code);
+      output_operand_lossage (lossage);
+    }
+
+  return ret;
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 #if TARGET_ELF
@@ -14842,47 +14941,26 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'c':
       /* X is a CR register.  Print the number of the GT bit of the CR.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%c value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 1);
-      return;
-
     case 'D':
       /* Like 'J' but get to the GT bit only.  */
-      gcc_assert (REG_P (x));
-
-      /* Bit 1 is GT bit.  */
-      i = 4 * (REGNO (x) - CR0_REGNO) + 1;
-
-      /* Add one for shift count in rlinm for scc.  */
-      fprintf (file, "%d", i + 1);
-      return;
-
     case 'E':
       /* X is a CR register.  Print the number of the EQ bit of the CR */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%E value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 2);
-      return;
-
     case 'f':
       /* X is a CR register.  Print the shift count needed to move it
 	 to the high-order four bits.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%f value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO));
-      return;
-
     case 'F':
       /* Similar, but print the count for the rotate in the opposite
 	 direction.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%F value");
-      else
-	fprintf (file, "%d", 32 - 4 * (REGNO (x) - CR0_REGNO));
+    case 'j':
+      /* Write the bit number in CCR for jump.  */
+    case 'J':
+      /* Similar, but add one for shift count in rlinm for scc and pass
+	 scc flag to `ccr_bit'.  */
+    case 'R':
+      /* X is a CR register.  Print the mask for `mtcrf'.  */
+    case 't':
+      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
+      fprintf (file, "%d", print_operand_cr_bits (x, code));
       return;
 
     case 'G':
@@ -14918,26 +14996,6 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `i' if this is a constant, else nothing.  */
       if (INT_P (x))
 	putc ('i', file);
-      return;
-
-    case 'j':
-      /* Write the bit number in CCR for jump.  */
-      i = ccr_bit (x, 0);
-      if (i == -1)
-	output_operand_lossage ("invalid %%j code");
-      else
-	fprintf (file, "%d", i);
-      return;
-
-    case 'J':
-      /* Similar, but add one for shift count in rlinm for scc and pass
-	 scc flag to `ccr_bit'.  */
-      i = ccr_bit (x, 1);
-      if (i == -1)
-	output_operand_lossage ("invalid %%J code");
-      else
-	/* If we want bit 31, write a shift count of zero, not 32.  */
-	fprintf (file, "%d", i == 31 ? 0 : i + 1);
       return;
 
     case 'k':
@@ -15087,18 +15145,9 @@ print_operand (FILE *file, rtx x, int code)
       return;
 
     case 'Q':
+      /* X is a CR register.  Print the mask for `mtcrf' including comma.  */
       if (TARGET_MFCRF)
-	fputc (',', file);
-        /* FALLTHRU */
-      else
-	return;
-
-    case 'R':
-      /* X is a CR register.  Print the mask for `mtcrf'.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%R value");
-      else
-	fprintf (file, "%d", 128 >> (REGNO (x) - CR0_REGNO));
+	fprintf (file, ",%d", print_operand_cr_bits (x, code));
       return;
 
     case 's':
@@ -15137,17 +15186,6 @@ print_operand (FILE *file, rtx x, int code)
 	--i, uval >>= 1;
       gcc_assert (i >= 0);
       fprintf (file, "%d", i);
-      return;
-
-    case 't':
-      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
-      gcc_assert (REG_P (x) && GET_MODE (x) == CCmode);
-
-      /* Bit 3 is OV bit.  */
-      i = 4 * (REGNO (x) - CR0_REGNO) + 3;
-
-      /* If we want bit 31, write a shift count of zero, not 32.  */
-      fprintf (file, "%d", i == 31 ? 0 : i + 1);
       return;
 
     case 'T':
