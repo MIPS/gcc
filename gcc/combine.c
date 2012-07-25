@@ -937,6 +937,41 @@ combine_validate_cost (rtx i0, rtx i1, rtx i2, rtx i3, rtx newpat,
 
       return false;
     }
+  else if (dump_file)
+    {
+      if (i0)
+	{
+	  fprintf (dump_file,
+		   "accepting combination of insns %d, %d, %d and %d\n",
+		   INSN_UID (i0), INSN_UID (i1), INSN_UID (i2),
+		   INSN_UID (i3));
+	  fprintf (dump_file, "original costs %d + %d + %d + %d = %d\n",
+		   i0_cost, i1_cost, i2_cost, i3_cost, old_cost);
+	}
+      else if (i1)
+	{
+	  fprintf (dump_file,
+		   "accepting combination of insns %d, %d and %d\n",
+		   INSN_UID (i1), INSN_UID (i2), INSN_UID (i3));
+	  fprintf (dump_file, "original costs %d + %d + %d = %d\n",
+		   i1_cost, i2_cost, i3_cost, old_cost);
+	}
+      else
+	{
+	  fprintf (dump_file,
+		   "accepting combination of insns %d and %d\n",
+		   INSN_UID (i2), INSN_UID (i3));
+	  fprintf (dump_file, "original costs %d + %d = %d\n",
+		   i2_cost, i3_cost, old_cost);
+	}
+      if (newi2pat)
+	{
+	  fprintf (dump_file, "replacement costs %d + %d = %d\n",
+		   new_i2_cost, new_i3_cost, new_cost);
+	}
+      else
+	fprintf (dump_file, "replacement cost %d\n", new_cost);
+    }
 
   /* Update the uid_insn_cost array with the replacement costs.  */
   INSN_COST (i2) = new_i2_cost;
