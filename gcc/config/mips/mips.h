@@ -898,10 +898,11 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 /* ISA has integer multiply-accumulate instructions, madd and msub.  */
-#define ISA_HAS_MADD_MSUB	(ISA_MIPS32				\
+#define ISA_HAS_MADD_MSUB	((ISA_MIPS32				\
 				 || ISA_MIPS32R2			\
 				 || ISA_MIPS64				\
-				 || ISA_MIPS64R2)
+				 || ISA_MIPS64R2)			\
+				 && TARGET_MADD)
 
 /* Integer multiply-accumulate instructions should be generated.  */
 #define GENERATE_MADD_MSUB	(TARGET_IMADD && !TARGET_MIPS16)

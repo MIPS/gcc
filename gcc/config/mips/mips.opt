@@ -291,6 +291,10 @@ mlong64
 Target Report RejectNegative Mask(LONG64)
 Use a 64-bit long type
 
+mmadd
+Target Report Var(TARGET_MADD) Init(1)
+Generate MADD and MSUB instructions if target supports it
+
 mmcount-ra-address
 Target Report Var(TARGET_MCOUNT_RA_ADDRESS)
 Pass the address of the ra save location to _mcount in $12

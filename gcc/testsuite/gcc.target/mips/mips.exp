@@ -246,6 +246,8 @@ set mips_option_groups {
     small-data "-G[0-9]+"
     warnings "-w"
     dump "-fdump-.*"
+    octeon-useun "-mno-octeon-useun|-mocteon-useun"
+    madd "-mno-madd|-madd"
 }
 
 # Add -mfoo/-mno-foo options to mips_option_groups.

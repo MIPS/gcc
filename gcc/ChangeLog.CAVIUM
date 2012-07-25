@@ -1,3 +1,11 @@
+2012-07-25  Adam Nemet  <anemet@caviumnetworks.com>
+            Andrew Pinski  <apinski@cavium.com>
+
+        * config/mips/mips.opt (mmad): New option.
+        * config/mips/mips.h (ISA_HAS_MADD_MSUB): Use it.
+	* testsuite/gcc.target/mips/mips.exp: Add madd to mips_option_groups.
+	* testsuite/gcc.target/mips/madd-10.c: New testcase.
+
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.target/mips/ext-10.c: Add isa_rev>=2.
