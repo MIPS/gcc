@@ -1,5 +1,12 @@
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.target/mips/ext-10.c: Add isa_rev>=2.
+	* testsuite/gcc.target/mips/ext-9.c: Likewise.
+	* testsuite/gcc.target/mips/ins-3.c: Likewise.
+	* testsuite/gcc.target/mips/truncate-9.c: Likewise.
+
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
+
         * config/mips/mips.md (extv<mode>): Use sll for
         extraction of the lower 32bits.
 

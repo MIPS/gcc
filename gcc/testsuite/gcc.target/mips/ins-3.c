@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-O2 -mgp64 isa_rev>=2" } */
 /* { dg-final { scan-assembler-not "andi\t" } } */
 /* { dg-final { scan-assembler-times "or\t" 1 } } */
 /* { dg-final { scan-assembler-times "ins\t" 1 } } */
