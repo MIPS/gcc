@@ -4558,6 +4558,32 @@
     }
 })
 
+;; Unaligned load/store (movmisalign<mode>)
+(define_expand "movmisalign<mode>"
+  [(set (match_operand:GPR 0 "nonimmediate_operand")
+	(match_operand:GPR 1 "move_operand"))]
+ ""
+{
+  if (MEM_P (operands[0]))
+    {
+      operands[1] = force_reg (<MODE>mode, operands[1]);
+      if (!mips_expand_ins_as_unaligned_store (operands[0],
+					       operands[1],
+					       GET_MODE_BITSIZE (<MODE>mode), 0))
+	gcc_unreachable ();
+    }
+  else if (MEM_P (operands[1]))
+   {
+      if (!mips_expand_ext_as_unaligned_load (operands[0],
+					      operands[1],
+					      GET_MODE_BITSIZE (<MODE>mode), 0, 0))
+	gcc_unreachable ();
+    }
+  else
+    gcc_unreachable ();
+  DONE;
+})
+
 ;; 32-bit Integer moves
 
 ;; Unlike most other insns, the move insns can't be split with

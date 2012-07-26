@@ -1,4 +1,9 @@
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.md (movmisalign<mode>): New expand
+	for expanding unaligned load/stores.
+
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
             Adam Nemet  <anemet@caviumnetworks.com>
 
 	* config/mips/mips-protos.h (mips_bitmask, mips_bitmask_p,
