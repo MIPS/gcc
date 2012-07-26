@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 2014-02-28  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	* config/mips/mips.c (mips_expand_ext_as_unaligned_load):
@@ -19,6 +20,12 @@
 2014-02-19  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.md (*and<mode>3): Correct the last patch.
+
+2012-07-26  Andrew Pinski  <apinski@cavium.com>
+            Adam Nemet  <anemet@caviumnetworks.com>
+
+	* testsuite/gcc.target/mips/ext-12.c: New test.
+	* testsuite/gcc.target/mips/ext-13.c: New test.
 
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
             Adam Nemet  <anemet@caviumnetworks.com>
