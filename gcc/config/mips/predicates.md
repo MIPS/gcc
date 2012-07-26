@@ -481,6 +481,9 @@
 	  && REG_P (accum));
 })
 
+(define_predicate "uns_arith_or_bitmask_operand"
+  (ior (match_operand 0 "uns_arith_operand")
+       (match_operand 0 "bitmask_operand")))
 
 (define_predicate "equality_operator"
   (match_code "eq,ne"))

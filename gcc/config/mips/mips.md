@@ -3061,11 +3061,38 @@
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(ior:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "uns_arith_or_bitmask_operand")))]
   ""
 {
   if (TARGET_MIPS16)
     operands[2] = force_reg (<MODE>mode, operands[2]);
+
+  /* If we can force input and output into the same register we can do
+     this in two instructions.  The -1 we load will not be clobbered
+     and can be shared.  The bitmask might be any number of bits wide.
+     Note however that in the worst case we could use one more
+     register.  */
+  else if (bitmask_operand (operands[2], <MODE>mode))
+    {
+      /* It is more profitable for non splitting constants to just do an ior directly. */
+      if (!splittable_const_int_operand (operands[2], <MODE>mode))
+	operands[2] = force_reg (<MODE>mode, operands[2]);
+      else
+	{
+	  rtx m1;
+	  int len, pos;
+	  m1 = gen_reg_rtx (<MODE>mode);
+	  pos = mips_bitmask (INTVAL (operands[2]), &len, <MODE>mode);
+
+	  /* Expanding early gives slightly better performance.  The
+	     post-reload splitter would have to be a parallel because of
+	     the use clause of m1 which prevents some optimizations.  */
+	  emit_move_insn (m1, constm1_rtx);
+	  emit_move_insn (operands[0], operands[1]);
+	  emit_insn (gen_insv (operands[0], GEN_INT (len), GEN_INT (pos), m1));
+	  DONE;
+	}
+    }
 })
 
 (define_insn "*ior<mode>3"
