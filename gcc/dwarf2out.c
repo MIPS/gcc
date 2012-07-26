@@ -5878,13 +5878,15 @@ same_die_p_wrap (dw_die_ref die1, dw_die_ref die2)
   return ret;
 }
 
-/* htab_t callback for a struct die_tree_map: The DIE pointer is the key.  */
+/* htab_t callback to hash a die_tree_map: The DIE pointer is the key.  */
 
 static hashval_t
 die_tree_map_hash (const void *x)
 {
   return htab_hash_pointer (((const struct die_tree_map *)x)->die);
 }
+
+/* htab_t callback to compare two die_tree_maps.  */
 
 static int
 die_tree_map_eq (const void *x1, const void *x2)
@@ -5910,7 +5912,7 @@ record_comdat_key (dw_die_ref die, tree key)
 				      die_tree_map_eq, ggc_free);
 
   slot = htab_find_slot (comdat_key_map, &m, INSERT);
-  if (*slot == HTAB_EMPTY_ENTRY || *slot == HTAB_DELETED_ENTRY)
+  if (*slot == HTAB_EMPTY_ENTRY)
     {
       mp = ggc_alloc_die_tree_map ();
       *mp = m;
