@@ -319,8 +319,12 @@ pl_mark_invalid_bounds_walker (void **slot, void *res ATTRIBUTE_UNUSED)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree bounds = map->base.from;
-  pl_mark_invalid_bounds (bounds);
-  pl_mark_completed_bounds (bounds);
+
+  if (!pl_completed_bounds (bounds))
+    {
+      pl_mark_invalid_bounds (bounds);
+      pl_mark_completed_bounds (bounds);
+    }
   return 1;
 }
 
@@ -801,7 +805,7 @@ pl_register_incomplete_bounds (tree bounds, tree ptr)
   struct tree_map **slot, *map;
 
   map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (ptr);
+  map->hash = htab_hash_pointer (bounds);
   map->base.from = bounds;
   map->to = ptr;
 
@@ -1144,8 +1148,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	tree bnd1 = pl_find_bounds (rhs1, &iter);
 	tree bnd2 = pl_find_bounds (rhs2, &iter);
 
-	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
-	  bounds = incomplete_bounds;
+	if (pl_incomplete_bounds (bnd1))
+	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
+	      && !pl_incomplete_bounds (bnd2))
+	    bounds = bnd2;
+	  else
+	    bounds = incomplete_bounds;
+	else if (pl_incomplete_bounds (bnd2))
+	  if (pl_valid_bounds (bnd1)
+	      && !pl_incomplete_bounds (bnd1))
+	    bounds = bnd1;
+	  else
+	    bounds = incomplete_bounds;
 	else if (!pl_valid_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
 	    bounds = bnd2;
