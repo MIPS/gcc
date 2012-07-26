@@ -23,6 +23,17 @@
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
             Adam Nemet  <anemet@caviumnetworks.com>
 
+	* config/mips/mips.md (and<mode>3): Add support for
+	bitmask_operand, expanding them early.
+	* config/mips/predicates.md (and_reg_operand): Rename to ...
+	(and_reg_without_bitmask_operand): This.
+	(and_reg_operand): New operand.
+	(and_operand): Use and_reg_without_bitmask_operand.
+	* testsuite/gcc.target/mips/ext-11.c: New test.
+
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
+            Adam Nemet  <anemet@caviumnetworks.com>
+
 	* config/mips/constraints.md (Yy): New constraint.
         * config/mips/mips.md (*and<mode>3): Add Yy constraint support.
 	(split for and of an ins reg,$0,): Split the and if the destination

@@ -2927,7 +2927,33 @@
 (define_expand "and<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(and:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "and_reg_operand")))])
+		 (match_operand:GPR 2 "and_reg_operand")))]
+  ""
+{
+  if (bitmask_operand (operands[2], <MODE>mode))
+    {
+      int pos, len;
+
+      pos = mips_bitmask (INTVAL (operands[2]), &len, <MODE>mode);
+      /* If a shift is needed, expand early to have a chance to get it
+	 optimized away.  */
+      if (pos && !mips_bitmask_p (~ INTVAL (operands[2])))
+	{
+	  rtx tmp = gen_reg_rtx (<MODE>mode);
+
+	  emit_insn (gen_extzv (tmp, operands[1], GEN_INT (len), GEN_INT (pos)));
+	  emit_insn (gen_ashl<mode>3 (operands[0], tmp, GEN_INT (pos)));
+
+	  DONE;
+	}
+      /* Anding of the whole register is the same as a move instruction. */
+      if (pos == 0 && len == GET_MODE_BITSIZE (<MODE>mode))
+	{
+	  emit_move_insn (operands[0], operands[1]);
+	  DONE;
+	}
+    }
+})
 
 ;; The middle-end is not allowed to convert ANDing with 0xffff_ffff into a
 ;; zero_extendsidi2 because of TRULY_NOOP_TRUNCATION, so handle these here.
