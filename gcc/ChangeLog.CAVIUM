@@ -1,4 +1,17 @@
 2012-07-25  Andrew Pinski  <apinski@cavium.com>
+            Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/constraints.md (Yy): New constraint.
+        * config/mips/mips.md (*and<mode>3): Add Yy constraint support.
+	(split for and of an ins reg,$0,): Split the and if the destination
+	not the same as the first operand of the and.
+	* config/mips/predicates.md (and_reg_operand): Add inverse_bitmask_operand.
+
+	* testsuite/gcc.target/mips/ins-6.c: New testcase.
+	* testsuite/gcc.target/mips/ins-7.c: New testcase.
+	* testsuite/gcc.target/mips/ins-5.c: New testcase.
+
+2012-07-25  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.md (movmisalign<mode>): New expand
 	for expanding unaligned load/stores.

@@ -126,6 +126,7 @@
        (and (not (match_test "TARGET_MIPS16"))
 	    (match_operand 0 "const_uns_arith_operand"))
        (match_operand 0 "low_bitmask_operand")
+       (match_operand 0 "inverse_bitmask_operand")
        (match_operand 0 "si_mask_operand")))
 
 (define_predicate "and_operand"
