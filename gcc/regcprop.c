@@ -395,6 +395,11 @@ mode_change_ok (enum machine_mode orig_mode, enum machine_mode new_mode,
   return true;
 }
 
+#ifndef TARGET_CAN_COPY_MODES
+#define TARGET_CAN_COPY_MODES(orig_mode, copy_mode)	\
+	(GET_MODE_SIZE (orig_mode) >= GET_MODE_SIZE (copy_mode))
+#endif
+
 /* Register REGNO was originally set in ORIG_MODE.  It - or a copy of it -
    was copied in COPY_MODE to COPY_REGNO, and then COPY_REGNO was accessed
    in NEW_MODE.
@@ -411,7 +416,8 @@ maybe_mode_change (enum machine_mode orig_mode, enum machine_mode copy_mode,
       && hard_regno_nregs[copy_regno][copy_mode] ==
          hard_regno_nregs[copy_regno][new_mode]
       && hard_regno_nregs[regno][copy_mode] ==
-         hard_regno_nregs[copy_regno][new_mode])
+         hard_regno_nregs[copy_regno][new_mode]
+      && TARGET_CAN_COPY_MODES (orig_mode, copy_mode))
     return gen_rtx_raw_REG (new_mode, regno);
 
   if (GET_MODE_SIZE (copy_mode) < GET_MODE_SIZE (orig_mode)

@@ -3009,3 +3009,8 @@ extern GTY(()) struct target_globals *mips16_globals;
    with arguments ARGS.  */
 #define PMODE_INSN(NAME, ARGS) \
   (Pmode == SImode ? NAME ## _si ARGS : NAME ## _di ARGS)
+
+
+#define TARGET_CAN_COPY_MODES(orig_mode, copy_mode)		\
+	(((orig_mode) == SImode && (copy_mode) == DImode)	\
+	 || (GET_MODE_SIZE (orig_mode) >= GET_MODE_SIZE (copy_mode)))

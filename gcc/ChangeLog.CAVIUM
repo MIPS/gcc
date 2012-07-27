@@ -1,3 +1,10 @@
+2012-07-27  Andrew Pinski  <apinski@cavium.com>
+
+	* regcprop.c (TARGET_CAN_COPY_MODES): New define.
+	(maybe_mode_change): Use TARGET_CAN_COPY_MODES to check if
+	we can do the copy.
+	* config/mips/mips.h (TARGET_CAN_COPY_MODES): Define.
+
 2014-03-04  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	* config/mips/mips.md (and<mode>3): Correct the last patch.
@@ -123,7 +130,7 @@
 
 2012-07-24  Andrew Pinski  <apinski@cavium.com>
 
-        * regrename.c (maybe_mode_change): Return the reg in the
+        * regcprop.c (maybe_mode_change): Return the reg in the
         new mode if the copy was done in the same mode size.
         * config/mips/mips.md (extendsidi2): Add expanding in
         a different register; split the move in DImode.
