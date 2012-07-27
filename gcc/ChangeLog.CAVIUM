@@ -78,6 +78,11 @@
 
 2012-07-26  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #3261
+	* testsuite/gcc.target/mips/movcc-4.c: New testcase.
+
+2012-07-26  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #2854
 	Bug #2965
 	* config/mips/mips.md (*<optab><mode>3_trunc): New pattern.
