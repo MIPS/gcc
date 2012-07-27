@@ -1807,6 +1807,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 {
   tree var = TREE_OPERAND (node, 0);
   bool precise_bounds = false;
+  bool has_component_ref = false;
 
   *component = (TREE_CODE (node) == COMPONENT_REF);
   *bitfield = (TREE_CODE (node) == COMPONENT_REF
@@ -1814,17 +1815,21 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
   *elt = NULL_TREE;
   *bounds = NULL_TREE;
 
-  if (TREE_CODE (node) == COMPONENT_REF && innermost_bounds
-      && pl_narrow_bounds_for_field (TREE_OPERAND (node, 1), always_narrow))
+  if (TREE_CODE (node) == COMPONENT_REF && innermost_bounds)
     {
-      tree field = TREE_OPERAND (node, 1);
-      tree bit_size = DECL_SIZE (field);
-      HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
-      tree field_ptr = build_fold_addr_expr (node);
+      if (pl_narrow_bounds_for_field (TREE_OPERAND (node, 1), always_narrow))
+	{
+	  tree field = TREE_OPERAND (node, 1);
+	  tree bit_size = DECL_SIZE (field);
+	  HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
+	  tree field_ptr = build_fold_addr_expr (node);
 
-      *bounds = pl_make_bounds (field_ptr,
-				build_int_cst (size_type_node, size),
-				iter);
+	  *bounds = pl_make_bounds (field_ptr,
+				    build_int_cst (size_type_node, size),
+				    iter);
+	}
+      else
+	has_component_ref = true;
     }
   else if (TREE_CODE (node) == ARRAY_REF)
     {
@@ -1845,19 +1850,37 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
       if (TREE_CODE (var) == ARRAY_REF)
 	{
-	  tree array_addr;
-
 	  *component = false;
-	  var = TREE_OPERAND (var, 0);
-
-	  array_addr = build_fold_addr_expr (var);
 
 	  if (!*bounds || !precise_bounds)
 	    {
-	      tree array_bounds = pl_find_bounds_narrowed (array_addr, iter);
+	      tree array_addr;
+	      tree array_bounds;
+
+	      array_addr = TREE_OPERAND (var, 0);
+	      array_addr = build_fold_addr_expr (array_addr);
+
+	      array_bounds = pl_find_bounds_narrowed (array_addr, iter);
 	      *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
 	      precise_bounds = true;
+
+
+	      /* Intersect obtained bounds with elemnt bounds
+		 in case we have to narrow bounds to a single
+		 array element.  */
+	      if (has_component_ref)
+		{
+		  tree elem_addr = build_fold_addr_expr (node);
+		  tree elem_size = array_ref_element_size (var);
+		  tree array_bounds = pl_make_bounds (elem_addr,
+						      elem_size,
+						      iter);
+		  *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
+		  precise_bounds = true;
+		}
 	    }
+
+	  var = TREE_OPERAND (var, 0);
 	}
       else if (TREE_CODE (var) == COMPONENT_REF)
 	{
@@ -1876,6 +1899,9 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 					build_int_cst (size_type_node, size),
 					iter);
 	    }
+
+	  if (innermost_bounds)
+	    has_component_ref = true;
 	}
       else if (INDIRECT_REF_P (var)
 	       || TREE_CODE (var) == MEM_REF)
@@ -2038,8 +2064,6 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
   tree addr_last = NULL_TREE; /* address of the last accessed byte */
   tree ptr = NULL_TREE; /* a pointer used for dereference */
   tree bounds = NULL_TREE;
-
-  // TODO: check we need to instrument this node
 
   switch (TREE_CODE (node))
     {
@@ -2356,7 +2380,7 @@ pl_fini (void)
 static unsigned int
 pl_execute (void)
 {
-  //TODO: check we need to instrument this function
+  /* FIXME: check we need to instrument this function */
   pl_init ();
 
   pl_fix_function_decls ();
