@@ -945,8 +945,19 @@ pl_get_bound_for_parm (tree parm)
      zero bounds should be returned.  */
   if (!bounds)
     {
-      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (parm)));
-      bounds = pl_get_zero_bounds ();
+      /* For static chain param we return error bounds
+	 because currently we do not check dereferences
+	 of this pointer.  */
+      /* !!! FIXME: there is probably a more correct way to
+	 identify such parm.  */
+      if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
+	  && DECL_ARTIFICIAL (parm))
+	return error_mark_node;
+      else
+	{
+	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (parm)));
+	  bounds = pl_get_zero_bounds ();
+	}
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1152,16 +1163,22 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
 	      && !pl_incomplete_bounds (bnd2))
 	    bounds = bnd2;
+	  else if (bnd2 == error_mark_node)
+	    bounds = bnd2;
 	  else
 	    bounds = incomplete_bounds;
 	else if (pl_incomplete_bounds (bnd2))
 	  if (pl_valid_bounds (bnd1)
 	      && !pl_incomplete_bounds (bnd1))
 	    bounds = bnd1;
+	  else if (bnd1 == error_mark_node)
+	    bounds = bnd1;
 	  else
 	    bounds = incomplete_bounds;
 	else if (!pl_valid_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
+	    bounds = bnd2;
+	  else if (bnd2 == error_mark_node)
 	    bounds = bnd2;
 	  else
 	    bounds = pl_get_none_bounds ();
