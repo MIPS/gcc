@@ -5552,6 +5552,17 @@
    (set_attr "compression" "<shift_compression>,none")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*<optab><mode>3_trunc"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(any_shift:GPR (match_operand:GPR 1 "register_operand" "d")
+		       (truncate:SI (match_operand:DI 2 "arith_operand" "d"))))]
+  "!TARGET_MIPS16"
+{
+  return "<d><insn>\t%0,%1,%2";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "<MODE>")])
+
 (define_insn "*<optab>si3_extend"
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(sign_extend:DI
@@ -5563,6 +5574,48 @@
     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
 
   return "<insn>\t%0,%1,%2";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*ashl_truncsi3"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ashift:SI (truncate:SI (match_operand:DI 1 "register_operand" "d"))
+		       (match_operand:SI 2 "arith_operand" "dI")))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+{
+  if (GET_CODE (operands[2]) == CONST_INT)
+    operands[2] = GEN_INT (INTVAL (operands[2])
+			   & (GET_MODE_BITSIZE (SImode) - 1));
+
+  return "sll\t%0,%1,%2";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*ashl_truncsi3_trunc"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ashift:SI (truncate:SI (match_operand:DI 1 "register_operand" "d"))
+		   (truncate:SI (match_operand:DI 2 "arith_operand" "d"))))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+{
+  return "sll\t%0,%1,%2";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*ashl_truncsi3_extend"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(sign_extend:DI (ashift:SI (truncate:SI
+			             (match_operand:DI 1 "register_operand" "d"))
+		       (match_operand:SI 2 "arith_operand" "dI"))))]
+  "TARGET_64BIT && !TARGET_MIPS16"
+{
+  if (GET_CODE (operands[2]) == CONST_INT)
+    operands[2] = GEN_INT (INTVAL (operands[2])
+			   & (GET_MODE_BITSIZE (SImode) - 1));
+
+  return "sll\t%0,%1,%2";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")])

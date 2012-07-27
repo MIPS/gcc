@@ -1,3 +1,16 @@
+2012-07-26  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #2854
+	Bug #2965
+	* config/mips/mips.md (*<optab><mode>3_trunc): New pattern.
+	(*ashl_truncsi3): Likewise.
+	(*ashl_truncsi3_trunc): Likewise.
+	(*ashl_truncsi3_extend): Likewise.
+
+	* testsuite/gcc.target/mips/truncate-10.c: New testcase.
+	* testsuite/gcc.target/mips/truncate-11.c: New testcase.
+	* testsuite/gcc.target/mips/truncate-12.c: New testcase.
+
 2012-07-26  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* config/mips/mips.md (ior<mode>3): Use uns_arith_or_bitmask_operand.
