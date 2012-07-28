@@ -59,6 +59,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 
+2012-07-27  Andrew Pinski  <apinski@cavium.com>
+
+	* optabs.c (emit_conditional_move): Allow libcalls too for the
+	comparison (allows conditional moves for soft-float).
+
 2012-07-27  Adam Nemet  <anemet@caviumnetworks.com>
 
         * config/mips/mips.c (TARGET_SCHED_ADJUST_PRIORITY): New macro.

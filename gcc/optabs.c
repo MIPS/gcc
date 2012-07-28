@@ -4573,6 +4573,25 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
   prepare_cmp_insn (XEXP (comparison, 0), XEXP (comparison, 1),
 		    GET_CODE (comparison), NULL_RTX, unsignedp, OPTAB_WIDEN,
 		    &comparison, &cmode);
+
+  /* If we cannot do it via one comparison, try emitting the store flag
+     and try with that.  */
+  if (!comparison)
+    {
+      delete_insns_since (last);
+      comparison = emit_store_flag_force (NULL_RTX, code, op0, op1, cmode,
+				          unsignedp, 0);
+      cmode = GET_MODE (comparison);
+      prepare_cmp_insn (comparison, GEN_INT (0),
+		        NE, NULL_RTX, unsignedp, OPTAB_WIDEN,
+		        &comparison, &cmode);
+      if (!comparison)
+	{
+	  delete_insns_since (last);
+	  return NULL_RTX;
+	}
+    }
+
   if (comparison)
     {
       struct expand_operand ops[4];
