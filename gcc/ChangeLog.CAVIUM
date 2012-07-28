@@ -1,3 +1,8 @@
+2012-07-27  Adam Nemet  <anemet@caviumnetworks.com>
+
+        * config/mips/mips.c (TARGET_SCHED_ADJUST_PRIORITY): New macro.
+        (mips_adjust_priority): New function.
+
 2012-07-27  Andrew Pinski  <apinski@cavium.com>
 
 	* regcprop.c (TARGET_CAN_COPY_MODES): New define.

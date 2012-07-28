@@ -13471,6 +13471,22 @@ mips_multipass_dfa_lookahead (void)
 
   return 0;
 }
+
+/* INSN is in the ready queue, adjust original PRIORITY before
+   ordering the queue.  */
+
+static int
+mips_adjust_priority (rtx insn, int priority)
+{
+  /* Prefer single-issuable instructions over dual-issuable ones since
+     they are more likely to conflict with other insns.  */
+  if (TUNE_OCTEON
+      && USEFUL_INSN_P (insn)
+      && (get_attr_type (insn) == TYPE_STORE
+	  || get_attr_type (insn) == TYPE_LOAD))
+    return priority + 1;
+  return priority;
+}
 
 /* Remove the instruction at index LOWER from ready queue READY and
    reinsert it in front of the instruction at index HIGHER.  LOWER must
@@ -19209,6 +19225,8 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   mips_multipass_dfa_lookahead
+#undef TARGET_SCHED_ADJUST_PRIORITY
+#define TARGET_SCHED_ADJUST_PRIORITY  mips_adjust_priority
 #undef TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
   mips_small_register_classes_for_mode_p
