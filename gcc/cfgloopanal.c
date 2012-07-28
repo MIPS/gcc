@@ -379,7 +379,11 @@ init_set_costs (void)
   target_clobbered_regs = 0;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
-	&& !fixed_regs[i])
+	&& !fixed_regs[i]
+	/* Since we don't know whether the loop contains function
+	   calls, be conservative and assume that only call-saved
+	   registers are avaiable.  */
+	&& !call_used_regs[i])
       {
 	target_avail_regs++;
 	if (call_used_regs[i])
