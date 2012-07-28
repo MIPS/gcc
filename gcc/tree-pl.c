@@ -1139,7 +1139,6 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case VAR_DECL:
-    case PARM_DECL:
     case SSA_NAME:
     case ADDR_EXPR:
     case POINTER_PLUS_EXPR:
@@ -1147,6 +1146,12 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case CONVERT_EXPR:
     case INTEGER_CST:
       bounds = pl_find_bounds (rhs1, &iter);
+      break;
+
+    case PARM_DECL:
+      gcc_assert (TREE_ADDRESSABLE (rhs1));
+      bounds = pl_build_bndldx (build_fold_addr_expr (rhs1),
+				node, &iter);
       break;
 
     case MINUS_EXPR:
