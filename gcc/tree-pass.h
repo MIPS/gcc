@@ -422,6 +422,7 @@ extern gimple_opt_pass *make_pass_warn_function_return (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_warn_function_noreturn (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_cselim (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_phiopt (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_late_phiopt (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_forwprop (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_phiprop (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tree_ifcombine (gcc::context *ctxt);

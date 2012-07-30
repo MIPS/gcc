@@ -148,6 +148,26 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 
+2012-07-30  Andrew Pinski  <apinski@cavium.com>
+
+	* tree-pass.h (pass_late_phiopt): New variable.
+	* passes.def (init_optimization_passes): Use pass_late_phiopt for the
+	last pass_phiopt.
+	* tree-ssa-phiopt.c
+	(tree_ssa_phiopt_worker): Add late argument.
+	Call simple_cond_move_replacement if nothing changed the phi and
+	this is the late phiopt.
+	(tree_ssa_phiopt): Update call to tree_ssa_phiopt_worker.
+	(tree_ssa_cs_elim): Likewise.
+	(tree_ssa_late_phiopt): New function.
+	(hard_float_target): New function.
+	(block_with_single_simple_statement): New function.
+	(simple_cond_move_replacement): New function.
+	(pass_late_phiopt): New variable.
+
+	* testsuite/gcc.target/mips/octeon-seq-5.c: New testcase.
+	* testsuite/gcc.target/mips/movcc-5.c: New testcase.
+
 2012-07-27  Andrew Pinski  <apinski@cavium.com>
 
 	* optabs.c (emit_conditional_move): Allow libcalls too for the

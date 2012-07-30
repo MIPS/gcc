@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "domwalk.h"
+#include "rtl.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "gimple-pretty-print.h"
@@ -60,7 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 static unsigned int tree_ssa_phiopt (void);
-static unsigned int tree_ssa_phiopt_worker (bool, bool);
+static unsigned int tree_ssa_late_phiopt (void);
+static unsigned int tree_ssa_phiopt_worker (bool, bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gimple, tree, tree);
 static int value_replacement (basic_block, basic_block,
@@ -73,6 +75,8 @@ static bool neg_replacement (basic_block, basic_block,
 			     edge, edge, gimple, tree, tree);
 static bool cond_store_replacement (basic_block, basic_block, edge, edge,
 				    struct pointer_set_t *);
+static bool simple_cond_move_replacement (basic_block, basic_block,
+					  edge, edge, gimple_seq);
 static bool cond_if_else_store_replacement (basic_block, basic_block, basic_block);
 static struct pointer_set_t * get_non_trapping (void);
 static void replace_phi_edge_with_variable (basic_block, edge, gimple, tree);
@@ -233,7 +237,13 @@ static bool gate_hoist_loads (void);
 static unsigned int
 tree_ssa_phiopt (void)
 {
-  return tree_ssa_phiopt_worker (false, gate_hoist_loads ());
+  return tree_ssa_phiopt_worker (false, false, gate_hoist_loads ());
+}
+
+static unsigned int
+tree_ssa_late_phiopt (void)
+{
+  return tree_ssa_phiopt_worker (true, false, gate_hoist_loads ());
 }
 
 /* This pass tries to transform conditional stores into unconditional
@@ -286,7 +296,7 @@ tree_ssa_cs_elim (void)
      An interfacing issue of find_data_references_in_bb.  */
   loop_optimizer_init (LOOPS_NORMAL);
   scev_initialize ();
-  todo = tree_ssa_phiopt_worker (true, false);
+  todo = tree_ssa_phiopt_worker (false, true, false);
   scev_finalize ();
   loop_optimizer_finalize ();
   return todo;
@@ -326,7 +336,7 @@ single_non_singleton_phi_for_edges (gimple_seq seq, edge e0, edge e1)
    DO_HOIST_LOADS is true when we want to hoist adjacent loads out
    of diamond control flow patterns, false otherwise.  */
 static unsigned int
-tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
+tree_ssa_phiopt_worker (bool late, bool do_store_elim, bool do_hoist_loads)
 {
   basic_block bb;
   basic_block *bb_order;
@@ -494,7 +504,7 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 
 	  phi = single_non_singleton_phi_for_edges (phis, e1, e2);
 	  if (!phi)
-	    continue;
+	    goto try_cond_move;
 
 	  arg0 = gimple_phi_arg_def (phi, e1->dest_idx);
 	  arg1 = gimple_phi_arg_def (phi, e2->dest_idx);
@@ -513,7 +523,13 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 	    cfgchanged = true;
 	  else if (minmax_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
+	  else
+	    goto try_cond_move;
 	}
+      continue;
+try_cond_move:
+      if (late && simple_cond_move_replacement (bb, bb1, e1, e2, phi_nodes (bb2)))
+	cfgchanged = true;
     }
 
   free (bb_order);
@@ -531,6 +547,101 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
   else if (cfgchanged)
     return TODO_cleanup_cfg;
   return 0;
+}
+
+static bool
+hard_float_target (void)
+{
+  static int hard_float = -1;
+  if (hard_float == -1)
+    hard_float = optab_handler (add_optab, SFmode) != CODE_FOR_nothing;
+  return hard_float;
+}
+
+static bool
+block_with_single_simple_statement (basic_block bb, gimple *stmt)
+{
+  /* BB must have no executable statements.  */
+  gimple stmt1;
+  gimple_stmt_iterator gsi = gsi_after_labels (bb);
+  *stmt = NULL;
+  if (phi_nodes (bb))
+    return false;
+  if (gsi_end_p (gsi))
+    return true;
+  if (is_gimple_debug (gsi_stmt (gsi)))
+    gsi_next_nondebug (&gsi);
+  if (gsi_end_p (gsi))
+    return true;
+  stmt1 = gsi_stmt (gsi);
+  gsi_next_nondebug (&gsi);
+  if (!gsi_end_p (gsi))
+    return false;
+  if (!is_gimple_assign (stmt1))
+    return false;
+  if (gimple_could_trap_p (stmt1))
+    return false;
+  if (TREE_CODE (gimple_assign_lhs (stmt1)) != SSA_NAME)
+    return false;
+  switch (gimple_assign_rhs_code (stmt1))
+  {
+    CASE_CONVERT:
+      if (FLOAT_TYPE_P (TREE_TYPE (gimple_assign_rhs1 (stmt1))))
+	if (!hard_float_target ())
+	  return false;
+    /* comparisons are simple */
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
+    /* MIN/MAX/ABS are simple. */
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case ABS_EXPR:
+
+    /* +/- are simple. */
+    case NEGATE_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+
+    /* Shifts and rotates are simple. */
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+
+    /* Bitwise and truth operations are smiple. */
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_NOT_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_XOR_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_NOT_EXPR:
+      if (FLOAT_TYPE_P (TREE_TYPE (gimple_get_lhs (stmt1))))
+	if (!hard_float_target ())
+	  return false;
+    /* an assignment is simple.  */
+    case SSA_NAME:
+    /* ?: is simple even if fp is not hard. */
+    case COND_EXPR:
+      break;
+    default:
+      return false;
+  }
+  *stmt = stmt1;
+  return true;
 }
 
 /* Replace PHI node element whose edge is E in block BB with variable NEW.
@@ -939,6 +1050,105 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 
     }
   return 0;
+}
+
+/*  The function simple_cond_move_replacement does the main work of doing
+    the simple conditional move replacement.  Return true if the replacement
+    is done.  Otherwise return false.
+    BB is the basic block where the replacement is going to be done on.  ARG0
+    is argument 0 from the PHI.  Likewise for ARG1.  */
+
+static bool
+simple_cond_move_replacement (basic_block cond_bb, basic_block middle_bb,
+		   edge e0, edge e1, gimple_seq phis)
+{
+  gimple stmt;
+  edge true_edge, false_edge;
+  tree new_var;
+  tree conditional, cond;
+  tree type;
+  gimple_stmt_iterator gsi;
+#define max_phis 4
+  gimple phi[max_phis];
+  tree arg0[max_phis];
+  tree arg1[max_phis];
+  int t, i;
+  int reverse = false;
+  gimple stmt_to_move;
+
+  if (!block_with_single_simple_statement (middle_bb, &stmt_to_move))
+    return false;
+
+  t = 0;
+  /* We need to know which is the true edge and which is the false
+        edge so that we know if have abs or negative abs.  */
+  extract_true_false_edges_from_block (cond_bb, &true_edge, &false_edge);
+  if (e1 == true_edge || e0 == false_edge)
+    reverse = true;
+  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple p = gsi_stmt (gsi);
+      /* If the PHI arguments are equal then we can skip this PHI. */
+      if (operand_equal_for_phi_arg_p (gimple_phi_arg_def (p, e0->dest_idx),
+				       gimple_phi_arg_def (p, e1->dest_idx)))
+	continue;
+      if (!can_conditionally_move_p (TYPE_MODE (TREE_TYPE (PHI_RESULT (p)))))
+	{
+	  tree type = TREE_TYPE (PHI_RESULT (p));
+	  enum machine_mode mode = TYPE_MODE (type);
+	  int unsignedp = TYPE_UNSIGNED (type);
+	  mode = promote_mode (type, mode, &unsignedp);
+	  if (!can_conditionally_move_p (mode))
+	    return false;
+	}
+      if (t >= max_phis)
+	return false;
+      else
+	{
+	  phi[t] = p;
+	  if (reverse)
+	    {
+	      arg0[t] = gimple_phi_arg_def (phi[t], e1->dest_idx);
+	      arg1[t] = gimple_phi_arg_def (phi[t], e0->dest_idx);
+	    }
+	  else
+	    {
+	      arg0[t] = gimple_phi_arg_def (phi[t], e0->dest_idx);
+	      arg1[t] = gimple_phi_arg_def (phi[t], e1->dest_idx);
+	     }
+	  t++;
+	}
+    }
+
+  if (t == 0)
+    return false;
+
+  stmt = last_stmt (cond_bb);
+  gsi = gsi_for_stmt (stmt);
+  if (stmt_to_move)
+    {
+      gimple_stmt_iterator gsi1 = gsi_for_stmt (stmt_to_move);
+      gsi_move_before (&gsi1, &gsi);
+    }
+  cond = fold_build2 (gimple_cond_code (stmt), boolean_type_node,
+		      gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+  for (i = 0; i < t; i++)
+  {
+    type = TREE_TYPE (PHI_RESULT (phi[i]));
+
+    conditional = fold_build3 (COND_EXPR, type, unshare_expr (cond), arg0[i],
+			       arg1[i]);
+    new_var = force_gimple_operand_gsi (&gsi, conditional, true,
+					SSA_NAME_VAR (PHI_RESULT (phi[i])),
+					true, GSI_SAME_STMT);
+
+    if (i == t - 1)
+      replace_phi_edge_with_variable (cond_bb, e1, phi[i], new_var);
+    else
+      SET_USE (PHI_ARG_DEF_PTR (phi[i], e1->dest_idx), new_var);
+  }
+  /* Note that we optimized this PHI.  */
+  return true;
 }
 
 /*  The function minmax_replacement does the main work of doing the minmax
@@ -1834,6 +2044,54 @@ cond_if_else_store_replacement_1 (basic_block then_bb, basic_block else_bb,
    there are no read-after-write or write-after-write dependencies in
    THEN_BB and ELSE_BB.  */
 
+/* Always do these optimizations if we have SSA
+   trees to work on.  */
+static bool
+gate_late_phiopt (void)
+{
+  return 1;
+}
+
+namespace {
+
+const pass_data  pass_data_late_phiopt =
+{
+  GIMPLE_PASS,
+  "late_phiopt",			/* name */
+  OPTGROUP_NONE, 			/* optinfo_flags */
+  true, 				/* has_gate */
+  true, 				/* has_execute */
+  TV_TREE_PHIOPT,			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_ssa
+    | TODO_verify_flow
+    | TODO_verify_stmts	 		/* todo_flags_finish */
+};
+
+class pass_late_phiopt : public gimple_opt_pass
+{
+public:
+  pass_late_phiopt (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_late_phiopt, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_late_phiopt (m_ctxt); }
+  bool gate () { return gate_late_phiopt (); }
+  unsigned int execute () { return tree_ssa_late_phiopt (); }
+
+}; // class pass_phiopt
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_late_phiopt (gcc::context *ctxt)
+{
+  return new pass_late_phiopt (ctxt);
+}
 static bool
 cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
                                 basic_block join_bb)
