@@ -4010,6 +4010,13 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       /* Fall through.  */
 
     case IOR:
+	/* ins/dins is just the cost of one instruction. */
+	if (ISA_HAS_EXT_INS && code == IOR
+	    && (GET_CODE (XEXP (x, 0)) == AND || GET_CODE (XEXP (x, 1)) == AND))
+	  {
+	    *total = COSTS_N_INSNS (1);	
+	    return true;
+	  }
     case XOR:
       /* Double-word operations use two single-word operations.  */
       *total = mips_binary_cost (x, COSTS_N_INSNS (1), COSTS_N_INSNS (2),

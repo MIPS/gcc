@@ -795,6 +795,11 @@
 
 2012-07-30  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.c (mips_rtx_costs): Provide the correct cost of an
+	expanded ins/dins.
+
+2012-07-30  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #2923
 	* combine.c (find_split_point): Handle PLUS/MINUS specially
 	when there is no split point for either operands.
