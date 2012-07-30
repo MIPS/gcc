@@ -1,0 +1,361 @@
+2012-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Recreate branch, based on subversion id 189982.
+	* REVISION: New file.
+
+============================================================
+
+2012-07-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove35)
+	* config/rs6000/rs6000-protos.h (print_operand_cr_bits): New
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mmfcrf-prolog): Default to -1.
+	(-mmfcrf-split): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	-mmfcrf set -mmfcrf-prolog and -mmfcrf-split if they were not
+	explicitly set by the user.
+	(print_operand_cr_bits): Return the integer number for the various
+	print_operand tests that operate on CR registers.
+	(print_operand): Move CR register code to print_operand_cr_bits
+	and call it.
+
+	* config/rs6000/rs6000.md (UNSPEC_MFCRF_EXTRACT): New unspec.
+	(UNSPEC_MFCRF_EXTRACT2): Likewise.
+	(movcc_internal1): Split moves of CR to GPR.  Add support for
+	DImode on 64-bit systems.  Add support for -mmfcrf-split.  Name
+	unnamed patterns.
+	(mov<mode>_mfcr): Likewise.
+	(mov<mode>_shift): Likewise.
+	(movcc_internal1 splitter): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_move): Likewise.
+	(mov<GPR:mode>_mfcr_shift): Likewise.
+	(mov<GPR:mode>_mfcr_shift2): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_move splitter): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_setcr): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_shift2): Likewise.
+	(mov<GPR:mode>_mfcr<CR:mode>_shift2 splitter): Likewise.
+	(mfcr peepholes): Disable combining mfcr's on -mmfcrf machines.
+
+2012-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove34)
+	* config/rs6000/rs6000.md (mfcrf): New insn, move from CR
+	specifying only one register with no other data movement, not used
+	right now.
+	(movesi_from_cr): If -mmfcrf, -mmfcrf-prolog, and only one CR
+	register was saved, use the new mfocrf instructions.  Undo 7/20
+	changes.
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Undo 7/20 changes.
+
+2012-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove33)
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mmfcrf-prolog.
+
+	* config/rs6000/rs6000.opt (-mmfcrf-prolog): New switch to use
+	MFCRF in the prolog if there was one saved CR register.
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Likewise.
+	* config/rs6000/rs6000.md (UNSPEC_MFCRF): Likewise.
+	(mfcrf): Likewise.
+
+2012-07-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove32)
+	* config/rs6000/constraints.md (wc constraint): New constraint for
+	the volatile CR registers.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	support for the wc constraint for volatile CR registers.
+	(rs6000_preferred_reload_class): Likewise.
+	(rs6000_secondary_reload_class): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_small_register_classes_for_mode_p): New target hook to say
+	CR registers are small register classes.
+	(TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P): Likewise.
+
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Disable
+	caller save for CR registers.
+	(enum reg_class): Add support for the wc constraint for volatile
+	CR registers.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+
+	* config/rs6000/rs6000.md (bcp8<mode>): Prefer volatile CRs over
+	saved CRs.
+	(bcp8<GPR:mode>_cmp<GPR2:mode>): Likewise.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document wc.
+
+2012-07-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove31)
+	Intermediate step where all CR's had new wc constraint, and all
+	compares, etc. were rewritten.  Code never checked in and
+	rewritten.
+
+	(mrmcmove30)
+	Merge up to 189545.
+	* REVISION: Update subversion id.
+
+2012-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove28)
+	* config/rs6000/rs6000.c (rs6000_rtx_costs_comparison): New
+	function to break out common code for rs6000_rtx_costs on
+	comparisons.
+	(rs6000_rtx_costs): Make all comparison costs add in special
+	optimizations, etc.
+
+2012-07-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove27)
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Update costs to more
+	accurately reflect modern processors.
+
+2012-07-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	(mrmcmove26)
+	* config/rs6000/predicates.md (bcp8_comparison_operator): Merge
+	signed_branch_comparison_operator and unsigned_branch_comparison
+	operator together into bcp8_comparison_operator.
+	(signed_branch_comparison_operator): Likewise.
+	(signed_branch_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000.c (output_cbranch): Allow SUBREG's.
+	(rs6000_output_bcp8): Add support for other BC+8 operations.
+
+	* config/rs6000/rs6000.md (bcp8<GPR:mode>_cmp<GPR2:mode>): Merge
+	signed and unsigned bc+8 operations into a single combiner op.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(bcp8<GPR:mode>_unsigned<GPR2:mode>): Likewise.
+
+2012-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (signed_branch_comparison_operator):
+	New predicate.
+	(unsigned_branch_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_compare_nop):
+	Delete -mcompare-nop and go back to -mbcp8-nop.  Add support for
+	using the combiner to merge the compare and bc+8 directly.  Add
+	-mbcp8-merge debug option.
+	(rs6000_previous_compare_p): Likewise.
+	(rs6000_output_bcp8): Likewise.
+	* config/rs6000/rs6000.opt (-mcompare-nop): Likewise.
+	(-mbcp8-merge): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_output_compare_nop): Likewise.
+	(rs6000_previous_compare_p): Likewise.
+	(rs6000_output_bcp8): Likewise.
+	* config/rs6000/rs6000.md (GPR2): Likewise.
+	(bcp8<mode>): Likewise.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(bcp8<GPR:mode>_signed<GPR2:mode>): Likewise.
+	(cmp<mode>_internal1): Likewise.
+	(cmpsi_internal2): Likewise.
+	(cmpdi_internal2): Likewise.
+	* config/rs6000/rs6000.opt (RS/6000 and PowerPC Options):
+	Likewise.
+
+2012-06-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_compare_nop): Add
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mbcp8-nop): Delete, convert to
+	-mcompare-nop.
+	(-mcompare-nop): New switch.
+	(-mcompare-nop=extra): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Replace
+	-mbcp8-nop with -mcompare-nop and -mcompare-nop=extra and add
+	support for ISEL and for normal branches.  Move emitting the group
+	ending nop to after the compare, instead of before the jump.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_output_compare_nop): Likewise.
+	* config/rs6000/rs6000.md (bcp8<mode>): Likewise.
+	(cmp<mode>_internal1): Likewise.
+	(cmpsi_internal2): Likewise.
+	(cmpdi_internal2): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Likewise.
+
+2012-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (scc_comparison_operator): Add
+	support for floating point comparisons to allow fcmpu to drive
+	ISEL and branch conditional + 8.
+	(scc_rev_comparison_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_ifcvt_modify_insn): New
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mbcp8-nop): New switch to add a NOP
+	between compare and branch conditional + 8 insn.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add support
+	for -mbcp8-nop.
+	(rs6000_option_override_internal): If -Os, prefer ISEL over branch
+	conditional + 8.  Add support for -mbcp8-nop.
+	(rs6000_ifcvt_modify_insn): New target hook, don't allow back to
+	back ISEL or branch conditional + 8.
+	(rs6000_emit_cmove): Move all INT processing to
+	rs6000_emit_int_cmove.  Add hooks for future VSX optimizations.
+	Rearrange code somewhat.
+	(rs6000_emit_int_cmove): Rewrite code, push force_reg's back to
+	the md file.
+	(rs6000_emit_vsx_cmove): Stub for future use to generate XXSEL
+	instruction.
+	(output_isel): Allow 3rd argument to be 0 for reversed tests.
+	(rs6000_expand_int_minmax): Pass the code to use for the test,
+	rather than min/max as argument.
+
+	* config/rs6000/rs6000.h (IFCVT_MODIFY_INSN): Define target hook
+	to control if conversion on rs6000.
+
+	* config/rs6000/rs6000.md (smin<mode>3): Change calling sequence
+	to rs6000_expand_int_minmax.
+	(smax<mode>3): Likewise.
+	(umin<mode>3): Likewise.
+	(umax<mode>3): Likewise.
+	(mov<mode>cc_internal): For ISEL, flip test if possible to allow 0
+	to be in the appropriate slot without loading into a register.
+	(bcp8<mode>): Add support for -mbcp8-nop.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mbcp8-nop and -mno-bcp8-nop.
+
+2012-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (bcp8_bool_operator): Delete.
+	(int_branch_comparison_operator): Likewise.
+
+2012-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (bcp8_bool_operator): Simplify
+	code.
+
+	* config/rs6000/rs6000.opt (-mbcp8-cond-exec): Delete.
+
+	* config/rs6000/rs6000.c (rs6000_have_conditional_execution):
+	Delete.
+	(TARGET_HAVE_CONDITIONAL_EXECUTION): Likewise.
+	(rs6000_debug_reg_global): Delete -mbcp8-cond-exec.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_emit_cmove): Test for TARGET_BCP8 as well as TARGET_ISEL.
+	(rs6000_rtx_costs): Likewise.
+
+	* config/rs6000/rs6000.md (mov<mode>cc): Use comparison_operator,
+	not scc_comparison_operator.
+	(bcp8<move>): Allow target to be either of the inputs.  Use
+	TARGET_BCP8.
+	(bcp8_cond_exec_bool<mode>): Delete.
+	(bcp8_cond_exec_add<mode>): Delete.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Delete
+	-bcp8-cond-exec.
+
+2012-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (reg_or_zero_operand): New predicate
+	for branch conditional + 8 support.
+	(int_branch_comparison_operator): Likewise.
+	(bcp8_bool_operator): Likewise.
+
+	* config/rs6000/rs6000-protos.h (rs6000_emit_sISEL): Add support
+	for branch conditional + 8 support via the -mbcp8 switch.  Add
+	additional support for use branch conditional + 8 for conditional
+	execution.  Turn bc+8 on by default for power7 unless -misel.
+	Delete rs6000_emit_sISEL.  Make conditional branch functions
+	return true/false depending on whether they could create the
+	branch.  Use the return value in conditional move expanders to
+	FAIL if necessary.  Add support for -mabs-cntlz to use the
+	traditional code for integer absolute value, even if -misel or
+	-mbcp8 is used.  Add more cost fields to the cost structures.
+	Combine integer minimum/maximum SI/DI patterns.  Delete some of
+	the old power min/max/abs insns.  Improve ISEL code when the true
+	value is 0.
+	* config/rs6000/rs6000.c (struct processor_costs): Likewise.
+	(DEFAULT_COSTS2): Likewise.
+	(DEFAULT_COSTS): Likewise.
+	(DEFAULT_COSTS_POWER6): Likewise.
+	(DEFAULT_COSTS_POWER7): Likewise.
+	(DEFAULT_COSTS_ISEL): Likewise.
+	(*_cost structures): Likewise.
+	(TARGET_HAVE_CONDITIONAL_EXECUTION): Likewise.
+	(rs6000_clz_cost): Likewise.
+	(rs6000_cmp_cost): Likewise.
+	(rs6000_adjacent_cmp_cost): Likewise.
+	(rs6000_isel_cost): Likewise.
+	(rs6000_bcp8_cost): Likewise.
+	(rs6000_mfcr_cost): Likewise.
+	(rs6000_crlogical_cost): Likewise.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_emit_sISEL): Likewise.
+	(rs6000_emit_sCOND): Likewise.
+	(rs6000_emit_cbranch): Likewise.
+	(rs6000_emit_cmove): Likewise.
+	(rs6000_emit_int_cmove): Likewise.
+	(rs6000_have_conditional_execution): Likewise.
+	(rs6000_expand_int_abs): Likewise.
+	(rs6000_expand_int_minmax): Likewise.
+	* config/rs6000/rs6000.h (TARGET_INT_MINMAX): Likewise.
+	* config/rs6000/rs6000.md (isel_type): Likewise.
+	(CR): Likewise.
+	(ICR): Likewise.
+	(sminsi3): Likewise.
+	(smindi3): Likewise.
+	(smin<mode>3): Likewise.
+	(smaxsi3): Likewise.
+	(smaxdi3): Likewise.
+	(smax<mode>3): Likewise.
+	(uminsi3): Likewise.
+	(umindi3): Likewise.
+	(umin<mode>3): Likewise.
+	(umaxsi3): Likewise.
+	(umaxdi3): Likewise.
+	(umax<mode>3): Likewise.
+	(unnamed power min/max/abs insns/splitters): Likewise.
+	(abssi2): Likewise.
+	(absdi2): Likewise.
+	(abs<mode>2): Likewise.
+	(abssi2_power): Likewise.
+	(abs<mode>2_isel): Likewise.
+	(nabs<mode>2_isel): Likewise.
+	(abssi2_nopower): Likewise.
+	(absdi2_isel): Likewise.
+	(absdi2_internal): Likewise.
+	(nabs_power): Likewise.
+	(nabs_nopower): Likewise.
+	(mov<mode>cc): Likewise.
+	(mov<mode>cc_internal): Likewise.
+	(isel_signed_<mode>): Likewise.
+	(isel_unsigned_<mode>): Likewise.
+	(isel_normal_<mode>): Likewise.
+	(isel_reveresed_<mode>): Likewise.
+	(isel_reverse_signed_<mode>): Likewise.
+	(isel_reverse_unsigned_<mode>): Likewise.
+	(bcp8<mode>): Likewise.
+	(bcp8_cond_exec_bool<mode>): Likewise.
+	(bcp8_cond_exec_add<mode>): Likewise.
+	(conditional branch insns): Likewise.
+	(conditional return insns): Likewise.
+	* config/rs6000/rs6000.opt (-mbcp8): Likewise.
+	(-mbcp8-cond-exec): Likewise.
+	(-mabs-cntlz): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mbcp8,
+	-mno-bcp8, -mbcp8-cond-exec, -mno-bcp8-cond-exec, -mabs-cntlz, and
+	-mno-abs-cntlz.
+
+2012-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch, subversion id 188280.
+	* REVISION: New file.
+
