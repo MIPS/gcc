@@ -11283,8 +11283,8 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		 tmode != GET_MODE (op0); tmode = GET_MODE_WIDER_MODE (tmode))
 	      if ((unsigned HOST_WIDE_INT) c0 == GET_MODE_MASK (tmode))
 		{
-		  op0 = gen_lowpart (tmode, inner_op0);
-		  op1 = gen_lowpart (tmode, inner_op1);
+		  op0 = gen_lowpart_or_truncate (tmode, inner_op0);
+		  op1 = gen_lowpart_or_truncate (tmode, inner_op1);
 		  code = unsigned_condition (code);
 		  changed = 1;
 		  break;
