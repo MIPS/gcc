@@ -795,6 +795,12 @@
 
 2012-07-30  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.c (mips_zero_extend_cost): Fix
+	cost of zero extending to DImode from SImode for
+	ISA_HAS_EXT_INS.
+
+2012-07-30  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.c (mips_rtx_costs): Provide the correct cost of an
 	expanded ins/dins.
 

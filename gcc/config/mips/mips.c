@@ -3802,8 +3802,13 @@ mips_zero_extend_cost (enum machine_mode mode, rtx op)
     return 0;
 
   if (TARGET_64BIT && mode == DImode && GET_MODE (op) == SImode)
-    /* We need a shift left by 32 bits and a shift right by 32 bits.  */
-    return COSTS_N_INSNS (TARGET_MIPS16 ? 4 : 2);
+    {
+      if (ISA_HAS_EXT_INS)
+	/* We can use dext to set the upper 32bits to zero.  */
+	return COSTS_N_INSNS (1);
+      /* We need a shift left by 32 bits and a shift right by 32 bits.  */
+      return COSTS_N_INSNS (TARGET_MIPS16 ? 4 : 2);
+    }
 
   if (GENERATE_MIPS16E)
     /* We can use ZEB or ZEH.  */
