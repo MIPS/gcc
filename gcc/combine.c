@@ -4918,6 +4918,13 @@ find_split_point (rtx *loc, rtx insn, bool set_src)
       split = find_split_point (&XEXP (x, 0), insn, false);
       if (split)
 	return split;
+
+      /* For PLUS and MINUS, with a constant second operand
+         try to split at the first operand. */
+      if ((code == PLUS || code == MINUS)
+	  && CONST_INT_P (XEXP (x, 1)))
+	return &XEXP (x, 0);
+
       return loc;
 
     default:
