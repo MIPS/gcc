@@ -3730,69 +3730,6 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
     }
 }
 
-/* Return true if there is a non-MIPS16 instruction that implements CODE
-   and if that instruction accepts X as an immediate operand.  */
-
-static int
-mips_immediate_operand_p (int code, HOST_WIDE_INT x)
-{
-  switch (code)
-    {
-    case ASHIFT:
-    case ASHIFTRT:
-    case LSHIFTRT:
-      /* All shift counts are truncated to a valid constant.  */
-      return true;
-
-    case ROTATE:
-    case ROTATERT:
-      /* Likewise rotates, if the target supports rotates at all.  */
-      return ISA_HAS_ROR;
-
-    case AND:
-    case IOR:
-    case XOR:
-      /* These instructions take 16-bit unsigned immediates.  */
-      return SMALL_OPERAND_UNSIGNED (x);
-
-    case PLUS:
-    case LT:
-    case LTU:
-      /* These instructions take 16-bit signed immediates.  */
-      return SMALL_OPERAND (x);
-
-    case EQ:
-    case NE:
-    case GT:
-    case GTU:
-      /* The "immediate" forms of these instructions are really
-	 implemented as comparisons with register 0.  */
-      return x == 0;
-
-    case GE:
-    case GEU:
-      /* Likewise, meaning that the only valid immediate operand is 1.  */
-      return x == 1;
-
-    case LE:
-      /* We add 1 to the immediate and use SLT.  */
-      return SMALL_OPERAND (x + 1);
-
-    case LEU:
-      /* Likewise SLTU, but reject the always-true case.  */
-      return SMALL_OPERAND (x + 1) && x + 1 != 0;
-
-    case SIGN_EXTRACT:
-    case ZERO_EXTRACT:
-      /* The bit position and size are immediate operands.  */
-      return ISA_HAS_EXT_INS;
-
-    default:
-      /* By default assume that $0 can be used for 0.  */
-      return x == 0;
-    }
-}
-
 /* Return the cost of binary operation X, given that the instruction
    sequence for a word-sized or smaller operation has cost SINGLE_COST
    and that the sequence of a double-word operation has cost DOUBLE_COST.
@@ -3950,6 +3887,11 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = 0;
 	  return true;
 	}
+      if (outer_code != 0 && outer_code != SET)
+	{
+	  *total = 0;
+	  return true;
+	}
 
       if (TARGET_MIPS16)
 	{
@@ -3957,19 +3899,6 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  if (cost >= 0)
 	    {
 	      *total = cost;
-	      return true;
-	    }
-	}
-      else
-	{
-	  /* When not optimizing for size, we care more about the cost
-	     of hot code, and hot code is often in a loop.  If a constant
-	     operand needs to be forced into a register, we will often be
-	     able to hoist the constant load out of the loop, so the load
-	     should not contribute to the cost.  */
-	  if (speed || mips_immediate_operand_p (outer_code, INTVAL (x)))
-	    {
-	      *total = 0;
 	      return true;
 	    }
 	}
@@ -4001,19 +3930,8 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      && outer_code == SET
 	      && !(float_mode_p && TARGET_HARD_FLOAT))
 	    cost = 0;
-	  /* When non-MIPS16 code loads a constant N>1 times, we rarely
-	     want to CSE the constant itself.  It is usually better to
-	     have N copies of the last operation in the sequence and one
-	     shared copy of the other operations.  (Note that this is
-	     not true for MIPS16 code, where the final operation in the
-	     sequence is often an extended instruction.)
-
-	     Also, if we have a CONST_INT, we don't know whether it is
-	     for a word or doubleword operation, so we cannot rely on
-	     the result of mips_build_integer.  */
-	  else if (!TARGET_MIPS16
-		   && (outer_code == SET || mode == VOIDmode))
-	    cost = 1;
+	  if (code == SYMBOL_REF || code == CONST)
+	    cost = 0;
 	  *total = COSTS_N_INSNS (cost);
 	  return true;
 	}

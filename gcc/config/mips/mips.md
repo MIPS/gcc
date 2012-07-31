@@ -4577,6 +4577,18 @@
   [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "DI")])
 
+; Define a splitter for integer constant moves, CSE might
+; produce them when dealing with zero_extend.
+(define_split
+  [(set (match_operand:GPR 0 "nonimmediate_operand" "")
+        (match_operand:GPR 1 "splittable_const_int_operand" ""))]
+  ""
+  [(set (match_dup 0) (match_dup 1))]
+{
+  mips_move_integer (operands[0], operands[0], INTVAL (operands[1]));
+  DONE;
+})
+
 (define_insn "*movdi_64bit_mips16"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")
 	(match_operand:DI 1 "move_operand" "d,d,y,K,N,Yd,kf,m,d,*a"))]

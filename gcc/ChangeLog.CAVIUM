@@ -148,6 +148,17 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 
+2012-07-31  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.c (mips_immediate_operand_p): Remove.
+	(mips_rtx_costs): Cost of CONST and SYMBOL_REF are zero.
+	Remove the code that says constants are (close to) free.
+	* config/mips/predicates.md (move_operand): Remove old comment that does
+	not apply. Return true for CONST_INT.
+	* config/mips/mips.md: New splitter for splitting of constant integers.
+
+	* testsuite/gcc.target/mips/const-anchor-1.c: Support subtracting 2.
+
 2012-07-30  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #2923
