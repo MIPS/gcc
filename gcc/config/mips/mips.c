@@ -4245,6 +4245,13 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	}
       return false;
 
+    case TRUNCATE:
+      /* The truncate of a sign/zero extend is already counted for
+         with the sign/zero extend.  */
+      if (outer_code == SIGN_EXTEND || outer_code == ZERO_EXTEND)
+	*total = 0;
+      return false;
+
     case IF_THEN_ELSE:
       *total = mips_cost->movz;
       return false;
