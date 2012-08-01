@@ -38,8 +38,13 @@
        (eq_attr "type" "slt"))
   "octeon_pipe0 | octeon_pipe1")
 
-(define_insn_reservation "octeon_condmove" 2
-  (and (eq_attr "cpu" "octeon,octeon2")
+(define_insn_reservation "octeon_condmove_o1" 2
+  (and (eq_attr "cpu" "octeon")
+       (eq_attr "type" "condmove"))
+  "octeon_pipe0 | octeon_pipe1")
+
+(define_insn_reservation "octeon_condmove_o2" 3
+  (and (eq_attr "cpu" "octeon2")
        (eq_attr "type" "condmove"))
   "octeon_pipe0 | octeon_pipe1")
 
