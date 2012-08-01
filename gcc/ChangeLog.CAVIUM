@@ -750,6 +750,14 @@
 
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
+	start of Bug #4290
+	* config/mips/mips.c (mips_block_move_straight): Use 32bits loads
+	if the length is equal to 4 bytes and either of the alignments
+	is greater than or equal to 32bits.  Also use 32bits when either
+	of the alignment is equal to 32bits not just when both are equal.
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.c (mips_rtx_costs <case TRUNCATE>): The truncate
 	inside a sign_extend or a zero_extend is free.
 
