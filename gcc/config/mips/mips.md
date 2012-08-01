@@ -5893,6 +5893,25 @@
 }
   [(set_attr "type" "branch")])
 
+;; (cmp (ashift A N) (const_int B)) -> (cmp A (const_int B >> N)).
+
+(define_split
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "equality_operator"
+			 [(match_operand:GPR 2 "register_operand")
+			  (match_operand:GPR 3 "move_operand")])
+	 (label_ref (match_operand 1 ""))
+	 (pc)))
+  (clobber (match_operand:GPR 4 "register_operand"))]
+  "!TARGET_MIPS16 && !reload_completed"
+  [(set (pc)
+	(if_then_else (match_dup 0) (label_ref (match_dup 1)) (pc)))]
+{
+  emit_move_insn (operands[4], operands[3]);
+  XEXP (operands[0], 1) = operands[4];
+})
+
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
 	(if_then_else

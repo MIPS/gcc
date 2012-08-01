@@ -147,6 +147,12 @@
 	* config/mips/mips.md (movmisalign<mode>): Fix mem operand
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
+	
+2012-07-31  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* mips.md (split for equality comparison with non-zero constant): New.
+
+	* testsuite/gcc.target/mips/ext-14.c: New testcase.
 
 2012-07-31  Andrew Pinski  <apinski@cavium.com>
 
