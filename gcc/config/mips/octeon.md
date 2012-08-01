@@ -30,7 +30,12 @@
 
 (define_insn_reservation "octeon_arith" 1
   (and (eq_attr "cpu" "octeon,octeon2")
-       (eq_attr "type" "arith,const,logical,move,shift,signext,slt,nop"))
+       (eq_attr "type" "arith,const,logical,move,shift,signext,nop"))
+  "octeon_pipe0 | octeon_pipe1")
+
+(define_insn_reservation "octeon_set" 1
+  (and (eq_attr "cpu" "octeon")
+       (eq_attr "type" "slt"))
   "octeon_pipe0 | octeon_pipe1")
 
 (define_insn_reservation "octeon_condmove" 2
@@ -134,3 +139,14 @@
   (and (eq_attr "cpu" "octeon,octeon2")
        (eq_attr "type" "unknown,multi,atomic,syncloop"))
   "octeon_pipe0 + octeon_pipe1")
+
+;; The Octeon2 HRM says:
+;; A Set class instruction on pipe 0 may dual-issue
+;; with a Br class instruction on pipe 1 that consumes
+;; the Set instruction result. The Br instruction must
+;; consume the result register via the rs instruction
+;; field. 
+;; FIXME add condition to check if the result is used in
+;; rs field.
+(define_bypass 0 "octeon_set" "octeon_brj_o2")
+

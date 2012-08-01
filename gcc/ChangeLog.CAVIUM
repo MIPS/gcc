@@ -1,3 +1,10 @@
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+	
+	tart of bug #4296
+	* config/mips/octeon.md (octeon_arith): Don't match slt for the type.
+	(octeon_set): New reservation.
+	Add bypass between octeon_set and octeon_brj_o2.
+
 2014-03-20  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported: 
@@ -28,7 +35,7 @@
 	* timevar.def: Add TV_LOAD_AFTER_RELOAD timevar.
 	* tree-pass.h (pass_postreload_load): Declare.
 	* passes.def: Add pass_postreload_load.
-
+        
 2014-03-13  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported:
