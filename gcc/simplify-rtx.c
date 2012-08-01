@@ -1353,6 +1353,13 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 				     GET_MODE (XEXP (op, 0)));
 	}
 
+      /* (sign_extend:M (and:N X (const_int I)) where I does not have its sign bit set
+	 is the same as (zero_extend:M (and:N (const_int I))).  */
+      if (GET_CODE (op) == AND
+	  && CONST_INT_P (XEXP (op, 1))
+	  && !val_signbit_known_set_p (GET_MODE (op), UINTVAL (XEXP (op, 1))))
+	return simplify_gen_unary (ZERO_EXTEND, mode, op, GET_MODE (op));
+
       /* (sign_extend:M (ashiftrt:N (ashift <X> (const_int I)) (const_int I)))
 	 is (sign_extend:M (subreg:O <X>)) if there is mode with
 	 GET_MODE_BITSIZE (N) - I bits.

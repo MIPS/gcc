@@ -148,6 +148,18 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-07-31  Andrew Pinski  <apinski@cavium.com>
+
+	* combine.c (simplify_logical): Add in_cond argument.
+	Simplify when the both operands are subregs.
+	(combine_simplify_rtx): Update call to simplify_logical.
+	* simplify-rtx.c (simplify_unary_operation_1 <case SIGN_EXTEND>):
+	(sign_extend:M (and:M X (const_int I)) can be converted over to
+	using zero_extend if I does not have the sign bit set.
+
+	* testsuite/gcc.target/mips/ext-15.c: New testcase.
+	* testsuite/gcc.target/mips/ext-5.c: Also allow dext instead of just ext.
+
 2012-07-31  Adam Nemet  <anemet@caviumnetworks.com>
 
 	* mips.md (split for equality comparison with non-zero constant): New.

@@ -418,7 +418,7 @@ static rtx subst (rtx, rtx, rtx, int, int, int);
 static rtx combine_simplify_rtx (rtx, enum machine_mode, int, int);
 static rtx simplify_if_then_else (rtx);
 static rtx simplify_set (rtx);
-static rtx simplify_logical (rtx);
+static rtx simplify_logical (rtx, bool);
 static rtx expand_compound_operation (rtx);
 static const_rtx expand_field_assignment (const_rtx);
 static rtx make_extraction (enum machine_mode, rtx, HOST_WIDE_INT,
@@ -5907,7 +5907,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 
     case AND:
     case IOR:
-      return simplify_logical (x);
+      return simplify_logical (x, in_cond);
 
     case ASHIFT:
     case LSHIFTRT:
@@ -6630,11 +6630,21 @@ simplify_set (rtx x)
    result.  */
 
 static rtx
-simplify_logical (rtx x)
+simplify_logical (rtx x, bool in_cond)
 {
   enum machine_mode mode = GET_MODE (x);
   rtx op0 = XEXP (x, 0);
   rtx op1 = XEXP (x, 1);
+
+  /* Move the subreg outside of the AND/IOR.  */
+  if (GET_CODE (op0) == SUBREG && GET_CODE (op1) == SUBREG
+      && GET_MODE (SUBREG_REG (op0)) == GET_MODE (SUBREG_REG (op1))
+      && SUBREG_BYTE (op0) == SUBREG_BYTE (op1))
+    {
+      rtx tmp = simplify_gen_binary (GET_CODE (x), GET_MODE (SUBREG_REG (op0)), SUBREG_REG (op0), SUBREG_REG (op1));
+      tmp = combine_simplify_rtx (tmp, GET_MODE (SUBREG_REG (op0)), 0, in_cond);
+      return simplify_gen_subreg (mode, tmp, GET_MODE (tmp), SUBREG_BYTE (op0));
+    }
 
   switch (GET_CODE (x))
     {
