@@ -31,7 +31,7 @@
 
 (define_insn_reservation "octeon_arith" 1
   (and (eq_attr "cpu" "octeon,octeon2,octeon3")
-       (eq_attr "type" "arith,const,logical,move,shift,signext,nop"))
+       (eq_attr "type" "arith,const,logical,move,shift,signext,slt,nop"))
   "octeon_pipe0 | octeon_pipe1")
 
 (define_insn_reservation "octeon_set" 1

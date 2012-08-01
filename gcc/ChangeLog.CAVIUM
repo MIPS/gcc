@@ -150,6 +150,11 @@
 	
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
+	start of bug #4296
+	* config/mips/octeon.md (octeon_arith): Don't match slt for the type.
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.c (mips_rtx_costs <case TRUNCATE>): The truncate
 	inside a sign_extend or a zero_extend is free.
 
