@@ -150,6 +150,17 @@
 
 2012-07-31  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #2970
+	* simplify-rtx.c (simplify_subreg): Simplify
+	a paradoxical subreg of a truncate.
+
+	* testsuite/gcc.target/mips/extend-1.c: Check for
+	two sll and only three dsll/dsra and one seb and
+	one seh.
+	* testsuite/gcc.target/mips/truncate-13.c: New testcase.
+
+2012-07-31  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.c (mips_immediate_operand_p): Remove.
 	(mips_rtx_costs): Cost of CONST and SYMBOL_REF are zero.
 	Remove the code that says constants are (close to) free.

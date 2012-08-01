@@ -1,8 +1,10 @@
-/* { dg-options "-mgp64 forbid_cpu=octeon.*" } */
+/* { dg-options "-O -mgp64 forbid_cpu=octeon.* isa_rev>=2" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
-/* { dg-final { scan-assembler-times "\tdsll\t" 5 } } */
-/* { dg-final { scan-assembler-times "\tdsra\t" 5 } } */
-/* { dg-final { scan-assembler-not "\tsll\t" } } */
+/* { dg-final { scan-assembler-times "\tdsll\t" 3 } } */
+/* { dg-final { scan-assembler-times "\tdsra\t" 3 } } */
+/* { dg-final { scan-assembler-times "\tsll\t" 2 } } */
+/* { dg-final { scan-assembler-times "\tseb\t" 1 } } */
+/* { dg-final { scan-assembler-times "\tseh\t" 1 } } */
 
 #define TEST_CHAR(T, N)				\
   NOMIPS16 T					\

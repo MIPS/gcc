@@ -6005,6 +6005,13 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       return NULL_RTX;
     }
 
+  /* A paradoxical subreg of a truncate of the same mode is
+     what is being truncated.  */
+  if (GET_CODE (op) == TRUNCATE
+      && outermode == GET_MODE (XEXP (op, 0))
+      && subreg_lowpart_offset (outermode, innermode) == byte)
+    return XEXP (op, 0);
+
   /* SUBREG of a hard register => just change the register number
      and/or mode.  If the hard register is not valid in that mode,
      suppress this simplification.  If the hard register is the stack,
