@@ -150,6 +150,10 @@
 	
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/tree-ssa/ssa-fre-4.c: Don't compile on mips.
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #3596
 	* combine.c (simplify_shift_const_1 <case TRUNCATE>): Handle ASHIFTRT
 	like LSHIFTRT but use ASHIFTRT as the final result.
