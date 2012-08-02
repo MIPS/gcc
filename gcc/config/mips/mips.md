@@ -1358,6 +1358,26 @@
   "ISA_HAS_BADDU && TARGET_64BIT"
   "baddu\\t%0,%1,%2"
   [(set_attr "alu_type" "add")])
+
+(define_insn "*baddu_di_eb"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+        (zero_extend:DI
+	 (subreg:QI
+	  (plus:DI (match_operand:DI 1 "register_operand" "d")
+		   (match_operand:DI 2 "register_operand" "d")) 7)))]
+  "TARGET_64BIT && ISA_HAS_BADDU && BYTES_BIG_ENDIAN"
+  "baddu\\t%0,%1,%2"
+  [(set_attr "alu_type" "add")])
+
+(define_insn "*baddu_di_el"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+        (zero_extend:DI
+	 (subreg:QI
+	  (plus:DI (match_operand:DI 1 "register_operand" "d")
+		   (match_operand:DI 2 "register_operand" "d")) 0)))]
+  "TARGET_64BIT && ISA_HAS_BADDU && !BYTES_BIG_ENDIAN"
+  "baddu\\t%0,%1,%2"
+  [(set_attr "alu_type" "add")])
 
 ;;
 ;;  ....................

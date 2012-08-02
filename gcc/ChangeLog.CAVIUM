@@ -171,6 +171,17 @@
 	OS dir names are.
 
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #2837
+	* config/mips/mips.c (TARGET_PROMOTE_PROTOTYPES): Remove definition.
+	* config/mips/mips.md (*baddu_di_eb): New pattern to handle subreg from qi
+	to di mode.
+	(*baddu_di_el): Likewise.
+
+	* testsuite/gcc.target/mips/ext-2.c: There should be no truncate here.
+
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
 	
 	continue bug #4296
 	* config/mips/octeon.md (octeon_condmove): Split into ...
