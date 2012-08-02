@@ -4291,6 +4291,23 @@ build_range_check (location_t loc, tree type, tree exp, int in_p,
 {
   tree etype = TREE_TYPE (exp), value;
 
+  /* When building a range check and the current type's precision is
+     less than integer's precision, we should use the integer type
+     instead; removing the need for an extra zero/sign extend.  */
+  if (unsigned_intSI_type_node
+      && TYPE_PRECISION (etype) <= TYPE_PRECISION (intSI_type_node))
+    {
+      if (TYPE_UNSIGNED (etype))
+	etype = unsigned_intSI_type_node;
+      else
+	etype = intSI_type_node;
+      exp = fold_convert_loc (loc, etype, exp);
+      if (low)
+	low = fold_convert_loc (loc, etype, low);
+      if (high)
+	high = fold_convert_loc (loc, etype, high);
+    }
+
 #ifdef HAVE_canonicalize_funcptr_for_compare
   /* Disable this optimization for function pointer expressions
      on targets that require function pointer canonicalization.  */

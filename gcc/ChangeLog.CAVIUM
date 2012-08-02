@@ -150,6 +150,14 @@
 	
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #3266
+	* fold-const.c (build_range_check): Use either
+	unsigned_type_node or integer_type_node for the
+	type if the precision of the original type is smaller
+	than the precision of integer_type_node.
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
 	start of bug #4296
 	* config/mips/octeon.md (octeon_arith): Don't match slt for the type.
 
