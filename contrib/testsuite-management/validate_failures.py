@@ -1,4 +1,4 @@
-#!/usr/bin/python2.6
+#!/usr/bin/python
 
 # Script to compare testsuite failures against a list of known-to-fail
 # tests.
@@ -138,12 +138,14 @@ class TestResult(object):
 
 def GetMakefileValue(makefile_name, value_name):
   if os.path.exists(makefile_name):
-    with open(makefile_name) as makefile:
-      for line in makefile:
-        if line.startswith(value_name):
-          (_, value) = line.split('=', 1)
-          value = value.strip()
-          return value
+    makefile = open(makefile_name)
+    for line in makefile:
+      if line.startswith(value_name):
+        (_, value) = line.split('=', 1)
+        value = value.strip()
+        makefile.close()
+        return value
+    makefile.close()
   return None
 
 
@@ -173,10 +175,11 @@ def IsInterestingResult(line):
 def ParseSummary(sum_fname):
   """Create a set of TestResult instances from the given summary file."""
   result_set = set()
-  with open(sum_fname) as sum_file:
-    for line in sum_file:
-      if IsInterestingResult(line):
-        result_set.add(TestResult(line))
+  sum_file = open(sum_fname)
+  for line in sum_file:
+    if IsInterestingResult(line):
+      result_set.add(TestResult(line))
+  sum_file.close()
   return result_set
 
 
@@ -195,7 +198,7 @@ def GetManifest(manifest_name):
     return set()
 
 
-def GetSumFiles(builddir):
+def CollectSumFiles(builddir):
   sum_files = []
   for root, dirs, files in os.walk(builddir):
     if '.svn' in dirs:
@@ -255,6 +258,16 @@ def PrintSummary(msg, summary):
     print result
 
 
+def GetSumFiles(results, build_dir):
+  if not results:
+    print 'Getting actual results from build'
+    sum_files = CollectSumFiles(build_dir)
+  else:
+    print 'Getting actual results from user-provided results'
+    sum_files = results.split()
+  return sum_files
+
+
 def CheckExpectedResults(options):
   if not options.manifest:
     (srcdir, target, valid_build) = GetBuildData(options)
@@ -268,13 +281,7 @@ def CheckExpectedResults(options):
 
   print 'Manifest:         %s' % manifest_name
   manifest = GetManifest(manifest_name)
-
-  if not options.results:
-    print 'Getting actual results from build'
-    sum_files = GetSumFiles(options.build_dir)
-  else:
-    print 'Getting actual results from user-provided results'
-    sum_files = options.results.split()
+  sum_files = GetSumFiles(options.results, options.build_dir)
   actual = GetResults(sum_files)
 
   if options.verbosity >= 1:
@@ -311,11 +318,13 @@ def ProduceManifest(options):
     Error('Manifest file %s already exists.\nUse --force to overwrite.' %
           manifest_name)
 
-  actual = GetResults(options.build_dir)
-  with open(manifest_name, 'w') as manifest_file:
-    for result in sorted(actual):
-      print result
-      manifest_file.write('%s\n' % result)
+  sum_files = GetSumFiles(options.results, options.build_dir)
+  actual = GetResults(sum_files)
+  manifest_file = open(manifest_name, 'w')
+  for result in sorted(actual):
+    print result
+    manifest_file.write('%s\n' % result)
+  manifest_file.close()
 
   return True
 

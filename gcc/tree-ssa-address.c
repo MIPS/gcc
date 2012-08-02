@@ -30,9 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "tree-pass.h"
-#include "timevar.h"
+#include "dumpfile.h"
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-affine.h"
@@ -44,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "ggc.h"
 #include "target.h"
+#include "expmed.h"
 
 /* TODO -- handling of symbols (according to Richard Hendersons
    comments, http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00949.html):
@@ -556,7 +555,7 @@ most_expensive_mult_to_index (tree type, struct mem_address *parts,
 	  || !multiplier_allowed_in_address_p (coef, TYPE_MODE (type), as))
 	continue;
 
-      acost = multiply_by_const_cost (coef, address_mode, speed);
+      acost = mult_by_coeff_cost (coef, address_mode, speed);
 
       if (acost > best_mult_cost)
 	{

@@ -2215,13 +2215,11 @@ package body Sem_Attr is
            Attribute_Variable_Indexing    =>
          Error_Msg_N ("illegal attribute", N);
 
-      --  Attributes related to Ada 2012 aspects. Attribute definition clause
-      --  exists for these, but they cannot be queried.
+      --  Internal attributes used to deal with Ada 2012 delayed aspects. These
+      --  were already rejected by the parser. Thus they shouldn't appear here.
 
-      when Attribute_CPU                |
-           Attribute_Dispatching_Domain |
-           Attribute_Interrupt_Priority =>
-         Error_Msg_N ("illegal attribute", N);
+      when Internal_Attribute_Id =>
+         raise Program_Error;
 
       ------------------
       -- Abort_Signal --
@@ -3296,12 +3294,7 @@ package body Sem_Attr is
 
       when Attribute_Fast_Math =>
          Check_Standard_Prefix;
-
-         if Opt.Fast_Math then
-            Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
-         else
-            Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
-         end if;
+         Rewrite (N, New_Occurrence_Of (Boolean_Literals (Fast_Math), Loc));
 
       -----------
       -- First --
@@ -4033,14 +4026,15 @@ package body Sem_Attr is
          --  an entity in the enclosing subprogram. If it is a component of
          --  a formal its expansion might generate actual subtypes that may
          --  be referenced in an inner context, and which must be elaborated
-         --  within the subprogram itself. As a result we create a
-         --  declaration for it and insert it at the start of the enclosing
-         --  subprogram. This is properly an expansion activity but it has
-         --  to be performed now to prevent out-of-order issues.
+         --  within the subprogram itself. If the prefix includes a function
+         --  call it may involve finalization actions that should only be
+         --  inserted when the attribute has been rewritten as a declarations.
+         --  As a result, if the prefix is not a simple name we create
+         --  a declaration for it now, and insert it at the start of the
+         --  enclosing subprogram. This is properly an expansion activity
+         --  but it has to be performed now to prevent out-of-order issues.
 
-         if Nkind (P) = N_Selected_Component
-           and then Has_Discriminants (Etype (Prefix (P)))
-         then
+         if not Is_Entity_Name (P) then
             P_Type := Base_Type (P_Type);
             Set_Etype (N, P_Type);
             Set_Etype (P, P_Type);
@@ -4480,9 +4474,9 @@ package body Sem_Attr is
          Check_Decimal_Fixed_Point_Type;
          Set_Etype (N, P_Base_Type);
 
-         --  Because the context is universal_real (3.5.10(12)) it is a legal
-         --  context for a universal fixed expression. This is the only
-         --  attribute whose functional description involves U_R.
+         --  Because the context is universal_real (3.5.10(12)) it is a
+         --  legal context for a universal fixed expression. This is the
+         --  only attribute whose functional description involves U_R.
 
          if Etype (E1) = Universal_Fixed then
             declare
@@ -4574,8 +4568,9 @@ package body Sem_Attr is
          Check_E0;
          Check_Type;
 
-         if not Is_Record_Type (P_Type) then
-            Error_Attr_P ("prefix of % attribute must be record type");
+         if not Is_Record_Type (P_Type) or else Is_Array_Type (P_Type) then
+            Error_Attr_P
+              ("prefix of % attribute must be record or array type");
          end if;
 
          if Bytes_Big_Endian xor Reverse_Storage_Order (P_Type) then
@@ -4776,8 +4771,8 @@ package body Sem_Attr is
 
                Validate_Remote_Access_To_Class_Wide_Type (N);
 
-            --  The prefix is allowed to be an implicit dereference
-            --  of an access value designating a task.
+            --  The prefix is allowed to be an implicit dereference of an
+            --  access value designating a task.
 
             else
                Check_Task_Prefix;
@@ -5879,11 +5874,7 @@ package body Sem_Attr is
                   R := Is_Check_Suppressed (Entity (E1), C);
                end if;
 
-               if R then
-                  Rewrite (N, New_Occurrence_Of (Standard_False, Loc));
-               else
-                  Rewrite (N, New_Occurrence_Of (Standard_True, Loc));
-               end if;
+               Rewrite (N, New_Occurrence_Of (Boolean_Literals (not R), Loc));
             end;
          end if;
 
@@ -6332,11 +6323,12 @@ package body Sem_Attr is
               Attribute_Iterator_Element     |
               Attribute_Variable_Indexing    => null;
 
-         --  Atributes related to Ada 2012 aspects
+         --  Internal attributes used to deal with Ada 2012 delayed aspects.
+         --  These were already rejected by the parser. Thus they shouldn't
+         --  appear here.
 
-         when Attribute_CPU                |
-              Attribute_Dispatching_Domain |
-              Attribute_Interrupt_Priority => null;
+         when Internal_Attribute_Id =>
+            raise Program_Error;
 
       --------------
       -- Adjacent --

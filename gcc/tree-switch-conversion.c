@@ -37,8 +37,9 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
-#include "tree-dump.h"
-#include "timevar.h"
+
+/* ??? For lang_hooks.types.type_for_mode, but is there a word_mode
+   type in the GIMPLE type system that is language-independent?  */
 #include "langhooks.h"
 
 /* Need to include expr.h and optabs.h for lshift_cheap_p.  */
@@ -175,7 +176,7 @@ as a single bit test:
 	if ((1<<x) & ((1<<4)|(1<<6)|(1<<9)|(1<<11)))
 
 This transformation is only applied if the number of case targets is small,
-if CST constains at least 3 bits, and "x << 1" is cheap.  The bit tests are
+if CST constains at least 3 bits, and "1 << x" is cheap.  The bit tests are
 performed in "word_mode".
 
 The following example shows the code the transformation generates:
@@ -329,14 +330,13 @@ emit_case_bit_tests (gimple swtch, tree index_expr,
       unsigned int lo, hi;
       tree cs = gimple_switch_label (swtch, i);
       tree label = CASE_LABEL (cs);
+      edge e = find_edge (switch_bb, label_to_block (label));
       for (k = 0; k < count; k++)
-	if (label == test[k].label)
+	if (e == test[k].target_edge)
 	  break;
 
       if (k == count)
 	{
-	  edge e = find_edge (switch_bb, label_to_block (label));
-	  gcc_assert (e);
 	  gcc_checking_assert (count < MAX_CASE_BIT_TESTS);
 	  test[k].hi = 0;
 	  test[k].lo = 0;
@@ -1340,8 +1340,14 @@ process_switch (gimple swtch)
 {
   struct switch_conv_info info;
 
-  /* Degenerate case with only a default label should never happen.  */
-  gcc_checking_assert (gimple_switch_num_labels (swtch) > 1);
+  /* Group case labels so that we get the right results from the heuristics
+     that decide on the code generation approach for this switch.  */
+  group_case_labels_stmt (swtch);
+
+  /* If this switch is now a degenerate case with only a default label,
+     there is nothing left for us to do.   */
+  if (gimple_switch_num_labels (swtch) < 2)
+    return "switch is a degenerate case";
 
   collect_switch_conv_info (swtch, &info);
 

@@ -45,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "output.h"
-#include "timevar.h"
 #include "hashtab.h"
 #include "target.h"
 #include "tree-pass.h"
@@ -959,7 +958,7 @@ reginfo_init (void)
   if (df)
     df_compute_regs_ever_live (true);
 
-  /* This prevents dump_flow_info from losing if called
+  /* This prevents dump_reg_info from losing if called
      before reginfo is run.  */
   reg_pref = NULL;
   reg_info_size = max_regno_since_last_resize = 0;

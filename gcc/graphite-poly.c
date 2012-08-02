@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -249,6 +249,11 @@ apply_poly_transforms (scop_p scop)
       if (flag_loop_interchange)
 	transform_done |= scop_do_interchange (scop);
     }
+
+  /* This pass needs to be run at the final stage, as it does not
+     update the lst.  */
+  if (flag_loop_optimize_isl)
+    transform_done |= optimize_isl (scop);
 
   return transform_done;
 }
@@ -668,7 +673,7 @@ print_pbb_body (FILE *file, poly_bb_p pbb, int verbosity,
     fprintf (file, "# Statement body\n");
 
   fprintf (file, "{\n");
-  dump_bb (pbb_bb (pbb), file, 0);
+  dump_bb (file, pbb_bb (pbb), 0, 0);
   fprintf (file, "}\n");
 
   if (verbosity > 1)

@@ -74,7 +74,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
-#include "timevar.h"
 #include "cgraph.h"
 #include "coverage.h"
 #include "df.h"
@@ -716,6 +715,7 @@ compute_alignments (void)
 
   if (dump_file)
     {
+      dump_reg_info (dump_file);
       dump_flow_info (dump_file, TDF_DETAILS);
       flow_loops_dump (dump_file, NULL, 1);
     }
@@ -1799,7 +1799,7 @@ dump_basic_block_info (FILE *file, rtx insn, basic_block *start_to_bb,
       fprintf (file, "\n%s PRED:", ASM_COMMENT_START);
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
-          dump_edge_info (file, e, 0);
+          dump_edge_info (file, e, TDF_DETAILS, 0);
         }
       fprintf (file, "\n");
     }
@@ -1812,7 +1812,7 @@ dump_basic_block_info (FILE *file, rtx insn, basic_block *start_to_bb,
       fprintf (asm_out_file, "%s SUCC:", ASM_COMMENT_START);
       FOR_EACH_EDGE (e, ei, bb->succs)
        {
-         dump_edge_info (asm_out_file, e, 1);
+         dump_edge_info (asm_out_file, e, TDF_DETAILS, 1);
        }
       fprintf (file, "\n");
     }
@@ -1825,7 +1825,6 @@ void
 final (rtx first, FILE *file, int optimize_p)
 {
   rtx insn, next;
-  int max_uid = 0;
   int seen = 0;
 
   /* Used for -dA dump.  */
@@ -1836,11 +1835,9 @@ final (rtx first, FILE *file, int optimize_p)
 
   last_ignored_compare = 0;
 
+#ifdef HAVE_cc0
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
-      if (INSN_UID (insn) > max_uid)       /* Find largest UID.  */
-	max_uid = INSN_UID (insn);
-#ifdef HAVE_cc0
       /* If CC tracking across branches is enabled, record the insn which
 	 jumps to each branch only reached from one place.  */
       if (optimize_p && JUMP_P (insn))
@@ -1851,8 +1848,8 @@ final (rtx first, FILE *file, int optimize_p)
 	      LABEL_REFS (lab) = insn;
 	    }
 	}
-#endif
     }
+#endif
 
   init_recog ();
 
@@ -2750,11 +2747,16 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	insn_code_number = recog_memoized (insn);
 	cleanup_subreg_operands (insn);
 
-	/* Dump the insn in the assembly for debugging.  */
+	/* Dump the insn in the assembly for debugging (-dAP).
+	   If the final dump is requested as slim RTL, dump slim
+	   RTL to the assembly file also.  */
 	if (flag_dump_rtl_in_asm)
 	  {
 	    print_rtx_head = ASM_COMMENT_START;
-	    print_rtl_single (asm_out_file, insn);
+	    if (! (dump_flags & TDF_SLIM))
+	      print_rtl_single (asm_out_file, insn);
+	    else
+	      dump_insn_slim (asm_out_file, insn);
 	    print_rtx_head = "";
 	  }
 
@@ -3344,6 +3346,72 @@ output_asm_operand_names (rtx *operands, int *oporder, int nops)
     }
 }
 
+#ifdef ASSEMBLER_DIALECT
+/* Helper function to parse assembler dialects in the asm string.
+   This is called from output_asm_insn and asm_fprintf.  */
+static const char *
+do_assembler_dialects (const char *p, int *dialect)
+{
+  char c = *(p - 1);
+
+  switch (c)
+    {
+    case '{':
+      {
+        int i;
+
+        if (*dialect)
+          output_operand_lossage ("nested assembly dialect alternatives");
+        else
+          *dialect = 1;
+
+        /* If we want the first dialect, do nothing.  Otherwise, skip
+           DIALECT_NUMBER of strings ending with '|'.  */
+        for (i = 0; i < dialect_number; i++)
+          {
+            while (*p && *p != '}' && *p++ != '|')
+	      ;
+            if (*p == '}')
+	      break;
+          }
+
+        if (*p == '\0')
+          output_operand_lossage ("unterminated assembly dialect alternative");
+      }
+      break;
+
+    case '|':
+      if (*dialect)
+        {
+          /* Skip to close brace.  */
+          do
+            {
+	      if (*p == '\0')
+		{
+		  output_operand_lossage ("unterminated assembly dialect alternative");
+		  break;
+		}
+            }
+          while (*p++ != '}');
+          *dialect = 0;
+        }
+      else
+        putc (c, asm_out_file);
+      break;
+
+    case '}':
+      if (! *dialect)
+        putc (c, asm_out_file);
+      *dialect = 0;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  return p;
+}
+#endif
+
 /* Output text from TEMPLATE to the assembler output file,
    obeying %-directions to substitute operands taken from
    the vector OPERANDS.
@@ -3410,54 +3478,9 @@ output_asm_insn (const char *templ, rtx *operands)
 
 #ifdef ASSEMBLER_DIALECT
       case '{':
-	{
-	  int i;
-
-	  if (dialect)
-	    output_operand_lossage ("nested assembly dialect alternatives");
-	  else
-	    dialect = 1;
-
-	  /* If we want the first dialect, do nothing.  Otherwise, skip
-	     DIALECT_NUMBER of strings ending with '|'.  */
-	  for (i = 0; i < dialect_number; i++)
-	    {
-	      while (*p && *p != '}' && *p++ != '|')
-		;
-	      if (*p == '}')
-		break;
-	      if (*p == '|')
-		p++;
-	    }
-
-	  if (*p == '\0')
-	    output_operand_lossage ("unterminated assembly dialect alternative");
-	}
-	break;
-
-      case '|':
-	if (dialect)
-	  {
-	    /* Skip to close brace.  */
-	    do
-	      {
-		if (*p == '\0')
-		  {
-		    output_operand_lossage ("unterminated assembly dialect alternative");
-		    break;
-		  }
-	      }
-	    while (*p++ != '}');
-	    dialect = 0;
-	  }
-	else
-	  putc (c, asm_out_file);
-	break;
-
       case '}':
-	if (! dialect)
-	  putc (c, asm_out_file);
-	dialect = 0;
+      case '|':
+	p = do_assembler_dialects (p, &dialect);
 	break;
 #endif
 
@@ -3916,6 +3939,9 @@ asm_fprintf (FILE *file, const char *p, ...)
 {
   char buf[10];
   char *q, c;
+#ifdef ASSEMBLER_DIALECT
+  int dialect = 0;
+#endif
   va_list argptr;
 
   va_start (argptr, p);
@@ -3927,29 +3953,9 @@ asm_fprintf (FILE *file, const char *p, ...)
       {
 #ifdef ASSEMBLER_DIALECT
       case '{':
-	{
-	  int i;
-
-	  /* If we want the first dialect, do nothing.  Otherwise, skip
-	     DIALECT_NUMBER of strings ending with '|'.  */
-	  for (i = 0; i < dialect_number; i++)
-	    {
-	      while (*p && *p++ != '|')
-		;
-
-	      if (*p == '|')
-		p++;
-	    }
-	}
-	break;
-
-      case '|':
-	/* Skip to close brace.  */
-	while (*p && *p++ != '}')
-	  ;
-	break;
-
       case '}':
+      case '|':
+	p = do_assembler_dialects (p, &dialect);
 	break;
 #endif
 

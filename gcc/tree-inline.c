@@ -2110,7 +2110,6 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
   cfun->can_delete_dead_exceptions = src_cfun->can_delete_dead_exceptions;
   cfun->returns_struct = src_cfun->returns_struct;
   cfun->returns_pcc_struct = src_cfun->returns_pcc_struct;
-  cfun->after_tree_profile = src_cfun->after_tree_profile;
 
   init_empty_tree_cfg ();
 
@@ -3448,6 +3447,8 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
 
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
+    case VEC_WIDEN_MULT_EVEN_EXPR:
+    case VEC_WIDEN_MULT_ODD_EXPR:
     case VEC_UNPACK_HI_EXPR:
     case VEC_UNPACK_LO_EXPR:
     case VEC_UNPACK_FLOAT_HI_EXPR:
@@ -3779,19 +3780,13 @@ prepend_lexical_block (tree current_block, tree new_block)
 
 static inline void
 add_local_variables (struct function *callee, struct function *caller,
-		     copy_body_data *id, bool check_var_ann)
+		     copy_body_data *id)
 {
   tree var;
   unsigned ix;
 
   FOR_EACH_LOCAL_DECL (callee, ix, var)
-    if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
-      {
-	if (!check_var_ann
-	    || (var_ann (var) && add_referenced_var (var)))
-	  add_local_decl (caller, var);
-      }
-    else if (!can_be_nonlocal (var, id))
+    if (!can_be_nonlocal (var, id))
       {
         tree new_var = remap_decl (var, id);
 
@@ -3833,6 +3828,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
+  /* FIXME: instantiate_decl isn't called by inlinable_function_p.  */
   saved_location = input_location;
   input_location = gimple_location (stmt);
 
@@ -4024,7 +4020,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   use_retvar = declare_return_variable (id, return_slot, modify_dest, bb);
 
   /* Add local vars in this inlined callee to caller.  */
-  add_local_variables (id->src_cfun, cfun, id, true);
+  add_local_variables (id->src_cfun, cfun, id);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -5252,7 +5248,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   if (!VEC_empty (tree, DECL_STRUCT_FUNCTION (old_decl)->local_decls))
     /* Add local vars.  */
-    add_local_variables (DECL_STRUCT_FUNCTION (old_decl), cfun, &id, false);
+    add_local_variables (DECL_STRUCT_FUNCTION (old_decl), cfun, &id);
 
   if (DECL_RESULT (old_decl) == NULL_TREE)
     ;

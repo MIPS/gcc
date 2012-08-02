@@ -44,11 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "vec.h"
 #include "gimple.h"
-#include "tree-pass.h"
 
-#include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name.  */
-#include "expr.h"		/* FIXME: for can_move_by_pieces
-				   and STACK_CHECK_MAX_VAR_SIZE.  */
+#include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
+#include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
 
 enum gimplify_omp_var_data
 {
@@ -1247,7 +1245,8 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 	  && !DECL_HAS_VALUE_EXPR_P (t)
 	  /* Only care for variables that have to be in memory.  Others
 	     will be rewritten into SSA names, hence moved to the top-level.  */
-	  && !is_gimple_reg (t))
+	  && !is_gimple_reg (t)
+	  && flag_stack_reuse != SR_NONE)
 	{
 	  tree clobber = build_constructor (TREE_TYPE (t), NULL);
 	  TREE_THIS_VOLATILE (clobber) = 1;
@@ -2258,7 +2257,7 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			fallback | fb_lvalue);
   ret = MIN (ret, tret);
 
-  /* And finally, the indices and operands to BIT_FIELD_REF.  During this
+  /* And finally, the indices and operands of ARRAY_REF.  During this
      loop we also remove any useless conversions.  */
   for (; VEC_length (tree, stack) > 0; )
     {
@@ -2273,15 +2272,6 @@ gimplify_compound_lval (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 				    is_gimple_val, fb_rvalue);
 	      ret = MIN (ret, tret);
 	    }
-	}
-      else if (TREE_CODE (t) == BIT_FIELD_REF)
-	{
-	  tret = gimplify_expr (&TREE_OPERAND (t, 1), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
-	  ret = MIN (ret, tret);
-	  tret = gimplify_expr (&TREE_OPERAND (t, 2), pre_p, post_p,
-				is_gimple_val, fb_rvalue);
-	  ret = MIN (ret, tret);
 	}
 
       STRIP_USELESS_TYPE_CONVERSION (TREE_OPERAND (t, 0));
@@ -3970,7 +3960,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    walk_tree (&DECL_INITIAL (object), force_labels_r, NULL, NULL);
 
 	    /* ??? C++ doesn't automatically append a .<number> to the
-	       assembler name, and even when it does, it looks a FE private
+	       assembler name, and even when it does, it looks at FE private
 	       data structures to figure out what that number should be,
 	       which are not set for this variable.  I suppose this is
 	       important for local statics for inline functions, which aren't
@@ -5634,7 +5624,8 @@ gimplify_target_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       /* Add a clobber for the temporary going out of scope, like
 	 gimplify_bind_expr.  */
       if (gimplify_ctxp->in_cleanup_point_expr
-	  && needs_to_live_in_memory (temp))
+	  && needs_to_live_in_memory (temp)
+	  && flag_stack_reuse == SR_ALL)
 	{
 	  tree clobber = build_constructor (TREE_TYPE (temp), NULL);
 	  TREE_THIS_VOLATILE (clobber) = true;
@@ -7406,19 +7397,9 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case BIT_FIELD_REF:
-	  {
-	    enum gimplify_status r0, r1, r2;
-
-	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
-				post_p, is_gimple_lvalue, fb_either);
-	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
-				post_p, is_gimple_val, fb_rvalue);
-	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p,
-				post_p, is_gimple_val, fb_rvalue);
-	    recalculate_side_effects (*expr_p);
-
-	    ret = MIN (r0, MIN (r1, r2));
-	  }
+	  ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+			       post_p, is_gimple_lvalue, fb_either);
+	  recalculate_side_effects (*expr_p);
 	  break;
 
 	case TARGET_MEM_REF:

@@ -25,9 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "flags.h"
 #include "function.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "tree-flow.h"
-#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
 #include "gimple-fold.h"
@@ -140,7 +139,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
 tree
 canonicalize_constructor_val (tree cval, tree from_decl)
 {
-  STRIP_NOPS (cval);
+  STRIP_USELESS_TYPE_CONVERSION (cval);
   if (TREE_CODE (cval) == POINTER_PLUS_EXPR
       && TREE_CODE (TREE_OPERAND (cval, 1)) == INTEGER_CST)
     {
@@ -2713,6 +2712,10 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
       if (!DECL_INITIAL (base)
 	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
         return error_mark_node;
+      /* Do not return an error_mark_node DECL_INITIAL.  LTO uses this
+         as special marker (_not_ zero ...) for its own purposes.  */
+      if (DECL_INITIAL (base) == error_mark_node)
+	return NULL_TREE;
       return DECL_INITIAL (base);
 
     case ARRAY_REF:

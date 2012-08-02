@@ -1197,7 +1197,7 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
       if (lra_dump_file != NULL)
 	{
 	  fprintf (lra_dump_file, "Deleting move %u\n", INSN_UID (curr_insn));
-	  print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
+	  debug_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
 	}
       lra_set_insn_deleted (curr_insn);
       return true;
@@ -3607,7 +3607,7 @@ lra_constraints (bool first_p)
 			       "      Removing equiv init insn %i (freq=%d)\n",
 			       INSN_UID (curr_insn),
 			       BLOCK_FOR_INSN (curr_insn)->frequency);
-		      print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
+		      debug_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
 		    }
 		  if (contains_reg_p (x, true, false))
 		    lra_risky_transformations_p = true;
@@ -3826,7 +3826,7 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
 		   "    Rejecting inheritance %d->%d "
 		   "as it results in 2 or more insns:\n",
 		   original_regno, REGNO (new_reg));
-	  print_rtl_slim (lra_dump_file, new_insns, NULL_RTX, -1, 0);
+	  debug_rtl_slim (lra_dump_file, new_insns, NULL_RTX, -1, 0);
 	  fprintf (lra_dump_file,
 		   "    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
 	}
@@ -3876,7 +3876,7 @@ inherit_reload_reg (bool def_p, bool uniq_p, int original_regno,
 	{
 	  fprintf (lra_dump_file, "    Inheritance reuse change %d->%d:\n",
 		   original_regno, REGNO (new_reg));
-	  print_rtl_slim (lra_dump_file, usage_insn, usage_insn,
+	  debug_rtl_slim (lra_dump_file, usage_insn, usage_insn,
 			  -1, 0);
 	}
     }
@@ -4066,7 +4066,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 	  fprintf (lra_dump_file,
 		   "    Rejecting split %d->%d resulting in > 2 %s save insns:\n",
 		   original_regno, REGNO (new_reg), call_save_p ? "call" : "");
-	  print_rtl_slim (lra_dump_file, save, NULL_RTX, -1, 0);
+	  debug_rtl_slim (lra_dump_file, save, NULL_RTX, -1, 0);
 	  fprintf (lra_dump_file,
 		   "    ))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
@@ -4090,7 +4090,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 		   "    Rejecting split %d->%d "
 		   "resulting in > 2 %s restore insns:\n",
 		   original_regno, REGNO (new_reg), call_save_p ? "call" : "");
-	  print_rtl_slim (lra_dump_file, restore, NULL_RTX, -1, 0);
+	  debug_rtl_slim (lra_dump_file, restore, NULL_RTX, -1, 0);
 	  fprintf (lra_dump_file,
 		   "    ))))))))))))))))))))))))))))))))))))))))))))))))\n");
 	}
@@ -4117,7 +4117,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 	{
 	  fprintf (lra_dump_file, "    Split reuse change %d->%d:\n",
 		   original_regno, REGNO (new_reg));
-	  print_rtl_slim (lra_dump_file, usage_insn, usage_insn,
+	  debug_rtl_slim (lra_dump_file, usage_insn, usage_insn,
 			  -1, 0);
 	}
     }
@@ -4233,7 +4233,7 @@ update_ebb_live_info (rtx head, rtx tail)
 	  if (lra_dump_file != NULL)
 	    {
 	      fprintf (lra_dump_file, "     Removing dead insn:\n ");
-	      print_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
+	      debug_rtl_slim (lra_dump_file, curr_insn, curr_insn, -1, 0);
 	    }
 	  lra_set_insn_deleted (curr_insn);
 	}
@@ -4882,7 +4882,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
 			       bitmap_bit_p (&lra_split_pseudos, sregno)
 			       || bitmap_bit_p (&lra_split_pseudos, dregno)
 			       ? "split" : "inheritance");
-		      print_rtl_slim (lra_dump_file,
+		      debug_rtl_slim (lra_dump_file,
 				      curr_insn, curr_insn, -1, 0);
 		    }
 		  lra_set_insn_deleted (curr_insn);
@@ -4929,7 +4929,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
 		      if (lra_dump_file != NULL)
 			{
 			  fprintf (lra_dump_file, "    Change reload insn:\n");
-			  print_rtl_slim (lra_dump_file,
+			  debug_rtl_slim (lra_dump_file,
 					  curr_insn, curr_insn, -1, 0);
 			}
 		    }
@@ -4965,7 +4965,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
 		  if (lra_dump_file != NULL)
 		    {
 		      fprintf (lra_dump_file, "    Restore original insn:\n");
-		      print_rtl_slim (lra_dump_file,
+		      debug_rtl_slim (lra_dump_file,
 				      curr_insn, curr_insn, -1, 0);
 		    }
 		}

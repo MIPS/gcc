@@ -27,10 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
+#include "tree-pass.h"
 #include "cfgloop.h"
 #include "diagnostic-core.h"
 #include "tree-scalar-evolution.h"
@@ -1938,7 +1937,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
    If the misalignment of DR is known at compile time:
      addr_mis = int mis = DR_MISALIGNMENT (dr);
    Else, compute address misalignment in bytes:
-     addr_mis = addr & (vectype_size - 1)
+     addr_mis = addr & (vectype_align - 1)
 
    prolog_niters = min (LOOP_NITERS, ((VF - addr_mis/elem_size)&(VF-1))/step)
 
@@ -1992,9 +1991,10 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       tree start_addr = vect_create_addr_base_for_vector_ref (dr_stmt,
 						&new_stmts, offset, loop);
       tree type = unsigned_type_for (TREE_TYPE (start_addr));
-      tree vectype_size_minus_1 = build_int_cst (type, vectype_align - 1);
-      tree elem_size_log =
-        build_int_cst (type, exact_log2 (vectype_align/nelements));
+      tree vectype_align_minus_1 = build_int_cst (type, vectype_align - 1);
+      HOST_WIDE_INT elem_size =
+                int_cst_value (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
+      tree elem_size_log = build_int_cst (type, exact_log2 (elem_size));
       tree nelements_minus_1 = build_int_cst (type, nelements - 1);
       tree nelements_tree = build_int_cst (type, nelements);
       tree byte_misalign;
@@ -2003,10 +2003,10 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters)
       new_bb = gsi_insert_seq_on_edge_immediate (pe, new_stmts);
       gcc_assert (!new_bb);
 
-      /* Create:  byte_misalign = addr & (vectype_size - 1)  */
+      /* Create:  byte_misalign = addr & (vectype_align - 1)  */
       byte_misalign =
         fold_build2 (BIT_AND_EXPR, type, fold_convert (type, start_addr), 
-                     vectype_size_minus_1);
+                     vectype_align_minus_1);
 
       /* Create:  elem_misalign = byte_misalign / element_size  */
       elem_misalign =
@@ -2250,7 +2250,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
       sprintf (tmp_name, "%s%d", "addr2int", i);
-      addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+      addr_tmp = create_tmp_reg (int_ptrsize_type, tmp_name);
       add_referenced_var (addr_tmp);
       addr_tmp_name = make_ssa_name (addr_tmp, NULL);
       addr_stmt = gimple_build_assign_with_ops (NOP_EXPR, addr_tmp_name,
@@ -2264,7 +2264,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
         {
           /* create: or_tmp = or_tmp | addr_tmp */
           sprintf (tmp_name, "%s%d", "orptrs", i);
-          or_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+          or_tmp = create_tmp_reg (int_ptrsize_type, tmp_name);
           add_referenced_var (or_tmp);
 	  new_or_tmp_name = make_ssa_name (or_tmp, NULL);
 	  or_stmt = gimple_build_assign_with_ops (BIT_IOR_EXPR,
@@ -2282,7 +2282,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   mask_cst = build_int_cst (int_ptrsize_type, mask);
 
   /* create: and_tmp = or_tmp & mask  */
-  and_tmp = create_tmp_var (int_ptrsize_type, "andmask" );
+  and_tmp = create_tmp_reg (int_ptrsize_type, "andmask" );
   add_referenced_var (and_tmp);
   and_tmp_name = make_ssa_name (and_tmp, NULL);
 

@@ -1,3 +1,31 @@
+2012-07-24  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2012-07-16  Joseph Myers  <joseph@codesourcery.com>
+
+	* README: Document use of ranges of years in copyright notices.
+
+2012-07-06  Richard Guenther  <rguenther@suse.de>
+
+	* Makefile.def (cloog): Pass $(HOST_GMPINC) and $(HOST_ISLINC)
+	as CPPFLAGS, pass path to built gmp as LDFLAGS, always use
+	--with-gmp=system.
+	* Makefile.in: Regenerated.
+	* configure: Likewise.
+
+2012-07-06  Richard Guenther  <rguenther@suse.de>
+
+	* configure.ac (extra_isl_gmp_configure_flags): Initialize and subst.
+	* Makefile.def (isl): Use extra_isl_gmp_configure_flags and
+	supply V=1 as extra_make_flags.
+	* configure: Regenerated.
+	* Makefile.in: Likewise.
+
+2012-07-04  Tristan Gingold  <gingold@adacore.com>
+
+	* configure: Regenerate.
+
 2012-07-03  Richard Guenther  <rguenther@suse.de>
 
 	* Makfile.def (isl): Remove not necessary extra_exports and

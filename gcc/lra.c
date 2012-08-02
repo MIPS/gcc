@@ -425,12 +425,12 @@ finish_insn_regs (void)
 
 /* Map INSN_CODE -> the static insn data.  This info is valid during
    all translation unit.  */
-struct lra_static_insn_data *insn_code_data[CODE_FOR_nothing];
+struct lra_static_insn_data *insn_code_data[LAST_INSN_CODE];
 
 /* Map INSN_UID -> the operand alternative data (NULL if unknown).  We
    assume that this data is valid until register info is changed
    because classes in the data can be changed.  */
-struct operand_alternative *op_alt_data[CODE_FOR_nothing];
+struct operand_alternative *op_alt_data[LAST_INSN_CODE];
 
 /* Debug insns are represented as a special insn with one input
    operand which is RTL expression in var_location.  */
@@ -479,7 +479,7 @@ finish_insn_code_data_once (void)
 {
   int i;
 
-  for (i = 0; i < CODE_FOR_nothing; i++)
+  for (i = 0; i < LAST_INSN_CODE; i++)
     {
       if (insn_code_data[i] != NULL)
 	free (insn_code_data[i]);
@@ -494,7 +494,7 @@ init_op_alt_data (void)
 {
  int i;
 
-  for (i = 0; i < CODE_FOR_nothing; i++)
+  for (i = 0; i < LAST_INSN_CODE; i++)
     if (op_alt_data[i] != NULL)
       {
 	free (op_alt_data[i]);
@@ -511,7 +511,7 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
 {
   struct lra_static_insn_data *data;
 
-  lra_assert (icode < CODE_FOR_nothing);
+  lra_assert (icode < LAST_INSN_CODE);
   if (icode >= 0 && (data = insn_code_data[icode]) != NULL)
     return data;
   lra_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
@@ -1723,16 +1723,16 @@ lra_process_new_insns (rtx insn, rtx before, rtx after, const char *title)
 
   if (lra_dump_file != NULL && (before != NULL_RTX || after != NULL_RTX))
     {
-      print_rtl_slim (lra_dump_file, insn, insn, -1, 0);
+      debug_rtl_slim (lra_dump_file, insn, insn, -1, 0);
       if (before != NULL_RTX)
 	{
 	  fprintf (lra_dump_file,"    %s before:\n", title);
-	  print_rtl_slim (lra_dump_file, before, NULL_RTX, -1, 0);
+	  debug_rtl_slim (lra_dump_file, before, NULL_RTX, -1, 0);
 	}
       if (after != NULL_RTX)
 	{
 	  fprintf (lra_dump_file, "    %s after:\n", title);
-	  print_rtl_slim (lra_dump_file, after, NULL_RTX, -1, 0);
+	  debug_rtl_slim (lra_dump_file, after, NULL_RTX, -1, 0);
 	}
       fprintf (lra_dump_file, "\n");
     }

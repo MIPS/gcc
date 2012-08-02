@@ -5777,7 +5777,7 @@ package body Exp_Disp is
              Prefix => New_Reference_To (TSD, Loc),
              Attribute_Name => Name_Address));
 
-         --  Stage 2: Initialize the table of primitive operations
+         --  Stage 2: Initialize the table of user-defined primitive operations
 
          Prim_Ops_Aggr_List := New_List;
 
@@ -6255,12 +6255,6 @@ package body Exp_Disp is
             Elmt : Elmt_Id;
 
          begin
-            --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
-            --  the decoration required by the backend
-
-            Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
-            Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
-
             --  Object declarations
 
             Elmt := First_Elmt (DT_Decl);
@@ -7136,6 +7130,15 @@ package body Exp_Disp is
 
       Set_Ekind        (DT_Ptr, E_Variable);
       Set_Related_Type (DT_Ptr, Typ);
+
+      --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
+      --  the decoration required by the backend.
+
+      --  Odd comment, the back end cannot require anything not properly
+      --  documented in einfo! ???
+
+      Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
+      Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
 
       --  For CPP types there is no need to build the dispatch tables since
       --  they are imported from the C++ side. If the CPP type has an IP then
@@ -8857,7 +8860,8 @@ package body Exp_Disp is
             --  If the DTC_Entity attribute is already set we can also output
             --  the name of the interface covered by this primitive (if any).
 
-            if Present (DTC_Entity (Alias (Prim)))
+            if Ekind_In (Alias (Prim), E_Function, E_Procedure)
+              and then Present (DTC_Entity (Alias (Prim)))
               and then Is_Interface (Scope (DTC_Entity (Alias (Prim))))
             then
                Write_Str  (" from interface ");

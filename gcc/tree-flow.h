@@ -184,17 +184,8 @@ struct GTY(()) var_ann_d {
      applied.  We set this when translating out of SSA form.  */
   unsigned used : 1;
 
-  /* This field indicates whether or not the variable may need PHI nodes.
-     See the enum's definition for more detailed information about the
-     states.  */
-  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
-
   /* Used by var_map for the base index of ssa base variables.  */
   unsigned base_index;
-
-  /* During into-ssa and the dominator optimizer, this field holds the
-     current version of this variable (an SSA_NAME).  */
-  tree current_def;
 };
 
 
@@ -414,7 +405,7 @@ extern bool is_ctrl_altering_stmt (gimple);
 extern bool simple_goto_p (gimple);
 extern bool stmt_can_make_abnormal_goto (gimple);
 extern basic_block single_noncomplex_succ (basic_block bb);
-extern void gimple_dump_bb (basic_block, FILE *, int, int);
+extern void gimple_dump_bb (FILE *, basic_block, int, int);
 extern void gimple_debug_bb (basic_block);
 extern basic_block gimple_debug_bb_n (int);
 extern void gimple_dump_cfg (FILE *, int);
@@ -428,6 +419,7 @@ extern void debug_loop_num (unsigned, int);
 extern void print_loops (FILE *, int);
 extern void print_loops_bb (FILE *, basic_block, int, int);
 extern void cleanup_dead_labels (void);
+extern void group_case_labels_stmt (gimple);
 extern void group_case_labels (void);
 extern gimple first_stmt (basic_block);
 extern gimple last_stmt (basic_block);
@@ -497,10 +489,9 @@ extern tree make_rename_temp (tree, const char *);
 extern void set_default_def (tree, tree);
 extern tree gimple_default_def (struct function *, tree);
 extern bool stmt_references_abnormal_ssa_name (gimple);
-extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
-				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern tree get_addr_base_and_unit_offset (tree, HOST_WIDE_INT *);
 extern void find_referenced_vars_in (gimple);
+extern void dump_enumerated_decls (FILE *, int);
 
 /* In tree-phinodes.c  */
 extern void reserve_phi_args_for_new_edge (basic_block);
@@ -511,9 +502,7 @@ extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);
 extern void remove_phi_nodes (basic_block);
 extern void release_phi_node (gimple);
-#ifdef GATHER_STATISTICS
 extern void phinodes_print_statistics (void);
-#endif
 
 /* In gimple-low.c  */
 extern void record_vars_into (tree, tree);
@@ -572,12 +561,10 @@ void delete_update_ssa (void);
 void register_new_name_mapping (tree, tree);
 tree create_new_def_for (tree, gimple, def_operand_p);
 bool need_ssa_update_p (struct function *);
-bool name_mappings_registered_p (void);
 bool name_registered_for_update_p (tree);
 void release_ssa_name_after_update_ssa (tree);
 void compute_global_livein (bitmap, bitmap);
 void mark_sym_for_renaming (tree);
-void mark_set_for_renaming (bitmap);
 bool symbol_marked_for_renaming (tree);
 tree get_current_def (tree);
 void set_current_def (tree, tree);
@@ -599,9 +586,7 @@ extern void set_ptr_info_alignment (struct ptr_info_def *, unsigned int,
 extern void adjust_ptr_info_misalignment (struct ptr_info_def *,
 					  unsigned int);
 
-#ifdef GATHER_STATISTICS
 extern void ssanames_print_statistics (void);
-#endif
 
 /* In tree-ssa-ccp.c  */
 tree fold_const_aggregate_ref (tree);
@@ -810,14 +795,6 @@ bool expr_invariant_in_loop_p (struct loop *, tree);
 bool stmt_invariant_in_loop_p (struct loop *, gimple);
 bool multiplier_allowed_in_address_p (HOST_WIDE_INT, enum machine_mode,
 				      addr_space_t);
-void initialize_costs (void);
-void finalize_costs (void);
-unsigned multiply_by_const_cost (HOST_WIDE_INT, enum machine_mode, bool);
-unsigned add_regs_cost (enum machine_mode, bool);
-unsigned multiply_regs_cost (enum machine_mode, bool);
-unsigned add_const_cost (enum machine_mode, bool);
-unsigned extend_or_trunc_reg_cost (tree, tree, bool);
-unsigned negate_reg_cost (enum machine_mode, bool);
 bool may_be_nonaddressable_p (tree expr);
 
 /* In tree-ssa-threadupdate.c.  */

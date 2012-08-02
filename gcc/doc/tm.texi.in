@@ -1091,6 +1091,8 @@ make it all fit in fewer cache lines.
 If the value of this macro has a type, it should be an unsigned type.
 @end defmac
 
+@hook TARGET_VECTOR_ALIGNMENT
+
 @defmac STACK_SLOT_ALIGNMENT (@var{type}, @var{mode}, @var{basic-align})
 If defined, a C expression to compute the alignment for stack slot.
 @var{type} is the data type, @var{mode} is the widest mode available,
@@ -4926,6 +4928,8 @@ FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM, and the PIC_OFFSET_TABLE_REGNUM.
 
 @hook TARGET_SET_UP_BY_PROLOGUE
 
+@hook TARGET_WARN_FUNC_RETURN
+
 @node Stack Smashing Protection
 @subsection Stack smashing protection
 @cindex stack smashing protection
@@ -4942,7 +4946,7 @@ The default version of this hook creates a variable called
 @end deftypefn
 
 @hook TARGET_STACK_PROTECT_FAIL
-This hook returns a tree expression that alerts the runtime that the
+This hook returns a @code{CALL_EXPR} that alerts the runtime that the
 stack protect guard variable has been modified.  This expression should
 involve a call to a @code{noreturn} function.
 
@@ -5551,24 +5555,6 @@ You may assume that @var{addr} is a valid address for the machine.
 The default version of this hook returns @code{false}.
 @end deftypefn
 
-@defmac GO_IF_MODE_DEPENDENT_ADDRESS (@var{addr}, @var{label})
-A C statement or compound statement with a conditional @code{goto
-@var{label};} executed if memory address @var{x} (an RTX) can have
-different meanings depending on the machine mode of the memory
-reference it is used for or if the address is valid for some modes
-but not others.
-
-Autoincrement and autodecrement addresses typically have mode-dependent
-effects because the amount of the increment or decrement is the size
-of the operand being addressed.  Some machines have other mode-dependent
-addresses.  Many RISC machines have no mode-dependent addresses.
-
-You may assume that @var{addr} is a valid address for the machine.
-
-These are obsolete macros, replaced by the
-@code{TARGET_MODE_DEPENDENT_ADDRESS_P} target hook.
-@end defmac
-
 @hook TARGET_LEGITIMATE_CONSTANT_P
 This hook returns true if @var{x} is a legitimate constant for a
 @var{mode}-mode immediate operand on the target machine.  You can assume that
@@ -5653,28 +5639,6 @@ the argument @var{OFF} to @code{REALIGN_LOAD}, in which case the low
 log2(@var{VS}) @minus{} 1 bits of @var{addr} will be considered.
 @end deftypefn
 
-@hook TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
-This hook should return the DECL of a function @var{f} that implements
-widening multiplication of the even elements of two input vectors of type @var{x}.
-
-If this hook is defined, the autovectorizer will use it along with the
-@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD} target hook when vectorizing
-widening multiplication in cases that the order of the results does not have to be
-preserved (e.g.@: used only by a reduction computation). Otherwise, the
-@code{widen_mult_hi/lo} idioms will be used.
-@end deftypefn
-
-@hook TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
-This hook should return the DECL of a function @var{f} that implements
-widening multiplication of the odd elements of two input vectors of type @var{x}.
-
-If this hook is defined, the autovectorizer will use it along with the
-@code{TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN} target hook when vectorizing
-widening multiplication in cases that the order of the results does not have to be
-preserved (e.g.@: used only by a reduction computation). Otherwise, the
-@code{widen_mult_hi/lo} idioms will be used.
-@end deftypefn
-
 @hook TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
 Returns cost of different scalar or vector statements for vectorization cost model.
 For vector memory operations the cost may depend on type (@var{vectype}) and
@@ -5731,6 +5695,14 @@ after trying to autovectorize using the vector size derived from the
 mode returned by @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE}.
 The default is zero which means to not iterate over other vector sizes.
 @end deftypefn
+
+@hook TARGET_VECTORIZE_INIT_COST
+
+@hook TARGET_VECTORIZE_ADD_STMT_COST
+
+@hook TARGET_VECTORIZE_FINISH_COST
+
+@hook TARGET_VECTORIZE_DESTROY_COST_DATA
 
 @hook TARGET_VECTORIZE_BUILTIN_TM_LOAD
 
@@ -9609,8 +9581,9 @@ return an integer value not larger than the corresponding element in
 be switched into prior to the execution of @var{insn}.
 @end defmac
 
-@defmac MODE_AFTER (@var{mode}, @var{insn})
-If this macro is defined, it is evaluated for every @var{insn} during
+@defmac MODE_AFTER (@var{entity}, @var{mode}, @var{insn})
+@var{entity} is an integer specifying a mode-switched entity.  If
+this macro is defined, it is evaluated for every @var{insn} during
 mode switching.  It determines the mode that an insn results in (if
 different from the incoming mode).
 @end defmac
@@ -10224,12 +10197,6 @@ is larger then @var{mem_mode} but still smaller than @code{word_mode}.
 @defmac SHORT_IMMEDIATES_SIGN_EXTEND
 Define this macro if loading short immediate values into registers sign
 extends.
-@end defmac
-
-@defmac FIXUNS_TRUNC_LIKE_FIX_TRUNC
-Define this macro if the same instructions that convert a floating
-point number to a signed fixed point number also convert validly to an
-unsigned one.
 @end defmac
 
 @hook TARGET_MIN_DIVISIONS_FOR_RECIP_MUL

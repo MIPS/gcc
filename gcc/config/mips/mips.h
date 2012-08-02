@@ -386,6 +386,9 @@ struct mips_cpu_info {
       if (TARGET_SMARTMIPS)						\
 	builtin_define ("__mips_smartmips");				\
 									\
+      if (TARGET_MCU)							\
+	builtin_define ("__mips_mcu");					\
+									\
       if (TARGET_DSP)							\
 	{								\
 	  builtin_define ("__mips_dsp");				\
@@ -710,7 +713,7 @@ struct mips_cpu_info {
    link-compatible.  */
 
 #define MIPS_ARCH_FLOAT_SPEC \
-  "%{mhard-float|msoft-float|march=mips*:; \
+  "%{mhard-float|msoft-float|mno-float|march=mips*:; \
      march=vr41*|march=m4k|march=4k*|march=24kc|march=24kec \
      |march=34kc|march=74kc|march=1004kc|march=5kc \
      |march=octeon|march=xlr: -msoft-float;		  \
@@ -1120,6 +1123,7 @@ struct mips_cpu_info {
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{mmcu} %{mno-mcu} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \

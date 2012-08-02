@@ -201,7 +201,7 @@
 ;; the split instructions; in some cases, it is more appropriate for the
 ;; scheduling type to be "multi" instead.
 (define_attr "move_type"
-  "unknown,load,fpload,store,fpstore,mtc,mfc,mthilo,mfhilo,move,fmove,
+  "unknown,load,fpload,store,fpstore,mtc,mfc,mtlo,mflo,move,fmove,
    const,constN,signext,ext_ins,logical,arith,sll0,andi,loadpool,
    shift_shift,lui_movf"
   (const_string "unknown"))
@@ -223,126 +223,6 @@
 	      (match_test "TARGET_64BIT"))
 	 (const_string "yes")]
 	(const_string "no")))
-
-;; Classification of each insn.
-;; branch	conditional branch
-;; jump		unconditional jump
-;; call		unconditional call
-;; load		load instruction(s)
-;; fpload	floating point load
-;; fpidxload    floating point indexed load
-;; store	store instruction(s)
-;; fpstore	floating point store
-;; fpidxstore	floating point indexed store
-;; prefetch	memory prefetch (register + offset)
-;; prefetchx	memory indexed prefetch (register + register)
-;; condmove	conditional moves
-;; mtc		transfer to coprocessor
-;; mfc		transfer from coprocessor
-;; mthilo	transfer to hi/lo registers
-;; mfhilo	transfer from hi/lo registers
-;; const	load constant
-;; arith	integer arithmetic instructions
-;; logical      integer logical instructions
-;; shift	integer shift instructions
-;; slt		set less than instructions
-;; signext      sign extend instructions
-;; clz		the clz and clo instructions
-;; pop		the pop instruction
-;; trap		trap if instructions
-;; imul		integer multiply 2 operands
-;; imul3	integer multiply 3 operands
-;; imul3nc	integer multiply 3 operands without clobbering HI/LO
-;; imadd	integer multiply-add
-;; idiv		integer divide 2 operands
-;; idiv3	integer divide 3 operands
-;; move		integer register move ({,D}ADD{,U} with rt = 0)
-;; fmove	floating point register move
-;; fadd		floating point add/subtract
-;; fmul		floating point multiply
-;; fmadd	floating point multiply-add
-;; fdiv		floating point divide
-;; frdiv	floating point reciprocal divide
-;; frdiv1	floating point reciprocal divide step 1
-;; frdiv2	floating point reciprocal divide step 2
-;; fabs		floating point absolute value
-;; fneg		floating point negation
-;; fcmp		floating point compare
-;; fcvt		floating point convert
-;; fsqrt	floating point square root
-;; frsqrt       floating point reciprocal square root
-;; frsqrt1      floating point reciprocal square root step1
-;; frsqrt2      floating point reciprocal square root step2
-;; multi	multiword sequence (or user asm statements)
-;; nop		no operation
-;; ghost	an instruction that produces no real code
-(define_attr "type"
-  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
-   prefetch,prefetchx,condmove,mtc,mfc,mthilo,mfhilo,const,arith,logical,
-   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
-   fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
-   frsqrt,frsqrt1,frsqrt2,multi,nop,ghost"
-  (cond [(eq_attr "jal" "!unset") (const_string "call")
-	 (eq_attr "got" "load") (const_string "load")
-
-	 (eq_attr "alu_type" "add,sub") (const_string "arith")
-
-	 (eq_attr "alu_type" "not,nor,and,or,xor") (const_string "logical")
-
-	 ;; If a doubleword move uses these expensive instructions,
-	 ;; it is usually better to schedule them in the same way
-	 ;; as the singleword form, rather than as "multi".
-	 (eq_attr "move_type" "load") (const_string "load")
-	 (eq_attr "move_type" "fpload") (const_string "fpload")
-	 (eq_attr "move_type" "store") (const_string "store")
-	 (eq_attr "move_type" "fpstore") (const_string "fpstore")
-	 (eq_attr "move_type" "mtc") (const_string "mtc")
-	 (eq_attr "move_type" "mfc") (const_string "mfc")
-	 (eq_attr "move_type" "mthilo") (const_string "mthilo")
-	 (eq_attr "move_type" "mfhilo") (const_string "mfhilo")
-
-	 ;; These types of move are always single insns.
-	 (eq_attr "move_type" "fmove") (const_string "fmove")
-	 (eq_attr "move_type" "loadpool") (const_string "load")
-	 (eq_attr "move_type" "signext") (const_string "signext")
-	 (eq_attr "move_type" "ext_ins") (const_string "arith")
-	 (eq_attr "move_type" "arith") (const_string "arith")
-	 (eq_attr "move_type" "logical") (const_string "logical")
-	 (eq_attr "move_type" "sll0") (const_string "shift")
-	 (eq_attr "move_type" "andi") (const_string "logical")
-
-	 ;; These types of move are always split.
-	 (eq_attr "move_type" "constN,shift_shift")
-	   (const_string "multi")
-
-	 ;; These types of move are split for doubleword modes only.
-	 (and (eq_attr "move_type" "move,const")
-	      (eq_attr "dword_mode" "yes"))
-	   (const_string "multi")
-	 (eq_attr "move_type" "move") (const_string "move")
-	 (eq_attr "move_type" "const") (const_string "const")]
-	;; We classify "lui_movf" as "unknown" rather than "multi"
-	;; because we don't split it.  FIXME: we should split instead.
-	(const_string "unknown")))
-
-;; Mode for conversion types (fcvt)
-;; I2S          integer to float single (SI/DI to SF)
-;; I2D          integer to float double (SI/DI to DF)
-;; S2I          float to integer (SF to SI/DI)
-;; D2I          float to integer (DF to SI/DI)
-;; D2S          double to float single
-;; S2D          float single to double
-
-(define_attr "cnv_mode" "unknown,I2S,I2D,S2I,D2I,D2S,S2D" 
-  (const_string "unknown"))
-
-;; Is this an extended instruction in mips16 mode?
-(define_attr "extended_mips16" "no,yes"
-  (if_then_else (ior (eq_attr "move_type" "sll0")
-		     (eq_attr "type" "branch")
-		     (eq_attr "jal" "direct"))
-		(const_string "yes")
-		(const_string "no")))
 
 ;; Attributes describing a sync loop.  These loops have the form:
 ;;
@@ -393,6 +273,132 @@
 ;; "10" specifies MEMMODEL_ACQ_REL,
 ;; "11" specifies MEMMODEL_ACQUIRE.
 (define_attr "sync_memmodel" "" (const_int 10))
+
+
+;; Classification of each insn.
+;; branch	conditional branch
+;; jump		unconditional jump
+;; call		unconditional call
+;; load		load instruction(s)
+;; fpload	floating point load
+;; fpidxload    floating point indexed load
+;; store	store instruction(s)
+;; fpstore	floating point store
+;; fpidxstore	floating point indexed store
+;; prefetch	memory prefetch (register + offset)
+;; prefetchx	memory indexed prefetch (register + register)
+;; condmove	conditional moves
+;; mtc		transfer to coprocessor
+;; mfc		transfer from coprocessor
+;; mthi		transfer to a hi register
+;; mtlo		transfer to a lo register
+;; mfhi		transfer from a hi register
+;; mflo		transfer from a lo register
+;; const	load constant
+;; arith	integer arithmetic instructions
+;; logical      integer logical instructions
+;; shift	integer shift instructions
+;; slt		set less than instructions
+;; signext      sign extend instructions
+;; clz		the clz and clo instructions
+;; pop		the pop instruction
+;; trap		trap if instructions
+;; imul		integer multiply 2 operands
+;; imul3	integer multiply 3 operands
+;; imul3nc	integer multiply 3 operands without clobbering HI/LO
+;; imadd	integer multiply-add
+;; idiv		integer divide 2 operands
+;; idiv3	integer divide 3 operands
+;; move		integer register move ({,D}ADD{,U} with rt = 0)
+;; fmove	floating point register move
+;; fadd		floating point add/subtract
+;; fmul		floating point multiply
+;; fmadd	floating point multiply-add
+;; fdiv		floating point divide
+;; frdiv	floating point reciprocal divide
+;; frdiv1	floating point reciprocal divide step 1
+;; frdiv2	floating point reciprocal divide step 2
+;; fabs		floating point absolute value
+;; fneg		floating point negation
+;; fcmp		floating point compare
+;; fcvt		floating point convert
+;; fsqrt	floating point square root
+;; frsqrt       floating point reciprocal square root
+;; frsqrt1      floating point reciprocal square root step1
+;; frsqrt2      floating point reciprocal square root step2
+;; multi	multiword sequence (or user asm statements)
+;; atomic	atomic memory update instruction
+;; syncloop	memory atomic operation implemented as a sync loop
+;; nop		no operation
+;; ghost	an instruction that produces no real code
+(define_attr "type"
+  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
+   prefetch,prefetchx,condmove,mtc,mfc,mthi,mtlo,mfhi,mflo,const,arith,logical,
+   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
+   fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
+   frsqrt,frsqrt1,frsqrt2,multi,atomic,syncloop,nop,ghost"
+  (cond [(eq_attr "jal" "!unset") (const_string "call")
+	 (eq_attr "got" "load") (const_string "load")
+
+	 (eq_attr "alu_type" "add,sub") (const_string "arith")
+
+	 (eq_attr "alu_type" "not,nor,and,or,xor") (const_string "logical")
+
+	 ;; If a doubleword move uses these expensive instructions,
+	 ;; it is usually better to schedule them in the same way
+	 ;; as the singleword form, rather than as "multi".
+	 (eq_attr "move_type" "load") (const_string "load")
+	 (eq_attr "move_type" "fpload") (const_string "fpload")
+	 (eq_attr "move_type" "store") (const_string "store")
+	 (eq_attr "move_type" "fpstore") (const_string "fpstore")
+	 (eq_attr "move_type" "mtc") (const_string "mtc")
+	 (eq_attr "move_type" "mfc") (const_string "mfc")
+	 (eq_attr "move_type" "mtlo") (const_string "mtlo")
+	 (eq_attr "move_type" "mflo") (const_string "mflo")
+
+	 ;; These types of move are always single insns.
+	 (eq_attr "move_type" "fmove") (const_string "fmove")
+	 (eq_attr "move_type" "loadpool") (const_string "load")
+	 (eq_attr "move_type" "signext") (const_string "signext")
+	 (eq_attr "move_type" "ext_ins") (const_string "arith")
+	 (eq_attr "move_type" "arith") (const_string "arith")
+	 (eq_attr "move_type" "logical") (const_string "logical")
+	 (eq_attr "move_type" "sll0") (const_string "shift")
+	 (eq_attr "move_type" "andi") (const_string "logical")
+
+	 ;; These types of move are always split.
+	 (eq_attr "move_type" "constN,shift_shift")
+	   (const_string "multi")
+
+	 ;; These types of move are split for doubleword modes only.
+	 (and (eq_attr "move_type" "move,const")
+	      (eq_attr "dword_mode" "yes"))
+	   (const_string "multi")
+	 (eq_attr "move_type" "move") (const_string "move")
+	 (eq_attr "move_type" "const") (const_string "const")
+	 (eq_attr "sync_mem" "!none") (const_string "syncloop")]
+	;; We classify "lui_movf" as "unknown" rather than "multi"
+	;; because we don't split it.  FIXME: we should split instead.
+	(const_string "unknown")))
+
+;; Mode for conversion types (fcvt)
+;; I2S          integer to float single (SI/DI to SF)
+;; I2D          integer to float double (SI/DI to DF)
+;; S2I          float to integer (SF to SI/DI)
+;; D2I          float to integer (DF to SI/DI)
+;; D2S          double to float single
+;; S2D          float single to double
+
+(define_attr "cnv_mode" "unknown,I2S,I2D,S2I,D2I,D2S,S2D" 
+  (const_string "unknown"))
+
+;; Is this an extended instruction in mips16 mode?
+(define_attr "extended_mips16" "no,yes"
+  (if_then_else (ior (eq_attr "move_type" "sll0")
+		     (eq_attr "type" "branch")
+		     (eq_attr "jal" "direct"))
+		(const_string "yes")
+		(const_string "no")))
 
 ;; Length of instruction in bytes.
 (define_attr "length" ""
@@ -475,7 +481,7 @@
 
 	  ;; Check for doubleword moves that are decomposed into two
 	  ;; instructions.
-	  (and (eq_attr "move_type" "mtc,mfc,mthilo,mfhilo,move")
+	  (and (eq_attr "move_type" "mtc,mfc,mtlo,mflo,move")
 	       (eq_attr "dword_mode" "yes"))
 	  (const_int 8)
 
@@ -557,7 +563,7 @@
 	      (match_test "TARGET_FIX_R4000"))
 	 (const_string "hilo")
 
-	 (and (eq_attr "type" "mfhilo")
+	 (and (eq_attr "type" "mfhi,mflo")
 	      (not (match_test "ISA_HAS_HILO_INTERLOCKS")))
 	 (const_string "hilo")]
 	(const_string "none")))
@@ -585,7 +591,7 @@
 ;; True if an instruction might assign to hi or lo when reloaded.
 ;; This is used by the TUNE_MACC_CHAINS code.
 (define_attr "may_clobber_hilo" "no,yes"
-  (if_then_else (eq_attr "type" "imul,imul3,imadd,idiv,mthilo")
+  (if_then_else (eq_attr "type" "imul,imul3,imadd,idiv,mthi,mtlo")
 		(const_string "yes")
 		(const_string "no")))
 
@@ -936,6 +942,7 @@
 (include "sb1.md")
 (include "sr71k.md")
 (include "xlr.md")
+(include "xlp.md")
 (include "generic.md")
 
 ;;
@@ -2637,6 +2644,16 @@
   "<d>pop\t%0,%1"
   [(set_attr "type" "pop")
    (set_attr "mode" "<MODE>")])
+
+;; The POP instruction is special as it does not take into account the upper
+;; 32bits and is documented that way.
+(define_insn "*popcountdi2_trunc"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+       (popcount:SI (truncate:SI (match_operand:DI 1 "register_operand" "d"))))]
+  "ISA_HAS_POP && TARGET_64BIT"
+  "pop\t%0,%1"
+  [(set_attr "type" "pop")
+   (set_attr "mode" "SI")])
 
 ;;
 ;;  ....................
@@ -3651,7 +3668,8 @@
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
-					 INTVAL (operands[3])))
+					 INTVAL (operands[3]),
+					 /*unsigned=*/ false))
     DONE;
   else if (register_operand (operands[1], GET_MODE (operands[0]))
 	   && ISA_HAS_EXTS && UINTVAL (operands[2]) <= 32)
@@ -3688,7 +3706,8 @@
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
-					 INTVAL (operands[3])))
+					 INTVAL (operands[3]),
+					 /*unsigned=*/true))
     DONE;
   else if (mips_use_ins_ext_p (operands[1], INTVAL (operands[2]),
 			       INTVAL (operands[3])))
@@ -4115,7 +4134,7 @@
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,load,store,mthilo,mfhilo,mtc,fpload,mfc,fpstore,mtc,fpload,mfc,fpstore")
+  [(set_attr "move_type" "move,const,load,store,mtlo,mflo,mtc,fpload,mfc,fpstore,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "DI")])
 
 (define_insn "*movdi_32bit_mips16"
@@ -4125,7 +4144,7 @@
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "DI")])
 
 (define_insn "*movdi_64bit"
@@ -4135,7 +4154,7 @@
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mthilo,mfhilo,mtc,fpload,mfc,fpstore")
+  [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "DI")])
 
 (define_insn "*movdi_64bit_mips16"
@@ -4145,7 +4164,7 @@
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
 ;; On the mips16, we can split ld $r,N($r) into an add and a load,
@@ -4213,7 +4232,7 @@
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mfc,mtc,mthilo,mfhilo,mtc,fpload,mfc,fpstore")
+  [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "SI")])
 
 (define_insn "*mov<mode>_mips16"
@@ -4223,7 +4242,7 @@
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "SI")])
 
 ;; On the mips16, we can split lw $r,N($r) into an add and a load,
@@ -4400,7 +4419,7 @@
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,load,store,mthilo,mfhilo")
+  [(set_attr "move_type" "move,const,load,store,mtlo,mflo")
    (set_attr "mode" "HI")])
 
 (define_insn "*movhi_mips16"
@@ -4410,7 +4429,7 @@
    && (register_operand (operands[0], HImode)
        || register_operand (operands[1], HImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "HI")])
 
 ;; On the mips16, we can split lh $r,N($r) into an add and a load,
@@ -4475,7 +4494,7 @@
    && (register_operand (operands[0], QImode)
        || reg_or_0_operand (operands[1], QImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,load,store,mthilo,mfhilo")
+  [(set_attr "move_type" "move,const,load,store,mtlo,mflo")
    (set_attr "mode" "QI")])
 
 (define_insn "*movqi_mips16"
@@ -4485,7 +4504,7 @@
    && (register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "QI")])
 
 ;; On the mips16, we can split lb $r,N($r) into an add and a load,
@@ -4616,7 +4635,7 @@
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
   "#"
-  [(set_attr "move_type" "move,const,load,store,mthilo,mfhilo")
+  [(set_attr "move_type" "move,const,load,store,mtlo,mflo")
    (set_attr "mode" "TI")])
 
 (define_insn "*movti_mips16"
@@ -4627,7 +4646,7 @@
    && (register_operand (operands[0], TImode)
        || register_operand (operands[1], TImode))"
   "#"
-  [(set_attr "move_type" "move,move,move,const,constN,load,store,mfhilo")
+  [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "TI")])
 
 ;; 128-bit floating point moves
@@ -4734,7 +4753,7 @@
 		    UNSPEC_MFHI))]
   ""
   { return ISA_HAS_MACCHI ? "<GPR:d>macchi\t%0,%.,%." : "mfhi\t%0"; }
-  [(set_attr "move_type" "mfhilo")
+  [(set_attr "type" "mfhi")
    (set_attr "mode" "<GPR:MODE>")])
 
 ;; Set the high part of a HI/LO value, given that the low part has
@@ -4747,7 +4766,7 @@
 		     UNSPEC_MTHI))]
   ""
   "mthi\t%z1"
-  [(set_attr "move_type" "mthilo")
+  [(set_attr "type" "mthi")
    (set_attr "mode" "SI")])
 
 ;; Emit a doubleword move in which exactly one of the operands is

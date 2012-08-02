@@ -364,7 +364,8 @@ Objective-C and Objective-C++ Dialects}.
 -ffast-math -ffinite-math-only -ffloat-store -fexcess-precision=@var{style} @gol
 -fforward-propagate -ffp-contract=@var{style} -ffunction-sections @gol
 -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm -fgraphite-identity @gol
--fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
+-fgcse-sm -fhoist-adjacent-loads -fif-conversion @gol
+-fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg @gol
 -fipa-pta -fipa-profile -fipa-pure-const -fipa-reference @gol
@@ -373,7 +374,7 @@ Objective-C and Objective-C++ Dialects}.
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
--floop-block -floop-interchange -floop-strip-mine @gol
+-floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -fno-lra -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
@@ -413,8 +414,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-partial-pre -ftree-pta @gol
--ftree-reassoc @gol
--ftree-sink -ftree-sra -ftree-switch-conversion -ftree-tail-merge @gol
+-ftree-reassoc -ftree-sink -ftree-slsr -ftree-sra @gol
+-ftree-switch-conversion -ftree-tail-merge @gol
 -ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp @gol
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
@@ -497,7 +498,8 @@ Objective-C and Objective-C++ Dialects}.
 -mcaller-super-interworking  -mcallee-super-interworking @gol
 -mtp=@var{name} -mtls-dialect=@var{dialect} @gol
 -mword-relocations @gol
--mfix-cortex-m3-ldrd}
+-mfix-cortex-m3-ldrd @gol
+-munaligned-access}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
@@ -731,7 +733,9 @@ Objective-C and Objective-C++ Dialects}.
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
--msingle-float  -mdouble-float  -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
+-mno-float -msingle-float  -mdouble-float  @gol
+-mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
+-mmcu -mmno-mcu @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
@@ -793,7 +797,6 @@ See RS/6000 and PowerPC Options.
 @gccoptlist{-mcpu=@var{cpu-type} @gol
 -mtune=@var{cpu-type} @gol
 -mcmodel=@var{code-model} @gol
--mpower  -mno-power  -mpower2  -mno-power2 @gol
 -mpowerpc  -mpowerpc64  -mno-powerpc @gol
 -maltivec  -mno-altivec @gol
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
@@ -881,13 +884,14 @@ See RS/6000 and PowerPC Options.
 -m5-compact  -m5-compact-nofpu @gol
 -mb  -ml  -mdalign  -mrelax @gol
 -mbigtable -mfmovd -mhitachi -mrenesas -mno-renesas -mnomacsave @gol
--mieee  -mbitops  -misize  -minline-ic_invalidate -mpadstruct  -mspace @gol
--mprefergot  -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
+-mieee -mno-ieee -mbitops  -misize  -minline-ic_invalidate -mpadstruct @gol
+-mspace -mprefergot  -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
 -mdivsi3_libfunc=@var{name} -mfixed-range=@var{register-range} @gol
 -mindexed-addressing -mgettrcost=@var{number} -mpt-fixed @gol
 -maccumulate-outgoing-args -minvalid-symbols -msoft-atomic -mhard-atomic @gol
--mbranch-cost=@var{num} -mcbranchdi -mcmpeqdi -mfused-madd -mno-fused-madd @gol
--mfsca -mno-fsca -mfsrra -mno-fsrra -mpretend-cmove -menable-tas}
+-mbranch-cost=@var{num} -mzdcbranch -mno-zdcbranch -mcbranchdi -mcmpeqdi @gol
+-mfused-madd -mno-fused-madd -mfsca -mno-fsca -mfsrra -mno-fsrra @gol
+-mpretend-cmove -menable-tas}
 
 @emph{Solaris 2 Options}
 @gccoptlist{-mimpure-text  -mno-impure-text @gol
@@ -990,6 +994,7 @@ See S/390 and zSeries Options.
 -fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym} @gol
 -fno-stack-limit -fsplit-stack @gol
 -fleading-underscore  -ftls-model=@var{model} @gol
+-fstack-reuse=@var{reuse_level} @gol
 -ftrapv  -fwrapv  -fbounds-check @gol
 -fvisibility -fstrict-volatile-bitfields -fsync-libcalls}
 @end table
@@ -6258,6 +6263,7 @@ compilation time.
 -ftree-forwprop @gol
 -ftree-fre @gol
 -ftree-phiprop @gol
+-ftree-slsr @gol
 -ftree-sra @gol
 -ftree-pta @gol
 -ftree-ter @gol
@@ -6285,6 +6291,7 @@ also turns on the following optimization flags:
 -fdevirtualize @gol
 -fexpensive-optimizations @gol
 -fgcse  -fgcse-lm  @gol
+-fhoist-adjacent-loads @gol
 -finline-small-functions @gol
 -findirect-inlining @gol
 -fipa-sra @gol
@@ -6310,6 +6317,7 @@ Optimize yet more.  @option{-O3} turns on all optimizations specified
 by @option{-O2} and also turns on the @option{-finline-functions},
 @option{-funswitch-loops}, @option{-fpredictive-commoning},
 @option{-fgcse-after-reload}, @option{-ftree-vectorize},
+@option{-fvect-cost-model},
 @option{-ftree-partial-pre} and @option{-fipa-cp-clone} options.
 
 @item -O0
@@ -7132,6 +7140,13 @@ This flag is enabled by default at @option{-O} and higher.
 Perform hoisting of loads from conditional pointers on trees.  This
 pass is enabled by default at @option{-O} and higher.
 
+@item -fhoist-adjacent-loads
+@opindex hoist-adjacent-loads
+Speculatively hoist loads from both branches of an if-then-else if the
+loads are from adjacent locations in the same structure and the target
+architecture has a conditional move instruction.  This flag is enabled
+by default at @option{-O2} and higher.
+
 @item -ftree-copy-prop
 @opindex ftree-copy-prop
 Perform copy propagation on trees.  This pass eliminates unnecessary
@@ -7371,6 +7386,13 @@ GIMPLE -> GRAPHITE -> GIMPLE transformation.  Some minimal optimizations
 are also performed by the code generator CLooG, like index splitting and
 dead code elimination in loops.
 
+@item -floop-nest-optimize
+@opindex floop-nest-optimize
+Enable the ISL based loop nest optimizer.  This is a generic loop nest
+optimizer based on the Pluto optimization algorithms.  It calculates a loop
+structure optimized for data-locality and parallelism.  This option
+is experimental.
+
 @item -floop-parallelize-all
 @opindex floop-parallelize-all
 Use the Graphite data dependence analysis to identify loops that can
@@ -7525,6 +7547,13 @@ defining expression.  This results in non-GIMPLE code, but gives the expanders
 much more complex trees to work on resulting in better RTL generation.  This is
 enabled by default at @option{-O} and higher.
 
+@item -ftree-slsr
+@opindex ftree-slsr
+Perform straight-line strength reduction on trees.  This recognizes related
+expressions involving multiplications and replaces them by less expensive
+calculations when possible.  This is enabled by default at @option{-O} and
+higher.
+
 @item -ftree-vectorize
 @opindex ftree-vectorize
 Perform loop vectorization on trees. This flag is enabled by default at
@@ -7546,7 +7575,8 @@ except at level @option{-Os} where it is disabled.
 
 @item -fvect-cost-model
 @opindex fvect-cost-model
-Enable cost model for vectorization.
+Enable cost model for vectorization.  This option is enabled by default at
+@option{-O3}.
 
 @item -ftree-vrp
 @opindex ftree-vrp
@@ -9129,18 +9159,6 @@ is 10000.
 Small integer constants can use a shared data structure, reducing the
 compiler's memory usage and increasing its speed.  This sets the maximum
 value of a shared integer constant.  The default value is 256.
-
-@item min-virtual-mappings
-Specifies the minimum number of virtual mappings in the incremental
-SSA updater that should be registered to trigger the virtual mappings
-heuristic defined by virtual-mappings-ratio.  The default value is
-100.
-
-@item virtual-mappings-ratio
-If the number of virtual mappings is virtual-mappings-ratio bigger
-than the number of virtual symbols to be updated, then the incremental
-SSA updater switches to a full update for those symbols.  The default
-ratio is 3.
 
 @item ssp-buffer-size
 The minimum size of buffers (i.e.@: arrays) that receive stack smashing
@@ -11044,6 +11062,23 @@ Some Cortex-M3 cores can cause data corruption when @code{ldrd} instructions
 with overlapping destination and base registers are used.  This option avoids
 generating these instructions.  This option is enabled by default when
 @option{-mcpu=cortex-m3} is specified.
+
+@item -munaligned-access
+@itemx -mno-unaligned-access
+@opindex munaligned-access
+@opindex mno-unaligned-access
+Enables (or disables) reading and writing of 16- and 32- bit values
+from addresses that are not 16- or 32- bit aligned.  By default
+unaligned access is disabled for all pre-ARMv6 and all ARMv6-M
+architectures, and enabled for all other architectures.  If unaligned
+access is not enabled then words in packed data structures will be
+accessed a byte at a time.
+
+The ARM attribute @code{Tag_CPU_unaligned_access} will be set in the
+generated object file to either true or false, depending upon the
+setting of this option.  If unaligned access is enabled then the
+preprocessor symbol @code{__ARM_FEATURE_UNALIGNED} will also be
+defined.
 
 @end table
 
@@ -15603,6 +15638,18 @@ Use floating-point coprocessor instructions.
 Do not use floating-point coprocessor instructions.  Implement
 floating-point calculations using library calls instead.
 
+@item -mno-float
+@opindex mno-float
+Equivalent to @option{-msoft-float}, but additionally asserts that the
+program being compiled does not perform any floating-point operations.
+This option is presently supported only by some bare-metal MIPS
+configurations, where it may select a special set of libraries
+that lack all floating-point support (including, for example, the
+floating-point @code{printf} formats).  
+If code compiled with @code{-mno-float} accidentally contains
+floating-point operations, it is likely to suffer a link-time
+or run-time failure.
+
 @item -msingle-float
 @opindex msingle-float
 Assume that the floating-point coprocessor only supports single-precision
@@ -15681,6 +15728,12 @@ The option @option{-mips3d} implies @option{-mpaired-single}.
 @opindex mmt
 @opindex mno-mt
 Use (do not use) MT Multithreading instructions.
+
+@item -mmcu
+@itemx -mno-mcu
+@opindex mmcu
+@opindex mno-mcu
+Use (do not use) the MIPS MCU ASE instructions.
 
 @item -mlong64
 @opindex mlong64
@@ -16513,11 +16566,7 @@ standard hardware multiplication defined in the RL78 software manual.
 
 These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @table @gcctabopt
-@item -mpower
-@itemx -mno-power
-@itemx -mpower2
-@itemx -mno-power2
-@itemx -mpowerpc
+@item -mpowerpc
 @itemx -mno-powerpc
 @itemx -mpowerpc-gpopt
 @itemx -mno-powerpc-gpopt
@@ -16541,10 +16590,6 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-mfpgpr
 @itemx -mhard-dfp
 @itemx -mno-hard-dfp
-@opindex mpower
-@opindex mno-power
-@opindex mpower2
-@opindex mno-power2
 @opindex mpowerpc
 @opindex mno-powerpc
 @opindex mpowerpc-gpopt
@@ -16585,12 +16630,6 @@ determined when configuring GCC@.  Specifying the
 options.  We recommend you use the @option{-mcpu=@var{cpu_type}} option
 rather than the options listed above.
 
-The @option{-mpower} option allows GCC to generate instructions that
-are found only in the POWER architecture and to use the MQ register.
-Specifying @option{-mpower2} implies @option{-power} and also allows GCC
-to generate instructions that are present in the POWER2 architecture but
-not the original POWER architecture.
-
 The @option{-mpowerpc} option allows GCC to generate instructions that
 are found only in the 32-bit subset of the PowerPC architecture.
 Specifying @option{-mpowerpc-gpopt} implies @option{-mpowerpc} and also allows
@@ -16629,12 +16668,9 @@ The @option{-mpowerpc64} option allows GCC to generate the additional
 and to treat GPRs as 64-bit, doubleword quantities.  GCC defaults to
 @option{-mno-powerpc64}.
 
-If you specify both @option{-mno-power} and @option{-mno-powerpc}, GCC
-uses only the instructions in the common subset of both
-architectures plus some special AIX common-mode calls, and does not use
-the MQ register.  Specifying both @option{-mpower} and @option{-mpowerpc}
-permits GCC to use any instruction from either architecture and to
-allow use of the MQ register; specify this for the Motorola MPC601.
+If you specify @option{-mno-powerpc}, GCC uses only the instructions
+in the common subset of both the POWER and PowerPC
+architectures plus some special AIX common-mode calls.
 
 @item -mnew-mnemonics
 @itemx -mold-mnemonics
@@ -16665,11 +16701,9 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{860}, @samp{970}, @samp{8540}, @samp{a2}, @samp{e300c2},
 @samp{e300c3}, @samp{e500mc}, @samp{e500mc64}, @samp{e5500},
 @samp{e6500}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
-@samp{titan}, @samp{power}, @samp{power2}, @samp{power3},
-@samp{power4}, @samp{power5}, @samp{power5+}, @samp{power6},
-@samp{power6x}, @samp{power7}, @samp{common}, @samp{powerpc},
-@samp{powerpc64}, @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc},
-and @samp{rs64}.
+@samp{titan}, @samp{power3}, @samp{power4}, @samp{power5}, @samp{power5+},
+@samp{power6}, @samp{power6x}, @samp{power7}, @samp{common}, @samp{powerpc},
+@samp{powerpc64}, and @samp{rs64}.
 
 @option{-mcpu=common} selects a completely generic processor.  Code
 generated under this option runs on any POWER or PowerPC processor.
@@ -16677,9 +16711,8 @@ GCC uses only the instructions in the common subset of both
 architectures, and does not use the MQ register.  GCC assumes a generic
 processor model for scheduling purposes.
 
-@option{-mcpu=power}, @option{-mcpu=power2}, @option{-mcpu=powerpc}, and
-@option{-mcpu=powerpc64} specify generic POWER, POWER2, pure 32-bit
-PowerPC (i.e., not MPC601), and 64-bit PowerPC architecture machine
+@option{-mcpu=powerpc}, and @option{-mcpu=powerpc64} specify pure 32-bit
+PowerPC (i.e., not MPC601) and 64-bit PowerPC architecture machine
 types, with an appropriate, generic processor model assumed for
 scheduling purposes.
 
@@ -16691,7 +16724,7 @@ The @option{-mcpu} options automatically enable or disable the
 following options:
 
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
--mnew-mnemonics  -mpopcntb -mpopcntd  -mpower  -mpower2  -mpowerpc64 @gol
+-mnew-mnemonics  -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx}
 
@@ -18095,13 +18128,15 @@ Mark the @code{MAC} register as call-clobbered, even if
 @option{-mhitachi} is given.
 
 @item -mieee
+@item -mno-ieee
 @opindex mieee
-Increase IEEE compliance of floating-point code.
-At the moment, this is equivalent to @option{-fno-finite-math-only}.
-When generating 16-bit SH opcodes, getting IEEE-conforming results for
-comparisons of NANs / infinities incurs extra overhead in every
-floating-point comparison, therefore the default is set to
-@option{-ffinite-math-only}.
+@opindex mnoieee
+Control the IEEE compliance of floating-point comparisons, which affects the
+handling of cases where the result of a comparison is unordered.  By default
+@option{-mieee} is implicitly enabled.  If @option{-ffinite-math-only} is
+enabled @option{-mno-ieee} is implicitly set, which results in faster
+floating-point greater-equal and less-equal comparisons.  The implcit settings
+can be overridden by specifying either @option{-mieee} or @option{-mno-ieee}.
 
 @item -minline-ic_invalidate
 @opindex minline-ic_invalidate
@@ -18315,6 +18350,16 @@ Assume @var{num} to be the cost for a branch instruction.  Higher numbers
 make the compiler try to generate more branch-free code if possible.  
 If not specified the value is selected depending on the processor type that
 is being compiled for.
+
+@item -mzdcbranch
+@itemx -mno-zdcbranch
+@opindex mzdcbranch
+@opindex mno-zdcbranch
+Assume (do not assume) that zero displacement conditional branch instructions
+@code{bt} and @code{bf} are fast.  If @option{-mzdcbranch} is specified, the
+compiler will try to prefer zero displacement branch code sequences.  This is
+enabled by default when generating code for SH4 and SH4A.  It can be explicitly
+disabled by specifying @option{-mno-zdcbranch}.
 
 @item -mcbranchdi
 @opindex mcbranchdi
@@ -19303,6 +19348,84 @@ For front ends that support it, generate additional code to check that
 indices used to access arrays are within the declared range.  This is
 currently only supported by the Java and Fortran front ends, where
 this option defaults to true and false respectively.
+
+@item -fstack-reuse=@var{reuse-level}
+@opindex fstack_reuse
+This option controls stack space reuse for user declared local/auto variables
+and compiler generated temporaries.  @var{reuse_level} can be @samp{all},
+@samp{named_vars}, or @samp{none}. @samp{all} enables stack reuse for all
+local variables and temporaries, @samp{named_vars} enables the reuse only for
+user defined local variables with names, and @samp{none} disables stack reuse
+completely. The default value is @samp{all}. The option is needed when the
+program extends the lifetime of a scoped local variable or a compiler generated
+temporary beyond the end point defined by the language.  When a lifetime of
+a variable ends, and if the variable lives in memory, the optimizing compiler
+has the freedom to reuse its stack space with other temporaries or scoped
+local variables whose live range does not overlap with it. Legacy code extending
+local lifetime will likely to break with the stack reuse optimization.
+
+For example,
+
+@smallexample
+   int *p;
+   @{
+     int local1;
+
+     p = &local1;
+     local1 = 10;
+     ....
+   @}
+   @{
+      int local2;
+      local2 = 20;
+      ...
+   @}
+
+   if (*p == 10)  // out of scope use of local1
+     @{
+
+     @}
+@end smallexample
+
+Another example:
+@smallexample
+
+   struct A
+   @{
+       A(int k) : i(k), j(k) @{ @}
+       int i;
+       int j;
+   @};
+
+   A *ap;
+
+   void foo(const A& ar)
+   @{
+      ap = &ar;
+   @}
+
+   void bar()
+   @{
+      foo(A(10)); // temp object's lifetime ends when foo returns
+
+      @{
+        A a(20);
+        ....
+      @}
+      ap->i+= 10;  // ap references out of scope temp whose space
+                   // is reused with a. What is the value of ap->i?
+   @}
+
+@end smallexample
+
+The lifetime of a compiler generated temporary is well defined by the C++
+standard. When a lifetime of a temporary ends, and if the temporary lives
+in memory, the optimizing compiler has the freedom to reuse its stack
+space with other temporaries or scoped local variables whose live range
+does not overlap with it. However some of the legacy code relies on
+the behavior of older compilers in which temporaries' stack space is
+not reused, the aggressive stack reuse can lead to runtime errors. This
+option is used to control the temporary stack reuse optimization.
 
 @item -ftrapv
 @opindex ftrapv
