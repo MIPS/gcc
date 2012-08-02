@@ -10467,9 +10467,9 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	  break;
 
 	case TRUNCATE:
-	  /* Change (lshiftrt (truncate (lshiftrt))) to (truncate (lshiftrt))
+	  /* Change (a/lshiftrt (truncate (lshiftrt))) to (truncate (a/lshiftrt))
 	     if the truncate does not affect the value.  */
-	  if (code == LSHIFTRT
+	  if ((code == LSHIFTRT || code == ASHIFTRT)
 	      && GET_CODE (XEXP (varop, 0)) == LSHIFTRT
 	      && CONST_INT_P (XEXP (XEXP (varop, 0), 1))
 	      && (INTVAL (XEXP (XEXP (varop, 0), 1))
@@ -10479,7 +10479,7 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	      rtx varop_inner = XEXP (varop, 0);
 
 	      varop_inner
-		= gen_rtx_LSHIFTRT (GET_MODE (varop_inner),
+		= gen_rtx_fmt_ee (code, GET_MODE (varop_inner),
 				    XEXP (varop_inner, 0),
 				    GEN_INT
 				    (count + INTVAL (XEXP (varop_inner, 1))));

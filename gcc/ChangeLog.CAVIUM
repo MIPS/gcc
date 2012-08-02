@@ -150,6 +150,14 @@
 	
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #3596
+	* combine.c (simplify_shift_const_1 <case TRUNCATE>): Handle ASHIFTRT
+	like LSHIFTRT but use ASHIFTRT as the final result.
+
+	* testsuite/gcc.target/mips/shift-1.c: New testcase.
+
+2012-08-01  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #3266
 	* fold-const.c (build_range_check): Use either
 	unsigned_type_node or integer_type_node for the
