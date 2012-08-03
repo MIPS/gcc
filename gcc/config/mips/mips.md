@@ -2097,7 +2097,7 @@
 	  (mult:DI (any_extend:DI (match_operand:SI 1 "register_operand"))
 		   (any_extend:DI (match_operand:SI 2 "register_operand")))
 	  (const_int 32))))]
-  ""
+  "!ISA_HAS_DMUL3"
 {
   if (ISA_HAS_MULHI)
     emit_insn (gen_<su>mulsi3_highpart_mulhi_internal (operands[0],
@@ -2120,7 +2120,7 @@
 		   (any_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))]
-  "!ISA_HAS_MULHI && !TARGET_MIPS16"
+  "!ISA_HAS_DMUL3 && !ISA_HAS_MULHI && !TARGET_MIPS16"
   { return TARGET_FIX_R4000 ? "mult<u>\t%1,%2\n\tmfhi\t%0" : "#"; }
   "&& reload_completed && !TARGET_FIX_R4000"
   [(const_int 0)]

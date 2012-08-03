@@ -148,6 +148,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-02  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.md (<su>mulsi3_highpart): Disable if we have dmul3.
+	(<su>mulsi3_highpart_internal): Likewise.
+
+	* testsuite/gcc.target/mips/octeon-dmul-4.c: New testcase.
+
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/tree-ssa/ssa-fre-4.c: Don't compile on mips.
