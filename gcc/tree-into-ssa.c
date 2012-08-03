@@ -126,6 +126,23 @@ struct mark_def_sites_global_data
   bitmap kills;
 };
 
+/* Information stored for both SSA names and decls.  */
+struct common_info_d
+{
+  /* This field indicates whether or not the variable may need PHI nodes.
+     See the enum's definition for more detailed information about the
+     states.  */
+  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
+
+  /* The current reaching definition replacing this var.  */
+  tree current_def;
+
+  /* Definitions for this var.  */
+  struct def_blocks_d def_blocks;
+};
+
+/* The information associated with decls and SSA names.  */
+typedef struct common_info_d *common_info_p;
 
 /* Information stored for decls.  */
 struct var_info_d
@@ -133,16 +150,8 @@ struct var_info_d
   /* The variable.  */
   tree var;
 
-  /* This field indicates whether or not the variable may need PHI nodes.
-     See the enum's definition for more detailed information about the
-     states.  */
-  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
-
-  /* The current reaching definition replacing this SSA name.  */
-  tree current_def;
-
-  /* Definitions for this VAR.  */
-  struct def_blocks_d def_blocks;
+  /* Information stored for both SSA names and decls.  */
+  struct common_info_d info;
 };
 
 /* The information associated with decls.  */
@@ -164,19 +173,11 @@ struct ssa_name_info
      are assumed to be null.  */
   unsigned age;
 
-  /* This field indicates whether or not the variable may need PHI nodes.
-     See the enum's definition for more detailed information about the
-     states.  */
-  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
-
-  /* The current reaching definition replacing this SSA name.  */
-  tree current_def;
-
   /* Replacement mappings, allocated from update_ssa_obstack.  */
   bitmap repl_set;
 
-  /* Definitions for this SSA name.  */
-  struct def_blocks_d def_blocks;
+  /* Information stored for both SSA names and decls.  */
+  struct common_info_d info;
 };
 
 /* The information associated with names.  */
@@ -226,6 +227,33 @@ extern void dump_defs_stack (FILE *, int);
 extern void debug_defs_stack (int);
 extern void dump_currdefs (FILE *);
 extern void debug_currdefs (void);
+
+
+/* The set of symbols we ought to re-write into SSA form in update_ssa.  */
+static bitmap symbols_to_rename_set;
+static VEC(tree,heap) *symbols_to_rename;
+
+/* Mark SYM for renaming.  */
+
+static void
+mark_for_renaming (tree sym)
+{
+  if (!symbols_to_rename_set)
+    symbols_to_rename_set = BITMAP_ALLOC (NULL);
+  if (bitmap_set_bit (symbols_to_rename_set, DECL_UID (sym)))
+    VEC_safe_push (tree, heap, symbols_to_rename, sym);
+}
+
+/* Return true if SYM is marked for renaming.  */
+
+static bool
+marked_for_renaming (tree sym)
+{
+  if (!symbols_to_rename_set)
+    return false;
+  return bitmap_bit_p (symbols_to_rename_set, DECL_UID (sym));
+}
+
 
 /* Return true if STMT needs to be rewritten.  When renaming a subset
    of the variables, not all statements will be processed.  This is
@@ -296,13 +324,13 @@ get_ssa_name_ann (tree name)
   info = VEC_index (ssa_name_info_p, info_for_ssa_name, ver);
   if (info->age < current_info_for_ssa_name_age)
     {
-      info->need_phi_state = NEED_PHI_STATE_UNKNOWN;
-      info->current_def = NULL_TREE;
-      info->repl_set = NULL;
-      info->def_blocks.def_blocks = NULL;
-      info->def_blocks.phi_blocks = NULL;
-      info->def_blocks.livein_blocks = NULL;
       info->age = current_info_for_ssa_name_age;
+      info->repl_set = NULL;
+      info->info.need_phi_state = NEED_PHI_STATE_UNKNOWN;
+      info->info.current_def = NULL_TREE;
+      info->info.def_blocks.def_blocks = NULL;
+      info->info.def_blocks.phi_blocks = NULL;
+      info->info.def_blocks.livein_blocks = NULL;
     }
 
   return info;
@@ -341,27 +369,15 @@ clear_ssa_name_info (void)
 }
 
 
-/* Get phi_state field for VAR.  */
+/* Get access to the auxiliar information stored per SSA name or decl.  */
 
-static inline enum need_phi_state
-get_phi_state (tree var)
+static inline common_info_p
+get_common_info (tree var)
 {
   if (TREE_CODE (var) == SSA_NAME)
-    return get_ssa_name_ann (var)->need_phi_state;
+    return &get_ssa_name_ann (var)->info;
   else
-    return get_var_info (var)->need_phi_state;
-}
-
-
-/* Sets phi_state field for VAR to STATE.  */
-
-static inline void
-set_phi_state (tree var, enum need_phi_state state)
-{
-  if (TREE_CODE (var) == SSA_NAME)
-    get_ssa_name_ann (var)->need_phi_state = state;
-  else
-    get_var_info (var)->need_phi_state = state;
+    return &get_var_info (var)->info;
 }
 
 
@@ -370,10 +386,7 @@ set_phi_state (tree var, enum need_phi_state state)
 tree
 get_current_def (tree var)
 {
-  if (TREE_CODE (var) == SSA_NAME)
-    return get_ssa_name_ann (var)->current_def;
-  else
-    return get_var_info (var)->current_def;
+  return get_common_info (var)->current_def;
 }
 
 
@@ -382,10 +395,7 @@ get_current_def (tree var)
 void
 set_current_def (tree var, tree def)
 {
-  if (TREE_CODE (var) == SSA_NAME)
-    get_ssa_name_ann (var)->current_def = def;
-  else
-    get_var_info (var)->current_def = def;
+  get_common_info (var)->current_def = def;
 }
 
 
@@ -485,15 +495,9 @@ mark_block_for_update (basic_block bb)
    DEF_BLOCKS, a new one is created and returned.  */
 
 static inline struct def_blocks_d *
-get_def_blocks_for (tree var)
+get_def_blocks_for (common_info_p info)
 {
-  struct def_blocks_d *db_p;
-
-  if (TREE_CODE (var) == SSA_NAME)
-    db_p = &get_ssa_name_ann (var)->def_blocks;
-  else
-    db_p = &get_var_info (var)->def_blocks;
-
+  struct def_blocks_d *db_p = &info->def_blocks;
   if (!db_p->def_blocks)
     {
       db_p->def_blocks = BITMAP_ALLOC (&update_ssa_obstack);
@@ -512,10 +516,10 @@ static void
 set_def_block (tree var, basic_block bb, bool phi_p)
 {
   struct def_blocks_d *db_p;
-  enum need_phi_state state;
+  common_info_p info;
 
-  state = get_phi_state (var);
-  db_p = get_def_blocks_for (var);
+  info = get_common_info (var);
+  db_p = get_def_blocks_for (info);
 
   /* Set the bit corresponding to the block where VAR is defined.  */
   bitmap_set_bit (db_p->def_blocks, bb->index);
@@ -534,10 +538,10 @@ set_def_block (tree var, basic_block bb, bool phi_p)
      variable which was not dominated by the block containing the
      definition(s).  In this case we may need a PHI node, so enter
      state NEED_PHI_STATE_MAYBE.  */
-  if (state == NEED_PHI_STATE_UNKNOWN)
-    set_phi_state (var, NEED_PHI_STATE_NO);
+  if (info->need_phi_state == NEED_PHI_STATE_UNKNOWN)
+    info->need_phi_state = NEED_PHI_STATE_NO;
   else
-    set_phi_state (var, NEED_PHI_STATE_MAYBE);
+    info->need_phi_state = NEED_PHI_STATE_MAYBE;
 }
 
 
@@ -546,10 +550,11 @@ set_def_block (tree var, basic_block bb, bool phi_p)
 static void
 set_livein_block (tree var, basic_block bb)
 {
+  common_info_p info;
   struct def_blocks_d *db_p;
-  enum need_phi_state state = get_phi_state (var);
 
-  db_p = get_def_blocks_for (var);
+  info = get_common_info (var);
+  db_p = get_def_blocks_for (info);
 
   /* Set the bit corresponding to the block where VAR is live in.  */
   bitmap_set_bit (db_p->livein_blocks, bb->index);
@@ -560,26 +565,17 @@ set_livein_block (tree var, basic_block bb)
      by the single block containing the definition(s) of this variable.  If
      it is, then we remain in NEED_PHI_STATE_NO, otherwise we transition to
      NEED_PHI_STATE_MAYBE.  */
-  if (state == NEED_PHI_STATE_NO)
+  if (info->need_phi_state == NEED_PHI_STATE_NO)
     {
       int def_block_index = bitmap_first_set_bit (db_p->def_blocks);
 
       if (def_block_index == -1
 	  || ! dominated_by_p (CDI_DOMINATORS, bb,
 	                       BASIC_BLOCK (def_block_index)))
-	set_phi_state (var, NEED_PHI_STATE_MAYBE);
+	info->need_phi_state = NEED_PHI_STATE_MAYBE;
     }
   else
-    set_phi_state (var, NEED_PHI_STATE_MAYBE);
-}
-
-
-/* Return true if symbol SYM is marked for renaming.  */
-
-bool
-symbol_marked_for_renaming (tree sym)
-{
-  return bitmap_bit_p (SYMS_TO_RENAME (cfun), DECL_UID (sym));
+    info->need_phi_state = NEED_PHI_STATE_MAYBE;
 }
 
 
@@ -958,31 +954,10 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 static inline struct def_blocks_d *
 find_def_blocks_for (tree var)
 {
-  def_blocks_p p;
-  if (TREE_CODE (var) == SSA_NAME)
-    p = &get_ssa_name_ann (var)->def_blocks;
-  else
-    p = &get_var_info (var)->def_blocks;
+  def_blocks_p p = &get_common_info (var)->def_blocks;
   if (!p->def_blocks)
     return NULL;
   return p;
-}
-
-
-/* Retrieve or create a default definition for symbol SYM.  */
-
-static inline tree
-get_default_def_for (tree sym)
-{
-  tree ddef = gimple_default_def (cfun, sym);
-
-  if (ddef == NULL_TREE)
-    {
-      ddef = make_ssa_name (sym, gimple_build_nop ());
-      set_default_def (sym, ddef);
-    }
-
-  return ddef;
 }
 
 
@@ -1132,7 +1107,7 @@ insert_phi_nodes (bitmap_head *dfs)
 
   vars = VEC_alloc (var_info_p, heap, htab_elements (var_infos));
   FOR_EACH_HTAB_ELEMENT (var_infos, info, var_info_p, hi)
-    if (info->need_phi_state != NEED_PHI_STATE_NO)
+    if (info->info.need_phi_state != NEED_PHI_STATE_NO)
       VEC_quick_push (var_info_p, vars, info);
 
   /* Do two stages to avoid code generation differences for UID
@@ -1141,7 +1116,7 @@ insert_phi_nodes (bitmap_head *dfs)
 
   FOR_EACH_VEC_ELT (var_info_p, vars, i, info)
     {
-      bitmap idf = compute_idf (info->def_blocks.def_blocks, dfs);
+      bitmap idf = compute_idf (info->info.def_blocks.def_blocks, dfs);
       insert_phi_nodes_for (info->var, idf, false);
       BITMAP_FREE (idf);
     }
@@ -1158,6 +1133,7 @@ insert_phi_nodes (bitmap_head *dfs)
 static void
 register_new_def (tree def, tree sym)
 {
+  common_info_p info = get_common_info (sym);
   tree currdef;
 
   /* If this variable is set in a single basic block and all uses are
@@ -1168,13 +1144,13 @@ register_new_def (tree def, tree sym)
      This is the same test to prune the set of variables which may
      need PHI nodes.  So we just use that information since it's already
      computed and available for us to use.  */
-  if (get_phi_state (sym) == NEED_PHI_STATE_NO)
+  if (info->need_phi_state == NEED_PHI_STATE_NO)
     {
-      set_current_def (sym, def);
+      info->current_def = def;
       return;
     }
 
-  currdef = get_current_def (sym);
+  currdef = info->current_def;
 
   /* If SYM is not a GIMPLE register, then CURRDEF may be a name whose
      SSA_NAME_VAR is not necessarily SYM.  In this case, also push SYM
@@ -1192,7 +1168,7 @@ register_new_def (tree def, tree sym)
   VEC_safe_push (tree, heap, block_defs_stack, currdef ? currdef : sym);
 
   /* Set the current reaching definition for SYM to be DEF.  */
-  set_current_def (sym, def);
+  info->current_def = def;
 }
 
 
@@ -1225,18 +1201,18 @@ register_new_def (tree def, tree sym)
 static tree
 get_reaching_def (tree var)
 {
+  common_info_p info = get_common_info (var);
   tree currdef;
 
   /* Lookup the current reaching definition for VAR.  */
-  currdef = get_current_def (var);
+  currdef = info->current_def;
 
   /* If there is no reaching definition for VAR, create and register a
      default definition for it (if needed).  */
   if (currdef == NULL_TREE)
     {
       tree sym = DECL_P (var) ? var : SSA_NAME_VAR (var);
-      currdef = get_default_def_for (sym);
-      set_current_def (var, currdef);
+      currdef = get_or_create_ssa_default_def (cfun, sym);
     }
 
   /* Return the current reaching definition for VAR, or the default
@@ -1256,9 +1232,11 @@ rewrite_debug_stmt_uses (gimple stmt)
 
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_USE)
     {
-      tree var = USE_FROM_PTR (use_p), def = NULL_TREE;
+      tree var = USE_FROM_PTR (use_p), def;
+      common_info_p info = get_common_info (var);
       gcc_assert (DECL_P (var));
-      if (var_ann (var) == NULL)
+      def = info->current_def;
+      if (!def)
 	{
 	  if (TREE_CODE (var) == PARM_DECL && single_succ_p (ENTRY_BLOCK_PTR))
 	    {
@@ -1300,38 +1278,34 @@ rewrite_debug_stmt_uses (gimple stmt)
 	}
       else
 	{
-	  def = get_current_def (var);
-	  /* Check if get_current_def can be trusted.  */
-	  if (def)
+	  /* Check if info->current_def can be trusted.  */
+	  basic_block bb = gimple_bb (stmt);
+	  basic_block def_bb
+	      = SSA_NAME_IS_DEFAULT_DEF (def)
+	      ? NULL : gimple_bb (SSA_NAME_DEF_STMT (def));
+
+	  /* If definition is in current bb, it is fine.  */
+	  if (bb == def_bb)
+	    ;
+	  /* If definition bb doesn't dominate the current bb,
+	     it can't be used.  */
+	  else if (def_bb && !dominated_by_p (CDI_DOMINATORS, bb, def_bb))
+	    def = NULL;
+	  /* If there is just one definition and dominates the current
+	     bb, it is fine.  */
+	  else if (info->need_phi_state == NEED_PHI_STATE_NO)
+	    ;
+	  else
 	    {
-	      basic_block bb = gimple_bb (stmt);
-	      basic_block def_bb
-		= SSA_NAME_IS_DEFAULT_DEF (def)
-		  ? NULL : gimple_bb (SSA_NAME_DEF_STMT (def));
+	      struct def_blocks_d *db_p = get_def_blocks_for (info);
 
-	      /* If definition is in current bb, it is fine.  */
-	      if (bb == def_bb)
+	      /* If there are some non-debug uses in the current bb,
+		 it is fine.  */
+	      if (bitmap_bit_p (db_p->livein_blocks, bb->index))
 		;
-	      /* If definition bb doesn't dominate the current bb,
-		 it can't be used.  */
-	      else if (def_bb && !dominated_by_p (CDI_DOMINATORS, bb, def_bb))
-		def = NULL;
-	      /* If there is just one definition and dominates the current
-		 bb, it is fine.  */
-	      else if (get_phi_state (var) == NEED_PHI_STATE_NO)
-		;
+	      /* Otherwise give up for now.  */
 	      else
-		{
-		  struct def_blocks_d *db_p = get_def_blocks_for (var);
-
-		  /* If there are some non-debug uses in the current bb,
-		     it is fine.  */
-		  if (bitmap_bit_p (db_p->livein_blocks, bb->index))
-		    ;
-		  /* Otherwise give up for now.  */
-		  else
-		    def = NULL;
-		}
+		def = NULL;
 	    }
 	}
       if (def == NULL)
@@ -1517,7 +1491,7 @@ rewrite_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	  var = tmp;
 	}
 
-      set_current_def (var, saved_def);
+      get_common_info (var)->current_def = saved_def;
     }
 }
 
@@ -1536,11 +1510,7 @@ dump_decl_set (FILE *file, bitmap set)
 
       EXECUTE_IF_SET_IN_BITMAP (set, 0, i, bi)
 	{
-	  tree var = referenced_var_lookup (cfun, i);
-	  if (var)
-	    print_generic_expr (file, var, 0);
-	  else
-	    fprintf (file, "D.%u", i);
+	  fprintf (file, "D.%u", i);
 	  fprintf (file, " ");
 	}
 
@@ -1636,23 +1606,25 @@ debug_defs_stack (int n)
 void
 dump_currdefs (FILE *file)
 {
-  referenced_var_iterator i;
+  unsigned i;
   tree var;
 
+  if (VEC_empty (tree, symbols_to_rename))
+    return;
+
   fprintf (file, "\n\nCurrent reaching definitions\n\n");
-  FOR_EACH_REFERENCED_VAR (cfun, var, i)
-    if (SYMS_TO_RENAME (cfun) == NULL
-	|| bitmap_bit_p (SYMS_TO_RENAME (cfun), DECL_UID (var)))
-      {
-	fprintf (file, "CURRDEF (");
-	print_generic_expr (file, var, 0);
-	fprintf (file, ") = ");
-	if (get_current_def (var))
-	  print_generic_expr (file, get_current_def (var), 0);
-	else
-	  fprintf (file, "<NIL>");
-	fprintf (file, "\n");
-      }
+  FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, var)
+    {
+      common_info_p info = get_common_info (var);
+      fprintf (file, "CURRDEF (");
+      print_generic_expr (file, var, 0);
+      fprintf (file, ") = ");
+      if (info->current_def)
+	print_generic_expr (file, info->current_def, 0);
+      else
+	fprintf (file, "<NIL>");
+      fprintf (file, "\n");
+    }
 }
 
 
@@ -1749,13 +1721,16 @@ static int
 debug_var_infos_r (void **slot, void *data)
 {
   FILE *file = (FILE *) data;
-  struct var_info_d *db_p = (struct var_info_d *) *slot;
+  struct var_info_d *info = (struct var_info_d *) *slot;
 
   fprintf (file, "VAR: ");
-  print_generic_expr (file, db_p->var, dump_flags);
-  bitmap_print (file, db_p->def_blocks.def_blocks, ", DEF_BLOCKS: { ", "}");
-  bitmap_print (file, db_p->def_blocks.livein_blocks, ", LIVEIN_BLOCKS: { ", "}");
-  bitmap_print (file, db_p->def_blocks.phi_blocks, ", PHI_BLOCKS: { ", "}\n");
+  print_generic_expr (file, info->var, dump_flags);
+  bitmap_print (file, info->info.def_blocks.def_blocks,
+		", DEF_BLOCKS: { ", "}");
+  bitmap_print (file, info->info.def_blocks.livein_blocks,
+		", LIVEIN_BLOCKS: { ", "}");
+  bitmap_print (file, info->info.def_blocks.phi_blocks,
+		", PHI_BLOCKS: { ", "}\n");
 
   return 1;
 }
@@ -1786,7 +1761,8 @@ debug_var_infos (void)
 static inline void
 register_new_update_single (tree new_name, tree old_name)
 {
-  tree currdef = get_current_def (old_name);
+  common_info_p info = get_common_info (old_name);
+  tree currdef = info->current_def;
 
   /* Push the current reaching definition into BLOCK_DEFS_STACK.
      This stack is later used by the dominator tree callbacks to
@@ -1799,7 +1775,7 @@ register_new_update_single (tree new_name, tree old_name)
 
   /* Set the current reaching definition for OLD_NAME to be
      NEW_NAME.  */
-  set_current_def (old_name, new_name);
+  info->current_def = new_name;
 }
 
 
@@ -1830,7 +1806,7 @@ maybe_replace_use (use_operand_p use_p)
   tree use = USE_FROM_PTR (use_p);
   tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
 
-  if (symbol_marked_for_renaming (sym))
+  if (marked_for_renaming (sym))
     rdef = get_reaching_def (sym);
   else if (is_old_name (use))
     rdef = get_reaching_def (use);
@@ -1850,11 +1826,11 @@ maybe_replace_use_in_debug_stmt (use_operand_p use_p)
   tree use = USE_FROM_PTR (use_p);
   tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
 
-  if (symbol_marked_for_renaming (sym))
-    rdef = get_current_def (sym);
+  if (marked_for_renaming (sym))
+    rdef = get_var_info (sym)->info.current_def;
   else if (is_old_name (use))
     {
-      rdef = get_current_def (use);
+      rdef = get_ssa_name_ann (use)->info.current_def;
       /* We can't assume that, if there's no current definition, the
 	 default one should be used.  It could be the case that we've
 	 rearranged blocks so that the earlier definition no longer
@@ -1886,7 +1862,7 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
 
   /* If DEF is a naked symbol that needs renaming, create a new
      name for it.  */
-  if (symbol_marked_for_renaming (sym))
+  if (marked_for_renaming (sym))
     {
       if (DECL_P (def))
 	{
@@ -2077,7 +2053,7 @@ rewrite_update_phi_arguments (basic_block bb)
 	    {
 	      tree sym = DECL_P (arg) ? arg : SSA_NAME_VAR (arg);
 
-	      if (symbol_marked_for_renaming (sym))
+	      if (marked_for_renaming (sym))
 		reaching_def = get_reaching_def (sym);
 	      else if (is_old_name (arg))
 		reaching_def = get_reaching_def (arg);
@@ -2154,7 +2130,7 @@ rewrite_update_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       lhs = gimple_phi_result (phi);
       lhs_sym = SSA_NAME_VAR (lhs);
 
-      if (symbol_marked_for_renaming (lhs_sym))
+      if (marked_for_renaming (lhs_sym))
 	register_new_update_single (lhs, lhs_sym);
       else
 	{
@@ -2207,7 +2183,7 @@ rewrite_update_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	return;
 
       saved_def = VEC_pop (tree, block_defs_stack);
-      set_current_def (var, saved_def);
+      get_common_info (var)->current_def = saved_def;
     }
 }
 
@@ -2369,6 +2345,8 @@ fini_ssa_renamer (void)
 
   bitmap_obstack_release (&update_ssa_obstack);
 
+  cfun->gimple_df->ssa_renaming_needed = 0;
+  cfun->gimple_df->rename_vops = 0;
   cfun->gimple_df->in_ssa_p = true;
 }
 
@@ -2449,7 +2427,7 @@ struct gimple_opt_pass pass_build_ssa =
   NULL,					/* next */
   0,					/* static_pass_number */
   TV_TREE_SSA_OTHER,			/* tv_id */
-  PROP_cfg | PROP_referenced_vars,	/* properties_required */
+  PROP_cfg,				/* properties_required */
   PROP_ssa,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -2518,7 +2496,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
      replace it).  */
   if (insert_phi_p)
     {
-      struct def_blocks_d *db_p = get_def_blocks_for (var);
+      struct def_blocks_d *db_p = get_def_blocks_for (get_common_info (var));
       if (!bitmap_bit_p (db_p->def_blocks, bb->index))
 	set_livein_block (var, bb);
     }
@@ -2526,7 +2504,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
 
 
 /* Do a dominator walk starting at BB processing statements that
-   reference symbols in SYMS_TO_RENAME.  This is very similar to
+   reference symbols in SSA operands.  This is very similar to
    mark_def_sites, but the scan handles statements whose operands may
    already be SSA names.
 
@@ -2559,9 +2537,13 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
       lhs_sym = DECL_P (lhs) ? lhs : SSA_NAME_VAR (lhs);
 
-      if (!symbol_marked_for_renaming (lhs_sym))
+      if (TREE_CODE (lhs) == SSA_NAME
+	  && (TREE_CODE (lhs_sym) != VAR_DECL
+	      || !VAR_DECL_IS_VIRTUAL_OPERAND (lhs_sym)
+	      || !cfun->gimple_df->rename_vops))
 	continue;
 
+      mark_for_renaming (lhs_sym);
       mark_def_interesting (lhs_sym, phi, bb, insert_phi_p);
 
       /* Mark the uses in phi nodes as interesting.  It would be more correct
@@ -2585,20 +2567,40 @@ prepare_block_for_update (basic_block bb, bool insert_phi_p)
 
       stmt = gsi_stmt (si);
 
-      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_ALL_USES)
+      if (cfun->gimple_df->rename_vops
+	  && gimple_vuse (stmt))
 	{
-	  tree use = USE_FROM_PTR (use_p);
+	  tree use = gimple_vuse (stmt);
 	  tree sym = DECL_P (use) ? use : SSA_NAME_VAR (use);
-	  if (symbol_marked_for_renaming (sym))
-	    mark_use_interesting (sym, stmt, bb, insert_phi_p);
+	  mark_for_renaming (sym);
+	  mark_use_interesting (sym, stmt, bb, insert_phi_p);
 	}
 
-      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_ALL_DEFS)
+      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, i, SSA_OP_USE)
+	{
+	  tree use = USE_FROM_PTR (use_p);
+	  if (!DECL_P (use))
+	    continue;
+	  mark_for_renaming (use);
+	  mark_use_interesting (use, stmt, bb, insert_phi_p);
+	}
+
+      if (cfun->gimple_df->rename_vops
+	  && gimple_vdef (stmt))
+	{
+	  tree def = gimple_vdef (stmt);
+	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
+	  mark_for_renaming (sym);
+	  mark_def_interesting (sym, stmt, bb, insert_phi_p);
+	}
+
+      FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
 	{
 	  tree def = DEF_FROM_PTR (def_p);
-	  tree sym = DECL_P (def) ? def : SSA_NAME_VAR (def);
-	  if (symbol_marked_for_renaming (sym))
-	    mark_def_interesting (sym, stmt, bb, insert_phi_p);
+	  if (!DECL_P (def))
+	    continue;
+	  mark_for_renaming (def);
+	  mark_def_interesting (def, stmt, bb, insert_phi_p);
 	}
     }
 
@@ -2757,10 +2759,10 @@ dump_update_ssa (FILE *file)
 	dump_names_replaced_by (file, ssa_name (i));
     }
 
-  if (!bitmap_empty_p (SYMS_TO_RENAME (cfun)))
+  if (symbols_to_rename_set && !bitmap_empty_p (symbols_to_rename_set))
     {
       fprintf (file, "\nSymbols to be put in SSA form\n");
-      dump_decl_set (file, SYMS_TO_RENAME (cfun));
+      dump_decl_set (file, symbols_to_rename_set);
       fprintf (file, "\n");
     }
 
@@ -2821,7 +2823,9 @@ delete_update_ssa (void)
   sbitmap_free (new_ssa_names);
   new_ssa_names = NULL;
 
-  bitmap_clear (SYMS_TO_RENAME (update_ssa_initialized_fn));
+  BITMAP_FREE (symbols_to_rename_set);
+  symbols_to_rename_set = NULL;
+  VEC_free (tree, heap, symbols_to_rename);
 
   if (names_to_release)
     {
@@ -2875,7 +2879,7 @@ create_new_def_for (tree old_name, gimple stmt, def_operand_p def)
   /* For the benefit of passes that will be updating the SSA form on
      their own, set the current reaching definition of OLD_NAME to be
      NEW_NAME.  */
-  set_current_def (old_name, new_name);
+  get_ssa_name_ann (old_name)->info.current_def = new_name;
 
   return new_name;
 }
@@ -2897,13 +2901,13 @@ register_new_name_mapping (tree new_tree, tree old)
 }
 
 
-/* Register symbol SYM to be renamed by update_ssa.  */
+/* Mark virtual operands of FN for renaming by update_ssa.  */
 
 void
-mark_sym_for_renaming (tree sym)
+mark_virtual_operands_for_renaming (struct function *fn)
 {
-  if (cfun->gimple_df->in_ssa_p)
-    bitmap_set_bit (SYMS_TO_RENAME (cfun), DECL_UID (sym));
+  fn->gimple_df->ssa_renaming_needed = 1;
+  fn->gimple_df->rename_vops = 1;
 }
 
 
@@ -2915,8 +2919,7 @@ need_ssa_update_p (struct function *fn)
 {
   gcc_assert (fn != NULL);
   return (update_ssa_initialized_fn == fn
-	  || (fn->gimple_df
-	      && !bitmap_empty_p (SYMS_TO_RENAME (fn))));
+	  || (fn->gimple_df && fn->gimple_df->ssa_renaming_needed));
 }
 
 /* Return true if name N has been registered in the replacement table.  */
@@ -2983,7 +2986,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
   if (TREE_CODE (var) == SSA_NAME)
     gcc_checking_assert (is_old_name (var));
   else
-    gcc_checking_assert (symbol_marked_for_renaming (var));
+    gcc_checking_assert (marked_for_renaming (var));
 
   /* Get all the definition sites for VAR.  */
   db = find_def_blocks_for (var);
@@ -3127,6 +3130,7 @@ update_ssa (unsigned update_flags)
   unsigned i = 0;
   bool insert_phi_p;
   sbitmap_iterator sbi;
+  tree sym;
 
   if (!need_ssa_update_p (cfun))
     return;
@@ -3176,12 +3180,12 @@ update_ssa (unsigned update_flags)
 	 removal, and there are no symbols to rename, then there's
 	 nothing else to do.  */
       if (sbitmap_first_set_bit (new_ssa_names) < 0
-	  && bitmap_empty_p (SYMS_TO_RENAME (cfun)))
+	  && !cfun->gimple_df->ssa_renaming_needed)
 	goto done;
     }
 
   /* Next, determine the block at which to start the renaming process.  */
-  if (!bitmap_empty_p (SYMS_TO_RENAME (cfun)))
+  if (cfun->gimple_df->ssa_renaming_needed)
     {
       /* If we rename bare symbols initialize the mapping to
          auxiliar info we need to keep track of.  */
@@ -3195,7 +3199,7 @@ update_ssa (unsigned update_flags)
       start_bb = ENTRY_BLOCK_PTR;
 
       /* Traverse the CFG looking for existing definitions and uses of
-	 symbols in SYMS_TO_RENAME.  Mark interesting blocks and
+	 symbols in SSA operands.  Mark interesting blocks and
 	 statements and set local live-in information for the PHI
 	 placement heuristics.  */
       prepare_block_for_update (start_bb, insert_phi_p);
@@ -3210,7 +3214,7 @@ update_ssa (unsigned update_flags)
 
   /* If requested, insert PHI nodes at the iterated dominance frontier
      of every block, creating new definitions for names in OLD_SSA_NAMES
-     and for symbols in SYMS_TO_RENAME.  */
+     and for symbols found.  */
   if (insert_phi_p)
     {
       bitmap_head *dfs;
@@ -3239,8 +3243,8 @@ update_ssa (unsigned update_flags)
 	  sbitmap_free (tmp);
 	}
 
-      EXECUTE_IF_SET_IN_BITMAP (SYMS_TO_RENAME (cfun), 0, i, bi)
-	insert_updated_phi_nodes_for (referenced_var (i), dfs, blocks_to_update,
+      FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, sym)
+	insert_updated_phi_nodes_for (sym, dfs, blocks_to_update,
 	                              update_flags);
 
       FOR_EACH_BB (bb)
@@ -3258,10 +3262,10 @@ update_ssa (unsigned update_flags)
   /* Reset the current definition for name and symbol before renaming
      the sub-graph.  */
   EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
-    set_current_def (ssa_name (i), NULL_TREE);
+    get_ssa_name_ann (ssa_name (i))->info.current_def = NULL_TREE;
 
-  EXECUTE_IF_SET_IN_BITMAP (SYMS_TO_RENAME (cfun), 0, i, bi)
-    set_current_def (referenced_var (i), NULL_TREE);
+  FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, sym)
+    get_var_info (sym)->info.current_def = NULL_TREE;
 
   /* Now start the renaming process at START_BB.  */
   interesting_blocks = sbitmap_alloc (last_basic_block);

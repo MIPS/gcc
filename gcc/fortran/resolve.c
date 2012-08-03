@@ -138,6 +138,54 @@ resolve_typespec_used (gfc_typespec* ts, locus* where, const char* name)
 }
 
 
+static gfc_try
+check_proc_interface (gfc_symbol *ifc, locus *where)
+{
+  /* Several checks for F08:C1216.  */
+  if (ifc->attr.procedure)
+    {
+      gfc_error ("Interface '%s' at %L is declared "
+		 "in a later PROCEDURE statement", ifc->name, where);
+      return FAILURE;
+    }
+  if (ifc->generic)
+    {
+      /* For generic interfaces, check if there is
+	 a specific procedure with the same name.  */
+      gfc_interface *gen = ifc->generic;
+      while (gen && strcmp (gen->sym->name, ifc->name) != 0)
+	gen = gen->next;
+      if (!gen)
+	{
+	  gfc_error ("Interface '%s' at %L may not be generic",
+		     ifc->name, where);
+	  return FAILURE;
+	}
+    }
+  if (ifc->attr.proc == PROC_ST_FUNCTION)
+    {
+      gfc_error ("Interface '%s' at %L may not be a statement function",
+		 ifc->name, where);
+      return FAILURE;
+    }
+  if (gfc_is_intrinsic (ifc, 0, ifc->declared_at)
+      || gfc_is_intrinsic (ifc, 1, ifc->declared_at))
+    ifc->attr.intrinsic = 1;
+  if (ifc->attr.intrinsic && !gfc_intrinsic_actual_ok (ifc->name, 0))
+    {
+      gfc_error ("Intrinsic procedure '%s' not allowed in "
+		 "PROCEDURE statement at %L", ifc->name, where);
+      return FAILURE;
+    }
+  if (!ifc->attr.if_source && !ifc->attr.intrinsic && ifc->name[0] != '\0')
+    {
+      gfc_error ("Interface '%s' at %L must be explicit", ifc->name, where);
+      return FAILURE;
+    }
+  return SUCCESS;
+}
+
+
 static void resolve_symbol (gfc_symbol *sym);
 
 
@@ -146,26 +194,24 @@ static void resolve_symbol (gfc_symbol *sym);
 static gfc_try
 resolve_procedure_interface (gfc_symbol *sym)
 {
-  if (sym->ts.interface == sym)
+  gfc_symbol *ifc = sym->ts.interface;
+
+  if (!ifc)
+    return SUCCESS;
+
+  if (ifc == sym)
     {
       gfc_error ("PROCEDURE '%s' at %L may not be used as its own interface",
 		 sym->name, &sym->declared_at);
       return FAILURE;
     }
-  if (sym->ts.interface->attr.procedure)
-    {
-      gfc_error ("Interface '%s', used by procedure '%s' at %L, is declared "
-		 "in a later PROCEDURE statement", sym->ts.interface->name,
-		 sym->name, &sym->declared_at);
-      return FAILURE;
-    }
+  if (check_proc_interface (ifc, &sym->declared_at) == FAILURE)
+    return FAILURE;
 
-  /* Get the attributes from the interface (now resolved).  */
-  if (sym->ts.interface->attr.if_source || sym->ts.interface->attr.intrinsic)
+  if (ifc->attr.if_source || ifc->attr.intrinsic)
     {
-      gfc_symbol *ifc = sym->ts.interface;
+      /* Resolve interface and copy attributes.  */
       resolve_symbol (ifc);
-
       if (ifc->attr.intrinsic)
 	gfc_resolve_intrinsic (ifc, &ifc->declared_at);
 
@@ -211,12 +257,6 @@ resolve_procedure_interface (gfc_symbol *sym)
 	      && gfc_resolve_expr (sym->ts.u.cl->length) == FAILURE)
 	    return FAILURE;
 	}
-    }
-  else if (sym->ts.interface->name[0] != '\0')
-    {
-      gfc_error ("Interface '%s' of procedure '%s' at %L must be explicit",
-		 sym->ts.interface->name, sym->name, &sym->declared_at);
-      return FAILURE;
     }
 
   return SUCCESS;
@@ -273,9 +313,9 @@ resolve_formal_arglist (gfc_symbol *proc)
 		       &proc->declared_at);
 	  continue;
 	}
-      else if (sym->attr.procedure && sym->ts.interface
-	       && sym->attr.if_source != IFSRC_DECL)
-	resolve_procedure_interface (sym);
+      else if (sym->attr.procedure && sym->attr.if_source != IFSRC_DECL
+	       && resolve_procedure_interface (sym) == FAILURE)
+	return;
 
       if (sym->attr.if_source != IFSRC_UNKNOWN)
 	resolve_formal_arglist (sym);
@@ -1672,10 +1712,7 @@ resolve_actual_arglist (gfc_actual_arglist *arg, procedure_type ptype,
 
 	  /* If a procedure is not already determined to be something else
 	     check if it is intrinsic.  */
-	  if (!sym->attr.intrinsic
-	      && !(sym->attr.external || sym->attr.use_assoc
-		   || sym->attr.if_source == IFSRC_IFBODY)
-	      && gfc_is_intrinsic (sym, sym->attr.subroutine, e->where))
+	  if (gfc_is_intrinsic (sym, sym->attr.subroutine, e->where))
 	    sym->attr.intrinsic = 1;
 
 	  if (sym->attr.proc == PROC_ST_FUNCTION)
@@ -2601,8 +2638,7 @@ static bool
 is_external_proc (gfc_symbol *sym)
 {
   if (!sym->attr.dummy && !sym->attr.contained
-	&& !(sym->attr.intrinsic
-	      || gfc_is_intrinsic (sym, sym->attr.subroutine, sym->declared_at))
+	&& !gfc_is_intrinsic (sym, sym->attr.subroutine, sym->declared_at)
 	&& sym->attr.proc != PROC_ST_FUNCTION
 	&& !sym->attr.proc_pointer
 	&& !sym->attr.use_assoc
@@ -11535,17 +11571,25 @@ resolve_typebound_procedure (gfc_symtree* stree)
   /* Default access should already be resolved from the parser.  */
   gcc_assert (stree->n.tb->access != ACCESS_UNKNOWN);
 
-  /* It should be a module procedure or an external procedure with explicit
-     interface.  For DEFERRED bindings, abstract interfaces are ok as well.  */
-  if ((!proc->attr.subroutine && !proc->attr.function)
-      || (proc->attr.proc != PROC_MODULE
-	  && proc->attr.if_source != IFSRC_IFBODY)
-      || (proc->attr.abstract && !stree->n.tb->deferred))
+  if (stree->n.tb->deferred)
     {
-      gfc_error ("'%s' must be a module procedure or an external procedure with"
-		 " an explicit interface at %L", proc->name, &where);
-      goto error;
+      if (check_proc_interface (proc, &where) == FAILURE)
+	goto error;
     }
+  else
+    {
+      /* Check for F08:C465.  */
+      if ((!proc->attr.subroutine && !proc->attr.function)
+	  || (proc->attr.proc != PROC_MODULE
+	      && proc->attr.if_source != IFSRC_IFBODY)
+	  || proc->attr.abstract)
+	{
+	  gfc_error ("'%s' must be a module procedure or an external procedure with"
+		    " an explicit interface at %L", proc->name, &where);
+	  goto error;
+	}
+    }
+
   stree->n.tb->subroutine = proc->attr.subroutine;
   stree->n.tb->function = proc->attr.function;
 
@@ -11898,20 +11942,17 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
       if (c->attr.proc_pointer && c->ts.interface)
 	{
-	  if (c->ts.interface->attr.procedure && !sym->attr.vtype)
-	    gfc_error ("Interface '%s', used by procedure pointer component "
-		       "'%s' at %L, is declared in a later PROCEDURE statement",
-		       c->ts.interface->name, c->name, &c->loc);
+	  gfc_symbol *ifc = c->ts.interface;
 
-	  /* Get the attributes from the interface (now resolved).  */
-	  if (c->ts.interface->attr.if_source
-	      || c->ts.interface->attr.intrinsic)
+	  if (!sym->attr.vtype
+	      && check_proc_interface (ifc, &c->loc) == FAILURE)
+	    return FAILURE;
+
+	  if (ifc->attr.if_source || ifc->attr.intrinsic)
 	    {
-	      gfc_symbol *ifc = c->ts.interface;
-
+	      /* Resolve interface and copy attributes.  */
 	      if (ifc->formal && !ifc->formal_ns)
 		resolve_symbol (ifc);
-
 	      if (ifc->attr.intrinsic)
 		gfc_resolve_intrinsic (ifc, &ifc->declared_at);
 
@@ -11950,25 +11991,18 @@ resolve_fl_derived0 (gfc_symbol *sym)
 		      gfc_expr_replace_comp (c->as->lower[i], c);
 		      gfc_expr_replace_comp (c->as->upper[i], c);
 		    }
-	        }
+		}
 	      /* Copy char length.  */
 	      if (ifc->ts.type == BT_CHARACTER && ifc->ts.u.cl)
 		{
 		  gfc_charlen *cl = gfc_new_charlen (sym->ns, ifc->ts.u.cl);
 		  gfc_expr_replace_comp (cl->length, c);
 		  if (cl->length && !cl->resolved
-		        && gfc_resolve_expr (cl->length) == FAILURE)
+			&& gfc_resolve_expr (cl->length) == FAILURE)
 		    return FAILURE;
 		  c->ts.u.cl = cl;
 		}
 	    }
-	  else if (!sym->attr.vtype && c->ts.interface->name[0] != '\0')
-	    {
-	      gfc_error ("Interface '%s' of procedure pointer component "
-			 "'%s' at %L must be explicit", c->ts.interface->name,
-			 c->name, &c->loc);
-	      return FAILURE;
- 	    }
 	}
       else if (c->attr.proc_pointer && c->ts.type == BT_UNKNOWN)
 	{
@@ -12516,8 +12550,7 @@ resolve_symbol (gfc_symbol *sym)
   if (sym->attr.external && sym->ts.type != BT_UNKNOWN && !sym->attr.function)
     gfc_add_function (&sym->attr, sym->name, &sym->declared_at);
 
-  if (sym->attr.procedure && sym->ts.interface
-      && sym->attr.if_source != IFSRC_DECL
+  if (sym->attr.procedure && sym->attr.if_source != IFSRC_DECL
       && resolve_procedure_interface (sym) == FAILURE)
     return;
 

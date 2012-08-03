@@ -1490,13 +1490,10 @@ find_array_section (gfc_expr *expr, gfc_ref *ref)
 
   /* Now clock through the array reference, calculating the index in
      the source constructor and transferring the elements to the new
-     constructor.  */  
+     constructor.  */
   for (idx = 0; idx < (int) mpz_get_si (nelts); idx++)
     {
-      if (ref->u.ar.offset)
-	mpz_set (ptr, ref->u.ar.offset->value.integer);
-      else
-	mpz_init_set_ui (ptr, 0);
+      mpz_init_set_ui (ptr, 0);
 
       incr_ctr = true;
       for (d = 0; d < rank; d++)
@@ -3426,8 +3423,6 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       	  /* Check for intrinsics.  */
 	  gfc_symbol *sym = rvalue->symtree->n.sym;
 	  if (!sym->attr.intrinsic
-	      && !(sym->attr.contained || sym->attr.use_assoc
-		   || sym->attr.external || sym->attr.if_source == IFSRC_IFBODY)
 	      && (gfc_is_intrinsic (sym, 0, sym->declared_at)
 		  || gfc_is_intrinsic (sym, 1, sym->declared_at)))
 	    {
