@@ -1,3 +1,7 @@
+2012-08-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (find_hard_regno_for): Check paradoxical subregs.
+
 2012-08-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c: Use debug_rtl_slim instead of
