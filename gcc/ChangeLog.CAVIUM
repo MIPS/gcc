@@ -150,6 +150,11 @@
 	
 2012-08-02  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.md: Add to the comment about
+	"Bit field extract patterns".
+
+2012-08-02  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.md (<su>mulsi3_highpart): Disable if we have dmul3.
 	(<su>mulsi3_highpart_internal): Likewise.
 

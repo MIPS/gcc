@@ -3940,7 +3940,8 @@
 ;;
 ;;  ....................
 
-;; Bit field extract patterns which use lwl/lwr or ldl/ldr.
+;; Bit field extract patterns which use lwl/lwr, ldl/ldr, exts,
+;; ext/dext or ins/dins.
 
 (define_expand "extvmisalign<mode>"
   [(set (match_operand:GPR 0 "register_operand")
