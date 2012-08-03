@@ -644,7 +644,7 @@ varying_mem_p (rtx *body, void *data ATTRIBUTE_UNUSED)
 
 static rtx
 propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
-	       bool speed)
+	       bool speed, HOST_WIDE_INT mask)
 {
   rtx tem;
   bool collapsed;
@@ -669,8 +669,25 @@ propagate_rtx (rtx x, enum machine_mode mode, rtx old_rtx, rtx new_rtx,
 
   tem = x;
   collapsed = propagate_rtx_1 (&tem, old_rtx, copy_rtx (new_rtx), flags);
+  /* If we did not do a collapsed, maybe we need to try anding with a mask. */
   if (tem == x || !collapsed)
-    return NULL_RTX;
+    {
+      if (mask == (HOST_WIDE_INT)-1 || tem == x)
+        return NULL_RTX;
+      x = simplify_gen_binary (AND, GET_MODE (tem), tem, GEN_INT (mask));
+      /* Remove the subreg if we have one. */
+      if (GET_CODE (x) == SUBREG && subreg_lowpart_p (x))
+	x = SUBREG_REG (x);
+      /* Remove the AND if we have one. */
+      if (GET_CODE (x) == AND && CONST_INT_P (XEXP (x, 1)) && INTVAL (XEXP (x, 1)) == mask)
+	x = XEXP (x, 0);
+      if (!CONST_INT_P (x) && GET_CODE (x) != REG)
+	return NULL_RTX;
+      x = rtl_hooks.gen_lowpart_no_emit (GET_MODE (tem), x);
+      if (!x)
+	return NULL_RTX;
+      tem = x;
+    }
 
   /* gen_lowpart_common will not be able to process VOIDmode entities other
      than CONST_INTs.  */
@@ -1156,7 +1173,7 @@ forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
       if (MEM_P (SET_DEST (use_pat)))
 	{
 	  loc = &SET_DEST (use_pat);
-	  new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p);
+	  new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p, -1);
 	  if (new_rtx)
 	    validate_unshare_change (use_insn, loc, new_rtx, true);
 	}
@@ -1170,7 +1187,7 @@ forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
 	      {
 		loc = &SET_DEST (XVECEXP (use_pat, 0, i));
 		new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg,
-					 src, speed_p);
+					 src, speed_p, -1);
 		if (new_rtx)
 		  validate_unshare_change (use_insn, loc, new_rtx, true);
 	      }
@@ -1187,7 +1204,7 @@ forward_propagate_asm (df_ref use, rtx def_insn, rtx def_set, rtx reg)
   for (i = 0; i < ASM_OPERANDS_INPUT_LENGTH (asm_operands); i++)
     {
       loc = &ASM_OPERANDS_INPUT (asm_operands, i);
-      new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p);
+      new_rtx = propagate_rtx (*loc, GET_MODE (*loc), reg, src, speed_p, -1);
       if (new_rtx)
 	validate_unshare_change (use_insn, loc, new_rtx, true);
     }
@@ -1212,6 +1229,7 @@ forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
   bool set_reg_equal;
   enum machine_mode mode;
   int asm_use = -1;
+  unsigned HOST_WIDE_INT mask = -1;
 
   if (INSN_CODE (use_insn) < 0)
     asm_use = asm_noperands (PATTERN (use_insn));
@@ -1311,8 +1329,17 @@ forward_propagate_and_simplify (df_ref use, rtx def_insn, rtx def_set)
   else
     mode = GET_MODE (*loc);
 
+  if (DF_REF_TYPE (use) != DF_REF_REG_MEM_STORE
+      && use_set && GET_CODE (SET_DEST (use_set)) == ZERO_EXTRACT
+      && CONST_INT_P (XEXP (SET_DEST (use_set), 1)))
+    {
+      unsigned HOST_WIDE_INT width = INTVAL (XEXP (SET_DEST (use_set), 1));
+      mask = ((unsigned HOST_WIDE_INT)-1) >> (HOST_BITS_PER_WIDE_INT - width);
+    }
+
   new_rtx = propagate_rtx (*loc, mode, reg, src,
-  			   optimize_bb_for_speed_p (BLOCK_FOR_INSN (use_insn)));
+  			   optimize_bb_for_speed_p (BLOCK_FOR_INSN (use_insn)),
+			   mask);
 
   if (!new_rtx)
     return false;

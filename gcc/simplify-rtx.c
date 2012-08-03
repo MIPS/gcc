@@ -762,6 +762,15 @@ simplify_truncation (enum machine_mode mode, rtx op,
 				 : byte + shifted_bytes));
     }
 
+      /* (truncate:SI (and:DI foo:DI (mask))) == (truncate:SI foo:DI)
+	  if the mask is equal to mode mask of SI. This happens when you have a
+	  zero_extend of a subreg. */
+      if (GET_CODE (op) == AND
+	  && CONST_INT_P (XEXP (op, 1))
+	  && GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
+	  && UINTVAL (XEXP (op, 1)) == GET_MODE_MASK (mode))
+	return simplify_gen_unary (TRUNCATE, mode, XEXP (op, 0), GET_MODE (op));
+
   /* (truncate:SI (OP:DI ({sign,zero}_extend:DI foo:SI))) is
      (OP:SI foo:SI) if OP is NEG or ABS.  */
   if ((GET_CODE (op) == ABS
@@ -1475,6 +1484,19 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 			  simplify_gen_unary (ZERO_EXTEND, mode, rhs, rmode));
 	    }
 	}
+
+      /* (zero_extend:SI (subreg:HI foo:DI)) is just (subreg:SI foo:DI) if we
+         know that the last value didn't have any inappropriate bits
+         set.  */
+      if (GET_CODE (op) == SUBREG
+         && subreg_lowpart_p (op)
+         && (GET_MODE_SIZE (GET_MODE (op))
+              < GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
+         && (GET_MODE_SIZE (mode)
+              <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
+         && ((nonzero_bits (SUBREG_REG (op), GET_MODE (SUBREG_REG (op)))
+             & ~GET_MODE_MASK (GET_MODE(op))) == 0))
+       return rtl_hooks.gen_lowpart_no_emit (mode, SUBREG_REG (op));
 
       /* (zero_extend:M (zero_extend:N <X>)) is (zero_extend:M <X>).  */
       if (GET_CODE (op) == ZERO_EXTEND)
@@ -2839,6 +2861,21 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	  tem = simplify_gen_binary (AND, xmode, x,
 				     gen_int_mode (INTVAL (trueop1), xmode));
 	  return simplify_gen_unary (TRUNCATE, mode, tem, xmode);
+	}
+
+      /* Transform (and (subreg X) C) into (subreg (and X C)).  This way
+	 we might be able to further simplify the AND with X and potentially
+	 remove the subreg altogether.  */
+      if (GET_CODE (op0) == SUBREG && CONST_INT_P (trueop1)
+	  && INTEGRAL_MODE_P (GET_MODE (SUBREG_REG (op0)))
+	  && subreg_lowpart_p (op0)
+	  && GET_MODE_BITSIZE (GET_MODE (op0)) < GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0))))
+	{
+	  rtx x = SUBREG_REG (op0);
+	  enum machine_mode xmode = GET_MODE (x);
+	  tem = simplify_gen_binary (AND, xmode, x,
+				     gen_int_mode (INTVAL (trueop1), xmode));
+	  return rtl_hooks.gen_lowpart_no_emit (mode, tem);
 	}
 
       /* Canonicalize (A | C1) & C2 as (A & C2) | (C1 & C2).  */
@@ -5021,6 +5058,17 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 	    }
 
 	  return gen_int_mode (val, mode);
+	}
+
+      /*  If the 2nd operand was a subreg which is a lowpart one,
+	  then generate a lowpart subreg of the inner most subreg.  */
+      if (GET_CODE (op2) == SUBREG
+	  && subreg_lowpart_p (op2)
+	  && GET_MODE (op2) != op0_mode)
+	{
+	  rtx t = gen_lowpart_if_possible (op0_mode, op2);
+	  if (t != NULL_RTX && t != op2)
+	    return simplify_gen_ternary (code, mode, op0_mode, op0, op1, t);
 	}
       break;
 

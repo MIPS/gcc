@@ -890,6 +890,33 @@
 
 2012-08-02  Andrew Pinski  <apinski@cavium.com>
 
+	* config/i386/i386.md (*jcc_bt<mode>_mask): Use SWI48 for the modes
+	of the and.  Remove simplify_gen_subreg since it is already in the correct
+	mode.
+	* fwprop.c (propagate_rtx): Take a mask argument.
+	If propagate_rtx_1 fails, try using the mask to remove
+	an extend from a pseudo-register.
+	(forward_propagate_asm): Update call to propagate_rtx.
+	(forward_propagate_and_simplify): If the lhs of the set
+	is a zero_extract, then pass a mask of the bits which we need.
+	* simplify-rtx.c  (simplify_unary_operation_1 <case TRUNCATE>):
+	Handle a truncation of an and if the mask is the same as the
+	mode mask.
+	(simplify_unary_operation_1 <case ZERO_EXTEND>): Transform
+	(zero_extend:SI (subreg:HI foo:DI)) to (subreg:SI foo:DI)
+	if we know the zero_extend is not needed.
+	(simplify_binary_operation_1): Transform "(and (subreg X) C)"
+	into (subreg (and X C)) for lowpart subregs.
+	(simplify_ternary_operation <case ZERO_EXTRACT>):
+	If op2 is in the same mode as op0 and was a subreg, then create
+	a subreg which is the same mode as op0.
+
+	* testsuite/gcc.dg/extend-1.c: New testcase.
+	* testsuite/gcc.dg/extend-2.c: New testcase.
+	* testsuite/gcc.target/mips/ins-10.c: New testcase.
+
+2012-08-02  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.md: Add to the comment about
 	"Bit field extract patterns".
 
