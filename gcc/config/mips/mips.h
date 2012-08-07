@@ -1115,6 +1115,7 @@ struct mips_cpu_info {
 #define ISA_HAS_SWAP (TARGET_XLP)
 #define ISA_HAS_LDADD (TARGET_XLP)
 #define ISA_HAS_LAA (TARGET_OCTEON2)
+#define ISA_HAS_LAW (TARGET_OCTEON2)
 /* FIXME: Octeon+ has saa also. */
 #define ISA_HAS_SAA (TARGET_OCTEON2)
 
