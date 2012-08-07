@@ -148,6 +148,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-07  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/predicates.md (law_lac_las_operand): New predicate.
+	* config/mips/sync.md (atomic_exchange<mode>_law): Add support
+	for emitting las and lac.
+
 2012-08-06  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.h (ISA_HAS_LAW): New define.

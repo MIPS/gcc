@@ -491,8 +491,12 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "lad_operand")
        (match_operand 0 "lai_operand")))
-       
 
+(define_predicate "law_lac_las_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "lad_operand")
+       (match_operand 0 "const_0_operand")))
+       
 (define_predicate "mem_noofs_operand"
   (and (match_code "mem")
        (match_code "reg" "0")))

@@ -663,23 +663,39 @@
   [(set_attr "type" "atomic")])
 
 (define_insn "atomic_exchange<mode>_law"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-	(unspec_volatile:GPR [(match_operand:GPR 1 "mem_noofs_operand" "+ZR")]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "mem_noofs_operand" "+ZR,ZR,ZR")]
 	 UNSPEC_ATOMIC_EXCHANGE))
    (set (match_dup 1)
-	(unspec_volatile:GPR [(match_operand:GPR 2 "register_operand" "d")]
+	(unspec_volatile:GPR [(match_operand:GPR 2 "law_lac_las_operand" "d,J,YD")]
 	 UNSPEC_ATOMIC_EXCHANGE))
    (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
     UNSPEC_ATOMIC_EXCHANGE)]
    "ISA_HAS_LAW"
 {
+  const char *asmstr;
   enum memmodel model;
   model = (enum memmodel)INTVAL (operands[3]);
 
   if (need_atomic_barrier_p (model, true))
     output_asm_insn ("syncw", NULL);
 
-  output_asm_insn ("law<d>\t%0,(%b1),%2", operands);
+  switch (which_alternative)
+    {
+    case 0:
+      asmstr = "law<d>\t%0,(%b1),%2";
+      break;
+    case 1:
+      asmstr = "lac<d>\t%0,(%b1)";
+      break;
+    case 2:
+      asmstr = "las<d>\t%0,(%b1)";
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  output_asm_insn (asmstr, operands);
 
   if (need_atomic_barrier_p (model, false))
     output_asm_insn ("syncw", NULL);
