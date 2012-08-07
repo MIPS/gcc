@@ -661,9 +661,9 @@
    (match_operand:GPR 1 "memory_operand")
    (match_operand:GPR 2 "arith_operand")
    (match_operand:SI 3 "const_int_operand")]
-  "GENERATE_LL_SC || ISA_HAS_LDADD"
+  "GENERATE_LL_SC || ISA_HAS_LDADD || ISA_HAS_LAA"
 {
-  if (ISA_HAS_LDADD)
+  if (ISA_HAS_LDADD || ISA_HAS_LAA)
     {
       if (!mem_noofs_operand (operands[1], <MODE>mode))
         {
@@ -673,8 +673,14 @@
 	  operands[1] = replace_equiv_address (operands[1], addr);
 	}
       operands[2] = force_reg (<MODE>mode, operands[2]);
-      emit_insn (gen_atomic_fetch_add<mode>_ldadd (operands[0], operands[1],
-						   operands[2]));
+      if (ISA_HAS_LDADD)
+        emit_insn (gen_atomic_fetch_add<mode>_ldadd (operands[0], operands[1],
+						     operands[2]));
+      else if (ISA_HAS_LAA)
+        emit_insn (gen_atomic_fetch_add<mode>_laa (operands[0], operands[1],
+						     operands[2], operands[3]));
+      else
+	gcc_unreachable ();
     }
   else
     emit_insn (gen_atomic_fetch_add<mode>_llsc (operands[0], operands[1],
@@ -693,7 +699,7 @@
 	 UNSPEC_ATOMIC_FETCH_OP))
    (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
     UNSPEC_ATOMIC_FETCH_OP)]
-  "GENERATE_LL_SC && !ISA_HAS_LDADD"
+  "GENERATE_LL_SC && !ISA_HAS_LDADD && !ISA_HAS_LAA"
   { return mips_output_sync_loop (insn, operands); }
   [(set_attr "sync_insn1" "addiu,addu")
    (set_attr "sync_oldval" "0")
@@ -714,3 +720,31 @@
   "ISA_HAS_LDADD"
   "ldadd<size>\t%0,%b1"
   [(set_attr "type" "atomic")])
+
+
+(define_insn "atomic_fetch_add<mode>_laa"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "mem_noofs_operand" "+ZR")]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (set (match_dup 1)
+	(unspec_volatile:GPR
+	 [(plus:GPR (match_dup 1)
+		    (match_operand:GPR 2 "register_operand" "d"))]
+	 UNSPEC_ATOMIC_FETCH_OP))
+  (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
+    UNSPEC_ATOMIC_FETCH_OP)]
+  "ISA_HAS_LAA"
+{
+  enum memmodel model;
+  model = (enum memmodel)INTVAL (operands[3]);
+
+  if (need_atomic_barrier_p (model, true))
+    output_asm_insn ("syncw", NULL);
+
+  output_asm_insn ("laa<d>\t%0,(%b1),%2", operands);
+
+  if (need_atomic_barrier_p (model, false))
+    output_asm_insn ("syncw", NULL);
+
+  return "";
+})

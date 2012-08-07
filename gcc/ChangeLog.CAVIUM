@@ -148,6 +148,16 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-06  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.h (ISA_HAS_LAA): New define.
+	(ISA_HAS_SAA): Likewise.
+	* config/mips/sync.md (atomic_fetch_add<mode>): Add support
+	for emitting laa.
+	(atomic_fetch_add<mode>_llsc): Disable it for
+	ISA_HAS_LAA.
+	(atomic_fetch_add<mode>_laa): New pattern.
+
 2012-08-02  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.md: Add to the comment about
