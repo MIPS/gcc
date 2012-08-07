@@ -479,6 +479,20 @@
   (and (match_code "set,parallel,unspec,unspec_volatile,prefetch")
        (match_test "mips_small_data_pattern_p (op)")))
 
+(define_predicate "lai_operand"
+  (and (match_code "const_int")
+	    (match_test "op == CONST1_RTX (GET_MODE (op))")))
+
+(define_predicate "lad_operand"
+  (and (match_code "const_int")
+	    (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
+
+(define_predicate "laa_lai_lad_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "lad_operand")
+       (match_operand 0 "lai_operand")))
+       
+
 (define_predicate "mem_noofs_operand"
   (and (match_code "mem")
        (match_code "reg" "0")))

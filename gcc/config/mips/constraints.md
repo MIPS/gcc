@@ -365,3 +365,13 @@
   (and (match_code "mem")
        (match_operand 0 "lbu16_operand")))
 
+(define_constraint "YD"
+ "@internal
+  lad operand (-1)"
+  (match_operand 0 "lad_operand"))
+
+(define_constraint "YI"
+ "@internal
+  lai operand (1)"
+  (match_operand 0 "lai_operand"))
+

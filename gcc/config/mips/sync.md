@@ -723,25 +723,41 @@
 
 
 (define_insn "atomic_fetch_add<mode>_laa"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-	(unspec_volatile:GPR [(match_operand:GPR 1 "mem_noofs_operand" "+ZR")]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "mem_noofs_operand" "+ZR,ZR,ZR")]
 	 UNSPEC_ATOMIC_FETCH_OP))
    (set (match_dup 1)
 	(unspec_volatile:GPR
 	 [(plus:GPR (match_dup 1)
-		    (match_operand:GPR 2 "register_operand" "d"))]
+		    (match_operand:GPR 2 "laa_lai_lad_operand" "d,YD,YI"))]
 	 UNSPEC_ATOMIC_FETCH_OP))
   (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
     UNSPEC_ATOMIC_FETCH_OP)]
   "ISA_HAS_LAA"
 {
+  const char *asmstr;
   enum memmodel model;
   model = (enum memmodel)INTVAL (operands[3]);
 
   if (need_atomic_barrier_p (model, true))
     output_asm_insn ("syncw", NULL);
 
-  output_asm_insn ("laa<d>\t%0,(%b1),%2", operands);
+  switch (which_alternative)
+    {
+    case 0:
+      asmstr = "laa<d>\t%0,(%b1),%2";
+      break;
+    case 1:
+      asmstr = "lad<d>\t%0,(%b1)";
+      break;
+    case 2:
+      asmstr = "lai<d>\t%0,(%b1)";
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  output_asm_insn (asmstr, operands);
 
   if (need_atomic_barrier_p (model, false))
     output_asm_insn ("syncw", NULL);
