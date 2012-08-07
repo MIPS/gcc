@@ -1,3 +1,12 @@
+2012-08-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_constraint_iter_after_spill): New.
+
+	* lra.c (lra): Initialize lra_constraint_iter_after_spill.
+
+	* lra-constraints.c (lra_constraint_iter_after_spill): New.
+	(lra_constraints): Use lra_constraint_iter_after_spill.
+
 2012-08-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-assign.c (find_hard_regno_for): Check paradoxical subregs.

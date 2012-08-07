@@ -296,6 +296,7 @@ extern rtx lra_secondary_memory[NUM_MACHINE_MODES];
 extern int lra_constraint_offset (int, enum machine_mode);
 
 extern int lra_constraint_iter;
+extern int lra_constraint_iter_after_spill;
 extern bool lra_risky_transformations_p;
 extern int lra_inheritance_iter;
 extern int lra_undo_inheritance_iter;

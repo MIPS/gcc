@@ -2118,7 +2118,8 @@ lra (FILE *f)
   COPY_HARD_REG_SET (lra_no_alloc_regs, ira_no_alloc_regs);
 
   lra_live_range_iter = lra_coalesce_iter = 0;
-  lra_constraint_iter = lra_inheritance_iter = lra_undo_inheritance_iter = 0;
+  lra_constraint_iter = lra_constraint_iter_after_spill = 0;
+  lra_inheritance_iter = lra_undo_inheritance_iter = 0;
 
   setup_reg_spill_flag ();
 
@@ -2214,6 +2215,7 @@ lra (FILE *f)
       lra_constraint_new_regno_start = max_reg_num ();
       lra_constraint_new_insn_uid_start = get_max_uid ();
       bitmap_clear (&lra_matched_pseudos);
+      lra_constraint_iter_after_spill = 0;
     }
   restore_scratches ();
   lra_eliminate (true);

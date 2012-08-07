@@ -3460,8 +3460,8 @@ debug_loc_equivalence_change_p (rtx *loc)
   return result;
 }
 
-/* Maximum number of constraint pass iteration number.  It is for
-   preventing all LRA cycling.  */
+/* Maximum number of constraint pass iteration number after the last
+   spill pass.  It is for preventing all LRA cycling.  */
 #define MAX_CONSTRAINT_ITERATION_NUMBER 15
 
 /* Maximum number of generated reload insns per an insn.  It is for
@@ -3470,6 +3470,10 @@ debug_loc_equivalence_change_p (rtx *loc)
 
 /* The current iteration number of this LRA pass.  */
 int lra_constraint_iter;
+
+/* The current iteration number of this LRA pass after the last spill
+   pass.  */
+int lra_constraint_iter_after_spill;
 
 /* True if we substituted equiv which needs checking register
    allocation correctness because the equivalent value contains
@@ -3492,7 +3496,8 @@ lra_constraints (bool first_p)
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Local #%d: **********\n\n",
 	     lra_constraint_iter);
-  if (lra_constraint_iter > MAX_CONSTRAINT_ITERATION_NUMBER)
+  lra_constraint_iter_after_spill++;
+  if (lra_constraint_iter_after_spill > MAX_CONSTRAINT_ITERATION_NUMBER)
     internal_error
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
        MAX_CONSTRAINT_ITERATION_NUMBER);
