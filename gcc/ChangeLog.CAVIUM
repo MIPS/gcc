@@ -150,6 +150,11 @@
 	
 2012-08-08  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/sync.md (sync_old_sub<mode>): Remove.
+	(sync_new_sub<mode>): Remove.
+
+2012-08-08  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/sync.md (atomic_fetch_sub<mode>): New expand.
 	(atomic_sub_fetch<mode>): New expand.
 	(atomic_fetch_sub<mode>_llsc): New pattern.

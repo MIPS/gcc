@@ -368,37 +368,6 @@
    (set_attr "sync_insn1_op2" "4")])
 
 
-(define_insn "sync_old_sub<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d")
-	(match_operand:GPR 1 "memory_operand" "+ZR"))
-   (set (match_dup 1)
-	(unspec_volatile:GPR
-          [(minus:GPR (match_dup 1)
-		      (match_operand:GPR 2 "register_operand" "d"))]
-	 UNSPEC_SYNC_OLD_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "subu")
-   (set_attr "sync_oldval" "0")
-   (set_attr "sync_mem" "1")
-   (set_attr "sync_insn1_op2" "2")])
-
-(define_insn "sync_new_sub<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d")
-        (minus:GPR (match_operand:GPR 1 "memory_operand" "+ZR")
-		   (match_operand:GPR 2 "register_operand" "d")))
-   (set (match_dup 1)
-	(unspec_volatile:GPR
-	  [(minus:GPR (match_dup 1) (match_dup 2))]
-	 UNSPEC_SYNC_NEW_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "subu")
-   (set_attr "sync_oldval" "0")
-   (set_attr "sync_newval" "0")
-   (set_attr "sync_mem" "1")
-   (set_attr "sync_insn1_op2" "2")])
-
 (define_insn "sync_<optab><mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+ZR,ZR")
 	(unspec_volatile:GPR
