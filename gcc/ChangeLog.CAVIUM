@@ -150,6 +150,13 @@
 	
 2012-08-07  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/sync.md (UNSPEC_ATOMIC_OP): New unspec.
+	(atomic_add<mode>): New expand.
+	(atomic_add<mode>_llsc): New pattern.
+	(atomic_add<mode>_saa): New pattern.
+
+2012-08-07  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.md (INT1): New mode iterator.
 	* config/mips/sync.md (UNSPEC_MEMORY_BARRIER_W): New unspec.
 	(memory_barrier_w): New expand.

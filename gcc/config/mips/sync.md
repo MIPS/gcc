@@ -32,6 +32,7 @@
   UNSPEC_ATOMIC_COMPARE_AND_SWAP
   UNSPEC_ATOMIC_EXCHANGE
   UNSPEC_ATOMIC_FETCH_OP
+  UNSPEC_ATOMIC_OP
 ])
 
 ;; Atomic fetch bitwise operations.
@@ -746,6 +747,65 @@
   DONE;
 })
 
+(define_expand "atomic_add<mode>"
+   [(match_operand:GPR 0 "memory_operand" "")		;; memory
+   (plus:GPR (match_dup 0)
+     (match_operand:GPR 1 "arith_operand" ""))		;; operand
+   (match_operand:SI 2 "const_int_operand" "")]		;; model 
+  "GENERATE_LL_SC || ISA_HAS_SAA"
+{
+  if (ISA_HAS_SAA)
+    {
+      if (!mem_noofs_operand (operands[0], <MODE>mode))
+        {
+	  rtx addr;
+
+	  addr = force_reg (Pmode, XEXP (operands[0], 0));
+	  operands[0] = replace_equiv_address (operands[0], addr);
+	}
+      operands[1] = force_reg (<MODE>mode, operands[1]);
+      emit_insn (gen_atomic_add<mode>_saa (operands[0], operands[1],
+					   operands[2]));
+    }
+  else
+    emit_insn (gen_atomic_add<mode>_llsc (operands[0], operands[1],
+					  operands[2]));
+  DONE;
+})
+
+(define_insn "atomic_add<mode>_llsc"
+  [(set (match_operand:GPR 0 "memory_operand" "+R,R")
+	(unspec_volatile:GPR
+          [(plus:GPR (match_dup 0)
+		     (match_operand:GPR 1 "arith_operand" "I,d"))]
+	  UNSPEC_ATOMIC_OP))
+   (unspec_volatile:GPR [(match_operand:SI 2 "const_int_operand")]
+    UNSPEC_ATOMIC_OP)]
+  "GENERATE_LL_SC && !ISA_HAS_SAA"
+  { return mips_output_sync_loop (insn, operands); }
+  [(set_attr "sync_insn1" "addiu,addu")
+   (set_attr "sync_mem" "0")
+   (set_attr "sync_insn1_op2" "1")
+   (set_attr "sync_memmodel" "2")])
+
+(define_insn "atomic_add<mode>_saa"
+  [(set (match_operand:GPR 0 "memory_operand" "+R")
+	(unspec_volatile:GPR
+          [(plus:GPR (match_dup 0)
+		     (match_operand:GPR 1 "arith_operand" "d"))]
+	  UNSPEC_ATOMIC_OP))
+   (unspec_volatile:GPR [(match_operand:SI 2 "const_int_operand")]
+    UNSPEC_ATOMIC_OP)]
+  "ISA_HAS_SAA"
+{
+  enum memmodel model;
+  model = (enum memmodel)INTVAL (operands[2]);
+
+  if (need_atomic_barrier_p (model, true))
+    output_asm_insn ("syncw", NULL);
+  return "saa<d>\t%1,(%b0)";
+})
+
 (define_expand "atomic_add_fetch<mode>"
   [(match_operand:GPR 0 "register_operand")
    (match_operand:GPR 1 "memory_operand")
@@ -854,6 +914,7 @@
       if (!TARGET_OCTEON)
 	emit_insn (gen_memory_barrier ());
     }
+
   DONE;
 })
 
