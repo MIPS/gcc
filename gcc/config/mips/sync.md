@@ -29,6 +29,7 @@
   UNSPEC_SYNC_EXCHANGE_12
   UNSPEC_MEMORY_BARRIER
   UNSPEC_MEMORY_BARRIER_W
+  UNSPEC_MEMORY_BARRIER_R
   UNSPEC_ATOMIC_COMPARE_AND_SWAP
   UNSPEC_ATOMIC_EXCHANGE
   UNSPEC_ATOMIC_FETCH_OP
@@ -75,6 +76,21 @@
 	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER_W))]
   "TARGET_OCTEON"
   "syncw")
+
+(define_expand "memory_barrier_r"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER_R))]
+  "TARGET_OCTEON"
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+})
+
+(define_insn "*memory_barrier_r"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER_R))]
+  "TARGET_OCTEON"
+  "")
 
 ;; Can be removed in favor of atomic_compare_and_swap below.
 (define_insn "sync_compare_and_swap<mode>"
@@ -927,8 +943,13 @@
   enum memmodel model = (enum memmodel) INTVAL (operands[2]);
 
   /* Octeon never moves around loads. */
-  if (need_atomic_barrier_p (model, true) && !TARGET_OCTEON)
-    emit_insn (gen_memory_barrier ());
+  if (need_atomic_barrier_p (model, true))
+    {
+      if (TARGET_OCTEON)
+	emit_insn (gen_memory_barrier_r ());
+      else
+        emit_insn (gen_memory_barrier ());
+    }
 
   emit_move_insn (operands[0], operands[1]);
 
