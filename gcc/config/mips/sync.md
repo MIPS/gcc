@@ -92,22 +92,6 @@
   "TARGET_OCTEON"
   "")
 
-;; Can be removed in favor of atomic_compare_and_swap below.
-(define_insn "sync_compare_and_swap<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
-	(match_operand:GPR 1 "memory_operand" "+ZR,ZR"))
-   (set (match_dup 1)
-	(unspec_volatile:GPR [(match_operand:GPR 2 "reg_or_0_operand" "dJ,dJ")
-			      (match_operand:GPR 3 "arith_operand" "I,d")]
-	 UNSPEC_COMPARE_AND_SWAP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "li,move")
-   (set_attr "sync_oldval" "0")
-   (set_attr "sync_mem" "1")
-   (set_attr "sync_required_oldval" "2")
-   (set_attr "sync_insn1_op2" "3")])
-
 (define_expand "sync_compare_and_swap<mode>"
   [(match_operand:SHORT 0 "register_operand")
    (match_operand:SHORT 1 "memory_operand")
@@ -140,18 +124,6 @@
    (set_attr "sync_exclusive_mask" "3")
    (set_attr "sync_required_oldval" "4")
    (set_attr "sync_insn1_op2" "5")])
-
-(define_insn "sync_add<mode>"
-  [(set (match_operand:GPR 0 "memory_operand" "+ZR,ZR")
-	(unspec_volatile:GPR
-          [(plus:GPR (match_dup 0)
-		     (match_operand:GPR 1 "arith_operand" "I,d"))]
-	  UNSPEC_SYNC_OLD_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "addiu,addu")
-   (set_attr "sync_mem" "0")
-   (set_attr "sync_insn1_op2" "1")])
 
 (define_expand "sync_<optab><mode>"
   [(set (match_operand:SHORT 0 "memory_operand")
