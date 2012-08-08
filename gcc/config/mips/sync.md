@@ -367,6 +367,7 @@
    (set_attr "sync_exclusive_mask" "3")
    (set_attr "sync_insn1_op2" "4")])
 
+;; Can be removed in favor of atomic_sub below.
 (define_insn "sync_sub<mode>"
   [(set (match_operand:GPR 0 "memory_operand" "+ZR")
 	(unspec_volatile:GPR
@@ -793,6 +794,49 @@
     output_asm_insn ("syncw", NULL);
   return "saa<d>\t%1,(%b0)";
 })
+
+(define_expand "atomic_sub<mode>"
+   [(match_operand:GPR 0 "memory_operand" "")		;; memory
+   (minus:GPR (match_dup 0)
+     (match_operand:GPR 1 "register_operand" ""))	;; operand
+   (match_operand:SI 2 "const_int_operand" "")]		;; model 
+  "GENERATE_LL_SC || ISA_HAS_SAA"
+{
+  /* Sub can be done as add -OP1. */
+  if (ISA_HAS_SAA)
+    {
+      rtx negop1 = gen_reg_rtx (<MODE>mode);
+      emit_insn (gen_neg<mode>2 (negop1, operands[1]));
+      if (!mem_noofs_operand (operands[0], <MODE>mode))
+        {
+	  rtx addr;
+
+	  addr = force_reg (Pmode, XEXP (operands[0], 0));
+	  operands[0] = replace_equiv_address (operands[0], addr);
+	}
+      emit_insn (gen_atomic_add<mode>_saa (operands[0], negop1,
+					   operands[2]));
+    }
+  else
+    emit_insn (gen_atomic_sub<mode>_llsc (operands[0], operands[1],
+					  operands[2]));
+  DONE;
+})
+
+(define_insn "atomic_sub<mode>_llsc"
+  [(set (match_operand:GPR 0 "memory_operand" "+R")
+	(unspec_volatile:GPR
+          [(minus:GPR (match_dup 0)
+		     (match_operand:GPR 1 "register_operand" "d"))]
+	  UNSPEC_ATOMIC_OP))
+   (unspec_volatile:GPR [(match_operand:SI 2 "const_int_operand")]
+    UNSPEC_ATOMIC_OP)]
+  "GENERATE_LL_SC && !ISA_HAS_SAA"
+  { return mips_output_sync_loop (insn, operands); }
+  [(set_attr "sync_insn1" "subu")
+   (set_attr "sync_mem" "0")
+   (set_attr "sync_insn1_op2" "1")
+   (set_attr "sync_memmodel" "2")])
 
 (define_expand "atomic_add_fetch<mode>"
   [(match_operand:GPR 0 "register_operand")
