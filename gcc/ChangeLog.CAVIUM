@@ -150,6 +150,16 @@
 	
 2012-08-07  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.c (mips_process_sync_loop): Always emit
+	syncw for Octeon instead of sync.
+	* config/mips/mips.opt (msyncw): Remove option.
+	* config/mips/sync.md (atomic_compare_and_swap<mode>): Add a few
+	comments about the operands.
+	(atomic_exchange<mode>_law): Don't emit syncw after the law/lac/las.
+	(atomic_fetch_add<mode>_laa): Don't emit syncw after the laa/lad/lai.
+
+2012-08-07  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.opt (msyncw): New option.
 	* config/mips/mips.c (mips_process_sync_loop): Emit
 	a sync only if model is MEMMODEL_SEQ_CST and not when

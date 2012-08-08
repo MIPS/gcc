@@ -13023,7 +13023,7 @@ mips_process_sync_loop (rtx insn, rtx *operands)
   /* Output the release side of the memory barrier.  */
   if (need_atomic_barrier_p (model, true))
     {
-      if ((model != MEMMODEL_SEQ_CST || flag_syncw) && TARGET_OCTEON)
+      if (TARGET_OCTEON)
 	{
 	  /* Octeon doesn't reorder reads, so a full barrier can be
 	     created by using SYNCW to order writes combined with the

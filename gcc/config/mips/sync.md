@@ -588,8 +588,11 @@
 			      (match_operand:GPR 4 "arith_operand" "I,d")]
 	 UNSPEC_ATOMIC_COMPARE_AND_SWAP))
    (unspec_volatile:GPR [(match_operand:SI 5 "const_int_operand")
+			  ;; is_weak; FIXME: not important for Octeon
 			 (match_operand:SI 6 "const_int_operand")
+			  ;; model succ
 			 (match_operand:SI 7 "const_int_operand")]
+			  ;; model fail; FIXME: not important for Octeon
     UNSPEC_ATOMIC_COMPARE_AND_SWAP)]
   "GENERATE_LL_SC"
   { return mips_output_sync_loop (insn, operands); }
@@ -673,7 +676,6 @@
     UNSPEC_ATOMIC_EXCHANGE)]
    "ISA_HAS_LAW"
 {
-  const char *asmstr;
   enum memmodel model;
   model = (enum memmodel)INTVAL (operands[3]);
 
@@ -683,24 +685,14 @@
   switch (which_alternative)
     {
     case 0:
-      asmstr = "law<d>\t%0,(%b1),%2";
-      break;
+      return "law<d>\t%0,(%b1),%2";
     case 1:
-      asmstr = "lac<d>\t%0,(%b1)";
-      break;
+      return "lac<d>\t%0,(%b1)";
     case 2:
-      asmstr = "las<d>\t%0,(%b1)";
-      break;
+      return "las<d>\t%0,(%b1)";
     default:
       gcc_unreachable ();
     }
-
-  output_asm_insn (asmstr, operands);
-
-  if (need_atomic_barrier_p (model, false))
-    output_asm_insn ("syncw", NULL);
-
-  return "";
 })
 
 (define_expand "atomic_fetch_add<mode>"
@@ -782,7 +774,6 @@
     UNSPEC_ATOMIC_FETCH_OP)]
   "ISA_HAS_LAA"
 {
-  const char *asmstr;
   enum memmodel model;
   model = (enum memmodel)INTVAL (operands[3]);
 
@@ -792,22 +783,12 @@
   switch (which_alternative)
     {
     case 0:
-      asmstr = "laa<d>\t%0,(%b1),%2";
-      break;
+      return "laa<d>\t%0,(%b1),%2";
     case 1:
-      asmstr = "lad<d>\t%0,(%b1)";
-      break;
+      return "lad<d>\t%0,(%b1)";
     case 2:
-      asmstr = "lai<d>\t%0,(%b1)";
-      break;
+      return "lai<d>\t%0,(%b1)";
     default:
       gcc_unreachable ();
     }
-
-  output_asm_insn (asmstr, operands);
-
-  if (need_atomic_barrier_p (model, false))
-    output_asm_insn ("syncw", NULL);
-
-  return "";
 })
