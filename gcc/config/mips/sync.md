@@ -692,6 +692,39 @@
   DONE;
 })
 
+(define_expand "atomic_fetch_sub<mode>"
+  [(match_operand:GPR 0 "register_operand")
+   (match_operand:GPR 1 "memory_operand")
+   (match_operand:GPR 2 "register_operand")
+   (match_operand:SI 3 "const_int_operand")]
+  "GENERATE_LL_SC || ISA_HAS_LDADD || ISA_HAS_LAA"
+{
+  if (ISA_HAS_LDADD || ISA_HAS_LAA)
+    {
+      rtx negop2 = gen_reg_rtx (<MODE>mode);
+      emit_insn (gen_neg<mode>2 (negop2, operands[2]));
+      if (!mem_noofs_operand (operands[1], <MODE>mode))
+        {
+	  rtx addr;
+
+	  addr = force_reg (Pmode, XEXP (operands[1], 0));
+	  operands[1] = replace_equiv_address (operands[1], addr);
+	}
+      if (ISA_HAS_LDADD)
+        emit_insn (gen_atomic_fetch_add<mode>_ldadd (operands[0], operands[1],
+						     negop2));
+      else if (ISA_HAS_LAA)
+        emit_insn (gen_atomic_fetch_add<mode>_laa (operands[0], operands[1],
+						   negop2, operands[3]));
+      else
+	gcc_unreachable ();
+    }
+  else
+    emit_insn (gen_atomic_fetch_sub<mode>_llsc (operands[0], operands[1],
+						operands[2], operands[3]));
+  DONE;
+})
+
 (define_expand "atomic_add<mode>"
    [(match_operand:GPR 0 "memory_operand" "")		;; memory
    (plus:GPR (match_dup 0)
@@ -807,6 +840,39 @@
   emit_insn (gen_add<mode>3 (operands[0], tempreg, operands[2]));
   DONE;
 })
+
+(define_expand "atomic_sub_fetch<mode>"
+  [(match_operand:GPR 0 "register_operand")
+   (match_operand:GPR 1 "memory_operand")
+   (match_operand:GPR 2 "register_operand")
+   (match_operand:SI 3 "const_int_operand")]
+  "GENERATE_LL_SC || ISA_HAS_LDADD || ISA_HAS_LAA"
+{
+  rtx tempreg = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_atomic_fetch_sub<mode> (tempreg, operands[1],
+					 operands[2], operands[3]));
+  emit_insn (gen_sub<mode>3 (operands[0], tempreg, operands[2]));
+  DONE;
+})
+
+(define_insn "atomic_fetch_sub<mode>_llsc"
+  [(set (match_operand:GPR 0 "register_operand" "=&d")
+	(unspec_volatile:GPR [(match_operand:GPR 1 "memory_operand" "+R")]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (set (match_dup 1)
+	(unspec_volatile:GPR
+	 [(minus:GPR (match_dup 1)
+		     (match_operand:GPR 2 "register_operand" "d"))]
+	 UNSPEC_ATOMIC_FETCH_OP))
+   (unspec_volatile:GPR [(match_operand:SI 3 "const_int_operand")]
+    UNSPEC_ATOMIC_FETCH_OP)]
+  "GENERATE_LL_SC && !ISA_HAS_LDADD && !ISA_HAS_LAA"
+  { return mips_output_sync_loop (insn, operands); }
+  [(set_attr "sync_insn1" "subu")
+   (set_attr "sync_oldval" "0")
+   (set_attr "sync_mem" "1")
+   (set_attr "sync_insn1_op2" "2")
+   (set_attr "sync_memmodel" "3")])
 
 (define_insn "atomic_fetch_add<mode>_llsc"
   [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
