@@ -717,13 +717,27 @@
 						     operands[2]));
       else if (ISA_HAS_LAA)
         emit_insn (gen_atomic_fetch_add<mode>_laa (operands[0], operands[1],
-						     operands[2], operands[3]));
+						   operands[2], operands[3]));
       else
 	gcc_unreachable ();
     }
   else
     emit_insn (gen_atomic_fetch_add<mode>_llsc (operands[0], operands[1],
 						operands[2], operands[3]));
+  DONE;
+})
+
+(define_expand "atomic_add_fetch<mode>"
+  [(match_operand:GPR 0 "register_operand")
+   (match_operand:GPR 1 "memory_operand")
+   (match_operand:GPR 2 "arith_operand")
+   (match_operand:SI 3 "const_int_operand")]
+  "GENERATE_LL_SC || ISA_HAS_LDADD || ISA_HAS_LAA"
+{
+  rtx tempreg = gen_reg_rtx (<MODE>mode);
+  emit_insn (gen_atomic_fetch_add<mode> (tempreg, operands[1],
+					 operands[2], operands[3]));
+  emit_insn (gen_add<mode>3 (operands[0], tempreg, operands[2]));
   DONE;
 })
 

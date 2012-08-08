@@ -150,6 +150,10 @@
 	
 2012-08-07  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/sync.md (atomic_add_fetch<mode>): New pattern.
+
+2012-08-07  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.c (mips_process_sync_loop): Always emit
 	syncw for Octeon instead of sync.
 	* config/mips/mips.opt (msyncw): Remove option.
