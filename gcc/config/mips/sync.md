@@ -28,6 +28,7 @@
   UNSPEC_SYNC_EXCHANGE
   UNSPEC_SYNC_EXCHANGE_12
   UNSPEC_MEMORY_BARRIER
+  UNSPEC_MEMORY_BARRIER_W
   UNSPEC_ATOMIC_COMPARE_AND_SWAP
   UNSPEC_ATOMIC_EXCHANGE
   UNSPEC_ATOMIC_FETCH_OP
@@ -55,6 +56,24 @@
 	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER))]
   "GENERATE_SYNC"
   { return mips_output_sync (); })
+
+(define_expand "memory_barrier_w"
+  [(set (match_dup 0)
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER_W))]
+  "TARGET_OCTEON"
+{
+  operands[0] = gen_rtx_MEM (BLKmode, gen_rtx_SCRATCH (Pmode));
+  MEM_VOLATILE_P (operands[0]) = 1;
+
+  if (!TARGET_OCTEON2)
+    emit_insn (gen_memory_barrier_w_internal (operands[0]));
+})
+
+(define_insn "memory_barrier_w_internal"
+  [(set (match_operand:BLK 0 "" "")
+	(unspec:BLK [(match_dup 0)] UNSPEC_MEMORY_BARRIER_W))]
+  "TARGET_OCTEON"
+  "syncw")
 
 ;; Can be removed in favor of atomic_compare_and_swap below.
 (define_insn "sync_compare_and_swap<mode>"
@@ -805,4 +824,55 @@
     default:
       gcc_unreachable ();
     }
+})
+
+(define_expand "atomic_store<mode>"
+  [(set (match_operand:INT1 0 "memory_operand" "")		;; memory
+	(match_operand:INT1 1 "register_operand" ""))		;; input
+   (use (match_operand:SI 2 "const_int_operand" ""))]		;; model
+  ""
+{
+  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
+  if (need_atomic_barrier_p (model, true))
+    {
+      if (TARGET_OCTEON)
+	emit_insn (gen_memory_barrier_w ());
+      else
+	emit_insn (gen_memory_barrier ());
+    }
+  
+  emit_move_insn (operands[0], operands[1]);
+
+  /* Even though the memory model says we don't have
+     to put a memory barrier here, an extra syncw does not hurt
+     performance but it could get the store out to memory sooner. */
+  if (TARGET_OCTEON && model != MEMMODEL_RELAXED)
+    emit_insn (gen_memory_barrier_w ());
+
+  if (need_atomic_barrier_p (model, false))
+    {
+      if (!TARGET_OCTEON)
+	emit_insn (gen_memory_barrier ());
+    }
+  DONE;
+})
+
+(define_expand "atomic_load<mode>"
+  [(set (match_operand:INT1 0 "register_operand" "")		;; output
+	(match_operand:INT1 1 "memory_operand" ""))		;; memory
+   (use (match_operand:SI 2 "const_int_operand" ""))]		;; model
+  ""
+{
+  enum memmodel model = (enum memmodel) INTVAL (operands[2]);
+
+  /* Octeon never moves around loads. */
+  if (need_atomic_barrier_p (model, true) && !TARGET_OCTEON)
+    emit_insn (gen_memory_barrier ());
+
+  emit_move_insn (operands[0], operands[1]);
+
+  if (model == MEMMODEL_SEQ_CST && !TARGET_OCTEON)
+    emit_insn (gen_sync ());
+
+  DONE;
 })

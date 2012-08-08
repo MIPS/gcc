@@ -793,6 +793,8 @@
 ;; Likewise the 64-bit truncate-and-shift patterns.
 (define_mode_iterator SUBDI [QI HI SI])
 
+(define_mode_iterator INT1 [QI HI SI (DI "TARGET_64BIT")])
+
 ;; This mode iterator allows :ANYF to be used wherever a scalar or vector
 ;; floating-point mode is allowed.
 (define_mode_iterator ANYF [(SF "TARGET_HARD_FLOAT")
