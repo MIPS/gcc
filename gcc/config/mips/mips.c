@@ -13023,7 +13023,7 @@ mips_process_sync_loop (rtx insn, rtx *operands)
   /* Output the release side of the memory barrier.  */
   if (need_atomic_barrier_p (model, true))
     {
-      if (required_oldval == 0 && TARGET_OCTEON)
+      if ((model != MEMMODEL_SEQ_CST || flag_syncw) && TARGET_OCTEON)
 	{
 	  /* Octeon doesn't reorder reads, so a full barrier can be
 	     created by using SYNCW to order writes combined with the
@@ -13031,8 +13031,10 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 	     completes, we know that all preceding writes are also
 	     committed to the coherent memory system.  It is possible
 	     for a single SYNCW to fail, but a pair of them will never
-	     fail, so we use two.  */
-	  mips_multi_add_insn ("syncw", NULL);
+	     fail, so we use two.  Octeon2 does not have the issue
+	     where a single syncw might fail.  */
+	  if (!TARGET_OCTEON2)
+	    mips_multi_add_insn ("syncw", NULL);
 	  mips_multi_add_insn ("syncw", NULL);
 	}
       else

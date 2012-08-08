@@ -150,6 +150,14 @@
 	
 2012-08-07  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.opt (msyncw): New option.
+	* config/mips/mips.c (mips_process_sync_loop): Emit
+	a sync only if model is MEMMODEL_SEQ_CST and not when
+	msyncw is enabled.
+	Only emit one syncw for Octeon2.
+
+2012-08-07  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/predicates.md (law_lac_las_operand): New predicate.
 	* config/mips/sync.md (atomic_exchange<mode>_law): Add support
 	for emitting las and lac.
