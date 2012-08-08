@@ -367,34 +367,6 @@
    (set_attr "sync_exclusive_mask" "3")
    (set_attr "sync_insn1_op2" "4")])
 
-;; Can be removed in favor of atomic_sub below.
-(define_insn "sync_sub<mode>"
-  [(set (match_operand:GPR 0 "memory_operand" "+ZR")
-	(unspec_volatile:GPR
-          [(minus:GPR (match_dup 0)
-		      (match_operand:GPR 1 "register_operand" "d"))]
-	 UNSPEC_SYNC_OLD_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "subu")
-   (set_attr "sync_mem" "0")
-   (set_attr "sync_insn1_op2" "1")])
-
-;; Can be removed in favor of atomic_fetch_add below.
-(define_insn "sync_old_add<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
-	(match_operand:GPR 1 "memory_operand" "+ZR,ZR"))
-   (set (match_dup 1)
-	(unspec_volatile:GPR
-          [(plus:GPR (match_dup 1)
-		     (match_operand:GPR 2 "arith_operand" "I,d"))]
-	 UNSPEC_SYNC_OLD_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "addiu,addu")
-   (set_attr "sync_oldval" "0")
-   (set_attr "sync_mem" "1")
-   (set_attr "sync_insn1_op2" "2")])
 
 (define_insn "sync_old_sub<mode>"
   [(set (match_operand:GPR 0 "register_operand" "=&d")
@@ -408,22 +380,6 @@
   { return mips_output_sync_loop (insn, operands); }
   [(set_attr "sync_insn1" "subu")
    (set_attr "sync_oldval" "0")
-   (set_attr "sync_mem" "1")
-   (set_attr "sync_insn1_op2" "2")])
-
-(define_insn "sync_new_add<mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=&d,&d")
-        (plus:GPR (match_operand:GPR 1 "memory_operand" "+ZR,ZR")
-		  (match_operand:GPR 2 "arith_operand" "I,d")))
-   (set (match_dup 1)
-	(unspec_volatile:GPR
-	  [(plus:GPR (match_dup 1) (match_dup 2))]
-	 UNSPEC_SYNC_NEW_OP))]
-  "GENERATE_LL_SC"
-  { return mips_output_sync_loop (insn, operands); }
-  [(set_attr "sync_insn1" "addiu,addu")
-   (set_attr "sync_oldval" "0")
-   (set_attr "sync_newval" "0")
    (set_attr "sync_mem" "1")
    (set_attr "sync_insn1_op2" "2")])
 
