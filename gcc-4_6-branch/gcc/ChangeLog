@@ -1,3 +1,30 @@
+2012-07-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/33135
+	* config/sh/sh.opt (mieee): Use Var instead of Mask.  Correct
+	description.
+	* config/sh/sh.c (sh_option_override): Do not change 
+	flag_finite_math_only.  Set TARGET_IEEE to complement of
+	flag_finite_math_only.
+	* doc/invoke.texi (SH options): Add mno-ieee.  Correct
+	description of mieee and mno-ieee behavior.
+
+2012-07-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Backported from trunk:
+	2012-07-13  Richard Sandiford  <rdsandiford@googlemail.com>
+		    Steven Bosscher  <steven@gcc.gnu.org>
+		    Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/53908
+	* df-problems.c	(can_move_insns_across): When doing
+	memory-reference book-keeping, handle call insns.
+
+2012-07-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/mn10300/mn10300.c (mn10300_encode_section_info): Call
+	default_encode_section_info.
+
 2012-07-04  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/53433
