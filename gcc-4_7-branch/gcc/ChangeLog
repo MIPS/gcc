@@ -1,3 +1,123 @@
+2012-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_pad_noreturn): Rename to ...
+	(alpha_pad_function_end): ... this.  Also insert NOP between
+	sibling call and GP load.
+	(alpha_reorg): Update call to alpha_pad_function_end.  Expand comment.
+
+2012-08-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-08-08  Richard Sandiford  <rdsandiford@googlemail.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/54157
+	* combine.c (gen_lowpart_for_combine): Don't return identity
+	for CONST or symbolic reference.
+
+2012-08-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-07-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386-protos.h (ix86_lea_outperforms): Remove prototype.
+	* config/i386/i386.c (ix86_lea_outperforms): Make static.  Make
+	split_cost argument signed.
+	(ix86_use_lea_for_mov): Use INVALID_REGNUM instead of -1.
+	(ix86_avoid_lea_for_addr): Ditto.
+
+	2012-07-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_avoid_lea_for_addr): Return false if
+	the address has less than two components.
+
+2012-08-02  Steve Ellcey  <sellcey@mips.com>
+
+	Backport from mainline
+	2012-07-19  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips.c (mips_set_mips16_mode): Clear SYNCI_MASK in
+	MIPS16 mode.
+
+2012-08-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53961
+	* config/i386/i386.c (ix86_legitimate_address_p): Move check for
+	negative constant address for TARGET_X32 ...
+	(ix86_decompose_address): ... here.  Reject constant addresses
+	that don't satisfy x86_64_immediate_operand predicate.
+
+	2012-07-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53961
+	* config/i386/i386.md (*lea): Add asserts to detect invalid addresses.
+	* config/i386/i386.c (ix86_print_operand_address): Ditto.
+	(ix86_decompose_address): Allow (zero_extend:DI (subreg:SI (...)))
+	addresses.  Prevent zero extensions of CONST_INT operands.
+
+	2012-07-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53961
+	* config/i386/i386.md (*lea): New insn pattern.
+	(*lea_1): Remove.
+	(*lea<mode>_2): Ditto.
+	(*lea_{3,4,5,6}_zext): Ditto.
+	* config/i386/predicates.md (lea_address_operand): Do not reject
+	zero-extended address operands.
+	* config/i386/constraints.md (j): Remove address constraint.
+	* config/i386/i386.c (ix86_decompose_address): Allow SImode subreg
+	of an address.
+	(ix86_print_operand_address): Handle SImode subreg of an address.
+	(ix86_avoid_lea_for_addr): Reject zero-extended addresses for now.
+
+2012-08-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-03-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52530
+	* config/i386/i386.c (ix86_print_operand): Handle 'E' operand modifier.
+	(ix86_print_operand_address): Handle UNSPEC_LEA_ADDR. Do not fallback
+	to set code to 'q'.
+	* config/i386/i386.md (UNSPEC_LEA_ADDR): New unspec.
+	(*movdi_internal_rex64): Use %E operand modifier for lea.
+	(*movsi_internal): Ditto.
+	(*lea_1): Ditto.
+	(*lea<mode>_2): Ditto.
+	(*lea_{3,4,5,6}_zext): Ditto.
+	(*tls_global_dynamic_32_gnu): Ditto.
+	(*tls_global_dynamic_64): Ditto.
+	(*tls_dynamic_gnu2_lea_32): Ditto.
+	(*tls_dynamic_gnu2_lea_64): Ditto.
+	(pro_epilogue_adjust_stack_<mode>_add): Ditto.
+
+2012-08-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-08-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_address_subreg_operand): Reject
+	stack pointer.
+	(ix86_print_operand_address): Assert that parts.base and parts.index
+	are non-NULL after call to simplify_subreg.
+
+2012-07-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/33135
+	* config/sh/sh.opt (mieee): Use Var instead of Mask.  Correct
+	description.
+	* config/sh/sh.c (sh_option_override): Do not change
+	flag_finite_math_only.  Set TARGET_IEEE to complement of
+	flag_finite_math_only.
+	* doc/invoke.texi (SH options): Add mno-ieee.  Correct
+	description of mieee and mno-ieee behavior.
+
 2012-07-20  Kirill Yukhin  <kirill.yukhin@intel.com>
 
 	PR target/53877
