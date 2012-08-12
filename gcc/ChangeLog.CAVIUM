@@ -148,7 +148,17 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
-2012-08-08  Andrew Pinski  <apinski@cavium.com>
+2012-08-12  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.target/mips/atomic-memory-2.c: Forbid octeon2 as
+	law is used instead.
+	* testsuite/gcc.target/mips/fix-r10000-1.c: Likewise.
+	* testsuite/gcc.target/mips/fix-r10000-15.c: Likewise.
+	* testsuite/gcc.target/mips/fix-r10000-2.c: Likewise.
+	* testsuite/gcc.target/mips/fix-r10000-7.c: Likewise.
+	* testsuite/gcc.target/mips/fix-r10000-8.c: Likewise.
+
++2012-08-12  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/sync.md (atomic_add<mode>_saa): Fix
 	memory constraint, should be ZR and not R.
