@@ -150,6 +150,11 @@
 	
 2012-08-08  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/sync.md (atomic_add<mode>_saa): Fix
+	memory constraint, should be ZR and not R.
+
+2012-08-08  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/sync.md (sync_old_sub<mode>): Remove.
 	(sync_new_sub<mode>): Remove.
 

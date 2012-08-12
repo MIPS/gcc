@@ -736,7 +736,7 @@
    (set_attr "sync_memmodel" "2")])
 
 (define_insn "atomic_add<mode>_saa"
-  [(set (match_operand:GPR 0 "memory_operand" "+R")
+  [(set (match_operand:GPR 0 "memory_operand" "+ZR")
 	(unspec_volatile:GPR
           [(plus:GPR (match_dup 0)
 		     (match_operand:GPR 1 "arith_operand" "d"))]
