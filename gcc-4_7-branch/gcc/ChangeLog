@@ -1,3 +1,39 @@
+2012-08-13  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from trunk
+	2012-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/53942
+	* function.c (assign_parm_setup_reg): Avoid zero/sign extension
+	directly from likely spilled non-fixed hard registers, move them
+	to pseudo first.
+
+2012-08-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (xop_phaddbq):  Fix vec_select selectors.
+	(xop_phaddubq): Ditto.
+
+2012-08-10  Ulrich Weigand  <ulrich.weigand@linaro.org>
+
+	Backport from mainline
+	2012-07-30  Ulrich Weigand  <ulrich.weigand@linaro.org>
+		    Richard Earnshaw  <rearnsha@arm.com>
+
+	* target.def (vector_alignment): New target hook.
+	* doc/tm.texi.in (TARGET_VECTOR_ALIGNMENT): Document new hook.
+	* doc/tm.texi: Regenerate.
+	* targhooks.c (default_vector_alignment): New function.
+	* targhooks.h (default_vector_alignment): Add prototype.
+	* stor-layout.c (layout_type): Use targetm.vector_alignment.
+	* config/arm/arm.c (arm_vector_alignment): New function.
+	(TARGET_VECTOR_ALIGNMENT): Define.
+
+	* tree-vect-data-refs.c (vect_update_misalignment_for_peel): Use
+	vector type alignment instead of size.
+	* tree-vect-loop-manip.c (vect_do_peeling_for_loop_bound): Use
+	element type size directly instead of computing it from alignment.
+	Fix variable naming and comment.
+
 2012-08-09  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
