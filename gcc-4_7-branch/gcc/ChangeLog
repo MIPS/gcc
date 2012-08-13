@@ -1,3 +1,110 @@
+2012-08-13  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/54210
+	* config/i386/driver-i386.c (host_detect_local_cpu): Test bit_PRFCHW
+	bit of CPUID 0x80000001 %ecx instead of CPUID 7 %ecx.
+	* config/i386/cpuid.h (bits_PRFCHW): Move definition to CPUID
+	0x80000001 %ecx flags.
+
+2012-08-10  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Fix builtin
+	target mask of __builtin_ia32_rdseed_di_step.
+
+2012-08-09  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* config/i386/adxintrin.h: Remove guarding __ADX__ check.
+	* config/i386/x86intrin.h: Likewise.
+	* config/i386/i386.c (ix86_init_mmx_sse_builtins): Remove
+	OPTION_MASK_ISA_ADX from needed options for
+	__builtin_ia32_addcarryx_u32 and __builtin_ia32_addcarryx_u64.
+	(ix86_expand_builtin): Use add<mode>3_carry in expanding of
+	IX86_BUILTIN_ADDCARRYX32 and IX86_BUILTIN_ADDCARRYX64.
+
+2012-08-08 Michael Zolotukhin <michael.v.zolotukhin@intel.com>
+
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_ADX_SET): New.
+	(OPTION_MASK_ISA_ADX_UNSET): Likewise.
+	(ix86_handle_option): Handle madx option.
+	* config.gcc (i[34567]86-*-*): Add adxintrin.h.
+	(x86_64-*-*): Likewise.
+	* config/i386/adxintrin.h: New header.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Detect ADCX/ADOX
+	support.
+	* config/i386/i386-builtin-types.def
+	(UCHAR_FTYPE_UCHAR_UINT_UINT_PUNSIGNED): New function type.
+	(UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG): Likewise.
+	* config/i386/i386-c.c: Define __ADX__ if needed.
+	* config/i386/i386.c (ix86_target_string): Define -madx option.
+	(PTA_ADX): New.
+	(ix86_option_override_internal): Handle new option.
+	(ix86_valid_target_attribute_inner_p): Add OPT_madx.
+	(ix86_builtins): Add IX86_BUILTIN_ADDCARRYX32,
+	IX86_BUILTIN_ADDCARRYX64.
+	(ix86_init_mmx_sse_builtins): Define corresponding built-ins.
+	(ix86_expand_builtin): Handle these built-ins.
+	(ix86_expand_args_builtin): Handle new function types.
+	* config/i386/i386.h (TARGET_ADX): New.
+	* config/i386/i386.md (adcx<mode>3): New define_insn.
+	* config/i386/i386.opt (madx): New.
+	* config/i386/x86intrin.h: Include adxintrin.h.
+
+2012-07-30  Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_RDSEED_SET): New.
+	(OPTION_MASK_ISA_RDSEED_UNSET): Likewise.
+	(ix86_handle_option): Handle mrdseed option.
+	* config.gcc (i[34567]86-*-*): Add rdseedintrin.h.
+	(x86_64-*-*): Likewise.
+	* config/i386/prfchwintrin.h: New header.
+	* config/i386/cpuid.h (bit_RDSEED): New.
+	* config/i386/driver-i386.c (host_detect_local_cpu): Detect
+	RDSEED support.
+	* config/i386/i386-c.c: Define __RDSEED__ if needed.
+	* config/i386/i386.c (ix86_target_string): Define
+	-mrdseed option.
+	(PTA_RDSEED): New.
+	(ix86_option_override_internal): Handle new option.
+	(ix86_valid_target_attribute_inner_p): Add OPT_mrdseed.
+	(ix86_builtins): Add enum entries for RDSEED* builtins.
+	(ix86_init_mmx_sse_builtins): Define new builtins.
+	(ix86_expand_builtin): Expand RDSEED* builtins.
+	* config/i386/i386.h (TARGET_RDSEED): New.
+	* config/i386/i386.md (rdseed<mode>_1): New.
+	* config/i386/i386.opt (mrdseed): New.
+	* config/i386/x86intrin.h: Include rdseedintrin.h.
+
+2012-07-25  Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+        * common/config/i386/i386-common.c (OPTION_MASK_ISA_PRFCHW_SET): New.
+        (OPTION_MASK_ISA_PRFCHW_UNSET): Likewise.
+        (ix86_handle_option): Handle mprfchw option.
+        * config.gcc (i[34567]86-*-*): Add prfchwintrin.h.
+        (x86_64-*-*): Likewise.
+        * config/i386/prfchwintrin.h: New header.
+        * config/i386/cpuid.h (bit_PRFCHW): New.
+        (bit_BMI): Formatting fix.
+        (bit_HLE): Likewise.
+        (bit_RTM): Likewise.
+        * config/i386/driver-i386.c (host_detect_local_cpu): Detect
+        PREFETCHW support.
+        * config/i386/i386-c.c: Define __PRFCHW__ if needed.
+        * config/i386/i386.c (ix86_target_string): Define
+        -mprfchw option. Formatting fixes.
+        (PTA_HLE): Formatting fix.
+        (PTA_PRFCHW): New.
+        (ix86_option_override_internal): Handle new option.
+        (ix86_valid_target_attribute_inner_p): Add OPT_mprfchw.
+        * config/i386/i386.h (TARGET_PRFCHW): New.
+        * config/i386/i386.md (prefetch): Enable for TARGET_PRFCHW.
+        * config/i386/i386.opt (mprfchw): New.
+        * config/i386/mm3dnow.h: Move _m_prefetchw from here to
+        prfchwintrin.h.
+        * config/i386/x86intrin.h: Include prfchwintrin.h.
+
 2012-08-13  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from trunk
