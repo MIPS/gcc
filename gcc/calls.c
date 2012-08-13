@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "dbgcnt.h"
 #include "tree-flow.h"
+#include "tree-pl.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -4223,6 +4224,16 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   OK_DEFER_POP;
 
   pop_temp_slots ();
+
+  /* Currently returnd bound registers are not used in following code.
+     Remove them.  */
+  if (flag_pl && valreg && GET_CODE (valreg) == PARALLEL)
+    {
+      rtx bnd = 0;
+      rtx val = 0;
+      pl_split_returned_reg (valreg, &val, &bnd);
+      valreg = val;
+    }
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)
