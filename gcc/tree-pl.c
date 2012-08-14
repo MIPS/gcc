@@ -51,6 +51,8 @@ static bool pl_incomplete_bounds (tree bounds);
 static basic_block pl_get_entry_block (void);
 static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
+static tree pl_get_invalid_op_bounds (void);
+static tree pl_get__nonpointer_load_bounds (void);
 static void pl_mark_invalid_bounds (tree bounds);
 static bool pl_valid_bounds (tree bounds);
 static void pl_transform_function (void);
@@ -889,6 +891,18 @@ pl_get_none_bounds (void)
 }
 
 static tree
+pl_get_invalid_op_bounds (void)
+{
+  return pl_get_zero_bounds ();
+}
+
+static tree
+pl_get_nonpointer_load_bounds (void)
+{
+  return pl_get_zero_bounds ();
+}
+
+static tree
 pl_build_returned_bound (gimple call)
 {
   gimple_stmt_iterator gsi;
@@ -1192,14 +1206,17 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	else if (!pl_valid_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
 	    bounds = bnd2;
-	  else if (bnd2 == error_mark_node)
+	  else if (bnd2 == error_mark_node ||
+		   bnd2 == pl_get_zero_bounds())
 	    bounds = bnd2;
 	  else
-	    bounds = pl_get_none_bounds ();
+	    bounds = bnd1;
 	else if (!pl_valid_bounds (bnd2))
 	  bounds = bnd1;
 	else
-	  bounds = pl_get_none_bounds ();
+	  /* Seems both operands may have valid bounds.
+	     In such case use default invalid op bounds.  */
+	  bounds = pl_get_invalid_op_bounds ();
       }
       break;
 
@@ -1209,7 +1226,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case RSHIFT_EXPR:
     case EQ_EXPR:
     case MULT_EXPR:
-      bounds = pl_get_none_bounds ();
+      bounds = pl_get_invalid_op_bounds ();
       break;
 
     case COND_EXPR:
@@ -1632,7 +1649,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 	  bounds = pl_build_bndldx (addr, ptr, iter);
 	}
       else
-	bounds = pl_get_none_bounds ();
+	bounds = pl_get_nonpointer_load_bounds ();
       break;
 
     case PARM_DECL:
@@ -1689,8 +1706,10 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case INTEGER_CST:
-      /* For all constants return zero bounds.  */
-      bounds = pl_get_none_bounds ();
+      if (ptr_src == integer_zero_node)
+	bounds = pl_get_none_bounds ();
+      else
+	bounds = pl_get_invalid_op_bounds ();
       break;
 
     default:
