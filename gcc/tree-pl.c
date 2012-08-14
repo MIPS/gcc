@@ -1164,7 +1164,16 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	tree bnd1 = pl_find_bounds (rhs1, &iter);
 	tree bnd2 = pl_find_bounds (rhs2, &iter);
 
-	if (pl_incomplete_bounds (bnd1))
+	/* First we try to check types of operands.  If it
+	   does not help then look at bound values.  */
+	if (POINTER_TYPE_P (TREE_TYPE (rhs1))
+	    && !POINTER_TYPE_P (TREE_TYPE (rhs2)))
+	  bounds = bnd1;
+	else if (POINTER_TYPE_P (TREE_TYPE (rhs2))
+		 && !POINTER_TYPE_P (TREE_TYPE (rhs1))
+		 && rhs_code != MINUS_EXPR)
+	  bounds = bnd2;
+	else if (pl_incomplete_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
 	      && !pl_incomplete_bounds (bnd2))
 	    bounds = bnd2;
