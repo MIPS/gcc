@@ -78,7 +78,6 @@ static tree pl_get_bounds_by_definition (tree node, gimple def_stmt,
 static tree pl_find_bounds_1 (tree ptr, tree ptr_src,
 			      gimple_stmt_iterator *iter,
 			      bool always_narrow_fields);
-static tree pl_find_bounds_no_error (tree ptr, gimple_stmt_iterator *iter);
 static tree pl_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree pl_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
@@ -306,7 +305,7 @@ pl_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
   for (i = 0; i < gimple_phi_num_args (bounds_phi); i++)
     {
       tree ptr_arg = gimple_phi_arg_def (ptr_phi, i);
-      tree bound_arg = pl_find_bounds_no_error (ptr_arg, NULL);
+      tree bound_arg = pl_find_bounds (ptr_arg, NULL);
 
       add_phi_arg (bounds_phi, bound_arg,
 		   gimple_phi_arg_edge (ptr_phi, i),
@@ -526,8 +525,8 @@ pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
   if (POINTER_TYPE_P (TREE_TYPE (ret_decl)))
     {
       bounds = pl_find_bounds (retval, gsi);
-      gimple_return_set_retval2 (ret, bounds);
       pl_register_bounds (ret_decl, bounds);
+      gimple_return_set_retval2 (ret, bounds);
     }
 
   /* TODO: Add support for structures which may
@@ -643,7 +642,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)) && bnd_arg_cnt)
 	{
 	  tree prev_arg = gimple_call_arg (call, arg_no - 1);
-	  tree bounds = pl_find_bounds_no_error (prev_arg, gsi);
+	  tree bounds = pl_find_bounds (prev_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
@@ -654,7 +653,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
 	  if (use_fntype && POINTER_TYPE_P (TREE_VALUE (arg)) && bnd_arg_cnt)
 	    {
-	      tree bounds = pl_find_bounds_no_error (call_arg, gsi);
+	      tree bounds = pl_find_bounds (call_arg, gsi);
 	      gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	      bnd_arg_cnt--;
 	    }
@@ -667,7 +666,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
       if (POINTER_TYPE_P (TREE_TYPE (call_arg)) && bnd_arg_cnt)
 	{
-	  tree bounds = pl_find_bounds_no_error (call_arg, gsi);
+	  tree bounds = pl_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
@@ -690,7 +689,7 @@ pl_check_mem_access (tree first, tree last, tree bounds,
   gimple checkl, checku;
   tree node;
 
-  if (bounds == error_mark_node)
+  if (bounds == pl_get_zero_bounds ())
     return;
 
   seq = gimple_seq_alloc ();
@@ -966,7 +965,7 @@ pl_get_bound_for_parm (tree parm)
 	 identify such parm.  */
       if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
 	  && DECL_ARTIFICIAL (parm))
-	return error_mark_node;
+	return pl_get_zero_bounds ();
       else
 	{
 	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (parm)));
@@ -1043,8 +1042,10 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
   gimple_seq seq;
   gimple stmt;
 
-  if (bounds == error_mark_node)
+  /*
+  if (bounds == pl_get_zero_bounds ())
     return;
+  */
 
   seq = gimple_seq_alloc ();
 
@@ -1085,8 +1086,7 @@ pl_mark_invalid_bounds (tree bounds)
 static bool
 pl_valid_bounds (tree bounds)
 {
-  if (bounds == zero_bounds || bounds == none_bounds
-      || bounds == error_mark_node)
+  if (bounds == zero_bounds || bounds == none_bounds)
     return false;
 
   if (htab_find (pl_invalid_bounds, bounds) != NULL)
@@ -1191,23 +1191,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
 	      && !pl_incomplete_bounds (bnd2))
 	    bounds = bnd2;
-	  else if (bnd2 == error_mark_node)
-	    bounds = bnd2;
 	  else
 	    bounds = incomplete_bounds;
 	else if (pl_incomplete_bounds (bnd2))
 	  if (pl_valid_bounds (bnd1)
 	      && !pl_incomplete_bounds (bnd1))
 	    bounds = bnd1;
-	  else if (bnd1 == error_mark_node)
-	    bounds = bnd1;
 	  else
 	    bounds = incomplete_bounds;
 	else if (!pl_valid_bounds (bnd1))
 	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
 	    bounds = bnd2;
-	  else if (bnd2 == error_mark_node ||
-		   bnd2 == pl_get_zero_bounds())
+	  else if (bnd2 == pl_get_zero_bounds ())
 	    bounds = bnd2;
 	  else
 	    bounds = bnd1;
@@ -1410,10 +1405,10 @@ pl_generate_extern_var_bounds (tree var)
   char *end_name;
 
   /* If PL instrumentation is not enabled for vars having
-     incomplete type then just return error_mark_node to avoid
+     incomplete type then just return zero bounds to avoid
      checks for this var.  */
   if (!flag_pl_incomplete_type)
-    return error_mark_node;
+    return pl_get_zero_bounds ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1684,7 +1679,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		  tree arg = gimple_phi_arg_def (def_stmt, i);
 		  tree arg_bnd;
 
-		  arg_bnd = pl_find_bounds_no_error (arg, NULL);
+		  arg_bnd = pl_find_bounds (arg, NULL);
 
 		  add_phi_arg (phi_bnd, arg_bnd,
 			       gimple_phi_arg_edge (def_stmt, i),
@@ -1761,27 +1756,12 @@ pl_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter)
   return pl_find_bounds_1 (ptr, NULL_TREE, iter, true);
 }
 
-/* Similar to pl_find_bounds but never return error_mark_node.  */
-
-static tree
-pl_find_bounds_no_error (tree ptr, gimple_stmt_iterator *iter)
-{
-  tree bounds = pl_find_bounds_1 (ptr, NULL_TREE, iter, false);
-
-  /* Even if pointer is not checked we still have to
-     pass some bounds, so use zero bounds.  */
-  if (bounds == error_mark_node)
-    bounds = pl_get_zero_bounds ();
-
-  return bounds;
-}
-
 static tree
 pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 {
-  if (!bounds1 || bounds1 == error_mark_node)
-    return bounds2;
-  else if (!bounds2 || bounds2 == error_mark_node)
+  if (!bounds1 || bounds1 == pl_get_zero_bounds ())
+    return bounds2 ? bounds2 : bounds1;
+  else if (!bounds2 || bounds2 == pl_get_zero_bounds ())
     return bounds1;
   else
     {
