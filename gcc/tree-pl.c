@@ -415,10 +415,9 @@ pl_finish_file (void)
 
   FOR_EACH_VEC_ELT (tree, var_inits, i, var)
     /* !!! We must check that var is actually emitted and we need
-       and may initialize its bounds.  Currently addressable_flag
-       is checked.  Probably rtl, section_name or other fields
-       should be checked.  */
-    if (TREE_ADDRESSABLE (var))
+       and may initialize its bounds.  Currently asm_written flag and
+       rtl are checked.  Probably some other fields should be checked.  */
+    if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
       {
 	tree val = DECL_INITIAL (var);
 	tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
