@@ -1,5 +1,9 @@
 2012-08-16  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-equivs.c: Remove.
+
+2012-08-16  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra.h: Format the code, tabify.  Fix and add comments.
 	* lra-int.h: Ditto.
 	* lra.c: Ditto.
