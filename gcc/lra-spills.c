@@ -15,12 +15,46 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
 
-/* This code contains functions to change spilled pseudos into memory
-   and to eliminate virtual registers.  */
+/* This file contains code for a pass to change spilled pseudos into
+   memory.
+
+   The pass creates necessary stack slots and assign spilled pseudos
+   to the stack slots in following way:
+
+   for all spilled pseudos P most frequently used first do
+     for all stack slots S do
+       if P doesn't conflict with pseudos assigned to S then
+	 assign S to P and goto to the next pseudo process
+       end
+     end
+     create new stack slot S and assign P to S
+   end
+ 
+   The actual algorithm is bit more complicated because of different
+   pseudo sizes.
+
+   After that the code changes spilled pseudos (except ones created
+   from scratches) by corresponding stack slot memory in RTL.
+
+   If at least one stack slot was created, we need to run more passes
+   because we have new addresses which should be checked and because
+   the old address displacements might change and address constraints
+   (or insn memory constraints) might be not satisfied any more.
+
+   For some targets, the pass can spill some pseudos into hard
+   registers of different class (usually into vector registers)
+   instead of spilling them into memory if it is possible and
+   profitable.	Spilling GENERAL_REGS pseudo into SSE registers for
+   modern Intel x86/x86-64 processors is an example of such
+   optimization.  And this is actually recommended by Intel
+   optimization guide.
+
+   The file also contains code for final change of pseudos on hard
+   regs correspondingly assigned to them.  */
 
 #include "config.h"
 #include "system.h"
@@ -45,7 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 
 
-/* Max regno at the start of the pass.  */
+/* Max regno at the start of the pass.	*/
 static int regs_num;
 
 /* Map spilled regno -> hard regno used instead of memory for
@@ -55,7 +89,8 @@ static rtx *spill_hard_reg;
 /* The structure describes stack slot of a spilled pseudo.  */
 struct pseudo_slot
 {
-  /* Number of stack slot to which given pseudo belongs.  */
+  /* Number (0, 1, ...) of the stack slot to which given pseudo
+     belongs.  */
   int slot_num;
   /* First or next slot with the same slot number.  */
   struct pseudo_slot *next, *first;
@@ -63,7 +98,7 @@ struct pseudo_slot
   rtx mem;
 };
 
-/* The stack slots for each spilled pseudo.  Indexed by regnos.  */
+/* The stack slots for each spilled pseudo.  Indexed by regnos.	 */
 static struct pseudo_slot *pseudo_slots;
 
 /* The structure describes a stack slot which can be used for several
@@ -72,27 +107,28 @@ struct slot
 {
   /* First pseudo with given stack slot.  */
   int regno;
-  /* Hard reg into which the slot pseudos are spilled.  */
+  /* Hard reg into which the slot pseudos are spilled.	The value is
+     negative for pseudos spilled into memory.	*/
   int hard_regno;
   /* Memory representing the all stack slot.  It can be different from
      memory representing a pseudo belonging to give stack slot because
      pseudo can be placed in a part of the corresponding stack slot.
      The value is NULL for pseudos spilled into a hard reg.  */
   rtx mem;
-  /* Combined live ranges of all pseudos belonging to give slot.  It
-     is used to define can a new spilled pseudo use given stack
-     slot.  */
+  /* Combined live ranges of all pseudos belonging to given slot.  It
+     is used to figure out that a new spilled pseudo can use given
+     stack slot.  */
   lra_live_range_t live_ranges;
 };
 
-/* Array containing info about the stack slots.  The array element is
+/* Array containing info about the stack slots.	 The array element is
    indexed by the stack slot number in the range [0..slost_num).  */
 static struct slot *slots;
-/* The number of the slots currently existing.  */
+/* The number of the stack slots currently existing.  */
 static int slots_num;
 
 /* Set up memory of the spilled pseudo I.  The function can allocate
-   the corresponding stack slot if it is not done yet.  */
+   the corresponding stack slot if it is not done yet.	*/
 static void
 assign_mem_slot (int i)
 {
@@ -112,14 +148,14 @@ assign_mem_slot (int i)
   
   if (x)
     ;
-  /* Each pseudo reg has an inherent size which comes from its own
-     mode, and a total size which provides room for paradoxical
-     subregs which refer to the pseudo reg in wider modes.
+  /* Each pseudo has an inherent size which comes from its own mode,
+     and a total size which provides room for paradoxical subregs
+     which refer to the pseudo reg in wider modes.
      
      We can use a slot already allocated if it provides both enough
      inherent space and enough total space.  Otherwise, we allocate a
      new slot, making sure that it has no less inherent space, and no
-     less total space, then the previous slot.  */
+     less total space, then the previous slot.	*/
   else
     {
       rtx stack_slot;
@@ -131,8 +167,8 @@ assign_mem_slot (int i)
       x = lra_eliminate_regs_1 (x, GET_MODE (x), false, false, true);
       stack_slot = x;
       /* Cancel the big-endian correction done in assign_stack_local.
-	 Get the address of the beginning of the slot.  This is so we
-	 can do a big-endian correction unconditionally below.  */
+	 Get the address of the beginning of the slot.	This is so we
+	 can do a big-endian correction unconditionally below.	*/
       if (BYTES_BIG_ENDIAN)
 	{
 	  adjust = inherent_size - total_size;
@@ -152,7 +188,7 @@ assign_mem_slot (int i)
     adjust += (total_size - inherent_size);
   
   /* If we have any adjustment to make, or if the stack slot is the
-     wrong mode, make a new stack slot.  */
+     wrong mode, make a new stack slot.	 */
   x = adjust_address_nv (x, GET_MODE (regno_reg_rtx[i]), adjust);
   
   /* Set all of the memory attributes as appropriate for a spill.  */
@@ -160,7 +196,7 @@ assign_mem_slot (int i)
   pseudo_slots[i].mem = x;
 }
 
-/* Sort pseudos according their frequencies.  */
+/* Sort pseudos according their usage frequencies.  */
 static int
 regno_freq_compare (const void *v1p, const void *v2p)
 {
@@ -182,9 +218,9 @@ regno_freq_compare (const void *v1p, const void *v2p)
 #endif
 
 /* Sort pseudos according their slot numbers putting ones with smaller
-   numbers first, or last when the frame pointer is not needed.  So
-   the first slot will be finally addressed with smaller address
-   displacement.  */
+   numbers first, or last when the frame pointer is not needed.	 So
+   pseudos with the first slot will be finally addressed with smaller
+   address displacement.  */
 static int
 pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 {
@@ -207,6 +243,9 @@ pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   return regno1 - regno2;
 }
 
+/* Assign spill hard registers to N pseudos in PSEUDO_REGNOS.  Put the
+   pseudos which did not get a spill hard register at the beginning of
+   array PSEUDO_REGNOS.	 Return the number of such pseudos.  */
 static int
 assign_spill_hard_regs (int *pseudo_regnos, int n)
 {
@@ -221,12 +260,12 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
   bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
   /* Hard registers which can not be used for any purpose at given
      program point because they are unallocatable or already allocated
-     for other pseudos.  */ 
+     for other pseudos.	 */ 
   HARD_REG_SET *reserved_hard_regs;
 
   if (! lra_reg_spill_p)
     return n;
-  /* Set up reserved hard regs for every program point.  */
+  /* Set up reserved hard regs for every program point.	 */
   reserved_hard_regs = (HARD_REG_SET *) xmalloc (sizeof (HARD_REG_SET)
 						 * lra_live_max_point);
   for (p = 0; p < lra_live_max_point; p++)
@@ -278,7 +317,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	}
       if (k >= spill_class_size)
 	{
-	   /* There is no available regs -- assign memory.  */
+	   /* There is no available regs -- assign memory later.  */
 	  pseudo_regnos[res++] = regno;
 	  continue;
 	}
@@ -328,9 +367,9 @@ add_pseudo_to_slot (int regno, int slot_num)
 			     (lra_reg_info[regno].live_ranges));
 }
 
-/* Assign stack slot number to pseudo-register numbers in array
-   PSEUDO_REGNOS of length N.  Sort pseudos for subsequent assigning
-   memory stack slots.  */
+/* Assign stack slot numbers to pseudos in array PSEUDO_REGNOS of
+   length N.  Sort pseudos in PSEUDO_REGNOS for subsequent assigning
+   memory stack slots.	*/
 static void
 assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 {
@@ -338,7 +377,7 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 
   slots_num = 0;
   /* Assign stack slot numbers to spilled pseudos, use smaller numbers
-     for most frequently used pseudos.  */
+     for most frequently used pseudos.	*/
   for (i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
@@ -355,7 +394,7 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 	}
       if (j >= slots_num)
 	{
-	  /* New slot.  */
+	  /* New slot.	*/
 	  slots[j].live_ranges = NULL;
 	  slots[j].regno = slots[j].hard_regno = -1;
 	  slots[j].mem = NULL_RTX;
@@ -368,8 +407,8 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 }
 
 /* Recursively process LOC in INSN and change spilled pseudos to the
-   corresponding memory.  Ignore spilled pseudos created from the
-   scratches.  */
+   corresponding memory or spilled hard reg.  Ignore spilled pseudos
+   created from the scratches.	*/
 static bool
 remove_pseudos (rtx *loc, rtx insn)
 {
@@ -385,7 +424,7 @@ remove_pseudos (rtx *loc, rtx insn)
   if (code == REG && (i = REGNO (*loc)) >= FIRST_PSEUDO_REGISTER
       && lra_get_regno_hard_regno (i) < 0
       /* We do not want to assign memory for former scratches because
-	 it might result in an address reload for some targets.  In
+	 it might result in an address reload for some targets.	 In
 	 any case we transform such pseudos not getting hard registers
 	 into scratches back.  */
       && ! lra_former_scratch_p (i))
@@ -412,9 +451,9 @@ remove_pseudos (rtx *loc, rtx insn)
   return res;
 }
 
-/* Convert pseudos got memory into their stack slots, put insns to
-   process on the stack (that is all insns in which pseudos were
-   changed to memory)  */
+/* Convert spilled pseudos into their stack slots or spill hard regs,
+   put insns to process on the constraint stack (that is all insns in
+   which pseudos were changed to memory or spill hard regs).   */
 static void
 spill_pseudos (void)
 {
@@ -468,9 +507,10 @@ lra_need_for_spills_p (void)
   return false;
 }
 
-/* Change spilled pseudos into memory.  The function put changed insns
-   on the stack.  That is all insns in which pseudos were changed to
-   memory.  */
+/* Change spilled pseudos into memory or spill hard regs.  The
+   function put changed insns on the constraint stack (these insns
+   will be considered on the next constraint pass).  The changed insns
+   are all insns in which pseudos were changed.	 */
 void
 lra_spill (void)
 {
@@ -492,7 +532,7 @@ lra_spill (void)
   pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
 						 * regs_num);
   slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
-  /* Sort regnos according their frequencies.  */
+  /* Sort regnos according their usage frequencies.  */
   qsort (pseudo_regnos, n, sizeof (int), regno_freq_compare);
   n = assign_spill_hard_regs (pseudo_regnos, n);
   assign_stack_slot_num_and_sort_pseudos (pseudo_regnos, n);
@@ -508,7 +548,7 @@ lra_spill (void)
 	  for (curr_regno = slots[i].regno;;
 	       curr_regno = pseudo_slots[curr_regno].next - pseudo_slots)
 	    {
-	      fprintf (lra_dump_file, "  %d", curr_regno);
+	      fprintf (lra_dump_file, "	 %d", curr_regno);
 	      if (pseudo_slots[curr_regno].next == NULL)
 		break;
 	    }
@@ -522,7 +562,7 @@ lra_spill (void)
 }
 
 /* Final change of pseudos got hard registers into the corresponding
-   hard registers. */
+   hard registers.  */
 void
 lra_hard_reg_substitution (void)
 {

@@ -15,9 +15,15 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
+
+/* This file contains code to build pseudo live-ranges (analogous
+   structures used in IRA, so read comments about the live-ranges
+   there) and other info necessary for other passes to assign
+   hard-registers to pseudos, coalesce the spilled pseudos, and assign
+   stack memory slots to spilled pseudos.  */
 
 #include "config.h"
 #include "system.h"
@@ -42,10 +48,10 @@ along with GCC; see the file COPYING3.  If not see
 /* Program points are enumerated by numbers from range
    0..LRA_LIVE_MAX_POINT-1.  There are approximately two times more
    program points than insns.  Program points are places in the
-   program where liveness info can be changed.  In most general case
+   program where liveness info can be changed.	In most general case
    (there are more complicated cases too) some program points
    correspond to places where input operand dies and other ones
-   correspond to places where output operands are born.  */
+   correspond to places where output operands are born.	 */
 int lra_live_max_point;
 
 /* Arrays of size LRA_LIVE_MAX_POINT mapping a program point to the
@@ -60,19 +66,20 @@ int lra_hard_reg_usage[FIRST_PSEUDO_REGISTER];
    pseudos, otherwise the live ranges only for pseudos got memory is
    build.  True value means also building copies and setting up hard
    register preferences.  The complete info is necessary only for the
-   assignment pass.  */
+   assignment pass.  The complete info is not needed for the
+   coalescing and spill passes.	 */
 static bool complete_info_p;
 
-/* Number of the current program point.  */
+/* Number of the current program point.	 */
 static int curr_point;
 
-/* Pseudos live at current point in the scan.  */
+/* Pseudos live at current point in the RTL scan.  */
 static sparseset pseudos_live;
 
-/* Pseudos probably living through calls and setjumps.  As setjump is
+/* Pseudos probably living through calls and setjumps.	As setjump is
    a call too, if a bit in PSEUDOS_LIVE_THROUGH_SETJUMPS is set up
    then the corresponding bit in PSEUDOS_LIVE_THROUGH_CALLS is set up
-   too.  These data are necessary for cases when only one subreg of a
+   too.	 These data are necessary for cases when only one subreg of a
    multi-reg pseudo is set up after a call.  So we decide it is
    probably live when traversing bb backward.  We are sure about
    living when we see its usage or definition of the pseudo.  */
@@ -82,17 +89,19 @@ static sparseset pseudos_live_through_setjumps;
 /* Set of hard regs (except eliminable ones) currently live.  */
 static HARD_REG_SET hard_regs_live;
 
-/* Set of pseudos and hard registers start living/dying.  */
+/* Set of pseudos and hard registers start living/dying in the current
+   insn.  These sets are used to update REG_DEAD and REG_UNUSED notes
+   in the insn.	 */
 static sparseset start_living, start_dying;
 
 /* Set of pseudos and hard regs dead and unused in the current
    insn.  */
 static sparseset unused_set, dead_set;
 
-/* Pools for pseudo live ranges.  */
+/* Pool for pseudo live ranges.	 */
 static alloc_pool live_range_pool;
 
-/* Free live range LR.  */
+/* Free live range LR.	*/
 static void
 free_live_range (lra_live_range_t lr)
 {
@@ -159,8 +168,8 @@ lra_copy_live_range_list (lra_live_range_t r)
 }
 
 /* Merge ranges R1 and R2 and returns the result.  The function
-   maintains the order of ranges and tries to minimize number of the
-   result ranges.  */
+   maintains the order of ranges and tries to minimize size of the
+   result range list.  */
 lra_live_range_t 
 lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 {
@@ -189,7 +198,7 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 	  pool_free (live_range_pool, temp);
 	  if (r2 == NULL)
 	    {
-	      /* To try to merge with subsequent ranges in r1.  */
+	      /* To try to merge with subsequent ranges in r1.	*/
 	      r2 = r1->next;
 	      r1->next = NULL;
 	    }
@@ -207,7 +216,7 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 	  r1 = r1->next;
 	  if (r1 == NULL)
 	    {
-	      /* To try to merge with subsequent ranges in r2.  */
+	      /* To try to merge with subsequent ranges in r2.	*/
 	      r1 = r2->next;
 	      r2->next = NULL;
 	    }
@@ -240,7 +249,7 @@ lra_merge_live_ranges (lra_live_range_t r1, lra_live_range_t r2)
 bool
 lra_intersected_live_ranges_p (lra_live_range_t r1, lra_live_range_t r2)
 {
-  /* Remember the live ranges are always kept ordered.  */
+  /* Remember the live ranges are always kept ordered.	*/
   while (r1 != NULL && r2 != NULL)
     {
       if (r1->start > r2->finish)
@@ -257,7 +266,7 @@ lra_intersected_live_ranges_p (lra_live_range_t r1, lra_live_range_t r2)
 bool
 lra_live_range_in_p (lra_live_range_t r1, lra_live_range_t r2)
 {
-  /* Remember the live ranges are always kept ordered.  */
+  /* Remember the live ranges are always kept ordered.	*/
   while (r1 != NULL && r2 != NULL)
     {
       /* R1's element is in R2's element.  */
@@ -270,15 +279,16 @@ lra_live_range_in_p (lra_live_range_t r1, lra_live_range_t r2)
       else if (r2->start <= r1->finish && r1->finish <= r2->finish)
 	return false;
       else if (r1->start > r2->finish)
-	return false; /* No covering R2's element for R1's one.  */
+	return false; /* No covering R2's element for R1's one.	 */
       else
 	r2 = r2->next;
     }
   return r1 == NULL;
 }
 
-/* The function processing birth of hard_register REGNO.  It updates
-   living hard regs and conflict hard regs for living pseudos.  */
+/* The function processing birth of hard register REGNO.  It updates
+   living hard regs, conflict hard regs for living pseudos, and
+   START_LIVING.  */
 static void
 make_hard_regno_born (int regno)
 {
@@ -295,7 +305,7 @@ make_hard_regno_born (int regno)
 }
 
 /* Process the death of hard register REGNO.  This updates
-   hard_regs_live.  */
+   hard_regs_live and START_DYING.  */
 static void
 make_hard_regno_dead (int regno)
 {
@@ -308,8 +318,8 @@ make_hard_regno_dead (int regno)
 }
 
 /* Mark pseudo REGNO as currently living, update conflicting hard
-   registers of the pseudo, and start a new live range for the pseudo
-   corresponding to REGNO if it is necessary.  */
+   registers of the pseudo and START_LIVING, and start a new live
+   range for the pseudo corresponding to REGNO if it is necessary.  */
 static void
 mark_pseudo_live (int regno)
 {
@@ -328,8 +338,9 @@ mark_pseudo_live (int regno)
   sparseset_set_bit (start_living, regno);
 }
 
-/* Mark pseudo REGNO as currently not living. This finishes the
-   current live range for the pseudo corresponding to REGNO.  */
+/* Mark pseudo REGNO as currently not living and update START_DYING.
+   This finishes the current live range for the pseudo corresponding
+   to REGNO.  */
 static void
 mark_pseudo_dead (int regno)
 {
@@ -347,7 +358,7 @@ mark_pseudo_dead (int regno)
     }
 }
 
-/* Mark register REGNO in MODE as live.  */
+/* Mark register REGNO (pseudo or hard register) in MODE as live.  */
 static void
 mark_regno_live (int regno, enum machine_mode mode)
 {
@@ -365,7 +376,7 @@ mark_regno_live (int regno, enum machine_mode mode)
 }
 
 
-/* Mark register REGNO in MODE as dead.  */
+/* Mark register REGNO in MODE as dead.	 */
 static void
 mark_regno_dead (int regno, enum machine_mode mode)
 {
@@ -382,7 +393,7 @@ mark_regno_dead (int regno, enum machine_mode mode)
     mark_pseudo_dead (regno);
 }
 
-/* Insn currently scanned. */
+/* Insn currently scanned.  */
 static rtx curr_insn;
 /* The insn data.  */
 static lra_insn_recog_data_t curr_id;
@@ -405,13 +416,13 @@ bb_has_abnormal_call_pred (basic_block bb)
   return false;
 }
 
-/* Vec containing frequencies of program points.  */
+/* Vec containing execution frequencies of program points.  */
 static VEC(int,heap) *point_freq_vec;
 
 /* The start of the above vector elements.  */
 int *lra_point_freq;
 
-/* Increment the current program point to the next point with
+/* Increment the current program point to the next point which has
    execution frequency FREQ.  */
 static void
 incr_curr_point (int freq)
@@ -465,12 +476,12 @@ lra_setup_reload_pseudo_preferenced_hard_reg (int regno,
     {
       if ((hard_regno = lra_reg_info[regno].preferred_hard_regno1) >= 0)
 	fprintf (lra_dump_file,
-		 "      Hard reg %d is preferable by r%d with profit %d\n",
+		 "	Hard reg %d is preferable by r%d with profit %d\n",
 		 hard_regno, regno,
 		 lra_reg_info[regno].preferred_hard_regno_profit1);
       if ((hard_regno = lra_reg_info[regno].preferred_hard_regno2) >= 0)
 	fprintf (lra_dump_file,
-		 "      Hard reg %d is preferable by r%d with profit %d\n",
+		 "	Hard reg %d is preferable by r%d with profit %d\n",
 		 hard_regno, regno,
 		 lra_reg_info[regno].preferred_hard_regno_profit2);
     }
@@ -494,12 +505,13 @@ check_pseudos_live_through_calls (int regno)
     return;
   sparseset_clear_bit (pseudos_live_through_setjumps, regno);
   /* Don't allocate pseudos that cross setjmps or any call, if this
-     function receives a nonlocal goto.  */
+     function receives a nonlocal goto.	 */
   SET_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs);
 }
 
 /* Process insns of the basic block BB to update pseudo live ranges,
-   pseudo hard register conflicts.  */
+   pseudo hard register conflicts, and insn notes.  We do it on
+   backward scan of BB insns.  */
 static void
 process_bb_lives (basic_block bb)
 {
@@ -533,7 +545,7 @@ process_bb_lives (basic_block bb)
      beginning of the block.  For example, if an instruction uses
      (reg:DI foo), and only (subreg:SI (reg:DI foo) 0) is ever set,
      FOO will remain live until the beginning of the block.  Likewise
-     if FOO is not set at all.  This is unnecessarily pessimistic, but
+     if FOO is not set at all.	This is unnecessarily pessimistic, but
      it probably doesn't matter much in practice.  */
   FOR_BB_INSNS_REVERSE (bb, curr_insn)
     {
@@ -646,7 +658,7 @@ process_bb_lives (basic_block bb)
       
       sparseset_clear (start_living);
 
-      /* Mark each used value as live.  */
+      /* Mark each used value as live.	*/
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_IN)
 	  {
@@ -676,7 +688,7 @@ process_bb_lives (basic_block bb)
 
       incr_curr_point (freq);
 
-      /* Update notes.  */
+      /* Update notes.	*/
       for (link_loc = &REG_NOTES (curr_insn); (link = *link_loc) != NULL_RTX;)
 	{
 	  if (REG_NOTE_KIND (link) != REG_DEAD
@@ -776,7 +788,7 @@ create_start_finish_chains (void)
 	  r->start_next = lra_start_point_ranges[r->start];
 	  lra_start_point_ranges[r->start] = r;
 	  r->finish_next = lra_finish_point_ranges[r->finish];
- 	  lra_finish_point_ranges[r->finish] = r;
+	  lra_finish_point_ranges[r->finish] = r;
 	}
     }
 }
@@ -793,7 +805,9 @@ rebuild_start_finish_chains (void)
 }
 
 /* Compress pseudo live ranges by removing program points where
-   nothing happens.  */
+   nothing happens.  Complexity of many algorithms in LRA is linear
+   function of program points number.  To speed up the code we try to
+   minimize the number of the program points here.  */
 static void
 remove_some_program_points_and_update_live_ranges (void)
 {
@@ -888,7 +902,7 @@ lra_debug_live_range_list (lra_live_range_t r)
   lra_print_live_range_list (stderr, r);
 }
 
-/* Print live ranges of pseudo REGNO to file F.  */
+/* Print live ranges of pseudo REGNO to file F.	 */
 static void
 print_pseudo_live_ranges (FILE *f, int regno)
 {
@@ -898,14 +912,14 @@ print_pseudo_live_ranges (FILE *f, int regno)
   lra_print_live_range_list (f, lra_reg_info[regno].live_ranges);
 }
 
-/* Print live ranges of pseudo REGNO to stderr.  */
+/* Print live ranges of pseudo REGNO to stderr.	 */
 void
 lra_debug_pseudo_live_ranges (int regno)
 {
   print_pseudo_live_ranges (stderr, regno);
 }
 
-/* Print live ranges of all pseudos to file F.  */
+/* Print live ranges of all pseudos to file F.	*/
 static void
 print_live_ranges (FILE *f)
 {
@@ -916,14 +930,14 @@ print_live_ranges (FILE *f)
     print_pseudo_live_ranges (f, i);
 }
 
-/* Print live ranges of all pseudos to stderr.  */
+/* Print live ranges of all pseudos to stderr.	*/
 void
 lra_debug_live_ranges (void)
 {
   print_live_ranges (stderr);
 }
 
-/* Compress pseudo live ranges.  */
+/* Compress pseudo live ranges.	 */
 static void
 compress_live_ranges (void)
 {
@@ -941,7 +955,7 @@ int lra_live_range_iter;
 
 /* The main entry function creates live ranges only for memory pseudos
    (or for all ones if ALL_P), set up CONFLICT_HARD_REGS for
-   the pseudos.  */
+   the pseudos.	 */
 void
 lra_create_live_ranges (bool all_p)
 {
@@ -993,7 +1007,7 @@ lra_create_live_ranges (bool all_p)
   create_start_finish_chains ();
   if (lra_dump_file != NULL)
     print_live_ranges (lra_dump_file);
-  /* Clean up.  */
+  /* Clean up.	*/
   sparseset_free (unused_set);
   sparseset_free (dead_set);
   sparseset_free (start_dying);

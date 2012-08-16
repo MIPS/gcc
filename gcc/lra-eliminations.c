@@ -15,9 +15,35 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
+/* The virtual registers (like argument and frame pointer) are widely
+   used in RTL.	 Virtual registers should be changed by real hard
+   registers (like stack pointer or hard frame pointer) plus some
+   offset.  The offsets are changed usually every time when stack is
+   expanded.  We know the final offsets only at the very end of LRA.
+
+   We keep RTL code at most time in such state that the virtual
+   registers can be changed by just the corresponding hard registers
+   (with zero offsets) and we have the right RTL code.	To achieve this
+   we should add initial offset at the beginning of LRA work and update
+   offsets after each stack expanding.	But actually we update virtual
+   registers to the same virtual registers + corresponding offsets
+   before every constraint pass because it affects constraint
+   satisfaction (e.g. an address displacement became too big for some
+   target).
+
+   The final change of virtual registers to the corresponding hard
+   registers are done at the very end of LRA when there were no change
+   in offsets anymore:
+
+		     fp + 42	 =>	sp + 42
+
+   Such approach requires a few changes in the rest GCC code because
+   virtual registers are not recognized as real ones in some
+   constraints and predicates.	Fortunately, such changes are
+   small.  */
 
 #include "config.h"
 #include "system.h"
@@ -43,36 +69,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-error.h"
 #include "lra-int.h"
 
-/* This structure is used to record information about register
-   eliminations.  Each array entry describes one possible way of
-   eliminating a register in favor of another.  If there is more than
-   one way of eliminating a particular register, the most preferred
-   should be specified first.  */
-
+/* This structure is used to record information about hard register
+   eliminations.  */
 struct elim_table
 {
-  /* Register number to be eliminated.  */
+  /* Hard register number to be eliminated.  */
   int from;			
-  /* Register number used as replacement.  */
+  /* Hard register number used as replacement.	*/
   int to;			
-  /* Difference between values on previous iteration.  */
+  /* Difference between values of the two hard registers above on
+     previous iteration.  */
   HOST_WIDE_INT previous_offset;
-  /* Difference between values.  */
-  HOST_WIDE_INT offset;	        
+  /* Difference between the values on the current iteration.  */
+  HOST_WIDE_INT offset;		
   /* Nonzero if this elimination can be done.  */
   bool can_eliminate;		
   /* CAN_ELIMINATE since the last check.  */
   bool prev_can_eliminate;
-  /* REG rtx for the register to be eliminated.  We cannot simply
+  /* REG rtx for the register to be eliminated.	 We cannot simply
      compare the number since we might then spuriously replace a hard
      register corresponding to a pseudo assigned to the reg to be
      eliminated.  */
-  rtx from_rtx;                 
+  rtx from_rtx;			
   /* REG rtx for the replacement.  */
   rtx to_rtx;			
 };
 
-/* The elimination table.  */
+/* The elimination table.  Each array entry describes one possible way
+   of eliminating a register in favor of another.  If there is more
+   than one way of eliminating a particular register, the most
+   preferred should be specified first.	 */
 static struct elim_table *reg_eliminate = 0;
 
 /* This is an intermediate structure to initialize the table.  It has
@@ -83,9 +109,9 @@ static const struct elim_table_1
   const int to;
 } reg_eliminate_1[] =
 
-/* If a set of eliminable registers was specified, define the table from it.
-   Otherwise, default to the normal case of the frame pointer being
-   replaced by the stack pointer.  */
+/* If a set of eliminable hard registers was specified, define the
+   table from it.  Otherwise, default to the normal case of the frame
+   pointer being replaced by the stack pointer.	 */
 
 #ifdef ELIMINABLE_REGS
   ELIMINABLE_REGS;
@@ -127,26 +153,27 @@ setup_can_eliminate (struct elim_table *ep, bool value)
     frame_pointer_needed = 1;
 }
 
-/* Map: 'from regno' -> to the current elimination, NULL otherewise.
+/* Map: 'from regno' -> to the current elimination, NULL otherwise.
    The elimination table may contains more one elimination of a hard
-   register.  The map contains only one elimination of the hard
-   register.  */
+   register.  The map contains only one currently used elimination of
+   the hard register.  */
 static struct elim_table *elimination_map[FIRST_PSEUDO_REGISTER];
 
-/* When an eliminable register becomes not eliminable, we use the
+/* When an eliminable hard register becomes not eliminable, we use the
    special following structure to restore original offsets for the
    register.  */
 static struct elim_table self_elim_table;
 
 /* Offsets should be used to restore original offsets for eliminable
-   register which just became not eliminable.  Zero, otherwise.  */
+   hard register which just became not eliminable.  Zero,
+   otherwise.  */
 static HOST_WIDE_INT self_elim_offsets[FIRST_PSEUDO_REGISTER];
 
-/* Map: hard regno -> RTL presentation.  RTL presentations of all
-   potentially eliminable hard registers are stored in the map.  */
+/* Map: hard regno -> RTL presentation.	 RTL presentations of all
+   potentially eliminable hard registers are stored in the map.	 */
 static rtx eliminable_reg_rtx[FIRST_PSEUDO_REGISTER];
 
-/* Set up map of the currently used eliminations.  */
+/* Set up ELIMINATION_MAP of the currently used eliminations.  */
 static void
 setup_elimination_map (void)
 {
@@ -196,7 +223,7 @@ form_sum (rtx x, rtx y)
   if (GET_CODE (y) == PLUS && CONSTANT_P (XEXP (y, 1)))
     return form_sum (form_sum (x, XEXP (y, 0)), XEXP (y, 1));
 
-  /* If both constant, encapsulate sum.  Otherwise, just form sum.  A
+  /* If both constant, encapsulate sum.	 Otherwise, just form sum.  A
      constant will have been placed second.  */
   if (CONSTANT_P (x) && CONSTANT_P (y))
     {
@@ -212,7 +239,7 @@ form_sum (rtx x, rtx y)
 }
 
 /* Return the current substitution hard register of the elimination of
-   HARD_REGNO.  If HARD_REGNO is not eliminable, return itself.  */
+   HARD_REGNO.	If HARD_REGNO is not eliminable, return itself.	 */
 int
 lra_get_elimation_hard_regno (int hard_regno)
 {
@@ -242,7 +269,7 @@ get_elimination (rtx reg)
   if ((offset = self_elim_offsets[hard_regno]) == 0)
     return NULL;
   /* This is an iteration to restore offsets just after HARD_REGNO
-     stopped to be eliminable.  */
+     stopped to be eliminable.	*/
   self_elim_table.from = self_elim_table.to = hard_regno;
   self_elim_table.from_rtx
     = self_elim_table.to_rtx
@@ -253,16 +280,17 @@ get_elimination (rtx reg)
 }
 
 /* Scan X and replace any eliminable registers (such as fp) with a
-   replacement (such as sp) if SYBST_P, plus an offset.  The offset is
+   replacement (such as sp) if SYBST_P, plus an offset.	 The offset is
    a change in the offset between the eliminable register and its
    substitution if UPDATE_P, or the full offset if FULL_P, or
    otherwise zero.
 
    MEM_MODE is the mode of an enclosing MEM.  We need this to know how
-   much to adjust a register for, e.g., PRE_DEC.  Also, if we are inside a
-   MEM, we are allowed to replace a sum of a register and the constant zero
-   with the register, which we cannot do outside a MEM.  In addition, we need
-   to record the fact that a register is referenced outside a MEM.
+   much to adjust a register for, e.g., PRE_DEC.  Also, if we are
+   inside a MEM, we are allowed to replace a sum of a hard register
+   and the constant zero with the hard register, which we cannot do
+   outside a MEM.  In addition, we need to record the fact that a
+   hard register is referenced outside a MEM.
 
    Alternatively, INSN may be a note (an EXPR_LIST or INSN_LIST).
    That's used when we eliminate in expressions stored in notes.  */
@@ -298,8 +326,8 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case REG:
-      /* First handle the case where we encounter a bare register that
-	 is eliminable.  Replace it with a PLUS.  */
+      /* First handle the case where we encounter a bare hard register
+	 that is eliminable.  Replace it with a PLUS.  */
       if ((ep = get_elimination (x)) != NULL)
 	{
 	  rtx to = subst_p ? ep->to_rtx : ep->from_rtx;
@@ -317,16 +345,17 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
        good idea.  It is not.  It has been tried multiple times and every
        time the change has had to have been reverted.
 
-       Other parts of reload know a PLUS is special (gen_reload for example)
-       and require special code to handle code a reloaded PLUS operand.
+       Other parts of LRA know a PLUS is special and require special
+       code to handle code a reloaded PLUS operand.
 
        Also consider backends where the flags register is clobbered by a
        MINUS, but we can emit a PLUS that does not clobber flags (IA-32,
-       lea instruction comes to mind).  If we try to reload a MINUS, we
+       lea instruction comes to mind).	If we try to reload a MINUS, we
        may kill the flags register that was holding a useful value.
 
        So, please before trying to handle MINUS, consider reload as a
-       whole instead of this little section as well as the backend issues.  */
+       whole instead of this little section as well as the backend
+       issues.	*/
     case PLUS:
       /* If this is the sum of an eliminable register and a constant, rework
 	 the sum.  */
@@ -361,14 +390,15 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 						    XEXP (x, 1), offset));
 	    }
 
-	  /* If the register is not eliminable, we are done since the other
-	     operand is a constant.  */
+	  /* If the hard register is not eliminable, we are done since
+	     the other operand is a constant.  */
 	  return x;
 	}
 
-      /* If this is part of an address, we want to bring any constant to the
-	 outermost PLUS.  We will do this by doing register replacement in
-	 our operands and seeing if a constant shows up in one of them.
+      /* If this is part of an address, we want to bring any constant
+	 to the outermost PLUS.	 We will do this by doing hard
+	 register replacement in our operands and seeing if a constant
+	 shows up in one of them.
 
 	 Note that there is no risk of modifying the structure of the insn,
 	 since we only get called for its operands, thus we are either
@@ -386,7 +416,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	    new_rtx = form_sum (new0, new1);
 
 	    /* As above, if we are not inside a MEM we do not want to
-	       turn a PLUS into something else.  We might try to do so here
+	       turn a PLUS into something else.	 We might try to do so here
 	       for an addition of 0 if we aren't optimizing.  */
 	    if (! mem_mode && GET_CODE (new_rtx) != PLUS)
 	      return gen_rtx_PLUS (GET_MODE (x), new_rtx, const0_rtx);
@@ -397,10 +427,10 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case MULT:
-      /* If this is the product of an eliminable register and a
+      /* If this is the product of an eliminable hard register and a
 	 constant, apply the distribute law and move the constant out
 	 so that we have (plus (mult ..) ..).  This is needed in order
-	 to keep load-address insns valid.   This case is pathological.
+	 to keep load-address insns valid.  This case is pathological.
 	 We ignore the possibility of overflow here.  */
       if (REG_P (XEXP (x, 0)) && CONST_INT_P (XEXP (x, 1))
 	  && (ep = get_elimination (XEXP (x, 0))) != NULL)
@@ -428,14 +458,14 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
     case COMPARE:
     /* See comments before PLUS about handling MINUS.  */
     case MINUS:
-    case DIV:      case UDIV:
-    case MOD:      case UMOD:
-    case AND:      case IOR:      case XOR:
+    case DIV:	   case UDIV:
+    case MOD:	   case UMOD:
+    case AND:	   case IOR:	  case XOR:
     case ROTATERT: case ROTATE:
     case ASHIFTRT: case LSHIFTRT: case ASHIFT:
-    case NE:       case EQ:
-    case GE:       case GT:       case GEU:    case GTU:
-    case LE:       case LT:       case LEU:    case LTU:
+    case NE:	   case EQ:
+    case GE:	   case GT:	  case GEU:    case GTU:
+    case LE:	   case LT:	  case LEU:    case LTU:
       {
 	rtx new0 = lra_eliminate_regs_1 (XEXP (x, 0), mem_mode,
 					 subst_p, update_p, full_p);
@@ -450,7 +480,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 
     case EXPR_LIST:
       /* If we have something in XEXP (x, 0), the usual case,
-	 eliminate it.  */
+	 eliminate it.	*/
       if (XEXP (x, 0))
 	{
 	  new_rtx = lra_eliminate_regs_1 (XEXP (x, 0), mem_mode,
@@ -459,7 +489,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	    {
 	      /* If this is a REG_DEAD note, it is not valid anymore.
 		 Using the eliminated version could result in creating a
-		 REG_DEAD note for the stack or frame pointer.  */
+		 REG_DEAD note for the stack or frame pointer.	*/
 	      if (REG_NOTE_KIND (x) == REG_DEAD)
 		return (XEXP (x, 1)
 			? lra_eliminate_regs_1 (XEXP (x, 1), mem_mode,
@@ -473,7 +503,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       /* ... fall through ...  */
 
     case INSN_LIST:
-      /* Now do eliminations in the rest of the chain.  If this was
+      /* Now do eliminations in the rest of the chain.	If this was
 	 an EXPR_LIST, this might result in allocating more memory than is
 	 strictly needed, but it simplifies the code.  */
       if (XEXP (x, 1))
@@ -482,7 +512,8 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 					  subst_p, update_p, full_p);
 	  if (new_rtx != XEXP (x, 1))
 	    return
-	      gen_rtx_fmt_ee (GET_CODE (x), GET_MODE (x), XEXP (x, 0), new_rtx);
+	      gen_rtx_fmt_ee (GET_CODE (x), GET_MODE (x),
+			      XEXP (x, 0), new_rtx);
 	}
       return x;
 
@@ -497,10 +528,11 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 
     case PRE_MODIFY:
     case POST_MODIFY:
-      /* We do not support elimination of a register that is modified.
-	 elimination_effects has already make sure that this does not
-	 happen.  The only remaining case we need to consider here is
-	 that the increment value may be an eliminable register.  */
+      /* We do not support elimination of a hard register that is
+	 modified.  elimination_effects has already make sure that
+	 this does not happen.	The only remaining case we need to
+	 consider here is that the increment value may be an
+	 eliminable register.  */
       if (GET_CODE (XEXP (x, 1)) == PLUS
 	  && XEXP (XEXP (x, 1), 0) == XEXP (x, 0))
 	{
@@ -515,10 +547,10 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case STRICT_LOW_PART:
-    case NEG:          case NOT:
+    case NEG:	       case NOT:
     case SIGN_EXTEND:  case ZERO_EXTEND:
     case TRUNCATE:     case FLOAT_EXTEND: case FLOAT_TRUNCATE:
-    case FLOAT:        case FIX:
+    case FLOAT:	       case FIX:
     case UNSIGNED_FIX: case UNSIGNED_FLOAT:
     case ABS:
     case SQRT:
@@ -546,7 +578,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	  if (MEM_P (new_rtx)
 	      && ((x_size < new_size
 #ifdef WORD_REGISTER_OPERATIONS
-		   /* On these machines, combine can create rtl of the form
+		   /* On these machines, combine can create RTL of the form
 		      (set (subreg:m1 (reg:m2 R) 0) ...)
 		      where m1 < m2, and expects something interesting to
 		      happen to the entire word.  Moreover, it will use the
@@ -574,7 +606,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
     case MEM:
       /* Our only special processing is to pass the mode of the MEM to our
 	 recursive call and copy the flags.  While we are here, handle this
-	 case more efficiently.  */
+	 case more efficiently.	 */
       return
 	replace_equiv_address_nv
 	(x,
@@ -597,7 +629,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       break;
     }
 
-  /* Process each of our operands recursively.  If any have changed, make a
+  /* Process each of our operands recursively.	If any have changed, make a
      copy of the rtx.  */
   fmt = GET_RTX_FORMAT (code);
   for (i = 0; i < GET_RTX_LENGTH (code); i++, fmt++)
@@ -641,7 +673,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 }
 
 /* This function is used externally in subsequent passes of GCC.  It
-   always does a full elimination of X.  */
+   always does a full elimination of X.	 */
 rtx
 lra_eliminate_regs (rtx x, enum machine_mode mem_mode,
 		    rtx insn ATTRIBUTE_UNUSED)
@@ -669,7 +701,7 @@ mark_not_eliminable (rtx x)
     case POST_MODIFY:
     case PRE_MODIFY:
       if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
-	/* If we modify the source of an elimination rule, disable it.  */
+	/* If we modify the source of an elimination rule, disable it.	*/
 	for (ep = reg_eliminate;
 	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 	       ep++)
@@ -681,9 +713,10 @@ mark_not_eliminable (rtx x)
 
     case USE:
       if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
-	/* If using a register that is the source of an eliminate we
-	   still think can be performed, note it cannot be performed
-	   since we don't know how this register is used.  */
+	/* If using a hard register that is the source of an eliminate
+	   we still think can be performed, note it cannot be
+	   performed since we don't know how this hard register is
+	   used.  */
 	for (ep = reg_eliminate;
 	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 	     ep++)
@@ -694,9 +727,10 @@ mark_not_eliminable (rtx x)
 
     case CLOBBER:
       if (REG_P (XEXP (x, 0)) && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER)
-	/* If clobbering a register that is the replacement register for an
-	   elimination we still think can be performed, note that it cannot
-	   be performed.  Otherwise, we need not be concerned about it.  */
+	/* If clobbering a hard register that is the replacement
+	   register for an elimination we still think can be
+	   performed, note that it cannot be performed.	 Otherwise, we
+	   need not be concerned about it.  */
 	for (ep = reg_eliminate;
 	     ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 	     ep++)
@@ -706,22 +740,23 @@ mark_not_eliminable (rtx x)
       return;
 
     case SET:
-      /* Check for setting a register that we know about.  */
+      /* Check for setting a hard register that we know about.	*/
       if (REG_P (SET_DEST (x)) && REGNO (SET_DEST (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  /* See if this is setting the replacement register for an
-	     elimination.
+	  /* See if this is setting the replacement hard register for
+	     an elimination.
 
 	     If DEST is the hard frame pointer, we do nothing because
 	     we assume that all assignments to the frame pointer are
 	     for non-local gotos and are being done at a time when
 	     they are valid and do not disturb anything else.  Some
 	     machines want to eliminate a fake argument pointer (or
-	     even a fake frame pointer) with either the real frame or
-	     the stack pointer.  Assignments to the hard frame pointer
-	     must not prevent this elimination.  */
+	     even a fake frame pointer) with either the real frame
+	     pointer or the stack pointer.  Assignments to the hard
+	     frame pointer must not prevent this elimination.  */
 
-	  for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
+	  for (ep = reg_eliminate;
+	       ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 	       ep++)
 	    if (ep->to_rtx == SET_DEST (x)
 		&& SET_DEST (x) != hard_frame_pointer_rtx)
@@ -749,12 +784,12 @@ mark_not_eliminable (rtx x)
 
 
 
-/* Scan INSN and eliminate all eliminable registers in it.
+/* Scan INSN and eliminate all eliminable hard registers in it.
 
    If REPLACE_P is true, do the replacement destructively.  Also delete
    the insn as dead it if it is setting an eliminable register.
 
-   If REPLACE_P is false, do an offset updates.  */
+   If REPLACE_P is false, do an offset updates.	 */
 
 static void
 eliminate_regs_in_insn (rtx insn, bool replace_p)
@@ -780,7 +815,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       return;
     }
 
-  /* Check for setting an eliminable register.  */
+  /* Check for setting an eliminable register.	*/
   if (old_set != 0 && REG_P (SET_DEST (old_set))
       && (ep = get_elimination (SET_DEST (old_set))) != NULL)
     {
@@ -834,9 +869,9 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 		  offset -= (ep->offset - ep->previous_offset);
 		  src = plus_constant (Pmode, ep->to_rtx, offset);
 		  
-		  /* First see if this insn remains valid when we
-		     make the change.  If not, keep the INSN_CODE
-		     the same and let reload fit it up.  */
+		  /* First see if this insn remains valid when we make
+		     the change.  If not, keep the INSN_CODE the same
+		     and let the constraint pass fit it up.  */
 		  validate_change (insn, &SET_SRC (old_set), src, 1);
 		  validate_change (insn, &SET_DEST (old_set),
 				   ep->from_rtx, 1);
@@ -852,7 +887,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 	  
 	  
 	  /* We can't delete this insn, but needn't process it
-	     since it won't be used unless something changes. */
+	     since it won't be used unless something changes.  */
 	  delete_p = false;
 	}
 #endif
@@ -925,8 +960,8 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
 		 with a simple set (this may help if the original insn
 		 was a PARALLEL that was only recognized as single_set
 		 due to REG_UNUSED notes).  If this isn't valid
-		 either, keep the INSN_CODE the same and let reload
-		 fix it up.  */
+		 either, keep the INSN_CODE the same and let the
+		 constraint pass fix it up.  */
 	      if (! validate_change (insn, &SET_SRC (old_set), new_src, 0))
 		{
 		  rtx new_pat = gen_rtx_SET (VOIDmode,
@@ -944,7 +979,7 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
     }
 
   /* Eliminate all eliminable registers occurring in operands that
-     can be handled by reload.  */
+     can be handled by the constraint pass.  */
   id = lra_get_insn_recog_data (insn);
   static_id = id->insn_static_data;
   val = false;
@@ -956,22 +991,23 @@ eliminate_regs_in_insn (rtx insn, bool replace_p)
       /* For an asm statement, every operand is eliminable.  */
       if (icode < 0 || insn_data[icode].operand[i].eliminable)
 	{
-	  /* Check for setting a register that we know about.  */
+	  /* Check for setting a hard register that we know about.  */
 	  if (static_id->operand[i].type != OP_IN
 	      && REG_P (orig_operand[i]))
 	    {
-	      /* If we are assigning to a register that can be eliminated, it
-		 must be as part of a PARALLEL, since the code above handles
-		 single SETs.  We must indicate that we can no longer
-		 eliminate this reg.  */
-	      for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
+	      /* If we are assigning to a hard register that can be
+		 eliminated, it must be as part of a PARALLEL, since
+		 the code above handles single SETs.  We must indicate
+		 that we can no longer eliminate this reg.  */
+	      for (ep = reg_eliminate;
+		   ep < &reg_eliminate[NUM_ELIMINABLE_REGS];
 		   ep++)
 		lra_assert (ep->from_rtx != orig_operand[i]
 			    || ! ep->can_eliminate);
 	    }
 
 	  /* Companion to the above plus substitution, we can allow
-	     invariants as the source of a plain move.  */
+	     invariants as the source of a plain move.	*/
 	  substed_operand[i]
 	    = lra_eliminate_regs_1 (*id->operand_loc[i], VOIDmode,
 				    replace_p, ! replace_p, false);
@@ -1021,7 +1057,7 @@ spill_pseudos (HARD_REG_SET set)
     return;
   if (lra_dump_file != NULL)
     {
-      fprintf (lra_dump_file, "    Spilling non-eliminable hard regs:");
+      fprintf (lra_dump_file, "	   Spilling non-eliminable hard regs:");
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (set, i))
 	  fprintf (lra_dump_file, " %d", i);
@@ -1034,7 +1070,7 @@ spill_pseudos (HARD_REG_SET set)
 					    PSEUDO_REGNO_MODE (i), set))
       {
 	if (lra_dump_file != NULL)
-	  fprintf (lra_dump_file, "      Spilling r%d(%d)\n",
+	  fprintf (lra_dump_file, "	 Spilling r%d(%d)\n",
 		   i, reg_renumber[i]);
 	reg_renumber[i] = -1;
 	bitmap_ior_into (&to_process, &lra_reg_info[i].insn_bitmap);
@@ -1089,7 +1125,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	     one.  */
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file,
-		     "  Elimination %d to %d is not possible anymore\n",
+		     "	Elimination %d to %d is not possible anymore\n",
 		     ep->from, ep->to);
 	  /* Mark that is not eliminable anymore.  */
 	  elimination_map[ep->from] = NULL;
@@ -1109,9 +1145,9 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	    }
 	  else
 	    {
-	      /* There is no elimination anymore just use the register
-		 `from' itself.  Setup self elimination offset to
-		 restore the original offset values.  */
+	      /* There is no elimination anymore just use the hard
+		 register `from' itself.  Setup self elimination
+		 offset to restore the original offset values.	*/
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file, "    %d is not eliminable at all\n",
 			 ep->from);
@@ -1139,11 +1175,11 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 		       &lra_reg_info[ep->from].insn_bitmap);
 }
 
-/* Initialize the table of registers to eliminate.  Pre-condition:
-   global flag frame_pointer_needed has been set before calling this
-   function.  Set up hard registers in DONT_USE_REGS which can not be
-   used for allocation because their identical elimination is not
-   possible.  */
+/* Initialize the table of hard registers to eliminate.
+   Pre-condition: global flag frame_pointer_needed has been set before
+   calling this function.  Set up hard registers in DONT_USE_REGS
+   which can not be used for allocation because their identical
+   elimination is not possible.	 */
 static void
 init_elim_table (void)
 {
@@ -1182,9 +1218,9 @@ init_elim_table (void)
 #endif
 
   /* Count the number of eliminable registers and build the FROM and TO
-     REG rtx's.  Note that code in gen_rtx_REG will cause, e.g.,
+     REG rtx's.	 Note that code in gen_rtx_REG will cause, e.g.,
      gen_rtx_REG (Pmode, STACK_POINTER_REGNUM) to equal stack_pointer_rtx.
-     We depend on this.  */
+     We depend on this.	 */
   for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
     {
       ep->from_rtx = gen_rtx_REG (Pmode, ep->from);
@@ -1209,7 +1245,7 @@ lra_init_elimination (void)
   setup_elimination_map ();
 }
 
-/* Eliminate reg given by its location LOC.  */
+/* Eliminate hard reg given by its location LOC.  */
 void
 lra_eliminate_reg_if_possible (rtx *loc)
 {
@@ -1226,7 +1262,7 @@ lra_eliminate_reg_if_possible (rtx *loc)
 }
 
 /* Do (final if FINAL_P) elimination in INSN.  Add the insn for
-   subsequent processing in the constraint pass, update the insn info.  */
+   subsequent processing in the constraint pass, update the insn info.	*/
 static void
 process_insn_for_elimination (rtx insn, bool final_p)
 {
@@ -1292,7 +1328,7 @@ lra_eliminate (bool final_p)
     if (lra_reg_info[i].nrefs != 0)
       {
 	mem_loc = ira_reg_equiv[i].memory;
-        invariant = ira_reg_equiv[i].invariant;
+	invariant = ira_reg_equiv[i].invariant;
 	if (mem_loc != NULL_RTX)
 	  mem_loc = lra_eliminate_regs_1 (mem_loc, VOIDmode,
 					  final_p, ! final_p, false);
@@ -1301,7 +1337,8 @@ lra_eliminate (bool final_p)
 	  invariant = lra_eliminate_regs_1 (invariant, VOIDmode,
 					    final_p, ! final_p, false);
 	ira_reg_equiv[i].invariant = invariant;
-	if (lra_dump_file != NULL && (mem_loc != NULL_RTX || invariant != NULL))
+	if (lra_dump_file != NULL
+	    && (mem_loc != NULL_RTX || invariant != NULL))
 	  fprintf (lra_dump_file,
 		   "Updating elimination of equiv for reg %d\n", i);
       }

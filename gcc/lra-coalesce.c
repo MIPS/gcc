@@ -15,13 +15,32 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
 
-/* This pass makes some simple RTL code transformations by coalescing
-   pseudo-registers to remove some move insns and by remove dead moves
-   whose destination is not used.  */
+/* This file contains a pass making some simple RTL code
+   transformations by coalescing pseudos to remove some move insns.
+
+   Spilling pseudos in LRA can create memory-memory moves.  We should
+   remove potential memory-memory moves before the next constraint
+   pass because the constraint pass will generate additional insns for
+   such moves and all these insns will be hard to remove afterwards.
+
+   Here we coalesce only spilled pseudos.  Coalescing non-spilled
+   pseudos (with different hard regs) might result in spilling
+   additional pseudos because of possible conflicts with other
+   non-spilled pseudos and, as a consequence, in more constraint
+   passes and even LRA infinite cycling.  Trivial the same hard
+   register moves will be removed by subsequent compiler passes.
+
+   We don't coalesce bound pseudos.  It complicates LRA code a lot
+   without visible generated code improvement.
+
+   The pseudo live-ranges are used to find conflicting pseudos during
+   coalescing.
+
+   Most frequently executed moves is tried to be coalesced first.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,13 +65,13 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Arrays whose elements represent the first and the next pseudo
    (regno) in the coalesced pseudos group to which given pseudo (its
-   regno is the index) belongs.  The next of the last pseudo in the
+   regno is the index) belongs.	 The next of the last pseudo in the
    group refers to the first pseudo in the group, in other words the
    group is represented by a cyclic list.  */
 static int *first_coalesced_pseudo, *next_coalesced_pseudo;
 
 /* The function is used to sort moves according to their execution
-   frequencies.  */
+   frequencies.	 */
 static int
 move_freq_compare_func (const void *v1p, const void *v2p)
 {
@@ -65,7 +84,7 @@ move_freq_compare_func (const void *v1p, const void *v2p)
   if (pri2 - pri1)
     return pri2 - pri1;
 
-  /* If freqencies are equal, sort by moves, so that the results of
+  /* If frequencies are equal, sort by moves, so that the results of
      qsort leave nothing to chance.  */
   return (int) INSN_UID (mv1) - (int) INSN_UID (mv2);
 }
@@ -75,7 +94,7 @@ static bitmap_head coalesced_pseudos_bitmap;
 
 /* Merge two sets of coalesced pseudos given correspondingly by
    pseudos REGNO1 and REGNO2 (more accurately merging REGNO2 group
-   into REGNO1 group).  Set up COALESCED_PSEUDOS_BITMAP.  */
+   into REGNO1 group).	Set up COALESCED_PSEUDOS_BITMAP.  */
 static void
 merge_pseudos (int regno1, int regno2)
 {
@@ -149,11 +168,11 @@ substitute (rtx *loc)
   return res;
 }
 
-/* The current iteration (1, 2, ...) of the coalecsing pass.  */
+/* The current iteration (1, 2, ...) of the coalescing pass.  */
 int lra_coalesce_iter;
 
-/* Return true if the move involving REGNO1 and REGNO2 is a
-   memory-memory move.  */
+/* Return true if the move involving REGNO1 and REGNO2 is a potential
+   memory-memory move.	*/
 static bool
 mem_move_p (int regno1, int regno2)
 {
@@ -162,7 +181,7 @@ mem_move_p (int regno1, int regno2)
 
 
 /* Pseudos which go away after coalescing and pseudos used instead of
-   the removed pseudos.  */
+   the removed pseudos.	 */
 static bitmap_head removed_pseudos_bitmap, used_pseudos_bitmap;
 
 /* Set up REMOVED_PSEUDOS_BITMAP and USED_PSEUDOS_BITMAP, and update
@@ -254,13 +273,14 @@ lra_coalesce (void)
 	    && ira_reg_equiv[dregno].constant == NULL_RTX
 	    && ira_reg_equiv[dregno].memory == NULL_RTX
 	    && ira_reg_equiv[dregno].invariant == NULL_RTX
-	    && ! lra_intersected_live_ranges_p (lra_reg_info[sregno].live_ranges,
-						lra_reg_info[dregno].live_ranges))
+	    && !(lra_intersected_live_ranges_p
+		 (lra_reg_info[sregno].live_ranges,
+		  lra_reg_info[dregno].live_ranges)))
 	  sorted_moves[mv_num++] = insn;
     }
   bitmap_clear (&removed_pseudos_bitmap);
   qsort (sorted_moves, mv_num, sizeof (rtx), move_freq_compare_func);
-  /* Coalesced copies, most frequently executed first.  */
+  /* Coalesced copies, most frequently executed first.	*/
   bitmap_initialize (&coalesced_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&involved_insns_bitmap, &reg_obstack);
   for (; mv_num != 0;)
@@ -274,14 +294,14 @@ lra_coalesce (void)
 	  sregno = REGNO (SET_SRC (set));
 	  dregno = REGNO (SET_DEST (set));
 	  if (! lra_intersected_live_ranges_p
-	        (lra_reg_info[first_coalesced_pseudo[sregno]].live_ranges,
+		(lra_reg_info[first_coalesced_pseudo[sregno]].live_ranges,
 		 lra_reg_info[first_coalesced_pseudo[dregno]].live_ranges))
 	    {
 	      coalesced_moves++;
 	      if (lra_dump_file != NULL)
 		fprintf
 		  (lra_dump_file,
-		   "      Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
+		   "	  Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
 		   INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
 		   dregno, ORIGINAL_REGNO (SET_DEST (set)),
 		   BLOCK_FOR_INSN (mv)->frequency);
@@ -309,9 +329,9 @@ lra_coalesce (void)
 	    {
 	      coalesced_moves++;
 	      fprintf
-		(lra_dump_file,
-		 "      Coalescing move %i:r%d-r%d (freq=%d)\n",
-		 INSN_UID (mv), sregno, dregno, BLOCK_FOR_INSN (mv)->frequency);
+		(lra_dump_file, "      Coalescing move %i:r%d-r%d (freq=%d)\n",
+		 INSN_UID (mv), sregno, dregno,
+		 BLOCK_FOR_INSN (mv)->frequency);
 	    }
 	}
       mv_num = n;
@@ -334,9 +354,9 @@ lra_coalesce (void)
 		&& REGNO (SET_SRC (set)) == REGNO (SET_DEST (set))
 		&& ! side_effects_p (set))
 	      {
-		/* Coalesced move. */
+		/* Coalesced move.  */
 		if (lra_dump_file != NULL)
-		  fprintf (lra_dump_file, "      Removing move %i (freq=%d)\n",
+		  fprintf (lra_dump_file, "	 Removing move %i (freq=%d)\n",
 			 INSN_UID (insn), BLOCK_FOR_INSN (insn)->frequency);
 		lra_set_insn_deleted (insn);
 	      }

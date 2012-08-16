@@ -1,3 +1,24 @@
+2012-08-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.h: Format the code, tabify.  Fix and add comments.
+	* lra-int.h: Ditto.
+	* lra.c: Ditto.
+	* lra-assigns.c: Ditto.
+	* lra-constraints.c: Ditto.
+	* lra-coalesce.c: Ditto.
+	* lra-eliminations.c: Ditto.
+	* lra-equivs.c: Ditto.
+	* lra-lives.c: Ditto.
+	* lra-spills.c: Ditto.
+
+	* config/pa/pa.c: Add argument to alter_subreg calls.
+	* config/v850/v850.c: Ditto.
+	* config/sh/sh.md: Ditto.
+	* config/arm/arm.c: Ditto.
+	* config/xtensa/xtensa.c: Ditto.
+	* config/m68k/m68k.c: Ditto.
+	* config/m32r/m32r.c: Ditto.
+
 2012-08-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_constraint_iter_after_spill): New.

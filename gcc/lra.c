@@ -15,9 +15,84 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
+
+/* The Local Register Allocator (LRA) is a replacement of former
+   reload pass.	 It is focused to simplify code solving the reload
+   pass tasks, to make the code maintenance easier, and to implement new
+   perspective optimizations.
+
+   The major LRA design solutions are:
+     o division small manageable, separated sub-tasks
+     o reflection of all transformations and decisions in RTL as more
+       as possible
+     o insn constraints as a primary source of the info (minimizing
+       number of target-depended macros/hooks)
+
+   In brief LRA works by iterative insn process with the final goal is
+   to satisfy all insn and address constraints:
+     o New reload insns (in brief reloads) and reload pseudos might be
+       generated;
+     o Some pseudos might be spilled to assign hard registers to
+       new reload pseudos;
+     o Some pseudos are bound.	It means they always got the same
+       memory or hard register;
+     o Changing spilled pseudos to stack memory or their equivalences;
+     o Allocation stack memory changes the address displacement and
+       new iteration is needed.
+
+   Here is block diagram of LRA passes:
+
+	  ---------------------				    
+	 | Undo inheritance    |      ---------------	     --------------- 
+	 | for spilled pseudos)|     | Memory-memory |	    | New (and old) |
+	 | and splits (for     |<----| move coalesce |<-----|	 pseudos    |
+	 | pseudos got the     |      ---------------	    |	assignment  |
+  Start	 |  same  hard regs)   |			     --------------- 
+    |	  ---------------------					    ^
+    V		  |		 ----------------		    |
+ -----------	  V		| Update virtual |		    |
+|  Remove   |----> ------------>|    register	 |		    |
+| scratches |	  ^		|  displacements |		    |
+ -----------	  |		 ----------------		    |
+		  |			 |			    |
+		  |			 V	   New		    |
+	 ----------------    No	   ------------	 pseudos   -------------------
+	| Spilled pseudo | change |Constraints:| or insns | Inheritance/split |
+	|    to memory	 |<-------|    RTL     |--------->|  transformations  |
+	|  substitution	 |	  | transfor-  |	  |    in EBB scope   |
+	 ----------------	  |  mations   |	   -------------------
+		|		    ------------ 
+		V
+    -------------------------
+   | Hard regs substitution, |
+   |  devirtalization, and   |------> Finish
+   | restoring scratches got |
+   |	     memory	     |
+    -------------------------
+
+   To speed up the process:
+     o We process only insns affected by changes on previous
+       iterations;
+     o We don't use DFA-infrastructure because it results in much slower
+       compiler speed than a special IR described below does;
+     o We use a special insn representation for quick access to insn
+       info which is always *synchronized* with the current RTL;
+       o Insn IR is minimized by memory.  It is divided on three parts:
+	 o one specific for each insn in RTL (only operand locations);
+	 o one common for all insns in RTL with the same insn code
+	   (different operand attributes from machine descriptions);
+	 o one oriented for maintenance of live info (list of pseudos).
+       o Pseudo data:
+	 o all insns where the pseudo is referenced;
+	 o live info (conflicting hard regs, live ranges, # of
+	   references etc);
+	 o data used for assigning (preferred hard regs, costs etc).
+
+   This file contains LRA driver, LRA utility functions and data, and
+   code for dealing with scratches.  */
 
 #include "config.h"
 #include "system.h"
@@ -46,7 +121,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 
 /* Hard registers currently not available for allocation.  It can
-   changed after some registers become not eliminable.  */
+   changed after some hard  registers become not eliminable.  */
 HARD_REG_SET lra_no_alloc_regs;
 
 static int get_new_reg_value (void);
@@ -65,9 +140,9 @@ expand_reg_data (void)
 }
 
 /* Create and return a new reg from register FROM corresponding to
-   machine description operand of mode MD_MODE.  Initialize its
+   machine description operand of mode MD_MODE.	 Initialize its
    register class to RCLASS.  Print message about assigning class
-   RCLASS containing new register name TITLE unless it is NULL.  The
+   RCLASS containing new register name TITLE unless it is NULL.	 The
    created register will have unique held value.  */
 rtx
 lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
@@ -124,7 +199,7 @@ lra_create_new_reg (enum machine_mode md_mode, rtx original,
   return new_reg;
 }
 
-/* Set up for REGNO unique hold value. */
+/* Set up for REGNO unique hold value.	*/
 void
 lra_set_regno_unique_value (int regno)
 {
@@ -140,7 +215,7 @@ lra_invalidate_insn_data (rtx insn)
 }
 
 /* Mark INSN deleted and invalidate the insn related info used by
-   LRA.  */
+   LRA.	 */
 void
 lra_set_insn_deleted (rtx insn)
 {
@@ -174,7 +249,7 @@ lra_delete_dead_insn (rtx insn)
 
    Emit insns for x = y + z.  X can be used to store intermediate
    values and should be not in Y and Z when we use x to store an
-   intermediate value.  */ 
+   intermediate value.	*/ 
 void
 lra_emit_add (rtx x, rtx y, rtx z)
 {
@@ -227,10 +302,10 @@ lra_emit_add (rtx x, rtx y, rtx z)
       if (! REG_P (base)
 	  || (index != NULL_RTX && ! REG_P (index))
 	  || (disp != NULL_RTX && ! CONSTANT_P (disp))
-	  || (scale != NULL_RTX && ! CONSTANT_P (disp)))
+	  || (scale != NULL_RTX && ! CONSTANT_P (scale)))
 	{
-	  /* Its is not an address generation.  Probably we have no 3 op
-	     add.  Last chance is to use 2-op add insn.  */
+	  /* Its is not an address generation.	Probably we have no 3 op
+	     add.  Last chance is to use 2-op add insn.	 */
 	  lra_assert (x != y && x != z);
 	  emit_move_insn (x, z);
 	  insn = gen_add2_insn (x, y);
@@ -263,7 +338,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
 		  insn = gen_add2_insn (x, base);
 		  emit_insn (insn);
 		}
-	      /* Generate x = x + index. */
+	      /* Generate x = x + index.  */
 	      if (index != NULL_RTX)
 		{
 		  insn = gen_add2_insn (x, index);
@@ -309,7 +384,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
     expand_reg_data ();
 }
 
-/* The number of emitted reload insns so far. */
+/* The number of emitted reload insns so far.  */
 int lra_curr_reload_num;
 
 /* Emit x := y, processing special case when y = u + v or y = u + v *
@@ -330,7 +405,7 @@ lra_emit_move (rtx x, rtx y)
       if (REG_P (x))
 	lra_reg_info[ORIGINAL_REGNO (x)].last_reload = ++lra_curr_reload_num;
       /* Function emit_move can create pseudos -- so expand the pseudo
-	 data.  */
+	 data.	*/
       if (old != max_reg_num ())
 	expand_reg_data ();
       return;
@@ -338,9 +413,9 @@ lra_emit_move (rtx x, rtx y)
   lra_emit_add (x, XEXP (y, 0), XEXP (y, 1));
 }
 
-/* Update insn operands which are duplication of operands in array of
-   NOPS (with end marker -1).  The insn is represented by its LRA
-   internal representation ID.  */
+/* Update insn operands which are duplication of operands whose
+   numbers are in array of NOPS (with end marker -1).  The insn is
+   represented by its LRA internal representation ID.  */
 void
 lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
 {
@@ -358,7 +433,7 @@ lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
 /* This page contains code dealing with info about registers in the
    insns.  */
 
-/* Pools for insn regs.  */
+/* Pools for insn reg info.  */
 static alloc_pool insn_reg_pool;
 
 /* Initiate pool for insn reg info.  */
@@ -373,7 +448,7 @@ init_insn_regs (void)
    (in/out/inout), biggest reference mode MODE, flag that it is
    reference through subreg (SUBREG_P), flag that is early clobbered
    in the insn (EARLY_CLOBBER), and reference to the next insn reg
-   info (NEXT).  */
+   info (NEXT).	 */
 static struct lra_insn_reg *
 new_insn_reg (int regno, enum op_type type, enum machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
@@ -390,14 +465,14 @@ new_insn_reg (int regno, enum op_type type, enum machine_mode mode,
   return ir;
 }
 
-/* Free insn reg IR.  */
+/* Free insn reg info IR.  */
 static void
 free_insn_reg (struct lra_insn_reg *ir)
 {
   pool_free (insn_reg_pool, ir);
 }
 
-/* Free insn reg info list IR.  */
+/* Free insn reg info list IR.	*/
 static void
 free_insn_regs (struct lra_insn_reg *ir)
 {
@@ -429,19 +504,19 @@ struct lra_static_insn_data *insn_code_data[LAST_INSN_CODE];
 
 /* Map INSN_UID -> the operand alternative data (NULL if unknown).  We
    assume that this data is valid until register info is changed
-   because classes in the data can be changed.  */
+   because classes in the data can be changed.	*/
 struct operand_alternative *op_alt_data[LAST_INSN_CODE];
 
 /* Debug insns are represented as a special insn with one input
    operand which is RTL expression in var_location.  */
 
 /* The following data are used as static insn operand data for all
-   debug insns.  If structure lra_operand_data is changed, the
+   debug insns.	 If structure lra_operand_data is changed, the
    initializer should be changed too.  */
 static struct lra_operand_data debug_operand_data =
   {
-    NULL, /* alternative.  */
-    VOIDmode, /* We are not interesting int the operand mode.  */
+    NULL, /* alternative  */
+    VOIDmode, /* We are not interesting in the operand mode.  */
     OP_IN,
     0, 0, 0 
   };
@@ -452,15 +527,15 @@ static struct lra_operand_data debug_operand_data =
 static struct lra_static_insn_data debug_insn_static_data =
   {
     &debug_operand_data,
-    0,  /* Duplication operands #.  */
+    0,	/* Duplication operands #.  */
     -1, /* Commutative operand #.  */
-    1,  /* Operands #.  There is only one operand which is debug RTL
-	   expression.  */
-    0,  /* Duplications #.  */
-    0,  /* Alternatives #.  We are not interesting alternatives
-	   because we does not proceed debug_insns for reloads.  */
-    NULL, /* Hard registers referenced in machine description.  */
-    NULL  /* Descriptions of operands in alternatives.  */
+    1,	/* Operands #.	There is only one operand which is debug RTL
+	   expression.	*/
+    0,	/* Duplications #.  */
+    0,	/* Alternatives #.  We are not interesting in alternatives
+	   because we does not proceed debug_insns for reloads.	 */
+    NULL, /* Hard registers referenced in machine description.	*/
+    NULL  /* Descriptions of operands in alternatives.	*/
   };
 
 /* Called once per compiler work to initialize some LRA data related
@@ -472,7 +547,7 @@ init_insn_code_data_once (void)
   memset (op_alt_data, 0, sizeof (op_alt_data));
 }
 
-/* Called once per compiler work to finilize some LRA data related to
+/* Called once per compiler work to finalize some LRA data related to
    insns.  */
 static void
 finish_insn_code_data_once (void)
@@ -504,7 +579,7 @@ init_op_alt_data (void)
 
 /* Return static insn data, allocate and setup if necessary.  Although
    dup_num is static data (it depends only on icode), to set it up we
-   need to extract insn first.  So recog_data should be valid for
+   need to extract insn first.	So recog_data should be valid for
    normal insn (ICODE >= 0) before the call.  */
 static struct lra_static_insn_data *
 get_static_insn_data (int icode, int nop, int ndup, int nalt)
@@ -537,13 +612,13 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
 	    = insn_data[icode].operand[i].constraint;
 	  data->operand[i].mode = insn_data[icode].operand[i].mode;
 	  data->operand[i].strict_low = insn_data[icode].operand[i].strict_low;
-	  data->operand[i].is_operator = insn_data[icode].operand[i].is_operator;
+	  data->operand[i].is_operator
+	    = insn_data[icode].operand[i].is_operator;
 	  data->operand[i].type
 	    = (data->operand[i].constraint[0] == '=' ? OP_OUT
 	       : data->operand[i].constraint[0] == '+' ? OP_INOUT
 	       : OP_IN);
 	}
-      /* ??? */
       for (i = 0; i < ndup; i++)
 	data->dup_num[i] = recog_data.dup_num[i];
     }
@@ -565,7 +640,7 @@ init_insn_recog_data (void)
   init_insn_regs ();
 }
 
-/* Expand, if necessary, LRA data about insns.  */
+/* Expand, if necessary, LRA data about insns.	*/
 static void
 check_and_expand_insn_recog_data (int index)
 {
@@ -583,7 +658,7 @@ check_and_expand_insn_recog_data (int index)
     lra_insn_recog_data[i] = NULL;
 }
 
-/* Finish LRA DATA about insn.  */
+/* Finish LRA DATA about insn.	*/
 static void
 free_insn_recog_data (lra_insn_recog_data_t data)
 {
@@ -697,7 +772,7 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 
 		case '%':
 		  /* We currently only support one commutative pair of
-		     operands.  */
+		     operands.	*/
 		  if (static_data->commutative < 0)
 		    static_data->commutative = i;
 		  else
@@ -793,10 +868,10 @@ setup_operand_alternative (lra_insn_recog_data_t data)
     }
 }
 
-/* Recursively process X and collect info about registers which are
-   not the insn operands in X with TYPE (in/out/inout) and flag that
+/* Recursively process X and collect info about registers, which are
+   not the insn operands, in X with TYPE (in/out/inout) and flag that
    it is early clobbered in the insn (EARLY_CLOBBER) and add the info
-   to LIST.  X is a part of insn given by DATA.  Return the result
+   to LIST.  X is a part of insn given by DATA.	 Return the result
    list.  */
 static struct lra_insn_reg *
 collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
@@ -848,7 +923,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 		|| curr->biggest_mode != mode)
 	      {
 		/* This is a new hard regno or the info can not be
-		   integrated into the found structure.  */
+		   integrated into the found structure.	 */
 #ifdef STACK_REGS
 		early_clobber
 		  = (early_clobber
@@ -902,18 +977,16 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 	    list = collect_non_operand_hard_regs (&XEXP (op, i), data,
 						  list, OP_IN, false);
 	  else if (fmt[i] == 'E')
-	    {
-	      for (j = XVECLEN (op, i) - 1; j >= 0; j--)
-		list = collect_non_operand_hard_regs (&XVECEXP (op, i, j),
-						      data, list, OP_IN, false);
-	    }
+	    for (j = XVECLEN (op, i) - 1; j >= 0; j--)
+	      list = collect_non_operand_hard_regs (&XVECEXP (op, i, j), data,
+						    list, OP_IN, false);
 	}
     }
   return list;
 }
 
 /* Set up and return info about INSN.  Set up the info if it is not set up
-   yet.  */
+   yet.	 */
 lra_insn_recog_data_t
 lra_set_insn_recog_data (rtx insn)
 {
@@ -967,7 +1040,7 @@ lra_set_insn_recog_data (rtx insn)
       else
 	{
 	  /* expand_asm_operands makes sure there aren't too many
-	     operands.  */
+	     operands.	*/
 	  lra_assert (nop <= MAX_RECOG_OPERANDS);
 	  if (nop != 0)
 	    data->operand_loc = (rtx **) xmalloc (nop * sizeof (rtx *));
@@ -981,7 +1054,7 @@ lra_set_insn_recog_data (rtx insn)
 	    {
 	      const char *p =  recog_data.constraints[0];
 	      
-	      for (p =  constraints[0]; *p; p++)
+	      for (p =	constraints[0]; *p; p++)
 		n += *p == ',';
 	    }
 	  data->insn_static_data = insn_static_data
@@ -1041,9 +1114,9 @@ lra_set_insn_recog_data (rtx insn)
 	   from get_attr_enabled as extract_insn modifies
 	   which_alternative.  The attribute enabled should not depend
 	   on insn operands, operand modes, operand types, and operand
-	   constraints.  It should depend on the architecture.  If it
+	   constraints.	 It should depend on the architecture.	If it
 	   is not true, we should rewrite this file code to use
-	   extract_insn instead of less expensive insn_extract.  */
+	   extract_insn instead of less expensive insn_extract.	 */
 	recog_data.insn = insn;
 	for (i = 0; i < n; i++)
 	  {
@@ -1067,8 +1140,8 @@ lra_set_insn_recog_data (rtx insn)
       int n_hard_regs, regno, arg_hard_regs[FIRST_PSEUDO_REGISTER];
 
       n_hard_regs = 0;
-      /* Finding implicit hard register usage.  We believe it will be
-	 not changed whatever transformations are used.  Call insns
+      /* Finding implicit hard register usage.	We believe it will be
+	 not changed whatever transformations are used.	 Call insns
 	 are such example.  */
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
 	   link != NULL_RTX;
@@ -1094,18 +1167,18 @@ lra_set_insn_recog_data (rtx insn)
 	}
     }
   /* Some output operand can be recognized only from the context not
-     from the constraints which are empty in this case.  Call insn may
+     from the constraints which are empty in this case.	 Call insn may
      contain a hard register in set destination with empty constraint
-     and extract_insn treats them as an input.  */
+     and extract_insn treats them as an input.	*/
   for (i = 0; i < insn_static_data->n_operands; i++)
     {
       int j;
       rtx pat, set;
       struct lra_operand_data *operand = &insn_static_data->operand[i];
 
-      /* ??? Should we treat 'X' the same way.  It looks to me that
+      /* ??? Should we treat 'X' the same way.	It looks to me that
 	 'X' means anything and empty constraint means we do not
-	 care.  */
+	 care.	*/
       if (operand->type != OP_IN || *operand->constraint != '\0'
 	  || operand->is_operator)
 	continue;
@@ -1120,7 +1193,8 @@ lra_set_insn_recog_data (rtx insn)
 	  for (j = XVECLEN (pat, 0) - 1; j >= 0; j--)
 	    {
 	      set = XVECEXP (PATTERN (insn), 0, j);
-	      if (GET_CODE (set) == SET && &SET_DEST (set) == data->operand_loc[i])
+	      if (GET_CODE (set) == SET
+		  && &SET_DEST (set) == data->operand_loc[i])
 		break;
 	    }
 	  if (j < 0)
@@ -1133,8 +1207,8 @@ lra_set_insn_recog_data (rtx insn)
   return data;
 }
 
-/* Return info about insn give by UID.  The info should be already set
-   up.  */
+/* Return info about insn give by UID.	The info should be already set
+   up.	*/
 static lra_insn_recog_data_t
 get_insn_recog_data_by_uid (int uid)
 {
@@ -1157,8 +1231,8 @@ invalidate_insn_recog_data (int uid)
   lra_insn_recog_data[uid] = NULL;
 }
 
-/* Update all the insn info about INSN.  It is usually called when
-   something in the insn was changed.  Return the info.  */
+/* Update all the insn info about INSN.	 It is usually called when
+   something in the insn was changed.  Return the udpated info.	 */
 lra_insn_recog_data_t
 lra_update_insn_recog_data (rtx insn)
 {
@@ -1242,7 +1316,7 @@ lra_update_insn_recog_data (rtx insn)
 	/* Cache the insn to prevent extract_insn call from
 	   get_attr_enabled.  */
 	recog_data.insn = insn;
-       	for (i = 0; i < n; i++)
+	for (i = 0; i < n; i++)
 	  {
 	    which_alternative = i;
 	    lra_assert (bp[i] == get_attr_enabled (insn));
@@ -1254,7 +1328,7 @@ lra_update_insn_recog_data (rtx insn)
   return data;
 }
 
-/* Set up that INSN using alternative ALT now.  */
+/* Set up that INSN is using alternative ALT now.  */
 void
 lra_set_used_insn_alternative (rtx insn, int alt)
 {
@@ -1264,8 +1338,8 @@ lra_set_used_insn_alternative (rtx insn, int alt)
   data->used_insn_alternative = alt;
 }
 
-/* Set up that insn with UID using alternative ALT now.  The insn info
-   should be already set up.  */
+/* Set up that insn with UID is using alternative ALT now.  The insn
+   info should be already set up.  */
 void
 lra_set_used_insn_alternative_by_uid (int uid, int alt)
 {
@@ -1282,12 +1356,12 @@ lra_set_used_insn_alternative_by_uid (int uid, int alt)
 /* This page contains code dealing with common register info and
    pseudo copies.  */
 
-/* The size of the fllowing array.  */
+/* The size of the following array.  */
 static int reg_info_size;
 /* Common info about each register.  */
 struct lra_reg *lra_reg_info;
 
-/* Last register value.  */
+/* Last register value.	 */
 static int last_reg_value;
 
 /* Return new register value.  */
@@ -1429,7 +1503,7 @@ lra_create_copy (int regno1, int regno2, int freq)
   cp->regno2_next = lra_reg_info[regno2].copies;
   lra_reg_info[regno2].copies = cp;
   if (lra_dump_file != NULL)
-    fprintf (lra_dump_file, "      Creating copy r%d%sr%d@%d\n",
+    fprintf (lra_dump_file, "	   Creating copy r%d%sr%d@%d\n",
 	     regno1, regno1_dest_p ? "<-" : "->", regno2, freq);
 }
 
@@ -1531,10 +1605,10 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 	   is an example:
 
 	   (call_insn 13 12 14 2 (set (parallel:BLK [
-                (expr_list:REG_DEP_TRUE (reg:DI 0 ax)
-                    (const_int 0 [0]))
-                (expr_list:REG_DEP_TRUE (reg:DI 1 dx)
-                    (const_int 8 [0x8]))
+		(expr_list:REG_DEP_TRUE (reg:DI 0 ax)
+		    (const_int 0 [0]))
+		(expr_list:REG_DEP_TRUE (reg:DI 1 dx)
+		    (const_int 8 [0x8]))
 	       ])
 	     (call (mem:QI (symbol_ref:DI (...	*/
 	type = OP_IN;
@@ -1553,7 +1627,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
     }
 }
 
-/* Return execution frequency of INSN.  */
+/* Return execution frequency of INSN.	*/
 static int
 get_insn_freq (rtx insn)
 {
@@ -1563,8 +1637,8 @@ get_insn_freq (rtx insn)
     return REG_FREQ_FROM_BB (bb);
   else
     {
-      lra_assert
-	(lra_insn_recog_data[INSN_UID (insn)]->insn_static_data->n_operands == 0);
+      lra_assert (lra_insn_recog_data[INSN_UID (insn)]
+		  ->insn_static_data->n_operands == 0);
       /* We don't care about such insn, e.g. it might be jump with
 	 addr_vec.  */
       return 1;
@@ -1666,9 +1740,9 @@ lra_get_insn_regs (int uid)
 
 
 /* This page contains code dealing with stack of the insns which
-   should be processed by the constraint pass.  */
+   should be processed by the next constraint pass.  */
 
-/* Bitmap used to put an insn on the stack only in one examplar.  */
+/* Bitmap used to put an insn on the stack only in one exemplar.  */
 bitmap_head lra_constraint_insn_stack_bitmap;
 
 /* The stack itself.  */
@@ -1701,7 +1775,7 @@ lra_push_insn_and_update_insn_regno_info (rtx insn)
   VEC_safe_push (rtx, heap, lra_constraint_insn_stack, insn);
 }
 
-/* Push insns FROM to TO (excluding it) going in reverse order.  */
+/* Push insns FROM to TO (excluding it) going in reverse order.	 */
 static void
 push_insns (rtx from, rtx to)
 {
@@ -1753,9 +1827,16 @@ lra_process_new_insns (rtx insn, rtx before, rtx after, const char *title)
 
 
 /* This page contains code dealing with scratches (changing them onto
-   pseudos and restoring them from the pseudos).  */
+   pseudos and restoring them from the pseudos).
 
-/* Description of location of a former scratch operand.  */
+   We change scratches into pseudos at the beginning of LRA to
+   simplify dealing with them (conflicts, hard register assignments).
+
+   If the pseudo denoting scratch was spilled it means that we do need
+   a hard register for it.  Such pseudos are transformed back to
+   scratches at the end of LRA.	 */
+
+/* Description of location of a former scratch operand.	 */
 struct loc
 {
   rtx insn; /* Insn where the scratch was.  */
@@ -1773,7 +1854,7 @@ static VEC (loc_t, heap) *scratches;
 /* Bitmap of scratch regnos.  */
 static bitmap_head scratch_bitmap;
 
-/* Bitmap of scratch operands.  */
+/* Bitmap of scratch operands.	*/
 static bitmap_head scratch_operand_bitmap;
 
 /* Return true if pseudo REGNO is made of SCRATCH.  */
@@ -1783,7 +1864,7 @@ lra_former_scratch_p (int regno)
   return bitmap_bit_p (&scratch_bitmap, regno);
 }
 
-/* Return true if the operand NOP of INSN is a former scratch.  */
+/* Return true if the operand NOP of INSN is a former scratch.	*/
 bool
 lra_former_scratch_operand_p (rtx insn, int nop)
 {
@@ -1831,7 +1912,8 @@ remove_scratches (void)
 	      bitmap_set_bit (&scratch_operand_bitmap,
 			      INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
 	      if (lra_dump_file != NULL)
-		fprintf (lra_dump_file, "Removing SCRATCH in insn #%u (nop %d)\n",
+		fprintf (lra_dump_file,
+			 "Removing SCRATCH in insn #%u (nop %d)\n",
 			 INSN_UID (insn), i);
 	    }
 	if (insn_changed_p)
@@ -1841,7 +1923,7 @@ remove_scratches (void)
       }
 }
 
-/* Changes pseudos created by function remove_scratches onto scratches.  */
+/* Changes pseudos created by function remove_scratches onto scratches.	 */
 static void
 restore_scratches (void)
 {
@@ -1884,7 +1966,7 @@ restore_scratches (void)
 
 #ifdef ENABLE_CHECKING
 
-/* Function checks RTL for correctness.  If FINAL_P is true, it is
+/* Function checks RTL for correctness.	 If FINAL_P is true, it is
    done at the end of LRA and the check is more rigorous.  */
 static void
 check_rtl (bool final_p)
@@ -1916,9 +1998,9 @@ check_rtl (bool final_p)
 	  continue;
 	id = lra_get_insn_recog_data (insn);
 	/* The code is based on assumption that all addresses in
-	   regular instruction are legitimate before LRA.  The code
-	   in lra-transform.c is based on assumption that there is
-	   no subreg of memory as an insn operand.  */
+	   regular instruction are legitimate before LRA.  The code in
+	   lra-constraints.c is based on assumption that there is no
+	   subreg of memory as an insn operand.	 */
 	for (i = 0; i < id->insn_static_data->n_operands; i++)
 	  {
 	    rtx op = *id->operand_loc[i];
@@ -1927,11 +2009,10 @@ check_rtl (bool final_p)
 		&& (GET_MODE (op) != BLKmode
 		    || GET_CODE (XEXP (op, 0)) != SCRATCH)
 		&& ! memory_address_p (GET_MODE (op), XEXP (op, 0))
-		/* Some ports don't recognize the following
-		   addresses as legitimate.  Although they are
-		   legitimate if they satisfies the constraints and
-		   will be checked by insn constraints which we
-		   ignore here.  */
+		/* Some ports don't recognize the following addresses
+		   as legitimate.  Although they are legitimate if
+		   they satisfies the constraints and will be checked
+		   by insn constraints which we ignore here.  */
 		&& GET_CODE (XEXP (op, 0)) != UNSPEC
 		&& GET_CODE (XEXP (op, 0)) != PRE_DEC
 		&& GET_CODE (XEXP (op, 0)) != PRE_INC
@@ -1995,7 +2076,7 @@ has_nonexceptional_receiver (void)
 	if (e->flags & EDGE_ABNORMAL)
 	  return true;
 
-  /* No exceptional block reached exit unexceptionally.  */
+  /* No exceptional block reached exit unexceptionally.	 */
   return false;
 }
 
@@ -2015,7 +2096,7 @@ add_auto_inc_notes (rtx insn, rtx x)
       return;
     }
 
-  /* Scan all the operand sub-expressions.  */
+  /* Scan all X sub-expressions.  */
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
@@ -2066,7 +2147,7 @@ int lra_in_progress;
 /* Start of reload pseudo regnos before the new spill pass.  */ 
 int lra_constraint_new_regno_start;
 
-/* Inheritance pseudo regnos before the new spill pass.  */ 
+/* Inheritance pseudo regnos before the new spill pass.	 */ 
 bitmap_head lra_inheritance_pseudos;
 
 /* Split pseudo regnos before the new spill pass.  */ 
@@ -2099,7 +2180,7 @@ setup_reg_spill_flag (void)
 }
 
 /* Major LRA entry function.  F is a file should be used to dump LRA
-   debug info.  */
+   debug info.	*/
 void
 lra (FILE *f)
 {
@@ -2130,9 +2211,9 @@ lra (FILE *f)
   init_reg_info ();
   expand_reg_info ();
 
-  /* Function remove_scratches can creates new pseudos for clobbers -- so set
-     up lra_constraint_new_regno_start before its call to permit
-     changing reg classes for pseudos created by the
+  /* Function remove_scratches can creates new pseudos for clobbers --
+     so set up lra_constraint_new_regno_start before its call to
+     permit changing reg classes for pseudos created by this
      simplification.  */
   lra_constraint_new_regno_start = max_reg_num ();
   remove_scratches ();
@@ -2140,7 +2221,7 @@ lra (FILE *f)
 
   /* A function that has a non-local label that can reach the exit
      block via non-exceptional paths must save all call-saved
-     registers.  */
+     registers.	 */
   if (cfun->has_nonlocal_label && has_nonexceptional_receiver ())
     crtl->saves_all_registers = 1;
 
@@ -2176,7 +2257,7 @@ lra (FILE *f)
 	    break;
 	  /* Constraint transformations may result in that eliminable
 	     hard regs become uneliminable and pseudos which use them
-	     should be spilled.  It is better to do it before pseudo
+	     should be spilled.	 It is better to do it before pseudo
 	     assignments.
 
 	     For example, rs6000 can make

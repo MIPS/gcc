@@ -1,4 +1,4 @@
-/* Dealing with equivalences.
+/* Dealing with pseudo equivalences.
    Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
@@ -16,8 +16,8 @@ FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 
 You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+along with GCC; see the file COPYING3.	If not see
+<http://www.gnu.org/licenses/>.	 */
 
 #include "config.h"
 #include "system.h"
@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 int lra_regno_equiv_size;
 
 /* Element N is the list of insns that initialized reg N from its
-   equivalent constant or memory slot.  */
+   equivalent constant or memory slot.	*/
 rtx *lra_regno_equiv_init_insns;
 
 /* Element N is the constant value to which pseudo reg N is
@@ -122,14 +122,14 @@ struct equivalence
      track of what memory accesses might be created later, e.g. by
      reload.  */
   rtx replacement;
-  /* Location of the source of the equivalence.  */
+  /* Location of the source of the equivalence.	 */
   rtx *src_p;
   /* The list of each insn which initializes this register.  */
   rtx init_insns;
   /* Loop depth is used to recognize equivalences which appear to be
      present within the same loop (or in an inner loop).  */
   int loop_depth;
-  /* Nonzero if this had a pre-existing REG_EQUIV note.  */
+  /* Nonzero if this had a pre-existing REG_EQUIV note.	 */
   int is_arg_equivalence;
   /* Set when an attempt should be made to replace a register with the
      associated src_p entry.  */
@@ -137,7 +137,7 @@ struct equivalence
 };
 
 /* regno_equiv[N] (where N is a pseudo reg number) is the equivalence
-   structure for that register.  */
+   structure for that register.	 */
 static struct equivalence *regno_equiv;
 
 /* Used for communication between the following two functions:
@@ -209,7 +209,7 @@ validate_equiv_mem (rtx start, rtx reg, rtx memref)
   return 0;
 }
 
-/* Returns zero if X is known to be invariant.  */
+/* Returns zero if X is known to be invariant.	*/
 static int
 equiv_init_varies_p (rtx x)
 {
@@ -238,7 +238,7 @@ equiv_init_varies_p (rtx x)
       if (MEM_VOLATILE_P (x))
 	return 1;
 
-      /* Fall through.  */
+      /* Fall through.	*/
     default:
       break;
     }
@@ -303,7 +303,7 @@ equiv_init_movable_p (rtx x, int regno)
       if (MEM_VOLATILE_P (x))
 	return 0;
 
-      /* Fall through.  */
+      /* Fall through.	*/
 
     default:
       break;
@@ -461,7 +461,7 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
       if (memref_referenced_p (memref, PATTERN (insn)))
 	return 1;
 
-      /* Nonconst functions may access memory.  */
+      /* Nonconst functions may access memory.	*/
       if (CALL_P (insn) && (! RTL_CONST_CALL_P (insn)))
 	return 1;
     }
@@ -471,11 +471,11 @@ memref_used_between_p (rtx memref, rtx start, rtx end)
 
 /* Mark REG as having no known equivalence.  Some instructions might
    have been processed before and furnished with REG_EQUIV notes for
-   this register; these notes will have to be removed.  STORE is the
+   this register; these notes will have to be removed.	STORE is the
    piece of RTL that does the non-constant / conflicting assignment -
    a SET, CLOBBER or REG_INC note.  It is currently not used, but
    needs to be there because this function is called from
-   note_stores.  */
+   note_stores.	 */
 static void
 no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
 	  void *data ATTRIBUTE_UNUSED)
@@ -492,7 +492,7 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
   regno_equiv[regno].init_insns = const0_rtx;
   regno_equiv[regno].replacement = NULL_RTX;
   /* This doesn't matter for equivalences made for argument registers,
-     we should keep their initialization insns.  */
+     we should keep their initialization insns.	 */
   if (regno_equiv[regno].is_arg_equivalence)
     return;
   lra_regno_equiv_init_insns[regno] = NULL_RTX;
@@ -534,7 +534,7 @@ update_equiv_regs (void)
 
   init_alias_analysis ();
 
-  /* Scan the insns and find which registers have equivalences.  Do
+  /* Scan the insns and find which registers have equivalences.	 Do
      this in a separate scan of the insns because (due to
      -fcse-follow-jumps) a register can be set below its use.  */
   FOR_EACH_BB (bb)
@@ -592,7 +592,7 @@ update_equiv_regs (void)
 
 	      /* Note that we don't want to clear
 		 lra_regno_equiv_init_insns even if there are multiple
-		 sets of this register.  */
+		 sets of this register.	 */
 	      regno_equiv[regno].is_arg_equivalence = 1;
 
 	      /* Record that this is an equivalencing insn.  */
@@ -602,20 +602,20 @@ update_equiv_regs (void)
 				       lra_regno_equiv_init_insns[regno]);
 
 	      /* Continue normally in case this is a candidate for
-		 replacements.  */
+		 replacements.	*/
 	    }
 
 	  if (!optimize)
 	    continue;
 
 	  /* We only handle the case of a pseudo register being set
-	     once, or always to the same value.  */
+	     once, or always to the same value.	 */
 	  if (! REG_P (dest)
 	      || (regno = REGNO (dest)) < FIRST_PSEUDO_REGISTER
 	      || regno_equiv[regno].init_insns == const0_rtx)
 	    {
 	      /* This might be setting a SUBREG of a pseudo, a pseudo
-		 that is also set somewhere else to a constant.  */
+		 that is also set somewhere else to a constant.	 */
 	      note_stores (set, no_equiv, NULL);
 	      continue;
 	    }
@@ -623,7 +623,7 @@ update_equiv_regs (void)
 	  note = find_reg_note (insn, REG_EQUAL, NULL_RTX);
 
 	  /* cse sometimes generates function invariants, but doesn't
-	     put a REG_EQUAL note on the insn.  Since this note would
+	     put a REG_EQUAL note on the insn.	Since this note would
 	     be redundant, there's no point creating it earlier than
 	     here.  */
 	  if (! note && ! rtx_varies_p (src, 0))
@@ -702,7 +702,7 @@ update_equiv_regs (void)
 		 kind of transformation may turn an indirect jump into
 		 a direct jump, in which case we must rerun the jump
 		 optimizer to ensure that the JUMP_LABEL fields are
-		 valid.  */
+		 valid.	 */
 	      if (GET_CODE (x) == LABEL_REF
 		  || (GET_CODE (x) == CONST
 		      && GET_CODE (XEXP (x, 0)) == PLUS
@@ -776,7 +776,7 @@ update_equiv_regs (void)
 	 may move the set of this register immediately before insn,
 	 which puts it after regno_equiv[REGNO].init_insns, and hence
 	 the mention in the REG_EQUIV note would be to an
-	 uninitialized pseudo.  */
+	 uninitialized pseudo.	*/
 
       if (MEM_P (dest) && REG_P (src)
 	  && (regno = REGNO (src)) >= FIRST_PSEUDO_REGISTER
@@ -792,7 +792,7 @@ update_equiv_regs (void)
 	  if (validate_equiv_mem (init_insn, src, dest)
 	      && ! memref_used_between_p (dest, init_insn, insn)
 	      /* Attaching a REG_EQUIV note will fail if INIT_INSN has
-		 multiple sets.  */
+		 multiple sets.	 */
 	      && set_unique_reg_note (init_insn, REG_EQUIV, copy_rtx (dest)))
 	    {
 	      /* This insn makes the equivalence, not the one
@@ -826,7 +826,7 @@ update_equiv_regs (void)
 	  continue;
 
 	/* Don't substitute into a non-local goto, this confuses
-	   CFG.  */
+	   CFG.	 */
 	if (JUMP_P (insn)
 	    && find_reg_note (insn, REG_NON_LOCAL_GOTO, NULL_RTX))
 	  continue;
@@ -847,7 +847,7 @@ update_equiv_regs (void)
 
 		/* regno_equiv[REGNO].replace gets set only when
 		   REG_N_REFS[REGNO] is 2, i.e. the register is set
-		   once and used once.  (If it were only set, but
+		   once and used once.	(If it were only set, but
 		   not used, flow would have deleted the setting
 		   insns.)  Hence there can only be one insn in
 		   regno_equiv[REGNO].init_insns.  */
@@ -857,7 +857,7 @@ update_equiv_regs (void)
 
 		/* We may not move instructions that can throw,
 		   since that changes basic block boundaries and we
-		   are not prepared to adjust the CFG to match.  */
+		   are not prepared to adjust the CFG to match.	 */
 		if (can_throw_internal (equiv_insn))
 		  continue;
 
@@ -902,7 +902,7 @@ update_equiv_regs (void)
 		    bitmap_set_bit (cleared_regs, regno);
 		  }
 		/* Move the initialization of the register to just
-		   before INSN.  Update the flow information.  */
+		   before INSN.	 Update the flow information.  */
 		else if (prev_nondebug_insn (insn) != equiv_insn)
 		  {
 		    rtx new_insn;
@@ -910,12 +910,12 @@ update_equiv_regs (void)
 		    new_insn = emit_insn_before (PATTERN (equiv_insn), insn);
 		    REG_NOTES (new_insn) = REG_NOTES (equiv_insn);
 		    REG_NOTES (equiv_insn) = 0;
-		    /* Rescan it to process the notes.  */
+		    /* Rescan it to process the notes.	*/
 		    df_insn_rescan (new_insn);
 		    
 		    /* Make sure this insn is recognized before the
 		       rest of LRA begins, otherwise
-		       eliminate_regs_in_insn will die.  */
+		       eliminate_regs_in_insn will die.	 */
 		    INSN_CODE (new_insn) = INSN_CODE (equiv_insn);
 		    
 		    delete_insn (equiv_insn);
@@ -952,7 +952,7 @@ update_equiv_regs (void)
   BITMAP_FREE (cleared_regs);
 
   out:
-  /* Clean up.  */
+  /* Clean up.	*/
 
   end_alias_analysis ();
   free (regno_equiv);
@@ -961,7 +961,7 @@ update_equiv_regs (void)
 
 
 
-/* Set up all reg equivalences.  */
+/* Set up all reg equivalences.	 */
 static void
 setup_reg_equivs (void)
 {
@@ -991,7 +991,7 @@ setup_reg_equivs (void)
 	    if (! function_invariant_p (x)
 		|| ! flag_pic
 		/* A function invariant is often CONSTANT_P but may
-		   include a register.  We promise to only pass
+		   include a register.	We promise to only pass
 		   CONSTANT_P objects to LEGITIMATE_PIC_OPERAND_P.  */
 	      || (CONSTANT_P (x) && LEGITIMATE_PIC_OPERAND_P (x)))
 	      {
@@ -999,7 +999,7 @@ setup_reg_equivs (void)
 		   that is not a legitimate memory operand.  As later
 		   stages of reload assume that all addresses found in
 		   the lra_regno_equiv_* arrays were originally
-		   legitimate, we ignore such REG_EQUIV notes.  */
+		   legitimate, we ignore such REG_EQUIV notes.	*/
 		if (memory_operand (x, VOIDmode))
 		  lra_regno_equiv_mem_loc[i] = x;
 		else if (function_invariant_p (x))
