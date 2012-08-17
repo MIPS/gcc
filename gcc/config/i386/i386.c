@@ -6351,7 +6351,7 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	(*int_nregs)++;
-	if (flag_pl && in_return && POINTER_TYPE_P (type))
+	if (flag_pl && in_return && TREE_CODE (type) == POINTER_TYPE)
 	  (*bnd_nregs)++;
 	break;
       case X86_64_SSE_CLASS:
@@ -6408,7 +6408,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
     return NULL;
 
   /* We need one more value to return bounds of the returned pointer.  */
-  if (flag_pl && in_return && POINTER_TYPE_P (type))
+  if (flag_pl && in_return && TREE_CODE (type) == POINTER_TYPE)
     regclass[n++] = X86_64_BND_CLASS;
 
   if (!examine_argument (mode, type, in_return, &needed_intregs,
@@ -7405,7 +7405,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && (!fntype || POINTER_TYPE_P (TREE_TYPE (fntype))))
+  if (flag_pl && (!fntype || TREE_CODE (TREE_TYPE (fntype)) == POINTER_TYPE))
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
@@ -7501,7 +7501,7 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && POINTER_TYPE_P (valtype))
+  if (flag_pl && TREE_CODE (valtype) == POINTER_TYPE)
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
