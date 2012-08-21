@@ -92,7 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "ira.h"
 #include "lra.h"
-/*#include "tree-flow.h"*/
 #include "dumpfile.h"
 #include "opts.h"
 

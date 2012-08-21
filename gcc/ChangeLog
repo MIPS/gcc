@@ -1,5 +1,9 @@
 2012-08-21  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* dwarf2out.c: Remove tree-flow.h.
+
+2012-08-21  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* targhooks.h (default_lra_p): Declare.
 	* targhooks.c (default_lra_p): New function.
 	* target.def (lra_p): New hook.
