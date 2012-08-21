@@ -1634,8 +1634,7 @@ void
 ira_init_once (void)
 {
   ira_init_costs_once ();
-  if (flag_lra)
-    lra_init_once ();
+  lra_init_once ();
 }
 
 /* Free ira_max_register_move_cost, ira_may_move_in_cost and
@@ -1683,8 +1682,7 @@ ira_init (void)
   clarify_prohibited_class_mode_regs ();
   setup_hard_regno_aclass ();
   ira_init_costs ();
-  if (flag_lra)
-    lra_init ();
+  lra_init ();
 }
 
 /* Function called once at the end of compiler work.  */
@@ -1693,8 +1691,7 @@ ira_finish_once (void)
 {
   ira_finish_costs_once ();
   free_register_move_costs ();
-  if (flag_lra)
-    lra_finish_once ();
+  lra_finish_once ();
 }
 
 
@@ -1855,7 +1852,7 @@ ira_setup_eliminable_regset (bool from_ira_p)
        || crtl->stack_realign_needed
        || targetm.frame_pointer_required ());
 
-  if (from_ira_p && flag_lra)
+  if (from_ira_p && ira_use_lra_p)
     /* It can change FRAME_POINTER_NEEDED.  We call it only from IRA
        because it is expensive.  */
     lra_init_elimination ();
@@ -1940,7 +1937,7 @@ setup_reg_renumber (void)
   caller_save_needed = 0;
   FOR_EACH_ALLOCNO (a, ai)
     {
-      if (flag_lra && ALLOCNO_CAP_MEMBER (a) != NULL)
+      if (ira_use_lra_p && ALLOCNO_CAP_MEMBER (a) != NULL)
 	continue;
       /* There are no caps at this point.  */
       ira_assert (ALLOCNO_CAP_MEMBER (a) == NULL);
@@ -4321,6 +4318,11 @@ allocate_initial_values (void)
     }
 }
 
+
+/* True when we use LRA instead of reload pass for the current
+   function.  */
+bool ira_use_lra_p;
+
 /* All natural loops.  */
 struct loops ira_loops;
 
@@ -4338,6 +4340,8 @@ ira (FILE *f)
   bool loops_p;
   int max_regno_before_ira, ira_max_point_before_emit;
   int rebuild_p;
+
+  ira_use_lra_p = targetm.lra_p ();
 
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
@@ -4455,14 +4459,14 @@ ira (FILE *f)
     {
       if (! loops_p)
 	{
-	  if (! flag_lra)
+	  if (! ira_use_lra_p)
 	    ira_initiate_assign ();
 	}
       else
 	{
 	  expand_reg_info ();
 
-	  if (flag_lra)
+	  if (ira_use_lra_p)
 	    {
 	      ira_allocno_t a;
 	      ira_allocno_iterator ai;
@@ -4484,7 +4488,7 @@ ira (FILE *f)
 	  record_loop_exits ();
 	  current_loops = &ira_loops;
 
-	  if (! flag_lra)
+	  if (! ira_use_lra_p)
 	    {
 	      setup_allocno_assignment_flags ();
 	      ira_initiate_assign ();
@@ -4551,7 +4555,7 @@ do_reload (void)
     ira_dump_file = dump_file;
 
   timevar_push (TV_RELOAD);
-  if (flag_lra)
+  if (ira_use_lra_p)
     {
       if (current_loops != NULL)
 	{
@@ -4587,7 +4591,7 @@ do_reload (void)
 
   timevar_push (TV_IRA);
 
-  if (ira_conflicts_p && ! flag_lra)
+  if (ira_conflicts_p && ! ira_use_lra_p)
     {
       ira_free (ira_spilled_reg_stack_slots);
       ira_finish_assign ();
@@ -4599,7 +4603,7 @@ do_reload (void)
 
   flag_ira_share_spill_slots = saved_flag_ira_share_spill_slots;
 
-  if (! flag_lra)
+  if (! ira_use_lra_p)
     {
       ira_destroy ();
       if (current_loops != NULL)

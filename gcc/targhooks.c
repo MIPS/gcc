@@ -840,6 +840,12 @@ default_branch_target_register_class (void)
   return NO_REGS;
 }
 
+extern bool
+default_lra_p (void)
+{
+  return false;
+}
+
 int
 default_register_bank (int hard_regno ATTRIBUTE_UNUSED)
 {

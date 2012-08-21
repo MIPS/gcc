@@ -181,6 +181,7 @@ static void pa_trampoline_init (rtx, tree, rtx);
 static rtx pa_trampoline_adjust_address (rtx);
 static rtx pa_delegitimize_address (rtx);
 static bool pa_print_operand_punct_valid_p (unsigned char);
+static bool pa_lra_p (void);
 static rtx pa_internal_arg_pointer (void);
 static bool pa_can_eliminate (const int, const int);
 static void pa_conditional_register_usage (void);
@@ -374,6 +375,8 @@ static size_t n_deferred_plabels = 0;
 #define TARGET_DELEGITIMIZE_ADDRESS pa_delegitimize_address
 #undef TARGET_INTERNAL_ARG_POINTER
 #define TARGET_INTERNAL_ARG_POINTER pa_internal_arg_pointer
+#undef TARGET_LRA_P
+#define TARGET_LRA_P pa_lra_p
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE pa_can_eliminate
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
@@ -10207,6 +10210,14 @@ pa_delegitimize_address (rtx orig_x)
     return gen_const_mem (Pmode, XVECEXP (XEXP (x, 1), 0, 0));
   return x;
 }
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+pa_lra_p (void)
+{
+  return true;
+}
+
 
 static rtx
 pa_internal_arg_pointer (void)

@@ -1418,6 +1418,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_MODE_DEPENDENT_ADDRESS_P
 #define TARGET_MODE_DEPENDENT_ADDRESS_P rs6000_mode_dependent_address_p
 
+#undef TARGET_LRA_P
+#define TARGET_LRA_P rs6000_lra_p
+
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE rs6000_can_eliminate
 
@@ -6681,6 +6684,7 @@ rs6000_conditional_register_usage (void)
 	  fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1;
     }
 }
+
 
 /* Try to output insns to set TARGET equal to the constant C if it can
    be done in less than N insns.  Do all computations in MODE.
@@ -14127,7 +14131,7 @@ rs6000_alloc_sdmode_stack_slot (void)
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
   /* We use a different approach for dealing with the secondary
      memmory in LRA.  */
-  if (flag_lra)
+  if (ira_use_lra_p)
     return;
 
   FOR_EACH_BB (bb)
@@ -27202,6 +27206,13 @@ rs6000_libcall_value (enum machine_mode mode)
   return gen_rtx_REG (mode, regno);
 }
 
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+rs6000_lra_p (void)
+{
+  return true;
+}
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.

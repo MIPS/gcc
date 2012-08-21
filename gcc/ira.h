@@ -20,6 +20,10 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* True when we use LRA instead of reload pass for the current
+   function.  */
+extern bool ira_use_lra_p;
+
 /* True if we have allocno conflicts.  It is false for non-optimized
    mode or when the conflict table is too big.  */
 extern bool ira_conflicts_p;

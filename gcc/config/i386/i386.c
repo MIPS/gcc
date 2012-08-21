@@ -31493,6 +31493,14 @@ ix86_free_from_memory (enum machine_mode mode)
     }
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+ix86_lra_p (void)
+{
+  return true;
+}
+
+/* Return a register bank number for hard reg REGNO.  */
 static int
 ix86_register_bank (int hard_regno)
 {
@@ -40737,6 +40745,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P ix86_lra_p
 
 #undef TARGET_REGISTER_BANK
 #define TARGET_REGISTER_BANK ix86_register_bank

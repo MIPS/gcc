@@ -375,7 +375,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
--floop-parallelize-all -fno-lra -flto -flto-compression-level @gol
+-floop-parallelize-all -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
@@ -6908,10 +6908,6 @@ the dump output is sent to stderr using the same format as @var{n} minus 10.
 If supported for the target machine, attempt to reorder instructions
 to exploit instruction slots available after delayed branch
 instructions.
-
-@item -fno-lra
-@opindex fno-lra
-Run the reload pass instead of Local Register Allocator (LRA).
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 

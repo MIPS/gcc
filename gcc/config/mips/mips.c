@@ -2213,6 +2213,7 @@ mips_lx_address_p (rtx addr, enum machine_mode mode)
     return true;
   return false;
 }
+
 
 /* Return true if a value at OFFSET bytes from base register BASE can be
    accessed using an unextended MIPS16 instruction.  MODE is the mode of
@@ -6778,7 +6779,7 @@ mips_expand_fcc_reload (rtx dest, rtx src, rtx scratch)
 {
   rtx fp1, fp2;
 
-  gcc_assert (! flag_lra);
+  gcc_assert (! ira_use_lra_p);
   /* Change the source to SFmode.  */
   if (MEM_P (src))
     src = adjust_address (src, SFmode, 0);
@@ -9795,6 +9796,13 @@ mips_frame_pointer_required (void)
   return false;
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+mips_lra_p (void)
+{
+  return true;
+}
+
 /* Make sure that we're not trying to eliminate to the wrong hard frame
    pointer.  */
 
@@ -11292,7 +11300,7 @@ mips_secondary_reload (bool in_p, rtx x, reg_class_t reload_class_i,
 		       enum machine_mode reload_mode,
 		       secondary_reload_info *sri)
 {
-  if (flag_lra)
+  if (ira_use_lra_p)
     return NO_REGS;
   return default_secondary_reload (in_p, x, reload_class_i, reload_mode, sri);
 }
@@ -17765,6 +17773,9 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED mips_frame_pointer_required
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE mips_can_eliminate

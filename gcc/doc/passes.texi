@@ -892,8 +892,7 @@ decisions are reflected in RTL as more as possible.  Instruction
 constraints as a primary source of the info and that minimizes number
 of target-depended macros/hooks.
 
-LRA is run by default.  To run the reload pass instead, use option
-@option{-fno-lra}.
+LRA is run for the targets it were ported.
 @end itemize
 
 @item Basic block reordering

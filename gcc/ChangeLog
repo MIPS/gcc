@@ -1,3 +1,45 @@
+2012-08-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* targhooks.h (default_lra_p): Declare.
+	* targhooks.c (default_lra_p): New function.
+	* target.def (lra_p): New hook.
+	* ira.h (ira_use_lra_p): New external.
+	* ira.c (ira_init_once, ira_init, ira_finish_once): Call
+	lra_start_once, lra_init, lra_finish_once in anyway.
+	(ira_setup_eliminable_regset, setup_reg_renumber): Use ira_use_lra_p instead of
+	flra_lra.
+	(ira_use_lra_p): Define.
+	(ira): Set up ira_use_lra_p.  Use ira_use_lra_p instead of
+	flra_lra.
+	* dwarf2out.c: Add ira.h.
+	(based_loc_descr, compute_frame_pointer_to_fb_displacement): Use
+	ira_use_lra_p instead of ira_use_lra_p.
+	* rtlanal.c (simplify_subreg_regno): Add comments.
+	* Makefile.in (dwarf2out.c): Add dependence ira.h.
+	* doc/passes.texi: Change LRA pass description.
+	* doc/tm.texi.in: Add TARGET_LRA_P.
+	* doc/tm.texi: Update.
+	* doc/invoke.texi: Remove -flra option.
+	* common.opt: Remove flra option.  Add description for
+	flra-reg-spill.
+	* reginfo.c (allocate_reg_info): Fix a comment typo.
+	* config/arm/arm.c (TARGET_LRA_P): Define.
+	(arm_lra_p): New function.
+	* config/sparc/sparc.c (TARGET_LRA_P): Define.
+	(sparc_lra_p): New function.
+	* config/s390/s390.c (TARGET_LRA_P): Define.
+	(s390_lra_p): New function.
+	* config/i386/i386.c (TARGET_LRA_P): Define.
+	(ix86_lra_p): New function.
+	* config/rs6000/rs6000.c (TARGET_LRA_P): Define.
+	(rs6000_lra_p): New function.
+	* config/mips/mips.c (TARGET_LRA_P): Define.
+	(mips_lra_p): New function.
+	* config/pa/pa.c (TARGET_LRA_P): Define.
+	(pa_lra_p): New function.
+	* config/ia64/ia64.c (TARGET_LRA_P): Define.
+	(ia64_lra_p): New function.
+
 2012-08-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-equivs.c: Remove.

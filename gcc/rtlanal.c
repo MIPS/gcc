@@ -3501,6 +3501,7 @@ simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
   if (GET_MODE_CLASS (xmode) != MODE_COMPLEX_INT
       && GET_MODE_CLASS (xmode) != MODE_COMPLEX_FLOAT
       && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, ymode)
+      /* We can use mode change in LRA for some transformations.  */
       && ! lra_in_progress)
     return -1;
 #endif
@@ -3511,6 +3512,8 @@ simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
     return -1;
 
   if (FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
+      /* We should convert arg register in LRA after the elimination
+	 if it is possible.  */
       && xregno == ARG_POINTER_REGNUM
       && ! lra_in_progress)
     return -1;

@@ -7656,6 +7656,13 @@ s390_class_max_nregs (enum reg_class rclass, enum machine_mode mode)
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+s390_lra_p (void)
+{
+  return true;
+}
+
 /* Return true if register FROM can be eliminated via register TO.  */
 
 static bool
@@ -10810,6 +10817,9 @@ s390_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P s390_legitimate_constant_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P s390_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE s390_can_eliminate

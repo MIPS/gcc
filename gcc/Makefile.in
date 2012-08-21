@@ -2810,7 +2810,7 @@ dwarf2out.o : dwarf2out.c $(CONFIG_H) $(SYSTEM_H) coretypes.h dumpfile.h \
    toplev.h $(DIAGNOSTIC_CORE_H) $(DWARF2OUT_H) reload.h \
    $(GGC_H) $(EXCEPT_H) dwarf2asm.h $(TM_P_H) langhooks.h $(HASHTAB_H) \
    gt-dwarf2out.h $(TARGET_H) $(CGRAPH_H) $(MD5_H) $(INPUT_H) $(FUNCTION_H) \
-   $(GIMPLE_H) lra.h $(TREE_FLOW_H) \
+   $(GIMPLE_H) ira.h lra.h $(TREE_FLOW_H) \
    $(TREE_PRETTY_PRINT_H) $(COMMON_TARGET_H) $(OPTS_H)
 dwarf2cfi.o : dwarf2cfi.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    version.h $(RTL_H) $(EXPR_H) $(REGS_H) $(FUNCTION_H) output.h \

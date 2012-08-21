@@ -878,7 +878,7 @@ reg_allocno_class (int regno)
 
 
 
-/* Allocate space for reg info and initilized it.  */
+/* Allocate space for reg info and initilize it.  */
 static void
 allocate_reg_info (void)
 {

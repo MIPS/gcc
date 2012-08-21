@@ -243,6 +243,7 @@ static tree arm_promoted_type (const_tree t);
 static tree arm_convert_to_type (tree type, tree expr);
 static bool arm_scalar_mode_supported_p (enum machine_mode);
 static bool arm_frame_pointer_required (void);
+static bool arm_lra_p (void);
 static bool arm_can_eliminate (const int, const int);
 static void arm_asm_trampoline_template (FILE *);
 static void arm_trampoline_init (rtx, tree, rtx);
@@ -597,6 +598,9 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED arm_frame_pointer_required
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P arm_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE arm_can_eliminate
@@ -16326,6 +16330,13 @@ arm_compute_initial_elimination_offset (unsigned int from, unsigned int to)
 	 hard frame pointer will never be used.  */
       gcc_unreachable ();
     }
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+arm_lra_p (void)
+{
+  return true;
 }
 
 /* Given FROM and TO register numbers, say whether this elimination is

@@ -585,6 +585,7 @@ static int sparc_arg_partial_bytes (cumulative_args_t,
 static void sparc_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static void sparc_file_end (void);
 static bool sparc_frame_pointer_required (void);
+static bool sparc_lra_p (void);
 static bool sparc_can_eliminate (const int, const int);
 static rtx sparc_builtin_setjmp_frame_value (void);
 static void sparc_conditional_register_usage (void);
@@ -767,6 +768,9 @@ char sparc_hard_reg_printed[8];
 
 #undef TARGET_BUILTIN_SETJMP_FRAME_VALUE
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE sparc_builtin_setjmp_frame_value
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P ix86_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE sparc_can_eliminate
@@ -11283,6 +11287,13 @@ sparc_frame_pointer_required (void)
 
   /* Otherwise, the frame pointer is required if the function isn't leaf.  */
   return !(crtl->is_leaf && only_leaf_regs_used ());
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+sparc_lra_p (void)
+{
+  return true;
 }
 
 /* The way this is structured, we can't eliminate SFP in favor of SP

@@ -192,6 +192,7 @@ static rtx gen_fr_spill_x (rtx, rtx, rtx);
 static rtx gen_fr_restore_x (rtx, rtx, rtx);
 
 static void ia64_option_override (void);
+static bool ia64_lra_p (void);
 static bool ia64_can_eliminate (const int, const int);
 static enum machine_mode hfa_element_mode (const_tree, bool);
 static void ia64_setup_incoming_varargs (cumulative_args_t, enum machine_mode,
@@ -613,6 +614,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX ia64_c_mode_for_suffix
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P ia64_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE ia64_can_eliminate
@@ -2892,6 +2896,13 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   COPY_HARD_REG_SET (current_frame_info.mask, mask);
   current_frame_info.n_spilled = n_spilled;
   current_frame_info.initialized = reload_completed;
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+ia64_lra_p (void)
+{
+  return true;
 }
 
 /* Worker function for TARGET_CAN_ELIMINATE.  */
