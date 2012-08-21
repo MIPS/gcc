@@ -9078,7 +9078,9 @@ vt_add_function_parameter (tree parm)
 	}
     }
 
-  if (REG_P (incoming))
+  if (REG_P (incoming)
+      && (!VALID_BND_REG_MODE (GET_MODE(incoming))
+	  || ANY_BND_REG_P (incoming)))
     {
       incoming = var_lowpart (mode, incoming);
       gcc_assert (REGNO (incoming) < FIRST_PSEUDO_REGISTER);

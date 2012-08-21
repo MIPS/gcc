@@ -2010,21 +2010,23 @@ pl_build_array_ref (tree arr, tree etype, tree esize,
   /* If object is TMR then we do not use array_ref but
      add offset instead.  We need it to be able to get addr
      of the reasult later.  */
-  if (TREE_CODE (arr) == TARGET_MEM_REF) {
-    tree offs = TMR_OFFSET (arr);
+  if (TREE_CODE (arr) == TARGET_MEM_REF)
+    {
+      tree offs = TMR_OFFSET (arr);
 
-    esize = fold_binary_to_constant (MULT_EXPR, TREE_TYPE (esize),
+      esize = fold_binary_to_constant (MULT_EXPR, TREE_TYPE (esize),
 				     esize, index);
-    gcc_assert(esize);
+      gcc_assert(esize);
 
-    offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
 				    offs, esize);
-    gcc_assert (offs);
+      gcc_assert (offs);
 
-    res = copy_node (arr);
-    TREE_TYPE (res) = etype;
-    TMR_OFFSET (res) = offs;
-  } else
+      res = copy_node (arr);
+      TREE_TYPE (res) = etype;
+      TMR_OFFSET (res) = offs;
+    }
+  else
     res = build4 (ARRAY_REF, etype, arr, index, NULL_TREE, NULL_TREE);
 
   return res;
