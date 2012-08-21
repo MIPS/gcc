@@ -43,6 +43,7 @@ static void pl_fix_function_decl (tree decl, bool make_ssa_names);
 static void pl_fix_function_decls (void);
 static void pl_init (void);
 static void pl_fini (void);
+static tree pl_build_addr_expr (tree t);
 static void pl_register_bounds (tree ptr, tree bnd);
 static void pl_register_addr_bounds (tree ptr, tree bnd);
 static tree pl_get_registered_addr_bounds (tree ptr);
@@ -62,6 +63,9 @@ static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi);
 static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator *gsi);
 static tree pl_build_returned_bound (gimple call);
+static tree pl_build_component_ref (tree obj, tree field);
+static tree pl_build_array_ref (tree arr, tree etype, tree esize,
+				unsigned HOST_WIDE_INT idx);
 static void pl_copy_bounds_for_assign (tree lhs, tree rhs,
 				       gimple_stmt_iterator *iter);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
@@ -627,7 +631,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple_set_op (new_call, 0, gimple_op (call, 0));
   if (fndecl == pl_bind_intersect_fndecl)
     {
-      gimple_set_op (new_call, 1, build_fold_addr_expr (fndecl));
+      gimple_set_op (new_call, 1, pl_build_addr_expr (fndecl));
       gimple_call_set_fntype (new_call, TREE_TYPE (fndecl));
     }
   else
@@ -722,6 +726,14 @@ pl_check_mem_access (tree first, tree last, tree bounds,
       fprintf (dump_file, "  ");
       print_gimple_stmt (dump_file, checku, 0, TDF_VOPS|TDF_MEMSYMS);
     }
+}
+
+static tree
+pl_build_addr_expr (tree t)
+{
+  return TREE_CODE (t) == TARGET_MEM_REF
+    ? tree_mem_ref_addr (ptr_type_node, t)
+    : build_fold_addr_expr (t);
 }
 
 static void
@@ -1168,7 +1180,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 
     case PARM_DECL:
       gcc_assert (TREE_ADDRESSABLE (rhs1));
-      bounds = pl_build_bndldx (build_fold_addr_expr (rhs1),
+      bounds = pl_build_bndldx (pl_build_addr_expr (rhs1),
 				node, &iter);
       break;
 
@@ -1431,8 +1443,8 @@ pl_generate_extern_var_bounds (tree var)
   DECL_EXTERNAL (end_decl) = 1;
   DECL_ARTIFICIAL (end_decl) = 1;
 
-  lb = build_fold_addr_expr (var);
-  var_end = build_fold_addr_expr (end_decl);
+  lb = pl_build_addr_expr (var);
+  var_end = pl_build_addr_expr (end_decl);
   size = size_binop (MINUS_EXPR,
 		     fold_convert (pl_uintptr_type, var_end),
 		     fold_convert (pl_uintptr_type, lb));
@@ -1466,7 +1478,7 @@ pl_get_bounds_for_decl (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = build_fold_addr_expr (decl);
+  lb = pl_build_addr_expr (decl);
 
   if (DECL_SIZE (decl))
     {
@@ -1510,7 +1522,7 @@ pl_get_bounds_for_decl_addr (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = build_fold_addr_expr (decl);
+  lb = pl_build_addr_expr (decl);
 
   if (DECL_SIZE (decl))
     {
@@ -1546,7 +1558,7 @@ pl_get_bounds_for_string_cst (tree cst)
   if (bounds)
     return bounds;
 
-  lb = build_fold_addr_expr (cst);
+  lb = pl_build_addr_expr (cst);
   size = build_int_cst (pl_uintptr_type, TREE_STRING_LENGTH (cst));
   bounds = pl_make_bounds (lb, size, NULL);
 
@@ -1644,7 +1656,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     case VAR_DECL:
       if (POINTER_P (ptr_src))
 	{
-	  addr = build_fold_addr_expr (ptr_src);
+	  addr = pl_build_addr_expr (ptr_src);
 	  bounds = pl_build_bndldx (addr, ptr, iter);
 	}
       else
@@ -1656,7 +1668,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case TARGET_MEM_REF:
-      addr = tree_mem_ref_addr (ptr_type_node, ptr_src);
+      addr = pl_build_addr_expr (ptr_src);
       bounds = pl_build_bndldx (addr, ptr, iter);
       break;
 
@@ -1839,7 +1851,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	  tree field = TREE_OPERAND (node, 1);
 	  tree bit_size = DECL_SIZE (field);
 	  HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
-	  tree field_ptr = build_fold_addr_expr (node);
+	  tree field_ptr = pl_build_addr_expr (node);
 
 	  *bounds = pl_make_bounds (field_ptr,
 				    build_int_cst (size_type_node, size),
@@ -1852,7 +1864,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
     {
       tree array_addr;
 
-      array_addr = build_fold_addr_expr (var);
+      array_addr = pl_build_addr_expr (var);
       *bounds = pl_find_bounds_narrowed (array_addr, iter);
 
       precise_bounds = true;
@@ -1875,7 +1887,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	      tree array_bounds;
 
 	      array_addr = TREE_OPERAND (var, 0);
-	      array_addr = build_fold_addr_expr (array_addr);
+	      array_addr = pl_build_addr_expr (array_addr);
 
 	      array_bounds = pl_find_bounds_narrowed (array_addr, iter);
 	      *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
@@ -1887,7 +1899,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 		 array element.  */
 	      if (has_component_ref)
 		{
-		  tree elem_addr = build_fold_addr_expr (node);
+		  tree elem_addr = pl_build_addr_expr (node);
 		  tree elem_size = array_ref_element_size (var);
 		  tree array_bounds = pl_make_bounds (elem_addr,
 						      elem_size,
@@ -1910,7 +1922,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	    {
 	      tree bit_size = DECL_SIZE (field);
 	      HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
-	      tree field_ptr = build_fold_addr_expr (node);
+	      tree field_ptr = pl_build_addr_expr (node);
 
 	      *bounds = pl_make_bounds (field_ptr,
 					build_int_cst (size_type_node, size),
@@ -1958,10 +1970,64 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	      *bounds = pl_get_bounds_for_decl (var);
 	    }
 
-	  *ptr = build_fold_addr_expr (var);
+	  *ptr = pl_build_addr_expr (var);
 	  break;
 	}
     }
+}
+
+static tree
+pl_build_component_ref (tree obj, tree field)
+{
+  tree res;
+
+  /* If object is TMR then we do not use component_ref but
+     add offset instead.  We need it to be able to get addr
+     of the reasult later.  */
+  if (TREE_CODE (obj) == TARGET_MEM_REF) {
+    tree offs = TMR_OFFSET (obj);
+    offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+				    offs, DECL_FIELD_OFFSET (field));
+
+    gcc_assert (offs);
+
+    res = copy_node (obj);
+    TREE_TYPE (res) = TREE_TYPE (field);
+    TMR_OFFSET (res) = offs;
+  } else
+    res = build3 (COMPONENT_REF, TREE_TYPE (field), obj, field, NULL_TREE);
+
+  return res;
+}
+
+static tree
+pl_build_array_ref (tree arr, tree etype, tree esize,
+		    unsigned HOST_WIDE_INT idx)
+{
+  tree index = build_int_cst (size_type_node, idx);
+  tree res;
+
+  /* If object is TMR then we do not use array_ref but
+     add offset instead.  We need it to be able to get addr
+     of the reasult later.  */
+  if (TREE_CODE (arr) == TARGET_MEM_REF) {
+    tree offs = TMR_OFFSET (arr);
+
+    esize = fold_binary_to_constant (MULT_EXPR, TREE_TYPE (esize),
+				     esize, index);
+    gcc_assert(esize);
+
+    offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+				    offs, esize);
+    gcc_assert (offs);
+
+    res = copy_node (arr);
+    TREE_TYPE (res) = etype;
+    TMR_OFFSET (res) = offs;
+  } else
+    res = build4 (ARRAY_REF, etype, arr, index, NULL_TREE, NULL_TREE);
+
+  return res;
 }
 
 static void
@@ -1976,9 +2042,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       tree bounds = pl_find_bounds (rhs, iter);
-      tree addr = TREE_CODE (lhs) == TARGET_MEM_REF
-	? tree_mem_ref_addr (ptr_type_node, lhs)
-	: build_fold_addr_expr (lhs);
+      tree addr = pl_build_addr_expr(lhs);
       pl_build_bndstx (addr, rhs, bounds, iter);
     }
   else if (RECORD_OR_UNION_TYPE_P (type))
@@ -1994,8 +2058,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 	    {
 	      if (pl_type_has_pointer (TREE_TYPE (field)))
 		{
-		  tree lhs_field = build3 (COMPONENT_REF, TREE_TYPE (field),
-					   lhs, field, NULL_TREE);
+		  tree lhs_field = pl_build_component_ref (lhs, field);
 		  pl_copy_bounds_for_assign (lhs_field, val, iter);
 		}
 	    }
@@ -2005,10 +2068,8 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 	  if (TREE_CODE (field) == FIELD_DECL
 	      && pl_type_has_pointer (TREE_TYPE (field)))
 	    {
-	      tree lhs_field = build3 (COMPONENT_REF, TREE_TYPE (field),
-				       lhs, field, NULL_TREE);
-	      tree rhs_field = build3 (COMPONENT_REF, TREE_TYPE (field),
-				       rhs, field, NULL_TREE);
+	      tree rhs_field = pl_build_component_ref (rhs, field);
+	      tree lhs_field = pl_build_component_ref (lhs, field);
 	      pl_copy_bounds_for_assign (lhs_field, rhs_field, iter);
 	    }
     }
@@ -2016,13 +2077,15 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
     {
       unsigned HOST_WIDE_INT cur = -1;
       tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+      tree etype = TREE_TYPE (type);
+      tree esize = TYPE_SIZE (etype);
 
       gcc_assert (maxval && TREE_CODE (maxval) == INTEGER_CST);
 
       if (TREE_CODE (rhs) == CONSTRUCTOR)
 	{
 	  unsigned HOST_WIDE_INT cnt;
-	  tree purp, val, idx, lhs_elem;
+	  tree purp, val, lhs_elem;
 
 	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs), cnt, purp, val)
 	    {
@@ -2035,9 +2098,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 		       cur <= tree_low_cst (hi_index, 1);
 		       cur++)
 		    {
-		      idx = build_int_cst (size_type_node, cur);
-		      lhs_elem = build4 (ARRAY_REF, TREE_TYPE (type),
-					      lhs, idx, NULL_TREE, NULL_TREE);
+		      lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
 		      pl_copy_bounds_for_assign (lhs_elem, val, iter);
 		    }
 		}
@@ -2046,9 +2107,8 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 		  if (purp == NULL_TREE)
 		    cur++;
 
-		  idx = build_int_cst (size_type_node, cur);
-		  lhs_elem = build4 (ARRAY_REF, TREE_TYPE (type),
-				     lhs, idx, NULL_TREE, NULL_TREE);
+		  lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
+
 		  pl_copy_bounds_for_assign (lhs_elem, val, iter);
 		}
 	    }
@@ -2056,11 +2116,8 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
       else
 	for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	  {
-	    tree index = build_int_cst (size_type_node, cur);
-	    tree lhs_elem = build4 (ARRAY_REF, TREE_TYPE (type),
-				    lhs, index, NULL_TREE, NULL_TREE);
-	    tree rhs_elem = build4 (ARRAY_REF, TREE_TYPE (type),
-				    rhs, index, NULL_TREE, NULL_TREE);
+	    tree lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
+	    tree rhs_elem = pl_build_array_ref (rhs, etype, esize, cur);
 	    pl_copy_bounds_for_assign (lhs_elem, rhs_elem, iter);
 	  }
     }
@@ -2094,7 +2151,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  {
 	    /* We are not going to generate any checks, so do not
 	       generate bounds as well.  */
-	    addr_first = build_fold_addr_expr (node);
+	    addr_first = pl_build_addr_expr (node);
 	    break;
 	  }
 
@@ -2107,7 +2164,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  {
 	    /* We may still need addr_first for bndstx in case
 	       write a pointer into memory.  */
-	    addr_first = build_fold_addr_expr (node);
+	    addr_first = pl_build_addr_expr (node);
 	    break;
 	  }
 
@@ -2119,14 +2176,14 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
               size = DECL_SIZE_UNIT (field);
 
 	    if (elt)
-	      elt = build_fold_addr_expr (elt);
+	      elt = pl_build_addr_expr (elt);
             addr_first = fold_convert_loc (loc, ptr_type_node, elt ? elt : ptr);
             addr_first = fold_build_pointer_plus_loc (loc,
 						      addr_first,
 						      byte_position (field));
           }
         else
-          addr_first = build_fold_addr_expr (node);
+          addr_first = pl_build_addr_expr (node);
       }
       break;
 
@@ -2137,12 +2194,12 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 
     case MEM_REF:
       ptr = TREE_OPERAND (node, 0);
-      addr_first = build_fold_addr_expr (node);
+      addr_first = pl_build_addr_expr (node);
       break;
 
     case TARGET_MEM_REF:
       ptr = TMR_BASE (node);
-      addr_first = tree_mem_ref_addr (ptr_type_node, node);
+      addr_first = pl_build_addr_expr (node);
       break;
 
     case ARRAY_RANGE_REF:
@@ -2180,7 +2237,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	return;
 
       safe = true;
-      addr_first = build_fold_addr_expr (node);
+      addr_first = pl_build_addr_expr (node);
       break;
 
     default:
