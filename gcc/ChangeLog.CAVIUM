@@ -166,6 +166,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-22  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4552
+	* combine.c (combine_simplify_rtx): For RTX_BITFIELD_OPS and
+	RTX_TERNARY, set op0_mode to op0 mode if it was VOIDmode.
+
 2012-08-13  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/sync.md (sync_<optab><mode>): Remove.

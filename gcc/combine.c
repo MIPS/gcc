@@ -5385,6 +5385,8 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
       break;
     case RTX_BITFIELD_OPS:
     case RTX_TERNARY:
+      if (op0_mode == VOIDmode)
+	op0_mode = GET_MODE (XEXP (x, 0));
       temp = simplify_ternary_operation (code, mode, op0_mode, XEXP (x, 0),
 					 XEXP (x, 1), XEXP (x, 2));
       break;
