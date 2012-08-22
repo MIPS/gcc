@@ -1615,6 +1615,12 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
       bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
       break;
 
+    case RESULT_DECL:
+      /* We assume compiler knows what it does and use zero bounds
+	 for result decl.  */
+      return pl_get_zero_bounds ();
+      break;
+
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
