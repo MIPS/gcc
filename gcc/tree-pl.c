@@ -1234,6 +1234,16 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case RSHIFT_EXPR:
     case EQ_EXPR:
     case MULT_EXPR:
+    case RDIV_EXPR:
+    case TRUNC_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case EXACT_DIV_EXPR:
       bounds = pl_get_invalid_op_bounds ();
       break;
 
