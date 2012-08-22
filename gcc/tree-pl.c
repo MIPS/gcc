@@ -142,9 +142,6 @@ static const char *BOUND_TMP_NAME = "__bound_tmp";
 static VEC(tree,heap) *var_inits = NULL;
 const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
-#define POINTER_P(node) \
-  (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
-
 static void
 pl_mark_stmt (gimple s)
 {
@@ -371,7 +368,7 @@ pl_type_has_pointer (tree type)
 {
   bool res = false;
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (BOUNDED_TYPE_P (type))
     res = true;
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
@@ -528,7 +525,7 @@ pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
   if (!retval)
     return;
 
-  if (POINTER_P (ret_decl))
+  if (BOUNDED_P (ret_decl))
     {
       bounds = pl_find_bounds (retval, gsi);
       pl_register_bounds (ret_decl, bounds);
@@ -595,7 +592,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       /* Currently we do not fix function types. Therefore
 	 look for pointer args and but count arg_cnt like
 	 if it was fixed.  */
-      if (use_fntype && TREE_CODE (TREE_VALUE (arg)) == POINTER_TYPE)
+      if (use_fntype && BOUNDED_TYPE_P (TREE_VALUE (arg)))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
@@ -617,7 +614,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
        arg_no < gimple_call_num_args (call);
        arg_no++)
     {
-      if (POINTER_P (gimple_call_arg (call, arg_no)))
+      if (BOUNDED_P (gimple_call_arg (call, arg_no)))
 	{
 	  arg_cnt++;
 	  bnd_arg_cnt++;
@@ -658,7 +655,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 	  gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
 	  if (use_fntype
-	      && TREE_CODE (TREE_VALUE (arg)) == POINTER_TYPE
+	      && BOUNDED_TYPE_P (TREE_VALUE (arg))
 	      && bnd_arg_cnt)
 	    {
 	      tree bounds = pl_find_bounds (call_arg, gsi);
@@ -672,7 +669,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree call_arg = gimple_call_arg (call, arg_no);
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-      if (POINTER_P (call_arg) && bnd_arg_cnt)
+      if (BOUNDED_P (call_arg) && bnd_arg_cnt)
 	{
 	  tree bounds = pl_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
@@ -984,7 +981,7 @@ pl_get_bound_for_parm (tree parm)
 	return pl_get_zero_bounds ();
       else
 	{
-	  gcc_assert (!POINTER_P (parm));
+	  gcc_assert (!BOUNDED_P (parm));
 	  bounds = pl_get_zero_bounds ();
 	}
     }
@@ -1196,11 +1193,11 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 
 	/* First we try to check types of operands.  If it
 	   does not help then look at bound values.  */
-	if (POINTER_P (rhs1)
-	    && !POINTER_P (rhs2))
+	if (BOUNDED_P (rhs1)
+	    && !BOUNDED_P (rhs2))
 	  bounds = bnd1;
-	else if (POINTER_P (rhs2)
-		 && !POINTER_P (rhs1)
+	else if (BOUNDED_P (rhs2)
+		 && !BOUNDED_P (rhs1)
 		 && rhs_code != MINUS_EXPR)
 	  bounds = bnd2;
 	else if (pl_incomplete_bounds (bnd1))
@@ -1654,7 +1651,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     case ARRAY_REF:
     case COMPONENT_REF:
     case VAR_DECL:
-      if (POINTER_P (ptr_src))
+      if (BOUNDED_P (ptr_src))
 	{
 	  addr = pl_build_addr_expr (ptr_src);
 	  bounds = pl_build_bndldx (addr, ptr, iter);
@@ -2041,7 +2038,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
   if (TREE_CLOBBER_P (rhs))
     return;
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (BOUNDED_TYPE_P (type))
     {
       tree bounds = pl_find_bounds (rhs, iter);
       tree addr = pl_build_addr_expr(lhs);
@@ -2347,7 +2344,7 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
      register ssa name for each bound if needed.  */
   for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
     {
-      if (POINTER_P (arg))
+      if (BOUNDED_P (arg))
 	{
 	  char name_buf[20];
 	  tree name;
