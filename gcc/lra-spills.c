@@ -590,7 +590,7 @@ lra_hard_reg_substitution (void)
 	      if (GET_CODE (op) == SUBREG && REG_P (SUBREG_REG (op)))
 		{
 		  lra_assert (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER);
-		  alter_subreg (id->operand_loc[i], true);
+		  alter_subreg (id->operand_loc[i], ! DEBUG_INSN_P (insn));
 		  lra_update_dup (id, i);
 		  insn_change_p = true;
 		}
