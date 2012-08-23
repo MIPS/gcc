@@ -168,6 +168,13 @@
 	
 2012-08-22  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #4550
+	* ipa-inline.c (inline_small_functions): For max_count,
+	use the max also from indirect calls if doing indirect
+	inlinining.
+
+2012-08-22  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #4552
 	* combine.c (combine_simplify_rtx): For RTX_BITFIELD_OPS and
 	RTX_TERNARY, set op0_mode to op0 mode if it was VOIDmode.

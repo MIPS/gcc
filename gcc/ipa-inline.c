@@ -1611,6 +1611,16 @@ inline_small_functions (void)
 	for (edge = node->callers; edge; edge = edge->next_caller)
 	  if (max_count < edge->count)
 	    max_count = edge->count;
+
+	/* If we are doing indirect inlining, the caller might not be defined
+           where the function is going to be called to yet so the count of the
+	   called function after inlining might be greater than max_count. 
+	   Use the max count of the indirect calls also.  Assume that it is calling
+	   the same function all the time is the best bet here.  */
+	if (flag_indirect_inlining)
+	  for (edge = node->indirect_calls; edge; edge = edge->next_callee)
+	    if (max_count < edge->count)
+	      max_count = edge->count;
       }
   sreal_init (&max_count_real, max_count, 0);
   sreal_init (&max_relbenefit_real, RELATIVE_TIME_BENEFIT_RANGE, 0);
