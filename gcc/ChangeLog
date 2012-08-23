@@ -1,3 +1,11 @@
+2012-08-23  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (update_ebb_live_info): Process debug insn
+	too.
+
+	* lra-spills.c (lra_hard_reg_substitution): Call alter_subreg with
+	true only for non-debug insn.
+
 2012-08-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* dwarf2out.c: Remove tree-flow.h.
