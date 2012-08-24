@@ -1137,16 +1137,18 @@ simple_cond_move_replacement (basic_block cond_bb, basic_block middle_bb,
       gimple_stmt_iterator gsi1 = gsi_for_stmt (stmt_to_move);
       gsi_move_before (&gsi1, &gsi);
     }
-  cond = fold_build2 (gimple_cond_code (stmt), boolean_type_node,
-		      gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+  cond = fold_build2_loc (gimple_location (stmt), gimple_cond_code (stmt),
+			  boolean_type_node, gimple_cond_lhs (stmt),
+			  gimple_cond_rhs (stmt));
   for (i = 0; i < t; i++)
   {
     type = TREE_TYPE (PHI_RESULT (phi[i]));
 
-    conditional = fold_build3 (COND_EXPR, type, unshare_expr (cond), arg0[i],
-			       arg1[i]);
+    conditional = fold_build3_loc (gimple_location (stmt), COND_EXPR, type,
+				   unshare_expr (cond), arg0[i],
+				   arg1[i]);
     new_var = force_gimple_operand_gsi (&gsi, conditional, true,
-					SSA_NAME_VAR (PHI_RESULT (phi[i])),
+					NULL,
 					true, GSI_SAME_STMT);
 
     if (i == t - 1)

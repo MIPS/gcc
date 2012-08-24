@@ -172,6 +172,16 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-23  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4368
+	* tree-ssa-phiopt.c (simple_cond_move_replacement):
+	Use fold_build2_loc to create the comparision.
+	Use fold_build3_loc to create the conditional
+	expression using the location of the comparision.
+	Also remove the variable from the call to
+	force_gimple_operand_gsi.
+
 2012-08-22  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4550
