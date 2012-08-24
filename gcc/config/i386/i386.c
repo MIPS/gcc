@@ -31641,6 +31641,7 @@ ix86_class_likely_spilled_p (reg_class_t rclass)
       case SSE_FIRST_REG:
       case FP_TOP_REG:
       case FP_SECOND_REG:
+      case BND_REGS:
 	return true;
 
       default:
