@@ -498,13 +498,15 @@ pl_transform_function (void)
 
 	  gsi_next (&i);
 
-	  /* We do not need any statements in static initializer except
+	  /* We do not need any statements in PL static initializer except
 	     created in PL pass.  */
 	  if (DECL_PL_STATIC_INIT (cfun->decl)
 	      && gimple_code (s) == GIMPLE_ASSIGN)
 	    {
 	      gimple_stmt_iterator del_iter = gsi_for_stmt (s);
 	      gsi_remove (&del_iter, true);
+	      unlink_stmt_vdef (s);
+	      release_defs(s);
 	    }
         }
       bb = next;
