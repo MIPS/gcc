@@ -1836,8 +1836,8 @@ pl_narrow_bounds_for_field (tree field, bool always_narrow)
   HOST_WIDE_INT offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
   HOST_WIDE_INT bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
 
-  return (always_narrow || flag_pl_first_field_has_own_bounds
-	  || offs || bit_offs);
+  return DECL_SIZE (field) && (always_narrow || flag_pl_first_field_has_own_bounds
+			       || offs || bit_offs);
 }
 
 static void
