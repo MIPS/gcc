@@ -4574,6 +4574,22 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
 		    GET_CODE (comparison), NULL_RTX, unsignedp, OPTAB_WIDEN,
 		    &comparison, &cmode);
 
+  /* If we cannot do it via this comparison swap around op0 and op1
+     and try that comapison. */
+  if (!comparison)
+    {
+      delete_insns_since (last);
+      tem = op0;
+      op0 = op1;
+      op1 = tem;
+      code = swap_condition (code);
+      comparison = simplify_gen_relational (code, VOIDmode, cmode, op0, op1);
+      last = get_last_insn ();
+      prepare_cmp_insn (XEXP (comparison, 0), XEXP (comparison, 1),
+		        GET_CODE (comparison), NULL_RTX, unsignedp, OPTAB_WIDEN,
+		        &comparison, &cmode);
+    }
+
   /* If we cannot do it via one comparison, try emitting the store flag
      and try with that.  */
   if (!comparison)
