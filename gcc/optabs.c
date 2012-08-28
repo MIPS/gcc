@@ -4612,6 +4612,22 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
     {
       struct expand_operand ops[4];
 
+      /* If the comparison is the same as the original,
+	 try using those operands for op2 and op3 so
+	 same constants that were forced to a register
+	 use the same register. */
+      if (GET_CODE (comparison) == code)
+	{
+	  if (rtx_equal_p (op0, op2))
+	    op2 = XEXP (comparison, 0);
+	  if (rtx_equal_p (op0, op3))
+	    op3 = XEXP (comparison, 0);
+	  if (rtx_equal_p (op1, op2))
+	    op2 = XEXP (comparison, 1);
+	  if (rtx_equal_p (op1, op3))
+	    op3 = XEXP (comparison, 1);
+	}
+
       create_output_operand (&ops[0], target, mode);
       create_fixed_operand (&ops[1], comparison);
       create_input_operand (&ops[2], op2, mode);
