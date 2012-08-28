@@ -20447,6 +20447,10 @@ ix86_expand_int_movcc (rtx operands[])
 	  int nops;
 
 	  out = emit_store_flag (out, code, op0, op1, VOIDmode, 0, 1);
+	  /*  If the emit_store_flag fails, we cannot do this optimization. */
+
+	  if (out == NULL_RTX)
+	    goto next_case;
 
 	  nops = 0;
 	  /* On x86_64 the lea instruction operates on Pmode, so we need
@@ -20482,6 +20486,7 @@ ix86_expand_int_movcc (rtx operands[])
 
 	  return true;
 	}
+next_case:
 
       /*
        * General case:			Jumpful:

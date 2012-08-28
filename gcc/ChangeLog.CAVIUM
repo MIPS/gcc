@@ -172,6 +172,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-08-28  Andrew Pinski  <apinski@cavium.com>
+
+	* config/i386/i386.c (ix86_expand_int_movcc):
+	If emit_store_flag fails, move on to the next case.
+
 2012-08-23  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4368
