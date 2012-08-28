@@ -490,7 +490,8 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	   assume here, as well as in the tests below, that all
 	   addresses are in canonical form.  */
 	else if (INDEX_REG_CLASS
-		 == base_reg_class (VOIDmode, as, PLUS, SCRATCH))
+		 == base_reg_class (VOIDmode, as, PLUS, SCRATCH)
+		 && code0 != PLUS && code0 != MULT)
 	  {
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);

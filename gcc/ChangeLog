@@ -1,3 +1,8 @@
+2012-08-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (extract_loc_address_regs): Check on a simple
+	plus when index reg class is the same as base class.
+
 2012-08-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (update_ebb_live_info): Process debug insn
