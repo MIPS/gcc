@@ -6019,6 +6019,33 @@ simplify_subreg (enum machine_mode outermode, rtx op,
       && subreg_lowpart_offset (outermode, innermode) == byte)
     return XEXP (op, 0);
 
+  /* If we have subreg of an ior or an and, try to see if
+     either operand can be simplified.  */
+  if ((GET_CODE (op) == IOR || GET_CODE (op) == AND)
+      && GET_MODE_SIZE (outermode) < GET_MODE_SIZE (innermode)
+      && subreg_lowpart_offset (outermode, innermode) == byte)
+    {
+      rtx op0 = XEXP (op, 0);
+      rtx op1 = XEXP (op, 1);
+      if (GET_CODE (op0) == CONST_INT)
+	op0 = NULL_RTX;
+      else
+        op0 = simplify_subreg (outermode, op0, innermode, byte);
+      if (GET_CODE (op1) == CONST_INT)
+	op1 = NULL_RTX;
+      else
+        op1 = simplify_subreg (outermode, op1, innermode, byte);
+
+      if (op0 != NULL_RTX || op1 != NULL_RTX)
+	{
+	  if (op0 == NULL_RTX)
+	    op0 = simplify_gen_subreg (outermode, XEXP (op, 0), innermode, byte);
+	  if (op1 == NULL_RTX)
+	    op1 = simplify_gen_subreg (outermode, XEXP (op, 1), innermode, byte);
+	  return simplify_gen_binary (GET_CODE (op), outermode, op0, op1);
+	}
+    }
+
   /* SUBREG of a hard register => just change the register number
      and/or mode.  If the hard register is not valid in that mode,
      suppress this simplification.  If the hard register is the stack,
