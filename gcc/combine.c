@@ -6291,6 +6291,22 @@ simplify_set (rtx x)
   if (GET_CODE (dest) == PC && ANY_RETURN_P (src))
     return src;
 
+  /* (set (subreg (x)) (y) -> (set (x) (subreg (y)) if (subreg (y))
+     simplifies. */
+  if (GET_CODE (dest) == SUBREG
+      && subreg_lowpart_p (dest))
+    {
+      rtx temp;
+      temp = simplify_subreg (GET_MODE (SUBREG_REG (dest)), src, mode,
+			      subreg_lowpart_offset (GET_MODE (SUBREG_REG (dest)), mode));
+       if (temp)
+	{
+	  SUBST (SET_SRC (x), temp);
+	  SUBST (SET_DEST (x), SUBREG_REG (dest));
+	  return x;
+	}
+    }
+
   /* Now that we know for sure which bits of SRC we are using, see if we can
      simplify the expression for the object knowing that we only need the
      low-order bits.  */

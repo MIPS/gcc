@@ -199,6 +199,12 @@
 	
 2012-08-29  Andrew Pinski  <apinski@cavium.com>
 
+	* combine.c (simplify_set): Simplify
+	(set (subreg (a)) (b)) to (set (a) (subreg (b))
+	iff (subreg (b)) simplifies.
+
+2012-08-29  Andrew Pinski  <apinski@cavium.com>
+
 	* simplify-rtx.c (simplify_subreg): Simplify
 	(subreg (and/ior (a) (b))) to (and/ior (subreg (a)) (subreg (b)))
 	iff either (subreg (a)) or (subreg (b)) simplifies and either
