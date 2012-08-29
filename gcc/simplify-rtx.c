@@ -2867,7 +2867,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	 we might be able to further simplify the AND with X and potentially
 	 remove the subreg altogether.  */
       if (GET_CODE (op0) == SUBREG && CONST_INT_P (trueop1)
-	  && INTEGRAL_MODE_P (GET_MODE (SUBREG_REG (op0)))
+	  && SCALAR_INT_MODE_P (GET_MODE (SUBREG_REG (op0)))
 	  && subreg_lowpart_p (op0)
 	  && GET_MODE_BITSIZE (GET_MODE (op0)) < GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0))))
 	{

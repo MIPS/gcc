@@ -718,6 +718,11 @@
 	iff either (subreg (a)) or (subreg (b)) simplifies and either
 	(a)  or (b) were not a constant integer.
 
+2012-08-29  Andrew Pinski  <apinski@cavium.com>
+
+	* simplify-rtx.c (simplify_binary_operation_1): Don't simplify
+	an and with a subreg if the mode is not a scaler integer mode.
+
 2012-08-28  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4375
