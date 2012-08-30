@@ -92,8 +92,10 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 static tree pl_intersect_bounds (tree bounds1, tree bounds2,
 				 gimple_stmt_iterator *iter);
 static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
+static tree pl_narrow_bounds_to_field (tree bounds, tree component,
+				       gimple_stmt_iterator *iter);
 static void pl_parse_array_and_component_ref (tree node, tree *ptr,
-					      tree *elt, bool *component,
+					      tree *elt, bool *safe,
 					      bool *bitfield,
 					      tree *bounds,
 					      gimple_stmt_iterator *iter,
@@ -1598,10 +1600,10 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
       {
 	tree elt;
 	tree ptr;
-	bool component;
+	bool safe;
 	bool bitfield;
 
-	pl_parse_array_and_component_ref (obj, &ptr, &elt, &component,
+	pl_parse_array_and_component_ref (obj, &ptr, &elt, &safe,
 					  &bitfield, &bounds, iter, true,
 					  always_narrow_fields);
 
@@ -1840,154 +1842,139 @@ pl_narrow_bounds_for_field (tree field, bool always_narrow)
 			       || offs || bit_offs);
 }
 
+static tree
+pl_narrow_bounds_to_field (tree bounds, tree component,
+			   gimple_stmt_iterator *iter)
+{
+  tree field = TREE_OPERAND (component, 1);
+  tree bit_size = DECL_SIZE (field);
+  HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
+  tree field_ptr = pl_build_addr_expr (component);
+  tree field_bounds;
+
+  field_bounds = pl_make_bounds (field_ptr,
+				 build_int_cst (size_type_node, size),
+				 iter);
+  return pl_intersect_bounds (field_bounds, bounds, iter);
+}
+
 static void
 pl_parse_array_and_component_ref (tree node, tree *ptr,
-				  tree *elt, bool *component,
+				  tree *elt, bool *safe,
 				  bool *bitfield,
 				  tree *bounds,
 				  gimple_stmt_iterator *iter,
 				  bool innermost_bounds,
 				  bool always_narrow)
 {
-  tree var = TREE_OPERAND (node, 0);
-  bool precise_bounds = false;
-  bool has_component_ref = false;
+  tree comp_to_narrow = NULL_TREE;
+  tree last_comp = NULL_TREE;
+  bool array_ref_found = false;
+  tree *nodes;
+  tree var;
+  int len;
+  int i;
 
-  *component = (TREE_CODE (node) == COMPONENT_REF);
+  /* Compute tree height for expression.  */
+  var = node;
+  len = 1;
+  while (TREE_CODE (var) == COMPONENT_REF
+	 || TREE_CODE (var) == ARRAY_REF)
+    {
+      var = TREE_OPERAND (var, 0);
+      len++;
+    }
+
+  gcc_assert (len > 1);
+
+  /* It is more convenient for us to scan left-to-right,
+     so walk tree again and put all node to nodes vector
+     in reversed order.  */
+  nodes = XALLOCAVEC (tree, len);
+  nodes[len - 1] = node;
+  for (i = len - 2; i >= 0; i--)
+    nodes[i] = TREE_OPERAND (nodes[i + 1], 0);
+
+  *bounds = NULL;
+  *safe = true;
   *bitfield = (TREE_CODE (node) == COMPONENT_REF
 	       && DECL_BIT_FIELD_TYPE (TREE_OPERAND (node, 1)));
-  *elt = NULL_TREE;
-  *bounds = NULL_TREE;
+  /* To get bitfield address we will need outer elemnt.  */
+  if (*bitfield && (TREE_CODE (nodes[len - 2]) == ARRAY_REF
+		    || TREE_CODE (nodes[len - 2]) == COMPONENT_REF))
+    *elt = nodes[len - 2];
+  else
+    *elt = NULL_TREE;
 
-  if (TREE_CODE (node) == COMPONENT_REF && innermost_bounds)
+  /* If we have indirection in expression then compute
+     outermost structure bounds.  Computed bounds may be
+     narrowed later.  */
+  if (TREE_CODE (nodes[0]) == MEM_REF || INDIRECT_REF_P (nodes[0]))
     {
-      if (pl_narrow_bounds_for_field (TREE_OPERAND (node, 1), always_narrow))
-	{
-	  tree field = TREE_OPERAND (node, 1);
-	  tree bit_size = DECL_SIZE (field);
-	  HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
-	  tree field_ptr = pl_build_addr_expr (node);
-
-	  *bounds = pl_make_bounds (field_ptr,
-				    build_int_cst (size_type_node, size),
-				    iter);
-	}
-      else
-	has_component_ref = true;
+      *safe = false;
+      *ptr = TREE_OPERAND (nodes[0], 0);
+      *bounds = pl_find_bounds (*ptr, iter);
     }
-  else if (TREE_CODE (node) == ARRAY_REF)
+  else
     {
-      tree array_addr;
+      gcc_assert (TREE_CODE (var) == VAR_DECL
+		  || TREE_CODE (var) == PARM_DECL
+		  || TREE_CODE (var) == RESULT_DECL
+		  || TREE_CODE (var) == STRING_CST);
 
-      array_addr = pl_build_addr_expr (var);
-      *bounds = pl_find_bounds_narrowed (array_addr, iter);
-
-      precise_bounds = true;
+      *ptr = pl_build_addr_expr (var);
     }
 
-  while (true)
+  /* In this loop we are trying to find a field access
+     requiring narrowing.  There are two simple rules
+     for search:
+     1. Leftmost array_ref is chosen if any.
+     2. Rightmost suitable component_ref is chosen if innermost
+     bounds are required and no array_ref exists.  */
+  for (i = 1; i < len; i++)
     {
-      if (*bitfield && *elt == NULL_TREE
-	  && (TREE_CODE (var) == ARRAY_REF
-	      || TREE_CODE (var) == COMPONENT_REF))
-	*elt = var;
+      var = nodes[i];
 
       if (TREE_CODE (var) == ARRAY_REF)
 	{
-	  *component = false;
-
-	  if (!*bounds || !precise_bounds)
+	  *safe = false;
+	  array_ref_found = true;
+	  if (!flag_pl_narrow_to_innermost_arrray)
 	    {
-	      tree array_addr;
-	      tree array_bounds;
-
-	      array_addr = TREE_OPERAND (var, 0);
-	      array_addr = pl_build_addr_expr (array_addr);
-
-	      array_bounds = pl_find_bounds_narrowed (array_addr, iter);
-	      *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
-	      precise_bounds = true;
-
-
-	      /* Intersect obtained bounds with elemnt bounds
-		 in case we have to narrow bounds to a single
-		 array element.  */
-	      if (has_component_ref)
-		{
-		  tree elem_addr = pl_build_addr_expr (node);
-		  tree elem_size = array_ref_element_size (var);
-		  tree array_bounds = pl_make_bounds (elem_addr,
-						      elem_size,
-						      iter);
-		  *bounds = pl_intersect_bounds (array_bounds, *bounds, iter);
-		  precise_bounds = true;
-		}
+	      comp_to_narrow = last_comp;
+	      break;
 	    }
-
-	  var = TREE_OPERAND (var, 0);
 	}
       else if (TREE_CODE (var) == COMPONENT_REF)
 	{
 	  tree field = TREE_OPERAND (var, 1);
 
-	  var = TREE_OPERAND (var, 0);
-
-	  if (innermost_bounds && !*bounds
+	  if (innermost_bounds
+	      && !array_ref_found
 	      && pl_narrow_bounds_for_field (field, always_narrow))
+	    comp_to_narrow = var;
+	  last_comp = var;
+
+	  if (flag_pl_narrow_to_innermost_arrray
+	      && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	    {
-	      tree bit_size = DECL_SIZE (field);
-	      HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
-	      tree field_ptr = pl_build_addr_expr (node);
-
-	      *bounds = pl_make_bounds (field_ptr,
-					build_int_cst (size_type_node, size),
-					iter);
+	      *bounds = pl_narrow_bounds_to_field (*bounds, var, iter);
+	      comp_to_narrow = NULL;
 	    }
-
-	  if (innermost_bounds)
-	    has_component_ref = true;
-	}
-      else if (INDIRECT_REF_P (var)
-	       || TREE_CODE (var) == MEM_REF)
-	{
-	  *component = false;
-	  *ptr = TREE_OPERAND (var, 0);
-
-	  if (!*bounds || !precise_bounds)
-	    {
-	      *bounds = pl_intersect_bounds (pl_find_bounds (*ptr, iter),
-					     *bounds, iter);
-	      precise_bounds = true;
-	    }
-	  break;
-	}
-      else if (TREE_CODE (var) == VIEW_CONVERT_EXPR)
-	{
-	  gcc_unreachable (); /* look at it later */
-
-	  var = TREE_OPERAND (var, 0);
-	  if (CONSTANT_CLASS_P (var)
-	      && TREE_CODE (var) != STRING_CST)
-	    break;
 	}
       else
-	{
-	  gcc_assert (TREE_CODE (var) == VAR_DECL
-		      || TREE_CODE (var) == PARM_DECL
-		      || TREE_CODE (var) == RESULT_DECL
-		      || TREE_CODE (var) == STRING_CST);
+	gcc_unreachable ();
+    }
 
-	  if (innermost_bounds && !*bounds)
-	    {
-	      gcc_assert (!flag_pl_first_field_has_own_bounds);
-	      gcc_assert (*component);
+  if (comp_to_narrow && DECL_SIZE (TREE_OPERAND (comp_to_narrow, 1)))
+    *bounds = pl_narrow_bounds_to_field (*bounds, comp_to_narrow, iter);
 
-	      *bounds = pl_get_bounds_for_decl (var);
-	    }
+  if (innermost_bounds && !*bounds)
+    {
+      gcc_assert ((!flag_pl_first_field_has_own_bounds && *safe)
+		  || TREE_CODE (nodes[1]) == ARRAY_REF);
 
-	  *ptr = pl_build_addr_expr (var);
-	  break;
-	}
+      *bounds = pl_find_bounds (*ptr, iter);
     }
 }
 
