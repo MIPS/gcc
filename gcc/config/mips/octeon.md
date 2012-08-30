@@ -29,12 +29,12 @@
 (define_cpu_unit "octeon_mult" "octeon_mult")
 
 (define_insn_reservation "octeon_arith" 1
-  (and (eq_attr "cpu" "octeon,octeon2")
+  (and (eq_attr "cpu" "octeon,octeon2,octeon3")
        (eq_attr "type" "arith,const,logical,move,shift,signext,nop"))
   "octeon_pipe0 | octeon_pipe1")
 
 (define_insn_reservation "octeon_set" 1
-  (and (eq_attr "cpu" "octeon")
+  (and (eq_attr "cpu" "octeon,octeon2,octeon3")
        (eq_attr "type" "slt"))
   "octeon_pipe0 | octeon_pipe1")
 
@@ -44,7 +44,7 @@
   "octeon_pipe0 | octeon_pipe1")
 
 (define_insn_reservation "octeon_condmove_o2" 3
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "condmove"))
   "octeon_pipe0 | octeon_pipe1")
 
@@ -54,19 +54,19 @@
   "octeon_pipe0")
 
 (define_insn_reservation "octeon_load_o2" 3
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "load,prefetch"))
   "octeon_pipe0")
 
 ;; ??? memory-related cop0 reads are pipe0 with 3-cycle latency.
 ;; Front-end-related ones are 1-cycle on pipe1.  Assume front-end for now.
 (define_insn_reservation "octeon_cop_o2" 1
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "mtc,mfc"))
   "octeon_pipe1")
 
 (define_insn_reservation "octeon_store" 1
-  (and (eq_attr "cpu" "octeon,octeon2")
+  (and (eq_attr "cpu" "octeon,octeon2,octeon3")
        (eq_attr "type" "store"))
   "octeon_pipe0")
 
@@ -76,7 +76,7 @@
   "octeon_pipe0")
 
 (define_insn_reservation "octeon_brj_o2" 2
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "branch,jump,call,trap"))
   "octeon_pipe1")
 
@@ -86,7 +86,7 @@
   "(octeon_pipe0 | octeon_pipe1) + octeon_mult")
 
 (define_insn_reservation "octeon_imul3_o2" 6
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "imul3,pop,clz"))
   "octeon_pipe1 + octeon_mult")
 
@@ -96,7 +96,7 @@
   "(octeon_pipe0 | octeon_pipe1) + octeon_mult, octeon_mult")
 
 (define_insn_reservation "octeon_imul_o2" 1
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "imul,mthi,mtlo"))
   "octeon_pipe1 + octeon_mult")
 
@@ -106,7 +106,7 @@
   "(octeon_pipe0 | octeon_pipe1) + octeon_mult")
 
 (define_insn_reservation "octeon_mfhilo_o2" 6
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "mfhi,mflo"))
   "octeon_pipe1 + octeon_mult")
 
@@ -116,7 +116,7 @@
   "(octeon_pipe0 | octeon_pipe1) + octeon_mult, octeon_mult*3")
 
 (define_insn_reservation "octeon_imadd_o2" 1
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "imadd"))
   "octeon_pipe1 + octeon_mult")
 
@@ -126,13 +126,13 @@
   "(octeon_pipe0 | octeon_pipe1) + octeon_mult, octeon_mult*71")
 
 (define_insn_reservation "octeon_idiv_o2_si" 18
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "mode" "SI")
        (eq_attr "type" "idiv"))
   "octeon_pipe1 + octeon_mult, octeon_mult*17")
 
 (define_insn_reservation "octeon_idiv_o2_di" 35
-  (and (eq_attr "cpu" "octeon2")
+  (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "mode" "DI")
        (eq_attr "type" "idiv"))
   "octeon_pipe1 + octeon_mult, octeon_mult*34")
@@ -141,7 +141,7 @@
 ;; patterns.
 
 (define_insn_reservation "octeon_unknown" 1
-  (and (eq_attr "cpu" "octeon,octeon2")
+  (and (eq_attr "cpu" "octeon,octeon2,octeon3")
        (eq_attr "type" "unknown,multi,atomic,syncloop"))
   "octeon_pipe0 + octeon_pipe1")
 

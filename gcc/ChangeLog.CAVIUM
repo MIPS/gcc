@@ -1,3 +1,45 @@
+2012-08-29  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips-cpus.def (octeon3): New cpu.
+	* config/mips/mips-protos.h (mips_expand_cstore_fp): New prototype.
+	* config/mips/mips.c (mips_rtx_cost_data): Add octeon3.
+	(mips_expand_cstore_fp): New function.
+	(mips_print_operand <case 'T', case 't'>): Fix a bug as the mode
+	of the comparison no longer matches mode of the operands.
+	(mips_issue_rate): Handle PROCESSOR_OCTEON3.
+	(mips_option_override): If soft-float was not explicit and
+	this is Octeon3, then change to hard float.
+	Also don't error out for -mhard-float for Octeon3.
+	* config/mips/mips.h (TARGET_OCTEON):  Add Octeon3.
+	(TARGET_OCTEON2): Likewise.
+	(TARGET_OCTEON3): New define.
+	(TUNE_OCTEON): Add Octeon3.
+	* config/mips/mips.md (processor): Add octeon3.
+	(cstore<mode>): New expand for SCALARF.
+	* config/mips/octeon-linux.h (GNU_USER_DYNAMIC_LINKERN32): Define
+	(GNU_USER_DYNAMIC_LINKER64): Likewise.
+	* config/mips/octeon.h (MULTILIB_ISA_DEFAULT): Define.
+	* config/mips/octeon.md (octeon_arith): Add octeon3.
+	(octeon_set): Likewise.
+	(octeon_condmove_o2): Likewise.
+	(octeon_load_o2): Likewise.
+	(octeon_cop_o2): Likewise.
+	(octeon_store): Likewise.
+	(octeon_brj_o2): Likewise.
+	(octeon_imul3_o2): Likewise.
+	(octeon_imul_o2): Likewise.
+	(octeon_mfhilo_o2): Likewise.
+	(octeon_imadd_o2): Likewise.
+	(octeon_idiv_o2_si): Likewise.
+	(octeon_idiv_o2_di): Likewise.
+	* config/mips/predicates.md (mips_cstorefp_operator): New predicate.
+	* config/mips/t-octeon-elf (MULTILIB_OPTIONS): Add march=octeon3.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Don't build the prefetch fixup multilib for Octeon3.
+	* config/mips/t-octeon-linux (MULTILIB_OPTIONS): Add march=octeon3.
+	(MULTILIB_OSDIRNAMES): Rewrite so it is clear what the multilib
+	OS dir names are.
+
 2012-08-01  Andrew Pinski  <apinski@cavium.com>
 	
 	continue bug #4296

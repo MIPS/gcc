@@ -1,5 +1,6 @@
-MULTILIB_OPTIONS = mabi=n32/mabi=eabi/mabi=64 mfix-cn63xxp1 march=octeon2 
-MULTILIB_DIRNAMES = n32 eabi n64 fix-cn63xxp1 octeon2
-MULTILIB_MATCHES =
+MULTILIB_OPTIONS = mabi=n32/mabi=eabi/mabi=64 mfix-cn63xxp1 march=octeon2/march=octeon3
+MULTILIB_DIRNAMES = n32 eabi n64 fix-cn63xxp1 octeon2 octeon3
 
+#We don't need the prefetch fixup for octeon3.
+MULTILIB_EXCEPTIONS = *mfix-cn63xxp1/march=octeon3*
 

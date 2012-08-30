@@ -30,3 +30,12 @@ Boston, MA 02110-1301, USA.  */
    and provides this hook instead.  */
 #undef SUBTARGET_CC1_SPEC
 #define SUBTARGET_CC1_SPEC "%{profile:-p} -fasynchronous-unwind-tables"
+
+/* Octeon3 should use /lib*-fp . */
+#undef GNU_USER_DYNAMIC_LINKERN32
+#define GNU_USER_DYNAMIC_LINKERN32 "%{ march=octeon3: /lib32-fp/ld.so.1 ; \
+				    : /lib32/ld.so.1 }"
+
+#undef GNU_USER_DYNAMIC_LINKER64
+#define GNU_USER_DYNAMIC_LINKER64 "%{ march=octeon3: /lib64-fp/ld.so.1 ; \
+				    : /lib64/ld.so.1 }"

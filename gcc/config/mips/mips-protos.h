@@ -224,6 +224,7 @@ extern void mips_restore_gp_from_cprestore_slot (rtx);
 #ifdef RTX_CODE
 extern void mips_expand_scc (rtx *);
 extern void mips_expand_conditional_branch (rtx *);
+extern void mips_expand_cstore_fp (rtx *);
 extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);

@@ -41,6 +41,7 @@
   m4k
   octeon
   octeon2
+  octeon3
   r3900
   r6000
   r4000
@@ -6177,6 +6178,17 @@
   "c.<swapped_fcond>.<fmt>\t%Z0%2,%1"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
+
+(define_expand "cstore<mode>4"
+  [(set (match_operand:SI 0 "register_operand")
+	(match_operator:SI 1 "mips_cstorefp_operator"
+	 [(match_operand:SCALARF 2 "register_operand")
+	  (match_operand:SCALARF 3 "register_operand")]))]
+  "ISA_HAS_CONDMOVE"
+{
+  mips_expand_cstore_fp (operands);
+  DONE;
+})
 
 ;;
 ;;  ....................

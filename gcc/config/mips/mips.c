@@ -990,6 +990,20 @@ static const struct mips_rtx_cost_data
                      4,		  /* branch_cost */
                      4		  /* memory_latency */
   },
+    /* Octeon III */
+  {
+    COSTS_N_INSNS (6),            /* fp_add */
+    COSTS_N_INSNS (6),            /* fp_mult_sf */
+    COSTS_N_INSNS (7),            /* fp_mult_df */
+    COSTS_N_INSNS (25),           /* fp_div_sf */
+    COSTS_N_INSNS (48),           /* fp_div_df */
+    COSTS_N_INSNS (6),            /* int_mult_si */
+    COSTS_N_INSNS (6),            /* int_mult_di */
+    COSTS_N_INSNS (18),           /* int_div_si */
+    COSTS_N_INSNS (35),           /* int_div_di */
+                     4,		  /* branch_cost */
+                     4		  /* memory_latency */
+  },
   { /* R3900 */
     COSTS_N_INSNS (2),            /* fp_add */
     COSTS_N_INSNS (4),            /* fp_mult_sf */
@@ -5164,6 +5178,25 @@ mips_expand_vcondv2sf (rtx dest, rtx true_src, rtx false_src,
   else
     emit_insn (gen_mips_cond_move_tf_ps (dest, true_src, false_src,
 					 cmp_result));
+}
+
+/* Compare OPERANDS[2] with OPERANDS[3] using comparison code
+   CODE and move 1 or 0 into OPERANDS[0].   */
+
+void
+mips_expand_cstore_fp (rtx *operands)
+{
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx op0 = operands[2];
+  rtx op1 = operands[3];
+  rtx cond;
+  rtx regone = force_reg (GET_MODE (operands[0]), const1_rtx);
+
+  mips_emit_compare (&code, &op0, &op1, true);
+  cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			  gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
+						regone, const0_rtx)));
 }
 
 /* Perform the comparison in OPERANDS[1].  Move OPERANDS[2] into OPERANDS[0]
@@ -13471,6 +13504,7 @@ mips_issue_rate (void)
     case PROCESSOR_R9000:
     case PROCESSOR_OCTEON:
     case PROCESSOR_OCTEON2:
+    case PROCESSOR_OCTEON3:
       return 2;
 
     case PROCESSOR_SB1:
@@ -17291,6 +17325,14 @@ mips_option_override (void)
   if (mips_tune_info == 0)
     mips_set_tune (mips_arch_info);
 
+  /* If -march=octeon3 then this is hard-float
+     ABI is used. */
+  if ((target_flags_explicit & MASK_SOFT_FLOAT_ABI) == 0)
+    {
+      if (TARGET_OCTEON3)
+	target_flags &= ~MASK_SOFT_FLOAT_ABI;
+    }
+
   if ((target_flags_explicit & MASK_64BIT) != 0)
     {
       /* The user specified the size of the integer registers.  Make sure
@@ -17545,7 +17587,7 @@ mips_option_override (void)
 
   /* Our glibc does not save and restore floating-point state upon
      setjmp/longjmp, etc.  */
-  if (TARGET_OCTEON && TARGET_HARD_FLOAT)
+  if (TARGET_OCTEON && !TARGET_OCTEON3 && TARGET_HARD_FLOAT)
     error ("-mhard-float is not allowed with Octeon.");
 
   /* .eh_frame addresses should be the same width as a C pointer.

@@ -504,6 +504,9 @@
   (ior (match_code "eq,gt,gtu,ge,geu,lt,ltu,le,leu")
        (and (match_code "ne") (not (match_test "TARGET_MIPS16")))))
 
+(define_predicate "mips_cstorefp_operator"
+  (match_code "unordered,uneq,unlt,unle,eq,lt,le,ge,gt,unge,ungt"))
+
 (define_predicate "small_data_pattern"
   (and (match_code "set,parallel,unspec,unspec_volatile,prefetch")
        (match_test "mips_small_data_pattern_p (op)")))

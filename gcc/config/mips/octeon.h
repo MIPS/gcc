@@ -69,21 +69,3 @@ Boston, MA 02110-1301, USA.  */
       mips_output_aligned_decl_common ((STREAM), (DECL), (NAME), (SIZE),   \
 				       (ALIGN));			   \
    }
-
-/* Implement ASM_OUTPUT_ALIGNED_BSS. This differs from the mips version
-   only in the use of cvmx_shared attribute.  */
-
-#ifdef ASM_OUTPUT_ALIGNED_BSS
-#undef ASM_OUTPUT_ALIGNED_BSS
-#define ASM_OUTPUT_ALIGNED_BSS(STREAM, DECL, NAME, SIZE, ALIGN)		    \
-  {									    \
-    if (mips_cvmx_shared_decl_p (DECL))					    \
-      {									    \
-	last_assemble_variable_decl = (DECL);				    \
-	octeon_output_shared_variable ((STREAM), (DECL), (NAME), (SIZE),    \
-				       (ALIGN));			    \
-      }									    \
-    else								    \
-      mips_output_aligned_bss ((STREAM), (DECL), (NAME), (SIZE), (ALIGN));  \
-  }
-#endif
