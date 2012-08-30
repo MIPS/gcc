@@ -5066,7 +5066,8 @@ simplify_ternary_operation (enum rtx_code code, enum machine_mode mode,
 	  then generate a lowpart subreg of the inner most subreg.  */
       if (GET_CODE (op2) == SUBREG
 	  && subreg_lowpart_p (op2)
-	  && GET_MODE (op2) != op0_mode)
+	  && GET_MODE (op2) != op0_mode
+	  && op0_mode != VOIDmode)
 	{
 	  rtx t = gen_lowpart_if_possible (op0_mode, op2);
 	  if (t != NULL_RTX && t != op2)

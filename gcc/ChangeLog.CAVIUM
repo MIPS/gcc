@@ -712,6 +712,14 @@
 	* tree-ssa-phiopt.c (simple_cond_move_replacement):
 	Manually create the assignment of the conditional expression.
 
+2012-08-30  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4587
+	* simplify-rtx.c (simplify_ternary_operation): Don't create
+	a lowpart for mode of VOIDmode.
+
+	* testsuite/gcc.c-torture/compile/20120830-2.c: New testcase.
+
 2012-08-29  Andrew Pinski  <apinski@cavium.com>
 
 	* combine.c (simplify_set): Simplify
