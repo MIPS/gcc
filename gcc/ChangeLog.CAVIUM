@@ -1,3 +1,27 @@
+2012-08-31  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/octeon.md (octeon_fpu): Add to the automaton.
+	(octeon_fpu): New cpu unit.
+	(octeon_condmove_o2): Check for non floating point modes.
+	(octeon_load_o2): Add prefetchx.
+	(octeon_cop_o2): Don't check for octeon3.
+	(octeon3_faddsubcvt): New reservation.
+	(octeon3_fmul): Likewise.
+	(octeon3_fmadd): Likewise.
+	(octeon3_div_sf): Likewise.
+	(octeon3_div_df): Likewise.
+	(octeon3_sqrt_sf): Likewise.
+	(octeon3_sqrt_df): Likewise.
+	(octeon3_rsqrt_sf): Likewise.
+	(octeon3_rsqrt_df): Likewise.
+	(octeon3_fabsnegmov): Likewise.
+	(octeon_fcond): Likewise.
+	(octeon_fcondmov): Likewise.
+	(octeon_fpmtc1): Likewise.
+	(octeon_fpmfc1): Likewise.
+	(octeon_fpload): Likewise.
+	(octeon_fpstore): Likewise.
+
 2012-08-29  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips-cpus.def (octeon3): New cpu.
