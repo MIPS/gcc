@@ -197,6 +197,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-09-03  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4370
+	Bug #4569
+	* tree-ssa-phiopt.c (simple_cond_move_replacement):
+	Manually create the assignment of the conditional expression.
+
 2012-08-29  Andrew Pinski  <apinski@cavium.com>
 
 	* combine.c (simplify_set): Simplify

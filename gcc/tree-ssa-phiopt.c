@@ -1142,14 +1142,23 @@ simple_cond_move_replacement (basic_block cond_bb, basic_block middle_bb,
 			  gimple_cond_rhs (stmt));
   for (i = 0; i < t; i++)
   {
+    tree new_expr;
+    gimple new_stmt;
     type = TREE_TYPE (PHI_RESULT (phi[i]));
 
-    conditional = fold_build3_loc (gimple_location (stmt), COND_EXPR, type,
-				   unshare_expr (cond), arg0[i],
-				   arg1[i]);
-    new_var = force_gimple_operand_gsi (&gsi, conditional, true,
+    conditional = fold_build3 (COND_EXPR, type,
+			       unshare_expr (cond), arg0[i],
+			       arg1[i]);
+    new_expr = force_gimple_operand_gsi (&gsi, conditional, false,
 					NULL,
 					true, GSI_SAME_STMT);
+    /* Manually create the final assignment so the aliasing info
+       for the ssa name will be up todate. */
+    new_var = duplicate_ssa_name (PHI_RESULT (phi[i]), NULL);
+    new_stmt = gimple_build_assign (new_var, new_expr);
+    gimple_set_location (new_stmt, gimple_location (stmt));
+    SSA_NAME_DEF_STMT (new_var) = new_stmt;
+    gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
 
     if (i == t - 1)
       replace_phi_edge_with_variable (cond_bb, e1, phi[i], new_var);
