@@ -12109,7 +12109,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2) && (nargs != 3 || !flag_pl))
+      if (va_start_p && (nargs != 2) && (nargs < 3 || nargs > 4 || !flag_pl))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
@@ -12127,7 +12127,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	  warning (0, "%<__builtin_next_arg%> called without an argument");
 	  return true;
 	}
-      else if (nargs > 1)
+      else if ((nargs > 1 && !flag_pl) || (nargs > 2 && flag_pl))
 	{
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;

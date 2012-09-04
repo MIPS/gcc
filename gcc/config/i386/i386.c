@@ -5799,6 +5799,19 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     }
 
   cum->bnd_regno = FIRST_BND_REG;
+  cum->stdarg = stdarg_p (fntype);
+  if (flag_pl && cum->stdarg)
+    {
+      function_args_iterator args_iter;
+      tree t;
+      cum->last_nregs = 0;
+      cum->known_args = 0;
+
+      FOREACH_FUNCTION_ARGS(fntype, t, args_iter)
+	{
+	  cum->known_args++;
+	}
+    }
 }
 
 /* Return the "natural" mode for TYPE.  In most cases, this is just TYPE_MODE.
@@ -6471,11 +6484,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 				      SSE_REGNO (sse_regno));
 	break;
       case X86_64_BND_CLASS:
-	/* We pass bound on register only if next pointer may
-	   be passed on register too.  */
-	return nintregs > 0
-	  ? gen_rtx_REG (mode, bnd_regno)
-	  : NULL;
+	return gen_rtx_REG (mode, bnd_regno);
       case X86_64_X87_CLASS:
       case X86_64_COMPLEX_X87_CLASS:
 	return gen_rtx_REG (mode, FIRST_STACK_REG);
@@ -6732,19 +6741,40 @@ static void
 function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT words, bool named)
 {
-  int int_nregs, sse_nregs, bnd_nregs;
-  bool no_more_bound_regs;
+  int int_nregs, sse_nregs, bnd_nregs, exam;
+  bool no_more_bound_regs = 0;
 
   /* Unnamed 256bit vector mode parameters are passed on stack.  */
   if (!named && VALID_AVX256_REG_MODE (mode))
     return;
 
-  /* If we have no more registers for pointers after previous
-     arg allocation then we cannot allocate register for bound
-     arg any more.  */
-  no_more_bound_regs = cum->nregs <= 0;
+  exam = examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs);
 
-  if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs)
+  /* If we wanted to assign arg to integer register and could
+     not then we should not use bound registers any more.  */
+  if (flag_pl
+      && exam
+      && int_nregs == 1
+      && sse_nregs == 0
+      && bnd_nregs == 0
+      && cum->nregs < 1)
+    no_more_bound_regs = 1;
+
+  /* If we are allocating additional args for stdarg then we have
+     to always advance bound registers if previous arg advanced
+     integer registers.  */
+  if (flag_pl
+      && exam
+      && cum->stdarg
+      && !cum->known_args
+      && cum->last_nregs > 0
+      && bnd_nregs == 0)
+    {
+      cum->bnd_nregs -= cum->last_nregs;
+      cum->bnd_regno += cum->last_nregs;
+    }
+
+  if (exam
       && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs
       && bnd_nregs <= cum->bnd_nregs)
     {
@@ -6762,12 +6792,21 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
     }
 
-  /* We set regno to be (LAST_BND_REG + 1) to force next bound
-     to be loaded using (%sp - 4) for address translation.  */
-  if (no_more_bound_regs)
+  if (flag_pl)
     {
-      cum->bnd_nregs = 0;
-      cum->bnd_regno = LAST_BND_REG + 1;
+      /* Do not care about last int regs until arg is unknown.  */
+      cum->last_nregs = cum->known_args ? 0 : int_nregs;
+
+      if (cum->known_args > 0 && bnd_nregs == 0)
+	cum->known_args--;
+
+      /* We set regno to be (LAST_BND_REG + 1) to force next bound
+	 to be loaded using (%sp - 4) for address translation.  */
+      if (no_more_bound_regs)
+	{
+	  cum->bnd_nregs = 0;
+	  cum->bnd_regno = LAST_BND_REG + 1;
+	}
     }
 }
 
@@ -7807,7 +7846,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 {
   rtx save_area, mem;
   alias_set_type set;
-  int i, max;
+  int i, max, bnd_reg;
 
   /* GPR size of varargs save area.  */
   if (cfun->va_list_gpr_size)
@@ -7832,6 +7871,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (max > X86_64_REGPARM_MAX)
     max = X86_64_REGPARM_MAX;
 
+  bnd_reg = cum->bnd_regno;
   for (i = cum->regno; i < max; i++)
     {
       mem = gen_rtx_MEM (word_mode,
@@ -7841,6 +7881,35 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       emit_move_insn (mem,
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
+      if (flag_pl)
+	{
+	  rtx addr = plus_constant (save_area, i * UNITS_PER_WORD);
+	  rtx ptr = gen_rtx_REG (DImode,
+				 x86_64_int_parameter_registers[i]);
+	  rtx bounds;
+
+	  if (bnd_reg <= LAST_BND_REG)
+	    bounds = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+				  bnd_reg);
+	  else
+	    {
+	      rtx ldx_addr;
+	      if (bnd_reg == LAST_BND_REG + 1)
+		ldx_addr = plus_constant (arg_pointer_rtx, -8);
+	      else
+		ldx_addr = plus_constant (arg_pointer_rtx, -16);
+	      bounds = gen_reg_rtx (TARGET_64BIT ? BND64mode : BND32mode);
+	      emit_insn (TARGET_64BIT
+			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
+			 : gen_bnd32_ldx (bounds, ldx_addr, ptr));
+	    }
+
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_stx (addr, ptr, bounds)
+		     : gen_bnd32_stx (addr, ptr, bounds));
+
+	  bnd_reg++;
+	}
     }
 
   if (ix86_varargs_fpr_size)
@@ -30523,7 +30592,21 @@ ix86_store_bounds (cumulative_args_t cum_v, rtx ptr, rtx addr,
   else
     gcc_unreachable ();
 
+  /* Of ptr is not int at all then we are trying to store bounds
+     for something which is not pointer.  It may happen when we
+     store args for vararg call.  Just ignore such stores.  */
+  /*  if (GET_MODE_CLASS (GET_MODE (ptr)) != MODE_INT)
+      return NULL_RTX;*/
+
+  /* Should we also ignore integer modes of incorrect size?.  */
   ptr = force_reg (Pmode, ptr);
+  /*if (GET_MODE (ptr) != Pmode
+      && GET_MODE (ptr) != (TARGET_64BIT ? DImode : SImode))
+    {
+      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
+      ptr = gen_reg_rtx (Pmode);
+      emit_move_insn (ptr, ext);
+      }*/
 
   /* Avoid registers which connot be used as index.  */
   if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM

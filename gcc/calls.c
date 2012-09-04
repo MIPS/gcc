@@ -3077,9 +3077,10 @@ expand_call (tree exp, rtx target, int ignore)
 	 non register bounds.  */
       for (i = 0; i < num_actuals; i++)
 	{
-	  if (!args[i].reg && BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
+	  int idx = PUSH_ARGS_REVERSED ? num_actuals - 1 - i : i;
+	  if (!args[idx].reg && BOUND_TYPE_P (TREE_TYPE (args[idx].tree_value)))
 	    {
-	      store_one_arg (args_so_far, &args[i], argblock, flags,
+	      store_one_arg (args_so_far, &args[idx], argblock, flags,
 			     adjusted_args_size.var != 0,
 			     reg_parm_stack_space);
 	    }
@@ -4538,7 +4539,7 @@ store_one_arg (cumulative_args_t args_so_far,
 	: prev_arg->value;
 
       targetm.calls.store_bounds_for_arg (args_so_far, ptr, addr,
-					  arg->value, PUSH_ARGS_REVERSED);
+					  arg->value, false);
     }
   else if (arg->mode != BLKmode)
     {

@@ -1505,6 +1505,9 @@ typedef struct ix86_args {
 				   in SSE registers.  Otherwise 0.  */
   int bnd_nregs;                /* # bnd registers available for passing */
   int bnd_regno;                /* next available bnd register number */
+  int last_nregs;               /* Number of int regs allocated for last arg.  */
+  bool stdarg;                  /* Set to 1 if function is stdarg.  */
+  int known_args;               /* Number of known args to parse for stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
 } CUMULATIVE_ARGS;

@@ -553,6 +553,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   unsigned bnd_arg_cnt = 0;
   unsigned arg_cnt = 0;
   tree fndecl = gimple_call_fndecl (call);
+  tree fntype = TREE_TYPE (TREE_TYPE (gimple_call_fn (call)));
   tree first_formal_arg;
   tree arg;
   gimple new_call;
@@ -569,15 +570,6 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     first_formal_arg = DECL_ARGUMENTS (fndecl);
   else
     {
-      tree fntype;
-      tree fnptr = gimple_call_fn (call);
-      /*gcc_assert (TREE_CODE (fnptr) == SSA_NAME
-	|| TREE_CODE (fnptr) == OBJ_TYPE_REF);*/
-
-      fntype = TREE_TYPE (TREE_TYPE (fnptr));
-      gcc_assert (TREE_CODE (fntype) == FUNCTION_TYPE
-		  || TREE_CODE (fntype) == METHOD_TYPE);
-
       first_formal_arg = TYPE_ARG_TYPES (fntype);
       use_fntype = true;
     }
@@ -612,8 +604,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       bnd_arg_cnt = 1;
     }
 
-  /* Now add number of additional bound arguments for pointers
-     passed to vararg functions.  */
+  /* Now add number of additional bound arguments */
   for (arg_no = arg_cnt - bnd_arg_cnt;
        arg_no < gimple_call_num_args (call);
        arg_no++)

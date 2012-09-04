@@ -2,8 +2,7 @@
 
 #define BOUNDED_TYPE_P(type) \
   (TREE_CODE (type) == POINTER_TYPE \
-    || (TREE_CODE (type) == REFERENCE_TYPE \
-	&& TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE))
+    || TREE_CODE (type) == REFERENCE_TYPE)
 #define BOUNDED_P(node) \
   BOUNDED_TYPE_P (TREE_TYPE (node))
 
