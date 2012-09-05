@@ -178,7 +178,8 @@ inst_sources = \
 	streambuf-inst.cc \
 	string-inst.cc \
 	wlocale-inst.cc \
-	wstring-inst.cc
+	wstring-inst.cc \
+	vstring-inst.cc    
 else
 XTEMPLATE_FLAGS =
 inst_sources =
@@ -357,6 +358,11 @@ string-inst.o: string-inst.cc
 wstring-inst.lo: wstring-inst.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 wstring-inst.o: wstring-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+vstring-inst.lo: vstring-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+vstring-inst.o: vstring-inst.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 chrono.lo: chrono.cc

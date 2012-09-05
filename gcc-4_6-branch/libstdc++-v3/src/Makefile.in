@@ -98,7 +98,8 @@ am__objects_1 = atomicity.lo codecvt_members.lo collate_members.lo \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	locale-inst.lo misc-inst.lo \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	ostream-inst.lo sstream-inst.lo \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	streambuf-inst.lo string-inst.lo \
-@ENABLE_EXTERN_TEMPLATE_TRUE@	wlocale-inst.lo wstring-inst.lo
+@ENABLE_EXTERN_TEMPLATE_TRUE@	wlocale-inst.lo wstring-inst.lo \
+@ENABLE_EXTERN_TEMPLATE_TRUE@	vstring-inst.lo
 @GLIBCXX_LDBL_COMPAT_TRUE@am__objects_3 = compatibility-ldbl.lo
 @ENABLE_PARALLEL_TRUE@am__objects_4 = parallel_settings.lo \
 @ENABLE_PARALLEL_TRUE@	compatibility-parallel_list.lo \
@@ -400,7 +401,8 @@ host_sources_extra = \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	streambuf-inst.cc \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	string-inst.cc \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	wlocale-inst.cc \
-@ENABLE_EXTERN_TEMPLATE_TRUE@	wstring-inst.cc
+@ENABLE_EXTERN_TEMPLATE_TRUE@	wstring-inst.cc \
+@ENABLE_EXTERN_TEMPLATE_TRUE@	vstring-inst.cc
 
 
 # Sources present in the src directory, always present.
@@ -950,6 +952,11 @@ string-inst.o: string-inst.cc
 wstring-inst.lo: wstring-inst.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 wstring-inst.o: wstring-inst.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+vstring-inst.lo: vstring-inst.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+vstring-inst.o: vstring-inst.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 chrono.lo: chrono.cc

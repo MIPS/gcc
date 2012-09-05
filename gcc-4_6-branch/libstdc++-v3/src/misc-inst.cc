@@ -31,6 +31,7 @@
 #include <istream>
 #include <ostream>
 #include <ext/stdio_sync_filebuf.h>
+#include <ext/vstring.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -63,6 +64,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     basic_istream<wchar_t>& 
     getline(basic_istream<wchar_t>&, wstring&);
 #endif
+
+  // vstring related to iostream
+  template 
+    basic_istream<char>& 
+    getline(basic_istream<char>&, __gnu_cxx::__versa_string<char>&, char);
+  template 
+    basic_istream<char>& 
+    getline(basic_istream<char>&, __gnu_cxx::__versa_string<char>&);
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

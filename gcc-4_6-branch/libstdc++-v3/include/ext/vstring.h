@@ -2510,6 +2510,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    __gnu_cxx::__versa_string<_CharT, _Traits, _Alloc, _Base>& __str)
     { return getline(__is, __str, __is.widen('\n')); }      
 
+  template<>
+    basic_istream<char>&
+    getline(basic_istream<char>& __in, __gnu_cxx::__versa_string<char>& __str,
+           char __delim);
+
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
