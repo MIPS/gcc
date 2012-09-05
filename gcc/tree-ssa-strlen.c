@@ -1856,7 +1856,8 @@ strlen_optimize_stmt (gimple_stmt_iterator *gsi)
 	    break;
 	  }
     }
-  else if (is_gimple_assign (stmt))
+  else if (is_gimple_assign (stmt)
+	   && !gimple_has_volatile_ops (stmt))
     {
       tree lhs = gimple_assign_lhs (stmt);
 
