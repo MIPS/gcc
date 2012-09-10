@@ -12100,6 +12100,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
   tree fntype = TREE_TYPE (current_function_decl);
   int nargs = call_expr_nargs (exp);
   tree arg;
+  int arg_no;
 
   if (!stdarg_p (fntype))
     {
@@ -12114,7 +12115,13 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
 	}
-      arg = CALL_EXPR_ARG (exp, 1);
+      arg_no = 1;
+      arg = CALL_EXPR_ARG (exp, arg_no);
+      if (flag_pl && BOUND_TYPE_P (TREE_TYPE (arg)))
+	{
+	  arg_no++;
+	  arg = CALL_EXPR_ARG (exp, arg_no);
+	}
     }
   /* We use __builtin_va_start (ap, 0, 0) or __builtin_next_arg (0, 0)
      when we checked the arguments and if needed issued a warning.  */
@@ -12132,7 +12139,8 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;
 	}
-      arg = CALL_EXPR_ARG (exp, 0);
+      arg_no = 0;
+      arg = CALL_EXPR_ARG (exp, arg_no);
     }
 
   if (TREE_CODE (arg) == SSA_NAME)
@@ -12177,10 +12185,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	 as otherwise we could warn even for correct code like:
 	 void foo (int i, ...)
 	 { va_list ap; i++; va_start (ap, i); va_end (ap); }  */
-      if (va_start_p)
-	CALL_EXPR_ARG (exp, 1) = integer_zero_node;
-      else
-	CALL_EXPR_ARG (exp, 0) = integer_zero_node;
+      CALL_EXPR_ARG (exp, arg_no) = integer_zero_node;
     }
   return false;
 }
