@@ -1228,6 +1228,11 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
     case EQ_EXPR:
+    case NE_EXPR:
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
     case MULT_EXPR:
     case RDIV_EXPR:
     case TRUNC_DIV_EXPR:
@@ -1259,6 +1264,34 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
 	    stmt = gimple_build_assign_with_ops3 (COND_EXPR, bounds,
 						  rhs1, bnd1, bnd2);
+	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
+
+	    if (!pl_valid_bounds (bnd1) && !pl_valid_bounds (bnd2))
+	      pl_mark_invalid_bounds (bounds);
+	  }
+      }
+      break;
+
+    case MAX_EXPR:
+    case MIN_EXPR:
+      {
+	tree rhs2 = gimple_assign_rhs2 (assign);
+	tree bnd1 = pl_find_bounds (rhs1, &iter);
+	tree bnd2 = pl_find_bounds (rhs2, &iter);
+
+	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
+	  bounds = incomplete_bounds;
+	else if (bnd1 == bnd2)
+	  bounds = bnd1;
+	else
+	  {
+	    gimple stmt;
+	    tree cond = build2 (rhs_code == MAX_EXPR ? GT_EXPR : LT_EXPR,
+				boolean_type_node, rhs1, rhs2);
+	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
+	    stmt = gimple_build_assign_with_ops3 (COND_EXPR, bounds,
+						  cond, bnd1, bnd2);
+
 	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
 
 	    if (!pl_valid_bounds (bnd1) && !pl_valid_bounds (bnd2))
