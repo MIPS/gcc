@@ -1506,7 +1506,7 @@ typedef struct ix86_args {
   int bnd_nregs;                /* # bnd registers available for passing */
   int bnd_regno;                /* next available bnd register number */
   int last_nregs;               /* Number of int regs allocated for last arg.  */
-  bool stdarg;                  /* Set to 1 if function is stdarg.  */
+  int stdarg;                   /* Set to 1 if function is stdarg.  */
   int known_args;               /* Number of known args to parse for stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
@@ -1785,6 +1785,9 @@ do {							\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode (ix86_pmode == PMODE_DI ? DImode : SImode)
+
+/* Specify mode for bounds.  */
+#define BNDmode (TARGET_64BIT ? BND64mode : BND32mode)
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
