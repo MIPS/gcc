@@ -544,6 +544,13 @@ case "${target}" in
     ;;
 esac
 
+# Disable libquadmath for some systems.
+case "${target}" in
+  avr-*-*)
+    noconfigdirs="$noconfigdirs target-libquadmath"
+    ;;
+esac
+
 # Disable libstdc++-v3 for some systems.
 case "${target}" in
   *-*-vxworks*)
@@ -884,6 +891,13 @@ case "${target}" in
   arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld target-libgloss"
     ;;
+  avr-*-rtems*)
+    ;;
+  avr-*-*)
+    if test x${with_avrlibc} != xno; then
+      noconfigdirs="$noconfigdirs target-newlib target-libgloss"
+    fi
+    ;;
   c4x-*-* | tic4x-*-*)
     noconfigdirs="$noconfigdirs target-libgloss"
     ;;
@@ -1204,20 +1218,6 @@ case "$have_compiler:$host:$target:$enable_bootstrap" in
     ;;
 esac
 
-# See if we are building gcc with C++.
-AC_ARG_ENABLE(build-with-cxx,
-[AS_HELP_STRING([--enable-build-with-cxx],
-		[build with C++ compiler instead of C compiler])],
-ENABLE_BUILD_WITH_CXX=$enableval,
-ENABLE_BUILD_WITH_CXX=no)
-
-# Build stage1 with C and build stages 2 and 3 with C++.
-AC_ARG_ENABLE(build-poststage1-with-cxx,
-[AS_HELP_STRING([--enable-build-poststage1-with-cxx],
-		[build stages 2 and 3 with C++, not C])],
-ENABLE_BUILD_POSTSTAGE1_WITH_CXX=$enableval,
-ENABLE_BUILD_POSTSTAGE1_WITH_CXX=yes)
-
 # Used for setting $lt_cv_objdir
 _LT_CHECK_OBJDIR
 
@@ -1520,43 +1520,70 @@ AC_ARG_WITH(boot-ldflags,
  fi])
 AC_SUBST(poststage1_ldflags)
 
-# Check for ISL
-dnl Provide configure switches and initialize islinc & isllibs
-dnl with user input.
-ISL_INIT_FLAGS
-if test "x$with_isl" != "xno"; then
+# GCC GRAPHITE dependences, ISL and CLOOG which in turn requires ISL.
+# Basic setup is inlined here, actual checks are in config/cloog.m4 and
+# config/isl.m4
+
+AC_ARG_WITH(cloog,
+  [AS_HELP_STRING(
+    [--with-cloog=PATH],
+    [Specify prefix directory for the installed CLooG-ISL package.
+     Equivalent to --with-cloog-include=PATH/include
+     plus --with-cloog-lib=PATH/lib])])
+AC_ARG_WITH(isl,
+  [AS_HELP_STRING(
+   [--with-isl=PATH],
+   [Specify prefix directory for the installed ISL package.
+    Equivalent to --with-isl-include=PATH/include
+    plus --with-isl-lib=PATH/lib])])
+
+# Treat either --without-cloog or --without-isl as a request to disable
+# GRAPHITE support and skip all following checks.
+if test "x$with_isl" != "xno" &&
+   test "x$with_cloog" != "xno"; then
+  # Check for ISL
+  dnl Provide configure switches and initialize islinc & isllibs
+  dnl with user input.
+  ISL_INIT_FLAGS
   dnl The minimal version of ISL required for Graphite.
   ISL_CHECK_VERSION(0,10)
-
   dnl Only execute fail-action, if ISL has been requested.
   ISL_IF_FAILED([
     AC_MSG_ERROR([Unable to find a usable ISL.  See config.log for details.])])
-fi
 
-# Check for CLOOG
-dnl Provide configure switches and initialize clooginc & clooglibs
-dnl with user input.
-CLOOG_INIT_FLAGS
-if test "x$isllibs" = x && test "x$islinc" = x; then
-  clooglibs=
-  clooginc=
-elif test "x$with_cloog" != "xno"; then
-  dnl The minimal version of CLooG required for Graphite.
-  dnl
-  dnl If we use CLooG-Legacy, the provided version information is
-  dnl ignored.
-  CLOOG_CHECK_VERSION(0,17,0)
+  if test "x$gcc_cv_isl" != "xno"; then
+    # Check for CLOOG
+    dnl Provide configure switches and initialize clooginc & clooglibs
+    dnl with user input.
+    CLOOG_INIT_FLAGS
+    dnl The minimal version of CLooG required for Graphite.
+    dnl
+    dnl If we use CLooG-Legacy, the provided version information is
+    dnl ignored.
+    CLOOG_CHECK_VERSION(0,17,0)
 
-  dnl Only execute fail-action, if CLooG has been requested.
-  CLOOG_IF_FAILED([
-    AC_MSG_ERROR([Unable to find a usable CLooG.  See config.log for details.])])
+    dnl Only execute fail-action, if CLooG has been requested.
+    CLOOG_IF_FAILED([
+      AC_MSG_ERROR([Unable to find a usable CLooG.  See config.log for details.])])
+  fi
 fi
 
 # If either the ISL or the CLooG check failed, disable builds of in-tree
 # variants of both
-if test "x$clooglibs" = x && test "x$clooginc" = x; then
+if test "x$with_isl" = xno ||
+   test "x$with_cloog" = xno ||
+   test "x$gcc_cv_cloog" = xno ||
+   test "x$gcc_cv_isl" = xno; then
   noconfigdirs="$noconfigdirs cloog isl"
+  islinc=
+  clooginc=
+  clooglibs=
 fi
+
+AC_SUBST(islinc)
+AC_SUBST(clooglibs)
+AC_SUBST(clooginc)
+
 
 # Check for LTO support.
 AC_ARG_ENABLE(lto,
@@ -1595,7 +1622,7 @@ ACX_ELF_TARGET_IFELSE([# ELF platforms build the lto-plugin always.
 ])
 
 
-# By default, C is the only stage 1 language.
+# By default, C and C++ are the only stage 1 languages.
 stage1_languages=,c,
 
 # Target libraries that we bootstrap.
@@ -1633,15 +1660,14 @@ if test -d ${srcdir}/gcc; then
       ;;
   esac
 
-  # If bootstrapping, then using --enable-build-with-cxx or
-  # --enable-build-poststage1-with-cxx requires enabling C++.
-  case ",$enable_languages,:,$ENABLE_BUILD_WITH_CXX,$ENABLE_BUILD_POSTSTAGE1_WITH_CXX,:$enable_bootstrap" in
-    *,c++,*:*:*) ;;
-    *:*,yes,*:yes)
+  # If bootstrapping, C++ must be enabled.
+  case ",$enable_languages,:$enable_bootstrap" in
+    *,c++,*:*) ;;
+    *:yes)
       if test -f ${srcdir}/gcc/cp/config-lang.in; then
         enable_languages="${enable_languages},c++"
       else
-        AC_MSG_ERROR([bootstrapping with --enable-build-with-cxx or --enable-build-poststage1-with-cxx requires c++ sources])
+        AC_MSG_ERROR([bootstrapping requires c++ sources])
       fi
       ;;
   esac
@@ -1736,12 +1762,10 @@ if test -d ${srcdir}/gcc; then
         fi
 
 	if test "$language" = "c++"; then
-	  if test "$ENABLE_BUILD_WITH_CXX" = "yes" \
-	     || test "$ENABLE_BUILD_POSTSTAGE1_WITH_CXX" = "yes"; then
-	    boot_language=yes
-	  fi
+	  boot_language=yes
 	fi
 
+        add_this_lang=no
         case ,${enable_languages}, in
           *,${language},*)
             # Language was explicitly selected; include it
@@ -1752,10 +1776,9 @@ if test -d ${srcdir}/gcc; then
             ;;
           *,all,*)
             # 'all' was selected, select it if it is a default language
-            add_this_lang=${build_by_default}
-            ;;
-          *)
-            add_this_lang=no
+	    if test "$language" != "c"; then
+	      add_this_lang=${build_by_default}
+	    fi
             ;;
         esac
 
@@ -3129,26 +3152,6 @@ case $build in
     esac ;;
 esac
 
-# This is aimed to mimic bootstrap with a non-GCC compiler to catch problems.
-if test "$GCC" = yes -a "$ENABLE_BUILD_WITH_CXX" != yes; then
-  saved_CFLAGS="$CFLAGS"
-
-  # Pass -fkeep-inline-functions for stage 1 if the GCC version supports it.
-  CFLAGS="$CFLAGS -fkeep-inline-functions"
-  AC_MSG_CHECKING([whether -fkeep-inline-functions is supported])
-  AC_TRY_COMPILE([
-#if (__GNUC__ < 3) \
-    || (__GNUC__ == 3 && (__GNUC_MINOR__ < 3 \
-			  || (__GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ < 1)))
-#error http://gcc.gnu.org/PR29382
-#endif
-    ],,
-    [AC_MSG_RESULT([yes]); stage1_cflags="$stage1_cflags -fkeep-inline-functions"],
-    [AC_MSG_RESULT([no])])
-
-  CFLAGS="$saved_CFLAGS"
-fi
-
 AC_SUBST(stage1_cflags)
 
 # Enable --enable-checking in stage1 of the compiler.
@@ -3177,15 +3180,6 @@ case ${enable_werror} in
   *) stage2_werror_flag="" ;;
 esac
 AC_SUBST(stage2_werror_flag)
-
-# If using ENABLE_BUILD_POSTSTAGE1_WITH_CXX, pass
-# --enable-build-with-cxx after stage1.
-if test "$ENABLE_BUILD_POSTSTAGE1_WITH_CXX" = "yes"; then
-  POSTSTAGE1_CONFIGURE_FLAGS=--enable-build-with-cxx
-else
-  POSTSTAGE1_CONFIGURE_FLAGS=
-fi
-AC_SUBST(POSTSTAGE1_CONFIGURE_FLAGS)
 
 # Specify what files to not compare during bootstrap.
 

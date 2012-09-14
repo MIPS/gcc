@@ -718,9 +718,9 @@ get_value_range (const_tree var)
 
   /* If VAR is a default definition of a parameter, the variable can
      take any value in VAR's type.  */
-  sym = SSA_NAME_VAR (var);
   if (SSA_NAME_IS_DEFAULT_DEF (var))
     {
+      sym = SSA_NAME_VAR (var);
       if (TREE_CODE (sym) == PARM_DECL)
 	{
 	  /* Try to use the "nonnull" attribute to create ~[0, 0]
@@ -2474,18 +2474,21 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 		{
 		  /* Min underflow or max overflow.  The range kind
 		     changes to VR_ANTI_RANGE.  */
+		  bool covers = false;
 		  double_int tem = tmin;
 		  gcc_assert ((min_ovf == -1 && max_ovf == 0)
 			      || (max_ovf == 1 && min_ovf == 0));
 		  type = VR_ANTI_RANGE;
 		  tmin = double_int_add (tmax, double_int_one);
+		  if (double_int_cmp (tmin, tmax, uns) < 0)
+		    covers = true;
 		  tmax = double_int_add (tem, double_int_minus_one);
+		  if (double_int_cmp (tmax, tem, uns) > 0)
+		    covers = true;
 		  /* If the anti-range would cover nothing, drop to varying.
 		     Likewise if the anti-range bounds are outside of the
 		     types values.  */
-		  if (double_int_cmp (tmin, tmax, uns) > 0
-		      || double_int_cmp (tmin, type_min, uns) < 0
-		      || double_int_cmp (tmax, type_max, uns) > 0)
+		  if (covers || double_int_cmp (tmin, tmax, uns) > 0)
 		    {
 		      set_value_range_to_varying (vr);
 		      return;
@@ -2726,57 +2729,48 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
       extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
       return;
     }
-  else if (code == RSHIFT_EXPR)
+  else if (code == RSHIFT_EXPR
+	   || code == LSHIFT_EXPR)
     {
       /* If we have a RSHIFT_EXPR with any shift values outside [0..prec-1],
 	 then drop to VR_VARYING.  Outside of this range we get undefined
 	 behavior from the shift operation.  We cannot even trust
 	 SHIFT_COUNT_TRUNCATED at this stage, because that applies to rtl
 	 shifts, and the operation at the tree level may be widened.  */
-      if (vr1.type != VR_RANGE
-	  || !value_range_nonnegative_p (&vr1)
-	  || TREE_CODE (vr1.max) != INTEGER_CST
-	  || compare_tree_int (vr1.max, TYPE_PRECISION (expr_type) - 1) == 1)
+      if (range_int_cst_p (&vr1)
+	  && compare_tree_int (vr1.min, 0) >= 0
+	  && compare_tree_int (vr1.max, TYPE_PRECISION (expr_type)) == -1)
 	{
-	  set_value_range_to_varying (vr);
-	  return;
+	  if (code == RSHIFT_EXPR)
+	    {
+	      extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
+	      return;
+	    }
+	  /* We can map lshifts by constants to MULT_EXPR handling.  */
+	  else if (code == LSHIFT_EXPR
+		   && range_int_cst_singleton_p (&vr1))
+	    {
+	      bool saved_flag_wrapv;
+	      value_range_t vr1p = VR_INITIALIZER;
+	      vr1p.type = VR_RANGE;
+	      vr1p.min
+		= double_int_to_tree (expr_type,
+				      double_int_lshift
+				        (double_int_one,
+					 TREE_INT_CST_LOW (vr1.min),
+					 TYPE_PRECISION (expr_type),
+					 false));
+	      vr1p.max = vr1p.min;
+	      /* We have to use a wrapping multiply though as signed overflow
+		 on lshifts is implementation defined in C89.  */
+	      saved_flag_wrapv = flag_wrapv;
+	      flag_wrapv = 1;
+	      extract_range_from_binary_expr_1 (vr, MULT_EXPR, expr_type,
+						&vr0, &vr1p);
+	      flag_wrapv = saved_flag_wrapv;
+	      return;
+	    }
 	}
-
-      extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
-      return;
-    }
-  else if (code == LSHIFT_EXPR)
-    {
-      /* If we have a LSHIFT_EXPR with any shift values outside [0..prec-1],
-	 then drop to VR_VARYING.  Outside of this range we get undefined
-	 behavior from the shift operation.  We cannot even trust
-	 SHIFT_COUNT_TRUNCATED at this stage, because that applies to rtl
-	 shifts, and the operation at the tree level may be widened.  */
-      if (vr1.type != VR_RANGE
-	  || !value_range_nonnegative_p (&vr1)
-	  || TREE_CODE (vr1.max) != INTEGER_CST
-	  || compare_tree_int (vr1.max, TYPE_PRECISION (expr_type) - 1) == 1)
-	{
-	  set_value_range_to_varying (vr);
-	  return;
-	}
-
-      /* We can map shifts by constants to MULT_EXPR handling.  */
-      if (range_int_cst_singleton_p (&vr1))
-	{
-	  value_range_t vr1p = VR_INITIALIZER;
-	  vr1p.type = VR_RANGE;
-	  vr1p.min
-	    = double_int_to_tree (expr_type,
-				  double_int_lshift (double_int_one,
-						     TREE_INT_CST_LOW (vr1.min),
-						     TYPE_PRECISION (expr_type),
-						     false));
-	  vr1p.max = vr1p.min;
-	  extract_range_from_multiplicative_op_1 (vr, MULT_EXPR, &vr0, &vr1p);
-	  return;
-	}
-
       set_value_range_to_varying (vr);
       return;
     }
@@ -4161,33 +4155,20 @@ debug_all_value_ranges (void)
 static gimple
 build_assert_expr_for (tree cond, tree v)
 {
-  tree n;
+  tree a;
   gimple assertion;
 
-  gcc_assert (TREE_CODE (v) == SSA_NAME);
-  n = duplicate_ssa_name (v, NULL);
+  gcc_assert (TREE_CODE (v) == SSA_NAME
+	      && COMPARISON_CLASS_P (cond));
 
-  if (COMPARISON_CLASS_P (cond))
-    {
-      tree a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond);
-      assertion = gimple_build_assign (n, a);
-    }
-  else if (TREE_CODE (cond) == SSA_NAME)
-    {
-      /* Given V, build the assignment N = true.  */
-      gcc_assert (v == cond);
-      assertion = gimple_build_assign (n, boolean_true_node);
-    }
-  else
-    gcc_unreachable ();
-
-  SSA_NAME_DEF_STMT (n) = assertion;
+  a = build2 (ASSERT_EXPR, TREE_TYPE (v), v, cond);
+  assertion = gimple_build_assign (NULL_TREE, a);
 
   /* The new ASSERT_EXPR, creates a new SSA name that replaces the
-     operand of the ASSERT_EXPR. Register the new name and the old one
-     in the replacement table so that we can fix the SSA web after
-     adding all the ASSERT_EXPRs.  */
-  register_new_name_mapping (n, v);
+     operand of the ASSERT_EXPR.  Create it so the new name and the old one
+     are registered in the replacement table so that we can fix the SSA web
+     after adding all the ASSERT_EXPRs.  */
+  create_new_def_for (v, assertion, NULL);
 
   return assertion;
 }
@@ -5583,19 +5564,19 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 static bool
 find_assert_locations (void)
 {
-  int *rpo = XCNEWVEC (int, last_basic_block + NUM_FIXED_BLOCKS);
-  int *bb_rpo = XCNEWVEC (int, last_basic_block + NUM_FIXED_BLOCKS);
-  int *last_rpo = XCNEWVEC (int, last_basic_block + NUM_FIXED_BLOCKS);
+  int *rpo = XNEWVEC (int, last_basic_block);
+  int *bb_rpo = XNEWVEC (int, last_basic_block);
+  int *last_rpo = XCNEWVEC (int, last_basic_block);
   int rpo_cnt, i;
   bool need_asserts;
 
-  live = XCNEWVEC (sbitmap, last_basic_block + NUM_FIXED_BLOCKS);
+  live = XCNEWVEC (sbitmap, last_basic_block);
   rpo_cnt = pre_and_rev_post_order_compute (NULL, rpo, false);
   for (i = 0; i < rpo_cnt; ++i)
     bb_rpo[rpo[i]] = i;
 
   need_asserts = false;
-  for (i = rpo_cnt-1; i >= 0; --i)
+  for (i = rpo_cnt - 1; i >= 0; --i)
     {
       basic_block bb = BASIC_BLOCK (rpo[i]);
       edge e;
@@ -5618,7 +5599,7 @@ find_assert_locations (void)
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      int pred = e->src->index;
-	      if (e->flags & EDGE_DFS_BACK)
+	      if ((e->flags & EDGE_DFS_BACK) || pred == ENTRY_BLOCK)
 		continue;
 
 	      if (!live[pred])
@@ -5656,7 +5637,7 @@ find_assert_locations (void)
   XDELETEVEC (rpo);
   XDELETEVEC (bb_rpo);
   XDELETEVEC (last_rpo);
-  for (i = 0; i < last_basic_block + NUM_FIXED_BLOCKS; ++i)
+  for (i = 0; i < last_basic_block; ++i)
     if (live[i])
       sbitmap_free (live[i]);
   XDELETEVEC (live);
@@ -6151,11 +6132,13 @@ remove_range_assertions (void)
 static bool
 stmt_interesting_for_vrp (gimple stmt)
 {
-  if (gimple_code (stmt) == GIMPLE_PHI
-      && is_gimple_reg (gimple_phi_result (stmt))
-      && (INTEGRAL_TYPE_P (TREE_TYPE (gimple_phi_result (stmt)))
-	  || POINTER_TYPE_P (TREE_TYPE (gimple_phi_result (stmt)))))
-    return true;
+  if (gimple_code (stmt) == GIMPLE_PHI)
+    {
+      tree res = gimple_phi_result (stmt);
+      return (!virtual_operand_p (res)
+	      && (INTEGRAL_TYPE_P (TREE_TYPE (res))
+		  || POINTER_TYPE_P (TREE_TYPE (res))));
+    }
   else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
     {
       tree lhs = gimple_get_lhs (stmt);
@@ -8051,13 +8034,9 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
   /* For A != B we substitute A ^ B.  Either with conversion.  */
   else if (need_conversion)
     {
-      gimple newop;
-      tree tem = create_tmp_reg (TREE_TYPE (op0), NULL);
-      newop = gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
-      tem = make_ssa_name (tem, newop);
-      gimple_assign_set_lhs (newop, tem);
+      tree tem = make_ssa_name (TREE_TYPE (op0), NULL);
+      gimple newop = gimple_build_assign_with_ops (BIT_XOR_EXPR, tem, op0, op1);
       gsi_insert_before (gsi, newop, GSI_SAME_STMT);
-      update_stmt (newop);
       gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, tem, NULL_TREE);
     }
   /* Or without.  */
@@ -8716,11 +8695,9 @@ simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 
   /* It works, insert a truncation or sign-change before the
      float conversion.  */
-  tem = create_tmp_var (build_nonstandard_integer_type
+  tem = make_ssa_name (build_nonstandard_integer_type
 			  (GET_MODE_PRECISION (mode), 0), NULL);
   conv = gimple_build_assign_with_ops (NOP_EXPR, tem, rhs1, NULL_TREE);
-  tem = make_ssa_name (tem, conv);
-  gimple_assign_set_lhs (conv, tem);
   gsi_insert_before (gsi, conv, GSI_SAME_STMT);
   gimple_assign_set_rhs1 (stmt, tem);
   update_stmt (stmt);
@@ -8877,7 +8854,7 @@ vrp_fold_stmt (gimple_stmt_iterator *si)
 
    A NULL entry is used to mark the end of pairs which need to be
    restored.  */
-static VEC(tree,heap) *stack;
+static VEC(tree,heap) *equiv_stack;
 
 /* A trivial wrapper so that we can present the generic jump threading
    code with a simple API for simplifying statements.  STMT is the
@@ -8945,7 +8922,7 @@ identify_jump_threads (void)
 
   /* Allocate our unwinder stack to unwind any temporary equivalences
      that might be recorded.  */
-  stack = VEC_alloc (tree, heap, 20);
+  equiv_stack = VEC_alloc (tree, heap, 20);
 
   /* To avoid lots of silly node creation, we create a single
      conditional and just modify it in-place when attempting to
@@ -8999,7 +8976,7 @@ identify_jump_threads (void)
 	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 		continue;
 
-	      thread_across_edge (dummy, e, true, &stack,
+	      thread_across_edge (dummy, e, true, &equiv_stack,
 				  simplify_stmt_for_jump_threading);
 	    }
 	}
@@ -9020,7 +8997,7 @@ static void
 finalize_jump_threads (void)
 {
   thread_through_all_blocks (false);
-  VEC_free (tree, heap, stack);
+  VEC_free (tree, heap, equiv_stack);
 }
 
 
@@ -9165,7 +9142,7 @@ execute_vrp (void)
       /* As we may have replaced the default label with a regular one
 	 make sure to make it a real default label again.  This ensures
 	 optimal expansion.  */
-      label = gimple_switch_default_label (su->stmt);
+      label = gimple_switch_label (su->stmt, 0);
       CASE_LOW (label) = NULL_TREE;
       CASE_HIGH (label) = NULL_TREE;
     }

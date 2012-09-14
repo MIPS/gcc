@@ -384,6 +384,7 @@ show_locus (locus *loc, int c1, int c2)
 
   c1 -= offset;
   c2 -= offset;
+  cmax -= offset;
 
   p = &(lb->line[offset]);
   for (i = 0; i <= cmax; i++)
@@ -875,6 +876,7 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 	warnings++;
       else
 	gfc_increment_error_count();
+      cur_error_buffer->flag = 0;
     }
 
   return (warning && !warnings_are_errors) ? SUCCESS : FAILURE;

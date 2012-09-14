@@ -151,7 +151,7 @@ typedef struct
 /* Data structure definitions for GIMPLE tuples.  NOTE: word markers
    are for 64 bit hosts.  */
 
-struct GTY(()) gimple_statement_base {
+struct GTY((chain_next ("%h.next"))) gimple_statement_base {
   /* [ WORD 1 ]
      Main identifying code for a tuple.  */
   ENUM_BITFIELD(gimple_code) code : 8;
@@ -781,8 +781,7 @@ gimple gimple_build_wce (gimple_seq);
 gimple gimple_build_resx (int);
 gimple gimple_build_eh_dispatch (int);
 gimple gimple_build_switch_nlabels (unsigned, tree, tree);
-gimple gimple_build_switch (unsigned, tree, tree, ...);
-gimple gimple_build_switch_vec (tree, tree, VEC(tree,heap) *);
+gimple gimple_build_switch (tree, tree, VEC(tree,heap) *);
 gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
 gimple gimple_build_omp_for (gimple_seq, tree, size_t, gimple_seq);
@@ -3494,6 +3493,8 @@ gimple_phi_set_result (gimple gs, tree result)
 {
   GIMPLE_CHECK (gs, GIMPLE_PHI);
   gs->gimple_phi.result = result;
+  if (result && TREE_CODE (result) == SSA_NAME)
+    SSA_NAME_DEF_STMT (result) = gs;
 }
 
 
@@ -3637,7 +3638,9 @@ gimple_switch_set_label (gimple gs, unsigned index, tree label)
 static inline tree
 gimple_switch_default_label (const_gimple gs)
 {
-  return gimple_switch_label (gs, 0);
+  tree label = gimple_switch_label (gs, 0);
+  gcc_checking_assert (!CASE_LOW (label) && !CASE_HIGH (label));
+  return label;
 }
 
 /* Set the default label for a switch statement.  */
@@ -3645,6 +3648,7 @@ gimple_switch_default_label (const_gimple gs)
 static inline void
 gimple_switch_set_default_label (gimple gs, tree label)
 {
+  gcc_checking_assert (!CASE_LOW (label) && !CASE_HIGH (label));
   gimple_switch_set_label (gs, 0, label);
 }
 

@@ -2773,6 +2773,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mhle",		OPTION_MASK_ISA_HLE },
     { "-mrdseed",	OPTION_MASK_ISA_RDSEED },
     { "-mprfchw",	OPTION_MASK_ISA_PRFCHW },
+    { "-madx",		OPTION_MASK_ISA_ADX },
     { "-mtbm",		OPTION_MASK_ISA_TBM },
     { "-mpopcnt",	OPTION_MASK_ISA_POPCNT },
     { "-mmovbe",	OPTION_MASK_ISA_MOVBE },
@@ -2789,6 +2790,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
   static struct ix86_target_opts flag_opts[] =
   {
     { "-m128bit-long-double",		MASK_128BIT_LONG_DOUBLE },
+    { "-mlong-double-64",		MASK_LONG_DOUBLE_64 },
     { "-m80387",			MASK_80387 },
     { "-maccumulate-outgoing-args",	MASK_ACCUMULATE_OUTGOING_ARGS },
     { "-malign-double",			MASK_ALIGN_DOUBLE },
@@ -3051,6 +3053,7 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_HLE			(HOST_WIDE_INT_1 << 33)
 #define PTA_PRFCHW		(HOST_WIDE_INT_1 << 34)
 #define PTA_RDSEED		(HOST_WIDE_INT_1 << 35)
+#define PTA_ADX			(HOST_WIDE_INT_1 << 36)
 /* if this reaches 64, need to widen struct pta flags below */
 
   static struct pta
@@ -3542,6 +3545,9 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_RDSEED
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_RDSEED))
 	  ix86_isa_flags |= OPTION_MASK_ISA_RDSEED;
+	if (processor_alias_table[i].flags & PTA_ADX
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_ADX))
+	  ix86_isa_flags |= OPTION_MASK_ISA_ADX;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4083,6 +4089,11 @@ ix86_option_override_internal (bool main_args_p)
   else if (target_flags_explicit & MASK_RECIP)
     recip_mask &= ~(RECIP_MASK_ALL & ~recip_mask_explicit);
 
+  /* Default long double to 64-bit for Bionic.  */
+  if (TARGET_HAS_BIONIC
+      && !(target_flags_explicit & MASK_LONG_DOUBLE_64))
+    target_flags |= MASK_LONG_DOUBLE_64;
+
   /* Save the initial options in case the user does function specific
      options.  */
   if (main_args_p)
@@ -4134,43 +4145,42 @@ ix86_option_override (void)
 static void
 ix86_conditional_register_usage (void)
 {
-  int i;
+  int i, c_mask;
   unsigned int j;
-
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    {
-      if (fixed_regs[i] > 1)
-	fixed_regs[i] = (fixed_regs[i] == (TARGET_64BIT ? 3 : 2));
-      if (call_used_regs[i] > 1)
-	call_used_regs[i] = (call_used_regs[i] == (TARGET_64BIT ? 3 : 2));
-    }
 
   /* The PIC register, if it exists, is fixed.  */
   j = PIC_OFFSET_TABLE_REGNUM;
   if (j != INVALID_REGNUM)
     fixed_regs[j] = call_used_regs[j] = 1;
 
-  /* The 64-bit MS_ABI changes the set of call-used registers.  */
-  if (TARGET_64BIT_MS_ABI)
+  /* For 32-bit targets, squash the REX registers.  */
+  if (! TARGET_64BIT)
     {
-      call_used_regs[SI_REG] = 0;
-      call_used_regs[DI_REG] = 0;
-      call_used_regs[XMM6_REG] = 0;
-      call_used_regs[XMM7_REG] = 0;
+      for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
       for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
-	call_used_regs[i] = 0;
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
     }
 
-  /* The default setting of CLOBBERED_REGS is for 32-bit; add in the
-     other call-clobbered regs for 64-bit.  */
-  if (TARGET_64BIT)
-    {
-      CLEAR_HARD_REG_SET (reg_class_contents[(int)CLOBBERED_REGS]);
+  /*  See the definition of CALL_USED_REGISTERS in i386.h.  */
+  c_mask = (TARGET_64BIT_MS_ABI ? (1 << 3)
+	    : TARGET_64BIT ? (1 << 2)
+	    : (1 << 1));
+  
+  CLEAR_HARD_REG_SET (reg_class_contents[(int)CLOBBERED_REGS]);
 
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (TEST_HARD_REG_BIT (reg_class_contents[(int)GENERAL_REGS], i)
-	    && call_used_regs[i])
-	  SET_HARD_REG_BIT (reg_class_contents[(int)CLOBBERED_REGS], i);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    {
+      /* Set/reset conditionally defined registers from
+	 CALL_USED_REGISTERS initializer.  */
+      if (call_used_regs[i] > 1)
+	call_used_regs[i] = !!(call_used_regs[i] & c_mask);
+
+      /* Calculate registers of CLOBBERED_REGS register set
+	 as call used registers from GENERAL_REGS register set.  */
+      if (TEST_HARD_REG_BIT (reg_class_contents[(int)GENERAL_REGS], i)
+	  && call_used_regs[i])
+	SET_HARD_REG_BIT (reg_class_contents[(int)CLOBBERED_REGS], i);
     }
 
   /* If MMX is disabled, squash the registers.  */
@@ -4190,15 +4200,6 @@ ix86_conditional_register_usage (void)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
-
-  /* If 32-bit, squash the 64-bit registers.  */
-  if (! TARGET_64BIT)
-    {
-      for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)
-	reg_names[i] = "";
-      for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
-	reg_names[i] = "";
-    }
 }
 
 
@@ -4365,6 +4366,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("hle",	OPT_mhle),
     IX86_ATTR_ISA ("prfchw",	OPT_mprfchw),
     IX86_ATTR_ISA ("rdseed",	OPT_mrdseed),
+    IX86_ATTR_ISA ("adx",	OPT_madx),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -5406,7 +5408,7 @@ ix86_function_regparm (const_tree type, const_tree decl)
 	     so less registers should be used for argument passing.
 	     This functionality can be overriden by an explicit
 	     regparm value.  */
-	  for (regno = 0; regno <= DI_REG; regno++)
+	  for (regno = AX_REG; regno <= DI_REG; regno++)
 	    if (fixed_regs[regno])
 	      globals++;
 
@@ -5546,6 +5548,78 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
     }
 
   return 0;
+}
+
+/* Implement the TARGET_LEGITIMATE_COMBINED_INSN hook.  */
+
+static bool
+ix86_legitimate_combined_insn (rtx insn)
+{
+  /* Check operand constraints in case hard registers were propagated
+     into insn pattern.  This check prevents combine pass from
+     generating insn patterns with invalid hard register operands.
+     These invalid insns can eventually confuse reload to error out
+     with a spill failure.  See also PRs 46829 and 46843.  */
+  if ((INSN_CODE (insn) = recog (PATTERN (insn), insn, 0)) >= 0)
+    {
+      int i;
+
+      extract_insn (insn);
+      preprocess_constraints ();
+
+      for (i = 0; i < recog_data.n_operands; i++)
+	{
+	  rtx op = recog_data.operand[i];
+	  enum machine_mode mode = GET_MODE (op);
+	  struct operand_alternative *op_alt;
+	  int offset = 0;
+	  bool win;
+	  int j;
+
+	  /* A unary operator may be accepted by the predicate, but it
+	     is irrelevant for matching constraints.  */
+	  if (UNARY_P (op))
+	    op = XEXP (op, 0);
+
+	  if (GET_CODE (op) == SUBREG)
+	    {
+	      if (REG_P (SUBREG_REG (op))
+		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
+		offset = subreg_regno_offset (REGNO (SUBREG_REG (op)),
+					      GET_MODE (SUBREG_REG (op)),
+					      SUBREG_BYTE (op),
+					      GET_MODE (op));
+	      op = SUBREG_REG (op);
+	    }
+
+	  if (!(REG_P (op) && HARD_REGISTER_P (op)))
+	    continue;
+
+	  op_alt = recog_op_alt[i];
+
+	  /* Operand has no constraints, anything is OK.  */
+ 	  win = !recog_data.n_alternatives;
+
+	  for (j = 0; j < recog_data.n_alternatives; j++)
+	    {
+	      if (op_alt[j].anything_ok
+		  || (op_alt[j].matches != -1
+		      && operands_match_p
+			  (recog_data.operand[i],
+			   recog_data.operand[op_alt[j].matches]))
+		  || reg_fits_class_p (op, op_alt[j].cl, offset, mode))
+		{
+		  win = true;
+		  break;
+		}
+	    }
+
+	  if (!win)
+	    return false;
+	}
+    }
+
+  return true;
 }
 
 /* Argument support functions.  */
@@ -7551,6 +7625,18 @@ ix86_promote_function_mode (const_tree type, enum machine_mode mode,
     }
   return default_promote_function_mode (type, mode, punsignedp, fntype,
 					for_return);
+}
+
+/* Return true if a structure, union or array with MODE containing FIELD
+   should be accessed using BLKmode.  */
+
+static bool
+ix86_member_type_forces_blk (const_tree field, enum machine_mode mode)
+{
+  /* Union with XFmode must be in BLKmode.  */
+  return (mode == XFmode
+	  && (TREE_CODE (DECL_FIELD_CONTEXT (field)) == UNION_TYPE
+	      || TREE_CODE (DECL_FIELD_CONTEXT (field)) == QUAL_UNION_TYPE));
 }
 
 rtx
@@ -11945,7 +12031,9 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
    requires to two regs - that would mean more pseudos with longer
    lifetimes.  */
 static int
-ix86_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
+ix86_address_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
+		   addr_space_t as ATTRIBUTE_UNUSED,
+		   bool speed ATTRIBUTE_UNUSED)
 {
   struct ix86_address parts;
   int cost = 1;
@@ -15544,7 +15632,7 @@ output_387_ffreep (rtx *operands ATTRIBUTE_UNUSED, int opno)
       static char retval[32];
       int regno = REGNO (operands[opno]);
 
-      gcc_assert (FP_REGNO_P (regno));
+      gcc_assert (STACK_REGNO_P (regno));
 
       regno -= FIRST_STACK_REG;
 
@@ -16950,9 +17038,9 @@ ix86_lea_outperforms (rtx insn, unsigned int regno0, unsigned int regno1,
   dist_define += split_cost + IX86_LEA_PRIORITY;
 
   /* If there is no use in memory addess then we just check
-     that split cost does not exceed AGU stall.  */
+     that split cost exceeds AGU stall.  */
   if (dist_use < 0)
-    return dist_define >= LEA_MAX_STALL;
+    return dist_define > LEA_MAX_STALL;
 
   /* If this insn has both backward non-agu dependence and forward
      agu dependence, the one with short distance takes effect.  */
@@ -17135,13 +17223,41 @@ ix86_emit_binop (enum rtx_code code, enum machine_mode mode,
   emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, op, clob)));
 }
 
+/* Return true if regno1 def is nearest to the insn.  */
+
+static bool
+find_nearest_reg_def (rtx insn, int regno1, int regno2)
+{
+  rtx prev = insn;
+  rtx start = BB_HEAD (BLOCK_FOR_INSN (insn));
+
+  if (insn == start)
+    return false;
+  while (prev && prev != start)
+    {
+      if (!INSN_P (prev) || !NONDEBUG_INSN_P (prev))
+	{
+	  prev = PREV_INSN (prev);
+	  continue;
+	}
+      if (insn_defines_reg (regno1, INVALID_REGNUM, prev))
+	return true;
+      else if (insn_defines_reg (regno2, INVALID_REGNUM, prev))
+	return false;
+      prev = PREV_INSN (prev);
+    }
+
+  /* None of the regs is defined in the bb.  */
+  return false;
+}
+
 /* Split lea instructions into a sequence of instructions
    which are executed on ALU to avoid AGU stalls.
    It is assumed that it is allowed to clobber flags register
    at lea position.  */
 
 void
-ix86_split_lea_for_addr (rtx operands[], enum machine_mode mode)
+ix86_split_lea_for_addr (rtx insn, rtx operands[], enum machine_mode mode)
 {
   unsigned int regno0, regno1, regno2;
   struct ix86_address parts;
@@ -17228,8 +17344,22 @@ ix86_split_lea_for_addr (rtx operands[], enum machine_mode mode)
 	    tmp = parts.base;
 	  else
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, target, parts.base));
-	      tmp = parts.index;
+	      rtx tmp1;
+
+	      /* Find better operand for SET instruction, depending
+		 on which definition is farther from the insn.  */
+	      if (find_nearest_reg_def (insn, regno1, regno2))
+		tmp = parts.index, tmp1 = parts.base;
+	      else
+		tmp = parts.base, tmp1 = parts.index;
+
+	      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+
+	      if (parts.disp && parts.disp != const0_rtx)
+		ix86_emit_binop (PLUS, mode, target, parts.disp);
+
+	      ix86_emit_binop (PLUS, mode, target, tmp1);
+	      return;
 	    }
 
 	  ix86_emit_binop (PLUS, mode, target, tmp);
@@ -20697,7 +20827,9 @@ ix86_split_to_parts (rtx operand, rtx *parts, enum machine_mode mode)
 		  parts[2] = gen_int_mode (l[2], SImode);
 		  break;
 		case XFmode:
-		  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
+		  /* We can't use REAL_VALUE_TO_TARGET_LONG_DOUBLE since
+		     long double may not be 80-bit.  */
+		  real_to_target (l, &r, mode);
 		  parts[2] = gen_int_mode (l[2], SImode);
 		  break;
 		case DFmode:
@@ -24069,6 +24201,7 @@ ia32_multipass_dfa_lookahead (void)
     case PROCESSOR_CORE2_64:
     case PROCESSOR_COREI7_32:
     case PROCESSOR_COREI7_64:
+    case PROCESSOR_ATOM:
       /* Generally, we want haifa-sched:max_issue() to look ahead as far
 	 as many instructions can be executed on a cycle, i.e.,
 	 issue_rate.  I wonder why tuning for many CPUs does not do this.  */
@@ -26111,6 +26244,10 @@ enum ix86_builtins
   IX86_BUILTIN_PEXT32,
   IX86_BUILTIN_PEXT64,
 
+  /* ADX instructions.  */
+  IX86_BUILTIN_ADDCARRYX32,
+  IX86_BUILTIN_ADDCARRYX64,
+
   /* FSGSBASE instructions.  */
   IX86_BUILTIN_RDFSBASE32,
   IX86_BUILTIN_RDFSBASE64,
@@ -27957,9 +28094,17 @@ ix86_init_mmx_sse_builtins (void)
 	       INT_FTYPE_PUSHORT, IX86_BUILTIN_RDSEED16_STEP);
   def_builtin (OPTION_MASK_ISA_RDSEED, "__builtin_ia32_rdseed_si_step",
 	       INT_FTYPE_PUNSIGNED, IX86_BUILTIN_RDSEED32_STEP);
-  def_builtin (OPTION_MASK_ISA_RDSEED && OPTION_MASK_ISA_64BIT,
+  def_builtin (OPTION_MASK_ISA_RDSEED | OPTION_MASK_ISA_64BIT,
 	       "__builtin_ia32_rdseed_di_step",
 	       INT_FTYPE_PULONGLONG, IX86_BUILTIN_RDSEED64_STEP);
+
+  /* ADCX */
+  def_builtin (0, "__builtin_ia32_addcarryx_u32",
+	       UCHAR_FTYPE_UCHAR_UINT_UINT_PUNSIGNED, IX86_BUILTIN_ADDCARRYX32);
+  def_builtin (OPTION_MASK_ISA_64BIT,
+	       "__builtin_ia32_addcarryx_u64",
+	       UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG,
+	       IX86_BUILTIN_ADDCARRYX64);
 
   /* Add FMA4 multi-arg argument instructions */
   for (i = 0, d = bdesc_multi_arg; i < ARRAY_SIZE (bdesc_multi_arg); i++, d++)
@@ -29476,6 +29621,10 @@ ix86_expand_args_builtin (const struct builtin_description *d,
       nargs = 4;
       nargs_constant = 2;
       break;
+    case UCHAR_FTYPE_UCHAR_UINT_UINT_PUNSIGNED:
+    case UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG:
+      nargs = 4;
+      break;
     default:
       gcc_unreachable ();
     }
@@ -30322,7 +30471,62 @@ rdseed_step:
         target = gen_reg_rtx (SImode);
 
       emit_insn (gen_zero_extendqisi2 (target, op2));
+      return target;
 
+    case IX86_BUILTIN_ADDCARRYX32:
+      icode = TARGET_ADX ? CODE_FOR_adcxsi3 : CODE_FOR_addsi3_carry;
+      mode0 = SImode;
+      goto addcarryx;
+
+    case IX86_BUILTIN_ADDCARRYX64:
+      icode = TARGET_ADX ? CODE_FOR_adcxdi3 : CODE_FOR_adddi3_carry;
+      mode0 = DImode;
+
+addcarryx:
+      arg0 = CALL_EXPR_ARG (exp, 0); /* unsigned char c_in.  */
+      arg1 = CALL_EXPR_ARG (exp, 1); /* unsigned int src1.  */
+      arg2 = CALL_EXPR_ARG (exp, 2); /* unsigned int src2.  */
+      arg3 = CALL_EXPR_ARG (exp, 3); /* unsigned int *sum_out.  */
+
+      op0 = gen_reg_rtx (QImode);
+
+      /* Generate CF from input operand.  */
+      op1 = expand_normal (arg0);
+      if (GET_MODE (op1) != QImode)
+	op1 = convert_to_mode (QImode, op1, 1);
+      op1 = copy_to_mode_reg (QImode, op1);
+      emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
+
+      /* Gen ADCX instruction to compute X+Y+CF.  */
+      op2 = expand_normal (arg1);
+      op3 = expand_normal (arg2);
+
+      if (!REG_P (op2))
+	op2 = copy_to_mode_reg (mode0, op2);
+      if (!REG_P (op3))
+	op3 = copy_to_mode_reg (mode0, op3);
+
+      op0 = gen_reg_rtx (mode0);
+
+      op4 = gen_rtx_REG (CCCmode, FLAGS_REG);
+      pat = gen_rtx_LTU (VOIDmode, op4, const0_rtx);
+      emit_insn (GEN_FCN (icode) (op0, op2, op3, op4, pat));
+
+      /* Store the result.  */
+      op4 = expand_normal (arg3);
+      if (!address_operand (op4, VOIDmode))
+	{
+	  op4 = convert_memory_address (Pmode, op4);
+	  op4 = copy_addr_to_reg (op4);
+	}
+      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
+      /* Return current CF value.  */
+      if (target == 0)
+        target = gen_reg_rtx (QImode);
+
+      PUT_MODE (pat, QImode);
+      emit_insn (gen_rtx_SET (VOIDmode, target, pat));
       return target;
 
     case IX86_BUILTIN_GATHERSIV2DF:
@@ -32078,7 +32282,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
       || GET_MODE_CLASS (mode) == MODE_RANDOM
       || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
     return false;
-  if (FP_REGNO_P (regno))
+  if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (SSE_REGNO_P (regno))
     {
@@ -32106,7 +32310,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
       /* Take care for QImode values - they can be in non-QI regs,
 	 but then they do cause partial register stalls.  */
-      if (regno <= BX_REG || TARGET_64BIT)
+      if (TARGET_64BIT || QI_REGNO_P (regno))
 	return true;
       if (!TARGET_PARTIAL_REG_STALL)
 	return true;
@@ -33707,8 +33911,8 @@ x86_extended_QIreg_mentioned_p (rtx insn)
   int i;
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
-    if (REG_P (recog_data.operand[i])
-	&& REGNO (recog_data.operand[i]) > BX_REG)
+    if (GENERAL_REG_P (recog_data.operand[i])
+	&& !QI_REGNO_P (REGNO (recog_data.operand[i])))
        return true;
   return false;
 }
@@ -40649,6 +40853,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #undef TARGET_RETURN_POPS_ARGS
 #define TARGET_RETURN_POPS_ARGS ix86_return_pops_args
 
+#undef TARGET_LEGITIMATE_COMBINED_INSN
+#define TARGET_LEGITIMATE_COMBINED_INSN ix86_legitimate_combined_insn
+
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
 
@@ -40687,6 +40894,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE ix86_promote_function_mode
+
+#undef TARGET_MEMBER_TYPE_FORCES_BLK
+#define TARGET_MEMBER_TYPE_FORCES_BLK ix86_member_type_forces_blk
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD ix86_secondary_reload

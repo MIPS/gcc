@@ -621,7 +621,7 @@ struct GTY (()) tree_trait_expr {
 
 /* Based off of TYPE_ANONYMOUS_P.  */
 #define LAMBDA_TYPE_P(NODE) \
-  (CLASS_TYPE_P (NODE) && LAMBDANAME_P (TYPE_LINKAGE_IDENTIFIER (NODE)))
+  (CLASS_TYPE_P (NODE) && CLASSTYPE_LAMBDA_EXPR (NODE))
 
 /* Test if FUNCTION_DECL is a lambda function.  */
 #define LAMBDA_FUNCTION_P(FNDECL) \
@@ -1278,15 +1278,8 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
 #define DERIVED_FROM_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_any, NULL) != NULL_TREE)
-/* Nonzero iff TYPE is uniquely derived from PARENT. Ignores
-   accessibility.  */
-#define UNIQUELY_DERIVED_FROM_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_unique | ba_quiet, NULL) != NULL_TREE)
-/* Nonzero iff TYPE is publicly & uniquely derived from PARENT.  */
-#define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_ignore_scope | ba_check | ba_quiet, \
-		NULL) != NULL_TREE)
+  (lookup_base ((TYPE), (PARENT), ba_any, NULL, tf_warning_or_error)\
+   != NULL_TREE)
 
 /* Gives the visibility specification for a class type.  */
 #define CLASSTYPE_VISIBILITY(TYPE)		\
@@ -2520,11 +2513,11 @@ struct GTY((variable_size)) lang_decl {
 
 /* In a TREE_LIST concatenating using directives, indicate indirect
    directives  */
-#define TREE_INDIRECT_USING(NODE) (TREE_LIST_CHECK (NODE)->base.lang_flag_0)
+#define TREE_INDIRECT_USING(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
 
 /* In a TREE_LIST in an attribute list, indicates that the attribute
    must be applied at instantiation time.  */
-#define ATTR_IS_DEPENDENT(NODE) (TREE_LIST_CHECK (NODE)->base.lang_flag_0)
+#define ATTR_IS_DEPENDENT(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
 
 extern tree decl_shadowed_for_var_lookup (tree);
 extern void decl_shadowed_for_var_insert (tree, tree);
@@ -2881,7 +2874,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    arguments will be placed into the beginning of the argument pack,
    but additional arguments might still be deduced.  */
 #define ARGUMENT_PACK_INCOMPLETE_P(NODE)        \
-  TREE_LANG_FLAG_0 (ARGUMENT_PACK_ARGS (NODE))
+  TREE_ADDRESSABLE (ARGUMENT_PACK_ARGS (NODE))
 
 /* When ARGUMENT_PACK_INCOMPLETE_P, stores the explicit template
    arguments used to fill this pack.  */
@@ -4187,8 +4180,7 @@ enum base_access_flags {
   ba_unique = 1 << 0,  /* Must be a unique base.  */
   ba_check_bit = 1 << 1,   /* Check access.  */
   ba_check = ba_unique | ba_check_bit,
-  ba_ignore_scope = 1 << 2, /* Ignore access allowed by local scope.  */
-  ba_quiet = 1 << 3     /* Do not issue error messages.  */
+  ba_ignore_scope = 1 << 2 /* Ignore access allowed by local scope.  */
 };
 
 /* This type is used for parameters and variables which hold
@@ -4329,10 +4321,6 @@ extern GTY(()) VEC(tree,gc) *local_classes;
 
 #define LAMBDANAME_PREFIX "__lambda"
 #define LAMBDANAME_FORMAT LAMBDANAME_PREFIX "%d"
-#define LAMBDANAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), \
-             LAMBDANAME_PREFIX, \
-	     sizeof (LAMBDANAME_PREFIX) - 1))
 
 #define UDLIT_OP_ANSI_PREFIX "operator\"\" "
 #define UDLIT_OP_ANSI_FORMAT UDLIT_OP_ANSI_PREFIX "%s"
@@ -4886,7 +4874,7 @@ extern tree build_user_type_conversion		(tree, tree, int,
 extern tree build_new_function_call		(tree, VEC(tree,gc) **, bool, 
 						 tsubst_flags_t);
 extern tree build_operator_new_call		(tree, VEC(tree,gc) **, tree *,
-						 tree *, tree *,
+						 tree *, tree, tree *,
 						 tsubst_flags_t);
 extern tree build_new_method_call		(tree, tree, VEC(tree,gc) **,
 						 tree, int, tree *,
@@ -5007,6 +4995,8 @@ extern void clone_function_decl			(tree, int);
 extern void adjust_clone_args			(tree);
 extern void deduce_noexcept_on_destructor       (tree);
 extern void insert_late_enum_def_into_classtype_sorted_fields (tree, tree);
+extern bool uniquely_derived_from_p             (tree, tree);
+extern bool publicly_uniquely_derived_p         (tree, tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree,
@@ -5316,6 +5306,8 @@ extern void end_specialization			(void);
 extern void begin_explicit_instantiation	(void);
 extern void end_explicit_instantiation		(void);
 extern tree check_explicit_specialization	(tree, tree, int, int);
+extern int num_template_headers_for_class	(tree);
+extern void check_template_variable		(tree);
 extern tree make_auto				(void);
 extern tree do_auto_deduction			(tree, tree, tree);
 extern tree type_uses_auto			(tree);
@@ -5340,7 +5332,7 @@ extern int uses_template_parms_level		(tree, int);
 extern bool in_template_function		(void);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
-extern int fn_type_unification			(tree, tree, tree,
+extern tree fn_type_unification			(tree, tree, tree,
 						 const tree *, unsigned int,
 						 tree, unification_kind_t, int,
 						 bool);
@@ -5391,6 +5383,7 @@ extern bool any_type_dependent_arguments_p      (const VEC(tree,gc) *);
 extern bool any_type_dependent_elements_p       (const_tree);
 extern bool type_dependent_expression_p_push	(tree);
 extern bool value_dependent_expression_p	(tree);
+extern bool instantiation_dependent_expression_p (tree);
 extern bool any_value_dependent_elements_p      (const_tree);
 extern bool dependent_omp_for_p			(tree, tree, tree, tree);
 extern tree resolve_typename_type		(tree, bool);
@@ -5439,8 +5432,8 @@ extern bool emit_tinfo_decl			(tree);
 
 /* in search.c */
 extern bool accessible_base_p			(tree, tree, bool);
-extern tree lookup_base				(tree, tree, base_access,
-						 base_kind *);
+extern tree lookup_base                         (tree, tree, base_access,
+						 base_kind *, tsubst_flags_t);
 extern tree dcast_base_hint			(tree, tree);
 extern int accessible_p				(tree, tree, bool);
 extern tree lookup_field_1			(tree, tree, bool);
@@ -5775,10 +5768,10 @@ extern linkage_kind decl_linkage		(tree);
 extern duration_kind decl_storage_duration	(tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 			      void*, struct pointer_set_t*);
-#define cp_walk_tree(a,b,c,d) \
-	walk_tree_1 (a, b, c, d, cp_walk_subtrees)
-#define cp_walk_tree_without_duplicates(a,b,c) \
-	walk_tree_without_duplicates_1 (a, b, c, cp_walk_subtrees)
+#define cp_walk_tree(tp,func,data,pset) \
+	walk_tree_1 (tp, func, data, pset, cp_walk_subtrees)
+#define cp_walk_tree_without_duplicates(tp,func,data) \
+	walk_tree_without_duplicates_1 (tp, func, data, cp_walk_subtrees)
 extern tree fold_if_not_in_template		(tree);
 extern tree rvalue				(tree);
 extern tree convert_bitfield_to_declared_type   (tree);

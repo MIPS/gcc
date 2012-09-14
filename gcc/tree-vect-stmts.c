@@ -1270,12 +1270,10 @@ vect_init_vector (gimple stmt, tree val, tree type, gimple_stmt_iterator *gsi)
 	    val = fold_unary (VIEW_CONVERT_EXPR, TREE_TYPE (type), val);
 	  else
 	    {
-	      new_var = create_tmp_reg (TREE_TYPE (type), NULL);
+	      new_temp = make_ssa_name (TREE_TYPE (type), NULL);
 	      init_stmt = gimple_build_assign_with_ops (NOP_EXPR,
-							new_var, val,
+							new_temp, val,
 							NULL_TREE);
-	      new_temp = make_ssa_name (new_var, init_stmt);
-	      gimple_assign_set_lhs (init_stmt, new_temp);
 	      vect_init_vector_1 (stmt, init_stmt, gsi);
 	      val = new_temp;
 	    }
@@ -1602,6 +1600,32 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
 
   gcc_assert (gimple_code (stmt) != GIMPLE_LABEL);
 
+  if (!gsi_end_p (*gsi)
+      && gimple_has_mem_ops (vec_stmt))
+    {
+      gimple at_stmt = gsi_stmt (*gsi);
+      tree vuse = gimple_vuse (at_stmt);
+      if (vuse && TREE_CODE (vuse) == SSA_NAME)
+	{
+	  tree vdef = gimple_vdef (at_stmt);
+	  gimple_set_vuse (vec_stmt, gimple_vuse (at_stmt));
+	  /* If we have an SSA vuse and insert a store, update virtual
+	     SSA form to avoid triggering the renamer.  Do so only
+	     if we can easily see all uses - which is what almost always
+	     happens with the way vectorized stmts are inserted.  */
+	  if ((vdef && TREE_CODE (vdef) == SSA_NAME)
+	      && ((is_gimple_assign (vec_stmt)
+		   && !is_gimple_reg (gimple_assign_lhs (vec_stmt)))
+		  || (is_gimple_call (vec_stmt)
+		      && !(gimple_call_flags (vec_stmt)
+			   & (ECF_CONST|ECF_PURE|ECF_NOVOPS)))))
+	    {
+	      tree new_vdef = copy_ssa_name (vuse, vec_stmt);
+	      gimple_set_vdef (vec_stmt, new_vdef);
+	      SET_USE (gimple_vuse_op (at_stmt), new_vdef);
+	    }
+	}
+    }
   gsi_insert_before (gsi, vec_stmt, GSI_SAME_STMT);
 
   set_vinfo_for_stmt (vec_stmt, new_stmt_vec_info (vec_stmt, loop_vinfo,
@@ -3587,22 +3611,6 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   /* Handle def.  */
   vec_dest = vect_create_destination_var (scalar_dest, vectype);
 
-  /* Allocate VECs for vector operands.  In case of SLP, vector operands are
-     created in the previous stages of the recursion, so no allocation is
-     needed, except for the case of shift with scalar shift argument.  In that
-     case we store the scalar operand in VEC_OPRNDS1 for every vector stmt to
-     be created to vectorize the SLP group, i.e., SLP_NODE->VEC_STMTS_SIZE.
-     In case of loop-based vectorization we allocate VECs of size 1.  We
-     allocate VEC_OPRNDS1 only in case of binary operation.  */
-  if (!slp_node)
-    {
-      vec_oprnds0 = VEC_alloc (tree, heap, 1);
-      if (op_type == binary_op || op_type == ternary_op)
-        vec_oprnds1 = VEC_alloc (tree, heap, 1);
-      if (op_type == ternary_op)
-        vec_oprnds2 = VEC_alloc (tree, heap, 1);
-    }
-
   /* In case the vectorization factor (VF) is bigger than the number
      of elements that we can fit in a vectype (nunits), we have to generate
      more than one vector stmt - i.e - we need to "unroll" the
@@ -4668,15 +4676,13 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 						 NULL_TREE, true,
 						 GSI_SAME_STMT);
 	      CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, newref);
-	      newoff = SSA_NAME_VAR (running_off);
+	      newoff = copy_ssa_name (running_off, NULL);
 	      if (POINTER_TYPE_P (TREE_TYPE (newoff)))
 		incr = gimple_build_assign_with_ops (POINTER_PLUS_EXPR, newoff,
 						     running_off, stride_step);
 	      else
 		incr = gimple_build_assign_with_ops (PLUS_EXPR, newoff,
 						     running_off, stride_step);
-	      newoff = make_ssa_name (newoff, incr);
-	      gimple_assign_set_lhs (incr, newoff);
 	      vect_finish_stmt_generation (stmt, incr, gsi);
 
 	      running_off = newoff;
@@ -4970,13 +4976,12 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 						    dr_explicit_realign,
 						    dataref_ptr, NULL);
 
+		    ptr = copy_ssa_name (dataref_ptr, NULL);
 		    new_stmt = gimple_build_assign_with_ops
-				 (BIT_AND_EXPR, NULL_TREE, dataref_ptr,
+				 (BIT_AND_EXPR, ptr, dataref_ptr,
 				  build_int_cst
 				  (TREE_TYPE (dataref_ptr),
 				   -(HOST_WIDE_INT)TYPE_ALIGN_UNIT (vectype)));
-		    ptr = make_ssa_name (SSA_NAME_VAR (dataref_ptr), new_stmt);
-		    gimple_assign_set_lhs (new_stmt, ptr);
 		    vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		    data_ref
 		      = build2 (MEM_REF, vectype, ptr,
@@ -5000,7 +5005,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 				  build_int_cst
 				  (TREE_TYPE (ptr),
 				   -(HOST_WIDE_INT)TYPE_ALIGN_UNIT (vectype)));
-		    ptr = make_ssa_name (SSA_NAME_VAR (dataref_ptr), new_stmt);
+		    ptr = copy_ssa_name (dataref_ptr, new_stmt);
 		    gimple_assign_set_lhs (new_stmt, ptr);
 		    vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		    data_ref
@@ -5010,14 +5015,12 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 		    break;
 		  }
 		case dr_explicit_realign_optimized:
+		  new_temp = copy_ssa_name (dataref_ptr, NULL);
 		  new_stmt = gimple_build_assign_with_ops
-			       (BIT_AND_EXPR, NULL_TREE, dataref_ptr,
+			       (BIT_AND_EXPR, new_temp, dataref_ptr,
 				build_int_cst
 				  (TREE_TYPE (dataref_ptr),
 				   -(HOST_WIDE_INT)TYPE_ALIGN_UNIT (vectype)));
-		  new_temp = make_ssa_name (SSA_NAME_VAR (dataref_ptr),
-					    new_stmt);
-		  gimple_assign_set_lhs (new_stmt, new_temp);
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
 		  data_ref
 		    = build2 (MEM_REF, vectype, new_temp,
@@ -5873,7 +5876,7 @@ new_stmt_vec_info (gimple stmt, loop_vec_info loop_vinfo,
   else
     STMT_VINFO_DEF_TYPE (res) = vect_internal_def;
 
-  STMT_VINFO_SAME_ALIGN_REFS (res) = VEC_alloc (dr_p, heap, 5);
+  STMT_VINFO_SAME_ALIGN_REFS (res) = NULL;
   STMT_SLP_TYPE (res) = loop_vect;
   GROUP_FIRST_ELEMENT (res) = NULL;
   GROUP_NEXT_ELEMENT (res) = NULL;

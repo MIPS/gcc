@@ -368,12 +368,33 @@
 	  : nonimmediate_operand) (op, mode);
 })
 
+;; Returns 1 if OP is a simple register address.
+(define_predicate "simple_mem_operand"
+  (and (match_code "mem")
+       (match_test "arith_reg_operand (XEXP (op, 0), SImode)")))
+
+;; Returns 1 if OP is a valid displacement address.
+(define_predicate "displacement_mem_operand"
+  (and (match_code "mem")
+       (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
+       (match_test "arith_reg_operand (XEXP (XEXP (op, 0), 0), SImode)")
+       (match_test "sh_legitimate_index_p (GET_MODE (op),
+					   XEXP (XEXP (op, 0), 1),
+					   TARGET_SH2A, true)")))
+
+;; Returns 1 if the operand can be used in an SH2A movu.{b|w} insn.
+(define_predicate "zero_extend_movu_operand"
+  (and (match_operand 0 "displacement_mem_operand")
+       (match_test "GET_MODE (op) == QImode || GET_MODE (op) == HImode")))
+
 ;; Returns 1 if the operand can be used in a zero_extend.
 (define_predicate "zero_extend_operand"
   (ior (and (match_test "TARGET_SHMEDIA")
 	    (match_operand 0 "general_extend_operand"))
        (and (match_test "! TARGET_SHMEDIA")
-	    (match_operand 0 "arith_reg_operand"))))
+	    (match_operand 0 "arith_reg_operand"))
+       (and (match_test "TARGET_SH2A")
+	    (match_operand 0 "zero_extend_movu_operand"))))
 
 ;; Returns 1 if OP can be source of a simple move operation. Same as
 ;; general_operand, but a LABEL_REF is valid, PRE_DEC is invalid as
@@ -428,28 +449,12 @@
   return general_operand (op, mode);
 })
 
-;; Same as movsrc_operand, but rejects displacement addressing.
+;; Returns 1 if OP is a MEM that does not use displacement addressing.
 
 (define_predicate "movsrc_no_disp_mem_operand"
-  (match_code "subreg,reg,const_int,const_double,mem,symbol_ref,label_ref,const,const_vector")
+  (match_code "mem")
 {
-  if (!general_movsrc_operand (op, mode))
-    return 0;
-
-  if ((mode == QImode || mode == HImode)
-      && mode == GET_MODE (op)
-      && (MEM_P (op)
-	  || (GET_CODE (op) == SUBREG && MEM_P (SUBREG_REG (op)))))
-    {
-      rtx x = XEXP ((MEM_P (op) ? op : SUBREG_REG (op)), 0);
-
-      if (GET_CODE (x) == PLUS
-	  && REG_P (XEXP (x, 0))
-	  && CONST_INT_P (XEXP (x, 1)))
-	return 0;
-    }
-
-  return 1;
+  return general_movsrc_operand (op, mode) && satisfies_constraint_Snd (op);
 })
 
 ;; Returns 1 if OP can be a destination of a move. Same as
@@ -521,6 +526,34 @@
     return 1;
 
   return 0;
+})
+
+;; Returns 1 if OP is a MEM that can be used in "index_disp" combiner
+;; patterns.
+(define_predicate "mem_index_disp_operand"
+  (match_code "mem")
+{
+  rtx plus0_rtx, plus1_rtx, mult_rtx;
+
+  plus0_rtx = XEXP (op, 0);
+  if (GET_CODE (plus0_rtx) != PLUS)
+    return 0;
+
+  plus1_rtx = XEXP (plus0_rtx, 0);
+  if (GET_CODE (plus1_rtx) != PLUS)
+    return 0;
+  if (! arith_reg_operand (XEXP (plus1_rtx, 1), GET_MODE (XEXP (plus1_rtx, 1))))
+    return 0;
+
+  mult_rtx = XEXP (plus1_rtx, 0);
+  if (GET_CODE (mult_rtx) != MULT)
+    return 0;
+  if (! arith_reg_operand (XEXP (mult_rtx, 0), GET_MODE (XEXP (mult_rtx, 0)))
+      || ! CONST_INT_P (XEXP (mult_rtx, 1)))
+    return 0;
+
+  return exact_log2 (INTVAL (XEXP (mult_rtx, 1))) > 0
+	 && sh_legitimate_index_p (mode, XEXP (plus0_rtx, 1), TARGET_SH2A, true);
 })
 
 ;; TODO: Add a comment here.
@@ -792,6 +825,8 @@
   return arith_reg_operand (op, mode);
 })
 
+;; Predicates for matching operands that are constant shift
+;; amounts 1, 2, 8, 16.
 (define_predicate "p27_shift_count_operand"
   (and (match_code "const_int")
        (match_test "satisfies_constraint_P27 (op)")))
@@ -799,6 +834,19 @@
 (define_predicate "not_p27_shift_count_operand"
   (and (match_code "const_int")
        (match_test "! satisfies_constraint_P27 (op)")))
+
+;; For right shifts the constant 1 is a special case because the shlr insn
+;; clobbers the T_REG and is handled by the T_REG clobbering version of the
+;; insn, which is also used for non-P27 shift sequences.
+(define_predicate "p27_rshift_count_operand"
+  (and (match_code "const_int")
+       (match_test "satisfies_constraint_P27 (op)")
+       (match_test "! satisfies_constraint_M (op)")))
+
+(define_predicate "not_p27_rshift_count_operand"
+  (and (match_code "const_int")
+       (ior (match_test "! satisfies_constraint_P27 (op)")
+	    (match_test "satisfies_constraint_M (op)"))))
 
 ;; TODO: Add a comment here.
 

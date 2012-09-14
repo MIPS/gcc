@@ -1240,9 +1240,9 @@ these accesses should use the bitfield container type.
 The default is @code{!TARGET_STRICT_ALIGN}.
 @end deftypefn
 
-@defmac MEMBER_TYPE_FORCES_BLK (@var{field}, @var{mode})
-Return 1 if a structure or array containing @var{field} should be accessed using
-@code{BLKMODE}.
+@hook TARGET_MEMBER_TYPE_FORCES_BLK
+Return true if a structure, union or array containing @var{field} should
+be accessed using @code{BLKMODE}.
 
 If @var{field} is the only field in the structure, @var{mode} is its
 mode, otherwise @var{mode} is VOIDmode.  @var{mode} is provided in the
@@ -1250,7 +1250,7 @@ case where structures of one field would require the structure's mode to
 retain the field's mode.
 
 Normally, this is not needed.
-@end defmac
+@end deftypefn
 
 @defmac ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
 Define this macro as an expression for the alignment of a type (given
@@ -7719,6 +7719,20 @@ not recognize @samp{.} or cannot do calculations with it, you will need
 to redefine @code{ASM_OUTPUT_MEASURED_SIZE} to use some other technique.
 @end defmac
 
+@defmac NO_DOLLAR_IN_LABEL
+Define this macro if the assembler does not accept the character
+@samp{$} in label names.  By default constructors and destructors in
+G++ have @samp{$} in the identifiers.  If this macro is defined,
+@samp{.} is used instead.
+@end defmac
+
+@defmac NO_DOT_IN_LABEL
+Define this macro if the assembler does not accept the character
+@samp{.} in label names.  By default constructors and destructors in G++
+have names that use @samp{.}.  If this macro is defined, these names
+are rewritten to avoid @samp{.}.
+@end defmac
+
 @defmac TYPE_ASM_OP
 A C string containing the appropriate assembler directive to specify the
 type of a symbol, without any arguments.  On systems that use ELF, the
@@ -10579,20 +10593,6 @@ not allowed by default; 1 means it is allowed.  1 is the default;
 there is no need to define this macro in that case.
 @end defmac
 
-@defmac NO_DOLLAR_IN_LABEL
-Define this macro if the assembler does not accept the character
-@samp{$} in label names.  By default constructors and destructors in
-G++ have @samp{$} in the identifiers.  If this macro is defined,
-@samp{.} is used instead.
-@end defmac
-
-@defmac NO_DOT_IN_LABEL
-Define this macro if the assembler does not accept the character
-@samp{.} in label names.  By default constructors and destructors in G++
-have names that use @samp{.}.  If this macro is defined, these names
-are rewritten to avoid @samp{.}.
-@end defmac
-
 @defmac INSN_SETS_ARE_DELAYED (@var{insn})
 Define this macro as a C expression that is nonzero if it is safe for the
 delay slot scheduler to place instructions in the delay slot of @var{insn},
@@ -10805,6 +10805,8 @@ the reason why the doloop could not be applied.
 By default, the RTL loop optimizer does not use a present doloop pattern for
 loops containing function calls or branch on table instructions.
 @end deftypefn
+
+@hook TARGET_LEGITIMATE_COMBINED_INSN
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})
 

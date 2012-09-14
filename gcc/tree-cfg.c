@@ -1334,26 +1334,11 @@ group_case_labels_stmt (gimple stmt)
   int old_size = gimple_switch_num_labels (stmt);
   int i, j, new_size = old_size;
   basic_block default_bb = NULL;
-  bool has_default;
 
-  /* The default label is always the first case in a switch
-     statement after gimplification if it was not optimized
-     away */
-  if (!CASE_LOW (gimple_switch_default_label (stmt))
-      && !CASE_HIGH (gimple_switch_default_label (stmt)))
-    {
-      tree default_case = gimple_switch_default_label (stmt);
-      default_bb = label_to_block (CASE_LABEL (default_case));
-      has_default = true;
-    }
-  else
-    has_default = false;
+  default_bb = label_to_block (CASE_LABEL (gimple_switch_default_label (stmt)));
 
   /* Look for possible opportunities to merge cases.  */
-  if (has_default)
-    i = 1;
-  else
-    i = 0;
+  i = 1;
   while (i < old_size)
     {
       tree base_case, base_high;
@@ -1589,7 +1574,7 @@ replace_uses_by (tree name, tree val)
 		  /* This can only occur for virtual operands, since
 		     for the real ones SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name))
 		     would prevent replacement.  */
-		  gcc_checking_assert (!is_gimple_reg (name));
+		  gcc_checking_assert (virtual_operand_p (name));
 		  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
 		}
 	    }
@@ -1664,21 +1649,21 @@ gimple_merge_blocks (basic_block a, basic_block b)
       gimple phi = gsi_stmt (psi);
       tree def = gimple_phi_result (phi), use = gimple_phi_arg_def (phi, 0);
       gimple copy;
-      bool may_replace_uses = !is_gimple_reg (def)
-			      || may_propagate_copy (def, use);
+      bool may_replace_uses = (virtual_operand_p (def)
+			       || may_propagate_copy (def, use));
 
       /* In case we maintain loop closed ssa form, do not propagate arguments
 	 of loop exit phi nodes.  */
       if (current_loops
 	  && loops_state_satisfies_p (LOOP_CLOSED_SSA)
-	  && is_gimple_reg (def)
+	  && !virtual_operand_p (def)
 	  && TREE_CODE (use) == SSA_NAME
 	  && a->loop_father != b->loop_father)
 	may_replace_uses = false;
 
       if (!may_replace_uses)
 	{
-	  gcc_assert (is_gimple_reg (def));
+	  gcc_assert (!virtual_operand_p (def));
 
 	  /* Note that just emitting the copies is fine -- there is no problem
 	     with ordering of phi nodes.  This is because A is the single
@@ -1693,7 +1678,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  /* If we deal with a PHI for virtual operands, we can simply
 	     propagate these without fussing with folding or updating
 	     the stmt.  */
-	  if (!is_gimple_reg (def))
+	  if (virtual_operand_p (def))
 	    {
 	      imm_use_iterator iter;
 	      use_operand_p use_p;
@@ -3930,6 +3915,14 @@ verify_gimple_assign_single (gimple stmt)
       return true;
     }
 
+  if (gimple_clobber_p (stmt)
+      && !DECL_P (lhs))
+    {
+      error ("non-decl LHS in clobber statement");
+      debug_generic_expr (lhs);
+      return true;
+    }
+
   if (handled_component_p (lhs))
     res |= verify_types_in_gimple_reference (lhs, true);
 
@@ -4077,6 +4070,7 @@ verify_gimple_return (gimple stmt)
   if ((TREE_CODE (op) == RESULT_DECL
        && DECL_BY_REFERENCE (op))
       || (TREE_CODE (op) == SSA_NAME
+	  && SSA_NAME_VAR (op)
 	  && TREE_CODE (SSA_NAME_VAR (op)) == RESULT_DECL
 	  && DECL_BY_REFERENCE (SSA_NAME_VAR (op))))
     op = TREE_TYPE (op);
@@ -4139,7 +4133,7 @@ verify_gimple_switch (gimple stmt)
       return true;
     }
 
-  elt = gimple_switch_default_label (stmt);
+  elt = gimple_switch_label (stmt, 0);
   if (CASE_LOW (elt) != NULL_TREE || CASE_HIGH (elt) != NULL_TREE)
     {
       error ("invalid default case label in switch statement");
@@ -4348,7 +4342,7 @@ verify_gimple_phi (gimple phi)
       return true;
     }
 
-  virtual_p = !is_gimple_reg (phi_result);
+  virtual_p = virtual_operand_p (phi_result);
   if (TREE_CODE (phi_result) != SSA_NAME
       || (virtual_p
 	  && SSA_NAME_VAR (phi_result) != gimple_vop (cfun)))
@@ -4370,7 +4364,7 @@ verify_gimple_phi (gimple phi)
       /* Addressable variables do have SSA_NAMEs but they
 	 are not considered gimple values.  */
       else if ((TREE_CODE (t) == SSA_NAME
-		&& virtual_p != !is_gimple_reg (t))
+		&& virtual_p != virtual_operand_p (t))
 	       || (virtual_p
 		   && (TREE_CODE (t) != SSA_NAME
 		       || SSA_NAME_VAR (t) != gimple_vop (cfun)))
@@ -5010,8 +5004,7 @@ gimple_make_forwarder_block (edge fallthru)
       phi = gsi_stmt (gsi);
       var = gimple_phi_result (phi);
       new_phi = create_phi_node (var, bb);
-      SSA_NAME_DEF_STMT (var) = new_phi;
-      gimple_phi_set_result (phi, make_ssa_name (SSA_NAME_VAR (var), phi));
+      gimple_phi_set_result (phi, copy_ssa_name (var, phi));
       add_phi_arg (new_phi, gimple_phi_result (phi), fallthru,
 		   UNKNOWN_LOCATION);
     }
@@ -5370,8 +5363,8 @@ gimple_duplicate_bb (basic_block bb)
   for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       phi = gsi_stmt (gsi);
-      copy = create_phi_node (gimple_phi_result (phi), new_bb);
-      create_new_def_for (gimple_phi_result (copy), copy,
+      copy = create_phi_node (NULL_TREE, new_bb);
+      create_new_def_for (gimple_phi_result (phi), copy,
 			  gimple_phi_result_ptr (copy));
     }
 
@@ -5522,9 +5515,10 @@ add_phi_args_after_copy (basic_block *region_copy, unsigned n_region,
    important exit edge EXIT.  By important we mean that no SSA name defined
    inside region is live over the other exit edges of the region.  All entry
    edges to the region must go to ENTRY->dest.  The edge ENTRY is redirected
-   to the duplicate of the region.  SSA form, dominance and loop information
-   is updated.  The new basic blocks are stored to REGION_COPY in the same
-   order as they had in REGION, provided that REGION_COPY is not NULL.
+   to the duplicate of the region.  Dominance and loop information is
+   updated, but not the SSA web.  The new basic blocks are stored to
+   REGION_COPY in the same order as they had in REGION, provided that
+   REGION_COPY is not NULL.
    The function returns false if it is unable to copy the region,
    true otherwise.  */
 
@@ -5584,8 +5578,6 @@ gimple_duplicate_sese_region (edge entry, edge exit,
       region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
-
-  gcc_assert (!need_ssa_update_p (cfun));
 
   /* Record blocks outside the region that are dominated by something
      inside.  */
@@ -5654,9 +5646,6 @@ gimple_duplicate_sese_region (edge entry, edge exit,
 
   /* Add the other PHI node arguments.  */
   add_phi_args_after_copy (region_copy, n_region, NULL);
-
-  /* Update the SSA web.  */
-  update_ssa (TODO_update_ssa);
 
   if (free_region_copy)
     free (region_copy);
@@ -5938,20 +5927,27 @@ replace_ssa_name (tree name, struct pointer_map_t *vars_map,
 		  tree to_context)
 {
   void **loc;
-  tree new_name, decl = SSA_NAME_VAR (name);
+  tree new_name;
 
-  gcc_assert (is_gimple_reg (name));
+  gcc_assert (!virtual_operand_p (name));
 
   loc = pointer_map_contains (vars_map, name);
 
   if (!loc)
     {
-      replace_by_duplicate_decl (&decl, vars_map, to_context);
-
-      new_name = make_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
-				   decl, SSA_NAME_DEF_STMT (name));
-      if (SSA_NAME_IS_DEFAULT_DEF (name))
-	set_ssa_default_def (DECL_STRUCT_FUNCTION (to_context), decl, new_name);
+      tree decl = SSA_NAME_VAR (name);
+      if (decl)
+	{
+	  replace_by_duplicate_decl (&decl, vars_map, to_context);
+	  new_name = make_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
+				       decl, SSA_NAME_DEF_STMT (name));
+	  if (SSA_NAME_IS_DEFAULT_DEF (name))
+	    set_ssa_default_def (DECL_STRUCT_FUNCTION (to_context),
+				 decl, new_name);
+	}
+      else
+	new_name = copy_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
+				     name, SSA_NAME_DEF_STMT (name));
 
       loc = pointer_map_insert (vars_map, name);
       *loc = new_name;
@@ -6220,7 +6216,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
       tree op = PHI_RESULT (phi);
       ssa_op_iter oi;
 
-      if (!is_gimple_reg (op))
+      if (virtual_operand_p (op))
 	{
 	  /* Remove the phi nodes for virtual operands (alias analysis will be
 	     run for the new function, anyway).  */
@@ -6452,8 +6448,8 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
      EXIT_BB so that we can re-attach them to the new basic block that
      will replace the region.  */
   num_entry_edges = EDGE_COUNT (entry_bb->preds);
-  entry_pred = (basic_block *) xcalloc (num_entry_edges, sizeof (basic_block));
-  entry_flag = (int *) xcalloc (num_entry_edges, sizeof (int));
+  entry_pred = XNEWVEC (basic_block, num_entry_edges);
+  entry_flag = XNEWVEC (int, num_entry_edges);
   entry_prob = XNEWVEC (unsigned, num_entry_edges);
   i = 0;
   for (ei = ei_start (entry_bb->preds); (e = ei_safe_edge (ei)) != NULL;)
@@ -6467,9 +6463,8 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   if (exit_bb)
     {
       num_exit_edges = EDGE_COUNT (exit_bb->succs);
-      exit_succ = (basic_block *) xcalloc (num_exit_edges,
-					   sizeof (basic_block));
-      exit_flag = (int *) xcalloc (num_exit_edges, sizeof (int));
+      exit_succ = XNEWVEC (basic_block, num_exit_edges);
+      exit_flag = XNEWVEC (int, num_exit_edges);
       exit_prob = XNEWVEC (unsigned, num_exit_edges);
       i = 0;
       for (ei = ei_start (exit_bb->succs); (e = ei_safe_edge (ei)) != NULL;)
@@ -6618,19 +6613,21 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
    */
 
 void
-dump_function_to_file (tree fn, FILE *file, int flags)
+dump_function_to_file (tree fndecl, FILE *file, int flags)
 {
-  tree arg, var;
+  tree arg, var, old_current_fndecl = current_function_decl;
   struct function *dsf;
   bool ignore_topmost_bind = false, any_var = false;
   basic_block bb;
   tree chain;
-  bool tmclone = TREE_CODE (fn) == FUNCTION_DECL && decl_is_tm_clone (fn);
+  bool tmclone = (TREE_CODE (fndecl) == FUNCTION_DECL
+		  && decl_is_tm_clone (fndecl));
+  struct function *fun = DECL_STRUCT_FUNCTION (fndecl);
 
-  fprintf (file, "%s %s(", current_function_name (),
-	   tmclone ? "[tm-clone] " : "");
+  current_function_decl = fndecl;
+  fprintf (file, "%s %s(", function_name (fun), tmclone ? "[tm-clone] " : "");
 
-  arg = DECL_ARGUMENTS (fn);
+  arg = DECL_ARGUMENTS (fndecl);
   while (arg)
     {
       print_generic_expr (file, TREE_TYPE (arg), dump_flags);
@@ -6645,60 +6642,75 @@ dump_function_to_file (tree fn, FILE *file, int flags)
   fprintf (file, ")\n");
 
   if (flags & TDF_VERBOSE)
-    print_node (file, "", fn, 2);
+    print_node (file, "", fndecl, 2);
 
-  dsf = DECL_STRUCT_FUNCTION (fn);
+  dsf = DECL_STRUCT_FUNCTION (fndecl);
   if (dsf && (flags & TDF_EH))
     dump_eh_tree (file, dsf);
 
-  if (flags & TDF_RAW && !gimple_has_body_p (fn))
+  if (flags & TDF_RAW && !gimple_has_body_p (fndecl))
     {
-      dump_node (fn, TDF_SLIM | flags, file);
+      dump_node (fndecl, TDF_SLIM | flags, file);
+      current_function_decl = old_current_fndecl;
       return;
     }
 
-  /* Switch CFUN to point to FN.  */
-  push_cfun (DECL_STRUCT_FUNCTION (fn));
-
   /* When GIMPLE is lowered, the variables are no longer available in
      BIND_EXPRs, so display them separately.  */
-  if (cfun && cfun->decl == fn && !VEC_empty (tree, cfun->local_decls))
+  if (fun && fun->decl == fndecl && (fun->curr_properties & PROP_gimple_lcf))
     {
       unsigned ix;
       ignore_topmost_bind = true;
 
       fprintf (file, "{\n");
-      FOR_EACH_LOCAL_DECL (cfun, ix, var)
-	{
-	  print_generic_decl (file, var, flags);
-	  if (flags & TDF_VERBOSE)
-	    print_node (file, "", var, 4);
-	  fprintf (file, "\n");
+      if (!VEC_empty (tree, fun->local_decls))
+	FOR_EACH_LOCAL_DECL (fun, ix, var)
+	  {
+	    print_generic_decl (file, var, flags);
+	    if (flags & TDF_VERBOSE)
+	      print_node (file, "", var, 4);
+	    fprintf (file, "\n");
 
-	  any_var = true;
-	}
+	    any_var = true;
+	  }
+      if (gimple_in_ssa_p (cfun))
+	for (ix = 1; ix < num_ssa_names; ++ix)
+	  {
+	    tree name = ssa_name (ix);
+	    if (name && !SSA_NAME_VAR (name))
+	      {
+		fprintf (file, "  ");
+		print_generic_expr (file, TREE_TYPE (name), flags);
+		fprintf (file, " ");
+		print_generic_expr (file, name, flags);
+		fprintf (file, ";\n");
+
+		any_var = true;
+	      }
+	  }
     }
 
-  if (cfun && cfun->decl == fn && cfun->cfg && basic_block_info)
+  if (fun && fun->decl == fndecl && fun->cfg
+      && basic_block_info_for_function (fun))
     {
       /* If the CFG has been built, emit a CFG-based dump.  */
       if (!ignore_topmost_bind)
 	fprintf (file, "{\n");
 
-      if (any_var && n_basic_blocks)
+      if (any_var && n_basic_blocks_for_function (fun))
 	fprintf (file, "\n");
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, fun)
 	dump_bb (file, bb, 2, flags | TDF_COMMENT);
 
       fprintf (file, "}\n");
     }
-  else if (DECL_SAVED_TREE (fn) == NULL)
+  else if (DECL_SAVED_TREE (fndecl) == NULL)
     {
       /* The function is now in GIMPLE form but the CFG has not been
 	 built yet.  Emit the single sequence of GIMPLE statements
 	 that make up its body.  */
-      gimple_seq body = gimple_body (fn);
+      gimple_seq body = gimple_body (fndecl);
 
       if (gimple_seq_first_stmt (body)
 	  && gimple_seq_first_stmt (body) == gimple_seq_last_stmt (body)
@@ -6721,8 +6733,7 @@ dump_function_to_file (tree fn, FILE *file, int flags)
       int indent;
 
       /* Make a tree based dump.  */
-      chain = DECL_SAVED_TREE (fn);
-
+      chain = DECL_SAVED_TREE (fndecl);
       if (chain && TREE_CODE (chain) == BIND_EXPR)
 	{
 	  if (ignore_topmost_bind)
@@ -6752,10 +6763,8 @@ dump_function_to_file (tree fn, FILE *file, int flags)
     dump_enumerated_decls (file, flags);
   fprintf (file, "\n\n");
 
-  /* Restore CFUN.  */
-  pop_cfun ();
+  current_function_decl = old_current_fndecl;
 }
-
 
 /* Dump FUNCTION_DECL FN to stderr using FLAGS (see TDF_* in tree.h)  */
 
@@ -6839,8 +6848,18 @@ print_loop (FILE *file, struct loop *loop, int indent, int verbosity)
   s_indent[indent] = '\0';
 
   /* Print loop's header.  */
-  fprintf (file, "%sloop_%d (header = %d, latch = %d", s_indent,
-	   loop->num, loop->header->index, loop->latch->index);
+  fprintf (file, "%sloop_%d (", s_indent, loop->num);
+  if (loop->header)
+    fprintf (file, "header = %d", loop->header->index);
+  else
+    {
+      fprintf (file, "deleted)\n");
+      return;
+    }
+  if (loop->latch)
+    fprintf (file, ", latch = %d", loop->latch->index);
+  else
+    fprintf (file, ", multiple latches");
   fprintf (file, ", niter = ");
   print_generic_expr (file, loop->nb_iterations, 0);
 
@@ -7832,3 +7851,54 @@ struct gimple_opt_pass pass_warn_unused_result =
     0,					/* todo_flags_finish */
   }
 };
+
+
+/* Garbage collection support for edge_def.  */
+
+extern void gt_ggc_mx (tree&);
+extern void gt_ggc_mx (gimple&);
+extern void gt_ggc_mx (rtx&);
+extern void gt_ggc_mx (basic_block&);
+
+void
+gt_ggc_mx (edge_def *e)
+{
+  gt_ggc_mx (e->src);
+  gt_ggc_mx (e->dest);
+  if (current_ir_type () == IR_GIMPLE)
+    gt_ggc_mx (e->insns.g);
+  else
+    gt_ggc_mx (e->insns.r);
+  gt_ggc_mx (e->goto_block);
+}
+
+/* PCH support for edge_def.  */
+
+extern void gt_pch_nx (tree&);
+extern void gt_pch_nx (gimple&);
+extern void gt_pch_nx (rtx&);
+extern void gt_pch_nx (basic_block&);
+
+void
+gt_pch_nx (edge_def *e)
+{
+  gt_pch_nx (e->src);
+  gt_pch_nx (e->dest);
+  if (current_ir_type () == IR_GIMPLE)
+    gt_pch_nx (e->insns.g);
+  else
+    gt_pch_nx (e->insns.r);
+  gt_pch_nx (e->goto_block);
+}
+
+void
+gt_pch_nx (edge_def *e, gt_pointer_operator op, void *cookie)
+{
+  op (&(e->src), cookie);
+  op (&(e->dest), cookie);
+  if (current_ir_type () == IR_GIMPLE)
+    op (&(e->insns.g), cookie);
+  else
+    op (&(e->insns.r), cookie);
+  op (&(e->goto_block), cookie);
+}

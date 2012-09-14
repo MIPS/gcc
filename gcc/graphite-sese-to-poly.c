@@ -1249,7 +1249,7 @@ build_sese_conditions_before (struct dom_walk_data *dw_data,
       if (e->flags & EDGE_TRUE_VALUE)
 	VEC_safe_push (gimple, heap, *cases, stmt);
       else
-	VEC_safe_push (gimple, heap, *cases, NULL);
+	VEC_safe_push (gimple, heap, *cases, (gimple) NULL);
     }
 
   gbb = gbb_from_bb (bb);
@@ -2110,7 +2110,7 @@ static bool
 scalar_close_phi_node_p (gimple phi)
 {
   if (gimple_code (phi) != GIMPLE_PHI
-      || !is_gimple_reg (gimple_phi_result (phi)))
+      || virtual_operand_p (gimple_phi_result (phi)))
     return false;
 
   /* Note that loop close phi nodes should have a single argument
@@ -2166,7 +2166,6 @@ rewrite_close_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
   sese region = SCOP_REGION (scop);
   gimple phi = gsi_stmt (*psi);
   tree res = gimple_phi_result (phi);
-  tree var = SSA_NAME_VAR (res);
   basic_block bb = gimple_bb (phi);
   gimple_stmt_iterator gsi = gsi_after_labels (bb);
   tree arg = gimple_phi_arg_def (phi, 0);
@@ -2222,7 +2221,7 @@ rewrite_close_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
     }
   else
     {
-      tree zero_dim_array = create_zero_dim_array (var, "Close_Phi");
+      tree zero_dim_array = create_zero_dim_array (res, "Close_Phi");
 
       stmt = gimple_build_assign (res, zero_dim_array);
 
@@ -2250,8 +2249,8 @@ rewrite_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
   gimple phi = gsi_stmt (*psi);
   basic_block bb = gimple_bb (phi);
   tree res = gimple_phi_result (phi);
-  tree var = SSA_NAME_VAR (res);
-  tree zero_dim_array = create_zero_dim_array (var, "phi_out_of_ssa");
+  tree var;
+  tree zero_dim_array = create_zero_dim_array (res, "phi_out_of_ssa");
   gimple stmt;
   gimple_seq stmts;
 
@@ -2319,7 +2318,7 @@ rewrite_reductions_out_of_ssa (scop_p scop)
 	{
 	  gimple phi = gsi_stmt (psi);
 
-	  if (!is_gimple_reg (gimple_phi_result (phi)))
+	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    {
 	      gsi_next (&psi);
 	      continue;
@@ -2349,13 +2348,15 @@ static void
 rewrite_cross_bb_scalar_dependence (scop_p scop, tree zero_dim_array,
 				    tree def, gimple use_stmt)
 {
-  tree var = SSA_NAME_VAR (def);
-  gimple name_stmt = gimple_build_assign (var, zero_dim_array);
-  tree name = make_ssa_name (var, name_stmt);
+  gimple name_stmt;
+  tree name;
   ssa_op_iter iter;
   use_operand_p use_p;
 
   gcc_assert (gimple_code (use_stmt) != GIMPLE_PHI);
+
+  name = copy_ssa_name (def, NULL);
+  name_stmt = gimple_build_assign (name, zero_dim_array);
 
   gimple_assign_set_lhs (name_stmt, name);
   insert_stmts (scop, name_stmt, NULL, gsi_for_stmt (use_stmt));
@@ -2480,7 +2481,7 @@ rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
 	if (!zero_dim_array)
 	  {
 	    zero_dim_array = create_zero_dim_array
-	      (SSA_NAME_VAR (def), "Cross_BB_scalar_dependence");
+	      (def, "Cross_BB_scalar_dependence");
 	    insert_out_of_ssa_copy (scop, zero_dim_array, def,
 				    SSA_NAME_DEF_STMT (def));
 	    gsi_next (gsi);
@@ -3078,7 +3079,7 @@ rewrite_commutative_reductions_out_of_ssa_loop (scop_p scop,
 
   for (gsi = gsi_start_phis (exit->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     if ((res = gimple_phi_result (gsi_stmt (gsi)))
-	&& is_gimple_reg (res)
+	&& !virtual_operand_p (res)
 	&& !scev_analyzable_p (res, SCOP_REGION (scop)))
       changed |= rewrite_commutative_reductions_out_of_ssa_close_phi
 	(scop, gsi_stmt (gsi));
@@ -3121,6 +3122,7 @@ scop_ivs_can_be_represented (scop_p scop)
   loop_iterator li;
   loop_p loop;
   gimple_stmt_iterator psi;
+  bool result = true;
 
   FOR_EACH_LOOP (li, loop, 0)
     {
@@ -3136,11 +3138,16 @@ scop_ivs_can_be_represented (scop_p scop)
 
 	  if (TYPE_UNSIGNED (type)
 	      && TYPE_PRECISION (type) >= TYPE_PRECISION (long_long_integer_type_node))
-	    return false;
+	    {
+	      result = false;
+	      break;
+	    }
 	}
+      if (!result)
+	FOR_EACH_LOOP_BREAK (li);
     }
 
-  return true;
+  return result;
 }
 
 /* Builds the polyhedral representation for a SESE region.  */

@@ -161,7 +161,7 @@ resume_deferring_access_checks (void)
 {
   if (!deferred_access_no_check)
     VEC_last (deferred_access, deferred_access_stack)
-      ->deferring_access_checks_kind = dk_deferred;
+      .deferring_access_checks_kind = dk_deferred;
 }
 
 /* Stop deferring access checks.  */
@@ -171,7 +171,7 @@ stop_deferring_access_checks (void)
 {
   if (!deferred_access_no_check)
     VEC_last (deferred_access, deferred_access_stack)
-      ->deferring_access_checks_kind = dk_no_deferred;
+      .deferring_access_checks_kind = dk_no_deferred;
 }
 
 /* Discard the current deferred access checks and restore the
@@ -198,7 +198,7 @@ get_deferred_access_checks (void)
     return NULL;
   else
     return (VEC_last (deferred_access, deferred_access_stack)
-	    ->deferred_access_checks);
+	    .deferred_access_checks);
 }
 
 /* Take current deferred checks and combine with the
@@ -216,10 +216,10 @@ pop_to_parent_deferring_access_checks (void)
       deferred_access *ptr;
 
       checks = (VEC_last (deferred_access, deferred_access_stack)
-		->deferred_access_checks);
+		.deferred_access_checks);
 
       VEC_pop (deferred_access, deferred_access_stack);
-      ptr = VEC_last (deferred_access, deferred_access_stack);
+      ptr = &VEC_last (deferred_access, deferred_access_stack);
       if (ptr->deferring_access_checks_kind == dk_no_deferred)
 	{
 	  /* Check access.  */
@@ -321,7 +321,7 @@ perform_or_defer_access_check (tree binfo, tree decl, tree diag_decl,
 
   gcc_assert (TREE_CODE (binfo) == TREE_BINFO);
 
-  ptr = VEC_last (deferred_access, deferred_access_stack);
+  ptr = &VEC_last (deferred_access, deferred_access_stack);
 
   /* If we are not supposed to defer access checks, just check now.  */
   if (ptr->deferring_access_checks_kind == dk_no_deferred)
@@ -1792,6 +1792,23 @@ finish_qualified_id_expr (tree qualifying_class,
 	   being taken.  */
 	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false);
     }
+  else if (BASELINK_P (expr))
+    ;
+  else
+    {
+      expr = convert_from_reference (expr);
+
+      /* In a template, return a SCOPE_REF for most qualified-ids
+	 so that we can check access at instantiation time.  But if
+	 we're looking at a member of the current instantiation, we
+	 know we have access and building up the SCOPE_REF confuses
+	 non-type template argument handling.  */
+      if (processing_template_decl
+	  && !currently_open_class (qualifying_class))
+	expr = build_qualified_name (TREE_TYPE (expr),
+				     qualifying_class, expr,
+				     template_p);
+    }
 
   return expr;
 }
@@ -2062,6 +2079,7 @@ finish_call_expr (tree fn, VEC(tree,gc) **args, bool disallow_virtual,
 	      && type_dependent_expression_p (current_class_ref)))
 	{
 	  result = build_nt_call_vec (fn, *args);
+	  SET_EXPR_LOCATION (result, EXPR_LOC_OR_HERE (fn));
 	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  if (cfun)
 	    {
@@ -3220,11 +3238,12 @@ finish_id_expression (tree id_expression,
 
       /* Mark variable-like entities as used.  Functions are similarly
 	 marked either below or after overload resolution.  */
-      if (TREE_CODE (decl) == VAR_DECL
-	  || TREE_CODE (decl) == PARM_DECL
-	  || TREE_CODE (decl) == CONST_DECL
-	  || TREE_CODE (decl) == RESULT_DECL)
-	mark_used (decl);
+      if ((TREE_CODE (decl) == VAR_DECL
+	   || TREE_CODE (decl) == PARM_DECL
+	   || TREE_CODE (decl) == CONST_DECL
+	   || TREE_CODE (decl) == RESULT_DECL)
+	  && !mark_used (decl))
+	return error_mark_node;
 
       /* Only certain kinds of names are allowed in constant
 	 expression.  Template parameters have already
@@ -3251,7 +3270,7 @@ finish_id_expression (tree id_expression,
 	  if (TREE_CODE (decl) == FUNCTION_DECL)
 	    mark_used (decl);
 
-	  if (TREE_CODE (decl) == FIELD_DECL || BASELINK_P (decl))
+	  if (TYPE_P (scope))
 	    decl = finish_qualified_id_expr (scope,
 					     decl,
 					     done,
@@ -3259,21 +3278,7 @@ finish_id_expression (tree id_expression,
 					     template_p,
 					     template_arg_p);
 	  else
-	    {
-	      tree r = convert_from_reference (decl);
-
-	      /* In a template, return a SCOPE_REF for most qualified-ids
-		 so that we can check access at instantiation time.  But if
-		 we're looking at a member of the current instantiation, we
-		 know we have access and building up the SCOPE_REF confuses
-		 non-type template argument handling.  */
-	      if (processing_template_decl && TYPE_P (scope)
-		  && !currently_open_class (scope))
-		r = build_qualified_name (TREE_TYPE (r),
-					  scope, decl,
-					  template_p);
-	      decl = r;
-	    }
+	    decl = convert_from_reference (decl);
 	}
       else if (TREE_CODE (decl) == FIELD_DECL)
 	{
@@ -5099,6 +5104,12 @@ void
 finish_static_assert (tree condition, tree message, location_t location, 
                       bool member_p)
 {
+  if (message == NULL_TREE
+      || message == error_mark_node
+      || condition == NULL_TREE
+      || condition == error_mark_node)
+    return;
+
   if (check_for_bare_parameter_packs (condition))
     condition = error_mark_node;
 
@@ -5176,14 +5187,10 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
       return error_mark_node;
     }
 
-  /* FIXME instantiation-dependent  */
-  if (type_dependent_expression_p (expr)
-      /* In a template, a COMPONENT_REF has an IDENTIFIER_NODE for op1 even
-	 if it isn't dependent, so that we can check access control at
-	 instantiation time, so defer the decltype as well (PR 42277).  */
-      || (id_expression_or_member_access_p
-	  && processing_template_decl
-	  && TREE_CODE (expr) == COMPONENT_REF))
+  /* Depending on the resolution of DR 1172, we may later need to distinguish
+     instantiation-dependent but not type-dependent expressions so that, say,
+     A<decltype(sizeof(T))>::U doesn't require 'typename'.  */
+  if (instantiation_dependent_expression_p (expr))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;
@@ -5942,7 +5949,7 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
       if (VEC_length (constructor_elt, vec) > 0)
 	{
 	  /* In a delegating constructor, return the target.  */
-	  constructor_elt *ce = VEC_index (constructor_elt, vec, 0);
+	  constructor_elt *ce = &VEC_index (constructor_elt, vec, 0);
 	  if (ce->index == current_class_ptr)
 	    {
 	      body = ce->value;
@@ -6814,7 +6821,7 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
     }
   i = tree_low_cst (index, 0);
   if (TREE_CODE (ary) == CONSTRUCTOR)
-    return VEC_index (constructor_elt, CONSTRUCTOR_ELTS (ary), i)->value;
+    return VEC_index (constructor_elt, CONSTRUCTOR_ELTS (ary), i).value;
   else if (elem_nchars == 1)
     return build_int_cst (cv_unqualified (TREE_TYPE (TREE_TYPE (ary))),
 			  TREE_STRING_POINTER (ary)[i]);
@@ -8739,6 +8746,10 @@ begin_lambda_type (tree lambda)
   /* Designate it as a struct so that we can use aggregate initialization.  */
   CLASSTYPE_DECLARED_CLASS (type) = false;
 
+  /* Cross-reference the expression and the type.  */
+  LAMBDA_EXPR_CLOSURE (lambda) = type;
+  CLASSTYPE_LAMBDA_EXPR (type) = lambda;
+
   /* Clear base types.  */
   xref_basetypes (type, /*bases=*/NULL_TREE);
 
@@ -8746,10 +8757,6 @@ begin_lambda_type (tree lambda)
   type = begin_class_definition (type);
   if (type == error_mark_node)
     return error_mark_node;
-
-  /* Cross-reference the expression and the type.  */
-  LAMBDA_EXPR_CLOSURE (lambda) = type;
-  CLASSTYPE_LAMBDA_EXPR (type) = lambda;
 
   return type;
 }

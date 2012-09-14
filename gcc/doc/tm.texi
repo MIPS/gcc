@@ -1262,9 +1262,9 @@ these accesses should use the bitfield container type.
 The default is @code{!TARGET_STRICT_ALIGN}.
 @end deftypefn
 
-@defmac MEMBER_TYPE_FORCES_BLK (@var{field}, @var{mode})
-Return 1 if a structure or array containing @var{field} should be accessed using
-@code{BLKMODE}.
+@deftypefn {Target Hook} bool TARGET_MEMBER_TYPE_FORCES_BLK (const_tree @var{field}, enum machine_mode @var{mode})
+Return true if a structure, union or array containing @var{field} should
+be accessed using @code{BLKMODE}.
 
 If @var{field} is the only field in the structure, @var{mode} is its
 mode, otherwise @var{mode} is VOIDmode.  @var{mode} is provided in the
@@ -1272,7 +1272,7 @@ case where structures of one field would require the structure's mode to
 retain the field's mode.
 
 Normally, this is not needed.
-@end defmac
+@end deftypefn
 
 @defmac ROUND_TYPE_ALIGN (@var{type}, @var{computed}, @var{specified})
 Define this macro as an expression for the alignment of a type (given
@@ -6460,7 +6460,7 @@ The hook returns true when all subexpressions of @var{x} have been
 processed, and false when @code{rtx_cost} should recurse.
 @end deftypefn
 
-@deftypefn {Target Hook} int TARGET_ADDRESS_COST (rtx @var{address}, bool @var{speed})
+@deftypefn {Target Hook} int TARGET_ADDRESS_COST (rtx @var{address}, enum machine_mode @var{mode}, addr_space_t @var{as}, bool @var{speed})
 This hook computes the cost of an addressing mode that contains
 @var{address}.  If not defined, the cost is computed from
 the @var{address} expression and the @code{TARGET_RTX_COST} hook.
@@ -7842,6 +7842,20 @@ provided.  The default assumes that the assembler recognizes a special
 the difference between this and another symbol.  If your assembler does
 not recognize @samp{.} or cannot do calculations with it, you will need
 to redefine @code{ASM_OUTPUT_MEASURED_SIZE} to use some other technique.
+@end defmac
+
+@defmac NO_DOLLAR_IN_LABEL
+Define this macro if the assembler does not accept the character
+@samp{$} in label names.  By default constructors and destructors in
+G++ have @samp{$} in the identifiers.  If this macro is defined,
+@samp{.} is used instead.
+@end defmac
+
+@defmac NO_DOT_IN_LABEL
+Define this macro if the assembler does not accept the character
+@samp{.} in label names.  By default constructors and destructors in G++
+have names that use @samp{.}.  If this macro is defined, these names
+are rewritten to avoid @samp{.}.
 @end defmac
 
 @defmac TYPE_ASM_OP
@@ -10731,20 +10745,6 @@ not allowed by default; 1 means it is allowed.  1 is the default;
 there is no need to define this macro in that case.
 @end defmac
 
-@defmac NO_DOLLAR_IN_LABEL
-Define this macro if the assembler does not accept the character
-@samp{$} in label names.  By default constructors and destructors in
-G++ have @samp{$} in the identifiers.  If this macro is defined,
-@samp{.} is used instead.
-@end defmac
-
-@defmac NO_DOT_IN_LABEL
-Define this macro if the assembler does not accept the character
-@samp{.} in label names.  By default constructors and destructors in G++
-have names that use @samp{.}.  If this macro is defined, these names
-are rewritten to avoid @samp{.}.
-@end defmac
-
 @defmac INSN_SETS_ARE_DELAYED (@var{insn})
 Define this macro as a C expression that is nonzero if it is safe for the
 delay slot scheduler to place instructions in the delay slot of @var{insn},
@@ -10956,6 +10956,10 @@ instruction that clobbers these this function should return a string indicating
 the reason why the doloop could not be applied.
 By default, the RTL loop optimizer does not use a present doloop pattern for
 loops containing function calls or branch on table instructions.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_LEGITIMATE_COMBINED_INSN (rtx @var{insn})
+Take an instruction in @var{insn} and return @code{false} if the instruction is not appropriate as a combination of two or more instructions.  The default is to accept all instructions.
 @end deftypefn
 
 @defmac MD_CAN_REDIRECT_BRANCH (@var{branch1}, @var{branch2})

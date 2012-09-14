@@ -291,6 +291,9 @@ Driver Alias(no-canonical-prefixes)
 -no-standard-libraries
 Driver Alias(nostdlib)
 
+-no-sysroot-suffix
+Driver Var(no_sysroot_suffix)
+
 -no-warnings
 Common Alias(w)
 
@@ -1354,9 +1357,8 @@ Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
 
 fipa-matrix-reorg
-Common Report Var(flag_ipa_matrix_reorg) Optimization
-Perform matrix layout flattening and transposing based
-on profiling information.
+Common Ignore
+Does nothing. Preserved for backward compatibility.
 
 fipa-struct-reorg
 Common Ignore

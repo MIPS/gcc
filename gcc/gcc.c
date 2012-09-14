@@ -2520,7 +2520,7 @@ execute (void)
      and record info about each one.
      Also search for the programs that are to be run.  */
 
-  VEC_safe_push (const_char_p, heap, argbuf, 0);
+  VEC_safe_push (const_char_p, heap, argbuf, (const_char_p)0);
 
   commands[0].prog = VEC_index (const_char_p, argbuf, 0); /* first command.  */
   commands[0].argv = VEC_address (const_char_p, argbuf);
@@ -3249,6 +3249,7 @@ driver_handle_option (struct gcc_options *opts,
       add_linker_option ("--target-help", 13);
       break;
 
+    case OPT__no_sysroot_suffix:
     case OPT_pass_exit_codes:
     case OPT_print_search_dirs:
     case OPT_print_file_name_:
@@ -6340,6 +6341,7 @@ main (int argc, char **argv)
 
   /* Process sysroot_suffix_spec.  */
   if (*sysroot_suffix_spec != 0
+      && !no_sysroot_suffix
       && do_spec_2 (sysroot_suffix_spec) == 0)
     {
       if (VEC_length (const_char_p, argbuf) > 1)
@@ -6363,6 +6365,7 @@ main (int argc, char **argv)
 
   /* Process sysroot_hdrs_suffix_spec.  */
   if (*sysroot_hdrs_suffix_spec != 0
+      && !no_sysroot_suffix
       && do_spec_2 (sysroot_hdrs_suffix_spec) == 0)
     {
       if (VEC_length (const_char_p, argbuf) > 1)

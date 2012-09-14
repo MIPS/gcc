@@ -798,7 +798,7 @@ delink_stmt_imm_use (gimple stmt)
    ssa_op_iter iter;
    use_operand_p use_p;
 
-   if (ssa_operands_active ())
+   if (ssa_operands_active (cfun))
      FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_ALL_USES)
        delink_imm_use (use_p);
 }
@@ -1142,6 +1142,37 @@ static inline tree
 make_ssa_name (tree var, gimple stmt)
 {
   return make_ssa_name_fn (cfun, var, stmt);
+}
+
+/* Return an SSA_NAME node using the template SSA name NAME defined in
+   statement STMT in function cfun.  */
+
+static inline tree
+copy_ssa_name (tree var, gimple stmt)
+{
+  return copy_ssa_name_fn (cfun, var, stmt);
+}
+
+/*  Creates a duplicate of a SSA name NAME tobe defined by statement STMT
+    in function cfun.  */
+
+static inline tree
+duplicate_ssa_name (tree var, gimple stmt)
+{
+  return duplicate_ssa_name_fn (cfun, var, stmt);
+}
+
+/* Return an anonymous SSA_NAME node for type TYPE defined in statement STMT
+   in function cfun.  Arrange so that it uses NAME in dumps.  */
+
+static inline tree
+make_temp_ssa_name (tree type, gimple stmt, const char *name)
+{
+  tree ssa_name;
+  gcc_checking_assert (TYPE_P (type));
+  ssa_name = make_ssa_name_fn (cfun, type, stmt);
+  SET_SSA_NAME_VAR_OR_IDENTIFIER (ssa_name, get_identifier (name));
+  return ssa_name;
 }
 
 /* Returns the base object and a constant BITS_PER_UNIT offset in *POFFSET that

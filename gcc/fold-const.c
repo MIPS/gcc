@@ -8940,16 +8940,16 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
            && auto_var_in_fn_p (base0, current_function_decl)
            && !indirect_base1
            && TREE_CODE (base1) == SSA_NAME
-           && TREE_CODE (SSA_NAME_VAR (base1)) == PARM_DECL
-           && SSA_NAME_IS_DEFAULT_DEF (base1))
+           && SSA_NAME_IS_DEFAULT_DEF (base1)
+	   && TREE_CODE (SSA_NAME_VAR (base1)) == PARM_DECL)
           || (TREE_CODE (arg1) == ADDR_EXPR
               && indirect_base1
               && TREE_CODE (base1) == VAR_DECL
               && auto_var_in_fn_p (base1, current_function_decl)
               && !indirect_base0
               && TREE_CODE (base0) == SSA_NAME
-              && TREE_CODE (SSA_NAME_VAR (base0)) == PARM_DECL
-              && SSA_NAME_IS_DEFAULT_DEF (base0)))
+              && SSA_NAME_IS_DEFAULT_DEF (base0)
+	      && TREE_CODE (SSA_NAME_VAR (base0)) == PARM_DECL))
         {
           if (code == NE_EXPR)
             return constant_boolean_node (1, type);
@@ -14155,11 +14155,17 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
     case VEC_PERM_EXPR:
       if (TREE_CODE (arg2) == VECTOR_CST)
 	{
-	  unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	  unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i, mask;
 	  unsigned char *sel = XALLOCAVEC (unsigned char, nelts);
 	  tree t;
 	  bool need_mask_canon = false;
+	  bool all_in_vec0 = true;
+	  bool all_in_vec1 = true;
+	  bool maybe_identity = true;
+	  bool single_arg = (op0 == op1);
+	  bool changed = false;
 
+	  mask = single_arg ? (nelts - 1) : (2 * nelts - 1);
 	  gcc_assert (nelts == VECTOR_CST_NELTS (arg2));
 	  for (i = 0; i < nelts; i++)
 	    {
@@ -14167,32 +14173,64 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	      if (TREE_CODE (val) != INTEGER_CST)
 		return NULL_TREE;
 
-	      sel[i] = TREE_INT_CST_LOW (val) & (2 * nelts - 1);
+	      sel[i] = TREE_INT_CST_LOW (val) & mask;
 	      if (TREE_INT_CST_HIGH (val)
 		  || ((unsigned HOST_WIDE_INT)
 		      TREE_INT_CST_LOW (val) != sel[i]))
 		need_mask_canon = true;
+
+	      if (sel[i] < nelts)
+		all_in_vec1 = false;
+	      else
+		all_in_vec0 = false;
+
+	      if ((sel[i] & (nelts-1)) != i)
+		maybe_identity = false;
 	    }
 
-	  if ((TREE_CODE (arg0) == VECTOR_CST
-	       || TREE_CODE (arg0) == CONSTRUCTOR)
-	      && (TREE_CODE (arg1) == VECTOR_CST
-		  || TREE_CODE (arg1) == CONSTRUCTOR))
+	  if (maybe_identity)
 	    {
-	      t = fold_vec_perm (type, arg0, arg1, sel);
+	      if (all_in_vec0)
+		return op0;
+	      if (all_in_vec1)
+		return op1;
+	    }
+
+	  if (all_in_vec0)
+	    op1 = op0;
+	  else if (all_in_vec1)
+	    {
+	      op0 = op1;
+	      for (i = 0; i < nelts; i++)
+		sel[i] -= nelts;
+	      need_mask_canon = true;
+	    }
+
+	  if ((TREE_CODE (op0) == VECTOR_CST
+	       || TREE_CODE (op0) == CONSTRUCTOR)
+	      && (TREE_CODE (op1) == VECTOR_CST
+		  || TREE_CODE (op1) == CONSTRUCTOR))
+	    {
+	      t = fold_vec_perm (type, op0, op1, sel);
 	      if (t != NULL_TREE)
 		return t;
 	    }
+
+	  if (op0 == op1 && !single_arg)
+	    changed = true;
 
 	  if (need_mask_canon && arg2 == op2)
 	    {
 	      tree *tsel = XALLOCAVEC (tree, nelts);
 	      tree eltype = TREE_TYPE (TREE_TYPE (arg2));
 	      for (i = 0; i < nelts; i++)
-		tsel[i] = build_int_cst (eltype, sel[nelts - i - 1]);
-	      t = build_vector (TREE_TYPE (arg2), tsel);
-	      return build3_loc (loc, VEC_PERM_EXPR, type, op0, op1, t);
+		tsel[i] = build_int_cst (eltype, sel[i]);
+	      op2 = build_vector (TREE_TYPE (arg2), tsel);
+	      changed = true;
 	    }
+
+	  if (changed)
+	    return build3_loc (loc, VEC_PERM_EXPR, type, op0, op1, op2);
 	}
       return NULL_TREE;
 
@@ -14285,7 +14323,7 @@ fold (tree expr)
 	    while (begin != end)
 	      {
 		unsigned HOST_WIDE_INT middle = (begin + end) / 2;
-		tree index = VEC_index (constructor_elt, elts, middle)->index;
+		tree index = VEC_index (constructor_elt, elts, middle).index;
 
 		if (TREE_CODE (index) == INTEGER_CST
 		    && tree_int_cst_lt (index, op1))
@@ -14300,7 +14338,7 @@ fold (tree expr)
 			 && tree_int_cst_lt (op1, TREE_OPERAND (index, 0)))
 		  end = middle;
 		else
-		  return VEC_index (constructor_elt, elts, middle)->value;
+		  return VEC_index (constructor_elt, elts, middle).value;
 	      }
 	  }
 

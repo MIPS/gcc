@@ -929,7 +929,8 @@ static tree rs6000_builtin_vectorized_libmass (tree, tree, tree);
 static rtx rs6000_emit_set_long_const (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 static int rs6000_memory_move_cost (enum machine_mode, reg_class_t, bool);
 static bool rs6000_debug_rtx_costs (rtx, int, int, int, int *, bool);
-static int rs6000_debug_address_cost (rtx, bool);
+static int rs6000_debug_address_cost (rtx, enum machine_mode, addr_space_t,
+				      bool);
 static int rs6000_debug_adjust_cost (rtx, rtx, rtx, int);
 static bool is_microcoded_insn (rtx);
 static bool is_nonpipeline_insn (rtx);
@@ -1295,13 +1296,16 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
+#define TARGET_ADDRESS_COST hook_int_rtx_mode_as_bool_0
 
 #undef TARGET_DWARF_REGISTER_SPAN
 #define TARGET_DWARF_REGISTER_SPAN rs6000_dwarf_register_span
 
 #undef TARGET_INIT_DWARF_REG_SIZES_EXTRA
 #define TARGET_INIT_DWARF_REG_SIZES_EXTRA rs6000_init_dwarf_reg_sizes_extra
+
+#undef TARGET_MEMBER_TYPE_FORCES_BLK
+#define TARGET_MEMBER_TYPE_FORCES_BLK rs6000_member_type_forces_blk
 
 /* On rs6000, function arguments are promoted, as are function return
    values.  */
@@ -1461,8 +1465,7 @@ static const struct attribute_spec rs6000_attribute_table[] =
 /* Simplifications for entries below.  */
 
 enum {
-  POWERPC_BASE_MASK = MASK_POWERPC | MASK_NEW_MNEMONICS,
-  POWERPC_7400_MASK = POWERPC_BASE_MASK | MASK_PPC_GFXOPT | MASK_ALTIVEC
+  POWERPC_7400_MASK = MASK_PPC_GFXOPT | MASK_ALTIVEC
 };
 
 /* Some OSs don't support saving the high part of 64-bit registers on context
@@ -1472,7 +1475,7 @@ enum {
    the user's specification.  */
 
 enum {
-  POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
+  POWERPC_MASKS = (MASK_PPC_GPOPT | MASK_STRICT_ALIGN
 		   | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
 		   | MASK_DLMZB | MASK_CMPB | MASK_MFPGPR | MASK_DFP
@@ -2366,7 +2369,6 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_FRSQRTE)		    ? RS6000_BTM_FRSQRTE  : 0)
 	  | ((TARGET_FRSQRTES)		    ? RS6000_BTM_FRSQRTES : 0)
 	  | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD  : 0)
-	  | ((TARGET_POWERPC)		    ? RS6000_BTM_POWERPC  : 0)
 	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL     : 0));
 }
 
@@ -3513,6 +3515,7 @@ rs6000_density_test (rs6000_cost_data *data)
 	}
     }
 
+  free (bbs);
   density_pct = (vec_cost * 100) / (vec_cost + not_vec_cost);
 
   if (density_pct > DENSITY_PCT_THRESHOLD
@@ -4028,11 +4031,11 @@ direct_return (void)
 int
 num_insns_constant_wide (HOST_WIDE_INT value)
 {
-  /* signed constant loadable with {cal|addi} */
+  /* signed constant loadable with addi */
   if ((unsigned HOST_WIDE_INT) (value + 0x8000) < 0x10000)
     return 1;
 
-  /* constant loadable with {cau|addis} */
+  /* constant loadable with addis */
   else if ((value & 0xffff) == 0
 	   && (value >> 31 == -1 || value >> 31 == 0))
     return 1;
@@ -6963,32 +6966,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       && !gpc_reg_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
 
-  if (mode == SFmode && ! TARGET_POWERPC
-      && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT 
-      && GET_CODE (operands[0]) == MEM)
-    {
-      int regnum;
-
-      if (reload_in_progress || reload_completed)
-	regnum = true_regnum (operands[1]);
-      else if (GET_CODE (operands[1]) == REG)
-	regnum = REGNO (operands[1]);
-      else
-	regnum = -1;
-
-      /* If operands[1] is a register, on POWER it may have
-	 double-precision data in it, so truncate it to single
-	 precision.  */
-      if (FP_REGNO_P (regnum) || regnum >= FIRST_PSEUDO_REGISTER)
-	{
-	  rtx newreg;
-	  newreg = (!can_create_pseudo_p () ? copy_rtx (operands[1])
-		    : gen_reg_rtx (mode));
-	  emit_insn (gen_aux_truncdfsf2 (newreg, operands[1]));
-	  operands[1] = newreg;
-	}
-    }
-
   /* Recognize the case where operand[1] is a reference to thread-local
      data and load its address to a register.  */
   if (rs6000_tls_referenced_p (operands[1]))
@@ -7350,6 +7327,26 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
  emit_set:
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+}
+
+/* Return true if a structure, union or array containing FIELD should be
+   accessed using `BLKMODE'.
+
+   For the SPE, simd types are V2SI, and gcc can be tempted to put the
+   entire thing in a DI and use subregs to access the internals.
+   store_bit_field() will force (subreg:DI (reg:V2SI x))'s to the
+   back-end.  Because a single GPR can hold a V2SI, but not a DI, the
+   best thing to do is set structs to BLKmode and avoid Severe Tire
+   Damage.
+
+   On e500 v2, DF and DI modes suffer from the same anomaly.  DF can
+   fit into 1, whereas DI still needs two.  */
+
+static bool
+rs6000_member_type_forces_blk (const_tree field, enum machine_mode mode)
+{
+  return ((TARGET_SPE && TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE)
+	  || (TARGET_E500_DOUBLE && mode == DFmode));
 }
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
@@ -12749,15 +12746,6 @@ rs6000_common_init_builtins (void)
 static void
 rs6000_init_libfuncs (void)
 {
-  if (DEFAULT_ABI != ABI_V4 && TARGET_XCOFF && !TARGET_POWERPC)
-    {
-      /* AIX library routines for float->int conversion.  */
-      set_conv_libfunc (sfix_optab, SImode, DFmode, "__itrunc");
-      set_conv_libfunc (ufix_optab, SImode, DFmode, "__uitrunc");
-      set_conv_libfunc (sfix_optab, SImode, TFmode, "_qitrunc");
-      set_conv_libfunc (ufix_optab, SImode, TFmode, "_quitrunc");
-    }
-
   if (!TARGET_IEEEQUAD)
       /* AIX/Darwin/64-bit Linux quad floating point routines.  */
     if (!TARGET_XL_COMPAT)
@@ -13127,7 +13115,7 @@ rs6000_output_load_multiple (rtx operands[3])
   rtx xop[10];
 
   if (XVECLEN (operands[0], 0) == 1)
-    return "{l|lwz} %2,0(%1)";
+    return "lwz %2,0(%1)";
 
   for (i = 0; i < words; i++)
     if (refers_to_regno_p (REGNO (operands[2]) + i,
@@ -13138,7 +13126,7 @@ rs6000_output_load_multiple (rtx operands[3])
 	    xop[0] = GEN_INT (4 * (words-1));
 	    xop[1] = operands[1];
 	    xop[2] = operands[2];
-	    output_asm_insn ("{lsi|lswi} %2,%1,%0\n\t{l|lwz} %1,%0(%1)", xop);
+	    output_asm_insn ("lswi %2,%1,%0\n\tlwz %1,%0(%1)", xop);
 	    return "";
 	  }
 	else if (i == 0)
@@ -13146,7 +13134,7 @@ rs6000_output_load_multiple (rtx operands[3])
 	    xop[0] = GEN_INT (4 * (words-1));
 	    xop[1] = operands[1];
 	    xop[2] = gen_rtx_REG (SImode, REGNO (operands[2]) + 1);
-	    output_asm_insn ("{cal %1,4(%1)|addi %1,%1,4}\n\t{lsi|lswi} %2,%1,%0\n\t{l|lwz} %1,-4(%1)", xop);
+	    output_asm_insn ("addi %1,%1,4\n\tlswi %2,%1,%0\n\tlwz %1,-4(%1)", xop);
 	    return "";
 	  }
 	else
@@ -13157,16 +13145,16 @@ rs6000_output_load_multiple (rtx operands[3])
 		  xop[0] = GEN_INT (j * 4);
 		  xop[1] = operands[1];
 		  xop[2] = gen_rtx_REG (SImode, REGNO (operands[2]) + j);
-		  output_asm_insn ("{l|lwz} %2,%0(%1)", xop);
+		  output_asm_insn ("lwz %2,%0(%1)", xop);
 		}
 	    xop[0] = GEN_INT (i * 4);
 	    xop[1] = operands[1];
-	    output_asm_insn ("{l|lwz} %1,%0(%1)", xop);
+	    output_asm_insn ("lwz %1,%0(%1)", xop);
 	    return "";
 	  }
       }
 
-  return "{lsi|lswi} %2,%1,%N0";
+  return "lswi %2,%1,%N0";
 }
 
 
@@ -15072,7 +15060,7 @@ print_operand (FILE *file, rtx x, int code)
 				  && REGNO (x) != CTR_REGNO))
 	output_operand_lossage ("invalid %%T value");
       else if (REGNO (x) == LR_REGNO)
-	fputs (TARGET_NEW_MNEMONICS ? "lr" : "r", file);
+	fputs ("lr", file);
       else
 	fputs ("ctr", file);
       return;
@@ -16037,8 +16025,7 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
       gcc_unreachable ();
     }
 
-  /* Maybe we have a guess as to how likely the branch is.
-     The old mnemonics don't have a way to specify this information.  */
+  /* Maybe we have a guess as to how likely the branch is.  */
   pred = "";
   note = find_reg_note (insn, REG_BR_PROB, NULL_RTX);
   if (note != NULL_RTX)
@@ -16065,9 +16052,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
     }
 
   if (label == NULL)
-    s += sprintf (s, "{b%sr|b%slr%s} ", ccode, ccode, pred);
+    s += sprintf (s, "b%slr%s ", ccode, pred);
   else
-    s += sprintf (s, "{b%s|b%s%s} ", ccode, ccode, pred);
+    s += sprintf (s, "b%s%s ", ccode, pred);
 
   /* We need to escape any '%' characters in the reg_names string.
      Assume they'd only be the first character....  */
@@ -18903,9 +18890,9 @@ output_probe_stack_range (rtx reg1, rtx reg2)
   xops[0] = reg1;
   xops[1] = reg2;
   if (TARGET_64BIT)
-    output_asm_insn ("{cmp|cmpd} 0,%0,%1", xops);
+    output_asm_insn ("cmpd 0,%0,%1", xops);
   else
-    output_asm_insn ("{cmp|cmpw} 0,%0,%1", xops);
+    output_asm_insn ("cmpw 0,%0,%1", xops);
 
   fputs ("\tbeq 0,", asm_out_file);
   assemble_name_raw (asm_out_file, end_lab);
@@ -18913,11 +18900,11 @@ output_probe_stack_range (rtx reg1, rtx reg2)
 
   /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
   xops[1] = GEN_INT (-PROBE_INTERVAL);
-  output_asm_insn ("{cal %0,%1(%0)|addi %0,%0,%1}", xops);
+  output_asm_insn ("addi %0,%0,%1", xops);
 
   /* Probe at TEST_ADDR and branch.  */
   xops[1] = gen_rtx_REG (Pmode, 0);
-  output_asm_insn ("{st|stw} %1,0(%0)", xops);
+  output_asm_insn ("stw %1,0(%0)", xops);
   fprintf (asm_out_file, "\tb ");
   assemble_name_raw (asm_out_file, loop_lab);
   fputc ('\n', asm_out_file);
@@ -20382,18 +20369,6 @@ rs6000_output_function_prologue (FILE *file,
 	  name = rs6000_savres_routine_name (info, regno, sel);
 	  fprintf (file, "\t.extern %s\n", name);
 	}
-    }
-
-  /* Write .extern for AIX common mode routines, if needed.  */
-  if (! TARGET_POWERPC && ! common_mode_defined)
-    {
-      fputs ("\t.extern __mulh\n", file);
-      fputs ("\t.extern __mull\n", file);
-      fputs ("\t.extern __divss\n", file);
-      fputs ("\t.extern __divus\n", file);
-      fputs ("\t.extern __quoss\n", file);
-      fputs ("\t.extern __quous\n", file);
-      common_mode_defined = 1;
     }
 
   rs6000_pic_labelno++;
@@ -22478,7 +22453,7 @@ output_function_profiler (FILE *file, int labelno)
       fprintf (file, "\tmflr %s\n", reg_names[0]);
       if (NO_PROFILE_COUNTERS)
 	{
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+	  asm_fprintf (file, "\tstw %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
 	}
       else if (TARGET_SECURE_PLT && flag_pic)
@@ -22491,29 +22466,29 @@ output_function_profiler (FILE *file, int labelno)
 	    }
 	  else
 	    asm_fprintf (file, "\tbcl 20,31,1f\n1:\n");
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+	  asm_fprintf (file, "\tstw %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
-	  asm_fprintf (file, "\t{cau|addis} %s,%s,",
+	  asm_fprintf (file, "\taddis %s,%s,",
 		       reg_names[12], reg_names[12]);
 	  assemble_name (file, buf);
-	  asm_fprintf (file, "-1b@ha\n\t{cal|la} %s,", reg_names[0]);
+	  asm_fprintf (file, "-1b@ha\n\tla %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "-1b@l(%s)\n", reg_names[12]);
 	}
       else if (flag_pic == 1)
 	{
 	  fputs ("\tbl _GLOBAL_OFFSET_TABLE_@local-4\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+	  asm_fprintf (file, "\tstw %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[12]);
-	  asm_fprintf (file, "\t{l|lwz} %s,", reg_names[0]);
+	  asm_fprintf (file, "\tlwz %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@got(%s)\n", reg_names[12]);
 	}
       else if (flag_pic > 1)
 	{
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+	  asm_fprintf (file, "\tstw %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
 	  /* Now, we need to get the address of the label.  */
 	  if (TARGET_LINK_STACK)
@@ -22534,19 +22509,19 @@ output_function_profiler (FILE *file, int labelno)
 	      fputs ("-.\n1:", file);
 	      asm_fprintf (file, "\tmflr %s\n", reg_names[11]);
 	    }
-	  asm_fprintf (file, "\t{l|lwz} %s,0(%s)\n",
+	  asm_fprintf (file, "\tlwz %s,0(%s)\n",
 		       reg_names[0], reg_names[11]);
-	  asm_fprintf (file, "\t{cax|add} %s,%s,%s\n",
+	  asm_fprintf (file, "\tadd %s,%s,%s\n",
 		       reg_names[0], reg_names[0], reg_names[11]);
 	}
       else
 	{
-	  asm_fprintf (file, "\t{liu|lis} %s,", reg_names[12]);
+	  asm_fprintf (file, "\tlis %s,", reg_names[12]);
 	  assemble_name (file, buf);
 	  fputs ("@ha\n", file);
-	  asm_fprintf (file, "\t{st|stw} %s,4(%s)\n",
+	  asm_fprintf (file, "\tstw %s,4(%s)\n",
 		       reg_names[0], reg_names[1]);
-	  asm_fprintf (file, "\t{cal|la} %s,", reg_names[0]);
+	  asm_fprintf (file, "\tla %s,", reg_names[0]);
 	  assemble_name (file, buf);
 	  asm_fprintf (file, "@l(%s)\n", reg_names[12]);
 	}
@@ -25031,7 +25006,7 @@ macho_branch_islands (void)
 
   while (!VEC_empty (branch_island, branch_islands))
     {
-      branch_island *bi = VEC_last (branch_island, branch_islands);
+      branch_island *bi = &VEC_last (branch_island, branch_islands);
       const char *label = IDENTIFIER_POINTER (bi->label_name);
       const char *name = IDENTIFIER_POINTER (bi->function_name);
       char name_buf[512];
@@ -25651,10 +25626,12 @@ rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
-  static const char * const suffix[3] = { "PR", "RO", "RW" };
+  static const char * const suffix[4] = { "PR", "RO", "RW", "TL" };
 
   if (flags & SECTION_CODE)
     smclass = 0;
+  else if (flags & SECTION_TLS)
+    smclass = 3;
   else if (flags & SECTION_WRITE)
     smclass = 2;
   else
@@ -26175,9 +26152,10 @@ rs6000_debug_rtx_costs (rtx x, int code, int outer_code, int opno, int *total,
 /* Debug form of ADDRESS_COST that is selected if -mdebug=cost.  */
 
 static int
-rs6000_debug_address_cost (rtx x, bool speed)
+rs6000_debug_address_cost (rtx x, enum machine_mode mode,
+			   addr_space_t as, bool speed)
 {
-  int ret = TARGET_ADDRESS_COST (x, speed);
+  int ret = TARGET_ADDRESS_COST (x, mode, as, speed);
 
   fprintf (stderr, "\nrs6000_address_cost, return = %d, speed = %s, x:\n",
 	   ret, speed ? "true" : "false");
@@ -27505,7 +27483,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
 #ifdef MASK_STRICT_ALIGN
   { "strict-align",	MASK_STRICT_ALIGN,	false, false },
 #endif
-  { "powerpc",		MASK_POWERPC,		false, false },
   { "soft-float",	MASK_SOFT_FLOAT,	false, false },
   { "string",		MASK_STRING,		false, false },
 };
@@ -27522,7 +27499,6 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "frsqrte",		 RS6000_BTM_FRSQRTE,	false, false },
   { "frsqrtes",		 RS6000_BTM_FRSQRTES,	false, false },
   { "popcntd",		 RS6000_BTM_POPCNTD,	false, false },
-  { "powerpc",		 RS6000_BTM_POWERPC,	false, false },
   { "cell",		 RS6000_BTM_CELL,	false, false },
 };
 

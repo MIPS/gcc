@@ -66,7 +66,7 @@ static rtx simplify_binary_operation_1 (enum rtx_code, enum machine_mode,
 static rtx
 neg_const_int (enum machine_mode mode, const_rtx i)
 {
-  return gen_int_mode (- INTVAL (i), mode);
+  return gen_int_mode (-(unsigned HOST_WIDE_INT) INTVAL (i), mode);
 }
 
 /* Test whether expression, X, is an immediate constant that represents
@@ -869,6 +869,14 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	  && COMPARISON_P (op)
 	  && (STORE_FLAG_VALUE & ~GET_MODE_MASK (mode)) == 0)
 	return rtl_hooks.gen_lowpart_no_emit (mode, op);
+
+      /* A truncate of a memory is just loading the low part of the memory
+	 if we are not changing the meaning of the address. */
+      if (GET_CODE (op) == MEM
+	  && !MEM_VOLATILE_P (op)
+	  && !mode_dependent_address_p (XEXP (op, 0)))
+	return rtl_hooks.gen_lowpart_no_emit (mode, op);
+
       break;
 
     case FLOAT_TRUNCATE:
@@ -2420,7 +2428,9 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
     case IOR:
       if (trueop1 == CONST0_RTX (mode))
 	return op0;
-      if (INTEGRAL_MODE_P (mode) && trueop1 == CONSTM1_RTX (mode))
+      if (INTEGRAL_MODE_P (mode)
+	  && trueop1 == CONSTM1_RTX (mode)
+	  && !side_effects_p (op0))
 	return op1;
       if (rtx_equal_p (trueop0, trueop1) && ! side_effects_p (op0))
 	return op0;
@@ -2434,7 +2444,8 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       /* (ior A C) is C if all bits of A that might be nonzero are on in C.  */
       if (CONST_INT_P (op1)
 	  && HWI_COMPUTABLE_MODE_P (mode)
-	  && (nonzero_bits (op0, mode) & ~UINTVAL (op1)) == 0)
+	  && (nonzero_bits (op0, mode) & ~UINTVAL (op1)) == 0
+	  && !side_effects_p (op0))
 	return op1;
 
       /* Canonicalize (X & C1) | C2.  */
@@ -3249,6 +3260,23 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
 	      gcc_assert (i0 < 4 && i1 < 4);
 	      subop0 = XEXP (XEXP (trueop0, i0 / 2), i0 % 2);
 	      subop1 = XEXP (XEXP (trueop0, i1 / 2), i1 % 2);
+
+	      return simplify_gen_binary (VEC_CONCAT, mode, subop0, subop1);
+	    }
+
+	  if (XVECLEN (trueop1, 0) == 2
+	      && CONST_INT_P (XVECEXP (trueop1, 0, 0))
+	      && CONST_INT_P (XVECEXP (trueop1, 0, 1))
+	      && GET_CODE (trueop0) == VEC_CONCAT
+	      && GET_MODE (trueop0) == mode)
+	    {
+	      unsigned int i0 = INTVAL (XVECEXP (trueop1, 0, 0));
+	      unsigned int i1 = INTVAL (XVECEXP (trueop1, 0, 1));
+	      rtx subop0, subop1;
+
+	      gcc_assert (i0 < 2 && i1 < 2);
+	      subop0 = XEXP (trueop0, i0);
+	      subop1 = XEXP (trueop0, i1);
 
 	      return simplify_gen_binary (VEC_CONCAT, mode, subop0, subop1);
 	    }

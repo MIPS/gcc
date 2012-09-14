@@ -649,19 +649,24 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
     }
 }
 
+/* Delete variable sized pieces of the expr_hash_elt ELEMENT.  */
+
+static void
+free_expr_hash_elt_contents (struct expr_hash_elt *element)
+{
+  if (element->expr.kind == EXPR_CALL)
+    free (element->expr.ops.call.args);
+  else if (element->expr.kind == EXPR_PHI)
+    free (element->expr.ops.phi.args);
+}
+
 /* Delete an expr_hash_elt and reclaim its storage.  */
 
 static void
 free_expr_hash_elt (void *elt)
 {
   struct expr_hash_elt *element = ((struct expr_hash_elt *)elt);
-
-  if (element->expr.kind == EXPR_CALL)
-    free (element->expr.ops.call.args);
-
-  if (element->expr.kind == EXPR_PHI)
-    free (element->expr.ops.phi.args);
-
+  free_expr_hash_elt_contents (element);
   free (element);
 }
 
@@ -1203,7 +1208,7 @@ record_cond (cond_equivalence *p)
       VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, element);
     }
   else
-    free (element);
+    free_expr_hash_elt (element);
 }
 
 /* Build a cond_equivalence record indicating that the comparison
@@ -1391,7 +1396,7 @@ loop_depth_of_name (tree x)
   if (!defbb)
     return 0;
 
-  return defbb->loop_depth;
+  return bb_loop_depth (defbb);
 }
 
 /* Record that X is equal to Y in const_and_copies.  Record undo
@@ -1734,7 +1739,8 @@ dom_opt_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 
   /* Push a marker on the stacks of local information so that we know how
      far to unwind when we finalize this block.  */
-  VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, NULL);
+  VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack,
+		 (expr_hash_elt_t)NULL);
   VEC_safe_push (tree, heap, const_and_copies_stack, NULL_TREE);
 
   record_equivalences_from_incoming_edge (bb);
@@ -1745,7 +1751,8 @@ dom_opt_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Create equivalences from redundant PHIs.  PHIs are only truly
      redundant when they exist in the same block, so push another
      marker and unwind right afterwards.  */
-  VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, NULL);
+  VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack,
+		 (expr_hash_elt_t)NULL);
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     eliminate_redundant_computations (&gsi);
   remove_local_expressions_from_table ();
@@ -1800,7 +1807,8 @@ dom_opt_leave_block (struct dom_walk_data *walk_data, basic_block bb)
 	  /* Push a marker onto the available expression stack so that we
 	     unwind any expressions related to the TRUE arm before processing
 	     the false arm below.  */
-          VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, NULL);
+          VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack,
+			 (expr_hash_elt_t)NULL);
 	  VEC_safe_push (tree, heap, const_and_copies_stack, NULL_TREE);
 
 	  edge_info = (struct edge_info *) true_edge->aux;
@@ -2401,9 +2409,11 @@ lookup_avail_expr (gimple stmt, bool insert)
   slot = htab_find_slot_with_hash (avail_exprs, &element, element.hash,
 				   (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
-    return NULL_TREE;
-
-  if (*slot == NULL)
+    {
+      free_expr_hash_elt_contents (&element);
+      return NULL_TREE;
+    }
+  else if (*slot == NULL)
     {
       struct expr_hash_elt *element2 = XNEW (struct expr_hash_elt);
       *element2 = element;
@@ -2419,6 +2429,8 @@ lookup_avail_expr (gimple stmt, bool insert)
       VEC_safe_push (expr_hash_elt_t, heap, avail_exprs_stack, element2);
       return NULL_TREE;
     }
+  else
+    free_expr_hash_elt_contents (&element);
 
   /* Extract the LHS of the assignment so that it can be used as the current
      definition of another variable.  */
@@ -2687,18 +2699,13 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 	  /* Special cases to avoid useless calls into the folding
 	     routines, operand scanning, etc.
 
-	     First, propagation into a PHI may cause the PHI to become
+	     Propagation into a PHI may cause the PHI to become
 	     a degenerate, so mark the PHI as interesting.  No other
-	     actions are necessary.
-
-	     Second, if we're propagating a virtual operand and the
-	     propagation does not change the underlying _DECL node for
-	     the virtual operand, then no further actions are necessary.  */
-	  if (gimple_code (use_stmt) == GIMPLE_PHI
-	      || (! is_gimple_reg (lhs)
-		  && TREE_CODE (rhs) == SSA_NAME
-		  && SSA_NAME_VAR (lhs) == SSA_NAME_VAR (rhs)))
+	     actions are necessary.  */
+	  if (gimple_code (use_stmt) == GIMPLE_PHI)
 	    {
+	      tree result;
+
 	      /* Dump details.  */
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
@@ -2706,14 +2713,8 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 		  print_gimple_stmt (dump_file, use_stmt, 0, dump_flags);
 		}
 
-	      /* Propagation into a PHI may expose new degenerate PHIs,
-		 so mark the result of the PHI as interesting.  */
-	      if (gimple_code (use_stmt) == GIMPLE_PHI)
-		{
-		  tree result = get_lhs_or_phi_result (use_stmt);
-		  bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
-		}
-
+	      result = get_lhs_or_phi_result (use_stmt);
+	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
 	      continue;
 	    }
 

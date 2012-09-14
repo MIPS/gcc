@@ -791,11 +791,11 @@ update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
              variable.  Create an assignment statement
              with a dummy (unused) lhs variable.  */
           STRIP_USELESS_TYPE_CONVERSION (expr);
-          lhs = create_tmp_var (TREE_TYPE (expr), NULL);
-          new_stmt = gimple_build_assign (lhs, expr);
 	  if (gimple_in_ssa_p (cfun))
-	    lhs = make_ssa_name (lhs, new_stmt);
-          gimple_assign_set_lhs (new_stmt, lhs);
+	    lhs = make_ssa_name (TREE_TYPE (expr), NULL);
+	  else
+	    lhs = create_tmp_var (TREE_TYPE (expr), NULL);
+          new_stmt = gimple_build_assign (lhs, expr);
 	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
 	  gimple_set_vdef (new_stmt, gimple_vdef (stmt));
           move_ssa_defining_stmt_for_defs (new_stmt, stmt);
@@ -1028,7 +1028,7 @@ substitute_and_fold (ssa_prop_get_value_fn get_value_fn,
 	gimple_stmt_iterator gsi;
 
 	if (!name
-	    || !is_gimple_reg (name))
+	    || virtual_operand_p (name))
 	  continue;
 
 	def_stmt = SSA_NAME_DEF_STMT (name);

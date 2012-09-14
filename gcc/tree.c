@@ -983,6 +983,8 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	  SET_DECL_INIT_PRIORITY (t, DECL_INIT_PRIORITY (node));
 	  DECL_HAS_INIT_PRIORITY_P (t) = 1;
 	}
+      if (TREE_CODE (node) == FUNCTION_DECL)
+	DECL_STRUCT_FUNCTION (t) = NULL;
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)
     {
@@ -1849,7 +1851,7 @@ int
 integer_pow2p (const_tree expr)
 {
   int prec;
-  HOST_WIDE_INT high, low;
+  unsigned HOST_WIDE_INT high, low;
 
   STRIP_NOPS (expr);
 
@@ -6704,8 +6706,8 @@ simple_cst_equal (const_tree t1, const_tree t2)
 
         for (idx = 0; idx < VEC_length (constructor_elt, v1); ++idx)
 	  /* ??? Should we handle also fields here? */
-	  if (!simple_cst_equal (VEC_index (constructor_elt, v1, idx)->value,
-				 VEC_index (constructor_elt, v2, idx)->value))
+	  if (!simple_cst_equal (VEC_index (constructor_elt, v1, idx).value,
+				 VEC_index (constructor_elt, v2, idx).value))
 	    return false;
 	return true;
       }
@@ -10155,9 +10157,6 @@ range_in_array_bounds_p (tree ref)
 bool
 needs_to_live_in_memory (const_tree t)
 {
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
-
   return (TREE_ADDRESSABLE (t)
 	  || is_global_var (t)
 	  || (TREE_CODE (t) == RESULT_DECL
@@ -10871,6 +10870,13 @@ get_name (tree t)
   STRIP_NOPS (stripped_decl);
   if (DECL_P (stripped_decl) && DECL_NAME (stripped_decl))
     return IDENTIFIER_POINTER (DECL_NAME (stripped_decl));
+  else if (TREE_CODE (stripped_decl) == SSA_NAME)
+    {
+      tree name = SSA_NAME_IDENTIFIER (stripped_decl);
+      if (!name)
+	return NULL;
+      return IDENTIFIER_POINTER (name);
+    }
   else
     {
       switch (TREE_CODE (stripped_decl))

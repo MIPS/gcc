@@ -288,7 +288,7 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	if (!bitmap_bit_p (partition->stmts, x++))
 	  {
 	    gimple phi = gsi_stmt (bsi);
-	    if (!is_gimple_reg (gimple_phi_result (phi)))
+	    if (virtual_operand_p (gimple_phi_result (phi)))
 	      mark_virtual_phi_result_for_renaming (phi);
 	    remove_phi_node (&bsi, true);
 	  }
@@ -391,8 +391,7 @@ generate_memset_builtin (struct loop *loop, partition_t partition)
       else if (!useless_type_conversion_p (integer_type_node, TREE_TYPE (val)))
 	{
 	  gimple cstmt;
-	  tree tem = create_tmp_reg (integer_type_node, NULL);
-	  tem = make_ssa_name (tem, NULL);
+	  tree tem = make_ssa_name (integer_type_node, NULL);
 	  cstmt = gimple_build_assign_with_ops (NOP_EXPR, tem, val, NULL_TREE);
 	  gsi_insert_after (&gsi, cstmt, GSI_CONTINUE_LINKING);
 	  val = tem;
@@ -493,7 +492,7 @@ destroy_loop (struct loop *loop)
       for (gsi = gsi_start_phis (bbs[i]); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
-	  if (!is_gimple_reg (gimple_phi_result (phi)))
+	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    mark_virtual_phi_result_for_renaming (phi);
 	}
       for (gsi = gsi_start_bb (bbs[i]); !gsi_end_p (gsi); gsi_next (&gsi))

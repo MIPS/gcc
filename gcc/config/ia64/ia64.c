@@ -320,6 +320,7 @@ static const char *ia64_invalid_binary_op (int, const_tree, const_tree);
 static enum machine_mode ia64_c_mode_for_suffix (char);
 static void ia64_trampoline_init (rtx, tree, rtx);
 static void ia64_override_options_after_change (void);
+static bool ia64_member_type_forces_blk (const_tree, enum machine_mode);
 
 static tree ia64_builtin_decl (unsigned, bool);
 
@@ -524,7 +525,7 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS ia64_rtx_costs
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
+#define TARGET_ADDRESS_COST hook_int_rtx_mode_as_bool_0
 
 #undef TARGET_UNSPEC_MAY_TRAP_P
 #define TARGET_UNSPEC_MAY_TRAP_P ia64_unspec_may_trap_p
@@ -570,6 +571,9 @@ static const struct attribute_spec ia64_attribute_table[] =
 #define TARGET_GET_RAW_RESULT_MODE ia64_get_reg_raw_mode
 #undef TARGET_GET_RAW_ARG_MODE
 #define TARGET_GET_RAW_ARG_MODE ia64_get_reg_raw_mode
+
+#undef TARGET_MEMBER_TYPE_FORCES_BLK
+#define TARGET_MEMBER_TYPE_FORCES_BLK ia64_member_type_forces_blk
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ia64_gimplify_va_arg
@@ -11162,6 +11166,15 @@ ia64_get_reg_raw_mode (int regno)
   if (FR_REGNO_P (regno))
     return XFmode;
   return default_get_reg_raw_mode(regno);
+}
+
+/* Implement TARGET_MEMBER_TYPE_FORCES_BLK.  ??? Might not be needed
+   anymore.  */
+
+bool
+ia64_member_type_forces_blk (const_tree, enum machine_mode mode)
+{
+  return TARGET_HPUX && mode == TFmode;
 }
 
 /* Always default to .text section until HP-UX linker is fixed.  */

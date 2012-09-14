@@ -87,7 +87,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       template<typename _Up> void operator()(_Up*) const = delete;
     };
 
-  /// 20.7.12.2 unique_ptr for single objects.
+  /// 20.7.1.2 unique_ptr for single objects.
   template <typename _Tp, typename _Dp = default_delete<_Tp> >
     class unique_ptr
     {
@@ -169,7 +169,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
 
       // Destructor.
-      ~unique_ptr() noexcept { reset(); }
+      ~unique_ptr() noexcept
+      {
+	auto& __ptr = std::get<0>(_M_t);
+	if (__ptr != nullptr)
+	  get_deleter()(__ptr);
+	__ptr = pointer();
+      }
 
       // Assignment.
       unique_ptr&
@@ -260,7 +266,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       unique_ptr& operator=(const unique_ptr&) = delete;
   };
 
-  /// 20.7.12.3 unique_ptr for array objects with a runtime length
+  /// 20.7.1.3 unique_ptr for array objects with a runtime length
   // [unique.ptr.runtime]
   // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // DR 740 - omit specialization for array objects with a compile time length
@@ -313,7 +319,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{ }
 
       // Destructor.
-      ~unique_ptr() { reset(); }
+      ~unique_ptr()
+      {
+	auto& __ptr = std::get<0>(_M_t);
+	if (__ptr != nullptr)
+	  get_deleter()(__ptr);
+	__ptr = pointer();
+      }
 
       // Assignment.
       unique_ptr&
@@ -406,7 +418,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       unique_ptr& operator=(const unique_ptr&) = delete;
 
       // Disable construction from convertible pointer types.
-      // (N2315 - 20.6.5.3.1)
+      // (N2315 - 20.7.1.3.1)
       template<typename _Up>
 	unique_ptr(_Up*, typename
 		   std::conditional<std::is_reference<deleter_type>::value,

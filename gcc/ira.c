@@ -2561,10 +2561,7 @@ equiv_init_varies_p (rtx x)
       return !MEM_READONLY_P (x) || equiv_init_varies_p (XEXP (x, 0));
 
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case SYMBOL_REF:
     case LABEL_REF:
       return 0;
@@ -2676,13 +2673,10 @@ contains_replace_regs (rtx x)
 
   switch (code)
     {
-    case CONST_INT:
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case PC:
     case CC0:
     case HIGH:
@@ -2724,13 +2718,10 @@ memref_referenced_p (rtx memref, rtx x)
 
   switch (code)
     {
-    case CONST_INT:
     case CONST:
     case LABEL_REF:
     case SYMBOL_REF:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case PC:
     case CC0:
     case HIGH:
@@ -2894,7 +2885,7 @@ update_equiv_regs (void)
      a register can be set below its use.  */
   FOR_EACH_BB (bb)
     {
-      loop_depth = bb->loop_depth;
+      loop_depth = bb_loop_depth (bb);
 
       for (insn = BB_HEAD (bb);
 	   insn != NEXT_INSN (BB_END (bb));
@@ -3173,7 +3164,7 @@ update_equiv_regs (void)
      basic block.  */
   FOR_EACH_BB_REVERSE (bb)
     {
-      loop_depth = bb->loop_depth;
+      loop_depth = bb_loop_depth (bb);
       for (insn = BB_END (bb);
 	   insn != PREV_INSN (BB_HEAD (bb));
 	   insn = PREV_INSN (insn))
@@ -3454,7 +3445,7 @@ pseudo_for_reload_consideration_p (int regno)
    initialization.  ALLOCNUM need not be the regno of REG.  */
 static void
 init_live_subregs (bool init_value, sbitmap *live_subregs,
-		   int *live_subregs_used, int allocnum, rtx reg)
+		   bitmap live_subregs_used, int allocnum, rtx reg)
 {
   unsigned int regno = REGNO (SUBREG_REG (reg));
   int size = GET_MODE_SIZE (GET_MODE (regno_reg_rtx[regno]));
@@ -3462,10 +3453,10 @@ init_live_subregs (bool init_value, sbitmap *live_subregs,
   gcc_assert (size > 0);
 
   /* Been there, done that.  */
-  if (live_subregs_used[allocnum])
+  if (bitmap_bit_p (live_subregs_used, allocnum))
     return;
 
-  /* Create a new one with zeros.  */
+  /* Create a new one.  */
   if (live_subregs[allocnum] == NULL)
     live_subregs[allocnum] = sbitmap_alloc (size);
 
@@ -3476,8 +3467,7 @@ init_live_subregs (bool init_value, sbitmap *live_subregs,
   else
     sbitmap_zero (live_subregs[allocnum]);
 
-  /* Set the number of bits that we really want.  */
-  live_subregs_used[allocnum] = size;
+  bitmap_set_bit (live_subregs_used, allocnum);
 }
 
 /* Walk the insns of the current function and build reload_insn_chain,
@@ -3496,11 +3486,11 @@ build_insn_chain (void)
      which hardregs are live in multiword pseudos.  live_subregs and
      live_subregs_used are indexed by pseudo number.  The live_subreg
      entry for a particular pseudo is only used if the corresponding
-     element is non zero in live_subregs_used.  The value in
-     live_subregs_used is number of bytes that the pseudo can
+     element is non zero in live_subregs_used.  The sbitmap size of
+     live_subreg[allocno] is number of bytes that the pseudo can
      occupy.  */
   sbitmap *live_subregs = XCNEWVEC (sbitmap, max_regno);
-  int *live_subregs_used = XNEWVEC (int, max_regno);
+  bitmap live_subregs_used = BITMAP_ALLOC (NULL);
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
@@ -3511,7 +3501,7 @@ build_insn_chain (void)
       rtx insn;
 
       CLEAR_REG_SET (live_relevant_regs);
-      memset (live_subregs_used, 0, max_regno * sizeof (int));
+      bitmap_clear (live_subregs_used);
 
       EXECUTE_IF_SET_IN_BITMAP (DF_LR_OUT (bb), 0, i, bi)
 	{
@@ -3596,8 +3586,8 @@ build_insn_chain (void)
 			      }
 
 			    /* Ignore the paradoxical bits.  */
-			    if ((int)last > live_subregs_used[regno])
-			      last = live_subregs_used[regno];
+			    if (last > SBITMAP_SIZE (live_subregs[regno]))
+			      last = SBITMAP_SIZE (live_subregs[regno]);
 
 			    while (start < last)
 			      {
@@ -3607,7 +3597,7 @@ build_insn_chain (void)
 
 			    if (sbitmap_empty_p (live_subregs[regno]))
 			      {
-				live_subregs_used[regno] = 0;
+				bitmap_clear_bit (live_subregs_used, regno);
 				bitmap_clear_bit (live_relevant_regs, regno);
 			      }
 			    else
@@ -3625,8 +3615,8 @@ build_insn_chain (void)
 			       modeling the def as a killing def.  */
 			    if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL))
 			      {
+				bitmap_clear_bit (live_subregs_used, regno);
 				bitmap_clear_bit (live_relevant_regs, regno);
-				live_subregs_used[regno] = 0;
 			      }
 			  }
 		      }
@@ -3682,8 +3672,8 @@ build_insn_chain (void)
 			       live_subregs, live_subregs_used, regno, reg);
 
 			    /* Ignore the paradoxical bits.  */
-			    if ((int)last > live_subregs_used[regno])
-			      last = live_subregs_used[regno];
+			    if (last > SBITMAP_SIZE (live_subregs[regno]))
+			      last = SBITMAP_SIZE (live_subregs[regno]);
 
 			    while (start < last)
 			      {
@@ -3696,7 +3686,7 @@ build_insn_chain (void)
 			     effectively saying do not use the subregs
 			     because we are reading the whole
 			     pseudo.  */
-			  live_subregs_used[regno] = 0;
+			  bitmap_clear_bit (live_subregs_used, regno);
 			bitmap_set_bit (live_relevant_regs, regno);
 		      }
 		  }
@@ -3739,14 +3729,14 @@ build_insn_chain (void)
 	}
     }
 
-  for (i = 0; i < (unsigned int) max_regno; i++)
-    free (live_subregs[i]);
-
   reload_insn_chain = c;
   *p = NULL;
 
+  for (i = 0; i < (unsigned int) max_regno; i++)
+    if (live_subregs[i] != NULL)
+      sbitmap_free (live_subregs[i]);
   free (live_subregs);
-  free (live_subregs_used);
+  BITMAP_FREE (live_subregs_used);
   BITMAP_FREE (live_relevant_regs);
   BITMAP_FREE (elim_regset);
 
@@ -3770,10 +3760,7 @@ rtx_moveable_p (rtx *loc, enum op_type type)
   switch (code)
     {
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case SYMBOL_REF:
     case LABEL_REF:
       return true;
@@ -4410,6 +4397,9 @@ ira (FILE *f)
 
   allocated_reg_info_size = max_reg_num ();
 
+  if (delete_trivially_dead_insns (get_insns (), max_reg_num ()))
+    df_analyze ();
+
   /* It is not worth to do such improvement when we use a simple
      allocation because of -O0 usage or because the function is too
      big.  */
@@ -4507,9 +4497,6 @@ ira (FILE *f)
   if (ira_conflicts_p)
     check_allocation ();
 #endif
-
-  if (delete_trivially_dead_insns (get_insns (), max_reg_num ()))
-    df_analyze ();
 
   if (max_regno != max_regno_before_ira)
     {

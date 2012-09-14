@@ -57,7 +57,8 @@ error_not_base_type (tree basetype, tree type)
 tree
 binfo_or_else (tree base, tree type)
 {
-  tree binfo = lookup_base (type, base, ba_unique, NULL);
+  tree binfo = lookup_base (type, base, ba_unique,
+			    NULL, tf_warning_or_error);
 
   if (binfo == error_mark_node)
     return NULL_TREE;
@@ -1178,7 +1179,7 @@ process_init_constructor_record (tree type, tree init,
 
       if (idx < VEC_length (constructor_elt, CONSTRUCTOR_ELTS (init)))
 	{
-	  constructor_elt *ce = VEC_index (constructor_elt,
+	  constructor_elt *ce = &VEC_index (constructor_elt,
 					   CONSTRUCTOR_ELTS (init), idx);
 	  if (ce->index)
 	    {
@@ -1305,7 +1306,7 @@ process_init_constructor_union (tree type, tree init,
       VEC_block_remove (constructor_elt, CONSTRUCTOR_ELTS (init), 1, len-1);
     }
 
-  ce = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (init), 0);
+  ce = &VEC_index (constructor_elt, CONSTRUCTOR_ELTS (init), 0);
 
   /* If this element specifies a field, initialize via that field.  */
   if (ce->index)
@@ -1447,7 +1448,8 @@ build_scoped_ref (tree datum, tree basetype, tree* binfo_p)
   if (*binfo_p)
     binfo = *binfo_p;
   else
-    binfo = lookup_base (TREE_TYPE (datum), basetype, ba_check, NULL);
+    binfo = lookup_base (TREE_TYPE (datum), basetype, ba_check,
+			 NULL, tf_warning_or_error);
 
   if (!binfo || binfo == error_mark_node)
     {
@@ -1600,7 +1602,7 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
     }
   else
     {
-      binfo = lookup_base (objtype, ctype, ba_check, NULL);
+      binfo = lookup_base (objtype, ctype, ba_check, NULL, complain);
 
       if (!binfo)
 	{

@@ -5376,6 +5376,7 @@ expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp,
 
   expect = expand_normal (CALL_EXPR_ARG (exp, 1));
   expect = convert_memory_address (Pmode, expect);
+  expect = gen_rtx_MEM (mode, expect);
   desired = expand_expr_force_mode (CALL_EXPR_ARG (exp, 2), mode);
 
   weak = CALL_EXPR_ARG (exp, 3);
@@ -5383,14 +5384,15 @@ expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp,
   if (host_integerp (weak, 0) && tree_low_cst (weak, 0) != 0)
     is_weak = true;
 
-  oldval = copy_to_reg (gen_rtx_MEM (mode, expect));
-
+  oldval = expect;
   if (!expand_atomic_compare_and_swap ((target == const0_rtx ? NULL : &target),
 				       &oldval, mem, oldval, desired,
 				       is_weak, success, failure))
     return NULL_RTX;
 
-  emit_move_insn (gen_rtx_MEM (mode, expect), oldval);
+  if (oldval != expect)
+    emit_move_insn (expect, oldval);
+
   return target;
 }
 
@@ -11888,7 +11890,7 @@ fold_builtin_strspn (location_t loc, tree s1, tree s2)
       if (p1 && p2)
 	{
 	  const size_t r = strspn (p1, p2);
-	  return size_int (r);
+	  return build_int_cst (size_type_node, r);
 	}
 
       /* If either argument is "", return NULL_TREE.  */
@@ -11933,7 +11935,7 @@ fold_builtin_strcspn (location_t loc, tree s1, tree s2)
       if (p1 && p2)
 	{
 	  const size_t r = strcspn (p1, p2);
-	  return size_int (r);
+	  return build_int_cst (size_type_node, r);
 	}
 
       /* If the first argument is "", return NULL_TREE.  */

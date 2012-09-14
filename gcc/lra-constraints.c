@@ -216,14 +216,16 @@ get_reg_class (int regno)
   return NO_REGS;
 }
 
-/* Return true if REGNO satisfies reg class constraint CL.  For new
-   reload pseudos we should make more accurate class *NEW_CLASS
-   (we set up it if it is not NULL) to satisfy the constraints.
-   Otherwise, set up NEW_CLASS to NO_REGS.  */
+/* Return true if REGNO in REG_MODE satisfies reg class constraint CL.
+   For new reload pseudos we should make more accurate class
+   *NEW_CLASS (we set up it if it is not NULL) to satisfy the
+   constraints.  Otherwise, set up NEW_CLASS to NO_REGS.  */
 static bool
-in_class_p (int regno, enum reg_class cl, enum reg_class *new_class)
+in_class_p (int regno, enum machine_mode reg_mode,
+	    enum reg_class cl, enum reg_class *new_class)
 {
   enum reg_class rclass, common_class;
+  int class_size, hard_regno, nregs, i, j;
 
   if (new_class != NULL)
     *new_class = NO_REGS;
@@ -237,16 +239,33 @@ in_class_p (int regno, enum reg_class cl, enum reg_class *new_class)
 	 impossibility of find registers for several reloads of one
 	 insn.	*/
       || INSN_UID (curr_insn) >= new_insn_uid_start)
-    return (rclass != NO_REGS && ira_class_subset_p[rclass][cl]
-	     && ! hard_reg_set_subset_p (reg_class_contents[cl],
-					 lra_no_alloc_regs));
+    return ((regno >= new_regno_start && rclass == ALL_REGS)
+	    || (rclass != NO_REGS && ira_class_subset_p[rclass][cl]
+		&& ! hard_reg_set_subset_p (reg_class_contents[cl],
+					    lra_no_alloc_regs)));
   else
     {
       common_class = ira_reg_class_subset[rclass][cl];
       if (new_class != NULL)
 	*new_class = common_class;
-      return ! hard_reg_set_subset_p (reg_class_contents[common_class],
-				      lra_no_alloc_regs);
+      if (hard_reg_set_subset_p (reg_class_contents[common_class],
+				 lra_no_alloc_regs))
+	return false;
+      /* Check that there are enough allocatable regs.  */
+      class_size = ira_class_hard_regs_num[common_class];
+      for (i = 0; i < class_size; i++)
+	{
+	  hard_regno = ira_class_hard_regs[common_class][i];
+	  nregs = hard_regno_nregs[hard_regno][reg_mode];
+	  if (nregs == 1)
+	    return true;
+	  for (j = 0; j < nregs; j++)
+	    if (TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno + j))
+	      break;
+	  if (j >= nregs)
+	    return true;
+	}
+      return false;
     }
 }
 
@@ -344,7 +363,8 @@ get_reload_reg (enum op_type type, enum machine_mode mode, rtx original,
       break;
   if (i >= curr_insn_input_reloads_num
       || ! in_class_p (REGNO (curr_insn_input_reloads[i].reg),
-			rclass, &new_class))
+		       GET_MODE (curr_insn_input_reloads[i].reg),
+		       rclass, &new_class))
     {
       res_p = true;
       *result_reg = lra_create_new_reg (mode, original, rclass, title);
@@ -1396,7 +1416,7 @@ process_addr_reg (rtx *loc, rtx *before, rtx *after, enum reg_class cl)
       *loc = copy_rtx (*loc);
       change_p = true;
     }
-  if (*loc != reg || ! in_class_p (final_regno, cl, &new_class))
+  if (*loc != reg || ! in_class_p (final_regno, GET_MODE (reg), cl, &new_class))
     {
       reg = *loc;
       if (get_reload_reg (OP_IN, mode, reg, cl, "address", &new_reg))
@@ -1476,9 +1496,11 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
       enum reg_class rclass
 	= (enum reg_class) targetm.preferred_reload_class (reg, ALL_REGS);
 
-      if (get_reload_reg (type, reg_mode, reg, rclass, "subreg reg", &new_reg)
-	  && (type != OP_OUT
-	      || GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode)))
+      new_reg = lra_create_new_reg_with_unique_value (reg_mode, reg, rclass,
+						      "subreg reg");
+      bitmap_set_bit (&lra_optional_reload_pseudos, REGNO (new_reg));
+      if (type != OP_OUT
+	  || GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode))
 	{
 	  push_to_sequence (before);
 	  lra_emit_move (new_reg, reg);
@@ -2104,7 +2126,7 @@ process_alt_operands (int only_alternative)
 						mode, hard_regno[nop]))
 			win = true;
 		      else if (hard_regno[nop] < 0
-			       && in_class_p (REGNO (op),
+			       && in_class_p (REGNO (op), GET_MODE (op),
 					      this_alternative, NULL))
 			win = true;
 		    }
@@ -2138,6 +2160,7 @@ process_alt_operands (int only_alternative)
 			 conditions.  */
 		      reject++;
 		      if (in_class_p (REGNO (operand_reg[nop]),
+				      GET_MODE (operand_reg[nop]),
 				      this_costly_alternative, NULL))
 			reject++;
 		    }
@@ -2180,7 +2203,7 @@ process_alt_operands (int only_alternative)
 		       || ! in_hard_reg_set_p (this_alternative_set,
 					       mode, hard_regno[nop]))
 		      && (hard_regno[nop] >= 0
-			  || ! in_class_p (REGNO (op),
+			  || ! in_class_p (REGNO (op), GET_MODE (op),
 					   this_alternative, NULL))))
 		losers++;
 	      if (operand_reg[nop] != NULL_RTX)
@@ -2330,15 +2353,21 @@ process_alt_operands (int only_alternative)
 		   conflict by forcing to use the same pseudo for the
 		   operands hoping that the pseudo gets the same hard
 		   regno as the operands and the reloads are gone.  */
-		curr_alt_win[i] = false;
-		curr_alt_match_win[j] = false;
+		if (*curr_id->operand_loc[i] != *curr_id->operand_loc[j])
+		  {
+		    curr_alt_win[i] = false;
+		    curr_alt_match_win[j] = false;
+		  }
 		continue;
 	      }
 	    else if (curr_alt_matches[i] == j && curr_alt_match_win[i])
 	      {
 		/* See the comment for the previous case.  */
-		curr_alt_win[j] = false;
-		curr_alt_match_win[i] = false;
+		if (*curr_id->operand_loc[i] != *curr_id->operand_loc[j])
+		  {
+		    curr_alt_win[j] = false;
+		    curr_alt_match_win[i] = false;
+		  }
 		continue;
 	      }
 	    else if (uses_hard_regs_p (curr_id->operand_loc[j], temp_set))
@@ -3205,7 +3234,8 @@ curr_insn_transform (void)
 	    
 	if (REG_P (reg) && (regno = REGNO (reg)) >= FIRST_PSEUDO_REGISTER)
 	  {
-	    bool ok_p = in_class_p (regno, goal_alt[i], &new_class);
+	    bool ok_p = in_class_p (regno, GET_MODE (reg),
+				    goal_alt[i], &new_class);
 
 	    if (new_class != NO_REGS && get_reg_class (regno) != new_class)
 	      {

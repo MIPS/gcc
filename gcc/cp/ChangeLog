@@ -1,3 +1,225 @@
+2012-09-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54191
+	* search.c (lookup_base): Add tsubst_flags_t parameter.
+	(adjust_result_of_qualified_name_lookup, check_final_overrider):
+	Adjust.
+	* name-lookup.c (do_class_using_decl): Adjust.
+	* typeck2.c (binfo_or_else, build_scoped_ref, build_m_component_ref):
+	Likewise.
+	* cvt.c (cp_convert_to_pointer, convert_to_pointer_force,
+	build_up_reference): Likewise.
+	* rtti.c (build_dynamic_cast_1): Likewise.
+	* tree.c (maybe_dummy_object): Likewise.
+	* call.c (build_conditional_expr_1, build_over_call): Likewise.
+	* cp-tree.h (UNIQUELY_DERIVED_FROM_P, PUBLICLY_UNIQUELY_DERIVED_P):
+	Remove.
+	(enum base_access_flags, ba_quiet): Remove.
+	(uniquely_derived_from_p, publicly_uniquely_derived_p): Declare.
+	* except.c (can_convert_eh): Adjust.
+	* decl.c (grokdeclarator): Likewise.
+	* typeck.c (comp_except_types, build_class_member_access_expr,
+	finish_class_member_access_expr, get_member_function_from_ptrfunc,
+	build_static_cast_1, get_delta_difference_1): Likewise.
+	* class.c (build_base_path, convert_to_base, build_vtbl_ref_1,
+	warn_about_ambiguous_bases): Likewise.
+	(uniquely_derived_from_p, publicly_uniquely_derived_p): Define.
+
+2012-09-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54441
+	* decl.c (reshape_init_class): Handle invalid initializer for
+	0-length array member.
+
+	* error.c (dump_type_suffix): Correct handling of 0-length arrays.
+
+	PR c++/54420
+	* cp-tree.h (LAMBDANAME_P): Remove.
+	(LAMBDA_TYPE_P): Check CLASSTYPE_LAMBDA_EXPR instead.
+	* cp-lang.c (cxx_dwarf_name): Likewise.
+	* error.c (dump_aggr_type): Likewise.
+	* semantics.c (begin_lambda_type): Set CLASSTYPE_LAMBDA_EXPR sooner.
+
+	PR c++/54198
+	* decl.c (check_default_argument): Set cp_unevaluated_operand
+	around call to perform_implicit_conversion_flags.
+
+	PR c++/54437
+	PR c++/51213
+	* pt.c (fn_type_unification): Call coerce_template_parms before
+	entering substitution context.
+
+2012-08-31  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/18747
+	* pt.c (check_template_variable): New.
+	(num_template_headers_for_class): Split out...
+	* decl.c (grokdeclarator): ...from here.
+	(start_decl): Remove redundant diagnostic.
+	* cp-tree.h: Declare them
+	* parser.c (cp_parser_single_declaration): Call check_template_variable.
+
+2012-08-31  Ollie Wild  <aaw@google.com>
+
+	PR c++/54197
+	* call.c (extend_ref_init_temps_1): Handle COMPOUND_EXPR trees.
+
+2012-08-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50545
+	PR c++/51222
+	* pt.c (instantiation_dependent_r): New.
+	(instantiation_dependent_expression_p): New.
+	(value_dependent_expression_p): Use it.  SCOPE_REF is always dependent.
+	* semantics.c (finish_decltype_type): Use it.
+	* cp-tree.h: Declare it.
+
+	* semantics.c (finish_qualified_id_expr): Handle building up a
+	non-dependent SCOPE_REF here.
+	(finish_id_expression): Not here.
+	* error.c (dump_decl) [SCOPE_REF]: Only pass TFF_UNQUALIFIED_NAME.
+
+	* friend.c (make_friend_class): Handle template template parameters.
+	* parser.c (cp_parser_template_declaration_after_export): Likewise.
+	* pt.c (tsubst_friend_class): Likewise.
+	(instantiate_class_template_1): Likewise
+	* decl.c (check_elaborated_type_specifier): Likewise.
+	(lookup_and_check_tag): Likewise.
+
+	* pt.c (get_class_bindings): Call coerce_template_parms.  Add
+	main_tmpl parameter.
+	(more_specialized_class): Add main_tmpl parameter.
+	(most_specialized_class): Adjust calls.
+
+	* decl.c (cp_finish_decl): Check for invalid multiple initializers
+	even if the initializer is dependent.
+
+	* pt.c (instantiate_template_1): Keep processing_template_decl set
+	if there are dependent args.
+
+2012-08-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51421
+	* decl2.c (mark_used): Consistently return false after errors
+	about uses before deduction of auto.
+	* semantics.c (finish_id_expression): Check mark_used return
+	value and return error_mark_node in case of failure.
+
+2012-08-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51213 (again)
+	* pt.c (deduction_tsubst_fntype): Remove.
+	(fn_type_unification): Check deduction depth and call
+	instantiate_template here.  Handle default argument access checks.
+	(determine_specialization): Suppress access control.
+	(tsubst_decl): Check for excessive deduction depth.
+	(recheck_decl_substitution): Make sure access control is on.
+	(type_unification_real): Don't mess with access deferring here.
+	(get_bindings): Adjust for fn_type_unification return type.
+	* call.c (enum rejection_reason_code): Drop rr_template_instantiation.
+	(template_instantiation_rejection): Remove.
+	(struct rejection_reason): Change targs to num_targs.
+	(template_unification_rejection, print_z_candidate): Adjust.
+	(add_template_candidate_real): Adjust for fn_type_unification change.
+	* class.c (resolve_address_of_overloaded_function): Likewise.
+	* cp-tree.h: Adjust declaration.
+
+	* pt.c (tsubst_default_argument): Indicate where the default
+	argument is being instantiated for.
+	(tsubst_expr): Restore previous location.
+	(tsubst_copy_and_build): Set and restore location.
+	* call.c (build_new_method_call_1): Remember location of call.
+	* semantics.c (finish_call_expr): Here too.
+	* parser.c (cp_parser_omp_for_loop): Remember the location of the
+	increment expression.
+
+	* pt.c (resolve_overloaded_unification): Use coerce_template_parms
+	instead of get_bindings.
+	(resolve_nondeduced_context): Likewise.
+
+	* pt.c (register_specialization): Correct argument to
+	check_specialization_namespace.
+	(determine_specialization): Don't consider members of
+	unspecialized types.
+
+2012-08-23  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (compute_array_index_type): Use type_dependent_expression_p.
+
+2012-08-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/20420
+	* name-lookup.c (supplement_binding_1): Handle specially enums
+	only in class templates.
+	(validate_nonmember_using_decl): Enforce 7.3.3/10 about duplicate
+	using declarations at function scope.
+
+2012-08-21  Richard Guenther  <rguenther@suse.de>
+
+	* cp-tree.h (TREE_INDIRECT_USING): Use TREE_LANG_FLAG_0 accessor.
+	(ATTR_IS_DEPENDENT): Likewise.
+	(ARGUMENT_PACK_INCOMPLETE_P): Use TREE_ADDRESSABLE instead of
+	TREE_LANG_FLAG_0 on TREE_VECs.
+
+2012-08-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/10416
+	* decl.c (poplevel): Check TYPE_HAS_NONTRIVIAL_DESTRUCTOR for
+	Wunused_variable too.
+
+2012-08-20  Diego Novillo  <dnovillo@google.com>
+
+	* decl.c (poplevel): Start TV_NAME_LOOKUP conditionally.
+
+2012-08-20  Richard Guenther  <rguenther@suse.de>
+
+	* name-lookup.c (store_binding_p): New predicate, split out from ...
+	(store_binding): ... here.  Always store binding and require
+	target vector with enough space.
+	(store_bindings): Collect to store bindings and reserve space
+	for them, then store them.
+	(store_class_bindings): Likewise.
+
+2012-08-19  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* Make-lang.in: Fix typo.
+
+2012-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.def (SIZEOF_EXPR): Move to c-common.def.
+
+2012-08-14   Diego Novillo  <dnovillo@google.com>
+
+	Merge from cxx-conversion branch.  Re-write VEC in C++.
+
+	* call.c (add_function_candidate): Remove const qualifier
+	from call to VEC_index.
+
+2012-08-10  Richard Guenther  <rguenther@suse.de>
+
+	* error.c (dump_expr): Handle anonymous SSA names.
+
+2012-08-07  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* error.c (print_instantiation_context): Pretty-print a newline before
+	diagnostic_flush_buffer.
+	* cxx-pretty-print.c (pp_cxx_function_definition): Use
+	pp_newline_and_flush instead of separate pp_newline and pp_flush.
+
+2012-08-06  Dodji Seketeli  <dodji@redhat.com>
+
+	Avoid crashing on erroneous static_assert usage
+	* semantics.c (finish_static_assert): Don't crash on erroneous
+	message or condition.
+
+2012-08-06  Marc Glisse  <marc.glisse@inria.fr>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54165
+	* typeck.c (build_static_cast_1): Move the conversion to void case
+	before the perform_direct_initialization_if_possible call.
+
 2012-08-03  Marc Glisse  <marc.glisse@inria.fr>
 
 	* pt.c (tsubst_copy_and_build): Handle VECTOR_TYPE like scalars.

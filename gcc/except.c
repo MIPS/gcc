@@ -304,8 +304,8 @@ init_eh_for_function (void)
   cfun->eh = ggc_alloc_cleared_eh_status ();
 
   /* Make sure zero'th entries are used.  */
-  VEC_safe_push (eh_region, gc, cfun->eh->region_array, NULL);
-  VEC_safe_push (eh_landing_pad, gc, cfun->eh->lp_array, NULL);
+  VEC_safe_push (eh_region, gc, cfun->eh->region_array, (eh_region) NULL);
+  VEC_safe_push (eh_landing_pad, gc, cfun->eh->lp_array, (eh_landing_pad) NULL);
 }
 
 /* Routines to generate the exception tree somewhat directly.
@@ -806,7 +806,7 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       if (targetm.arm_eabi_unwinder)
 	VEC_safe_push (tree, gc, cfun->eh->ehspec_data.arm_eabi, NULL_TREE);
       else
-	VEC_safe_push (uchar, gc, cfun->eh->ehspec_data.other, 0);
+	VEC_safe_push (uchar, gc, cfun->eh->ehspec_data.other, (uchar) 0);
     }
 
   return n->filter;
@@ -1243,7 +1243,7 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
   eh_region r;
   edge e;
   int i, disp_index;
-  gimple switch_stmt;
+  VEC(tree, heap) *dispatch_labels = NULL;
 
   fc = crtl->eh.sjlj_fc;
 
@@ -1289,17 +1289,8 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 
   /* If there's exactly one call site in the function, don't bother
      generating a switch statement.  */
-  switch_stmt = NULL;
   if (num_dispatch > 1)
-    {
-      tree disp;
-
-      mem = adjust_address (fc, TYPE_MODE (integer_type_node),
-			    sjlj_fc_call_site_ofs);
-      disp = make_tree (integer_type_node, mem);
-
-      switch_stmt = gimple_build_switch_nlabels (num_dispatch, disp, NULL);
-    }
+    dispatch_labels = VEC_alloc (tree, heap, num_dispatch);
 
   for (i = 1; VEC_iterate (eh_landing_pad, cfun->eh->lp_array, i, lp); ++i)
     if (lp && lp->post_landing_pad)
@@ -1317,8 +1308,7 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 	    t_label = create_artificial_label (UNKNOWN_LOCATION);
 	    t = build_int_cst (integer_type_node, disp_index);
 	    case_elt = build_case_label (t, NULL, t_label);
-	    gimple_switch_set_label (switch_stmt, disp_index, case_elt);
-
+	    VEC_quick_push (tree, dispatch_labels, case_elt);
 	    label = label_rtx (t_label);
 	  }
 	else
@@ -1371,7 +1361,16 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 
   if (num_dispatch > 1)
     {
+      gimple switch_stmt;
+      tree default_label = create_artificial_label (UNKNOWN_LOCATION);
+      rtx disp = adjust_address (fc, TYPE_MODE (integer_type_node),
+				 sjlj_fc_call_site_ofs);
+      switch_stmt = gimple_build_switch (make_tree (integer_type_node, disp),
+					 build_case_label (NULL, NULL,
+							   default_label),
+					 dispatch_labels);
       expand_case (switch_stmt);
+      emit_label (label_rtx (default_label));
       expand_builtin_trap ();
     }
 
@@ -2395,10 +2394,10 @@ add_call_site (rtx landing_pad, int action, int section)
   record->action = action;
 
   VEC_safe_push (call_site_record, gc,
-		 crtl->eh.call_site_record[section], record);
+		 crtl->eh.call_site_record_v[section], record);
 
   return call_site_base + VEC_length (call_site_record,
-				      crtl->eh.call_site_record[section]) - 1;
+				      crtl->eh.call_site_record_v[section]) - 1;
 }
 
 /* Turn REG_EH_REGION notes back into NOTE_INSN_EH_REGION notes.
@@ -2546,10 +2545,10 @@ convert_to_eh_region_ranges (void)
 	else if (last_action != -3)
 	  last_landing_pad = pc_rtx;
 	call_site_base += VEC_length (call_site_record,
-				      crtl->eh.call_site_record[cur_sec]);
+				      crtl->eh.call_site_record_v[cur_sec]);
 	cur_sec++;
-	gcc_assert (crtl->eh.call_site_record[cur_sec] == NULL);
-	crtl->eh.call_site_record[cur_sec]
+	gcc_assert (crtl->eh.call_site_record_v[cur_sec] == NULL);
+	crtl->eh.call_site_record_v[cur_sec]
 	  = VEC_alloc (call_site_record, gc, 10);
       }
 
@@ -2633,14 +2632,14 @@ push_sleb128 (VEC (uchar, gc) **data_area, int value)
 static int
 dw2_size_of_call_site_table (int section)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[section]);
+  int n = VEC_length (call_site_record, crtl->eh.call_site_record_v[section]);
   int size = n * (4 + 4 + 4);
   int i;
 
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[section], i);
+	VEC_index (call_site_record, crtl->eh.call_site_record_v[section], i);
       size += size_of_uleb128 (cs->action);
     }
 
@@ -2650,14 +2649,14 @@ dw2_size_of_call_site_table (int section)
 static int
 sjlj_size_of_call_site_table (void)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[0]);
+  int n = VEC_length (call_site_record, crtl->eh.call_site_record_v[0]);
   int size = 0;
   int i;
 
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[0], i);
+	VEC_index (call_site_record, crtl->eh.call_site_record_v[0], i);
       size += size_of_uleb128 (INTVAL (cs->landing_pad));
       size += size_of_uleb128 (cs->action);
     }
@@ -2669,7 +2668,7 @@ sjlj_size_of_call_site_table (void)
 static void
 dw2_output_call_site_table (int cs_format, int section)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[section]);
+  int n = VEC_length (call_site_record, crtl->eh.call_site_record_v[section]);
   int i;
   const char *begin;
 
@@ -2683,7 +2682,7 @@ dw2_output_call_site_table (int cs_format, int section)
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[section], i);
+	VEC_index (call_site_record, crtl->eh.call_site_record_v[section], i);
       char reg_start_lab[32];
       char reg_end_lab[32];
       char landing_pad_lab[32];
@@ -2731,13 +2730,13 @@ dw2_output_call_site_table (int cs_format, int section)
 static void
 sjlj_output_call_site_table (void)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[0]);
+  int n = VEC_length (call_site_record, crtl->eh.call_site_record_v[0]);
   int i;
 
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[0], i);
+	VEC_index (call_site_record, crtl->eh.call_site_record_v[0], i);
 
       dw2_asm_output_data_uleb128 (INTVAL (cs->landing_pad),
 				   "region %d landing pad", i);
@@ -2777,11 +2776,16 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
 	    flags = SECTION_WRITE;
 
 #ifdef HAVE_LD_EH_GC_SECTIONS
-	  if (flag_function_sections)
+	  if (flag_function_sections
+	      || (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP))
 	    {
 	      char *section_name = XNEWVEC (char, strlen (fnname) + 32);
+	      /* The EH table must match the code section, so only mark
+		 it linkonce if we have COMDAT groups to tie them together.  */
+	      if (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP)
+		flags |= SECTION_LINKONCE;
 	      sprintf (section_name, ".gcc_except_table.%s", fnname);
-	      s = get_section (section_name, flags, NULL);
+	      s = get_section (section_name, flags, current_function_decl);
 	      free (section_name);
 	    }
 	  else
@@ -3046,7 +3050,7 @@ output_function_exception_table (const char *fnname)
   targetm.asm_out.emit_except_table_label (asm_out_file);
 
   output_one_function_exception_table (0);
-  if (crtl->eh.call_site_record[1] != NULL)
+  if (crtl->eh.call_site_record_v[1] != NULL)
     output_one_function_exception_table (1);
 
   switch_to_section (current_function_section ());

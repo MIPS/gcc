@@ -275,7 +275,7 @@ build_base_path (enum tree_code code,
       if (complain & tf_error)
 	{
 	  tree base = lookup_base (probe, BINFO_TYPE (d_binfo),
-				   ba_unique, NULL);
+				   ba_unique, NULL, complain);
 	  gcc_assert (base == error_mark_node);
 	}
       return error_mark_node;
@@ -544,7 +544,6 @@ convert_to_base (tree object, tree type, bool check_access, bool nonnull,
 {
   tree binfo;
   tree object_type;
-  base_access access;
 
   if (TYPE_PTR_P (TREE_TYPE (object)))
     {
@@ -554,12 +553,8 @@ convert_to_base (tree object, tree type, bool check_access, bool nonnull,
   else
     object_type = TREE_TYPE (object);
 
-  access = check_access ? ba_check : ba_unique;
-  if (!(complain & tf_error))
-    access |= ba_quiet;
-  binfo = lookup_base (object_type, type,
-		       access,
-		       NULL);
+  binfo = lookup_base (object_type, type, check_access ? ba_check : ba_unique,
+		       NULL, complain);
   if (!binfo || binfo == error_mark_node)
     return error_mark_node;
 
@@ -652,8 +647,8 @@ build_vtbl_ref_1 (tree instance, tree idx)
   if (fixed_type && !cdtorp)
     {
       tree binfo = lookup_base (fixed_type, basetype,
-				ba_unique | ba_quiet, NULL);
-      if (binfo)
+				ba_unique, NULL, tf_none);
+      if (binfo && binfo != error_mark_node)
 	vtbl = unshare_expr (BINFO_VTABLE (binfo));
     }
 
@@ -5483,7 +5478,7 @@ warn_about_ambiguous_bases (tree t)
     {
       basetype = BINFO_TYPE (base_binfo);
 
-      if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
+      if (!uniquely_derived_from_p (basetype, t))
 	warning (0, "direct base %qT inaccessible in %qT due to ambiguity",
 		 basetype, t);
     }
@@ -5495,9 +5490,9 @@ warn_about_ambiguous_bases (tree t)
       {
 	basetype = BINFO_TYPE (binfo);
 
-	if (!lookup_base (t, basetype, ba_unique | ba_quiet, NULL))
-	  warning (OPT_Wextra, "virtual base %qT inaccessible in %qT due to ambiguity",
-		   basetype, t);
+	if (!uniquely_derived_from_p (basetype, t))
+	  warning (OPT_Wextra, "virtual base %qT inaccessible in %qT due "
+		   "to ambiguity", basetype, t);
       }
 }
 
@@ -7033,14 +7028,10 @@ resolve_address_of_overloaded_function (tree target_type,
 
 	  /* Try to do argument deduction.  */
 	  targs = make_tree_vec (DECL_NTPARMS (fn));
-	  if (fn_type_unification (fn, explicit_targs, targs, args, nargs,
-				   target_ret_type, DEDUCE_EXACT,
-				   LOOKUP_NORMAL, false))
-	    /* Argument deduction failed.  */
-	    continue;
-
-	  /* Instantiate the template.  */
-	  instantiation = instantiate_template (fn, targs, flags);
+	  instantiation = fn_type_unification (fn, explicit_targs, targs, args,
+					      nargs, target_ret_type,
+					      DEDUCE_EXACT, LOOKUP_NORMAL,
+					       false);
 	  if (instantiation == error_mark_node)
 	    /* Instantiation failed.  */
 	    continue;
@@ -8403,12 +8394,12 @@ build_vtbl_initializer (tree binfo,
 	  int new_position = (TARGET_VTABLE_DATA_ENTRY_DISTANCE * ix
 			      + (TARGET_VTABLE_DATA_ENTRY_DISTANCE - 1));
 
-	  VEC_replace (constructor_elt, vid.inits, new_position, e);
+	  VEC_replace (constructor_elt, vid.inits, new_position, *e);
 
 	  for (j = 1; j < TARGET_VTABLE_DATA_ENTRY_DISTANCE; ++j)
 	    {
-	      constructor_elt *f = VEC_index (constructor_elt, vid.inits,
-					      new_position - j);
+	      constructor_elt *f = &VEC_index (constructor_elt, vid.inits,
+					       new_position - j);
 	      f->index = NULL_TREE;
 	      f->value = build1 (NOP_EXPR, vtable_entry_type,
 				 null_pointer_node);
@@ -8429,7 +8420,7 @@ build_vtbl_initializer (tree binfo,
   for (ix = VEC_length (constructor_elt, vid.inits) - 1;
        VEC_iterate (constructor_elt, vid.inits, ix, e);
        ix--, jx++)
-    VEC_replace (constructor_elt, *inits, jx, e);
+    VEC_replace (constructor_elt, *inits, jx, *e);
 
   /* Go through all the ordinary virtual functions, building up
      initializers.  */
@@ -8935,6 +8926,26 @@ build_rtti_vtbl_entries (tree binfo, vtbl_init_data* vid)
      function pointer, so that we can put it in the vtable.  */
   init = build_nop (vfunc_ptr_type_node, offset);
   CONSTRUCTOR_APPEND_ELT (vid->inits, NULL_TREE, init);
+}
+
+/* TRUE iff TYPE is uniquely derived from PARENT.  Ignores
+   accessibility.  */
+
+bool
+uniquely_derived_from_p (tree parent, tree type)
+{
+  tree base = lookup_base (type, parent, ba_unique, NULL, tf_none);
+  return base && base != error_mark_node;
+}
+
+/* TRUE iff TYPE is publicly & uniquely derived from PARENT.  */
+
+bool
+publicly_uniquely_derived_p (tree parent, tree type)
+{
+  tree base = lookup_base (type, parent, ba_ignore_scope | ba_check,
+			   NULL, tf_none);
+  return base && base != error_mark_node;
 }
 
 #include "gt-cp-class.h"

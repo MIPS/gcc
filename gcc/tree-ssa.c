@@ -249,6 +249,13 @@ target_for_debug_bind (tree var)
   if (!MAY_HAVE_DEBUG_STMTS)
     return NULL_TREE;
 
+  if (TREE_CODE (var) == SSA_NAME)
+    {
+      var = SSA_NAME_VAR (var);
+      if (var == NULL_TREE)
+	return NULL_TREE;
+    }
+
   if ((TREE_CODE (var) != VAR_DECL
        || VAR_DECL_IS_VIRTUAL_OPERAND (var))
       && TREE_CODE (var) != PARM_DECL)
@@ -622,7 +629,8 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-  if (TREE_TYPE (ssa_name) != TREE_TYPE (SSA_NAME_VAR (ssa_name)))
+  if (SSA_NAME_VAR (ssa_name) != NULL_TREE
+      && TREE_TYPE (ssa_name) != TREE_TYPE (ssa_name))
     {
       error ("type mismatch between an SSA_NAME and its symbol");
       return true;
@@ -634,7 +642,7 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-  if (is_virtual && is_gimple_reg (ssa_name))
+  if (is_virtual && !virtual_operand_p (ssa_name))
     {
       error ("found a virtual definition for a GIMPLE register");
       return true;
@@ -646,7 +654,7 @@ verify_ssa_name (tree ssa_name, bool is_virtual)
       return true;
     }
 
-  if (!is_virtual && !is_gimple_reg (ssa_name))
+  if (!is_virtual && virtual_operand_p (ssa_name))
     {
       error ("found a real definition for a non-register");
       return true;
@@ -681,7 +689,8 @@ verify_def (basic_block bb, basic_block *definition_block, tree ssa_name,
   if (verify_ssa_name (ssa_name, is_virtual))
     goto err;
 
-  if (TREE_CODE (SSA_NAME_VAR (ssa_name)) == RESULT_DECL
+  if (SSA_NAME_VAR (ssa_name)
+      && TREE_CODE (SSA_NAME_VAR (ssa_name)) == RESULT_DECL
       && DECL_BY_REFERENCE (SSA_NAME_VAR (ssa_name)))
     {
       error ("RESULT_DECL should be read only when DECL_BY_REFERENCE is set");
@@ -855,7 +864,7 @@ verify_phi_args (gimple phi, basic_block bb, basic_block *definition_block)
 
       if (TREE_CODE (op) == SSA_NAME)
 	{
-	  err = verify_ssa_name (op, !is_gimple_reg (gimple_phi_result (phi)));
+	  err = verify_ssa_name (op, virtual_operand_p (gimple_phi_result (phi)));
 	  err |= verify_use (e->src, definition_block[SSA_NAME_VERSION (op)],
 			     op_p, phi, e->flags & EDGE_ABNORMAL, NULL);
 	}
@@ -929,14 +938,14 @@ verify_ssa (bool check_modified_stmt)
 	  gimple stmt;
 	  TREE_VISITED (name) = 0;
 
-	  verify_ssa_name (name, !is_gimple_reg (name));
+	  verify_ssa_name (name, virtual_operand_p (name));
 
 	  stmt = SSA_NAME_DEF_STMT (name);
 	  if (!gimple_nop_p (stmt))
 	    {
 	      basic_block bb = gimple_bb (stmt);
 	      verify_def (bb, definition_block,
-			  name, stmt, !is_gimple_reg (name));
+			  name, stmt, virtual_operand_p (name));
 
 	    }
 	}
@@ -1148,7 +1157,7 @@ delete_tree_ssa (void)
   fini_ssanames ();
 
   /* We no longer maintain the SSA operand cache at this point.  */
-  if (ssa_operands_active ())
+  if (ssa_operands_active (cfun))
     fini_ssa_operands ();
 
   htab_delete (cfun->gimple_df->default_defs);

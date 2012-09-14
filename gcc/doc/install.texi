@@ -1288,16 +1288,6 @@ opposite effect.  If neither option is specified, the configure script
 will try to guess whether the @code{.init_array} and
 @code{.fini_array} sections are supported and, if they are, use them.
 
-@item --enable-build-with-cxx
-Build GCC using a C++ compiler rather than a C compiler.  This is an
-experimental option which may become the default in a later release.
-
-@item --enable-build-poststage1-with-cxx
-When bootstrapping, build stages 2 and 3 of GCC using a C++ compiler
-rather than a C compiler.  Stage 1 is still built with a C compiler.
-This is enabled by default and may be disabled using
-@option{--disable-build-poststage1-with-cxx}.
-
 @item --enable-maintainer-mode
 The build rules that regenerate the Autoconf and Automake output files as
 well as the GCC master message catalog @file{gcc.pot} are normally
@@ -2976,7 +2966,7 @@ GNU Compiler Collection on your machine.
 Note that this list of install notes is @emph{not} a list of supported
 hosts or targets.  Not all supported hosts and targets are listed
 here, only the ones that require host-specific or target-specific
-information are.
+information have to. 
 
 @ifhtml
 @itemize

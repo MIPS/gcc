@@ -157,6 +157,7 @@ test_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
      to pretend that the value pointed to is actual result decl.  */
   if ((TREE_CODE (t) == MEM_REF || INDIRECT_REF_P (t))
       && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
+      && SSA_NAME_VAR (TREE_OPERAND (t, 0))
       && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (t, 0))) == RESULT_DECL
       && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     return
@@ -257,7 +258,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	      gimple stmt = gsi_stmt (bsi);
 	      tree op = gimple_phi_arg_def (stmt, e->dest_idx);
 
-	      if (!is_gimple_reg (gimple_phi_result (stmt)))
+	      if (virtual_operand_p (gimple_phi_result (stmt)))
 		continue;
 	      if (TREE_CODE (op) != SSA_NAME
 		  && test_nonssa_use (stmt, op, non_ssa_vars))
@@ -401,7 +402,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
       gimple stmt = gsi_stmt (bsi);
       tree val = NULL;
 
-      if (!is_gimple_reg (gimple_phi_result (stmt)))
+      if (virtual_operand_p (gimple_phi_result (stmt)))
 	continue;
       for (i = 0; i < gimple_phi_num_args (stmt); i++)
 	{
@@ -525,6 +526,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   /* Special case is value returned by reference we record as if it was non-ssa
      set to result_decl.  */
   else if (TREE_CODE (retval) == SSA_NAME
+	   && SSA_NAME_VAR (retval)
 	   && TREE_CODE (SSA_NAME_VAR (retval)) == RESULT_DECL
 	   && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     current->split_part_set_retval
@@ -551,7 +553,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
       gimple_stmt_iterator psi;
 
       for (psi = gsi_start_phis (return_bb); !gsi_end_p (psi); gsi_next (&psi))
-	if (is_gimple_reg (gimple_phi_result (gsi_stmt (psi)))
+	if (!virtual_operand_p (gimple_phi_result (gsi_stmt (psi)))
 	    && !(retval
 		 && current->split_part_set_retval
 		 && TREE_CODE (retval) == SSA_NAME
@@ -698,6 +700,7 @@ mark_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
      to pretend that the value pointed to is actual result decl.  */
   if ((TREE_CODE (t) == MEM_REF || INDIRECT_REF_P (t))
       && TREE_CODE (TREE_OPERAND (t, 0)) == SSA_NAME
+      && SSA_NAME_VAR (TREE_OPERAND (t, 0))
       && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (t, 0))) == RESULT_DECL
       && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     return
@@ -801,9 +804,7 @@ visit_bb (basic_block bb, basic_block return_bb,
       gimple stmt = gsi_stmt (bsi);
       unsigned int i;
 
-      if (is_gimple_debug (stmt))
-	continue;
-      if (!is_gimple_reg (gimple_phi_result (stmt)))
+      if (virtual_operand_p (gimple_phi_result (stmt)))
 	continue;
       bitmap_set_bit (set_ssa_names,
 		      SSA_NAME_VERSION (gimple_phi_result (stmt)));
@@ -827,9 +828,7 @@ visit_bb (basic_block bb, basic_block return_bb,
 	    gimple stmt = gsi_stmt (bsi);
 	    tree op = gimple_phi_arg_def (stmt, e->dest_idx);
 
-	    if (is_gimple_debug (stmt))
-	      continue;
-	    if (!is_gimple_reg (gimple_phi_result (stmt)))
+	    if (virtual_operand_p (gimple_phi_result (stmt)))
 	      continue;
 	    if (TREE_CODE (op) == SSA_NAME)
 	      bitmap_set_bit (used_ssa_names, SSA_NAME_VERSION (op));
@@ -918,7 +917,7 @@ find_split_points (int overall_time, int overall_size)
 
   while (!VEC_empty (stack_entry, stack))
     {
-      stack_entry *entry = VEC_last (stack_entry, stack);
+      stack_entry *entry = &VEC_last (stack_entry, stack);
 
       /* We are walking an acyclic graph, so edge_num counts
 	 succ and pred edges together.  However when considering
@@ -985,9 +984,9 @@ find_split_points (int overall_time, int overall_size)
 	      new_entry.bb = dest;
 	      new_entry.edge_num = 0;
 	      new_entry.overall_time
-		 = VEC_index (bb_info, bb_info_vec, dest->index)->time;
+		 = VEC_index (bb_info, bb_info_vec, dest->index).time;
 	      new_entry.overall_size
-		 = VEC_index (bb_info, bb_info_vec, dest->index)->size;
+		 = VEC_index (bb_info, bb_info_vec, dest->index).size;
 	      new_entry.earliest = INT_MAX;
 	      new_entry.set_ssa_names = BITMAP_ALLOC (NULL);
 	      new_entry.used_ssa_names = BITMAP_ALLOC (NULL);
@@ -1007,8 +1006,8 @@ find_split_points (int overall_time, int overall_size)
 	 and merge stuff we accumulate during the walk.  */
       else if (entry->bb != ENTRY_BLOCK_PTR)
 	{
-	  stack_entry *prev = VEC_index (stack_entry, stack,
-					 VEC_length (stack_entry, stack) - 2);
+	  stack_entry *prev = &VEC_index (stack_entry, stack,
+					  VEC_length (stack_entry, stack) - 2);
 
 	  entry->bb->aux = (void *)(intptr_t)-1;
 	  prev->can_split &= entry->can_split;
@@ -1155,7 +1154,7 @@ split_function (struct split_point *split_point)
       for (gsi = gsi_start_phis (return_bb); !gsi_end_p (gsi);)
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  if (is_gimple_reg (gimple_phi_result (stmt)))
+	  if (!virtual_operand_p (gimple_phi_result (stmt)))
 	    {
 	      gsi_next (&gsi);
 	      continue;
@@ -1231,6 +1230,7 @@ split_function (struct split_point *split_point)
       }
   call = gimple_build_call_vec (node->symbol.decl, args_to_pass);
   gimple_set_block (call, DECL_INITIAL (current_function_decl));
+  VEC_free (tree, heap, args_to_pass);
 
   /* We avoid address being taken on any variable used by split part,
      so return slot optimization is always possible.  Moreover this is
@@ -1267,12 +1267,12 @@ split_function (struct split_point *split_point)
 	      if (TREE_CODE (retval) == SSA_NAME
 		  && !DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
 		{
-		  retval = make_ssa_name (SSA_NAME_VAR (retval), call);
+		  retval = copy_ssa_name (retval, call);
 
 		  /* See if there is PHI defining return value.  */
 		  for (psi = gsi_start_phis (return_bb);
 		       !gsi_end_p (psi); gsi_next (&psi))
-		    if (is_gimple_reg (gimple_phi_result (gsi_stmt (psi))))
+		    if (!virtual_operand_p (gimple_phi_result (gsi_stmt (psi))))
 		      break;
 
 		  /* When there is PHI, just update its value.  */
@@ -1490,8 +1490,8 @@ execute_split_functions (void)
 	}
       overall_time += time;
       overall_size += size;
-      VEC_index (bb_info, bb_info_vec, bb->index)->time = time;
-      VEC_index (bb_info, bb_info_vec, bb->index)->size = size;
+      VEC_index (bb_info, bb_info_vec, bb->index).time = time;
+      VEC_index (bb_info, bb_info_vec, bb->index).size = size;
     }
   find_split_points (overall_time, overall_size);
   if (best_split_point.split_bbs)

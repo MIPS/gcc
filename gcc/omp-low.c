@@ -3059,7 +3059,6 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	  if (gimple_in_ssa_p (cfun))
 	    {
 	      gimple phi = create_phi_node (tmp_join, bb);
-	      SSA_NAME_DEF_STMT (tmp_join) = phi;
 	      add_phi_arg (phi, tmp_then, e_then, UNKNOWN_LOCATION);
 	      add_phi_arg (phi, tmp_else, e_else, UNKNOWN_LOCATION);
 	    }
@@ -4592,7 +4591,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 	  t = gimple_phi_result (phi);
 	  gcc_assert (t == redirect_edge_var_map_result (vm));
 	  nphi = create_phi_node (t, iter_part_bb);
-	  SSA_NAME_DEF_STMT (t) = nphi;
 
 	  t = PHI_ARG_DEF_FROM_EDGE (phi, se);
 	  locus = gimple_phi_arg_location_from_edge (phi, se);
@@ -4617,7 +4615,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
       /* Make phi node for trip.  */
       phi = create_phi_node (trip_main, iter_part_bb);
-      SSA_NAME_DEF_STMT (trip_main) = phi;
       add_phi_arg (phi, trip_back, single_succ_edge (trip_update_bb),
 		   UNKNOWN_LOCATION);
       add_phi_arg (phi, trip_init, single_succ_edge (entry_bb),
@@ -4876,7 +4873,7 @@ expand_omp_sections (struct omp_region *region)
   u = build_case_label (NULL, NULL, t);
   make_edge (l0_bb, default_bb, 0);
 
-  stmt = gimple_build_switch_vec (vmain, u, label_vec);
+  stmt = gimple_build_switch (vmain, u, label_vec);
   gsi_insert_after (&switch_si, stmt, GSI_SAME_STMT);
   gsi_remove (&switch_si, true);
   VEC_free (tree, heap, label_vec);
@@ -5319,7 +5316,6 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
     {
       gcc_assert (gimple_seq_empty_p (phi_nodes (loop_header)));
       phi = create_phi_node (loadedi, loop_header);
-      SSA_NAME_DEF_STMT (loadedi) = phi;
       SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (load_bb)),
 	       initial);
     }
@@ -6830,6 +6826,9 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_TRY:
       lower_omp (gimple_try_eval_ptr (stmt), ctx);
       lower_omp (gimple_try_cleanup_ptr (stmt), ctx);
+      break;
+    case GIMPLE_TRANSACTION:
+      lower_omp (gimple_transaction_body_ptr (stmt), ctx);
       break;
     case GIMPLE_BIND:
       lower_omp (gimple_bind_body_ptr (stmt), ctx);

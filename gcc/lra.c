@@ -2153,6 +2153,10 @@ bitmap_head lra_inheritance_pseudos;
 /* Split pseudo regnos before the new spill pass.  */ 
 bitmap_head lra_split_pseudos;
 
+/* Reload pseudo regnos before the new assign pass which still can be
+   spilled after the assinment pass.  */ 
+bitmap_head lra_optional_reload_pseudos;
+
 /* First UID of insns generated before a new spill pass.  */
 int lra_constraint_new_insn_uid_start;
 
@@ -2243,11 +2247,13 @@ lra (FILE *f)
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
   bitmap_initialize (&lra_split_pseudos, &reg_obstack);
+  bitmap_initialize (&lra_optional_reload_pseudos, &reg_obstack);
   live_p = false;
   for (;;)
     {
       for (;;)
 	{
+	  bitmap_clear (&lra_optional_reload_pseudos);
 	  /* We should try to assign hard registers to scratches even
 	     if there were no RTL transformations in
 	     lra_constraints.  */

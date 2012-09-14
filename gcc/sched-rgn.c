@@ -1455,7 +1455,7 @@ compute_dom_prob_ps (int bb)
 static void
 split_edges (int bb_src, int bb_trg, edgelst *bl)
 {
-  sbitmap src = sbitmap_alloc (pot_split[bb_src]->n_bits);
+  sbitmap src = sbitmap_alloc (SBITMAP_SIZE (pot_split[bb_src]));
   sbitmap_copy (src, pot_split[bb_src]);
 
   sbitmap_difference (src, src, pot_split[bb_trg]);
@@ -3473,7 +3473,7 @@ static bool
 gate_handle_sched (void)
 {
 #ifdef INSN_SCHEDULING
-  return flag_schedule_insns && dbg_cnt (sched_func);
+  return optimize > 0 && flag_schedule_insns && dbg_cnt (sched_func);
 #else
   return 0;
 #endif
