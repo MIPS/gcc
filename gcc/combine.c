@@ -6292,9 +6292,10 @@ simplify_set (rtx x)
     return src;
 
   /* (set (subreg (x)) (y) -> (set (x) (subreg (y)) if (subreg (y))
-     simplifies. */
+     simplifies and only if (subreg (x)) was a paradoxical subreg. */
   if (GET_CODE (dest) == SUBREG
-      && subreg_lowpart_p (dest))
+      && subreg_lowpart_p (dest)
+      && paradoxical_subreg_p (dest))
     {
       rtx temp;
       temp = simplify_subreg (GET_MODE (SUBREG_REG (dest)), src, mode,
