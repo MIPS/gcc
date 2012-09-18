@@ -2116,8 +2116,6 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
       tree etype = TREE_TYPE (type);
       tree esize = TYPE_SIZE (etype);
 
-      gcc_assert (maxval && TREE_CODE (maxval) == INTEGER_CST);
-
       if (TREE_CODE (rhs) == CONSTRUCTOR)
 	{
 	  unsigned HOST_WIDE_INT cnt;
@@ -2149,7 +2147,8 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 		}
 	    }
 	}
-      else
+      /* Copy array only whe size is known.  */
+      else if (maxval)
 	for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	  {
 	    tree lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
