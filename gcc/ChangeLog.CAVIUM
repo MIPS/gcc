@@ -1,3 +1,13 @@
+2012-09-17  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4705
+	* optabs.c (emit_conditional_move): Only
+	try using the same registers for the constant
+	if the modes are equal.
+
+	* testsuite/gcc.c-torture/compile/20120917-1.c: New testcase.
+
+
 2014-04-14  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/tree-ssa/phi-opt-pass-order.c: Update for the no name ssa_name
