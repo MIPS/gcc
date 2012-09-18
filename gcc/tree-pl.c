@@ -1386,6 +1386,14 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       pl_register_incomplete_bounds (bounds, node);
       break;
 
+    case GIMPLE_ASM:
+      bounds = pl_get_zero_bounds ();
+      pl_register_bounds (node, bounds);
+      warning (0, "PL: inline assembler is a potential pointer producer; using zero bounds (%s:%d)",
+	       LOCATION_FILE (gimple_location (def_stmt)),
+	       LOCATION_LINE (gimple_location (def_stmt)));
+      break;
+
     default:
       internal_error ("pl_get_bounds_by_definition: Unexpected GIMPLE code %s",
 		      gimple_code_name[code]);
