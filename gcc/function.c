@@ -67,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "params.h"
 #include "bb-reorder.h"
+#include "tree-pl.h"
 
 /* So we can assign to cfun in this file.  */
 #undef cfun
@@ -2167,6 +2168,7 @@ struct assign_parm_data_one
   tree passed_type;
   rtx entry_parm;
   rtx stack_parm;
+  rtx bound_parm;
   enum machine_mode nominal_mode;
   enum machine_mode passed_mode;
   enum machine_mode promoted_mode;
@@ -2403,7 +2405,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 			    struct assign_parm_data_one *data)
 {
   HOST_WIDE_INT pretend_bytes = 0;
-  rtx entry_parm;
+  rtx entry_parm, bound_parm = 0;
   bool in_regs;
 
   if (data->promoted_mode == VOIDmode)
@@ -2416,6 +2418,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
+  pl_split_returned_reg (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2494,24 +2497,22 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 	}
     }
 
-  if (entry_parm || !BOUND_TYPE_P (data->passed_type))
-    {
-      locate_and_pad_parm (data->promoted_mode, data->passed_type, in_regs,
-			   entry_parm ? data->partial : 0, current_function_decl,
-			   &all->stack_args_size, &data->locate);
+  locate_and_pad_parm (data->promoted_mode, data->passed_type, in_regs,
+		       entry_parm ? data->partial : 0, current_function_decl,
+		       &all->stack_args_size, &data->locate);
 
-      /* Update parm_stack_boundary if this parameter is passed in the
-	 stack.  */
-      if (!in_regs && crtl->parm_stack_boundary < data->locate.boundary)
-	crtl->parm_stack_boundary = data->locate.boundary;
+  /* Update parm_stack_boundary if this parameter is passed in the
+     stack.  */
+  if (!in_regs && crtl->parm_stack_boundary < data->locate.boundary)
+    crtl->parm_stack_boundary = data->locate.boundary;
 
-      /* Adjust offsets to include the pretend args.  */
-      pretend_bytes = all->extra_pretend_bytes - pretend_bytes;
-      data->locate.slot_offset.constant += pretend_bytes;
-      data->locate.offset.constant += pretend_bytes;
-    }
+  /* Adjust offsets to include the pretend args.  */
+  pretend_bytes = all->extra_pretend_bytes - pretend_bytes;
+  data->locate.slot_offset.constant += pretend_bytes;
+  data->locate.offset.constant += pretend_bytes;
 
   data->entry_parm = entry_parm;
+  data->bound_parm = bound_parm;
 }
 
 /* A subroutine of assign_parms.  If there is actually space on the stack
@@ -2815,6 +2816,22 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  push_to_sequence2 (all->first_conversion_insn,
 			     all->last_conversion_insn);
 	  emit_group_store (mem, entry_parm, data->passed_type, size);
+	  if (data->bound_parm)
+	    {
+	      int n;
+
+	      gcc_assert (GET_CODE (data->bound_parm) == PARALLEL);
+
+	      for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
+		{
+		  rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
+		  rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
+		  rtx ptr = pl_get_value_with_offs (entry_parm, offs);
+		  rtx slot = adjust_address (mem, GET_MODE (reg),
+					     INTVAL (offs));
+		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
+		}
+	    }
 	  all->first_conversion_insn = get_insns ();
 	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
@@ -3237,6 +3254,31 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
     }
 
   SET_DECL_RTL (parm, data->stack_parm);
+
+  if (data->bound_parm && AGGREGATE_TYPE_P (data->passed_type))
+    {
+      rtx bnd;
+      rtx ptr;
+
+      gcc_assert (REG_P (data->bound_parm)
+		  || CONST_INT_P (data->bound_parm));
+
+      if (REG_P (data->entry_parm))
+	ptr = data->entry_parm;
+      else
+	{
+	  ptr = gen_reg_rtx (Pmode);
+	  emit_move_insn (ptr, data->entry_parm);
+	}
+
+      if (REG_P (data->bound_parm))
+	bnd = data->bound_parm;
+      else
+	bnd = targetm.calls.load_bounds_for_arg (data->entry_parm, ptr,
+						 data->bound_parm);
+
+      targetm.calls.store_bounds_for_arg (ptr, data->stack_parm, bnd, NULL);
+    }
 }
 
 /* A subroutine of assign_parms.  If the ABI splits complex arguments, then
@@ -3313,7 +3355,6 @@ static void
 assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
-  rtx prev_entry_parm = NULL_RTX;
   tree parm;
   VEC(tree, heap) *fnargs;
   unsigned i;
@@ -3370,12 +3411,56 @@ assign_parms (tree fndecl)
 	  assign_parm_find_stack_rtl (parm, &data);
 	  assign_parm_adjust_entry_rtl (&data);
 	}
-      else if (!data.entry_parm && BOUND_TYPE_P (TREE_TYPE (parm)))
+
+      if (flag_pl
+	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
-	  data.entry_parm
-	    = targetm.calls.load_bounds_for_arg (all.args_so_far,
-						 prev_entry_parm);
+	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
+	    data.bound_parm
+	      = targetm.calls.load_bounds_for_arg (data.entry_parm,
+						   NULL,
+						   data.bound_parm);
+	  else if (GET_CODE (data.bound_parm) == PARALLEL)
+	    {
+	      rtx *tmps = XALLOCAVEC (rtx, XVECLEN (data.bound_parm, 0));
+	      int n;
+
+	      for (n = 0; n < XVECLEN (data.bound_parm, 0); n++)
+		{
+		  rtx reg = XEXP (XVECEXP (data.bound_parm, 0, n), 0);
+		  rtx offs = XEXP (XVECEXP (data.bound_parm, 0, n), 1);
+
+		  if (!REG_P (reg))
+		    {
+		      rtx p = pl_get_value_with_offs (data.entry_parm, offs);
+		      reg = targetm.calls.load_bounds_for_arg (p, NULL, reg);
+		    }
+
+		  tmps[n] = gen_rtx_EXPR_LIST (VOIDmode, reg, offs);
+		}
+
+	      data.bound_parm
+		= gen_rtx_PARALLEL (VOIDmode,
+				    gen_rtvec_v (XVECLEN (data.bound_parm, 0),
+						 tmps));
+	    }
+	  else if (!AGGREGATE_TYPE_P (data.passed_type))
+	    {
+	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
+						BNDmode,
+						TYPE_ALIGN (bound_type_node));
+	      rtx stack
+		= assign_stack_local (BNDmode,
+				      GET_MODE_SIZE (BNDmode),
+				      align);
+
+	      gcc_assert (REG_P (data.bound_parm));
+	      emit_move_insn (stack, data.bound_parm);
+
+	      data.bound_parm = stack;
+	    }
 	}
+      DECL_BOUNDS_RTL (parm) = data.bound_parm;
 
       /* Record permanently how this parm was passed.  */
       if (data.passed_pointer)
@@ -3384,15 +3469,9 @@ assign_parms (tree fndecl)
 	    = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (data.passed_type)),
 			   data.entry_parm);
 	  set_decl_incoming_rtl (parm, incoming_rtl, true);
-
-	  /* Assert if pointer is passes by pointer because this
-	     case is not covered by PL code yet.  */
-	  gcc_assert (!POINTER_TYPE_P (TREE_TYPE (data.passed_type)));
 	}
       else
 	set_decl_incoming_rtl (parm, data.entry_parm, false);
-
-      prev_entry_parm = data.entry_parm;
 
       /* Update info on where next arg arrives in registers.  */
       targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,

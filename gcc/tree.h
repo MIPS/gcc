@@ -3131,9 +3131,13 @@ struct GTY(()) tree_const_decl {
 #define DECL_INCOMING_RTL(NODE) \
   (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
+#define DECL_BOUNDS_RTL(NODE) \
+  (PARM_DECL_CHECK (NODE)->parm_decl.bounds_rtl)
+
 struct GTY(()) tree_parm_decl {
   struct tree_decl_with_rtl common;
   rtx incoming_rtl;
+  rtx bounds_rtl;
   struct var_ann_d *ann;
 };
 

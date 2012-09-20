@@ -54,6 +54,12 @@ struct arg_data
 {
   /* Tree node for this argument.  */
   tree tree_value;
+  /* Bounds tree node for this argument.  */
+  tree bounds_value;
+  /* Bounds RTL for this argument.  */
+  rtx bounds;
+  /* Slot to be used to pass bounds.  */
+  rtx bounds_slot;
   /* Mode for value; TYPE_MODE unless promoted.  */
   enum machine_mode mode;
   /* Current RTL value for argument, or 0 if it isn't precomputed.  */
@@ -130,7 +136,7 @@ static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 cumulative_args_t);
 static void precompute_register_parameters (int, struct arg_data *, int *);
-static int store_one_arg (cumulative_args_t, struct arg_data *, rtx, int,
+static int store_one_arg (struct arg_data *, rtx, int,
 			  int, int);
 static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
@@ -843,6 +849,11 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 		      && targetm.small_register_classes_for_mode_p (args[i].mode))
 		     || optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
+
+	if (args[i].bounds_value)
+	  args[i].bounds = expand_normal (args[i].bounds_value);
+	else
+	  args[i].bounds = NULL;
       }
 }
 
@@ -1113,6 +1124,11 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
       {
 	tree argtype = TREE_TYPE (arg);
+
+	if (BOUND_TYPE_P (argtype))
+	  continue;
+
+	args[j].bounds_value = NULL_TREE;
 	if (targetm.calls.split_complex_arg
 	    && argtype
 	    && TREE_CODE (argtype) == COMPLEX_TYPE
@@ -1124,7 +1140,11 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
 	  }
 	else
-	  args[j].tree_value = arg;
+	  {
+	    args[j].tree_value = arg;
+	    if (flag_pl && argtype && BOUNDED_TYPE_P (argtype))
+	      args[j].bounds_value = pl_get_arg_bounds (arg);
+	  }
 	j += inc;
       }
   }
@@ -1261,6 +1281,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
+      pl_split_returned_reg (args[i].reg, &args[i].reg, &args[i].bounds_slot);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -1975,6 +1996,83 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			  TYPE_MODE (TREE_TYPE (args[i].tree_value)));
 	  else if (nregs > 0)
 	    use_regs (call_fusage, REGNO (reg), nregs);
+
+	  if (args[i].bounds_slot)
+	    {
+	      if (args[i].bounds)
+		{
+		  gcc_assert (REG_P (args[i].bounds_slot)
+			      || CONST_INT_P (args[i].bounds_slot));
+
+		  if (REG_P (args[i].bounds_slot))
+		    emit_move_insn (args[i].bounds_slot, args[i].bounds);
+		  else
+		    {
+		      targetm.calls.store_bounds_for_arg (reg, reg,
+							  args[i].bounds,
+							  args[i].bounds_slot);
+		    }
+		}
+	      else
+		if (GET_CODE (args[i].bounds_slot) == PARALLEL)
+		  {
+		    int n;
+
+		    gcc_assert (MEM_P (args[i].value));
+		    gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
+
+		    for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
+		      {
+			rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
+			rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
+			rtx ptr = pl_get_value_with_offs (args[i].reg, offs);
+			rtx addr = adjust_address (args[i].value, Pmode,
+						   INTVAL (offs));
+			rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
+
+			if (REG_P (reg))
+			  emit_move_insn (reg, bnd);
+			else
+			  targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
+		      }
+		  }
+		else if (BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
+			 || pl_type_has_pointer (TREE_TYPE (args[i].tree_value)))
+		  {
+		    rtx slot;
+		    rtx ptr = args[i].reg;
+		    rtx bnd;
+
+		    gcc_assert (REG_P (args[i].reg));
+		    gcc_assert (REG_P (args[i].bounds_slot)
+				|| CONST_INT_P (args[i].bounds_slot));
+
+		    if (MEM_P (args[i].value))
+		      {
+			slot = args[i].value;
+			/*ptr = gen_reg_rtx (Pmode);
+			  emit_move_insn (ptr, slot);*/
+		      }
+		    else
+		      {
+			tree addr = build_fold_addr_expr (args[i].tree_value);
+			slot = gen_rtx_MEM (Pmode, expand_normal (addr));
+			/*ptr = args[i].value;*/
+		      }
+
+		    bnd = targetm.calls.load_bounds_for_arg (slot, ptr,
+							     args[i].bounds_slot);
+
+		    if (REG_P (args[i].bounds_slot))
+		      emit_move_insn (args[i].bounds_slot, bnd);
+		    else
+		      targetm.calls.store_bounds_for_arg (reg, args[i].reg,
+							  bnd, args[i].bounds_slot);
+		  }
+	    }
+	  else
+	    gcc_assert (!flag_pl
+			|| !BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value)));
 	}
     }
 }
@@ -2222,6 +2320,8 @@ expand_call (tree exp, rtx target, int ignore)
   int n_named_args;
   /* Number of complex actual arguments that need to be split.  */
   int num_complex_actuals = 0;
+  /* Number of bound actual arguments.  */
+  int num_bound_actuals = 0;
 
   /* Vector of information about each argument.
      Arguments are numbered in the order they will be pushed,
@@ -2451,9 +2551,22 @@ expand_call (tree exp, rtx target, int ignore)
       structure_value_addr_parm = 1;
     }
 
+  if (flag_pl)
+    {
+      call_expr_arg_iterator iter;
+      tree arg;
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	{
+	  tree type = TREE_TYPE (arg);
+	  if (type && BOUND_TYPE_P (type))
+	    num_bound_actuals++;
+	}
+    }
+
   /* Count the arguments and set NUM_ACTUALS.  */
   num_actuals =
-    call_expr_nargs (exp) + num_complex_actuals + structure_value_addr_parm;
+    call_expr_nargs (exp) + num_complex_actuals + structure_value_addr_parm
+    - num_bound_actuals;
 
   /* Compute number of named args.
      First, do a raw count of the args for INIT_CUMULATIVE_ARGS.  */
@@ -3032,7 +3145,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      rtx before_arg = get_last_insn ();
 
-	      if (store_one_arg (args_so_far, &args[i], argblock, flags,
+	      if (store_one_arg (&args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
 				 reg_parm_stack_space)
 		  || (pass == 0
@@ -3064,7 +3177,7 @@ expand_call (tree exp, rtx target, int ignore)
 	    {
 	      rtx before_arg = get_last_insn ();
 
-	      if (store_one_arg (args_so_far, &args[i], argblock, flags,
+	      if (store_one_arg (&args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
 				 reg_parm_stack_space)
 		  || (pass == 0
@@ -3072,19 +3185,6 @@ expand_call (tree exp, rtx target, int ignore)
 							 &args[i], 1)))
 		sibcall_failure = 1;
 	    }
-
-      /* Now we know addresses of all args and may allocate
-	 non register bounds.  */
-      for (i = 0; i < num_actuals; i++)
-	{
-	  int idx = PUSH_ARGS_REVERSED ? num_actuals - 1 - i : i;
-	  if (!args[idx].reg && BOUND_TYPE_P (TREE_TYPE (args[idx].tree_value)))
-	    {
-	      store_one_arg (args_so_far, &args[idx], argblock, flags,
-			     adjusted_args_size.var != 0,
-			     reg_parm_stack_space);
-	    }
-	}
 
       /* If we pushed args in forward order, perform stack alignment
 	 after pushing the last arg.  */
@@ -4374,8 +4474,7 @@ emit_library_call_value (rtx orgfun, rtx value,
    zero otherwise.  */
 
 static int
-store_one_arg (cumulative_args_t args_so_far,
-	       struct arg_data *arg, rtx argblock, int flags,
+store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	       int variable_size ATTRIBUTE_UNUSED, int reg_parm_stack_space)
 {
   tree pval = arg->tree_value;
@@ -4530,17 +4629,6 @@ store_one_arg (cumulative_args_t args_so_far,
   if (arg->value == arg->stack)
     /* If the value is already in the stack slot, we are done.  */
     ;
-  else if (arg->mode == BND64mode || arg->mode == BND32mode)
-    {
-      struct arg_data *prev_arg = PUSH_ARGS_REVERSED ? arg + 1 : arg - 1;
-      rtx addr = prev_arg->reg ? prev_arg->reg : prev_arg->stack;
-      rtx ptr = prev_arg->pushed_value
-	? prev_arg->pushed_value
-	: prev_arg->value;
-
-      targetm.calls.store_bounds_for_arg (args_so_far, ptr, addr,
-					  arg->value, false);
-    }
   else if (arg->mode != BLKmode)
     {
       int size;
@@ -4720,6 +4808,28 @@ store_one_arg (cumulative_args_t args_so_far,
       arg->parallel_value
 	= emit_group_load_into_temps (arg->reg, arg->value, type,
 				      int_size_in_bytes (type));
+    }
+
+  if (arg->bounds_value)
+    {
+      rtx ptr, addr;
+
+      arg->bounds = expand_normal (arg->bounds_value);
+
+      gcc_assert (!arg->bounds_slot);
+
+      ptr = arg->pushed_value ? arg->pushed_value : arg->value;
+      addr = arg->stack;
+
+      targetm.calls.store_bounds_for_arg (ptr, addr,
+					  arg->bounds, NULL);
+    }
+  else if (flag_pl
+	   && pl_type_has_pointer (TREE_TYPE (arg->tree_value)))
+    {
+      tree argtype = TREE_TYPE (arg->tree_value);
+      rtx value = arg->pushed_value ? arg->pushed_value : arg->value;
+      pl_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
     }
 
   /* Mark all slots this store used.  */

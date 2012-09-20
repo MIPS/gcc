@@ -2013,7 +2013,7 @@ DEFHOOK
 (load_bounds_for_arg,
  "Extend pass uses this hook to emit insn for arg\n\
 bounds in case bounds are not passed on register.",
- rtx, (cumulative_args_t, rtx),
+ rtx, (rtx, rtx, rtx),
  default_load_bounds_for_arg)
 
 /* Returns rtx for bounds store for specified arg.  */
@@ -2021,7 +2021,7 @@ DEFHOOK
 (store_bounds_for_arg,
  "Extend pass uses this hook to emit insn for arg\n\
 bounds in case bounds are not passed on register.",
- rtx, (cumulative_args_t, rtx, rtx, rtx, bool),
+ rtx, (rtx, rtx, rtx, rtx),
  default_store_bounds_for_arg)
 
 DEFHOOK

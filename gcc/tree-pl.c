@@ -23,6 +23,7 @@
 #include "gimple.h"
 #include "tree-pl.h"
 #include "rtl.h"
+#include "expr.h"
 
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
@@ -38,7 +39,6 @@ static void pl_finish_incomplete_bounds (void);
 static void pl_erase_completed_bounds (void);
 static void pl_erase_incomplete_bounds (void);
 static tree pl_get_tmp_var (void);
-static bool pl_type_has_pointer (tree type);
 static void pl_fix_function_decl (tree decl, bool make_ssa_names);
 static void pl_fix_function_decls (void);
 static void pl_init (void);
@@ -109,6 +109,9 @@ static void pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 			     bool safe);
 static void pl_mark_stmt (gimple s);
 static bool pl_marked_stmt (gimple s);
+static void pl_find_bound_slots (tree type, bool *have_bound,
+				 HOST_WIDE_INT offs,
+				 HOST_WIDE_INT ptr_size);
 
 static GTY (()) tree pl_bndldx_fndecl;
 static GTY (()) tree pl_bndstx_fndecl;
@@ -119,6 +122,7 @@ static GTY (()) tree pl_ret_bnd_fndecl;
 static GTY (()) tree pl_intersect_fndecl;
 static GTY (()) tree pl_user_intersect_fndecl;
 static GTY (()) tree pl_bind_intersect_fndecl;
+static GTY (()) tree pl_arg_bnd_fndecl;
 
 static GTY (()) tree pl_bound_type;
 static GTY (()) tree pl_uintptr_type;
@@ -178,14 +182,20 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
   int i;
   int val_num = 0;
   int bnd_num = 0;
-  rtx *val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
-  rtx *bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+  rtx *val_tmps;
+  rtx *bnd_tmps;
 
-  if (GET_CODE (return_reg) != PARALLEL)
+  *return_reg_bnd = 0;
+
+  if (!return_reg
+      || GET_CODE (return_reg) != PARALLEL)
     {
       *return_reg_val = return_reg;
       return;
     }
+
+  val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+  bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
 
   for (i = 0; i < XVECLEN (return_reg, 0); i++)
     {
@@ -194,7 +204,7 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
       if (!reg)
 	continue;
 
-      if (BOUND_MODE_P (GET_MODE (reg)))
+      if (BOUND_MODE_P (GET_MODE (reg)) || CONST_INT_P (reg))
 	bnd_tmps[bnd_num++] = XVECEXP (return_reg, 0, i);
       else
 	val_tmps[val_num++] = XVECEXP (return_reg, 0, i);
@@ -202,16 +212,28 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
 
   gcc_assert (val_num);
 
-  if (val_num == 1)
-    *return_reg_val = XEXP (val_tmps[0], 0);
-  else
-    *return_reg_val = gen_rtx_PARALLEL (VOIDmode,
-					gen_rtvec_v (val_num, val_tmps));
+  if (!bnd_num)
+    {
+      *return_reg_val = return_reg;
+      return;
+    }
 
-  if (bnd_num == 1)
-    *return_reg_bnd = XEXP (bnd_tmps[0], 0);
-  else if (bnd_num > 1)
-    internal_error ("Multiple returned bounds are NYI");
+  if (val_num == 1)
+    {
+      *return_reg_val = XEXP (val_tmps[0], 0);
+      if (bnd_num == 1)
+	*return_reg_bnd = XEXP (bnd_tmps[0], 0);
+      else if (bnd_num > 1)
+	gcc_unreachable ();
+    }
+  else
+    {
+      gcc_assert  (bnd_num > 0);
+      *return_reg_val = gen_rtx_PARALLEL (GET_MODE (*return_reg_val),
+					  gen_rtvec_v (val_num, val_tmps));
+      *return_reg_bnd = gen_rtx_PARALLEL (VOIDmode,
+					  gen_rtvec_v (bnd_num, bnd_tmps));
+    }
 }
 
 static int
@@ -365,7 +387,7 @@ pl_finish_incomplete_bounds (void)
   pl_erase_incomplete_bounds ();
 }
 
-static bool
+bool
 pl_type_has_pointer (tree type)
 {
   bool res = false;
@@ -559,36 +581,20 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple new_call;
   ssa_op_iter iter;
   tree op;
-  bool use_fntype = false;
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
       && fndecl != pl_user_intersect_fndecl)
     return;
 
-  if (fndecl && DECL_ARGUMENTS (fndecl))
-    first_formal_arg = DECL_ARGUMENTS (fndecl);
-  else
-    {
-      first_formal_arg = TYPE_ARG_TYPES (fntype);
-      use_fntype = true;
-    }
+  first_formal_arg = TYPE_ARG_TYPES (fntype);
 
-  /* Get number of arguments and bound arguments from
-     functiond declaration or function pointer type.  */
+  /* Get number of arguments and bound arguments.  */
   for (arg = first_formal_arg;
-       arg && (!use_fntype
-	       || (arg != void_list_node
-		   && TREE_VALUE (arg) != void_type_node));
+       arg && TREE_VALUE (arg) != void_type_node;
        arg = TREE_CHAIN (arg))
     {
-      if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)))
-	bnd_arg_cnt++;
-
-      /* Currently we do not fix function types. Therefore
-	 look for pointer args and but count arg_cnt like
-	 if it was fixed.  */
-      if (use_fntype && BOUNDED_TYPE_P (TREE_VALUE (arg)))
+      if (BOUNDED_TYPE_P (TREE_VALUE (arg)))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
@@ -604,7 +610,8 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       bnd_arg_cnt = 1;
     }
 
-  /* Now add number of additional bound arguments */
+  /* Now add number of additional bound arguments for
+     stdarg functions.  */
   for (arg_no = arg_cnt - bnd_arg_cnt;
        arg_no < gimple_call_num_args (call);
        arg_no++)
@@ -632,31 +639,17 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   arg_no = 0;
   for (arg = first_formal_arg;
-       arg && (!use_fntype
-	       || (arg != void_list_node
-		   && TREE_VALUE (arg) != void_type_node));
+       arg && TREE_VALUE (arg) != void_type_node;
        arg = TREE_CHAIN (arg))
     {
-      if (!use_fntype && BOUND_TYPE_P (TREE_TYPE (arg)) && bnd_arg_cnt)
+      tree call_arg = gimple_call_arg (call, arg_no++);
+      gimple_call_set_arg (new_call, new_arg_no++, call_arg);
+
+      if (BOUNDED_TYPE_P (TREE_VALUE (arg)) && bnd_arg_cnt)
 	{
-	  tree prev_arg = gimple_call_arg (call, arg_no - 1);
-	  tree bounds = pl_find_bounds (prev_arg, gsi);
+	  tree bounds = pl_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
-	}
-      else
-	{
-	  tree call_arg = gimple_call_arg (call, arg_no++);
-	  gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-
-	  if (use_fntype
-	      && BOUNDED_TYPE_P (TREE_VALUE (arg))
-	      && bnd_arg_cnt)
-	    {
-	      tree bounds = pl_find_bounds (call_arg, gsi);
-	      gimple_call_set_arg (new_call, new_arg_no++, bounds);
-	      bnd_arg_cnt--;
-	    }
 	}
     }
 
@@ -766,6 +759,106 @@ pl_get_registered_bounds (tree ptr)
 						 &in, in.hash);
 
   return res ? res->to : NULL_TREE;
+}
+
+tree
+pl_get_arg_bounds (tree arg)
+{
+  tree bounds = pl_find_bounds (arg, NULL);
+
+  if (!bounds)
+    {
+      if (arg == integer_zero_node)
+	bounds = pl_get_none_bounds ();
+      else
+	bounds = pl_get_invalid_op_bounds ();
+    }
+
+  return bounds;
+}
+
+rtx
+pl_get_value_with_offs (rtx par, rtx offs)
+{
+  int n;
+
+  gcc_assert (GET_CODE (par) == PARALLEL);
+
+  for (n = 0; n < XVECLEN (par, 0); n++)
+    {
+      rtx par_offs = XEXP (XVECEXP (par, 0, n), 1);
+      if (INTVAL (offs) == INTVAL (par_offs))
+	return XEXP (XVECEXP (par, 0, n), 0);
+    }
+
+  return NULL;
+}
+
+static void
+pl_find_bound_slots (tree type, bool *have_bound,
+		     HOST_WIDE_INT offs,
+		     HOST_WIDE_INT ptr_size)
+{
+  if (BOUNDED_TYPE_P (type))
+    have_bound[offs / ptr_size] = true;
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL)
+	  {
+	    HOST_WIDE_INT field_offs
+	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	    pl_find_bound_slots (TREE_TYPE (field), have_bound,
+				 offs + field_offs, ptr_size);
+	  }
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+      tree etype = TREE_TYPE (type);
+      HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
+      HOST_WIDE_INT cur;
+
+      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
+	pl_find_bound_slots (etype, have_bound, offs + cur * esize, ptr_size);
+    }
+}
+
+rtx
+pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
+{
+  HOST_WIDE_INT ptr_size = TREE_INT_CST_LOW (TYPE_SIZE (pl_uintptr_type));
+  HOST_WIDE_INT max_bounds = TREE_INT_CST_LOW (TYPE_SIZE (type)) / ptr_size;
+  bool *have_bound = (bool *)xmalloc (sizeof (bool) * max_bounds);
+  HOST_WIDE_INT i;
+  rtx tmp = NULL, bnd;
+
+  memset (have_bound, 0, sizeof (bool) * max_bounds);
+
+  gcc_assert (TYPE_SIZE (type));
+  gcc_assert (MEM_P (value));
+  gcc_assert (MEM_P (slot));
+  gcc_assert (RECORD_OR_UNION_TYPE_P (type));
+
+  pl_find_bound_slots (type, have_bound, 0, ptr_size);
+
+  for (i = 0; i < max_bounds; i++)
+    if (have_bound[i])
+      {
+	rtx ptr = adjust_address (value, Pmode, i * ptr_size / 8);
+	rtx to = adjust_address (slot, Pmode, i * ptr_size / 8);
+
+	if (!tmp)
+	  tmp = gen_reg_rtx (Pmode);
+
+	emit_move_insn (tmp, ptr);
+	bnd = targetm.calls.load_bounds_for_arg (ptr, tmp, NULL);
+	targetm.calls.store_bounds_for_arg (tmp, to, bnd, NULL);
+      }
+
+  free (have_bound);
 }
 
 static void
@@ -958,28 +1051,57 @@ pl_build_returned_bound (gimple call)
 static tree
 pl_get_bound_for_parm (tree parm)
 {
+  tree decl = SSA_NAME_VAR (parm);
   tree bounds;
 
   bounds = pl_get_registered_bounds (parm);
+
+  if (!bounds)
+    bounds = pl_get_registered_bounds (decl);
 
   /* NULL bounds mean parm is not a pointer and
      zero bounds should be returned.  */
   if (!bounds)
     {
-      /* For static chain param we return error bounds
+      /* For static chain param we return zero bounds
 	 because currently we do not check dereferences
 	 of this pointer.  */
       /* !!! FIXME: there is probably a more correct way to
 	 identify such parm.  */
       if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
-	  && DECL_ARTIFICIAL (parm))
-	return pl_get_zero_bounds ();
-      else
+	  && DECL_ARTIFICIAL (decl))
+	bounds = pl_get_zero_bounds ();
+      else if (BOUNDED_P (parm))
 	{
-	  gcc_assert (!BOUNDED_P (parm));
-	  bounds = pl_get_zero_bounds ();
+	    gimple_stmt_iterator gsi;
+	    gimple stmt;
+
+	    stmt = gimple_build_call (pl_arg_bnd_fndecl, 1, parm);
+	    pl_mark_stmt (stmt);
+
+	    gsi = gsi_start_bb (pl_get_entry_block ());
+	    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+
+	    bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+	    gimple_call_set_lhs (stmt, bounds);
+
+	    update_stmt (stmt);
+	    pl_register_bounds (decl, bounds);
+
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		fprintf (dump_file, "Built arg bounds (");
+		print_generic_expr (dump_file, bounds, 0);
+		fprintf (dump_file, ") for arg: ");
+		print_node (dump_file, "", decl, 0);
+	      }
 	}
+      else
+	bounds = pl_get_zero_bounds ();
     }
+
+  if (!pl_get_registered_bounds (parm))
+    pl_register_bounds (parm, bounds);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1348,8 +1470,9 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       switch (TREE_CODE (var))
 	{
 	case PARM_DECL:
-	  bounds = pl_find_bounds (var, iter);
-	  pl_register_bounds (node, bounds);
+	  bounds = pl_get_bound_for_parm (node);
+	  /*bounds = pl_find_bounds (var, iter);
+	    pl_register_bounds (node, bounds);*/
 	  break;
 
 	case VAR_DECL:
@@ -1582,8 +1705,6 @@ pl_get_bounds_for_decl_addr (tree decl)
       bounds = pl_generate_extern_var_bounds (decl);
     }
 
-  pl_register_addr_bounds (decl, bounds);
-
   return bounds;
 }
 
@@ -1614,7 +1735,10 @@ static tree
 pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 				 bool always_narrow_fields)
 {
-  tree bounds;
+  tree bounds = pl_get_registered_addr_bounds (obj);
+
+  if (bounds)
+    return bounds;
 
   switch (TREE_CODE (obj))
     {
@@ -1669,6 +1793,8 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 		      tree_code_name[TREE_CODE (obj)]);
     }
 
+  pl_register_addr_bounds (obj, bounds);
+
   return bounds;
 }
 
@@ -1697,6 +1823,11 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
   if (!ptr_src)
     ptr_src = ptr;
 
+  bounds = pl_get_registered_bounds (ptr_src);
+
+  if (bounds)
+    return bounds;
+
   switch (TREE_CODE (ptr_src))
     {
     case MEM_REF:
@@ -1713,6 +1844,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case PARM_DECL:
+      gcc_unreachable ();
       bounds = pl_get_bound_for_parm (ptr_src);
       break;
 
@@ -2478,6 +2610,8 @@ pl_init (void)
     = targetm.builtin_pl_function (BUILT_IN_PL_USER_INTERSECT);
   pl_bind_intersect_fndecl
     = targetm.builtin_pl_function (BUILT_IN_PL_BIND_INTERSECT);
+  pl_arg_bnd_fndecl
+    = targetm.builtin_pl_function (BUILT_IN_PL_ARG_BND);
 }
 
 static void
@@ -2492,7 +2626,6 @@ pl_execute (void)
   /* FIXME: check we need to instrument this function */
   pl_init ();
 
-  pl_fix_function_decls ();
   pl_transform_function ();
 
   pl_fini ();
