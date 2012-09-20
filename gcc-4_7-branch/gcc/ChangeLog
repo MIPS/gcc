@@ -1,3 +1,55 @@
+2012-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/54563
+	* tree-ssa-math-opts.c (execute_cse_sincos): Call
+	gimple_purge_dead_eh_edges if last call has been changed.
+
+	2012-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/54564
+	* config/i386/sse.md (fmai_vmfmadd_<mode>): Use (match_dup 1)
+	instead of (match_dup 0) as second argument to vec_merge.
+	(*fmai_fmadd_<mode>, *fmai_fmsub_<mode>): Likewise.
+	Remove third alternative.
+	(*fmai_fnmadd_<mode>, *fmai_fnmsub_<mode>): Likewise.  Negate
+	operand 2 instead of operand 1, but put it as first argument
+	of fma.
+	* config/i386/fmaintrin.h (_mm_fnmadd_sd, _mm_fnmadd_ss,
+	_mm_fnmsub_sd, _mm_fnmsub_ss): Negate the second argument instead
+	of the first.
+
+2012-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.7.3.
+	* DEV-PHASE: Set to prerelease.
+
+2012-09-20  Release Manager
+
+	* GCC 4.7.2 released.
+
+2012-09-15  Andi Kleen  <ak@linux.intel.com>
+
+	Backport from mainline
+	2012-09-07  Andi Kleen  <ak@linux.intel.com>
+
+  	* gcc/lto-streamer.h (res_pair): Add.
+    	(lto_file_decl_data): Replace resolutions with respairs.
+    	Add max_index.
+    	* gcc/lto/lto.c (lto_resolution_read): Remove max_index.  Add rp.
+    	Initialize respairs.
+    	(lto_file_finalize): Set up resolutions vector lazily from respairs.
+
+2012-09-14  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline.
+	2012-09-14  Walter Lee  <walt@tilera.com>
+
+	* doc/invoke.texi (Option Summary): fix typesetting for -mcpu
+	option for TILEPro and TILE-Gx.
+
 2012-09-13  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.h (x86_prefetchw): New global variable.
