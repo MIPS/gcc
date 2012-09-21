@@ -851,7 +851,17 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
 
 	if (args[i].bounds_value)
-	  args[i].bounds = expand_normal (args[i].bounds_value);
+	  {
+	    /* We have to make a temporary for bounds if there is a bndmk.  */
+	    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
+	      {
+		args[i].bounds = gen_reg_rtx (BNDmode);
+		expand_expr_real (args[i].bounds_value, args[i].bounds,
+				  VOIDmode, EXPAND_NORMAL, 0);
+	      }
+	    else
+	      args[i].bounds = expand_normal (args[i].bounds_value);
+	  }
 	else
 	  args[i].bounds = NULL;
       }
@@ -1119,6 +1129,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     if (struct_value_addr_value)
       {
 	args[j].tree_value = struct_value_addr_value;
+	if (flag_pl)
+	  args[j].bounds_value
+	    = pl_make_bounds_for_struct_addr (struct_value_addr_value);
 	j += inc;
       }
     FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
@@ -1126,9 +1139,13 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	tree argtype = TREE_TYPE (arg);
 
 	if (BOUND_TYPE_P (argtype))
-	  continue;
+	  {
+	    args[j - inc].bounds_value = arg;
+	    continue;
+	  }
+	else
+	  args[j].bounds_value = NULL_TREE;
 
-	args[j].bounds_value = NULL_TREE;
 	if (targetm.calls.split_complex_arg
 	    && argtype
 	    && TREE_CODE (argtype) == COMPLEX_TYPE
@@ -1142,8 +1159,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	else
 	  {
 	    args[j].tree_value = arg;
-	    if (flag_pl && argtype && BOUNDED_TYPE_P (argtype))
-	      args[j].bounds_value = pl_get_arg_bounds (arg);
+	    /*if (flag_pl && argtype && BOUNDED_TYPE_P (argtype))
+	      args[j].bounds_value = pl_get_arg_bounds (arg);*/
 	  }
 	j += inc;
       }
@@ -2013,7 +2030,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 							  args[i].bounds_slot);
 		    }
 		}
-	      else
+	      else if (!BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
+		       && pl_type_has_pointer (TREE_TYPE (args[i].tree_value)))
 		if (GET_CODE (args[i].bounds_slot) == PARALLEL)
 		  {
 		    int n;
@@ -2036,8 +2054,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			  targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
 		      }
 		  }
-		else if (BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
-			 || pl_type_has_pointer (TREE_TYPE (args[i].tree_value)))
+		else
 		  {
 		    rtx slot;
 		    rtx ptr = args[i].reg;
@@ -2295,6 +2312,8 @@ expand_call (tree exp, rtx target, int ignore)
   /* Register in which non-BLKmode value will be returned,
      or 0 if no value or if value is BLKmode.  */
   rtx valreg;
+  /* Register(s) in which bounds are returned.  */
+  rtx valbnd = NULL;
   /* Address where we should return a BLKmode value;
      0 if value not BLKmode.  */
   rtx structure_value_addr = 0;
@@ -3091,6 +3110,10 @@ expand_call (tree exp, rtx target, int ignore)
 	    valreg = hard_function_value (rettype, fndecl, fntype,
 					  (pass == 0));
 
+	  /* Returned bound registers are handled later.  Slit them right now and
+	     join back before rerurn.  */
+	  pl_split_returned_reg (valreg, &valreg, &valbnd);
+
 	  /* If VALREG is a PARALLEL whose first member has a zero
 	     offset, use that.  This is for targets such as m68k that
 	     return the same value in multiple places.  */
@@ -3103,16 +3126,6 @@ expand_call (tree exp, rtx target, int ignore)
 		  && GET_MODE (where) == GET_MODE (valreg))
 		valreg = where;
 	    }
-	}
-
-      /* Currently returnd bound registers are not used in following code.
-	 Remove them.  */
-      if (flag_pl && valreg && GET_CODE (valreg) == PARALLEL)
-	{
-	  rtx bnd = 0;
-	  rtx val = 0;
-	  pl_split_returned_reg (valreg, &val, &bnd);
-	  valreg = val;
 	}
 
       /* Precompute all register parameters.  It isn't safe to compute anything
@@ -3581,6 +3594,9 @@ expand_call (tree exp, rtx target, int ignore)
 
   free (stack_usage_map_buf);
 
+  /* Join result with returned bounds so caller may use them if needed.  */
+  target = pl_join_splitted_reg (target, valbnd);
+
   return target;
 }
 
@@ -3703,6 +3719,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   rtx call_fusage = 0;
   rtx mem_value = 0;
   rtx valreg;
+  rtx valbnd;
   int pcc_struct_value = 0;
   int struct_value_size = 0;
   int flags;
@@ -4326,15 +4343,9 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   pop_temp_slots ();
 
-  /* Currently returnd bound registers are not used in following code.
-     Remove them.  */
-  if (flag_pl && valreg && GET_CODE (valreg) == PARALLEL)
-    {
-      rtx bnd = 0;
-      rtx val = 0;
-      pl_split_returned_reg (valreg, &val, &bnd);
-      valreg = val;
-    }
+  /* Returned bound registers are handled later.  Slit them right now and
+     join back before rerurn.  */
+  pl_split_returned_reg (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)
@@ -4814,7 +4825,15 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
     {
       rtx ptr, addr;
 
-      arg->bounds = expand_normal (arg->bounds_value);
+      /* We have to make a temporary for bounds if there is a bndmk.  */
+      if (TREE_CODE (arg->bounds_value) == CALL_EXPR)
+	{
+	  arg->bounds = gen_reg_rtx (BNDmode);
+	  expand_expr_real (arg->bounds_value, arg->bounds,
+			    VOIDmode, EXPAND_NORMAL, 0);
+	}
+      else
+	arg->bounds = expand_normal (arg->bounds_value);
 
       gcc_assert (!arg->bounds_slot);
 
@@ -4825,6 +4844,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 					  arg->bounds, NULL);
     }
   else if (flag_pl
+	   && !BOUNDED_TYPE_P (TREE_TYPE (arg->tree_value))
 	   && pl_type_has_pointer (TREE_TYPE (arg->tree_value)))
     {
       tree argtype = TREE_TYPE (arg->tree_value);

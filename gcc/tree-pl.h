@@ -14,6 +14,9 @@ extern tree pl_get_registered_bounds (tree ptr);
 extern tree pl_get_arg_bounds (tree arg);
 extern void pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
 				   rtx *return_reg_bnd);
+extern rtx pl_join_splitted_reg (rtx val, rtx bnd);
 extern rtx pl_get_value_with_offs (rtx par, rtx offs);
-extern rtx pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
+extern void pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
 extern bool pl_type_has_pointer (tree type);
+extern void pl_emit_bounds_store (rtx bounds, rtx value, rtx mem);
+extern tree pl_make_bounds_for_struct_addr (tree ptr);

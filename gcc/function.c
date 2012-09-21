@@ -1968,7 +1968,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 {
   const_tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
   int i, regno, nregs;
-  rtx reg;
+  rtx reg, bnd;
 
   if (fntype)
     switch (TREE_CODE (fntype))
@@ -2027,6 +2027,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   /* Make sure we have suitable call-clobbered regs to return
      the value in; if not, we must return it in memory.  */
   reg = hard_function_value (type, 0, fntype, 0);
+  pl_split_returned_reg (reg, &reg, &bnd);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -3611,6 +3612,7 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
+	  pl_split_returned_reg (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4842,6 +4844,9 @@ expand_function_start (tree subr)
 	     figure out what the mode of the eventual return register will
 	     actually be, and use that.  */
 	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
+	  rtx bounds;
+
+	  pl_split_returned_reg (hard_reg, &hard_reg, &bounds);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -4853,6 +4858,7 @@ expand_function_start (tree subr)
 	      gcc_assert (GET_CODE (hard_reg) == PARALLEL);
 	      SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
 	    }
+	  DECL_BOUNDS_RTL (DECL_RESULT (subr)) = bounds;
 	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
@@ -5215,6 +5221,7 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
+      pl_split_returned_reg (outgoing, &outgoing, &crtl->return_bnd);
 
       if (flag_pl && GET_CODE (outgoing) == PARALLEL)
 	{

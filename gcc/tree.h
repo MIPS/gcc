@@ -3007,9 +3007,12 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
+#define DECL_BOUNDS_RTL(NODE) (DECL_WRTL_CHECK (NODE)->decl_with_rtl.bounds)
+
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
+  rtx bounds;
 };
 
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
@@ -3131,13 +3134,9 @@ struct GTY(()) tree_const_decl {
 #define DECL_INCOMING_RTL(NODE) \
   (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
 
-#define DECL_BOUNDS_RTL(NODE) \
-  (PARM_DECL_CHECK (NODE)->parm_decl.bounds_rtl)
-
 struct GTY(()) tree_parm_decl {
   struct tree_decl_with_rtl common;
   rtx incoming_rtl;
-  rtx bounds_rtl;
   struct var_ann_d *ann;
 };
 

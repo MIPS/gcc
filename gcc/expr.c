@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssaexpand.h"
 #include "target-globals.h"
 #include "params.h"
+#include "tree-pl.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -4835,9 +4836,11 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	    || TREE_CODE (to) == SSA_NAME))
     {
       rtx value;
+      rtx bounds;
 
       push_temp_slots ();
       value = expand_normal (from);
+      pl_split_returned_reg (value, &value, &bounds);
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -4857,6 +4860,38 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
 	  emit_move_insn (to_rtx, value);
 	}
+
+      if (0 && bounds
+	  && !BOUNDED_TYPE_P (TREE_TYPE (to))
+	  && pl_type_has_pointer (TREE_TYPE (to)))
+	{
+	  gcc_assert (MEM_P (to_rtx));
+	  gcc_assert (!CONST_INT_P (bounds));
+
+	  if (REG_P (bounds))
+	    {
+	      gcc_assert (REG_P (value));
+	      targetm.calls.store_bounds_for_arg (value, to_rtx,
+						  bounds, NULL);
+	    }
+	  else
+	    {
+	      int i;
+
+	      gcc_assert (GET_CODE (bounds) == PARALLEL);
+	      gcc_assert (GET_CODE (value) == PARALLEL);
+
+	      for (i = 0; i < XVECLEN (bounds, 0); i++)
+		{
+		  rtx reg = XEXP (XVECEXP (bounds, 0, i), 0);
+		  rtx offs = XEXP (XVECEXP (bounds, 0, i), 1);
+		  rtx ptr = pl_get_value_with_offs (value, offs);
+		  rtx slot = adjust_address (to_rtx, Pmode, INTVAL (offs));
+		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
+		}
+	    }
+	}
+
       preserve_temp_slots (to_rtx);
       free_temp_slots ();
       pop_temp_slots ();
@@ -4966,7 +5001,7 @@ emit_storent_insn (rtx to, rtx from)
 rtx
 store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 {
-  rtx temp;
+  rtx temp, temp_bnd;
   rtx alt_rtl = NULL_RTX;
   location_t loc = EXPR_LOCATION (exp);
 
@@ -5057,6 +5092,8 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+      if (TREE_CODE (exp) == CALL_EXPR)
+	pl_split_returned_reg (temp, &temp, &temp_bnd);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5139,6 +5176,9 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
+      if (TREE_CODE (exp) == CALL_EXPR)
+	pl_split_returned_reg (temp, &temp, &temp_bnd);
+
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -5295,6 +5335,11 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	    emit_move_insn (target, temp);
 	}
     }
+
+  if (0 && temp_bnd && TREE_TYPE (exp)
+      && !BOUNDED_TYPE_P (TREE_TYPE (exp))
+      && pl_type_has_pointer (TREE_TYPE (exp)))
+    pl_emit_bounds_store (temp_bnd, temp, target);
 
   return NULL_RTX;
 }

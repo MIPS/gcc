@@ -222,17 +222,137 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
     {
       *return_reg_val = XEXP (val_tmps[0], 0);
       if (bnd_num == 1)
-	*return_reg_bnd = XEXP (bnd_tmps[0], 0);
+	{
+	  if (XEXP (bnd_tmps[0], 1) == const0_rtx)
+	    *return_reg_bnd = XEXP (bnd_tmps[0], 0);
+	  else
+	    *return_reg_bnd
+	      = gen_rtx_PARALLEL (VOIDmode,
+				  gen_rtvec_v (bnd_num, bnd_tmps));
+	}
       else if (bnd_num > 1)
 	gcc_unreachable ();
     }
   else
     {
       gcc_assert  (bnd_num > 0);
-      *return_reg_val = gen_rtx_PARALLEL (GET_MODE (*return_reg_val),
+      *return_reg_val = gen_rtx_PARALLEL (GET_MODE (return_reg),
 					  gen_rtvec_v (val_num, val_tmps));
       *return_reg_bnd = gen_rtx_PARALLEL (VOIDmode,
 					  gen_rtvec_v (bnd_num, bnd_tmps));
+    }
+}
+
+rtx
+pl_join_splitted_reg (rtx val, rtx bnd)
+{
+  rtx res;
+
+  if (!bnd)
+    return val;
+
+  if (REG_P (bnd) || CONST_INT_P (bnd))
+    {
+      gcc_assert (GET_CODE (val) != PARALLEL);
+
+      bnd = gen_rtx_EXPR_LIST (VOIDmode, bnd, const0_rtx);
+      val = gen_rtx_EXPR_LIST (VOIDmode, val, const0_rtx);
+
+      res = gen_rtx_PARALLEL (GET_MODE (val), rtvec_alloc (2));
+
+      XVECEXP (res, 0, 0) = bnd;
+      XVECEXP (res, 0, 1) = val;
+    }
+  else
+    {
+      bool valpar = (GET_CODE (val) == PARALLEL);
+      int n, i;
+
+      gcc_assert (GET_CODE (bnd) == PARALLEL);
+
+      n = (valpar ? XVECLEN (val, 0) : 1) + XVECLEN (bnd, 0);
+      res = gen_rtx_PARALLEL (GET_MODE (val), rtvec_alloc (n));
+
+      n = 0;
+      for (i = 0; i < XVECLEN (bnd, 0); i++)
+	XVECEXP (res, 0, n++) = XVECEXP (bnd, 0, i);
+      if (valpar)
+	for (i = 0; i < XVECLEN (val, 0); i++)
+	  XVECEXP (res, 0, n++) = XVECEXP (val, 0, i);
+      else
+	XVECEXP (res, 0, n++) = gen_rtx_EXPR_LIST (VOIDmode,
+						   val,
+						   const0_rtx);
+    }
+
+  return res;
+}
+
+tree
+pl_make_bounds_for_struct_addr (tree ptr)
+{
+  tree type = TREE_TYPE (ptr);
+  tree size;
+
+  gcc_assert (POINTER_TYPE_P (type));
+
+  size = TYPE_SIZE (TREE_TYPE (type));
+
+  gcc_assert (size);
+
+  return build_call_nary (pl_bound_type,
+			  build_fold_addr_expr (pl_bndmk_fndecl),
+			  2, ptr, size);
+}
+
+void
+pl_emit_bounds_store (rtx bounds, rtx value, rtx mem)
+{
+  gcc_assert (MEM_P (mem));
+
+  if (REG_P (bounds) || CONST_INT_P (bounds))
+    {
+      rtx ptr;
+
+      if (REG_P (value))
+	ptr = value;
+      else
+	{
+	  ptr = gen_reg_rtx (Pmode);
+	  emit_move_insn (ptr, value);
+	}
+
+      if (CONST_INT_P (bounds))
+	bounds = targetm.calls.load_bounds_for_arg (value, ptr, bounds);
+
+      targetm.calls.store_bounds_for_arg (ptr, mem,
+					  bounds, NULL);
+    }
+  else
+    {
+      int i;
+
+      gcc_assert (GET_CODE (bounds) == PARALLEL);
+      gcc_assert (GET_CODE (value) == PARALLEL || MEM_P (value));
+
+      for (i = 0; i < XVECLEN (bounds, 0); i++)
+	{
+	  rtx reg = XEXP (XVECEXP (bounds, 0, i), 0);
+	  rtx offs = XEXP (XVECEXP (bounds, 0, i), 1);
+	  rtx slot = adjust_address (mem, Pmode, INTVAL (offs));
+	  rtx ptr;
+
+	  if (GET_CODE (value) == PARALLEL)
+	    ptr = pl_get_value_with_offs (value, offs);
+	  else
+	    {
+	      rtx tmp = adjust_address (value, Pmode, INTVAL (offs));
+	      ptr = gen_reg_rtx (Pmode);
+	      emit_move_insn (ptr, tmp);
+	    }
+
+	  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
+	}
     }
 }
 
@@ -826,7 +946,7 @@ pl_find_bound_slots (tree type, bool *have_bound,
     }
 }
 
-rtx
+void
 pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
 {
   HOST_WIDE_INT ptr_size = TREE_INT_CST_LOW (TYPE_SIZE (pl_uintptr_type));

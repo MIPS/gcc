@@ -6649,7 +6649,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
-      if (type && BOUNDED_TYPE_P (type))
+      if (flag_pl && type && BOUNDED_TYPE_P (type))
 	{
 	  cum->bnd_nregs--;
 	  cum->bnd_regno++;
@@ -6850,7 +6850,7 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		regno = CX_REG;
 	    }
 
-	  if (type && BOUNDED_TYPE_P (type))
+	  if (flag_pl && type && BOUNDED_TYPE_P (type))
 	    {
 	      rtx bnd = gen_rtx_EXPR_LIST (VOIDmode,
 					   gen_rtx_REG (BNDmode, cum->bnd_regno),

@@ -1515,16 +1515,9 @@ expand_value_return (rtx val)
 
   tree decl = DECL_RESULT (current_function_decl);
   rtx return_reg = DECL_RTL (decl);
-  rtx return_reg_val = 0;
-  rtx return_reg_bnd = 0;
+  rtx return_bnd = DECL_BOUNDS_RTL (decl);
 
-  /* Separate bound registers and value registers.  */
-  if (flag_pl && GET_CODE (return_reg) == PARALLEL)
-    pl_split_returned_reg (return_reg, &return_reg_val, &return_reg_bnd);
-  else
-    return_reg_val = return_reg;
-
-  if (return_reg_val != val)
+  if (return_reg != val)
     {
       tree funtype = TREE_TYPE (current_function_decl);
       tree type = TREE_TYPE (decl);
@@ -1539,23 +1532,23 @@ expand_value_return (rtx val)
       if (mode != old_mode)
 	val = convert_modes (mode, old_mode, val, unsignedp);
 
-      if (GET_CODE (return_reg_val) == PARALLEL)
-	emit_group_load (return_reg_val, val, type, int_size_in_bytes (type));
+      if (GET_CODE (return_reg) == PARALLEL)
+	emit_group_load (return_reg, val, type, int_size_in_bytes (type));
       else
-	emit_move_insn (return_reg_val, val);
+	emit_move_insn (return_reg, val);
     }
 
-  if (flag_pl && return_reg_bnd)
+  if (return_bnd)
     {
       tree bounds = pl_get_registered_bounds (decl);
       if (bounds)
 	{
 	  rtx bnd_rtl = expand_normal (bounds);
 
-	  if (GET_CODE (return_reg_val) == PARALLEL)
+	  if (GET_CODE (return_reg) == PARALLEL)
 	    internal_error ("Multiple returned bounds are NYI");
 	  else
-	    emit_move_insn (return_reg_bnd, bnd_rtl);
+	    emit_move_insn (return_bnd, bnd_rtl);
 	}
     }
 
