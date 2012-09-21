@@ -1,3 +1,35 @@
+2012-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt20.ads: Move dg directive to...
+	* gnat.dg/opt20.adb: ...here.
+	* gnat.dg/addr1.ad[sb]: Likewise.
+	* gnat.dg/concat2.ad[sb]: Likewise.
+	* gnat.dg/array16.ad[sb]: Likewise.
+	* gnat.dg/atomic5.ad[sb]: Likewise.
+	* gnat.dg/discr29.ad[sb]: Likewise.
+	* gnat.dg/noreturn5.ad[sb]: Likewise.
+	* gnat.dg/vect8.ad[sb]: Likewise.  Add dg-options.
+	* gnat.dg/discr23.ads: Remove dg directive.
+	* gnat.dg/nested_float_packed.ads: Likewise.
+	* gnat.dg/oconst6.ads: Move to...
+	* gnat.dg/specs/oconst6.ads: ...here.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54552
+	* gcc.c-torture/compile/pr54552-1.c: New test.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54103
+	* gcc.c-torture/compile/pr54103-1.c,
+	gcc.c-torture/compile/pr54103-2.c,
+	gcc.c-torture/compile/pr54103-3.c,
+	gcc.c-torture/compile/pr54103-4.c,
+	gcc.c-torture/compile/pr54103-5.c,
+	gcc.c-torture/compile/pr54103-6.c: New tests.
+	* gcc.dg/c90-const-expr-8.c: Update expected column number.
+
 2012-09-20  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
