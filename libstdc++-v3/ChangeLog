@@ -1,3 +1,188 @@
+2012-09-18  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/ext/random: Add __gnu_cxx::nakagami_distribution<> class.
+	* include/ext/random.tcc: Add out-of-line functions for
+	__gnu_cxx::nakagami_distribution<>.
+	* testsuite/ext/random/nakagami_distribution/operators/equal.cc:
+	New file.
+	* testsuite/ext/random/nakagami_distribution/operators/serialize.cc:
+	New file.
+	* testsuite/ext/random/nakagami_distribution/operators/inequal.cc:
+	New file.
+	* testsuite/ext/random/nakagami_distribution/cons/parms.cc: New file.
+	* testsuite/ext/random/nakagami_distribution/cons/default.cc: New file.
+	* testsuite/ext/random/nakagami_distribution/requirements/typedefs.cc:
+	New file.
+	* testsuite/ext/random/nakagami_distribution/requirements/
+	explicit_instantiation/1.cc: New file.
+
+2012-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/54612
+	* include/ext/random.tcc (operator==
+	(const __gnu_cxx::simd_fast_mersenne_twister_engine<>&,
+	const __gnu_cxx::simd_fast_mersenne_twister_engine<>&)): Fix
+	state_size use.
+	* config/cpu/i486/opt/ext/opt_random.h: Guard with __SSE2__.
+
+2012-09-17  Ulrich Drepper  <drepper@gmail.com>
+
+	* configure.ac: Substitute CPU_OPT_EXT_RANDOM.
+	* configure.host: Define cpu_opt_ext_random to location of the
+	optimized version of <ext/random>.
+	* include/Makefile.am (ext_headers): Add ${ext_host_headers}.
+	(ext_host_headers): Define.
+	* include/ext/random (simd_fast_mersenne_twister_engine<>
+	::operator==): Don't define function here.
+	* include/ext/random.tcc (simd_fast_mersenne_twister_engine): Don't
+	define code using SSE2 here.  Define generic code only if
+	_GLIBCXX_OPT_HAVE_RANDOM_SFMT_GEN_READ is not defined.
+	(simd_fast_mersenne_twister_engine<>
+	::operator==): Define here if
+	_GLIBCXX_OPT_HAVE_RANDOM_SFMT_OPERATOREQUAL is not defined.
+	* config/cpu/generic/opt/ext/opt_random.h: New file.
+	* config/cpu/i486/opt/ext/opt_random.h: New file.
+	* libsupc++/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+	* po/Makefile.in: Regenerated.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* doc/Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+	* python/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* src/c++98/Makefile.in: Regenerated.
+	* src/c++11/Makefile.in: Regenerated.
+	* src/Makefile.in: Regenerated.
+
+2012-09-16  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/ext/random.tcc (__gnu_cxx::rice_distribution<>
+	::__generate_impl): Remove bogus _Adaptor usage.
+
+2012-09-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/ext/random (rice_distribution<>::operator==): Change
+	inline friend definition to non-template.
+	* testsuite/ext/random/rice_distribution/requirements/
+	explicit_instantiation/1.cc: New.
+
+	* testsuite/26_numerics/random/normal_mv_distribution: Move...
+	* testsuite/ext/random/normal_mv_distribution: ... here.
+	* testsuite/26_numerics/random/simd_fast_mersenne_twister_engine:
+	Move...
+	* testsuite/ext/random/simd_fast_mersenne_twister_engine: ... here.
+	* testsuite/26_numerics/random/beta_distribution: Move...
+	* testsuite/ext/random/beta_distribution: ... here.
+	* testsuite/26_numerics/random/rice_distribution: Move...
+	* testsuite/ext/random/rice_distribution: ... here.
+
+2012-09-14  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/ext/random: Add __gnu_cxx::rice_distribution<> class.
+	* include/ext/random.tcc: Add out-of-line functions for
+	__gnu_cxx::rice_distribution<>.
+	* testsuite/26_numerics/random/rice_distribution/
+	operators/equal.cc: New file.
+	* testsuite/26_numerics/random/rice_distribution/
+	operators/serialize.cc: New file.
+	* testsuite/26_numerics/random/rice_distribution/
+	operators/inequal.cc: New file.
+	* testsuite/26_numerics/random/rice_distribution/
+	cons/parms.cc: New file.
+	* testsuite/26_numerics/random/rice_distribution/
+	cons/default.cc: New file.
+	* testsuite/26_numerics/random/rice_distribution/
+	requirements/typedefs.cc: New file.
+
+2012-09-14  David Edelsohn  <dje.gcc@gmail.com>
+
+	* configure: Regenerated.
+
+2012-09-14  Jonathan Wakely  <jwakely.gcc@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR libstdc++/54576
+	* src/c++11/random.cc: Check if _GLIBCXX_USE_C99_STDINT_TR1 is defined.
+
+2012-09-12  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* acinclude.m4 (GLIBCXX_CHECK_ASSEMBLER_HWCAP): Define.
+	* configure.ac: Call GLIBCXX_CHECK_ASSEMBLER_HWCAP.
+	* fragment.am (CONFIG_CXXFLAGS): Add $(HWCAP_FLAGS).
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* doc/Makefile.in: Regenerate.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.in: Regenerate.
+	* po/Makefile.in: Regenerate.
+	* python/Makefile.in: Regenerate.
+	* src/Makefile.in: Regenerate.
+	* src/c++11/Makefile.in: Regenerate.
+	* src/c++98/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+
+2012-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/54172
+	* libsupc++/guard.cc (__cxa_guard_acquire): Fix up the last
+	argument of the first __atomic_compare_exchange_n.
+
+2012-09-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+	    Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/43852
+	* acinclude.m4 (GLIBCXX_ENABLE_VERBOSE): Define.
+	* configure.ac (GLIBCXX_ENABLE_VERBOSE): Use it.
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+	* libsupc++/eh_term_handler.cc (_GLIBCXX_VERBOSE): Check new macro.
+	* libsupc++/pure.cc (_GLIBCXX_VERBOSE): Likewise.
+	* doc/xml/manual/configure.xml (--disable-libstdcxx-verbose): Document.
+	* doc/html/manual/configure.html: Regenerate.
+
+2012-09-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR bootstrap/54419
+	* acinclude.m4 (GLIBCXX_CHECK_X86_RDRAND): Remove stray character.
+	* configure: Regenerated.
+
+2012-09-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/54388
+	* include/std/array (array::at() const): Ensure lvalue result.
+	* testsuite/23_containers/array/element_access/54388.cc: New.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	Likewise.
+
+2012-09-09  Ulrich Drepper  <drepper@gmail.com>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR bootstrap/54419
+	* acinclude.m4: Define GLIBCXX_CHECK_X86_RDRAND.
+	* configure.ac: Use GLIBCXX_CHECK_X86_RDRAND to test for rdrand
+	support in assembler.
+	* src/c++11/random.cc (__x86_rdrand): Depend on _GLIBCXX_X86_RDRAND.
+	(random_device::_M_init): Likewise.
+	(random_device::_M_getval): Likewise.
+	* configure: Regenerated.
+	* config.h.in: Regenerated.
+
+2012-09-09  Ulrich Drepper  <drepper@gmail.com>
+
+	* src/c++11/random.cc (random_device::_M_init): Use new macro
+	signature_INTEL_ebx to check for Intel processors.
+
+2012-09-06  Thiago Macieira  <thiago.macieira@intel.com>
+
+	PR libstdc++/54172
+        * libsupc++/guard.cc (__cxa_guard_acquire): Exit the loop earlier if
+        we detect that another thread has had success. Don't compare_exchange
+        from a finished state back to a waiting state. Comment.
+
 2012-09-05  François Dumont  <fdumont@gcc.gnu.org>
 
 	PR libstdc++/54296

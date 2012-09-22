@@ -408,7 +408,7 @@ C C++ Var(warn_ignored_qualifiers) Warning EnabledBy(Wextra)
 Warn whenever type qualifiers are ignored.
 
 Winit-self
-C ObjC C++ ObjC++ Var(warn_init_self) Warning
+C ObjC C++ ObjC++ Var(warn_init_self) Warning LangEnabledBy(C++ ObjC++,Wall)
 Warn about variables which are initialized to themselves
 
 Wimplicit
@@ -728,6 +728,10 @@ C ObjC C++ ObjC++ Joined
 faccess-control
 C++ ObjC++ Var(flag_access_control) Init(1)
 Enforce class member access control semantics
+
+fada-spec-parent=
+C ObjC C++ ObjC++ RejectNegative Joined Var(ada_specs_parent)
+-fada-spec-parent=unit  Dump Ada specs as child units of given parent
 
 fall-virtual
 C++ ObjC++ Ignore Warn(switch %qs is no longer supported)

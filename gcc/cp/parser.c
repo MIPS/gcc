@@ -590,13 +590,13 @@ cp_lexer_new_main (void)
   lexer = cp_lexer_alloc ();
 
   /* Put the first token in the buffer.  */
-  VEC_quick_push (cp_token, lexer->buffer, &token);
+  VEC_quick_push (cp_token, lexer->buffer, token);
 
   /* Get the remaining tokens from the preprocessor.  */
   while (token.type != CPP_EOF)
     {
       cp_lexer_get_preprocessor_token (lexer, &token);
-      VEC_safe_push (cp_token, gc, lexer->buffer, &token);
+      VEC_safe_push (cp_token, gc, lexer->buffer, token);
     }
 
   lexer->last_token = VEC_address (cp_token, lexer->buffer)
@@ -667,7 +667,7 @@ cp_lexer_token_position (cp_lexer *lexer, bool previous_p)
 }
 
 static inline cp_token *
-cp_lexer_token_at (cp_lexer *lexer ATTRIBUTE_UNUSED, cp_token_position pos)
+cp_lexer_token_at (cp_lexer * /*lexer*/, cp_token_position pos)
 {
   return pos;
 }
@@ -1731,11 +1731,8 @@ cp_parser_context_new (cp_parser_context* next)
 static void
 push_unparsed_function_queues (cp_parser *parser)
 {
-  VEC_safe_push (cp_unparsed_functions_entry, gc,
-		 parser->unparsed_queues, NULL);
-  unparsed_funs_with_default_args = NULL;
-  unparsed_funs_with_definitions = make_tree_vector ();
-  unparsed_nsdmis = NULL;
+  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL};
+  VEC_safe_push (cp_unparsed_functions_entry, gc, parser->unparsed_queues, e);
 }
 
 static void
@@ -8028,7 +8025,7 @@ start_lambda_scope (tree decl)
     decl = current_function_decl;
   ti.t = lambda_scope;
   ti.i = lambda_count;
-  VEC_safe_push (tree_int, gc, lambda_scope_stack, &ti);
+  VEC_safe_push (tree_int, gc, lambda_scope_stack, ti);
   if (lambda_scope != decl)
     {
       /* Don't reset the count if we're still in the same function.  */
@@ -20670,54 +20667,24 @@ cp_parser_check_declarator_template_parameters (cp_parser* parser,
 						cp_declarator *declarator,
 						location_t declarator_location)
 {
-  unsigned num_templates;
-
-  /* We haven't seen any classes that involve template parameters yet.  */
-  num_templates = 0;
-
   switch (declarator->kind)
     {
     case cdk_id:
-      if (declarator->u.id.qualifying_scope)
-	{
-	  tree scope;
+      {
+	unsigned num_templates = 0;
+	tree scope = declarator->u.id.qualifying_scope;
 
-	  scope = declarator->u.id.qualifying_scope;
+	if (scope)
+	  num_templates = num_template_headers_for_class (scope);
+	else if (TREE_CODE (declarator->u.id.unqualified_name)
+		 == TEMPLATE_ID_EXPR)
+	  /* If the DECLARATOR has the form `X<y>' then it uses one
+	     additional level of template parameters.  */
+	  ++num_templates;
 
-	  while (scope && CLASS_TYPE_P (scope))
-	    {
-	      /* You're supposed to have one `template <...>'
-		 for every template class, but you don't need one
-		 for a full specialization.  For example:
-
-		 template <class T> struct S{};
-		 template <> struct S<int> { void f(); };
-		 void S<int>::f () {}
-
-		 is correct; there shouldn't be a `template <>' for
-		 the definition of `S<int>::f'.  */
-	      if (!CLASSTYPE_TEMPLATE_INFO (scope))
-		/* If SCOPE does not have template information of any
-		   kind, then it is not a template, nor is it nested
-		   within a template.  */
-		break;
-	      if (explicit_class_specialization_p (scope))
-		break;
-	      if (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
-		++num_templates;
-
-	      scope = TYPE_CONTEXT (scope);
-	    }
-	}
-      else if (TREE_CODE (declarator->u.id.unqualified_name)
-	       == TEMPLATE_ID_EXPR)
-	/* If the DECLARATOR has the form `X<y>' then it uses one
-	   additional level of template parameters.  */
-	++num_templates;
-
-      return cp_parser_check_template_parameters 
-	(parser, num_templates, declarator_location, declarator);
-
+	return cp_parser_check_template_parameters 
+	  (parser, num_templates, declarator_location, declarator);
+      }
 
     case cdk_function:
     case cdk_array:
@@ -21788,11 +21755,9 @@ cp_parser_save_default_args (cp_parser* parser, tree decl)
        probe = TREE_CHAIN (probe))
     if (TREE_PURPOSE (probe))
       {
-	cp_default_arg_entry *entry
-	  = VEC_safe_push (cp_default_arg_entry, gc,
-			   unparsed_funs_with_default_args, NULL);
-	entry->class_type = current_class_type;
-	entry->decl = decl;
+	cp_default_arg_entry entry = {current_class_type, decl};
+	VEC_safe_push (cp_default_arg_entry, gc,
+		       unparsed_funs_with_default_args, entry);
 	break;
       }
 }
@@ -25357,7 +25322,7 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
    mergeable */
 
 static tree
-cp_parser_omp_clause_mergeable (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_mergeable (cp_parser * /*parser*/,
 				tree list, location_t location)
 {
   tree c;
@@ -25374,7 +25339,7 @@ cp_parser_omp_clause_mergeable (cp_parser *parser ATTRIBUTE_UNUSED,
    nowait */
 
 static tree
-cp_parser_omp_clause_nowait (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_nowait (cp_parser * /*parser*/,
 			     tree list, location_t location)
 {
   tree c;
@@ -25420,7 +25385,7 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list,
    ordered */
 
 static tree
-cp_parser_omp_clause_ordered (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_ordered (cp_parser * /*parser*/,
 			      tree list, location_t location)
 {
   tree c;
@@ -25613,7 +25578,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
    untied */
 
 static tree
-cp_parser_omp_clause_untied (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_untied (cp_parser * /*parser*/,
 			     tree list, location_t location)
 {
   tree c;

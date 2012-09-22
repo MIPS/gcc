@@ -1546,9 +1546,8 @@ struct GTY(()) tree_vec {
 /* Append a new constructor element to V, with the specified INDEX and VAL.  */
 #define CONSTRUCTOR_APPEND_ELT(V, INDEX, VALUE) \
   do { \
-    constructor_elt *_ce___ = VEC_safe_push (constructor_elt, gc, V, NULL); \
-    _ce___->index = INDEX; \
-    _ce___->value = VALUE; \
+    constructor_elt _ce___ = {INDEX, VALUE}; \
+    VEC_safe_push (constructor_elt, gc, V, _ce___); \
   } while (0)
 
 /* True if NODE, a FIELD_DECL, is to be processed as a bitfield for
@@ -4718,7 +4717,7 @@ extern tree force_fit_type_double (tree, double_int, int, bool);
 static inline tree
 build_int_cstu (tree type, unsigned HOST_WIDE_INT cst)
 {
-  return double_int_to_tree (type, uhwi_to_double_int (cst));
+  return double_int_to_tree (type, double_int::from_uhwi (cst));
 }
 
 extern tree build_int_cst (tree, HOST_WIDE_INT);
@@ -6118,7 +6117,6 @@ extern bool parse_input_constraint (const char **, int, int, int, int,
 				    const char * const *, bool *, bool *);
 extern void expand_asm_stmt (gimple);
 extern tree resolve_asm_operand_names (tree, tree, tree, tree);
-extern void expand_case (gimple);
 #ifdef HARD_CONST
 /* Silly ifdef to avoid having all includers depend on hard-reg-set.h.  */
 extern tree tree_overlaps_hard_reg_set (tree, HARD_REG_SET *);

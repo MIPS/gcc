@@ -104,6 +104,9 @@ postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lstdc++ ,,g'`
 ## than just ignoring the results.  Faster /and/ more correct, win win.
 GLIBCXX_ENABLE_HOSTED
 
+# Enable descriptive messages to standard output on termination.
+GLIBCXX_ENABLE_VERBOSE
+
 # Enable compiler support that doesn't require linking.
 GLIBCXX_ENABLE_SJLJ_EXCEPTIONS
 GLIBCXX_ENABLE_PCH($is_hosted)
@@ -330,6 +333,12 @@ case "$target" in
 esac
 GLIBCXX_CONDITIONAL(GLIBCXX_LDBL_COMPAT, test $ac_ldbl_compat = yes)
 
+# Check if assembler supports disabling hardware capability support.
+GLIBCXX_CHECK_ASSEMBLER_HWCAP
+
+# Check if assembler supports rdrand opcode.
+GLIBCXX_CHECK_X86_RDRAND
+
 # This depends on GLIBCXX_ENABLE_SYMVERS and GLIBCXX_IS_NATIVE.
 GLIBCXX_CONFIGURE_TESTSUITE
 
@@ -390,6 +399,7 @@ CPU_DEFINES_SRCDIR=config/${cpu_defines_dir}
 OS_INC_SRCDIR=config/${os_include_dir}
 ERROR_CONSTANTS_SRCDIR=config/${error_constants_dir}
 ABI_TWEAKS_SRCDIR=config/${abi_tweaks_dir}
+CPU_OPT_EXT_RANDOM=config/${cpu_opt_ext_random}
 AC_SUBST(ATOMICITY_SRCDIR)
 AC_SUBST(ATOMIC_WORD_SRCDIR)
 AC_SUBST(ATOMIC_FLAGS)
@@ -397,6 +407,7 @@ AC_SUBST(CPU_DEFINES_SRCDIR)
 AC_SUBST(ABI_TWEAKS_SRCDIR)
 AC_SUBST(OS_INC_SRCDIR)
 AC_SUBST(ERROR_CONSTANTS_SRCDIR)
+AC_SUBST(CPU_OPT_EXT_RANDOM)
 
 
 # Determine cross-compile flags and AM_CONDITIONALs.

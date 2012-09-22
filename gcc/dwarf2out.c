@@ -3486,7 +3486,7 @@ add_dwarf_attr (dw_die_ref die, dw_attr_ref attr)
 
   if (die->die_attr == NULL)
     die->die_attr = VEC_alloc (dw_attr_node, gc, 1);
-  VEC_safe_push (dw_attr_node, gc, die->die_attr, attr);
+  VEC_safe_push (dw_attr_node, gc, die->die_attr, *attr);
 }
 
 static inline enum dw_val_class
@@ -8220,7 +8220,7 @@ add_pubname_string (const char *str, dw_die_ref die)
 
   e.die = die;
   e.name = xstrdup (str);
-  VEC_safe_push (pubname_entry, gc, pubname_table, &e);
+  VEC_safe_push (pubname_entry, gc, pubname_table, e);
 }
 
 static void
@@ -8254,7 +8254,7 @@ add_enumerator_pubname (const char *scope_name, dw_die_ref die)
   gcc_assert (scope_name);
   e.name = concat (scope_name, get_AT_string (die, DW_AT_name), NULL);
   e.die = die;
-  VEC_safe_push (pubname_entry, gc, pubname_table, &e);
+  VEC_safe_push (pubname_entry, gc, pubname_table, e);
 }
 
 /* Add a new entry to .debug_pubtypes if appropriate.  */
@@ -8297,7 +8297,7 @@ add_pubtype (tree decl, dw_die_ref die)
         {
           e.die = die;
           e.name = concat (scope_name, name, NULL);
-          VEC_safe_push (pubname_entry, gc, pubtype_table, &e);
+          VEC_safe_push (pubname_entry, gc, pubtype_table, e);
         }
 
       /* Although it might be more consistent to add the pubinfo for the
@@ -9334,13 +9334,13 @@ static inline double_int
 double_int_type_size_in_bits (const_tree type)
 {
   if (TREE_CODE (type) == ERROR_MARK)
-    return uhwi_to_double_int (BITS_PER_WORD);
+    return double_int::from_uhwi (BITS_PER_WORD);
   else if (TYPE_SIZE (type) == NULL_TREE)
     return double_int_zero;
   else if (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST)
     return tree_to_double_int (TYPE_SIZE (type));
   else
-    return uhwi_to_double_int (TYPE_ALIGN (type));
+    return double_int::from_uhwi (TYPE_ALIGN (type));
 }
 
 /*  Given a pointer to a tree node for a subrange type, return a pointer
@@ -11762,7 +11762,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	      mem_loc_result->dw_loc_oprnd2.val_class
 		= dw_val_class_const_double;
 	      mem_loc_result->dw_loc_oprnd2.v.val_double
-		= shwi_to_double_int (INTVAL (rtl));
+		= double_int::from_shwi (INTVAL (rtl));
 	    }
 	}
       break;
@@ -12321,7 +12321,7 @@ loc_descriptor (rtx rtl, enum machine_mode mode,
 		  double_int val = rtx_to_double_int (elt);
 
 		  if (elt_size <= sizeof (HOST_WIDE_INT))
-		    insert_int (double_int_to_shwi (val), elt_size, p);
+		    insert_int (val.to_shwi (), elt_size, p);
 		  else
 		    {
 		      gcc_assert (elt_size == 2 * sizeof (HOST_WIDE_INT));
@@ -13650,11 +13650,11 @@ simple_decl_align_in_bits (const_tree decl)
 static inline double_int
 round_up_to_align (double_int t, unsigned int align)
 {
-  double_int alignd = uhwi_to_double_int (align);
-  t = double_int_add (t, alignd);
-  t = double_int_add (t, double_int_minus_one);
-  t = double_int_div (t, alignd, true, TRUNC_DIV_EXPR);
-  t = double_int_mul (t, alignd);
+  double_int alignd = double_int::from_uhwi (align);
+  t += alignd;
+  t += double_int_minus_one;
+  t = t.div (alignd, true, TRUNC_DIV_EXPR);
+  t *= alignd;
   return t;
 }
 
@@ -13761,23 +13761,21 @@ field_byte_offset (const_tree decl)
 
       /* Figure out the bit-distance from the start of the structure to
 	 the "deepest" bit of the bit-field.  */
-      deepest_bitpos = double_int_add (bitpos_int, field_size_in_bits);
+      deepest_bitpos = bitpos_int + field_size_in_bits;
 
       /* This is the tricky part.  Use some fancy footwork to deduce
 	 where the lowest addressed bit of the containing object must
 	 be.  */
-      object_offset_in_bits
-	= double_int_sub (deepest_bitpos, type_size_in_bits);
+      object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
       /* Round up to type_align by default.  This works best for
 	 bitfields.  */
       object_offset_in_bits
 	= round_up_to_align (object_offset_in_bits, type_align_in_bits);
 
-      if (double_int_ucmp (object_offset_in_bits, bitpos_int) > 0)
+      if (object_offset_in_bits.ugt (bitpos_int))
 	{
-	  object_offset_in_bits
-	    = double_int_sub (deepest_bitpos, type_size_in_bits);
+	  object_offset_in_bits = deepest_bitpos - type_size_in_bits;
 
 	  /* Round up to decl_align instead.  */
 	  object_offset_in_bits
@@ -13789,10 +13787,9 @@ field_byte_offset (const_tree decl)
     object_offset_in_bits = bitpos_int;
 
   object_offset_in_bytes
-    = double_int_div (object_offset_in_bits,
-		      uhwi_to_double_int (BITS_PER_UNIT), true,
-		      TRUNC_DIV_EXPR);
-  return double_int_to_shwi (object_offset_in_bytes);
+    = object_offset_in_bits.div (double_int::from_uhwi (BITS_PER_UNIT),
+				 true, TRUNC_DIV_EXPR);
+  return object_offset_in_bytes.to_shwi ();
 }
 
 /* The following routines define various Dwarf attributes and any data
@@ -14068,7 +14065,7 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 		double_int val = rtx_to_double_int (elt);
 
 		if (elt_size <= sizeof (HOST_WIDE_INT))
-		  insert_int (double_int_to_shwi (val), elt_size, p);
+		  insert_int (val.to_shwi (), elt_size, p);
 		else
 		  {
 		    gcc_assert (elt_size == 2 * sizeof (HOST_WIDE_INT));
@@ -14678,7 +14675,7 @@ defer_location (tree variable, dw_die_ref die)
   deferred_locations entry;
   entry.variable = variable;
   entry.die = die;
-  VEC_safe_push (deferred_locations, gc, deferred_locations_list, &entry);
+  VEC_safe_push (deferred_locations, gc, deferred_locations_list, entry);
 }
 
 /* Helper function for tree_add_const_value_attribute.  Natively encode
@@ -16771,7 +16768,6 @@ dwarf2out_abstract_function (tree decl)
   /* Pretend we've just finished compiling this function.  */
   save_fn = current_function_decl;
   current_function_decl = decl;
-  push_cfun (DECL_STRUCT_FUNCTION (decl));
 
   was_abstract = DECL_ABSTRACT (decl);
   set_decl_abstract_flags (decl, 1);
@@ -16785,7 +16781,6 @@ dwarf2out_abstract_function (tree decl)
   call_arg_locations = old_call_arg_locations;
   call_site_count = old_call_site_count;
   tail_call_site_count = old_tail_call_site_count;
-  pop_cfun ();
 }
 
 /* Helper function of premark_used_types() which gets called through
@@ -16844,10 +16839,10 @@ premark_types_used_by_global_vars_helper (void **slot,
 /* Mark all members of used_types_hash as perennial.  */
 
 static void
-premark_used_types (void)
+premark_used_types (struct function *fun)
 {
-  if (cfun && cfun->used_types_hash)
-    htab_traverse (cfun->used_types_hash, premark_used_types_helper, NULL);
+  if (fun && fun->used_types_hash)
+    htab_traverse (fun->used_types_hash, premark_used_types_helper, NULL);
 }
 
 /* Mark all members of types_used_by_vars_entry as perennial.  */
@@ -16910,7 +16905,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   int declaration = (current_function_decl != decl
 		     || class_or_namespace_scope_p (context_die));
 
-  premark_used_types ();
+  premark_used_types (DECL_STRUCT_FUNCTION (decl));
 
   /* It is possible to have both DECL_ABSTRACT and DECLARATION be true if we
      started to generate the abstract instance of an inline, decided to output
@@ -17073,13 +17068,15 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
   else if (!DECL_EXTERNAL (decl))
     {
       HOST_WIDE_INT cfa_fb_offset;
+      struct function *fun = DECL_STRUCT_FUNCTION (decl);
 
       if (!old_die || !get_AT (old_die, DW_AT_inline))
 	equate_decl_number_to_die (decl, subr_die);
 
+      gcc_checking_assert (fun);
       if (!flag_reorder_blocks_and_partition)
 	{
-	  dw_fde_ref fde = cfun->fde;
+	  dw_fde_ref fde = fun->fde;
 	  if (fde->dw_fde_begin)
 	    {
 	      /* We have already generated the labels.  */
@@ -17125,7 +17122,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       else
 	{
 	  /* Generate pubnames entries for the split function code ranges.  */
-	  dw_fde_ref fde = cfun->fde;
+	  dw_fde_ref fde = fun->fde;
 
 	  if (fde->dw_fde_second_begin)
 	    {
@@ -17225,9 +17222,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	 by this displacement.  */
       compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
 
-      if (cfun->static_chain_decl)
+      if (fun->static_chain_decl)
 	add_AT_location_description (subr_die, DW_AT_static_link,
-		 loc_list_from_tree (cfun->static_chain_decl, 2));
+		 loc_list_from_tree (fun->static_chain_decl, 2));
     }
 
   /* Generate child dies for template paramaters.  */
@@ -19879,7 +19876,7 @@ append_entry_to_tmpl_value_parm_die_table (dw_die_ref die, tree arg)
   entry.arg = arg;
   VEC_safe_push (die_arg_entry, gc,
 		 tmpl_value_parm_die_table,
-		 &entry);
+		 entry);
 }
 
 /* Return TRUE if T is an instance of generic type, FALSE
@@ -20265,7 +20262,7 @@ push_dw_line_info_entry (dw_line_info_table *table,
   dw_line_info_entry e;
   e.opcode = opcode;
   e.val = val;
-  VEC_safe_push (dw_line_info_entry, gc, table->entries, &e);
+  VEC_safe_push (dw_line_info_entry, gc, table->entries, e);
 }
 
 /* Output a label to mark the beginning of a source code line entry
@@ -20385,7 +20382,7 @@ dwarf2out_start_source_file (unsigned int lineno, const char *filename)
       e.code = DW_MACINFO_start_file;
       e.lineno = lineno;
       e.info = ggc_strdup (filename);
-      VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+      VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
     }
 }
 
@@ -20404,7 +20401,7 @@ dwarf2out_end_source_file (unsigned int lineno ATTRIBUTE_UNUSED)
       e.code = DW_MACINFO_end_file;
       e.lineno = lineno;
       e.info = NULL;
-      VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+      VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
     }
 }
 
@@ -20426,12 +20423,12 @@ dwarf2out_define (unsigned int lineno ATTRIBUTE_UNUSED,
 	  e.code = 0;
 	  e.lineno = 0;
 	  e.info = NULL;
-	  VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+	  VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
 	}
       e.code = DW_MACINFO_define;
       e.lineno = lineno;
       e.info = ggc_strdup (buffer);
-      VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+      VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
     }
 }
 
@@ -20453,12 +20450,12 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 	  e.code = 0;
 	  e.lineno = 0;
 	  e.info = NULL;
-	  VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+	  VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
 	}
       e.code = DW_MACINFO_undef;
       e.lineno = lineno;
       e.info = ggc_strdup (buffer);
-      VEC_safe_push (macinfo_entry, gc, macinfo_table, &e);
+      VEC_safe_push (macinfo_entry, gc, macinfo_table, e);
     }
 }
 
@@ -20734,7 +20731,7 @@ output_macinfo (void)
       switch (ref->code)
 	{
 	case DW_MACINFO_start_file:
-	  VEC_safe_push (macinfo_entry, gc, files, ref);
+	  VEC_safe_push (macinfo_entry, gc, files, *ref);
 	  break;
 	case DW_MACINFO_end_file:
 	  if (!VEC_empty (macinfo_entry, files))
@@ -21373,7 +21370,7 @@ move_linkage_attr (dw_die_ref die)
   if (ix != VEC_length (dw_attr_node, die->die_attr) - 1)
     {
       VEC_pop (dw_attr_node, die->die_attr);
-      VEC_quick_insert (dw_attr_node, die->die_attr, ix, &linkage);
+      VEC_quick_insert (dw_attr_node, die->die_attr, ix, linkage);
     }
 }
 

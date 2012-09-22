@@ -1273,9 +1273,9 @@ move_computations_stmt (struct dom_walk_data *dw_data,
 	  gcc_assert (arg0 && arg1);
 	  t = build2 (gimple_cond_code (cond), boolean_type_node,
 		      gimple_cond_lhs (cond), gimple_cond_rhs (cond));
-	  new_stmt = gimple_build_assign_with_ops3 (COND_EXPR,
-						    gimple_phi_result (stmt),
-						    t, arg0, arg1);
+	  new_stmt = gimple_build_assign_with_ops (COND_EXPR,
+						   gimple_phi_result (stmt),
+						   t, arg0, arg1);
 	  SSA_NAME_DEF_STMT (gimple_phi_result (stmt)) = new_stmt;
 	  *((unsigned int *)(dw_data->global_data)) |= TODO_cleanup_cfg;
 	}
@@ -2113,9 +2113,14 @@ execute_sm_if_changed_flag_set (struct loop *loop, mem_ref_p ref)
       gimple_stmt_iterator gsi;
       gimple stmt;
 
-      gsi = gsi_for_stmt (loc->stmt);
-      stmt = gimple_build_assign (flag, boolean_true_node);
-      gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+      /* Only set the flag for writes.  */
+      if (is_gimple_assign (loc->stmt)
+	  && gimple_assign_lhs_ptr (loc->stmt) == loc->ref)
+	{
+	  gsi = gsi_for_stmt (loc->stmt);
+	  stmt = gimple_build_assign (flag, boolean_true_node);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
     }
   VEC_free (mem_ref_loc_p, heap, locs);
   return flag;

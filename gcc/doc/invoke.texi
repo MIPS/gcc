@@ -166,7 +166,7 @@ in the following sections.
 -pipe  -pass-exit-codes  @gol
 -x @var{language}  -v  -###  --help@r{[}=@var{class}@r{[},@dots{}@r{]]}  --target-help  @gol
 --version -wrapper @@@var{file} -fplugin=@var{file} -fplugin-arg-@var{name}=@var{arg}  @gol
--fdump-ada-spec@r{[}-slim@r{]} -fdump-go-spec=@var{file}}
+-fdump-ada-spec@r{[}-slim@r{]} -fada-spec-parent=@var{arg} -fdump-go-spec=@var{file}}
 
 @item C Language Options
 @xref{C Dialect Options,,Options Controlling C Dialect}.
@@ -324,11 +324,11 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -fdump-final-insns=@var{file} @gol
 -fcompare-debug@r{[}=@var{opts}@r{]}  -fcompare-debug-second @gol
--feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
+-feliminate-dwarf2-dups -fno-eliminate-unused-debug-types @gol
 -feliminate-unused-debug-symbols -femit-class-debug-always @gol
 -fenable-@var{kind}-@var{pass} @gol
 -fenable-@var{kind}-@var{pass}=@var{range-list} @gol
--fdebug-types-section @gol
+-fdebug-types-section -fmem-report-wpa @gol
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
@@ -776,6 +776,9 @@ Objective-C and Objective-C++ Dialects}.
 -mreturn-pointer-on-d0 @gol
 -mno-crt0  -mrelax -mliw -msetlb}
 
+@emph{Moxie Options}
+@gccoptlist{-meb  -mel}
+
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
 -mbcopy  -mbcopy-builtin  -mint32  -mno-int16 @gol
@@ -929,10 +932,10 @@ See RS/6000 and PowerPC Options.
 @gccoptlist{-Qy  -Qn  -YP,@var{paths}  -Ym,@var{dir}}
 
 @emph{TILE-Gx Options}
-@gccoptlist{-mcpu=CPU -m32 -m64 -mcmodel=@var{code-model}}
+@gccoptlist{-mcpu=@var{cpu} -m32 -m64 -mcmodel=@var{code-model}}
 
 @emph{TILEPro Options}
-@gccoptlist{-mcpu=CPU -m32}
+@gccoptlist{-mcpu=@var{cpu} -m32}
 
 @emph{V850 Options}
 @gccoptlist{-mlong-calls  -mno-long-calls  -mep  -mno-ep @gol
@@ -3348,6 +3351,8 @@ int f()
 @end group
 @end smallexample
 
+This warning is enabled by @option{-Wall} in C++.
+
 @item -Wimplicit-int @r{(C and Objective-C only)}
 @opindex Wimplicit-int
 @opindex Wno-implicit-int
@@ -5132,6 +5137,11 @@ pass when it finishes.
 Makes the compiler print some statistics about permanent memory
 allocation when it finishes.
 
+@item -fmem-report-wpa
+@opindex fmem-report-wpa
+Makes the compiler print some statistics about permanent memory
+allocation for the WPA phase only.
+
 @item -fpre-ipa-mem-report
 @opindex fpre-ipa-mem-report
 @item -fpost-ipa-mem-report
@@ -6182,17 +6192,18 @@ anything else.
 Print the compiler's built-in specs---and don't do anything else.  (This
 is used when GCC itself is being built.)  @xref{Spec Files}.
 
-@item -feliminate-unused-debug-types
+@item -fno-eliminate-unused-debug-types
 @opindex feliminate-unused-debug-types
-Normally, when producing DWARF 2 output, GCC emits debugging
+@opindex fno-eliminate-unused-debug-types
+Normally, when producing DWARF 2 output, GCC avoids producing debug symbol 
+output for types that are nowhere used in the source file being compiled.
+Sometimes it is useful to have GCC emit debugging
 information for all types declared in a compilation
 unit, regardless of whether or not they are actually used
-in that compilation unit.  Sometimes this is useful, such as
+in that compilation unit, for example 
 if, in the debugger, you want to cast a value to a type that is
 not actually used in your program (but is declared).  More often,
 however, this results in a significant amount of wasted space.
-With this option, GCC avoids producing debug symbol output
-for types that are nowhere used in the source file being compiled.
 @end table
 
 @node Optimize Options
@@ -8088,9 +8099,12 @@ This option is disabled by default.
 Specify the partitioning algorithm used by the link-time optimizer.
 The value is either @code{1to1} to specify a partitioning mirroring
 the original source files or @code{balanced} to specify partitioning
-into equally sized chunks (whenever possible).  Specifying @code{none}
-as an algorithm disables partitioning and streaming completely. The
-default value is @code{balanced}.
+into equally sized chunks (whenever possible) or @code{max} to create
+new partition for every symbol where possible.  Specifying @code{none}
+as an algorithm disables partitioning and streaming completely. 
+The default value is @code{balanced}. While @code{1to1} can be used
+as an workaround for various code ordering issues, the @code{max}
+partitioning is intended for internal testing only.
 
 @item -flto-compression-level=@var{n}
 This option specifies the level of compression used for intermediate
@@ -8138,7 +8152,9 @@ requires the complete toolchain to be aware of LTO. It requires a linker with
 linker plugin support for basic functionality.  Additionally,
 @command{nm}, @command{ar} and @command{ranlib}
 need to support linker plugins to allow a full-featured build environment
-(capable of building static libraries etc).
+(capable of building static libraries etc). gcc provides the @command{gcc-ar},
+@command{gcc-nm}, @command{gcc-ranlib} wrappers to pass the right options
+to these tools. With non fat LTO makefiles need to be modified to use them.
 
 The default is @option{-ffat-lto-objects} but this default is intended to
 change in future releases when linker plugin enabled environments become more
@@ -9400,6 +9416,11 @@ having a regular register file and accurate register pressure classes.
 See @file{haifa-sched.c} in the GCC sources for more details.
 
 The default choice depends on the target.
+
+@item max-slsr-cand-scan
+Set the maximum number of existing candidates that will be considered when
+seeking a basis for a new straight-line strength reduction candidate.
+
 @end table
 @end table
 
@@ -10512,6 +10533,7 @@ platform.
 * MIPS Options::
 * MMIX Options::
 * MN10300 Options::
+* Moxie Options::
 * PDP-11 Options::
 * picoChip Options::
 * PowerPC Options::
@@ -16431,6 +16453,23 @@ instructions.  This option defines the preprocessor macro
 
 @end table
 
+@node Moxie Options
+@subsection Moxie Options
+@cindex Moxie Options
+
+@table @gcctabopt
+
+@item -meb
+@opindex meb
+Generate big-endian code.  This is the default for @samp{moxie-*-*}
+configurations.
+
+@item -mel
+@opindex mel
+Generate little-endian code.
+
+@end table
+
 @node PDP-11 Options
 @subsection PDP-11 Options
 @cindex PDP-11 Options
@@ -18965,13 +19004,13 @@ These @samp{-m} options are supported on the TILE-Gx:
 @table @gcctabopt
 @item -mcmodel=small
 @opindex mcmodel=small
-Generate code for the small model.  Distance for direct calls is
+Generate code for the small model.  The distance for direct calls is
 limited to 500M in either direction.  PC-relative addresses are 32
 bits.  Absolute addresses support the full address range.
 
 @item -mcmodel=large
 @opindex mcmodel=large
-Generate code for the large model.  There is no limiation on call
+Generate code for the large model.  There is no limitation on call
 distance, pc-relative addresses, or absolute addresses.
 
 @item -mcpu=@var{name}

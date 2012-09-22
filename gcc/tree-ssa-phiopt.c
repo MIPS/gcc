@@ -519,24 +519,6 @@ blocks_in_phiopt_order (void)
 #undef VISITED_P
 }
 
-
-/* Return TRUE if block BB has no executable statements, otherwise return
-   FALSE.  */
-
-bool
-empty_block_p (basic_block bb)
-{
-  /* BB must have no executable statements.  */
-  gimple_stmt_iterator gsi = gsi_after_labels (bb);
-  if (phi_nodes (bb))
-    return false;
-  if (gsi_end_p (gsi))
-    return true;
-  if (is_gimple_debug (gsi_stmt (gsi)))
-    gsi_next_nondebug (&gsi);
-  return gsi_end_p (gsi);
-}
-
 /* Replace PHI node element whose edge is E in block BB with variable NEW.
    Remove the edge from COND_BLOCK which does not lead to BB (COND_BLOCK
    is known to have two edges, one of which must reach BB).  */
@@ -720,9 +702,7 @@ jump_function_from_stmt (tree *arg, gimple stmt)
 						&offset);
       if (tem
 	  && TREE_CODE (tem) == MEM_REF
-	  && double_int_zero_p
-	       (double_int_add (mem_ref_offset (tem),
-				shwi_to_double_int (offset))))
+	  && (mem_ref_offset (tem) + double_int::from_shwi (offset)).is_zero ())
 	{
 	  *arg = TREE_OPERAND (tem, 0);
 	  return true;

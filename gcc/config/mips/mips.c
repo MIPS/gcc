@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "target-globals.h"
 #include "opts.h"
+#include "ira.h"
 #include "lra.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
@@ -3991,8 +3992,8 @@ mips_multi_start (void)
 static struct mips_multi_member *
 mips_multi_add (void)
 {
-  return VEC_safe_push (mips_multi_member, heap, mips_multi_members,
-			(struct mips_multi_member *) 0);
+  mips_multi_member empty;
+  return VEC_safe_push (mips_multi_member, heap, mips_multi_members, empty);
 }
 
 /* Add a normal insn with the given asm format to the current multi-insn

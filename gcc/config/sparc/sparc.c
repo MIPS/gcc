@@ -770,7 +770,7 @@ char sparc_hard_reg_printed[8];
 #define TARGET_BUILTIN_SETJMP_FRAME_VALUE sparc_builtin_setjmp_frame_value
 
 #undef TARGET_LRA_P
-#define TARGET_LRA_P ix86_lra_p
+#define TARGET_LRA_P sparc_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE sparc_can_eliminate
@@ -1467,6 +1467,18 @@ sparc_expand_move (enum machine_mode mode, rtx *operands)
     case DImode:
       /* input_operand should have filtered out 32-bit mode.  */
       sparc_emit_set_const64 (operands[0], operands[1]);
+      return true;
+
+    case TImode:
+      {
+	rtx high, low;
+	/* TImode isn't available in 32-bit mode.  */
+	split_double (operands[1], &high, &low);
+	emit_insn (gen_movdi (operand_subword (operands[0], 0, 0, TImode),
+			      high));
+	emit_insn (gen_movdi (operand_subword (operands[0], 1, 0, TImode),
+			      low));
+      }
       return true;
 
     default:
@@ -3494,6 +3506,10 @@ sparc_legitimate_address_p (enum machine_mode mode, rtx addr, bool strict)
 	     offsettable address.  */
 	  if (mode == TFmode
 	      && ! (TARGET_ARCH64 && TARGET_HARD_QUAD))
+	    return 0;
+
+	  /* Likewise for TImode, but in all cases.  */
+	  if (mode == TImode)
 	    return 0;
 
 	  /* We prohibit REG + REG on ARCH32 if not optimizing for
