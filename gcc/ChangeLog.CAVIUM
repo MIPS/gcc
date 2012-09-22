@@ -197,6 +197,14 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-09-21  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4620
+	* testsuite/gcc.dg/octeon/madd-1.c: Fix testcase.
+	* testsuite/gcc.dg/octeon/madd-2.c: Fix testcase.
+	* testsuite/gcc.dg/octeon/madd-3.c: Fix testcase.
+	* testsuite/gcc.dg/octeon/madd-4.c: Fix testcase.
+
 2012-09-13  Andrew Pinski  <apinski@cavium.com>
 
 	* combine.c (simplify_set): Only simplify (set (subreg (x)) (y)
