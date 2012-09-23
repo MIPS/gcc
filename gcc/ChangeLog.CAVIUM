@@ -690,6 +690,12 @@
 	for n64 addresses.
 	* testsuite/gcc.dg/octeon/trunc-31.c: Likewise.
 
+2012-09-22  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4737
+	* simplify-rtx.c (simplify_unary_operation_1 <case TRUNCATE>):
+	Don't optimize vector truncates into a subreg.
+
 2012-09-21  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4620

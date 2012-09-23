@@ -1100,7 +1100,8 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	 replace the TRUNCATE with a SUBREG.  */
       if (GET_MODE_NUNITS (mode) == 1
 	  && (TRULY_NOOP_TRUNCATION_MODES_P (mode, GET_MODE (op))
-	      || truncated_to_mode (mode, op)))
+	      || truncated_to_mode (mode, op))
+	      && !VECTOR_MODE_P (mode))
 	{
 	  temp = rtl_hooks.gen_lowpart_no_emit (mode, op);
 	  if (temp)
