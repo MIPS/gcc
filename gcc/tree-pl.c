@@ -221,17 +221,12 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
   if (val_num == 1)
     {
       *return_reg_val = XEXP (val_tmps[0], 0);
-      if (bnd_num == 1)
-	{
-	  if (XEXP (bnd_tmps[0], 1) == const0_rtx)
-	    *return_reg_bnd = XEXP (bnd_tmps[0], 0);
-	  else
-	    *return_reg_bnd
-	      = gen_rtx_PARALLEL (VOIDmode,
-				  gen_rtvec_v (bnd_num, bnd_tmps));
-	}
-      else if (bnd_num > 1)
-	gcc_unreachable ();
+      if (bnd_num == 1 && XEXP (bnd_tmps[0], 1) == const0_rtx)
+	*return_reg_bnd = XEXP (bnd_tmps[0], 0);
+      else
+	*return_reg_bnd
+	  = gen_rtx_PARALLEL (VOIDmode,
+			      gen_rtvec_v (bnd_num, bnd_tmps));
     }
   else
     {
@@ -318,8 +313,9 @@ pl_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 	ptr = value;
       else
 	{
+	  rtx slot = adjust_address (value, Pmode, 0);
 	  ptr = gen_reg_rtx (Pmode);
-	  emit_move_insn (ptr, value);
+	  emit_move_insn (ptr, slot);
 	}
 
       if (CONST_INT_P (bounds))
@@ -930,6 +926,8 @@ pl_find_bound_slots (tree type, bool *have_bound,
 	  {
 	    HOST_WIDE_INT field_offs
 	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	    if (DECL_FIELD_OFFSET (field))
+	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
 	    pl_find_bound_slots (TREE_TYPE (field), have_bound,
 				 offs + field_offs, ptr_size);
 	  }
@@ -2520,6 +2518,8 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       break;
 
     case VAR_DECL:
+    case RESULT_DECL:
+    case PARM_DECL:
       if (dirflag != integer_one_node)
 	return;
 

@@ -2060,6 +2060,13 @@ use_register_for_decl (const_tree decl)
   if (TREE_ADDRESSABLE (decl))
     return false;
 
+  /* Decl is implicitly addressible by bound stores and loads
+     if it is aggregate holding bounds.  */
+  if (flag_pl && TREE_TYPE (decl)
+      && !BOUNDED_TYPE_P (TREE_TYPE (decl))
+      && pl_type_has_pointer (TREE_TYPE (decl)))
+    return false;
+
   /* Only register-like things go in registers.  */
   if (DECL_MODE (decl) == BLKmode)
     return false;
@@ -4959,14 +4966,11 @@ expand_dummy_function_end (void)
   in_dummy_function = false;
 }
 
-/* Call DOIT for each hard register used as a return value from
-   the current function.  */
+/* Helper for diddle_return_value.  */
 
 void
-diddle_return_value (void (*doit) (rtx, void *), void *arg)
+diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 {
-  rtx outgoing = crtl->return_rtx;
-
   if (! outgoing)
     return;
 
@@ -4984,6 +4988,16 @@ diddle_return_value (void (*doit) (rtx, void *), void *arg)
 	    (*doit) (x, arg);
 	}
     }
+}
+
+/* Call DOIT for each hard register used as a return value from
+   the current function.  */
+
+void
+diddle_return_value (void (*doit) (rtx, void *), void *arg)
+{
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
+  diddle_return_value_1 (doit, arg, crtl->return_bnd);
 }
 
 static void

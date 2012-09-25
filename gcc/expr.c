@@ -4861,35 +4861,14 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  emit_move_insn (to_rtx, value);
 	}
 
-      if (0 && bounds
+      if (bounds
 	  && !BOUNDED_TYPE_P (TREE_TYPE (to))
 	  && pl_type_has_pointer (TREE_TYPE (to)))
 	{
 	  gcc_assert (MEM_P (to_rtx));
 	  gcc_assert (!CONST_INT_P (bounds));
 
-	  if (REG_P (bounds))
-	    {
-	      gcc_assert (REG_P (value));
-	      targetm.calls.store_bounds_for_arg (value, to_rtx,
-						  bounds, NULL);
-	    }
-	  else
-	    {
-	      int i;
-
-	      gcc_assert (GET_CODE (bounds) == PARALLEL);
-	      gcc_assert (GET_CODE (value) == PARALLEL);
-
-	      for (i = 0; i < XVECLEN (bounds, 0); i++)
-		{
-		  rtx reg = XEXP (XVECEXP (bounds, 0, i), 0);
-		  rtx offs = XEXP (XVECEXP (bounds, 0, i), 1);
-		  rtx ptr = pl_get_value_with_offs (value, offs);
-		  rtx slot = adjust_address (to_rtx, Pmode, INTVAL (offs));
-		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
-		}
-	    }
+	  pl_emit_bounds_store (bounds, value, to_rtx);
 	}
 
       preserve_temp_slots (to_rtx);

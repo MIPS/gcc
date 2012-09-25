@@ -6401,7 +6401,7 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
 static rtx
 construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     const_tree type, int in_return, int nintregs, int nsseregs,
-		     int nbndregs, const int *intreg, int sse_regno,
+		     const int *intreg, int sse_regno,
 		     int bnd_regno, bool named)
 {
   /* The following variables hold the static issued_error state.  */
@@ -6970,7 +6970,7 @@ function_arg_64 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 
   return construct_container (mode, orig_mode, type, 0, cum->nregs,
-			      cum->sse_nregs, cum->bnd_nregs,
+			      cum->sse_nregs,
 			      &x86_64_int_parameter_registers [cum->regno],
 			      cum->sse_regno, cum->bnd_regno, named);
 }
@@ -7450,7 +7450,6 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   ret = construct_container (mode, orig_mode, valtype, 1,
 			     X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
-			     X86_64_BND_REGPARM_MAX,
 			     x86_64_int_return_registers, 0, FIRST_BND_REG, true);
 
   /* For zero sized structures, construct_container returns NULL, but we
@@ -8163,8 +8162,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
     default:
       container = construct_container (nat_mode, TYPE_MODE (type),
 				       type, 0, X86_64_REGPARM_MAX,
-				       X86_64_SSE_REGPARM_MAX,
-				       X86_64_BND_REGPARM_MAX, intreg,
+				       X86_64_SSE_REGPARM_MAX, intreg,
 				       0, 0, true);
       pl_split_returned_reg (container, &container, &bndcontainer);
       break;
@@ -23358,9 +23356,13 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   if (retval)
     {
       rtx b0 = gen_rtx_REG (BND64mode, FIRST_BND_REG);
-      rtx unspec = gen_rtx_UNSPEC (BND64mode,
-				   gen_rtvec (1, b0), UNSPEC_BNDRET);
-      vec[vec_len++] = gen_rtx_SET (BND64mode, b0, unspec);
+      rtx unspec0 = gen_rtx_UNSPEC (BND64mode,
+				    gen_rtvec (1, b0), UNSPEC_BNDRET);
+      rtx b1 = gen_rtx_REG (BND64mode, FIRST_BND_REG + 1);
+      rtx unspec1 = gen_rtx_UNSPEC (BND64mode,
+				    gen_rtvec (1, b1), UNSPEC_BNDRET);
+      vec[vec_len++] = gen_rtx_SET (BND64mode, b0, unspec0);
+      vec[vec_len++] = gen_rtx_SET (BND64mode, b1, unspec1);
     }
 
   if (pop)
