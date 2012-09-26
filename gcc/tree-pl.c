@@ -707,7 +707,8 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   /* Get number of arguments and bound arguments.  */
   for (arg = first_formal_arg;
-       arg && TREE_VALUE (arg) != void_type_node;
+       arg && TREE_VALUE (arg) != void_type_node
+	 && arg_cnt < gimple_call_num_args (call);
        arg = TREE_CHAIN (arg))
     {
       if (BOUNDED_TYPE_P (TREE_VALUE (arg)))
@@ -755,7 +756,8 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   arg_no = 0;
   for (arg = first_formal_arg;
-       arg && TREE_VALUE (arg) != void_type_node;
+       arg && TREE_VALUE (arg) != void_type_node
+	 && arg_no < gimple_call_num_args (call);
        arg = TREE_CHAIN (arg))
     {
       tree call_arg = gimple_call_arg (call, arg_no++);
