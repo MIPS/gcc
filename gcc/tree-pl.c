@@ -69,7 +69,7 @@ static tree pl_build_array_ref (tree arr, tree etype, tree esize,
 static void pl_copy_bounds_for_assign (tree lhs, tree rhs,
 				       gimple_stmt_iterator *iter);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
-static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter);
+static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
 static tree pl_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
 					     bool always_narrow_fields);
@@ -876,7 +876,8 @@ pl_get_zero_bounds (void)
 
   zero_bounds = pl_make_bounds (integer_zero_node,
 				integer_zero_node,
-				NULL);
+				NULL,
+				false);
 
   return zero_bounds;
 }
@@ -892,7 +893,8 @@ pl_get_none_bounds (void)
 
   none_bounds = pl_make_bounds (integer_minus_one_node,
 				build_int_cst (size_type_node, 2),
-				NULL);
+				NULL,
+				false);
 
   return none_bounds;
 }
@@ -915,32 +917,47 @@ pl_build_returned_bound (gimple call)
   gimple_stmt_iterator gsi;
   tree bounds;
   gimple stmt;
+  tree fndecl = gimple_call_fndecl (call);
 
-  stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
-  pl_mark_stmt (stmt);
-
-  /* If call may throw then we have to insert new
-     statement to the next BB.  Otherwise insert
-     it right after call.  */
-  if (stmt_can_throw_internal (call))
+  /* Currently we handle alloca separately.  May also fix
+     alloca expanding to obtain bounds on b0.  */
+  if (fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
     {
-      basic_block bb = gimple_bb (call);
-
-      gcc_assert (EDGE_COUNT (bb->succs) == 2);
-
-      gsi = gsi_start_bb (FALLTHRU_EDGE (bb)->dest);
-      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      tree size = gimple_call_arg (call, 0);
+      tree lb = gimple_call_lhs (call);
+      gimple_stmt_iterator iter = gsi_for_stmt (call);
+      bounds = pl_make_bounds (lb, size, &iter, true);
     }
   else
     {
-      gsi = gsi_for_stmt (call);
-      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+      stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
+      pl_mark_stmt (stmt);
+
+      /* If call may throw then we have to insert new
+	 statement to the next BB.  Otherwise insert
+	 it right after call.  */
+      if (stmt_can_throw_internal (call))
+	{
+	  basic_block bb = gimple_bb (call);
+
+	  gcc_assert (EDGE_COUNT (bb->succs) == 2);
+
+	  gsi = gsi_start_bb (FALLTHRU_EDGE (bb)->dest);
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	}
+      else
+	{
+	  gsi = gsi_for_stmt (call);
+	  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+	}
+
+      bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+      gimple_call_set_lhs (stmt, bounds);
+
+      update_stmt (stmt);
     }
-
-  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
-  gimple_call_set_lhs (stmt, bounds);
-
-  update_stmt (stmt);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1403,7 +1420,7 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 }
 
 static tree
-pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
+pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
 {
   gimple_seq seq;
   gimple_stmt_iterator gsi;
@@ -1428,7 +1445,10 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter)
 
   gimple_seq_add_stmt (&seq, stmt);
 
-  gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+  if (iter && after)
+    gsi_insert_seq_after (&gsi, seq, GSI_SAME_STMT);
+  else
+    gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1492,7 +1512,7 @@ pl_generate_extern_var_bounds (tree var)
 		     fold_convert (pl_uintptr_type, var_end),
 		     fold_convert (pl_uintptr_type, lb));
 
-  bounds = pl_make_bounds (lb, size, NULL);
+  bounds = pl_make_bounds (lb, size, NULL, false);
 
   free (end_name);
 
@@ -1528,7 +1548,7 @@ pl_get_bounds_for_decl (tree decl)
       /* We need size in bytes rounded up.  */
       size = build_int_cst (size_type_node,
 			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
-      bounds = pl_make_bounds (lb, size, NULL);
+      bounds = pl_make_bounds (lb, size, NULL, false);
     }
   else
     {
@@ -1572,7 +1592,7 @@ pl_get_bounds_for_decl_addr (tree decl)
       /* We need size in bytes rounded up.  */
       size = build_int_cst (size_type_node,
 			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
-      bounds = pl_make_bounds (lb, size, NULL);
+      bounds = pl_make_bounds (lb, size, NULL, false);
     }
   else
     {
@@ -1603,7 +1623,7 @@ pl_get_bounds_for_string_cst (tree cst)
 
   lb = pl_build_addr_expr (cst);
   size = build_int_cst (pl_uintptr_type, TREE_STRING_LENGTH (cst));
-  bounds = pl_make_bounds (lb, size, NULL);
+  bounds = pl_make_bounds (lb, size, NULL, false);
 
   pl_register_bounds (cst, bounds);
 
@@ -1886,7 +1906,8 @@ pl_narrow_bounds_to_field (tree bounds, tree component,
 
   field_bounds = pl_make_bounds (field_ptr,
 				 build_int_cst (size_type_node, size),
-				 iter);
+				 iter,
+				 false);
   return pl_intersect_bounds (field_bounds, bounds, iter);
 }
 
