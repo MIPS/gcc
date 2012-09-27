@@ -30528,9 +30528,12 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
       if (!ptr)
 	ptr = copy_to_mode_reg (Pmode, slot);
       addr = XEXP (slot, 0);
+      addr = force_reg (Pmode, addr);
     }
   else
     gcc_unreachable ();
+
+  ptr = force_reg (Pmode, ptr);
 
   reg = gen_reg_rtx (BNDmode);
   emit_insn (TARGET_64BIT
