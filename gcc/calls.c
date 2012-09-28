@@ -2016,6 +2016,11 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  if (args[i].bounds_slot)
 	    {
+	      if (GET_CODE (args[i].bounds_slot) == PARALLEL)
+		use_group_regs (call_fusage, args[i].bounds_slot);
+	      else if (REG_P (args[i].bounds_slot))
+		use_reg (call_fusage, args[i].bounds_slot);
+
 	      if (args[i].bounds)
 		{
 		  gcc_assert (REG_P (args[i].bounds_slot)
