@@ -1143,6 +1143,20 @@ pl_build_returned_bound (gimple call)
       gimple_stmt_iterator iter = gsi_for_stmt (call);
       bounds = pl_make_bounds (lb, size, &iter, true);
     }
+  else if (fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_NEXT_ARG)
+    {
+      tree size = targetm.fn_abi_va_list_bounds_size (cfun->decl);
+      if (size == integer_zero_node)
+	bounds = pl_get_zero_bounds ();
+      else
+	{
+	  tree lb = gimple_call_lhs (call);
+	  gimple_stmt_iterator iter = gsi_for_stmt (call);
+	  bounds = pl_make_bounds (lb, size, &iter, true);
+	}
+    }
   else
     {
       stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);

@@ -1466,4 +1466,10 @@ default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+tree
+default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
+{
+  return integer_zero_node;
+}
+
 #include "gt-targhooks.h"

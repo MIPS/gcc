@@ -38654,6 +38654,22 @@ ix86_fn_abi_va_list (tree fndecl)
     return sysv_va_list_type_node;
 }
 
+/* This function returns size of bounds for the calling abi
+   specific va_list node.  */
+
+static tree
+ix86_fn_abi_va_list_bounds_size (tree fndecl)
+{
+  if (!TARGET_64BIT)
+    return integer_zero_node;
+  gcc_assert (fndecl != NULL_TREE);
+
+  if (ix86_function_abi ((const_tree) fndecl) == MS_ABI)
+    return integer_zero_node;
+  else
+    return TYPE_SIZE (sysv_va_list_type_node);
+}
+
 /* Returns the canonical va_list type specified by TYPE. If there
    is no valid TYPE provided, it return NULL_TREE.  */
 
@@ -39813,6 +39829,9 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_FN_ABI_VA_LIST
 #define TARGET_FN_ABI_VA_LIST ix86_fn_abi_va_list
+
+#undef TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+#define TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE ix86_fn_abi_va_list_bounds_size
 
 #undef TARGET_CANONICAL_VA_LIST_TYPE
 #define TARGET_CANONICAL_VA_LIST_TYPE ix86_canonical_va_list_type
