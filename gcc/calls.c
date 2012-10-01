@@ -2016,18 +2016,16 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  if (args[i].bounds_slot)
 	    {
-	      if (GET_CODE (args[i].bounds_slot) == PARALLEL)
-		use_group_regs (call_fusage, args[i].bounds_slot);
-	      else if (REG_P (args[i].bounds_slot))
-		use_reg (call_fusage, args[i].bounds_slot);
-
 	      if (args[i].bounds)
 		{
 		  gcc_assert (REG_P (args[i].bounds_slot)
 			      || CONST_INT_P (args[i].bounds_slot));
 
 		  if (REG_P (args[i].bounds_slot))
-		    emit_move_insn (args[i].bounds_slot, args[i].bounds);
+		    {
+		      emit_move_insn (args[i].bounds_slot, args[i].bounds);
+		      use_reg (call_fusage, args[i].bounds_slot);
+		    }
 		  else
 		    {
 		      targetm.calls.store_bounds_for_arg (reg, reg,
@@ -2054,7 +2052,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
 
 			if (REG_P (reg))
-			  emit_move_insn (reg, bnd);
+			  {
+			    emit_move_insn (reg, bnd);
+			    use_reg (call_fusage, reg);
+			  }
 			else
 			  targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
 		      }
@@ -2086,7 +2087,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 							     args[i].bounds_slot);
 
 		    if (REG_P (args[i].bounds_slot))
-		      emit_move_insn (args[i].bounds_slot, bnd);
+		      {
+			emit_move_insn (args[i].bounds_slot, bnd);
+			use_reg (call_fusage, args[i].bounds_slot);
+		      }
 		    else
 		      targetm.calls.store_bounds_for_arg (reg, args[i].reg,
 							  bnd, args[i].bounds_slot);
