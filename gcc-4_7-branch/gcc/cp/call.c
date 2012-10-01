@@ -3906,15 +3906,19 @@ build_new_function_call (tree fn, VEC(tree,gc) **args, bool koenig_p,
    total number of bytes required by the allocation, and is updated if
    that is changed here.  *COOKIE_SIZE is non-NULL if a cookie should
    be used.  If this function determines that no cookie should be
-   used, after all, *COOKIE_SIZE is set to NULL_TREE.  If FN is
-   non-NULL, it will be set, upon return, to the allocation function
-   called.  */
+   used, after all, *COOKIE_SIZE is set to NULL_TREE.  If SIZE_CHECK
+   is not NULL_TREE, it is evaluated before calculating the final
+   array size, and if it fails, the array size is replaced with
+   (size_t)-1 (usually triggering a std::bad_alloc exception).  If FN
+   is non-NULL, it will be set, upon return, to the allocation
+   function called.  */
 
 tree
 build_operator_new_call (tree fnname, VEC(tree,gc) **args,
-			 tree *size, tree *cookie_size,
+			 tree *size, tree *cookie_size, tree size_check,
 			 tree *fn)
 {
+  tree original_size = *size;
   tree fns;
   struct z_candidate *candidates;
   struct z_candidate *cand;
@@ -3922,6 +3926,10 @@ build_operator_new_call (tree fnname, VEC(tree,gc) **args,
 
   if (fn)
     *fn = NULL_TREE;
+  /* Set to (size_t)-1 if the size check fails.  */
+  if (size_check != NULL_TREE)
+    *size = fold_build3 (COND_EXPR, sizetype, size_check,
+			 original_size, TYPE_MAX_VALUE (sizetype));
   VEC_safe_insert (tree, gc, *args, 0, *size);
   *args = resolve_args (*args, tf_warning_or_error);
   if (*args == NULL)
@@ -3983,7 +3991,11 @@ build_operator_new_call (tree fnname, VEC(tree,gc) **args,
        if (use_cookie)
 	 {
 	   /* Update the total size.  */
-	   *size = size_binop (PLUS_EXPR, *size, *cookie_size);
+	   *size = size_binop (PLUS_EXPR, original_size, *cookie_size);
+	   /* Set to (size_t)-1 if the size check fails.  */
+	   if (size_check != NULL_TREE)
+	     *size = fold_build3 (COND_EXPR, sizetype, size_check,
+				  *size, TYPE_MAX_VALUE (sizetype));
 	   /* Update the argument list to reflect the adjusted size.  */
 	   VEC_replace (tree, *args, 0, *size);
 	 }
