@@ -708,7 +708,7 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   /* Get number of arguments and bound arguments.  */
   for (arg = first_formal_arg;
        arg && TREE_VALUE (arg) != void_type_node
-	 && arg_cnt < gimple_call_num_args (call);
+	 && (arg_cnt - bnd_arg_cnt)< gimple_call_num_args (call);
        arg = TREE_CHAIN (arg))
     {
       if (BOUNDED_TYPE_P (TREE_VALUE (arg)))
@@ -1163,7 +1163,7 @@ pl_build_returned_bound (gimple call)
       pl_mark_stmt (stmt);
 
       /* If call may throw then we have to insert new
-	 statement to the next BB.  Otherwise insert
+	 statement on the fallthru edge.  Otherwise insert
 	 it right after call.  */
       if (stmt_can_throw_internal (call))
 	{
@@ -1171,8 +1171,8 @@ pl_build_returned_bound (gimple call)
 
 	  gcc_assert (EDGE_COUNT (bb->succs) == 2);
 
-	  gsi = gsi_start_bb (FALLTHRU_EDGE (bb)->dest);
-	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	  gsi_insert_on_edge (FALLTHRU_EDGE (bb), stmt);
+	  gsi_commit_edge_inserts ();
 	}
       else
 	{
@@ -1633,6 +1633,10 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 	  break;
 
 	case RESULT_DECL:
+	  gcc_assert (TREE_CODE (TREE_TYPE (node)) == REFERENCE_TYPE);
+	  bounds = pl_make_bounds (node, DECL_SIZE (var), NULL, false);
+	  pl_register_bounds (node, bounds);
+	  break;
 
 	default:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1830,7 +1834,8 @@ pl_get_bounds_for_decl_addr (tree decl)
   tree size;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
-	      || TREE_CODE (decl) == PARM_DECL);
+	      || TREE_CODE (decl) == PARM_DECL
+	      || TREE_CODE (decl) == RESULT_DECL);
 
   bounds = pl_get_registered_addr_bounds (decl);
 
@@ -1900,6 +1905,7 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
     {
     case VAR_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
       bounds = pl_get_bounds_for_decl_addr (obj);
       break;
 
@@ -1929,12 +1935,6 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 
     case MEM_REF:
       bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
-      break;
-
-    case RESULT_DECL:
-      /* We assume compiler knows what it does and use zero bounds
-	 for result decl.  */
-      return pl_get_zero_bounds ();
       break;
 
     default:
