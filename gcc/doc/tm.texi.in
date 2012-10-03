@@ -2871,13 +2871,11 @@ as below:
 
 @hook TARGET_LRA_P
 
-@hook TARGET_REGISTER_BANK
+@hook TARGET_REGISTER_PRIORITY
 
 @hook TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
 
 @hook TARGET_SPILL_CLASS
-
-@hook TARGET_SPILL_CLASS_MODE
 
 @node Old Constraints
 @section Obsolete Macros for Defining Constraints

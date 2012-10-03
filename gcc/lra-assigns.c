@@ -49,12 +49,12 @@ along with GCC; see the file COPYING3.	If not see
  
    If two hard registers are equally good for assigning the pseudo
    with hard register cost point of view, we prefer a hard register in
-   smaller register bank.  By default, there is only one register
-   bank.  A target can define register banks by hook
-   register_bank. For example, x86-64 has a few register banks: hard
-   regs with and without REX prefixes are in different banks.  It
-   permits to generate smaller code as insns without REX prefix are
-   shorter.
+   smaller register priority.  By default, there is only one register
+   priority.  A target can define register prioritys by hook
+   register_priority. For example, x86-64 has a few register
+   prioritys: hard regs with and without REX prefixes are in different
+   prioritys.  It permits to generate smaller code as insns without
+   REX prefix are shorter.
 
    If a few hard registers are still equally good for the assignment,
    we choose the least used hard register.  It is called leveling and
@@ -338,14 +338,14 @@ static int hard_regno_costs[FIRST_PSEUDO_REGISTER];
    for pseudo REGNO.  In the failure case, return a negative number.
    Return through *COST the cost of usage of the hard register for the
    pseudo.  Best free hard register has smallest cost of usage for
-   REGNO or smallest register bank if the cost is the same.  */
+   REGNO or smallest register priority if the cost is the same.  */
 static int
 find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 {
   HARD_REG_SET conflict_set;
-  int best_cost = INT_MAX, best_bank = INT_MAX, best_usage = INT_MAX;
+  int best_cost = INT_MAX, best_priority = INT_MAX, best_usage = INT_MAX;
   lra_live_range_t r;
-  int p, i, j, rclass_size, best_hard_regno, bank, hard_regno;
+  int p, i, j, rclass_size, best_hard_regno, priority, hard_regno;
   int hr, conflict_hr, nregs;
   enum machine_mode biggest_mode;
   unsigned int k, conflict_regno;
@@ -520,21 +520,21 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 	      /* It needs save restore.	 */
 	      hard_regno_costs[hard_regno]
 		+= 2 * ENTRY_BLOCK_PTR->next_bb->frequency;
-	  bank = targetm.register_bank (hard_regno);
+	  priority = targetm.register_priority (hard_regno);
 	  if (best_hard_regno < 0 || hard_regno_costs[hard_regno] < best_cost
 	      || (hard_regno_costs[hard_regno] == best_cost
-		  && (bank < best_bank
+		  && (priority < best_priority
 		      /* Hard register usage leveling actually results
 			 in bigger code for targets with conditional
 			 execution like ARM because it reduces chance
 			 of if-conversion after LRA.  */
 		      || (! targetm.have_conditional_execution ()
-			  && bank == best_bank
+			  && priority == best_priority
 			  && best_usage > lra_hard_reg_usage[hard_regno]))))
 	    {
 	      best_hard_regno = hard_regno;
 	      best_cost = hard_regno_costs[hard_regno];
-	      best_bank = bank;
+	      best_priority = priority;
 	      best_usage = lra_hard_reg_usage[hard_regno];
 	    }
 	}

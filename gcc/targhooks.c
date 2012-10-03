@@ -847,7 +847,7 @@ default_lra_p (void)
 }
 
 int
-default_register_bank (int hard_regno ATTRIBUTE_UNUSED)
+default_register_priority (int hard_regno ATTRIBUTE_UNUSED)
 {
   return 0;
 }

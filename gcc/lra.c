@@ -2164,15 +2164,17 @@ bool lra_reg_spill_p;
 static void
 setup_reg_spill_flag (void)
 {
-  int cl;
+  int cl, mode;
 
   if (flag_lra_reg_spill && targetm.spill_class != NULL)
     for (cl = 0; cl < (int) LIM_REG_CLASSES; cl++)
-      if (targetm.spill_class ((enum reg_class) cl) != NO_REGS)
-	{
-	  lra_reg_spill_p = true;
-	  return;
-	}
+      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
+	if (targetm.spill_class ((enum reg_class) cl,
+				 (enum machine_mode) mode) != NO_REGS)
+	  {
+	    lra_reg_spill_p = true;
+	    return;
+	  }
   lra_reg_spill_p = false;
 }
 

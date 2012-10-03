@@ -1,3 +1,29 @@
+2012-10-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* sched-vis.c (print_value_slim): Fix the comment.
+	* targhooks.h (default_register_bank): Rename to
+	default_register_priority.
+	* targhooks.c (default_register_bank): Ditto.
+	* target.def (register_bank): Rename to register_priority.
+	(spill_class): Add a new argument
+	(spill_class_mode): Remove.
+	* doc/tm.texi.in (TARGET_REGISTER_BANK): Rename to
+	TARGET_REGISTER_PRIORITY.
+	(TARGET_SPILL_CLASS_MODE): Remove.
+	* doc/tm.texi: Update.
+	* lra.c (setup_reg_spill_flag): Provide a new argument to
+	spill_class.
+	* lra-assigns.c (find_hard_regno_for): Use register_priority
+	instead of register_bank.
+	* lra-spills.c (assign_spill_hard_regs): Don't use hook
+	spill_class_mode.  Provide a new argument to spill_class hook.
+	* config/i386/i386.c (ix86_register_bank): Rename to
+	ix86_register_priority.
+	(ix86_spill_class): Add new parameter.
+	(ix86_spill_class_mode): Remove.
+	(TARGET_REGISTER_BANK): Rename to TARGET_REGISTER_PRIORITY.
+	(TARGET_SPILL_CLASS_MODE): Remove.
+
 2012-10-03  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* timevar.def (TV_LRA, TV_LRA_ELIMINATE, TV_LRA_INHERITANCE,

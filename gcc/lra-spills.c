@@ -288,23 +288,22 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
       regno = pseudo_regnos[i];
       rclass = lra_get_allocno_class (regno);
       if (bitmap_bit_p (set_jump_crosses, regno)
-	  || (spill_class = targetm.spill_class (rclass)) == NO_REGS
-	  || (targetm.spill_class_mode (rclass, spill_class,
-					PSEUDO_REGNO_MODE (regno))
-	      != PSEUDO_REGNO_MODE (regno))
+	  || (spill_class
+	      = ((enum reg_class)
+		 targetm.spill_class ((reg_class_t) rclass,
+				      PSEUDO_REGNO_MODE (regno)))) == NO_REGS
 	  || bitmap_intersect_compl_p (&lra_reg_info[regno].insn_bitmap,
 				       &ok_insn_bitmap))
 	{
 	  pseudo_regnos[res++] = regno;
 	  continue;
 	}
+      lra_assert (spill_class != NO_REGS);
       COPY_HARD_REG_SET (conflict_hard_regs,
 			 lra_reg_info[regno].conflict_hard_regs);
       for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
 	for (p = r->start; p <= r->finish; p++)
 	  IOR_HARD_REG_SET (conflict_hard_regs, reserved_hard_regs[p]);
-      spill_class = targetm.spill_class (lra_get_allocno_class (regno));
-      lra_assert (spill_class != NO_REGS);
       spill_class_size = ira_class_hard_regs_num[spill_class];
       mode = lra_reg_info[regno].biggest_mode;
       for (k = 0; k < spill_class_size; k++)

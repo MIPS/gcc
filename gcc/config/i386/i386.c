@@ -31705,9 +31705,9 @@ ix86_lra_p (void)
   return true;
 }
 
-/* Return a register bank number for hard reg REGNO.  */
+/* Return a register priority for hard reg REGNO.  */
 static int
-ix86_register_bank (int hard_regno)
+ix86_register_priority (int hard_regno)
 {
   /* ebp and r13 as the base always wants a displacement, r12 as the
      base always wants an index.  So discourage their usage in an
@@ -40525,36 +40525,19 @@ ix86_autovectorize_vector_sizes (void)
 
 
 
-/* Return class of registers which could be used for pseudo of class
-   RCLASS for spilling instead of memory.  Return NO_REGS if it is not
-   possible or non-profitable.  */
-static enum reg_class
-ix86_spill_class (enum reg_class rclass)
+/* Return class of registers which could be used for pseudo of MODE
+   and of class RCLASS for spilling instead of memory.  Return NO_REGS
+   if it is not possible or non-profitable.  */
+static reg_class_t
+ix86_spill_class (reg_class_t rclass, enum machine_mode mode)
 {
   if (TARGET_SSE && TARGET_GENERAL_REGS_SSE_SPILL
       && hard_reg_set_subset_p (reg_class_contents[rclass],
-				reg_class_contents[GENERAL_REGS]))
+				reg_class_contents[GENERAL_REGS])
+      && (mode == SImode || (TARGET_64BIT && mode == DImode)))
     return SSE_REGS;
   return NO_REGS;
 }
-
-/* Return mode in which pseudo of MODE and RCLASS can be spilled into
-   a register of class SPILL_CLASS.  Return VOIDmode if it is not
-   possible.  */
-static enum machine_mode
-ix86_spill_class_mode (enum reg_class rclass, enum reg_class spill_class,
-		       enum machine_mode mode)
-{
-  if (! TARGET_SSE || ! TARGET_GENERAL_REGS_SSE_SPILL
-      || ! hard_reg_set_subset_p (reg_class_contents[rclass],
-				  reg_class_contents[GENERAL_REGS])
-      || spill_class != SSE_REGS)
-    return VOIDmode;
-  if (mode == SImode || (TARGET_64BIT && mode == DImode))
-    return mode;
-  return VOIDmode;
-}
-
 
 /* Implement targetm.vectorize.init_cost.  */
 
@@ -40961,8 +40944,8 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #undef TARGET_LRA_P
 #define TARGET_LRA_P ix86_lra_p
 
-#undef TARGET_REGISTER_BANK
-#define TARGET_REGISTER_BANK ix86_register_bank
+#undef TARGET_REGISTER_PRIORITY
+#define TARGET_REGISTER_PRIORITY ix86_register_priority
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ix86_legitimate_constant_p
@@ -40989,9 +40972,6 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
-
-#undef TARGET_SPILL_CLASS_MODE
-#define TARGET_SPILL_CLASS_MODE ix86_spill_class_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

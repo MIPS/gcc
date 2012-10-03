@@ -546,9 +546,11 @@ print_value (char *buf, const_rtx x, int verbose)
     }
 }				/* print_value */
 
-/* Prints rtxes, I customarily classified as values.  They're
-   constants, registers, labels, symbols and memory accesses.  Print
-   them to file F.  */
+/* Print X, an RTL value node, to file F in slim format.  Include
+   additional information if VERBOSE is nonzero.
+
+   Value nodes are constants, registers, labels, symbols and
+   memory.  */
 
 void
 print_value_slim (FILE *f, const_rtx x, int verbose)
