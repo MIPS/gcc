@@ -221,15 +221,17 @@ lra_coalesce (void)
   bitmap_head involved_insns_bitmap, split_origin_bitmap;
   bitmap_iterator bi;
 
+  timevar_push (TV_LRA_COALESCE);
+
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
 	     "\n********** Pseudos coalescing #%d: **********\n\n",
 	     ++lra_coalesce_iter);
-  first_coalesced_pseudo = (int *) xmalloc (sizeof (int) * max_regno);
-  next_coalesced_pseudo = (int *) xmalloc (sizeof (int) * max_regno);
+  first_coalesced_pseudo = XNEWVEC (int, max_regno);
+  next_coalesced_pseudo = XNEWVEC (int, max_regno);
   for (i = 0; i < max_regno; i++)
     first_coalesced_pseudo[i] = next_coalesced_pseudo[i] = i;
-  sorted_moves = (rtx *) xmalloc (get_max_uid () * sizeof (rtx));
+  sorted_moves = XNEWVEC (rtx, get_max_uid ());
   mv_num = 0;
   /* Collect pseudos whose live ranges were split.  */
   bitmap_initialize (&split_origin_bitmap, &reg_obstack);
@@ -371,5 +373,6 @@ lra_coalesce (void)
   free (sorted_moves);
   free (next_coalesced_pseudo);
   free (first_coalesced_pseudo);
+  timevar_pop (TV_LRA_COALESCE);
   return coalesced_moves != 0;
 }

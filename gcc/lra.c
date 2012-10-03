@@ -585,15 +585,16 @@ static struct lra_static_insn_data *
 get_static_insn_data (int icode, int nop, int ndup, int nalt)
 {
   struct lra_static_insn_data *data;
+  size_t n_bytes;
 
   lra_assert (icode < LAST_INSN_CODE);
   if (icode >= 0 && (data = insn_code_data[icode]) != NULL)
     return data;
   lra_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
-  data = ((struct lra_static_insn_data *)
-	  xmalloc (sizeof (struct lra_static_insn_data)
-		   + sizeof (struct lra_operand_data) * nop
-		   + sizeof (int) * ndup));
+  n_bytes = sizeof (struct lra_static_insn_data)
+	    + sizeof (struct lra_operand_data) * nop
+	    + sizeof (int) * ndup;
+  data = XNEWVAR (struct lra_static_insn_data, n_bytes);
   data->n_operands = nop;
   data->n_dups = ndup;
   data->n_alternatives = nalt;
@@ -650,10 +651,9 @@ check_and_expand_insn_recog_data (int index)
     return;
   old = lra_insn_recog_data_len;
   lra_insn_recog_data_len = index * 3 / 2 + 1;
-  lra_insn_recog_data
-    = (lra_insn_recog_data_t *) xrealloc (lra_insn_recog_data,
-					  lra_insn_recog_data_len
-					  * sizeof (lra_insn_recog_data_t));
+  lra_insn_recog_data = XRESIZEVEC (lra_insn_recog_data_t,
+				    lra_insn_recog_data,
+				    lra_insn_recog_data_len);
   for (i = old; i < lra_insn_recog_data_len; i++)
     lra_insn_recog_data[i] = NULL;
 }
@@ -717,9 +717,8 @@ setup_operand_alternative (lra_insn_recog_data_t data)
       return;
     }
   nalt = static_data->n_alternatives;
-  static_data->operand_alternative
-    = ((struct operand_alternative *)
-       xmalloc (nalt * nop * sizeof (struct operand_alternative)));
+  static_data->operand_alternative = XNEWVEC (struct operand_alternative,
+					      nalt * nop);
   memset (static_data->operand_alternative, 0,
 	  nalt * nop * sizeof (struct operand_alternative));
   if (icode >= 0)
@@ -1006,8 +1005,7 @@ lra_set_insn_recog_data (rtx insn)
 	/* It might be a new simple insn which is not recognized yet.  */
 	INSN_CODE (insn) = icode = recog (PATTERN (insn), insn, 0);
     }
-  data
-    = (lra_insn_recog_data_t) xmalloc (sizeof (struct lra_insn_recog_data));
+  data = XNEW (struct lra_insn_recog_data);
   lra_insn_recog_data[uid] = data;
   data->insn = insn;
   data->used_insn_alternative = -1;
@@ -1021,7 +1019,7 @@ lra_set_insn_recog_data (rtx insn)
 #ifdef HAVE_ATTR_enabled
       data->alternative_enabled_p = NULL;
 #endif
-      data->operand_loc = (rtx **) xmalloc (sizeof (rtx *));
+      data->operand_loc = XNEWVEC (rtx *, 1);
       data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
       return data;
     }
@@ -1043,7 +1041,7 @@ lra_set_insn_recog_data (rtx insn)
 	     operands.	*/
 	  lra_assert (nop <= MAX_RECOG_OPERANDS);
 	  if (nop != 0)
-	    data->operand_loc = (rtx **) xmalloc (nop * sizeof (rtx *));
+	    data->operand_loc = XNEWVEC (rtx *, nop);
 	  /* Now get the operand values and constraints out of the
 	     insn.  */
 	  decode_asm_operands (PATTERN (insn), NULL,
@@ -1088,8 +1086,7 @@ lra_set_insn_recog_data (rtx insn)
 	locs = NULL;
       else
 	{
-	  
-	  locs = (rtx **) xmalloc (n * sizeof (rtx *));
+	  locs = XNEWVEC (rtx *, n);
 	  memcpy (locs, recog_data.operand_loc, n * sizeof (rtx *));
 	}
       data->operand_loc = locs;
@@ -1098,7 +1095,7 @@ lra_set_insn_recog_data (rtx insn)
 	locs = NULL;
       else
 	{
-	  locs = (rtx **) xmalloc (n * sizeof (rtx *));
+	  locs = XNEWVEC (rtx *, n);
 	  memcpy (locs, recog_data.dup_loc, n * sizeof (rtx *));
 	}
       data->dup_loc = locs;
@@ -1108,8 +1105,7 @@ lra_set_insn_recog_data (rtx insn)
 
 	n = insn_static_data->n_alternatives;
 	lra_assert (n >= 0);
-	data->alternative_enabled_p
-	  = bp = (bool *) xmalloc (n * sizeof (bool));
+	data->alternative_enabled_p = bp = XNEWVEC (bool, n);
 	/* Cache the insn because we don't want to call extract_insn
 	   from get_attr_enabled as extract_insn modifies
 	   which_alternative.  The attribute enabled should not depend
@@ -1161,7 +1157,7 @@ lra_set_insn_recog_data (rtx insn)
       if (n_hard_regs != 0)
 	{
 	  arg_hard_regs[n_hard_regs++] = -1;
-	  data->arg_hard_regs = ((int *) xmalloc (n_hard_regs * sizeof (int)));
+	  data->arg_hard_regs = XNEWVEC (int, n_hard_regs);
 	  memcpy (data->arg_hard_regs, arg_hard_regs,
 		  sizeof (int) * n_hard_regs);
 	}
@@ -1388,8 +1384,7 @@ init_reg_info (void)
 
   last_reg_value = 0;
   reg_info_size = max_reg_num () * 3 / 2 + 1;
-  lra_reg_info
-    = (struct lra_reg *) xmalloc (reg_info_size * sizeof (struct lra_reg));
+  lra_reg_info = XNEWVEC (struct lra_reg, reg_info_size);
   for (i = 0; i < reg_info_size; i++)
     {
       bitmap_initialize (&lra_reg_info[i].insn_bitmap, &reg_obstack);
@@ -1437,9 +1432,7 @@ expand_reg_info (void)
   if (reg_info_size > max_reg_num ())
     return;
   reg_info_size = max_reg_num () * 3 / 2 + 1;
-  lra_reg_info
-    = (struct lra_reg *) xrealloc (lra_reg_info,
-				   reg_info_size * sizeof (struct lra_reg));
+  lra_reg_info = XRESIZEVEC (struct lra_reg, lra_reg_info, reg_info_size);
   for (i = old; i < reg_info_size; i++)
     {
       bitmap_initialize (&lra_reg_info[i].insn_bitmap, &reg_obstack);
@@ -1904,7 +1897,7 @@ remove_scratches (void)
 				      *id->operand_loc[i], ALL_REGS, NULL);
 	      add_reg_note (insn, REG_UNUSED, reg);
 	      lra_update_dup (id, i);
-	      loc = (struct loc *) xmalloc (sizeof (struct loc));
+	      loc = XNEW (struct loc);
 	      loc->insn = insn;
 	      loc->nop = i;
 	      VEC_safe_push (loc_t, heap, scratches, loc);
@@ -2193,6 +2186,7 @@ lra (FILE *f)
 
   lra_dump_file = f;
 
+  timevar_push (TV_LRA);
 
   init_insn_recog_data ();
 
@@ -2343,6 +2337,8 @@ lra (FILE *f)
 #ifdef ENABLE_CHECKING
   check_rtl (true);
 #endif
+
+  timevar_pop (TV_LRA);
 }
 
 /* Called once per compiler to initialize LRA data once.  */

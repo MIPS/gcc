@@ -770,16 +770,8 @@ create_start_finish_chains (void)
   int i, max_regno;
   lra_live_range_t r;
 
-  lra_start_point_ranges
-    = (lra_live_range_t *) xmalloc (lra_live_max_point
-				    * sizeof (lra_live_range_t));
-  memset (lra_start_point_ranges, 0,
-	  lra_live_max_point * sizeof (lra_live_range_t));
-  lra_finish_point_ranges
-    = (lra_live_range_t *) xmalloc (lra_live_max_point
-				    * sizeof (lra_live_range_t));
-  memset (lra_finish_point_ranges, 0,
-	  lra_live_max_point * sizeof (lra_live_range_t));
+  lra_start_point_ranges = XCNEWVEC (lra_live_range_t, lra_live_max_point);
+  lra_finish_point_ranges = XCNEWVEC (lra_live_range_t, lra_live_max_point);
   max_regno = max_reg_num ();
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     {
@@ -835,7 +827,7 @@ remove_some_program_points_and_update_live_ranges (void)
     }
   born_or_dead = sbitmap_alloc (lra_live_max_point);
   sbitmap_a_or_b (born_or_dead, born, dead);
-  map = (int *) xmalloc (sizeof (int) * lra_live_max_point);
+  map = XCNEWVEC (int, lra_live_max_point);
   n = -1;
   prev_born_p = prev_dead_p = false;
   EXECUTE_IF_SET_IN_SBITMAP (born_or_dead, 0, i, sbi)
@@ -961,6 +953,7 @@ lra_create_live_ranges (bool all_p)
 {
   basic_block bb;
   int i, hard_regno, max_regno = max_reg_num ();
+  timevar_push (TV_LRA_CREATE_LIVE_RANGES);
 
   complete_info_p = all_p;
   if (lra_dump_file != NULL)
@@ -1016,6 +1009,7 @@ lra_create_live_ranges (bool all_p)
   sparseset_free (pseudos_live_through_setjumps);
   sparseset_free (pseudos_live);
   compress_live_ranges ();
+  timevar_pop (TV_LRA_CREATE_LIVE_RANGES);
 }
 
 /* Finish all live ranges.  */

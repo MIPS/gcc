@@ -1297,6 +1297,8 @@ lra_eliminate (bool final_p)
   struct elim_table *ep;
   int regs_num = max_reg_num ();
 
+  timevar_push (TV_LRA_ELIMINATE);
+
   bitmap_initialize (&insns_with_changed_offsets, &reg_obstack);
   if (final_p)
     {
@@ -1317,7 +1319,7 @@ lra_eliminate (bool final_p)
     {
       update_reg_eliminate (&insns_with_changed_offsets);
       if (bitmap_empty_p (&insns_with_changed_offsets))
-	return;
+	goto lra_eliminate_done;
     }
   if (lra_dump_file != NULL)
     {
@@ -1349,4 +1351,7 @@ lra_eliminate (bool final_p)
 	  process_insn_for_elimination (insn, final_p);
       }
   bitmap_clear (&insns_with_changed_offsets);
+
+lra_eliminate_done:
+  timevar_pop (TV_LRA_ELIMINATE);
 }

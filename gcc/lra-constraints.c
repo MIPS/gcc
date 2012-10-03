@@ -4293,7 +4293,7 @@ update_ebb_live_info (rtx head, rtx tail)
 	{
 	  if (prev_bb != NULL)
 	    {
-	      /* Udpate DF_LR_IN (prev_bb):  */
+	      /* Update DF_LR_IN (prev_bb):  */
 	      EXECUTE_IF_SET_IN_BITMAP (&check_only_regs, 0, j, bi)
 		if (bitmap_bit_p (&live_regs, j))
 		  bitmap_set_bit (DF_LR_IN (prev_bb), j);
@@ -4859,14 +4859,14 @@ lra_inheritance (void)
   basic_block bb, start_bb;
   edge e;
 
+  timevar_push (TV_LRA_INHERITANCE);
+
   lra_inheritance_iter++;
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Inheritance #%d: **********\n\n",
 	     lra_inheritance_iter);
   curr_usage_insns_check = 0;
-  usage_insns
-    = (struct usage_insns *) xmalloc (sizeof (struct usage_insns)
-				      * lra_constraint_new_regno_start);
+  usage_insns = XNEWVEC (struct usage_insns, lra_constraint_new_regno_start);
   for (i = 0; i < lra_constraint_new_regno_start; i++)
     usage_insns[i].check = 0;
   bitmap_initialize (&check_only_regs, &reg_obstack);
@@ -4907,6 +4907,8 @@ lra_inheritance (void)
   bitmap_clear (&live_regs);
   bitmap_clear (&check_only_regs);
   free (usage_insns);
+
+  timevar_pop (TV_LRA_INHERITANCE);
 }
 
 

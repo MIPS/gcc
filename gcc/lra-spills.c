@@ -266,8 +266,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
   if (! lra_reg_spill_p)
     return n;
   /* Set up reserved hard regs for every program point.	 */
-  reserved_hard_regs = (HARD_REG_SET *) xmalloc (sizeof (HARD_REG_SET)
-						 * lra_live_max_point);
+  reserved_hard_regs = XNEWVEC (HARD_REG_SET, lra_live_max_point);
   for (p = 0; p < lra_live_max_point; p++)
     COPY_HARD_REG_SET (reserved_hard_regs[p], lra_no_alloc_regs);
   for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
@@ -332,7 +331,8 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	= gen_raw_REG (PSEUDO_REGNO_MODE (regno), hard_regno);
       for (nr = 0;
 	   nr < hard_regno_nregs[hard_regno][lra_reg_info[regno].biggest_mode];
-	   nr++);
+	   nr++)
+	/* Just loop.  */;
       df_set_regs_ever_live (hard_regno + nr, true);
     }
   bitmap_clear (&ok_insn_bitmap);
@@ -518,8 +518,8 @@ lra_spill (void)
   int *pseudo_regnos;
 
   regs_num = max_reg_num ();
-  spill_hard_reg = (rtx *) xmalloc (sizeof (rtx) * regs_num);
-  pseudo_regnos = (int *) xmalloc (sizeof (int) * regs_num);
+  spill_hard_reg = XNEWVEC (rtx, regs_num);
+  pseudo_regnos = XNEWVEC (int, regs_num);
   for (n = 0, i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
     if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
 	/* We do not want to assign memory for former scratches.  */
@@ -529,9 +529,8 @@ lra_spill (void)
 	pseudo_regnos[n++] = i;
       }
   lra_assert (n > 0);
-  pseudo_slots = (struct pseudo_slot *) xmalloc (sizeof (struct pseudo_slot)
-						 * regs_num);
-  slots = (struct slot *) xmalloc (sizeof (struct slot) * regs_num);
+  pseudo_slots = XNEWVEC (struct pseudo_slot, regs_num);
+  slots = XNEWVEC (struct slot, regs_num);
   /* Sort regnos according their usage frequencies.  */
   qsort (pseudo_regnos, n, sizeof (int), regno_freq_compare);
   n = assign_spill_hard_regs (pseudo_regnos, n);

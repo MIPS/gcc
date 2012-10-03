@@ -1,3 +1,37 @@
+2012-10-03  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* timevar.def (TV_LRA, TV_LRA_ELIMINATE, TV_LRA_INHERITANCE,
+	TV_LRA_CREATE_LIVE_RANGES, TV_LRA_ASSIGN, TV_LRA_COALESCE): New.
+	* lra.c (get_static_insn_data): Use XNEW* instead of xmalloc,
+	or XRESIZEVEC instead of xrealloc.
+	(check_and_expand_insn_recog_data): Likewise.
+	(setup_operand_alternative): Likewise.
+	(lra_set_insn_recog_data): Likewise.
+	(init_reg_info): Likewise.
+	(expand_reg_info): Likewise.
+	(remove_scratches): Likewise.
+	(lra): Push/pop TV_LRA.
+	* lra-eliminations.c (lra_eliminate): Push/pop TV_LRA_ELIMINATE.
+	* lra-spills.c (assign_spill_hard_regs): Use XNEW* instead of xmalloc.
+	(lra_spill): Likewise.
+	* lra-lives.c (create_start_finish_chains): Likewise.
+	(remove_some_program_points_and_update_live_ranges): Likewise.
+	(lra_create_live_ranges): Push/pop TV_LRA_CREATE_LIVE_RANGES.
+	* lra-coalesce.c (lra_coalesce): Push/pop TV_LRA_COALESCE.
+	Use XNEW* instead of xmalloc.
+	* lra-constraints.c (lra_inheritance): Likewise.
+	* lra-assigns.c (init_regno_assign_info): Use XNEW* instead of xmalloc.
+	(init_lives): Likewise.
+	(assign_by_spills): Likewise.
+	(lra_assign): Likewise.  Push/pop TV_LRA_ASSIGN.
+
+	* lra-assigns.c (live_hard_reg_pseudos_bitmap_obstack,
+	live_reload_and_inheritance_pseudos_bitmap_obstack): New bitmap
+	obstacks.
+	(init_lives, finish_lives, init_live_reload_and_inheritance_pseudos,
+	finish_live_reload_and_inheritance_pseudos): Initialize or release
+	them, and allocate bitmaps on the new bitmap obstacks.
+
 2012-09-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/mips/mips.c: Include ira.h.

@@ -140,9 +140,7 @@ init_regno_assign_info (void)
   int i, regno1, regno2;
   lra_copy_t cp;
 
-  regno_assign_info
-    = (struct regno_assign_info *) xmalloc (sizeof (struct regno_assign_info)
-				       * max_reg_num ());
+  regno_assign_info = XNEWVEC (struct regno_assign_info, max_reg_num ());
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     {
       regno_assign_info[i].first = i;
@@ -218,6 +216,7 @@ pseudo_compare_func (const void *v1p, const void *v2p)
 /* Map: program point -> bitmap of all pseudos living at the point and
    assigned to hard registers.	*/
 static bitmap_head *live_hard_reg_pseudos;
+static bitmap_obstack live_hard_reg_pseudos_bitmap_obstack;
 
 /* reg_renumber corresponding to pseudos marked in
    live_hard_reg_pseudos.  reg_renumber might be not matched to
@@ -242,12 +241,12 @@ init_lives (void)
 
   live_range_hard_reg_pseudos = sparseset_alloc (max_reg_num ());
   live_range_reload_pseudos = sparseset_alloc (max_reg_num ());
-  live_hard_reg_pseudos = (bitmap_head *) xmalloc (sizeof (bitmap_head)
-						   * lra_live_max_point);
+  live_hard_reg_pseudos = XNEWVEC (bitmap_head, lra_live_max_point);
+  bitmap_obstack_initialize (&live_hard_reg_pseudos_bitmap_obstack);
   for (i = 0; i < lra_live_max_point; i++)
-    bitmap_initialize (&live_hard_reg_pseudos[i], &reg_obstack);
-  live_pseudos_reg_renumber
-    = (int *) xmalloc (sizeof (int) * max_reg_num ());
+    bitmap_initialize (&live_hard_reg_pseudos[i],
+		       &live_hard_reg_pseudos_bitmap_obstack);
+  live_pseudos_reg_renumber = XNEWVEC (int, max_reg_num ());
   for (i = 0; i < max_reg_num (); i++)
     live_pseudos_reg_renumber[i] = -1;
 }
@@ -256,13 +255,10 @@ init_lives (void)
 static void
 finish_lives (void)
 {
-  int i;
-
   sparseset_free (live_range_hard_reg_pseudos);
   sparseset_free (live_range_reload_pseudos);
-  for (i = 0; i < lra_live_max_point; i++)
-    bitmap_clear (&live_hard_reg_pseudos[i]);
   free (live_hard_reg_pseudos);
+  bitmap_obstack_release (&live_hard_reg_pseudos_bitmap_obstack);
   free (live_pseudos_reg_renumber);
 }
 
@@ -295,6 +291,7 @@ static sparseset conflict_reload_and_inheritance_pseudos;
 /* Map: program point -> bitmap of all reload and inheritance pseudos
    living at the point.	 */
 static bitmap_head *live_reload_and_inheritance_pseudos;
+static bitmap_obstack live_reload_and_inheritance_pseudos_bitmap_obstack;
 
 /* Allocate and initialize data about living reload pseudos at any
    given program point.	 */
@@ -305,10 +302,11 @@ init_live_reload_and_inheritance_pseudos (void)
   lra_live_range_t r;
   
   conflict_reload_and_inheritance_pseudos = sparseset_alloc (max_reg_num ());
-  live_reload_and_inheritance_pseudos
-    = (bitmap_head *) xmalloc (sizeof (bitmap_head) * lra_live_max_point);
+  live_reload_and_inheritance_pseudos = XNEWVEC (bitmap_head, lra_live_max_point);
+  bitmap_obstack_initialize (&live_reload_and_inheritance_pseudos_bitmap_obstack);
   for (p = 0; p < lra_live_max_point; p++)
-    bitmap_initialize (&live_reload_and_inheritance_pseudos[p], &reg_obstack);
+    bitmap_initialize (&live_reload_and_inheritance_pseudos[p],
+		       &live_reload_and_inheritance_pseudos_bitmap_obstack);
   for (i = lra_constraint_new_regno_start; i < max_reg_num (); i++)
     for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
       for (p = r->start; p <= r->finish; p++)
@@ -320,12 +318,9 @@ init_live_reload_and_inheritance_pseudos (void)
 static void
 finish_live_reload_and_inheritance_pseudos (void)
 {
-  int p;
-
   sparseset_free (conflict_reload_and_inheritance_pseudos);
-  for (p = 0; p < lra_live_max_point; p++)
-    bitmap_clear (&live_reload_and_inheritance_pseudos[p]);
   free (live_reload_and_inheritance_pseudos);
+  bitmap_obstack_release (&live_reload_and_inheritance_pseudos_bitmap_obstack);
 }
 
 /* The value used to check that cost of given hard reg is really
@@ -1097,10 +1092,7 @@ assign_by_spills (void)
   bitmap_initialize (&ignore_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&spill_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&best_spill_pseudos_bitmap, &reg_obstack);
-  update_hard_regno_preference_check = (int *) xmalloc (sizeof (int)
-							* max_reg_num ());
-  memset (update_hard_regno_preference_check, 0,
-	  sizeof (int) * max_reg_num ());
+  update_hard_regno_preference_check = XCNEWVEC (int, max_reg_num ());
   curr_update_hard_regno_preference_check = 0;
   memset (try_hard_reg_pseudos_check, 0, sizeof (try_hard_reg_pseudos_check));
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
@@ -1261,11 +1253,12 @@ lra_assign (void)
   bitmap_head insns_to_process;
   bool no_spills_p;
 
+  timevar_push (TV_LRA_ASSIGN);
+
   init_lives ();
-  sorted_pseudos = (int *) xmalloc (sizeof (int) * max_reg_num ());
-  sorted_reload_pseudos = (int *) xmalloc (sizeof (int) * max_reg_num ());
-  regno_allocno_class_array
-    = (enum reg_class *) xmalloc (sizeof (enum reg_class) * max_reg_num ());
+  sorted_pseudos = XNEWVEC (int, max_reg_num ());
+  sorted_reload_pseudos = XNEWVEC (int, max_reg_num ());
+  regno_allocno_class_array = XNEWVEC (enum reg_class, max_reg_num ());
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     regno_allocno_class_array[i] = lra_get_allocno_class (i);
   init_regno_assign_info ();
@@ -1312,5 +1305,6 @@ lra_assign (void)
   free (sorted_pseudos);
   free (sorted_reload_pseudos);
   finish_lives ();
+  timevar_pop (TV_LRA_ASSIGN);
   return no_spills_p;
 }
