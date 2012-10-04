@@ -4327,8 +4327,26 @@ ira (FILE *f)
   bool loops_p;
   int max_regno_before_ira, ira_max_point_before_emit;
   int rebuild_p;
+  bool saved_flag_caller_saves = flag_caller_saves;
+  enum ira_region saved_flag_ira_region = flag_ira_region;
+
+  ira_conflicts_p = optimize > 0;
 
   ira_use_lra_p = targetm.lra_p ();
+  /* If there are too many pseudos and/or basic blocks (e.g. 10K
+     pseudos and 10K blocks or 100K pseudos and 1K blocks), we will
+     use simplified and faster algorithms in LRA.  */
+  lra_simple_p
+    = (ira_use_lra_p && max_reg_num () >= (1 << 26) / last_basic_block);
+  if (lra_simple_p)
+    {
+      /* It permits to skip live range splitting in LRA.  */
+      flag_caller_saves = false;
+      /* There is no sense to do regional allocation when we use
+	 simplified LRA.  */
+      flag_ira_region = IRA_REGION_ONE;
+      ira_conflicts_p = false;
+    }
 
 #ifndef IRA_NO_OBSTACK
   gcc_obstack_init (&ira_obstack);
@@ -4349,7 +4367,6 @@ ira (FILE *f)
       ira_dump_file = stderr;
     }
 
-  ira_conflicts_p = optimize > 0;
   setup_prohibited_mode_move_regs ();
 
   df_note_add_problem ();
@@ -4530,6 +4547,13 @@ ira (FILE *f)
   /* See comment for find_moveable_pseudos call.  */
   if (ira_conflicts_p)
     move_unallocated_pseudos ();
+
+  /* Restore original values.  */
+  if (lra_simple_p)
+    {
+      flag_caller_saves = saved_flag_caller_saves;
+      flag_ira_region = saved_flag_ira_region;
+    }
 }
 
 static void

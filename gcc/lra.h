@@ -20,6 +20,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.	If not see
 <http://www.gnu.org/licenses/>.	 */
 
+extern bool lra_simple_p;
+
 /* Return the allocno reg class of REGNO.  If it is a reload pseudo,
    the pseudo should finally get hard register of the allocno
    class.  */

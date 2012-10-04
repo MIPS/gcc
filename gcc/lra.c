@@ -2178,8 +2178,14 @@ setup_reg_spill_flag (void)
   lra_reg_spill_p = false;
 }
 
+/* True if the current function is too big to use regular algorithms
+   in LRA. In other words, we should use simpler and faster algorithms
+   in LRA.  It also means we should not worry about generation code
+   for caller saves.  The value is set up in IRA.  */
+bool lra_simple_p;
+
 /* Major LRA entry function.  F is a file should be used to dump LRA
-   debug info.	*/
+   debug info.  */
 void
 lra (FILE *f)
 {
@@ -2266,7 +2272,9 @@ lra (FILE *f)
 	     RS6000_PIC_OFFSET_TABLE_REGNUM uneliminable if we started
 	     to use a constant pool.  */
 	  lra_eliminate (false);
-	  lra_inheritance ();
+	  /* Do inheritance only for regular algorithms.  */
+	  if (! lra_simple_p)
+	    lra_inheritance ();
 	  /* We need live ranges for lra_assign -- so build them.  */
 	  lra_create_live_ranges (true);
 	  live_p = true;
@@ -2275,10 +2283,16 @@ lra (FILE *f)
 	     If inheritance pseudos were spilled, the memory-memory
 	     moves involving them will be removed by pass undoing
 	     inheritance.  */
-	  if (! lra_assign () && lra_coalesce ())	
-	    live_p = false;
-	  if (lra_undo_inheritance ())
-	    live_p = false;
+	  if (lra_simple_p)
+	    lra_assign ();
+	  else
+	    {
+	      /* Do coalescing only for regular algorithms.  */
+	      if (! lra_assign () && lra_coalesce ())	
+		live_p = false;
+	      if (lra_undo_inheritance ())
+		live_p = false;
+	    }
 	}
       bitmap_clear (&lra_inheritance_pseudos);
       bitmap_clear (&lra_split_pseudos);

@@ -1186,46 +1186,50 @@ assign_by_spills (void)
   improve_inheritance (&changed_pseudo_bitmap);
   bitmap_clear (&non_reload_pseudos);
   bitmap_clear (&changed_insns);
-  /* We should not assign to original pseudos of inheritance pseudos
-     or split pseudos if any its inheritance pseudo did not get hard
-     register or any its split pseudo was not split because undo
-     inheritance/split pass will extend live range of such inheritance
-     or split pseudos.	*/
-  bitmap_initialize (&do_not_assign_nonreload_pseudos, &reg_obstack);
-  EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, u, bi)
-    if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
-	&& reg_renumber[u] < 0 && bitmap_bit_p (&lra_inheritance_pseudos, u))
-      bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
-  EXECUTE_IF_SET_IN_BITMAP (&lra_split_pseudos, 0, u, bi)
-    if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
-	&& reg_renumber[u] >= 0 && bitmap_bit_p (&lra_split_pseudos, u))
-      bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
-  for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
-    if (((i < lra_constraint_new_regno_start
-	  && ! bitmap_bit_p (&do_not_assign_nonreload_pseudos, i))
-	 || (bitmap_bit_p (&lra_inheritance_pseudos, i)
-	     && lra_reg_info[i].restore_regno >= 0)
-	 || (bitmap_bit_p (&lra_split_pseudos, i)
-	     && lra_reg_info[i].restore_regno >= 0)
-	 || bitmap_bit_p (&lra_optional_reload_pseudos, i))
-	&& reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
-	&& regno_allocno_class_array[i] != NO_REGS)
-      sorted_pseudos[n++] = i;
-  bitmap_clear (&do_not_assign_nonreload_pseudos);
-  if (n != 0 && lra_dump_file != NULL)
-    fprintf (lra_dump_file, "  Reassing non-reload pseudos\n");
-  qsort (sorted_pseudos, n, sizeof (int), pseudo_compare_func);
-  for (i = 0; i < n; i++)
+  if (! lra_simple_p)
     {
-      regno = sorted_pseudos[i];
-      hard_regno = find_hard_regno_for (regno, &cost, -1);
-      if (hard_regno >= 0)
+      /* We should not assign to original pseudos of inheritance
+	 pseudos or split pseudos if any its inheritance pseudo did
+	 not get hard register or any its split pseudo was not split
+	 because undo inheritance/split pass will extend live range of
+	 such inheritance or split pseudos.  */
+      bitmap_initialize (&do_not_assign_nonreload_pseudos, &reg_obstack);
+      EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, u, bi)
+	if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
+	    && reg_renumber[u] < 0
+	    && bitmap_bit_p (&lra_inheritance_pseudos, u))
+	  bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
+      EXECUTE_IF_SET_IN_BITMAP (&lra_split_pseudos, 0, u, bi)
+	if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
+	    && reg_renumber[u] >= 0 && bitmap_bit_p (&lra_split_pseudos, u))
+	  bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
+      for (n = 0, i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
+	if (((i < lra_constraint_new_regno_start
+	      && ! bitmap_bit_p (&do_not_assign_nonreload_pseudos, i))
+	     || (bitmap_bit_p (&lra_inheritance_pseudos, i)
+		 && lra_reg_info[i].restore_regno >= 0)
+	     || (bitmap_bit_p (&lra_split_pseudos, i)
+		 && lra_reg_info[i].restore_regno >= 0)
+	     || bitmap_bit_p (&lra_optional_reload_pseudos, i))
+	    && reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
+	    && regno_allocno_class_array[i] != NO_REGS)
+	  sorted_pseudos[n++] = i;
+      bitmap_clear (&do_not_assign_nonreload_pseudos);
+      if (n != 0 && lra_dump_file != NULL)
+	fprintf (lra_dump_file, "  Reassing non-reload pseudos\n");
+      qsort (sorted_pseudos, n, sizeof (int), pseudo_compare_func);
+      for (i = 0; i < n; i++)
 	{
-	  assign_hard_regno (hard_regno, regno);
+	  regno = sorted_pseudos[i];
+	  hard_regno = find_hard_regno_for (regno, &cost, -1);
+	  if (hard_regno >= 0)
+	    {
+	      assign_hard_regno (hard_regno, regno);
 	  /* We change allocation for non-reload pseudo on this
 	     iteration -- mark the pseudo for invalidation of used
 	     alternatives of insns containing the pseudo.  */
-	  bitmap_set_bit (&changed_pseudo_bitmap, regno);
+	      bitmap_set_bit (&changed_pseudo_bitmap, regno);
+	    }
 	}
     }
   free (update_hard_regno_preference_check);

@@ -1,3 +1,13 @@
+2012-10-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.h (lra_simple_p): New external.
+	* lra.c (lra_simple_p): New global var.
+	(lra): Switch off inheritance and coalescing if lra_simple_p.
+	* lra-assigns.c (assign_by_spills): Don't try to reassign spilled
+	pseduos if lra_simple_p.
+	* ira.c (ira): Set up lra_simple_p and ira_conflicts_p.  Set up
+	and restore flag_caller_saves and flag_ira_region.
+
 2012-10-03  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* sched-vis.c (print_value_slim): Fix the comment.
