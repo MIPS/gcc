@@ -24,6 +24,7 @@
 #include "tree-pl.h"
 #include "rtl.h"
 #include "expr.h"
+#include "tree-pretty-print.h"
 
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
@@ -91,6 +92,7 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 				 location_t location, tree dirflag);
 static tree pl_intersect_bounds (tree bounds1, tree bounds2,
 				 gimple_stmt_iterator *iter);
+static bool pl_may_narrow_to_field (tree field);
 static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
 static tree pl_narrow_bounds_to_field (tree bounds, tree component,
 				       gimple_stmt_iterator *iter);
@@ -1136,7 +1138,8 @@ pl_build_returned_bound (gimple call)
      alloca expanding to obtain bounds on b0.  */
   if (fndecl
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA)
+      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA_WITH_ALIGN))
     {
       tree size = gimple_call_arg (call, 0);
       tree lb = gimple_call_lhs (call);
@@ -1787,7 +1790,6 @@ pl_get_bounds_for_decl (tree decl)
 {
   tree bounds;
   tree lb;
-  tree size;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL);
@@ -1807,17 +1809,10 @@ pl_get_bounds_for_decl (tree decl)
   lb = pl_build_addr_expr (decl);
 
   if (DECL_SIZE (decl))
-    {
-      /* We need size in bytes rounded up.  */
-      size = build_int_cst (size_type_node,
-			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
-      bounds = pl_make_bounds (lb, size, NULL, false);
-    }
+    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
   else
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      /*warning (0, "using zero bounds for var with incomplete type\n");*/
-      /*bounds = pl_get_zero_bounds ();*/
       bounds = pl_generate_extern_var_bounds (decl);
     }
 
@@ -1831,7 +1826,6 @@ pl_get_bounds_for_decl_addr (tree decl)
 {
   tree bounds;
   tree lb;
-  tree size;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL
@@ -1852,17 +1846,10 @@ pl_get_bounds_for_decl_addr (tree decl)
   lb = pl_build_addr_expr (decl);
 
   if (DECL_SIZE (decl))
-    {
-      /* We need size in bytes rounded up.  */
-      size = build_int_cst (size_type_node,
-			    (tree_low_cst (DECL_SIZE (decl), 1) + 7) / 8);
-      bounds = pl_make_bounds (lb, size, NULL, false);
-    }
+    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
   else
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      /*warning (0, "using zero bounds for var with incomplete type\n");*/
-      /*bounds = pl_get_zero_bounds ();*/
       bounds = pl_generate_extern_var_bounds (decl);
     }
 
@@ -2147,6 +2134,16 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
     }
 }
 
+static bool
+pl_may_narrow_to_field (tree field)
+{
+  return DECL_SIZE (field) && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST
+    && (!DECL_FIELD_OFFSET (field)
+	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
+    && (!DECL_FIELD_BIT_OFFSET (field)
+	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST);
+}
+
 /* Return true if bounds for FIELD should be narrowed to
    field's own size.
 
@@ -2155,11 +2152,17 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 static bool
 pl_narrow_bounds_for_field (tree field, bool always_narrow)
 {
-  HOST_WIDE_INT offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
-  HOST_WIDE_INT bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
+  HOST_WIDE_INT offs;
+  HOST_WIDE_INT bit_offs;
 
-  return DECL_SIZE (field) && (always_narrow || flag_pl_first_field_has_own_bounds
-			       || offs || bit_offs);
+  if (!pl_may_narrow_to_field (field))
+    return false;
+
+  offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
+  bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
+
+  return (always_narrow || flag_pl_first_field_has_own_bounds || offs || bit_offs)
+    && pl_may_narrow_to_field (field);
 }
 
 static tree
@@ -2167,15 +2170,12 @@ pl_narrow_bounds_to_field (tree bounds, tree component,
 			   gimple_stmt_iterator *iter)
 {
   tree field = TREE_OPERAND (component, 1);
-  tree bit_size = DECL_SIZE (field);
-  HOST_WIDE_INT size = (tree_low_cst (bit_size, 1) + 7) / 8;
+  tree size = DECL_SIZE_UNIT (field);
   tree field_ptr = pl_build_addr_expr (component);
   tree field_bounds;
 
-  field_bounds = pl_make_bounds (field_ptr,
-				 build_int_cst (size_type_node, size),
-				 iter,
-				 false);
+  field_bounds = pl_make_bounds (field_ptr, size, iter, false);
+
   return pl_intersect_bounds (field_bounds, bounds, iter);
 }
 
@@ -2260,7 +2260,9 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	{
 	  *safe = false;
 	  array_ref_found = true;
-	  if (!flag_pl_narrow_to_innermost_arrray)
+	  if (!flag_pl_narrow_to_innermost_arrray
+	      && (!last_comp
+		  || pl_may_narrow_to_field (TREE_OPERAND (last_comp, 1))))
 	    {
 	      comp_to_narrow = last_comp;
 	      break;
