@@ -26,6 +26,8 @@
 #include "expr.h"
 #include "tree-pretty-print.h"
 
+typedef void (*assign_handler)(tree, tree, void *);
+
 static unsigned int pl_execute (void);
 static bool pl_gate (void);
 
@@ -67,8 +69,10 @@ static tree pl_build_returned_bound (gimple call);
 static tree pl_build_component_ref (tree obj, tree field);
 static tree pl_build_array_ref (tree arr, tree etype, tree esize,
 				unsigned HOST_WIDE_INT idx);
-static void pl_copy_bounds_for_assign (tree lhs, tree rhs,
-				       gimple_stmt_iterator *iter);
+static void pl_copy_bounds_for_assign (tree lhs, tree rhs, void *arg);
+static void pl_add_modification_to_statements_list (tree lhs, tree rhs, void *arg);
+static void pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
+					 assign_handler handler);
 static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
 static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
 static tree pl_make_addressed_object_bounds (tree obj,
@@ -546,7 +550,22 @@ pl_register_var_initializer (tree var)
   return false;
 }
 
-extern void
+static void
+pl_add_modification_to_statements_list (tree lhs,
+					tree rhs,
+					void *arg)
+{
+  tree *stmts = (tree *)arg;
+  tree modify;
+
+  if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
+    rhs = build1 (CONVERT_EXPR, TREE_TYPE (lhs), rhs);
+
+  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
+  append_to_statement_list (modify, stmts);
+}
+
+void
 pl_finish_file (void)
 {
   tree stmts = NULL_TREE;
@@ -564,11 +583,8 @@ pl_finish_file (void)
        and may initialize its bounds.  Currently asm_written flag and
        rtl are checked.  Probably some other fields should be checked.  */
     if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
-      {
-	tree val = DECL_INITIAL (var);
-	tree modify = build2 ( MODIFY_EXPR, TREE_TYPE (var), var, val);
-	append_to_statement_list (modify, &stmts);
-      }
+      pl_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
+				   pl_add_modification_to_statements_list);
 
   if (stmts)
     cgraph_build_static_cdtor ('P', stmts, MAX_RESERVED_INIT_PRIORITY-1);
@@ -2358,7 +2374,17 @@ pl_build_array_ref (tree arr, tree etype, tree esize,
 }
 
 static void
-pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
+pl_copy_bounds_for_assign (tree lhs, tree rhs, void *arg)
+{
+  gimple_stmt_iterator *iter = (gimple_stmt_iterator *)arg;
+  tree bounds = pl_find_bounds (rhs, iter);
+  tree addr = pl_build_addr_expr(lhs);
+
+  pl_build_bndstx (addr, rhs, bounds, iter);
+}
+
+static void
+pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handler)
 {
   tree type = TREE_TYPE (rhs);
 
@@ -2367,11 +2393,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
     return;
 
   if (BOUNDED_TYPE_P (type))
-    {
-      tree bounds = pl_find_bounds (rhs, iter);
-      tree addr = pl_build_addr_expr(lhs);
-      pl_build_bndstx (addr, rhs, bounds, iter);
-    }
+    handler (lhs, rhs, arg);
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
       tree field;
@@ -2386,7 +2408,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 	      if (pl_type_has_pointer (TREE_TYPE (field)))
 		{
 		  tree lhs_field = pl_build_component_ref (lhs, field);
-		  pl_copy_bounds_for_assign (lhs_field, val, iter);
+		  pl_walk_pointer_assignments (lhs_field, val, arg, handler);
 		}
 	    }
 	}
@@ -2397,7 +2419,7 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 	    {
 	      tree rhs_field = pl_build_component_ref (rhs, field);
 	      tree lhs_field = pl_build_component_ref (lhs, field);
-	      pl_copy_bounds_for_assign (lhs_field, rhs_field, iter);
+	      pl_walk_pointer_assignments (lhs_field, rhs_field, arg, handler);
 	    }
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -2424,17 +2446,22 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 		       cur++)
 		    {
 		      lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
-		      pl_copy_bounds_for_assign (lhs_elem, val, iter);
+		      pl_walk_pointer_assignments (lhs_elem, val, arg, handler);
 		    }
 		}
 	      else
 		{
-		  if (purp == NULL_TREE)
-		    cur++;
+		  if (TREE_CODE (purp) == INTEGER_CST)
+		    cur = tree_low_cst (purp, 1);
+		  else
+		    {
+		      gcc_assert (!purp);
+		      cur++;
+		    }
 
 		  lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
 
-		  pl_copy_bounds_for_assign (lhs_elem, val, iter);
+		  pl_walk_pointer_assignments (lhs_elem, val, arg, handler);
 		}
 	    }
 	}
@@ -2444,11 +2471,11 @@ pl_copy_bounds_for_assign (tree lhs, tree rhs, gimple_stmt_iterator *iter)
 	  {
 	    tree lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
 	    tree rhs_elem = pl_build_array_ref (rhs, etype, esize, cur);
-	    pl_copy_bounds_for_assign (lhs_elem, rhs_elem, iter);
+	    pl_walk_pointer_assignments (lhs_elem, rhs_elem, arg, handler);
 	  }
     }
   else
-    internal_error("pl_copy_bounds_for_assign: unexpected RHS type: %s",
+    internal_error("pl_walk_pointer_assignments: unexpected RHS type: %s",
 		   tree_code_name[TREE_CODE (type)]);
 }
 
@@ -2607,7 +2634,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
       if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
-	pl_copy_bounds_for_assign (node, rhs1, iter);
+	pl_walk_pointer_assignments (node, rhs1, iter, pl_copy_bounds_for_assign);
       else
 	{
 	  bounds = pl_compute_bounds_for_assignment (NULL_TREE, stmt);
