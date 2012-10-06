@@ -1,3 +1,10 @@
+2012-10-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (multi_block_pseudo_p, dead_pseudo_p): New
+	functions.
+	(insn_rhs_dead_pseudo_p, init_insn_rhs_dead_pseudo_p): Ditto.
+	(lra_constraints): Use them.
+
 2012-10-04  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.h (lra_simple_p): New external.

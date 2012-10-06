@@ -3590,6 +3590,83 @@ int lra_constraint_iter_after_spill;
    pseudo.  */
 bool lra_risky_transformations_p;
 
+/* Return true if REGNO is referenced in more than one block.  */
+static bool
+multi_block_pseudo_p (int regno)
+{
+  basic_block bb = NULL;
+  unsigned int uid;
+  bitmap_iterator bi;
+  
+  if (regno < FIRST_PSEUDO_REGISTER)
+    return false;
+  
+    EXECUTE_IF_SET_IN_BITMAP (&lra_reg_info[regno].insn_bitmap, 0, uid, bi)
+      if (bb == NULL)
+	bb = BLOCK_FOR_INSN (lra_insn_recog_data[uid]->insn);
+      else if (BLOCK_FOR_INSN (lra_insn_recog_data[uid]->insn) != bb)
+	return true;
+    return false;
+}
+
+/* Return true if X contains a pseudo dying in INSN.  */
+static bool
+dead_pseudo_p (rtx x, rtx insn)
+{
+  int i, j;
+  const char *fmt;
+  enum rtx_code code;
+
+  if (REG_P (x))
+    return (insn != NULL_RTX
+	    && find_regno_note (insn, REG_DEAD, REGNO (x)) != NULL_RTX);
+  code = GET_CODE (x);
+  fmt = GET_RTX_FORMAT (code);
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	{
+	  if (dead_pseudo_p (XEXP (x, i), insn))
+	    return true;
+	}
+      else if (fmt[i] == 'E')
+	{
+	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	    if (dead_pseudo_p (XVECEXP (x, i, j), insn))
+	      return true;
+	}
+    }
+  return false;
+}
+
+/* Return true if INSN contains a dying pseudo in INSN right hand
+   side.  */
+static bool
+insn_rhs_dead_pseudo_p (rtx insn)
+{
+  rtx set = single_set (insn);
+
+  gcc_assert (set != NULL);
+  return dead_pseudo_p (SET_SRC (set), insn);
+}
+
+/* Return true if any init insn of REGNO contains a dying pseudo in
+   insn right hand side.  */
+static bool
+init_insn_rhs_dead_pseudo_p (int regno)
+{
+  rtx insns = ira_reg_equiv[regno].init_insns;
+
+  if (insns == NULL)
+    return false;
+  if (INSN_P (insns))
+    return insn_rhs_dead_pseudo_p (insns);
+  for (; insns != NULL_RTX; insns = XEXP (insns, 1))
+    if (insn_rhs_dead_pseudo_p (XEXP (insns, 0)))
+      return true;
+  return false;
+}
+
 /* Entry function of LRA constraint pass.  Return true if the
    constraint pass did change the code.	 */
 bool
@@ -3628,7 +3705,22 @@ lra_constraints (bool first_p)
 	  }
 	else if ((x = get_equiv_substitution (regno_reg_rtx[i])) != NULL_RTX)
 	  {
-	    if (! first_p && contains_reg_p (x, false, false))
+	    bool pseudo_p = contains_reg_p (x, false, false);
+
+	    /* We don't use DF for compilation speed sake.  So it is
+	       problematic to update live info when we use an
+	       equivalence containing pseudos in more than one BB.  */
+	    if ((pseudo_p && multi_block_pseudo_p (i))
+		/* We check that a pseudo in rhs of the init insn is
+		   not dying in the insn.  Otherwise, the live info
+		   at the beginning of the corresponding BB might be
+		   wrong after we removed the insn.  When the equiv can
+		   be a constant, the right hand side of the init insn
+		   can be a pseudo.  */
+		|| (ira_reg_equiv[i].memory == NULL_RTX
+		    && init_insn_rhs_dead_pseudo_p (i)))
+	      ira_reg_equiv[i].defined_p = false;
+	    else if (! first_p && pseudo_p)
 	      /* After RTL transformation, we can not guarantee that
 		 pseudo in the substitution was not reloaded which
 		 might make equivalence invalid.  For example, in
