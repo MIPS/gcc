@@ -213,6 +213,66 @@ pseudo_compare_func (const void *v1p, const void *v2p)
   return r1 - r2;
 }
 
+/* Arrays of size LRA_LIVE_MAX_POINT mapping a program point to the
+   pseudo live ranges with given start point.  We insert only live
+   ranges of pseudos interesting for assignment purposes.  They are
+   reload pseudos and pseudos assigned to hard registers.  */
+static lra_live_range_t *start_point_ranges;
+
+/* Used as a flag that a live range is not inserted in the start point
+   chain.  */
+static struct lra_live_range not_in_chain_mark;
+
+/* Create and set up START_POINT_RANGES.  */
+static void
+create_live_range_start_chains (void)
+{
+  int i, max_regno;
+  lra_live_range_t r;
+
+  start_point_ranges = XCNEWVEC (lra_live_range_t, lra_live_max_point);
+  max_regno = max_reg_num ();
+  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
+    if (i >= lra_constraint_new_regno_start || reg_renumber[i] >= 0)
+      {
+	for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
+	  {
+	    r->start_next = start_point_ranges[r->start];
+	    start_point_ranges[r->start] = r;
+	  }
+      }
+    else
+      {
+	for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
+	  r->start_next = &not_in_chain_mark;
+      }
+}
+
+/* Insert live ranges of pseudo REGNO into start chains if they are
+   not there yet.  */
+static void
+insert_in_live_range_start_chain (int regno)
+{
+  lra_live_range_t r = lra_reg_info[regno].live_ranges;
+
+  if (r->start_next != &not_in_chain_mark)
+    return;
+  for (; r != NULL; r = r->next)
+    {
+      r->start_next = start_point_ranges[r->start];
+      start_point_ranges[r->start] = r;
+    }
+}
+
+/* Free START_POINT_RANGES.  */
+static void
+finish_live_range_start_chains (void)
+{
+  gcc_assert (start_point_ranges != NULL);
+  free (start_point_ranges);
+  start_point_ranges = NULL;
+}
+
 /* Map: program point -> bitmap of all pseudos living at the point and
    assigned to hard registers.	*/
 static bitmap_head *live_hard_reg_pseudos;
@@ -279,7 +339,10 @@ update_lives (int regno, bool free_p)
 	if (free_p)
 	  bitmap_clear_bit (&live_hard_reg_pseudos[p], regno);
 	else
-	  bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
+	  {
+	    bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
+	    insert_in_live_range_start_chain (regno);
+	  }
     }
 }
 
@@ -378,7 +441,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 	{
 	  lra_live_range_t r2;
 	  
-	  for (r2 = lra_start_point_ranges[p];
+	  for (r2 = start_point_ranges[p];
 	       r2 != NULL;
 	       r2 = r2->start_next)
 	    {
@@ -697,7 +760,10 @@ assign_temporarily (int regno, int hard_regno)
 	if (hard_regno < 0)
 	  bitmap_clear_bit (&live_hard_reg_pseudos[p], regno);
 	else
-	  bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
+	  {
+	    bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
+	    insert_in_live_range_start_chain (regno);
+	  }
     }
   live_pseudos_reg_renumber[regno] = hard_regno;
 }
@@ -794,7 +860,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 		{
 		  lra_live_range_t r2;
 		  
-		  for (r2 = lra_start_point_ranges[p];
+		  for (r2 = start_point_ranges[p];
 		       r2 != NULL;
 		       r2 = r2->start_next)
 		    if (r2->regno >= lra_constraint_new_regno_start)
@@ -968,7 +1034,7 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 	    {
 	      lra_live_range_t r2;
 	      
-	      for (r2 = lra_start_point_ranges[p];
+	      for (r2 = start_point_ranges[p];
 		   r2 != NULL;
 		   r2 = r2->start_next)
 		if (live_pseudos_reg_renumber[r2->regno] >= 0)
@@ -1267,6 +1333,7 @@ lra_assign (void)
     regno_allocno_class_array[i] = lra_get_allocno_class (i);
   init_regno_assign_info ();
   bitmap_initialize (&all_spilled_pseudos, &reg_obstack);
+  create_live_range_start_chains ();
   setup_live_pseudos_and_spill_after_risky_transforms (&all_spilled_pseudos);
 #ifdef ENABLE_CHECKING
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
@@ -1292,6 +1359,7 @@ lra_assign (void)
 	no_spills_p = false;
 	break;
       }
+  finish_live_range_start_chains ();
   bitmap_clear (&all_spilled_pseudos);
   bitmap_initialize (&insns_to_process, &reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&changed_pseudo_bitmap, 0, u, bi)

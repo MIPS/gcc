@@ -1,3 +1,29 @@
+2012-10-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (struct lra_live_range): Remove finish_next.
+	(lra_start_point_ranges, lra_finish_point_ranges): Remove.
+	* lra-lives.c (lra_start_point_ranges, lra_finish_point_ranges):
+	Remove.
+	(process_bb_lives): Change start regno in
+	EXECUTE_IF_SET_IN_BITMAP.  Iterate on DF_LR_IN (bb) instead of
+	pseudos_live_through_calls.
+	(create_start_finish_chains, rebuild_start_finish_chains): Remove.
+	(compress_live_ranges): Don't call rebuild_start_finish_chains.
+	(lra_create_live_ranges): Don't call create_start_finish_chains.
+	(lra_clear_live_ranges): Remove code freeing
+	lra_start_point_ranges and lra_finish_point_ranges.
+	* lra-assigns.c (start_point_ranges, not_in_chain_mark): New.
+	(create_live_range_start_chains): Ditto.
+	(insert_in_live_range_start_chain): Ditto.
+	(finish_live_range_start_chains): Ditto.
+	(update_lives, assign_temporarily): Call
+	insert_in_live_range_start_chain.
+	(find_hard_regno_for, spill_for): Rename lra_start_point_ranges to
+	start_point_ranges.
+	(setup_live_pseudos_and_spill_after_risky): Ditto.
+	(lra_assign): Call create_live_range_start_chains and
+	finish_live_range_start_chains.
+
 2012-10-05  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (multi_block_pseudo_p, dead_pseudo_p): New

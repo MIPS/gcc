@@ -62,8 +62,8 @@ struct lra_live_range
   /* Next structure describing program points where the pseudo
      lives.  */
   lra_live_range_t next;
-  /* Pointers to structures with the same start/finish.	 */
-  lra_live_range_t start_next, finish_next;
+  /* Pointer to structures with the same start.	 */
+  lra_live_range_t start_next;
 };
 
 typedef struct lra_copy *lra_copy_t;
@@ -315,7 +315,6 @@ extern bool lra_undo_inheritance (void);
 /* lra-lives.c: */
 
 extern int lra_live_max_point;
-extern lra_live_range_t *lra_start_point_ranges, *lra_finish_point_ranges;
 extern int *lra_point_freq;
 
 extern int lra_hard_reg_usage[FIRST_PSEUDO_REGISTER];

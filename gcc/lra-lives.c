@@ -54,10 +54,6 @@ along with GCC; see the file COPYING3.	If not see
    correspond to places where output operands are born.	 */
 int lra_live_max_point;
 
-/* Arrays of size LRA_LIVE_MAX_POINT mapping a program point to the
-   pseudo live ranges with given start/finish point.  */
-lra_live_range_t *lra_start_point_ranges, *lra_finish_point_ranges;
-
 /* Accumulated execution frequency of all references for each hard
    register.  */
 int lra_hard_reg_usage[FIRST_PSEUDO_REGISTER];
@@ -529,9 +525,8 @@ process_bb_lives (basic_block bb)
   REG_SET_TO_HARD_REG_SET (hard_regs_live, reg_live_out);
   AND_COMPL_HARD_REG_SET (hard_regs_live, eliminable_regset);
   AND_COMPL_HARD_REG_SET (hard_regs_live, lra_no_alloc_regs);
-  EXECUTE_IF_SET_IN_BITMAP (reg_live_out, 0, j, bi)
-    if (j >= FIRST_PSEUDO_REGISTER)
-      mark_pseudo_live (j);
+  EXECUTE_IF_SET_IN_BITMAP (reg_live_out, FIRST_PSEUDO_REGISTER, j, bi)
+    mark_pseudo_live (j);
       
   freq = REG_FREQ_FROM_BB (bb);
 
@@ -755,45 +750,11 @@ process_bb_lives (basic_block bb)
   EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
     mark_pseudo_dead (i);
 
-  EXECUTE_IF_SET_IN_SPARSESET (pseudos_live_through_calls, i)
-    if (bitmap_bit_p (DF_LR_IN (bb), i))
-      check_pseudos_live_through_calls (i);
+  EXECUTE_IF_SET_IN_BITMAP (DF_LR_IN (bb), FIRST_PSEUDO_REGISTER, j, bi)
+    if (sparseset_bit_p (pseudos_live_through_calls, j))
+      check_pseudos_live_through_calls (j);
   
   incr_curr_point (freq);
-}
-
-/* Create and set up LRA_START_POINT_RANGES and
-   LRA_FINISH_POINT_RANGES.  */
-static void
-create_start_finish_chains (void)
-{
-  int i, max_regno;
-  lra_live_range_t r;
-
-  lra_start_point_ranges = XCNEWVEC (lra_live_range_t, lra_live_max_point);
-  lra_finish_point_ranges = XCNEWVEC (lra_live_range_t, lra_live_max_point);
-  max_regno = max_reg_num ();
-  for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-    {
-      for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
-	{
-	  r->start_next = lra_start_point_ranges[r->start];
-	  lra_start_point_ranges[r->start] = r;
-	  r->finish_next = lra_finish_point_ranges[r->finish];
-	  lra_finish_point_ranges[r->finish] = r;
-	}
-    }
-}
-
-/* Rebuild LRA_START_POINT_RANGES and LRA_FINISH_POINT_RANGES after
-   new live ranges and program points were added as a result of new
-   insn generation.  */
-static void
-rebuild_start_finish_chains (void)
-{
-  free (lra_finish_point_ranges);
-  free (lra_start_point_ranges);
-  create_start_finish_chains ();
 }
 
 /* Compress pseudo live ranges by removing program points where
@@ -934,7 +895,6 @@ static void
 compress_live_ranges (void)
 {
   remove_some_program_points_and_update_live_ranges ();
-  rebuild_start_finish_chains ();
   if (lra_dump_file != NULL)
     {
       fprintf (lra_dump_file, "Ranges after the compression:\n");
@@ -997,7 +957,6 @@ lra_create_live_ranges (bool all_p)
   FOR_EACH_BB (bb)
     process_bb_lives (bb);
   lra_live_max_point = curr_point;
-  create_start_finish_chains ();
   if (lra_dump_file != NULL)
     print_live_ranges (lra_dump_file);
   /* Clean up.	*/
@@ -1018,16 +977,6 @@ lra_clear_live_ranges (void)
 {
   int i;
 
-  if (lra_finish_point_ranges != NULL)
-    {
-      free (lra_finish_point_ranges);
-      lra_finish_point_ranges = NULL;
-    }
-  if (lra_start_point_ranges != NULL)
-    {
-      free (lra_start_point_ranges);
-      lra_start_point_ranges = NULL;
-    }
   for (i = 0; i < max_reg_num (); i++)
     free_live_range_list (lra_reg_info[i].live_ranges);
   VEC_free (int, heap, point_freq_vec);
