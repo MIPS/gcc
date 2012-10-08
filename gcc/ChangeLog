@@ -15,7 +15,7 @@
 	(mark_not_eliminable): Better edition of the comments.
 	(eliminate_regs_in_insn): Ditto.  Rename argument replace_p to
 	validate_p.
-	(update_reg_eliminate): Remove decription of removed parameter.
+	(update_reg_eliminate): Remove description of removed parameter.
 	(lra_eliminate_reg_if_possible): Remove a comment.
 
 2012-10-08  Steven Bosscher  <steven@gcc.gnu.org>
