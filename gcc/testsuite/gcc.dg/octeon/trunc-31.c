@@ -2,7 +2,7 @@
 /* { dg-options "-O2" } */
 /* The sign extend to be able to store into d should be free,
    there should be no sll or move here. */
-/* { dg-final { scan-assembler-not "sll\t" } } */
+/* { dg-final { scan-assembler-not "\tsll\t" } } */
 /* { dg-final { scan-assembler-times "andi\t" 1 { xfail ilp32 } } } */
 
 char Ch_1_Glob;

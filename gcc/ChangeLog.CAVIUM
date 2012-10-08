@@ -197,6 +197,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-10-07  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/trunc-10.c: Look for \tsll
+	rather than just sll as that will match dsll which is used
+	for n64 addresses.
+	* testsuite/gcc.dg/octeon/trunc-31.c: Likewise.
+
 2012-09-21  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #4620

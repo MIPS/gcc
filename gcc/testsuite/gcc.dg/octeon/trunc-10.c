@@ -1,7 +1,7 @@
 /* { dg-do compile { target *-octeon-* } } */
 /* { dg-options "-O2" } */
 /* { dg-final { scan-assembler-times "andi" 1 } } */
-/* { dg-final { scan-assembler-not "sll" } } */
+/* { dg-final { scan-assembler-not "\tsll\t" } } */
 
 struct a
 {
