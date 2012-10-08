@@ -1099,7 +1099,7 @@ get_final_hard_regno (int hard_regno, int offset)
   if (hard_regno < 0)
     return hard_regno;
   hard_regno += offset;
-  return lra_get_elimation_hard_regno (hard_regno);
+  return lra_get_elimination_hard_regno (hard_regno);
 }
 
 /* Return register class of OP.	 That is a class of the hard register

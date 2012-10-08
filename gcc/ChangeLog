@@ -1,3 +1,23 @@
+2012-10-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* doc/passes.i: Better edition of LRA pass description.
+	* lra-int.h (lra_get_elimation_hard_regno): Rename to
+	lra_get_elimination_hard_regno.
+	* lra-constraints.c (get_final_hard_regno): Ditto.
+	* lra-eliminations.c: Better edition of elimination pass
+	description.
+	(elimination_map, self_elim_table): Better edition of the
+	comments.
+	(lra_get_elimation_hard_regno): Rename to
+	lra_get_elimination_hard_regno.
+	(lra_eliminate_regs_1): Fix a typo in the comment.  Better edition
+	of the comments.  Remove some comments from the original code.
+	(mark_not_eliminable): Better edition of the comments.
+	(eliminate_regs_in_insn): Ditto.  Rename argument replace_p to
+	validate_p.
+	(update_reg_eliminate): Remove decription of removed parameter.
+	(lra_eliminate_reg_if_possible): Remove a comment.
+
 2012-10-08  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* lra-lives.c (curr_point): Make non-static in lra_create_live_ranges.

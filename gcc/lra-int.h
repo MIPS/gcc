@@ -361,7 +361,7 @@ extern void lra_hard_reg_substitution (void);
 /* lra-elimination.c: */
 
 extern void lra_debug_elim_table (void);
-extern int lra_get_elimation_hard_regno (int);
+extern int lra_get_elimination_hard_regno (int);
 extern rtx lra_eliminate_regs_1 (rtx, enum machine_mode, bool, bool, bool);
 extern void lra_eliminate (bool);
 

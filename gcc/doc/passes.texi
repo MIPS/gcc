@@ -886,13 +886,12 @@ are @file{lra.c}, @file{lra-assign.c}, @file{lra-coalesce.c},
 communication between them, and the header @file{lra.h} used for
 communication between LRA and the rest of compiler.
 
-LRA is different from the reload pass in LRA division on small,
-manageable, and separated sub-tasks.  All LRA transformations and
-decisions are reflected in RTL as more as possible.  Instruction
-constraints as a primary source of the info and that minimizes number
-of target-depended macros/hooks.
+Unlike the reload pass, intermediate LRA decisions are reflected in
+RTL as much as possible.  This reduces the number of target-dependent
+macros and hooks, leaving instruction constraints as the primary
+source of control.
 
-LRA is run for the targets it were ported.
+LRA is run on targets for which TARGET_LRA_P returns true.
 @end itemize
 
 @item Basic block reordering
