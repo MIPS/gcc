@@ -1,3 +1,22 @@
+2012-10-08  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* lra-lives.c (curr_point): Make non-static in lra_create_live_ranges.
+	(mark_pseudo_live): Take POINT argument.
+	(mark_pseudo_dead): Likewise.
+	(mark_regno_live): Likewise, and return a bool to indicate that
+	someting changed in the dataflow sets.
+	(mark_regno_dead): Likewise.
+	(next_program_point): Renamed from incr_curr_point, and take the
+	current program point as a by-reference argument.
+	(process_bb_lives): Take the current program point as by-ref argument.
+	Try to only do a program point increment if this is necessary.
+	At the top of a basic block, break from the loop over
+	pseudos_live_through_calls if the set is empty
+	(remove_some_program_points_and_update_live_ranges): If no compression
+	can be done, don't update the live ranges.
+	(lra_create_live_ranges): Make curr_point local, and pass it around.
+	Visit blocks in topological order of the reverse CFG.
+
 2012-10-07  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (struct lra_live_range): Remove finish_next.
