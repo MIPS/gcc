@@ -715,21 +715,30 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple new_call;
   ssa_op_iter iter;
   tree op;
+  bool use_fntype = false;
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
       && fndecl != pl_user_intersect_fndecl)
     return;
 
-  first_formal_arg = TYPE_ARG_TYPES (fntype);
+  if (fndecl && DECL_ARGUMENTS (fndecl))
+    first_formal_arg = DECL_ARGUMENTS (fndecl);
+  else
+    {
+      first_formal_arg = TYPE_ARG_TYPES (fntype);
+      use_fntype = true;
+    }
 
   /* Get number of arguments and bound arguments.  */
   for (arg = first_formal_arg;
-       arg && TREE_VALUE (arg) != void_type_node
+       arg && (!use_fntype || TREE_VALUE (arg) != void_type_node)
 	 && (arg_cnt - bnd_arg_cnt)< gimple_call_num_args (call);
        arg = TREE_CHAIN (arg))
     {
-      if (BOUNDED_TYPE_P (TREE_VALUE (arg)))
+      tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
+
+      if (BOUNDED_TYPE_P (type))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
@@ -774,14 +783,15 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   arg_no = 0;
   for (arg = first_formal_arg;
-       arg && TREE_VALUE (arg) != void_type_node
+       arg && (!use_fntype || TREE_VALUE (arg) != void_type_node)
 	 && arg_no < gimple_call_num_args (call);
        arg = TREE_CHAIN (arg))
     {
+      tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
       tree call_arg = gimple_call_arg (call, arg_no++);
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
-      if (BOUNDED_TYPE_P (TREE_VALUE (arg)) && bnd_arg_cnt)
+      if (BOUNDED_TYPE_P (type) && bnd_arg_cnt)
 	{
 	  tree bounds = pl_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
