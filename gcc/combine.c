@@ -9117,6 +9117,19 @@ rtx_equal_for_field_assignment_p (rtx x, rtx y)
   return 0;
 }
 
+/* Try to create a SET of DEST and SRC but use the lower part of SRC in MODE
+   and reduce a field assignment. */
+
+static rtx
+gen_set_field (rtx dest, rtx src, enum machine_mode mode)
+{
+  rtx tmp;
+  tmp = force_to_mode (src, mode, GET_MODE_MASK (mode), 0);
+  if (tmp == NULL_RTX)
+    return NULL_RTX;
+  return make_field_assignment (gen_rtx_SET (VOIDmode, dest, tmp));
+}
+
 /* See if X, a SET operation, can be rewritten as a bit-field assignment.
    Return that assignment if so.
 
@@ -9182,16 +9195,14 @@ make_field_assignment (rtx x)
       return x;
     }
 
-  /* If DEST is already a field assignment, i.e. ZERO_EXTRACT, and the
-     SRC is an AND with all bits of that field set, then we can discard
-     the AND.  */
+  /* If DEST is already a field assignment, i.e. ZERO_EXTRACT, try to see if the
+     lhs can be reduced as we can ignore parts which are not needed.   */
   if (GET_CODE (dest) == ZERO_EXTRACT
-      && CONST_INT_P (XEXP (dest, 1))
-      && GET_CODE (src) == AND
-      && CONST_INT_P (XEXP (src, 1)))
+      && CONST_INT_P (XEXP (dest, 1)))
     {
+      rtx src1 = src;
       HOST_WIDE_INT width = INTVAL (XEXP (dest, 1));
-      unsigned HOST_WIDE_INT and_mask = INTVAL (XEXP (src, 1));
+
       unsigned HOST_WIDE_INT ze_mask;
 
       if (width >= HOST_BITS_PER_WIDE_INT)
@@ -9199,17 +9210,88 @@ make_field_assignment (rtx x)
       else
 	ze_mask = ((unsigned HOST_WIDE_INT)1 << width) - 1;
 
-      /* Complete overlap.  We can remove the source AND.  */
-      if ((and_mask & ze_mask) == ze_mask)
-	return gen_rtx_SET (VOIDmode, dest, XEXP (src, 0));
+      /* When this is a lowpart subreg, use the inner expression.  */
+      while ((GET_CODE (src1) == SUBREG
+	      && subreg_lowpart_p (src1))
+	     || GET_CODE (src1) == TRUNCATE)
+	src1 = XEXP (src1, 0);
 
-      /* Partial overlap.  We can reduce the source AND.  */
-      if ((and_mask & ze_mask) != and_mask)
+      /* the SRC is an AND with all bits of that field set, then we can discard
+         the AND.  */
+      if (GET_CODE (src1) == AND
+	  && GET_CODE (XEXP (src1, 1)) == CONST_INT)
 	{
-	  mode = GET_MODE (src);
-	  src = gen_rtx_AND (mode, XEXP (src, 0),
+	  unsigned HOST_WIDE_INT and_mask = INTVAL (XEXP (src1, 1));
+
+	  /* Complete overlap.  We can remove the source AND.  */
+	  if ((and_mask & ze_mask) == ze_mask)
+	    {
+	      rtx tmp = gen_set_field (dest, XEXP (src1, 0), GET_MODE (src));
+	      if (tmp)
+		return tmp;
+	    }
+
+	  /* Partial overlap.  We can reduce the source AND.  */
+	  if ((and_mask & ze_mask) != and_mask)
+	    {
+              rtx tmp = XEXP (src1, 0);
+	      mode = GET_MODE (src);
+              tmp = force_to_mode (tmp, mode, GET_MODE_MASK (mode), 0);
+              if (tmp != NULL_RTX)
+		{
+		  src = gen_rtx_AND (mode, tmp,
 			     gen_int_mode (and_mask & ze_mask, mode));
-	  return gen_rtx_SET (VOIDmode, dest, src);
+		  return gen_rtx_SET (VOIDmode, dest, src);
+		}
+	    }
+	}
+
+      /* The SRC is an extraction with the same number of bits and starting at 0,
+         then we can drop the extraction.  */
+      if ((GET_CODE (src1) == SIGN_EXTRACT || GET_CODE (src1) == ZERO_EXTRACT)
+	  && GET_CODE (XEXP (src1, 1)) == CONST_INT
+	  && XEXP (src1, 1) == XEXP (dest, 1)
+	  && XEXP (src1, 2) == const0_rtx)
+	{
+	  rtx tmp = gen_set_field (dest, XEXP (src1, 0), GET_MODE (src));
+	  if (tmp)
+	    return tmp;
+	}
+
+      /* The SRC is extension and the number of bits is less being used is less
+	 than the number of bits of the inner mode, then we can remove the extension.  */
+      if ((GET_CODE (src1) == SIGN_EXTEND || GET_CODE (src1) == ZERO_EXTEND)
+	  && width <= GET_MODE_BITSIZE (GET_MODE (XEXP (src1, 0))))
+	{
+	  rtx tmp = gen_set_field (dest, XEXP (src1, 0), GET_MODE (src));
+	  if (tmp)
+	    return tmp;
+	}
+
+      /* The SRC putting two objects and one object does not overlap with the mask
+	 then remove that.  */
+      if (GET_CODE (src1) == IOR)
+	{
+	  unsigned HOST_WIDE_INT and_mask0 = nonzero_bits (XEXP (src1, 0), GET_MODE (src1));
+	  unsigned HOST_WIDE_INT and_mask1 = nonzero_bits (XEXP (src1, 1), GET_MODE (src1));
+
+	  /* Completely non overlap for LHS of the IOR.
+	     Use the RHS of the IOR.  */
+	  if ((and_mask0 & ze_mask) == 0)
+	    {
+	      rtx tmp = gen_set_field (dest, XEXP (src1, 1), GET_MODE (src));
+	      if (tmp)
+		return tmp;
+	    }
+
+	  /* Completely non overlap for RHS of the IOR.
+	     Use the LHS of the IOR.  */
+	if ((and_mask1 & ze_mask) == 0)
+	    {
+	      rtx tmp = gen_set_field (dest, XEXP (src1, 0), GET_MODE (src));
+	      if (tmp)
+		return tmp;
+	    }
 	}
     }
 
