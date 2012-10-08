@@ -1,6 +1,6 @@
 2012-10-08  Vladimir Makarov  <vmakarov@redhat.com>
 
-	* doc/passes.i: Better edition of LRA pass description.
+	* doc/passes.texi: Better edition of LRA pass description.
 	* lra-int.h (lra_get_elimation_hard_regno): Rename to
 	lra_get_elimination_hard_regno.
 	* lra-constraints.c (get_final_hard_regno): Ditto.
