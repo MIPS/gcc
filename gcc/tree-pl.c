@@ -1933,6 +1933,7 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
       break;
 
     case FUNCTION_DECL:
+    case LABEL_DECL:
       bounds = pl_get_zero_bounds ();
       break;
 
