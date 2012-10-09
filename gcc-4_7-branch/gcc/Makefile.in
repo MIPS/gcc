@@ -899,6 +899,7 @@ CGRAPH_H = cgraph.h $(VEC_H) $(TREE_H) $(BASIC_BLOCK_H) $(FUNCTION_H) \
 	cif-code.def ipa-ref.h ipa-ref-inline.h $(LINKER_PLUGIN_API_H)
 DF_H = df.h $(BITMAP_H) $(REGSET_H) sbitmap.h $(BASIC_BLOCK_H) \
 	alloc-pool.h $(TIMEVAR_H)
+VALTRACK_H = valtrack.h $(BITMAP_H) $(DF_H) $(RTL_H) $(BASIC_BLOCK_H)
 RESOURCE_H = resource.h hard-reg-set.h $(DF_H)
 DDG_H = ddg.h sbitmap.h $(DF_H)
 GCC_H = gcc.h version.h $(DIAGNOSTIC_CORE_H)
@@ -1442,6 +1443,7 @@ OBJS = \
 	tree-vectorizer.o \
 	tree-vrp.o \
 	tree.o \
+	valtrack.o \
 	value-prof.o \
 	var-tracking.o \
 	varasm.o \
@@ -3015,7 +3017,7 @@ cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    $(DF_H) $(DBGCNT_H)
 dce.o : dce.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) $(EXCEPT_H) $(DF_H) cselib.h \
-   $(DBGCNT_H) dce.h $(TIMEVAR_H) $(TREE_PASS_H) $(DBGCNT_H) $(TM_P_H) \
+   $(DBGCNT_H) dce.h $(TIMEVAR_H) $(VALTRACK_H) $(TREE_PASS_H) $(DBGCNT_H) $(TM_P_H) \
    $(EMIT_RTL_H)
 dse.o : dse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(TM_P_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h \
@@ -3108,7 +3110,7 @@ df-core.o : df-core.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 df-problems.o : df-problems.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) $(BITMAP_H) sbitmap.h $(TIMEVAR_H) \
-   $(TM_P_H) $(TARGET_H) $(FLAGS_H) output.h $(EXCEPT_H) dce.h vecprim.h
+   $(TM_P_H) $(TARGET_H) $(FLAGS_H) output.h $(EXCEPT_H) dce.h vecprim.h $(VALTRACK_H)
 df-scan.o : df-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    insn-config.h $(RECOG_H) $(FUNCTION_H) $(REGS_H) alloc-pool.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(DF_H) $(BITMAP_H) sbitmap.h $(TIMEVAR_H) \
@@ -3117,6 +3119,8 @@ df-scan.o : df-scan.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
 regstat.o : regstat.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TM_P_H) $(FLAGS_H) $(REGS_H) output.h $(EXCEPT_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) $(TIMEVAR_H) $(DF_H)
+valtrack.o : valtrack.c $(VALTRACK_H) $(CONFIG_H) $(SYSTEM_H) \
+   coretypes.h $(TM_H) $(FUNCTION_H) $(REGS_H) $(EMIT_RTL_H)
 var-tracking.o : var-tracking.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(RTL_H) $(TREE_H) hard-reg-set.h insn-config.h reload.h $(FLAGS_H) \
    $(BASIC_BLOCK_H) output.h sbitmap.h alloc-pool.h $(FIBHEAP_H) $(HASHTAB_H) \
@@ -3215,7 +3219,7 @@ combine.o : combine.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) $(FUNCTION_H) insn-config.h $(INSN_ATTR_H) $(REGS_H) $(EXPR_H) \
    rtlhooks-def.h $(BASIC_BLOCK_H) $(RECOG_H) hard-reg-set.h \
    $(DIAGNOSTIC_CORE_H) $(TM_P_H) $(TREE_H) $(TARGET_H) output.h $(PARAMS_H) $(OPTABS_H) \
-   insn-codes.h $(TIMEVAR_H) $(TREE_PASS_H) $(DF_H) vecprim.h $(CGRAPH_H) \
+   insn-codes.h $(TIMEVAR_H) $(TREE_PASS_H) $(DF_H) $(VALTRACK_H) vecprim.h $(CGRAPH_H) \
    $(OBSTACK_H)
 reginfo.o : reginfo.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(FLAGS_H) $(BASIC_BLOCK_H) addresses.h $(REGS_H) \

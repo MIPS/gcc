@@ -1,3 +1,8 @@
+2012-10-02  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54551
+	* gcc.dg/guality/pr54551.c: New.
+
 2012-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/54858
