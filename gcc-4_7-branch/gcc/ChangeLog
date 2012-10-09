@@ -51,6 +51,7 @@
 	PR debug/53923
 	* valtrack.c (dead_debug_insert_temp): Drop non-reg uses
 	from the chain.
+
 2012-08-01  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/52983
@@ -135,6 +136,7 @@
 	(df_note_bb_compute): Adjust.
 	* dce.c (word_dce_process_block): Adjust dead debug uses.
 	(dce_process_block): Likewise.
+
 2012-04-13  Alexandre Oliva  <aoliva@redhat.com>
 
 	* df-problems.c (df_note_bb_compute): Do not take note of
