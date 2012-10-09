@@ -139,7 +139,7 @@ static tree none_bounds;
 static tree tmp_var;
 static tree incomplete_bounds;
 
-static GTY ((param_is (union tree_node))) htab_t pl_marked_stmts;
+static GTY ((param_is (union gimple_statement_d))) htab_t pl_marked_stmts;
 static GTY ((param_is (union tree_node))) htab_t pl_invalid_bounds;
 static GTY ((param_is (union tree_node))) htab_t pl_completed_bounds_map;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
@@ -151,7 +151,7 @@ static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
-static VEC(tree,heap) *var_inits = NULL;
+static GTY (()) VEC(tree,gc) *var_inits = NULL;
 const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
 static void
@@ -543,7 +543,7 @@ pl_register_var_initializer (tree var)
   if (TREE_STATIC (var)
       && pl_type_has_pointer (TREE_TYPE (var)))
     {
-      VEC_safe_push (tree, heap, var_inits, var);
+      VEC_safe_push (tree, gc, var_inits, var);
       return true;
     }
 
@@ -589,7 +589,7 @@ pl_finish_file (void)
   if (stmts)
     cgraph_build_static_cdtor ('P', stmts, MAX_RESERVED_INIT_PRIORITY-1);
 
-  VEC_free (tree, heap, var_inits);
+  VEC_free (tree, gc, var_inits);
   var_inits = NULL;
 }
 
@@ -2857,3 +2857,5 @@ struct gimple_opt_pass pass_pl =
   | TODO_update_ssa                     /* todo_flags_finish */
  }
 };
+
+#include "gt-tree-pl.h"
