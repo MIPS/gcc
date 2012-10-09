@@ -1,3 +1,17 @@
+2012-10-09  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* lra-int.h (lra_constraint_insn_stack_bitmap,
+	lra_constraint_insn_stack): Remove.
+	(lra_pop_insn, lra_insn_stack_length): New prototypes.
+	* lra.c (lra_constraint_insn_stack_bitmap): Make static sbitmap.
+	(lra_constraint_insn_stack): Make static.
+	(lra_push_insn_1): New function.
+	(lra_push_insn): Rewrite using lra_push_insn_1.
+	(lra_push_insn_and_update_insn_regno_info): Likewise.
+	(lra_pop_insn, lra_insn_stack_length): New functions.
+	* lra_constraints.c (lra_constraints): Use new interface to
+	insns stack instead of manipulating in-place.
+
 2012-10-09  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-eliminations.c (lra_eliminate): Use direct access to insns

@@ -249,14 +249,13 @@ extern HARD_REG_SET lra_no_alloc_regs;
 extern int lra_insn_recog_data_len;
 extern lra_insn_recog_data_t *lra_insn_recog_data;
 
-extern bitmap_head lra_constraint_insn_stack_bitmap;
-extern VEC (rtx, heap) *lra_constraint_insn_stack;
-
 extern int lra_curr_reload_num;
 
 extern void lra_push_insn (rtx);
 extern void lra_push_insn_by_uid (unsigned int);
 extern void lra_push_insn_and_update_insn_regno_info (rtx);
+extern rtx lra_pop_insn (void);
+extern unsigned int lra_insn_stack_length (void);
 
 extern rtx lra_create_new_reg_with_unique_value (enum machine_mode, rtx,
 						 enum reg_class, const char *);

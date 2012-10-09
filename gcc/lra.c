@@ -1736,19 +1736,43 @@ lra_get_insn_regs (int uid)
    should be processed by the next constraint pass.  */
 
 /* Bitmap used to put an insn on the stack only in one exemplar.  */
-bitmap_head lra_constraint_insn_stack_bitmap;
+static sbitmap lra_constraint_insn_stack_bitmap;
 
 /* The stack itself.  */
 VEC (rtx, heap) *lra_constraint_insn_stack;
+
+/* Put INSN on the stack.  If ALWAYS_UPDATE is true, always update the reg
+   info for INSN, otherwise only update it if INSN is not already on the
+   stack.  */
+static inline void
+lra_push_insn_1 (rtx insn, bool always_update)
+{
+  unsigned int uid = INSN_UID (insn);
+  if (always_update)
+    lra_update_insn_regno_info (insn);
+  if (uid >= SBITMAP_SIZE (lra_constraint_insn_stack_bitmap))
+    lra_constraint_insn_stack_bitmap =
+      sbitmap_resize (lra_constraint_insn_stack_bitmap, 3 * uid / 2, 0);
+  if (TEST_BIT (lra_constraint_insn_stack_bitmap, uid))
+    return;
+  SET_BIT (lra_constraint_insn_stack_bitmap, uid);
+  if (! always_update)
+    lra_update_insn_regno_info (insn);
+  VEC_safe_push (rtx, heap, lra_constraint_insn_stack, insn);
+}
 
 /* Put INSN on the stack.  */
 void
 lra_push_insn (rtx insn)
 {
-  if (! bitmap_set_bit (&lra_constraint_insn_stack_bitmap, INSN_UID (insn)))
-    return;
-  lra_update_insn_regno_info (insn);
-  VEC_safe_push (rtx, heap, lra_constraint_insn_stack, insn);
+  lra_push_insn_1 (insn, false);
+}
+
+/* Put INSN on the stack and update its reg info.  */
+void
+lra_push_insn_and_update_insn_regno_info (rtx insn)
+{
+  lra_push_insn_1 (insn, true);
 }
 
 /* Put insn with UID on the stack.  */
@@ -1758,14 +1782,20 @@ lra_push_insn_by_uid (unsigned int uid)
   lra_push_insn (lra_insn_recog_data[uid]->insn);
 }
 
-/* Put INSN on the stack and update its reg info.  */
-void
-lra_push_insn_and_update_insn_regno_info (rtx insn)
+/* Take the last-inserted insns off the stack and return it.  */
+rtx
+lra_pop_insn (void)
 {
-  lra_update_insn_regno_info (insn);
-  if (! bitmap_set_bit (&lra_constraint_insn_stack_bitmap, INSN_UID (insn)))
-    return;
-  VEC_safe_push (rtx, heap, lra_constraint_insn_stack, insn);
+  rtx insn = VEC_pop (rtx, lra_constraint_insn_stack);
+  RESET_BIT (lra_constraint_insn_stack_bitmap, INSN_UID (insn));
+  return insn;
+}
+
+/* Return the current size of the insn stack.  */
+unsigned int
+lra_insn_stack_length (void)
+{
+  return VEC_length (rtx, lra_constraint_insn_stack);
 }
 
 /* Push insns FROM to TO (excluding it) going in reverse order.	 */
@@ -2240,7 +2270,8 @@ lra (FILE *f)
      expensive when a lot of RTL changes are made.  */
   df_set_flags (DF_NO_INSN_RESCAN);
   lra_constraint_insn_stack = VEC_alloc (rtx, heap, get_max_uid ());
-  bitmap_initialize (&lra_constraint_insn_stack_bitmap, &reg_obstack);
+  lra_constraint_insn_stack_bitmap = sbitmap_alloc (get_max_uid ());
+  sbitmap_zero (lra_constraint_insn_stack_bitmap);
   lra_live_ranges_init ();
   lra_contraints_init ();
   lra_curr_reload_num = 0;
@@ -2322,7 +2353,7 @@ lra (FILE *f)
   lra_live_ranges_finish ();
   lra_contraints_finish ();
   finish_reg_info ();
-  bitmap_clear (&lra_constraint_insn_stack_bitmap);
+  sbitmap_free (lra_constraint_insn_stack_bitmap);
   VEC_free (rtx, heap, lra_constraint_insn_stack);
   finish_insn_recog_data ();
   regstat_free_n_sets_and_refs ();

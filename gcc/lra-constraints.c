@@ -851,7 +851,7 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
   return true;
 }
 
-/* Reload pseudos created for input and output(or early clobber)
+/* Reload pseudos created for input and output (or early clobber)
    reloads which should have the same hard register.  Such pseudos as
    input operands should be not inherited because the output rewrite
    the value in any away.  */
@@ -3674,7 +3674,7 @@ lra_constraints (bool first_p)
 {
   bool changed_p;
   int i, hard_regno, new_insns_num;
-  unsigned int min_len;
+  unsigned int min_len, new_min_len;
   rtx set, x, dest_reg;
   basic_block last_bb;
 
@@ -3738,24 +3738,23 @@ lra_constraints (bool first_p)
 	  }
       }
   lra_eliminate (false);
-  min_len = VEC_length (rtx, lra_constraint_insn_stack);
+  min_len = lra_insn_stack_length ();
   new_insns_num = 0;
   last_bb = NULL;
   changed_p = false;
-  for (;VEC_length (rtx, lra_constraint_insn_stack) != 0;)
+  while ((new_min_len = lra_insn_stack_length ()) != 0)
     {
-      curr_insn = VEC_pop (rtx, lra_constraint_insn_stack);
-      bitmap_clear_bit (&lra_constraint_insn_stack_bitmap,
-			INSN_UID (curr_insn));
+      curr_insn = lra_pop_insn ();
+      --new_min_len;
       curr_bb = BLOCK_FOR_INSN (curr_insn); 
       if (curr_bb != last_bb)
 	{
 	  last_bb = curr_bb;
 	  bb_reload_num = lra_curr_reload_num;
 	}
-      if (min_len > VEC_length (rtx, lra_constraint_insn_stack))
+      if (min_len > new_min_len)
 	{
-	  min_len = VEC_length (rtx, lra_constraint_insn_stack);
+	  min_len = new_min_len;
 	  new_insns_num = 0;
 	}
       if (new_insns_num > MAX_RELOAD_INSNS_NUMBER)
