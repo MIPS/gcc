@@ -1,3 +1,8 @@
+2012-10-09  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-eliminations.c (lra_eliminate): Use direct access to insns
+	through lra_insn_recog_data for process_insn_for_elimination.
+
 2012-10-08  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* doc/passes.texi: Better edition of LRA pass description.

@@ -1270,9 +1270,10 @@ void
 lra_eliminate (bool final_p)
 {
   int i;
-  basic_block bb;
-  rtx insn, temp, mem_loc, invariant;
+  unsigned int uid;
+  rtx mem_loc, invariant;
   bitmap_head insns_with_changed_offsets;
+  bitmap_iterator bi;
   struct elim_table *ep;
   int regs_num = max_reg_num ();
 
@@ -1323,12 +1324,8 @@ lra_eliminate (bool final_p)
 	  fprintf (lra_dump_file,
 		   "Updating elimination of equiv for reg %d\n", i);
       }
-  FOR_EACH_BB (bb)
-    FOR_BB_INSNS_SAFE (bb, insn, temp)
-      {
-	if (bitmap_bit_p (&insns_with_changed_offsets, INSN_UID (insn)))
-	  process_insn_for_elimination (insn, final_p);
-      }
+  EXECUTE_IF_SET_IN_BITMAP (&insns_with_changed_offsets, 0, uid, bi)
+    process_insn_for_elimination (lra_insn_recog_data[uid]->insn, final_p);
   bitmap_clear (&insns_with_changed_offsets);
 
 lra_eliminate_done:
