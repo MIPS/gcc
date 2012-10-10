@@ -2005,10 +2005,13 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     case COMPONENT_REF:
     case VAR_DECL:
       if (BOUNDED_P (ptr_src))
-	{
-	  addr = pl_build_addr_expr (ptr_src);
-	  bounds = pl_build_bndldx (addr, ptr, iter);
-	}
+	if (TREE_CODE (ptr) == VAR_DECL && DECL_REGISTER (ptr))
+	  bounds = pl_get_zero_bounds ();
+	else
+	  {
+	    addr = pl_build_addr_expr (ptr_src);
+	    bounds = pl_build_bndldx (addr, ptr, iter);
+	  }
       else
 	bounds = pl_get_nonpointer_load_bounds ();
       break;
