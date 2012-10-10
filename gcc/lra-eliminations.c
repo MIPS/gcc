@@ -362,8 +362,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	      
 	      offset = (update_p
 			? ep->offset - ep->previous_offset : ep->offset);
-	      if (mem_mode != 0
-		  && CONST_INT_P (XEXP (x, 1))
+	      if (CONST_INT_P (XEXP (x, 1))
 		  && INTVAL (XEXP (x, 1)) == -offset)
 		return to;
 	      else
@@ -378,9 +377,14 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	}
 
       /* If this is part of an address, we want to bring any constant
-	 to the outermost PLUS.	 We will do this by doing hard
+	 to the outermost PLUS.  We will do this by doing hard
 	 register replacement in our operands and seeing if a constant
-	 shows up in one of them.  */
+	 shows up in one of them.
+
+	 Note that there is no risk of modifying the structure of the
+	 insn, since we only get called for its operands, thus we are
+	 either modifying the address inside a MEM, or something like
+	 an address operand of a load-address insn.  */
 
       {
 	rtx new0 = lra_eliminate_regs_1 (XEXP (x, 0), mem_mode,
@@ -388,18 +392,8 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	rtx new1 = lra_eliminate_regs_1 (XEXP (x, 1), mem_mode,
 					 subst_p, update_p, full_p);
 
-	if (reg_renumber && (new0 != XEXP (x, 0) || new1 != XEXP (x, 1)))
-	  {
-	    new_rtx = form_sum (new0, new1);
-
-	    /* As above, if we are not inside a MEM we do not want to
-	       turn a PLUS into something else.	 We might try to do so here
-	       for an addition of 0 if we aren't optimizing.  */
-	    if (! mem_mode && GET_CODE (new_rtx) != PLUS)
-	      return gen_rtx_PLUS (GET_MODE (x), new_rtx, const0_rtx);
-	    else
-	      return new_rtx;
-	  }
+	if (new0 != XEXP (x, 0) || new1 != XEXP (x, 1))
+	  return form_sum (new0, new1);
       }
       return x;
 
@@ -543,31 +537,15 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
       return x;
 
     case SUBREG:
-	new_rtx = lra_eliminate_regs_1 (SUBREG_REG (x), mem_mode,
-					subst_p, update_p, full_p);
+      new_rtx = lra_eliminate_regs_1 (SUBREG_REG (x), mem_mode,
+				      subst_p, update_p, full_p);
 
       if (new_rtx != SUBREG_REG (x))
 	{
 	  int x_size = GET_MODE_SIZE (GET_MODE (x));
 	  int new_size = GET_MODE_SIZE (GET_MODE (new_rtx));
 
-	  if (MEM_P (new_rtx)
-	      && ((x_size < new_size
-#ifdef WORD_REGISTER_OPERATIONS
-		   /* On these machines, combine can create RTL of the form
-		      (set (subreg:m1 (reg:m2 R) 0) ...)
-		      where m1 < m2, and expects something interesting to
-		      happen to the entire word.  Moreover, it will use the
-		      (reg:m2 R) later, expecting all bits to be preserved.
-		      So if the number of words is the same, preserve the
-		      subreg so that LRA can see it.  */
-		   && ! ((x_size - 1) / UNITS_PER_WORD
-			 == (new_size -1 ) / UNITS_PER_WORD)
-#endif
-		   )
-		  || x_size == new_size)
-	      )
-
+	  if (MEM_P (new_rtx) && x_size <= new_size)
 	    {
 	      SUBREG_REG (x) = new_rtx;
 	      alter_subreg (&x, false);
@@ -766,18 +744,18 @@ mark_not_eliminable (rtx x)
 
 /* Scan INSN and eliminate all eliminable hard registers in it.
 
-   If VALIDATE_P is true, do the replacement destructively.  Also
+   If REPLACE_P is true, do the replacement destructively.  Also
    delete the insn as dead it if it is setting an eliminable register.
 
-   If VALIDATE_P is false, just update the offsets while keeping the
+   If REPLACE_P is false, just update the offsets while keeping the
    base register the same.  */
 
 static void
-eliminate_regs_in_insn (rtx insn, bool validate_p)
+eliminate_regs_in_insn (rtx insn, bool replace_p)
 {
   int icode = recog_memoized (insn);
   rtx old_set = single_set (insn);
-  bool val;
+  bool validate_p;
   int i;
   rtx substed_operand[MAX_RECOG_OPERANDS];
   rtx orig_operand[MAX_RECOG_OPERANDS];
@@ -800,7 +778,7 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
   if (old_set != 0 && REG_P (SET_DEST (old_set))
       && (ep = get_elimination (SET_DEST (old_set))) != NULL)
     {
-      bool delete_p = validate_p;
+      bool delete_p = replace_p;
       
 #ifdef HARD_FRAME_POINTER_REGNUM
       /* If this is setting the frame pointer register to the hardware
@@ -811,7 +789,7 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
       if (ep->from == FRAME_POINTER_REGNUM
 	  && ep->to == HARD_FRAME_POINTER_REGNUM)
 	{
-	  if (validate_p)
+	  if (replace_p)
 	    {
 	      SET_DEST (old_set) = ep->to_rtx;
 	      lra_update_insn_recog_data (insn);
@@ -915,9 +893,9 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
 
       if (REG_P (reg) && (ep = get_elimination (reg)) != NULL)
 	{
-	  rtx to_rtx = validate_p ? ep->to_rtx : ep->from_rtx;
+	  rtx to_rtx = replace_p ? ep->to_rtx : ep->from_rtx;
 	  
-	  if (! validate_p)
+	  if (! replace_p)
 	    {
 	      offset += (ep->offset - ep->previous_offset);
 	      offset = trunc_int_for_mode (offset, GET_MODE (plus_cst_src));
@@ -963,7 +941,7 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
      can be handled by the constraint pass.  */
   id = lra_get_insn_recog_data (insn);
   static_id = id->insn_static_data;
-  val = false;
+  validate_p = false;
   for (i = 0; i < static_id->n_operands; i++)
     {
       orig_operand[i] = *id->operand_loc[i];
@@ -992,17 +970,9 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
 	     invariants as the source of a plain move.	*/
 	  substed_operand[i]
 	    = lra_eliminate_regs_1 (*id->operand_loc[i], VOIDmode,
-				    validate_p, ! validate_p, false);
+				    replace_p, ! replace_p, false);
 	  if (substed_operand[i] != orig_operand[i])
-	    val = true;
-
-	  /* If an output operand changed from a REG to a MEM and INSN is an
-	     insn, write a CLOBBER insn.  */
-	  if (static_id->operand[i].type != OP_IN
-	      && REG_P (orig_operand[i])
-	      && MEM_P (substed_operand[i])
-	      && validate_p)
-	    emit_insn_after (gen_clobber (orig_operand[i]), insn);
+	    validate_p = true;
 	}
     }
 
@@ -1013,7 +983,7 @@ eliminate_regs_in_insn (rtx insn, bool validate_p)
   for (i = 0; i < static_id->n_dups; i++)
     *id->dup_loc[i] = substed_operand[(int) static_id->dup_num[i]];
 
-  if (val)
+  if (validate_p)
     {
       /* If we had a move insn but now we don't, re-recognize it.
 	 This will cause spurious re-recognition if the old move had a
