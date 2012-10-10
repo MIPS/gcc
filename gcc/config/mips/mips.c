@@ -18023,12 +18023,16 @@ octeon_output_shared_variable (FILE *stream, tree decl, const char *name,
                                unsigned HOST_WIDE_INT size, int align)
 {
   section *s;
+#ifdef CVMX_SHARED_BSS_FLAGS
 
   s = get_section (".cvmx_shared_bss", CVMX_SHARED_BSS_FLAGS, NULL_TREE);
   switch_to_section (s);
   ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
   ASM_DECLARE_OBJECT_NAME (stream, name, decl);
   ASM_OUTPUT_SKIP (stream, size != 0 ? size : 1);
+#else
+  gcc_unreachable ();
+#endif
 }
 
 /* Return the function that is used to expand the <u>mulsidi3 pattern.

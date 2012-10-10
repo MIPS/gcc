@@ -197,6 +197,14 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-10-10  Andrew Pinski  <apinski@cavium.com>
+
+	Part of bug #4903
+	* config.gcc (mips64*-*-linux*): Support mips64*-montavista-linux*
+	as an alias to mips64*-octeon-linux*.
+	* config/mips/mips.c (octeon_output_shared_variable): Disable
+	if CVMX_SHARED_BSS_FLAGS is not define.
+
 2012-10-07  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/trunc-10.c: Look for \tsll

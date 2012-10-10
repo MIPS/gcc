@@ -1962,8 +1962,8 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-linux64"
 	case ${target} in
-		#Octeon does not support MIPS16 or o32 ABI
-		mips64*-octeon-linux*)
+		# Octeon/MontaVista does not support MIPS16 or o32 ABI
+		mips64*-octeon-linux* | mips64*-montavista-linux*)
 			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_64"
 			tm_file="${tm_file} mips/octeon.h mips/octeon-linux.h"
 			tmake_file="${tmake_file} mips/t-octeon-linux"
