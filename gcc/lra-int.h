@@ -325,7 +325,6 @@ extern lra_live_range_t lra_merge_live_ranges (lra_live_range_t,
 					       lra_live_range_t);
 extern bool lra_intersected_live_ranges_p (lra_live_range_t,
 					   lra_live_range_t);
-extern bool lra_live_range_in_p (lra_live_range_t, lra_live_range_t);
 extern void lra_print_live_range_list (FILE *, lra_live_range_t);
 extern void lra_debug_live_range_list (lra_live_range_t);
 extern void lra_debug_pseudo_live_ranges (int);
