@@ -1,3 +1,8 @@
+2012-10-11  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-spills.c (spill_pseudos): Process CALL_INSN_FUNCTION_USAGE
+	too.
+
 2012-10-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-coalesce.c (removed_pseudos_bitmap): Remove.

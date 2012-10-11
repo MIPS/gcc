@@ -480,6 +480,8 @@ spill_pseudos (void)
 	if (bitmap_bit_p (&changed_insns, INSN_UID (insn)))
 	  {
 	    remove_pseudos (&PATTERN (insn), insn);
+	    if (CALL_P (insn))
+	      remove_pseudos (&CALL_INSN_FUNCTION_USAGE (insn), insn);
 	    if (lra_dump_file != NULL)
 	      fprintf (lra_dump_file,
 		       "Changing spilled pseudos to memory in insn #%u\n",
@@ -488,6 +490,12 @@ spill_pseudos (void)
 	    if (lra_reg_spill_p || targetm.different_addr_displacement_p ())
 	      lra_set_used_insn_alternative (insn, -1);
 	  }
+	else if (CALL_P (insn))
+	  /* Call insn might have not references for pseudos besides
+	     in CALL_INSN_FUNCTION_USAGE but we don't count them in
+	     insn_bitmap of corresponding lra_reg_info as they don't
+	     need reloads.  */
+	  remove_pseudos (&CALL_INSN_FUNCTION_USAGE (insn), insn);
       bitmap_and_compl_into (DF_LR_IN (bb), &spilled_pseudos);
       bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);
     }
