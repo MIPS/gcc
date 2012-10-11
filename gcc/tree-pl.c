@@ -1177,7 +1177,7 @@ pl_build_returned_bound (gimple call)
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_NEXT_ARG)
     {
       tree size = targetm.fn_abi_va_list_bounds_size (cfun->decl);
-      if (tree_low_cst (size, 1) == 0)
+      if (size == integer_zero_node)
 	bounds = pl_get_zero_bounds ();
       else
 	{
@@ -2071,7 +2071,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case INTEGER_CST:
-      if (tree_low_cst (ptr_src, 1) == 0)
+      if (ptr_src == integer_zero_node)
 	bounds = pl_get_none_bounds ();
       else
 	bounds = pl_get_invalid_op_bounds ();
@@ -2603,7 +2603,8 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
     case VAR_DECL:
     case RESULT_DECL:
     case PARM_DECL:
-      if (dirflag != integer_one_node)
+      if (dirflag != integer_one_node
+	  || DECL_REGISTER (node))
 	return;
 
       safe = true;
