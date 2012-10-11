@@ -2324,12 +2324,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
     *bounds = pl_narrow_bounds_to_field (*bounds, comp_to_narrow, iter);
 
   if (innermost_bounds && !*bounds)
-    {
-      gcc_assert ((!flag_pl_first_field_has_own_bounds && *safe)
-		  || TREE_CODE (nodes[1]) == ARRAY_REF);
-
-      *bounds = pl_find_bounds (*ptr, iter);
-    }
+    *bounds = pl_find_bounds (*ptr, iter);
 }
 
 static tree
