@@ -5959,6 +5959,62 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 			      0));
       break;
 
+
+    case SEQUENCE:
+      if (XVECLEN (x, 0) == 2
+	  && GET_CODE (XVECEXP (x, 0, 0)) == SET
+	  && GET_CODE (XVECEXP (x, 0, 1)) == SET)
+	{
+	  rtx newset0, newset1;
+	  rtx set0 = XVECEXP (x, 0, 0);
+	  rtx set1 = XVECEXP (x, 0, 1);
+	  rtx lhs0 = SET_DEST (set0);
+	  rtx lhs1 = SET_DEST (set1);
+	  rtx rhs0 = SET_SRC (set0);
+	  rtx rhs1 = SET_SRC (set1);
+	  /* Simplify:
+	     (set x
+		  (const_int 0))
+	     (set (zero_extract:DI
+		    x
+		    (const_int LEN)
+		    (const_int SHIFT))
+            	  y)
+	     to just
+	     (set (x) (lshiftrt (and (y) MASK) SHIFT))
+	     Where MASK is (1<<LEN)-1.  */
+	  if (rhs0 == const0_rtx
+	      && GET_CODE (lhs1) == ZERO_EXTRACT
+	      && lhs0 == XEXP (lhs1, 0)
+	      && CONST_INT_P (XEXP (lhs1, 1))
+	      && CONST_INT_P (XEXP (lhs1, 2)))
+	    {
+	      enum machine_mode mode = GET_MODE (lhs0);
+	      HOST_WIDE_INT len = INTVAL (XEXP (lhs1, 1));
+	      rtx shift = XEXP (lhs1, 2);
+	      /* Compute a mask of LEN bits, if we can do this on the host
+		 machine.  */
+	      if (len < HOST_BITS_PER_WIDE_INT)
+		{
+		  rtx mask = GEN_INT (((unsigned HOST_WIDE_INT) 1 << len) - 1);
+		  rtx tmp = simplify_gen_binary (AND, mode, rhs1, mask);
+		  tmp = simplify_gen_binary (ASHIFT, mode, tmp, shift);
+		  tmp = gen_rtx_SET (VOIDmode, lhs0, tmp);
+		  return tmp;
+		}
+	    }
+	  newset0 = simplify_set (set0);
+	  newset1 = simplify_set (set1);
+	  if (newset0 != set0 || newset1 != set1)
+	    {
+	      rtx newpat = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
+	      XVECEXP (newpat, 0, 0) = newset0;
+	      XVECEXP (newpat, 0, 1) = newset1;
+	      return newpat;
+	    }
+	}
+      break;
+
     default:
       break;
     }

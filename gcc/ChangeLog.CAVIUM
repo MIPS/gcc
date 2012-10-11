@@ -499,6 +499,11 @@
 
 2012-10-11  Andrew Pinski  <apinski@cavium.com>
 
+	* combine.c (combine_simplify_rtx): Simplify SEQUENCEs.  If we have a set of zero
+	followed by a zero_extract, this can be simplified to a shift.
+
+2012-10-11  Andrew Pinski  <apinski@cavium.com>
+
 	* config.gcc (mips*-*-linux*): mips*-octeon-linux* and mips*-montavista-linux*
 	default to n64 and don't support mips16 or o32 and default to soft-float.
 
