@@ -1,6 +1,7 @@
 /* Change pseudos by memory.
    Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -22,7 +23,7 @@ along with GCC; see the file COPYING3.	If not see
 /* This file contains code for a pass to change spilled pseudos into
    memory.
 
-   The pass creates necessary stack slots and assign spilled pseudos
+   The pass creates necessary stack slots and assigns spilled pseudos
    to the stack slots in following way:
 
    for all spilled pseudos P most frequently used first do
@@ -43,15 +44,14 @@ along with GCC; see the file COPYING3.	If not see
    If at least one stack slot was created, we need to run more passes
    because we have new addresses which should be checked and because
    the old address displacements might change and address constraints
-   (or insn memory constraints) might be not satisfied any more.
+   (or insn memory constraints) might not be satisfied any more.
 
    For some targets, the pass can spill some pseudos into hard
    registers of different class (usually into vector registers)
    instead of spilling them into memory if it is possible and
-   profitable.	Spilling GENERAL_REGS pseudo into SSE registers for
-   modern Intel x86/x86-64 processors is an example of such
-   optimization.  And this is actually recommended by Intel
-   optimization guide.
+   profitable.  Spilling GENERAL_REGS pseudo into SSE registers for
+   Intel Corei7 is an example of such optimization.  And this is
+   actually recommended by Intel optimization guide.
 
    The file also contains code for final change of pseudos on hard
    regs correspondingly assigned to them.  */
@@ -101,8 +101,8 @@ struct pseudo_slot
 /* The stack slots for each spilled pseudo.  Indexed by regnos.	 */
 static struct pseudo_slot *pseudo_slots;
 
-/* The structure describes a stack slot which can be used for several
-   spilled pseudos.  */
+/* The structure describes a register or a stack slot which can be
+   used for several spilled pseudos.  */
 struct slot
 {
   /* First pseudo with given stack slot.  */
@@ -122,7 +122,7 @@ struct slot
 };
 
 /* Array containing info about the stack slots.	 The array element is
-   indexed by the stack slot number in the range [0..slost_num).  */
+   indexed by the stack slot number in the range [0..slots_num).  */
 static struct slot *slots;
 /* The number of the stack slots currently existing.  */
 static int slots_num;
@@ -146,16 +146,16 @@ assign_mem_slot (int i)
   
   x = slots[pseudo_slots[i].slot_num].mem;
   
+  /* We can use a slot already allocated because it is guaranteed the
+     slot provides both enough inherent space and enough total
+     space.  */
   if (x)
     ;
   /* Each pseudo has an inherent size which comes from its own mode,
      and a total size which provides room for paradoxical subregs
-     which refer to the pseudo reg in wider modes.
-     
-     We can use a slot already allocated if it provides both enough
-     inherent space and enough total space.  Otherwise, we allocate a
-     new slot, making sure that it has no less inherent space, and no
-     less total space, then the previous slot.	*/
+     which refer to the pseudo reg in wider modes.  We allocate a new
+     slot, making sure that it has enough inherent space and total
+     space.  */
   else
     {
       rtx stack_slot;
@@ -187,8 +187,6 @@ assign_mem_slot (int i)
   if (BYTES_BIG_ENDIAN && inherent_size < total_size)
     adjust += (total_size - inherent_size);
   
-  /* If we have any adjustment to make, or if the stack slot is the
-     wrong mode, make a new stack slot.	 */
   x = adjust_address_nv (x, GET_MODE (regno_reg_rtx[i]), adjust);
   
   /* Set all of the memory attributes as appropriate for a spill.  */
@@ -217,10 +215,18 @@ regno_freq_compare (const void *v1p, const void *v2p)
 # define STACK_GROWS_DOWNWARD 0
 #endif
 
-/* Sort pseudos according their slot numbers putting ones with smaller
-   numbers first, or last when the frame pointer is not needed.	 So
-   pseudos with the first slot will be finally addressed with smaller
-   address displacement.  */
+/* Sort pseudos according to their slots, putting the slots in the order
+   that they should be allocated.  Slots with lower numbers have the highest
+   priority and should get the smallest displacement from the stack or
+   frame pointer (whichever is being used).
+
+   The first allocated slot is always closest to the frame pointer,
+   so prefer lower slot numbers when frame_pointer_needed.  If the stack
+   and frame grow in the same direction, then the first allocated slot is
+   always closest to the initial stack pointer and furthest away from the
+   final stack pointer, so allocate higher numbers first when using the
+   stack pointer in that case.  The reverse is true if the stack and
+   frame grow in opposite directions.  */
 static int
 pseudo_reg_slot_compare (const void *v1p, const void *v2p)
 {
@@ -234,18 +240,17 @@ pseudo_reg_slot_compare (const void *v1p, const void *v2p)
   if ((diff = slot_num1 - slot_num2) != 0)
     return (frame_pointer_needed
 	    || !FRAME_GROWS_DOWNWARD == STACK_GROWS_DOWNWARD ? diff : -diff);
-  total_size1 = MAX (PSEUDO_REGNO_BYTES (regno1),
-		     GET_MODE_SIZE (lra_reg_info[regno1].biggest_mode));
-  total_size2 = MAX (PSEUDO_REGNO_BYTES (regno2),
-		     GET_MODE_SIZE (lra_reg_info[regno2].biggest_mode));
+  total_size1 = GET_MODE_SIZE (lra_reg_info[regno1].biggest_mode);
+  total_size2 = GET_MODE_SIZE (lra_reg_info[regno2].biggest_mode);
   if ((diff = total_size2 - total_size1) != 0)
     return diff;
   return regno1 - regno2;
 }
 
-/* Assign spill hard registers to N pseudos in PSEUDO_REGNOS.  Put the
-   pseudos which did not get a spill hard register at the beginning of
-   array PSEUDO_REGNOS.	 Return the number of such pseudos.  */
+/* Assign spill hard registers to N pseudos in PSEUDO_REGNOS which is
+   sorted in order of highest frequency first.  Put the pseudos which
+   did not get a spill hard register at the beginning of array
+   PSEUDO_REGNOS.  Return the number of such pseudos.  */
 static int
 assign_spill_hard_regs (int *pseudo_regnos, int n)
 {
@@ -257,7 +262,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
   basic_block bb;
   HARD_REG_SET conflict_hard_regs;
   bitmap_head ok_insn_bitmap;
-  bitmap set_jump_crosses = regstat_get_setjmp_crosses ();
+  bitmap setjump_crosses = regstat_get_setjmp_crosses ();
   /* Hard registers which can not be used for any purpose at given
      program point because they are unallocatable or already allocated
      for other pseudos.	 */ 
@@ -287,7 +292,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
     {
       regno = pseudo_regnos[i];
       rclass = lra_get_allocno_class (regno);
-      if (bitmap_bit_p (set_jump_crosses, regno)
+      if (bitmap_bit_p (setjump_crosses, regno)
 	  || (spill_class
 	      = ((enum reg_class)
 		 targetm.spill_class ((reg_class_t) rclass,
@@ -355,7 +360,7 @@ add_pseudo_to_slot (int regno, int slot_num)
   else
     {
       first = pseudo_slots[regno].first = &pseudo_slots[slots[slot_num].regno];
-      pseudo_slots[regno].next = pseudo_slots[slots[slot_num].regno].next;
+      pseudo_slots[regno].next = first->next;
       first->next = &pseudo_slots[regno];
     }
   pseudo_slots[regno].mem = NULL_RTX;
@@ -408,17 +413,16 @@ assign_stack_slot_num_and_sort_pseudos (int *pseudo_regnos, int n)
 /* Recursively process LOC in INSN and change spilled pseudos to the
    corresponding memory or spilled hard reg.  Ignore spilled pseudos
    created from the scratches.	*/
-static bool
+static void
 remove_pseudos (rtx *loc, rtx insn)
 {
   int i;
-  bool res;
   rtx hard_reg;
   const char *fmt;
   enum rtx_code code;
 
   if (*loc == NULL_RTX)
-    return false;
+    return;
   code = GET_CODE (*loc);
   if (code == REG && (i = REGNO (*loc)) >= FIRST_PSEUDO_REGISTER
       && lra_get_regno_hard_regno (i) < 0
@@ -430,24 +434,22 @@ remove_pseudos (rtx *loc, rtx insn)
     {
       hard_reg = spill_hard_reg[i];
       *loc = copy_rtx (hard_reg != NULL_RTX ? hard_reg : pseudo_slots[i].mem);
-      return true;
+      return;
     }
 
-  res = false;
   fmt = GET_RTX_FORMAT (code);
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	res = remove_pseudos (&XEXP (*loc, i), insn) || res;
+	remove_pseudos (&XEXP (*loc, i), insn);
       else if (fmt[i] == 'E')
 	{
 	  int j;
 
 	  for (j = XVECLEN (*loc, i) - 1; j >= 0; j--)
-	    res = remove_pseudos (&XVECEXP (*loc, i, j), insn) || res;
+	    remove_pseudos (&XVECEXP (*loc, i, j), insn);
 	}
     }
-  return res;
 }
 
 /* Convert spilled pseudos into their stack slots or spill hard regs,
@@ -506,10 +508,10 @@ lra_need_for_spills_p (void)
   return false;
 }
 
-/* Change spilled pseudos into memory or spill hard regs.  The
-   function put changed insns on the constraint stack (these insns
-   will be considered on the next constraint pass).  The changed insns
-   are all insns in which pseudos were changed.	 */
+/* Change spilled pseudos into memory or spill hard regs.  Put changed
+   insns on the constraint stack (these insns will be considered on
+   the next constraint pass).  The changed insns are all insns in
+   which pseudos were changed.  */
 void
 lra_spill (void)
 {

@@ -1,5 +1,23 @@
 2012-10-10  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-coalesce.c (removed_pseudos_bitmap): Remove.
+	(update_live_info): Rewrite without the bitmap.
+	(coalescable_pseudo_p): New function.
+	(lra_coalesce): Use it.  Rewrite using one loop instead of two
+	nested ones.  Use set_noop_p.
+	* lra-spills.c: Fix typos in comments.
+	(struct slot, assign_mem_slot): Modify comments.
+	(pseudo_reg_slot_compare): Ditto.  Don't use MAX.  Use
+	biggest_mode only.
+	(assign_spill_hard_regs): Modify comments.
+	(set_jump_crosses): Rename to setjump_crosses.
+	(add_pseudo_to_slot): Use first->next instead of
+	pseudo_slots[slots[slot_num].regno].next.
+	(remove_pseudos): Make it void result function.
+	(lra_spill): Change comment.
+
+2012-10-10  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-int.h (lra_live_range_in_p): Remove.
 	* lra-lives.c (lra_copy_live_range_list): Simplify the code.
 	(lra_merge_live_ranges): Remove unnecessary code.

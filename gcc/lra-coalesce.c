@@ -1,6 +1,7 @@
 /* Coalesce spilled pseudos.
    Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -179,32 +180,53 @@ mem_move_p (int regno1, int regno2)
   return reg_renumber[regno1] < 0 && reg_renumber[regno2] < 0;
 }
 
+/* Pseudos used instead of the coalesced pseudos.  */
+static bitmap_head used_pseudos_bitmap;
 
-/* Pseudos which go away after coalescing and pseudos used instead of
-   the removed pseudos.	 */
-static bitmap_head removed_pseudos_bitmap, used_pseudos_bitmap;
-
-/* Set up REMOVED_PSEUDOS_BITMAP and USED_PSEUDOS_BITMAP, and update
-   LR_BITMAP (a BB live info bitmap).  */
+/* Set up USED_PSEUDOS_BITMAP, and update LR_BITMAP (a BB live info
+   bitmap).  */
 static void
 update_live_info (bitmap lr_bitmap)
 {
   unsigned int j;
   bitmap_iterator bi;
 
-  bitmap_clear (&removed_pseudos_bitmap);
   bitmap_clear (&used_pseudos_bitmap);
   EXECUTE_IF_AND_IN_BITMAP (&coalesced_pseudos_bitmap, lr_bitmap,
 			    FIRST_PSEUDO_REGISTER, j, bi)
+    bitmap_set_bit (&used_pseudos_bitmap, first_coalesced_pseudo[j]);
+  if (! bitmap_empty_p (&used_pseudos_bitmap))
     {
-      bitmap_set_bit (&removed_pseudos_bitmap, j);
-      bitmap_set_bit (&used_pseudos_bitmap, first_coalesced_pseudo[j]);
-    }
-  if (! bitmap_empty_p (&removed_pseudos_bitmap))
-    {
-      bitmap_and_compl_into (lr_bitmap, &removed_pseudos_bitmap);
+      bitmap_and_compl_into (lr_bitmap, &coalesced_pseudos_bitmap);
       bitmap_ior_into (lr_bitmap, &used_pseudos_bitmap);
     }
+}
+
+/* Return true if pseudo REGNO can be potentially coalesced.  Use
+   SPLIT_PSEUDO_BITMAP to find pseudos whose live ranges were
+   split.  */
+static bool
+coalescable_pseudo_p (int regno, bitmap split_origin_bitmap)
+{
+  lra_assert (regno >= FIRST_PSEUDO_REGISTER);
+  /* Don't coalesce inheritance pseudos because spilled inheritance
+     pseudos will be removed in subsequent 'undo inheritance'
+     pass.  */
+  return (lra_reg_info[regno].restore_regno < 0
+	  /* We undo splits for spilled pseudos whose live ranges were
+	     split.  So don't coalesce them, it is not necessary and
+	     the undo transformations would be wrong.  */
+	  && ! bitmap_bit_p (split_origin_bitmap, regno)
+	  /* Don't coalesces bound pseudos.  Bound pseudos has own
+	     rules for finding live ranges.  It is hard to maintain
+	     this info with coalescing and it is not worth to do
+	     it.  */
+	  && ! bitmap_bit_p (&lra_bound_pseudos, regno)
+	  /* We don't want to coalesce regnos with equivalences, at
+	     least without updating this info.  */
+	  && ira_reg_equiv[regno].constant == NULL_RTX
+	  && ira_reg_equiv[regno].memory == NULL_RTX
+	  && ira_reg_equiv[regno].invariant == NULL_RTX);
 }
 
 /* The major function for aggressive pseudo coalescing of moves only
@@ -214,7 +236,7 @@ lra_coalesce (void)
 {
   basic_block bb;
   rtx mv, set, insn, next, *sorted_moves;
-  int i, n, mv_num, sregno, dregno, restore_regno;
+  int i, mv_num, sregno, dregno, restore_regno;
   unsigned int regno;
   int coalesced_moves;
   int max_regno = max_reg_num ();
@@ -249,96 +271,56 @@ lra_coalesce (void)
 	    && (sregno = REGNO (SET_SRC (set))) >= FIRST_PSEUDO_REGISTER
 	    && (dregno = REGNO (SET_DEST (set))) >= FIRST_PSEUDO_REGISTER
 	    && mem_move_p (sregno, dregno)
-	    /* Don't coalesce inheritance pseudos because spilled
-	       inheritance pseudos will be removed in subsequent 'undo
-	       inheritance' pass.  */
-	    && lra_reg_info[sregno].restore_regno < 0
-	    && lra_reg_info[dregno].restore_regno < 0
-	    /* We undo splits for spilled pseudos whose live ranges
-	       were split.  So don't coalesce them, it is not
-	       necessary and the undo transformations would be
-	       wrong.  */
-	    && ! bitmap_bit_p (&split_origin_bitmap, sregno)
-	    && ! bitmap_bit_p (&split_origin_bitmap, dregno)
+	    && coalescable_pseudo_p (sregno, &split_origin_bitmap)
+	    && coalescable_pseudo_p (dregno, &split_origin_bitmap)
 	    && ! side_effects_p (set)
-	    /* Don't coalesces bound pseudos.  Bound pseudos has own
-	       rules for finding live ranges.  It is hard to maintain
-	       this info with coalescing and it is not worth to do
-	       it.  */
-	    && ! bitmap_bit_p (&lra_bound_pseudos, sregno)
-	    && ! bitmap_bit_p (&lra_bound_pseudos, dregno)
-	    /* We don't want to coalesce regnos with equivalences,
-	       at least without updating this info.  */
-	    && ira_reg_equiv[sregno].constant == NULL_RTX
-	    && ira_reg_equiv[sregno].memory == NULL_RTX
-	    && ira_reg_equiv[sregno].invariant == NULL_RTX
-	    && ira_reg_equiv[dregno].constant == NULL_RTX
-	    && ira_reg_equiv[dregno].memory == NULL_RTX
-	    && ira_reg_equiv[dregno].invariant == NULL_RTX
 	    && !(lra_intersected_live_ranges_p
 		 (lra_reg_info[sregno].live_ranges,
 		  lra_reg_info[dregno].live_ranges)))
 	  sorted_moves[mv_num++] = insn;
     }
-  bitmap_clear (&removed_pseudos_bitmap);
+  bitmap_clear (&split_origin_bitmap);
   qsort (sorted_moves, mv_num, sizeof (rtx), move_freq_compare_func);
   /* Coalesced copies, most frequently executed first.	*/
   bitmap_initialize (&coalesced_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&involved_insns_bitmap, &reg_obstack);
-  for (; mv_num != 0;)
+  for (i = 0; i < mv_num; i++)
     {
-      for (i = 0; i < mv_num; i++)
+      mv = sorted_moves[i];
+      set = single_set (mv);
+      lra_assert (set != NULL && REG_P (SET_SRC (set))
+		  && REG_P (SET_DEST (set)));
+      sregno = REGNO (SET_SRC (set));
+      dregno = REGNO (SET_DEST (set));
+      if (first_coalesced_pseudo[sregno] == first_coalesced_pseudo[dregno])
 	{
-	  mv = sorted_moves[i];
-	  set = single_set (mv);
-	  lra_assert (set != NULL && REG_P (SET_SRC (set))
-		      && REG_P (SET_DEST (set)));
-	  sregno = REGNO (SET_SRC (set));
-	  dregno = REGNO (SET_DEST (set));
-	  if (! lra_intersected_live_ranges_p
-		(lra_reg_info[first_coalesced_pseudo[sregno]].live_ranges,
-		 lra_reg_info[first_coalesced_pseudo[dregno]].live_ranges))
-	    {
-	      coalesced_moves++;
-	      if (lra_dump_file != NULL)
-		fprintf
-		  (lra_dump_file,
-		   "	  Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
-		   INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
-		   dregno, ORIGINAL_REGNO (SET_DEST (set)),
-		   BLOCK_FOR_INSN (mv)->frequency);
-	      bitmap_ior_into (&involved_insns_bitmap,
-			       &lra_reg_info[sregno].insn_bitmap);
-	      bitmap_ior_into (&involved_insns_bitmap,
-			       &lra_reg_info[dregno].insn_bitmap);
-	      merge_pseudos (sregno, dregno);
-	      i++;
-	      break;
-	    }
+	  coalesced_moves++;
+	  if (lra_dump_file != NULL)
+	    fprintf
+	      (lra_dump_file, "      Coalescing move %i:r%d-r%d (freq=%d)\n",
+	       INSN_UID (mv), sregno, dregno,
+	       BLOCK_FOR_INSN (mv)->frequency);
+	  /* We updated involved_insns_bitmap when doing the merge.  */
 	}
-      /* Collect the rest of copies.  */
-      for (n = 0; i < mv_num; i++)
+      else if (!(lra_intersected_live_ranges_p
+		 (lra_reg_info[first_coalesced_pseudo[sregno]].live_ranges,
+		  lra_reg_info[first_coalesced_pseudo[dregno]].live_ranges)))
 	{
-	  mv = sorted_moves[i];
-	  set = single_set (mv);
-	  lra_assert (set != NULL && REG_P (SET_SRC (set))
-		      && REG_P (SET_DEST (set)));
-	  sregno = REGNO (SET_SRC (set));
-	  dregno = REGNO (SET_DEST (set));
-	  if (first_coalesced_pseudo[sregno] != first_coalesced_pseudo[dregno])
-	    sorted_moves[n++] = mv;
-	  else if (lra_dump_file != NULL)
-	    {
-	      coalesced_moves++;
-	      fprintf
-		(lra_dump_file, "      Coalescing move %i:r%d-r%d (freq=%d)\n",
-		 INSN_UID (mv), sregno, dregno,
-		 BLOCK_FOR_INSN (mv)->frequency);
-	    }
+	  coalesced_moves++;
+	  if (lra_dump_file != NULL)
+	    fprintf
+	      (lra_dump_file,
+	       "  Coalescing move %i:r%d(%d)-r%d(%d) (freq=%d)\n",
+	       INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
+	       dregno, ORIGINAL_REGNO (SET_DEST (set)),
+	       BLOCK_FOR_INSN (mv)->frequency);
+	  bitmap_ior_into (&involved_insns_bitmap,
+			   &lra_reg_info[sregno].insn_bitmap);
+	  bitmap_ior_into (&involved_insns_bitmap,
+			   &lra_reg_info[dregno].insn_bitmap);
+	  merge_pseudos (sregno, dregno);
 	}
-      mv_num = n;
     }
-  bitmap_initialize (&removed_pseudos_bitmap, &reg_obstack);
   bitmap_initialize (&used_pseudos_bitmap, &reg_obstack);
   FOR_EACH_BB (bb)
     {
@@ -351,10 +333,7 @@ lra_coalesce (void)
 	    if (! substitute (&insn))
 	      continue;
 	    lra_update_insn_regno_info (insn);
-	    if ((set = single_set (insn)) != NULL_RTX
-		&& REG_P (SET_DEST (set)) && REG_P (SET_SRC (set))
-		&& REGNO (SET_SRC (set)) == REGNO (SET_DEST (set))
-		&& ! side_effects_p (set))
+	    if ((set = single_set (insn)) != NULL_RTX && set_noop_p (set))
 	      {
 		/* Coalesced move.  */
 		if (lra_dump_file != NULL)
@@ -364,7 +343,6 @@ lra_coalesce (void)
 	      }
 	  }
     }
-  bitmap_clear (&removed_pseudos_bitmap);
   bitmap_clear (&used_pseudos_bitmap);
   bitmap_clear (&involved_insns_bitmap);
   bitmap_clear (&coalesced_pseudos_bitmap);
