@@ -6170,60 +6170,80 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
+      if (flag_pl)
+	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STPCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMPCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMSET:
+      if (flag_pl)
+	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_BZERO:
+      if (flag_pl)
+	break;
       target = expand_builtin_bzero (exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
 	return target;
@@ -6231,6 +6251,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
 	return target;
@@ -6857,6 +6879,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
+      if (flag_pl)
+	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
 	return target;
