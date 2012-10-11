@@ -197,6 +197,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-10-11  Andrew Pinski  <apinski@cavium.com>
+
+	* config.gcc (mips*-*-linux*): mips*-octeon-linux* and mips*-montavista-linux*
+	default to n64 and don't support mips16 or o32 and default to soft-float.
+
 2012-10-10  Andrew Pinski  <apinski@cavium.com>
 
 	Part of bug #4903
