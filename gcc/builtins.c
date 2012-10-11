@@ -5797,6 +5797,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
+  tree orig_exp = exp;
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
@@ -5838,6 +5839,41 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	    expand_expr (arg, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	  return const0_rtx;
+	}
+    }
+
+  /* Currently none of builtin expand functions works with bounds.
+     To avoid modification of all expanders we just make a new call
+     expression without bound args.  The original expression is used
+     in case we expand builtin as a call.  */
+  if (flag_pl)
+    {
+      int new_arg_no = 0;
+      tree new_call;
+      tree arg;
+      call_expr_arg_iterator iter;
+      tree *new_args = XALLOCAVEC (tree, call_expr_nargs (exp));
+
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	if (!BOUND_TYPE_P (TREE_TYPE (arg)))
+	  new_args[new_arg_no++] = arg;
+
+      if (new_arg_no > 0)
+	{
+	  new_call = build_call_array (TREE_TYPE (exp), fndecl, new_arg_no, new_args);
+	  CALL_EXPR_STATIC_CHAIN (new_call) = CALL_EXPR_STATIC_CHAIN (exp);
+	  CALL_EXPR_FN (new_call) = CALL_EXPR_FN (exp);
+	  TREE_SIDE_EFFECTS (new_call) = TREE_SIDE_EFFECTS (exp);
+	  TREE_NOTHROW (new_call) = TREE_NOTHROW (exp);
+	  CALL_EXPR_TAILCALL (new_call) = CALL_EXPR_TAILCALL (exp);
+	  CALL_EXPR_RETURN_SLOT_OPT (new_call) = CALL_EXPR_RETURN_SLOT_OPT (exp);
+	  CALL_ALLOCA_FOR_VAR_P (new_call) = CALL_ALLOCA_FOR_VAR_P (exp);
+	  CALL_FROM_THUNK_P (new_call) = CALL_FROM_THUNK_P (exp);
+	  CALL_EXPR_VA_ARG_PACK (new_call) = CALL_EXPR_VA_ARG_PACK (exp);
+	  SET_EXPR_LOCATION (new_call, EXPR_LOCATION (exp));
+	  TREE_BLOCK (new_call) = TREE_BLOCK (exp);
+
+	  exp = new_call;
 	}
     }
 
@@ -6865,7 +6901,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   /* The switch statement above can drop through to cause the function
      to be called normally.  */
-  return expand_call (exp, target, ignore);
+  return expand_call (orig_exp, target, ignore);
 }
 
 /* Determine whether a tree node represents a call to a built-in
