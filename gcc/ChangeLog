@@ -1,5 +1,38 @@
 2012-10-11  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* target.def (register_priority): Change value interpretation.
+	* doc/tm.texi: Update.
+	* config/i386/i386.c (ix86_register_priority): Change return
+	values according to a new interpretation.
+	* lra-assigns.c: Improve the comments at the top
+	of file.
+	(struct regno_assign_info): Improve the comment.
+	(process_copy_to_form_thread): Fix typo in setting the member
+	first for regno1_first.
+	(init_regno_assign_info): Cache max_reg_num ().
+	(live_range_reload_pseudos): Rename to
+	live_range_reload_inheritance_pseudos.  Modify the comment.
+	(init_lives): Cache max_reg_num ().
+	(update_lives): Improve the comment.
+	(init_live_reload_and_inheritance_pseudos): Cache max_reg_num ().
+	(adjust_hard_regno_cost): New function.
+	(find_hard_regno_for): Improve the comment.  Set up best_priority
+	to INT_MAX.  Choose biggest priority.  Use adjust_hard_regno_cost.
+	(update_hard_regno_preference): Improve the comment.  Add an
+	assert.
+	(ignore_pseudos_bitmap): Rename to insn_conflict_pseudos.  Modify
+	the comment.
+	(spill_for): Improve the comment.  Remove unnecessary code.
+	Iterate from r->start.  Move an if condition to a new assert.
+	(setup_live_pseudos_and_spill_after_risky_transforms): Improve the
+	comment.  Cache	max_reg_num ().  Simplify the code.  Process loop
+	in reverse.
+	(assign_by_spills): Cache max_reg_num ().  Improve comments.
+	Remove unnecessary bitmap_bit_p.  Fix typo in debug output.
+	(lra_assign): Cache max_reg_num ().
+
+2012-10-11  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-spills.c (spill_pseudos): Process CALL_INSN_FUNCTION_USAGE
 	too.
 

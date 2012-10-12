@@ -31713,21 +31713,21 @@ ix86_register_priority (int hard_regno)
      base always wants an index.  So discourage their usage in an
      address.  */
   if (hard_regno == R12_REG || hard_regno == R13_REG)
-    return 4;
+    return 0;
   if (hard_regno == BP_REG)
-    return 2;
+    return 1;
   /* New x86-64 int registers result in bigger code size.  Discourage
      them.  */
   if (FIRST_REX_INT_REG <= hard_regno && hard_regno <= LAST_REX_INT_REG)
-    return 3;
+    return 2;
   /* New x86-64 SSE registers result in bigger code size.  Discourage
      them.  */
   if (FIRST_REX_SSE_REG <= hard_regno && hard_regno <= LAST_REX_SSE_REG)
-    return 3;
+    return 2;
   /* Usage of AX register results in smaller code.  Prefer it.  */
   if (hard_regno == 0)
-    return 0;
-  return 1;
+    return 4;
+  return 3;
 }
 
 /* Implement TARGET_PREFERRED_RELOAD_CLASS.

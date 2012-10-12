@@ -2355,12 +2355,12 @@ DEFHOOK
 DEFHOOK
 (register_priority,
  "A target hook which returns the register priority number to which the\
-  register @var{hard_regno} belongs to.  The smaller the number, the\
+  register @var{hard_regno} belongs to.  The bigger the number, the\
   more preferable the hard register usage (when all other conditions are\
   the same).  This hook can be used to prefer some hard register over\
   others in LRA.  For example, some x86-64 register usage needs\
   additional prefix which makes instructions longer.  The hook can\
-  return bigger priority number for such registers make them less favorable\
+  return lower priority number for such registers make them less favorable\
   and as result making the generated code smaller.\
   \
   The default version of this target hook returns always zero.",
