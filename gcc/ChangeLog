@@ -1,5 +1,9 @@
 2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* doc/tm.texi: Add new interpretation of hint * for LRA.
+
+2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-int.h (lra_get_mode): New function.
 	* lra-assigns.c (process_copy_to_form_thread): Set member first
 	for the last in the 2nd list.
