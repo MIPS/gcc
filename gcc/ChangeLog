@@ -1,3 +1,52 @@
+2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_mode): New function.
+	* lra-assigns.c (process_copy_to_form_thread): Set member first
+	for the last in the 2nd list.
+	* lra-constraints.c: Improve comments at the file top.
+	(indirect_mem, get_indirect_mem, init_indirect_mem): Remove.
+	(get_final_hard_regno): Move above.
+	(get_reg_class): Improve comments.  Use get_final_hard_regno.
+	(in_class_p): Improve comments.  Change signature.  Don't use
+	elimination.
+	(get_equiv_substitution): Improve comments.
+	(change_class): Add an assert.
+	(get_reload_reg): Improve comments.  Simplify code.
+	(struct address): Put comments according to GNU standard.
+	(extract_address_regs): Improve comments.
+	(lra_constraint_offset): Ditto.
+	(operands_match_p): Describe y_hard_regno.  Transfer -1 to
+	operand_match_p calls.
+	(find_mode, get_op_mode): Remove.
+	(narrow_reload_pseudo_class): Simplify code.
+	(match_reload): Use lra_get_mode instead of get_op_mode.  Improve
+	comments.  Add an assert.
+	(get_op_class): Improve comments.  Make it inline. Simplify code.
+	(emit_spill_move): Remove parameter.  Remove code for some corner
+	case.  Change comments.
+	(check_and_process_move): Move copying below.  Check consistency
+	of secondary_reload hook.
+	(goal_alt_match_win, best_reload_sum): Fix the comments.
+	(process_addr_reg): Improve comments.  Simplify code.
+	(simplify_operand_subreg): Improve comments.
+	(uses_hard_regs_p): Change signature.
+	(spilled_pseudo_p, general_constant_p): New functions.
+	(process_alt_operands): Improve comment for losers.  Rename
+	no_subreg_operand to no_subreg_reg_operand.  Add comments for
+	operand_reg and no_subreg_reg_operand.  Break if-stmt inside
+	#ifdef HAVE_ATTR_enabled to 2 if-stmts.  Fix comments for winreg
+	and constmemok.  Remove invalidate_m.  Use lra_get_mode instead of
+	get_op_mode.  Improve code for matching constraints.  Use
+	spilled_pseudo_p and general_constant_p.  Remove checks of
+	get_indirect_mem.  Simplify code after processing operand
+	constraints.  Modify code for reload_sum calculations.  Remove
+	!(condition MEM_P (op) && offmemok) for reject increase.  Use
+	this_alternative_matches and did_match instead of invalidate_m.
+	Use lra_add_hard_reg_set.  Remove a trick code with matching
+	operands.  Move a comment below.
+	(curr_insn_transform): Use lra_get_mode instead of get_op_mode.
+	(lra_contraints_init): Remove init_indirect_mem call.
+
 2012-10-11  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* target.def (register_priority): Change value interpretation.

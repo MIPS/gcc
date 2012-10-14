@@ -135,6 +135,7 @@ process_copy_to_form_thread (int regno1, int regno2, int copy_freq)
 	   regno_assign_info[last].next >= 0;
 	   last = regno_assign_info[last].next)
 	regno_assign_info[last].first = regno1_first;
+      regno_assign_info[last].first = regno1_first;
       regno_assign_info[last].next = regno_assign_info[regno1_first].next;
       regno_assign_info[regno1_first].next = regno2_first;
       regno_assign_info[regno1_first].freq
