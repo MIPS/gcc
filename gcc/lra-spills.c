@@ -491,10 +491,13 @@ spill_pseudos (void)
 	      lra_set_used_insn_alternative (insn, -1);
 	  }
 	else if (CALL_P (insn))
-	  /* Call insn might have not references for pseudos besides
-	     in CALL_INSN_FUNCTION_USAGE but we don't count them in
-	     insn_bitmap of corresponding lra_reg_info as they don't
-	     need reloads.  */
+	  /* Presence of any pseudo in CALL_INSN_FUNCTION_USAGE does
+	     not affect value of insn_bitmap of the corresponding
+	     lra_reg_info.  That is because we don't need to reload
+	     pseudos in CALL_INSN_FUNCTION_USAGEs.  So if we process
+	     only insns in the insn_bitmap of given pseudo here, we
+	     can miss the pseudo in some
+	     CALL_INSN_FUNCTION_USAGEs.  */
 	  remove_pseudos (&CALL_INSN_FUNCTION_USAGE (insn), insn);
       bitmap_and_compl_into (DF_LR_IN (bb), &spilled_pseudos);
       bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);

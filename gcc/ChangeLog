@@ -1,5 +1,10 @@
 2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-spills.c (spill_pseudos): Change comments for
+	CALL_INSN_FUNCTION_USAGE.
+
+2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* doc/tm.texi: Add new interpretation of hint * for LRA.
 
 2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
