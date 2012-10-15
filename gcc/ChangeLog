@@ -1,3 +1,10 @@
+2012-10-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_get_mode): Remove.
+	* lra-constraints.c (find_mode, get_op_mode): New functions.
+	(match_reload): Use get_op_mode instead of lra_get_mode.
+	(process_alt_operands, curr_insn_transform): Ditto.
+
 2012-10-14  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* ira.c (do_reload): Call release_recorded_exitsfor LRA.
