@@ -1,6 +1,6 @@
 /* Performing a 64-bit division should not pull in the unwinder.  */
 
-/* { dg-do run } */
+/* { dg-do run { target { ! *-*-linux* } } } */
 /* { dg-options "-O0" } */
 
 #include <stdlib.h>

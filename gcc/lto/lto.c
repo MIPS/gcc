@@ -198,7 +198,7 @@ lto_materialize_function (struct cgraph_node *node)
      and also functions that are needed to produce virtual clones.  */
   if (cgraph_function_with_gimple_body_p (node) || has_analyzed_clone_p (node))
     {
-      /* Clones and thunks don't need to be read.  */
+      /* Clones don't need to be read.  */
       if (node->clone_of)
 	return;
 
@@ -221,7 +221,7 @@ lto_materialize_function (struct cgraph_node *node)
 
 	  gcc_assert (DECL_STRUCT_FUNCTION (decl) == NULL);
 
-	  allocate_struct_function (decl, false);
+	  push_struct_function (decl);
 	  announce_function (decl);
 	  lto_input_function_body (file_data, decl, data);
 	  if (DECL_FUNCTION_PERSONALITY (decl) && !first_personality_decl)
@@ -229,6 +229,7 @@ lto_materialize_function (struct cgraph_node *node)
 	  lto_stats.num_function_bodies++;
 	  lto_free_section_data (file_data, LTO_section_function_body, name,
 				 data, len);
+	  pop_cfun ();
 	  ggc_collect ();
 	}
     }
@@ -579,6 +580,15 @@ gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
   /* The struct tags shall compare equal.  */
   if (!compare_type_names_p (t1, t2))
     goto different_types;
+
+  /* The main variant of both types should compare equal.  */
+  if (TYPE_MAIN_VARIANT (t1) != t1
+      || TYPE_MAIN_VARIANT (t2) != t2)
+    {
+      if (!gtc_visit (TYPE_MAIN_VARIANT (t1), TYPE_MAIN_VARIANT (t2),
+		      state, sccstack, sccstate, sccstate_obstack))
+	goto different_types;
+    }
 
   /* We may not merge typedef types to the same type in different
      contexts.  */
@@ -1100,6 +1110,12 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       && TYPE_P (DECL_CONTEXT (TYPE_NAME (type))))
     v = visit (DECL_CONTEXT (TYPE_NAME (type)), state, v,
 	       sccstack, sccstate, sccstate_obstack);
+
+  /* Factor in the variant structure.  */
+  if (TYPE_MAIN_VARIANT (type) != type)
+    v = visit (TYPE_MAIN_VARIANT (type), state, v,
+	       sccstack, sccstate, sccstate_obstack);
+
   v = iterative_hash_hashval_t (TREE_CODE (type), v);
   v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
   v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
@@ -1407,10 +1423,35 @@ remember_with_vars (tree t)
 	    (tt) = GIMPLE_REGISTER_TYPE (tt); \
 	  if (VAR_OR_FUNCTION_DECL_P (tt) && TREE_PUBLIC (tt)) \
 	    remember_with_vars (t); \
+	  if (TREE_CODE (tt) == INTEGER_CST) \
+	    (tt) = fixup_integer_cst (tt); \
 	} \
     } while (0)
 
 static void lto_fixup_types (tree);
+
+/* Return integer_cst T with updated type.  */
+
+static tree
+fixup_integer_cst (tree t)
+{
+  tree type = GIMPLE_REGISTER_TYPE (TREE_TYPE (t));
+
+  if (type == TREE_TYPE (t))
+    return t;
+
+  /* If overflow was set, streamer_read_integer_cst
+     produced local copy of T. */
+  if (TREE_OVERFLOW (t))
+    {
+      TREE_TYPE (t) = type;
+      return t;
+    }
+  else
+  /* Otherwise produce new shared node for the new type.  */
+    return build_int_cst_wide (type, TREE_INT_CST_LOW (t),
+			       TREE_INT_CST_HIGH (t));
+}
 
 /* Fix up fields of a tree_typed T.  */
 
@@ -1691,6 +1732,19 @@ get_resolution (struct data_in *data_in, unsigned index)
     return LDPR_UNKNOWN;
 }
 
+/* Map assigning declarations their resolutions.  */
+static pointer_map_t *resolution_map;
+
+/* We need to record resolutions until symbol table is read.  */
+static void
+register_resolution (tree decl, enum ld_plugin_symbol_resolution resolution)
+{
+  if (resolution == LDPR_UNKNOWN)
+    return;
+  if (!resolution_map)
+    resolution_map = pointer_map_create ();
+  *pointer_map_insert (resolution_map, decl) = (void *)(size_t)resolution;
+}
 
 /* Register DECL with the global symbol table and change its
    name if necessary to avoid name clashes for static globals across
@@ -1729,8 +1783,7 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
       unsigned ix;
       if (!streamer_tree_cache_lookup (data_in->reader_cache, decl, &ix))
 	gcc_unreachable ();
-      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
-				data_in->file_data);
+      register_resolution (decl, get_resolution (data_in, ix));
     }
 }
 
@@ -1788,8 +1841,7 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl)
       unsigned ix;
       if (!streamer_tree_cache_lookup (data_in->reader_cache, decl, &ix))
 	gcc_unreachable ();
-      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
-				data_in->file_data);
+      register_resolution (decl, get_resolution (data_in, ix));
     }
 }
 
@@ -2637,6 +2689,7 @@ lto_wpa_write_files (void)
 
       lto_set_current_out_file (NULL);
       lto_obj_file_close (file);
+      free (file);
       part->encoder = NULL;
 
       len = strlen (temp_filename);
@@ -2653,6 +2706,7 @@ lto_wpa_write_files (void)
     fatal_error ("closing LTRANS output list %s: %m", ltrans_output_list);
 
   free_ltrans_partitions();
+  free (temp_filename);
 
   timevar_pop (TV_WHOPR_WPA_IO);
 }
@@ -2734,7 +2788,6 @@ lto_fixup_prevailing_decls (tree t)
   else if (EXPR_P (t))
     {
       int i;
-      LTO_NO_PREVAIL (t->exp.block);
       for (i = TREE_OPERAND_LENGTH (t) - 1; i >= 0; --i)
 	LTO_SET_PREVAIL (TREE_OPERAND (t, i));
     }
@@ -2916,6 +2969,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       if (!file_data)
 	{
 	  lto_obj_file_close (current_lto_file);
+	  free (current_lto_file);
 	  current_lto_file = NULL;
 	  break;
 	}
@@ -2923,6 +2977,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       decl_data[last_file_ix++] = file_data;
 
       lto_obj_file_close (current_lto_file);
+      free (current_lto_file);
       current_lto_file = NULL;
       ggc_collect ();
     }
@@ -2935,6 +2990,17 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (resolution_file_name)
     fclose (resolution);
 
+  /* Free gimple type merging datastructures.  */
+  htab_delete (gimple_types);
+  gimple_types = NULL;
+  htab_delete (type_hash_cache);
+  type_hash_cache = NULL;
+  free (type_pair_cache);
+  type_pair_cache = NULL;
+  gimple_type_leader = NULL;
+  free_gimple_type_tables ();
+  ggc_collect ();
+
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
@@ -2946,6 +3012,24 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_CGRAPH_IO);
   /* Read the symtab.  */
   input_symtab ();
+
+  /* Store resolutions into the symbol table.  */
+  if (resolution_map)
+    {
+      void **res;
+      symtab_node snode;
+
+      FOR_EACH_SYMBOL (snode)
+	if (symtab_real_symbol_p (snode)
+	    && (res = pointer_map_contains (resolution_map,
+				            snode->symbol.decl)))
+	  snode->symbol.resolution
+	    = (enum ld_plugin_symbol_resolution)(size_t)*res;
+
+      pointer_map_destroy (resolution_map);
+      resolution_map = NULL;
+    }
+  
   timevar_pop (TV_IPA_LTO_CGRAPH_IO);
 
   if (!quiet_flag)
@@ -2960,18 +3044,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (seen_error ())
     fatal_error ("errors during merging of translation units");
 
-  /* Fixup all decls and types and free the type hash tables.  */
+  /* Fixup all decls.  */
   lto_fixup_decls (all_file_decl_data);
   htab_delete (tree_with_vars);
   tree_with_vars = NULL;
-  htab_delete (gimple_types);
-  gimple_types = NULL;
-  htab_delete (type_hash_cache);
-  type_hash_cache = NULL;
-  free (type_pair_cache);
-  type_pair_cache = NULL;
-  gimple_type_leader = NULL;
-  free_gimple_type_tables ();
   ggc_collect ();
 
   timevar_pop (TV_IPA_LTO_DECL_MERGE);
@@ -2985,6 +3061,13 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
     ipa_read_optimization_summaries ();
   else
     ipa_read_summaries ();
+
+  for (i = 0; all_file_decl_data[i]; i++)
+    {
+      gcc_assert (all_file_decl_data[i]->symtab_node_encoder);
+      lto_symtab_encoder_delete (all_file_decl_data[i]->symtab_node_encoder);
+      all_file_decl_data[i]->symtab_node_encoder = NULL;
+    }
 
   /* Finally merge the cgraph according to the decl merging decisions.  */
   timevar_push (TV_IPA_LTO_CGRAPH_MERGE);
@@ -3006,7 +3089,6 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       VEC_safe_push (ipa_opt_pass, heap,
 		     node->ipa_transforms_to_apply,
 		     (ipa_opt_pass)&pass_ipa_inline);
-  lto_symtab_free ();
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
@@ -3034,7 +3116,6 @@ materialize_cgraph (void)
   if (!quiet_flag)
     fprintf (stderr,
 	     flag_wpa ? "Materializing decls:" : "Reading function bodies:");
-
 
   /* Now that we have input the cgraph, we need to clear all of the aux
      nodes and read the functions if we are not running in WPA mode.  */

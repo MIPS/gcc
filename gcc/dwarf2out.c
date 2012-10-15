@@ -7493,6 +7493,8 @@ value_format (dw_attr_ref a)
 	  return DW_FORM_block1;
 	case 2:
 	  return DW_FORM_block2;
+	case 4:
+	  return DW_FORM_block4;
 	default:
 	  gcc_unreachable ();
 	}
@@ -15558,7 +15560,7 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 {
   expanded_location s;
 
-  if (DECL_SOURCE_LOCATION (decl) == UNKNOWN_LOCATION)
+  if (LOCATION_LOCUS (DECL_SOURCE_LOCATION (decl)) == UNKNOWN_LOCATION)
     return;
   s = expand_location (DECL_SOURCE_LOCATION (decl));
   add_AT_file (die, DW_AT_decl_file, lookup_filename (s.file));
@@ -17333,7 +17335,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
      a BLOCK node representing the function's outermost pair of curly braces,
      and any blocks used for the base and member initializers of a C++
      constructor function.  */
-  if (! declaration && TREE_CODE (outer_scope) != ERROR_MARK)
+  if (! declaration && outer_scope && TREE_CODE (outer_scope) != ERROR_MARK)
     {
       int call_site_note_count = 0;
       int tail_call_site_note_count = 0;
@@ -19626,8 +19628,14 @@ dwarf2out_decl (tree decl)
 	 inline" functions as DECL_EXTERNAL, but we need to generate DWARF for
 	 them anyway. Note that the C++ front-end also plays some similar games
 	 for inline function definitions appearing within include files which
-	 also contain `#pragma interface' pragmas.  */
-      if (DECL_INITIAL (decl) == NULL_TREE)
+	 also contain `#pragma interface' pragmas.
+
+	 If we are called from dwarf2out_abstract_function output a DIE
+	 anyway.  We can end up here this way with early inlining and LTO
+	 where the inlined function is output in a different LTRANS unit
+	 or not at all.  */
+      if (DECL_INITIAL (decl) == NULL_TREE
+	  && ! DECL_ABSTRACT (decl))
 	return;
 
       /* If we're a nested function, initially use a parent of NULL; if we're

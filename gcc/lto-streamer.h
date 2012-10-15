@@ -809,7 +809,7 @@ extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    VEC(ld_plugin_symbol_resolution_t,heap) *);
 extern void lto_data_in_delete (struct data_in *);
 extern void lto_input_data_block (struct lto_input_block *, void *, size_t);
-location_t lto_input_location (struct lto_input_block *, struct data_in *);
+location_t lto_input_location (struct bitpack_d *, struct data_in *);
 tree lto_input_tree_ref (struct lto_input_block *, struct data_in *,
 			 struct function *, enum LTO_tags);
 void lto_tag_check_set (enum LTO_tags, int, ...);
@@ -829,11 +829,11 @@ void lto_output_decl_state_streams (struct output_block *,
 void lto_output_decl_state_refs (struct output_block *,
 			         struct lto_output_stream *,
 			         struct lto_out_decl_state *);
-void lto_output_location (struct output_block *, location_t);
+void lto_output_location (struct output_block *, struct bitpack_d *, location_t);
 
 
 /* In lto-cgraph.c  */
-lto_symtab_encoder_t lto_symtab_encoder_new (void);
+lto_symtab_encoder_t lto_symtab_encoder_new (bool);
 int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node);
 void lto_symtab_encoder_delete (lto_symtab_encoder_t);
 bool lto_symtab_encoder_delete_node (lto_symtab_encoder_t, symtab_node);
@@ -860,23 +860,14 @@ lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
 
 
 /* In lto-symtab.c.  */
-extern void lto_symtab_register_decl (tree, ld_plugin_symbol_resolution_t,
-				      struct lto_file_decl_data *);
 extern void lto_symtab_merge_decls (void);
 extern void lto_symtab_merge_cgraph_nodes (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
-extern enum ld_plugin_symbol_resolution lto_symtab_get_resolution (tree decl);
-extern void lto_symtab_free (void);
 extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
 
 
 /* In lto-opts.c.  */
 extern void lto_write_options (void);
-
-
-/* In lto-wpa-fixup.c  */
-void lto_mark_nothrow_fndecl (tree);
-void lto_fixup_nothrow_decls (void);
 
 
 /* Statistics gathered during LTO, WPA and LTRANS.  */

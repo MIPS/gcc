@@ -809,15 +809,11 @@ make_cond_expr_edges (basic_block bb)
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
   assign_discriminator (entry_locus, then_bb);
   e->goto_locus = gimple_location (then_stmt);
-  if (e->goto_locus)
-    e->goto_block = gimple_block (then_stmt);
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
     {
       assign_discriminator (entry_locus, else_bb);
       e->goto_locus = gimple_location (else_stmt);
-      if (e->goto_locus)
-	e->goto_block = gimple_block (else_stmt);
     }
 
   /* We do not need the labels anymore.  */
@@ -1027,8 +1023,6 @@ make_goto_expr_edges (basic_block bb)
       edge e = make_edge (bb, label_bb, EDGE_FALLTHRU);
       e->goto_locus = gimple_location (goto_t);
       assign_discriminator (e->goto_locus, label_bb);
-      if (e->goto_locus)
-	e->goto_block = gimple_block (goto_t);
       gsi_remove (&last, true);
       return;
     }
@@ -4006,6 +4000,80 @@ verify_gimple_assign_single (gimple stmt)
       return res;
 
     case CONSTRUCTOR:
+      if (TREE_CODE (rhs1_type) == VECTOR_TYPE)
+	{
+	  unsigned int i;
+	  tree elt_i, elt_v, elt_t = NULL_TREE;
+
+	  if (CONSTRUCTOR_NELTS (rhs1) == 0)
+	    return res;
+	  /* For vector CONSTRUCTORs we require that either it is empty
+	     CONSTRUCTOR, or it is a CONSTRUCTOR of smaller vector elements
+	     (then the element count must be correct to cover the whole
+	     outer vector and index must be NULL on all elements, or it is
+	     a CONSTRUCTOR of scalar elements, where we as an exception allow
+	     smaller number of elements (assuming zero filling) and
+	     consecutive indexes as compared to NULL indexes (such
+	     CONSTRUCTORs can appear in the IL from FEs).  */
+	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs1), i, elt_i, elt_v)
+	    {
+	      if (elt_t == NULL_TREE)
+		{
+		  elt_t = TREE_TYPE (elt_v);
+		  if (TREE_CODE (elt_t) == VECTOR_TYPE)
+		    {
+		      tree elt_t = TREE_TYPE (elt_v);
+		      if (!useless_type_conversion_p (TREE_TYPE (rhs1_type),
+						      TREE_TYPE (elt_t)))
+			{
+			  error ("incorrect type of vector CONSTRUCTOR"
+				 " elements");
+			  debug_generic_stmt (rhs1);
+			  return true;
+			}
+		      else if (CONSTRUCTOR_NELTS (rhs1)
+			       * TYPE_VECTOR_SUBPARTS (elt_t)
+			       != TYPE_VECTOR_SUBPARTS (rhs1_type))
+			{
+			  error ("incorrect number of vector CONSTRUCTOR"
+				 " elements");
+			  debug_generic_stmt (rhs1);
+			  return true;
+			}
+		    }
+		  else if (!useless_type_conversion_p (TREE_TYPE (rhs1_type),
+						       elt_t))
+		    {
+		      error ("incorrect type of vector CONSTRUCTOR elements");
+		      debug_generic_stmt (rhs1);
+		      return true;
+		    }
+		  else if (CONSTRUCTOR_NELTS (rhs1)
+			   > TYPE_VECTOR_SUBPARTS (rhs1_type))
+		    {
+		      error ("incorrect number of vector CONSTRUCTOR elements");
+		      debug_generic_stmt (rhs1);
+		      return true;
+		    }
+		}
+	      else if (!useless_type_conversion_p (elt_t, TREE_TYPE (elt_v)))
+		{
+		  error ("incorrect type of vector CONSTRUCTOR elements");
+		  debug_generic_stmt (rhs1);
+		  return true;
+		}
+	      if (elt_i != NULL_TREE
+		  && (TREE_CODE (elt_t) == VECTOR_TYPE
+		      || TREE_CODE (elt_i) != INTEGER_CST
+		      || compare_tree_int (elt_i, i) != 0))
+		{
+		  error ("vector CONSTRUCTOR with non-NULL element index");
+		  debug_generic_stmt (rhs1);
+		  return true;
+		}
+	    }
+	}
+      return res;
     case OBJ_TYPE_REF:
     case ASSERT_EXPR:
     case WITH_SIZE_EXPR:
@@ -6018,9 +6086,12 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
   tree t = *tp;
 
   if (EXPR_P (t))
-    /* We should never have TREE_BLOCK set on non-statements.  */
-    gcc_assert (!TREE_BLOCK (t));
-
+    {
+      if (TREE_BLOCK (t) == p->orig_block
+	  || (p->orig_block == NULL_TREE
+	  && TREE_BLOCK (t) == NULL_TREE))
+	TREE_SET_BLOCK (t, p->new_block);
+    }
   else if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
     {
       if (TREE_CODE (t) == SSA_NAME)
@@ -6251,6 +6322,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
       use_operand_p use;
       tree op = PHI_RESULT (phi);
       ssa_op_iter oi;
+      unsigned i;
 
       if (virtual_operand_p (op))
 	{
@@ -6267,6 +6339,23 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  op = USE_FROM_PTR (use);
 	  if (TREE_CODE (op) == SSA_NAME)
 	    SET_USE (use, replace_ssa_name (op, d->vars_map, dest_cfun->decl));
+	}
+
+      for (i = 0; i < EDGE_COUNT (bb->preds); i++)
+	{
+	  location_t locus = gimple_phi_arg_location (phi, i);
+	  tree block = LOCATION_BLOCK (locus);
+
+	  if (locus == UNKNOWN_LOCATION)
+	    continue;
+	  if (d->orig_block == NULL_TREE || block == d->orig_block)
+	    {
+	      if (d->new_block == NULL_TREE)
+		locus = LOCATION_LOCUS (locus);
+	      else
+		locus = COMBINE_LOCATION_DATA (line_table, locus, d->new_block);
+	      gimple_phi_arg_set_location (phi, i, locus);
+	    }
 	}
 
       gsi_next (&si);
@@ -6320,12 +6409,14 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->goto_locus)
+    if (e->goto_locus != UNKNOWN_LOCATION)
       {
-	tree block = e->goto_block;
+	tree block = LOCATION_BLOCK (e->goto_locus);
 	if (d->orig_block == NULL_TREE
 	    || block == d->orig_block)
-	  e->goto_block = d->new_block;
+	  e->goto_locus = d->new_block ?
+	      COMBINE_LOCATION_DATA (line_table, e->goto_locus, d->new_block) :
+	      LOCATION_LOCUS (e->goto_locus);
 #ifdef ENABLE_CHECKING
 	else if (block != d->new_block)
 	  {
@@ -7500,6 +7591,30 @@ gimple_lv_add_condition_to_bb (basic_block first_head ATTRIBUTE_UNUSED,
   e0->flags |= EDGE_FALSE_VALUE;
 }
 
+
+/* Do book-keeping of basic block BB for the profile consistency checker.
+   If AFTER_PASS is 0, do pre-pass accounting, or if AFTER_PASS is 1
+   then do post-pass accounting.  Store the counting in RECORD.  */
+static void
+gimple_account_profile_record (basic_block bb, int after_pass,
+			       struct profile_record *record)
+{
+  gimple_stmt_iterator i;
+  for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+    {
+      record->size[after_pass]
+	+= estimate_num_insns (gsi_stmt (i), &eni_size_weights);
+      if (profile_status == PROFILE_READ)
+	record->time[after_pass]
+	  += estimate_num_insns (gsi_stmt (i),
+				 &eni_time_weights) * bb->count;
+      else if (profile_status == PROFILE_GUESSED)
+	record->time[after_pass]
+	  += estimate_num_insns (gsi_stmt (i),
+				 &eni_time_weights) * bb->frequency;
+    }
+}
+
 struct cfg_hooks gimple_cfg_hooks = {
   "gimple",
   gimple_verify_flow_info,
@@ -7533,6 +7648,7 @@ struct cfg_hooks gimple_cfg_hooks = {
   flush_pending_stmts, 		/* flush_pending_stmts */  
   gimple_empty_block_p,           /* block_empty_p */
   gimple_split_block_before_cond_jump, /* split_block_before_cond_jump */
+  gimple_account_profile_record,
 };
 
 
@@ -7901,13 +8017,14 @@ extern void gt_ggc_mx (basic_block&);
 void
 gt_ggc_mx (edge_def *e)
 {
+  tree block = LOCATION_BLOCK (e->goto_locus);
   gt_ggc_mx (e->src);
   gt_ggc_mx (e->dest);
   if (current_ir_type () == IR_GIMPLE)
     gt_ggc_mx (e->insns.g);
   else
     gt_ggc_mx (e->insns.r);
-  gt_ggc_mx (e->goto_block);
+  gt_ggc_mx (block);
 }
 
 /* PCH support for edge_def.  */
@@ -7920,23 +8037,25 @@ extern void gt_pch_nx (basic_block&);
 void
 gt_pch_nx (edge_def *e)
 {
+  tree block = LOCATION_BLOCK (e->goto_locus);
   gt_pch_nx (e->src);
   gt_pch_nx (e->dest);
   if (current_ir_type () == IR_GIMPLE)
     gt_pch_nx (e->insns.g);
   else
     gt_pch_nx (e->insns.r);
-  gt_pch_nx (e->goto_block);
+  gt_pch_nx (block);
 }
 
 void
 gt_pch_nx (edge_def *e, gt_pointer_operator op, void *cookie)
 {
+  tree block = LOCATION_BLOCK (e->goto_locus);
   op (&(e->src), cookie);
   op (&(e->dest), cookie);
   if (current_ir_type () == IR_GIMPLE)
     op (&(e->insns.g), cookie);
   else
     op (&(e->insns.r), cookie);
-  op (&(e->goto_block), cookie);
+  op (&(block), cookie);
 }

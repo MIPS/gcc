@@ -883,8 +883,15 @@ lower_try_finally_dup_block (gimple_seq seq, struct leh_state *outer_state,
   new_seq = copy_gimple_seq_and_replace_locals (seq);
 
   for (gsi = gsi_start (new_seq); !gsi_end_p (gsi); gsi_next (&gsi))
-    if (gimple_location (gsi_stmt (gsi)) == UNKNOWN_LOCATION)
-      gimple_set_location (gsi_stmt (gsi), loc);
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (LOCATION_LOCUS (gimple_location (stmt)) == UNKNOWN_LOCATION)
+	{
+	  tree block = gimple_block (stmt);
+	  gimple_set_location (stmt, loc);
+	  gimple_set_block (stmt, block);
+	}
+    }
 
   if (outer_state->tf)
     region = outer_state->tf->try_finally_expr;
@@ -981,7 +988,7 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     }
   else if (this_state)
     finally = lower_try_finally_dup_block (finally, outer_state,
-					   UNKNOWN_LOCATION);
+	gimple_location (tf->try_finally_expr));
   finally_may_fallthru = gimple_seq_may_fallthru (finally);
 
   /* If this cleanup consists of a TRY_CATCH_EXPR with TRY_CATCH_IS_CLEANUP
@@ -1093,6 +1100,7 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
   struct goto_queue_node *q, *qe;
   gimple x;
   gimple_seq finally;
+  gimple_stmt_iterator gsi;
   tree finally_label;
   location_t loc = gimple_location (tf->try_finally_expr);
 
@@ -1112,6 +1120,17 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
     }
 
   lower_eh_constructs_1 (state, &finally);
+
+  for (gsi = gsi_start (finally); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (LOCATION_LOCUS (gimple_location (stmt)) == UNKNOWN_LOCATION)
+	{
+	  tree block = gimple_block (stmt);
+	  gimple_set_location (stmt, gimple_location (tf->try_finally_expr));
+	  gimple_set_block (stmt, block);
+	}
+    }
 
   if (tf->may_throw)
     {

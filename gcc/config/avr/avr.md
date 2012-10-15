@@ -63,7 +63,6 @@
   [UNSPEC_STRLEN
    UNSPEC_MOVMEM
    UNSPEC_INDEX_JMP
-   UNSPEC_LPM
    UNSPEC_FMUL
    UNSPEC_FMULS
    UNSPEC_FMULSU
@@ -142,7 +141,7 @@
    tsthi, tstpsi, tstsi, compare, compare64, call,
    mov8, mov16, mov24, mov32, reload_in16, reload_in24, reload_in32,
    ufract, sfract,
-   xload, movmem, load_lpm,
+   xload, lpm, movmem,
    ashlqi, ashrqi, lshrqi,
    ashlhi, ashrhi, lshrhi,
    ashlsi, ashrsi, lshrsi,
@@ -393,60 +392,60 @@
 ;;========================================================================
 ;; Move stuff around
 
-;; Represent a load from __flash that needs libgcc support as UNSPEC.
-;; This is legal because we read from non-changing memory.
-;; For rationale see the FIXME below.
+;; Secondary input reload from non-generic 16-bit address spaces
+(define_insn "reload_in<mode>"
+  [(set (match_operand:MOVMODE 0 "register_operand"   "=r")
+        (match_operand:MOVMODE 1 "flash_operand"       "m"))
+   (clobber (match_operand:QI 2 "d_register_operand"  "=d"))]
+  ;; Fixme: The insn condition must not test the address space.
+  ;;   Because the gen tools refuse to generate insns for address spaces
+  ;;   and will generate insn-codes.h to look like:
+  ;;   #define CODE_FOR_reload_inhi CODE_FOR_nothing
+  "reload_completed || reload_in_progress"
+  {
+    return avr_out_lpm (insn, operands, NULL);
+  }
+  [(set_attr "adjust_len" "lpm")
+   (set_attr "cc" "clobber")])
 
+
+;; "loadqi_libgcc"
+;; "loadhi_libgcc"
+;; "loadpsi_libgcc"    
+;; "loadsi_libgcc"    
+;; "loadsf_libgcc"    
+(define_expand "load<mode>_libgcc"
+  [(set (match_dup 3)
+        (match_dup 2))
+   (set (reg:MOVMODE 22)
+        (match_operand:MOVMODE 1 "memory_operand" ""))
+   (set (match_operand:MOVMODE 0 "register_operand" "")
+        (reg:MOVMODE 22))]
+  "avr_load_libgcc_p (operands[1])"
+  {
+    operands[3] = gen_rtx_REG (HImode, REG_Z);
+    operands[2] = force_operand (XEXP (operands[1], 0), NULL_RTX);
+    operands[1] = replace_equiv_address (operands[1], operands[3]);
+    set_mem_addr_space (operands[1], ADDR_SPACE_FLASH);
+  })
+
+;; "load_qi_libgcc"
+;; "load_hi_libgcc"
 ;; "load_psi_libgcc"    
 ;; "load_si_libgcc"    
 ;; "load_sf_libgcc"    
 (define_insn "load_<mode>_libgcc"
   [(set (reg:MOVMODE 22)
-        (unspec:MOVMODE [(reg:HI REG_Z)]
-                        UNSPEC_LPM))]
-  ""
+        (match_operand:MOVMODE 0 "memory_operand" "m,m"))]
+  "avr_load_libgcc_p (operands[0])
+   && REG_P (XEXP (operands[0], 0))
+   && REG_Z == REGNO (XEXP (operands[0], 0))"
   {
-    rtx n_bytes = GEN_INT (GET_MODE_SIZE (<MODE>mode));
-    output_asm_insn ("%~call __load_%0", &n_bytes);
-    return "";
+    operands[0] = GEN_INT (GET_MODE_SIZE (<MODE>mode));
+    return "%~call __load_%0";
   }
-  [(set_attr "type" "xcall")
-   (set_attr "cc" "clobber")])
-
-
-;; Similar for inline reads from flash.  We use UNSPEC instead
-;; of MEM for the same reason as above: PR52543.
-;; $1 contains the memory segment.
-
-(define_insn "load_<mode>"
-  [(set (match_operand:MOVMODE 0 "register_operand" "=r")
-        (unspec:MOVMODE [(reg:HI REG_Z)
-                         (match_operand:QI 1 "reg_or_0_operand" "rL")]
-                        UNSPEC_LPM))]
-  "(CONST_INT_P (operands[1]) && AVR_HAVE_LPMX)
-   || (REG_P (operands[1]) && AVR_HAVE_ELPMX)"
-  {
-    return avr_load_lpm (insn, operands, NULL);
-  }
-  [(set_attr "adjust_len" "load_lpm")
-   (set_attr "cc" "clobber")])
-
-
-;; Similar to above for the complementary situation when there is no [E]LPMx.
-;; Clobber Z in that case.
-
-(define_insn "load_<mode>_clobber"
-  [(set (match_operand:MOVMODE 0 "register_operand" "=r")
-        (unspec:MOVMODE [(reg:HI REG_Z)
-                         (match_operand:QI 1 "reg_or_0_operand" "rL")]
-                        UNSPEC_LPM))
-   (clobber (reg:HI REG_Z))]
-  "!((CONST_INT_P (operands[1]) && AVR_HAVE_LPMX)
-     || (REG_P (operands[1]) && AVR_HAVE_ELPMX))"
-  {
-    return avr_load_lpm (insn, operands, NULL);
-  }
-  [(set_attr "adjust_len" "load_lpm")
+  [(set_attr "length" "1,2")
+   (set_attr "isa" "rjmp,jmp")
    (set_attr "cc" "clobber")])
 
 
@@ -464,6 +463,10 @@
   "&& 1"
   [(clobber (const_int 0))]
   {
+    /* ; Split away the high part of the address.  GCC's register allocator
+       ; in not able to allocate segment registers and reload the resulting
+       ; expressions.  Notice that no address register can hold a PSImode.  */
+
     rtx insn, addr = XEXP (operands[1], 0);
     rtx hi8 = gen_reg_rtx (QImode);
     rtx reg_z = gen_rtx_REG (HImode, REG_Z);
@@ -583,72 +586,29 @@
         operands[1] = src = copy_to_mode_reg (<MODE>mode, src);
       }
 
-  if (avr_mem_memx_p (src))
-    {
-      rtx addr = XEXP (src, 0);
+    if (avr_mem_memx_p (src))
+      {
+        rtx addr = XEXP (src, 0);
 
-      if (!REG_P (addr))
-        src = replace_equiv_address (src, copy_to_mode_reg (PSImode, addr));
+        if (!REG_P (addr))
+          src = replace_equiv_address (src, copy_to_mode_reg (PSImode, addr));
 
-      if (!avr_xload_libgcc_p (<MODE>mode))
-        /* ; No <mode> here because gen_xload8<mode>_A only iterates over ALL1.
-           ; insn-emit does not depend on the mode, it' all about operands.  */
-        emit_insn (gen_xload8qi_A (dest, src));
-      else
-        emit_insn (gen_xload<mode>_A (dest, src));
+        if (!avr_xload_libgcc_p (<MODE>mode))
+          /* ; No <mode> here because gen_xload8<mode>_A only iterates over ALL1.
+             ; insn-emit does not depend on the mode, it's all about operands.  */
+          emit_insn (gen_xload8qi_A (dest, src));
+        else
+          emit_insn (gen_xload<mode>_A (dest, src));
 
-      DONE;
-    }
-
-    /* For old devices without LPMx, prefer __flash loads per libcall.  */
+        DONE;
+      }
 
     if (avr_load_libgcc_p (src))
       {
-        emit_move_insn (gen_rtx_REG (Pmode, REG_Z),
-                        force_reg (Pmode, XEXP (src, 0)));
-
-        emit_insn (gen_load_<mode>_libgcc ());
-        emit_move_insn (dest, gen_rtx_REG (<MODE>mode, 22));
+        /* For the small devices, do loads per libgcc call.  */
+        emit_insn (gen_load<mode>_libgcc (dest, src));
         DONE;
       }
-
-    /* ; FIXME:  Hack around PR rtl-optimization/52543.
-       ; lower-subreg.c splits loads from the 16-bit address spaces which
-       ; causes code bloat because each load need his setting of RAMPZ.
-       ; Moreover, the split will happen in such a way that the loads don't
-       ; take advantage of POST_INC addressing.  Thus, we use UNSPEC to
-       ; represent these loads instead.  Notice that this is legitimate
-       ; because the memory content does not change:  Loads from the same
-       ; address will yield the same value.
-       ; POST_INC addressing would make the addresses mode_dependent and could
-       ; work around that PR, too.  However, notice that it is *not* legitimate
-       ; to expand to POST_INC at expand time:  The following passes assert
-       ; that pre-/post-modify addressing is introduced by .auto_inc_dec and
-       ; does not exist before that pass.  */
-
-    if (avr_mem_flash_p (src)
-        && (GET_MODE_SIZE (<MODE>mode) > 1
-            || MEM_ADDR_SPACE (src) != ADDR_SPACE_FLASH))
-      {
-        rtx xsegment = GEN_INT (avr_addrspace[MEM_ADDR_SPACE (src)].segment);
-        if (!AVR_HAVE_ELPM)
-          xsegment = const0_rtx;
-        if (xsegment != const0_rtx)
-          xsegment = force_reg (QImode, xsegment);
-
-        emit_move_insn (gen_rtx_REG (Pmode, REG_Z),
-                        force_reg (Pmode, XEXP (src, 0)));
-
-        if ((CONST_INT_P (xsegment) && AVR_HAVE_LPMX)
-            || (REG_P (xsegment) && AVR_HAVE_ELPMX))
-          emit_insn (gen_load_<mode> (dest, xsegment));
-        else
-          emit_insn (gen_load_<mode>_clobber (dest, xsegment));
-        DONE;
-      }
-
-    /* ; The only address-space for which we use plain MEM and reload
-       ; machinery are 1-byte loads from __flash.  */
   })
 
 ;;========================================================================
@@ -796,6 +756,40 @@
   {
     operands[4] = gen_rtx_REG (HImode, REGNO (operands[2]));
     operands[5] = gen_rtx_REG (HImode, REGNO (operands[3]));
+  })
+
+;; For LPM loads from AS1 we split 
+;;    R = *Z
+;; to
+;;    R = *Z++
+;;    Z = Z - sizeof (R)
+;;
+;; so that the second instruction can be optimized out.
+
+(define_split ; "split-lpmx"
+  [(set (match_operand:HISI 0 "register_operand" "")
+        (match_operand:HISI 1 "memory_operand" ""))]
+  "reload_completed
+   && AVR_HAVE_LPMX"
+  [(set (match_dup 0)
+        (match_dup 2))
+   (set (match_dup 3)
+        (plus:HI (match_dup 3)
+                 (match_dup 4)))]
+  {
+     rtx addr = XEXP (operands[1], 0);
+
+     if (!avr_mem_flash_p (operands[1])
+         || !REG_P (addr)
+         || reg_overlap_mentioned_p (addr, operands[0]))
+       {
+         FAIL;
+       }
+
+    operands[2] = replace_equiv_address (operands[1],
+                                         gen_rtx_POST_INC (Pmode, addr));
+    operands[3] = addr;
+    operands[4] = gen_int_mode (-GET_MODE_SIZE (<MODE>mode), HImode);
   })
 
 ;;==========================================================================
@@ -1183,7 +1177,7 @@
 ;; "*addhq3" "*adduhq3"
 ;; "*addha3" "*adduha3"
 (define_insn "*add<mode>3"
-  [(set (match_operand:ALL2 0 "register_operand"                     "=r,d,!w    ,d")
+  [(set (match_operand:ALL2 0 "register_operand"                   "=??r,d,!w    ,d")
         (plus:ALL2 (match_operand:ALL2 1 "register_operand"          "%0,0,0     ,0")
                    (match_operand:ALL2 2 "nonmemory_or_const_operand" "r,s,IJ YIJ,n Ynn")))]
   ""
@@ -1250,7 +1244,7 @@
 ;; "addsq3" "addusq3"
 ;; "addsa3" "addusa3"
 (define_insn "add<mode>3"
-  [(set (match_operand:ALL4 0 "register_operand"            "=r,d ,r")
+  [(set (match_operand:ALL4 0 "register_operand"          "=??r,d ,r")
         (plus:ALL4 (match_operand:ALL4 1 "register_operand" "%0,0 ,0")
                    (match_operand:ALL4 2 "nonmemory_operand" "r,i ,n Ynn")))
    (clobber (match_scratch:QI 3                             "=X,X ,&d"))]
@@ -1308,7 +1302,7 @@
    (set_attr "cc" "set_n")])
 
 (define_insn "addpsi3"
-  [(set (match_operand:PSI 0 "register_operand"           "=r,d ,d,r")
+  [(set (match_operand:PSI 0 "register_operand"         "=??r,d ,d,r")
         (plus:PSI (match_operand:PSI 1 "register_operand" "%0,0 ,0,0")
                   (match_operand:PSI 2 "nonmemory_operand" "r,s ,n,n")))
    (clobber (match_scratch:QI 3                           "=X,X ,X,&d"))]
@@ -1362,7 +1356,7 @@
 ;; "subqi3"
 ;; "subqq3" "subuqq3"
 (define_insn "sub<mode>3"
-  [(set (match_operand:ALL1 0 "register_operand"                      "=r,d    ,r  ,r  ,r  ,r")
+  [(set (match_operand:ALL1 0 "register_operand"                    "=??r,d    ,r  ,r  ,r  ,r")
         (minus:ALL1 (match_operand:ALL1 1 "register_operand"           "0,0    ,0  ,0  ,0  ,0")
                     (match_operand:ALL1 2 "nonmemory_or_const_operand" "r,n Ynn,Y01,Ym1,Y02,Ym2")))]
   ""
@@ -1380,7 +1374,7 @@
 ;; "subhq3" "subuhq3"
 ;; "subha3" "subuha3"
 (define_insn "sub<mode>3"
-  [(set (match_operand:ALL2 0 "register_operand"                      "=r,d    ,*r")
+  [(set (match_operand:ALL2 0 "register_operand"                    "=??r,d    ,*r")
         (minus:ALL2 (match_operand:ALL2 1 "register_operand"           "0,0    ,0")
                     (match_operand:ALL2 2 "nonmemory_or_const_operand" "r,i Ynn,Ynn")))
    (clobber (match_scratch:QI 3                                       "=X,X    ,&d"))]
@@ -1417,7 +1411,7 @@
 ;; "subsq3" "subusq3"
 ;; "subsa3" "subusa3"
 (define_insn "sub<mode>3"
-  [(set (match_operand:ALL4 0 "register_operand"                      "=r,d    ,r")
+  [(set (match_operand:ALL4 0 "register_operand"                    "=??r,d    ,r")
         (minus:ALL4 (match_operand:ALL4 1 "register_operand"           "0,0    ,0")
                     (match_operand:ALL4 2 "nonmemory_or_const_operand" "r,n Ynn,Ynn")))
    (clobber (match_scratch:QI 3                                       "=X,X    ,&d"))]
@@ -2938,7 +2932,7 @@
 ; and
 
 (define_insn "andqi3"
-  [(set (match_operand:QI 0 "register_operand" "=r,d")
+  [(set (match_operand:QI 0 "register_operand"       "=??r,d")
         (and:QI (match_operand:QI 1 "register_operand" "%0,0")
                 (match_operand:QI 2 "nonmemory_operand" "r,i")))]
   ""
@@ -2949,7 +2943,7 @@
    (set_attr "cc" "set_zn,set_zn")])
 
 (define_insn "andhi3"
-  [(set (match_operand:HI 0 "register_operand"         "=r,d,d,r  ,r")
+  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r")
         (and:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,0")
                 (match_operand:HI 2 "nonmemory_operand" "r,s,n,Ca2,n")))
    (clobber (match_scratch:QI 3                        "=X,X,X,X  ,&d"))]
@@ -2967,7 +2961,7 @@
    (set_attr "cc" "set_n,set_n,clobber,clobber,clobber")])
 
 (define_insn "andpsi3"
-  [(set (match_operand:PSI 0 "register_operand"          "=r,d,r  ,r")
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r")
         (and:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,0")
                  (match_operand:PSI 2 "nonmemory_operand" "r,n,Ca3,n")))
    (clobber (match_scratch:QI 3                          "=X,X,X  ,&d"))]
@@ -2985,7 +2979,7 @@
    (set_attr "cc" "set_n,clobber,clobber,clobber")])
 
 (define_insn "andsi3"
-  [(set (match_operand:SI 0 "register_operand"         "=r,d,r  ,r")
+  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r")
         (and:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,0")
                 (match_operand:SI 2 "nonmemory_operand" "r,n,Ca4,n")))
    (clobber (match_scratch:QI 3                        "=X,X,X  ,&d"))]
@@ -3020,7 +3014,7 @@
 ;; ior
 
 (define_insn "iorqi3"
-  [(set (match_operand:QI 0 "register_operand" "=r,d")
+  [(set (match_operand:QI 0 "register_operand"       "=??r,d")
         (ior:QI (match_operand:QI 1 "register_operand" "%0,0")
                 (match_operand:QI 2 "nonmemory_operand" "r,i")))]
   ""
@@ -3031,7 +3025,7 @@
    (set_attr "cc" "set_zn,set_zn")])
 
 (define_insn "iorhi3"
-  [(set (match_operand:HI 0 "register_operand"         "=r,d,d,r  ,r")
+  [(set (match_operand:HI 0 "register_operand"       "=??r,d,d,r  ,r")
         (ior:HI (match_operand:HI 1 "register_operand" "%0,0,0,0  ,0")
                 (match_operand:HI 2 "nonmemory_operand" "r,s,n,Co2,n")))
    (clobber (match_scratch:QI 3                        "=X,X,X,X  ,&d"))]
@@ -3049,7 +3043,7 @@
    (set_attr "cc" "set_n,set_n,clobber,clobber,clobber")])
 
 (define_insn "iorpsi3"
-  [(set (match_operand:PSI 0 "register_operand"          "=r,d,r  ,r")
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,d,r  ,r")
         (ior:PSI (match_operand:PSI 1 "register_operand" "%0,0,0  ,0")
                  (match_operand:PSI 2 "nonmemory_operand" "r,n,Co3,n")))
    (clobber (match_scratch:QI 3                          "=X,X,X  ,&d"))]
@@ -3067,7 +3061,7 @@
    (set_attr "cc" "set_n,clobber,clobber,clobber")])
 
 (define_insn "iorsi3"
-  [(set (match_operand:SI 0 "register_operand"         "=r,d,r  ,r")
+  [(set (match_operand:SI 0 "register_operand"       "=??r,d,r  ,r")
         (ior:SI (match_operand:SI 1 "register_operand" "%0,0,0  ,0")
                 (match_operand:SI 2 "nonmemory_operand" "r,n,Co4,n")))
    (clobber (match_scratch:QI 3                        "=X,X,X  ,&d"))]
@@ -3098,7 +3092,7 @@
    (set_attr "cc" "set_zn")])
 
 (define_insn "xorhi3"
-  [(set (match_operand:HI 0 "register_operand"         "=r,r  ,r")
+  [(set (match_operand:HI 0 "register_operand"       "=??r,r  ,r")
         (xor:HI (match_operand:HI 1 "register_operand" "%0,0  ,0")
                 (match_operand:HI 2 "nonmemory_operand" "r,Cx2,n")))
    (clobber (match_scratch:QI 3                        "=X,X  ,&d"))]
@@ -3114,7 +3108,7 @@
    (set_attr "cc" "set_n,clobber,clobber")])
 
 (define_insn "xorpsi3"
-  [(set (match_operand:PSI 0 "register_operand"          "=r,r  ,r")
+  [(set (match_operand:PSI 0 "register_operand"        "=??r,r  ,r")
         (xor:PSI (match_operand:PSI 1 "register_operand" "%0,0  ,0")
                  (match_operand:PSI 2 "nonmemory_operand" "r,Cx3,n")))
    (clobber (match_scratch:QI 3                          "=X,X  ,&d"))]
@@ -3132,7 +3126,7 @@
    (set_attr "cc" "set_n,clobber,clobber")])
 
 (define_insn "xorsi3"
-  [(set (match_operand:SI 0 "register_operand"         "=r,r  ,r")
+  [(set (match_operand:SI 0 "register_operand"       "=??r,r  ,r")
         (xor:SI (match_operand:SI 1 "register_operand" "%0,0  ,0")
                 (match_operand:SI 2 "nonmemory_operand" "r,Cx4,n")))
    (clobber (match_scratch:QI 3                        "=X,X  ,&d"))]
@@ -4173,13 +4167,13 @@
   "reload_completed"
   [(set (match_dup 2) (match_dup 1))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (QImode, HImode);
-  unsigned int high_off = subreg_highpart_offset (QImode, HImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (QImode, HImode);
+    unsigned int high_off = subreg_highpart_offset (QImode, HImode);
 
-  operands[2] = simplify_gen_subreg (QImode, operands[0], HImode, low_off);
-  operands[3] = simplify_gen_subreg (QImode, operands[0], HImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (QImode, operands[0], HImode, low_off);
+    operands[3] = simplify_gen_subreg (QImode, operands[0], HImode, high_off);
+  })
 
 (define_insn_and_split "zero_extendqipsi2"
   [(set (match_operand:PSI 0 "register_operand" "=r")
@@ -4204,13 +4198,13 @@
   "reload_completed"
   [(set (match_dup 2) (zero_extend:HI (match_dup 1)))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (HImode, SImode);
-  unsigned int high_off = subreg_highpart_offset (HImode, SImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (HImode, SImode);
+    unsigned int high_off = subreg_highpart_offset (HImode, SImode);
 
-  operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, low_off);
-  operands[3] = simplify_gen_subreg (HImode, operands[0], SImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, low_off);
+    operands[3] = simplify_gen_subreg (HImode, operands[0], SImode, high_off);
+  })
 
 (define_insn_and_split "zero_extendhipsi2"
   [(set (match_operand:PSI 0 "register_operand"                               "=r")
@@ -4254,13 +4248,13 @@
   "reload_completed"
   [(set (match_dup 2) (match_dup 1))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (HImode, SImode);
-  unsigned int high_off = subreg_highpart_offset (HImode, SImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (HImode, SImode);
+    unsigned int high_off = subreg_highpart_offset (HImode, SImode);
 
-  operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, low_off);
-  operands[3] = simplify_gen_subreg (HImode, operands[0], SImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (HImode, operands[0], SImode, low_off);
+    operands[3] = simplify_gen_subreg (HImode, operands[0], SImode, high_off);
+  })
 
 (define_insn_and_split "zero_extendpsisi2"
   [(set (match_operand:SI 0 "register_operand"                                "=r")
@@ -4283,13 +4277,13 @@
   "reload_completed"
   [(set (match_dup 2) (zero_extend:SI (match_dup 1)))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
-  unsigned int high_off = subreg_highpart_offset (SImode, DImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
+    unsigned int high_off = subreg_highpart_offset (SImode, DImode);
 
-  operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
-  operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
+    operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
+  })
 
 (define_insn_and_split "zero_extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -4299,13 +4293,13 @@
   "reload_completed"
   [(set (match_dup 2) (zero_extend:SI (match_dup 1)))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
-  unsigned int high_off = subreg_highpart_offset (SImode, DImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
+    unsigned int high_off = subreg_highpart_offset (SImode, DImode);
 
-  operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
-  operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
+    operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
+  })
 
 (define_insn_and_split "zero_extendsidi2"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -4315,13 +4309,13 @@
   "reload_completed"
   [(set (match_dup 2) (match_dup 1))
    (set (match_dup 3) (const_int 0))]
-{
-  unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
-  unsigned int high_off = subreg_highpart_offset (SImode, DImode);
+  {
+    unsigned int low_off = subreg_lowpart_offset (SImode, DImode);
+    unsigned int high_off = subreg_highpart_offset (SImode, DImode);
 
-  operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
-  operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
-})
+    operands[2] = simplify_gen_subreg (SImode, operands[0], DImode, low_off);
+    operands[3] = simplify_gen_subreg (SImode, operands[0], DImode, high_off);
+  })
 
 ;;<=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=><=>
 ;; compare

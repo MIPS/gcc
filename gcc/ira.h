@@ -101,6 +101,10 @@ struct target_ira
      intersected.  */
   bool x_ira_reg_classes_intersect_p[N_REG_CLASSES][N_REG_CLASSES];
 
+  /* If class CL has a single allocatable register of mode M,
+     index [CL][M] gives the number of that register, otherwise it is -1.  */
+  short x_ira_class_singleton[N_REG_CLASSES][MAX_MACHINE_MODE];
+
   /* Function specific hard registers can not be used for the register
      allocation.  */
   HARD_REG_SET x_ira_no_alloc_regs;
@@ -145,6 +149,8 @@ extern struct target_ira *this_target_ira;
   (this_target_ira->x_ira_reg_class_subset)
 #define ira_reg_classes_intersect_p \
   (this_target_ira->x_ira_reg_classes_intersect_p)
+#define ira_class_singleton \
+  (this_target_ira->x_ira_class_singleton)
 #define ira_no_alloc_regs \
   (this_target_ira->x_ira_no_alloc_regs)
 

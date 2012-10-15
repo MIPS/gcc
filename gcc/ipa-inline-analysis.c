@@ -2554,7 +2554,6 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   HOST_WIDE_INT self_stack_size;
   struct cgraph_edge *e;
   struct inline_summary *info;
-  tree old_decl = current_function_decl;
 
   gcc_assert (!node->global.inlined_to);
 
@@ -2581,7 +2580,6 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
     }
 
   /* Even is_gimple_min_invariant rely on current_function_decl.  */
-  current_function_decl = node->symbol.decl;
   push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
   /* Estimate the stack size for the function if we're optimizing.  */
@@ -2623,7 +2621,6 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   info->size = info->self_size;
   info->stack_frame_offset = 0;
   info->estimated_stack_size = info->estimated_self_stack_size;
-  current_function_decl = old_decl;
   pop_cfun ();
 }
 
@@ -3315,14 +3312,12 @@ do_estimate_edge_time (struct cgraph_edge *edge)
   VEC_free (tree, heap, known_binfos);
   VEC_free (ipa_agg_jump_function_p, heap, known_aggs);
 
-  ret = (((gcov_type)time
-	   - es->call_stmt_time) * edge->frequency
-	 + CGRAPH_FREQ_BASE / 2) / CGRAPH_FREQ_BASE;
+  ret = RDIV ((gcov_type)time * edge->frequency,
+	      CGRAPH_FREQ_BASE);
 
   /* When caching, update the cache entry.  */
   if (edge_growth_cache)
     {
-      int ret_size;
       if ((int)VEC_length (edge_growth_cache_entry, edge_growth_cache)
 	  <= edge->uid)
 	VEC_safe_grow_cleared (edge_growth_cache_entry, heap, edge_growth_cache,
@@ -3330,10 +3325,8 @@ do_estimate_edge_time (struct cgraph_edge *edge)
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).time
 	= ret + (ret >= 0);
 
-      ret_size = size - es->call_stmt_size;
-      gcc_checking_assert (es->call_stmt_size);
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).size
-	= ret_size + (ret_size >= 0);
+	= size + (size >= 0);
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).hints
 	= hints + 1;
     }
@@ -3341,11 +3334,11 @@ do_estimate_edge_time (struct cgraph_edge *edge)
 }
 
 
-/* Estimate the growth of the caller when inlining EDGE.
+/* Return estimated callee growth after inlining EDGE.
    Only to be called via estimate_edge_size.  */
 
 int
-do_estimate_edge_growth (struct cgraph_edge *edge)
+do_estimate_edge_size (struct cgraph_edge *edge)
 {
   int size;
   struct cgraph_node *callee;
@@ -3378,8 +3371,7 @@ do_estimate_edge_growth (struct cgraph_edge *edge)
   VEC_free (tree, heap, known_vals);
   VEC_free (tree, heap, known_binfos);
   VEC_free (ipa_agg_jump_function_p, heap, known_aggs);
-  gcc_checking_assert (inline_edge_summary (edge)->call_stmt_size);
-  return size - inline_edge_summary (edge)->call_stmt_size;
+  return size;
 }
 
 
@@ -3554,7 +3546,6 @@ static void
 inline_analyze_function (struct cgraph_node *node)
 {
   push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-  current_function_decl = node->symbol.decl;
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function: %s/%u\n",
@@ -3563,7 +3554,6 @@ inline_analyze_function (struct cgraph_node *node)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
 
-  current_function_decl = NULL;
   pop_cfun ();
 }
 

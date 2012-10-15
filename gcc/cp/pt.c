@@ -2929,10 +2929,7 @@ primary_template_instantiation_p (const_tree t)
   else if (CLASS_TYPE_P (t) && !TYPE_DECL_ALIAS_P (TYPE_NAME (t)))
     return CLASSTYPE_TEMPLATE_INSTANTIATION (t)
 	   && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t));
-  else if (TYPE_P (t)
-	   && TYPE_TEMPLATE_INFO (t)
-	   && PRIMARY_TEMPLATE_P (TYPE_TI_TEMPLATE (t))
-	   && DECL_TEMPLATE_INSTANTIATION (TYPE_NAME (t)))
+  else if (alias_template_specialization_p (t))
     return true;
   return false;
 }
@@ -5020,7 +5017,7 @@ redeclare_class_template (tree type, tree parms)
 /* Simplify EXPR if it is a non-dependent expression.  Returns the
    (possibly simplified) expression.  */
 
-static tree
+tree
 fold_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
 {
   if (expr == NULL_TREE)
@@ -5077,11 +5074,14 @@ alias_type_or_template_p (tree t)
 /* Return TRUE iff is a specialization of an alias template.  */
 
 bool
-alias_template_specialization_p (tree t)
+alias_template_specialization_p (const_tree t)
 {
   if (t == NULL_TREE)
     return false;
-  return (primary_template_instantiation_p (t)
+  
+  return (TYPE_P (t)
+	  && TYPE_TEMPLATE_INFO (t)
+	  && PRIMARY_TEMPLATE_P (TYPE_TI_TEMPLATE (t))
 	  && DECL_ALIAS_TEMPLATE_P (TYPE_TI_TEMPLATE (t)));
 }
 
@@ -10945,10 +10945,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     {
       tree decl = TYPE_NAME (t);
 
-      if (TYPE_DECL_ALIAS_P (decl)
-	  && DECL_LANG_SPECIFIC (decl)
-	  && DECL_TEMPLATE_INFO (decl)
-	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl)))
+      if (alias_template_specialization_p (t))
 	{
 	  /* DECL represents an alias template and we want to
 	     instantiate it.  */
@@ -12031,14 +12028,16 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       if (PACK_EXPANSION_P (TREE_OPERAND (t, 0)))
         {
 
-          tree expanded;
+          tree expanded, op = TREE_OPERAND (t, 0);
 	  int len = 0;
+
+	  if (SIZEOF_EXPR_TYPE_P (t))
+	    op = TREE_TYPE (op);
 
 	  ++cp_unevaluated_operand;
 	  ++c_inhibit_evaluation_warnings;
 	  /* We only want to compute the number of arguments.  */
-	  expanded = tsubst_pack_expansion (TREE_OPERAND (t, 0), args,
-					    complain, in_decl);
+	  expanded = tsubst_pack_expansion (op, args, complain, in_decl);
 	  --cp_unevaluated_operand;
 	  --c_inhibit_evaluation_warnings;
 
@@ -12065,6 +12064,16 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  else
 	    return build_int_cst (size_type_node, len);
         }
+      if (SIZEOF_EXPR_TYPE_P (t))
+	{
+	  r = tsubst_copy (TREE_TYPE (TREE_OPERAND (t, 0)),
+			   args, complain, in_decl);
+	  r = build1 (NOP_EXPR, r, error_mark_node);
+	  r = build1 (SIZEOF_EXPR,
+		      tsubst (TREE_TYPE (t), args, complain, in_decl), r);
+	  SIZEOF_EXPR_TYPE_P (r) = 1;
+	  return r;
+	}
       /* Fall through */
 
     case INDIRECT_REF:
@@ -13468,31 +13477,56 @@ tsubst_copy_and_build (tree t,
       /* Fall through */
       
     case ALIGNOF_EXPR:
-      op1 = TREE_OPERAND (t, 0);
-      if (!args)
-	{
-	  /* When there are no ARGS, we are trying to evaluate a
-	     non-dependent expression from the parser.  Trying to do
-	     the substitutions may not work.  */
-	  if (!TYPE_P (op1))
-	    op1 = TREE_TYPE (op1);
-	}
-      else
-	{
-	  ++cp_unevaluated_operand;
-	  ++c_inhibit_evaluation_warnings;
-	  op1 = tsubst_copy_and_build (op1, args, complain, in_decl,
-				       /*function_p=*/false,
-				       /*integral_constant_expression_p=*/false);
-	  --cp_unevaluated_operand;
-	  --c_inhibit_evaluation_warnings;
-	}
-      if (TYPE_P (op1))
-	RETURN (cxx_sizeof_or_alignof_type (op1, TREE_CODE (t),
-                                           complain & tf_error));
-      else
-	RETURN (cxx_sizeof_or_alignof_expr (op1, TREE_CODE (t),
-                                           complain & tf_error));
+      {
+	tree r;
+
+	op1 = TREE_OPERAND (t, 0);
+	if (TREE_CODE (t) == SIZEOF_EXPR && SIZEOF_EXPR_TYPE_P (t))
+	  op1 = TREE_TYPE (op1);
+        if (!args)
+	  {
+	    /* When there are no ARGS, we are trying to evaluate a
+	       non-dependent expression from the parser.  Trying to do
+	       the substitutions may not work.  */
+	    if (!TYPE_P (op1))
+	      op1 = TREE_TYPE (op1);
+	  }
+	else
+	  {
+	    ++cp_unevaluated_operand;
+	    ++c_inhibit_evaluation_warnings;
+	    op1 = tsubst_copy_and_build (op1, args, complain, in_decl,
+					 /*function_p=*/false,
+					 /*integral_constant_expression_p=*/
+					 false);
+	    --cp_unevaluated_operand;
+	    --c_inhibit_evaluation_warnings;
+	  }
+        if (TYPE_P (op1))
+	  r = cxx_sizeof_or_alignof_type (op1, TREE_CODE (t),
+					  complain & tf_error);
+	else
+	  r = cxx_sizeof_or_alignof_expr (op1, TREE_CODE (t),
+					  complain & tf_error);
+	if (TREE_CODE (t) == SIZEOF_EXPR && r != error_mark_node)
+	  {
+	    if (TREE_CODE (r) != SIZEOF_EXPR || TYPE_P (op1))
+	      {
+		if (TYPE_P (op1))
+		  {
+		    r = build_min (SIZEOF_EXPR, size_type_node,
+				   build1 (NOP_EXPR, op1, error_mark_node));
+		    SIZEOF_EXPR_TYPE_P (r) = 1;
+		  }
+		else
+		  r = build_min (SIZEOF_EXPR, size_type_node, op1);
+		TREE_SIDE_EFFECTS (r) = 0;
+		TREE_READONLY (r) = 1;
+	      }
+	    SET_EXPR_LOCATION (r, EXPR_LOCATION (t));
+	  }
+	RETURN (r);
+      }
 
     case AT_ENCODE_EXPR:
       {
@@ -13771,7 +13805,8 @@ tsubst_copy_and_build (tree t,
 	      }
 	    if (TREE_CODE (function) == IDENTIFIER_NODE)
 	      {
-		unqualified_name_lookup_error (function);
+		if (complain & tf_error)
+		  unqualified_name_lookup_error (function);
 		release_tree_vector (call_args);
 		RETURN (error_mark_node);
 	      }
@@ -13782,7 +13817,8 @@ tsubst_copy_and_build (tree t,
 	  mark_used (function);
 
 	if (TREE_CODE (function) == OFFSET_REF)
-	  ret = build_offset_ref_call_from_tree (function, &call_args);
+	  ret = build_offset_ref_call_from_tree (function, &call_args,
+						 complain);
 	else if (TREE_CODE (function) == COMPONENT_REF)
 	  {
 	    tree instance = TREE_OPERAND (function, 0);
@@ -14248,7 +14284,8 @@ tsubst_copy_and_build (tree t,
          FIXME stop folding in cp_parser_initializer_clause.  */
       gcc_assert (TREE_CONSTANT (t));
       {
-	tree r = get_target_expr (RECUR (TARGET_EXPR_INITIAL (t)));
+	tree r = get_target_expr_sfinae (RECUR (TARGET_EXPR_INITIAL (t)),
+					 complain);
 	TREE_CONSTANT (r) = true;
 	RETURN (r);
       }
@@ -19286,6 +19323,9 @@ value_dependent_expression_p (tree expression)
       }
 
     case SIZEOF_EXPR:
+      if (SIZEOF_EXPR_TYPE_P (expression))
+	return dependent_type_p (TREE_TYPE (TREE_OPERAND (expression, 0)));
+      /* FALLTHRU */
     case ALIGNOF_EXPR:
     case TYPEID_EXPR:
       /* A `sizeof' expression is value-dependent if the operand is
@@ -19625,6 +19665,8 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
     case TRAIT_EXPR:
       {
 	tree op = TREE_OPERAND (*tp, 0);
+	if (code == SIZEOF_EXPR && SIZEOF_EXPR_TYPE_P (*tp))
+	  op = TREE_TYPE (op);
 	if (TYPE_P (op))
 	  {
 	    if (dependent_type_p (op)

@@ -425,6 +425,14 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_CALL:
       {
 	tree decl = gimple_call_fndecl (stmt);
+	unsigned i;
+
+	for (i = 0; i < gimple_call_num_args (stmt); i++)
+	  {
+	    tree arg = gimple_call_arg (stmt, i);
+	    if (EXPR_P (arg))
+	      TREE_SET_BLOCK (arg, data->block);
+	  }
 
 	if (decl
 	    && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
@@ -991,7 +999,9 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
 void
 record_vars_into (tree vars, tree fn)
 {
-  if (fn != current_function_decl)
+  bool change_cfun = fn != current_function_decl;
+
+  if (change_cfun)
     push_cfun (DECL_STRUCT_FUNCTION (fn));
 
   for (; vars; vars = DECL_CHAIN (vars))
@@ -1011,7 +1021,7 @@ record_vars_into (tree vars, tree fn)
       add_local_decl (cfun, var);
     }
 
-  if (fn != current_function_decl)
+  if (change_cfun)
     pop_cfun ();
 }
 

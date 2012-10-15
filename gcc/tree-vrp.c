@@ -501,8 +501,19 @@ set_and_canonicalize_value_range (value_range_t *vr, enum value_range_type t,
      to adjust them.  */
   if (tree_int_cst_lt (max, min))
     {
-      tree one = build_int_cst (TREE_TYPE (min), 1);
-      tree tmp = int_const_binop (PLUS_EXPR, max, one);
+      tree one, tmp;
+
+      /* For one bit precision if max < min, then the swapped
+	 range covers all values, so for VR_RANGE it is varying and
+	 for VR_ANTI_RANGE empty range, so drop to varying as well.  */
+      if (TYPE_PRECISION (TREE_TYPE (min)) == 1)
+	{
+	  set_value_range_to_varying (vr);
+	  return;
+	}
+
+      one = build_int_cst (TREE_TYPE (min), 1);
+      tmp = int_const_binop (PLUS_EXPR, max, one);
       max = int_const_binop (MINUS_EXPR, min, one);
       min = tmp;
 
@@ -530,6 +541,24 @@ set_and_canonicalize_value_range (value_range_t *vr, enum value_range_type t,
 	     ???  This could be VR_UNDEFINED instead.  */
 	  set_value_range_to_varying (vr);
 	  return;
+	}
+      else if (TYPE_PRECISION (TREE_TYPE (min)) == 1
+	       && !TYPE_UNSIGNED (TREE_TYPE (min))
+	       && (is_min || is_max))
+	{
+	  /* For signed 1-bit precision, one is not in-range and
+	     thus adding/subtracting it would result in overflows.  */
+	  if (operand_equal_p (min, max, 0))
+	    {
+	      min = max = is_min ? vrp_val_max (TREE_TYPE (min))
+				 : vrp_val_min (TREE_TYPE (min));
+	      t = VR_RANGE;
+	    }
+	  else
+	    {
+	      set_value_range_to_varying (vr);
+	      return;
+	    }
 	}
       else if (is_min
 	       /* As a special exception preserve non-null ranges.  */
@@ -2478,7 +2507,7 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 		  if (tmin.cmp (tmax, uns) < 0)
 		    covers = true;
 		  tmax = tem + double_int_minus_one;
-		  if (double_int_cmp (tmax, tem, uns) > 0)
+		  if (tmax.cmp (tem, uns) > 0)
 		    covers = true;
 		  /* If the anti-range would cover nothing, drop to varying.
 		     Likewise if the anti-range bounds are outside of the
@@ -2632,37 +2661,26 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 	    }
 	  uns = uns0 & uns1;
 
-	  mul_double_wide_with_sign (min0.low, min0.high,
-				     min1.low, min1.high,
-				     &prod0l.low, &prod0l.high,
-				     &prod0h.low, &prod0h.high, true);
+	  bool overflow;
+	  prod0l = min0.wide_mul_with_sign (min1, true, &prod0h, &overflow);
 	  if (!uns0 && min0.is_negative ())
 	    prod0h -= min1;
 	  if (!uns1 && min1.is_negative ())
 	    prod0h -= min0;
 
-	  mul_double_wide_with_sign (min0.low, min0.high,
-				     max1.low, max1.high,
-				     &prod1l.low, &prod1l.high,
-				     &prod1h.low, &prod1h.high, true);
+	  prod1l = min0.wide_mul_with_sign (max1, true, &prod1h, &overflow);
 	  if (!uns0 && min0.is_negative ())
 	    prod1h -= max1;
 	  if (!uns1 && max1.is_negative ())
 	    prod1h -= min0;
 
-	  mul_double_wide_with_sign (max0.low, max0.high,
-				     min1.low, min1.high,
-				     &prod2l.low, &prod2l.high,
-				     &prod2h.low, &prod2h.high, true);
+	  prod2l = max0.wide_mul_with_sign (min1, true, &prod2h, &overflow);
 	  if (!uns0 && max0.is_negative ())
 	    prod2h -= min1;
 	  if (!uns1 && min1.is_negative ())
 	    prod2h -= max0;
 
-	  mul_double_wide_with_sign (max0.low, max0.high,
-				     max1.low, max1.high,
-				     &prod3l.low, &prod3l.high,
-				     &prod3h.low, &prod3h.high, true);
+	  prod3l = max0.wide_mul_with_sign (max1, true, &prod3h, &overflow);
 	  if (!uns0 && max0.is_negative ())
 	    prod3h -= max1;
 	  if (!uns1 && max1.is_negative ())
@@ -4694,6 +4712,11 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       tree val2 = NULL_TREE;
       double_int mask = double_int_zero;
       unsigned int prec = TYPE_PRECISION (TREE_TYPE (val));
+      unsigned int nprec = prec;
+      enum tree_code rhs_code = ERROR_MARK;
+
+      if (is_gimple_assign (def_stmt))
+	rhs_code = gimple_assign_rhs_code (def_stmt);
 
       /* Add asserts for NAME cmp CST and NAME being defined
 	 as NAME = (int) NAME2.  */
@@ -4703,7 +4726,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  && gimple_assign_cast_p (def_stmt))
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
-	  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+	  if (CONVERT_EXPR_CODE_P (rhs_code)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && TYPE_UNSIGNED (TREE_TYPE (name2))
 	      && prec == TYPE_PRECISION (TREE_TYPE (name2))
@@ -4749,8 +4772,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	 NAME = NAME2 >> CST2.
 
 	 Extract CST2 from the right shift.  */
-      if (is_gimple_assign (def_stmt)
-	  && gimple_assign_rhs_code (def_stmt) == RSHIFT_EXPR)
+      if (rhs_code == RSHIFT_EXPR)
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
 	  cst2 = gimple_assign_rhs2 (def_stmt);
@@ -4822,21 +4844,37 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       /* Add asserts for NAME cmp CST and NAME being defined as
 	 NAME = NAME2 & CST2.
 
-	 Extract CST2 from the and.  */
+	 Extract CST2 from the and.
+
+	 Also handle
+	 NAME = (unsigned) NAME2;
+	 casts where NAME's type is unsigned and has smaller precision
+	 than NAME2's type as if it was NAME = NAME2 & MASK.  */
       names[0] = NULL_TREE;
       names[1] = NULL_TREE;
       cst2 = NULL_TREE;
-      if (is_gimple_assign (def_stmt)
-	  && gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR)
+      if (rhs_code == BIT_AND_EXPR
+	  || (CONVERT_EXPR_CODE_P (rhs_code)
+	      && TREE_CODE (TREE_TYPE (val)) == INTEGER_TYPE
+	      && TYPE_UNSIGNED (TREE_TYPE (val))
+	      && TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
+		 > prec
+	      && !retval))
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
-	  cst2 = gimple_assign_rhs2 (def_stmt);
+	  if (rhs_code == BIT_AND_EXPR)
+	    cst2 = gimple_assign_rhs2 (def_stmt);
+	  else
+	    {
+	      cst2 = TYPE_MAX_VALUE (TREE_TYPE (val));
+	      nprec = TYPE_PRECISION (TREE_TYPE (name2));
+	    }
 	  if (TREE_CODE (name2) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && TREE_CODE (cst2) == INTEGER_CST
 	      && !integer_zerop (cst2)
-	      && prec <= HOST_BITS_PER_DOUBLE_INT
-	      && (prec > 1
+	      && nprec <= HOST_BITS_PER_DOUBLE_INT
+	      && (nprec > 1
 		  || TYPE_UNSIGNED (TREE_TYPE (val))))
 	    {
 	      gimple def_stmt2 = SSA_NAME_DEF_STMT (name2);
@@ -4863,12 +4901,12 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  bool valid_p = false, valn = false, cst2n = false;
 	  enum tree_code ccode = comp_code;
 
-	  valv = tree_to_double_int (val).zext (prec);
-	  cst2v = tree_to_double_int (cst2).zext (prec);
+	  valv = tree_to_double_int (val).zext (nprec);
+	  cst2v = tree_to_double_int (cst2).zext (nprec);
 	  if (!TYPE_UNSIGNED (TREE_TYPE (val)))
 	    {
-	      valn = valv.sext (prec).is_negative ();
-	      cst2n = cst2v.sext (prec).is_negative ();
+	      valn = valv.sext (nprec).is_negative ();
+	      cst2n = cst2v.sext (nprec).is_negative ();
 	    }
 	  /* If CST2 doesn't have most significant bit set,
 	     but VAL is negative, we have comparison like
@@ -4876,7 +4914,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  if (!cst2n && valn)
 	    ccode = ERROR_MARK;
 	  if (cst2n)
-	    sgnbit = double_int_one.llshift (prec - 1, prec).zext (prec);
+	    sgnbit = double_int_one.llshift (nprec - 1, nprec).zext (nprec);
 	  else
 	    sgnbit = double_int_zero;
 	  minv = valv & cst2v;
@@ -4888,12 +4926,12 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		 have folded the comparison into false) and
 		 maximum unsigned value is VAL | ~CST2.  */
 	      maxv = valv | ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      valid_p = true;
 	      break;
 	    case NE_EXPR:
 	      tem = valv | ~cst2v;
-	      tem = tem.zext (prec);
+	      tem = tem.zext (nprec);
 	      /* If VAL is 0, handle (X & CST2) != 0 as (X & CST2) > 0U.  */
 	      if (valv.is_zero ())
 		{
@@ -4903,7 +4941,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		}
 	      /* If (VAL | ~CST2) is all ones, handle it as
 		 (X & CST2) < VAL.  */
-	      if (tem == double_int::mask (prec))
+	      if (tem == double_int::mask (nprec))
 		{
 		  cst2n = false;
 		  valn = false;
@@ -4911,8 +4949,9 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		  goto lt_expr;
 		}
 	      if (!cst2n
-		  && cst2v.sext (prec).is_negative ())
-		sgnbit = double_int_one.llshift (prec - 1, prec).zext (prec);
+		  && cst2v.sext (nprec).is_negative ())
+		sgnbit
+		  = double_int_one.llshift (nprec - 1, nprec).zext (nprec);
 	      if (!sgnbit.is_zero ())
 		{
 		  if (valv == sgnbit)
@@ -4921,7 +4960,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		      valn = true;
 		      goto gt_expr;
 		    }
-		  if (tem == double_int::mask (prec - 1))
+		  if (tem == double_int::mask (nprec - 1))
 		    {
 		      cst2n = true;
 		      goto lt_expr;
@@ -4940,22 +4979,22 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		{
 		  /* If (VAL & CST2) != VAL, X & CST2 can't be equal to
 		     VAL.  */
-		  minv = masked_increment (valv, cst2v, sgnbit, prec);
+		  minv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (minv == valv)
 		    break;
 		}
-	      maxv = double_int::mask (prec - (cst2n ? 1 : 0));
+	      maxv = double_int::mask (nprec - (cst2n ? 1 : 0));
 	      valid_p = true;
 	      break;
 	    case GT_EXPR:
 	    gt_expr:
 	      /* Find out smallest MINV where MINV > VAL
 		 && (MINV & CST2) == MINV, if any.  If VAL is signed and
-		 CST2 has MSB set, compute it biased by 1 << (prec - 1).  */
-	      minv = masked_increment (valv, cst2v, sgnbit, prec);
+		 CST2 has MSB set, compute it biased by 1 << (nprec - 1).  */
+	      minv = masked_increment (valv, cst2v, sgnbit, nprec);
 	      if (minv == valv)
 		break;
-	      maxv = double_int::mask (prec - (cst2n ? 1 : 0));
+	      maxv = double_int::mask (nprec - (cst2n ? 1 : 0));
 	      valid_p = true;
 	      break;
 	    case LE_EXPR:
@@ -4971,13 +5010,13 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		maxv = valv;
 	      else
 		{
-		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  maxv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (maxv == valv)
 		    break;
 		  maxv -= double_int_one;
 		}
 	      maxv |= ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      minv = sgnbit;
 	      valid_p = true;
 	      break;
@@ -4999,13 +5038,13 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		}
 	      else
 		{
-		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  maxv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (maxv == valv)
 		    break;
 		}
 	      maxv -= double_int_one;
 	      maxv |= ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      minv = sgnbit;
 	      valid_p = true;
 	      break;
@@ -5013,7 +5052,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	      break;
 	    }
 	  if (valid_p
-	      && (maxv - minv).zext (prec) != double_int::mask (prec))
+	      && (maxv - minv).zext (nprec) != double_int::mask (nprec))
 	    {
 	      tree tmp, new_val, type;
 	      int i;
@@ -5026,7 +5065,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		    type = TREE_TYPE (names[i]);
 		    if (!TYPE_UNSIGNED (type))
 		      {
-			type = build_nonstandard_integer_type (prec, 1);
+			type = build_nonstandard_integer_type (nprec, 1);
 			tmp = build1 (NOP_EXPR, type, names[i]);
 		      }
 		    if (!minv.is_zero ())

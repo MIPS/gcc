@@ -4108,10 +4108,11 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 					XEXP (x, 0), Pmode,
 					XEXP (y, 0), Pmode,
 					size, cmp_mode);
-
-      *ptest = gen_rtx_fmt_ee (comparison, VOIDmode, result, const0_rtx);
-      *pmode = result_mode;
-      return;
+      x = result;
+      y = const0_rtx;
+      mode = result_mode;
+      methods = OPTAB_LIB_WIDEN;
+      unsignedp = false;
     }
 
   /* Don't allow operands to the compare to trap, as that can put the
@@ -6387,20 +6388,14 @@ get_rtx_code (enum tree_code tcode, bool unsignedp)
    unsigned operators. Do not generate compare instruction.  */
 
 static rtx
-vector_compare_rtx (tree cond, bool unsignedp, enum insn_code icode)
+vector_compare_rtx (enum tree_code tcode, tree t_op0, tree t_op1,
+		    bool unsignedp, enum insn_code icode)
 {
   struct expand_operand ops[2];
-  enum rtx_code rcode;
-  tree t_op0, t_op1;
   rtx rtx_op0, rtx_op1;
+  enum rtx_code rcode = get_rtx_code (tcode, unsignedp);
 
-  /* This is unlikely. While generating VEC_COND_EXPR, auto vectorizer
-     ensures that condition is a relational operation.  */
-  gcc_assert (COMPARISON_CLASS_P (cond));
-
-  rcode = get_rtx_code (TREE_CODE (cond), unsignedp);
-  t_op0 = TREE_OPERAND (cond, 0);
-  t_op1 = TREE_OPERAND (cond, 1);
+  gcc_assert (TREE_CODE_CLASS (tcode) == tcc_comparison);
 
   /* Expand operands.  */
   rtx_op0 = expand_expr (t_op0, NULL_RTX, TYPE_MODE (TREE_TYPE (t_op0)),
@@ -6683,11 +6678,26 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   enum machine_mode mode = TYPE_MODE (vec_cond_type);
   enum machine_mode cmp_op_mode;
   bool unsignedp;
+  tree op0a, op0b;
+  enum tree_code tcode;
 
-  gcc_assert (COMPARISON_CLASS_P (op0));
+  if (COMPARISON_CLASS_P (op0))
+    {
+      op0a = TREE_OPERAND (op0, 0);
+      op0b = TREE_OPERAND (op0, 1);
+      tcode = TREE_CODE (op0);
+    }
+  else
+    {
+      /* Fake op0 < 0.  */
+      gcc_assert (!TYPE_UNSIGNED (TREE_TYPE (op0)));
+      op0a = op0;
+      op0b = build_zero_cst (TREE_TYPE (op0));
+      tcode = LT_EXPR;
+    }
+  unsignedp = TYPE_UNSIGNED (TREE_TYPE (op0a));
+  cmp_op_mode = TYPE_MODE (TREE_TYPE (op0a));
 
-  unsignedp = TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op0, 0)));
-  cmp_op_mode = TYPE_MODE (TREE_TYPE (TREE_OPERAND (op0, 0)));
 
   gcc_assert (GET_MODE_SIZE (mode) == GET_MODE_SIZE (cmp_op_mode)
 	      && GET_MODE_NUNITS (mode) == GET_MODE_NUNITS (cmp_op_mode));
@@ -6696,7 +6706,7 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   if (icode == CODE_FOR_nothing)
     return 0;
 
-  comparison = vector_compare_rtx (op0, unsignedp, icode);
+  comparison = vector_compare_rtx (tcode, op0a, op0b, unsignedp, icode);
   rtx_op1 = expand_normal (op1);
   rtx_op2 = expand_normal (op2);
 
@@ -7732,10 +7742,15 @@ maybe_emit_op (const struct atomic_op_functions *optab, rtx target, rtx mem,
    CODE is the operation being performed (OP)
    MEMMODEL is the memory model variant to use.
    AFTER is true to return the result of the operation (OP_fetch).
-   AFTER is false to return the value before the operation (fetch_OP).  */
-rtx
-expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
-			enum memmodel model, bool after)
+   AFTER is false to return the value before the operation (fetch_OP).  
+
+   This function will *only* generate instructions if there is a direct
+   optab. No compare and swap loops or libcalls will be generated. */
+
+static rtx
+expand_atomic_fetch_op_no_fallback (rtx target, rtx mem, rtx val,
+				    enum rtx_code code, enum memmodel model,
+				    bool after)
 {
   enum machine_mode mode = GET_MODE (mem);
   struct atomic_op_functions optab;
@@ -7808,13 +7823,66 @@ expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
 	}
     }
 
+  /* No direct opcode can be generated.  */
+  return NULL_RTX;
+}
+
+
+
+/* This function expands an atomic fetch_OP or OP_fetch operation:
+   TARGET is an option place to stick the return value.  const0_rtx indicates
+   the result is unused. 
+   atomically fetch MEM, perform the operation with VAL and return it to MEM.
+   CODE is the operation being performed (OP)
+   MEMMODEL is the memory model variant to use.
+   AFTER is true to return the result of the operation (OP_fetch).
+   AFTER is false to return the value before the operation (fetch_OP).  */
+rtx
+expand_atomic_fetch_op (rtx target, rtx mem, rtx val, enum rtx_code code,
+			enum memmodel model, bool after)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  rtx result;
+  bool unused_result = (target == const0_rtx);
+
+  result = expand_atomic_fetch_op_no_fallback (target, mem, val, code, model,
+					       after);
+  
+  if (result)
+    return result;
+
+  /* Add/sub can be implemented by doing the reverse operation with -(val).  */
+  if (code == PLUS || code == MINUS)
+    {
+      rtx tmp;
+      enum rtx_code reverse = (code == PLUS ? MINUS : PLUS);
+
+      start_sequence ();
+      tmp = expand_simple_unop (mode, NEG, val, NULL_RTX, true);
+      result = expand_atomic_fetch_op_no_fallback (target, mem, tmp, reverse,
+						   model, after);
+      if (result)
+	{
+	  /* PLUS worked so emit the insns and return.  */
+	  tmp = get_insns ();
+	  end_sequence ();
+	  emit_insn (tmp);
+          return result;
+	}
+
+      /* PLUS did not work, so throw away the negation code and continue.  */
+      end_sequence ();
+    }
+
   /* Try the __sync libcalls only if we can't do compare-and-swap inline.  */
   if (!can_compare_and_swap_p (mode, false))
     {
       rtx libfunc;
       bool fixup = false;
       enum rtx_code orig_code = code;
+      struct atomic_op_functions optab;
 
+      get_atomic_op_for_code (&optab, code);
       libfunc = optab_libfunc (after ? optab.fetch_after
 			       : optab.fetch_before, mode);
       if (libfunc == NULL

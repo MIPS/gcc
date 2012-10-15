@@ -1,5 +1,5 @@
 /* SCC value numbering for trees
-   Copyright (C) 2006, 2007, 2008, 2009, 2010
+   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org>
 
@@ -1555,7 +1555,8 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 
   /* 3) Assignment from a constant.  We can use folds native encode/interpret
      routines to extract the assigned bits.  */
-  else if (CHAR_BIT == 8 && BITS_PER_UNIT == 8
+  else if (vn_walk_kind == VN_WALKREWRITE
+	   && CHAR_BIT == 8 && BITS_PER_UNIT == 8
 	   && ref->size == maxsize
 	   && maxsize % BITS_PER_UNIT == 0
 	   && offset % BITS_PER_UNIT == 0
@@ -1638,8 +1639,12 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 		  if (i < CONSTRUCTOR_NELTS (ctor))
 		    {
 		      constructor_elt *elt = CONSTRUCTOR_ELT (ctor, i);
-		      if (compare_tree_int (elt->index, i) == 0)
-			val = elt->value;
+		      if (TREE_CODE (TREE_TYPE (rhs1)) == VECTOR_TYPE)
+			{
+			  if (TREE_CODE (TREE_TYPE (elt->value))
+			      != VECTOR_TYPE)
+			    val = elt->value;
+			}
 		    }
 		}
 	      if (val)
@@ -2189,6 +2194,9 @@ vn_nary_length_from_stmt (gimple stmt)
     case VIEW_CONVERT_EXPR:
       return 1;
 
+    case BIT_FIELD_REF:
+      return 3;
+
     case CONSTRUCTOR:
       return CONSTRUCTOR_NELTS (gimple_assign_rhs1 (stmt));
 
@@ -2215,6 +2223,13 @@ init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple stmt)
       vno->op[0] = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
       break;
 
+    case BIT_FIELD_REF:
+      vno->length = 3;
+      vno->op[0] = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+      vno->op[1] = TREE_OPERAND (gimple_assign_rhs1 (stmt), 1);
+      vno->op[2] = TREE_OPERAND (gimple_assign_rhs1 (stmt), 2);
+      break;
+
     case CONSTRUCTOR:
       vno->length = CONSTRUCTOR_NELTS (gimple_assign_rhs1 (stmt));
       for (i = 0; i < vno->length; ++i)
@@ -2222,6 +2237,7 @@ init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple stmt)
       break;
 
     default:
+      gcc_checking_assert (!gimple_assign_single_p (stmt));
       vno->length = gimple_num_ops (stmt) - 1;
       for (i = 0; i < vno->length; ++i)
 	vno->op[i] = gimple_op (stmt, i + 1);

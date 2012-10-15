@@ -48,8 +48,7 @@ struct GTY((user)) edge_def {
   /* Auxiliary info specific to a pass.  */
   PTR aux;
 
-  /* Location of any goto implicit in the edge and associated BLOCK.  */
-  tree goto_block;
+  /* Location of any goto implicit in the edge.  */
   location_t goto_locus;
 
   /* The index number corresponding to this edge in the edge vector
@@ -101,6 +100,37 @@ typedef struct gcov_working_set_info
   /* Smallest counter included in this working set.  */
   gcov_type min_counter;
 } gcov_working_set_t;
+
+/* Structure to gather statistic about profile consistency, per pass.
+   An array of this structure, indexed by pass static number, is allocated
+   in passes.c.  The structure is defined here so that different CFG modes
+   can do their book-keeping via CFG hooks.
+
+   For every field[2], field[0] is the count before the pass runs, and
+   field[1] is the post-pass count.  This allows us to monitor the effect
+   of each individual pass on the profile consistency.
+   
+   This structure is not supposed to be used by anything other than passes.c
+   and one CFG hook per CFG mode.  */
+struct profile_record
+{
+  /* The number of basic blocks where sum(freq) of the block's predecessors
+     doesn't match reasonably well with the incoming frequency.  */
+  int num_mismatched_freq_in[2];
+  /* Likewise for a basic block's successors.  */
+  int num_mismatched_freq_out[2];
+  /* The number of basic blocks where sum(count) of the block's predecessors
+     doesn't match reasonably well with the incoming frequency.  */
+  int num_mismatched_count_in[2];
+  /* Likewise for a basic block's successors.  */
+  int num_mismatched_count_out[2];
+  /* A weighted cost of the run-time of the function body.  */
+  gcov_type time[2];
+  /* A weighted cost of the size of the function body.  */
+  int size[2];
+  /* True iff this pass actually was run.  */
+  bool run;
+};
 
 /* Declared in cfgloop.h.  */
 struct loop;
@@ -479,11 +509,10 @@ struct edge_list
 #define BRANCH_EDGE(bb)			(EDGE_SUCC ((bb), 0)->flags & EDGE_FALLTHRU \
 					 ? EDGE_SUCC ((bb), 1) : EDGE_SUCC ((bb), 0))
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 /* Return expected execution frequency of the edge E.  */
-#define EDGE_FREQUENCY(e)		(((e)->src->frequency \
-					  * (e)->probability \
-					  + REG_BR_PROB_BASE / 2) \
-					 / REG_BR_PROB_BASE)
+#define EDGE_FREQUENCY(e)		RDIV ((e)->src->frequency * (e)->probability, \
+					      REG_BR_PROB_BASE)
 
 /* Return nonzero if edge is critical.  */
 #define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
@@ -911,4 +940,40 @@ extern void default_rtl_profile (void);
 /* In profile.c.  */
 extern gcov_working_set_t *find_working_set(unsigned pct_times_10);
 
+/* Check tha probability is sane.  */
+
+static inline void
+check_probability (int prob)
+{
+  gcc_checking_assert (prob >= 0 && prob <= REG_BR_PROB_BASE);
+}
+
+/* Given PROB1 and PROB2, return PROB1*PROB2/REG_BR_PROB_BASE. 
+   Used to combine BB probabilities.  */
+
+static inline int
+combine_probabilities (int prob1, int prob2)
+{
+  check_probability (prob1);
+  check_probability (prob2);
+  return RDIV (prob1 * prob2, REG_BR_PROB_BASE);
+}
+
+/* Apply probability PROB on frequency or count FREQ.  */
+
+static inline gcov_type
+apply_probability (gcov_type freq, int prob)
+{
+  check_probability (prob);
+  return RDIV (freq * prob, REG_BR_PROB_BASE);
+}
+
+/* Return inverse probability for PROB.  */
+
+static inline int
+inverse_probability (int prob1)
+{
+  check_probability (prob1);
+  return REG_BR_PROB_BASE - prob1;
+}
 #endif /* GCC_BASIC_BLOCK_H */

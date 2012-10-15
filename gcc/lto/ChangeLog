@@ -1,3 +1,55 @@
+2012-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR lto/54898
+	* lto.c (gimple_types_compatible_p_1): Also compare
+	TYPE_MAIN_VARIANT.
+	(iterative_hash_gimple_type): Also hash TYPE_MAIN_VARIANT.
+
+2012-10-09  Tobias Burnus  <burnus@net-b.de>
+
+	* lto-lang.c (lto_register_builtin_type): Avoid useless
+	decl creation.
+	* lto-object.c (lto_obj_file_open, lto_obj_file_open): Free memory.
+
+2012-10-08  Tobias Burnus  <burnus@net-b.de>
+
+	* lto.c (lto_wpa_write_files, read_cgraph_and_symbols):
+	Free lto_file struct after closing the file.
+
+2012-10-08  Jan Hubicka  <jh@suse.cz>
+
+	* lto/lto.c (remember_with_vars): Also fixup INTEGER_CST.
+	(fixup_integer_cst): New functoin.
+	(lto_ft_type): Fixup BASETYPE of methods and offsets.
+
+2012-10-07  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (read_cgraph_and_symbols): Release type merging hash early;
+	release input encoders.
+	* lto-partition.c (new_partition): Update for new lto_symtab_encoder_new.
+
+2012-10-06  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/54790 
+	* lto.c (resolution_map): New static var.
+	(register_resolution): New function.
+	(lto_register_var_decl_in_symtab): Use it.
+	(read_cgraph_and_symbols): Copy resolutions into the symtab.
+
+2012-09-20  Martin Jambor  <mjambor@suse.cz>
+
+	* lto.c (lto_materialize_function): Call push_struct_function and
+	pop_cfun.
+
+2012-09-19  Dehao Chen  <dehao@google.com>
+
+	* lto/lto.c (lto_fixup_prevailing_decls): Remove tree.exp.block field.
+
+2012-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (lto_materialize_function): Update confused comment.
+	(read_cgraph_and_symbols): Do not free symtab.
+
 2012-09-12  Jan Hubicka  <jh@suse.cz>
 
 	* lto.c (do_whole_program_analysis): Care timevars, statistics and

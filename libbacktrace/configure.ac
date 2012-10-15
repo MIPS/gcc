@@ -42,7 +42,16 @@ AC_USE_SYSTEM_EXTENSIONS
 libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
 
-AM_INIT_AUTOMAKE([1.11.1 foreign no-dist no-define -Wall -Wno-portability])
+# 1.11.1: Require that version of automake.
+# foreign: Don't require README, INSTALL, NEWS, etc.
+# no-define: Don't define PACKAGE and VERSION.
+# no-dependencies: Don't generate automatic dependencies.
+#    (because it breaks when using bootstrap-lean, since some of the
+#    headers are gone at "make install" time).
+# -Wall: Issue all automake warnings.
+# -Wno-portability: Don't warn about constructs supported by GNU make.
+#    (because GCC requires GNU make anyhow).
+AM_INIT_AUTOMAKE([1.11.1 foreign no-dist no-define no-dependencies -Wall -Wno-portability])
 
 AM_MAINTAINER_MODE
 
@@ -87,6 +96,12 @@ else
 fi
 AC_SUBST(BACKTRACE_FILE)
 
+EXTRA_FLAGS=
+if test "x$GCC" = "xyes"; then
+  EXTRA_FLAGS=-funwind-tables
+fi
+AC_SUBST(EXTRA_FLAGS)
+
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
 			  -Wmissing-prototypes -Wold-style-definition \
 			  -Wmissing-format-attribute -Wcast-qual],
@@ -98,7 +113,15 @@ fi
 
 AC_SUBST(WARN_FLAGS)
 
-GCC_CHECK_UNWIND_GETIPINFO
+if test -n "${with_target_subdir}"; then
+  GCC_CHECK_UNWIND_GETIPINFO
+else
+  AC_CHECK_FUNC(_Unwind_GetIPInfo, [have_unwind_getipinfo=yes],
+		[have_unwind_getipinfo=no])
+  if test "$have_unwind_getipinfo" = "yes"; then
+    AC_DEFINE(HAVE_GETIPINFO, 1, [Define if _Unwind_GetIPInfo is available.])
+  fi
+fi
 
 # When building as a target library, shared libraries may want to link
 # this in.  We don't want to provide another shared library to
@@ -168,6 +191,8 @@ if test "$backtrace_supported" = "yes"; then
 fi
 AC_SUBST(BACKTRACE_SUPPORTED)
 
+GCC_HEADER_STDINT(gstdint.h)
+
 AC_CHECK_HEADERS(sys/mman.h)
 if test "$ac_cv_header_sys_mman_h" = "no"; then
   have_mmap=no
@@ -200,6 +225,44 @@ if test "$ALLOC_FILE" = "alloc.lo"; then
   BACKTRACE_USES_MALLOC=1
 fi
 AC_SUBST(BACKTRACE_USES_MALLOC)
+
+# Check for dl_iterate_phdr.
+AC_CHECK_HEADERS(link.h)
+if test "$ac_cv_header_link_h" = "no"; then
+  have_dl_iterate_phdr=no
+else
+  if test -n "${with_target_subdir}"; then
+    # When built as a GCC target library, we can't do a link test.
+    AC_EGREP_HEADER([dl_iterate_phdr], [link.h], [have_dl_iterate_phdr=yes],
+		    [have_dl_iterate_phdr=no])
+    case "${host}" in
+    *-*-solaris2.10*)
+        # Avoid dl_iterate_phdr on Solaris 10, where it is in the
+    	# header file but is only in -ldl.
+	have_dl_iterate_phdr=no ;;
+    esac
+  else
+    AC_CHECK_FUNC([dl_iterate_phdr], [have_dl_iterate_phdr=yes],
+		  [have_dl_iterate_phdr=no])
+  fi
+fi
+if test "$have_dl_iterate_phdr" = "yes"; then
+  AC_DEFINE(HAVE_DL_ITERATE_PHDR, 1, [Define if dl_iterate_phdr is available.])
+fi
+
+# Check for the fcntl function.
+if test -n "${with_target_subdir}"; then
+   case "${host}" in
+   *-*-mingw*) have_fcntl=no ;;
+   *) have_fcntl=yes ;;
+   esac
+else
+  AC_CHECK_FUNC(fcntl, [have_fcntl=yes], [have_fcntl=no])
+fi
+if test "$have_fcntl" = "yes"; then
+  AC_DEFINE([HAVE_FCNTL], 1,
+	    [Define to 1 if you have the fcntl function])
+fi
 
 AC_CHECK_DECLS(strnlen)
 

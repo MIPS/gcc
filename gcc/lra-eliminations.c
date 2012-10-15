@@ -316,10 +316,7 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 
   switch (code)
     {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case CONST:
     case SYMBOL_REF:
     case CODE_LABEL:

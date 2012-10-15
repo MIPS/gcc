@@ -720,19 +720,19 @@ rtl_split_block (basic_block bb, void *insnp)
 static bool
 unique_locus_on_edge_between_p (basic_block a, basic_block b)
 {
-  const int goto_locus = EDGE_SUCC (a, 0)->goto_locus;
+  const location_t goto_locus = EDGE_SUCC (a, 0)->goto_locus;
   rtx insn, end;
 
-  if (!goto_locus)
+  if (LOCATION_LOCUS (goto_locus) == UNKNOWN_LOCATION)
     return false;
 
   /* First scan block A backward.  */
   insn = BB_END (a);
   end = PREV_INSN (BB_HEAD (a));
-  while (insn != end && (!NONDEBUG_INSN_P (insn) || INSN_LOCATOR (insn) == 0))
+  while (insn != end && (!NONDEBUG_INSN_P (insn) || !INSN_HAS_LOCATION (insn)))
     insn = PREV_INSN (insn);
 
-  if (insn != end && locator_eq (INSN_LOCATOR (insn), goto_locus))
+  if (insn != end && INSN_LOCATION (insn) == goto_locus)
     return false;
 
   /* Then scan block B forward.  */
@@ -743,8 +743,8 @@ unique_locus_on_edge_between_p (basic_block a, basic_block b)
       while (insn != end && !NONDEBUG_INSN_P (insn))
 	insn = NEXT_INSN (insn);
 
-      if (insn != end && INSN_LOCATOR (insn) != 0
-	  && locator_eq (INSN_LOCATOR (insn), goto_locus))
+      if (insn != end && INSN_HAS_LOCATION (insn)
+	  && INSN_LOCATION (insn) == goto_locus)
 	return false;
     }
 
@@ -761,7 +761,7 @@ emit_nop_for_unique_locus_between (basic_block a, basic_block b)
     return;
 
   BB_END (a) = emit_insn_after_noloc (gen_nop (), BB_END (a), a);
-  INSN_LOCATOR (BB_END (a)) = EDGE_SUCC (a, 0)->goto_locus;
+  INSN_LOCATION (BB_END (a)) = EDGE_SUCC (a, 0)->goto_locus;
 }
 
 /* Blocks A and B are to be merged into a single block A.  The insns
@@ -1477,10 +1477,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
   else
     jump_block = e->src;
 
-  if (e->goto_locus && e->goto_block == NULL)
-    loc = e->goto_locus;
-  else
-    loc = 0;
+  loc = e->goto_locus;
   e->flags &= ~EDGE_FALLTHRU;
   if (target == EXIT_BLOCK_PTR)
     {
@@ -1859,11 +1856,14 @@ rtl_dump_bb (FILE *outf, basic_block bb, int indent, int flags)
     for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
 	 insn = NEXT_INSN (insn))
       {
+	if (flags & TDF_DETAILS)
+	  df_dump_insn_top (insn, outf);
 	if (! (flags & TDF_SLIM))
 	  print_rtl_single (outf, insn);
 	else
 	  dump_insn_slim (outf, insn);
-
+	if (flags & TDF_DETAILS)
+	  df_dump_insn_bottom (insn, outf);
       }
 
   if (df && (flags & TDF_DETAILS))
@@ -1944,10 +1944,14 @@ print_rtl_with_bb (FILE *outf, const_rtx rtx_first, int flags)
 		fprintf (outf, ";; Insn is in multiple basic blocks\n");
 	    }
 
+	  if (flags & TDF_DETAILS)
+	    df_dump_insn_top (tmp_rtx, outf);
 	  if (! (flags & TDF_SLIM))
 	    print_rtl_single (outf, tmp_rtx);
 	  else
 	    dump_insn_slim (outf, tmp_rtx);
+	  if (flags & TDF_DETAILS)
+	    df_dump_insn_bottom (tmp_rtx, outf);
 
 	  if (flags & TDF_BLOCKS)
 	    {
@@ -3335,7 +3339,8 @@ fixup_reorder_chain (void)
         edge_iterator ei;
 
         FOR_EACH_EDGE (e, ei, bb->succs)
-	  if (e->goto_locus && !(e->flags & EDGE_ABNORMAL))
+	  if (LOCATION_LOCUS (e->goto_locus) != UNKNOWN_LOCATION
+	      && !(e->flags & EDGE_ABNORMAL))
 	    {
 	      edge e2;
 	      edge_iterator ei2;
@@ -3345,15 +3350,15 @@ fixup_reorder_chain (void)
 	      insn = BB_END (e->src);
 	      end = PREV_INSN (BB_HEAD (e->src));
 	      while (insn != end
-		     && (!NONDEBUG_INSN_P (insn) || INSN_LOCATOR (insn) == 0))
+		     && (!NONDEBUG_INSN_P (insn) || !INSN_HAS_LOCATION (insn)))
 		insn = PREV_INSN (insn);
 	      if (insn != end
-		  && locator_eq (INSN_LOCATOR (insn), (int) e->goto_locus))
+		  && INSN_LOCATION (insn) == e->goto_locus)
 		continue;
 	      if (simplejump_p (BB_END (e->src))
-		  && INSN_LOCATOR (BB_END (e->src)) == 0)
+		  && !INSN_HAS_LOCATION (BB_END (e->src)))
 		{
-		  INSN_LOCATOR (BB_END (e->src)) = e->goto_locus;
+		  INSN_LOCATION (BB_END (e->src)) = e->goto_locus;
 		  continue;
 		}
 	      dest = e->dest;
@@ -3369,24 +3374,24 @@ fixup_reorder_chain (void)
 		  end = NEXT_INSN (BB_END (dest));
 		  while (insn != end && !NONDEBUG_INSN_P (insn))
 		    insn = NEXT_INSN (insn);
-		  if (insn != end && INSN_LOCATOR (insn)
-		      && locator_eq (INSN_LOCATOR (insn), (int) e->goto_locus))
+		  if (insn != end && INSN_HAS_LOCATION (insn)
+		      && INSN_LOCATION (insn) == e->goto_locus)
 		    continue;
 		}
 	      nb = split_edge (e);
 	      if (!INSN_P (BB_END (nb)))
 		BB_END (nb) = emit_insn_after_noloc (gen_nop (), BB_END (nb),
 						     nb);
-	      INSN_LOCATOR (BB_END (nb)) = e->goto_locus;
+	      INSN_LOCATION (BB_END (nb)) = e->goto_locus;
 
 	      /* If there are other incoming edges to the destination block
 		 with the same goto locus, redirect them to the new block as
 		 well, this can prevent other such blocks from being created
 		 in subsequent iterations of the loop.  */
 	      for (ei2 = ei_start (dest->preds); (e2 = ei_safe_edge (ei2)); )
-		if (e2->goto_locus
+		if (LOCATION_LOCUS (e2->goto_locus) != UNKNOWN_LOCATION
 		    && !(e2->flags & (EDGE_ABNORMAL | EDGE_FALLTHRU))
-		    && locator_eq (e->goto_locus, e2->goto_locus))
+		    && e->goto_locus == e2->goto_locus)
 		  redirect_edge_and_branch (e2, nb);
 		else
 		  ei_next (&ei2);
@@ -4086,7 +4091,8 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
     }
 
   /* If B was a forwarder block, propagate the locus on the edge.  */
-  if (forwarder_p && !EDGE_SUCC (b, 0)->goto_locus)
+  if (forwarder_p
+      && LOCATION_LOCUS (EDGE_SUCC (b, 0)->goto_locus) != UNKNOWN_LOCATION)
     EDGE_SUCC (b, 0)->goto_locus = EDGE_SUCC (a, 0)->goto_locus;
 
   if (dump_file)
@@ -4446,6 +4452,28 @@ rtl_duplicate_bb (basic_block bb)
   return bb;
 }
 
+/* Do book-keeping of basic block BB for the profile consistency checker.
+   If AFTER_PASS is 0, do pre-pass accounting, or if AFTER_PASS is 1
+   then do post-pass accounting.  Store the counting in RECORD.  */
+static void
+rtl_account_profile_record (basic_block bb, int after_pass,
+			    struct profile_record *record)
+{
+  rtx insn;
+  FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	record->size[after_pass]
+	  += insn_rtx_cost (PATTERN (insn), false);
+	if (profile_status == PROFILE_READ)
+	  record->time[after_pass]
+	    += insn_rtx_cost (PATTERN (insn), true) * bb->count;
+	else if (profile_status == PROFILE_GUESSED)
+	  record->time[after_pass]
+	    += insn_rtx_cost (PATTERN (insn), true) * bb->frequency;
+      }
+}
+
 /* Implementation of CFG manipulation for linearized RTL.  */
 struct cfg_hooks rtl_cfg_hooks = {
   "rtl",
@@ -4480,6 +4508,7 @@ struct cfg_hooks rtl_cfg_hooks = {
   NULL, /* flush_pending_stmts */
   rtl_block_empty_p, /* block_empty_p */
   rtl_split_block_before_cond_jump, /* split_block_before_cond_jump */
+  rtl_account_profile_record,
 };
 
 /* Implementation of CFG manipulation for cfg layout RTL, where
@@ -4520,6 +4549,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   NULL, /* flush_pending_stmts */  
   rtl_block_empty_p, /* block_empty_p */
   rtl_split_block_before_cond_jump, /* split_block_before_cond_jump */
+  rtl_account_profile_record,
 };
 
 #include "gt-cfgrtl.h"

@@ -712,6 +712,9 @@ struct GTY(()) tree_base {
 
        SSA_NAME_IS_DEFAULT_DEF in
            SSA_NAME
+
+       DECL_NONLOCAL_FRAME in
+	   VAR_DECL
 */
 
 struct GTY(()) tree_typed {
@@ -907,7 +910,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #endif
 
-#define TREE_BLOCK(NODE)		*(tree_block (NODE))
+#define TREE_BLOCK(NODE)		(tree_block (NODE))
+#define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
 
 #include "tree-check.h"
 
@@ -1611,10 +1615,14 @@ struct GTY(()) tree_constructor {
 #define EXPR_LOCATION(NODE) \
   (CAN_HAVE_LOCATION_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
 #define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
-#define EXPR_HAS_LOCATION(NODE) (EXPR_LOCATION (NODE) != UNKNOWN_LOCATION)
+#define EXPR_HAS_LOCATION(NODE) (LOCATION_LOCUS (EXPR_LOCATION (NODE))	\
+  != UNKNOWN_LOCATION)
 /* The location to be used in a diagnostic about this expression.  Do not
    use this macro if the location will be assigned to other expressions.  */
-#define EXPR_LOC_OR_HERE(NODE) (EXPR_HAS_LOCATION (NODE) ? (NODE)->exp.locus : input_location)
+#define EXPR_LOC_OR_HERE(NODE) (EXPR_HAS_LOCATION (NODE) \
+				? (NODE)->exp.locus : input_location)
+#define EXPR_LOC_OR_LOC(NODE, LOCUS) (EXPR_HAS_LOCATION (NODE) \
+				      ? (NODE)->exp.locus : (LOCUS))
 #define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
 #define EXPR_LINENO(NODE) LOCATION_LINE (EXPR_CHECK (NODE)->exp.locus)
 
@@ -1790,7 +1798,8 @@ extern void protected_set_expr_location (tree, location_t);
 					      OMP_CLAUSE_PRIVATE,	\
 	                                      OMP_CLAUSE_COPYPRIVATE), 0)
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
-  ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus != UNKNOWN_LOCATION)
+  (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
+  != UNKNOWN_LOCATION)
 #define OMP_CLAUSE_LOCATION(NODE)  (OMP_CLAUSE_CHECK (NODE))->omp_clause.locus
 
 /* True on an OMP_SECTION statement that was the last lexical member.
@@ -1881,7 +1890,6 @@ enum omp_clause_default_kind
 struct GTY(()) tree_exp {
   struct tree_typed typed;
   location_t locus;
-  tree block;
   tree GTY ((special ("tree_exp"),
 	     desc ("TREE_CODE ((tree) &%0)")))
     operands[1];
@@ -2617,7 +2625,7 @@ struct function;
 #define DECL_SOURCE_LINE(NODE) LOCATION_LINE (DECL_SOURCE_LOCATION (NODE))
 #define DECL_SOURCE_COLUMN(NODE) LOCATION_COLUMN (DECL_SOURCE_LOCATION (NODE))
 #define DECL_IS_BUILTIN(DECL) \
-  (DECL_SOURCE_LOCATION (DECL) <= BUILTINS_LOCATION)
+  (LOCATION_LOCUS (DECL_SOURCE_LOCATION (DECL)) <= BUILTINS_LOCATION)
 
 /*  For FIELD_DECLs, this is the RECORD_TYPE, UNION_TYPE, or
     QUAL_UNION_TYPE node that the field is a member of.  For VAR_DECL,
@@ -3268,8 +3276,13 @@ extern void decl_fini_priority_insert (tree, priority_type);
    libraries.  */
 #define MAX_RESERVED_INIT_PRIORITY 100
 
+/* In a VAR_DECL, nonzero if this is a global variable for VOPs.  */
 #define VAR_DECL_IS_VIRTUAL_OPERAND(NODE) \
   (VAR_DECL_CHECK (NODE)->base.u.bits.saturating_flag)
+
+/* In a VAR_DECL, nonzero if this is a non-local frame structure.  */
+#define DECL_NONLOCAL_FRAME(NODE)  \
+  (VAR_DECL_CHECK (NODE)->base.default_def_flag)
 
 struct GTY(()) tree_var_decl {
   struct tree_decl_with_vis common;
@@ -4767,6 +4780,7 @@ extern tree make_unsigned_type (int);
 extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
+extern tree truth_type_for (tree);
 extern void initialize_sizetypes (void);
 extern void fixup_unsigned_type (tree);
 extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
@@ -4892,12 +4906,12 @@ struct attribute_spec
 {
   /* The name of the attribute (without any leading or trailing __),
      or NULL to mark the end of a table of attributes.  */
-  const char *const name;
+  const char *name;
   /* The minimum length of the list of arguments of the attribute.  */
-  const int min_length;
+  int min_length;
   /* The maximum length of the list of arguments of the attribute
      (-1 for no maximum).  */
-  const int max_length;
+  int max_length;
   /* Whether this attribute requires a DECL.  If it does, it will be passed
      from types of DECLs, function return types and array element types to
      the DECLs, function types and array types respectively; but when
@@ -4905,15 +4919,15 @@ struct attribute_spec
      a warning.  (If greater control is desired for a given attribute,
      this should be false, and the flags argument to the handler may be
      used to gain greater control in that case.)  */
-  const bool decl_required;
+  bool decl_required;
   /* Whether this attribute requires a type.  If it does, it will be passed
      from a DECL to the type of that DECL.  */
-  const bool type_required;
+  bool type_required;
   /* Whether this attribute requires a function (or method) type.  If it does,
      it will be passed from a function pointer type to the target type,
      and from a function return type (which is not itself a function
      pointer type) to the function type.  */
-  const bool function_type_required;
+  bool function_type_required;
   /* Function to handle this attribute.  NODE points to the node to which
      the attribute is to be applied.  If a DECL, it should be modified in
      place; if a TYPE, a copy should be created.  NAME is the name of the
@@ -4928,10 +4942,10 @@ struct attribute_spec
      otherwise the return value should be NULL_TREE.  This pointer may be
      NULL if no special handling is required beyond the checks implied
      by the rest of this structure.  */
-  tree (*const handler) (tree *node, tree name, tree args,
-				 int flags, bool *no_add_attrs);
+  tree (*handler) (tree *node, tree name, tree args,
+		   int flags, bool *no_add_attrs);
   /* Specifies if attribute affects type's identity.  */
-  const bool affects_type_identity;
+  bool affects_type_identity;
 };
 
 /* Flags that may be passed in the third argument of decl_attributes, and
@@ -4956,7 +4970,9 @@ enum attribute_flags
   /* The attributes are being applied by default to a library function whose
      name indicates known behavior, and should be silently ignored if they
      are not in fact compatible with the function type.  */
-  ATTR_FLAG_BUILT_IN = 16
+  ATTR_FLAG_BUILT_IN = 16,
+  /* A given attribute has been parsed as a C++-11 attribute.  */
+  ATTR_FLAG_CXX11 = 32
 };
 
 /* Default versions of target-overridable functions.  */
@@ -5535,7 +5551,7 @@ function_args_iter_next (function_args_iterator *i)
 static inline bool
 inlined_function_outer_scope_p (const_tree block)
 {
- return BLOCK_SOURCE_LOCATION (block) != UNKNOWN_LOCATION;
+ return LOCATION_LOCUS (BLOCK_SOURCE_LOCATION (block)) != UNKNOWN_LOCATION;
 }
 
 /* Loop over all function arguments of FNTYPE.  In each iteration, PTR is set
@@ -5910,7 +5926,8 @@ extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
 extern HOST_WIDEST_INT widest_int_cst_value (const_tree);
 
-extern tree *tree_block (tree);
+extern tree tree_block (tree);
+extern void tree_set_block (tree, tree);
 extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 
@@ -6042,6 +6059,8 @@ extern bool must_pass_in_stack_var_size_or_pad (enum machine_mode, const_tree);
 /* In attribs.c.  */
 
 extern const struct attribute_spec *lookup_attribute_spec (const_tree);
+extern const struct attribute_spec *lookup_scoped_attribute_spec (const_tree,
+								  const_tree);
 
 extern void init_attributes (void);
 
@@ -6054,6 +6073,12 @@ extern void init_attributes (void);
    returned to be applied at a later stage (for example, to apply
    a decl attribute to the declaration rather than to its type).  */
 extern tree decl_attributes (tree *, tree, int);
+
+extern bool cxx11_attribute_p (const_tree);
+
+extern tree get_attribute_name (const_tree);
+
+extern tree get_attribute_namespace (const_tree);
 
 extern void apply_tm_attr (tree, tree);
 
@@ -6262,7 +6287,6 @@ tree target_for_debug_bind (tree);
 
 /* In tree-ssa-address.c.  */
 extern tree tree_mem_ref_addr (tree, tree);
-extern void copy_mem_ref_info (tree, tree);
 extern void copy_ref_info (tree, tree);
 
 /* In tree-vrp.c */

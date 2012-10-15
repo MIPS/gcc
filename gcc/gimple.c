@@ -856,10 +856,7 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
   if (stmt)
-    {
-      gimple_set_block (p, gimple_block (stmt));
-      gimple_set_location (p, gimple_location (stmt));
-    }
+    gimple_set_location (p, gimple_location (stmt));
 
   return p;
 }
@@ -880,10 +877,7 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
   gimple_debug_source_bind_set_var (p, var);
   gimple_debug_source_bind_set_value (p, value);
   if (stmt)
-    {
-      gimple_set_block (p, gimple_block (stmt));
-      gimple_set_location (p, gimple_location (stmt));
-    }
+    gimple_set_location (p, gimple_location (stmt));
 
   return p;
 }
@@ -2339,23 +2333,20 @@ gimple_copy (gimple stmt)
     }
 
   /* Make copy of operands.  */
-  if (num_ops > 0)
+  for (i = 0; i < num_ops; i++)
+    gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+
+  if (gimple_has_mem_ops (stmt))
     {
-      for (i = 0; i < num_ops; i++)
-	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+      gimple_set_vdef (copy, gimple_vdef (stmt));
+      gimple_set_vuse (copy, gimple_vuse (stmt));
+    }
 
-      /* Clear out SSA operand vectors on COPY.  */
-      if (gimple_has_ops (stmt))
-	{
-	  gimple_set_def_ops (copy, NULL);
-	  gimple_set_use_ops (copy, NULL);
-	}
-
-      if (gimple_has_mem_ops (stmt))
-	{
-	  gimple_set_vdef (copy, gimple_vdef (stmt));
-	  gimple_set_vuse (copy, gimple_vuse (stmt));
-	}
+  /* Clear out SSA operand vectors on COPY.  */
+  if (gimple_has_ops (stmt))
+    {
+      gimple_set_def_ops (copy, NULL);
+      gimple_set_use_ops (copy, NULL);
 
       /* SSA operands need to be updated.  */
       gimple_set_modified (copy, true);
@@ -3003,7 +2994,6 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
   gimple_set_vuse (new_stmt, gimple_vuse (stmt));
   gimple_set_vdef (new_stmt, gimple_vdef (stmt));
 
-  gimple_set_block (new_stmt, gimple_block (stmt));
   if (gimple_has_location (stmt))
     gimple_set_location (new_stmt, gimple_location (stmt));
   gimple_call_copy_flags (new_stmt, stmt);

@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "cfgloop.h"
 #include "optabs.h"
+#include "tree-ssa-propagate.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -227,29 +228,15 @@ get_prop_source_stmt (tree name, bool single_use_only, bool *single_use_p)
     if (!is_gimple_assign (def_stmt))
       return NULL;
 
-    /* If def_stmt is not a simple copy, we possibly found it.  */
-    if (!gimple_assign_ssa_name_copy_p (def_stmt))
+    /* If def_stmt is a simple copy, continue looking.  */
+    if (gimple_assign_rhs_code (def_stmt) == SSA_NAME)
+      name = gimple_assign_rhs1 (def_stmt);
+    else
       {
-	tree rhs;
-
 	if (!single_use_only && single_use_p)
 	  *single_use_p = single_use;
 
-	/* We can look through pointer conversions in the search
-	   for a useful stmt for the comparison folding.  */
-	rhs = gimple_assign_rhs1 (def_stmt);
-	if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
-	    && TREE_CODE (rhs) == SSA_NAME
-	    && POINTER_TYPE_P (TREE_TYPE (gimple_assign_lhs (def_stmt)))
-	    && POINTER_TYPE_P (TREE_TYPE (rhs)))
-	  name = rhs;
-	else
-	  return def_stmt;
-      }
-    else
-      {
-	/* Continue searching the def of the copy source name.  */
-	name = gimple_assign_rhs1 (def_stmt);
+	return def_stmt;
       }
   } while (1);
 }
@@ -569,7 +556,7 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
   /* We can do tree combining on SSA_NAME and comparison expressions.  */
   if (COMPARISON_CLASS_P (cond))
     tmp = forward_propagate_into_comparison_1 (stmt, TREE_CODE (cond),
-					       boolean_type_node,
+					       TREE_TYPE (cond),
 					       TREE_OPERAND (cond, 0),
 					       TREE_OPERAND (cond, 1));
   else if (TREE_CODE (cond) == SSA_NAME)
@@ -584,7 +571,7 @@ forward_propagate_into_cond (gimple_stmt_iterator *gsi_p)
       if (TREE_CODE_CLASS (code) == tcc_comparison)
 	tmp = fold_build2_loc (gimple_location (def_stmt),
 			       code,
-			       boolean_type_node,
+			       TREE_TYPE (cond),
 			       gimple_assign_rhs1 (def_stmt),
 			       gimple_assign_rhs2 (def_stmt));
       else if ((code == BIT_NOT_EXPR
@@ -2596,24 +2583,34 @@ simplify_bitfield_ref (gimple_stmt_iterator *gsi)
       || TREE_CODE (TREE_TYPE (op0)) != VECTOR_TYPE)
     return false;
 
+  def_stmt = get_prop_source_stmt (op0, false, NULL);
+  if (!def_stmt || !can_propagate_from (def_stmt))
+    return false;
+
+  op1 = TREE_OPERAND (op, 1);
+  op2 = TREE_OPERAND (op, 2);
+  code = gimple_assign_rhs_code (def_stmt);
+
+  if (code == CONSTRUCTOR)
+    {
+      tree tem = fold_ternary (BIT_FIELD_REF, TREE_TYPE (op),
+			       gimple_assign_rhs1 (def_stmt), op1, op2);
+      if (!tem || !valid_gimple_rhs_p (tem))
+	return false;
+      gimple_assign_set_rhs_from_tree (gsi, tem);
+      update_stmt (gsi_stmt (*gsi));
+      return true;
+    }
+
   elem_type = TREE_TYPE (TREE_TYPE (op0));
   if (TREE_TYPE (op) != elem_type)
     return false;
 
   size = TREE_INT_CST_LOW (TYPE_SIZE (elem_type));
-  op1 = TREE_OPERAND (op, 1);
   n = TREE_INT_CST_LOW (op1) / size;
   if (n != 1)
     return false;
-
-  def_stmt = get_prop_source_stmt (op0, false, NULL);
-  if (!def_stmt || !can_propagate_from (def_stmt))
-    return false;
-
-  op2 = TREE_OPERAND (op, 2);
   idx = TREE_INT_CST_LOW (op2) / size;
-
-  code = gimple_assign_rhs_code (def_stmt);
 
   if (code == VEC_PERM_EXPR)
     {

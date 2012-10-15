@@ -789,9 +789,7 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
 
   switch (code)
     {
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
+    CASE_CONST_UNIQUE:
       return false;
 
     case LABEL_REF:
