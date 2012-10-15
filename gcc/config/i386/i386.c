@@ -29726,6 +29726,16 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  op1 = temp;
 	}
 
+      /* If op1 was a register originally then it may have
+	 mode other than Pmode.  We need to extend in such
+	 case because bndldx may work only with Pmode regs.  */
+      if (GET_MODE (op1) != Pmode)
+	{
+	  rtx ext = gen_rtx_ZERO_EXTEND (Pmode, op1);
+	  op1 = gen_reg_rtx (Pmode);
+	  emit_move_insn (op1, ext);
+	}
+
       emit_insn (TARGET_64BIT
                  ? gen_bnd64_ldx (target, op0, op1)
                  : gen_bnd32_ldx (target, op0, op1));
@@ -30534,6 +30544,15 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
     gcc_unreachable ();
 
   ptr = force_reg (Pmode, ptr);
+  /* If ptr was a register originally then it may have
+     mode other than Pmode.  We need to extend in such
+     case because bndldx may work only with Pmode regs.  */
+  if (GET_MODE (ptr) != Pmode)
+    {
+      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
+      ptr = gen_reg_rtx (Pmode);
+      emit_move_insn (ptr, ext);
+    }
 
   reg = gen_reg_rtx (BNDmode);
   emit_insn (TARGET_64BIT
