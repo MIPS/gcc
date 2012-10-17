@@ -138,11 +138,13 @@
 static int bb_reload_num;
 
 /* The current insn being processed and corresponding its data (basic
-   block, the insn data, and the insn static data.  */
+   block, the insn data, the insn static data, and the mode of each
+   operand).  */
 static rtx curr_insn;
 static basic_block curr_bb;
 static lra_insn_recog_data_t curr_id;
 static struct lra_static_insn_data *curr_static_id;
+static enum machine_mode curr_operand_mode[MAX_RECOG_OPERANDS];
 
 
 
@@ -296,6 +298,27 @@ get_equiv_substitution (rtx x)
   if ((res = ira_reg_equiv[regno].invariant) != NULL_RTX)
     return res;
   gcc_unreachable ();
+}
+
+/* Set up curr_operand_mode.  */
+static void
+init_curr_operand_mode (void)
+{
+  int nop = curr_static_id->n_operands;
+  for (int i = 0; i < nop; i++)
+    {
+      enum machine_mode mode = GET_MODE (*curr_id->operand_loc[i]);
+      if (mode == VOIDmode)
+	{
+	  /* The .md mode for address operands is the mode of the
+	     addressed value rather than the mode of the address itself.  */
+	  if (curr_id->icode >= 0 && curr_static_id->operand[i].is_address)
+	    mode = Pmode;
+	  else
+	    mode = curr_static_id->operand[i].mode;
+	}
+      curr_operand_mode[i] = mode;
+    }
 }
 
 
@@ -870,65 +893,6 @@ bitmap_head lra_special_reload_pseudos;
   (reg_class_size [(C)] == 1						\
    || (reg_class_size [(C)] >= 1 && targetm.class_likely_spilled_p (C)))
 
-/* Return mode of WHAT inside of WHERE whose mode of the context is
-   OUTER_MODE.	If WHERE does not contain WHAT, return VOIDmode.  */
-static enum machine_mode
-find_mode (rtx *where, enum machine_mode outer_mode, rtx *what)
-{
-  int i, j;
-  enum machine_mode mode;
-  rtx x;
-  const char *fmt;
-  enum rtx_code code;
-
-  if (where == what)
-    return outer_mode;
-  if (*where == NULL_RTX)
-    return VOIDmode;
-  x = *where;
-  code = GET_CODE (x);
-  outer_mode = GET_MODE (x);
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if ((mode = find_mode (&XEXP (x, i), outer_mode, what)) != VOIDmode)
-	    return mode;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  if ((mode = find_mode (&XVECEXP (x, i, j), outer_mode, what))
-	      != VOIDmode)
-	    return mode;
-	}
-    }
-  return VOIDmode;
-}
-
-/* Return mode for operand NOP of the current insn.  */
-static inline enum machine_mode
-get_op_mode (int nop)
-{
-  rtx *loc;
-  enum machine_mode mode;
-  bool md_first_p = asm_noperands (PATTERN (curr_insn)) < 0;
-
-  /* Take mode from the machine description first.  */
-  if (md_first_p && (mode = curr_static_id->operand[nop].mode) != VOIDmode)
-    return mode;
-  loc = curr_id->operand_loc[nop];
-  /* Take mode from the operand second.	 */
-  mode = GET_MODE (*loc);
-  if (mode != VOIDmode)
-    return mode;
-  if (! md_first_p && (mode = curr_static_id->operand[nop].mode) != VOIDmode)
-    return mode;
-  /* Here is a very rare case.	Take mode from the context.  */
-  return find_mode (&PATTERN (curr_insn), VOIDmode, loc);
-}
-
 /* If REG is a reload pseudo, try to make its class satisfying CL.  */
 static void
 narrow_reload_pseudo_class (rtx reg, enum reg_class cl)
@@ -963,8 +927,8 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
   rtx in_rtx = *curr_id->operand_loc[ins[0]];
   rtx out_rtx = *curr_id->operand_loc[out];
 
-  outmode = get_op_mode (out);
-  inmode = get_op_mode (ins[0]);
+  outmode = curr_operand_mode[out];
+  inmode = curr_operand_mode[ins[0]];
   if (inmode != outmode)
     {
       if (GET_MODE_SIZE (inmode) > GET_MODE_SIZE (outmode))
@@ -1690,7 +1654,7 @@ process_alt_operands (int only_alternative)
 	    }
       
 	  op = no_subreg_reg_operand[nop];
-	  mode = get_op_mode (nop);
+	  mode = curr_operand_mode[nop];
 
 	  win = did_match = winreg = offmemok = constmemok = false;
 	  badop = true;
@@ -2162,8 +2126,7 @@ process_alt_operands (int only_alternative)
 	      if (CONST_POOL_OK_P (mode, op)
 		  && ((targetm.preferred_reload_class
 		       (op, this_alternative) == NO_REGS)
-		      || no_input_reloads_p)
-		  && get_op_mode (nop) != VOIDmode)
+		      || no_input_reloads_p))
 		{
 		  const_to_mem = 1;
 		  if (! no_regs_p)
@@ -2824,6 +2787,9 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
 static inline void
 swap_operands (int nop)
 {
+  enum machine_mode mode = curr_operand_mode[nop];
+  curr_operand_mode[nop] = curr_operand_mode[nop + 1];
+  curr_operand_mode[nop + 1] = mode;
   rtx x = *curr_id->operand_loc[nop];
   *curr_id->operand_loc[nop] = *curr_id->operand_loc[nop + 1];
   *curr_id->operand_loc[nop + 1] = x;
@@ -3012,20 +2978,12 @@ curr_insn_transform (void)
 
   if (goal_alt_swapped)
     {
-      rtx tem;
-
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "  Commutative operand exchange in insn %u\n",
 		 INSN_UID (curr_insn));
 
-      tem = *curr_id->operand_loc[commutative];
-      *curr_id->operand_loc[commutative]
-	= *curr_id->operand_loc[commutative + 1];
-      *curr_id->operand_loc[commutative + 1] = tem;
-
       /* Swap the duplicates too.  */
-      lra_update_dup (curr_id, commutative);
-      lra_update_dup (curr_id, commutative + 1);
+      swap_operands (commutative);
       change_p = true;
     }
 
@@ -3148,7 +3106,7 @@ curr_insn_transform (void)
 	char c;
 	rtx op = *curr_id->operand_loc[i];
 	rtx subreg = NULL_RTX;
-	enum machine_mode mode = get_op_mode (i);
+	enum machine_mode mode = curr_operand_mode[i];
 	
 	if (GET_CODE (op) == SUBREG)
 	  {
@@ -3160,8 +3118,7 @@ curr_insn_transform (void)
 	if (CONST_POOL_OK_P (mode, op)
 	    && ((targetm.preferred_reload_class
 		 (op, (enum reg_class) goal_alt[i]) == NO_REGS)
-		|| no_input_reloads_p)
-	    && mode != VOIDmode)
+		|| no_input_reloads_p))
 	  {
 	    rtx tem = force_const_mem (mode, op);
 	    
@@ -3255,7 +3212,7 @@ curr_insn_transform (void)
 	  enum op_type type = curr_static_id->operand[i].type;
 
 	  loc = curr_id->operand_loc[i];
-	  mode = get_op_mode (i);
+	  mode = curr_operand_mode[i];
 	  if (GET_CODE (*loc) == SUBREG)
 	    {
 	      reg = SUBREG_REG (*loc);
@@ -3702,6 +3659,7 @@ lra_constraints (bool first_p)
 	  curr_id = lra_get_insn_recog_data (curr_insn);
 	  curr_static_id = curr_id->insn_static_data;
 	  init_curr_insn_input_reloads ();
+	  init_curr_operand_mode ();
 	  if (curr_insn_transform ())
 	    changed_p = true;
 	}

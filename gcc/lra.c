@@ -517,7 +517,7 @@ static struct lra_operand_data debug_operand_data =
     NULL, /* alternative  */
     VOIDmode, /* We are not interesting in the operand mode.  */
     OP_IN,
-    0, 0, 0 
+    0, 0, 0, 0
   };
 
 /* The following data are used as static insn data for all debug
@@ -618,6 +618,7 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
 	    = (data->operand[i].constraint[0] == '=' ? OP_OUT
 	       : data->operand[i].constraint[0] == '+' ? OP_INOUT
 	       : OP_IN);
+	  data->operand[i].is_address = false;
 	}
       for (i = 0; i < ndup; i++)
 	data->dup_num[i] = recog_data.dup_num[i];
@@ -823,6 +824,7 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		  break;
 
 		case 'p':
+		  static_data->operand[i].is_address = true;
 		  op_alt->is_address = 1;
 		  op_alt->cl = (reg_class_subunion[(int) op_alt->cl]
 				[(int) base_reg_class (VOIDmode,
@@ -844,6 +846,7 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		    }
 		  if (EXTRA_ADDRESS_CONSTRAINT (c, p))
 		    {
+		      static_data->operand[i].is_address = true;
 		      op_alt->is_address = 1;
 		      op_alt->cl
 			= (reg_class_subunion
@@ -1062,6 +1065,7 @@ lra_set_insn_recog_data (rtx insn)
 	      insn_static_data->operand[i].constraint = constraints[i];
 	      insn_static_data->operand[i].strict_low = false;
 	      insn_static_data->operand[i].is_operator = false;
+	      insn_static_data->operand[i].is_address = false;
 	    }
 	}
       for (i = 0; i < insn_static_data->n_operands; i++)

@@ -1,3 +1,22 @@
+2012-10-17  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-int.h (lra_operand_data): Add is_address field.
+	* lra.c (debug_operand_data): Initialize is_address field.
+	(get_static_insn_data): Likewise.
+	(setup_operand_alternative): Record is_address in operand data.
+	(lra_set_insn_recog_data): Initialize is_address field.
+	* lra-constraints.c (curr_operand_mode): New array.
+	(init_curr_operand_mode): New function.
+	(find_mode, get_op_mode): Delete.
+	(match_reload): Use curr_operand_mode rather than get_op_mode.
+	(process_alt_operands): Likewise.  Remove VOIDmode check from
+	CONST_OK_POOL_P check.
+	(swap_operands): Swap the operand modes too.
+	(curr_insn_transform): Use curr_operand_mode rather than get_op_mode.
+	Remove VOIDmode check from CONST_OK_POOL_P check.  Use swap_operands
+	for the final swap too.
+	(lra_constraints): Call init_curr_operand_mode.
+
 2012-10-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_constraints_finish, lra_constraints_finish):

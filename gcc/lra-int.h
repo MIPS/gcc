@@ -157,6 +157,8 @@ struct lra_operand_data
      This field is set up every time when corresponding
      operand_alternative in lra_static_insn_data is set up.  */
   unsigned int early_clobber : 1;
+  /* True if the operand is an address.  */
+  unsigned int is_address : 1;
 };
 
 /* Info about register in an insn.  */
