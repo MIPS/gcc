@@ -1,6 +1,7 @@
 /* LRA (local register allocator) driver and LRA utilities.
    Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 
@@ -37,8 +38,6 @@ along with GCC; see the file COPYING3.	If not see
        generated;
      o Some pseudos might be spilled to assign hard registers to
        new reload pseudos;
-     o Some pseudos are bound.	It means they always got the same
-       memory or hard register;
      o Changing spilled pseudos to stack memory or their equivalences;
      o Allocation stack memory changes the address displacement and
        new iteration is needed.
@@ -2173,8 +2172,8 @@ int lra_constraint_new_regno_start;
 /* Inheritance pseudo regnos before the new spill pass.	 */ 
 bitmap_head lra_inheritance_pseudos;
 
-/* Split pseudo regnos before the new spill pass.  */ 
-bitmap_head lra_split_pseudos;
+/* Split regnos before the new spill pass.  */ 
+bitmap_head lra_split_regs;
 
 /* Reload pseudo regnos before the new assign pass which still can be
    spilled after the assinment pass.  */ 
@@ -2279,7 +2278,7 @@ lra (FILE *f)
   /* It is needed for the 1st coalescing.  */
   lra_constraint_new_insn_uid_start = get_max_uid ();
   bitmap_initialize (&lra_inheritance_pseudos, &reg_obstack);
-  bitmap_initialize (&lra_split_pseudos, &reg_obstack);
+  bitmap_initialize (&lra_split_regs, &reg_obstack);
   bitmap_initialize (&lra_optional_reload_pseudos, &reg_obstack);
   live_p = false;
   for (;;)
@@ -2326,7 +2325,7 @@ lra (FILE *f)
 	    }
 	}
       bitmap_clear (&lra_inheritance_pseudos);
-      bitmap_clear (&lra_split_pseudos);
+      bitmap_clear (&lra_split_regs);
       if (! lra_need_for_spills_p ())
 	break;
       if (! live_p)
@@ -2342,7 +2341,6 @@ lra (FILE *f)
       lra_eliminate (false);
       lra_constraint_new_regno_start = max_reg_num ();
       lra_constraint_new_insn_uid_start = get_max_uid ();
-      bitmap_clear (&lra_matched_pseudos);
       lra_constraint_iter_after_spill = 0;
     }
   restore_scratches ();

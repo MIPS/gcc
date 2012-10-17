@@ -1,3 +1,76 @@
+2012-10-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_split_pseudos): Rename to lra_split_regs.
+	(lra_bound_pseudos): Rename to lra_special_reload_pseudos.
+	(lra_matched_pseudos): Remove.
+	* lra-assigns.c: Remove comment about bound pseudos.
+	(lra_setup_reg_renumber): Rename lra_split_pseudos to
+	lra_split_regs.
+	(spill_for, assign_by_spills): Ditto.
+	(improve_inheritance): Remove bound pseudo mentioning.
+	* lra.c: Remove comment about bound pseudos.
+	(lra_split_pseudos): Rename to lra_split_regs.
+	(lra): Ditto.  Remove reseting lra_matched_pseudos.
+	* lra-coalesce.c: Rename bound pseudos into special reload
+	pseudos.
+	(coalescable_pseudo_p, lra_coalesce): Ditto.  Use
+	lra_special_reload_pseudos instead of lra_bound_pseudos.
+	* lra-constraints.c: Rename bound pseudos into special reload
+	pseudos.
+	(process_alt_operands): Restore reject increase for MEM and
+	offmemok.
+	(lra_matched_pseudos): Remove.
+	(lra_bound_pseudos): Rename to lra_special_reload_pseudos.
+	(match_reload): Ditto.  Remove setting lra_matched_pseudos.
+	(process_address): Simplify the code.  Improve comments.
+	(match_reload): Ditto.  Remove setting lra_matched_pseudos.
+	(emit_inc): Remove uneccessary code.  Improve comments.
+	(swap_operands): New function.
+	(curr_insn_transform): Use it.  Improve comments.  Remove code
+	dealing with plus.  Use RTX_AUTOINC.  Simplify code dealing with
+	SUBREG.  Remove duplicated code dealing with asm errors.
+	(lra_constraints): Merge two loops.
+	(lra_contraints_init, lra_contraints_finish): Rename
+	lra_bound_pseudos to lra_special_reload_pseudos.  Remove code
+	dealing with lra_matched_pseudos.
+	(calls_num, reloads_num): Fix comments.
+	(setup_next_usage_insn): New function.
+	(add_next_usage_insn): Move above.  Use setup_next_usage_insn.
+	(substitute_pseudo): Add code dealing with different modes.
+	(inherit_reload_reg): Improve comments.  Change signature.  Use
+	better wordings for dumps.  Don't create uniq value pseudo.  Use
+	setup_next_usage_insn.
+	(need_for_split_p): Improve comments.  Don't check hard register
+	for locality.
+	(choose_split_class): Use ira_class_hard_regs_num.
+	(split_reg): Improve comments.  Use only emit_spill_move for
+	creating new insns.  Rename lra_split_pseudos to lra_split_regs.
+	(split_if_necessary): New function.
+	(update_ebb_live_info): Rename lra_bound_pseudos to
+	lra_special_reload_pseudos.  Simplify code.
+	(add_to_inherit): Improve comments.
+	(get_non_debug_insn): Break into 2 following functions.
+	(get_first_non_debug_insn, get_last_non_debug_insn): New
+	functions.
+	(get_live_on_other_edges): Use get_last_non_debug_insn.  Remove
+	uneccesary regno check.
+	(inherit_in_ebb): Improve comments.  Use get_first_non_debug_insn,
+	get_last_non_debug_insn, setup_next_usage_insn, and
+	split_if_necessary.  Update lives for mult-word hard regs too.
+	Remove uneccessary checks for finding barrier.
+	(inherit_in_ebb): Use get_first_non_debug_insn and
+	get_last_non_debug_insn.
+	(temp_bitmap_head): Remove.
+	(fix_bb_live_info): Use EXECUTE_IF_AND_IN_BITMAP instead of
+	EXECUTE_IF_SET_IN_BITMAP.
+	(remove_inheritance_pseudos): Improve comments.  Remove code
+	dealing with temp_bitmap_head.  Rename lra_split_pseudos to
+	lra_split_regs.  Simplify code.  Improve dumps.
+	(lra_undo_inheritance): Rename lra_split_pseudos to
+	lra_split_regs.
+	* lra-lives.c (process_bb_lives): Use lra_special_reload_pseudos
+	instead of lra_bound_pseudos.
+
 2012-10-15  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_get_mode): Remove.

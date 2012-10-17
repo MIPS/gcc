@@ -40,8 +40,6 @@ along with GCC; see the file COPYING3.	If not see
    assign registers to other (non-reload) pseudos.  This is useful if
    hard registers were freed up by the spilling just described.
 
-   Bound pseudos always get the same hard register if any.
-
    We try to assign hard registers by collecting pseudos into threads.
    These threads contain reload and inheritance pseudos that are
    connected by copies (move insns).  Doing this improves the chances
@@ -699,7 +697,7 @@ lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
 	     regno < lra_constraint_new_regno_start
 	     ? ""
 	     : bitmap_bit_p (&lra_inheritance_pseudos, regno) ? "inheritance "
-	     : bitmap_bit_p (&lra_split_pseudos, regno) ? "split "
+	     : bitmap_bit_p (&lra_split_regs, regno) ? "split "
 	     : bitmap_bit_p (&lra_optional_reload_pseudos, regno)
 	     ? "optional reload ": "reload ",
 	     regno, lra_reg_info[regno].freq);
@@ -848,7 +846,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
 	if ((int) spill_regno >= lra_constraint_new_regno_start
 	    && ! bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
-	    && ! bitmap_bit_p (&lra_split_pseudos, spill_regno)
+	    && ! bitmap_bit_p (&lra_split_regs, spill_regno)
 	    && ! bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno))
 	  goto fail;
       insn_pseudos_num = 0;
@@ -965,7 +963,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 		  ? ""
 		  : bitmap_bit_p (&lra_inheritance_pseudos, spill_regno)
 		  ? "inheritance "
-		  : bitmap_bit_p (&lra_split_pseudos, spill_regno)
+		  : bitmap_bit_p (&lra_split_regs, spill_regno)
 		  ? "split "
 		  : bitmap_bit_p (&lra_optional_reload_pseudos, spill_regno)
 		  ? "optional reload " : "reload "),
@@ -1119,8 +1117,8 @@ improve_inheritance (bitmap changed_pseudos)
 	  else
 	    gcc_unreachable ();
 	  /* Don't change reload pseudo allocation.  It might have
-	     this allocation for a purpose (e.g. bound to another
-	     pseudo) and changing it can result in LRA cycling.	 */
+	     this allocation for a purpose and changing it can result
+	     in LRA cycling.  */
 	  if ((another_regno < lra_constraint_new_regno_start
 	       || bitmap_bit_p (&lra_inheritance_pseudos, another_regno))
 	      && (another_hard_regno = reg_renumber[another_regno]) >= 0
@@ -1179,7 +1177,7 @@ assign_by_spills (void)
   curr_pseudo_check = 0;
   bitmap_initialize (&changed_insns, &reg_obstack);
   bitmap_initialize (&non_reload_pseudos, &reg_obstack);
-  bitmap_ior (&non_reload_pseudos, &lra_inheritance_pseudos, &lra_split_pseudos);
+  bitmap_ior (&non_reload_pseudos, &lra_inheritance_pseudos, &lra_split_regs);
   bitmap_ior_into (&non_reload_pseudos, &lra_optional_reload_pseudos);
   for (iter = 0; iter <= 1; iter++)
     {
@@ -1285,7 +1283,7 @@ assign_by_spills (void)
 	    && reg_renumber[u] < 0
 	    && bitmap_bit_p (&lra_inheritance_pseudos, u))
 	  bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
-      EXECUTE_IF_SET_IN_BITMAP (&lra_split_pseudos, 0, u, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&lra_split_regs, 0, u, bi)
 	if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
 	    && reg_renumber[u] >= 0)
 	  bitmap_set_bit (&do_not_assign_nonreload_pseudos, restore_regno);
@@ -1294,7 +1292,7 @@ assign_by_spills (void)
 	      && ! bitmap_bit_p (&do_not_assign_nonreload_pseudos, i))
 	     || (bitmap_bit_p (&lra_inheritance_pseudos, i)
 		 && lra_reg_info[i].restore_regno >= 0)
-	     || (bitmap_bit_p (&lra_split_pseudos, i)
+	     || (bitmap_bit_p (&lra_split_regs, i)
 		 && lra_reg_info[i].restore_regno >= 0)
 	     || bitmap_bit_p (&lra_optional_reload_pseudos, i))
 	    && reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0

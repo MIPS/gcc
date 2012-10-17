@@ -35,8 +35,8 @@ along with GCC; see the file COPYING3.	If not see
    passes and even LRA infinite cycling.  Trivial the same hard
    register moves will be removed by subsequent compiler passes.
 
-   We don't coalesce bound pseudos.  It complicates LRA code a lot
-   without visible generated code improvement.
+   We don't coalesce special reload pseudos.  It complicates LRA code
+   a lot without visible generated code improvement.
 
    The pseudo live-ranges are used to find conflicting pseudos during
    coalescing.
@@ -217,11 +217,11 @@ coalescable_pseudo_p (int regno, bitmap split_origin_bitmap)
 	     split.  So don't coalesce them, it is not necessary and
 	     the undo transformations would be wrong.  */
 	  && ! bitmap_bit_p (split_origin_bitmap, regno)
-	  /* Don't coalesces bound pseudos.  Bound pseudos has own
-	     rules for finding live ranges.  It is hard to maintain
-	     this info with coalescing and it is not worth to do
-	     it.  */
-	  && ! bitmap_bit_p (&lra_bound_pseudos, regno)
+	  /* Don't coalesces special reload pseudos.  These pseudos
+	     has own rules for finding live ranges.  It is hard to
+	     maintain this info with coalescing and it is not worth to
+	     do it.  */
+	  && ! bitmap_bit_p (&lra_special_reload_pseudos, regno)
 	  /* We don't want to coalesce regnos with equivalences, at
 	     least without updating this info.  */
 	  && ira_reg_equiv[regno].constant == NULL_RTX
@@ -230,7 +230,7 @@ coalescable_pseudo_p (int regno, bitmap split_origin_bitmap)
 }
 
 /* The major function for aggressive pseudo coalescing of moves only
-   if the both pseudos were spilled and not bound.  */
+   if the both pseudos were spilled and not special reload pseudos.  */
 bool
 lra_coalesce (void)
 {
@@ -257,7 +257,7 @@ lra_coalesce (void)
   mv_num = 0;
   /* Collect pseudos whose live ranges were split.  */
   bitmap_initialize (&split_origin_bitmap, &reg_obstack);
-  EXECUTE_IF_SET_IN_BITMAP (&lra_split_pseudos, 0, regno, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&lra_split_regs, 0, regno, bi)
     if ((restore_regno = lra_reg_info[regno].restore_regno) >= 0)
       bitmap_set_bit (&split_origin_bitmap, restore_regno);
   /* Collect moves.  */
