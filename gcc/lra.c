@@ -138,11 +138,12 @@ expand_reg_data (void)
   ira_expand_reg_equiv ();
 }
 
-/* Create and return a new reg from register FROM corresponding to
-   machine description operand of mode MD_MODE.	 Initialize its
+/* Create and return a new reg of ORIGINAL mode.  If ORIGINAL is NULL
+   or of VOIDmode, use MD_MODE for the new reg.  Initialize its
    register class to RCLASS.  Print message about assigning class
-   RCLASS containing new register name TITLE unless it is NULL.	 The
-   created register will have unique held value.  */
+   RCLASS containing new register name TITLE unless it is NULL.  Use
+   attributes of ORIGINAL if it is a register.  The created register
+   will have unique held value.  */
 rtx
 lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
 				      enum reg_class rclass, const char *title)
@@ -247,8 +248,11 @@ lra_delete_dead_insn (rtx insn)
    which are frequent results of elimination.
 
    Emit insns for x = y + z.  X can be used to store intermediate
-   values and should be not in Y and Z when we use x to store an
-   intermediate value.	*/ 
+   values and should be not in Y and Z when we use X to store an
+   intermediate value.  Y + Z should form [base] [+ index[ * scale]] [
+   + disp] where base and index are registers, disp and scale are
+   constants.  Y should contain base if it is present, Z should
+   contain disp if any.  index[*scale] can be part of Y or Z.  */
 void
 lra_emit_add (rtx x, rtx y, rtx z)
 {
@@ -496,15 +500,14 @@ finish_insn_regs (void)
 /* This page contains code dealing LRA insn info (or in other words
    LRA internal insn representation).  */
 
+struct target_lra_int default_target_lra_int;
+#if SWITCHABLE_TARGET
+struct target_lra_int *this_target_lra_int = &default_target_lra_int;
+#endif
 
 /* Map INSN_CODE -> the static insn data.  This info is valid during
    all translation unit.  */
 struct lra_static_insn_data *insn_code_data[LAST_INSN_CODE];
-
-/* Map INSN_UID -> the operand alternative data (NULL if unknown).  We
-   assume that this data is valid until register info is changed
-   because classes in the data can be changed.	*/
-struct operand_alternative *op_alt_data[LAST_INSN_CODE];
 
 /* Debug insns are represented as a special insn with one input
    operand which is RTL expression in var_location.  */
@@ -918,10 +921,16 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 	if (! TEST_HARD_REG_BIT (lra_no_alloc_regs, regno))
 	  {
 	    for (curr = list; curr != NULL; curr = curr->next)
-	      if (curr->regno == regno)
-		break;
-	    if (curr == NULL || curr->subreg_p != subreg_p
-		|| curr->biggest_mode != mode)
+	      if (curr->regno == regno && curr->subreg_p == subreg_p
+		  && curr->biggest_mode == mode)
+		{
+		  if (curr->type != type)
+		    curr->type = OP_INOUT;
+		  if (curr->early_clobber != early_clobber)
+		    curr->early_clobber = true;
+		  break;
+		}
+	    if (curr == NULL)
 	      {
 		/* This is a new hard regno or the info can not be
 		   integrated into the found structure.	 */
@@ -935,13 +944,6 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 #endif
 		list = new_insn_reg (regno, type, mode, subreg_p,
 				     early_clobber, list);
-	      }
-	    else
-	      {
-		if (curr->type != type)
-		  curr->type = OP_INOUT;
-		if (curr->early_clobber != early_clobber)
-		  curr->early_clobber = true;
 	      }
 	  }
       return list;
@@ -1005,7 +1007,7 @@ lra_set_insn_recog_data (rtx insn)
       icode = INSN_CODE (insn);
       if (icode < 0)
 	/* It might be a new simple insn which is not recognized yet.  */
-	INSN_CODE (insn) = icode = recog (PATTERN (insn), insn, 0);
+	INSN_CODE (insn) = icode = recog_memoized (insn);
     }
   data = XNEW (struct lra_insn_recog_data);
   lra_insn_recog_data[uid] = data;
@@ -1231,7 +1233,7 @@ invalidate_insn_recog_data (int uid)
 }
 
 /* Update all the insn info about INSN.	 It is usually called when
-   something in the insn was changed.  Return the udpated info.	 */
+   something in the insn was changed.  Return the updated info.	 */
 lra_insn_recog_data_t
 lra_update_insn_recog_data (rtx insn)
 {
@@ -1379,6 +1381,27 @@ DEF_VEC_ALLOC_P(lra_copy_t, heap);
 /* Vec referring to pseudo copies.  */
 static VEC(lra_copy_t,heap) *copy_vec;
 
+/* Initialize I-th element of lra_reg_info.  */
+static inline void
+initialize_lra_reg_info_element (int i)
+{
+  bitmap_initialize (&lra_reg_info[i].insn_bitmap, &reg_obstack);
+#ifdef STACK_REGS
+  lra_reg_info[i].no_stack_p = false;
+#endif
+  CLEAR_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs);
+  lra_reg_info[i].preferred_hard_regno1 = -1;
+  lra_reg_info[i].preferred_hard_regno2 = -1;
+  lra_reg_info[i].preferred_hard_regno_profit1 = 0;
+  lra_reg_info[i].preferred_hard_regno_profit2 = 0;
+  lra_reg_info[i].live_ranges = NULL;
+  lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
+  lra_reg_info[i].last_reload = 0;
+  lra_reg_info[i].restore_regno = -1;
+  lra_reg_info[i].val = get_new_reg_value ();
+  lra_reg_info[i].copies = NULL;
+}
+
 /* Initialize common reg info and copies.  */
 static void
 init_reg_info (void)
@@ -1389,23 +1412,7 @@ init_reg_info (void)
   reg_info_size = max_reg_num () * 3 / 2 + 1;
   lra_reg_info = XNEWVEC (struct lra_reg, reg_info_size);
   for (i = 0; i < reg_info_size; i++)
-    {
-      bitmap_initialize (&lra_reg_info[i].insn_bitmap, &reg_obstack);
-#ifdef STACK_REGS
-      lra_reg_info[i].no_stack_p = false;
-#endif
-      CLEAR_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs);
-      lra_reg_info[i].preferred_hard_regno1 = -1;
-      lra_reg_info[i].preferred_hard_regno2 = -1;
-      lra_reg_info[i].preferred_hard_regno_profit1 = 0;
-      lra_reg_info[i].preferred_hard_regno_profit2 = 0;
-      lra_reg_info[i].live_ranges = NULL;
-      lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
-      lra_reg_info[i].last_reload = 0;
-      lra_reg_info[i].restore_regno = -1;
-      lra_reg_info[i].val = get_new_reg_value ();
-      lra_reg_info[i].copies = NULL;
-    }
+    initialize_lra_reg_info_element (i);
   copy_pool
     = create_alloc_pool ("lra copies", sizeof (struct lra_copy), 100);
   copy_vec = VEC_alloc (lra_copy_t, heap, 100);
@@ -1437,23 +1444,7 @@ expand_reg_info (void)
   reg_info_size = max_reg_num () * 3 / 2 + 1;
   lra_reg_info = XRESIZEVEC (struct lra_reg, lra_reg_info, reg_info_size);
   for (i = old; i < reg_info_size; i++)
-    {
-      bitmap_initialize (&lra_reg_info[i].insn_bitmap, &reg_obstack);
-#ifdef STACK_REGS
-      lra_reg_info[i].no_stack_p = false;
-#endif
-      CLEAR_HARD_REG_SET (lra_reg_info[i].conflict_hard_regs);
-      lra_reg_info[i].preferred_hard_regno1 = -1;
-      lra_reg_info[i].preferred_hard_regno2 = -1;
-      lra_reg_info[i].preferred_hard_regno_profit1 = 0;
-      lra_reg_info[i].preferred_hard_regno_profit2 = 0;
-      lra_reg_info[i].live_ranges = NULL;
-      lra_reg_info[i].nrefs = lra_reg_info[i].freq = 0;
-      lra_reg_info[i].last_reload = 0;
-      lra_reg_info[i].restore_regno = -1;
-      lra_reg_info[i].val = get_new_reg_value ();
-      lra_reg_info[i].copies = NULL;
-    }
+    initialize_lra_reg_info_element (i);
 }
 
 /* Free all copies.  */
@@ -1551,28 +1542,32 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
       regno = REGNO (x);
       expand_reg_info ();
       if (bitmap_set_bit (&lra_reg_info[regno].insn_bitmap, uid))
-	data->regs = new_insn_reg (regno, type, mode, subreg_p, early_clobber,
-				   data->regs);
+	{
+	  data->regs = new_insn_reg (regno, type, mode, subreg_p,
+				     early_clobber, data->regs);
+	  return;
+	}
       else
 	{
 	  for (curr = data->regs; curr != NULL; curr = curr->next)
 	    if (curr->regno == regno)
-	      break;
-	  if (curr->subreg_p != subreg_p || curr->biggest_mode != mode)
-	    /* The info can not be integrated into the found
-	       structure.  */
-	    data->regs = new_insn_reg (regno, type, mode, subreg_p,
-				       early_clobber, data->regs);
-	  else
-	    {
-	      if (curr->type != type)
-		curr->type = OP_INOUT;
-	      if (curr->early_clobber != early_clobber)
-		curr->early_clobber = true;
-	    }
-	  lra_assert (curr != NULL);
+	      {
+		if (curr->subreg_p != subreg_p || curr->biggest_mode != mode)
+		  /* The info can not be integrated into the found
+		     structure.  */
+		  data->regs = new_insn_reg (regno, type, mode, subreg_p,
+					     early_clobber, data->regs);
+		else
+		  {
+		    if (curr->type != type)
+		      curr->type = OP_INOUT;
+		    if (curr->early_clobber != early_clobber)
+		      curr->early_clobber = true;
+		  }
+		return;
+	      }
+	  gcc_unreachable ();
 	}
-      return;
     }
 
   switch (code)
@@ -2039,13 +2034,7 @@ check_rtl (bool final_p)
 		   as legitimate.  Although they are legitimate if
 		   they satisfies the constraints and will be checked
 		   by insn constraints which we ignore here.  */
-		&& GET_CODE (XEXP (op, 0)) != UNSPEC
-		&& GET_CODE (XEXP (op, 0)) != PRE_DEC
-		&& GET_CODE (XEXP (op, 0)) != PRE_INC
-		&& GET_CODE (XEXP (op, 0)) != POST_DEC
-		&& GET_CODE (XEXP (op, 0)) != POST_INC
-		&& GET_CODE (XEXP (op, 0)) != PRE_MODIFY
-		&& GET_CODE (XEXP (op, 0)) != POST_MODIFY)
+		&& GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) == RTX_AUTOINC)
 	      fatal_insn_not_found (insn);
 	  }
       }
@@ -2081,7 +2070,12 @@ has_nonexceptional_receiver (void)
       bb = *--tos;
 
       FOR_EACH_EDGE (e, ei, bb->preds)
-	if (!(e->flags & EDGE_ABNORMAL))
+	if (e->flags & EDGE_ABNORMAL)
+	  {
+	    free (worklist);
+	    return true;
+	  }
+	else
 	  {
 	    basic_block src = e->src;
 
@@ -2093,15 +2087,6 @@ has_nonexceptional_receiver (void)
 	  }
     }
   free (worklist);
-
-  /* Now see if there's a reachable block with an exceptional incoming
-     edge.  */
-  FOR_EACH_BB (bb)
-    if (bb->flags & BB_REACHABLE)
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	if (e->flags & EDGE_ABNORMAL)
-	  return true;
-
   /* No exceptional block reached exit unexceptionally.	 */
   return false;
 }
@@ -2141,7 +2126,7 @@ add_auto_inc_notes (rtx insn, rtx x)
    that can make the notes obsolete.  DF-infrastructure does not deal
    with REG_INC notes -- so we should regenerate them here.  */
 static void
-update_reg_notes (void)
+update_inc_notes (void)
 {
   rtx *pnote;
   basic_block bb;
@@ -2154,9 +2139,7 @@ update_reg_notes (void)
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
-	    if (REG_NOTE_KIND (*pnote) == REG_DEAD
-		|| REG_NOTE_KIND (*pnote) == REG_UNUSED
-		|| REG_NOTE_KIND (*pnote) == REG_INC)
+	    if (REG_NOTE_KIND (*pnote) == REG_INC)
 	      *pnote = XEXP (*pnote, 1);
 	    else
 	      pnote = &XEXP (*pnote, 1);
@@ -2361,7 +2344,7 @@ lra (FILE *f)
   regstat_free_n_sets_and_refs ();
   regstat_free_ri ();
   reload_completed = 1;
-  update_reg_notes ();
+  update_inc_notes ();
 
   inserted_p = fixup_abnormal_edges ();
 
@@ -2397,7 +2380,7 @@ lra_init_once (void)
   init_insn_code_data_once ();
 }
 
-/* Initialize LRA data once per function.  */
+/* Initialize LRA whenever register-related information is changed.  */
 void
 lra_init (void)
 {

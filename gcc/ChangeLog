@@ -1,3 +1,55 @@
+2012-10-17  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* Makefile.in (LRA_INT_H): Add $(BITMAP_H) $(RECOG_H)
+	$(INSN_ATTR_H) insn-codes.h.
+	* lra-int.h: Include recog.h and insn-codes.h.
+	(struct lra_insn_reg, struct lra_static_insn_data): Improve
+	comments.
+	(lra_expand_reg_info, lra_secondary_memory): Remove.
+	(lra_save_restore, lra_hard_reg_set_intersection_p): Ditto.
+	(lra_add_hard_reg_set): Ditto.
+	(lra_get_hard_regno_and_offset): Set up offset to zero.
+	(struct target_lra_int): New.
+	(default_target_lra_int, this_target_lra_int, op_alt_data): Ditto.
+	* target-globals.h (this_target_lra_int): New external.
+	(target_globals): New member lra_int.
+	(restore_target_globals): Restore this_target_lra_int.
+	* target-globals.c: Include lra-int.h.
+	(default_target_globals): Add &default_target_lra_int.
+	* doc/md.texi: Add new interpretation of hint * for LRA.
+	* lra-assigns.c (find_hard_regno_for, spill_for): Use
+	add_to_hard_reg_set instead of lra_add_hard_reg_set.  Use
+	overlaps_hard_reg_set_p instead of
+	lra_hard_reg_set_intersection_p.
+	(setup_live_pseudos_and_spill_after_risky): Ditto.
+	(setup_try_hard_regno_pseudos): Use overlaps_hard_reg_set_p
+	instead of lra_hard_reg_set_intersection_p.
+	* lra-constraints.c (uses_hard_regs_p, contains_reg_p): Ditto.
+	(need_for_call_save_p): Ditto.
+	(process_alt_operands, inherit_in_ebb): Use add_to_hard_reg_set
+	instead of lra_add_hard_reg_set.
+	* lra-eliminations.c (spill_pseudos): Use overlaps_hard_reg_set_p
+	instead of lra_hard_reg_set_intersection_p.
+	* lra-spills.c (assign_spill_hard_regs): Use add_to_hard_reg_set
+	instead of lra_add_hard_reg_set.  Use overlaps_hard_reg_set_p
+	instead of lra_hard_reg_set_intersection_p.
+	* lra.c (lra_create_new_reg_with_unique_value): Improve comments.
+	(lra_emit_add): Ditto.
+	(this_target_lra_int, default_target_lra_int): New.
+	(op_alt_data): Move to struct target_lra_int.
+	(collect_non_operand_hard_regs): Simplify code.
+	(lra_set_insn_recog_data): Use recog_memoized.
+	(lra_update_insn_recog_data): Fix typo in a comment.
+	(initialize_lra_reg_info_element): New.
+	(init_reg_info, expand_reg_info): Use
+	initialize_lra_reg_info_element.
+	(add_regs_to_insn_regno_info): Simplify the code.
+	(check_rtl): Use AUTOINC.
+	(has_nonexceptional_receiver): Simplify code.
+	(update_reg_notes): Rename to update_inc_notes.  Ignore REG_DEAD
+	and REG_UNUSED.
+	(lra_init): Improve comment.
+
 2012-10-17  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* lra-int.h (lra_operand_data): Add is_address field.

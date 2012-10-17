@@ -21,7 +21,9 @@ along with GCC; see the file COPYING3.	If not see
 
 #include "lra.h"
 #include "bitmap.h"
+#include "recog.h"
 #include "insn-attr.h"
+#include "insn-codes.h"
 
 #ifdef ENABLE_CHECKING
 #define lra_assert(c) gcc_assert (c)
@@ -161,12 +163,12 @@ struct lra_operand_data
   unsigned int is_address : 1;
 };
 
-/* Info about register in an insn.  */
+/* Info about register occurrence in an insn.  */
 struct lra_insn_reg
 {
   /* The biggest mode through which the insn refers to the register
-     (remember the register can be accessed through a subreg in the
-     insn).  */
+     occurrence (remember the register can be accessed through a
+     subreg in the insn).  */
   ENUM_BITFIELD(machine_mode) biggest_mode : 16;
   /* The type of the corresponding operand which is the register.  */
   ENUM_BITFIELD (op_type) type : 8;
@@ -183,10 +185,11 @@ struct lra_insn_reg
 };
 
 /* Static part (common info for insns with the same ICODE) of LRA
-   internal insn info.	It exists in at most one exemplar for each
-   non-negative ICODE.	Warning: if the structure definition is
-   changed, the initializer for debug_insn_static_data in lra.c should
-   be changed too.  */
+   internal insn info. It exists in at most one exemplar for each
+   non-negative ICODE. There is only one exception. Each asm insn has
+   own structure.  Warning: if the structure definition is changed,
+   the initializer for debug_insn_static_data in lra.c should be
+   changed too.  */
 struct lra_static_insn_data
 {
   /* Static info about each insn operand.  */
@@ -215,9 +218,12 @@ struct lra_static_insn_data
    representation).  */
 struct lra_insn_recog_data
 {
-  int icode; /* The insn code.	*/
-  rtx insn; /* The insn itself.	 */
-  /* Common data for insns with the same ICODE.	 */
+  /* The insn code.  */
+  int icode;
+  /* The insn itself.  */
+  rtx insn;
+  /* Common data for insns with the same ICODE.  Asm insns (their
+     ICODE is negative) do not share such structures.  */
   struct lra_static_insn_data *insn_static_data;
   /* Two arrays of size correspondingly equal to the operand and the
      duplication numbers: */
@@ -235,7 +241,8 @@ struct lra_insn_recog_data
      should try to use any alternative, or the insn is a debug
      insn.  */
   int used_insn_alternative;
-  struct lra_insn_reg *regs;  /* Always NULL for a debug insn.	*/
+  /* The following member value is always NULL for a debug insn.  */
+  struct lra_insn_reg *regs;
 };
 
 typedef struct lra_insn_recog_data *lra_insn_recog_data_t;
@@ -280,7 +287,6 @@ extern void lra_invalidate_insn_regno_info (rtx);
 extern void lra_update_insn_regno_info (rtx);
 extern struct lra_insn_reg *lra_get_insn_regs (int);
 
-extern void lra_expand_reg_info (void);
 extern void lra_free_copies (void);
 extern void lra_create_copy (int, int, int);
 extern lra_copy_t lra_get_copy (int);
@@ -296,8 +302,6 @@ extern int lra_constraint_new_insn_uid_start;
 /* lra-constraints.c: */
 
 extern bitmap_head lra_special_reload_pseudos;
-
-extern rtx lra_secondary_memory[NUM_MACHINE_MODES];
 
 extern int lra_constraint_offset (int, enum machine_mode);
 
@@ -346,10 +350,6 @@ extern bool lra_assign (void);
 extern int lra_coalesce_iter;
 extern bool lra_coalesce (void);
 
-/* lra-saves.c: */
-
-extern bool lra_save_restore (void);
-
 /* lra-spills.c:  */
 
 extern bool lra_need_for_spills_p (void);
@@ -368,22 +368,6 @@ extern void lra_eliminate_reg_if_possible (rtx *);
 
 
 
-/* The function returns TRUE if at least one hard register from ones
-   starting with HARD_REGNO and containing value of MODE are in set
-   HARD_REGSET.	 */
-static inline bool
-lra_hard_reg_set_intersection_p (int hard_regno, enum machine_mode mode,
-				 HARD_REG_SET hard_regset)
-{
-  int i;
-
-  lra_assert (hard_regno >= 0);
-  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
-    if (TEST_HARD_REG_BIT (hard_regset, hard_regno + i))
-      return true;
-  return false;
-}
-
 /* Return hard regno and offset of (sub-)register X through arguments
    HARD_REGNO and OFFSET.  If it is not (sub-)register or the hard
    register is unknown, then return -1 and 0 correspondingly.  */
@@ -392,7 +376,8 @@ lra_get_hard_regno_and_offset (rtx x, int *hard_regno, int *offset)
 {
   rtx reg;
 
-  *hard_regno = *offset = -1;
+  *hard_regno = -1;
+  *offset = 0;
   reg = x;
   if (GET_CODE (x) == SUBREG)
     reg = SUBREG_REG (x);
@@ -402,21 +387,9 @@ lra_get_hard_regno_and_offset (rtx x, int *hard_regno, int *offset)
     *hard_regno = lra_get_regno_hard_regno (*hard_regno);
   if (*hard_regno < 0)
     return;
-  *offset = 0;
   if (GET_CODE (x) == SUBREG)
     *offset += subreg_regno_offset (*hard_regno, GET_MODE (reg),
 				   SUBREG_BYTE (x),  GET_MODE (x));
-}
-
-/* Add hard registers starting with HARD_REGNO and holding value of
-   MODE to the set S.  */
-static inline void
-lra_add_hard_reg_set (int hard_regno, enum machine_mode mode, HARD_REG_SET *s)
-{
-  int i;
-
-  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
-    SET_HARD_REG_BIT (*s, hard_regno + i);
 }
 
 /* Update insn operands which are duplication of NOP operand.  The
@@ -470,3 +443,22 @@ lra_get_insn_recog_data (rtx insn)
     }
   return lra_set_insn_recog_data (insn);
 }
+
+
+
+struct target_lra_int
+{
+  /* Map INSN_UID -> the operand alternative data (NULL if unknown).
+     We assume that this data is valid until register info is changed
+     because classes in the data can be changed.  */
+  struct operand_alternative *x_op_alt_data[LAST_INSN_CODE];
+};
+
+extern struct target_lra_int default_target_lra_int;
+#if SWITCHABLE_TARGET
+extern struct target_lra_int *this_target_lra_int;
+#else
+#define this_target_lra_int (&default_target_lra_int)
+#endif
+
+#define op_alt_data (this_target_lra_int->x_op_alt_data)

@@ -523,9 +523,9 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
       }
     else
       {
-	lra_add_hard_reg_set (live_pseudos_reg_renumber[conflict_regno],
-			      lra_reg_info[conflict_regno].biggest_mode,
-			      &conflict_set);
+	add_to_hard_reg_set (&conflict_set,
+			     lra_reg_info[conflict_regno].biggest_mode,
+			     live_pseudos_reg_renumber[conflict_regno]);
 	if (hard_reg_set_subset_p (reg_class_contents[rclass],
 				   conflict_set))
 	  return -1;
@@ -564,9 +564,8 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 	hard_regno = try_only_hard_regno;
       else
 	hard_regno = ira_class_hard_regs[rclass][i];
-      if (! lra_hard_reg_set_intersection_p (hard_regno,
-					     PSEUDO_REGNO_MODE (regno),
-					     conflict_set)
+      if (! overlaps_hard_reg_set_p (conflict_set,
+				     PSEUDO_REGNO_MODE (regno), hard_regno)
 	  /* We can not use prohibited_class_mode_regs because it is
 	     not defined for all classes.  */
 	  && HARD_REGNO_MODE_OK (hard_regno, PSEUDO_REGNO_MODE (regno))
@@ -741,8 +740,8 @@ setup_try_hard_regno_pseudos (int p, enum reg_class rclass)
     {
       mode = PSEUDO_REGNO_MODE (spill_regno);
       hard_regno = live_pseudos_reg_renumber[spill_regno];
-      if (lra_hard_reg_set_intersection_p (hard_regno, mode,
-					   reg_class_contents[rclass]))
+      if (overlaps_hard_reg_set_p (reg_class_contents[rclass],
+				   mode, hard_regno))
 	{
 	  for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
 	    {
@@ -862,8 +861,8 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file, " spill %d(freq=%d)",
 		     spill_regno, lra_reg_info[spill_regno].freq);
-	  lra_add_hard_reg_set (reg_renumber[spill_regno], mode2,
-				&spilled_hard_regs);
+	  add_to_hard_reg_set (&spilled_hard_regs,
+			       mode2, reg_renumber[spill_regno]);
 	  for (r = lra_reg_info[spill_regno].live_ranges;
 	       r != NULL;
 	       r = r->next)
@@ -903,9 +902,9 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	      if ((reload_hard_regno
 		   = find_hard_regno_for (reload_regno,
 					  &reload_cost, -1)) >= 0
-		  && (lra_hard_reg_set_intersection_p
-		      (reload_hard_regno, PSEUDO_REGNO_MODE (reload_regno),
-		       spilled_hard_regs)))
+		  && (overlaps_hard_reg_set_p
+		      (spilled_hard_regs,
+		       PSEUDO_REGNO_MODE (reload_regno), reload_hard_regno)))
 		{
 		  if (lra_dump_file != NULL)
 		    fprintf (lra_dump_file, " assign %d(cost=%d)",
@@ -1058,10 +1057,10 @@ setup_live_pseudos_and_spill_after_risky_transforms (bitmap
 	    /* If it is multi-register pseudos they should start on
 	       the same hard register.	*/
 	    || hard_regno != reg_renumber[conflict_regno])
-	  lra_add_hard_reg_set (reg_renumber[conflict_regno],
-				lra_reg_info[conflict_regno].biggest_mode,
-				&conflict_set);
-      if (! lra_hard_reg_set_intersection_p (hard_regno, mode, conflict_set))
+	  add_to_hard_reg_set (&conflict_set,
+			       lra_reg_info[conflict_regno].biggest_mode,
+			       reg_renumber[conflict_regno]);
+      if (! overlaps_hard_reg_set_p (conflict_set, mode, hard_regno))
 	{
 	  update_lives (regno, false);
 	  continue;
@@ -1357,9 +1356,8 @@ lra_assign (void)
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
     if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
 	&& lra_reg_info[i].call_p
-	&& lra_hard_reg_set_intersection_p (reg_renumber[i],
-					    PSEUDO_REGNO_MODE (i),
-					    call_used_reg_set))
+	&& overlaps_hard_reg_set_p (call_used_reg_set,
+				    PSEUDO_REGNO_MODE (i), reg_renumber[i]))
       gcc_unreachable ();
 #endif
   /* Setup insns to process on the next constraint pass.  */

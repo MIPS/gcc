@@ -1465,7 +1465,7 @@ uses_hard_regs_p (rtx x, HARD_REG_SET set)
       /* The real hard regno of the operand after the allocation.  */
       x_hard_regno = get_final_hard_regno (x_hard_regno, offset);
       return (x_hard_regno >= 0
-	      && lra_hard_reg_set_intersection_p (x_hard_regno, mode, set));
+	      && overlaps_hard_reg_set_p (set, mode, x_hard_regno));
     }
   if (MEM_P (x))
     {
@@ -2223,7 +2223,7 @@ process_alt_operands (int only_alternative)
 	    continue;
 	  clobbered_hard_regno = hard_regno[i];
 	  CLEAR_HARD_REG_SET (temp_set);
-	  lra_add_hard_reg_set (clobbered_hard_regno, biggest_mode[i], &temp_set);
+	  add_to_hard_reg_set (&temp_set, biggest_mode[i], clobbered_hard_regno);
 	  for (j = 0; j < n_operands; j++)
 	    if (j == i
 		/* We don't want process insides of match_operator and
@@ -3330,8 +3330,7 @@ contains_reg_p (rtx x, bool hard_reg_p, bool spilled_p)
 	  if (regno < 0)
 	    return false;
 	  COMPL_HARD_REG_SET (alloc_regs, lra_no_alloc_regs);
-	  return lra_hard_reg_set_intersection_p (regno, GET_MODE (x),
-						  alloc_regs);
+	  return overlaps_hard_reg_set_p (alloc_regs, GET_MODE (x), regno);
 	}
       else
 	{
@@ -3972,9 +3971,9 @@ need_for_call_save_p (int regno)
 {
   lra_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
   return (usage_insns[regno].calls_num < calls_num
-	  && (lra_hard_reg_set_intersection_p
-	      (reg_renumber[regno], PSEUDO_REGNO_MODE (regno),
-	       call_used_reg_set)));
+	  && (overlaps_hard_reg_set_p
+	      (call_used_reg_set,
+	       PSEUDO_REGNO_MODE (regno), reg_renumber[regno])));
 }
 
 /* Global registers occuring in the current EBB.  */
@@ -4504,9 +4503,9 @@ inherit_in_ebb (rtx head, rtx tail)
 		  if (j < FIRST_PSEUDO_REGISTER)
 		    SET_HARD_REG_BIT (live_hard_regs, j);
 		  else
-		    lra_add_hard_reg_set (reg_renumber[j],
-					  PSEUDO_REGNO_MODE (j),
-					  &live_hard_regs);
+		    add_to_hard_reg_set (&live_hard_regs,
+					 PSEUDO_REGNO_MODE (j),
+					 reg_renumber[j]);
 		  setup_next_usage_insn (j, last_insn, reloads_num, after_p);
 		}
 	    }
@@ -4605,10 +4604,10 @@ inherit_in_ebb (rtx head, rtx tail)
 		      change_p = true;
 		    CLEAR_HARD_REG_SET (s);
 		    if (dst_regno < FIRST_PSEUDO_REGISTER)
-		      lra_add_hard_reg_set (dst_regno, reg->biggest_mode, &s);
+		      add_to_hard_reg_set (&s, reg->biggest_mode, dst_regno);
 		    else
-		      lra_add_hard_reg_set (reg_renumber[dst_regno],
-					    PSEUDO_REGNO_MODE (dst_regno), &s);
+		      add_to_hard_reg_set (&s, PSEUDO_REGNO_MODE (dst_regno),
+					   reg_renumber[dst_regno]);
 		    AND_COMPL_HARD_REG_SET (live_hard_regs, s);
 		  }
 		/* We should invalidate potential inheritance for the
@@ -4704,12 +4703,12 @@ inherit_in_ebb (rtx head, rtx tail)
 		    if (NONDEBUG_INSN_P (curr_insn))
 		      {
 			if (src_regno < FIRST_PSEUDO_REGISTER)
-			  lra_add_hard_reg_set (src_regno, reg->biggest_mode,
-						&live_hard_regs);
+			  add_to_hard_reg_set (&live_hard_regs,
+					       reg->biggest_mode, src_regno);
 			else
-			  lra_add_hard_reg_set (reg_renumber[src_regno],
-						PSEUDO_REGNO_MODE (src_regno),
-						&live_hard_regs);
+			  add_to_hard_reg_set (&live_hard_regs,
+					       PSEUDO_REGNO_MODE (src_regno),
+					       reg_renumber[src_regno]);
 		      }
 		    add_next_usage_insn (src_regno, use_insn, reloads_num);
 		  }

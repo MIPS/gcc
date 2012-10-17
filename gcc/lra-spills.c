@@ -279,8 +279,8 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	&& (hard_regno = lra_get_regno_hard_regno (i)) >= 0)
       for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
 	for (p = r->start; p <= r->finish; p++)
-	  lra_add_hard_reg_set (hard_regno, lra_reg_info[i].biggest_mode,
-				&reserved_hard_regs[p]);
+	  add_to_hard_reg_set (&reserved_hard_regs[p],
+			       lra_reg_info[i].biggest_mode, hard_regno);
   bitmap_initialize (&ok_insn_bitmap, &reg_obstack);
   FOR_EACH_BB (bb)
     FOR_BB_INSNS (bb, insn)
@@ -314,8 +314,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
       for (k = 0; k < spill_class_size; k++)
 	{
 	  hard_regno = ira_class_hard_regs[spill_class][k];
-	  if (! lra_hard_reg_set_intersection_p (hard_regno, mode,
-						 conflict_hard_regs))
+	  if (! overlaps_hard_reg_set_p (conflict_hard_regs, mode, hard_regno))
 	    break;
 	}
       if (k >= spill_class_size)
@@ -329,8 +328,8 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
       /* Update reserved_hard_regs.  */
       for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
 	for (p = r->start; p <= r->finish; p++)
-	  lra_add_hard_reg_set (hard_regno, lra_reg_info[regno].biggest_mode,
-				&reserved_hard_regs[p]);
+	  add_to_hard_reg_set (&reserved_hard_regs[p],
+			       lra_reg_info[regno].biggest_mode, hard_regno);
       spill_hard_reg[regno]
 	= gen_raw_REG (PSEUDO_REGNO_MODE (regno), hard_regno);
       for (nr = 0;

@@ -1016,8 +1016,8 @@ spill_pseudos (HARD_REG_SET set)
   bitmap_initialize (&to_process, &reg_obstack);
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
-	&& lra_hard_reg_set_intersection_p (reg_renumber[i],
-					    PSEUDO_REGNO_MODE (i), set))
+	&& overlaps_hard_reg_set_p (set,
+				    PSEUDO_REGNO_MODE (i), reg_renumber[i]))
       {
 	if (lra_dump_file != NULL)
 	  fprintf (lra_dump_file, "	 Spilling r%d(%d)\n",
