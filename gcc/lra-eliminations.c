@@ -1,6 +1,7 @@
 /* Code for RTL register eliminations.
    Copyright (C) 2010, 2011, 2012
    Free Software Foundation, Inc.
+   Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
 

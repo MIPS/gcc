@@ -3728,7 +3728,7 @@ lra_constraints (bool first_p)
 /* Initiate the LRA constraint pass.  It is done once per
    function.  */
 void
-lra_contraints_init (void)
+lra_constraints_init (void)
 {
   bitmap_initialize (&lra_special_reload_pseudos, &reg_obstack);
 }
@@ -3736,7 +3736,7 @@ lra_contraints_init (void)
 /* Finalize the LRA constraint pass.  It is done once per
    function.  */
 void
-lra_contraints_finish (void)
+lra_constraints_finish (void)
 {
   bitmap_clear (&lra_special_reload_pseudos);
 }

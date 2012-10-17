@@ -1,5 +1,13 @@
 2012-10-16  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-int.h (lra_constraints_finish, lra_constraints_finish):
+	Rename to lra_constraints_start and lra_constraints_finish.
+	* lra-constraints.c: Ditto.
+	* lra.c (lra): Use the renamed functions.
+	* lra-eliminations.c: Add contributor.
+
+2012-10-16  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-int.h (lra_split_pseudos): Rename to lra_split_regs.
 	(lra_bound_pseudos): Rename to lra_special_reload_pseudos.
 	(lra_matched_pseudos): Remove.
@@ -10,7 +18,7 @@
 	(improve_inheritance): Remove bound pseudo mentioning.
 	* lra.c: Remove comment about bound pseudos.
 	(lra_split_pseudos): Rename to lra_split_regs.
-	(lra): Ditto.  Remove reseting lra_matched_pseudos.
+	(lra): Ditto.  Remove resetting lra_matched_pseudos.
 	* lra-coalesce.c: Rename bound pseudos into special reload
 	pseudos.
 	(coalescable_pseudo_p, lra_coalesce): Ditto.  Use
@@ -24,7 +32,7 @@
 	(match_reload): Ditto.  Remove setting lra_matched_pseudos.
 	(process_address): Simplify the code.  Improve comments.
 	(match_reload): Ditto.  Remove setting lra_matched_pseudos.
-	(emit_inc): Remove uneccessary code.  Improve comments.
+	(emit_inc): Remove unnecessary code.  Improve comments.
 	(swap_operands): New function.
 	(curr_insn_transform): Use it.  Improve comments.  Remove code
 	dealing with plus.  Use RTX_AUTOINC.  Simplify code dealing with
@@ -53,11 +61,11 @@
 	(get_first_non_debug_insn, get_last_non_debug_insn): New
 	functions.
 	(get_live_on_other_edges): Use get_last_non_debug_insn.  Remove
-	uneccesary regno check.
+	unnecessary regno check.
 	(inherit_in_ebb): Improve comments.  Use get_first_non_debug_insn,
 	get_last_non_debug_insn, setup_next_usage_insn, and
-	split_if_necessary.  Update lives for mult-word hard regs too.
-	Remove uneccessary checks for finding barrier.
+	split_if_necessary.  Update lives for multi-word hard regs too.
+	Remove unnecessary checks for finding barrier.
 	(inherit_in_ebb): Use get_first_non_debug_insn and
 	get_last_non_debug_insn.
 	(temp_bitmap_head): Remove.

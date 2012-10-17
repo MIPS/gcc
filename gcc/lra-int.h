@@ -305,8 +305,8 @@ extern bool lra_risky_transformations_p;
 extern int lra_inheritance_iter;
 extern int lra_undo_inheritance_iter;
 extern bool lra_constraints (bool);
-extern void lra_contraints_init (void);
-extern void lra_contraints_finish (void);
+extern void lra_constraints_init (void);
+extern void lra_constraints_finish (void);
 extern void lra_inheritance (void);
 extern bool lra_undo_inheritance (void);
 

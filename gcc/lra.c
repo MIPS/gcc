@@ -2272,7 +2272,7 @@ lra (FILE *f)
   lra_constraint_insn_stack_bitmap = sbitmap_alloc (get_max_uid ());
   sbitmap_zero (lra_constraint_insn_stack_bitmap);
   lra_live_ranges_init ();
-  lra_contraints_init ();
+  lra_constraints_init ();
   lra_curr_reload_num = 0;
   push_insns (get_last_insn (), NULL_RTX);
   /* It is needed for the 1st coalescing.  */
@@ -2349,7 +2349,7 @@ lra (FILE *f)
   lra_in_progress = 0;
   lra_clear_live_ranges ();
   lra_live_ranges_finish ();
-  lra_contraints_finish ();
+  lra_constraints_finish ();
   finish_reg_info ();
   sbitmap_free (lra_constraint_insn_stack_bitmap);
   VEC_free (rtx, heap, lra_constraint_insn_stack);
