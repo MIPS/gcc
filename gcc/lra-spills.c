@@ -498,8 +498,8 @@ spill_pseudos (void)
 	     can miss the pseudo in some
 	     CALL_INSN_FUNCTION_USAGEs.  */
 	  remove_pseudos (&CALL_INSN_FUNCTION_USAGE (insn), insn);
-      bitmap_and_compl_into (DF_LR_IN (bb), &spilled_pseudos);
-      bitmap_and_compl_into (DF_LR_OUT (bb), &spilled_pseudos);
+      bitmap_and_compl_into (df_get_live_in (bb), &spilled_pseudos);
+      bitmap_and_compl_into (df_get_live_out (bb), &spilled_pseudos);
     }
   bitmap_clear (&spilled_pseudos);
   bitmap_clear (&changed_insns);

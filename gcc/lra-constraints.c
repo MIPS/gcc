@@ -4281,34 +4281,34 @@ update_ebb_live_info (rtx head, rtx tail)
 	{
 	  if (prev_bb != NULL)
 	    {
-	      /* Update DF_LR_IN (prev_bb):  */
+	      /* Update df_get_live_in (prev_bb):  */
 	      EXECUTE_IF_SET_IN_BITMAP (&check_only_regs, 0, j, bi)
 		if (bitmap_bit_p (&live_regs, j))
-		  bitmap_set_bit (DF_LR_IN (prev_bb), j);
+		  bitmap_set_bit (df_get_live_in (prev_bb), j);
 		else
-		  bitmap_clear_bit (DF_LR_IN (prev_bb), j);
+		  bitmap_clear_bit (df_get_live_in (prev_bb), j);
 	    }
 	  if (curr_bb != last_bb)
 	    {
-	      /* Update DF_LR_OUT (curr_bb):  */
+	      /* Update df_get_live_out (curr_bb):  */
 	      EXECUTE_IF_SET_IN_BITMAP (&check_only_regs, 0, j, bi)
 		{
 		  live_p = bitmap_bit_p (&live_regs, j);
 		  if (! live_p)
 		    FOR_EACH_EDGE (e, ei, curr_bb->succs)
-		      if (bitmap_bit_p (DF_LR_IN (e->dest), j))
+		      if (bitmap_bit_p (df_get_live_in (e->dest), j))
 			{
 			  live_p = true;
 			  break;
 			}
 		  if (live_p)
-		    bitmap_set_bit (DF_LR_OUT (curr_bb), j);
+		    bitmap_set_bit (df_get_live_out (curr_bb), j);
 		  else
-		    bitmap_clear_bit (DF_LR_OUT (curr_bb), j);
+		    bitmap_clear_bit (df_get_live_out (curr_bb), j);
 		}
 	    }
 	  prev_bb = curr_bb;
-	  bitmap_and (&live_regs, &check_only_regs, DF_LR_OUT (curr_bb));
+	  bitmap_and (&live_regs, &check_only_regs, df_get_live_out (curr_bb));
 	}
       if (DEBUG_INSN_P (curr_insn))
 	continue;
@@ -4419,7 +4419,7 @@ get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
   bitmap_clear (res);
   FOR_EACH_EDGE (e, ei, from->succs)
     if (e->dest != to)
-      bitmap_ior_into (res, DF_LR_IN (e->dest));
+      bitmap_ior_into (res, df_get_live_in (e->dest));
   if ((last = get_last_non_debug_insn (from)) == NULL_RTX || ! JUMP_P (last))
     return;
   curr_id = lra_get_insn_recog_data (last);
@@ -4476,7 +4476,7 @@ inherit_in_ebb (rtx head, rtx tail)
 	{
 	  /* We are at the end of BB.  Add qualified living
 	     pseudos for potential splitting.  */
-	  to_process = DF_LR_OUT (curr_bb);
+	  to_process = df_get_live_out (curr_bb);
 	  if (last_processed_bb != NULL)
 	    {	
 	      /* We are somewhere in the middle of EBB.	 */
@@ -4490,7 +4490,7 @@ inherit_in_ebb (rtx head, rtx tail)
 		     && (! CALL_P (last_insn)
 			 || find_reg_note (last_insn,
 					   REG_NORETURN, NULL) == NULL_RTX));
-	  REG_SET_TO_HARD_REG_SET (live_hard_regs, DF_LR_OUT (curr_bb));
+	  REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_out (curr_bb));
 	  IOR_HARD_REG_SET (live_hard_regs, eliminable_regset);
 	  IOR_HARD_REG_SET (live_hard_regs, lra_no_alloc_regs);
 	  CLEAR_HARD_REG_SET (potential_reload_hard_regs);
@@ -4730,7 +4730,7 @@ inherit_in_ebb (rtx head, rtx tail)
 	  /* We reached the beginning of the current block -- do
 	     rest of spliting in the current BB.  */
 	  first_insn = get_first_non_debug_insn (curr_bb);
-	  to_process = DF_LR_IN (curr_bb);
+	  to_process = df_get_live_in (curr_bb);
 	  if (BLOCK_FOR_INSN (head) != curr_bb)
 	    {	
 	      /* We are somewhere in the middle of EBB.	 */
@@ -4804,7 +4804,7 @@ lra_inheritance (void)
 	fprintf (lra_dump_file, "EBB");
       /* Form a EBB starting with BB.  */
       bitmap_clear (&ebb_global_regs);
-      bitmap_ior_into (&ebb_global_regs, DF_LR_IN (bb));
+      bitmap_ior_into (&ebb_global_regs, df_get_live_in (bb));
       for (;;)
 	{
 	  if (lra_dump_file != NULL)
@@ -4818,7 +4818,7 @@ lra_inheritance (void)
 	    break;
 	  bb = bb->next_bb;
 	}
-      bitmap_ior_into (&ebb_global_regs, DF_LR_OUT (bb));
+      bitmap_ior_into (&ebb_global_regs, df_get_live_out (bb));
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "\n");
       if (inherit_in_ebb (BB_HEAD (start_bb), BB_END (bb)))
@@ -4901,8 +4901,8 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
      constraint pass.  */
   FOR_EACH_BB (bb)
     {
-      fix_bb_live_info (DF_LR_IN (bb), remove_pseudos);
-      fix_bb_live_info (DF_LR_OUT (bb), remove_pseudos);
+      fix_bb_live_info (df_get_live_in (bb), remove_pseudos);
+      fix_bb_live_info (df_get_live_out (bb), remove_pseudos);
       FOR_BB_INSNS_REVERSE (bb, curr_insn)
 	{
 	  if (! INSN_P (curr_insn))

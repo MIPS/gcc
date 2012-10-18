@@ -490,7 +490,7 @@ process_bb_lives (basic_block bb, int &curr_point)
   rtx link, *link_loc;
   bool need_curr_point_incr;
 
-  reg_live_out = DF_LR_OUT (bb);
+  reg_live_out = df_get_live_out (bb);
   sparseset_clear (pseudos_live);
   sparseset_clear (pseudos_live_through_calls);
   sparseset_clear (pseudos_live_through_setjumps);
@@ -747,7 +747,7 @@ process_bb_lives (basic_block bb, int &curr_point)
   EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, i)
     mark_pseudo_dead (i, curr_point);
 
-  EXECUTE_IF_SET_IN_BITMAP (DF_LR_IN (bb), FIRST_PSEUDO_REGISTER, j, bi)
+  EXECUTE_IF_SET_IN_BITMAP (df_get_live_in (bb), FIRST_PSEUDO_REGISTER, j, bi)
     {
       if (sparseset_cardinality (pseudos_live_through_calls) == 0)
 	break;

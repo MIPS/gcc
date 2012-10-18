@@ -324,8 +324,8 @@ lra_coalesce (void)
   bitmap_initialize (&used_pseudos_bitmap, &reg_obstack);
   FOR_EACH_BB (bb)
     {
-      update_live_info (DF_LR_IN (bb));
-      update_live_info (DF_LR_OUT (bb));
+      update_live_info (df_get_live_in (bb));
+      update_live_info (df_get_live_out (bb));
       FOR_BB_INSNS_SAFE (bb, insn, next)
 	if (INSN_P (insn)
 	    && bitmap_bit_p (&involved_insns_bitmap, INSN_UID (insn)))

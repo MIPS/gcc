@@ -1,3 +1,14 @@
+2012-10-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-spills.c (spill_pseudos): Use df_get_live_in and
+	df_get_live_out instead of DF_LR_IN and DF_LR_OUT.
+	* lra-lives.c (process_bb_lives): Ditto.
+	* lra-coalesce.c (lra_coalesce): Ditto.
+	* lra-constraints.c (update_ebb_live_info): Ditto.
+	(get_live_on_other_edges, inherit_in_ebb, lra_inheritance):
+	Ditto.
+	(remove_inheritance_pseudos): Ditto.
+
 2012-10-17  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* Makefile.in (LRA_INT_H): Add $(BITMAP_H) $(RECOG_H)
