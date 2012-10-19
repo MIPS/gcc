@@ -1,5 +1,10 @@
 2012-10-19  Richard Sandiford  <rdsandiford@googlemail.com>
 
+	* lra-constraints.c (check_and_process_move): Only apply REGNO
+	to registers.
+
+2012-10-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
 	* lra-constraints.c (split_reg): Allow usage_insn to be a note.
 	(get_first_non_debug_insn): Delete.
 	(get_last_non_debug_insn): Rename to...

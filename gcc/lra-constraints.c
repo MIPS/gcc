@@ -1157,14 +1157,18 @@ check_and_process_move (bool *change_p, bool *sec_mem_p)
   /* Set up hard register for a reload pseudo for hook
      secondary_reload because some targets just ignore unassigned
      pseudos in the hook.  */
-  dregno = REGNO (dreg);
-  if (dclass != NO_REGS && lra_get_regno_hard_regno (dregno) < 0)
-    reg_renumber[dregno] = ira_class_hard_regs[dclass][0];
+  if (dclass != NO_REGS && lra_get_regno_hard_regno (REGNO (dreg)) < 0)
+    {
+      dregno = REGNO (dreg);
+      reg_renumber[dregno] = ira_class_hard_regs[dclass][0];
+    }
   else
     dregno = -1;
-  sregno = REGNO (sreg);
-  if (sclass != NO_REGS && lra_get_regno_hard_regno (sregno) < 0)
-    reg_renumber[sregno] = ira_class_hard_regs[sclass][0];
+  if (sclass != NO_REGS && lra_get_regno_hard_regno (REGNO (sreg)) < 0)
+    {
+      sregno = REGNO (sreg);
+      reg_renumber[sregno] = ira_class_hard_regs[sclass][0];
+    }
   else
     sregno = -1;
   if (sclass != NO_REGS)
