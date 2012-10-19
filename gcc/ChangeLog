@@ -1,3 +1,15 @@
+2012-10-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (split_reg): Allow usage_insn to be a note.
+	(get_first_non_debug_insn): Delete.
+	(get_last_non_debug_insn): Rename to...
+	(get_last_insertion_point): ...this.  Return the block begin note
+	if there are no instructions.
+	(get_live_on_other_edges): Update the call to get_last_non_debug_insn
+	accordingly and require get_last_insertion_point to return nonnull.
+	(inherit_in_ebb): Likewise.  Insert instructions after bb_note
+	rather than before get_first_non_debug_insn.
+
 2012-10-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-int.h (lra_special_reload_pseudos): Remove.

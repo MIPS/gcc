@@ -4176,7 +4176,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
 			  -1, 0);
 	}
     }
-  lra_assert (NONDEBUG_INSN_P (usage_insn));
+  lra_assert (NOTE_P (usage_insn) || NONDEBUG_INSN_P (usage_insn));
   lra_assert (usage_insn != insn || (after_p && before_p));
   lra_process_new_insns (usage_insn, after_p ? NULL_RTX : restore,
 			 after_p ? restore : NULL_RTX,
@@ -4355,30 +4355,17 @@ add_to_inherit (int regno, rtx insns)
   to_inherit[to_inherit_num++].insns = insns;
 }
 
-/* Return first non-debug insn in basic block BB.  Return null if
-   there are no non-debug insns in the block.  */
+/* Return the last non-debug insn in basic block BB, or the block begin
+   note if none.  */
 static rtx
-get_first_non_debug_insn (basic_block bb)
-{
-  rtx insn;
-
-  FOR_BB_INSNS (bb, insn)
-    if (NONDEBUG_INSN_P (insn))
-      return insn;
-  return NULL_RTX;
-}
-
-/* Return last non-debug insn in basic block BB.  Return null if there
-   are no non-debug insns in the block.  */
-static rtx
-get_last_non_debug_insn (basic_block bb)
+get_last_insertion_point (basic_block bb)
 {
   rtx insn;
 
   FOR_BB_INSNS_REVERSE (bb, insn)
-    if (NONDEBUG_INSN_P (insn))
+    if (NONDEBUG_INSN_P (insn) || NOTE_INSN_BASIC_BLOCK_P (insn))
       return insn;
-  return NULL_RTX;
+  gcc_unreachable ();
 }
 
 /* Set up RES by registers living on edges FROM except the edge (FROM,
@@ -4396,7 +4383,8 @@ get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
   FOR_EACH_EDGE (e, ei, from->succs)
     if (e->dest != to)
       bitmap_ior_into (res, df_get_live_in (e->dest));
-  if ((last = get_last_non_debug_insn (from)) == NULL_RTX || ! JUMP_P (last))
+  last = get_last_insertion_point (from);
+  if (! JUMP_P (last))
     return;
   curr_id = lra_get_insn_recog_data (last);
   for (reg = curr_id->regs; reg != NULL; reg = reg->next)
@@ -4425,7 +4413,7 @@ inherit_in_ebb (rtx head, rtx tail)
 {
   int i, src_regno, dst_regno;
   bool change_p, succ_p;
-  rtx prev_insn, next_usage_insns, set, first_insn, last_insn;
+  rtx prev_insn, next_usage_insns, set, last_insn;
   enum reg_class cl;
   struct lra_insn_reg *reg;
   basic_block last_processed_bb, curr_bb = NULL;
@@ -4461,8 +4449,8 @@ inherit_in_ebb (rtx head, rtx tail)
 	      to_process = &temp_bitmap;
 	    }
 	  last_processed_bb = curr_bb;
-	  last_insn = get_last_non_debug_insn (curr_bb);
-	  after_p = (last_insn != NULL_RTX && ! JUMP_P (last_insn)
+	  last_insn = get_last_insertion_point (curr_bb);
+	  after_p = (! JUMP_P (last_insn)
 		     && (! CALL_P (last_insn)
 			 || find_reg_note (last_insn,
 					   REG_NORETURN, NULL) == NULL_RTX));
@@ -4705,7 +4693,6 @@ inherit_in_ebb (rtx head, rtx tail)
 	{
 	  /* We reached the beginning of the current block -- do
 	     rest of spliting in the current BB.  */
-	  first_insn = get_first_non_debug_insn (curr_bb);
 	  to_process = df_get_live_in (curr_bb);
 	  if (BLOCK_FOR_INSN (head) != curr_bb)
 	    {	
@@ -4723,8 +4710,7 @@ inherit_in_ebb (rtx head, rtx tail)
 		  && usage_insns[j].check == curr_usage_insns_check
 		  && (next_usage_insns = usage_insns[j].insns) != NULL_RTX)
 		{
-		  if (first_insn != NULL_RTX
-		      && need_for_split_p (potential_reload_hard_regs, j))
+		  if (need_for_split_p (potential_reload_hard_regs, j))
 		    {
 		      if (lra_dump_file != NULL && head_p)
 			{
@@ -4732,7 +4718,8 @@ inherit_in_ebb (rtx head, rtx tail)
 				   "  ----------------------------------\n");
 			  head_p = false;
 			}
-		      if (split_reg (true, j, first_insn, next_usage_insns))
+		      if (split_reg (false, j, bb_note (curr_bb),
+				     next_usage_insns))
 			change_p = true;
 		    }
 		  usage_insns[j].check = 0;
