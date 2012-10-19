@@ -217,11 +217,6 @@ coalescable_pseudo_p (int regno, bitmap split_origin_bitmap)
 	     split.  So don't coalesce them, it is not necessary and
 	     the undo transformations would be wrong.  */
 	  && ! bitmap_bit_p (split_origin_bitmap, regno)
-	  /* Don't coalesces special reload pseudos.  These pseudos
-	     has own rules for finding live ranges.  It is hard to
-	     maintain this info with coalescing and it is not worth to
-	     do it.  */
-	  && ! bitmap_bit_p (&lra_special_reload_pseudos, regno)
 	  /* We don't want to coalesce regnos with equivalences, at
 	     least without updating this info.  */
 	  && ira_reg_equiv[regno].constant == NULL_RTX

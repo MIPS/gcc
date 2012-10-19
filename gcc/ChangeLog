@@ -1,5 +1,33 @@
 2012-10-18  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-int.h (lra_special_reload_pseudos): Remove.
+	(lra_get_hard_regno_and_offset): Ditto.
+	* lra-lives.c (process_bb_lives): Don't check
+	lra_special_reload_pseudos.
+	* lra-coalesce.c (coalescable_pseudo_p): Ditto.
+	* lra-constraints.c: Remove comment about special reload pseudos.
+	(get_hard_regno): New.
+	(extract_loc_address_regs): Add asserts.  Add explicit case for
+	base + disp.  Merge constant cases.  Add ASHIFT where MULT.
+	Simplify PLUS code by adding MULT and ASHIFT case.
+	(operands_match_p): Use get_hard_regno instead of
+	lra_get_hard_regno_and_offset.
+	(lra_special_reload_pseudos): Remove.
+	(match_reload): Emit clobber.  Don't set
+	lra_special_reload_pseudos.
+	(uses_hard_regs_p): Use get_hard_regno instead of
+	lra_get_hard_regno_and_offset and get_final_hard_regno.
+	(process_alt_operands): Ditto.  Don't increase reload_nregs for
+	contmemok and offmemok cases.
+	(exchange_plus_ops): Remove.
+	(process_address): Don't exchange plus operands.
+	(emit_inc): Remove post in if.  Modify the comment.
+	(lra_constraints_init, lra_constraints_finish): Remove dealing
+	with lra_special_reload_pseudos.
+	(update_ebb_live_info): Don't check lra_special_reload_pseudos.
+
+2012-10-18  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-spills.c (spill_pseudos): Use df_get_live_in and
 	df_get_live_out instead of DF_LR_IN and DF_LR_OUT.
 	* lra-lives.c (process_bb_lives): Ditto.

@@ -36,7 +36,6 @@
    There are a lot of important details like:
      o reuse of input reload pseudos to simplify reload pseudo
        allocations;
-     o special reload pseudos (when different modes are needed);
      o some heuristics to choose insn alternative to improve the
        inheritance;
      o early clobbers etc.
@@ -181,6 +180,31 @@ get_final_hard_regno (int hard_regno, int offset)
     return hard_regno;
   hard_regno = lra_get_elimination_hard_regno (hard_regno);
   return hard_regno + offset;
+}
+
+/* Return hard regno of X after removing subreg and making
+   elimination.  If X is not a register or subreg of register, return
+   -1.  For pseudo use its assignment.  */
+static int
+get_hard_regno (rtx x)
+{
+  rtx reg;
+  int offset, hard_regno;
+
+  reg = x;
+  if (GET_CODE (x) == SUBREG)
+    reg = SUBREG_REG (x);
+  if (! REG_P (reg))
+    return -1;
+  if ((hard_regno = REGNO (reg)) >= FIRST_PSEUDO_REGISTER)
+    hard_regno = lra_get_regno_hard_regno (hard_regno);
+  if (hard_regno < 0)
+    return -1;
+  offset = 0;
+  if (GET_CODE (x) == SUBREG)
+    offset += subreg_regno_offset (hard_regno, GET_MODE (reg),
+				   SUBREG_BYTE (x),  GET_MODE (x));
+  return get_final_hard_regno (hard_regno, offset);
 }
 
 /* If REGNO is a hard register or has been allocated a hard register,
@@ -481,7 +505,10 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
     case SYMBOL_REF:
     case LABEL_REF:
       if (! context_p)
-	ad->disp_loc = loc;
+	{
+	  lra_assert (top_p);
+	  ad->disp_loc = loc;
+	}
       return;
 
     case CC0:
@@ -522,6 +549,16 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	  {
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, code,
 				      code1, modify_p, ad);
+	    lra_assert (ad->disp_loc == NULL);
+	    ad->disp_loc = arg1_loc;
+	  }
+	/* Base + disp addressing  */
+	else if (code != PLUS && code0 != MULT && code0 != ASHIFT
+		 && CONSTANT_P (arg1))
+	  {
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
+				      code1, modify_p, ad);
+	    lra_assert (ad->disp_loc == NULL);
 	    ad->disp_loc = arg1_loc;
 	  }
 	/* If index and base registers are the same on this machine,
@@ -530,34 +567,22 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	   addresses are in canonical form.  */
 	else if (INDEX_REG_CLASS
 		 == base_reg_class (VOIDmode, as, PLUS, SCRATCH)
-		 && code0 != PLUS && code0 != MULT)
+		 && code0 != PLUS && code0 != MULT && code0 != ASHIFT)
 	  {
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
 				      code1, modify_p, ad);
-	    if (! CONSTANT_P (arg1))
-	      extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
-					code0, modify_p, ad);
-	    else
-	      ad->disp_loc = arg1_loc;
+	    lra_assert (! CONSTANT_P (arg1));
+	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
+				      code0, modify_p, ad);
 	  }
-
-	/* If the second operand is a constant integer, it doesn't
-	   change what class the first operand must be.	 */
-	else if (code1 == CONST_INT || code1 == CONST_DOUBLE)
+	/* It might be index * scale + disp. */
+	else if (code1 == CONST_INT || code1 == CONST_DOUBLE
+		 || code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
 	  {
+	    lra_assert (ad->disp_loc == NULL);
 	    ad->disp_loc = arg1_loc;
 	    extract_loc_address_regs (false, mode, as, arg0_loc, context_p,
 				      PLUS, code1, modify_p, ad);
-	  }
-	/* If the second operand is a symbolic constant, the first
-	   operand must be an index register but only if this part is
-	   all the address.  */
-	else if (code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
-	  {
-	    ad->disp_loc = arg1_loc;
-	    extract_loc_address_regs (false, mode, as, arg0_loc,
-				      top_p ? true : context_p, PLUS, code1,
-				      modify_p, ad);
 	  }
 	/* If both operands are registers but one is already a hard
 	   register of index or reg-base class, give the other the
@@ -584,27 +609,6 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	    extract_loc_address_regs (false, mode, as, arg1_loc, ! base_ok_p,
 				      PLUS, REG, modify_p, ad);
 	  }
-	/* If one operand is known to be a pointer, it must be the
-	   base with the other operand the index.  Likewise if the
-	   other operand is a MULT.  */
-	else if ((code0 == REG && REG_POINTER (arg0)) || code1 == MULT)
-	  {
-	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
-				      code1, modify_p, ad);
-	    if (code1 == MULT)
-	      ad->index_loc = arg1_loc;
-	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
-				      code0, modify_p, ad);
-	  }
-	else if ((code1 == REG && REG_POINTER (arg1)) || code0 == MULT)
-	  {
-	    extract_loc_address_regs (false, mode, as, arg0_loc, true, PLUS,
-				      code1, modify_p, ad);
-	    if (code0 == MULT)
-	      ad->index_loc = arg0_loc;
-	    extract_loc_address_regs (false, mode, as, arg1_loc, false, PLUS,
-				      code0, modify_p, ad);
-	  }
 	/* Otherwise, count equal chances that each might be a base or
 	   index register.  This case should be rare.  */
 	else
@@ -616,6 +620,14 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 				      code0, modify_p, ad);
 	  }
       }
+      break;
+
+    case MULT:
+    case ASHIFT:
+      extract_loc_address_regs (false, mode, as, &XEXP (*loc, 0), true,
+				outer_code, code, modify_p, ad);
+      lra_assert (ad->index_loc == NULL);
+      ad->index_loc = loc;
       break;
 
     case POST_MODIFY:
@@ -647,9 +659,13 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
     case MEM:
     case REG:
       if (context_p)
-	ad->index_reg_loc = loc;
+	{
+	  lra_assert (ad->index_reg_loc == NULL);
+	  ad->index_reg_loc = loc;
+	}
       else
 	{
+	  lra_assert (ad->base_reg_loc == NULL);
 	  ad->base_reg_loc = loc;
 	  ad->base_outer_code = outer_code;
 	  ad->index_code = index_code;
@@ -752,7 +768,7 @@ lra_constraint_offset (int regno, enum machine_mode mode)
 static bool
 operands_match_p (rtx x, rtx y, int y_hard_regno)
 {
-  int i, offset;
+  int i;
   RTX_CODE code = GET_CODE (x);
   const char *fmt;
 
@@ -763,10 +779,9 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
     {
       int j;
       
-      lra_get_hard_regno_and_offset (x, &i, &offset);
+      i = get_hard_regno (x);
       if (i < 0)
 	goto slow;
-      i += offset;
 
       if ((j = y_hard_regno) < 0)
 	goto slow;
@@ -873,12 +888,6 @@ operands_match_p (rtx x, rtx y, int y_hard_regno)
   return true;
 }
 
-/* Reload pseudos created for matched input and output reloads whose
-   mode are different.	Such pseudos has a modified rules for finding
-   their living ranges, e.g. assigning to subreg of such pseudo means
-   changing all pseudo value.  */
-bitmap_head lra_special_reload_pseudos;
-
 /* True if X is a constant that can be forced into the constant pool.
    MODE is the mode of the operand, or VOIDmode if not known.  */
 #define CONST_POOL_OK_P(MODE, X)		\
@@ -929,6 +938,7 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 
   outmode = curr_operand_mode[out];
   inmode = curr_operand_mode[ins[0]];
+  push_to_sequence (*before);
   if (inmode != outmode)
     {
       if (GET_MODE_SIZE (inmode) > GET_MODE_SIZE (outmode))
@@ -950,8 +960,11 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	    new_in_reg = gen_lowpart_SUBREG (inmode, reg);
 	  else
 	    new_in_reg = gen_rtx_SUBREG (inmode, reg, 0);
+	  /* NEW_IN_REG is non-paradoxical subreg.  We don't want
+	     NEW_OUT_REG living above.  We add clobber clause for
+	     this.  */
+	  emit_clobber (new_out_reg);
 	}
-      bitmap_set_bit (&lra_special_reload_pseudos, REGNO (reg));
     }
   else
     {
@@ -983,7 +996,6 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
      accurate.  */
   narrow_reload_pseudo_class (in_rtx, goal_class);
   narrow_reload_pseudo_class (out_rtx, goal_class);
-  push_to_sequence (*before);
   lra_emit_move (copy_rtx (new_in_reg), in_rtx);
   *before = get_insns ();
   end_sequence ();
@@ -1442,7 +1454,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
 static bool
 uses_hard_regs_p (rtx x, HARD_REG_SET set)
 {
-  int i, j, x_hard_regno, offset;
+  int i, j, x_hard_regno;
   enum machine_mode mode;
   const char *fmt;
   enum rtx_code code;
@@ -1461,9 +1473,7 @@ uses_hard_regs_p (rtx x, HARD_REG_SET set)
   
   if (REG_P (x))
     {
-      lra_get_hard_regno_and_offset (x, &x_hard_regno, &offset);
-      /* The real hard regno of the operand after the allocation.  */
-      x_hard_regno = get_final_hard_regno (x_hard_regno, offset);
+      x_hard_regno = get_hard_regno (x);
       return (x_hard_regno >= 0
 	      && overlaps_hard_reg_set_p (set, mode, x_hard_regno));
     }
@@ -1533,7 +1543,7 @@ static bool
 process_alt_operands (int only_alternative)
 {
   bool ok_p = false;
-  int nop, small_class_operands_num, overall, nalt, offset;
+  int nop, small_class_operands_num, overall, nalt;
   int n_alternatives = curr_static_id->n_alternatives;
   int n_operands = curr_static_id->n_operands;
   /* LOSERS counts the operands that don't fit this alternative and
@@ -1576,9 +1586,8 @@ process_alt_operands (int only_alternative)
   for (nop = 0; nop < n_operands; nop++)
     {
       op = no_subreg_reg_operand[nop] = *curr_id->operand_loc[nop];
-      lra_get_hard_regno_and_offset (op, &hard_regno[nop], &offset);
       /* The real hard regno of the operand after the allocation.  */
-      hard_regno[nop] = get_final_hard_regno (hard_regno[nop], offset);
+      hard_regno[nop] = get_hard_regno (op);
       
       operand_reg[nop] = op;
       biggest_mode[nop] = GET_MODE (operand_reg[nop]);
@@ -1718,7 +1727,7 @@ process_alt_operands (int only_alternative)
 		case '0':  case '1':  case '2':	 case '3':  case '4':
 		case '5':  case '6':  case '7':	 case '8':  case '9':
 		  {
-		    int m_hregno, m_offset;
+		    int m_hregno;
 		    bool match_p;
 		    
 		    m = strtoul (p, &end, 10);
@@ -1727,9 +1736,7 @@ process_alt_operands (int only_alternative)
 		    lra_assert (nop > m);
 		    
 		    this_alternative_matches = m;
-		    lra_get_hard_regno_and_offset (*curr_id->operand_loc[m],
-						   &m_hregno, &m_offset);
-		    m_hregno = get_final_hard_regno (m_hregno, m_offset);
+		    m_hregno = get_hard_regno (*curr_id->operand_loc[m]);
 		    /* We are supposed to match a previous operand.
 		       If we do, we win if that one did.  If we do
 		       not, count both of the operands as losers.
@@ -1746,10 +1753,10 @@ process_alt_operands (int only_alternative)
 			   clobber operand if the matching operand is
 			   not dying in the insn.  */
 			if (! curr_static_id->operand[m].early_clobber
-			    || operand_reg[nop] == NULL_RTX
+			    /*|| operand_reg[nop] == NULL_RTX
 			    || (find_regno_note (curr_insn, REG_DEAD,
 						 REGNO (operand_reg[nop]))
-				!= NULL_RTX))
+						 != NULL_RTX)*/)
 			  match_p = true;
 		      }
 		    if (match_p)
@@ -2158,31 +2165,29 @@ process_alt_operands (int only_alternative)
 		    reject = MAX_OVERALL_COST_BOUND;
 		}
       
-	      /* We prefer to reload pseudos over reloading other
-		 things, since such reloads may be able to be
-		 eliminated later.  So bump REJECT in other cases.
-		 Don't do this in the case where we are forcing a
-		 constant into memory and it will then win since we
-		 don't want to have a different alternative match
-		 then.	*/
-	      if (! (REG_P (op)
-		     && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-		  /* We can reload the address instead of memory (so
-		     do not punish it).  It is preferable to do to
-		     avoid cycling in some cases.  */
-		  && ! (MEM_P (op) && offmemok)
-		  && ! (const_to_mem && constmemok))
-		reject += 2;
-      
+	      if (! ((const_to_mem && constmemok)
+		     || (MEM_P (op) && offmemok)))
+		{
+		  /* We prefer to reload pseudos over reloading other
+		     things, since such reloads may be able to be
+		     eliminated later.  So bump REJECT in other cases.
+		     Don't do this in the case where we are forcing a
+		     constant into memory and it will then win since
+		     we don't want to have a different alternative
+		     match then.  */
+		  if (! (REG_P (op) && REGNO (op) >= FIRST_PSEUDO_REGISTER))
+		    reject += 2;
+		  
+		  if (! no_regs_p)
+		    reload_nregs
+		      += ira_reg_class_max_nregs[this_alternative][mode];
+		}
+
 	      /* Input reloads can be inherited more often than output
 		 reloads can be removed, so penalize output
 		 reloads.  */
 	      if (!REG_P (op) || curr_static_id->operand[nop].type != OP_IN)
 		reject++;
-
-	      if (! no_regs_p)
-		reload_nregs
-		  += ira_reg_class_max_nregs[this_alternative][mode];
 	    }
   
 	  if (early_clobber_p)
@@ -2452,18 +2457,6 @@ equiv_address_substitution (struct address *ad, rtx *addr_loc,
   return change_p;
 }
 
-/* Exchange operands of plus X.	 */
-static void
-exchange_plus_ops (rtx x)
-{
-  rtx op0;
-
-  lra_assert (GET_CODE (x) == PLUS);
-  op0 = XEXP (x, 0);
-  XEXP (x, 0) = XEXP (x, 1);
-  XEXP (x, 1) = op0;
-}
-
 /* Major function to make reloads for address in operand NOP.  Add to
    reloads to the list *BEFORE and *AFTER.  We might need to add
    reloads to *AFTER because of inc/dec, {pre, post} modify in the
@@ -2620,14 +2613,6 @@ process_address (int nop, rtx *before, rtx *after)
 	  if (CONSTANT_P (XEXP (*addr_loc, 1)))
 	    XEXP (*addr_loc, 1) = XEXP (*addr_loc, 0);
 	  XEXP (*addr_loc, 0) = new_reg;
-	  /* Some targets like ARM, accept address operands in
-	     specific order -- try exchange them if necessary.	*/
-	  if (! valid_address_p (mode, *addr_loc, as))
-	    {
-	      exchange_plus_ops (*addr_loc);
-	      if (! valid_address_p (mode, *addr_loc, as))
-		exchange_plus_ops (*addr_loc);
-	    }
 	}
     }
   else if (ad.index_reg_loc == NULL)
@@ -2646,14 +2631,6 @@ process_address (int nop, rtx *before, rtx *after)
       /* base + scale * index + disp => new base + scale * index  */
       new_reg = base_plus_disp_to_reg (mode, as, &ad);
       *addr_loc = gen_rtx_PLUS (Pmode, new_reg, *ad.index_loc);
-      if (! valid_address_p (mode, *addr_loc, as))
-	{
-	  /* Some targets like ARM, accept address operands in
-	     specific order -- try exchange them if necessary.	*/
-	  exchange_plus_ops (*addr_loc);
-	  if (! valid_address_p (mode, *addr_loc, as))
-	    exchange_plus_ops (*addr_loc);
-	}
     }
   *before = get_insns ();
   end_sequence ();
@@ -2708,9 +2685,12 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
     result = lra_create_new_reg (GET_MODE (value), value, new_rclass,
 				 "INC/DEC result");
 
-  /* If this is post-increment, first copy the location to the reload reg.  */
-  if (post && real_in != result)
-    emit_insn (gen_move_insn (result, real_in));
+  if (real_in != result)
+    {
+      /* First copy the location to the result register.  */
+      lra_assert (REG_P (result));
+      emit_insn (gen_move_insn (result, real_in));
+    }
 
   /* We suppose that there are insns to add/sub with the constant
      increment permitted in {PRE/POST)_{DEC/INC/MODIFY}.  At least the
@@ -3687,7 +3667,6 @@ lra_constraints (bool first_p)
 void
 lra_constraints_init (void)
 {
-  bitmap_initialize (&lra_special_reload_pseudos, &reg_obstack);
 }
 
 /* Finalize the LRA constraint pass.  It is done once per
@@ -3695,7 +3674,6 @@ lra_constraints_init (void)
 void
 lra_constraints_finish (void)
 {
-  bitmap_clear (&lra_special_reload_pseudos);
 }
 
 
@@ -4321,9 +4299,7 @@ update_ebb_live_info (rtx head, rtx tail)
 	remove_p = true;
       /* See which defined values die here.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	if (reg->type == OP_OUT
-	    && (! reg->subreg_p
-		|| bitmap_bit_p (&lra_special_reload_pseudos, reg->regno)))
+	if (reg->type == OP_OUT && ! reg->subreg_p)
 	  bitmap_clear_bit (&live_regs, reg->regno);
       /* Mark each used value as live.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)

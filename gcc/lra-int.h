@@ -301,8 +301,6 @@ extern int lra_constraint_new_insn_uid_start;
 
 /* lra-constraints.c: */
 
-extern bitmap_head lra_special_reload_pseudos;
-
 extern int lra_constraint_offset (int, enum machine_mode);
 
 extern int lra_constraint_iter;
@@ -367,30 +365,6 @@ extern void lra_eliminate (bool);
 extern void lra_eliminate_reg_if_possible (rtx *);
 
 
-
-/* Return hard regno and offset of (sub-)register X through arguments
-   HARD_REGNO and OFFSET.  If it is not (sub-)register or the hard
-   register is unknown, then return -1 and 0 correspondingly.  */
-static inline void
-lra_get_hard_regno_and_offset (rtx x, int *hard_regno, int *offset)
-{
-  rtx reg;
-
-  *hard_regno = -1;
-  *offset = 0;
-  reg = x;
-  if (GET_CODE (x) == SUBREG)
-    reg = SUBREG_REG (x);
-  if (! REG_P (reg))
-    return;
-  if ((*hard_regno = REGNO (reg)) >= FIRST_PSEUDO_REGISTER)
-    *hard_regno = lra_get_regno_hard_regno (*hard_regno);
-  if (*hard_regno < 0)
-    return;
-  if (GET_CODE (x) == SUBREG)
-    *offset += subreg_regno_offset (*hard_regno, GET_MODE (reg),
-				   SUBREG_BYTE (x),  GET_MODE (x));
-}
 
 /* Update insn operands which are duplication of NOP operand.  The
    insn is represented by its LRA internal representation ID.  */

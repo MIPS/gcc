@@ -608,17 +608,13 @@ process_bb_lives (basic_block bb, int &curr_point)
 
       /* See which defined values die here.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	if (reg->type == OP_OUT && ! reg->early_clobber
-	    && (! reg->subreg_p
-		|| bitmap_bit_p (&lra_special_reload_pseudos, reg->regno)))
+	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
 	  need_curr_point_incr |= mark_regno_dead (reg->regno,
 						   reg->biggest_mode,
 						   curr_point);
 
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
-	if (reg->type == OP_OUT && ! reg->early_clobber
-	    && (! reg->subreg_p
-		|| bitmap_bit_p (&lra_special_reload_pseudos, reg->regno)))
+	if (reg->type == OP_OUT && ! reg->early_clobber && ! reg->subreg_p)
 	  make_hard_regno_dead (reg->regno);
 
       if (call_p)
