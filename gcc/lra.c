@@ -1805,7 +1805,8 @@ push_insns (rtx from, rtx to)
   if (from == NULL_RTX)
     return;
   for (insn = from; insn != to; insn = PREV_INSN (insn))
-    lra_push_insn (insn);
+    if (INSN_P (insn))
+      lra_push_insn (insn);
 }
 
 /* Emit insns BEFORE before INSN and insns AFTER after INSN.  Put the
