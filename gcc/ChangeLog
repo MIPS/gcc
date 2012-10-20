@@ -1,3 +1,17 @@
+2012-10-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (check_rtx): Don't check UNSPEC address.  Fix typo with
+	comparing RTX_AUTOINC.
+	* lra-constraints.c (extract_local_address): Swap operands if
+	necessary.  Assign to disp before extract_local_address call.  Fix
+	typo with PLUS comparison.  Use CONSTANT_P.
+	(simplify_operand_subreg): Put constant into memory for subreg
+	with mixed modes.
+	(process_alt_operands): Uncomment code for checking DEAD not for
+	early clobber.
+	* config/i386/i386.c (ix86_spill_class): Don't spill to SSE
+	regs when TARGET_MMX.
+
 2012-10-19  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* lra.c (push_insns): Check INSN_P.

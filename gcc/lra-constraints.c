@@ -524,6 +524,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
       {
 	rtx *arg0_loc = &XEXP (x, 0);
 	rtx *arg1_loc = &XEXP (x, 1);
+	rtx *tloc;
 	rtx arg0 = *arg0_loc;
 	rtx arg1 = *arg1_loc;
 	enum rtx_code code0 = GET_CODE (arg0);
@@ -543,23 +544,34 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	    code1 = GET_CODE (arg1);
 	  }
 
+	if (CONSTANT_P (arg0)
+	    || code1 == PLUS || code1 == MULT || code1 == ASHIFT)
+	  {
+	    tloc = arg1_loc;
+	    arg1_loc = arg0_loc;
+	    arg0_loc = tloc;
+	    arg0 = *arg0_loc;
+	    code0 = GET_CODE (arg0);
+	    arg1 = *arg1_loc;
+	    code1 = GET_CODE (arg1);
+	  }
 	/* If this machine only allows one register per address, it
 	   must be in the first operand.  */
 	if (MAX_REGS_PER_ADDRESS == 1 || code == LO_SUM)
 	  {
+	    lra_assert (ad->disp_loc == NULL);
+	    ad->disp_loc = arg1_loc;
 	    extract_loc_address_regs (false, mode, as, arg0_loc, false, code,
 				      code1, modify_p, ad);
-	    lra_assert (ad->disp_loc == NULL);
-	    ad->disp_loc = arg1_loc;
 	  }
 	/* Base + disp addressing  */
-	else if (code != PLUS && code0 != MULT && code0 != ASHIFT
+	else if (code0 != PLUS && code0 != MULT && code0 != ASHIFT
 		 && CONSTANT_P (arg1))
 	  {
-	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
-				      code1, modify_p, ad);
 	    lra_assert (ad->disp_loc == NULL);
 	    ad->disp_loc = arg1_loc;
+	    extract_loc_address_regs (false, mode, as, arg0_loc, false, PLUS,
+				      code1, modify_p, ad);
 	  }
 	/* If index and base registers are the same on this machine,
 	   just record registers in any non-constant operands.	We
@@ -575,14 +587,13 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	    extract_loc_address_regs (false, mode, as, arg1_loc, true, PLUS,
 				      code0, modify_p, ad);
 	  }
-	/* It might be index * scale + disp. */
-	else if (code1 == CONST_INT || code1 == CONST_DOUBLE
-		 || code1 == SYMBOL_REF || code1 == CONST || code1 == LABEL_REF)
+	/* It might be [base + ]index * scale + disp. */
+	else if (CONSTANT_P (arg1))
 	  {
 	    lra_assert (ad->disp_loc == NULL);
 	    ad->disp_loc = arg1_loc;
 	    extract_loc_address_regs (false, mode, as, arg0_loc, context_p,
-				      PLUS, code1, modify_p, ad);
+				      PLUS, code0, modify_p, ad);
 	  }
 	/* If both operands are registers but one is already a hard
 	   register of index or reg-base class, give the other the
@@ -624,11 +635,18 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 
     case MULT:
     case ASHIFT:
-      extract_loc_address_regs (false, mode, as, &XEXP (*loc, 0), true,
-				outer_code, code, modify_p, ad);
-      lra_assert (ad->index_loc == NULL);
-      ad->index_loc = loc;
-      break;
+      {
+	rtx *arg0_loc = &XEXP (x, 0);
+	enum rtx_code code0 = GET_CODE (*arg0_loc);
+	
+	if (code0 == CONST_INT)
+	  arg0_loc = &XEXP (x, 1);
+	extract_loc_address_regs (false, mode, as, arg0_loc, true,
+				  outer_code, code, modify_p, ad);
+	lra_assert (ad->index_loc == NULL);
+	ad->index_loc = loc;
+	break;
+      }
 
     case POST_MODIFY:
     case PRE_MODIFY:
@@ -1408,6 +1426,17 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
       alter_subreg (curr_id->operand_loc[nop], false);
       return true;
     }
+  /* Put constant into memory when we have mixed modes.  It generates
+     a better code in most cases as it does not need a secondary
+     reload memory.  It also prevents LRA looping when LRA is using
+     secondary reload memory again and again.  */
+  if (CONSTANT_P (reg) && CONST_POOL_OK_P (reg_mode, reg)
+      && SCALAR_INT_MODE_P (reg_mode) != SCALAR_INT_MODE_P (mode))
+    {
+      SUBREG_REG (operand) = force_const_mem (reg_mode, reg);
+      alter_subreg (curr_id->operand_loc[nop], false);
+      return true;
+    }
   /* Force a reload of the SUBREG_REG if this is a constant or PLUS or
      if there may be a problem accessing OPERAND in the outer
      mode.  */
@@ -1415,7 +1444,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
        && REGNO (reg) >= FIRST_PSEUDO_REGISTER
        && (hard_regno = lra_get_regno_hard_regno (REGNO (reg))) >= 0
        /* Don't reload paradoxical subregs because we could be looping
-	  having repeatedly final regno out of hard regs range.	 */
+	  having repeatedly final regno out of hard regs range.  */
        && (hard_regno_nregs[hard_regno][GET_MODE (reg)]
 	   >= hard_regno_nregs[hard_regno][mode])
        && simplify_subreg_regno (hard_regno, GET_MODE (reg),
@@ -1757,10 +1786,10 @@ process_alt_operands (int only_alternative)
 			   clobber operand if the matching operand is
 			   not dying in the insn.  */
 			if (! curr_static_id->operand[m].early_clobber
-			    /*|| operand_reg[nop] == NULL_RTX
+			    || operand_reg[nop] == NULL_RTX
 			    || (find_regno_note (curr_insn, REG_DEAD,
 						 REGNO (operand_reg[nop]))
-						 != NULL_RTX)*/)
+						 != NULL_RTX))
 			  match_p = true;
 		      }
 		    if (match_p)

@@ -2035,7 +2035,8 @@ check_rtl (bool final_p)
 		   as legitimate.  Although they are legitimate if
 		   they satisfies the constraints and will be checked
 		   by insn constraints which we ignore here.  */
-		&& GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) == RTX_AUTOINC)
+		&& GET_CODE (XEXP (op, 0)) != UNSPEC
+		&& GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC)
 	      fatal_insn_not_found (insn);
 	  }
       }
