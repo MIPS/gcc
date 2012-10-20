@@ -28,6 +28,10 @@
 // Radar 6467884: 10.X systems are not robust when paging space is exceeded
 // { dg-skip-if "" { *-*-darwin* && lp64 } { "*" } { "" } } 
 
+// Skip this test with LP64 targets as the memory requirements could cause
+// lots of swapping and with a large memory size, just timeout.
+// { dg-skip-if "" { lp64 } { "*" } { "" } } 
+
 #include <sstream>
 #include <iostream>
 #include <limits>

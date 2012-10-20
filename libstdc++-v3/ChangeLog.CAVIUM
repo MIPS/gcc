@@ -1,0 +1,5 @@
+
+2012-10-19  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/27_io/ios_base/storage/2.cc: Skip testcase for LP64 targets.
+
