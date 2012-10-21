@@ -1,5 +1,12 @@
 2012-10-20  Vladimir Makarov  <vmakarov@redhat.com>
 
+	PR rtl-optimization/54991
+	* lra-constraints.c (lra_constraints): Change equiv memory check
+	on reverse equivalence check.
+	(inherit_in_ebb): Invalidate usage insns for multi-word hard regs.
+
+2012-10-20  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra.c (check_rtx): Don't check UNSPEC address.  Fix typo with
 	comparing RTX_AUTOINC.
 	* lra-constraints.c (extract_local_address): Swap operands if

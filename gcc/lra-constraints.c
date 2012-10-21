@@ -3552,18 +3552,24 @@ lra_constraints (bool first_p)
 	else if ((x = get_equiv_substitution (regno_reg_rtx[i])) != NULL_RTX)
 	  {
 	    bool pseudo_p = contains_reg_p (x, false, false);
+	    rtx set, insn;
 
 	    /* We don't use DF for compilation speed sake.  So it is
 	       problematic to update live info when we use an
 	       equivalence containing pseudos in more than one BB.  */
 	    if ((pseudo_p && multi_block_pseudo_p (i))
-		/* We check that a pseudo in rhs of the init insn is
-		   not dying in the insn.  Otherwise, the live info
-		   at the beginning of the corresponding BB might be
-		   wrong after we removed the insn.  When the equiv can
-		   be a constant, the right hand side of the init insn
-		   can be a pseudo.  */
-		|| (ira_reg_equiv[i].memory == NULL_RTX
+		/* If it is not a reverse equivalence, we check that a
+		   pseudo in rhs of the init insn is not dying in the
+		   insn.  Otherwise, the live info at the beginning of
+		   the corresponding BB might be wrong after we
+		   removed the insn.  When the equiv can be a
+		   constant, the right hand side of the init insn can
+		   be a pseudo.  */
+		|| (! ((insn = ira_reg_equiv[i].init_insns) != NULL_RTX
+		       && INSN_P (insn)
+		       && (set = single_set (insn)) != NULL_RTX
+		       && REG_P (SET_DEST (set))
+		       && (int) REGNO (SET_DEST (set)) == i)
 		    && init_insn_rhs_dead_pseudo_p (i)))
 	      ira_reg_equiv[i].defined_p = false;
 	    else if (! first_p && pseudo_p)
@@ -4444,7 +4450,7 @@ static bitmap_head temp_bitmap;
 static bool
 inherit_in_ebb (rtx head, rtx tail)
 {
-  int i, src_regno, dst_regno;
+  int i, src_regno, dst_regno, nregs;
   bool change_p, succ_p;
   rtx prev_insn, next_usage_insns, set, last_insn;
   enum reg_class cl;
@@ -4607,13 +4613,26 @@ inherit_in_ebb (rtx head, rtx tail)
 					   reg_renumber[dst_regno]);
 		    AND_COMPL_HARD_REG_SET (live_hard_regs, s);
 		  }
-		/* We should invalidate potential inheritance for the
-		   current insn usages to the next usage insns (see
-		   code below) as the output pseudo prevents this.  */
-		if (reg_renumber[dst_regno] < 0
-		    || (reg->type == OP_OUT && ! reg->subreg_p))
-		  /* Invalidate.  */
-		  usage_insns[dst_regno].check = 0;
+		/* We should invalidate potential inheritance or
+		   splitting for the current insn usages to the next
+		   usage insns (see code below) as the output pseudo
+		   prevents this.  */
+		if ((dst_regno >= FIRST_PSEUDO_REGISTER
+		     && reg_renumber[dst_regno] < 0)
+		    || (reg->type == OP_OUT && ! reg->subreg_p
+			&& (dst_regno < FIRST_PSEUDO_REGISTER
+			    || reg_renumber[dst_regno] >= 0)))
+		  {
+		    /* Invalidate.  */
+		    if (dst_regno >= FIRST_PSEUDO_REGISTER)
+		      usage_insns[dst_regno].check = 0;
+		    else
+		      {
+			nregs = hard_regno_nregs[dst_regno][reg->biggest_mode];
+			for (i = 0; i < nregs; i++)
+			  usage_insns[dst_regno + i].check = 0;
+		      }
+		  }
 	      }
 	  if (! JUMP_P (curr_insn))
 	    for (i = 0; i < to_inherit_num; i++)
