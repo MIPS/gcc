@@ -4491,8 +4491,9 @@ inherit_in_ebb (rtx head, rtx tail)
 	  last_insn = get_last_insertion_point (curr_bb);
 	  after_p = (! JUMP_P (last_insn)
 		     && (! CALL_P (last_insn)
-			 || find_reg_note (last_insn,
-					   REG_NORETURN, NULL) == NULL_RTX));
+			 || (find_reg_note (last_insn,
+					   REG_NORETURN, NULL) == NULL_RTX
+			     && ! SIBLING_CALL_P (last_insn))));
 	  REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_out (curr_bb));
 	  IOR_HARD_REG_SET (live_hard_regs, eliminable_regset);
 	  IOR_HARD_REG_SET (live_hard_regs, lra_no_alloc_regs);

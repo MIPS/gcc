@@ -1,5 +1,9 @@
 2012-10-21  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-constraints.c (inherit_in_ebb): Check sibling call.
+
+2012-10-21  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* gcse.c (calculate_bb_reg_pressure): Add parameter to
 	ira_setup_eliminable_regset call.
 
@@ -12,7 +16,7 @@
 
 2012-10-20  Vladimir Makarov  <vmakarov@redhat.com>
 
-	* lra.c (check_rtx): Don't check UNSPEC address.  Fix typo with
+	* lra.c (check_rtl): Don't check UNSPEC address.  Fix typo with
 	comparing RTX_AUTOINC.
 	* lra-constraints.c (extract_local_address): Swap operands if
 	necessary.  Assign to disp before extract_local_address call.  Fix
