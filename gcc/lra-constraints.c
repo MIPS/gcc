@@ -3939,8 +3939,8 @@ inherit_reload_reg (bool def_p, int original_regno,
     /* We now have a new usage insn for original regno.  */
     setup_next_usage_insn (original_regno, new_insns, reloads_num, false);
   if (lra_dump_file != NULL)
-    fprintf (lra_dump_file, "	 Original reg change %d->%d:\n",
-	     original_regno, REGNO (new_reg));
+    fprintf (lra_dump_file, "	 Original reg change %d->%d (bb%d):\n",
+	     original_regno, REGNO (new_reg), BLOCK_FOR_INSN (insn)->index);
   lra_reg_info[REGNO (new_reg)].restore_regno = original_regno;
   bitmap_set_bit (&check_only_regs, REGNO (new_reg));
   bitmap_set_bit (&check_only_regs, original_regno);
@@ -3969,8 +3969,10 @@ inherit_reload_reg (bool def_p, int original_regno,
       lra_update_insn_regno_info (usage_insn);
       if (lra_dump_file != NULL)
 	{
-	  fprintf (lra_dump_file, "    Inheritance reuse change %d->%d:\n",
-		   original_regno, REGNO (new_reg));
+	  fprintf (lra_dump_file,
+		   "    Inheritance reuse change %d->%d (bb%d):\n",
+		   original_regno, REGNO (new_reg),
+		   BLOCK_FOR_INSN (usage_insn)->index);
 	  debug_rtl_slim (lra_dump_file, usage_insn, usage_insn,
 			  -1, 0);
 	}
@@ -4015,6 +4017,13 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 
   lra_assert (hard_regno >= 0);
   return ((TEST_HARD_REG_BIT (potential_reload_hard_regs, hard_regno)
+	   /* Don't split eliminable hard registers, otherwise we can
+	      split hard registers like hard frame pointer, which
+	      lives on BB start/end according to DF-infrastructure,
+	      when there is a pseudo assigned to the register and
+	      living in the same BB.  */
+	   && (regno >= FIRST_PSEUDO_REGISTER
+	       || ! TEST_HARD_REG_BIT (eliminable_regset, hard_regno))
 	   && ! TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno)
 	   /* We need at least 2 reloads to make pseudo splitting
 	      profitable.  We should provide hard regno splitting in
@@ -4284,7 +4293,7 @@ update_ebb_live_info (rtx head, rtx tail)
   edge e;
   edge_iterator ei;
 
-  last_bb = BLOCK_FOR_INSN (tail);
+  last_bb = BLOCK_FOR_INSN (tail); 
   prev_bb = NULL;
   for (curr_insn = tail;
        curr_insn != PREV_INSN (head);
@@ -4492,7 +4501,7 @@ inherit_in_ebb (rtx head, rtx tail)
 	  after_p = (! JUMP_P (last_insn)
 		     && (! CALL_P (last_insn)
 			 || (find_reg_note (last_insn,
-					   REG_NORETURN, NULL) == NULL_RTX
+					   REG_NORETURN, NULL_RTX) == NULL_RTX
 			     && ! SIBLING_CALL_P (last_insn))));
 	  REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_out (curr_bb));
 	  IOR_HARD_REG_SET (live_hard_regs, eliminable_regset);
@@ -4800,7 +4809,6 @@ lra_inheritance (void)
   edge e;
 
   timevar_push (TV_LRA_INHERITANCE);
-
   lra_inheritance_iter++;
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file, "\n********** Inheritance #%d: **********\n\n",
@@ -4867,11 +4875,9 @@ fix_bb_live_info (bitmap live, bitmap removed_pseudos)
   unsigned int regno;
   bitmap_iterator bi;
 
-  EXECUTE_IF_AND_IN_BITMAP (removed_pseudos, live, 0, regno, bi)
-    {
-      bitmap_clear_bit (live, regno);
+  EXECUTE_IF_SET_IN_BITMAP (removed_pseudos, 0, regno, bi)
+    if (bitmap_clear_bit (live, regno))
       bitmap_set_bit (live, lra_reg_info[regno].restore_regno);
-    }
 }
 
 /* Return regno of the (subreg of) REG. Otherwise, return a negative

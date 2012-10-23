@@ -1,3 +1,9 @@
+2012-10-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* inherit_reload_reg (inherit_reload_reg): Print bb numbers too.
+	(need_for_split_p): Don't split eliminable registers.
+	(fix_bb_live_info): Don't use EXECUTE_IF_AND_IN_BITMAP.
+
 2012-10-21  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (inherit_in_ebb): Check sibling call.
