@@ -639,7 +639,7 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
 	rtx *arg0_loc = &XEXP (x, 0);
 	enum rtx_code code0 = GET_CODE (*arg0_loc);
 	
-	if (code0 == CONST_INT)
+	if (code0 == CONST_INT && code == MULT)
 	  arg0_loc = &XEXP (x, 1);
 	extract_loc_address_regs (false, mode, as, arg0_loc, true,
 				  outer_code, code, modify_p, ad);
@@ -1781,17 +1781,7 @@ process_alt_operands (int only_alternative)
 		    match_p = false;
 		    if (operands_match_p (*curr_id->operand_loc[nop],
 					  *curr_id->operand_loc[m], m_hregno))
-		      {
-			/* We should reject matching of an early
-			   clobber operand if the matching operand is
-			   not dying in the insn.  */
-			if (! curr_static_id->operand[m].early_clobber
-			    || operand_reg[nop] == NULL_RTX
-			    || (find_regno_note (curr_insn, REG_DEAD,
-						 REGNO (operand_reg[nop]))
-						 != NULL_RTX))
-			  match_p = true;
-		      }
+		      match_p = true;
 		    if (match_p)
 		      {
 			/* If we are matching a non-offsettable
