@@ -1,5 +1,9 @@
 2012-10-23  Vladimir Makarov  <vmakarov@redhat.com>
 
+	* lra-constraints.c (update_ebb_live_info): Process empty blocks.
+
+2012-10-23  Vladimir Makarov  <vmakarov@redhat.com>
+
 	* lra-constraints.c (extract_loc_address_regs): Don't swap ASHIFT
 	operands.
 	(process_alt_operands): Remove code for checking DEAD note for
