@@ -154,6 +154,14 @@ static const char *BOUND_TMP_NAME = "__bound_tmp";
 static GTY (()) VEC(tree,gc) *var_inits = NULL;
 const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
 
+#define MAX_STMTS_IN_STATIC_PL_CTOR 300
+
+struct pl_ctor_stmt_list
+{
+  tree stmts;
+  int avail;
+};
+
 static void
 pl_mark_stmt (gimple s)
 {
@@ -555,20 +563,29 @@ pl_add_modification_to_statements_list (tree lhs,
 					tree rhs,
 					void *arg)
 {
-  tree *stmts = (tree *)arg;
+  struct pl_ctor_stmt_list *stmts = (struct pl_ctor_stmt_list *)arg;
   tree modify;
 
   if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
     rhs = build1 (CONVERT_EXPR, TREE_TYPE (lhs), rhs);
 
   modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, rhs);
-  append_to_statement_list (modify, stmts);
+  append_to_statement_list (modify, &stmts->stmts);
+
+  stmts->avail--;
+
+  if (!stmts->avail)
+    {
+      cgraph_build_static_cdtor ('P', stmts->stmts, MAX_RESERVED_INIT_PRIORITY-1);
+      stmts->avail = MAX_STMTS_IN_STATIC_PL_CTOR;
+      stmts->stmts = NULL;
+    }
 }
 
 void
 pl_finish_file (void)
 {
-  tree stmts = NULL_TREE;
+  struct pl_ctor_stmt_list stmts;
   int i;
   tree var;
 
@@ -578,6 +595,9 @@ pl_finish_file (void)
   if (seen_error ())
     return;
 
+  stmts.avail = MAX_STMTS_IN_STATIC_PL_CTOR;
+  stmts.stmts = NULL;
+
   FOR_EACH_VEC_ELT (tree, var_inits, i, var)
     /* !!! We must check that var is actually emitted and we need
        and may initialize its bounds.  Currently asm_written flag and
@@ -586,8 +606,8 @@ pl_finish_file (void)
       pl_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
 				   pl_add_modification_to_statements_list);
 
-  if (stmts)
-    cgraph_build_static_cdtor ('P', stmts, MAX_RESERVED_INIT_PRIORITY-1);
+  if (stmts.stmts)
+    cgraph_build_static_cdtor ('P', stmts.stmts, MAX_RESERVED_INIT_PRIORITY-1);
 
   VEC_free (tree, gc, var_inits);
   var_inits = NULL;
