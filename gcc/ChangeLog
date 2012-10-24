@@ -1,6 +1,468 @@
+2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/55055
+	* lra-spills.c (alter_subregs): New function.
+	(lra_hard_reg_substitution): Use it.
+
+2012-10-24  Sharad Singhai  <singhai@google.com>
+
+	* dumpfile.c (dump_enabled_p): Make it inline and move the definition
+	to dumpfile.h.
+	(dump_kind_p): Deleted. Functionality replaced by dump_enabled_p.
+	Make alt_dump_file extern.
+	* dumpfile.h (dump_enabled_p): Move inline definition here.
+	(dump_kind_p): Delete declaration.
+	Add extern declaration of alt_dump_file.
+	* toplev.c: Move dump_file and dump_file_name to dumpfile.c.
+	* tree-vect-loop-manip.c: Replace all uses of dump_kind_p with
+	dump_enabled_p.
+	* tree-vectorizer.c: Likewise.
+	* tree-vect-loop.c: Likewise.
+	* tree-vect-data-refs.c: Likewise.
+	* tree-vect-patterns.c: Likewise.
+	* tree-vect-stmts.c: Likewise.
+	* tree-vect-slp.c: Likewise.
+
+2012-10-24  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* expmed.c (lowpart_bit_field_p): Add missing == 0 check.
+
+2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/55049
+	* lra-constraints.c (extract_loc_address_regs): Pass top_p for
+	ZERO_EXTEND operand.
+
+2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/55048
+	* lra-constraints.c (update_ebb_live_info): Skip
+	non-NOTE_INSN_BASIC_BLOCK notes.
+
+2012-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/55010
+	* cse.c (fold_rtx) <RTX_COMPARE>: Call copy_rtx on folded_arg{0,1}
+	before passing it to simplify_relational_operation.
+
+	PR debug/54828
+	* gimple.h (is_gimple_sizepos): New inline function.
+	* gimplify.c (gimplify_one_sizepos): Use it.  Remove useless
+	final assignment to expr variable.
+	* tree.c (RETURN_TRUE_IF_VAR): Return true also if
+	!TYPE_SIZES_GIMPLIFIED (type) and _t is going to be gimplified
+	into a local temporary.
+
+2012-10-23  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/constraints.md ("T", "W"): Change
+	definitions to use define_memory_constraint.  Do not match
+	'reg'.
+	* config/sparc/sparc.c (memory_ok_for_ldd): Remove all non-MEM
+	handling code, update comment.
+
+2012-10-23  Ian Lance Taylor  <iant@google.com>
+
+	* doc/extend.texi (Extended Asm): The '+' constraint does not
+	require a register.
+
+2012-10-23  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c (thread_across_edge): Remove unused
+	parameter in call to cond_arg_set_in_bb.
+
+	* tree-ssa-threadedge.c (cond_arg_set_in_bb): Remove unused
+	debugging argument.
+
+	PR tree-optimization/54985
+	* tree-ssa-threadedge.c (cond_arg_set_in_bb): New function extracted
+	from thread_across_edge.
+	(thread_across_edge): Use it in all cases where we might thread
+	across a back edge.
+
 2012-10-23  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (update_ebb_live_info): Process empty blocks.
+
+2012-10-23  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* expmed.c (store_split_bit_field): Update the calls to
+	extract_fixed_bit_field.  In the big-endian case, always
+	use the mode of OP0 to count the number of significant bits.
+	(extract_bit_field_1): Remove unit, offset, bitpos and
+	byte_offset from the outermost scope.  Express conditions in terms
+	of bitnum rather than offset, bitpos and byte_offset.  Move the
+	computation of MODE1 to the block that needs it.  Use MODE unless
+	the TMODE-based mode_for_size calculation succeeds.  Split the
+	plain move cases into two, one for memory accesses and one for
+	register accesses.  Generalize the memory case, freeing it from
+	the old register-based endian checks.  Move the INT_MODE calculation
+	above the code that needs it.  Use simplify_gen_subreg to handle
+	multiword OP0s.  If the field still spans several words, pass it
+	directly to extract_split_bit_field.  Assume after that point
+	that both targets and register sources fit within a word.
+	Replace x-prefixed variables with non-prefixed forms.
+	Compute the bitpos for ext(z)v register operands directly in the
+	chosen unit size, rather than going through an intermediate
+	BITS_PER_WORD unit size.  Simplify the containment check
+	used when forcing OP0 into a register.  Update the call to
+	extract_fixed_bit_field.
+	(extract_fixed_bit_field): Replace the bitpos and offset parameters
+	with a single bitnum parameter, of the same form as extract_bit_field.
+	Assume that OP0 contains the full field.  Simplify the memory offset
+	calculation and containment check for volatile bitfields.  Make the
+	offset explicit when volatile bitfields force a misaligned access.
+	Remove WARNED and fix long lines.  Assert that the processed OP0
+	has an integral mode.
+	(store_split_bit_field): Update the call to store_fixed_bit_field.
+
+2012-10-23  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* expmed.c (lowpart_bit_field_p): New function.
+	(store_bit_field_1): Remove unit, offset, bitpos and byte_offset
+	from the outermost scope.  Express conditions in terms of bitnum
+	rather than offset, bitpos and byte_offset.  Split the plain move
+	cases into two, one for memory accesses and one for register accesses.
+	Allow simplify_gen_subreg to fail rather than calling validate_subreg.
+	Move the handling of multiword OP0s after the code that coerces VALUE
+	to an integer mode.  Use simplify_gen_subreg for this case and assert
+	that it succeeds.  If the field still spans several words, pass it
+	directly to store_split_bit_field.  Assume after that point that
+	both sources and register targets fit within a word.  Replace
+	x-prefixed variables with non-prefixed forms.  Compute the bitpos
+	for insv register operands directly in the chosen unit size, rather
+	than going through an intermediate BITS_PER_WORD unit size.
+	Update the call to store_fixed_bit_field.
+	(store_fixed_bit_field): Replace the bitpos and offset parameters
+	with a single bitnum parameter, of the same form as store_bit_field.
+	Assume that OP0 contains the full field.  Simplify the memory offset
+	calculation.  Assert that the processed OP0 has an integral mode.
+	(store_split_bit_field): Update the call to store_fixed_bit_field.
+
+2012-10-23  Paul Koning  <ni1d@arrl.net>
+
+	PR debug/54508
+	* dwarf2out.c (prune_unused_types_prune): If pruning a class and
+	not all its children were marked, add DW_AT_declaration flag.
+
+2012-10-23  Ian Bolton  <ian.bolton@arm.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen.thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config.gcc: Add AArch64.
+	* configure.ac: Add AArch64 TLS support detection.
+	* configure: Regenerate.
+
+2012-10-23  Ian Bolton  <ian.bolton@arm.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen,thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* doc/invoke.texi (AArch64 Options): New.
+	* doc/md.texi (Machine Constraints): Add AArch64.
+
+2012-10-23  Ian Bolton  <ian.bolton@arm.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen.thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* common/config/aarch64/aarch64-common.c: New file.
+	* config/aarch64/aarch64-arches.def: New file.
+	* config/aarch64/aarch64-builtins.c: New file.
+	* config/aarch64/aarch64-cores.def: New file.
+	* config/aarch64/aarch64-elf-raw.h: New file.
+	* config/aarch64/aarch64-elf.h: New file.
+	* config/aarch64/aarch64-generic.md: New file.
+	* config/aarch64/aarch64-linux.h: New file.
+	* config/aarch64/aarch64-modes.def: New file.
+	* config/aarch64/aarch64-option-extensions.def: New file.
+	* config/aarch64/aarch64-opts.h: New file.
+	* config/aarch64/aarch64-protos.h: New file.
+	* config/aarch64/aarch64-simd.md: New file.
+	* config/aarch64/aarch64-tune.md: New file.
+	* config/aarch64/aarch64.c: New file.
+	* config/aarch64/aarch64.h: New file.
+	* config/aarch64/aarch64.md: New file.
+	* config/aarch64/aarch64.opt: New file.
+	* config/aarch64/arm_neon.h: New file.
+	* config/aarch64/constraints.md: New file.
+	* config/aarch64/gentune.sh: New file.
+	* config/aarch64/iterators.md: New file.
+	* config/aarch64/large.md: New file.
+	* config/aarch64/predicates.md: New file.
+	* config/aarch64/small.md: New file.
+	* config/aarch64/sync.md: New file.
+	* config/aarch64/t-aarch64-linux: New file.
+	* config/aarch64/t-aarch64: New file.
+
+2012-10-23  Michael Matz  <matz@suse.de>
+
+	* tree-ssa-operands.h (struct def_optype_d, def_optype_p): Remove.
+	(ssa_operands.free_defs): Remove.
+	(DEF_OP_PTR, DEF_OP): Remove.
+	(struct ssa_operand_iterator_d): Remove 'defs', add 'flags'
+	members, rename 'phi_stmt' to 'stmt', 'phi_i' to 'i' and 'num_phi'
+	to 'numops'.
+	* gimple.h (gimple_statement_with_ops.def_ops): Remove.
+	(gimple_def_ops, gimple_set_def_ops): Remove.
+	(gimple_vdef_op): Don't take const gimple, adjust.
+	(gimple_asm_input_op, gimple_asm_input_op_ptr,
+	gimple_asm_set_input_op, gimple_asm_output_op,
+	gimple_asm_output_op_ptr, gimple_asm_set_output_op): Adjust asserts,
+	and rewrite to move def operands to front.
+	(gimple_asm_clobber_op, gimple_asm_set_clobber_op,
+	gimple_asm_label_op, gimple_asm_set_label_op): Correct asserts.
+	* tree-ssa-operands.c (build_defs): Remove.
+	(init_ssa_operands): Don't initialize it.
+	(fini_ssa_operands): Don't free it.
+	(cleanup_build_arrays): Don't truncate it.
+	(finalize_ssa_stmt_operands): Don't assert on it.
+	(alloc_def, add_def_op, append_def): Remove.
+	(finalize_ssa_defs): Remove building of def_ops list.
+	(finalize_ssa_uses): Don't mark for SSA renaming here, ...
+	(add_stmt_operand): ... but here, don't call append_def.
+	(get_indirect_ref_operands): Remove recurse_on_base argument.
+	(get_expr_operands): Adjust call to get_indirect_ref_operands.
+	(verify_ssa_operands): Don't check def operands.
+	(free_stmt_operands): Don't free def operands.
+	* gimple.c (gimple_copy): Don't clear def operands.
+	* tree-flow-inline.h (op_iter_next_use): Adjust to explicitely
+	handle def operand.
+	(op_iter_next_tree, op_iter_next_def): Ditto.
+	(clear_and_done_ssa_iter): Clear new fields.
+	(op_iter_init): Adjust to setup new iterator structure.
+	(op_iter_init_phiuse): Adjust.
+
+2012-10-23  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (offset_ok_for_ldrd_strd): Return false for
+	Thumb1.
+
+2012-10-23  Jan Hubicka  <jh@suse.cz>
+
+	* loop-unroll.c (decide_peel_simple): Simple peeling makes sense even
+	with simple loops; bound number of branches only when FDO is not
+	available.
+	(decide_unroll_stupid): Mention that num_loop_branches heuristics
+	is off.
+
+2012-10-23  Nick Clifton  <nickc@redhat.com>
+
+	PR target/54660
+	* config/iq2000/iq2000.c (iq2000_function_arg_advance): Suppress
+	compile time warning about pointer printing.
+
+2012-10-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* config.gcc (*-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu |
+	*-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu): Use
+	glibc-c.o in c_target_objs and cxx_target_objs.  Use t-glibc in
+	tmake_file.  Set target_has_targetcm.
+	(tilegx-*-linux*, tilepro-*-linux*): Append to c_target_objs and
+	cxx_target_objs rather than overriding previous value.
+	* config/glibc-c.c, config/t-glibc: New.
+	* doc/tm.texi.in (TARGET_C_PREINCLUDE): New @hook.
+	* doc/tm.texi: Regenerate.
+	* hooks.c (hook_constcharptr_void_null): New.
+	* hooks.h (hook_constcharptr_void_null): Declare.
+
+2012-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/mips/linux-common.h (STACK_CHECK_STATIC_BUILTIN): Define.
+	(STACK_CHECK_PROTECT): Likewise.
+	* config/mips/mips.h (MIPS_PROLOGUE_TEMP2_REGNUM): Likewise.
+	(MIPS_PROLOGUE_TEMP2): Likewise.
+	* config/mips/mips-protos.h (mips_output_probe_stack_range): Declare.
+	* config/mips/mips.c: Include common/common-target.h.
+	(mips_emit_probe_stack_range): New function.
+	(mips_output_probe_stack_range): Likewise.
+	(mips_expand_prologue): Invoke mips_emit_probe_stack_range if static
+	builtin stack checking is enabled.
+	* config/mips/mips.md (UNSPEC_PROBE_STACK_RANGE): New constant.
+	(probe_stack_range_<P:mode>): New insn.
+
+2012-10-23  Marc Glisse  <marc.glisse@inria.fr>
+
+	* tree-ssa-forwprop.c (forward_propagate_into_cond): Handle vectors.
+	* fold-const.c (fold_relational_const): Handle VECTOR_CST.
+	* doc/generic.texi (VEC_COND_EXPR): Document current policy.
+
+2012-10-23  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/54937
+	* tree-ssa-loop-niter.c (record_estimate): Do not try to lower
+	the bound of non-is_exit statements.
+	(maybe_lower_iteration_bound): Do it here.
+	(estimate_numbers_of_iterations_loop): Call it.
+
+2012-10-23  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/54967
+	* cfgloopmanip.c (fix_bb_placements): Add loop_closed_ssa_invalidated;
+	track basic blocks that moved out of their loops.
+	(unloop): Likewise.
+	(remove_path): Update.
+	(fix_loop_placements): Update.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely): Add
+	loop_closed_ssa_invalidated parameter; pass it around.
+	(canonicalize_loop_induction_variables): Update loop closed
+	SSA form if needed.
+	(tree_unroll_loops_completely): Likewise; do irred update out of
+	the outer loop; verify that SSA form is closed.
+	* cfgloop.h (unrloop): Update.
+
+2012-10-23  Terry Guo  <terry.guo@arm.com>
+
+	PR target/55019
+	* config/arm/arm.c (thumb1_expand_prologue): Don't push high regs with
+	live argument regs.
+
+2012-10-23  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR middle-end/55030
+	Revert:
+	* stmt.c (expand_nl_goto_receiver): Remove almost-copy of
+	expand_builtin_setjmp_receiver.
+	(expand_label): Adjust, call expand_builtin_setjmp_receiver
+	with NULL for the label parameter.
+	* builtins.c (expand_builtin_setjmp_receiver): Don't clobber
+	the frame-pointer.  Adjust comments.
+	[HAVE_builtin_setjmp_receiver]: Emit builtin_setjmp_receiver
+	only if LABEL is non-NULL.
+
+2012-10-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/55008
+	* gimple-ssa-strength-reduction.c (find_basis_for_candidate): Don't
+	allow a candidate to be a basis for itself under another interpretation.
+
+2012-10-22  Sharad Singhai  <singhai@google.com>
+
+	* dumpfile.c (dump_phase_enabled_p): Renamed dump_enabled_p. Update
+        all callers.
+	(dump_enabled_p): A new function to check if any of the dump files
+	is available.
+	(dump_kind_p): Remove check for current_function_decl. Add check for
+	dumpfile and alt_dump_file.
+	* dumpfile.h: Add declaration of dump_enabled_p.
+
+2012-10-22  Richard Biener  <rguenther@suse.de>
+
+	PR lto/55021
+	* tree-streamer-in.c (unpack_ts_int_cst_value_fields): Remove
+	bogus truncations.
+
+2012-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (memory_address_length): Assert that non-null
+	base or index RTXes are registers.  Do not check for REG RTXes.
+	Determine addr32 prefix using SImode_address_operand or
+	from original base and index RTXes.  Simplify code.
+
+2012-10-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55011
+	* tree-vrp.c (update_value_range): For invalid lattice transitions
+	drop to VARYING.
+
+2012-10-22  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.h (CANNOT_CHANGE_MODE_CLASS): Avoid subreg'ing
+	VFP D registers in big-endian mode.
+
+2012-10-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	* doc/invoke.texi (AVR Options): Document __AVR_ARCH__.
+	Note __AVR_<device>__ is not defined for cores.
+	Don't point to --help=target.
+
+2012-10-22  Sameera Deshpande  <sameera.deshpande@arm.com>
+	    Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (thumb2_emit_ldrd_pop): New function.
+	(arm_expand_epilogue): Use the new function.
+
+2012-10-22  Sameera Deshpande  <sameera.deshpande@arm.com>
+	    Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (thumb2_emit_strd_push): New function.
+	(arm_expand_prologue): Use the new function.
+
+2012-10-22  Sameera Deshpande  <sameera.deshpande@arm.com>
+	    Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm-protos.h (offset_ok_for_ldrd_strd): New declaration.
+	(operands_ok_ldrd_strd): Likewise.
+	* config/arm/arm.c (offset_ok_for_ldrd_strd): New function.
+	(operands_ok_ldrd_strd): Likewise.
+	* config/arm/arm.md (thumb2_ldrd, thumb2_ldrd_base): New patterns.
+	(thumb2_ldrd_base_neg): Likewise.
+	(thumb2_strd, thumb2_strd_base, thumb_strd_base_neg): Likewise.
+	* predicates.md (ldrd_strd_offset_operand): New predicate.
+	* config/arm/constraints.md (Do): New constraint.
+
+2012-10-22  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.md ("nonlocal_goto_receiver"): Refer to the
+	frame-pointer as an operand.
+	("*nonlocal_goto_receiver_expanded"): Ditto.  Use
+	mmix_output_register_setting instead of naked output_asm_insn for
+	the offset from the frame-pointer to the saved rO.
+	* config/mmix/mmix.c (mmix_output_register_setting): Emit NEGU for
+	values -255..0.
+	* config/mmix/predicates.md ("frame_pointer_operand"): New.
+	* config/mmix/constraints.md ("Yf"): New.
+
+	* stmt.c (expand_nl_goto_receiver): Remove almost-copy of
+	expand_builtin_setjmp_receiver.
+	(expand_label): Adjust, call expand_builtin_setjmp_receiver
+	with NULL for the label parameter.
+	* builtins.c (expand_builtin_setjmp_receiver): Don't clobber
+	the frame-pointer.  Adjust comments.
+	[HAVE_builtin_setjmp_receiver]: Emit builtin_setjmp_receiver
+	only if LABEL is non-NULL.
+
+2012-10-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386-protos.h (memory_address_length): Add new bool
+	argument.  Update all uses.
+	* config/i386/i386.c (memory_address_length): If not LEA insn, then
+	add length of addr32 prefix based on mode of base or index register.
+	(ix86_attr_length_address_default) <TYPE_LEA>: Do not handle SImode
+	addresses here.  Update call to memory_address_length.
+	(ix86_print_address_operand): Use SImode_address_operand predicate.
+	* config/i386/predicates.md (SImode_address_operand): New.
+	* config/i386/i386.md (lea<mode>): Use SImode_address_operand
+	to calculate "mode" attribute.  Use SImode_address_operand predicate
+	instead of open-coding accepted RTX codes.
+
+2012-10-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* rtl.def (ADDR_DIFF_VEC): Fix comment typo.
 
 2012-10-23  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -1189,9 +1651,10 @@
 	* calls.c (expand_call): Don't deal specifically with BLKmode values
 	returned in naked registers.
 	* expr.h (copy_blkmode_from_reg): Adjust prototype.
-	* expr.c (copy_blkmode_from_reg): Rename first parameter into TARGET and
-	make it required.  Assert that SRCREG hasn't BLKmode.  Add a couple of 
-	short-circuits for common cases and be prepared for sub-word registers.
+	* expr.c (copy_blkmode_from_reg): Rename first parameter into
+	TARGET and make it required.  Assert that SRCREG hasn't BLKmode.
+	Add a couple of short-circuits for common cases and be prepared
+	for sub-word registers.
 	(expand_assignment): Call copy_blkmode_from_reg for BLKmode values
 	returned in naked registers.
 	(store_expr): Likewise.
@@ -1227,7 +1690,8 @@
 
 2012-10-19  Jan Hubicka  <jh@suse.cz>
 
-	* builtins.def (BUILT_IN_UNREACHABLE): Make ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST.
+	* builtins.def (BUILT_IN_UNREACHABLE): Make
+	ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST.
 	* builtin-attrs.def (ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST): Define.
 
 2012-10-19  Michael Meissner  <meissner@linux.vnet.ibm.com>

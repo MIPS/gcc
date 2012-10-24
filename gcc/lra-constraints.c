@@ -515,6 +515,12 @@ extract_loc_address_regs (bool top_p, enum machine_mode mode, addr_space_t as,
     case PC:
       return;
 
+    case ZERO_EXTEND:
+      /* Pass TOP_P for displacement.  */
+      extract_loc_address_regs (top_p, mode, as, &XEXP (*loc, 0), context_p,
+				code, index_code, modify_p, ad);
+      return;
+
     case PLUS:
     case LO_SUM:
       /* When we have an address that is a sum, we must determine
@@ -4290,6 +4296,10 @@ update_ebb_live_info (rtx head, rtx tail)
        curr_insn = prev_insn)
     {
       prev_insn = PREV_INSN (curr_insn);
+      /* We need to process empty blocks too.  They contain
+	 NOTE_INSN_BASIC_BLOCK referring for the basic block.  */
+      if (NOTE_P (curr_insn) && NOTE_KIND (curr_insn) != NOTE_INSN_BASIC_BLOCK)
+	continue;
       curr_bb = BLOCK_FOR_INSN (curr_insn);
       if (curr_bb != prev_bb)
 	{
