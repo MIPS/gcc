@@ -1583,6 +1583,9 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	  bounds = bnd1;
 	else
 	  {
+	    if (!tree_node_can_be_shared (rhs1))
+	      rhs1 = unshare_expr (rhs1);
+
 	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
 	    stmt = gimple_build_assign_with_ops3 (COND_EXPR, bounds,
 						  rhs1, bnd1, bnd2);
