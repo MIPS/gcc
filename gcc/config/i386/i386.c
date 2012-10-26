@@ -3470,7 +3470,7 @@ ix86_option_override_internal (bool main_args_p,
 	       TARGET_64BIT_P (opts->x_ix86_isa_flags) ? "64" : "32");
     }
   else
-    opts->x_ix86_pmode = TARGET_LP64_P (opts->x_ix86_isa_flags)
+    opts->x_ix86_pmode = TARGET_64BIT_P (opts->x_ix86_isa_flags)
 			 ? PMODE_DI : PMODE_SI;
 
   if (!opts_set->x_ix86_abi)
