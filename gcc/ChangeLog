@@ -1,3 +1,293 @@
+2012-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54970
+	* cfgexpand.c (expand_debug_expr): Expand &MEM_REF[&var, n]
+	as DEBUG_IMPLICIT_PTR + n if &var expands to DEBUG_IMPLICIT_PTR.
+	* tree-sra.c (create_access_replacement): Allow also MEM_REFs
+	with ADDR_EXPR first operand in DECL_DEBUG_EXPR expressions.
+	* var-tracking.c (track_expr_p): Handle MEM_REFs in DECL_DEBUG_EXPR
+	expressions.
+	* dwarf2out.c (add_var_loc_to_decl): Likewise.
+
+2012-10-26  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c (cond_arg_set_in_bb): Use last stmt.
+
+2012-10-26  Gunther Nikl  <gnikl@users.sourceforge.net>
+
+	* common/config/m68k/m68k-common.c (m68k_handle_option): Set
+	gcc_options fields of opts_set for -m68020-40 and -m68020-60.
+
+2012-10-26  Teresa Johnson  <tejohnson@google.com>
+
+	* ree.c (add_removable_extension): Remove unnecessary
+	mode check with other extension.
+	* testsuite/gcc.c-torture/execute/20111227-2.c: New test.
+	* testsuite/gcc.c-torture/execute/20111227-3.c: Ditto.
+
+2012-10-26  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline-transform.c (inline_call): Only account size changes
+	for !DECL_EXTERNAL.
+
+2012-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR debug/54971
+	* tree-sra.c (struct access): New flag grp_to_be_debug_replaced.
+	(dump_access): Dump the new flag.
+	(analyze_access_subtree): Set the new flag when appropriate.
+	(create_access_replacement): Handle debug replacements differently.
+	(generate_subtree_copies): Handle the grp_to_be_debug_replaced flag.
+	(init_subtree_with_zero): Likewise.
+	(sra_modify_expr): Likewise.
+	(load_assign_lhs_subreplacements): Likewise.
+	(sra_modify_assign): Likewise.
+
+2012-10-23  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* config/i386/i386.c (insn_is_function_arg) : Add check on CALL
+	instruction.
+	(ix86_dependencies_evaluation_hook): Insert dependencies in all
+	predecessors of call block for non-trivial region avoiding creation
+	of loop-carried dependency to avoid cross-block motion of HW registers.
+
+2012-10-26  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/54824
+	* tree-optimize.c (execute_fixup_cfg): Insert __builtin_unreachable
+	at the end of blocks with no successors.
+
+2012-10-26  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc/common/config/i386/i386-common.c
+	(OPTION_MASK_ISA_FXSR_SET): New.
+	(OPTION_MASK_ISA_XSAVE_SET): Likewise.
+	(OPTION_MASK_ISA_XSAVEOPT_SET): Likewise.
+	(ix86_handle_option): Handle mfxsr, mxsave, mxsaveopt options.
+	* gcc/config.gcc (i[34567]86-*-*): Add fxsrintrin.h,
+	xsaveintrin.h, xsaveoptintrin.h.
+	(x86_64-*-*): Likewise.
+	* config/i386/fxsrintrin.h: New header.
+	* config/i386/xsaveintrin.h: Likewise.
+	* config/i386/xsaveoptintrin.h: Likewise.
+	* gcc/config/i386/driver-i386.c (host_detect_local_cpu): Detect
+	FXSR/XSAVE/XSAVEOPT support.
+	* gcc/config/i386/i386-builtin-types.def
+	(VOID_FTYPE_PVOID_INT64): New function type.
+	* gcc/config/i386/i386-c.c: Define __FXSR__, __XSAVE__
+	and __XSAVEOPT__ if needed.
+	* gcc/config/i386/i386.c (ix86_target_string): Define -mfxsr,
+	 -mxsave and -mxsaveopt options.
+	(PTA_FXSR): New.
+	(PTA_XSAVE): Likewise.
+	(PTA_XSAVEOPT): Likewise.
+	(ix86_option_override_internal): Handle new option.
+	(processor_alias_table): Added PTA_FXSR, PTA_XSAVE, PTA_XSAVEOPT.
+	(ix86_valid_target_attribute_inner_p): Add OPT_mfxsr,
+	OPT_mxsave, OPT_mxsaveopt.
+	(ix86_builtins): Add IX86_BUILTIN_FXSAVE, IX86_BUILTIN_FXRSTOR,
+	IX86_BUILTIN_FXSAVE64, IX86_BUILTIN_XSAVE, IX86_BUILTIN_XSAVE64,
+	IX86_BUILTIN_XRSTOR, IX86_BUILTIN_XRSTOR64, IX86_BUILTIN_XSAVEOPT,
+	IX86_BUILTIN_XSAVEOPT64.
+	(ix86_expand_builtin): Handle these built-ins.
+	* gcc/config/i386/i386.h (TARGET_FXSR): New.
+	(TARGET_XSAVE): Likewise.
+	(TARGET_XSAVEOPT): Likewise.
+	* gcc/config/i386/i386.md (ANY_XSAVE): New int iterator.
+	(ANY_XSAVE64): Likewise.
+	(xsave): New int attribute.
+	(fxsave): New instruction.
+	(fxsave64): Likewise.
+	(fxrstor): Likewise.
+	(fxrstor64): Likewise.
+	(<xsave>): Likewise.
+	(<xsave>_rex64): Likewise.
+	(xrstor): Likewise.
+	(xrstor_rex64): Likewise.
+	(xrstor64): Likewise.
+	* gcc/config/i386/i386.opt (mfxsr): New.
+	(mxsave): Likewise.
+	(mxsaveopt): Likewise.
+	* gcc/config/i386/x86intrin.h: Include
+	xsaveintrin.h, fxsrintrin.h, xsaveoptintrin.h.
+
+2012-10-26  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/avr/t-rtems: Revert previous commit.
+
+2012-10-26  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR bootstrap/55049
+	* Makefile.in (rtlanal.o): Add dependency on addresses.h.
+	* rtl.h (address_info): New structure.
+	(strip_address_mutations, decompose_address, decompose_lea_address)
+	(decompose_mem_address, update_address, get_index_scale)
+	(get_index_code): Declare.
+	* rtlanal.c: Include addresses.h.
+	(strip_address_mutations, must_be_base_p, must_be_index_p)
+	(set_address_segment, set_address_base, set_address_index)
+	(set_address_disp, decompose_incdec_address, decompose_automod_address)
+	(extract_plus_operands, baseness, decompose_normal_address)
+	(decompose_address, decompose_lea_address, decompose_mem_address)
+	(update_address, get_index_scale, get_index_code): New functions.
+	* lra-constraints.c (strip_subreg): New function.
+	(address, extract_loc_address_regs, extract_address_regs)
+	(get_index_scale): Delete.
+	(process_addr_reg): Apply strip_subreg to the location.
+	(uses_hard_regs_p): Use decompose_mem_address.
+	(valid_address_p, base_plus_disp_to_reg, can_add_disp_p)
+	(equiv_address_substitution): Take an address_info rather
+	than an address.  Remove other arguments.  Avoid using Pmode.
+	(process_address): Use decompose_mem_address and decompose_lea_address.
+	Update calls to above functions.
+
+2012-10-26  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (process_address): Tighten arguments to
+	base_reg_class.  Use simplify_gen_binary to generate PLUS rtxes.
+
+2012-10-26  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (get_index_scale, can_add_disp_p): New functions.
+	(equiv_address_substitution): Use them.
+
+2012-10-26  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (valid_address_p): New function, split out from...
+	(process_address): ...here.
+
+2012-10-26  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lra-constraints.c (process_address): Describe the kinds of address
+	that we might see.
+
+2012-10-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-int.h (lra_assert): Redefine it gcc_checking_assert.
+	* lra-constraints.c (check_and_process_move): Remove #if
+	ENABLE_ASSERT_CHECKING.
+
+2012-10-26  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/avr/rtems.h (TARGET_OS_CPP_BUILTINS): Remove
+	__USE_INIT_FINI__.
+	* config/avr/t-rtems (LIB1ASMFUNCS): Filter out _exit.
+
+2012-10-25  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/constraints.md ("U"): Delete.
+	* config/sparc/sparc.md: Use 'r' constraint instead of 'U'.
+	* config/sparc/sync.md: Likewise.
+
+2012-10-25  Lawrence Crowl  <crowl@google.com>
+
+	* hash-table.h: Add usage documentation.
+	(template struct typed_free_remove): Clarify documentation.
+	Rename template parameter.
+	(struct typed_noop_remove): Likewise.
+	(descriptor concept): Change typedef T to value_type.
+	Add typedef compare_type.  Use more precise template parameter name,
+	Descriptor instead of Descr.  Update users to match.
+	(struct hash_table): Change 'find' parameters to use compare_type
+	instead of the value type.
+
+2012-10-25  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-cp.c (ipcp_discover_new_direct_edges): If something was turned
+	to direct call update the summary.
+	* ipa-inline-transform.c (inline_call): Sanity check that summaries
+	match the predicted effect; fix updating of summary after edge
+	redirection.
+	* ipa-inline-analysis.c (inline_node_duplication_hook): Do not try
+	to update the summary and recompute it instead.
+	(estimate_function_body_sizes): Fix self size estimation; double
+	check that it agrees with inline_update_overall_summary.
+	(estimate_edge_size_and_time): Handle devirtualizaiton costs.
+	(estimate_edge_devirt_benefit): Update to be called from
+	estimate_edge_size_and_time.
+	(estimate_calls_size_and_time): Update.
+	(estimate_node_size_and_time): Watch overflows.
+	(inline_merge_summary): Likewise.
+	* ipa-prob.c: Include ipa-inline.h
+	(ipa_make_edge_direct_to_target): After redirection update the summary.
+
+2012-10-25  Cary Coutant  <ccoutant@google.com>
+
+	PR debug/55063
+	* dwarf2out.c (prune_unused_types_prune): Check whether DIE is
+	already a declaration.
+
+2012-10-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (assign_by_spills): Add non-reload pseudos
+	assigned to hard register to changed_pseudo_bitmap.
+
+2012-10-25  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config.gcc (microblaze*-*-rtems*): New target.
+	* config/microblaze/rtems.h: New.
+	* config/microblaze/t-rtems: New.
+
+2012-10-25  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimize/54980
+	* tree-ssa-loop-ivcanon.c (constant_after_peeling): Fix obvious typo.
+	(loop_edge_to_cancel): Be sure that the edge is from an conditional
+	so we can cancel it.
+
+2012-10-25  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/54427
+	* tree.c (signed_or_unsigned_type_for): Handle vectors.
+
+2012-10-25  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (recursive_inlining): Redirect to master
+	clone before testing profitability.
+
+2012-10-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54902
+	* tree-ssa-pre.c (fini_eliminate): Return TODO.
+	(do_pre): Adjust.
+	(execute_fre): Likewise.
+	* tree-ssa-tailmerge.c (tail_merge_optimize): Delete unreachable
+	blocks before computing dominators.
+
+2012-10-25  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* expr.c (emit_block_move_via_loop): Use simplify_gen_binary
+	rather than gen_rtx_PLUS.
+
+2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/55068
+	PR regression/55050
+	* ira.c (setup_reg_renumber): Fix assert.
+	* ira-emit.c (emit_move_list): Update equivalences only for LRA.
+
+2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/55067
+	* lra.c: Rename loc to sloc and loc_t to sloc_t.
+
+2012-10-24  Sharad Singhai  <singhai@google.com>
+
+	* config/rs6000/rs6000.c (rs6000_density_test): Use dump_enabled_p
+          instead of dump_kind_p.
+
+2012-10-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/54928
+	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc):
+	Use diagnostic_append_note.
+	* diagnostic.c (diagnostic_build_prefix): Make diagnostic const.
+	(default_diagnostic_finalizer): Do not destroy prefix here.
+	(diagnostic_report_diagnostic): Destroy it here.
+	(diagnostic_append_note): New.
+	* diagnostic.h (diagnostic_append_note): Declare.
+
 2012-10-24  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/55055
@@ -56,8 +346,7 @@
 2012-10-23  David S. Miller  <davem@davemloft.net>
 
 	* config/sparc/constraints.md ("T", "W"): Change
-	definitions to use define_memory_constraint.  Do not match
-	'reg'.
+	definitions to use define_memory_constraint.  Do not match 'reg'.
 	* config/sparc/sparc.c (memory_ok_for_ldd): Remove all non-MEM
 	handling code, update comment.
 
@@ -170,7 +459,7 @@
 	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 	    Richard Earnshaw  <rearnsha@arm.com>
 	    Sofiane Naci  <sofiane.naci@arm.com>
-	    Stephen Thomas  <stephen,thomas@arm.com>
+	    Stephen Thomas  <stephen.thomas@arm.com>
 	    Tejas Belagod  <tejas.belagod@arm.com>
 	    Yufeng Zhang  <yufeng.zhang@arm.com>
 
@@ -224,9 +513,8 @@
 	* tree-ssa-operands.h (struct def_optype_d, def_optype_p): Remove.
 	(ssa_operands.free_defs): Remove.
 	(DEF_OP_PTR, DEF_OP): Remove.
-	(struct ssa_operand_iterator_d): Remove 'defs', add 'flags'
-	members, rename 'phi_stmt' to 'stmt', 'phi_i' to 'i' and 'num_phi'
-	to 'numops'.
+	(struct ssa_operand_iterator_d): Remove 'defs', add 'flags' members,
+	rename 'phi_stmt' to 'stmt', 'phi_i' to 'i' and 'num_phi' to 'numops'.
 	* gimple.h (gimple_statement_with_ops.def_ops): Remove.
 	(gimple_def_ops, gimple_set_def_ops): Remove.
 	(gimple_vdef_op): Don't take const gimple, adjust.
@@ -259,8 +547,7 @@
 
 2012-10-23  Greta Yorsh  <Greta.Yorsh@arm.com>
 
-	* config/arm/arm.c (offset_ok_for_ldrd_strd): Return false for
-	Thumb1.
+	* config/arm/arm.c (offset_ok_for_ldrd_strd): Return false for Thumb1.
 
 2012-10-23  Jan Hubicka  <jh@suse.cz>
 
@@ -357,13 +644,14 @@
 2012-10-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/55008
-	* gimple-ssa-strength-reduction.c (find_basis_for_candidate): Don't
-	allow a candidate to be a basis for itself under another interpretation.
+	* gimple-ssa-strength-reduction.c (find_basis_for_candidate):
+	Don't allow a candidate to be a basis for itself under another
+	interpretation.
 
 2012-10-22  Sharad Singhai  <singhai@google.com>
 
 	* dumpfile.c (dump_phase_enabled_p): Renamed dump_enabled_p. Update
-        all callers.
+	all callers.
 	(dump_enabled_p): A new function to check if any of the dump files
 	is available.
 	(dump_kind_p): Remove check for current_function_decl. Add check for
