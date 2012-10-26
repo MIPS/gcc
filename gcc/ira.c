@@ -4361,7 +4361,7 @@ ira (FILE *f)
 
   ira_conflicts_p = optimize > 0;
 
-  ira_use_lra_p = targetm.lra_p ();
+  ira_use_lra_p = flag_lra && targetm.lra_p ();
   /* If there are too many pseudos and/or basic blocks (e.g. 10K
      pseudos and 10K blocks or 100K pseudos and 1K blocks), we will
      use simplified and faster algorithms in LRA.  */

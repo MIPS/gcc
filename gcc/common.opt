@@ -1226,6 +1226,10 @@ floop-flatten
 Common Ignore
 Does nothing. Preserved for backward compatibility.
 
+flra
+Common Report Var(flag_lra) Init(1)
+Switch on LRA if it was ported to the target.
+
 flra-reg-spill
 Common Report Var(flag_lra_reg_spill) Init(1)
 Spill pseudos occured only in move insns into available regs of different
