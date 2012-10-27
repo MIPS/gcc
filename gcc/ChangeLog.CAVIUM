@@ -197,6 +197,16 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-10-27  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5056
+	* expr.c (expand_assignment): Set the correct alignment on the mem
+	when doing a movemisalign.
+	(expand_expr_real_1 <case TARGET_MEM_REF>): Likewise.
+	(expand_expr_real_1 <case MEM_REF>): Likewise.
+
+	* testsuite/gcc.c-torture/compile/20121027-1.c: New testcase.
+
 2012-10-11  Andrew Pinski  <apinski@cavium.com>
 
 	* config.gcc (mips*-*-linux*): mips*-octeon-linux* and mips*-montavista-linux*

@@ -9987,6 +9987,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	set_mem_attributes (temp, exp, 0);
 	set_mem_addr_space (temp, as);
 	align = get_object_alignment (exp);
+
+	/* Set the alignment to what the correct alignment is. */
+	set_mem_align (temp, align);
 	if (modifier != EXPAND_WRITE
 	    && modifier != EXPAND_MEMORY
 	    && mode != BLKmode
@@ -10065,6 +10068,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, exp, 0);
 	set_mem_addr_space (temp, as);
+
+	/* Set the alignment to what the correct alignment is. */
+	set_mem_align (temp, align);
 	if (TREE_THIS_VOLATILE (exp))
 	  MEM_VOLATILE_P (temp) = 1;
 	if (modifier != EXPAND_WRITE
