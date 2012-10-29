@@ -2071,8 +2071,17 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		{
 		  tree arg = gimple_phi_arg_def (def_stmt, i);
 		  tree arg_bnd;
+		  gimple phi_bnd;
 
 		  arg_bnd = pl_find_bounds (arg, NULL);
+
+		  /* pl_get_bounds_by_definition created new phi
+		     statement and phi_iter points to it.
+
+		     Previous call to pl_find_bounds could create
+		     new basic block and therefore change phi statement
+		     phi_iter points to.  */
+		  phi_bnd = gsi_stmt (phi_iter);
 
 		  add_phi_arg (phi_bnd, arg_bnd,
 			       gimple_phi_arg_edge (def_stmt, i),
