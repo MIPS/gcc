@@ -2062,9 +2062,6 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 
 	  if (gimple_code (def_stmt) == GIMPLE_PHI)
 	    {
-	      /* pl_get_bounds_by_definition created new phi
-		 statement and phi_iter points to it.  */
-	      gimple phi_bnd = gsi_stmt (phi_iter);
 	      unsigned i;
 
 	      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
@@ -2167,32 +2164,41 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
     return bounds1;
   else
     {
-        gimple_seq seq;
-	gimple stmt;
-	tree bounds;
+      gimple_stmt_iterator gsi;
+      gimple_seq seq;
+      gimple stmt;
+      tree bounds;
 
-	seq = gimple_seq_alloc ();
+      /* We are probably doing narrowing for constant expression.
+	 In such case iter may be undefined.  */
+      if (!iter)
+	{
+	  gsi = gsi_start_bb (pl_get_entry_block ());
+	  iter = &gsi;
+	}
 
-	stmt = gimple_build_call (pl_intersect_fndecl, 2, bounds1, bounds2);
-	pl_mark_stmt (stmt);
+      seq = gimple_seq_alloc ();
 
-	bounds = make_ssa_name (pl_get_tmp_var (), stmt);
-	gimple_call_set_lhs (stmt, bounds);
+      stmt = gimple_build_call (pl_intersect_fndecl, 2, bounds1, bounds2);
+      pl_mark_stmt (stmt);
 
-	gimple_seq_add_stmt (&seq, stmt);
+      bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+      gimple_call_set_lhs (stmt, bounds);
 
-	gsi_insert_seq_before (iter, seq, GSI_SAME_STMT);
+      gimple_seq_add_stmt (&seq, stmt);
 
-	if (dump_file && (dump_flags & TDF_DETAILS))
-	  {
-	    fprintf (dump_file, "Bounds intersection: ");
-	    print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
-	    fprintf (dump_file, "  inserted before statement: ");
-	    print_gimple_stmt (dump_file, gsi_stmt (*iter), 0,
-			       TDF_VOPS|TDF_MEMSYMS);
-	  }
+      gsi_insert_seq_before (iter, seq, GSI_SAME_STMT);
 
-	return bounds;
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Bounds intersection: ");
+	  print_gimple_stmt (dump_file, stmt, 0, TDF_VOPS|TDF_MEMSYMS);
+	  fprintf (dump_file, "  inserted before statement: ");
+	  print_gimple_stmt (dump_file, gsi_stmt (*iter), 0,
+			     TDF_VOPS|TDF_MEMSYMS);
+	}
+
+      return bounds;
     }
 }
 
