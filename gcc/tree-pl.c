@@ -1566,6 +1566,10 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case CEIL_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case EXACT_DIV_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FLOAT_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
       bounds = pl_get_invalid_op_bounds ();
       break;
 
