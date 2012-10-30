@@ -7395,10 +7395,9 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && (!fntype || BOUNDED_P (fntype)))
+  if (flag_pl && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
     {
-      rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
-			    FIRST_BND_REG);
+      rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
       rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
       rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
       res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
