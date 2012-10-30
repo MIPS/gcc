@@ -2164,18 +2164,9 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
     return bounds1;
   else
     {
-      gimple_stmt_iterator gsi;
       gimple_seq seq;
       gimple stmt;
       tree bounds;
-
-      /* We are probably doing narrowing for constant expression.
-	 In such case iter may be undefined.  */
-      if (!iter)
-	{
-	  gsi = gsi_start_bb (pl_get_entry_block ());
-	  iter = &gsi;
-	}
 
       seq = gimple_seq_alloc ();
 
@@ -2187,7 +2178,16 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 
       gimple_seq_add_stmt (&seq, stmt);
 
-      gsi_insert_seq_before (iter, seq, GSI_SAME_STMT);
+      /* We are probably doing narrowing for constant expression.
+	 In such case iter may be undefined.  */
+      if (!iter)
+	{
+	  gimple_stmt_iterator gsi = gsi_last_bb (pl_get_entry_block ());
+	  iter = &gsi;
+	  gsi_insert_seq_after (iter, seq, GSI_SAME_STMT);
+	}
+      else
+	gsi_insert_seq_before (iter, seq, GSI_SAME_STMT);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
