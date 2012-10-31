@@ -1978,6 +1978,13 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
       bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
       break;
 
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
+      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (obj, 0),
+						iter,
+						always_narrow_fields);
+      break;
+
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
