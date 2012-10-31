@@ -618,7 +618,6 @@ pl_transform_function (void)
 {
   basic_block bb, next;
   gimple_stmt_iterator i;
-  int saved_last_basic_block = last_basic_block;
   enum gimple_rhs_class grhs_class;
   bool safe = DECL_PL_STATIC_INIT (cfun->decl);
 
@@ -689,7 +688,7 @@ pl_transform_function (void)
         }
       bb = next;
     }
-  while (bb && bb->index <= saved_last_basic_block);
+  while (bb);
 }
 
 /* Add bound retvals to return statement pointed by GSI.  */
