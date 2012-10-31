@@ -121,7 +121,13 @@ handler(uint64_t registers[32])
 static int
 compare (const void *a, const void *b)
 {
-  return *(void **) a - *(void **)b;
+  void *a1 = *(void**)a;
+  void *b1 = *(void**)b;
+  if (a1 > b1)
+    return 1;
+  else if (a1 < b1)
+    return -1;
+  return 0;
 }
 
 static void
