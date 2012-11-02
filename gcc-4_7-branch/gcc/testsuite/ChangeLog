@@ -1,3 +1,112 @@
+2012-10-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/53517
+	* gnat.dg/lto14.adb: Skip on Solaris.
+
+2012-10-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54984
+	* g++.dg/template/new11.C: New.
+
+2012-10-26  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2012-10-23  Terry Guo  <terry.guo@arm.com>
+
+	PR target/55019
+	* gcc.dg/pr55019.c: New.
+
+2012-10-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54902
+	* g++.dg/torture/pr54902.C: New testcase.
+
+2012-10-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/modular4.adb: New test.
+	* gnat.dg/modular4_pkg.ads: New helper.
+
+2012-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/atomic1.ads: XFAIL on MIPS.
+	* gnat.dg/specs/addr1.ads: Likewise.
+
+2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	Backport from mainline
+	2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	PR target/54892
+	* gcc.target/arm/pr54892.c: New.
+
+2012-10-16  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-08-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/53701
+	* gcc.dg/pr53701.c: New test.
+
+2012-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx256-unaligned-load-1.c: Update asm scan patterns.
+	* gcc.target/i386/avx256-unaligned-load-2.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-load-3.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-load-4.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-1.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-3.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-4.c: Ditto.
+
+2012-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/54920
+	* gcc.dg/torture/pr54920.c: New testcase.
+
+2012-10-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54784
+	* gfortran.dg/class_allocate_13.f90: New.
+
+2012-10-08  Terry Guo  <terry.guo@arm.com>
+
+	Backported from mainline
+	2012-09-19  Terry Guo  <terry.guo@arm.com>
+
+	* lib/gcc-dg.exp (dg_runtest_extra_prunes): New variable to define
+	extra prune rules that will be applied to all tests in a .exp file.
+	(gcc-dg-prune): Use rules defined by the above variable.
+	* gcc.target/arm/arm.exp (dg_runtest_extra_prunes): Skip all the
+	harmless warnings on architecture switch conflict.
+
+2012-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54858
+	* g++.dg/template/pr54858.C: New test.
+
+2012-10-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33763
+	* c-c++-common/pr33763.c: New test.
+
+2012-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54777
+	* g++.dg/cpp0x/constexpr-ref4.C: New test.
+
+2012-09-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/54083
+	* gcc.dg/torture/pr53922.c: Skip on 32-bit hppa-*-hpux*.
+
+2012-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/54703
+	* gcc.target/i386/pr54703.c: New test.
+
 2012-09-24  Janis Johnson  <janisjo@codesourcery.com>
 
 	Backport from mainline:

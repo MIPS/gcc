@@ -1,3 +1,24 @@
+2012-11-01   Haakan Younes  <hyounes@google.com>
+	     Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/55047
+	* include/bits/random.h (exponential_distribution<>::operator):
+	Fix formula to std::log(result_type(1) - __aurng()).
+	* include/bits/random.tcc: Likewise, everywhere.
+
+2012-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+        PR libstdc++/55123
+        * include/bits/shared_ptr_base.h (__shared_count::_S_create_from_up):
+        Do not instantiate allocator with element_type.
+        * testsuite/20_util/shared_ptr/cons/55123.cc: New.
+
+2012-10-10  Andrew MacLeod  <amacleod@redhat.com>
+
+	PR libstdc++/54861
+	* include/bits/atomic_base.h (atomic_signal_fence): Call
+	__atomic_signal_fence instead of __atomic_thread_fence.
+
 2012-09-20  Benjamin Kosnik  <bkoz@redhat.com>
 
 	PR libstdc++/54102, part 2

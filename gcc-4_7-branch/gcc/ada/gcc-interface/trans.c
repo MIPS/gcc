@@ -2402,7 +2402,8 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 	    {
 	      if (TYPE_PRECISION (gnu_base_type)
 		  > TYPE_PRECISION (size_type_node))
-		gnu_base_type = gnat_unsigned_type (gnu_base_type);
+		gnu_base_type
+		  = gnat_type_for_size (TYPE_PRECISION (gnu_base_type), 1);
 	      else
 		gnu_base_type = size_type_node;
 
@@ -3123,6 +3124,7 @@ build_return_expr (tree ret_obj, tree ret_val)
       if (optimize
 	  && AGGREGATE_TYPE_P (operation_type)
 	  && !TYPE_IS_FAT_POINTER_P (operation_type)
+	  && TYPE_MODE (operation_type) == BLKmode
 	  && aggregate_value_p (operation_type, current_function_decl))
 	{
 	  /* Recognize the temporary created for a return value with variable
