@@ -2,6 +2,7 @@
 
 /* { dg-do compile { target *-octeon-* } } */
 /* { dg-options "-O2" } */
+/* This fails with n64 because the call to g needs a load. */
 /* { dg-final { scan-assembler-times "ld\\t" 2 } } */
 /* { dg-final { scan-assembler-not "lb" } } */
 

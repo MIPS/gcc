@@ -199,6 +199,14 @@
 	
 2012-11-02  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/octeon/ext-42.c: Add note on why this fails for linux n64.
+	* testsuite/gcc.dg/octeon/ins-3.c: Check for usd only on the elf targets.
+	Check for sdr/sdl on the linux targets.
+	* testsuite/gcc.dg/octeon/trunc-20.c: Tighten the .* so it does not match a
+	return.
+
+2012-11-02  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.dg/octeon/ext-26.c: Check for uld only on the elf targets.
 	Check for ldr/ldl on the linux targets.
 	* testsuite/gcc.dg/octeon/ext-28.c: Likewise.

@@ -1,6 +1,8 @@
 /* { dg-do compile { target *-octeon-* } } */
 /* { dg-options "-O2" } */
-/* { dg-final { scan-assembler "usd\t" } } */
+/* { dg-final { scan-assembler "usd\t" { target mips*-octeon-elf } } } */
+/* { dg-final { scan-assembler "sdl\t" { target mips*-octeon-linux-gnu } } } */
+/* { dg-final { scan-assembler "sdr\t" { target mips*-octeon-linux-gnu} } } */
 
 struct TRIAL
 {
