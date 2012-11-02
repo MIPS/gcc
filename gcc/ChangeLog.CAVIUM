@@ -197,6 +197,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-02  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/ext-26.c: Check for uld only on the elf targets.
+	Check for ldr/ldl on the linux targets.
+	* testsuite/gcc.dg/octeon/ext-28.c: Likewise.
+
 2012-10-30  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/test-backtrace.h (compare): Fix for LP64
