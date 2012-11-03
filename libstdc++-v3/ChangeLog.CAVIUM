@@ -2,8 +2,8 @@
 2012-11-02  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #5142
-	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Add the multilib directory
-	for the include files.
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Add the
+	multilib directory for the include files.
 
 2012-10-19  Andrew Pinski  <apinski@cavium.com>
 
