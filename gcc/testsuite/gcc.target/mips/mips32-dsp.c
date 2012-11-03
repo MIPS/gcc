@@ -99,8 +99,8 @@
 /* { dg-final { scan-assembler "\tmult\t" } } */
 /* { dg-final { scan-assembler "\tmultu\t" } } */
 
-#include <stdlib.h>
-#include <stdio.h>
+extern void abort (void);
+extern void exit (int);
 
 typedef signed char v4i8 __attribute__ ((vector_size(4)));
 typedef short v2q15 __attribute__ ((vector_size(4)));

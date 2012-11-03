@@ -199,6 +199,12 @@
 	
 2012-11-02  Andrew Pinski  <apinski@cavium.com>
 
+	Bug #5138
+	* testsuite/gcc.target/mips/mips32-dsp.c: Don't include stdlib.h or stdio.h.
+	Declare abort and exit.
+
+2012-11-02  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.dg/octeon/ext-42.c: Add note on why this fails for linux n64.
 	* testsuite/gcc.dg/octeon/ins-3.c: Check for usd only on the elf targets.
 	Check for sdr/sdl on the linux targets.
