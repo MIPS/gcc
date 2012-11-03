@@ -1,4 +1,10 @@
 
+2012-11-02  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5142
+	* testsuite/lib/libstdc++.exp (v3_target_compile_as_c): Add the multilib directory
+	for the include files.
+
 2012-10-19  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/27_io/ios_base/storage/2.cc: Skip testcase for LP64 targets.
