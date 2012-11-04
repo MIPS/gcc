@@ -5731,3 +5731,16 @@ proc force_conventional_output_for { test } {
     }
 }
 
+# Return true if this is MIPS n64 ABI with ABIcalls
+proc check_effective_target_mips_n64_abicalls {} {
+    if { ![istarget mips*-*-*] || ![is-effective-target lp64]} {
+       return 0
+    }
+    return [check_no_compiler_messages mips_n64_abicalls object {
+	#ifndef __mips_abicalls
+	#error
+	#else
+	int dummy[1];
+	#endif
+    }]
+}

@@ -199,6 +199,13 @@
 	
 2012-11-03  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/lib/target-supports.exp (check_effective_target_mips_n64_abicalls):
+	New proc.
+	* testsuite/gcc.dg/octeon/ext-42.c: Change the testcase to check for 3 ld
+	if we are n64 with ABI calls.
+
+2012-11-03  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.dg/octeon/ext-45.c: Tighten the matching of sll so it does not
 	match dsll which is used to generate addresses in n64.
 

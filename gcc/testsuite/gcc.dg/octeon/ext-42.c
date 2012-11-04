@@ -2,8 +2,9 @@
 
 /* { dg-do compile { target *-octeon-* } } */
 /* { dg-options "-O2" } */
-/* This fails with n64 because the call to g needs a load. */
-/* { dg-final { scan-assembler-times "ld\\t" 2 } } */
+/* { dg-final { scan-assembler-times "ld\\t" 2 { target { ! mips_n64_abicalls } } } } */
+/* n64 with abi calls needs an extra load for the function call */
+/* { dg-final { scan-assembler-times "ld\\t" 3 { target mips_n64_abicalls } } } */
 /* { dg-final { scan-assembler-not "lb" } } */
 
 struct s
