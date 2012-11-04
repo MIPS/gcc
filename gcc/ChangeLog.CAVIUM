@@ -197,6 +197,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-03  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/bbit-1.c: Remove as the testcase is optimized better
+	than before even though bbit is not produced.  Also bbit-10.c represents the problem
+	the testcase was testing.
+
 2012-11-02  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #5138
