@@ -197,6 +197,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-04  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.target/mips/extra-move-1.c: Tighten the matching of sll so it does not
+	match dsll which is used to generate addresses in n64.
+
 2012-11-03  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/lib/target-supports.exp (check_effective_target_mips_n64_abicalls):
