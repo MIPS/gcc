@@ -1,5 +1,24 @@
 2012-11-05  Jakub Jelinek  <jakub@redhat.com>
 
+	Backported from mainline
+	2012-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54828
+	* gimple.h (is_gimple_sizepos): New inline function.
+	* gimplify.c (gimplify_one_sizepos): Use it.  Remove useless
+	final assignment to expr variable.
+	* tree.c (RETURN_TRUE_IF_VAR): Return true also if
+	!TYPE_SIZES_GIMPLIFIED (type) and _t is going to be gimplified
+	into a local temporary.
+
+	2012-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/54877
+	* tree-vect-loop.c (vect_is_simple_reduction_1): For MINUS_EXPR
+	use make_ssa_name instead of copy_ssa_name.
+
+2012-11-05  Jakub Jelinek  <jakub@redhat.com>
+
 	PR debug/54402
 	* var-tracking.c (fp_setter): Return false if there is REG_CFA_RESTORE
 	hfp note.
