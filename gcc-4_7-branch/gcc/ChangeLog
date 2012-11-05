@@ -1,3 +1,97 @@
+2012-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54402
+	* var-tracking.c (fp_setter): Return false if there is REG_CFA_RESTORE
+	hfp note.
+	(vt_initialize): Look for fp_setter in any bb, not just successor of
+	entry bb.
+
+2012-11-04  Alexandre Oliva <aoliva@redhat.com>, Jakub Jelinek <jakub@redhat.com>
+
+	PR debug/54693
+	* tree-ssa-loop-ivopts.c (remove_unused_ivs): Emit debug temps
+	for dropped IV sets.
+
+2012-11-04  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54693
+	* tree-ssa-threadedge.c (propagate_threaded_block_debug_into):
+	New, rewritten from debug stmt copying code...
+	(thread_around_empty_block): ... removed from here.
+	(thread_across_edge): Call propagate_threaded_block_debug_into.
+
+2012-10-30  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54551
+	PR debug/54693
+	* valtrack.c (dead_debug_promote_uses): Assert-check that
+	global used bit was clear and initialize entry
+	unconditionally.
+
+2012-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54953
+	* valtrack.h (DEBUG_TEMP_AFTER_WITH_REG_FORCE): New.
+	* valtrack.c (dead_debug_insert_temp): Use emit_debug_insn_after
+	even for where == DEBUG_TEMP_AFTER_WITH_REG_FORCE.
+	* dce.c (word_dce_process_block, dce_process_block): Pass
+	DEBUG_TEMP_AFTER_WITH_REG_FORCE if insn is needed and therefore
+	not going to be eliminated.
+
+2012-10-29  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54693
+	* valtrack.c (dead_debug_insert_temp): Defer rescan of
+	newly-emitted debug insn.
+
+2012-10-29  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54693
+	* tree-ssa-threadedge.c (thread_around_empty_block): Copy
+	debug temps from predecessor before threading.
+
+2012-10-29  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54551
+	PR debug/54693
+	* valtrack.c (dead_debug_global_find): Accept NULL dtemp.
+	(dead_debug_global_insert): Return new entry.
+	(dead_debug_global_replace_temp): Return early if REG is no
+	longer in place, or if dtemp was already substituted.
+	(dead_debug_promote_uses): Insert for all defs and replace all
+	debug uses at once.
+	(dead_debug_local_finish): Release used after promotion.
+	(dead_debug_insert_temp): Stop if dtemp is NULL.
+
+2012-10-29  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54693
+	* loop-unroll.c (loop_exit_at_end_p): Skip debug insns.
+
+2012-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54970
+	* cfgexpand.c (expand_debug_expr): Expand &MEM_REF[&var, n]
+	as DEBUG_IMPLICIT_PTR + n if &var expands to DEBUG_IMPLICIT_PTR.
+	* tree-sra.c (create_access_replacement): Allow also MEM_REFs
+	with ADDR_EXPR first operand in DECL_DEBUG_EXPR expressions.
+	* var-tracking.c (track_expr_p): Handle MEM_REFs in DECL_DEBUG_EXPR
+	expressions.
+	* dwarf2out.c (add_var_loc_to_decl): Likewise.
+
+2012-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR debug/54971
+	* tree-sra.c (struct access): New flag grp_to_be_debug_replaced.
+	(dump_access): Dump the new flag.
+	(analyze_access_subtree): Set the new flag when appropriate.
+	(create_access_replacement): Handle debug replacements differently.
+	(generate_subtree_copies): Handle the grp_to_be_debug_replaced flag.
+	(init_subtree_with_zero): Likewise.
+	(sra_modify_expr): Likewise.
+	(load_assign_lhs_subreplacements): Likewise.
+	(sra_modify_assign): Likewise.
+
 2012-11-03  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline

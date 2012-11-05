@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
    Contributed by Martin Jambor <mjambor@suse.cz>
 
 This file is part of GCC.
@@ -231,6 +231,10 @@ struct access
      cannot be called from within FOR_EACH_REFERENCED_VAR. */
   unsigned grp_to_be_replaced : 1;
 
+  /* Set when we want a replacement for the sole purpose of having it in
+     generated debug statements.  */
+  unsigned grp_to_be_debug_replaced : 1;
+
   /* Should TREE_NO_WARNING of a replacement be set?  */
   unsigned grp_no_warning : 1;
 
@@ -383,7 +387,7 @@ dump_access (FILE *f, struct access *access, bool grp)
 	     "grp_hint = %d, grp_covered = %d, "
 	     "grp_unscalarizable_region = %d, grp_unscalarized_data = %d, "
 	     "grp_partial_lhs = %d, grp_to_be_replaced = %d, "
-	     "grp_maybe_modified = %d, "
+	     "grp_to_be_debug_replaced = %d, grp_maybe_modified = %d, "
 	     "grp_not_necessarilly_dereferenced = %d\n",
 	     access->grp_read, access->grp_write, access->grp_assignment_read,
 	     access->grp_assignment_write, access->grp_scalar_read,
@@ -391,7 +395,7 @@ dump_access (FILE *f, struct access *access, bool grp)
 	     access->grp_hint, access->grp_covered,
 	     access->grp_unscalarizable_region, access->grp_unscalarized_data,
 	     access->grp_partial_lhs, access->grp_to_be_replaced,
-	     access->grp_maybe_modified,
+	     access->grp_to_be_debug_replaced, access->grp_maybe_modified,
 	     access->grp_not_necessarilly_dereferenced);
   else
     fprintf (f, ", write = %d, grp_total_scalarization = %d, "
@@ -1611,6 +1615,43 @@ build_ref_for_model (location_t loc, tree base, HOST_WIDE_INT offset,
   return t;
 }
 
+/* Attempt to build a memory reference that we could but into a gimple
+   debug_bind statement.  Similar to build_ref_for_model but punts if it has to
+   create statements and return s NULL instead.  This function also ignores
+   alignment issues and so its results should never end up in non-debug
+   statements.  */
+
+static tree
+build_debug_ref_for_model (location_t loc, tree base, HOST_WIDE_INT offset,
+			   struct access *model)
+{
+  HOST_WIDE_INT base_offset;
+  tree off;
+
+  if (TREE_CODE (model->expr) == COMPONENT_REF
+      && DECL_BIT_FIELD (TREE_OPERAND (model->expr, 1)))
+    return NULL_TREE;
+
+  base = get_addr_base_and_unit_offset (base, &base_offset);
+  if (!base)
+    return NULL_TREE;
+  if (TREE_CODE (base) == MEM_REF)
+    {
+      off = build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)),
+			   base_offset + offset / BITS_PER_UNIT);
+      off = int_const_binop (PLUS_EXPR, TREE_OPERAND (base, 1), off);
+      base = unshare_expr (TREE_OPERAND (base, 0));
+    }
+  else
+    {
+      off = build_int_cst (reference_alias_ptr_type (base),
+			   base_offset + offset / BITS_PER_UNIT);
+      base = build_fold_addr_expr (unshare_expr (base));
+    }
+
+  return fold_build2_loc (loc, MEM_REF, model->type, base, off);
+}
+
 /* Construct a memory reference consisting of component_refs and array_refs to
    a part of an aggregate *RES (which is of type TYPE).  The requested part
    should have type EXP_TYPE at be the given OFFSET.  This function might not
@@ -1923,9 +1964,15 @@ create_access_replacement (struct access *access, bool rename)
 {
   tree repl;
 
-  repl = create_tmp_var (access->type, "SR");
+  if (access->grp_to_be_debug_replaced)
+    {
+      repl = create_tmp_var_raw (access->type, NULL);
+      DECL_CONTEXT (repl) = current_function_decl;
+    }
+  else
+    repl = create_tmp_var (access->type, "SR");
   add_referenced_var (repl);
-  if (rename)
+  if (rename && !access->grp_to_be_debug_replaced)
     mark_sym_for_renaming (repl);
 
   if (!access->grp_partial_lhs
@@ -1943,6 +1990,7 @@ create_access_replacement (struct access *access, bool rename)
     {
       char *pretty_name = make_fancy_name (access->expr);
       tree debug_expr = unshare_expr (access->expr), d;
+      bool fail = false;
 
       DECL_NAME (repl) = get_identifier (pretty_name);
       obstack_free (&name_obstack, pretty_name);
@@ -1952,8 +2000,11 @@ create_access_replacement (struct access *access, bool rename)
 	 used SSA_NAMEs and thus they could be freed.  All debug info
 	 generation cares is whether something is constant or variable
 	 and that get_ref_base_and_extent works properly on the
-	 expression.  */
-      for (d = debug_expr; handled_component_p (d); d = TREE_OPERAND (d, 0))
+	 expression.  It cannot handle accesses at a non-constant offset
+	 though, so just give up in those cases.  */
+      for (d = debug_expr;
+	   !fail && (handled_component_p (d) || TREE_CODE (d) == MEM_REF);
+	   d = TREE_OPERAND (d, 0))
 	switch (TREE_CODE (d))
 	  {
 	  case ARRAY_REF:
@@ -1970,11 +2021,20 @@ create_access_replacement (struct access *access, bool rename)
 		&& TREE_CODE (TREE_OPERAND (d, 2)) == SSA_NAME)
 	      TREE_OPERAND (d, 2) = SSA_NAME_VAR (TREE_OPERAND (d, 2));
 	    break;
+	  case MEM_REF:
+	    if (TREE_CODE (TREE_OPERAND (d, 0)) != ADDR_EXPR)
+	      fail = true;
+	    else
+	      d = TREE_OPERAND (d, 0);
+	    break;
 	  default:
 	    break;
 	  }
-      SET_DECL_DEBUG_EXPR (repl, debug_expr);
-      DECL_DEBUG_EXPR_IS_FROM (repl) = 1;
+      if (!fail)
+	{
+	  SET_DECL_DEBUG_EXPR (repl, debug_expr);
+	  DECL_DEBUG_EXPR_IS_FROM (repl) = 1;
+	}
       if (access->grp_no_warning)
 	TREE_NO_WARNING (repl) = 1;
       else
@@ -1985,12 +2045,22 @@ create_access_replacement (struct access *access, bool rename)
 
   if (dump_file)
     {
-      fprintf (dump_file, "Created a replacement for ");
-      print_generic_expr (dump_file, access->base, 0);
-      fprintf (dump_file, " offset: %u, size: %u: ",
-	       (unsigned) access->offset, (unsigned) access->size);
-      print_generic_expr (dump_file, repl, 0);
-      fprintf (dump_file, "\n");
+      if (access->grp_to_be_debug_replaced)
+	{
+	  fprintf (dump_file, "Created a debug-only replacement for ");
+	  print_generic_expr (dump_file, access->base, 0);
+	  fprintf (dump_file, " offset: %u, size: %u\n",
+		   (unsigned) access->offset, (unsigned) access->size);
+	}
+      else
+	{
+	  fprintf (dump_file, "Created a replacement for ");
+	  print_generic_expr (dump_file, access->base, 0);
+	  fprintf (dump_file, " offset: %u, size: %u: ",
+		   (unsigned) access->offset, (unsigned) access->size);
+	  print_generic_expr (dump_file, repl, 0);
+	  fprintf (dump_file, "\n");
+	}
     }
   sra_stats.replacements++;
 
@@ -2002,8 +2072,6 @@ create_access_replacement (struct access *access, bool rename)
 static inline tree
 get_access_replacement (struct access *access)
 {
-  gcc_assert (access->grp_to_be_replaced);
-
   if (!access->replacement_decl)
     access->replacement_decl = create_access_replacement (access, true);
   return access->replacement_decl;
@@ -2015,8 +2083,6 @@ get_access_replacement (struct access *access)
 static inline tree
 get_unrenamed_access_replacement (struct access *access)
 {
-  gcc_assert (!access->grp_to_be_replaced);
-
   if (!access->replacement_decl)
     access->replacement_decl = create_access_replacement (access, false);
   return access->replacement_decl;
@@ -2214,6 +2280,23 @@ analyze_access_subtree (struct access *root, struct access *parent,
     }
   else
     {
+      if (MAY_HAVE_DEBUG_STMTS && allow_replacements
+	  && scalar && !root->first_child
+	  && (root->grp_scalar_write || root->grp_assignment_write))
+	{
+	  gcc_checking_assert (!root->grp_scalar_read
+			       && !root->grp_assignment_read);
+	  root->grp_to_be_debug_replaced = 1;
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Marking ");
+	      print_generic_expr (dump_file, root->base, 0);
+	      fprintf (dump_file, " offset: %u, size: %u ",
+		       (unsigned) root->offset, (unsigned) root->size);
+	      fprintf (dump_file, " to be replaced with debug statements.\n");
+	    }
+	}
+
       if (covered_to < limit)
 	hole = true;
       if (scalar)
@@ -2574,6 +2657,22 @@ generate_subtree_copies (struct access *access, tree agg,
 	  update_stmt (stmt);
 	  sra_stats.subtree_copies++;
 	}
+      else if (write
+	       && access->grp_to_be_debug_replaced
+	       && (chunk_size == 0
+		   || access->offset + access->size > start_offset))
+	{
+	  gimple ds;
+	  tree drhs = build_debug_ref_for_model (loc, agg,
+						 access->offset - top_offset,
+						 access);
+	  ds = gimple_build_debug_bind (get_access_replacement (access),
+					drhs, gsi_stmt (*gsi));
+	  if (insert_after)
+	    gsi_insert_after (gsi, ds, GSI_NEW_STMT);
+	  else
+	    gsi_insert_before (gsi, ds, GSI_SAME_STMT);
+	}
 
       if (access->first_child)
 	generate_subtree_copies (access->first_child, agg, top_offset,
@@ -2609,6 +2708,16 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
 	gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
       update_stmt (stmt);
       gimple_set_location (stmt, loc);
+    }
+  else if (access->grp_to_be_debug_replaced)
+    {
+      gimple ds = gimple_build_debug_bind (get_access_replacement (access),
+					   build_zero_cst (access->type),
+					   gsi_stmt (*gsi));
+      if (insert_after)
+	gsi_insert_after (gsi, ds, GSI_NEW_STMT);
+      else
+	gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 
   for (child = access->first_child; child; child = child->next_sibling)
@@ -2716,6 +2825,13 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
 	*expr = repl;
       sra_stats.exprs++;
     }
+  else if (write && access->grp_to_be_debug_replaced)
+    {
+      gimple ds = gimple_build_debug_bind (get_access_replacement (access),
+					   NULL_TREE,
+					   gsi_stmt (*gsi));
+      gsi_insert_after (gsi, ds, GSI_NEW_STMT);
+    }
 
   if (access->first_child)
     {
@@ -2791,10 +2907,11 @@ load_assign_lhs_subreplacements (struct access *lacc, struct access *top_racc,
   location_t loc = gimple_location (gsi_stmt (*old_gsi));
   for (lacc = lacc->first_child; lacc; lacc = lacc->next_sibling)
     {
+      HOST_WIDE_INT offset = lacc->offset - left_offset + top_racc->offset;
+
       if (lacc->grp_to_be_replaced)
 	{
 	  struct access *racc;
-	  HOST_WIDE_INT offset = lacc->offset - left_offset + top_racc->offset;
 	  gimple stmt;
 	  tree rhs;
 
@@ -2834,10 +2951,34 @@ load_assign_lhs_subreplacements (struct access *lacc, struct access *top_racc,
 	  update_stmt (stmt);
 	  sra_stats.subreplacements++;
 	}
-      else if (*refreshed == SRA_UDH_NONE
-	       && lacc->grp_read && !lacc->grp_covered)
-	*refreshed = handle_unscalarized_data_in_subtree (top_racc,
-							  old_gsi);
+      else
+	{
+	  if (*refreshed == SRA_UDH_NONE
+	      && lacc->grp_read && !lacc->grp_covered)
+	    *refreshed = handle_unscalarized_data_in_subtree (top_racc,
+							      old_gsi);
+	  if (lacc && lacc->grp_to_be_debug_replaced)
+	    {
+	      gimple ds;
+	      tree drhs;
+	      struct access *racc = find_access_in_subtree (top_racc, offset,
+							    lacc->size);
+
+	      if (racc && racc->grp_to_be_replaced)
+		drhs = get_access_replacement (racc);
+	      else if (*refreshed == SRA_UDH_LEFT)
+		drhs = build_debug_ref_for_model (loc, lacc->base, lacc->offset,
+						  lacc);
+	      else if (*refreshed == SRA_UDH_RIGHT)
+		drhs = build_debug_ref_for_model (loc, top_racc->base, offset,
+						  lacc);
+	      else
+		drhs = NULL_TREE;
+	      ds = gimple_build_debug_bind (get_access_replacement (lacc),
+					    drhs, gsi_stmt (*old_gsi));
+	      gsi_insert_after (new_gsi, ds, GSI_NEW_STMT);
+	    }
+	}
 
       if (lacc->first_child)
 	load_assign_lhs_subreplacements (lacc, top_racc, left_offset,
@@ -3059,6 +3200,13 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 		force_gimple_rhs = true;
 	    }
 	}
+    }
+
+  if (lacc && lacc->grp_to_be_debug_replaced)
+    {
+      gimple ds = gimple_build_debug_bind (get_access_replacement (lacc),
+					   unshare_expr (rhs), *stmt);
+      gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 
   /* From this point on, the function deals with assignments in between
