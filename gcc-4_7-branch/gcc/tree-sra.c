@@ -2667,7 +2667,7 @@ generate_subtree_copies (struct access *access, tree agg,
 						 access->offset - top_offset,
 						 access);
 	  ds = gimple_build_debug_bind (get_access_replacement (access),
-					drhs, gsi_stmt (*gsi));
+					drhs, NULL);
 	  if (insert_after)
 	    gsi_insert_after (gsi, ds, GSI_NEW_STMT);
 	  else
@@ -2713,7 +2713,7 @@ init_subtree_with_zero (struct access *access, gimple_stmt_iterator *gsi,
     {
       gimple ds = gimple_build_debug_bind (get_access_replacement (access),
 					   build_zero_cst (access->type),
-					   gsi_stmt (*gsi));
+					   NULL);
       if (insert_after)
 	gsi_insert_after (gsi, ds, GSI_NEW_STMT);
       else
@@ -2828,8 +2828,7 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
   else if (write && access->grp_to_be_debug_replaced)
     {
       gimple ds = gimple_build_debug_bind (get_access_replacement (access),
-					   NULL_TREE,
-					   gsi_stmt (*gsi));
+					   NULL_TREE, NULL);
       gsi_insert_after (gsi, ds, GSI_NEW_STMT);
     }
 
@@ -2975,7 +2974,7 @@ load_assign_lhs_subreplacements (struct access *lacc, struct access *top_racc,
 	      else
 		drhs = NULL_TREE;
 	      ds = gimple_build_debug_bind (get_access_replacement (lacc),
-					    drhs, gsi_stmt (*old_gsi));
+					    drhs, NULL);
 	      gsi_insert_after (new_gsi, ds, GSI_NEW_STMT);
 	    }
 	}
@@ -3205,7 +3204,7 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
   if (lacc && lacc->grp_to_be_debug_replaced)
     {
       gimple ds = gimple_build_debug_bind (get_access_replacement (lacc),
-					   unshare_expr (rhs), *stmt);
+					   unshare_expr (rhs), NULL);
       gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 
