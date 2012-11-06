@@ -24,6 +24,11 @@ if { ![istarget mipsisa*-*-elf*] && ![istarget mips64vr*-*-elf*] } {
     return
 }
 
+#Skip for Octeon as octeon does not have mips16 support.
+if { [istarget mipsisa*-octeon-elf*] } {
+    return
+}
+
 load_lib gcc-dg.exp
 
 # Check whether the flags are compatible with MIPS16 code generation.
