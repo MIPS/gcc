@@ -3105,6 +3105,14 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 
       /* Record whether I2's body now appears within I3's body.  */
       i2_is_used = n_occurrences;
+
+      /* Don't try to combine another insturction when we got an sequence,
+	 we don't handle the issues involved with it. */
+      if (i1 && GET_CODE (newpat) == SEQUENCE)
+	{
+	  undo_all ();
+	  return 0;
+	}
     }
 
   /* If we already got a failure, don't try to do more.  Otherwise, try to
@@ -3147,6 +3155,14 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 
       /* Record whether I1's body now appears within I3's body.  */
       i1_is_used = n_occurrences;
+
+      /* Don't try to combine another insturction when we got an sequence,
+	 we don't handle the issues involved with it. */
+      if (i0 && GET_CODE (newpat) == SEQUENCE)
+	{
+	  undo_all ();
+	  return 0;
+	}
     }
 
   /* Likewise for I0 if we have it.  */

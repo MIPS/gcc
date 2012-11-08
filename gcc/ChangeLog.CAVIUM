@@ -197,6 +197,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-08  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5214
+	* combine.c (try_combine): After the first two subst, don't combine
+	any more if we gotten a sequence.
+
 2012-11-06  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.c-torture/execute/builtins/20010124-1.c: Disable
