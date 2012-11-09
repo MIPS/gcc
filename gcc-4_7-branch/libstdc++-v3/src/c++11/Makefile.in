@@ -71,7 +71,8 @@ am__objects_1 = chrono.lo condition_variable.lo debug.lo \
 	hashtable_c++0x.lo limits.lo mutex.lo placeholders.lo regex.lo \
 	shared_ptr.lo system_error.lo thread.lo
 @ENABLE_EXTERN_TEMPLATE_TRUE@am__objects_2 = fstream-inst.lo \
-@ENABLE_EXTERN_TEMPLATE_TRUE@	string-inst.lo wstring-inst.lo
+@ENABLE_EXTERN_TEMPLATE_TRUE@	string-inst.lo wstring-inst.lo \
+@ENABLE_EXTERN_TEMPLATE_TRUE@	vstring-inst.lo
 am_libc__11convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libc__11convenience_la_OBJECTS = $(am_libc__11convenience_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
@@ -320,7 +321,8 @@ sources = \
 @ENABLE_EXTERN_TEMPLATE_TRUE@inst_sources = \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	fstream-inst.cc \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	string-inst.cc \
-@ENABLE_EXTERN_TEMPLATE_TRUE@	wstring-inst.cc
+@ENABLE_EXTERN_TEMPLATE_TRUE@	wstring-inst.cc \
+@ENABLE_EXTERN_TEMPLATE_TRUE@	vstring-inst.cc
 
 libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 

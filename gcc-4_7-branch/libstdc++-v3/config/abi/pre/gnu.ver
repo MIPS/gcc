@@ -394,6 +394,7 @@ GLIBCXX_3.4 {
 
     # std::istream operators and extractors
     _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;
+    _ZSt7getlineI[c]St11char_traitsI[c]ESaI[c]EN9__gnu_cxx17__sso_string_baseEERSt13basic_istream*;
     _ZSt2wsI[cw]St11char_traitsI[cw]EE*;
     _ZStrsI[cw]St11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;

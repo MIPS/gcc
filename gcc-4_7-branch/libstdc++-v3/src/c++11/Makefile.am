@@ -51,7 +51,8 @@ XTEMPLATE_FLAGS = -fno-implicit-templates
 inst_sources = \
 	fstream-inst.cc \
 	string-inst.cc \
-	wstring-inst.cc
+	wstring-inst.cc \
+	vstring-inst.cc
 else
 XTEMPLATE_FLAGS =
 inst_sources =
