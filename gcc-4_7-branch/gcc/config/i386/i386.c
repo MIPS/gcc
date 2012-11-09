@@ -11440,10 +11440,6 @@ ix86_address_subreg_operand (rtx op)
   if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
     return false;
 
-  /* simplify_subreg does not handle stack pointer.  */
-  if (REGNO (op) == STACK_POINTER_REGNUM)
-    return false;
-
   /* Allow only SUBREGs of non-eliminable hard registers.  */
   return register_no_elim_operand (op, mode);
 }
@@ -13718,14 +13714,8 @@ void
 print_reg (rtx x, int code, FILE *file)
 {
   const char *reg;
+  unsigned int regno;
   bool duplicated = code == 'd' && TARGET_AVX;
-
-  gcc_assert (x == pc_rtx
-	      || (REGNO (x) != ARG_POINTER_REGNUM
-		  && REGNO (x) != FRAME_POINTER_REGNUM
-		  && REGNO (x) != FLAGS_REG
-		  && REGNO (x) != FPSR_REG
-		  && REGNO (x) != FPCR_REG));
 
   if (ASSEMBLER_DIALECT == ASM_ATT)
     putc ('%', file);
@@ -13736,6 +13726,13 @@ print_reg (rtx x, int code, FILE *file)
       fputs ("rip", file);
       return;
     }
+
+  regno = true_regnum (x);
+  gcc_assert (regno != ARG_POINTER_REGNUM
+	      && regno != FRAME_POINTER_REGNUM
+	      && regno != FLAGS_REG
+	      && regno != FPSR_REG
+	      && regno != FPCR_REG);
 
   if (code == 'w' || MMX_REG_P (x))
     code = 2;
@@ -13758,11 +13755,11 @@ print_reg (rtx x, int code, FILE *file)
 
   /* Irritatingly, AMD extended registers use different naming convention
      from the normal registers: "r%d[bwd]"  */
-  if (REX_INT_REG_P (x))
+  if (REX_INT_REGNO_P (regno))
     {
       gcc_assert (TARGET_64BIT);
       putc ('r', file);
-      fprint_ul (file, REGNO (x) - FIRST_REX_INT_REG + 8);
+      fprint_ul (file, regno - FIRST_REX_INT_REG + 8);
       switch (code)
 	{
 	  case 0:
@@ -13806,24 +13803,24 @@ print_reg (rtx x, int code, FILE *file)
     case 16:
     case 2:
     normal:
-      reg = hi_reg_name[REGNO (x)];
+      reg = hi_reg_name[regno];
       break;
     case 1:
-      if (REGNO (x) >= ARRAY_SIZE (qi_reg_name))
+      if (regno >= ARRAY_SIZE (qi_reg_name))
 	goto normal;
-      reg = qi_reg_name[REGNO (x)];
+      reg = qi_reg_name[regno];
       break;
     case 0:
-      if (REGNO (x) >= ARRAY_SIZE (qi_high_reg_name))
+      if (regno >= ARRAY_SIZE (qi_high_reg_name))
 	goto normal;
-      reg = qi_high_reg_name[REGNO (x)];
+      reg = qi_high_reg_name[regno];
       break;
     case 32:
       if (SSE_REG_P (x))
 	{
 	  gcc_assert (!duplicated);
 	  putc ('y', file);
-	  fputs (hi_reg_name[REGNO (x)] + 1, file);
+	  fputs (hi_reg_name[regno] + 1, file);
 	  return;
 	}
       break;
@@ -14615,22 +14612,6 @@ ix86_print_operand_address (FILE *file, rtx addr)
     ok = ix86_decompose_address (addr, &parts);
 
   gcc_assert (ok);
-
-  if (parts.base && GET_CODE (parts.base) == SUBREG)
-    {
-      rtx tmp = SUBREG_REG (parts.base);
-      parts.base = simplify_subreg (GET_MODE (parts.base),
-				    tmp, GET_MODE (tmp), 0);
-      gcc_assert (parts.base != NULL_RTX);
-    }
-
-  if (parts.index && GET_CODE (parts.index) == SUBREG)
-    {
-      rtx tmp = SUBREG_REG (parts.index);
-      parts.index = simplify_subreg (GET_MODE (parts.index),
-				     tmp, GET_MODE (tmp), 0);
-      gcc_assert (parts.index != NULL_RTX);
-    }
 
   base = parts.base;
   index = parts.index;
@@ -23381,7 +23362,6 @@ ix86_init_machine_status (void)
 
   f = ggc_alloc_cleared_machine_function ();
   f->use_fast_prologue_epilogue_nregs = -1;
-  f->tls_descriptor_call_expanded_p = 0;
   f->call_abi = ix86_abi;
 
   return f;
@@ -23400,9 +23380,6 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   gcc_assert (n < MAX_386_STACK_LOCALS);
 
-  /* Virtual slot is valid only before vregs are instantiated.  */
-  gcc_assert ((n == SLOT_VIRTUAL) == !virtuals_instantiated);
-
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
       return validize_mem (copy_rtx (s->rtl));
@@ -23415,6 +23392,16 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
   return validize_mem (s->rtl);
+}
+
+static void
+ix86_instantiate_decls (void)
+{
+  struct stack_local_entry *s;
+
+  for (s = ix86_stack_locals; s; s = s->next)
+    if (s->rtl != NULL_RTX)
+      instantiate_decl_rtl (s->rtl);
 }
 
 /* Calculate the length of the memory address in the instruction encoding.
@@ -29511,13 +29498,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_normal (CALL_EXPR_ARG (exp, 0));
-      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
       return 0;
 
     case IX86_BUILTIN_STMXCSR:
-      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_insn (gen_sse_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
 
@@ -39158,6 +39145,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE ix86_promote_function_mode
+
+#undef TARGET_INSTANTIATE_DECLS
+#define TARGET_INSTANTIATE_DECLS ix86_instantiate_decls
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD ix86_secondary_reload
