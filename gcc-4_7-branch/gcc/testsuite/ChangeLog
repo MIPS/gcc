@@ -1,3 +1,8 @@
+2012-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54693
+	* gcc.dg/guality/pr54693-2.c: New test.
+
 2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc.c-torture/compile/20121107-1.c: New test.

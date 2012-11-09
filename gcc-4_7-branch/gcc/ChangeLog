@@ -1,3 +1,17 @@
+2012-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54693
+	* tree-flow.h (propagate_threaded_block_debug_into): New prototype.
+	* tree-ssa-threadedge.c (propagate_threaded_block_debug_into): No
+	longer static.
+	* tree-ssa-loop-ch.c (copy_loop_headers): Use it.
+
+2012-11-06  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/54693
+	* tree-ssa-threadedge.c (propagate_threaded_block_debug_into):
+	Use a stack vector before allocating a pointer set.
+
 2012-11-07  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
