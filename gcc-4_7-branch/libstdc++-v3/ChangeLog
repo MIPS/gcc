@@ -1,3 +1,13 @@
+2012-11-08  Florian Weimer  <fweimer@redhat.com>
+
+	* testsuite/18_support/cxa_vec.cc: Fix typo in comment.
+
+2012-11-03  Florian Weimer  <fweimer@redhat.com>
+
+	* libsupc++/vec.cc (compute_size): New.
+	(__cxa_vec_new2, __cxa_vec_new3): Use it.
+	* testsuite/18_support/cxa_vec.cc: New.
+
 2012-11-08  François Dumont  <fdumont@gcc.gnu.org>
 
 	PR libstdc++/54075
