@@ -1,3 +1,15 @@
+2012-11-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* include/ext/atomicity.h (__exchange_and_add): Use 1
+	and -1 instead of __val,
+	(__exchange_and_add_nb): Likewise.
+	(__atomic_add): Likewise.
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): Use __asm__ instead of
+	__asm and __volatile__ instead of __volatile.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+	(__rs6000_atomic_fetch_and_add_32): Likewise.
+
 2012-09-05  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
 
 	* src/Makefile.am: Add wstring-inst.cc.

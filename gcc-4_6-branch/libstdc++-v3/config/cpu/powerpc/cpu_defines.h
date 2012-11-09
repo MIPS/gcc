@@ -37,7 +37,7 @@
 ({							\
   long __tmpval;					\
   _Atomic_word __tmp0;					\
-  __asm __volatile (					\
+  __asm__ __volatile__ (				\
     "1:	lwarx %0,0,%3\n"				\
     "	addi %1,%0,%4\n"				\
     "	stwcx. %1,0,%3\n"				\
@@ -53,7 +53,7 @@
 ({							\
   long __tmpval;					\
   _Atomic_word __tmp0;					\
-  __asm __volatile (					\
+  __asm__ __volatile__ (				\
     "lwsync\n"						\
     "1:	lwarx %0,0,%3\n"				\
     "	addi %1,%0,%4\n"				\
@@ -69,7 +69,7 @@
 ({							\
   long __tmpval;					\
   _Atomic_word __tmp0;					\
-  __asm __volatile (					\
+  __asm__ __volatile__ (				\
     "1:	lwarx %0,0,%3\n"				\
     "	addi %1,%0,%4\n"				\
     "	stwcx. %1,0,%3\n"				\

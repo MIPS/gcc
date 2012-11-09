@@ -48,9 +48,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { 
 #ifdef __PPC__
     if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == 1)
-      return __rs6000_atomic_fetch_and_add_acquire_32 (__mem, __val);
+      return __rs6000_atomic_fetch_and_add_acquire_32 (__mem, 1);
     else if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == -1)
-      return __rs6000_atomic_fetch_and_add_release_32 (__mem, __val);
+      return __rs6000_atomic_fetch_and_add_release_32 (__mem, -1);
     else
 #endif
     return __sync_fetch_and_add(__mem, __val); }
@@ -59,8 +59,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   __exchange_and_add_nb(volatile _Atomic_word* __mem, int __val)
   { 
 #ifdef __PPC__
-    if (sizeof (*__mem) == 4)
-      return __rs6000_atomic_fetch_and_add_32 (__mem, __val);
+    if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == 1)
+      return __rs6000_atomic_fetch_and_add_32 (__mem, 1);
+    else if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == -1)
+      return __rs6000_atomic_fetch_and_add_32 (__mem, -1);
     else
 #endif
     return __sync_fetch_and_add(__mem, __val); }
@@ -70,9 +72,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   { 
 #ifdef __PPC__
     if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == 1)
-      __rs6000_atomic_fetch_and_add_acquire_32 (__mem, __val);
+      __rs6000_atomic_fetch_and_add_acquire_32 (__mem, 1);
     else if (sizeof (*__mem) == 4 && __builtin_constant_p(__val) && __val == -1)
-      __rs6000_atomic_fetch_and_add_release_32 (__mem, __val);
+      __rs6000_atomic_fetch_and_add_release_32 (__mem, -1);
     else
 #endif
     __sync_fetch_and_add(__mem, __val); }
