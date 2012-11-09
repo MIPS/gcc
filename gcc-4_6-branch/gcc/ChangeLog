@@ -1,9 +1,222 @@
+2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/55219
+	* fold-const.c (fold_binary_op_with_conditional_arg): Do not fold if
+	the argument is itself a conditional expression.
+
+2012-10-30  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-01-25 Andrey Belevantsev <abel@ispras.ru>
+	
+	PR rtl-optimization/48374
+	* sel-sched-ir.h (get_all_loop_exits): Check for zero successors. 	
+
+2012-10-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-08-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/53701
+	* sel-sched.c (vinsn_vec_has_expr_p): Clarify function comment.
+	Process not only expr's vinsns but all old vinsns from expr's
+	history of changes.
+
+2012-10-19  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2012-10-19  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/54945
+	* fold-const.c (fold_sign_changed_comparison):  Punt if folding
+	pointer/non-pointer comparison.
+
+2012-10-19  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac (HAVE_LD_NO_DOT_SYMS): Set if using gold.
+	(HAVE_LD_LARGE_TOC): Likewise.
+	* configure: Regenerate.
+
+2012-10-17  DJ Delorie  <dj@delorie.com>
+
+	PR target/54950
+	* config/m32c/predicates.md (m32c_const_u16_operand): New.
+	* config/m32c/muldiv.md: Use it.
+
+2012-10-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md (addhi3): Fix typo in last change.
+
+2012-10-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Adjust unamed HImode add insn pattern.
+
+2012-10-05  Jan Hubicka  <jh@suse.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33763
+	* tree-inline.c (expand_call_inline): Silently ignore always_inline
+	attribute for redefined extern inline functions.
+
+2012-10-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-03  Andrew W. Nosenko <andrew.w.nosenko@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix logic
+	in SSE and YMM state support check for -march=native.
+
+2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/54785
+	* doc/invoke.texi: Document -mprefer-avx128.
+
+2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/54741
+	* config/i386/driver-i386.c (XCR_XFEATURE_ENABLED_MASK): New.
+	(XSTATE_FP): Likewise.
+	(XSTATE_SSE): Likewise.
+	(XSTATE_YMM): Likewise.
+	(host_detect_local_cpu): Disable AVX, FMA, FMA4 and XOP if SSE
+	and YMM states aren't supported.
+
+2012-09-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/54638
+	Backport from mainline
+	2012-04-19  Richard Guenther  <rguenther@suse.de>
+
+	* ira-int.h (ira_allocno_object_iter_cond): Avoid out-of-bound
+	array access.
+
+2012-09-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54552
+	* c-typeck.c (c_cast_expr): When casting to a type requiring
+	C_MAYBE_CONST_EXPR to be created, pass the inner expression to
+	c_fully_fold first.
+
+2012-09-15  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54103
+	* c-typeck.c (build_unary_op): Pass original argument of
+	TRUTH_NOT_EXPR to c_objc_common_truthvalue_conversion, then remove
+	any C_MAYBE_CONST_EXPR, if it has integer operands.
+	(build_binary_op): Pass original arguments of TRUTH_ANDIF_EXPR,
+	TRUTH_ORIF_EXPR, TRUTH_AND_EXPR, TRUTH_OR_EXPR and TRUTH_XOR_EXPR
+	to c_objc_common_truthvalue_conversion, then remove any
+	C_MAYBE_CONST_EXPR, if they have integer operands.  Use
+	c_objc_common_truthvalue_conversion not
+	c_common_truthvalue_conversion.
+	(c_objc_common_truthvalue_conversion): Build NE_EXPR directly and
+	call note_integer_operands for arguments with integer operands
+	that are not integer constants.
+
+2012-09-14  Wei Guozhi  <carrot@google.com>
+
+	Backport from 2012-02-13 mainline r184169.
+
+	* cselib.c (expand_loc): Return sp, fp, hfp or cfa base reg right
+	away if seen.
+
+2012-09-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-09-10 mainline r191132.
+	
+	PR target/54536
+	* config/avr/avr-devices.c (avr_mcu_types["at90usb1287"]): Set
+	.library_name to "usb1287".
+
+2012-09-10  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR middle-end/54515
+	* tree-sra.c (disqualify_base_of_expr): Check for possible
+	NULL_TREE returned by get_base_address()
+
+2012-09-05  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from 2012-09-04 mainline r190919
+
+	PR target/45070
+	* config/arm/arm.c (thumb1_extra_regs_pushed): Handle return value of
+	size less than 4 bytes by using macro ARM_NUM_INTS.
+	(thumb1_unexpanded_epilogue): Use macro ARM_NUM_INTS.
+
+2012-09-04  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	Backport from 2012-09-04 mainline r190914
+
+	PR target/54220
+	* config/avr/avr.c (TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS): New
+	define to...
+	(avr_allocate_stack_slots_for_args): ...this new static function.
+
+2012-09-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-08-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/54335
+	* doc/invoke.texi: Add -da and remove -dm.
+
+2012-09-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/54369
+	* config/mips/mips.c (mips_reorg): Invoke cleanup_barriers before
+	calling dbr_schedule.
+	* config/sparc/sparc.c (sparc_reorg): Likewise.
+
+2012-08-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sol2.h (LINK_ARCH32_SPEC_BASE): Add /lib to default
+	linker search path.
+	* config/sparc/sol2-bi.h (LINK_ARCH64_SPEC_BASE): Likewise for
+	/lib/sparcv9.
+
+2012-08-10  Ulrich Weigand  <ulrich.weigand@linaro.org>
+
+	Backport from mainline
+	2012-07-30  Ulrich Weigand  <ulrich.weigand@linaro.org>
+		    Richard Earnshaw  <rearnsha@arm.com>
+
+	* target.def (vector_alignment): New target hook.
+	* doc/tm.texi.in (TARGET_VECTOR_ALIGNMENT): Document new hook.
+	* doc/tm.texi: Regenerate.
+	* targhooks.c (default_vector_alignment): New function.
+	* targhooks.h (default_vector_alignment): Add prototype.
+	* stor-layout.c (layout_type): Use targetm.vector_alignment.
+	* config/arm/arm.c (arm_vector_alignment): New function.
+	(TARGET_VECTOR_ALIGNMENT): Define.
+
+	* tree-vect-data-refs.c (vect_update_misalignment_for_peel): Use
+	vector type alignment instead of size.
+	* tree-vect-loop-manip.c (vect_do_peeling_for_loop_bound): Use
+	element type size directly instead of computing it from alignment.
+	Fix variable naming and comment.
+
+2012-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_pad_noreturn): Rename to ...
+	(alpha_pad_function_end): ... this.  Also insert NOP between
+	sibling call and GP load.
+	(alpha_reorg): Update call to alpha_pad_function_end.  Expand comment.
+
 2012-07-22  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR target/33135
 	* config/sh/sh.opt (mieee): Use Var instead of Mask.  Correct
 	description.
-	* config/sh/sh.c (sh_option_override): Do not change 
+	* config/sh/sh.c (sh_option_override): Do not change
 	flag_finite_math_only.  Set TARGET_IEEE to complement of
 	flag_finite_math_only.
 	* doc/invoke.texi (SH options): Add mno-ieee.  Correct
