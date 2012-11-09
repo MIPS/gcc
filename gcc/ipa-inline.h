@@ -19,6 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include "ipa-prop.h"
+
 /* Representation of inline parameters that do depend on context function is
    inlined into (i.e. known constant values of function parameters.
 
@@ -47,7 +49,11 @@ typedef struct GTY(()) condition
 enum inline_hints_vals {
   INLINE_HINT_indirect_call = 1,
   INLINE_HINT_loop_iterations = 2,
-  INLINE_HINT_loop_stride = 4
+  INLINE_HINT_loop_stride = 4,
+  INLINE_HINT_same_scc = 8,
+  INLINE_HINT_in_scc = 16,
+  INLINE_HINT_declared_inline = 32,
+  INLINE_HINT_cross_module = 64
 };
 typedef int inline_hints;
 
@@ -127,6 +133,14 @@ struct GTY(()) inline_summary
   /* Predicate on when some loop in the function becomes to have known
      stride.   */
   struct predicate * GTY((skip)) loop_stride;
+  /* Estimated growth for inlining all copies of the function before start
+     of small functions inlining.
+     This value will get out of date as the callers are duplicated, but
+     using up-to-date value in the badness metric mean a lot of extra
+     expenses.  */
+  int growth;
+  /* Number of SCC on the beggining of inlining process.  */
+  int scc_no;
 };
 
 
@@ -195,9 +209,9 @@ void initialize_inline_failed (struct cgraph_edge *);
 int estimate_time_after_inlining (struct cgraph_node *, struct cgraph_edge *);
 int estimate_size_after_inlining (struct cgraph_node *, struct cgraph_edge *);
 void estimate_ipcp_clone_size_and_time (struct cgraph_node *,
-					VEC (tree, heap) *known_vals,
-					VEC (tree, heap) *known_binfos,
-					int *, int *);
+					VEC (tree, heap) *, VEC (tree, heap) *,
+					VEC (ipa_agg_jump_function_p, heap) *,
+					int *, int *, inline_hints *);
 int do_estimate_growth (struct cgraph_node *);
 void inline_merge_summary (struct cgraph_edge *edge);
 void inline_update_overall_summary (struct cgraph_node *node);

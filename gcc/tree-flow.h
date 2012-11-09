@@ -1,6 +1,6 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
+   2012 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -627,7 +627,8 @@ bool parallelize_loops (void);
 
 bool loop_only_exit_p (const struct loop *, const_edge);
 bool number_of_iterations_exit (struct loop *, edge,
-				struct tree_niter_desc *niter, bool);
+				struct tree_niter_desc *niter, bool,
+				bool every_iteration = true);
 tree find_loop_niter (struct loop *, edge *);
 tree loop_niter_by_eval (struct loop *, edge);
 tree find_loop_niter_by_eval (struct loop *, edge *);
@@ -688,6 +689,7 @@ extern void set_ssa_name_value (tree, tree);
 extern bool potentially_threadable_block (basic_block);
 extern void thread_across_edge (gimple, edge, bool,
 				VEC(tree, heap) **, tree (*) (gimple, gimple));
+extern void propagate_threaded_block_debug_into (basic_block, basic_block);
 
 /* In tree-ssa-loop-im.c  */
 /* The possibilities of statement movement.  */

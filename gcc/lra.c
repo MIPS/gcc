@@ -44,12 +44,12 @@ along with GCC; see the file COPYING3.	If not see
 
    Here is block diagram of LRA passes:
 
-	  ---------------------				    
-	 | Undo inheritance    |      ---------------	     --------------- 
+	  ---------------------
+	 | Undo inheritance    |      ---------------	     ---------------
 	 | for spilled pseudos)|     | Memory-memory |	    | New (and old) |
 	 | and splits (for     |<----| move coalesce |<-----|	 pseudos    |
 	 | pseudos got the     |      ---------------	    |	assignment  |
-  Start	 |  same  hard regs)   |			     --------------- 
+  Start	 |  same  hard regs)   |			     ---------------
     |	  ---------------------					    ^
     V		  |		 ----------------		    |
  -----------	  V		| Update virtual |		    |
@@ -63,7 +63,7 @@ along with GCC; see the file COPYING3.	If not see
 	|    to memory	 |<-------|    RTL     |--------->|  transformations  |
 	|  substitution	 |	  | transfor-  |	  |    in EBB scope   |
 	 ----------------	  |  mations   |	   -------------------
-		|		    ------------ 
+		|		    ------------
 		V
     -------------------------
    | Hard regs substitution, |
@@ -671,10 +671,8 @@ free_insn_recog_data (lra_insn_recog_data_t data)
     free (data->dup_loc);
   if (data->arg_hard_regs != NULL)
     free (data->arg_hard_regs);
-#ifdef HAVE_ATTR_enabled
-  if (data->alternative_enabled_p != NULL)
+  if (HAVE_ATTR_enabled && data->alternative_enabled_p != NULL)
     free (data->alternative_enabled_p);
-#endif
   if (data->icode < 0 && NONDEBUG_INSN_P (data->insn))
     {
       if (data->insn_static_data->operand_alternative != NULL)
@@ -786,10 +784,10 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		  break;
 
 		case '?':
-		  op_alt->reject += 6;
+		  op_alt->reject += LRA_LOSER_COST_FACTOR;
 		  break;
 		case '!':
-		  op_alt->reject += 600;
+		  op_alt->reject += LRA_MAX_REJECT;
 		  break;
 		case '&':
 		  op_alt->earlyclobber = 1;
@@ -958,7 +956,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
       break;
     case CLOBBER:
       /* We treat clobber of non-operand hard registers as early
-	 clobber (the behavior is expected from asm).  */ 
+	 clobber (the behavior is expected from asm).  */
       list = collect_non_operand_hard_regs (&XEXP (op, 0), data,
 					    list, OP_OUT, true);
       break;
@@ -1020,9 +1018,7 @@ lra_set_insn_recog_data (rtx insn)
       data->insn_static_data = &debug_insn_static_data;
       data->dup_loc = NULL;
       data->arg_hard_regs = NULL;
-#ifdef HAVE_ATTR_enabled
       data->alternative_enabled_p = NULL;
-#endif
       data->operand_loc = XNEWVEC (rtx *, 1);
       data->operand_loc[0] = &INSN_VAR_LOCATION_LOC (insn);
       return data;
@@ -1055,7 +1051,7 @@ lra_set_insn_recog_data (rtx insn)
 	  if (nop > 0)
 	    {
 	      const char *p =  recog_data.constraints[0];
-	      
+
 	      for (p =	constraints[0]; *p; p++)
 		n += *p == ',';
 	    }
@@ -1075,9 +1071,7 @@ lra_set_insn_recog_data (rtx insn)
 	  = (insn_static_data->operand[i].constraint[0] == '=' ? OP_OUT
 	     : insn_static_data->operand[i].constraint[0] == '+' ? OP_INOUT
 	     : OP_IN);
-#ifdef HAVE_ATTR_enabled
       data->alternative_enabled_p = NULL;
-#endif
     }
   else
     {
@@ -1104,28 +1098,27 @@ lra_set_insn_recog_data (rtx insn)
 	  memcpy (locs, recog_data.dup_loc, n * sizeof (rtx *));
 	}
       data->dup_loc = locs;
-#ifdef HAVE_ATTR_enabled
-      {
-	bool *bp;
+      if (HAVE_ATTR_enabled)
+	{
+	  bool *bp;
 
-	n = insn_static_data->n_alternatives;
-	lra_assert (n >= 0);
-	data->alternative_enabled_p = bp = XNEWVEC (bool, n);
-	/* Cache the insn because we don't want to call extract_insn
-	   from get_attr_enabled as extract_insn modifies
-	   which_alternative.  The attribute enabled should not depend
-	   on insn operands, operand modes, operand types, and operand
-	   constraints.	 It should depend on the architecture.	If it
-	   is not true, we should rewrite this file code to use
-	   extract_insn instead of less expensive insn_extract.	 */
-	recog_data.insn = insn;
-	for (i = 0; i < n; i++)
-	  {
-	    which_alternative = i;
-	    bp[i] = get_attr_enabled (insn);
-	  }
-      }
-#endif
+	  n = insn_static_data->n_alternatives;
+	  lra_assert (n >= 0);
+	  data->alternative_enabled_p = bp = XNEWVEC (bool, n);
+	  /* Cache the insn because we don't want to call extract_insn
+	     from get_attr_enabled as extract_insn modifies
+	     which_alternative.  The attribute enabled should not depend
+	     on insn operands, operand modes, operand types, and operand
+	     constraints.  It should depend on the architecture.  If it
+	     is not true, we should rewrite this file code to use
+	     extract_insn instead of less expensive insn_extract.  */
+	  recog_data.insn = insn;
+	  for (i = 0; i < n; i++)
+	    {
+	      which_alternative = i;
+	      bp[i] = get_attr_enabled (insn);
+	    }
+	}
     }
   if (GET_CODE (PATTERN (insn)) == CLOBBER || GET_CODE (PATTERN (insn)) == USE)
     insn_static_data->hard_regs = NULL;
@@ -1241,7 +1234,7 @@ lra_update_insn_recog_data (rtx insn)
   int n;
   unsigned int uid = INSN_UID (insn);
   struct lra_static_insn_data *insn_static_data;
-  
+
   check_and_expand_insn_recog_data (uid);
   if ((data = lra_insn_recog_data[uid]) != NULL
       && data->icode != INSN_CODE (insn))
@@ -1305,12 +1298,12 @@ lra_update_insn_recog_data (rtx insn)
       n = insn_static_data->n_dups;
       if (n != 0)
 	memcpy (data->dup_loc, recog_data.dup_loc, n * sizeof (rtx *));
-#ifdef HAVE_ATTR_enabled
+#if HAVE_ATTR_enabled
 #ifdef ENABLE_CHECKING
       {
 	int i;
 	bool *bp;
-	
+
 	n = insn_static_data->n_alternatives;
 	bp = data->alternative_enabled_p;
 	lra_assert (n >= 0 && bp != NULL);
@@ -1578,7 +1571,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
       break;
     case CLOBBER:
       /* We treat clobber of non-operand hard registers as early
-	 clobber (the behavior is expected from asm).  */ 
+	 clobber (the behavior is expected from asm).  */
       add_regs_to_insn_regno_info (data, XEXP (x, 0), uid, OP_OUT, true);
       break;
     case PRE_INC: case PRE_DEC: case POST_INC: case POST_DEC:
@@ -1751,9 +1744,9 @@ lra_push_insn_1 (rtx insn, bool always_update)
   if (uid >= SBITMAP_SIZE (lra_constraint_insn_stack_bitmap))
     lra_constraint_insn_stack_bitmap =
       sbitmap_resize (lra_constraint_insn_stack_bitmap, 3 * uid / 2, 0);
-  if (TEST_BIT (lra_constraint_insn_stack_bitmap, uid))
+  if (bitmap_bit_p (lra_constraint_insn_stack_bitmap, uid))
     return;
-  SET_BIT (lra_constraint_insn_stack_bitmap, uid);
+  bitmap_set_bit (lra_constraint_insn_stack_bitmap, uid);
   if (! always_update)
     lra_update_insn_regno_info (insn);
   VEC_safe_push (rtx, heap, lra_constraint_insn_stack, insn);
@@ -1785,7 +1778,7 @@ rtx
 lra_pop_insn (void)
 {
   rtx insn = VEC_pop (rtx, lra_constraint_insn_stack);
-  RESET_BIT (lra_constraint_insn_stack_bitmap, INSN_UID (insn));
+  bitmap_clear_bit (lra_constraint_insn_stack_bitmap, INSN_UID (insn));
   return insn;
 }
 
@@ -2026,7 +2019,7 @@ check_rtl (bool final_p)
 	for (i = 0; i < id->insn_static_data->n_operands; i++)
 	  {
 	    rtx op = *id->operand_loc[i];
-	      
+
 	    if (MEM_P (op)
 		&& (GET_MODE (op) != BLKmode
 		    || GET_CODE (XEXP (op, 0)) != SCRATCH)
@@ -2055,7 +2048,7 @@ has_nonexceptional_receiver (void)
   /* If we're not optimizing, then just err on the safe side.  */
   if (!optimize)
     return true;
-  
+
   /* First determine which blocks can reach exit via normal paths.  */
   tos = worklist = XNEWVEC (basic_block, n_basic_blocks + 1);
 
@@ -2065,7 +2058,7 @@ has_nonexceptional_receiver (void)
   /* Place the exit block on our worklist.  */
   EXIT_BLOCK_PTR->flags |= BB_REACHABLE;
   *tos++ = EXIT_BLOCK_PTR;
-  
+
   /* Iterate: find everything reachable from what we've already seen.  */
   while (tos != worklist)
     {
@@ -2155,17 +2148,17 @@ update_inc_notes (void)
 /* Set to 1 while in lra.  */
 int lra_in_progress;
 
-/* Start of reload pseudo regnos before the new spill pass.  */ 
+/* Start of reload pseudo regnos before the new spill pass.  */
 int lra_constraint_new_regno_start;
 
-/* Inheritance pseudo regnos before the new spill pass.	 */ 
+/* Inheritance pseudo regnos before the new spill pass.	 */
 bitmap_head lra_inheritance_pseudos;
 
-/* Split regnos before the new spill pass.  */ 
+/* Split regnos before the new spill pass.  */
 bitmap_head lra_split_regs;
 
 /* Reload pseudo regnos before the new assign pass which still can be
-   spilled after the assinment pass.  */ 
+   spilled after the assinment pass.  */
 bitmap_head lra_optional_reload_pseudos;
 
 /* First UID of insns generated before a new spill pass.  */
@@ -2259,7 +2252,7 @@ lra (FILE *f)
   df_set_flags (DF_NO_INSN_RESCAN);
   lra_constraint_insn_stack = VEC_alloc (rtx, heap, get_max_uid ());
   lra_constraint_insn_stack_bitmap = sbitmap_alloc (get_max_uid ());
-  sbitmap_zero (lra_constraint_insn_stack_bitmap);
+  bitmap_clear (lra_constraint_insn_stack_bitmap);
   lra_live_ranges_init ();
   lra_constraints_init ();
   lra_curr_reload_num = 0;
@@ -2307,7 +2300,7 @@ lra (FILE *f)
 	  else
 	    {
 	      /* Do coalescing only for regular algorithms.  */
-	      if (! lra_assign () && lra_coalesce ())	
+	      if (! lra_assign () && lra_coalesce ())
 		live_p = false;
 	      if (lra_undo_inheritance ())
 		live_p = false;
@@ -2334,7 +2327,7 @@ lra (FILE *f)
     }
   restore_scratches ();
   lra_eliminate (true);
-  lra_hard_reg_substitution ();
+  lra_final_code_change ();
   lra_in_progress = 0;
   lra_clear_live_ranges ();
   lra_live_ranges_finish ();
@@ -2355,7 +2348,7 @@ lra (FILE *f)
     {
       sbitmap blocks;
       blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_ones (blocks);
+      bitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
       sbitmap_free (blocks);
     }

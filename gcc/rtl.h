@@ -283,7 +283,8 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
      1 in a NOTE, or EXPR_LIST for a const call.
      1 in a JUMP_INSN of an annulling branch.
      1 in a CONCAT is VAL_EXPR_IS_CLOBBERED in var-tracking.c.
-     1 in a preserved VALUE is PRESERVED_VALUE_P in cselib.c.  */
+     1 in a preserved VALUE is PRESERVED_VALUE_P in cselib.c.
+     1 in a clobber temporarily created for LRA.  */
   unsigned int unchanging : 1;
   /* 1 in a MEM or ASM_OPERANDS expression if the memory reference is volatile.
      1 in an INSN, CALL_INSN, JUMP_INSN, CODE_LABEL, BARRIER, or NOTE
@@ -430,6 +431,10 @@ struct GTY((variable_size)) rtvec_def {
 /* Predicate yielding true iff X is an rtx for a double-int.  */
 #define CONST_DOUBLE_AS_INT_P(X) \
   (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == VOIDmode)
+
+/* Predicate yielding true iff X is an rtx for a integer const.  */
+#define CONST_SCALAR_INT_P(X) \
+  (CONST_INT_P (X) || CONST_DOUBLE_AS_INT_P (X))
 
 /* Predicate yielding true iff X is an rtx for a double-int.  */
 #define CONST_DOUBLE_AS_FLOAT_P(X) \

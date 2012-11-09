@@ -227,10 +227,8 @@ struct lra_insn_recog_data
      value can be NULL or points to array of the hard register numbers
      ending with a negative value.  */
   int *arg_hard_regs;
-#ifdef HAVE_ATTR_enabled
   /* Alternative enabled for the insn.	NULL for debug insns.  */
   bool *alternative_enabled_p;
-#endif
   /* The alternative should be used for the insn, -1 if invalid, or we
      should try to use any alternative, or the insn is a debug
      insn.  */
@@ -240,6 +238,16 @@ struct lra_insn_recog_data
 };
 
 typedef struct lra_insn_recog_data *lra_insn_recog_data_t;
+
+/* Whether the clobber is used temporary in LRA.  */
+#define LRA_TEMP_CLOBBER_P(x) \
+  (RTL_FLAG_CHECK1 ("TEMP_CLOBBER_P", (x), CLOBBER)->unchanging)
+
+/* Cost factor for each additional reload and maximal cost reject for
+   insn reloads.  One might ask about such strange numbers.  Their
+   values occurred historically from former reload pass.  */
+#define LRA_LOSER_COST_FACTOR 6
+#define LRA_MAX_REJECT 600
 
 /* lra.c: */
 
@@ -346,7 +354,7 @@ extern bool lra_coalesce (void);
 
 extern bool lra_need_for_spills_p (void);
 extern void lra_spill (void);
-extern void lra_hard_reg_substitution (void);
+extern void lra_final_code_change (void);
 
 
 /* lra-elimination.c: */
@@ -386,7 +394,7 @@ lra_update_operator_dups (lra_insn_recog_data_t id)
   for (i = 0; i < static_id->n_dups; i++)
     {
       int ndup = static_id->dup_num[i];
-      
+
       if (static_id->operand[ndup].is_operator)
 	*id->dup_loc[i] = *id->operand_loc[ndup];
     }

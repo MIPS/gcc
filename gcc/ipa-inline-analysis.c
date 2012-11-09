@@ -149,7 +149,7 @@ static inline struct predicate
 true_predicate (void)
 {
   struct predicate p;
-  p.clause[0]=0;
+  p.clause[0] = 0;
   return p;
 }
 
@@ -160,8 +160,8 @@ static inline struct predicate
 single_cond_predicate (int cond)
 {
   struct predicate p;
-  p.clause[0]=1 << cond;
-  p.clause[1]=0;
+  p.clause[0] = 1 << cond;
+  p.clause[1] = 0;
   return p;
 }
 
@@ -639,6 +639,26 @@ dump_inline_hints (FILE *f, inline_hints hints)
       hints &= ~INLINE_HINT_loop_stride;
       fprintf (f, " loop_stride");
     }
+  if (hints & INLINE_HINT_same_scc)
+    {
+      hints &= ~INLINE_HINT_same_scc;
+      fprintf (f, " same_scc");
+    }
+  if (hints & INLINE_HINT_in_scc)
+    {
+      hints &= ~INLINE_HINT_in_scc;
+      fprintf (f, " in_scc");
+    }
+  if (hints & INLINE_HINT_cross_module)
+    {
+      hints &= ~INLINE_HINT_cross_module;
+      fprintf (f, " cross_module");
+    }
+  if (hints & INLINE_HINT_declared_inline)
+    {
+      hints &= ~INLINE_HINT_declared_inline;
+      fprintf (f, " declared_inline");
+    }
   gcc_assert (!hints);
 }
 
@@ -672,12 +692,14 @@ account_size_time (struct inline_summary *summary, int size, int time,
 	found = true;
         break;
       }
-  if (i == 32)
+  if (i == 256)
     {
       i = 0;
       found = true;
       e = &VEC_index (size_time_entry, summary->entry, 0);
       gcc_assert (!e->predicate.clause[0]);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\t\tReached limit on number of entries, ignoring the predicate.");
     }
   if (dump_file && (dump_flags & TDF_DETAILS) && (time || size))
     {
@@ -950,7 +972,7 @@ reset_inline_edge_summary (struct cgraph_edge *e)
     {
       struct inline_edge_summary *es = inline_edge_summary (e);
 
-      es->call_stmt_size = es->call_stmt_time =0;
+      es->call_stmt_size = es->call_stmt_time = 0;
       if (es->predicate)
 	pool_free (edge_predicate_pool, es->predicate);
       es->predicate = NULL;
@@ -973,6 +995,8 @@ reset_inline_summary (struct cgraph_node *node)
   info->stack_frame_offset = 0;
   info->size = 0;
   info->time = 0;
+  info->growth = 0;
+  info->scc_no = 0;
   if (info->loop_iterations)
     {
       pool_free (edge_predicate_pool, info->loop_iterations);
@@ -1364,6 +1388,12 @@ dump_inline_summary (FILE * f, struct cgraph_node *node)
 	       (int) s->estimated_self_stack_size);
       fprintf (f, "  global stack:    %i\n",
 	       (int) s->estimated_stack_size);
+      if (s->growth)
+        fprintf (f, "  estimated growth:%i\n",
+	         (int) s->growth);
+      if (s->scc_no)
+        fprintf (f, "  In SCC:          %i\n",
+	         (int) s->scc_no);
       for (i = 0;
 	   VEC_iterate (size_time_entry, s->entry, i, e);
 	   i++)
@@ -1534,6 +1564,7 @@ static int
 eliminated_by_inlining_prob (gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
+  enum tree_code rhs_code;
 
   if (!optimize)
     return 0;
@@ -1546,13 +1577,16 @@ eliminated_by_inlining_prob (gimple stmt)
 	if (gimple_num_ops (stmt) != 2)
 	  return 0;
 
+	rhs_code = gimple_assign_rhs_code (stmt);
+
 	/* Casts of parameters, loads from parameters passed by reference
 	   and stores to return value or parameters are often free after
 	   inlining dua to SRA and further combining.
 	   Assume that half of statements goes away.  */
-	if (gimple_assign_rhs_code (stmt) == CONVERT_EXPR
-	    || gimple_assign_rhs_code (stmt) == NOP_EXPR
-	    || gimple_assign_rhs_code (stmt) == VIEW_CONVERT_EXPR
+	if (rhs_code == CONVERT_EXPR
+	    || rhs_code == NOP_EXPR
+	    || rhs_code == VIEW_CONVERT_EXPR
+	    || rhs_code == ADDR_EXPR
 	    || gimple_assign_rhs_class (stmt) == GIMPLE_SINGLE_RHS)
 	  {
 	    tree rhs = gimple_assign_rhs1 (stmt);
@@ -1570,6 +1604,17 @@ eliminated_by_inlining_prob (gimple stmt)
 	    /* Reads of parameter are expected to be free.  */
 	    if (unmodified_parm (stmt, inner_rhs))
 	      rhs_free = true;
+	    /* Match expressions of form &this->field. Those will most likely
+	       combine with something upstream after inlining.  */
+	    else if (TREE_CODE (inner_rhs) == ADDR_EXPR)
+	      {
+		tree op = get_base_address (TREE_OPERAND (inner_rhs, 0));
+		if (TREE_CODE (op) == PARM_DECL)
+		  rhs_free = true;
+	        else if (TREE_CODE (op) == MEM_REF
+			 && unmodified_parm (stmt, TREE_OPERAND (op, 0)))
+		  rhs_free = true;
+	      }
 
 	    /* When parameter is not SSA register because its address is taken
 	       and it is just copied into one, the statement will be completely
@@ -1948,10 +1993,11 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
     return p;
 
   /* Stores will stay anyway.  */
-  if (gimple_vdef (stmt))
+  if (gimple_store_p (stmt))
     return p;
 
-  is_load = gimple_vuse (stmt) != NULL;
+  is_load = gimple_assign_load_p (stmt);
+
   /* Loads can be optimized when the value is known.  */
   if (is_load)
     {
@@ -2236,6 +2282,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   struct predicate bb_predicate;
   struct ipa_node_params *parms_info = NULL;
   VEC (predicate_t, heap) *nonconstant_names = NULL;
+  int nblocks, n;
+  int *order;
 
   info->conds = 0;
   info->entry = 0;
@@ -2268,8 +2316,12 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   gcc_assert (my_function && my_function->cfg);
   if (parms_info)
     compute_bb_predicates (node, parms_info, info);
-  FOR_EACH_BB_FN (bb, my_function)
+  gcc_assert (cfun == my_function);
+  order = XNEWVEC (int, n_basic_blocks);
+  nblocks = pre_and_rev_post_order_compute (NULL, order, false);
+  for (n = 0; n < nblocks; n++)
     {
+      bb = BASIC_BLOCK (order[n]);
       freq = compute_call_stmt_bb_frequency (node->symbol.decl, bb);
 
       /* TODO: Obviously predicates can be propagated down across CFG.  */
@@ -2398,6 +2450,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 		{
 		  time += this_time;
 		  size += this_size;
+		  if (time > MAX_TIME * INLINE_TIME_SCALE)
+		    time = MAX_TIME * INLINE_TIME_SCALE;
 		}
 
 	      /* We account everything but the calls.  Calls have their own
@@ -2440,6 +2494,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   time = (time + CGRAPH_FREQ_BASE / 2) / CGRAPH_FREQ_BASE;
   if (time > MAX_TIME)
     time = MAX_TIME;
+  free (order);
 
   if (!early && nonconstant_names)
     {
@@ -2626,6 +2681,7 @@ struct gimple_opt_pass pass_inline_parameters =
  {
   GIMPLE_PASS,
   "inline_param",			/* name */
+  OPTGROUP_INLINE,                      /* optinfo_flags */
   NULL,					/* gate */
   compute_inline_parameters_for_current,/* execute */
   NULL,					/* sub */
@@ -2825,7 +2881,10 @@ estimate_node_size_and_time (struct cgraph_node *node,
   if (info->loop_stride
       && !evaluate_predicate (info->loop_stride, possible_truths))
     hints |=INLINE_HINT_loop_stride;
-
+  if (info->scc_no)
+    hints |= INLINE_HINT_in_scc;
+  if (DECL_DECLARED_INLINE_P (node->symbol.decl))
+    hints |= INLINE_HINT_declared_inline;
 
   estimate_calls_size_and_time (node, &size, &time, &hints, possible_truths,
 				known_vals, known_binfos, known_aggs);
@@ -2833,7 +2892,6 @@ estimate_node_size_and_time (struct cgraph_node *node,
   gcc_checking_assert (time >= 0);
   time = RDIV (time, INLINE_TIME_SCALE);
   size = RDIV (size, INLINE_SIZE_SCALE);
-
 
   if (dump_file
       && (dump_flags & TDF_DETAILS))
@@ -2855,16 +2913,18 @@ estimate_node_size_and_time (struct cgraph_node *node,
 
 void
 estimate_ipcp_clone_size_and_time (struct cgraph_node *node,
-				   VEC (tree, heap) *known_vals,
-				   VEC (tree, heap) *known_binfos,
-		                   int *ret_size, int *ret_time)
+				VEC (tree, heap) *known_vals,
+				VEC (tree, heap) *known_binfos,
+				VEC (ipa_agg_jump_function_p, heap) *known_aggs,
+				int *ret_size, int *ret_time,
+				inline_hints *hints)
 {
   clause_t clause;
 
-  clause = evaluate_conditions_for_known_args (node, false, known_vals, NULL);
-  estimate_node_size_and_time (node, clause, known_vals, known_binfos, NULL,
-			       ret_size, ret_time, NULL,
-			       NULL);
+  clause = evaluate_conditions_for_known_args (node, false, known_vals,
+					       known_aggs);
+  estimate_node_size_and_time (node, clause, known_vals, known_binfos,
+			       known_aggs, ret_size, ret_time, hints, NULL);
 }
 
 /* Translate all conditions from callee representation into caller
@@ -3276,12 +3336,36 @@ inline_update_overall_summary (struct cgraph_node *node)
   info->size = 0;
   info->time = 0;
   for (i = 0; VEC_iterate (size_time_entry, info->entry, i, e); i++)
-    info->size += e->size, info->time += e->time;
+    {
+      info->size += e->size, info->time += e->time;
+      if (info->time > MAX_TIME * INLINE_TIME_SCALE)
+        info->time = MAX_TIME * INLINE_TIME_SCALE;
+    }
   estimate_calls_size_and_time (node, &info->size, &info->time, NULL,
 				~(clause_t)(1 << predicate_false_condition),
 				NULL, NULL, NULL);
   info->time = (info->time + INLINE_TIME_SCALE / 2) / INLINE_TIME_SCALE;
   info->size = (info->size + INLINE_SIZE_SCALE / 2) / INLINE_SIZE_SCALE;
+}
+
+/* Return hints derrived from EDGE.   */
+int
+simple_edge_hints (struct cgraph_edge *edge)
+{
+  int hints = 0;
+  struct cgraph_node *to = (edge->caller->global.inlined_to
+			    ? edge->caller->global.inlined_to
+			    : edge->caller);
+  if (inline_summary (to)->scc_no
+      && inline_summary (to)->scc_no == inline_summary (edge->callee)->scc_no
+      && !cgraph_edge_recursive_p (edge))
+    hints |= INLINE_HINT_same_scc;
+
+  if (to->symbol.lto_file_data && edge->callee->symbol.lto_file_data
+      && to->symbol.lto_file_data != edge->callee->symbol.lto_file_data)
+    hints |= INLINE_HINT_cross_module;
+
+  return hints;
 }
 
 /* Estimate the time cost for the caller when inlining EDGE.
@@ -3297,7 +3381,6 @@ do_estimate_edge_time (struct cgraph_edge *edge)
   int time;
   int size;
   inline_hints hints;
-  gcov_type ret;
   struct cgraph_node *callee;
   clause_t clause;
   VEC (tree, heap) *known_vals;
@@ -3316,9 +3399,8 @@ do_estimate_edge_time (struct cgraph_edge *edge)
   VEC_free (tree, heap, known_vals);
   VEC_free (tree, heap, known_binfos);
   VEC_free (ipa_agg_jump_function_p, heap, known_aggs);
-
-  ret = RDIV ((gcov_type)time * edge->frequency,
-	      CGRAPH_FREQ_BASE);
+  gcc_checking_assert (size >= 0);
+  gcc_checking_assert (time >= 0);
 
   /* When caching, update the cache entry.  */
   if (edge_growth_cache)
@@ -3328,14 +3410,15 @@ do_estimate_edge_time (struct cgraph_edge *edge)
 	VEC_safe_grow_cleared (edge_growth_cache_entry, heap, edge_growth_cache,
 			       cgraph_edge_max_uid);
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).time
-	= ret + (ret >= 0);
+	= time + (time >= 0);
 
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).size
 	= size + (size >= 0);
+      hints |= simple_edge_hints (edge);
       VEC_index (edge_growth_cache_entry, edge_growth_cache, edge->uid).hints
 	= hints + 1;
     }
-  return ret;
+  return time;
 }
 
 
@@ -3417,6 +3500,7 @@ do_estimate_edge_hints (struct cgraph_edge *edge)
   VEC_free (tree, heap, known_vals);
   VEC_free (tree, heap, known_binfos);
   VEC_free (ipa_agg_jump_function_p, heap, known_aggs);
+  hints |= simple_edge_hints (edge);
   return hints;
 }
 
@@ -3504,10 +3588,11 @@ do_estimate_growth (struct cgraph_node *node)
      return zero or negative growths. */
   if (d.self_recursive)
     d.growth = d.growth < info->size ? info->size : d.growth;
+  else if (DECL_EXTERNAL (node->symbol.decl))
+    ;
   else
     {
-      if (!DECL_EXTERNAL (node->symbol.decl)
-	  && cgraph_will_be_removed_from_program_if_no_direct_calls (node))
+      if (cgraph_will_be_removed_from_program_if_no_direct_calls (node))
 	d.growth -= info->size;
       /* COMDAT functions are very often not shared across multiple units
 	 since they come from various template instantiations.
@@ -3811,22 +3896,25 @@ void
 inline_write_summary (void)
 {
   struct cgraph_node *node;
-  symtab_node snode;
   struct output_block *ob = create_output_block (LTO_section_inline_summary);
   lto_symtab_encoder_t encoder = ob->decl_state->symtab_node_encoder;
   unsigned int count = 0;
   int i;
 
   for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
-    if (symtab_function_p (snode = lto_symtab_encoder_deref (encoder, i))
-	&& cgraph (snode)->analyzed)
-      count++;
+    {
+      symtab_node snode = lto_symtab_encoder_deref (encoder, i);
+      cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
+      if (cnode && cnode->analyzed)
+	count++;
+    }
   streamer_write_uhwi (ob, count);
 
   for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
     {
-      if (symtab_function_p (snode = lto_symtab_encoder_deref (encoder, i))
-	  && (node = cgraph (snode))->analyzed)
+      symtab_node snode = lto_symtab_encoder_deref (encoder, i);
+      cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
+      if (cnode && (node = cnode)->analyzed)
 	{
 	  struct inline_summary *info = inline_summary (node);
 	  struct bitpack_d bp;
@@ -3834,7 +3922,7 @@ inline_write_summary (void)
 	  int i;
 	  size_time_entry *e;
 	  struct condition *c;
-
+  
 	  streamer_write_uhwi (ob, lto_symtab_encoder_encode (encoder, (symtab_node)node));
 	  streamer_write_hwi (ob, info->estimated_self_stack_size);
 	  streamer_write_hwi (ob, info->self_size);
@@ -3853,7 +3941,7 @@ inline_write_summary (void)
 	      bp_pack_value (&bp, c->by_ref, 1);
 	      streamer_write_bitpack (&bp);
 	      if (c->agg_contents)
-		streamer_write_uhwi (ob, c->offset);
+	        streamer_write_uhwi (ob, c->offset);
 	    }
 	  streamer_write_uhwi (ob, VEC_length (size_time_entry, info->entry));
 	  for (i = 0;

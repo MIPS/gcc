@@ -3492,9 +3492,9 @@ init_live_subregs (bool init_value, sbitmap *live_subregs,
   /* If the entire reg was live before blasting into subregs, we need
      to init all of the subregs to ones else init to 0.  */
   if (init_value)
-    sbitmap_ones (live_subregs[allocnum]);
+    bitmap_ones (live_subregs[allocnum]);
   else
-    sbitmap_zero (live_subregs[allocnum]);
+    bitmap_clear (live_subregs[allocnum]);
 
   bitmap_set_bit (live_subregs_used, allocnum);
 }
@@ -3620,11 +3620,11 @@ build_insn_chain (void)
 
 			    while (start < last)
 			      {
-				RESET_BIT (live_subregs[regno], start);
+				bitmap_clear_bit (live_subregs[regno], start);
 				start++;
 			      }
 
-			    if (sbitmap_empty_p (live_subregs[regno]))
+			    if (bitmap_empty_p (live_subregs[regno]))
 			      {
 				bitmap_clear_bit (live_subregs_used, regno);
 				bitmap_clear_bit (live_relevant_regs, regno);
@@ -3706,7 +3706,7 @@ build_insn_chain (void)
 
 			    while (start < last)
 			      {
-				SET_BIT (live_subregs[regno], start);
+				bitmap_set_bit (live_subregs[regno], start);
 				start++;
 			      }
 			  }
@@ -4399,6 +4399,16 @@ ira (FILE *f)
   setup_prohibited_mode_move_regs ();
 
   df_note_add_problem ();
+
+  /* DF_LIVE can't be used in the register allocator, too many other
+     parts of the compiler depend on using the "classic" liveness
+     interpretation of the DF_LR problem.  See PR38711.
+     Remove the problem, so that we don't spend time updating it in
+     any of the df_analyze() calls during IRA/LRA.  */
+  if (optimize > 1)
+    df_remove_problem (df_live);
+  gcc_checking_assert (df_live == NULL);
+
 #ifdef ENABLE_CHECKING
   df->changeable_flags |= DF_VERIFY_SCHEDULED;
 #endif
@@ -4678,6 +4688,12 @@ do_reload (void)
   df_scan_alloc (NULL);
   df_scan_blocks ();
 
+  if (optimize > 1)
+    {
+      df_live_add_problem ();
+      df_live_set_all_dirty ();
+    }
+
   if (optimize)
     df_analyze ();
 
@@ -4700,6 +4716,7 @@ struct rtl_opt_pass pass_ira =
  {
   RTL_PASS,
   "ira",                                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   rest_of_handle_ira,		        /* execute */
   NULL,                                 /* sub */
@@ -4726,6 +4743,7 @@ struct rtl_opt_pass pass_reload =
  {
   RTL_PASS,
   "reload",                             /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   rest_of_handle_reload,	        /* execute */
   NULL,                                 /* sub */

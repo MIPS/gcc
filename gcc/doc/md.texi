@@ -3219,6 +3219,9 @@ when the Visual Instruction Set is available.
 @item h
 64-bit global or out register for the SPARC-V8+ architecture.
 
+@item C
+The constant all-ones, for floating-point.
+
 @item D
 A vector constant
 
@@ -3233,10 +3236,12 @@ Zero
 loaded with the @code{sethi} instruction)
 
 @item L
-A constant in the range supported by @code{movcc} instructions
+A constant in the range supported by @code{movcc} instructions (11-bit
+signed immediate)
 
 @item M
-A constant in the range supported by @code{movrcc} instructions
+A constant in the range supported by @code{movrcc} instructions (10-bit
+signed immediate)
 
 @item N
 Same as @samp{K}, except that it verifies that bits that are not in the
@@ -3251,6 +3256,9 @@ Floating-point zero
 
 @item H
 Signed 13-bit constant, sign-extended to 32 or 64 bits
+
+@item P
+The constant -1
 
 @item Q
 Floating-point constant whose integral representation can
@@ -3275,6 +3283,9 @@ Even register
 
 @item W
 Memory address for @samp{e} constraint registers
+
+@item w
+Memory address with only a base register
 
 @item Y
 Vector zero
@@ -4475,8 +4486,8 @@ means of constraints requiring operands 1 and 0 to be the same location.
 @cindex @code{ior@var{m}3} instruction pattern
 @cindex @code{xor@var{m}3} instruction pattern
 @item @samp{ssadd@var{m}3}, @samp{usadd@var{m}3}
-@item @samp{sub@var{m}3}, @samp{sssub@var{m}3}, @samp{ussub@var{m}3}
-@item @samp{mul@var{m}3}, @samp{ssmul@var{m}3}, @samp{usmul@var{m}3}
+@itemx @samp{sub@var{m}3}, @samp{sssub@var{m}3}, @samp{ussub@var{m}3}
+@itemx @samp{mul@var{m}3}, @samp{ssmul@var{m}3}, @samp{usmul@var{m}3}
 @itemx @samp{div@var{m}3}, @samp{ssdiv@var{m}3}
 @itemx @samp{udiv@var{m}3}, @samp{usdiv@var{m}3}
 @itemx @samp{mod@var{m}3}, @samp{umod@var{m}3}
@@ -7558,7 +7569,7 @@ For example, if the following is present in the @file{md} file:
 the following lines will be written to the file @file{insn-attr.h}.
 
 @smallexample
-#define HAVE_ATTR_type
+#define HAVE_ATTR_type 1
 enum attr_type @{TYPE_BRANCH, TYPE_FP, TYPE_LOAD,
                  TYPE_STORE, TYPE_ARITH@};
 extern enum attr_type get_attr_type ();
@@ -7582,6 +7593,10 @@ The @code{enabled} attribute can be defined to prevent certain
 alternatives of an insn definition from being used during code
 generation. @xref{Disable Insn Alternatives}.
 @end table
+
+For each of these special attributes, the corresponding
+@samp{HAVE_ATTR_@var{name}} @samp{#define} is also written when the
+attribute is not defined; in that case, it is defined as @samp{0}.
 
 @findex define_enum_attr
 @anchor{define_enum_attr}

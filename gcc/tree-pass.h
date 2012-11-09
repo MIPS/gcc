@@ -46,6 +46,9 @@ struct opt_pass
      name.  If the name starts with a star, no dump happens. */
   const char *name;
 
+  /* The -fopt-info optimization group flags as defined in dumpfile.h. */
+  unsigned int optinfo_flags;
+
   /* If non-null, this pass and all sub-passes are executed only if
      the function returns true.  */
   bool (*gate) (void);
@@ -540,6 +543,9 @@ extern void register_pass (struct register_pass_info *);
    throughout the compilation -- we will be able to mark the affected loops
    directly in jump threading, and avoid peeling them next time.  */
 extern bool first_pass_instance;
+
+extern struct opt_pass **passes_by_id;
+extern int passes_by_id_size;
 
 /* Declare for plugins.  */
 extern void do_per_function_toporder (void (*) (void *), void *);
