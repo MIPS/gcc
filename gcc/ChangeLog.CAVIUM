@@ -197,6 +197,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-09  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.c-torture/compile/limits-structnest.c: Disable unless
+	requested; uses a lot of memory.
+
 2012-11-08  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #5214
