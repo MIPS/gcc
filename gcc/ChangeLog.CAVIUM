@@ -197,6 +197,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-12  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5253
+	* tree-merge-const-bfstores.c (compute_new_bitfield_positions): Fix
+	for little-endian.
+	(gate_merge_const_bfstores): Don't disable for little-endian targets.
+
 2012-11-09  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.c-torture/compile/limits-structnest.c: Disable unless

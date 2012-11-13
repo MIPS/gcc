@@ -163,11 +163,19 @@ compute_new_bitfield_positions (HOST_WIDE_INT obitsize, HOST_WIDE_INT obitpos,
   *bitpos = MIN (obitpos, nbitpos);
   bitsize = MAX (obitpos + obitsize, nbitpos + nbitsize) - *bitpos;
 
-  *oshift = *bitpos + bitsize - (obitpos + obitsize);
+  if (BYTES_BIG_ENDIAN)
+    *oshift = *bitpos + bitsize - (obitpos + obitsize);
+  else
+    *oshift = *bitpos + obitpos;
+
   if (*oshift > nbitsize)
     return -1;
     
-  *nshift = *bitpos + bitsize - (nbitpos + nbitsize);
+  if (BYTES_BIG_ENDIAN)
+    *nshift = *bitpos + bitsize - (nbitpos + nbitsize);
+  else
+    *nshift = *bitpos + nbitpos;
+
   if (*nshift > obitsize)
     return -1;
 
@@ -451,7 +459,7 @@ merge_const_bfstores (void)
 static bool
 gate_merge_const_bfstores (void)
 {
-  return flag_merge_const_bfstores && BYTES_BIG_ENDIAN && WORDS_BIG_ENDIAN;
+  return flag_merge_const_bfstores;
 }
 
 namespace {
