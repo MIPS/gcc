@@ -25,9 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "flags.h"
 #include "function.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "tree-flow.h"
-#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
 #include "gimple-fold.h"
@@ -61,19 +60,21 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   struct cgraph_node *node;
   symtab_node snode;
 
-  /* We will later output the initializer, so we can reffer to it.
+  /* We will later output the initializer, so we can refer to it.
      So we are concerned only when DECL comes from initializer of
      external var.  */
   if (!from_decl
       || TREE_CODE (from_decl) != VAR_DECL
       || !DECL_EXTERNAL (from_decl)
-      || (symtab_get_node (from_decl)->symbol.in_other_partition))
+      || (flag_ltrans
+	  && symtab_get_node (from_decl)->symbol.in_other_partition))
     return true;
-  /* We are concerned ony about static/external vars and functions.  */
+  /* We are concerned only about static/external vars and functions.  */
   if ((!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
       || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL))
     return true;
-  /* Weakrefs have somewhat confusing DECL_EXTERNAL flag set; they are always safe.  */
+  /* Weakrefs have somewhat confusing DECL_EXTERNAL flag set; they
+     are always safe.  */
   if (DECL_EXTERNAL (decl)
       && lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     return true;
@@ -94,7 +95,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
      produced.
 
      As observed in PR20991 for already optimized out comdat virtual functions
-     it may be tempting to not neccesarily give up because the copy will be
+     it may be tempting to not necessarily give up because the copy will be
      output elsewhere when corresponding vtable is output.  
      This is however not possible - ABI specify that COMDATs are output in
      units where they are used and when the other unit was compiled with LTO
@@ -138,7 +139,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
 tree
 canonicalize_constructor_val (tree cval, tree from_decl)
 {
-  STRIP_NOPS (cval);
+  STRIP_USELESS_TYPE_CONVERSION (cval);
   if (TREE_CODE (cval) == POINTER_PLUS_EXPR
       && TREE_CODE (TREE_OPERAND (cval, 1)) == INTEGER_CST)
     {
@@ -154,6 +155,12 @@ canonicalize_constructor_val (tree cval, tree from_decl)
   if (TREE_CODE (cval) == ADDR_EXPR)
     {
       tree base = get_base_address (TREE_OPERAND (cval, 0));
+      if (!base && TREE_CODE (TREE_OPERAND (cval, 0)) == COMPOUND_LITERAL_EXPR)
+	{
+	  base = COMPOUND_LITERAL_EXPR_DECL (TREE_OPERAND (cval, 0));
+	  if (base)
+	    TREE_OPERAND (cval, 0) = base;
+	}
       if (!base)
 	return NULL_TREE;
 
@@ -162,12 +169,7 @@ canonicalize_constructor_val (tree cval, tree from_decl)
 	  && !can_refer_decl_in_current_unit_p (base, from_decl))
 	return NULL_TREE;
       if (TREE_CODE (base) == VAR_DECL)
-	{
-	  TREE_ADDRESSABLE (base) = 1;
-	  if (cfun && gimple_referenced_vars (cfun)
-	      && !is_global_var (base))
-	    add_referenced_var (base);
-	}
+	TREE_ADDRESSABLE (base) = 1;
       else if (TREE_CODE (base) == FUNCTION_DECL)
 	{
 	  /* Make sure we create a cgraph node for functions we'll reference.
@@ -646,9 +648,6 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
   for (i = gsi_start (stmts); !gsi_end_p (i); gsi_next (&i))
     {
       new_stmt = gsi_stmt (i);
-      /* The replacement can expose previously unreferenced variables.  */
-      if (gimple_in_ssa_p (cfun))
-	find_referenced_vars_in (new_stmt);
       /* If the new statement possibly has a VUSE, update it with exact SSA
 	 name we know will reach this one.  */
       if (gimple_has_mem_ops (new_stmt))
@@ -1054,7 +1053,7 @@ gimple_extract_devirt_binfo_from_cst (tree cst)
       type = TREE_TYPE (fld);
       offset -= pos;
     }
-  /* Artifical sub-objects are ancestors, we do not want to use them for
+  /* Artificial sub-objects are ancestors, we do not want to use them for
      devirtualization, at least not here.  */
   if (last_artificial)
     return NULL_TREE;
@@ -2705,6 +2704,10 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
       if (!DECL_INITIAL (base)
 	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
         return error_mark_node;
+      /* Do not return an error_mark_node DECL_INITIAL.  LTO uses this
+         as special marker (_not_ zero ...) for its own purposes.  */
+      if (DECL_INITIAL (base) == error_mark_node)
+	return NULL_TREE;
       return DECL_INITIAL (base);
 
     case ARRAY_REF:

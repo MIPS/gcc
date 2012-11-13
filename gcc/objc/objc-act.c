@@ -27,10 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 
 #ifdef OBJCPLUS
-#include "cp-tree.h"
+#include "cp/cp-tree.h"
 #else
-#include "c-tree.h"
-#include "c-lang.h"
+#include "c/c-tree.h"
+#include "c/c-lang.h"
 #endif
 
 #include "c-family/c-common.h"
@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "objc-map.h"
 #include "input.h"
 #include "function.h"
-#include "output.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "debug.h"

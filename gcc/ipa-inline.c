@@ -101,7 +101,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
 #include "params.h"
 #include "fibheap.h"
 #include "intl.h"
@@ -777,7 +776,7 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 		edge_growth
      badness = -goodness  
 
-    The fraction is upside down, becuase on edge counts and time beneits
+    The fraction is upside down, because on edge counts and time beneits
     the bounds are known. Edge growth is essentially unlimited.  */
 
   else if (max_count)
@@ -1369,7 +1368,7 @@ inline_small_functions (void)
 	continue;
 
       /* Be sure that caches are maintained consistent.  
-         We can not make this ENABLE_CHECKING only because it cause differnt
+         We can not make this ENABLE_CHECKING only because it cause different
          updates of the fibheap queue.  */
       cached_badness = edge_badness (edge, false);
       reset_edge_growth_cache (edge);

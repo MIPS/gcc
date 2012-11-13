@@ -34,14 +34,13 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "obstack.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "output.h"
+#include "output.h" /* for switch_to_section and get_section */
 #include "parse.h"
 #include "function.h"
 #include "ggc.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "vecprim.h"
-#include "tm.h"         /* FIXME: For gcc_obstack_init from defaults.h.  */
 #include "target.h"
 
 static tree make_method_value (tree);

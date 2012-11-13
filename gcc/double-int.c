@@ -135,13 +135,28 @@ mul_double_with_sign (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
 		      unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv,
 		      bool unsigned_p)
 {
+  unsigned HOST_WIDE_INT toplow;
+  HOST_WIDE_INT tophigh;
+
+  return mul_double_wide_with_sign (l1, h1, l2, h2,
+				    lv, hv, &toplow, &tophigh,
+				    unsigned_p);
+}
+
+int
+mul_double_wide_with_sign (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
+			   unsigned HOST_WIDE_INT l2, HOST_WIDE_INT h2,
+			   unsigned HOST_WIDE_INT *lv, HOST_WIDE_INT *hv,
+			   unsigned HOST_WIDE_INT *lw, HOST_WIDE_INT *hw,
+			   bool unsigned_p)
+{
   HOST_WIDE_INT arg1[4];
   HOST_WIDE_INT arg2[4];
   HOST_WIDE_INT prod[4 * 2];
   unsigned HOST_WIDE_INT carry;
   int i, j, k;
-  unsigned HOST_WIDE_INT toplow, neglow;
-  HOST_WIDE_INT tophigh, neghigh;
+  unsigned HOST_WIDE_INT neglow;
+  HOST_WIDE_INT neghigh;
 
   encode (arg1, l1, h1);
   encode (arg2, l2, h2);
@@ -165,25 +180,25 @@ mul_double_with_sign (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
     }
 
   decode (prod, lv, hv);
-  decode (prod + 4, &toplow, &tophigh);
+  decode (prod + 4, lw, hw);
 
   /* Unsigned overflow is immediate.  */
   if (unsigned_p)
-    return (toplow | tophigh) != 0;
+    return (*lw | *hw) != 0;
 
   /* Check for signed overflow by calculating the signed representation of the
      top half of the result; it should agree with the low half's sign bit.  */
   if (h1 < 0)
     {
       neg_double (l2, h2, &neglow, &neghigh);
-      add_double (neglow, neghigh, toplow, tophigh, &toplow, &tophigh);
+      add_double (neglow, neghigh, *lw, *hw, lw, hw);
     }
   if (h2 < 0)
     {
       neg_double (l1, h1, &neglow, &neghigh);
-      add_double (neglow, neghigh, toplow, tophigh, &toplow, &tophigh);
+      add_double (neglow, neghigh, *lw, *hw, lw, hw);
     }
-  return (*hv < 0 ? ~(toplow & tophigh) : toplow | tophigh) != 0;
+  return (*hv < 0 ? ~(*lw & *hw) : *lw | *hw) != 0;
 }
 
 /* Shift the doubleword integer in L1, H1 right by COUNT places
@@ -206,7 +221,7 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
 
-  if (count >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (count >= HOST_BITS_PER_DOUBLE_INT)
     {
       /* Shifting by the host word size is undefined according to the
 	 ANSI standard, so we must handle this as a special case.  */
@@ -233,7 +248,7 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
       *hv = signmask;
       *lv = signmask;
     }
-  else if ((prec - count) >= 2 * HOST_BITS_PER_WIDE_INT)
+  else if ((prec - count) >= HOST_BITS_PER_DOUBLE_INT)
     ;
   else if ((prec - count) >= HOST_BITS_PER_WIDE_INT)
     {
@@ -270,7 +285,7 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
 
-  if (count >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (count >= HOST_BITS_PER_DOUBLE_INT)
     {
       /* Shifting by the host word size is undefined according to the
 	 ANSI standard, so we must handle this as a special case.  */
@@ -296,7 +311,7 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
 		   >> (prec - HOST_BITS_PER_WIDE_INT - 1))
 		: (*lv >> (prec - 1))) & 1);
 
-  if (prec >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (prec >= HOST_BITS_PER_DOUBLE_INT)
     ;
   else if (prec >= HOST_BITS_PER_WIDE_INT)
     {
@@ -863,6 +878,26 @@ double_int
 double_int_umod (double_int a, double_int b, unsigned code)
 {
   return double_int_mod (a, b, true, code);
+}
+
+/* Return TRUE iff PRODUCT is an integral multiple of FACTOR, and return
+   the multiple in *MULTIPLE.  Otherwise return FALSE and leave *MULTIPLE
+   unchanged.  */
+
+bool
+double_int_multiple_of (double_int product, double_int factor,
+			bool unsigned_p, double_int *multiple)
+{
+  double_int remainder;
+  double_int quotient = double_int_divmod (product, factor, unsigned_p,
+					   TRUNC_DIV_EXPR, &remainder);
+  if (double_int_zero_p (remainder))
+    {
+      *multiple = quotient;
+      return true;
+    }
+
+  return false;
 }
 
 /* Set BITPOS bit in A.  */

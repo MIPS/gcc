@@ -153,6 +153,9 @@ struct	G
 	// uintptr	sigpc;
 	uintptr	gopc;	// pc of go statement that created this goroutine
 
+	int32	ncgo;
+	struct cgoalloc *cgoalloc;
+
 	Traceback* traceback;
 
 	ucontext_t	context;
@@ -174,6 +177,7 @@ struct	M
 	int32	profilehz;
 	int32	helpgc;
 	uint32	fastrand;
+	uint64	ncgocall;
 	Note	havenextg;
 	G*	nextg;
 	M*	alllink;	// on allm
@@ -447,7 +451,7 @@ const byte*	runtime_getenv(const char*);
 int32	runtime_atoi(const byte*);
 uint32	runtime_fastrand1(void);
 
-void	runtime_sigprof(uint8 *pc, uint8 *sp, uint8 *lr, G *gp);
+void	runtime_sigprof();
 void	runtime_resetcpuprofiler(int32);
 void	runtime_setcpuprofilerate(void(*)(uintptr*, int32), int32);
 void	runtime_usleep(uint32);

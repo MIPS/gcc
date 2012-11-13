@@ -30,13 +30,11 @@
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "reload.h"
-#include "output.h"
 #include "function.h"
 #include "recog.h"
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "obstack.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 
