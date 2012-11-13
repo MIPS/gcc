@@ -32,10 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gimple.h"
 #include "flags.h"
-#include "timevar.h"
-#include "flags.h"
 #include "diagnostic.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
@@ -912,8 +909,8 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
       || is_global_var (base))
     return;
 
-  if (detect_type_change (op, base, call, jfunc, offset)
-      || !TYPE_BINFO (TREE_TYPE (base)))
+  if (!TYPE_BINFO (TREE_TYPE (base))
+      || detect_type_change (op, base, call, jfunc, offset))
     return;
 
   ipa_set_jf_known_type (jfunc, offset, TREE_TYPE (base), TREE_TYPE (op));
@@ -1626,10 +1623,13 @@ ipa_analyze_params_uses (struct cgraph_node *node,
   for (i = 0; i < ipa_get_param_count (info); i++)
     {
       tree parm = ipa_get_param (info, i);
+      tree ddef;
       /* For SSA regs see if parameter is used.  For non-SSA we compute
 	 the flag during modification analysis.  */
       if (is_gimple_reg (parm)
-	  && gimple_default_def (DECL_STRUCT_FUNCTION (node->symbol.decl), parm))
+	  && (ddef = ssa_default_def (DECL_STRUCT_FUNCTION (node->symbol.decl),
+				      parm)) != NULL_TREE
+	  && !has_zero_uses (ddef))
 	ipa_set_param_used (info, i, true);
     }
 
@@ -2358,8 +2358,6 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	  DECL_IGNORED_P (new_parm) = 1;
 	  layout_decl (new_parm, 0);
 
-	  add_referenced_var (new_parm);
-	  mark_sym_for_renaming (new_parm);
 	  adj->base = parm;
 	  adj->reduction = new_parm;
 

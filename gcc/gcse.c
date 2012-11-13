@@ -158,7 +158,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cselib.h"
 #include "intl.h"
 #include "obstack.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "hashtab.h"
 #include "df.h"
@@ -2791,7 +2790,7 @@ compute_code_hoist_vbeinout (void)
 	  if (bb->next_bb != EXIT_BLOCK_PTR)
 	    {
 	      sbitmap_intersection_of_succs (hoist_vbeout[bb->index],
-					     hoist_vbein, bb->index);
+					     hoist_vbein, bb);
 
 	      /* Include expressions in VBEout that are calculated
 		 in BB and available at its end.  */

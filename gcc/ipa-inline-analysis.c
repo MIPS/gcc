@@ -76,7 +76,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
 #include "params.h"
 #include "tree-pass.h"
 #include "coverage.h"
@@ -3243,6 +3242,8 @@ void
 inline_free_summary (void)
 {
   struct cgraph_node *node;
+  if (inline_edge_summary_vec == NULL)
+    return;
   FOR_EACH_DEFINED_FUNCTION (node)
     reset_inline_summary (node);
   if (function_insertion_hook_holder)

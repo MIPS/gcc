@@ -27,12 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "insn-config.h"
-#include "recog.h"
 #include "hashtab.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
@@ -47,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
    between the GIMPLE and RTL worlds.  */
 #include "expr.h"
 #include "optabs.h"
+#include "recog.h"
 
 /* This pass inserts prefetch instructions to optimize cache usage during
    accesses to arrays in loops.  It processes loops sequentially and:
@@ -1206,7 +1204,6 @@ emit_mfence_after_loop (struct loop *loop)
       bsi = gsi_after_labels (exit->dest);
 
       gsi_insert_before (&bsi, call, GSI_NEW_STMT);
-      mark_virtual_ops_for_renaming (call);
     }
 
   VEC_free (edge, heap, exits);

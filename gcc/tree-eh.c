@@ -28,11 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "pointer-set.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
 #include "tree-inline.h"
-#include "tree-iterator.h"
 #include "tree-pass.h"
-#include "timevar.h"
 #include "langhooks.h"
 #include "ggc.h"
 #include "diagnostic-core.h"
@@ -1320,9 +1317,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
 
   /* The location of the finally is either the last stmt in the finally
      block or the location of the TRY_FINALLY itself.  */
-  finally_loc = gimple_seq_last_stmt (tf->top_p_seq) != NULL ?
-    gimple_location (gimple_seq_last_stmt (tf->top_p_seq))
-    : tf_loc;
+  x = gimple_seq_last_stmt (finally);
+  finally_loc = x ? gimple_location (x) : tf_loc;
 
   /* Lower the finally block itself.  */
   lower_eh_constructs_1 (state, &finally);
@@ -3254,22 +3250,18 @@ sink_clobbers (basic_block bb)
   for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
-      tree vdef;
       if (is_gimple_debug (stmt))
 	continue;
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	break;
       unlink_stmt_vdef (stmt);
       gsi_remove (&gsi, false);
-      vdef = gimple_vdef (stmt);
-      if (vdef && TREE_CODE (vdef) == SSA_NAME)
-	{
-	  release_ssa_name (vdef);
-	  vdef = SSA_NAME_VAR (vdef);
-	  mark_sym_for_renaming (vdef);
-	  gimple_set_vdef (stmt, vdef);
-	  gimple_set_vuse (stmt, vdef);
-	}
+      /* Trigger the operand scanner to cause renaming for virtual
+         operands for this statement.
+	 ???  Given the simple structure of this code manually
+	 figuring out the reaching definition should not be too hard.  */
+      if (gimple_vuse (stmt))
+	gimple_set_vuse (stmt, NULL_TREE);
       gsi_insert_before (&dgsi, stmt, GSI_SAME_STMT);
     }
 

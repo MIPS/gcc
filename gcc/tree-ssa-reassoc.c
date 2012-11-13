@@ -25,13 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "gimple.h"
-#include "tree-dump.h"
-#include "timevar.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
@@ -237,7 +234,7 @@ phi_rank (gimple stmt)
 
   /* Ignore virtual SSA_NAMEs.  */
   res = gimple_phi_result (stmt);
-  if (!is_gimple_reg (SSA_NAME_VAR (res)))
+  if (!is_gimple_reg (res))
     return bb_rank[bb->index];
 
   /* The phi definition must have a single use, and that use must be
@@ -383,14 +380,10 @@ get_rank (tree e)
       int i, n;
       tree op;
 
-      if (TREE_CODE (SSA_NAME_VAR (e)) == PARM_DECL
-	  && SSA_NAME_IS_DEFAULT_DEF (e))
+      if (SSA_NAME_IS_DEFAULT_DEF (e))
 	return find_operand_rank (e);
 
       stmt = SSA_NAME_DEF_STMT (e);
-      if (gimple_bb (stmt) == NULL)
-	return 0;
-
       if (gimple_code (stmt) == GIMPLE_PHI)
 	return phi_rank (stmt);
 
@@ -484,7 +477,7 @@ sort_by_operand_rank (const void *pa, const void *pb)
   /* It's nicer for optimize_expression if constants that are likely
      to fold when added/multiplied//whatever are put next to each
      other.  Since all constants have rank 0, order them by type.  */
-  if (oeb->rank == 0 &&  oea->rank == 0)
+  if (oeb->rank == 0 && oea->rank == 0)
     {
       if (constant_type (oeb->op) != constant_type (oea->op))
 	return constant_type (oeb->op) - constant_type (oea->op);
@@ -1440,7 +1433,6 @@ undistribute_ops_list (enum tree_code opcode,
 	      print_generic_expr (dump_file, oe1->op, 0);
 	    }
 	  tmpvar = create_tmp_reg (TREE_TYPE (oe1->op), NULL);
-	  add_referenced_var (tmpvar);
 	  zero_one_operation (&oe1->op, c->oecode, c->op);
 	  EXECUTE_IF_SET_IN_SBITMAP (candidates2, first+1, i, sbi0)
 	    {
@@ -1605,7 +1597,6 @@ eliminate_redundant_comparison (enum tree_code opcode,
 	  tree newop2;
 	  gcc_assert (COMPARISON_CLASS_P (t));
 	  tmpvar = create_tmp_var (TREE_TYPE (t), NULL);
-	  add_referenced_var (tmpvar);
 	  extract_ops_from_tree (t, &subcode, &newop1, &newop2);
 	  STRIP_USELESS_TYPE_CONVERSION (newop1);
 	  STRIP_USELESS_TYPE_CONVERSION (newop2);
@@ -2461,7 +2452,6 @@ rewrite_expr_tree_parallel (gimple stmt, int width,
     stmts[i] = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmts[i+1]));
 
   lhs_var = create_tmp_reg (TREE_TYPE (last_rhs1), NULL);
-  add_referenced_var (lhs_var);
 
   for (i = 0; i < stmt_num; i++)
     {
@@ -3093,10 +3083,7 @@ static tree
 get_reassoc_pow_ssa_name (tree *target, tree type)
 {
   if (!*target || !types_compatible_p (type, TREE_TYPE (*target)))
-    {
-      *target = create_tmp_reg (type, "reassocpow");
-      add_referenced_var (*target);
-    }
+    *target = create_tmp_reg (type, "reassocpow");
 
   return make_ssa_name (*target, NULL);
 }
@@ -3441,7 +3428,7 @@ transform_stmt_to_multiply (gimple_stmt_iterator *gsi, gimple stmt,
       print_gimple_stmt (dump_file, stmt, 0, 0);
     }
 
-  gimple_assign_set_rhs_with_ops_1 (gsi, MULT_EXPR, rhs1, rhs2, NULL_TREE);
+  gimple_assign_set_rhs_with_ops (gsi, MULT_EXPR, rhs1, rhs2);
   update_stmt (gsi_stmt (*gsi));
   remove_visited_stmt_chain (rhs1);
 
@@ -3647,7 +3634,6 @@ init_reassoc (void)
 {
   int i;
   long rank = 2;
-  tree param;
   int *bbs = XNEWVEC (int, last_basic_block + 1);
 
   /* Find the loops, so that we can prevent moving calculations in
@@ -3666,24 +3652,15 @@ init_reassoc (void)
   bb_rank = XCNEWVEC (long, last_basic_block + 1);
   operand_rank = pointer_map_create ();
 
-  /* Give each argument a distinct rank.   */
-  for (param = DECL_ARGUMENTS (current_function_decl);
-       param;
-       param = DECL_CHAIN (param))
+  /* Give each default definition a distinct rank.  This includes
+     parameters and the static chain.  Walk backwards over all
+     SSA names so that we get proper rank ordering according
+     to tree_swap_operands_p.  */
+  for (i = num_ssa_names - 1; i > 0; --i)
     {
-      if (gimple_default_def (cfun, param) != NULL)
-	{
-	  tree def = gimple_default_def (cfun, param);
-	  insert_operand_rank (def, ++rank);
-	}
-    }
-
-  /* Give the chain decl a distinct rank. */
-  if (cfun->static_chain_decl != NULL)
-    {
-      tree def = gimple_default_def (cfun, cfun->static_chain_decl);
-      if (def != NULL)
-	insert_operand_rank (def, ++rank);
+      tree name = ssa_name (i);
+      if (name && SSA_NAME_IS_DEFAULT_DEF (name))
+	insert_operand_rank (name, ++rank);
     }
 
   /* Set up rank for each BB  */

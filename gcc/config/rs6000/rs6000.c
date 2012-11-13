@@ -1,8 +1,5 @@
 /* Subroutines used for code generation on IBM RS/6000.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1991-2012 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -52,7 +49,6 @@
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
-#include "cfglayout.h"
 #include "cfgloop.h"
 #include "sched-int.h"
 #include "gimple.h"
@@ -61,6 +57,7 @@
 #include "params.h"
 #include "tm-constrs.h"
 #include "opts.h"
+#include "tree-vectorizer.h"
 #if TARGET_XCOFF
 #include "xcoffout.h"  /* get declarations of xcoff_*_section_name */
 #endif
@@ -353,44 +350,6 @@ struct processor_costs size64_cost = {
   0,
   0,
   0,
-};
-
-/* Instruction costs on RIOS1 processors.  */
-static const
-struct processor_costs rios1_cost = {
-  COSTS_N_INSNS (5),    /* mulsi */
-  COSTS_N_INSNS (4),    /* mulsi_const */
-  COSTS_N_INSNS (3),    /* mulsi_const9 */
-  COSTS_N_INSNS (5),    /* muldi */
-  COSTS_N_INSNS (19),   /* divsi */
-  COSTS_N_INSNS (19),   /* divdi */
-  COSTS_N_INSNS (2),    /* fp */
-  COSTS_N_INSNS (2),    /* dmul */
-  COSTS_N_INSNS (19),   /* sdiv */
-  COSTS_N_INSNS (19),   /* ddiv */
-  128,			/* cache line size */
-  64,			/* l1 cache */
-  512,			/* l2 cache */
-  0,			/* streams */
-};
-
-/* Instruction costs on RIOS2 processors.  */
-static const
-struct processor_costs rios2_cost = {
-  COSTS_N_INSNS (2),    /* mulsi */
-  COSTS_N_INSNS (2),    /* mulsi_const */
-  COSTS_N_INSNS (2),    /* mulsi_const9 */
-  COSTS_N_INSNS (2),    /* muldi */
-  COSTS_N_INSNS (13),   /* divsi */
-  COSTS_N_INSNS (13),   /* divdi */
-  COSTS_N_INSNS (2),    /* fp */
-  COSTS_N_INSNS (2),    /* dmul */
-  COSTS_N_INSNS (17),   /* sdiv */
-  COSTS_N_INSNS (17),   /* ddiv */
-  256,			/* cache line size */
-  256,			/* l1 cache */
-  1024,			/* l2 cache */
-  0,			/* streams */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -1274,10 +1233,6 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD
 #define TARGET_VECTORIZE_BUILTIN_MASK_FOR_LOAD rs6000_builtin_mask_for_load
-#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN
-#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN rs6000_builtin_mul_widen_even
-#undef TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD
-#define TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD rs6000_builtin_mul_widen_odd
 #undef TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
 #define TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT		\
   rs6000_builtin_support_vector_misalignment
@@ -1289,6 +1244,14 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE \
   rs6000_preferred_simd_mode
+#undef TARGET_VECTORIZE_INIT_COST
+#define TARGET_VECTORIZE_INIT_COST rs6000_init_cost
+#undef TARGET_VECTORIZE_ADD_STMT_COST
+#define TARGET_VECTORIZE_ADD_STMT_COST rs6000_add_stmt_cost
+#undef TARGET_VECTORIZE_FINISH_COST
+#define TARGET_VECTORIZE_FINISH_COST rs6000_finish_cost
+#undef TARGET_VECTORIZE_DESTROY_COST_DATA
+#define TARGET_VECTORIZE_DESTROY_COST_DATA rs6000_destroy_cost_data
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
@@ -1505,7 +1468,6 @@ enum {
    the user's specification.  */
 
 enum {
-  POWER_MASKS = MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
   POWERPC_MASKS = (POWERPC_BASE_MASK | MASK_PPC_GPOPT | MASK_STRICT_ALIGN
 		   | MASK_PPC_GFXOPT | MASK_POWERPC64 | MASK_ALTIVEC
 		   | MASK_MFCRF | MASK_POPCNTB | MASK_FPRND | MASK_MULHW
@@ -1789,7 +1751,6 @@ rs6000_debug_reg_global (void)
   rs6000_debug_reg_print (LR_REGNO, LR_REGNO, "lr");
   rs6000_debug_reg_print (CTR_REGNO, CTR_REGNO, "ctr");
   rs6000_debug_reg_print (CR0_REGNO, CR7_REGNO, "cr");
-  rs6000_debug_reg_print (MQ_REGNO, MQ_REGNO, "mq");
   rs6000_debug_reg_print (CA_REGNO, CA_REGNO, "ca");
   rs6000_debug_reg_print (VRSAVE_REGNO, VRSAVE_REGNO, "vrsave");
   rs6000_debug_reg_print (VSCR_REGNO, VSCR_REGNO, "vscr");
@@ -2012,7 +1973,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   for (r = CR1_REGNO; r <= CR7_REGNO; ++r)
     rs6000_regno_regclass[r] = CR_REGS;
 
-  rs6000_regno_regclass[MQ_REGNO] = MQ_REGS;
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
   rs6000_regno_regclass[CTR_REGNO] = CTR_REGS;
   rs6000_regno_regclass[CA_REGNO] = CA_REGS;
@@ -2455,7 +2415,7 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_pointer_size = 32;
     }
 
-  set_masks = POWER_MASKS | POWERPC_MASKS | MASK_SOFT_FLOAT;
+  set_masks = POWERPC_MASKS | MASK_SOFT_FLOAT;
 #ifdef OS_MISSING_POWERPC64
   if (OS_MISSING_POWERPC64)
     set_masks &= ~MASK_POWERPC64;
@@ -2998,14 +2958,6 @@ rs6000_option_override_internal (bool global_init_p)
   else
     switch (rs6000_cpu)
       {
-      case PROCESSOR_RIOS1:
-	rs6000_cost = &rios1_cost;
-	break;
-
-      case PROCESSOR_RIOS2:
-	rs6000_cost = &rios2_cost;
-	break;
-
       case PROCESSOR_RS64A:
 	rs6000_cost = &rs64a_cost;
 	break;
@@ -3286,53 +3238,6 @@ rs6000_loop_align_max_skip (rtx label)
   return (1 << rs6000_loop_align (label)) - 1;
 }
 
-/* Implement targetm.vectorize.builtin_mul_widen_even.  */
-static tree
-rs6000_builtin_mul_widen_even (tree type)
-{
-  if (!TARGET_ALTIVEC)
-    return NULL_TREE;
-
-  switch (TYPE_MODE (type))
-    {
-    case V8HImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUH_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESH];
-
-    case V16QImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULEUB_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULESB];
-    default:
-      return NULL_TREE;
-    }
-}
-
-/* Implement targetm.vectorize.builtin_mul_widen_odd.  */
-static tree
-rs6000_builtin_mul_widen_odd (tree type)
-{
-  if (!TARGET_ALTIVEC)
-    return NULL_TREE;
-
-  switch (TYPE_MODE (type))
-    {
-    case V8HImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUH_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSH];
-
-    case V16QImode:
-      return TYPE_UNSIGNED (type)
-            ? rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOUB_UNS]
-            : rs6000_builtin_decls[ALTIVEC_BUILTIN_VMULOSB];
-    default:
-      return NULL_TREE;
-    }
-}
-
-
 /* Return true iff, data reference of TYPE can reach vector alignment (16)
    after applying N number of iterations.  This routine does not determine
    how may iterations are required to reach desired alignment.  */
@@ -3405,6 +3310,7 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
                                    tree vectype, int misalign)
 {
   unsigned elements;
+  tree elem_type;
 
   switch (type_of_cost)
     {
@@ -3421,13 +3327,13 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case vec_perm:
 	if (TARGET_VSX)
-	  return 4;
+	  return 3;
 	else
 	  return 1;
 
       case vec_promote_demote:
         if (TARGET_VSX)
-          return 5;
+          return 4;
         else
           return 1;
 
@@ -3504,6 +3410,18 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
         return 2;
 
+      case vec_construct:
+	elements = TYPE_VECTOR_SUBPARTS (vectype);
+	elem_type = TREE_TYPE (vectype);
+	/* 32-bit vectors loaded into registers are stored as double
+	   precision, so we need n/2 converts in addition to the usual
+	   n/2 merges to construct a vector of short floats from them.  */
+	if (SCALAR_FLOAT_TYPE_P (elem_type)
+	    && TYPE_PRECISION (elem_type) == 32)
+	  return elements + 1;
+	else
+	  return elements / 2 + 1;
+
       default:
         gcc_unreachable ();
     }
@@ -3549,6 +3467,125 @@ rs6000_preferred_simd_mode (enum machine_mode mode)
       && mode == SFmode)
     return V2SFmode;
   return word_mode;
+}
+
+typedef struct _rs6000_cost_data
+{
+  struct loop *loop_info;
+  unsigned cost[3];
+} rs6000_cost_data;
+
+/* Test for likely overcommitment of vector hardware resources.  If a
+   loop iteration is relatively large, and too large a percentage of
+   instructions in the loop are vectorized, the cost model may not
+   adequately reflect delays from unavailable vector resources.
+   Penalize the loop body cost for this case.  */
+
+static void
+rs6000_density_test (rs6000_cost_data *data)
+{
+  const int DENSITY_PCT_THRESHOLD = 85;
+  const int DENSITY_SIZE_THRESHOLD = 70;
+  const int DENSITY_PENALTY = 10;
+  struct loop *loop = data->loop_info;
+  basic_block *bbs = get_loop_body (loop);
+  int nbbs = loop->num_nodes;
+  int vec_cost = data->cost[vect_body], not_vec_cost = 0;
+  int i, density_pct;
+
+  for (i = 0; i < nbbs; i++)
+    {
+      basic_block bb = bbs[i];
+      gimple_stmt_iterator gsi;
+
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+
+	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
+	      && !STMT_VINFO_IN_PATTERN_P (stmt_info))
+	    not_vec_cost++;
+	}
+    }
+
+  density_pct = (vec_cost * 100) / (vec_cost + not_vec_cost);
+
+  if (density_pct > DENSITY_PCT_THRESHOLD
+      && vec_cost + not_vec_cost > DENSITY_SIZE_THRESHOLD)
+    {
+      data->cost[vect_body] = vec_cost * (100 + DENSITY_PENALTY) / 100;
+      if (vect_print_dump_info (REPORT_DETAILS))
+	fprintf (vect_dump,
+		 "density %d%%, cost %d exceeds threshold, penalizing "
+		 "loop body cost by %d%%", density_pct, 
+		 vec_cost + not_vec_cost, DENSITY_PENALTY);
+    }
+}
+
+/* Implement targetm.vectorize.init_cost.  */
+
+static void *
+rs6000_init_cost (struct loop *loop_info)
+{
+  rs6000_cost_data *data = XNEW (struct _rs6000_cost_data);
+  data->loop_info = loop_info;
+  data->cost[vect_prologue] = 0;
+  data->cost[vect_body]     = 0;
+  data->cost[vect_epilogue] = 0;
+  return data;
+}
+
+/* Implement targetm.vectorize.add_stmt_cost.  */
+
+static unsigned
+rs6000_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
+		      struct _stmt_vec_info *stmt_info, int misalign,
+		      enum vect_cost_model_location where)
+{
+  rs6000_cost_data *cost_data = (rs6000_cost_data*) data;
+  unsigned retval = 0;
+
+  if (flag_vect_cost_model)
+    {
+      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+      int stmt_cost = rs6000_builtin_vectorization_cost (kind, vectype,
+							 misalign);
+      /* Statements in an inner loop relative to the loop being
+	 vectorized are weighted more heavily.  The value here is
+	 arbitrary and could potentially be improved with analysis.  */
+      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+	count *= 50;  /* FIXME.  */
+
+      retval = (unsigned) (count * stmt_cost);
+      cost_data->cost[where] += retval;
+    }
+
+  return retval;
+}
+
+/* Implement targetm.vectorize.finish_cost.  */
+
+static void
+rs6000_finish_cost (void *data, unsigned *prologue_cost,
+		    unsigned *body_cost, unsigned *epilogue_cost)
+{
+  rs6000_cost_data *cost_data = (rs6000_cost_data*) data;
+
+  if (cost_data->loop_info)
+    rs6000_density_test (cost_data);
+
+  *prologue_cost = cost_data->cost[vect_prologue];
+  *body_cost     = cost_data->cost[vect_body];
+  *epilogue_cost = cost_data->cost[vect_epilogue];
+}
+
+/* Implement targetm.vectorize.destroy_cost_data.  */
+
+static void
+rs6000_destroy_cost_data (void *data)
+{
+  free (data);
 }
 
 /* Handler for the Mathematical Acceleration Subsystem (mass) interface to a
@@ -4995,6 +5032,78 @@ gpr_or_gpr_p (rtx op0, rtx op1)
 	  || (REG_P (op1) && INT_REGNO_P (REGNO (op1))));
 }
 
+/* Given an address, return a constant offset term if one exists.  */
+
+static rtx
+address_offset (rtx op)
+{
+  if (GET_CODE (op) == PRE_INC
+      || GET_CODE (op) == PRE_DEC)
+    op = XEXP (op, 0);
+  else if (GET_CODE (op) == PRE_MODIFY
+	   || GET_CODE (op) == LO_SUM)
+    op = XEXP (op, 1);
+
+  if (GET_CODE (op) == CONST)
+    op = XEXP (op, 0);
+
+  if (GET_CODE (op) == PLUS)
+    op = XEXP (op, 1);
+
+  if (CONST_INT_P (op))
+    return op;
+
+  return NULL_RTX;
+}
+
+/* Return true if the MEM operand is a memory operand suitable for use
+   with a (full width, possibly multiple) gpr load/store.  On
+   powerpc64 this means the offset must be divisible by 4.
+   Implements 'Y' constraint.
+
+   Accept direct, indexed, offset, lo_sum and tocref.  Since this is
+   a constraint function we know the operand has satisfied a suitable
+   memory predicate.  Also accept some odd rtl generated by reload
+   (see rs6000_legitimize_reload_address for various forms).  It is
+   important that reload rtl be accepted by appropriate constraints
+   but not by the operand predicate.
+
+   Offsetting a lo_sum should not be allowed, except where we know by
+   alignment that a 32k boundary is not crossed, but see the ???
+   comment in rs6000_legitimize_reload_address.  Note that by
+   "offsetting" here we mean a further offset to access parts of the
+   MEM.  It's fine to have a lo_sum where the inner address is offset
+   from a sym, since the same sym+offset will appear in the high part
+   of the address calculation.  */
+
+bool
+mem_operand_gpr (rtx op, enum machine_mode mode)
+{
+  unsigned HOST_WIDE_INT offset;
+  int extra;
+  rtx addr = XEXP (op, 0);
+
+  op = address_offset (addr);
+  if (op == NULL_RTX)
+    return true;
+
+  offset = INTVAL (op);
+  if (TARGET_POWERPC64 && (offset & 3) != 0)
+    return false;
+
+  if (GET_CODE (addr) == LO_SUM)
+    /* We know by alignment that ABI_AIX medium/large model toc refs
+       will not cross a 32k boundary, since all entries in the
+       constant pool are naturally aligned and we check alignment for
+       other medium model toc-relative addresses.  For ABI_V4 and
+       ABI_DARWIN lo_sum addresses, we just check that 64-bit
+       offsets are 4-byte aligned.  */
+    return true;
+
+  extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
+  gcc_assert (extra >= 0);
+  return offset + 0x8000 < 0x10000u - extra;
+}
 
 /* Subroutines of rs6000_legitimize_address and rs6000_legitimate_address_p.  */
 
@@ -5212,13 +5321,15 @@ legitimate_small_data_p (enum machine_mode mode, rtx x)
 #define SPE_CONST_OFFSET_OK(x) (((x) & ~0xf8) == 0)
 
 bool
-rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
+rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
+				    bool strict, bool worst_case)
 {
-  unsigned HOST_WIDE_INT offset, extra;
+  unsigned HOST_WIDE_INT offset;
+  unsigned int extra;
 
   if (GET_CODE (x) != PLUS)
     return false;
-  if (GET_CODE (XEXP (x, 0)) != REG)
+  if (!REG_P (XEXP (x, 0)))
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
@@ -5241,14 +5352,6 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       return SPE_CONST_OFFSET_OK (offset);
 
     case DFmode:
-      if (TARGET_E500_DOUBLE)
-	return SPE_CONST_OFFSET_OK (offset);
-
-      /* If we are using VSX scalar loads, restrict ourselves to reg+reg
-	 addressing.  */
-      if (VECTOR_MEM_VSX_P (DFmode))
-	return false;
-
     case DDmode:
     case DImode:
       /* On e500v2, we may have:
@@ -5259,25 +5362,33 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x, int strict)
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
 
-      if (mode == DFmode || mode == DDmode || !TARGET_POWERPC64)
+      /* If we are using VSX scalar loads, restrict ourselves to reg+reg
+	 addressing.  */
+      if (mode == DFmode && VECTOR_MEM_VSX_P (DFmode))
+	return false;
+
+      if (!worst_case)
+	break;
+      if (!TARGET_POWERPC64)
 	extra = 4;
       else if (offset & 3)
 	return false;
       break;
 
     case TFmode:
+    case TDmode:
+    case TImode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
 
-    case TDmode:
-    case TImode:
-      if (mode == TFmode || mode == TDmode || !TARGET_POWERPC64)
+      extra = 8;
+      if (!worst_case)
+	break;
+      if (!TARGET_POWERPC64)
 	extra = 12;
       else if (offset & 3)
 	return false;
-      else
-	extra = 8;
       break;
 
     default:
@@ -5357,9 +5468,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
   /* Restrict addressing for DI because of our SUBREG hackery.  */
-  if (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-			     || mode == DDmode || mode == TDmode
-			     || mode == DImode))
+  if (TARGET_E500_DOUBLE && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
     return false;
   x = XEXP (x, 1);
 
@@ -5371,10 +5480,10 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
-      if (GET_MODE_BITSIZE (mode) > 64
-	  || (GET_MODE_BITSIZE (mode) > 32 && !TARGET_POWERPC64
-	      && !(TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-		   && (mode == DFmode || mode == DDmode))))
+      if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
+	  && !(/* ??? Assume floating point reg based on mode?  */
+	       TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
+	       && (mode == DFmode || mode == DDmode)))
 	return false;
 
       return CONSTANT_P (x);
@@ -5409,7 +5518,7 @@ static rtx
 rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 			   enum machine_mode mode)
 {
-  unsigned int extra = 0;
+  unsigned int extra;
 
   if (!reg_offset_addressing_ok_p (mode))
     {
@@ -5436,22 +5545,18 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	return rs6000_legitimize_tls_address (x, model);
     }
 
+  extra = 0;
   switch (mode)
     {
-    case DFmode:
-    case DDmode:
-      extra = 4;
-      break;
-    case DImode:
-      if (!TARGET_POWERPC64)
-	extra = 4;
-      break;
     case TFmode:
     case TDmode:
-      extra = 12;
-      break;
     case TImode:
-      extra = TARGET_POWERPC64 ? 8 : 12;
+      /* As in legitimate_offset_address_p we do not assume
+	 worst-case.  The mode here is just a hint as to the registers
+	 used.  A TImode is usually in gprs, but may actually be in
+	 fprs.  Leave worst-case scenario for reload to handle via
+	 insn constraints.  */
+      extra = 8;
       break;
     default:
       break;
@@ -5462,13 +5567,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && ((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 1)) + 0x8000)
 	  >= 0x10000 - extra)
-      && !((TARGET_POWERPC64
-	    && (mode == DImode || mode == TImode)
-	    && (INTVAL (XEXP (x, 1)) & 3) != 0)
-	   || SPE_VECTOR_MODE (mode)
-	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-				      || mode == DImode || mode == DDmode
-				      || mode == TDmode))))
+      && !(SPE_VECTOR_MODE (mode)
+	   || (TARGET_E500_DOUBLE && GET_MODE_SIZE (mode) > UNITS_PER_WORD)))
     {
       HOST_WIDE_INT high_int, low_int;
       rtx sum;
@@ -5484,23 +5584,17 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_CODE (XEXP (x, 0)) == REG
 	   && GET_CODE (XEXP (x, 1)) != CONST_INT
 	   && GET_MODE_NUNITS (mode) == 1
-	   && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-	       || TARGET_POWERPC64
-	       || ((mode != DImode && mode != DFmode && mode != DDmode)
-		   || (TARGET_E500_DOUBLE && mode != DDmode)))
-	   && (TARGET_POWERPC64 || mode != DImode)
-	   && !avoiding_indexed_address_p (mode)
-	   && mode != TImode
-	   && mode != TFmode
-	   && mode != TDmode)
+	   && (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+	       || (/* ??? Assume floating point reg based on mode?  */
+		   (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+		   && (mode == DFmode || mode == DDmode)))
+	   && !avoiding_indexed_address_p (mode))
     {
       return gen_rtx_PLUS (Pmode, XEXP (x, 0),
 			   force_reg (Pmode, force_operand (XEXP (x, 1), 0)));
     }
   else if (SPE_VECTOR_MODE (mode)
-	   || (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode
-				      || mode == DDmode || mode == TDmode
-				      || mode == DImode)))
+	   || (TARGET_E500_DOUBLE && GET_MODE_SIZE (mode) > UNITS_PER_WORD))
     {
       if (mode == DImode)
 	return x;
@@ -5533,7 +5627,11 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
       return force_reg (Pmode, x);
     }
-  else if (TARGET_ELF
+  else if ((TARGET_ELF
+#if TARGET_MACHO
+	    || !MACHO_DYNAMIC_NO_PIC_P
+#endif
+	    )
 	   && TARGET_32BIT
 	   && TARGET_NO_TOC
 	   && ! flag_pic
@@ -5541,30 +5639,16 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_CODE (x) != CONST_DOUBLE
 	   && CONSTANT_P (x)
 	   && GET_MODE_NUNITS (mode) == 1
-	   && (GET_MODE_BITSIZE (mode) <= 32
-	       || ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+	   && (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
+	       || (/* ??? Assume floating point reg based on mode?  */
+		   (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
 		   && (mode == DFmode || mode == DDmode))))
     {
       rtx reg = gen_reg_rtx (Pmode);
-      emit_insn (gen_elf_high (reg, x));
-      return gen_rtx_LO_SUM (Pmode, reg, x);
-    }
-  else if (TARGET_MACHO && TARGET_32BIT && TARGET_NO_TOC
-	   && ! flag_pic
-#if TARGET_MACHO
-	   && ! MACHO_DYNAMIC_NO_PIC_P
-#endif
-	   && GET_CODE (x) != CONST_INT
-	   && GET_CODE (x) != CONST_DOUBLE
-	   && CONSTANT_P (x)
-	   && GET_MODE_NUNITS (mode) == 1
-	   && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-	       || (mode != DFmode && mode != DDmode))
-	   && mode != DImode
-	   && mode != TImode)
-    {
-      rtx reg = gen_reg_rtx (Pmode);
-      emit_insn (gen_macho_high (reg, x));
+      if (TARGET_ELF)
+	emit_insn (gen_elf_high (reg, x));
+      else
+	emit_insn (gen_macho_high (reg, x));
       return gen_rtx_LO_SUM (Pmode, reg, x);
     }
   else if (TARGET_TOC
@@ -6155,7 +6239,18 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 #endif
       /* Don't do this for TFmode or TDmode, since the result isn't offsettable.
 	 The same goes for DImode without 64-bit gprs and DFmode and DDmode
-	 without fprs.  */
+	 without fprs.
+	 ??? Assume floating point reg based on mode?  This assumption is
+	 violated by eg. powerpc-linux -m32 compile of gcc.dg/pr28796-2.c
+	 where reload ends up doing a DFmode load of a constant from
+	 mem using two gprs.  Unfortunately, at this point reload
+	 hasn't yet selected regs so poking around in reload data
+	 won't help and even if we could figure out the regs reliably,
+	 we'd still want to allow this transformation when the mem is
+	 naturally aligned.  Since we say the address is good here, we
+	 can't disable offsets from LO_SUMs in mem_operand_gpr.
+	 FIXME: Allow offset from lo_sum for other modes too, when
+	 mem is sufficiently aligned.  */
       && mode != TFmode
       && mode != TDmode
       && (mode != DImode || TARGET_POWERPC64)
@@ -6305,7 +6400,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
 	  || XEXP (x, 0) == arg_pointer_rtx)
       && GET_CODE (XEXP (x, 1)) == CONST_INT)
     return 1;
-  if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict))
+  if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict, false))
     return 1;
   if (mode != TImode
       && mode != TFmode
@@ -6333,7 +6428,8 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
 	   && (mode == DFmode || mode == DDmode || mode == DImode))
       && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
-      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1), reg_ok_strict)
+      && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1),
+					      reg_ok_strict, false)
 	  || (!avoiding_indexed_address_p (mode)
 	      && legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict)))
       && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
@@ -6397,7 +6493,7 @@ rs6000_mode_dependent_address (const_rtx addr)
 	  && GET_CODE (XEXP (addr, 1)) == CONST_INT)
 	{
 	  unsigned HOST_WIDE_INT val = INTVAL (XEXP (addr, 1));
-	  return val + 12 + 0x8000 >= 0x10000;
+	  return val + 0x8000 >= 0x10000 - (TARGET_POWERPC64 ? 8 : 12);
 	}
       break;
 
@@ -6467,14 +6563,16 @@ rs6000_find_base_term (rtx op)
 
    in 32-bit mode, that the recog predicate rejects.  */
 
-bool
-rs6000_offsettable_memref_p (rtx op)
+static bool
+rs6000_offsettable_memref_p (rtx op, enum machine_mode reg_mode)
 {
+  bool worst_case;
+
   if (!MEM_P (op))
     return false;
 
   /* First mimic offsettable_memref_p.  */
-  if (offsettable_address_p (1, GET_MODE (op), XEXP (op, 0)))
+  if (offsettable_address_p (true, GET_MODE (op), XEXP (op, 0)))
     return true;
 
   /* offsettable_address_p invokes rs6000_mode_dependent_address, but
@@ -6482,8 +6580,13 @@ rs6000_offsettable_memref_p (rtx op)
      reference and, therefore, assumes that it is the largest supported
      mode (TFmode).  As a consequence, legitimate offsettable memory
      references are rejected.  rs6000_legitimate_offset_address_p contains
-     the correct logic for the PLUS case of rs6000_mode_dependent_address.  */
-  return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0), 1);
+     the correct logic for the PLUS case of rs6000_mode_dependent_address,
+     at least with a little bit of help here given that we know the
+     actual registers used.  */
+  worst_case = ((TARGET_POWERPC64 && GET_MODE_CLASS (reg_mode) == MODE_INT)
+		|| GET_MODE_SIZE (reg_mode) == 4);
+  return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0),
+					     true, worst_case);
 }
 
 /* Change register usage conditional on target flags.  */
@@ -6495,11 +6598,9 @@ rs6000_conditional_register_usage (void)
   if (TARGET_DEBUG_TARGET)
     fprintf (stderr, "rs6000_conditional_register_usage called\n");
 
-  /* Set MQ register fixed (already call_used) if not POWER
-     architecture (RIOS1, RIOS2, RSC, and PPC601) so that it will not
-     be allocated.  */
-  if (! TARGET_POWER)
-    fixed_regs[64] = 1;
+  /* Set MQ register fixed (already call_used) so that it will not be
+     allocated.  */
+  fixed_regs[64] = 1;
 
   /* 64-bit AIX and Linux reserve GPR13 for thread-private data.  */
   if (TARGET_64BIT)
@@ -7171,17 +7272,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
     case TImode:
       rs6000_eliminate_indexed_memrefs (operands);
-
-      if (TARGET_POWER)
-	{
-	  emit_insn (gen_rtx_PARALLEL (VOIDmode,
-		       gen_rtvec (2,
-				  gen_rtx_SET (VOIDmode,
-					       operands[0], operands[1]),
-				  gen_rtx_CLOBBER (VOIDmode,
-						   gen_rtx_SCRATCH (SImode)))));
-	  return;
-	}
       break;
 
     default:
@@ -12595,8 +12685,7 @@ rs6000_common_init_builtins (void)
 static void
 rs6000_init_libfuncs (void)
 {
-  if (DEFAULT_ABI != ABI_V4 && TARGET_XCOFF
-      && !TARGET_POWER2 && !TARGET_POWERPC)
+  if (DEFAULT_ABI != ABI_V4 && TARGET_XCOFF && !TARGET_POWERPC)
     {
       /* AIX library routines for float->int conversion.  */
       set_conv_libfunc (sfix_optab, SImode, DFmode, "__itrunc");
@@ -12653,7 +12742,7 @@ rs6000_init_libfuncs (void)
       set_optab_libfunc (neg_optab, TFmode, "_q_neg");
       set_optab_libfunc (smul_optab, TFmode, "_q_mul");
       set_optab_libfunc (sdiv_optab, TFmode, "_q_div");
-      if (TARGET_PPC_GPOPT || TARGET_POWER2)
+      if (TARGET_PPC_GPOPT)
 	set_optab_libfunc (sqrt_optab, TFmode, "_q_sqrt");
 
       set_optab_libfunc (eq_optab, TFmode, "_q_feq");
@@ -13494,7 +13583,8 @@ rs6000_secondary_reload (bool in_p,
 	  if (rclass == GENERAL_REGS || rclass == BASE_REGS)
 	    {
 	      if (!legitimate_indirect_address_p (addr, false)
-		  && !rs6000_legitimate_offset_address_p (TImode, addr, false))
+		  && !rs6000_legitimate_offset_address_p (TImode, addr,
+							  false, true))
 		{
 		  sri->icode = icode;
 		  /* account for splitting the loads, and converting the
@@ -13567,23 +13657,45 @@ rs6000_secondary_reload (bool in_p,
 	   && MEM_P (x)
 	   && GET_MODE_SIZE (GET_MODE (x)) >= UNITS_PER_WORD)
     {
-      rtx addr = XEXP (x, 0);
+      rtx off = address_offset (XEXP (x, 0));
+      unsigned int extra = GET_MODE_SIZE (GET_MODE (x)) - UNITS_PER_WORD;
 
-      if (GET_CODE (addr) == PRE_MODIFY)
-	addr = XEXP (addr, 1);
-      else if (GET_CODE (addr) == LO_SUM
-	       && GET_CODE (XEXP (addr, 0)) == REG
-	       && GET_CODE (XEXP (addr, 1)) == CONST)
-	addr = XEXP (XEXP (addr, 1), 0);
-
-      if (GET_CODE (addr) == PLUS
-	  && GET_CODE (XEXP (addr, 1)) == CONST_INT
-	  && (INTVAL (XEXP (addr, 1)) & 3) != 0)
+      if (off != NULL_RTX
+	  && (INTVAL (off) & 3) != 0
+	  && (unsigned HOST_WIDE_INT) INTVAL (off) + 0x8000 < 0x10000 - extra)
 	{
 	  if (in_p)
 	    sri->icode = CODE_FOR_reload_di_load;
 	  else
 	    sri->icode = CODE_FOR_reload_di_store;
+	  sri->extra_cost = 2;
+	  ret = NO_REGS;
+	}
+      else
+	default_p = true;
+    }
+  else if (!TARGET_POWERPC64
+	   && rs6000_reload_register_type (rclass) == GPR_REGISTER_TYPE
+	   && MEM_P (x)
+	   && GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD)
+    {
+      rtx off = address_offset (XEXP (x, 0));
+      unsigned int extra = GET_MODE_SIZE (GET_MODE (x)) - UNITS_PER_WORD;
+
+      /* We need a secondary reload only when our legitimate_address_p
+	 says the address is good (as otherwise the entire address
+	 will be reloaded).  So for mode sizes of 8 and 16 this will
+	 be when the offset is in the ranges [0x7ffc,0x7fff] and
+	 [0x7ff4,0x7ff7] respectively.  Note that the address we see
+	 here may have been manipulated by legitimize_reload_address.  */
+      if (off != NULL_RTX
+	  && ((unsigned HOST_WIDE_INT) INTVAL (off) - (0x8000 - extra)
+	      < UNITS_PER_WORD))
+	{
+	  if (in_p)
+	    sri->icode = CODE_FOR_reload_si_load;
+	  else
+	    sri->icode = CODE_FOR_reload_si_store;
 	  sri->extra_cost = 2;
 	  ret = NO_REGS;
 	}
@@ -13678,8 +13790,9 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
 
       if (GET_CODE (addr) == PLUS
-	  && (!rs6000_legitimate_offset_address_p (TImode, addr, false)
-	      || and_op2 != NULL_RTX))
+	  && (and_op2 != NULL_RTX
+	      || !rs6000_legitimate_offset_address_p (TImode, addr,
+						      false, true)))
 	{
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
@@ -13711,7 +13824,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	  scratch_or_premodify = scratch;
 	}
       else if (!legitimate_indirect_address_p (addr, false)
-	       && !rs6000_legitimate_offset_address_p (TImode, addr, false))
+	       && !rs6000_legitimate_offset_address_p (TImode, addr,
+						       false, true))
 	{
 	  if (TARGET_DEBUG_ADDR)
 	    {
@@ -13770,7 +13884,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      && GET_MODE_SIZE (mode) == 8
 	      && and_op2 == NULL_RTX
 	      && scratch_or_premodify == scratch
-	      && rs6000_legitimate_offset_address_p (mode, addr, false)))
+	      && rs6000_legitimate_offset_address_p (mode, addr, false, false)))
 	;
 
       else if (GET_CODE (addr) == PLUS)
@@ -13879,10 +13993,11 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 }
 
 /* Convert reloads involving 64-bit gprs and misaligned offset
-   addressing to use indirect addressing.  */
+   addressing, or multiple 32-bit gprs and offsets that are too large,
+   to use indirect addressing.  */
 
 void
-rs6000_secondary_reload_ppc64 (rtx reg, rtx mem, rtx scratch, bool store_p)
+rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
 {
   int regno = true_regnum (reg);
   enum reg_class rclass;
@@ -13891,7 +14006,7 @@ rs6000_secondary_reload_ppc64 (rtx reg, rtx mem, rtx scratch, bool store_p)
 
   if (TARGET_DEBUG_ADDR)
     {
-      fprintf (stderr, "\nrs6000_secondary_reload_ppc64, type = %s\n",
+      fprintf (stderr, "\nrs6000_secondary_reload_gpr, type = %s\n",
 	       store_p ? "store" : "load");
       fprintf (stderr, "reg:\n");
       debug_rtx (reg);
@@ -16515,9 +16630,19 @@ emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
 
 /* Expand barriers before and after a load_locked/store_cond sequence.  */
 
-static void
-rs6000_pre_atomic_barrier (enum memmodel model)
+static rtx
+rs6000_pre_atomic_barrier (rtx mem, enum memmodel model)
 {
+  rtx addr = XEXP (mem, 0);
+  int strict_p = (reload_in_progress || reload_completed);
+
+  if (!legitimate_indirect_address_p (addr, strict_p)
+      && !legitimate_indexed_address_p (addr, strict_p))
+    {
+      addr = force_reg (Pmode, addr);
+      mem = replace_equiv_address_nv (mem, addr);
+    }
+
   switch (model)
     {
     case MEMMODEL_RELAXED:
@@ -16534,6 +16659,7 @@ rs6000_pre_atomic_barrier (enum memmodel model)
     default:
       gcc_unreachable ();
     }
+  return mem;
 }
 
 static void
@@ -16672,7 +16798,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   else if (reg_overlap_mentioned_p (retval, oldval))
     oldval = copy_to_reg (oldval);
 
-  rs6000_pre_atomic_barrier (mod_s);
+  mem = rs6000_pre_atomic_barrier (mem, mod_s);
 
   label1 = NULL_RTX;
   if (!is_weak)
@@ -16757,7 +16883,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
       mode = SImode;
     }
 
-  rs6000_pre_atomic_barrier (model);
+  mem = rs6000_pre_atomic_barrier (mem, model);
 
   label = gen_rtx_LABEL_REF (VOIDmode, gen_label_rtx ());
   emit_label (XEXP (label, 0));
@@ -16841,7 +16967,7 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       mode = SImode;
     }
 
-  rs6000_pre_atomic_barrier (model);
+  mem = rs6000_pre_atomic_barrier (mem, model);
 
   label = gen_label_rtx ();
   emit_label (label);
@@ -16960,7 +17086,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	      emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      src = replace_equiv_address (src, breg);
 	    }
-	  else if (! rs6000_offsettable_memref_p (src))
+	  else if (! rs6000_offsettable_memref_p (src, reg_mode))
 	    {
 	      if (GET_CODE (XEXP (src, 0)) == PRE_MODIFY)
 		{
@@ -17026,7 +17152,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		emit_insn (gen_add3_insn (breg, breg, delta_rtx));
 	      dst = replace_equiv_address (dst, breg);
 	    }
-	  else if (!rs6000_offsettable_memref_p (dst)
+	  else if (!rs6000_offsettable_memref_p (dst, reg_mode)
 		   && GET_CODE (XEXP (dst, 0)) != LO_SUM)
 	    {
 	      if (GET_CODE (XEXP (dst, 0)) == PRE_MODIFY)
@@ -17064,7 +17190,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 		}
 	    }
 	  else if (GET_CODE (XEXP (dst, 0)) != LO_SUM)
-	    gcc_assert (rs6000_offsettable_memref_p (dst));
+	    gcc_assert (rs6000_offsettable_memref_p (dst, reg_mode));
 	}
 
       for (i = 0; i < nregs; i++)
@@ -17647,7 +17773,7 @@ rs6000_stack_info (void)
 				 - info_ptr->first_altivec_reg_save);
 
   /* Does this function call anything?  */
-  info_ptr->calls_p = (! current_function_is_leaf
+  info_ptr->calls_p = (! crtl->is_leaf 
 		       || cfun->machine->ra_needs_full_frame);
 
   /* Determine if we need to save the condition code registers.  */
@@ -20180,7 +20306,7 @@ rs6000_output_function_prologue (FILE *file,
     }
 
   /* Write .extern for AIX common mode routines, if needed.  */
-  if (! TARGET_POWER && ! TARGET_POWERPC && ! common_mode_defined)
+  if (! TARGET_POWERPC && ! common_mode_defined)
     {
       fputs ("\t.extern __mulh\n", file);
       fputs ("\t.extern __mull\n", file);
@@ -22483,7 +22609,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                scheduling pass will not know about this latency since
                the mtctr instruction, which has the latency associated
                to it, will be generated by reload.  */
-            return TARGET_POWER ? 5 : 4;
+            return 4;
           case TYPE_BRANCH:
             /* Leave some extra cycles between a compare and its
                dependent branch, to inhibit expensive mispredicts.  */
@@ -23056,7 +23182,6 @@ rs6000_issue_rate (void)
     return 1;
 
   switch (rs6000_cpu_attr) {
-  case CPU_RIOS1:  /* ? */
   case CPU_RS64A:
   case CPU_PPC601: /* ? */
   case CPU_PPC7450:
@@ -23076,7 +23201,6 @@ rs6000_issue_rate (void)
   case CPU_PPCE6500:
   case CPU_TITAN:
     return 2;
-  case CPU_RIOS2:
   case CPU_PPC476:
   case CPU_PPC604:
   case CPU_PPC604E:
@@ -27127,8 +27251,6 @@ rs6000_dbx_register_number (unsigned int regno)
 {
   if (regno <= 63 || write_symbols != DWARF2_DEBUG)
     return regno;
-  if (regno == MQ_REGNO)
-    return 100;
   if (regno == LR_REGNO)
     return 108;
   if (regno == CTR_REGNO)
@@ -27297,8 +27419,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
 #ifdef MASK_STRICT_ALIGN
   { "strict-align",	MASK_STRICT_ALIGN,	false, false },
 #endif
-  { "power",		MASK_POWER,		false, false },
-  { "power2",		MASK_POWER2,		false, false },
   { "powerpc",		MASK_POWERPC,		false, false },
   { "soft-float",	MASK_SOFT_FLOAT,	false, false },
   { "string",		MASK_STRING,		false, false },
@@ -27902,7 +28022,7 @@ rs6000_allocate_stack_temp (enum machine_mode mode,
   if (!legitimate_indirect_address_p (addr, strict_p))
     {
       if (offsettable_p
-	  && !rs6000_legitimate_offset_address_p (mode, addr, strict_p))
+	  && !rs6000_legitimate_offset_address_p (mode, addr, strict_p, true))
 	stack = replace_equiv_address (stack, copy_addr_to_reg (addr));
 
       else if (reg_reg_p && !legitimate_indexed_address_p (addr, strict_p))
