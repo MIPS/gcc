@@ -97,6 +97,7 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 static tree pl_intersect_bounds (tree bounds1, tree bounds2,
 				 gimple_stmt_iterator *iter);
 static bool pl_may_narrow_to_field (tree field);
+static bool pl_may_narrow_to_field_simple (tree field);
 static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
 static tree pl_narrow_bounds_to_field (tree bounds, tree component,
 				       gimple_stmt_iterator *iter);
@@ -2213,7 +2214,7 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 }
 
 static bool
-pl_may_narrow_to_field (tree field)
+pl_may_narrow_to_field_simple (tree field)
 {
   return DECL_SIZE (field) && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST
     && tree_low_cst (DECL_SIZE (field), 1) != 0
@@ -2221,6 +2222,24 @@ pl_may_narrow_to_field (tree field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST);
+}
+
+static bool
+pl_may_narrow_to_field (tree field)
+{
+  tree type = TREE_TYPE (field);
+  bool res = true;
+
+  if (RECORD_OR_UNION_TYPE_P (type))
+    for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+      {
+	if (TREE_CODE (field) == FIELD_DECL)
+	  res = res && pl_may_narrow_to_field_simple (field);
+      }
+  else
+    res = pl_may_narrow_to_field_simple (field);
+
+  return res;
 }
 
 /* Return true if bounds for FIELD should be narrowed to
