@@ -2221,7 +2221,8 @@ pl_may_narrow_to_field_simple (tree field)
     && (!DECL_FIELD_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
-	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST);
+	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST)
+    && !lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field));
 }
 
 static bool
