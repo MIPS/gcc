@@ -53,7 +53,6 @@ static tree pl_get_registered_addr_bounds (tree ptr);
 static void pl_register_incomplete_bounds (tree bounds, tree ptr);
 static bool pl_incomplete_bounds (tree bounds);
 static basic_block pl_get_entry_block (void);
-static tree pl_get_zero_bounds (void);
 static tree pl_get_none_bounds (void);
 static tree pl_get_invalid_op_bounds (void);
 static tree pl_get_nonpointer_load_bounds (void);
@@ -622,6 +621,10 @@ pl_transform_function (void)
   enum gimple_rhs_class grhs_class;
   bool safe = DECL_PL_STATIC_INIT (cfun->decl);
 
+  /* We may need zero bounds later in expand.  So create
+     them even if we do not use them in this pass.  */
+  pl_get_zero_bounds ();
+
   bb = ENTRY_BLOCK_PTR ->next_bb;
   do
     {
@@ -1126,7 +1129,7 @@ pl_get_entry_block (void)
   return entry_block;
 }
 
-static tree
+tree
 pl_get_zero_bounds (void)
 {
   if (zero_bounds)

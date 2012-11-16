@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
+#include "tree-pl.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -2620,8 +2621,15 @@ expand_builtin_cexpi (tree exp, rtx target)
 
       /* Make sure not to fold the sincos call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-      expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
-				      call, 3, arg, top1, top2));
+      if (flag_pl)
+	{
+	  tree bnd = pl_get_zero_bounds ();
+	  expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
+					  call, 5, arg, top1, bnd, top2, bnd));
+	}
+      else
+	expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
+					call, 3, arg, top1, top2));
     }
   else
     {

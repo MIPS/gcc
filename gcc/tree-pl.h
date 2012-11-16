@@ -20,3 +20,4 @@ extern void pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
 extern bool pl_type_has_pointer (tree type);
 extern void pl_emit_bounds_store (rtx bounds, rtx value, rtx mem);
 extern tree pl_make_bounds_for_struct_addr (tree ptr);
+extern tree pl_get_zero_bounds (void);
