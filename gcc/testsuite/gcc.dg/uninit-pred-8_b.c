@@ -17,7 +17,8 @@ int foo (int n, int l, int m, int r)
   else   bar();
 
   if ( n < 10 ||  m > 100 || r < 20 )
-      blah(v); /* { dg-bogus "uninitialized" "bogus warning" } */
+/* xfailed because the predicated unitialized warning infastructure is just broken: Bug #4568; FSF PR49498 */
+      blah(v); /* { dg-bogus "uninitialized" "bogus warning" { xfail *-*-* } } */
 
   if ( n < 10 ||  m > 100 || r < 10 )
       blah(v); /* { dg-bogus "uninitialized" "bogus warning" } */

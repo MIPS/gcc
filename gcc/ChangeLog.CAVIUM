@@ -199,6 +199,11 @@
 	
 2012-11-17  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/uninit-pred-8_b.c: xfail because of bug 4568.
+	* testsuite/gcc.dg/uninit-pred-9_b.c: Likewise.
+
+2012-11-17  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/g++.dg/debug/nullptr01.C: xfail the second scan-assembler.
 
 2012-11-12  Andrew Pinski  <apinski@cavium.com>

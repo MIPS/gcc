@@ -21,7 +21,8 @@ int foo (int n, int l, int m, int r)
       blah(v); /* { dg-bogus "uninitialized" "bogus warning" } */
 
   if ( (n <= 8) &&  (m < 99)  && (r < 19) )
-      blah(v); /* { dg-bogus "uninitialized" "bogus warning" } */
+/* xfailed because the predicated unitialized warning infastructure is just broken: Bug #4568; FSF PR49498 */
+      blah(v); /* { dg-bogus "uninitialized" "bogus warning" { xfail *-*-* } } */
 
   return 0;
 }
