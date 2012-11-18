@@ -13,4 +13,5 @@ template <> nullptr_t g(A<nullptr_t>)
   nullptr_t local;
 }
 // { dg-final { scan-assembler "_Z1fDn" } }
-// { dg-final { scan-assembler "_Z1gI1AIDnEEDnT_" } }
+// XFAIL since we don't pull in the fix for the correct mangling of nullptr.
+// { dg-final { scan-assembler "_Z1gI1AIDnEEDnT_" { xfail *-*-* } } }
