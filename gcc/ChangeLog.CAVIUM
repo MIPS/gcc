@@ -199,6 +199,10 @@
 	
 2012-11-17  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/octeon/ext-33.c: Xfail due to bug 2851.
+
+2012-11-17  Andrew Pinski  <apinski@cavium.com>
+
 	* testsuite/gcc.dg/uninit-pred-8_b.c: xfail because of bug 4568.
 	* testsuite/gcc.dg/uninit-pred-9_b.c: Likewise.
 
