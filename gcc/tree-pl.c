@@ -96,7 +96,6 @@ static void pl_check_mem_access (tree first, tree last, tree bounds,
 static tree pl_intersect_bounds (tree bounds1, tree bounds2,
 				 gimple_stmt_iterator *iter);
 static bool pl_may_narrow_to_field (tree field);
-static bool pl_may_narrow_to_field_simple (tree field);
 static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
 static tree pl_narrow_bounds_to_field (tree bounds, tree component,
 				       gimple_stmt_iterator *iter);
@@ -1841,6 +1840,28 @@ pl_generate_extern_var_bounds (tree var)
   return bounds;
 }
 
+bool
+pl_variable_size_type (tree type)
+{
+  bool res = false;
+  tree field;
+
+  if (RECORD_OR_UNION_TYPE_P (type))
+    for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+      {
+	if (TREE_CODE (field) == FIELD_DECL)
+	  res = res
+	    || lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field))
+	    || pl_variable_size_type (TREE_TYPE (field));
+      }
+  else
+    res = !TYPE_SIZE (type)
+      || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+      || tree_low_cst (TYPE_SIZE (type), 1) == 0;
+
+  return res;
+}
+
 static tree
 pl_get_bounds_for_decl (tree decl)
 {
@@ -1864,13 +1885,14 @@ pl_get_bounds_for_decl (tree decl)
 
   lb = pl_build_addr_expr (decl);
 
-  if (DECL_SIZE (decl))
-    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
-  else
+  if (!DECL_SIZE (decl)
+      || pl_variable_size_type (TREE_TYPE (decl)))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = pl_generate_extern_var_bounds (decl);
     }
+  else
+    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
 
   pl_register_bounds (decl, bounds);
 
@@ -1901,13 +1923,14 @@ pl_get_bounds_for_decl_addr (tree decl)
 
   lb = pl_build_addr_expr (decl);
 
-  if (DECL_SIZE (decl))
-    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
-  else
+  if (!DECL_SIZE (decl)
+      || pl_variable_size_type (TREE_TYPE (decl)))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = pl_generate_extern_var_bounds (decl);
     }
+  else
+    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
 
   return bounds;
 }
@@ -2217,7 +2240,7 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 }
 
 static bool
-pl_may_narrow_to_field_simple (tree field)
+pl_may_narrow_to_field (tree field)
 {
   return DECL_SIZE (field) && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST
     && tree_low_cst (DECL_SIZE (field), 1) != 0
@@ -2225,25 +2248,8 @@ pl_may_narrow_to_field_simple (tree field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST)
-    && !lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field));
-}
-
-static bool
-pl_may_narrow_to_field (tree field)
-{
-  tree type = TREE_TYPE (field);
-  bool res = true;
-
-  if (RECORD_OR_UNION_TYPE_P (type))
-    for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-      {
-	if (TREE_CODE (field) == FIELD_DECL)
-	  res = res && pl_may_narrow_to_field_simple (field);
-      }
-  else
-    res = pl_may_narrow_to_field_simple (field);
-
-  return res;
+    && !lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field))
+    && !pl_variable_size_type (TREE_TYPE (field));
 }
 
 /* Return true if bounds for FIELD should be narrowed to
@@ -2263,8 +2269,7 @@ pl_narrow_bounds_for_field (tree field, bool always_narrow)
   offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
   bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
 
-  return (always_narrow || flag_pl_first_field_has_own_bounds || offs || bit_offs)
-    && pl_may_narrow_to_field (field);
+  return (always_narrow || flag_pl_first_field_has_own_bounds || offs || bit_offs);
 }
 
 static tree
