@@ -197,6 +197,14 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-18  Andrew Pinski  <apinski@cavium.com>
+
+	Port from the redhat branch:
+	* gcc.c (execute): Free string if i is not 0.
+	(execute): Call retry_ice if the program which caused an ICE
+	started with "cc1".
+	(retry_ice): New function.
+
 2012-11-17  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/ext-33.c: Xfail due to bug 2851.
