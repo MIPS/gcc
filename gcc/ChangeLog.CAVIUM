@@ -503,6 +503,14 @@
 	argc is always greater than 1 (octeon simulator).
 	* testsuite/g++.dg/cpp0x/initlist-lifetime2.C: Likewise.
 
+2012-11-20  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5183
+	* simplify-rtx.c (simplify_subreg): For the simplification of
+	(SUBREG (AND/IOR)), if simplify_unary_operation returns the same
+	thing back, just mark the simplification not as happened.
+	* testsuite/gcc.c-torture/compile/20121220-1.c: New testcase.
+
 2012-11-18  Andrew Pinski  <apinski@cavium.com>
 
 	Port from the redhat branch:
