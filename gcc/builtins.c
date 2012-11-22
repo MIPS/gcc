@@ -2623,7 +2623,11 @@ expand_builtin_cexpi (tree exp, rtx target)
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
       if (flag_pl)
 	{
-	  tree bnd = pl_get_zero_bounds ();
+	  tree tmp = pl_build_make_bounds_call (integer_zero_node,
+						integer_zero_node);
+	  tree bnd = make_tree (bound_type_node,
+				assign_temp (bound_type_node, 0, 0, 1));
+	  expand_assignment (bnd, tmp, false);
 	  expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
 					  call, 5, arg, top1, bnd, top2, bnd));
 	}

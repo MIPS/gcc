@@ -620,10 +620,6 @@ pl_transform_function (void)
   enum gimple_rhs_class grhs_class;
   bool safe = DECL_PL_STATIC_INIT (cfun->decl);
 
-  /* We may need zero bounds later in expand.  So create
-     them even if we do not use them in this pass.  */
-  pl_get_zero_bounds ();
-
   bb = ENTRY_BLOCK_PTR ->next_bb;
   do
     {
@@ -1738,6 +1734,16 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
     }
 
   return bounds;
+}
+
+tree
+pl_build_make_bounds_call (tree lb, tree size)
+{
+  tree call = build1 (ADDR_EXPR,
+		      build_pointer_type (TREE_TYPE (pl_bndmk_fndecl)),
+		      pl_bndmk_fndecl);
+  return build_call_nary (TREE_TYPE (TREE_TYPE (pl_bndmk_fndecl)),
+			  call, 2, lb, size);
 }
 
 static tree
