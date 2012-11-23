@@ -970,7 +970,7 @@ C++ ObjC++
 Downgrade conformance errors to warnings
 
 fpl
-C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl)
+C ObjC C++ ObjC++ Report Var(flag_pl)
 Add point-lookout instrumentation
 
 fpl-check-incomplete-type
