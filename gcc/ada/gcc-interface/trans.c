@@ -2417,14 +2417,15 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 
 	  /* Otherwise, use the do-while form with the help of a special
 	     induction variable in the unsigned version of the base type
-	     or the unsigned version of sizetype, whichever is the
+	     or the unsigned version of the size type, whichever is the
 	     largest, in order to have wrap-around arithmetics for it.  */
 	  else
 	    {
-	      if (TYPE_PRECISION (gnu_base_type) > TYPE_PRECISION (sizetype))
+	      if (TYPE_PRECISION (gnu_base_type)
+		  > TYPE_PRECISION (size_type_node))
 		gnu_base_type = gnat_unsigned_type (gnu_base_type);
 	      else
-		gnu_base_type = sizetype;
+		gnu_base_type = size_type_node;
 
 	      gnu_first = convert (gnu_base_type, gnu_first);
 	      gnu_last = convert (gnu_base_type, gnu_last);
@@ -2921,7 +2922,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
 	      = VEC_index (constructor_elt,
 			   CONSTRUCTOR_ELTS
 			   (TREE_OPERAND (TREE_OPERAND (ret_val, 0), 1)),
-			    1)->value;
+			    1).value;
 	  else
 	    ret_val = TREE_OPERAND (TREE_OPERAND (ret_val, 0), 1);
 	}
@@ -2980,7 +2981,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
 		      TREE_OPERAND (alloc, 0),
 		      VEC_index (constructor_elt,
 				 CONSTRUCTOR_ELTS (TREE_OPERAND (alloc, 1)),
-						   0)->value);
+						   0).value);
 
 	  /* Build a modified CONSTRUCTOR that references NEW_VAR.  */
 	  p_array = TYPE_FIELDS (TREE_TYPE (alloc));
@@ -2990,7 +2991,7 @@ finalize_nrv_unc_r (tree *tp, int *walk_subtrees, void *data)
 				  VEC_index (constructor_elt,
 					     CONSTRUCTOR_ELTS
 					     (TREE_OPERAND (alloc, 1)),
-					      1)->value);
+					      1).value);
 	  new_ret = build_constructor (TREE_TYPE (alloc), v);
 	}
       else

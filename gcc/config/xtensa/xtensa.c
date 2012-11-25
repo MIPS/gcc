@@ -126,7 +126,7 @@ static rtx fixup_subreg_mem (rtx);
 static struct machine_function * xtensa_init_machine_status (void);
 static rtx xtensa_legitimize_tls_address (rtx);
 static rtx xtensa_legitimize_address (rtx, rtx, enum machine_mode);
-static bool xtensa_mode_dependent_address_p (const_rtx);
+static bool xtensa_mode_dependent_address_p (const_rtx, addr_space_t);
 static bool xtensa_return_in_msb (const_tree);
 static void printx (FILE *, signed int);
 static void xtensa_function_epilogue (FILE *, HOST_WIDE_INT);
@@ -175,6 +175,9 @@ static reg_class_t xtensa_secondary_reload (bool, rtx, reg_class_t,
 static bool constantpool_address_p (const_rtx addr);
 static bool xtensa_legitimate_constant_p (enum machine_mode, rtx);
 
+static bool xtensa_member_type_forces_blk (const_tree,
+					   enum machine_mode mode);
+
 static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
   REG_ALLOC_ORDER;
 
@@ -208,7 +211,10 @@ static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS xtensa_rtx_costs
 #undef TARGET_ADDRESS_COST
-#define TARGET_ADDRESS_COST hook_int_rtx_bool_0
+#define TARGET_ADDRESS_COST hook_int_rtx_mode_as_bool_0
+
+#undef TARGET_MEMBER_TYPE_FORCES_BLK
+#define TARGET_MEMBER_TYPE_FORCES_BLK xtensa_member_type_forces_blk
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST xtensa_build_builtin_va_list
@@ -1955,7 +1961,8 @@ xtensa_legitimize_address (rtx x,
    by default.  */
 
 static bool
-xtensa_mode_dependent_address_p (const_rtx addr)
+xtensa_mode_dependent_address_p (const_rtx addr,
+				 addr_space_t as ATTRIBUTE_UNUSED)
 {
   return constantpool_address_p (addr);
 }
@@ -2738,6 +2745,18 @@ xtensa_return_addr (int count, rtx frame)
   return result;
 }
 
+/* Disable the use of word-sized or smaller complex modes for structures,
+   and for function arguments in particular, where they cause problems with
+   register a7.  The xtensa_copy_incoming_a7 function assumes that there is
+   a single reference to an argument in a7, but with small complex modes the
+   real and imaginary components may be extracted separately, leading to two
+   uses of the register, only one of which would be replaced.  */
+
+static bool
+xtensa_member_type_forces_blk (const_tree, enum machine_mode mode)
+{
+  return mode == CQImode || mode == CHImode;
+}
 
 /* Create the va_list data type.
 

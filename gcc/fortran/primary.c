@@ -1862,7 +1862,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
   if ((equiv_flag && gfc_peek_ascii_char () == '(')
       || gfc_peek_ascii_char () == '[' || sym->attr.codimension
       || (sym->attr.dimension && sym->ts.type != BT_CLASS
-	  && !sym->attr.proc_pointer && !gfc_is_proc_ptr_comp (primary, NULL)
+	  && !sym->attr.proc_pointer && !gfc_is_proc_ptr_comp (primary)
 	  && !(gfc_matching_procptr_assignment
 	       && sym->attr.flavor == FL_PROCEDURE))
       || (sym->ts.type == BT_CLASS && sym->attr.class_ok
@@ -2004,8 +2004,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 
       primary->ts = component->ts;
 
-      if (component->attr.proc_pointer && ppc_arg
-	  && !gfc_matching_procptr_assignment)
+      if (component->attr.proc_pointer && ppc_arg)
 	{
 	  /* Procedure pointer component call: Look for argument list.  */
 	  m = gfc_match_actual_arglist (sub_flag,
@@ -2014,7 +2013,7 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	    return MATCH_ERROR;
 
 	  if (m == MATCH_NO && !gfc_matching_ptr_assignment
-	      && !matching_actual_arglist)
+	      && !gfc_matching_procptr_assignment && !matching_actual_arglist)
 	    {
 	      gfc_error ("Procedure pointer component '%s' requires an "
 			 "argument list at %C", component->name);

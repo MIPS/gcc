@@ -445,6 +445,14 @@ loop_depth (const struct loop *loop)
   return VEC_length (loop_p, loop->superloops);
 }
 
+/* Returns the loop depth of the loop BB belongs to.  */
+
+static inline int
+bb_loop_depth (const_basic_block bb)
+{
+  return bb->loop_father ? loop_depth (bb->loop_father) : 0;
+}
+
 /* Returns the immediate superloop of LOOP, or NULL if LOOP is the outermost
    loop.  */
 
@@ -641,7 +649,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 
 #define FOR_EACH_LOOP_BREAK(LI) \
   { \
-    VEC_free (int, heap, (LI)->to_visit); \
+    VEC_free (int, heap, (LI).to_visit); \
     break; \
   }
 
@@ -705,5 +713,6 @@ extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
 extern bool finite_loop_p (struct loop *);
+extern void scale_loop_profile (struct loop *loop, int scale, int iteration_bound);
 
 #endif /* GCC_CFGLOOP_H */

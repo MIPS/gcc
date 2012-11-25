@@ -73,7 +73,8 @@ extern void sh_emit_scc_to_t (enum rtx_code, rtx, rtx);
 extern rtx sh_emit_cheap_store_flag (enum machine_mode, enum rtx_code, rtx, rtx);
 extern void sh_emit_compare_and_branch (rtx *, enum machine_mode);
 extern void sh_emit_compare_and_set (rtx *, enum machine_mode);
-extern int shift_insns_rtx (rtx);
+extern bool sh_ashlsi_clobbers_t_reg_p (rtx);
+extern bool sh_lshrsi_clobbers_t_reg_p (rtx);
 extern void gen_shifty_op (int, rtx *);
 extern void gen_shifty_hi_op (int, rtx *);
 extern bool expand_ashiftrt (rtx *);
@@ -105,6 +106,9 @@ extern bool sh_expand_t_scc (rtx *);
 extern rtx sh_gen_truncate (enum machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (enum machine_mode);
 extern bool sh_cfun_trap_exit_p (void);
+extern void sh_canonicalize_comparison (enum rtx_code&, rtx&, rtx&,
+					enum machine_mode mode = VOIDmode);
+
 #endif /* RTX_CODE */
 
 extern const char *output_jump_label_table (void);
@@ -113,7 +117,6 @@ extern rtx get_fpscr_rtx (void);
 extern int sh_media_register_for_return (void);
 extern void sh_expand_prologue (void);
 extern void sh_expand_epilogue (bool);
-extern bool sh_need_epilogue (void);
 extern void sh_set_return_address (rtx, rtx);
 extern int initial_elimination_offset (int, int);
 extern bool fldi_ok (void);
@@ -151,4 +154,5 @@ extern int sh2a_get_function_vector_number (rtx);
 extern bool sh2a_is_function_vector_call (rtx);
 extern void sh_fix_range (const char *);
 extern bool sh_hard_regno_mode_ok (unsigned int, enum machine_mode);
+extern bool sh_can_use_simple_return_p (void);
 #endif /* ! GCC_SH_PROTOS_H */

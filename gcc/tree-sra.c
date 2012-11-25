@@ -1448,18 +1448,15 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
       tree tmp, addr;
 
       gcc_checking_assert (gsi);
-      tmp = create_tmp_reg (build_pointer_type (TREE_TYPE (prev_base)), NULL);
-      tmp = make_ssa_name (tmp, NULL);
+      tmp = make_ssa_name (build_pointer_type (TREE_TYPE (prev_base)), NULL);
       addr = build_fold_addr_expr (unshare_expr (prev_base));
       STRIP_USELESS_TYPE_CONVERSION (addr);
       stmt = gimple_build_assign (tmp, addr);
       gimple_set_location (stmt, loc);
-      SSA_NAME_DEF_STMT (tmp) = stmt;
       if (insert_after)
 	gsi_insert_after (gsi, stmt, GSI_NEW_STMT);
       else
 	gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
-      update_stmt (stmt);
 
       off = build_int_cst (reference_alias_ptr_type (prev_base),
 			   offset / BITS_PER_UNIT);
@@ -1491,8 +1488,8 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
 	  || TREE_CODE (prev_base) == TARGET_MEM_REF)
 	align = TYPE_ALIGN (TREE_TYPE (prev_base));
     }
-  misalign += (double_int_sext (tree_to_double_int (off),
-				TYPE_PRECISION (TREE_TYPE (off))).low
+  misalign += (tree_to_double_int (off)
+	       .sext (TYPE_PRECISION (TREE_TYPE (off))).low
 	       * BITS_PER_UNIT);
   misalign = misalign & (align - 1);
   if (misalign != 0)
@@ -1885,6 +1882,7 @@ create_access_replacement (struct access *access)
     {
       char *pretty_name = make_fancy_name (access->expr);
       tree debug_expr = unshare_expr (access->expr), d;
+      bool fail = false;
 
       DECL_NAME (repl) = get_identifier (pretty_name);
       obstack_free (&name_obstack, pretty_name);
@@ -1894,29 +1892,34 @@ create_access_replacement (struct access *access)
 	 used SSA_NAMEs and thus they could be freed.  All debug info
 	 generation cares is whether something is constant or variable
 	 and that get_ref_base_and_extent works properly on the
-	 expression.  */
-      for (d = debug_expr; handled_component_p (d); d = TREE_OPERAND (d, 0))
+	 expression.  It cannot handle accesses at a non-constant offset
+	 though, so just give up in those cases.  */
+      for (d = debug_expr; !fail && handled_component_p (d);
+	   d = TREE_OPERAND (d, 0))
 	switch (TREE_CODE (d))
 	  {
 	  case ARRAY_REF:
 	  case ARRAY_RANGE_REF:
 	    if (TREE_OPERAND (d, 1)
-		&& TREE_CODE (TREE_OPERAND (d, 1)) == SSA_NAME)
-	      TREE_OPERAND (d, 1) = SSA_NAME_VAR (TREE_OPERAND (d, 1));
+		&& TREE_CODE (TREE_OPERAND (d, 1)) != INTEGER_CST)
+	      fail = true;
 	    if (TREE_OPERAND (d, 3)
-		&& TREE_CODE (TREE_OPERAND (d, 3)) == SSA_NAME)
-	      TREE_OPERAND (d, 3) = SSA_NAME_VAR (TREE_OPERAND (d, 3));
+		&& TREE_CODE (TREE_OPERAND (d, 3)) != INTEGER_CST)
+	      fail = true;
 	    /* FALLTHRU */
 	  case COMPONENT_REF:
 	    if (TREE_OPERAND (d, 2)
-		&& TREE_CODE (TREE_OPERAND (d, 2)) == SSA_NAME)
-	      TREE_OPERAND (d, 2) = SSA_NAME_VAR (TREE_OPERAND (d, 2));
+		&& TREE_CODE (TREE_OPERAND (d, 2)) != INTEGER_CST)
+	      fail = true;
 	    break;
 	  default:
 	    break;
 	  }
-      SET_DECL_DEBUG_EXPR (repl, debug_expr);
-      DECL_DEBUG_EXPR_IS_FROM (repl) = 1;
+      if (!fail)
+	{
+	  SET_DECL_DEBUG_EXPR (repl, debug_expr);
+	  DECL_DEBUG_EXPR_IS_FROM (repl) = 1;
+	}
       if (access->grp_no_warning)
 	TREE_NO_WARNING (repl) = 1;
       else
@@ -4047,36 +4050,35 @@ turn_representatives_into_adjustments (VEC (access_p, heap) *representatives,
 
       if (!repr || no_accesses_p (repr))
 	{
-	  struct ipa_parm_adjustment *adj;
+	  struct ipa_parm_adjustment adj;
 
-	  adj = VEC_quick_push (ipa_parm_adjustment_t, adjustments, NULL);
-	  memset (adj, 0, sizeof (*adj));
-	  adj->base_index = get_param_index (parm, parms);
-	  adj->base = parm;
+	  memset (&adj, 0, sizeof (adj));
+	  adj.base_index = get_param_index (parm, parms);
+	  adj.base = parm;
 	  if (!repr)
-	    adj->copy_param = 1;
+	    adj.copy_param = 1;
 	  else
-	    adj->remove_param = 1;
+	    adj.remove_param = 1;
+	  VEC_quick_push (ipa_parm_adjustment_t, adjustments, adj);
 	}
       else
 	{
-	  struct ipa_parm_adjustment *adj;
+	  struct ipa_parm_adjustment adj;
 	  int index = get_param_index (parm, parms);
 
 	  for (; repr; repr = repr->next_grp)
 	    {
-	      adj = VEC_quick_push (ipa_parm_adjustment_t, adjustments, NULL);
-	      memset (adj, 0, sizeof (*adj));
+	      memset (&adj, 0, sizeof (adj));
 	      gcc_assert (repr->base == parm);
-	      adj->base_index = index;
-	      adj->base = repr->base;
-	      adj->type = repr->type;
-	      adj->alias_ptr_type = reference_alias_ptr_type (repr->expr);
-	      adj->offset = repr->offset;
-	      adj->by_ref = (POINTER_TYPE_P (TREE_TYPE (repr->base))
-			     && (repr->grp_maybe_modified
-				 || repr->grp_not_necessarilly_dereferenced));
-
+	      adj.base_index = index;
+	      adj.base = repr->base;
+	      adj.type = repr->type;
+	      adj.alias_ptr_type = reference_alias_ptr_type (repr->expr);
+	      adj.offset = repr->offset;
+	      adj.by_ref = (POINTER_TYPE_P (TREE_TYPE (repr->base))
+			    && (repr->grp_maybe_modified
+				|| repr->grp_not_necessarilly_dereferenced));
+	      VEC_quick_push (ipa_parm_adjustment_t, adjustments, adj);
 	    }
 	}
     }
@@ -4205,7 +4207,7 @@ get_adjustment_for_base (ipa_parm_adjustment_vec adjustments, tree base)
     {
       struct ipa_parm_adjustment *adj;
 
-      adj = VEC_index (ipa_parm_adjustment_t, adjustments, i);
+      adj = &VEC_index (ipa_parm_adjustment_t, adjustments, i);
       if (!adj->copy_param && adj->base == base)
 	return adj;
     }
@@ -4236,8 +4238,10 @@ replace_removed_params_ssa_names (gimple stmt,
 
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
+
   decl = SSA_NAME_VAR (lhs);
-  if (TREE_CODE (decl) != PARM_DECL)
+  if (decl == NULL_TREE
+      || TREE_CODE (decl) != PARM_DECL)
     return false;
 
   adj = get_adjustment_for_base (adjustments, decl);
@@ -4310,7 +4314,7 @@ sra_ipa_modify_expr (tree *expr, bool convert,
 
   for (i = 0; i < len; i++)
     {
-      adj = VEC_index (ipa_parm_adjustment_t, adjustments, i);
+      adj = &VEC_index (ipa_parm_adjustment_t, adjustments, i);
 
       if (adj->base == base &&
 	  (adj->offset == offset || adj->remove_param))
@@ -4517,7 +4521,7 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
       tree name, vexpr, copy = NULL_TREE;
       use_operand_p use_p;
 
-      adj = VEC_index (ipa_parm_adjustment_t, adjustments, i);
+      adj = &VEC_index (ipa_parm_adjustment_t, adjustments, i);
       if (adj->copy_param || !is_gimple_reg (adj->base))
 	continue;
       name = ssa_default_def (cfun, adj->base);
@@ -4612,7 +4616,6 @@ convert_callers_for_node (struct cgraph_node *node,
 
   for (cs = node->callers; cs; cs = cs->next_caller)
     {
-      current_function_decl = cs->caller->symbol.decl;
       push_cfun (DECL_STRUCT_FUNCTION (cs->caller->symbol.decl));
 
       if (dump_file)
@@ -4641,13 +4644,10 @@ static void
 convert_callers (struct cgraph_node *node, tree old_decl,
 		 ipa_parm_adjustment_vec adjustments)
 {
-  tree old_cur_fndecl = current_function_decl;
   basic_block this_block;
 
   cgraph_for_node_and_aliases (node, convert_callers_for_node,
 			       adjustments, false);
-
-  current_function_decl = old_cur_fndecl;
 
   if (!encountered_recursive_call)
     return;
@@ -4689,13 +4689,12 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   rebuild_cgraph_edges ();
   free_dominance_info (CDI_DOMINATORS);
   pop_cfun ();
-  current_function_decl = NULL_TREE;
 
   new_node = cgraph_function_versioning (node, redirect_callers, NULL, NULL,
 					 false, NULL, NULL, "isra");
-  current_function_decl = new_node->symbol.decl;
-  push_cfun (DECL_STRUCT_FUNCTION (new_node->symbol.decl));
+  VEC_free (cgraph_edge_p, heap, redirect_callers);
 
+  push_cfun (DECL_STRUCT_FUNCTION (new_node->symbol.decl));
   ipa_modify_formal_parameters (current_function_decl, adjustments, "ISRA");
   cfg_changed = ipa_sra_modify_function_body (adjustments);
   sra_ipa_reset_debug_stmts (adjustments);

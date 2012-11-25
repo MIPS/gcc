@@ -245,7 +245,8 @@ md_file=
 
 # Obsolete configurations.
 case ${target} in
-   score-*				\
+   picochip-*				\
+ | score-*				\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -361,7 +362,7 @@ i[34567]86-*-*)
 		       ia32intrin.h cross-stdarg.h lwpintrin.h popcntintrin.h
 		       lzcntintrin.h bmiintrin.h bmi2intrin.h tbmintrin.h
 		       avx2intrin.h fmaintrin.h f16cintrin.h rtmintrin.h
-		       xtestintrin.h rdseedintrin.h prfchwintrin.h"
+		       xtestintrin.h rdseedintrin.h prfchwintrin.h adxintrin.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -375,7 +376,7 @@ x86_64-*-*)
 		       ia32intrin.h cross-stdarg.h lwpintrin.h popcntintrin.h
 		       lzcntintrin.h bmiintrin.h tbmintrin.h bmi2intrin.h
 		       avx2intrin.h fmaintrin.h f16cintrin.h rtmintrin.h
-		       xtestintrin.h rdseedintrin.h prfchwintrin.h"
+		       xtestintrin.h rdseedintrin.h prfchwintrin.h adxintrin.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -885,13 +886,17 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*)
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
 	;;
 avr-*-rtems*)
-	tm_file="elfos.h avr/elf.h avr/avr.h dbxelf.h avr/rtems.h rtems.h newlib-stdint.h"
+	tm_file="elfos.h avr/elf.h avr/avr-arch.h avr/avr.h dbxelf.h avr/rtems.h rtems.h newlib-stdint.h"
 	tmake_file="avr/t-avr avr/t-multilib t-rtems avr/t-rtems"
 	extra_gcc_objs="driver-avr.o avr-devices.o"
 	extra_objs="avr-devices.o avr-log.o"
 	;;
 avr-*-*)
-	tm_file="elfos.h avr/elf.h avr/avr.h dbxelf.h avr/avr-stdint.h"
+	tm_file="elfos.h avr/elf.h avr/avr-arch.h avr/avr.h dbxelf.h avr/avr-stdint.h"
+	if test x${with_avrlibc} != xno; then
+	    tm_file="${tm_file} ${cpu_type}/avrlibc.h"
+	    tm_defines="${tm_defines} WITH_AVRLIBC"
+	fi
 	tmake_file="avr/t-avr avr/t-multilib"
 	use_gcc_stdint=wrap
 	extra_gcc_objs="driver-avr.o avr-devices.o"
@@ -1012,10 +1017,15 @@ hppa*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h pa/pa-linux.h \
 		 pa/pa32-regs.h pa/pa32-linux.h"
 	;;
-# port not yet contributed.
-#hppa*-*-openbsd*)
-#	target_cpu_default="MASK_PA_11"
-#	;;
+hppa*-*-openbsd*)
+	target_cpu_default="MASK_PA_11"
+	tm_file="${tm_file} dbxelf.h elfos.h openbsd.h openbsd-stdint.h openbsd-libpthread.h \
+		 pa/pa-openbsd.h pa/pa32-regs.h pa/pa32-openbsd.h"
+	tmake_file="${tmake_file} pa/t-openbsd"
+	extra_options="${extra_options} openbsd.opt"
+	gas=yes
+	gnu_ld=yes
+	;;
 hppa[12]*-*-hpux10*)
 	case ${target} in
 	hppa1.1-*-* | hppa2*-*-*)
@@ -1179,6 +1189,13 @@ i[34567]86-*-openbsd2.*|i[34567]86-*openbsd3.[0123])
 i[34567]86-*-openbsd*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h"
 	tm_file="${tm_file} openbsd.h openbsd-stdint.h openbsd-libpthread.h i386/openbsdelf.h"
+	extra_options="${extra_options} openbsd.opt"
+	gas=yes
+	gnu_ld=yes
+	;;
+x86_64-*-openbsd*)
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h"
+	tm_file="${tm_file} openbsd.h openbsd-stdint.h openbsd-libpthread.h i386/x86-64.h i386/openbsdelf.h"
 	extra_options="${extra_options} openbsd.opt"
 	gas=yes
 	gnu_ld=yes
@@ -1685,6 +1702,14 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	tm_file="elfos.h ${tm_file} mips/elf.h netbsd.h netbsd-elf.h mips/netbsd.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
+mips*-mti-linux*)
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h mips/mti-linux.h"
+	tmake_file="${tmake_file} mips/t-mti-linux"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+	gnu_ld=yes
+	gas=yes
+	test x$with_llsc != x || with_llsc=yes
+	;;
 mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
 	tmake_file="${tmake_file} mips/t-linux64"
@@ -1721,6 +1746,11 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
         esac
 	test x$with_llsc != x || with_llsc=yes
+	;;
+mips*-mti-elf*)
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/sde.h mips/mti-elf.h"
+	tmake_file="mips/t-mti-elf"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
 	;;
 mips*-sde-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/sde.h"
@@ -1889,7 +1919,7 @@ powerpc*-*-freebsd*)
 	tm_file="${tm_file} dbxelf.h elfos.h ${fbsd_tm_file} rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
-	case ${host} in
+	case ${target} in
 	     powerpc64*)
 	    	tm_file="${tm_file} rs6000/default64.h rs6000/freebsd64.h"
 		tmake_file="${tmake_file} rs6000/t-freebsd64"
@@ -2440,6 +2470,7 @@ tilegx-*-linux*)
 	extra_objs="mul-tables.o"
 	c_target_objs="tilegx-c.o"
 	cxx_target_objs="tilegx-c.o"
+	extra_headers="feedback.h"
 	;;
 tilepro-*-linux*)
 	tm_file="elfos.h gnu-user.h linux.h glibc-stdint.h tilepro/linux.h ${tm_file}"
@@ -2447,6 +2478,7 @@ tilepro-*-linux*)
 	extra_objs="mul-tables.o"
 	c_target_objs="tilepro-c.o"
 	cxx_target_objs="tilepro-c.o"
+	extra_headers="feedback.h"
 	;;
 v850-*-rtems*)
 	target_cpu_default="TARGET_CPU_generic"
@@ -3260,9 +3292,10 @@ case "${target}" in
 		yes)
 			with_synci=synci
 			;;
-		"" | no)
-			# No is the default.
+		no)
 			with_synci=no-synci
+			;;
+		"")
 			;;
 		*)
 			echo "Unknown synci type used in --with-synci" 1>&2

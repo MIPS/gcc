@@ -573,7 +573,8 @@ convert_move (rtx to, rtx from, int unsignedp)
       if (!((MEM_P (from)
 	     && ! MEM_VOLATILE_P (from)
 	     && direct_load[(int) to_mode]
-	     && ! mode_dependent_address_p (XEXP (from, 0)))
+	     && ! mode_dependent_address_p (XEXP (from, 0),
+					    MEM_ADDR_SPACE (from)))
 	    || REG_P (from)
 	    || GET_CODE (from) == SUBREG))
 	from = force_reg (from_mode, from);
@@ -591,7 +592,8 @@ convert_move (rtx to, rtx from, int unsignedp)
       if (!((MEM_P (from)
 	     && ! MEM_VOLATILE_P (from)
 	     && direct_load[(int) to_mode]
-	     && ! mode_dependent_address_p (XEXP (from, 0)))
+	     && ! mode_dependent_address_p (XEXP (from, 0),
+					    MEM_ADDR_SPACE (from)))
 	    || REG_P (from)
 	    || GET_CODE (from) == SUBREG))
 	from = force_reg (from_mode, from);
@@ -727,11 +729,11 @@ convert_modes (enum machine_mode mode, enum machine_mode oldmode, rtx x, int uns
       && GET_MODE_BITSIZE (mode) == HOST_BITS_PER_DOUBLE_INT
       && CONST_INT_P (x) && INTVAL (x) < 0)
     {
-      double_int val = uhwi_to_double_int (INTVAL (x));
+      double_int val = double_int::from_uhwi (INTVAL (x));
 
       /* We need to zero extend VAL.  */
       if (oldmode != VOIDmode)
-	val = double_int_zext (val, GET_MODE_BITSIZE (oldmode));
+	val = val.zext (GET_MODE_BITSIZE (oldmode));
 
       return immed_double_int_const (val, mode);
     }
@@ -3828,7 +3830,7 @@ fixup_args_size_notes (rtx prev, rtx last, int end_args_size)
 
       add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (args_size));
 #ifdef STACK_GROWS_DOWNWARD
-      this_delta = -this_delta;
+      this_delta = -(unsigned HOST_WIDE_INT) this_delta;
 #endif
       args_size -= this_delta;
     }
@@ -4870,8 +4872,16 @@ expand_assignment (tree to, tree from, bool nontemporal)
       /* Handle calls that return values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (to_rtx) == PARALLEL)
-	emit_group_load (to_rtx, value, TREE_TYPE (from),
-			 int_size_in_bytes (TREE_TYPE (from)));
+	{
+	  if (GET_CODE (value) == PARALLEL)
+	    emit_group_move (to_rtx, value);
+	  else
+	    emit_group_load (to_rtx, value, TREE_TYPE (from),
+			     int_size_in_bytes (TREE_TYPE (from)));
+	}
+      else if (GET_CODE (value) == PARALLEL)
+	emit_group_store (to_rtx, value, TREE_TYPE (from),
+			  int_size_in_bytes (TREE_TYPE (from)));
       else if (GET_MODE (to_rtx) == BLKmode)
 	emit_block_move (to_rtx, value, expr_size (from), BLOCK_OP_NORMAL);
       else
@@ -4903,9 +4913,16 @@ expand_assignment (tree to, tree from, bool nontemporal)
       else
 	temp = expand_expr (from, NULL_RTX, GET_MODE (to_rtx), EXPAND_NORMAL);
 
+      /* Handle calls that return values in multiple non-contiguous locations.
+	 The Irix 6 ABI has examples of this.  */
       if (GET_CODE (to_rtx) == PARALLEL)
-	emit_group_load (to_rtx, temp, TREE_TYPE (from),
-			 int_size_in_bytes (TREE_TYPE (from)));
+	{
+	  if (GET_CODE (temp) == PARALLEL)
+	    emit_group_move (to_rtx, temp);
+	  else
+	    emit_group_load (to_rtx, temp, TREE_TYPE (from),
+			     int_size_in_bytes (TREE_TYPE (from)));
+	}
       else if (temp)
 	emit_move_insn (to_rtx, temp);
 
@@ -5299,16 +5316,22 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       /* Handle calls that return values in multiple non-contiguous locations.
 	 The Irix 6 ABI has examples of this.  */
       else if (GET_CODE (target) == PARALLEL)
-	emit_group_load (target, temp, TREE_TYPE (exp),
-			 int_size_in_bytes (TREE_TYPE (exp)));
+	{
+	  if (GET_CODE (temp) == PARALLEL)
+	    emit_group_move (target, temp);
+	  else
+	    emit_group_load (target, temp, TREE_TYPE (exp),
+			     int_size_in_bytes (TREE_TYPE (exp)));
+	}
+      else if (GET_CODE (temp) == PARALLEL)
+	emit_group_store (target, temp, TREE_TYPE (exp),
+			  int_size_in_bytes (TREE_TYPE (exp)));
       else if (GET_MODE (temp) == BLKmode)
 	emit_block_move (target, temp, expr_size (exp),
 			 (call_param_p
 			  ? BLOCK_OP_CALL_PARM : BLOCK_OP_NORMAL));
-      else if (nontemporal
-	       && emit_storent_insn (target, temp))
-	/* If we managed to emit a nontemporal store, there is nothing else to
-	   do.  */
+      /* If we emit a nontemporal store, there is nothing else to do.  */
+      else if (nontemporal && emit_storent_insn (target, temp))
 	;
       else
 	{
@@ -6429,6 +6452,31 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  return const0_rtx;
 	}
 
+      /* Handle calls that return values in multiple non-contiguous locations.
+	 The Irix 6 ABI has examples of this.  */
+      if (GET_CODE (temp) == PARALLEL)
+	{
+	  rtx temp_target;
+
+	  /* We are not supposed to have a true bitfield in this case.  */
+	  gcc_assert (bitsize == GET_MODE_BITSIZE (mode));
+
+	  /* If we don't store at bit 0, we need an intermediate pseudo
+	     since emit_group_store only stores at bit 0.  */
+	  if (bitpos != 0)
+	    temp_target = gen_reg_rtx (mode);
+	  else
+	    temp_target = target;
+
+	  emit_group_store (temp_target, temp, TREE_TYPE (exp),
+			    int_size_in_bytes (TREE_TYPE (exp)));
+
+	  if (temp_target == target)
+	    return const0_rtx;
+
+	  temp = temp_target;
+	}
+
       /* Store the value in the bitfield.  */
       store_bit_field (target, bitsize, bitpos,
 		       bitregion_start, bitregion_end,
@@ -6557,9 +6605,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       switch (TREE_CODE (exp))
 	{
 	case BIT_FIELD_REF:
-	  bit_offset
-	    = double_int_add (bit_offset,
-			      tree_to_double_int (TREE_OPERAND (exp, 2)));
+	  bit_offset += tree_to_double_int (TREE_OPERAND (exp, 2));
 	  break;
 
 	case COMPONENT_REF:
@@ -6574,9 +6620,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      break;
 
 	    offset = size_binop (PLUS_EXPR, offset, this_offset);
-	    bit_offset = double_int_add (bit_offset,
-					 tree_to_double_int
-					   (DECL_FIELD_BIT_OFFSET (field)));
+	    bit_offset += tree_to_double_int (DECL_FIELD_BIT_OFFSET (field));
 
 	    /* ??? Right now we don't do anything with DECL_OFFSET_ALIGN.  */
 	  }
@@ -6608,8 +6652,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	  break;
 
 	case IMAGPART_EXPR:
-	  bit_offset = double_int_add (bit_offset,
-				       uhwi_to_double_int (*pbitsize));
+	  bit_offset += double_int::from_uhwi (*pbitsize);
 	  break;
 
 	case VIEW_CONVERT_EXPR:
@@ -6631,11 +6674,10 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      if (!integer_zerop (off))
 		{
 		  double_int boff, coff = mem_ref_offset (exp);
-		  boff = double_int_lshift (coff,
-					    BITS_PER_UNIT == 8
-					    ? 3 : exact_log2 (BITS_PER_UNIT),
-					    HOST_BITS_PER_DOUBLE_INT, true);
-		  bit_offset = double_int_add (bit_offset, boff);
+		  boff = coff.alshift (BITS_PER_UNIT == 8
+				       ? 3 : exact_log2 (BITS_PER_UNIT),
+				       HOST_BITS_PER_DOUBLE_INT);
+		  bit_offset += boff;
 		}
 	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
 	    }
@@ -6659,15 +6701,13 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   if (TREE_CODE (offset) == INTEGER_CST)
     {
       double_int tem = tree_to_double_int (offset);
-      tem = double_int_sext (tem, TYPE_PRECISION (sizetype));
-      tem = double_int_lshift (tem,
-			       BITS_PER_UNIT == 8
-			       ? 3 : exact_log2 (BITS_PER_UNIT),
-			       HOST_BITS_PER_DOUBLE_INT, true);
-      tem = double_int_add (tem, bit_offset);
-      if (double_int_fits_in_shwi_p (tem))
+      tem = tem.sext (TYPE_PRECISION (sizetype));
+      tem = tem.alshift (BITS_PER_UNIT == 8 ? 3 : exact_log2 (BITS_PER_UNIT),
+			 HOST_BITS_PER_DOUBLE_INT);
+      tem += bit_offset;
+      if (tem.fits_shwi ())
 	{
-	  *pbitpos = double_int_to_shwi (tem);
+	  *pbitpos = tem.to_shwi ();
 	  *poffset = offset = NULL_TREE;
 	}
     }
@@ -6676,24 +6716,23 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   if (offset)
     {
       /* Avoid returning a negative bitpos as this may wreak havoc later.  */
-      if (double_int_negative_p (bit_offset))
+      if (bit_offset.is_negative ())
         {
 	  double_int mask
-	    = double_int_mask (BITS_PER_UNIT == 8
+	    = double_int::mask (BITS_PER_UNIT == 8
 			       ? 3 : exact_log2 (BITS_PER_UNIT));
-	  double_int tem = double_int_and_not (bit_offset, mask);
+	  double_int tem = bit_offset.and_not (mask);
 	  /* TEM is the bitpos rounded to BITS_PER_UNIT towards -Inf.
 	     Subtract it to BIT_OFFSET and add it (scaled) to OFFSET.  */
-	  bit_offset = double_int_sub (bit_offset, tem);
-	  tem = double_int_rshift (tem,
-				   BITS_PER_UNIT == 8
-				   ? 3 : exact_log2 (BITS_PER_UNIT),
-				   HOST_BITS_PER_DOUBLE_INT, true);
+	  bit_offset -= tem;
+	  tem = tem.arshift (BITS_PER_UNIT == 8
+			     ? 3 : exact_log2 (BITS_PER_UNIT),
+			     HOST_BITS_PER_DOUBLE_INT);
 	  offset = size_binop (PLUS_EXPR, offset,
 			       double_int_to_tree (sizetype, tem));
 	}
 
-      *pbitpos = double_int_to_shwi (bit_offset);
+      *pbitpos = bit_offset.to_shwi ();
       *poffset = offset;
     }
 
@@ -7802,19 +7841,14 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
   if (cfun && EXPR_HAS_LOCATION (exp))
     {
       location_t saved_location = input_location;
-      location_t saved_curr_loc = get_curr_insn_source_location ();
-      tree saved_block = get_curr_insn_block ();
+      location_t saved_curr_loc = curr_insn_location ();
       input_location = EXPR_LOCATION (exp);
-      set_curr_insn_source_location (input_location);
-
-      /* Record where the insns produced belong.  */
-      set_curr_insn_block (TREE_BLOCK (exp));
+      set_curr_insn_location (input_location);
 
       ret = expand_expr_real_1 (exp, target, tmode, modifier, alt_rtl);
 
       input_location = saved_location;
-      set_curr_insn_block (saved_block);
-      set_curr_insn_source_location (saved_curr_loc);
+      set_curr_insn_location (saved_curr_loc);
     }
   else
     {
@@ -8720,7 +8754,7 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
       if (reduce_bit_field && TYPE_UNSIGNED (type))
 	temp = expand_binop (mode, xor_optab, op0,
 			     immed_double_int_const
-			       (double_int_mask (TYPE_PRECISION (type)), mode),
+			       (double_int::mask (TYPE_PRECISION (type)), mode),
 			     target, 1, OPTAB_LIB_WIDEN);
       else
 	temp = expand_unop (mode, one_cmpl_optab, op0, target, 1);
@@ -9159,8 +9193,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	 base variable.  This unnecessarily allocates a pseudo, see how we can
 	 reuse it, if partition base vars have it set already.  */
       if (!currently_expanding_to_rtl)
-	return expand_expr_real_1 (SSA_NAME_VAR (exp), target, tmode, modifier,
-				   NULL);
+	{
+	  tree var = SSA_NAME_VAR (exp);
+	  if (var && DECL_RTL_SET_P (var))
+	    return DECL_RTL (var);
+	  return gen_raw_REG (TYPE_MODE (TREE_TYPE (exp)),
+			      LAST_VIRTUAL_REGISTER + 1);
+	}
 
       g = get_gimple_for_ssa_name (exp);
       /* For EXPAND_INITIALIZER try harder to get something simpler.  */
@@ -10314,13 +10353,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		     value ? label : 0,
 		     value ? 0 : label, -1);
 	    expand_assignment (lhs, build_int_cst (TREE_TYPE (rhs), value),
-			       MOVE_NONTEMPORAL (exp));
+			       false);
 	    do_pending_stack_adjust ();
 	    emit_label (label);
 	    return const0_rtx;
 	  }
 
-	expand_assignment (lhs, rhs, MOVE_NONTEMPORAL (exp));
+	expand_assignment (lhs, rhs, false);
 	return const0_rtx;
       }
 
@@ -10402,7 +10441,7 @@ reduce_to_bit_field_precision (rtx exp, rtx target, tree type)
     }
   else if (TYPE_UNSIGNED (type))
     {
-      rtx mask = immed_double_int_const (double_int_mask (prec),
+      rtx mask = immed_double_int_const (double_int::mask (prec),
 					 GET_MODE (exp));
       return expand_and (GET_MODE (exp), exp, mask, target);
     }
@@ -10639,17 +10678,6 @@ do_store_flag (sepops ops, rtx target, enum machine_mode mode)
   STRIP_NOPS (arg0);
   STRIP_NOPS (arg1);
   
-  /* For vector typed comparisons emit code to generate the desired
-     all-ones or all-zeros mask.  Conveniently use the VEC_COND_EXPR
-     expander for this.  */
-  if (TREE_CODE (ops->type) == VECTOR_TYPE)
-    {
-      tree ifexp = build2 (ops->code, ops->type, arg0, arg1);
-      tree if_true = constant_boolean_node (true, ops->type);
-      tree if_false = constant_boolean_node (false, ops->type);
-      return expand_vec_cond_expr (ops->type, ifexp, if_true, if_false, target);
-    }
-
   /* For vector typed comparisons emit code to generate the desired
      all-ones or all-zeros mask.  Conveniently use the VEC_COND_EXPR
      expander for this.  */

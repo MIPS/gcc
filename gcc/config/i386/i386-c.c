@@ -300,6 +300,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__RDSEED__");
   if (isa_flag & OPTION_MASK_ISA_PRFCHW)
     def_or_undef (parse_in, "__PRFCHW__");
+  if (isa_flag & OPTION_MASK_ISA_ADX)
+    def_or_undef (parse_in, "__ADX__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE))
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))
@@ -406,6 +408,9 @@ ix86_target_macros (void)
       cpp_assert (parse_in, "machine=i386");
       builtin_define_std ("i386");
     }
+
+  if (TARGET_LONG_DOUBLE_64)
+    cpp_define (parse_in, "__LONG_DOUBLE_64__");
 
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_ACQUIRE=%d", IX86_HLE_ACQUIRE);
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_RELEASE=%d", IX86_HLE_RELEASE);

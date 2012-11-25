@@ -562,6 +562,12 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
       /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE || sym->result == sym);
       /* This is the declaration of a module variable.  */
+      if (sym->attr.access == ACCESS_UNKNOWN
+	  && (sym->ns->default_access == ACCESS_PRIVATE
+	      || (sym->ns->default_access == ACCESS_UNKNOWN
+		  && gfc_option.flag_module_private)))
+	sym->attr.access = ACCESS_PRIVATE;
+
       if (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used)
 	TREE_PUBLIC (decl) = 1;
       TREE_STATIC (decl) = 1;
@@ -1624,17 +1630,14 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 	  /* By construction, the external function cannot be
 	     a contained procedure.  */
 	  locus old_loc;
-	  tree save_fn_decl = current_function_decl;
 
-	  current_function_decl = NULL_TREE;
 	  gfc_save_backend_locus (&old_loc);
-	  push_cfun (cfun);
+	  push_cfun (NULL);
 
 	  gfc_create_function_decl (gsym->ns, true);
 
 	  pop_cfun ();
 	  gfc_restore_backend_locus (&old_loc);
-	  current_function_decl = save_fn_decl;
 	}
 
       /* If the namespace has entries, the proc_name is the
@@ -1777,7 +1780,7 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   /* Set attributes for PURE functions. A call to PURE function in the
      Fortran 95 sense is both pure and without side effects in the C
      sense.  */
-  if (sym->attr.pure || sym->attr.elemental)
+  if (sym->attr.pure || sym->attr.implicit_pure)
     {
       if (sym->attr.function && !gfc_return_by_reference (sym))
 	DECL_PURE_P (fndecl) = 1;
@@ -1838,6 +1841,12 @@ build_function_decl (gfc_symbol * sym, bool global)
      TREE_PUBLIC specifies whether a function is globally addressable (i.e.
      the opposite of declaring a function as static in C).  */
   DECL_EXTERNAL (fndecl) = 0;
+
+  if (sym->attr.access == ACCESS_UNKNOWN && sym->module
+      && (sym->ns->default_access == ACCESS_PRIVATE
+	  || (sym->ns->default_access == ACCESS_UNKNOWN
+	      && gfc_option.flag_module_private)))
+    sym->attr.access = ACCESS_PRIVATE;
 
   if (!current_function_decl
       && !sym->attr.entry_master && !sym->attr.is_main_program
@@ -1900,7 +1909,7 @@ build_function_decl (gfc_symbol * sym, bool global)
   /* Set attributes for PURE functions. A call to a PURE function in the
      Fortran 95 sense is both pure and without side effects in the C
      sense.  */
-  if (attr.pure || attr.elemental)
+  if (attr.pure || attr.implicit_pure)
     {
       /* TODO: check if a pure SUBROUTINE has no INTENT(OUT) arguments
 	 including an alternate return. In that case it can also be
@@ -2253,7 +2262,7 @@ trans_function_start (gfc_symbol * sym)
   /* Create RTL for function definition.  */
   make_decl_rtl (fndecl);
 
-  init_function_start (fndecl);
+  allocate_struct_function (fndecl, false);
 
   /* function.c requires a push at the start of the function.  */
   pushlevel ();
@@ -4396,7 +4405,7 @@ generate_coarray_init (gfc_namespace * ns __attribute((unused)))
 
   rest_of_decl_compilation (fndecl, 0, 0);
   make_decl_rtl (fndecl);
-  init_function_start (fndecl);
+  allocate_struct_function (fndecl, false);
 
   pushlevel ();
   gfc_init_block (&caf_init_block);
@@ -4849,16 +4858,12 @@ add_argument_checking (stmtblock_t *block, gfc_symbol *sym)
 void
 gfc_init_coarray_decl (bool main_tu)
 {
-  tree save_fn_decl;
-
   if (gfc_option.coarray != GFC_FCOARRAY_LIB)
     return;
 
   if (gfort_gvar_caf_this_image || gfort_gvar_caf_num_images)
     return;
 
-  save_fn_decl = current_function_decl;
-  current_function_decl = NULL_TREE;
   push_cfun (cfun);
 
   gfort_gvar_caf_this_image
@@ -4894,7 +4899,6 @@ gfc_init_coarray_decl (bool main_tu)
   pushdecl_top_level (gfort_gvar_caf_num_images);
 
   pop_cfun ();
-  current_function_decl = save_fn_decl;
 }
 
 
@@ -4970,7 +4974,7 @@ create_main_function (tree fndecl)
 
   rest_of_decl_compilation (ftn_main, 1, 0);
   make_decl_rtl (ftn_main);
-  init_function_start (ftn_main);
+  allocate_struct_function (ftn_main, false);
   pushlevel ();
 
   gfc_init_block (&body);
@@ -5468,7 +5472,7 @@ gfc_generate_function_code (gfc_namespace * ns)
     }
   current_function_decl = old_context;
 
-  if (decl_function_context (fndecl) && !gfc_option.coarray == GFC_FCOARRAY_LIB
+  if (decl_function_context (fndecl) && gfc_option.coarray != GFC_FCOARRAY_LIB
       && has_coarray_vars)
     /* Register this function with cgraph just far enough to get it
        added to our parent's nested function list.
@@ -5525,7 +5529,7 @@ gfc_generate_constructors (void)
 
   make_decl_rtl (fndecl);
 
-  init_function_start (fndecl);
+  allocate_struct_function (fndecl, false);
 
   pushlevel ();
 

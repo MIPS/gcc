@@ -44,10 +44,7 @@ cleanup_auto_inc_dec (rtx src, enum machine_mode mem_mode ATTRIBUTE_UNUSED)
   switch (code)
     {
     case REG:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case SYMBOL_REF:
     case CODE_LABEL:
     case PC:
@@ -336,6 +333,14 @@ dead_debug_insert_temp (struct dead_debug *debug, unsigned int uregno,
     {
       if (DF_REF_REGNO (cur->use) == uregno)
 	{
+	  /* If this loc has been changed e.g. to debug_expr already
+	     as part of a multi-register use, just drop it.  */
+	  if (!REG_P (*DF_REF_REAL_LOC (cur->use)))
+	    {
+	      *tailp = cur->next;
+	      XDELETE (cur);
+	      continue;
+	    }
 	  *usesp = cur;
 	  usesp = &cur->next;
 	  *tailp = cur->next;

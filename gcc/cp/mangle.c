@@ -1337,7 +1337,7 @@ nested_anon_class_index (tree type)
 /* <unnamed-type-name> ::= Ut [ <nonnegative number> ] _ */
 
 static void
-write_unnamed_type_name (const tree type ATTRIBUTE_UNUSED)
+write_unnamed_type_name (const tree type)
 {
   int discriminator;
   MANGLE_TRACE_TREE ("unnamed-type-name", type);
@@ -1694,8 +1694,8 @@ discriminator_for_local_entity (tree entity)
    string literals used in FUNCTION.  */
 
 static int
-discriminator_for_string_literal (tree function ATTRIBUTE_UNUSED,
-				  tree string ATTRIBUTE_UNUSED)
+discriminator_for_string_literal (tree /*function*/,
+				  tree /*string*/)
 {
   /* For now, we don't discriminate amongst string literals.  */
   return 0;
@@ -3119,12 +3119,11 @@ write_array_type (const tree type)
 	{
 	  /* The ABI specifies that we should mangle the number of
 	     elements in the array, not the largest allowed index.  */
-	  double_int dmax
-	    = double_int_add (tree_to_double_int (max), double_int_one);
+	  double_int dmax = tree_to_double_int (max) + double_int_one;
 	  /* Truncate the result - this will mangle [0, SIZE_INT_MAX]
 	     number of elements as zero.  */
-	  dmax = double_int_zext (dmax, TYPE_PRECISION (TREE_TYPE (max)));
-	  gcc_assert (double_int_fits_in_uhwi_p (dmax));
+	  dmax = dmax.zext (TYPE_PRECISION (TREE_TYPE (max)));
+	  gcc_assert (dmax.fits_uhwi ());
 	  write_unsigned_number (dmax.low);
 	}
       else

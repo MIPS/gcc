@@ -32,6 +32,9 @@ int optimize
 Variable
 int optimize_size
 
+Variable
+int optimize_debug
+
 ; Not used directly to control optimizations, only to save -Ofast
 ; setting for "optimize" attributes.
 Variable
@@ -291,6 +294,9 @@ Driver Alias(no-canonical-prefixes)
 -no-standard-libraries
 Driver Alias(nostdlib)
 
+-no-sysroot-suffix
+Driver Var(no_sysroot_suffix)
+
 -no-warnings
 Common Alias(w)
 
@@ -445,6 +451,10 @@ Optimize for space rather than speed
 Ofast
 Common Optimization
 Optimize for speed disregarding exact standards compliance
+
+Og
+Common Optimization
+Optimize for debugging experience rather than speed or size
 
 Q
 Driver
@@ -1286,7 +1296,7 @@ Perform indirect inlining
 ; General flag to enable inlining.  Specifying -fno-inline will disable
 ; all inlining apart from always-inline functions.
 finline
-Common Report Var(flag_no_inline,0) Init(0)
+Common Report Var(flag_no_inline,0) Init(0) Optimization
 Enable inlining of function declared \"inline\", disabling disables all inlining
 
 finline-small-functions
@@ -1349,9 +1359,8 @@ Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
 
 fipa-matrix-reorg
-Common Report Var(flag_ipa_matrix_reorg) Optimization
-Perform matrix layout flattening and transposing based
-on profiling information.
+Common Ignore
+Does nothing. Preserved for backward compatibility.
 
 fipa-struct-reorg
 Common Ignore
@@ -1437,11 +1446,15 @@ Link-time optimization with number of parallel jobs or jobserver.
 
 flto-partition=1to1
 Common Var(flag_lto_partition_1to1)
-Partition functions and vars at linktime based on object files they originate from
+Partition symbols and vars at linktime based on object files they originate from
 
 flto-partition=balanced
 Common Var(flag_lto_partition_balanced)
 Partition functions and vars at linktime into approximately same sized buckets
+
+flto-partition=max
+Common Var(flag_lto_partition_max)
+Put every symbol into separate partition
 
 flto-partition=none
 Common Var(flag_lto_partition_none)
@@ -1467,6 +1480,10 @@ Common Joined RejectNegative UInteger Var(flag_max_errors)
 fmem-report
 Common Report Var(mem_report)
 Report on permanent memory allocation
+
+fmem-report-wpa
+Common Report Var(mem_report_wpa)
+Report on permanent memory allocation in WPA only
 
 ; This will attempt to merge constant section constants, if 1 only
 ; string constants and constants from constant pool, if 2 also constant

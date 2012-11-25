@@ -94,6 +94,7 @@ vect_free_slp_instance (slp_instance instance)
   VEC_free (int, heap, SLP_INSTANCE_LOAD_PERMUTATION (instance));
   VEC_free (slp_tree, heap, SLP_INSTANCE_LOADS (instance));
   VEC_free (stmt_info_for_cost, heap, SLP_INSTANCE_BODY_COST_VEC (instance));
+  free (instance);
 }
 
 
@@ -1581,8 +1582,11 @@ vect_analyze_slp_instance (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
           if (vect_print_dump_info (REPORT_SLP))
             fprintf (vect_dump, "Build SLP failed: unrolling required in basic"
                                " block SLP");
+	  vect_free_slp_tree (node);
 	  VEC_free (stmt_info_for_cost, heap, body_cost_vec);
 	  VEC_free (stmt_info_for_cost, heap, prologue_cost_vec);
+	  VEC_free (int, heap, load_permutation);
+	  VEC_free (slp_tree, heap, loads);
           return false;
         }
 
@@ -1858,8 +1862,11 @@ new_bb_vec_info (basic_block bb)
 static void
 destroy_bb_vec_info (bb_vec_info bb_vinfo)
 {
+  VEC (slp_instance, heap) *slp_instances;
+  slp_instance instance;
   basic_block bb;
   gimple_stmt_iterator si;
+  unsigned i;
 
   if (!bb_vinfo)
     return;
@@ -1879,6 +1886,9 @@ destroy_bb_vec_info (bb_vec_info bb_vinfo)
   free_data_refs (BB_VINFO_DATAREFS (bb_vinfo));
   free_dependence_relations (BB_VINFO_DDRS (bb_vinfo));
   VEC_free (gimple, heap, BB_VINFO_GROUPED_STORES (bb_vinfo));
+  slp_instances = BB_VINFO_SLP_INSTANCES (bb_vinfo);
+  FOR_EACH_VEC_ELT (slp_instance, slp_instances, i, instance)
+    vect_free_slp_instance (instance);
   VEC_free (slp_instance, heap, BB_VINFO_SLP_INSTANCES (bb_vinfo));
   destroy_cost_data (BB_VINFO_TARGET_COST_DATA (bb_vinfo));
   free (bb_vinfo);
@@ -2662,8 +2672,8 @@ vect_create_mask_and_perm (gimple stmt, gimple next_scalar_stmt,
       second_vec = VEC_index (tree, dr_chain, second_vec_indx);
 
       /* Generate the permute statement.  */
-      perm_stmt = gimple_build_assign_with_ops3 (VEC_PERM_EXPR, perm_dest,
-						 first_vec, second_vec, mask);
+      perm_stmt = gimple_build_assign_with_ops (VEC_PERM_EXPR, perm_dest,
+						first_vec, second_vec, mask);
       data_ref = make_ssa_name (perm_dest, perm_stmt);
       gimple_set_lhs (perm_stmt, data_ref);
       vect_finish_stmt_generation (stmt, perm_stmt, gsi);
@@ -3148,12 +3158,6 @@ vect_slp_transform_bb (basic_block bb)
           break;
         }
     }
-
-  mark_virtual_operands_for_renaming (cfun);
-  /* The memory tags and pointers in vectorized statements need to
-     have their SSA forms updated.  FIXME, why can't this be delayed
-     until all the loops have been transformed?  */
-  update_ssa (TODO_update_ssa);
 
   if (vect_print_dump_info (REPORT_DETAILS))
     fprintf (vect_dump, "BASIC BLOCK VECTORIZED\n");

@@ -271,10 +271,12 @@ verify_flow_info (void)
 void
 dump_bb (FILE *outf, basic_block bb, int indent, int flags)
 {
-  dump_bb_info (outf, bb, indent, flags, true, false);
+  if (flags & TDF_BLOCKS)
+    dump_bb_info (outf, bb, indent, flags, true, false);
   if (cfg_hooks->dump_bb)
     cfg_hooks->dump_bb (outf, bb, indent, flags);
-  dump_bb_info (outf, bb, indent, flags, false, true);
+  if (flags & TDF_BLOCKS)
+    dump_bb_info (outf, bb, indent, flags, false, true);
   fputc ('\n', outf);
 }
 
@@ -460,7 +462,6 @@ split_block (basic_block bb, void *i)
 
   new_bb->count = bb->count;
   new_bb->frequency = bb->frequency;
-  new_bb->loop_depth = bb->loop_depth;
   new_bb->discriminator = bb->discriminator;
 
   if (dom_info_available_p (CDI_DOMINATORS))
@@ -983,7 +984,6 @@ duplicate_block (basic_block bb, edge e, basic_block after)
   if (after)
     move_block_after (new_bb, after);
 
-  new_bb->loop_depth = bb->loop_depth;
   new_bb->flags = bb->flags;
   FOR_EACH_EDGE (s, ei, bb->succs)
     {
@@ -1304,5 +1304,23 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
   /* Clear information about duplicates.  */
   for (i = 0; i < n; i++)
     bbs[i]->flags &= ~BB_DUPLICATED;
+}
+
+/* Return true if BB contains only labels or non-executable
+   instructions */
+bool
+empty_block_p (basic_block bb)
+{
+  gcc_assert (cfg_hooks->empty_block_p);
+  return cfg_hooks->empty_block_p (bb);
+}
+
+/* Split a basic block if it ends with a conditional branch and if
+   the other part of the block is not empty.  */
+basic_block
+split_block_before_cond_jump (basic_block bb)
+{
+  gcc_assert (cfg_hooks->split_block_before_cond_jump);
+  return cfg_hooks->split_block_before_cond_jump (bb);
 }
 

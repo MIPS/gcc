@@ -396,11 +396,12 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
   if (derived1 == derived2)
     return 1;
 
+  gcc_assert (derived1 && derived2);
+
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
      nonnull, then they are equal.  */
-  if (derived1 != NULL && derived2 != NULL
-      && strcmp (derived1->name, derived2->name) == 0
+  if (strcmp (derived1->name, derived2->name) == 0
       && derived1->module != NULL && derived2->module != NULL
       && strcmp (derived1->module, derived2->module) == 0)
     return 1;
@@ -507,14 +508,18 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
 static int
 compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
 {
+  gfc_array_spec *as1, *as2;
   int r1, r2;
 
-  r1 = (s1->as != NULL) ? s1->as->rank : 0;
-  r2 = (s2->as != NULL) ? s2->as->rank : 0;
+  as1 = (s1->ts.type == BT_CLASS) ? CLASS_DATA (s1)->as : s1->as;
+  as2 = (s2->ts.type == BT_CLASS) ? CLASS_DATA (s2)->as : s2->as;
+
+  r1 = as1 ? as1->rank : 0;
+  r2 = as2 ? as2->rank : 0;
 
   if (r1 != r2
-      && (!s1->as || s1->as->type != AS_ASSUMED_RANK)
-      && (!s2->as || s2->as->type != AS_ASSUMED_RANK))
+      && (!as1 || as1->type != AS_ASSUMED_RANK)
+      && (!as2 || as2->type != AS_ASSUMED_RANK))
     return 0;			/* Ranks differ.  */
 
   return gfc_compare_types (&s1->ts, &s2->ts)
@@ -1006,9 +1011,8 @@ check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
   /* Check type and rank.  */
   if (type_must_agree && !compare_type_rank (s2, s1))
     {
-      if (errmsg != NULL)
-	snprintf (errmsg, err_len, "Type/rank mismatch in argument '%s'",
-		  s1->name);
+      snprintf (errmsg, err_len, "Type/rank mismatch in argument '%s'",
+		s1->name);
       return FAILURE;
     }
 
@@ -1141,6 +1145,152 @@ check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
 }
 
 
+/* Check if the characteristics of two function results match,
+   cf. F08:12.3.3.  */
+
+static gfc_try
+check_result_characteristics (gfc_symbol *s1, gfc_symbol *s2,
+			      char *errmsg, int err_len)
+{
+  gfc_symbol *r1, *r2;
+
+  r1 = s1->result ? s1->result : s1;
+  r2 = s2->result ? s2->result : s2;
+
+  if (r1->ts.type == BT_UNKNOWN)
+    return SUCCESS;
+
+  /* Check type and rank.  */
+  if (!compare_type_rank (r1, r2))
+    {
+      snprintf (errmsg, err_len, "Type/rank mismatch in function result");
+      return FAILURE;
+    }
+
+  /* Check ALLOCATABLE attribute.  */
+  if (r1->attr.allocatable != r2->attr.allocatable)
+    {
+      snprintf (errmsg, err_len, "ALLOCATABLE attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check POINTER attribute.  */
+  if (r1->attr.pointer != r2->attr.pointer)
+    {
+      snprintf (errmsg, err_len, "POINTER attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check CONTIGUOUS attribute.  */
+  if (r1->attr.contiguous != r2->attr.contiguous)
+    {
+      snprintf (errmsg, err_len, "CONTIGUOUS attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check PROCEDURE POINTER attribute.  */
+  if (r1 != s1 && r1->attr.proc_pointer != r2->attr.proc_pointer)
+    {
+      snprintf (errmsg, err_len, "PROCEDURE POINTER mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check string length.  */
+  if (r1->ts.type == BT_CHARACTER && r1->ts.u.cl && r2->ts.u.cl)
+    {
+      if (r1->ts.deferred != r2->ts.deferred)
+	{
+	  snprintf (errmsg, err_len, "Character length mismatch "
+		    "in function result");
+	  return FAILURE;
+	}
+
+      if (r1->ts.u.cl->length)
+	{
+	  int compval = gfc_dep_compare_expr (r1->ts.u.cl->length,
+					      r2->ts.u.cl->length);
+	  switch (compval)
+	  {
+	    case -1:
+	    case  1:
+	    case -3:
+	      snprintf (errmsg, err_len, "Character length mismatch "
+			"in function result");
+	      return FAILURE;
+
+	    case -2:
+	      /* FIXME: Implement a warning for this case.
+	      snprintf (errmsg, err_len, "Possible character length mismatch "
+			"in function result");*/
+	      break;
+
+	    case 0:
+	      break;
+
+	    default:
+	      gfc_internal_error ("check_result_characteristics (1): Unexpected "
+				  "result %i of gfc_dep_compare_expr", compval);
+	      break;
+	  }
+	}
+    }
+
+  /* Check array shape.  */
+  if (!r1->attr.allocatable && !r1->attr.pointer && r1->as && r2->as)
+    {
+      int i, compval;
+      gfc_expr *shape1, *shape2;
+
+      if (r1->as->type != r2->as->type)
+	{
+	  snprintf (errmsg, err_len, "Shape mismatch in function result");
+	  return FAILURE;
+	}
+
+      if (r1->as->type == AS_EXPLICIT)
+	for (i = 0; i < r1->as->rank + r1->as->corank; i++)
+	  {
+	    shape1 = gfc_subtract (gfc_copy_expr (r1->as->upper[i]),
+				   gfc_copy_expr (r1->as->lower[i]));
+	    shape2 = gfc_subtract (gfc_copy_expr (r2->as->upper[i]),
+				   gfc_copy_expr (r2->as->lower[i]));
+	    compval = gfc_dep_compare_expr (shape1, shape2);
+	    gfc_free_expr (shape1);
+	    gfc_free_expr (shape2);
+	    switch (compval)
+	    {
+	      case -1:
+	      case  1:
+	      case -3:
+		snprintf (errmsg, err_len, "Shape mismatch in dimension %i of "
+			  "function result", i + 1);
+		return FAILURE;
+
+	      case -2:
+		/* FIXME: Implement a warning for this case.
+		gfc_warning ("Possible shape mismatch in return value");*/
+		break;
+
+	      case 0:
+		break;
+
+	      default:
+		gfc_internal_error ("check_result_characteristics (2): "
+				    "Unexpected result %i of "
+				    "gfc_dep_compare_expr", compval);
+		break;
+	    }
+	  }
+    }
+
+  return SUCCESS;
+}
+
+
 /* 'Compare' two formal interfaces associated with a pair of symbols.
    We return nonzero if there exists an actual argument list that
    would be ambiguous between the two interfaces, zero otherwise.
@@ -1180,18 +1330,10 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
     {
       if (s1->attr.function && s2->attr.function)
 	{
-	  /* If both are functions, check result type.  */
-	  if (s1->ts.type == BT_UNKNOWN)
-	    return 1;
-	  if (!compare_type_rank (s1,s2))
-	    {
-	      if (errmsg != NULL)
-		snprintf (errmsg, err_len, "Type/rank mismatch in return value "
-			  "of '%s'", name2);
-	      return 0;
-	    }
-
-	  /* FIXME: Check array bounds and string length of result.  */
+	  /* If both are functions, check result characteristics.  */
+	  if (check_result_characteristics (s1, s2, errmsg, err_len)
+	      == FAILURE)
+	    return 0;
 	}
 
       if (s1->attr.pure && !s2->attr.pure)
@@ -2126,8 +2268,7 @@ get_expr_storage_size (gfc_expr *e)
 
 	    elements *= (end - start)/stride + 1L;
 	  }
-      else if (ref->type == REF_ARRAY && ref->u.ar.type == AR_FULL
-	       && ref->u.ar.as->lower && ref->u.ar.as->upper)
+      else if (ref->type == REF_ARRAY && ref->u.ar.type == AR_FULL)
 	for (i = 0; i < ref->u.ar.as->rank; i++)
 	  {
 	    if (ref->u.ar.as->lower[i] && ref->u.ar.as->upper[i]
@@ -2421,7 +2562,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		&& a->expr->symtree->n.sym->attr.proc_pointer)
 	       || (a->expr->expr_type == EXPR_FUNCTION
 		   && a->expr->symtree->n.sym->result->attr.proc_pointer)
-	       || gfc_is_proc_ptr_comp (a->expr, NULL)))
+	       || gfc_is_proc_ptr_comp (a->expr)))
 	{
 	  if (where)
 	    gfc_error ("Expected a procedure pointer for argument '%s' at %L",
@@ -2431,7 +2572,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
       /* Satisfy 12.4.1.2 by ensuring that a procedure actual argument is
 	 provided for a procedure formal argument.  */
-      if (a->expr->ts.type != BT_PROCEDURE && !gfc_is_proc_ptr_comp (a->expr, NULL)
+      if (a->expr->ts.type != BT_PROCEDURE && !gfc_is_proc_ptr_comp (a->expr)
 	  && a->expr->expr_type == EXPR_VARIABLE
 	  && f->sym->attr.flavor == FL_PROCEDURE)
 	{
@@ -3793,7 +3934,7 @@ gfc_try
 gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
 {
   locus where;
-  const gfc_symbol *proc_target, *old_target;
+  gfc_symbol *proc_target, *old_target;
   unsigned proc_pass_arg, old_pass_arg, argpos;
   gfc_formal_arglist *proc_formal, *old_formal;
   bool check_type;
@@ -3872,45 +4013,13 @@ gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
 		     " FUNCTION", proc->name, &where);
 	  return FAILURE;
 	}
-
-      /* FIXME:  Do more comprehensive checking (including, for instance, the
-	 array-shape).  */
-      gcc_assert (proc_target->result && old_target->result);
-      if (!compare_type_rank (proc_target->result, old_target->result))
-	{
-	  gfc_error ("'%s' at %L and the overridden FUNCTION should have"
-		     " matching result types and ranks", proc->name, &where);
-	  return FAILURE;
-	}
 	
-      /* Check string length.  */
-      if (proc_target->result->ts.type == BT_CHARACTER
-	  && proc_target->result->ts.u.cl && old_target->result->ts.u.cl)
+      if (check_result_characteristics (proc_target, old_target,
+					err, sizeof(err)) == FAILURE)
 	{
-	  int compval = gfc_dep_compare_expr (proc_target->result->ts.u.cl->length,
-					      old_target->result->ts.u.cl->length);
-	  switch (compval)
-	  {
-	    case -1:
-	    case  1:
-	    case -3:
-	      gfc_error ("Character length mismatch between '%s' at '%L' and "
-			 "overridden FUNCTION", proc->name, &where);
-	      return FAILURE;
-
-	    case -2:
-	      gfc_warning ("Possible character length mismatch between '%s' at"
-			   " '%L' and overridden FUNCTION", proc->name, &where);
-	      break;
-
-	    case 0:
-	      break;
-
-	    default:
-	      gfc_internal_error ("gfc_check_typebound_override: Unexpected "
-				  "result %i of gfc_dep_compare_expr", compval);
-	      break;
-	  }
+	  gfc_error ("Result mismatch for the overriding procedure "
+		     "'%s' at %L: %s", proc->name, &where, err);
+	  return FAILURE;
 	}
     }
 

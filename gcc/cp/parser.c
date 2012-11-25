@@ -273,7 +273,7 @@ cp_lexer_dump_tokens (FILE *file, VEC(cp_token,gc) *buffer,
 
   if (start_token > VEC_address (cp_token, buffer))
     {
-      cp_lexer_print_token (file, VEC_index (cp_token, buffer, 0));
+      cp_lexer_print_token (file, &VEC_index (cp_token, buffer, 0));
       fprintf (file, " ... ");
     }
 
@@ -313,8 +313,7 @@ cp_lexer_dump_tokens (FILE *file, VEC(cp_token,gc) *buffer,
   if (i == num && i < VEC_length (cp_token, buffer))
     {
       fprintf (file, " ... ");
-      cp_lexer_print_token (file, VEC_index (cp_token, buffer,
-			    VEC_length (cp_token, buffer) - 1));
+      cp_lexer_print_token (file, &VEC_last (cp_token, buffer));
     }
 
   fprintf (file, "\n");
@@ -591,13 +590,13 @@ cp_lexer_new_main (void)
   lexer = cp_lexer_alloc ();
 
   /* Put the first token in the buffer.  */
-  VEC_quick_push (cp_token, lexer->buffer, &token);
+  VEC_quick_push (cp_token, lexer->buffer, token);
 
   /* Get the remaining tokens from the preprocessor.  */
   while (token.type != CPP_EOF)
     {
       cp_lexer_get_preprocessor_token (lexer, &token);
-      VEC_safe_push (cp_token, gc, lexer->buffer, &token);
+      VEC_safe_push (cp_token, gc, lexer->buffer, token);
     }
 
   lexer->last_token = VEC_address (cp_token, lexer->buffer)
@@ -668,7 +667,7 @@ cp_lexer_token_position (cp_lexer *lexer, bool previous_p)
 }
 
 static inline cp_token *
-cp_lexer_token_at (cp_lexer *lexer ATTRIBUTE_UNUSED, cp_token_position pos)
+cp_lexer_token_at (cp_lexer * /*lexer*/, cp_token_position pos)
 {
   return pos;
 }
@@ -1723,20 +1722,17 @@ cp_parser_context_new (cp_parser_context* next)
 /* Managing the unparsed function queues.  */
 
 #define unparsed_funs_with_default_args \
-  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues)->funs_with_default_args
+  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues).funs_with_default_args
 #define unparsed_funs_with_definitions \
-  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues)->funs_with_definitions
+  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues).funs_with_definitions
 #define unparsed_nsdmis \
-  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues)->nsdmis
+  VEC_last (cp_unparsed_functions_entry, parser->unparsed_queues).nsdmis
 
 static void
 push_unparsed_function_queues (cp_parser *parser)
 {
-  VEC_safe_push (cp_unparsed_functions_entry, gc,
-		 parser->unparsed_queues, NULL);
-  unparsed_funs_with_default_args = NULL;
-  unparsed_funs_with_definitions = make_tree_vector ();
-  unparsed_nsdmis = NULL;
+  cp_unparsed_functions_entry e = {NULL, make_tree_vector (), NULL};
+  VEC_safe_push (cp_unparsed_functions_entry, gc, parser->unparsed_queues, e);
 }
 
 static void
@@ -5753,7 +5749,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		     || TREE_CODE (postfix_expression) == MEMBER_REF
 		     || TREE_CODE (postfix_expression) == DOTSTAR_EXPR)
 	      postfix_expression = (build_offset_ref_call_from_tree
-				    (postfix_expression, &args));
+				    (postfix_expression, &args,
+				     tf_warning_or_error));
 	    else if (idk == CP_ID_KIND_QUALIFIED)
 	      /* A call to a static class member, or a namespace-scope
 		 function.  */
@@ -8029,7 +8026,7 @@ start_lambda_scope (tree decl)
     decl = current_function_decl;
   ti.t = lambda_scope;
   ti.i = lambda_count;
-  VEC_safe_push (tree_int, gc, lambda_scope_stack, &ti);
+  VEC_safe_push (tree_int, gc, lambda_scope_stack, ti);
   if (lambda_scope != decl)
     {
       /* Don't reset the count if we're still in the same function.  */
@@ -8048,7 +8045,7 @@ record_lambda_scope (tree lambda)
 static void
 finish_lambda_scope (void)
 {
-  tree_int *p = VEC_last (tree_int, lambda_scope_stack);
+  tree_int *p = &VEC_last (tree_int, lambda_scope_stack);
   if (lambda_scope != p->t)
     {
       lambda_scope = p->t;
@@ -12483,9 +12480,11 @@ cp_parser_template_id (cp_parser *parser,
 	  return error_mark_node;
 	}
       /* Otherwise, emit an error about the invalid digraph, but continue
-	 parsing because we got our argument list.  */
-      if (permerror (next_token->location,
-		     "%<<::%> cannot begin a template-argument list"))
+	 parsing because we got our argument list.  In C++11 do not emit
+	 any error, per 2.5/3.  */
+      if (cxx_dialect < cxx0x
+	  && permerror (next_token->location,
+			"%<<::%> cannot begin a template-argument list"))
 	{
 	  static bool hint = false;
 	  inform (next_token->location,
@@ -12493,8 +12492,9 @@ cp_parser_template_id (cp_parser *parser,
 		  " Insert whitespace between %<<%> and %<::%>");
 	  if (!hint && !flag_permissive)
 	    {
-	      inform (next_token->location, "(if you use %<-fpermissive%>"
-		      " G++ will accept your code)");
+	      inform (next_token->location, "(if you use %<-fpermissive%> "
+		      "or %<-std=c++11%>, or %<-std=gnu++11%> G++ will "
+		      "accept your code)");
 	      hint = true;
 	    }
 	}
@@ -20671,54 +20671,24 @@ cp_parser_check_declarator_template_parameters (cp_parser* parser,
 						cp_declarator *declarator,
 						location_t declarator_location)
 {
-  unsigned num_templates;
-
-  /* We haven't seen any classes that involve template parameters yet.  */
-  num_templates = 0;
-
   switch (declarator->kind)
     {
     case cdk_id:
-      if (declarator->u.id.qualifying_scope)
-	{
-	  tree scope;
+      {
+	unsigned num_templates = 0;
+	tree scope = declarator->u.id.qualifying_scope;
 
-	  scope = declarator->u.id.qualifying_scope;
+	if (scope)
+	  num_templates = num_template_headers_for_class (scope);
+	else if (TREE_CODE (declarator->u.id.unqualified_name)
+		 == TEMPLATE_ID_EXPR)
+	  /* If the DECLARATOR has the form `X<y>' then it uses one
+	     additional level of template parameters.  */
+	  ++num_templates;
 
-	  while (scope && CLASS_TYPE_P (scope))
-	    {
-	      /* You're supposed to have one `template <...>'
-		 for every template class, but you don't need one
-		 for a full specialization.  For example:
-
-		 template <class T> struct S{};
-		 template <> struct S<int> { void f(); };
-		 void S<int>::f () {}
-
-		 is correct; there shouldn't be a `template <>' for
-		 the definition of `S<int>::f'.  */
-	      if (!CLASSTYPE_TEMPLATE_INFO (scope))
-		/* If SCOPE does not have template information of any
-		   kind, then it is not a template, nor is it nested
-		   within a template.  */
-		break;
-	      if (explicit_class_specialization_p (scope))
-		break;
-	      if (PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope)))
-		++num_templates;
-
-	      scope = TYPE_CONTEXT (scope);
-	    }
-	}
-      else if (TREE_CODE (declarator->u.id.unqualified_name)
-	       == TEMPLATE_ID_EXPR)
-	/* If the DECLARATOR has the form `X<y>' then it uses one
-	   additional level of template parameters.  */
-	++num_templates;
-
-      return cp_parser_check_template_parameters 
-	(parser, num_templates, declarator_location, declarator);
-
+	return cp_parser_check_template_parameters 
+	  (parser, num_templates, declarator_location, declarator);
+      }
 
     case cdk_function:
     case cdk_array:
@@ -21241,7 +21211,9 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 
 	  decl = finish_member_template_decl (decl);
 	}
-      else if (friend_p && decl && TREE_CODE (decl) == TYPE_DECL)
+      else if (friend_p && decl
+	       && (TREE_CODE (decl) == TYPE_DECL
+		   || DECL_TYPE_TEMPLATE_P (decl)))
 	make_friend_class (current_class_type, TREE_TYPE (decl),
 			   /*complain=*/true);
     }
@@ -21309,8 +21281,8 @@ cp_parser_perform_template_parameter_access_checks (VEC (deferred_access_check,g
 }
 
 /* Parse a `decl-specifier-seq [opt] init-declarator [opt] ;' or
-   `function-definition' sequence.  MEMBER_P is true, this declaration
-   appears in a class scope.
+   `function-definition' sequence that follows a template header.
+   If MEMBER_P is true, this declaration appears in a class scope.
 
    Returns the DECL for the declared entity.  If FRIEND_P is non-NULL,
    *FRIEND_P is set to TRUE iff the declaration is a friend.  */
@@ -21430,6 +21402,9 @@ cp_parser_single_declaration (cp_parser* parser,
 		  "explicit template specialization cannot have a storage class");
         decl = error_mark_node;
       }
+
+    if (decl && TREE_CODE (decl) == VAR_DECL)
+      check_template_variable (decl);
     }
 
   /* Look for a trailing `;' after the declaration.  */
@@ -21784,11 +21759,9 @@ cp_parser_save_default_args (cp_parser* parser, tree decl)
        probe = TREE_CHAIN (probe))
     if (TREE_PURPOSE (probe))
       {
-	cp_default_arg_entry *entry
-	  = VEC_safe_push (cp_default_arg_entry, gc,
-			   unparsed_funs_with_default_args, NULL);
-	entry->class_type = current_class_type;
-	entry->decl = decl;
+	cp_default_arg_entry entry = {current_class_type, decl};
+	VEC_safe_push (cp_default_arg_entry, gc,
+		       unparsed_funs_with_default_args, entry);
 	break;
       }
 }
@@ -25353,7 +25326,7 @@ cp_parser_omp_clause_if (cp_parser *parser, tree list, location_t location)
    mergeable */
 
 static tree
-cp_parser_omp_clause_mergeable (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_mergeable (cp_parser * /*parser*/,
 				tree list, location_t location)
 {
   tree c;
@@ -25370,7 +25343,7 @@ cp_parser_omp_clause_mergeable (cp_parser *parser ATTRIBUTE_UNUSED,
    nowait */
 
 static tree
-cp_parser_omp_clause_nowait (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_nowait (cp_parser * /*parser*/,
 			     tree list, location_t location)
 {
   tree c;
@@ -25416,7 +25389,7 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list,
    ordered */
 
 static tree
-cp_parser_omp_clause_ordered (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_ordered (cp_parser * /*parser*/,
 			      tree list, location_t location)
 {
   tree c;
@@ -25609,7 +25582,7 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
    untied */
 
 static tree
-cp_parser_omp_clause_untied (cp_parser *parser ATTRIBUTE_UNUSED,
+cp_parser_omp_clause_untied (cp_parser * /*parser*/,
 			     tree list, location_t location)
 {
   tree c;
@@ -26604,6 +26577,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	    incr = cp_parser_omp_for_incr (parser, real_decl);
 	  else
 	    incr = cp_parser_expression (parser, false, NULL);
+	  if (CAN_HAVE_LOCATION_P (incr) && !EXPR_HAS_LOCATION (incr))
+	    SET_EXPR_LOCATION (incr, input_location);
 	}
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))

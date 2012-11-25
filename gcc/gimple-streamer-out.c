@@ -74,7 +74,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   streamer_write_bitpack (&bp);
 
   /* Emit location information for the statement.  */
-  lto_output_location (ob, gimple_location (stmt));
+  lto_output_location (ob, LOCATION_LOCUS (gimple_location (stmt)));
 
   /* Emit the lexical block holding STMT.  */
   stream_write_tree (ob, gimple_block (stmt), true);
@@ -176,7 +176,6 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 
   streamer_write_uhwi (ob, bb->index);
   streamer_write_hwi (ob, bb->count);
-  streamer_write_hwi (ob, bb->loop_depth);
   streamer_write_hwi (ob, bb->frequency);
   streamer_write_hwi (ob, bb->flags);
 
@@ -211,7 +210,7 @@ output_bb (struct output_block *ob, basic_block bb, struct function *fn)
 	  /* Only emit PHIs for gimple registers.  PHI nodes for .MEM
 	     will be filled in on reading when the SSA form is
 	     updated.  */
-	  if (is_gimple_reg (gimple_phi_result (phi)))
+	  if (!virtual_operand_p (gimple_phi_result (phi)))
 	    output_phi (ob, phi);
 	}
 

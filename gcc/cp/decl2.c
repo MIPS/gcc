@@ -1104,6 +1104,11 @@ is_late_template_attribute (tree attr, tree decl)
   if (is_attribute_p ("weak", name))
     return true;
 
+  /* Attribute unused is applied directly, as it appertains to
+     decls. */
+  if (is_attribute_p ("unused", name))
+    return false;
+
   /* If any of the arguments are dependent expressions, we can't evaluate
      the attribute until instantiation time.  */
   for (arg = args; arg; arg = TREE_CHAIN (arg))
@@ -3037,8 +3042,8 @@ get_priority_info (int priority)
    it's DECL_CONTECT() properly set.  */
 static tree 
 fix_temporary_vars_context_r (tree *node,
-			      int  *unused ATTRIBUTE_UNUSED,
-			      void *unused1 ATTRIBUTE_UNUSED)
+			      int  * /*unused*/,
+			      void * /*unused1*/)
 {
   gcc_assert (current_function_decl);
 
@@ -3656,7 +3661,7 @@ collect_all_refs (const char *source_file)
 /* Clear DECL_EXTERNAL for NODE.  */
 
 static bool
-clear_decl_external (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+clear_decl_external (struct cgraph_node *node, void * /*data*/)
 {
   DECL_EXTERNAL (node->symbol.decl) = 0;
   return false;
@@ -4082,7 +4087,8 @@ cp_write_global_declarations (void)
    ARGS.  */
 
 tree
-build_offset_ref_call_from_tree (tree fn, VEC(tree,gc) **args)
+build_offset_ref_call_from_tree (tree fn, VEC(tree,gc) **args,
+				 tsubst_flags_t complain)
 {
   tree orig_fn;
   VEC(tree,gc) *orig_args = NULL;
@@ -4110,7 +4116,7 @@ build_offset_ref_call_from_tree (tree fn, VEC(tree,gc) **args)
       if (TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE)
 	{
 	  if (TREE_CODE (fn) == DOTSTAR_EXPR)
-	    object = cp_build_addr_expr (object, tf_warning_or_error);
+	    object = cp_build_addr_expr (object, complain);
 	  VEC_safe_insert (tree, gc, *args, 0, object);
 	}
       /* Now that the arguments are done, transform FN.  */
@@ -4125,17 +4131,17 @@ build_offset_ref_call_from_tree (tree fn, VEC(tree,gc) **args)
 	void B::g() { (this->*p)(); }  */
   if (TREE_CODE (fn) == OFFSET_REF)
     {
-      tree object_addr = cp_build_addr_expr (object, tf_warning_or_error);
+      tree object_addr = cp_build_addr_expr (object, complain);
       fn = TREE_OPERAND (fn, 1);
       fn = get_member_function_from_ptrfunc (&object_addr, fn,
-					     tf_warning_or_error);
+					     complain);
       VEC_safe_insert (tree, gc, *args, 0, object_addr);
     }
 
   if (CLASS_TYPE_P (TREE_TYPE (fn)))
-    expr = build_op_call (fn, args, tf_warning_or_error);
+    expr = build_op_call (fn, args, complain);
   else
-    expr = cp_build_function_call_vec (fn, args, tf_warning_or_error);
+    expr = cp_build_function_call_vec (fn, args, complain);
   if (processing_template_decl && expr != error_mark_node)
     expr = build_min_non_dep_call_vec (expr, orig_fn, orig_args);
 
@@ -4238,7 +4244,10 @@ mark_used (tree decl)
       || DECL_THUNK_P (decl))
     {
       if (!processing_template_decl && type_uses_auto (TREE_TYPE (decl)))
-	error ("use of %qD before deduction of %<auto%>", decl);
+	{
+	  error ("use of %qD before deduction of %<auto%>", decl);
+	  return false;
+	}
       return true;
     }
 
@@ -4284,7 +4293,10 @@ mark_used (tree decl)
     }
 
   if (type_uses_auto (TREE_TYPE (decl)))
-    error ("use of %qD before deduction of %<auto%>", decl);
+    {
+      error ("use of %qD before deduction of %<auto%>", decl);
+      return false;
+    }
 
   /* If we don't need a value, then we don't need to synthesize DECL.  */
   if (cp_unevaluated_operand != 0)

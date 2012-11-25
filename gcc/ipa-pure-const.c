@@ -192,6 +192,7 @@ warn_function_noreturn (tree decl)
       = suggest_attribute (OPT_Wsuggest_attribute_noreturn, decl,
 			   true, warned_about, "noreturn");
 }
+
 /* Init the function state.  */
 
 static void
@@ -387,7 +388,7 @@ state_from_flags (enum pure_const_state_e *state, bool *looping,
   else
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, " neihter\n");
+	fprintf (dump_file, " neither\n");
       *state = IPA_NEITHER;
       *looping = true;
     }
@@ -724,7 +725,6 @@ static funct_state
 analyze_function (struct cgraph_node *fn, bool ipa)
 {
   tree decl = fn->symbol.decl;
-  tree old_decl = current_function_decl;
   funct_state l;
   basic_block this_block;
 
@@ -752,7 +752,6 @@ analyze_function (struct cgraph_node *fn, bool ipa)
     }
 
   push_cfun (DECL_STRUCT_FUNCTION (decl));
-  current_function_decl = decl;
 
   FOR_EACH_BB (this_block)
     {
@@ -802,7 +801,7 @@ end:
 		    if (dump_file)
 		      fprintf (dump_file, "    can not prove finiteness of loop %i\n", loop->num);
 		    l->looping =true;
-		    break;
+		    FOR_EACH_LOOP_BREAK (li);
 		  }
 	      scev_finalize ();
 	    }
@@ -820,7 +819,6 @@ end:
     l->can_throw = false;
 
   pop_cfun ();
-  current_function_decl = old_decl;
   if (dump_file)
     {
       if (l->looping)
@@ -935,18 +933,21 @@ generate_summary (void)
 /* Serialize the ipa info for lto.  */
 
 static void
-pure_const_write_summary (cgraph_node_set set,
-			  varpool_node_set vset ATTRIBUTE_UNUSED)
+pure_const_write_summary (void)
 {
   struct cgraph_node *node;
   struct lto_simple_output_block *ob
     = lto_create_simple_output_block (LTO_section_ipa_pure_const);
   unsigned int count = 0;
-  cgraph_node_set_iterator csi;
+  lto_symtab_encoder_iterator lsei;
+  lto_symtab_encoder_t encoder;
 
-  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+  encoder = lto_get_out_decl_state ()->symtab_node_encoder;
+
+  for (lsei = lsei_start_function_in_partition (encoder); !lsei_end_p (lsei);
+       lsei_next_function_in_partition (&lsei))
     {
-      node = csi_node (csi);
+      node = lsei_cgraph_node (lsei);
       if (node->analyzed && has_function_state (node))
 	count++;
     }
@@ -954,20 +955,21 @@ pure_const_write_summary (cgraph_node_set set,
   streamer_write_uhwi_stream (ob->main_stream, count);
 
   /* Process all of the functions.  */
-  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+  for (lsei = lsei_start_function_in_partition (encoder); !lsei_end_p (lsei);
+       lsei_next_function_in_partition (&lsei))
     {
-      node = csi_node (csi);
+      node = lsei_cgraph_node (lsei);
       if (node->analyzed && has_function_state (node))
 	{
 	  struct bitpack_d bp;
 	  funct_state fs;
 	  int node_ref;
-	  lto_cgraph_encoder_t encoder;
+	  lto_symtab_encoder_t encoder;
 
 	  fs = get_function_state (node);
 
-	  encoder = ob->decl_state->cgraph_node_encoder;
-	  node_ref = lto_cgraph_encoder_encode (encoder, node);
+	  encoder = ob->decl_state->symtab_node_encoder;
+	  node_ref = lto_symtab_encoder_encode (encoder, (symtab_node)node);
 	  streamer_write_uhwi_stream (ob->main_stream, node_ref);
 
 	  /* Note that flags will need to be read in the opposite
@@ -1015,12 +1017,12 @@ pure_const_read_summary (void)
 	      struct cgraph_node *node;
 	      struct bitpack_d bp;
 	      funct_state fs;
-	      lto_cgraph_encoder_t encoder;
+	      lto_symtab_encoder_t encoder;
 
 	      fs = XCNEW (struct funct_state_d);
 	      index = streamer_read_uhwi (ib);
-	      encoder = file_data->cgraph_node_encoder;
-	      node = lto_cgraph_encoder_deref (encoder, index);
+	      encoder = file_data->symtab_node_encoder;
+	      node = cgraph (lto_symtab_encoder_deref (encoder, index));
 	      set_function_state (node, fs);
 
 	      /* Note that the flags must be read in the opposite
@@ -1569,7 +1571,7 @@ local_pure_const (void)
       warn_function_noreturn (cfun->decl);
       if (dump_file)
         fprintf (dump_file, "Function found to be noreturn: %s\n",
-	         lang_hooks.decl_printable_name (current_function_decl, 2));
+	         current_function_name ());
 
       /* Update declaration and reduce profile to executed once.  */
       TREE_THIS_VOLATILE (current_function_decl) = 1;
@@ -1593,8 +1595,7 @@ local_pure_const (void)
 	  if (dump_file)
 	    fprintf (dump_file, "Function found to be %sconst: %s\n",
 		     l->looping ? "looping " : "",
-		     lang_hooks.decl_printable_name (current_function_decl,
-						     2));
+		     current_function_name ());
 	}
       else if (DECL_LOOPING_CONST_OR_PURE_P (current_function_decl)
 	       && !l->looping)
@@ -1606,8 +1607,7 @@ local_pure_const (void)
 	    }
 	  if (dump_file)
 	    fprintf (dump_file, "Function found to be non-looping: %s\n",
-		     lang_hooks.decl_printable_name (current_function_decl,
-						     2));
+		     current_function_name ());
 	}
       break;
 
@@ -1623,8 +1623,7 @@ local_pure_const (void)
 	  if (dump_file)
 	    fprintf (dump_file, "Function found to be %spure: %s\n",
 		     l->looping ? "looping " : "",
-		     lang_hooks.decl_printable_name (current_function_decl,
-						     2));
+		     current_function_name ());
 	}
       else if (DECL_LOOPING_CONST_OR_PURE_P (current_function_decl)
 	       && !l->looping)
@@ -1636,8 +1635,7 @@ local_pure_const (void)
 	    }
 	  if (dump_file)
 	    fprintf (dump_file, "Function found to be non-looping: %s\n",
-		     lang_hooks.decl_printable_name (current_function_decl,
-						     2));
+		     current_function_name ());
 	}
       break;
 
@@ -1650,8 +1648,7 @@ local_pure_const (void)
       changed = true;
       if (dump_file)
 	fprintf (dump_file, "Function found to be nothrow: %s\n",
-		 lang_hooks.decl_printable_name (current_function_decl,
-						 2));
+		 current_function_name ());
     }
   free (l);
   if (changed)

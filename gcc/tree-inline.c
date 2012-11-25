@@ -176,7 +176,7 @@ static int processing_debug_stmt = 0;
 static tree
 remap_ssa_name (tree name, copy_body_data *id)
 {
-  tree new_tree;
+  tree new_tree, var;
   tree *n;
 
   gcc_assert (TREE_CODE (name) == SSA_NAME);
@@ -187,8 +187,8 @@ remap_ssa_name (tree name, copy_body_data *id)
 
   if (processing_debug_stmt)
     {
-      if (TREE_CODE (SSA_NAME_VAR (name)) == PARM_DECL
-	  && SSA_NAME_IS_DEFAULT_DEF (name)
+      if (SSA_NAME_IS_DEFAULT_DEF (name)
+	  && TREE_CODE (SSA_NAME_VAR (name)) == PARM_DECL
 	  && id->entry_bb == NULL
 	  && single_succ_p (ENTRY_BLOCK_PTR))
 	{
@@ -218,9 +218,38 @@ remap_ssa_name (tree name, copy_body_data *id)
       return name;
     }
 
+  /* Remap anonymous SSA names or SSA names of anonymous decls.  */
+  var = SSA_NAME_VAR (name);
+  if (!var
+      || (!SSA_NAME_IS_DEFAULT_DEF (name)
+	  && TREE_CODE (var) == VAR_DECL
+	  && !VAR_DECL_IS_VIRTUAL_OPERAND (var)
+	  && DECL_ARTIFICIAL (var)
+	  && DECL_IGNORED_P (var)
+	  && !DECL_NAME (var)))
+    {
+      struct ptr_info_def *pi;
+      new_tree = make_ssa_name (remap_type (TREE_TYPE (name), id), NULL);
+      if (!var && SSA_NAME_IDENTIFIER (name))
+	SET_SSA_NAME_VAR_OR_IDENTIFIER (new_tree, SSA_NAME_IDENTIFIER (name));
+      insert_decl_map (id, name, new_tree);
+      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_tree)
+	= SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name);
+      /* At least IPA points-to info can be directly transferred.  */
+      if (id->src_cfun->gimple_df
+	  && id->src_cfun->gimple_df->ipa_pta
+	  && (pi = SSA_NAME_PTR_INFO (name))
+	  && !pi->pt.anything)
+	{
+	  struct ptr_info_def *new_pi = get_ptr_info (new_tree);
+	  new_pi->pt = pi->pt;
+	}
+      return new_tree;
+    }
+
   /* Do not set DEF_STMT yet as statement is not copied yet. We do that
      in copy_bb.  */
-  new_tree = remap_decl (SSA_NAME_VAR (name), id);
+  new_tree = remap_decl (var, id);
 
   /* We might've substituted constant or another SSA_NAME for
      the variable.
@@ -229,7 +258,8 @@ remap_ssa_name (tree name, copy_body_data *id)
      inlining:  this saves us from need to introduce PHI node in a case
      return value is just partly initialized.  */
   if ((TREE_CODE (new_tree) == VAR_DECL || TREE_CODE (new_tree) == PARM_DECL)
-      && (TREE_CODE (SSA_NAME_VAR (name)) != RESULT_DECL
+      && (!SSA_NAME_VAR (name)
+	  || TREE_CODE (SSA_NAME_VAR (name)) != RESULT_DECL
 	  || !id->transform_return_to_modify))
     {
       struct ptr_info_def *pi;
@@ -259,7 +289,8 @@ remap_ssa_name (tree name, copy_body_data *id)
 	     regions of the CFG, but this is expensive to test.  */
 	  if (id->entry_bb
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name)
-	      && TREE_CODE (SSA_NAME_VAR (name)) != PARM_DECL
+	      && (!SSA_NAME_VAR (name)
+		  || TREE_CODE (SSA_NAME_VAR (name)) != PARM_DECL)
 	      && (id->entry_bb != EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest
 		  || EDGE_COUNT (id->entry_bb->preds) != 1))
 	    {
@@ -799,10 +830,6 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
       /* Otherwise, just copy the node.  Note that copy_tree_r already
 	 knows not to copy VAR_DECLs, etc., so this is safe.  */
 
-      /* We should never have TREE_BLOCK set on non-statements.  */
-      if (EXPR_P (*tp))
-	gcc_assert (!TREE_BLOCK (*tp));
-
       if (TREE_CODE (*tp) == MEM_REF)
 	{
 	  tree ptr = TREE_OPERAND (*tp, 0);
@@ -817,6 +844,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 			     ptr, TREE_OPERAND (*tp, 1));
 	  TREE_THIS_NOTRAP (*tp) = TREE_THIS_NOTRAP (old);
 	  TREE_THIS_VOLATILE (*tp) = TREE_THIS_VOLATILE (old);
+	  TREE_SIDE_EFFECTS (*tp) = TREE_SIDE_EFFECTS (old);
 	  TREE_NO_WARNING (*tp) = TREE_NO_WARNING (old);
 	  *walk_subtrees = 0;
 	  return NULL;
@@ -840,13 +868,9 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 	{
 	  /* Variable substitution need not be simple.  In particular,
 	     the MEM_REF substitution above.  Make sure that
-	     TREE_CONSTANT and friends are up-to-date.  But make sure
-	     to not improperly set TREE_BLOCK on some sub-expressions.  */
+	     TREE_CONSTANT and friends are up-to-date.  */
 	  int invariant = is_gimple_min_invariant (*tp);
-	  tree block = id->block;
-	  id->block = NULL_TREE;
 	  walk_tree (&TREE_OPERAND (*tp, 0), remap_gimple_op_r, data, NULL);
-	  id->block = block;
 	  recompute_tree_invariant_for_addr_expr (*tp);
 
 	  /* If this used to be invariant, but is not any longer,
@@ -856,6 +880,22 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
 
 	  *walk_subtrees = 0;
 	}
+    }
+
+  /* Update the TREE_BLOCK for the cloned expr.  */
+  if (EXPR_P (*tp))
+    {
+      tree new_block = id->remapping_type_depth == 0 ? id->block : NULL;
+      tree old_block = TREE_BLOCK (*tp);
+      if (old_block)
+	{
+	  tree *n;
+	  n = (tree *) pointer_map_contains (id->decl_map,
+					     TREE_BLOCK (*tp));
+	  if (n)
+	    new_block = *n;
+	}
+      TREE_SET_BLOCK (*tp, new_block);
     }
 
   /* Keep iterating.  */
@@ -1075,11 +1115,10 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	      tree *n;
 	      n = (tree *) pointer_map_contains (id->decl_map,
 						 TREE_BLOCK (*tp));
-	      gcc_assert (n || id->remapping_type_depth != 0);
 	      if (n)
 		new_block = *n;
 	    }
-	  TREE_BLOCK (*tp) = new_block;
+	  TREE_SET_BLOCK (*tp, new_block);
 	}
 
       if (TREE_CODE (*tp) != OMP_CLAUSE)
@@ -1184,6 +1223,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       if (retval
 	  && (TREE_CODE (retval) != RESULT_DECL
 	      && (TREE_CODE (retval) != SSA_NAME
+		  || ! SSA_NAME_VAR (retval)
 		  || TREE_CODE (SSA_NAME_VAR (retval)) != RESULT_DECL)))
         {
 	  copy = gimple_build_assign (id->retvar, retval);
@@ -1798,7 +1838,7 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
 	    gcc_assert ((e->flags & EDGE_EH)
 			|| SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)));
 
-	    if (!is_gimple_reg (PHI_RESULT (phi)))
+	    if (virtual_operand_p (PHI_RESULT (phi)))
 	      {
 		mark_virtual_operands_for_renaming (cfun);
 		continue;
@@ -1938,11 +1978,10 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
       phi = gsi_stmt (si);
       res = PHI_RESULT (phi);
       new_res = res;
-      if (is_gimple_reg (res))
+      if (!virtual_operand_p (res))
 	{
 	  walk_tree (&new_res, copy_tree_body_r, id, NULL);
-	  SSA_NAME_DEF_STMT (new_res)
-	    = new_phi = create_phi_node (new_res, new_bb);
+	  new_phi = create_phi_node (new_res, new_bb);
 	  FOR_EACH_EDGE (new_edge, ei, new_bb->preds)
 	    {
 	      edge old_edge = find_edge ((basic_block) new_edge->src->aux, bb);
@@ -1950,6 +1989,7 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 	      tree new_arg;
 	      tree block = id->block;
 	      edge_iterator ei2;
+	      location_t locus;
 
 	      /* When doing partial cloning, we allow PHIs on the entry block
 		 as long as all the arguments are the same.  Find any input
@@ -1961,9 +2001,7 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 
 	      arg = PHI_ARG_DEF_FROM_EDGE (phi, old_edge);
 	      new_arg = arg;
-	      id->block = NULL_TREE;
 	      walk_tree (&new_arg, copy_tree_body_r, id, NULL);
-	      id->block = block;
 	      gcc_assert (new_arg);
 	      /* With return slot optimization we can end up with
 	         non-gimple (foo *)&this->m, fix that here.  */
@@ -1976,8 +2014,20 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 		  gsi_insert_seq_on_edge (new_edge, stmts);
 		  inserted = true;
 		}
-	      add_phi_arg (new_phi, new_arg, new_edge,
-			   gimple_phi_arg_location_from_edge (phi, old_edge));
+	      locus = gimple_phi_arg_location_from_edge (phi, old_edge);
+	      block = id->block;
+	      if (LOCATION_BLOCK (locus))
+		{
+		  tree *n;
+		  n = (tree *) pointer_map_contains (id->decl_map,
+			LOCATION_BLOCK (locus));
+		  gcc_assert (n);
+		  block = *n;
+		}
+
+	      add_phi_arg (new_phi, new_arg, new_edge, block ?
+		  COMBINE_LOCATION_DATA (line_table, locus, block) :
+		  LOCATION_LOCUS (locus));
 	    }
 	}
     }
@@ -1998,7 +2048,8 @@ remap_decl_1 (tree decl, void *data)
 }
 
 /* Build struct function and associated datastructures for the new clone
-   NEW_FNDECL to be build.  CALLEE_FNDECL is the original */
+   NEW_FNDECL to be build.  CALLEE_FNDECL is the original.  Function changes
+   the cfun to the function of new_fndecl (and current_function_decl too).  */
 
 static void
 initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
@@ -2063,7 +2114,6 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
       cfun->gimple_df->in_ssa_p = true;
       init_ssa_operands (cfun);
     }
-  pop_cfun ();
 }
 
 /* Helper function for copy_cfg_body.  Move debug stmts from the end
@@ -2475,14 +2525,8 @@ insert_init_stmt (copy_body_data *id, basic_block bb, gimple init_stmt)
 
       if (!is_gimple_debug (init_stmt) && MAY_HAVE_DEBUG_STMTS)
 	{
-	  tree var, def = gimple_assign_lhs (init_stmt);
-
-	  if (TREE_CODE (def) == SSA_NAME)
-	    var = SSA_NAME_VAR (def);
-	  else
-	    var = def;
-
-	  insert_init_debug_bind (id, bb, var, def, init_stmt);
+	  tree def = gimple_assign_lhs (init_stmt);
+	  insert_init_debug_bind (id, bb, def, def, init_stmt);
 	}
     }
 }
@@ -3848,7 +3892,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->block = make_node (BLOCK);
   BLOCK_ABSTRACT_ORIGIN (id->block) = fn;
   BLOCK_SOURCE_LOCATION (id->block) = input_location;
-  prepend_lexical_block (gimple_block (stmt), id->block);
+  if (gimple_block (stmt))
+    prepend_lexical_block (gimple_block (stmt), id->block);
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -5002,8 +5047,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
   struct ipa_replace_map *replace_info;
   basic_block old_entry_block, bb;
   VEC (gimple, heap) *init_stmts = VEC_alloc (gimple, heap, 10);
-
-  tree old_current_function_decl = current_function_decl;
   tree vars = NULL_TREE;
 
   gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL
@@ -5064,6 +5107,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 		       VEC_index (ipa_opt_pass,
 		       		  old_transforms_to_apply,
 				  i));
+      VEC_free (ipa_opt_pass, heap, old_transforms_to_apply);
     }
 
   id.copy_decl = copy_decl_no_change;
@@ -5073,14 +5117,12 @@ tree_function_versioning (tree old_decl, tree new_decl,
   id.transform_return_to_modify = false;
   id.transform_lang_insert_block = NULL;
 
-  current_function_decl = new_decl;
   old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION
     (DECL_STRUCT_FUNCTION (old_decl));
   initialize_cfun (new_decl, old_decl,
 		   old_entry_block->count);
   DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
     = id.src_cfun->gimple_df->ipa_pta;
-  push_cfun (DECL_STRUCT_FUNCTION (new_decl));
 
   /* Copy the function's static chain.  */
   p = DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl;
@@ -5234,9 +5276,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
   gcc_assert (!id.debug_stmts);
   VEC_free (gimple, heap, init_stmts);
   pop_cfun ();
-  current_function_decl = old_current_function_decl;
-  gcc_assert (!current_function_decl
-	      || DECL_STRUCT_FUNCTION (current_function_decl) == cfun);
   return;
 }
 

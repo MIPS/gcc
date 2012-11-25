@@ -1243,7 +1243,7 @@ static void
 finalize_task_copyfn (gimple task_stmt)
 {
   struct function *child_cfun;
-  tree child_fn, old_fn;
+  tree child_fn;
   gimple_seq seq = NULL, new_seq;
   gimple bind;
 
@@ -1257,9 +1257,7 @@ finalize_task_copyfn (gimple task_stmt)
   DECL_STRUCT_FUNCTION (child_fn)->curr_properties
     = cfun->curr_properties & ~PROP_loops;
 
-  old_fn = current_function_decl;
   push_cfun (child_cfun);
-  current_function_decl = child_fn;
   bind = gimplify_body (child_fn, false);
   gimple_seq_add_stmt (&seq, bind);
   new_seq = maybe_catch_exception (seq);
@@ -1271,7 +1269,6 @@ finalize_task_copyfn (gimple task_stmt)
     }
   gimple_set_body (child_fn, seq);
   pop_cfun ();
-  current_function_decl = old_fn;
 
   cgraph_add_new_function (child_fn, false);
 }
@@ -3059,7 +3056,6 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	  if (gimple_in_ssa_p (cfun))
 	    {
 	      gimple phi = create_phi_node (tmp_join, bb);
-	      SSA_NAME_DEF_STMT (tmp_join) = phi;
 	      add_phi_arg (phi, tmp_then, e_then, UNKNOWN_LOCATION);
 	      add_phi_arg (phi, tmp_else, e_else, UNKNOWN_LOCATION);
 	    }
@@ -3389,7 +3385,6 @@ expand_omp_taskreg (struct omp_region *region)
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
   tree child_fn, block, t;
-  tree save_current;
   gimple_stmt_iterator gsi;
   gimple entry_stmt, stmt;
   edge e;
@@ -3589,8 +3584,6 @@ expand_omp_taskreg (struct omp_region *region)
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
-      save_current = current_function_decl;
-      current_function_decl = child_fn;
       if (optimize)
 	optimize_omp_library_calls (entry_stmt);
       rebuild_cgraph_edges ();
@@ -3611,7 +3604,6 @@ expand_omp_taskreg (struct omp_region *region)
 	}
       if (gimple_in_ssa_p (cfun))
 	update_ssa (TODO_update_ssa);
-      current_function_decl = save_current;
       pop_cfun ();
     }
 
@@ -4592,7 +4584,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 	  t = gimple_phi_result (phi);
 	  gcc_assert (t == redirect_edge_var_map_result (vm));
 	  nphi = create_phi_node (t, iter_part_bb);
-	  SSA_NAME_DEF_STMT (t) = nphi;
 
 	  t = PHI_ARG_DEF_FROM_EDGE (phi, se);
 	  locus = gimple_phi_arg_location_from_edge (phi, se);
@@ -4617,7 +4608,6 @@ expand_omp_for_static_chunk (struct omp_region *region, struct omp_for_data *fd)
 
       /* Make phi node for trip.  */
       phi = create_phi_node (trip_main, iter_part_bb);
-      SSA_NAME_DEF_STMT (trip_main) = phi;
       add_phi_arg (phi, trip_back, single_succ_edge (trip_update_bb),
 		   UNKNOWN_LOCATION);
       add_phi_arg (phi, trip_init, single_succ_edge (entry_bb),
@@ -4876,7 +4866,7 @@ expand_omp_sections (struct omp_region *region)
   u = build_case_label (NULL, NULL, t);
   make_edge (l0_bb, default_bb, 0);
 
-  stmt = gimple_build_switch_vec (vmain, u, label_vec);
+  stmt = gimple_build_switch (vmain, u, label_vec);
   gsi_insert_after (&switch_si, stmt, GSI_SAME_STMT);
   gsi_remove (&switch_si, true);
   VEC_free (tree, heap, label_vec);
@@ -5319,7 +5309,6 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
     {
       gcc_assert (gimple_seq_empty_p (phi_nodes (loop_header)));
       phi = create_phi_node (loadedi, loop_header);
-      SSA_NAME_DEF_STMT (loadedi) = phi;
       SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, single_succ_edge (load_bb)),
 	       initial);
     }
@@ -6460,7 +6449,7 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
 
   /* Populate the function.  */
   push_gimplify_context (&gctx);
-  current_function_decl = child_fn;
+  push_cfun (child_cfun);
 
   bind = build3 (BIND_EXPR, void_type_node, NULL, NULL, NULL);
   TREE_SIDE_EFFECTS (bind) = 1;
@@ -6506,8 +6495,6 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
     }
   else
     tcctx.cb.decl_map = NULL;
-
-  push_cfun (child_cfun);
 
   arg = DECL_ARGUMENTS (child_fn);
   TREE_TYPE (arg) = build_pointer_type (record_type);
@@ -6666,7 +6653,6 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
   pop_gimplify_context (NULL);
   BIND_EXPR_BODY (bind) = list;
   pop_cfun ();
-  current_function_decl = ctx->cb.src_fn;
 }
 
 /* Lower the OpenMP parallel or task directive in the current statement
@@ -6830,6 +6816,9 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_TRY:
       lower_omp (gimple_try_eval_ptr (stmt), ctx);
       lower_omp (gimple_try_cleanup_ptr (stmt), ctx);
+      break;
+    case GIMPLE_TRANSACTION:
+      lower_omp (gimple_transaction_body_ptr (stmt), ctx);
       break;
     case GIMPLE_BIND:
       lower_omp (gimple_bind_body_ptr (stmt), ctx);
