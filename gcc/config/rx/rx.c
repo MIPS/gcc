@@ -318,7 +318,7 @@ rx_is_restricted_memory_address (rtx mem, enum machine_mode mode)
 /* Implement TARGET_MODE_DEPENDENT_ADDRESS_P.  */
 
 static bool
-rx_mode_dependent_address_p (const_rtx addr)
+rx_mode_dependent_address_p (const_rtx addr, addr_space_t as ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (addr) == CONST)
     addr = XEXP (addr, 0);
@@ -2724,7 +2724,8 @@ rx_is_legitimate_constant (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 }
 
 static int
-rx_address_cost (rtx addr, bool speed)
+rx_address_cost (rtx addr, enum machine_mode mode ATTRIBUTE_UNUSED,
+		 addr_space_t as ATTRIBUTE_UNUSED, bool speed)
 {
   rtx a, b;
 

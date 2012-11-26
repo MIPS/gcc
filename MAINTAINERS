@@ -85,7 +85,6 @@ mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
 moxie port		Anthony Green		green@moxielogic.com
 pdp11 port		Paul Koning		ni1d@arrl.net
-picochip port		Hariharan Sandanagobalane	hariharan.gcc@gmail.com
 picochip port		Daniel Towner		dant@picochip.com
 rl78 port		DJ Delorie		dj@redhat.com
 rs6000 port		Geoff Keating		geoffk@geoffk.org
@@ -156,6 +155,7 @@ objective-c/c++		Stan Shebs		stanshebs@earthlink.net
 
 			Various Maintainers
 
+libbacktrace		Ian Lance Taylor	ian@airs.com
 libcpp			Per Bothner		per@bothner.com
 libcpp			All C and C++ front end maintainers
 fp-bit			Ian Lance Taylor	ian@airs.com
@@ -187,7 +187,7 @@ debugging code		Jim Wilson		wilson@tuliptree.org
 dwarf debugging code	Jason Merrill		jason@redhat.com
 c++ runtime libs	Paolo Carlini		paolo.carlini@oracle.com
 c++ runtime libs	Gabriel Dos Reis	gdr@integrable-solutions.net
-c++ runtime libs	Ulrich Drepper		drepper@redhat.com
+c++ runtime libs	Ulrich Drepper		drepper@gmail.com
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
 c++ runtime libs	Loren J. Rittle		ljrittle@acm.org
 c++ runtime libs	Jonathan Wakely		redi@gcc.gnu.org
@@ -440,6 +440,7 @@ Manuel López-Ibáñez				manu@gcc.gnu.org
 Martin v. Löwis					loewis@informatik.hu-berlin.de
 H.J. Lu						hjl.tools@gmail.com
 Xinliang David Li				davidxl@google.com
+Christophe Lyon					christophe.lyon@st.com
 Luis Machado					luisgpm@br.ibm.com
 Ziga Mahkovec					ziga.mahkovec@klika.si
 Simon Martin					simartin@users.sourceforge.net
@@ -472,6 +473,7 @@ Fernando Pereira				pronesto@gmail.com
 Kaushik Phatak					kaushik.phatak@kpitcummins.com
 Nicolas Pitre					nico@cam.org
 Paul Pluzhnikov					ppluzhnikov@google.com
+Marek Polacek					polacek@redhat.com
 Antoniu Pop					antoniu.pop@gmail.com
 Vladimir Prus					vladimir@codesourcery.com
 Yao Qi						yao@codesourcery.com
@@ -488,6 +490,7 @@ Ira Rosen					irar@il.ibm.com
 Maciej W. Rozycki				macro@linux-mips.org
 Silvius Rus					rus@google.com
 Matthew Sachs					msachs@apple.com
+Hariharan Sandanagobalane	                hariharan.gcc@gmail.com
 Iain Sandoe					iain@codesourcery.com
 Duncan Sands					baldrick@gcc.gnu.org
 William Schmidt 				wschmidt@linux.vnet.ibm.com

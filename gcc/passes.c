@@ -337,10 +337,7 @@ static struct gimple_opt_pass pass_all_early_optimizations =
 static bool
 gate_all_optimizations (void)
 {
-  return (optimize >= 1
-	  /* Don't bother doing anything if the program has errors.
-	     We have to pass down the queue if we already went into SSA */
-	  && (!seen_error () || gimple_in_ssa_p (cfun)));
+  return optimize >= 1 && !optimize_debug;
 }
 
 static struct gimple_opt_pass pass_all_optimizations =
@@ -349,6 +346,33 @@ static struct gimple_opt_pass pass_all_optimizations =
   GIMPLE_PASS,
   "*all_optimizations",			/* name */
   gate_all_optimizations,		/* gate */
+  NULL,					/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_OPTIMIZE,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  0					/* todo_flags_finish */
+ }
+};
+
+/* Gate: execute, or not, all of the non-trivial optimizations.  */
+
+static bool
+gate_all_optimizations_g (void)
+{
+  return optimize >= 1 && optimize_debug;
+}
+
+static struct gimple_opt_pass pass_all_optimizations_g =
+{
+ {
+  GIMPLE_PASS,
+  "*all_optimizations_g",		/* name */
+  gate_all_optimizations_g,		/* gate */
   NULL,					/* execute */
   NULL,					/* sub */
   NULL,					/* next */
@@ -679,7 +703,6 @@ void
 dump_passes (void)
 {
   struct cgraph_node *n, *node = NULL;
-  tree save_fndecl = current_function_decl;
 
   create_pass_tab();
 
@@ -694,7 +717,6 @@ dump_passes (void)
     return;
 
   push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-  current_function_decl = node->symbol.decl;
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
@@ -704,7 +726,6 @@ dump_passes (void)
   dump_pass_list (all_passes, 1);
 
   pop_cfun ();
-  current_function_decl = save_fndecl;
 }
 
 
@@ -1297,11 +1318,11 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_remove_cgraph_callee_edges);
 	  NEXT_PASS (pass_rename_ssa_copies);
 	  NEXT_PASS (pass_ccp);
+	  /* After CCP we rewrite no longer addressed locals into SSA
+	     form if possible.  */
 	  NEXT_PASS (pass_forwprop);
 	  /* pass_build_ealias is a dummy pass that ensures that we
-	     execute TODO_rebuild_alias at this point.  Re-building
-	     alias information also rewrites no longer addressed
-	     locals into SSA form if possible.  */
+	     execute TODO_rebuild_alias at this point.  */
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_fre);
@@ -1330,7 +1351,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_feedback_split_functions);
     }
   NEXT_PASS (pass_ipa_increase_alignment);
-  NEXT_PASS (pass_ipa_matrix_reorg);
   NEXT_PASS (pass_ipa_tm);
   NEXT_PASS (pass_ipa_lower_emutls);
   *p = NULL;
@@ -1372,11 +1392,11 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
+      /* After CCP we rewrite no longer addressed locals into SSA
+	 form if possible.  */
       NEXT_PASS (pass_forwprop);
       /* pass_build_alias is a dummy pass that ensures that we
-	 execute TODO_rebuild_alias at this point.  Re-building
-	 alias information also rewrites no longer addressed
-	 locals into SSA form if possible.  */
+	 execute TODO_rebuild_alias at this point.  */
       NEXT_PASS (pass_build_alias);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_phiprop);
@@ -1415,6 +1435,8 @@ init_optimization_passes (void)
       NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_strlen);
       NEXT_PASS (pass_ccp);
+      /* After CCP we rewrite no longer addressed locals into SSA
+	 form if possible.  */
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_optimize_bswap);
@@ -1490,6 +1512,31 @@ init_optimization_passes (void)
       NEXT_PASS (pass_optimize_widening_mul);
       NEXT_PASS (pass_tail_calls);
       NEXT_PASS (pass_rename_ssa_copies);
+      NEXT_PASS (pass_uncprop);
+      NEXT_PASS (pass_local_pure_const);
+    }
+  NEXT_PASS (pass_all_optimizations_g);
+    {
+      struct opt_pass **p = &pass_all_optimizations_g.pass.sub;
+      NEXT_PASS (pass_remove_cgraph_callee_edges);
+      NEXT_PASS (pass_strip_predict_hints);
+      /* Lower remaining pieces of GIMPLE.  */
+      NEXT_PASS (pass_lower_complex);
+      NEXT_PASS (pass_lower_vector_ssa);
+      /* Perform simple scalar cleanup which is constant/copy propagation.  */
+      NEXT_PASS (pass_ccp);
+      NEXT_PASS (pass_object_sizes);
+      /* Copy propagation also copy-propagates constants, this is necessary
+         to forward object-size results properly.  */
+      NEXT_PASS (pass_copy_prop);
+      NEXT_PASS (pass_rename_ssa_copies);
+      NEXT_PASS (pass_dce);
+      /* Fold remaining builtins.  */
+      NEXT_PASS (pass_fold_builtins);
+      /* ???  We do want some kind of loop invariant motion, but we possibly
+         need to adjust LIM to be more friendly towards preserving accurate
+	 debug information here.  */
+      NEXT_PASS (pass_late_warn_uninitialized);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
     }
@@ -1651,14 +1698,12 @@ do_per_function (void (*callback) (void *data), void *data)
 	    && (!node->clone_of || node->symbol.decl != node->clone_of->symbol.decl))
 	  {
 	    push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-	    current_function_decl = node->symbol.decl;
 	    callback (data);
 	    if (!flag_wpa)
 	      {
 	        free_dominance_info (CDI_DOMINATORS);
 	        free_dominance_info (CDI_POST_DOMINATORS);
 	      }
-	    current_function_decl = NULL;
 	    pop_cfun ();
 	    ggc_collect ();
 	  }
@@ -1699,11 +1744,9 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  if (cgraph_function_with_gimple_body_p (node))
 	    {
 	      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-	      current_function_decl = node->symbol.decl;
 	      callback (data);
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
-	      current_function_decl = NULL;
 	      pop_cfun ();
 	      ggc_collect ();
 	    }
@@ -1774,12 +1817,10 @@ execute_function_todo (void *data)
       cfun->last_verified &= ~TODO_verify_ssa;
     }
 
-  if (flags & TODO_rebuild_alias)
-    {
-      execute_update_addresses_taken ();
-      compute_may_aliases ();
-    }
-  else if (optimize && (flags & TODO_update_address_taken))
+  if (flag_tree_pta && (flags & TODO_rebuild_alias))
+    compute_may_aliases ();
+
+  if (optimize && (flags & TODO_update_address_taken))
     execute_update_addresses_taken ();
 
   if (flags & TODO_remove_unused_locals)
@@ -2222,9 +2263,7 @@ execute_pass_list (struct opt_pass *pass)
    those node in SET. */
 
 static void
-ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
-		       varpool_node_set vset,
-		       struct lto_out_decl_state *state)
+ipa_write_summaries_2 (struct opt_pass *pass, struct lto_out_decl_state *state)
 {
   while (pass)
     {
@@ -2242,7 +2281,7 @@ ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
 
           pass_init_dump_file (pass);
 
-	  ipa_pass->write_summary (set,vset);
+	  ipa_pass->write_summary ();
 
           pass_fini_dump_file (pass);
 
@@ -2252,7 +2291,7 @@ ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
 	}
 
       if (pass->sub && pass->sub->type != GIMPLE_PASS)
-	ipa_write_summaries_2 (pass->sub, set, vset, state);
+	ipa_write_summaries_2 (pass->sub, state);
 
       pass = pass->next;
     }
@@ -2263,16 +2302,16 @@ ipa_write_summaries_2 (struct opt_pass *pass, cgraph_node_set set,
    summaries.  SET is the set of nodes to be written.  */
 
 static void
-ipa_write_summaries_1 (cgraph_node_set set, varpool_node_set vset)
+ipa_write_summaries_1 (lto_symtab_encoder_t encoder)
 {
   struct lto_out_decl_state *state = lto_new_out_decl_state ();
-  compute_ltrans_boundary (state, set, vset);
+  state->symtab_node_encoder = encoder;
 
   lto_push_out_decl_state (state);
 
   gcc_assert (!flag_wpa);
-  ipa_write_summaries_2 (all_regular_ipa_passes, set, vset, state);
-  ipa_write_summaries_2 (all_lto_gen_passes, set, vset, state);
+  ipa_write_summaries_2 (all_regular_ipa_passes, state);
+  ipa_write_summaries_2 (all_lto_gen_passes, state);
 
   gcc_assert (lto_get_out_decl_state () == state);
   lto_pop_out_decl_state ();
@@ -2284,16 +2323,15 @@ ipa_write_summaries_1 (cgraph_node_set set, varpool_node_set vset)
 void
 ipa_write_summaries (void)
 {
-  cgraph_node_set set;
-  varpool_node_set vset;
-  struct cgraph_node **order;
-  struct varpool_node *vnode;
+  lto_symtab_encoder_t encoder;
   int i, order_pos;
+  struct varpool_node *vnode;
+  struct cgraph_node **order;
 
   if (!flag_generate_lto || seen_error ())
     return;
 
-  set = cgraph_node_set_new ();
+  encoder = lto_symtab_encoder_new ();
 
   /* Create the callgraph set in the same order used in
      cgraph_expand_all_functions.  This mostly facilitates debugging,
@@ -2320,19 +2358,16 @@ ipa_write_summaries (void)
 	  pop_cfun ();
 	}
       if (node->analyzed)
-        cgraph_node_set_add (set, node);
+        lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
     }
-  vset = varpool_node_set_new ();
 
   FOR_EACH_DEFINED_VARIABLE (vnode)
     if ((!vnode->alias || vnode->alias_of))
-      varpool_node_set_add (vset, vnode);
+      lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
 
-  ipa_write_summaries_1 (set, vset);
+  ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
 
   free (order);
-  free_cgraph_node_set (set);
-  free_varpool_node_set (vset);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -2340,9 +2375,7 @@ ipa_write_summaries (void)
    only those node in SET. */
 
 static void
-ipa_write_optimization_summaries_1 (struct opt_pass *pass, cgraph_node_set set,
-		       varpool_node_set vset,
-		       struct lto_out_decl_state *state)
+ipa_write_optimization_summaries_1 (struct opt_pass *pass, struct lto_out_decl_state *state)
 {
   while (pass)
     {
@@ -2360,7 +2393,7 @@ ipa_write_optimization_summaries_1 (struct opt_pass *pass, cgraph_node_set set,
 
           pass_init_dump_file (pass);
 
-	  ipa_pass->write_optimization_summary (set, vset);
+	  ipa_pass->write_optimization_summary ();
 
           pass_fini_dump_file (pass);
 
@@ -2370,7 +2403,7 @@ ipa_write_optimization_summaries_1 (struct opt_pass *pass, cgraph_node_set set,
 	}
 
       if (pass->sub && pass->sub->type != GIMPLE_PASS)
-	ipa_write_optimization_summaries_1 (pass->sub, set, vset, state);
+	ipa_write_optimization_summaries_1 (pass->sub, state);
 
       pass = pass->next;
     }
@@ -2380,16 +2413,17 @@ ipa_write_optimization_summaries_1 (struct opt_pass *pass, cgraph_node_set set,
    NULL, write out all summaries of all nodes. */
 
 void
-ipa_write_optimization_summaries (cgraph_node_set set, varpool_node_set vset)
+ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
 {
   struct lto_out_decl_state *state = lto_new_out_decl_state ();
-  cgraph_node_set_iterator csi;
-  compute_ltrans_boundary (state, set, vset);
+  lto_symtab_encoder_iterator lsei;
+  state->symtab_node_encoder = encoder;
 
   lto_push_out_decl_state (state);
-  for (csi = csi_start (set); !csi_end_p (csi); csi_next (&csi))
+  for (lsei = lsei_start_function_in_partition (encoder);
+       !lsei_end_p (lsei); lsei_next_function_in_partition (&lsei))
     {
-      struct cgraph_node *node = csi_node (csi);
+      struct cgraph_node *node = lsei_cgraph_node (lsei);
       /* When streaming out references to statements as part of some IPA
 	 pass summary, the statements need to have uids assigned.
 
@@ -2405,8 +2439,8 @@ ipa_write_optimization_summaries (cgraph_node_set set, varpool_node_set vset)
     }
 
   gcc_assert (flag_wpa);
-  ipa_write_optimization_summaries_1 (all_regular_ipa_passes, set, vset, state);
-  ipa_write_optimization_summaries_1 (all_lto_gen_passes, set, vset, state);
+  ipa_write_optimization_summaries_1 (all_regular_ipa_passes, state);
+  ipa_write_optimization_summaries_1 (all_lto_gen_passes, state);
 
   gcc_assert (lto_get_out_decl_state () == state);
   lto_pop_out_decl_state ();

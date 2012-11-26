@@ -3932,7 +3932,7 @@ add_flexible_array_elts_to_size (tree decl, tree init)
   if (VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (init)))
     return;
 
-  elt = VEC_last (constructor_elt, CONSTRUCTOR_ELTS (init))->value;
+  elt = VEC_last (constructor_elt, CONSTRUCTOR_ELTS (init)).value;
   type = TREE_TYPE (elt);
   if (TREE_CODE (type) == ARRAY_TYPE
       && TYPE_SIZE (type) == NULL_TREE
@@ -6437,7 +6437,7 @@ get_parm_info (bool ellipsis, tree expr)
     {
       tree decl = b->decl;
       tree type = TREE_TYPE (decl);
-      c_arg_tag *tag;
+      c_arg_tag tag;
       const char *keyword;
 
       switch (TREE_CODE (decl))
@@ -6511,9 +6511,9 @@ get_parm_info (bool ellipsis, tree expr)
 		}
 	    }
 
-	  tag = VEC_safe_push (c_arg_tag, gc, tags, NULL);
-	  tag->id = b->id;
-	  tag->type = decl;
+	  tag.id = b->id;
+	  tag.type = decl;
+	  VEC_safe_push (c_arg_tag, gc, tags, tag);
 	  break;
 
 	case CONST_DECL:

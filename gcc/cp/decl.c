@@ -552,7 +552,7 @@ poplevel (int keep, int reverse, int functionbody)
   unsigned ix;
   cp_label_binding *label_bind;
 
-  timevar_start (TV_NAME_LOOKUP);
+  bool subtime = timevar_cond_start (TV_NAME_LOOKUP);
  restart:
 
   block = NULL_TREE;
@@ -617,26 +617,32 @@ poplevel (int keep, int reverse, int functionbody)
   /* Before we remove the declarations first check for unused variables.  */
   if ((warn_unused_variable || warn_unused_but_set_variable)
       && !processing_template_decl)
-    for (decl = getdecls (); decl; decl = TREE_CHAIN (decl))
-      if (TREE_CODE (decl) == VAR_DECL
-	  && (! TREE_USED (decl) || !DECL_READ_P (decl))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
-	  && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl))
-	{
-	  if (! TREE_USED (decl))
-	    warning (OPT_Wunused_variable, "unused variable %q+D", decl);
-	  else if (DECL_CONTEXT (decl) == current_function_decl
-		   && TREE_TYPE (decl) != error_mark_node
-		   && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
-		   && errorcount == unused_but_set_errorcount
-		   && (!CLASS_TYPE_P (TREE_TYPE (decl))
-		       || !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl))))
-	    {
-	      warning (OPT_Wunused_but_set_variable,
-		       "variable %q+D set but not used", decl); 
-	      unused_but_set_errorcount = errorcount;
-	    }
-	}
+    for (tree d = getdecls (); d; d = TREE_CHAIN (d))
+      {
+	/* There are cases where D itself is a TREE_LIST.  See in
+	   push_local_binding where the list of decls returned by
+	   getdecls is built.  */
+	decl = TREE_CODE (d) == TREE_LIST ? TREE_VALUE (d) : d;
+	if (TREE_CODE (decl) == VAR_DECL
+	    && (! TREE_USED (decl) || !DECL_READ_P (decl))
+	    && ! DECL_IN_SYSTEM_HEADER (decl)
+	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl)
+	    && TREE_TYPE (decl) != error_mark_node
+	    && (!CLASS_TYPE_P (TREE_TYPE (decl))
+		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl))))
+	  {
+	    if (! TREE_USED (decl))
+	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
+	    else if (DECL_CONTEXT (decl) == current_function_decl
+		     && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
+		     && errorcount == unused_but_set_errorcount)
+	      {
+		warning (OPT_Wunused_but_set_variable,
+			 "variable %q+D set but not used", decl);
+		unused_but_set_errorcount = errorcount;
+	      }
+	  }
+      }
 
   /* Remove declarations for all the DECLs in this level.  */
   for (link = decls; link; link = TREE_CHAIN (link))
@@ -818,7 +824,7 @@ poplevel (int keep, int reverse, int functionbody)
   if (kind == sk_cleanup)
     goto restart;
 
-  timevar_stop (TV_NAME_LOOKUP);
+  timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return block;
 }
 
@@ -2639,16 +2645,16 @@ tree
 declare_local_label (tree id)
 {
   tree decl;
-  cp_label_binding *bind;
+  cp_label_binding bind;
 
   /* Add a new entry to the SHADOWED_LABELS list so that when we leave
      this scope we can restore the old value of IDENTIFIER_TYPE_VALUE.  */
-  bind = VEC_safe_push (cp_label_binding, gc,
-			current_binding_level->shadowed_labels, NULL);
-  bind->prev_value = IDENTIFIER_LABEL_VALUE (id);
+  bind.prev_value = IDENTIFIER_LABEL_VALUE (id);
 
   decl = make_label_decl (id, /*local_p=*/1);
-  bind->label = decl;
+  bind.label = decl;
+  VEC_safe_push (cp_label_binding, gc, current_binding_level->shadowed_labels,
+		 bind);
 
   return decl;
 }
@@ -3235,13 +3241,15 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 	name = TREE_OPERAND (fullname, 0) = DECL_NAME (name);
       else if (TREE_CODE (name) == OVERLOAD)
 	{
-	  error ("%qD is not a type", name);
+	  if (complain & tf_error)
+	    error ("%qD is not a type", name);
 	  return error_mark_node;
 	}
     }
   if (TREE_CODE (name) == TEMPLATE_DECL)
     {
-      error ("%qD used without template parameters", name);
+      if (complain & tf_error)
+	error ("%qD used without template parameters", name);
       return error_mark_node;
     }
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
@@ -3324,7 +3332,9 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   
   if (DECL_ARTIFICIAL (t) || !(complain & tf_keep_type_decl))
     t = TREE_TYPE (t);
-  
+
+  maybe_record_typedef_use (t);
+
   return t;
 }
 
@@ -4461,11 +4471,6 @@ start_decl (const cp_declarator *declarator,
 			       context, DECL_NAME (decl));
 		  DECL_CONTEXT (decl) = DECL_CONTEXT (field);
 		}
-	      if (processing_specialization
-		  && template_class_depth (context) == 0
-		  && CLASSTYPE_TEMPLATE_SPECIALIZATION (context))
-		error ("template header not allowed in member definition "
-		       "of explicitly specialized class");
 	      /* Static data member are tricky; an in-class initialization
 		 still doesn't provide a definition, so the in-class
 		 declaration will have DECL_EXTERNAL set, but will have an
@@ -5099,6 +5104,7 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
   while (d->cur != d->end)
     {
       tree field_init;
+      constructor_elt *old_cur = d->cur;
 
       /* Handle designated initializers, as an extension.  */
       if (d->cur->index)
@@ -5134,6 +5140,15 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
 				   /*first_initializer_p=*/false, complain);
       if (field_init == error_mark_node)
 	return error_mark_node;
+
+      if (d->cur == old_cur && d->cur->index)
+	{
+	  /* This can happen with an invalid initializer for a flexible
+	     array member (c++/54441).  */
+	  if (complain & tf_error)
+	    error ("invalid initializer for %q#D", field);
+	  return error_mark_node;
+	}
 
       CONSTRUCTOR_APPEND_ELT (CONSTRUCTOR_ELTS (new_init), field, field_init);
 
@@ -5282,7 +5297,7 @@ reshape_init_r (tree type, reshape_iter *d, bool first_initializer_p,
 	  && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (str_init)) == 1)
 	{
 	  str_init = VEC_index (constructor_elt,
-				CONSTRUCTOR_ELTS (str_init), 0)->value;
+				CONSTRUCTOR_ELTS (str_init), 0).value;
 	}
 
       /* If it's a string literal, then it's the initializer for the array
@@ -5372,7 +5387,7 @@ reshape_init (tree type, tree init, tsubst_flags_t complain)
     return init;
 
   /* Recurse on this CONSTRUCTOR.  */
-  d.cur = VEC_index (constructor_elt, v, 0);
+  d.cur = &VEC_index (constructor_elt, v, 0);
   d.end = d.cur + VEC_length (constructor_elt, v);
 
   new_init = reshape_init_r (type, &d, true, complain);
@@ -5917,7 +5932,7 @@ type_dependent_init_p (tree init)
       nelts = VEC_length (constructor_elt, elts);
       for (i = 0; i < nelts; ++i)
 	if (type_dependent_init_p (VEC_index (constructor_elt,
-					      elts, i)->value))
+					      elts, i).value))
 	  return true;
     }
   else
@@ -5947,7 +5962,7 @@ value_dependent_init_p (tree init)
       nelts = VEC_length (constructor_elt, elts);
       for (i = 0; i < nelts; ++i)
 	if (value_dependent_init_p (VEC_index (constructor_elt,
-					       elts, i)->value))
+					       elts, i).value))
 	  return true;
     }
   else
@@ -6123,8 +6138,15 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  release_tree_vector (cleanups);
 	}
       else if (!DECL_PRETTY_FUNCTION_P (decl))
-	/* Deduce array size even if the initializer is dependent.  */
-	maybe_deduce_size_from_array_init (decl, init);
+	{
+	  /* Deduce array size even if the initializer is dependent.  */
+	  maybe_deduce_size_from_array_init (decl, init);
+	  /* And complain about multiple initializers.  */
+	  if (init && TREE_CODE (init) == TREE_LIST && TREE_CHAIN (init)
+	      && !MAYBE_CLASS_TYPE_P (type))
+	    init = build_x_compound_expr_from_list (init, ELK_INIT,
+						    tf_warning_or_error);
+	}
 
       if (init)
 	DECL_INITIAL (decl) = init;
@@ -6501,7 +6523,6 @@ get_atexit_node (void)
       fn_type = build_function_type_list (integer_type_node,
 					  argtype0, argtype1, argtype2,
 					  NULL_TREE);
-      fn_ptr_type = build_pointer_type (fn_type);
       if (use_aeabi_atexit)
 	name = "__aeabi_atexit";
       else
@@ -6896,7 +6917,7 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	  && !VEC_empty (constructor_elt, CONSTRUCTOR_ELTS (initial_value)))
 	{
 	  VEC(constructor_elt,gc) *v = CONSTRUCTOR_ELTS (initial_value);
-	  tree value = VEC_index (constructor_elt, v, 0)->value;
+	  tree value = VEC_index (constructor_elt, v, 0).value;
 
 	  if (TREE_CODE (value) == STRING_CST
 	      && VEC_length (constructor_elt, v) == 1)
@@ -7916,7 +7937,6 @@ stabilize_vla_size (tree size)
 tree
 compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 {
-  tree type;
   tree itype;
   tree osize = size;
   tree abi_1_itype = NULL_TREE;
@@ -7924,10 +7944,10 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
   if (error_operand_p (size))
     return error_mark_node;
 
-  type = TREE_TYPE (size);
-  /* type_dependent_expression_p? */
-  if (!dependent_type_p (type))
+  if (!type_dependent_expression_p (size))
     {
+      tree type = TREE_TYPE (size);
+
       mark_rvalue_use (size);
 
       if (cxx_dialect < cxx0x && TREE_CODE (size) == NOP_EXPR
@@ -7989,7 +8009,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
   /* We can only call value_dependent_expression_p on integral constant
      expressions; treat non-constant expressions as dependent, too.  */
   if (processing_template_decl
-      && (dependent_type_p (type)
+      && (type_dependent_expression_p (size)
 	  || !TREE_CONSTANT (size) || value_dependent_expression_p (size)))
     {
       /* We cannot do any checking for a SIZE that isn't known to be
@@ -8513,7 +8533,7 @@ grokdeclarator (const cp_declarator *declarator,
 		      }
 		    else if (innermost_code != cdk_function
 			     && current_class_type
-			     && !UNIQUELY_DERIVED_FROM_P (ctype,
+			     && !uniquely_derived_from_p (ctype,
 							  current_class_type))
 		      {
 			error ("type %qT is not derived from type %qT",
@@ -9558,36 +9578,9 @@ grokdeclarator (const cp_declarator *declarator,
       && declarator->u.id.qualifying_scope
       && MAYBE_CLASS_TYPE_P (declarator->u.id.qualifying_scope))
     {
-      tree t;
-
       ctype = declarator->u.id.qualifying_scope;
       ctype = TYPE_MAIN_VARIANT (ctype);
-      t = ctype;
-      while (t != NULL_TREE && CLASS_TYPE_P (t))
-	{
-	  /* You're supposed to have one `template <...>' for every
-	     template class, but you don't need one for a full
-	     specialization.  For example:
-
-	       template <class T> struct S{};
-	       template <> struct S<int> { void f(); };
-	       void S<int>::f () {}
-
-	     is correct; there shouldn't be a `template <>' for the
-	     definition of `S<int>::f'.  */
-	  if (CLASSTYPE_TEMPLATE_SPECIALIZATION (t)
-	      && !any_dependent_template_arguments_p (CLASSTYPE_TI_ARGS (t)))
-	    /* T is an explicit (not partial) specialization.  All
-	       containing classes must therefore also be explicitly
-	       specialized.  */
-	    break;
-	  if ((CLASSTYPE_USE_TEMPLATE (t) || CLASSTYPE_IS_TEMPLATE (t))
-	      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))
-	    template_count += 1;
-
-	  t = TYPE_MAIN_DECL (t);
-	  t = DECL_CONTEXT (t);
-	}
+      template_count = num_template_headers_for_class (ctype);
 
       if (ctype == current_class_type)
 	{
@@ -10552,7 +10545,7 @@ local_variable_p (const_tree t)
 
 static tree
 local_variable_p_walkfn (tree *tp, int *walk_subtrees,
-			 void *data ATTRIBUTE_UNUSED)
+			 void * /*data*/)
 {
   /* Check DECL_NAME to avoid including temporaries.  We don't check
      DECL_ARTIFICIAL because we do want to complain about 'this'.  */
@@ -10601,8 +10594,10 @@ check_default_argument (tree decl, tree arg)
 
      A default argument expression is implicitly converted to the
      parameter type.  */
+  ++cp_unevaluated_operand;
   perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
 				     LOOKUP_NORMAL);
+  --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
       && c_inhibit_evaluation_warnings == 0
@@ -10873,10 +10868,6 @@ copy_fn_p (const_tree d)
 bool
 move_fn_p (const_tree d)
 {
-  tree args;
-  tree arg_type;
-  bool result = false;
-
   gcc_assert (DECL_FUNCTION_MEMBER_P (d));
 
   if (cxx_dialect == cxx98)
@@ -10886,11 +10877,28 @@ move_fn_p (const_tree d)
   if (TREE_CODE (d) == TEMPLATE_DECL
       || (DECL_TEMPLATE_INFO (d)
          && DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (d))))
-    /* Instantiations of template member functions are never copy
+    /* Instantiations of template member functions are never move
        functions.  Note that member functions of templated classes are
        represented as template functions internally, and we must
-       accept those as copy functions.  */
+       accept those as move functions.  */
     return 0;
+
+  return move_signature_fn_p (d);
+}
+
+/* D is a constructor or overloaded `operator='.
+
+   Then, this function returns true when D has the same signature as a move
+   constructor or move assignment operator (because either it is such a
+   ctor/op= or it is a template specialization with the same signature),
+   false otherwise.  */
+
+bool
+move_signature_fn_p (const_tree d)
+{
+  tree args;
+  tree arg_type;
+  bool result = false;
 
   args = FUNCTION_FIRST_USER_PARMTYPE (d);
   if (!args)
@@ -11478,9 +11486,10 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	     type, tag_name (tag_code));
       return error_mark_node;
     }
-  /* Accept bound template template parameters.  */
+  /* Accept template template parameters.  */
   else if (allow_template_p
-	   && TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+	   && (TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
+	       || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM))
     ;
   /*   [dcl.type.elab]
 
@@ -11568,7 +11577,9 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
   else
     decl = lookup_type_scope (name, scope);
 
-  if (decl && DECL_CLASS_TEMPLATE_P (decl))
+  if (decl
+      && (DECL_CLASS_TEMPLATE_P (decl)
+	  || DECL_TEMPLATE_TEMPLATE_PARM_P (decl)))
     decl = DECL_TEMPLATE_RESULT (decl);
 
   if (decl && TREE_CODE (decl) == TYPE_DECL)
@@ -11673,6 +11684,9 @@ xref_tag_1 (enum tag_types tag_code, tree name,
       && template_class_depth (current_class_type)
       && template_header_p)
     {
+      if (TREE_CODE (t) == TEMPLATE_TEMPLATE_PARM)
+	return t;
+
       /* Since SCOPE is not TS_CURRENT, we are not looking at a
 	 definition of this tag.  Since, in addition, we are currently
 	 processing a (member) template declaration of a template
@@ -12456,8 +12470,6 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 	{
 	  if (TYPE_VALUES (enumtype))
 	    {
-	      HOST_WIDE_INT hi;
-	      unsigned HOST_WIDE_INT lo;
 	      tree prev_value;
 	      bool overflowed;
 
@@ -12473,15 +12485,13 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 		value = error_mark_node;
 	      else
 		{
-		  overflowed = add_double (TREE_INT_CST_LOW (prev_value),
-					   TREE_INT_CST_HIGH (prev_value),
-					   1, 0, &lo, &hi);
+		  double_int di = TREE_INT_CST (prev_value)
+				  .add_with_sign (double_int_one,
+						  false, &overflowed);
 		  if (!overflowed)
 		    {
-		      double_int di;
 		      tree type = TREE_TYPE (prev_value);
-		      bool pos = (TYPE_UNSIGNED (type) || hi >= 0);
-		      di.low = lo; di.high = hi;
+		      bool pos = TYPE_UNSIGNED (type) || !di.is_negative ();
 		      if (!double_int_fits_to_tree_p (type, di))
 			{
 			  unsigned int itk;
@@ -13777,10 +13787,8 @@ maybe_register_incomplete_var (tree var)
 	  || (TYPE_LANG_SPECIFIC (inner_type)
 	      && TYPE_BEING_DEFINED (inner_type)))
 	{
-	  incomplete_var *iv
-	    = VEC_safe_push (incomplete_var, gc, incomplete_vars, NULL);
-	  iv->decl = var;
-	  iv->incomplete_type = inner_type;
+	  incomplete_var iv = {var, inner_type};
+	  VEC_safe_push (incomplete_var, gc, incomplete_vars, iv);
 	}
     }
 }

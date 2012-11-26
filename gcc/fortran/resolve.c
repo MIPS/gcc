@@ -237,6 +237,7 @@ resolve_procedure_interface (gfc_symbol *sym)
       sym->attr.always_explicit = ifc->attr.always_explicit;
       sym->attr.ext_attr |= ifc->attr.ext_attr;
       sym->attr.is_bind_c = ifc->attr.is_bind_c;
+      sym->attr.class_ok = ifc->attr.class_ok;
       /* Copy array spec.  */
       sym->as = gfc_copy_array_spec (ifc->as);
       if (sym->as)
@@ -425,10 +426,12 @@ resolve_formal_arglist (gfc_symbol *proc)
 	    }
 	  else if (!sym->attr.pointer)
 	    {
-	      if (proc->attr.function && sym->attr.intent != INTENT_IN)
+	      if (proc->attr.function && sym->attr.intent != INTENT_IN
+		  && !sym->value)
 		proc->attr.implicit_pure = 0;
 
-	      if (proc->attr.subroutine && sym->attr.intent == INTENT_UNKNOWN)
+	      if (proc->attr.subroutine && sym->attr.intent == INTENT_UNKNOWN
+		  && !sym->value)
 		proc->attr.implicit_pure = 0;
 	    }
 	}
@@ -1195,7 +1198,8 @@ resolve_structure_cons (gfc_expr *expr, int init)
 	  const char *name;
 	  char err[200];
 
-	  if (gfc_is_proc_ptr_comp (cons->expr, &c2))
+	  c2 = gfc_get_proc_ptr_comp (cons->expr);
+	  if (c2)
 	    {
 	      s2 = c2->ts.interface;
 	      name = c2->name;
@@ -3093,9 +3097,9 @@ resolve_function (gfc_expr *expr)
     sym = expr->symtree->n.sym;
 
   /* If this is a procedure pointer component, it has already been resolved.  */
-  if (gfc_is_proc_ptr_comp (expr, NULL))
+  if (gfc_is_proc_ptr_comp (expr))
     return SUCCESS;
-  
+
   if (sym && sym->attr.intrinsic
       && gfc_resolve_intrinsic (sym, &expr->where) == FAILURE)
     return FAILURE;
@@ -3528,36 +3532,45 @@ gfc_iso_c_sub_interface (gfc_code *c, gfc_symbol *sym)
 	{
 	  if (c->ext.actual != NULL && c->ext.actual->next != NULL)
 	    {
-	      if (c->ext.actual->expr->ts.type != BT_DERIVED
-		  || c->ext.actual->expr->ts.u.derived->intmod_sym_id
-		     != ISOCBINDING_PTR)
+	      gfc_actual_arglist *arg1 = c->ext.actual;
+	      gfc_actual_arglist *arg2 = c->ext.actual->next;
+	      gfc_actual_arglist *arg3 = c->ext.actual->next->next;
+
+	      /* Check first argument (CPTR).  */
+	      if (arg1->expr->ts.type != BT_DERIVED
+		  || arg1->expr->ts.u.derived->intmod_sym_id != ISOCBINDING_PTR)
 		{
-		  gfc_error ("Argument at %L to C_F_POINTER shall have the type"
-			     " C_PTR", &c->ext.actual->expr->where);
+		  gfc_error ("Argument CPTR to C_F_POINTER at %L shall have "
+			     "the type C_PTR", &arg1->expr->where);
 		  m = MATCH_ERROR;
 		}
 
-	      /* Make sure we got a third arg if the second arg has non-zero
-		 rank.	We must also check that the type and rank are
+	      /* Check second argument (FPTR).  */
+	      if (arg2->expr->ts.type == BT_CLASS)
+		{
+		  gfc_error ("Argument FPTR to C_F_POINTER at %L must not be "
+			     "polymorphic", &arg2->expr->where);
+		  m = MATCH_ERROR;
+		}
+
+	      /* Make sure we got a third arg (SHAPE) if the second arg has
+		 non-zero rank. We must also check that the type and rank are
 		 correct since we short-circuit this check in
 		 gfc_procedure_use() (called above to sort actual args).  */
-	      if (c->ext.actual->next->expr->rank != 0)
+	      if (arg2->expr->rank != 0)
 		{
-		  if(c->ext.actual->next->next == NULL 
-		     || c->ext.actual->next->next->expr == NULL)
+		  if (arg3 == NULL || arg3->expr == NULL)
 		    {
 		      m = MATCH_ERROR;
-		      gfc_error ("Missing SHAPE parameter for call to %s "
-				 "at %L", sym->name, &(c->loc));
+		      gfc_error ("Missing SHAPE argument for call to %s at %L", 
+				 sym->name, &c->loc);
 		    }
-		  else if (c->ext.actual->next->next->expr->ts.type
-			   != BT_INTEGER
-			   || c->ext.actual->next->next->expr->rank != 1)
+		  else if (arg3->expr->ts.type != BT_INTEGER
+			   || arg3->expr->rank != 1)
 		    {
 		      m = MATCH_ERROR;
-		      gfc_error ("SHAPE parameter for call to %s at %L must "
-				 "be a rank 1 INTEGER array", sym->name,
-				 &(c->loc));
+		      gfc_error ("SHAPE argument for call to %s at %L must be "
+				 "a rank 1 INTEGER array", sym->name, &c->loc);
 		    }
 		}
 	    }
@@ -4032,6 +4045,28 @@ resolve_operator (gfc_expr *e)
 
 	  e->ts.type = BT_LOGICAL;
 	  e->ts.kind = gfc_default_logical_kind;
+
+	  if (gfc_option.warn_compare_reals)
+	    {
+	      gfc_intrinsic_op op = e->value.op.op;
+
+	      /* Type conversion has made sure that the types of op1 and op2
+		 agree, so it is only necessary to check the first one.   */
+	      if ((op1->ts.type == BT_REAL || op1->ts.type == BT_COMPLEX)
+		  && (op == INTRINSIC_EQ || op == INTRINSIC_EQ_OS
+		      || op == INTRINSIC_NE || op == INTRINSIC_NE_OS))
+		{
+		  const char *msg;
+
+		  if (op == INTRINSIC_EQ || op == INTRINSIC_EQ_OS)
+		    msg = "Equality comparison for %s at %L";
+		  else
+		    msg = "Inequality comparison for %s at %L";
+		  
+		  gfc_warning (msg, gfc_typename (&op1->ts), &op1->where);
+		}
+	    }
+
 	  break;
 	}
 
@@ -5569,7 +5604,12 @@ gfc_resolve_character_operator (gfc_expr *e)
   e->ts.u.cl = gfc_new_charlen (gfc_current_ns, NULL);
 
   if (!e1 || !e2)
-    return;
+    {
+      gfc_free_expr (e1);
+      gfc_free_expr (e2);
+      
+      return;
+    }
 
   e->ts.u.cl->length = gfc_add (e1, e2);
   e->ts.u.cl->length->ts.type = BT_INTEGER;
@@ -5740,7 +5780,8 @@ update_ppc_arglist (gfc_expr* e)
   gfc_component *ppc;
   gfc_typebound_proc* tb;
 
-  if (!gfc_is_proc_ptr_comp (e, &ppc))
+  ppc = gfc_get_proc_ptr_comp (e);
+  if (!ppc)
     return FAILURE;
 
   tb = ppc->tb;
@@ -5792,6 +5833,9 @@ check_typebound_baseobject (gfc_expr* e)
     return FAILURE;
 
   gcc_assert (base->ts.type == BT_DERIVED || base->ts.type == BT_CLASS);
+
+  if (base->ts.type == BT_CLASS && !gfc_expr_attr (base).class_ok)
+    return FAILURE;
 
   /* F08:C611.  */
   if (base->ts.type == BT_DERIVED && base->ts.u.derived->attr.abstract)
@@ -6363,10 +6407,9 @@ static gfc_try
 resolve_ppc_call (gfc_code* c)
 {
   gfc_component *comp;
-  bool b;
 
-  b = gfc_is_proc_ptr_comp (c->expr1, &comp);
-  gcc_assert (b);
+  comp = gfc_get_proc_ptr_comp (c->expr1);
+  gcc_assert (comp != NULL);
 
   c->resolved_sym = c->expr1->symtree->n.sym;
   c->expr1->expr_type = EXPR_VARIABLE;
@@ -6398,10 +6441,9 @@ static gfc_try
 resolve_expr_ppc (gfc_expr* e)
 {
   gfc_component *comp;
-  bool b;
 
-  b = gfc_is_proc_ptr_comp (e, &comp);
-  gcc_assert (b);
+  comp = gfc_get_proc_ptr_comp (e);
+  gcc_assert (comp != NULL);
 
   /* Convert to EXPR_FUNCTION.  */
   e->expr_type = EXPR_FUNCTION;
@@ -7394,7 +7436,7 @@ check_symbols:
 			 "statement at %L", &e->where);
 	      goto failure;
 	    }
-	  break;
+	  continue;
 	}
 
       if (ar->dimen_type[i] == DIMEN_STAR && i == (ar->dimen + ar->codimen - 1)
@@ -8767,7 +8809,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
       return;
     }
 
-  if (label->defined != ST_LABEL_TARGET)
+  if (label->defined != ST_LABEL_TARGET && label->defined != ST_LABEL_DO_TARGET)
     {
       gfc_error ("Statement at %L is not a valid branch target statement "
 		 "for the branch statement at %L", &label->where, &code->loc);
@@ -11191,6 +11233,7 @@ error:
   gfc_error ("Finalization at %L is not yet implemented",
 	     &derived->declared_at);
 
+  gfc_find_derived_vtab (derived);
   return result;
 }
 
@@ -11395,7 +11438,7 @@ get_checked_tb_operator_target (gfc_tbp_generic* target, locus where)
   target_proc = target->specific->u.specific->n.sym;
   gcc_assert (target_proc);
 
-  /* All operator bindings must have a passed-object dummy argument.  */
+  /* F08:C468. All operator bindings must have a passed-object dummy argument.  */
   if (target->specific->nopass)
     {
       gfc_error ("Type-bound operator at %L can't be NOPASS", &where);
@@ -11894,6 +11937,9 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
   for ( ; c != NULL; c = c->next)
     {
+      if (c->attr.artificial)
+	continue;
+
       /* See PRs 51550, 47545, 48654, 49050, 51075 - and 45170.  */
       if (c->ts.type == BT_CHARACTER && c->ts.deferred && !c->attr.function)
 	{
@@ -11982,6 +12028,7 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	      c->attr.recursive = ifc->attr.recursive;
 	      c->attr.always_explicit = ifc->attr.always_explicit;
 	      c->attr.ext_attr |= ifc->attr.ext_attr;
+	      c->attr.class_ok = ifc->attr.class_ok;
 	      /* Replace symbols in array spec.  */
 	      if (c->as)
 		{
@@ -12289,6 +12336,10 @@ resolve_fl_derived (gfc_symbol *sym)
 			 &sym->declared_at) == FAILURE)
     return FAILURE;
 
+  /* Resolve the finalizer procedures.  */
+  if (gfc_resolve_finalizers (sym) == FAILURE)
+    return FAILURE;
+  
   if (sym->attr.is_class && sym->ts.u.derived == NULL)
     {
       /* Fix up incomplete CLASS symbols.  */
@@ -12309,10 +12360,6 @@ resolve_fl_derived (gfc_symbol *sym)
   if (resolve_typebound_procedures (sym) == FAILURE)
     return FAILURE;
 
-  /* Resolve the finalizer procedures.  */
-  if (gfc_resolve_finalizers (sym) == FAILURE)
-    return FAILURE;
-  
   return SUCCESS;
 }
 
@@ -12440,7 +12487,7 @@ resolve_fl_namelist (gfc_symbol *sym)
 	  continue;
 
       nlsym = NULL;
-      if (nl->sym && nl->sym->name)
+      if (nl->sym->name)
 	gfc_find_symbol (nl->sym->name, sym->ns, 1, &nlsym);
       if (nlsym && nlsym->attr.flavor == FL_PROCEDURE)
 	{
@@ -12508,6 +12555,9 @@ resolve_symbol (gfc_symbol *sym)
   gfc_component *c;
   symbol_attribute class_attr;
   gfc_array_spec *as;
+
+  if (sym->attr.artificial)
+    return;
 
   if (sym->attr.flavor == FL_UNKNOWN
       || (sym->attr.flavor == FL_PROCEDURE && !sym->attr.intrinsic
@@ -12642,11 +12692,12 @@ resolve_symbol (gfc_symbol *sym)
   /* F2008, C530. */
   if (sym->attr.contiguous
       && (!class_attr.dimension
-	  || (as->type != AS_ASSUMED_SHAPE && !class_attr.pointer)))
+	  || (as->type != AS_ASSUMED_SHAPE && as->type != AS_ASSUMED_RANK
+	      && !class_attr.pointer)))
     {
       gfc_error ("'%s' at %L has the CONTIGUOUS attribute but is not an "
-		  "array pointer or an assumed-shape array", sym->name,
-		  &sym->declared_at);
+		 "array pointer or an assumed-shape or assumed-rank array",
+		 sym->name, &sym->declared_at);
       return;
     }
 
@@ -13059,7 +13110,8 @@ resolve_symbol (gfc_symbol *sym)
       if (formal)
 	{
 	  sym->formal_ns = formal->sym->ns;
-	  sym->formal_ns->refs++;
+          if (sym->ns != formal->sym->ns)
+	    sym->formal_ns->refs++;
 	}
     }
 
@@ -13524,10 +13576,9 @@ gfc_impure_variable (gfc_symbol *sym)
     }
 
   proc = sym->ns->proc_name;
-  if (sym->attr.dummy && gfc_pure (proc)
-	&& ((proc->attr.subroutine && sym->attr.intent == INTENT_IN)
-		||
-	     proc->attr.function))
+  if (sym->attr.dummy
+      && ((proc->attr.subroutine && sym->attr.intent == INTENT_IN)
+	  || proc->attr.function))
     return 1;
 
   /* TODO: Sort out what can be storage associated, if anything, and include

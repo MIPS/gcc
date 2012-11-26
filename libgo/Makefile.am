@@ -39,7 +39,8 @@ ACLOCAL_AMFLAGS = -I ./config -I ../config
 
 AM_CFLAGS = -fexceptions -fplan9-extensions $(SPLIT_STACK) $(WARN_CFLAGS) \
 	$(STRINGOPS_FLAG) $(OSCFLAGS) \
-	-I $(srcdir)/../libgcc -I $(MULTIBUILDTOP)../../gcc/include
+	-I $(srcdir)/../libgcc -I $(srcdir)/../libbacktrace \
+	-I $(MULTIBUILDTOP)../../gcc/include
 
 if USING_SPLIT_STACK
 AM_LDFLAGS = -XCClinker $(SPLIT_STACK)
@@ -390,6 +391,32 @@ else
 runtime_lock_files = runtime/lock_sema.c runtime/thread-sema.c
 endif
 
+if LIBGO_IS_LINUX
+runtime_getncpu_file = runtime/getncpu-linux.c
+else
+if LIBGO_IS_DARWIN
+runtime_getncpu_file = runtime/getncpu-bsd.c
+else
+if LIBGO_IS_IRIX
+runtime_getncpu_file = runtime/getncpu-irix.c
+else
+if LIBGO_IS_SOLARIS
+runtime_getncpu_file = runtime/getncpu-solaris.c
+else
+if LIBGO_IS_FREEBSD
+runtime_getncpu_file = runtime/getncpu-bsd.c
+else
+if LIBGO_IS_NETBSD
+runtime_getncpu_file = runtime/getncpu-bsd.c
+else
+runtime_getncpu_file = runtime/getncpu-none.c
+endif
+endif
+endif
+endif
+endif
+endif
+
 runtime_files = \
 	runtime/go-append.c \
 	runtime/go-assert.c \
@@ -481,7 +508,8 @@ runtime_files = \
 	sema.c \
 	sigqueue.c \
 	string.c \
-	time.c
+	time.c \
+	$(runtime_getncpu_file)
 
 goc2c.$(OBJEXT): runtime/goc2c.c
 	$(CC_FOR_BUILD) -c $(CFLAGS_FOR_BUILD) $<
@@ -1035,8 +1063,7 @@ go_debug_dwarf_files = \
 	go/debug/dwarf/unit.go
 go_debug_elf_files = \
 	go/debug/elf/elf.go \
-	go/debug/elf/file.go \
-	go/debug/elf/runtime.go
+	go/debug/elf/file.go
 go_debug_gosym_files = \
 	go/debug/gosym/pclntab.go \
 	go/debug/gosym/symtab.go
@@ -1755,7 +1782,8 @@ libgo_la_SOURCES = $(runtime_files)
 libgo_la_LDFLAGS = $(PTHREAD_CFLAGS) $(AM_LDFLAGS)
 
 libgo_la_LIBADD = \
-	$(libgo_go_objs) $(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
+	$(libgo_go_objs) ../libbacktrace/libbacktrace.la \
+	$(LIBFFI) $(PTHREAD_LIBS) $(MATH_LIBS) $(NET_LIBS)
 
 libgobegin_a_SOURCES = \
 	runtime/go-main.c

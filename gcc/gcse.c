@@ -742,10 +742,7 @@ want_to_gcse_p (rtx x, int *max_distance_ptr)
     case CALL:
       return 0;
 
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
       if (!doing_code_hoisting_p)
 	/* Do not PRE constants.  */
 	return 0;
@@ -887,10 +884,7 @@ oprs_unchanged_p (const_rtx x, const_rtx insn, int avail_p)
     case PC:
     case CC0: /*FIXME*/
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -1423,7 +1417,7 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, const_rtx x ATTRIBUTE_UNUSED,
 {
   rtx dest_addr, insn;
   int bb;
-  modify_pair *pair;
+  modify_pair pair;
 
   while (GET_CODE (dest) == SUBREG
       || GET_CODE (dest) == ZERO_EXTRACT
@@ -1442,9 +1436,9 @@ canon_list_insert (rtx dest ATTRIBUTE_UNUSED, const_rtx x ATTRIBUTE_UNUSED,
   insn = (rtx) v_insn;
   bb = BLOCK_FOR_INSN (insn)->index;
 
-  pair = VEC_safe_push (modify_pair, heap, canon_modify_mem_list[bb], NULL);
-  pair->dest = dest;
-  pair->dest_addr = dest_addr;
+  pair.dest = dest;
+  pair.dest_addr = dest_addr;
+  VEC_safe_push (modify_pair, heap, canon_modify_mem_list[bb], pair);
 }
 
 /* Record memory modification information for INSN.  We do not actually care
@@ -1693,10 +1687,7 @@ compute_transp (const_rtx x, int indx, sbitmap *bmap)
     case PC:
     case CC0: /*FIXME*/
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -2982,7 +2973,7 @@ hoist_code (void)
 
       /* Examine each expression that is very busy at the exit of this
 	 block.  These are the potentially hoistable expressions.  */
-      for (i = 0; i < hoist_vbeout[bb->index]->n_bits; i++)
+      for (i = 0; i < SBITMAP_SIZE (hoist_vbeout[bb->index]); i++)
 	{
 	  if (TEST_BIT (hoist_vbeout[bb->index], i))
 	    {

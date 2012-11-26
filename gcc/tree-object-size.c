@@ -192,12 +192,11 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	}
       if (sz != unknown[object_size_type])
 	{
-	  double_int dsz = double_int_sub (uhwi_to_double_int (sz),
-					   mem_ref_offset (pt_var));
-	  if (double_int_negative_p (dsz))
+	  double_int dsz = double_int::from_uhwi (sz) - mem_ref_offset (pt_var);
+	  if (dsz.is_negative ())
 	    sz = 0;
-	  else if (double_int_fits_in_uhwi_p (dsz))
-	    sz = double_int_to_uhwi (dsz);
+	  else if (dsz.fits_uhwi ())
+	    sz = dsz.to_uhwi ();
 	  else
 	    sz = unknown[object_size_type];
 	}
@@ -973,14 +972,12 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
       break;
 
     case GIMPLE_NOP:
-      {
-	tree decl = SSA_NAME_VAR (var);
-
-	if (TREE_CODE (decl) != PARM_DECL && DECL_INITIAL (decl))
-	  expr_object_size (osi, var, DECL_INITIAL (decl));
-	else
-	  expr_object_size (osi, var, decl);
-      }
+      if (SSA_NAME_VAR (var)
+	  && TREE_CODE (SSA_NAME_VAR (var)) == PARM_DECL)
+	expr_object_size (osi, var, SSA_NAME_VAR (var));
+      else
+	/* Uninitialized SSA names point nowhere.  */
+	object_sizes[object_size_type][varno] = unknown[object_size_type];
       break;
 
     case GIMPLE_PHI:

@@ -296,9 +296,11 @@ AC_SUBST(OUTPUT_OPTION)
 # optimizations to be activated explicitly by the toplevel.
 case "$CC" in
   */prev-gcc/xgcc*) ;;
-  *) CFLAGS=`echo $CFLAGS | sed "s/-O[[s0-9]]* *//" ` ;;
+  *) CFLAGS=`echo "$CFLAGS " | sed -e "s/-Ofast[[ 	]]//" -e "s/-O[[gs]][[ 	]]//" -e "s/-O[[0-9]]*[[ 	]]//" `
+     CXXFLAGS=`echo "$CXXFLAGS " | sed -e "s/-Ofast[[ 	]]//" -e "s/-O[[gs]][[ 	]]//" -e "s/-O[[0-9]]*[[ 	]]//" ` ;;
 esac
 AC_SUBST(CFLAGS)
+AC_SUBST(CXXFLAGS)
 
 # Determine PICFLAG for target gnatlib.
 GCC_PICFLAG_FOR_TARGET
@@ -595,18 +597,6 @@ AC_DEFINE_UNQUOTED(GATHER_STATISTICS, $gather_stats,
 # -------------------------------
 # Miscenalleous configure options
 # -------------------------------
-
-# See if we are building gcc with C++.
-AC_ARG_ENABLE(build-with-cxx,
-[AS_HELP_STRING([--enable-build-with-cxx],
-		[build with C++ compiler instead of C compiler])],
-ENABLE_BUILD_WITH_CXX=$enableval,
-ENABLE_BUILD_WITH_CXX=no)
-AC_SUBST(ENABLE_BUILD_WITH_CXX)
-if test "$ENABLE_BUILD_WITH_CXX" = "yes"; then
-  AC_DEFINE(ENABLE_BUILD_WITH_CXX, 1,
-	    [Define if building with C++.])
-fi
 
 # With stabs
 AC_ARG_WITH(stabs,
@@ -924,7 +914,7 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
-		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
+		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h libintl.h)
 
 # Check for thread headers.
 AC_CHECK_HEADER(thread.h, [have_thread_h=yes], [have_thread_h=])
@@ -1067,11 +1057,9 @@ AC_FUNC_FORK
 
 # g++ on Solaris 10+ defines _XOPEN_SOURCE=600, which exposes a different
 # iconv() prototype.
-AS_IF([test "$ENABLE_BUILD_WITH_CXX" = "yes"],
-  [AC_LANG_PUSH([C++])
-   AM_ICONV
-   AC_LANG_POP([C++])],
-  [AM_ICONV])
+AC_LANG_PUSH([C++])
+AM_ICONV
+AC_LANG_POP([C++])
 
 # Until we have in-tree GNU iconv:
 LIBICONV_DEP=
@@ -1089,7 +1077,7 @@ CXXFLAGS="$CXXFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol asprintf sbrk abort atof getcwd getwd \
 	strsignal strstr stpcpy strverscmp \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
-	free basename getopt clock getpagesize gcc_UNLOCKED_FUNCS, , ,[
+	free basename getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
 #include "system.h"])
 
@@ -1140,18 +1128,12 @@ gcc_AC_CHECK_DECLS(sigaltstack, , ,[
 
 # g++ on Solaris 10+ defines _XOPEN_SOURCE=600, which hides the madvise()
 # prototype.
-AS_IF([test "$ENABLE_BUILD_WITH_CXX" = "yes"],
-  [AC_LANG_PUSH([C++])
-   gcc_AC_CHECK_DECLS(madvise, , ,[
-     #include "ansidecl.h"
-     #include "system.h"
-   ])
-   AC_LANG_POP([C++])],
-  [gcc_AC_CHECK_DECLS(madvise, , ,[
-     #include "ansidecl.h"
-     #include "system.h"
-   ])
+AC_LANG_PUSH([C++])
+gcc_AC_CHECK_DECLS(madvise, , ,[
+  #include "ansidecl.h"
+  #include "system.h"
 ])
+AC_LANG_POP([C++])
 
 # More time-related stuff.
 AC_CACHE_CHECK(for struct tms, ac_cv_struct_tms, [
@@ -1177,6 +1159,22 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
 if test $gcc_cv_type_clock_t = yes; then
   AC_DEFINE(HAVE_CLOCK_T, 1,
   [Define if <time.h> defines clock_t.])
+fi
+
+# Check if F_SETLKW is supported by fcntl.
+AC_CACHE_CHECK(for F_SETLKW, ac_cv_f_setlkw, [
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <fcntl.h>]], [[
+struct flock fl;
+fl.l_whence = 0;
+fl.l_start = 0;
+fl.l_len = 0;
+fl.l_pid = 0;
+return fcntl (1, F_SETLKW, &fl);]])],
+[ac_cv_f_setlkw=yes],[ac_cv_f_setlkw=no])])
+if test $ac_cv_f_setlkw = yes; then
+  AC_DEFINE(HOST_HAS_F_SETLKW, 1,
+  [Define if F_SETLKW supported by fcntl.])
 fi
 
 # Restore CFLAGS, CXXFLAGS from before the gcc_AC_NEED_DECLARATIONS tests.
@@ -3601,9 +3599,7 @@ foo:	nop
 
     gcc_GAS_CHECK_FEATURE([hle prefixes],
       gcc_cv_as_ix86_hle,,,
-      [.code64
-       lock xacquire cmpxchg %esi, (%rcx)
-       ],,
+      [lock xacquire cmpxchg %esi, (%ecx)],,
       [AC_DEFINE(HAVE_AS_IX86_HLE, 1,
         [Define if your assembler supports HLE prefixes.])])
 

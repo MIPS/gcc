@@ -739,7 +739,8 @@ compute_alignments (void)
 	{
 	  if (dump_file)
 	    fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		    bb->index, bb->frequency, bb->loop_father->num, bb->loop_depth);
+		    bb->index, bb->frequency, bb->loop_father->num,
+		    bb_loop_depth (bb));
 	  continue;
 	}
       max_log = LABEL_ALIGN (label);
@@ -756,7 +757,7 @@ compute_alignments (void)
 	{
 	  fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i fall %4i branch %4i",
 		  bb->index, bb->frequency, bb->loop_father->num,
-		  bb->loop_depth,
+		  bb_loop_depth (bb),
 		  fallthru_frequency, branch_frequency);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
 	    fprintf (dump_file, " inner_loop");
@@ -1605,7 +1606,7 @@ reemit_insn_block_notes (void)
 					     insn_scope (XVECEXP (body, 0, i)));
 	}
       if (! this_block)
-	continue;
+	this_block = DECL_INITIAL (cfun->decl);
 
       if (this_block != cur_block)
 	{
@@ -1640,8 +1641,8 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
 
   this_is_asm_operands = 0;
 
-  last_filename = locator_file (prologue_locator);
-  last_linenum = locator_line (prologue_locator);
+  last_filename = LOCATION_FILE (prologue_location);
+  last_linenum = LOCATION_LINE (prologue_location);
   last_discriminator = discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
@@ -1863,11 +1864,13 @@ final (rtx first, FILE *file, int optimize_p)
       start_to_bb = XCNEWVEC (basic_block, bb_map_size);
       end_to_bb = XCNEWVEC (basic_block, bb_map_size);
 
-      FOR_EACH_BB_REVERSE (bb)
-	{
-	  start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
-	  end_to_bb[INSN_UID (BB_END (bb))] = bb;
-	}
+      /* There is no cfg for a thunk.  */
+      if (!cfun->is_thunk)
+	FOR_EACH_BB_REVERSE (bb)
+	  {
+	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
+	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
+	  }
     }
 
   /* Output the insns.  */
@@ -4374,7 +4377,7 @@ struct rtl_opt_pass pass_shorten_branches =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  TV_FINAL,                             /* tv_id */
+  TV_SHORTEN_BRANCH,                    /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
