@@ -1,3 +1,9 @@
+2012-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 193708.  Pick up VSX floating point ordering fix that
+	boosts dealII.
+	* REVISION: Update subversion id.
+
 2012-11-03  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 193121.  Pick up fix for LTC 85823.
