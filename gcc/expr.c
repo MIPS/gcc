@@ -1367,7 +1367,24 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
   size_tree = make_tree (sizetype, size);
 
   fn = emit_block_move_libcall_fn (true);
-  call_expr = build_call_expr (fn, 3, dst_tree, src_tree, size_tree);
+  /* In case PL is on we actually should have all checks
+     made and bounds copied.  It means we may call a nocheck
+     memcpy version to copy data.  Currently we do not have
+     such memcpy version and therefore use common function
+     and provide it with zero bounds.  */
+  if (flag_pl)
+    {
+      tree tmp, bnd;
+
+      tmp = pl_build_make_bounds_call (integer_zero_node, integer_zero_node);
+      bnd = make_tree (bound_type_node,
+			assign_temp (bound_type_node, 0, 0, 1));
+      expand_assignment (bnd, tmp, false);
+
+      call_expr = build_call_expr (fn, 5, dst_tree, bnd, src_tree, bnd, size_tree);
+    }
+  else
+    call_expr = build_call_expr (fn, 3, dst_tree, src_tree, size_tree);
   CALL_EXPR_TAILCALL (call_expr) = tailcall;
 
   retval = expand_normal (call_expr);
