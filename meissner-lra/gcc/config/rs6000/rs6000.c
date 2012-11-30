@@ -990,6 +990,7 @@ static bool rs6000_debug_cannot_change_mode_class (enum machine_mode,
 						   enum machine_mode,
 						   enum reg_class);
 static bool rs6000_save_toc_in_prologue_p (void);
+static bool rs6000_lra_p (void);
 
 rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode, int, int,
 					     int, int *)
@@ -1459,6 +1460,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P rs6000_lra_p
 
 
 /* Processor table.  */
@@ -28387,6 +28391,16 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 }
 
+
+/* Enable/disable the LRA (local register allocator).  */
+
+static bool
+rs6000_lra_p (void)
+{
+  return TARGET_LRA;
+}
+
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-rs6000.h"

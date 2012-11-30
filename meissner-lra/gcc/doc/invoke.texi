@@ -859,7 +859,7 @@ See RS/6000 and PowerPC Options.
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
--msave-toc-indirect -mno-save-toc-indirect}
+-msave-toc-indirect -mno-save-toc-indirect -mlra -mno-lra}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -18037,6 +18037,14 @@ stack location in the function prologue if the function calls through
 a pointer on AIX and 64-bit Linux systems.  If the TOC value is not
 saved in the prologue, it is saved just before the call through the
 pointer.  The @option{-mno-save-toc-indirect} option is the default.
+
+@item -mlra
+@itemx -mno-lra
+@opindex mlra
+@opindex mno-lra
+Use (do not use) the local register allocator, which is a replacement
+for the reload pass of the compiler.  The @option{-mno-lra} is the
+default.
 @end table
 
 @node RX Options
