@@ -5460,6 +5460,29 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	}
     }
 
+  /* In the case of NAME != 0 and NAME being defined as
+     XYZ1 CMP XYZ2 we can assert XYZ1 CMP XYZ2.  */
+  if ((comp_code == NE_EXPR || comp_code == EQ_EXPR)
+      && integer_zerop (val))
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      if (is_gimple_assign (def_stmt)
+	  && TREE_CODE_CLASS (gimple_assign_rhs_code (def_stmt)) == tcc_comparison)
+	{
+	  bool invert1 = comp_code == EQ_EXPR ? true : false;
+	  tree op0 = gimple_assign_rhs1 (def_stmt);
+	  tree op1 = gimple_assign_rhs2 (def_stmt);
+          enum tree_code rhs_code = gimple_assign_rhs_code (def_stmt);
+
+	  if (TREE_CODE (op0) == SSA_NAME)
+	    retval |= register_edge_assert_for_2 (op0, e, bsi, rhs_code, op0, op1,
+					          invert1);
+          if (TREE_CODE (op1) == SSA_NAME)
+            retval |= register_edge_assert_for_2 (op1, e, bsi, rhs_code, op0, op1,
+					          invert1);
+        }
+    }
+
   return retval;
 }
 

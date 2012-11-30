@@ -210,6 +210,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-11-29  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #5464
+	* tree-vrp.c (register_edge_assert_for_2): In the case of NAME != 0 and NAME
+	being defined as XYZ1 CMP XYZ2 we can assert XYZ1 CMP XYZ2.
+
 2012-11-19  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/g++.dg/cpp0x/initlist-lifetime1.C: Fix testcase where
