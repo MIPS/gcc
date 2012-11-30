@@ -2261,7 +2261,8 @@ pl_may_narrow_to_field (tree field)
 /* Return true if bounds for FIELD should be narrowed to
    field's own size.
 
-   If ALWAYS_NARROW is non zero then true is returned.  */
+   If ALWAYS_NARROW is non zero and narrowing is possible
+   then true is returned.  */
 
 static bool
 pl_narrow_bounds_for_field (tree field, bool always_narrow)
@@ -2270,6 +2271,11 @@ pl_narrow_bounds_for_field (tree field, bool always_narrow)
   HOST_WIDE_INT bit_offs;
 
   if (!pl_may_narrow_to_field (field))
+    return false;
+
+  /* Accesse to compiler generated fields should not cause
+     bounds narrowing.  */
+  if (DECL_ARTIFICIAL (field))
     return false;
 
   offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
