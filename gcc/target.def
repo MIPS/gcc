@@ -1495,6 +1495,13 @@ DEFHOOK
  bool, (enum machine_mode mode, const_rtx x),
  hook_bool_mode_const_rtx_false)
 
+/* True if the given decl can be put into an object_block.  */
+DEFHOOK
+(use_blocks_for_decl_p,
+ "",
+ bool, (const_tree decl),
+ hook_bool_const_tree_true)
+
 /* The minimum and maximum byte offsets for anchored addresses.  */
 DEFHOOKPOD
 (min_anchor_offset,
@@ -2055,6 +2062,17 @@ DEFHOOK
 (memmodel_check,
  "",
  unsigned HOST_WIDE_INT, (unsigned HOST_WIDE_INT val), NULL)
+
+/* Defines an offset bitwise ored into shifted address to get corresponding
+   Address Sanitizer shadow address, or -1 if Address Sanitizer is not
+   supported by the target.  */
+DEFHOOK
+(asan_shadow_offset,
+ "Return the offset bitwise ored into shifted address to get corresponding\n\
+Address Sanitizer shadow memory address.  NULL if Address Sanitizer is not\n\
+supported by the target.",
+ unsigned HOST_WIDE_INT, (void),
+ NULL)
 
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */

@@ -1,3 +1,21 @@
+2012-11-29  Ian Lance Taylor  <iant@google.com>
+
+	* go-gcc.cc: Include "output.h".
+	(global_variable): Add is_unique_section parameter.
+	(global_variable_set_init): Adjust unique section if necessary.
+	* Make-lang.in (go/go-gcc.o): Add dependency on output.h.
+
+2012-11-17  Diego Novillo  <dnovillo@google.com>
+
+	Adjust for new vec API (http://gcc.gnu.org/wiki/cxx-conversion/cxx-vec)
+
+	* go-lang.c: Use new vec API in vec.h.
+
+2012-11-16  Ian Lance Taylor  <iant@google.com>
+
+	* Make-lang.in (gccgo$(exeext)): Add + at start of command.
+	(go1$(exeext)): Likewise.
+
 2012-10-30  Ian Lance Taylor  <iant@google.com>
 
 	* lang.opt (-fgo-relative-import-path): New option.

@@ -1,3 +1,254 @@
+2012-11-29  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/55445
+	* libsupc++/eh_personaltity.cc (__SEH__): Additional check
+	for not being SjLj.
+
+2012-11-28  Andrew Pinski  <apinski@cavium.com>
+
+	PR bootstrap/54279
+	* scripts/testsuite_flags.in (--build-cxx): Use xg++ instead of g++.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Likewise.
+
+2012-11-28  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/functional (_Mem_fn): Constrain function call operators
+	to avoid ambiguities. Use perfect forwarding.
+	* testsuite/20_util/function_objects/mem_fn/55463.cc: Additional
+	tests.
+	* testsuite/20_util/function_objects/mem_fn/forward.cc: New.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error line numbers.
+
+2012-11-27  Ollie Wild  <aaw@google.com>
+
+	* include/bits/stl_tree.h (@headername): Fix incorrect Doxygen macro
+	invocation.
+
+2012-11-26  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/functional (__is_socketlike): Change from class
+	template to alias template.
+
+2012-11-26  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/55463
+	* include/std/functional (_Mem_fn): Handle rvalue objects. Add
+	noexcept-specifications.
+	* testsuite/20_util/function_objects/mem_fn/55463.cc: New.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error line numbers.
+
+2012-11-23  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/52680
+	* acinclude.m4 (GLIBCXX_ENABLE_LIBSTDCXX_TIME): Check for usleep and
+	sleep if nanosleep is not available. Bump libtool revision.
+	* config.h.in: Regenerate.
+	* configure: Likewise.
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.18): Add __sleep_for.
+	* include/std/thread (this_thread::__sleep_for): Add.
+	(this_thread::yield, this_thread::sleep_until, this_thread::sleep_for):
+	Declare unconditionally.
+	* src/c++11/thread.cc (this_thread::__sleep_for): Define.
+	* testsuite/lib/libstdc++.exp (check_v3_target_nanosleep): Rename to
+	check_v3_target_sleep.
+	* testsuite/lib/dg-options.exp (dg-require-nanosleep): Rename to
+	dg-require-sleep.
+	* testsuite/30_threads/condition_variable_any/53830.cc: Update.
+	* testsuite/30_threads/this_thread/2.cc: Likewise.
+	* testsuite/30_threads/this_thread/3.cc: Likewise.
+	* testsuite/30_threads/this_thread/4.cc: Likewise.
+	* testsuite/30_threads/async/54297.cc: Likewise.
+
+2012-11-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/55413
+	* include/bits/hashtable.h (_Hashtable<>::_M_rehash_aux): Initialize
+	__bbegin_bkt and __prev_bkt to avoid uninitialized warnings.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error line number.
+
+2012-11-20  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/doxygen/user.cfg.in (ALIASES). Escape sharp braces.
+	* include/bits/allocator.h: Escape sharp braces in comment.
+	* include/profile/impl/profiler_algos.h: Likewise.
+
+2012-11-20  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/ext/array_allocator.h: Replace uses of
+	__GXX_EXPERIMENTAL_CXX0X__ with __cplusplus.
+
+2012-11-19  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/20_util/allocator/requirements/typedefs.cc: Check rebind
+	and improve propagate_on_container_move_assignment check.
+
+2012-11-19  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/stl_algo.h (reverse_copy): Update comment per DR 2074.
+	* include/bits/unordered_map.h: Apply DR 2005 resolution.
+	* doc/xml/manual/status_cxx2011.xml: Update per DR 2048.
+	* include/bits/allocator.h (allocator): Apply DR 2103 resolution.
+	* include/ext/array_allocator.h: Likewise.
+	* include/ext/bitmap_allocator.h: Likewise.
+	* include/ext/malloc_allocator.h: Likewise.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/ext/new_allocator.h: Likewise.
+	* include/ext/pool_allocator.h: Likewise.
+	* include/ext/throw_allocator.h: Likewise.
+	* include/ext/alloc_traits.h (__allocator_always_compares_equal): Add
+	additional specializations.
+	* include/std/functional: Add comment about DR resolution.
+	* include/std/future: Likewise.
+	* include/std/scoped_allocator: Likewise.
+	* include/std/thread: Likewise.
+	* testsuite/20_util/allocator/requirements/typedefs.cc: New.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error line numbers.
+
+2012-11-19  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/hashtable.h: Improve comments.
+	* include/bits/hashtable_policy.h: Likewise.
+
+2012-11-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/55363
+	* include/std/array (tuple_size, tuple_element): Move out
+	NAMESPACE_CONTAINER.
+	* testsuite/23_containers/array/tuple_interface/get_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_neg.cc:
+	Likewise.
+
+2012-11-16  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable_policy.h (_Prime_rehash_policy): Remove
+	automatic shrink.
+	(_Prime_rehash_policy::_M_bkt_for_elements): Do not call
+	_M_next_bkt anymore.
+	(_Prime_rehash_policy::_M_next_bkt): Move usage of
+	_S_growth_factor ...
+	(_Prime_rehash_policy::_M_need_rehash): ... here.
+	* include/bits/hashtable.h (_Hashtable<>): Adapt.
+	* testsuite/performance/23_containers/insert_erase/41975.cc: Add
+	_USE_TR1 to force build using std::tr1 container.
+	* testsuite/performance/23_containers/insert/unordered_set.cc:
+	Likewise.
+	* testsuite/performance/23_containers/insert/54075.cc: New.
+
+2012-11-16  Tom Tromey  <tromey@redhat.com>
+
+	* testsuite/libstdc++-prettyprinters/whatis.cc: New file.
+	* testsuite/lib/gdb-test.exp (whatis-test): New proc.
+	(gdb-test): Handle 'whatis' tests.
+	(gdb_batch_check): New proc.
+	(gdb_version_check): Rewrite to use gdb_batch_check.
+	* python/libstdcxx/v6/printers.py: Import gdb.types.
+	(FilteringTypePrinter): New class.
+	(add_one_type_printer, register_type_printers): New functions.
+	(register_libstdcxx_printers): Call register_type_printers.
+
+2012-11-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/53841
+	* include/std/condition_variable (condition_variable::wait_until):
+	Handle clocks with higher resolution than __clock_t.
+	(condition_variable::__wait_until_impl): Remove unnecessary _Clock
+	parameter.
+	* testsuite/30_threads/condition_variable/members/53841.cc: New.
+
+2012-11-14  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/55320
+	* include/std/functional (function::function(F)): Set _M_manager after
+	operations that could throw.
+	(_Function_base::_Ref_manager::_M_init_functor): Use addressof.
+	* include/tr1/functional
+	(_Function_base::_Ref_manager::_M_init_functor): Use addressof.
+	(_Function_base::_Base_manager::_M_get_pointer): Likewise.
+	* testsuite/20_util/function/cons/55320.cc: New.
+	* testsuite/20_util/function/cons/addressof.cc: New.
+	* testsuite/20_util/function/cons/callable.cc: Remove header.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error line numbers.
+	* testsuite/tr1/3_function_objects/function/10.cc: New.
+
+2012-11-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* testsuite/26_numerics/complex/abi_tag.cc: Adjust expected
+	demangling for 128bit long-double targets.
+
+2012-11-12  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/future (atomic_future): Remove declaration of
+	non-standard name.
+
+2012-11-11  Jason Merrill  <jason@redhat.com>
+
+	* include/std/complex (real, imag): Add ABI tag in C++11 mode.
+
+2012-11-11  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* doc/xml/chapter.txml: Remove whitespace inside <keyword>.
+	* doc/xml/class.txml: Likewise.
+	* doc/xml/manual/abi.xml: Likewise.
+	* doc/xml/manual/algorithms.xml: Likewise.
+	* doc/xml/manual/allocator.xml: Likewise.
+	* doc/xml/manual/appendix_contributing.xml: Likewise.
+	* doc/xml/manual/appendix_free.xml: Likewise.
+	* doc/xml/manual/appendix_porting.xml: Likewise.
+	* doc/xml/manual/atomics.xml: Likewise.
+	* doc/xml/manual/auto_ptr.xml: Likewise.
+	* doc/xml/manual/backwards_compatibility.xml: Likewise.
+	* doc/xml/manual/bitmap_allocator.xml: Likewise.
+	* doc/xml/manual/build_hacking.xml: Likewise.
+	* doc/xml/manual/codecvt.xml: Likewise.
+	* doc/xml/manual/concurrency.xml: Likewise.
+	* doc/xml/manual/concurrency_extensions.xml: Likewise.
+	* doc/xml/manual/configure.xml: Likewise.
+	* doc/xml/manual/containers.xml: Likewise.
+	* doc/xml/manual/ctype.xml: Likewise.
+	* doc/xml/manual/debug.xml: Likewise.
+	* doc/xml/manual/debug_mode.xml: Likewise.
+	* doc/xml/manual/diagnostics.xml: Likewise.
+	* doc/xml/manual/extensions.xml: Likewise.
+	* doc/xml/manual/internals.xml: Likewise.
+	* doc/xml/manual/intro.xml: Likewise.
+	* doc/xml/manual/io.xml: Likewise.
+	* doc/xml/manual/iterators.xml: Likewise.
+	* doc/xml/manual/locale.xml: Likewise.
+	* doc/xml/manual/localization.xml: Likewise.
+	* doc/xml/manual/messages.xml: Likewise.
+	* doc/xml/manual/mt_allocator.xml: Likewise.
+	* doc/xml/manual/numerics.xml: Likewise.
+	* doc/xml/manual/parallel_mode.xml: Likewise.
+	* doc/xml/manual/policy_data_structures.xml: Likewise.
+	* doc/xml/manual/prerequisites.xml: Likewise.
+	* doc/xml/manual/profile_mode.xml: Likewise.
+	* doc/xml/manual/shared_ptr.xml: Likewise.
+	* doc/xml/manual/status_cxx1998.xml: Likewise.
+	* doc/xml/manual/status_cxx2011.xml: Likewise.
+	* doc/xml/manual/status_cxxtr1.xml: Likewise.
+	* doc/xml/manual/status_cxxtr24733.xml: Likewise.
+	* doc/xml/manual/strings.xml: Likewise.
+	* doc/xml/manual/support.xml: Likewise.
+	* doc/xml/manual/test.xml: Likewise.
+	* doc/xml/manual/using_exceptions.xml: Likewise.
+	* doc/xml/manual/utilities.xml: Likewise.
+	* doc/xml/spine.xml: Likewise.
+
+	* acinclude.m4 (GLIBCXX_CONFIGURE_DOCBOOK): Also check for
+	/usr/share/xml/docbook/stylesheet/nwalsh5/current.
+	* configure: Regenerate.
+
+2012-11-11  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/policy_data_structures.xml: Update reference
+	for select.
+
+2012-11-10  Jason Merrill  <jason@redhat.com>
+
+	* many: Replace uses of __GXX_EXPERIMENTAL_CXX0X__ with __cplusplus.
+
 2012-11-08  François Dumont  <fdumont@gcc.gnu.org>
 
 	PR libstdc++/54075

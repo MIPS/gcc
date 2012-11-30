@@ -1027,6 +1027,15 @@ For ARM targets, possible values for @var{dialect} are @code{gnu} or
 @code{gnu2}, which select between the original GNU dialect and the GNU TLS
 descriptor-based dialect.
 
+@item --enable-multiarch
+Specify whether to enable or disable multiarch support.  The default is
+to check for glibc start files in a multiarch location, and enable it
+if the files are found.  The auto detection is enabled for native builds,
+and for cross builds configured with @option{--with-sysroot}, and without
+@option{--with-native-system-header-dir}.
+More documentation about multiarch can be found at
+@uref{http://wiki.debian.org/Multiarch}.
+
 @item --disable-multilib
 Specify that multiple target
 libraries to support different target variants, calling
@@ -1710,6 +1719,14 @@ link time when @option{-fuse-linker-plugin} is enabled.
 This linker should have plugin support such as gold starting with
 version 2.20 or GNU ld starting with version 2.21.
 See @option{-fuse-linker-plugin} for details.
+
+@item --enable-canonical-system-headers
+@itemx --disable-canonical-system-headers
+Enable system header path canonicalization for @file{libcpp}.  This can
+produce shorter header file paths in diagnostics and dependency output
+files, but these changed header paths may conflict with some compilation
+environments.  Enabled by default, and may be disabled using
+@option{--disable-canonical-system-headers}.
 @end table
 
 @subheading Cross-Compiler-Specific Options
@@ -4259,9 +4276,9 @@ releases mishandled unaligned relocations on @code{sparc-*-*} targets.
 @end html
 @heading @anchor{sparc64-x-solaris2}sparc64-*-solaris2*
 
-When configuring the GNU Multiple Precision Library (GMP) or the
-MPFR library, the canonical target triplet must be specified as
-the @command{build} parameter on the configure line.  For example
+When configuring the GNU Multiple Precision Library (GMP), the MPFR
+library or the MPC library, the canonical target triplet must be specified
+as the @command{build} parameter on the configure line.  For example
 on a Solaris 9 system:
 
 @smallexample

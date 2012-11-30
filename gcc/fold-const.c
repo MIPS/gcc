@@ -1359,7 +1359,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
   return NULL_TREE;
 }
 
-/* Create a size type INT_CST node with NUMBER sign extended.  KIND
+/* Create a sizetype INT_CST node with NUMBER sign extended.  KIND
    indicates which particular sizetype to create.  */
 
 tree
@@ -3880,6 +3880,17 @@ make_range_step (location_t loc, enum tree_code code, tree arg0, tree arg1,
       return arg0;
 
     case NEGATE_EXPR:
+      /* If flag_wrapv and ARG0_TYPE is signed, make sure
+	 low and high are non-NULL, then normalize will DTRT.  */
+      if (!TYPE_UNSIGNED (arg0_type)
+	  && !TYPE_OVERFLOW_UNDEFINED (arg0_type))
+	{
+	  if (low == NULL_TREE)
+	    low = TYPE_MIN_VALUE (arg0_type);
+	  if (high == NULL_TREE)
+	    high = TYPE_MAX_VALUE (arg0_type);
+	}
+
       /* (-x) IN [a,b] -> x in [-b, -a]  */
       n_low = range_binop (MINUS_EXPR, exp_type,
 			   build_int_cst (exp_type, 0),
@@ -5798,11 +5809,9 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
       else
 	break;
 
-      /* If we have an unsigned type is not a sizetype, we cannot widen
-	 the operation since it will change the result if the original
-	 computation overflowed.  */
-      if (TYPE_UNSIGNED (ctype)
-	  && ctype != type)
+      /* If we have an unsigned type, we cannot widen the operation since it
+	 will change the result if the original computation overflowed.  */
+      if (TYPE_UNSIGNED (ctype) && ctype != type)
 	break;
 
       /* If we were able to eliminate our operation from the first side,
@@ -8995,7 +9004,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	    }
 	  /* We can simplify the comparison to a comparison of the variable
 	     offset parts if the constant offset parts are equal.
-	     Be careful to use signed size type here because otherwise we
+	     Be careful to use signed sizetype here because otherwise we
 	     mess with array offsets in the wrong way.  This is possible
 	     because pointer arithmetic is restricted to retain within an
 	     object and overflow on pointer differences is undefined as of
@@ -9005,11 +9014,11 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 		       || (indirect_base0 && DECL_P (base0))
 		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
 	    {
-	      /* By converting to signed size type we cover middle-end pointer
+	      /* By converting to signed sizetype we cover middle-end pointer
 	         arithmetic which operates on unsigned pointer types of size
 	         type size and ARRAY_REF offsets which are properly sign or
 	         zero extended from their type in case it is narrower than
-	         size type.  */
+	         sizetype.  */
 	      if (offset0 == NULL_TREE)
 		offset0 = build_int_cst (ssizetype, 0);
 	      else
@@ -9601,7 +9610,7 @@ vec_cst_ctor_to_array (tree arg, tree *elts)
     {
       constructor_elt *elt;
 
-      FOR_EACH_VEC_ELT (constructor_elt, CONSTRUCTOR_ELTS (arg), i, elt)
+      FOR_EACH_VEC_SAFE_ELT (CONSTRUCTOR_ELTS (arg), i, elt)
 	if (i >= nelts || TREE_CODE (TREE_TYPE (elt->value)) == VECTOR_TYPE)
 	  return false;
 	else
@@ -9646,7 +9655,8 @@ fold_vec_perm (tree type, tree arg0, tree arg1, const unsigned char *sel)
 
   if (need_ctor)
     {
-      VEC(constructor_elt,gc) *v = VEC_alloc (constructor_elt, gc, nelts);
+      vec<constructor_elt, va_gc> *v;
+      vec_alloc (v, nelts);
       for (i = 0; i < nelts; i++)
 	CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, elts[2 * nelts + i]);
       return build_constructor (type, v);
@@ -14036,6 +14046,16 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 
       return NULL_TREE;
 
+    case VEC_COND_EXPR:
+      if (TREE_CODE (arg0) == VECTOR_CST)
+	{
+	  if (integer_all_onesp (arg0) && !TREE_SIDE_EFFECTS (op2))
+	    return pedantic_non_lvalue_loc (loc, op1);
+	  if (integer_zerop (arg0) && !TREE_SIDE_EFFECTS (op1))
+	    return pedantic_non_lvalue_loc (loc, op2);
+	}
+      return NULL_TREE;
+
     case CALL_EXPR:
       /* CALL_EXPRs used to be ternary exprs.  Catch any mistaken uses
 	 of fold_ternary on them.  */
@@ -14061,51 +14081,62 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	    {
 	      idx = idx / width;
 	      n = n / width;
-	      if (TREE_CODE (type) == VECTOR_TYPE)
+
+	      if (TREE_CODE (arg0) == VECTOR_CST)
 		{
-		  if (TREE_CODE (arg0) == VECTOR_CST)
-		    {
-		      tree *vals = XALLOCAVEC (tree, n);
-		      unsigned i;
-		      for (i = 0; i < n; ++i)
-			vals[i] = VECTOR_CST_ELT (arg0, idx + i);
-		      return build_vector (type, vals);
-		    }
-		  else
-		    {
-		      VEC(constructor_elt, gc) *vals;
-		      unsigned i;
-		      if (CONSTRUCTOR_NELTS (arg0) == 0)
-			return build_constructor (type, NULL);
-		      if (TREE_CODE (TREE_TYPE (CONSTRUCTOR_ELT (arg0,
-								 0)->value))
-			  != VECTOR_TYPE)
-			{
-			  vals = VEC_alloc (constructor_elt, gc, n);
-			  for (i = 0;
-			       i < n && idx + i < CONSTRUCTOR_NELTS (arg0);
-			       ++i)
-			    CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
-						    CONSTRUCTOR_ELT
-						      (arg0, idx + i)->value);
-			  return build_constructor (type, vals);
-			}
-		    }
-		}
-	      else if (n == 1)
-		{
-		  if (TREE_CODE (arg0) == VECTOR_CST)
+		  if (n == 1)
 		    return VECTOR_CST_ELT (arg0, idx);
-		  else if (CONSTRUCTOR_NELTS (arg0) == 0)
-		    return build_zero_cst (type);
-		  else if (TREE_CODE (TREE_TYPE (CONSTRUCTOR_ELT (arg0,
-								  0)->value))
-			   != VECTOR_TYPE)
+
+		  tree *vals = XALLOCAVEC (tree, n);
+		  for (unsigned i = 0; i < n; ++i)
+		    vals[i] = VECTOR_CST_ELT (arg0, idx + i);
+		  return build_vector (type, vals);
+		}
+
+	      /* Constructor elements can be subvectors.  */
+	      unsigned HOST_WIDE_INT k = 1;
+	      if (CONSTRUCTOR_NELTS (arg0) != 0)
+		{
+		  tree cons_elem = TREE_TYPE (CONSTRUCTOR_ELT (arg0, 0)->value);
+		  if (TREE_CODE (cons_elem) == VECTOR_TYPE)
+		    k = TYPE_VECTOR_SUBPARTS (cons_elem);
+		}
+
+	      /* We keep an exact subset of the constructor elements.  */
+	      if ((idx % k) == 0 && (n % k) == 0)
+		{
+		  if (CONSTRUCTOR_NELTS (arg0) == 0)
+		    return build_constructor (type, NULL);
+		  idx /= k;
+		  n /= k;
+		  if (n == 1)
 		    {
 		      if (idx < CONSTRUCTOR_NELTS (arg0))
 			return CONSTRUCTOR_ELT (arg0, idx)->value;
 		      return build_zero_cst (type);
 		    }
+
+		  vec<constructor_elt, va_gc> *vals;
+		  vec_alloc (vals, n);
+		  for (unsigned i = 0;
+		       i < n && idx + i < CONSTRUCTOR_NELTS (arg0);
+		       ++i)
+		    CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
+					    CONSTRUCTOR_ELT
+					      (arg0, idx + i)->value);
+		  return build_constructor (type, vals);
+		}
+	      /* The bitfield references a single constructor element.  */
+	      else if (idx + n <= (idx / k + 1) * k)
+		{
+		  if (CONSTRUCTOR_NELTS (arg0) <= idx / k)
+		    return build_zero_cst (type);
+		  else if (n == k)
+		    return CONSTRUCTOR_ELT (arg0, idx / k)->value;
+		  else
+		    return fold_build3_loc (loc, code, type,
+		      CONSTRUCTOR_ELT (arg0, idx / k)->value, op1,
+		      build_int_cst (TREE_TYPE (op2), (idx % k) * width));
 		}
 	    }
 	}
@@ -14326,15 +14357,15 @@ fold (tree expr)
 	    && TREE_CODE (op0) == CONSTRUCTOR
 	    && ! type_contains_placeholder_p (TREE_TYPE (op0)))
 	  {
-	    VEC(constructor_elt,gc) *elts = CONSTRUCTOR_ELTS (op0);
-	    unsigned HOST_WIDE_INT end = VEC_length (constructor_elt, elts);
+	    vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (op0);
+	    unsigned HOST_WIDE_INT end = vec_safe_length (elts);
 	    unsigned HOST_WIDE_INT begin = 0;
 
 	    /* Find a matching index by means of a binary search.  */
 	    while (begin != end)
 	      {
 		unsigned HOST_WIDE_INT middle = (begin + end) / 2;
-		tree index = VEC_index (constructor_elt, elts, middle).index;
+		tree index = (*elts)[middle].index;
 
 		if (TREE_CODE (index) == INTEGER_CST
 		    && tree_int_cst_lt (index, op1))
@@ -14349,11 +14380,40 @@ fold (tree expr)
 			 && tree_int_cst_lt (op1, TREE_OPERAND (index, 0)))
 		  end = middle;
 		else
-		  return VEC_index (constructor_elt, elts, middle).value;
+		  return (*elts)[middle].value;
 	      }
 	  }
 
 	return t;
+      }
+
+      /* Return a VECTOR_CST if possible.  */
+    case CONSTRUCTOR:
+      {
+	tree type = TREE_TYPE (t);
+	if (TREE_CODE (type) != VECTOR_TYPE)
+	  return t;
+
+	tree *vec = XALLOCAVEC (tree, TYPE_VECTOR_SUBPARTS (type));
+	unsigned HOST_WIDE_INT idx, pos = 0;
+	tree value;
+
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, value)
+	  {
+	    if (!CONSTANT_CLASS_P (value))
+	      return t;
+	    if (TREE_CODE (value) == VECTOR_CST)
+	      {
+		for (unsigned i = 0; i < VECTOR_CST_NELTS (value); ++i)
+		  vec[pos++] = VECTOR_CST_ELT (value, i);
+	      }
+	    else
+	      vec[pos++] = value;
+	  }
+	for (; pos < TYPE_VECTOR_SUBPARTS (type); ++pos)
+	  vec[pos] = build_zero_cst (TREE_TYPE (type));
+
+	return build_vector (type, vec);
       }
 
     case CONST_DECL:

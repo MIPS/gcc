@@ -111,6 +111,18 @@
   UNSPEC_UNALIGNED_STORE ; Same for str/strh.
   UNSPEC_PIC_UNIFIED    ; Create a common pic addressing form.
   UNSPEC_LL		; Represent an unpaired load-register-exclusive.
+  UNSPEC_VRINTZ         ; Represent a float to integral float rounding
+                        ; towards zero.
+  UNSPEC_VRINTP         ; Represent a float to integral float rounding
+                        ; towards +Inf.
+  UNSPEC_VRINTM         ; Represent a float to integral float rounding
+                        ; towards -Inf.
+  UNSPEC_VRINTR         ; Represent a float to integral float rounding
+                        ; FPSCR rounding mode.
+  UNSPEC_VRINTX         ; Represent a float to integral float rounding
+                        ; FPSCR rounding mode and signal inexactness.
+  UNSPEC_VRINTA         ; Represent a float to integral float rounding
+                        ; towards nearest, ties away from zero.
 ])
 
 ;; UNSPEC_VOLATILE Usage:
@@ -249,6 +261,22 @@
 
 	(const_string "no")))
 
+(define_attr "opt" "any,speed,size"
+  (const_string "any"))
+
+(define_attr "opt_enabled" "no,yes"
+  (cond [(eq_attr "opt" "any")
+         (const_string "yes")
+
+	 (and (eq_attr "opt" "speed")
+	      (match_test "optimize_function_for_speed_p (cfun)"))
+	 (const_string "yes")
+
+	 (and (eq_attr "opt" "size")
+	      (match_test "optimize_function_for_size_p (cfun)"))
+	 (const_string "yes")]
+	(const_string "no")))
+
 ; Allows an insn to disable certain alternatives for reasons other than
 ; arch support.
 (define_attr "insn_enabled" "no,yes"
@@ -256,15 +284,22 @@
 
 ; Enable all alternatives that are both arch_enabled and insn_enabled.
  (define_attr "enabled" "no,yes"
-   (if_then_else (eq_attr "insn_enabled" "yes")
-               (if_then_else (eq_attr "arch_enabled" "yes")
-                             (const_string "yes")
-                             (const_string "no"))
-                (const_string "no")))
+   (cond [(eq_attr "insn_enabled" "no")
+	  (const_string "no")
+
+	  (eq_attr "arch_enabled" "no")
+	  (const_string "no")
+
+	  (eq_attr "opt_enabled" "no")
+	  (const_string "no")]
+	 (const_string "yes")))
 
 ; POOL_RANGE is how far away from a constant pool entry that this insn
 ; can be placed.  If the distance is zero, then this insn will never
 ; reference the pool.
+; Note that for Thumb constant pools the PC value is rounded down to the
+; nearest multiple of four.  Therefore, THUMB2_POOL_RANGE (and POOL_RANGE for
+; Thumb insns) should be set to <max_range> - 2.
 ; NEG_POOL_RANGE is nonzero for insns that can reference a constant pool entry
 ; before its address.  It is set to <max_range> - (8 + <data_size>).
 (define_attr "arm_pool_range" "" (const_int 0))
@@ -346,6 +381,8 @@
   fmuld,\
   fmacs,\
   fmacd,\
+  f_rints,\
+  f_rintd,\
   f_flag,\
   f_loads,\
   f_loadd,\
@@ -3489,9 +3526,23 @@
 (define_expand "ashldi3"
   [(set (match_operand:DI            0 "s_register_operand" "")
         (ashift:DI (match_operand:DI 1 "s_register_operand" "")
-                   (match_operand:SI 2 "reg_or_int_operand" "")))]
+                   (match_operand:SI 2 "general_operand" "")))]
   "TARGET_32BIT"
   "
+  if (TARGET_NEON)
+    {
+      /* Delay the decision whether to use NEON or core-regs until
+	 register allocation.  */
+      emit_insn (gen_ashldi3_neon (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+  else
+    {
+      /* Only the NEON case can handle in-memory shift counts.  */
+      if (!reg_or_int_operand (operands[2], SImode))
+        operands[2] = force_reg (SImode, operands[2]);
+    }
+
   if (!CONST_INT_P (operands[2]) && TARGET_REALLY_IWMMXT)
     ; /* No special preparation statements; expand pattern as above.  */
   else
@@ -3566,6 +3617,14 @@
                      (match_operand:SI 2 "reg_or_int_operand" "")))]
   "TARGET_32BIT"
   "
+  if (TARGET_NEON)
+    {
+      /* Delay the decision whether to use NEON or core-regs until
+	 register allocation.  */
+      emit_insn (gen_ashrdi3_neon (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+
   if (!CONST_INT_P (operands[2]) && TARGET_REALLY_IWMMXT)
     ; /* No special preparation statements; expand pattern as above.  */
   else
@@ -3638,6 +3697,14 @@
                      (match_operand:SI 2 "reg_or_int_operand" "")))]
   "TARGET_32BIT"
   "
+  if (TARGET_NEON)
+    {
+      /* Delay the decision whether to use NEON or core-regs until
+	 register allocation.  */
+      emit_insn (gen_lshrdi3_neon (operands[0], operands[1], operands[2]));
+      DONE;
+    }
+
   if (!CONST_INT_P (operands[2]) && TARGET_REALLY_IWMMXT)
     ; /* No special preparation statements; expand pattern as above.  */
   else
@@ -4213,7 +4280,7 @@
    eor%?\\t%0, %1, %1, asr #31\;sub%?\\t%0, %0, %1, asr #31"
   [(set_attr "conds" "clob,*")
    (set_attr "shift" "1")
-   ;; predicable can't be set based on the variant, so left as no
+   (set_attr "predicable" "no, yes")
    (set_attr "length" "8")]
 )
 
@@ -4241,7 +4308,7 @@
    eor%?\\t%0, %1, %1, asr #31\;rsb%?\\t%0, %0, %1, asr #31"
   [(set_attr "conds" "clob,*")
    (set_attr "shift" "1")
-   ;; predicable can't be set based on the variant, so left as no
+   (set_attr "predicable" "no, yes")
    (set_attr "length" "8")]
 )
 
@@ -4902,7 +4969,7 @@
 					(const_int 2) (const_int 4))
 			  (const_int 4)])
    (set_attr "type" "alu_shift,load_byte")
-   (set_attr "pool_range" "*,1020")]
+   (set_attr "pool_range" "*,1018")]
 )
 
 ;; This pattern will only be used when ldsh is not available
@@ -5309,7 +5376,7 @@
    (set_attr "type" "*,*,*,load2,store2")
    (set_attr "arm_pool_range" "*,*,*,1020,*")
    (set_attr "arm_neg_pool_range" "*,*,*,1004,*")
-   (set_attr "thumb2_pool_range" "*,*,*,4096,*")
+   (set_attr "thumb2_pool_range" "*,*,*,4094,*")
    (set_attr "thumb2_neg_pool_range" "*,*,*,0,*")]
 )
 
@@ -5448,7 +5515,7 @@
   [(set_attr "length" "4,4,6,2,2,6,4,4")
    (set_attr "type" "*,*,*,load2,store2,load2,store2,*")
    (set_attr "insn" "*,mov,*,*,*,*,*,mov")
-   (set_attr "pool_range" "*,*,*,*,*,1020,*,*")]
+   (set_attr "pool_range" "*,*,*,*,*,1018,*,*")]
 )
 
 (define_expand "movsi"
@@ -5618,7 +5685,7 @@
    mov\\t%0, %1"
   [(set_attr "length" "2,2,4,4,2,2,2,2,2")
    (set_attr "type" "*,*,*,*,load1,store1,load1,store1,*")
-   (set_attr "pool_range" "*,*,*,*,*,*,1020,*,*")
+   (set_attr "pool_range" "*,*,*,*,*,*,1018,*,*")
    (set_attr "conds" "set,clob,*,*,nocond,nocond,nocond,nocond,nocond")])
 
 (define_split 
@@ -5726,7 +5793,7 @@
        		     		 (match_dup 2)] UNSPEC_PIC_BASE))]
  "operands[3] = TARGET_THUMB ? GEN_INT (4) : GEN_INT (8);"
  [(set_attr "type" "load1,load1,load1")
-  (set_attr "pool_range" "4096,4096,1024")
+  (set_attr "pool_range" "4096,4094,1022")
   (set_attr "neg_pool_range" "4084,0,0")
   (set_attr "arch"  "a,t2,t1")    
   (set_attr "length" "8,6,4")]
@@ -5742,7 +5809,10 @@
   "TARGET_32BIT && flag_pic"
   "ldr%?\\t%0, %1"
   [(set_attr "type" "load1")
-   (set_attr "pool_range" "4096")
+   (set (attr "pool_range")
+	(if_then_else (eq_attr "is_thumb" "no")
+		      (const_int 4096)
+		      (const_int 4094)))
    (set (attr "neg_pool_range")
 	(if_then_else (eq_attr "is_thumb" "no")
 		      (const_int 4084)
@@ -5755,7 +5825,7 @@
   "TARGET_THUMB1 && flag_pic"
   "ldr\\t%0, %1"
   [(set_attr "type" "load1")
-   (set (attr "pool_range") (const_int 1024))]
+   (set (attr "pool_range") (const_int 1018))]
 )
 
 (define_insn "pic_add_dot_plus_four"
@@ -6550,7 +6620,7 @@
   [(set_attr "length" "2")
    (set_attr "type" "*,load1,store1,*,*")
    (set_attr "insn" "mov,*,*,mov,mov")
-   (set_attr "pool_range" "*,1020,*,*,*")
+   (set_attr "pool_range" "*,1018,*,*,*")
    (set_attr "conds" "clob,nocond,nocond,nocond,nocond")])
 
 (define_expand "movsf"
@@ -6605,7 +6675,8 @@
   [(set_attr "predicable" "yes")
    (set_attr "type" "*,load1,store1")
    (set_attr "insn" "mov,*,*")
-   (set_attr "pool_range" "*,4096,*")
+   (set_attr "arm_pool_range" "*,4096,*")
+   (set_attr "thumb2_pool_range" "*,4094,*")
    (set_attr "arm_neg_pool_range" "*,4084,*")
    (set_attr "thumb2_neg_pool_range" "*,0,*")]
 )
@@ -6627,7 +6698,7 @@
    mov\\t%0, %1"
   [(set_attr "length" "2")
    (set_attr "type" "*,load1,store1,load1,store1,*,*")
-   (set_attr "pool_range" "*,*,*,1020,*,*,*")
+   (set_attr "pool_range" "*,*,*,1018,*,*,*")
    (set_attr "insn" "*,*,*,*,*,mov,mov")
    (set_attr "conds" "clob,nocond,nocond,nocond,nocond,nocond,nocond")]
 )
@@ -6716,7 +6787,8 @@
   "
   [(set_attr "length" "8,12,16,8,8")
    (set_attr "type" "*,*,*,load2,store2")
-   (set_attr "pool_range" "*,*,*,1020,*")
+   (set_attr "arm_pool_range" "*,*,*,1020,*")
+   (set_attr "thumb2_pool_range" "*,*,*,1018,*")
    (set_attr "arm_neg_pool_range" "*,*,*,1004,*")
    (set_attr "thumb2_neg_pool_range" "*,*,*,0,*")]
 )
@@ -6760,7 +6832,7 @@
   [(set_attr "length" "4,2,2,6,4,4")
    (set_attr "type" "*,load2,store2,load2,store2,*")
    (set_attr "insn" "*,*,*,*,*,mov")
-   (set_attr "pool_range" "*,*,*,1020,*,*")]
+   (set_attr "pool_range" "*,*,*,1018,*,*")]
 )
 
 
@@ -7101,43 +7173,6 @@
 		(const_int 6)
 		(const_int 8))))]
 )
-
-;; Two peepholes to generate subtract of 0 instead of a move if the
-;; condition codes will be useful.
-(define_peephole2
-  [(set (match_operand:SI 0 "low_register_operand" "")
-	(match_operand:SI 1 "low_register_operand" ""))
-   (set (pc)
-	(if_then_else (match_operator 2 "arm_comparison_operator"
-		       [(match_dup 1) (const_int 0)])
-		      (label_ref (match_operand 3 "" ""))
-		      (pc)))]
-  "TARGET_THUMB1"
-  [(set (match_dup 0) (minus:SI (match_dup 1) (const_int 0)))
-   (set (pc)
-	(if_then_else (match_op_dup 2 [(match_dup 0) (const_int 0)])
-		      (label_ref (match_dup 3))
-		      (pc)))]
-  "")
-
-;; Sigh!  This variant shouldn't be needed, but combine often fails to
-;; merge cases like this because the op1 is a hard register in
-;; arm_class_likely_spilled_p.
-(define_peephole2
-  [(set (match_operand:SI 0 "low_register_operand" "")
-	(match_operand:SI 1 "low_register_operand" ""))
-   (set (pc)
-	(if_then_else (match_operator 2 "arm_comparison_operator"
-		       [(match_dup 0) (const_int 0)])
-		      (label_ref (match_operand 3 "" ""))
-		      (pc)))]
-  "TARGET_THUMB1"
-  [(set (match_dup 0) (minus:SI (match_dup 1) (const_int 0)))
-   (set (pc)
-	(if_then_else (match_op_dup 2 [(match_dup 0) (const_int 0)])
-		      (label_ref (match_dup 3))
-		      (pc)))]
-  "")
 
 (define_insn "*negated_cbranchsi4"
   [(set (pc)

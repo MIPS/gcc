@@ -456,6 +456,10 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       handle_OPT_d (arg);
       break;
 
+    case OPT_fcanonical_system_headers:
+      cpp_opts->canonical_system_headers = value;
+      break;
+
     case OPT_fcond_mismatch:
       if (!c_dialect_cxx ())
 	{
@@ -578,6 +582,10 @@ c_common_handle_option (size_t scode, const char *arg, int value,
       set_struct_debug_option (&global_options, loc, arg);
       break;
 
+    case OPT_fext_numeric_literals:
+      cpp_opts->ext_numeric_literals = value;
+      break;
+
     case OPT_idirafter:
       add_path (xstrdup (arg), AFTER, 0, true);
       break;
@@ -660,13 +668,21 @@ c_common_handle_option (size_t scode, const char *arg, int value,
     case OPT_std_c__11:
     case OPT_std_gnu__11:
       if (!preprocessing_asm_p)
-	set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
+	{
+	  set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
+	  if (code == OPT_std_c__11)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
       break;
 
     case OPT_std_c__1y:
     case OPT_std_gnu__1y:
       if (!preprocessing_asm_p)
-	set_std_cxx1y (code == OPT_std_c__11 /* ISO */);
+	{
+	  set_std_cxx1y (code == OPT_std_c__1y /* ISO */);
+	  if (code == OPT_std_c__1y)
+	    cpp_opts->ext_numeric_literals = 0;
+	}
       break;
 
     case OPT_std_c90:

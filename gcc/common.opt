@@ -174,9 +174,6 @@ int rtl_dump_and_exit
 Variable
 int flag_print_asm_name
 
-Variable
-enum graph_dump_types graph_dump_format = no_graph
-
 ; Name of top-level original source file (what was input to cpp).
 ; This comes from the #-command at the beginning of the actual input.
 ; If there isn't any there, then this is the cc1 input file name.
@@ -347,6 +344,9 @@ Driver Alias(print-multi-lib)
 
 -print-multi-os-directory
 Driver Alias(print-multi-os-directory)
+
+-print-multiarch
+Driver Alias(print-multiarch)
 
 -print-prog-name
 Driver Separate Alias(print-prog-name=)
@@ -836,6 +836,14 @@ Does nothing. Preserved for backward compatibility.
 fargument-noalias-anything
 Common Ignore
 Does nothing. Preserved for backward compatibility.
+
+fsanitize=address
+Common Report Var(flag_asan)
+Enable AddressSanitizer, a memory error detector
+
+fsanitize=thread
+Common Report Var(flag_tsan)
+Enable ThreadSanitizer, a data race detector
 
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables) Optimization
@@ -1588,19 +1596,19 @@ Common Report Var(flag_peephole2) Optimization
 Enable an RTL peephole pass before sched2
 
 fPIC
-Common Report Var(flag_pic,2)
+Common Report Var(flag_pic,2) Negative(fPIE)
 Generate position-independent code if possible (large mode)
 
 fPIE
-Common Report Var(flag_pie,2)
+Common Report Var(flag_pie,2) Negative(fpic)
 Generate position-independent code for executables if possible (large mode)
 
 fpic
-Common Report Var(flag_pic,1)
+Common Report Var(flag_pic,1) Negative(fpie)
 Generate position-independent code if possible (small mode)
 
 fpie
-Common Report Var(flag_pie,1)
+Common Report Var(flag_pie,1) Negative(fPIC)
 Generate position-independent code for executables if possible (small mode)
 
 fplugin=
@@ -2198,6 +2206,10 @@ fvar-tracking-assignments-toggle
 Common Report Var(flag_var_tracking_assignments_toggle) Optimization
 Toggle -fvar-tracking-assignments
 
+; Positive if we should track uninitialized variables, negative if
+; we should run the var-tracking pass only to discard debug
+; annotations.  When flag_var_tracking_uninit == AUTODETECT_VALUE it
+; will be set according to flag_var_tracking.
 fvar-tracking-uninit
 Common Report Var(flag_var_tracking_uninit) Optimization
 Perform variable tracking and also tag variables that are uninitialized
@@ -2358,6 +2370,10 @@ iplugindir=
 Common Joined Var(plugindir_string) Init(0)
 -iplugindir=<dir>	Set <dir> to be the default plugin directory
 
+imultiarch
+Common Joined Separate RejectDriver Var(imultiarch) Init(0)
+-imultiarch <dir>	Set <dir> to be the multiarch include subdirectory
+
 l
 Driver Joined Separate
 
@@ -2414,6 +2430,9 @@ Driver Var(print_multi_lib)
 
 print-multi-os-directory
 Driver Var(print_multi_os_directory)
+ 
+print-multiarch
+Driver Var(print_multiarch)
 
 print-prog-name=
 Driver JoinedOrMissing Var(print_prog_name)
@@ -2506,6 +2525,12 @@ Driver
 static-libgo
 Driver
 ; Documented for Go, but always accepted by driver.
+
+static-libasan
+Driver
+
+static-libtsan
+Driver
 
 symbolic
 Driver

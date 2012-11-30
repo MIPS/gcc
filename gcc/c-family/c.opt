@@ -257,6 +257,10 @@ Wabi
 C ObjC C++ ObjC++ LTO Var(warn_abi) Warning
 Warn about things that will change when compiling with an ABI-compliant compiler
 
+Wabi-tag
+C++ ObjC++ Var(warn_abi_tag) Warning
+Warn if a subobject has an abi_tag attribute that the complete object type does not have
+
 Wpsabi
 C ObjC C++ ObjC++ LTO Var(warn_psabi) Init(1) Undocumented
 
@@ -836,6 +840,10 @@ Recognize built-in functions
 fbuiltin-
 C ObjC C++ ObjC++ Joined
 
+fcanonical-system-headers
+C ObjC C++ ObjC++
+Where shorter, use canonicalized paths to systems headers.
+
 fcheck-new
 C++ ObjC++ Var(flag_check_new)
 Check the return value of new
@@ -1229,6 +1237,11 @@ C ObjC C++ ObjC++
 femit-struct-debug-detailed=
 C ObjC C++ ObjC++ Joined
 -femit-struct-debug-detailed=<spec-list>	Detailed reduced debug info for structs
+
+fext-numeric-literals
+C++ ObjC++ 
+Interpret imaginary, fixed-point, or other gnu number suffix as the corresponding
+number literal rather than a user-defined number literal.
 
 idirafter
 C ObjC C++ ObjC++ Joined Separate MissingArgError(missing path after %qs)
