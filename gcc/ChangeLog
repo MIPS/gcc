@@ -4356,7 +4356,6 @@
 	(ix86_dependencies_evaluation_hook): Skip debug insns.  Stop
 	if first_arg is head.
 
->>>>>>> .merge-right.r193363
 2012-10-29  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_load_tp): New proto.
@@ -6461,7 +6460,7 @@
 	(store_expr): Likewise.
 	(store_field): Likewise.
 
-`2012-10-20  Jan Hubicka  <jh@suse.cz>
+2012-10-20  Jan Hubicka  <jh@suse.cz>
 
 	* loop-unroll.c (decide_unroll_constant_iterations): Don't
 	perform unrolling for loops with low iterations bounds or estimates.
