@@ -1,6 +1,12 @@
-2012-12-01  Matthias Klose  <doko@ubuntu.com> 
+2012-12-01  Matthias Klose  <doko@ubuntu.com>
 
 	* Rename ChangeLog to ChangeLog.gcc.
+
+2012-12-01  Matthias Klose  <doko@ubuntu.com>
+
+	* Import boehm-gc snapshot, taken from
+	https://github.com/ivmai/bdwgc 9178e2b8f10eab0ac54c504c85022d0ea8ded36b
+	Discard any local GCC changes.
 
 2012-11-04  Samuel Thibault  <samuel.thibault@gnu.org>
 
