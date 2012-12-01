@@ -994,7 +994,7 @@ GCTESTSPEC=
 case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
-    GCLIBS=../boehm-gc/libgcjgc_convenience.la
+    GCLIBS=../boehm-gc/libgc_convenience.la
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`${PWDCMD-pwd}`/../boehm-gc/.libs -rpath `${PWDCMD-pwd}`/../boehm-gc/.libs"
     GCINCS='-I$(top_srcdir)/../boehm-gc/include -I../boehm-gc/include'
