@@ -1,321 +1,465 @@
-# Copyright (c) 1999, 2000, 2001, 2002, 2003, 2006, 2010, 2011 by Red Hat, Inc.
-# All rights reserved.
-# Copyright 2004 Nathanael Nerode
-# 
+# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+#
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
-# 
+#
 # Permission is hereby granted to use or copy this program
 # for any purpose,  provided the above notices are retained on all copies.
 # Permission to modify the code and to distribute modified code is granted,
 # provided the above notices are retained, and a notice that the code was
 # modified is included with the above copyright notice.
-#
-# Original author: Tom Tromey
-# Modified by Nathanael Nerode
 
 dnl Process this file with autoconf to produce configure.
 
-AC_PREREQ(2.64)
-AC_INIT
+# Initialization
+AC_INIT(gc,7.3alpha3,gc@linux.hpl.hp.com)
+    ## version must conform to [0-9]+[.][0-9]+(alpha[0-9]+)?
 AC_CONFIG_SRCDIR(gcj_mlc.c)
-# This works around the fact that libtool configuration may change LD
-# for this particular configuration, but some shells, instead of
-# keeping the changes in LD private, export them just because LD is
-# exported.
-ORIGINAL_LD_FOR_MULTILIBS=$LD
-
-AM_ENABLE_MULTILIB(, ..)
-
-AC_CANONICAL_HOST
+AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_TARGET
+AC_PREREQ(2.61)
+AC_REVISION($Revision: 1.69 $)
+GC_SET_VERSION
+AM_INIT_AUTOMAKE([foreign dist-bzip2 nostdinc])
+AM_CONFIG_HEADER([include/config.h])
+AM_MAINTAINER_MODE
 
-# Get the 'noncanonical' system names.
-ACX_NONCANONICAL_TARGET
-
-# This works around an automake problem.
-mkinstalldirs="`cd $ac_aux_dir && ${PWDCMD-pwd}`/mkinstalldirs"
-AC_SUBST(mkinstalldirs)
-
-AM_INIT_AUTOMAKE(gc, 6.6, no-define)
-
-# The autoconf 2.5x version of the no-executables hack.
-GCC_NO_EXECUTABLES
-
-# Yak.  We must force CC and CXX to /not/ be precious variables; otherwise
-# the wrong, non-multilib-adjusted value will be used in multilibs.
-# As a side effect, we have to subst CFLAGS and CXXFLAGS ourselves.
-
-m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
-m4_define([_AC_ARG_VAR_PRECIOUS],[])
-AC_PROG_CC
-AC_PROG_CXX
-m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+AC_SUBST(PACKAGE)
+AC_SUBST(GC_VERSION)
 
 AM_PROG_CC_C_O
+AC_PROG_CXX
 
-AC_SUBST(CFLAGS)
-AC_SUBST(CXXFLAGS)
-
-# Newer automakes demand CCAS and CCASFLAGS.
-: ${CCAS='$(CC)'}
-: ${CCASFLAGS='$(CFLAGS)'}
-AC_SUBST(CCAS)
-AC_SUBST(CCASFLAGS)
-
-AC_CHECK_TOOL(AS, as)
-AC_CHECK_TOOL(AR, ar)
-AC_CHECK_TOOL(RANLIB, ranlib, :)
+AM_PROG_AS
 
 AC_PROG_INSTALL
 
-AM_MAINTAINER_MODE
+# Special CFLAGS to use when building
+gc_cflags=""
 
-. ${srcdir}/configure.host
+# gc_use_mmap   Set to "yes" on platforms where mmap should be used instead
+#               of sbrk. This will define USE_MMAP.
+gc_use_mmap=""
 
-case ${gc_basedir} in
-/* | [A-Za-z]:[/\\]*) gc_flagbasedir=${gc_basedir} ;;
-*) gc_flagbasedir='$(top_builddir)/'${gc_basedir} ;;
-esac
+# We should set -fexceptions if we are using gcc and might be used
+# inside something like gcj.  This is the zeroth approximation:
+if test :"$GCC": = :yes: ; then
+    gc_cflags="${gc_cflags} -fexceptions"
+else
+    case "$host" in
+        hppa*-*-hpux* )
+        if test :$GCC: != :"yes": ; then
+            gc_cflags="${gc_flags} +ESdbgasm"
+        fi
+        # :TODO: actaully we should check using Autoconf if
+        #     the compiler supports this option.
+        ;;
+    esac
+fi
 
-gc_cflags="${gc_cflags} -Iinclude -I"'$(top_builddir)'"/./targ-include -I${gc_flagbasedir}/libc/include"
 case "${host}" in
-  *-*-cygwin32*)
-    gc_cflags="${gc_cflags} -I${gc_flagbasedir}/../winsup/include"
+  *-linux*)
+    # FIXME: This seems to be no longer needed as configured in gcconfig.h
+    #gc_use_mmap=yes
     ;;
 esac
 
-dnl Add for mingw targets GC_BUILD option
-case "${host}" in
-  *-*-mingw*)
-    gc_cflags="${gc_cflags} -DGC_BUILD=1"
+#   target_optspace     --enable-target-optspace ("yes", "no", "")
+case "${target_optspace}:${host}" in
+  yes:*)
+    gc_cflags="${gc_cflags} -Os"
+    ;;
+  :m32r-* | :d10v-* | :d30v-*)
+    gc_cflags="${gc_cflags} -Os"
+    ;;
+  no:* | :*)
+    # Nothing.
     ;;
 esac
 
-dnl gc_cflags="${gc_cflags} -fno-builtin"
+# Set any host dependent compiler flags.
+case "${host}" in
+  mips-tx39-*|mipstx39-unknown-*)
+        gc_cflags="${gc_cflags} -G 0"
+        ;;
+  *)
+        ;;
+esac
+
 
 GC_CFLAGS=${gc_cflags}
 AC_SUBST(GC_CFLAGS)
 
-AC_PROG_LIBTOOL
-
-dnl We use these options to decide which functions to include.
-AC_ARG_WITH(target-subdir,
-[  --with-target-subdir=SUBDIR
-                          configuring with a cross compiler])
-AC_ARG_WITH(cross-host,
-[  --with-cross-host=HOST  configuring with a cross compiler])
-
-AC_MSG_CHECKING([for thread model used by GCC])
-THREADS=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
-if test -z "$THREADS"; then
-   THREADS=no
-fi
-AC_MSG_RESULT([$THREADS])
+AC_ARG_ENABLE(threads,
+  [AC_HELP_STRING([--enable-threads=TYPE], [choose threading package])],
+  THREADS=$enableval,
+  [ AC_MSG_CHECKING([for thread model used by GCC])
+    THREADS=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`
+    if test -z "$THREADS"; then
+      THREADS=no
+    fi
+    if test "$THREADS" = "posix"; then
+      case "$host" in
+        *-*-mingw*)
+          # Adjust thread model if cross-compiling for MinGW.
+          THREADS=win32
+          ;;
+      esac
+    fi
+    AC_MSG_RESULT([$THREADS]) ])
 
 AC_ARG_ENABLE(parallel-mark,
-[  --enable-parallel-mark	parallelize marking and free list construction],
+   [AC_HELP_STRING([--enable-parallel-mark],
+        [parallelize marking and free list construction])],
    [case "$THREADS" in
       no | none | single)
-	AC_MSG_ERROR([Parallel mark requires --enable-threads=x spec])
-	;;
-    esac]
+        if test "${enable_parallel_mark}" != no; then
+          AC_MSG_ERROR([Parallel mark requires --enable-threads=x spec])
+        fi
+        ;;
+    esac ]
 )
 
-AM_CPPFLAGS="-I`cd $srcdir && ${PWDCMD-pwd}`/include"
-THREADCFLAGS=
-THREADLIBS=
+AC_ARG_ENABLE(cplusplus,
+    [AC_HELP_STRING([--enable-cplusplus], [install C++ support])])
+
+dnl Features which may be selected in the following thread-detection switch.
+AH_TEMPLATE([PARALLEL_MARK], [Define to enable parallel marking.])
+AH_TEMPLATE([THREAD_LOCAL_ALLOC],
+            [Define to enable thread-local allocation optimisation.])
+AH_TEMPLATE([USE_COMPILER_TLS],
+            [Define to use of compiler-support for thread-local variables.])
+
+dnl Thread selection macros.
+AH_TEMPLATE([GC_THREADS],           [Define to support platform-specific
+                                     threads.])
+AH_TEMPLATE([GC_AIX_THREADS],       [Define to support IBM AIX threads.])
+AH_TEMPLATE([GC_DARWIN_THREADS],    [Define to support Darwin pthreads.])
+AH_TEMPLATE([GC_FREEBSD_THREADS],   [Define to support FreeBSD pthreads.])
+AH_TEMPLATE([GC_GNU_THREADS],       [Define to support GNU pthreads.])
+AH_TEMPLATE([GC_HPUX_THREADS],      [Define to support HP/UX 11 pthreads.])
+AH_TEMPLATE([GC_IRIX_THREADS],      [Define to support Irix pthreads.])
+AH_TEMPLATE([GC_LINUX_THREADS],     [Define to support pthreads on Linux.])
+AH_TEMPLATE([GC_NETBSD_THREADS],    [Define to support NetBSD pthreads.])
+AH_TEMPLATE([GC_OPENBSD_THREADS],   [Define to support OpenBSD pthreads.])
+AH_TEMPLATE([GC_OSF1_THREADS],      [Define to support Tru64 pthreads.])
+AH_TEMPLATE([GC_SOLARIS_THREADS],   [Define to support Solaris pthreads.])
+AH_TEMPLATE([GC_WIN32_THREADS],     [Define to support Win32 threads.])
+AH_TEMPLATE([GC_WIN32_PTHREADS],    [Define to support win32-pthreads.])
+AH_TEMPLATE([GC_RTEMS_PTHREADS],    [Define to support rtems-pthreads.])
+
+dnl System header feature requests.
+AH_TEMPLATE([_POSIX_C_SOURCE], [The POSIX feature macro.])
+AH_TEMPLATE([_PTHREADS], [Indicates the use of pthreads (NetBSD).])
+
+dnl Win32-specific API usage controls.
+AH_TEMPLATE([GC_UNDERSCORE_STDCALL],
+        [Explicitly prefix exported/imported WINAPI symbols with '_'.])
+AH_TEMPLATE([UNICODE],
+        [Use Unicode (W) variant of Win32 API instead of ASCII (A) one.])
+
+dnl GC API symbols export control.
+AH_TEMPLATE([GC_DLL],
+        [Define to build dynamic libraries with only API symbols exposed.])
+
+dnl Check for a flavor of supported inline keyword.
+AC_C_INLINE
+
+THREADDLLIBS=
+need_atomic_ops_asm=false
+## Libraries needed to support dynamic loading and/or threads.
 case "$THREADS" in
  no | none | single)
     THREADS=none
     ;;
  posix | pthreads)
     THREADS=posix
-    THREADLIBS=-lpthread
+    AC_CHECK_LIB(pthread, pthread_self, THREADDLLIBS="-lpthread",,)
     case "$host" in
-     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* | alpha-*-linux*)
-	AC_DEFINE(GC_LINUX_THREADS,1,[support for Xavier Leroy's Linux threads])
-	AC_DEFINE(_REENTRANT,1,[Use reentrant code])
-        if test "${enable_parallel_mark}" = yes; then
-	  AC_DEFINE(PARALLEL_MARK,1,[allow the marker to run in multiple threads])
-	fi
-	AC_DEFINE(THREAD_LOCAL_ALLOC,1,[define GC_local_malloc() & GC_local_malloc_atomic()])
-	;;
+     x86-*-linux* | ia64-*-linux* | i586-*-linux* | i686-*-linux* \
+     | x86_64-*-linux* | alpha-*-linux* | sparc*-*-linux*)
+        AC_DEFINE(GC_LINUX_THREADS)
+        AC_DEFINE(_REENTRANT)
+        if test "${enable_parallel_mark}" != no; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        AC_MSG_WARN("Explicit GC_INIT() calls may be required.");
+        ;;
      *-*-linux*)
-	AC_DEFINE(GC_LINUX_THREADS,1)
-	AC_DEFINE(_REENTRANT,1)
-	;;
+        AC_DEFINE(GC_LINUX_THREADS)
+        AC_DEFINE(_REENTRANT)
+        ;;
      *-*-aix*)
-	AC_DEFINE(GC_AIX_THREADS,1,[support AIX threads])
-	AC_DEFINE(_REENTRANT,1)
-	;;
+        AC_DEFINE(GC_AIX_THREADS)
+        AC_DEFINE(_REENTRANT)
+        ;;
      *-*-hpux11*)
-	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
-	AC_DEFINE(GC_HPUX_THREADS,1,[enables support for HP/UX 11 pthreads])
-	AC_DEFINE(_POSIX_C_SOURCE,199506L,[POSIX version of C Source])
-	if test "${enable_parallel_mark}" = yes; then
-	  AC_DEFINE(PARALLEL_MARK,1)
-	fi
-	AC_DEFINE(THREAD_LOCAL_ALLOC,1)
-	THREADLIBS="-lpthread -lrt"
-	# HPUX needs REENTRANT for the _r calls.
-	AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads])
-	;;
-     *-*-hpux10*)
-	AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
-	;;
-     *-*-kfreebsd*-gnu)
-       AC_DEFINE(GC_FREEBSD_THREADS)
-       THREADCFLAGS=-pthread
-       THREADLIBS=-pthread
-       AC_DEFINE(_REENTRANT)
-         if test "${enable_parallel_mark}" = yes; then
-         AC_DEFINE(PARALLEL_MARK)
-       fi
-       AC_DEFINE(THREAD_LOCAL_ALLOC)
-       AC_DEFINE(USE_COMPILER_TLS, 1,[use tls for boehm])
-       ;;
-     *-*-gnu*)
-	AC_DEFINE(GC_GNU_THREADS,1,[support GNU threads])
-	AC_DEFINE(_REENTRANT)
-	AC_DEFINE(THREAD_LOCAL_ALLOC)
-	;;
-     *-*-freebsd*)
-	AC_MSG_WARN("FreeBSD does not yet fully support threads with Boehm GC.")
-	AC_DEFINE(GC_FREEBSD_THREADS,1,[support FreeBSD threads])
-	THREADCFLAGS=-pthread
-	THREADLIBS=-pthread
-      	;;
-     *-*-solaris2.8*)
-	AC_DEFINE(GC_SOLARIS_PTHREADS,1,[support for Solaris pthreads])
-	# Need to use alternate thread library, otherwise gctest hangs
-	# on Solaris 8.
-	multi_os_directory=`$CC -print-multi-os-directory`
-	THREADLIBS="-L/usr/lib/lwp/$multi_os_directory \
-		    -R/usr/lib/lwp/$multi_os_directory -lpthread -lthread -lrt"
-	;;
-     *-*-solaris2*)
-	AC_DEFINE(GC_SOLARIS_PTHREADS,1,[support for Solaris pthreads])
-	# The alternate thread library was only introduced in Solaris 8 and
-	# became the default in Solaris 9, so no need for the special code
-	# above otherwise.
-	# nanosleep, sched_yield, and sem_* only live in librt before
-	# Solaris 11.
-	THREADLIBS="-lpthread -lrt"
-	;;
-     *-*-irix*)
-	AC_DEFINE(GC_IRIX_THREADS,1,[support for Irix pthreads])
-	;;
-     *-*-cygwin*)
-	AC_DEFINE(GC_WIN32_THREADS,1,[support for win32 threads])
-	;;
-     *-*-darwin*)
-	AC_DEFINE(GC_DARWIN_THREADS,1,[support for Mac OS X pthreads])
-	AC_DEFINE(THREAD_LOCAL_ALLOC,1)
-	if test "${enable_parallel_mark}" = yes; then
-	  AC_DEFINE(PARALLEL_MARK,1)
-	fi
-	;;
-     *-*-osf*)
-	AC_DEFINE(GC_OSF1_THREADS,1,[support for Tru64 pthreads])
+        AC_MSG_WARN("Only HP/UX 11 POSIX threads are supported.")
+        AC_DEFINE(GC_HPUX_THREADS)
+        AC_DEFINE(_POSIX_C_SOURCE,199506L)
         if test "${enable_parallel_mark}" = yes; then
-	  AC_DEFINE(PARALLEL_MARK,1)
-	  AC_DEFINE(THREAD_LOCAL_ALLOC,1)
-	  # May want to enable it in other cases, too.
-	  # Measurements havent yet been done.
-	fi
-	THREADCFLAGS=-pthread
-	THREADLIBS="-lpthread -lrt"
-	;;
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        AC_MSG_WARN("Explicit GC_INIT() calls may be required.");
+        THREADDLLIBS="-lpthread -lrt"
+        # HPUX needs REENTRANT for the _r calls.
+        AC_DEFINE(_REENTRANT, 1, [Required define if using POSIX threads.])
+        ;;
+     *-*-hpux10*)
+        AC_MSG_WARN("Only HP-UX 11 POSIX threads are supported.")
+        ;;
+     *-*-openbsd*)
+        AC_DEFINE(GC_OPENBSD_THREADS)
+        THREADDLLIBS=-pthread
+        INCLUDES="$INCLUDES -pthread"
+        ;;
+     *-*-freebsd*)
+        AC_MSG_WARN("FreeBSD does not yet fully support threads with Boehm GC.")
+        AC_DEFINE(GC_FREEBSD_THREADS)
+        INCLUDES="$INCLUDES -pthread"
+        if test "${enable_parallel_mark}" = yes; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        ;;
+     *-*-kfreebsd*-gnu)
+        AC_DEFINE(GC_FREEBSD_THREADS)
+        INCLUDES="$INCLUDES -pthread"
+        THREADDLLIBS=-pthread
+        AC_DEFINE(_REENTRANT)
+        if test "${enable_parallel_mark}" = yes; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        AC_DEFINE(USE_COMPILER_TLS)
+        ;;
+     *-*-gnu*)
+        AC_DEFINE(GC_GNU_THREADS)
+        AC_DEFINE(_REENTRANT)
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        ;;
+     *-*-netbsd*)
+        AC_MSG_WARN("Only on NetBSD 2.0 or later.")
+        AC_DEFINE(GC_NETBSD_THREADS)
+        AC_DEFINE(_REENTRANT)
+        AC_DEFINE(_PTHREADS)
+        THREADDLLIBS="-lpthread -lrt"
+        ;;
+     *-*-solaris*)
+        AC_DEFINE(GC_SOLARIS_THREADS)
+        if test "${enable_parallel_mark}" != no; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        # Need to use alternate thread library, otherwise gctest hangs
+        # on Solaris 8.
+        multi_os_directory=`$CC -print-multi-os-directory`
+        THREADDLLIBS="-L/usr/lib/lwp/$multi_os_directory \
+                      -R/usr/lib/lwp/$multi_os_directory -lpthread -lrt"
+        ;;
+     *-*-irix*)
+        AC_DEFINE(GC_IRIX_THREADS)
+        ;;
+     *-*-cygwin*)
+        AC_DEFINE(GC_WIN32_THREADS)
+        if test "${enable_parallel_mark}" != no; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        # Cygwin doesn't have a real libpthread, so Libtool can't link
+        # against it.
+        THREADDLLIBS=""
+        win32_threads=true
+        ;;
+     *-*-mingw*)
+        AC_DEFINE(GC_WIN32_PTHREADS)
+        # Using win32-pthreads
+        if test "${enable_parallel_mark}" != no; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        THREADDLLIBS="-lpthread"
+        win32_threads=true
+        ;;
+     *-*-darwin*)
+        AC_DEFINE(GC_DARWIN_THREADS)
+        AC_MSG_WARN("Explicit GC_INIT() calls may be required.");
+        # Parallel-mark is not well-tested on Darwin
+        if test "${enable_parallel_mark}" != no; then
+          AC_DEFINE(PARALLEL_MARK)
+        fi
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+        darwin_threads=true
+        ;;
+     *-*-osf*)
+        AC_DEFINE(GC_OSF1_THREADS)
+        if test "${enable_parallel_mark}" = yes; then
+          AC_DEFINE(PARALLEL_MARK)
+          AC_DEFINE(THREAD_LOCAL_ALLOC)
+          AC_MSG_WARN("Explicit GC_INIT() calls may be required.");
+          # May want to enable it in other cases, too.
+          # Measurements have not yet been done.
+        fi
+        INCLUDES="$INCLUDES -pthread"
+        THREADDLLIBS="-lpthread -lrt"
+        ;;
+      *)
+        AC_MSG_ERROR("Pthreads not supported by the GC on this platform.")
+        ;;
+    esac
+    case "$host" in
+     sparc*-*-solaris*)
+        if test "$GCC" != yes; then
+          CFLAGS="-O $CFLAGS"
+          need_atomic_ops_asm=true
+        fi
+        ;;
     esac
     ;;
  win32)
-    AC_DEFINE(GC_WIN32_THREADS,1)
-    dnl Old wine getenv may not return NULL for missing entry.
-    dnl Define EMPTY_GETENV_RESULTS here to work around the bug.
+    AC_DEFINE(GC_WIN32_THREADS)
+    if test "${enable_parallel_mark}" != no; then
+      AC_DEFINE(PARALLEL_MARK)
+      AC_DEFINE(THREAD_LOCAL_ALLOC)
+    else
+      if test "${enable_shared}" != yes || test "${enable_static}" != no; then
+        # Imply THREAD_LOCAL_ALLOC unless GC_DLL.
+        AC_DEFINE(THREAD_LOCAL_ALLOC)
+      fi
+    fi
+    if test "${enable_win32_dllmain}" = yes; then
+      AC_DEFINE(GC_INSIDE_DLL, 1,
+                [Enable Win32 DllMain-based approach of threads registering.])
+    fi
+    win32_threads=true
+    AC_DEFINE([EMPTY_GETENV_RESULTS], [1],
+              [Wine getenv may not return NULL for missing entry.])
+    ;;
+ dgux386)
+    THREADS=dgux386
+    AC_MSG_RESULT($THREADDLLIBS)
+    # Use pthread GCC switch
+    THREADDLLIBS=-pthread
+    if test "${enable_parallel_mark}" = yes; then
+        AC_DEFINE(PARALLEL_MARK)
+    fi
+    AC_DEFINE(THREAD_LOCAL_ALLOC)
+    AC_MSG_WARN("Explicit GC_INIT() calls may be required.");
+    AC_DEFINE([GC_DGUX386_THREADS], 1,
+              [Define to enable support for DB/UX threads on i386.])
+    AC_DEFINE([DGUX_THREADS], 1,
+              [Define to enable support for DB/UX threads.])
+    # Enable _POSIX4A_DRAFT10_SOURCE with flag -pthread
+    INCLUDES="-pthread $INCLUDES"
     ;;
  aix)
     THREADS=posix
-    THREADLIBS=-lpthread
-    AC_DEFINE(GC_AIX_THREADS,1)
-    AC_DEFINE(_REENTRANT,1)
+    THREADDLLIBS=-lpthread
+    AC_DEFINE(GC_AIX_THREADS)
+    AC_DEFINE(_REENTRANT)
     ;;
- dce | vxworks)
+ rtems)
+    THREADS=posix
+    AC_DEFINE(GC_RTEMS_PTHREADS)
+    AC_DEFINE(THREAD_LOCAL_ALLOC)
+    ;;
+ decosf1 | irix | mach | os2 | solaris | dce | vxworks)
     AC_MSG_ERROR(thread package $THREADS not yet supported)
     ;;
  *)
     AC_MSG_ERROR($THREADS is an unknown thread package)
     ;;
 esac
-AC_SUBST(THREADCFLAGS)
-AC_SUBST(THREADLIBS)
+AC_SUBST(THREADDLLIBS)
+AM_CONDITIONAL(THREADS, test x$THREADS != xnone)
+AM_CONDITIONAL(PTHREADS, test x$THREADS = xposix)
+AM_CONDITIONAL(DARWIN_THREADS, test x$darwin_threads = xtrue)
+AM_CONDITIONAL(WIN32_THREADS, test x$win32_threads = xtrue)
 
 case "$host" in
    powerpc-*-darwin*)
       powerpc_darwin=true
       ;;
-esac
-AM_CONDITIONAL(POWERPC_DARWIN,test x$powerpc_darwin = xtrue)
-
-# Darwin needs a few extra special tests to deal with variation in the
-# system headers.
-case "$host" in
-  powerpc*-*-darwin*)
-    AC_CHECK_MEMBER(ppc_thread_state_t.r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE_R0,1,
-	[ppc_thread_state_t has field r0]),,
-      [#include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(ppc_thread_state_t.__r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE___R0,1,dnl
-	[ppc_thread_state_t has field __r0]),,
-      [#include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(ppc_thread_state64_t.r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE64_R0,1,dnl
-	[ppc_thread_state64_t has field r0]),,
-      [#include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(ppc_thread_state64_t.__r0,
-      AC_DEFINE(HAS_PPC_THREAD_STATE64___R0,1,dnl
-	[ppc_thread_state64_t has field __r0]),,
-      [#include <mach/thread_status.h>])
-    ;;
-  i?86*-*-darwin*)
-    AC_CHECK_MEMBER(x86_thread_state32_t.eax,
-      AC_DEFINE(HAS_X86_THREAD_STATE32_EAX,1,dnl
-	[x86_thread_state32_t has field eax]),,
-      [#include <sys/cdefs.h>
-      #include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(x86_thread_state32_t.__eax,
-      AC_DEFINE(HAS_X86_THREAD_STATE32___EAX,1,dnl
-	[x86_thread_state32_t has field __eax]),,
-      [#include <sys/cdefs.h>
-      #include <mach/thread_status.h>])
-    ;;
-  x86_64-*-darwin*)
-    AC_CHECK_MEMBER(x86_thread_state64_t.rax,
-      AC_DEFINE(HAS_X86_THREAD_STATE64_RAX,1,dnl
-	[x86_thread_state64_t has field rax]),,
-      [#include <sys/cdefs.h>
-      #include <mach/thread_status.h>])
-    AC_CHECK_MEMBER(x86_thread_state64_t.__rax,
-      AC_DEFINE(HAS_X86_THREAD_STATE64___RAX,1,dnl
-	[x86_thread_state64_t has field __rax]),,
-      [#include <sys/cdefs.h>
-      #include <mach/thread_status.h>])
-     ;;
-  *) ;;
+   *-*-wince*)
+      if test "$enable_gc_debug" != "no"; then
+        AC_DEFINE([GC_READ_ENV_FILE], 1,
+                  [Read environment variables from the GC 'env' file.])
+      fi
+      ;;
 esac
 
+if test "$GCC" = yes; then
+  # Output all warnings.
+  AC_MSG_CHECKING(for gcc -Wextra)
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="-Wextra $CFLAGS"
+  AC_TRY_COMPILE([],[], [ac_cv_cc_wextra=yes], [ac_cv_cc_wextra=no])
+  CFLAGS="$old_CFLAGS"
+  AC_MSG_RESULT($ac_cv_cc_wextra)
+  AS_IF([test "$ac_cv_cc_wextra" = yes], [WEXTRA="-Wextra"], [WEXTRA="-W"])
+  CFLAGS="-Wall $WEXTRA $CFLAGS"
+fi
+
+AC_MSG_CHECKING(for xlc)
+AC_TRY_COMPILE([],[
+ #ifndef __xlC__
+ # error
+ #endif
+], [compiler_xlc=yes], [compiler_xlc=no])
+AC_MSG_RESULT($compiler_xlc)
+AM_CONDITIONAL(COMPILER_XLC,test $compiler_xlc = yes)
+if test $compiler_xlc = yes -a "$powerpc_darwin" = true; then
+  # the darwin stack-frame-walking code is completely broken on xlc
+  AC_DEFINE([DARWIN_DONT_PARSE_STACK], 1, [See doc/README.macros.])
+fi
+
+if test "$GCC" = yes; then
+  # Disable aliasing optimization unless forced to.
+  AC_MSG_CHECKING([whether gcc supports -fno-strict-aliasing])
+  ac_cv_fno_strict_aliasing=no
+  for cflag in $CFLAGS; do
+    case "$cflag" in
+      -fstrict-aliasing)
+        # Opposite option already present
+        ac_cv_fno_strict_aliasing=skipped
+        break
+        ;;
+    esac
+  done
+  if test "$ac_cv_fno_strict_aliasing" != skipped; then
+    old_CFLAGS="$CFLAGS"
+    CFLAGS="$CFLAGS -fno-strict-aliasing"
+    AC_TRY_COMPILE([],[], [ac_cv_fno_strict_aliasing=yes], [])
+    CFLAGS="$old_CFLAGS"
+    AS_IF([test "$ac_cv_fno_strict_aliasing" = yes],
+          [CFLAGS="$CFLAGS -fno-strict-aliasing"], [])
+  fi
+  AC_MSG_RESULT($ac_cv_fno_strict_aliasing)
+fi
+
 case "$host" in
-  # While IRIX 6 has libdl for the O32 and N32 ABIs, it's missing for N64
-  # and unnecessary everywhere.
+# While IRIX 6 has libdl for the O32 and N32 ABIs, it's missing for N64
+# and unnecessary everywhere.
   mips-sgi-irix6*) ;;
-  # We never want libdl on darwin. It is a fake libdl that just ends up making
-  # dyld calls anyway
+# We never want libdl on darwin. It is a fake libdl that just ends up making
+# dyld calls anyway.  The same applies to Cygwin.
   *-*-darwin*) ;;
+  *-*-cygwin*) ;;
   *)
-    AC_CHECK_LIB(dl, dlopen, EXTRA_TEST_LIBS="$EXTRA_TEST_LIBS -ldl")
+    AC_CHECK_LIB(dl, dlopen, THREADDLLIBS="$THREADDLLIBS -ldl")
     ;;
 esac
+
+case "$host" in
+  *-*-hpux*)
+    avoid_cpp_lib=yes;;
+  *)
+    avoid_cpp_lib=no;
+    ;;
+esac
+AM_CONDITIONAL(AVOID_CPP_LIB,test $avoid_cpp_lib = yes)
 
 # extra LD Flags which are required for targets
 case "${host}" in
@@ -327,7 +471,7 @@ AC_SUBST(extra_ldflags_libgc)
 
 AC_SUBST(EXTRA_TEST_LIBS)
 
-target_all=libgcjgc.la
+target_all=libgc.la
 AC_SUBST(target_all)
 
 dnl If the target is an eCos system, use the appropriate eCos
@@ -342,28 +486,43 @@ TARGET_ECOS="$with_ecos"
 
 addobjs=
 addlibs=
-addincludes=
-addtests=
+CXXINCLUDES=
+CXXLIBS=
+
 case "$TARGET_ECOS" in
    no)
       ;;
    *)
-      AC_DEFINE(ECOS,1,[Target is ECOS])
-      AM_CPPFLAGS="${AM_CPPFLAGS} -I${TARGET_ECOS}/include"
+      AC_DEFINE([ECOS], 1, [Define to enable eCos target support.])
+      CXXINCLUDES="-I${TARGET_ECOS}/include"
       addobjs="$addobjs ecos.lo"
       ;;
 esac
 
-if test "${enable_cplusplus}" = yes; then
-      addincludes="$addincludes include/gc_cpp.h include/gc_allocator.h"
-      addtests="$addtests test_cpp"
-fi
-
 AM_CONDITIONAL(CPLUSPLUS, test "${enable_cplusplus}" = yes)
+
+if test "$GCC" = yes; then
+  if test "${enable_cplusplus}" = yes; then
+    case "$host" in
+      *-*-cygwin* | *-*-mingw*)
+        AC_MSG_CHECKING([whether libsupc++ required])
+        SUPC="`$CXX -print-file-name=libsupc++.a 2>/dev/null`"
+        if test -n "$SUPC" -a "$SUPC" != "libsupc++.a"; then
+          AC_MSG_RESULT(yes)
+          CXXLIBS="-lsupc++"
+        else
+          AC_MSG_RESULT(no)
+        fi
+        ;;
+    esac
+  fi
+fi
 
 AC_SUBST(CXX)
 
-AC_SUBST(AM_CPPFLAGS)
+AC_SUBST(INCLUDES)
+AC_SUBST(CXXINCLUDES)
+AC_SUBST(CXXLIBS)
 
 # Configuration of shared libraries
 #
@@ -373,154 +532,384 @@ AC_ENABLE_SHARED
 case "$host" in
  alpha-*-openbsd*)
      enable_shared=no
-     AC_MSG_RESULT(no)
      ;;
  *)
-     AC_MSG_RESULT(yes)
      ;;
 esac
 
-# Checks for pthreads functions
-#
-oldLIBS="$LIBS"
-LIBS="$LIBS $THREADLIBS"
-AC_CHECK_FUNCS([pthread_getattr_np])
-AC_CHECK_FUNCS([pthread_get_stackaddr_np])
-LIBS="$oldLIBS"
+AC_MSG_RESULT($enable_shared)
+
+# Compile with GC_DLL defined unless building static libraries.
+if test "${enable_shared}" = yes; then
+  if test "${enable_static}" = no; then
+    AC_DEFINE(GC_DLL)
+    if test "$GCC" = yes; then
+      # Pass -fvisibility=hidden option if supported
+      AC_MSG_CHECKING([whether gcc supports -fvisibility])
+      old_CFLAGS="$CFLAGS"
+      CFLAGS="-Werror -fvisibility=hidden $CFLAGS"
+      AC_TRY_COMPILE([],[], [ac_cv_fvisibility_hidden=yes],
+                     [ac_cv_fvisibility_hidden=no])
+      CFLAGS="$old_CFLAGS"
+      AS_IF([test "$ac_cv_fvisibility_hidden" = yes],
+            [CFLAGS="-DGC_VISIBILITY_HIDDEN_SET -fvisibility=hidden $CFLAGS"])
+      AC_MSG_RESULT($ac_cv_fvisibility_hidden)
+    fi
+  fi
+fi
 
 # Configuration of machine-dependent code
-#
-# Set NO_EXECUTE_PERMISSION by default because gcj already uses
-# ffi_closure_{alloc,free} which takes care of allocating trampolines
-# in executable memory.
 #
 AC_MSG_CHECKING(which machine-dependent code should be used)
 machdep=
 case "$host" in
- alpha*-*-openbsd*)
-    machdep="alpha_mach_dep.lo"
+ alpha-*-openbsd*)
     if test x"${ac_cv_lib_dl_dlopen}" != xyes ; then
-       AC_MSG_WARN(OpenBSD/Alpha without dlopen(). Shared library support is disabled)
+       AC_MSG_WARN(
+         "OpenBSD/Alpha without dlopen(). Shared library support is disabled.")
     fi
     ;;
- alpha*-*-linux*)
-    machdep="alpha_mach_dep.lo"
-    ;;
- i?86-*-solaris2.[[89]] | i?86-*-solaris2.1? | x86_64-*-solaris2.1?)
-    AC_DEFINE(SOLARIS25_PROC_VDB_BUG_FIXED,1,[PROC_VDB in Solaris 2.5 gives wrong values for dirty bits])
-    ;;
- mipstx39-*-elf*)
-    machdep="mips_ultrix_mach_dep.lo"
-    AC_DEFINE(STACKBASE, __stackbase,[No description])
-    AC_DEFINE(DATASTART_IS_ETEXT,1,[No description])
-    ;;
- mips-dec-ultrix*)
-    machdep="mips_ultrix_mach-dep.lo"
-    ;;
- mips-nec-sysv*|mips-unknown-sysv*)
-    ;;
- mips*-*-linux*)
+ i?86-*-solaris2.[[89]])
+    # PROC_VDB appears to work in 2.8 and 2.9 but not in 2.10+ (for now).
+    AC_DEFINE([SOLARIS25_PROC_VDB_BUG_FIXED], 1,
+              [See the comment in gcconfig.h.])
     ;;
  mips-*-*)
-    machdep="mips_sgi_mach_dep.lo"
+    dnl AC_DEFINE(NO_EXECUTE_PERMISSION)
+    dnl This is now redundant, but it is also important for incremental GC
+    dnl performance under Irix.
     ;;
  sparc-*-netbsd*)
-    machdep="sparc_netbsd_mach_dep.lo"
+    machdep="src/sparc_netbsd_mach_dep.lo"
+    ;;
+ sparc*-*-linux* | sparc*-*-openbsd* | sparc64-*-netbsd*)
+    machdep="src/sparc_mach_dep.lo"
     ;;
  sparc-sun-solaris2.3)
-    machdep="sparc_mach_dep.lo"
-    AC_DEFINE(SUNOS53_SHARED_LIB,1,[Avoid Solaris 5.3 dynamic library bug])
+    machdep="src/sparc_mach_dep.lo"
+    AC_DEFINE(SUNOS53_SHARED_LIB, 1,
+              [Define to work around a Solaris 5.3 bug (see dyn_load.c).])
     ;;
- sparc*-sun-solaris2.*)
-    machdep="sparc_mach_dep.lo"
+ sparc*-sun-solaris2*)
+    machdep="src/sparc_mach_dep.lo"
     ;;
  ia64-*-*)
-    machdep="mach_dep.lo ia64_save_regs_in_stack.lo"
+    machdep="src/ia64_save_regs_in_stack.lo"
     ;;
 esac
-AC_DEFINE(NO_EXECUTE_PERMISSION,1,[cause some or all of the heap to not have execute permission])
-if test x"$machdep" = x; then
 AC_MSG_RESULT($machdep)
-   machdep="mach_dep.lo"
-fi
 addobjs="$addobjs $machdep"
 AC_SUBST(addobjs)
-AC_SUBST(addincludes)
 AC_SUBST(addlibs)
-AC_SUBST(addtests)
+
+AC_PROG_LIBTOOL
+
+dnl We use these options to decide which functions to include.
+AC_ARG_WITH(target-subdir,
+[  --with-target-subdir=SUBDIR
+                          configuring with a cross compiler])
+AC_ARG_WITH(cross-host,
+[  --with-cross-host=HOST  configuring with a cross compiler])
+
+# automake wants to see AC_EXEEXT.  But we don't need it.  And having
+# it is actually a problem, because the compiler we're passed can't
+# necessarily do a full link.  So we fool automake here.
+if false; then
+  # autoconf 2.50 runs AC_EXEEXT by default, and the macro expands
+  # to nothing, so nothing would remain between `then' and `fi' if it
+  # were not for the `:' below.
+  :
+  AC_EXEEXT
+fi
 
 dnl As of 4.13a2, the collector will not properly work on Solaris when
 dnl built with gcc and -O.  So we remove -O in the appropriate case.
 dnl Not needed anymore on Solaris.
-AC_MSG_CHECKING([whether GCC optimization should be disabled])
-O0_CFLAGS=
+AC_MSG_CHECKING(whether Solaris gcc optimization fix is necessary)
 case "$host" in
- *aix*) test "$GCC" = yes && O0_CFLAGS=-O0 ;;
- *) ;;
+ *aix*)
+    if test "$GCC" = yes; then
+       AC_MSG_RESULT(yes)
+       new_CFLAGS=
+       for i in $CFLAGS; do
+          case "$i" in
+           -O*)
+              ;;
+           *)
+              new_CFLAGS="$new_CFLAGS $i"
+              ;;
+          esac
+       done
+       CFLAGS="$new_CFLAGS"
+    else
+       AC_MSG_RESULT(no)
+    fi
+    ;;
+ *) AC_MSG_RESULT(no) ;;
 esac
-if test x"$O0_CFLAGS" != x; then
-   AC_MSG_RESULT(yes)
-else
-   AC_MSG_RESULT(no)
-fi
-AC_SUBST([O0_CFLAGS])
 
 dnl Include defines that have become de facto standard.
-dnl ALL_INTERIOR_POINTERS can be overridden in startup code.
-AC_DEFINE(SILENT,1,[disables statistics printing])
-AC_DEFINE(NO_SIGNALS,1,[does not disable signals])
-AC_DEFINE(ALL_INTERIOR_POINTERS,1,[allows all pointers to the interior of objects to be recognized])
+dnl ALL_INTERIOR_POINTERS and NO_EXECUTE_PERMISSION can be overridden
+dnl in the startup code.
+AC_DEFINE([NO_EXECUTE_PERMISSION], [1],
+          [Define to make the collector not allocate executable memory
+           by default.])
+AC_DEFINE([ALL_INTERIOR_POINTERS], [1],
+          [Define to recognise all pointers to the interior of objects.])
 
+
+dnl Interface Selection
+dnl -------------------
+dnl
 dnl By default, make the library as general as possible.
-AC_DEFINE(JAVA_FINALIZATION,1,[make it somewhat safer to finalize objects out of order])
-AC_DEFINE(GC_GCJ_SUPPORT,1,[include support for gcj])
-AC_DEFINE(ATOMIC_UNCOLLECTABLE,1,[include code for GC_malloc_atomic_uncollectable])
+dnl enable_gcj_support=no
+AC_ARG_ENABLE(gcj-support,
+    [AC_HELP_STRING([--disable-gcj-support],
+        [Disable support for gcj.])])
+if test x"$enable_gcj_support" != xno; then
+    AC_DEFINE(GC_GCJ_SUPPORT, 1, [Define to include support for gcj.])
+fi
 
+dnl Debugging
+dnl ---------
+
+AH_TEMPLATE([GC_HAVE_BUILTIN_BACKTRACE],
+            [Define if backtrace information is supported.])
+AH_TEMPLATE([MAKE_BACK_GRAPH], [See doc/README.macros.])
+AH_TEMPLATE([SAVE_CALL_COUNT],
+            [The number of caller frames saved when allocating with the
+             debugging API.])
+UNWINDLIBS=
 AC_ARG_ENABLE(gc-debug,
-[  --enable-gc-debug	include full support for pointer backtracing etc.],
+[AC_HELP_STRING([--enable-gc-debug],
+    [include full support for pointer backtracing etc.])],
 [ if test "$enable_gc_debug" = "yes"; then
-    AC_MSG_WARN("Must define GC_DEBUG and use debug alloc. in clients.")
-    AC_DEFINE(KEEP_BACK_PTRS,1,[Add code to save back pointers])
-    AC_DEFINE(DBG_HDRS_ALL,1,[Make sure that all objects have debug headers])
+    AC_MSG_WARN("Should define GC_DEBUG and use debug alloc in clients.")
+    AC_DEFINE([KEEP_BACK_PTRS], 1,
+              [Define to save back-pointers in debugging headers.])
+    keep_back_ptrs=true
+    AC_DEFINE([DBG_HDRS_ALL], 1,
+              [Define to force debug headers on all objects.])
+    AH_TEMPLATE([SHORT_DBG_HDRS],
+                [Shorten the headers to minimize object size at the expense
+                 of checking for writes past the end (see doc/README.macros).])
+
     case $host in
       ia64-*-linux* )
-	AC_DEFINE(MAKE_BACK_GRAPH,1,[Enable GC_PRINT_BACK_HEIGHT environment variable])
+        AC_DEFINE(MAKE_BACK_GRAPH)
+        AC_DEFINE(SAVE_CALL_COUNT, 8)
+        AC_CHECK_LIB(unwind, backtrace, [
+          AC_DEFINE(GC_HAVE_BUILTIN_BACKTRACE)
+          UNWINDLIBS=-lunwind
+          AC_MSG_WARN("Client code may need to link against libunwind.")
+        ])
       ;;
       x86-*-linux* | i586-*-linux* | i686-*-linux* | x86_64-*-linux* )
-	AC_DEFINE(MAKE_BACK_GRAPH,1)
-	AC_MSG_WARN("Client must not use -fomit-frame-pointer.")
-	AC_DEFINE(SAVE_CALL_COUNT, 8, [number of call frames saved with objects allocated through the debugging interface])
+        AC_DEFINE(MAKE_BACK_GRAPH)
+        AC_MSG_WARN("Client must not use -fomit-frame-pointer.")
+        AC_DEFINE(SAVE_CALL_COUNT, 8)
       ;;
-    esac 
-  fi])
+      i[3456]86-*-dgux*)
+        AC_DEFINE(MAKE_BACK_GRAPH)
+      ;;
+    esac ]
+  fi)
+AM_CONDITIONAL([MAKE_BACK_GRAPH], [test x"$enable_gc_debug" = xyes])
+AM_CONDITIONAL([KEEP_BACK_PTRS], [test x"$keep_back_ptrs" = xtrue])
 
-if test "${gc_use_mmap}" = "yes"; then
-  AC_DEFINE(USE_MMAP, 1, [use MMAP instead of sbrk to get new memory])
+# Check for AViiON Machines running DGUX
+ac_is_dgux=no
+AC_CHECK_HEADER(sys/dg_sys_info.h,
+[ac_is_dgux=yes;])
+
+    ## :GOTCHA: we do not check anything but sys/dg_sys_info.h
+if test $ac_is_dgux = yes; then
+    dgux_spec_opts="-DDGUX -D_DGUX_SOURCE -Di386 -mno-legend -O2"
+    CFLAGS="$dgux_spec_opts $CFLAGS"
+    CXXFLAGS="$dgux_spec_opts $CXXFLAGS"
+    if test "$enable_gc_debug" = "yes"; then
+      CFLAGS="-g -mstandard $CFLAGS"
+      CXXFLAGS="-g -mstandard $CXXFLAGS"
+    fi
+    AC_SUBST(CFLAGS)
+    AC_SUBST(CXXFLAGS)
 fi
 
-if test -n "$with_cross_host" &&
-   test x"$with_cross_host" != x"no"; then
-  toolexecdir='$(exec_prefix)/$(target_noncanonical)'
-  toolexeclibdir='$(toolexecdir)/lib'
+AC_ARG_ENABLE(java-finalization,
+    [AC_HELP_STRING([--disable-java-finalization],
+        [Disable support for java finalization.])])
+if test x"$enable_java_finalization" != xno; then
+    AC_DEFINE([JAVA_FINALIZATION], 1, [See doc/README.macros.])
+fi
+
+AC_ARG_ENABLE(atomic-uncollectable,
+    [AC_HELP_STRING([--disable-atomic-uncollectible],
+        [Disable support for atomic uncollectible allocation.])])
+if test x"$enable_atomic_uncollectible" != x"no"; then
+    AC_DEFINE(ATOMIC_UNCOLLECTABLE, 1,
+        [Define to enable atomic uncollectible allocation.])
+fi
+
+AC_ARG_ENABLE(redirect-malloc,
+    [AC_HELP_STRING([--enable-redirect-malloc],
+        [Redirect malloc and friends to GC routines])])
+
+if test "${enable_redirect_malloc}" = yes; then
+    if test "${enable_gc_debug}" = yes; then
+        AC_DEFINE([REDIRECT_MALLOC], GC_debug_malloc_replacement,
+                  [If defined, redirect malloc to this function.])
+        AC_DEFINE([REDIRECT_REALLOC], GC_debug_realloc_replacement,
+                  [If defined, redirect GC_realloc to this function.])
+        AC_DEFINE([REDIRECT_FREE], GC_debug_free,
+                  [If defined, redirect free to this function.])
+    else
+        AC_DEFINE(REDIRECT_MALLOC, GC_malloc)
+    fi
+    AC_DEFINE([GC_USE_DLOPEN_WRAP], 1, [See doc/README.macros.])
+fi
+
+AC_ARG_ENABLE(disclaim,
+    [AC_HELP_STRING([--disable-disclaim],
+        [Disable alternative (more efficient) finalization interface.])])
+if test x"$enable_disclaim" != xno; then
+    AC_DEFINE(ENABLE_DISCLAIM, 1,
+        [Define to enable alternative finalization interface.])
+fi
+AM_CONDITIONAL(ENABLE_DISCLAIM,
+    [test x"$enable_disclaim" != xno])
+
+AC_ARG_ENABLE(large-config,
+    [AC_HELP_STRING([--enable-large-config],
+        [Optimize for large (> 100 MB) heap or root set])])
+
+if test "${enable_large_config}" = yes; then
+    AC_DEFINE(LARGE_CONFIG, 1, [Define to optimize for large heaps or root sets.])
+fi
+
+AC_ARG_ENABLE(handle-fork,
+    [AC_HELP_STRING([--enable-handle-fork],
+        [Attempt to ensure a usable collector after fork() in multi-threaded
+         programs.])])
+
+if test "${enable_handle_fork}" = yes; then
+    AC_DEFINE(HANDLE_FORK, 1,
+              [Define to install pthread_atfork() handlers by default.])
+elif test "${enable_handle_fork}" = no; then
+    AC_DEFINE(NO_HANDLE_FORK, 1,
+              [Prohibit installation of pthread_atfork() handlers.])
+fi
+
+dnl This is something of a hack.  When cross-compiling we turn off
+dnl some functionality.  We also enable the "small" configuration.
+dnl These is only correct when targetting an embedded system.  FIXME.
+if test -n "${with_cross_host}"; then
+   AC_DEFINE([NO_CLOCK], 1, [Define to not use system clock (cross compiling).])
+   AC_DEFINE([SMALL_CONFIG], 1,
+             [Define to tune the collector for small heap sizes.])
+fi
+
+if test "$enable_gc_debug" = "no"; then
+   AC_DEFINE([NO_DEBUGGING], 1,
+             [Disable debugging, like GC_dump and its callees.])
+fi
+
+AC_SUBST(UNWINDLIBS)
+
+AC_ARG_ENABLE(gc-assertions,
+    [AC_HELP_STRING([--enable-gc-assertions],
+        [collector-internal assertion checking])])
+if test "${enable_gc_assertions}" = yes; then
+    AC_DEFINE([GC_ASSERTIONS], 1, [Define to enable internal debug assertions.])
+fi
+
+AC_ARG_ENABLE(munmap,
+    [AC_HELP_STRING([--enable-munmap=N],
+        [return page to the os if empty for N collections])],
+    MUNMAP_THRESHOLD=$enableval)
+if test "${enable_munmap}" != ""; then
+    AC_DEFINE([USE_MMAP], 1,
+              [Define to use mmap instead of sbrk to expand the heap.])
+    case "$host" in
+      *-*-cygwin*)
+        # Workaround for Cygwin: use VirtualAlloc since mmap(PROT_NONE) fails
+        AC_DEFINE([USE_WINALLOC], 1,
+                  [Define to use Win32 VirtualAlloc (instead of sbrk or
+                   mmap) to expand the heap.])
+        ;;
+    esac
+    AC_DEFINE([USE_MUNMAP], 1,
+              [Define to return memory to OS with munmap calls
+               (see doc/README.macros).])
+    if test "${MUNMAP_THRESHOLD}" = "yes"; then
+      MUNMAP_THRESHOLD=6
+    fi
+    AC_DEFINE_UNQUOTED([MUNMAP_THRESHOLD], [${MUNMAP_THRESHOLD}],
+        [Number of GC cycles to wait before unmapping an unused block.])
 else
-  toolexecdir='$(libdir)/gcc-lib/$(target_noncanonical)'
-  toolexeclibdir='$(libdir)'
-fi
-multi_os_directory=`$CC -print-multi-os-directory`
-case $multi_os_directory in
-  .) ;; # Avoid trailing /.
-  *) toolexeclibdir=$toolexeclibdir/$multi_os_directory ;;
-esac
-AC_SUBST(toolexecdir)
-AC_SUBST(toolexeclibdir)
-
-if test "${multilib}" = "yes"; then
-  multilib_arg="--enable-multilib"
-else
-  multilib_arg=
+    if test "${gc_use_mmap}" = "yes"; then
+      AC_DEFINE([USE_MMAP], 1,
+                [Define to use mmap instead of sbrk to expand the heap.])
+    fi
 fi
 
-AC_CONFIG_HEADERS([include/gc_config.h include/gc_ext_config.h])
+AM_CONDITIONAL(USE_LIBDIR, test -z "$with_cross_host")
 
-AC_CONFIG_FILES(Makefile include/Makefile testsuite/Makefile threads.mk)
+AC_ARG_ENABLE(single-obj-compilation,
+   [AC_HELP_STRING([--enable-single-obj-compilation],
+                   [Compile all library .c files into single .o])],
+   [single_obj_compilation=yes])
+AM_CONDITIONAL([SINGLE_GC_OBJ], [test "$single_obj_compilation" = "yes"])
+
+# Atomic Ops
+# ----------
+
+# Do we want to use an external libatomic_ops?  By default use it if it's
+# found.
+AC_ARG_WITH([libatomic-ops],
+    [AS_HELP_STRING([--with-libatomic-ops[=yes|no|check]],
+                    [Use a external libatomic_ops? (default: check)])],
+    [], [with_libatomic_ops=check])
+
+# Check for an external libatomic_ops if the answer was yes or check.  If not
+# found, fail on yes, and convert check to no.
+AS_IF([test x"$with_libatomic_ops" != xno],
+  [ PKG_CHECK_MODULES([ATOMIC_OPS], [atomic_ops], [],
+      [ AS_IF([test x"$with_libatomic_ops" != xcheck],
+              [AC_MSG_ERROR([A external libatomic_ops was not found.])])
+        with_libatomic_ops=no ]) ])
+
+# If we have neither an external or an internal version, offer a useful hint
+# and exit.
+AS_IF([test x"$with_libatomic_ops" = xno -a ! -e "$srcdir/libatomic_ops"],
+  [ AC_MSG_ERROR([libatomic_ops is required.  You can either install it on
+                  your system, or fetch and unpack a recent version into the
+                  source directory and link or rename it to libatomic_ops.]) ])
+
+# Finally, emit the definitions for bundled or external AO.
+AC_MSG_CHECKING([which libatomic_ops to use])
+AS_IF([test x"$with_libatomic_ops" != xno],
+  [ AC_MSG_RESULT([external]) ],
+  [ AC_MSG_RESULT([internal])
+    ATOMIC_OPS_CFLAGS='-I$(top_builddir)/libatomic_ops/src -I$(top_srcdir)/libatomic_ops/src'
+    ATOMIC_OPS_LIBS=""
+    AC_SUBST([ATOMIC_OPS_CFLAGS])
+    AC_CONFIG_SUBDIRS([libatomic_ops])
+  ])
+AM_CONDITIONAL([USE_INTERNAL_LIBATOMIC_OPS],
+    [test x$with_libatomic_ops = xno -a x"$THREADS" != xnone])
+AM_CONDITIONAL([NEED_ATOMIC_OPS_ASM],
+    [test x$with_libatomic_ops = xno -a x$need_atomic_ops_asm = xtrue])
+
+dnl Produce the Files
+dnl -----------------
+
+AC_CONFIG_FILES([Makefile bdw-gc.pc])
+
+AC_CONFIG_COMMANDS([default],,
+  [ srcdir="${srcdir}"
+    host=${host}
+    CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
+    CC="${CC}"
+    DEFS="$DEFS" ])
+
 AC_OUTPUT
