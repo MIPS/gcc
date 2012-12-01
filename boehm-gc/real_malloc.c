@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 1988, 1989 Hans-J. Boehm, Alan J. Demers
  * Copyright (c) 1991-1994 by Xerox Corporation.  All rights reserved.
  *
@@ -11,8 +11,10 @@
  * provided the above notices are retained, and a notice that the code was
  * modified is included with the above copyright notice.
  */
-/* Boehm, May 19, 1994 2:04 pm PDT */
 
+# ifdef HAVE_CONFIG_H
+#   include "config.h"
+# endif
 
 # ifdef PCR
 /*
@@ -23,14 +25,15 @@
 # define PCR_NO_RENAME
 # include <stdlib.h>
 
-# ifdef __STDC__
-    char * real_malloc(size_t size)
-# else 
-    char * real_malloc()
-    int size;
-# endif
+void * real_malloc(size_t size)
 {
-    return((char *)malloc(size));
+    return(malloc(size));
 }
-#endif /* PCR */
 
+# else
+
+extern int GC_quiet;
+        /* ANSI C doesn't allow translation units to be empty.  */
+        /* So we guarantee this one is nonempty.                */
+
+#endif /* PCR */

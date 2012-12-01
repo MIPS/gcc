@@ -8,7 +8,7 @@
 !IF "$(CFG)" == ""
 CFG=gctest - Win32 Release
 !MESSAGE No configuration specified.  Defaulting to cord - Win32 Debug.
-!ENDIF 
+!ENDIF
 
 !IF "$(CFG)" != "gc - Win32 Release" && "$(CFG)" != "gc - Win32 Debug" &&\
  "$(CFG)" != "gctest - Win32 Release" && "$(CFG)" != "gctest - Win32 Debug" &&\
@@ -16,26 +16,26 @@ CFG=gctest - Win32 Release
 !MESSAGE Invalid configuration "$(CFG)" specified.
 !MESSAGE You can specify a configuration when running NMAKE on this makefile
 !MESSAGE by defining the macro CFG on the command line.  For example:
-!MESSAGE 
+!MESSAGE
 !MESSAGE NMAKE /f "gc.mak" CFG="cord - Win32 Debug"
-!MESSAGE 
+!MESSAGE
 !MESSAGE Possible choices for configuration are:
-!MESSAGE 
+!MESSAGE
 !MESSAGE "gc - Win32 Release" (based on "Win32 (x86) Dynamic-Link Library")
 !MESSAGE "gc - Win32 Debug" (based on "Win32 (x86) Dynamic-Link Library")
 !MESSAGE "gctest - Win32 Release" (based on "Win32 (x86) Application")
 !MESSAGE "gctest - Win32 Debug" (based on "Win32 (x86) Application")
 !MESSAGE "cord - Win32 Release" (based on "Win32 (x86) Application")
 !MESSAGE "cord - Win32 Debug" (based on "Win32 (x86) Application")
-!MESSAGE 
+!MESSAGE
 !ERROR An invalid configuration is specified.
-!ENDIF 
+!ENDIF
 
 !IF "$(OS)" == "Windows_NT"
 NULL=
-!ELSE 
+!ELSE
 NULL=nul
-!ENDIF 
+!ENDIF
 ################################################################################
 # Begin Project
 # PROP Target_Last_Scanned "gctest - Win32 Debug"
@@ -57,7 +57,7 @@ INTDIR=.\Release
 
 ALL : ".\Release\gc.dll" ".\Release\gc.bsc"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\Release\allchblk.obj"
 	-@erase ".\Release\allchblk.sbr"
 	-@erase ".\Release\alloc.obj"
@@ -72,6 +72,8 @@ CLEAN :
 	-@erase ".\Release\dyn_load.sbr"
 	-@erase ".\Release\finalize.obj"
 	-@erase ".\Release\finalize.sbr"
+	-@erase ".\Release\fnlz_mlc.obj"
+	-@erase ".\Release\fnlz_mlc.sbr"
 	-@erase ".\Release\gc.bsc"
 	-@erase ".\Release\gc_cpp.obj"
 	-@erase ".\Release\gc_cpp.sbr"
@@ -108,48 +110,51 @@ CLEAN :
 	-@erase ".\Release\typd_mlc.sbr"
 	-@erase ".\Release\win32_threads.obj"
 	-@erase ".\Release\win32_threads.sbr"
+	-@erase ".\Release\msvc_dbg.obj"
+	-@erase ".\Release\msvc_dbg.sbr"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "SILENT" /D "GC_BUILD" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS" /FR /YX /c
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "SILENT" /D "GC_BUILD" /D\
- "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D\
- "GC_WIN32_THREADS" /FR"$(INTDIR)/" /Fp"$(INTDIR)/gc.pch" /YX /Fo"$(INTDIR)/" /c 
+# ADD CPP /nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" /FR /YX /c
+CPP_PROJ=/nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D\
+ "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" \
+ /FR"$(INTDIR)/" /Fp"$(INTDIR)/gc.pch" \
+ /I./libatomic_ops/src /YX /Fo"$(INTDIR)/" /c
 CPP_OBJS=.\Release/
 CPP_SBRS=.\Release/
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "NDEBUG" /win32
 # ADD MTL /nologo /D "NDEBUG" /win32
-MTL_PROJ=/nologo /D "NDEBUG" /win32 
+MTL_PROJ=/nologo /D "NDEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "NDEBUG"
 # ADD RSC /l 0x809 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/gc.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/gc.bsc"
 BSC32_SBRS= \
 	".\Release\allchblk.sbr" \
 	".\Release\alloc.sbr" \
@@ -158,6 +163,7 @@ BSC32_SBRS= \
 	".\Release\dbg_mlc.sbr" \
 	".\Release\dyn_load.sbr" \
 	".\Release\finalize.sbr" \
+	".\Release\fnlz_mlc.sbr" \
 	".\Release\gc_cpp.sbr" \
 	".\Release\headers.sbr" \
 	".\Release\mach_dep.sbr" \
@@ -173,6 +179,7 @@ BSC32_SBRS= \
 	".\Release\reclaim.sbr" \
 	".\Release\stubborn.sbr" \
 	".\Release\typd_mlc.sbr" \
+	".\Release\msvc_dbg.sbr" \
 	".\Release\win32_threads.sbr"
 
 ".\Release\gc.bsc" : "$(OUTDIR)" $(BSC32_SBRS)
@@ -187,7 +194,7 @@ LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /dll /incremental:no\
  /pdb:"$(OUTDIR)/gc.pdb" /machine:I386 /out:"$(OUTDIR)/gc.dll"\
- /implib:"$(OUTDIR)/gc.lib" 
+ /implib:"$(OUTDIR)/gc.lib"
 LINK32_OBJS= \
 	".\Release\allchblk.obj" \
 	".\Release\alloc.obj" \
@@ -196,6 +203,7 @@ LINK32_OBJS= \
 	".\Release\dbg_mlc.obj" \
 	".\Release\dyn_load.obj" \
 	".\Release\finalize.obj" \
+	".\Release\fnlz_mlc.obj" \
 	".\Release\gc_cpp.obj" \
 	".\Release\headers.obj" \
 	".\Release\mach_dep.obj" \
@@ -211,6 +219,7 @@ LINK32_OBJS= \
 	".\Release\reclaim.obj" \
 	".\Release\stubborn.obj" \
 	".\Release\typd_mlc.obj" \
+	".\Release\msvc_dbg.obj" \
 	".\Release\win32_threads.obj"
 
 ".\Release\gc.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
@@ -235,7 +244,7 @@ INTDIR=.\Debug
 
 ALL : ".\Debug\gc.dll" ".\Debug\gc.bsc"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\Debug\allchblk.obj"
 	-@erase ".\Debug\allchblk.sbr"
 	-@erase ".\Debug\alloc.obj"
@@ -250,6 +259,8 @@ CLEAN :
 	-@erase ".\Debug\dyn_load.sbr"
 	-@erase ".\Debug\finalize.obj"
 	-@erase ".\Debug\finalize.sbr"
+	-@erase ".\Debug\fnlz_mlc.obj"
+	-@erase ".\Debug\fnlz_mlc.sbr"
 	-@erase ".\Debug\gc_cpp.obj"
 	-@erase ".\Debug\gc_cpp.sbr"
 	-@erase ".\Debug\gc.bsc"
@@ -290,49 +301,52 @@ CLEAN :
 	-@erase ".\Debug\vc40.pdb"
 	-@erase ".\Debug\win32_threads.obj"
 	-@erase ".\Debug\win32_threads.sbr"
+	-@erase ".\Debug\msvc_dbg.obj"
+	-@erase ".\Debug\msvc_dbg.sbr"
 
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
 CPP=cl.exe
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /YX /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /I include /D "_DEBUG" /D "SILENT" /D "GC_BUILD" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS" /FR /YX /c
-CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I include /D "_DEBUG" /D "SILENT" /D "GC_BUILD"\
- /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D\
- "GC_WIN32_THREADS" /FR"$(INTDIR)/" /Fp"$(INTDIR)/gc.pch" /YX /Fo"$(INTDIR)/"\
- /Fd"$(INTDIR)/" /c 
+# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /I include /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" /FR /YX /c
+CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I include /D "_DEBUG"\
+ /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" \
+ /D "GC_ASSERTIONS" /D "GC_THREADS" \
+ /FR"$(INTDIR)/" /Fp"$(INTDIR)/gc.pch" /YX /Fo"$(INTDIR)/"\
+ /I./libatomic_ops/src /Fd"$(INTDIR)/" /c
 CPP_OBJS=.\Debug/
 CPP_SBRS=.\Debug/
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "_DEBUG" /win32
 # ADD MTL /nologo /D "_DEBUG" /win32
-MTL_PROJ=/nologo /D "_DEBUG" /win32 
+MTL_PROJ=/nologo /D "_DEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "_DEBUG"
 # ADD RSC /l 0x809 /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/gc.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/gc.bsc"
 BSC32_SBRS= \
 	".\Debug\allchblk.sbr" \
 	".\Debug\alloc.sbr" \
@@ -341,6 +355,7 @@ BSC32_SBRS= \
 	".\Debug\dbg_mlc.sbr" \
 	".\Debug\dyn_load.sbr" \
 	".\Debug\finalize.sbr" \
+	".\Debug\fnlz_mlc.sbr" \
 	".\Debug\gc_cpp.sbr" \
 	".\Debug\headers.sbr" \
 	".\Debug\mach_dep.sbr" \
@@ -356,6 +371,7 @@ BSC32_SBRS= \
 	".\Debug\reclaim.sbr" \
 	".\Debug\stubborn.sbr" \
 	".\Debug\typd_mlc.sbr" \
+	".\Debug\msvc_dbg.sbr" \
 	".\Debug\win32_threads.sbr"
 
 ".\Debug\gc.bsc" : "$(OUTDIR)" $(BSC32_SBRS)
@@ -370,7 +386,7 @@ LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /dll /incremental:no\
  /pdb:"$(OUTDIR)/gc.pdb" /map:"$(INTDIR)/gc.map" /debug /machine:I386\
- /out:"$(OUTDIR)/gc.dll" /implib:"$(OUTDIR)/gc.lib" 
+ /out:"$(OUTDIR)/gc.dll" /implib:"$(OUTDIR)/gc.lib"
 LINK32_OBJS= \
 	".\Debug\allchblk.obj" \
 	".\Debug\alloc.obj" \
@@ -379,6 +395,7 @@ LINK32_OBJS= \
 	".\Debug\dbg_mlc.obj" \
 	".\Debug\dyn_load.obj" \
 	".\Debug\finalize.obj" \
+	".\Debug\fnlz_mlc.obj" \
 	".\Debug\gc_cpp.obj" \
 	".\Debug\headers.obj" \
 	".\Debug\mach_dep.obj" \
@@ -394,6 +411,7 @@ LINK32_OBJS= \
 	".\Debug\reclaim.obj" \
 	".\Debug\stubborn.obj" \
 	".\Debug\typd_mlc.obj" \
+	".\Debug\msvc_dbg.obj" \
 	".\Debug\win32_threads.obj"
 
 ".\Debug\gc.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
@@ -418,7 +436,7 @@ INTDIR=.\gctest\Release
 
 ALL : "gc - Win32 Release" ".\Release\gctest.exe"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\gctest\Release\test.obj"
 	-@erase ".\Release\gctest.exe"
 
@@ -430,51 +448,52 @@ test.c : tests\test.c
 
 CPP=cl.exe
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS" /YX /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" /YX /c
 CPP_PROJ=/nologo /MD /W3 /GX /O2 /I include /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D\
- "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS"\
- /Fp"$(INTDIR)/gctest.pch" /YX /Fo"$(INTDIR)/" /c 
+ "ALL_INTERIOR_POINTERS" /D "GC_THREADS" \
+ /I./libatomic_ops/src /Fp"$(INTDIR)/gctest.pch" \
+ /YX /Fo"$(INTDIR)/" /c
 CPP_OBJS=.\gctest\Release/
 CPP_SBRS=.\.
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "NDEBUG" /win32
 # ADD MTL /nologo /D "NDEBUG" /win32
-MTL_PROJ=/nologo /D "NDEBUG" /win32 
+MTL_PROJ=/nologo /D "NDEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "NDEBUG"
 # ADD RSC /l 0x809 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/gctest.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/gctest.bsc"
 BSC32_SBRS= \
-	
+
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386 /out:"Release/gctest.exe"
 LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /incremental:no\
- /pdb:"$(OUTDIR)/gctest.pdb" /machine:I386 /out:"Release/gctest.exe" 
+ /pdb:"$(OUTDIR)/gctest.pdb" /machine:I386 /out:"Release/gctest.exe"
 LINK32_OBJS= \
 	".\gctest\Release\test.obj" \
 	".\Release\gc.lib"
@@ -501,7 +520,7 @@ INTDIR=.\gctest\Debug
 
 ALL : "gc - Win32 Debug" ".\Debug\gctest.exe" ".\gctest\Debug\gctest.bsc"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\Debug\gctest.exe"
 	-@erase ".\gctest\Debug\gctest.bsc"
 	-@erase ".\gctest\Debug\gctest.map"
@@ -516,42 +535,42 @@ CLEAN :
 
 CPP=cl.exe
 # ADD BASE CPP /nologo /W3 /Gm /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /YX /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS" /FR /YX /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" /FR /YX /c
 CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I include /D "_DEBUG" /D "WIN32" /D "_WINDOWS"\
- /D "ALL_INTERIOR_POINTERS" /D "__STDC__" /D "GC_WIN32_THREADS" /FR"$(INTDIR)/"\
- /Fp"$(INTDIR)/gctest.pch" /YX /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+ /D "ALL_INTERIOR_POINTERS" /D "GC_THREADS" /FR"$(INTDIR)/"\
+ /I./libatomic_ops/src /Fp"$(INTDIR)/gctest.pch" /YX /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c
 CPP_OBJS=.\gctest\Debug/
 CPP_SBRS=.\gctest\Debug/
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "_DEBUG" /win32
 # ADD MTL /nologo /D "_DEBUG" /win32
-MTL_PROJ=/nologo /D "_DEBUG" /win32 
+MTL_PROJ=/nologo /D "_DEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "_DEBUG"
 # ADD RSC /l 0x809 /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/gctest.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/gctest.bsc"
 BSC32_SBRS= \
 	".\gctest\Debug\test.sbr"
 
@@ -567,7 +586,7 @@ LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /incremental:no\
  /pdb:"$(OUTDIR)/gctest.pdb" /map:"$(INTDIR)/gctest.map" /debug /machine:I386\
- /out:"Debug/gctest.exe" 
+ /out:"Debug/gctest.exe"
 LINK32_OBJS= \
 	".\Debug\gc.lib" \
 	".\gctest\Debug\test.obj"
@@ -594,7 +613,7 @@ INTDIR=.\cord\Release
 
 ALL : "gc - Win32 Release" ".\Release\de.exe"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\cord\Release\cordbscs.obj"
 	-@erase ".\cord\Release\cordxtra.obj"
 	-@erase ".\cord\Release\de.obj"
@@ -609,49 +628,49 @@ CPP=cl.exe
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /YX /c
 # ADD CPP /nologo /MD /W3 /GX /O2 /I "." /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /YX /c
 CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "." /I include /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D\
- "ALL_INTERIOR_POINTERS" /Fp"$(INTDIR)/cord.pch" /YX /Fo"$(INTDIR)/" /c 
+ /I./libatomic_ops/src "ALL_INTERIOR_POINTERS" /Fp"$(INTDIR)/cord.pch" /YX /Fo"$(INTDIR)/" /c
 CPP_OBJS=.\cord\Release/
 CPP_SBRS=.\.
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "NDEBUG" /win32
 # ADD MTL /nologo /D "NDEBUG" /win32
-MTL_PROJ=/nologo /D "NDEBUG" /win32 
+MTL_PROJ=/nologo /D "NDEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "NDEBUG"
 # ADD RSC /l 0x809 /d "NDEBUG"
-RSC_PROJ=/l 0x809 /fo"$(INTDIR)/de_win.res" /d "NDEBUG" 
+RSC_PROJ=/l 0x809 /fo"$(INTDIR)/de_win.res" /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/cord.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/cord.bsc"
 BSC32_SBRS= \
-	
+
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /machine:I386 /out:"Release/de.exe"
 LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /incremental:no /pdb:"$(OUTDIR)/de.pdb"\
- /machine:I386 /out:"Release/de.exe" 
+ /machine:I386 /out:"Release/de.exe"
 LINK32_OBJS= \
 	".\cord\Release\cordbscs.obj" \
 	".\cord\Release\cordxtra.obj" \
@@ -682,7 +701,7 @@ INTDIR=.\cord\Debug
 
 ALL : "gc - Win32 Debug" ".\Debug\de.exe"
 
-CLEAN : 
+CLEAN :
 	-@erase ".\cord\Debug\cordbscs.obj"
 	-@erase ".\cord\Debug\cordxtra.obj"
 	-@erase ".\cord\Debug\de.obj"
@@ -702,49 +721,49 @@ CPP=cl.exe
 # ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /I "." /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /YX /c
 CPP_PROJ=/nologo /MDd /W3 /Gm /GX /Zi /Od /I "." /I include /D "_DEBUG" /D "WIN32" /D\
  "_WINDOWS" /D "ALL_INTERIOR_POINTERS" /Fp"$(INTDIR)/cord.pch" /YX\
- /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c 
+ /I./libatomic_ops/src /Fo"$(INTDIR)/" /Fd"$(INTDIR)/" /c
 CPP_OBJS=.\cord\Debug/
 CPP_SBRS=.\.
 
 .c{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_OBJS)}.obj:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .c{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cpp{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 .cxx{$(CPP_SBRS)}.sbr:
-   $(CPP) $(CPP_PROJ) $<  
+   $(CPP) $(CPP_PROJ) $<
 
 MTL=mktyplib.exe
 # ADD BASE MTL /nologo /D "_DEBUG" /win32
 # ADD MTL /nologo /D "_DEBUG" /win32
-MTL_PROJ=/nologo /D "_DEBUG" /win32 
+MTL_PROJ=/nologo /D "_DEBUG" /win32
 RSC=rc.exe
 # ADD BASE RSC /l 0x809 /d "_DEBUG"
 # ADD RSC /l 0x809 /d "_DEBUG"
-RSC_PROJ=/l 0x809 /fo"$(INTDIR)/de_win.res" /d "_DEBUG" 
+RSC_PROJ=/l 0x809 /fo"$(INTDIR)/de_win.res" /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
-BSC32_FLAGS=/nologo /o"$(OUTDIR)/cord.bsc" 
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/cord.bsc"
 BSC32_SBRS= \
-	
+
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386
 # ADD LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:windows /debug /machine:I386 /out:"Debug/de.exe"
 LINK32_FLAGS=kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
  advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
  odbccp32.lib /nologo /subsystem:windows /incremental:yes\
- /pdb:"$(OUTDIR)/de.pdb" /debug /machine:I386 /out:"Debug/de.exe" 
+ /pdb:"$(OUTDIR)/de.pdb" /debug /machine:I386 /out:"Debug/de.exe"
 LINK32_OBJS= \
 	".\cord\Debug\cordbscs.obj" \
 	".\cord\Debug\cordxtra.obj" \
@@ -758,7 +777,7 @@ LINK32_OBJS= \
   $(LINK32_FLAGS) $(LINK32_OBJS)
 <<
 
-!ENDIF 
+!ENDIF
 
 ################################################################################
 # Begin Target
@@ -770,7 +789,7 @@ LINK32_OBJS= \
 
 !ELSEIF  "$(CFG)" == "gc - Win32 Debug"
 
-!ENDIF 
+!ENDIF
 
 ################################################################################
 # Begin Source File
@@ -786,12 +805,12 @@ DEP_CPP_RECLA=\
 	".\include\private\gc_priv.h"\
 	".\include\gc_cpp.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_RECLA=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\gc_cpp.obj" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
@@ -807,19 +826,19 @@ DEP_CPP_RECLA=\
 	".\include\private\gc_priv.h"\
 	".\include\gc_cpp.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_RECLA=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\gc_cpp.obj" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
 ".\Debug\gc_cpp.sbr" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -835,12 +854,12 @@ DEP_CPP_RECLA=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_RECLA=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\reclaim.obj" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
@@ -855,19 +874,19 @@ DEP_CPP_RECLA=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_RECLA=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\reclaim.obj" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
 ".\Debug\reclaim.sbr" : $(SOURCE) $(DEP_CPP_RECLA) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 
@@ -885,7 +904,7 @@ DEP_CPP_OS_DE=\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\STAT.H"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_OS_DE=\
 	".\il\PCR_IL.h"\
 	".\mm\PCR_MM.h"\
@@ -893,7 +912,7 @@ NODEP_CPP_OS_DE=\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
 	".\vd\PCR_VD.h"\
-	
+
 
 ".\Release\os_dep.obj" : $(SOURCE) $(DEP_CPP_OS_DE) "$(INTDIR)"
 
@@ -909,7 +928,7 @@ DEP_CPP_OS_DE=\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\STAT.H"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_OS_DE=\
 	".\il\PCR_IL.h"\
 	".\mm\PCR_MM.h"\
@@ -917,14 +936,14 @@ NODEP_CPP_OS_DE=\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
 	".\vd\PCR_VD.h"\
-	
+
 
 ".\Debug\os_dep.obj" : $(SOURCE) $(DEP_CPP_OS_DE) "$(INTDIR)"
 
 ".\Debug\os_dep.sbr" : $(SOURCE) $(DEP_CPP_OS_DE) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -940,13 +959,13 @@ DEP_CPP_MISC_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MISC_=\
 	".\il\PCR_IL.h"\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\misc.obj" : $(SOURCE) $(DEP_CPP_MISC_) "$(INTDIR)"
 
@@ -961,20 +980,20 @@ DEP_CPP_MISC_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MISC_=\
 	".\il\PCR_IL.h"\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\misc.obj" : $(SOURCE) $(DEP_CPP_MISC_) "$(INTDIR)"
 
 ".\Debug\misc.sbr" : $(SOURCE) $(DEP_CPP_MISC_) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -990,12 +1009,12 @@ DEP_CPP_MARK_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MARK_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\mark_rts.obj" : $(SOURCE) $(DEP_CPP_MARK_) "$(INTDIR)"
 
@@ -1010,19 +1029,19 @@ DEP_CPP_MARK_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MARK_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\mark_rts.obj" : $(SOURCE) $(DEP_CPP_MARK_) "$(INTDIR)"
 
 ".\Debug\mark_rts.sbr" : $(SOURCE) $(DEP_CPP_MARK_) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1038,12 +1057,12 @@ DEP_CPP_MACH_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MACH_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\mach_dep.obj" : $(SOURCE) $(DEP_CPP_MACH_) "$(INTDIR)"
 
@@ -1058,19 +1077,19 @@ DEP_CPP_MACH_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MACH_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\mach_dep.obj" : $(SOURCE) $(DEP_CPP_MACH_) "$(INTDIR)"
 
 ".\Debug\mach_dep.sbr" : $(SOURCE) $(DEP_CPP_MACH_) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1086,12 +1105,12 @@ DEP_CPP_HEADE=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_HEADE=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\headers.obj" : $(SOURCE) $(DEP_CPP_HEADE) "$(INTDIR)"
 
@@ -1106,19 +1125,19 @@ DEP_CPP_HEADE=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_HEADE=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\headers.obj" : $(SOURCE) $(DEP_CPP_HEADE) "$(INTDIR)"
 
 ".\Debug\headers.sbr" : $(SOURCE) $(DEP_CPP_HEADE) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1134,12 +1153,12 @@ DEP_CPP_ALLOC=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_ALLOC=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\alloc.obj" : $(SOURCE) $(DEP_CPP_ALLOC) "$(INTDIR)"
 
@@ -1154,19 +1173,19 @@ DEP_CPP_ALLOC=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_ALLOC=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\alloc.obj" : $(SOURCE) $(DEP_CPP_ALLOC) "$(INTDIR)"
 
 ".\Debug\alloc.sbr" : $(SOURCE) $(DEP_CPP_ALLOC) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1182,12 +1201,12 @@ DEP_CPP_ALLCH=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_ALLCH=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\allchblk.obj" : $(SOURCE) $(DEP_CPP_ALLCH) "$(INTDIR)"
 
@@ -1202,19 +1221,19 @@ DEP_CPP_ALLCH=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_ALLCH=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\allchblk.obj" : $(SOURCE) $(DEP_CPP_ALLCH) "$(INTDIR)"
 
 ".\Debug\allchblk.sbr" : $(SOURCE) $(DEP_CPP_ALLCH) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1230,12 +1249,12 @@ DEP_CPP_STUBB=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_STUBB=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\stubborn.obj" : $(SOURCE) $(DEP_CPP_STUBB) "$(INTDIR)"
 
@@ -1250,19 +1269,19 @@ DEP_CPP_STUBB=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_STUBB=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\stubborn.obj" : $(SOURCE) $(DEP_CPP_STUBB) "$(INTDIR)"
 
 ".\Debug\stubborn.sbr" : $(SOURCE) $(DEP_CPP_STUBB) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1278,12 +1297,12 @@ DEP_CPP_OBJ_M=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_OBJ_M=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\obj_map.obj" : $(SOURCE) $(DEP_CPP_OBJ_M) "$(INTDIR)"
 
@@ -1298,19 +1317,19 @@ DEP_CPP_OBJ_M=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_OBJ_M=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\obj_map.obj" : $(SOURCE) $(DEP_CPP_OBJ_M) "$(INTDIR)"
 
 ".\Debug\obj_map.sbr" : $(SOURCE) $(DEP_CPP_OBJ_M) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1326,12 +1345,12 @@ DEP_CPP_NEW_H=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_NEW_H=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\new_hblk.obj" : $(SOURCE) $(DEP_CPP_NEW_H) "$(INTDIR)"
 
@@ -1346,19 +1365,19 @@ DEP_CPP_NEW_H=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_NEW_H=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\new_hblk.obj" : $(SOURCE) $(DEP_CPP_NEW_H) "$(INTDIR)"
 
 ".\Debug\new_hblk.sbr" : $(SOURCE) $(DEP_CPP_NEW_H) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1374,14 +1393,15 @@ DEP_CPP_MARK_C=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MARK_C=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\mark.obj" : $(SOURCE) $(DEP_CPP_MARK_C) "$(INTDIR)"
 
@@ -1396,21 +1416,22 @@ DEP_CPP_MARK_C=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MARK_C=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\mark.obj" : $(SOURCE) $(DEP_CPP_MARK_C) "$(INTDIR)"
 
 ".\Debug\mark.sbr" : $(SOURCE) $(DEP_CPP_MARK_C) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1426,12 +1447,12 @@ DEP_CPP_MALLO=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MALLO=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\malloc.obj" : $(SOURCE) $(DEP_CPP_MALLO) "$(INTDIR)"
 
@@ -1446,19 +1467,19 @@ DEP_CPP_MALLO=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MALLO=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\malloc.obj" : $(SOURCE) $(DEP_CPP_MALLO) "$(INTDIR)"
 
 ".\Debug\malloc.sbr" : $(SOURCE) $(DEP_CPP_MALLO) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1474,12 +1495,12 @@ DEP_CPP_MALLX=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MALLX=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\mallocx.obj" : $(SOURCE) $(DEP_CPP_MALLX) "$(INTDIR)"
 
@@ -1494,19 +1515,19 @@ DEP_CPP_MALLX=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_MALLX=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\mallocx.obj" : $(SOURCE) $(DEP_CPP_MALLX) "$(INTDIR)"
 
 ".\Debug\mallocx.sbr" : $(SOURCE) $(DEP_CPP_MALLX) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1522,14 +1543,15 @@ DEP_CPP_FINAL=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_FINAL=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\finalize.obj" : $(SOURCE) $(DEP_CPP_FINAL) "$(INTDIR)"
 
@@ -1544,21 +1566,22 @@ DEP_CPP_FINAL=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_FINAL=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\finalize.obj" : $(SOURCE) $(DEP_CPP_FINAL) "$(INTDIR)"
 
 ".\Debug\finalize.sbr" : $(SOURCE) $(DEP_CPP_FINAL) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1574,12 +1597,12 @@ DEP_CPP_DBG_M=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_DBG_M=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\dbg_mlc.obj" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
 
@@ -1594,19 +1617,67 @@ DEP_CPP_DBG_M=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_DBG_M=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\dbg_mlc.obj" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
 
 ".\Debug\dbg_mlc.sbr" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\fnlz_mlc.c
+
+!IF  "$(CFG)" == "gc - Win32 Release"
+
+DEP_CPP_DBG_M=\
+	".\include\private\gcconfig.h"\
+	".\include\gc.h"\
+	".\include\private\gc_hdrs.h"\
+	".\include\private\gc_priv.h"\
+	{$(INCLUDE)}"\sys\TYPES.H"\
+
+NODEP_CPP_DBG_M=\
+	".\th\PCR_Th.h"\
+	".\th\PCR_ThCrSec.h"\
+	".\th\PCR_ThCtl.h"\
+
+
+".\Release\fnlz_mlc.obj" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
+
+".\Release\fnlz_mlc.sbr" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
+
+
+!ELSEIF  "$(CFG)" == "gc - Win32 Debug"
+
+DEP_CPP_DBG_M=\
+	".\include\private\gcconfig.h"\
+	".\include\gc.h"\
+	".\include\private\gc_hdrs.h"\
+	".\include\private\gc_priv.h"\
+	{$(INCLUDE)}"\sys\TYPES.H"\
+
+NODEP_CPP_DBG_M=\
+	".\th\PCR_Th.h"\
+	".\th\PCR_ThCrSec.h"\
+	".\th\PCR_ThCtl.h"\
+
+
+".\Debug\fnlz_mlc.obj" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
+
+".\Debug\fnlz_mlc.sbr" : $(SOURCE) $(DEP_CPP_DBG_M) "$(INTDIR)"
+
+
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1622,12 +1693,12 @@ DEP_CPP_BLACK=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_BLACK=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\blacklst.obj" : $(SOURCE) $(DEP_CPP_BLACK) "$(INTDIR)"
 
@@ -1642,19 +1713,19 @@ DEP_CPP_BLACK=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_BLACK=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\blacklst.obj" : $(SOURCE) $(DEP_CPP_BLACK) "$(INTDIR)"
 
 ".\Debug\blacklst.sbr" : $(SOURCE) $(DEP_CPP_BLACK) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1670,15 +1741,16 @@ DEP_CPP_TYPD_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	".\include\gc_typed.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_TYPD_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\typd_mlc.obj" : $(SOURCE) $(DEP_CPP_TYPD_) "$(INTDIR)"
 
@@ -1693,22 +1765,23 @@ DEP_CPP_TYPD_=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	".\include\gc_typed.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_TYPD_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\typd_mlc.obj" : $(SOURCE) $(DEP_CPP_TYPD_) "$(INTDIR)"
 
 ".\Debug\typd_mlc.sbr" : $(SOURCE) $(DEP_CPP_TYPD_) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1724,14 +1797,15 @@ DEP_CPP_PTR_C=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_PTR_C=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\ptr_chck.obj" : $(SOURCE) $(DEP_CPP_PTR_C) "$(INTDIR)"
 
@@ -1746,21 +1820,22 @@ DEP_CPP_PTR_C=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_pmark.h"\
 	".\include\gc_mark.h"\
+	".\include\gc_disclaim.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_PTR_C=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\ptr_chck.obj" : $(SOURCE) $(DEP_CPP_PTR_C) "$(INTDIR)"
 
 ".\Debug\ptr_chck.sbr" : $(SOURCE) $(DEP_CPP_PTR_C) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1777,14 +1852,14 @@ DEP_CPP_DYN_L=\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\STAT.H"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_DYN_L=\
 	".\il\PCR_IL.h"\
 	".\mm\PCR_MM.h"\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\dyn_load.obj" : $(SOURCE) $(DEP_CPP_DYN_L) "$(INTDIR)"
 
@@ -1800,21 +1875,21 @@ DEP_CPP_DYN_L=\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\STAT.H"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_DYN_L=\
 	".\il\PCR_IL.h"\
 	".\mm\PCR_MM.h"\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\dyn_load.obj" : $(SOURCE) $(DEP_CPP_DYN_L) "$(INTDIR)"
 
 ".\Debug\dyn_load.sbr" : $(SOURCE) $(DEP_CPP_DYN_L) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1830,12 +1905,12 @@ DEP_CPP_WIN32=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_WIN32=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\win32_threads.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
 
@@ -1850,19 +1925,69 @@ DEP_CPP_WIN32=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_WIN32=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\win32_threads.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
 
 ".\Debug\win32_threads.sbr" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
+
+# End Source File
+################################################################################
+# Begin Source File
+
+SOURCE=.\extra\msvc_dbg.c
+
+!IF  "$(CFG)" == "gc - Win32 Release"
+
+DEP_CPP_WIN32=\
+	".\include\private\gcconfig.h"\
+	".\include\gc.h"\
+	".\include\private\gc_hdrs.h"\
+	".\include\private\gc_priv.h"\
+	".\include\private\msvc_dbg.h"\
+	{$(INCLUDE)}"\sys\TYPES.H"\
+
+NODEP_CPP_WIN32=\
+	".\th\PCR_Th.h"\
+	".\th\PCR_ThCrSec.h"\
+	".\th\PCR_ThCtl.h"\
+
+
+".\Release\msvc_dbg.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+
+".\Release\msvc_dbg.sbr" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+
+
+!ELSEIF  "$(CFG)" == "gc - Win32 Debug"
+
+DEP_CPP_WIN32=\
+	".\include\private\gcconfig.h"\
+	".\include\gc.h"\
+	".\include\private\gc_hdrs.h"\
+	".\include\private\gc_priv.h"\
+	".\include\private\msvc_dbg.h"\
+	{$(INCLUDE)}"\sys\TYPES.H"\
+
+NODEP_CPP_WIN32=\
+	".\th\PCR_Th.h"\
+	".\th\PCR_ThCrSec.h"\
+	".\th\PCR_ThCtl.h"\
+
+
+".\Debug\msvc_dbg.obj" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+
+".\Debug\msvc_dbg.sbr" : $(SOURCE) $(DEP_CPP_WIN32) "$(INTDIR)"
+
+
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -1878,12 +2003,12 @@ DEP_CPP_CHECK=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_CHECK=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Release\checksums.obj" : $(SOURCE) $(DEP_CPP_CHECK) "$(INTDIR)"
 
@@ -1898,19 +2023,19 @@ DEP_CPP_CHECK=\
 	".\include\private\gc_hdrs.h"\
 	".\include\private\gc_priv.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_CHECK=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 ".\Debug\checksums.obj" : $(SOURCE) $(DEP_CPP_CHECK) "$(INTDIR)"
 
 ".\Debug\checksums.sbr" : $(SOURCE) $(DEP_CPP_CHECK) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 # End Target
@@ -1924,7 +2049,7 @@ NODEP_CPP_CHECK=\
 
 !ELSEIF  "$(CFG)" == "gctest - Win32 Debug"
 
-!ENDIF 
+!ENDIF
 
 ################################################################################
 # Begin Project Dependency
@@ -1933,15 +2058,15 @@ NODEP_CPP_CHECK=\
 
 !IF  "$(CFG)" == "gctest - Win32 Release"
 
-"gc - Win32 Release" : 
-   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Release" 
+"gc - Win32 Release" :
+   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Release"
 
 !ELSEIF  "$(CFG)" == "gctest - Win32 Debug"
 
-"gc - Win32 Debug" : 
-   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Debug" 
+"gc - Win32 Debug" :
+   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Debug"
 
-!ENDIF 
+!ENDIF
 
 # End Project Dependency
 ################################################################################
@@ -1955,12 +2080,12 @@ DEP_CPP_TEST_=\
 	".\include\private\gc_priv.h"\
 	".\include\gc_typed.h"\
 	{$(INCLUDE)}"\sys\TYPES.H"\
-	
+
 NODEP_CPP_TEST_=\
 	".\th\PCR_Th.h"\
 	".\th\PCR_ThCrSec.h"\
 	".\th\PCR_ThCtl.h"\
-	
+
 
 !IF  "$(CFG)" == "gctest - Win32 Release"
 
@@ -1976,7 +2101,7 @@ NODEP_CPP_TEST_=\
 ".\gctest\Debug\test.sbr" : $(SOURCE) $(DEP_CPP_TEST_) "$(INTDIR)"
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 # End Target
@@ -1990,7 +2115,7 @@ NODEP_CPP_TEST_=\
 
 !ELSEIF  "$(CFG)" == "cord - Win32 Debug"
 
-!ENDIF 
+!ENDIF
 
 ################################################################################
 # Begin Project Dependency
@@ -1999,30 +2124,30 @@ NODEP_CPP_TEST_=\
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
-"gc - Win32 Release" : 
-   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Release" 
+"gc - Win32 Release" :
+   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Release"
 
 !ELSEIF  "$(CFG)" == "cord - Win32 Debug"
 
-"gc - Win32 Debug" : 
-   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Debug" 
+"gc - Win32 Debug" :
+   $(MAKE) /$(MAKEFLAGS) /F ".\gc.mak" CFG="gc - Win32 Debug"
 
-!ENDIF 
+!ENDIF
 
 # End Project Dependency
 ################################################################################
 # Begin Source File
 
-SOURCE=.\cord\de_win.c
+SOURCE=.\cord\tests\de_win.c
 DEP_CPP_DE_WI=\
 	".\include\cord.h"\
-	".\cord\de_cmds.h"\
-	".\cord\de_win.h"\
-	".\include\private\cord_pos.h"\
-	
+	".\cord\tests\de_cmds.h"\
+	".\cord\tests\de_win.h"\
+	".\include\cord_pos.h"\
+
 NODEP_CPP_DE_WI=\
 	".\include\gc.h"\
-	
+
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
@@ -2038,22 +2163,22 @@ NODEP_CPP_DE_WI=\
    $(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
 # Begin Source File
 
-SOURCE=.\cord\de.c
+SOURCE=.\cord\tests\de.c
 DEP_CPP_DE_C2e=\
 	".\include\cord.h"\
-	".\cord\de_cmds.h"\
-	".\cord\de_win.h"\
-	".\include\private\cord_pos.h"\
-	
+	".\cord\tests\de_cmds.h"\
+	".\cord\tests\de_win.h"\
+	".\include\cord_pos.h"\
+
 NODEP_CPP_DE_C2e=\
 	".\include\gc.h"\
-	
+
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
@@ -2069,7 +2194,7 @@ NODEP_CPP_DE_C2e=\
    $(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -2079,11 +2204,11 @@ SOURCE=.\cord\cordxtra.c
 DEP_CPP_CORDX=\
 	".\include\cord.h"\
 	".\include\ec.h"\
-	".\include\private\cord_pos.h"\
-	
+	".\include\cord_pos.h"\
+
 NODEP_CPP_CORDX=\
 	".\include\gc.h"\
-	
+
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
@@ -2099,7 +2224,7 @@ NODEP_CPP_CORDX=\
    $(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
@@ -2108,11 +2233,11 @@ NODEP_CPP_CORDX=\
 SOURCE=.\cord\cordbscs.c
 DEP_CPP_CORDB=\
 	".\include\cord.h"\
-	".\include\private\cord_pos.h"\
-	
+	".\include\cord_pos.h"\
+
 NODEP_CPP_CORDB=\
 	".\include\gc.h"\
-	
+
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
@@ -2128,13 +2253,13 @@ NODEP_CPP_CORDB=\
    $(CPP) $(CPP_PROJ) $(SOURCE)
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 ################################################################################
 # Begin Source File
 
-SOURCE=.\cord\de_win.RC
+SOURCE=.\cord\tests\de_win.rc
 
 !IF  "$(CFG)" == "cord - Win32 Release"
 
@@ -2150,7 +2275,7 @@ SOURCE=.\cord\de_win.RC
    $(RSC) /l 0x809 /fo"$(INTDIR)/de_win.res" /i "cord" /d "_DEBUG" $(SOURCE)
 
 
-!ENDIF 
+!ENDIF
 
 # End Source File
 # End Target

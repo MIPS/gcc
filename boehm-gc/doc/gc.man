@@ -30,7 +30,13 @@ instead of calling GC_malloc and friends directly.  This allows debugging
 versions of the routines to be substituted by defining GC_DEBUG before
 including gc.h.
 .LP
-See the documentation in the include file gc_cpp.h for an alternate, C++ specific interface to the garbage collector.
+See the documentation in the include files gc_cpp.h and gc_allocator.h,
+as well as the gcinterface.html file in the distribution,
+for an alternate, C++ specific interface to the garbage collector.
+Note that C++ programs generally
+need to be careful to ensure that all allocated memory (whether via new,
+malloc, or STL allocators) that may point to garbage collected memory
+is either itself garbage collected, or at least traced by the collector.
 .LP
 Unlike the standard implementations of malloc,
 .I
@@ -71,7 +77,7 @@ Fully portable code should call
 GC_INIT
 from the main program before making any other GC calls.
 On most platforms this does nothing and the collector is initialized on first use.
-On a few platforms explicit initialization is necessary.  And it can never hurt. 
+On a few platforms explicit initialization is necessary.  And it can never hurt.
 .LP
 Debugging versions of many of the above routines are provided as macros.  Their names are identical to the above, but consist of all capital letters.  If GC_DEBUG is defined before gc.h is included, these routines do additional checking, and allow the leak detecting version of the collector to produce slightly more useful output.  Without GC_DEBUG defined, they behave exactly like the lower-case versions.
 .LP
