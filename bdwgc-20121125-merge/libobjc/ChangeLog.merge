@@ -1,0 +1,3 @@
+2012-12-01  Matthias Klose  <doko@ubuntu.com>
+
+	* Makefile.in (OBJC_BOEHM_GC_LIBS): Link with libgc_convenience.la.

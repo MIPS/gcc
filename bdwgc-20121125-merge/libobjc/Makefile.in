@@ -96,7 +96,7 @@ LIBTOOL_CLEAN   = $(LIBTOOL) --mode=clean
 OBJC_GCFLAGS=@OBJC_GCFLAGS@
 OBJC_BOEHM_GC=@OBJC_BOEHM_GC@
 OBJC_BOEHM_GC_INCLUDES=@OBJC_BOEHM_GC_INCLUDES@
-OBJC_BOEHM_GC_LIBS=../boehm-gc/libgcjgc_convenience.la $(thread_libs_and_flags)
+OBJC_BOEHM_GC_LIBS=../boehm-gc/libgc_convenience.la $(thread_libs_and_flags)
 
 INCLUDES = -I$(srcdir)/$(MULTISRCTOP)../gcc \
   -I$(srcdir)/$(MULTISRCTOP)../gcc/config \
