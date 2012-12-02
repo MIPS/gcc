@@ -1,5 +1,13 @@
 2012-12-01  Matthias Klose  <doko@ubuntu.com>
 
+	* configure.ac: Define and substitute GCDEFS.
+	Add -DGC_GCJ_SUPPORT when built for boehm-gc.
+	* Makefile.am (AM_CXXFLAGS): Add @GCDEFS@.
+	* configure: Regenerate.
+	* Makefile.in, include/Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2012-12-01  Matthias Klose  <doko@ubuntu.com>
+
 	* gnu/gcj/util/natGCInfo.cc: Don't declare GC_clear_stack.
 
 2012-12-01  Matthias Klose  <doko@ubuntu.com>

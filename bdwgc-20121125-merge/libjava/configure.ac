@@ -987,6 +987,7 @@ AC_ARG_ENABLE(java-gc,
   [GC=boehm])
 GCLIBS=
 GCINCS=
+GCDEFS=
 GCDEPS=
 GCSPEC=
 JC1GCSPEC=
@@ -994,6 +995,7 @@ GCTESTSPEC=
 case "$GC" in
  boehm)
     AC_MSG_RESULT(boehm)
+    GCDEFS=-DGC_GCJ_SUPPORT
     GCLIBS=../boehm-gc/libgc_convenience.la
     JC1GCSPEC='-fuse-boehm-gc'
     GCTESTSPEC="-L`${PWDCMD-pwd}`/../boehm-gc/.libs -rpath `${PWDCMD-pwd}`/../boehm-gc/.libs"
@@ -1013,6 +1015,7 @@ case "$GC" in
 esac
 AC_SUBST(GCLIBS)
 AC_SUBST(GCINCS)
+AC_SUBST(GCDEFS)
 AC_SUBST(GCDEPS)
 AC_SUBST(GCSPEC)
 AC_SUBST(JC1GCSPEC)

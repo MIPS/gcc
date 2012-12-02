@@ -361,6 +361,7 @@ AM_CXXFLAGS = \
 	@LIBGCJ_CXXFLAGS@ \
 	$(WARNINGS) \
 	-D_GNU_SOURCE \
+	@GCDEFS@ \
 	-DPREFIX="\"$(prefix)\"" \
 	-DTOOLEXECLIBDIR="\"$(toolexeclibdir)\"" \
         -DJAVA_HOME="\"$(JAVA_HOME_DIR)\"" \
