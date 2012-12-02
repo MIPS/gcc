@@ -18,8 +18,8 @@
 /* GC.  It uses GC internals to allow more precise results      */
 /* checking for some of the tests.                              */
 
-# ifdef HAVE_CONFIG_H
-#   include "config.h"
+# ifdef HAVE_GC_CONFIG_H
+#   include "gc_config.h"
 # endif
 
 # undef GC_BUILD

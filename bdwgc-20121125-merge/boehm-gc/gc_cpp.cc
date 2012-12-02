@@ -19,8 +19,8 @@ linker finds this module before the library that defines the default
 built-in "new" and "delete".
 **************************************************************************/
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
+#ifdef HAVE_GC_CONFIG_H
+# include "gc_config.h"
 #endif
 
 #ifndef GC_BUILD

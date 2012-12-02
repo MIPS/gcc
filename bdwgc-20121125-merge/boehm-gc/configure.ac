@@ -1,4 +1,6 @@
-# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+# Copyright (c) 1999, 2000, 2001, 2002, 2003, 2006, 2010, 2011 by Red Hat, Inc.
+# Copyright 2004 Nathanael Nerode
+# Copyright (c) 2012 Free Software Foundation, Inc.
 #
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -15,22 +17,48 @@ dnl Process this file with autoconf to produce configure.
 AC_INIT(gc,7.3alpha3,gc@linux.hpl.hp.com)
     ## version must conform to [0-9]+[.][0-9]+(alpha[0-9]+)?
 AC_CONFIG_SRCDIR(gcj_mlc.c)
-AC_CONFIG_MACRO_DIR([m4])
+dnl FIXME: if set, copies the libtool m4 files into m4/
+dnl AC_CONFIG_MACRO_DIR([m4])
+# This works around the fact that libtool configuration may change LD
+# for this particular configuration, but some shells, instead of
+# keeping the changes in LD private, export them just because LD is
+# exported.
+ORIGINAL_LD_FOR_MULTILIBS=$LD
+
+AM_ENABLE_MULTILIB(, ..)
+
+AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
-AC_PREREQ(2.61)
+
+# Get the 'noncanonical' system names.
+ACX_NONCANONICAL_TARGET
+
+AC_PREREQ(2.64)
 AC_REVISION($Revision: 1.69 $)
 GC_SET_VERSION
-AM_INIT_AUTOMAKE([foreign dist-bzip2 nostdinc])
-AM_CONFIG_HEADER([include/config.h])
+AM_INIT_AUTOMAKE([foreign dist-bzip2 nostdinc no-define no-dist])
 AM_MAINTAINER_MODE
 
 AC_SUBST(PACKAGE)
 AC_SUBST(GC_VERSION)
 
-AM_PROG_CC_C_O
+# The autoconf 2.5x version of the no-executables hack.
+GCC_NO_EXECUTABLES
+
+# Yak.  We must force CC and CXX to /not/ be precious variables; otherwise
+# the wrong, non-multilib-adjusted value will be used in multilibs.
+# As a side effect, we have to subst CFLAGS and CXXFLAGS ourselves.
+
+m4_rename([_AC_ARG_VAR_PRECIOUS],[real_PRECIOUS])
+m4_define([_AC_ARG_VAR_PRECIOUS],[])
+AC_PROG_CC
 AC_PROG_CXX
+m4_rename_force([real_PRECIOUS],[_AC_ARG_VAR_PRECIOUS])
+AM_PROG_CC_C_O
 
 AM_PROG_AS
+AC_CHECK_TOOL(AR, ar)
+AC_CHECK_TOOL(RANLIB, ranlib, :)
 
 AC_PROG_INSTALL
 
@@ -903,6 +931,7 @@ AM_CONDITIONAL([NEED_ATOMIC_OPS_ASM],
 dnl Produce the Files
 dnl -----------------
 
+AC_CONFIG_HEADERS([include/gc_config.h include/gc_ext_config.h])
 AC_CONFIG_FILES([Makefile bdw-gc.pc])
 
 AC_CONFIG_COMMANDS([default],,

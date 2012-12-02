@@ -18,8 +18,8 @@
 #ifndef GC_PRIVATE_H
 #define GC_PRIVATE_H
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
+#ifdef HAVE_GC_CONFIG_H
+# include "gc_config.h"
 #endif
 
 #ifndef GC_BUILD

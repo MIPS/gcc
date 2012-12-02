@@ -20,9 +20,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef HAVE_CONFIG_H
+#ifdef HAVE_GC_CONFIG_H
   /* For GC_[P]THREADS */
-# include "config.h"
+# include "gc_config.h"
 #endif
 
 #include "gc_disclaim.h"

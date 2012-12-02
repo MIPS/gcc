@@ -17,8 +17,8 @@
  * cord_basics.
  */
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
+#ifdef HAVE_GC_CONFIG_H
+# include "gc_config.h"
 #endif
 #ifndef CORD_BUILD
 # define CORD_BUILD

@@ -22,8 +22,8 @@
 #ifndef GC_PMARK_H
 #define GC_PMARK_H
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
+#ifdef HAVE_GC_CONFIG_H
+# include "gc_config.h"
 #endif
 
 #ifndef GC_BUILD

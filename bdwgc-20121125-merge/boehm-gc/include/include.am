@@ -12,7 +12,7 @@
 
 # installed headers
 #
-pkginclude_HEADERS += \
+dist_noinst_HEADERS += \
         include/gc.h \
         include/gc_allocator.h \
         include/gc_backptr.h \
@@ -50,5 +50,5 @@ dist_noinst_HEADERS += \
         include/private/thread_local_alloc.h
 
 # unprefixed header
-include_HEADERS += \
+dist_noinst_HEADERS += \
         include/extra/gc.h

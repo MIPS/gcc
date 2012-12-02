@@ -12,7 +12,7 @@ set -e
 # prefix.  Otherwise, you may need to invoke autoreconf with the appropriate
 # -I options to locate the required *.m4 files.
 
-autoreconf -i
+autoreconf -i -I m4 -I .. -I ../config
 
 echo
 echo "Ready to run './configure'."

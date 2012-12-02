@@ -1,5 +1,5 @@
 
-lib_LTLIBRARIES += libcord.la
+noinst_LTLIBRARIES += libcord.la
 
 libcord_la_LIBADD = $(top_builddir)/libgc.la
 libcord_la_LDFLAGS = -version-info 1:3:0 -no-undefined
@@ -22,4 +22,4 @@ EXTRA_DIST += \
         cord/tests/de_win.h \
         cord/tests/de_win.rc
 
-pkginclude_HEADERS += include/cord.h
+dist_noinst_HEADERS += include/cord.h
