@@ -1,5 +1,9 @@
 2012-12-01  Matthias Klose  <doko@ubuntu.com>
 
+	* gnu/gcj/util/natGCInfo.cc: Don't declare GC_clear_stack.
+
+2012-12-01  Matthias Klose  <doko@ubuntu.com>
+
 	* boehm.cc (_Jv_SetGCFreeSpaceDivisor): Update to new boehm-gc API.
 
 2012-12-01  Matthias Klose  <doko@ubuntu.com>
