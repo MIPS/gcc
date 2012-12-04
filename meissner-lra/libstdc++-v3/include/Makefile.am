@@ -313,8 +313,7 @@ pb_headers2 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/standard_policies.hpp
+	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp
 
 pb_headers3 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/trace_fn_imps.hpp \
@@ -344,7 +343,6 @@ pb_headers3 = \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/gp_hash_table_map_/standard_policies.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mask_range_hashing_imp.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mod_range_hashing_imp.hpp \
