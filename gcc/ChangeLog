@@ -1,3 +1,21 @@
+2012-12-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* rtl.h (struct rtx_def): Add comment for field jump.
+	(SUBREG_MATCH_RELOAD_P): New macro.
+	* lra-constraints.c (curr_insn_set): New.
+	(match_reload): Use SUBREG_MATCH_RELOAD_P.
+	(check_and_process_move): Use curr_insn_set.  Process only single
+	set insns.  Don't initialize sec_mem_p and change_p.
+	(simplify_operand_subreg): Check SUBREG_MATCH_RELOAD_P.
+	(process_alt_operands): Use #if HAVE_ATTR_enabled instead of
+	#ifdef.  Add code to remove cycling.
+	(process_address): Process even if non-null disp.  Reload inner
+	instead of disp when base and index are null.
+	(curr_insn_transform): Initialize sec_mem_p and change_p.  Set up
+	curr_insn_set.  Call check_and_process_move only for single set
+	insns.
+	* rs6000/rs6000.c (legitimate_lo_sum_address_p): Allow TFmode too.
+
 2012-10-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* common.opt (flra): New option.

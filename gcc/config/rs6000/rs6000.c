@@ -5523,7 +5523,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
       if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
 	  && !(/* ??? Assume floating point reg based on mode?  */
 	       TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-	       && (mode == DFmode || mode == DDmode)))
+	       && (mode == DFmode || mode == DDmode || mode == TFmode)))
 	return false;
 
       return CONSTANT_P (x) || toc_ok_p;
