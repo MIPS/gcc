@@ -856,7 +856,7 @@ emit_spill_move (bool to_p, rtx mem_pseudo, rtx val)
    SECONDARY_MEMORY_NEEDED says to use secondary memory through
    SEC_MEM_P.  */
 static bool
-check_and_process_move (bool *change_p, bool *sec_mem_p)
+check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
 {
   int sregno, dregno;
   rtx dest, src, dreg, sreg, old_sreg, new_reg, before, scratch_reg;
