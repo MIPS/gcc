@@ -974,7 +974,7 @@ C ObjC C++ ObjC++ Report Var(flag_pl)
 Add point-lookout instrumentation
 
 fpl-check-incomplete-type
-C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl_incomplete_type)
+C ObjC C++ ObjC++ Report Var(flag_pl_incomplete_type) Init(0)
 Add point-lookout instrumentation for usage of variables with incomplete type
 
 fpl-first-field-has-own-bounds

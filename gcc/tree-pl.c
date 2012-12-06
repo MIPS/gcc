@@ -1687,9 +1687,20 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 	  break;
 
 	case RESULT_DECL:
-	  gcc_assert (TREE_CODE (TREE_TYPE (node)) == REFERENCE_TYPE);
-	  bounds = pl_make_bounds (node, DECL_SIZE (var), NULL, false);
-	  pl_register_bounds (node, bounds);
+	  {
+	    tree base_type;
+
+	    gcc_assert (TREE_CODE (TREE_TYPE (node)) == REFERENCE_TYPE);
+
+	    base_type = TREE_TYPE (TREE_TYPE (node));
+
+	    gcc_assert (TYPE_SIZE (base_type)
+			&& TREE_CODE (TYPE_SIZE (base_type)) == INTEGER_CST
+			&& tree_low_cst (TYPE_SIZE (base_type), 1) != 0);
+
+	    bounds = pl_make_bounds (node, TYPE_SIZE_UNIT (base_type), NULL, false);
+	    pl_register_bounds (node, bounds);
+	  }
 	  break;
 
 	default:
@@ -1828,10 +1839,16 @@ pl_generate_extern_var_bounds (tree var)
   strcat (end_name, var_name);
 
   end_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (end_name), TREE_TYPE (var));
+			 get_identifier (end_name), void_type_node);//TREE_TYPE (var));
   TREE_PUBLIC (end_decl) = 1;
-  DECL_EXTERNAL (end_decl) = 1;
+  TREE_USED (end_decl) = 1;
   DECL_ARTIFICIAL (end_decl) = 1;
+  DECL_EXTERNAL (end_decl) = 1;
+  DECL_COMMON (end_decl) = 1;
+  DECL_WEAK (end_decl) = 1;
+  DECL_ATTRIBUTES (end_decl) = build_tree_list (get_identifier ("weak"),
+						NULL_TREE);
+  create_var_ann (end_decl);
 
   lb = pl_build_addr_expr (var);
   var_end = pl_build_addr_expr (end_decl);
