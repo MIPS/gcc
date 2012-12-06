@@ -685,7 +685,7 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	    new_out_reg = gen_lowpart_SUBREG (outmode, reg);
 	  else
 	    new_out_reg = gen_rtx_SUBREG (outmode, reg, 0);
-	  SUBREG_MATCH_RELOAD_P (new_out_reg) = 1;
+	  LRA_SUBREG_P (new_out_reg) = 1;
 	  /* If the input reg is dying here, we can use the same hard
 	     register for REG and IN_RTX.  We do it only for original
 	     pseudos as reload pseudos can die although original
@@ -709,7 +709,7 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	     it at the end of LRA work.  */
 	  clobber = emit_clobber (new_out_reg);
 	  LRA_TEMP_CLOBBER_P (PATTERN (clobber)) = 1;
-	  SUBREG_MATCH_RELOAD_P (new_in_reg) = 1;
+	  LRA_SUBREG_P (new_in_reg) = 1;
 	  if (GET_CODE (in_rtx) == SUBREG)
 	    {
 	      rtx subreg_reg = SUBREG_REG (in_rtx);
@@ -842,12 +842,15 @@ static rtx
 emit_spill_move (bool to_p, rtx mem_pseudo, rtx val)
 {
   if (GET_MODE (mem_pseudo) != GET_MODE (val))
-    val = gen_rtx_SUBREG (GET_MODE (mem_pseudo),
-			  GET_CODE (val) == SUBREG ? SUBREG_REG (val) : val,
-			  0);
+    {
+      val = gen_rtx_SUBREG (GET_MODE (mem_pseudo),
+			    GET_CODE (val) == SUBREG ? SUBREG_REG (val) : val,
+			    0);
+      LRA_SUBREG_P (val) = 1;
+    }
   return (to_p
-	  ? gen_move_insn (mem_pseudo, val)
-	  : gen_move_insn (val, mem_pseudo));
+          ? gen_move_insn (mem_pseudo, val)
+          : gen_move_insn (val, mem_pseudo));
 }
 
 /* Process a special case insn (register move), return true if we
@@ -1193,7 +1196,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
 				 SUBREG_BYTE (operand), mode) < 0
        /* Don't reload subreg for matching reload.  It is actually
 	  valid subreg in LRA.  */
-       && ! SUBREG_MATCH_RELOAD_P (operand))
+       && ! LRA_SUBREG_P (operand))
       || CONSTANT_P (reg) || GET_CODE (reg) == PLUS || MEM_P (reg))
     {
       enum op_type type = curr_static_id->operand[nop].type;
