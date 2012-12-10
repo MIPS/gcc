@@ -691,7 +691,7 @@ standard rule in @file{gcc/Makefile.in} to the variable
 @code{lang_checks}.
 
 @table @code
-@itemx all.cross
+@item all.cross
 @itemx start.encap
 @itemx rest.encap
 FIXME: exactly what goes in each of these targets?
@@ -1555,6 +1555,19 @@ ARM target generates Thumb-2 code for @code{-mthumb}.
 @item arm_vfp_ok
 ARM target supports @code{-mfpu=vfp -mfloat-abi=softfp}.
 Some multilibs may be incompatible with these options.
+
+@item arm_v8_vfp_ok
+ARM target supports @code{-mfpu=fp-armv8 -mfloat-abi=softfp}.
+Some multilibs may be incompatible with these options.
+
+@item arm_v8_neon_ok
+ARM target supports @code{-mfpu=neon-fp-armv8 -mfloat-abi=softfp}.
+Some multilibs may be incompatible with these options.
+
+@item arm_prefer_ldrd_strd
+ARM target prefers @code{LDRD} and @code{STRD} instructions over
+@code{LDM} and @code{STM} instructions.
+
 @end table
 
 @subsubsection MIPS-specific attributes

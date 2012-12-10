@@ -280,6 +280,9 @@ func ParseDirent(buf []byte, max int, names []string) (consumed int, count int, 
 //sys	sendfile(outfd int, infd int, offset *Offset_t, count int) (written int, err error)
 //sendfile64(outfd int, infd int, offset *Offset_t, count Size_t) Ssize_t
 func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err error) {
+	if raceenabled {
+		raceReleaseMerge(unsafe.Pointer(&ioSync))
+	}
 	var soff Offset_t
 	var psoff *Offset_t
 	if offset != nil {
@@ -310,11 +313,13 @@ func Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n i
 	var lroff _loff_t
 	var plroff *_loff_t
 	if roff != nil {
+		lroff = _loff_t(*roff)
 		plroff = &lroff
 	}
 	var lwoff _loff_t
 	var plwoff *_loff_t
 	if woff != nil {
+		lwoff = _loff_t(*woff)
 		plwoff = &lwoff
 	}
 	n, err = splice(rfd, plroff, wfd, plwoff, len, flags)

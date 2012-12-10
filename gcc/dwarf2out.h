@@ -62,11 +62,8 @@ typedef struct GTY(()) dw_cfi_struct {
 }
 dw_cfi_node;
 
-DEF_VEC_P (dw_cfi_ref);
-DEF_VEC_ALLOC_P (dw_cfi_ref, heap);
-DEF_VEC_ALLOC_P (dw_cfi_ref, gc);
 
-typedef VEC(dw_cfi_ref, gc) *cfi_vec;
+typedef vec<dw_cfi_ref, va_gc> *cfi_vec;
 
 typedef struct dw_fde_struct *dw_fde_ref;
 
@@ -167,11 +164,14 @@ typedef struct GTY(()) dw_vec_struct {
 }
 dw_vec_const;
 
+struct addr_table_entry_struct;
+
 /* The dw_val_node describes an attribute's value, as it is
    represented internally.  */
 
 typedef struct GTY(()) dw_val_struct {
   enum dw_val_class val_class;
+  struct addr_table_entry_struct * GTY(()) val_entry;
   union dw_val_struct_union
     {
       rtx GTY ((tag ("dw_val_class_addr"))) val_addr;

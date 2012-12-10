@@ -86,7 +86,7 @@ static bool
 live_on_edge (edge e, tree name)
 {
   return (live[e->dest->index]
-	  && TEST_BIT (live[e->dest->index], SSA_NAME_VERSION (name)));
+	  && bitmap_bit_p (live[e->dest->index], SSA_NAME_VERSION (name)));
 }
 
 /* Local functions.  */
@@ -155,10 +155,8 @@ typedef struct {
   tree vec;
 } switch_update;
 
-static VEC (edge, heap) *to_remove_edges;
-DEF_VEC_O(switch_update);
-DEF_VEC_ALLOC_O(switch_update, heap);
-static VEC (switch_update, heap) *to_update_switch_stmts;
+static vec<edge> to_remove_edges;
+static vec<switch_update> to_update_switch_stmts;
 
 
 /* Return the maximum value for TYPE.  */
@@ -543,22 +541,15 @@ set_and_canonicalize_value_range (value_range_t *vr, enum value_range_type t,
 	  return;
 	}
       else if (TYPE_PRECISION (TREE_TYPE (min)) == 1
-	       && !TYPE_UNSIGNED (TREE_TYPE (min))
 	       && (is_min || is_max))
 	{
-	  /* For signed 1-bit precision, one is not in-range and
-	     thus adding/subtracting it would result in overflows.  */
-	  if (operand_equal_p (min, max, 0))
-	    {
-	      min = max = is_min ? vrp_val_max (TREE_TYPE (min))
-				 : vrp_val_min (TREE_TYPE (min));
-	      t = VR_RANGE;
-	    }
+	  /* Non-empty boolean ranges can always be represented
+	     as a singleton range.  */
+	  if (is_min)
+	    min = max = vrp_val_max (TREE_TYPE (min));
 	  else
-	    {
-	      set_value_range_to_varying (vr);
-	      return;
-	    }
+	    min = max = vrp_val_min (TREE_TYPE (min));
+	  t = VR_RANGE;
 	}
       else if (is_min
 	       /* As a special exception preserve non-null ranges.  */
@@ -819,8 +810,19 @@ update_value_range (const_tree var, value_range_t *new_vr)
 	   || !vrp_bitmap_equal_p (old_vr->equiv, new_vr->equiv);
 
   if (is_new)
-    set_value_range (old_vr, new_vr->type, new_vr->min, new_vr->max,
-	             new_vr->equiv);
+    {
+      /* Do not allow transitions up the lattice.  The following
+         is slightly more awkward than just new_vr->type < old_vr->type
+	 because VR_RANGE and VR_ANTI_RANGE need to be considered
+	 the same.  We may not have is_new when transitioning to
+	 UNDEFINED or from VARYING.  */
+      if (new_vr->type == VR_UNDEFINED
+	  || old_vr->type == VR_VARYING)
+	set_value_range_to_varying (old_vr);
+      else
+	set_value_range (old_vr, new_vr->type, new_vr->min, new_vr->max,
+			 new_vr->equiv);
+    }
 
   BITMAP_FREE (new_vr->equiv);
 
@@ -1698,7 +1700,8 @@ extract_range_from_assert (value_range_t *vr_p, tree expr)
 	  && vrp_val_is_max (max))
 	min = max = limit;
 
-      set_value_range (vr_p, VR_ANTI_RANGE, min, max, vr_p->equiv);
+      set_and_canonicalize_value_range (vr_p, VR_ANTI_RANGE,
+					min, max, vr_p->equiv);
     }
   else if (cond_code == LE_EXPR || cond_code == LT_EXPR)
     {
@@ -2644,7 +2647,7 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 	  if (TYPE_UNSIGNED (expr_type))
 	    {
 	      double_int min2 = size - min0;
-	      if (min2.cmp (max0, true) < 0)
+	      if (!min2.is_zero () && min2.cmp (max0, true) < 0)
 		{
 		  min0 = -min2;
 		  max0 -= size;
@@ -2652,7 +2655,7 @@ extract_range_from_binary_expr_1 (value_range_t *vr,
 		}
 
 	      min2 = size - min1;
-	      if (min2.cmp (max1, true) < 0)
+	      if (!min2.is_zero () && min2.cmp (max1, true) < 0)
 		{
 		  min1 = -min2;
 		  max1 -= size;
@@ -4712,6 +4715,11 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       tree val2 = NULL_TREE;
       double_int mask = double_int_zero;
       unsigned int prec = TYPE_PRECISION (TREE_TYPE (val));
+      unsigned int nprec = prec;
+      enum tree_code rhs_code = ERROR_MARK;
+
+      if (is_gimple_assign (def_stmt))
+	rhs_code = gimple_assign_rhs_code (def_stmt);
 
       /* Add asserts for NAME cmp CST and NAME being defined
 	 as NAME = (int) NAME2.  */
@@ -4721,7 +4729,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  && gimple_assign_cast_p (def_stmt))
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
-	  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+	  if (CONVERT_EXPR_CODE_P (rhs_code)
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && TYPE_UNSIGNED (TREE_TYPE (name2))
 	      && prec == TYPE_PRECISION (TREE_TYPE (name2))
@@ -4767,8 +4775,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	 NAME = NAME2 >> CST2.
 
 	 Extract CST2 from the right shift.  */
-      if (is_gimple_assign (def_stmt)
-	  && gimple_assign_rhs_code (def_stmt) == RSHIFT_EXPR)
+      if (rhs_code == RSHIFT_EXPR)
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
 	  cst2 = gimple_assign_rhs2 (def_stmt);
@@ -4840,21 +4847,37 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       /* Add asserts for NAME cmp CST and NAME being defined as
 	 NAME = NAME2 & CST2.
 
-	 Extract CST2 from the and.  */
+	 Extract CST2 from the and.
+
+	 Also handle
+	 NAME = (unsigned) NAME2;
+	 casts where NAME's type is unsigned and has smaller precision
+	 than NAME2's type as if it was NAME = NAME2 & MASK.  */
       names[0] = NULL_TREE;
       names[1] = NULL_TREE;
       cst2 = NULL_TREE;
-      if (is_gimple_assign (def_stmt)
-	  && gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR)
+      if (rhs_code == BIT_AND_EXPR
+	  || (CONVERT_EXPR_CODE_P (rhs_code)
+	      && TREE_CODE (TREE_TYPE (val)) == INTEGER_TYPE
+	      && TYPE_UNSIGNED (TREE_TYPE (val))
+	      && TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
+		 > prec
+	      && !retval))
 	{
 	  name2 = gimple_assign_rhs1 (def_stmt);
-	  cst2 = gimple_assign_rhs2 (def_stmt);
+	  if (rhs_code == BIT_AND_EXPR)
+	    cst2 = gimple_assign_rhs2 (def_stmt);
+	  else
+	    {
+	      cst2 = TYPE_MAX_VALUE (TREE_TYPE (val));
+	      nprec = TYPE_PRECISION (TREE_TYPE (name2));
+	    }
 	  if (TREE_CODE (name2) == SSA_NAME
 	      && INTEGRAL_TYPE_P (TREE_TYPE (name2))
 	      && TREE_CODE (cst2) == INTEGER_CST
 	      && !integer_zerop (cst2)
-	      && prec <= HOST_BITS_PER_DOUBLE_INT
-	      && (prec > 1
+	      && nprec <= HOST_BITS_PER_DOUBLE_INT
+	      && (nprec > 1
 		  || TYPE_UNSIGNED (TREE_TYPE (val))))
 	    {
 	      gimple def_stmt2 = SSA_NAME_DEF_STMT (name2);
@@ -4881,12 +4904,12 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  bool valid_p = false, valn = false, cst2n = false;
 	  enum tree_code ccode = comp_code;
 
-	  valv = tree_to_double_int (val).zext (prec);
-	  cst2v = tree_to_double_int (cst2).zext (prec);
+	  valv = tree_to_double_int (val).zext (nprec);
+	  cst2v = tree_to_double_int (cst2).zext (nprec);
 	  if (!TYPE_UNSIGNED (TREE_TYPE (val)))
 	    {
-	      valn = valv.sext (prec).is_negative ();
-	      cst2n = cst2v.sext (prec).is_negative ();
+	      valn = valv.sext (nprec).is_negative ();
+	      cst2n = cst2v.sext (nprec).is_negative ();
 	    }
 	  /* If CST2 doesn't have most significant bit set,
 	     but VAL is negative, we have comparison like
@@ -4894,7 +4917,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	  if (!cst2n && valn)
 	    ccode = ERROR_MARK;
 	  if (cst2n)
-	    sgnbit = double_int_one.llshift (prec - 1, prec).zext (prec);
+	    sgnbit = double_int_one.llshift (nprec - 1, nprec).zext (nprec);
 	  else
 	    sgnbit = double_int_zero;
 	  minv = valv & cst2v;
@@ -4906,12 +4929,12 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		 have folded the comparison into false) and
 		 maximum unsigned value is VAL | ~CST2.  */
 	      maxv = valv | ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      valid_p = true;
 	      break;
 	    case NE_EXPR:
 	      tem = valv | ~cst2v;
-	      tem = tem.zext (prec);
+	      tem = tem.zext (nprec);
 	      /* If VAL is 0, handle (X & CST2) != 0 as (X & CST2) > 0U.  */
 	      if (valv.is_zero ())
 		{
@@ -4921,7 +4944,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		}
 	      /* If (VAL | ~CST2) is all ones, handle it as
 		 (X & CST2) < VAL.  */
-	      if (tem == double_int::mask (prec))
+	      if (tem == double_int::mask (nprec))
 		{
 		  cst2n = false;
 		  valn = false;
@@ -4929,8 +4952,9 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		  goto lt_expr;
 		}
 	      if (!cst2n
-		  && cst2v.sext (prec).is_negative ())
-		sgnbit = double_int_one.llshift (prec - 1, prec).zext (prec);
+		  && cst2v.sext (nprec).is_negative ())
+		sgnbit
+		  = double_int_one.llshift (nprec - 1, nprec).zext (nprec);
 	      if (!sgnbit.is_zero ())
 		{
 		  if (valv == sgnbit)
@@ -4939,7 +4963,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		      valn = true;
 		      goto gt_expr;
 		    }
-		  if (tem == double_int::mask (prec - 1))
+		  if (tem == double_int::mask (nprec - 1))
 		    {
 		      cst2n = true;
 		      goto lt_expr;
@@ -4958,22 +4982,22 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		{
 		  /* If (VAL & CST2) != VAL, X & CST2 can't be equal to
 		     VAL.  */
-		  minv = masked_increment (valv, cst2v, sgnbit, prec);
+		  minv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (minv == valv)
 		    break;
 		}
-	      maxv = double_int::mask (prec - (cst2n ? 1 : 0));
+	      maxv = double_int::mask (nprec - (cst2n ? 1 : 0));
 	      valid_p = true;
 	      break;
 	    case GT_EXPR:
 	    gt_expr:
 	      /* Find out smallest MINV where MINV > VAL
 		 && (MINV & CST2) == MINV, if any.  If VAL is signed and
-		 CST2 has MSB set, compute it biased by 1 << (prec - 1).  */
-	      minv = masked_increment (valv, cst2v, sgnbit, prec);
+		 CST2 has MSB set, compute it biased by 1 << (nprec - 1).  */
+	      minv = masked_increment (valv, cst2v, sgnbit, nprec);
 	      if (minv == valv)
 		break;
-	      maxv = double_int::mask (prec - (cst2n ? 1 : 0));
+	      maxv = double_int::mask (nprec - (cst2n ? 1 : 0));
 	      valid_p = true;
 	      break;
 	    case LE_EXPR:
@@ -4989,13 +5013,13 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		maxv = valv;
 	      else
 		{
-		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  maxv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (maxv == valv)
 		    break;
 		  maxv -= double_int_one;
 		}
 	      maxv |= ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      minv = sgnbit;
 	      valid_p = true;
 	      break;
@@ -5017,13 +5041,13 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		}
 	      else
 		{
-		  maxv = masked_increment (valv, cst2v, sgnbit, prec);
+		  maxv = masked_increment (valv, cst2v, sgnbit, nprec);
 		  if (maxv == valv)
 		    break;
 		}
 	      maxv -= double_int_one;
 	      maxv |= ~cst2v;
-	      maxv = maxv.zext (prec);
+	      maxv = maxv.zext (nprec);
 	      minv = sgnbit;
 	      valid_p = true;
 	      break;
@@ -5031,7 +5055,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	      break;
 	    }
 	  if (valid_p
-	      && (maxv - minv).zext (prec) != double_int::mask (prec))
+	      && (maxv - minv).zext (nprec) != double_int::mask (nprec))
 	    {
 	      tree tmp, new_val, type;
 	      int i;
@@ -5044,7 +5068,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 		    type = TREE_TYPE (names[i]);
 		    if (!TYPE_UNSIGNED (type))
 		      {
-			type = build_nonstandard_integer_type (prec, 1);
+			type = build_nonstandard_integer_type (nprec, 1);
 			tmp = build1 (NOP_EXPR, type, names[i]);
 		      }
 		    if (!minv.is_zero ())
@@ -5524,7 +5548,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 
 	  /* If op is not live beyond this stmt, do not bother to insert
 	     asserts for it.  */
-	  if (!TEST_BIT (live, SSA_NAME_VERSION (op)))
+	  if (!bitmap_bit_p (live, SSA_NAME_VERSION (op)))
 	    continue;
 
 	  /* If OP is used in such a way that we can infer a value
@@ -5572,9 +5596,9 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 
       /* Update live.  */
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
-	SET_BIT (live, SSA_NAME_VERSION (op));
+	bitmap_set_bit (live, SSA_NAME_VERSION (op));
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
-	RESET_BIT (live, SSA_NAME_VERSION (op));
+	bitmap_clear_bit (live, SSA_NAME_VERSION (op));
     }
 
   /* Traverse all PHI nodes in BB, updating live.  */
@@ -5592,10 +5616,10 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 	{
 	  tree arg = USE_FROM_PTR (arg_p);
 	  if (TREE_CODE (arg) == SSA_NAME)
-	    SET_BIT (live, SSA_NAME_VERSION (arg));
+	    bitmap_set_bit (live, SSA_NAME_VERSION (arg));
 	}
 
-      RESET_BIT (live, SSA_NAME_VERSION (res));
+      bitmap_clear_bit (live, SSA_NAME_VERSION (res));
     }
 
   return need_assert;
@@ -5629,7 +5653,7 @@ find_assert_locations (void)
       if (!live[rpo[i]])
 	{
 	  live[rpo[i]] = sbitmap_alloc (num_ssa_names);
-	  sbitmap_zero (live[rpo[i]]);
+	  bitmap_clear (live[rpo[i]]);
 	}
 
       /* Process BB and update the live information with uses in
@@ -5637,7 +5661,7 @@ find_assert_locations (void)
       need_asserts |= find_assert_locations_1 (bb, live[rpo[i]]);
 
       /* Merge liveness into the predecessor blocks and free it.  */
-      if (!sbitmap_empty_p (live[rpo[i]]))
+      if (!bitmap_empty_p (live[rpo[i]]))
 	{
 	  int pred_rpo = i;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
@@ -5649,9 +5673,9 @@ find_assert_locations (void)
 	      if (!live[pred])
 		{
 		  live[pred] = sbitmap_alloc (num_ssa_names);
-		  sbitmap_zero (live[pred]);
+		  bitmap_clear (live[pred]);
 		}
-	      sbitmap_a_or_b (live[pred], live[pred], live[rpo[i]]);
+	      bitmap_ior (live[pred], live[pred], live[rpo[i]]);
 
 	      if (bb_rpo[pred] < pred_rpo)
 		pred_rpo = bb_rpo[pred];
@@ -8536,14 +8560,14 @@ simplify_switch_using_ranges (gimple stmt)
 	{
 	  fprintf (dump_file, "removing unreachable case label\n");
 	}
-      VEC_safe_push (edge, heap, to_remove_edges, e);
+      to_remove_edges.safe_push (e);
       e->flags &= ~EDGE_EXECUTABLE;
     }
 
   /* And queue an update for the stmt.  */
   su.stmt = stmt;
   su.vec = vec2;
-  VEC_safe_push (switch_update, heap, to_update_switch_stmts, su);
+  to_update_switch_stmts.safe_push (su);
   return false;
 }
 
@@ -8886,7 +8910,7 @@ vrp_fold_stmt (gimple_stmt_iterator *si)
 
    A NULL entry is used to mark the end of pairs which need to be
    restored.  */
-static VEC(tree,heap) *equiv_stack;
+static vec<tree> equiv_stack;
 
 /* A trivial wrapper so that we can present the generic jump threading
    code with a simple API for simplifying statements.  STMT is the
@@ -8949,12 +8973,12 @@ identify_jump_threads (void)
 
   /* Do not thread across edges we are about to remove.  Just marking
      them as EDGE_DFS_BACK will do.  */
-  FOR_EACH_VEC_ELT (edge, to_remove_edges, i, e)
+  FOR_EACH_VEC_ELT (to_remove_edges, i, e)
     e->flags |= EDGE_DFS_BACK;
 
   /* Allocate our unwinder stack to unwind any temporary equivalences
      that might be recorded.  */
-  equiv_stack = VEC_alloc (tree, heap, 20);
+  equiv_stack.create (20);
 
   /* To avoid lots of silly node creation, we create a single
      conditional and just modify it in-place when attempting to
@@ -9029,7 +9053,7 @@ static void
 finalize_jump_threads (void)
 {
   thread_through_all_blocks (false);
-  VEC_free (tree, heap, equiv_stack);
+  equiv_stack.release ();
 }
 
 
@@ -9134,8 +9158,8 @@ execute_vrp (void)
 
   insert_range_assertions ();
 
-  to_remove_edges = VEC_alloc (edge, heap, 10);
-  to_update_switch_stmts = VEC_alloc (switch_update, heap, 5);
+  to_remove_edges.create (10);
+  to_update_switch_stmts.create (5);
   threadedge_initialize_values ();
 
   vrp_initialize ();
@@ -9160,10 +9184,10 @@ execute_vrp (void)
 
   /* Remove dead edges from SWITCH_EXPR optimization.  This leaves the
      CFG in a broken state and requires a cfg_cleanup run.  */
-  FOR_EACH_VEC_ELT (edge, to_remove_edges, i, e)
+  FOR_EACH_VEC_ELT (to_remove_edges, i, e)
     remove_edge (e);
   /* Update SWITCH_EXPR case label vector.  */
-  FOR_EACH_VEC_ELT (switch_update, to_update_switch_stmts, i, su)
+  FOR_EACH_VEC_ELT (to_update_switch_stmts, i, su)
     {
       size_t j;
       size_t n = TREE_VEC_LENGTH (su->vec);
@@ -9179,11 +9203,11 @@ execute_vrp (void)
       CASE_HIGH (label) = NULL_TREE;
     }
 
-  if (VEC_length (edge, to_remove_edges) > 0)
+  if (to_remove_edges.length () > 0)
     free_dominance_info (CDI_DOMINATORS);
 
-  VEC_free (edge, heap, to_remove_edges);
-  VEC_free (switch_update, heap, to_update_switch_stmts);
+  to_remove_edges.release ();
+  to_update_switch_stmts.release ();
   threadedge_finalize_values ();
 
   scev_finalize ();
@@ -9202,6 +9226,7 @@ struct gimple_opt_pass pass_vrp =
  {
   GIMPLE_PASS,
   "vrp",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_vrp,				/* gate */
   execute_vrp,				/* execute */
   NULL,					/* sub */

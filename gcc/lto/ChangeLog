@@ -1,3 +1,65 @@
+2012-11-20  Diego Novillo  <dnovillo@google.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* lto.c: Replace all vec<T, A>() initializers with vNULL.
+
+2012-11-16  Diego Novillo  <dnovillo@google.com>
+
+	Adjust for new vec API (http://gcc.gnu.org/wiki/cxx-conversion/cxx-vec)
+
+	* lto-lang.c: Use new vec API in vec.h.
+	* lto-partition.c: Likewise.
+	* lto-partition.h: Likewise.
+	* lto.c: Likewise.
+
+2012-10-31  Lawrence Crowl  <crowl@google.com>
+
+	* lto.c (lto_wpa_write_files): Change symtab checking to a checked
+	down-cast via dyn_cast.
+	* lto-partition.c (add_symbol_to_partition_1): Likewise.
+	(undo_partition): Likewise.
+	(lto_balanced_map): Likewise.
+	(get_symbol_class): Likewise and via is_a.
+	(lto_balanced_map): Change symtab checking to is_a.
+
+2012-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR lto/54898
+	* lto.c (gimple_types_compatible_p_1): Also compare
+	TYPE_MAIN_VARIANT.
+	(iterative_hash_gimple_type): Also hash TYPE_MAIN_VARIANT.
+
+2012-10-09  Tobias Burnus  <burnus@net-b.de>
+
+	* lto-lang.c (lto_register_builtin_type): Avoid useless
+	decl creation.
+	* lto-object.c (lto_obj_file_open, lto_obj_file_open): Free memory.
+
+2012-10-08  Tobias Burnus  <burnus@net-b.de>
+
+	* lto.c (lto_wpa_write_files, read_cgraph_and_symbols):
+	Free lto_file struct after closing the file.
+
+2012-10-08  Jan Hubicka  <jh@suse.cz>
+
+	* lto/lto.c (remember_with_vars): Also fixup INTEGER_CST.
+	(fixup_integer_cst): New functoin.
+	(lto_ft_type): Fixup BASETYPE of methods and offsets.
+
+2012-10-07  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (read_cgraph_and_symbols): Release type merging hash early;
+	release input encoders.
+	* lto-partition.c (new_partition): Update for new lto_symtab_encoder_new.
+
+2012-10-06  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/54790 
+	* lto.c (resolution_map): New static var.
+	(register_resolution): New function.
+	(lto_register_var_decl_in_symtab): Use it.
+	(read_cgraph_and_symbols): Copy resolutions into the symtab.
+
 2012-09-20  Martin Jambor  <mjambor@suse.cz>
 
 	* lto.c (lto_materialize_function): Call push_struct_function and

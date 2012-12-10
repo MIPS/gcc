@@ -410,7 +410,7 @@ package body Make is
    --  Delete all temp files created by Gnatmake and call Osint.Fail, with the
    --  parameter S (see osint.ads). This is called from the Prj hierarchy and
    --  the MLib hierarchy. This subprogram also prints current error messages
-   --  on stdout (ie finalizes errout)
+   --  (i.e. finalizes Errutil).
 
    --------------------------
    -- Obsolete Executables --
@@ -704,6 +704,7 @@ package body Make is
    Output_Flag       : constant String_Access := new String'("-o");
    Ada_Flag_1        : constant String_Access := new String'("-x");
    Ada_Flag_2        : constant String_Access := new String'("ada");
+   AdaSCIL_Flag      : constant String_Access := new String'("adascil");
    No_gnat_adc       : constant String_Access := new String'("-gnatA");
    GNAT_Flag         : constant String_Access := new String'("-gnatpg");
    Do_Not_Check_Flag : constant String_Access := new String'("-x");
@@ -2989,8 +2990,16 @@ package body Make is
          --  Now check if the file name has one of the suffixes familiar to
          --  the gcc driver. If this is not the case then add the ada flag
          --  "-x ada".
+         --  Append systematically "-x adascil" in CodePeer mode instead, to
+         --  force the use of gnat1scil instead of gnat1.
 
-         if not Ada_File_Name (S) and then not Targparm.AAMP_On_Target then
+         if CodePeer_Mode then
+            Comp_Last := Comp_Last + 1;
+            Comp_Args (Comp_Last) := Ada_Flag_1;
+            Comp_Last := Comp_Last + 1;
+            Comp_Args (Comp_Last) := AdaSCIL_Flag;
+
+         elsif not Ada_File_Name (S) and then not Targparm.AAMP_On_Target then
             Comp_Last := Comp_Last + 1;
             Comp_Args (Comp_Last) := Ada_Flag_1;
             Comp_Last := Comp_Last + 1;
@@ -3789,44 +3798,6 @@ package body Make is
 
       Result : Argument_List (1 .. 3);
       Last   : Natural := 0;
-
-      function Absolute_Path
-        (Path    : Path_Name_Type;
-         Project : Project_Id) return String;
-      --  Returns an absolute path for a configuration pragmas file
-
-      -------------------
-      -- Absolute_Path --
-      -------------------
-
-      function Absolute_Path
-        (Path    : Path_Name_Type;
-         Project : Project_Id) return String
-      is
-      begin
-         Get_Name_String (Path);
-
-         declare
-            Path_Name : constant String := Name_Buffer (1 .. Name_Len);
-
-         begin
-            if Is_Absolute_Path (Path_Name) then
-               return Path_Name;
-
-            else
-               declare
-                  Parent_Directory : constant String :=
-                                       Get_Name_String
-                                         (Project.Directory.Display_Name);
-
-               begin
-                  return Parent_Directory & Path_Name;
-               end;
-            end if;
-         end;
-      end Absolute_Path;
-
-   --  Start of processing for Configuration_Pragmas_Switch
 
    begin
       Prj.Env.Create_Config_Pragmas_File
@@ -7825,11 +7796,12 @@ package body Make is
 
          --  -vPx  (verbosity of the parsing of the project files)
 
-         elsif Argv'Last = 4
-           and then Argv (2 .. 3) = "vP"
-           and then Argv (4) in '0' .. '2'
-         then
-            if And_Save then
+         elsif Argv'Length >= 3 and then Argv (2 .. 3) = "vP" then
+            if Argv'Last /= 4 or else Argv (4) not in '0' .. '2' then
+               Make_Failed
+                 ("invalid verbosity level " & Argv (4 .. Argv'Last));
+
+            elsif And_Save then
                case Argv (4) is
                   when '0' =>
                      Current_Verbosity := Prj.Default;
@@ -7869,12 +7841,8 @@ package body Make is
             Operating_Mode           := Check_Semantics;
             Check_Object_Consistency := False;
 
-            --  Except in CodePeer mode, where we do want to call bind/link
-            --  in CodePeer mode (-P switch).
-
-            --  This is testing for -gnatcC, what is that??? Also why do we
-            --  want to call bind/link in the codepeer case with -gnatc
-            --  specified, seems odd.
+            --  Except in CodePeer mode (set by -gnatcC), where we do want to
+            --  call bind/link in CodePeer mode (-P switch).
 
             if Argv'Last >= 7 and then Argv (7) = 'C' then
                CodePeer_Mode := True;

@@ -114,6 +114,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__bdver2");
       def_or_undef (parse_in, "__bdver2__");
       break;
+    case PROCESSOR_BDVER3:
+      def_or_undef (parse_in, "__bdver3");
+      def_or_undef (parse_in, "__bdver3__");
+      break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__btver1");
       def_or_undef (parse_in, "__btver1__");
@@ -130,13 +134,11 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__nocona");
       def_or_undef (parse_in, "__nocona__");
       break;
-    case PROCESSOR_CORE2_32:
-    case PROCESSOR_CORE2_64:
+    case PROCESSOR_CORE2:
       def_or_undef (parse_in, "__core2");
       def_or_undef (parse_in, "__core2__");
       break;
-    case PROCESSOR_COREI7_32:
-    case PROCESSOR_COREI7_64:
+    case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__corei7");
       def_or_undef (parse_in, "__corei7__");
       break;
@@ -209,7 +211,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_BDVER2:
       def_or_undef (parse_in, "__tune_bdver2__");
       break;
-   case PROCESSOR_BTVER1:
+    case PROCESSOR_BDVER3:
+      def_or_undef (parse_in, "__tune_bdver3__");
+      break;
+    case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__tune_btver1__");
       break;
     case PROCESSOR_BTVER2:
@@ -221,12 +226,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_NOCONA:
       def_or_undef (parse_in, "__tune_nocona__");
       break;
-    case PROCESSOR_CORE2_32:
-    case PROCESSOR_CORE2_64:
+    case PROCESSOR_CORE2:
       def_or_undef (parse_in, "__tune_core2__");
       break;
-    case PROCESSOR_COREI7_32:
-    case PROCESSOR_COREI7_64:
+    case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__tune_corei7__");
       break;
     case PROCESSOR_ATOM:
@@ -302,6 +305,12 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__PRFCHW__");
   if (isa_flag & OPTION_MASK_ISA_ADX)
     def_or_undef (parse_in, "__ADX__");
+  if (isa_flag & OPTION_MASK_ISA_FXSR)
+    def_or_undef (parse_in, "__FXSR__");
+  if (isa_flag & OPTION_MASK_ISA_XSAVE)
+    def_or_undef (parse_in, "__XSAVE__");
+  if (isa_flag & OPTION_MASK_ISA_XSAVEOPT)
+    def_or_undef (parse_in, "__XSAVEOPT__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE))
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))

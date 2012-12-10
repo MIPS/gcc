@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux
+// +build darwin freebsd linux netbsd
 // +build cgo
 
 package user
@@ -44,7 +44,7 @@ func bytePtrToString(p *byte) string {
 	return string(a[:i])
 }
 
-// Current returns the current user. 
+// Current returns the current user.
 func Current() (*User, error) {
 	return lookup(syscall.Getuid(), "", false)
 }

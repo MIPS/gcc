@@ -708,6 +708,7 @@ BASIC_FILE_H
 CSTDIO_H
 SECTION_FLAGS
 WERROR
+thread_header
 glibcxx_PCHFLAGS
 GLIBCXX_BUILD_PCH_FALSE
 GLIBCXX_BUILD_PCH_TRUE
@@ -11512,7 +11513,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11515 "configure"
+#line 11516 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11618,7 +11619,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11621 "configure"
+#line 11622 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15032,7 +15033,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15035 "configure"
+#line 15036 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15159,6 +15160,21 @@ $as_echo_n "checking for thread model used by GCC... " >&6; }
   target_thread_file=`$CXX -v 2>&1 | sed -n 's/^Thread model: //p'`
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $target_thread_file" >&5
 $as_echo "$target_thread_file" >&6; }
+
+case $target_thread_file in
+    aix)	thread_header=config/rs6000/gthr-aix.h ;;
+    dce)	thread_header=config/pa/gthr-dce.h ;;
+    lynx)	thread_header=config/gthr-lynx.h ;;
+    mipssde)	thread_header=config/mips/gthr-mipssde.h ;;
+    posix)	thread_header=gthr-posix.h ;;
+    rtems)	thread_header=config/gthr-rtems.h ;;
+    single)	thread_header=gthr-single.h ;;
+    tpf)	thread_header=config/s390/gthr-tpf.h ;;
+    vxworks)	thread_header=config/gthr-vxworks.h ;;
+    win32)	thread_header=config/i386/gthr-win32.h ;;
+esac
+
+
 
 
 
@@ -15367,7 +15383,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15370 "configure"
+#line 15386 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15402,7 +15418,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15405 "configure"
+#line 15421 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15437,7 +15453,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15440 "configure"
+#line 15456 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15473,7 +15489,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15476 "configure"
+#line 15492 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15552,7 +15568,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15555 "configure"
+#line 15571 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15594,7 +15610,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15597 "configure"
+#line 15613 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15628,7 +15644,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15631 "configure"
+#line 15647 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15811,6 +15827,9 @@ fi
 	;;
       darwin* | freebsd*)
 	enable_clocale_flag=darwin
+	;;
+      openbsd*)
+	enable_clocale_flag=newlib
 	;;
       *)
 	if test x"$with_newlib" = x"yes"; then
@@ -19825,6 +19844,60 @@ $as_echo "#define _GLIBCXX_USE_CLOCK_REALTIME 1" >>confdefs.h
 
 $as_echo "#define _GLIBCXX_USE_NANOSLEEP 1" >>confdefs.h
 
+  else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sleep" >&5
+$as_echo_n "checking for sleep... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <unistd.h>
+int
+main ()
+{
+sleep(1)
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  ac_has_sleep=yes
+else
+  ac_has_sleep=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      if test x"$ac_has_sleep" = x"yes"; then
+
+$as_echo "#define HAVE_SLEEP 1" >>confdefs.h
+
+      fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_has_sleep" >&5
+$as_echo "$ac_has_sleep" >&6; }
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for usleep" >&5
+$as_echo_n "checking for usleep... " >&6; }
+      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <unistd.h>
+int
+main ()
+{
+sleep(1);
+                      usleep(100);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  ac_has_usleep=yes
+else
+  ac_has_usleep=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      if test x"$ac_has_usleep" = x"yes"; then
+
+$as_echo "#define HAVE_USLEEP 1" >>confdefs.h
+
+      fi
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_has_usleep" >&5
+$as_echo "$ac_has_usleep" >&6; }
   fi
 
 
@@ -70430,7 +70503,7 @@ $as_echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:17:0
+libtool_VERSION=6:18:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in
@@ -71471,6 +71544,10 @@ if test x"$glibcxx_stylesheets" = x"yes"; then
   if test -d /usr/share/xml/docbook/stylesheet/docbook-xsl-ns; then
     glibcxx_local_stylesheets=yes
     XSL_STYLE_DIR=/usr/share/xml/docbook/stylesheet/docbook-xsl-ns
+  fi
+  if test -d /usr/share/xml/docbook/stylesheet/nwalsh5/current; then
+    glibcxx_local_stylesheets=yes
+    XSL_STYLE_DIR=/usr/share/xml/docbook/stylesheet/nwalsh5/current
   fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_local_stylesheets" >&5

@@ -56,7 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "intl.h"
 #include "ggc.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "langhooks.h"
 #include "md5.h"
 #include "gimple.h"
@@ -1359,7 +1359,7 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
   return NULL_TREE;
 }
 
-/* Create a size type INT_CST node with NUMBER sign extended.  KIND
+/* Create a sizetype INT_CST node with NUMBER sign extended.  KIND
    indicates which particular sizetype to create.  */
 
 tree
@@ -3880,6 +3880,17 @@ make_range_step (location_t loc, enum tree_code code, tree arg0, tree arg1,
       return arg0;
 
     case NEGATE_EXPR:
+      /* If flag_wrapv and ARG0_TYPE is signed, make sure
+	 low and high are non-NULL, then normalize will DTRT.  */
+      if (!TYPE_UNSIGNED (arg0_type)
+	  && !TYPE_OVERFLOW_UNDEFINED (arg0_type))
+	{
+	  if (low == NULL_TREE)
+	    low = TYPE_MIN_VALUE (arg0_type);
+	  if (high == NULL_TREE)
+	    high = TYPE_MAX_VALUE (arg0_type);
+	}
+
       /* (-x) IN [a,b] -> x in [-b, -a]  */
       n_low = range_binop (MINUS_EXPR, exp_type,
 			   build_int_cst (exp_type, 0),
@@ -5798,11 +5809,9 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
       else
 	break;
 
-      /* If we have an unsigned type is not a sizetype, we cannot widen
-	 the operation since it will change the result if the original
-	 computation overflowed.  */
-      if (TYPE_UNSIGNED (ctype)
-	  && ctype != type)
+      /* If we have an unsigned type, we cannot widen the operation since it
+	 will change the result if the original computation overflowed.  */
+      if (TYPE_UNSIGNED (ctype) && ctype != type)
 	break;
 
       /* If we were able to eliminate our operation from the first side,
@@ -5959,8 +5968,10 @@ fold_binary_op_with_conditional_arg (location_t loc,
   tree test, true_value, false_value;
   tree lhs = NULL_TREE;
   tree rhs = NULL_TREE;
+  enum tree_code cond_code = COND_EXPR;
 
-  if (TREE_CODE (cond) == COND_EXPR)
+  if (TREE_CODE (cond) == COND_EXPR
+      || TREE_CODE (cond) == VEC_COND_EXPR)
     {
       test = TREE_OPERAND (cond, 0);
       true_value = TREE_OPERAND (cond, 1);
@@ -5981,11 +5992,15 @@ fold_binary_op_with_conditional_arg (location_t loc,
       false_value = constant_boolean_node (false, testtype);
     }
 
+  if (TREE_CODE (TREE_TYPE (test)) == VECTOR_TYPE)
+    cond_code = VEC_COND_EXPR;
+
   /* This transformation is only worthwhile if we don't have to wrap ARG
-     in a SAVE_EXPR and the operation can be simplified on at least one
-     of the branches once its pushed inside the COND_EXPR.  */
+     in a SAVE_EXPR and the operation can be simplified without recursing
+     on at least one of the branches once its pushed inside the COND_EXPR.  */
   if (!TREE_CONSTANT (arg)
       && (TREE_SIDE_EFFECTS (arg)
+	  || TREE_CODE (arg) == COND_EXPR || TREE_CODE (arg) == VEC_COND_EXPR
 	  || TREE_CONSTANT (true_value) || TREE_CONSTANT (false_value)))
     return NULL_TREE;
 
@@ -6011,7 +6026,7 @@ fold_binary_op_with_conditional_arg (location_t loc,
   if (!TREE_CONSTANT (arg) && !TREE_CONSTANT (lhs) && !TREE_CONSTANT (rhs))
     return NULL_TREE;
 
-  return fold_build3_loc (loc, COND_EXPR, type, test, lhs, rhs);
+  return fold_build3_loc (loc, cond_code, type, test, lhs, rhs);
 }
 
 
@@ -6731,10 +6746,12 @@ fold_sign_changed_comparison (location_t loc, enum tree_code code, tree type,
 	   && TREE_TYPE (TREE_OPERAND (arg1, 0)) == inner_type))
     return NULL_TREE;
 
-  if ((TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
-       || POINTER_TYPE_P (inner_type) != POINTER_TYPE_P (outer_type))
+  if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
       && code != NE_EXPR
       && code != EQ_EXPR)
+    return NULL_TREE;
+
+  if (POINTER_TYPE_P (inner_type) != POINTER_TYPE_P (outer_type))
     return NULL_TREE;
 
   if (TREE_CODE (arg1) == INTEGER_CST)
@@ -7742,7 +7759,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	    return build2_loc (loc, TREE_CODE (op0), type,
 			       TREE_OPERAND (op0, 0),
 			       TREE_OPERAND (op0, 1));
-	  else if (!INTEGRAL_TYPE_P (type) && TREE_CODE (type) != VECTOR_TYPE)
+	  else if (!INTEGRAL_TYPE_P (type) && !VOID_TYPE_P (type)
+		   && TREE_CODE (type) != VECTOR_TYPE)
 	    return build3_loc (loc, COND_EXPR, type, op0,
 			       constant_boolean_node (true, type),
 			       constant_boolean_node (false, type));
@@ -8289,6 +8307,40 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	    elts[i] = fold_convert_const (subcode, TREE_TYPE (type), elts[i]);
 	    if (elts[i] == NULL_TREE || !CONSTANT_CLASS_P (elts[i]))
 	      return NULL_TREE;
+	  }
+
+	return build_vector (type, elts);
+      }
+
+    case REDUC_MIN_EXPR:
+    case REDUC_MAX_EXPR:
+    case REDUC_PLUS_EXPR:
+      {
+	unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	tree *elts;
+	enum tree_code subcode;
+
+	if (TREE_CODE (op0) != VECTOR_CST)
+	  return NULL_TREE;
+
+	elts = XALLOCAVEC (tree, nelts);
+	if (!vec_cst_ctor_to_array (op0, elts))
+	  return NULL_TREE;
+
+	switch (code)
+	  {
+	  case REDUC_MIN_EXPR: subcode = MIN_EXPR; break;
+	  case REDUC_MAX_EXPR: subcode = MAX_EXPR; break;
+	  case REDUC_PLUS_EXPR: subcode = PLUS_EXPR; break;
+	  default: gcc_unreachable ();
+	  }
+
+	for (i = 1; i < nelts; i++)
+	  {
+	    elts[0] = const_binop (subcode, elts[0], elts[i]);
+	    if (elts[0] == NULL_TREE || !CONSTANT_CLASS_P (elts[0]))
+	      return NULL_TREE;
+	    elts[i] = build_zero_cst (TREE_TYPE (type));
 	  }
 
 	return build_vector (type, elts);
@@ -8952,7 +9004,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	    }
 	  /* We can simplify the comparison to a comparison of the variable
 	     offset parts if the constant offset parts are equal.
-	     Be careful to use signed size type here because otherwise we
+	     Be careful to use signed sizetype here because otherwise we
 	     mess with array offsets in the wrong way.  This is possible
 	     because pointer arithmetic is restricted to retain within an
 	     object and overflow on pointer differences is undefined as of
@@ -8962,11 +9014,11 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 		       || (indirect_base0 && DECL_P (base0))
 		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
 	    {
-	      /* By converting to signed size type we cover middle-end pointer
+	      /* By converting to signed sizetype we cover middle-end pointer
 	         arithmetic which operates on unsigned pointer types of size
 	         type size and ARRAY_REF offsets which are properly sign or
 	         zero extended from their type in case it is narrower than
-	         size type.  */
+	         sizetype.  */
 	      if (offset0 == NULL_TREE)
 		offset0 = build_int_cst (ssizetype, 0);
 	      else
@@ -9558,7 +9610,7 @@ vec_cst_ctor_to_array (tree arg, tree *elts)
     {
       constructor_elt *elt;
 
-      FOR_EACH_VEC_ELT (constructor_elt, CONSTRUCTOR_ELTS (arg), i, elt)
+      FOR_EACH_VEC_SAFE_ELT (CONSTRUCTOR_ELTS (arg), i, elt)
 	if (i >= nelts || TREE_CODE (TREE_TYPE (elt->value)) == VECTOR_TYPE)
 	  return false;
 	else
@@ -9603,7 +9655,8 @@ fold_vec_perm (tree type, tree arg0, tree arg1, const unsigned char *sel)
 
   if (need_ctor)
     {
-      VEC(constructor_elt,gc) *v = VEC_alloc (constructor_elt, gc, nelts);
+      vec<constructor_elt, va_gc> *v;
+      vec_alloc (v, nelts);
       for (i = 0; i < nelts; i++)
 	CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, elts[2 * nelts + i]);
       return build_constructor (type, v);
@@ -9835,7 +9888,9 @@ fold_binary_loc (location_t loc,
 			     tem);
 	}
 
-      if (TREE_CODE (arg0) == COND_EXPR || COMPARISON_CLASS_P (arg0))
+      if (TREE_CODE (arg0) == COND_EXPR
+	  || TREE_CODE (arg0) == VEC_COND_EXPR
+	  || COMPARISON_CLASS_P (arg0))
 	{
 	  tem = fold_binary_op_with_conditional_arg (loc, code, type, op0, op1,
 						     arg0, arg1,
@@ -9844,7 +9899,9 @@ fold_binary_loc (location_t loc,
 	    return tem;
 	}
 
-      if (TREE_CODE (arg1) == COND_EXPR || COMPARISON_CLASS_P (arg1))
+      if (TREE_CODE (arg1) == COND_EXPR
+	  || TREE_CODE (arg1) == VEC_COND_EXPR
+	  || COMPARISON_CLASS_P (arg1))
 	{
 	  tem = fold_binary_op_with_conditional_arg (loc, code, type, op0, op1,
 						     arg1, arg0,
@@ -10291,6 +10348,7 @@ fold_binary_loc (location_t loc,
 	{
 	  tree var0, con0, lit0, minus_lit0;
 	  tree var1, con1, lit1, minus_lit1;
+	  tree atype = type;
 	  bool ok = true;
 
 	  /* Split both trees into variables, constants, and literals.  Then
@@ -10306,10 +10364,24 @@ fold_binary_loc (location_t loc,
 	  if (code == MINUS_EXPR)
 	    code = PLUS_EXPR;
 
-	  /* With undefined overflow we can only associate constants with one
-	     variable, and constants whose association doesn't overflow.  */
+	  /* With undefined overflow prefer doing association in a type
+	     which wraps on overflow, if that is one of the operand types.  */
 	  if ((POINTER_TYPE_P (type) && POINTER_TYPE_OVERFLOW_UNDEFINED)
 	      || (INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_WRAPS (type)))
+	    {
+	      if (INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+		  && TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg0)))
+		atype = TREE_TYPE (arg0);
+	      else if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+		       && TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg1)))
+		atype = TREE_TYPE (arg1);
+	      gcc_assert (TYPE_PRECISION (atype) == TYPE_PRECISION (type));
+	    }
+
+	  /* With undefined overflow we can only associate constants with one
+	     variable, and constants whose association doesn't overflow.  */
+	  if ((POINTER_TYPE_P (atype) && POINTER_TYPE_OVERFLOW_UNDEFINED)
+	      || (INTEGRAL_TYPE_P (atype) && !TYPE_OVERFLOW_WRAPS (atype)))
 	    {
 	      if (var0 && var1)
 		{
@@ -10321,29 +10393,19 @@ fold_binary_loc (location_t loc,
 		  if (CONVERT_EXPR_P (tmp0)
 		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (tmp0, 0)))
 		      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (tmp0, 0)))
-			  <= TYPE_PRECISION (type)))
+			  <= TYPE_PRECISION (atype)))
 		    tmp0 = TREE_OPERAND (tmp0, 0);
 		  if (TREE_CODE (tmp1) == NEGATE_EXPR)
 		    tmp1 = TREE_OPERAND (tmp1, 0);
 		  if (CONVERT_EXPR_P (tmp1)
 		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (tmp1, 0)))
 		      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (tmp1, 0)))
-			  <= TYPE_PRECISION (type)))
+			  <= TYPE_PRECISION (atype)))
 		    tmp1 = TREE_OPERAND (tmp1, 0);
 		  /* The only case we can still associate with two variables
 		     is if they are the same, modulo negation and bit-pattern
 		     preserving conversions.  */
 		  if (!operand_equal_p (tmp0, tmp1, 0))
-		    ok = false;
-		}
-
-	      if (ok && lit0 && lit1)
-		{
-		  tree tmp0 = fold_convert (type, lit0);
-		  tree tmp1 = fold_convert (type, lit1);
-
-		  if (!TREE_OVERFLOW (tmp0) && !TREE_OVERFLOW (tmp1)
-		      && TREE_OVERFLOW (fold_build2 (code, type, tmp0, tmp1)))
 		    ok = false;
 		}
 	    }
@@ -10356,10 +10418,16 @@ fold_binary_loc (location_t loc,
 		       + (lit0 != 0) + (lit1 != 0)
 		       + (minus_lit0 != 0) + (minus_lit1 != 0))))
 	    {
-	      var0 = associate_trees (loc, var0, var1, code, type);
-	      con0 = associate_trees (loc, con0, con1, code, type);
-	      lit0 = associate_trees (loc, lit0, lit1, code, type);
-	      minus_lit0 = associate_trees (loc, minus_lit0, minus_lit1, code, type);
+	      bool any_overflows = false;
+	      if (lit0) any_overflows |= TREE_OVERFLOW (lit0);
+	      if (lit1) any_overflows |= TREE_OVERFLOW (lit1);
+	      if (minus_lit0) any_overflows |= TREE_OVERFLOW (minus_lit0);
+	      if (minus_lit1) any_overflows |= TREE_OVERFLOW (minus_lit1);
+	      var0 = associate_trees (loc, var0, var1, code, atype);
+	      con0 = associate_trees (loc, con0, con1, code, atype);
+	      lit0 = associate_trees (loc, lit0, lit1, code, atype);
+	      minus_lit0 = associate_trees (loc, minus_lit0, minus_lit1,
+					    code, atype);
 
 	      /* Preserve the MINUS_EXPR if the negative part of the literal is
 		 greater than the positive part.  Otherwise, the multiplicative
@@ -10373,38 +10441,45 @@ fold_binary_loc (location_t loc,
 		      && tree_int_cst_lt (lit0, minus_lit0))
 		    {
 		      minus_lit0 = associate_trees (loc, minus_lit0, lit0,
-						    MINUS_EXPR, type);
+						    MINUS_EXPR, atype);
 		      lit0 = 0;
 		    }
 		  else
 		    {
 		      lit0 = associate_trees (loc, lit0, minus_lit0,
-					      MINUS_EXPR, type);
+					      MINUS_EXPR, atype);
 		      minus_lit0 = 0;
 		    }
 		}
+
+	      /* Don't introduce overflows through reassociation.  */
+	      if (!any_overflows
+		  && ((lit0 && TREE_OVERFLOW (lit0))
+		      || (minus_lit0 && TREE_OVERFLOW (minus_lit0))))
+		return NULL_TREE;
+
 	      if (minus_lit0)
 		{
 		  if (con0 == 0)
 		    return
 		      fold_convert_loc (loc, type,
 					associate_trees (loc, var0, minus_lit0,
-							 MINUS_EXPR, type));
+							 MINUS_EXPR, atype));
 		  else
 		    {
 		      con0 = associate_trees (loc, con0, minus_lit0,
-					      MINUS_EXPR, type);
+					      MINUS_EXPR, atype);
 		      return
 			fold_convert_loc (loc, type,
 					  associate_trees (loc, var0, con0,
-							   PLUS_EXPR, type));
+							   PLUS_EXPR, atype));
 		    }
 		}
 
-	      con0 = associate_trees (loc, con0, lit0, code, type);
+	      con0 = associate_trees (loc, con0, lit0, code, atype);
 	      return
 		fold_convert_loc (loc, type, associate_trees (loc, var0, con0,
-							      code, type));
+							      code, atype));
 	    }
 	}
 
@@ -12857,7 +12932,7 @@ fold_binary_loc (location_t loc,
 		  arg00 = fold_convert_loc (loc, itype, arg00);
 		}
 	      return fold_build2_loc (loc, code == EQ_EXPR ? GE_EXPR : LT_EXPR,
-				  type, arg00, build_int_cst (itype, 0));
+				  type, arg00, build_zero_cst (itype));
 	    }
 	}
 
@@ -13989,6 +14064,16 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 
       return NULL_TREE;
 
+    case VEC_COND_EXPR:
+      if (TREE_CODE (arg0) == VECTOR_CST)
+	{
+	  if (integer_all_onesp (arg0) && !TREE_SIDE_EFFECTS (op2))
+	    return pedantic_non_lvalue_loc (loc, op1);
+	  if (integer_zerop (arg0) && !TREE_SIDE_EFFECTS (op1))
+	    return pedantic_non_lvalue_loc (loc, op2);
+	}
+      return NULL_TREE;
+
     case CALL_EXPR:
       /* CALL_EXPRs used to be ternary exprs.  Catch any mistaken uses
 	 of fold_ternary on them.  */
@@ -14014,51 +14099,62 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	    {
 	      idx = idx / width;
 	      n = n / width;
-	      if (TREE_CODE (type) == VECTOR_TYPE)
+
+	      if (TREE_CODE (arg0) == VECTOR_CST)
 		{
-		  if (TREE_CODE (arg0) == VECTOR_CST)
-		    {
-		      tree *vals = XALLOCAVEC (tree, n);
-		      unsigned i;
-		      for (i = 0; i < n; ++i)
-			vals[i] = VECTOR_CST_ELT (arg0, idx + i);
-		      return build_vector (type, vals);
-		    }
-		  else
-		    {
-		      VEC(constructor_elt, gc) *vals;
-		      unsigned i;
-		      if (CONSTRUCTOR_NELTS (arg0) == 0)
-			return build_constructor (type, NULL);
-		      if (TREE_CODE (TREE_TYPE (CONSTRUCTOR_ELT (arg0,
-								 0)->value))
-			  != VECTOR_TYPE)
-			{
-			  vals = VEC_alloc (constructor_elt, gc, n);
-			  for (i = 0;
-			       i < n && idx + i < CONSTRUCTOR_NELTS (arg0);
-			       ++i)
-			    CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
-						    CONSTRUCTOR_ELT
-						      (arg0, idx + i)->value);
-			  return build_constructor (type, vals);
-			}
-		    }
-		}
-	      else if (n == 1)
-		{
-		  if (TREE_CODE (arg0) == VECTOR_CST)
+		  if (n == 1)
 		    return VECTOR_CST_ELT (arg0, idx);
-		  else if (CONSTRUCTOR_NELTS (arg0) == 0)
-		    return build_zero_cst (type);
-		  else if (TREE_CODE (TREE_TYPE (CONSTRUCTOR_ELT (arg0,
-								  0)->value))
-			   != VECTOR_TYPE)
+
+		  tree *vals = XALLOCAVEC (tree, n);
+		  for (unsigned i = 0; i < n; ++i)
+		    vals[i] = VECTOR_CST_ELT (arg0, idx + i);
+		  return build_vector (type, vals);
+		}
+
+	      /* Constructor elements can be subvectors.  */
+	      unsigned HOST_WIDE_INT k = 1;
+	      if (CONSTRUCTOR_NELTS (arg0) != 0)
+		{
+		  tree cons_elem = TREE_TYPE (CONSTRUCTOR_ELT (arg0, 0)->value);
+		  if (TREE_CODE (cons_elem) == VECTOR_TYPE)
+		    k = TYPE_VECTOR_SUBPARTS (cons_elem);
+		}
+
+	      /* We keep an exact subset of the constructor elements.  */
+	      if ((idx % k) == 0 && (n % k) == 0)
+		{
+		  if (CONSTRUCTOR_NELTS (arg0) == 0)
+		    return build_constructor (type, NULL);
+		  idx /= k;
+		  n /= k;
+		  if (n == 1)
 		    {
 		      if (idx < CONSTRUCTOR_NELTS (arg0))
 			return CONSTRUCTOR_ELT (arg0, idx)->value;
 		      return build_zero_cst (type);
 		    }
+
+		  vec<constructor_elt, va_gc> *vals;
+		  vec_alloc (vals, n);
+		  for (unsigned i = 0;
+		       i < n && idx + i < CONSTRUCTOR_NELTS (arg0);
+		       ++i)
+		    CONSTRUCTOR_APPEND_ELT (vals, NULL_TREE,
+					    CONSTRUCTOR_ELT
+					      (arg0, idx + i)->value);
+		  return build_constructor (type, vals);
+		}
+	      /* The bitfield references a single constructor element.  */
+	      else if (idx + n <= (idx / k + 1) * k)
+		{
+		  if (CONSTRUCTOR_NELTS (arg0) <= idx / k)
+		    return build_zero_cst (type);
+		  else if (n == k)
+		    return CONSTRUCTOR_ELT (arg0, idx / k)->value;
+		  else
+		    return fold_build3_loc (loc, code, type,
+		      CONSTRUCTOR_ELT (arg0, idx / k)->value, op1,
+		      build_int_cst (TREE_TYPE (op2), (idx % k) * width));
 		}
 	    }
 	}
@@ -14279,15 +14375,15 @@ fold (tree expr)
 	    && TREE_CODE (op0) == CONSTRUCTOR
 	    && ! type_contains_placeholder_p (TREE_TYPE (op0)))
 	  {
-	    VEC(constructor_elt,gc) *elts = CONSTRUCTOR_ELTS (op0);
-	    unsigned HOST_WIDE_INT end = VEC_length (constructor_elt, elts);
+	    vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (op0);
+	    unsigned HOST_WIDE_INT end = vec_safe_length (elts);
 	    unsigned HOST_WIDE_INT begin = 0;
 
 	    /* Find a matching index by means of a binary search.  */
 	    while (begin != end)
 	      {
 		unsigned HOST_WIDE_INT middle = (begin + end) / 2;
-		tree index = VEC_index (constructor_elt, elts, middle).index;
+		tree index = (*elts)[middle].index;
 
 		if (TREE_CODE (index) == INTEGER_CST
 		    && tree_int_cst_lt (index, op1))
@@ -14302,11 +14398,40 @@ fold (tree expr)
 			 && tree_int_cst_lt (op1, TREE_OPERAND (index, 0)))
 		  end = middle;
 		else
-		  return VEC_index (constructor_elt, elts, middle).value;
+		  return (*elts)[middle].value;
 	      }
 	  }
 
 	return t;
+      }
+
+      /* Return a VECTOR_CST if possible.  */
+    case CONSTRUCTOR:
+      {
+	tree type = TREE_TYPE (t);
+	if (TREE_CODE (type) != VECTOR_TYPE)
+	  return t;
+
+	tree *vec = XALLOCAVEC (tree, TYPE_VECTOR_SUBPARTS (type));
+	unsigned HOST_WIDE_INT idx, pos = 0;
+	tree value;
+
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, value)
+	  {
+	    if (!CONSTANT_CLASS_P (value))
+	      return t;
+	    if (TREE_CODE (value) == VECTOR_CST)
+	      {
+		for (unsigned i = 0; i < VECTOR_CST_NELTS (value); ++i)
+		  vec[pos++] = VECTOR_CST_ELT (value, i);
+	      }
+	    else
+	      vec[pos++] = value;
+	  }
+	for (; pos < TYPE_VECTOR_SUBPARTS (type); ++pos)
+	  vec[pos] = build_zero_cst (TREE_TYPE (type));
+
+	return build_vector (type, vec);
       }
 
     case CONST_DECL:
@@ -14320,7 +14445,8 @@ fold (tree expr)
 #ifdef ENABLE_FOLD_CHECKING
 #undef fold
 
-static void fold_checksum_tree (const_tree, struct md5_ctx *, htab_t);
+static void fold_checksum_tree (const_tree, struct md5_ctx *,
+				hash_table <pointer_hash <tree_node> >);
 static void fold_check_failed (const_tree, const_tree);
 void print_fold_checksum (const_tree);
 
@@ -14334,20 +14460,20 @@ fold (tree expr)
   tree ret;
   struct md5_ctx ctx;
   unsigned char checksum_before[16], checksum_after[16];
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (expr, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before);
-  htab_empty (ht);
+  ht.empty ();
 
   ret = fold_1 (expr);
 
   md5_init_ctx (&ctx);
   fold_checksum_tree (expr, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after);
-  htab_delete (ht);
+  ht.dispose ();
 
   if (memcmp (checksum_before, checksum_after, 16))
     fold_check_failed (expr, ret);
@@ -14360,13 +14486,13 @@ print_fold_checksum (const_tree expr)
 {
   struct md5_ctx ctx;
   unsigned char checksum[16], cnt;
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (expr, &ctx, ht);
   md5_finish_ctx (&ctx, checksum);
-  htab_delete (ht);
+  ht.dispose ();
   for (cnt = 0; cnt < 16; ++cnt)
     fprintf (stderr, "%02x", checksum[cnt]);
   putc ('\n', stderr);
@@ -14379,9 +14505,10 @@ fold_check_failed (const_tree expr ATTRIBUTE_UNUSED, const_tree ret ATTRIBUTE_UN
 }
 
 static void
-fold_checksum_tree (const_tree expr, struct md5_ctx *ctx, htab_t ht)
+fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
+		    hash_table <pointer_hash <tree_node> > ht)
 {
-  void **slot;
+  tree_node **slot;
   enum tree_code code;
   union tree_node buf;
   int i, len;
@@ -14389,7 +14516,7 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx, htab_t ht)
  recursive_label:
   if (expr == NULL)
     return;
-  slot = (void **) htab_find_slot (ht, expr, INSERT);
+  slot = ht.find_slot (expr, INSERT);
   if (*slot != NULL)
     return;
   *slot = CONST_CAST_TREE (expr);
@@ -14538,12 +14665,13 @@ debug_fold_checksum (const_tree t)
   int i;
   unsigned char checksum[16];
   struct md5_ctx ctx;
-  htab_t ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  hash_table <pointer_hash <tree_node> > ht;
+  ht.create (32);
 
   md5_init_ctx (&ctx);
   fold_checksum_tree (t, &ctx, ht);
   md5_finish_ctx (&ctx, checksum);
-  htab_empty (ht);
+  ht.empty ();
 
   for (i = 0; i < 16; i++)
     fprintf (stderr, "%d ", checksum[i]);
@@ -14566,13 +14694,13 @@ fold_build1_stat_loc (location_t loc,
 #ifdef ENABLE_FOLD_CHECKING
   unsigned char checksum_before[16], checksum_after[16];
   struct md5_ctx ctx;
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before);
-  htab_empty (ht);
+  ht.empty ();
 #endif
 
   tem = fold_unary_loc (loc, code, type, op0);
@@ -14583,7 +14711,7 @@ fold_build1_stat_loc (location_t loc,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after);
-  htab_delete (ht);
+  ht.dispose ();
 
   if (memcmp (checksum_before, checksum_after, 16))
     fold_check_failed (op0, tem);
@@ -14609,18 +14737,18 @@ fold_build2_stat_loc (location_t loc,
 		checksum_after_op0[16],
 		checksum_after_op1[16];
   struct md5_ctx ctx;
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_op0);
-  htab_empty (ht);
+  ht.empty ();
 
   md5_init_ctx (&ctx);
   fold_checksum_tree (op1, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_op1);
-  htab_empty (ht);
+  ht.empty ();
 #endif
 
   tem = fold_binary_loc (loc, code, type, op0, op1);
@@ -14631,7 +14759,7 @@ fold_build2_stat_loc (location_t loc,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_op0);
-  htab_empty (ht);
+  ht.empty ();
 
   if (memcmp (checksum_before_op0, checksum_after_op0, 16))
     fold_check_failed (op0, tem);
@@ -14639,7 +14767,7 @@ fold_build2_stat_loc (location_t loc,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op1, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_op1);
-  htab_delete (ht);
+  ht.dispose ();
 
   if (memcmp (checksum_before_op1, checksum_after_op1, 16))
     fold_check_failed (op1, tem);
@@ -14665,23 +14793,23 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
 		checksum_after_op1[16],
 		checksum_after_op2[16];
   struct md5_ctx ctx;
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_op0);
-  htab_empty (ht);
+  ht.empty ();
 
   md5_init_ctx (&ctx);
   fold_checksum_tree (op1, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_op1);
-  htab_empty (ht);
+  ht.empty ();
 
   md5_init_ctx (&ctx);
   fold_checksum_tree (op2, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_op2);
-  htab_empty (ht);
+  ht.empty ();
 #endif
 
   gcc_assert (TREE_CODE_CLASS (code) != tcc_vl_exp);
@@ -14693,7 +14821,7 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op0, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_op0);
-  htab_empty (ht);
+  ht.empty ();
 
   if (memcmp (checksum_before_op0, checksum_after_op0, 16))
     fold_check_failed (op0, tem);
@@ -14701,7 +14829,7 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op1, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_op1);
-  htab_empty (ht);
+  ht.empty ();
 
   if (memcmp (checksum_before_op1, checksum_after_op1, 16))
     fold_check_failed (op1, tem);
@@ -14709,7 +14837,7 @@ fold_build3_stat_loc (location_t loc, enum tree_code code, tree type,
   md5_init_ctx (&ctx);
   fold_checksum_tree (op2, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_op2);
-  htab_delete (ht);
+  ht.dispose ();
 
   if (memcmp (checksum_before_op2, checksum_after_op2, 16))
     fold_check_failed (op2, tem);
@@ -14733,20 +14861,20 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
 		checksum_after_fn[16],
 		checksum_after_arglist[16];
   struct md5_ctx ctx;
-  htab_t ht;
+  hash_table <pointer_hash <tree_node> > ht;
   int i;
 
-  ht = htab_create (32, htab_hash_pointer, htab_eq_pointer, NULL);
+  ht.create (32);
   md5_init_ctx (&ctx);
   fold_checksum_tree (fn, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_fn);
-  htab_empty (ht);
+  ht.empty ();
 
   md5_init_ctx (&ctx);
   for (i = 0; i < nargs; i++)
     fold_checksum_tree (argarray[i], &ctx, ht);
   md5_finish_ctx (&ctx, checksum_before_arglist);
-  htab_empty (ht);
+  ht.empty ();
 #endif
 
   tem = fold_builtin_call_array (loc, type, fn, nargs, argarray);
@@ -14755,7 +14883,7 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
   md5_init_ctx (&ctx);
   fold_checksum_tree (fn, &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_fn);
-  htab_empty (ht);
+  ht.empty ();
 
   if (memcmp (checksum_before_fn, checksum_after_fn, 16))
     fold_check_failed (fn, tem);
@@ -14764,7 +14892,7 @@ fold_build_call_array_loc (location_t loc, tree type, tree fn,
   for (i = 0; i < nargs; i++)
     fold_checksum_tree (argarray[i], &ctx, ht);
   md5_finish_ctx (&ctx, checksum_after_arglist);
-  htab_delete (ht);
+  ht.dispose ();
 
   if (memcmp (checksum_before_arglist, checksum_after_arglist, 16))
     fold_check_failed (NULL_TREE, tem);
@@ -16089,6 +16217,31 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 	return fold_build2 (TRUTH_ORIF_EXPR, type, rcond, icond);
       else
 	return NULL_TREE;
+    }
+
+  if (TREE_CODE (op0) == VECTOR_CST && TREE_CODE (op1) == VECTOR_CST)
+    {
+      unsigned count = VECTOR_CST_NELTS (op0);
+      tree *elts =  XALLOCAVEC (tree, count);
+      gcc_assert (VECTOR_CST_NELTS (op1) == count
+		  && TYPE_VECTOR_SUBPARTS (type) == count);
+
+      for (unsigned i = 0; i < count; i++)
+	{
+	  tree elem_type = TREE_TYPE (type);
+	  tree elem0 = VECTOR_CST_ELT (op0, i);
+	  tree elem1 = VECTOR_CST_ELT (op1, i);
+
+	  tree tem = fold_relational_const (code, elem_type,
+					    elem0, elem1);
+
+	  if (tem == NULL_TREE)
+	    return NULL_TREE;
+
+	  elts[i] = build_int_cst (elem_type, integer_zerop (tem) ? 0 : -1);
+	}
+
+      return build_vector (type, elts);
     }
 
   /* From here on we only handle LT, LE, GT, GE, EQ and NE.

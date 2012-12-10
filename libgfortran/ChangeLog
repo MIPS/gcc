@@ -1,3 +1,155 @@
+2012-12-03  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55548
+	* intrinsics/system_clock.c (gf_gettime_mono): Add argument 'tck',
+	which returns the clock resolution.
+	(system_clock_4): Get resolution from gf_gettime_mono, but limit to
+	1000/s.
+	(system_clock_8): Get resolution from gf_gettime_mono.
+
+2012-10-28  Tobias Burnus  <burnus@net-b.de>
+
+	 * m4/bessel.m4: Remove useless statement.
+	 * m4/ifunction.m4: Remove unreachable code.
+	 * generated/bessel_r10.c: Regenerated.
+	 * generated/bessel_r16.c: Regenerated.
+	 * generated/bessel_r4.c: Regenerated.
+	 * generated/bessel_r8.c: Regenerated.
+	 * generated/iall_i1.c: Regenerated.
+	 * generated/iall_i16.c: Regenerated.
+	 * generated/iall_i2.c: Regenerated.
+	 * generated/iall_i4.c: Regenerated.
+	 * generated/iall_i8.c: Regenerated.
+	 * generated/iany_i1.c: Regenerated.
+	 * generated/iany_i16.c: Regenerated.
+	 * generated/iany_i2.c: Regenerated.
+	 * generated/iany_i4.c: Regenerated.
+	 * generated/iany_i8.c: Regenerated.
+	 * generated/iparity_i1.c: Regenerated.
+	 * generated/iparity_i16.c: Regenerated.
+	 * generated/iparity_i2.c: Regenerated.
+	 * generated/iparity_i4.c: Regenerated.
+	 * generated/iparity_i8.c: Regenerated.
+	 * generated/maxloc1_16_i1.c: Regenerated.
+	 * generated/maxloc1_16_i16.c: Regenerated.
+	 * generated/maxloc1_16_i2.c: Regenerated.
+	 * generated/maxloc1_16_i4.c: Regenerated.
+	 * generated/maxloc1_16_i8.c: Regenerated.
+	 * generated/maxloc1_16_r10.c: Regenerated.
+	 * generated/maxloc1_16_r16.c: Regenerated.
+	 * generated/maxloc1_16_r4.c: Regenerated.
+	 * generated/maxloc1_16_r8.c: Regenerated.
+	 * generated/maxloc1_4_i1.c: Regenerated.
+	 * generated/maxloc1_4_i16.c: Regenerated.
+	 * generated/maxloc1_4_i2.c: Regenerated.
+	 * generated/maxloc1_4_i4.c: Regenerated.
+	 * generated/maxloc1_4_i8.c: Regenerated.
+	 * generated/maxloc1_4_r10.c: Regenerated.
+	 * generated/maxloc1_4_r16.c: Regenerated.
+	 * generated/maxloc1_4_r4.c: Regenerated.
+	 * generated/maxloc1_4_r8.c: Regenerated.
+	 * generated/maxloc1_8_i1.c: Regenerated.
+	 * generated/maxloc1_8_i16.c: Regenerated.
+	 * generated/maxloc1_8_i2.c: Regenerated.
+	 * generated/maxloc1_8_i4.c: Regenerated.
+	 * generated/maxloc1_8_i8.c: Regenerated.
+	 * generated/maxloc1_8_r10.c: Regenerated.
+	 * generated/maxloc1_8_r16.c: Regenerated.
+	 * generated/maxloc1_8_r4.c: Regenerated.
+	 * generated/maxloc1_8_r8.c: Regenerated.
+	 * generated/maxval_i1.c: Regenerated.
+	 * generated/maxval_i16.c: Regenerated.
+	 * generated/maxval_i2.c: Regenerated.
+	 * generated/maxval_i4.c: Regenerated.
+	 * generated/maxval_i8.c: Regenerated.
+	 * generated/maxval_r10.c: Regenerated.
+	 * generated/maxval_r16.c: Regenerated.
+	 * generated/maxval_r4.c: Regenerated.
+	 * generated/maxval_r8.c: Regenerated.
+	 * generated/minloc1_16_i1.c: Regenerated.
+	 * generated/minloc1_16_i16.c: Regenerated.
+	 * generated/minloc1_16_i2.c: Regenerated.
+	 * generated/minloc1_16_i4.c: Regenerated.
+	 * generated/minloc1_16_i8.c: Regenerated.
+	 * generated/minloc1_16_r10.c: Regenerated.
+	 * generated/minloc1_16_r16.c: Regenerated.
+	 * generated/minloc1_16_r4.c: Regenerated.
+	 * generated/minloc1_16_r8.c: Regenerated.
+	 * generated/minloc1_4_i1.c: Regenerated.
+	 * generated/minloc1_4_i16.c: Regenerated.
+	 * generated/minloc1_4_i2.c: Regenerated.
+	 * generated/minloc1_4_i4.c: Regenerated.
+	 * generated/minloc1_4_i8.c: Regenerated.
+	 * generated/minloc1_4_r10.c: Regenerated.
+	 * generated/minloc1_4_r16.c: Regenerated.
+	 * generated/minloc1_4_r4.c: Regenerated.
+	 * generated/minloc1_4_r8.c: Regenerated.
+	 * generated/minloc1_8_i1.c: Regenerated.
+	 * generated/minloc1_8_i16.c: Regenerated.
+	 * generated/minloc1_8_i2.c: Regenerated.
+	 * generated/minloc1_8_i4.c: Regenerated.
+	 * generated/minloc1_8_i8.c: Regenerated.
+	 * generated/minloc1_8_r10.c: Regenerated.
+	 * generated/minloc1_8_r16.c: Regenerated.
+	 * generated/minloc1_8_r4.c: Regenerated.
+	 * generated/minloc1_8_r8.c: Regenerated.
+	 * generated/minval_i1.c: Regenerated.
+	 * generated/minval_i16.c: Regenerated.
+	 * generated/minval_i2.c: Regenerated.
+	 * generated/minval_i4.c: Regenerated.
+	 * generated/minval_i8.c: Regenerated.
+	 * generated/minval_r10.c: Regenerated.
+	 * generated/minval_r16.c: Regenerated.
+	 * generated/minval_r4.c: Regenerated.
+	 * generated/minval_r8.c: Regenerated.
+	 * generated/product_c10.c: Regenerated.
+	 * generated/product_c16.c: Regenerated.
+	 * generated/product_c4.c: Regenerated.
+	 * generated/product_c8.c: Regenerated.
+	 * generated/product_i1.c: Regenerated.
+	 * generated/product_i16.c: Regenerated.
+	 * generated/product_i2.c: Regenerated.
+	 * generated/product_i4.c: Regenerated.
+	 * generated/product_i8.c: Regenerated.
+	 * generated/product_r10.c: Regenerated.
+	 * generated/product_r16.c: Regenerated.
+	 * generated/product_r4.c: Regenerated.
+	 * generated/product_r8.c: Regenerated.
+	 * generated/sum_c10.c: Regenerated.
+	 * generated/sum_c16.c: Regenerated.
+	 * generated/sum_c4.c: Regenerated.
+	 * generated/sum_c8.c: Regenerated.
+	 * generated/sum_i1.c: Regenerated.
+	 * generated/sum_i16.c: Regenerated.
+	 * generated/sum_i2.c: Regenerated.
+	 * generated/sum_i4.c: Regenerated.
+	 * generated/sum_i8.c: Regenerated.
+	 * generated/sum_r10.c: Regenerated.
+	 * generated/sum_r16.c: Regenerated.
+	 * generated/sum_r4.c: Regenerated.
+	 * generated/sum_r8.c: Regenerated.
+
+2012-10-10  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/54878
+	* io/unix.c (tempfile_open): Set umask before calling mkstemp.
+
+2012-10-06  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac: Check for presence of secure_getenv.
+	* libgfortran.h: Use HAVE_SECURE_GETENV.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+
+2012-10-06  Thomas König  <tkoenig@gcc.gnu.org>
+
+	PR libfortran/54736
+	* runtime/environ.c (search_unit):  Correct logic
+	for binary search.
+	(mark_single):  Fix index errors.
+
 2012-09-29  Thomas König  <tkoenig@gcc.gnu.org>
 
 	PR fortran/52724

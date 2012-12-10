@@ -337,7 +337,8 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	      tmp = gfc_conv_descriptor_data_get (tmp);
 	      tmp = build_call_expr_loc (input_location,
 					 builtin_decl_explicit (BUILT_IN_MEMCPY),
-					 3, tmp, data, size);
+					 3, tmp, data,
+					 fold_convert (size_type_node, size));
 	    }
 	  gfc_add_expr_to_block (&se->post, tmp);
 
@@ -488,7 +489,8 @@ gfc_trans_call (gfc_code * code, bool dependency_check,
 
       /* Add the subroutine call to the block.  */
       gfc_conv_procedure_call (&loopse, code->resolved_sym,
-			       code->ext.actual, code->expr1, NULL);
+			       code->ext.actual, code->expr1,
+			       NULL);
 
       if (mask && count1)
 	{
@@ -782,18 +784,18 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
       else
 	{
 	  tree cond2;
-	  cond = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
+	  cond = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
 				  images, gfort_gvar_caf_num_images);
 	  cond2 = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 				   images,
 				   build_int_cst (TREE_TYPE (images), 1));
-	  cond = fold_build2_loc (input_location, TRUTH_AND_EXPR,
+	  cond = fold_build2_loc (input_location, TRUTH_OR_EXPR,
 				  boolean_type_node, cond, cond2);
 	}
       gfc_trans_runtime_check (true, false, cond, &se.pre,
 			       &code->expr1->where, "Invalid image number "
 			       "%d in SYNC IMAGES",
-			       fold_convert (integer_type_node, se.expr));
+			       fold_convert (integer_type_node, images));
     }
 
    /* Per F2008, 8.5.1, a SYNC MEMORY is implied by calling the
@@ -1228,7 +1230,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  gfc_conv_expr_descriptor (&se, e);
 
 	  /* Obtain a temporary class container for the result.  */ 
-	  gfc_conv_class_to_class (&se, e, sym->ts, false);
+	  gfc_conv_class_to_class (&se, e, sym->ts, false, true, false, false);
 	  se.expr = build_fold_indirect_ref_loc (input_location, se.expr);
 
 	  /* Set the offset.  */
@@ -1255,7 +1257,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	  /* Get the _vptr component of the class object.  */ 
 	  tmp = gfc_get_vptr_from_expr (se.expr);
 	  /* Obtain a temporary class container for the result.  */
-	  gfc_conv_derived_to_class (&se, e, sym->ts, tmp);
+	  gfc_conv_derived_to_class (&se, e, sym->ts, tmp, false, false);
 	  se.expr = build_fold_indirect_ref_loc (input_location, se.expr);
 	}
       else
@@ -2093,7 +2095,7 @@ gfc_trans_character_select (gfc_code *code)
   gfc_code *c;
   gfc_se se, expr1se;
   int n, k;
-  VEC(constructor_elt,gc) *inits = NULL;
+  vec<constructor_elt, va_gc> *inits = NULL;
 
   tree pchartype = gfc_get_pchar_type (code->expr1->ts.kind);
 
@@ -2321,7 +2323,7 @@ gfc_trans_character_select (gfc_code *code)
   /* Generate the structure describing the branches */
   for (d = cp; d; d = d->right)
     {
-      VEC(constructor_elt,gc) *node = NULL;
+      vec<constructor_elt, va_gc> *node = NULL;
 
       gfc_init_se (&se, NULL);
 
@@ -4874,7 +4876,7 @@ gfc_trans_allocate (gfc_code * code)
 	  gfc_init_se (&se_sz, NULL);
 	  gfc_conv_expr_reference (&se_sz, code->expr3);
 	  gfc_conv_class_to_class (&se_sz, code->expr3,
-				   code->expr3->ts, false);
+				   code->expr3->ts, false, true, false, false);
 	  gfc_add_block_to_block (&se.pre, &se_sz.pre);
 	  gfc_add_block_to_block (&se.post, &se_sz.post);
 	  classexpr = build_fold_indirect_ref_loc (input_location,
@@ -5130,7 +5132,7 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_actual_arglist *actual;
 	      gfc_expr *ppc;
 	      gfc_code *ppc_code;
-	      gfc_ref *dataref;
+	      gfc_ref *ref, *dataref;
 
 	      /* Do a polymorphic deep copy.  */
 	      actual = gfc_get_actual_arglist ();
@@ -5142,13 +5144,15 @@ gfc_trans_allocate (gfc_code * code)
 	      actual->next->expr->ts.type = BT_CLASS;
 	      gfc_add_data_component (actual->next->expr);
 
-	      dataref = actual->next->expr->ref;
+	      dataref = NULL;
 	      /* Make sure we go up through the reference chain to
 		 the _data reference, where the arrayspec is found.  */
-	      while (dataref->next && dataref->next->type != REF_ARRAY)
-		dataref = dataref->next;
+	      for (ref = actual->next->expr->ref; ref; ref = ref->next)
+		if (ref->type == REF_COMPONENT
+		    && strcmp (ref->u.c.component->name, "_data") == 0)
+		  dataref = ref;
 
-	      if (dataref->u.c.component->as)
+	      if (dataref && dataref->u.c.component->as)
 		{
 		  int dim;
 		  gfc_expr *temp;
@@ -5376,7 +5380,7 @@ gfc_trans_deallocate (gfc_code *code)
       else
 	{
 	  tmp = gfc_deallocate_scalar_with_status (se.expr, pstat, false,
-						   expr, expr->ts);
+						   al->expr, al->expr->ts);
 	  gfc_add_expr_to_block (&se.pre, tmp);
 
 	  /* Set to zero after deallocation.  */

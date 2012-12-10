@@ -305,8 +305,6 @@ struct type_pair_d
   signed char same_p;
 };
 typedef struct type_pair_d *type_pair_t;
-DEF_VEC_P(type_pair_t);
-DEF_VEC_ALLOC_P(type_pair_t,heap);
 
 #define GIMPLE_TYPE_PAIR_SIZE 16381
 struct type_pair_d *type_pair_cache;
@@ -432,7 +430,7 @@ compare_type_names_p (tree t1, tree t2)
 
 static bool
 gimple_types_compatible_p_1 (tree, tree, type_pair_t,
-			     VEC(type_pair_t, heap) **,
+			     vec<type_pair_t> *,
 			     struct pointer_map_t *, struct obstack *);
 
 /* DFS visit the edge from the callers type pair with state *STATE to
@@ -444,7 +442,7 @@ gimple_types_compatible_p_1 (tree, tree, type_pair_t,
 static bool
 gtc_visit (tree t1, tree t2,
 	   struct sccs *state,
-	   VEC(type_pair_t, heap) **sccstack,
+	   vec<type_pair_t> *sccstack,
 	   struct pointer_map_t *sccstate,
 	   struct obstack *sccstate_obstack)
 {
@@ -558,7 +556,7 @@ gtc_visit (tree t1, tree t2,
 
 static bool
 gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
-			     VEC(type_pair_t, heap) **sccstack,
+			     vec<type_pair_t> *sccstack,
 			     struct pointer_map_t *sccstate,
 			     struct obstack *sccstate_obstack)
 {
@@ -569,7 +567,7 @@ gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
   state = XOBNEW (sccstate_obstack, struct sccs);
   *pointer_map_insert (sccstate, p) = state;
 
-  VEC_safe_push (type_pair_t, heap, *sccstack, p);
+  sccstack->safe_push (p);
   state->dfsnum = gtc_next_dfs_num++;
   state->low = state->dfsnum;
   state->on_sccstack = true;
@@ -580,6 +578,15 @@ gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
   /* The struct tags shall compare equal.  */
   if (!compare_type_names_p (t1, t2))
     goto different_types;
+
+  /* The main variant of both types should compare equal.  */
+  if (TYPE_MAIN_VARIANT (t1) != t1
+      || TYPE_MAIN_VARIANT (t2) != t2)
+    {
+      if (!gtc_visit (TYPE_MAIN_VARIANT (t1), TYPE_MAIN_VARIANT (t2),
+		      state, sccstack, sccstate, sccstate_obstack))
+	goto different_types;
+    }
 
   /* We may not merge typedef types to the same type in different
      contexts.  */
@@ -848,7 +855,7 @@ pop:
       do
 	{
 	  struct sccs *cstate;
-	  x = VEC_pop (type_pair_t, *sccstack);
+	  x = sccstack->pop ();
 	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
 	  cstate->on_sccstack = false;
 	  x->same_p = state->u.same_p;
@@ -866,7 +873,7 @@ pop:
 static bool
 gimple_types_compatible_p (tree t1, tree t2)
 {
-  VEC(type_pair_t, heap) *sccstack = NULL;
+  vec<type_pair_t> sccstack = vNULL;
   struct pointer_map_t *sccstate;
   struct obstack sccstate_obstack;
   type_pair_t p = NULL;
@@ -961,7 +968,7 @@ gimple_types_compatible_p (tree t1, tree t2)
   gcc_obstack_init (&sccstate_obstack);
   res = gimple_types_compatible_p_1 (t1, t2, p,
 				     &sccstack, sccstate, &sccstate_obstack);
-  VEC_free (type_pair_t, heap, sccstack);
+  sccstack.release ();
   pointer_map_destroy (sccstate);
   obstack_free (&sccstate_obstack, NULL);
 
@@ -969,7 +976,7 @@ gimple_types_compatible_p (tree t1, tree t2)
 }
 
 static hashval_t
-iterative_hash_gimple_type (tree, hashval_t, VEC(tree, heap) **,
+iterative_hash_gimple_type (tree, hashval_t, vec<tree> *,
 			    struct pointer_map_t *, struct obstack *);
 
 /* DFS visit the edge from the callers type with state *STATE to T.
@@ -979,7 +986,7 @@ iterative_hash_gimple_type (tree, hashval_t, VEC(tree, heap) **,
 
 static hashval_t
 visit (tree t, struct sccs *state, hashval_t v,
-       VEC (tree, heap) **sccstack,
+       vec<tree> *sccstack,
        struct pointer_map_t *sccstate,
        struct obstack *sccstate_obstack)
 {
@@ -1072,7 +1079,7 @@ type_hash_pair_compare (const void *p1_, const void *p2_)
 
 static hashval_t
 iterative_hash_gimple_type (tree type, hashval_t val,
-			    VEC(tree, heap) **sccstack,
+			    vec<tree> *sccstack,
 			    struct pointer_map_t *sccstate,
 			    struct obstack *sccstate_obstack)
 {
@@ -1085,7 +1092,7 @@ iterative_hash_gimple_type (tree type, hashval_t val,
   state = XOBNEW (sccstate_obstack, struct sccs);
   *pointer_map_insert (sccstate, type) = state;
 
-  VEC_safe_push (tree, heap, *sccstack, type);
+  sccstack->safe_push (type);
   state->dfsnum = next_dfs_num++;
   state->low = state->dfsnum;
   state->on_sccstack = true;
@@ -1101,6 +1108,12 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       && TYPE_P (DECL_CONTEXT (TYPE_NAME (type))))
     v = visit (DECL_CONTEXT (TYPE_NAME (type)), state, v,
 	       sccstack, sccstate, sccstate_obstack);
+
+  /* Factor in the variant structure.  */
+  if (TYPE_MAIN_VARIANT (type) != type)
+    v = visit (TYPE_MAIN_VARIANT (type), state, v,
+	       sccstack, sccstate, sccstate_obstack);
+
   v = iterative_hash_hashval_t (TREE_CODE (type), v);
   v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
   v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
@@ -1201,7 +1214,7 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       struct tree_int_map *m;
 
       /* Pop off the SCC and set its hash values.  */
-      x = VEC_pop (tree, *sccstack);
+      x = sccstack->pop ();
       /* Optimize SCC size one.  */
       if (x == type)
 	{
@@ -1219,10 +1232,10 @@ iterative_hash_gimple_type (tree type, hashval_t val,
 	  unsigned first, i, size, j;
 	  struct type_hash_pair *pairs;
 	  /* Pop off the SCC and build an array of type, hash pairs.  */
-	  first = VEC_length (tree, *sccstack) - 1;
-	  while (VEC_index (tree, *sccstack, first) != type)
+	  first = sccstack->length () - 1;
+	  while ((*sccstack)[first] != type)
 	    --first;
-	  size = VEC_length (tree, *sccstack) - first + 1;
+	  size = sccstack->length () - first + 1;
 	  pairs = XALLOCAVEC (struct type_hash_pair, size);
 	  i = 0;
 	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
@@ -1231,7 +1244,7 @@ iterative_hash_gimple_type (tree type, hashval_t val,
 	  pairs[i].hash = cstate->u.hash;
 	  do
 	    {
-	      x = VEC_pop (tree, *sccstack);
+	      x = sccstack->pop ();
 	      cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
 	      cstate->on_sccstack = false;
 	      ++i;
@@ -1285,7 +1298,7 @@ static hashval_t
 gimple_type_hash (const void *p)
 {
   const_tree t = (const_tree) p;
-  VEC(tree, heap) *sccstack = NULL;
+  vec<tree> sccstack = vNULL;
   struct pointer_map_t *sccstate;
   struct obstack sccstate_obstack;
   hashval_t val;
@@ -1303,7 +1316,7 @@ gimple_type_hash (const void *p)
   gcc_obstack_init (&sccstate_obstack);
   val = iterative_hash_gimple_type (CONST_CAST_TREE (t), 0,
 				    &sccstack, sccstate, &sccstate_obstack);
-  VEC_free (tree, heap, sccstack);
+  sccstack.release ();
   pointer_map_destroy (sccstate);
   obstack_free (&sccstate_obstack, NULL);
 
@@ -1408,10 +1421,35 @@ remember_with_vars (tree t)
 	    (tt) = GIMPLE_REGISTER_TYPE (tt); \
 	  if (VAR_OR_FUNCTION_DECL_P (tt) && TREE_PUBLIC (tt)) \
 	    remember_with_vars (t); \
+	  if (TREE_CODE (tt) == INTEGER_CST) \
+	    (tt) = fixup_integer_cst (tt); \
 	} \
     } while (0)
 
 static void lto_fixup_types (tree);
+
+/* Return integer_cst T with updated type.  */
+
+static tree
+fixup_integer_cst (tree t)
+{
+  tree type = GIMPLE_REGISTER_TYPE (TREE_TYPE (t));
+
+  if (type == TREE_TYPE (t))
+    return t;
+
+  /* If overflow was set, streamer_read_integer_cst
+     produced local copy of T. */
+  if (TREE_OVERFLOW (t))
+    {
+      TREE_TYPE (t) = type;
+      return t;
+    }
+  else
+  /* Otherwise produce new shared node for the new type.  */
+    return build_int_cst_wide (type, TREE_INT_CST_LOW (t),
+			       TREE_INT_CST_HIGH (t));
+}
 
 /* Fix up fields of a tree_typed T.  */
 
@@ -1541,13 +1579,13 @@ lto_ft_binfo (tree t)
   LTO_FIXUP_TREE (BINFO_OFFSET (t));
   LTO_FIXUP_TREE (BINFO_VIRTUALS (t));
   LTO_FIXUP_TREE (BINFO_VPTR_FIELD (t));
-  n = VEC_length (tree, BINFO_BASE_ACCESSES (t));
+  n = vec_safe_length (BINFO_BASE_ACCESSES (t));
   for (i = 0; i < n; i++)
     {
       saved_base = base = BINFO_BASE_ACCESS (t, i);
       LTO_FIXUP_TREE (base);
       if (base != saved_base)
-	VEC_replace (tree, BINFO_BASE_ACCESSES (t), i, base);
+	(*BINFO_BASE_ACCESSES (t))[i] = base;
     }
   LTO_FIXUP_TREE (BINFO_INHERITANCE_CHAIN (t));
   LTO_FIXUP_TREE (BINFO_SUBVTT_INDEX (t));
@@ -1558,7 +1596,7 @@ lto_ft_binfo (tree t)
       saved_base = base = BINFO_BASE_BINFO (t, i);
       LTO_FIXUP_TREE (base);
       if (base != saved_base)
-	VEC_replace (tree, BINFO_BASE_BINFOS (t), i, base);
+	(*BINFO_BASE_BINFOS (t))[i] = base;
     }
 }
 
@@ -1572,9 +1610,7 @@ lto_ft_constructor (tree t)
 
   lto_ft_typed (t);
 
-  for (idx = 0;
-       VEC_iterate(constructor_elt, CONSTRUCTOR_ELTS (t), idx, ce);
-       idx++)
+  for (idx = 0; vec_safe_iterate (CONSTRUCTOR_ELTS (t), idx, &ce); idx++)
     {
       LTO_FIXUP_TREE (ce->index);
       LTO_FIXUP_TREE (ce->value);
@@ -1673,18 +1709,15 @@ lto_fixup_types (tree t)
 static enum ld_plugin_symbol_resolution
 get_resolution (struct data_in *data_in, unsigned index)
 {
-  if (data_in->globals_resolution)
+  if (data_in->globals_resolution.exists ())
     {
       ld_plugin_symbol_resolution_t ret;
       /* We can have references to not emitted functions in
 	 DECL_FUNCTION_PERSONALITY at least.  So we can and have
 	 to indeed return LDPR_UNKNOWN in some cases.   */
-      if (VEC_length (ld_plugin_symbol_resolution_t,
-		      data_in->globals_resolution) <= index)
+      if (data_in->globals_resolution.length () <= index)
 	return LDPR_UNKNOWN;
-      ret = VEC_index (ld_plugin_symbol_resolution_t,
-		       data_in->globals_resolution,
-		       index);
+      ret = data_in->globals_resolution[index];
       return ret;
     }
   else
@@ -1692,6 +1725,19 @@ get_resolution (struct data_in *data_in, unsigned index)
     return LDPR_UNKNOWN;
 }
 
+/* Map assigning declarations their resolutions.  */
+static pointer_map_t *resolution_map;
+
+/* We need to record resolutions until symbol table is read.  */
+static void
+register_resolution (tree decl, enum ld_plugin_symbol_resolution resolution)
+{
+  if (resolution == LDPR_UNKNOWN)
+    return;
+  if (!resolution_map)
+    resolution_map = pointer_map_create ();
+  *pointer_map_insert (resolution_map, decl) = (void *)(size_t)resolution;
+}
 
 /* Register DECL with the global symbol table and change its
    name if necessary to avoid name clashes for static globals across
@@ -1720,7 +1766,6 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
       ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
       SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
       rest_of_decl_compilation (decl, 1, 0);
-      VEC_safe_push (tree, gc, lto_global_var_decls, decl);
     }
 
   /* If this variable has already been declared, queue the
@@ -1730,8 +1775,7 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
       unsigned ix;
       if (!streamer_tree_cache_lookup (data_in->reader_cache, decl, &ix))
 	gcc_unreachable ();
-      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
-				data_in->file_data);
+      register_resolution (decl, get_resolution (data_in, ix));
     }
 }
 
@@ -1789,8 +1833,7 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl)
       unsigned ix;
       if (!streamer_tree_cache_lookup (data_in->reader_cache, decl, &ix))
 	gcc_unreachable ();
-      lto_symtab_register_decl (decl, get_resolution (data_in, ix),
-				data_in->file_data);
+      register_resolution (decl, get_resolution (data_in, ix));
     }
 }
 
@@ -1804,7 +1847,7 @@ static void
 uniquify_nodes (struct data_in *data_in, unsigned from)
 {
   struct streamer_tree_cache_d *cache = data_in->reader_cache;
-  unsigned len = VEC_length (tree, cache->nodes);
+  unsigned len = cache->nodes.length ();
   unsigned i;
 
   /* Go backwards because children streamed for the first time come
@@ -1815,7 +1858,7 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
      them and computing hashes.  */
   for (i = len; i-- > from;)
     {
-      tree t = VEC_index (tree, cache->nodes, i);
+      tree t = cache->nodes[i];
       if (t && TYPE_P (t))
 	{
 	  tree newt = gimple_register_type (t);
@@ -1830,7 +1873,7 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
   /* Second fixup all trees in the new cache entries.  */
   for (i = len; i-- > from;)
     {
-      tree t = VEC_index (tree, cache->nodes, i);
+      tree t = cache->nodes[i];
       tree oldt = t;
       if (!t)
 	continue;
@@ -1991,7 +2034,7 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
      make sure it is done last.  */
   for (i = len; i-- > from;)
     {
-      tree t = VEC_index (tree, cache->nodes, i);
+      tree t = cache->nodes[i];
       if (t == NULL_TREE)
 	continue;
 
@@ -2014,7 +2057,7 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
 
 static void
 lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
-		VEC(ld_plugin_symbol_resolution_t,heap) *resolutions)
+		vec<ld_plugin_symbol_resolution_t> resolutions)
 {
   const struct lto_decl_header *header = (const struct lto_decl_header *) data;
   const int decl_offset = sizeof (struct lto_decl_header);
@@ -2039,7 +2082,7 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
   while (ib_main.p < ib_main.len)
     {
       tree t;
-      unsigned from = VEC_length (tree, data_in->reader_cache->nodes);
+      unsigned from = data_in->reader_cache->nodes.length ();
       t = stream_read_tree (&ib_main, data_in);
       gcc_assert (t && ib_main.p <= ib_main.len);
       uniquify_nodes (data_in, from);
@@ -2191,7 +2234,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
          format that is only unpacked later when the subfile is processed. */
       rp.res = r;
       rp.index = index;
-      VEC_safe_push (res_pair, heap, file_data->respairs, rp);
+      file_data->respairs.safe_push (rp);
       if (file_data->max_index < index)
         file_data->max_index = index;
     }
@@ -2273,18 +2316,17 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
 {
   const char *data;
   size_t len;
-  VEC(ld_plugin_symbol_resolution_t,heap) *resolutions = NULL;
+  vec<ld_plugin_symbol_resolution_t>
+	resolutions = vNULL;
   int i;
   res_pair *rp;
 
   /* Create vector for fast access of resolution. We do this lazily
      to save memory. */ 
-  VEC_safe_grow_cleared (ld_plugin_symbol_resolution_t, heap, 
-                            resolutions,
-                            file_data->max_index + 1);
-  for (i = 0; VEC_iterate (res_pair, file_data->respairs, i, rp); i++)
-    VEC_replace (ld_plugin_symbol_resolution_t, resolutions, rp->index, rp->res);
-  VEC_free (res_pair, heap, file_data->respairs);
+  resolutions.safe_grow_cleared (file_data->max_index + 1);
+  for (i = 0; file_data->respairs.iterate (i, &rp); i++)
+    resolutions[rp->index] = rp->res;
+  file_data->respairs.release ();
 
   file_data->renaming_hash_table = lto_create_renaming_table ();
   file_data->file_name = file->filename;
@@ -2302,7 +2344,7 @@ lto_file_finalize (struct lto_file_decl_data *file_data, lto_file *file)
 /* Finalize FILE_DATA in FILE and increase COUNT. */
 
 static int 
-lto_create_files_from_ids (lto_file *file, struct lto_file_decl_data *file_data, 
+lto_create_files_from_ids (lto_file *file, struct lto_file_decl_data *file_data,
 			   int *count)
 {
   lto_file_finalize (file_data, file);
@@ -2557,7 +2599,7 @@ lto_wpa_write_files (void)
 
   timevar_push (TV_WHOPR_WPA);
 
-  FOR_EACH_VEC_ELT (ltrans_partition, ltrans_partitions, i, part)
+  FOR_EACH_VEC_ELT (ltrans_partitions, i, part)
     lto_stats.num_output_symtab_nodes += lto_symtab_encoder_size (part->encoder);
 
   /* Find out statics that need to be promoted
@@ -2579,17 +2621,18 @@ lto_wpa_write_files (void)
     temp_filename[blen - sizeof (".out") + 1] = '\0';
   blen = strlen (temp_filename);
 
-  n_sets = VEC_length (ltrans_partition, ltrans_partitions);
+  n_sets = ltrans_partitions.length ();
 
   /* Sort partitions by size so small ones are compiled last.
      FIXME: Even when not reordering we may want to output one list for parallel make
      and other for final link command.  */
-  VEC_qsort (ltrans_partition, ltrans_partitions,
-	    flag_toplevel_reorder ? cmp_partitions_size : cmp_partitions_order);
+  ltrans_partitions.qsort (flag_toplevel_reorder
+			   ? cmp_partitions_size
+			   : cmp_partitions_order);
   for (i = 0; i < n_sets; i++)
     {
       size_t len;
-      ltrans_partition part = VEC_index (ltrans_partition, ltrans_partitions, i);
+      ltrans_partition part = ltrans_partitions[i];
 
       /* Write all the nodes in SET.  */
       sprintf (temp_filename + blen, "%u.o", i);
@@ -2620,12 +2663,17 @@ lto_wpa_write_files (void)
 	      if (!lto_symtab_encoder_in_partition_p (part->encoder, node))
 		{
 	          fprintf (cgraph_dump_file, "%s ", symtab_node_asm_name (node));
-		  if (symtab_function_p (node)
-		      && lto_symtab_encoder_encode_body_p (part->encoder, cgraph (node)))
+		  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+		  if (cnode
+		      && lto_symtab_encoder_encode_body_p (part->encoder, cnode))
 		    fprintf (cgraph_dump_file, "(body included)");
-		  else if (symtab_variable_p (node)
-		           && lto_symtab_encoder_encode_initializer_p (part->encoder, varpool (node)))
-		    fprintf (cgraph_dump_file, "(initializer included)");
+		  else
+		    {
+		      varpool_node *vnode = dyn_cast <varpool_node> (node);
+		      if (vnode
+			  && lto_symtab_encoder_encode_initializer_p (part->encoder, vnode))
+			fprintf (cgraph_dump_file, "(initializer included)");
+		    }
 		}
 	    }
 	  fprintf (cgraph_dump_file, "\n");
@@ -2638,6 +2686,7 @@ lto_wpa_write_files (void)
 
       lto_set_current_out_file (NULL);
       lto_obj_file_close (file);
+      free (file);
       part->encoder = NULL;
 
       len = strlen (temp_filename);
@@ -2654,6 +2703,7 @@ lto_wpa_write_files (void)
     fatal_error ("closing LTRANS output list %s: %m", ltrans_output_list);
 
   free_ltrans_partitions();
+  free (temp_filename);
 
   timevar_pop (TV_WHOPR_WPA_IO);
 }
@@ -2916,6 +2966,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       if (!file_data)
 	{
 	  lto_obj_file_close (current_lto_file);
+	  free (current_lto_file);
 	  current_lto_file = NULL;
 	  break;
 	}
@@ -2923,6 +2974,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       decl_data[last_file_ix++] = file_data;
 
       lto_obj_file_close (current_lto_file);
+      free (current_lto_file);
       current_lto_file = NULL;
       ggc_collect ();
     }
@@ -2935,6 +2987,17 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (resolution_file_name)
     fclose (resolution);
 
+  /* Free gimple type merging datastructures.  */
+  htab_delete (gimple_types);
+  gimple_types = NULL;
+  htab_delete (type_hash_cache);
+  type_hash_cache = NULL;
+  free (type_pair_cache);
+  type_pair_cache = NULL;
+  gimple_type_leader = NULL;
+  free_gimple_type_tables ();
+  ggc_collect ();
+
   /* Set the hooks so that all of the ipa passes can read in their data.  */
   lto_set_in_hooks (all_file_decl_data, get_section_data, free_section_data);
 
@@ -2946,6 +3009,24 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   timevar_push (TV_IPA_LTO_CGRAPH_IO);
   /* Read the symtab.  */
   input_symtab ();
+
+  /* Store resolutions into the symbol table.  */
+  if (resolution_map)
+    {
+      void **res;
+      symtab_node snode;
+
+      FOR_EACH_SYMBOL (snode)
+	if (symtab_real_symbol_p (snode)
+	    && (res = pointer_map_contains (resolution_map,
+				            snode->symbol.decl)))
+	  snode->symbol.resolution
+	    = (enum ld_plugin_symbol_resolution)(size_t)*res;
+
+      pointer_map_destroy (resolution_map);
+      resolution_map = NULL;
+    }
+  
   timevar_pop (TV_IPA_LTO_CGRAPH_IO);
 
   if (!quiet_flag)
@@ -2960,18 +3041,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (seen_error ())
     fatal_error ("errors during merging of translation units");
 
-  /* Fixup all decls and types and free the type hash tables.  */
+  /* Fixup all decls.  */
   lto_fixup_decls (all_file_decl_data);
   htab_delete (tree_with_vars);
   tree_with_vars = NULL;
-  htab_delete (gimple_types);
-  gimple_types = NULL;
-  htab_delete (type_hash_cache);
-  type_hash_cache = NULL;
-  free (type_pair_cache);
-  type_pair_cache = NULL;
-  gimple_type_leader = NULL;
-  free_gimple_type_tables ();
   ggc_collect ();
 
   timevar_pop (TV_IPA_LTO_DECL_MERGE);
@@ -2985,6 +3058,13 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
     ipa_read_optimization_summaries ();
   else
     ipa_read_summaries ();
+
+  for (i = 0; all_file_decl_data[i]; i++)
+    {
+      gcc_assert (all_file_decl_data[i]->symtab_node_encoder);
+      lto_symtab_encoder_delete (all_file_decl_data[i]->symtab_node_encoder);
+      all_file_decl_data[i]->symtab_node_encoder = NULL;
+    }
 
   /* Finally merge the cgraph according to the decl merging decisions.  */
   timevar_push (TV_IPA_LTO_CGRAPH_MERGE);
@@ -3003,9 +3083,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
      this field into ltrans compilation.  */
   if (flag_ltrans)
     FOR_EACH_DEFINED_FUNCTION (node)
-      VEC_safe_push (ipa_opt_pass, heap,
-		     node->ipa_transforms_to_apply,
-		     (ipa_opt_pass)&pass_ipa_inline);
+      node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass)&pass_ipa_inline);
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
@@ -3060,7 +3138,7 @@ materialize_cgraph (void)
   set_cfun (NULL);
 
   /* Inform the middle end about the global variables we have seen.  */
-  FOR_EACH_VEC_ELT (tree, lto_global_var_decls, i, decl)
+  FOR_EACH_VEC_ELT (*lto_global_var_decls, i, decl)
     rest_of_decl_compilation (decl, 1, 0);
 
   if (!quiet_flag)
@@ -3165,8 +3243,7 @@ do_whole_program_analysis (void)
   FOR_EACH_SYMBOL (node)
     node->symbol.aux = NULL;
 
-  lto_stats.num_cgraph_partitions += VEC_length (ltrans_partition, 
-						 ltrans_partitions);
+  lto_stats.num_cgraph_partitions += ltrans_partitions.length ();
   timevar_pop (TV_WHOPR_PARTITIONING);
 
   timevar_stop (TV_PHASE_OPT_GEN);
@@ -3302,6 +3379,8 @@ lto_main (void)
 	do_whole_program_analysis ();
       else
 	{
+	  struct varpool_node *vnode;
+
 	  timevar_start (TV_PHASE_OPT_GEN);
 
 	  materialize_cgraph ();
@@ -3319,6 +3398,10 @@ lto_main (void)
 	     this.  */
 	  if (flag_lto_report)
 	    print_lto_report_1 ();
+
+	  /* Record the global variables.  */
+	  FOR_EACH_DEFINED_VARIABLE (vnode)
+	    vec_safe_push (lto_global_var_decls, vnode->symbol.decl);
 	}
     }
 

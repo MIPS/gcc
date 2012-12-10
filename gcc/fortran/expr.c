@@ -2059,6 +2059,8 @@ scalarize_intrinsic_call (gfc_expr *e)
 
   free_expr0 (e);
   *e = *expr;
+  /* Free "expr" but not the pointers it contains.  */
+  free (expr);
   gfc_free_expr (old);
   return SUCCESS;
 
@@ -3691,7 +3693,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       warn = lvalue->symtree->n.sym->attr.dummy
 	     || lvalue->symtree->n.sym->attr.result
 	     || lvalue->symtree->n.sym->attr.function
-	     || lvalue->symtree->n.sym->attr.host_assoc
+	     || (lvalue->symtree->n.sym->attr.host_assoc
+		 && lvalue->symtree->n.sym->ns
+		    != rvalue->symtree->n.sym->ns)
 	     || lvalue->symtree->n.sym->attr.use_assoc
 	     || lvalue->symtree->n.sym->attr.in_common;
 
@@ -3895,6 +3899,33 @@ gfc_get_variable_expr (gfc_symtree *var)
 }
 
 
+/* Adds a full array reference to an expression, as needed.  */
+
+void
+gfc_add_full_array_ref (gfc_expr *e, gfc_array_spec *as)
+{
+  gfc_ref *ref;
+  for (ref = e->ref; ref; ref = ref->next)
+    if (!ref->next)
+      break;
+  if (ref)
+    {
+      ref->next = gfc_get_ref ();
+      ref = ref->next;
+    }
+  else
+    {
+      e->ref = gfc_get_ref ();
+      ref = e->ref;
+    }
+  ref->type = REF_ARRAY;
+  ref->u.ar.type = AR_FULL;
+  ref->u.ar.dimen = e->rank;
+  ref->u.ar.where = e->where;
+  ref->u.ar.as = as;
+}
+
+
 gfc_expr *
 gfc_lval_expr_from_sym (gfc_symbol *sym)
 {
@@ -3908,16 +3939,8 @@ gfc_lval_expr_from_sym (gfc_symbol *sym)
   /* It will always be a full array.  */
   lval->rank = sym->as ? sym->as->rank : 0;
   if (lval->rank)
-    {
-      lval->ref = gfc_get_ref ();
-      lval->ref->type = REF_ARRAY;
-      lval->ref->u.ar.type = AR_FULL;
-      lval->ref->u.ar.dimen = lval->rank;
-      lval->ref->u.ar.where = sym->declared_at;
-      lval->ref->u.ar.as = sym->ts.type == BT_CLASS
-			   ? CLASS_DATA (sym)->as : sym->as;
-    }
-
+    gfc_add_full_array_ref (lval, sym->ts.type == BT_CLASS ?
+			    CLASS_DATA (sym)->as : sym->as);
   return lval;
 }
 
@@ -4632,13 +4655,15 @@ gfc_build_intrinsic_call (const char* name, locus where, unsigned numarg, ...)
    (F2008, 16.6.7) or pointer association context (F2008, 16.6.8).
    This is called from the various places when resolving
    the pieces that make up such a context.
+   If own_scope is true (applies to, e.g., ac-implied-do/data-implied-do
+   variables), some checks are not performed.
 
    Optionally, a possible error message can be suppressed if context is NULL
    and just the return status (SUCCESS / FAILURE) be requested.  */
 
 gfc_try
 gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
-			  const char* context)
+			  bool own_scope, const char* context)
 {
   gfc_symbol* sym = NULL;
   bool is_pointer;
@@ -4723,7 +4748,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
      assignment to a pointer component from pointer-assignment to a pointer
      component.  Note that (normal) assignment to procedure pointers is not
      possible.  */
-  check_intentin = true;
+  check_intentin = !own_scope;
   ptr_component = (sym->ts.type == BT_CLASS && CLASS_DATA (sym))
 		  ? CLASS_DATA (sym)->attr.class_pointer : sym->attr.pointer;
   for (ref = e->ref; ref && check_intentin; ref = ref->next)
@@ -4758,7 +4783,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
     }
 
   /* PROTECTED and use-associated.  */
-  if (sym->attr.is_protected && sym->attr.use_assoc  && check_intentin)
+  if (sym->attr.is_protected && sym->attr.use_assoc && check_intentin)
     {
       if (pointer && is_pointer)
 	{
@@ -4780,7 +4805,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 
   /* Variable not assignable from a PURE procedure but appears in
      variable definition context.  */
-  if (!pointer && gfc_pure (NULL) && gfc_impure_variable (sym))
+  if (!pointer && !own_scope && gfc_pure (NULL) && gfc_impure_variable (sym))
     {
       if (context)
 	gfc_error ("Variable '%s' can not appear in a variable definition"
@@ -4854,7 +4879,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
 	}
 
       /* Target must be allowed to appear in a variable definition context.  */
-      if (gfc_check_vardef_context (assoc->target, pointer, false, NULL)
+      if (gfc_check_vardef_context (assoc->target, pointer, false, false, NULL)
 	  == FAILURE)
 	{
 	  if (context)

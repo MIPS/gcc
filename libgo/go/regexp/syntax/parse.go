@@ -2,10 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package syntax parses regular expressions into parse trees and compiles
-// parse trees into programs. Most clients of regular expressions will use
-// the facilities of package regexp (such as Compile and Match) instead of
-// this package.
 package syntax
 
 import (
@@ -470,7 +466,7 @@ func (p *parser) factor(sub []*Regexp, flags Flags) []*Regexp {
 			// Construct factored form: prefix(suffix1|suffix2|...)
 			prefix := first
 			for j := start; j < i; j++ {
-				reuse := j != start // prefix came from sub[start] 
+				reuse := j != start // prefix came from sub[start]
 				sub[j] = p.removeLeadingRegexp(sub[j], reuse)
 			}
 			suffix := p.collapse(sub[start:i], OpAlternate) // recurse

@@ -58,7 +58,8 @@ along with GCC; see the file COPYING3.  If not see
 struct sched_deps_info_def *sched_deps_info;
 
 /* The data is specific to the Haifa scheduler.  */
-VEC(haifa_deps_insn_data_def, heap) *h_d_i_d = NULL;
+vec<haifa_deps_insn_data_def>
+    h_d_i_d = vNULL;
 
 /* Return the major type present in the DS.  */
 enum reg_note
@@ -3425,14 +3426,8 @@ call_may_noreturn_p (rtx insn)
       && !RTL_LOOPING_CONST_OR_PURE_CALL_P (insn))
     return false;
 
-  call = PATTERN (insn);
-  if (GET_CODE (call) == PARALLEL)
-    call = XVECEXP (call, 0, 0);
-  if (GET_CODE (call) == SET)
-    call = SET_SRC (call);
-  if (GET_CODE (call) == CALL
-      && MEM_P (XEXP (call, 0))
-      && GET_CODE (XEXP (XEXP (call, 0), 0)) == SYMBOL_REF)
+  call = get_call_rtx_from (insn);
+  if (call && GET_CODE (XEXP (XEXP (call, 0), 0)) == SYMBOL_REF)
     {
       rtx symbol = XEXP (XEXP (call, 0), 0);
       if (SYMBOL_REF_DECL (symbol)
@@ -3938,12 +3933,9 @@ remove_from_deps (struct deps_desc *deps, rtx insn)
 static void
 init_deps_data_vector (void)
 {
-  int reserve = (sched_max_luid + 1
-                 - VEC_length (haifa_deps_insn_data_def, h_d_i_d));
-  if (reserve > 0
-      && ! VEC_space (haifa_deps_insn_data_def, h_d_i_d, reserve))
-    VEC_safe_grow_cleared (haifa_deps_insn_data_def, heap, h_d_i_d,
-                           3 * sched_max_luid / 2);
+  int reserve = (sched_max_luid + 1 - h_d_i_d.length ());
+  if (reserve > 0 && ! h_d_i_d.space (reserve))
+    h_d_i_d.safe_grow_cleared (3 * sched_max_luid / 2);
 }
 
 /* If it is profitable to use them, initialize or extend (depending on
@@ -4030,7 +4022,7 @@ sched_deps_finish (void)
   free_alloc_pool_if_empty (&dl_pool);
   gcc_assert (dn_pool == NULL && dl_pool == NULL);
 
-  VEC_free (haifa_deps_insn_data_def, heap, h_d_i_d);
+  h_d_i_d.release ();
   cache_size = 0;
 
   if (true_dependency_cache)
@@ -4706,16 +4698,14 @@ find_inc (struct mem_inc_info *mii, bool backwards)
 	  if (backwards)
 	    {
 	      FOR_EACH_DEP (mii->inc_insn, SD_LIST_BACK, sd_it, dep)
-		if (modified_in_p (mii->inc_input, DEP_PRO (dep)))
-		  add_dependence_1 (mii->mem_insn, DEP_PRO (dep),
-				    REG_DEP_TRUE);
+		add_dependence_1 (mii->mem_insn, DEP_PRO (dep),
+				  REG_DEP_TRUE);
 	    }
 	  else
 	    {
 	      FOR_EACH_DEP (mii->inc_insn, SD_LIST_FORW, sd_it, dep)
-		if (modified_in_p (mii->inc_input, DEP_CON (dep)))
-		  add_dependence_1 (DEP_CON (dep), mii->mem_insn,
-				    REG_DEP_ANTI);
+		add_dependence_1 (DEP_CON (dep), mii->mem_insn,
+				  REG_DEP_ANTI);
 	    }
 	  return true;
 	}
@@ -4816,10 +4806,10 @@ find_mem (struct mem_inc_info *mii, rtx *address_of_x)
 void
 find_modifiable_mems (rtx head, rtx tail)
 {
-  rtx insn;
+  rtx insn, next_tail = NEXT_INSN (tail);
   int success_in_block = 0;
 
-  for (insn = head; insn != tail; insn = NEXT_INSN (insn))
+  for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
     {
       struct mem_inc_info mii;
 

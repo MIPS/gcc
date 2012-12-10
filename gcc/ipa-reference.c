@@ -124,38 +124,28 @@ static struct cgraph_node_hook_list *node_removal_hook_holder;
 
 /* Vector where the reference var infos are actually stored. 
    Indexed by UID of call graph nodes.  */
-DEF_VEC_P (ipa_reference_vars_info_t);
-DEF_VEC_ALLOC_P (ipa_reference_vars_info_t, heap);
-static VEC (ipa_reference_vars_info_t, heap) *ipa_reference_vars_vector;
+static vec<ipa_reference_vars_info_t> ipa_reference_vars_vector;
 
-DEF_VEC_P (ipa_reference_optimization_summary_t);
-DEF_VEC_ALLOC_P (ipa_reference_optimization_summary_t, heap);
-static VEC (ipa_reference_optimization_summary_t, heap) *ipa_reference_opt_sum_vector;
+static vec<ipa_reference_optimization_summary_t> ipa_reference_opt_sum_vector;
 
 /* Return the ipa_reference_vars structure starting from the cgraph NODE.  */
 static inline ipa_reference_vars_info_t
 get_reference_vars_info (struct cgraph_node *node)
 {
-  if (!ipa_reference_vars_vector
-      || VEC_length (ipa_reference_vars_info_t,
-		     ipa_reference_vars_vector) <= (unsigned int) node->uid)
+  if (!ipa_reference_vars_vector.exists ()
+      || ipa_reference_vars_vector.length () <= (unsigned int) node->uid)
     return NULL;
-  return VEC_index (ipa_reference_vars_info_t, ipa_reference_vars_vector,
-		    node->uid);
+  return ipa_reference_vars_vector[node->uid];
 }
 
 /* Return the ipa_reference_vars structure starting from the cgraph NODE.  */
 static inline ipa_reference_optimization_summary_t
 get_reference_optimization_summary (struct cgraph_node *node)
 {
-  if (!ipa_reference_opt_sum_vector
-      || (VEC_length (ipa_reference_optimization_summary_t,
-		      ipa_reference_opt_sum_vector)
-	  <= (unsigned int) node->uid))
+  if (!ipa_reference_opt_sum_vector.exists ()
+      || (ipa_reference_opt_sum_vector.length () <= (unsigned int) node->uid))
     return NULL;
-  return VEC_index (ipa_reference_optimization_summary_t,
-		    ipa_reference_opt_sum_vector,
-		    node->uid);
+  return ipa_reference_opt_sum_vector[node->uid];
 }
 
 /* Return the ipa_reference_vars structure starting from the cgraph NODE.  */
@@ -163,13 +153,10 @@ static inline void
 set_reference_vars_info (struct cgraph_node *node,
 			 ipa_reference_vars_info_t info)
 {
-  if (!ipa_reference_vars_vector
-      || VEC_length (ipa_reference_vars_info_t,
-		     ipa_reference_vars_vector) <= (unsigned int) node->uid)
-    VEC_safe_grow_cleared (ipa_reference_vars_info_t, heap,
-			   ipa_reference_vars_vector, node->uid + 1);
-  VEC_replace (ipa_reference_vars_info_t, ipa_reference_vars_vector,
-	       node->uid, info);
+  if (!ipa_reference_vars_vector.exists ()
+      || ipa_reference_vars_vector.length () <= (unsigned int) node->uid)
+    ipa_reference_vars_vector.safe_grow_cleared (node->uid + 1);
+  ipa_reference_vars_vector[node->uid] = info;
 }
 
 /* Return the ipa_reference_vars structure starting from the cgraph NODE.  */
@@ -177,14 +164,10 @@ static inline void
 set_reference_optimization_summary (struct cgraph_node *node,
 				    ipa_reference_optimization_summary_t info)
 {
-  if (!ipa_reference_opt_sum_vector
-      || (VEC_length (ipa_reference_optimization_summary_t,
-		      ipa_reference_opt_sum_vector)
-	  <= (unsigned int) node->uid))
-    VEC_safe_grow_cleared (ipa_reference_optimization_summary_t,
-			   heap, ipa_reference_opt_sum_vector, node->uid + 1);
-  VEC_replace (ipa_reference_optimization_summary_t,
-	       ipa_reference_opt_sum_vector, node->uid, info);
+  if (!ipa_reference_opt_sum_vector.exists ()
+      || (ipa_reference_opt_sum_vector.length () <= (unsigned int) node->uid))
+    ipa_reference_opt_sum_vector.safe_grow_cleared (node->uid + 1);
+  ipa_reference_opt_sum_vector[node->uid] = info;
 }
 
 /* Return a bitmap indexed by DECL_UID for the static variables that
@@ -482,7 +465,7 @@ analyze_function (struct cgraph_node *fn)
   local = init_function_info (fn);
   for (i = 0; ipa_ref_list_reference_iterate (&fn->symbol.ref_list, i, ref); i++)
     {
-      if (!symtab_variable_p (ref->referred))
+      if (!is_a <varpool_node> (ref->referred))
 	continue;
       var = ipa_ref_varpool_node (ref)->symbol.decl;
       if (!is_proper_for_analysis (var))
@@ -746,10 +729,10 @@ propagate (void)
 	fprintf (dump_file, "Starting cycle with %s/%i\n",
 		  cgraph_node_asm_name (node), node->symbol.order);
 
-      VEC (cgraph_node_p, heap) *cycle_nodes = ipa_get_nodes_in_cycle (node);
+      vec<cgraph_node_ptr> cycle_nodes = ipa_get_nodes_in_cycle (node);
 
       /* If any node in a cycle is read_all or write_all, they all are.  */
-      FOR_EACH_VEC_ELT (cgraph_node_p, cycle_nodes, x, w)
+      FOR_EACH_VEC_ELT (cycle_nodes, x, w)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Visiting %s/%i\n",
@@ -771,7 +754,7 @@ propagate (void)
 
       /* Merge the sets of this cycle with all sets of callees reached
          from this cycle.  */
-      FOR_EACH_VEC_ELT (cgraph_node_p, cycle_nodes, x, w)
+      FOR_EACH_VEC_ELT (cycle_nodes, x, w)
 	{
 	  if (read_all && write_all)
 	    break;
@@ -795,13 +778,13 @@ propagate (void)
 	}
 
       /* All nodes within a cycle have the same global info bitmaps.  */
-      FOR_EACH_VEC_ELT (cgraph_node_p, cycle_nodes, x, w)
+      FOR_EACH_VEC_ELT (cycle_nodes, x, w)
 	{
 	  ipa_reference_vars_info_t w_ri = get_reference_vars_info (w);
           w_ri->global = *node_g;
 	}
 
-      VEC_free (cgraph_node_p, heap, cycle_nodes);
+      cycle_nodes.release ();
     }
 
   if (dump_file)
@@ -822,8 +805,8 @@ propagate (void)
 	  ipa_reference_vars_info_t node_info = get_reference_vars_info (node);
 	  ipa_reference_global_vars_info_t node_g = &node_info->global;
 
-	  VEC (cgraph_node_p, heap) *cycle_nodes = ipa_get_nodes_in_cycle (node);
-	  FOR_EACH_VEC_ELT (cgraph_node_p, cycle_nodes, x, w)
+	  vec<cgraph_node_ptr> cycle_nodes = ipa_get_nodes_in_cycle (node);
+	  FOR_EACH_VEC_ELT (cycle_nodes, x, w)
 	    {
 	      ipa_reference_vars_info_t w_ri = get_reference_vars_info (w);
 	      ipa_reference_local_vars_info_t w_l = &w_ri->local;
@@ -835,7 +818,7 @@ propagate (void)
 	      fprintf (dump_file, "\n    locals written: ");
 	      dump_static_vars_set_to_file (dump_file, w_l->statics_written);
 	    }
-	  VEC_free (cgraph_node_p, heap, cycle_nodes);
+	  cycle_nodes.release ();
 
 	  fprintf (dump_file, "\n  globals read: ");
 	  dump_static_vars_set_to_file (dump_file, node_g->statics_read);
@@ -897,8 +880,7 @@ propagate (void)
   free (order);
 
   bitmap_obstack_release (&local_info_obstack);
-  VEC_free (ipa_reference_vars_info_t, heap, ipa_reference_vars_vector);
-  ipa_reference_vars_vector = NULL;
+  ipa_reference_vars_vector.release ();
   if (dump_file)
     splay_tree_delete (reference_vars_to_consider);
   reference_vars_to_consider = NULL;
@@ -979,8 +961,6 @@ stream_out_bitmap (struct lto_simple_output_block *ob,
 static void
 ipa_reference_write_optimization_summary (void)
 {
-  struct cgraph_node *node;
-  symtab_node snode;
   struct lto_simple_output_block *ob
     = lto_create_simple_output_block (LTO_section_ipa_reference);
   unsigned int count = 0;
@@ -994,12 +974,10 @@ ipa_reference_write_optimization_summary (void)
   /* See what variables we are interested in.  */
   for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
     {
-      struct varpool_node *vnode;
-      snode = lto_symtab_encoder_deref (encoder, i);
-      if (!symtab_variable_p (snode))
-	continue;
-      vnode = varpool (snode);
-      if (bitmap_bit_p (all_module_statics, DECL_UID (vnode->symbol.decl))
+      symtab_node snode = lto_symtab_encoder_deref (encoder, i);
+      varpool_node *vnode = dyn_cast <varpool_node> (snode);
+      if (vnode
+	  && bitmap_bit_p (all_module_statics, DECL_UID (vnode->symbol.decl))
 	  && referenced_from_this_partition_p (&vnode->symbol.ref_list, encoder))
 	{
 	  tree decl = vnode->symbol.decl;
@@ -1013,10 +991,12 @@ ipa_reference_write_optimization_summary (void)
 
   if (ltrans_statics_bitcount)
     for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
-      if (symtab_function_p (snode = lto_symtab_encoder_deref (encoder, i))
-	  && write_node_summary_p (cgraph (snode),
-				   encoder, ltrans_statics))
+      {
+	symtab_node snode = lto_symtab_encoder_deref (encoder, i);
+	cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
+	if (cnode && write_node_summary_p (cnode, encoder, ltrans_statics))
 	  count++;
+      }
 
   streamer_write_uhwi_stream (ob->main_stream, count);
   if (count)
@@ -1027,17 +1007,15 @@ ipa_reference_write_optimization_summary (void)
   if (ltrans_statics_bitcount)
     for (i = 0; i < lto_symtab_encoder_size (encoder); i++)
       {
-	snode = lto_symtab_encoder_deref (encoder, i);
-	if (!symtab_function_p (snode))
-	  continue;
-	node = cgraph (snode);
-	if (write_node_summary_p (node, encoder, ltrans_statics))
+	symtab_node snode = lto_symtab_encoder_deref (encoder, i);
+	cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
+	if (cnode && write_node_summary_p (cnode, encoder, ltrans_statics))
 	  {
 	    ipa_reference_optimization_summary_t info;
 	    int node_ref;
 
-	    info = get_reference_optimization_summary (node);
-	    node_ref = lto_symtab_encoder_encode (encoder, (symtab_node) node);
+	    info = get_reference_optimization_summary (cnode);
+	    node_ref = lto_symtab_encoder_encode (encoder, snode);
 	    streamer_write_uhwi_stream (ob->main_stream, node_ref);
 
 	    stream_out_bitmap (ob, info->statics_not_read, ltrans_statics,
@@ -1185,6 +1163,7 @@ struct ipa_opt_pass_d pass_ipa_reference =
  {
   IPA_PASS,
   "static-var",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_reference,			/* gate */
   propagate,			        /* execute */
   NULL,					/* sub */

@@ -127,20 +127,21 @@ struct redirection_data : typed_free_remove<redirection_data>
   struct el *incoming_edges;
 
   /* hash_table support.  */
-  typedef redirection_data T;
-  static inline hashval_t hash (const redirection_data *);
-  static inline int equal (const redirection_data *, const redirection_data *);
+  typedef redirection_data value_type;
+  typedef redirection_data compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline int equal (const value_type *, const compare_type *);
 };
 
 inline hashval_t
-redirection_data::hash (const redirection_data *p)
+redirection_data::hash (const value_type *p)
 {
   edge e = p->outgoing_edge;
   return e->dest->index;
 }
 
 inline int
-redirection_data::equal (const redirection_data *p1, const redirection_data *p2)
+redirection_data::equal (const value_type *p1, const compare_type *p2)
 {
   edge e1 = p1->outgoing_edge;
   edge e2 = p2->outgoing_edge;
@@ -167,7 +168,7 @@ struct ssa_local_info_t
    opportunities as they are discovered.  We keep the registered
    jump threading opportunities in this vector as edge pairs
    (original_edge, target_edge).  */
-static VEC(edge,heap) *threaded_edges;
+static vec<edge> threaded_edges;
 
 /* When we start updating the CFG for threading, data necessary for jump
    threading is attached to the AUX field for the incoming edge.  Use these
@@ -846,9 +847,15 @@ static bool
 def_split_header_continue_p (const_basic_block bb, const void *data)
 {
   const_basic_block new_header = (const_basic_block) data;
-  return (bb != new_header
-	  && (loop_depth (bb->loop_father)
-	      >= loop_depth (new_header->loop_father)));
+  const struct loop *l;
+
+  if (bb == new_header
+      || loop_depth (bb->loop_father) < loop_depth (new_header->loop_father))
+    return false;
+  for (l = bb->loop_father; l; l = loop_outer (l))
+    if (l == new_header->loop_father)
+      return true;
+  return false;
 }
 
 /* Thread jumps through the header of LOOP.  Returns true if cfg changes.
@@ -1140,14 +1147,14 @@ mark_threaded_blocks (bitmap threaded_blocks)
   edge e;
   edge_iterator ei;
 
-  for (i = 0; i < VEC_length (edge, threaded_edges); i += 3)
+  for (i = 0; i < threaded_edges.length (); i += 3)
     {
-      edge e = VEC_index (edge, threaded_edges, i);
+      edge e = threaded_edges[i];
       edge *x = XNEWVEC (edge, 2);
 
       e->aux = x;
-      THREAD_TARGET (e) = VEC_index (edge, threaded_edges, i + 1);
-      THREAD_TARGET2 (e) = VEC_index (edge, threaded_edges, i + 2);
+      THREAD_TARGET (e) = threaded_edges[i + 1];
+      THREAD_TARGET2 (e) = threaded_edges[i + 2];
       bitmap_set_bit (tmp, e->dest->index);
     }
 
@@ -1202,7 +1209,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   /* We must know about loops in order to preserve them.  */
   gcc_assert (current_loops != NULL);
 
-  if (threaded_edges == NULL)
+  if (!threaded_edges.exists ())
     return false;
 
   threaded_blocks = BITMAP_ALLOC (NULL);
@@ -1241,8 +1248,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   BITMAP_FREE (threaded_blocks);
   threaded_blocks = NULL;
-  VEC_free (edge, heap, threaded_edges);
-  threaded_edges = NULL;
+  threaded_edges.release ();
 
   if (retval)
     loops_state_set (LOOPS_NEED_FIXUP);
@@ -1266,15 +1272,15 @@ register_jump_thread (edge e, edge e2, edge e3)
   if (e2 == NULL)
     return;
 
-  if (threaded_edges == NULL)
-    threaded_edges = VEC_alloc (edge, heap, 15);
+  if (!threaded_edges.exists ())
+    threaded_edges.create (15);
 
   if (dump_file && (dump_flags & TDF_DETAILS)
       && e->dest != e2->src)
     fprintf (dump_file,
 	     "  Registering jump thread around one or more intermediate blocks\n");
 
-  VEC_safe_push (edge, heap, threaded_edges, e);
-  VEC_safe_push (edge, heap, threaded_edges, e2);
-  VEC_safe_push (edge, heap, threaded_edges, e3);
+  threaded_edges.safe_push (e);
+  threaded_edges.safe_push (e2);
+  threaded_edges.safe_push (e3);
 }

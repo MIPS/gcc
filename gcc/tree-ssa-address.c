@@ -79,14 +79,12 @@ typedef struct GTY (()) mem_addr_template {
 				   be filled in.  */
 } mem_addr_template;
 
-DEF_VEC_O (mem_addr_template);
-DEF_VEC_ALLOC_O (mem_addr_template, gc);
 
 /* The templates.  Each of the low five bits of the index corresponds to one
    component of TARGET_MEM_REF being present, while the high bits identify
    the address space.  See TEMPL_IDX.  */
 
-static GTY(()) VEC (mem_addr_template, gc) *mem_addr_template_list;
+static GTY(()) vec<mem_addr_template, va_gc> *mem_addr_template_list;
 
 #define TEMPL_IDX(AS, SYMBOL, BASE, INDEX, STEP, OFFSET) \
   (((int) (AS) << 5) \
@@ -209,14 +207,11 @@ addr_for_mem_ref (struct mem_address *addr, addr_space_t as,
       unsigned int templ_index
 	= TEMPL_IDX (as, addr->symbol, addr->base, addr->index, st, off);
 
-      if (templ_index
-	  >= VEC_length (mem_addr_template, mem_addr_template_list))
-	VEC_safe_grow_cleared (mem_addr_template, gc, mem_addr_template_list,
-			       templ_index + 1);
+      if (templ_index >= vec_safe_length (mem_addr_template_list))
+	vec_safe_grow_cleared (mem_addr_template_list, templ_index + 1);
 
       /* Reuse the templates for addresses, so that we do not waste memory.  */
-      templ = &VEC_index (mem_addr_template, mem_addr_template_list,
-			  templ_index);
+      templ = &(*mem_addr_template_list)[templ_index];
       if (!templ->ref)
 	{
 	  sym = (addr->symbol ?
@@ -821,16 +816,6 @@ get_address_description (tree op, struct mem_address *addr)
   addr->offset = TMR_OFFSET (op);
 }
 
-/* Copies the additional information attached to target_mem_ref FROM to TO.  */
-
-void
-copy_mem_ref_info (tree to, tree from)
-{
-  /* And the info about the original reference.  */
-  TREE_SIDE_EFFECTS (to) = TREE_SIDE_EFFECTS (from);
-  TREE_THIS_VOLATILE (to) = TREE_THIS_VOLATILE (from);
-}
-
 /* Copies the reference information from OLD_REF to NEW_REF, where
    NEW_REF should be either a MEM_REF or a TARGET_MEM_REF.  */
 
@@ -901,7 +886,7 @@ maybe_fold_tmr (tree ref)
 {
   struct mem_address addr;
   bool changed = false;
-  tree ret, off;
+  tree new_ref, off;
 
   get_address_description (ref, &addr);
 
@@ -962,10 +947,11 @@ maybe_fold_tmr (tree ref)
      ended up folding it, always create a new TARGET_MEM_REF regardless
      if it is valid in this for on the target - the propagation result
      wouldn't be anyway.  */
-  ret = create_mem_ref_raw (TREE_TYPE (ref),
-			    TREE_TYPE (addr.offset), &addr, false);
-  copy_mem_ref_info (ret, ref);
-  return ret;
+  new_ref = create_mem_ref_raw (TREE_TYPE (ref),
+			        TREE_TYPE (addr.offset), &addr, false);
+  TREE_SIDE_EFFECTS (new_ref) = TREE_SIDE_EFFECTS (ref);
+  TREE_THIS_VOLATILE (new_ref) = TREE_THIS_VOLATILE (ref);
+  return new_ref;
 }
 
 /* Dump PARTS to FILE.  */

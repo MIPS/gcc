@@ -951,7 +951,8 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 
   /* We must not allow the code we just generated to be reordered by
      scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  */
+     happen immediately, not later.  Similarly, we must block
+     (frame-related) register values to be used across this code.  */
   emit_insn (gen_blockage ());
 }
 
@@ -4666,7 +4667,14 @@ expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
   if (HAVE_trap)
-    emit_insn (gen_trap ());
+    {
+      rtx insn = emit_insn (gen_trap ());
+      /* For trap insns when not accumulating outgoing args force
+	 REG_ARGS_SIZE note to prevent crossjumping of calls with
+	 different args sizes.  */
+      if (!ACCUMULATE_OUTGOING_ARGS)
+	add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
+    }
   else
 #endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
@@ -5744,6 +5752,45 @@ expand_builtin_sync_synchronize (void)
   expand_mem_thread_fence (MEMMODEL_SEQ_CST);
 }
 
+static rtx
+expand_builtin_thread_pointer (tree exp, rtx target)
+{
+  enum insn_code icode;
+  if (!validate_arglist (exp, VOID_TYPE))
+    return const0_rtx;
+  icode = direct_optab_handler (get_thread_pointer_optab, Pmode);
+  if (icode != CODE_FOR_nothing)
+    {
+      struct expand_operand op;
+      if (!REG_P (target) || GET_MODE (target) != Pmode)
+	target = gen_reg_rtx (Pmode);
+      create_output_operand (&op, target, Pmode);
+      expand_insn (icode, 1, &op);
+      return target;
+    }
+  error ("__builtin_thread_pointer is not supported on this target");
+  return const0_rtx;
+}
+
+static void
+expand_builtin_set_thread_pointer (tree exp)
+{
+  enum insn_code icode;
+  if (!validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
+    return;
+  icode = direct_optab_handler (set_thread_pointer_optab, Pmode);
+  if (icode != CODE_FOR_nothing)
+    {
+      struct expand_operand op;
+      rtx val = expand_expr (CALL_EXPR_ARG (exp, 0), NULL_RTX,
+			     Pmode, EXPAND_NORMAL);      
+      create_input_operand (&op, val, Pmode);
+      expand_insn (icode, 1, &op);
+      return;
+    }
+  error ("__builtin_set_thread_pointer is not supported on this target");
+}
+
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -6542,7 +6589,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
       {
 	unsigned int nargs, z;
-	VEC(tree,gc) *vec;
+	vec<tree, va_gc> *vec;
 
 	mode = 
 	    get_builtin_sync_mode (fcode - BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1);
@@ -6553,12 +6600,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	/* If this is turned into an external library call, the weak parameter
 	   must be dropped to match the expected parameter list.  */
 	nargs = call_expr_nargs (exp);
-	vec = VEC_alloc (tree, gc, nargs - 1);
+	vec_alloc (vec, nargs - 1);
 	for (z = 0; z < 3; z++)
-	  VEC_quick_push (tree, vec, CALL_EXPR_ARG (exp, z));
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
 	/* Skip the boolean weak parameter.  */
 	for (z = 4; z < 6; z++)
-	  VEC_quick_push (tree, vec, CALL_EXPR_ARG (exp, z));
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
 	exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
 	break;
       }
@@ -6808,6 +6855,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (warn_free_nonheap_object)
 	maybe_emit_free_warning (exp);
       break;
+
+    case BUILT_IN_THREAD_POINTER:
+      return expand_builtin_thread_pointer (exp, target);
+
+    case BUILT_IN_SET_THREAD_POINTER:
+      expand_builtin_set_thread_pointer (exp);
+      return const0_rtx;
 
     default:	/* just do library call, if unknown builtin */
       break;
@@ -11160,10 +11214,10 @@ build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
    VEC.  */
 
 tree
-build_call_expr_loc_vec (location_t loc, tree fndecl, VEC(tree,gc) *vec)
+build_call_expr_loc_vec (location_t loc, tree fndecl, vec<tree, va_gc> *vec)
 {
-  return build_call_expr_loc_array (loc, fndecl, VEC_length (tree, vec),
-				    VEC_address (tree, vec));
+  return build_call_expr_loc_array (loc, fndecl, vec_safe_length (vec),
+				    vec_safe_address (vec));
 }
 
 

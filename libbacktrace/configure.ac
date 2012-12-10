@@ -96,12 +96,31 @@ else
 fi
 AC_SUBST(BACKTRACE_FILE)
 
+EXTRA_FLAGS=
+if test -n "${with_target_subdir}"; then
+  EXTRA_FLAGS=-funwind-tables
+else
+  AC_CACHE_CHECK([for -funwind-tables option],
+    [libbacktrace_cv_c_unwind_tables],
+    [CFLAGS_hold="$CFLAGS"
+     CFLAGS="$CFLAGS -funwind-tables"
+     AC_COMPILE_IFELSE(
+       [AC_LANG_PROGRAM([static int f() { return 0; }], [return f();])],
+       [libbacktrace_cv_c_unwind_tables=yes],
+       [libbacktrace_cv_c_unwind_tables=no])
+     CFLAGS="$CFLAGS_hold"])
+   if test "$libbacktrace_cv_c_unwind_tables" = "yes"; then
+     EXTRA_FLAGS=-funwind-tables
+   fi
+fi
+AC_SUBST(EXTRA_FLAGS)
+
 ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings -Wstrict-prototypes \
 			  -Wmissing-prototypes -Wold-style-definition \
 			  -Wmissing-format-attribute -Wcast-qual],
 			  [WARN_FLAGS])
 
-if test "x$GCC" = "xyes"; then
+if test -n "${with_target_subdir}"; then
   WARN_FLAGS="$WARN_FLAGS -Werror"
 fi
 
@@ -110,8 +129,18 @@ AC_SUBST(WARN_FLAGS)
 if test -n "${with_target_subdir}"; then
   GCC_CHECK_UNWIND_GETIPINFO
 else
-  AC_CHECK_FUNC(_Unwind_GetIPInfo, [have_unwind_getipinfo=yes],
-		[have_unwind_getipinfo=no])
+  ac_save_CFFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Werror-implicit-function-declaration"
+  AC_MSG_CHECKING([for _Unwind_GetIPInfo])
+  AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM(
+       [#include "unwind.h"
+	struct _Unwind_Context *context;
+	int ip_before_insn = 0;],
+	[return _Unwind_GetIPInfo (context, &ip_before_insn);])],
+	[have_unwind_getipinfo=yes], [have_unwind_getipinfo=no])
+  CFLAGS="$ac_save_CFLAGS"
+  AC_MSG_RESULT([$have_unwind_getipinfo])
   if test "$have_unwind_getipinfo" = "yes"; then
     AC_DEFINE(HAVE_GETIPINFO, 1, [Define if _Unwind_GetIPInfo is available.])
   fi
@@ -220,6 +249,30 @@ if test "$ALLOC_FILE" = "alloc.lo"; then
 fi
 AC_SUBST(BACKTRACE_USES_MALLOC)
 
+# Check for dl_iterate_phdr.
+AC_CHECK_HEADERS(link.h)
+if test "$ac_cv_header_link_h" = "no"; then
+  have_dl_iterate_phdr=no
+else
+  if test -n "${with_target_subdir}"; then
+    # When built as a GCC target library, we can't do a link test.
+    AC_EGREP_HEADER([dl_iterate_phdr], [link.h], [have_dl_iterate_phdr=yes],
+		    [have_dl_iterate_phdr=no])
+    case "${host}" in
+    *-*-solaris2.10*)
+        # Avoid dl_iterate_phdr on Solaris 10, where it is in the
+    	# header file but is only in -ldl.
+	have_dl_iterate_phdr=no ;;
+    esac
+  else
+    AC_CHECK_FUNC([dl_iterate_phdr], [have_dl_iterate_phdr=yes],
+		  [have_dl_iterate_phdr=no])
+  fi
+fi
+if test "$have_dl_iterate_phdr" = "yes"; then
+  AC_DEFINE(HAVE_DL_ITERATE_PHDR, 1, [Define if dl_iterate_phdr is available.])
+fi
+
 # Check for the fcntl function.
 if test -n "${with_target_subdir}"; then
    case "${host}" in
@@ -235,6 +288,19 @@ if test "$have_fcntl" = "yes"; then
 fi
 
 AC_CHECK_DECLS(strnlen)
+
+# Check for getexecname function.
+if test -n "${with_target_subdir}"; then
+   case "${host}" in
+   *-*-solaris2*) have_getexecname=yes ;;
+   *) have_getexecname=no ;;
+   esac
+else
+  AC_CHECK_FUNC(getexecname, [have_getexecname=yes], [have_getexecname=no])
+fi
+if test "$have_getexecname" = "yes"; then
+  AC_DEFINE(HAVE_GETEXECNAME, 1, [Define if getexecname is available.])
+fi
 
 AC_CACHE_CHECK([whether tests can run],
   [libbacktrace_cv_sys_native],

@@ -37,14 +37,6 @@ extern int base_of_path (const char *path, const char **base_out);
 extern bool fast_math_flags_set_p (const struct gcc_options *);
 extern bool fast_math_flags_struct_set_p (struct cl_optimization *);
 
-/* Used to set the level of -Wstrict-aliasing in OPTS, when no level
-   is specified.  The external way to set the default level is to use
-   -Wstrict-aliasing=level.
-   ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
-   and 0 otherwise.  After calling this function, wstrict_aliasing will be
-   set to the default value of -Wstrict_aliasing=level.  */
-
-extern void set_Wstrict_aliasing (struct gcc_options *opts, int onoff);
 
 /* Now the symbols that are set with `-f' switches.  */
 
@@ -96,9 +88,6 @@ extern struct target_flag_state *this_target_flag_state;
   (this_target_flag_state->x_align_functions_log)
 #define flag_excess_precision \
   (this_target_flag_state->x_flag_excess_precision)
-
-/* Nonzero if we dump in VCG format, not plain text.  */
-extern int dump_for_graph;
 
 /* Returns TRUE if generated code should match ABI version N or
    greater is in use.  */

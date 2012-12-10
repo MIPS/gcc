@@ -167,6 +167,11 @@ begin
    Write_Switch_Char ("Dnn");
    Write_Line ("Debug expanded generated code (max line length = nn)");
 
+   --  Line for -gnateA switch
+
+   Write_Switch_Char ("eA");
+   Write_Line ("Aliasing checks on subprogram parameters");
+
    --  Line for -gnatec switch
 
    Write_Switch_Char ("ec=?");
@@ -226,6 +231,16 @@ begin
 
    Write_Switch_Char ("eS");
    Write_Line ("Generate SCO (Source Coverage Obligation) information");
+
+   --  Line for -gnatet switch
+
+   Write_Switch_Char ("et");
+   Write_Line ("Generate target dependent information in ALI file");
+
+   --  Line for -gnateV switch
+
+   Write_Switch_Char ("eV");
+   Write_Line ("Validity checks on subprogram parameters");
 
    --  Line for -gnatE switch
 
@@ -309,7 +324,16 @@ begin
    --  Line for -gnato switch
 
    Write_Switch_Char ("o");
-   Write_Line ("Enable overflow checking (off by default)");
+   Write_Line ("Enable overflow checking mode to CHECKED (off by default)");
+
+   --  Lines for -gnato? switches
+
+   Write_Switch_Char ("o?");
+   Write_Line
+     ("Enable overflow checks in STRICT/MINIMIZED/ELIMINATED (1/2/3) mode ");
+   Write_Switch_Char ("o??");
+   Write_Line
+     ("Set mode for general/assertion expressions separately");
 
    --  Line for -gnatO switch
 
@@ -348,22 +372,22 @@ begin
    Write_Switch_Char ("R?s");
    Write_Line ("List rep info to file.rep instead of standard output");
 
-   --  Lines for -gnats switch
+   --  Line for -gnats switch
 
    Write_Switch_Char ("s");
    Write_Line ("Syntax check only");
 
-   --  Lines for -gnatS switch
+   --  Line for -gnatS switch
 
    Write_Switch_Char ("S");
    Write_Line ("Print listing of package Standard");
 
-   --  Lines for -gnatt switch
+   --  Line for -gnatt switch
 
    Write_Switch_Char ("t");
    Write_Line ("Tree output file to be generated");
 
-   --  Line for -gnatT switch
+   --  Line for -gnatTnn switch
 
    Write_Switch_Char ("Tnn");
    Write_Line ("All compiler tables start at nn times usual starting size");
@@ -383,7 +407,7 @@ begin
    Write_Switch_Char ("v");
    Write_Line ("Verbose mode. Full error output with source lines to stdout");
 
-   --  Line for -gnatV switch
+   --  Lines for -gnatV switch
 
    Write_Switch_Char ("Vxx");
    Write_Line
@@ -417,6 +441,8 @@ begin
 
    Write_Switch_Char ("wxx");
    Write_Line ("Enable selected warning modes, xx = list of parameters:");
+   Write_Line ("        *    indicates default setting");
+   Write_Line ("        +    indicates warning flag included in -gnatwa");
    Write_Line ("        a    turn on all info/warnings marked below with +");
    Write_Line ("        A    turn off all optional info/warnings");
    Write_Line ("        .a*+ turn on warnings for failing assertion");
@@ -454,6 +480,8 @@ begin
                                                   "(annex J) feature");
    Write_Line ("        k+   turn on warnings on constant variable");
    Write_Line ("        K*   turn off warnings on constant variable");
+   Write_Line ("        .k   turn on warnings for standard redefinition");
+   Write_Line ("        .K*  turn off warnings for standard redefinition");
    Write_Line ("        l    turn on warnings for missing " &
                                                   "elaboration pragma");
    Write_Line ("        L*   turn off warnings for missing " &
@@ -523,8 +551,6 @@ begin
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off warnings for suspicious " &
                                                   "unchecked conversion");
-   Write_Line ("        *    indicates default in above list");
-   Write_Line ("        +    indicates warning flag included in -gnatwa");
 
    --  Line for -gnatW switch
 
