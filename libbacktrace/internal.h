@@ -109,10 +109,16 @@ struct backtrace_state
   struct backtrace_freelist_struct *freelist;
 };
 
-/* Open a file for reading.  Returns -1 on error.  */
+/* Open a file for reading.  Returns -1 on error.  If DOES_NOT_EXIST
+   is not NULL, *DOES_NOT_EXIST will be set to 0 normally and set to 1
+   if the file does not exist.  If the file does not exist and
+   DOES_NOT_EXIST is not NULL, the function will return -1 and will
+   not call ERROR_CALLBACK.  On other errors, or if DOES_NOT_EXIST is
+   NULL, the function will call ERROR_CALLBACK before returning.  */
 extern int backtrace_open (const char *filename,
 			   backtrace_error_callback error_callback,
-			   void *data);
+			   void *data,
+			   int *does_not_exist);
 
 /* A view of the contents of a file.  This supports mmap when
    available.  A view will remain in memory even after backtrace_close
@@ -215,21 +221,22 @@ extern int backtrace_initialize (struct backtrace_state *state,
 				 void *data,
 				 fileline *fileline_fn);
 
-/* Prepare to read file/line information from DWARF debug data.  */
+/* Add file/line information for a DWARF module.  */
 
-extern int backtrace_dwarf_initialize (struct backtrace_state *state,
-				       const unsigned char* dwarf_info,
-				       size_t dwarf_info_size,
-				       const unsigned char *dwarf_line,
-				       size_t dwarf_line_size,
-				       const unsigned char *dwarf_abbrev,
-				       size_t dwarf_abbrev_size,
-				       const unsigned char *dwarf_ranges,
-				       size_t dwarf_range_size,
-				       const unsigned char *dwarf_str,
-				       size_t dwarf_str_size,
-				       int is_bigendian,
-				       backtrace_error_callback error_callback,
-				       void *data, fileline *fileline_fn);
+extern int backtrace_dwarf_add (struct backtrace_state *state,
+				uintptr_t base_address,
+				const unsigned char* dwarf_info,
+				size_t dwarf_info_size,
+				const unsigned char *dwarf_line,
+				size_t dwarf_line_size,
+				const unsigned char *dwarf_abbrev,
+				size_t dwarf_abbrev_size,
+				const unsigned char *dwarf_ranges,
+				size_t dwarf_range_size,
+				const unsigned char *dwarf_str,
+				size_t dwarf_str_size,
+				int is_bigendian,
+				backtrace_error_callback error_callback,
+				void *data, fileline *fileline_fn);
 
 #endif

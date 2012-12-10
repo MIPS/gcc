@@ -252,7 +252,6 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_BACKTRACE	        (leaf_function_p () \
 				         ? TARGET_TPCS_LEAF_FRAME \
 				         : TARGET_TPCS_FRAME)
-#define TARGET_LDRD			(arm_arch5e && ARM_DOUBLEWORD_ALIGN)
 #define TARGET_AAPCS_BASED \
     (arm_abi != ARM_ABI_APCS && arm_abi != ARM_ABI_ATPCS)
 
@@ -268,6 +267,9 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
 /* Thumb-1 only.  */
 #define TARGET_THUMB1_ONLY		(TARGET_THUMB1 && !arm_arch_notm)
+
+#define TARGET_LDRD			(arm_arch5e && ARM_DOUBLEWORD_ALIGN \
+                                         && !TARGET_THUMB1)
 
 /* The following two macros concern the ability to execute coprocessor
    instructions for VFPv3 or NEON.  TARGET_VFP3/TARGET_VFPD32 are currently
@@ -295,6 +297,12 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (TARGET_VFP && arm_fpu_desc->rev >= 4)
+
+/* FPU is ARMv8 compatible.  */
+#define TARGET_FPU_ARMV8 (TARGET_VFP && arm_fpu_desc->rev >= 8)
+
+/* FPU supports Crypto extensions.  */
+#define TARGET_CRYPTO (TARGET_VFP && arm_fpu_desc->crypto)
 
 /* FPU supports Neon instructions.  The setting of this macro gets
    revealed via __ARM_NEON__ so we add extra guards upon TARGET_32BIT
@@ -325,7 +333,7 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_UNIFIED_ASM TARGET_THUMB2
 
 /* Nonzero if this chip provides the DMB instruction.  */
-#define TARGET_HAVE_DMB		(arm_arch7)
+#define TARGET_HAVE_DMB		(arm_arch6m || arm_arch7)
 
 /* Nonzero if this chip implements a memory barrier via CP15.  */
 #define TARGET_HAVE_DMB_MCR	(arm_arch6 && ! TARGET_HAVE_DMB \
@@ -400,6 +408,7 @@ extern const struct arm_fpu_desc
   enum vfp_reg_type regs;
   int neon;
   int fp16;
+  int crypto;
 } *arm_fpu_desc;
 
 /* Which floating point hardware to schedule for.  */
@@ -443,7 +452,8 @@ enum base_architecture
   BASE_ARCH_7A = 7,
   BASE_ARCH_7R = 7,
   BASE_ARCH_7M = 7,
-  BASE_ARCH_7EM = 7
+  BASE_ARCH_7EM = 7,
+  BASE_ARCH_8A = 8
 };
 
 /* The major revision number of the ARM Architecture implemented by the target.  */
@@ -470,6 +480,9 @@ extern int arm_arch6;
 /* Nonzero if this chip supports the ARM Architecture 6k extensions.  */
 extern int arm_arch6k;
 
+/* Nonzero if instructions present in ARMv6-M can be used.  */
+extern int arm_arch6m;
+
 /* Nonzero if this chip supports the ARM Architecture 7 extensions.  */
 extern int arm_arch7;
 
@@ -478,6 +491,9 @@ extern int arm_arch_notm;
 
 /* Nonzero if instructions present in ARMv7E-M can be used.  */
 extern int arm_arch7em;
+
+/* Nonzero if this chip supports the ARM Architecture 8 extensions.  */
+extern int arm_arch8;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;
@@ -1194,8 +1210,15 @@ enum reg_class
 /* In VFPv1, VFP registers could only be accessed in the mode they
    were set, so subregs would be invalid there.  However, we don't
    support VFPv1 at the moment, and the restriction was lifted in
-   VFPv2.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 0
+   VFPv2.
+   In big-endian mode, modes greater than word size (i.e. DFmode) are stored in
+   VFP registers in little-endian order.  We can't describe that accurately to
+   GCC, so avoid taking subregs of such values.  */
+#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
+  (TARGET_VFP && TARGET_BIG_END				\
+   && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD		\
+       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)		\
+   && reg_classes_intersect_p (VFP_REGS, (CLASS)))
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_THUMB1 ? LO_REGS : GENERAL_REGS)
@@ -1707,7 +1730,8 @@ enum arm_auto_incmodes
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 #define TEST_REGNO(R, TEST, VALUE) \
   ((R TEST VALUE) || ((unsigned) reg_renumber[R] TEST VALUE))
 
@@ -1994,9 +2018,15 @@ enum arm_auto_incmodes
    || (X) == arg_pointer_rtx)
 
 /* Try to generate sequences that don't involve branches, we can then use
-   conditional instructions */
+   conditional instructions.  */
 #define BRANCH_COST(speed_p, predictable_p) \
   (current_tune->branch_cost (speed_p, predictable_p))
+
+/* False if short circuit operation is preferred.  */
+#define LOGICAL_OP_NON_SHORT_CIRCUIT				\
+  ((optimize_size)						\
+   ? (TARGET_THUMB ? false : true)				\
+   : (current_tune->logical_op_non_short_circuit[TARGET_ARM]))
 
 
 /* Position Independent Code.  */

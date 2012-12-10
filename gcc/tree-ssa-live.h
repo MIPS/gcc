@@ -24,9 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #define _TREE_SSA_LIVE_H 1
 
 #include "partition.h"
-#include "vecprim.h"
-
-
 
 /* Used to create the variable mapping when we go out of SSA form.
 
@@ -308,7 +305,7 @@ live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
   gcc_checking_assert (&live->livein[p1] && &live->livein[p2]);
   bitmap_ior_into (&live->livein[p1], &live->livein[p2]);
-  bitmap_zero (&live->livein[p2]);
+  bitmap_clear (&live->livein[p2]);
 }
 
 

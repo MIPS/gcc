@@ -621,6 +621,11 @@ clear_unused_block_pointer_1 (tree *tp, int *, void *)
   if (EXPR_P (*tp) && TREE_BLOCK (*tp)
       && !TREE_USED (TREE_BLOCK (*tp)))
     TREE_SET_BLOCK (*tp, NULL);
+  if (TREE_CODE (*tp) == VAR_DECL && DECL_DEBUG_EXPR_IS_FROM (*tp))
+    {
+      tree debug_expr = DECL_DEBUG_EXPR (*tp);
+      walk_tree (&debug_expr, clear_unused_block_pointer_1, NULL, NULL);
+    }
   return NULL_TREE;
 }
 
@@ -854,10 +859,10 @@ remove_unused_locals (void)
   cfun->has_local_explicit_reg_vars = false;
 
   /* Remove unmarked local and global vars from local_decls.  */
-  num = VEC_length (tree, cfun->local_decls);
+  num = vec_safe_length (cfun->local_decls);
   for (srcidx = 0, dstidx = 0; srcidx < num; srcidx++)
     {
-      var = VEC_index (tree, cfun->local_decls, srcidx);
+      var = (*cfun->local_decls)[srcidx];
       if (TREE_CODE (var) == VAR_DECL)
 	{
 	  if (!is_used_p (var))
@@ -881,11 +886,11 @@ remove_unused_locals (void)
 	cfun->has_local_explicit_reg_vars = true;
 
       if (srcidx != dstidx)
-	VEC_replace (tree, cfun->local_decls, dstidx, var);
+	(*cfun->local_decls)[dstidx] = var;
       dstidx++;
     }
   if (dstidx != num)
-    VEC_truncate (tree, cfun->local_decls, dstidx);
+    cfun->local_decls->truncate (dstidx);
 
   remove_unused_scope_block_p (DECL_INITIAL (current_function_decl));
   clear_unused_block_pointer ();
@@ -963,9 +968,9 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited,
   edge_iterator ei;
   basic_block pred_bb;
   bitmap loe;
-  gcc_assert (!TEST_BIT (visited, bb->index));
+  gcc_assert (!bitmap_bit_p (visited, bb->index));
 
-  SET_BIT (visited, bb->index);
+  bitmap_set_bit (visited, bb->index);
   loe = live_on_entry (live, bb);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -983,9 +988,9 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited,
 	 changes, and pred_bb has been visited already, add it to the
 	 revisit stack.  */
       change = bitmap_ior_into (live_on_entry (live, pred_bb), tmp);
-      if (TEST_BIT (visited, pred_bb->index) && change)
+      if (bitmap_bit_p (visited, pred_bb->index) && change)
 	{
-	  RESET_BIT (visited, pred_bb->index);
+	  bitmap_clear_bit (visited, pred_bb->index);
 	  *(live->stack_top)++ = pred_bb->index;
 	}
     }
@@ -1003,7 +1008,7 @@ live_worklist (tree_live_info_p live)
   sbitmap visited = sbitmap_alloc (last_basic_block + 1);
   bitmap tmp = BITMAP_ALLOC (&liveness_bitmap_obstack);
 
-  sbitmap_zero (visited);
+  bitmap_clear (visited);
 
   /* Visit all the blocks in reverse order and propagate live on entry values
      into the predecessors blocks.  */

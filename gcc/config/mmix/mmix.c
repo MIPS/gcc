@@ -392,15 +392,33 @@ mmix_conditional_register_usage (void)
 
 /* INCOMING_REGNO and OUTGOING_REGNO worker function.
    Those two macros must only be applied to function argument
-   registers.  FIXME: for their current use in gcc, it'd be better
-   with an explicit specific additional FUNCTION_INCOMING_ARG_REGNO_P
-   a'la TARGET_FUNCTION_ARG / TARGET_FUNCTION_INCOMING_ARG instead of
+   registers and the function return value register for the opposite
+   use.  FIXME: for their current use in gcc, it'd be better with an
+   explicit specific additional FUNCTION_INCOMING_ARG_REGNO_P a'la
+   TARGET_FUNCTION_ARG / TARGET_FUNCTION_INCOMING_ARG instead of
    forcing the target to commit to a fixed mapping and for any
-   unspecified register use.  */
+   unspecified register use.  Particularly when thinking about the
+   return-value, it is better to imagine INCOMING_REGNO and
+   OUTGOING_REGNO as named CALLEE_TO_CALLER_REGNO and INNER_REGNO as
+   named CALLER_TO_CALLEE_REGNO because the direction.  The "incoming"
+   and "outgoing" is from the perspective of the parameter-registers,
+   but the same macro is (must be, lacking an alternative like
+   suggested above) used to map the return-value-register from the
+   same perspective.  To make directions even more confusing, the macro
+   MMIX_OUTGOING_RETURN_VALUE_REGNUM holds the number of the register
+   in which to return a value, i.e. INCOMING_REGNO for the return-value-
+   register as received from a called function; the return-value on the
+   way out.  */
 
 int
 mmix_opposite_regno (int regno, int incoming)
 {
+  if (incoming && regno == MMIX_OUTGOING_RETURN_VALUE_REGNUM)
+    return MMIX_RETURN_VALUE_REGNUM;
+
+  if (!incoming && regno == MMIX_RETURN_VALUE_REGNUM)
+    return MMIX_OUTGOING_RETURN_VALUE_REGNUM;
+
   if (!mmix_function_arg_regno_p (regno, incoming))
     return regno;
 
@@ -736,7 +754,7 @@ mmix_function_value (const_tree valtype,
 			 gen_rtx_REG (cmode, first_val_regnum + nregs - 1),
 			 const0_rtx);
 
-  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nregs, vec));
+  return gen_rtx_PARALLEL (mode, gen_rtvec_v (nregs, vec));
 }
 
 /* Implements TARGET_LIBCALL_VALUE.  */
@@ -2281,7 +2299,9 @@ mmix_output_register_setting (FILE *stream,
   if (do_begin_end)
     fprintf (stream, "\t");
 
-  if (mmix_shiftable_wyde_value ((unsigned HOST_WIDEST_INT) value))
+  if (insn_const_int_ok_for_constraint (value, CONSTRAINT_K))
+    fprintf (stream, "NEGU %s,0," HOST_WIDEST_INT_PRINT_DEC, reg_names[regno], -value);
+  else if (mmix_shiftable_wyde_value ((unsigned HOST_WIDEST_INT) value))
     {
       /* First, the one-insn cases.  */
       mmix_output_shiftvalue_op_from_str (stream, "SET",
@@ -2499,18 +2519,8 @@ mmix_output_shiftvalue_op_from_str (FILE *stream,
 static void
 mmix_output_octa (FILE *stream, HOST_WIDEST_INT value, int do_begin_end)
 {
-  /* Snipped from final.c:output_addr_const.  We need to avoid the
-     presumed universal "0x" prefix.  We can do it by replacing "0x" with
-     "#0" here; we must avoid a space in the operands and no, the zero
-     won't cause the number to be assumed in octal format.  */
-  char hex_format[sizeof (HOST_WIDEST_INT_PRINT_HEX)];
-
   if (do_begin_end)
     fprintf (stream, "\tOCTA ");
-
-  strcpy (hex_format, HOST_WIDEST_INT_PRINT_HEX);
-  hex_format[0] = '#';
-  hex_format[1] = '0';
 
   /* Provide a few alternative output formats depending on the number, to
      improve legibility of assembler output.  */
@@ -2520,8 +2530,13 @@ mmix_output_octa (FILE *stream, HOST_WIDEST_INT value, int do_begin_end)
   else if (value > (HOST_WIDEST_INT) 0
 	   && value < ((HOST_WIDEST_INT) 1 << 31) * 2)
     fprintf (stream, "#%x", (unsigned int) value);
-  else
-    fprintf (stream, hex_format, value);
+  else if (sizeof (HOST_WIDE_INT) == sizeof (HOST_WIDEST_INT))
+    /* We need to avoid the not-so-universal "0x" prefix; we need the
+       pure hex-digits together with the mmixal "#" hex prefix.  */
+    fprintf (stream, "#" HOST_WIDE_INT_PRINT_HEX_PURE,
+	     (HOST_WIDE_INT) value);
+  else /* Need to avoid the hex output; there's no ...WIDEST...HEX_PURE.  */
+    fprintf (stream, HOST_WIDEST_INT_PRINT_UNSIGNED, value);
 
   if (do_begin_end)
     fprintf (stream, "\n");

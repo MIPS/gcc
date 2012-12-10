@@ -44,7 +44,7 @@ enum symbol_class
    SYMBOL_DUPLICATE
 };
 
-VEC(ltrans_partition, heap) *ltrans_partitions;
+vec<ltrans_partition> ltrans_partitions;
 
 static void add_symbol_to_partition (ltrans_partition part, symtab_node node);
 
@@ -55,22 +55,22 @@ get_symbol_class (symtab_node node)
 {
   /* Inline clones are always duplicated.
      This include external delcarations.   */
-  if (symtab_function_p (node)
-      && cgraph (node)->global.inlined_to)
+  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
+  if (cnode && cnode->global.inlined_to)
     return SYMBOL_DUPLICATE;
 
   /* External declarations are external.  */
   if (DECL_EXTERNAL (node->symbol.decl))
     return SYMBOL_EXTERNAL;
 
-  if (symtab_variable_p (node))
+  if (varpool_node *vnode = dyn_cast <varpool_node> (node))
     {
       /* Constant pool references use local symbol names that can not
          be promoted global.  We should never put into a constant pool
          objects that can not be duplicated across partitions.  */
       if (DECL_IN_CONSTANT_POOL (node->symbol.decl))
 	return SYMBOL_DUPLICATE;
-      gcc_checking_assert (varpool (node)->analyzed);
+      gcc_checking_assert (vnode->analyzed);
     }
   /* Functions that are cloned may stay in callgraph even if they are unused.
      Handle them as external; compute_ltrans_boundary take care to make
@@ -99,10 +99,10 @@ static ltrans_partition
 new_partition (const char *name)
 {
   ltrans_partition part = XCNEW (struct ltrans_partition_def);
-  part->encoder = lto_symtab_encoder_new ();
+  part->encoder = lto_symtab_encoder_new (false);
   part->name = name;
   part->insns = 0;
-  VEC_safe_push (ltrans_partition, heap, ltrans_partitions, part);
+  ltrans_partitions.safe_push (part);
   return part;
 }
 
@@ -113,14 +113,14 @@ free_ltrans_partitions (void)
 {
   unsigned int idx;
   ltrans_partition part;
-  for (idx = 0; VEC_iterate (ltrans_partition, ltrans_partitions, idx, part); idx++)
+  for (idx = 0; ltrans_partitions.iterate (idx, &part); idx++)
     {
       if (part->initializers_visited)
 	pointer_set_destroy (part->initializers_visited);
       /* Symtab encoder is freed after streaming.  */
       free (part);
     }
-  VEC_free (ltrans_partition, heap, ltrans_partitions);
+  ltrans_partitions.release ();
 }
 
 /* Return true if symbol is already in some partition.  */
@@ -145,7 +145,7 @@ add_references_to_partition (ltrans_partition part, symtab_node node)
     /* References to a readonly variable may be constant foled into its value.
        Recursively look into the initializers of the constant variable and add
        references, too.  */
-    else if (symtab_variable_p (ref->referred)
+    else if (is_a <varpool_node> (ref->referred)
 	     && const_value_known_p (ref->referred->symbol.decl)
 	     && !lto_symtab_encoder_in_partition_p (part->encoder, ref->referred))
       {
@@ -196,9 +196,8 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node node)
     }
   node->symbol.aux = (void *)((size_t)node->symbol.aux + 1);
 
-  if (symtab_function_p (node))
+  if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
     {
-      struct cgraph_node *cnode = cgraph (node);
       struct cgraph_edge *e;
       part->insns += inline_summary (cnode)->self_size;
 
@@ -247,15 +246,15 @@ contained_in_symbol (symtab_node node)
   if (lookup_attribute ("weakref",
 			DECL_ATTRIBUTES (node->symbol.decl)))
     return node;
-  if (symtab_function_p (node))
+  if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
     {
-      struct cgraph_node *cnode = cgraph_function_node (cgraph (node), NULL);
+      cnode = cgraph_function_node (cnode, NULL);
       if (cnode->global.inlined_to)
 	cnode = cnode->global.inlined_to;
       return (symtab_node) cnode;
     }
-  else if (symtab_variable_p (node))
-    return (symtab_node) varpool_variable_node (varpool (node), NULL);
+  else if (varpool_node *vnode = dyn_cast <varpool_node> (node))
+    return (symtab_node) varpool_variable_node (vnode, NULL);
   return node;
 }
 
@@ -302,8 +301,8 @@ undo_partition (ltrans_partition partition, unsigned int n_nodes)
 	pointer_set_destroy (partition->initializers_visited);
       partition->initializers_visited = NULL;
 
-      if (symtab_function_p (node))
-        partition->insns -= inline_summary (cgraph (node))->self_size;
+      if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
+        partition->insns -= inline_summary (cnode)->self_size;
       lto_symtab_encoder_delete_node (partition->encoder, node);
       node->symbol.aux = (void *)((size_t)node->symbol.aux - 1);
     }
@@ -345,9 +344,8 @@ lto_1_to_1_map (void)
 	      npartitions++;
 	    }
 	}
-      else if (!file_data
-	       && VEC_length (ltrans_partition, ltrans_partitions))
-	partition = VEC_index (ltrans_partition, ltrans_partitions, 0);
+      else if (!file_data && ltrans_partitions.length ())
+	partition = ltrans_partitions[0];
       else
 	{
 	  partition = new_partition ("");
@@ -555,11 +553,10 @@ lto_balanced_map (void)
 	  symtab_node snode = lto_symtab_encoder_deref (partition->encoder,
 							last_visited_node);
 
-	  if (symtab_function_p (snode))
+	  if (cgraph_node *node = dyn_cast <cgraph_node> (snode))
 	    {
 	      struct cgraph_edge *edge;
 
-	      node = cgraph (snode);
 	      refs = &node->symbol.ref_list;
 
 	      last_visited_node++;
@@ -611,7 +608,7 @@ lto_balanced_map (void)
 	  /* Compute boundary cost of IPA REF edges and at the same time look into
 	     variables referenced from current partition and try to add them.  */
 	  for (j = 0; ipa_ref_list_reference_iterate (refs, j, ref); j++)
-	    if (symtab_variable_p (ref->referred))
+	    if (is_a <varpool_node> (ref->referred))
 	      {
 		int index;
 
@@ -645,7 +642,7 @@ lto_balanced_map (void)
 		  cost++;
 	      }
 	  for (j = 0; ipa_ref_list_referring_iterate (refs, j, ref); j++)
-	    if (symtab_variable_p (ref->referring))
+	    if (is_a <varpool_node> (ref->referring))
 	      {
 		int index;
 
@@ -792,11 +789,11 @@ lto_promote_cross_file_statics (void)
   gcc_assert (flag_wpa);
 
   /* First compute boundaries.  */
-  n_sets = VEC_length (ltrans_partition, ltrans_partitions);
+  n_sets = ltrans_partitions.length ();
   for (i = 0; i < n_sets; i++)
     {
       ltrans_partition part
-	= VEC_index (ltrans_partition, ltrans_partitions, i);
+	= ltrans_partitions[i];
       part->encoder = compute_ltrans_boundary (part->encoder);
     }
 
@@ -806,7 +803,7 @@ lto_promote_cross_file_statics (void)
       lto_symtab_encoder_iterator lsei;
       lto_symtab_encoder_t encoder;
       ltrans_partition part
-	= VEC_index (ltrans_partition, ltrans_partitions, i);
+	= ltrans_partitions[i];
 
       encoder = part->encoder;
       for (lsei = lsei_start (encoder); !lsei_end_p (lsei);

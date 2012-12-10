@@ -1347,12 +1347,13 @@ package VMS_Data is
    --                      if the /CHECKS qualifier is not present on the
    --                      command line. Same as /NOCHECKS.
    --
-   --     OVERFLOW        Enables overflow checking for integer operations and
-   --                     checks for access before elaboration on subprogram
-   --                     calls. This causes GNAT to generate slower and larger
-   --                     executable programs by adding code to check for both
-   --                     overflow and division by zero (resulting in raising
-   --                     "Constraint_Error" as required by Ada semantics).
+   --     OVERFLOW        Enables overflow checking in CHECKED mode for integer
+   --                     operations and checks for access before elaboration
+   --                     on subprogram calls. This causes GNAT to generate
+   --                     slower and larger executable programs by adding code
+   --                     to check for both overflow and division by zero
+   --                     (resulting in raising "Constraint_Error" as required
+   --                     by Ada semantics).
    --                     Similarly, GNAT does not generate elaboration check
    --                     by default, and you must specify this keyword to
    --                     enable them.
@@ -2107,6 +2108,23 @@ package VMS_Data is
    --   fname where the period is replace by an underline. For example, if
    --   file xyz.adb is compiled with -gnatl=.lst, then the output is written
    --   to file xyz.adb_lst.
+
+   S_GCC_Overflo : aliased constant S := "/OVERFLOW_CHECKS=#"              &
+                                             "-gnato#";
+   --        /OVERFLOW_CHECKS=nn
+   --
+   --   Set default overflow cheecking mode. If nn is a single digit, in the
+   --   range 0-3, it sets the overflow checking mode for all expressions,
+   --   including those outside and within assertions. The meaning of nnn is:
+   --
+   --     1   all intermediate computations done using base type (STRICT)
+   --     2   minimize intermediate overflows (MINIMIZED)
+   --     3   eliminate intermediate overflows (ELIMINATED)
+   --
+   --   Otherwise nn can be two digits, both 1-3, and in this case the first
+   --   digit sets the mode (using the above code) for expressions outside an
+   --   assertion, and the second digit sets the mode for expressions within
+   --   an assertion.
 
    S_GCC_Pointer : aliased constant S := "/POINTER_SIZE="                  &
                                             "64 "                          &
@@ -3051,6 +3069,10 @@ package VMS_Data is
                                                "-gnatwk "                  &
                                             "NOCONSTANT_VARIABLES "        &
                                                "-gnatwK "                  &
+                                            "STANDARD_REDEFINITION "       &
+                                               "-gnatw.k "                 &
+                                            "NOSTANDARD_REDEFINITION "     &
+                                               "-gnatw.K "                 &
                                             "ELABORATION "                 &
                                                "-gnatwl "                  &
                                             "NOELABORATION "               &
@@ -3622,6 +3644,7 @@ package VMS_Data is
                      S_GCC_NoWarnP 'Access,
                      S_GCC_Opt     'Access,
                      S_GCC_OptX    'Access,
+                     S_GCC_Overflo 'Access,
                      S_GCC_Pointer 'Access,
                      S_GCC_Polling 'Access,
                      S_GCC_Project 'Access,
@@ -6320,6 +6343,30 @@ package VMS_Data is
    --
    --   Replace all tabulations in comments with spaces.
 
+   S_Pretty_Numbers     : aliased constant S := "/NUMBER_CASING="          &
+                                              "AS_DECLARED "               &
+                                                 "-ntD "                   &
+                                              "LOWER_CASE "                &
+                                                 "-ntL "                   &
+                                              "UPPER_CASE "                &
+                                                 "-ntU "                   &
+                                              "MIXED_CASE "                &
+                                                 "-ntM";
+   --        /NUMBER_CASING=name-option
+   --
+   --   Specify the casing of named number names. If not specified, the casing
+   --   of these names is defined by the NAME_CASING option. 'name-option'
+   --   is one of:
+   --
+   --      AS_DECLARED       Names are cased as they appear in the declaration
+   --                        in the source file.
+   --
+   --      LOWER_CASE        Names are in lower case.
+   --
+   --      UPPER_CASE        Names are in upper case.
+   --
+   --      MIXED_CASE        Names are in mixed case.
+
    S_Pretty_Output    : aliased constant S := "/OUTPUT=@"                  &
                                               "-o@";
    --        /OUTPUT=file
@@ -6475,6 +6522,7 @@ package VMS_Data is
                         S_Pretty_Names            'Access,
                         S_Pretty_No_Labels        'Access,
                         S_Pretty_Notabs           'Access,
+                        S_Pretty_Numbers          'Access,
                         S_Pretty_Output           'Access,
                         S_Pretty_Override         'Access,
                         S_Pretty_Pragma           'Access,

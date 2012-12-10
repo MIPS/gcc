@@ -2810,15 +2810,13 @@ registers of @var{rclass} are needed for spill registers.
 
 The default version of this target hook returns @code{true} if @var{rclass}
 has exactly one register and @code{false} otherwise.  On most machines, this
-default should be used.  Only use this target hook to some other expression
-if pseudos allocated by @file{local-alloc.c} end up in memory because their
-hard registers were needed for spill registers.  If this target hook returns
-@code{false} for those classes, those pseudos will only be allocated by
-@file{global.c}, which knows how to reallocate the pseudo to another
-register.  If there would not be another register available for reallocation,
-you should not change the implementation of this target hook since
-the only effect of such implementation would be to slow down register
-allocation.
+default should be used.  For generally register-starved machines, such as
+i386, or machines with right register constraints, such as SH, this hook
+can be used to avoid excessive spilling.
+
+This hook is also used by some of the global intra-procedural code
+transformations to throtle code motion, to avoid increasing register
+pressure.
 @end deftypefn
 
 @hook TARGET_CLASS_MAX_NREGS
@@ -2868,6 +2866,14 @@ as below:
    ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
 @end smallexample
 @end defmac
+
+@hook TARGET_LRA_P
+
+@hook TARGET_REGISTER_PRIORITY
+
+@hook TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+
+@hook TARGET_SPILL_CLASS
 
 @node Old Constraints
 @section Obsolete Macros for Defining Constraints
@@ -4770,41 +4776,6 @@ used by the exception handling mechanism, and so should be considered live
 on entry to an exception edge.
 @end defmac
 
-@defmac DELAY_SLOTS_FOR_EPILOGUE
-Define this macro if the function epilogue contains delay slots to which
-instructions from the rest of the function can be ``moved''.  The
-definition should be a C expression whose value is an integer
-representing the number of delay slots there.
-@end defmac
-
-@defmac ELIGIBLE_FOR_EPILOGUE_DELAY (@var{insn}, @var{n})
-A C expression that returns 1 if @var{insn} can be placed in delay
-slot number @var{n} of the epilogue.
-
-The argument @var{n} is an integer which identifies the delay slot now
-being considered (since different slots may have different rules of
-eligibility).  It is never negative and is always less than the number
-of epilogue delay slots (what @code{DELAY_SLOTS_FOR_EPILOGUE} returns).
-If you reject a particular insn for a given delay slot, in principle, it
-may be reconsidered for a subsequent delay slot.  Also, other insns may
-(at least in principle) be considered for the so far unfilled delay
-slot.
-
-@findex epilogue_delay_list
-@findex crtl->epilogue_delay_list
-@findex final_scan_insn
-The insns accepted to fill the epilogue delay slots are put in an RTL
-list made with @code{insn_list} objects, stored in
-@code{crtl->epilogue_delay_list}.  The insn for the first
-delay slot comes first in the list.  Your definition of the macro
-@code{TARGET_ASM_FUNCTION_EPILOGUE} should fill the delay slots by
-outputting the insns in this list, usually by calling
-@code{final_scan_insn}.
-
-You need not define this macro if you did not define
-@code{DELAY_SLOTS_FOR_EPILOGUE}.
-@end defmac
-
 @hook TARGET_ASM_OUTPUT_MI_THUNK
 A function that outputs the assembler code for a thunk
 function, used to implement C++ virtual function calls with multiple
@@ -5595,6 +5566,13 @@ be placed in an @code{object_block} structure.  @var{mode} is the mode
 of @var{x}.
 
 The default version returns false for all constants.
+@end deftypefn
+
+@hook TARGET_USE_BLOCKS_FOR_DECL_P
+This hook should return true if pool entries for @var{decl} should
+be placed in an @code{object_block} structure.
+
+The default version returns true for all decls.
 @end deftypefn
 
 @hook TARGET_BUILTIN_RECIPROCAL
@@ -9782,6 +9760,14 @@ changed via the optimize attribute or pragma, see
 @code{TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE}
 @end deftypefn
 
+@hook TARGET_OPTION_FUNCTION_VERSIONS
+This target hook returns @code{true} if @var{DECL1} and @var{DECL2} are
+versions of the same function.  @var{DECL1} and @var{DECL2} are function
+versions if and only if they have the same function signature and
+different target specific attributes, that is, they are compiled for
+different target machines.
+@end deftypefn
+
 @hook TARGET_CAN_INLINE_P
 This target hook returns @code{false} if the @var{caller} function
 cannot inline @var{callee}, based on target specific information.  By
@@ -10505,6 +10491,8 @@ convention when processing system header files, but when processing user
 files @code{__STDC__} will always expand to 1.
 @end defmac
 
+@hook TARGET_C_PREINCLUDE
+
 @defmac NO_IMPLICIT_EXTERN_C
 Define this macro if the system header files support C++ as well as C@.
 This macro inhibits the usual method of using system header files in
@@ -10786,6 +10774,29 @@ built-in function.  @var{n_args} is the number of arguments passed to
 the function; the arguments themselves are pointed to by @var{argp}.
 The result is another tree containing a simplified expression for the
 call's result.  If @var{ignore} is true the value will be ignored.
+@end deftypefn
+
+@hook TARGET_COMPARE_VERSION_PRIORITY
+This hook is used to compare the target attributes in two functions to
+determine which function's features get higher priority.  This is used
+during function multi-versioning to figure out the order in which two
+versions must be dispatched.  A function version with a higher priority
+is checked for dispatching earlier.  @var{decl1} and @var{decl2} are
+ the two function decls that will be compared.
+@end deftypefn
+
+@hook TARGET_GET_FUNCTION_VERSIONS_DISPATCHER
+This hook is used to get the dispatcher function for a set of function
+versions.  The dispatcher function is called to invoke the right function
+version at run-time. @var{decl} is one version from a set of semantically
+identical versions.
+@end deftypefn
+
+@hook TARGET_GENERATE_VERSION_DISPATCHER_BODY
+This hook is used to generate the dispatcher logic to invoke the right
+function version at run-time for a given set of function versions.
+@var{arg} points to the callgraph node of the dispatcher function whose
+body must be generated.
 @end deftypefn
 
 @hook TARGET_INVALID_WITHIN_DOLOOP
@@ -11155,7 +11166,10 @@ accepted by immediate-add plus one.  We currently assume that the
 value of @code{TARGET_CONST_ANCHOR} is a power of 2.  For example, on
 MIPS, where add-immediate takes a 16-bit signed value,
 @code{TARGET_CONST_ANCHOR} is set to @samp{0x8000}.  The default value
-is zero, which disables this optimization.  @end deftypevr
+is zero, which disables this optimization.
+@end deftypevr
+
+@hook TARGET_ASAN_SHADOW_OFFSET
 
 @hook TARGET_MEMMODEL_CHECK
 Validate target specific memory model mask bits. When NULL no target specific

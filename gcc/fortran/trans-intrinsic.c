@@ -724,7 +724,7 @@ static tree
 gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
 {
   tree type;
-  VEC(tree,gc) *argtypes;
+  vec<tree, va_gc> *argtypes;
   tree fndecl;
   gfc_actual_arglist *actual;
   tree *pdecl;
@@ -809,7 +809,7 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   for (actual = expr->value.function.actual; actual; actual = actual->next)
     {
       type = gfc_typenode_for_spec (&actual->expr->ts);
-      VEC_safe_push (tree, gc, argtypes, type);
+      vec_safe_push (argtypes, type);
     }
   type = build_function_type_vec (gfc_typenode_for_spec (ts), argtypes);
   fndecl = build_decl (input_location,
@@ -2341,7 +2341,7 @@ static void
 gfc_conv_intrinsic_funcall (gfc_se * se, gfc_expr * expr)
 {
   gfc_symbol *sym;
-  VEC(tree,gc) *append_args;
+  vec<tree, va_gc> *append_args;
 
   gcc_assert (!se->ss || se->ss->info->expr == expr);
 
@@ -2381,19 +2381,19 @@ gfc_conv_intrinsic_funcall (gfc_se * se, gfc_expr * expr)
 		gemm_fndecl = gfor_fndecl_zgemm;
 	    }
 
-	  append_args = VEC_alloc (tree, gc, 3);
-	  VEC_quick_push (tree, append_args, build_int_cst (cint, 1));
-	  VEC_quick_push (tree, append_args,
-			  build_int_cst (cint, gfc_option.blas_matmul_limit));
-	  VEC_quick_push (tree, append_args,
-			  gfc_build_addr_expr (NULL_TREE, gemm_fndecl));
+	  vec_alloc (append_args, 3);
+	  append_args->quick_push (build_int_cst (cint, 1));
+	  append_args->quick_push (build_int_cst (cint,
+		                                 gfc_option.blas_matmul_limit));
+	  append_args->quick_push (gfc_build_addr_expr (NULL_TREE,
+							gemm_fndecl));
 	}
       else
 	{
-	  append_args = VEC_alloc (tree, gc, 3);
-	  VEC_quick_push (tree, append_args, build_int_cst (cint, 0));
-	  VEC_quick_push (tree, append_args, build_int_cst (cint, 0));
-	  VEC_quick_push (tree, append_args, null_pointer_node);
+	  vec_alloc (append_args, 3);
+	  append_args->quick_push (build_int_cst (cint, 0));
+	  append_args->quick_push (build_int_cst (cint, 0));
+	  append_args->quick_push (null_pointer_node);
 	}
     }
 
@@ -4486,7 +4486,7 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
   unsigned cur_pos;
   gfc_actual_arglist* arg;
   gfc_symbol* sym;
-  VEC(tree,gc) *append_args;
+  vec<tree, va_gc> *append_args;
 
   /* Find the two arguments given as position.  */
   cur_pos = 0;
@@ -4516,8 +4516,8 @@ conv_generic_with_optional_char_arg (gfc_se* se, gfc_expr* expr,
       tree dummy;
 
       dummy = build_int_cst (gfc_charlen_type_node, 0);
-      append_args = VEC_alloc (tree, gc, 1);
-      VEC_quick_push (tree, append_args, dummy);
+      vec_alloc (append_args, 1);
+      append_args->quick_push (dummy);
     }
 
   /* Build the call itself.  */
@@ -5348,6 +5348,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   stmtblock_t block;
   int n;
   bool scalar_mold;
+  gfc_expr *source_expr, *mold_expr;
 
   info = NULL;
   if (se->loop)
@@ -5357,6 +5358,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 	source_bytes = length of the source in bytes
 	source = pointer to the source data.  */
   arg = expr->value.function.actual;
+  source_expr = arg->expr;
 
   /* Ensure double transfer through LOGICAL preserves all
      the needed bits.  */
@@ -5376,18 +5378,28 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   if (arg->expr->rank == 0)
     {
       gfc_conv_expr_reference (&argse, arg->expr);
-      source = argse.expr;
-
-      source_type = TREE_TYPE (build_fold_indirect_ref_loc (input_location,
-							argse.expr));
+      if (arg->expr->ts.type == BT_CLASS)
+	source = gfc_class_data_get (argse.expr);
+      else
+	source = argse.expr;
 
       /* Obtain the source word length.  */
-      if (arg->expr->ts.type == BT_CHARACTER)
-	tmp = size_of_string_in_bytes (arg->expr->ts.kind,
-				       argse.string_length);
-      else
-	tmp = fold_convert (gfc_array_index_type,
-			    size_in_bytes (source_type)); 
+      switch (arg->expr->ts.type)
+	{
+	case BT_CHARACTER:
+	  tmp = size_of_string_in_bytes (arg->expr->ts.kind,
+					 argse.string_length);
+	  break;
+	case BT_CLASS:
+	  tmp = gfc_vtable_size_get (argse.expr);
+	  break;
+	default:
+	  source_type = TREE_TYPE (build_fold_indirect_ref_loc (input_location,
+								source));
+	  tmp = fold_convert (gfc_array_index_type,
+			      size_in_bytes (source_type));
+	  break;
+	}
     }
   else
     {
@@ -5464,6 +5476,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 	mold_type = the TREE type of MOLD
 	dest_word_len = destination word length in bytes.  */
   arg = arg->next;
+  mold_expr = arg->expr;
 
   gfc_init_se (&argse, NULL);
 
@@ -5473,7 +5486,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
     {
       gfc_conv_expr_reference (&argse, arg->expr);
       mold_type = TREE_TYPE (build_fold_indirect_ref_loc (input_location,
-						      argse.expr));
+							  argse.expr));
     }
   else
     {
@@ -5494,15 +5507,20 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 	mold_type = gfc_get_int_type (arg->expr->ts.kind);
     }
 
-  if (arg->expr->ts.type == BT_CHARACTER)
+  /* Obtain the destination word length.  */
+  switch (arg->expr->ts.type)
     {
+    case BT_CHARACTER:
       tmp = size_of_string_in_bytes (arg->expr->ts.kind, argse.string_length);
       mold_type = gfc_get_character_type_len (arg->expr->ts.kind, tmp);
+      break;
+    case BT_CLASS:
+      tmp = gfc_vtable_size_get (argse.expr);
+      break;
+    default:
+      tmp = fold_convert (gfc_array_index_type, size_in_bytes (mold_type));
+      break;
     }
-  else
-    tmp = fold_convert (gfc_array_index_type,
-			size_in_bytes (mold_type)); 
- 
   dest_word_len = gfc_create_var (gfc_array_index_type, NULL);
   gfc_add_modify (&se->pre, dest_word_len, tmp);
 
@@ -5582,14 +5600,16 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   tmp = fold_convert (pvoid_type_node, tmp);
 
   /* Use memcpy to do the transfer.  */
-  tmp = build_call_expr_loc (input_location,
-			 builtin_decl_explicit (BUILT_IN_MEMCPY),
-			 3,
-			 tmp,
-			 fold_convert (pvoid_type_node, source),
-			 fold_build2_loc (input_location, MIN_EXPR,
-					  gfc_array_index_type,
-					  size_bytes, source_bytes));
+  tmp
+    = build_call_expr_loc (input_location,
+			   builtin_decl_explicit (BUILT_IN_MEMCPY), 3, tmp,
+			   fold_convert (pvoid_type_node, source),
+			   fold_convert (size_type_node,
+					 fold_build2_loc (input_location,
+							  MIN_EXPR,
+							  gfc_array_index_type,
+							  size_bytes,
+							  source_bytes)));
   gfc_add_expr_to_block (&se->pre, tmp);
 
   se->expr = info->descriptor;
@@ -5631,7 +5651,7 @@ scalar_transfer:
 			     builtin_decl_explicit (BUILT_IN_MEMCPY), 3,
 			     fold_convert (pvoid_type_node, tmpdecl),
 			     fold_convert (pvoid_type_node, ptr),
-			     extent);
+			     fold_convert (size_type_node, extent));
       gfc_add_expr_to_block (&block, tmp);
       indirect = gfc_finish_block (&block);
 
@@ -5650,14 +5670,39 @@ scalar_transfer:
 
       ptr = convert (build_pointer_type (mold_type), source);
 
+      /* For CLASS results, allocate the needed memory first.  */
+      if (mold_expr->ts.type == BT_CLASS)
+	{
+	  tree cdata;
+	  cdata = gfc_class_data_get (tmpdecl);
+	  tmp = gfc_call_malloc (&se->pre, TREE_TYPE (cdata), dest_word_len);
+	  gfc_add_modify (&se->pre, cdata, tmp);
+	}
+
       /* Use memcpy to do the transfer.  */
-      tmp = gfc_build_addr_expr (NULL_TREE, tmpdecl);
+      if (mold_expr->ts.type == BT_CLASS)
+	tmp = gfc_class_data_get (tmpdecl);
+      else
+	tmp = gfc_build_addr_expr (NULL_TREE, tmpdecl);
+
       tmp = build_call_expr_loc (input_location,
 			     builtin_decl_explicit (BUILT_IN_MEMCPY), 3,
 			     fold_convert (pvoid_type_node, tmp),
 			     fold_convert (pvoid_type_node, ptr),
-			     extent);
+			     fold_convert (size_type_node, extent));
       gfc_add_expr_to_block (&se->pre, tmp);
+
+      /* For CLASS results, set the _vptr.  */
+      if (mold_expr->ts.type == BT_CLASS)
+	{
+	  tree vptr;
+	  gfc_symbol *vtab;
+	  vptr = gfc_class_vptr_get (tmpdecl);
+	  vtab = gfc_find_derived_vtab (source_expr->ts.u.derived);
+	  gcc_assert (vtab);
+	  tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
+	  gfc_add_modify (&se->pre, vptr, fold_convert (TREE_TYPE (vptr), tmp));
+	}
 
       se->expr = tmpdecl;
     }
@@ -5732,8 +5777,6 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
   gfc_init_se (&arg1se, NULL);
   gfc_init_se (&arg2se, NULL);
   arg1 = expr->value.function.actual;
-  if (arg1->expr->ts.type == BT_CLASS)
-    gfc_add_data_component (arg1->expr);
   arg2 = arg1->next;
 
   /* Check whether the expression is a scalar or not; we cannot use
@@ -5755,7 +5798,10 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 	      && arg1->expr->symtree->n.sym->attr.dummy)
 	    arg1se.expr = build_fold_indirect_ref_loc (input_location,
 						       arg1se.expr);
-	  tmp2 = arg1se.expr;
+	  if (arg1->expr->ts.type == BT_CLASS)
+	      tmp2 = gfc_class_data_get (arg1se.expr);
+	  else
+	    tmp2 = arg1se.expr;
         }
       else
         {
@@ -5790,6 +5836,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 	      && arg1->expr->symtree->n.sym->attr.dummy)
 	    arg1se.expr = build_fold_indirect_ref_loc (input_location,
 						       arg1se.expr);
+	  if (arg1->expr->ts.type == BT_CLASS)
+	    arg1se.expr = gfc_class_data_get (arg1se.expr);
 
 	  arg2se.want_pointer = 1;
 	  gfc_conv_expr (&arg2se, arg2->expr);
@@ -5940,7 +5988,7 @@ gfc_conv_intrinsic_sr_kind (gfc_se *se, gfc_expr *expr)
   gfc_actual_arglist *actual;
   tree type;
   gfc_se argse;
-  VEC(tree,gc) *args = NULL;
+  vec<tree, va_gc> *args = NULL;
 
   for (actual = expr->value.function.actual; actual; actual = actual->next)
     {
@@ -5966,7 +6014,7 @@ gfc_conv_intrinsic_sr_kind (gfc_se *se, gfc_expr *expr)
 
       gfc_add_block_to_block (&se->pre, &argse.pre);
       gfc_add_block_to_block (&se->post, &argse.post);
-      VEC_safe_push (tree, gc, args, argse.expr);
+      vec_safe_push (args, argse.expr);
     }
 
   /* Convert it to the required type.  */
@@ -7273,7 +7321,7 @@ conv_intrinsic_move_alloc (gfc_code *code)
 
       /* Deallocate "to".  */
       tmp = gfc_deallocate_scalar_with_status (to_se.expr, NULL_TREE, true,
-					       to_expr2, to_expr->ts);
+					       to_expr, to_expr->ts);
       gfc_add_expr_to_block (&block, tmp);
 
       /* Assign (_data) pointers.  */

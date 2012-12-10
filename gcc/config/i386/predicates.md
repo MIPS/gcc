@@ -568,10 +568,14 @@
   return op == CONST0_RTX (mode);
 })
 
-;; Match exactly one.
+;; Match one or vector filled with ones.
 (define_predicate "const1_operand"
-  (and (match_code "const_int")
-       (match_test "op == const1_rtx")))
+  (match_code "const_int,const_double,const_vector")
+{
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  return op == CONST1_RTX (mode);
+})
 
 ;; Match exactly eight.
 (define_predicate "const8_operand"
@@ -813,6 +817,10 @@
   return parts.seg == SEG_DEFAULT;
 })
 
+;; Return true for RTX codes that force SImode address.
+(define_predicate "SImode_address_operand"
+  (match_code "subreg,zero_extend,and"))
+
 ;; Return true if op if a valid base register, displacement or
 ;; sum of base register and displacement for VSIB addressing.
 (define_predicate "vsib_address_operand"
@@ -982,7 +990,7 @@
 ;; by the modRM array.
 (define_predicate "long_memory_operand"
   (and (match_operand 0 "memory_operand")
-       (match_test "memory_address_length (op)")))
+       (match_test "memory_address_length (op, false)")))
 
 ;; Return true if OP is a comparison operator that can be issued by fcmov.
 (define_predicate "fcmov_comparison_operator"
@@ -1102,7 +1110,7 @@
                (match_operand 0 "comparison_operator")
                (match_operand 0 "ix86_trivial_fp_comparison_operator")))
 
-;; Same as above, but for swapped comparison used in fp_jcc_4_387.
+;; Same as above, but for swapped comparison used in *jcc<fp>_<int>_i387.
 (define_predicate "ix86_swapped_fp_comparison_operator"
   (match_operand 0 "comparison_operator")
 {
@@ -1220,6 +1228,11 @@
     }
   return true;
 })
+
+;; return true if OP is a vzeroupper operation.
+(define_predicate "vzeroupper_operation"
+  (and (match_code "unspec_volatile")
+       (match_test "XINT (op, 1) == UNSPECV_VZEROUPPER")))
 
 ;; Return true if OP is a parallel for a vbroadcast permute.
 

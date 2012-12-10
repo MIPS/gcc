@@ -89,6 +89,12 @@
 #define ASM_CPU_POWER7_SPEC "-mpower4 -maltivec"
 #endif
 
+#ifdef HAVE_AS_POWER8
+#define ASM_CPU_POWER8_SPEC "-mpower8"
+#else
+#define ASM_CPU_POWER8_SPEC "-mpower4 -maltivec"
+#endif
+
 #ifdef HAVE_AS_DCI
 #define ASM_CPU_476_SPEC "-m476"
 #else
@@ -112,6 +118,7 @@
 %{mcpu=power6: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power6x: %(asm_cpu_power6) -maltivec} \
 %{mcpu=power7: %(asm_cpu_power7)} \
+%{mcpu=power8: %(asm_cpu_power8)} \
 %{mcpu=a2: -ma2} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rs64a: -mppc64} \
@@ -184,6 +191,7 @@
   { "asm_cpu_power5",		ASM_CPU_POWER5_SPEC },			\
   { "asm_cpu_power6",		ASM_CPU_POWER6_SPEC },			\
   { "asm_cpu_power7",		ASM_CPU_POWER7_SPEC },			\
+  { "asm_cpu_power8",		ASM_CPU_POWER8_SPEC },			\
   { "asm_cpu_476",		ASM_CPU_476_SPEC },			\
   SUBTARGET_EXTRA_SPECS
 
@@ -464,6 +472,64 @@ extern int rs6000_vector_align[];
 #define TARGET_FCFIDUS	TARGET_POPCNTD
 #define TARGET_FCTIDUZ	TARGET_POPCNTD
 #define TARGET_FCTIWUZ	TARGET_POPCNTD
+
+/* In switching from using target_flags to using rs6000_isa_flags, the options
+   machinery creates OPTION_MASK_<xxx> instead of MASK_<xxx>.  For now map
+   OPTION_MASK_<xxx> back into MASK_<xxx>.  */
+#define MASK_ALTIVEC			OPTION_MASK_ALTIVEC
+#define MASK_CMPB			OPTION_MASK_CMPB
+#define MASK_DFP			OPTION_MASK_DFP
+#define MASK_DLMZB			OPTION_MASK_DLMZB
+#define MASK_EABI			OPTION_MASK_EABI
+#define MASK_FPRND			OPTION_MASK_FPRND
+#define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
+#define MASK_ISEL			OPTION_MASK_ISEL
+#define MASK_MFCRF			OPTION_MASK_MFCRF
+#define MASK_MFPGPR			OPTION_MASK_MFPGPR
+#define MASK_MULHW			OPTION_MASK_MULHW
+#define MASK_MULTIPLE			OPTION_MASK_MULTIPLE
+#define MASK_NO_UPDATE			OPTION_MASK_NO_UPDATE
+#define MASK_POPCNTB			OPTION_MASK_POPCNTB
+#define MASK_POPCNTD			OPTION_MASK_POPCNTD
+#define MASK_PPC_GFXOPT			OPTION_MASK_PPC_GFXOPT
+#define MASK_PPC_GPOPT			OPTION_MASK_PPC_GPOPT
+#define MASK_RECIP_PRECISION		OPTION_MASK_RECIP_PRECISION
+#define MASK_SOFT_FLOAT			OPTION_MASK_SOFT_FLOAT
+#define MASK_STRICT_ALIGN		OPTION_MASK_STRICT_ALIGN
+#define MASK_STRING			OPTION_MASK_STRING
+#define MASK_UPDATE			OPTION_MASK_UPDATE
+#define MASK_VSX			OPTION_MASK_VSX
+
+#ifndef IN_LIBGCC2
+#define MASK_POWERPC64			OPTION_MASK_POWERPC64
+#endif
+
+#ifdef TARGET_64BIT
+#define MASK_64BIT			OPTION_MASK_64BIT
+#endif
+
+#ifdef TARGET_RELOCATABLE
+#define MASK_RELOCATABLE		OPTION_MASK_RELOCATABLE
+#endif
+
+#ifdef TARGET_LITTLE_ENDIAN
+#define MASK_LITTLE_ENDIAN		OPTION_MASK_LITTLE_ENDIAN
+#endif
+
+#ifdef TARGET_MINIMAL_TOC
+#define MASK_MINIMAL_TOC		OPTION_MASK_MINIMAL_TOC
+#endif
+
+#ifdef TARGET_REGNAMES
+#define MASK_REGNAMES			OPTION_MASK_REGNAMES
+#endif
+
+#ifdef TARGET_PROTOTYPE
+#define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
+#endif
+
+/* Explicit ISA options that were set.  */
+#define rs6000_isa_flags_explicit	global_options_set.x_rs6000_isa_flags
 
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
@@ -1340,7 +1406,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
    On the RS/6000, we grow upwards, from the area after the outgoing
    arguments.  */
-#define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0)
+#define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0 || flag_asan != 0)
 
 /* Size of the outgoing register save area */
 #define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
@@ -1663,7 +1729,8 @@ typedef struct rs6000_args
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 
 #define REGNO_OK_FOR_INDEX_P(REGNO)				\
 ((REGNO) < FIRST_PSEUDO_REGISTER				\
@@ -2229,8 +2296,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 /* Define which CODE values are valid.  */
 
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  \
-  ((CODE) == '.' || (CODE) == '&')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  ((CODE) == '&')
 
 /* Print a memory address as an operand to reference that memory location.  */
 

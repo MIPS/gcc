@@ -350,10 +350,10 @@ rtl_create_basic_block (void *headp, void *endp, basic_block after)
   basic_block bb;
 
   /* Grow the basic block array if needed.  */
-  if ((size_t) last_basic_block >= VEC_length (basic_block, basic_block_info))
+  if ((size_t) last_basic_block >= basic_block_info->length ())
     {
       size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
-      VEC_safe_grow_cleared (basic_block, gc, basic_block_info, new_size);
+      vec_safe_grow_cleared (basic_block_info, new_size);
     }
 
   n_basic_blocks++;
@@ -456,6 +456,7 @@ struct rtl_opt_pass pass_free_cfg =
  {
   RTL_PASS,
   "*free_cfg",                          /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   rest_of_pass_free_cfg,                /* execute */
   NULL,                                 /* sub */
@@ -541,15 +542,32 @@ flow_active_insn_p (const_rtx insn)
 
 /* Return true if the block has no effect and only forwards control flow to
    its single destination.  */
-/* FIXME: Make this a cfg hook.  */
 
 bool
-forwarder_block_p (const_basic_block bb)
+contains_no_active_insn_p (const_basic_block bb)
 {
   rtx insn;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR
       || !single_succ_p (bb))
+    return false;
+
+  for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
+    if (INSN_P (insn) && flow_active_insn_p (insn))
+      return false;
+
+  return (!INSN_P (insn)
+	  || (JUMP_P (insn) && simplejump_p (insn))
+	  || !flow_active_insn_p (insn));
+}
+
+/* Likewise, but protect loop latches, headers and preheaders.  */
+/* FIXME: Make this a cfg hook.  */
+
+bool
+forwarder_block_p (const_basic_block bb)
+{
+  if (!contains_no_active_insn_p (bb))
     return false;
 
   /* Protect loop latches, headers and preheaders.  */
@@ -563,13 +581,7 @@ forwarder_block_p (const_basic_block bb)
 	return false;
     }
 
-  for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && flow_active_insn_p (insn))
-      return false;
-
-  return (!INSN_P (insn)
-	  || (JUMP_P (insn) && simplejump_p (insn))
-	  || !flow_active_insn_p (insn));
+  return true;
 }
 
 /* Return nonzero if we can reach target from src by falling through.  */
@@ -878,7 +890,8 @@ rtl_merge_blocks (basic_block a, basic_block b)
   df_bb_delete (b->index);
 
   /* If B was a forwarder block, propagate the locus on the edge.  */
-  if (forwarder_p && !EDGE_SUCC (b, 0)->goto_locus)
+  if (forwarder_p
+      && LOCATION_LOCUS (EDGE_SUCC (b, 0)->goto_locus) == UNKNOWN_LOCATION)
     EDGE_SUCC (b, 0)->goto_locus = EDGE_SUCC (a, 0)->goto_locus;
 
   if (dump_file)
@@ -1389,7 +1402,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
 	    {
 	      if (tmp == e)
 		{
-		  VEC_unordered_remove (edge, ENTRY_BLOCK_PTR->succs, ei.index);
+		  ENTRY_BLOCK_PTR->succs->unordered_remove (ei.index);
 		  found = true;
 		  break;
 		}
@@ -1399,7 +1412,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
 
 	  gcc_assert (found);
 
-	  VEC_safe_push (edge, gc, bb->succs, e);
+	  vec_safe_push (bb->succs, e);
 	  make_single_succ_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
 	}
     }
@@ -1412,13 +1425,45 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
       && (note = extract_asm_operands (PATTERN (BB_END (e->src)))))
     {
       int i, n = ASM_OPERANDS_LABEL_LENGTH (note);
+      bool adjust_jump_target = false;
 
       for (i = 0; i < n; ++i)
 	{
 	  if (XEXP (ASM_OPERANDS_LABEL (note, i), 0) == BB_HEAD (e->dest))
-	    XEXP (ASM_OPERANDS_LABEL (note, i), 0) = block_label (target);
+	    {
+	      LABEL_NUSES (XEXP (ASM_OPERANDS_LABEL (note, i), 0))--;
+	      XEXP (ASM_OPERANDS_LABEL (note, i), 0) = block_label (target);
+	      LABEL_NUSES (XEXP (ASM_OPERANDS_LABEL (note, i), 0))++;
+	      adjust_jump_target = true;
+	    }
 	  if (XEXP (ASM_OPERANDS_LABEL (note, i), 0) == BB_HEAD (target))
 	    asm_goto_edge = true;
+	}
+      if (adjust_jump_target)
+	{
+	  rtx insn = BB_END (e->src), note;
+	  rtx old_label = BB_HEAD (e->dest);
+	  rtx new_label = BB_HEAD (target);
+
+	  if (JUMP_LABEL (insn) == old_label)
+	    {
+	      JUMP_LABEL (insn) = new_label;
+	      note = find_reg_note (insn, REG_LABEL_TARGET, new_label);
+	      if (note)
+		remove_note (insn, note);
+	    }
+	  else
+	    {
+	      note = find_reg_note (insn, REG_LABEL_TARGET, old_label);
+	      if (note)
+		remove_note (insn, note);
+	      if (JUMP_LABEL (insn) != new_label
+		  && !find_reg_note (insn, REG_LABEL_TARGET, new_label))
+		add_reg_note (insn, REG_LABEL_TARGET, new_label);
+	    }
+	  while ((note = find_reg_note (insn, REG_LABEL_OPERAND, old_label))
+		 != NULL_RTX)
+	    XEXP (note, 0) = new_label;
 	}
     }
 
@@ -1856,11 +1901,14 @@ rtl_dump_bb (FILE *outf, basic_block bb, int indent, int flags)
     for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb)); insn != last;
 	 insn = NEXT_INSN (insn))
       {
+	if (flags & TDF_DETAILS)
+	  df_dump_insn_top (insn, outf);
 	if (! (flags & TDF_SLIM))
 	  print_rtl_single (outf, insn);
 	else
 	  dump_insn_slim (outf, insn);
-
+	if (flags & TDF_DETAILS)
+	  df_dump_insn_bottom (insn, outf);
       }
 
   if (df && (flags & TDF_DETAILS))
@@ -1941,10 +1989,14 @@ print_rtl_with_bb (FILE *outf, const_rtx rtx_first, int flags)
 		fprintf (outf, ";; Insn is in multiple basic blocks\n");
 	    }
 
+	  if (flags & TDF_DETAILS)
+	    df_dump_insn_top (tmp_rtx, outf);
 	  if (! (flags & TDF_SLIM))
 	    print_rtl_single (outf, tmp_rtx);
 	  else
 	    dump_insn_slim (outf, tmp_rtx);
+	  if (flags & TDF_DETAILS)
+	    df_dump_insn_bottom (tmp_rtx, outf);
 
 	  if (flags & TDF_BLOCKS)
 	    {
@@ -1962,14 +2014,6 @@ print_rtl_with_bb (FILE *outf, const_rtx rtx_first, int flags)
       free (start);
       free (end);
       free (in_bb_p);
-    }
-
-  if (crtl->epilogue_delay_list != 0)
-    {
-      fprintf (outf, "\n;; Insns in epilogue delay list:\n\n");
-      for (tmp_rtx = crtl->epilogue_delay_list; tmp_rtx != 0;
-	   tmp_rtx = XEXP (tmp_rtx, 1))
-	print_rtl_single (outf, XEXP (tmp_rtx, 0));
     }
 }
 
@@ -2076,7 +2120,8 @@ rtl_verify_flow_info_1 (void)
   /* Now check the basic blocks (boundaries etc.) */
   FOR_EACH_BB_REVERSE (bb)
     {
-      int n_fallthru = 0, n_eh = 0, n_call = 0, n_abnormal = 0, n_branch = 0;
+      int n_fallthru = 0, n_branch = 0, n_abnormal_call = 0, n_sibcall = 0;
+      int n_eh = 0, n_abnormal = 0;
       edge e, fallthru = NULL;
       rtx note;
       edge_iterator ei;
@@ -2113,13 +2158,13 @@ rtl_verify_flow_info_1 (void)
 		}
 	      if (e->flags & EDGE_FALLTHRU)
 		{
-		  error ("fallthru edge crosses section boundary (bb %i)",
+		  error ("fallthru edge crosses section boundary in bb %i",
 			 e->src->index);
 		  err = 1;
 		}
 	      if (e->flags & EDGE_EH)
 		{
-		  error ("EH edge crosses section boundary (bb %i)",
+		  error ("EH edge crosses section boundary in bb %i",
 			 e->src->index);
 		  err = 1;
 		}
@@ -2139,22 +2184,26 @@ rtl_verify_flow_info_1 (void)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)
-	    n_call++;
+	    n_abnormal_call++;
+
+	  if (e->flags & EDGE_SIBCALL)
+	    n_sibcall++;
 
 	  if (e->flags & EDGE_EH)
 	    n_eh++;
-	  else if (e->flags & EDGE_ABNORMAL)
+
+	  if (e->flags & EDGE_ABNORMAL)
 	    n_abnormal++;
 	}
 
       if (n_eh && !find_reg_note (BB_END (bb), REG_EH_REGION, NULL_RTX))
 	{
-	  error ("missing REG_EH_REGION note in the end of bb %i", bb->index);
+	  error ("missing REG_EH_REGION note at the end of bb %i", bb->index);
 	  err = 1;
 	}
       if (n_eh > 1)
 	{
-	  error ("too many eh edges %i", bb->index);
+	  error ("too many exception handling edges in bb %i", bb->index);
 	  err = 1;
 	}
       if (n_branch
@@ -2167,29 +2216,35 @@ rtl_verify_flow_info_1 (void)
 	}
       if (n_fallthru && any_uncondjump_p (BB_END (bb)))
 	{
-	  error ("fallthru edge after unconditional jump %i", bb->index);
+	  error ("fallthru edge after unconditional jump in bb %i", bb->index);
 	  err = 1;
 	}
       if (n_branch != 1 && any_uncondjump_p (BB_END (bb)))
 	{
-	  error ("wrong number of branch edges after unconditional jump %i",
-		 bb->index);
+	  error ("wrong number of branch edges after unconditional jump"
+		 " in bb %i", bb->index);
 	  err = 1;
 	}
       if (n_branch != 1 && any_condjump_p (BB_END (bb))
 	  && JUMP_LABEL (BB_END (bb)) != BB_HEAD (fallthru->dest))
 	{
-	  error ("wrong amount of branch edges after conditional jump %i",
-		 bb->index);
+	  error ("wrong amount of branch edges after conditional jump"
+		 " in bb %i", bb->index);
 	  err = 1;
 	}
-      if (n_call && !CALL_P (BB_END (bb)))
+      if (n_abnormal_call && !CALL_P (BB_END (bb)))
 	{
-	  error ("call edges for non-call insn in bb %i", bb->index);
+	  error ("abnormal call edges for non-call insn in bb %i", bb->index);
 	  err = 1;
 	}
-      if (n_abnormal
-	  && (!CALL_P (BB_END (bb)) && n_call != n_abnormal)
+      if (n_sibcall && !CALL_P (BB_END (bb)))
+	{
+	  error ("sibcall edges for non-call insn in bb %i", bb->index);
+	  err = 1;
+	}
+      if (n_abnormal > n_eh
+	  && !(CALL_P (BB_END (bb))
+	       && n_abnormal == n_abnormal_call + n_sibcall)
 	  && (!JUMP_P (BB_END (bb))
 	      || any_condjump_p (BB_END (bb))
 	      || any_uncondjump_p (BB_END (bb))))
@@ -2980,6 +3035,7 @@ struct rtl_opt_pass pass_into_cfg_layout_mode =
  {
   RTL_PASS,
   "into_cfglayout",                     /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   into_cfg_layout_mode,                 /* execute */
   NULL,                                 /* sub */
@@ -2999,6 +3055,7 @@ struct rtl_opt_pass pass_outof_cfg_layout_mode =
  {
   RTL_PASS,
   "outof_cfglayout",                    /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   outof_cfg_layout_mode,                /* execute */
   NULL,                                 /* sub */
@@ -3707,13 +3764,13 @@ break_superblocks (void)
   basic_block bb;
 
   superblocks = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (superblocks);
+  bitmap_clear (superblocks);
 
   FOR_EACH_BB (bb)
     if (bb->flags & BB_SUPERBLOCK)
       {
 	bb->flags &= ~BB_SUPERBLOCK;
-	SET_BIT (superblocks, bb->index);
+	bitmap_set_bit (superblocks, bb->index);
 	need = true;
       }
 
@@ -4085,7 +4142,7 @@ cfg_layout_merge_blocks (basic_block a, basic_block b)
 
   /* If B was a forwarder block, propagate the locus on the edge.  */
   if (forwarder_p
-      && LOCATION_LOCUS (EDGE_SUCC (b, 0)->goto_locus) != UNKNOWN_LOCATION)
+      && LOCATION_LOCUS (EDGE_SUCC (b, 0)->goto_locus) == UNKNOWN_LOCATION)
     EDGE_SUCC (b, 0)->goto_locus = EDGE_SUCC (a, 0)->goto_locus;
 
   if (dump_file)
@@ -4234,7 +4291,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
   if (! blocks)
     check_last_block = true;
   else
-    check_last_block = TEST_BIT (blocks, EXIT_BLOCK_PTR->prev_bb->index);
+    check_last_block = bitmap_bit_p (blocks, EXIT_BLOCK_PTR->prev_bb->index);
 
   /* In the last basic block, before epilogue generation, there will be
      a fallthru edge to EXIT.  Special care is required if the last insn
@@ -4284,7 +4341,7 @@ rtl_flow_call_edges_add (sbitmap blocks)
       if (!bb)
 	continue;
 
-      if (blocks && !TEST_BIT (blocks, i))
+      if (blocks && !bitmap_bit_p (blocks, i))
 	continue;
 
       for (insn = BB_END (bb); ; insn = prev_insn)
@@ -4445,11 +4502,34 @@ rtl_duplicate_bb (basic_block bb)
   return bb;
 }
 
+/* Do book-keeping of basic block BB for the profile consistency checker.
+   If AFTER_PASS is 0, do pre-pass accounting, or if AFTER_PASS is 1
+   then do post-pass accounting.  Store the counting in RECORD.  */
+static void
+rtl_account_profile_record (basic_block bb, int after_pass,
+			    struct profile_record *record)
+{
+  rtx insn;
+  FOR_BB_INSNS (bb, insn)
+    if (INSN_P (insn))
+      {
+	record->size[after_pass]
+	  += insn_rtx_cost (PATTERN (insn), false);
+	if (profile_status == PROFILE_READ)
+	  record->time[after_pass]
+	    += insn_rtx_cost (PATTERN (insn), true) * bb->count;
+	else if (profile_status == PROFILE_GUESSED)
+	  record->time[after_pass]
+	    += insn_rtx_cost (PATTERN (insn), true) * bb->frequency;
+      }
+}
+
 /* Implementation of CFG manipulation for linearized RTL.  */
 struct cfg_hooks rtl_cfg_hooks = {
   "rtl",
   rtl_verify_flow_info,
   rtl_dump_bb,
+  rtl_dump_bb_for_graph,
   rtl_create_basic_block,
   rtl_redirect_edge_and_branch,
   rtl_redirect_edge_and_branch_force,
@@ -4479,6 +4559,7 @@ struct cfg_hooks rtl_cfg_hooks = {
   NULL, /* flush_pending_stmts */
   rtl_block_empty_p, /* block_empty_p */
   rtl_split_block_before_cond_jump, /* split_block_before_cond_jump */
+  rtl_account_profile_record,
 };
 
 /* Implementation of CFG manipulation for cfg layout RTL, where
@@ -4490,6 +4571,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   "cfglayout mode",
   rtl_verify_flow_info_1,
   rtl_dump_bb,
+  rtl_dump_bb_for_graph,
   cfg_layout_create_basic_block,
   cfg_layout_redirect_edge_and_branch,
   cfg_layout_redirect_edge_and_branch_force,
@@ -4519,6 +4601,7 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   NULL, /* flush_pending_stmts */  
   rtl_block_empty_p, /* block_empty_p */
   rtl_split_block_before_cond_jump, /* split_block_before_cond_jump */
+  rtl_account_profile_record,
 };
 
 #include "gt-cfgrtl.h"

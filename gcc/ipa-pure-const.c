@@ -107,9 +107,7 @@ typedef struct funct_state_d * funct_state;
 
 /* Array, indexed by cgraph node uid, of function states.  */
 
-DEF_VEC_P (funct_state);
-DEF_VEC_ALLOC_P (funct_state, heap);
-static VEC (funct_state, heap) *funct_state_vec;
+static vec<funct_state> funct_state_vec;
 
 /* Holders of ipa cgraph hooks: */
 static struct cgraph_node_hook_list *function_insertion_hook_holder;
@@ -198,7 +196,7 @@ warn_function_noreturn (tree decl)
 static void
 finish_state (void)
 {
-  free (funct_state_vec);
+  funct_state_vec.release ();
 }
 
 
@@ -207,10 +205,10 @@ finish_state (void)
 static inline bool
 has_function_state (struct cgraph_node *node)
 {
-  if (!funct_state_vec
-      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
+  if (!funct_state_vec.exists ()
+      || funct_state_vec.length () <= (unsigned int)node->uid)
     return false;
-  return VEC_index (funct_state, funct_state_vec, node->uid) != NULL;
+  return funct_state_vec[node->uid] != NULL;
 }
 
 /* Return the function state from NODE.  */
@@ -218,12 +216,12 @@ has_function_state (struct cgraph_node *node)
 static inline funct_state
 get_function_state (struct cgraph_node *node)
 {
-  if (!funct_state_vec
-      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid
-      || !VEC_index (funct_state, funct_state_vec, node->uid))
+  if (!funct_state_vec.exists ()
+      || funct_state_vec.length () <= (unsigned int)node->uid
+      || !funct_state_vec[node->uid])
     /* We might want to put correct previously_known state into varying.  */
     return &varying_state;
- return VEC_index (funct_state, funct_state_vec, node->uid);
+ return funct_state_vec[node->uid];
 }
 
 /* Set the function state S for NODE.  */
@@ -231,10 +229,10 @@ get_function_state (struct cgraph_node *node)
 static inline void
 set_function_state (struct cgraph_node *node, funct_state s)
 {
-  if (!funct_state_vec
-      || VEC_length (funct_state, funct_state_vec) <= (unsigned int)node->uid)
-     VEC_safe_grow_cleared (funct_state, heap, funct_state_vec, node->uid + 1);
-  VEC_replace (funct_state, funct_state_vec, node->uid, s);
+  if (!funct_state_vec.exists ()
+      || funct_state_vec.length () <= (unsigned int)node->uid)
+     funct_state_vec.safe_grow_cleared (node->uid + 1);
+  funct_state_vec[node->uid] = s;
 }
 
 /* Check to see if the use (or definition when CHECKING_WRITE is true)
@@ -671,15 +669,18 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
       if (cfun->can_throw_non_call_exceptions)
 	{
 	  if (dump_file)
-	    fprintf (dump_file, "    can throw; looping");
+	    fprintf (dump_file, "    can throw; looping\n");
 	  local->looping = true;
 	}
       if (stmt_can_throw_external (stmt))
 	{
 	  if (dump_file)
-	    fprintf (dump_file, "    can throw externally");
+	    fprintf (dump_file, "    can throw externally\n");
 	  local->can_throw = true;
 	}
+      else
+	if (dump_file)
+	  fprintf (dump_file, "    can throw\n");
     }
   switch (gimple_code (stmt))
     {
@@ -691,7 +692,7 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 	/* Target of long jump. */
 	{
           if (dump_file)
-            fprintf (dump_file, "    nonlocal label is not const/pure");
+            fprintf (dump_file, "    nonlocal label is not const/pure\n");
 	  local->pure_const_state = IPA_NEITHER;
 	}
       break;
@@ -699,14 +700,14 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
       if (gimple_asm_clobbers_memory_p (stmt))
 	{
 	  if (dump_file)
-	    fprintf (dump_file, "    memory asm clobber is not const/pure");
+	    fprintf (dump_file, "    memory asm clobber is not const/pure\n");
 	  /* Abandon all hope, ye who enter here. */
 	  local->pure_const_state = IPA_NEITHER;
 	}
       if (gimple_asm_volatile_p (stmt))
 	{
 	  if (dump_file)
-	    fprintf (dump_file, "    volatile is not const/pure");
+	    fprintf (dump_file, "    volatile is not const/pure\n");
 	  /* Abandon all hope, ye who enter here. */
 	  local->pure_const_state = IPA_NEITHER;
           local->looping = true;
@@ -1479,7 +1480,7 @@ propagate (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     if (has_function_state (node))
       free (get_function_state (node));
-  VEC_free (funct_state, heap, funct_state_vec);
+  funct_state_vec.release ();
   finish_state ();
   return 0;
 }
@@ -1497,6 +1498,7 @@ struct ipa_opt_pass_d pass_ipa_pure_const =
  {
   IPA_PASS,
   "pure-const",		                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_pure_const,			/* gate */
   propagate,			        /* execute */
   NULL,					/* sub */
@@ -1662,6 +1664,7 @@ struct gimple_opt_pass pass_local_pure_const =
  {
   GIMPLE_PASS,
   "local-pure-const",	                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_pure_const,			/* gate */
   local_pure_const,		        /* execute */
   NULL,					/* sub */

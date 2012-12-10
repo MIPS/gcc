@@ -313,8 +313,7 @@ pb_headers2 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/standard_policies.hpp
+	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp
 
 pb_headers3 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/trace_fn_imps.hpp \
@@ -344,7 +343,6 @@ pb_headers3 = \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/gp_hash_table_map_/standard_policies.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mask_range_hashing_imp.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mod_range_hashing_imp.hpp \
@@ -705,6 +703,7 @@ endif
 debug_srcdir = ${glibcxx_srcdir}/include/debug
 debug_builddir = ./debug
 debug_headers = \
+	${debug_srcdir}/array \
 	${debug_srcdir}/bitset \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
@@ -786,6 +785,7 @@ parallel_headers = \
 profile_srcdir = ${glibcxx_srcdir}/include/profile
 profile_builddir = ./profile
 profile_headers = \
+	${profile_srcdir}/array \
 	${profile_srcdir}/base.h \
 	${profile_srcdir}/unordered_map \
 	${profile_srcdir}/unordered_set \
@@ -1105,7 +1105,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	visibility=`cat stamp-visibility` ;\
 	externtemplate=`cat stamp-extern-template` ;\
 	ldbl_compat='s,g,g,' ;\
-	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
+	grep "^[	 ]*#[	 ]*define[	 ][	 ]*_GLIBCXX_LONG_DOUBLE_COMPAT[	 ][	 ]*1[	 ]*$$" \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
 	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
 	sed -e "s,define __GLIBCXX__,define __GLIBCXX__ $$date," \
@@ -1119,7 +1119,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \
 	    -e 's/WORDS_/_GLIBCXX_WORDS_/g' \
 	    -e 's/ICONV_CONST/_GLIBCXX_ICONV_CONST/g' \
-	    -e '/[ 	]_GLIBCXX_LONG_DOUBLE_COMPAT[ 	]/d' \
+	    -e '/[	 ]_GLIBCXX_LONG_DOUBLE_COMPAT[	 ]/d' \
 	    < ${CONFIG_HEADER} >> $@ ;\
 	echo "" >> $@ ;\
 	echo "#endif // _GLIBCXX_CXX_CONFIG_H" >> $@
@@ -1148,7 +1148,7 @@ ${host_builddir}/gthr-posix.h: ${toplevel_srcdir}/libgcc/gthr-posix.h \
 	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    < $< > $@
 
-${host_builddir}/gthr-default.h: ${toplevel_builddir}/libgcc/gthr-default.h \
+${host_builddir}/gthr-default.h: ${toplevel_srcdir}/libgcc/${thread_header} \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \

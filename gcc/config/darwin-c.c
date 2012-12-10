@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-target.h"
 #include "c-family/c-target-def.h"
 #include "cgraph.h"
+#include "../../libcpp/internal.h"
 
 /* Pragmas.  */
 
@@ -267,7 +268,7 @@ static struct framework_header framework_header_dirs[] = {
 static char *
 framework_construct_pathname (const char *fname, cpp_dir *dir)
 {
-  char *buf;
+  const char *buf;
   size_t fname_len, frname_len;
   cpp_dir *fast_dir;
   char *frname;
@@ -344,7 +345,7 @@ find_subframework_file (const char *fname, const char *pname)
 {
   char *sfrname;
   const char *dot_framework = ".framework/";
-  char *bufptr;
+  const char *bufptr;
   int sfrname_len, i, fname_len;
   struct cpp_dir *fast_dir;
   static struct cpp_dir subframe_dir;
@@ -632,7 +633,7 @@ darwin_cpp_builtins (cpp_reader *pfile)
       builtin_define ("__weak=");
     }
 
-  if (flag_objc_abi == 2)
+  if (CPP_OPTION (pfile, objc) && flag_objc_abi == 2)
     builtin_define ("__OBJC2__");
 }
 

@@ -30,41 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 
 /* Vector to keep track of external variables we've seen so far.  */
-VEC(tree,gc) *lto_global_var_decls;
-
-/* Registers DECL with the LTO symbol table as having resolution RESOLUTION
-   and read from FILE_DATA. */
-
-void
-lto_symtab_register_decl (tree decl,
-			  ld_plugin_symbol_resolution_t resolution,
-			  struct lto_file_decl_data *file_data)
-{
-  symtab_node node;
-
-  /* Check that declarations reaching this function do not have
-     properties inconsistent with having external linkage.  If any of
-     these asertions fail, then the object file reader has failed to
-     detect these cases and issue appropriate error messages.  */
-  gcc_assert (decl
-	      && TREE_PUBLIC (decl)
-	      && (TREE_CODE (decl) == VAR_DECL
-		  || TREE_CODE (decl) == FUNCTION_DECL)
-	      && DECL_ASSEMBLER_NAME_SET_P (decl));
-  if (TREE_CODE (decl) == VAR_DECL
-      && DECL_INITIAL (decl))
-    gcc_assert (!DECL_EXTERNAL (decl)
-		|| (TREE_STATIC (decl) && TREE_READONLY (decl)));
-  if (TREE_CODE (decl) == FUNCTION_DECL)
-    gcc_assert (!DECL_ABSTRACT (decl));
-
-  node = symtab_get_node (decl);
-  if (node)
-    {
-      node->symbol.resolution = resolution;
-      gcc_assert (node->symbol.lto_file_data == file_data);
-    }
-}
+vec<tree, va_gc> *lto_global_var_decls;
 
 /* Replace the cgraph node NODE with PREVAILING_NODE in the cgraph, merging
    all edges and removing the old node.  */
@@ -80,8 +46,8 @@ lto_cgraph_replace_node (struct cgraph_node *node,
     {
       fprintf (cgraph_dump_file, "Replacing cgraph node %s/%i by %s/%i"
  	       " for symbol %s\n",
-	       xstrdup (cgraph_node_name (node)), node->uid,
-	       xstrdup (cgraph_node_name (prevailing_node)),
+	       cgraph_node_name (node), node->uid,
+	       cgraph_node_name (prevailing_node),
 	       prevailing_node->uid,
 	       IDENTIFIER_POINTER ((*targetm.asm_out.mangle_assembler_name)
 		 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->symbol.decl)))));
@@ -387,7 +353,7 @@ static void
 lto_symtab_merge_decls_2 (symtab_node first, bool diagnosed_p)
 {
   symtab_node prevailing, e;
-  VEC(tree, heap) *mismatches = NULL;
+  vec<tree> mismatches = vNULL;
   unsigned i;
   tree decl;
 
@@ -402,13 +368,13 @@ lto_symtab_merge_decls_2 (symtab_node first, bool diagnosed_p)
     {
       if (!lto_symtab_merge (prevailing, e)
 	  && !diagnosed_p)
-	VEC_safe_push (tree, heap, mismatches, e->symbol.decl);
+	mismatches.safe_push (e->symbol.decl);
     }
-  if (VEC_empty (tree, mismatches))
+  if (mismatches.is_empty ())
     return;
 
   /* Diagnose all mismatched re-declarations.  */
-  FOR_EACH_VEC_ELT (tree, mismatches, i, decl)
+  FOR_EACH_VEC_ELT (mismatches, i, decl)
     {
       if (!types_compatible_p (TREE_TYPE (prevailing->symbol.decl),
 			       TREE_TYPE (decl)))
@@ -429,7 +395,7 @@ lto_symtab_merge_decls_2 (symtab_node first, bool diagnosed_p)
     inform (DECL_SOURCE_LOCATION (prevailing->symbol.decl),
 	    "previously declared here");
 
-  VEC_free (tree, heap, mismatches);
+  mismatches.release ();
 }
 
 /* Helper to process the decl chain for the symbol table entry *SLOT.  */
@@ -476,11 +442,6 @@ lto_symtab_merge_decls_1 (symtab_node first)
     }
 
   symtab_prevail_in_asm_name_hash (prevailing);
-
-  /* Record the prevailing variable.  */
-  if (TREE_CODE (prevailing->symbol.decl) == VAR_DECL)
-    VEC_safe_push (tree, gc, lto_global_var_decls,
-		   prevailing->symbol.decl);
 
   /* Diagnose mismatched objects.  */
   for (e = prevailing->symbol.next_sharing_asm_name;
@@ -566,11 +527,11 @@ lto_symtab_merge_cgraph_nodes_1 (symtab_node prevailing)
 
       if (!symtab_real_symbol_p (e))
 	continue;
-      if (symtab_function_p (e)
-	  && !DECL_BUILT_IN (e->symbol.decl))
-	lto_cgraph_replace_node (cgraph (e), cgraph (prevailing));
-      if (symtab_variable_p (e))
-	lto_varpool_replace_node (varpool (e), varpool (prevailing));
+      cgraph_node *ce = dyn_cast <cgraph_node> (e);
+      if (ce && !DECL_BUILT_IN (e->symbol.decl))
+	lto_cgraph_replace_node (ce, cgraph (prevailing));
+      if (varpool_node *ve = dyn_cast <varpool_node> (e))
+	lto_varpool_replace_node (ve, varpool (prevailing));
     }
 
   return;

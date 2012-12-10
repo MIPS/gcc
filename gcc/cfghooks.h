@@ -29,6 +29,7 @@ struct cfg_hooks
   /* Debugging.  */
   int (*verify_flow_info) (void);
   void (*dump_bb) (FILE *, basic_block, int, int);
+  void (*dump_bb_for_graph) (pretty_printer *, basic_block);
 
   /* Basic CFG manipulation.  */
 
@@ -119,7 +120,7 @@ struct cfg_hooks
      in loop versioning.  */
   bool (*cfg_hook_duplicate_loop_to_header_edge) (struct loop *, edge,
 						  unsigned, sbitmap,
-						  edge, VEC (edge, heap) **,
+						  edge, vec<edge> *,
 						  int);
 
   /* Add condition to new basic block and update CFG used in loop
@@ -145,10 +146,15 @@ struct cfg_hooks
   /* Split a basic block if it ends with a conditional branch and if
      the other part of the block is not empty.  */
   basic_block (*split_block_before_cond_jump) (basic_block);
+
+  /* Do book-keeping of a basic block for the profile consistency checker.  */
+  void (*account_profile_record) (basic_block, int, struct profile_record *);
 };
 
 extern void verify_flow_info (void);
 extern void dump_bb (FILE *, basic_block, int, int);
+extern void dump_bb_for_graph (pretty_printer *, basic_block);
+
 extern edge redirect_edge_and_branch (edge, basic_block);
 extern basic_block redirect_edge_and_branch_force (edge, basic_block);
 extern bool can_remove_branch_p (const_edge);
@@ -183,7 +189,7 @@ extern bool cfg_hook_duplicate_loop_to_header_edge (struct loop *loop, edge,
 						    unsigned int ndupl,
 						    sbitmap wont_exit,
 						    edge orig,
-						    VEC (edge, heap) **to_remove,
+						    vec<edge> *to_remove,
 						    int flags);
 
 extern void lv_flush_pending_stmts (edge);
@@ -197,6 +203,8 @@ extern bool can_copy_bbs_p (basic_block *, unsigned);
 extern void copy_bbs (basic_block *, unsigned, basic_block *,
 		      edge *, unsigned, edge *, struct loop *,
 		      basic_block);
+
+void account_profile_record (struct profile_record *, int);
 
 extern void cfg_layout_initialize (unsigned int);
 extern void cfg_layout_finalize (void);

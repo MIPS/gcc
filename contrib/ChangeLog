@@ -1,3 +1,88 @@
+2012-12-01  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* testsuite-management/validate_failures.py
+	(IsInterestingResult): Only strip line a second time if we did split.
+	Rephrase return statement while at it.
+	(CollectSumFiles): Also ignore .git directory.
+
+2012-12-03  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/validate_failures.py: Fix stale
+	use of 'options'.
+
+2012-11-30  Doug Evans  <dje@google.com>
+
+	* testsuite-management/validate_failures.py: Add support for @include,
+	@remove directives in manifest files.
+
+	* testsuite-management/validate_failures.py: Add function
+	GetManifestPath.  New global _MANIFEST_SUBDIR.
+
+2012-11-29  Doug Evans  <dje@google.com>
+
+	* testsuite-management/validate_failures.py: Remove pass/fail
+	indicator from result of GetBuildData.
+
+	* testsuite-management/validate_failures.py: Store options in global
+	variable _OPTIONS.
+
+	* testsuite-management/validate_failures.py: Rename variable
+	manifest_name to manifest_path everywhere.
+
+	* testsuite-management/validate_failures.py (CompareBuilds): Pass
+	options.results to GetSumFiles for clean build.
+
+2012-11-28  Doug Evans  <dje@google.com>
+
+	* testsuite-management/validate_failures.py: Use <target_alias> instead
+	of <target>.  Minor whitespace changes.
+
+	* testsuite-management/validate_failures.py: Record ordinal with
+	TestResult.
+
+2012-11-19  Mike Stump  <mikestump@comcast.net>
+
+	* compare_tests: Add export LC_ALL=C to make sort happier.
+
+2012-11-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc_update: Update libsanitizer generated files.
+
+2012-11-12  Tobias Burnus  <burnus@net-b.de>
+
+	* gcc_update: Add libquadmath generated files.
+
+2012-11-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc_update: Add libsanitizer generated files.
+
+2012-11-05  Lawrence Crowl  <crowl@google.com>
+
+	* compare_two_ftime_report_sets: New.
+
+2012-11-02  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/validate_failures.py: Add option
+	--clean_build to compare test results against another
+	build.
+
+2012-10-31  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/validate_failures.py: Fix parsing
+	of summary lines.
+
+2012-10-29  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/x86_64-unknown-linux-gnu.xfail: Update.
+
+2012-10-06  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/x86_64-unknown-linux-gnu.xfail: Update.
+
+2012-10-02   Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* check_GNU_style.sh: Remove temporay file upon exit.
+
 2012-09-26  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* contrib-list.mk (LIST): Remove arm-freebsd6, arm-linux,

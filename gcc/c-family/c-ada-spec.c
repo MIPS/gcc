@@ -30,6 +30,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "cpp-id-data.h"
 
+/* Adapted from hwint.h to use the Ada prefix.  */
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+# if HOST_BITS_PER_WIDE_INT == 64
+#  define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
+     "16#%" HOST_LONG_FORMAT "x%016" HOST_LONG_FORMAT "x#"
+# else
+#  define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
+     "16#%" HOST_LONG_FORMAT "x%08" HOST_LONG_FORMAT "x#"
+# endif
+#else
+  /* We can assume that 'long long' is at least 64 bits.  */
+# define ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX \
+    "16#%" HOST_LONG_LONG_FORMAT "x%016" HOST_LONG_LONG_FORMAT "x#"
+#endif /* HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG */
+
 /* Local functions, macros and variables.  */
 static int dump_generic_ada_node (pretty_printer *, tree, tree,
 				  int (*)(tree, cpp_operation), int, int, bool);
@@ -51,8 +66,6 @@ static void dump_ads (const char *, void (*)(const char *),
 		      int (*)(tree, cpp_operation));
 static char *to_ada_name (const char *, int *);
 static bool separate_class_package (tree);
-
-#define LOCATION_COL(LOC) ((expand_location (LOC)).column)
 
 #define INDENT(SPACE) do { \
   int i; for (i = 0; i<SPACE; i++) pp_space (buffer); } while (0)
@@ -538,6 +551,26 @@ decl_sloc (const_tree decl, bool last)
   return decl_sloc_common (decl, last, false);
 }
 
+/* Compare two locations LHS and RHS.  */
+
+static int
+compare_location (location_t lhs, location_t rhs)
+{
+  expanded_location xlhs = expand_location (lhs);
+  expanded_location xrhs = expand_location (rhs);
+
+  if (xlhs.file != xrhs.file)
+    return filename_cmp (xlhs.file, xrhs.file);
+
+  if (xlhs.line != xrhs.line)
+    return xlhs.line - xrhs.line;
+
+  if (xlhs.column != xrhs.column)
+    return xlhs.column - xrhs.column;
+
+  return 0;
+}
+
 /* Compare two declarations (LP and RP) by their source location.  */
 
 static int
@@ -546,7 +579,7 @@ compare_node (const void *lp, const void *rp)
   const_tree lhs = *((const tree *) lp);
   const_tree rhs = *((const tree *) rp);
 
-  return decl_sloc (lhs, true) - decl_sloc (rhs, true);
+  return compare_location (decl_sloc (lhs, true), decl_sloc (rhs, true));
 }
 
 /* Compare two comments (LP and RP) by their source location.  */
@@ -557,17 +590,7 @@ compare_comment (const void *lp, const void *rp)
   const cpp_comment *lhs = (const cpp_comment *) lp;
   const cpp_comment *rhs = (const cpp_comment *) rp;
 
-  if (LOCATION_FILE (lhs->sloc) != LOCATION_FILE (rhs->sloc))
-    return filename_cmp (LOCATION_FILE (lhs->sloc),
-			 LOCATION_FILE (rhs->sloc));
-
-  if (LOCATION_LINE (lhs->sloc) != LOCATION_LINE (rhs->sloc))
-    return LOCATION_LINE (lhs->sloc) - LOCATION_LINE (rhs->sloc);
-
-  if (LOCATION_COL (lhs->sloc) != LOCATION_COL (rhs->sloc))
-    return LOCATION_COL (lhs->sloc) - LOCATION_COL (rhs->sloc);
-
-  return 0;
+  return compare_location (lhs->sloc, rhs->sloc);
 }
 
 static tree *to_dump = NULL;
@@ -1700,9 +1723,17 @@ static int
 dump_ada_template (pretty_printer *buffer, tree t,
 		   int (*cpp_check)(tree, cpp_operation), int spc)
 {
-  tree inst = DECL_VINDEX (t);
   /* DECL_VINDEX is DECL_TEMPLATE_INSTANTIATIONS in this context.  */
+  tree inst = DECL_VINDEX (t);
+  /* DECL_RESULT_FLD is DECL_TEMPLATE_RESULT in this context.  */
+  tree result = DECL_RESULT_FLD (t);
   int num_inst = 0;
+
+  /* Don't look at template declarations declaring something coming from
+     another file.  This can occur for template friend declarations.  */
+  if (LOCATION_FILE (decl_sloc (result, false))
+      != LOCATION_FILE (decl_sloc (t, false)))
+    return 0;
 
   while (inst && inst != error_mark_node)
     {
@@ -2167,12 +2198,16 @@ dump_generic_ada_node (pretty_printer *buffer, tree node, tree type,
       break;
 
     case INTEGER_CST:
-      if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
-	{
-	  pp_wide_integer (buffer, TREE_INT_CST_LOW (node));
-	  pp_string (buffer, "B"); /* pseudo-unit */
-	}
-      else if (!host_integerp (node, 0))
+      /* We treat the upper half of the sizetype range as negative.  This
+	 is consistent with the internal treatment and makes it possible
+	 to generate the (0 .. -1) range for flexible array members.  */
+      if (TREE_TYPE (node) == sizetype)
+	node = fold_convert (ssizetype, node);
+      if (host_integerp (node, 0))
+	pp_wide_integer (buffer, TREE_INT_CST_LOW (node));
+      else if (host_integerp (node, 1))
+	pp_unsigned_wide_integer (buffer, TREE_INT_CST_LOW (node));
+      else
 	{
 	  tree val = node;
 	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (val);
@@ -2185,12 +2220,10 @@ dump_generic_ada_node (pretty_printer *buffer, tree node, tree type,
 	      low = -low;
 	    }
 	  sprintf (pp_buffer (buffer)->digit_buffer,
-	  HOST_WIDE_INT_PRINT_DOUBLE_HEX,
-	    (unsigned HOST_WIDE_INT) high, low);
+		   ADA_HOST_WIDE_INT_PRINT_DOUBLE_HEX,
+		   (unsigned HOST_WIDE_INT) high, low);
 	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
 	}
-      else
-	pp_wide_integer (buffer, TREE_INT_CST_LOW (node));
       break;
 
     case REAL_CST:
@@ -2535,7 +2568,6 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type,
   int is_class = false;
   tree name = TYPE_NAME (TREE_TYPE (t));
   tree decl_name = DECL_NAME (t);
-  bool dump_internal = get_dump_file_info (TDI_ada)->flags & TDF_RAW;
   tree orig = NULL_TREE;
 
   if (cpp_check && cpp_check (t, IS_TEMPLATE))
@@ -2705,8 +2737,7 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type,
     }
   else
     {
-      if (!dump_internal
-	  && TREE_CODE (t) == VAR_DECL
+      if (TREE_CODE (t) == VAR_DECL
 	  && decl_name
 	  && *IDENTIFIER_POINTER (decl_name) == '_')
 	return 0;
@@ -2796,8 +2827,7 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type,
 
       /* If this function has an entry in the dispatch table, we cannot
 	 omit it.  */
-      if (!dump_internal && !DECL_VINDEX (t)
-	  && *IDENTIFIER_POINTER (decl_name) == '_')
+      if (!DECL_VINDEX (t) && *IDENTIFIER_POINTER (decl_name) == '_')
 	{
 	  if (IDENTIFIER_POINTER (decl_name)[1] == '_')
 	    return 0;
@@ -3071,7 +3101,7 @@ print_ada_struct_decl (pretty_printer *buffer, tree node, tree type,
   tree tmp;
   int is_union =
     TREE_CODE (node) == UNION_TYPE || TREE_CODE (node) == QUAL_UNION_TYPE;
-  char buf[16];
+  char buf[32];
   int field_num = 0;
   int field_spc = spc + INDENT_INCR;
   int need_semicolon;

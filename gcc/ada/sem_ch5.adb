@@ -898,6 +898,7 @@ package body Sem_Ch5 is
       --  up, and we just return immediately (defence against previous errors).
 
       if No (HSS) then
+         Check_Error_Detected;
          return;
       end if;
 
@@ -942,11 +943,8 @@ package body Sem_Ch5 is
             --  identifier and continue, otherwise raise an exception.
 
             if No (Ent) then
-               if Total_Errors_Detected /= 0 then
-                  Set_Identifier (N, Empty);
-               else
-                  raise Program_Error;
-               end if;
+               Check_Error_Detected;
+               Set_Identifier (N, Empty);
 
             else
                Set_Ekind (Ent, E_Block);
@@ -1398,6 +1396,7 @@ package body Sem_Ch5 is
       --  Ignore previous error
 
       if Label_Ent = Any_Id then
+         Check_Error_Detected;
          return;
 
       --  We just have a label as the target of a goto
@@ -1808,6 +1807,13 @@ package body Sem_Ch5 is
                   return;
                else
                   Set_Etype (Def_Id, Entity (Element));
+
+                  --  If the container has a variable indexing aspect, the
+                  --  element is a variable and is modifiable in the loop.
+
+                  if Present (Find_Aspect (Typ, Aspect_Variable_Indexing)) then
+                     Set_Ekind (Def_Id, E_Variable);
+                  end if;
                end if;
             end;
 
@@ -2619,6 +2625,56 @@ package body Sem_Ch5 is
       Push_Scope (Ent);
       Analyze_Iteration_Scheme (Iter);
 
+      --  Check for following case which merits a warning if the type E of is
+      --  a multi-dimensional array (and no explicit subscript ranges present).
+
+      --      for J in E'Range
+      --         for K in E'Range
+
+      if Present (Iter)
+        and then Present (Loop_Parameter_Specification (Iter))
+      then
+         declare
+            LPS : constant Node_Id := Loop_Parameter_Specification (Iter);
+            DSD : constant Node_Id :=
+                    Original_Node (Discrete_Subtype_Definition (LPS));
+         begin
+            if Nkind (DSD) = N_Attribute_Reference
+              and then Attribute_Name (DSD) = Name_Range
+              and then No (Expressions (DSD))
+            then
+               declare
+                  Typ : constant Entity_Id := Etype (Prefix (DSD));
+               begin
+                  if Is_Array_Type (Typ)
+                    and then Number_Dimensions (Typ) > 1
+                    and then Nkind (Parent (N)) = N_Loop_Statement
+                    and then Present (Iteration_Scheme (Parent (N)))
+                  then
+                     declare
+                        OIter : constant Node_Id :=
+                          Iteration_Scheme (Parent (N));
+                        OLPS  : constant Node_Id :=
+                          Loop_Parameter_Specification (OIter);
+                        ODSD  : constant Node_Id :=
+                          Original_Node (Discrete_Subtype_Definition (OLPS));
+                     begin
+                        if Nkind (ODSD) = N_Attribute_Reference
+                          and then Attribute_Name (ODSD) = Name_Range
+                          and then No (Expressions (ODSD))
+                          and then Etype (Prefix (ODSD)) = Typ
+                        then
+                           Error_Msg_Sloc := Sloc (ODSD);
+                           Error_Msg_N
+                             ("inner range same as outer range#?", DSD);
+                        end if;
+                     end;
+                  end if;
+               end;
+            end if;
+         end;
+      end if;
+
       --  Analyze the statements of the body except in the case of an Ada 2012
       --  iterator with the expander active. In this case the expander will do
       --  a rewrite of the loop into a while loop. We will then analyze the
@@ -2927,6 +2983,7 @@ package body Sem_Ch5 is
 
    procedure Preanalyze_Range (R_Copy : Node_Id) is
       Save_Analysis : constant Boolean := Full_Analysis;
+      Typ           : Entity_Id;
 
    begin
       Full_Analysis := False;
@@ -2987,6 +3044,40 @@ package body Sem_Ch5 is
 
       elsif Nkind (R_Copy) in N_Subexpr then
          Resolve (R_Copy);
+         Typ := Etype (R_Copy);
+
+         if Is_Discrete_Type (Typ) then
+            null;
+
+         --  Check that the resulting object is an iterable container
+
+         elsif Present (Find_Aspect (Typ, Aspect_Iterator_Element))
+           or else Present (Find_Aspect (Typ, Aspect_Constant_Indexing))
+           or else Present (Find_Aspect (Typ, Aspect_Variable_Indexing))
+         then
+            null;
+
+         --  The expression may yield an implicit reference to an iterable
+         --  container. Insert explicit dereference so that proper type is
+         --  visible in the loop.
+
+         elsif Has_Implicit_Dereference (Etype (R_Copy)) then
+            declare
+               Disc : Entity_Id;
+
+            begin
+               Disc := First_Discriminant (Typ);
+               while Present (Disc) loop
+                  if Has_Implicit_Dereference (Disc) then
+                     Build_Explicit_Dereference (R_Copy, Disc);
+                     exit;
+                  end if;
+
+                  Next_Discriminant (Disc);
+               end loop;
+            end;
+
+         end if;
       end if;
 
       Expander_Mode_Restore;

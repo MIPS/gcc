@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
@@ -547,16 +547,11 @@ typedef struct group_info *group_info_t;
 typedef const struct group_info *const_group_info_t;
 static alloc_pool rtx_group_info_pool;
 
-/* Tables of group_info structures, hashed by base value.  */
-static htab_t rtx_group_table;
-
 /* Index into the rtx_group_vec.  */
 static int rtx_group_next_id;
 
-DEF_VEC_P(group_info_t);
-DEF_VEC_ALLOC_P(group_info_t,heap);
 
-static VEC(group_info_t,heap) *rtx_group_vec;
+static vec<group_info_t> rtx_group_vec;
 
 
 /* This structure holds the set of changes that are being deferred
@@ -655,22 +650,30 @@ clear_alias_set_lookup (alias_set_type alias_set)
 /* Hashtable callbacks for maintaining the "bases" field of
    store_group_info, given that the addresses are function invariants.  */
 
-static int
-invariant_group_base_eq (const void *p1, const void *p2)
+struct invariant_group_base_hasher : typed_noop_remove <group_info>
 {
-  const_group_info_t gi1 = (const_group_info_t) p1;
-  const_group_info_t gi2 = (const_group_info_t) p2;
+  typedef group_info value_type;
+  typedef group_info compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline bool
+invariant_group_base_hasher::equal (const value_type *gi1,
+				    const compare_type *gi2)
+{
   return rtx_equal_p (gi1->rtx_base, gi2->rtx_base);
 }
 
-
-static hashval_t
-invariant_group_base_hash (const void *p)
+inline hashval_t
+invariant_group_base_hasher::hash (const value_type *gi)
 {
-  const_group_info_t gi = (const_group_info_t) p;
   int do_not_record;
   return hash_rtx (gi->rtx_base, Pmode, &do_not_record, NULL, false);
 }
+
+/* Tables of group_info structures, hashed by base value.  */
+static hash_table <invariant_group_base_hasher> rtx_group_table;
 
 
 /* Get the GROUP for BASE.  Add a new group if it is not there.  */
@@ -680,14 +683,14 @@ get_group_info (rtx base)
 {
   struct group_info tmp_gi;
   group_info_t gi;
-  void **slot;
+  group_info **slot;
 
   if (base)
     {
       /* Find the store_base_info structure for BASE, creating a new one
 	 if necessary.  */
       tmp_gi.rtx_base = base;
-      slot = htab_find_slot (rtx_group_table, &tmp_gi, INSERT);
+      slot = rtx_group_table.find_slot (&tmp_gi, INSERT);
       gi = (group_info_t) *slot;
     }
   else
@@ -710,7 +713,7 @@ get_group_info (rtx base)
 	  gi->offset_map_size_p = 0;
 	  gi->offset_map_n = NULL;
 	  gi->offset_map_p = NULL;
-	  VEC_safe_push (group_info_t, heap, rtx_group_vec, gi);
+	  rtx_group_vec.safe_push (gi);
 	}
       return clear_alias_group;
     }
@@ -736,7 +739,7 @@ get_group_info (rtx base)
       gi->offset_map_size_p = 0;
       gi->offset_map_n = NULL;
       gi->offset_map_p = NULL;
-      VEC_safe_push (group_info_t, heap, rtx_group_vec, gi);
+      rtx_group_vec.safe_push (gi);
     }
 
   return gi;
@@ -777,8 +780,7 @@ dse_step0 (void)
     = create_alloc_pool ("deferred_change_pool",
 			 sizeof (struct deferred_change), 10);
 
-  rtx_group_table = htab_create (11, invariant_group_base_hash,
-				 invariant_group_base_eq, NULL);
+  rtx_group_table.create (11);
 
   bb_table = XNEWVEC (bb_info_t, last_basic_block);
   rtx_group_next_id = 0;
@@ -987,7 +989,32 @@ delete_dead_store_insn (insn_info_t insn_info)
   insn_info->wild_read = false;
 }
 
-/* Check if EXPR can possibly escape the current function scope.  */
+/* Return whether DECL, a local variable, can possibly escape the current
+   function scope.  */
+
+static bool
+local_variable_can_escape (tree decl)
+{
+  if (TREE_ADDRESSABLE (decl))
+    return true;
+
+  /* If this is a partitioned variable, we need to consider all the variables
+     in the partition.  This is necessary because a store into one of them can
+     be replaced with a store into another and this may not change the outcome
+     of the escape analysis.  */
+  if (cfun->gimple_df->decls_to_pointers != NULL)
+    {
+      void *namep
+	= pointer_map_contains (cfun->gimple_df->decls_to_pointers, decl);
+      if (namep)
+	return TREE_ADDRESSABLE (*(tree *)namep);
+    }
+
+  return false;
+}
+
+/* Return whether EXPR can possibly escape the current function scope.  */
+
 static bool
 can_escape (tree expr)
 {
@@ -996,7 +1023,11 @@ can_escape (tree expr)
     return true;
   base = get_base_address (expr);
   if (DECL_P (base)
-      && !may_be_aliased (base))
+      && !may_be_aliased (base)
+      && !(TREE_CODE (base) == VAR_DECL
+	   && !DECL_EXTERNAL (base)
+	   && !TREE_STATIC (base)
+	   && local_variable_can_escape (base)))
     return false;
   return true;
 }
@@ -1494,7 +1525,7 @@ record_store (rtx body, bb_info_t bb_info)
 	 frame pointer we can do global analysis.  */
 
       group_info_t group
-	= VEC_index (group_info_t, rtx_group_vec, group_id);
+	= rtx_group_vec[group_id];
       tree expr = MEM_EXPR (mem);
 
       store_info = (store_info_t) pool_alloc (rtx_store_info_pool);
@@ -1564,7 +1595,7 @@ record_store (rtx body, bb_info_t bb_info)
       else
 	{
 	  group_info_t group
-	    = VEC_index (group_info_t, rtx_group_vec, group_id);
+	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
       if (offset)
@@ -2181,7 +2212,7 @@ check_mem_read_rtx (rtx *loc, void *data)
       else
 	{
 	  group_info_t group
-	    = VEC_index (group_info_t, rtx_group_vec, group_id);
+	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
       if (offset)
@@ -2491,8 +2522,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
   /* Cselib clears the table for this case, so we have to essentially
      do the same.  */
   if (NONJUMP_INSN_P (insn)
-      && GET_CODE (PATTERN (insn)) == ASM_OPERANDS
-      && MEM_VOLATILE_P (PATTERN (insn)))
+      && volatile_insn_p (PATTERN (insn)))
     {
       add_wild_read (bb_info);
       insn_info->cannot_delete = true;
@@ -2516,14 +2546,8 @@ scan_insn (bb_info_t bb_info, rtx insn)
       const_call = RTL_CONST_CALL_P (insn);
       if (!const_call)
 	{
-	  rtx call = PATTERN (insn);
-	  if (GET_CODE (call) == PARALLEL)
-	    call = XVECEXP (call, 0, 0);
-	  if (GET_CODE (call) == SET)
-	    call = SET_SRC (call);
-	  if (GET_CODE (call) == CALL
-	      && MEM_P (XEXP (call, 0))
-	      && GET_CODE (XEXP (XEXP (call, 0), 0)) == SYMBOL_REF)
+	  rtx call = get_call_rtx_from (insn);
+	  if (call && GET_CODE (XEXP (XEXP (call, 0), 0)) == SYMBOL_REF)
 	    {
 	      rtx symbol = XEXP (XEXP (call, 0), 0);
 	      if (SYMBOL_REF_DECL (symbol)
@@ -2571,8 +2595,7 @@ scan_insn (bb_info_t bb_info, rtx insn)
 		    store_info = store_info->next;
 
 		  if (store_info->group_id >= 0
-		      && VEC_index (group_info_t, rtx_group_vec,
-				    store_info->group_id)->frame_related)
+		      && rtx_group_vec[store_info->group_id]->frame_related)
 		    remove_store = true;
 		}
 
@@ -2799,7 +2822,7 @@ dse_step1 (void)
 		    if (store_info->group_id >= 0)
 		      {
 			group_info_t group
-			  = VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+			  = rtx_group_vec[store_info->group_id];
 			if (group->frame_related && !i_ptr->cannot_delete)
 			  delete_dead_store_insn (i_ptr);
 		      }
@@ -2846,8 +2869,6 @@ dse_step1 (void)
 				 INSN_UID (s_info->redundant_reason->insn));
 		      delete_dead_store_insn (ptr);
 		    }
-		  if (s_info)
-		    s_info->redundant_reason = NULL;
 		  free_store_info (ptr);
 		}
 	      else
@@ -2872,7 +2893,7 @@ dse_step1 (void)
 
   BITMAP_FREE (regs_live);
   cselib_finish ();
-  htab_empty (rtx_group_table);
+  rtx_group_table.empty ();
 }
 
 
@@ -2890,7 +2911,7 @@ dse_step2_init (void)
   unsigned int i;
   group_info_t group;
 
-  FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+  FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
     {
       /* For all non stack related bases, we only consider a store to
 	 be deletable if there are two or more stores for that
@@ -2943,7 +2964,7 @@ dse_step2_nospill (void)
   /* Position 0 is unused because 0 is used in the maps to mean
      unused.  */
   current_position = 1;
-  FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+  FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
     {
       bitmap_iterator bi;
       unsigned int j;
@@ -3057,7 +3078,7 @@ scan_stores_nospill (store_info_t store_info, bitmap gen, bitmap kill)
     {
       HOST_WIDE_INT i;
       group_info_t group_info
-	= VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+	= rtx_group_vec[store_info->group_id];
       if (group_info->process_globally)
 	for (i = store_info->begin; i < store_info->end; i++)
 	  {
@@ -3111,7 +3132,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
   /* If this insn reads the frame, kill all the frame related stores.  */
   if (insn_info->frame_read)
     {
-      FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+      FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	if (group->process_globally && group->frame_related)
 	  {
 	    if (kill)
@@ -3126,7 +3147,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
       if (kill)
         bitmap_ior_into (kill, kill_on_calls);
       bitmap_and_compl_into (gen, kill_on_calls);
-      FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+      FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	if (group->process_globally && !group->frame_related)
 	  {
 	    if (kill)
@@ -3136,7 +3157,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
     }
   while (read_info)
     {
-      FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+      FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	{
 	  if (group->process_globally)
 	    {
@@ -3316,7 +3337,7 @@ dse_step3_exit_block_scan (bb_info_t bb_info)
       unsigned int i;
       group_info_t group;
 
-      FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, i, group)
+      FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	{
 	  if (group->process_globally && group->frame_related)
 	    bitmap_ior_into (bb_info->gen, group->group_kill);
@@ -3336,9 +3357,9 @@ mark_reachable_blocks (sbitmap unreachable_blocks, basic_block bb)
   edge e;
   edge_iterator ei;
 
-  if (TEST_BIT (unreachable_blocks, bb->index))
+  if (bitmap_bit_p (unreachable_blocks, bb->index))
     {
-      RESET_BIT (unreachable_blocks, bb->index);
+      bitmap_clear_bit (unreachable_blocks, bb->index);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  mark_reachable_blocks (unreachable_blocks, e->src);
@@ -3357,7 +3378,7 @@ dse_step3 (bool for_spills)
   bitmap all_ones = NULL;
   unsigned int i;
 
-  sbitmap_ones (unreachable_blocks);
+  bitmap_ones (unreachable_blocks);
 
   FOR_ALL_BB (bb)
     {
@@ -3387,7 +3408,7 @@ dse_step3 (bool for_spills)
   /* For any block in an infinite loop, we must initialize the out set
      to all ones.  This could be expensive, but almost never occurs in
      practice. However, it is common in regression tests.  */
-  EXECUTE_IF_SET_IN_SBITMAP (unreachable_blocks, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (unreachable_blocks, 0, i, sbi)
     {
       if (bitmap_bit_p (all_blocks, i))
 	{
@@ -3398,7 +3419,7 @@ dse_step3 (bool for_spills)
 	      group_info_t group;
 
 	      all_ones = BITMAP_ALLOC (&dse_bitmap_obstack);
-	      FOR_EACH_VEC_ELT (group_info_t, rtx_group_vec, j, group)
+	      FOR_EACH_VEC_ELT (rtx_group_vec, j, group)
 		bitmap_ior_into (all_ones, group->group_kill);
 	    }
 	  if (!bb_info->out)
@@ -3614,7 +3635,7 @@ dse_step5_nospill (void)
 		{
 		  HOST_WIDE_INT i;
 		  group_info_t group_info
-		    = VEC_index (group_info_t, rtx_group_vec, store_info->group_id);
+		    = rtx_group_vec[store_info->group_id];
 
 		  for (i = store_info->begin; i < store_info->end; i++)
 		    {
@@ -3812,8 +3833,8 @@ dse_step7 (void)
 
   end_alias_analysis ();
   free (bb_table);
-  htab_delete (rtx_group_table);
-  VEC_free (group_info_t, heap, rtx_group_vec);
+  rtx_group_table.dispose ();
+  rtx_group_vec.release ();
   BITMAP_FREE (all_blocks);
   BITMAP_FREE (scratch);
 
@@ -3907,6 +3928,7 @@ struct rtl_opt_pass pass_rtl_dse1 =
  {
   RTL_PASS,
   "dse1",                               /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_dse1,                            /* gate */
   rest_of_handle_dse,                   /* execute */
   NULL,                                 /* sub */
@@ -3927,6 +3949,7 @@ struct rtl_opt_pass pass_rtl_dse2 =
  {
   RTL_PASS,
   "dse2",                               /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_dse2,                            /* gate */
   rest_of_handle_dse,                   /* execute */
   NULL,                                 /* sub */

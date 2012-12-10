@@ -26,7 +26,7 @@
 do {									\
   if (TARGET_64BIT && ! TARGET_POWERPC64)				\
     {									\
-      target_flags |= MASK_POWERPC64;					\
+      rs6000_isa_flags |= OPTION_MASK_POWERPC64;			\
       warning (0, "-maix64 requires PowerPC64 architecture remain enabled"); \
     }									\
   if (TARGET_SOFT_FLOAT && TARGET_LONG_DOUBLE_128)			\
@@ -62,6 +62,7 @@ do {									\
 %{mcpu=power6: -mpwr6} \
 %{mcpu=power6x: -mpwr6} \
 %{mcpu=power7: -mpwr7} \
+%{mcpu=power8: -mpwr8} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rs64a: -mppc} \
 %{mcpu=603: -m603} \

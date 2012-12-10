@@ -390,6 +390,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   unsigned int has_hle = 0, has_rtm = 0;
   unsigned int has_rdrnd = 0, has_f16c = 0, has_fsgsbase = 0;
   unsigned int has_rdseed = 0, has_prfchw = 0, has_adx = 0;
+  unsigned int has_osxsave = 0, has_fxsr = 0, has_xsave = 0, has_xsaveopt = 0;
 
   bool arch;
 
@@ -431,6 +432,7 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   has_sse4_1 = ecx & bit_SSE4_1;
   has_sse4_2 = ecx & bit_SSE4_2;
   has_avx = ecx & bit_AVX;
+  has_osxsave = ecx & bit_OSXSAVE;
   has_cmpxchg16b = ecx & bit_CMPXCHG16B;
   has_movbe = ecx & bit_MOVBE;
   has_popcnt = ecx & bit_POPCNT;
@@ -439,10 +441,12 @@ const char *host_detect_local_cpu (int argc, const char **argv)
   has_fma = ecx & bit_FMA;
   has_f16c = ecx & bit_F16C;
   has_rdrnd = ecx & bit_RDRND;
+  has_xsave = ecx & bit_XSAVE;
 
   has_cmpxchg8b = edx & bit_CMPXCHG8B;
   has_cmov = edx & bit_CMOV;
   has_mmx = edx & bit_MMX;
+  has_fxsr = edx & bit_FXSAVE;
   has_sse = edx & bit_SSE;
   has_sse2 = edx & bit_SSE2;
 
@@ -458,6 +462,36 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       has_fsgsbase = ebx & bit_FSGSBASE;
       has_rdseed = ebx & bit_RDSEED;
       has_adx = ebx & bit_ADX;
+    }
+
+  if (max_level >= 13)
+    {
+      __cpuid_count (13, 1, eax, ebx, ecx, edx);
+
+      has_xsaveopt = eax & bit_XSAVEOPT;
+    }
+
+  /* Get XCR_XFEATURE_ENABLED_MASK register with xgetbv.  */
+#define XCR_XFEATURE_ENABLED_MASK	0x0
+#define XSTATE_FP			0x1
+#define XSTATE_SSE			0x2
+#define XSTATE_YMM			0x4
+  if (has_osxsave)
+    asm (".byte 0x0f; .byte 0x01; .byte 0xd0"
+	 : "=a" (eax), "=d" (edx)
+	 : "c" (XCR_XFEATURE_ENABLED_MASK));
+
+  /* Check if SSE and YMM states are supported.  */
+  if (!has_osxsave
+      || (eax & (XSTATE_SSE | XSTATE_YMM)) != (XSTATE_SSE | XSTATE_YMM))
+    {
+      has_avx = 0;
+      has_avx2 = 0;
+      has_fma = 0;
+      has_fma4 = 0;
+      has_xop = 0;
+      has_xsave = 0;
+      has_xsaveopt = 0;
     }
 
   /* Check cpuid level of extended features.  */
@@ -508,6 +542,8 @@ const char *host_detect_local_cpu (int argc, const char **argv)
 	processor = PROCESSOR_GEODE;
       else if (has_movbe)
 	processor = PROCESSOR_BTVER2;
+      else if (has_xsaveopt)
+        processor = PROCESSOR_BDVER3;
       else if (has_bmi)
         processor = PROCESSOR_BDVER2;
       else if (has_xop)
@@ -678,6 +714,9 @@ const char *host_detect_local_cpu (int argc, const char **argv)
     case PROCESSOR_BDVER2:
       cpu = "bdver2";
       break;
+    case PROCESSOR_BDVER3:
+      cpu = "bdver3";
+      break;
     case PROCESSOR_BTVER1:
       cpu = "btver1";
       break;
@@ -740,11 +779,15 @@ const char *host_detect_local_cpu (int argc, const char **argv)
       const char *rdseed = has_rdseed ? " -mrdseed" : " -mno-rdseed";
       const char *prfchw = has_prfchw ? " -mprfchw" : " -mno-prfchw";
       const char *adx = has_adx ? " -madx" : " -mno-adx";
+      const char *fxsr = has_fxsr ? " -mfxsr" : " -mno-fxsr";
+      const char *xsave = has_xsave ? " -mxsave" : " -mno-xsave";
+      const char *xsaveopt = has_xsaveopt ? " -mxsaveopt" : " -mno-xsaveopt";
 
       options = concat (options, cx16, sahf, movbe, ase, pclmul,
 			popcnt, abm, lwp, fma, fma4, xop, bmi, bmi2,
 			tbm, avx, avx2, sse4_2, sse4_1, lzcnt, rtm,
-			hle, rdrnd, f16c, fsgsbase, rdseed, prfchw, adx, NULL);
+			hle, rdrnd, f16c, fsgsbase, rdseed, prfchw, adx,
+			fxsr, xsave, xsaveopt, NULL);
     }
 
 done:

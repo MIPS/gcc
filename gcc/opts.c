@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr-common.h"
 #include "common/common-target.h"
 
+static void set_Wstrict_aliasing (struct gcc_options *opts, int onoff);
+
 /* Indexed by enum debug_info_type.  */
 const char *const debug_type_names[] =
 {
@@ -139,19 +141,6 @@ set_struct_debug_option (struct gcc_options *opts, location_t loc,
     }
 }
 
-/* Handle -ftree-vectorizer-verbose=VAL for options OPTS.  */
-
-static void
-vect_set_verbosity_level (struct gcc_options *opts, int val)
-{
-   if (val < MAX_VERBOSITY_LEVEL)
-     opts->x_user_vect_verbosity_level = (enum vect_verbosity_levels) val;
-   else
-     opts->x_user_vect_verbosity_level
-      = (enum vect_verbosity_levels) (MAX_VERBOSITY_LEVEL - 1);
-}
-
-
 /* Strip off a legitimate source ending from the input string NAME of
    length LEN.  Rather than having to know the names used by all of
    our front ends, we strip off an ending of a period followed by
@@ -201,8 +190,6 @@ base_of_path (const char *path, const char **base_out)
 static const char undocumented_msg[] = N_("This switch lacks documentation");
 
 typedef char *char_p; /* For DEF_VEC_P.  */
-DEF_VEC_P(char_p);
-DEF_VEC_ALLOC_P(char_p,heap);
 
 static void handle_param (struct gcc_options *opts,
 			  struct gcc_options *opts_set, location_t loc,
@@ -250,7 +237,9 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
   char *r;
   char *w;
   char *token_start;
-  VEC(char_p,heap) *vec = (VEC(char_p,heap) *) *pvec;
+  vec<char_p> *v = (vec<char_p> *) *pvec;
+  
+  vec_check_alloc (v, 1);
 
   /* We never free this string.  */
   tmp = xstrdup (arg);
@@ -265,7 +254,7 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
 	{
 	  *w++ = '\0';
 	  ++r;
-	  VEC_safe_push (char_p, heap, vec, token_start);
+	  v->safe_push (token_start);
 	  token_start = w;
 	}
       if (*r == '\\' && r[1] == ',')
@@ -277,9 +266,9 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
 	*w++ = *r++;
     }
   if (*token_start != '\0')
-    VEC_safe_push (char_p, heap, vec, token_start);
+    v->safe_push (token_start);
 
-  *pvec = vec;
+  *pvec = v;
 }
 
 /* Initialize OPTS and OPTS_SET before using them in parsing options.  */
@@ -840,19 +829,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     maybe_set_param_value (PARAM_MAX_STORES_TO_SINK, 0,
                            opts->x_param_values, opts_set->x_param_values);
 
-  /* This replaces set_Wunused.  */
-  /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
-  if (opts->x_warn_unused_parameter == -1)
-    opts->x_warn_unused_parameter = (opts->x_warn_unused
-				     && opts->x_extra_warnings);
-  /* Wunused-but-set-parameter is enabled if both -Wunused -Wextra are
-     enabled.  */
-  if (opts->x_warn_unused_but_set_parameter == -1)
-    opts->x_warn_unused_but_set_parameter = (opts->x_warn_unused
-					     && opts->x_extra_warnings);
-  /* Wunused-local-typedefs is enabled by -Wunused or -Wall.  */
-  if (opts->x_warn_unused_local_typedefs == -1)
-    opts->x_warn_unused_local_typedefs = opts->x_warn_unused;
+  /* The -gsplit-dwarf option requires -gpubnames.  */
+  if (opts->x_dwarf_split_debug_info)
+    opts->x_debug_generate_pub_sections = 1;
 }
 
 #define LEFT_COLUMN	27
@@ -1488,6 +1467,8 @@ common_handle_option (struct gcc_options *opts,
 	strip_off_ending (tmp, strlen (tmp));
 	if (tmp[0])
 	  opts->x_aux_base_name = tmp;
+	else
+	  free (tmp);
       }
       break;
 
@@ -1559,6 +1540,11 @@ common_handle_option (struct gcc_options *opts,
       diagnostic_set_caret_max_width (dc, value);
       break;
 
+    case OPT_fopt_info:
+    case OPT_fopt_info_:
+      /* Deferred.  */
+      break;
+
     case OPT_fpack_struct_:
       if (value <= 0 || (value & (value - 1)) || value > 16)
 	error_at (loc,
@@ -1604,6 +1590,12 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_unswitch_loops = value;
       if (!opts_set->x_flag_gcse_after_reload)
 	opts->x_flag_gcse_after_reload = value;
+      if (!opts_set->x_flag_tree_vectorize)
+	opts->x_flag_tree_vectorize = value;
+      if (!opts_set->x_flag_vect_cost_model)
+	opts->x_flag_vect_cost_model = value;
+      if (!opts_set->x_flag_tree_loop_distribute_patterns)
+	opts->x_flag_tree_loop_distribute_patterns = value;
       break;
 
     case OPT_fprofile_generate_:
@@ -1694,7 +1686,9 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_ftree_vectorizer_verbose_:
-      vect_set_verbosity_level (opts, value);
+      /* -ftree-vectorizer-verbose is deprecated. It is defined in
+         -terms of fopt-info=N. */
+      /* Deferred.  */
       break;
 
     case OPT_g:
@@ -1712,6 +1706,11 @@ common_handle_option (struct gcc_options *opts,
       else
 	opts->x_dwarf_version = value;
       set_debug_level (DWARF2_DEBUG, false, "", opts, opts_set, loc);
+      break;
+
+    case OPT_gsplit_dwarf:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "", opts, opts_set,
+		       loc);
       break;
 
     case OPT_ggdb:
@@ -1805,7 +1804,7 @@ handle_param (struct gcc_options *opts, struct gcc_options *opts_set,
    ONOFF is assumed to take value 1 when -Wstrict-aliasing is specified,
    and 0 otherwise.  After calling this function, wstrict_aliasing will be
    set to the default value of -Wstrict_aliasing=level, currently 3.  */
-void
+static void
 set_Wstrict_aliasing (struct gcc_options *opts, int onoff)
 {
   gcc_assert (onoff == 0 || onoff == 1);
@@ -1982,9 +1981,6 @@ decode_d_option (const char *arg, struct gcc_options *opts,
       case 'P':
 	opts->x_flag_dump_rtl_in_asm = 1;
 	opts->x_flag_print_asm_name = 1;
-	break;
-      case 'v':
-	opts->x_graph_dump_format = vcg;
 	break;
       case 'x':
 	opts->x_rtl_dump_and_exit = 1;

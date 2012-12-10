@@ -1139,6 +1139,7 @@ package body Ch6 is
 
       if Token /= Tok_Dot then
          Change_Identifier_To_Defining_Identifier (Ident_Node);
+         Warn_If_Standard_Redefinition (Ident_Node);
          return Ident_Node;
 
       --  Child library unit name case
@@ -1176,6 +1177,7 @@ package body Ch6 is
          Change_Node (Prefix_Node, N_Defining_Program_Unit_Name);
          Set_Name (Prefix_Node, Name_Node);
          Change_Identifier_To_Defining_Identifier (Ident_Node);
+         Warn_If_Standard_Redefinition (Ident_Node);
          Set_Defining_Identifier (Prefix_Node, Ident_Node);
 
          --  All set with unit name parsed
@@ -1667,6 +1669,7 @@ package body Ch6 is
    begin
       Return_Obj := Token_Node;
       Change_Identifier_To_Defining_Identifier (Return_Obj);
+      Warn_If_Standard_Redefinition (Return_Obj);
       Decl_Node := New_Node (N_Object_Declaration, Token_Ptr);
       Set_Defining_Identifier (Decl_Node, Return_Obj);
 
@@ -1718,13 +1721,8 @@ package body Ch6 is
          Scan; -- past ALIASED
          Set_Aliased_Present (Decl_Node);
 
-         if Ada_Version < Ada_2012 then
-            Error_Msg_SC -- CODEFIX
-              ("ALIASED not allowed in extended return in Ada 2012?");
-         else
-            Error_Msg_SC -- CODEFIX
-              ("ALIASED not allowed in extended return");
-         end if;
+         --  The restrictions on the use of aliased in an extended return
+         --  are semantic, not syntactic.
 
          if Token = Tok_Constant then
             Scan; -- past CONSTANT

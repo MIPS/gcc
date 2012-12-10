@@ -42,7 +42,7 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
   gimple result;
 
   ix = streamer_read_uhwi (ib);
-  phi_result = VEC_index (tree, SSANAMES (fn), ix);
+  phi_result = (*SSANAMES (fn))[ix];
   len = EDGE_COUNT (bb->preds);
   result = create_phi_node (phi_result, bb);
 
@@ -53,7 +53,8 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
     {
       tree def = stream_read_tree (ib, data_in);
       int src_index = streamer_read_uhwi (ib);
-      location_t arg_loc = lto_input_location (ib, data_in);
+      bitpack_d bp = streamer_read_bitpack (ib);
+      location_t arg_loc = stream_input_location (&bp, data_in);
       basic_block sbb = BASIC_BLOCK_FOR_FUNCTION (fn, src_index);
 
       edge e = NULL;
@@ -99,7 +100,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   stmt->gsbase.subcode = bp_unpack_var_len_unsigned (&bp);
 
   /* Read location information.  */
-  gimple_set_location (stmt, lto_input_location (ib, data_in));
+  gimple_set_location (stmt, stream_input_location (&bp, data_in));
 
   /* Read lexical block reference.  */
   gimple_set_block (stmt, stream_read_tree (ib, data_in));
@@ -147,14 +148,14 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	  if (!op)
 	    continue;
 
-	  /* Fixup FIELD_DECLs in COMPONENT_REFs, they are not handled
-	     by decl merging.  */
 	  if (TREE_CODE (op) == ADDR_EXPR)
 	    op = TREE_OPERAND (op, 0);
 	  while (handled_component_p (op))
 	    {
 	      if (TREE_CODE (op) == COMPONENT_REF)
 		{
+		  /* Fixup FIELD_DECLs in COMPONENT_REFs, they are not handled
+		     by decl merging.  */
 		  tree field, type, tem;
 		  tree closest_match = NULL_TREE;
 		  field = TREE_OPERAND (op, 1);
@@ -213,6 +214,18 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 		    }
 		  else
 		    TREE_OPERAND (op, 1) = tem;
+		}
+	      else if ((TREE_CODE (op) == ARRAY_REF
+			|| TREE_CODE (op) == ARRAY_RANGE_REF)
+		       && (TREE_CODE (TREE_TYPE (TREE_OPERAND (op, 0)))
+			   != ARRAY_TYPE))
+		{
+		  /* And ARRAY_REFs to objects that had mismatched types
+		     during symbol merging to avoid ICEs.  */
+		  TREE_OPERAND (op, 0)
+		    = build1 (VIEW_CONVERT_EXPR,
+			      build_array_type (TREE_TYPE (op), NULL_TREE),
+			      TREE_OPERAND (op, 0));
 		}
 
 	      op = TREE_OPERAND (op, 0);
