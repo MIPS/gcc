@@ -1,6 +1,5 @@
 ;;- Machine description for HP PA-RISC architecture for GCC compiler
-;;   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-;;   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010
+;;   Copyright (C) 1992-2012
 ;;   Free Software Foundation, Inc.
 ;;   Contributed by the Center for Software Science at the University
 ;;   of Utah.
@@ -21,8 +20,52 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
-;; This gcc Version 2 machine description is inspired by sparc.md and
-;; mips.md.
+;; This machine description is inspired by sparc.md and to a lesser
+;; extent mips.md.
+
+;; Possible improvements:
+;;
+;; * With PA1.1, most computational instructions can conditionally nullify
+;;   the execution of the following instruction.  A nullified instruction
+;;   does not cause the instruction pipeline to stall, making it a very
+;;   efficient alternative to e.g. branching or conditional moves.
+;;
+;;   Nullification is performed conditionally based on the outcome of a
+;;   test specified in the opcode.  The test result is stored in PSW[N]
+;;   and can only be used to nullify the instruction following immediately
+;;   after the test.  For example:
+;;
+;;	ldi 10,%r26
+;;	ldi 5,%r25
+;;	sub,< %r26,%r25,%r28
+;;	sub   %r28,%r25,%r28	; %r28 == 0
+;;	sub,> %r26,%r25,%r29
+;;	sub   %r29,%r25,%r29	; %r29 == 5
+;;
+;;   This could be tricky to implement because the result of the test has
+;;   to be propagated one instruction forward, which, in the worst case,
+;;   would involve (1) adding a fake register for PSW[N]; (2) adding the
+;;   variants of the computational instructions that set or consume this
+;;   fake register.  The cond_exec infrastructure is probably not helpful
+;;   for this.
+;;
+;; * PA-RISC includes a set of conventions for branch instruction usage
+;;   to indicate whether a particular branch is more likely to be taken
+;;   or not taken.  For example, the prediction for CMPB instructions
+;;   (CMPB,cond,n r1,r2,target) depends on the direction of the branch
+;;   (forward or backward) and on the order of the operands:
+;;
+;;     | branch    | operand  | branch     |
+;;     | direction | compare  | prediction |
+;;     +-----------+----------+------------+
+;;     | backward  | r1 < r2  | taken      |
+;;     | backward  | r1 >= r2 | not taken  |
+;;     | forward   | r1 < r2  | not taken  |
+;;     | forward   | r1 >= r2 | taken      |
+;;    
+;;   By choosing instructions and operand order carefully, the compiler
+;;   could give the CPU branch predictor some help.
+;;   
 
 ;;- See file "rtl.def" for documentation on define_insn, match_*, et. al.
 
@@ -5341,7 +5384,7 @@
   "* return pa_output_mul_insn (0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_insn ""
@@ -5354,7 +5397,7 @@
   "* return pa_output_mul_insn (0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_expand "muldi3"
@@ -5447,7 +5490,7 @@
    return pa_output_div_insn (operands, 0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_insn ""
@@ -5463,7 +5506,7 @@
    return pa_output_div_insn (operands, 0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_expand "udivsi3"
@@ -5508,7 +5551,7 @@
    return pa_output_div_insn (operands, 1, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_insn ""
@@ -5524,7 +5567,7 @@
    return pa_output_div_insn (operands, 1, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_expand "modsi3"
@@ -5565,7 +5608,7 @@
   return pa_output_mod_insn (0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_insn ""
@@ -5580,7 +5623,7 @@
   return pa_output_mod_insn (0, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_expand "umodsi3"
@@ -5621,7 +5664,7 @@
   return pa_output_mod_insn (1, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 (define_insn ""
@@ -5636,7 +5679,7 @@
   return pa_output_mod_insn (1, insn);"
   [(set_attr "type" "milli")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_millicode_call (insn)")))])
 
 ;;- and instructions
@@ -7166,7 +7209,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 (define_insn "call_symref_pic"
@@ -7242,7 +7285,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7326,7 +7369,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 (define_insn "call_reg"
@@ -7342,7 +7385,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7419,7 +7462,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7502,7 +7545,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 12)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 12)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 (define_expand "call_value"
@@ -7630,7 +7673,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 (define_insn "call_val_symref_pic"
@@ -7712,7 +7755,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7802,7 +7845,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "call")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
 (define_insn "call_val_reg"
@@ -7819,7 +7862,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7902,7 +7945,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 ;; This pattern is split if it is necessary to save and restore the
@@ -7991,7 +8034,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "dyncall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 12)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 12)]
 	      (symbol_ref "pa_attr_length_indirect_call (insn)")))])
 
 ;; Call subroutine returning any type.
@@ -8087,7 +8130,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "sibcall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 1)")))])
 
 (define_insn "sibcall_internal_symref_64bit"
@@ -8104,7 +8147,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "sibcall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 1)")))])
 
 (define_expand "sibcall_value"
@@ -8175,7 +8218,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "sibcall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 1)")))])
 
 (define_insn "sibcall_value_internal_symref_64bit"
@@ -8193,7 +8236,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "sibcall")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 8)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 1)")))])
 
 (define_insn "nop"
@@ -9232,7 +9275,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 }"
   [(set_attr "type" "sh_func_adrs")
    (set (attr "length")
-	(cond [(and (match_test "0") (eq (const_int 0) (pc))) (const_int 28)]
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 28)]
 	      (plus (symbol_ref "pa_attr_length_millicode_call (insn)")
 		    (const_int 20))))])
 

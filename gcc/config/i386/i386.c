@@ -1822,7 +1822,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_K6,
 
   /* X86_TUNE_USE_CLTD */
-  ~(m_PENT | m_CORE2I7 | m_ATOM | m_K6 | m_GENERIC),
+  ~(m_PENT | m_ATOM | m_K6),
 
   /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
   m_PENT4,
@@ -1919,10 +1919,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_PROLOGUE_USING_MOVE */
-  m_PPRO | m_CORE2I7 | m_ATOM | m_ATHLON_K8 | m_GENERIC,
+  m_PPRO | m_ATHLON_K8,
 
   /* X86_TUNE_EPILOGUE_USING_MOVE */
-  m_PPRO | m_CORE2I7 | m_ATOM | m_ATHLON_K8 | m_GENERIC,
+  m_PPRO | m_ATHLON_K8,
 
   /* X86_TUNE_SHIFT1 */
   ~m_486,
@@ -12785,6 +12785,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  tp = get_thread_pointer (Pmode, true);
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, dest));
 
+	  if (GET_MODE (x) != Pmode)
+	    x = gen_rtx_ZERO_EXTEND (Pmode, x);
+
 	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
       else
@@ -12793,13 +12796,17 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 
 	  if (TARGET_64BIT)
 	    {
-	      rtx rax = gen_rtx_REG (Pmode, AX_REG), insns;
+	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
+	      rtx insns;
 
 	      start_sequence ();
-	      emit_call_insn (ix86_gen_tls_global_dynamic_64 (rax, x,
-							      caddr));
+	      emit_call_insn
+		(ix86_gen_tls_global_dynamic_64 (rax, x, caddr));
 	      insns = get_insns ();
 	      end_sequence ();
+
+	      if (GET_MODE (x) != Pmode)
+		x = gen_rtx_ZERO_EXTEND (Pmode, x);
 
 	      RTL_CONST_CALL_P (insns) = 1;
 	      emit_libcall_block (insns, dest, rax, x);
@@ -12842,11 +12849,12 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 
 	  if (TARGET_64BIT)
 	    {
-	      rtx rax = gen_rtx_REG (Pmode, AX_REG), insns, eqv;
+	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
+	      rtx insns, eqv;
 
 	      start_sequence ();
-	      emit_call_insn (ix86_gen_tls_local_dynamic_base_64 (rax,
-								  caddr));
+	      emit_call_insn
+		(ix86_gen_tls_local_dynamic_base_64 (rax, caddr));
 	      insns = get_insns ();
 	      end_sequence ();
 
@@ -12870,6 +12878,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
       if (TARGET_GNU2_TLS)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
+
+	  if (GET_MODE (x) != Pmode)
+	    x = gen_rtx_ZERO_EXTEND (Pmode, x);
 
 	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}

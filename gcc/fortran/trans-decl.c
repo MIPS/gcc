@@ -1531,6 +1531,14 @@ get_proc_pointer_decl (gfc_symbol *sym)
 		     VAR_DECL, get_identifier (sym->name),
 		     build_pointer_type (gfc_get_function_type (sym)));
 
+  if (sym->module)
+    {
+      /* Apply name mangling.  */
+      gfc_set_decl_assembler_name (decl, gfc_sym_mangled_identifier (sym));
+      if (sym->attr.use_assoc)
+	DECL_IGNORED_P (decl) = 1;
+    }
+  
   if ((sym->ns->proc_name
       && sym->ns->proc_name->backend_decl == current_function_decl)
       || sym->attr.contained)
@@ -3780,9 +3788,10 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 						      NULL_TREE, true, NULL,
 						      true);
 		  else
-		    tmp = gfc_deallocate_scalar_with_status (se.expr, NULL,
-							     true, NULL,
-							     sym->ts);
+		    tmp = gfc_deallocate_scalar_with_status (se.expr, NULL_TREE,
+						   true,
+						   gfc_lval_expr_from_sym (sym),
+						   sym->ts);
 		}
 	      if (sym->ts.type == BT_CLASS)
 		{

@@ -1423,7 +1423,10 @@ make_fancy_name (tree expr)
    EXP_TYPE at the given OFFSET.  If BASE is something for which
    get_addr_base_and_unit_offset returns NULL, gsi must be non-NULL and is used
    to insert new statements either before or below the current one as specified
-   by INSERT_AFTER.  This function is not capable of handling bitfields.  */
+   by INSERT_AFTER.  This function is not capable of handling bitfields.
+
+   BASE must be either a declaration or a memory reference that has correct
+   alignment ifformation embeded in it (e.g. a pre-existing one in SRA).  */
 
 tree
 build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
@@ -1437,7 +1440,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   unsigned int align;
 
   gcc_checking_assert (offset % BITS_PER_UNIT == 0);
-
+  get_object_alignment_1 (base, &align, &misalign);
   base = get_addr_base_and_unit_offset (base, &base_offset);
 
   /* get_addr_base_and_unit_offset returns NULL for references with a variable
@@ -1476,22 +1479,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
       base = build_fold_addr_expr (unshare_expr (base));
     }
 
-  /* If prev_base were always an originally performed access
-     we can extract more optimistic alignment information
-     by looking at the access mode.  That would constrain the
-     alignment of base + base_offset which we would need to
-     adjust according to offset.  */
-  if (!get_pointer_alignment_1 (base, &align, &misalign))
-    {
-      gcc_assert (misalign == 0);
-      if (TREE_CODE (prev_base) == MEM_REF
-	  || TREE_CODE (prev_base) == TARGET_MEM_REF)
-	align = TYPE_ALIGN (TREE_TYPE (prev_base));
-    }
-  misalign += (tree_to_double_int (off)
-	       .sext (TYPE_PRECISION (TREE_TYPE (off))).low
-	       * BITS_PER_UNIT);
-  misalign = misalign & (align - 1);
+  misalign = (misalign + offset) & (align - 1);
   if (misalign != 0)
     align = (misalign & -misalign);
   if (align < TYPE_ALIGN (exp_type))
@@ -3891,12 +3879,13 @@ unmodified_by_ref_scalar_representative (tree parm)
   return repr;
 }
 
-/* Return true iff this access precludes IPA-SRA of the parameter it is
-   associated with. */
+/* Return true iff this ACCESS precludes IPA-SRA of the parameter it is
+   associated with.  REQ_ALIGN is the minimum required alignment.  */
 
 static bool
-access_precludes_ipa_sra_p (struct access *access)
+access_precludes_ipa_sra_p (struct access *access, unsigned int req_align)
 {
+  unsigned int exp_align;
   /* Avoid issues such as the second simple testcase in PR 42025.  The problem
      is incompatible assign in a call statement (and possibly even in asm
      statements).  This can be relaxed by using a new temporary but only for
@@ -3906,6 +3895,10 @@ access_precludes_ipa_sra_p (struct access *access)
   if (access->write
       && (is_gimple_call (access->stmt)
 	  || gimple_code (access->stmt) == GIMPLE_ASM))
+    return true;
+
+  exp_align = get_object_alignment (access->expr);
+  if (exp_align < req_align)
     return true;
 
   return false;
@@ -3943,7 +3936,7 @@ splice_param_accesses (tree parm, bool *ro_grp)
       tree a1_alias_type;
       access = (*access_vec)[i];
       modification = access->write;
-      if (access_precludes_ipa_sra_p (access))
+      if (access_precludes_ipa_sra_p (access, TYPE_ALIGN (access->type)))
 	return NULL;
       a1_alias_type = reference_alias_ptr_type (access->expr);
 
@@ -3966,7 +3959,7 @@ splice_param_accesses (tree parm, bool *ro_grp)
 	  else if (ac2->size != access->size)
 	    return NULL;
 
-	  if (access_precludes_ipa_sra_p (ac2)
+	  if (access_precludes_ipa_sra_p (ac2, TYPE_ALIGN (access->type))
 	      || (ac2->type != access->type
 		  && (TREE_ADDRESSABLE (ac2->type)
 		      || TREE_ADDRESSABLE (access->type)))

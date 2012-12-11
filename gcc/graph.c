@@ -24,11 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h" /* for fatal_error */
-#include "sbitmap.h"
 #include "basic-block.h"
-#include "rtl.h"
-#include "tree.h"
 #include "graph.h"
+#include "dumpfile.h"
+#include "pretty-print.h"
 
 /* DOT files with the .dot extension are recognized as document templates
    by a well-known piece of word processing software out of Redmond, WA.
@@ -56,48 +55,31 @@ open_graph_file (const char *base, const char *mode)
   return fp;
 }
 
-/* Print the output from print_insn or print_pattern with GraphViz-special
-   characters escaped as necessary.  */
-void
-print_escaped_line (FILE *fp, const char *buf)
+/* Return a pretty-print buffer for output to file FP.  */
+
+static pretty_printer *
+init_graph_slim_pretty_print (FILE *fp)
 {
-  const char *p = buf;
+  static bool initialized = false;
+  static pretty_printer graph_slim_pp;
 
-  while (*p)
+  if (! initialized)
     {
-      switch (*p)
-	{
-	case '\n':
-	  /* Print newlines as a left-aligned newline.  */
-	  fputs ("\\l\\\n", fp);
-	  break;
-
-	case '{':
-	case '}':
-	case '<':
-	case '>':
-	case '|':
-	case '"':
-	case ' ':
-	  /* These characters have to be escaped to work with record-shape nodes.  */
-	  fputc ('\\', fp);
-	  /* fall through */
-	default:
-	  fputc (*p, fp);
-	  break;
-	}
-      p++;
+      pp_construct (&graph_slim_pp, /*prefix=*/NULL, /*linewidth=*/0);
+      initialized = true;
     }
-  fputs ("\\l\\\n", fp);
+  else
+    gcc_assert (! pp_last_position_in_text (&graph_slim_pp));
+
+  graph_slim_pp.buffer->stream = fp;
+  return &graph_slim_pp;
 }
 
-/* Draw a basic block BB belonging to the function with FNDECL_UID
+/* Draw a basic block BB belonging to the function with FUNCDEF_NO
    as its unique number.  */
 static void
-draw_cfg_node (FILE *fp, int fndecl_uid, basic_block bb)
+draw_cfg_node (pretty_printer *pp, int funcdef_no, basic_block bb)
 {
-  rtx insn;
-  bool first = true;
   const char *shape;
   const char *fillcolor;
 
@@ -115,48 +97,31 @@ draw_cfg_node (FILE *fp, int fndecl_uid, basic_block bb)
 	: "lightgrey";
     }
 
-  fprintf (fp,
-	   "\tfn_%d_basic_block_%d [shape=%s,style=filled,fillcolor=%s,label=\"",
-	   fndecl_uid, bb->index, shape, fillcolor);
+  pp_printf (pp,
+	     "\tfn_%d_basic_block_%d "
+	     "[shape=%s,style=filled,fillcolor=%s,label=\"",
+	     funcdef_no, bb->index, shape, fillcolor);
 
   if (bb->index == ENTRY_BLOCK)
-    fputs ("ENTRY", fp);
+    pp_string (pp, "ENTRY");
   else if (bb->index == EXIT_BLOCK)
-    fputs ("EXIT", fp);
+    pp_string (pp, "EXIT");
   else
     {
-      fputc ('{', fp);
-      /* TODO: inter-bb stuff.  */
-      FOR_BB_INSNS (bb, insn)
-	{
-	  char buf[2048];
-
-	  if (! first)
-	    fputc ('|', fp);
-
-	  print_insn (buf, insn, 1);
-	  print_escaped_line (fp, buf);
-	  if (INSN_P (insn) && REG_NOTES (insn))
-	    for (rtx note = REG_NOTES (insn); note; note = XEXP (note, 1))
-	      {
-		fprintf (fp, "      %s: ",
-			 GET_REG_NOTE_NAME (REG_NOTE_KIND (note)));
-		print_pattern (buf, XEXP (note, 0), 1);
-		print_escaped_line (fp, buf);
-	      }
-
-	  first = false;
-	}
-      fputc ('}', fp);
+      pp_character (pp, '{');
+      pp_write_text_to_stream (pp);
+      dump_bb_for_graph (pp, bb);
+      pp_character (pp, '}');
     }
 
-  fputs ("\"];\n\n", fp);
+  pp_string (pp, "\"];\n\n");
+  pp_flush (pp);
 }
 
 /* Draw all successor edges of a basic block BB belonging to the function
-   with FNDECL_UID as its unique number.  */
+   with FUNCDEF_NO as its unique number.  */
 static void
-draw_cfg_node_succ_edges (FILE *fp, int fndecl_uid, basic_block bb)
+draw_cfg_node_succ_edges (pretty_printer *pp, int funcdef_no, basic_block bb)
 {
   edge e;
   edge_iterator ei;
@@ -187,40 +152,41 @@ draw_cfg_node_succ_edges (FILE *fp, int fndecl_uid, basic_block bb)
       if (e->flags & EDGE_ABNORMAL)
 	color = "red";
 
-      fprintf (fp,
-	       "\tfn_%d_basic_block_%d:s -> fn_%d_basic_block_%d:n "
-	       "[style=%s,color=%s,weight=%d,constraint=%s];\n",
-	       fndecl_uid, e->src->index,
-	       fndecl_uid, e->dest->index,
-	       style, color, weight,
-	       (e->flags & (EDGE_FAKE | EDGE_DFS_BACK)) ? "false" : "true");
+      pp_printf (pp,
+		 "\tfn_%d_basic_block_%d:s -> fn_%d_basic_block_%d:n "
+		 "[style=%s,color=%s,weight=%d,constraint=%s];\n",
+		 funcdef_no, e->src->index,
+		 funcdef_no, e->dest->index,
+		 style, color, weight,
+		 (e->flags & (EDGE_FAKE | EDGE_DFS_BACK)) ? "false" : "true");
     }
+  pp_flush (pp);
 }
 
-/* Print a graphical representation of the CFG of function FUN.
-   Currently only supports RTL in cfgrtl or cfglayout mode, GIMPLE is TODO.  */
+/* Print a graphical representation of the CFG of function FUN.  */
+
 void
-print_rtl_graph_with_bb (const char *base, tree fndecl)
+print_graph_cfg (const char *base, struct function *fun)
 {
-  const char *funcname = fndecl_name (fndecl);
-  int fndecl_uid = DECL_UID (fndecl);
+  const char *funcname = function_name (fun);
+  int funcdef_no = fun->funcdef_no;
   FILE *fp = open_graph_file (base, "a");
   int *rpo = XNEWVEC (int, n_basic_blocks);
   basic_block bb;
   int i, n;
+  pretty_printer *pp = init_graph_slim_pretty_print (fp);
 
-  fprintf (fp,
-	   "subgraph \"%s\" {\n"
-	   "\tcolor=\"black\";\n"
-	   "\tlabel=\"%s\";\n",
-	   funcname, funcname);
+  pp_printf (pp, "subgraph \"%s\" {\n"
+	         "\tcolor=\"black\";\n"
+		 "\tlabel=\"%s\";\n",
+		 funcname, funcname);
 
   /* First print all basic blocks.
      Visit the blocks in reverse post order to get a good ranking
      of the nodes.  */
   n = pre_and_rev_post_order_compute (NULL, rpo, true);
   for (i = 0; i < n; i++)
-    draw_cfg_node (fp, fndecl_uid, BASIC_BLOCK (rpo[i]));
+    draw_cfg_node (pp, funcdef_no, BASIC_BLOCK (rpo[i]));
 
   /* Draw all edges at the end to get subgraphs right for GraphViz,
      which requires nodes to be defined before edges to cluster
@@ -232,10 +198,10 @@ print_rtl_graph_with_bb (const char *base, tree fndecl)
      for ourselves is also not desirable.)  */
   mark_dfs_back_edges ();
   FOR_ALL_BB (bb)
-    draw_cfg_node_succ_edges (fp, fndecl_uid, bb);
+    draw_cfg_node_succ_edges (pp, funcdef_no, bb);
 
-  fputs ("\t}\n", fp);
-
+  pp_printf (pp, "\t}\n");
+  pp_flush (pp);
   fclose (fp);
 }
 
