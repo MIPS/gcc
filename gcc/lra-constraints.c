@@ -129,6 +129,7 @@
 #include "df.h"
 #include "ira.h"
 #include "rtl-error.h"
+#include "params.h"
 #include "lra-int.h"
 
 /* Value of LRA_CURR_RELOAD_NUM at the beginning of BB of the current
@@ -4711,7 +4712,7 @@ inherit_in_ebb (rtx head, rtx tail)
 /* This value affects EBB forming.  If probability of edge from EBB to
    a BB is not greater than the following value, we don't add the BB
    to EBB.  */
-#define EBB_PROBABILITY_CUTOFF (REG_BR_PROB_BASE / 2)
+#define EBB_PROBABILITY_CUTOFF ((REG_BR_PROB_BASE * LRA_EBB_PROBABILITY) / 100)
 
 /* Current number of inheritance/split iteration.  */
 int lra_inheritance_iter;

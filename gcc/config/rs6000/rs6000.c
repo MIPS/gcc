@@ -5531,10 +5531,10 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
-      if (GET_MODE_SIZE (mode) > UNITS_PER_WORD
+      if (! lra_in_progress && GET_MODE_SIZE (mode) > UNITS_PER_WORD
 	  && !(/* ??? Assume floating point reg based on mode?  */
 	       TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
-	       && (mode == DFmode || mode == DDmode || mode == TFmode)))
+	       && (mode == DFmode || mode == DDmode)))
 	return false;
 
       return CONSTANT_P (x) || toc_ok_p;
@@ -7139,7 +7139,11 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  regno = ira_class_hard_regs[cl][0];
 	}
       if (FP_REGNO_P (regno))
-	emit_insn (gen_movsd_store (operands[0], operands[1]));
+	{
+	  if (GET_MODE (operands[0]) != DDmode)
+	    operands[0] = gen_rtx_SUBREG (DDmode, operands[0], 0);
+	  emit_insn (gen_movsd_store (operands[0], operands[1]));
+	}
       else if (INT_REGNO_P (regno))
 	emit_insn (gen_movsd_hardfloat (operands[0], operands[1]));
       else
@@ -7165,7 +7169,11 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 	  regno = ira_class_hard_regs[cl][0];
 	}
       if (FP_REGNO_P (regno))
-	emit_insn (gen_movsd_load (operands[0], operands[1]));
+	{
+	  if (GET_MODE (operands[1]) != DDmode)
+	    operands[1] = gen_rtx_SUBREG (DDmode, operands[1], 0);
+	  emit_insn (gen_movsd_load (operands[0], operands[1]));
+	}
       else if (INT_REGNO_P (regno))
 	emit_insn (gen_movsd_hardfloat (operands[0], operands[1]));
       else

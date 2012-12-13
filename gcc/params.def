@@ -837,6 +837,11 @@ DEFPARAM (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
 	  "Max basic blocks number in loop for loop invariant motion",
 	  10000, 0, 0)
 
+DEFPARAM (PARAM_LRA_EBB_PROBABILITY,
+	  "lra-ebb-probability",
+	  "Min. probability to add BB to EBB being formed for inheritance and splitting",
+	  50, 0, 100)
+
 /* Avoid SLP vectorization of large basic blocks.  */
 DEFPARAM (PARAM_SLP_MAX_INSNS_IN_BB,
           "slp-max-insns-in-bb",

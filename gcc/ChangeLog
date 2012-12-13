@@ -1,3 +1,17 @@
+2012-12-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* params.def (PARAM_LRA_EBB_PROBABILITY): New param.
+	* params.h (LRA_EBB_PROBABILITY): New.
+	* Makefile.in (lra-constraints.c): Add dependence on $(PARAMS_H).
+	* doc/invoke.texi (lra-ebb-probability): Describe.
+	* lra-constraints.c: Include "params.h".
+	(EBB_PROBABILITY_CUTOFF): Redefine through LRA_EBB_PROBABILITY.
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Permit
+	modes bigger word for LRA.
+	(rs6000_emit_move): Generate subreg for LRA if it is necessary.
+	Remove TFmode as it was before.
+	* lra.c (lra): Add note at the end of RTL code.
+
 2012-12-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* rtl.h (SUBREG_MATCH_RELOAD_P): Rename to LRA_SUBREG_P.

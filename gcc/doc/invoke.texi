@@ -9549,6 +9549,13 @@ considered for data dependence analysis.  These large loops are no
 handled by the optimizations using loop data dependencies.
 The default value is 1000.
 
+@item lra-ebb-probability
+Inheritance and register live-range splitting are done by LRA in
+extended basic block scope (@dfn{EBB}).  EBB is formed on basis of
+probability in percents of transition from one basic block to the next
+basic block.  The parameter defines minimal probability to add a basic
+block to EBB being formed.  The default value is 50.
+
 @item max-vartrack-size
 Sets a maximum number of hash table slots to use during variable
 tracking dataflow analysis of any function.  If this limit is exceeded

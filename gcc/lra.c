@@ -2213,6 +2213,10 @@ lra (FILE *f)
 
   timevar_push (TV_LRA);
 
+  /* Make sure that the last insn is a note.  Some subsequent passes
+     need it.  */
+  emit_note (NOTE_INSN_DELETED);
+
   COPY_HARD_REG_SET (lra_no_alloc_regs, ira_no_alloc_regs);
 
   init_reg_info ();
