@@ -514,3 +514,11 @@ Use/do not use r11 to hold the static link in calls to functions via pointers.
 msave-toc-indirect
 Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
+
+mvsx-timode
+Target Undocumented Var(TARGET_VSX_TIMODE)
+; Allow TImode in VSX registers
+
+mvsx-timode=vsx
+Target Undocumented Var(TARGET_VSX_TIMODE, 2) RejectNegative
+; Set VECTOR_MEM_VSX_P(TImode) to true as well as allowing TImode in Vsx registers

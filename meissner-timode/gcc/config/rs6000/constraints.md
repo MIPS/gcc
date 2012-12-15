@@ -64,6 +64,10 @@
 (define_register_constraint "ws" "rs6000_constraints[RS6000_CONSTRAINT_ws]"
   "@internal")
 
+;; TImode
+(define_register_constraint "wt" "rs6000_constraints[RS6000_CONSTRAINT_wt]"
+  "@internal")
+
 ;; any VSX register
 (define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
   "@internal")

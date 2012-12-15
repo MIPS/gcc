@@ -211,7 +211,7 @@
 (define_insn "*vsx_mov<mode>"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,*Y,*r,*r,<VSr>,?wa,v,wZ,v")
 	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,Y,r,j,j,W,v,wZ"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
@@ -274,7 +274,7 @@
 (define_insn "*vsx_movti"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,?Y,?r,?r,wa,v,v,wZ")
 	(match_operand:TI 1 "input_operand" "wa,Z,wa,r,Y,r,j,W,wZ,v"))]
-  "VECTOR_MEM_VSX_P (TImode)
+  "MODE_ALLOWED_IN_VSX_REG_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
 {
@@ -316,13 +316,13 @@
 (define_expand "vsx_load_<mode>"
   [(set (match_operand:VSX_M 0 "vsx_register_operand" "")
 	(match_operand:VSX_M 1 "memory_operand" ""))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "")
 
 (define_expand "vsx_store_<mode>"
   [(set (match_operand:VEC_M 0 "memory_operand" "")
 	(match_operand:VEC_M 1 "vsx_register_operand" ""))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "")
 
 
@@ -781,7 +781,7 @@
 		(match_operand:VSX_L 4 "zero_constant" ""))
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
 	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
   [(set_attr "type" "vecperm")])
 
@@ -792,7 +792,7 @@
 		   (match_operand:VSX_L 4 "zero_constant" ""))
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
 	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
   [(set_attr "type" "vecperm")])
 
@@ -1033,7 +1033,7 @@
         (and:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxland %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1041,7 +1041,7 @@
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (ior:VSX_L (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
 		   (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxlor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1050,7 +1050,7 @@
         (xor:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxlxor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1058,7 +1058,7 @@
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (not:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxlnor %x0,%x1,%x1"
   [(set_attr "type" "vecsimple")])
   
@@ -1068,7 +1068,7 @@
 	 (ior:VSX_L
 	  (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
 	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxlnor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1078,7 +1078,7 @@
 	 (not:VSX_L
 	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxlandc %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1092,7 +1092,7 @@
 	 [(match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
 	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")]
 	 UNSPEC_VSX_CONCAT))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
 
@@ -1105,7 +1105,7 @@
 	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
 	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
 	 UNSPEC_VSX_CONCAT))]
-  "VECTOR_MEM_VSX_P (V2DFmode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (V2DFmode)"
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
 
@@ -1116,7 +1116,7 @@
 		       (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
 		      UNSPEC_VSX_SET))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
 {
   if (INTVAL (operands[3]) == 0)
     return \"xxpermdi %x0,%x2,%x1,1\";
@@ -1133,7 +1133,7 @@
 	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
 		       (parallel
 			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
 {
   gcc_assert (UINTVAL (operands[2]) <= 1);
   operands[3] = GEN_INT (INTVAL (operands[2]) << 1);
@@ -1147,7 +1147,7 @@
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
 	 (parallel [(const_int 0)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode) && WORDS_BIG_ENDIAN"
   "lxsd%U1x %x0,%y1"
   [(set_attr "type" "fpload")
    (set_attr "length" "4")])  
@@ -1195,7 +1195,7 @@
    (match_operand:VSX_L 1 "vsx_register_operand" "")
    (match_operand:VSX_L 2 "vsx_register_operand" "")
    (match_operand:QI 3 "u5bit_cint_operand" "")]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
 {
   rtx target = operands[0];
   rtx op0 = operands[1];
@@ -1229,7 +1229,7 @@
 	    (match_operand:VSX_D 2 "vsx_register_operand" "wd"))
 	  (parallel [(match_operand 3 "const_0_to_1_operand" "")
 		     (match_operand 4 "const_2_to_3_operand" "")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
 {
   int mask = (INTVAL (operands[3]) << 1) | (INTVAL (operands[4]) - 2);
   operands[3] = GEN_INT (mask);
@@ -1242,7 +1242,7 @@
    (match_operand:VSX_D 1 "vsx_register_operand" "")
    (match_operand:VSX_D 2 "vsx_register_operand" "")
    (match_operand:V2DI  3 "" "")]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
 {
   if (rs6000_expand_vec_perm_const (operands))
     DONE;
@@ -1258,7 +1258,7 @@
 	    (match_operand:VSX_D 1 "vsx_register_operand" "")
 	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
 	  (parallel [(const_int 1) (const_int 3)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "")
 
 (define_expand "vsx_mergeh_<mode>"
@@ -1268,7 +1268,7 @@
 	    (match_operand:VSX_D 1 "vsx_register_operand" "")
 	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
 	  (parallel [(const_int 0) (const_int 2)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "")
 
 ;; V2DF/V2DI splat
@@ -1276,7 +1276,7 @@
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
 	(vec_duplicate:VSX_D
 	 (match_operand:<VS_scalar> 1 "splat_input_operand" "ws,f,Z,wa,wa,Z")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
    xxpermdi %x0,%x1,%x1,0
@@ -1294,7 +1294,7 @@
 	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -1307,7 +1307,7 @@
 	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,wa"))
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 1) (const_int 5)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxmrghw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
@@ -1319,7 +1319,7 @@
 	    (match_operand:VSX_W 2 "vsx_register_operand" "wf,?wa"))
 	  (parallel [(const_int 2) (const_int 6)
 		     (const_int 3) (const_int 7)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxmrglw %x0,%x1,%x2"
   [(set_attr "type" "vecperm")])
 
@@ -1330,7 +1330,7 @@
 		       (match_operand:VSX_L 2 "vsx_register_operand" "wa")
 		       (match_operand:QI 3 "u5bit_cint_operand" "i")]
 		      UNSPEC_VSX_SLDWI))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "MODE_ALLOWED_IN_VSX_REG_P (<MODE>mode)"
   "xxsldwi %x0,%x1,%x2,%3"
   [(set_attr "type" "vecperm")])
 

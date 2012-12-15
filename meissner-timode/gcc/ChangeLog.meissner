@@ -1,5 +1,57 @@
 2012-12-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wt): New constraint for TImode in
+	VSX registers.
+
+	* config/rs6000/rs6000.opt (-mvsx-timode): New switch to enable
+	TImode in VSX registers.
+
+	* config/rs6000/rs6000.c (mode_allowed_in_vsx_reg_p): New array to
+	say whether a given mode is allowed in VSX registers.
+	(rs6000_hard_regno_nregs_internal): Implement -mvsx-timode to
+	allow TImode types in VSX registers.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(avoiding_indexed_address_p): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_secondary_memory_needed): Likewise.
+	* config/rs6000/vsx.md (vsx_mov<mode>): Likewise.
+	(vsx_movti): Likewise.
+	(vsx_load_<mode>): Likewise.
+	(vsx_store_<mode>): Likewise.
+	(vsx_xxsel<mode>): Likewise.
+	(vsx_and<mode>3): Likewise.
+	(vsx_ior<mode>3): Likewise.
+	(vsx_xor<mode>3): Likewise.
+	(vsx_one_cmpl<mode>2): Likewise.
+	(vsx_nor<mode>3): Likewise.
+	(vsx_andc<mode>3): Likewise.
+	(vsx_concat_<mode>): Likewise.
+	(vsx_concat_v2sf): Likewise.
+	(vsx_set_<mode>): Likewise.
+	(vsx_extract_<mode>): Likewise.
+	(vsx_extract_<mode>_zero): Likewise.
+	(vsx_xxpermdi_<mode>): Likewise.
+	(vsx_xxpermdi2_<mode>): Likewise.
+	(vsx_vec_perm_const<mode>): Likewise.
+	(vsx_splat_<mode>): Likewise.
+	(vsx_xxspltw_<mode>): Likewise.
+	(vsx_xxmrghw_<mode>): Likewise.
+	(vsx_xxmrglw_<mode>): Likewise.
+	(vsx_xxsldwi_<mode>): Likewise.
+	* config/rs6000/rs6000.h (mode_allowed_in_vsx_reg_p): Likewise.
+	(MODE_ALLOWED_IN_VSX_REG_P): Likewise.
+	(SCALAR_ALLOWED_IN_VSX_REG_P): Likewise.
+	(VECTOR_ALLOWED_IN_VSX_REG_P): Likewise.
+	(RS6000_CONSTRAINT_wt): Likewise.
+	* config/rs6000/rs6000.md (movti_ppc64): Likewise.
+	(movti splitters): Likewise.
+
 	Clone branch from subversion id 194505.
 	* REVISION: New file.
 

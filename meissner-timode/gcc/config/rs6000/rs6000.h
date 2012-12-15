@@ -413,6 +413,17 @@ extern enum rs6000_vector rs6000_vector_mem[];
   (rs6000_vector_mem[(MODE)] == VECTOR_ALTIVEC 	\
    || rs6000_vector_mem[(MODE)] == VECTOR_VSX)
 
+/* Describe whether a given type can go into VSX registers.  */
+extern unsigned char mode_allowed_in_vsx_reg_p[];
+
+#define MODE_ALLOWED_IN_VSX_REG_P(MODE) (mode_allowed_in_vsx_reg_p[(MODE)])
+
+#define SCALAR_ALLOWED_IN_VSX_REG_P(MODE)				\
+  (MODE_ALLOWED_IN_VSX_REG_P (MODE) && !VECTOR_MODE_P (MODE))
+
+#define VECTOR_ALLOWED_IN_VSX_REG_P(MODE)				\
+  (MODE_ALLOWED_IN_VSX_REG_P (MODE) && VECTOR_MODE_P (MODE))
+
 /* Return the alignment of a given vector type, which is set based on the
    vector unit use.  VSX for instance can load 32 or 64 bit aligned words
    without problems, while Altivec requires 128-bit aligned vectors.  */
@@ -1321,6 +1332,7 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
+  RS6000_CONSTRAINT_wt,		/* VSX register for TI */
   RS6000_CONSTRAINT_MAX
 };
 
