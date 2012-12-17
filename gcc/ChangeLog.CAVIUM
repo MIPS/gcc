@@ -210,6 +210,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2012-12-17  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/octeon-elf.h (DWARF_FRAME_REGISTERS): Define to 66.
+	Speeds up unwinding by almost by a factor of 2.
+
 2012-11-29  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #5464

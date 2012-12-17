@@ -78,6 +78,9 @@ Boston, MA 02110-1301, USA.  */
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX ((mips_abi == ABI_N32) ? "." : "$")
 
+/* 32 gprs and 32fprs and 2 for hi/lo. */
+#define DWARF_FRAME_REGISTERS 32*2+2
+
 /* Append the core number to the GCOV filename FN.  */
 
 #define GCOV_TARGET_SUFFIX_LENGTH 2
