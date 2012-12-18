@@ -756,7 +756,9 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
 
-      if (BOUNDED_TYPE_P (type))
+      if (BOUNDED_TYPE_P (type)
+	  || (use_fntype
+	      && pass_by_reference (NULL, TYPE_MODE (type), type, false)))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
@@ -809,7 +811,10 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       tree call_arg = gimple_call_arg (call, arg_no++);
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
-      if (BOUNDED_TYPE_P (type) && bnd_arg_cnt)
+      if ((BOUNDED_TYPE_P (type)
+	   || (use_fntype
+	       && pass_by_reference (NULL, TYPE_MODE (type), type, false)))
+	  && bnd_arg_cnt)
 	{
 	  tree bounds = pl_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
