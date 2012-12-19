@@ -2080,6 +2080,9 @@ VSX vector register to hold vector float data
 @item ws
 VSX vector register to hold scalar float data
 
+@item wt
+VSX vector register to hold 128-bit integer
+
 @item wa
 Any VSX register
 

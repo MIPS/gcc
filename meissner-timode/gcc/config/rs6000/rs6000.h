@@ -1321,6 +1321,7 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
+  RS6000_CONSTRAINT_wt,		/* VSX register for TI */
   RS6000_CONSTRAINT_MAX
 };
 

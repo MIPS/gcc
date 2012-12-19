@@ -49,7 +49,7 @@
 			(V2DF  "vd2")
 			(V2DI  "vd2")
 			(DF    "d")
-			(TI    "vw4")])
+			(TI    "vd2")])
 
 ;; Map into the appropriate suffix based on the type
 (define_mode_attr VSs	[(V16QI "sp")
@@ -60,7 +60,7 @@
 			 (V2DI  "dp")
 			 (DF    "dp")
 			 (SF	"sp")
-			 (TI    "sp")])
+			 (TI    "dp")])
 
 ;; Map the register class used
 (define_mode_attr VSr	[(V16QI "v")
@@ -71,7 +71,7 @@
 			 (V2DF  "wd")
 			 (DF    "ws")
 			 (SF	"d")
-			 (TI    "wd")])
+			 (TI    "wt")])
 
 ;; Map the register class used for float<->int conversions
 (define_mode_attr VSr2	[(V2DF  "wd")
@@ -116,7 +116,6 @@
 			 (V4SF  "v")
 			 (V2DI  "v")
 			 (V2DF  "v")
-			 (TI    "v")
 			 (DF    "s")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
@@ -272,8 +271,8 @@
 ;; Unlike other VSX moves, allow the GPRs, since a normal use of TImode is for
 ;; unions.  However for plain data movement, slightly favor the vector loads
 (define_insn "*vsx_movti"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,?Y,?r,?r,wa,v,v,wZ")
-	(match_operand:TI 1 "input_operand" "wa,Z,wa,r,Y,r,j,W,wZ,v"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,?Y,?r,?r,wa,v, v,wZ")
+	(match_operand:TI 1 "input_operand"        "wa, Z,wa, r, Y, r, j,W,wZ, v"))]
   "VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
@@ -320,8 +319,8 @@
   "")
 
 (define_expand "vsx_store_<mode>"
-  [(set (match_operand:VEC_M 0 "memory_operand" "")
-	(match_operand:VEC_M 1 "vsx_register_operand" ""))]
+  [(set (match_operand:VSX_M 0 "memory_operand" "")
+	(match_operand:VSX_M 1 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "")
 
@@ -1031,16 +1030,16 @@
 (define_insn "*vsx_and<mode>3"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (and:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
+	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxland %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*vsx_ior<mode>3"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (ior:VSX_L (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
-		   (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
+        (ior:VSX_L (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+		   (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxlor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
@@ -1048,8 +1047,8 @@
 (define_insn "*vsx_xor<mode>3"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (xor:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa")))]
+	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxlxor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
