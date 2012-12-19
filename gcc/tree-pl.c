@@ -1368,6 +1368,16 @@ pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
   return bounds;
 }
 
+tree
+pl_build_bndstx_call (tree addr, tree ptr, tree bounds)
+{
+  tree call = build1 (ADDR_EXPR,
+		      build_pointer_type (TREE_TYPE (pl_bndstx_fndecl)),
+		      pl_bndstx_fndecl);
+  return build_call_nary (TREE_TYPE (TREE_TYPE (pl_bndstx_fndecl)),
+			  call, 3, addr,ptr, bounds);
+}
+
 static void
 pl_build_bndstx (tree addr, tree ptr, tree bounds,
 		 gimple_stmt_iterator *gsi)

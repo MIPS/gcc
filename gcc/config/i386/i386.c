@@ -8088,6 +8088,23 @@ ix86_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
+  if (flag_pl)
+    {
+      tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
+						 integer_zero_node);
+      tree bnd = make_tree (bound_type_node,
+			    assign_temp (bound_type_node, 0, 0, 1));
+      tree ovf_addr = build1 (ADDR_EXPR,
+			      build_pointer_type (TREE_TYPE (ovf)), ovf);
+      tree bndstx = pl_build_bndstx_call (ovf_addr,
+					  make_tree (type, ovf_rtx),
+					  bnd);
+
+      expand_assignment (bnd, zero_bnd, false);
+
+      expand_normal (bndstx);
+    }
+
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
       /* Find the register save area.
