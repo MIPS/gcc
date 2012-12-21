@@ -7980,7 +7980,7 @@ ix86_va_start (tree valist, rtx nextarg)
 {
   HOST_WIDE_INT words, n_gpr, n_fpr;
   tree f_gpr, f_fpr, f_ovf, f_sav;
-  tree gpr, fpr, ovf, sav, t;
+  tree gpr, fpr, ovf, sav, t, t1;
   tree type;
   rtx ovf_rtx;
 
@@ -8033,7 +8033,10 @@ ix86_va_start (tree valist, rtx nextarg)
 	  convert_move (va_r, next, 0);
 
 	  if (flag_pl)
-	    pl_expand_bounds_reset_for_mem (valist, next);
+	    pl_expand_bounds_reset_for_mem (valist,
+					    make_tree (TREE_TYPE (valist),
+						       next));
+
 	}
       return;
     }
@@ -8087,12 +8090,13 @@ ix86_va_start (tree valist, rtx nextarg)
   t = make_tree (type, ovf_rtx);
   if (words != 0)
     t = fold_build_pointer_plus_hwi (t, words * UNITS_PER_WORD);
+  t1 = t;
   t = build2 (MODIFY_EXPR, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   if (flag_pl)
-    pl_expand_bounds_reset_for_mem (ovf, ovf_rtx);
+    pl_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
@@ -8102,9 +8106,13 @@ ix86_va_start (tree valist, rtx nextarg)
       t = make_tree (type, frame_pointer_rtx);
       if (!ix86_varargs_gpr_size)
 	t = fold_build_pointer_plus_hwi (t, -8 * X86_64_REGPARM_MAX);
+      t1 = t;
       t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      if (flag_pl)
+	pl_expand_bounds_reset_for_mem (sav, t1);
     }
 }
 

@@ -4250,7 +4250,9 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
   convert_move (va_r, nextarg, 0);
 
   if (flag_pl)
-    pl_expand_bounds_reset_for_mem (valist, nextarg);
+    pl_expand_bounds_reset_for_mem (valist,
+				    make_tree (TREE_TYPE (valist),
+					       nextarg));
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */

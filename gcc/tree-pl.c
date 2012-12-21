@@ -1379,7 +1379,7 @@ pl_build_bndstx_call (tree addr, tree ptr, tree bounds)
 }
 
 void
-pl_expand_bounds_reset_for_mem (tree mem, rtx ptr)
+pl_expand_bounds_reset_for_mem (tree mem, tree ptr)
 {
   tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
 					     integer_zero_node);
@@ -1387,9 +1387,7 @@ pl_expand_bounds_reset_for_mem (tree mem, rtx ptr)
 			assign_temp (bound_type_node, 0, 0, 1));
   tree addr = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (mem)), mem);
-  tree bndstx = pl_build_bndstx_call (addr,
-				      make_tree (TREE_TYPE (mem), ptr),
-				      bnd);
+  tree bndstx = pl_build_bndstx_call (addr, ptr, bnd);
 
   expand_assignment (bnd, zero_bnd, false);
   expand_normal (bndstx);
