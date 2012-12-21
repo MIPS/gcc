@@ -8031,6 +8031,9 @@ ix86_va_start (tree valist, rtx nextarg)
 			       crtl->args.arg_offset_rtx,
 			       NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	  convert_move (va_r, next, 0);
+
+	  if (flag_pl)
+	    pl_expand_bounds_reset_for_mem (valist, next);
 	}
       return;
     }
@@ -8089,21 +8092,7 @@ ix86_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   if (flag_pl)
-    {
-      tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
-						 integer_zero_node);
-      tree bnd = make_tree (bound_type_node,
-			    assign_temp (bound_type_node, 0, 0, 1));
-      tree ovf_addr = build1 (ADDR_EXPR,
-			      build_pointer_type (TREE_TYPE (ovf)), ovf);
-      tree bndstx = pl_build_bndstx_call (ovf_addr,
-					  make_tree (type, ovf_rtx),
-					  bnd);
-
-      expand_assignment (bnd, zero_bnd, false);
-
-      expand_normal (bndstx);
-    }
+    pl_expand_bounds_reset_for_mem (ovf, ovf_rtx);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {

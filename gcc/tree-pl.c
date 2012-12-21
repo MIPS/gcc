@@ -1378,6 +1378,23 @@ pl_build_bndstx_call (tree addr, tree ptr, tree bounds)
 			  call, 3, addr,ptr, bounds);
 }
 
+void
+pl_expand_bounds_reset_for_mem (tree mem, rtx ptr)
+{
+  tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
+					     integer_zero_node);
+  tree bnd = make_tree (bound_type_node,
+			assign_temp (bound_type_node, 0, 0, 1));
+  tree addr = build1 (ADDR_EXPR,
+		      build_pointer_type (TREE_TYPE (mem)), mem);
+  tree bndstx = pl_build_bndstx_call (addr,
+				      make_tree (TREE_TYPE (mem), ptr),
+				      bnd);
+
+  expand_assignment (bnd, zero_bnd, false);
+  expand_normal (bndstx);
+}
+
 static void
 pl_build_bndstx (tree addr, tree ptr, tree bounds,
 		 gimple_stmt_iterator *gsi)
