@@ -1274,6 +1274,12 @@ pl_get_bound_for_parm (tree parm)
       if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
 	  && DECL_ARTIFICIAL (decl))
 	bounds = pl_get_zero_bounds ();
+      /* Currently main method does not receive correct
+	 bounds and we use zero bounds instead.  Default
+	 behavior may be changed by flag.  */
+      else if (flag_pl_zero_input_bounds_for_main
+	       && strcmp (IDENTIFIER_POINTER (DECL_NAME (cfun->decl)), "main") == 0)
+	bounds = pl_get_zero_bounds ();
       else if (BOUNDED_P (parm))
 	{
 	    gimple_stmt_iterator gsi;
@@ -2805,7 +2811,7 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
-	       "Building bound arguments for funtion declaration '");
+	       "Building bound arguments for function declaration '");
       print_generic_expr (dump_file, decl, 0);
       fprintf (dump_file, "'\n");
     }
@@ -2842,7 +2848,7 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
 
   /* Go through all input pointers and create bound
      declaration for each of them.  Bound declaration
-     is placed right before pointer arg.  Also make
+     is placed right after pointer arg.  Also make
      register ssa name for each bound if needed.  */
   for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
     {
