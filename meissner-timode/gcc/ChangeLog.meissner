@@ -17,6 +17,7 @@
 	32-bit and 64-bit versions.
 	(vsx_movti_32bit): Likewise.
 	(vsx_movti): Delete.
+	(vsx_one_cmpl<mode>2): Drop ? in second operand.
 
 	* config/rs6000/rs6000.md (movti_string): Disable if
 	-mvsx-timode.

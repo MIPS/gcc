@@ -1117,7 +1117,7 @@
 (define_insn "*vsx_one_cmpl<mode>2"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (not:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")))]
+	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxlnor %x0,%x1,%x1"
   [(set_attr "type" "vecsimple")])
