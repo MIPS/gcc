@@ -1,3 +1,77 @@
+2013-01-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md: Update copyright year.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/rs6000.h: Likewise.
+	* config/rs6000/rs6000.md: Likewise.
+	* config/rs6000/rs6000.opt: Likewise.
+	* config/rs6000/vsx.md: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2013-01-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_cannot_change_mode_class): Don't
+	allow TImode to change mode with TFmode/TDmode if -mvsx-timode.
+
+	* config/rs6000/vsx.md (vsx_movti_64bit): Split vsx_movti into
+	32-bit and 64-bit versions.
+	(vsx_movti_32bit): Likewise.
+	(vsx_movti): Delete.
+
+	* config/rs6000/rs6000.md (movti_string): Disable if
+	-mvsx-timode.
+
+	* doc/invoke.texi (IBM RS/6000 and PowerPC Options): Document
+	-mvsx-timode and -mno-vsx-timode.
+
+2012-12-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wt constraint): New constraint for
+	TImode variables in VSX registers.
+	* doc/md.texi (PowerPC constraints): Document wt.
+
+	* config/rs6000/rs6000.opt (-mvsx-timode): New switch, enable
+	using TImode in VSX registers.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal):
+	If/when TDmode and TFmode variables are allowed in VSX registers,
+	note that they span two registers.
+	(rs6000_debug_reg_global): Print out wt constraint register class,
+	and print out whether a vector reload in/out function was
+	defined.
+	(rs6000_init_hard_regno_mode_ok): If -mvsx-timode, allow TImode in
+	VSX registers.  Set up wt constraint.
+	(rs6000_option_override_internal): Don't allow -mvsx-timode
+	without -mvsx or -mcpu=power7.
+	(reg_offset_addressing_ok_p): If -mvsx-timode, restrict TImode
+	addressing to reg+reg.
+	(rs6000_legitimate_offset_address_p): Eliminate checks from
+	reg+reg for DF scalars if -mvsx-scalar-memory.  If -mvsx-timode,
+	make TImode subject to the same restrictions as VSX.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload): Likewise.
+	(rs6000_emit_move): Allow TImode indexed memory references if
+	-mvsx-timode.
+	(rs6000_secondary_reload_inner): Remove leftover VSX PRE_MODIFY
+	support.  For legacy floats, allow 4 byte addresses.
+
+	* config/rs6000/vsx.md (VSm): Change TImode to us lxvd2x/stxvd2x.
+	(VSs): Use dp for TImode, not sp.
+	(VSr): Use wt constraint instead of wd for TImode.
+	(VSv): Delete TImode.
+	(vsx_movti): Cosmetic change.
+	(vsx_store_<mode>): Use more correct VSX_M mode iterator.
+	(vsx_and<mode>3): Drop ? in 2nd/3rd operands.
+	(vsx_ior<mode>3): Likewise.
+	(vsx_xor<mode>3): Likewise.
+
+	* config/rs6000/rs6000.h (enum reg_class_enum): Add wt
+	constraint.
+
+	* config/rs6000/rs6000.md (movti splitters): Allow movti splitters
+	if VSX.
+
 2012-12-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 194563.
