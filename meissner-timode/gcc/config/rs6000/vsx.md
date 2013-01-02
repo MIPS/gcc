@@ -268,12 +268,13 @@
 }
   [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,*,*,*,vecsimple,vecsimple,*,vecstore,vecload")])
 
-;; Unlike other VSX moves, allow the GPRs, since a normal use of TImode is for
-;; unions.  However for plain data movement, slightly favor the vector loads
-(define_insn "*vsx_movti"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,?Y,?r,?r,wa,v, v,wZ")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, r, Y, r, j,W,wZ, v"))]
-  "VECTOR_MEM_VSX_P (TImode)
+;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
+;; use of TImode is for unions.  However for plain data movement, slightly
+;; favor the vector loads
+(define_insn "*vsx_movti_64bit"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,?Y,?r,?r")
+	(match_operand:TI 1 "input_operand"        "wa, Z,wa, j,W,wZ, v, r, Y, r"))]
+  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
 {
@@ -289,27 +290,87 @@
       return "xxlor %x0,%x1,%x1";
 
     case 3:
-    case 4:
-    case 5:
-      return "#";
-
-    case 6:
       return "xxlxor %x0,%x0,%x0";
 
-    case 7:
+    case 4:
       return output_vec_const_move (operands);
 
-    case 8:
+    case 5:
       return "stvx %1,%y0";
 
-    case 9:
+    case 6:
       return "lvx %0,%y1";
+
+    case 7:
+    case 8:
+    case 9:
+      return "#";
 
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,*,*,*,vecsimple,*,vecstore,vecload")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,*,*,*")
+   (set_attr "length" "     4,      4,        4,       4,         8,       4,      4,8,8,8")])
+
+(define_insn "*vsx_movti_32bit"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
+	(match_operand:TI 1 "input_operand"        "wa, Z,wa, j,W,wZ, v,r,r,    Q,    Y,    r,n"))]
+  "! TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
+   && (register_operand (operands[0], TImode)
+       || register_operand (operands[1], TImode))"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return "stxvd2x %x1,%y0";
+
+    case 1:
+      return "lxvd2x %x0,%y1";
+
+    case 2:
+      return "xxlor %x0,%x1,%x1";
+
+    case 3:
+      return "xxlxor %x0,%x0,%x0";
+
+    case 4:
+      return output_vec_const_move (operands);
+
+    case 5:
+      return "stvx %1,%y0";
+
+    case 6:
+      return "lvx %0,%y1";
+
+    case 7:
+      if (TARGET_STRING)
+        return \"stswi %1,%P0,16\";
+
+    case 8:
+      return \"#\";
+
+    case 9:
+      /* If the address is not used in the output, we can use lsi.  Otherwise,
+	 fall through to generating four loads.  */
+      if (TARGET_STRING
+          && ! reg_overlap_mentioned_p (operands[0], operands[1]))
+	return \"lswi %0,%P1,16\";
+      /* ... fall through ...  */
+
+    case 10:
+    case 11:
+    case 12:
+      return \"#\";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store_ux,store_ux,load_ux,load_ux, *, *")
+   (set_attr "length" "     4,      4,        4,       4,         8,       4,      4,      16,      16,     16,     16,16,16")
+   (set (attr "cell_micro") (if_then_else (match_test "TARGET_STRING")
+   			                  (const_string "always")
+					  (const_string "conditional")))])
 
 ;; Explicit  load/store expanders for the builtin functions
 (define_expand "vsx_load_<mode>"
