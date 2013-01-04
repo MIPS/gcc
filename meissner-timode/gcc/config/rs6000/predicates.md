@@ -1,5 +1,5 @@
 ;; Predicate definitions for POWER and PowerPC.
-;; Copyright (C) 2005-2012 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -327,6 +327,11 @@
   if ((TARGET_SOFT_FLOAT || TARGET_E500_SINGLE 
       || (TARGET_HARD_FLOAT && (TARGET_SINGLE_FLOAT && ! TARGET_DOUBLE_FLOAT)))
       && mode != DImode)
+    return 1;
+
+  /* The constant 0.0 is easy under VSX.  */
+  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode)
+      && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
     return 1;
 
   if (DECIMAL_FLOAT_MODE_P (mode))

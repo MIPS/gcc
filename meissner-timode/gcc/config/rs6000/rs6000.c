@@ -1562,14 +1562,17 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 	return ALTIVEC_REGNO_P (last_regno);
     }
 
+  /* Allow TImode in all VSX registers if the user asked for it.  */
+  if (mode == TImode && TARGET_VSX_TIMODE && VSX_REGNO_P (regno))
+    return 1;
+
   /* The GPRs can hold any mode, but values bigger than one register
      cannot go past R31.  */
   if (INT_REGNO_P (regno))
     return INT_REGNO_P (last_regno);
 
   /* The float registers (except for VSX vector modes) can only hold floating
-     modes and DImode.  This excludes the 32-bit decimal float mode for
-     now.  */
+     modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
       if (SCALAR_FLOAT_MODE_P (mode)
@@ -1738,8 +1741,12 @@ rs6000_debug_reg_global (void)
 	   "wa reg_class = %s\n"
 	   "wd reg_class = %s\n"
 	   "wf reg_class = %s\n"
+	   "wg reg_class = %s\n"
+	   "wl reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
+	   "wx reg_class = %s\n"
+	   "wz reg_class = %s\n"
 	   "\n",
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_d]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_f]],
@@ -1747,8 +1754,12 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wa]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wd]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
-	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]]);
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     if (rs6000_vector_unit[m] || rs6000_vector_mem[m]
@@ -1948,6 +1959,9 @@ rs6000_debug_reg_global (void)
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
+  if (targetm.lra_p ())
+    fprintf (stderr, DEBUG_FMT_S, "lra", "true");
+
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
   fprintf (stderr, DEBUG_FMT_S, "struct-return",
@@ -2127,8 +2141,22 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
     }
 
+  /* Add conditional constraints based on various options, to allow us to
+     collapse multiple insn patterns.  */
   if (TARGET_ALTIVEC)
     rs6000_constraints[RS6000_CONSTRAINT_v] = ALTIVEC_REGS;
+
+  if (TARGET_MFPGPR)
+    rs6000_constraints[RS6000_CONSTRAINT_wg] = FLOAT_REGS;
+
+  if (TARGET_LFIWAX)
+    rs6000_constraints[RS6000_CONSTRAINT_wl] = FLOAT_REGS;
+
+  if (TARGET_STFIWX)
+    rs6000_constraints[RS6000_CONSTRAINT_wx] = FLOAT_REGS;
+
+  if (TARGET_LFIWZX)
+    rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;
 
   /* Set up the reload helper functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
@@ -2147,10 +2175,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
-	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+	  if (TARGET_VSX)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_di_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_di_load;
+	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_di_store;
+	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_di_load;
+	      rs6000_vector_reload[DImode][0]  = CODE_FOR_reload_di_di_store;
+	      rs6000_vector_reload[DImode][1]  = CODE_FOR_reload_di_di_load;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -2172,10 +2204,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
-	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+	  if (TARGET_VSX)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_si_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_si_load;
+	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_si_store;
+	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_si_load;
+	      rs6000_vector_reload[DImode][0]  = CODE_FOR_reload_di_si_store;
+	      rs6000_vector_reload[DImode][1]  = CODE_FOR_reload_di_si_load;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -2670,6 +2706,9 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
+
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
   if (TARGET_VSX)
@@ -2692,6 +2731,9 @@ rs6000_option_override_internal (bool global_init_p)
       error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
     }
+
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
 
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
@@ -2819,6 +2861,9 @@ rs6000_option_override_internal (bool global_init_p)
   if (flag_section_anchors)
     TARGET_NO_FP_IN_TOC = 1;
 
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "before subtarget", rs6000_isa_flags);
+
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -2828,6 +2873,9 @@ rs6000_option_override_internal (bool global_init_p)
 #ifdef SUB3TARGET_OVERRIDE_OPTIONS
   SUB3TARGET_OVERRIDE_OPTIONS;
 #endif
+
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "after subtarget", rs6000_isa_flags);
 
   /* For the E500 family of cores, reset the single/double FP flags to let us
      check that they remain constant across attributes or pragmas.  Also,
@@ -5215,6 +5263,13 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
         return false;
       break;
 
+    case SDmode:
+      /* If we can do direct load/stores of SDmode, restrict it to reg+reg
+	 addressing for the LFIWZX and STFIWX instructions.  */
+      if (TARGET_NO_SDMODE_STACK)
+	return false;
+      break;
+
     default:
       break;
     }
@@ -5418,7 +5473,8 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
     return false;
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
-  if (legitimate_constant_pool_address_p (x, mode, strict))
+  if ((mode != TImode || !TARGET_VSX_TIMODE)
+      && legitimate_constant_pool_address_p (x, mode, strict))
     return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return false;
@@ -7177,6 +7233,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   if (reload_in_progress
       && mode == SDmode
+      && cfun->machine->sdmode_stack_slot != NULL_RTX
       && MEM_P (operands[0])
       && rtx_equal_p (operands[0], cfun->machine->sdmode_stack_slot)
       && REG_P (operands[1]))
@@ -7201,6 +7258,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       && mode == SDmode
       && REG_P (operands[0])
       && MEM_P (operands[1])
+      && cfun->machine->sdmode_stack_slot != NULL_RTX
       && rtx_equal_p (operands[1], cfun->machine->sdmode_stack_slot))
     {
       if (FP_REGNO_P (REGNO (operands[0])))
@@ -13657,7 +13715,7 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
   static bool eliminated = false;
   rtx ret;
 
-  if (mode != SDmode)
+  if (mode != SDmode || TARGET_NO_SDMODE_STACK)
     ret = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
   else
     {
@@ -13794,20 +13852,20 @@ rs6000_secondary_reload (bool in_p,
 				     + ((GET_CODE (addr) == AND) ? 1 : 0));
 		}
 	    }
-	  /* Allow scalar loads to/from the traditional floating point
-	     registers, even if VSX memory is set.  */
-	  else if ((rclass == FLOAT_REGS || rclass == NO_REGS)
-		   && (GET_MODE_SIZE (mode) == 32 || GET_MODE_SIZE (mode) == 64)
-		   && (legitimate_indirect_address_p (addr, false)
-		       || legitimate_indirect_address_p (XEXP (addr, 0), false)
-		       || rs6000_legitimate_offset_address_p (mode, addr,
-							      false, true)))
+         /* Allow scalar loads to/from the traditional floating point
+            registers, even if VSX memory is set.  */
+         else if ((rclass == FLOAT_REGS || rclass == NO_REGS)
+                  && (GET_MODE_SIZE (mode) == 32 || GET_MODE_SIZE (mode) == 64)
+                  && (legitimate_indirect_address_p (addr, false)
+                      || legitimate_indirect_address_p (XEXP (addr, 0), false)
+                      || rs6000_legitimate_offset_address_p (mode, addr,
+                                                             false, true)))
 
-	    ;
-	  /* Loads to and stores from vector registers can only do reg+reg
-	     addressing.  Altivec registers can also do (reg+reg)&(-16).  Allow
-	     scalar modes loading up the traditional floating point registers
-	     to use offset addresses.  */
+           ;
+         /* Loads to and stores from vector registers can only do reg+reg
+            addressing.  Altivec registers can also do (reg+reg)&(-16).  Allow
+            scalar modes loading up the traditional floating point registers
+            to use offset addresses.  */
 	  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS
 		   || rclass == FLOAT_REGS || rclass == NO_REGS)
 	    {
@@ -13948,6 +14006,22 @@ rs6000_secondary_reload (bool in_p,
   return ret;
 }
 
+/* Return a better message if rs6000_secondary_reload_inner fails.  */
+
+static void
+rs6000_secondary_reload_fail (rtx reg, rtx mem, rtx scratch, bool store_p)
+{
+  fprintf (stderr, "rs6000_secondary_reload_fail, type = %s\n",
+	   store_p ? "store" : "load");
+  fprintf (stderr, "reg:\n");
+  debug_rtx (reg);
+  fprintf (stderr, "mem:\n");
+  debug_rtx (mem);
+  fprintf (stderr, "scratch:\n");
+  debug_rtx (scratch);
+  gcc_unreachable ();
+}
+
 /* Fixup reload addresses for Altivec or VSX loads/stores to change SP+offset
    to SP+reg addressing.  */
 
@@ -14053,9 +14127,21 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
       break;
 
-      /* Float/Altivec registers can only handle reg+reg addressing.  Move
-	 other addresses into a scratch register.  */
+      /* Float registers can do offset+reg addressing for scalar types.  */
     case FLOAT_REGS:
+      if (legitimate_indirect_address_p (addr, false)	/* reg */
+	  || legitimate_indexed_address_p (addr, false)	/* reg+reg */
+	  || ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
+	      && and_op2 == NULL_RTX
+	      && scratch_or_premodify == scratch
+	      && rs6000_legitimate_offset_address_p (mode, addr, false, false)))
+	break;
+
+      /* If this isn't a legacy floating point load/store, fall through to the
+	 VSX defaults.  */
+
+      /* VSX/Altivec registers can only handle reg+reg addressing.  Move other
+	 addresses into a scratch register.  */
     case VSX_REGS:
     case ALTIVEC_REGS:
 
@@ -14091,14 +14177,11 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       if (legitimate_indirect_address_p (addr, false)	/* reg */
 	  || legitimate_indexed_address_p (addr, false)	/* reg+reg */
 	  || (GET_CODE (addr) == AND			/* Altivec memory */
+	      && rclass == ALTIVEC_REGS
 	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
 	      && INTVAL (XEXP (addr, 1)) == -16
-	      && VECTOR_MEM_ALTIVEC_P (mode))
-	  || (rclass == FLOAT_REGS			/* legacy float mem */
-	      && (GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
-	      && and_op2 == NULL_RTX
-	      && scratch_or_premodify == scratch
-	      && rs6000_legitimate_offset_address_p (mode, addr, false, false)))
+	      && (legitimate_indirect_address_p (XEXP (addr, 0), false)
+		  || legitimate_indexed_address_p (XEXP (addr, 0), false))))
 	;
 
       else if (GET_CODE (addr) == PLUS)
@@ -14124,7 +14207,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
 
       else if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	       || GET_CODE (addr) == CONST_INT || REG_P (addr))
+	       || GET_CODE (addr) == CONST_INT || GET_CODE (addr) == LO_SUM
+	       || REG_P (addr))
 	{
 	  if (TARGET_DEBUG_ADDR)
 	    {
@@ -14140,12 +14224,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
 
       else
-	gcc_unreachable ();
+	rs6000_secondary_reload_fail (reg, mem, scratch, store_p);
 
       break;
 
     default:
-      gcc_unreachable ();
+      rs6000_secondary_reload_fail (reg, mem, scratch, store_p);
     }
 
   /* If the original address involved a pre-modify that we couldn't use the VSX
@@ -14257,8 +14341,10 @@ rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
   return;
 }
 
-/* Allocate a 64-bit stack slot to be used for copying SDmode
-   values through if this function has any SDmode references.  */
+/* Allocate a 64-bit stack slot to be used for copying SDmode values through if
+   this function has any SDmode references.  If we are on a power7 or later, we
+   don't need the 64-bit stack slot since the LFIWZX and STIFWX instructions
+   can load/store the value.  */
 
 static void
 rs6000_alloc_sdmode_stack_slot (void)
@@ -14268,6 +14354,9 @@ rs6000_alloc_sdmode_stack_slot (void)
   gimple_stmt_iterator gsi;
 
   gcc_assert (cfun->machine->sdmode_stack_slot == NULL_RTX);
+
+  if (TARGET_NO_SDMODE_STACK)
+    return;
 
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -14329,8 +14418,7 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 {
   enum machine_mode mode = GET_MODE (x);
 
-  if (VECTOR_UNIT_VSX_P (mode)
-      && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+  if (TARGET_VSX && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
     return rclass;
 
   if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
@@ -14505,11 +14593,17 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
     return (mode != SDmode) ? NO_REGS : GENERAL_REGS;
 
   /* Memory, and FP/altivec registers can go into fp/altivec registers under
-     VSX.  */
+     VSX.  However, for scalar variables, use the traditional floating point
+     registers so that we can use offset+register addressing.  */
   if (TARGET_VSX
       && (regno == -1 || VSX_REGNO_P (regno))
       && VSX_REG_CLASS_P (rclass))
-    return NO_REGS;
+    {
+      if (GET_MODE_SIZE (mode) < 16)
+	return FLOAT_REGS;
+
+      return NO_REGS;
+    }
 
   /* Memory, and AltiVec registers can go into AltiVec registers.  */
   if ((regno == -1 || ALTIVEC_REGNO_P (regno))
@@ -14575,8 +14669,8 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
      registers).  */
   if (TARGET_VSX && VSX_REG_CLASS_P (rclass))
     return ((from_size != 8 && from_size != 16)
-	    || (CLASS_MAX_NREGS (from, rclass)
-		!= CLASS_MAX_NREGS (to, rclass)));
+           || (CLASS_MAX_NREGS (from, rclass)
+               != CLASS_MAX_NREGS (to, rclass)));
 
   if (TARGET_ALTIVEC && rclass == ALTIVEC_REGS
       && (ALTIVEC_VECTOR_MODE (from) + ALTIVEC_VECTOR_MODE (to)) == 1)

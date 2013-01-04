@@ -1,3 +1,102 @@
+2013-01-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_R): Add 32/64-bit scalar types to
+	the reload functions.
+	(mul<mode>3): Use VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode instead
+	of separate calls to VECTOR_UNIT_ALTIVEC_P or VECTOR_UNIT_VSX_P.
+	(vcond<mode><mode>): Likewise.
+	(vcondu<mode><mode>): Likewise.
+	(vector_gtu<mode>): Likewise.
+	(vector_geu<mode>): Likewise.
+
+	* config/rs6000/constraints.md (wg constraint): Add constraints to
+	allow collapsing VSX/power6/non-VSX 32/64-bit floating point
+	moves.
+	(wl constraint): Likewise.
+	(wx constraint): Likewise.
+	(wz constraint): Likewise.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Under VSX, use
+	XOR for more types.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow TImode
+	in VSX registers if -mvsx-timode.
+	(rs6000_debug_reg_global): If -mdebug=reg, print new constraints,
+	and whether LRA is enabled.
+	(rs6000_init_hard_regno_mode_ok): Setup wg, wl, wx, and wz
+	constraints depending on the switches.  Drop the checks against
+	TARGET_VSX_SCALAR_MEMORY when setting up the reload functions
+	for DFmode.  Setup VSX reload functions for DImode, DDmode.
+	(rs6000_option_override_internal): If -mdebug=reg, print target
+	options before/after changing the defaults.
+	(reg_offset_addressing_ok_p): If power7, turn off special hack for
+	allocating SDmode stack slot, since movsd can now use the power7
+	instructions to reload SDmode values.
+	(rs6000_emit_move): Likewise.
+	(rs6000_secondary_memory_needed_rtx): Likewise.
+	(rs6000_alloc_sdmode_stack_slot): Likewise.
+	(rs6000_legitimate_offset_address_p): Disable TImode if
+	-mvsx-timode.
+	(rs6000_secondary_reload): Spacing/comment.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(rs6000_preferred_reload_class): Allow XOR to initialize 0.0 for
+	more types.  If scalar values, prefer the tradational floating
+	point values for reloaded registers over VSX registers, so we can
+	use offset+register addressing.
+	(rs6000_secondary_reload_fail): Give a better error message dump
+	if rs6000_secondary_reload_inner fails.
+	(rs6000_secondary_reload_inner): Call rs6000_secondary_reload_fail
+	if necessary.  Tighten up altivec memory loads with & -16.  Add
+	support for legacy floating point loads/stores.
+
+	* config/rs6000/rs6000.h (TARGET_NO_SDMODE_STACK): New macro to
+	say we don't need the special SDmode stack slot.
+	(enum r6000_reg_class_enum): Add wg, wl, wx, wz constraints.
+
+	* config/rs6000/dfp.md (movsd): Consolate decimal and binary
+	floating point moves to use RTL iterators.  Also consolate power6,
+	power7, and traditional moves into few insns, using new register
+	constraints.
+	(movsd splitter): Likewise.
+	(movsd_hardfloat): Likewise.
+	(movsd_softfloat): Likewise.
+	(movdd): Likewise.
+	(movdd splitter): Likewise.
+	(movdd_hardfloat32): Likewise.
+	(movdd_softfloat32): Likewise.
+	(movdd_hardfloat64_mfpgpr): Likewise.
+	(movdd_hardfloat64): Likewise.
+	(movdd_softfloat64): Likewise.
+	* config/rs6000/rs6000.md (FMOVE32): Likewise.
+	(FMOVE64): Likewise.
+	(FMOVE64X): Likewise.
+	(fmove_ok): Likewise.
+	(real_value_to_target): Likewise.
+	(f32_lr): Likewise.
+	(f32_lm): Likewise.
+	(f32_li): Likewise.
+	(f32_sr): Likewise.
+	(f32_sm): Likewise.
+	(f32_si): Likewise.
+	(wd): Likewise.
+	(movsf): Likewise.
+	(movsf splitters): Likewise.
+	(movsf_hardfloat): Likewise.
+	(movsf_softfloat): Likewise.
+	(movdf): Likewise.
+	(movdf splitters): Likewise.
+	(movdf_hardfloat32): Likewise.
+	(movdf_softfloat32): Likewise.
+	(movdf_hardfloat64_mfpgpr): Likewise.
+	(movdf_hardfloat64): Likewise.
+	(movdf_softfloat64): Likewise.
+	(movdi_mfpgpr): Likewise.
+	(movdi_internal64): Likewise.
+	(reload_<mode>_store): Move later in the file, so it is near other
+	reload patterns, and not in the middle of the floating point
+	moves.
+	(reload_<mode>_load): Likewise.
+
 2013-01-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 194809.
