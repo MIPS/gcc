@@ -1147,11 +1147,10 @@
 
 ;; Build a V2DF/V2DI vector from two scalars
 (define_insn "vsx_concat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:VSX_D
-	 [(match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
-	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")]
-	 UNSPEC_VSX_CONCAT))]
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSr>,?wa")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
+	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxpermdi %x0,%x1,%x2,0"
   [(set_attr "type" "vecperm")])
