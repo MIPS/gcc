@@ -1,3 +1,25 @@
+2013-01-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Restore
+	code that restricts adding DF/DD reload patterns to when we are
+	using -mvsx-scalar-double.
+	(rs6000_legitimate_offset_address_p): Replace code that was adding
+	-mvsx-timode checks to original code.  If VSX memory, only allow
+	REG+REG addressing.
+
+2013-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Drop
+	initializing DImode for reload help, as it causes more bugs.
+	(rs6000_secondary_reload_trace): Create a more standard insn for
+	tracing instead of doing 3 debug_rtx's.  Call it from
+	rs6000_secondary_reload_inner if -mdebug=addr.
+	(rs6000_secondary_reload_final): Move most of the heavy lifting to
+	rs6000_secondary_reload_trace.  Add line number argument.
+	(rs6000_secondary_reload_inner): Make all assertings and tracing
+	call either rs6000_secondary_reload_trace or
+	rs6000_secondary_reload_final as appropriate.
+
 2013-01-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_R): Add 32/64-bit scalar types to

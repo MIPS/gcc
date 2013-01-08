@@ -2175,14 +2175,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
-	  if (TARGET_VSX)
+	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_di_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_di_load;
 	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_di_store;
 	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_di_load;
-	      rs6000_vector_reload[DImode][0]  = CODE_FOR_reload_di_di_store;
-	      rs6000_vector_reload[DImode][1]  = CODE_FOR_reload_di_di_load;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -2204,14 +2202,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
-	  if (TARGET_VSX)
+	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_si_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_si_load;
 	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_si_store;
 	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_si_load;
-	      rs6000_vector_reload[DImode][0]  = CODE_FOR_reload_di_si_store;
-	      rs6000_vector_reload[DImode][1]  = CODE_FOR_reload_di_si_load;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -5473,8 +5469,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
     return false;
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
-  if ((mode != TImode || !TARGET_VSX_TIMODE)
-      && legitimate_constant_pool_address_p (x, mode, strict))
+  if (legitimate_constant_pool_address_p (x, mode, strict))
     return true;
   if (GET_CODE (XEXP (x, 1)) != CONST_INT)
     return false;
@@ -5500,6 +5495,11 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
          Which gets addressed with evldd instructions.  */
       if (TARGET_E500_DOUBLE)
 	return SPE_CONST_OFFSET_OK (offset);
+
+      /* If we are using VSX scalar loads, restrict ourselves to reg+reg
+	 addressing.  */
+      if (VECTOR_MEM_VSX_P (mode))
+	return false;
 
       if (!worst_case)
 	break;
@@ -14006,19 +14006,33 @@ rs6000_secondary_reload (bool in_p,
   return ret;
 }
 
-/* Return a better message if rs6000_secondary_reload_inner fails.  */
+/* Better tracing for rs6000_secondary_reload_inner.  */
 
 static void
-rs6000_secondary_reload_fail (rtx reg, rtx mem, rtx scratch, bool store_p)
+rs6000_secondary_reload_trace (int line, rtx reg, rtx mem, rtx scratch,
+			       bool store_p)
 {
-  fprintf (stderr, "rs6000_secondary_reload_fail, type = %s\n",
+  rtx set, clobber;
+
+  gcc_assert (reg != NULL_RTX && mem != NULL_RTX && scratch != NULL_RTX);
+
+  fprintf (stderr, "rs6000_secondary_reload_inner:%d, type = %s\n", line,
 	   store_p ? "store" : "load");
-  fprintf (stderr, "reg:\n");
-  debug_rtx (reg);
-  fprintf (stderr, "mem:\n");
-  debug_rtx (mem);
-  fprintf (stderr, "scratch:\n");
-  debug_rtx (scratch);
+
+  if (store_p)
+    set = gen_rtx_SET (VOIDmode, mem, reg);
+  else
+    set = gen_rtx_SET (VOIDmode, reg, mem);
+
+  clobber = gen_rtx_CLOBBER (VOIDmode, scratch);
+  debug_rtx (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber)));
+}
+
+static void
+rs6000_secondary_reload_fail (int line, rtx reg, rtx mem, rtx scratch,
+			      bool store_p)
+{
+  rs6000_secondary_reload_trace (line, reg, mem, scratch, store_p);
   gcc_unreachable ();
 }
 
@@ -14040,19 +14054,14 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   rtx cc_clobber;
 
   if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\nrs6000_secondary_reload_inner, type = %s\n",
-	       store_p ? "store" : "load");
-      fprintf (stderr, "reg:\n");
-      debug_rtx (reg);
-      fprintf (stderr, "mem:\n");
-      debug_rtx (mem);
-      fprintf (stderr, "scratch:\n");
-      debug_rtx (scratch);
-    }
+    rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
 
-  gcc_assert (regno >= 0 && regno < FIRST_PSEUDO_REGISTER);
-  gcc_assert (GET_CODE (mem) == MEM);
+  if (regno < 0 || regno >= FIRST_PSEUDO_REGISTER)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+  if (GET_CODE (mem) != MEM)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
   rclass = REGNO_REG_CLASS (regno);
   addr = XEXP (mem, 0);
 
@@ -14071,8 +14080,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       if (GET_CODE (addr) == PRE_MODIFY)
 	{
 	  scratch_or_premodify = XEXP (addr, 0);
-	  gcc_assert (REG_P (scratch_or_premodify));
-	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  if (!REG_P (scratch_or_premodify))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
 	  addr = XEXP (addr, 1);
 	}
 
@@ -14083,7 +14096,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
-	  gcc_assert (legitimate_indirect_address_p (addr_op1, false));
+	  if (!legitimate_indirect_address_p (addr_op1, false))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
 	  if (!REG_P (addr_op2)
 	      && (GET_CODE (addr_op2) != CONST_INT
@@ -14168,9 +14182,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      || !legitimate_indexed_address_p (XEXP (addr, 1), false)))
 	{
 	  scratch_or_premodify = XEXP (addr, 0);
-	  gcc_assert (legitimate_indirect_address_p (scratch_or_premodify,
-						     false));
-	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  if (!legitimate_indirect_address_p (scratch_or_premodify, false))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
 	  addr = XEXP (addr, 1);
 	}
 
@@ -14188,7 +14205,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
-	  gcc_assert (REG_P (addr_op1));
+	  if (!REG_P (addr_op1))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
 	  if (TARGET_DEBUG_ADDR)
 	    {
@@ -14224,12 +14242,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
 
       else
-	rs6000_secondary_reload_fail (reg, mem, scratch, store_p);
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
       break;
 
     default:
-      rs6000_secondary_reload_fail (reg, mem, scratch, store_p);
+      rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
     }
 
   /* If the original address involved a pre-modify that we couldn't use the VSX
