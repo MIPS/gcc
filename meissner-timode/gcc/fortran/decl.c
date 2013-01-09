@@ -1,5 +1,6 @@
 /* Declaration statement matcher
-   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
+   2012, 2013
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
@@ -1352,14 +1353,14 @@ add_init_expr_to_sym (const char *name, gfc_expr **initp, locus *var_locus)
       if (sym->ts.type != BT_DERIVED && init->ts.type != BT_DERIVED
 	  && sym->ts.type != BT_CLASS && init->ts.type != BT_CLASS
 	  && !sym->attr.proc_pointer 
-	  && gfc_check_assign_symbol (sym, init) == FAILURE)
+	  && gfc_check_assign_symbol (sym, NULL, init) == FAILURE)
 	return FAILURE;
 
       if (sym->ts.type == BT_CHARACTER && sym->ts.u.cl
 	    && init->ts.type == BT_CHARACTER)
 	{
 	  /* Update symbol character length according initializer.  */
-	  if (gfc_check_assign_symbol (sym, init) == FAILURE)
+	  if (gfc_check_assign_symbol (sym, NULL, init) == FAILURE)
 	    return FAILURE;
 
 	  if (sym->ts.u.cl->length == NULL)
@@ -1671,11 +1672,31 @@ match
 gfc_match_null (gfc_expr **result)
 {
   gfc_symbol *sym;
-  match m;
+  match m, m2 = MATCH_NO;
 
-  m = gfc_match (" null ( )");
-  if (m != MATCH_YES)
-    return m;
+  if ((m = gfc_match (" null ( )")) == MATCH_ERROR)
+    return MATCH_ERROR;
+
+  if (m == MATCH_NO)
+    {
+      locus old_loc;
+      char name[GFC_MAX_SYMBOL_LEN + 1];
+
+      if ((m2 = gfc_match (" null (")) != MATCH_YES)
+	return m2;
+
+      old_loc = gfc_current_locus;
+      if ((m2 = gfc_match (" %n ) ", name)) == MATCH_ERROR)
+	return MATCH_ERROR;
+      if (m2 != MATCH_YES
+	  && ((m2 = gfc_match (" mold = %n )", name)) == MATCH_ERROR))
+	return MATCH_ERROR;
+      if (m2 == MATCH_NO)
+	{
+	  gfc_current_locus = old_loc;
+	  return MATCH_NO;
+	}
+    }
 
   /* The NULL symbol now has to be/become an intrinsic function.  */
   if (gfc_get_symbol ("null", NULL, &sym))
@@ -1693,6 +1714,13 @@ gfc_match_null (gfc_expr **result)
     return MATCH_ERROR;
 
   *result = gfc_get_null_expr (&gfc_current_locus);
+
+  /* Invalid per F2008, C512.  */
+  if (m2 == MATCH_YES)
+    {
+      gfc_error ("NULL() initialization at %C may not have MOLD");
+      return MATCH_ERROR;
+    }
 
   return MATCH_YES;
 }
@@ -6927,7 +6955,7 @@ do_parm (void)
       goto cleanup;
     }
 
-  if (gfc_check_assign_symbol (sym, init) == FAILURE
+  if (gfc_check_assign_symbol (sym, NULL, init) == FAILURE
       || gfc_add_flavor (&sym->attr, FL_PARAMETER, sym->name, NULL) == FAILURE)
     {
       m = MATCH_ERROR;

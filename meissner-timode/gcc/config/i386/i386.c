@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -2014,7 +2014,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_AVX128_OPTIMAL: Enable 128-bit AVX instruction generation for
      the auto-vectorizer.  */
-  m_BDVER,
+  m_BDVER | m_BTVER2,
 
   /* X86_TUNE_REASSOC_INT_TO_PARALLEL: Try to produce parallel computations
      during reassociation of integer computation.  */
@@ -2395,12 +2395,6 @@ static enum calling_abi ix86_function_abi (const_tree);
 
 #ifndef SUBTARGET32_DEFAULT_CPU
 #define SUBTARGET32_DEFAULT_CPU "i386"
-#endif
-
-/* The svr4 ABI for the i386 says that records and unions are returned
-   in memory.  */
-#ifndef DEFAULT_PCC_STRUCT_RETURN
-#define DEFAULT_PCC_STRUCT_RETURN 1
 #endif
 
 /* Whether -mtune= or -march= were specified */
@@ -13247,8 +13241,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  rtx val  = force_operand (XEXP (x, 1), temp);
 	  if (val != temp)
 	    {
-	      if (GET_MODE (val) != Pmode)
-		val = convert_to_mode (Pmode, val, 1);
+	      val = convert_to_mode (Pmode, val, 1);
 	      emit_move_insn (temp, val);
 	    }
 
@@ -13262,8 +13255,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  rtx val  = force_operand (XEXP (x, 0), temp);
 	  if (val != temp)
 	    {
-	      if (GET_MODE (val) != Pmode)
-		val = convert_to_mode (Pmode, val, 1);
+	      val = convert_to_mode (Pmode, val, 1);
 	      emit_move_insn (temp, val);
 	    }
 
@@ -15931,8 +15923,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	  op1 = force_operand (op1, op0);
 	  if (op1 == op0)
 	    return;
-	  if (GET_MODE (op1) != mode)
-	    op1 = convert_to_mode (mode, op1, 1);
+	  op1 = convert_to_mode (mode, op1, 1);
 	}
       else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
 	       && SYMBOL_REF_DLLIMPORT_P (op1))
@@ -15960,8 +15951,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 				     op0, 1, OPTAB_DIRECT);
 	  if (tmp == op0)
 	    return;
-	  if (GET_MODE (tmp) != mode)
-	    op1 = convert_to_mode (mode, tmp, 1);
+	  op1 = convert_to_mode (mode, tmp, 1);
 	}
     }
 
@@ -16014,8 +16004,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	      op1 = legitimize_pic_address (op1, reg);
 	      if (op0 == op1)
 		return;
-	      if (GET_MODE (op1) != mode)
-		op1 = convert_to_mode (mode, op1, 1);
+	      op1 = convert_to_mode (mode, op1, 1);
 	    }
 	}
     }
@@ -21651,9 +21640,7 @@ ix86_adjust_counter (rtx countreg, HOST_WIDE_INT value)
 rtx
 ix86_zero_extend_to_Pmode (rtx exp)
 {
-  if (GET_MODE (exp) != Pmode)
-    exp = convert_to_mode (Pmode, exp, 1);
-  return force_reg (Pmode, exp);
+  return force_reg (Pmode, convert_to_mode (Pmode, exp, 1));
 }
 
 /* Divide COUNTREG by SCALE.  */
@@ -23625,9 +23612,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	   ? !sibcall_insn_operand (XEXP (fnaddr, 0), word_mode)
 	   : !call_insn_operand (XEXP (fnaddr, 0), word_mode))
     {
-      fnaddr = XEXP (fnaddr, 0);
-      if (GET_MODE (fnaddr) != word_mode)
-	fnaddr = convert_to_mode (word_mode, fnaddr, 1);
+      fnaddr = convert_to_mode (word_mode, XEXP (fnaddr, 0), 1);
       fnaddr = gen_rtx_MEM (QImode, copy_to_mode_reg (word_mode, fnaddr));
     }
 
@@ -29290,7 +29275,7 @@ ix86_get_function_versions_dispatcher (void *decl)
  
   /* Set the dispatcher for all the versions.  */ 
   it_v = default_version_info;
-  while (it_v->next != NULL)
+  while (it_v != NULL)
     {
       it_v->dispatcher_resolver = dispatch_decl;
       it_v = it_v->next;
@@ -29626,15 +29611,9 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"avx2",   F_AVX2}
     };
 
-  static tree __processor_model_type = NULL_TREE;
-  static tree __cpu_model_var = NULL_TREE;
-
-  if (__processor_model_type == NULL_TREE)
-    __processor_model_type = build_processor_model_struct ();
-
-  if (__cpu_model_var == NULL_TREE)
-    __cpu_model_var = make_var_decl (__processor_model_type,
-				     "__cpu_model");
+  tree __processor_model_type = build_processor_model_struct ();
+  tree __cpu_model_var = make_var_decl (__processor_model_type,
+					"__cpu_model");
 
   gcc_assert ((args != NULL) && (*args != NULL));
 
@@ -31283,9 +31262,8 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       gcc_assert (target == 0);
       if (memory)
 	{
-	  if (GET_MODE (op) != Pmode)
-	    op = convert_to_mode (Pmode, op, 1);
-	  target = gen_rtx_MEM (tmode, force_reg (Pmode, op));
+	  op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
+	  target = gen_rtx_MEM (tmode, op);
 	}
       else
 	target = force_reg (tmode, op);
@@ -31329,9 +31307,8 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	  if (i == memory)
 	    {
 	      /* This must be the memory operand.  */
-	      if (GET_MODE (op) != Pmode)
-		op = convert_to_mode (Pmode, op, 1);
-	      op = gen_rtx_MEM (mode, force_reg (Pmode, op));
+	      op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
+	      op = gen_rtx_MEM (mode, op);
 	      gcc_assert (GET_MODE (op) == mode
 			  || GET_MODE (op) == VOIDmode);
 	    }
@@ -31579,9 +31556,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
 
-      if (GET_MODE (op0) != Pmode)
-	op0 = convert_to_mode (Pmode, op0, 1);
-      op0 = gen_rtx_MEM (mode1, force_reg (Pmode, op0));
+      op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
+      op0 = gen_rtx_MEM (mode1, op0);
 
       if (!insn_data[icode].operand[0].predicate (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
@@ -31612,11 +31588,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	op0 = expand_normal (arg0);
 	icode = CODE_FOR_sse2_clflush;
 	if (!insn_data[icode].operand[0].predicate (op0, Pmode))
-	  {
-	    if (GET_MODE (op0) != Pmode)
-	      op0 = convert_to_mode (Pmode, op0, 1);
-	    op0 = force_reg (Pmode, op0);
-	  }
+	  op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
 
 	emit_insn (gen_sse2_clflush (op0));
 	return 0;
@@ -31629,11 +31601,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
       if (!REG_P (op0))
-	{
-	  if (GET_MODE (op0) != Pmode)
-	    op0 = convert_to_mode (Pmode, op0, 1);
-	  op0 = force_reg (Pmode, op0);
-	}
+	op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
       if (!REG_P (op1))
 	op1 = copy_to_mode_reg (SImode, op1);
       if (!REG_P (op2))
@@ -31870,11 +31838,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = expand_normal (arg0);
       icode = CODE_FOR_lwp_llwpcb;
       if (!insn_data[icode].operand[0].predicate (op0, Pmode))
-	{
-	  if (GET_MODE (op0) != Pmode)
-	    op0 = convert_to_mode (Pmode, op0, 1);
-	  op0 = force_reg (Pmode, op0);
-	}
+	op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
       emit_insn (gen_lwp_llwpcb (op0));
       return 0;
 
@@ -32020,9 +31984,7 @@ addcarryx:
 
       /* Generate CF from input operand.  */
       op1 = expand_normal (arg0);
-      if (GET_MODE (op1) != QImode)
-	op1 = convert_to_mode (QImode, op1, 1);
-      op1 = copy_to_mode_reg (QImode, op1);
+      op1 = copy_to_mode_reg (QImode, convert_to_mode (QImode, op1, 1));
       emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
 
       /* Gen ADCX instruction to compute X+Y+CF.  */
@@ -32172,9 +32134,7 @@ addcarryx:
       /* Force memory operand only with base register here.  But we
 	 don't want to do it on memory operand for other builtin
 	 functions.  */
-      if (GET_MODE (op1) != Pmode)
-	op1 = convert_to_mode (Pmode, op1, 1);
-      op1 = force_reg (Pmode, op1);
+      op1 = force_reg (Pmode, convert_to_mode (Pmode, op1, 1));
 
       if (!insn_data[icode].operand[1].predicate (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
