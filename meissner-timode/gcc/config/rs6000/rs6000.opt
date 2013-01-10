@@ -516,5 +516,5 @@ Target Report Var(TARGET_SAVE_TOC_INDIRECT) Save
 Control whether we save the TOC in the prologue for indirect calls or generate the save inline
 
 mvsx-timode
-Target Undocumented Mask(VSX_TIMODE) Var(rs6000_isa_mode)
+Target Undocumented Mask(VSX_TIMODE) Var(rs6000_isa_flags)
 ; Allow TImode in VSX registers

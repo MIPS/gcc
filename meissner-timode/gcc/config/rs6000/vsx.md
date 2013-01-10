@@ -1272,8 +1272,8 @@
       if (<MODE>mode != V2DImode)
 	{
 	  target = gen_lowpart (V2DImode, target);
-	  op0 = gen_lowpart (V2DImode, target);
-	  op1 = gen_lowpart (V2DImode, target);
+	  op0 = gen_lowpart (V2DImode, op0);
+	  op1 = gen_lowpart (V2DImode, op1);
 	}
     }
   emit_insn (gen (target, op0, op1, perm0, perm1));

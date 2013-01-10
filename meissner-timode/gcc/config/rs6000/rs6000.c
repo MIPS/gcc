@@ -13855,7 +13855,7 @@ rs6000_secondary_reload (bool in_p,
          /* Allow scalar loads to/from the traditional floating point
             registers, even if VSX memory is set.  */
          else if ((rclass == FLOAT_REGS || rclass == NO_REGS)
-                  && (GET_MODE_SIZE (mode) == 32 || GET_MODE_SIZE (mode) == 64)
+                  && (GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
                   && (legitimate_indirect_address_p (addr, false)
                       || legitimate_indirect_address_p (XEXP (addr, 0), false)
                       || rs6000_legitimate_offset_address_p (mode, addr,
@@ -27812,6 +27812,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
+  { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT
 #if TARGET_AIX_OS
   { "aix64",			OPTION_MASK_64BIT,		false, false },
