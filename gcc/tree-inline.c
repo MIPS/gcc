@@ -3640,6 +3640,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case FIXED_CONVERT_EXPR:
     case FIX_TRUNC_EXPR:
 
+    case BYTESWAP_EXPR:
     case NEGATE_EXPR:
     case FLOAT_EXPR:
     case MIN_EXPR:

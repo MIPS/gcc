@@ -396,6 +396,9 @@ optab_for_tree_code (enum tree_code code, const_tree type,
   bool trapv;
   switch (code)
     {
+    case BYTESWAP_EXPR:
+      return bswap_optab;
+
     case BIT_AND_EXPR:
       return and_optab;
 
