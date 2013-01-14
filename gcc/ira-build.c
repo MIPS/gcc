@@ -3080,7 +3080,7 @@ ira_flattening (int max_regno_before_emit, int ira_max_point_before_emit)
       ALLOCNO_LOOP_TREE_NODE (a) = ira_loop_tree_root;
       ALLOCNO_REGNO (a) = REGNO (allocno_emit_reg (a));
       ALLOCNO_CAP (a) = NULL;
-      /* Restore updated costs for assignments by reload.  */
+      /* Restore updated costs for assignments from reload.  */
       ALLOCNO_UPDATED_MEMORY_COST (a) = ALLOCNO_MEMORY_COST (a);
       ALLOCNO_UPDATED_CLASS_COST (a) = ALLOCNO_CLASS_COST (a);
       if (! ALLOCNO_ASSIGNED_P (a))

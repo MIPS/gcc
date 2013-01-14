@@ -660,8 +660,9 @@ narrow_reload_pseudo_class (rtx reg, enum reg_class cl)
 
 /* Generate reloads for matching OUT and INS (array of input operand
    numbers with end marker -1) with reg class GOAL_CLASS.  Add input
-   and output reloads correspondingly to the lists *BEFORE and
-   *AFTER.  */
+   and output reloads correspondingly to the lists *BEFORE and *AFTER.
+   OUT might be negative.  In this case we generate input reloads for
+   matched input operands INS.  */
 static void
 match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	      rtx *before, rtx *after)
@@ -670,10 +671,10 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
   rtx new_in_reg, new_out_reg, reg, clobber;
   enum machine_mode inmode, outmode;
   rtx in_rtx = *curr_id->operand_loc[ins[0]];
-  rtx out_rtx = *curr_id->operand_loc[out];
+  rtx out_rtx = out < 0 ? in_rtx : *curr_id->operand_loc[out];
 
-  outmode = curr_operand_mode[out];
   inmode = curr_operand_mode[ins[0]];
+  outmode = out < 0 ? inmode : curr_operand_mode[out];
   push_to_sequence (*before);
   if (inmode != outmode)
     {
@@ -750,14 +751,13 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	= lra_create_new_reg_with_unique_value (outmode, out_rtx,
 						goal_class, "");
     }
-  /* In and out operand can be got from transformations before
-     processing insn constraints.  One example of such transformations
-     is subreg reloading (see function simplify_operand_subreg).  The
-     new pseudos created by the transformations might have inaccurate
+  /* In operand can be got from transformations before processing insn
+     constraints.  One example of such transformations is subreg
+     reloading (see function simplify_operand_subreg).  The new
+     pseudos created by the transformations might have inaccurate
      class (ALL_REGS) and we should make their classes more
      accurate.  */
   narrow_reload_pseudo_class (in_rtx, goal_class);
-  narrow_reload_pseudo_class (out_rtx, goal_class);
   lra_emit_move (copy_rtx (new_in_reg), in_rtx);
   *before = get_insns ();
   end_sequence ();
@@ -769,6 +769,10 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
       *curr_id->operand_loc[in] = new_in_reg;
     }
   lra_update_dups (curr_id, ins);
+  if (out < 0)
+    return;
+  /* See a comment for the input operand above.  */
+  narrow_reload_pseudo_class (out_rtx, goal_class);
   if (find_reg_note (curr_insn, REG_UNUSED, out_rtx) == NULL_RTX)
     {
       start_sequence ();
@@ -1516,7 +1520,17 @@ process_alt_operands (int only_alternative)
 		    match_p = false;
 		    if (operands_match_p (*curr_id->operand_loc[nop],
 					  *curr_id->operand_loc[m], m_hregno))
-		      match_p = true;
+		      {
+			/* We should reject matching of an early
+			   clobber operand if the matching operand is
+			   not dying in the insn.  */
+			if (! curr_static_id->operand[m].early_clobber
+			    || operand_reg[nop] == NULL_RTX
+			    || (find_regno_note (curr_insn, REG_DEAD,
+						 REGNO (operand_reg[nop]))
+						 != NULL_RTX))
+			  match_p = true;
+		      }
 		    if (match_p)
 		      {
 			/* If we are matching a non-offsettable
@@ -2611,6 +2625,7 @@ curr_insn_transform (void)
   int n_alternatives;
   int commutative;
   signed char goal_alt_matched[MAX_RECOG_OPERANDS][MAX_RECOG_OPERANDS];
+  signed char match_inputs[MAX_RECOG_OPERANDS + 1];
   rtx before, after;
   bool alt_p = false;
   /* Flag that the insn has been changed through a transformation.  */
@@ -3069,17 +3084,28 @@ curr_insn_transform (void)
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_OUT))
 	{
-	  signed char arr[2];
-
-	  arr[0] = i;
-	  arr[1] = -1;
-	  match_reload (goal_alt_matched[i][0], arr,
+	  /* generate reloads for input and matched outputs.  */
+	  match_inputs[0] = i;
+	  match_inputs[1] = -1;
+	  match_reload (goal_alt_matched[i][0], match_inputs,
 			goal_alt[i], &before, &after);
 	}
       else if (curr_static_id->operand[i].type == OP_OUT
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_IN))
+	/* Generate reloads for output and matched inputs.  */
 	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
+      else if (curr_static_id->operand[i].type == OP_IN
+	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
+		   == OP_IN))
+	{
+	  /* Generate reloads for matched inputs.  */
+	  match_inputs[0] = i;
+	  for (j = 0; (k = goal_alt_matched[i][j]) >= 0; j++)
+	    match_inputs[j + 1] = k;
+	  match_inputs[j + 1] = -1;
+	  match_reload (-1, match_inputs, goal_alt[i], &before, &after);
+	}
       else
 	/* We must generate code in any case when function
 	   process_alt_operands decides that it is possible.  */
@@ -3203,9 +3229,20 @@ loc_equivalence_change_p (rtx *loc)
   return result;
 }
 
-/* Maximum allowed number of constraint pass iterations after the last
-   spill pass.	It is for preventing LRA cycling in a bug case.	 */
-#define MAX_CONSTRAINT_ITERATION_NUMBER 30
+/* Similar to loc_equivalence_change_p, but for use as
+   simplify_replace_fn_rtx callback.  */
+static rtx
+loc_equivalence_callback (rtx loc, const_rtx, void *)
+{
+  if (!REG_P (loc))
+    return NULL_RTX;
+
+  rtx subst = get_equiv_substitution (loc);
+  if (subst != loc)
+    return subst;
+
+  return NULL_RTX;
+}
 
 /* Maximum number of generated reload insns per an insn.  It is for
    preventing this pass cycling in a bug case.	*/
@@ -3330,10 +3367,10 @@ lra_constraints (bool first_p)
     fprintf (lra_dump_file, "\n********** Local #%d: **********\n\n",
 	     lra_constraint_iter);
   lra_constraint_iter_after_spill++;
-  if (lra_constraint_iter_after_spill > MAX_CONSTRAINT_ITERATION_NUMBER)
+  if (lra_constraint_iter_after_spill > LRA_MAX_CONSTRAINT_ITERATION_NUMBER)
     internal_error
       ("Maximum number of LRA constraint passes is achieved (%d)\n",
-       MAX_CONSTRAINT_ITERATION_NUMBER);
+       LRA_MAX_CONSTRAINT_ITERATION_NUMBER);
   changed_p = false;
   lra_risky_transformations_p = false;
   new_insn_uid_start = get_max_uid ();
@@ -3439,11 +3476,17 @@ lra_constraints (bool first_p)
 	  /* We need to check equivalence in debug insn and change
 	     pseudo to the equivalent value if necessary.  */
 	  curr_id = lra_get_insn_recog_data (curr_insn);
-	  if (bitmap_bit_p (&equiv_insn_bitmap, INSN_UID (curr_insn))
-	      && loc_equivalence_change_p (curr_id->operand_loc[0]))
+	  if (bitmap_bit_p (&equiv_insn_bitmap, INSN_UID (curr_insn)))
 	    {
-	      lra_update_insn_regno_info (curr_insn);
-	      changed_p = true;
+	      rtx old = *curr_id->operand_loc[0];
+	      *curr_id->operand_loc[0]
+		= simplify_replace_fn_rtx (old, NULL_RTX,
+					   loc_equivalence_callback, NULL);
+	      if (old != *curr_id->operand_loc[0])
+		{
+		  lra_update_insn_regno_info (curr_insn);
+		  changed_p = true;
+		}
 	    }
 	}
       else if (INSN_P (curr_insn))
@@ -4694,21 +4737,6 @@ inherit_in_ebb (rtx head, rtx tail)
   return change_p;
 }
 
-/* The maximal number of inheritance/split passes in LRA.  It should
-   be more 1 in order to perform caller saves transformations and much
-   less MAX_CONSTRAINT_ITERATION_NUMBER to prevent LRA to do as many
-   as permitted constraint passes in some complicated cases.  The
-   first inheritance/split pass has a biggest impact on generated code
-   quality.  Each subsequent affects generated code in less degree.
-   For example, the 3rd pass does not change generated SPEC2000 code
-   at all on x86-64.  */
-#define MAX_INHERITANCE_PASSES 2
-
-#if MAX_INHERITANCE_PASSES <= 0 \
-    || MAX_INHERITANCE_PASSES >= MAX_CONSTRAINT_ITERATION_NUMBER - 8
-#error wrong MAX_INHERITANCE_PASSES value
-#endif
-
 /* This value affects EBB forming.  If probability of edge from EBB to
    a BB is not greater than the following value, we don't add the BB
    to EBB.  */
@@ -4726,7 +4754,7 @@ lra_inheritance (void)
   edge e;
 
   lra_inheritance_iter++;
-  if (lra_inheritance_iter > MAX_INHERITANCE_PASSES)
+  if (lra_inheritance_iter > LRA_MAX_INHERITANCE_PASSES)
     return;
   timevar_push (TV_LRA_INHERITANCE);
   if (lra_dump_file != NULL)
@@ -4996,7 +5024,7 @@ lra_undo_inheritance (void)
   bool change_p;
 
   lra_undo_inheritance_iter++;
-  if (lra_undo_inheritance_iter > MAX_INHERITANCE_PASSES)
+  if (lra_undo_inheritance_iter > LRA_MAX_INHERITANCE_PASSES)
     return false;
   if (lra_dump_file != NULL)
     fprintf (lra_dump_file,
