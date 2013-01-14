@@ -144,27 +144,6 @@
   "fnabs %0,%1"
   [(set_attr "type" "fp")])
 
-(define_expand "movtd"
-  [(set (match_operand:TD 0 "general_operand" "")
-	(match_operand:TD 1 "any_operand" ""))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS"
-  "{ rs6000_emit_move (operands[0], operands[1], TDmode); DONE; }")
-
-; It's important to list the Y->r and r->Y moves before r->r because
-; otherwise reload, given m->r, will try to pick r->r and reload it,
-; which doesn't make progress.
-(define_insn_and_split "*movtd_internal"
-  [(set (match_operand:TD 0 "nonimmediate_operand" "=m,d,d,Y,r,r")
-	(match_operand:TD 1 "input_operand"         "d,m,d,r,YGHF,r"))]
-  "TARGET_HARD_FLOAT && TARGET_FPRS
-   && (gpc_reg_operand (operands[0], TDmode)
-       || gpc_reg_operand (operands[1], TDmode))"
-  "#"
-  "&& reload_completed"
-  [(pc)]
-{ rs6000_split_multireg_move (operands[0], operands[1]); DONE; }
-  [(set_attr "length" "8,8,8,20,20,16")])
-
 ;; Hardware support for decimal floating point operations.
 
 (define_insn "extendddtd2"

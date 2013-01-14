@@ -1697,6 +1697,7 @@ rs6000_debug_reg_global (void)
   static const char *const tf[2] = { "false", "true" };
   const char *nl = (const char *)0;
   int m;
+  size_t m1, m2;
   char costly_num[20];
   char nop_num[20];
   char flags_buffer[40];
@@ -1715,6 +1716,40 @@ rs6000_debug_reg_global (void)
     "paired",
     "spe",
     "other"
+  };
+
+  /* Modes we want tieable information on.  */
+  static const enum machine_mode print_tieable_modes[] = {
+    QImode,
+    HImode,
+    SImode,
+    DImode,
+    TImode,
+    SFmode,
+    DFmode,
+    TFmode,
+    SDmode,
+    DDmode,
+    TDmode,
+    V8QImode,
+    V4HImode,
+    V2SImode,
+    V16QImode,
+    V8HImode,
+    V4SImode,
+    V2DImode,
+    V32QImode,
+    V16HImode,
+    V8SImode,
+    V4DImode,
+    V2SFmode,
+    V4SFmode,
+    V2DFmode,
+    V8SFmode,
+    V4DFmode,
+    CCmode,
+    CCUNSmode,
+    CCEQmode,
   };
 
   fprintf (stderr, "Register information: (last virtual reg = %d)\n",
@@ -1776,6 +1811,35 @@ rs6000_debug_reg_global (void)
 		 (rs6000_vector_reload[m][0] != CODE_FOR_nothing) ? 'y' : 'n',
 		 (rs6000_vector_reload[m][1] != CODE_FOR_nothing) ? 'y' : 'n');
       }
+
+  if (nl)
+    fputs (nl, stderr);
+
+  for (m1 = 0; m1 < ARRAY_SIZE (print_tieable_modes); m1++)
+    {
+      enum machine_mode mode1 = print_tieable_modes[m1];
+      bool first_time = true;
+
+      nl = (const char *)0;
+      for (m2 = 0; m2 < ARRAY_SIZE (print_tieable_modes); m2++)
+	{
+	  enum machine_mode mode2 = print_tieable_modes[m2];
+	  if (mode1 != mode2 && MODES_TIEABLE_P (mode1, mode2))
+	    {
+	      if (first_time)
+		{
+		  fprintf (stderr, "Tieable modes %s:", GET_MODE_NAME (mode1));
+		  nl = "\n";
+		  first_time = false;
+		}
+
+	      fprintf (stderr, " %s", GET_MODE_NAME (mode2));
+	    }
+	}
+
+      if (!first_time)
+	fputs ("\n", stderr);
+    }
 
   if (nl)
     fputs (nl, stderr);
@@ -26557,7 +26621,7 @@ rs6000_register_move_cost (enum machine_mode mode,
     }
 
   /* If we have VSX, we can easily move between FPR or Altivec registers.  */
-  else if (VECTOR_UNIT_VSX_P (mode)
+  else if (VECTOR_MEM_VSX_P (mode)
 	   && reg_classes_intersect_p (to, VSX_REGS)
 	   && reg_classes_intersect_p (from, VSX_REGS))
     ret = 2 * hard_regno_nregs[32][mode];
@@ -26598,7 +26662,8 @@ rs6000_memory_move_cost (enum machine_mode mode, reg_class_t rclass,
 
   if (reg_classes_intersect_p (rclass, GENERAL_REGS))
     ret = 4 * hard_regno_nregs[0][mode];
-  else if (reg_classes_intersect_p (rclass, FLOAT_REGS))
+  else if ((reg_classes_intersect_p (rclass, FLOAT_REGS)
+	    || reg_classes_intersect_p (rclass, VSX_REGS)))
     ret = 4 * hard_regno_nregs[32][mode];
   else if (reg_classes_intersect_p (rclass, ALTIVEC_REGS))
     ret = 4 * hard_regno_nregs[FIRST_ALTIVEC_REGNO][mode];
