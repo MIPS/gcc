@@ -1,3 +1,14 @@
+2013-01-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_cannot_change_mode_class): Types
+	like TFmode and TDmode that use 2 physical registers as 64-bit
+	values instead of a 128-bit VSX register can't change the mode
+	class.
+
+	* config/rs6000/rs6000.md (FIRST_FPR_REGNO): Add convenience
+	defines for first/last floating point register.
+	(LAST_FPR_REGNO): Likewise.
+
 2013-01-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 195175.

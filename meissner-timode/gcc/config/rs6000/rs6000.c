@@ -14745,14 +14745,18 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
   /* Since the VSX register set includes traditional floating point registers
      and altivec registers, just check for the size being different instead of
      trying to check whether the modes are vector modes.  Otherwise it won't
-     allow say DF and DI to change classes.  However, if we support TImode in
-     single VSX registers, we need to make sure that TImode (which takes a
-     single register) does not overlap with TFmode or TDmode (which takes two
-     registers).  */
+     allow say DF and DI to change classes.  For types like TFmode and TDmode
+     that take 2 64-bit registers, rather than a single 128-bit register, don't
+     allow subregs of those types.  */
   if (TARGET_VSX && VSX_REG_CLASS_P (rclass))
-    return ((from_size != 8 && from_size != 16)
-           || (CLASS_MAX_NREGS (from, rclass)
-               != CLASS_MAX_NREGS (to, rclass)));
+    {
+      unsigned num_regs = (from_size + 15) / 16;
+      if (hard_regno_nregs[FIRST_FPR_REGNO][to] > num_regs
+	  || hard_regno_nregs[FIRST_FPR_REGNO][from] > num_regs)
+	return true;
+
+      return (from_size != 8 && from_size != 16);
+    }
 
   if (TARGET_ALTIVEC && rclass == ALTIVEC_REGS
       && (ALTIVEC_VECTOR_MODE (from) + ALTIVEC_VECTOR_MODE (to)) == 1)
