@@ -1,3 +1,8 @@
+2013-01-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 195253.
+	* REVISION: Update subversion id.
+
 2012-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 193708.  Pick up VSX floating point ordering fix that

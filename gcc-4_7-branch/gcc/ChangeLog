@@ -1,3 +1,390 @@
+2013-01-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55882
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Correctly
+	account for bitpos when computing alignment.
+
+2013-01-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-01-14 trunk r195169.
+
+	PR target/55974
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): Define __FLASH
+	etc. to 1 and not to __flash.
+	Use LL suffix for __INT24_MAX__ with -mint8.
+	Use ULL suffix for __UINT24_MAX__ with -mint8.
+
+2013-01-14  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/invoke.texi: Document -print-multiarch.
+	* doc/install.texi: Document --enable-multiarch.
+	* doc/fragments.texi: Document MULTILIB_OSDIRNAMES, MULTIARCH_DIRNAME.
+	* configure.ac: Add --enable-multiarch option.
+	Substitute with_cpu, with_float.
+	* configure: Regenerate.
+	* Makefile.in (s-mlib): Pass MULTIARCH_DIRNAME to genmultilib.
+	enable_multiarch, with_cpu, with_float: New macros.
+	if_multiarch: New macro, define in terms of enable_multiarch.
+	* genmultilib: Add new argument for the multiarch name.
+	* gcc.c (multiarch_dir): Define.
+	(for_each_path): Search for multiarch suffixes.
+	(driver_handle_option): Handle multiarch option.
+	(do_spec_1): Pass -imultiarch if defined.
+	(main): Print multiarch.
+	(set_multilib_dir): Separate multilib and multiarch names
+	from multilib_select.
+	(print_multilib_info): Ignore multiarch names in multilib_select.
+	* incpath.c (add_standard_paths): Search the multiarch include dirs.
+	* cppdefault.h (default_include): Document multiarch in multilib
+	member.
+	* cppdefault.c: [LOCAL_INCLUDE_DIR, STANDARD_INCLUDE_DIR] Add an
+	include directory for multiarch directories.
+	* common.opt: New options --print-multiarch and -imultilib.
+
+	* config.gcc <i[34567]86-*-linux* | x86_64-*-linux*> (tmake_file):
+	Include i386/t-linux.
+	<i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu> (tmake_file):
+	Include i386/t-kfreebsd.
+	<i[34567]86-*-gnu*> (tmake_file): Include i386/t-gnu.
+	* config/i386/t-linux64: Add multiarch names in
+	MULTILIB_OSDIRNAMES, define MULTIARCH_DIRNAME.
+	* config/i386/t-gnu: New file.
+	* config/i386/t-kfreebsd: Likewise.
+	* config/i386/t-linux: Likewise.
+
+	* config/sparc/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+	* config/sparc/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <sparc-*-linux*> (tmake_file): Include sparc/t-linux
+	for 32bit non-biarch configurations.
+
+	* config/pa/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <hppa*64*-*-linux*, hppa*-*-linux*> (tmake_file):
+	Include pa/t-linux.
+
+	* config/mips/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+
+	* config/arm/t-linux-eabi: Define MULTIARCH_DIRNAME for linux target.
+
+	* config/rs6000/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+	* config/rs6000/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config/rs6000/t-fprules (SOFT_FLOAT_CPUS): New macro. Add e300c2
+	to the list.
+	(MULTILIB_MATCHES_FLOAT): Define in terms of SOFT_FLOAT_CPUS.
+	* config.gcc <powerpc-*-linux* | powerpc64-*-linux*> (tmake_file):
+	Include rs6000/t-linux for 32bit non-biarch configurations.
+
+	* config/s390/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+
+	* config/m68k/t-linux: Define MULTIARCH_DIRNAME.
+
+	* config/ia64/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <ia64*-*-linux*> (tmake_file): Include ia64/t-linux.
+
+	* config/alpha/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <alpha*-*-linux*> (tmake_file): Include alpha/t-linux.
+
+2013-01-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vectorizer.h (vect_get_single_scalar_iteraion_cost): Fix typo.
+	* tree-vect-loop.c (vect_get_single_scalar_iteraion_cost): Likewise.
+	(vect_estimate_min_profitable_iter): Adjust to above fix.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost): Likewise.
+
+2013-01-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2013-01-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (X86 Built-in Functions): Add whitespace in
+	__builtin_ia32_paddb256 and __builtin_ia32_pavgb256
+	documentation.  Add missing '__' in front of
+	__builtin_ia32_packssdw256.
+
+2013-01-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-01-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_interleave_highv2df): Change mode
+	attribute of movddup insn to DF.
+	(*vec_interleave_lowv2df): Ditto.
+	(vec_dupv2df): Ditto.
+
+2013-01-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-01-07 trunk r194991, r194992.
+
+	PR target/55897
+	* doc/extend.texi (AVR Named Address Spaces): __memx goes into
+	.progmemx.data now.
+
+	* config/avr/avr.h (ADDR_SPACE_COUNT): New enum.
+	(avr_addrspace_t): Add .section_name field.
+	* config/avr/avr.c (progmem_section): Use ADDR_SPACE_COUNT as
+	array size.
+	(avr_addrspace): Same.  Initialize .section_name.  Remove last
+	NULL entry.  Put __memx into .progmemx.data.
+	(progmem_section_prefix): Remove.
+	(avr_asm_init_sections): No need to initialize progmem_section.
+	(avr_asm_named_section): Use avr_addrspace[].section_name to get
+	section name prefix.
+	(avr_asm_select_section): Ditto.  And use get_unnamed_section to
+	retrieve the progmem section.
+	* avr-c.c (avr_cpu_cpp_builtins): Use ADDR_SPACE_COUNT as loop
+	boundary to run over avr_addrspace[].
+	(avr_register_target_pragmas): Ditto.
+
+2013-01-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-01-07 trunk r194978.
+
+	PR target/54461
+	* doc/install.texi (Cross-Compiler-Specific Options): Document
+	--with-avrlibc.
+
+2013-01-07  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-01-07 trunk r194968.
+
+	PR other/55243
+	* config/avr/t-avr: Don't automatically rebuild
+	$(srcdir)/config/avr/t-multilib
+	$(srcdir)/config/avr/avr-tables.opt
+	(avr-mcus): New phony target to build them on request.
+	(s-avr-mlib): Remove.
+	* avr/avr-mcus.def: Adjust comments.
+
+2013-01-07  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2012-12-19  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (thumb_find_work_register): Check argument
+	register number based on current PCS.
+
+2013-01-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-01-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/55712
+	* config/i386/i386-c.c (ix86_target_macros_internal): Depending on
+	selected code model, define __code_mode_small__, __code_model_medium__,
+	__code_model_large__, __code_model_32__ or __code_model_kernel__.
+	* config/i386/cpuid.h (__cpuid, __cpuid_count) [__i386__]: Prefix
+	xchg temporary register with %k.  Declare temporary register as
+	early clobbered.
+	[__x86_64__]: For medium and large code models, preserve %rbx register.
+
+2013-01-03  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_move): Always assign to op1
+	after eliminating TLS symbols.
+
+2013-01-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/53789
+	* config/pa/pa.md (movsi): Revert previous change.
+	* config/pa/pa.c (pa_legitimate_constant_p): Reject all TLS symbol
+	references.
+
+2013-01-02  Rainer Emrich  <rainer@emrich-ebersheim.de>
+
+	PR bootstrap/55707
+	* graphite-dependences.c (hash_poly_ddr_p): Cast from pointer via
+	intptr_t.
+
+2013-01-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55804
+	* tree.c (build_array_type_1): Revert earlier change.
+
+2012-12-25  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/53789
+	* config/pa/pa.md (movsi): Reject expansion of TLS symbol references
+	after reload starts.
+
+2012-12-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/55355
+	* tree-sra.c (type_internals_preclude_sra_p): Also check that
+	bit_position is small enough to fit a single HOST_WIDE_INT.
+
+2012-12-21  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	* config.gcc: Match arm*-*-uclinux*eabi* for EABI uCLinux.
+
+2012-12-18  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	Backport from mainline
+	2012-10-15  Matthias Klose  <doko@ubuntu.com>
+
+	* config.gcc: Match arm*-*-linux-* for ARM Linux/GNU.
+	* doc/install.texi: Use arm-*-*linux-* instead of arm-*-*linux-gnueabi.
+
+2012-12-16  Eric Botcazou  <ebotcazou@adacore.com>
+	    Tomash Brechko  <tomash.brechko@gmail.com>
+
+	PR target/55673
+	* config/sparc/sparc.c (sparc_emit_membar_for_model): Fix reversed
+	handling of before and after cases.
+	* config/sparc/sync.md (atomic_store): Fix pasto.
+
+2012-12-14  Yvan Roux  <yvan.roux@linaro.org>
+
+	* optabs.c (expand_atomic_store): Elide redundant model test.
+
+2012-12-13  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/55492
+	* optabs.c (expand_atomic_load): Emit acquire barrier after the load.
+
+2012-12-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/54121
+	* config/sparc/sparc.md (tldo_stb_sp32): Fix pasto.
+	(tldo_stb_sp64): Likewise.
+	(tldo_sth_sp32): Likewise.
+	(tldo_sth_sp64): Likewise.
+	(tldo_stw_sp32): Likewise.
+	(tldo_stw_sp64): Likewise.
+	(tldo_stx_sp64): Likewise.
+
+2012-12-10 Kai Tietz  <ktietz@redhat.com>
+
+	PR target/53912
+	* print-tree.c (print_node): Cast from pointer via uintptr_t.
+
+2012-12-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-12-06  Uros Bizjak  <ubizjak@gmail.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/55597
+	* config/i386/i386.c (legitimize_tls_address): Zero-extend x to Pmode,
+	before using it as insn or call equivalent.
+
+2012-12-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55032
+	* tree.c (build_array_type_1): Re-layout if we found it in the
+	hash table.
+
+2012-12-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Use "const_int 0" instead of match_test to simplify
+	opaque cond in all call insns.
+
+2012-12-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (ia64_compute_frame_size): Allocate the scratch
+	area if the function allocates dynamic stack space.
+	(ia64_initial_elimination_offset): Adjust offsets to above change.
+
+2012-12-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-09-24  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53663
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Conditional
+	native encode/interpret translation on VN_WALKREWRITE.
+
+2012-12-03 Kai Tietz  <ktietz@redhat.com>
+
+	PR target/53912
+	* ggc-common.c (POINTER_HASH): Cast from pointer via intptr_t.
+
+	PR target/53912
+	* tree-dump.c (dump_pointer): Print pointer via HOST_WIDE_INT_PRINT.
+
+	PR target/53912
+	* pointer-set.c (hash1): Cast from pointer via uintptr_t.
+
+2012-12-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2012-11-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/55195
+	* config/pa/pa.md (type): Add sibcall and sh_func_adrs insn types.
+	(in_branch_delay): Don't allow sibcall or sh_func_adrs insns.
+	(in_nullified_branch_delay): Likewise.
+	(in_call_delay): Likewise.
+	Define delay for sibcall insns.  Adjust Z3 and Z4 insn reservations for
+	new types.  Add opaque cond to mark all calls, sibcalls, dyncalls and
+	the $$sh_func_adrs call as variable.  Update type of sibcalls and
+	$$sh_func_adrs call.
+	* config/pa/pa.c (pa_adjust_insn_length): Revise to return updated
+	length instead of adjustment.  Handle negative and undefined call
+	adjustments for insn_default_length.  Remove adjustment for millicode
+	insn with unfilled delay slot.
+	(pa_output_millicode_call): Update for revised millicode length.
+	* config/pa/pa.h (ADJUST_INSN_LENGTH): Revise to set LENGTH.
+
+2012-11-29  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/55171
+	* prefix.c (lookup_key): Replace xmalloc/xrealloc
+	use by XNEWVEC/XRESIZEVEC.
+
+	* i386.c (get_scratch_register_on_entry): Handle
+	thiscall-convention.
+	(split_stack_prologue_scratch_regno): Likewise.
+	(ix86_static_chain): Likewise.
+	(x86_output_mi_thunk): Likewise.
+
+2012-11-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-11-27  H.J. Lu  <hongjiu.lu@intel.com>
+		    Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR lto/54795
+	* lto-opts.c (lto_write_options): Also handle
+	OPT_SPECIAL_unknown, OPT_SPECIAL_ignore and
+	OPT_SPECIAL_program_name.
+
+	PR lto/55474
+	* lto-wrapper.c (merge_and_complain): Handle
+	OPT_SPECIAL_unknown, OPT_SPECIAL_ignore,
+	OPT_SPECIAL_program_name and OPT_SPECIAL_input_file.
+
+2012-11-27  Paolo Bonzini  <pbonzini@redhat.com>
+
+	PR rtl-optimization/55489
+	* gcse.c (compute_transp): Precompute a canonical version
+	of XEXP (x, 0), and pass it to canon_true_dependence.
+
+2012-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55331
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Replace
+	stmt with a NOP instead of removing it.
+
+2012-11-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-10-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54976
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size):
+	Robustify against odd inner_mode inputs.
+
+	2012-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54894
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size):
+	Handle over-aligned scalar types properly.
+
+	2012-10-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/54735
+	* tree-ssa-pre.c (do_pre): Make sure to update virtual SSA form before
+	cleaning up the CFG.
+
 2012-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
