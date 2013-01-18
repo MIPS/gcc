@@ -1,8 +1,5 @@
 /* Subroutines used for MIPS code generation.
-   Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -16764,7 +16761,7 @@ mips_option_override (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
-      mips_dbx_regno[i] = INVALID_REGNUM;
+      mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
       if (GP_REG_P (i) || FP_REG_P (i) || ALL_COP_REG_P (i))
 	mips_dwarf_regno[i] = i;
       else
@@ -16778,9 +16775,6 @@ mips_option_override (void)
   start = FP_DBX_FIRST - FP_REG_FIRST;
   for (i = FP_REG_FIRST; i <= FP_REG_LAST; i++)
     mips_dbx_regno[i] = i + start;
-
-  for (i = ALL_COP_REG_FIRST; i <= ALL_COP_REG_LAST; i++)
-    mips_dbx_regno[i] = IGNORED_DWARF_REGNUM;
 
   /* Accumulator debug registers use big-endian ordering.  */
   mips_dbx_regno[HI_REGNUM] = MD_DBX_FIRST + 0;

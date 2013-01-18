@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003,
-   2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -159,8 +157,6 @@ extern bool sh_expand_t_scc (rtx *);
 extern rtx sh_gen_truncate (enum machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (enum machine_mode);
 extern bool sh_cfun_trap_exit_p (void);
-extern void sh_canonicalize_comparison (enum rtx_code&, rtx&, rtx&,
-					enum machine_mode mode = VOIDmode);
 extern rtx sh_find_equiv_gbr_addr (rtx cur_insn, rtx mem);
 extern int sh_eval_treg_value (rtx op);
 

@@ -1,5 +1,4 @@
-#   Copyright (C) 1999, 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-#   2011, 2012 Free Software Foundation, Inc.
+#   Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -578,10 +577,10 @@ proc check_effective_target_pcc_bitfield_type_matters { } {
 
 proc add_options_for_tls { flags } {
     # On Solaris 9, __tls_get_addr/___tls_get_addr only lives in
-    # libthread, so always pass -pthread for native TLS.
+    # libthread, so always pass -pthread for native TLS. Same for AIX.
     # Need to duplicate native TLS check from
     # check_effective_target_tls_native to avoid recursion.
-    if { [istarget *-*-solaris2.9*] &&
+    if { ([istarget *-*-solaris2.9*] || [istarget powerpc-ibm-aix*]) &&
 	 [check_no_messages_and_pattern tls_native "!emutls" assembly {
 	     __thread int i;
 	     int f (void) { return i; }
@@ -717,6 +716,37 @@ proc check_effective_target_fgnu_tm {} {
 
 proc check_effective_target_mmap {} {
     return [check_function_available "mmap"]
+}
+
+# Return 1 if the target supports dlopen, 0 otherwise.
+proc check_effective_target_dlopen {} {
+    return [check_function_available "dlopen"]
+}
+
+# Return 1 if the target supports clone, 0 otherwise.
+proc check_effective_target_clone {} {
+    return [check_function_available "clone"]
+}
+
+# Return 1 if the target supports setrlimit, 0 otherwise.
+proc check_effective_target_setrlimit {} {
+    # Darwin has non-posix compliant RLIMIT_AS
+    if { [istarget *-*-darwin*] } {
+        return 0
+    }
+    return [check_function_available "setrlimit"]
+}
+
+# Return 1 if the target supports swapcontext, 0 otherwise.
+proc check_effective_target_swapcontext {} {
+    return [check_no_compiler_messages swapcontext executable {
+	#include <ucontext.h>
+	int main (void)
+	{
+	  ucontext_t orig_context,child_context;
+	  if (swapcontext(&child_context, &orig_context) < 0) { }
+	}
+    }]
 }
 
 # Return 1 if compilation with -pthread is error-free for trivial
@@ -2186,7 +2216,7 @@ proc add_options_for_arm_v8_neon { flags } {
     if { ! [check_effective_target_arm_v8_neon_ok] } {
         return "$flags"
     }
-    return "$flags -mfpu=neon-fp-armv8 -mfloat-abi=softfp"
+    return "$flags -march=armv8-a -mfpu=neon-fp-armv8 -mfloat-abi=softfp"
 }
 
 # Add the options needed for NEON.  We need either -mfloat-abi=softfp
@@ -2626,10 +2656,10 @@ proc check_effective_target_powerpc_vsx_ok { } {
     if { ([istarget powerpc*-*-*]
          && ![istarget powerpc-*-linux*paired*])
 	 || [istarget rs6000-*-*] } {
-	# AltiVec is not supported on AIX before 5.3.
+	# VSX is not supported on AIX before 7.1.
 	if { [istarget powerpc*-*-aix4*]
-	     || [istarget powerpc*-*-aix5.1*] 
-	     || [istarget powerpc*-*-aix5.2*] } {
+	     || [istarget powerpc*-*-aix5*]
+	     || [istarget powerpc*-*-aix6*] } {
 	    return 0
 	}
 	return [check_no_compiler_messages powerpc_vsx_ok object {
@@ -3063,7 +3093,8 @@ proc check_effective_target_vect_perm_byte { } {
         verbose "check_effective_target_vect_perm_byte: using cached result" 2
     } else {
         set et_vect_perm_byte_saved 0
-        if { [is-effective-target arm_neon_ok]
+        if { ([is-effective-target arm_neon_ok]
+	      && [is-effective-target arm_little_endian])
 	     || [istarget aarch64*-*-*]
 	     || [istarget powerpc*-*-*]
              || [istarget spu-*-*] } {
@@ -3086,7 +3117,8 @@ proc check_effective_target_vect_perm_short { } {
         verbose "check_effective_target_vect_perm_short: using cached result" 2
     } else {
         set et_vect_perm_short_saved 0
-        if { [is-effective-target arm_neon_ok]
+        if { ([is-effective-target arm_neon_ok]
+	      && [is-effective-target arm_little_endian])
 	     || [istarget aarch64*-*-*]
 	     || [istarget powerpc*-*-*]
              || [istarget spu-*-*] } {
@@ -3156,6 +3188,7 @@ proc check_effective_target_vect_widen_sum_qi_to_hi { } {
     } else {
         set et_vect_widen_sum_qi_to_hi_saved 0
 	if { [check_effective_target_vect_unpack] 
+	     || [check_effective_target_arm_neon_ok]
 	     || [istarget ia64-*-*] } {
             set et_vect_widen_sum_qi_to_hi_saved 1
 	}
@@ -3263,7 +3296,9 @@ proc check_effective_target_vect_widen_mult_qi_to_hi_pattern { } {
     } else {
         set et_vect_widen_mult_qi_to_hi_pattern_saved 0
         if { [istarget powerpc*-*-*]
-              || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
+              || ([istarget arm*-*-*]
+		  && [check_effective_target_arm_neon_ok]
+		  && [check_effective_target_arm_little_endian]) } {
             set et_vect_widen_mult_qi_to_hi_pattern_saved 1
         }
     }
@@ -3288,7 +3323,9 @@ proc check_effective_target_vect_widen_mult_hi_to_si_pattern { } {
               || [istarget ia64-*-*]
               || [istarget i?86-*-*]
               || [istarget x86_64-*-*]
-              || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
+              || ([istarget arm*-*-*]
+		  && [check_effective_target_arm_neon_ok]
+		  && [check_effective_target_arm_little_endian]) } {
             set et_vect_widen_mult_hi_to_si_pattern_saved 1
         }
     }
@@ -3679,7 +3716,8 @@ proc check_effective_target_vect_condition { } {
 	verbose "check_effective_target_vect_cond: using cached result" 2
     } else {
 	set et_vect_cond_saved 0
-	if { [istarget powerpc*-*-*]
+	if { [istarget aarch64*-*-*]
+	     || [istarget powerpc*-*-*]
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*]
 	     || [istarget spu-*-*]
@@ -3871,7 +3909,8 @@ proc check_effective_target_vect_multiple_sizes { } {
     global et_vect_multiple_sizes_saved
 
     set et_vect_multiple_sizes_saved 0
-    if { ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
+    if { ([istarget aarch64*-*-*]
+	  || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok])) } {
        set et_vect_multiple_sizes_saved 1
     }
     if { ([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
@@ -3893,7 +3932,9 @@ proc check_effective_target_vect64 { } {
         verbose "check_effective_target_vect64: using cached result" 2
     } else {
         set et_vect64_saved 0
-        if { ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
+        if { ([istarget arm*-*-*]
+	      && [check_effective_target_arm_neon_ok]
+	      && [check_effective_target_arm_little_endian]) } {
            set et_vect64_saved 1
         }
     }
@@ -3931,7 +3972,8 @@ proc check_effective_target_vect_call_sqrtf { } {
 	verbose "check_effective_target_vect_call_sqrtf: using cached result" 2
     } else {
 	set et_vect_call_sqrtf_saved 0
-	if { [istarget i?86-*-*]
+	if { [istarget aarch64*-*-*]
+	     || [istarget i?86-*-*]
 	     || [istarget x86_64-*-*]
 	     || ([istarget powerpc*-*-*] && [check_vsx_hw_available]) } {
 	    set et_vect_call_sqrtf_saved 1

@@ -1,7 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5606,6 +5604,7 @@ extern void change_decl_assembler_name (tree, tree);
 
 /* In gimplify.c */
 extern tree unshare_expr (tree);
+extern tree unshare_expr_without_location (tree);
 
 /* In stmt.c */
 
@@ -6303,6 +6302,9 @@ extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
    instructions.  Return nonzero if a call to move_by_pieces should
    succeed.  */
 extern int can_move_by_pieces (unsigned HOST_WIDE_INT, unsigned int);
+
+/* Is it an ADDR_EXPR of a DECL that's not in memory?  */
+extern bool addr_expr_of_non_mem_decl_p (tree);
 
 extern unsigned HOST_WIDE_INT highest_pow2_factor (const_tree);
 extern tree build_personality_function (const char *);

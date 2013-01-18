@@ -1,7 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -7505,12 +7503,7 @@ build_array_type_1 (tree elt_type, tree index_type, bool shared)
       hashval_t hashcode = iterative_hash_object (TYPE_HASH (elt_type), 0);
       if (index_type)
 	hashcode = iterative_hash_object (TYPE_HASH (index_type), hashcode);
-      tree old_t = t;
       t = type_hash_canon (hashcode, t);
-      if (t != old_t)
-	/* Lay it out again in case the element type has been completed since
-	   the array was added to the hash table.  */
-	layout_type (t);
     }
 
   if (TYPE_CANONICAL (t) == t)

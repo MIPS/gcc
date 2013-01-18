@@ -1,7 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1926,16 +1924,15 @@ min_vis_r (tree *tp, int *walk_subtrees, void *data)
     {
       *walk_subtrees = 0;
     }
-  else if (CLASS_TYPE_P (*tp))
+  else if (TAGGED_TYPE_P (*tp)
+	   && !TREE_PUBLIC (TYPE_MAIN_DECL (*tp)))
     {
-      if (!TREE_PUBLIC (TYPE_MAIN_DECL (*tp)))
-	{
-	  *vis_p = VISIBILITY_ANON;
-	  return *tp;
-	}
-      else if (CLASSTYPE_VISIBILITY (*tp) > *vis_p)
-	*vis_p = CLASSTYPE_VISIBILITY (*tp);
+      *vis_p = VISIBILITY_ANON;
+      return *tp;
     }
+  else if (CLASS_TYPE_P (*tp)
+	   && CLASSTYPE_VISIBILITY (*tp) > *vis_p)
+    *vis_p = CLASSTYPE_VISIBILITY (*tp);
   return NULL;
 }
 
@@ -2808,7 +2805,8 @@ var_defined_without_dynamic_init (tree var)
 static bool
 var_needs_tls_wrapper (tree var)
 {
-  return (DECL_THREAD_LOCAL_P (var)
+  return (!error_operand_p (var)
+	  && DECL_THREAD_LOCAL_P (var)
 	  && !DECL_GNU_TLS_P (var)
 	  && !DECL_FUNCTION_SCOPE_P (var)
 	  && !var_defined_without_dynamic_init (var));

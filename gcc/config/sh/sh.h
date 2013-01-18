@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -1872,10 +1870,6 @@ struct sh_args {
    truncation in the library function call patterns, as this gives slightly
    more compact code.  */
 #define SHIFT_COUNT_TRUNCATED (0)
-
-/* CANONICALIZE_COMPARISON macro for the combine pass.  */
-#define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
-  sh_canonicalize_comparison ((CODE), (OP0), (OP1))
 
 /* All integers have the same format so truncation is easy.  */
 /* But SHmedia must sign-extend DImode when truncating to SImode.  */

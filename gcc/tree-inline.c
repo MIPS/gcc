@@ -1,6 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -536,7 +535,7 @@ can_be_nonlocal (tree decl, copy_body_data *id)
 }
 
 static tree
-remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
+remap_decls (tree decls, vec<tree, va_gc> **nonlocalized_list,
 	     copy_body_data *id)
 {
   tree old_var;
@@ -557,7 +556,7 @@ remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
 	      && nonlocalized_list)
-	    vec_safe_push (nonlocalized_list, old_var);
+	    vec_safe_push (*nonlocalized_list, old_var);
 	  continue;
 	}
 
@@ -575,7 +574,7 @@ remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
 	      && nonlocalized_list)
-	    vec_safe_push (nonlocalized_list, old_var);
+	    vec_safe_push (*nonlocalized_list, old_var);
 	}
       else
 	{
@@ -622,7 +621,7 @@ remap_block (tree *block, copy_body_data *id)
 
   /* Remap its variables.  */
   BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block),
-  					BLOCK_NONLOCALIZED_VARS (new_block),
+  					&BLOCK_NONLOCALIZED_VARS (new_block),
 					id);
 
   if (id->transform_lang_insert_block)
@@ -5191,7 +5190,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	replace_info = (*tree_map)[i];
 	if (replace_info->replace_p)
 	  {
-	    tree op = replace_info->new_tree;
 	    if (!replace_info->old_tree)
 	      {
 		int i = replace_info->parm_num;
@@ -5200,13 +5198,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 		  i --;
 		replace_info->old_tree = parm;
 	      }
-		
-
-	    STRIP_NOPS (op);
-
-	    if (TREE_CODE (op) == VIEW_CONVERT_EXPR)
-	      op = TREE_OPERAND (op, 0);
-
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
 	    			        replace_info->new_tree, id.src_fn,
