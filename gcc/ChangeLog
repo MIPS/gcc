@@ -86,6 +86,45 @@
 	* common.opt (flra): New option.
 	* ira.c (ira): Use the new flag.
 
+2013-01-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/55433
+	* lra-constraints.c (curr_insn_transform): Don't reuse original
+	insn for secondary memory move when memory mode should be
+	different.
+
+2013-01-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md (atomic_loaddi, atomic_loaddi_1, atomic_storedi,
+	atomic_storedi_1): New patterns.
+
+2013-01-20  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	btver2 pipeline descriptions.
+	* config/i386/i386.c: Enable CPU_BTVER2 to use btver2 pipeline
+	descriptions.
+	* config/i386/i386.md (btver2_decode): New type attributes.
+	* config/i386/sse.md (btver2_decode, btver2_sse_attr): New 
+	type attributes.
+	* config/i386/btver2.md: New file describing btver2 pipelines.
+
+2013-01-19  Andrew Pinski  <apinski@cavium.com>
+
+	PR tree-optimization/52631
+	* tree-ssa-sccvn (visit_use): Before looking up the original
+	statement, try looking up the simplified expression.
+
+2013-01-19  Anthony Green  <green@moxielogic.com>
+
+	* config/moxie/moxie.c (moxie_expand_prologue): Set
+	current_function_static_stack_size.
+
+2013-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56029
+	* tree-phinodes.c (reserve_phi_args_for_new_edge): Set
+	gimple_phi_arg_location for the new arg to UNKNOWN_LOCATION.
+
 2013-01-18  Sharad Singhai  <singhai@google.com>
 
 	PR tree-optimization/55995
