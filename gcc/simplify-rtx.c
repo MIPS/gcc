@@ -2610,6 +2610,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       if (tem)
 	return tem;
 
+      /* (ior (byteswap A) (byteswap B)) -> (byteswap (ior A B)) */
+      if (GET_CODE (op0) == BSWAP && GET_CODE (op1) == BSWAP)
+	{
+	  rtx tmp = simplify_gen_binary (code, mode, XEXP (op0, 0),
+					 XEXP (op1, 0));
+	  return simplify_gen_unary (BSWAP, mode, tmp, mode);
+	}
+
       tem = simplify_associative_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
@@ -2758,6 +2766,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
+
+      /* (xor (byteswap A) (byteswap B)) -> (byteswap (xor A B)) */
+      if (GET_CODE (op0) == BSWAP && GET_CODE (op1) == BSWAP)
+	{
+	  rtx tmp = simplify_gen_binary (code, mode, XEXP (op0, 0),
+					 XEXP (op1, 0));
+	  return simplify_gen_unary (BSWAP, mode, tmp, mode);
+	}
 
       tem = simplify_associative_operation (code, mode, op0, op1);
       if (tem)
@@ -2944,6 +2960,14 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
       tem = simplify_byte_swapping_operation (code, mode, op0, op1);
       if (tem)
 	return tem;
+
+      /* (and (byteswap A) (byteswap B)) -> (byteswap (and A B)) */
+      if (GET_CODE (op0) == BSWAP && GET_CODE (op1) == BSWAP)
+	{
+	  rtx tmp = simplify_gen_binary (code, mode, XEXP (op0, 0),
+					 XEXP (op1, 0));
+	  return simplify_gen_unary (BSWAP, mode, tmp, mode);
+	}
 
       tem = simplify_associative_operation (code, mode, op0, op1);
       if (tem)
