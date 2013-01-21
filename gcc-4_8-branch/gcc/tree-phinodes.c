@@ -1,6 +1,5 @@
 /* Generic routines for manipulating PHIs
-   Copyright (C) 2003, 2005, 2007, 2008, 2009, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -313,6 +312,7 @@ reserve_phi_args_for_new_edge (basic_block bb)
 	 redirects edges, and then fixes up PHI arguments later in
 	 batch.  */
       SET_PHI_ARG_DEF (stmt, len - 1, NULL_TREE);
+      gimple_phi_arg_set_location (stmt, len - 1, UNKNOWN_LOCATION);
 
       stmt->gimple_phi.nargs++;
     }

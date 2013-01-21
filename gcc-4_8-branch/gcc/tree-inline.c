@@ -1,6 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -5191,7 +5190,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	replace_info = (*tree_map)[i];
 	if (replace_info->replace_p)
 	  {
-	    tree op = replace_info->new_tree;
 	    if (!replace_info->old_tree)
 	      {
 		int i = replace_info->parm_num;
@@ -5200,13 +5198,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 		  i --;
 		replace_info->old_tree = parm;
 	      }
-		
-
-	    STRIP_NOPS (op);
-
-	    if (TREE_CODE (op) == VIEW_CONVERT_EXPR)
-	      op = TREE_OPERAND (op, 0);
-
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
 	    			        replace_info->new_tree, id.src_fn,
