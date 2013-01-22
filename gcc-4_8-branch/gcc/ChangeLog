@@ -1,5 +1,25 @@
 2013-01-21  Jakub Jelinek  <jakub@redhat.com>
 
+	PR tree-optimization/56051
+	* fold-const.c (fold_binary_loc): Don't fold
+	X < (cast) (1 << Y) into (X >> Y) != 0 if cast is either
+	a narrowing conversion, or widening conversion from signed
+	to unsigned.
+
+2012-01-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/56023
+	* haifa-sched.c (fix_inter_tick): Do not update ticks of instructions,
+	dependent on debug instruction.
+
+2013-01-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/56022
+	* function.c (allocate_struct_function): Call
+	invoke_set_current_function_hook earlier.
+
+2013-01-21  Jakub Jelinek  <jakub@redhat.com>
+
 	* reload1.c (init_reload): Only initialize reload_obstack
 	during the first call.
 
