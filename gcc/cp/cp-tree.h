@@ -1,8 +1,5 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -4952,6 +4949,7 @@ extern tree initialize_reference		(tree, tree, int,
 						 tsubst_flags_t);
 extern tree extend_ref_init_temps		(tree, tree, vec<tree, va_gc>**);
 extern tree make_temporary_var_for_ref_to_temp	(tree, tree);
+extern bool type_has_extended_temps		(tree);
 extern tree strip_top_quals			(tree);
 extern bool reference_related_p			(tree, tree);
 extern tree perform_implicit_conversion		(tree, tree, tsubst_flags_t);
@@ -5475,9 +5473,9 @@ extern void finish_repo				(void);
 extern GTY(()) vec<tree, va_gc> *unemitted_tinfo_decls;
 
 extern void init_rtti_processing		(void);
-extern tree build_typeid			(tree);
+extern tree build_typeid			(tree, tsubst_flags_t);
 extern tree get_tinfo_decl			(tree);
-extern tree get_typeid				(tree);
+extern tree get_typeid				(tree, tsubst_flags_t);
 extern tree build_headof			(tree);
 extern tree build_dynamic_cast			(tree, tree, tsubst_flags_t);
 extern void emit_support_tinfos			(void);
@@ -5489,6 +5487,7 @@ extern tree lookup_base                         (tree, tree, base_access,
 						 base_kind *, tsubst_flags_t);
 extern tree dcast_base_hint			(tree, tree);
 extern int accessible_p				(tree, tree, bool);
+extern int accessible_in_template_p		(tree, tree);
 extern tree lookup_field_1			(tree, tree, bool);
 extern tree lookup_field			(tree, tree, int, bool);
 extern int lookup_fnfields_1			(tree, tree);
@@ -5762,7 +5761,7 @@ extern tree build_min_nt_loc			(location_t, enum tree_code,
 extern tree build_min_non_dep			(enum tree_code, tree, ...);
 extern tree build_min_non_dep_call_vec		(tree, tree, vec<tree, va_gc> *);
 extern tree build_cplus_new			(tree, tree, tsubst_flags_t);
-extern tree build_aggr_init_expr		(tree, tree, tsubst_flags_t);
+extern tree build_aggr_init_expr		(tree, tree);
 extern tree get_target_expr			(tree);
 extern tree get_target_expr_sfinae		(tree, tsubst_flags_t);
 extern tree build_cplus_array_type		(tree, tree);

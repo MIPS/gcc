@@ -1635,16 +1635,15 @@ package body Exp_Disp is
       Formals : constant List_Id    := New_List;
       Target  : constant Entity_Id  := Ultimate_Alias (Prim);
 
-      Controlling_Typ : Entity_Id;
-      Decl_1          : Node_Id;
-      Decl_2          : Node_Id;
-      Expr            : Node_Id;
-      Formal          : Node_Id;
-      Ftyp            : Entity_Id;
-      Iface_Formal    : Node_Id;
-      New_Arg         : Node_Id;
-      Offset_To_Top   : Node_Id;
-      Target_Formal   : Entity_Id;
+      Decl_1        : Node_Id;
+      Decl_2        : Node_Id;
+      Expr          : Node_Id;
+      Formal        : Node_Id;
+      Ftyp          : Entity_Id;
+      Iface_Formal  : Node_Id;
+      New_Arg       : Node_Id;
+      Offset_To_Top : Node_Id;
+      Target_Formal : Entity_Id;
 
    begin
       Thunk_Id   := Empty;
@@ -1713,8 +1712,6 @@ package body Exp_Disp is
          Next_Formal (Formal);
       end loop;
 
-      Controlling_Typ := Find_Dispatching_Type (Target);
-
       Target_Formal := First_Formal (Target);
       Formal        := First (Formals);
       while Present (Formal) loop
@@ -1741,7 +1738,7 @@ package body Exp_Disp is
 
          if Ekind (Target_Formal) = E_In_Parameter
            and then Ekind (Etype (Target_Formal)) = E_Anonymous_Access_Type
-           and then Ftyp = Controlling_Typ
+           and then Is_Controlling_Formal (Target_Formal)
          then
             --  Generate:
             --     type T is access all <<type of the target formal>>
@@ -1799,7 +1796,7 @@ package body Exp_Disp is
                 (Defining_Identifier (Decl_2),
                  New_Reference_To (Defining_Identifier (Decl_1), Loc)));
 
-         elsif Ftyp = Controlling_Typ then
+         elsif Is_Controlling_Formal (Target_Formal) then
 
             --  Generate:
             --     S1 : Storage_Offset := Storage_Offset!(Formal'Address)
@@ -8110,7 +8107,7 @@ package body Exp_Disp is
          procedure Handle_Inherited_Private_Subprograms (Typ : Entity_Id);
          --  Called if Typ is declared in a nested package or a public child
          --  package to handle inherited primitives that were inherited by Typ
-         --  in  the visible part, but whose declaration was deferred because
+         --  in the visible part, but whose declaration was deferred because
          --  the parent operation was private and not visible at that point.
 
          procedure Set_Fixed_Prim (Pos : Nat);
@@ -8434,11 +8431,11 @@ package body Exp_Disp is
       if Is_Controlled (Typ) then
          if not Finalized then
             Error_Msg_N
-              ("controlled type has no explicit Finalize method?", Typ);
+              ("controlled type has no explicit Finalize method??", Typ);
 
          elsif not Adjusted then
             Error_Msg_N
-              ("controlled type has no explicit Adjust method?", Typ);
+              ("controlled type has no explicit Adjust method??", Typ);
          end if;
       end if;
 
@@ -8757,7 +8754,7 @@ package body Exp_Disp is
       if Has_CPP_Constructors (Typ)
         and then No (Init_Proc (Typ))
       then
-         Error_Msg_N ("?default constructor must be imported from C++", Typ);
+         Error_Msg_N ("??default constructor must be imported from C++", Typ);
       end if;
    end Set_CPP_Constructors;
 

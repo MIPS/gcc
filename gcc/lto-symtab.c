@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -439,13 +439,19 @@ lto_symtab_merge_decls_1 (symtab_node first)
 		&& COMPLETE_TYPE_P (TREE_TYPE (e->symbol.decl)))
 	      prevailing = e;
 	}
+      /* For variables prefer the builtin if one is available.  */
+      else if (TREE_CODE (prevailing->symbol.decl) == FUNCTION_DECL)
+	{
+	  for (e = first; e; e = e->symbol.next_sharing_asm_name)
+	    if (DECL_BUILT_IN (e->symbol.decl))
+	      {
+		prevailing = e;
+		break;
+	      }
+	}
     }
 
   symtab_prevail_in_asm_name_hash (prevailing);
-
-  /* Record the prevailing variable.  */
-  if (TREE_CODE (prevailing->symbol.decl) == VAR_DECL)
-    vec_safe_push (lto_global_var_decls, prevailing->symbol.decl);
 
   /* Diagnose mismatched objects.  */
   for (e = prevailing->symbol.next_sharing_asm_name;

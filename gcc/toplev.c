@@ -1,7 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1480,12 +1478,6 @@ process_options (void)
 	  warning (0, "-fdata-sections not supported for this target");
 	  flag_data_sections = 0;
 	}
-    }
-
-  if (flag_function_sections && profile_flag)
-    {
-      warning (0, "-ffunction-sections disabled; it makes profiling impossible");
-      flag_function_sections = 0;
     }
 
 #ifndef HAVE_prefetch

@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2013 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -212,6 +212,21 @@ alias_set_type asan_shadow_set = -1;
    alias set is used for all shadow memory accesses.  */
 static GTY(()) tree shadow_ptr_types[2];
 
+/* Initialize shadow_ptr_types array.  */
+
+static void
+asan_init_shadow_ptr_types (void)
+{
+  asan_shadow_set = new_alias_set ();
+  shadow_ptr_types[0] = build_distinct_type_copy (signed_char_type_node);
+  TYPE_ALIAS_SET (shadow_ptr_types[0]) = asan_shadow_set;
+  shadow_ptr_types[0] = build_pointer_type (shadow_ptr_types[0]);
+  shadow_ptr_types[1] = build_distinct_type_copy (short_integer_type_node);
+  TYPE_ALIAS_SET (shadow_ptr_types[1]) = asan_shadow_set;
+  shadow_ptr_types[1] = build_pointer_type (shadow_ptr_types[1]);
+  initialize_sanitizer_builtins ();
+}
+
 /* Asan pretty-printer, used for buidling of the description STRING_CSTs.  */
 static pretty_printer asan_pp;
 static bool asan_pp_initialized;
@@ -234,10 +249,11 @@ asan_pp_string (void)
   size_t len = strlen (buf);
   tree ret = build_string (len + 1, buf);
   TREE_TYPE (ret)
-    = build_array_type (char_type_node, build_index_type (size_int (len)));
+    = build_array_type (TREE_TYPE (shadow_ptr_types[0]),
+			build_index_type (size_int (len)));
   TREE_READONLY (ret) = 1;
   TREE_STATIC (ret) = 1;
-  return build1 (ADDR_EXPR, build_pointer_type (char_type_node), ret);
+  return build1 (ADDR_EXPR, shadow_ptr_types[0], ret);
 }
 
 /* Return a CONST_INT representing 4 subsequent shadow memory bytes.  */
@@ -252,6 +268,45 @@ asan_shadow_cst (unsigned char shadow_bytes[4])
     val |= (unsigned HOST_WIDE_INT) shadow_bytes[BYTES_BIG_ENDIAN ? 3 - i : i]
 	   << (BITS_PER_UNIT * i);
   return GEN_INT (trunc_int_for_mode (val, SImode));
+}
+
+/* Clear shadow memory at SHADOW_MEM, LEN bytes.  Can't call a library call here
+   though.  */
+
+static void
+asan_clear_shadow (rtx shadow_mem, HOST_WIDE_INT len)
+{
+  rtx insn, insns, top_label, end, addr, tmp, jump;
+
+  start_sequence ();
+  clear_storage (shadow_mem, GEN_INT (len), BLOCK_OP_NORMAL);
+  insns = get_insns ();
+  end_sequence ();
+  for (insn = insns; insn; insn = NEXT_INSN (insn))
+    if (CALL_P (insn))
+      break;
+  if (insn == NULL_RTX)
+    {
+      emit_insn (insns);
+      return;
+    }
+
+  gcc_assert ((len & 3) == 0);
+  top_label = gen_label_rtx ();
+  addr = force_reg (Pmode, XEXP (shadow_mem, 0));
+  shadow_mem = adjust_automodify_address (shadow_mem, SImode, addr, 0);
+  end = force_reg (Pmode, plus_constant (Pmode, addr, len));
+  emit_label (top_label);
+
+  emit_move_insn (shadow_mem, const0_rtx);
+  tmp = expand_simple_binop (Pmode, PLUS, addr, GEN_INT (4), addr,
+                             true, OPTAB_LIB_WIDEN);
+  if (tmp != addr)
+    emit_move_insn (addr, tmp);
+  emit_cmp_and_jump_insns (addr, end, LT, NULL_RTX, Pmode, true, top_label);
+  jump = get_last_insn ();
+  gcc_assert (JUMP_P (jump));
+  add_reg_note (jump, REG_BR_PROB, GEN_INT (REG_BR_PROB_BASE * 80 / 100));
 }
 
 /* Insert code to protect stack vars.  The prologue sequence should be emitted
@@ -275,6 +330,9 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
   int l;
   unsigned char cur_shadow_byte = ASAN_STACK_MAGIC_LEFT;
   tree str_cst;
+
+  if (shadow_ptr_types[0] == NULL_TREE)
+    asan_init_shadow_ptr_types ();
 
   /* First of all, prepare the description string.  */
   if (!asan_pp_initialized)
@@ -385,8 +443,7 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
 				       (last_offset - prev_offset)
 				       >> ASAN_SHADOW_SHIFT);
 	  prev_offset = last_offset;
-	  clear_storage (shadow_mem, GEN_INT (last_size >> ASAN_SHADOW_SHIFT),
-			 BLOCK_OP_NORMAL);
+	  asan_clear_shadow (shadow_mem, last_size >> ASAN_SHADOW_SHIFT);
 	  last_offset = offset;
 	  last_size = 0;
 	}
@@ -399,8 +456,7 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
       shadow_mem = adjust_address (shadow_mem, VOIDmode,
 				   (last_offset - prev_offset)
 				   >> ASAN_SHADOW_SHIFT);
-      clear_storage (shadow_mem, GEN_INT (last_size >> ASAN_SHADOW_SHIFT),
-		     BLOCK_OP_NORMAL);
+      asan_clear_shadow (shadow_mem, last_size >> ASAN_SHADOW_SHIFT);
     }
 
   do_pending_stack_adjust ();
@@ -428,21 +484,29 @@ bool
 asan_protect_global (tree decl)
 {
   rtx rtl, symbol;
-  section *sect;
 
+  if (TREE_CODE (decl) == STRING_CST)
+    {
+      /* Instrument all STRING_CSTs except those created
+	 by asan_pp_string here.  */
+      if (shadow_ptr_types[0] != NULL_TREE
+	  && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
+	  && TREE_TYPE (TREE_TYPE (decl)) == TREE_TYPE (shadow_ptr_types[0]))
+	return false;
+      return true;
+    }
   if (TREE_CODE (decl) != VAR_DECL
       /* TLS vars aren't statically protectable.  */
       || DECL_THREAD_LOCAL_P (decl)
       /* Externs will be protected elsewhere.  */
       || DECL_EXTERNAL (decl)
-      || !TREE_ASM_WRITTEN (decl)
       || !DECL_RTL_SET_P (decl)
       /* Comdat vars pose an ABI problem, we can't know if
 	 the var that is selected by the linker will have
 	 padding or not.  */
       || DECL_ONE_ONLY (decl)
       /* Similarly for common vars.  People can use -fno-common.  */
-      || DECL_COMMON (decl)
+      || (DECL_COMMON (decl) && TREE_PUBLIC (decl))
       /* Don't protect if using user section, often vars placed
 	 into user section from multiple TUs are then assumed
 	 to be an array of such vars, putting padding in there
@@ -462,10 +526,6 @@ asan_protect_global (tree decl)
 
   if (CONSTANT_POOL_ADDRESS_P (symbol)
       || TREE_CONSTANT_POOL_ADDRESS_P (symbol))
-    return false;
-
-  sect = get_variable_section (decl, false);
-  if (sect->common.flags & SECTION_COMMON)
     return false;
 
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
@@ -797,9 +857,6 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
       || (unsigned HOST_WIDE_INT) size_in_bytes - 1 >= 16)
     return;
 
-  /* For now just avoid instrumenting bit field acceses.
-     Fixing it is doable, but expected to be messy.  */
-
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   enum machine_mode mode;
@@ -808,7 +865,17 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
 		       &mode, &unsignedp, &volatilep, false);
   if (bitpos % (size_in_bytes * BITS_PER_UNIT)
       || bitsize != size_in_bytes * BITS_PER_UNIT)
-    return;
+    {
+      if (TREE_CODE (t) == COMPONENT_REF
+	  && DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1)) != NULL_TREE)
+	{
+	  tree repr = DECL_BIT_FIELD_REPRESENTATIVE (TREE_OPERAND (t, 1));
+	  instrument_derefs (iter, build3 (COMPONENT_REF, TREE_TYPE (repr),
+					   TREE_OPERAND (t, 0), repr,
+					   NULL_TREE), location, is_store);
+	}
+      return;
+    }
 
   base = build_fold_addr_expr (t);
   build_check_stmt (location, base, iter, /*before_p=*/true,
@@ -1036,7 +1103,7 @@ instrument_builtin_call (gimple_stmt_iterator *iter)
 {
   gimple call = gsi_stmt (*iter);
 
-  gcc_assert (is_gimple_builtin_call (call));
+  gcc_checking_assert (is_gimple_builtin_call (call));
 
   tree callee = gimple_call_fndecl (call);
   location_t loc = gimple_location (call);
@@ -1356,8 +1423,29 @@ instrument_assignment (gimple_stmt_iterator *iter)
 static bool
 maybe_instrument_call (gimple_stmt_iterator *iter)
 {
-  if (is_gimple_builtin_call (gsi_stmt (*iter)))
-    return instrument_builtin_call (iter);
+  gimple stmt = gsi_stmt (*iter);
+  bool is_builtin = is_gimple_builtin_call (stmt);
+  if (is_builtin
+      && instrument_builtin_call (iter))
+    return true;
+  if (gimple_call_noreturn_p (stmt))
+    {
+      if (is_builtin)
+	{
+	  tree callee = gimple_call_fndecl (stmt);
+	  switch (DECL_FUNCTION_CODE (callee))
+	    {
+	    case BUILT_IN_UNREACHABLE:
+	    case BUILT_IN_TRAP:
+	      /* Don't instrument these.  */
+	      return false;
+	    }
+	}
+      tree decl = builtin_decl_implicit (BUILT_IN_ASAN_HANDLE_NO_RETURN);
+      gimple g = gimple_build_call (decl, 0);
+      gimple_set_location (g, gimple_location (stmt));
+      gsi_insert_before (iter, g, GSI_SAME_STMT);
+    }
   return false;
 }
 
@@ -1559,8 +1647,13 @@ initialize_sanitizer_builtins (void)
 #define BT_FN_VOID_VPTR_I16_INT BT_FN_VOID_VPTR_IX_INT[4]
 #undef ATTR_NOTHROW_LEAF_LIST
 #define ATTR_NOTHROW_LEAF_LIST ECF_NOTHROW | ECF_LEAF
+#undef ATTR_TMPURE_NOTHROW_LEAF_LIST
+#define ATTR_TMPURE_NOTHROW_LEAF_LIST ECF_TM_PURE | ATTR_NOTHROW_LEAF_LIST
 #undef ATTR_NORETURN_NOTHROW_LEAF_LIST
 #define ATTR_NORETURN_NOTHROW_LEAF_LIST ECF_NORETURN | ATTR_NOTHROW_LEAF_LIST
+#undef ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST
+#define ATTR_TMPURE_NORETURN_NOTHROW_LEAF_LIST \
+  ECF_TM_PURE | ATTR_NORETURN_NOTHROW_LEAF_LIST
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -1571,6 +1664,50 @@ initialize_sanitizer_builtins (void)
 #include "sanitizer.def"
 
 #undef DEF_SANITIZER_BUILTIN
+}
+
+/* Called via htab_traverse.  Count number of emitted
+   STRING_CSTs in the constant hash table.  */
+
+static int
+count_string_csts (void **slot, void *data)
+{
+  struct constant_descriptor_tree *desc
+    = (struct constant_descriptor_tree *) *slot;
+  if (TREE_CODE (desc->value) == STRING_CST
+      && TREE_ASM_WRITTEN (desc->value)
+      && asan_protect_global (desc->value))
+    ++*((unsigned HOST_WIDE_INT *) data);
+  return 1;
+}
+
+/* Helper structure to pass two parameters to
+   add_string_csts.  */
+
+struct asan_add_string_csts_data
+{
+  tree type;
+  vec<constructor_elt, va_gc> *v;
+};
+
+/* Called via htab_traverse.  Call asan_add_global
+   on emitted STRING_CSTs from the constant hash table.  */
+
+static int
+add_string_csts (void **slot, void *data)
+{
+  struct constant_descriptor_tree *desc
+    = (struct constant_descriptor_tree *) *slot;
+  if (TREE_CODE (desc->value) == STRING_CST
+      && TREE_ASM_WRITTEN (desc->value)
+      && asan_protect_global (desc->value))
+    {
+      struct asan_add_string_csts_data *aascd
+	= (struct asan_add_string_csts_data *) data;
+      asan_add_global (SYMBOL_REF_DECL (XEXP (desc->rtl, 0)),
+		       aascd->type, aascd->v);
+    }
+  return 1;
 }
 
 /* Needs to be GTY(()), because cgraph_build_static_cdtor may
@@ -1588,13 +1725,21 @@ asan_finish_file (void)
   struct varpool_node *vnode;
   unsigned HOST_WIDE_INT gcount = 0;
 
-  initialize_sanitizer_builtins ();
+  if (shadow_ptr_types[0] == NULL_TREE)
+    asan_init_shadow_ptr_types ();
+  /* Avoid instrumenting code in the asan ctors/dtors.
+     We don't need to insert padding after the description strings,
+     nor after .LASAN* array.  */
+  flag_asan = 0;
 
   tree fn = builtin_decl_implicit (BUILT_IN_ASAN_INIT);
   append_to_statement_list (build_call_expr (fn, 0), &asan_ctor_statements);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (asan_protect_global (vnode->symbol.decl))
+    if (TREE_ASM_WRITTEN (vnode->symbol.decl)
+	&& asan_protect_global (vnode->symbol.decl))
       ++gcount;
+  htab_t const_desc_htab = constant_pool_htab ();
+  htab_traverse (const_desc_htab, count_string_csts, &gcount);
   if (gcount)
     {
       tree type = asan_global_struct (), var, ctor;
@@ -1613,8 +1758,13 @@ asan_finish_file (void)
       DECL_IGNORED_P (var) = 1;
       vec_alloc (v, gcount);
       FOR_EACH_DEFINED_VARIABLE (vnode)
-	if (asan_protect_global (vnode->symbol.decl))
+	if (TREE_ASM_WRITTEN (vnode->symbol.decl)
+	    && asan_protect_global (vnode->symbol.decl))
 	  asan_add_global (vnode->symbol.decl, TREE_TYPE (type), v);
+      struct asan_add_string_csts_data aascd;
+      aascd.type = TREE_TYPE (type);
+      aascd.v = v;
+      htab_traverse (const_desc_htab, add_string_csts, &aascd);
       ctor = build_constructor (type, v);
       TREE_CONSTANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
@@ -1637,20 +1787,7 @@ asan_finish_file (void)
     }
   cgraph_build_static_cdtor ('I', asan_ctor_statements,
 			     MAX_RESERVED_INIT_PRIORITY - 1);
-}
-
-/* Initialize shadow_ptr_types array.  */
-
-static void
-asan_init_shadow_ptr_types (void)
-{
-  asan_shadow_set = new_alias_set ();
-  shadow_ptr_types[0] = build_distinct_type_copy (signed_char_type_node);
-  TYPE_ALIAS_SET (shadow_ptr_types[0]) = asan_shadow_set;
-  shadow_ptr_types[0] = build_pointer_type (shadow_ptr_types[0]);
-  shadow_ptr_types[1] = build_distinct_type_copy (short_integer_type_node);
-  TYPE_ALIAS_SET (shadow_ptr_types[1]) = asan_shadow_set;
-  shadow_ptr_types[1] = build_pointer_type (shadow_ptr_types[1]);
+  flag_asan = 1;
 }
 
 /* Instrument the current function.  */
@@ -1659,10 +1796,7 @@ static unsigned int
 asan_instrument (void)
 {
   if (shadow_ptr_types[0] == NULL_TREE)
-    {
-      asan_init_shadow_ptr_types ();
-      initialize_sanitizer_builtins ();
-    }
+    asan_init_shadow_ptr_types ();
   transform_statements ();
   return 0;
 }

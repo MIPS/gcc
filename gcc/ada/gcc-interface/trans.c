@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -37,6 +37,7 @@
 #include "bitmap.h"
 #include "cgraph.h"
 #include "target.h"
+#include "common/common-target.h"
 
 #include "ada.h"
 #include "adadecode.h"
@@ -302,6 +303,10 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
 
   type_annotate_only = (gigi_operating_mode == 1);
 
+  /* ??? Disable the generation of the SCO instance table until after the
+     back-end supports instance based debug info discriminators.  */
+  Generate_SCO_Instance_Table = False;
+
   for (i = 0; i < number_file; i++)
     {
       /* Use the identifier table to make a permanent copy of the filename as
@@ -500,6 +505,13 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
 			   Empty);
   DECL_IGNORED_P (end_handler_decl) = 1;
 
+  unhandled_except_decl
+    = create_subprog_decl (get_identifier ("__gnat_unhandled_except_handler"),
+			   NULL_TREE,
+			   ftype, NULL_TREE, false, true, true, true, NULL,
+			   Empty);
+  DECL_IGNORED_P (unhandled_except_decl) = 1;
+
   reraise_zcx_decl
     = create_subprog_decl (get_identifier ("__gnat_reraise_zcx"), NULL_TREE,
 			   ftype, NULL_TREE, false, true, true, true, NULL,
@@ -632,6 +644,12 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
   all_others_decl
     = create_var_decl (get_identifier ("ALL_OTHERS"),
 		       get_identifier ("__gnat_all_others_value"),
+		       integer_type_node, NULL_TREE, true, false, true, false,
+		       NULL, Empty);
+
+  unhandled_others_decl
+    = create_var_decl (get_identifier ("UNHANDLED_OTHERS"),
+		       get_identifier ("__gnat_unhandled_others_value"),
 		       integer_type_node, NULL_TREE, true, false, true, false,
 		       NULL, Empty);
 
@@ -1236,14 +1254,19 @@ Pragma_to_gnu (Node_Id gnat_node)
       switch (Chars (Expression
 		     (First (Pragma_Argument_Associations (gnat_node)))))
 	{
-	case Name_Time:  case Name_Space:
-	  if (!optimize)
-	    post_error ("insufficient -O value?", gnat_node);
-	  break;
-
 	case Name_Off:
 	  if (optimize)
 	    post_error ("must specify -O0?", gnat_node);
+	  break;
+
+	case Name_Space:
+	  if (!optimize_size)
+	    post_error ("must specify -Os?", gnat_node);
+	  break;
+
+	case Name_Time:
+	  if (!optimize)
+	    post_error ("insufficient -O value?", gnat_node);
 	  break;
 
 	default:
@@ -3375,16 +3398,22 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
 	if (!present_gnu_tree (gnat_param))
 	  {
 	    tree gnu_cico_entry = gnu_cico_list;
+	    tree gnu_decl;
 
 	    /* Skip any entries that have been already filled in; they must
 	       correspond to In Out parameters.  */
 	    while (gnu_cico_entry && TREE_VALUE (gnu_cico_entry))
 	      gnu_cico_entry = TREE_CHAIN (gnu_cico_entry);
 
+	    /* Do any needed dereferences for by-ref objects.  */
+	    gnu_decl = gnat_to_gnu_entity (gnat_param, NULL_TREE, 1);
+	    gcc_assert (DECL_P (gnu_decl));
+	    if (DECL_BY_REF_P (gnu_decl))
+	      gnu_decl = build_unary_op (INDIRECT_REF, NULL_TREE, gnu_decl);
+
 	    /* Do any needed references for padded types.  */
 	    TREE_VALUE (gnu_cico_entry)
-	      = convert (TREE_TYPE (TREE_PURPOSE (gnu_cico_entry)),
-			 gnat_to_gnu_entity (gnat_param, NULL_TREE, 1));
+	      = convert (TREE_TYPE (TREE_PURPOSE (gnu_cico_entry)), gnu_decl);
 	  }
     }
   else
@@ -3484,6 +3513,26 @@ Subprogram_Body_to_gnu (Node_Id gnat_node)
      declaration tree.  */
   set_end_locus_from_node (gnu_result, gnat_node);
   set_end_locus_from_node (gnu_subprog_decl, gnat_node);
+
+  /* On SEH targets, install an exception handler around the main entry
+     point to catch unhandled exceptions.  */
+  if (DECL_NAME (gnu_subprog_decl) == main_identifier_node
+      && targetm_common.except_unwind_info (&global_options) == UI_SEH)
+    {
+      tree t;
+      tree etype;
+
+      t = build_call_expr (builtin_decl_explicit (BUILT_IN_EH_POINTER),
+			   1, integer_zero_node);
+      t = build_call_n_expr (unhandled_except_decl, 1, t);
+
+      etype = build_unary_op (ADDR_EXPR, NULL_TREE, unhandled_others_decl);
+      etype = tree_cons (NULL_TREE, etype, NULL_TREE);
+
+      t = build2 (CATCH_EXPR, void_type_node, etype, t);
+      gnu_result = build2 (TRY_CATCH_EXPR, TREE_TYPE (gnu_result),
+			   gnu_result, t);
+    }
 
   end_subprog_body (gnu_result);
 
@@ -4699,6 +4748,7 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   const bool body_p = (Nkind (gnat_unit) == N_Package_Body
 		       || Nkind (gnat_unit) == N_Subprogram_Body);
   const Entity_Id gnat_unit_entity = Defining_Entity (gnat_unit);
+  Node_Id gnat_pragma;
   /* Make the decl for the elaboration procedure.  */
   tree gnu_elab_proc_decl
     = create_subprog_decl
@@ -4734,8 +4784,16 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
 	return;
     }
 
+  /* Then process any pragmas and declarations preceding the unit.  */
+  for (gnat_pragma = First (Context_Items (gnat_node));
+       Present (gnat_pragma);
+       gnat_pragma = Next (gnat_pragma))
+    if (Nkind (gnat_pragma) == N_Pragma)
+      add_stmt (gnat_to_gnu (gnat_pragma));
   process_decls (Declarations (Aux_Decls_Node (gnat_node)), Empty, Empty,
 		 true, true);
+
+  /* Process the unit itself.  */
   add_stmt (gnat_to_gnu (gnat_unit));
 
   /* If we can inline, generate code for all the inlined subprograms.  */
@@ -5403,6 +5461,10 @@ gnat_to_gnu (Node_Id gnat_node)
 		       gnu_array_object);
 
 	gnu_result = gnu_array_object;
+
+	/* The failure of this assertion will very likely come from a missing
+	   expansion for a packed array access.  */
+	gcc_assert (TREE_CODE (TREE_TYPE (gnu_array_object)) == ARRAY_TYPE);
 
 	/* First compute the number of dimensions of the array, then
 	   fill the expression array, the order depending on whether
@@ -6748,7 +6810,6 @@ gnat_to_gnu (Node_Id gnat_node)
     /****************/
 
     case N_Expression_With_Actions:
-      gnu_result_type = get_unpadded_type (Etype (gnat_node));
       /* This construct doesn't define a scope so we don't wrap the statement
 	 list in a BIND_EXPR; however, we wrap it in a SAVE_EXPR to protect it
 	 from unsharing.  */
@@ -6758,6 +6819,7 @@ gnat_to_gnu (Node_Id gnat_node)
       gnu_expr = gnat_to_gnu (Expression (gnat_node));
       gnu_result
 	= build_compound_expr (TREE_TYPE (gnu_expr), gnu_result, gnu_expr);
+      gnu_result_type = get_unpadded_type (Etype (gnat_node));
       break;
 
     case N_Freeze_Entity:

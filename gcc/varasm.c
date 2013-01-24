@@ -1,7 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -927,7 +925,7 @@ decode_reg_name (const char *name)
 
 /* Return true if DECL's initializer is suitable for a BSS section.  */
 
-static bool
+bool
 bss_initializer_p (const_tree decl)
 {
   return (DECL_INITIAL (decl) == NULL
@@ -1034,7 +1032,8 @@ get_variable_section (tree decl, bool prefer_noswitch_p)
       && !(prefer_noswitch_p && targetm.have_switchable_bss_sections)
       && bss_initializer_p (decl))
     {
-      if (!TREE_PUBLIC (decl))
+      if (!TREE_PUBLIC (decl)
+	  && !(flag_asan && asan_protect_global (decl)))
 	return lcomm_section;
       if (bss_noswitch_section)
 	return bss_noswitch_section;
@@ -2103,6 +2102,15 @@ contains_pointers_p (tree type)
 static GTY(()) tree pending_assemble_externals;
 
 #ifdef ASM_OUTPUT_EXTERNAL
+/* Some targets delay some output to final using TARGET_ASM_FILE_END.
+   As a result, assemble_external can be called after the list of externals
+   is processed and the pointer set destroyed.  */
+static bool pending_assemble_externals_processed;
+
+/* Avoid O(external_decls**2) lookups in the pending_assemble_externals
+   TREE_LIST in assemble_external.  */
+static struct pointer_set_t *pending_assemble_externals_set;
+
 /* True if DECL is a function decl for which no out-of-line copy exists.
    It is assumed that DECL's assembler name has been set.  */
 
@@ -2154,6 +2162,8 @@ process_pending_assemble_externals (void)
     assemble_external_real (TREE_VALUE (list));
 
   pending_assemble_externals = 0;
+  pending_assemble_externals_processed = true;
+  pointer_set_destroy (pending_assemble_externals_set);
 #endif
 }
 
@@ -2205,7 +2215,13 @@ assemble_external (tree decl ATTRIBUTE_UNUSED)
     weak_decls = tree_cons (NULL, decl, weak_decls);
 
 #ifdef ASM_OUTPUT_EXTERNAL
-  if (value_member (decl, pending_assemble_externals) == NULL_TREE)
+  if (pending_assemble_externals_processed)
+    {
+      assemble_external_real (decl);
+      return;
+    }
+
+  if (! pointer_set_insert (pending_assemble_externals_set, decl))
     pending_assemble_externals = tree_cons (NULL, decl,
 					    pending_assemble_externals);
 #endif
@@ -3249,6 +3265,7 @@ output_constant_def_contents (rtx symbol)
   tree decl = SYMBOL_REF_DECL (symbol);
   tree exp = DECL_INITIAL (decl);
   unsigned int align;
+  bool asan_protected = false;
 
   /* Make sure any other constants whose addresses appear in EXP
      are assigned label numbers.  */
@@ -3256,6 +3273,14 @@ output_constant_def_contents (rtx symbol)
 
   /* We are no longer deferring this constant.  */
   TREE_ASM_WRITTEN (decl) = TREE_ASM_WRITTEN (exp) = 1;
+
+  if (flag_asan && TREE_CODE (exp) == STRING_CST
+      && asan_protect_global (exp))
+    {
+      asan_protected = true;
+      DECL_ALIGN (decl) = MAX (DECL_ALIGN (decl),
+			       ASAN_RED_ZONE_SIZE * BITS_PER_UNIT);
+    }
 
   /* If the constant is part of an object block, make sure that the
      decl has been positioned within its block, but do not write out
@@ -3269,6 +3294,11 @@ output_constant_def_contents (rtx symbol)
       if (align > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
       assemble_constant_contents (exp, XSTR (symbol, 0), align);
+      if (asan_protected)
+	{
+	  HOST_WIDE_INT size = get_constant_size (exp);
+	  assemble_zeros (asan_red_zone_size (size));
+	}
     }
   if (flag_mudflap)
     mudflap_enqueue_constant (exp);
@@ -5906,6 +5936,10 @@ init_varasm_once (void)
 
   if (readonly_data_section == NULL)
     readonly_data_section = text_section;
+
+#ifdef ASM_OUTPUT_EXTERNAL
+  pending_assemble_externals_set = pointer_set_create ();
+#endif
 }
 
 enum tls_model
@@ -6172,7 +6206,9 @@ categorize_decl_for_section (const_tree decl, int reloc)
     return SECCAT_TEXT;
   else if (TREE_CODE (decl) == STRING_CST)
     {
-      if (flag_mudflap) /* or !flag_merge_constants */
+      if (flag_mudflap
+	  || (flag_asan && asan_protect_global (CONST_CAST_TREE (decl))))
+      /* or !flag_merge_constants */
         return SECCAT_RODATA;
       else
 	return SECCAT_RODATA_MERGE_STR;
@@ -6196,7 +6232,8 @@ categorize_decl_for_section (const_tree decl, int reloc)
 	}
       else if (reloc & targetm.asm_out.reloc_rw_mask ())
 	ret = reloc == 1 ? SECCAT_DATA_REL_RO_LOCAL : SECCAT_DATA_REL_RO;
-      else if (reloc || flag_merge_constants < 2)
+      else if (reloc || flag_merge_constants < 2 || flag_mudflap
+	       || (flag_asan && asan_protect_global (CONST_CAST_TREE (decl))))
 	/* C and C++ don't allow different variables to share the same
 	   location.  -fmerge-all-constants allows even that (at the
 	   expense of not conforming).  */
@@ -6946,6 +6983,10 @@ place_block_symbol (rtx symbol)
       decl = SYMBOL_REF_DECL (symbol);
       alignment = DECL_ALIGN (decl);
       size = get_constant_size (DECL_INITIAL (decl));
+      if (flag_asan
+	  && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
+	  && asan_protect_global (DECL_INITIAL (decl)))
+	size += asan_red_zone_size (size);
     }
   else
     {
@@ -6953,7 +6994,11 @@ place_block_symbol (rtx symbol)
       alignment = DECL_ALIGN (decl);
       size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
       if (flag_asan && asan_protect_global (decl))
-	size += asan_red_zone_size (size);
+	{
+	  size += asan_red_zone_size (size);
+	  alignment = MAX (alignment,
+			   ASAN_RED_ZONE_SIZE * BITS_PER_UNIT);
+	}
     }
 
   /* Calculate the object's offset from the start of the block.  */
@@ -7092,16 +7137,34 @@ output_object_block (struct object_block *block)
 	}
       else if (TREE_CONSTANT_POOL_ADDRESS_P (symbol))
 	{
+	  HOST_WIDE_INT size;
 	  decl = SYMBOL_REF_DECL (symbol);
 	  assemble_constant_contents (DECL_INITIAL (decl), XSTR (symbol, 0),
 				      DECL_ALIGN (decl));
-	  offset += get_constant_size (DECL_INITIAL (decl));
+	  size = get_constant_size (DECL_INITIAL (decl));
+	  offset += size;
+	  if (flag_asan
+	      && TREE_CODE (DECL_INITIAL (decl)) == STRING_CST
+	      && asan_protect_global (DECL_INITIAL (decl)))
+	    {
+	      size = asan_red_zone_size (size);
+	      assemble_zeros (size);
+	      offset += size;
+	    }
 	}
       else
 	{
+	  HOST_WIDE_INT size;
 	  decl = SYMBOL_REF_DECL (symbol);
 	  assemble_variable_contents (decl, XSTR (symbol, 0), false);
-	  offset += tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  offset += size;
+	  if (flag_asan && asan_protect_global (decl))
+	    {
+	      size = asan_red_zone_size (size);
+	      assemble_zeros (size);
+	      offset += size;
+	    }
 	}
     }
 }

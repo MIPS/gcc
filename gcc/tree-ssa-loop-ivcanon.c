@@ -1,6 +1,5 @@
-/* Induction variable canonicalization.
-   Copyright (C) 2004, 2005, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+/* Induction variable canonicalization and loop peeling.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -207,10 +206,12 @@ constant_after_peeling (tree op, gimple stmt, struct loop *loop)
    iteration of the loop.
    EDGE_TO_CANCEL (if non-NULL) is an non-exit edge eliminated in the last iteration
    of loop.
-   Return results in SIZE, estimate benefits for complete unrolling exiting by EXIT.  */
+   Return results in SIZE, estimate benefits for complete unrolling exiting by EXIT. 
+   Stop estimating after UPPER_BOUND is met. Return true in this case */
 
-static void
-tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, struct loop_size *size)
+static bool
+tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, struct loop_size *size,
+			 int upper_bound)
 {
   basic_block *body = get_loop_body (loop);
   gimple_stmt_iterator gsi;
@@ -316,6 +317,12 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 	      if (likely_eliminated || likely_eliminated_last)
 		size->last_iteration_eliminated_by_peeling += num;
 	    }
+	  if ((size->overall * 3 / 2 - size->eliminated_by_peeling
+	      - size->last_iteration_eliminated_by_peeling) > upper_bound)
+	    {
+              free (body);
+	      return true;
+	    }
 	}
     }
   while (path.length ())
@@ -357,6 +364,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 	     size->last_iteration_eliminated_by_peeling);
 
   free (body);
+  return false;
 }
 
 /* Estimate number of insns of completely unrolled loop.
@@ -546,9 +554,8 @@ remove_redundant_iv_tests (struct loop *loop)
 	  /* Only when we know the actual number of iterations, not
 	     just a bound, we can remove the exit.  */
 	  if (!number_of_iterations_exit (loop, exit_edge,
-					  &niter, false, false))
-	    gcc_unreachable ();
-	  if (!integer_onep (niter.assumptions)
+					  &niter, false, false)
+	      || !integer_onep (niter.assumptions)
 	      || !integer_zerop (niter.may_be_zero)
 	      || !niter.niter
 	      || TREE_CODE (niter.niter) != INTEGER_CST
@@ -631,22 +638,24 @@ unloop_loops (bitmap loop_closed_ssa_invalidated,
 
 /* Tries to unroll LOOP completely, i.e. NITER times.
    UL determines which loops we are allowed to unroll.
-   EXIT is the exit of the loop that should be eliminated.  
+   EXIT is the exit of the loop that should be eliminated.
    MAXITER specfy bound on number of iterations, -1 if it is
-   not known or too large for HOST_WIDE_INT.  */
+   not known or too large for HOST_WIDE_INT.  The location
+   LOCUS corresponding to the loop is used when emitting
+   a summary of the unroll to the dump file.  */
 
 static bool
 try_unroll_loop_completely (struct loop *loop,
 			    edge exit, tree niter,
 			    enum unroll_level ul,
-			    HOST_WIDE_INT maxiter)
+			    HOST_WIDE_INT maxiter,
+			    location_t locus)
 {
   unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll, unr_insns;
   gimple cond;
   struct loop_size size;
   bool n_unroll_found = false;
   edge edge_to_cancel = NULL;
-  int num = loop->num;
 
   /* See if we proved number of iterations to be low constant.
 
@@ -699,12 +708,22 @@ try_unroll_loop_completely (struct loop *loop,
       sbitmap wont_exit;
       edge e;
       unsigned i;
+      bool large;
       vec<edge> to_remove = vNULL;
       if (ul == UL_SINGLE_ITER)
 	return false;
 
-      tree_estimate_loop_size (loop, exit, edge_to_cancel, &size);
+      large = tree_estimate_loop_size
+		 (loop, exit, edge_to_cancel, &size,
+		  PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS));
       ninsns = size.overall;
+      if (large)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Not unrolling loop %d: it is too large.\n",
+		     loop->num);
+	  return false;
+	}
 
       unr_insns = estimated_unrolled_size (&size, n_unroll);
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -844,14 +863,25 @@ try_unroll_loop_completely (struct loop *loop,
   loops_to_unloop.safe_push (loop);
   loops_to_unloop_nunroll.safe_push (n_unroll);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
+  if (dump_enabled_p ())
     {
       if (!n_unroll)
-        fprintf (dump_file, "Turned loop %d to non-loop; it never loops.\n",
-		 num);
+        dump_printf_loc (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS, locus,
+                         "Turned loop into non-loop; it never loops.\n");
       else
-        fprintf (dump_file, "Unrolled loop %d completely "
-		 "(duplicated %i times).\n", num, (int)n_unroll);
+        {
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS, locus,
+                           "Completely unroll loop %d times", (int)n_unroll);
+          if (profile_info)
+            dump_printf (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS,
+                         " (header execution count %d)",
+                         (int)loop->header->count);
+          dump_printf (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS, "\n");
+        }
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
       if (exit)
         fprintf (dump_file, "Exit condition of peeled iterations was "
 		 "eliminated.\n");
@@ -880,15 +910,17 @@ canonicalize_loop_induction_variables (struct loop *loop,
   tree niter;
   HOST_WIDE_INT maxiter;
   bool modified = false;
+  location_t locus = UNKNOWN_LOCATION;
 
   niter = number_of_latch_executions (loop);
+  exit = single_exit (loop);
   if (TREE_CODE (niter) == INTEGER_CST)
-    exit = single_exit (loop);
+    locus = gimple_location (last_stmt (exit->src));
   else
     {
       /* If the loop has more than one exit, try checking all of them
 	 for # of iterations determinable through scev.  */
-      if (!single_exit (loop))
+      if (!exit)
 	niter = find_loop_niter (loop, &exit);
 
       /* Finally if everything else fails, try brute force evaluation.  */
@@ -896,6 +928,9 @@ canonicalize_loop_induction_variables (struct loop *loop,
 	  && (chrec_contains_undetermined (niter)
 	      || TREE_CODE (niter) != INTEGER_CST))
 	niter = find_loop_niter_by_eval (loop, &exit);
+
+      if (exit)
+        locus = gimple_location (last_stmt (exit->src));
 
       if (TREE_CODE (niter) != INTEGER_CST)
 	exit = NULL;
@@ -931,7 +966,7 @@ canonicalize_loop_induction_variables (struct loop *loop,
      populates the loop bounds.  */
   modified |= remove_redundant_iv_tests (loop);
 
-  if (try_unroll_loop_completely (loop, exit, niter, ul, maxiter))
+  if (try_unroll_loop_completely (loop, exit, niter, ul, maxiter, locus))
     return true;
 
   if (create_iv

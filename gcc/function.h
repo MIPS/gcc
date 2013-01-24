@@ -1,7 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -392,7 +390,8 @@ struct GTY(()) rtl_data {
   bool arg_pointer_save_area_init;
 
   /* Nonzero if current function must be given a frame pointer.
-     Set in global.c if anything is allocated on the stack there.  */
+     Set in reload1.c or lra-eliminations.c if anything is allocated
+     on the stack there.  */
   bool frame_pointer_needed;
 
   /* When set, expand should optimize for speed.  */

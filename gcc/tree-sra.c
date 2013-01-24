@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
    Contributed by Martin Jambor <mjambor@suse.cz>
 
 This file is part of GCC.
@@ -714,7 +714,12 @@ type_internals_preclude_sra_p (tree type, const char **msg)
 	      {
 	        *msg = "structure field size not fixed";
 		return true;
-	      }	      
+	      }
+	    if (!host_integerp (bit_position (fld), 0))
+	      {
+	        *msg = "structure field size too big";
+		return true;
+	      }
 	    if (AGGREGATE_TYPE_P (ft)
 		    && int_bit_position (fld) % BITS_PER_UNIT != 0)
 	      {
@@ -1423,7 +1428,10 @@ make_fancy_name (tree expr)
    EXP_TYPE at the given OFFSET.  If BASE is something for which
    get_addr_base_and_unit_offset returns NULL, gsi must be non-NULL and is used
    to insert new statements either before or below the current one as specified
-   by INSERT_AFTER.  This function is not capable of handling bitfields.  */
+   by INSERT_AFTER.  This function is not capable of handling bitfields.
+
+   BASE must be either a declaration or a memory reference that has correct
+   alignment ifformation embeded in it (e.g. a pre-existing one in SRA).  */
 
 tree
 build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
@@ -1437,7 +1445,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   unsigned int align;
 
   gcc_checking_assert (offset % BITS_PER_UNIT == 0);
-
+  get_object_alignment_1 (base, &align, &misalign);
   base = get_addr_base_and_unit_offset (base, &base_offset);
 
   /* get_addr_base_and_unit_offset returns NULL for references with a variable
@@ -1476,22 +1484,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
       base = build_fold_addr_expr (unshare_expr (base));
     }
 
-  /* If prev_base were always an originally performed access
-     we can extract more optimistic alignment information
-     by looking at the access mode.  That would constrain the
-     alignment of base + base_offset which we would need to
-     adjust according to offset.  */
-  if (!get_pointer_alignment_1 (base, &align, &misalign))
-    {
-      gcc_assert (misalign == 0);
-      if (TREE_CODE (prev_base) == MEM_REF
-	  || TREE_CODE (prev_base) == TARGET_MEM_REF)
-	align = TYPE_ALIGN (TREE_TYPE (prev_base));
-    }
-  misalign += (tree_to_double_int (off)
-	       .sext (TYPE_PRECISION (TREE_TYPE (off))).low
-	       * BITS_PER_UNIT);
-  misalign = misalign & (align - 1);
+  misalign = (misalign + offset) & (align - 1);
   if (misalign != 0)
     align = (misalign & -misalign);
   if (align < TYPE_ALIGN (exp_type))
@@ -2204,20 +2197,27 @@ analyze_access_subtree (struct access *root, struct access *parent,
     }
   else
     {
-      if (MAY_HAVE_DEBUG_STMTS && allow_replacements
+      if (allow_replacements
 	  && scalar && !root->first_child
-	  && (root->grp_scalar_write || root->grp_assignment_write))
+	  && (root->grp_scalar_write || root->grp_assignment_write)
+	  && !bitmap_bit_p (cannot_scalarize_away_bitmap,
+			    DECL_UID (root->base)))
 	{
 	  gcc_checking_assert (!root->grp_scalar_read
 			       && !root->grp_assignment_read);
-	  root->grp_to_be_debug_replaced = 1;
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  sth_created = true;
+	  if (MAY_HAVE_DEBUG_STMTS)
 	    {
-	      fprintf (dump_file, "Marking ");
-	      print_generic_expr (dump_file, root->base, 0);
-	      fprintf (dump_file, " offset: %u, size: %u ",
-		       (unsigned) root->offset, (unsigned) root->size);
-	      fprintf (dump_file, " to be replaced with debug statements.\n");
+	      root->grp_to_be_debug_replaced = 1;
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "Marking ");
+		  print_generic_expr (dump_file, root->base, 0);
+		  fprintf (dump_file, " offset: %u, size: %u ",
+			   (unsigned) root->offset, (unsigned) root->size);
+		  fprintf (dump_file, " to be replaced with debug "
+			   "statements.\n");
+		}
 	    }
 	}
 
@@ -2227,17 +2227,11 @@ analyze_access_subtree (struct access *root, struct access *parent,
 	root->grp_total_scalarization = 0;
     }
 
-  if (sth_created
-      && (!hole || root->grp_total_scalarization))
-    {
-      root->grp_covered = 1;
-      return true;
-    }
-  if (root->grp_write || TREE_CODE (root->base) == PARM_DECL)
+  if (!hole || root->grp_total_scalarization)
+    root->grp_covered = 1;
+  else if (root->grp_write || TREE_CODE (root->base) == PARM_DECL)
     root->grp_unscalarized_data = 1; /* not covered and written to */
-  if (sth_created)
-    return true;
-  return false;
+  return sth_created;
 }
 
 /* Analyze all access trees linked by next_grp by the means of
@@ -3094,15 +3088,13 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 	     ???  This should move to fold_stmt which we simply should
 	     call after building a VIEW_CONVERT_EXPR here.  */
 	  if (AGGREGATE_TYPE_P (TREE_TYPE (lhs))
-	      && !contains_bitfld_comp_ref_p (lhs)
-	      && !access_has_children_p (lacc))
+	      && !contains_bitfld_comp_ref_p (lhs))
 	    {
 	      lhs = build_ref_for_model (loc, lhs, 0, racc, gsi, false);
 	      gimple_assign_set_lhs (*stmt, lhs);
 	    }
 	  else if (AGGREGATE_TYPE_P (TREE_TYPE (rhs))
-		   && !contains_vce_or_bfcref_p (rhs)
-		   && !access_has_children_p (racc))
+		   && !contains_vce_or_bfcref_p (rhs))
 	    rhs = build_ref_for_model (loc, rhs, 0, lacc, gsi, false);
 
 	  if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
@@ -3118,8 +3110,20 @@ sra_modify_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 
   if (lacc && lacc->grp_to_be_debug_replaced)
     {
-      gimple ds = gimple_build_debug_bind (get_access_replacement (lacc),
-					   unshare_expr (rhs), *stmt);
+      tree dlhs = get_access_replacement (lacc);
+      tree drhs = unshare_expr (rhs);
+      if (!useless_type_conversion_p (TREE_TYPE (dlhs), TREE_TYPE (drhs)))
+	{
+	  if (AGGREGATE_TYPE_P (TREE_TYPE (drhs))
+	      && !contains_vce_or_bfcref_p (drhs))
+	    drhs = build_debug_ref_for_model (loc, drhs, 0, lacc);
+	  if (drhs
+	      && !useless_type_conversion_p (TREE_TYPE (dlhs),
+					     TREE_TYPE (drhs)))
+	    drhs = fold_build1_loc (loc, VIEW_CONVERT_EXPR,
+				    TREE_TYPE (dlhs), drhs);
+	}
+      gimple ds = gimple_build_debug_bind (dlhs, drhs, *stmt);
       gsi_insert_before (gsi, ds, GSI_SAME_STMT);
     }
 

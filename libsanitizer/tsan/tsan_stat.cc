@@ -98,6 +98,7 @@ void StatOutput(u64 *stat) {
   name[StatInt_longjmp]                  = "  longjmp                         ";
   name[StatInt_siglongjmp]               = "  siglongjmp                      ";
   name[StatInt_malloc]                   = "  malloc                          ";
+  name[StatInt___libc_memalign]          = "  __libc_memalign                 ";
   name[StatInt_calloc]                   = "  calloc                          ";
   name[StatInt_realloc]                  = "  realloc                         ";
   name[StatInt_free]                     = "  free                            ";
@@ -135,6 +136,7 @@ void StatOutput(u64 *stat) {
   name[StatInt_atexit]                   = "  atexit                          ";
   name[StatInt___cxa_guard_acquire]      = "  __cxa_guard_acquire             ";
   name[StatInt___cxa_guard_release]      = "  __cxa_guard_release             ";
+  name[StatInt___cxa_guard_abort]        = "  __cxa_guard_abort               ";
   name[StatInt_pthread_create]           = "  pthread_create                  ";
   name[StatInt_pthread_join]             = "  pthread_join                    ";
   name[StatInt_pthread_detach]           = "  pthread_detach                  ";
@@ -177,7 +179,30 @@ void StatOutput(u64 *stat) {
   name[StatInt_sem_timedwait]            = "  sem_timedwait                   ";
   name[StatInt_sem_post]                 = "  sem_post                        ";
   name[StatInt_sem_getvalue]             = "  sem_getvalue                    ";
+  name[StatInt_open]                     = "  open                            ";
+  name[StatInt_open64]                   = "  open64                          ";
+  name[StatInt_creat]                    = "  creat                           ";
+  name[StatInt_creat64]                  = "  creat64                         ";
+  name[StatInt_dup]                      = "  dup                             ";
+  name[StatInt_dup2]                     = "  dup2                            ";
+  name[StatInt_dup3]                     = "  dup3                            ";
+  name[StatInt_eventfd]                  = "  eventfd                         ";
+  name[StatInt_signalfd]                 = "  signalfd                        ";
+  name[StatInt_inotify_init]             = "  inotify_init                    ";
+  name[StatInt_inotify_init1]            = "  inotify_init1                   ";
+  name[StatInt_socket]                   = "  socket                          ";
+  name[StatInt_socketpair]               = "  socketpair                      ";
+  name[StatInt_connect]                  = "  connect                         ";
+  name[StatInt_accept]                   = "  accept                          ";
+  name[StatInt_accept4]                  = "  accept4                         ";
+  name[StatInt_epoll_create]             = "  epoll_create                    ";
+  name[StatInt_epoll_create1]            = "  epoll_create1                   ";
+  name[StatInt_close]                    = "  close                           ";
+  name[StatInt___close]                  = "  __close                         ";
+  name[StatInt_pipe]                     = "  pipe                            ";
+  name[StatInt_pipe2]                    = "  pipe2                           ";
   name[StatInt_read]                     = "  read                            ";
+  name[StatInt_prctl]                    = "  prctl                           ";
   name[StatInt_pread]                    = "  pread                           ";
   name[StatInt_pread64]                  = "  pread64                         ";
   name[StatInt_readv]                    = "  readv                           ";
@@ -193,6 +218,8 @@ void StatOutput(u64 *stat) {
   name[StatInt_recvmsg]                  = "  recvmsg                         ";
   name[StatInt_unlink]                   = "  unlink                          ";
   name[StatInt_fopen]                    = "  fopen                           ";
+  name[StatInt_freopen]                  = "  freopen                         ";
+  name[StatInt_fclose]                   = "  fclose                          ";
   name[StatInt_fread]                    = "  fread                           ";
   name[StatInt_fwrite]                   = "  fwrite                          ";
   name[StatInt_puts]                     = "  puts                            ";
@@ -206,6 +233,13 @@ void StatOutput(u64 *stat) {
   name[StatInt_usleep]                   = "  usleep                          ";
   name[StatInt_nanosleep]                = "  nanosleep                       ";
   name[StatInt_gettimeofday]             = "  gettimeofday                    ";
+  name[StatInt_fork]                     = "  fork                            ";
+  name[StatInt_vscanf]                   = "  vscanf                          ";
+  name[StatInt_vsscanf]                  = "  vsscanf                         ";
+  name[StatInt_vfscanf]                  = "  vfscanf                         ";
+  name[StatInt_scanf]                    = "  scanf                           ";
+  name[StatInt_sscanf]                   = "  sscanf                          ";
+  name[StatInt_fscanf]                   = "  fscanf                          ";
 
   name[StatAnnotation]                   = "Dynamic annotations               ";
   name[StatAnnotateHappensBefore]        = "  HappensBefore                   ";
@@ -249,6 +283,8 @@ void StatOutput(u64 *stat) {
   name[StatMtxSlab]                      = "  Slab                            ";
   name[StatMtxAtExit]                    = "  Atexit                          ";
   name[StatMtxAnnotations]               = "  Annotations                     ";
+  name[StatMtxMBlock]                    = "  MBlock                          ";
+  name[StatMtxJavaMBlock]                = "  JavaMBlock                      ";
 
   Printf("Statistics:\n");
   for (int i = 0; i < StatCnt; i++)

@@ -1,7 +1,5 @@
 /* Maintain binary trees of symbols.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1954,6 +1952,9 @@ gfc_use_derived (gfc_symbol *sym)
 
   if (!sym)
     return NULL;
+
+  if (sym->attr.unlimited_polymorphic)
+    return sym;
 
   if (sym->attr.generic)
     sym = gfc_find_dt_in_generic (sym);
@@ -4904,6 +4905,11 @@ gfc_type_compatible (gfc_typespec *ts1, gfc_typespec *ts2)
   bool is_class2 = (ts2->type == BT_CLASS);
   bool is_derived1 = (ts1->type == BT_DERIVED);
   bool is_derived2 = (ts2->type == BT_DERIVED);
+
+  if (is_class1
+      && ts1->u.derived->components
+      && ts1->u.derived->components->ts.u.derived->attr.unlimited_polymorphic)
+    return 1;
 
   if (!is_derived1 && !is_derived2 && !is_class1 && !is_class2)
     return (ts1->type == ts2->type);

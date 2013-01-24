@@ -2274,7 +2274,7 @@ package body Exp_Ch4 is
       LLIB : constant Entity_Id := Base_Type (Standard_Long_Long_Integer);
       --  Entity for Long_Long_Integer'Base
 
-      Check : constant Overflow_Check_Type := Overflow_Check_Mode;
+      Check : constant Overflow_Mode_Type := Overflow_Check_Mode;
       --  Current overflow checking mode
 
       procedure Set_True;
@@ -3233,6 +3233,7 @@ package body Exp_Ch4 is
                    Prefix         =>
                      Duplicate_Subexpr (Opnd, Name_Req => True),
                    Attribute_Name => Name_First);
+               Set_Parent (Opnd_Low_Bound (NN), Opnd);
 
                --  Capture last operand bounds if result could be null
 
@@ -3243,6 +3244,7 @@ package body Exp_Ch4 is
                         Prefix         =>
                           Duplicate_Subexpr (Opnd, Name_Req => True),
                         Attribute_Name => Name_First));
+                  Set_Parent (Last_Opnd_Low_Bound, Opnd);
 
                   Last_Opnd_High_Bound :=
                     Convert_To (Ityp,
@@ -3250,6 +3252,7 @@ package body Exp_Ch4 is
                         Prefix         =>
                           Duplicate_Subexpr (Opnd, Name_Req => True),
                         Attribute_Name => Name_Last));
+                  Set_Parent (Last_Opnd_High_Bound, Opnd);
                end if;
 
                --  Capture length of operand in entity
@@ -3686,7 +3689,7 @@ package body Exp_Ch4 is
          Kill_Dead_Code (Declaration_Node (Entity (High_Bound)));
          Apply_Compile_Time_Constraint_Error
            (N      => Cnode,
-            Msg    => "concatenation result upper bound out of range?",
+            Msg    => "concatenation result upper bound out of range??",
             Reason => CE_Range_Check_Failed);
    end Expand_Concatenate;
 
@@ -5207,6 +5210,8 @@ package body Exp_Ch4 is
       New_If  : Node_Id;
       New_N   : Node_Id;
 
+   --  Start of processing for Expand_N_If_Expression
+
    begin
       --  Check for MINIMIZED/ELIMINATED overflow mode
 
@@ -5499,9 +5504,10 @@ package body Exp_Ch4 is
          --  actually eliminated the danger of optimization above.
 
          if Overflow_Check_Mode not in Minimized_Or_Eliminated then
-            Error_Msg_N ("?explicit membership test may be optimized away", N);
+            Error_Msg_N
+              ("??explicit membership test may be optimized away", N);
             Error_Msg_N -- CODEFIX
-              ("\?use ''Valid attribute instead", N);
+              ("\??use ''Valid attribute instead", N);
          end if;
 
          return;
@@ -5682,8 +5688,8 @@ package body Exp_Ch4 is
 
             if Lcheck = LT or else Ucheck = GT then
                if Warn1 then
-                  Error_Msg_N ("?range test optimized away", N);
-                  Error_Msg_N ("\?value is known to be out of range", N);
+                  Error_Msg_N ("?c?range test optimized away", N);
+                  Error_Msg_N ("\?c?value is known to be out of range", N);
                end if;
 
                Rewrite (N, New_Reference_To (Standard_False, Loc));
@@ -5696,8 +5702,8 @@ package body Exp_Ch4 is
 
             elsif Lcheck in Compare_GE and then Ucheck in Compare_LE then
                if Warn1 then
-                  Error_Msg_N ("?range test optimized away", N);
-                  Error_Msg_N ("\?value is known to be in range", N);
+                  Error_Msg_N ("?c?range test optimized away", N);
+                  Error_Msg_N ("\?c?value is known to be in range", N);
                end if;
 
                Rewrite (N, New_Reference_To (Standard_True, Loc));
@@ -5711,8 +5717,8 @@ package body Exp_Ch4 is
 
             elsif Lcheck in Compare_GE then
                if Warn2 and then not In_Instance then
-                  Error_Msg_N ("?lower bound test optimized away", Lo);
-                  Error_Msg_N ("\?value is known to be in range", Lo);
+                  Error_Msg_N ("??lower bound test optimized away", Lo);
+                  Error_Msg_N ("\??value is known to be in range", Lo);
                end if;
 
                Rewrite (N,
@@ -5728,8 +5734,8 @@ package body Exp_Ch4 is
 
             elsif Ucheck in Compare_LE then
                if Warn2 and then not In_Instance then
-                  Error_Msg_N ("?upper bound test optimized away", Hi);
-                  Error_Msg_N ("\?value is known to be in range", Hi);
+                  Error_Msg_N ("??upper bound test optimized away", Hi);
+                  Error_Msg_N ("\??value is known to be in range", Hi);
                end if;
 
                Rewrite (N,
@@ -5753,25 +5759,25 @@ package body Exp_Ch4 is
 
                if Lcheck = LT or else Ucheck = GT then
                   Error_Msg_N
-                    ("?value can only be in range if it is invalid", N);
+                    ("?c?value can only be in range if it is invalid", N);
 
                --  Result is in range for valid value
 
                elsif Lcheck in Compare_GE and then Ucheck in Compare_LE then
                   Error_Msg_N
-                    ("?value can only be out of range if it is invalid", N);
+                    ("?c?value can only be out of range if it is invalid", N);
 
                --  Lower bound check succeeds if value is valid
 
                elsif Warn2 and then Lcheck in Compare_GE then
                   Error_Msg_N
-                    ("?lower bound check only fails if it is invalid", Lo);
+                    ("?c?lower bound check only fails if it is invalid", Lo);
 
                --  Upper bound  check succeeds if value is valid
 
                elsif Warn2 and then Ucheck in Compare_LE then
                   Error_Msg_N
-                    ("?upper bound check only fails for invalid values", Hi);
+                    ("?c?upper bound check only fails for invalid values", Hi);
                end if;
             end if;
          end;
@@ -7910,7 +7916,6 @@ package body Exp_Ch4 is
    procedure Expand_N_Op_Mod (N : Node_Id) is
       Loc   : constant Source_Ptr := Sloc (N);
       Typ   : constant Entity_Id  := Etype (N);
-      DOC   : constant Boolean    := Do_Overflow_Check (N);
       DDC   : constant Boolean    := Do_Division_Check (N);
 
       Left  : Node_Id;
@@ -7975,7 +7980,6 @@ package body Exp_Ch4 is
 
          Set_Entity            (N, Standard_Entity (S_Op_Rem));
          Set_Etype             (N, Typ);
-         Set_Do_Overflow_Check (N, DOC);
          Set_Do_Division_Check (N, DDC);
          Expand_N_Op_Rem (N);
          Set_Analyzed (N);
@@ -8003,8 +8007,15 @@ package body Exp_Ch4 is
          end if;
 
          --  Deal with annoying case of largest negative number remainder
-         --  minus one. Gigi does not handle this case correctly, because
-         --  it generates a divide instruction which may trap in this case.
+         --  minus one. Gigi may not handle this case correctly, because
+         --  on some targets, the mod value is computed using a divide
+         --  instruction which gives an overflow trap for this case.
+
+         --  It would be a bit more efficient to figure out which targets
+         --  this is really needed for, but in practice it is reasonable
+         --  to do the following special check in all cases, since it means
+         --  we get a clearer message, and also the overhead is minimal given
+         --  that division is expensive in any case.
 
          --  In fact the check is quite easy, if the right operand is -1, then
          --  the mod value is always 0, and we can just ignore the left operand
@@ -8676,8 +8687,15 @@ package body Exp_Ch4 is
       end if;
 
       --  Deal with annoying case of largest negative number remainder minus
-      --  one. Gigi does not handle this case correctly, because it generates
-      --  a divide instruction which may trap in this case.
+      --  one. Gigi may not handle this case correctly, because on some
+      --  targets, the mod value is computed using a divide instruction
+      --  which gives an overflow trap for this case.
+
+      --  It would be a bit more efficient to figure out which targets this
+      --  is really needed for, but in practice it is reasonable to do the
+      --  following special check in all cases, since it means we get a clearer
+      --  message, and also the overhead is minimal given that division is
+      --  expensive in any case.
 
       --  In fact the check is quite easy, if the right operand is -1, then
       --  the remainder is always 0, and we can just ignore the left operand
@@ -9651,9 +9669,10 @@ package body Exp_Ch4 is
              Reason => PE_Accessibility_Check_Failed));
          Set_Etype (N, Target_Type);
 
-         Error_Msg_N ("?accessibility check failure", N);
+         Error_Msg_N
+           ("??accessibility check failure", N);
          Error_Msg_NE
-           ("\?& will be raised at run time", N, Standard_Program_Error);
+           ("\??& will be raised at run time", N, Standard_Program_Error);
       end Raise_Accessibility_Error;
 
       ----------------------
@@ -10391,14 +10410,14 @@ package body Exp_Ch4 is
             --  Convert: x(y) to x'val (ytyp'val (y))
 
             Rewrite (N,
-               Make_Attribute_Reference (Loc,
-                 Prefix => New_Occurrence_Of (Target_Type, Loc),
-                 Attribute_Name => Name_Val,
-                 Expressions => New_List (
-                   Make_Attribute_Reference (Loc,
-                     Prefix => New_Occurrence_Of (Operand_Type, Loc),
-                     Attribute_Name => Name_Pos,
-                     Expressions => New_List (Operand)))));
+              Make_Attribute_Reference (Loc,
+                Prefix         => New_Occurrence_Of (Target_Type, Loc),
+                Attribute_Name => Name_Val,
+                Expressions    => New_List (
+                  Make_Attribute_Reference (Loc,
+                    Prefix         => New_Occurrence_Of (Operand_Type, Loc),
+                    Attribute_Name => Name_Pos,
+                    Expressions    => New_List (Operand)))));
 
             Analyze_And_Resolve (N, Target_Type);
          end if;
@@ -10618,7 +10637,7 @@ package body Exp_Ch4 is
       end if;
 
       --  Otherwise force evaluation unless Assignment_OK flag is set (this
-      --  flag indicates ??? -- more comments needed here)
+      --  flag indicates ??? More comments needed here)
 
       if Assignment_OK (N) then
          null;
@@ -10676,6 +10695,9 @@ package body Exp_Ch4 is
            and then Ekind (C) /= E_Component
          then
             return Suitable_Element (Next_Entity (C));
+
+         --  Below test for C /= Original_Record_Component (C) is dubious
+         --  if Typ is a constrained record subtype???
 
          elsif Is_Tagged_Type (Typ)
            and then C /= Original_Record_Component (C)
@@ -12047,7 +12069,7 @@ package body Exp_Ch4 is
                if Constant_Condition_Warnings
                  and then Comes_From_Source (Original_Node (N))
                then
-                  Error_Msg_N ("could replace by ""'=""?", N);
+                  Error_Msg_N ("could replace by ""'=""?c?", N);
                end if;
 
                Op := N_Op_Eq;
@@ -12240,7 +12262,8 @@ package body Exp_Ch4 is
                  and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
                then
                   Error_Msg_N
-                    ("can never be greater than, could replace by ""'=""?", N);
+                    ("can never be greater than, could replace by ""'=""?c?",
+                     N);
                   Warning_Generated := True;
                end if;
 
@@ -12265,7 +12288,7 @@ package body Exp_Ch4 is
                  and then not Has_Warnings_Off (Etype (Left_Opnd (N)))
                then
                   Error_Msg_N
-                    ("can never be less than, could replace by ""'=""?", N);
+                    ("can never be less than, could replace by ""'=""?c?", N);
                   Warning_Generated := True;
                end if;
 
@@ -12298,11 +12321,11 @@ package body Exp_Ch4 is
             then
                if True_Result then
                   Error_Msg_N
-                    ("condition can only be False if invalid values present?",
+                    ("condition can only be False if invalid values present??",
                      N);
                elsif False_Result then
                   Error_Msg_N
-                    ("condition can only be True if invalid values present?",
+                    ("condition can only be True if invalid values present??",
                      N);
                end if;
             end if;

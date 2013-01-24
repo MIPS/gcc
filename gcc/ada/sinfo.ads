@@ -1546,7 +1546,8 @@ package Sinfo is
    --    proc). This is needed for controlled aggregates. When the Object
    --    declaration has an expression, this flag means that this expression
    --    should not be taken into account (needed for in place initialization
-   --    with aggregates).
+   --    with aggregates, and for object with an address clause, which are
+   --    initialized with an assignment at freeze time).
 
    --  No_Minimize_Eliminate (Flag17-Sem)
    --    This flag is present in membership operator nodes (N_In/N_Not_In).
@@ -7019,11 +7020,10 @@ package Sinfo is
       --  a subexpression, whose value is the value of the Expression after
       --  executing all the actions.
 
-      --  Note: if the actions contain declarations, then these declarations
-      --  may be referenced within the expression. It is thus appropriate for
-      --  the back-end to create a scope that encompasses the construct (any
-      --  declarations within the actions will definitely not be referenced
-      --  once elaboration of the construct is completed).
+      --  If the actions contain declarations, then these declarations may
+      --  be referenced within the expression. However note that there is
+      --  no proper scope associated with the expression-with-action, so the
+      --  back-end will elaborate them in the context of the enclosing scope.
 
       --  Sprint syntax:  do
       --                    action;
@@ -7039,6 +7039,12 @@ package Sinfo is
 
       --  Note: the actions list is always non-null, since we would
       --  never have created this node if there weren't some actions.
+
+      --  Note: Expression may be a Null_Statement, in which case the
+      --  N_Expression_With_Actions has type Standard_Void_Type. However some
+      --  backends do not support such expression-with-actions occurring
+      --  outside of a proper (non-void) expression, so this should just be
+      --  used as an intermediate representation within the front-end.
 
       --------------------
       -- Free Statement --
@@ -7175,7 +7181,7 @@ package Sinfo is
       --  the exception to be raised (i.e. it is equivalent to a raise
       --  statement that raises the corresponding exception). This use
       --  is distinguished by the fact that the Etype in this case is
-      --  Standard_Void_Type, In the subexpression case, the Etype is the
+      --  Standard_Void_Type; in the subexpression case, the Etype is the
       --  same as the type of the subexpression which it replaces.
 
       --  If Condition is empty, then the raise is unconditional. If the
@@ -7336,29 +7342,37 @@ package Sinfo is
 
       --  SCIL nodes are special nodes added to the tree when the CodePeer
       --  mode is active. They help the CodePeer backend to locate nodes that
-      --  require special processing.
-
-      --  Major documentation on the general design of the SCIL interface, and
-      --  in particular detailed description of these nodes is missing and is
-      --  to be supplied in the future, when the design has finalized ???
-
-      --  Meanwhile these nodes should be considered in experimental form, and
-      --  should be ignored by all code generating back ends. ???
+      --  require special processing. They are only generated if SCIL
+      --  generation is enabled. A standard tree-walk will not encounter
+      --  these nodes even if they are present; these nodes are only
+      --  accessible via the function SCIL_LL.Get_SCIL_Node.
 
       --  N_SCIL_Dispatch_Table_Tag_Init
       --  Sloc references a node for a tag initialization
       --  SCIL_Entity (Node4-Sem)
+      --
+      --  An N_SCIL_Dispatch_Table_Tag_Init node may be associated (via
+      --  Get_SCIL_Node) with the N_Object_Declaration node corresponding to
+      --  the declaration of the dispatch table for a tagged type.
 
       --  N_SCIL_Dispatching_Call
       --  Sloc references the node of a dispatching call
       --  SCIL_Target_Prim (Node2-Sem)
       --  SCIL_Entity (Node4-Sem)
       --  SCIL_Controlling_Tag (Node5-Sem)
+      --
+      --  An N_Scil_Dispatching call node may be associated (via Get_SCIL_Node)
+      --  with the N_Procedure_Call or N_Function_Call node (or a rewriting
+      --  thereof) corresponding to a dispatching call.
 
       --  N_SCIL_Membership_Test
       --  Sloc references the node of a membership test
       --  SCIL_Tag_Value (Node5-Sem)
       --  SCIL_Entity (Node4-Sem)
+      --
+      --  An N_Scil_Membership_Test node may be associated (via Get_SCIL_Node)
+      --  with the N_In node (or a rewriting thereof) corresponding to a
+      --  classwide membership test.
 
       ---------------------
       -- Subprogram_Info --
@@ -7624,6 +7638,12 @@ package Sinfo is
       N_Function_Call,
       N_Procedure_Call_Statement,
 
+      --  N_Subexpr, N_Has_Etype, N_Raise_xxx_Error
+
+      N_Raise_Constraint_Error,
+      N_Raise_Program_Error,
+      N_Raise_Storage_Error,
+
       --  N_Subexpr, N_Has_Etype
 
       N_Explicit_Dereference,
@@ -7634,15 +7654,6 @@ package Sinfo is
       N_Null,
       N_Qualified_Expression,
       N_Quantified_Expression,
-
-      --  N_Raise_xxx_Error, N_Subexpr, N_Has_Etype
-
-      N_Raise_Constraint_Error,
-      N_Raise_Program_Error,
-      N_Raise_Storage_Error,
-
-      --  N_Subexpr, N_Has_Etype
-
       N_Aggregate,
       N_Allocator,
       N_Case_Expression,

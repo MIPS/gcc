@@ -1,7 +1,5 @@
 /* Fold a constant sub-tree into a single node for C-compiler
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -821,6 +819,13 @@ split_tree (tree in, enum tree_code code, tree *conp, tree *litp,
       if (neg_var_p)
 	var = negate_expr (var);
     }
+  else if (TREE_CODE (in) == BIT_NOT_EXPR
+	   && code == PLUS_EXPR)
+    {
+      /* -X - 1 is folded to ~X, undo that here.  */
+      *minus_litp = build_one_cst (TREE_TYPE (in));
+      var = negate_expr (TREE_OPERAND (in, 0));
+    }
   else if (TREE_CONSTANT (in))
     *conp = in;
   else
@@ -893,9 +898,9 @@ associate_trees (location_t loc, tree t1, tree t2, enum tree_code code, tree typ
 static bool
 int_binop_types_match_p (enum tree_code code, const_tree type1, const_tree type2)
 {
-  if (TREE_CODE (type1) != INTEGER_TYPE && !POINTER_TYPE_P (type1))
+  if (!INTEGRAL_TYPE_P (type1) && !POINTER_TYPE_P (type1))
     return false;
-  if (TREE_CODE (type2) != INTEGER_TYPE && !POINTER_TYPE_P (type2))
+  if (!INTEGRAL_TYPE_P (type2) && !POINTER_TYPE_P (type2))
     return false;
 
   switch (code)
@@ -10348,6 +10353,7 @@ fold_binary_loc (location_t loc,
 	{
 	  tree var0, con0, lit0, minus_lit0;
 	  tree var1, con1, lit1, minus_lit1;
+	  tree atype = type;
 	  bool ok = true;
 
 	  /* Split both trees into variables, constants, and literals.  Then
@@ -10363,10 +10369,24 @@ fold_binary_loc (location_t loc,
 	  if (code == MINUS_EXPR)
 	    code = PLUS_EXPR;
 
-	  /* With undefined overflow we can only associate constants with one
-	     variable, and constants whose association doesn't overflow.  */
+	  /* With undefined overflow prefer doing association in a type
+	     which wraps on overflow, if that is one of the operand types.  */
 	  if ((POINTER_TYPE_P (type) && POINTER_TYPE_OVERFLOW_UNDEFINED)
 	      || (INTEGRAL_TYPE_P (type) && !TYPE_OVERFLOW_WRAPS (type)))
+	    {
+	      if (INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+		  && TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg0)))
+		atype = TREE_TYPE (arg0);
+	      else if (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+		       && TYPE_OVERFLOW_WRAPS (TREE_TYPE (arg1)))
+		atype = TREE_TYPE (arg1);
+	      gcc_assert (TYPE_PRECISION (atype) == TYPE_PRECISION (type));
+	    }
+
+	  /* With undefined overflow we can only associate constants with one
+	     variable, and constants whose association doesn't overflow.  */
+	  if ((POINTER_TYPE_P (atype) && POINTER_TYPE_OVERFLOW_UNDEFINED)
+	      || (INTEGRAL_TYPE_P (atype) && !TYPE_OVERFLOW_WRAPS (atype)))
 	    {
 	      if (var0 && var1)
 		{
@@ -10378,29 +10398,19 @@ fold_binary_loc (location_t loc,
 		  if (CONVERT_EXPR_P (tmp0)
 		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (tmp0, 0)))
 		      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (tmp0, 0)))
-			  <= TYPE_PRECISION (type)))
+			  <= TYPE_PRECISION (atype)))
 		    tmp0 = TREE_OPERAND (tmp0, 0);
 		  if (TREE_CODE (tmp1) == NEGATE_EXPR)
 		    tmp1 = TREE_OPERAND (tmp1, 0);
 		  if (CONVERT_EXPR_P (tmp1)
 		      && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (tmp1, 0)))
 		      && (TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (tmp1, 0)))
-			  <= TYPE_PRECISION (type)))
+			  <= TYPE_PRECISION (atype)))
 		    tmp1 = TREE_OPERAND (tmp1, 0);
 		  /* The only case we can still associate with two variables
 		     is if they are the same, modulo negation and bit-pattern
 		     preserving conversions.  */
 		  if (!operand_equal_p (tmp0, tmp1, 0))
-		    ok = false;
-		}
-
-	      if (ok && lit0 && lit1)
-		{
-		  tree tmp0 = fold_convert (type, lit0);
-		  tree tmp1 = fold_convert (type, lit1);
-
-		  if (!TREE_OVERFLOW (tmp0) && !TREE_OVERFLOW (tmp1)
-		      && TREE_OVERFLOW (fold_build2 (code, type, tmp0, tmp1)))
 		    ok = false;
 		}
 	    }
@@ -10413,10 +10423,16 @@ fold_binary_loc (location_t loc,
 		       + (lit0 != 0) + (lit1 != 0)
 		       + (minus_lit0 != 0) + (minus_lit1 != 0))))
 	    {
-	      var0 = associate_trees (loc, var0, var1, code, type);
-	      con0 = associate_trees (loc, con0, con1, code, type);
-	      lit0 = associate_trees (loc, lit0, lit1, code, type);
-	      minus_lit0 = associate_trees (loc, minus_lit0, minus_lit1, code, type);
+	      bool any_overflows = false;
+	      if (lit0) any_overflows |= TREE_OVERFLOW (lit0);
+	      if (lit1) any_overflows |= TREE_OVERFLOW (lit1);
+	      if (minus_lit0) any_overflows |= TREE_OVERFLOW (minus_lit0);
+	      if (minus_lit1) any_overflows |= TREE_OVERFLOW (minus_lit1);
+	      var0 = associate_trees (loc, var0, var1, code, atype);
+	      con0 = associate_trees (loc, con0, con1, code, atype);
+	      lit0 = associate_trees (loc, lit0, lit1, code, atype);
+	      minus_lit0 = associate_trees (loc, minus_lit0, minus_lit1,
+					    code, atype);
 
 	      /* Preserve the MINUS_EXPR if the negative part of the literal is
 		 greater than the positive part.  Otherwise, the multiplicative
@@ -10430,38 +10446,45 @@ fold_binary_loc (location_t loc,
 		      && tree_int_cst_lt (lit0, minus_lit0))
 		    {
 		      minus_lit0 = associate_trees (loc, minus_lit0, lit0,
-						    MINUS_EXPR, type);
+						    MINUS_EXPR, atype);
 		      lit0 = 0;
 		    }
 		  else
 		    {
 		      lit0 = associate_trees (loc, lit0, minus_lit0,
-					      MINUS_EXPR, type);
+					      MINUS_EXPR, atype);
 		      minus_lit0 = 0;
 		    }
 		}
+
+	      /* Don't introduce overflows through reassociation.  */
+	      if (!any_overflows
+		  && ((lit0 && TREE_OVERFLOW (lit0))
+		      || (minus_lit0 && TREE_OVERFLOW (minus_lit0))))
+		return NULL_TREE;
+
 	      if (minus_lit0)
 		{
 		  if (con0 == 0)
 		    return
 		      fold_convert_loc (loc, type,
 					associate_trees (loc, var0, minus_lit0,
-							 MINUS_EXPR, type));
+							 MINUS_EXPR, atype));
 		  else
 		    {
 		      con0 = associate_trees (loc, con0, minus_lit0,
-					      MINUS_EXPR, type);
+					      MINUS_EXPR, atype);
 		      return
 			fold_convert_loc (loc, type,
 					  associate_trees (loc, var0, con0,
-							   PLUS_EXPR, type));
+							   PLUS_EXPR, atype));
 		    }
 		}
 
-	      con0 = associate_trees (loc, con0, lit0, code, type);
+	      con0 = associate_trees (loc, con0, lit0, code, atype);
 	      return
 		fold_convert_loc (loc, type, associate_trees (loc, var0, con0,
-							      code, type));
+							      code, atype));
 	    }
 	}
 
@@ -13501,7 +13524,9 @@ fold_binary_loc (location_t loc,
 				    "when simplifying comparison of "
 				    "absolute value and zero"),
 				   WARN_STRICT_OVERFLOW_CONDITIONAL);
-	  return omit_one_operand_loc (loc, type, integer_one_node, arg0);
+	  return omit_one_operand_loc (loc, type,
+				       constant_boolean_node (true, type),
+				       arg0);
 	}
 
       /* Convert ABS_EXPR<x> < 0 to false.  */
@@ -13515,7 +13540,9 @@ fold_binary_loc (location_t loc,
 				    "when simplifying comparison of "
 				    "absolute value and zero"),
 				   WARN_STRICT_OVERFLOW_CONDITIONAL);
-	  return omit_one_operand_loc (loc, type, integer_zero_node, arg0);
+	  return omit_one_operand_loc (loc, type,
+				       constant_boolean_node (false, type),
+				       arg0);
 	}
 
       /* If X is unsigned, convert X < (1 << Y) into X >> Y == 0
@@ -13529,10 +13556,22 @@ fold_binary_loc (location_t loc,
 				   TREE_OPERAND (arg1, 1)),
 			   build_zero_cst (TREE_TYPE (arg0)));
 
+      /* Similarly for X < (cast) (1 << Y).  But cast can't be narrowing,
+	 otherwise Y might be >= # of bits in X's type and thus e.g.
+	 (unsigned char) (1 << Y) for Y 15 might be 0.
+	 If the cast is widening, then 1 << Y should have unsigned type,
+	 otherwise if Y is number of bits in the signed shift type minus 1,
+	 we can't optimize this.  E.g. (unsigned long long) (1 << Y) for Y
+	 31 might be 0xffffffff80000000.  */
       if ((code == LT_EXPR || code == GE_EXPR)
 	  && TYPE_UNSIGNED (TREE_TYPE (arg0))
 	  && CONVERT_EXPR_P (arg1)
 	  && TREE_CODE (TREE_OPERAND (arg1, 0)) == LSHIFT_EXPR
+	  && (TYPE_PRECISION (TREE_TYPE (arg1))
+	      >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (arg1, 0))))
+	  && (TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (arg1, 0)))
+	      || (TYPE_PRECISION (TREE_TYPE (arg1))
+		  == TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (arg1, 0)))))
 	  && integer_onep (TREE_OPERAND (TREE_OPERAND (arg1, 0), 0)))
 	{
 	  tem = build2 (RSHIFT_EXPR, TREE_TYPE (arg0), arg0,

@@ -1,8 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1096,8 +1093,6 @@ add_method (tree type, tree method, tree using_decl)
 	      && TREE_CODE (method) == FUNCTION_DECL
 	      && !DECL_EXTERN_C_P (fn)
 	      && !DECL_EXTERN_C_P (method)
-	      && (DECL_FUNCTION_SPECIFIC_TARGET (fn)
-		  || DECL_FUNCTION_SPECIFIC_TARGET (method))
 	      && targetm.target_option.function_versions (fn, method))
  	    {
 	      /* Mark functions as versions if necessary.  Modify the mangled

@@ -1,6 +1,5 @@
 /* C++ Parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004,
-   2005, 2007, 2008, 2009, 2010, 2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
@@ -5473,7 +5472,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	/* If all went well, simply lookup the type-id.  */
 	if (cp_parser_parse_definitely (parser))
-	  postfix_expression = get_typeid (type);
+	  postfix_expression = get_typeid (type, tf_warning_or_error);
 	/* Otherwise, fall back to the expression variant.  */
 	else
 	  {
@@ -5482,7 +5481,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    /* Look for an expression.  */
 	    expression = cp_parser_expression (parser, /*cast_p=*/false, & idk);
 	    /* Compute its typeid.  */
-	    postfix_expression = build_typeid (expression);
+	    postfix_expression = build_typeid (expression, tf_warning_or_error);
 	    /* Look for the `)' token.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	  }
@@ -11592,7 +11591,7 @@ cp_parser_mem_initializer_list (cp_parser* parser)
 	}
       /* Look for a target constructor. */
       if (mem_initializer != error_mark_node
-	  && TYPE_P (TREE_PURPOSE (mem_initializer))
+	  && CLASS_TYPE_P (TREE_PURPOSE (mem_initializer))
 	  && same_type_p (TREE_PURPOSE (mem_initializer), current_class_type))
 	{
 	  maybe_warn_cpp0x (CPP0X_DELEGATING_CTORS);
@@ -12655,11 +12654,9 @@ cp_parser_template_id (cp_parser *parser,
 	  return error_mark_node;
 	}
       /* Otherwise, emit an error about the invalid digraph, but continue
-	 parsing because we got our argument list.  In C++11 do not emit
-	 any error, per 2.5/3.  */
-      if (cxx_dialect < cxx0x
-	  && permerror (next_token->location,
-			"%<<::%> cannot begin a template-argument list"))
+	 parsing because we got our argument list.  */
+      if (permerror (next_token->location,
+		     "%<<::%> cannot begin a template-argument list"))
 	{
 	  static bool hint = false;
 	  inform (next_token->location,
@@ -15295,6 +15292,8 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (cp_parser_error_occurred (parser))
     return error_mark_node;
 
+  cp_parser_commit_to_tentative_parse (parser);
+
   /* Now we are going to parse the type-id of the declaration.  */
 
   /*
@@ -15324,10 +15323,19 @@ cp_parser_alias_declaration (cp_parser* parser)
   if (parser->num_template_parameter_lists)
     parser->type_definition_forbidden_message = saved_message;
 
+  if (type == error_mark_node)
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
+
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 
   if (cp_parser_error_occurred (parser))
-    return error_mark_node;
+    {
+      cp_parser_skip_to_end_of_block_or_statement (parser);
+      return error_mark_node;
+    }
 
   /* A typedef-name can also be introduced by an alias-declaration. The
      identifier following the using keyword becomes a typedef-name. It has
@@ -17921,13 +17929,17 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
 	       && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
 	{
 	  /* In C++11, [ could start a lambda-introducer.  */
+	  bool non_const = false;
+
 	  cp_parser_parse_tentatively (parser);
 	  cp_lexer_consume_token (parser->lexer);
-	  designator = cp_parser_constant_expression (parser, false, NULL);
+	  designator = cp_parser_constant_expression (parser, true, &non_const);
 	  cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
 	  cp_parser_require (parser, CPP_EQ, RT_EQ);
 	  if (!cp_parser_parse_definitely (parser))
 	    designator = NULL_TREE;
+	  else if (non_const)
+	    require_potential_rvalue_constant_expression (designator);
 	}
       else
 	designator = NULL_TREE;
@@ -18589,7 +18601,8 @@ cp_parser_class_head (cp_parser* parser,
 		&& CLASS_TYPE_P (scope)
 		&& CLASSTYPE_TEMPLATE_INFO (scope)
 		&& PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (scope))
-		&& !CLASSTYPE_TEMPLATE_SPECIALIZATION (scope))
+		&& (!CLASSTYPE_TEMPLATE_SPECIALIZATION (scope)
+		    || uses_template_parms (CLASSTYPE_TI_ARGS (scope))))
 	      ++num_templates;
 	}
     }
@@ -19059,9 +19072,19 @@ cp_parser_member_declaration (cp_parser* parser)
       else
 	{
 	  tree decl;
+	  bool alias_decl_expected;
 	  cp_parser_parse_tentatively (parser);
 	  decl = cp_parser_alias_declaration (parser);
-	  if (cp_parser_parse_definitely (parser))
+	  /* Note that if we actually see the '=' token after the
+	     identifier, cp_parser_alias_declaration commits the
+	     tentative parse.  In that case, we really expects an
+	     alias-declaration.  Otherwise, we expect a using
+	     declaration.  */
+	  alias_decl_expected =
+	    !cp_parser_uncommitted_to_tentative_parse_p (parser);
+	  cp_parser_parse_definitely (parser);
+
+	  if (alias_decl_expected)
 	    finish_member_declaration (decl);
 	  else
 	    cp_parser_using_declaration (parser,

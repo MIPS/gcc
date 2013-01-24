@@ -1159,10 +1159,19 @@ package body Sprint is
 
          when N_Case_Expression =>
             declare
-               Alt : Node_Id;
+               Has_Parens : constant Boolean := Paren_Count (Node) > 0;
+               Alt        : Node_Id;
 
             begin
-               Write_Str_With_Col_Check_Sloc ("(case ");
+               --  The syntax for case_expression does not include parentheses,
+               --  but sometimes parentheses are required, so unconditionally
+               --  generate them here unless already present.
+
+               if not Has_Parens then
+                  Write_Char ('(');
+               end if;
+
+               Write_Str_With_Col_Check_Sloc ("case ");
                Sprint_Node (Expression (Node));
                Write_Str_With_Col_Check (" is");
 
@@ -1174,7 +1183,9 @@ package body Sprint is
                   Write_Char (',');
                end loop;
 
-               Write_Char (')');
+               if not Has_Parens then
+                  Write_Char (')');
+               end if;
             end;
 
          when N_Case_Expression_Alternative =>
@@ -1959,11 +1970,19 @@ package body Sprint is
 
          when N_If_Expression =>
             declare
-               Condition : constant Node_Id := First (Expressions (Node));
-               Then_Expr : constant Node_Id := Next (Condition);
+               Has_Parens : constant Boolean := Paren_Count (Node) > 0;
+               Condition  : constant Node_Id := First (Expressions (Node));
+               Then_Expr  : constant Node_Id := Next (Condition);
 
             begin
-               Write_Str_With_Col_Check_Sloc ("(if ");
+               --  The syntax for if_expression does not include parentheses,
+               --  but sometimes parentheses are required, so unconditionally
+               --  generate them here unless already present.
+
+               if not Has_Parens then
+                  Write_Char ('(');
+               end if;
+               Write_Str_With_Col_Check_Sloc ("if ");
                Sprint_Node (Condition);
                Write_Str_With_Col_Check (" then ");
 
@@ -1971,11 +1990,16 @@ package body Sprint is
 
                if Present (Then_Expr) then
                   Sprint_Node (Then_Expr);
-                  Write_Str_With_Col_Check (" else ");
-                  Sprint_Node (Next (Then_Expr));
+
+                  if Present (Next (Then_Expr)) then
+                     Write_Str_With_Col_Check (" else ");
+                     Sprint_Node (Next (Then_Expr));
+                  end if;
                end if;
 
-               Write_Char (')');
+               if not Has_Parens then
+                  Write_Char (')');
+               end if;
             end;
 
          when N_If_Statement =>

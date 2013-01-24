@@ -82,7 +82,8 @@ ThreadContext::ThreadContext(int tid)
   , epoch0()
   , epoch1()
   , dead_info()
-  , dead_next() {
+  , dead_next()
+  , name() {
 }
 
 static void WriteMemoryProfile(char *buf, uptr buf_size, int num) {
@@ -163,6 +164,16 @@ void MapShadow(uptr addr, uptr size) {
   MmapFixedNoReserve(MemToShadow(addr), size * kShadowMultiplier);
 }
 
+void MapThreadTrace(uptr addr, uptr size) {
+  DPrintf("#0: Mapping trace at %p-%p(0x%zx)\n", addr, addr + size, size);
+  CHECK_GE(addr, kTraceMemBegin);
+  CHECK_LE(addr + size, kTraceMemBegin + kTraceMemSize);
+  if (addr != (uptr)MmapFixedNoReserve(addr, size)) {
+    Printf("FATAL: ThreadSanitizer can not mmap thread trace\n");
+    Die();
+  }
+}
+
 void Initialize(ThreadState *thr) {
   // Thread safe because done before all threads exist.
   static bool is_initialized = false;
@@ -189,7 +200,12 @@ void Initialize(ThreadState *thr) {
   ctx->dead_list_tail = 0;
   InitializeFlags(&ctx->flags, env);
   // Setup correct file descriptor for error reports.
-  __sanitizer_set_report_fd(flags()->log_fileno);
+  if (internal_strcmp(flags()->log_path, "stdout") == 0)
+    __sanitizer_set_report_fd(kStdoutFd);
+  else if (internal_strcmp(flags()->log_path, "stderr") == 0)
+    __sanitizer_set_report_fd(kStderrFd);
+  else
+    __sanitizer_set_report_path(flags()->log_path);
   InitializeSuppressions();
 #ifndef TSAN_GO
   // Initialize external symbolizer before internal threads are started.
@@ -279,11 +295,26 @@ void TraceSwitch(ThreadState *thr) {
   thr->nomalloc++;
   ScopedInRtl in_rtl;
   Lock l(&thr->trace.mtx);
-  unsigned trace = (thr->fast_state.epoch() / kTracePartSize) % kTraceParts;
+  unsigned trace = (thr->fast_state.epoch() / kTracePartSize) % TraceParts();
   TraceHeader *hdr = &thr->trace.headers[trace];
   hdr->epoch0 = thr->fast_state.epoch();
   hdr->stack0.ObtainCurrent(thr, 0);
+  hdr->mset0 = thr->mset;
   thr->nomalloc--;
+}
+
+uptr TraceTopPC(ThreadState *thr) {
+  Event *events = (Event*)GetThreadTrace(thr->tid);
+  uptr pc = events[thr->fast_state.GetTracePos()];
+  return pc;
+}
+
+uptr TraceSize() {
+  return (uptr)(1ull << (kTracePartSizeBits + flags()->history_size + 1));
+}
+
+uptr TraceParts() {
+  return TraceSize() / kTracePartSize;
 }
 
 #ifndef TSAN_GO
@@ -342,7 +373,7 @@ static inline bool OldIsInSameSynchEpoch(Shadow old, ThreadState *thr) {
 }
 
 static inline bool HappensBefore(Shadow old, ThreadState *thr) {
-  return thr->clock.get(old.tid()) >= old.epoch();
+  return thr->clock.get(old.TidWithIgnore()) >= old.epoch();
 }
 
 ALWAYS_INLINE
@@ -423,7 +454,7 @@ ALWAYS_INLINE
 void MemoryAccess(ThreadState *thr, uptr pc, uptr addr,
     int kAccessSizeLog, bool kAccessIsWrite) {
   u64 *shadow_mem = (u64*)MemToShadow(addr);
-  DPrintf2("#%d: tsan::OnMemoryAccess: @%p %p size=%d"
+  DPrintf2("#%d: MemoryAccess: @%p %p size=%d"
       " is_write=%d shadow_mem=%p {%zx, %zx, %zx, %zx}\n",
       (int)thr->fast_state.tid(), (void*)pc, (void*)addr,
       (int)(1 << kAccessSizeLog), kAccessIsWrite, shadow_mem,
@@ -451,7 +482,7 @@ void MemoryAccess(ThreadState *thr, uptr pc, uptr addr,
 
   // We must not store to the trace if we do not store to the shadow.
   // That is, this call must be moved somewhere below.
-  TraceAddEvent(thr, fast_state.epoch(), EventTypeMop, pc);
+  TraceAddEvent(thr, fast_state, EventTypeMop, pc);
 
   MemoryAccessImpl(thr, addr, kAccessSizeLog, kAccessIsWrite,
       shadow_mem, cur);
@@ -502,6 +533,7 @@ void MemoryResetRange(ThreadState *thr, uptr pc, uptr addr, uptr size) {
 void MemoryRangeFreed(ThreadState *thr, uptr pc, uptr addr, uptr size) {
   MemoryAccessRange(thr, pc, addr, size, true);
   Shadow s(thr->fast_state);
+  s.ClearIgnoreBit();
   s.MarkAsFreed();
   s.SetWrite(true);
   s.SetAddr0AndSizeLog(0, 3);
@@ -510,6 +542,7 @@ void MemoryRangeFreed(ThreadState *thr, uptr pc, uptr addr, uptr size) {
 
 void MemoryRangeImitateWrite(ThreadState *thr, uptr pc, uptr addr, uptr size) {
   Shadow s(thr->fast_state);
+  s.ClearIgnoreBit();
   s.SetWrite(true);
   s.SetAddr0AndSizeLog(0, 3);
   MemoryRangeSet(thr, pc, addr, size, s.raw());
@@ -521,7 +554,7 @@ void FuncEntry(ThreadState *thr, uptr pc) {
   StatInc(thr, StatFuncEnter);
   DPrintf2("#%d: FuncEntry %p\n", (int)thr->fast_state.tid(), (void*)pc);
   thr->fast_state.IncrementEpoch();
-  TraceAddEvent(thr, thr->fast_state.epoch(), EventTypeFuncEnter, pc);
+  TraceAddEvent(thr, thr->fast_state, EventTypeFuncEnter, pc);
 
   // Shadow stack maintenance can be replaced with
   // stack unwinding during trace switch (which presumably must be faster).
@@ -551,7 +584,7 @@ void FuncExit(ThreadState *thr) {
   StatInc(thr, StatFuncExit);
   DPrintf2("#%d: FuncExit\n", (int)thr->fast_state.tid());
   thr->fast_state.IncrementEpoch();
-  TraceAddEvent(thr, thr->fast_state.epoch(), EventTypeFuncExit, 0);
+  TraceAddEvent(thr, thr->fast_state, EventTypeFuncExit, 0);
 
   DCHECK_GT(thr->shadow_stack_pos, &thr->shadow_stack[0]);
 #ifndef TSAN_GO

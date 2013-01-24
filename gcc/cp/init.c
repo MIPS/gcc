@@ -1,7 +1,5 @@
 /* Handle initialization things in C++.
-   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -350,8 +348,7 @@ build_value_init (tree type, tsubst_flags_t complain)
 	  (type,
 	   build_special_member_call (NULL_TREE, complete_ctor_identifier,
 				      NULL, type, LOOKUP_NORMAL,
-				      complain),
-	   complain);
+				      complain));
       else if (TYPE_HAS_COMPLEX_DFLT (type))
 	{
 	  /* This is a class that needs constructing, but doesn't have
@@ -361,7 +358,7 @@ build_value_init (tree type, tsubst_flags_t complain)
 	  tree ctor = build_special_member_call
 	    (NULL_TREE, complete_ctor_identifier,
 	     NULL, type, LOOKUP_NORMAL, complain);
-	  ctor = build_aggr_init_expr (type, ctor, complain);
+	  ctor = build_aggr_init_expr (type, ctor);
 	  if (ctor != error_mark_node)
 	    AGGR_INIT_ZERO_FIRST (ctor) = 1;
 	  return ctor;
@@ -1370,8 +1367,8 @@ expand_member_init (tree name)
       tree virtual_binfo;
       int i;
 
-      if (same_type_p (basetype, current_class_type)
-	  || current_template_parms)
+      if (current_template_parms
+	  || same_type_p (basetype, current_class_type))
 	  return basetype;
 
       class_binfo = TYPE_BINFO (current_class_type);
@@ -3638,7 +3635,9 @@ build_vec_init (tree base, tree maxindex, tree init,
       if (TREE_CODE (type) == ARRAY_TYPE)
 	m = cp_build_binary_op (input_location,
 				MULT_EXPR, m,
-				array_type_nelts_total (type),
+				/* Avoid mixing signed and unsigned.  */
+				convert (TREE_TYPE (m),
+					 array_type_nelts_total (type)),
 				complain);
 
       finish_cleanup_try_block (try_block);

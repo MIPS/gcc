@@ -1,7 +1,5 @@
 /* Build expressions with type checking for C compiler.
-   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5543,8 +5541,10 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || (target_cmp = comp_target_types (location, type, rhstype))
 	  || is_opaque_pointer
-	  || (c_common_unsigned_type (mvl)
-	      == c_common_unsigned_type (mvr)))
+	  || ((c_common_unsigned_type (mvl)
+	       == c_common_unsigned_type (mvr))
+	      && c_common_signed_type (mvl)
+		 == c_common_signed_type (mvr)))
 	{
 	  if (pedantic
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
@@ -8500,6 +8500,8 @@ build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
     {
       tree output = TREE_VALUE (tail);
 
+      output = c_fully_fold (output, false, NULL);
+
       /* ??? Really, this should not be here.  Users should be using a
 	 proper lvalue, dammit.  But there's a long history of using casts
 	 in the output operands.  In cases like longlong.h, this becomes a
@@ -8557,16 +8559,27 @@ build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
 	     mark it addressable.  */
 	  if (!allows_reg && allows_mem)
 	    {
+	      input = c_fully_fold (input, false, NULL);
+
 	      /* Strip the nops as we allow this case.  FIXME, this really
 		 should be rejected or made deprecated.  */
 	      STRIP_NOPS (input);
 	      if (!c_mark_addressable (input))
 		input = error_mark_node;
 	    }
-	  else if (input != error_mark_node && VOID_TYPE_P (TREE_TYPE (input)))
+	  else
 	    {
-	      error_at (loc, "invalid use of void expression");
-	      input = error_mark_node;
+	      struct c_expr expr;
+	      memset (&expr, 0, sizeof (expr));
+	      expr.value = input;
+	      expr = default_function_array_conversion (loc, expr);
+	      input = c_fully_fold (expr.value, false, NULL);
+
+	      if (input != error_mark_node && VOID_TYPE_P (TREE_TYPE (input)))
+		{
+		  error_at (loc, "invalid use of void expression");
+		  input = error_mark_node;
+		}
 	    }
 	}
       else

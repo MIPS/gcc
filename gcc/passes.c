@@ -1,7 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -223,6 +221,10 @@ rest_of_type_compilation (tree type, int toplev)
 void
 finish_optimization_passes (void)
 {
+  int i;
+  struct dump_file_info *dfi;
+  char *name;
+
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -230,12 +232,24 @@ finish_optimization_passes (void)
       end_branch_prob ();
       dump_finish (pass_profile.pass.static_pass_number);
     }
+
   if (optimize > 0)
     {
       dump_start (pass_profile.pass.static_pass_number, NULL);
       print_combine_total_stats ();
       dump_finish (pass_profile.pass.static_pass_number);
     }
+
+  /* Do whatever is necessary to finish printing the graphs.  */
+  for (i = TDI_end; (dfi = get_dump_file_info (i)) != NULL; ++i)
+    if (dump_initialized_p (i)
+	&& (dfi->pflags & TDF_GRAPH) != 0
+	&& (name = get_dump_file_name (i)) != NULL)
+      {
+	finish_graph_dump_file (name);
+	free (name);
+      }
+
   timevar_pop (TV_DUMP);
 }
 
@@ -2059,7 +2073,8 @@ pass_init_dump_file (struct opt_pass *pass)
       dump_start (pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
         dump_function_header (dump_file, current_function_decl, dump_flags);
-      if (dump_file && (dump_flags & TDF_GRAPH)
+      if (initializing_dump
+	  && dump_file && (dump_flags & TDF_GRAPH)
 	  && cfun && (cfun->curr_properties & PROP_cfg))
 	clean_graph_dump_file (dump_file_name);
       timevar_pop (TV_DUMP);
@@ -2080,10 +2095,6 @@ pass_fini_dump_file (struct opt_pass *pass)
   /* Flush and close dump file.  */
   if (dump_file_name)
     {
-      gcc_assert (dump_file);
-      if (dump_flags & TDF_GRAPH
-	  && cfun && (cfun->curr_properties & PROP_cfg))
-	finish_graph_dump_file (dump_file_name);
       free (CONST_CAST (char *, dump_file_name));
       dump_file_name = NULL;
     }

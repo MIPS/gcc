@@ -1,7 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -4835,14 +4833,12 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  if (failure == 1)
 	    {
 	      error ("initializer fails to determine size of %qD", decl);
-	      TREE_TYPE (decl) = error_mark_node;
 	    }
 	  else if (failure == 2)
 	    {
 	      if (do_default)
 		{
 		  error ("array size missing in %qD", decl);
-		  TREE_TYPE (decl) = error_mark_node;
 		}
 	      /* If a `static' var's size isn't known, make it extern as
 		 well as static, so it does not get allocated.  If it's not
@@ -4854,7 +4850,6 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  else if (failure == 3)
 	    {
 	      error ("zero-size array %qD", decl);
-	      TREE_TYPE (decl) = error_mark_node;
 	    }
 	}
 
@@ -5661,7 +5656,9 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
       if ((type_build_ctor_call (type) || CLASS_TYPE_P (type))
 	  && !(flags & LOOKUP_ALREADY_DIGESTED)
 	  && !(init && BRACE_ENCLOSED_INITIALIZER_P (init)
-	       && CP_AGGREGATE_TYPE_P (type)))
+	       && CP_AGGREGATE_TYPE_P (type)
+	       && (CLASS_TYPE_P (type)
+		   || type_has_extended_temps (type))))
 	{
 	  init_code = build_aggr_init_full_exprs (decl, init, flags);
 
@@ -5697,7 +5694,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		       && (!init || TREE_CODE (init) == TREE_LIST))
 		{
 		  init = build_functional_cast (type, init, tf_none);
-		  if (init != error_mark_node)
+		  if (TREE_CODE (init) == TARGET_EXPR)
 		    TARGET_EXPR_DIRECT_INIT_P (init) = true;
 		}
 	      init_code = NULL_TREE;
@@ -6423,6 +6420,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    }
 	  else if (was_readonly)
 	    TREE_READONLY (decl) = 1;
+
+	  /* Likewise if it needs destruction.  */
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+	    TREE_READONLY (decl) = 0;
 	}
 
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
@@ -8519,6 +8520,23 @@ check_var_type (tree identifier, tree type)
   return type;
 }
 
+/* Functions for adjusting the visibility of a tagged type and its nested
+   types when it gets a name for linkage purposes from a typedef.  */
+
+static void bt_reset_linkage (binding_entry, void *);
+static void
+reset_type_linkage (tree type)
+{
+  set_linkage_according_to_type (type, TYPE_MAIN_DECL (type));
+  if (CLASS_TYPE_P (type))
+    binding_table_foreach (CLASSTYPE_NESTED_UTDS (type), bt_reset_linkage, NULL);
+}
+static void
+bt_reset_linkage (binding_entry b, void */*data*/)
+{
+  reset_type_linkage (b->type);
+}
+
 /* Given declspecs and a declarator (abstract or otherwise), determine
    the name and type of the object declared and construct a DECL node
    for it.
@@ -10059,8 +10077,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      = TYPE_IDENTIFIER (type);
 
 	  /* Adjust linkage now that we aren't anonymous anymore.  */
-	  set_linkage_according_to_type (type, TYPE_MAIN_DECL (type));
-	  determine_visibility (TYPE_MAIN_DECL (type));
+	  reset_type_linkage (type);
 
 	  /* FIXME remangle member functions; member functions of a
 	     type with external linkage have external linkage.  */
@@ -10837,7 +10854,7 @@ check_default_argument (tree decl, tree arg)
      parameter type.  */
   ++cp_unevaluated_operand;
   perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
-				     LOOKUP_NORMAL);
+				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
@@ -13204,10 +13221,9 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       if (DECL_NOT_REALLY_EXTERN (decl1))
 	DECL_EXTERNAL (decl1) = 0;
 
-      if (ctx != NULL_TREE && DECL_DECLARED_INLINE_P (ctx)
-	  && TREE_PUBLIC (ctx))
+      if (ctx != NULL_TREE && vague_linkage_p (ctx))
 	/* This is a function in a local class in an extern inline
-	   function.  */
+	   or template function.  */
 	comdat_linkage (decl1);
     }
   /* If this function belongs to an interface, it is public.
