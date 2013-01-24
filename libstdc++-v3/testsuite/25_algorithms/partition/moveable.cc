@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++0x" }
 
-// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -10,7 +10,7 @@
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without Pred the implied warranty of
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
@@ -21,10 +21,6 @@
 // 25.2.12 [lib.alg.partitions] Partitions.
 
 #undef _GLIBCXX_CONCEPT_CHECKS
-
-// XXX FIXME:  parallel-mode should deal correctly with moveable-only types
-// per C++0x, at minimum smoothly fall back to serial.
-#undef _GLIBCXX_PARALLEL
 
 #include <algorithm>
 #include <functional>

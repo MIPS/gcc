@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -115,6 +115,10 @@ package Sem_Ch3 is
    --  and errors are posted on that node, rather than on the declarations that
    --  require completion in the package declaration.
 
+   procedure Check_CPP_Type_Has_No_Defaults (T : Entity_Id);
+   --  Check that components of imported CPP type T do not have default
+   --  expressions because the constructor (if any) is on the C++ side.
+
    procedure Derive_Subprogram
      (New_Subp     : in out Entity_Id;
       Parent_Subp  : Entity_Id;
@@ -170,30 +174,45 @@ package Sem_Ch3 is
    --  Given a discriminant somewhere in the Typ_For_Constraint tree and a
    --  Constraint, return the value of that discriminant.
 
+   function Is_Constant_Bound (Exp : Node_Id) return Boolean;
+   --  Exp is the expression for an array bound. Determines whether the
+   --  bound is a compile-time known value, or a constant entity, or an
+   --  enumeration literal, or an expression composed of constant-bound
+   --  subexpressions which are evaluated by means of standard operators.
+
    function Is_Null_Extension (T : Entity_Id) return Boolean;
    --  Returns True if the tagged type T has an N_Full_Type_Declaration that
    --  is a null extension, meaning that it has an extension part without any
    --  components and does not have a known discriminant part.
 
-   function Is_Visible_Component (C : Entity_Id) return Boolean;
+   function Is_Visible_Component
+     (C : Entity_Id;
+      N : Node_Id := Empty) return Boolean;
    --  Determines if a record component C is visible in the present context.
    --  Note that even though component C could appear in the entity chain
    --  of a record type, C may not be visible in the current context. For
    --  instance, C may be a component inherited in the full view of a private
    --  extension which is not visible in the current context.
+   --
+   --  If present, N is the selected component of which C is the selector. If
+   --  the prefix of N is a type conversion inserted for a discriminant check,
+   --  C is automatically visible.
 
    procedure Make_Index
      (I            : Node_Id;
       Related_Nod  : Node_Id;
       Related_Id   : Entity_Id := Empty;
-      Suffix_Index : Nat := 1);
+      Suffix_Index : Nat := 1;
+      In_Iter_Schm : Boolean := False);
    --  Process an index that is given in an array declaration, an entry
    --  family declaration or a loop iteration. The index is given by an
    --  index declaration (a 'box'), or by a discrete range. The later can
    --  be the name of a discrete type, or a subtype indication.
    --
    --  Related_Nod is the node where the potential generated implicit types
-   --  will be inserted. The 2 last parameters are used for creating the name.
+   --  will be inserted. The next last parameters are used for creating the
+   --  name. In_Iter_Schm is True if Make_Index is called on the discrete
+   --  subtype definition in an iteration scheme.
 
    procedure Make_Class_Wide_Type (T : Entity_Id);
    --  A Class_Wide_Type is created for each tagged type definition. The
@@ -233,6 +252,10 @@ package Sem_Ch3 is
    --  This mechanism is also used for aspect specifications that have an
    --  expression parameter that needs similar preanalysis.
 
+   procedure Preanalyze_Assert_Expression (N : Node_Id; T : Entity_Id);
+   --  Wrapper on Preanalyze_Spec_Expression for assertion expressions, so that
+   --  In_Assertion_Expr can be properly adjusted.
+
    procedure Process_Full_View (N : Node_Id; Full_T, Priv_T : Entity_Id);
    --  Process some semantic actions when the full view of a private type is
    --  encountered and analyzed. The first action is to create the full views
@@ -245,10 +268,11 @@ package Sem_Ch3 is
    --    Priv_T is the private view of the type whose full declaration is in N.
 
    procedure Process_Range_Expr_In_Decl
-     (R           : Node_Id;
-      T           : Entity_Id;
-      Check_List  : List_Id := Empty_List;
-      R_Check_Off : Boolean := False);
+     (R            : Node_Id;
+      T            : Entity_Id;
+      Check_List   : List_Id := Empty_List;
+      R_Check_Off  : Boolean := False;
+      In_Iter_Schm : Boolean := False);
    --  Process a range expression that appears in a declaration context. The
    --  range is analyzed and resolved with the base type of the given type, and
    --  an appropriate check for expressions in non-static contexts made on the
@@ -259,7 +283,8 @@ package Sem_Ch3 is
    --  when the subprogram is called from Build_Record_Init_Proc and is used to
    --  return a set of constraint checking statements generated by the Checks
    --  package. R_Check_Off is set to True when the call to Range_Check is to
-   --  be skipped.
+   --  be skipped. In_Iter_Schm is True if Process_Range_Expr_In_Decl is called
+   --  on the discrete subtype definition in an iteration scheme.
 
    function Process_Subtype
      (S           : Node_Id;

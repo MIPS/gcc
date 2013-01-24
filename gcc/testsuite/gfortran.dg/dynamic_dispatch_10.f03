@@ -167,5 +167,3 @@ program main
   end do
 
 end
-
-! { dg-final { cleanup-modules "BaseStrategy LaxWendroffStrategy KEStrategy" } }

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -196,6 +196,30 @@ package body Switch.M is
                      Add_Switch_Component ("-mrtp");
                   end if;
 
+               --  Switch for universal addressing on AAMP target
+
+               elsif Switch_Chars'Length >= 5
+                 and then
+                   Switch_Chars
+                     (Switch_Chars'First .. Switch_Chars'First + 4) = "-univ"
+               then
+                  Add_Switch_Component (Switch_Chars);
+
+               --  Switch for specifying AAMP target library
+
+               elsif Switch_Chars'Length > 13
+                 and then
+                   Switch_Chars (Switch_Chars'First .. Switch_Chars'First + 12)
+                     = "-aamp_target="
+               then
+                  Add_Switch_Component (Switch_Chars);
+
+               --  Special case for -fstack-check (alias for
+               --  -fstack-check=specific)
+
+               elsif Switch_Chars = "-fstack-check" then
+                  Add_Switch_Component ("-fstack-check=specific");
+
                --  Take only into account switches that are transmitted to
                --  gnat1 by the gcc driver and stored by gnat1 in the ALI file.
 
@@ -218,9 +242,9 @@ package body Switch.M is
                   --  One-letter switches
 
                   when 'a' | 'A' | 'b' | 'B' | 'c' | 'C' | 'E' | 'f' |
-                       'F' | 'g' | 'h' | 'H' | 'I' | 'L' | 'n' | 'N' |
-                       'o' | 'p' | 'P' | 'q' | 'Q' | 'r' | 's' | 'S' |
-                       't' | 'u' | 'U' | 'v' | 'x' | 'X' | 'Z' =>
+                       'F' | 'g' | 'h' | 'H' | 'I' | 'L' | 'N' | 'p' |
+                       'P' | 'q' | 'Q' | 'r' | 's' | 'S' | 't' | 'u' |
+                       'U' | 'v' | 'x' | 'X' | 'Z' =>
                      Storing (First_Stored) := C;
                      Add_Switch_Component
                        (Storing (Storing'First .. First_Stored));
@@ -405,6 +429,50 @@ package body Switch.M is
                         return;
                      end if;
 
+                  --  -gnatn may be -gnatn, -gnatn1, or -gnatn2
+
+                  when 'n' =>
+                     Last_Stored := First_Stored;
+                     Storing (Last_Stored) := 'n';
+                     Ptr := Ptr + 1;
+
+                     if Ptr <= Max
+                       and then Switch_Chars (Ptr) in '1' .. '2'
+                     then
+                        Last_Stored := Last_Stored + 1;
+                        Storing (Last_Stored) := Switch_Chars (Ptr);
+                        Ptr := Ptr + 1;
+                     end if;
+
+                     Add_Switch_Component
+                       (Storing (Storing'First .. Last_Stored));
+
+                  --  -gnato may be -gnatox or -gnatoxx, with x=0/1/2/3
+
+                  when 'o' =>
+                     Last_Stored := First_Stored;
+                     Storing (Last_Stored) := 'o';
+                     Ptr := Ptr + 1;
+
+                     if Ptr <= Max
+                       and then Switch_Chars (Ptr) in '0' .. '3'
+                     then
+                        Last_Stored := Last_Stored + 1;
+                        Storing (Last_Stored) := Switch_Chars (Ptr);
+                        Ptr := Ptr + 1;
+
+                        if Ptr <= Max
+                          and then Switch_Chars (Ptr) in '0' .. '3'
+                        then
+                           Last_Stored := Last_Stored + 1;
+                           Storing (Last_Stored) := Switch_Chars (Ptr);
+                           Ptr := Ptr + 1;
+                        end if;
+                     end if;
+
+                     Add_Switch_Component
+                       (Storing (Storing'First .. Last_Stored));
+
                   --  -gnatR may be followed by '0', '1', '2' or '3',
                   --  then by 's'
 
@@ -548,6 +616,58 @@ package body Switch.M is
                         Ptr := Ptr + 1;
                      end if;
 
+                     --  -gnat12
+
+                  when '1' =>
+                     Last_Stored := First_Stored;
+                     Storing (Last_Stored) := C;
+                     Ptr := Ptr + 1;
+
+                     if Ptr /= Max or else Switch_Chars (Ptr) /= '2' then
+
+                        --  Invalid switch
+
+                        Last := 0;
+                        return;
+
+                     else
+                        Last_Stored := Last_Stored + 1;
+                        Storing (Last_Stored) := '2';
+                        Add_Switch_Component
+                          (Storing (Storing'First .. Last_Stored));
+                        Ptr := Ptr + 1;
+                     end if;
+
+                     --  -gnat2005 -gnat2012
+
+                  when '2' =>
+                     if Ptr + 3 /= Max then
+                        Last := 0;
+                        return;
+
+                     elsif Switch_Chars (Ptr + 1 .. Ptr + 3) = "005" then
+                        Last_Stored := First_Stored + 3;
+                        Storing (First_Stored .. Last_Stored) := "2005";
+                        Add_Switch_Component
+                          (Storing (Storing'First .. Last_Stored));
+                        Ptr := Max + 1;
+
+                     elsif Switch_Chars (Ptr + 1 .. Ptr + 3) = "012" then
+                        Last_Stored := First_Stored + 3;
+                        Storing (First_Stored .. Last_Stored) := "2012";
+                        Add_Switch_Component
+                          (Storing (Storing'First .. Last_Stored));
+                        Ptr := Max + 1;
+
+                     else
+
+                        --  Invalid switch
+
+                        Last := 0;
+                        return;
+
+                     end if;
+
                   --  -gnat83
 
                   when '8' =>
@@ -602,7 +722,7 @@ package body Switch.M is
    ------------------------
 
    procedure Scan_Make_Switches
-     (Project_Node_Tree : Prj.Tree.Project_Node_Tree_Ref;
+     (Env               : in out Prj.Tree.Environment;
       Switch_Chars      : String;
       Success           : out Boolean)
    is
@@ -667,7 +787,7 @@ package body Switch.M is
            and then Switch_Chars (Ptr .. Ptr + 1) = "aP"
          then
             Add_Directories
-              (Project_Node_Tree.Project_Path,
+              (Env.Project_Path,
                Switch_Chars (Ptr + 2 .. Switch_Chars'Last));
 
          elsif C = 'v' and then Switch_Chars'Length = 3 then

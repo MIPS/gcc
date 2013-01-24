@@ -1,6 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001, 2002, 2004, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -92,41 +91,21 @@ struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 /* The following function does something real, but only in Objective-C++.  */
 
 tree
-objcp_tsubst_copy_and_build (tree t ATTRIBUTE_UNUSED,
-			     tree args ATTRIBUTE_UNUSED,
-			     tsubst_flags_t complain ATTRIBUTE_UNUSED,
-			     tree in_decl ATTRIBUTE_UNUSED,
-			     bool function_p ATTRIBUTE_UNUSED)
+objcp_tsubst_copy_and_build (tree /*t*/,
+			     tree /*args*/,
+			     tsubst_flags_t /*complain*/,
+			     tree /*in_decl*/,
+			     bool /*function_p*/)
 {
   return NULL_TREE;
 }
 
-
 static void
 cp_init_ts (void)
 {
-  tree_contains_struct[NAMESPACE_DECL][TS_DECL_NON_COMMON] = 1;
-  tree_contains_struct[USING_DECL][TS_DECL_NON_COMMON] = 1;
-  tree_contains_struct[TEMPLATE_DECL][TS_DECL_NON_COMMON] = 1;
-
-  tree_contains_struct[NAMESPACE_DECL][TS_DECL_WITH_VIS] = 1;
-  tree_contains_struct[USING_DECL][TS_DECL_WITH_VIS] = 1;
-  tree_contains_struct[TEMPLATE_DECL][TS_DECL_WITH_VIS] = 1;
-
-  tree_contains_struct[NAMESPACE_DECL][TS_DECL_WRTL] = 1;
-  tree_contains_struct[USING_DECL][TS_DECL_WRTL] = 1;
-  tree_contains_struct[TEMPLATE_DECL][TS_DECL_WRTL] = 1;
-
-  tree_contains_struct[NAMESPACE_DECL][TS_DECL_COMMON] = 1;
-  tree_contains_struct[USING_DECL][TS_DECL_COMMON] = 1;
-  tree_contains_struct[TEMPLATE_DECL][TS_DECL_COMMON] = 1;
-
-  tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
-  tree_contains_struct[USING_DECL][TS_DECL_MINIMAL] = 1;
-  tree_contains_struct[TEMPLATE_DECL][TS_DECL_MINIMAL] = 1;
+  cp_common_init_ts ();
 
   init_shadowed_var_for_decl ();
-
 }
 
 static const char *
@@ -135,14 +114,14 @@ cxx_dwarf_name (tree t, int verbosity)
   gcc_assert (DECL_P (t));
 
   if (DECL_NAME (t)
-      && (ANON_AGGRNAME_P (DECL_NAME (t)) || LAMBDANAME_P (DECL_NAME (t))))
+      && (ANON_AGGRNAME_P (DECL_NAME (t)) || LAMBDA_TYPE_P (t)))
     return NULL;
   if (verbosity >= 2)
-    return decl_as_string (t,
-			   TFF_DECL_SPECIFIERS | TFF_UNQUALIFIED_NAME
-			   | TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS);
+    return decl_as_dwarf_string (t,
+                                 TFF_DECL_SPECIFIERS | TFF_UNQUALIFIED_NAME
+                                 | TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS);
 
-  return cxx_printable_name (t, verbosity);
+  return lang_decl_dwarf_name (t, verbosity, false);
 }
 
 static enum classify_record

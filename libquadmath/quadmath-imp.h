@@ -27,12 +27,26 @@ Boston, MA 02110-1301, USA.  */
 #include "config.h"
 
 
+/* Under IEEE 754, an architecture may determine tininess of
+   floating-point results either "before rounding" or "after
+   rounding", but must do so in the same way for all operations
+   returning binary results.  Define TININESS_AFTER_ROUNDING to 1 for
+   "after rounding" architectures, 0 for "before rounding"
+   architectures.  */
+
+#define TININESS_AFTER_ROUNDING   1
+
+
 /* Prototypes for internal functions.  */
 extern int32_t __quadmath_rem_pio2q (__float128, __float128 *);
 extern void __quadmath_kernel_sincosq (__float128, __float128, __float128 *,
 				       __float128 *, int);
 extern __float128 __quadmath_kernel_sinq (__float128, __float128, int);
 extern __float128 __quadmath_kernel_cosq (__float128, __float128);
+extern __float128 __quadmath_x2y2m1q (__float128 x, __float128 y);
+extern int __quadmath_isinf_nsq (__float128 x);
+
+
 
 
 
@@ -48,6 +62,11 @@ typedef union
   __float128 value;
 
   struct
+#ifdef __MINGW32__
+  /* On mingw targets the ms-bitfields option is active by default.
+     Therefore enforce gnu-bitfield style.  */
+  __attribute__ ((gcc_struct))
+#endif
   {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     unsigned negative:1;
@@ -89,6 +108,10 @@ typedef union
   } words32;
 
   struct
+#ifdef __MINGW32__
+  /* Make sure we are using gnu-style bitfield handling.  */
+  __attribute__ ((gcc_struct))
+#endif
   {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     unsigned negative:1;

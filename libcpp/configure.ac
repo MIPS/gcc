@@ -17,14 +17,6 @@ AC_PROG_RANLIB
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
 
-# See if we are building gcc with C++.
-# Do this early so setting lang to C++ affects following tests
-AC_ARG_ENABLE(build-with-cxx,
-[  --enable-build-with-cxx build with C++ compiler instead of C compiler],
-ENABLE_BUILD_WITH_CXX=$enableval,
-ENABLE_BUILD_WITH_CXX=no)
-AC_SUBST(ENABLE_BUILD_WITH_CXX)
-
 MISSING=`cd $ac_aux_dir && ${PWDCMD-pwd}`/missing
 AC_CHECK_PROGS([ACLOCAL], [aclocal], [$MISSING aclocal])
 AC_CHECK_PROGS([AUTOCONF], [autoconf], [$MISSING autoconf])
@@ -33,11 +25,15 @@ AC_CHECK_PROGS([AUTOHEADER], [autoheader], [$MISSING autoheader])
 # Figure out what compiler warnings we can enable.
 # See config/warnings.m4 for details.
 
-ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wwrite-strings \
+ACX_PROG_CC_WARNING_OPTS([-W -Wall -Wno-narrowing -Wwrite-strings \
 			  -Wmissing-format-attribute], [warn])
 ACX_PROG_CC_WARNING_OPTS([-Wstrict-prototypes -Wmissing-prototypes \
 			  -Wold-style-definition -Wc++-compat], [c_warn])
 ACX_PROG_CC_WARNING_ALMOST_PEDANTIC([-Wno-long-long])
+
+# Disable exceptions and RTTI if building with g++
+ACX_PROG_CC_WARNING_OPTS(
+       m4_quote(m4_do([-fno-exceptions -fno-rtti])), [noexception_flags])
 
 # Only enable with --enable-werror-always until existing warnings are
 # corrected.
@@ -45,15 +41,11 @@ ACX_PROG_CC_WARNINGS_ARE_ERRORS([manual])
 
 # Dependency checking.
 ZW_CREATE_DEPDIR
-if test "$ENABLE_BUILD_WITH_CXX" = "no"; then
-ZW_PROG_COMPILER_DEPENDENCIES([CC])
-else
 AC_LANG_PUSH([C++])
 AC_COMPILE_IFELSE([[int i;]], [],
 		  [AC_MSG_ERROR([C++ compiler missing or inoperational])])
 AC_LANG_POP([C++])
 ZW_PROG_COMPILER_DEPENDENCIES([CXX])
-fi
 
 # Checks for header files.
 AC_HEADER_TIME
@@ -102,7 +94,11 @@ if test $ac_cv_type_uchar = yes; then
   [Define if <sys/types.h> defines \`uchar'.])
 fi
 
+# g++ on Solaris 10+ defines _XOPEN_SOURCE=600, which exposes a different
+# iconv() prototype.
+AC_LANG_PUSH([C++])
 AM_ICONV
+AC_LANG_POP([C++])
 
 # More defines and substitutions.
 PACKAGE="$PACKAGE_TARNAME"
@@ -136,17 +132,26 @@ if test $enable_checking != no ; then
 [Define if you want more run-time sanity checks.])
 fi
 
+AC_ARG_ENABLE(canonical-system-headers,
+[  --enable-canonical-system-headers
+                          enable or disable system headers canonicalization],
+[],
+enable_canonical_system_headers=yes)
+if test $enable_canonical_system_headers != no; then
+  AC_DEFINE(ENABLE_CANONICAL_SYSTEM_HEADERS,
+            1, [Define to enable system headers canonicalization.])
+fi
+
 m4_changequote(,)
 case $target in
+	aarch64*-*-* | \
 	alpha*-*-* | \
 	arm*-*-*eabi* | \
 	arm*-*-symbianelf* | \
 	x86_64-*-* | \
 	ia64-*-* | \
 	hppa*64*-*-* | \
-	i[34567]86-*-darwin* | \
-	i[34567]86-*-solaris2.1[0-9]* | \
-	i[34567]86-w64-mingw* | \
+	i[34567]86-*-* | x86_64-*-solaris2.1[0-9]* | \
 	mips*-*-* | \
 	mmix-*-* | \
 	powerpc*-*-* | \
@@ -154,15 +159,9 @@ case $target in
 	s390*-*-* | \
 	sparc*-*-* | \
 	spu-*-* | \
-	sh[123456789lbe]*-*-* | sh-*-*)
+	sh[123456789lbe]*-*-* | sh-*-* | \
+	tilegx-*-* | tilepro-*-* )
 		need_64bit_hwint=yes ;;
-	i[34567]86-*-linux*)
-		if test "x$enable_targets" = xall; then
-			need_64bit_hwint=yes
-		else
-			need_64bit_hwint=no
-		fi
-		;;
 	*)
 		need_64bit_hwint=no ;;
 esac

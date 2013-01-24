@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -50,16 +50,6 @@ package body Ada.Strings.Wide_Wide_Unbounded is
    --  align the returned memory on the maximum alignment as malloc does not
    --  know the target alignment.
 
-   procedure Sync_Add_And_Fetch
-     (Ptr   : access Interfaces.Unsigned_32;
-      Value : Interfaces.Unsigned_32);
-   pragma Import (Intrinsic, Sync_Add_And_Fetch, "__sync_add_and_fetch_4");
-
-   function Sync_Sub_And_Fetch
-     (Ptr   : access Interfaces.Unsigned_32;
-      Value : Interfaces.Unsigned_32) return Interfaces.Unsigned_32;
-   pragma Import (Intrinsic, Sync_Sub_And_Fetch, "__sync_sub_and_fetch_4");
-
    function Aligned_Max_Length (Max_Length : Natural) return Natural;
    --  Returns recommended length of the shared string which is greater or
    --  equal to specified length. Calculation take in sense alignment of
@@ -80,25 +70,25 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       DR : Shared_Wide_Wide_String_Access;
 
    begin
-      --  Result is an empty string, reuse shared empty string.
+      --  Result is an empty string, reuse shared empty string
 
       if DL = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Left string is empty, return Right string.
+      --  Left string is empty, return Rigth string
 
       elsif LR.Last = 0 then
          Reference (RR);
          DR := RR;
 
-      --  Right string is empty, return Left string.
+      --  Right string is empty, return Left string
 
       elsif RR.Last = 0 then
          Reference (LR);
          DR := LR;
 
-      --  Otherwise, allocate new shared string and fill data.
+      --  Overwise, allocate new shared string and fill data
 
       else
          DR := Allocate (LR.Last + RR.Last);
@@ -119,19 +109,19 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       DR : Shared_Wide_Wide_String_Access;
 
    begin
-      --  Result is an empty string, reuse shared empty string.
+      --  Result is an empty string, reuse shared empty string
 
       if DL = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Right is an empty string, return Left string.
+      --  Right is an empty string, return Left string
 
       elsif Right'Length = 0 then
          Reference (LR);
          DR := LR;
 
-      --  Otherwise, allocate new shared string and fill it.
+      --  Otherwise, allocate new shared string and fill it
 
       else
          DR := Allocate (DL);
@@ -152,19 +142,19 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       DR : Shared_Wide_Wide_String_Access;
 
    begin
-      --  Result is an empty string, reuse shared one.
+      --  Result is an empty string, reuse shared one
 
       if DL = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Left is empty string, return Right string.
+      --  Left is empty string, return Right string
 
       elsif Left'Length = 0 then
          Reference (RR);
          DR := RR;
 
-      --  Otherwise, allocate new shared string and fill it.
+      --  Otherwise, allocate new shared string and fill it
 
       else
          DR := Allocate (DL);
@@ -221,13 +211,13 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       DR : Shared_Wide_Wide_String_Access;
 
    begin
-      --  Result is an empty string, reuse shared empty string.
+      --  Result is an empty string, reuse shared empty string
 
       if Left = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Otherwise, allocate new shared string and fill it.
+      --  Otherwise, allocate new shared string and fill it
 
       else
          DR := Allocate (Left);
@@ -251,13 +241,13 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       K  : Positive;
 
    begin
-      --  Result is an empty string, reuse shared empty string.
+      --  Result is an empty string, reuse shared empty string
 
       if DL = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Otherwise, allocate new shared string and fill it.
+      --  Otherwise, allocate new shared string and fill it
 
       else
          DR := Allocate (DL);
@@ -284,19 +274,19 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       K  : Positive;
 
    begin
-      --  Result is an empty string, reuse shared empty string.
+      --  Result is an empty string, reuse shared empty string
 
       if DL = 0 then
          Reference (Empty_Shared_Wide_Wide_String'Access);
          DR := Empty_Shared_Wide_Wide_String'Access;
 
-      --  Coefficient is one, just return string itself.
+      --  Coefficient is one, just return string itself
 
       elsif Left = 1 then
          Reference (RR);
          DR := RR;
 
-      --  Otherwise, allocate new shared string and fill it.
+      --  Otherwise, allocate new shared string and fill it
 
       else
          DR := Allocate (DL);
@@ -393,7 +383,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
 
    begin
       return LR = RR or else LR.Data (1 .. LR.Last) = RR.Data (1 .. RR.Last);
-      --  LR = RR means two strings shares shared string, thus they are equal.
+      --  LR = RR means two strings shares shared string, thus they are equal
    end "=";
 
    function "="
@@ -496,12 +486,11 @@ package body Ada.Strings.Wide_Wide_Unbounded is
 
    function Aligned_Max_Length (Max_Length : Natural) return Natural is
       Static_Size  : constant Natural :=
-                       Empty_Shared_Wide_Wide_String'Size
-                         / Standard'Storage_Unit;
+        Empty_Shared_Wide_Wide_String'Size / Standard'Storage_Unit;
       --  Total size of all static components
 
       Element_Size : constant Natural :=
-                       Wide_Wide_Character'Size / Standard'Storage_Unit;
+        Wide_Wide_Character'Size / Standard'Storage_Unit;
 
    begin
       return
@@ -638,12 +627,10 @@ package body Ada.Strings.Wide_Wide_Unbounded is
 
    function Can_Be_Reused
      (Item   : Shared_Wide_Wide_String_Access;
-      Length : Natural) return Boolean
-   is
-      use Interfaces;
+      Length : Natural) return Boolean is
    begin
       return
-        Item.Counter = 1
+        System.Atomic_Counters.Is_One (Item.Counter)
           and then Item.Max_Length >= Length
           and then Item.Max_Length <=
                      Aligned_Max_Length (Length + Length / Growth_Factor);
@@ -657,8 +644,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
      (Source  : Unbounded_Wide_Wide_String;
       Pattern : Wide_Wide_String;
       Mapping : Wide_Wide_Maps.Wide_Wide_Character_Mapping :=
-                  Wide_Wide_Maps.Identity)
-      return Natural
+        Wide_Wide_Maps.Identity) return Natural
    is
       SR : constant Shared_Wide_Wide_String_Access := Source.Reference;
    begin
@@ -901,7 +887,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
          if Count < SR.Last then
             DR.Data (1 .. Count) := SR.Data (1 .. Count);
 
-         --  Length of the source string is less then requested, copy all
+         --  Length of the source string is less than requested, copy all
          --  contents and fill others by Pad character.
 
          else
@@ -955,13 +941,13 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       else
          DR := Allocate (Count);
 
-         --  Length of the source string is greater then requested, copy
+         --  Length of the source string is greater than requested, copy
          --  corresponding slice.
 
          if Count < SR.Last then
             DR.Data (1 .. Count) := SR.Data (1 .. Count);
 
-         --  Length of the source string is less the requested, copy all
+         --  Length of the source string is less than requested, copy all
          --  exists data and fill others by Pad character.
 
          else
@@ -987,8 +973,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       Pattern : Wide_Wide_String;
       Going   : Strings.Direction := Strings.Forward;
       Mapping : Wide_Wide_Maps.Wide_Wide_Character_Mapping :=
-                  Wide_Wide_Maps.Identity)
-      return Natural
+        Wide_Wide_Maps.Identity) return Natural
    is
       SR : constant Shared_Wide_Wide_String_Access := Source.Reference;
    begin
@@ -1026,8 +1011,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       From    : Positive;
       Going   : Direction := Forward;
       Mapping : Wide_Wide_Maps.Wide_Wide_Character_Mapping :=
-                  Wide_Wide_Maps.Identity)
-      return Natural
+        Wide_Wide_Maps.Identity) return Natural
    is
       SR : constant Shared_Wide_Wide_String_Access := Source.Reference;
    begin
@@ -1304,7 +1288,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
 
    procedure Reference (Item : not null Shared_Wide_Wide_String_Access) is
    begin
-      Sync_Add_And_Fetch (Item.Counter'Access, 1);
+      System.Atomic_Counters.Increment (Item.Counter);
    end Reference;
 
    ---------------------
@@ -1320,7 +1304,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       DR : Shared_Wide_Wide_String_Access;
 
    begin
-      --  Bounds check.
+      --  Bounds check
 
       if Index <= SR.Last then
 
@@ -1369,7 +1353,9 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       --  Do replace operation when removed slice is not empty
 
       if High >= Low then
-         DL := By'Length + SR.Last + Low - High - 1;
+         DL := By'Length + SR.Last + Low - Integer'Min (High, SR.Last) - 1;
+         --  This is the number of characters remaining in the string after
+         --  replacing the slice.
 
          --  Result is empty string, reuse empty shared string
 
@@ -1416,7 +1402,9 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       --  Do replace operation only when replaced slice is not empty
 
       if High >= Low then
-         DL := By'Length + SR.Last + Low - High - 1;
+         DL := By'Length + SR.Last + Low - Integer'Min (High, SR.Last) - 1;
+         --  This is the number of characters remaining in the string after
+         --  replacing the slice.
 
          --  Result is empty string, reuse empty shared string
 
@@ -2109,7 +2097,6 @@ package body Ada.Strings.Wide_Wide_Unbounded is
    -----------------
 
    procedure Unreference (Item : not null Shared_Wide_Wide_String_Access) is
-      use Interfaces;
 
       procedure Free is
         new Ada.Unchecked_Deallocation
@@ -2118,7 +2105,7 @@ package body Ada.Strings.Wide_Wide_Unbounded is
       Aux : Shared_Wide_Wide_String_Access := Item;
 
    begin
-      if Sync_Sub_And_Fetch (Aux.Counter'Access, 1) = 0 then
+      if System.Atomic_Counters.Decrement (Aux.Counter) then
 
          --  Reference counter of Empty_Shared_Wide_Wide_String must never
          --  reach zero.

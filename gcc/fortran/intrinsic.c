@@ -1,8 +1,6 @@
 /* Build up a list of intrinsic subroutines and functions for the
    name-resolution stage.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -23,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "intrinsic.h"
@@ -51,7 +50,7 @@ sizing;
 
 enum klass
 { CLASS_IMPURE = 0, CLASS_PURE, CLASS_ELEMENTAL,
-  CLASS_INQUIRY, CLASS_TRANSFORMATIONAL };
+  CLASS_INQUIRY, CLASS_TRANSFORMATIONAL, CLASS_ATOMIC };
 
 #define ACTUAL_NO	0
 #define ACTUAL_YES	1
@@ -901,9 +900,9 @@ gfc_intrinsic_actual_ok (const char *name, const bool subroutine_flag)
 }
 
 
-/* Given a symbol, find out if it is (and is to be treated) an intrinsic.  If
-   it's name refers to an intrinsic but this intrinsic is not included in the
-   selected standard, this returns FALSE and sets the symbol's external
+/* Given a symbol, find out if it is (and is to be treated as) an intrinsic.
+   If its name refers to an intrinsic, but this intrinsic is not included in
+   the selected standard, this returns FALSE and sets the symbol's external
    attribute.  */
 
 bool
@@ -912,10 +911,13 @@ gfc_is_intrinsic (gfc_symbol* sym, int subroutine_flag, locus loc)
   gfc_intrinsic_sym* isym;
   const char* symstd;
 
-  /* If INTRINSIC/EXTERNAL state is already known, return.  */
+  /* If INTRINSIC attribute is already known, return.  */
   if (sym->attr.intrinsic)
     return true;
-  if (sym->attr.external)
+
+  /* Check for attributes which prevent the symbol from being INTRINSIC.  */
+  if (sym->attr.external || sym->attr.contained
+      || sym->attr.if_source == IFSRC_IFBODY)
     return false;
 
   if (subroutine_flag)
@@ -1557,8 +1559,8 @@ add_functions (void)
 
   make_generic ("dprod", GFC_ISYM_DPROD, GFC_STD_F77);
 
-  add_sym_1 ("dreal", GFC_ISYM_REAL, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dd, GFC_STD_GNU,
-	     NULL, NULL, NULL,
+  add_sym_1 ("dreal", GFC_ISYM_REAL, CLASS_ELEMENTAL, ACTUAL_NO,
+	     BT_REAL, dd, GFC_STD_GNU, NULL, gfc_simplify_dreal, NULL,
 	     a, BT_COMPLEX, dd, REQUIRED);
 
   make_generic ("dreal", GFC_ISYM_REAL, GFC_STD_GNU);
@@ -2358,7 +2360,8 @@ add_functions (void)
 
   make_generic ("null", GFC_ISYM_NULL, GFC_STD_F95);
 
-  add_sym_0 ("num_images", GFC_ISYM_NUMIMAGES, CLASS_INQUIRY, ACTUAL_NO, BT_INTEGER, di, GFC_STD_F2008,
+  add_sym_0 ("num_images", GFC_ISYM_NUM_IMAGES, CLASS_INQUIRY, ACTUAL_NO,
+	     BT_INTEGER, di, GFC_STD_F2008,
 	     NULL, gfc_simplify_num_images, NULL);
 
   add_sym_3 ("pack", GFC_ISYM_PACK, CLASS_TRANSFORMATIONAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_F95,
@@ -2431,6 +2434,11 @@ add_functions (void)
 	     x, BT_REAL, dr, REQUIRED);
 
   make_generic ("range", GFC_ISYM_RANGE, GFC_STD_F95);
+
+  add_sym_1 ("rank", GFC_ISYM_RANK, CLASS_INQUIRY, ACTUAL_NO, BT_INTEGER, di,
+	     GFC_STD_F2008_TS, gfc_check_rank, gfc_simplify_rank, gfc_resolve_rank,
+	     a, BT_REAL, dr, REQUIRED);
+  make_generic ("rank", GFC_ISYM_RANK, GFC_STD_F2008_TS);
 
   add_sym_2 ("real", GFC_ISYM_REAL, CLASS_ELEMENTAL, ACTUAL_NO, BT_REAL, dr, GFC_STD_F77,
 	     gfc_check_real, gfc_simplify_real, gfc_resolve_real,
@@ -2588,7 +2596,7 @@ add_functions (void)
 
   add_sym_2 ("signal", GFC_ISYM_SIGNAL, CLASS_IMPURE, ACTUAL_NO, BT_INTEGER,
 	     di, GFC_STD_GNU, gfc_check_signal, NULL, gfc_resolve_signal,
-	     num, BT_INTEGER, di, REQUIRED, han, BT_UNKNOWN, 0, REQUIRED);
+	     num, BT_INTEGER, di, REQUIRED, han, BT_VOID, 0, REQUIRED);
 
   make_generic ("signal", GFC_ISYM_SIGNAL, GFC_STD_GNU);
 
@@ -2629,6 +2637,14 @@ add_functions (void)
 	     kind, BT_INTEGER, di, OPTIONAL);
 
   make_generic ("size", GFC_ISYM_SIZE, GFC_STD_F95);
+
+  /* Obtain the stride for a given dimensions; to be used only internally.
+     "make_from_module" makes inaccessible for external users.  */
+  add_sym_2 (GFC_PREFIX ("stride"), GFC_ISYM_STRIDE, CLASS_INQUIRY, ACTUAL_NO,
+	     BT_INTEGER, gfc_index_integer_kind, GFC_STD_GNU,
+	     NULL, NULL, gfc_resolve_stride,
+	     ar, BT_REAL, dr, REQUIRED, dm, BT_INTEGER, ii, OPTIONAL);
+  make_from_module();
 
   add_sym_1 ("sizeof", GFC_ISYM_SIZEOF, CLASS_IMPURE, ACTUAL_NO, BT_INTEGER, ii,
 	     GFC_STD_GNU, gfc_check_sizeof, NULL, NULL,
@@ -2873,6 +2889,20 @@ add_subroutines (void)
   add_sym_0s ("abort", GFC_ISYM_ABORT, GFC_STD_GNU, NULL);
 
   make_noreturn();
+
+  add_sym_2s ("atomic_define", GFC_ISYM_ATOMIC_DEF, CLASS_ATOMIC,
+	      BT_UNKNOWN, 0, GFC_STD_F2008,
+	      gfc_check_atomic_def, NULL, gfc_resolve_atomic_def,
+	      "atom", BT_INTEGER, di, REQUIRED, INTENT_OUT,
+	      "value", BT_INTEGER, di, REQUIRED, INTENT_IN);
+
+  add_sym_2s ("atomic_ref", GFC_ISYM_ATOMIC_REF, CLASS_ATOMIC,
+	      BT_UNKNOWN, 0, GFC_STD_F2008,
+	      gfc_check_atomic_ref, NULL, gfc_resolve_atomic_ref,
+	      "value", BT_INTEGER, di, REQUIRED, INTENT_OUT,
+	      "atom", BT_INTEGER, di, REQUIRED, INTENT_IN);
+
+  add_sym_0s ("backtrace", GFC_ISYM_BACKTRACE, GFC_STD_GNU, NULL);
 
   add_sym_1s ("cpu_time", GFC_ISYM_CPU_TIME, CLASS_IMPURE, BT_UNKNOWN, 0,
 	      GFC_STD_F95, gfc_check_cpu_time, NULL, gfc_resolve_cpu_time,
@@ -3407,9 +3437,9 @@ gfc_intrinsic_init_1 (void)
 void
 gfc_intrinsic_done_1 (void)
 {
-  gfc_free (functions);
-  gfc_free (conversion);
-  gfc_free (char_conversions);
+  free (functions);
+  free (conversion);
+  free (char_conversions);
   gfc_free_namespace (gfc_intrinsic_namespace);
 }
 
@@ -3624,8 +3654,8 @@ check_arglist (gfc_actual_arglist **ap, gfc_intrinsic_sym *sym,
 				 : NULL);
 
 	  /* No pointer arguments for intrinsics.  */
-	  if (gfc_check_vardef_context (actual->expr, false, context)
-		== FAILURE)
+	  if (gfc_check_vardef_context (actual->expr, false, false, false,
+					context) == FAILURE)
 	    return FAILURE;
 	}
     }
@@ -3971,6 +4001,10 @@ gfc_check_intrinsic_standard (const gfc_intrinsic_sym* isym,
       symstd_msg = "new in Fortran 2008";
       break;
 
+    case GFC_STD_F2008_TS:
+      symstd_msg = "new in TS 29113";
+      break;
+
     case GFC_STD_GNU:
       symstd_msg = "a GNU Fortran extension";
       break;
@@ -4060,7 +4094,7 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
        || isym->id == GFC_ISYM_CMPLX)
       && gfc_init_expr_flag
-      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Function '%s' "
+      && gfc_notify_std (GFC_STD_F2003, "Function '%s' "
 			 "as initialization expression at %L", name,
 			 &expr->where) == FAILURE)
     {
@@ -4136,7 +4170,7 @@ got_specific:
            where each argument is an initialization expression  */
 
   if (gfc_init_expr_flag && isym->elemental && flag
-      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Elemental function "
+      && gfc_notify_std (GFC_STD_F2003, "Elemental function "
 			"as initialization expression with non-integer/non-"
 		        "character arguments at %L", &expr->where) == FAILURE)
     return MATCH_ERROR;
@@ -4367,7 +4401,7 @@ gfc_convert_type_warn (gfc_expr *expr, gfc_typespec *ts, int eflag, int wflag)
 
   *expr = *new_expr;
 
-  gfc_free (new_expr);
+  free (new_expr);
   expr->ts = *ts;
 
   if (gfc_is_constant_expr (expr->value.function.actual->expr)
@@ -4436,7 +4470,7 @@ gfc_convert_chartype (gfc_expr *expr, gfc_typespec *ts)
 
   *expr = *new_expr;
 
-  gfc_free (new_expr);
+  free (new_expr);
   expr->ts = *ts;
 
   if (gfc_is_constant_expr (expr->value.function.actual->expr)
@@ -4477,7 +4511,7 @@ gfc_warn_intrinsic_shadow (const gfc_symbol* sym, bool in_module, bool func)
     return;
 
   /* Emit the warning.  */
-  if (in_module)
+  if (in_module || sym->ns->proc_name)
     gfc_warning ("'%s' declared at %L may shadow the intrinsic of the same"
 		 " name.  In order to call the intrinsic, explicit INTRINSIC"
 		 " declarations may be required.",

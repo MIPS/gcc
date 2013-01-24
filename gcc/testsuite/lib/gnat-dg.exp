@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007, 2010, 2011 Free Software Foundation, Inc.
+# Copyright (C) 2006-2013 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ proc lremove {list_variable value} {
 proc gnat-dg-test { prog do_what extra_tool_flags } {
     if { $do_what == "compile" } {
 	lappend extra_tool_flags "-c"
+	lappend extra_tool_flags "-u"
     }
     set result [gcc-dg-test-1 gnat_target_compile $prog $do_what $extra_tool_flags]
 

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +27,7 @@ with Csets;    use Csets;
 with Namet.Sp; use Namet.Sp;
 with Stylesw;  use Stylesw;
 with Uintp;    use Uintp;
+with Warnsw;   use Warnsw;
 
 with GNAT.Spelling_Checker; use GNAT.Spelling_Checker;
 
@@ -167,6 +168,43 @@ package body Util is
            ("(style) incorrect layout");
       end if;
    end Check_Bad_Layout;
+
+   --------------------------
+   -- Check_Future_Keyword --
+   --------------------------
+
+   procedure Check_Future_Keyword is
+   begin
+      --  Ada 2005 (AI-284): Compiling in Ada 95 mode we warn that INTERFACE,
+      --  OVERRIDING, and SYNCHRONIZED are new reserved words.
+
+      if Ada_Version = Ada_95
+        and then Warn_On_Ada_2005_Compatibility
+      then
+         if Token_Name = Name_Overriding
+           or else Token_Name = Name_Synchronized
+           or else (Token_Name = Name_Interface
+                     and then Prev_Token /= Tok_Pragma)
+         then
+            Error_Msg_N ("& is a reserved word in Ada 2005?y?", Token_Node);
+         end if;
+      end if;
+
+      --  Similarly, warn about Ada 2012 reserved words
+
+      if Ada_Version in Ada_95 .. Ada_2005
+        and then Warn_On_Ada_2012_Compatibility
+      then
+         if Token_Name = Name_Some then
+            Error_Msg_N ("& is a reserved word in Ada 2012?y?", Token_Node);
+         end if;
+      end if;
+
+      --  Note: we deliberately do not emit these warnings when operating in
+      --  Ada 83 mode because in that case we assume the user is building
+      --  legacy code anyway and is not interested in updating Ada versions.
+
+   end Check_Future_Keyword;
 
    --------------------------
    -- Check_Misspelling_Of --
@@ -597,6 +635,15 @@ package body Util is
 
    procedure No_Constraint is
    begin
+      --  If next token is at start of line, don't object, it seems relatively
+      --  unlikely that a constraint would be on its own starting a line.
+
+      if Token_Is_At_Start_Of_Line then
+         return;
+      end if;
+
+      --  Otherwise if we have a token that could start a constraint, object
+
       if Token in Token_Class_Consk then
          Error_Msg_SC ("constraint not allowed here");
          Discard_Junk_Node (P_Constraint_Opt);
@@ -678,20 +725,7 @@ package body Util is
 
    procedure Signal_Bad_Attribute is
    begin
-      Error_Msg_N ("unrecognized attribute&", Token_Node);
-
-      --  Check for possible misspelling
-
-      Error_Msg_Name_1 := First_Attribute_Name;
-      while Error_Msg_Name_1 <= Last_Attribute_Name loop
-         if Is_Bad_Spelling_Of (Token_Name, Error_Msg_Name_1) then
-            Error_Msg_N -- CODEFIX
-              ("\possible misspelling of %", Token_Node);
-            exit;
-         end if;
-
-         Error_Msg_Name_1 := Error_Msg_Name_1 + 1;
-      end loop;
+      Bad_Attribute (Token_Node, Token_Name, Warn => False);
    end Signal_Bad_Attribute;
 
    -----------------------------
@@ -724,5 +758,22 @@ package body Util is
    begin
       return (Token_Ptr = First_Non_Blank_Location or else Token = Tok_EOF);
    end Token_Is_At_Start_Of_Line;
+
+   -----------------------------------
+   -- Warn_If_Standard_Redefinition --
+   -----------------------------------
+
+   procedure Warn_If_Standard_Redefinition (N : Node_Id) is
+   begin
+      if Warn_On_Standard_Redefinition then
+         declare
+            C : constant Entity_Id := Current_Entity (N);
+         begin
+            if Present (C) and then Sloc (C) = Standard_Location then
+               Error_Msg_N ("redefinition of entity& in Standard?K?", N);
+            end if;
+         end;
+      end if;
+   end Warn_If_Standard_Redefinition;
 
 end Util;

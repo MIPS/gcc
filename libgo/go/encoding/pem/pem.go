@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package implements the PEM data encoding, which originated in Privacy
+// Package pem implements the PEM data encoding, which originated in Privacy
 // Enhanced Mail. The most common use of PEM encoding today is in TLS keys and
 // certificates. See RFC 1421.
 package pem
@@ -11,7 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"io"
-	"os"
+	"sort"
 )
 
 // A Block represents a PEM encoded structure.
@@ -29,9 +29,10 @@ type Block struct {
 }
 
 // getLine results the first \r\n or \n delineated line from the given byte
-// array. The line does not include the \r\n or \n. The remainder of the byte
-// array (also not including the new line bytes) is also returned and this will
-// always be smaller than the original argument.
+// array. The line does not include trailing whitespace or the trailing new
+// line bytes. The remainder of the byte array (also not including the new line
+// bytes) is also returned and this will always be smaller than the original
+// argument.
 func getLine(data []byte) (line, rest []byte) {
 	i := bytes.Index(data, []byte{'\n'})
 	var j int
@@ -44,7 +45,7 @@ func getLine(data []byte) (line, rest []byte) {
 			i--
 		}
 	}
-	return data[0:i], data[j:]
+	return bytes.TrimRight(data[0:i], " \t"), data[j:]
 }
 
 // removeWhitespace returns a copy of its input with all spaces, tab and
@@ -86,7 +87,7 @@ func Decode(data []byte) (p *Block, rest []byte) {
 
 	typeLine, rest := getLine(rest)
 	if !bytes.HasSuffix(typeLine, pemEndOfLine) {
-		goto Error
+		return decodeError(data, rest)
 	}
 	typeLine = typeLine[0 : len(typeLine)-len(pemEndOfLine)]
 
@@ -97,7 +98,7 @@ func Decode(data []byte) (p *Block, rest []byte) {
 
 	for {
 		// This loop terminates because getLine's second result is
-		// always smaller than it's argument.
+		// always smaller than its argument.
 		if len(rest) == 0 {
 			return nil, data
 		}
@@ -118,29 +119,30 @@ func Decode(data []byte) (p *Block, rest []byte) {
 
 	i := bytes.Index(rest, pemEnd)
 	if i < 0 {
-		goto Error
+		return decodeError(data, rest)
 	}
 	base64Data := removeWhitespace(rest[0:i])
 
 	p.Bytes = make([]byte, base64.StdEncoding.DecodedLen(len(base64Data)))
 	n, err := base64.StdEncoding.Decode(p.Bytes, base64Data)
 	if err != nil {
-		goto Error
+		return decodeError(data, rest)
 	}
 	p.Bytes = p.Bytes[0:n]
 
 	_, rest = getLine(rest[i+len(pemEnd):])
 
 	return
+}
 
-Error:
+func decodeError(data, rest []byte) (*Block, []byte) {
 	// If we get here then we have rejected a likely looking, but
 	// ultimately invalid PEM block. We need to start over from a new
 	// position.  We have consumed the preamble line and will have consumed
 	// any lines which could be header lines. However, a valid preamble
 	// line is not a valid header line, therefore we cannot have consumed
 	// the preamble line for the any subsequent block. Thus, we will always
-	// find any valid block, no matter what bytes preceed it.
+	// find any valid block, no matter what bytes precede it.
 	//
 	// For example, if the input is
 	//
@@ -154,11 +156,11 @@ Error:
 	//
 	// we've failed to parse using the first BEGIN line
 	// and now will try again, using the second BEGIN line.
-	p, rest = Decode(rest)
+	p, rest := Decode(rest)
 	if p == nil {
 		rest = data
 	}
-	return
+	return p, rest
 }
 
 const pemLineLength = 64
@@ -169,7 +171,7 @@ type lineBreaker struct {
 	out  io.Writer
 }
 
-func (l *lineBreaker) Write(b []byte) (n int, err os.Error) {
+func (l *lineBreaker) Write(b []byte) (n int, err error) {
 	if l.used+len(b) < pemLineLength {
 		copy(l.line[l.used:], b)
 		l.used += len(b)
@@ -196,7 +198,7 @@ func (l *lineBreaker) Write(b []byte) (n int, err os.Error) {
 	return l.Write(b[excess:])
 }
 
-func (l *lineBreaker) Close() (err os.Error) {
+func (l *lineBreaker) Close() (err error) {
 	if l.used > 0 {
 		_, err = l.out.Write(l.line[0:l.used])
 		if err != nil {
@@ -208,26 +210,46 @@ func (l *lineBreaker) Close() (err os.Error) {
 	return
 }
 
-func Encode(out io.Writer, b *Block) (err os.Error) {
-	_, err = out.Write(pemStart[1:])
-	if err != nil {
-		return
+func writeHeader(out io.Writer, k, v string) error {
+	_, err := out.Write([]byte(k + ": " + v + "\n"))
+	return err
+}
+
+func Encode(out io.Writer, b *Block) error {
+	if _, err := out.Write(pemStart[1:]); err != nil {
+		return err
 	}
-	_, err = out.Write([]byte(b.Type + "-----\n"))
-	if err != nil {
-		return
+	if _, err := out.Write([]byte(b.Type + "-----\n")); err != nil {
+		return err
 	}
 
 	if len(b.Headers) > 0 {
-		for k, v := range b.Headers {
-			_, err = out.Write([]byte(k + ": " + v + "\n"))
-			if err != nil {
-				return
+		const procType = "Proc-Type"
+		h := make([]string, 0, len(b.Headers))
+		hasProcType := false
+		for k := range b.Headers {
+			if k == procType {
+				hasProcType = true
+				continue
+			}
+			h = append(h, k)
+		}
+		// The Proc-Type header must be written first.
+		// See RFC 1421, section 4.6.1.1
+		if hasProcType {
+			if err := writeHeader(out, procType, b.Headers[procType]); err != nil {
+				return err
 			}
 		}
-		_, err = out.Write([]byte{'\n'})
-		if err != nil {
-			return
+		// For consistency of output, write other headers sorted by key.
+		sort.Strings(h)
+		for _, k := range h {
+			if err := writeHeader(out, k, b.Headers[k]); err != nil {
+				return err
+			}
+		}
+		if _, err := out.Write([]byte{'\n'}); err != nil {
+			return err
 		}
 	}
 
@@ -235,23 +257,21 @@ func Encode(out io.Writer, b *Block) (err os.Error) {
 	breaker.out = out
 
 	b64 := base64.NewEncoder(base64.StdEncoding, &breaker)
-	_, err = b64.Write(b.Bytes)
-	if err != nil {
-		return
+	if _, err := b64.Write(b.Bytes); err != nil {
+		return err
 	}
 	b64.Close()
 	breaker.Close()
 
-	_, err = out.Write(pemEnd[1:])
-	if err != nil {
-		return
+	if _, err := out.Write(pemEnd[1:]); err != nil {
+		return err
 	}
-	_, err = out.Write([]byte(b.Type + "-----\n"))
-	return
+	_, err := out.Write([]byte(b.Type + "-----\n"))
+	return err
 }
 
 func EncodeToMemory(b *Block) []byte {
-	buf := bytes.NewBuffer(nil)
-	Encode(buf, b)
+	var buf bytes.Buffer
+	Encode(&buf, b)
 	return buf.Bytes()
 }

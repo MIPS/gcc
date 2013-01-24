@@ -1,7 +1,7 @@
 // Queue implementation -*- C++ -*-
 
 // Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-// 2010, 2011
+// 2010, 2011, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -70,6 +70,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    *  @ingroup sequences
    *
+   *  @tparam _Tp  Type of element.
+   *  @tparam _Sequence  Type of underlying sequence, defaults to deque<_Tp>.
+   *
    *  Meets many of the requirements of a
    *  <a href="tables.html#65">container</a>,
    *  but does not define anything to do with iterators.  Very few of the
@@ -128,7 +131,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /**
        *  @brief  Default constructor creates no elements.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus < 201103L
       explicit
       queue(const _Sequence& __c = _Sequence())
       : c(__c) { }
@@ -200,7 +203,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Add data to the end of the %queue.
-       *  @param  x  Data to be added.
+       *  @param  __x  Data to be added.
        *
        *  This is a typical %queue operation.  The function creates an
        *  element at the end of the %queue and assigns the given data
@@ -211,7 +214,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       push(const value_type& __x)
       { c.push_back(__x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       void
       push(value_type&& __x)
       { c.push_back(std::move(__x)); }
@@ -240,9 +243,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	c.pop_front();
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       void
       swap(queue& __q)
+      noexcept(noexcept(swap(c, __q.c)))
       {
 	using std::swap;
 	swap(c, __q.c);
@@ -252,8 +256,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief  Queue equality comparison.
-   *  @param  x  A %queue.
-   *  @param  y  A %queue of the same type as @a x.
+   *  @param  __x  A %queue.
+   *  @param  __y  A %queue of the same type as @a __x.
    *  @return  True iff the size and elements of the queues are equal.
    *
    *  This is an equivalence relation.  Complexity and semantics depend on the
@@ -268,9 +272,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief  Queue ordering relation.
-   *  @param  x  A %queue.
-   *  @param  y  A %queue of the same type as @a x.
-   *  @return  True iff @a x is lexicographically less than @a y.
+   *  @param  __x  A %queue.
+   *  @param  __y  A %queue of the same type as @a x.
+   *  @return  True iff @a __x is lexicographically less than @a __y.
    *
    *  This is an total ordering relation.  Complexity and semantics
    *  depend on the underlying sequence type, but the expected rules
@@ -308,10 +312,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator>=(const queue<_Tp, _Seq>& __x, const queue<_Tp, _Seq>& __y)
     { return !(__x < __y); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp, typename _Seq>
     inline void
     swap(queue<_Tp, _Seq>& __x, queue<_Tp, _Seq>& __y)
+    noexcept(noexcept(__x.swap(__y)))
     { __x.swap(__y); }
 
   template<typename _Tp, typename _Seq, typename _Alloc>
@@ -323,6 +328,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @brief  A standard container automatically sorting its contents.
    *
    *  @ingroup sequences
+   *
+   *  @tparam _Tp  Type of element.
+   *  @tparam _Sequence  Type of underlying sequence, defaults to vector<_Tp>.
+   *  @tparam _Compare  Comparison function object type, defaults to 
+   *                    less<_Sequence::value_type>.
    *
    *  This is not a true container, but an @e adaptor.  It holds
    *  another container, and provides a wrapper interface to that
@@ -383,7 +393,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /**
        *  @brief  Default constructor creates no elements.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus < 201103L
       explicit
       priority_queue(const _Compare& __x = _Compare(),
 		     const _Sequence& __s = _Sequence())
@@ -405,20 +415,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Builds a %queue from a range.
-       *  @param  first  An input iterator.
-       *  @param  last  An input iterator.
-       *  @param  x  A comparison functor describing a strict weak ordering.
-       *  @param  s  An initial sequence with which to start.
+       *  @param  __first  An input iterator.
+       *  @param  __last  An input iterator.
+       *  @param  __x  A comparison functor describing a strict weak ordering.
+       *  @param  __s  An initial sequence with which to start.
        *
-       *  Begins by copying @a s, inserting a copy of the elements
-       *  from @a [first,last) into the copy of @a s, then ordering
-       *  the copy according to @a x.
+       *  Begins by copying @a __s, inserting a copy of the elements
+       *  from @a [first,last) into the copy of @a __s, then ordering
+       *  the copy according to @a __x.
        *
        *  For more information on function objects, see the
        *  documentation on @link functors functor base
        *  classes@endlink.
        */
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus < 201103L
       template<typename _InputIterator>
         priority_queue(_InputIterator __first, _InputIterator __last,
 		       const _Compare& __x = _Compare(),
@@ -478,7 +488,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Add data to the %queue.
-       *  @param  x  Data to be added.
+       *  @param  __x  Data to be added.
        *
        *  This is a typical %queue operation.
        *  The time complexity of the operation depends on the underlying
@@ -491,7 +501,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	std::push_heap(c.begin(), c.end(), comp);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       void
       push(value_type&& __x)
       {
@@ -527,9 +537,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	c.pop_back();
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       void
       swap(priority_queue& __pq)
+      noexcept(noexcept(swap(c, __pq.c)) && noexcept(swap(comp, __pq.comp)))
       {
 	using std::swap;
 	swap(c, __pq.c);
@@ -540,11 +551,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // No equality/comparison operators are provided for priority_queue.
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp, typename _Sequence, typename _Compare>
     inline void
     swap(priority_queue<_Tp, _Sequence, _Compare>& __x,
 	 priority_queue<_Tp, _Sequence, _Compare>& __y)
+    noexcept(noexcept(__x.swap(__y)))
     { __x.swap(__y); }
 
   template<typename _Tp, typename _Sequence, typename _Compare,

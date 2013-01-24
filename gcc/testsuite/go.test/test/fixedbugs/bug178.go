@@ -1,4 +1,4 @@
-// $G $D/$F.go && $L $F.$A && ./$A.out
+// run
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -9,19 +9,25 @@ package main
 func main() {
 L:
 	for i := 0; i < 1; i++ {
-L1:
+	L1:
 		for {
-			break L;
+			break L
 		}
-		panic("BUG: not reached - break");
+		panic("BUG: not reached - break")
+		if false {
+			goto L1
+		}
 	}
 
 L2:
 	for i := 0; i < 1; i++ {
-L3:
+	L3:
 		for {
-			continue L2;
+			continue L2
 		}
-		panic("BUG: not reached - continue");
+		panic("BUG: not reached - continue")
+		if false {
+			goto L3
+		}
 	}
 }

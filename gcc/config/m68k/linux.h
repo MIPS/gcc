@@ -1,7 +1,6 @@
 /* Definitions for Motorola 68k running Linux-based GNU systems with
    ELF format.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2006,
-   2007, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1995-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -18,9 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
-
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (68k GNU/Linux with ELF)");
 
 /* Add %(asm_cpu_spec) to a generic definition of ASM_SPEC.  */
 #undef ASM_SPEC
@@ -62,7 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #define ASM_COMMENT_START "|"
 
 /* Target OS builtins.  */
-#define TARGET_OS_CPP_BUILTINS() LINUX_TARGET_OS_CPP_BUILTINS()
+#define TARGET_OS_CPP_BUILTINS() GNU_USER_TARGET_OS_CPP_BUILTINS()
 
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
@@ -82,7 +78,7 @@ along with GCC; see the file COPYING3.  If not see
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
-      -dynamic-linker " LINUX_DYNAMIC_LINKER "} \
+      -dynamic-linker " GNU_USER_DYNAMIC_LINKER "} \
     %{static}}"
 
 /* For compatibility with linux/a.out */
@@ -193,7 +189,8 @@ along with GCC; see the file COPYING3.  If not see
 #define FINALIZE_TRAMPOLINE(TRAMP)					\
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),	\
 		     LCT_NORMAL, VOIDmode, 2, TRAMP, Pmode,		\
-		     plus_constant (TRAMP, TRAMPOLINE_SIZE), Pmode);
+		     plus_constant (Pmode, TRAMP, TRAMPOLINE_SIZE), \
+		     Pmode);
 
 /* Clear the instruction cache from `beg' to `end'.  This makes an
    inline system call to SYS_cacheflush.  The arguments are as
@@ -239,4 +236,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef  WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE BITS_PER_WORD
 
-#define MD_UNWIND_SUPPORT "config/m68k/linux-unwind.h"
+/* Install the __sync libcalls.  */
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS  m68k_init_sync_libfuncs

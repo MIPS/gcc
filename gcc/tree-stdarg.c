@@ -1,6 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -47,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 static bool
 reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
 {
-  VEC (edge, heap) *stack = NULL;
+  vec<edge> stack = vNULL;
   edge e;
   edge_iterator ei;
   sbitmap visited;
@@ -60,17 +59,17 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
     return false;
 
   visited = sbitmap_alloc (last_basic_block);
-  sbitmap_zero (visited);
+  bitmap_clear (visited);
   ret = true;
 
   FOR_EACH_EDGE (e, ei, va_arg_bb->preds)
-    VEC_safe_push (edge, heap, stack, e);
+    stack.safe_push (e);
 
-  while (! VEC_empty (edge, stack))
+  while (! stack.is_empty ())
     {
       basic_block src;
 
-      e = VEC_pop (edge, stack);
+      e = stack.pop ();
       src = e->src;
 
       if (e->flags & EDGE_COMPLEX)
@@ -91,15 +90,15 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
 
       gcc_assert (src != ENTRY_BLOCK_PTR);
 
-      if (! TEST_BIT (visited, src->index))
+      if (! bitmap_bit_p (visited, src->index))
 	{
-	  SET_BIT (visited, src->index);
+	  bitmap_set_bit (visited, src->index);
 	  FOR_EACH_EDGE (e, ei, src->preds)
-	    VEC_safe_push (edge, heap, stack, e);
+	    stack.safe_push (e);
 	}
     }
 
-  VEC_free (edge, heap, stack);
+  stack.release ();
   sbitmap_free (visited);
   return ret;
 }
@@ -133,6 +132,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
   while (lhs)
     {
       enum tree_code rhs_code;
+      tree rhs1;
 
       if (si->offsets[SSA_NAME_VERSION (lhs)] != -1)
 	{
@@ -152,21 +152,32 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 	return (unsigned HOST_WIDE_INT) -1;
 
       rhs_code = gimple_assign_rhs_code (stmt);
+      rhs1 = gimple_assign_rhs1 (stmt);
       if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
 	   || gimple_assign_cast_p (stmt))
-	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+	  && TREE_CODE (rhs1) == SSA_NAME)
 	{
-	  lhs = gimple_assign_rhs1 (stmt);
+	  lhs = rhs1;
 	  continue;
 	}
 
       if ((rhs_code == POINTER_PLUS_EXPR
 	   || rhs_code == PLUS_EXPR)
-	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+	  && TREE_CODE (rhs1) == SSA_NAME
 	  && host_integerp (gimple_assign_rhs2 (stmt), 1))
 	{
 	  ret += tree_low_cst (gimple_assign_rhs2 (stmt), 1);
-	  lhs = gimple_assign_rhs1 (stmt);
+	  lhs = rhs1;
+	  continue;
+	}
+
+      if (rhs_code == ADDR_EXPR 
+	  && TREE_CODE (TREE_OPERAND (rhs1, 0)) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 0)) == SSA_NAME
+	  && host_integerp (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 1), 1))
+	{
+	  ret += tree_low_cst (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 1), 1);
+	  lhs = TREE_OPERAND (TREE_OPERAND (rhs1, 0), 0);
 	  continue;
 	}
 
@@ -195,6 +206,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
   while (lhs)
     {
       enum tree_code rhs_code;
+      tree rhs1;
 
       if (si->offsets[SSA_NAME_VERSION (lhs)] != -1)
 	break;
@@ -207,21 +219,32 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
       stmt = SSA_NAME_DEF_STMT (lhs);
 
       rhs_code = gimple_assign_rhs_code (stmt);
+      rhs1 = gimple_assign_rhs1 (stmt);
       if ((get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS
 	   || gimple_assign_cast_p (stmt))
-	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME)
+	  && TREE_CODE (rhs1) == SSA_NAME)
 	{
-	  lhs = gimple_assign_rhs1 (stmt);
+	  lhs = rhs1;
 	  continue;
 	}
 
       if ((rhs_code == POINTER_PLUS_EXPR
 	   || rhs_code == PLUS_EXPR)
-	  && TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+	  && TREE_CODE (rhs1) == SSA_NAME
 	  && host_integerp (gimple_assign_rhs2 (stmt), 1))
 	{
 	  val -= tree_low_cst (gimple_assign_rhs2 (stmt), 1);
-	  lhs = gimple_assign_rhs1 (stmt);
+	  lhs = rhs1;
+	  continue;
+	}
+
+      if (rhs_code == ADDR_EXPR 
+	  && TREE_CODE (TREE_OPERAND (rhs1, 0)) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 0)) == SSA_NAME
+	  && host_integerp (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 1), 1))
+	{
+	  val -= tree_low_cst (TREE_OPERAND (TREE_OPERAND (rhs1, 0), 1), 1);
+	  lhs = TREE_OPERAND (TREE_OPERAND (rhs1, 0), 0);
 	  continue;
 	}
 
@@ -242,11 +265,15 @@ find_va_list_reference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
   tree var = *tp;
 
   if (TREE_CODE (var) == SSA_NAME)
-    var = SSA_NAME_VAR (var);
-
-  if (TREE_CODE (var) == VAR_DECL
-      && bitmap_bit_p (va_list_vars, DECL_UID (var)))
-    return var;
+    {
+      if (bitmap_bit_p (va_list_vars, SSA_NAME_VERSION (var)))
+	return var;
+    }
+  else if (TREE_CODE (var) == VAR_DECL)
+    {
+      if (bitmap_bit_p (va_list_vars, DECL_UID (var) + num_ssa_names))
+	return var;
+    }
 
   return NULL_TREE;
 }
@@ -323,12 +350,12 @@ va_list_counter_struct_op (struct stdarg_info *si, tree ap, tree var,
     return false;
 
   if (TREE_CODE (var) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, DECL_UID (SSA_NAME_VAR (var))))
+      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (var)))
     return false;
 
   base = get_base_address (ap);
   if (TREE_CODE (base) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base)))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base) + num_ssa_names))
     return false;
 
   if (TREE_OPERAND (ap, 1) == va_list_gpr_counter_field)
@@ -347,13 +374,11 @@ static bool
 va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
 {
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap)))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap) + num_ssa_names))
     return false;
 
   if (TREE_CODE (tem) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars,
-		       DECL_UID (SSA_NAME_VAR (tem)))
-      || is_global_var (SSA_NAME_VAR (tem)))
+      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (tem)))
     return false;
 
   if (si->compute_sizes < 0)
@@ -381,8 +406,8 @@ va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
 
   /* Note the temporary, as we need to track whether it doesn't escape
      the current function.  */
-  bitmap_set_bit (si->va_list_escape_vars,
-		  DECL_UID (SSA_NAME_VAR (tem)));
+  bitmap_set_bit (si->va_list_escape_vars, SSA_NAME_VERSION (tem));
+
   return true;
 }
 
@@ -399,11 +424,11 @@ va_list_ptr_write (struct stdarg_info *si, tree ap, tree tem2)
   unsigned HOST_WIDE_INT increment;
 
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap)))
+      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap) + num_ssa_names))
     return false;
 
   if (TREE_CODE (tem2) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, DECL_UID (SSA_NAME_VAR (tem2))))
+      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (tem2)))
     return false;
 
   if (si->compute_sizes <= 0)
@@ -433,12 +458,23 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
   if (! POINTER_TYPE_P (TREE_TYPE (rhs)))
     return;
 
-  if (TREE_CODE (rhs) != SSA_NAME
-      || ! bitmap_bit_p (si->va_list_escape_vars,
-			 DECL_UID (SSA_NAME_VAR (rhs))))
+  if (TREE_CODE (rhs) == SSA_NAME)
+    {
+      if (! bitmap_bit_p (si->va_list_escape_vars, SSA_NAME_VERSION (rhs)))
+	return;
+    }
+  else if (TREE_CODE (rhs) == ADDR_EXPR
+	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF
+	   && TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)) == SSA_NAME)
+    {
+      tree ptr = TREE_OPERAND (TREE_OPERAND (rhs, 0), 0);
+      if (! bitmap_bit_p (si->va_list_escape_vars, SSA_NAME_VERSION (ptr)))
+	return;
+    }
+  else
     return;
 
-  if (TREE_CODE (lhs) != SSA_NAME || is_global_var (SSA_NAME_VAR (lhs)))
+  if (TREE_CODE (lhs) != SSA_NAME)
     {
       si->va_list_escapes = true;
       return;
@@ -474,8 +510,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
       return;
     }
 
-  bitmap_set_bit (si->va_list_escape_vars,
-		  DECL_UID (SSA_NAME_VAR (lhs)));
+  bitmap_set_bit (si->va_list_escape_vars, SSA_NAME_VERSION (lhs));
 }
 
 
@@ -503,7 +538,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
 	      if (! bitmap_bit_p (si->va_list_escape_vars,
-				  DECL_UID (SSA_NAME_VAR (use))))
+				  SSA_NAME_VERSION (use)))
 		continue;
 
 	      if (is_gimple_assign (stmt))
@@ -512,7 +547,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		  enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
 		  /* x = *ap_temp;  */
-		  if (gimple_assign_rhs_code (stmt) == MEM_REF
+		  if (rhs_code == MEM_REF
 		      && TREE_OPERAND (rhs, 0) == use
 		      && TYPE_SIZE_UNIT (TREE_TYPE (rhs))
 		      && host_integerp (TYPE_SIZE_UNIT (TREE_TYPE (rhs)), 1)
@@ -549,12 +584,22 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
 		      if (TREE_CODE (lhs) == SSA_NAME
 			  && bitmap_bit_p (si->va_list_escape_vars,
-					   DECL_UID (SSA_NAME_VAR (lhs))))
+					   SSA_NAME_VERSION (lhs)))
 			continue;
 
 		      if (TREE_CODE (lhs) == VAR_DECL
 			  && bitmap_bit_p (si->va_list_vars,
-					   DECL_UID (lhs)))
+					   DECL_UID (lhs) + num_ssa_names))
+			continue;
+		    }
+		  else if (rhs_code == ADDR_EXPR
+			   && TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF
+			   && TREE_OPERAND (TREE_OPERAND (rhs, 0), 0) == use)
+		    {
+		      tree lhs = gimple_assign_lhs (stmt);
+
+		      if (bitmap_bit_p (si->va_list_escape_vars,
+					SSA_NAME_VERSION (lhs)))
 			continue;
 		    }
 		}
@@ -675,7 +720,7 @@ execute_optimize_stdarg (void)
 	      break;
 	    }
 
-	  bitmap_set_bit (si.va_list_vars, DECL_UID (ap));
+	  bitmap_set_bit (si.va_list_vars, DECL_UID (ap) + num_ssa_names);
 
 	  /* VA_START_BB and VA_START_AP will be only used if there is just
 	     one va_start in the function.  */
@@ -745,7 +790,7 @@ execute_optimize_stdarg (void)
 	      gimple phi = gsi_stmt (i);
 	      lhs = PHI_RESULT (phi);
 
-	      if (!is_gimple_reg (lhs))
+	      if (virtual_operand_p (lhs))
 		continue;
 
 	      FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
@@ -800,8 +845,12 @@ execute_optimize_stdarg (void)
 		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
+		      /* Check for ap ={v} {}.  */
+		      if (TREE_CLOBBER_P (rhs))
+			continue;
+
 		      /* Check for tem = ap.  */
-		      if (va_list_ptr_read (&si, rhs, lhs))
+		      else if (va_list_ptr_read (&si, rhs, lhs))
 			continue;
 
 		      /* Check for the last insn in:
@@ -825,8 +874,12 @@ execute_optimize_stdarg (void)
 		  if (get_gimple_rhs_class (gimple_assign_rhs_code (stmt))
 		      == GIMPLE_SINGLE_RHS)
 		    {
+		      /* Check for ap ={v} {}.  */
+		      if (TREE_CLOBBER_P (rhs))
+			continue;
+
 		      /* Check for ap[0].field = temp.  */
-		      if (va_list_counter_struct_op (&si, lhs, rhs, true))
+		      else if (va_list_counter_struct_op (&si, lhs, rhs, true))
 			continue;
 
 		      /* Check for temp = ap[0].field.  */
@@ -906,6 +959,7 @@ struct gimple_opt_pass pass_stdarg =
  {
   GIMPLE_PASS,
   "stdarg",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_optimize_stdarg,			/* gate */
   execute_optimize_stdarg,		/* execute */
   NULL,					/* sub */
@@ -916,6 +970,6 @@ struct gimple_opt_pass pass_stdarg =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func			/* todo_flags_finish */
+  0             			/* todo_flags_finish */
  }
 };

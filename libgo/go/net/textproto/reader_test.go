@@ -6,8 +6,8 @@ package textproto
 
 import (
 	"bufio"
+	"bytes"
 	"io"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -24,6 +24,7 @@ var canonicalHeaderKeyTests = []canonicalHeaderKeyTest{
 	{"uSER-aGENT", "User-Agent"},
 	{"user-agent", "User-Agent"},
 	{"USER-AGENT", "User-Agent"},
+	{"üser-agenT", "üser-Agent"}, // non-ASCII unchanged
 }
 
 func TestCanonicalMIMEHeaderKey(t *testing.T) {
@@ -49,7 +50,7 @@ func TestReadLine(t *testing.T) {
 		t.Fatalf("Line 2: %s, %v", s, err)
 	}
 	s, err = r.ReadLine()
-	if s != "" || err != os.EOF {
+	if s != "" || err != io.EOF {
 		t.Fatalf("EOF: %s, %v", s, err)
 	}
 }
@@ -69,7 +70,7 @@ func TestReadContinuedLine(t *testing.T) {
 		t.Fatalf("Line 3: %s, %v", s, err)
 	}
 	s, err = r.ReadContinuedLine()
-	if s != "" || err != os.EOF {
+	if s != "" || err != io.EOF {
 		t.Fatalf("EOF: %s, %v", s, err)
 	}
 }
@@ -92,7 +93,7 @@ func TestReadCodeLine(t *testing.T) {
 		t.Fatalf("Line 3: wrong error %v\n", err)
 	}
 	code, msg, err = r.ReadCodeLine(1)
-	if code != 0 || msg != "" || err != os.EOF {
+	if code != 0 || msg != "" || err != io.EOF {
 		t.Fatalf("EOF: %d, %s, %v", code, msg, err)
 	}
 }
@@ -136,5 +137,199 @@ func TestReadMIMEHeader(t *testing.T) {
 	}
 	if !reflect.DeepEqual(m, want) || err != nil {
 		t.Fatalf("ReadMIMEHeader: %v, %v; want %v", m, err, want)
+	}
+}
+
+func TestReadMIMEHeaderSingle(t *testing.T) {
+	r := reader("Foo: bar\n\n")
+	m, err := r.ReadMIMEHeader()
+	want := MIMEHeader{"Foo": {"bar"}}
+	if !reflect.DeepEqual(m, want) || err != nil {
+		t.Fatalf("ReadMIMEHeader: %v, %v; want %v", m, err, want)
+	}
+}
+
+func TestLargeReadMIMEHeader(t *testing.T) {
+	data := make([]byte, 16*1024)
+	for i := 0; i < len(data); i++ {
+		data[i] = 'x'
+	}
+	sdata := string(data)
+	r := reader("Cookie: " + sdata + "\r\n\n")
+	m, err := r.ReadMIMEHeader()
+	if err != nil {
+		t.Fatalf("ReadMIMEHeader: %v", err)
+	}
+	cookie := m.Get("Cookie")
+	if cookie != sdata {
+		t.Fatalf("ReadMIMEHeader: %v bytes, want %v bytes", len(cookie), len(sdata))
+	}
+}
+
+// Test that we read slightly-bogus MIME headers seen in the wild,
+// with spaces before colons, and spaces in keys.
+func TestReadMIMEHeaderNonCompliant(t *testing.T) {
+	// Invalid HTTP response header as sent by an Axis security
+	// camera: (this is handled by IE, Firefox, Chrome, curl, etc.)
+	r := reader("Foo: bar\r\n" +
+		"Content-Language: en\r\n" +
+		"SID : 0\r\n" +
+		"Audio Mode : None\r\n" +
+		"Privilege : 127\r\n\r\n")
+	m, err := r.ReadMIMEHeader()
+	want := MIMEHeader{
+		"Foo":              {"bar"},
+		"Content-Language": {"en"},
+		"Sid":              {"0"},
+		"Audio-Mode":       {"None"},
+		"Privilege":        {"127"},
+	}
+	if !reflect.DeepEqual(m, want) || err != nil {
+		t.Fatalf("ReadMIMEHeader =\n%v, %v; want:\n%v", m, err, want)
+	}
+}
+
+type readResponseTest struct {
+	in       string
+	inCode   int
+	wantCode int
+	wantMsg  string
+}
+
+var readResponseTests = []readResponseTest{
+	{"230-Anonymous access granted, restrictions apply\n" +
+		"Read the file README.txt,\n" +
+		"230  please",
+		23,
+		230,
+		"Anonymous access granted, restrictions apply\nRead the file README.txt,\n please",
+	},
+
+	{"230 Anonymous access granted, restrictions apply\n",
+		23,
+		230,
+		"Anonymous access granted, restrictions apply",
+	},
+
+	{"400-A\n400-B\n400 C",
+		4,
+		400,
+		"A\nB\nC",
+	},
+
+	{"400-A\r\n400-B\r\n400 C\r\n",
+		4,
+		400,
+		"A\nB\nC",
+	},
+}
+
+// See http://www.ietf.org/rfc/rfc959.txt page 36.
+func TestRFC959Lines(t *testing.T) {
+	for i, tt := range readResponseTests {
+		r := reader(tt.in + "\nFOLLOWING DATA")
+		code, msg, err := r.ReadResponse(tt.inCode)
+		if err != nil {
+			t.Errorf("#%d: ReadResponse: %v", i, err)
+			continue
+		}
+		if code != tt.wantCode {
+			t.Errorf("#%d: code=%d, want %d", i, code, tt.wantCode)
+		}
+		if msg != tt.wantMsg {
+			t.Errorf("#%d: msg=%q, want %q", i, msg, tt.wantMsg)
+		}
+	}
+}
+
+func TestCommonHeaders(t *testing.T) {
+	// need to disable the commonHeaders-based optimization
+	// during this check, or we'd not be testing anything
+	oldch := commonHeaders
+	commonHeaders = []string{}
+	defer func() { commonHeaders = oldch }()
+
+	last := ""
+	for _, h := range oldch {
+		if last > h {
+			t.Errorf("%v is out of order", h)
+		}
+		if last == h {
+			t.Errorf("%v is duplicated", h)
+		}
+		if canon := CanonicalMIMEHeaderKey(h); h != canon {
+			t.Errorf("%v is not canonical", h)
+		}
+		last = h
+	}
+}
+
+var clientHeaders = strings.Replace(`Host: golang.org
+Connection: keep-alive
+Cache-Control: max-age=0
+Accept: application/xml,application/xhtml+xml,text/html;q=0.9,text/plain;q=0.8,image/png,*/*;q=0.5
+User-Agent: Mozilla/5.0 (X11; U; Linux x86_64; en-US) AppleWebKit/534.3 (KHTML, like Gecko) Chrome/6.0.472.63 Safari/534.3
+Accept-Encoding: gzip,deflate,sdch
+Accept-Language: en-US,en;q=0.8,fr-CH;q=0.6
+Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.3
+COOKIE: __utma=000000000.0000000000.0000000000.0000000000.0000000000.00; __utmb=000000000.0.00.0000000000; __utmc=000000000; __utmz=000000000.0000000000.00.0.utmcsr=code.google.com|utmccn=(referral)|utmcmd=referral|utmcct=/p/go/issues/detail
+Non-Interned: test
+
+`, "\n", "\r\n", -1)
+
+var serverHeaders = strings.Replace(`Content-Type: text/html; charset=utf-8
+Content-Encoding: gzip
+Date: Thu, 27 Sep 2012 09:03:33 GMT
+Server: Google Frontend
+Cache-Control: private
+Content-Length: 2298
+VIA: 1.1 proxy.example.com:80 (XXX/n.n.n-nnn)
+Connection: Close
+Non-Interned: test
+
+`, "\n", "\r\n", -1)
+
+func BenchmarkReadMIMEHeader(b *testing.B) {
+	var buf bytes.Buffer
+	br := bufio.NewReader(&buf)
+	r := NewReader(br)
+	for i := 0; i < b.N; i++ {
+		var want int
+		var find string
+		if (i & 1) == 1 {
+			buf.WriteString(clientHeaders)
+			want = 10
+			find = "Cookie"
+		} else {
+			buf.WriteString(serverHeaders)
+			want = 9
+			find = "Via"
+		}
+		h, err := r.ReadMIMEHeader()
+		if err != nil {
+			b.Fatal(err)
+		}
+		if len(h) != want {
+			b.Fatalf("wrong number of headers: got %d, want %d", len(h), want)
+		}
+		if _, ok := h[find]; !ok {
+			b.Fatalf("did not find key %s", find)
+		}
+	}
+}
+
+func BenchmarkUncommon(b *testing.B) {
+	var buf bytes.Buffer
+	br := bufio.NewReader(&buf)
+	r := NewReader(br)
+	for i := 0; i < b.N; i++ {
+		buf.WriteString("uncommon-header-for-benchmark: foo\r\n\r\n")
+		h, err := r.ReadMIMEHeader()
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, ok := h["Uncommon-Header-For-Benchmark"]; !ok {
+			b.Fatal("Missing result header.")
+		}
 	}
 }

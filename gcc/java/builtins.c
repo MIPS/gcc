@@ -1,6 +1,5 @@
 /* Built-in and inline functions for gcj
-   Copyright (C) 2001, 2003, 2004, 2005, 2006, 2007, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -283,10 +282,7 @@ static tree
 build_addr_sum (tree type, tree addr, tree offset)
 {
   tree ptr_type = build_pointer_type (type);
-  return fold_build2 (POINTER_PLUS_EXPR,
-		      ptr_type,
-		      fold_convert (ptr_type, addr),
-		      fold_convert (sizetype, offset));
+  return fold_build_pointer_plus (fold_convert (ptr_type, addr), offset);
 }
 
 /* Make sure that this-arg is non-NULL.  This is a security check.  */
@@ -322,16 +318,15 @@ compareAndSwapInt_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 			   tree orig_call)
 {
   enum machine_mode mode = TYPE_MODE (int_type_node);
-  if (direct_optab_handler (sync_compare_and_swap_optab, mode)
-      != CODE_FOR_nothing
-      || flag_use_atomic_builtins)
+  if (can_compare_and_swap_p (mode, flag_use_atomic_builtins))
     {
       tree addr, stmt;
+      enum built_in_function fncode = BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4;
       UNMARSHAL5 (orig_call);
       (void) value_type; /* Avoid set but not used warning.  */
 
       addr = build_addr_sum (int_type_node, obj_arg, offset_arg);
-      stmt = build_call_expr (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_4],
+      stmt = build_call_expr (builtin_decl_explicit (fncode),
 			      3, addr, expected_arg, value_arg);
 
       return build_check_this (stmt, this_arg);
@@ -344,20 +339,20 @@ compareAndSwapLong_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 			    tree orig_call)
 {
   enum machine_mode mode = TYPE_MODE (long_type_node);
-  if (direct_optab_handler (sync_compare_and_swap_optab, mode)
-      != CODE_FOR_nothing
-      || (GET_MODE_SIZE (mode) <= GET_MODE_SIZE (word_mode)
-	  && flag_use_atomic_builtins))
-    /* We don't trust flag_use_atomic_builtins for multi-word
-       compareAndSwap.  Some machines such as ARM have atomic libfuncs
-       but not the multi-word versions.  */
+  /* We don't trust flag_use_atomic_builtins for multi-word compareAndSwap.
+     Some machines such as ARM have atomic libfuncs but not the multi-word
+     versions.  */
+  if (can_compare_and_swap_p (mode,
+			      (flag_use_atomic_builtins
+			       && GET_MODE_SIZE (mode) <= UNITS_PER_WORD)))
     {
       tree addr, stmt;
+      enum built_in_function fncode = BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8;
       UNMARSHAL5 (orig_call);
       (void) value_type; /* Avoid set but not used warning.  */
 
       addr = build_addr_sum (long_type_node, obj_arg, offset_arg);
-      stmt = build_call_expr (built_in_decls[BUILT_IN_BOOL_COMPARE_AND_SWAP_8],
+      stmt = build_call_expr (builtin_decl_explicit (fncode),
 			      3, addr, expected_arg, value_arg);
 
       return build_check_this (stmt, this_arg);
@@ -369,20 +364,18 @@ compareAndSwapObject_builtin (tree method_return_type ATTRIBUTE_UNUSED,
 			      tree orig_call)
 {
   enum machine_mode mode = TYPE_MODE (ptr_type_node);
-  if (direct_optab_handler (sync_compare_and_swap_optab, mode)
-      != CODE_FOR_nothing
-      || flag_use_atomic_builtins)
+  if (can_compare_and_swap_p (mode, flag_use_atomic_builtins))
   {
     tree addr, stmt;
-    int builtin;
+    enum built_in_function builtin;
 
     UNMARSHAL5 (orig_call);
     builtin = (POINTER_SIZE == 32 
-	       ? BUILT_IN_BOOL_COMPARE_AND_SWAP_4 
-	       : BUILT_IN_BOOL_COMPARE_AND_SWAP_8);
+	       ? BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4 
+	       : BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8);
 
     addr = build_addr_sum (value_type, obj_arg, offset_arg);
-    stmt = build_call_expr (built_in_decls[builtin],
+    stmt = build_call_expr (builtin_decl_explicit (builtin),
 			    3, addr, expected_arg, value_arg);
 
     return build_check_this (stmt, this_arg);
@@ -402,7 +395,7 @@ putVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
     = fold_convert (build_pointer_type (build_type_variant (value_type, 0, 1)),
 		    addr);
   
-  stmt = build_call_expr (built_in_decls[BUILT_IN_SYNCHRONIZE], 0);
+  stmt = build_call_expr (builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE), 0);
   modify_stmt = fold_build2 (MODIFY_EXPR, value_type,
 			     build_java_indirect_ref (value_type, addr,
 						      flag_check_references),
@@ -426,8 +419,7 @@ getVolatile_builtin (tree method_return_type ATTRIBUTE_UNUSED,
     = fold_convert (build_pointer_type (build_type_variant 
 					(method_return_type, 0, 1)), addr);
   
-  stmt = build_call_expr (built_in_decls[BUILT_IN_SYNCHRONIZE], 0);
-  
+  stmt = build_call_expr (builtin_decl_explicit (BUILT_IN_SYNC_SYNCHRONIZE), 0);
   tmp = build_decl (BUILTINS_LOCATION, VAR_DECL, NULL, method_return_type);
   DECL_IGNORED_P (tmp) = 1;
   DECL_ARTIFICIAL (tmp) = 1;
@@ -450,8 +442,7 @@ VMSupportsCS8_builtin (tree method_return_type,
 {
   enum machine_mode mode = TYPE_MODE (long_type_node);
   gcc_assert (method_return_type == boolean_type_node);
-  if (direct_optab_handler (sync_compare_and_swap_optab, mode)
-      != CODE_FOR_nothing)
+  if (can_compare_and_swap_p (mode, false))
     return boolean_true_node;
   else
     return boolean_false_node;
@@ -459,8 +450,6 @@ VMSupportsCS8_builtin (tree method_return_type,
 
 
 
-#define BUILTIN_NOTHROW 1
-#define BUILTIN_CONST 2
 /* Define a single builtin.  */
 static void
 define_builtin (enum built_in_function val,
@@ -479,13 +468,9 @@ define_builtin (enum built_in_function val,
   pushdecl (decl);
   DECL_BUILT_IN_CLASS (decl) = BUILT_IN_NORMAL;
   DECL_FUNCTION_CODE (decl) = val;
-  if (flags & BUILTIN_NOTHROW)
-    TREE_NOTHROW (decl) = 1;
-  if (flags & BUILTIN_CONST)
-    TREE_READONLY (decl) = 1;
+  set_call_expr_flags (decl, flags);
 
-  implicit_built_in_decls[val] = decl;
-  built_in_decls[val] = decl;
+  set_builtin_decl (val, decl, true);
 }
 
 
@@ -521,49 +506,49 @@ initialize_builtins (void)
 				double_type_node, double_type_node, NULL_TREE);
 
   define_builtin (BUILT_IN_FMOD, "__builtin_fmod",
-		  double_ftype_double_double, "fmod", BUILTIN_CONST);
+		  double_ftype_double_double, "fmod", ECF_CONST);
   define_builtin (BUILT_IN_FMODF, "__builtin_fmodf",
-		  float_ftype_float_float, "fmodf", BUILTIN_CONST);
+		  float_ftype_float_float, "fmodf", ECF_CONST);
 
   define_builtin (BUILT_IN_ACOS, "__builtin_acos",
 		  double_ftype_double, "_ZN4java4lang4Math4acosEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_ASIN, "__builtin_asin",
 		  double_ftype_double, "_ZN4java4lang4Math4asinEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_ATAN, "__builtin_atan",
 		  double_ftype_double, "_ZN4java4lang4Math4atanEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_ATAN2, "__builtin_atan2",
 		  double_ftype_double_double, "_ZN4java4lang4Math5atan2EJddd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_CEIL, "__builtin_ceil",
 		  double_ftype_double, "_ZN4java4lang4Math4ceilEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_COS, "__builtin_cos",
 		  double_ftype_double, "_ZN4java4lang4Math3cosEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_EXP, "__builtin_exp",
 		  double_ftype_double, "_ZN4java4lang4Math3expEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_FLOOR, "__builtin_floor",
 		  double_ftype_double, "_ZN4java4lang4Math5floorEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_LOG, "__builtin_log",
 		  double_ftype_double, "_ZN4java4lang4Math3logEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_POW, "__builtin_pow",
 		  double_ftype_double_double, "_ZN4java4lang4Math3powEJddd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_SIN, "__builtin_sin",
 		  double_ftype_double, "_ZN4java4lang4Math3sinEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_SQRT, "__builtin_sqrt",
 		  double_ftype_double, "_ZN4java4lang4Math4sqrtEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   define_builtin (BUILT_IN_TAN, "__builtin_tan",
 		  double_ftype_double, "_ZN4java4lang4Math3tanEJdd",
-		  BUILTIN_CONST);
+		  ECF_CONST);
   
   boolean_ftype_boolean_boolean
     = build_function_type_list (boolean_type_node,
@@ -572,28 +557,28 @@ initialize_builtins (void)
   define_builtin (BUILT_IN_EXPECT, "__builtin_expect", 
 		  boolean_ftype_boolean_boolean,
 		  "__builtin_expect",
-		  BUILTIN_CONST | BUILTIN_NOTHROW);
-  define_builtin (BUILT_IN_BOOL_COMPARE_AND_SWAP_4, 
+		  ECF_CONST | ECF_NOTHROW);
+  define_builtin (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4, 
 		  "__sync_bool_compare_and_swap_4",
 		  build_function_type_list (boolean_type_node,
 					    int_type_node, 
 					    build_pointer_type (int_type_node),
 					    int_type_node, NULL_TREE), 
-		  "__sync_bool_compare_and_swap_4", 0);
-  define_builtin (BUILT_IN_BOOL_COMPARE_AND_SWAP_8, 
+		  "__sync_bool_compare_and_swap_4", ECF_NOTHROW | ECF_LEAF);
+  define_builtin (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8, 
 		  "__sync_bool_compare_and_swap_8",
 		  build_function_type_list (boolean_type_node,
 					    long_type_node, 
 					    build_pointer_type (long_type_node),
 					    int_type_node, NULL_TREE), 
-		  "__sync_bool_compare_and_swap_8", 0);
-  define_builtin (BUILT_IN_SYNCHRONIZE, "__sync_synchronize",
+		  "__sync_bool_compare_and_swap_8", ECF_NOTHROW | ECF_LEAF);
+  define_builtin (BUILT_IN_SYNC_SYNCHRONIZE, "__sync_synchronize",
 		  build_function_type_list (void_type_node, NULL_TREE),
-		  "__sync_synchronize", BUILTIN_NOTHROW);
+		  "__sync_synchronize", ECF_NOTHROW | ECF_LEAF);
   
   define_builtin (BUILT_IN_RETURN_ADDRESS, "__builtin_return_address",
 		  build_function_type_list (ptr_type_node, int_type_node, NULL_TREE),
-		  "__builtin_return_address", BUILTIN_NOTHROW);
+		  "__builtin_return_address", ECF_NOTHROW | ECF_LEAF);
 
   build_common_builtin_nodes ();
 }
@@ -628,7 +613,7 @@ check_for_builtin (tree method, tree call)
 	         with the BC-ABI.  */
 	      if (flag_indirect_dispatch)
 	        return call;
-	      fn = built_in_decls[java_builtins[i].builtin_code];
+	      fn = builtin_decl_explicit (java_builtins[i].builtin_code);
 	      if (fn == NULL_TREE)
 		return call;
 	      return java_build_function_call_expr (fn, call);

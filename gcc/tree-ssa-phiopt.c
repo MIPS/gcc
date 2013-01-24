@@ -1,6 +1,5 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,20 +26,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "timevar.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
-#include "tree-dump.h"
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "domwalk.h"
+#include "cfgloop.h"
+#include "tree-data-ref.h"
+#include "gimple-pretty-print.h"
+#include "insn-config.h"
+#include "expr.h"
+#include "optabs.h"
+
+#ifndef HAVE_conditional_move
+#define HAVE_conditional_move (0)
+#endif
 
 static unsigned int tree_ssa_phiopt (void);
-static unsigned int tree_ssa_phiopt_worker (bool);
+static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gimple, tree, tree);
-static bool value_replacement (basic_block, basic_block,
-			       edge, edge, gimple, tree, tree);
+static int value_replacement (basic_block, basic_block,
+			      edge, edge, gimple, tree, tree);
 static bool minmax_replacement (basic_block, basic_block,
 				edge, edge, gimple, tree, tree);
 static bool abs_replacement (basic_block, basic_block,
@@ -50,6 +57,9 @@ static bool cond_store_replacement (basic_block, basic_block, edge, edge,
 static bool cond_if_else_store_replacement (basic_block, basic_block, basic_block);
 static struct pointer_set_t * get_non_trapping (void);
 static void replace_phi_edge_with_variable (basic_block, edge, gimple, tree);
+static void hoist_adjacent_loads (basic_block, basic_block,
+				  basic_block, basic_block);
+static bool gate_hoist_loads (void);
 
 /* This pass tries to replaces an if-then-else block with an
    assignment.  We have four kinds of transformations.  Some of these
@@ -135,12 +145,56 @@ static void replace_phi_edge_with_variable (basic_block, edge, gimple, tree);
      bb2:
        x = PHI <x' (bb0), ...>;
 
-   A similar transformation is done for MAX_EXPR.  */
+   A similar transformation is done for MAX_EXPR.
+
+
+   This pass also performs a fifth transformation of a slightly different
+   flavor.
+
+   Adjacent Load Hoisting
+   ----------------------
+   
+   This transformation replaces
+
+     bb0:
+       if (...) goto bb2; else goto bb1;
+     bb1:
+       x1 = (<expr>).field1;
+       goto bb3;
+     bb2:
+       x2 = (<expr>).field2;
+     bb3:
+       # x = PHI <x1, x2>;
+
+   with
+
+     bb0:
+       x1 = (<expr>).field1;
+       x2 = (<expr>).field2;
+       if (...) goto bb2; else goto bb1;
+     bb1:
+       goto bb3;
+     bb2:
+     bb3:
+       # x = PHI <x1, x2>;
+
+   The purpose of this transformation is to enable generation of conditional
+   move instructions such as Intel CMOVE or PowerPC ISEL.  Because one of
+   the loads is speculative, the transformation is restricted to very
+   specific cases to avoid introducing a page fault.  We are looking for
+   the common idiom:
+
+     if (...)
+       x = y->left;
+     else
+       x = y->right;
+
+   where left and right are typically adjacent pointers in a tree structure.  */
 
 static unsigned int
 tree_ssa_phiopt (void)
 {
-  return tree_ssa_phiopt_worker (false);
+  return tree_ssa_phiopt_worker (false, gate_hoist_loads ());
 }
 
 /* This pass tries to transform conditional stores into unconditional
@@ -187,19 +241,44 @@ tree_ssa_phiopt (void)
 static unsigned int
 tree_ssa_cs_elim (void)
 {
-  return tree_ssa_phiopt_worker (true);
+  return tree_ssa_phiopt_worker (true, false);
 }
 
-/* For conditional store replacement we need a temporary to
-   put the old contents of the memory in.  */
-static tree condstoretemp;
+/* Return the singleton PHI in the SEQ of PHIs for edges E0 and E1. */
+
+static gimple
+single_non_singleton_phi_for_edges (gimple_seq seq, edge e0, edge e1)
+{
+  gimple_stmt_iterator i;
+  gimple phi = NULL;
+  if (gimple_seq_singleton_p (seq))
+    return gsi_stmt (gsi_start (seq));
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple p = gsi_stmt (i);
+      /* If the PHI arguments are equal then we can skip this PHI. */
+      if (operand_equal_for_phi_arg_p (gimple_phi_arg_def (p, e0->dest_idx),
+				       gimple_phi_arg_def (p, e1->dest_idx)))
+	continue;
+
+      /* If we already have a PHI that has the two edge arguments are
+	 different, then return it is not a singleton for these PHIs. */
+      if (phi)
+	return NULL;
+
+      phi = p;
+    }
+  return phi;
+}
 
 /* The core routine of conditional store replacement and normal
    phi optimizations.  Both share much of the infrastructure in how
    to match applicable basic block patterns.  DO_STORE_ELIM is true
-   when we want to do conditional store replacement, false otherwise.  */
+   when we want to do conditional store replacement, false otherwise.
+   DO_HOIST_LOADS is true when we want to hoist adjacent loads out 
+   of diamond control flow patterns, false otherwise.  */
 static unsigned int
-tree_ssa_phiopt_worker (bool do_store_elim)
+tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 {
   basic_block bb;
   basic_block *bb_order;
@@ -208,11 +287,8 @@ tree_ssa_phiopt_worker (bool do_store_elim)
   struct pointer_set_t *nontrap = 0;
 
   if (do_store_elim)
-    {
-      condstoretemp = NULL_TREE;
-      /* Calculate the set of non-trapping memory accesses.  */
-      nontrap = get_non_trapping ();
-    }
+    /* Calculate the set of non-trapping memory accesses.  */
+    nontrap = get_non_trapping ();
 
   /* Search every basic block for COND_EXPR we may be able to optimize.
 
@@ -282,6 +358,25 @@ tree_ssa_phiopt_worker (bool do_store_elim)
 	    cfgchanged = true;
 	  continue;
 	}
+      else if (do_hoist_loads
+		 && EDGE_SUCC (bb1, 0)->dest == EDGE_SUCC (bb2, 0)->dest)
+	{
+	  basic_block bb3 = EDGE_SUCC (bb1, 0)->dest;
+
+	  if (!FLOAT_TYPE_P (TREE_TYPE (gimple_cond_lhs (cond_stmt)))
+	      && single_succ_p (bb1)
+	      && single_succ_p (bb2)
+	      && single_pred_p (bb1)
+	      && single_pred_p (bb2)
+	      && EDGE_COUNT (bb->succs) == 2
+	      && EDGE_COUNT (bb3->preds) == 2
+	      /* If one edge or the other is dominant, a conditional move
+		 is likely to perform worse than the well-predicted branch.  */
+	      && !predictable_edge_p (EDGE_SUCC (bb, 0))
+	      && !predictable_edge_p (EDGE_SUCC (bb, 1)))
+	    hoist_adjacent_loads (bb, bb1, bb2, bb3);
+	  continue;
+	}
       else
 	continue;      
 
@@ -312,22 +407,27 @@ tree_ssa_phiopt_worker (bool do_store_elim)
 	{
 	  gimple_seq phis = phi_nodes (bb2);
 	  gimple_stmt_iterator gsi;
+	  bool candorest = true;
 
-	  /* Check to make sure that there is only one non-virtual PHI node.
-	     TODO: we could do it with more than one iff the other PHI nodes
-	     have the same elements for these two edges.  */
-	  phi = NULL;
+	  /* Value replacement can work with more than one PHI
+	     so try that first. */
 	  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      if (!is_gimple_reg (gimple_phi_result (gsi_stmt (gsi))))
-		continue;
-	      if (phi)
+	      phi = gsi_stmt (gsi);
+	      arg0 = gimple_phi_arg_def (phi, e1->dest_idx);
+	      arg1 = gimple_phi_arg_def (phi, e2->dest_idx);
+	      if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1) == 2)
 		{
-		  phi = NULL;
+		  candorest = false;
+	          cfgchanged = true;
 		  break;
 		}
-	      phi = gsi_stmt (gsi);
 	    }
+
+	  if (!candorest)
+	    continue;
+	  
+	  phi = single_non_singleton_phi_for_edges (phis, e1, e2);
 	  if (!phi)
 	    continue;
 
@@ -340,8 +440,6 @@ tree_ssa_phiopt_worker (bool do_store_elim)
 
 	  /* Do the replacement of conditional if it can be done.  */
 	  if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	    cfgchanged = true;
-	  else if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
@@ -380,10 +478,10 @@ blocks_in_phiopt_order (void)
   unsigned np, i;
   sbitmap visited = sbitmap_alloc (last_basic_block);
 
-#define MARK_VISITED(BB) (SET_BIT (visited, (BB)->index))
-#define VISITED_P(BB) (TEST_BIT (visited, (BB)->index))
+#define MARK_VISITED(BB) (bitmap_set_bit (visited, (BB)->index))
+#define VISITED_P(BB) (bitmap_bit_p (visited, (BB)->index))
 
-  sbitmap_zero (visited);
+  bitmap_clear (visited);
 
   MARK_VISITED (ENTRY_BLOCK_PTR);
   FOR_EACH_BB (x)
@@ -418,22 +516,6 @@ blocks_in_phiopt_order (void)
 
 #undef MARK_VISITED
 #undef VISITED_P
-}
-
-
-/* Return TRUE if block BB has no executable statements, otherwise return
-   FALSE.  */
-
-bool
-empty_block_p (basic_block bb)
-{
-  /* BB must have no executable statements.  */
-  gimple_stmt_iterator gsi = gsi_after_labels (bb);
-  if (gsi_end_p (gsi))
-    return true;
-  if (is_gimple_debug (gsi_stmt (gsi)))
-    gsi_next_nondebug (&gsi);
-  return gsi_end_p (gsi);
 }
 
 /* Replace PHI node element whose edge is E in block BB with variable NEW.
@@ -501,17 +583,25 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   gimple_stmt_iterator gsi;
   edge true_edge, false_edge;
   tree new_var, new_var2;
+  bool neg;
 
   /* FIXME: Gimplification of complex type is too hard for now.  */
-  if (TREE_CODE (TREE_TYPE (arg0)) == COMPLEX_TYPE
-      || TREE_CODE (TREE_TYPE (arg1)) == COMPLEX_TYPE)
+  /* We aren't prepared to handle vectors either (and it is a question
+     if it would be worthwhile anyway).  */
+  if (!(INTEGRAL_TYPE_P (TREE_TYPE (arg0))
+	|| POINTER_TYPE_P (TREE_TYPE (arg0)))
+      || !(INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+	   || POINTER_TYPE_P (TREE_TYPE (arg1))))
     return false;
 
-  /* The PHI arguments have the constants 0 and 1, then convert
-     it to the conditional.  */
+  /* The PHI arguments have the constants 0 and 1, or 0 and -1, then
+     convert it to the conditional.  */
   if ((integer_zerop (arg0) && integer_onep (arg1))
       || (integer_zerop (arg1) && integer_onep (arg0)))
-    ;
+    neg = false;
+  else if ((integer_zerop (arg0) && integer_all_onesp (arg1))
+	   || (integer_zerop (arg1) && integer_all_onesp (arg0)))
+    neg = true;
   else
     return false;
 
@@ -523,7 +613,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
      falls through into BB.
 
      There is a single PHI node at the join point (BB) and its arguments
-     are constants (0, 1).
+     are constants (0, 1) or (0, -1).
 
      So, given the condition COND, and the two PHI arguments, we can
      rewrite this PHI into non-branching code:
@@ -542,17 +632,27 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   /* To handle special cases like floating point comparison, it is easier and
      less error-prone to build a tree and gimplify it on the fly though it is
      less efficient.  */
-  cond = fold_build2 (gimple_cond_code (stmt), boolean_type_node,
-		      gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+  cond = fold_build2_loc (gimple_location (stmt),
+			  gimple_cond_code (stmt), boolean_type_node,
+			  gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
 
   /* We need to know which is the true edge and which is the false
      edge so that we know when to invert the condition below.  */
   extract_true_false_edges_from_block (cond_bb, &true_edge, &false_edge);
   if ((e0 == true_edge && integer_zerop (arg0))
-      || (e0 == false_edge && integer_onep (arg0))
+      || (e0 == false_edge && !integer_zerop (arg0))
       || (e1 == true_edge && integer_zerop (arg1))
-      || (e1 == false_edge && integer_onep (arg1)))
-    cond = fold_build1 (TRUTH_NOT_EXPR, TREE_TYPE (cond), cond);
+      || (e1 == false_edge && !integer_zerop (arg1)))
+    cond = fold_build1_loc (gimple_location (stmt),
+                            TRUTH_NOT_EXPR, TREE_TYPE (cond), cond);
+
+  if (neg)
+    {
+      cond = fold_convert_loc (gimple_location (stmt),
+                               TREE_TYPE (result), cond);
+      cond = fold_build1_loc (gimple_location (stmt),
+                              NEGATE_EXPR, TREE_TYPE (cond), cond);
+    }
 
   /* Insert our new statements at the end of conditional block before the
      COND_STMT.  */
@@ -564,12 +664,9 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
     {
       source_location locus_0, locus_1;
 
-      new_var2 = create_tmp_var (TREE_TYPE (result), NULL);
-      add_referenced_var (new_var2);
+      new_var2 = make_ssa_name (TREE_TYPE (result), NULL);
       new_stmt = gimple_build_assign_with_ops (CONVERT_EXPR, new_var2,
 					       new_var, NULL);
-      new_var2 = make_ssa_name (new_var2, new_stmt);
-      gimple_assign_set_lhs (new_stmt, new_var2);
       gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
       new_var = new_var2;
 
@@ -587,35 +684,89 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   return true;
 }
 
+/* Update *ARG which is defined in STMT so that it contains the
+   computed value if that seems profitable.  Return true if the
+   statement is made dead by that rewriting.  */
+
+static bool
+jump_function_from_stmt (tree *arg, gimple stmt)
+{
+  enum tree_code code = gimple_assign_rhs_code (stmt);
+  if (code == ADDR_EXPR)
+    {
+      /* For arg = &p->i transform it to p, if possible.  */
+      tree rhs1 = gimple_assign_rhs1 (stmt);
+      HOST_WIDE_INT offset;
+      tree tem = get_addr_base_and_unit_offset (TREE_OPERAND (rhs1, 0),
+						&offset);
+      if (tem
+	  && TREE_CODE (tem) == MEM_REF
+	  && (mem_ref_offset (tem) + double_int::from_shwi (offset)).is_zero ())
+	{
+	  *arg = TREE_OPERAND (tem, 0);
+	  return true;
+	}
+    }
+  /* TODO: Much like IPA-CP jump-functions we want to handle constant
+     additions symbolically here, and we'd need to update the comparison
+     code that compares the arg + cst tuples in our caller.  For now the
+     code above exactly handles the VEC_BASE pattern from vec.h.  */
+  return false;
+}
+
 /*  The function value_replacement does the main work of doing the value
-    replacement.  Return true if the replacement is done.  Otherwise return
-    false.
+    replacement.  Return non-zero if the replacement is done.  Otherwise return
+    0.  If we remove the middle basic block, return 2.
     BB is the basic block where the replacement is going to be done on.  ARG0
     is argument 0 from the PHI.  Likewise for ARG1.  */
 
-static bool
+static int
 value_replacement (basic_block cond_bb, basic_block middle_bb,
 		   edge e0, edge e1, gimple phi,
 		   tree arg0, tree arg1)
 {
+  gimple_stmt_iterator gsi;
   gimple cond;
   edge true_edge, false_edge;
   enum tree_code code;
+  bool emtpy_or_with_defined_p = true;
 
   /* If the type says honor signed zeros we cannot do this
      optimization.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
-    return false;
+    return 0;
 
-  if (!empty_block_p (middle_bb))
-    return false;
+  /* If there is a statement in MIDDLE_BB that defines one of the PHI
+     arguments, then adjust arg0 or arg1.  */
+  gsi = gsi_after_labels (middle_bb);
+  if (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
+    gsi_next_nondebug (&gsi);
+  while (!gsi_end_p (gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      tree lhs;
+      gsi_next_nondebug (&gsi);
+      if (!is_gimple_assign (stmt))
+	{
+	  emtpy_or_with_defined_p = false;
+	  continue;
+	}
+      /* Now try to adjust arg0 or arg1 according to the computation
+	 in the statement.  */
+      lhs = gimple_assign_lhs (stmt);
+      if (!(lhs == arg0
+	     && jump_function_from_stmt (&arg0, stmt))
+	    || (lhs == arg1
+		&& jump_function_from_stmt (&arg1, stmt)))
+	emtpy_or_with_defined_p = false;
+    }
 
   cond = last_stmt (cond_bb);
   code = gimple_cond_code (cond);
 
   /* This transformation is only valid for equality comparisons.  */
   if (code != NE_EXPR && code != EQ_EXPR)
-    return false;
+    return 0;
 
   /* We need to know which is the true edge and which is the false
       edge so that we know if have abs or negative abs.  */
@@ -659,12 +810,36 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
       else
 	arg = arg1;
 
-      replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
+      /* If the middle basic block was empty or is defining the
+	 PHI arguments and this is a single phi where the args are different
+	 for the edges e0 and e1 then we can remove the middle basic block. */
+      if (emtpy_or_with_defined_p
+	  && single_non_singleton_phi_for_edges (phi_nodes (gimple_bb (phi)),
+							    e0, e1))
+	{
+          replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
+	  /* Note that we optimized this PHI.  */
+	  return 2;
+	}
+      else
+	{
+	  /* Replace the PHI arguments with arg. */
+	  SET_PHI_ARG_DEF (phi, e0->dest_idx, arg);
+	  SET_PHI_ARG_DEF (phi, e1->dest_idx, arg);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "PHI ");
+	      print_generic_expr (dump_file, gimple_phi_result (phi), 0);
+	      fprintf (dump_file, " reduced for COND_EXPR in block %d to ",
+		       cond_bb->index);
+	      print_generic_expr (dump_file, arg, 0);
+	      fprintf (dump_file, ".\n");
+            }
+          return 1;
+	}
 
-      /* Note that we optimized this PHI.  */
-      return true;
     }
-  return false;
+  return 0;
 }
 
 /*  The function minmax_replacement does the main work of doing the minmax
@@ -693,7 +868,6 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 
   cond = last_stmt (cond_bb);
   cmp = gimple_cond_code (cond);
-  result = PHI_RESULT (phi);
 
   /* This transformation is only valid for order comparisons.  Record which
      operand is smaller/larger if the result of the comparison is true.  */
@@ -1008,11 +1182,7 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
   result = duplicate_ssa_name (result, NULL);
 
   if (negate)
-    {
-      tree tmp = create_tmp_var (TREE_TYPE (result), NULL);
-      add_referenced_var (tmp);
-      lhs = make_ssa_name (tmp, NULL);
-    }
+    lhs = make_ssa_name (TREE_TYPE (result), NULL);
   else
     lhs = result;
 
@@ -1062,9 +1232,10 @@ abs_replacement (basic_block cond_bb, basic_block middle_bb,
    same accesses.  */
 struct name_to_bb
 {
-  tree ssa_name;
+  unsigned int ssa_name_ver;
+  bool store;
+  HOST_WIDE_INT offset, size;
   basic_block bb;
-  unsigned store : 1;
 };
 
 /* The hash table for remembering what we've seen.  */
@@ -1073,23 +1244,26 @@ static htab_t seen_ssa_names;
 /* The set of MEM_REFs which can't trap.  */
 static struct pointer_set_t *nontrap_set;
 
-/* The hash function, based on the pointer to the pointer SSA_NAME.  */
+/* The hash function.  */
 static hashval_t
 name_to_bb_hash (const void *p)
 {
-  const_tree n = ((const struct name_to_bb *)p)->ssa_name;
-  return htab_hash_pointer (n) ^ ((const struct name_to_bb *)p)->store;
+  const struct name_to_bb *n = (const struct name_to_bb *) p;
+  return n->ssa_name_ver ^ (((hashval_t) n->store) << 31)
+         ^ (n->offset << 6) ^ (n->size << 3);
 }
 
-/* The equality function of *P1 and *P2.  SSA_NAMEs are shared, so
-   it's enough to simply compare them for equality.  */
+/* The equality function of *P1 and *P2.  */
 static int
 name_to_bb_eq (const void *p1, const void *p2)
 {
   const struct name_to_bb *n1 = (const struct name_to_bb *)p1;
   const struct name_to_bb *n2 = (const struct name_to_bb *)p2;
 
-  return n1->ssa_name == n2->ssa_name && n1->store == n2->store;
+  return n1->ssa_name_ver == n2->ssa_name_ver
+         && n1->store == n2->store
+         && n1->offset == n2->offset
+         && n1->size == n2->size;
 }
 
 /* We see the expression EXP in basic block BB.  If it's an interesting
@@ -1101,8 +1275,12 @@ static void
 add_or_mark_expr (basic_block bb, tree exp,
 		  struct pointer_set_t *nontrap, bool store)
 {
+  HOST_WIDE_INT size;
+
   if (TREE_CODE (exp) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (exp, 0)) == SSA_NAME)
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == SSA_NAME
+      && host_integerp (TREE_OPERAND (exp, 1), 0)
+      && (size = int_size_in_bytes (TREE_TYPE (exp))) > 0)
     {
       tree name = TREE_OPERAND (exp, 0);
       struct name_to_bb map;
@@ -1112,9 +1290,12 @@ add_or_mark_expr (basic_block bb, tree exp,
 
       /* Try to find the last seen MEM_REF through the same
          SSA_NAME, which can trap.  */
-      map.ssa_name = name;
+      map.ssa_name_ver = SSA_NAME_VERSION (name);
       map.bb = 0;
       map.store = store;
+      map.offset = tree_low_cst (TREE_OPERAND (exp, 1), 0);
+      map.size = size;
+
       slot = htab_find_slot (seen_ssa_names, &map, INSERT);
       n2bb = (struct name_to_bb *) *slot;
       if (n2bb)
@@ -1137,9 +1318,11 @@ add_or_mark_expr (basic_block bb, tree exp,
 	  else
 	    {
 	      n2bb = XNEW (struct name_to_bb);
-	      n2bb->ssa_name = name;
+	      n2bb->ssa_name_ver = SSA_NAME_VERSION (name);
 	      n2bb->bb = bb;
 	      n2bb->store = store;
+	      n2bb->offset = map.offset;
+	      n2bb->size = size;
 	      *slot = n2bb;
 	    }
 	}
@@ -1159,13 +1342,10 @@ nt_init_block (struct dom_walk_data *data ATTRIBUTE_UNUSED, basic_block bb)
     {
       gimple stmt = gsi_stmt (gsi);
 
-      if (is_gimple_assign (stmt))
+      if (gimple_assign_single_p (stmt))
 	{
 	  add_or_mark_expr (bb, gimple_assign_lhs (stmt), nontrap_set, true);
 	  add_or_mark_expr (bb, gimple_assign_rhs1 (stmt), nontrap_set, false);
-	  if (get_gimple_rhs_num_ops (gimple_assign_rhs_code (stmt)) > 1)
-	    add_or_mark_expr (bb, gimple_assign_rhs2 (stmt), nontrap_set,
-			      false);
 	}
     }
 }
@@ -1232,7 +1412,7 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
 			edge e0, edge e1, struct pointer_set_t *nontrap)
 {
   gimple assign = last_and_only_stmt (middle_bb);
-  tree lhs, rhs, name;
+  tree lhs, rhs, name, name2;
   gimple newphi, new_stmt;
   gimple_stmt_iterator gsi;
   source_location locus;
@@ -1263,35 +1443,26 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
   gsi_remove (&gsi, true);
   release_defs (assign);
 
-  /* 2) Create a temporary where we can store the old content
-        of the memory touched by the store, if we need to.  */
-  if (!condstoretemp || TREE_TYPE (lhs) != TREE_TYPE (condstoretemp))
-    {
-      condstoretemp = create_tmp_reg (TREE_TYPE (lhs), "cstore");
-      get_var_ann (condstoretemp);
-    }
-  add_referenced_var (condstoretemp);
-
-  /* 3) Insert a load from the memory of the store to the temporary
+  /* 2) Insert a load from the memory of the store to the temporary
         on the edge which did not contain the store.  */
   lhs = unshare_expr (lhs);
-  new_stmt = gimple_build_assign (condstoretemp, lhs);
-  name = make_ssa_name (condstoretemp, new_stmt);
-  gimple_assign_set_lhs (new_stmt, name);
+  name = make_temp_ssa_name (TREE_TYPE (lhs), NULL, "cstore");
+  new_stmt = gimple_build_assign (name, lhs);
   gimple_set_location (new_stmt, locus);
   gsi_insert_on_edge (e1, new_stmt);
 
-  /* 4) Create a PHI node at the join block, with one argument
+  /* 3) Create a PHI node at the join block, with one argument
         holding the old RHS, and the other holding the temporary
         where we stored the old memory contents.  */
-  newphi = create_phi_node (condstoretemp, join_bb);
+  name2 = make_temp_ssa_name (TREE_TYPE (lhs), NULL, "cstore");
+  newphi = create_phi_node (name2, join_bb);
   add_phi_arg (newphi, rhs, e0, locus);
   add_phi_arg (newphi, name, e1, locus);
 
   lhs = unshare_expr (lhs);
   new_stmt = gimple_build_assign (lhs, PHI_RESULT (newphi));
 
-  /* 5) Insert that PHI node.  */
+  /* 4) Insert that PHI node.  */
   gsi = gsi_after_labels (join_bb);
   if (gsi_end_p (gsi))
     {
@@ -1304,39 +1475,24 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
   return true;
 }
 
-/* Do the main work of conditional store replacement.  We already know
-   that the recognized pattern looks like so:
-
-   split:
-     if (cond) goto THEN_BB; else goto ELSE_BB (edge E1)
-   THEN_BB:
-     X = Y;
-     goto JOIN_BB;
-   ELSE_BB:
-     X = Z;
-     fallthrough (edge E0)
-   JOIN_BB:
-     some more
-
-   We check that THEN_BB and ELSE_BB contain only one store
-   that the stores have a "simple" RHS.  */
+/* Do the main work of conditional store replacement.  */
 
 static bool
-cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
-				basic_block join_bb)
+cond_if_else_store_replacement_1 (basic_block then_bb, basic_block else_bb,
+				  basic_block join_bb, gimple then_assign,
+				  gimple else_assign)
 {
-  gimple then_assign = last_and_only_stmt (then_bb);
-  gimple else_assign = last_and_only_stmt (else_bb);
-  tree lhs_base, lhs, then_rhs, else_rhs;
+  tree lhs_base, lhs, then_rhs, else_rhs, name;
   source_location then_locus, else_locus;
   gimple_stmt_iterator gsi;
   gimple newphi, new_stmt;
 
-  /* Check if then_bb and else_bb contain only one store each.  */
   if (then_assign == NULL
       || !gimple_assign_single_p (then_assign)
+      || gimple_clobber_p (then_assign)
       || else_assign == NULL
-      || !gimple_assign_single_p (else_assign))
+      || !gimple_assign_single_p (else_assign)
+      || gimple_clobber_p (else_assign))
     return false;
 
   lhs = gimple_assign_lhs (then_assign);
@@ -1366,25 +1522,17 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
   gsi_remove (&gsi, true);
   release_defs (else_assign);
 
-  /* 2) Create a temporary where we can store the old content
-	of the memory touched by the store, if we need to.  */
-  if (!condstoretemp || TREE_TYPE (lhs) != TREE_TYPE (condstoretemp))
-    {
-      condstoretemp = create_tmp_reg (TREE_TYPE (lhs), "cstore");
-      get_var_ann (condstoretemp);
-    }
-  add_referenced_var (condstoretemp);
-
-  /* 3) Create a PHI node at the join block, with one argument
+  /* 2) Create a PHI node at the join block, with one argument
 	holding the old RHS, and the other holding the temporary
 	where we stored the old memory contents.  */
-  newphi = create_phi_node (condstoretemp, join_bb);
+  name = make_temp_ssa_name (TREE_TYPE (lhs), NULL, "cstore");
+  newphi = create_phi_node (name, join_bb);
   add_phi_arg (newphi, then_rhs, EDGE_SUCC (then_bb, 0), then_locus);
   add_phi_arg (newphi, else_rhs, EDGE_SUCC (else_bb, 0), else_locus);
 
   new_stmt = gimple_build_assign (lhs, PHI_RESULT (newphi));
 
-  /* 4) Insert that PHI node.  */
+  /* 3) Insert that PHI node.  */
   gsi = gsi_after_labels (join_bb);
   if (gsi_end_p (gsi))
     {
@@ -1395,6 +1543,400 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
     gsi_insert_before (&gsi, new_stmt, GSI_NEW_STMT);
 
   return true;
+}
+
+/* Conditional store replacement.  We already know
+   that the recognized pattern looks like so:
+
+   split:
+     if (cond) goto THEN_BB; else goto ELSE_BB (edge E1)
+   THEN_BB:
+     ...
+     X = Y;
+     ...
+     goto JOIN_BB;
+   ELSE_BB:
+     ...
+     X = Z;
+     ...
+     fallthrough (edge E0)
+   JOIN_BB:
+     some more
+
+   We check that it is safe to sink the store to JOIN_BB by verifying that
+   there are no read-after-write or write-after-write dependencies in
+   THEN_BB and ELSE_BB.  */
+
+static bool
+cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
+                                basic_block join_bb)
+{
+  gimple then_assign = last_and_only_stmt (then_bb);
+  gimple else_assign = last_and_only_stmt (else_bb);
+  vec<data_reference_p> then_datarefs, else_datarefs;
+  vec<ddr_p> then_ddrs, else_ddrs;
+  gimple then_store, else_store;
+  bool found, ok = false, res;
+  struct data_dependence_relation *ddr;
+  data_reference_p then_dr, else_dr;
+  int i, j;
+  tree then_lhs, else_lhs;
+  vec<gimple> then_stores, else_stores;
+  basic_block blocks[3];
+
+  if (MAX_STORES_TO_SINK == 0)
+    return false;
+
+  /* Handle the case with single statement in THEN_BB and ELSE_BB.  */
+  if (then_assign && else_assign)
+    return cond_if_else_store_replacement_1 (then_bb, else_bb, join_bb,
+                                             then_assign, else_assign);
+
+  /* Find data references.  */
+  then_datarefs.create (1);
+  else_datarefs.create (1);
+  if ((find_data_references_in_bb (NULL, then_bb, &then_datarefs)
+        == chrec_dont_know)
+      || !then_datarefs.length ()
+      || (find_data_references_in_bb (NULL, else_bb, &else_datarefs)
+        == chrec_dont_know)
+      || !else_datarefs.length ())
+    {
+      free_data_refs (then_datarefs);
+      free_data_refs (else_datarefs);
+      return false;
+    }
+
+  /* Find pairs of stores with equal LHS.  */
+  then_stores.create (1);
+  else_stores.create (1);
+  FOR_EACH_VEC_ELT (then_datarefs, i, then_dr)
+    {
+      if (DR_IS_READ (then_dr))
+        continue;
+
+      then_store = DR_STMT (then_dr);
+      then_lhs = gimple_get_lhs (then_store);
+      found = false;
+
+      FOR_EACH_VEC_ELT (else_datarefs, j, else_dr)
+        {
+          if (DR_IS_READ (else_dr))
+            continue;
+
+          else_store = DR_STMT (else_dr);
+          else_lhs = gimple_get_lhs (else_store);
+
+          if (operand_equal_p (then_lhs, else_lhs, 0))
+            {
+              found = true;
+              break;
+            }
+        }
+
+      if (!found)
+        continue;
+
+      then_stores.safe_push (then_store);
+      else_stores.safe_push (else_store);
+    }
+
+  /* No pairs of stores found.  */
+  if (!then_stores.length ()
+      || then_stores.length () > (unsigned) MAX_STORES_TO_SINK)
+    {
+      free_data_refs (then_datarefs);
+      free_data_refs (else_datarefs);
+      then_stores.release ();
+      else_stores.release ();
+      return false;
+    }
+
+  /* Compute and check data dependencies in both basic blocks.  */
+  then_ddrs.create (1);
+  else_ddrs.create (1);
+  if (!compute_all_dependences (then_datarefs, &then_ddrs,
+				vNULL, false)
+      || !compute_all_dependences (else_datarefs, &else_ddrs,
+				   vNULL, false))
+    {
+      free_dependence_relations (then_ddrs);
+      free_dependence_relations (else_ddrs);
+      free_data_refs (then_datarefs);
+      free_data_refs (else_datarefs);
+      then_stores.release ();
+      else_stores.release ();
+      return false;
+    }
+  blocks[0] = then_bb;
+  blocks[1] = else_bb;
+  blocks[2] = join_bb;
+  renumber_gimple_stmt_uids_in_blocks (blocks, 3);
+
+  /* Check that there are no read-after-write or write-after-write dependencies
+     in THEN_BB.  */
+  FOR_EACH_VEC_ELT (then_ddrs, i, ddr)
+    {
+      struct data_reference *dra = DDR_A (ddr);
+      struct data_reference *drb = DDR_B (ddr);
+
+      if (DDR_ARE_DEPENDENT (ddr) != chrec_known
+          && ((DR_IS_READ (dra) && DR_IS_WRITE (drb)
+               && gimple_uid (DR_STMT (dra)) > gimple_uid (DR_STMT (drb)))
+              || (DR_IS_READ (drb) && DR_IS_WRITE (dra)
+                  && gimple_uid (DR_STMT (drb)) > gimple_uid (DR_STMT (dra)))
+              || (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))))
+        {
+          free_dependence_relations (then_ddrs);
+          free_dependence_relations (else_ddrs);
+	  free_data_refs (then_datarefs);
+	  free_data_refs (else_datarefs);
+          then_stores.release ();
+          else_stores.release ();
+          return false;
+        }
+    }
+
+  /* Check that there are no read-after-write or write-after-write dependencies
+     in ELSE_BB.  */
+  FOR_EACH_VEC_ELT (else_ddrs, i, ddr)
+    {
+      struct data_reference *dra = DDR_A (ddr);
+      struct data_reference *drb = DDR_B (ddr);
+
+      if (DDR_ARE_DEPENDENT (ddr) != chrec_known
+          && ((DR_IS_READ (dra) && DR_IS_WRITE (drb)
+               && gimple_uid (DR_STMT (dra)) > gimple_uid (DR_STMT (drb)))
+              || (DR_IS_READ (drb) && DR_IS_WRITE (dra)
+                  && gimple_uid (DR_STMT (drb)) > gimple_uid (DR_STMT (dra)))
+              || (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))))
+        {
+          free_dependence_relations (then_ddrs);
+          free_dependence_relations (else_ddrs);
+	  free_data_refs (then_datarefs);
+	  free_data_refs (else_datarefs);
+          then_stores.release ();
+          else_stores.release ();
+          return false;
+        }
+    }
+
+  /* Sink stores with same LHS.  */
+  FOR_EACH_VEC_ELT (then_stores, i, then_store)
+    {
+      else_store = else_stores[i];
+      res = cond_if_else_store_replacement_1 (then_bb, else_bb, join_bb,
+                                              then_store, else_store);
+      ok = ok || res;
+    }
+
+  free_dependence_relations (then_ddrs);
+  free_dependence_relations (else_ddrs);
+  free_data_refs (then_datarefs);
+  free_data_refs (else_datarefs);
+  then_stores.release ();
+  else_stores.release ();
+
+  return ok;
+}
+
+/* Return TRUE if STMT has a VUSE whose corresponding VDEF is in BB.  */
+
+static bool
+local_mem_dependence (gimple stmt, basic_block bb)
+{
+  tree vuse = gimple_vuse (stmt);
+  gimple def;
+
+  if (!vuse)
+    return false;
+
+  def = SSA_NAME_DEF_STMT (vuse);
+  return (def && gimple_bb (def) == bb);
+}
+
+/* Given a "diamond" control-flow pattern where BB0 tests a condition,
+   BB1 and BB2 are "then" and "else" blocks dependent on this test,
+   and BB3 rejoins control flow following BB1 and BB2, look for 
+   opportunities to hoist loads as follows.  If BB3 contains a PHI of
+   two loads, one each occurring in BB1 and BB2, and the loads are
+   provably of adjacent fields in the same structure, then move both
+   loads into BB0.  Of course this can only be done if there are no
+   dependencies preventing such motion.
+
+   One of the hoisted loads will always be speculative, so the
+   transformation is currently conservative:
+
+    - The fields must be strictly adjacent.
+    - The two fields must occupy a single memory block that is
+      guaranteed to not cross a page boundary.
+
+    The last is difficult to prove, as such memory blocks should be
+    aligned on the minimum of the stack alignment boundary and the
+    alignment guaranteed by heap allocation interfaces.  Thus we rely
+    on a parameter for the alignment value.
+
+    Provided a good value is used for the last case, the first
+    restriction could possibly be relaxed.  */
+
+static void
+hoist_adjacent_loads (basic_block bb0, basic_block bb1,
+		      basic_block bb2, basic_block bb3)
+{
+  int param_align = PARAM_VALUE (PARAM_L1_CACHE_LINE_SIZE);
+  unsigned param_align_bits = (unsigned) (param_align * BITS_PER_UNIT);
+  gimple_stmt_iterator gsi;
+
+  /* Walk the phis in bb3 looking for an opportunity.  We are looking
+     for phis of two SSA names, one each of which is defined in bb1 and
+     bb2.  */
+  for (gsi = gsi_start_phis (bb3); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple phi_stmt = gsi_stmt (gsi);
+      gimple def1, def2, defswap;
+      tree arg1, arg2, ref1, ref2, field1, field2, fieldswap;
+      tree tree_offset1, tree_offset2, tree_size2, next;
+      int offset1, offset2, size2;
+      unsigned align1;
+      gimple_stmt_iterator gsi2;
+      basic_block bb_for_def1, bb_for_def2;
+
+      if (gimple_phi_num_args (phi_stmt) != 2
+	  || virtual_operand_p (gimple_phi_result (phi_stmt)))
+	continue;
+
+      arg1 = gimple_phi_arg_def (phi_stmt, 0);
+      arg2 = gimple_phi_arg_def (phi_stmt, 1);
+      
+      if (TREE_CODE (arg1) != SSA_NAME
+	  || TREE_CODE (arg2) != SSA_NAME
+	  || SSA_NAME_IS_DEFAULT_DEF (arg1)
+	  || SSA_NAME_IS_DEFAULT_DEF (arg2))
+	continue;
+
+      def1 = SSA_NAME_DEF_STMT (arg1);
+      def2 = SSA_NAME_DEF_STMT (arg2);
+
+      if ((gimple_bb (def1) != bb1 || gimple_bb (def2) != bb2)
+	  && (gimple_bb (def2) != bb1 || gimple_bb (def1) != bb2))
+	continue;
+
+      /* Check the mode of the arguments to be sure a conditional move
+	 can be generated for it.  */
+      if (optab_handler (movcc_optab, TYPE_MODE (TREE_TYPE (arg1)))
+	  == CODE_FOR_nothing)
+	continue;
+
+      /* Both statements must be assignments whose RHS is a COMPONENT_REF.  */
+      if (!gimple_assign_single_p (def1)
+	  || !gimple_assign_single_p (def2))
+	continue;
+
+      ref1 = gimple_assign_rhs1 (def1);
+      ref2 = gimple_assign_rhs1 (def2);
+
+      if (TREE_CODE (ref1) != COMPONENT_REF
+	  || TREE_CODE (ref2) != COMPONENT_REF)
+	continue;
+
+      /* The zeroth operand of the two component references must be
+	 identical.  It is not sufficient to compare get_base_address of
+	 the two references, because this could allow for different
+	 elements of the same array in the two trees.  It is not safe to
+	 assume that the existence of one array element implies the
+	 existence of a different one.  */
+      if (!operand_equal_p (TREE_OPERAND (ref1, 0), TREE_OPERAND (ref2, 0), 0))
+	continue;
+
+      field1 = TREE_OPERAND (ref1, 1);
+      field2 = TREE_OPERAND (ref2, 1);
+
+      /* Check for field adjacency, and ensure field1 comes first.  */
+      for (next = DECL_CHAIN (field1);
+	   next && TREE_CODE (next) != FIELD_DECL;
+	   next = DECL_CHAIN (next))
+	;
+
+      if (next != field2)
+	{
+	  for (next = DECL_CHAIN (field2);
+	       next && TREE_CODE (next) != FIELD_DECL;
+	       next = DECL_CHAIN (next))
+	    ;
+
+	  if (next != field1)
+	    continue;
+
+	  fieldswap = field1;
+	  field1 = field2;
+	  field2 = fieldswap;
+	  defswap = def1;
+	  def1 = def2;
+	  def2 = defswap;
+	}
+
+      bb_for_def1 = gimple_bb (def1);
+      bb_for_def2 = gimple_bb (def2);
+
+      /* Check for proper alignment of the first field.  */
+      tree_offset1 = bit_position (field1);
+      tree_offset2 = bit_position (field2);
+      tree_size2 = DECL_SIZE (field2);
+
+      if (!host_integerp (tree_offset1, 1)
+	  || !host_integerp (tree_offset2, 1)
+	  || !host_integerp (tree_size2, 1))
+	continue;
+
+      offset1 = TREE_INT_CST_LOW (tree_offset1);
+      offset2 = TREE_INT_CST_LOW (tree_offset2);
+      size2 = TREE_INT_CST_LOW (tree_size2);
+      align1 = DECL_ALIGN (field1) % param_align_bits;
+
+      if (offset1 % BITS_PER_UNIT != 0)
+	continue;
+
+      /* For profitability, the two field references should fit within
+	 a single cache line.  */
+      if (align1 + offset2 - offset1 + size2 > param_align_bits)
+	continue;
+
+      /* The two expressions cannot be dependent upon vdefs defined
+	 in bb1/bb2.  */
+      if (local_mem_dependence (def1, bb_for_def1)
+	  || local_mem_dependence (def2, bb_for_def2))
+	continue;
+
+      /* The conditions are satisfied; hoist the loads from bb1 and bb2 into
+	 bb0.  We hoist the first one first so that a cache miss is handled
+         efficiently regardless of hardware cache-fill policy.  */
+      gsi2 = gsi_for_stmt (def1);
+      gsi_move_to_bb_end (&gsi2, bb0);
+      gsi2 = gsi_for_stmt (def2);
+      gsi_move_to_bb_end (&gsi2, bb0);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file,
+		   "\nHoisting adjacent loads from %d and %d into %d: \n",
+		   bb_for_def1->index, bb_for_def2->index, bb0->index);
+	  print_gimple_stmt (dump_file, def1, 0, TDF_VOPS|TDF_MEMSYMS);
+	  print_gimple_stmt (dump_file, def2, 0, TDF_VOPS|TDF_MEMSYMS);
+	}
+    }
+}
+
+/* Determine whether we should attempt to hoist adjacent loads out of
+   diamond patterns in pass_phiopt.  Always hoist loads if
+   -fhoist-adjacent-loads is specified and the target machine has
+   both a conditional move instruction and a defined cache line size.  */
+
+static bool
+gate_hoist_loads (void)
+{
+  return (flag_hoist_adjacent_loads == 1
+	  && PARAM_VALUE (PARAM_L1_CACHE_LINE_SIZE)
+	  && HAVE_conditional_move);
 }
 
 /* Always do these optimizations if we have SSA
@@ -1410,6 +1952,7 @@ struct gimple_opt_pass pass_phiopt =
  {
   GIMPLE_PASS,
   "phiopt",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_phiopt,				/* gate */
   tree_ssa_phiopt,			/* execute */
   NULL,					/* sub */
@@ -1420,8 +1963,7 @@ struct gimple_opt_pass pass_phiopt =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_ggc_collect
+  TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow
     | TODO_verify_stmts	 		/* todo_flags_finish */
@@ -1439,6 +1981,7 @@ struct gimple_opt_pass pass_cselim =
  {
   GIMPLE_PASS,
   "cselim",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_cselim,				/* gate */
   tree_ssa_cs_elim,			/* execute */
   NULL,					/* sub */
@@ -1449,8 +1992,7 @@ struct gimple_opt_pass pass_cselim =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_dump_func
-    | TODO_ggc_collect
+  TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_verify_flow
     | TODO_verify_stmts	 		/* todo_flags_finish */

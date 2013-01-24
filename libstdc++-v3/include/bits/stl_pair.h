@@ -1,6 +1,7 @@
 // Pair implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
+// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
+// 2010, 2011, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -59,7 +60,7 @@
 
 #include <bits/move.h> // for std::move / std::forward, and std::swap
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <type_traits> // for std::__decay_and_strip too
 #endif
 
@@ -67,7 +68,7 @@ namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /// piecewise_construct_t
   struct piecewise_construct_t { };
 
@@ -78,11 +79,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename...>
     class tuple;
 
-  template<int...>
+  template<std::size_t...>
     struct _Index_tuple;
 #endif
 
-  /// Struct holding two objects of arbitrary type.
+ /**
+   *  @brief Struct holding two objects of arbitrary type.
+   *
+   *  @tparam _T1  Type of first object.
+   *  @tparam _T2  Type of second object.
+   */
   template<class _T1, class _T2>
     struct pair
     {
@@ -104,43 +110,46 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : first(__a), second(__b) { }
 
       /** There is also a templated copy ctor for the @c pair class itself.  */
+#if __cplusplus < 201103L
       template<class _U1, class _U2>
-	_GLIBCXX_CONSTEXPR pair(const pair<_U1, _U2>& __p)
+	pair(const pair<_U1, _U2>& __p)
+	: first(__p.first), second(__p.second) { }
+#else
+      template<class _U1, class _U2, class = typename
+	       enable_if<__and_<is_convertible<const _U1&, _T1>,
+				is_convertible<const _U2&, _T2>>::value>::type>
+	constexpr pair(const pair<_U1, _U2>& __p)
 	: first(__p.first), second(__p.second) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
       constexpr pair(const pair&) = default;
-
-      // Implicit.
-      // pair(pair&&) = default;
+      constexpr pair(pair&&) = default;
 
       // DR 811.
       template<class _U1, class = typename
-	       std::enable_if<std::is_convertible<_U1, _T1>::value>::type>
-	pair(_U1&& __x, const _T2& __y)
+	       enable_if<is_convertible<_U1, _T1>::value>::type>
+	constexpr pair(_U1&& __x, const _T2& __y)
 	: first(std::forward<_U1>(__x)), second(__y) { }
 
       template<class _U2, class = typename
-	       std::enable_if<std::is_convertible<_U2, _T2>::value>::type>
-	pair(const _T1& __x, _U2&& __y)
+	       enable_if<is_convertible<_U2, _T2>::value>::type>
+	constexpr pair(const _T1& __x, _U2&& __y)
 	: first(__x), second(std::forward<_U2>(__y)) { }
 
       template<class _U1, class _U2, class = typename
-	       std::enable_if<std::is_convertible<_U1, _T1>::value
-			      && std::is_convertible<_U2, _T2>::value>::type>
-	pair(_U1&& __x, _U2&& __y)
+	       enable_if<__and_<is_convertible<_U1, _T1>,
+				is_convertible<_U2, _T2>>::value>::type>
+	constexpr pair(_U1&& __x, _U2&& __y)
 	: first(std::forward<_U1>(__x)), second(std::forward<_U2>(__y)) { }
 
-      template<class _U1, class _U2>
-	pair(pair<_U1, _U2>&& __p)
+      template<class _U1, class _U2, class = typename
+	       enable_if<__and_<is_convertible<_U1, _T1>,
+				is_convertible<_U2, _T2>>::value>::type>
+	constexpr pair(pair<_U1, _U2>&& __p)
 	: first(std::forward<_U1>(__p.first)),
 	  second(std::forward<_U2>(__p.second)) { }
 
-      template<class... _Args1, class... _Args2>
-	pair(piecewise_construct_t,
-	     tuple<_Args1...> __first, tuple<_Args2...> __second)
-	: first(__cons<first_type>(std::move(__first))),
-	  second(__cons<second_type>(std::move(__second))) { }
+      template<typename... _Args1, typename... _Args2>
+        pair(piecewise_construct_t, tuple<_Args1...>, tuple<_Args2...>);
 
       pair&
       operator=(const pair& __p)
@@ -152,9 +161,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       pair&
       operator=(pair&& __p)
+      noexcept(__and_<is_nothrow_move_assignable<_T1>,
+	              is_nothrow_move_assignable<_T2>>::value)
       {
-	first = std::move(__p.first);
-	second = std::move(__p.second);
+	first = std::forward<first_type>(__p.first);
+	second = std::forward<second_type>(__p.second);
 	return *this;
       }
 
@@ -171,13 +182,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	pair&
 	operator=(pair<_U1, _U2>&& __p)
 	{
-	  first = std::move(__p.first);
-	  second = std::move(__p.second);
+	  first = std::forward<_U1>(__p.first);
+	  second = std::forward<_U2>(__p.second);
 	  return *this;
 	}
 
       void
       swap(pair& __p)
+      noexcept(noexcept(swap(first, __p.first))
+	       && noexcept(swap(second, __p.second)))
       {
 	using std::swap;
 	swap(first, __p.first);
@@ -185,13 +198,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
     private:
-      template<typename _Tp, typename... _Args>
-	static _Tp
-	__cons(tuple<_Args...>&&);
-
-      template<typename _Tp, typename... _Args, int... _Indexes>
-	static _Tp
-	__do_cons(tuple<_Args...>&&, const _Index_tuple<_Indexes...>&);
+      template<typename... _Args1, std::size_t... _Indexes1,
+               typename... _Args2, std::size_t... _Indexes2>
+        pair(tuple<_Args1...>&, tuple<_Args2...>&,
+             _Index_tuple<_Indexes1...>, _Index_tuple<_Indexes2...>);
 #endif
     };
 
@@ -232,20 +242,21 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator>=(const pair<_T1, _T2>& __x, const pair<_T1, _T2>& __y)
     { return !(__x < __y); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /// See std::pair::swap().
   // Note:  no std::swap overloads in C++03 mode, this has performance
   //        implications, see, eg, libstdc++/38466.
   template<class _T1, class _T2>
     inline void
     swap(pair<_T1, _T2>& __x, pair<_T1, _T2>& __y)
+    noexcept(noexcept(__x.swap(__y)))
     { __x.swap(__y); }
 #endif
 
   /**
    *  @brief A convenience wrapper for creating a pair from two objects.
-   *  @param  x  The first object.
-   *  @param  y  The second object.
+   *  @param  __x  The first object.
+   *  @param  __y  The second object.
    *  @return   A newly-constructed pair<> object of the appropriate type.
    *
    *  The standard requires that the objects be passed by reference-to-const,
@@ -254,11 +265,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    */
   // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // 181.  make_pair() unintended behavior
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   // NB: DR 706.
   template<class _T1, class _T2>
-    inline pair<typename __decay_and_strip<_T1>::__type,
-		typename __decay_and_strip<_T2>::__type>
+    constexpr pair<typename __decay_and_strip<_T1>::__type,
+                   typename __decay_and_strip<_T2>::__type>
     make_pair(_T1&& __x, _T2&& __y)
     {
       typedef typename __decay_and_strip<_T1>::__type __ds_type1;

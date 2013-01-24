@@ -1,7 +1,5 @@
 /* Implements exception handling.
-   Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -81,7 +79,7 @@ along with GCC; see the file COPYING3.  If not see
    gimple to eh_region mapping that had been recorded in the
    THROW_STMT_TABLE.
 
-   During pass_rtl_eh (except.c), we generate the real landing pads
+   Then, via finish_eh_generation, we generate the real landing pads
    to which the runtime will actually transfer control.  These new
    landing pads perform whatever bookkeeping is needed by the target
    backend in order to resume execution within the current function.
@@ -123,7 +121,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "insn-config.h"
 #include "except.h"
-#include "integrate.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
@@ -136,13 +133,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
+#include "common/common-target.h"
 #include "langhooks.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-pass.h"
-#include "timevar.h"
 #include "tree-flow.h"
+#include "cfgloop.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -189,8 +187,8 @@ static int add_action_record (htab_t, int, int);
 static int collect_one_action_chain (htab_t, eh_region);
 static int add_call_site (rtx, int, int);
 
-static void push_uleb128 (VEC (uchar, gc) **, unsigned int);
-static void push_sleb128 (VEC (uchar, gc) **, int);
+static void push_uleb128 (vec<uchar, va_gc> **, unsigned int);
+static void push_sleb128 (vec<uchar, va_gc> **, int);
 #ifndef HAVE_AS_LEB128
 static int dw2_size_of_call_site_table (int);
 static int sjlj_size_of_call_site_table (void);
@@ -209,7 +207,7 @@ init_eh (void)
 
   /* Create the SjLj_Function_Context structure.  This should match
      the definition in unwind-sjlj.c.  */
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     {
       tree f_jbuf, f_per, f_lsda, f_prev, f_cs, f_data, tmp;
 
@@ -225,7 +223,7 @@ init_eh (void)
 			 integer_type_node);
       DECL_FIELD_CONTEXT (f_cs) = sjlj_fc_type_node;
 
-      tmp = build_index_type (build_int_cst (NULL_TREE, 4 - 1));
+      tmp = build_index_type (size_int (4 - 1));
       tmp = build_array_type (lang_hooks.types.type_for_mode
 				(targetm.unwind_word_mode (), 1),
 			      tmp);
@@ -245,17 +243,17 @@ init_eh (void)
 
 #ifdef DONT_USE_BUILTIN_SETJMP
 #ifdef JMP_BUF_SIZE
-      tmp = build_int_cst (NULL_TREE, JMP_BUF_SIZE - 1);
+      tmp = size_int (JMP_BUF_SIZE - 1);
 #else
       /* Should be large enough for most systems, if it is not,
 	 JMP_BUF_SIZE should be defined with the proper value.  It will
 	 also tend to be larger than necessary for most systems, a more
 	 optimal port will define JMP_BUF_SIZE.  */
-      tmp = build_int_cst (NULL_TREE, FIRST_PSEUDO_REGISTER + 2 - 1);
+      tmp = size_int (FIRST_PSEUDO_REGISTER + 2 - 1);
 #endif
 #else
       /* builtin_setjmp takes a pointer to 5 words.  */
-      tmp = build_int_cst (NULL_TREE, 5 * BITS_PER_WORD / POINTER_SIZE - 1);
+      tmp = size_int (5 * BITS_PER_WORD / POINTER_SIZE - 1);
 #endif
       tmp = build_index_type (tmp);
       tmp = build_array_type (ptr_type_node, tmp);
@@ -304,8 +302,8 @@ init_eh_for_function (void)
   cfun->eh = ggc_alloc_cleared_eh_status ();
 
   /* Make sure zero'th entries are used.  */
-  VEC_safe_push (eh_region, gc, cfun->eh->region_array, NULL);
-  VEC_safe_push (eh_landing_pad, gc, cfun->eh->lp_array, NULL);
+  vec_safe_push (cfun->eh->region_array, (eh_region)0);
+  vec_safe_push (cfun->eh->lp_array, (eh_landing_pad)0);
 }
 
 /* Routines to generate the exception tree somewhat directly.
@@ -332,8 +330,8 @@ gen_eh_region (enum eh_region_type type, eh_region outer)
       cfun->eh->region_tree = new_eh;
     }
 
-  new_eh->index = VEC_length (eh_region, cfun->eh->region_array);
-  VEC_safe_push (eh_region, gc, cfun->eh->region_array, new_eh);
+  new_eh->index = vec_safe_length (cfun->eh->region_array);
+  vec_safe_push (cfun->eh->region_array, new_eh);
 
   /* Copy the language's notion of whether to use __cxa_end_cleanup.  */
   if (targetm.arm_eabi_unwinder && lang_hooks.eh_use_cxa_end_cleanup)
@@ -413,10 +411,10 @@ gen_eh_landing_pad (eh_region region)
 
   lp->next_lp = region->landing_pads;
   lp->region = region;
-  lp->index = VEC_length (eh_landing_pad, cfun->eh->lp_array);
+  lp->index = vec_safe_length (cfun->eh->lp_array);
   region->landing_pads = lp;
 
-  VEC_safe_push (eh_landing_pad, gc, cfun->eh->lp_array, lp);
+  vec_safe_push (cfun->eh->lp_array, lp);
 
   return lp;
 }
@@ -424,7 +422,7 @@ gen_eh_landing_pad (eh_region region)
 eh_region
 get_eh_region_from_number_fn (struct function *ifun, int i)
 {
-  return VEC_index (eh_region, ifun->eh->region_array, i);
+  return (*ifun->eh->region_array)[i];
 }
 
 eh_region
@@ -436,7 +434,7 @@ get_eh_region_from_number (int i)
 eh_landing_pad
 get_eh_landing_pad_from_number_fn (struct function *ifun, int i)
 {
-  return VEC_index (eh_landing_pad, ifun->eh->lp_array, i);
+  return (*ifun->eh->lp_array)[i];
 }
 
 eh_landing_pad
@@ -449,13 +447,13 @@ eh_region
 get_eh_region_from_lp_number_fn (struct function *ifun, int i)
 {
   if (i < 0)
-    return VEC_index (eh_region, ifun->eh->region_array, -i);
+    return (*ifun->eh->region_array)[-i];
   else if (i == 0)
     return NULL;
   else
     {
       eh_landing_pad lp;
-      lp = VEC_index (eh_landing_pad, ifun->eh->lp_array, i);
+      lp = (*ifun->eh->lp_array)[i];
       return lp->region;
     }
 }
@@ -526,7 +524,10 @@ duplicate_eh_regions_1 (struct duplicate_eh_regions_data *data,
       break;
 
     case ERT_MUST_NOT_THROW:
-      new_r->u.must_not_throw = old_r->u.must_not_throw;
+      new_r->u.must_not_throw.failure_loc =
+	LOCATION_LOCUS (old_r->u.must_not_throw.failure_loc);
+      new_r->u.must_not_throw.failure_decl =
+	old_r->u.must_not_throw.failure_decl;
       break;
     }
 
@@ -606,19 +607,19 @@ eh_region_outermost (struct function *ifun, eh_region region_a,
   gcc_assert (ifun->eh->region_array);
   gcc_assert (ifun->eh->region_tree);
 
-  b_outer = sbitmap_alloc (VEC_length (eh_region, ifun->eh->region_array));
-  sbitmap_zero (b_outer);
+  b_outer = sbitmap_alloc (ifun->eh->region_array->length());
+  bitmap_clear (b_outer);
 
   do
     {
-      SET_BIT (b_outer, region_b->index);
+      bitmap_set_bit (b_outer, region_b->index);
       region_b = region_b->outer;
     }
   while (region_b);
 
   do
     {
-      if (TEST_BIT (b_outer, region_a->index))
+      if (bitmap_bit_p (b_outer, region_a->index))
 	break;
       region_a = region_a->outer;
     }
@@ -751,10 +752,10 @@ add_ttypes_entry (htab_t ttypes_hash, tree type)
 
       n = XNEW (struct ttypes_filter);
       n->t = type;
-      n->filter = VEC_length (tree, cfun->eh->ttype_data) + 1;
+      n->filter = vec_safe_length (cfun->eh->ttype_data) + 1;
       *slot = n;
 
-      VEC_safe_push (tree, gc, cfun->eh->ttype_data, type);
+      vec_safe_push (cfun->eh->ttype_data, type);
     }
 
   return n->filter;
@@ -778,9 +779,9 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       int len;
 
       if (targetm.arm_eabi_unwinder)
-	len = VEC_length (tree, cfun->eh->ehspec_data.arm_eabi);
+	len = vec_safe_length (cfun->eh->ehspec_data.arm_eabi);
       else
-	len = VEC_length (uchar, cfun->eh->ehspec_data.other);
+	len = vec_safe_length (cfun->eh->ehspec_data.other);
 
       /* Filter value is a -1 based byte index into a uleb128 buffer.  */
 
@@ -793,8 +794,7 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
       for (; list ; list = TREE_CHAIN (list))
 	{
 	  if (targetm.arm_eabi_unwinder)
-	    VEC_safe_push (tree, gc, cfun->eh->ehspec_data.arm_eabi,
-			   TREE_VALUE (list));
+	    vec_safe_push (cfun->eh->ehspec_data.arm_eabi, TREE_VALUE (list));
 	  else
 	    {
 	      /* Look up each type in the list and encode its filter
@@ -804,9 +804,9 @@ add_ehspec_entry (htab_t ehspec_hash, htab_t ttypes_hash, tree list)
 	    }
 	}
       if (targetm.arm_eabi_unwinder)
-	VEC_safe_push (tree, gc, cfun->eh->ehspec_data.arm_eabi, NULL_TREE);
+	vec_safe_push (cfun->eh->ehspec_data.arm_eabi, NULL_TREE);
       else
-	VEC_safe_push (uchar, gc, cfun->eh->ehspec_data.other, 0);
+	vec_safe_push (cfun->eh->ehspec_data.other, (uchar)0);
     }
 
   return n->filter;
@@ -825,16 +825,16 @@ assign_filter_values (void)
   eh_region r;
   eh_catch c;
 
-  cfun->eh->ttype_data = VEC_alloc (tree, gc, 16);
+  vec_alloc (cfun->eh->ttype_data, 16);
   if (targetm.arm_eabi_unwinder)
-    cfun->eh->ehspec_data.arm_eabi = VEC_alloc (tree, gc, 64);
+    vec_alloc (cfun->eh->ehspec_data.arm_eabi, 64);
   else
-    cfun->eh->ehspec_data.other = VEC_alloc (uchar, gc, 64);
+    vec_alloc (cfun->eh->ehspec_data.other, 64);
 
   ttypes = htab_create (31, ttypes_filter_hash, ttypes_filter_eq, free);
   ehspec = htab_create (31, ehspec_filter_hash, ehspec_filter_eq, free);
 
-  for (i = 1; VEC_iterate (eh_region, cfun->eh->region_array, i, r); ++i)
+  for (i = 1; vec_safe_iterate (cfun->eh->region_array, i, &r); ++i)
     {
       if (r == NULL)
 	continue;
@@ -857,7 +857,7 @@ assign_filter_values (void)
 		  for ( ; tp_node; tp_node = TREE_CHAIN (tp_node))
 		    {
 		      int flt = add_ttypes_entry (ttypes, TREE_VALUE (tp_node));
-		      tree flt_node = build_int_cst (NULL_TREE, flt);
+		      tree flt_node = build_int_cst (integer_type_node, flt);
 
 		      c->filter_list
 			= tree_cons (NULL_TREE, flt_node, c->filter_list);
@@ -868,7 +868,7 @@ assign_filter_values (void)
 		  /* Get a filter value for the NULL list also since it
 		     will need an action record anyway.  */
 		  int flt = add_ttypes_entry (ttypes, NULL);
-		  tree flt_node = build_int_cst (NULL_TREE, flt);
+		  tree flt_node = build_int_cst (integer_type_node, flt);
 
 		  c->filter_list
 		    = tree_cons (NULL_TREE, flt_node, NULL);
@@ -897,7 +897,7 @@ static basic_block
 emit_to_new_bb_before (rtx seq, rtx insn)
 {
   rtx last;
-  basic_block bb;
+  basic_block bb, prev_bb;
   edge e;
   edge_iterator ei;
 
@@ -912,12 +912,41 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   last = emit_insn_before (seq, insn);
   if (BARRIER_P (last))
     last = PREV_INSN (last);
-  bb = create_basic_block (seq, last, BLOCK_FOR_INSN (insn)->prev_bb);
+  prev_bb = BLOCK_FOR_INSN (insn)->prev_bb;
+  bb = create_basic_block (seq, last, prev_bb);
   update_bb_for_insn (bb);
   bb->flags |= BB_SUPERBLOCK;
   return bb;
 }
 
+/* A subroutine of dw2_build_landing_pads, also used for edge splitting
+   at the rtl level.  Emit the code required by the target at a landing
+   pad for the given region.  */
+
+void
+expand_dw2_landing_pad_for_region (eh_region region)
+{
+#ifdef HAVE_exception_receiver
+  if (HAVE_exception_receiver)
+    emit_insn (gen_exception_receiver ());
+  else
+#endif
+#ifdef HAVE_nonlocal_goto_receiver
+  if (HAVE_nonlocal_goto_receiver)
+    emit_insn (gen_nonlocal_goto_receiver ());
+  else
+#endif
+    { /* Nothing */ }
+
+  if (region->exc_ptr_reg)
+    emit_move_insn (region->exc_ptr_reg,
+		    gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
+  if (region->filter_reg)
+    emit_move_insn (region->filter_reg,
+		    gen_rtx_REG (targetm.eh_return_filter_mode (),
+				 EH_RETURN_DATA_REGNO (1)));
+}
+
 /* Expand the extra code needed at landing pads for dwarf2 unwinding.  */
 
 static void
@@ -925,10 +954,17 @@ dw2_build_landing_pads (void)
 {
   int i;
   eh_landing_pad lp;
+  int e_flags = EDGE_FALLTHRU;
 
-  for (i = 1; VEC_iterate (eh_landing_pad, cfun->eh->lp_array, i, lp); ++i)
+  /* If we're going to partition blocks, we need to be able to add
+     new landing pads later, which means that we need to hold on to
+     the post-landing-pad block.  Prevent it from being merged away.
+     We'll remove this bit after partitioning.  */
+  if (flag_reorder_blocks_and_partition)
+    e_flags |= EDGE_PRESERVE;
+
+  for (i = 1; vec_safe_iterate (cfun->eh->lp_array, i, &lp); ++i)
     {
-      eh_region region;
       basic_block bb;
       rtx seq;
       edge e;
@@ -942,39 +978,30 @@ dw2_build_landing_pads (void)
       emit_label (lp->landing_pad);
       LABEL_PRESERVE_P (lp->landing_pad) = 1;
 
-#ifdef HAVE_exception_receiver
-      if (HAVE_exception_receiver)
-	emit_insn (gen_exception_receiver ());
-      else
-#endif
-#ifdef HAVE_nonlocal_goto_receiver
-	if (HAVE_nonlocal_goto_receiver)
-	  emit_insn (gen_nonlocal_goto_receiver ());
-	else
-#endif
-	  { /* Nothing */ }
-
-      region = lp->region;
-      if (region->exc_ptr_reg)
-	emit_move_insn (region->exc_ptr_reg,
-			gen_rtx_REG (ptr_mode, EH_RETURN_DATA_REGNO (0)));
-      if (region->filter_reg)
-	emit_move_insn (region->filter_reg,
-			gen_rtx_REG (targetm.eh_return_filter_mode (),
-				     EH_RETURN_DATA_REGNO (1)));
+      expand_dw2_landing_pad_for_region (lp->region);
 
       seq = get_insns ();
       end_sequence ();
 
       bb = emit_to_new_bb_before (seq, label_rtx (lp->post_landing_pad));
-      e = make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
+      e = make_edge (bb, bb->next_bb, e_flags);
       e->count = bb->count;
       e->probability = REG_BR_PROB_BASE;
+      if (current_loops)
+	{
+	  struct loop *loop = bb->next_bb->loop_father;
+	  /* If we created a pre-header block, add the new block to the
+	     outer loop, otherwise to the loop itself.  */
+	  if (bb->next_bb == loop->header)
+	    add_bb_to_loop (bb, loop_outer (loop));
+	  else
+	    add_bb_to_loop (bb, loop);
+	}
     }
 }
 
 
-static VEC (int, heap) *sjlj_lp_call_site_index;
+static vec<int> sjlj_lp_call_site_index;
 
 /* Process all active landing pads.  Assign each one a compact dispatch
    index, and a call-site index.  */
@@ -986,12 +1013,12 @@ sjlj_assign_call_site_values (void)
   int i, disp_index;
   eh_landing_pad lp;
 
-  crtl->eh.action_record_data = VEC_alloc (uchar, gc, 64);
+  vec_alloc (crtl->eh.action_record_data, 64);
   ar_hash = htab_create (31, action_record_hash, action_record_eq, free);
 
   disp_index = 0;
   call_site_base = 1;
-  for (i = 1; VEC_iterate (eh_landing_pad, cfun->eh->lp_array, i, lp); ++i)
+  for (i = 1; vec_safe_iterate (cfun->eh->lp_array, i, &lp); ++i)
     if (lp && lp->post_landing_pad)
       {
 	int action, call_site;
@@ -1011,7 +1038,7 @@ sjlj_assign_call_site_values (void)
 	/* Otherwise, look it up in the table.  */
 	else
 	  call_site = add_call_site (GEN_INT (disp_index), action, 0);
-	VEC_replace (int, sjlj_lp_call_site_index, i, call_site);
+	sjlj_lp_call_site_index[i] = call_site;
 
 	disp_index++;
       }
@@ -1049,7 +1076,7 @@ sjlj_mark_call_sites (void)
       if (nothrow)
 	continue;
       if (lp)
-	this_call_site = VEC_index (int, sjlj_lp_call_site_index, lp->index);
+	this_call_site = sjlj_lp_call_site_index[lp->index];
       else if (r == NULL)
 	{
 	  /* Calls (and trapping insns) without notes are outside any
@@ -1123,23 +1150,17 @@ sjlj_emit_function_enter (rtx dispatch_label)
   if (dispatch_label)
     {
 #ifdef DONT_USE_BUILTIN_SETJMP
-      rtx x, last;
+      rtx x;
       x = emit_library_call_value (setjmp_libfunc, NULL_RTX, LCT_RETURNS_TWICE,
 				   TYPE_MODE (integer_type_node), 1,
-				   plus_constant (XEXP (fc, 0),
+				   plus_constant (Pmode, XEXP (fc, 0),
 						  sjlj_fc_jbuf_ofs), Pmode);
 
       emit_cmp_and_jump_insns (x, const0_rtx, NE, 0,
 			       TYPE_MODE (integer_type_node), 0,
-			       dispatch_label);
-      last = get_last_insn ();
-      if (JUMP_P (last) && any_condjump_p (last))
-	{
-	  gcc_assert (!find_reg_note (last, REG_BR_PROB, 0));
-	  add_reg_note (last, REG_BR_PROB, GEN_INT (REG_BR_PROB_BASE / 100));
-	}
+			       dispatch_label, REG_BR_PROB_BASE / 100);
 #else
-      expand_builtin_setjmp_setup (plus_constant (XEXP (fc, 0),
+      expand_builtin_setjmp_setup (plus_constant (Pmode, XEXP (fc, 0),
 						  sjlj_fc_jbuf_ofs),
 				   dispatch_label);
 #endif
@@ -1216,7 +1237,7 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
   eh_region r;
   edge e;
   int i, disp_index;
-  gimple switch_stmt;
+  vec<tree> dispatch_labels = vNULL;
 
   fc = crtl->eh.sjlj_fc;
 
@@ -1262,19 +1283,10 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 
   /* If there's exactly one call site in the function, don't bother
      generating a switch statement.  */
-  switch_stmt = NULL;
   if (num_dispatch > 1)
-    {
-      tree disp;
+    dispatch_labels.create (num_dispatch);
 
-      mem = adjust_address (fc, TYPE_MODE (integer_type_node),
-			    sjlj_fc_call_site_ofs);
-      disp = make_tree (integer_type_node, mem);
-
-      switch_stmt = gimple_build_switch_nlabels (num_dispatch, disp, NULL);
-    }
-
-  for (i = 1; VEC_iterate (eh_landing_pad, cfun->eh->lp_array, i, lp); ++i)
+  for (i = 1; vec_safe_iterate (cfun->eh->lp_array, i, &lp); ++i)
     if (lp && lp->post_landing_pad)
       {
 	rtx seq2, label;
@@ -1285,14 +1297,12 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 
 	if (num_dispatch > 1)
 	  {
-	    tree t_label, case_elt;
+	    tree t_label, case_elt, t;
 
 	    t_label = create_artificial_label (UNKNOWN_LOCATION);
-	    case_elt = build3 (CASE_LABEL_EXPR, void_type_node,
-			       build_int_cst (NULL, disp_index),
-			       NULL, t_label);
-	    gimple_switch_set_label (switch_stmt, disp_index, case_elt);
-
+	    t = build_int_cst (integer_type_node, disp_index);
+	    case_elt = build_case_label (t, NULL, t_label);
+	    dispatch_labels.quick_push (case_elt);
 	    label = label_rtx (t_label);
 	  }
 	else
@@ -1316,6 +1326,28 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 	e = make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
 	e->count = bb->count;
 	e->probability = REG_BR_PROB_BASE;
+	if (current_loops)
+	  {
+	    struct loop *loop = bb->next_bb->loop_father;
+	    /* If we created a pre-header block, add the new block to the
+	       outer loop, otherwise to the loop itself.  */
+	    if (bb->next_bb == loop->header)
+	      add_bb_to_loop (bb, loop_outer (loop));
+	    else
+	      add_bb_to_loop (bb, loop);
+	    /* ???  For multiple dispatches we will end up with edges
+	       from the loop tree root into this loop, making it a
+	       multiple-entry loop.  Discard all affected loops.  */
+	    if (num_dispatch > 1)
+	      {
+		for (loop = bb->loop_father;
+		     loop_outer (loop); loop = loop_outer (loop))
+		  {
+		    loop->header = NULL;
+		    loop->latch = NULL;
+		  }
+	      }
+	  }
 
 	disp_index++;
       }
@@ -1323,8 +1355,9 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
 
   if (num_dispatch > 1)
     {
-      expand_case (switch_stmt);
-      expand_builtin_trap ();
+      rtx disp = adjust_address (fc, TYPE_MODE (integer_type_node),
+				 sjlj_fc_call_site_ofs);
+      expand_sjlj_dispatch_table (disp, dispatch_labels);
     }
 
   seq = get_insns ();
@@ -1336,6 +1369,24 @@ sjlj_emit_dispatch_table (rtx dispatch_label, int num_dispatch)
       e = make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
       e->count = bb->count;
       e->probability = REG_BR_PROB_BASE;
+      if (current_loops)
+	{
+	  struct loop *loop = bb->next_bb->loop_father;
+	  /* If we created a pre-header block, add the new block to the
+	     outer loop, otherwise to the loop itself.  */
+	  if (bb->next_bb == loop->header)
+	    add_bb_to_loop (bb, loop_outer (loop));
+	  else
+	    add_bb_to_loop (bb, loop);
+	}
+    }
+  else
+    {
+      /* We are not wiring up edges here, but as the dispatcher call
+         is at function begin simply associate the block with the
+	 outermost (non-)loop.  */
+      if (current_loops)
+	add_bb_to_loop (bb, current_loops->tree_root);
     }
 }
 
@@ -1344,10 +1395,10 @@ sjlj_build_landing_pads (void)
 {
   int num_dispatch;
 
-  num_dispatch = VEC_length (eh_landing_pad, cfun->eh->lp_array);
+  num_dispatch = vec_safe_length (cfun->eh->lp_array);
   if (num_dispatch == 0)
     return;
-  VEC_safe_grow (int, heap, sjlj_lp_call_site_index, num_dispatch);
+  sjlj_lp_call_site_index.safe_grow_cleared (num_dispatch);
 
   num_dispatch = sjlj_assign_call_site_values ();
   if (num_dispatch > 0)
@@ -1384,26 +1435,26 @@ sjlj_build_landing_pads (void)
       sjlj_emit_function_exit ();
     }
 
-  VEC_free (int, heap, sjlj_lp_call_site_index);
+  sjlj_lp_call_site_index.release ();
 }
 
 /* After initial rtl generation, call back to finish generating
    exception support code.  */
 
-static void
+void
 finish_eh_generation (void)
 {
   basic_block bb;
 
   /* Construct the landing pads.  */
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     sjlj_build_landing_pads ();
   else
     dw2_build_landing_pads ();
   break_superblocks ();
 
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ
-      /* Kludge for Alpha/Tru64 (see alpha_gp_save_rtx).  */
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ
+      /* Kludge for Alpha (see alpha_gp_save_rtx).  */
       || single_succ_edge (ENTRY_BLOCK_PTR)->insns.r)
     commit_edge_insertions ();
 
@@ -1437,41 +1488,6 @@ finish_eh_generation (void)
 	}
     }
 }
-
-static bool
-gate_handle_eh (void)
-{
-  /* Nothing to do if no regions created.  */
-  return cfun->eh->region_tree != NULL;
-}
-
-/* Complete generation of exception handling code.  */
-static unsigned int
-rest_of_handle_eh (void)
-{
-  finish_eh_generation ();
-  cleanup_cfg (CLEANUP_NO_INSN_DEL);
-  return 0;
-}
-
-struct rtl_opt_pass pass_rtl_eh =
-{
- {
-  RTL_PASS,
-  "rtl eh",                             /* name */
-  gate_handle_eh,                       /* gate */
-  rest_of_handle_eh,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_JUMP,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func                        /* todo_flags_finish */
- }
-};
 
 /* This section handles removing dead code for flow.  */
 
@@ -1486,7 +1502,7 @@ remove_eh_landing_pad (eh_landing_pad lp)
 
   if (lp->post_landing_pad)
     EH_LANDING_PAD_NR (lp->post_landing_pad) = 0;
-  VEC_replace (eh_landing_pad, cfun->eh->lp_array, lp->index, NULL);
+  (*cfun->eh->lp_array)[lp->index] = NULL;
 }
 
 /* Splice REGION from the region tree.  */
@@ -1501,7 +1517,7 @@ remove_eh_handler (eh_region region)
     {
       if (lp->post_landing_pad)
 	EH_LANDING_PAD_NR (lp->post_landing_pad) = 0;
-      VEC_replace (eh_landing_pad, cfun->eh->lp_array, lp->index, NULL);
+      (*cfun->eh->lp_array)[lp->index] = NULL;
     }
 
   outer = region->outer;
@@ -1524,7 +1540,7 @@ remove_eh_handler (eh_region region)
     }
   *pp = region->next_peer;
 
-  VEC_replace (eh_region, cfun->eh->region_array, region->index, NULL);
+  (*cfun->eh->region_array)[region->index] = NULL;
 }
 
 /* Invokes CALLBACK for every exception handler landing pad label.
@@ -1536,7 +1552,7 @@ for_each_eh_label (void (*callback) (rtx))
   eh_landing_pad lp;
   int i;
 
-  for (i = 1; VEC_iterate (eh_landing_pad, cfun->eh->lp_array, i, lp); ++i)
+  for (i = 1; vec_safe_iterate (cfun->eh->lp_array, i, &lp); ++i)
     {
       if (lp)
 	{
@@ -1694,10 +1710,10 @@ get_eh_region_and_lp_from_rtx (const_rtx insn, eh_region *pr,
     }
 
   if (lp_nr < 0)
-    r = VEC_index (eh_region, cfun->eh->region_array, -lp_nr);
+    r = (*cfun->eh->region_array)[-lp_nr];
   else
     {
-      lp = VEC_index (eh_landing_pad, cfun->eh->lp_array, lp_nr);
+      lp = (*cfun->eh->lp_array)[lp_nr];
       r = lp->region;
     }
 
@@ -1866,24 +1882,12 @@ set_nothrow_function_flags (void)
 	  }
       }
 
-  for (insn = crtl->epilogue_delay_list; insn;
-       insn = XEXP (insn, 1))
-    if (can_throw_external (insn))
-      {
-        crtl->nothrow = 0;
-
-	if (!CALL_P (insn) || !SIBLING_CALL_P (insn))
-	  {
-	    crtl->all_throwers_are_sibcalls = 0;
-	    return 0;
-	  }
-      }
   if (crtl->nothrow
-      && (cgraph_function_body_availability (cgraph_node
+      && (cgraph_function_body_availability (cgraph_get_node
 					     (current_function_decl))
           >= AVAIL_AVAILABLE))
     {
-      struct cgraph_node *node = cgraph_node (current_function_decl);
+      struct cgraph_node *node = cgraph_get_node (current_function_decl);
       struct cgraph_edge *e;
       for (e = node->callers; e; e = e->next_caller)
         e->can_throw_external = false;
@@ -1901,6 +1905,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
  {
   RTL_PASS,
   "nothrow",                            /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   set_nothrow_function_flags,           /* execute */
   NULL,                                 /* sub */
@@ -1911,7 +1916,7 @@ struct rtl_opt_pass pass_set_nothrow_function_flags =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,                       /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 
@@ -1930,7 +1935,7 @@ expand_builtin_eh_common (tree region_nr_t)
   gcc_assert (host_integerp (region_nr_t, 0));
   region_nr = tree_low_cst (region_nr_t, 0);
 
-  region = VEC_index (eh_region, cfun->eh->region_array, region_nr);
+  region = (*cfun->eh->region_array)[region_nr];
 
   /* ??? We shouldn't have been able to delete a eh region without
      deleting all the code that depended on it.  */
@@ -2061,7 +2066,7 @@ expand_builtin_extract_return_addr (tree addr_tree)
 
   /* Then adjust to find the real return address.  */
 #if defined (RETURN_ADDR_OFFSET)
-  addr = plus_constant (addr, RETURN_ADDR_OFFSET);
+  addr = plus_constant (Pmode, addr, RETURN_ADDR_OFFSET);
 #endif
 
   return addr;
@@ -2080,7 +2085,7 @@ expand_builtin_frob_return_addr (tree addr_tree)
 
 #ifdef RETURN_ADDR_OFFSET
   addr = force_reg (Pmode, addr);
-  addr = plus_constant (addr, -RETURN_ADDR_OFFSET);
+  addr = plus_constant (Pmode, addr, -RETURN_ADDR_OFFSET);
 #endif
 
   return addr;
@@ -2227,7 +2232,7 @@ add_action_record (htab_t ar_hash, int filter, int next)
   if ((new_ar = *slot) == NULL)
     {
       new_ar = XNEW (struct action_record);
-      new_ar->offset = VEC_length (uchar, crtl->eh.action_record_data) + 1;
+      new_ar->offset = crtl->eh.action_record_data->length () + 1;
       new_ar->filter = filter;
       new_ar->next = next;
       *slot = new_ar;
@@ -2239,7 +2244,7 @@ add_action_record (htab_t ar_hash, int filter, int next)
 
       push_sleb128 (&crtl->eh.action_record_data, filter);
       if (next)
-	next -= VEC_length (uchar, crtl->eh.action_record_data) + 1;
+	next -= crtl->eh.action_record_data->length () + 1;
       push_sleb128 (&crtl->eh.action_record_data, next);
     }
 
@@ -2363,11 +2368,9 @@ add_call_site (rtx landing_pad, int action, int section)
   record->landing_pad = landing_pad;
   record->action = action;
 
-  VEC_safe_push (call_site_record, gc,
-		 crtl->eh.call_site_record[section], record);
+  vec_safe_push (crtl->eh.call_site_record_v[section], record);
 
-  return call_site_base + VEC_length (call_site_record,
-				      crtl->eh.call_site_record[section]) - 1;
+  return call_site_base + crtl->eh.call_site_record_v[section]->length () - 1;
 }
 
 /* Turn REG_EH_REGION notes back into NOTE_INSN_EH_REGION notes.
@@ -2388,12 +2391,9 @@ convert_to_eh_region_ranges (void)
   rtx section_switch_note = NULL_RTX;
   rtx first_no_action_insn_before_switch = NULL_RTX;
   rtx last_no_action_insn_before_switch = NULL_RTX;
-  rtx *pad_map = NULL;
-  sbitmap pad_loc = NULL;
-  int min_labelno = 0, max_labelno = 0;
   int saved_call_site_base = call_site_base;
 
-  crtl->eh.action_record_data = VEC_alloc (uchar, gc, 64);
+  vec_alloc (crtl->eh.action_record_data, 64);
 
   ar_hash = htab_create (31, action_record_hash, action_record_eq, free);
 
@@ -2517,19 +2517,12 @@ convert_to_eh_region_ranges (void)
 	   opening a new one afterwards.  */
 	else if (last_action != -3)
 	  last_landing_pad = pc_rtx;
-	call_site_base += VEC_length (call_site_record,
-				      crtl->eh.call_site_record[cur_sec]);
+	if (crtl->eh.call_site_record_v[cur_sec])
+	  call_site_base += crtl->eh.call_site_record_v[cur_sec]->length ();
 	cur_sec++;
-	gcc_assert (crtl->eh.call_site_record[cur_sec] == NULL);
-	crtl->eh.call_site_record[cur_sec]
-	  = VEC_alloc (call_site_record, gc, 10);
-	max_labelno = max_label_num ();
-	min_labelno = get_first_label_num ();
-	pad_map = XCNEWVEC (rtx, max_labelno - min_labelno + 1);
-	pad_loc = sbitmap_alloc (max_labelno - min_labelno + 1);
+	gcc_assert (crtl->eh.call_site_record_v[cur_sec] == NULL);
+	vec_alloc (crtl->eh.call_site_record_v[cur_sec], 10);
       }
-    else if (LABEL_P (iter) && pad_map)
-      SET_BIT (pad_loc, CODE_LABEL_NUMBER (iter) - min_labelno);
 
   if (last_action >= -1 && ! first_no_action_insn)
     {
@@ -2538,103 +2531,6 @@ convert_to_eh_region_ranges (void)
     }
 
   call_site_base = saved_call_site_base;
-
-  if (pad_map)
-    {
-      /* When doing hot/cold partitioning, ensure landing pads are
-	 always in the same section as the EH region, .gcc_except_table
-	 can't express it otherwise.  */
-      for (cur_sec = 0; cur_sec < 2; cur_sec++)
-	{
-	  int i, idx;
-	  int n = VEC_length (call_site_record,
-			      crtl->eh.call_site_record[cur_sec]);
-	  basic_block prev_bb = NULL, padbb;
-
-	  for (i = 0; i < n; ++i)
-	    {
-	      struct call_site_record_d *cs =
-		VEC_index (call_site_record,
-			   crtl->eh.call_site_record[cur_sec], i);
-	      rtx jump, note;
-
-	      if (cs->landing_pad == NULL_RTX)
-		continue;
-	      idx = CODE_LABEL_NUMBER (cs->landing_pad) - min_labelno;
-	      /* If the landing pad is in the correct section, nothing
-		 is needed.  */
-	      if (TEST_BIT (pad_loc, idx) ^ (cur_sec == 0))
-		continue;
-	      /* Otherwise, if we haven't seen this pad yet, we need to
-		 add a new label and jump to the correct section.  */
-	      if (pad_map[idx] == NULL_RTX)
-		{
-		  pad_map[idx] = gen_label_rtx ();
-		  if (prev_bb == NULL)
-		    for (iter = section_switch_note;
-			 iter; iter = PREV_INSN (iter))
-		      if (NOTE_INSN_BASIC_BLOCK_P (iter))
-			{
-			  prev_bb = NOTE_BASIC_BLOCK (iter);
-			  break;
-			}
-		  if (cur_sec == 0)
-		    {
-		      note = emit_label_before (pad_map[idx],
-						section_switch_note);
-		      jump = emit_jump_insn_before (gen_jump (cs->landing_pad),
-						    section_switch_note);
-		    }
-		  else
-		    {
-		      jump = emit_jump_insn_after (gen_jump (cs->landing_pad),
-						   section_switch_note);
-		      note = emit_label_after (pad_map[idx],
-					       section_switch_note);
-		    }
-		  JUMP_LABEL (jump) = cs->landing_pad;
-		  add_reg_note (jump, REG_CROSSING_JUMP, NULL_RTX);
-		  iter = NEXT_INSN (cs->landing_pad);
-		  if (iter && NOTE_INSN_BASIC_BLOCK_P (iter))
-		    padbb = NOTE_BASIC_BLOCK (iter);
-		  else
-		    padbb = NULL;
-		  if (padbb && prev_bb
-		      && BB_PARTITION (padbb) != BB_UNPARTITIONED)
-		    {
-		      basic_block bb;
-		      int part
-			= BB_PARTITION (padbb) == BB_COLD_PARTITION
-			  ? BB_HOT_PARTITION : BB_COLD_PARTITION;
-		      edge_iterator ei;
-		      edge e;
-
-		      bb = create_basic_block (note, jump, prev_bb);
-		      make_single_succ_edge (bb, padbb, EDGE_CROSSING);
-		      BB_SET_PARTITION (bb, part);
-		      for (ei = ei_start (padbb->preds);
-			   (e = ei_safe_edge (ei)); )
-			{
-			  if ((e->flags & (EDGE_EH|EDGE_CROSSING))
-			      == (EDGE_EH|EDGE_CROSSING))
-			    {
-			      redirect_edge_succ (e, bb);
-			      e->flags &= ~EDGE_CROSSING;
-			    }
-			  else
-			    ei_next (&ei);
-			}
-		      if (cur_sec == 0)
-			prev_bb = bb;
-		    }
-		}
-	      cs->landing_pad = pad_map[idx];
-	    }
-	}
-
-      sbitmap_free (pad_loc);
-      XDELETEVEC (pad_map);
-    }
 
   htab_delete (ar_hash);
   return 0;
@@ -2646,7 +2542,7 @@ gate_convert_to_eh_region_ranges (void)
   /* Nothing to do for SJLJ exceptions or if no regions created.  */
   if (cfun->eh->region_tree == NULL)
     return false;
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     return false;
   return true;
 }
@@ -2656,6 +2552,7 @@ struct rtl_opt_pass pass_convert_to_eh_region_ranges =
  {
   RTL_PASS,
   "eh_ranges",                          /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_convert_to_eh_region_ranges,	/* gate */
   convert_to_eh_region_ranges,          /* execute */
   NULL,                                 /* sub */
@@ -2666,12 +2563,12 @@ struct rtl_opt_pass pass_convert_to_eh_region_ranges =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
+  0              			/* todo_flags_finish */
  }
 };
 
 static void
-push_uleb128 (VEC (uchar, gc) **data_area, unsigned int value)
+push_uleb128 (vec<uchar, va_gc> **data_area, unsigned int value)
 {
   do
     {
@@ -2679,13 +2576,13 @@ push_uleb128 (VEC (uchar, gc) **data_area, unsigned int value)
       value >>= 7;
       if (value)
 	byte |= 0x80;
-      VEC_safe_push (uchar, gc, *data_area, byte);
+      vec_safe_push (*data_area, byte);
     }
   while (value);
 }
 
 static void
-push_sleb128 (VEC (uchar, gc) **data_area, int value)
+push_sleb128 (vec<uchar, va_gc> **data_area, int value)
 {
   unsigned char byte;
   int more;
@@ -2698,7 +2595,7 @@ push_sleb128 (VEC (uchar, gc) **data_area, int value)
 		|| (value == -1 && (byte & 0x40) != 0));
       if (more)
 	byte |= 0x80;
-      VEC_safe_push (uchar, gc, *data_area, byte);
+      vec_safe_push (*data_area, byte);
     }
   while (more);
 }
@@ -2708,14 +2605,14 @@ push_sleb128 (VEC (uchar, gc) **data_area, int value)
 static int
 dw2_size_of_call_site_table (int section)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[section]);
+  int n = vec_safe_length (crtl->eh.call_site_record_v[section]);
   int size = n * (4 + 4 + 4);
   int i;
 
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[section], i);
+	(*crtl->eh.call_site_record_v[section])[i];
       size += size_of_uleb128 (cs->action);
     }
 
@@ -2725,14 +2622,14 @@ dw2_size_of_call_site_table (int section)
 static int
 sjlj_size_of_call_site_table (void)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[0]);
+  int n = vec_safe_length (crtl->eh.call_site_record_v[0]);
   int size = 0;
   int i;
 
   for (i = 0; i < n; ++i)
     {
       struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[0], i);
+	(*crtl->eh.call_site_record_v[0])[i];
       size += size_of_uleb128 (INTVAL (cs->landing_pad));
       size += size_of_uleb128 (cs->action);
     }
@@ -2744,7 +2641,7 @@ sjlj_size_of_call_site_table (void)
 static void
 dw2_output_call_site_table (int cs_format, int section)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[section]);
+  int n = vec_safe_length (crtl->eh.call_site_record_v[section]);
   int i;
   const char *begin;
 
@@ -2757,8 +2654,7 @@ dw2_output_call_site_table (int cs_format, int section)
 
   for (i = 0; i < n; ++i)
     {
-      struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[section], i);
+      struct call_site_record_d *cs = (*crtl->eh.call_site_record_v[section])[i];
       char reg_start_lab[32];
       char reg_end_lab[32];
       char landing_pad_lab[32];
@@ -2806,13 +2702,12 @@ dw2_output_call_site_table (int cs_format, int section)
 static void
 sjlj_output_call_site_table (void)
 {
-  int n = VEC_length (call_site_record, crtl->eh.call_site_record[0]);
+  int n = vec_safe_length (crtl->eh.call_site_record_v[0]);
   int i;
 
   for (i = 0; i < n; ++i)
     {
-      struct call_site_record_d *cs =
-	VEC_index (call_site_record, crtl->eh.call_site_record[0], i);
+      struct call_site_record_d *cs = (*crtl->eh.call_site_record_v[0])[i];
 
       dw2_asm_output_data_uleb128 (INTVAL (cs->landing_pad),
 				   "region %d landing pad", i);
@@ -2835,7 +2730,7 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
     {
       /* Compute the section and cache it into exception_section,
 	 unless it depends on the function name.  */
-      if (targetm.have_named_sections)
+      if (targetm_common.have_named_sections)
 	{
 	  int flags;
 
@@ -2852,11 +2747,16 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
 	    flags = SECTION_WRITE;
 
 #ifdef HAVE_LD_EH_GC_SECTIONS
-	  if (flag_function_sections)
+	  if (flag_function_sections
+	      || (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP))
 	    {
 	      char *section_name = XNEWVEC (char, strlen (fnname) + 32);
+	      /* The EH table must match the code section, so only mark
+		 it linkonce if we have COMDAT groups to tie them together.  */
+	      if (DECL_ONE_ONLY (current_function_decl) && HAVE_COMDAT_GROUP)
+		flags |= SECTION_LINKONCE;
 	      sprintf (section_name, ".gcc_except_table.%s", fnname);
-	      s = get_section (section_name, flags, NULL);
+	      s = get_section (section_name, flags, current_function_decl);
 	      free (section_name);
 	    }
 	  else
@@ -2887,8 +2787,6 @@ output_ttype (tree type, int tt_format, int tt_format_size)
     value = const0_rtx;
   else
     {
-      struct varpool_node *node;
-
       /* FIXME lto.  pass_ipa_free_lang_data changes all types to
 	 runtime types so TYPE should already be a runtime type
 	 reference.  When pass_ipa_free_lang data is made a default
@@ -2907,12 +2805,7 @@ output_ttype (tree type, int tt_format, int tt_format_size)
 	{
 	  type = TREE_OPERAND (type, 0);
 	  if (TREE_CODE (type) == VAR_DECL)
-	    {
-	      node = varpool_node (type);
-	      if (node)
-		varpool_mark_needed_node (node);
-	      is_public = TREE_PUBLIC (type);
-	    }
+	    is_public = TREE_PUBLIC (type);
 	}
       else
 	gcc_assert (TREE_CODE (type) == INTEGER_CST);
@@ -2943,10 +2836,10 @@ output_one_function_exception_table (int section)
   int have_tt_data;
   int tt_format_size = 0;
 
-  have_tt_data = (VEC_length (tree, cfun->eh->ttype_data)
+  have_tt_data = (vec_safe_length (cfun->eh->ttype_data)
 		  || (targetm.arm_eabi_unwinder
-		      ? VEC_length (tree, cfun->eh->ehspec_data.arm_eabi)
-		      : VEC_length (uchar, cfun->eh->ehspec_data.other)));
+		      ? vec_safe_length (cfun->eh->ehspec_data.arm_eabi)
+		      : vec_safe_length (cfun->eh->ehspec_data.other)));
 
   /* Indicate the format of the @TType entries.  */
   if (! have_tt_data)
@@ -2985,7 +2878,7 @@ output_one_function_exception_table (int section)
 		       eh_data_format_name (tt_format));
 
 #ifndef HAVE_AS_LEB128
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     call_site_len = sjlj_size_of_call_site_table ();
   else
     call_site_len = dw2_size_of_call_site_table (section);
@@ -3009,8 +2902,8 @@ output_one_function_exception_table (int section)
       before_disp = 1 + 1;
       after_disp = (1 + size_of_uleb128 (call_site_len)
 		    + call_site_len
-		    + VEC_length (uchar, crtl->eh.action_record_data)
-		    + (VEC_length (tree, cfun->eh->ttype_data)
+		    + vec_safe_length (crtl->eh.action_record_data)
+		    + (vec_safe_length (cfun->eh->ttype_data)
 		       * tt_format_size));
 
       disp = after_disp;
@@ -3052,14 +2945,14 @@ output_one_function_exception_table (int section)
   dw2_asm_output_delta_uleb128 (cs_end_label, cs_after_size_label,
 				"Call-site table length");
   ASM_OUTPUT_LABEL (asm_out_file, cs_after_size_label);
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     sjlj_output_call_site_table ();
   else
     dw2_output_call_site_table (cs_format, section);
   ASM_OUTPUT_LABEL (asm_out_file, cs_end_label);
 #else
   dw2_asm_output_data_uleb128 (call_site_len, "Call-site table length");
-  if (targetm.except_unwind_info (&global_options) == UI_SJLJ)
+  if (targetm_common.except_unwind_info (&global_options) == UI_SJLJ)
     sjlj_output_call_site_table ();
   else
     dw2_output_call_site_table (cs_format, section);
@@ -3068,17 +2961,17 @@ output_one_function_exception_table (int section)
   /* ??? Decode and interpret the data for flag_debug_asm.  */
   {
     uchar uc;
-    FOR_EACH_VEC_ELT (uchar, crtl->eh.action_record_data, i, uc)
+    FOR_EACH_VEC_ELT (*crtl->eh.action_record_data, i, uc)
       dw2_asm_output_data (1, uc, i ? NULL : "Action record table");
   }
 
   if (have_tt_data)
     assemble_align (tt_format_size * BITS_PER_UNIT);
 
-  i = VEC_length (tree, cfun->eh->ttype_data);
+  i = vec_safe_length (cfun->eh->ttype_data);
   while (i-- > 0)
     {
-      tree type = VEC_index (tree, cfun->eh->ttype_data, i);
+      tree type = (*cfun->eh->ttype_data)[i];
       output_ttype (type, tt_format, tt_format_size);
     }
 
@@ -3092,14 +2985,14 @@ output_one_function_exception_table (int section)
     {
       tree type;
       for (i = 0;
-	   VEC_iterate (tree, cfun->eh->ehspec_data.arm_eabi, i, type); ++i)
+	   vec_safe_iterate (cfun->eh->ehspec_data.arm_eabi, i, &type); ++i)
 	output_ttype (type, tt_format, tt_format_size);
     }
   else
     {
       uchar uc;
       for (i = 0;
-	   VEC_iterate (uchar, cfun->eh->ehspec_data.other, i, uc); ++i)
+	   vec_safe_iterate (cfun->eh->ehspec_data.other, i, &uc); ++i)
 	dw2_asm_output_data (1, uc,
 			     i ? NULL : "Exception specification table");
     }
@@ -3128,7 +3021,7 @@ output_function_exception_table (const char *fnname)
   targetm.asm_out.emit_except_table_label (asm_out_file);
 
   output_one_function_exception_table (0);
-  if (crtl->eh.call_site_record[1] != NULL)
+  if (crtl->eh.call_site_record_v[1])
     output_one_function_exception_table (1);
 
   switch_to_section (current_function_section ());
@@ -3319,7 +3212,7 @@ verify_eh_tree (struct function *fun)
     return;
 
   count_r = 0;
-  for (i = 1; VEC_iterate (eh_region, fun->eh->region_array, i, r); ++i)
+  for (i = 1; vec_safe_iterate (fun->eh->region_array, i, &r); ++i)
     if (r)
       {
 	if (r->index == i)
@@ -3332,7 +3225,7 @@ verify_eh_tree (struct function *fun)
       }
 
   count_lp = 0;
-  for (i = 1; VEC_iterate (eh_landing_pad, fun->eh->lp_array, i, lp); ++i)
+  for (i = 1; vec_safe_iterate (fun->eh->lp_array, i, &lp); ++i)
     if (lp)
       {
 	if (lp->index == i)
@@ -3349,7 +3242,7 @@ verify_eh_tree (struct function *fun)
   r = fun->eh->region_tree;
   while (1)
     {
-      if (VEC_index (eh_region, fun->eh->region_array, r->index) != r)
+      if ((*fun->eh->region_array)[r->index] != r)
 	{
 	  error ("region_array is corrupted for region %i", r->index);
 	  err = true;
@@ -3368,7 +3261,7 @@ verify_eh_tree (struct function *fun)
 
       for (lp = r->landing_pads; lp ; lp = lp->next_lp)
 	{
-	  if (VEC_index (eh_landing_pad, fun->eh->lp_array, lp->index) != lp)
+	  if ((*fun->eh->lp_array)[lp->index] != lp)
 	    {
 	      error ("lp_array is corrupted for lp %i", lp->index);
 	      err = true;

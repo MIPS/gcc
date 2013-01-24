@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -18,7 +18,7 @@ type lzwTest struct {
 	desc       string
 	raw        string
 	compressed string
-	err        os.Error
+	err        error
 }
 
 var lzwTests = []lzwTest{
@@ -81,9 +81,9 @@ var lzwTests = []lzwTest{
 }
 
 func TestReader(t *testing.T) {
-	b := bytes.NewBuffer(nil)
+	var b bytes.Buffer
 	for _, tt := range lzwTests {
-		d := strings.Split(tt.desc, ";", -1)
+		d := strings.Split(tt.desc, ";")
 		var order Order
 		switch d[1] {
 		case "LSB":
@@ -97,7 +97,7 @@ func TestReader(t *testing.T) {
 		rc := NewReader(strings.NewReader(tt.compressed), order, litWidth)
 		defer rc.Close()
 		b.Reset()
-		n, err := io.Copy(b, rc)
+		n, err := io.Copy(&b, rc)
 		if err != nil {
 			if err != tt.err {
 				t.Errorf("%s: io.Copy: %v want %v", tt.desc, err, tt.err)
@@ -111,22 +111,42 @@ func TestReader(t *testing.T) {
 	}
 }
 
-type devNull struct{}
-
-func (devNull) Write(p []byte) (int, os.Error) {
-	return len(p), nil
-}
-
-func BenchmarkDecoder(b *testing.B) {
+func benchmarkDecoder(b *testing.B, n int) {
 	b.StopTimer()
-	buf0, _ := ioutil.ReadFile("../testdata/e.txt")
-	compressed := bytes.NewBuffer(nil)
+	b.SetBytes(int64(n))
+	buf0, err := ioutil.ReadFile("../testdata/e.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	if len(buf0) == 0 {
+		b.Fatalf("test file has no data")
+	}
+	compressed := new(bytes.Buffer)
 	w := NewWriter(compressed, LSB, 8)
-	io.Copy(w, bytes.NewBuffer(buf0))
+	for i := 0; i < n; i += len(buf0) {
+		if len(buf0) > n-i {
+			buf0 = buf0[:n-i]
+		}
+		io.Copy(w, bytes.NewBuffer(buf0))
+	}
 	w.Close()
 	buf1 := compressed.Bytes()
+	buf0, compressed, w = nil, nil, nil
+	runtime.GC()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		io.Copy(devNull{}, NewReader(bytes.NewBuffer(buf1), LSB, 8))
+		io.Copy(ioutil.Discard, NewReader(bytes.NewBuffer(buf1), LSB, 8))
 	}
+}
+
+func BenchmarkDecoder1e4(b *testing.B) {
+	benchmarkDecoder(b, 1e4)
+}
+
+func BenchmarkDecoder1e5(b *testing.B) {
+	benchmarkDecoder(b, 1e5)
+}
+
+func BenchmarkDecoder1e6(b *testing.B) {
+	benchmarkDecoder(b, 1e6)
 }

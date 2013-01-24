@@ -1,6 +1,6 @@
 /* Support routines shared by all runtimes.
-   Copyright (C) 2011 Free Software Foundation, Inc.
-   Contributed by Iain Sandoe 
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Contributed by Iain Sandoe
 
 This file is part of GCC.
 
@@ -29,7 +29,7 @@ extern tree add_field_decl (tree, const char *, tree **);
 extern tree build_sized_array_type (tree, int);
 
 extern tree lookup_interface (tree);
-extern tree objc_build_constructor (tree, VEC(constructor_elt,gc) *);
+extern tree objc_build_constructor (tree, vec<constructor_elt, va_gc> *);
 
 extern tree start_var_decl (tree, const char *);
 extern void finish_var_decl (tree, tree);
@@ -43,27 +43,25 @@ extern void add_class_reference (tree);
 
 #ifdef OBJCPLUS
 extern void objc_start_function (tree, tree, tree, tree);
-extern tree objc_get_parm_info (int);
+extern tree objc_get_parm_info (int, tree);
 #else
 extern void objc_start_function (tree, tree, tree, struct c_arg_info *);
-extern struct c_arg_info *objc_get_parm_info (int);
+extern struct c_arg_info *objc_get_parm_info (int, tree);
 #endif
 extern void objc_push_parm (tree);
-extern tree get_arg_type_list (tree, int, int);
+
+extern tree build_function_type_for_method (tree, tree, int, bool);
+
+extern char *objc_build_property_setter_name (tree);
 
 /* Stuff that should be migrated to shared support (or some v1-only file).  */
 extern void build_super_template (void);
 
 extern tree objc_build_component_ref (tree, tree);
 
-extern tree objc_v2_encode_prop_attr (tree);
 extern tree build_descriptor_table_initializer (tree, tree);
 extern tree build_method_prototype_list_template (tree, int);
 extern tree build_protocol_initializer (tree, tree, tree, tree, tree);
-
-/* Stuff that should be migrated to shared encode.  */
-extern tree encode_method_prototype (tree);
-extern void encode_field_decl (tree, int, int);
 
 /* Moved or new routines in objc-runtime-shared-support.c  */
 
@@ -84,7 +82,6 @@ extern tree build_ivar_template (void);
 extern void generate_strings (void);
 
 extern void dump_interface (FILE *, tree);
-extern int generating_instance_variables;
 extern FILE *gen_declaration_file;
 
 #endif /* _OBJC_RUNTIME_SHARED_SUPPORT_H_ */

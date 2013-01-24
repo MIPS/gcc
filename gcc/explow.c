@@ -1,7 +1,5 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
-   Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "langhooks.h"
 #include "target.h"
+#include "common/common-target.h"
 #include "output.h"
 
 static rtx break_out_memory_refs (rtx);
@@ -50,7 +49,7 @@ static rtx break_out_memory_refs (rtx);
 HOST_WIDE_INT
 trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
 {
-  int width = GET_MODE_BITSIZE (mode);
+  int width = GET_MODE_PRECISION (mode);
 
   /* You want to truncate to a _what_?  */
   gcc_assert (SCALAR_INT_MODE_P (mode));
@@ -73,16 +72,18 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
   return c;
 }
 
-/* Return an rtx for the sum of X and the integer C.  */
+/* Return an rtx for the sum of X and the integer C, given that X has
+   mode MODE.  */
 
 rtx
-plus_constant (rtx x, HOST_WIDE_INT c)
+plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
 {
   RTX_CODE code;
   rtx y;
-  enum machine_mode mode;
   rtx tem;
   int all_constant = 0;
+
+  gcc_assert (GET_MODE (x) == VOIDmode || GET_MODE (x) == mode);
 
   if (c == 0)
     return x;
@@ -90,26 +91,40 @@ plus_constant (rtx x, HOST_WIDE_INT c)
  restart:
 
   code = GET_CODE (x);
-  mode = GET_MODE (x);
   y = x;
 
   switch (code)
     {
     case CONST_INT:
+      if (GET_MODE_BITSIZE (mode) > HOST_BITS_PER_WIDE_INT)
+	{
+	  double_int di_x = double_int::from_shwi (INTVAL (x));
+	  double_int di_c = double_int::from_shwi (c);
+
+	  bool overflow;
+	  double_int v = di_x.add_with_sign (di_c, false, &overflow);
+	  if (overflow)
+	    gcc_unreachable ();
+
+	  return immed_double_int_const (v, VOIDmode);
+	}
+
       return GEN_INT (INTVAL (x) + c);
 
     case CONST_DOUBLE:
       {
-	unsigned HOST_WIDE_INT l1 = CONST_DOUBLE_LOW (x);
-	HOST_WIDE_INT h1 = CONST_DOUBLE_HIGH (x);
-	unsigned HOST_WIDE_INT l2 = c;
-	HOST_WIDE_INT h2 = c < 0 ? ~0 : 0;
-	unsigned HOST_WIDE_INT lv;
-	HOST_WIDE_INT hv;
+	double_int di_x = double_int::from_pair (CONST_DOUBLE_HIGH (x),
+						 CONST_DOUBLE_LOW (x));
+	double_int di_c = double_int::from_shwi (c);
 
-	add_double (l1, h1, l2, h2, &lv, &hv);
+	bool overflow;
+	double_int v = di_x.add_with_sign (di_c, false, &overflow);
+	if (overflow)
+	  /* Sorry, we have no way to represent overflows this wide.
+	     To fix, add constant support wider than CONST_DOUBLE.  */
+	  gcc_assert (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_DOUBLE_INT);
 
-	return immed_double_const (lv, hv, VOIDmode);
+	return immed_double_int_const (v, VOIDmode);
       }
 
     case MEM:
@@ -119,10 +134,8 @@ plus_constant (rtx x, HOST_WIDE_INT c)
       if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
 	  && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0)))
 	{
-	  tem
-	    = force_const_mem (GET_MODE (x),
-			       plus_constant (get_pool_constant (XEXP (x, 0)),
-					      c));
+	  tem = plus_constant (mode, get_pool_constant (XEXP (x, 0)), c);
+	  tem = force_const_mem (GET_MODE (x), tem);
 	  if (memory_address_p (GET_MODE (tem), XEXP (tem, 0)))
 	    return tem;
 	}
@@ -141,31 +154,18 @@ plus_constant (rtx x, HOST_WIDE_INT c)
       break;
 
     case PLUS:
-      /* The interesting case is adding the integer to a sum.
-	 Look for constant term in the sum and combine
-	 with C.  For an integer constant term, we make a combined
-	 integer.  For a constant term that is not an explicit integer,
-	 we cannot really combine, but group them together anyway.
-
-	 Restart or use a recursive call in case the remaining operand is
-	 something that we handle specially, such as a SYMBOL_REF.
+      /* The interesting case is adding the integer to a sum.  Look
+	 for constant term in the sum and combine with C.  For an
+	 integer constant term or a constant term that is not an
+	 explicit integer, we combine or group them together anyway.
 
 	 We may not immediately return from the recursive call here, lest
 	 all_constant gets lost.  */
 
-      if (CONST_INT_P (XEXP (x, 1)))
+      if (CONSTANT_P (XEXP (x, 1)))
 	{
-	  c += INTVAL (XEXP (x, 1));
-
-	  if (GET_MODE (x) != VOIDmode)
-	    c = trunc_int_for_mode (c, GET_MODE (x));
-
-	  x = XEXP (x, 0);
-	  goto restart;
-	}
-      else if (CONSTANT_P (XEXP (x, 1)))
-	{
-	  x = gen_rtx_PLUS (mode, XEXP (x, 0), plus_constant (XEXP (x, 1), c));
+	  x = gen_rtx_PLUS (mode, XEXP (x, 0),
+			    plus_constant (mode, XEXP (x, 1), c));
 	  c = 0;
 	}
       else if (find_constant_term_loc (&y))
@@ -175,7 +175,7 @@ plus_constant (rtx x, HOST_WIDE_INT c)
 	  rtx copy = copy_rtx (x);
 	  rtx *const_loc = find_constant_term_loc (&copy);
 
-	  *const_loc = plus_constant (*const_loc, c);
+	  *const_loc = plus_constant (mode, *const_loc, c);
 	  x = copy;
 	  c = 0;
 	}
@@ -342,8 +342,7 @@ convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
      to the default case.  */
   switch (GET_CODE (x))
     {
-    case CONST_INT:
-    case CONST_DOUBLE:
+    CASE_CONST_SCALAR_INT:
       if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode))
 	code = TRUNCATE;
       else if (POINTERS_EXTEND_UNSIGNED < 0)
@@ -383,18 +382,23 @@ convert_memory_address_addr_space (enum machine_mode to_mode ATTRIBUTE_UNUSED,
 
     case PLUS:
     case MULT:
-      /* For addition we can safely permute the conversion and addition
-	 operation if one operand is a constant and converting the constant
-	 does not change it or if one operand is a constant and we are
-	 using a ptr_extend instruction  (POINTERS_EXTEND_UNSIGNED < 0).
+      /* FIXME: For addition, we used to permute the conversion and
+	 addition operation only if one operand is a constant and
+	 converting the constant does not change it or if one operand
+	 is a constant and we are using a ptr_extend instruction
+	 (POINTERS_EXTEND_UNSIGNED < 0) even if the resulting address
+	 may overflow/underflow.  We relax the condition to include
+	 zero-extend (POINTERS_EXTEND_UNSIGNED > 0) since the other
+	 parts of the compiler depend on it.  See PR 49721.
+
 	 We can always safely permute them if we are making the address
 	 narrower.  */
       if (GET_MODE_SIZE (to_mode) < GET_MODE_SIZE (from_mode)
 	  || (GET_CODE (x) == PLUS
 	      && CONST_INT_P (XEXP (x, 1))
-	      && (XEXP (x, 1) == convert_memory_address_addr_space
-				   (to_mode, XEXP (x, 1), as)
-                 || POINTERS_EXTEND_UNSIGNED < 0)))
+	      && (POINTERS_EXTEND_UNSIGNED != 0
+		  || XEXP (x, 1) == convert_memory_address_addr_space
+		  			(to_mode, XEXP (x, 1), as))))
 	return gen_rtx_fmt_ee (GET_CODE (x), to_mode,
 			       convert_memory_address_addr_space
 				 (to_mode, XEXP (x, 0), as),
@@ -546,6 +550,7 @@ use_anchored_address (rtx x)
 {
   rtx base;
   HOST_WIDE_INT offset;
+  enum machine_mode mode;
 
   if (!flag_section_anchors)
     return x;
@@ -586,10 +591,11 @@ use_anchored_address (rtx x)
   /* If we're going to run a CSE pass, force the anchor into a register.
      We will then be able to reuse registers for several accesses, if the
      target costs say that that's worthwhile.  */
+  mode = GET_MODE (base);
   if (!cse_not_expected)
-    base = force_reg (GET_MODE (base), base);
+    base = force_reg (mode, base);
 
-  return replace_equiv_address (x, plus_constant (base, offset));
+  return replace_equiv_address (x, plus_constant (mode, base, offset));
 }
 
 /* Copy the value or contents of X to a new temp reg and return that reg.  */
@@ -771,6 +777,17 @@ enum machine_mode
 promote_function_mode (const_tree type, enum machine_mode mode, int *punsignedp,
 		       const_tree funtype, int for_return)
 {
+  /* Called without a type node for a libcall.  */
+  if (type == NULL_TREE)
+    {
+      if (INTEGRAL_MODE_P (mode))
+	return targetm.calls.promote_function_mode (NULL_TREE, mode,
+						    punsignedp, funtype,
+						    for_return);
+      else
+	return mode;
+    }
+
   switch (TREE_CODE (type))
     {
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
@@ -791,12 +808,23 @@ enum machine_mode
 promote_mode (const_tree type ATTRIBUTE_UNUSED, enum machine_mode mode,
 	      int *punsignedp ATTRIBUTE_UNUSED)
 {
+#ifdef PROMOTE_MODE
+  enum tree_code code;
+  int unsignedp;
+#endif
+
+  /* For libcalls this is invoked without TYPE from the backends
+     TARGET_PROMOTE_FUNCTION_MODE hooks.  Don't do anything in that
+     case.  */
+  if (type == NULL_TREE)
+    return mode;
+
   /* FIXME: this is the same logic that was there until GCC 4.4, but we
      probably want to test POINTERS_EXTEND_UNSIGNED even if PROMOTE_MODE
      is not defined.  The affected targets are M32C, S390, SPARC.  */
 #ifdef PROMOTE_MODE
-  const enum tree_code code = TREE_CODE (type);
-  int unsignedp = *punsignedp;
+  code = TREE_CODE (type);
+  unsignedp = *punsignedp;
 
   switch (code)
     {
@@ -850,14 +878,45 @@ promote_decl_mode (const_tree decl, int *punsignedp)
 }
 
 
+/* Controls the behaviour of {anti_,}adjust_stack.  */
+static bool suppress_reg_args_size;
+
+/* A helper for adjust_stack and anti_adjust_stack.  */
+
+static void
+adjust_stack_1 (rtx adjust, bool anti_p)
+{
+  rtx temp, insn;
+
+#ifndef STACK_GROWS_DOWNWARD
+  /* Hereafter anti_p means subtract_p.  */
+  anti_p = !anti_p;
+#endif
+
+  temp = expand_binop (Pmode,
+		       anti_p ? sub_optab : add_optab,
+		       stack_pointer_rtx, adjust, stack_pointer_rtx, 0,
+		       OPTAB_LIB_WIDEN);
+
+  if (temp != stack_pointer_rtx)
+    insn = emit_move_insn (stack_pointer_rtx, temp);
+  else
+    {
+      insn = get_last_insn ();
+      temp = single_set (insn);
+      gcc_assert (temp != NULL && SET_DEST (temp) == stack_pointer_rtx);
+    }
+
+  if (!suppress_reg_args_size)
+    add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
+}
+
 /* Adjust the stack pointer by ADJUST (an rtx for a number of bytes).
    This pops when ADJUST is positive.  ADJUST need not be constant.  */
 
 void
 adjust_stack (rtx adjust)
 {
-  rtx temp;
-
   if (adjust == const0_rtx)
     return;
 
@@ -866,17 +925,7 @@ adjust_stack (rtx adjust)
   if (CONST_INT_P (adjust))
     stack_pointer_delta -= INTVAL (adjust);
 
-  temp = expand_binop (Pmode,
-#ifdef STACK_GROWS_DOWNWARD
-		       add_optab,
-#else
-		       sub_optab,
-#endif
-		       stack_pointer_rtx, adjust, stack_pointer_rtx, 0,
-		       OPTAB_LIB_WIDEN);
-
-  if (temp != stack_pointer_rtx)
-    emit_move_insn (stack_pointer_rtx, temp);
+  adjust_stack_1 (adjust, false);
 }
 
 /* Adjust the stack pointer by minus ADJUST (an rtx for a number of bytes).
@@ -885,8 +934,6 @@ adjust_stack (rtx adjust)
 void
 anti_adjust_stack (rtx adjust)
 {
-  rtx temp;
-
   if (adjust == const0_rtx)
     return;
 
@@ -895,17 +942,7 @@ anti_adjust_stack (rtx adjust)
   if (CONST_INT_P (adjust))
     stack_pointer_delta += INTVAL (adjust);
 
-  temp = expand_binop (Pmode,
-#ifdef STACK_GROWS_DOWNWARD
-		       sub_optab,
-#else
-		       add_optab,
-#endif
-		       stack_pointer_rtx, adjust, stack_pointer_rtx, 0,
-		       OPTAB_LIB_WIDEN);
-
-  if (temp != stack_pointer_rtx)
-    emit_move_insn (stack_pointer_rtx, temp);
+  adjust_stack_1 (adjust, true);
 }
 
 /* Round the size of a block to be pushed up to the boundary required
@@ -943,7 +980,8 @@ round_push (rtx size)
 	 substituted by the right value in vregs pass and optimized
 	 during combine.  */
       align_rtx = virtual_preferred_stack_boundary_rtx;
-      alignm1_rtx = force_operand (plus_constant (align_rtx, -1), NULL_RTX);
+      alignm1_rtx = force_operand (plus_constant (Pmode, align_rtx, -1),
+				   NULL_RTX);
     }
 
   /* CEIL_DIV_EXPR needs to worry about the addition overflowing,
@@ -1025,6 +1063,20 @@ emit_stack_restore (enum save_level save_level, rtx sa)
   /* The default is that we use a move insn.  */
   rtx (*fcn) (rtx, rtx) = gen_move_insn;
 
+  /* If stack_realign_drap, the x86 backend emits a prologue that aligns both
+     STACK_POINTER and HARD_FRAME_POINTER.
+     If stack_realign_fp, the x86 backend emits a prologue that aligns only
+     STACK_POINTER. This renders the HARD_FRAME_POINTER unusable for accessing
+     aligned variables, which is reflected in ix86_can_eliminate.
+     We normally still have the realigned STACK_POINTER that we can use.
+     But if there is a stack restore still present at reload, it can trigger 
+     mark_not_eliminable for the STACK_POINTER, leaving no way to eliminate
+     FRAME_POINTER into a hard reg.
+     To prevent this situation, we force need_drap if we emit a stack
+     restore.  */
+  if (SUPPORTS_STACK_ALIGNMENT)
+    crtl->need_drap = true;
+
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
     {
@@ -1079,7 +1131,9 @@ update_nonlocal_goto_save_area (void)
      first one is used for the frame pointer save; the rest are sized by
      STACK_SAVEAREA_MODE.  Create a reference to array index 1, the first
      of the stack save area slots.  */
-  t_save = build4 (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
+  t_save = build4 (ARRAY_REF,
+		   TREE_TYPE (TREE_TYPE (cfun->nonlocal_goto_save_area)),
+		   cfun->nonlocal_goto_save_area,
 		   integer_one_node, NULL_TREE, NULL_TREE);
   r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -1128,7 +1182,7 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
   /* If stack usage info is requested, look into the size we are passed.
      We need to do so this early to avoid the obfuscation that may be
      introduced later by the various alignment operations.  */
-  if (flag_stack_usage)
+  if (flag_stack_usage_info)
     {
       if (CONST_INT_P (size))
 	stack_usage_size = INTVAL (size);
@@ -1217,47 +1271,15 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
     {
       unsigned extra = (required_align - extra_align) / BITS_PER_UNIT;
 
-      size = plus_constant (size, extra);
+      size = plus_constant (Pmode, size, extra);
       size = force_operand (size, NULL_RTX);
 
-      if (flag_stack_usage)
+      if (flag_stack_usage_info)
 	stack_usage_size += extra;
 
       if (extra && size_align > extra_align)
 	size_align = extra_align;
     }
-
-#ifdef SETJMP_VIA_SAVE_AREA
-  /* If setjmp restores regs from a save area in the stack frame,
-     avoid clobbering the reg save area.  Note that the offset of
-     virtual_incoming_args_rtx includes the preallocated stack args space.
-     It would be no problem to clobber that, but it's on the wrong side
-     of the old save area.
-
-     What used to happen is that, since we did not know for sure
-     whether setjmp() was invoked until after RTL generation, we
-     would use reg notes to store the "optimized" size and fix things
-     up later.  These days we know this information before we ever
-     start building RTL so the reg notes are unnecessary.  */
-  if (cfun->calls_setjmp)
-    {
-      rtx dynamic_offset
-	= expand_binop (Pmode, sub_optab, virtual_stack_dynamic_rtx,
-			stack_pointer_rtx, NULL_RTX, 1, OPTAB_LIB_WIDEN);
-
-      size = expand_binop (Pmode, add_optab, size, dynamic_offset,
-			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
-
-      /* The above dynamic offset cannot be computed statically at this
-	 point, but it will be possible to do so after RTL expansion is
-	 done.  Record how many times we will need to add it.  */
-      if (flag_stack_usage)
-	current_function_dynamic_alloc_count++;
-
-      /* ??? Can we infer a minimum of STACK_BOUNDARY here?  */
-      size_align = BITS_PER_UNIT;
-    }
-#endif /* SETJMP_VIA_SAVE_AREA */
 
   /* Round the size to a multiple of the required stack alignment.
      Since the stack if presumed to be rounded before this allocation,
@@ -1276,7 +1298,7 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
     {
       size = round_push (size);
 
-      if (flag_stack_usage)
+      if (flag_stack_usage_info)
 	{
 	  int align = crtl->preferred_stack_boundary / BITS_PER_UNIT;
 	  stack_usage_size = (stack_usage_size + align - 1) / align * align;
@@ -1287,7 +1309,7 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 
   /* The size is supposed to be fully adjusted at this point so record it
      if stack usage info is requested.  */
-  if (flag_stack_usage)
+  if (flag_stack_usage_info)
     {
       current_function_dynamic_stack_size += stack_usage_size;
 
@@ -1373,27 +1395,22 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
   else if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
     probe_stack_range (STACK_CHECK_PROTECT, size);
 
+  /* Don't let anti_adjust_stack emit notes.  */
+  suppress_reg_args_size = true;
+
   /* Perform the required allocation from the stack.  Some systems do
      this differently than simply incrementing/decrementing from the
      stack pointer, such as acquiring the space by calling malloc().  */
 #ifdef HAVE_allocate_stack
   if (HAVE_allocate_stack)
     {
-      enum machine_mode mode = STACK_SIZE_MODE;
-      insn_operand_predicate_fn pred;
-
+      struct expand_operand ops[2];
       /* We don't have to check against the predicate for operand 0 since
 	 TARGET is known to be a pseudo of the proper mode, which must
-	 be valid for the operand.  For operand 1, convert to the
-	 proper mode and validate.  */
-      if (mode == VOIDmode)
-	mode = insn_data[(int) CODE_FOR_allocate_stack].operand[1].mode;
-
-      pred = insn_data[(int) CODE_FOR_allocate_stack].operand[1].predicate;
-      if (pred && ! ((*pred) (size, mode)))
-	size = copy_to_mode_reg (mode, convert_to_mode (mode, size, 1));
-
-      emit_insn (gen_allocate_stack (target, size));
+	 be valid for the operand.  */
+      create_fixed_operand (&ops[0], target);
+      create_convert_operand_to (&ops[1], size, STACK_SIZE_MODE, true);
+      expand_insn (CODE_FOR_allocate_stack, 2, ops);
     }
   else
 #endif
@@ -1431,10 +1448,12 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
 	}
 
       saved_stack_pointer_delta = stack_pointer_delta;
+
       if (flag_stack_check && STACK_CHECK_MOVING_SP)
 	anti_adjust_stack_and_probe (size, false);
       else
 	anti_adjust_stack (size);
+
       /* Even if size is constant, don't modify stack_pointer_delta.
 	 The constant size alloca should preserve
 	 crtl->preferred_stack_boundary alignment.  */
@@ -1444,6 +1463,8 @@ allocate_dynamic_stack_space (rtx size, unsigned size_align,
       emit_move_insn (target, virtual_stack_dynamic_rtx);
 #endif
     }
+
+  suppress_reg_args_size = false;
 
   /* Finish up the split stack handling.  */
   if (final_label != NULL_RTX)
@@ -1498,17 +1519,24 @@ set_stack_check_libfunc (const char *libfunc_name)
 void
 emit_stack_probe (rtx address)
 {
-  rtx memref = gen_rtx_MEM (word_mode, address);
-
-  MEM_VOLATILE_P (memref) = 1;
-
-  /* See if we have an insn to probe the stack.  */
-#ifdef HAVE_probe_stack
-  if (HAVE_probe_stack)
-    emit_insn (gen_probe_stack (memref));
+#ifdef HAVE_probe_stack_address
+  if (HAVE_probe_stack_address)
+    emit_insn (gen_probe_stack_address (address));
   else
 #endif
-    emit_move_insn (memref, const0_rtx);
+    {
+      rtx memref = gen_rtx_MEM (word_mode, address);
+
+      MEM_VOLATILE_P (memref) = 1;
+
+      /* See if we have an insn to probe the stack.  */
+#ifdef HAVE_probe_stack
+      if (HAVE_probe_stack)
+        emit_insn (gen_probe_stack (memref));
+      else
+#endif
+        emit_move_insn (memref, const0_rtx);
+    }
 }
 
 /* Probe a range of stack addresses from FIRST to FIRST+SIZE, inclusive.
@@ -1541,7 +1569,8 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
       rtx addr = memory_address (Pmode,
 				 gen_rtx_fmt_ee (STACK_GROW_OP, Pmode,
 					         stack_pointer_rtx,
-					         plus_constant (size, first)));
+					         plus_constant (Pmode,
+								size, first)));
       emit_library_call (stack_check_libfunc, LCT_NORMAL, VOIDmode, 1, addr,
 			 Pmode);
     }
@@ -1550,16 +1579,16 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 #ifdef HAVE_check_stack
   else if (HAVE_check_stack)
     {
+      struct expand_operand ops[1];
       rtx addr = memory_address (Pmode,
 				 gen_rtx_fmt_ee (STACK_GROW_OP, Pmode,
 					         stack_pointer_rtx,
-					         plus_constant (size, first)));
-      insn_operand_predicate_fn pred
-	= insn_data[(int) CODE_FOR_check_stack].operand[0].predicate;
-      if (pred && !((*pred) (addr, Pmode)))
-	addr = copy_to_mode_reg (Pmode, addr);
-
-      emit_insn (gen_check_stack (addr));
+					         plus_constant (Pmode,
+								size, first)));
+      bool success;
+      create_input_operand (&ops[0], addr, Pmode);
+      success = maybe_expand_insn (CODE_FOR_check_stack, 1, ops);
+      gcc_assert (success);
     }
 #endif
 
@@ -1576,13 +1605,13 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
       for (i = PROBE_INTERVAL; i < isize; i += PROBE_INTERVAL)
 	{
 	  addr = memory_address (Pmode,
-				 plus_constant (stack_pointer_rtx,
+				 plus_constant (Pmode, stack_pointer_rtx,
 				 		STACK_GROW_OFF (first + i)));
 	  emit_stack_probe (addr);
 	}
 
       addr = memory_address (Pmode,
-			     plus_constant (stack_pointer_rtx,
+			     plus_constant (Pmode, stack_pointer_rtx,
 					    STACK_GROW_OFF (first + isize)));
       emit_stack_probe (addr);
     }
@@ -1666,7 +1695,7 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 	      /* Use [base + disp} addressing mode if supported.  */
 	      HOST_WIDE_INT offset = INTVAL (temp);
 	      addr = memory_address (Pmode,
-				     plus_constant (last_addr,
+				     plus_constant (Pmode, last_addr,
 						    STACK_GROW_OFF (offset)));
 	    }
 	  else
@@ -1724,9 +1753,9 @@ anti_adjust_stack_and_probe (rtx size, bool adjust_back)
 	}
 
       if (first_probe)
-	anti_adjust_stack (plus_constant (size, PROBE_INTERVAL + dope));
+	anti_adjust_stack (plus_constant (Pmode, size, PROBE_INTERVAL + dope));
       else
-	anti_adjust_stack (plus_constant (size, PROBE_INTERVAL - i));
+	anti_adjust_stack (plus_constant (Pmode, size, PROBE_INTERVAL - i));
       emit_stack_probe (stack_pointer_rtx);
     }
 
@@ -1804,7 +1833,7 @@ anti_adjust_stack_and_probe (rtx size, bool adjust_back)
 
   /* Adjust back and account for the additional first interval.  */
   if (adjust_back)
-    adjust_stack (plus_constant (size, PROBE_INTERVAL + dope));
+    adjust_stack (plus_constant (Pmode, size, PROBE_INTERVAL + dope));
   else
     adjust_stack (GEN_INT (PROBE_INTERVAL + dope));
 }

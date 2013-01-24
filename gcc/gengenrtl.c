@@ -1,6 +1,5 @@
 /* Generate code to allocate RTL structures.
-   Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003, 2004, 2007, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -64,9 +63,9 @@ type_from_format (int c)
     case 'E':
       return "rtvec ";
     case 't':
-      return "union tree_node *";  /* tree - typedef not available */
+      return "tree ";
     case 'B':
-      return "struct basic_block_def *";  /* basic block - typedef not available */
+      return "basic_block ";
     default:
       gcc_unreachable ();
     }
@@ -128,6 +127,10 @@ special_rtx (int idx)
 	  || strcmp (defs[idx].enumname, "REG") == 0
 	  || strcmp (defs[idx].enumname, "SUBREG") == 0
 	  || strcmp (defs[idx].enumname, "MEM") == 0
+	  || strcmp (defs[idx].enumname, "PC") == 0
+	  || strcmp (defs[idx].enumname, "CC0") == 0
+	  || strcmp (defs[idx].enumname, "RETURN") == 0
+	  || strcmp (defs[idx].enumname, "SIMPLE_RETURN") == 0
 	  || strcmp (defs[idx].enumname, "CONST_VECTOR") == 0);
 }
 

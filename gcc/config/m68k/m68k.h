@@ -1,7 +1,5 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
-   Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,18 +22,14 @@ along with GCC; see the file COPYING3.  If not see
    for both the MOTOROLA and MIT code paths.  We do rely on the host compiler
    to optimize away all constant tests.  */
 #if MOTOROLA  /* Use the Motorola assembly syntax.  */
-# define TARGET_VERSION fprintf (stderr, " (68k, Motorola syntax)")
 #else
 # define MOTOROLA 0  /* Use the MIT assembly syntax.  */
-# define TARGET_VERSION fprintf (stderr, " (68k, MIT syntax)")
 #endif
 
 /* Handle --with-cpu default option from configure script.  */
 #define OPTION_DEFAULT_SPECS						\
-  { "cpu",   "%{!mc68000:%{!m68000:%{!m68302:%{!m68010:%{!mc68020:%{!m68020:\
-%{!m68030:%{!m68040:%{!m68020-40:%{!m68020-60:%{!m68060:%{!mcpu32:\
-%{!m68332:%{!m5200:%{!m5206e:%{!m528x:%{!m5307:%{!m5407:%{!mcfv4e:\
-%{!mcpu=*:%{!march=*:-%(VALUE)}}}}}}}}}}}}}}}}}}}}}" },
+  { "cpu",   "%{!m68020-40:%{!m68020-60:\
+%{!mcpu=*:%{!march=*:-%(VALUE)}}}}" },
 
 /* Pass flags to gas indicating which type of processor we have.  This
    can be simplified when we can rely on the assembler supporting .cpu
@@ -43,9 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #define ASM_CPU_SPEC "\
 %{m68851}%{mno-68851} %{m68881}%{mno-68881} %{msoft-float:-mno-float} \
-%{m68000}%{m68302}%{mc68000}%{m68010}%{m68020}%{mc68020}%{m68030}\
-%{m68040}%{m68020-40:-m68040}%{m68020-60:-m68040}\
-%{m68060}%{mcpu32}%{m68332}%{m5200}%{m5206e}%{m528x}%{m5307}%{m5407}%{mcfv4e}\
+%{m68020-40:-m68040}%{m68020-60:-m68040}\
 %{mcpu=*:-mcpu=%*}%{march=*:-march=%*}\
 "
 #define ASM_PCREL_SPEC "%{fPIC|fpic|mpcrel:--pcrel} \
@@ -232,6 +224,7 @@ along with GCC; see the file COPYING3.  If not see
 #define FL_ISA_B     (1 << 15)
 #define FL_ISA_C     (1 << 16)
 #define FL_FIDOA     (1 << 17)
+#define FL_CAS	     (1 << 18)	/* Support cas insn.  */
 #define FL_MMU 	     0   /* Used by multilib machinery.  */
 #define FL_UCLINUX   0   /* Used by multilib machinery.  */
 
@@ -242,6 +235,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_COLDFIRE_FPU	(m68k_fpu == FPUTYPE_COLDFIRE)
 #define TARGET_68881		(m68k_fpu == FPUTYPE_68881)
 #define TARGET_FIDOA		((m68k_cpu_flags & FL_FIDOA) != 0)
+#define TARGET_CAS		((m68k_cpu_flags & FL_CAS) != 0)
 
 /* Size (in bytes) of FPU registers.  */
 #define TARGET_FP_REG_SIZE	(TARGET_COLDFIRE ? 8 : 12)
@@ -253,6 +247,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Some instructions are common to more than one ISA.  */
 #define ISA_HAS_MVS_MVZ	(TARGET_ISAB || TARGET_ISAC)
 #define ISA_HAS_FF1	(TARGET_ISAAPLUS || TARGET_ISAC)
+#define ISA_HAS_TAS	(!TARGET_COLDFIRE || TARGET_ISAB || TARGET_ISAC)
 
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
@@ -670,13 +665,7 @@ __transfer_from_trampoline ()					\
   ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
     || GET_CODE (X) == HIGH)						\
-   && LEGITIMATE_CONSTANT_P (X))
-
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X)				\
-  (GET_MODE (X) != XFmode					\
-   && !m68k_illegitimate_symbolic_constant_p (X))
+   && m68k_legitimate_constant_p (Pmode, X))
 
 #ifndef REG_OK_STRICT
 #define REG_STRICT_P 0
@@ -707,7 +696,7 @@ __transfer_from_trampoline ()					\
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* The ColdFire FF1 instruction returns 32 for zero. */
+/* The 68020 BFFFO and ColdFire FF1 instructions return 32 for zero. */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 
 #define STORE_FLAG_VALUE (-1)
@@ -791,8 +780,9 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* After the prologue, RA is at 4(AP) in the current frame.  */
 #define RETURN_ADDR_RTX(COUNT, FRAME)					   \
   ((COUNT) == 0								   \
-   ? gen_rtx_MEM (Pmode, plus_constant (arg_pointer_rtx, UNITS_PER_WORD)) \
-   : gen_rtx_MEM (Pmode, plus_constant (FRAME, UNITS_PER_WORD)))
+   ? gen_rtx_MEM (Pmode, plus_constant (Pmode, arg_pointer_rtx,	   \
+					UNITS_PER_WORD))		   \
+   : gen_rtx_MEM (Pmode, plus_constant (Pmode, FRAME, UNITS_PER_WORD)))
 
 /* We must not use the DBX register numbers for the DWARF 2 CFA column
    numbers because that maps to numbers beyond FIRST_PSEUDO_REGISTER.
@@ -810,11 +800,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
-/* All registers are live on exit from an interrupt routine.  */
-#define EPILOGUE_USES(REGNO)					\
-  (reload_completed						\
-   && (m68k_get_function_kind (current_function_decl)	\
-       == m68k_fk_interrupt_handler))
+#define EPILOGUE_USES(REGNO) m68k_epilogue_uses (REGNO)
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \
@@ -823,7 +809,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define EH_RETURN_HANDLER_RTX					    \
   gen_rtx_MEM (Pmode,						    \
 	       gen_rtx_PLUS (Pmode, arg_pointer_rtx,		    \
-			     plus_constant (EH_RETURN_STACKADJ_RTX, \
+			     plus_constant (Pmode, EH_RETURN_STACKADJ_RTX, \
 					    UNITS_PER_WORD)))
 
 /* Select a format to encode pointers in exception handling data.  CODE
@@ -947,42 +933,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
-#define OUTPUT_ADDR_CONST_EXTRA(FILE, X, FAIL)		\
-do {							\
-  if (! m68k_output_addr_const_extra (FILE, (X)))	\
-    goto FAIL;						\
-} while (0);
-
-/* Values used in the MICROARCH argument to M68K_DEVICE.  */
-enum uarch_type
-{
-  u68000,
-  u68010,
-  u68020,
-  u68020_40,
-  u68020_60,
-  u68030,
-  u68040,
-  u68060,
-  ucpu32,
-  ucfv1,
-  ucfv2,
-  ucfv3,
-  ucfv4,
-  ucfv4e,
-  ucfv5,
-  unk_arch
-};
-
-/* An enumeration of all supported target devices.  */
-enum target_device
-{
-#define M68K_DEVICE(NAME,ENUM_VALUE,FAMILY,MULTILIB,MICROARCH,ISA,FLAGS) \
-  ENUM_VALUE,
-#include "m68k-devices.def"
-#undef M68K_DEVICE
-  unk_device
-};
+#include "config/m68k/m68k-opts.h"
 
 enum fpu_type
 {
@@ -999,7 +950,6 @@ enum m68k_function_kind
 };
 
 /* Variables in m68k.c; see there for details.  */
-extern const char *m68k_library_id_string;
 extern enum target_device m68k_cpu;
 extern enum uarch_type m68k_tune;
 extern enum fpu_type m68k_fpu;

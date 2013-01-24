@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-loop-distribution -fdump-tree-ldist-details" } */
+/* { dg-options "-O2 -ftree-loop-distribution -ftree-loop-distribute-patterns -fdump-tree-ldist-details" } */
 
 extern void bar(int);
 
@@ -19,5 +19,5 @@ foo (int i, int n)
 /* We should apply loop distribution and generate 2 memset (0).  */
 
 /* { dg-final { scan-tree-dump "distributed: split to 2" "ldist" } } */
-/* { dg-final { scan-tree-dump-times "__builtin_memset" 4 "ldist" } } */
+/* { dg-final { scan-tree-dump-times "generated memset zero" 2 "ldist" } } */
 /* { dg-final { cleanup-tree-dump "ldist" } } */

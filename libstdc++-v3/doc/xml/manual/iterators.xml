@@ -7,12 +7,8 @@
   <indexterm><primary>Iterators</primary></indexterm>
 </title>
   <keywordset>
-    <keyword>
-      ISO C++
-    </keyword>
-    <keyword>
-      library
-    </keyword>
+    <keyword>ISO C++</keyword>
+    <keyword>library</keyword>
   </keywordset>
 </info>
 
@@ -41,7 +37,7 @@ classes.
      that <emphasis>pointers</emphasis> are
       <emphasis>iterators</emphasis>, and that pointers can be used
      whenever an iterator would be.  All those functions in the
-     Algorithms sect1 of the Standard will work just as well on plain
+     Algorithms section of the Standard will work just as well on plain
      arrays and their pointers.
    </para>
    <para>

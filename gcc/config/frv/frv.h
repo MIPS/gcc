@@ -1,7 +1,5 @@
 /* Target macros for the FRV port of GCC.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009,
-   2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
    Contributed by Red Hat Inc.
 
    This file is part of GCC.
@@ -237,19 +235,6 @@
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
 #endif
-
-/* This macro is a C statement to print on `stderr' a string describing the
-   particular machine description choice.  Every machine description should
-   define `TARGET_VERSION'.  For example:
-
-        #ifdef MOTOROLA
-        #define TARGET_VERSION \
-          fprintf (stderr, " (68k, Motorola syntax)");
-        #else
-        #define TARGET_VERSION \
-          fprintf (stderr, " (68k, MIT syntax)");
-        #endif  */
-#define TARGET_VERSION fprintf (stderr, _(" (frv)"))
 
 #define LABEL_ALIGN_AFTER_BARRIER(LABEL) (TARGET_ALIGN_LABELS ? 3 : 0)
 
@@ -877,14 +862,9 @@ enum reg_class
   FDPIC_CALL_REGS,
   SPR_REGS,
   QUAD_ACC_REGS,
-  EVEN_ACC_REGS,
-  ACC_REGS,
   ACCG_REGS,
   QUAD_FPR_REGS,
-  FEVEN_REGS,
-  FPR_REGS,
   QUAD_REGS,
-  EVEN_REGS,
   GPR_REGS,
   ALL_REGS,
   LIM_REG_CLASSES
@@ -917,14 +897,9 @@ enum reg_class
    "FDPIC_CALL_REGS",							\
    "SPR_REGS",								\
    "QUAD_ACC_REGS",							\
-   "EVEN_ACC_REGS",							\
-   "ACC_REGS",								\
    "ACCG_REGS",								\
    "QUAD_FPR_REGS",							\
-   "FEVEN_REGS",							\
-   "FPR_REGS",								\
    "QUAD_REGS",								\
-   "EVEN_REGS",								\
    "GPR_REGS",								\
    "ALL_REGS"								\
 }
@@ -958,17 +933,18 @@ enum reg_class
   { 0x0000c000,0x00000000,0x00000000,0x00000000,0x00000000,0x0}, /* FDPIC_CALL_REGS */\
   { 0x00000000,0x00000000,0x00000000,0x00000000,0x00000000,0x1e00}, /* SPR_REGS */\
   { 0x00000000,0x00000000,0x00000000,0x00000000,0x0fff0000,0x0}, /* QUAD_ACC */\
-  { 0x00000000,0x00000000,0x00000000,0x00000000,0x0fff0000,0x0}, /* EVEN_ACC */\
-  { 0x00000000,0x00000000,0x00000000,0x00000000,0x0fff0000,0x0}, /* ACC_REGS */\
   { 0x00000000,0x00000000,0x00000000,0x00000000,0xf0000000,0xff}, /* ACCG_REGS*/\
   { 0x00000000,0x00000000,0xffffffff,0xffffffff,0x00000000,0x0}, /* QUAD_FPR */\
-  { 0x00000000,0x00000000,0xffffffff,0xffffffff,0x00000000,0x0}, /* FEVEN_REG*/\
-  { 0x00000000,0x00000000,0xffffffff,0xffffffff,0x00000000,0x0}, /* FPR_REGS */\
   { 0x0ffffffc,0xffffffff,0x00000000,0x00000000,0x00000000,0x0}, /* QUAD_REGS*/\
-  { 0xfffffffc,0xffffffff,0x00000000,0x00000000,0x00000000,0x0}, /* EVEN_REGS*/\
   { 0xffffffff,0xffffffff,0x00000000,0x00000000,0x00000000,0x100}, /* GPR_REGS */\
   { 0xffffffff,0xffffffff,0xffffffff,0xffffffff,0xffffffff,0x1fff}, /* ALL_REGS */\
 }
+
+#define EVEN_ACC_REGS   QUAD_ACC_REGS
+#define ACC_REGS        QUAD_ACC_REGS
+#define FEVEN_REGS      QUAD_FPR_REGS
+#define FPR_REGS        QUAD_FPR_REGS
+#define EVEN_REGS       QUAD_REGS
 
 /* A C expression whose value is a register class containing hard register
    REGNO.  In general there is more than one such class; choose a class which
@@ -1515,12 +1491,6 @@ __asm__("\n"								\
 
 #define FIND_BASE_TERM frv_find_base_term
 
-/* A C expression that is nonzero if X is a legitimate constant for an
-   immediate operand on the target machine.  You can assume that X satisfies
-   `CONSTANT_P', so you need not check this.  In fact, `1' is a suitable
-   definition for this macro on machines where anything `CONSTANT_P' is valid.  */
-#define LEGITIMATE_CONSTANT_P(X) frv_legitimate_constant_p (X)
-
 /* The load-and-update commands allow pre-modification in addresses.
    The index has to be in a register.  */
 #define HAVE_PRE_MODIFY_REG 1
@@ -1546,9 +1516,6 @@ __asm__("\n"								\
    theory, fp equality comparisons can be reversible.  */
 #define REVERSIBLE_CC_MODE(MODE) \
   ((MODE) == CCmode || (MODE) == CC_UNSmode || (MODE) == CC_NZmode)
-
-/* Frv CCR_MODE's are not reversible.  */
-#define REVERSE_CONDEXEC_PREDICATES_P(x,y)      0
 
 
 /* Describing Relative Costs of Operations.  */
@@ -1587,13 +1554,6 @@ __asm__("\n"								\
    `".data"' is right.  */
 #define DATA_SECTION_ASM_OP "\t.data"
 
-/* If defined, a C expression whose value is a string containing the
-   assembler operation to identify the following data as
-   uninitialized global data.  If not defined, and neither
-   `ASM_OUTPUT_BSS' nor `ASM_OUTPUT_ALIGNED_BSS' are defined,
-   uninitialized global data will be output in the data section if
-   `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
-   used.  */
 #define BSS_SECTION_ASM_OP "\t.section .bss,\"aw\""
 
 /* Short Data Support */
@@ -1860,8 +1820,8 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 /* Define this macro to 0 if your target supports DWARF 2 frame unwind
    information, but it does not yet work with exception handling.  Otherwise,
    if your target supports this information (if it defines
-   `INCOMING_RETURN_ADDR_RTX' and either `UNALIGNED_INT_ASM_OP' or
-   `OBJECT_FORMAT_ELF'), GCC will provide a default definition of 1.
+   `INCOMING_RETURN_ADDR_RTX' and `OBJECT_FORMAT_ELF'), GCC will provide
+   a default definition of 1.
 
    If this macro is defined to 1, the DWARF 2 unwinder will be the default
    exception handling mechanism; otherwise, setjmp/longjmp will be used by
@@ -2013,8 +1973,8 @@ frv_ifcvt_modify_multiple_tests (CE_INFO, BB, &TRUE_EXPR, &FALSE_EXPR)
    information CE_INFO.  */
 #define IFCVT_MODIFY_CANCEL(CE_INFO) frv_ifcvt_modify_cancel (CE_INFO)
 
-/* Initialize the extra fields provided by IFCVT_EXTRA_FIELDS.  */
-#define IFCVT_INIT_EXTRA_FIELDS(CE_INFO) frv_ifcvt_init_extra_fields (CE_INFO)
+/* Initialize the machine-specific static data for if-conversion.  */
+#define IFCVT_MACHDEP_INIT(CE_INFO) frv_ifcvt_machdep_init (CE_INFO)
 
 /* The definition of the following macro results in that the 2nd jump
    optimization (after the 2nd insn scheduling) is minimal.  It is

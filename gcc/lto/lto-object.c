@@ -1,5 +1,5 @@
 /* LTO routines to use object files.
-   Copyright 2010 Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 This file is part of GCC.
@@ -133,7 +133,10 @@ lto_obj_file_open (const char *filename, bool writable)
 	  errmsg = simple_object_attributes_merge (saved_attributes, attrs,
 						   &err);
 	  if (errmsg != NULL)
-	    goto fail_errmsg;
+	    {
+	      free (attrs);
+	      goto fail_errmsg;
+	    }
 	}
     }
   else
@@ -155,10 +158,12 @@ lto_obj_file_open (const char *filename, bool writable)
     error ("%s: %s: %s", fname, errmsg, xstrerror (err));
 					 
  fail:
-  if (lo != NULL)
+  if (lo->fd != -1)
     lto_obj_file_close ((lto_file *) lo);
+  free (lo);
   return NULL;
 }
+
 
 /* Close FILE.  If FILE was opened for writing, it is written out
    now.  */
@@ -204,6 +209,8 @@ struct lto_obj_add_section_data
   htab_t section_hash_table;
   /* The offset of this file.  */
   off_t base_offset;
+  /* List in linker order */
+  struct lto_section_list *list;
 };
 
 /* This is called for each section in the file.  */
@@ -218,6 +225,7 @@ lto_obj_add_section (void *data, const char *name, off_t offset,
   char *new_name;
   struct lto_section_slot s_slot;
   void **slot;
+  struct lto_section_list *list = loasd->list;
 
   if (strncmp (name, LTO_SECTION_NAME_PREFIX,
 	       strlen (LTO_SECTION_NAME_PREFIX)) != 0)
@@ -228,12 +236,21 @@ lto_obj_add_section (void *data, const char *name, off_t offset,
   slot = htab_find_slot (section_hash_table, &s_slot, INSERT);
   if (*slot == NULL)
     {
-      struct lto_section_slot *new_slot = XNEW (struct lto_section_slot);
+      struct lto_section_slot *new_slot = XCNEW (struct lto_section_slot);
 
       new_slot->name = new_name;
       new_slot->start = loasd->base_offset + offset;
       new_slot->len = length;
       *slot = new_slot;
+
+      if (list != NULL)
+        {
+          if (!list->first)
+            list->first = new_slot;
+          if (list->last)
+            list->last->next = new_slot;
+          list->last = new_slot;
+        }
     }
   else
     {
@@ -248,7 +265,7 @@ lto_obj_add_section (void *data, const char *name, off_t offset,
    the start and size of each section in the .o file.  */
 
 htab_t
-lto_obj_build_section_table (lto_file *lto_file)
+lto_obj_build_section_table (lto_file *lto_file, struct lto_section_list *list)
 {
   struct lto_simple_object *lo = (struct lto_simple_object *) lto_file;
   htab_t section_hash_table;
@@ -261,6 +278,7 @@ lto_obj_build_section_table (lto_file *lto_file)
   gcc_assert (lo->sobj_r != NULL && lo->sobj_w == NULL);
   loasd.section_hash_table = section_hash_table;
   loasd.base_offset = lo->base.offset;
+  loasd.list = list;
   errmsg = simple_object_find_sections (lo->sobj_r, lto_obj_add_section,
 					&loasd, &err);
   if (errmsg != NULL)

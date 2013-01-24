@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
@@ -24,22 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef _S390_H
 #define _S390_H
 
-/* Which processor to generate code or schedule for. The cpu attribute
-   defines a list that mirrors this list, so changes to s390.md must be
-   made at the same time.  */
-
-enum processor_type
-{
-  PROCESSOR_9672_G5,
-  PROCESSOR_9672_G6,
-  PROCESSOR_2064_Z900,
-  PROCESSOR_2084_Z990,
-  PROCESSOR_2094_Z9_109,
-  PROCESSOR_2097_Z10,
-  PROCESSOR_2817_Z196,
-  PROCESSOR_max
-};
-
 /* Optional architectural facilities supported by the processor.  */
 
 enum processor_flags
@@ -50,18 +33,13 @@ enum processor_flags
   PF_EXTIMM = 8,
   PF_DFP = 16,
   PF_Z10 = 32,
-  PF_Z196 = 64
+  PF_Z196 = 64,
+  PF_ZEC12 = 128
 };
-
-extern enum processor_type s390_tune;
-extern int s390_tune_flags;
 
 /* This is necessary to avoid a warning about comparing different enum
    types.  */
 #define s390_tune_attr ((enum attr_cpu)s390_tune)
-
-extern enum processor_type s390_arch;
-extern int s390_arch_flags;
 
 /* These flags indicate that the generated code should run on a cpu
    providing the respective hardware facility regardless of the
@@ -81,6 +59,8 @@ extern int s390_arch_flags;
  	(s390_arch_flags & PF_Z10)
 #define TARGET_CPU_Z196 \
  	(s390_arch_flags & PF_Z196)
+#define TARGET_CPU_ZEC12 \
+ 	(s390_arch_flags & PF_ZEC12)
 
 /* These flags indicate that the generated code should run on a cpu
    providing the respective hardware facility when run in
@@ -96,6 +76,8 @@ extern int s390_arch_flags;
        (TARGET_ZARCH && TARGET_CPU_Z10)
 #define TARGET_Z196 \
        (TARGET_ZARCH && TARGET_CPU_Z196)
+#define TARGET_ZEC12 \
+       (TARGET_ZARCH && TARGET_CPU_ZEC12)
 
 
 #define TARGET_AVOID_CMP_AND_BRANCH (s390_tune == PROCESSOR_2817_Z196)
@@ -149,13 +131,6 @@ extern int s390_arch_flags;
   "%{!m31:%{!m64:-m31}}",					\
   "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
   "%{!march=*:%{mesa:-march=g5}%{mzarch:-march=z900}}"
-#endif
-
-/* Target version string.  Overridden by the OS header.  */
-#ifdef DEFAULT_TARGET_64BIT
-#define TARGET_VERSION fprintf (stderr, " (zSeries)");
-#else
-#define TARGET_VERSION fprintf (stderr, " (S/390)");
 #endif
 
 /* Constants needed to control the TEST DATA CLASS (TDC) instruction.  */
@@ -568,7 +543,7 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
 /* Defining this macro makes __builtin_frame_address(0) and
    __builtin_return_address(0) work with -fomit-frame-pointer.  */
 #define INITIAL_FRAME_ADDRESS_RTX                                             \
-  (plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
+  (plus_constant (Pmode, arg_pointer_rtx, -STACK_POINTER_OFFSET))
 
 /* The return address of the current frame is retrieved
    from the initial value of register RETURN_REGNUM.
@@ -576,7 +551,8 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER];
    the corresponding RETURN_REGNUM register was saved.  */
 #define DYNAMIC_CHAIN_ADDRESS(FRAME)                                          \
   (TARGET_PACKED_STACK ?                                                      \
-   plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_LONG) : (FRAME))
+   plus_constant (Pmode, (FRAME),					      \
+		  STACK_POINTER_OFFSET - UNITS_PER_LONG) : (FRAME))
 
 /* For -mpacked-stack this adds 160 - 8 (96 - 4) to the output of
    builtin_frame_address.  Otherwise arg pointer -
@@ -726,11 +702,6 @@ do {									\
     }									\
 } while (0)
 
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) \
-     legitimate_constant_p (X)
-
 /* Helper macro for s390.c and s390.md to check for symbolic constants.  */
 #define SYMBOLIC_CONST(X)       \
 (GET_CODE (X) == SYMBOL_REF                                             \
@@ -748,15 +719,11 @@ do {									\
    return the mode to be used for the comparison.  */
 #define SELECT_CC_MODE(OP, X, Y) s390_select_ccmode ((OP), (X), (Y))
 
-/* Canonicalize a comparison from one we don't have to one we do have.  */
-#define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
-  s390_canonicalize_comparison (&(CODE), &(OP0), &(OP1))
-
 /* Relative costs of operations.  */
 
 /* A C expression for the cost of a branch instruction.  A value of 1
    is the default; other values are interpreted relative to that.  */
-#define BRANCH_COST(speed_p, predictable_p) 1
+#define BRANCH_COST(speed_p, predictable_p) s390_branch_cost
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 1
@@ -795,7 +762,7 @@ do {									\
 /* This value is used in tree-sra to decide whether it might benefical
    to split a struct move into several word-size moves.  For S/390
    only small values make sense here since struct moves are relatively
-   cheap thanks to mvc so the small default value choosen for archs
+   cheap thanks to mvc so the small default value chosen for archs
    with memmove patterns should be ok.  But this value is multiplied
    in tree-sra with UNITS_PER_WORD to make a decision so we adjust it
    here to compensate for that factor since mvc costs exactly the same
@@ -938,4 +905,6 @@ do {									\
 
 /* Reads can reuse write prefetches, used by tree-ssa-prefetch-loops.c.  */
 #define READ_CAN_USE_WRITE_PREFETCH 1
+
+extern const int processor_flags_table[];
 #endif

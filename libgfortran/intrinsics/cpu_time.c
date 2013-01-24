@@ -1,5 +1,5 @@
 /* Implementation of the CPU_TIME intrinsic.
-   Copyright (C) 2003, 2007, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran runtime library (libgfortran).
 
@@ -26,9 +26,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "time_1.h"
 
 
-static inline void __cpu_time_1 (long *, long *) ATTRIBUTE_ALWAYS_INLINE;
-
-static inline void
+static void
 __cpu_time_1 (long *sec, long *usec)
 {
   long user_sec, user_usec, system_sec, system_usec;

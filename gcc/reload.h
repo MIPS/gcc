@@ -1,7 +1,5 @@
 /* Communication between reload.c, reload1.c and the rest of compiler.
-   Copyright (C) 1987, 1991, 1992, 1993, 1994, 1995, 1997, 1998, 1999,
-   2000, 2001, 2003, 2004, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 extern int register_move_cost (enum machine_mode, reg_class_t, reg_class_t);
-extern int memory_move_cost (enum machine_mode, enum reg_class, bool);
+extern int memory_move_cost (enum machine_mode, reg_class_t, bool);
 extern int memory_move_secondary_cost (enum machine_mode, reg_class_t, bool);
 
 /* Maximum number of reloads we can need.  */
@@ -204,20 +202,60 @@ extern struct target_reload *this_target_reload;
 #define caller_save_initialized_p \
   (this_target_reload->x_caller_save_initialized_p)
 
-extern GTY (()) VEC(rtx,gc) *reg_equiv_memory_loc_vec;
-extern rtx *reg_equiv_constant;
-extern rtx *reg_equiv_invariant;
-extern rtx *reg_equiv_memory_loc;
-extern rtx *reg_equiv_address;
-extern rtx *reg_equiv_mem;
-extern rtx *reg_equiv_alt_mem_list;
+/* Register equivalences.  Indexed by register number.  */
+typedef struct reg_equivs
+{
+  /* The constant value to which pseudo reg N is equivalent,
+     or zero if pseudo reg N is not equivalent to a constant.
+     find_reloads looks at this in order to replace pseudo reg N
+     with the constant it stands for.  */
+  rtx constant;
 
-/* Element N is the list of insns that initialized reg N from its equivalent
-   constant or memory slot.  */
-extern GTY((length("reg_equiv_init_size"))) rtx *reg_equiv_init;
+  /* An invariant value to which pseudo reg N is equivalent.
+     eliminate_regs_in_insn uses this to replace pseudos in particular
+     contexts.  */
+  rtx invariant;
 
-/* The size of the previous array, for GC purposes.  */
-extern GTY(()) int reg_equiv_init_size;
+  /* A memory location to which pseudo reg N is equivalent,
+     prior to any register elimination (such as frame pointer to stack
+     pointer).  Depending on whether or not it is a valid address, this value
+     is transferred to either equiv_address or equiv_mem.  */
+  rtx memory_loc;
+
+  /* The address of stack slot to which pseudo reg N is equivalent.
+     This is used when the address is not valid as a memory address
+     (because its displacement is too big for the machine.)  */
+  rtx address;
+
+  /* The memory slot to which pseudo reg N is equivalent,
+     or zero if pseudo reg N is not equivalent to a memory slot.  */
+  rtx mem;
+
+  /* An EXPR_LIST of REG_EQUIVs containing MEMs with
+     alternate representations of the location of pseudo reg N.  */
+  rtx alt_mem_list;
+
+  /* The list of insns that initialized reg N from its equivalent
+     constant or memory slot.  */
+  rtx init;
+} reg_equivs_t;
+
+#define reg_equiv_constant(ELT) \
+  (*reg_equivs)[(ELT)].constant
+#define reg_equiv_invariant(ELT) \
+  (*reg_equivs)[(ELT)].invariant
+#define reg_equiv_memory_loc(ELT) \
+  (*reg_equivs)[(ELT)].memory_loc
+#define reg_equiv_address(ELT) \
+  (*reg_equivs)[(ELT)].address
+#define reg_equiv_mem(ELT) \
+  (*reg_equivs)[(ELT)].mem
+#define reg_equiv_alt_mem_list(ELT) \
+  (*reg_equivs)[(ELT)].alt_mem_list
+#define reg_equiv_init(ELT) \
+  (*reg_equivs)[(ELT)].init
+
+extern vec<reg_equivs_t, va_gc> *reg_equivs;
 
 /* All the "earlyclobber" operands of the current insn
    are recorded here.  */
@@ -369,16 +407,13 @@ extern int push_reload (rtx, rtx, rtx *, rtx *, enum reg_class,
 			enum machine_mode, enum machine_mode,
 			int, int, int, enum reload_type);
 
-/* Functions in postreload.c:  */
-extern void reload_cse_regs (rtx);
-
 /* Functions in reload1.c:  */
 
 /* Initialize the reload pass once per compilation.  */
 extern void init_reload (void);
 
 /* The reload pass itself.  */
-extern int reload (rtx, int);
+extern bool reload (rtx, int);
 
 /* Mark the slots in regs_ever_live for the hard regs
    used by pseudo-reg number REGNO.  */
@@ -420,3 +455,6 @@ extern void debug_reload (void);
 /* Compute the actual register we should reload to, in case we're
    reloading to/from a register that is wider than a word.  */
 extern rtx reload_adjust_reg_for_mode (rtx, enum machine_mode);
+
+/* Allocate or grow the reg_equiv tables, initializing new entries to 0.  */
+extern void grow_reg_equivs (void);

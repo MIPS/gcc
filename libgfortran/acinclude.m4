@@ -1,5 +1,6 @@
 m4_include(../config/acx.m4)
 m4_include(../config/no-executables.m4)
+m4_include(../config/math.m4)
 
 dnl Check that we have a working GNU Fortran compiler
 AC_DEFUN([LIBGFOR_WORKING_GFORTRAN], [
@@ -83,17 +84,6 @@ if (foovar > 10) return __sync_add_and_fetch (&foovar, -1);]])],
 	      [Define to 1 if the target supports __sync_fetch_and_add])
   fi])
 
-dnl Check if threads are supported.
-AC_DEFUN([LIBGFOR_CHECK_GTHR_DEFAULT], [
-  AC_CACHE_CHECK([configured target thread model],
-		 libgfor_cv_target_thread_file, [
-libgfor_cv_target_thread_file=`$CC -v 2>&1 | sed -n 's/^Thread model: //p'`])
-
-  if test $libgfor_cv_target_thread_file != single; then
-    AC_DEFINE(HAVE_GTHR_DEFAULT, 1,
-	      [Define if the compiler has a thread header that is non single.])
-  fi])
-
 dnl Check for pragma weak.
 AC_DEFUN([LIBGFOR_GTHREAD_WEAK], [
   AC_CACHE_CHECK([whether pragma weak works],
@@ -130,7 +120,7 @@ int main ()
 {
   int fd;
 
-  fd = open ("testfile", O_RDWR | O_CREAT, S_IWRITE | S_IREAD);
+  fd = open ("testfile", O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
   if (fd <= 0)
     return 0;
   if (unlink ("testfile") == -1)
@@ -138,7 +128,7 @@ int main ()
   write (fd, "This is a test\n", 15);
   close (fd);
 
-  if (open ("testfile", O_RDONLY, S_IWRITE | S_IREAD) == -1 && errno == ENOENT)
+  if (open ("testfile", O_RDONLY) == -1 && errno == ENOENT)
     return 0;
   else
     return 1;
@@ -371,4 +361,30 @@ AC_DEFUN([LIBGFOR_CHECK_FLOAT128], [
 
   dnl We need a conditional for the Makefile
   AM_CONDITIONAL(LIBGFOR_BUILD_QUAD, [test "x$libgfor_cv_have_float128" = xyes])
+])
+
+
+dnl Check whether we have strerror_r
+AC_DEFUN([LIBGFOR_CHECK_STRERROR_R], [
+  dnl Check for three-argument POSIX version of strerror_r
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wimplicit-function-declaration -Werror"
+  AC_TRY_COMPILE([#define _GNU_SOURCE 1
+	     	  #include <string.h>
+		  #include <locale.h>],
+		  [char s[128]; strerror_r(5, s, 128);],
+		  AC_DEFINE(HAVE_STRERROR_R, 1,
+		  [Define if strerror_r is available in <string.h>.]),)
+  CFLAGS="$ac_save_CFLAGS"
+
+  dnl Check for two-argument version of strerror_r (e.g. for VxWorks)
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wimplicit-function-declaration -Werror"
+  AC_TRY_COMPILE([#define _GNU_SOURCE 1
+	     	  #include <string.h>
+		  #include <locale.h>],
+		  [char s[128]; strerror_r(5, s);],
+		  AC_DEFINE(HAVE_STRERROR_R_2ARGS, 1,
+		  [Define if strerror_r takes two arguments and is available in <string.h>.]),)
+  CFLAGS="$ac_save_CFLAGS"
 ])

@@ -37,7 +37,7 @@
 package aes
 
 // Encrypt one block from src into dst, using the expanded key xk.
-func encryptBlock(xk []uint32, dst, src []byte) {
+func encryptBlockGo(xk []uint32, dst, src []byte) {
 	var s0, s1, s2, s3, t0, t1, t2, t3 uint32
 
 	s0 = uint32(src[0])<<24 | uint32(src[1])<<16 | uint32(src[2])<<8 | uint32(src[3])
@@ -56,10 +56,10 @@ func encryptBlock(xk []uint32, dst, src []byte) {
 	nr := len(xk)/4 - 2 // - 2: one above, one more below
 	k := 4
 	for r := 0; r < nr; r++ {
-		t0 = xk[k+0] ^ te[0][s0>>24] ^ te[1][s1>>16&0xff] ^ te[2][s2>>8&0xff] ^ te[3][s3&0xff]
-		t1 = xk[k+1] ^ te[0][s1>>24] ^ te[1][s2>>16&0xff] ^ te[2][s3>>8&0xff] ^ te[3][s0&0xff]
-		t2 = xk[k+2] ^ te[0][s2>>24] ^ te[1][s3>>16&0xff] ^ te[2][s0>>8&0xff] ^ te[3][s1&0xff]
-		t3 = xk[k+3] ^ te[0][s3>>24] ^ te[1][s0>>16&0xff] ^ te[2][s1>>8&0xff] ^ te[3][s2&0xff]
+		t0 = xk[k+0] ^ te0[uint8(s0>>24)] ^ te1[uint8(s1>>16)] ^ te2[uint8(s2>>8)] ^ te3[uint8(s3)]
+		t1 = xk[k+1] ^ te0[uint8(s1>>24)] ^ te1[uint8(s2>>16)] ^ te2[uint8(s3>>8)] ^ te3[uint8(s0)]
+		t2 = xk[k+2] ^ te0[uint8(s2>>24)] ^ te1[uint8(s3>>16)] ^ te2[uint8(s0>>8)] ^ te3[uint8(s1)]
+		t3 = xk[k+3] ^ te0[uint8(s3>>24)] ^ te1[uint8(s0>>16)] ^ te2[uint8(s1>>8)] ^ te3[uint8(s2)]
 		k += 4
 		s0, s1, s2, s3 = t0, t1, t2, t3
 	}
@@ -82,7 +82,7 @@ func encryptBlock(xk []uint32, dst, src []byte) {
 }
 
 // Decrypt one block from src into dst, using the expanded key xk.
-func decryptBlock(xk []uint32, dst, src []byte) {
+func decryptBlockGo(xk []uint32, dst, src []byte) {
 	var s0, s1, s2, s3, t0, t1, t2, t3 uint32
 
 	s0 = uint32(src[0])<<24 | uint32(src[1])<<16 | uint32(src[2])<<8 | uint32(src[3])
@@ -101,10 +101,10 @@ func decryptBlock(xk []uint32, dst, src []byte) {
 	nr := len(xk)/4 - 2 // - 2: one above, one more below
 	k := 4
 	for r := 0; r < nr; r++ {
-		t0 = xk[k+0] ^ td[0][s0>>24] ^ td[1][s3>>16&0xff] ^ td[2][s2>>8&0xff] ^ td[3][s1&0xff]
-		t1 = xk[k+1] ^ td[0][s1>>24] ^ td[1][s0>>16&0xff] ^ td[2][s3>>8&0xff] ^ td[3][s2&0xff]
-		t2 = xk[k+2] ^ td[0][s2>>24] ^ td[1][s1>>16&0xff] ^ td[2][s0>>8&0xff] ^ td[3][s3&0xff]
-		t3 = xk[k+3] ^ td[0][s3>>24] ^ td[1][s2>>16&0xff] ^ td[2][s1>>8&0xff] ^ td[3][s0&0xff]
+		t0 = xk[k+0] ^ td0[uint8(s0>>24)] ^ td1[uint8(s3>>16)] ^ td2[uint8(s2>>8)] ^ td3[uint8(s1)]
+		t1 = xk[k+1] ^ td0[uint8(s1>>24)] ^ td1[uint8(s0>>16)] ^ td2[uint8(s3>>8)] ^ td3[uint8(s2)]
+		t2 = xk[k+2] ^ td0[uint8(s2>>24)] ^ td1[uint8(s1>>16)] ^ td2[uint8(s0>>8)] ^ td3[uint8(s3)]
+		t3 = xk[k+3] ^ td0[uint8(s3>>24)] ^ td1[uint8(s2>>16)] ^ td2[uint8(s1>>8)] ^ td3[uint8(s0)]
 		k += 4
 		s0, s1, s2, s3 = t0, t1, t2, t3
 	}
@@ -139,7 +139,7 @@ func rotw(w uint32) uint32 { return w<<8 | w>>24 }
 
 // Key expansion algorithm.  See FIPS-197, Figure 11.
 // Their rcon[i] is our powx[i-1] << 24.
-func expandKey(key []byte, enc, dec []uint32) {
+func expandKeyGo(key []byte, enc, dec []uint32) {
 	// Encryption key setup.
 	var i int
 	nk := len(key) / 4
@@ -168,7 +168,7 @@ func expandKey(key []byte, enc, dec []uint32) {
 		for j := 0; j < 4; j++ {
 			x := enc[ei+j]
 			if i > 0 && i+4 < n {
-				x = td[0][sbox0[x>>24]] ^ td[1][sbox0[x>>16&0xff]] ^ td[2][sbox0[x>>8&0xff]] ^ td[3][sbox0[x&0xff]]
+				x = td0[sbox0[x>>24]] ^ td1[sbox0[x>>16&0xff]] ^ td2[sbox0[x>>8&0xff]] ^ td3[sbox0[x&0xff]]
 			}
 			dec[i+j] = x
 		}

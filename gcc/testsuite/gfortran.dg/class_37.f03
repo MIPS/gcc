@@ -259,5 +259,3 @@ subroutine psb_cdall(ictxt, desc, info,mg,ng,vg,vl,flag,nl,repl, globalcheck)
   return
 
 end subroutine psb_cdall
-
- 

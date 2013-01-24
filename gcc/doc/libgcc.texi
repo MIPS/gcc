@@ -1,5 +1,4 @@
-@c Copyright (C) 2003, 2004, 2005, 2006, 2007, 2010
-@c Free Software Foundation, Inc.
+@c Copyright (C) 2003-2013 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 @c Contributed by Aldy Hernandez <aldy@quesejoda.com>
@@ -106,8 +105,8 @@ These functions return the quotient of the unsigned division of @var{a}
 and @var{b}.
 @end deftypefn
 
-@deftypefn {Runtime Function} {unsigned long} __udivmoddi3 (unsigned long @var{a}, unsigned long @var{b}, unsigned long *@var{c})
-@deftypefnx {Runtime Function} {unsigned long long} __udivti3 (unsigned long long @var{a}, unsigned long long @var{b}, unsigned long long *@var{c})
+@deftypefn {Runtime Function} {unsigned long} __udivmoddi4 (unsigned long @var{a}, unsigned long @var{b}, unsigned long *@var{c})
+@deftypefnx {Runtime Function} {unsigned long long} __udivmodti4 (unsigned long long @var{a}, unsigned long long @var{b}, unsigned long long *@var{c})
 These functions calculate both the quotient and remainder of the unsigned
 division of @var{a} and @var{b}.  The return value is the quotient, and
 the remainder is placed in variable pointed to by @var{c}.
@@ -502,8 +501,8 @@ The software decimal floating point library implements IEEE 754-2008
 decimal floating point arithmetic and is only activated on selected
 targets.
 
-The software decimal floating point library supports either DPD 
-(Densely Packed Decimal) or BID (Binary Integer Decimal) encoding 
+The software decimal floating point library supports either DPD
+(Densely Packed Decimal) or BID (Binary Integer Decimal) encoding
 as selected at configure time.
 
 

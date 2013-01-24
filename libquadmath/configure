@@ -747,6 +747,7 @@ with_gnu_ld
 enable_libtool_lock
 enable_maintainer_mode
 enable_multilib
+enable_symvers
 enable_generated_files_in_srcdir
 '
       ac_precious_vars='build_alias
@@ -1391,6 +1392,7 @@ Optional Features:
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
   --enable-multilib       build many library versions (default)
+  --disable-symvers       disable symbol versioning for libquadmath
   --enable-generated-files-in-srcdir
                           put copies of generated files in source dir intended
                           for creating source tarballs for users without
@@ -6262,7 +6264,14 @@ s390*-*linux*|s390*-*tpf*|sparc*-*linux*)
 	    LD="${LD-ld} -m elf_i386_fbsd"
 	    ;;
 	  x86_64-*linux*)
-	    LD="${LD-ld} -m elf_i386"
+	    case `/usr/bin/file conftest.o` in
+	      *x86-64*)
+		LD="${LD-ld} -m elf32_x86_64"
+		;;
+	      *)
+		LD="${LD-ld} -m elf_i386"
+		;;
+	    esac
 	    ;;
 	  ppc64-*linux*|powerpc64-*linux*)
 	    LD="${LD-ld} -m elf32ppclinux"
@@ -7538,6 +7547,7 @@ $as_echo_n "checking for $compiler option to produce PIC... " >&6; }
 	# AIX 5 now supports IA64 processor
 	lt_prog_compiler_static='-Bstatic'
       fi
+      lt_prog_compiler_pic='-fPIC'
       ;;
 
     amigaos*)
@@ -8725,7 +8735,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
       ;;
 
     # Unfortunately, older versions of FreeBSD 2 do not have this feature.
-    freebsd2*)
+    freebsd2.*)
       archive_cmds='$LD -Bshareable -o $lib $libobjs $deplibs $linker_flags'
       hardcode_direct=yes
       hardcode_minus_L=yes
@@ -9641,7 +9651,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[23].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -9659,7 +9669,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -10511,7 +10521,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10514 "configure"
+#line 10524 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10617,7 +10627,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10620 "configure"
+#line 10630 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11937,6 +11947,43 @@ fi
 done
 
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the math.h includes POSIX's signgam" >&5
+$as_echo_n "checking whether the math.h includes POSIX's signgam... " >&6; }
+if test "${libgfor_cv_have_math_h_signgam+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+  save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -Werror"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <math.h>
+void foo(void) { signgam = 1; }
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  libgfor_cv_have_math_h_signgam=yes
+else
+  libgfor_cv_have_math_h_signgam=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  CFLAGS="$save_CFLAGS"
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgfor_cv_have_math_h_signgam" >&5
+$as_echo "$libgfor_cv_have_math_h_signgam" >&6; }
+  if test $libgfor_cv_have_math_h_signgam = yes; then
+
+$as_echo "#define HAVE_MATH_H_SIGNGAM 1" >>confdefs.h
+
+  fi
+
 # If available, sqrtl and cbrtl speed up the calculation -
 # but they are not required
 if test x$gcc_no_link != xyes; then
@@ -12339,19 +12386,27 @@ CFLAGS="$saved_CFLAGS"
 # Check for symbol versioning (copied from libssp).
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether symbol versioning is supported" >&5
 $as_echo_n "checking whether symbol versioning is supported... " >&6; }
-if test x$gcc_no_link = xyes; then
-  # If we cannot link, we cannot build shared libraries, so do not use
-  # symbol versioning.
-  quadmath_use_symver=no
+# Check whether --enable-symvers was given.
+if test "${enable_symvers+set}" = set; then :
+  enableval=$enable_symvers; quadmath_use_symver=$enableval
 else
-  save_LDFLAGS="$LDFLAGS"
-  LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
-  cat > conftest.map <<EOF
+  quadmath_use_symver=yes
+fi
+
+if test "x$quadmath_use_symver" != xno; then
+  if test x$gcc_no_link = xyes; then
+    # If we cannot link, we cannot build shared libraries, so do not use
+    # symbol versioning.
+    quadmath_use_symver=no
+  else
+    save_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
+    cat > conftest.map <<EOF
 FOO_1.0 {
   global: *foo*; bar; local: *;
 };
 EOF
-  if test x$gcc_no_link = xyes; then
+    if test x$gcc_no_link = xyes; then
   as_fn_error "Link tests are not allowed after GCC_NO_EXECUTABLES." "$LINENO" 5
 fi
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -12372,18 +12427,18 @@ else
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-  if test x$quadmath_use_symver = xno; then
-    case "$target_os" in
-      solaris2*)
-        LDFLAGS="$save_LDFLAGS"
-        LDFLAGS="$LDFLAGS -fPIC -shared -Wl,-M,./conftest.map"
-        # Sun ld cannot handle wildcards and treats all entries as undefined.
-        cat > conftest.map <<EOF
+    if test x$quadmath_use_symver = xno; then
+      case "$target_os" in
+        solaris2*)
+          LDFLAGS="$save_LDFLAGS"
+          LDFLAGS="$LDFLAGS -fPIC -shared -Wl,-M,./conftest.map"
+          # Sun ld cannot handle wildcards and treats all entries as undefined.
+          cat > conftest.map <<EOF
 FOO_1.0 {
   global: foo; local: *;
 };
 EOF
-        if test x$gcc_no_link = xyes; then
+          if test x$gcc_no_link = xyes; then
   as_fn_error "Link tests are not allowed after GCC_NO_EXECUTABLES." "$LINENO" 5
 fi
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -12404,10 +12459,11 @@ else
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-        ;;
-    esac
+          ;;
+      esac
+    fi
+    LDFLAGS="$save_LDFLAGS"
   fi
-  LDFLAGS="$save_LDFLAGS"
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $quadmath_use_symver" >&5
 $as_echo "$quadmath_use_symver" >&6; }

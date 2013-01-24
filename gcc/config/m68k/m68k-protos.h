@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Sun 68000/68020 version.
-   Copyright (C) 2000, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,11 +50,11 @@ extern bool strict_low_part_peephole_ok (enum machine_mode mode, rtx first_insn,
 extern int standard_68881_constant_p (rtx);
 extern void print_operand_address (FILE *, rtx);
 extern void print_operand (FILE *, rtx, int);
-extern bool m68k_output_addr_const_extra (FILE *, rtx);
 extern void notice_update_cc (rtx, rtx);
 extern bool m68k_legitimate_base_reg_p (rtx, bool);
 extern bool m68k_legitimate_index_reg_p (rtx, bool);
 extern bool m68k_illegitimate_symbolic_constant_p (rtx);
+extern bool m68k_legitimate_constant_p (enum machine_mode, rtx);
 extern bool m68k_matches_q_p (rtx);
 extern bool m68k_matches_u_p (rtx);
 extern rtx legitimize_pic_address (rtx, enum machine_mode, rtx);
@@ -68,6 +67,7 @@ extern int emit_move_sequence (rtx *, enum machine_mode, rtx);
 extern bool m68k_movem_pattern_p (rtx, rtx, HOST_WIDE_INT, bool);
 extern const char *m68k_output_movem (rtx *, rtx, HOST_WIDE_INT, bool);
 extern void m68k_final_prescan_insn (rtx, rtx *, int);
+extern bool m68k_epilogue_uses (int);
 
 /* Functions from m68k.c used in constraints.md.  */
 extern rtx m68k_unwrap_symbol (rtx, bool);
@@ -81,7 +81,6 @@ extern enum attr_opx_type m68k_sched_attr_opx_type (rtx, int);
 extern enum attr_opy_type m68k_sched_attr_opy_type (rtx, int);
 extern enum attr_size m68k_sched_attr_size (rtx);
 extern enum attr_op_mem m68k_sched_attr_op_mem (rtx);
-extern enum attr_type m68k_sched_branch_type (rtx);
 #endif /* HAVE_ATTR_cpu */
 
 #endif /* RTX_CODE */

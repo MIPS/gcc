@@ -6,17 +6,19 @@
 
 package os
 
+import "syscall"
+
 // Expand replaces ${var} or $var in the string based on the mapping function.
-// Invocations of undefined variables are replaced with the empty string.
+// For example, os.ExpandEnv(s) is equivalent to os.Expand(s, os.Getenv).
 func Expand(s string, mapping func(string) string) string {
 	buf := make([]byte, 0, 2*len(s))
 	// ${} is all ASCII, so bytes are fine for this operation.
 	i := 0
 	for j := 0; j < len(s); j++ {
 		if s[j] == '$' && j+1 < len(s) {
-			buf = append(buf, []byte(s[i:j])...)
+			buf = append(buf, s[i:j]...)
 			name, w := getShellName(s[j+1:])
-			buf = append(buf, []byte(mapping(name))...)
+			buf = append(buf, mapping(name)...)
 			j += w
 			i = j + 1
 		}
@@ -24,10 +26,10 @@ func Expand(s string, mapping func(string) string) string {
 	return string(buf) + s[i:]
 }
 
-// ShellExpand replaces ${var} or $var in the string according to the values
-// of the operating system's environment variables.  References to undefined
+// ExpandEnv replaces ${var} or $var in the string according to the values
+// of the current environment variables.  References to undefined
 // variables are replaced by the empty string.
-func ShellExpand(s string) string {
+func ExpandEnv(s string) string {
 	return Expand(s, Getenv)
 }
 
@@ -70,4 +72,32 @@ func getShellName(s string) (string, int) {
 	for i = 0; i < len(s) && isAlphaNum(s[i]); i++ {
 	}
 	return s[:i], i
+}
+
+// Getenv retrieves the value of the environment variable named by the key.
+// It returns the value, which will be empty if the variable is not present.
+func Getenv(key string) string {
+	v, _ := syscall.Getenv(key)
+	return v
+}
+
+// Setenv sets the value of the environment variable named by the key.
+// It returns an error, if any.
+func Setenv(key, value string) error {
+	err := syscall.Setenv(key, value)
+	if err != nil {
+		return NewSyscallError("setenv", err)
+	}
+	return nil
+}
+
+// Clearenv deletes all environment variables.
+func Clearenv() {
+	syscall.Clearenv()
+}
+
+// Environ returns a copy of strings representing the environment,
+// in the form "key=value".
+func Environ() []string {
+	return syscall.Environ()
 }

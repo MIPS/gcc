@@ -1,5 +1,5 @@
 /* Wrappers for platform timing functions.
-   Copyright (C) 2003, 2007, 2009, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran runtime library (libgfortran).
 
@@ -40,18 +40,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    As usual with UNIX systems, unfortunately no single way is
    available for all systems.  */
 
-#ifdef TIME_WITH_SYS_TIME
-#  include <sys/time.h>
-#  include <time.h>
-#else
-#  if HAVE_SYS_TIME_H
-#    include <sys/time.h>
-#  else
-#    ifdef HAVE_TIME_H
-#      include <time.h>
-#    endif
-#  endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
 #endif
+
+#include <time.h>
 
 #ifdef HAVE_SYS_TYPES_H
      #include <sys/types.h>
@@ -104,14 +97,6 @@ localtime_r (const time_t * timep, struct tm * result)
 #endif
 
 
-#if defined (__GNUC__) && (__GNUC__ >= 3)
-#  define ATTRIBUTE_ALWAYS_INLINE __attribute__ ((__always_inline__))
-#else
-#  define ATTRIBUTE_ALWAYS_INLINE
-#endif
-
-static inline int gf_cputime (long *, long *, long *, long *) ATTRIBUTE_ALWAYS_INLINE;
-
 /* Helper function for the actual implementation of the DTIME, ETIME and
    CPU_TIME intrinsics.  Returns 0 for success or -1 if no
    CPU time could be computed.  */
@@ -121,7 +106,7 @@ static inline int gf_cputime (long *, long *, long *, long *) ATTRIBUTE_ALWAYS_I
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
-static int
+static inline int
 gf_cputime (long *user_sec, long *user_usec, long *system_sec, long *system_usec)
 {
   union {
@@ -173,21 +158,38 @@ gf_cputime (long *user_sec, long *user_usec, long *system_sec, long *system_usec
   struct tms buf;
   clock_t err;
   err = times (&buf);
-  *user_sec = buf.tms_utime / HZ;
-  *user_usec = buf.tms_utime % HZ * (1000000 / HZ);
-  *system_sec = buf.tms_stime / HZ;
-  *system_usec = buf.tms_stime % HZ * (1000000 / HZ);
+  long hz = HZ;
+  *user_sec = buf.tms_utime / hz;
+  *user_usec = (buf.tms_utime % hz) * (1000000. / hz);
+  *system_sec = buf.tms_stime / hz;
+  *system_usec = (buf.tms_stime % hz) * (1000000. / hz);
   if ((err == (clock_t) -1) && errno != 0)
     return -1;
   return 0;
 
-#else 
+#elif defined(HAVE_CLOCK_GETTIME) && (defined(CLOCK_PROCESS_CPUTIME_ID) \
+				      || defined(CLOCK_THREAD_CPUTIME_ID))
+  /* Newer versions of VxWorks have CLOCK_THREAD_CPUTIME_ID giving
+     per-thread CPU time.  CLOCK_PROCESS_CPUTIME_ID would be better
+     but is not available.  */
+#ifndef CLOCK_PROCESS_CPUTIME_ID
+#define CLOCK_PROCESS_CPUTIME_ID CLOCK_THREAD_CPUTIME_ID
+#endif
+  struct timespec ts;
+  int err = clock_gettime (CLOCK_PROCESS_CPUTIME_ID, &ts);
+  *user_sec = ts.tv_sec;
+  *user_usec = ts.tv_nsec / 1000;
+  *system_sec = *system_usec = 0;
+  return err;
 
-  /* We have nothing to go on.  Return -1.  */
-  *user_sec = *system_sec = 0;
-  *user_usec = *system_usec = 0;
-  errno = ENOSYS;
-  return -1;
+#else 
+  clock_t c = clock ();
+  *user_sec = c / CLOCKS_PER_SEC;
+  *user_usec = (c % CLOCKS_PER_SEC) * (1000000. / CLOCKS_PER_SEC);
+  *system_sec = *system_usec = 0;
+  if (c == (clock_t) -1)
+    return -1;
+  return 0;
 
 #endif
 }
@@ -195,15 +197,15 @@ gf_cputime (long *user_sec, long *user_usec, long *system_sec, long *system_usec
 #endif
 
 
-/* Realtime clock with microsecond resolution, falling back to less
-   precise functions if the target does not support gettimeofday().
+/* Realtime clock with microsecond resolution, falling back to other
+   functions if the target does not support gettimeofday().
 
    Arguments:
    secs     - OUTPUT, seconds
    usecs    - OUTPUT, microseconds
 
    The OUTPUT arguments shall represent the number of seconds and
-   nanoseconds since the Epoch.
+   microseconds since the Epoch.
 
    Return value: 0 for success, -1 for error. In case of error, errno
    is set.
@@ -218,19 +220,19 @@ gf_gettime (time_t * secs, long * usecs)
   *secs = tv.tv_sec;
   *usecs = tv.tv_usec;
   return err;
-#elif HAVE_TIME
-  time_t t, t2;
-  t = time (&t2);
-  *secs = t2;
+#elif defined(HAVE_CLOCK_GETTIME)
+  struct timespec ts;
+  int err = clock_gettime (CLOCK_REALTIME, &ts);
+  *secs = ts.tv_sec;
+  *usecs = ts.tv_nsec / 1000;
+  return err;
+#else
+  time_t t = time (NULL);
+  *secs = t;
   *usecs = 0;
   if (t == ((time_t)-1))
     return -1;
   return 0;
-#else
-  *secs = 0;
-  *usecs = 0;
-  errno = ENOSYS;
-  return -1;
 #endif
 }
 

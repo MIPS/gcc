@@ -1,6 +1,5 @@
 /* This file contains subroutine used by the C front-end to construct GENERIC.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Written by Benjamin Chelf (chelf@codesourcery.com).
 
 This file is part of GCC.
@@ -28,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "c-common.h"
 #include "flags.h"
-#include "output.h"
 #include "tree-iterator.h"
 
 /* Create an empty statement tree rooted at T.  */
@@ -38,8 +36,7 @@ push_stmt_list (void)
 {
   tree t;
   t = alloc_stmt_list ();
-  TREE_CHAIN (t) = cur_stmt_list;
-  cur_stmt_list = t;
+  vec_safe_push (stmt_list_stack, t);
   return t;
 }
 
@@ -48,21 +45,23 @@ push_stmt_list (void)
 tree
 pop_stmt_list (tree t)
 {
-  tree u = cur_stmt_list, chain;
+  tree u = NULL_TREE;
 
   /* Pop statement lists until we reach the target level.  The extra
      nestings will be due to outstanding cleanups.  */
   while (1)
     {
-      chain = TREE_CHAIN (u);
-      TREE_CHAIN (u) = NULL_TREE;
-      if (chain)
-	STATEMENT_LIST_HAS_LABEL (chain) |= STATEMENT_LIST_HAS_LABEL (u);
+      u = stmt_list_stack->pop ();
+      if (!stmt_list_stack->is_empty ())
+	{
+	  tree x = stmt_list_stack->last ();
+	  STATEMENT_LIST_HAS_LABEL (x) |= STATEMENT_LIST_HAS_LABEL (u);
+	}
       if (t == u)
 	break;
-      u = chain;
     }
-  cur_stmt_list = chain;
+
+  gcc_assert (u != NULL_TREE);
 
   /* If the statement list is completely empty, just return it.  This is
      just as good small as build_empty_stmt, with the advantage that
@@ -129,15 +128,6 @@ build_stmt (location_t loc, enum tree_code code, ...)
 
   va_end (p);
   return ret;
-}
-
-/* Create a CASE_LABEL_EXPR tree node and return it.  */
-
-tree
-build_case_label (location_t loc,
-		  tree low_value, tree high_value, tree label_decl)
-{
-  return build_stmt (loc, CASE_LABEL_EXPR, low_value, high_value, label_decl);
 }
 
 /* Build a REALPART_EXPR or IMAGPART_EXPR, according to CODE, from ARG.  */

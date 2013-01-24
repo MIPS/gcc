@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -20,7 +21,7 @@ var filenames = []string{
 // the given options yields equivalent bytes to the original file.
 func testFile(t *testing.T, fn string, order Order, litWidth int) {
 	// Read the file, as golden output.
-	golden, err := os.Open(fn, os.O_RDONLY, 0400)
+	golden, err := os.Open(fn)
 	if err != nil {
 		t.Errorf("%s (order=%d litWidth=%d): %v", fn, order, litWidth, err)
 		return
@@ -28,7 +29,7 @@ func testFile(t *testing.T, fn string, order Order, litWidth int) {
 	defer golden.Close()
 
 	// Read the file again, and push it through a pipe that compresses at the write end, and decompresses at the read end.
-	raw, err := os.Open(fn, os.O_RDONLY, 0400)
+	raw, err := os.Open(fn)
 	if err != nil {
 		t.Errorf("%s (order=%d litWidth=%d): %v", fn, order, litWidth, err)
 		return
@@ -44,20 +45,16 @@ func testFile(t *testing.T, fn string, order Order, litWidth int) {
 		var b [4096]byte
 		for {
 			n, err0 := raw.Read(b[:])
-			if err0 != nil && err0 != os.EOF {
+			if err0 != nil && err0 != io.EOF {
 				t.Errorf("%s (order=%d litWidth=%d): %v", fn, order, litWidth, err0)
 				return
 			}
 			_, err1 := lzww.Write(b[:n])
-			if err1 == os.EPIPE {
-				// Fail, but do not report the error, as some other (presumably reportable) error broke the pipe.
-				return
-			}
 			if err1 != nil {
 				t.Errorf("%s (order=%d litWidth=%d): %v", fn, order, litWidth, err1)
 				return
 			}
-			if err0 == os.EOF {
+			if err0 == io.EOF {
 				break
 			}
 		}
@@ -76,13 +73,13 @@ func testFile(t *testing.T, fn string, order Order, litWidth int) {
 		t.Errorf("%s (order=%d litWidth=%d): %v", fn, order, litWidth, err1)
 		return
 	}
-	if len(b0) != len(b1) {
-		t.Errorf("%s (order=%d litWidth=%d): length mismatch %d versus %d", fn, order, litWidth, len(b0), len(b1))
+	if len(b1) != len(b0) {
+		t.Errorf("%s (order=%d litWidth=%d): length mismatch %d != %d", fn, order, litWidth, len(b1), len(b0))
 		return
 	}
 	for i := 0; i < len(b0); i++ {
-		if b0[i] != b1[i] {
-			t.Errorf("%s (order=%d litWidth=%d): mismatch at %d, 0x%02x versus 0x%02x\n", fn, order, litWidth, i, b0[i], b1[i])
+		if b1[i] != b0[i] {
+			t.Errorf("%s (order=%d litWidth=%d): mismatch at %d, 0x%02x != 0x%02x\n", fn, order, litWidth, i, b1[i], b0[i])
 			return
 		}
 	}
@@ -99,13 +96,49 @@ func TestWriter(t *testing.T) {
 	}
 }
 
-func BenchmarkEncoder(b *testing.B) {
+func TestWriterReturnValues(t *testing.T) {
+	w := NewWriter(ioutil.Discard, LSB, 8)
+	n, err := w.Write([]byte("asdf"))
+	if n != 4 || err != nil {
+		t.Errorf("got %d, %v, want 4, nil", n, err)
+	}
+}
+
+func benchmarkEncoder(b *testing.B, n int) {
 	b.StopTimer()
-	buf, _ := ioutil.ReadFile("../testdata/e.txt")
+	b.SetBytes(int64(n))
+	buf0, err := ioutil.ReadFile("../testdata/e.txt")
+	if err != nil {
+		b.Fatal(err)
+	}
+	if len(buf0) == 0 {
+		b.Fatalf("test file has no data")
+	}
+	buf1 := make([]byte, n)
+	for i := 0; i < n; i += len(buf0) {
+		if len(buf0) > n-i {
+			buf0 = buf0[:n-i]
+		}
+		copy(buf1[i:], buf0)
+	}
+	buf0 = nil
+	runtime.GC()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		w := NewWriter(devNull{}, LSB, 8)
-		w.Write(buf)
+		w := NewWriter(ioutil.Discard, LSB, 8)
+		w.Write(buf1)
 		w.Close()
 	}
+}
+
+func BenchmarkEncoder1e4(b *testing.B) {
+	benchmarkEncoder(b, 1e4)
+}
+
+func BenchmarkEncoder1e5(b *testing.B) {
+	benchmarkEncoder(b, 1e5)
+}
+
+func BenchmarkEncoder1e6(b *testing.B) {
+	benchmarkEncoder(b, 1e6)
 }

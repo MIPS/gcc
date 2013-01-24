@@ -1,8 +1,7 @@
 /* Definitions for systems using, at least optionally, a GNU
    (glibc-based) userspace or other userspace with libc derived from
    glibc (e.g. uClibc) or for which similar specs are appropriate.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2003, 2004, 2005, 2006,
-   2007, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1995-2013 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu (hjl@lucon.org).
 
@@ -95,3 +94,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 #define TARGET_POSIX_IO
+
+#define TARGET_C99_FUNCTIONS 1
+#define TARGET_HAS_SINCOS 1
+
+/* Additional libraries needed by -static-libasan.  */
+#undef STATIC_LIBASAN_LIBS
+#define STATIC_LIBASAN_LIBS "-ldl -lpthread"

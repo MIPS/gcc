@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler.  Vxworks PowerPC version.
-   Copyright (C) 1996, 2000, 2002, 2003, 2004, 2005, 2007, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1996-2013 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
 This file is part of GCC.
@@ -23,9 +22,6 @@ along with GCC; see the file COPYING3.  If not see
    not use rs6000/eabi.h because we would have to override most of
    it anyway.  However, if you change that file, consider making
    analogous changes here too.  */
-
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (PowerPC VxWorks)");
 
 /* CPP predefined macros.  */
 
@@ -50,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Only big endian PPC is supported by VxWorks.  */
 #undef BYTES_BIG_ENDIAN
 #define BYTES_BIG_ENDIAN 1
+#undef WORDS_BIG_ENDIAN
+#define WORDS_BIG_ENDIAN 1
 
 /* We have to kill off the entire specs set created by rs6000/sysv4.h
    and substitute our own set.  The top level vxworks.h has done some
@@ -100,8 +98,7 @@ VXWORKS_ADDITIONAL_CPP_SPEC
 #undef MULTILIB_DEFAULTS
 
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT \
-  (MASK_POWERPC | MASK_NEW_MNEMONICS | MASK_EABI | MASK_STRICT_ALIGN)
+#define TARGET_DEFAULT (MASK_EABI | MASK_STRICT_ALIGN)
 
 #undef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_PPC604
@@ -123,19 +120,9 @@ VXWORKS_ADDITIONAL_CPP_SPEC
 
 #undef  ABI_STACK_BOUNDARY
 
-/* Make -mcpu=8540 imply SPE.  ISEL is automatically enabled, the
-   others must be done by hand.  Handle -mrtp.  Disable -fPIC
-   for -mrtp - the VxWorks PIC model is not compatible with it.  */
 #undef SUBSUBTARGET_OVERRIDE_OPTIONS
 #define SUBSUBTARGET_OVERRIDE_OPTIONS		\
   do {						\
-    if (TARGET_E500)				\
-      {						\
-	rs6000_spe = 1;				\
-	rs6000_spe_abi = 1;			\
-	rs6000_float_gprs = 1;			\
-      }						\
-						\
   if (!global_options_set.x_g_switch_value)	\
     g_switch_value = SDATA_DEFAULT_SIZE;	\
   VXWORKS_OVERRIDE_OPTIONS;			\

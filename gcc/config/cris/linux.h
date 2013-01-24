@@ -1,6 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 2001, 2002, 2003, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -112,7 +111,7 @@ along with GCC; see the file COPYING3.  If not see
   %{symbolic:-Bdynamic} %{static:-Bstatic}\
   %{!shared:%{!static:\
               %{rdynamic:-export-dynamic}\
-              -dynamic-linker " LINUX_DYNAMIC_LINKER "}}\
+              -dynamic-linker " GNU_USER_DYNAMIC_LINKER "}}\
   %{!r:%{O2|O3: --gc-sections}}"
 
 
@@ -123,7 +122,7 @@ along with GCC; see the file COPYING3.  If not see
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-      LINUX_TARGET_OS_CPP_BUILTINS();		\
+      GNU_USER_TARGET_OS_CPP_BUILTINS();	\
       if (flag_leading_underscore <= 0)		\
 	builtin_define ("__NO_UNDERSCORES__");	\
     }						\

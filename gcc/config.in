@@ -45,12 +45,6 @@
 #endif
 
 
-/* Define if building with C++. */
-#ifndef USED_FOR_TARGET
-#undef ENABLE_BUILD_WITH_CXX
-#endif
-
-
 /* Define if you want more run-time sanity checks. This one gets a grab bag of
    miscellaneous but relatively cheap checks. */
 #ifndef USED_FOR_TARGET
@@ -266,6 +260,18 @@
 #endif
 
 
+/* Define if your assembler supports FMAF, HPC, and VIS 3.0 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_FMAF_HPC_VIS3
+#endif
+
+
+/* Define if your assembler supports SPARC4 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SPARC4
+#endif
+
+
 /* Define if your assembler supports fprnd. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_FPRND
@@ -327,6 +333,12 @@
 #endif
 
 
+/* Define if your assembler supports HLE prefixes. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_HLE
+#endif
+
+
 /* Define if your assembler supports the .quad directive. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_QUAD
@@ -348,6 +360,18 @@
 /* Define if your assembler supports the swap suffix. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_SWAP
+#endif
+
+
+/* Define if your assembler and linker support @tlsgdplt. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_TLSGDPLT
+#endif
+
+
+/* Define if your assembler and linker support @tlsldmplt. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_TLSLDMPLT
 #endif
 
 
@@ -420,6 +444,12 @@
 /* Define if your assembler supports POPCNTD instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_POPCNTD
+#endif
+
+
+/* Define if your assembler supports POWER8 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_POWER8
 #endif
 
 
@@ -603,6 +633,12 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'ffs', otherwise define to 0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_FFS
+#endif
+
+
 /* Define to 1 if we found a declaration for 'fgetc_unlocked', otherwise
    define to 0. */
 #ifndef USED_FOR_TARGET
@@ -735,6 +771,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'madvise', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_MADVISE
+#endif
+
+
 /* Define to 1 if we found a declaration for 'malloc', otherwise define to 0.
    */
 #ifndef USED_FOR_TARGET
@@ -787,6 +830,13 @@
    0. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_SNPRINTF
+#endif
+
+
+/* Define to 1 if we found a declaration for 'stpcpy', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_STPCPY
 #endif
 
 
@@ -997,6 +1047,12 @@
 #endif
 
 
+/* Define if your assembler supports specifying the section flag e. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GAS_SECTION_EXCLUDE
+#endif
+
+
 /* Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.
    */
 #ifndef USED_FOR_TARGET
@@ -1035,12 +1091,6 @@
 #endif
 
 
-/* Define if _Unwind_GetIPInfo is available. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_GETIPINFO
-#endif
-
-
 /* Define to 1 if you have the `getrlimit' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GETRLIMIT
@@ -1059,7 +1109,7 @@
 #endif
 
 
-/* Define if using GNU as. */
+/* Define to 1 if using GNU as. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GNU_AS
 #endif
@@ -1071,7 +1121,7 @@
 #endif
 
 
-/* Define if using GNU ld. */
+/* Define to 1 if using GNU ld. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GNU_LD
 #endif
@@ -1091,7 +1141,7 @@
 
 /* Define .init_array/.fini_array sections are available and working. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_INITFINI_ARRAY
+#undef HAVE_INITFINI_ARRAY_SUPPORT
 #endif
 
 
@@ -1228,6 +1278,12 @@
 #endif
 
 
+/* Define to 1 if you have the <libintl.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LIBINTL_H
+#endif
+
+
 /* Define to 1 if you have the <limits.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LIMITS_H
@@ -1255,6 +1311,12 @@
 /* Define to the level of your linker's plugin support. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LTO_PLUGIN
+#endif
+
+
+/* Define to 1 if you have the `madvise' function. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_MADVISE
 #endif
 
 
@@ -1550,6 +1612,12 @@
 #endif
 
 
+/* Define if F_SETLKW supported by fcntl. */
+#ifndef USED_FOR_TARGET
+#undef HOST_HAS_F_SETLKW
+#endif
+
+
 /* Define as const if the declaration of iconv() needs const. */
 #ifndef USED_FOR_TARGET
 #undef ICONV_CONST
@@ -1568,15 +1636,15 @@
 #endif
 
 
-/* Define to the linker flags to use for -pthread. */
-#ifndef USED_FOR_TARGET
-#undef LIB_THREAD_LDFLAGS_SPEC
-#endif
-
-
 /* Define to the library containing __tls_get_addr/___tls_get_addr. */
 #ifndef USED_FOR_TARGET
 #undef LIB_TLS_SPEC
+#endif
+
+
+/* The linker hash style */
+#ifndef USED_FOR_TARGET
+#undef LINKER_HASH_STYLE
 #endif
 
 
@@ -1650,7 +1718,7 @@
 
 /* Specify plugin linker */
 #ifndef USED_FOR_TARGET
-#undef PLUGIN_LD
+#undef PLUGIN_LD_SUFFIX
 #endif
 
 

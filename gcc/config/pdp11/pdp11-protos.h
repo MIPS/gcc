@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the pdp-11
-   Copyright (C) 2000, 2003, 2004, 2007, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Michael K. Gschwind (mike@vlsivie.tuwien.ac.at).
 
 This file is part of GCC.
@@ -38,6 +37,7 @@ typedef enum { no_action, dec_before, inc_after } pdp11_action;
 typedef enum { little, either, big } pdp11_partorder;
 extern bool pdp11_expand_operands (rtx *, rtx [][2], int, 
 				   pdp11_action *, pdp11_partorder);
+extern int pdp11_sp_frame_offset (void);
 extern int pdp11_initial_elimination_offset (int, int);
 extern enum reg_class pdp11_regno_reg_class (int);
 
@@ -45,3 +45,5 @@ extern enum reg_class pdp11_regno_reg_class (int);
 
 extern void output_ascii (FILE *, const char *, int);
 extern void pdp11_asm_output_var (FILE *, const char *, int, int, bool);
+extern void pdp11_expand_prologue (void);
+extern void pdp11_expand_epilogue (void);

@@ -1,7 +1,7 @@
 // Multimap implementation -*- C++ -*-
 
 // Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011 Free Software Foundation, Inc.
+// 2011, 2012 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,7 +58,9 @@
 #define _STL_MULTIMAP_H 1
 
 #include <bits/concept_check.h>
+#if __cplusplus >= 201103L
 #include <initializer_list>
+#endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -69,6 +71,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
    *  retrieved based on a key, in logarithmic time.
    *
    *  @ingroup associative_containers
+   *
+   *  @tparam _Key  Type of key objects.
+   *  @tparam  _Tp  Type of mapped objects.
+   *  @tparam _Compare  Comparison function object type, defaults to less<_Key>.
+   *  @tparam _Alloc  Allocator type, defaults to 
+   *                  allocator<pair<const _Key, _Tp>.
    *
    *  Meets the requirements of a <a href="tables.html#65">container</a>, a
    *  <a href="tables.html#66">reversible container</a>, and an
@@ -100,7 +108,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
       __glibcxx_class_requires4(_Compare, bool, _Key, _Key,
 				_BinaryFunctionConcept)
-      __glibcxx_class_requires2(value_type, _Alloc_value_type, _SameTypeConcept)	
+      __glibcxx_class_requires2(value_type, _Alloc_value_type, _SameTypeConcept)
 
     public:
       class value_compare
@@ -152,40 +160,41 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  Creates a %multimap with no elements.
-       *  @param  comp  A comparison object.
-       *  @param  a  An allocator object.
+       *  @param  __comp  A comparison object.
+       *  @param  __a  An allocator object.
        */
       explicit
       multimap(const _Compare& __comp,
 	       const allocator_type& __a = allocator_type())
-      : _M_t(__comp, __a) { }
+      : _M_t(__comp, _Pair_alloc_type(__a)) { }
 
       /**
        *  @brief  %Multimap copy constructor.
-       *  @param  x  A %multimap of identical element and allocator types.
+       *  @param  __x  A %multimap of identical element and allocator types.
        *
        *  The newly-created %multimap uses a copy of the allocation object
-       *  used by @a x.
+       *  used by @a __x.
        */
       multimap(const multimap& __x)
       : _M_t(__x._M_t) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  %Multimap move constructor.
-       *  @param   x  A %multimap of identical element and allocator types.
+       *  @param   __x  A %multimap of identical element and allocator types.
        *
-       *  The newly-created %multimap contains the exact contents of @a x.
-       *  The contents of @a x are a valid, but unspecified %multimap.
+       *  The newly-created %multimap contains the exact contents of @a __x.
+       *  The contents of @a __x are a valid, but unspecified %multimap.
        */
       multimap(multimap&& __x)
+      noexcept(is_nothrow_copy_constructible<_Compare>::value)
       : _M_t(std::move(__x._M_t)) { }
 
       /**
        *  @brief  Builds a %multimap from an initializer_list.
-       *  @param  l  An initializer_list.
-       *  @param  comp  A comparison functor.
-       *  @param  a  An allocator object.
+       *  @param  __l  An initializer_list.
+       *  @param  __comp  A comparison functor.
+       *  @param  __a  An allocator object.
        *
        *  Create a %multimap consisting of copies of the elements from
        *  the initializer_list.  This is linear in N if the list is already
@@ -194,18 +203,18 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       multimap(initializer_list<value_type> __l,
 	       const _Compare& __comp = _Compare(),
 	       const allocator_type& __a = allocator_type())
-      : _M_t(__comp, __a)
+      : _M_t(__comp, _Pair_alloc_type(__a))
       { _M_t._M_insert_equal(__l.begin(), __l.end()); }
 #endif
 
       /**
        *  @brief  Builds a %multimap from a range.
-       *  @param  first  An input iterator.
-       *  @param  last  An input iterator.
+       *  @param  __first  An input iterator.
+       *  @param  __last  An input iterator.
        *
        *  Create a %multimap consisting of copies of the elements from
-       *  [first,last).  This is linear in N if the range is already sorted,
-       *  and NlogN otherwise (where N is distance(first,last)).
+       *  [__first,__last).  This is linear in N if the range is already sorted,
+       *  and NlogN otherwise (where N is distance(__first,__last)).
        */
       template<typename _InputIterator>
         multimap(_InputIterator __first, _InputIterator __last)
@@ -214,20 +223,20 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  Builds a %multimap from a range.
-       *  @param  first  An input iterator.
-       *  @param  last  An input iterator.
-       *  @param  comp  A comparison functor.
-       *  @param  a  An allocator object.
+       *  @param  __first  An input iterator.
+       *  @param  __last  An input iterator.
+       *  @param  __comp  A comparison functor.
+       *  @param  __a  An allocator object.
        *
        *  Create a %multimap consisting of copies of the elements from
-       *  [first,last).  This is linear in N if the range is already sorted,
-       *  and NlogN otherwise (where N is distance(first,last)).
+       *  [__first,__last).  This is linear in N if the range is already sorted,
+       *  and NlogN otherwise (where N is distance(__first,__last)).
        */
       template<typename _InputIterator>
         multimap(_InputIterator __first, _InputIterator __last,
 		 const _Compare& __comp,
 		 const allocator_type& __a = allocator_type())
-        : _M_t(__comp, __a)
+	: _M_t(__comp, _Pair_alloc_type(__a))
         { _M_t._M_insert_equal(__first, __last); }
 
       // FIXME There is no dtor declared, but we should have something generated
@@ -241,10 +250,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  %Multimap assignment operator.
-       *  @param  x  A %multimap of identical element and allocator types.
+       *  @param  __x  A %multimap of identical element and allocator types.
        *
-       *  All the elements of @a x are copied, but unlike the copy constructor,
-       *  the allocator object is not copied.
+       *  All the elements of @a __x are copied, but unlike the copy
+       *  constructor, the allocator object is not copied.
        */
       multimap&
       operator=(const multimap& __x)
@@ -253,13 +262,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  %Multimap move assignment operator.
-       *  @param  x  A %multimap of identical element and allocator types.
+       *  @param  __x  A %multimap of identical element and allocator types.
        *
-       *  The contents of @a x are moved into this multimap (without copying).
-       *  @a x is a valid, but unspecified multimap.
+       *  The contents of @a __x are moved into this multimap (without copying).
+       *  @a __x is a valid, but unspecified multimap.
        */
       multimap&
       operator=(multimap&& __x)
@@ -273,10 +282,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  %Multimap list assignment operator.
-       *  @param  l  An initializer_list.
+       *  @param  __l  An initializer_list.
        *
        *  This function fills a %multimap with copies of the elements
-       *  in the initializer list @a l.
+       *  in the initializer list @a __l.
        *
        *  Note that the assignment completely changes the %multimap and
        *  that the resulting %multimap's size is the same as the number
@@ -293,8 +302,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /// Get a copy of the memory allocation object.
       allocator_type
-      get_allocator() const
-      { return _M_t.get_allocator(); }
+      get_allocator() const _GLIBCXX_NOEXCEPT 
+      { return allocator_type(_M_t.get_allocator()); }
 
       // iterators
       /**
@@ -303,7 +312,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  keys.
        */
       iterator
-      begin()
+      begin() _GLIBCXX_NOEXCEPT
       { return _M_t.begin(); }
 
       /**
@@ -312,7 +321,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  the keys.
        */
       const_iterator
-      begin() const
+      begin() const _GLIBCXX_NOEXCEPT
       { return _M_t.begin(); }
 
       /**
@@ -321,7 +330,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  keys.
        */
       iterator
-      end()
+      end() _GLIBCXX_NOEXCEPT
       { return _M_t.end(); }
 
       /**
@@ -330,7 +339,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  to the keys.
        */
       const_iterator
-      end() const
+      end() const _GLIBCXX_NOEXCEPT
       { return _M_t.end(); }
 
       /**
@@ -339,7 +348,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  keys.
        */
       reverse_iterator
-      rbegin()
+      rbegin() _GLIBCXX_NOEXCEPT
       { return _M_t.rbegin(); }
 
       /**
@@ -348,7 +357,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  according to the keys.
        */
       const_reverse_iterator
-      rbegin() const
+      rbegin() const _GLIBCXX_NOEXCEPT
       { return _M_t.rbegin(); }
 
       /**
@@ -357,7 +366,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  according to the keys.
        */
       reverse_iterator
-      rend()
+      rend() _GLIBCXX_NOEXCEPT
       { return _M_t.rend(); }
 
       /**
@@ -366,17 +375,17 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  descending order according to the keys.
        */
       const_reverse_iterator
-      rend() const
+      rend() const _GLIBCXX_NOEXCEPT
       { return _M_t.rend(); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  Returns a read-only (constant) iterator that points to the first pair
        *  in the %multimap.  Iteration is done in ascending order according to
        *  the keys.
        */
       const_iterator
-      cbegin() const
+      cbegin() const noexcept
       { return _M_t.begin(); }
 
       /**
@@ -385,7 +394,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  to the keys.
        */
       const_iterator
-      cend() const
+      cend() const noexcept
       { return _M_t.end(); }
 
       /**
@@ -394,7 +403,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  according to the keys.
        */
       const_reverse_iterator
-      crbegin() const
+      crbegin() const noexcept
       { return _M_t.rbegin(); }
 
       /**
@@ -403,30 +412,83 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  descending order according to the keys.
        */
       const_reverse_iterator
-      crend() const
+      crend() const noexcept
       { return _M_t.rend(); }
 #endif
 
       // capacity
       /** Returns true if the %multimap is empty.  */
       bool
-      empty() const
+      empty() const _GLIBCXX_NOEXCEPT
       { return _M_t.empty(); }
 
       /** Returns the size of the %multimap.  */
       size_type
-      size() const
+      size() const _GLIBCXX_NOEXCEPT
       { return _M_t.size(); }
 
       /** Returns the maximum size of the %multimap.  */
       size_type
-      max_size() const
+      max_size() const _GLIBCXX_NOEXCEPT
       { return _M_t.max_size(); }
 
       // modifiers
+#if __cplusplus >= 201103L
+      /**
+       *  @brief Build and insert a std::pair into the %multimap.
+       *
+       *  @param __args  Arguments used to generate a new pair instance (see
+       *	        std::piecewise_contruct for passing arguments to each
+       *	        part of the pair constructor).
+       *
+       *  @return An iterator that points to the inserted (key,value) pair.
+       *
+       *  This function builds and inserts a (key, value) %pair into the
+       *  %multimap.
+       *  Contrary to a std::map the %multimap does not rely on unique keys and
+       *  thus multiple pairs with the same key can be inserted.
+       *
+       *  Insertion requires logarithmic time.
+       */
+      template<typename... _Args>
+	iterator
+	emplace(_Args&&... __args)
+	{ return _M_t._M_emplace_equal(std::forward<_Args>(__args)...); }
+
+      /**
+       *  @brief Builds and inserts a std::pair into the %multimap.
+       *
+       *  @param  __pos  An iterator that serves as a hint as to where the pair
+       *                should be inserted.
+       *  @param  __args  Arguments used to generate a new pair instance (see
+       *	         std::piecewise_contruct for passing arguments to each
+       *	         part of the pair constructor).
+       *  @return An iterator that points to the inserted (key,value) pair.
+       *
+       *  This function inserts a (key, value) pair into the %multimap.
+       *  Contrary to a std::map the %multimap does not rely on unique keys and
+       *  thus multiple pairs with the same key can be inserted.
+       *  Note that the first parameter is only a hint and can potentially
+       *  improve the performance of the insertion process.  A bad hint would
+       *  cause no gains in efficiency.
+       *
+       *  For more on @a hinting, see:
+       *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt07ch17.html
+       *
+       *  Insertion requires logarithmic time (if the hint is not taken).
+       */
+      template<typename... _Args>
+	iterator
+	emplace_hint(const_iterator __pos, _Args&&... __args)
+	{
+	  return _M_t._M_emplace_hint_equal(__pos,
+					    std::forward<_Args>(__args)...);
+	}
+#endif
+
       /**
        *  @brief Inserts a std::pair into the %multimap.
-       *  @param  x  Pair to be inserted (see std::make_pair for easy creation
+       *  @param  __x  Pair to be inserted (see std::make_pair for easy creation
        *             of pairs).
        *  @return An iterator that points to the inserted (key,value) pair.
        *
@@ -440,10 +502,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       insert(const value_type& __x)
       { return _M_t._M_insert_equal(__x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
-	       std::enable_if<std::is_convertible<_Pair,
-						  value_type>::value>::type>
+	       std::enable_if<std::is_constructible<value_type,
+						    _Pair&&>::value>::type>
         iterator
         insert(_Pair&& __x)
         { return _M_t._M_insert_equal(std::forward<_Pair>(__x)); }
@@ -451,10 +513,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Inserts a std::pair into the %multimap.
-       *  @param  position  An iterator that serves as a hint as to where the
-       *                    pair should be inserted.
-       *  @param  x  Pair to be inserted (see std::make_pair for easy creation
-       *             of pairs).
+       *  @param  __position  An iterator that serves as a hint as to where the
+       *                      pair should be inserted.
+       *  @param  __x  Pair to be inserted (see std::make_pair for easy creation
+       *               of pairs).
        *  @return An iterator that points to the inserted (key,value) pair.
        *
        *  This function inserts a (key, value) pair into the %multimap.
@@ -470,17 +532,17 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  Insertion requires logarithmic time (if the hint is not taken).
        */
       iterator
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       insert(const_iterator __position, const value_type& __x)
 #else
       insert(iterator __position, const value_type& __x)
 #endif
       { return _M_t._M_insert_equal_(__position, __x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
-	       std::enable_if<std::is_convertible<_Pair,
-						  value_type>::value>::type>
+	       std::enable_if<std::is_constructible<value_type,
+						    _Pair&&>::value>::type>
         iterator
         insert(const_iterator __position, _Pair&& __x)
         { return _M_t._M_insert_equal_(__position,
@@ -490,9 +552,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       /**
        *  @brief A template function that attempts to insert a range
        *  of elements.
-       *  @param  first  Iterator pointing to the start of the range to be
-       *                 inserted.
-       *  @param  last  Iterator pointing to the end of the range.
+       *  @param  __first  Iterator pointing to the start of the range to be
+       *                   inserted.
+       *  @param  __last  Iterator pointing to the end of the range.
        *
        *  Complexity similar to that of the range constructor.
        */
@@ -501,11 +563,11 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
         insert(_InputIterator __first, _InputIterator __last)
         { _M_t._M_insert_equal(__first, __last); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief Attempts to insert a list of std::pairs into the %multimap.
-       *  @param  list  A std::initializer_list<value_type> of pairs to be
-       *                inserted.
+       *  @param  __l  A std::initializer_list<value_type> of pairs to be
+       *               inserted.
        *
        *  Complexity similar to that of the range constructor.
        */
@@ -514,12 +576,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       { this->insert(__l.begin(), __l.end()); }
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Associative erase should return an iterator.
       /**
        *  @brief Erases an element from a %multimap.
-       *  @param  position  An iterator pointing to the element to be erased.
+       *  @param  __position  An iterator pointing to the element to be erased.
        *  @return An iterator pointing to the element immediately following
        *          @a position prior to the element being erased. If no such 
        *          element exists, end() is returned.
@@ -533,10 +595,15 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       iterator
       erase(const_iterator __position)
       { return _M_t.erase(__position); }
+
+      // LWG 2059.
+      iterator
+      erase(iterator __position)
+      { return _M_t.erase(__position); }
 #else
       /**
        *  @brief Erases an element from a %multimap.
-       *  @param  position  An iterator pointing to the element to be erased.
+       *  @param  __position  An iterator pointing to the element to be erased.
        *
        *  This function erases an element, pointed to by the given iterator,
        *  from a %multimap.  Note that this function only erases the element,
@@ -551,7 +618,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Erases elements according to the provided key.
-       *  @param  x  Key of element to be erased.
+       *  @param  __x  Key of element to be erased.
        *  @return  The number of elements erased.
        *
        *  This function erases all elements located by the given key from a
@@ -564,15 +631,16 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       erase(const key_type& __x)
       { return _M_t.erase(__x); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 130. Associative erase should return an iterator.
       /**
        *  @brief Erases a [first,last) range of elements from a %multimap.
-       *  @param  first  Iterator pointing to the start of the range to be
-       *                 erased.
-       *  @param  last  Iterator pointing to the end of the range to be erased.
-       *  @return The iterator @a last.
+       *  @param  __first  Iterator pointing to the start of the range to be
+       *                   erased.
+       *  @param __last Iterator pointing to the end of the range to be
+       *                erased .
+       *  @return The iterator @a __last.
        *
        *  This function erases a sequence of elements from a %multimap.
        *  Note that this function only erases the elements, and that if
@@ -588,9 +656,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       // DR 130. Associative erase should return an iterator.
       /**
        *  @brief Erases a [first,last) range of elements from a %multimap.
-       *  @param  first  Iterator pointing to the start of the range to be
+       *  @param  __first  Iterator pointing to the start of the range to be
        *                 erased.
-       *  @param  last  Iterator pointing to the end of the range to be erased.
+       *  @param __last Iterator pointing to the end of the range to
+       *                be erased.
        *
        *  This function erases a sequence of elements from a %multimap.
        *  Note that this function only erases the elements, and that if
@@ -605,7 +674,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief  Swaps data with another %multimap.
-       *  @param  x  A %multimap of the same element and allocator types.
+       *  @param  __x  A %multimap of the same element and allocator types.
        *
        *  This exchanges the elements between two multimaps in constant time.
        *  (It is only swapping a pointer, an integer, and an instance of
@@ -625,7 +694,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  is the user's responsibility.
        */
       void
-      clear()
+      clear() _GLIBCXX_NOEXCEPT
       { _M_t.clear(); }
 
       // observers
@@ -648,7 +717,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       // multimap operations
       /**
        *  @brief Tries to locate an element in a %multimap.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return  Iterator pointing to sought-after element,
        *           or end() if not found.
        *
@@ -663,7 +732,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Tries to locate an element in a %multimap.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return  Read-only (constant) iterator pointing to sought-after
        *           element, or end() if not found.
        *
@@ -678,7 +747,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds the number of elements with given key.
-       *  @param  x  Key of (key, value) pairs to be located.
+       *  @param  __x  Key of (key, value) pairs to be located.
        *  @return Number of elements with specified key.
        */
       size_type
@@ -687,7 +756,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds the beginning of a subsequence matching given key.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return  Iterator pointing to first element equal to or greater
        *           than key, or end().
        *
@@ -702,14 +771,14 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds the beginning of a subsequence matching given key.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return  Read-only (constant) iterator pointing to first element
        *           equal to or greater than key, or end().
        *
-       *  This function returns the first element of a subsequence of elements
-       *  that matches the given key.  If unsuccessful the iterator will point
-       *  to the next greatest element or, if no such greater element exists, to
-       *  end().
+       *  This function returns the first element of a subsequence of
+       *  elements that matches the given key.  If unsuccessful the
+       *  iterator will point to the next greatest element or, if no
+       *  such greater element exists, to end().
        */
       const_iterator
       lower_bound(const key_type& __x) const
@@ -717,7 +786,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds the end of a subsequence matching given key.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return Iterator pointing to the first element
        *          greater than key, or end().
        */
@@ -727,7 +796,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds the end of a subsequence matching given key.
-       *  @param  x  Key of (key, value) pair to be located.
+       *  @param  __x  Key of (key, value) pair to be located.
        *  @return  Read-only (constant) iterator pointing to first iterator
        *           greater than key, or end().
        */
@@ -737,7 +806,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds a subsequence matching given key.
-       *  @param  x  Key of (key, value) pairs to be located.
+       *  @param  __x  Key of (key, value) pairs to be located.
        *  @return  Pair of iterators that possibly points to the subsequence
        *           matching given key.
        *
@@ -754,7 +823,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /**
        *  @brief Finds a subsequence matching given key.
-       *  @param  x  Key of (key, value) pairs to be located.
+       *  @param  __x  Key of (key, value) pairs to be located.
        *  @return  Pair of read-only (constant) iterators that possibly points
        *           to the subsequence matching given key.
        *
@@ -782,8 +851,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
   /**
    *  @brief  Multimap equality comparison.
-   *  @param  x  A %multimap.
-   *  @param  y  A %multimap of the same type as @a x.
+   *  @param  __x  A %multimap.
+   *  @param  __y  A %multimap of the same type as @a __x.
    *  @return  True iff the size and elements of the maps are equal.
    *
    *  This is an equivalence relation.  It is linear in the size of the
@@ -798,8 +867,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
   /**
    *  @brief  Multimap ordering relation.
-   *  @param  x  A %multimap.
-   *  @param  y  A %multimap of the same type as @a x.
+   *  @param  __x  A %multimap.
+   *  @param  __y  A %multimap of the same type as @a __x.
    *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the

@@ -1,7 +1,5 @@
 /* Deal with interfaces.
-   Copyright (C) 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -67,8 +65,10 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "gfortran.h"
 #include "match.h"
+#include "arith.h"
 
 /* The current_interface structure holds information about the
    interface currently being parsed.  This structure is saved and
@@ -87,7 +87,7 @@ gfc_free_interface (gfc_interface *intr)
   for (; intr; intr = next)
     {
       next = intr->next;
-      gfc_free (intr);
+      free (intr);
     }
 }
 
@@ -212,7 +212,7 @@ gfc_match_interface (void)
       if (gfc_get_symbol (name, NULL, &sym))
 	return MATCH_ERROR;
 
-      if (!sym->attr.generic 
+      if (!sym->attr.generic
 	  && gfc_add_generic (&sym->attr, sym->name, NULL) == FAILURE)
 	return MATCH_ERROR;
 
@@ -251,7 +251,7 @@ gfc_match_abstract_interface (void)
 {
   match m;
 
-  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ABSTRACT INTERFACE at %C")
+  if (gfc_notify_std (GFC_STD_F2003, "ABSTRACT INTERFACE at %C")
 		      == FAILURE)
     return MATCH_ERROR;
 
@@ -349,7 +349,7 @@ gfc_match_end_interface (void)
 	      gfc_error ("Expecting 'END INTERFACE OPERATOR (%s)' at %C, "
 			 "but got %s", s1, s2);
 	    }
-		
+
 	}
 
       break;
@@ -394,17 +394,18 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
   if (derived1 == derived2)
     return 1;
 
+  gcc_assert (derived1 && derived2);
+
   /* Special case for comparing derived types across namespaces.  If the
      true names and module names are the same and the module name is
      nonnull, then they are equal.  */
-  if (derived1 != NULL && derived2 != NULL
-      && strcmp (derived1->name, derived2->name) == 0
+  if (strcmp (derived1->name, derived2->name) == 0
       && derived1->module != NULL && derived2->module != NULL
       && strcmp (derived1->module, derived2->module) == 0)
     return 1;
 
   /* Compare type via the rules of the standard.  Both types must have
-     the SEQUENCE attribute to be equal.  */
+     the SEQUENCE or BIND(C) attribute to be equal.  */
 
   if (strcmp (derived1->name, derived2->name))
     return 0;
@@ -413,7 +414,8 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       || derived2->component_access == ACCESS_PRIVATE)
     return 0;
 
-  if (derived1->attr.sequence == 0 || derived2->attr.sequence == 0)
+  if (!(derived1->attr.sequence && derived2->attr.sequence)
+      && !(derived1->attr.is_bind_c && derived2->attr.is_bind_c))
     return 0;
 
   dt1 = derived1->components;
@@ -442,10 +444,10 @@ gfc_compare_derived_types (gfc_symbol *derived1, gfc_symbol *derived2)
       if (dt1->attr.dimension && gfc_compare_array_spec (dt1->as, dt2->as) == 0)
 	return 0;
 
-      /* Make sure that link lists do not put this function into an 
+      /* Make sure that link lists do not put this function into an
 	 endless recursive loop!  */
       if (!(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived)
-	    && !(dt1->ts.type == BT_DERIVED && derived1 == dt1->ts.u.derived)
+	    && !(dt2->ts.type == BT_DERIVED && derived2 == dt2->ts.u.derived)
 	    && gfc_compare_types (&dt1->ts, &dt2->ts) == 0)
 	return 0;
 
@@ -481,7 +483,17 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
      that is for the formal arg, but oh well.  */
   if (ts1->type == BT_VOID || ts2->type == BT_VOID)
     return 1;
-   
+
+  if (ts1->type == BT_CLASS
+      && ts1->u.derived->components->ts.u.derived->attr.unlimited_polymorphic)
+    return 1;
+
+  /* F2003: C717  */
+  if (ts2->type == BT_CLASS && ts1->type == BT_DERIVED
+      && ts2->u.derived->components->ts.u.derived->attr.unlimited_polymorphic
+      && (ts1->u.derived->attr.sequence || ts1->u.derived->attr.is_bind_c))
+    return 1;
+
   if (ts1->type != ts2->type
       && ((ts1->type != BT_DERIVED && ts1->type != BT_CLASS)
 	  || (ts2->type != BT_DERIVED && ts2->type != BT_CLASS)))
@@ -504,15 +516,22 @@ gfc_compare_types (gfc_typespec *ts1, gfc_typespec *ts2)
 static int
 compare_type_rank (gfc_symbol *s1, gfc_symbol *s2)
 {
+  gfc_array_spec *as1, *as2;
   int r1, r2;
 
-  r1 = (s1->as != NULL) ? s1->as->rank : 0;
-  r2 = (s2->as != NULL) ? s2->as->rank : 0;
+  as1 = (s1->ts.type == BT_CLASS) ? CLASS_DATA (s1)->as : s1->as;
+  as2 = (s2->ts.type == BT_CLASS) ? CLASS_DATA (s2)->as : s2->as;
 
-  if (r1 != r2)
+  r1 = as1 ? as1->rank : 0;
+  r2 = as2 ? as2->rank : 0;
+
+  if (r1 != r2
+      && (!as1 || as1->type != AS_ASSUMED_RANK)
+      && (!as2 || as2->type != AS_ASSUMED_RANK))
     return 0;			/* Ranks differ.  */
 
-  return gfc_compare_types (&s1->ts, &s2->ts);
+  return gfc_compare_types (&s1->ts, &s2->ts)
+	 || s1->ts.type == BT_ASSUMED || s2->ts.type == BT_ASSUMED;
 }
 
 
@@ -630,8 +649,12 @@ gfc_check_operator_interface (gfc_symbol *sym, gfc_intrinsic_op op,
 				&& op != INTRINSIC_NOT)
       || (args == 2 && op == INTRINSIC_NOT))
     {
-      gfc_error ("Operator interface at %L has the wrong number of arguments",
-		 &sym->declared_at);
+      if (op == INTRINSIC_ASSIGN)
+	gfc_error ("Assignment operator interface at %L must have "
+		   "two arguments", &sym->declared_at);
+      else
+	gfc_error ("Operator interface at %L has the wrong number of arguments",
+		   &sym->declared_at);
       return false;
     }
 
@@ -643,12 +666,6 @@ gfc_check_operator_interface (gfc_symbol *sym, gfc_intrinsic_op op,
 	{
 	  gfc_error ("Assignment operator interface at %L must be "
 		     "a SUBROUTINE", &sym->declared_at);
-	  return false;
-	}
-      if (args != 2)
-	{
-	  gfc_error ("Assignment operator interface at %L must have "
-		     "two arguments", &sym->declared_at);
 	  return false;
 	}
 
@@ -823,12 +840,13 @@ bad_repl:
    a given type/rank in f1 and seeing if there are less then that
    number of those arguments in f2 (including optional arguments).
    Since this test is asymmetric, it has to be called twice to make it
-   symmetric.  Returns nonzero if the argument lists are incompatible
-   by this test.  This subroutine implements rule 1 of section
-   14.1.2.3 in the Fortran 95 standard.  */
+   symmetric. Returns nonzero if the argument lists are incompatible
+   by this test. This subroutine implements rule 1 of section F03:16.2.3.
+   'p1' and 'p2' are the PASS arguments of both procedures (if applicable).  */
 
 static int
-count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
+count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
+		  const char *p1, const char *p2)
 {
   int rc, ac1, ac2, i, j, k, n1;
   gfc_formal_arglist *f;
@@ -865,14 +883,17 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
       if (arg[i].flag != -1)
 	continue;
 
-      if (arg[i].sym && arg[i].sym->attr.optional)
-	continue;		/* Skip optional arguments.  */
+      if (arg[i].sym && (arg[i].sym->attr.optional
+			 || (p1 && strcmp (arg[i].sym->name, p1) == 0)))
+	continue;		/* Skip OPTIONAL and PASS arguments.  */
 
       arg[i].flag = k;
 
-      /* Find other nonoptional arguments of the same type/rank.  */
+      /* Find other non-optional, non-pass arguments of the same type/rank.  */
       for (j = i + 1; j < n1; j++)
-	if ((arg[j].sym == NULL || !arg[j].sym->attr.optional)
+	if ((arg[j].sym == NULL
+	     || !(arg[j].sym->attr.optional
+		  || (p1 && strcmp (arg[j].sym->name, p1) == 0)))
 	    && (compare_type_rank_if (arg[i].sym, arg[j].sym)
 	        || compare_type_rank_if (arg[j].sym, arg[i].sym)))
 	  arg[j].flag = k;
@@ -894,13 +915,14 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
 	if (arg[j].flag == k)
 	  ac1++;
 
-      /* Count the number of arguments in f2 with that type, including
-	 those that are optional.  */
+      /* Count the number of non-pass arguments in f2 with that type,
+	 including those that are optional.  */
       ac2 = 0;
 
       for (f = f2; f; f = f->next)
-	if (compare_type_rank_if (arg[i].sym, f->sym)
-	    || compare_type_rank_if (f->sym, arg[i].sym))
+	if ((!p2 || strcmp (f->sym->name, p2) != 0)
+	    && (compare_type_rank_if (arg[i].sym, f->sym)
+		|| compare_type_rank_if (f->sym, arg[i].sym)))
 	  ac2++;
 
       if (ac1 > ac2)
@@ -912,34 +934,36 @@ count_types_test (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
       k++;
     }
 
-  gfc_free (arg);
+  free (arg);
 
   return rc;
 }
 
 
-/* Perform the correspondence test in rule 2 of section 14.1.2.3.
-   Returns zero if no argument is found that satisfies rule 2, nonzero
-   otherwise.
+/* Perform the correspondence test in rule (3) of F08:C1215.
+   Returns zero if no argument is found that satisfies this rule,
+   nonzero otherwise. 'p1' and 'p2' are the PASS arguments of both procedures
+   (if applicable).
 
    This test is also not symmetric in f1 and f2 and must be called
    twice.  This test finds problems caused by sorting the actual
    argument list with keywords.  For example:
 
    INTERFACE FOO
-       SUBROUTINE F1(A, B)
-	   INTEGER :: A ; REAL :: B
-       END SUBROUTINE F1
+     SUBROUTINE F1(A, B)
+       INTEGER :: A ; REAL :: B
+     END SUBROUTINE F1
 
-       SUBROUTINE F2(B, A)
-	   INTEGER :: A ; REAL :: B
-       END SUBROUTINE F1
+     SUBROUTINE F2(B, A)
+       INTEGER :: A ; REAL :: B
+     END SUBROUTINE F1
    END INTERFACE FOO
 
    At this point, 'CALL FOO(A=1, B=1.0)' is ambiguous.  */
 
 static int
-generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
+generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2,
+			const char *p1, const char *p2)
 {
   gfc_formal_arglist *f2_save, *g;
   gfc_symbol *sym;
@@ -951,24 +975,36 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
       if (f1->sym->attr.optional)
 	goto next;
 
+      if (p1 && strcmp (f1->sym->name, p1) == 0)
+	f1 = f1->next;
+      if (f2 && p2 && strcmp (f2->sym->name, p2) == 0)
+	f2 = f2->next;
+
       if (f2 != NULL && (compare_type_rank (f1->sym, f2->sym)
-			 || compare_type_rank (f2->sym, f1->sym)))
+			 || compare_type_rank (f2->sym, f1->sym))
+	  && !((gfc_option.allow_std & GFC_STD_F2008)
+	       && ((f1->sym->attr.allocatable && f2->sym->attr.pointer)
+		   || (f2->sym->attr.allocatable && f1->sym->attr.pointer))))
 	goto next;
 
       /* Now search for a disambiguating keyword argument starting at
 	 the current non-match.  */
       for (g = f1; g; g = g->next)
 	{
-	  if (g->sym->attr.optional)
+	  if (g->sym->attr.optional || (p1 && strcmp (g->sym->name, p1) == 0))
 	    continue;
 
 	  sym = find_keyword_arg (g->sym->name, f2_save);
-	  if (sym == NULL || !compare_type_rank (g->sym, sym))
+	  if (sym == NULL || !compare_type_rank (g->sym, sym)
+	      || ((gfc_option.allow_std & GFC_STD_F2008)
+		  && ((sym->attr.allocatable && g->sym->attr.pointer)
+		      || (sym->attr.pointer && g->sym->attr.allocatable))))
 	    return 1;
 	}
 
     next:
-      f1 = f1->next;
+      if (f1 != NULL)
+	f1 = f1->next;
       if (f2 != NULL)
 	f2 = f2->next;
     }
@@ -977,16 +1013,321 @@ generic_correspondence (gfc_formal_arglist *f1, gfc_formal_arglist *f2)
 }
 
 
+/* Check if the characteristics of two dummy arguments match,
+   cf. F08:12.3.2.  */
+
+static gfc_try
+check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
+			     bool type_must_agree, char *errmsg, int err_len)
+{
+  /* Check type and rank.  */
+  if (type_must_agree && !compare_type_rank (s2, s1))
+    {
+      snprintf (errmsg, err_len, "Type/rank mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* Check INTENT.  */
+  if (s1->attr.intent != s2->attr.intent)
+    {
+      snprintf (errmsg, err_len, "INTENT mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* Check OPTIONAL attribute.  */
+  if (s1->attr.optional != s2->attr.optional)
+    {
+      snprintf (errmsg, err_len, "OPTIONAL mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* Check ALLOCATABLE attribute.  */
+  if (s1->attr.allocatable != s2->attr.allocatable)
+    {
+      snprintf (errmsg, err_len, "ALLOCATABLE mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* Check POINTER attribute.  */
+  if (s1->attr.pointer != s2->attr.pointer)
+    {
+      snprintf (errmsg, err_len, "POINTER mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* Check TARGET attribute.  */
+  if (s1->attr.target != s2->attr.target)
+    {
+      snprintf (errmsg, err_len, "TARGET mismatch in argument '%s'",
+		s1->name);
+      return FAILURE;
+    }
+
+  /* FIXME: Do more comprehensive testing of attributes, like e.g.
+	    ASYNCHRONOUS, CONTIGUOUS, VALUE, VOLATILE, etc.  */
+
+  /* Check interface of dummy procedures.  */
+  if (s1->attr.flavor == FL_PROCEDURE)
+    {
+      char err[200];
+      if (!gfc_compare_interfaces (s1, s2, s2->name, 0, 1, err, sizeof(err),
+				   NULL, NULL))
+	{
+	  snprintf (errmsg, err_len, "Interface mismatch in dummy procedure "
+		    "'%s': %s", s1->name, err);
+	  return FAILURE;
+	}
+    }
+
+  /* Check string length.  */
+  if (s1->ts.type == BT_CHARACTER
+      && s1->ts.u.cl && s1->ts.u.cl->length
+      && s2->ts.u.cl && s2->ts.u.cl->length)
+    {
+      int compval = gfc_dep_compare_expr (s1->ts.u.cl->length,
+					  s2->ts.u.cl->length);
+      switch (compval)
+      {
+	case -1:
+	case  1:
+	case -3:
+	  snprintf (errmsg, err_len, "Character length mismatch "
+		    "in argument '%s'", s1->name);
+	  return FAILURE;
+
+	case -2:
+	  /* FIXME: Implement a warning for this case.
+	  gfc_warning ("Possible character length mismatch in argument '%s'",
+		       s1->name);*/
+	  break;
+
+	case 0:
+	  break;
+
+	default:
+	  gfc_internal_error ("check_dummy_characteristics: Unexpected result "
+			      "%i of gfc_dep_compare_expr", compval);
+	  break;
+      }
+    }
+
+  /* Check array shape.  */
+  if (s1->as && s2->as)
+    {
+      int i, compval;
+      gfc_expr *shape1, *shape2;
+
+      if (s1->as->type != s2->as->type)
+	{
+	  snprintf (errmsg, err_len, "Shape mismatch in argument '%s'",
+		    s1->name);
+	  return FAILURE;
+	}
+
+      if (s1->as->type == AS_EXPLICIT)
+	for (i = 0; i < s1->as->rank + s1->as->corank; i++)
+	  {
+	    shape1 = gfc_subtract (gfc_copy_expr (s1->as->upper[i]),
+				  gfc_copy_expr (s1->as->lower[i]));
+	    shape2 = gfc_subtract (gfc_copy_expr (s2->as->upper[i]),
+				  gfc_copy_expr (s2->as->lower[i]));
+	    compval = gfc_dep_compare_expr (shape1, shape2);
+	    gfc_free_expr (shape1);
+	    gfc_free_expr (shape2);
+	    switch (compval)
+	    {
+	      case -1:
+	      case  1:
+	      case -3:
+		snprintf (errmsg, err_len, "Shape mismatch in dimension %i of "
+			  "argument '%s'", i + 1, s1->name);
+		return FAILURE;
+
+	      case -2:
+		/* FIXME: Implement a warning for this case.
+		gfc_warning ("Possible shape mismatch in argument '%s'",
+			    s1->name);*/
+		break;
+
+	      case 0:
+		break;
+
+	      default:
+		gfc_internal_error ("check_dummy_characteristics: Unexpected "
+				    "result %i of gfc_dep_compare_expr",
+				    compval);
+		break;
+	    }
+	  }
+    }
+
+  return SUCCESS;
+}
+
+
+/* Check if the characteristics of two function results match,
+   cf. F08:12.3.3.  */
+
+static gfc_try
+check_result_characteristics (gfc_symbol *s1, gfc_symbol *s2,
+			      char *errmsg, int err_len)
+{
+  gfc_symbol *r1, *r2;
+
+  r1 = s1->result ? s1->result : s1;
+  r2 = s2->result ? s2->result : s2;
+
+  if (r1->ts.type == BT_UNKNOWN)
+    return SUCCESS;
+
+  /* Check type and rank.  */
+  if (!compare_type_rank (r1, r2))
+    {
+      snprintf (errmsg, err_len, "Type/rank mismatch in function result");
+      return FAILURE;
+    }
+
+  /* Check ALLOCATABLE attribute.  */
+  if (r1->attr.allocatable != r2->attr.allocatable)
+    {
+      snprintf (errmsg, err_len, "ALLOCATABLE attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check POINTER attribute.  */
+  if (r1->attr.pointer != r2->attr.pointer)
+    {
+      snprintf (errmsg, err_len, "POINTER attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check CONTIGUOUS attribute.  */
+  if (r1->attr.contiguous != r2->attr.contiguous)
+    {
+      snprintf (errmsg, err_len, "CONTIGUOUS attribute mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check PROCEDURE POINTER attribute.  */
+  if (r1 != s1 && r1->attr.proc_pointer != r2->attr.proc_pointer)
+    {
+      snprintf (errmsg, err_len, "PROCEDURE POINTER mismatch in "
+		"function result");
+      return FAILURE;
+    }
+
+  /* Check string length.  */
+  if (r1->ts.type == BT_CHARACTER && r1->ts.u.cl && r2->ts.u.cl)
+    {
+      if (r1->ts.deferred != r2->ts.deferred)
+	{
+	  snprintf (errmsg, err_len, "Character length mismatch "
+		    "in function result");
+	  return FAILURE;
+	}
+
+      if (r1->ts.u.cl->length)
+	{
+	  int compval = gfc_dep_compare_expr (r1->ts.u.cl->length,
+					      r2->ts.u.cl->length);
+	  switch (compval)
+	  {
+	    case -1:
+	    case  1:
+	    case -3:
+	      snprintf (errmsg, err_len, "Character length mismatch "
+			"in function result");
+	      return FAILURE;
+
+	    case -2:
+	      /* FIXME: Implement a warning for this case.
+	      snprintf (errmsg, err_len, "Possible character length mismatch "
+			"in function result");*/
+	      break;
+
+	    case 0:
+	      break;
+
+	    default:
+	      gfc_internal_error ("check_result_characteristics (1): Unexpected "
+				  "result %i of gfc_dep_compare_expr", compval);
+	      break;
+	  }
+	}
+    }
+
+  /* Check array shape.  */
+  if (!r1->attr.allocatable && !r1->attr.pointer && r1->as && r2->as)
+    {
+      int i, compval;
+      gfc_expr *shape1, *shape2;
+
+      if (r1->as->type != r2->as->type)
+	{
+	  snprintf (errmsg, err_len, "Shape mismatch in function result");
+	  return FAILURE;
+	}
+
+      if (r1->as->type == AS_EXPLICIT)
+	for (i = 0; i < r1->as->rank + r1->as->corank; i++)
+	  {
+	    shape1 = gfc_subtract (gfc_copy_expr (r1->as->upper[i]),
+				   gfc_copy_expr (r1->as->lower[i]));
+	    shape2 = gfc_subtract (gfc_copy_expr (r2->as->upper[i]),
+				   gfc_copy_expr (r2->as->lower[i]));
+	    compval = gfc_dep_compare_expr (shape1, shape2);
+	    gfc_free_expr (shape1);
+	    gfc_free_expr (shape2);
+	    switch (compval)
+	    {
+	      case -1:
+	      case  1:
+	      case -3:
+		snprintf (errmsg, err_len, "Shape mismatch in dimension %i of "
+			  "function result", i + 1);
+		return FAILURE;
+
+	      case -2:
+		/* FIXME: Implement a warning for this case.
+		gfc_warning ("Possible shape mismatch in return value");*/
+		break;
+
+	      case 0:
+		break;
+
+	      default:
+		gfc_internal_error ("check_result_characteristics (2): "
+				    "Unexpected result %i of "
+				    "gfc_dep_compare_expr", compval);
+		break;
+	    }
+	  }
+    }
+
+  return SUCCESS;
+}
+
+
 /* 'Compare' two formal interfaces associated with a pair of symbols.
    We return nonzero if there exists an actual argument list that
    would be ambiguous between the two interfaces, zero otherwise.
-   'intent_flag' specifies whether INTENT and OPTIONAL of the arguments are
-   required to match, which is not the case for ambiguity checks.*/
+   'strict_flag' specifies whether all the characteristics are
+   required to match, which is not the case for ambiguity checks.
+   'p1' and 'p2' are the PASS arguments of both procedures (if applicable).  */
 
 int
 gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
-			int generic_flag, int intent_flag,
-			char *errmsg, int err_len)
+			int generic_flag, int strict_flag,
+			char *errmsg, int err_len,
+			const char *p1, const char *p2)
 {
   gfc_formal_arglist *f1, *f2;
 
@@ -1008,17 +1349,26 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
       return 0;
     }
 
-  /* If the arguments are functions, check type and kind
-     (only for dummy procedures and procedure pointer assignments).  */
-  if (!generic_flag && intent_flag && s1->attr.function && s2->attr.function)
+  /* Do strict checks on all characteristics
+     (for dummy procedures and procedure pointer assignments).  */
+  if (!generic_flag && strict_flag)
     {
-      if (s1->ts.type == BT_UNKNOWN)
-	return 1;
-      if ((s1->ts.type != s2->ts.type) || (s1->ts.kind != s2->ts.kind))
+      if (s1->attr.function && s2->attr.function)
 	{
-	  if (errmsg != NULL)
-	    snprintf (errmsg, err_len, "Type/kind mismatch in return value "
-		      "of '%s'", name2);
+	  /* If both are functions, check result characteristics.  */
+	  if (check_result_characteristics (s1, s2, errmsg, err_len)
+	      == FAILURE)
+	    return 0;
+	}
+
+      if (s1->attr.pure && !s2->attr.pure)
+	{
+	  snprintf (errmsg, err_len, "Mismatch in PURE attribute");
+	  return 0;
+	}
+      if (s1->attr.elemental && !s2->attr.elemental)
+	{
+	  snprintf (errmsg, err_len, "Mismatch in ELEMENTAL attribute");
 	  return 0;
 	}
     }
@@ -1035,9 +1385,11 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
 
   if (generic_flag)
     {
-      if (count_types_test (f1, f2) || count_types_test (f2, f1))
+      if (count_types_test (f1, f2, p1, p2)
+	  || count_types_test (f2, f1, p2, p1))
 	return 0;
-      if (generic_correspondence (f1, f2) || generic_correspondence (f2, f1))
+      if (generic_correspondence (f1, f2, p1, p2)
+	  || generic_correspondence (f2, f1, p2, p1))
 	return 0;
     }
   else
@@ -1059,31 +1411,25 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
 	    return 0;
 	  }
 
-	/* Check type and rank.  */
-	if (!compare_type_rank (f2->sym, f1->sym))
+	if (UNLIMITED_POLY (f1->sym))
+	  goto next;
+
+	if (strict_flag)
 	  {
+	    /* Check all characteristics.  */
+	    if (check_dummy_characteristics (f1->sym, f2->sym,
+					     true, errmsg, err_len) == FAILURE)
+	      return 0;
+	  }
+	else if (!compare_type_rank (f2->sym, f1->sym))
+	  {
+	    /* Only check type and rank.  */
 	    if (errmsg != NULL)
 	      snprintf (errmsg, err_len, "Type/rank mismatch in argument '%s'",
 			f1->sym->name);
 	    return 0;
 	  }
-
-	/* Check INTENT.  */
-	if (intent_flag && (f1->sym->attr.intent != f2->sym->attr.intent))
-	  {
-	    snprintf (errmsg, err_len, "INTENT mismatch in argument '%s'",
-		      f1->sym->name);
-	    return 0;
-	  }
-
-	/* Check OPTIONAL.  */
-	if (intent_flag && (f1->sym->attr.optional != f2->sym->attr.optional))
-	  {
-	    snprintf (errmsg, err_len, "OPTIONAL mismatch in argument '%s'",
-		      f1->sym->name);
-	    return 0;
-	  }
-
+next:
 	f1 = f1->next;
 	f2 = f2->next;
       }
@@ -1107,8 +1453,9 @@ check_interface0 (gfc_interface *p, const char *interface_name)
     {
       /* Make sure all symbols in the interface have been defined as
 	 functions or subroutines.  */
-      if ((!p->sym->attr.function && !p->sym->attr.subroutine)
-	  || !p->sym->attr.if_source)
+      if (((!p->sym->attr.function && !p->sym->attr.subroutine)
+	   || !p->sym->attr.if_source)
+	  && p->sym->attr.flavor != FL_DERIVED)
 	{
 	  if (p->sym->attr.external)
 	    gfc_error ("Procedure '%s' in %s at %L has no explicit interface",
@@ -1121,13 +1468,27 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	}
 
       /* Verify that procedures are either all SUBROUTINEs or all FUNCTIONs.  */
-      if ((psave->sym->attr.function && !p->sym->attr.function)
+      if ((psave->sym->attr.function && !p->sym->attr.function
+	   && p->sym->attr.flavor != FL_DERIVED)
 	  || (psave->sym->attr.subroutine && !p->sym->attr.subroutine))
 	{
-	  gfc_error ("In %s at %L procedures must be either all SUBROUTINEs"
-		     " or all FUNCTIONs", interface_name, &p->sym->declared_at);
+	  if (p->sym->attr.flavor != FL_DERIVED)
+	    gfc_error ("In %s at %L procedures must be either all SUBROUTINEs"
+		       " or all FUNCTIONs", interface_name,
+		       &p->sym->declared_at);
+	  else
+	    gfc_error ("In %s at %L procedures must be all FUNCTIONs as the "
+		       "generic name is also the name of a derived type",
+		       interface_name, &p->sym->declared_at);
 	  return 1;
 	}
+
+      /* F2003, C1207. F2008, C1207.  */
+      if (p->sym->attr.proc == PROC_INTERNAL
+	  && gfc_notify_std (GFC_STD_F2008, "Internal procedure "
+			     "'%s' in %s at %L", p->sym->name, interface_name,
+			     &p->sym->declared_at) == FAILURE)
+	return 1;
     }
   p = psave;
 
@@ -1147,7 +1508,7 @@ check_interface0 (gfc_interface *p, const char *interface_name)
 	    {
 	      /* Duplicate interface.  */
 	      qlast->next = q->next;
-	      gfc_free (q);
+	      free (q);
 	      q = qlast->next;
 	    }
 	}
@@ -1175,8 +1536,10 @@ check_interface1 (gfc_interface *p, gfc_interface *q0,
 	if (p->sym->name == q->sym->name && p->sym->module == q->sym->module)
 	  continue;
 
-	if (gfc_compare_interfaces (p->sym, q->sym, q->sym->name, generic_flag,
-				    0, NULL, 0))
+	if (p->sym->attr.flavor != FL_DERIVED
+	    && q->sym->attr.flavor != FL_DERIVED
+	    && gfc_compare_interfaces (p->sym, q->sym, q->sym->name,
+				       generic_flag, 0, NULL, 0, NULL, NULL))
 	  {
 	    if (referenced)
 	      gfc_error ("Ambiguous interfaces '%s' and '%s' in %s at %L",
@@ -1258,6 +1621,54 @@ check_uop_interfaces (gfc_user_op *uop)
     }
 }
 
+/* Given an intrinsic op, return an equivalent op if one exists,
+   or INTRINSIC_NONE otherwise.  */
+
+gfc_intrinsic_op
+gfc_equivalent_op (gfc_intrinsic_op op)
+{
+  switch(op)
+    {
+    case INTRINSIC_EQ:
+      return INTRINSIC_EQ_OS;
+
+    case INTRINSIC_EQ_OS:
+      return INTRINSIC_EQ;
+
+    case INTRINSIC_NE:
+      return INTRINSIC_NE_OS;
+
+    case INTRINSIC_NE_OS:
+      return INTRINSIC_NE;
+
+    case INTRINSIC_GT:
+      return INTRINSIC_GT_OS;
+
+    case INTRINSIC_GT_OS:
+      return INTRINSIC_GT;
+
+    case INTRINSIC_GE:
+      return INTRINSIC_GE_OS;
+
+    case INTRINSIC_GE_OS:
+      return INTRINSIC_GE;
+
+    case INTRINSIC_LT:
+      return INTRINSIC_LT_OS;
+
+    case INTRINSIC_LT_OS:
+      return INTRINSIC_LT;
+
+    case INTRINSIC_LE:
+      return INTRINSIC_LE_OS;
+
+    case INTRINSIC_LE_OS:
+      return INTRINSIC_LE;
+
+    default:
+      return INTRINSIC_NONE;
+    }
+}
 
 /* For the namespace, check generic, user operator and intrinsic
    operator interfaces for consistency and to remove duplicate
@@ -1298,75 +1709,19 @@ gfc_check_interfaces (gfc_namespace *ns)
 
       for (ns2 = ns; ns2; ns2 = ns2->parent)
 	{
+	  gfc_intrinsic_op other_op;
+
 	  if (check_interface1 (ns->op[i], ns2->op[i], 0,
 				interface_name, true))
 	    goto done;
 
-	  switch (i)
-	    {
-	      case INTRINSIC_EQ:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_EQ_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_EQ_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_EQ],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_NE:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_NE_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_NE_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_NE],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_GT:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_GT_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_GT_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_GT],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_GE:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_GE_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_GE_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_GE],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_LT:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_LT_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_LT_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_LT],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_LE:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_LE_OS],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      case INTRINSIC_LE_OS:
-		if (check_interface1 (ns->op[i], ns2->op[INTRINSIC_LE],
-				      0, interface_name, true)) goto done;
-		break;
-
-	      default:
-		break;
-            }
+	  /* i should be gfc_intrinsic_op, but has to be int with this cast
+	     here for stupid C++ compatibility rules.  */
+	  other_op = gfc_equivalent_op ((gfc_intrinsic_op) i);
+	  if (other_op != INTRINSIC_NONE
+	    &&  check_interface1 (ns->op[i], ns2->op[other_op],
+				  0, interface_name, true))
+	    goto done;
 	}
     }
 
@@ -1378,6 +1733,9 @@ done:
 static int
 symbol_rank (gfc_symbol *sym)
 {
+  if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
+    return CLASS_DATA (sym)->as->rank;
+
   return (sym->as == NULL) ? 0 : sym->as->rank;
 }
 
@@ -1412,7 +1770,9 @@ compare_pointer (gfc_symbol *formal, gfc_expr *actual)
 {
   symbol_attribute attr;
 
-  if (formal->attr.pointer)
+  if (formal->attr.pointer
+      || (formal->ts.type == BT_CLASS && CLASS_DATA (formal)
+	  && CLASS_DATA (formal)->attr.class_pointer))
     {
       attr = gfc_expr_attr (actual);
 
@@ -1434,7 +1794,14 @@ static void
 argument_rank_mismatch (const char *name, locus *where,
 			int rank1, int rank2)
 {
-  if (rank1 == 0)
+
+  /* TS 29113, C407b.  */
+  if (rank2 == -1)
+    {
+      gfc_error ("The assumed-rank array at %L requires that the dummy argument"
+		 " '%s' has assumed-rank", where, name);
+    }
+  else if (rank1 == 0)
     {
       gfc_error ("Rank mismatch in argument '%s' at %L "
 		 "(scalar and rank-%d)", name, where, rank2);
@@ -1445,7 +1812,7 @@ argument_rank_mismatch (const char *name, locus *where,
 		 "(rank-%d and scalar)", name, where, rank1);
     }
   else
-    {    
+    {
       gfc_error ("Rank mismatch in argument '%s' at %L "
 		 "(rank-%d and rank-%d)", name, where, rank1, rank2);
     }
@@ -1493,7 +1860,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	}
 
       if (!gfc_compare_interfaces (formal, act_sym, act_sym->name, 0, 1, err,
-				   sizeof(err)))
+				   sizeof(err), NULL, NULL))
 	{
 	  if (where)
 	    gfc_error ("Interface mismatch in dummy procedure '%s' at %L: %s",
@@ -1522,13 +1889,17 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     {
       if (where)
 	gfc_error ("Actual argument to contiguous pointer dummy '%s' at %L "
-		   "must be simply contigous", formal->name, &actual->where);
+		   "must be simply contiguous", formal->name, &actual->where);
       return 0;
     }
 
   if ((actual->expr_type != EXPR_NULL || actual->ts.type != BT_UNKNOWN)
       && actual->ts.type != BT_HOLLERITH
-      && !gfc_compare_types (&formal->ts, &actual->ts))
+      && formal->ts.type != BT_ASSUMED
+      && !gfc_compare_types (&formal->ts, &actual->ts)
+      && !(formal->ts.type == BT_DERIVED && actual->ts.type == BT_CLASS
+	   && gfc_compare_derived_types (formal->ts.u.derived,
+					 CLASS_DATA (actual)->ts.u.derived)))
     {
       if (where)
 	gfc_error ("Type mismatch in argument '%s' at %L; passed %s to %s",
@@ -1536,10 +1907,11 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 		   gfc_typename (&formal->ts));
       return 0;
     }
-    
-  /* F2003, 12.5.2.5.  */
-  if (formal->ts.type == BT_CLASS
-      && (CLASS_DATA (formal)->attr.class_pointer
+
+  /* F2008, 12.5.2.5; IR F08/0073.  */
+  if (formal->ts.type == BT_CLASS && actual->expr_type != EXPR_NULL
+      && ((CLASS_DATA (formal)->attr.class_pointer
+	   && !formal->attr.intent == INTENT_IN)
           || CLASS_DATA (formal)->attr.allocatable))
     {
       if (actual->ts.type != BT_CLASS)
@@ -1549,8 +1921,8 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 			formal->name, &actual->where);
 	  return 0;
 	}
-      if (CLASS_DATA (actual)->ts.u.derived
-	  != CLASS_DATA (formal)->ts.u.derived)
+      if (!gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
+				      CLASS_DATA (formal)->ts.u.derived))
 	{
 	  if (where)
 	    gfc_error ("Actual argument to '%s' at %L must have the same "
@@ -1559,55 +1931,43 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	}
     }
 
-  if (formal->attr.codimension)
+  /* F08: 12.5.2.5 Allocatable and pointer dummy variables.  However, this
+     is necessary also for F03, so retain error for both.
+     NOTE: Other type/kind errors pre-empt this error.  Since they are F03
+     compatible, no attempt has been made to channel to this one.  */
+  if (UNLIMITED_POLY (formal) && !UNLIMITED_POLY (actual)
+      && (CLASS_DATA (formal)->attr.allocatable
+	  ||CLASS_DATA (formal)->attr.class_pointer))
+    {
+      if (where)
+	gfc_error ("Actual argument to '%s' at %L must be unlimited "
+		   "polymorphic since the formal argument is a "
+		   "pointer or allocatable unlimited polymorphic "
+		   "entity [F2008: 12.5.2.5]", formal->name,
+		   &actual->where);
+      return 0;
+    }
+
+  if (formal->attr.codimension && !gfc_is_coarray (actual))
+    {
+      if (where)
+	gfc_error ("Actual argument to '%s' at %L must be a coarray",
+		       formal->name, &actual->where);
+      return 0;
+    }
+
+  if (formal->attr.codimension && formal->attr.allocatable)
     {
       gfc_ref *last = NULL;
 
-      if (actual->expr_type != EXPR_VARIABLE
-	  || (actual->ref == NULL
-	      && !actual->symtree->n.sym->attr.codimension))
-	{
-	  if (where)
-	    gfc_error ("Actual argument to '%s' at %L must be a coarray",
-		       formal->name, &actual->where);
-	  return 0;
-	}
-
       for (ref = actual->ref; ref; ref = ref->next)
-	{
-	  if (ref->type == REF_ARRAY && ref->u.ar.codimen != 0)
-	    {
-	      if (where)
-		gfc_error ("Actual argument to '%s' at %L must be a coarray "
-			   "and not coindexed", formal->name, &ref->u.ar.where);
-	      return 0;
-	    }
-	  if (ref->type == REF_ARRAY && ref->u.ar.as->corank
-	      && ref->u.ar.type != AR_FULL && ref->u.ar.dimen != 0)
-	    {
-	      if (where)
-		gfc_error ("Actual argument to '%s' at %L must be a coarray "
-			   "and thus shall not have an array designator",
-			   formal->name, &ref->u.ar.where);
-	      return 0;
-	    }
-	  if (ref->type == REF_COMPONENT)
-	    last = ref;
-	}
-
-      if (last && !last->u.c.component->attr.codimension)
-      	{
-	  if (where)
-	    gfc_error ("Actual argument to '%s' at %L must be a coarray",
-		       formal->name, &actual->where);
-	  return 0;
-	}
+	if (ref->type == REF_COMPONENT)
+	  last = ref;
 
       /* F2008, 12.5.2.6.  */
-      if (formal->attr.allocatable &&
-	  ((last && last->u.c.component->as->corank != formal->as->corank)
-	   || (!last
-	       && actual->symtree->n.sym->as->corank != formal->as->corank)))
+      if ((last && last->u.c.component->as->corank != formal->as->corank)
+	  || (!last
+	      && actual->symtree->n.sym->as->corank != formal->as->corank))
 	{
 	  if (where)
 	    gfc_error ("Corank mismatch in argument '%s' at %L (%d and %d)",
@@ -1616,15 +1976,34 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 			: actual->symtree->n.sym->as->corank);
 	  return 0;
 	}
+    }
 
+  if (formal->attr.codimension)
+    {
       /* F2008, 12.5.2.8.  */
       if (formal->attr.dimension
 	  && (formal->attr.contiguous || formal->as->type != AS_ASSUMED_SHAPE)
+	  && gfc_expr_attr (actual).dimension
 	  && !gfc_is_simply_contiguous (actual, true))
 	{
 	  if (where)
 	    gfc_error ("Actual argument to '%s' at %L must be simply "
 		       "contiguous", formal->name, &actual->where);
+	  return 0;
+	}
+
+      /* F2008, C1303 and C1304.  */
+      if (formal->attr.intent != INTENT_INOUT
+	  && (((formal->ts.type == BT_DERIVED || formal->ts.type == BT_CLASS)
+	       && formal->ts.u.derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+	       && formal->ts.u.derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE)
+	      || formal->attr.lock_comp))
+
+    	{
+	  if (where)
+	    gfc_error ("Actual argument to non-INTENT(INOUT) dummy '%s' at %L, "
+		       "which is LOCK_TYPE or has a LOCK_TYPE component",
+		       formal->name, &actual->where);
 	  return 0;
 	}
     }
@@ -1646,7 +2025,30 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       return 0;
     }
 
-  if (symbol_rank (formal) == actual->rank)
+  if (formal->attr.allocatable && !formal->attr.codimension
+      && gfc_expr_attr (actual).codimension)
+    {
+      if (formal->attr.intent == INTENT_OUT)
+	{
+	  if (where)
+	    gfc_error ("Passing coarray at %L to allocatable, noncoarray, "
+		       "INTENT(OUT) dummy argument '%s'", &actual->where,
+		       formal->name);
+	    return 0;
+	}
+      else if (gfc_option.warn_surprising && where
+	       && formal->attr.intent != INTENT_IN)
+	gfc_warning ("Passing coarray at %L to allocatable, noncoarray dummy "
+		     "argument '%s', which is invalid if the allocation status"
+		     " is modified",  &actual->where, formal->name);
+    }
+
+  /* If the rank is the same or the formal argument has assumed-rank.  */
+  if (symbol_rank (formal) == actual->rank || symbol_rank (formal) == -1)
+    return 1;
+
+  if (actual->ts.type == BT_CLASS && CLASS_DATA (actual)->as
+	&& CLASS_DATA (actual)->as->rank == symbol_rank (formal))
     return 1;
 
   rank_check = where != NULL && !is_elemental && formal->as
@@ -1658,7 +2060,11 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
   if (rank_check || ranks_must_agree
       || (formal->attr.pointer && actual->expr_type != EXPR_NULL)
       || (actual->rank != 0 && !(is_elemental || formal->attr.dimension))
-      || (actual->rank == 0 && formal->as->type == AS_ASSUMED_SHAPE
+      || (actual->rank == 0
+	  && ((formal->ts.type == BT_CLASS
+	       && CLASS_DATA (formal)->as->type == AS_ASSUMED_SHAPE)
+	      || (formal->ts.type != BT_CLASS
+		   && formal->as->type == AS_ASSUMED_SHAPE))
 	  && actual->expr_type != EXPR_NULL)
       || (actual->rank == 0 && formal->attr.dimension
 	  && gfc_is_coindexed (actual)))
@@ -1687,7 +2093,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 	is_pointer = ref->u.c.component->attr.pointer;
       else if (ref->type == REF_ARRAY && ref->u.ar.type == AR_ELEMENT
 	       && ref->u.ar.dimen > 0
-	       && (!ref->next 
+	       && (!ref->next
 		   || (ref->next->type == REF_SUBSTRING && !ref->next->next)))
         break;
     }
@@ -1765,7 +2171,7 @@ get_sym_storage_size (gfc_symbol *sym)
 	return 0;
     }
   else
-    strlen = 1; 
+    strlen = 1;
 
   if (symbol_rank (sym) == 0)
     return strlen;
@@ -1775,7 +2181,7 @@ get_sym_storage_size (gfc_symbol *sym)
     return 0;
   for (i = 0; i < sym->as->rank; i++)
     {
-      if (!sym->as || sym->as->upper[i]->expr_type != EXPR_CONSTANT
+      if (sym->as->upper[i]->expr_type != EXPR_CONSTANT
 	  || sym->as->lower[i]->expr_type != EXPR_CONSTANT)
 	return 0;
 
@@ -1803,7 +2209,7 @@ get_expr_storage_size (gfc_expr *e)
 
   if (e == NULL)
     return 0;
-  
+
   if (e->ts.type == BT_CHARACTER)
     {
       if (e->ts.u.cl && e->ts.u.cl->length
@@ -1840,7 +2246,7 @@ get_expr_storage_size (gfc_expr *e)
 	    {
 	      /* The string length is the substring length.
 		 Set now to full string length.  */
-	      if (ref->u.ss.length == NULL
+	      if (!ref->u.ss.length || !ref->u.ss.length->length
 		  || ref->u.ss.length->length->expr_type != EXPR_CONSTANT)
 		return 0;
 
@@ -1850,9 +2256,7 @@ get_expr_storage_size (gfc_expr *e)
 	  continue;
 	}
 
-      if (ref->type == REF_ARRAY && ref->u.ar.type == AR_SECTION
-	  && ref->u.ar.start && ref->u.ar.end && ref->u.ar.stride
-	  && ref->u.ar.as->upper)
+      if (ref->type == REF_ARRAY && ref->u.ar.type == AR_SECTION)
 	for (i = 0; i < ref->u.ar.dimen; i++)
 	  {
 	    long int start, end, stride;
@@ -1894,8 +2298,7 @@ get_expr_storage_size (gfc_expr *e)
 
 	    elements *= (end - start)/stride + 1L;
 	  }
-      else if (ref->type == REF_ARRAY && ref->u.ar.type == AR_FULL
-	       && ref->u.ar.as->lower && ref->u.ar.as->upper)
+      else if (ref->type == REF_ARRAY && ref->u.ar.type == AR_FULL)
 	for (i = 0; i < ref->u.ar.as->rank; i++)
 	  {
 	    if (ref->u.ar.as->lower[i] && ref->u.ar.as->upper[i]
@@ -1987,6 +2390,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
   gfc_formal_arglist *f;
   int i, n, na;
   unsigned long actual_size, formal_size;
+  bool full_array = false;
 
   actual = *ap;
 
@@ -2066,11 +2470,28 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  return 0;
 	}
 
-      if (a->expr->expr_type == EXPR_NULL && !f->sym->attr.pointer
-	  && (f->sym->attr.allocatable || !f->sym->attr.optional
-	      || (gfc_option.allow_std & GFC_STD_F2008) == 0))
+      /* Make sure that intrinsic vtables exist for calls to unlimited
+	 polymorphic formal arguments.  */
+      if (UNLIMITED_POLY(f->sym)
+	  && a->expr->ts.type != BT_DERIVED
+	  && a->expr->ts.type != BT_CLASS)
+	gfc_find_intrinsic_vtab (&a->expr->ts);
+
+      if (a->expr->expr_type == EXPR_NULL
+	  && ((f->sym->ts.type != BT_CLASS && !f->sym->attr.pointer
+	       && (f->sym->attr.allocatable || !f->sym->attr.optional
+		   || (gfc_option.allow_std & GFC_STD_F2008) == 0))
+	      || (f->sym->ts.type == BT_CLASS
+		  && !CLASS_DATA (f->sym)->attr.class_pointer
+		  && (CLASS_DATA (f->sym)->attr.allocatable
+		      || !f->sym->attr.optional
+		      || (gfc_option.allow_std & GFC_STD_F2008) == 0))))
 	{
-	  if (where && (f->sym->attr.allocatable || !f->sym->attr.optional))
+	  if (where
+	      && (!f->sym->attr.optional
+		  || (f->sym->ts.type != BT_CLASS && f->sym->attr.allocatable)
+		  || (f->sym->ts.type == BT_CLASS
+			 && CLASS_DATA (f->sym)->attr.allocatable)))
 	    gfc_error ("Unexpected NULL() intrinsic at %L to dummy '%s'",
 		       where, f->sym->name);
 	  else if (where)
@@ -2079,10 +2500,31 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 
 	  return 0;
 	}
-      
+
       if (!compare_parameter (f->sym, a->expr, ranks_must_agree,
 			      is_elemental, where))
 	return 0;
+
+      /* TS 29113, 6.3p2.  */
+      if (f->sym->ts.type == BT_ASSUMED
+	  && (a->expr->ts.type == BT_DERIVED
+	      || (a->expr->ts.type == BT_CLASS && CLASS_DATA (a->expr))))
+	{
+	  gfc_namespace *f2k_derived;
+
+	  f2k_derived = a->expr->ts.type == BT_DERIVED
+			? a->expr->ts.u.derived->f2k_derived
+			: CLASS_DATA (a->expr)->ts.u.derived->f2k_derived;
+
+	  if (f2k_derived
+	      && (f2k_derived->finalizers || f2k_derived->tb_sym_root))
+	    {
+	      gfc_error ("Actual argument at %L to assumed-type dummy is of "
+			 "derived type with type-bound or FINAL procedures",
+			 &a->expr->where);
+	      return FAILURE;
+	    }
+	}
 
       /* Special case for character arguments.  For allocatable, pointer
 	 and assumed-shape dummies, the string length needs to match
@@ -2119,12 +2561,15 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	    && a->expr->ts.type == BT_CHARACTER)
 	{
 	  if (where)
-	    gfc_error ("Actual argument argument at %L to allocatable or "
+	    gfc_error ("Actual argument at %L to allocatable or "
 		       "pointer dummy argument '%s' must have a deferred "
 		       "length type parameter if and only if the dummy has one",
 		       &a->expr->where, f->sym->name);
 	  return 0;
 	}
+
+      if (f->sym->ts.type == BT_CLASS)
+	goto skip_size_check;
 
       actual_size = get_expr_storage_size (a->expr);
       formal_size = get_sym_storage_size (f->sym);
@@ -2145,14 +2590,16 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  return  0;
 	}
 
-      /* Satisfy 12.4.1.3 by ensuring that a procedure pointer actual argument
-	 is provided for a procedure pointer formal argument.  */
+     skip_size_check:
+
+      /* Satisfy F03:12.4.1.3 by ensuring that a procedure pointer actual
+         argument is provided for a procedure pointer formal argument.  */
       if (f->sym->attr.proc_pointer
 	  && !((a->expr->expr_type == EXPR_VARIABLE
 		&& a->expr->symtree->n.sym->attr.proc_pointer)
 	       || (a->expr->expr_type == EXPR_FUNCTION
 		   && a->expr->symtree->n.sym->result->attr.proc_pointer)
-	       || gfc_is_proc_ptr_comp (a->expr, NULL)))
+	       || gfc_is_proc_ptr_comp (a->expr)))
 	{
 	  if (where)
 	    gfc_error ("Expected a procedure pointer for argument '%s' at %L",
@@ -2160,24 +2607,13 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  return 0;
 	}
 
-      /* Satisfy 12.4.1.2 by ensuring that a procedure actual argument is
+      /* Satisfy F03:12.4.1.3 by ensuring that a procedure actual argument is
 	 provided for a procedure formal argument.  */
-      if (a->expr->ts.type != BT_PROCEDURE && !gfc_is_proc_ptr_comp (a->expr, NULL)
-	  && a->expr->expr_type == EXPR_VARIABLE
-	  && f->sym->attr.flavor == FL_PROCEDURE)
+      if (f->sym->attr.flavor == FL_PROCEDURE
+	  && gfc_expr_attr (a->expr).flavor != FL_PROCEDURE)
 	{
 	  if (where)
 	    gfc_error ("Expected a procedure for argument '%s' at %L",
-		       f->sym->name, &a->expr->where);
-	  return 0;
-	}
-
-      if (f->sym->attr.flavor == FL_PROCEDURE && f->sym->attr.pure
-	  && a->expr->ts.type == BT_PROCEDURE
-	  && !a->expr->symtree->n.sym->attr.pure)
-	{
-	  if (where)
-	    gfc_error ("Expected a PURE procedure for argument '%s' at %L",
 		       f->sym->name, &a->expr->where);
 	  return 0;
 	}
@@ -2214,7 +2650,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 		       "pointer dummy '%s'", &a->expr->where,f->sym->name);
 	  return 0;
 	}
-	
+
 
       /* Fortran 2008, C1242.  */
       if (f->sym->attr.pointer && gfc_is_coindexed (a->expr))
@@ -2248,7 +2684,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	{
 	  if (where)
 	    gfc_error ("Coindexed ASYNCHRONOUS or VOLATILE actual argument at "
-		       "at %L requires that dummy %s' has neither "
+		       "%L requires that dummy '%s' has neither "
 		       "ASYNCHRONOUS nor VOLATILE", &a->expr->where,
 		       f->sym->name);
 	  return 0;
@@ -2267,6 +2703,18 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 	  return 0;
 	}
 
+     if (f->sym->ts.type == BT_CLASS
+	   && CLASS_DATA (f->sym)->attr.allocatable
+	   && gfc_is_class_array_ref (a->expr, &full_array)
+	   && !full_array)
+	{
+	  if (where)
+	    gfc_error ("Actual CLASS array argument for '%s' must be a full "
+		       "array at %L", f->sym->name, &a->expr->where);
+	  return 0;
+	}
+
+
       if (a->expr->expr_type != EXPR_NULL
 	  && compare_allocatable (f->sym, a->expr) == 0)
 	{
@@ -2284,11 +2732,13 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
 				 ? _("actual argument to INTENT = OUT/INOUT")
 				 : NULL);
 
-	  if (f->sym->attr.pointer
-	      && gfc_check_vardef_context (a->expr, true, context)
+	  if (((f->sym->ts.type == BT_CLASS && f->sym->attr.class_ok
+		&& CLASS_DATA (f->sym)->attr.class_pointer)
+	       || (f->sym->ts.type != BT_CLASS && f->sym->attr.pointer))
+	      && gfc_check_vardef_context (a->expr, true, false, false, context)
 		   == FAILURE)
 	    return 0;
-	  if (gfc_check_vardef_context (a->expr, false, context)
+	  if (gfc_check_vardef_context (a->expr, false, false, false, context)
 		== FAILURE)
 	    return 0;
 	}
@@ -2579,25 +3029,6 @@ check_some_aliasing (gfc_formal_arglist *f, gfc_actual_arglist *a)
 }
 
 
-/* Given a symbol of a formal argument list and an expression,
-   return nonzero if their intents are compatible, zero otherwise.  */
-
-static int
-compare_parameter_intent (gfc_symbol *formal, gfc_expr *actual)
-{
-  if (actual->symtree->n.sym->attr.pointer && !formal->attr.pointer)
-    return 1;
-
-  if (actual->symtree->n.sym->attr.intent != INTENT_IN)
-    return 1;
-
-  if (formal->attr.intent == INTENT_INOUT || formal->attr.intent == INTENT_OUT)
-    return 0;
-
-  return 1;
-}
-
-
 /* Given formal and actual argument lists that correspond to one
    another, check that they are compatible in the sense that intents
    are not mismatched.  */
@@ -2619,25 +3050,11 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 
       f_intent = f->sym->attr.intent;
 
-      if (!compare_parameter_intent(f->sym, a->expr))
-	{
-	  gfc_error ("Procedure argument at %L is INTENT(IN) while interface "
-		     "specifies INTENT(%s)", &a->expr->where,
-		     gfc_intent_string (f_intent));
-	  return FAILURE;
-	}
-
       if (gfc_pure (NULL) && gfc_impure_variable (a->expr->symtree->n.sym))
 	{
-	  if (f_intent == INTENT_INOUT || f_intent == INTENT_OUT)
-	    {
-	      gfc_error ("Procedure argument at %L is local to a PURE "
-			 "procedure and is passed to an INTENT(%s) argument",
-			 &a->expr->where, gfc_intent_string (f_intent));
-	      return FAILURE;
-	    }
-
-	  if (f->sym->attr.pointer)
+	  if ((f->sym->ts.type == BT_CLASS && f->sym->attr.class_ok
+	       && CLASS_DATA (f->sym)->attr.class_pointer)
+	      || (f->sym->ts.type != BT_CLASS && f->sym->attr.pointer))
 	    {
 	      gfc_error ("Procedure argument at %L is local to a PURE "
 			 "procedure and has the POINTER attribute",
@@ -2657,7 +3074,9 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
 	      return FAILURE;
 	    }
 
-	  if (f->sym->attr.pointer)
+	  if ((f->sym->ts.type == BT_CLASS && f->sym->attr.class_ok
+               && CLASS_DATA (f->sym)->attr.class_pointer)
+              || (f->sym->ts.type != BT_CLASS && f->sym->attr.pointer))
 	    {
 	      gfc_error ("Coindexed actual argument at %L in PURE procedure "
 			 "is passed to a POINTER dummy argument",
@@ -2685,10 +3104,9 @@ check_intents (gfc_formal_arglist *f, gfc_actual_arglist *a)
    well, the actual argument list will also end up being properly
    sorted.  */
 
-void
+gfc_try
 gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 {
-
   /* Warn about calls with an implicit interface.  Special case
      for calling a ISO_C_BINDING becase c_loc and c_funloc
      are pseudo-unknown.  Additionally, warn about procedures not
@@ -2713,7 +3131,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	  gfc_error("The pointer object '%s' at %L must have an explicit "
 		    "function interface or be declared as array",
 		    sym->name, where);
-	  return;
+	  return FAILURE;
 	}
 
       if (sym->attr.allocatable && !sym->attr.external)
@@ -2721,14 +3139,14 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 	  gfc_error("The allocatable object '%s' at %L must have an explicit "
 		    "function interface or be declared as array",
 		    sym->name, where);
-	  return;
+	  return FAILURE;
 	}
 
       if (sym->attr.allocatable)
 	{
 	  gfc_error("Allocatable function '%s' at %L must have an explicit "
 		    "function interface", sym->name, where);
-	  return;
+	  return FAILURE;
 	}
 
       for (a = *ap; a; a = a->next)
@@ -2740,17 +3158,60 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
 			"for procedure '%s' at %L", sym->name, &a->expr->where);
 	      break;
 	    }
+
+	  /* TS 29113, 6.2.  */
+	  if (a->expr && a->expr->ts.type == BT_ASSUMED
+	      && sym->intmod_sym_id != ISOCBINDING_LOC)
+	    {
+	      gfc_error ("Assumed-type argument %s at %L requires an explicit "
+			 "interface", a->expr->symtree->n.sym->name,
+			 &a->expr->where);
+	      break;
+	    }
+
+	  /* F2008, C1303 and C1304.  */
+	  if (a->expr
+	      && (a->expr->ts.type == BT_DERIVED || a->expr->ts.type == BT_CLASS)
+	      && ((a->expr->ts.u.derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+		   && a->expr->ts.u.derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE)
+		  || gfc_expr_attr (a->expr).lock_comp))
+	    {
+	      gfc_error("Actual argument of LOCK_TYPE or with LOCK_TYPE "
+			"component at %L requires an explicit interface for "
+			"procedure '%s'", &a->expr->where, sym->name);
+	      break;
+	    }
+
+	  if (a->expr && a->expr->expr_type == EXPR_NULL
+	      && a->expr->ts.type == BT_UNKNOWN)
+	    {
+	      gfc_error ("MOLD argument to NULL required at %L", &a->expr->where);
+	      return FAILURE;
+	    }
+
+	  /* TS 29113, C407b.  */
+	  if (a->expr && a->expr->expr_type == EXPR_VARIABLE
+	      && symbol_rank (a->expr->symtree->n.sym) == -1)
+	    {
+	      gfc_error ("Assumed-rank argument requires an explicit interface "
+			 "at %L", &a->expr->where);
+	      return FAILURE;
+	    }
 	}
 
-      return;
+      return SUCCESS;
     }
 
   if (!compare_actual_formal (ap, sym->formal, 0, sym->attr.elemental, where))
-    return;
+    return FAILURE;
 
-  check_intents (sym->formal, *ap);
+  if (check_intents (sym->formal, *ap) == FAILURE)
+    return FAILURE;
+
   if (gfc_option.warn_aliasing)
     check_some_aliasing (sym->formal, *ap);
+
+  return SUCCESS;
 }
 
 
@@ -2832,8 +3293,24 @@ gfc_search_interface (gfc_interface *intr, int sub_flag,
 		      gfc_actual_arglist **ap)
 {
   gfc_symbol *elem_sym = NULL;
+  gfc_symbol *null_sym = NULL;
+  locus null_expr_loc;
+  gfc_actual_arglist *a;
+  bool has_null_arg = false;
+
+  for (a = *ap; a; a = a->next)
+    if (a->expr && a->expr->expr_type == EXPR_NULL
+	&& a->expr->ts.type == BT_UNKNOWN)
+      {
+	has_null_arg = true;
+	null_expr_loc = a->expr->where;
+	break;
+      }
+
   for (; intr; intr = intr->next)
     {
+      if (intr->sym->attr.flavor == FL_DERIVED)
+	continue;
       if (sub_flag && intr->sym->attr.function)
 	continue;
       if (!sub_flag && intr->sym->attr.subroutine)
@@ -2841,8 +3318,21 @@ gfc_search_interface (gfc_interface *intr, int sub_flag,
 
       if (gfc_arglist_matches_symbol (ap, intr->sym))
 	{
+	  if (has_null_arg && null_sym)
+	    {
+	      gfc_error ("MOLD= required in NULL() argument at %L: Ambiguity "
+			 "between specific functions %s and %s",
+			 &null_expr_loc, null_sym->name, intr->sym->name);
+	      return NULL;
+	    }
+	  else if (has_null_arg)
+	    {
+	      null_sym = intr->sym;
+	      continue;
+	    }
+
 	  /* Satisfy 12.4.4.1 such that an elemental match has lower
-	     weight than a non-elemental match.  */ 
+	     weight than a non-elemental match.  */
 	  if (intr->sym->attr.elemental)
 	    {
 	      elem_sym = intr->sym;
@@ -2851,6 +3341,9 @@ gfc_search_interface (gfc_interface *intr, int sub_flag,
 	  return intr->sym;
 	}
     }
+
+  if (null_sym)
+    return null_sym;
 
   return elem_sym ? elem_sym : NULL;
 }
@@ -2923,9 +3416,14 @@ matching_typebound_op (gfc_expr** tb_base,
 	gfc_symbol* derived;
 	gfc_try result;
 
+	while (base->expr->expr_type == EXPR_OP
+	       && base->expr->value.op.op == INTRINSIC_PARENTHESES)
+	  base->expr = base->expr->value.op.op1;
+
 	if (base->expr->ts.type == BT_CLASS)
 	  {
-	    if (!gfc_expr_attr (base->expr).class_ok)
+	    if (CLASS_DATA (base->expr) == NULL
+		|| !gfc_expr_attr (base->expr).class_ok)
 	      continue;
 	    derived = CLASS_DATA (base->expr)->ts.u.derived;
 	  }
@@ -3011,6 +3509,14 @@ build_compcall_for_operator (gfc_expr* e, gfc_actual_arglist* actual,
   e->value.compcall.base_object = base;
   e->value.compcall.ignore_pass = 1;
   e->value.compcall.assign = 0;
+  if (e->ts.type == BT_UNKNOWN
+	&& target->function)
+    {
+      if (target->is_generic)
+	e->ts = target->u.generic->specific->u.specific->n.sym->ts;
+      else
+	e->ts = target->u.specific->n.sym->ts;
+    }
 }
 
 
@@ -3020,12 +3526,11 @@ build_compcall_for_operator (gfc_expr* e, gfc_actual_arglist* actual,
    with the operator.  This subroutine builds an actual argument list
    corresponding to the operands, then searches for a compatible
    interface.  If one is found, the expression node is replaced with
-   the appropriate function call.
-   real_error is an additional output argument that specifies if FAILURE
-   is because of some real error and not because no match was found.  */
+   the appropriate function call. We use the 'match' enum to specify
+   whether a replacement has been made or not, or if an error occurred.  */
 
-gfc_try
-gfc_extend_expr (gfc_expr *e, bool *real_error)
+match
+gfc_extend_expr (gfc_expr *e)
 {
   gfc_actual_arglist *actual;
   gfc_symbol *sym;
@@ -3039,7 +3544,6 @@ gfc_extend_expr (gfc_expr *e, bool *real_error)
   actual = gfc_get_actual_arglist ();
   actual->expr = e->value.op.op1;
 
-  *real_error = false;
   gname = NULL;
 
   if (e->value.op.op2 != NULL)
@@ -3131,7 +3635,7 @@ gfc_extend_expr (gfc_expr *e, bool *real_error)
 	      tbo = matching_typebound_op (&tb_base, actual, i, NULL, &gname);
 	      break;
 	  }
-	      
+
       /* If there is a matching typebound-operator, replace the expression with
 	 a call to it and succeed.  */
       if (tbo)
@@ -3143,17 +3647,16 @@ gfc_extend_expr (gfc_expr *e, bool *real_error)
 
 	  result = gfc_resolve_expr (e);
 	  if (result == FAILURE)
-	    *real_error = true;
+	    return MATCH_ERROR;
 
-	  return result;
+	  return MATCH_YES;
 	}
 
       /* Don't use gfc_free_actual_arglist().  */
-      if (actual->next != NULL)
-	gfc_free (actual->next);
-      gfc_free (actual);
+      free (actual->next);
+      free (actual);
 
-      return FAILURE;
+      return MATCH_NO;
     }
 
   /* Change the expression node to a function call.  */
@@ -3166,12 +3669,9 @@ gfc_extend_expr (gfc_expr *e, bool *real_error)
   e->user_operator = 1;
 
   if (gfc_resolve_expr (e) == FAILURE)
-    {
-      *real_error = true;
-      return FAILURE;
-    }
+    return MATCH_ERROR;
 
-  return SUCCESS;
+  return MATCH_YES;
 }
 
 
@@ -3225,7 +3725,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
       /* See if we find a matching type-bound assignment.  */
       tbo = matching_typebound_op (&tb_base, actual,
 				   INTRINSIC_ASSIGN, NULL, &gname);
-	      
+
       /* If there is one, replace the expression with a call to it and
 	 succeed.  */
       if (tbo)
@@ -3234,6 +3734,7 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
 	  c->expr1 = gfc_get_expr ();
 	  build_compcall_for_operator (c->expr1, actual, tb_base, tbo, gname);
 	  c->expr1->value.compcall.assign = 1;
+	  c->expr1->where = c->loc;
 	  c->expr2 = NULL;
 	  c->op = EXEC_COMPCALL;
 
@@ -3242,8 +3743,8 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
 	  return SUCCESS;
 	}
 
-      gfc_free (actual->next);
-      gfc_free (actual);
+      free (actual->next);
+      free (actual);
       return FAILURE;
     }
 
@@ -3262,8 +3763,8 @@ gfc_extend_assign (gfc_code *c, gfc_namespace *ns)
    the given interface list.  Ambiguity isn't checked yet since module
    procedures can be present without interfaces.  */
 
-static gfc_try
-check_new_interface (gfc_interface *base, gfc_symbol *new_sym)
+gfc_try
+gfc_check_new_interface (gfc_interface *base, gfc_symbol *new_sym, locus loc)
 {
   gfc_interface *ip;
 
@@ -3271,8 +3772,8 @@ check_new_interface (gfc_interface *base, gfc_symbol *new_sym)
     {
       if (ip->sym == new_sym)
 	{
-	  gfc_error ("Entity '%s' at %C is already present in the interface",
-		     new_sym->name);
+	  gfc_error ("Entity '%s' at %L is already present in the interface",
+		     new_sym->name, &loc);
 	  return FAILURE;
 	}
     }
@@ -3302,48 +3803,61 @@ gfc_add_interface (gfc_symbol *new_sym)
 	  {
 	    case INTRINSIC_EQ:
 	    case INTRINSIC_EQ_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_EQ], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_EQ_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_EQ], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_EQ_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    case INTRINSIC_NE:
 	    case INTRINSIC_NE_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_NE], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_NE_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_NE], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_NE_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    case INTRINSIC_GT:
 	    case INTRINSIC_GT_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_GT], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_GT_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_GT], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_GT_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    case INTRINSIC_GE:
 	    case INTRINSIC_GE_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_GE], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_GE_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_GE], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_GE_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    case INTRINSIC_LT:
 	    case INTRINSIC_LT_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_LT], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_LT_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_LT], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_LT_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    case INTRINSIC_LE:
 	    case INTRINSIC_LE_OS:
-	      if (check_new_interface (ns->op[INTRINSIC_LE], new_sym) == FAILURE ||
-	          check_new_interface (ns->op[INTRINSIC_LE_OS], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[INTRINSIC_LE], new_sym,
+					   gfc_current_locus) == FAILURE
+	          || gfc_check_new_interface (ns->op[INTRINSIC_LE_OS], new_sym,
+					      gfc_current_locus) == FAILURE)
 		return FAILURE;
 	      break;
 
 	    default:
-	      if (check_new_interface (ns->op[current_interface.op], new_sym) == FAILURE)
+	      if (gfc_check_new_interface (ns->op[current_interface.op], new_sym,
+					   gfc_current_locus) == FAILURE)
 		return FAILURE;
 	  }
 
@@ -3357,7 +3871,8 @@ gfc_add_interface (gfc_symbol *new_sym)
 	  if (sym == NULL)
 	    continue;
 
-	  if (check_new_interface (sym->generic, new_sym) == FAILURE)
+	  if (gfc_check_new_interface (sym->generic, new_sym, gfc_current_locus)
+	      == FAILURE)
 	    return FAILURE;
 	}
 
@@ -3365,8 +3880,8 @@ gfc_add_interface (gfc_symbol *new_sym)
       break;
 
     case INTERFACE_USER_OP:
-      if (check_new_interface (current_interface.uop->op, new_sym)
-	  == FAILURE)
+      if (gfc_check_new_interface (current_interface.uop->op, new_sym,
+				   gfc_current_locus) == FAILURE)
 	return FAILURE;
 
       head = &current_interface.uop->op;
@@ -3444,6 +3959,194 @@ gfc_free_formal_arglist (gfc_formal_arglist *p)
   for (; p; p = q)
     {
       q = p->next;
-      gfc_free (p);
+      free (p);
     }
+}
+
+
+/* Check that it is ok for the type-bound procedure 'proc' to override the
+   procedure 'old', cf. F08:4.5.7.3.  */
+
+gfc_try
+gfc_check_typebound_override (gfc_symtree* proc, gfc_symtree* old)
+{
+  locus where;
+  gfc_symbol *proc_target, *old_target;
+  unsigned proc_pass_arg, old_pass_arg, argpos;
+  gfc_formal_arglist *proc_formal, *old_formal;
+  bool check_type;
+  char err[200];
+
+  /* This procedure should only be called for non-GENERIC proc.  */
+  gcc_assert (!proc->n.tb->is_generic);
+
+  /* If the overwritten procedure is GENERIC, this is an error.  */
+  if (old->n.tb->is_generic)
+    {
+      gfc_error ("Can't overwrite GENERIC '%s' at %L",
+		 old->name, &proc->n.tb->where);
+      return FAILURE;
+    }
+
+  where = proc->n.tb->where;
+  proc_target = proc->n.tb->u.specific->n.sym;
+  old_target = old->n.tb->u.specific->n.sym;
+
+  /* Check that overridden binding is not NON_OVERRIDABLE.  */
+  if (old->n.tb->non_overridable)
+    {
+      gfc_error ("'%s' at %L overrides a procedure binding declared"
+		 " NON_OVERRIDABLE", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* It's an error to override a non-DEFERRED procedure with a DEFERRED one.  */
+  if (!old->n.tb->deferred && proc->n.tb->deferred)
+    {
+      gfc_error ("'%s' at %L must not be DEFERRED as it overrides a"
+		 " non-DEFERRED binding", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is PURE, the overriding must be, too.  */
+  if (old_target->attr.pure && !proc_target->attr.pure)
+    {
+      gfc_error ("'%s' at %L overrides a PURE procedure and must also be PURE",
+		 proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is ELEMENTAL, the overriding must be, too.  If it
+     is not, the overriding must not be either.  */
+  if (old_target->attr.elemental && !proc_target->attr.elemental)
+    {
+      gfc_error ("'%s' at %L overrides an ELEMENTAL procedure and must also be"
+		 " ELEMENTAL", proc->name, &where);
+      return FAILURE;
+    }
+  if (!old_target->attr.elemental && proc_target->attr.elemental)
+    {
+      gfc_error ("'%s' at %L overrides a non-ELEMENTAL procedure and must not"
+		 " be ELEMENTAL, either", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is a SUBROUTINE, the overriding must also be a
+     SUBROUTINE.  */
+  if (old_target->attr.subroutine && !proc_target->attr.subroutine)
+    {
+      gfc_error ("'%s' at %L overrides a SUBROUTINE and must also be a"
+		 " SUBROUTINE", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is a FUNCTION, the overriding must also be a
+     FUNCTION and have the same characteristics.  */
+  if (old_target->attr.function)
+    {
+      if (!proc_target->attr.function)
+	{
+	  gfc_error ("'%s' at %L overrides a FUNCTION and must also be a"
+		     " FUNCTION", proc->name, &where);
+	  return FAILURE;
+	}
+
+      if (check_result_characteristics (proc_target, old_target,
+					err, sizeof(err)) == FAILURE)
+	{
+	  gfc_error ("Result mismatch for the overriding procedure "
+		     "'%s' at %L: %s", proc->name, &where, err);
+	  return FAILURE;
+	}
+    }
+
+  /* If the overridden binding is PUBLIC, the overriding one must not be
+     PRIVATE.  */
+  if (old->n.tb->access == ACCESS_PUBLIC
+      && proc->n.tb->access == ACCESS_PRIVATE)
+    {
+      gfc_error ("'%s' at %L overrides a PUBLIC procedure and must not be"
+		 " PRIVATE", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* Compare the formal argument lists of both procedures.  This is also abused
+     to find the position of the passed-object dummy arguments of both
+     bindings as at least the overridden one might not yet be resolved and we
+     need those positions in the check below.  */
+  proc_pass_arg = old_pass_arg = 0;
+  if (!proc->n.tb->nopass && !proc->n.tb->pass_arg)
+    proc_pass_arg = 1;
+  if (!old->n.tb->nopass && !old->n.tb->pass_arg)
+    old_pass_arg = 1;
+  argpos = 1;
+  for (proc_formal = proc_target->formal, old_formal = old_target->formal;
+       proc_formal && old_formal;
+       proc_formal = proc_formal->next, old_formal = old_formal->next)
+    {
+      if (proc->n.tb->pass_arg
+	  && !strcmp (proc->n.tb->pass_arg, proc_formal->sym->name))
+	proc_pass_arg = argpos;
+      if (old->n.tb->pass_arg
+	  && !strcmp (old->n.tb->pass_arg, old_formal->sym->name))
+	old_pass_arg = argpos;
+
+      /* Check that the names correspond.  */
+      if (strcmp (proc_formal->sym->name, old_formal->sym->name))
+	{
+	  gfc_error ("Dummy argument '%s' of '%s' at %L should be named '%s' as"
+		     " to match the corresponding argument of the overridden"
+		     " procedure", proc_formal->sym->name, proc->name, &where,
+		     old_formal->sym->name);
+	  return FAILURE;
+	}
+
+      check_type = proc_pass_arg != argpos && old_pass_arg != argpos;
+      if (check_dummy_characteristics (proc_formal->sym, old_formal->sym,
+				       check_type, err, sizeof(err)) == FAILURE)
+	{
+	  gfc_error ("Argument mismatch for the overriding procedure "
+		     "'%s' at %L: %s", proc->name, &where, err);
+	  return FAILURE;
+	}
+
+      ++argpos;
+    }
+  if (proc_formal || old_formal)
+    {
+      gfc_error ("'%s' at %L must have the same number of formal arguments as"
+		 " the overridden procedure", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is NOPASS, the overriding one must also be
+     NOPASS.  */
+  if (old->n.tb->nopass && !proc->n.tb->nopass)
+    {
+      gfc_error ("'%s' at %L overrides a NOPASS binding and must also be"
+		 " NOPASS", proc->name, &where);
+      return FAILURE;
+    }
+
+  /* If the overridden binding is PASS(x), the overriding one must also be
+     PASS and the passed-object dummy arguments must correspond.  */
+  if (!old->n.tb->nopass)
+    {
+      if (proc->n.tb->nopass)
+	{
+	  gfc_error ("'%s' at %L overrides a binding with PASS and must also be"
+		     " PASS", proc->name, &where);
+	  return FAILURE;
+	}
+
+      if (proc_pass_arg != old_pass_arg)
+	{
+	  gfc_error ("Passed-object dummy argument of '%s' at %L must be at"
+		     " the same position as the passed-object dummy argument of"
+		     " the overridden procedure", proc->name, &where);
+	  return FAILURE;
+	}
+    }
+
+  return SUCCESS;
 }

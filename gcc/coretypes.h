@@ -1,6 +1,5 @@
 /* GCC core type declarations.
-   Copyright (C) 2002, 2004, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,10 +57,11 @@ typedef struct rtvec_def *rtvec;
 typedef const struct rtvec_def *const_rtvec;
 union tree_node;
 typedef union tree_node *tree;
+typedef const union tree_node *const_tree;
 union gimple_statement_d;
 typedef union gimple_statement_d *gimple;
-typedef const union tree_node *const_tree;
 typedef const union gimple_statement_d *const_gimple;
+typedef gimple gimple_seq;
 union section;
 typedef union section section;
 struct gcc_options;
@@ -72,9 +72,8 @@ struct cl_decoded_option;
 struct cl_option_handlers;
 struct diagnostic_context;
 typedef struct diagnostic_context diagnostic_context;
-struct gimple_seq_d;
-typedef struct gimple_seq_d *gimple_seq;
-typedef const struct gimple_seq_d *const_gimple_seq;
+struct pretty_print_info;
+typedef struct pretty_print_info pretty_printer;
 
 /* Address space number for named address space support.  */
 typedef unsigned char addr_space_t;
@@ -118,7 +117,8 @@ enum unwind_info_type
   UI_NONE,
   UI_SJLJ,
   UI_DWARF2,
-  UI_TARGET
+  UI_TARGET,
+  UI_SEH
 };
 
 /* Callgraph node profile representation.  */
@@ -134,6 +134,16 @@ enum node_frequency {
   /* Optimize this function hard
      (set only when profile feedback is available or via function attribute). */
   NODE_FREQUENCY_HOT
+};
+
+/* Possible initialization status of a variable.   When requested
+   by the user, this information is tracked and recorded in the DWARF
+   debug information, along with the variable's location.  */
+enum var_init_status
+{
+  VAR_INIT_STATUS_UNKNOWN,
+  VAR_INIT_STATUS_UNINITIALIZED,
+  VAR_INIT_STATUS_INITIALIZED
 };
 
 
@@ -171,5 +181,28 @@ union _dont_use_tree_here_;
 
 #endif
 
-#endif /* coretypes.h */
+/* Memory model types for the __atomic* builtins. 
+   This must match the order in libstdc++-v3/include/bits/atomic_base.h.  */
+enum memmodel
+{
+  MEMMODEL_RELAXED = 0,
+  MEMMODEL_CONSUME = 1,
+  MEMMODEL_ACQUIRE = 2,
+  MEMMODEL_RELEASE = 3,
+  MEMMODEL_ACQ_REL = 4,
+  MEMMODEL_SEQ_CST = 5,
+  MEMMODEL_LAST = 6
+};
 
+/* Suppose that higher bits are target dependant. */
+#define MEMMODEL_MASK ((1<<16)-1)
+
+/* Support for user-provided GGC and PCH markers.  The first parameter
+   is a pointer to a pointer, the second a cookie.  */
+typedef void (*gt_pointer_operator) (void *, void *);
+
+#if !defined (HAVE_UCHAR)
+typedef unsigned char uchar;
+#endif
+
+#endif /* coretypes.h */

@@ -1,7 +1,7 @@
 // String based streams -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+// 2006, 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -48,6 +48,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @brief  The actual work of input and output (for std::string).
    *  @ingroup io
    *
+   *  @tparam _CharT  Type of character stream.
+   *  @tparam _Traits  Traits for character type, defaults to
+   *                   char_traits<_CharT>.
+   *  @tparam _Alloc  Allocator type, defaults to allocator<_CharT>.
+   *
    *  This class associates either or both of its input and output sequences
    *  with a sequence of characters, which can be initialized from, or made
    *  available as, a @c std::basic_string.  (Paraphrased from [27.7.1]/1.)
@@ -85,7 +90,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Constructors:
       /**
        *  @brief  Starts with an empty string buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
        *  The default constructor initializes the parent class using its
        *  own default ctor.
@@ -97,8 +102,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Starts with an existing string buffer.
-       *  @param  str  A string to copy as a starting buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __str  A string to copy as a starting buffer.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
        *  This constructor initializes the parent class using its
        *  own default ctor.
@@ -137,7 +142,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Setting a new buffer.
-       *  @param  s  The string to use as a new sequence.
+       *  @param  __s  The string to use as a new sequence.
        *
        *  Deallocates any previous stored sequence, then copies @a s to
        *  use as a new one.
@@ -185,12 +190,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Manipulates the buffer.
-       *  @param  s  Pointer to a buffer area.
-       *  @param  n  Size of @a s.
+       *  @param  __s  Pointer to a buffer area.
+       *  @param  __n  Size of @a __s.
        *  @return  @c this
        *
-       *  If no buffer has already been created, and both @a s and @a n are
-       *  non-zero, then @c s is used as a buffer; see
+       *  If no buffer has already been created, and both @a __s and @a __n are
+       *  non-zero, then @c __s is used as a buffer; see
        *  http://gcc.gnu.org/onlinedocs/libstdc++/manual/bk01pt11ch25s02.html
        *  for more.
       */
@@ -254,6 +259,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @brief  Controlling input for std::string.
    *  @ingroup io
    *
+   *  @tparam _CharT  Type of character stream.
+   *  @tparam _Traits  Traits for character type, defaults to
+   *                   char_traits<_CharT>.
+   *  @tparam _Alloc  Allocator type, defaults to allocator<_CharT>.
+   *
    *  This class supports reading from objects of type std::basic_string,
    *  using the inherited functions from std::basic_istream.  To control
    *  the associated sequence, an instance of std::basic_stringbuf is used,
@@ -285,11 +295,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Constructors:
       /**
        *  @brief  Default constructor starts with an empty string buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
-       *  @c ios_base::in is automatically included in @a mode.
+       *  @c ios_base::in is automatically included in @a __mode.
        *
-       *  Initializes @c sb using @c mode|in, and passes @c &sb to the base
+       *  Initializes @c sb using @c __mode|in, and passes @c &sb to the base
        *  class initializer.  Does not allocate any buffer.
        *
        *  That's a lie.  We initialize the base class with NULL, because the
@@ -302,8 +312,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Starts with an existing string buffer.
-       *  @param  str  A string to copy as a starting buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __str  A string to copy as a starting buffer.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
        *  @c ios_base::in is automatically included in @a mode.
        *
@@ -349,7 +359,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Setting a new buffer.
-       *  @param  s  The string to use as a new sequence.
+       *  @param  __s  The string to use as a new sequence.
        *
        *  Calls @c rdbuf()->str(s).
       */
@@ -363,6 +373,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Controlling output for std::string.
    *  @ingroup io
+   *
+   *  @tparam _CharT  Type of character stream.
+   *  @tparam _Traits  Traits for character type, defaults to
+   *                   char_traits<_CharT>.
+   *  @tparam _Alloc  Allocator type, defaults to allocator<_CharT>.
    *
    *  This class supports writing to objects of type std::basic_string,
    *  using the inherited functions from std::basic_ostream.  To control
@@ -395,7 +410,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Constructors/destructor:
       /**
        *  @brief  Default constructor starts with an empty string buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
        *  @c ios_base::out is automatically included in @a mode.
        *
@@ -412,8 +427,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Starts with an existing string buffer.
-       *  @param  str  A string to copy as a starting buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __str  A string to copy as a starting buffer.
+       *  @param  __mode  Whether the buffer can read, or write, or both.
        *
        *  @c ios_base::out is automatically included in @a mode.
        *
@@ -459,7 +474,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Setting a new buffer.
-       *  @param  s  The string to use as a new sequence.
+       *  @param  __s  The string to use as a new sequence.
        *
        *  Calls @c rdbuf()->str(s).
       */
@@ -473,6 +488,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Controlling input and output for std::string.
    *  @ingroup io
+   *
+   *  @tparam _CharT  Type of character stream.
+   *  @tparam _Traits  Traits for character type, defaults to
+   *                   char_traits<_CharT>.
+   *  @tparam _Alloc  Allocator type, defaults to allocator<_CharT>.
    *
    *  This class supports reading from and writing to objects of type
    *  std::basic_string, using the inherited functions from
@@ -505,10 +525,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Constructors/destructors
       /**
        *  @brief  Default constructor starts with an empty string buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __m  Whether the buffer can read, or write, or both.
        *
-       *  Initializes @c sb using @c mode, and passes @c &sb to the base
-       *  class initializer.  Does not allocate any buffer.
+       *  Initializes @c sb using the mode from @c __m, and passes @c
+       *  &sb to the base class initializer.  Does not allocate any
+       *  buffer.
        *
        *  That's a lie.  We initialize the base class with NULL, because the
        *  string class does its own memory management.
@@ -520,10 +541,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Starts with an existing string buffer.
-       *  @param  str  A string to copy as a starting buffer.
-       *  @param  mode  Whether the buffer can read, or write, or both.
+       *  @param  __str  A string to copy as a starting buffer.
+       *  @param  __m  Whether the buffer can read, or write, or both.
        *
-       *  Initializes @c sb using @a str and @c mode, and passes @c &sb
+       *  Initializes @c sb using @a __str and @c __m, and passes @c &sb
        *  to the base class initializer.
        *
        *  That's a lie.  We initialize the base class with NULL, because the
@@ -565,7 +586,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Setting a new buffer.
-       *  @param  s  The string to use as a new sequence.
+       *  @param  __s  The string to use as a new sequence.
        *
        *  Calls @c rdbuf()->str(s).
       */

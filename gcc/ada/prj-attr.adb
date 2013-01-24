@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -105,6 +105,9 @@ package body Prj.Attr is
    "SVlibrary_kind#" &
    "SVlibrary_version#" &
    "LVlibrary_interface#" &
+   "SVlibrary_standalone#" &
+   "LVlibrary_encapsulated_options#" &
+   "SVlibrary_encapsulated_supported#" &
    "SVlibrary_auto_init#" &
    "LVleading_library_options#" &
    "LVlibrary_options#" &
@@ -165,10 +168,10 @@ package body Prj.Attr is
    "SVseparate_suffix#" &
    "SVcasing#" &
    "SVdot_replacement#" &
-   "sAspecification#" &  --  Always renamed to "spec" in project tree
-   "sAspec#" &
-   "sAimplementation#" & --  Always renamed to "body" in project tree
-   "sAbody#" &
+   "saspecification#" &  --  Always renamed to "spec" in project tree
+   "saspec#" &
+   "saimplementation#" & --  Always renamed to "body" in project tree
+   "sabody#" &
    "Laspecification_exceptions#" &
    "Laimplementation_exceptions#" &
 
@@ -183,11 +186,14 @@ package body Prj.Attr is
    --  Configuration - Compiling
 
    "Sadriver#" &
+   "Salanguage_kind#" &
+   "Sadependency_kind#" &
    "Larequired_switches#" &
    "Laleading_required_switches#" &
    "Latrailing_required_switches#" &
    "Lapic_option#" &
    "Sapath_syntax#" &
+   "Lasource_file_switches#" &
    "Saobject_file_suffix#" &
    "Laobject_file_switches#" &
    "Lamulti_unit_switches#" &
@@ -220,6 +226,7 @@ package body Prj.Attr is
    "Lainclude_switches#" &
    "Sainclude_path#" &
    "Sainclude_path_file#" &
+   "Laobject_path_switches#" &
 
    --  package Builder
 
@@ -273,6 +280,13 @@ package body Prj.Attr is
    "SVmax_command_line_length#" &
    "SVresponse_file_format#" &
    "LVresponse_file_switches#" &
+
+   --  package Clean
+
+   "Pclean#" &
+   "LVswitches#" &
+   "Lasource_artifact_extensions#" &
+   "Laobject_artifact_extensions#" &
 
    --  package Cross_Reference
 
@@ -336,6 +350,22 @@ package body Prj.Attr is
    "SVvcs_file_check#" &
    "SVvcs_log_check#" &
    "SVdocumentation_dir#" &
+
+   --  package Install
+
+   "Pinstall#" &
+   "SVprefix#" &
+   "SVsources_subdir#" &
+   "SVexec_subdir#" &
+   "SVlib_subdir#" &
+   "SVproject_subdir#" &
+   "SVactive#" &
+
+   --  package Remote
+
+   "Premote#" &
+   "LVbuild_slaves#" &
+   "SVroot_dir#" &
 
    --  package Stack
 
@@ -827,7 +857,7 @@ package body Prj.Attr is
 
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
-            Fail ("cannot register a package with a non unique name"""
+            Fail ("cannot register a package with a non unique name """
                   & Name
                   & """");
             Id := Empty_Package;
@@ -865,7 +895,7 @@ package body Prj.Attr is
 
       for Index in Package_Attributes.First .. Package_Attributes.Last loop
          if Package_Attributes.Table (Index).Name = Pkg_Name then
-            Fail ("cannot register a package with a non unique name"""
+            Fail ("cannot register a package with a non unique name """
                   & Name
                   & """");
             raise Project_Error;

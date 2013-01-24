@@ -1,6 +1,5 @@
 /* Header file to the Fortran front-end and runtime library
-   Copyright (C) 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2007-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
    Note that no features were obsoleted nor deleted in F2003.
    Please remember to keep those definitions in sync with
    gfortran.texi.  */
+#define GFC_STD_F2008_TS	(1<<9)	/* POST-F2008 technical reports.  */
 #define GFC_STD_F2008_OBS	(1<<8)	/* Obsolescent in F2008.  */
 #define GFC_STD_F2008		(1<<7)	/* New in F2008.  */
 #define GFC_STD_LEGACY		(1<<6)	/* Backward compatibility.  */
@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GFC_FPE_ZERO       (1<<2)
 #define GFC_FPE_OVERFLOW   (1<<3)
 #define GFC_FPE_UNDERFLOW  (1<<4)
-#define GFC_FPE_PRECISION  (1<<5)
+#define GFC_FPE_INEXACT    (1<<5)
 
 
 /* Bitmasks for the various runtime checks that can be enabled.  */
@@ -98,12 +98,13 @@ typedef enum
 }
 libgfortran_error_codes;
 
+/* Must kept in sync with libgfortrancaf.h.  */
 typedef enum
 {
   GFC_STAT_UNLOCKED = 0,
   GFC_STAT_LOCKED,
   GFC_STAT_LOCKED_OTHER_IMAGE,
-  GFC_STAT_STOPPED_IMAGE
+  GFC_STAT_STOPPED_IMAGE = 6000 /* See LIBERROR_INQUIRE_INTERNAL_UNIT above. */
 }
 libgfortran_stat_codes;
 
@@ -127,6 +128,7 @@ libgfortran_stat_codes;
    used in the run-time library for IO.  */
 typedef enum
 { BT_UNKNOWN = 0, BT_INTEGER, BT_LOGICAL, BT_REAL, BT_COMPLEX,
-  BT_DERIVED, BT_CHARACTER, BT_CLASS, BT_PROCEDURE, BT_HOLLERITH, BT_VOID
+  BT_DERIVED, BT_CHARACTER, BT_CLASS, BT_PROCEDURE, BT_HOLLERITH, BT_VOID,
+  BT_ASSUMED
 }
 bt;

@@ -342,7 +342,7 @@ LIBLINK = $(LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link $(CXX) -L$(here) \
 CXXLINK = $(LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
 	  $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LTLDFLAGS) -o $@
 
-GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
+LIBGCC_UNWIND_INCLUDE = @LIBGCC_UNWIND_INCLUDE@
 
 WARNINGS = -Wextra -Wall
 ## Some systems don't allow `$' in identifiers by default, so we force
@@ -410,7 +410,7 @@ AM_CPPFLAGS = -I$(top_srcdir) \
 	-Iclasspath/include \
 	-I$(top_srcdir)/classpath/native/fdlibm \
 	$(GCINCS) $(THREADINCS) $(INCLTDL) \
-	$(GCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
+	$(LIBGCC_UNWIND_INCLUDE) $(ZINCS) $(LIBFFIINCS)
 
 BOOTCLASSPATH = $(srcdir)/classpath/lib
 
@@ -492,7 +492,7 @@ xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLDFLAGS) $(extra_ldflags) $(THREADLIBS) \
 	$(LIBLTDL) $(SYS_ZLIBS) $(LIBJAVA_LDFLAGS_NOUNDEF) \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
-	$(LIBGCJ_LD_SYMBOLIC_FUNCTIONS)
+	$(LIBGCJ_LD_SYMBOLIC_FUNCTIONS) $(LIBGCJ_LD_EXPORT_ALL)
 libgcj_la_LIBADD = \
 	classpath/native/fdlibm/libfdlibm.la \
 	java/lang/Object.lo \
@@ -590,14 +590,11 @@ lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-$(gcc_version).jar \
 if BUILD_SUBLIBS
 lib_gnu_awt_xlib_la_DEPENDENCIES += libgcj-noncore.la
 endif
-## We require libstdc++-v3 to be in the same build tree.
 lib_gnu_awt_xlib_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
-	-I../libstdc++-v3/include \
-	-I../libstdc++-v3/include/$(target_noncanonical) \
-	-I$(srcdir)/../libstdc++-v3/libsupc++
+	$(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 ## The mysterious backslash in the grep pattern is consumed by make.
-lib_gnu_awt_xlib_la_LDFLAGS = ../libstdc++-v3/src/libstdc++.la \
+lib_gnu_awt_xlib_la_LDFLAGS = $(LIBSTDCXX_RAW_CXX_LDFLAGS) \
 	@X_PRE_LIBS@ @X_LIBS@ -lX11 @X_EXTRA_LIBS@ \
         -rpath $(toolexeclibdir) $(LIBJAVA_LDFLAGS_NOUNDEF) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version` $(LIBGCJ_LD_SYMBOLIC)
@@ -1360,6 +1357,7 @@ gnu/java/nio/natVMChannel.cc \
 gnu/java/nio/channels/natFileChannelImpl.cc \
 gnu/java/security/jce/prng/natVMSecureRandom.cc \
 java/io/natFile.cc \
+java/io/natVMConsole.cc \
 java/io/natVMObjectInputStream.cc \
 java/io/natVMObjectStreamClass.cc \
 java/lang/natCharacter.cc \

@@ -2,11 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package binary
+package binary_test
 
 import (
-	"os"
 	"bytes"
+	. "encoding/binary"
+	"io"
 	"math"
 	"reflect"
 	"testing"
@@ -98,7 +99,7 @@ var little = []byte{
 var src = []byte{1, 2, 3, 4, 5, 6, 7, 8}
 var res = []int32{0x01020304, 0x05060708}
 
-func checkResult(t *testing.T, dir string, order, err os.Error, have, want interface{}) {
+func checkResult(t *testing.T, dir string, order ByteOrder, err error, have, want interface{}) {
 	if err != nil {
 		t.Errorf("%v %v: %v", dir, order, err)
 		return
@@ -120,17 +121,13 @@ func testWrite(t *testing.T, order ByteOrder, b []byte, s1 interface{}) {
 	checkResult(t, "Write", order, err, buf.Bytes(), b)
 }
 
-func TestBigEndianRead(t *testing.T) { testRead(t, BigEndian, big, s) }
-
-func TestLittleEndianRead(t *testing.T) { testRead(t, LittleEndian, little, s) }
-
-func TestBigEndianWrite(t *testing.T) { testWrite(t, BigEndian, big, s) }
-
-func TestLittleEndianWrite(t *testing.T) { testWrite(t, LittleEndian, little, s) }
-
-func TestBigEndianPtrWrite(t *testing.T) { testWrite(t, BigEndian, big, &s) }
-
+func TestLittleEndianRead(t *testing.T)     { testRead(t, LittleEndian, little, s) }
+func TestLittleEndianWrite(t *testing.T)    { testWrite(t, LittleEndian, little, s) }
 func TestLittleEndianPtrWrite(t *testing.T) { testWrite(t, LittleEndian, little, &s) }
+
+func TestBigEndianRead(t *testing.T)     { testRead(t, BigEndian, big, s) }
+func TestBigEndianWrite(t *testing.T)    { testWrite(t, BigEndian, big, s) }
+func TestBigEndianPtrWrite(t *testing.T) { testWrite(t, BigEndian, big, &s) }
 
 func TestReadSlice(t *testing.T) {
 	slice := make([]int32, 2)
@@ -147,16 +144,165 @@ func TestWriteSlice(t *testing.T) {
 func TestWriteT(t *testing.T) {
 	buf := new(bytes.Buffer)
 	ts := T{}
-	err := Write(buf, BigEndian, ts)
-	if err == nil {
-		t.Errorf("WriteT: have nil, want non-nil")
+	if err := Write(buf, BigEndian, ts); err == nil {
+		t.Errorf("WriteT: have err == nil, want non-nil")
 	}
 
-	tv := reflect.Indirect(reflect.NewValue(ts)).(*reflect.StructValue)
+	tv := reflect.Indirect(reflect.ValueOf(ts))
 	for i, n := 0, tv.NumField(); i < n; i++ {
-		err = Write(buf, BigEndian, tv.Field(i).Interface())
-		if err == nil {
-			t.Errorf("WriteT.%v: have nil, want non-nil", tv.Field(i).Type())
+		if err := Write(buf, BigEndian, tv.Field(i).Interface()); err == nil {
+			t.Errorf("WriteT.%v: have err == nil, want non-nil", tv.Field(i).Type())
 		}
+	}
+}
+
+type BlankFields struct {
+	A uint32
+	_ int32
+	B float64
+	_ [4]int16
+	C byte
+	_ [7]byte
+	_ struct {
+		f [8]float32
+	}
+}
+
+type BlankFieldsProbe struct {
+	A  uint32
+	P0 int32
+	B  float64
+	P1 [4]int16
+	C  byte
+	P2 [7]byte
+	P3 struct {
+		F [8]float32
+	}
+}
+
+func TestBlankFields(t *testing.T) {
+	buf := new(bytes.Buffer)
+	b1 := BlankFields{A: 1234567890, B: 2.718281828, C: 42}
+	if err := Write(buf, LittleEndian, &b1); err != nil {
+		t.Error(err)
+	}
+
+	// zero values must have been written for blank fields
+	var p BlankFieldsProbe
+	if err := Read(buf, LittleEndian, &p); err != nil {
+		t.Error(err)
+	}
+
+	// quick test: only check first value of slices
+	if p.P0 != 0 || p.P1[0] != 0 || p.P2[0] != 0 || p.P3.F[0] != 0 {
+		t.Errorf("non-zero values for originally blank fields: %#v", p)
+	}
+
+	// write p and see if we can probe only some fields
+	if err := Write(buf, LittleEndian, &p); err != nil {
+		t.Error(err)
+	}
+
+	// read should ignore blank fields in b2
+	var b2 BlankFields
+	if err := Read(buf, LittleEndian, &b2); err != nil {
+		t.Error(err)
+	}
+	if b1.A != b2.A || b1.B != b2.B || b1.C != b2.C {
+		t.Errorf("%#v != %#v", b1, b2)
+	}
+}
+
+type byteSliceReader struct {
+	remain []byte
+}
+
+func (br *byteSliceReader) Read(p []byte) (int, error) {
+	n := copy(p, br.remain)
+	br.remain = br.remain[n:]
+	return n, nil
+}
+
+func BenchmarkReadSlice1000Int32s(b *testing.B) {
+	bsr := &byteSliceReader{}
+	slice := make([]int32, 1000)
+	buf := make([]byte, len(slice)*4)
+	b.SetBytes(int64(len(buf)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = buf
+		Read(bsr, BigEndian, slice)
+	}
+}
+
+func BenchmarkReadStruct(b *testing.B) {
+	bsr := &byteSliceReader{}
+	var buf bytes.Buffer
+	Write(&buf, BigEndian, &s)
+	n := DataSize(reflect.ValueOf(s))
+	b.SetBytes(int64(n))
+	t := s
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = buf.Bytes()
+		Read(bsr, BigEndian, &t)
+	}
+	b.StopTimer()
+	if !reflect.DeepEqual(s, t) {
+		b.Fatal("no match")
+	}
+}
+
+func BenchmarkReadInts(b *testing.B) {
+	var ls Struct
+	bsr := &byteSliceReader{}
+	var r io.Reader = bsr
+	b.SetBytes(2 * (1 + 2 + 4 + 8))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bsr.remain = big
+		Read(r, BigEndian, &ls.Int8)
+		Read(r, BigEndian, &ls.Int16)
+		Read(r, BigEndian, &ls.Int32)
+		Read(r, BigEndian, &ls.Int64)
+		Read(r, BigEndian, &ls.Uint8)
+		Read(r, BigEndian, &ls.Uint16)
+		Read(r, BigEndian, &ls.Uint32)
+		Read(r, BigEndian, &ls.Uint64)
+	}
+
+	want := s
+	want.Float32 = 0
+	want.Float64 = 0
+	want.Complex64 = 0
+	want.Complex128 = 0
+	for i := range want.Array {
+		want.Array[i] = 0
+	}
+	b.StopTimer()
+	if !reflect.DeepEqual(ls, want) {
+		panic("no match")
+	}
+}
+
+func BenchmarkWriteInts(b *testing.B) {
+	buf := new(bytes.Buffer)
+	var w io.Writer = buf
+	b.SetBytes(2 * (1 + 2 + 4 + 8))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		Write(w, BigEndian, s.Int8)
+		Write(w, BigEndian, s.Int16)
+		Write(w, BigEndian, s.Int32)
+		Write(w, BigEndian, s.Int64)
+		Write(w, BigEndian, s.Uint8)
+		Write(w, BigEndian, s.Uint16)
+		Write(w, BigEndian, s.Uint32)
+		Write(w, BigEndian, s.Uint64)
+	}
+	b.StopTimer()
+	if !bytes.Equal(buf.Bytes(), big[:30]) {
+		b.Fatalf("first half doesn't match: %x %x", buf.Bytes(), big[:30])
 	}
 }

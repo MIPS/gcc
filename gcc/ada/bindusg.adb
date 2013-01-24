@@ -6,7 +6,7 @@
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,6 +25,7 @@
 
 with Osint;  use Osint;
 with Output; use Output;
+with Switch; use Switch;
 
 with System.WCh_Con; use System.WCh_Con;
 
@@ -55,6 +56,8 @@ package body Bindusg is
       Write_Eol;
       Write_Eol;
 
+      Display_Usage_Version_And_Help;
+
       --  Line for @response_file
 
       Write_Line ("  @<resp_file> Get arguments from response file");
@@ -73,9 +76,10 @@ package body Bindusg is
       Write_Line ("  -a        Automatically initialize elaboration " &
                   "procedure");
 
-      --  Line for -A switch
+      --  Lines for -A switch
 
       Write_Line ("  -A        Give list of ALI files in partition");
+      Write_Line ("  -A=file   Write ALI file list to named file");
 
       --  Line for -b switch
 
@@ -177,6 +181,10 @@ package body Bindusg is
       --  Line for -p switch
 
       Write_Line ("  -p        Pessimistic (worst-case) elaboration order");
+
+      --  Line for -P switch
+
+      Write_Line ("  -P        Generate binder file suitable for CodePeer");
 
       --  Line for -r switch
 

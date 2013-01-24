@@ -1,10 +1,10 @@
-// $G $D/$F.go || echo BUG: bug219
+// compile
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package bug219
 
 func f(func()) int { return 0 }
 
@@ -12,8 +12,8 @@ func f(func()) int { return 0 }
 // bug219.go:16: syntax error near if
 func g1() {
 	if x := f(func() {
-		if {}
-	}); {
+		if true {}
+	}); true {
 		_ = x;
 	}
 }
@@ -21,8 +21,8 @@ func g1() {
 // this works
 func g2() {
 	if x := f(func() {
-		//if {}
-	}); {
+		//if true {}
+	}); true {
 		_ = x;
 	}
 }
@@ -30,9 +30,9 @@ func g2() {
 // this works
 func g3() {
 	x := f(func() {
-		if {}
+		if true {}
 	});
-	if {
+	if true {
 		_ = x;
 	}
 }

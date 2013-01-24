@@ -28,10 +28,10 @@
 #ifndef _CXX0X_WARNING_H
 #define _CXX0X_WARNING_H 1
 
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
-#error This file requires compiler and library support for the upcoming \
-ISO C++ standard, C++0x. This support is currently experimental, and must be \
-enabled with the -std=c++0x or -std=gnu++0x compiler options.
+#if __cplusplus < 201103L
+#error This file requires compiler and library support for the \
+ISO C++ 2011 standard. This support is currently experimental, and must be \
+enabled with the -std=c++11 or -std=gnu++11 compiler options.
 #endif
 
 #endif

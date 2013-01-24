@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -172,6 +172,17 @@ package Sem_Attr is
       --  Ada code, e.g. if it is necessary to do selective reelaboration to
       --  fix some error.
 
+      --------------------
+      -- Elab_Subp_Body --
+      --------------------
+
+      Attribute_Elab_Subp_Body => True,
+      --  This attribute can only be applied to a library level subprogram
+      --  name and is only relevant in CodePeer mode. It returns the entity
+      --  for the corresponding elaboration procedure for elaborating the body
+      --  of the referenced subprogram unit. This is used in the main generated
+      --  elaboration procedure by the binder in CodePeer mode only.
+
       ---------------
       -- Elab_Spec --
       ---------------
@@ -300,6 +311,11 @@ package Sem_Attr is
       --  to set a value where initialization is required (e.g. as a result of
       --  the coding standards in use), but logically no initialization is
       --  needed, and the value should never be accessed.
+
+      Attribute_Loop_Entry => True,
+      --  For every object of a non-limited type, S'Loop_Entry [(Loop_Name)]
+      --  denotes the constant value of prefix S at the point of entry into the
+      --  related loop. The type of the attribute is the type of the prefix.
 
       ------------------
       -- Machine_Size --
@@ -538,6 +554,39 @@ package Sem_Attr is
       --  Natural'Size is typically 31, the value of Natural'VADS_Size is 32.
       --  For all other types, Size and VADS_Size yield the same value.
 
+      -------------------
+      -- Valid_Scalars --
+      -------------------
+
+      Attribute_Valid_Scalars => True,
+      --  Obj'Valid_Scalars can be applied to any object. The result depends
+      --  on the type of the object:
+      --
+      --    For a scalar type, the result is the same as obj'Valid
+      --
+      --    For an array object, the result is True if the result of applying
+      --    Valid_Scalars to every component is True. For an empty array the
+      --    result is True.
+      --
+      --    For a record object, the result is True if the result of applying
+      --    Valid_Scalars to every component is True. For class-wide types,
+      --    only the components of the base type are checked. For variant
+      --    records, only the components actually present are checked. The
+      --    discriminants, if any, are also checked. If there are no components
+      --    or discriminants, the result is True.
+      --
+      --    For any other type that has discriminants, the result is True if
+      --    the result of applying Valid_Scalars to each discriminant is True.
+      --
+      --    For all other types, the result is always True
+      --
+      --  A warning is given for a trivially True result, when the attribute
+      --  is applied to an object that is not of scalar, array, or record
+      --  type, or in the composite case if no scalar subcomponents exist. For
+      --  a variant record, the warning is given only if none of the variants
+      --  have scalar subcomponents. In addition, the warning is suppressed
+      --  for private types, or generic formal types in an instance.
+
       ----------------
       -- Value_Size --
       ----------------
@@ -596,12 +645,12 @@ package Sem_Attr is
      (Typ          : Entity_Id;
       Nam          : TSS_Name_Type;
       Partial_View : Entity_Id := Empty) return Boolean;
-   --  For a limited type Typ, return True iff the given attribute is
-   --  available. For Ada 05, availability is defined by 13.13.2(36/1). For Ada
-   --  95, an attribute is considered to be available if it has been specified
-   --  using an attribute definition clause for the type, or for its full view,
-   --  or for an ancestor of either. Parameter Partial_View is used only
-   --  internally, when checking for an attribute definition clause that is not
-   --  visible (Ada 95 only).
+   --  For a limited type Typ, return True if and only if the given attribute
+   --  is available. For Ada 2005, availability is defined by 13.13.2(36/1).
+   --  For Ada 95, an attribute is considered to be available if it has been
+   --  specified using an attribute definition clause for the type, or for its
+   --  full view, or for an ancestor of either. Parameter Partial_View is used
+   --  only internally, when checking for an attribute definition clause that
+   --  is not visible (Ada 95 only).
 
 end Sem_Attr;

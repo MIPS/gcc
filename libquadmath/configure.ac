@@ -113,6 +113,7 @@ AC_SUBST(toolexecdir)
 AC_SUBST(toolexeclibdir)
 
 AC_CHECK_HEADERS(fenv.h langinfo.h locale.h wchar.h wctype.h limits.h ctype.h printf.h errno.h)
+LIBQUAD_CHECK_MATH_H_SIGNGAM
 
 # If available, sqrtl and cbrtl speed up the calculation -
 # but they are not required
@@ -164,35 +165,42 @@ CFLAGS="$saved_CFLAGS"
 
 # Check for symbol versioning (copied from libssp).
 AC_MSG_CHECKING([whether symbol versioning is supported])
-if test x$gcc_no_link = xyes; then
-  # If we cannot link, we cannot build shared libraries, so do not use
-  # symbol versioning.
-  quadmath_use_symver=no
-else
-  save_LDFLAGS="$LDFLAGS"
-  LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
-  cat > conftest.map <<EOF
+AC_ARG_ENABLE(symvers,
+AS_HELP_STRING([--disable-symvers],
+  [disable symbol versioning for libquadmath]),
+quadmath_use_symver=$enableval,
+quadmath_use_symver=yes)
+if test "x$quadmath_use_symver" != xno; then
+  if test x$gcc_no_link = xyes; then
+    # If we cannot link, we cannot build shared libraries, so do not use
+    # symbol versioning.
+    quadmath_use_symver=no
+  else
+    save_LDFLAGS="$LDFLAGS"
+    LDFLAGS="$LDFLAGS -fPIC -shared -Wl,--version-script,./conftest.map"
+    cat > conftest.map <<EOF
 FOO_1.0 {
   global: *foo*; bar; local: *;
 };
 EOF
-  AC_TRY_LINK([int foo;],[],[quadmath_use_symver=gnu],[quadmath_use_symver=no])
-  if test x$quadmath_use_symver = xno; then
-    case "$target_os" in
-      solaris2*)
-        LDFLAGS="$save_LDFLAGS"
-        LDFLAGS="$LDFLAGS -fPIC -shared -Wl,-M,./conftest.map"
-        # Sun ld cannot handle wildcards and treats all entries as undefined.
-        cat > conftest.map <<EOF
+    AC_TRY_LINK([int foo;],[],[quadmath_use_symver=gnu],[quadmath_use_symver=no])
+    if test x$quadmath_use_symver = xno; then
+      case "$target_os" in
+        solaris2*)
+          LDFLAGS="$save_LDFLAGS"
+          LDFLAGS="$LDFLAGS -fPIC -shared -Wl,-M,./conftest.map"
+          # Sun ld cannot handle wildcards and treats all entries as undefined.
+          cat > conftest.map <<EOF
 FOO_1.0 {
   global: foo; local: *;
 };
 EOF
-        AC_TRY_LINK([int foo;],[],[quadmath_use_symver=sun],[quadmath_use_symver=no])
-        ;;
-    esac
+          AC_TRY_LINK([int foo;],[],[quadmath_use_symver=sun],[quadmath_use_symver=no])
+          ;;
+      esac
+    fi
+    LDFLAGS="$save_LDFLAGS"
   fi
-  LDFLAGS="$save_LDFLAGS"
 fi
 AC_MSG_RESULT($quadmath_use_symver)
 AM_CONDITIONAL(LIBQUAD_USE_SYMVER, [test "x$quadmath_use_symver" != xno])

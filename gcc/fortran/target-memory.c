@@ -1,6 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2007-2013 Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
 This file is part of GCC.
@@ -21,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "flags.h"
 #include "machmode.h"
 #include "tree.h"
@@ -103,21 +103,35 @@ gfc_target_expr_size (gfc_expr *e)
     case BT_LOGICAL:
       return size_logical (e->ts.kind);
     case BT_CHARACTER:
-      if (e->expr_type == EXPR_SUBSTRING && e->ref)
-        {
-          int start, end;
+      if (e->expr_type == EXPR_CONSTANT)
+	return size_character (e->value.character.length, e->ts.kind);
+      else if (e->ts.u.cl != NULL && e->ts.u.cl->length != NULL
+	       && e->ts.u.cl->length->expr_type == EXPR_CONSTANT
+	       && e->ts.u.cl->length->ts.type == BT_INTEGER)
+	{
+	  int length;
 
-          gfc_extract_int (e->ref->u.ss.start, &start);
-          gfc_extract_int (e->ref->u.ss.end, &end);
-          return size_character (MAX(end - start + 1, 0), e->ts.kind);
-        }
+	  gfc_extract_int (e->ts.u.cl->length, &length);
+	  return size_character (length, e->ts.kind);
+	}
       else
-        return size_character (e->value.character.length, e->ts.kind);
+	return 0;
+
     case BT_HOLLERITH:
       return e->representation.length;
     case BT_DERIVED:
-      type = gfc_typenode_for_spec (&e->ts);
-      return int_size_in_bytes (type);
+    case BT_CLASS:
+      {
+	/* Determine type size without clobbering the typespec for ISO C
+	   binding types.  */
+	gfc_typespec ts;
+	HOST_WIDE_INT size;
+	ts = e->ts;
+	type = gfc_typenode_for_spec (&ts);
+	size = int_size_in_bytes (type);
+	gcc_assert (size >= 0);
+	return size;
+      }
     default:
       gfc_internal_error ("Invalid expression in gfc_target_expr_size.");
       return 0;
@@ -129,7 +143,7 @@ gfc_target_expr_size (gfc_expr *e)
    return the number of bytes of the buffer that have been
    used.  */
 
-static int
+static unsigned HOST_WIDE_INT
 encode_array (gfc_expr *expr, unsigned char *buffer, size_t buffer_size)
 {
   mpz_t array_size;
@@ -206,13 +220,14 @@ gfc_encode_character (int kind, int length, const gfc_char_t *string,
 }
 
 
-static int
+static unsigned HOST_WIDE_INT
 encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 {
   gfc_constructor *c;
   gfc_component *cmp;
   int ptr;
   tree type;
+  HOST_WIDE_INT size;
 
   type = gfc_typenode_for_spec (&source->ts);
 
@@ -228,19 +243,24 @@ encode_derived (gfc_expr *source, unsigned char *buffer, size_t buffer_size)
 	    + TREE_INT_CST_LOW(DECL_FIELD_BIT_OFFSET(cmp->backend_decl))/8;
 
       if (c->expr->expr_type == EXPR_NULL)
- 	memset (&buffer[ptr], 0,
-		int_size_in_bytes (TREE_TYPE (cmp->backend_decl)));
+	{
+	  size = int_size_in_bytes (TREE_TYPE (cmp->backend_decl));
+	  gcc_assert (size >= 0);
+	  memset (&buffer[ptr], 0, size);
+	}
       else
 	gfc_target_encode_expr (c->expr, &buffer[ptr],
 				buffer_size - ptr);
     }
 
-  return int_size_in_bytes (type);
+  size = int_size_in_bytes (type);
+  gcc_assert (size >= 0);
+  return size;
 }
 
 
 /* Write a constant expression in binary form to a buffer.  */
-int
+unsigned HOST_WIDE_INT
 gfc_target_encode_expr (gfc_expr *source, unsigned char *buffer,
 			size_t buffer_size)
 {
@@ -330,7 +350,8 @@ interpret_array (unsigned char *buffer, size_t buffer_size, gfc_expr *result)
 
       gfc_constructor_append_expr (&base, e, &result->where);
 
-      ptr += gfc_target_interpret_expr (&buffer[ptr], buffer_size - ptr, e);
+      ptr += gfc_target_interpret_expr (&buffer[ptr], buffer_size - ptr, e,
+					true);
     }
 
   result->value.constructor = base;
@@ -383,8 +404,7 @@ gfc_interpret_logical (int kind, unsigned char *buffer, size_t buffer_size,
 {
   tree t = native_interpret_expr (gfc_get_logical_type (kind), buffer,
 				  buffer_size);
-  *logical = double_int_zero_p (tree_to_double_int (t))
-	     ? 0 : 1;
+  *logical = tree_to_double_int (t).is_zero () ? 0 : 1;
   return size_logical (kind);
 }
 
@@ -456,7 +476,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
       e = gfc_get_constant_expr (cmp->ts.type, cmp->ts.kind, &result->where); 
       c = gfc_constructor_append_expr (&result->value.constructor, e, NULL);
       c->n.component = cmp;
-      gfc_target_interpret_expr (buffer, buffer_size, e);
+      gfc_target_interpret_expr (buffer, buffer_size, e, true);
       e->ts.is_iso_c = 1;
       return int_size_in_bytes (ptr_type_node);
     }
@@ -495,7 +515,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
       /* The constructor points to the component.  */
       c->n.component = cmp;
 
-      /* Calculate the offset, which consists of the the FIELD_OFFSET in
+      /* Calculate the offset, which consists of the FIELD_OFFSET in
 	 bytes, which appears in multiples of DECL_OFFSET_ALIGN-bit-sized,
 	 and additional bits of FIELD_BIT_OFFSET. The code assumes that all
 	 sizes of the components are multiples of BITS_PER_UNIT,
@@ -506,7 +526,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
       gcc_assert (ptr % 8 == 0);
       ptr = ptr/8 + TREE_INT_CST_LOW (DECL_FIELD_OFFSET (cmp->backend_decl));
 
-      gfc_target_interpret_expr (&buffer[ptr], buffer_size - ptr, e);
+      gfc_target_interpret_expr (&buffer[ptr], buffer_size - ptr, e, true);
     }
     
   return int_size_in_bytes (type);
@@ -516,7 +536,7 @@ gfc_interpret_derived (unsigned char *buffer, size_t buffer_size, gfc_expr *resu
 /* Read a binary buffer to a constant expression.  */
 int
 gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
-			   gfc_expr *result)
+			   gfc_expr *result, bool convert_widechar)
 {
   if (result->expr_type == EXPR_ARRAY)
     return interpret_array (buffer, buffer_size, result);
@@ -552,9 +572,13 @@ gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
         gfc_interpret_character (buffer, buffer_size, result);
       break;
 
+    case BT_CLASS:
+      result->ts = CLASS_DATA (result)->ts;
+      /* Fall through.  */
     case BT_DERIVED:
       result->representation.length = 
         gfc_interpret_derived (buffer, buffer_size, result);
+      gcc_assert (result->representation.length >= 0);
       break;
 
     default:
@@ -562,14 +586,14 @@ gfc_target_interpret_expr (unsigned char *buffer, size_t buffer_size,
       break;
     }
 
-  if (result->ts.type == BT_CHARACTER)
+  if (result->ts.type == BT_CHARACTER && convert_widechar)
     result->representation.string
       = gfc_widechar_to_char (result->value.character.string,
 			      result->value.character.length);
   else
     {
       result->representation.string =
-        (char *) gfc_getmem (result->representation.length + 1);
+        XCNEWVEC (char, result->representation.length + 1);
       memcpy (result->representation.string, buffer,
 	      result->representation.length);
       result->representation.string[result->representation.length] = '\0';
@@ -666,7 +690,7 @@ gfc_merge_initializers (gfc_typespec ts, gfc_expr *e, unsigned char *data,
 	{
 	  size_t elt_size = gfc_target_expr_size (c->expr);
 
-	  if (c->offset)
+	  if (mpz_cmp_si (c->offset, 0) != 0)
 	    len = elt_size * (size_t)mpz_get_si (c->offset);
 
 	  len = len + gfc_merge_initializers (ts, c->expr, &data[len],

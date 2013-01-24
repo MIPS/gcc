@@ -1,4 +1,4 @@
-// errchk $G $D/$F.go
+// errorcheck
 
 // Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -24,6 +24,8 @@ func main() {
 	case 1:
 		L1:  // ERROR "statement"
 	default:
-		L2:  // correct since no semicolon is required before a '}'
+		     // correct since no semicolon is required before a '}'
+		goto L2
+		L2:
 	}
 }

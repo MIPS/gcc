@@ -1,6 +1,5 @@
 /* Define builtin-in macros for all front ends that perform preprocessing
-   Copyright (C) 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -66,6 +65,12 @@ define__GNUC__ (cpp_reader *pfile)
   cpp_define_formatted (pfile, "__GNUC_MINOR__=%d", minor);
   cpp_define_formatted (pfile, "__GNUC_PATCHLEVEL__=%d", patchlevel);
   cpp_define_formatted (pfile, "__VERSION__=\"%s\"", version_string);
+  cpp_define_formatted (pfile, "__ATOMIC_RELAXED=%d", MEMMODEL_RELAXED);
+  cpp_define_formatted (pfile, "__ATOMIC_SEQ_CST=%d", MEMMODEL_SEQ_CST);
+  cpp_define_formatted (pfile, "__ATOMIC_ACQUIRE=%d", MEMMODEL_ACQUIRE);
+  cpp_define_formatted (pfile, "__ATOMIC_RELEASE=%d", MEMMODEL_RELEASE);
+  cpp_define_formatted (pfile, "__ATOMIC_ACQ_REL=%d", MEMMODEL_ACQ_REL);
+  cpp_define_formatted (pfile, "__ATOMIC_CONSUME=%d", MEMMODEL_CONSUME);
 }
 
 
@@ -84,6 +89,9 @@ define_builtin_macros_for_compilation_flags (cpp_reader *pfile)
       cpp_define_formatted (pfile, "__pie__=%d", flag_pie);
       cpp_define_formatted (pfile, "__PIE__=%d", flag_pie);
     }
+
+  if (flag_asan)
+    cpp_define (pfile, "__SANITIZE_ADDRESS__");
 
   if (optimize_size)
     cpp_define (pfile, "__OPTIMIZE_SIZE__");

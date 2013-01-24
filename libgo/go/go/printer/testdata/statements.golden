@@ -8,6 +8,125 @@ var expr bool
 
 func use(x interface{})	{}
 
+// Formatting of multi-line return statements.
+func _f() {
+	return
+	return x, y, z
+	return T{}
+	return T{1, 2, 3},
+		x, y, z
+	return T{1, 2, 3},
+		x, y,
+		z
+	return T{1,
+		2,
+		3}
+	return T{1,
+		2,
+		3,
+	}
+	return T{
+		1,
+		2,
+		3}
+	return T{
+		1,
+		2,
+		3,
+	}
+	return T{
+		1,
+		T{1, 2, 3},
+		3,
+	}
+	return T{
+		1,
+		T{1,
+			2, 3},
+		3,
+	}
+	return T{
+		1,
+		T{1,
+			2,
+			3},
+		3,
+	}
+	return T{
+		1,
+		2,
+	}, nil
+	return T{
+			1,
+			2,
+		},
+		T{
+			x:	3,
+			y:	4,
+		}, nil
+	return T{
+			1,
+			2,
+		},
+		nil
+	return T{
+			1,
+			2,
+		},
+		T{
+			x:	3,
+			y:	4,
+		},
+		nil
+	return x + y +
+		z
+	return func() {}
+	return func() {
+			_ = 0
+		}, T{
+			1, 2,
+		}
+	return func() {
+		_ = 0
+	}
+	return func() T {
+		return T{
+			1, 2,
+		}
+	}
+}
+
+// Formatting of multi-line returns: test cases from issue 1207.
+func F() (*T, os.Error) {
+	return &T{
+			X:	1,
+			Y:	2,
+		},
+		nil
+}
+
+func G() (*T, *T, os.Error) {
+	return &T{
+			X:	1,
+			Y:	2,
+		},
+		&T{
+			X:	3,
+			Y:	4,
+		},
+		nil
+}
+
+func _() interface{} {
+	return &fileStat{
+		name:		basename(file.name),
+		size:		mkSize(d.FileSizeHigh, d.FileSizeLow),
+		modTime:	mkModTime(d.LastWriteTime),
+		mode:		mkMode(d.FileAttributes),
+		sys:		mkSysFromFI(&d),
+	}, nil
+}
+
 // Formatting of if-statement headers.
 func _() {
 	if true {
@@ -29,7 +148,6 @@ func _() {
 		use(x)
 	}
 }
-
 
 // Formatting of switch-statement headers.
 func _() {
@@ -55,7 +173,6 @@ func _() {
 		use(x)
 	}
 }
-
 
 // Formatting of switch statement bodies.
 func _() {
@@ -110,8 +227,21 @@ func _() {
 	}
 }
 
+// Formatting of selected select statements.
+func _() {
+	select {}
+	select { /* this comment should not be tab-aligned because the closing } is on the same line */
+	}
+	select {	/* this comment should be tab-aligned */
+	}
+	select {	// this comment should be tab-aligned
+	}
+	select {
+	case <-c:
+	}
+}
 
-// Formatting of for-statement headers.
+// Formatting of for-statement headers for single-line for-loops.
 func _() {
 	for {
 	}
@@ -149,6 +279,85 @@ func _() {
 	}	// no parens printed
 }
 
+// Formatting of for-statement headers for multi-line for-loops.
+func _() {
+	for {
+	}
+	for expr {
+	}
+	for expr {
+	}	// no parens printed
+	for {
+	}	// no semicolons printed
+	for x := expr; ; {
+		use(x)
+	}
+	for expr {
+	}	// no semicolons printed
+	for expr {
+	}	// no semicolons and parens printed
+	for ; ; expr = false {
+	}
+	for x := expr; expr; {
+		use(x)
+	}
+	for x := expr; ; expr = false {
+		use(x)
+	}
+	for ; expr; expr = false {
+	}
+	for x := expr; expr; expr = false {
+		use(x)
+	}
+	for x := range []int{} {
+		use(x)
+	}
+	for x := range []int{} {
+		use(x)
+	}	// no parens printed
+}
+
+// Formatting of selected short single- and multi-line statements.
+func _() {
+	if cond {
+	}
+	if cond {
+	}	// multiple lines
+	if cond {
+	} else {
+	}	// else clause always requires multiple lines
+
+	for {
+	}
+	for i := 0; i < len(a); 1++ {
+	}
+	for i := 0; i < len(a); 1++ {
+		a[i] = i
+	}
+	for i := 0; i < len(a); 1++ {
+		a[i] = i
+	}	// multiple lines
+
+	for i := range a {
+	}
+	for i := range a {
+		a[i] = i
+	}
+	for i := range a {
+		a[i] = i
+	}	// multiple lines
+
+	go func() {
+		for {
+			a <- <-b
+		}
+	}()
+	defer func() {
+		if x := recover(); x != nil {
+			err = fmt.Sprintf("error: %s", x.msg)
+		}
+	}()
+}
 
 // Don't remove mandatory parentheses around composite literals in control clauses.
 func _() {
@@ -243,7 +452,6 @@ func _() {
 	}
 }
 
-
 // Extra empty lines inside functions. Do respect source code line
 // breaks between statement boundaries but print at most one empty
 // line at a time.
@@ -262,7 +470,6 @@ func _() {
 	// Known bug: The first use call may have more than one empty line before
 	//            (see go/printer/nodes.go, func linebreak).
 
-
 	use(x)
 
 	if x < x {
@@ -276,18 +483,15 @@ func _() {
 	}
 }
 
-
 // Formatting around labels.
 func _() {
 L:
 }
 
-
 func _() {
 	// this comment should be indented
 L:	// no semicolon needed
 }
-
 
 func _() {
 	switch 0 {
@@ -302,7 +506,6 @@ func _() {
 	}
 }
 
-
 func _() {
 	f()
 L1:
@@ -312,25 +515,21 @@ L2:
 L3:
 }
 
-
 func _() {
 	// this comment should be indented
 L:
 }
-
 
 func _() {
 L:
 	_ = 0
 }
 
-
 func _() {
 	// this comment should be indented
 L:
 	_ = 0
 }
-
 
 func _() {
 	for {
@@ -341,7 +540,6 @@ func _() {
 	}
 }
 
-
 func _() {
 	// this comment should be indented
 	for {
@@ -351,7 +549,6 @@ func _() {
 		_ = 0
 	}
 }
-
 
 func _() {
 	if true {
@@ -370,7 +567,6 @@ L:
 	_ = 0
 }
 
-
 func _() {
 	for {
 		goto L
@@ -380,7 +576,6 @@ L:
 	MoreCode()
 }
 
-
 func _() {
 	for {
 		goto L
@@ -389,10 +584,8 @@ L:	// A comment on the same line as the label, followed by a single empty line.
 	// Known bug: There may be more than one empty line before MoreCode()
 	//            (see go/printer/nodes.go, func linebreak).
 
-
 	MoreCode()
 }
-
 
 func _() {
 	for {
@@ -403,7 +596,6 @@ L:
 	// There should be a single empty line before this comment.
 	MoreCode()
 }
-
 
 func _() {
 	for {
@@ -414,4 +606,30 @@ AVeryLongLabelThatShouldNotAffectFormatting:
 
 	// There should be a single empty line before this comment.
 	MoreCode()
+}
+
+// Formatting of empty statements.
+func _() {
+
+}
+
+func _() {
+}
+
+func _() {
+}
+
+func _() {
+	f()
+}
+
+func _() {
+L:
+	;
+}
+
+func _() {
+L:
+	;
+	f()
 }

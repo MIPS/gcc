@@ -1,5 +1,5 @@
 ;; Code and mode itertator and attribute definitions for the ARM backend
-;; Copyright (C) 2010 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -33,8 +33,22 @@
 ;; A list of integer modes that are up to one word long
 (define_mode_iterator QHSI [QI HI SI])
 
+;; A list of integer modes that are less than a word
+(define_mode_iterator NARROW [QI HI])
+
+;; A list of all the integer modes up to 64bit
+(define_mode_iterator QHSD [QI HI SI DI])
+
+;; A list of the 32bit and 64bit integer modes
+(define_mode_iterator SIDI [SI DI])
+
+;; A list of modes which the VFP unit can handle
+(define_mode_iterator SDF [(SF "TARGET_VFP") (DF "TARGET_VFP_DOUBLE")])
+
 ;; Integer element sizes implemented by IWMMXT.
 (define_mode_iterator VMMX [V2SI V4HI V8QI])
+
+(define_mode_iterator VMMX2 [V4HI V2SI])
 
 ;; Integer element sizes for shifts.
 (define_mode_iterator VSHFT [V4HI V2SI DI])
@@ -140,7 +154,18 @@
 
 ;; Modes with 8-bit, 16-bit and 32-bit elements.
 (define_mode_iterator VU [V16QI V8HI V4SI])
- 
+
+;; Iterators used for fixed-point support.
+(define_mode_iterator FIXED [QQ HQ SQ UQQ UHQ USQ HA SA UHA USA])
+
+(define_mode_iterator ADDSUB [V4QQ V2HQ V2HA])
+
+(define_mode_iterator UQADDSUB [V4UQQ V2UHQ UQQ UHQ V2UHA UHA])
+
+(define_mode_iterator QADDSUB [V4QQ V2HQ QQ HQ V2HA HA SQ SA])
+
+(define_mode_iterator QMUL [HQ HA])
+
 ;;----------------------------------------------------------------------------
 ;; Code iterators
 ;;----------------------------------------------------------------------------
@@ -163,6 +188,19 @@
 ;; A list of widening operators
 (define_code_iterator SE [sign_extend zero_extend])
 
+;; Right shifts
+(define_code_iterator rshifts [ashiftrt lshiftrt])
+
+;;----------------------------------------------------------------------------
+;; Int iterators
+;;----------------------------------------------------------------------------
+
+(define_int_iterator VRINT [UNSPEC_VRINTZ UNSPEC_VRINTP UNSPEC_VRINTM
+                            UNSPEC_VRINTR UNSPEC_VRINTX UNSPEC_VRINTA])
+
+(define_int_iterator NEON_VRINT [UNSPEC_NVRINTP UNSPEC_NVRINTZ UNSPEC_NVRINTM
+                              UNSPEC_NVRINTX UNSPEC_NVRINTA UNSPEC_NVRINTN])
+
 ;;----------------------------------------------------------------------------
 ;; Mode attributes
 ;;----------------------------------------------------------------------------
@@ -176,6 +214,10 @@
 ;; (Opposite) mode to convert to/from for NEON mode conversions.
 (define_mode_attr V_CVTTO [(V2SI "V2SF") (V2SF "V2SI")
                (V4SI "V4SF") (V4SF "V4SI")])
+
+;; As above but in lower case.
+(define_mode_attr V_cvtto [(V2SI "v2sf") (V2SF "v2si")
+                           (V4SI "v4sf") (V4SF "v4si")])
 
 ;; Define element mode for each vector mode.
 (define_mode_attr V_elem [(V8QI "QI") (V16QI "QI")
@@ -194,24 +236,22 @@
 
 ;; Mode of pair of elements for each vector mode, to define transfer
 ;; size for structure lane/dup loads and stores.
-(define_mode_attr V_two_elem [(V8QI "HI") (V16QI "HI")
-                  (V4HI "SI") (V8HI "SI")
+(define_mode_attr V_two_elem [(V8QI "HI")   (V16QI "HI")
+                              (V4HI "SI")   (V8HI "SI")
                               (V2SI "V2SI") (V4SI "V2SI")
                               (V2SF "V2SF") (V4SF "V2SF")
                               (DI "V2DI")   (V2DI "V2DI")])
 
 ;; Similar, for three elements.
-;; ??? Should we define extra modes so that sizes of all three-element
-;; accesses can be accurately represented?
-(define_mode_attr V_three_elem [(V8QI "SI")   (V16QI "SI")
-                    (V4HI "V4HI") (V8HI "V4HI")
-                                (V2SI "V4SI") (V4SI "V4SI")
-                                (V2SF "V4SF") (V4SF "V4SF")
-                                (DI "EI")     (V2DI "EI")])
+(define_mode_attr V_three_elem [(V8QI "BLK") (V16QI "BLK")
+                                (V4HI "BLK") (V8HI "BLK")
+                                (V2SI "BLK") (V4SI "BLK")
+                                (V2SF "BLK") (V4SF "BLK")
+                                (DI "EI")    (V2DI "EI")])
 
 ;; Similar, for four elements.
 (define_mode_attr V_four_elem [(V8QI "SI")   (V16QI "SI")
-                   (V4HI "V4HI") (V8HI "V4HI")
+                               (V4HI "V4HI") (V8HI "V4HI")
                                (V2SI "V4SI") (V4SI "V4SI")
                                (V2SF "V4SF") (V4SF "V4SF")
                                (DI "OI")     (V2DI "OI")])
@@ -221,7 +261,8 @@
                          (V4HI "P") (V8HI  "q")
                          (V2SI "P") (V4SI  "q")
                          (V2SF "P") (V4SF  "q")
-                         (DI   "P") (V2DI  "q")])
+                         (DI   "P") (V2DI  "q")
+                         (SF   "")  (DF    "P")])
 
 ;; Wider modes with the same number of elements.
 (define_mode_attr V_widen [(V8QI "V8HI") (V4HI "V4SI") (V2SI "V2DI")])
@@ -279,7 +320,8 @@
                  (V4HI "i16") (V8HI  "i16")
                              (V2SI "i32") (V4SI  "i32")
                              (DI   "i64") (V2DI  "i64")
-                 (V2SF "f32") (V4SF  "f32")])
+                 (V2SF "f32") (V4SF  "f32")
+                 (SF "f32") (DF "f64")])
 
 ;; Same, but for operations which work on signed values.
 (define_mode_attr V_s_elem [(V8QI "s8")  (V16QI "s8")
@@ -381,10 +423,28 @@
 (define_mode_attr qhs_zextenddi_cond [(SI "") (HI "&& arm_arch6") (QI "")])
 (define_mode_attr qhs_sextenddi_cond [(SI "") (HI "&& arm_arch6")
 				      (QI "&& arm_arch6")])
-(define_mode_attr qhs_extenddi_op [(SI "s_register_operand")
+(define_mode_attr qhs_zextenddi_op [(SI "s_register_operand")
 				   (HI "nonimmediate_operand")
 				   (QI "nonimmediate_operand")])
-(define_mode_attr qhs_extenddi_cstr [(SI "r") (HI "rm") (QI "rm")])
+(define_mode_attr qhs_extenddi_op [(SI "s_register_operand")
+				   (HI "nonimmediate_operand")
+				   (QI "arm_reg_or_extendqisi_mem_op")])
+(define_mode_attr qhs_extenddi_cstr [(SI "r,0,r,r") (HI "r,0,rm,rm") (QI "r,0,rUq,rm")])
+(define_mode_attr qhs_zextenddi_cstr [(SI "r,0,r") (HI "r,0,rm") (QI "r,0,rm")])
+
+;; Mode attributes used for fixed-point support.
+(define_mode_attr qaddsub_suf [(V4UQQ "8") (V2UHQ "16") (UQQ "8") (UHQ "16")
+			       (V2UHA "16") (UHA "16")
+			       (V4QQ "8") (V2HQ "16") (QQ "8") (HQ "16")
+			       (V2HA "16") (HA "16") (SQ "") (SA "")])
+
+;; Mode attribute for vshll.
+(define_mode_attr V_innermode [(V8QI "QI") (V4HI "HI") (V2SI "SI")])
+
+;; Mode attributes used for VFP support.
+(define_mode_attr F_constraint [(SF "t") (DF "w")])
+(define_mode_attr vfp_type [(SF "s") (DF "d")])
+(define_mode_attr vfp_double_cond [(SF "") (DF "&& TARGET_VFP_DOUBLE")])
 
 ;;----------------------------------------------------------------------------
 ;; Code attributes
@@ -403,3 +463,30 @@
 
 ;; Assembler mnemonics for signedness of widening operations.
 (define_code_attr US [(sign_extend "s") (zero_extend "u")])
+
+;; Right shifts
+(define_code_attr shift [(ashiftrt "ashr") (lshiftrt "lshr")])
+(define_code_attr shifttype [(ashiftrt "signed") (lshiftrt "unsigned")])
+
+;;----------------------------------------------------------------------------
+;; Int attributes
+;;----------------------------------------------------------------------------
+
+;; Standard names for floating point to integral rounding instructions.
+(define_int_attr vrint_pattern [(UNSPEC_VRINTZ "btrunc") (UNSPEC_VRINTP "ceil")
+                         (UNSPEC_VRINTA "round") (UNSPEC_VRINTM "floor")
+                         (UNSPEC_VRINTR "nearbyint") (UNSPEC_VRINTX "rint")])
+
+;; Suffixes for vrint instructions specifying rounding modes.
+(define_int_attr vrint_variant [(UNSPEC_VRINTZ "z") (UNSPEC_VRINTP "p")
+                               (UNSPEC_VRINTA "a") (UNSPEC_VRINTM "m")
+                               (UNSPEC_VRINTR "r") (UNSPEC_VRINTX "x")])
+
+;; Some of the vrint instuctions are predicable.
+(define_int_attr vrint_predicable [(UNSPEC_VRINTZ "yes") (UNSPEC_VRINTP "no")
+                                  (UNSPEC_VRINTA "no") (UNSPEC_VRINTM "no")
+                                  (UNSPEC_VRINTR "yes") (UNSPEC_VRINTX "yes")])
+
+(define_int_attr nvrint_variant [(UNSPEC_NVRINTZ "z") (UNSPEC_NVRINTP "p")
+                                (UNSPEC_NVRINTA "a") (UNSPEC_NVRINTM "m")
+                                (UNSPEC_NVRINTX "x") (UNSPEC_NVRINTN "n")])

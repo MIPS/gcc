@@ -1,7 +1,6 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003,
-   2004, 2005, 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -35,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-objc.h"
 
 #define pp_separate_with_comma(PP) pp_cxx_separate_with (PP, ',')
+#define pp_separate_with_semicolon(PP) pp_cxx_separate_with (PP, ';')
 
 /* The global buffer where we dump everything.  It is there only for
    transitional purpose.  It is expected, in the near future, to be
@@ -59,6 +59,7 @@ static const char *op_to_string	(enum tree_code);
 static const char *parm_to_string (int);
 static const char *type_to_string (tree, int);
 
+static void dump_alias_template_specialization (tree, int);
 static void dump_type (tree, int);
 static void dump_typename (tree, int);
 static void dump_simple_decl (tree, tree, int);
@@ -81,7 +82,7 @@ static void dump_exception_spec (tree, int);
 static void dump_template_argument (tree, int);
 static void dump_template_argument_list (tree, int);
 static void dump_template_parameter (tree, int);
-static void dump_template_bindings (tree, tree, VEC(tree,gc) *);
+static void dump_template_bindings (tree, tree, vec<tree, va_gc> *);
 static void dump_scope (tree, int);
 static void dump_template_parms (tree, int, int);
 static int get_non_default_template_args_count (tree, int);
@@ -146,7 +147,9 @@ static void
 dump_template_argument (tree arg, int flags)
 {
   if (ARGUMENT_PACK_P (arg))
-    dump_template_argument_list (ARGUMENT_PACK_ARGS (arg), flags);
+    dump_template_argument_list (ARGUMENT_PACK_ARGS (arg),
+				 /* No default args in argument packs.  */
+				 flags|TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS);
   else if (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL)
     dump_type (arg, flags & ~TFF_CLASS_KEY_OR_ENUM);
   else
@@ -254,9 +257,9 @@ dump_template_parameter (tree parm, int flags)
    TREE_VEC.  */
 
 static void
-dump_template_bindings (tree parms, tree args, VEC(tree,gc)* typenames)
+dump_template_bindings (tree parms, tree args, vec<tree, va_gc> *typenames)
 {
-  int need_comma = 0;
+  bool need_semicolon = false;
   int i;
   tree t;
 
@@ -280,8 +283,8 @@ dump_template_bindings (tree parms, tree args, VEC(tree,gc)* typenames)
 	  if (lvl_args && NUM_TMPL_ARGS (lvl_args) > arg_idx)
 	    arg = TREE_VEC_ELT (lvl_args, arg_idx);
 
-	  if (need_comma)
-	    pp_separate_with_comma (cxx_pp);
+	  if (need_semicolon)
+	    pp_separate_with_semicolon (cxx_pp);
 	  dump_template_parameter (TREE_VEC_ELT (p, i), TFF_PLAIN_IDENTIFIER);
 	  pp_cxx_whitespace (cxx_pp);
 	  pp_equal (cxx_pp);
@@ -298,26 +301,51 @@ dump_template_bindings (tree parms, tree args, VEC(tree,gc)* typenames)
 	    pp_string (cxx_pp, M_("<missing>"));
 
 	  ++arg_idx;
-	  need_comma = 1;
+	  need_semicolon = true;
 	}
 
       parms = TREE_CHAIN (parms);
     }
 
-  FOR_EACH_VEC_ELT (tree, typenames, i, t)
+  /* Don't bother with typenames for a partial instantiation.  */
+  if (vec_safe_is_empty (typenames) || uses_template_parms (args))
+    return;
+
+  FOR_EACH_VEC_SAFE_ELT (typenames, i, t)
     {
-      if (need_comma)
-	pp_separate_with_comma (cxx_pp);
+      if (need_semicolon)
+	pp_separate_with_semicolon (cxx_pp);
       dump_type (t, TFF_PLAIN_IDENTIFIER);
       pp_cxx_whitespace (cxx_pp);
       pp_equal (cxx_pp);
       pp_cxx_whitespace (cxx_pp);
+      push_deferring_access_checks (dk_no_check);
       t = tsubst (t, args, tf_none, NULL_TREE);
+      pop_deferring_access_checks ();
       /* Strip typedefs.  We can't just use TFF_CHASE_TYPEDEF because
 	 pp_simple_type_specifier doesn't know about it.  */
       t = strip_typedefs (t);
       dump_type (t, TFF_PLAIN_IDENTIFIER);
     }
+}
+
+/* Dump a human-readable equivalent of the alias template
+   specialization of T.  */
+
+static void
+dump_alias_template_specialization (tree t, int flags)
+{
+  tree name;
+
+  gcc_assert (alias_template_specialization_p (t));
+
+  if (!(flags & TFF_UNQUALIFIED_NAME))
+    dump_scope (CP_DECL_CONTEXT (TYPE_NAME (t)), flags);
+  name = TYPE_IDENTIFIER (t);
+  pp_cxx_tree_identifier (cxx_pp, name);
+  dump_template_parms (TYPE_TEMPLATE_INFO (t),
+		       /*primary=*/false,
+		       flags & ~TFF_TEMPLATE_HEADER);
 }
 
 /* Dump a human-readable equivalent of TYPE.  FLAGS controls the
@@ -334,10 +362,15 @@ dump_type (tree t, int flags)
     {
       tree decl = TYPE_NAME (t);
       if ((flags & TFF_CHASE_TYPEDEF)
-	  || DECL_SELF_REFERENCE_P (decl)
-	  || (!flag_pretty_templates
-	      && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)))
+	       || DECL_SELF_REFERENCE_P (decl)
+	       || (!flag_pretty_templates
+		   && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)))
 	t = strip_typedefs (t);
+      else if (alias_template_specialization_p (t))
+	{
+	  dump_alias_template_specialization (t, flags);
+	  return;
+	}
       else if (same_type_p (t, TREE_TYPE (decl)))
 	t = decl;
       else
@@ -483,6 +516,14 @@ dump_type (tree t, int flags)
       pp_cxx_right_paren (cxx_pp);
       break;
 
+    case UNDERLYING_TYPE:
+      pp_cxx_ws_string (cxx_pp, "__underlying_type");
+      pp_cxx_whitespace (cxx_pp);
+      pp_cxx_left_paren (cxx_pp);
+      dump_expr (UNDERLYING_TYPE_TYPE (t), flags & ~TFF_EXPR_IN_PARENS);
+      pp_cxx_right_paren (cxx_pp);
+      break;
+
     case TYPE_PACK_EXPANSION:
       dump_type (PACK_EXPANSION_PATTERN (t), flags);
       pp_cxx_ws_string (cxx_pp, "...");
@@ -570,7 +611,10 @@ dump_aggr_type (tree t, int flags)
 
   if (name)
     {
-      typdef = !DECL_ARTIFICIAL (name);
+      typdef = (!DECL_ARTIFICIAL (name)
+		/* An alias specialization is not considered to be a
+		   typedef.  */
+		&& !alias_template_specialization_p (t));
 
       if ((typdef
 	   && ((flags & TFF_CHASE_TYPEDEF)
@@ -595,7 +639,7 @@ dump_aggr_type (tree t, int flags)
 	{
 	  /* Because the template names are mangled, we have to locate
 	     the most general template, and use that name.  */
-	  tree tpl = CLASSTYPE_TI_TEMPLATE (t);
+	  tree tpl = TYPE_TI_TEMPLATE (t);
 
 	  while (DECL_TEMPLATE_INFO (tpl))
 	    tpl = DECL_TI_TEMPLATE (tpl);
@@ -611,7 +655,7 @@ dump_aggr_type (tree t, int flags)
       else
 	pp_printf (pp_base (cxx_pp), M_("<anonymous %s>"), variety);
     }
-  else if (LAMBDANAME_P (name))
+  else if (LAMBDA_TYPE_P (name))
     {
       /* A lambda's "type" is essentially its signature.  */
       pp_string (cxx_pp, M_("<lambda"));
@@ -731,6 +775,7 @@ dump_type_prefix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case UNDERLYING_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
     case FIXED_POINT_TYPE:
@@ -784,8 +829,7 @@ dump_type_suffix (tree t, int flags)
 	dump_parameters (arg, flags & ~TFF_FUNCTION_DEFAULT_ARGUMENTS);
 
 	if (TREE_CODE (t) == METHOD_TYPE)
-	  pp_cxx_cv_qualifier_seq
-	    (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (t))));
+	  pp_cxx_cv_qualifier_seq (cxx_pp, class_of_this_parm (t));
 	else
 	  pp_cxx_cv_qualifier_seq (cxx_pp, t);
 	dump_exception_spec (TYPE_RAISES_EXCEPTIONS (t), flags);
@@ -800,7 +844,9 @@ dump_type_suffix (tree t, int flags)
 	{
 	  tree dtype = TYPE_DOMAIN (t);
 	  tree max = TYPE_MAX_VALUE (dtype);
-	  if (host_integerp (max, 0))
+	  if (integer_all_onesp (max))
+	    pp_character (cxx_pp, '0');
+	  else if (host_integerp (max, 0))
 	    pp_wide_integer (cxx_pp, tree_low_cst (max, 0) + 1);
 	  else if (TREE_CODE (max) == MINUS_EXPR)
 	    dump_expr (TREE_OPERAND (max, 0),
@@ -834,6 +880,7 @@ dump_type_suffix (tree t, int flags)
     case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case TYPEOF_TYPE:
+    case UNDERLYING_TYPE:
     case DECLTYPE_TYPE:
     case TYPE_PACK_EXPANSION:
     case FIXED_POINT_TYPE:
@@ -933,6 +980,18 @@ dump_decl (tree t, int flags)
 	  dump_type (TREE_TYPE (t), flags);
 	  break;
 	}
+      if (TYPE_DECL_ALIAS_P (t)
+	  && (flags & TFF_DECL_SPECIFIERS
+	      || flags & TFF_CLASS_KEY_OR_ENUM))
+	{
+	  pp_cxx_ws_string (cxx_pp, "using");
+	  dump_decl (DECL_NAME (t), flags);
+	  pp_cxx_whitespace (cxx_pp);
+	  pp_cxx_ws_string (cxx_pp, "=");
+	  pp_cxx_whitespace (cxx_pp);
+	  dump_type (DECL_ORIGINAL_TYPE (t), flags);
+	  break;
+	}
       if ((flags & TFF_DECL_SPECIFIERS)
 	  && !DECL_SELF_REFERENCE_P (t))
 	pp_cxx_ws_string (cxx_pp, "typedef");
@@ -969,7 +1028,12 @@ dump_decl (tree t, int flags)
 	    dump_scope (CP_DECL_CONTEXT (t), flags);
 	  flags &= ~TFF_UNQUALIFIED_NAME;
 	  if (DECL_NAME (t) == NULL_TREE)
-	    pp_cxx_ws_string (cxx_pp, M_("{anonymous}"));
+            {
+              if (!(pp_c_base (cxx_pp)->flags & pp_c_flag_gnu_v3))
+                pp_cxx_ws_string (cxx_pp, M_("{anonymous}"));
+              else
+                pp_cxx_ws_string (cxx_pp, M_("(anonymous namespace)"));
+            }
 	  else
 	    pp_cxx_tree_identifier (cxx_pp, DECL_NAME (t));
 	}
@@ -978,7 +1042,7 @@ dump_decl (tree t, int flags)
     case SCOPE_REF:
       dump_type (TREE_OPERAND (t, 0), flags);
       pp_string (cxx_pp, "::");
-      dump_decl (TREE_OPERAND (t, 1), flags|TFF_UNQUALIFIED_NAME);
+      dump_decl (TREE_OPERAND (t, 1), TFF_UNQUALIFIED_NAME);
       break;
 
     case ARRAY_REF:
@@ -1059,14 +1123,17 @@ dump_decl (tree t, int flags)
     case TEMPLATE_ID_EXPR:
       {
 	tree name = TREE_OPERAND (t, 0);
+	tree args = TREE_OPERAND (t, 1);
 
 	if (is_overloaded_fn (name))
 	  name = DECL_NAME (get_first_fn (name));
 	dump_decl (name, flags);
 	pp_cxx_begin_template_argument_list (cxx_pp);
-	if (TREE_OPERAND (t, 1))
-	  dump_template_argument_list (TREE_OPERAND (t, 1), flags);
-	pp_cxx_end_template_argument_list (cxx_pp);
+	if (args == error_mark_node)
+	  pp_string (cxx_pp, M_("<template arguments error>"));
+	else if (args)
+	  dump_template_argument_list (args, flags);
+      	pp_cxx_end_template_argument_list (cxx_pp);
       }
       break;
 
@@ -1177,13 +1244,14 @@ dump_template_decl (tree t, int flags)
 	}
     }
 
-  if (DECL_TEMPLATE_RESULT (t)
-      && TREE_CODE (DECL_TEMPLATE_RESULT (t)) == TYPE_DECL)
+  if (DECL_CLASS_TEMPLATE_P (t))
     dump_type (TREE_TYPE (t),
 	       ((flags & ~TFF_CLASS_KEY_OR_ENUM) | TFF_TEMPLATE_NAME
 		| (flags & TFF_DECL_SPECIFIERS ? TFF_CLASS_KEY_OR_ENUM : 0)));
   else if (DECL_TEMPLATE_RESULT (t)
-           && TREE_CODE (DECL_TEMPLATE_RESULT (t)) == VAR_DECL)
+           && (TREE_CODE (DECL_TEMPLATE_RESULT (t)) == VAR_DECL
+	       /* Alias template.  */
+	       || DECL_TYPE_TEMPLATE_P (t)))
     dump_decl (DECL_TEMPLATE_RESULT (t), flags | TFF_TEMPLATE_NAME);
   else
     {
@@ -1205,17 +1273,17 @@ dump_template_decl (tree t, int flags)
 }
 
 /* find_typenames looks through the type of the function template T
-   and returns a VEC containing any typedefs, decltypes or TYPENAME_TYPEs
+   and returns a vec containing any typedefs, decltypes or TYPENAME_TYPEs
    it finds.  */
 
 struct find_typenames_t
 {
   struct pointer_set_t *p_set;
-  VEC (tree,gc) *typenames;
+  vec<tree, va_gc> *typenames;
 };
 
 static tree
-find_typenames_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
+find_typenames_r (tree *tp, int * /*walk_subtrees*/, void *data)
 {
   struct find_typenames_t *d = (struct find_typenames_t *)data;
   tree mv = NULL_TREE;
@@ -1229,7 +1297,7 @@ find_typenames_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
     mv = TYPE_MAIN_VARIANT (*tp);
 
   if (mv && (mv == *tp || !pointer_set_insert (d->p_set, mv)))
-    VEC_safe_push (tree, gc, d->typenames, mv);
+    vec_safe_push (d->typenames, mv);
 
   /* Search into class template arguments, which cp_walk_subtrees
      doesn't do.  */
@@ -1240,7 +1308,7 @@ find_typenames_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
   return NULL_TREE;
 }
 
-static VEC(tree,gc) *
+static vec<tree, va_gc> *
 find_typenames (tree t)
 {
   struct find_typenames_t ft;
@@ -1268,7 +1336,7 @@ dump_function_decl (tree t, int flags)
   int show_return = flags & TFF_RETURN_TYPE || flags & TFF_DECL_SPECIFIERS;
   int do_outer_scope = ! (flags & TFF_UNQUALIFIED_NAME);
   tree exceptions;
-  VEC(tree,gc) *typenames = NULL;
+  vec<tree, va_gc> *typenames = NULL;
 
   if (DECL_NAME (t) && LAMBDA_FUNCTION_P (t))
     {
@@ -1278,7 +1346,7 @@ dump_function_decl (tree t, int flags)
       return;
     }
 
-  flags &= ~TFF_UNQUALIFIED_NAME;
+  flags &= ~(TFF_UNQUALIFIED_NAME | TFF_TEMPLATE_NAME);
   if (TREE_CODE (t) == TEMPLATE_DECL)
     t = DECL_TEMPLATE_RESULT (t);
 
@@ -1349,8 +1417,7 @@ dump_function_decl (tree t, int flags)
       if (TREE_CODE (fntype) == METHOD_TYPE)
 	{
 	  pp_base (cxx_pp)->padding = pp_before;
-	  pp_cxx_cv_qualifier_seq
-	    (cxx_pp, TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fntype))));
+	  pp_cxx_cv_qualifier_seq (cxx_pp, class_of_this_parm (fntype));
 	}
 
       if (flags & TFF_EXCEPTION_SPECIFICATION)
@@ -1361,17 +1428,37 @@ dump_function_decl (tree t, int flags)
 
       if (show_return)
 	dump_type_suffix (TREE_TYPE (fntype), flags);
-    }
 
-  /* If T is a template instantiation, dump the parameter binding.  */
-  if (template_parms != NULL_TREE && template_args != NULL_TREE)
+      /* If T is a template instantiation, dump the parameter binding.  */
+      if (template_parms != NULL_TREE && template_args != NULL_TREE)
+	{
+	  pp_cxx_whitespace (cxx_pp);
+	  pp_cxx_left_bracket (cxx_pp);
+	  pp_cxx_ws_string (cxx_pp, M_("with"));
+	  pp_cxx_whitespace (cxx_pp);
+	  dump_template_bindings (template_parms, template_args, typenames);
+	  pp_cxx_right_bracket (cxx_pp);
+	}
+    }
+  else if (template_args)
     {
-      pp_cxx_whitespace (cxx_pp);
-      pp_cxx_left_bracket (cxx_pp);
-      pp_cxx_ws_string (cxx_pp, M_("with"));
-      pp_cxx_whitespace (cxx_pp);
-      dump_template_bindings (template_parms, template_args, typenames);
-      pp_cxx_right_bracket (cxx_pp);
+      bool need_comma = false;
+      int i;
+      pp_cxx_begin_template_argument_list (cxx_pp);
+      template_args = INNERMOST_TEMPLATE_ARGS (template_args);
+      for (i = 0; i < TREE_VEC_LENGTH (template_args); ++i)
+	{
+	  tree arg = TREE_VEC_ELT (template_args, i);
+	  if (need_comma)
+	    pp_separate_with_comma (cxx_pp);
+	  if (ARGUMENT_PACK_P (arg))
+	    pp_cxx_left_brace (cxx_pp);
+	  dump_template_argument (arg, TFF_PLAIN_IDENTIFIER);
+	  if (ARGUMENT_PACK_P (arg))
+	    pp_cxx_right_brace (cxx_pp);
+	  need_comma = true;
+	}
+      pp_cxx_end_template_argument_list (cxx_pp);
     }
 }
 
@@ -1422,7 +1509,10 @@ dump_exception_spec (tree t, int flags)
       pp_cxx_ws_string (cxx_pp, "noexcept");
       pp_cxx_whitespace (cxx_pp);
       pp_cxx_left_paren (cxx_pp);
-      dump_expr (TREE_PURPOSE (t), flags);
+      if (DEFERRED_NOEXCEPT_SPEC_P (t))
+	pp_cxx_ws_string (cxx_pp, "<uninstantiated>");
+      else
+	dump_expr (TREE_PURPOSE (t), flags);
       pp_cxx_right_paren (cxx_pp);
     }
   else if (t)
@@ -1471,6 +1561,8 @@ dump_function_name (tree t, int flags)
     {
       if (LAMBDA_TYPE_P (DECL_CONTEXT (t)))
 	name = get_identifier ("<lambda>");
+      else if (TYPE_ANONYMOUS_P (DECL_CONTEXT (t)))
+	name = get_identifier ("<constructor>");
       else
 	name = constructor_name (DECL_CONTEXT (t));
     }
@@ -1492,6 +1584,8 @@ dump_function_name (tree t, int flags)
       dump_type (TREE_TYPE (TREE_TYPE (t)), flags);
     }
   else if (name && IDENTIFIER_OPNAME_P (name))
+    pp_cxx_tree_identifier (cxx_pp, name);
+  else if (name && UDLIT_OPER_P (name))
     pp_cxx_tree_identifier (cxx_pp, name);
   else
     dump_decl (name, flags);
@@ -1641,7 +1735,7 @@ dump_expr_list (tree l, int flags)
 /* Print out a vector of initializers (subr of dump_expr).  */
 
 static void
-dump_expr_init_vec (VEC(constructor_elt,gc) *v, int flags)
+dump_expr_init_vec (vec<constructor_elt, va_gc> *v, int flags)
 {
   unsigned HOST_WIDE_INT idx;
   tree value;
@@ -1649,7 +1743,7 @@ dump_expr_init_vec (VEC(constructor_elt,gc) *v, int flags)
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
     {
       dump_expr (value, flags | TFF_EXPR_IN_PARENS);
-      if (idx != VEC_length (constructor_elt, v) - 1)
+      if (idx != v->length () - 1)
 	pp_separate_with_comma (cxx_pp);
     }
 }
@@ -1703,7 +1797,17 @@ dump_expr (tree t, int flags)
     case OVERLOAD:
     case TYPE_DECL:
     case IDENTIFIER_NODE:
-      dump_decl (t, (flags & ~TFF_DECL_SPECIFIERS) | TFF_NO_FUNCTION_ARGUMENTS);
+      dump_decl (t, ((flags & ~(TFF_DECL_SPECIFIERS|TFF_RETURN_TYPE
+				|TFF_TEMPLATE_HEADER))
+		     | TFF_NO_FUNCTION_ARGUMENTS));
+      break;
+
+    case SSA_NAME:
+      if (SSA_NAME_VAR (t)
+	  && !DECL_ARTIFICIAL (SSA_NAME_VAR (t)))
+	dump_expr (SSA_NAME_VAR (t), flags);
+      else
+	pp_cxx_ws_string (cxx_pp, M_("<unknown>"));
       break;
 
     case INTEGER_CST:
@@ -1711,6 +1815,10 @@ dump_expr (tree t, int flags)
     case STRING_CST:
     case COMPLEX_CST:
       pp_constant (cxx_pp, t);
+      break;
+
+    case USERDEF_LITERAL:
+      pp_cxx_userdef_literal (cxx_pp, t);
       break;
 
     case THROW_EXPR:
@@ -1826,6 +1934,10 @@ dump_expr (tree t, int flags)
 
     case INIT_EXPR:
     case MODIFY_EXPR:
+      dump_binary_op (assignment_operator_name_info[(int)NOP_EXPR].name,
+		      t, flags);
+      break;
+
     case PLUS_EXPR:
     case MINUS_EXPR:
     case MULT_EXPR:
@@ -1874,7 +1986,10 @@ dump_expr (tree t, int flags)
 		    && strcmp (IDENTIFIER_POINTER (DECL_NAME (ob)), "this")))
 	      {
 		dump_expr (ob, flags | TFF_EXPR_IN_PARENS);
-		pp_cxx_arrow (cxx_pp);
+		if (TREE_CODE (TREE_TYPE (ob)) == REFERENCE_TYPE)
+		  pp_cxx_dot (cxx_pp);
+		else
+		  pp_cxx_arrow (cxx_pp);
 	      }
 	  }
 	else
@@ -2002,6 +2117,7 @@ dump_expr (tree t, int flags)
       break;
 
     CASE_CONVERT:
+    case IMPLICIT_CONV_EXPR:
     case VIEW_CONVERT_EXPR:
       {
 	tree op = TREE_OPERAND (t, 0);
@@ -2081,6 +2197,8 @@ dump_expr (tree t, int flags)
 		}
 	    }
 	}
+      if (TREE_TYPE (t) && LAMBDA_TYPE_P (TREE_TYPE (t)))
+	pp_string (cxx_pp, "<lambda closure object>");
       if (TREE_TYPE (t) && EMPTY_CONSTRUCTOR_P (t))
 	{
 	  dump_type (TREE_TYPE (t), 0);
@@ -2089,6 +2207,8 @@ dump_expr (tree t, int flags)
 	}
       else
 	{
+	  if (!BRACE_ENCLOSED_INITIALIZER_P (t))
+	    dump_type (TREE_TYPE (t), 0);
 	  pp_cxx_left_brace (cxx_pp);
 	  dump_expr_init_vec (CONSTRUCTOR_ELTS (t), flags);
 	  pp_cxx_right_brace (cxx_pp);
@@ -2190,7 +2310,9 @@ dump_expr (tree t, int flags)
 	}
       pp_cxx_whitespace (cxx_pp);
       pp_cxx_left_paren (cxx_pp);
-      if (TYPE_P (TREE_OPERAND (t, 0)))
+      if (TREE_CODE (t) == SIZEOF_EXPR && SIZEOF_EXPR_TYPE_P (t))
+	dump_type (TREE_TYPE (TREE_OPERAND (t, 0)), flags);
+      else if (TYPE_P (TREE_OPERAND (t, 0)))
 	dump_type (TREE_OPERAND (t, 0), flags);
       else
 	dump_expr (TREE_OPERAND (t, 0), flags);
@@ -2265,7 +2387,7 @@ dump_expr (tree t, int flags)
       break;
 
     case BASELINK:
-      dump_expr (get_first_fn (t), flags & ~TFF_EXPR_IN_PARENS);
+      dump_expr (BASELINK_FUNCTIONS (t), flags & ~TFF_EXPR_IN_PARENS);
       break;
 
     case EMPTY_CLASS_EXPR:
@@ -2301,6 +2423,7 @@ dump_expr (tree t, int flags)
       break;
 
     case TEMPLATE_TYPE_PARM:
+    case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
       dump_type (t, flags);
       break;
@@ -2441,6 +2564,21 @@ expr_as_string (tree decl, int flags)
   return pp_formatted_text (cxx_pp);
 }
 
+/* Wrap decl_as_string with options appropriate for dwarf.  */
+
+const char *
+decl_as_dwarf_string (tree decl, int flags)
+{
+  const char *name;
+  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
+     here will be adequate to get the desired behaviour.  */
+  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
+  name = decl_as_string (decl, flags);
+  /* Subsequent calls to the pretty printer shouldn't use this style.  */
+  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
+  return name;
+}
+
 const char *
 decl_as_string (tree decl, int flags)
 {
@@ -2456,6 +2594,21 @@ decl_as_string_translate (tree decl, int flags)
   reinit_cxx_pp ();
   dump_decl (decl, flags);
   return pp_formatted_text (cxx_pp);
+}
+
+/* Wrap lang_decl_name with options appropriate for dwarf.  */
+
+const char *
+lang_decl_dwarf_name (tree decl, int v, bool translate)
+{
+  const char *name;
+  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
+     here will be adequate to get the desired behaviour.  */
+  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
+  name = lang_decl_name (decl, v, translate);
+  /* Subsequent calls to the pretty printer shouldn't use this style.  */
+  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
+  return name;
 }
 
 /* Generate the three forms of printable names for cxx_printable_name.  */
@@ -2481,6 +2634,9 @@ lang_decl_name (tree decl, int v, bool translate)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     dump_function_name (decl, TFF_PLAIN_IDENTIFIER);
+  else if ((DECL_NAME (decl) == NULL_TREE)
+           && TREE_CODE (decl) == NAMESPACE_DECL)
+    dump_decl (decl, TFF_PLAIN_IDENTIFIER | TFF_UNQUALIFIED_NAME);
   else
     dump_decl (DECL_NAME (decl), TFF_PLAIN_IDENTIFIER);
 
@@ -2610,6 +2766,29 @@ type_to_string (tree typ, int verbose)
 
   reinit_cxx_pp ();
   dump_type (typ, flags);
+  /* If we're printing a type that involves typedefs, also print the
+     stripped version.  But sometimes the stripped version looks
+     exactly the same, so we don't want it after all.  To avoid printing
+     it in that case, we play ugly obstack games.  */
+  if (typ && TYPE_P (typ) && typ != TYPE_CANONICAL (typ)
+      && !uses_template_parms (typ))
+    {
+      int aka_start; char *p;
+      struct obstack *ob = pp_base (cxx_pp)->buffer->obstack;
+      /* Remember the end of the initial dump.  */
+      int len = obstack_object_size (ob);
+      tree aka = strip_typedefs (typ);
+      pp_string (cxx_pp, " {aka");
+      pp_cxx_whitespace (cxx_pp);
+      /* And remember the start of the aka dump.  */
+      aka_start = obstack_object_size (ob);
+      dump_type (aka, flags);
+      pp_character (cxx_pp, '}');
+      p = (char*)obstack_base (ob);
+      /* If they are identical, cut off the aka with a NUL.  */
+      if (memcmp (p, p+aka_start, len) == 0)
+	p[len] = '\0';
+    }
   return pp_formatted_text (cxx_pp);
 }
 
@@ -2646,6 +2825,32 @@ args_to_string (tree p, int verbose)
   return pp_formatted_text (cxx_pp);
 }
 
+/* Pretty-print a deduction substitution (from deduction_tsubst_fntype).  P
+   is a TREE_LIST with purpose the TEMPLATE_DECL, value the template
+   arguments.  */
+
+static const char *
+subst_to_string (tree p)
+{
+  tree decl = TREE_PURPOSE (p);
+  tree targs = TREE_VALUE (p);
+  tree tparms = DECL_TEMPLATE_PARMS (decl);
+  int flags = TFF_DECL_SPECIFIERS|TFF_TEMPLATE_HEADER;
+
+  if (p == NULL_TREE)
+    return "";
+
+  reinit_cxx_pp ();
+  dump_template_decl (TREE_PURPOSE (p), flags);
+  pp_cxx_whitespace (cxx_pp);
+  pp_cxx_left_bracket (cxx_pp);
+  pp_cxx_ws_string (cxx_pp, M_("with"));
+  pp_cxx_whitespace (cxx_pp);
+  dump_template_bindings (tparms, targs, NULL);
+  pp_cxx_right_bracket (cxx_pp);
+  return pp_formatted_text (cxx_pp);
+}
+
 static const char *
 cv_to_string (tree p, int v)
 {
@@ -2669,7 +2874,7 @@ static void
 cp_diagnostic_starter (diagnostic_context *context,
 		       diagnostic_info *diagnostic)
 {
-  diagnostic_report_current_module (context);
+  diagnostic_report_current_module (context, diagnostic->location);
   cp_print_error_function (context, diagnostic);
   maybe_print_instantiation_context (context);
   maybe_print_constexpr_context (context);
@@ -2679,8 +2884,9 @@ cp_diagnostic_starter (diagnostic_context *context,
 
 static void
 cp_diagnostic_finalizer (diagnostic_context *context,
-			 diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
+			 diagnostic_info *diagnostic)
 {
+  virt_loc_aware_diagnostic_finalizer (context, diagnostic);
   pp_base_destroy_prefix (context->printer);
 }
 
@@ -2690,6 +2896,10 @@ static void
 cp_print_error_function (diagnostic_context *context,
 			 diagnostic_info *diagnostic)
 {
+  /* If we are in an instantiation context, current_function_decl is likely
+     to be wrong, so just rely on print_instantiation_full_context.  */
+  if (current_instantiation ())
+    return;
   if (diagnostic_last_function_changed (context, diagnostic))
     {
       const char *old_prefix = context->printer->prefix;
@@ -2833,26 +3043,15 @@ print_instantiation_full_context (diagnostic_context *context)
 
   if (p)
     {
-      if (current_function_decl != p->decl
-	  && current_function_decl != NULL_TREE)
-	/* We can get here during the processing of some synthesized
-	   method.  Then, P->DECL will be the function that's causing
-	   the synthesis.  */
-	;
-      else
-	{
-	  if (current_function_decl == p->decl)
-	    /* Avoid redundancy with the "In function" line.  */;
-	  else
-	    pp_verbatim (context->printer,
-			 _("%s: In instantiation of %qs:\n"),
-			 LOCATION_FILE (location),
-			 decl_as_string_translate (p->decl,
-						   TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE));
+      pp_verbatim (context->printer,
+		   TREE_CODE (p->decl) == TREE_LIST
+		   ? _("%s: In substitution of %qS:\n")
+		   : _("%s: In instantiation of %q#D:\n"),
+		   LOCATION_FILE (location),
+		   p->decl);
 
-	  location = p->locus;
-	  p = p->next;
-	}
+      location = p->locus;
+      p = p->next;
     }
 
   print_instantiation_partial_context (context, p, location);
@@ -2869,38 +3068,34 @@ print_instantiation_partial_context_line (diagnostic_context *context,
   expanded_location xloc;
   xloc = expand_location (loc);
 
-  if (t != NULL) 
+  if (context->show_column)
+    pp_verbatim (context->printer, _("%s:%d:%d:   "),
+		 xloc.file, xloc.line, xloc.column);
+  else
+    pp_verbatim (context->printer, _("%s:%d:   "),
+		 xloc.file, xloc.line);
+
+  if (t != NULL)
     {
-      const char *str;
-      str = decl_as_string_translate (t->decl,
-				      TFF_DECL_SPECIFIERS | TFF_RETURN_TYPE);
-      if (context->show_column)
+      if (TREE_CODE (t->decl) == TREE_LIST)
 	pp_verbatim (context->printer,
 		     recursive_p
-		     ? _("%s:%d:%d:   recursively instantiated from %qs\n")
-		     : _("%s:%d:%d:   instantiated from %qs\n"),
-		     xloc.file, xloc.line, xloc.column, str);
+		     ? _("recursively required by substitution of %qS\n")
+		     : _("required by substitution of %qS\n"),
+		     t->decl);
       else
 	pp_verbatim (context->printer,
 		     recursive_p
-		     ? _("%s:%d:   recursively instantiated from %qs\n")
-		     : _("%s:%d:   recursively instantiated from %qs\n"),
-		     xloc.file, xloc.line, str);
+		     ? _("recursively required from %q#D\n")
+		     : _("required from %q#D\n"),
+		     t->decl);
     }
   else
     {
-      if (context->show_column)
-	pp_verbatim (context->printer, 
-		     recursive_p
-		     ? _("%s:%d:%d:   recursively instantiated from here")
-		     : _("%s:%d:%d:   instantiated from here"),
-		     xloc.file, xloc.line, xloc.column);
-      else
-	pp_verbatim (context->printer,
-		     recursive_p
-		     ? _("%s:%d:   recursively instantiated from here")
-		     : _("%s:%d:   instantiated from here"),
-		     xloc.file, xloc.line);
+      pp_verbatim (context->printer,
+		   recursive_p
+		   ? _("recursively required from here")
+		   : _("required from here"));
     }
 }
 
@@ -2924,10 +3119,20 @@ print_instantiation_partial_context (diagnostic_context *context,
 
   t = t0;
 
-  if (n_total >= 12) 
+  if (template_backtrace_limit
+      && n_total > template_backtrace_limit) 
     {
-      int skip = n_total - 10;
-      for (n = 0; n < 5; n++)
+      int skip = n_total - template_backtrace_limit;
+      int head = template_backtrace_limit / 2;
+
+      /* Avoid skipping just 1.  If so, skip 2.  */
+      if (skip == 1)
+       {
+         skip = 2;
+         head = (template_backtrace_limit - 1) / 2;
+       }
+     
+      for (n = 0; n < head; n++)
 	{
 	  gcc_assert (t != NULL);
 	  if (loc != t->locus)
@@ -2936,17 +3141,19 @@ print_instantiation_partial_context (diagnostic_context *context,
 	  loc = t->locus;
 	  t = t->next;
 	}
-      if (t != NULL && skip > 1)
+      if (t != NULL && skip > 0)
 	{
 	  expanded_location xloc;
 	  xloc = expand_location (loc);
 	  if (context->show_column)
 	    pp_verbatim (context->printer,
-			 _("%s:%d:%d:   [ skipping %d instantiation contexts ]\n"),
+			 _("%s:%d:%d:   [ skipping %d instantiation contexts, "
+			   "use -ftemplate-backtrace-limit=0 to disable ]\n"),
 			 xloc.file, xloc.line, xloc.column, skip);
 	  else
 	    pp_verbatim (context->printer,
-			 _("%s:%d:   [ skipping %d instantiation contexts ]\n"),
+			 _("%s:%d:   [ skipping %d instantiation contexts, "
+			   "use -ftemplate-backtrace-limit=0 to disable ]\n"),
 			 xloc.file, xloc.line, skip);
 	  
 	  do {
@@ -2990,6 +3197,7 @@ print_instantiation_context (void)
 {
   print_instantiation_partial_context
     (global_dc, current_instantiation (), input_location);
+  pp_base_newline (global_dc->printer);
   diagnostic_flush_buffer (global_dc);
 }
 
@@ -2998,11 +3206,11 @@ print_instantiation_context (void)
 void
 maybe_print_constexpr_context (diagnostic_context *context)
 {
-  VEC(tree,heap) *call_stack = cx_error_context ();
+  vec<tree> call_stack = cx_error_context ();
   unsigned ix;
   tree t;
 
-  FOR_EACH_VEC_ELT (tree, call_stack, ix, t)
+  FOR_EACH_VEC_ELT (call_stack, ix, t)
     {
       expanded_location xloc = expand_location (EXPR_LOCATION (t));
       const char *s = expr_as_string (t, 0);
@@ -3074,6 +3282,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'O': result = op_to_string (next_tcode);		break;
     case 'P': result = parm_to_string (next_int);		break;
     case 'Q': result = assop_to_string (next_tcode);		break;
+    case 'S': result = subst_to_string (next_tree);		break;
     case 'T': result = type_to_string (next_tree, verbose);	break;
     case 'V': result = cv_to_string (next_tree, verbose);	break;
 
@@ -3108,43 +3317,73 @@ maybe_warn_cpp0x (cpp0x_warn_str str)
       case CPP0X_INITIALIZER_LISTS:
 	pedwarn (input_location, 0, 
 		 "extended initializer lists "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_EXPLICIT_CONVERSION:
 	pedwarn (input_location, 0,
 		 "explicit conversion operators "
-		 "only available with -std=c++0x or -std=gnu++0x"); 
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_VARIADIC_TEMPLATES:
 	pedwarn (input_location, 0,
 		 "variadic templates "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_LAMBDA_EXPR:
 	pedwarn (input_location, 0,
 		 "lambda expressions "
-		  "only available with -std=c++0x or -std=gnu++0x");
+		  "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_AUTO:
 	pedwarn (input_location, 0,
-		 "C++0x auto only available with -std=c++0x or -std=gnu++0x");
+		 "C++0x auto only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_SCOPED_ENUMS:
 	pedwarn (input_location, 0,
-		 "scoped enums only available with -std=c++0x or -std=gnu++0x");
+		 "scoped enums only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_DEFAULTED_DELETED:
 	pedwarn (input_location, 0,
 		 "defaulted and deleted functions "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_INLINE_NAMESPACES:
-	pedwarn (input_location, OPT_pedantic,
+	pedwarn (input_location, OPT_Wpedantic,
 		 "inline namespaces "
-		 "only available with -std=c++0x or -std=gnu++0x");
-	break;	
+		 "only available with -std=c++11 or -std=gnu++11");
+	break;
+      case CPP0X_OVERRIDE_CONTROLS:
+	pedwarn (input_location, 0,
+		 "override controls (override/final) "
+		 "only available with -std=c++11 or -std=gnu++11");
+        break;
+      case CPP0X_NSDMI:
+	pedwarn (input_location, 0,
+		 "non-static data member initializers "
+		 "only available with -std=c++11 or -std=gnu++11");
+        break;
+      case CPP0X_USER_DEFINED_LITERALS:
+	pedwarn (input_location, 0,
+		 "user-defined literals "
+		 "only available with -std=c++11 or -std=gnu++11");
+	break;
+      case CPP0X_DELEGATING_CTORS:
+	pedwarn (input_location, 0,
+		 "delegating constructors "
+		 "only available with -std=c++11 or -std=gnu++11");
+        break;
+      case CPP0X_INHERITING_CTORS:
+	pedwarn (input_location, 0,
+		 "inheriting constructors "
+		 "only available with -std=c++11 or -std=gnu++11");
+        break;
+      case CPP0X_ATTRIBUTES:
+	pedwarn (input_location, 0,
+		 "c++11 attributes "
+		 "only available with -std=c++11 or -std=gnu++11");
+	break;
       default:
-	gcc_unreachable();
+	gcc_unreachable ();
       }
 }
 
@@ -3165,13 +3404,15 @@ pedwarn_cxx98 (location_t location, int opt, const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;
+  bool ret;
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, location,
 		       (cxx_dialect == cxx98) ? DK_PEDWARN : DK_WARNING);
   diagnostic.option_index = opt;
+  ret = report_diagnostic (&diagnostic);
   va_end (ap);
-  return report_diagnostic (&diagnostic);
+  return ret;
 }
 
 /* Issue a diagnostic that NAME cannot be found in SCOPE.  DECL is what

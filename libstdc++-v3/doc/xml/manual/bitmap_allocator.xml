@@ -1,15 +1,11 @@
-<section xmlns="http://docbook.org/ns/docbook" version="5.0" 
+<chapter xmlns="http://docbook.org/ns/docbook" version="5.0" 
 	 xml:id="manual.ext.allocator.bitmap" xreflabel="bitmap_allocator">
 <?dbhtml filename="bitmap_allocator.html"?>
 
-<info><title>bitmap_allocator</title>
+<info><title>The bitmap_allocator</title>
   <keywordset>
-    <keyword>
-      ISO C++
-    </keyword>
-    <keyword>
-      allocator
-    </keyword>
+    <keyword>ISO C++</keyword>
+    <keyword>allocator</keyword>
   </keywordset>
 </info>
 
@@ -23,7 +19,7 @@
 
   <para>
     As this name suggests, this allocator uses a bit-map to keep track
-    of the used and unused memory locations for it's book-keeping
+    of the used and unused memory locations for its book-keeping
     purposes.
   </para>
   <para>
@@ -57,6 +53,7 @@
 </section>
 
 <section xml:id="allocator.bitmap.impl"><info><title>Implementation</title></info>
+<?dbhtml filename="bitmap_allocator_impl.html"?>
 
 
 <section xml:id="bitmap.impl.free_list_store" xreflabel="Free List Store"><info><title>Free List Store</title></info>
@@ -84,7 +81,7 @@
     free list if it exists.
   </para>
   <para>
-    Suppose the free list size has reached it's threshold, then the
+    Suppose the free list size has reached its threshold, then the
     largest block from among those in the list and the new block will
     be selected and given back to the OS. This is done because it
     reduces external fragmentation, and allows the OS to use the
@@ -509,7 +506,7 @@ Block a bitmap as well?
 
   <orderedlist>
   <listitem><para>Constant time access for the bitmap themselves, since no kind of
-look up will be needed to find the correct bitmap list or it's
+look up will be needed to find the correct bitmap list or its
 equivalent.</para></listitem>
   <listitem><para>And also this would preserve the cache as far as possible.</para></listitem>
   </orderedlist>
@@ -558,4 +555,4 @@ equivalent.</para></listitem>
 
 </section>
 
-</section>
+</chapter>

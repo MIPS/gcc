@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC,
    for SPARC running in an embedded environment using the ELF file format.
-   Copyright (C) 2005, 2007, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2005-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -17,9 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
-
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (sparc-elf)")
 
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
@@ -38,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+  "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
    crtend.o%s crtn.o%s"
 
 /* Don't set the target flags, this is done by the linker script */

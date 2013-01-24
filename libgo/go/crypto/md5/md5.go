@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// This package implements the MD5 hash algorithm as defined in RFC 1321.
+// Package md5 implements the MD5 hash algorithm as defined in RFC 1321.
 package md5
 
 import (
 	"crypto"
 	"hash"
-	"os"
 )
 
 func init() {
@@ -18,27 +17,30 @@ func init() {
 // The size of an MD5 checksum in bytes.
 const Size = 16
 
+// The blocksize of MD5 in bytes.
+const BlockSize = 64
+
 const (
-	_Chunk = 64
-	_Init0 = 0x67452301
-	_Init1 = 0xEFCDAB89
-	_Init2 = 0x98BADCFE
-	_Init3 = 0x10325476
+	chunk = 64
+	init0 = 0x67452301
+	init1 = 0xEFCDAB89
+	init2 = 0x98BADCFE
+	init3 = 0x10325476
 )
 
 // digest represents the partial evaluation of a checksum.
 type digest struct {
 	s   [4]uint32
-	x   [_Chunk]byte
+	x   [chunk]byte
 	nx  int
 	len uint64
 }
 
 func (d *digest) Reset() {
-	d.s[0] = _Init0
-	d.s[1] = _Init1
-	d.s[2] = _Init2
-	d.s[3] = _Init3
+	d.s[0] = init0
+	d.s[1] = init1
+	d.s[2] = init2
+	d.s[3] = init3
 	d.nx = 0
 	d.len = 0
 }
@@ -52,36 +54,40 @@ func New() hash.Hash {
 
 func (d *digest) Size() int { return Size }
 
-func (d *digest) Write(p []byte) (nn int, err os.Error) {
+func (d *digest) BlockSize() int { return BlockSize }
+
+func (d *digest) Write(p []byte) (nn int, err error) {
 	nn = len(p)
 	d.len += uint64(nn)
 	if d.nx > 0 {
 		n := len(p)
-		if n > _Chunk-d.nx {
-			n = _Chunk - d.nx
+		if n > chunk-d.nx {
+			n = chunk - d.nx
 		}
 		for i := 0; i < n; i++ {
 			d.x[d.nx+i] = p[i]
 		}
 		d.nx += n
-		if d.nx == _Chunk {
-			_Block(d, d.x[0:])
+		if d.nx == chunk {
+			block(d, d.x[0:chunk])
 			d.nx = 0
 		}
 		p = p[n:]
 	}
-	n := _Block(d, p)
-	p = p[n:]
+	if len(p) >= chunk {
+		n := len(p) &^ (chunk - 1)
+		block(d, p[:n])
+		p = p[n:]
+	}
 	if len(p) > 0 {
 		d.nx = copy(d.x[:], p)
 	}
 	return
 }
 
-func (d0 *digest) Sum() []byte {
+func (d0 *digest) Sum(in []byte) []byte {
 	// Make a copy of d0 so that caller can keep writing and summing.
-	d := new(digest)
-	*d = *d0
+	d := *d0
 
 	// Padding.  Add a 1 bit and 0 bits until 56 bytes mod 64.
 	len := d.len
@@ -104,14 +110,13 @@ func (d0 *digest) Sum() []byte {
 		panic("d.nx != 0")
 	}
 
-	p := make([]byte, 16)
-	j := 0
-	for _, s := range d.s {
-		p[j+0] = byte(s >> 0)
-		p[j+1] = byte(s >> 8)
-		p[j+2] = byte(s >> 16)
-		p[j+3] = byte(s >> 24)
-		j += 4
+	var digest [Size]byte
+	for i, s := range d.s {
+		digest[i*4] = byte(s)
+		digest[i*4+1] = byte(s >> 8)
+		digest[i*4+2] = byte(s >> 16)
+		digest[i*4+3] = byte(s >> 24)
 	}
-	return p
+
+	return append(in, digest[:]...)
 }

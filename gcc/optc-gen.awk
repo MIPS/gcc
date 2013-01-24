@@ -1,5 +1,4 @@
-#  Copyright (C) 2003, 2004, 2007, 2008, 2009, 2010, 2011
-#  Free Software Foundation, Inc.
+#  Copyright (C) 2003-2013 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -21,106 +20,67 @@
 # opt-gather.awk, combines the flags of duplicate options and generates a
 # C file.
 #
-# This program uses functions from opt-functions.awk
+
+# This program uses functions from opt-functions.awk and code from
+# opt-read.awk.
 #
-# Usage: awk -f opt-functions.awk -f optc-gen.awk \
+# Usage: awk -f opt-functions.awk -f opt-read.awk -f optc-gen.awk \
 #            [-v header_name=header.h] < inputfile > options.c
-
-BEGIN {
-	n_opts = 0
-	n_langs = 0
-	n_target_save = 0
-	n_extra_vars = 0
-	n_extra_target_vars = 0
-	n_extra_c_includes = 0
-	n_extra_h_includes = 0
-	n_enums = 0
-	quote = "\042"
-	comma = ","
-	FS=SUBSEP
-	# Default the name of header created from opth-gen.awk to options.h
-	if (header_name == "") header_name="options.h"
-}
-
-# Collect the text and flags of each option into an array
-	{
-		if ($1 == "Language") {
-			langs[n_langs] = $2
-			n_langs++;
-		}
-		else if ($1 == "TargetSave") {
-			# Make sure the declarations are put in source order
-			target_save_decl[n_target_save] = $2
-			n_target_save++
-		}
-		else if ($1 == "Variable") {
-			extra_vars[n_extra_vars] = $2
-			n_extra_vars++
-		}
-		else if ($1 == "TargetVariable") {
-			# Combination of TargetSave and Variable
-			extra_vars[n_extra_vars] = $2
-			n_extra_vars++
-
-			var = $2
-			sub(" *=.*", "", var)
-			orig_var = var
-			name = var
-			type = var
-			sub("^.*[ *]", "", name)
-			sub(" *" name "$", "", type)
-			target_save_decl[n_target_save] = type " x_" name
-			n_target_save++
-
-			extra_target_vars[n_extra_target_vars] = name
-			n_extra_target_vars++;
-		}
-		else if ($1 == "HeaderInclude") {
-			extra_h_includes[n_extra_h_includes++] = $2;
-		}
-		else if ($1 == "SourceInclude")  {
-			extra_c_includes[n_extra_c_includes++] = $2;
-		}
-		else if ($1 == "Enum") {
-			props = $2
-			name = opt_args("Name", props)
-			type = opt_args("Type", props)
-			unknown_error = opt_args("UnknownError", props)
-			enum_names[n_enums] = name
-			enum_type[name] = type
-			enum_index[name] = n_enums
-			enum_unknown_error[name] = unknown_error
-			enum_help[name] = $3
-			n_enums++
-		}
-		else if ($1 == "EnumValue")  {
-			props = $2
-			enum_name = opt_args("Enum", props)
-			string = opt_args("String", props)
-			value = opt_args("Value", props)
-			val_flags = "0"
-			val_flags = val_flags \
-			  test_flag("Canonical", props, "| CL_ENUM_CANONICAL") \
-			  test_flag("DriverOnly", props, "| CL_ENUM_DRIVER_ONLY")
-			enum_data[enum_name] = enum_data[enum_name] \
-			  "  { " quote string quote ", " value ", " val_flags \
-			  " },\n"
-		}
-		else {
-			name = opt_args("Mask", $1)
-			if (name == "") {
-				opts[n_opts]  = $1
-				flags[n_opts] = $2
-				help[n_opts]  = $3
-				for (i = 4; i <= NF; i++)
-					help[n_opts] = help[n_opts] " " $i
-				n_opts++;
-			}
-		}
-	}
 
 # Dump that array of options into a C file.
 END {
+
+# Record first EnabledBy and LangEnabledBy uses.
+n_enabledby = 0;
+for (i = 0; i < n_langs; i++) {
+    n_enabledby_lang[i] = 0;
+}
+for (i = 0; i < n_opts; i++) {
+    enabledby_arg = opt_args("EnabledBy", flags[i]);
+    if (enabledby_arg != "") {
+        n_enabledby_names = split(enabledby_arg, enabledby_names, " && ");
+        if (n_enabledby_names > 2) {
+            print "#error EnabledBy (Wfoo && Wbar && Wbaz) not currently supported"
+        }
+        for (j = 1; j <= n_enabledby_names; j++) {
+            enabledby_name = enabledby_names[j];
+            enabledby_index = opt_numbers[enabledby_name];
+            if (enabledby_index == "") {
+                print "#error Enabledby: " enabledby_name 
+            } else {
+                condition = "";
+                if (n_enabledby_names == 2) {
+                    opt_var_name_1 = search_var_name(enabledby_names[1], opt_numbers, opts, flags, n_opts);
+                    opt_var_name_2 = search_var_name(enabledby_names[2], opt_numbers, opts, flags, n_opts);
+                    if (opt_var_name_1 == "") {
+                        print "#error " enabledby_names[1] " does not have a Var() flag"
+                    }
+                    if (opt_var_name_2 == "") {
+                        print "#error " enabledby_names[2] " does not have a Var() flag"
+                    }
+                    condition = "opts->x_" opt_var_name_1 " && opts->x_" opt_var_name_2;
+                }
+                if (enables[enabledby_name] == "") {
+                    enabledby[n_enabledby] = enabledby_name;
+                    n_enabledby++;
+                }
+                enables[enabledby_name] = enables[enabledby_name] opts[i] ";";
+                enablesif[enabledby_name] = enablesif[enabledby_name] condition ";";
+            }
+        }
+    }
+
+    enabledby_arg = opt_args("LangEnabledBy", flags[i]);
+    if (enabledby_arg != "") {
+        enabledby_langs = nth_arg(0, enabledby_arg);
+        enabledby_name = nth_arg(1, enabledby_arg);
+        enabledby_posarg = nth_arg(2, enabledby_arg);
+	enabledby_negarg = nth_arg(3, enabledby_arg);
+        lang_enabled_by(enabledby_langs, enabledby_name, enabledby_posarg, enabledby_negarg);
+    }
+}
+
+
 print "/* This file is auto-generated by optc-gen.awk.  */"
 print ""
 n_headers = split(header_name, headers, " ")
@@ -128,11 +88,7 @@ for (i = 1; i <= n_headers; i++)
 	print "#include " quote headers[i] quote
 print "#include " quote "opts.h" quote
 print "#include " quote "intl.h" quote
-print ""
-print "#ifndef GCC_DRIVER"
-print "#include " quote "flags.h" quote
-print "#include " quote "target.h" quote
-print "#endif /* GCC_DRIVER */"
+print "#include " quote "insn-attr-common.h" quote
 print ""
 
 if (n_extra_c_includes > 0) {
@@ -192,29 +148,23 @@ print "};"
 print "const unsigned int cl_enums_count = " n_enums ";"
 print ""
 
-have_save = 0;
-if (n_extra_target_vars)
-	have_save = 1
-
 print "const struct gcc_options global_options_init =\n{"
 for (i = 0; i < n_extra_vars; i++) {
 	var = extra_vars[i]
 	init = extra_vars[i]
 	if (var ~ "=" ) {
 		sub(".*= *", "", init)
-		sub(" *=.*", "", var)
-		sub("^.*[ *]", "", var)
-		sub("\\[.*\\]$", "", var)
 	} else {
 		init = "0"
 	}
-	var_seen[var] = 1
-	print "  " init ", /* " var " */"
+	sub(" *=.*", "", var)
+	name = var
+	sub("^.*[ *]", "", name)
+	sub("\\[.*\\]$", "", name)
+	var_seen[name] = 1
+	print "  " init ", /* " name " */"
 }
 for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Save", flags[i]))
-		have_save = 1;
-
 	name = var_name(flags[i]);
 	if (name == "")
 		continue;
@@ -262,14 +212,16 @@ print ""
 
 print "const char * const lang_names[] =\n{"
 for (i = 0; i < n_langs; i++) {
-	macros[i] = "CL_" langs[i]
-	gsub( "[^" alnum "_]", "X", macros[i] )
+        macros[i] = "CL_" lang_sanitized_name(langs[i])
 	s = substr("         ", length (macros[i]))
 	print "  " quote langs[i] quote ","
     }
 
 print "  0\n};\n"
 print "const unsigned int cl_options_count = N_OPTS;\n"
+print "#if (1U << " n_langs ") > CL_MIN_OPTION_CLASS"
+print "  #error the number of languages exceeds the implementation limit"
+print "#endif"
 print "const unsigned int cl_lang_count = " n_langs ";\n"
 
 print "const struct cl_option cl_options[] =\n{"
@@ -286,9 +238,9 @@ for (i = 0; i < n_opts; i++) {
 		if (help[i + 1] == "")
 			help[i + 1] = help[i]
 		else if (help[i] != "" && help[i + 1] != help[i])
-			print "warning: multiple different help strings for " \
-				opts[i] ":\n\t" help[i] "\n\t" help[i + 1] \
-				| "cat 1>&2"
+			print "#error Multiple different help strings for " \
+				opts[i] ":\n\t" help[i] "\n\t" help[i + 1]
+				
 		i++;
 		back_chain[i] = "N_OPTS";
 		indices[opts[i]] = j;
@@ -362,6 +314,11 @@ for (i = 0; i < n_opts; i++) {
 				print "#error Alias with single argument " \
 					"allowing negative form"
 		}
+		if (alias_posarg != "" \
+		    && flag_set_p("NegativeAlias", flags[i])) {
+			print "#error Alias with multiple arguments " \
+				"used with NegativeAlias"
+		}
 
 		alias_opt = opt_enum(alias_opt)
 		if (alias_posarg == "")
@@ -396,375 +353,129 @@ for (i = 0; i < n_opts; i++) {
 	printf(" %d,\n", idx)
 	condition = opt_args("Condition", flags[i])
 	cl_flags = switch_flags(flags[i])
+	cl_bit_fields = switch_bit_fields(flags[i])
+	cl_zero_bit_fields = switch_bit_fields("")
 	if (condition != "")
 		printf("#if %s\n" \
 		       "    %s,\n" \
+		       "    0, %s,\n" \
 		       "#else\n" \
-		       "    CL_DISABLED,\n" \
+		       "    0,\n" \
+		       "    1 /* Disabled.  */, %s,\n" \
 		       "#endif\n",
-		       condition, cl_flags, cl_flags)
+		       condition, cl_flags, cl_bit_fields, cl_zero_bit_fields)
 	else
-		printf("    %s,\n", cl_flags)
+		printf("    %s,\n" \
+		       "    0, %s,\n",
+		       cl_flags, cl_bit_fields)
 	printf("    %s, %s }%s\n", var_ref(opts[i], flags[i]),
 	       var_set(flags[i]), comma)
 }
 
 print "};"
 
-print "";
-print "#if !defined(GCC_DRIVER) && !defined(IN_LIBGCC2) && !defined(IN_TARGET_LIBS)"
-print "";
-print "/* Save optimization variables into a structure.  */"
-print "void";
-print "cl_optimization_save (struct cl_optimization *ptr, struct gcc_options *opts)";
-print "{";
-
-n_opt_char = 2;
-n_opt_short = 0;
-n_opt_int = 0;
-n_opt_enum = 1;
-n_opt_other = 0;
-var_opt_char[0] = "optimize";
-var_opt_char[1] = "optimize_size";
-var_opt_range["optimize"] = "0, 255";
-var_opt_range["optimize_size"] = "0, 255";
-var_opt_enum[0] = "flag_fp_contract_mode";
-
-# Sort by size to mimic how the structure is laid out to be friendlier to the
-# cache.
-
-for (i = 0; i < n_opts; i++) {
-	if (flag_set_p("Optimization", flags[i])) {
-		name = var_name(flags[i])
-		if(name == "")
-			continue;
-
-		if(name in var_opt_seen)
-			continue;
-
-		var_opt_seen[name]++;
-		otype = var_type_struct(flags[i]);
-		if (otype ~ "^((un)?signed +)?int *$")
-			var_opt_int[n_opt_int++] = name;
-
-		else if (otype ~ "^((un)?signed +)?short *$")
-			var_opt_short[n_opt_short++] = name;
-
-		else if (otype ~ ("^enum +[_" alnum "]+ *"))
-			var_opt_enum[n_opt_enum++] = name;
-
-		else if (otype ~ "^((un)?signed +)?char *$") {
-			var_opt_char[n_opt_char++] = name;
-			if (otype ~ "^unsigned +char *$")
-				var_opt_range[name] = "0, 255"
-			else if (otype ~ "^signed +char *$")
-				var_opt_range[name] = "-128, 127"
-		}
-		else
-			var_opt_other[n_opt_other++] = name;
-	}
+print "\n\n"
+print "bool                                                                  "
+print "common_handle_option_auto (struct gcc_options *opts,                  "
+print "                           struct gcc_options *opts_set,              "
+print "                           const struct cl_decoded_option *decoded,   "
+print "                           unsigned int lang_mask, int kind,          "
+print "                           location_t loc,                            "
+print "                           const struct cl_option_handlers *handlers, "
+print "                           diagnostic_context *dc)                    "
+print "{                                                                     "
+print "  size_t scode = decoded->opt_index;                                  "
+print "  int value = decoded->value;                                         "
+print "  enum opt_code code = (enum opt_code) scode;                         "
+print "                                                                      "
+print "  gcc_assert (decoded->canonical_option_num_elements <= 2);           "
+print "                                                                      "
+print "  switch (code)                                                       "
+print "    {                                                                 "
+# Handle EnabledBy
+for (i = 0; i < n_enabledby; i++) {
+    enabledby_name = enabledby[i];
+    print "    case " opt_enum(enabledby_name) ":"
+    n_enables = split(enables[enabledby_name], thisenable, ";");
+    n_enablesif = split(enablesif[enabledby_name], thisenableif, ";");
+    if (n_enables != n_enablesif) {
+        print "#error n_enables != n_enablesif: Something went wrong!"
+    }
+    for (j = 1; j < n_enables; j++) {
+        opt_var_name = var_name(flags[opt_numbers[thisenable[j]]]);
+        if (opt_var_name != "") {
+            condition = "!opts_set->x_" opt_var_name
+            if (thisenableif[j] != "") {
+                condition = condition " && (" thisenableif[j] ")"
+            }
+            print "      if (" condition ")"
+            print "        handle_generated_option (opts, opts_set,"
+            print "                                 " opt_enum(thisenable[j]) ", NULL, value,"
+            print "                                 lang_mask, kind, loc, handlers, dc);"
+        } else {
+            print "#error " thisenable[j] " does not have a Var() flag"
+        }
+    }
+    print "      break;\n"
 }
+print "    default:    "
+print "      break;    "
+print "    }           "
+print "  return true;  "
+print "}               "
 
-for (i = 0; i < n_opt_char; i++) {
-	name = var_opt_char[i];
-	if (var_opt_range[name] != "")
-		print "  gcc_assert (IN_RANGE (opts->x_" name ", " var_opt_range[name] "));";
+# Handle LangEnabledBy
+for (i = 0; i < n_langs; i++) {
+    lang_name = lang_sanitized_name(langs[i]);
+    mark_unused = " ATTRIBUTE_UNUSED";
+
+    print "\n\n"
+    print "bool                                                                  "
+    print lang_name "_handle_option_auto (struct gcc_options *opts" mark_unused ",              "
+    print "                           struct gcc_options *opts_set" mark_unused ",              "
+    print "                           size_t scode" mark_unused ", const char *arg" mark_unused ", int value" mark_unused ",  "
+    print "                           unsigned int lang_mask" mark_unused ", int kind" mark_unused ",          "
+    print "                           location_t loc" mark_unused ",                            "
+    print "                           const struct cl_option_handlers *handlers" mark_unused ", "
+    print "                           diagnostic_context *dc" mark_unused ")                    "
+    print "{                                                                     "
+    print "  enum opt_code code = (enum opt_code) scode;                         "
+    print "                                                                      "
+    print "  switch (code)                                                       "
+    print "    {                                                                 "
+    
+    for (k = 0; k < n_enabledby_lang[i]; k++) {
+        enabledby_name = enabledby[lang_name,k];
+        print "    case " opt_enum(enabledby_name) ":"
+        n_thisenable = split(enables[lang_name,enabledby_name], thisenable, ";");
+        for (j = 1; j < n_thisenable; j++) {
+            n_thisenable_args = split(thisenable[j], thisenable_args, ",");
+            if (n_thisenable_args == 1) {
+                thisenable_opt = thisenable[j];
+                value = "value";
+            } else {
+                thisenable_opt = thisenable_args[1];
+                with_posarg = thisenable_args[2];
+                with_negarg = thisenable_args[3];
+                value = "value ? " with_posarg " : " with_negarg;
+            }
+            opt_var_name = var_name(flags[opt_numbers[thisenable_opt]]);
+            if (opt_var_name != "") {
+                print "      if (!opts_set->x_" opt_var_name ")"
+                print "        handle_generated_option (opts, opts_set,"
+                print "                                 " opt_enum(thisenable_opt) ", NULL, " value ","
+                print "                                 lang_mask, kind, loc, handlers, dc);"
+            } else {
+                print "#error " thisenable_opt " does not have a Var() flag"
+            }
+        }
+        print "      break;\n"
+    }
+    print "    default:    "
+    print "      break;    "
+    print "    }           "
+    print "  return true;  "
+    print "}               "
 }
-
-print "";
-for (i = 0; i < n_opt_other; i++) {
-	print "  ptr->x_" var_opt_other[i] " = opts->x_" var_opt_other[i] ";";
-}
-
-for (i = 0; i < n_opt_int; i++) {
-	print "  ptr->x_" var_opt_int[i] " = opts->x_" var_opt_int[i] ";";
-}
-
-for (i = 0; i < n_opt_enum; i++) {
-	print "  ptr->x_" var_opt_enum[i] " = opts->x_" var_opt_enum[i] ";";
-}
-
-for (i = 0; i < n_opt_short; i++) {
-	print "  ptr->x_" var_opt_short[i] " = opts->x_" var_opt_short[i] ";";
-}
-
-for (i = 0; i < n_opt_char; i++) {
-	print "  ptr->x_" var_opt_char[i] " = opts->x_" var_opt_char[i] ";";
-}
-
-print "}";
-
-print "";
-print "/* Restore optimization options from a structure.  */";
-print "void";
-print "cl_optimization_restore (struct gcc_options *opts, struct cl_optimization *ptr)";
-print "{";
-
-for (i = 0; i < n_opt_other; i++) {
-	print "  opts->x_" var_opt_other[i] " = ptr->x_" var_opt_other[i] ";";
-}
-
-for (i = 0; i < n_opt_int; i++) {
-	print "  opts->x_" var_opt_int[i] " = ptr->x_" var_opt_int[i] ";";
-}
-
-for (i = 0; i < n_opt_enum; i++) {
-	print "  opts->x_" var_opt_enum[i] " = ptr->x_" var_opt_enum[i] ";";
-}
-
-for (i = 0; i < n_opt_short; i++) {
-	print "  opts->x_" var_opt_short[i] " = ptr->x_" var_opt_short[i] ";";
-}
-
-for (i = 0; i < n_opt_char; i++) {
-	print "  opts->x_" var_opt_char[i] " = ptr->x_" var_opt_char[i] ";";
-}
-
-print "  targetm.override_options_after_change ();";
-print "}";
-
-print "";
-print "/* Print optimization options from a structure.  */";
-print "void";
-print "cl_optimization_print (FILE *file,";
-print "                       int indent_to,";
-print "                       struct cl_optimization *ptr)";
-print "{";
-
-print "  fputs (\"\\n\", file);";
-for (i = 0; i < n_opt_other; i++) {
-	print "  if (ptr->x_" var_opt_other[i] ")";
-	print "    fprintf (file, \"%*s%s (%#lx)\\n\",";
-	print "             indent_to, \"\",";
-	print "             \"" var_opt_other[i] "\",";
-	print "             (unsigned long)ptr->x_" var_opt_other[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_opt_int; i++) {
-	print "  if (ptr->x_" var_opt_int[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent_to, \"\",";
-	print "             \"" var_opt_int[i] "\",";
-	print "             ptr->x_" var_opt_int[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_opt_enum; i++) {
-	print "  fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "           indent_to, \"\",";
-	print "           \"" var_opt_enum[i] "\",";
-	print "           (int) ptr->x_" var_opt_enum[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_opt_short; i++) {
-	print "  if (ptr->x_" var_opt_short[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent_to, \"\",";
-	print "             \"" var_opt_short[i] "\",";
-	print "             ptr->x_" var_opt_short[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_opt_char; i++) {
-	print "  if (ptr->x_" var_opt_char[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent_to, \"\",";
-	print "             \"" var_opt_char[i] "\",";
-	print "             ptr->x_" var_opt_char[i] ");";
-	print "";
-}
-
-print "}";
-
-print "";
-print "/* Save selected option variables into a structure.  */"
-print "void";
-print "cl_target_option_save (struct cl_target_option *ptr, struct gcc_options *opts)";
-print "{";
-
-n_target_char = 0;
-n_target_short = 0;
-n_target_int = 0;
-n_target_enum = 0;
-n_target_other = 0;
-
-if (have_save) {
-	for (i = 0; i < n_opts; i++) {
-		if (flag_set_p("Save", flags[i])) {
-			name = var_name(flags[i])
-			if(name == "")
-				name = "target_flags";
-
-			if(name in var_save_seen)
-				continue;
-
-			var_save_seen[name]++;
-			otype = var_type_struct(flags[i])
-			if (otype ~ "^((un)?signed +)?int *$")
-				var_target_int[n_target_int++] = name;
-
-			else if (otype ~ "^((un)?signed +)?short *$")
-				var_target_short[n_target_short++] = name;
-
-			else if (otype ~ ("^enum +[_" alnum "]+ *$"))
-				var_target_enum[n_target_enum++] = name;
-
-			else if (otype ~ "^((un)?signed +)?char *$") {
-				var_target_char[n_target_char++] = name;
-				if (otype ~ "^unsigned +char *$")
-					var_target_range[name] = "0, 255"
-				else if (otype ~ "^signed +char *$")
-					var_target_range[name] = "-128, 127"
-			}
-			else
-				var_target_other[n_target_other++] = name;
-		}
-	}
-} else {
-	var_target_int[n_target_int++] = "target_flags";
-}
-
-have_assert = 0;
-for (i = 0; i < n_target_char; i++) {
-	name = var_target_char[i];
-	if (var_target_range[name] != "") {
-		have_assert = 1;
-		print "  gcc_assert (IN_RANGE (opts->x_" name ", " var_target_range[name] "));";
-	}
-}
-
-if (have_assert)
-	print "";
-
-print "  if (targetm.target_option.save)";
-print "    targetm.target_option.save (ptr);";
-print "";
-
-for (i = 0; i < n_extra_target_vars; i++) {
-	print "  ptr->x_" extra_target_vars[i] " = opts->x_" extra_target_vars[i] ";";
-}
-
-for (i = 0; i < n_target_other; i++) {
-	print "  ptr->x_" var_target_other[i] " = opts->x_" var_target_other[i] ";";
-}
-
-for (i = 0; i < n_target_enum; i++) {
-	print "  ptr->x_" var_target_enum[i] " = opts->x_" var_target_enum[i] ";";
-}
-
-for (i = 0; i < n_target_int; i++) {
-	print "  ptr->x_" var_target_int[i] " = opts->x_" var_target_int[i] ";";
-}
-
-for (i = 0; i < n_target_short; i++) {
-	print "  ptr->x_" var_target_short[i] " = opts->x_" var_target_short[i] ";";
-}
-
-for (i = 0; i < n_target_char; i++) {
-	print "  ptr->x_" var_target_char[i] " = opts->x_" var_target_char[i] ";";
-}
-
-print "}";
-
-print "";
-print "/* Restore selected current options from a structure.  */";
-print "void";
-print "cl_target_option_restore (struct gcc_options *opts, struct cl_target_option *ptr)";
-print "{";
-
-for (i = 0; i < n_extra_target_vars; i++) {
-	print "  opts->x_" extra_target_vars[i] " = ptr->x_" extra_target_vars[i] ";";
-}
-
-for (i = 0; i < n_target_other; i++) {
-	print "  opts->x_" var_target_other[i] " = ptr->x_" var_target_other[i] ";";
-}
-
-for (i = 0; i < n_target_enum; i++) {
-	print "  opts->x_" var_target_enum[i] " = ptr->x_" var_target_enum[i] ";";
-}
-
-for (i = 0; i < n_target_int; i++) {
-	print "  opts->x_" var_target_int[i] " = ptr->x_" var_target_int[i] ";";
-}
-
-for (i = 0; i < n_target_short; i++) {
-	print "  opts->x_" var_target_short[i] " = ptr->x_" var_target_short[i] ";";
-}
-
-for (i = 0; i < n_target_char; i++) {
-	print "  opts->x_" var_target_char[i] " = ptr->x_" var_target_char[i] ";";
-}
-
-# This must occur after the normal variables in case the code depends on those
-# variables.
-print "";
-print "  if (targetm.target_option.restore)";
-print "    targetm.target_option.restore (ptr);";
-
-print "}";
-
-print "";
-print "/* Print optimization options from a structure.  */";
-print "void";
-print "cl_target_option_print (FILE *file,";
-print "                        int indent,";
-print "                        struct cl_target_option *ptr)";
-print "{";
-
-print "  fputs (\"\\n\", file);";
-for (i = 0; i < n_target_other; i++) {
-	print "  if (ptr->x_" var_target_other[i] ")";
-	print "    fprintf (file, \"%*s%s (%#lx)\\n\",";
-	print "             indent, \"\",";
-	print "             \"" var_target_other[i] "\",";
-	print "             (unsigned long)ptr->x_" var_target_other[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_target_enum; i++) {
-	print "  if (ptr->x_" var_target_enum[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent, \"\",";
-	print "             \"" var_target_enum[i] "\",";
-	print "             ptr->x_" var_target_enum[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_target_int; i++) {
-	print "  if (ptr->x_" var_target_int[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent, \"\",";
-	print "             \"" var_target_int[i] "\",";
-	print "             ptr->x_" var_target_int[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_target_short; i++) {
-	print "  if (ptr->x_" var_target_short[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent, \"\",";
-	print "             \"" var_target_short[i] "\",";
-	print "             ptr->x_" var_target_short[i] ");";
-	print "";
-}
-
-for (i = 0; i < n_target_char; i++) {
-	print "  if (ptr->x_" var_target_char[i] ")";
-	print "    fprintf (file, \"%*s%s (%#x)\\n\",";
-	print "             indent, \"\",";
-	print "             \"" var_target_char[i] "\",";
-	print "             ptr->x_" var_target_char[i] ");";
-	print "";
-}
-
-print "";
-print "  if (targetm.target_option.print)";
-print "    targetm.target_option.print (file, indent, ptr);";
-
-print "}";
-print "#endif";
 
 }

@@ -1,7 +1,6 @@
 /* Definitions of target machine for GNU compiler.
    Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1996-2013 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -24,7 +23,7 @@
 #undef LIB_SPEC
 #undef ENDFILE_SPEC
 #undef  LINK_SPEC
-#define LINK_SPEC "%{mrelax:--relax}"
+#define LINK_SPEC "%{mrelax:%{!r:--relax}}"
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC "%{!mno-crt0:%{!shared:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}"
 
@@ -54,18 +53,15 @@
       builtin_define (TARGET_ALLOW_LIW ?	\
 		      "__LIW__" : "__NO_LIW__");\
 						\
+      builtin_define (TARGET_ALLOW_SETLB  ?	\
+		      "__SETLB__" : "__NO_SETLB__");\
     }						\
   while (0)
 
-enum processor_type
-{
-  PROCESSOR_MN10300,
-  PROCESSOR_AM33,
-  PROCESSOR_AM33_2,
-  PROCESSOR_AM34
-};
+#ifndef MN10300_OPTS_H
+#include "config/mn10300/mn10300-opts.h"
+#endif
 
-extern enum processor_type mn10300_processor;
 extern enum processor_type mn10300_tune_cpu;
 
 #define TARGET_AM33	(mn10300_processor >= PROCESSOR_AM33)
@@ -75,10 +71,6 @@ extern enum processor_type mn10300_tune_cpu;
 #ifndef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_MN10300
 #endif
-
-/* Print subsidiary information on the compiler version in use.  */
-
-#define TARGET_VERSION fprintf (stderr, " (MN10300)");
 
 
 /* Target machine storage layout */
@@ -354,7 +346,8 @@ enum reg_class
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 
 #ifndef REG_OK_STRICT
 # define REG_STRICT 0
@@ -394,12 +387,6 @@ enum reg_class
 
 #define LIMIT_RELOAD_CLASS(MODE, CLASS) \
   (!TARGET_AM33 && (MODE == QImode || MODE == HImode) ? DATA_REGS : CLASS)
-
-/* Return the maximum number of consecutive registers
-   needed to represent mode MODE in a register of class CLASS.  */
-
-#define CLASS_MAX_NREGS(CLASS, MODE)	\
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* A class that contains registers which the compiler must always
    access in a mode that is the same size as the mode in which it
@@ -566,10 +553,6 @@ do {									     \
 } while (0)
 
 
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) mn10300_legitimate_constant_p (X)
-
 /* Zero if this needs fixing up to become PIC.  */
 
 #define LEGITIMATE_PIC_OPERAND_P(X) \
@@ -719,10 +702,6 @@ do {									     \
 #define WORD_REGISTER_OPERATIONS
 
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
-
-/* This flag, if defined, says the same insns that convert to a signed fixnum
-   also convert validly to an unsigned one.  */
-#define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */

@@ -1,6 +1,5 @@
 /* Frv prototypes.
-   Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -19,28 +18,13 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* CPU type.  This must be identical to the cpu enumeration in frv.md.  */
-typedef enum frv_cpu
-{
-  FRV_CPU_GENERIC,
-  FRV_CPU_FR550,
-  FRV_CPU_FR500,
-  FRV_CPU_FR450,
-  FRV_CPU_FR405,
-  FRV_CPU_FR400,
-  FRV_CPU_FR300,
-  FRV_CPU_SIMPLE,
-  FRV_CPU_TOMCAT
-} frv_cpu_t;
-
-extern frv_cpu_t frv_cpu_type;			/* value of -mcpu= */
-
 /* Define functions defined in frv.c */
 extern void frv_expand_prologue			(void);
 extern void frv_expand_epilogue			(bool);
 extern frv_stack_t *frv_stack_info		(void);
 extern void frv_debug_stack			(frv_stack_t *);
 extern int frv_initial_elimination_offset	(int, int);
+extern void frv_ifcvt_machdep_init		(void *);
 
 #ifdef RTX_CODE
 extern int frv_legitimate_address_p_1		(enum machine_mode, rtx,
@@ -94,7 +78,6 @@ extern int frv_hard_regno_mode_ok	(int, enum machine_mode);
 extern int frv_hard_regno_nregs		(int, enum machine_mode);
 extern int frv_class_max_nregs		(enum reg_class rclass,
 					 enum machine_mode mode);
-extern int frv_legitimate_constant_p	(rtx);
 extern enum machine_mode frv_select_cc_mode (enum rtx_code, rtx, rtx);
 #endif	/* RTX_CODE */
 

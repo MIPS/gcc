@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build darwin freebsd linux netbsd openbsd plan9
+
 // Unix cryptographically secure pseudorandom number
 // generator.
 
@@ -10,8 +12,10 @@ package rand
 import (
 	"bufio"
 	"crypto/aes"
+	"crypto/cipher"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -19,7 +23,13 @@ import (
 // Easy implementation: read from /dev/urandom.
 // This is sufficient on Linux, OS X, and FreeBSD.
 
-func init() { Reader = &devReader{name: "/dev/urandom"} }
+func init() {
+	if runtime.GOOS == "plan9" {
+		Reader = newReader(nil)
+	} else {
+		Reader = &devReader{name: "/dev/urandom"}
+	}
+}
 
 // A devReader satisfies reads by reading the file named name.
 type devReader struct {
@@ -28,22 +38,25 @@ type devReader struct {
 	mu   sync.Mutex
 }
 
-func (r *devReader) Read(b []byte) (n int, err os.Error) {
+func (r *devReader) Read(b []byte) (n int, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.f == nil {
-		f, err := os.Open(r.name, os.O_RDONLY, 0)
+		f, err := os.Open(r.name)
 		if f == nil {
 			return 0, err
 		}
-		r.f = bufio.NewReader(f)
+		if runtime.GOOS == "plan9" {
+			r.f = f
+		} else {
+			r.f = bufio.NewReader(f)
+		}
 	}
 	return r.f.Read(b)
 }
 
 // Alternate pseudo-random implementation for use on
-// systems without a reliable /dev/urandom.  So far we
-// haven't needed it.
+// systems without a reliable /dev/urandom.
 
 // newReader returns a new pseudorandom generator that
 // seeds itself by reading from entropy.  If entropy == nil,
@@ -64,12 +77,12 @@ func newReader(entropy io.Reader) io.Reader {
 type reader struct {
 	mu                   sync.Mutex
 	budget               int // number of bytes that can be generated
-	cipher               *aes.Cipher
+	cipher               cipher.Block
 	entropy              io.Reader
 	time, seed, dst, key [aes.BlockSize]byte
 }
 
-func (r *reader) Read(b []byte) (n int, err os.Error) {
+func (r *reader) Read(b []byte) (n int, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	n = len(b)
@@ -98,7 +111,7 @@ func (r *reader) Read(b []byte) (n int, err os.Error) {
 		// t = encrypt(time)
 		// dst = encrypt(t^seed)
 		// seed = encrypt(t^dst)
-		ns := time.Nanoseconds()
+		ns := time.Now().UnixNano()
 		r.time[0] = byte(ns >> 56)
 		r.time[1] = byte(ns >> 48)
 		r.time[2] = byte(ns >> 40)

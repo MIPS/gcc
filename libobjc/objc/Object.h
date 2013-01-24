@@ -1,5 +1,6 @@
 /* Interface for the Object class for Objective-C.
-   Copyright (C) 1993, 1994, 1995, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 2009, 2010, 2011
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -54,12 +55,6 @@ extern "C" {
 - (Class)class;
 - (BOOL)isEqual: (id)anObject;
 @end
-
-/* All of the following includes were deprecated in GCC 4.6 and will
-   be removed in the next release.  */
-#include "deprecated/hash.h"
-#include "deprecated/typedstream.h"
-#include "deprecated/Object.h"
 
 #ifdef __cplusplus
 }

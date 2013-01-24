@@ -1,6 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,12 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
-#include "tree-dump.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -78,10 +73,10 @@ may_propagate_copy (tree dest, tree orig)
     return false;
 
   /* Propagating virtual operands is always ok.  */
-  if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
+  if (TREE_CODE (dest) == SSA_NAME && virtual_operand_p (dest))
     {
       /* But only between virtual operands.  */
-      gcc_assert (TREE_CODE (orig) == SSA_NAME && !is_gimple_reg (orig));
+      gcc_assert (TREE_CODE (orig) == SSA_NAME && virtual_operand_p (orig));
 
       return true;
     }
@@ -141,12 +136,9 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
 
 bool
-may_propagate_copy_into_asm (tree dest)
+may_propagate_copy_into_asm (tree dest ATTRIBUTE_UNUSED)
 {
-  /* Hard register operands of asms are special.  Do not bypass.  */
-  return !(TREE_CODE (dest) == SSA_NAME
-	   && TREE_CODE (SSA_NAME_VAR (dest)) == VAR_DECL
-	   && DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
+  return true;
 }
 
 
@@ -244,7 +236,6 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
         expr = gimple_assign_rhs1 (stmt);
       propagate_tree_value (&expr, val);
       gimple_assign_set_rhs_from_tree (gsi, expr);
-      stmt = gsi_stmt (*gsi);
     }
   else if (gimple_code (stmt) == GIMPLE_COND)
     {
@@ -258,13 +249,11 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
   else if (is_gimple_call (stmt)
            && gimple_call_lhs (stmt) != NULL_TREE)
     {
-      gimple new_stmt;
-
       tree expr = NULL_TREE;
+      bool res;
       propagate_tree_value (&expr, val);
-      new_stmt = gimple_build_assign (gimple_call_lhs (stmt), expr);
-      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-      gsi_replace (gsi, new_stmt, false);
+      res = update_call_from_tree (gsi, expr);
+      gcc_assert (res);
     }
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
     propagate_tree_value (gimple_switch_index_ptr (stmt), val);
@@ -316,8 +305,9 @@ stmt_may_generate_copy (gimple stmt)
   /* Otherwise, the only statements that generate useful copies are
      assignments whose RHS is just an SSA name that doesn't flow
      through abnormal edges.  */
-  return (gimple_assign_rhs_code (stmt) == SSA_NAME
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (stmt)));
+  return ((gimple_assign_rhs_code (stmt) == SSA_NAME
+	   && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (stmt)))
+	  || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)));
 }
 
 
@@ -567,6 +557,7 @@ copy_prop_visit_phi_node (gimple phi)
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
       prop_value_t *arg_val;
+      tree arg_value;
       tree arg = gimple_phi_arg_def (phi, i);
       edge e = gimple_phi_arg_edge (phi, i);
 
@@ -575,24 +566,9 @@ copy_prop_visit_phi_node (gimple phi)
       if (!(e->flags & EDGE_EXECUTABLE))
 	continue;
 
-      /* Constants in the argument list never generate a useful copy.
-	 Similarly, names that flow through abnormal edges cannot be
-	 used to derive copies.  */
-      if (TREE_CODE (arg) != SSA_NAME || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg))
-	{
-	  phi_val.value = lhs;
-	  break;
-	}
-
-      /* Avoid copy propagation from an inner into an outer loop.
-	 Otherwise, this may move loop variant variables outside of
-	 their loops and prevent coalescing opportunities.  If the
-	 value was loop invariant, it will be hoisted by LICM and
-	 exposed for copy propagation.  Not a problem for virtual
-	 operands though.
-	 ???  The value will be always loop invariant.  */
-      if (is_gimple_reg (lhs)
-	  && loop_depth_of_name (arg) > loop_depth_of_name (lhs))
+      /* Names that flow through abnormal edges cannot be used to
+	 derive copies.  */
+      if (TREE_CODE (arg) == SSA_NAME && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (arg))
 	{
 	  phi_val.value = lhs;
 	  break;
@@ -605,26 +581,51 @@ copy_prop_visit_phi_node (gimple phi)
 	  fprintf (dump_file, "\n");
 	}
 
-      arg_val = get_copy_of_val (arg);
+      if (TREE_CODE (arg) == SSA_NAME)
+	{
+	  arg_val = get_copy_of_val (arg);
 
-      /* If we didn't visit the definition of arg yet treat it as
-         UNDEFINED.  This also handles PHI arguments that are the
-	 same as lhs.  We'll come here again.  */
-      if (!arg_val->value)
-	continue;
+	  /* If we didn't visit the definition of arg yet treat it as
+	     UNDEFINED.  This also handles PHI arguments that are the
+	     same as lhs.  We'll come here again.  */
+	  if (!arg_val->value)
+	    continue;
+
+	  arg_value = arg_val->value;
+	}
+      else
+	arg_value = valueize_val (arg);
+
+      /* Avoid copy propagation from an inner into an outer loop.
+	 Otherwise, this may move loop variant variables outside of
+	 their loops and prevent coalescing opportunities.  If the
+	 value was loop invariant, it will be hoisted by LICM and
+	 exposed for copy propagation.
+	 ???  The value will be always loop invariant.
+	 In loop-closed SSA form do not copy-propagate through
+	 PHI nodes in blocks with a loop exit edge predecessor.  */
+      if (current_loops
+	  && TREE_CODE (arg_value) == SSA_NAME
+	  && (loop_depth_of_name (arg_value) > loop_depth_of_name (lhs)
+	      || (loops_state_satisfies_p (LOOP_CLOSED_SSA)
+		  && loop_exit_edge_p (e->src->loop_father, e))))
+	{
+	  phi_val.value = lhs;
+	  break;
+	}
 
       /* If the LHS didn't have a value yet, make it a copy of the
 	 first argument we find.   */
       if (phi_val.value == NULL_TREE)
 	{
-	  phi_val.value = arg_val->value;
+	  phi_val.value = arg_value;
 	  continue;
 	}
 
       /* If PHI_VAL and ARG don't have a common copy-of chain, then
 	 this PHI node cannot be a copy operation.  */
-      if (phi_val.value != arg_val->value
-	  && !operand_equal_p (phi_val.value, arg_val->value, 0))
+      if (phi_val.value != arg_value
+	  && !operand_equal_p (phi_val.value, arg_value, 0))
 	{
 	  phi_val.value = lhs;
 	  break;
@@ -668,8 +669,7 @@ init_copy_prop (void)
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator si;
-      int depth = bb->loop_depth;
-      bool loop_exit_p = false;
+      int depth = bb_loop_depth (bb);
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
@@ -706,26 +706,13 @@ init_copy_prop (void)
 	      set_copy_of_val (def, def);
 	}
 
-      /* In loop-closed SSA form do not copy-propagate through
-	 PHI nodes in blocks with a loop exit edge predecessor.  */
-      if (current_loops
-	  && loops_state_satisfies_p (LOOP_CLOSED_SSA))
-	{
-	  edge_iterator ei;
-	  edge e;
-	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    if (loop_exit_edge_p (e->src->loop_father, e))
-	      loop_exit_p = true;
-	}
-
       for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
 	{
           gimple phi = gsi_stmt (si);
           tree def;
 
 	  def = gimple_phi_result (phi);
-	  if (!is_gimple_reg (def)
-	      || loop_exit_p)
+	  if (virtual_operand_p (def))
             prop_set_simulate_again (phi, false);
 	  else
             prop_set_simulate_again (phi, true);
@@ -772,6 +759,7 @@ fini_copy_prop (void)
 	 of the representative to the first solution we find if
 	 it doesn't have one already.  */
       if (copy_of[i].value != var
+	  && TREE_CODE (copy_of[i].value) == SSA_NAME
 	  && POINTER_TYPE_P (TREE_TYPE (var))
 	  && SSA_NAME_PTR_INFO (var)
 	  && !SSA_NAME_PTR_INFO (copy_of[i].value))
@@ -839,6 +827,7 @@ struct gimple_opt_pass pass_copy_prop =
  {
   GIMPLE_PASS,
   "copyprop",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_copy_prop,			/* gate */
   execute_copy_prop,			/* execute */
   NULL,					/* sub */
@@ -850,7 +839,6 @@ struct gimple_opt_pass pass_copy_prop =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg
-    | TODO_dump_func
     | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_update_ssa			/* todo_flags_finish */

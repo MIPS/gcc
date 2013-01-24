@@ -5,16 +5,15 @@
 package path
 
 import (
-	"os"
 	"runtime"
 	"testing"
 )
 
-type CleanTest struct {
-	path, clean string
+type PathTest struct {
+	path, result string
 }
 
-var cleantests = []CleanTest{
+var cleantests = []PathTest{
 	// Already clean
 	{"", "."},
 	{"abc", "abc"},
@@ -65,11 +64,32 @@ var cleantests = []CleanTest{
 }
 
 func TestClean(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
 	for _, test := range cleantests {
-		if s := Clean(test.path); s != test.clean {
-			t.Errorf("Clean(%q) = %q, want %q", test.path, s, test.clean)
+		if s := Clean(test.path); s != test.result {
+			t.Errorf("Clean(%q) = %q, want %q", test.path, s, test.result)
+		}
+		if s := Clean(test.result); s != test.result {
+			t.Errorf("Clean(%q) = %q, want %q", test.result, s, test.result)
 		}
 	}
+
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	allocs := -ms.Mallocs
+	const rounds = 100
+	for i := 0; i < rounds; i++ {
+		for _, test := range cleantests {
+			Clean(test.result)
+		}
+	}
+	runtime.ReadMemStats(&ms)
+	allocs += ms.Mallocs
+	/* Fails with gccgo, which has no escape analysis.
+	if allocs >= rounds {
+		t.Errorf("Clean cleaned paths: %d allocations per test round, want zero", allocs/rounds)
+	}
+	*/
 }
 
 type SplitTest struct {
@@ -84,18 +104,7 @@ var splittests = []SplitTest{
 	{"/", "/", ""},
 }
 
-var winsplittests = []SplitTest{
-	{`C:\Windows\System32`, `C:\Windows\`, `System32`},
-	{`C:\Windows\`, `C:\Windows\`, ``},
-	{`C:\Windows`, `C:\`, `Windows`},
-	{`C:Windows`, `C:`, `Windows`},
-	{`\\?\c:\`, `\\?\c:\`, ``},
-}
-
 func TestSplit(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		splittests = append(splittests, winsplittests...)
-	}
 	for _, test := range splittests {
 		if d, f := Split(test.path); d != test.dir || f != test.file {
 			t.Errorf("Split(%q) = %q, %q, want %q, %q", test.path, d, f, test.dir, test.file)
@@ -161,153 +170,7 @@ func TestExt(t *testing.T) {
 	}
 }
 
-type Node struct {
-	name    string
-	entries []*Node // nil if the entry is a file
-	mark    int
-}
-
-var tree = &Node{
-	"testdata",
-	[]*Node{
-		&Node{"a", nil, 0},
-		&Node{"b", []*Node{}, 0},
-		&Node{"c", nil, 0},
-		&Node{
-			"d",
-			[]*Node{
-				&Node{"x", nil, 0},
-				&Node{"y", []*Node{}, 0},
-				&Node{
-					"z",
-					[]*Node{
-						&Node{"u", nil, 0},
-						&Node{"v", nil, 0},
-					},
-					0,
-				},
-			},
-			0,
-		},
-	},
-	0,
-}
-
-func walkTree(n *Node, path string, f func(path string, n *Node)) {
-	f(path, n)
-	for _, e := range n.entries {
-		walkTree(e, Join(path, e.name), f)
-	}
-}
-
-func makeTree(t *testing.T) {
-	walkTree(tree, tree.name, func(path string, n *Node) {
-		if n.entries == nil {
-			fd, err := os.Open(path, os.O_CREAT, 0660)
-			if err != nil {
-				t.Errorf("makeTree: %v", err)
-			}
-			fd.Close()
-		} else {
-			os.Mkdir(path, 0770)
-		}
-	})
-}
-
-func markTree(n *Node) { walkTree(n, "", func(path string, n *Node) { n.mark++ }) }
-
-func checkMarks(t *testing.T) {
-	walkTree(tree, tree.name, func(path string, n *Node) {
-		if n.mark != 1 {
-			t.Errorf("node %s mark = %d; expected 1", path, n.mark)
-		}
-		n.mark = 0
-	})
-}
-
-// Assumes that each node name is unique. Good enough for a test.
-func mark(name string) {
-	walkTree(tree, tree.name, func(path string, n *Node) {
-		if n.name == name {
-			n.mark++
-		}
-	})
-}
-
-type TestVisitor struct{}
-
-func (v *TestVisitor) VisitDir(path string, f *os.FileInfo) bool {
-	mark(f.Name)
-	return true
-}
-
-func (v *TestVisitor) VisitFile(path string, f *os.FileInfo) {
-	mark(f.Name)
-}
-
-func TestWalk(t *testing.T) {
-	makeTree(t)
-
-	// 1) ignore error handling, expect none
-	v := &TestVisitor{}
-	Walk(tree.name, v, nil)
-	checkMarks(t)
-
-	// 2) handle errors, expect none
-	errors := make(chan os.Error, 64)
-	Walk(tree.name, v, errors)
-	select {
-	case err := <-errors:
-		t.Errorf("no error expected, found: %s", err)
-	default:
-		// ok
-	}
-	checkMarks(t)
-
-	if os.Getuid() != 0 {
-		// introduce 2 errors: chmod top-level directories to 0
-		os.Chmod(Join(tree.name, tree.entries[1].name), 0)
-		os.Chmod(Join(tree.name, tree.entries[3].name), 0)
-		// mark respective subtrees manually
-		markTree(tree.entries[1])
-		markTree(tree.entries[3])
-		// correct double-marking of directory itself
-		tree.entries[1].mark--
-		tree.entries[3].mark--
-
-		// 3) handle errors, expect two
-		errors = make(chan os.Error, 64)
-		os.Chmod(Join(tree.name, tree.entries[1].name), 0)
-		Walk(tree.name, v, errors)
-	Loop:
-		for i := 1; i <= 2; i++ {
-			select {
-			case <-errors:
-				// ok
-			default:
-				t.Errorf("%d. error expected, none found", i)
-				break Loop
-			}
-		}
-		select {
-		case err := <-errors:
-			t.Errorf("only two errors expected, found 3rd: %v", err)
-		default:
-			// ok
-		}
-		// the inaccessible subtrees were marked manually
-		checkMarks(t)
-	}
-
-	// cleanup
-	os.Chmod(Join(tree.name, tree.entries[1].name), 0770)
-	os.Chmod(Join(tree.name, tree.entries[3].name), 0770)
-	if err := os.RemoveAll(tree.name); err != nil {
-		t.Errorf("removeTree: %v", err)
-	}
-}
-
-var basetests = []CleanTest{
+var basetests = []PathTest{
 	// Already clean
 	{"", "."},
 	{".", "."},
@@ -324,8 +187,32 @@ var basetests = []CleanTest{
 
 func TestBase(t *testing.T) {
 	for _, test := range basetests {
-		if s := Base(test.path); s != test.clean {
-			t.Errorf("Base(%q) = %q, want %q", test.path, s, test.clean)
+		if s := Base(test.path); s != test.result {
+			t.Errorf("Base(%q) = %q, want %q", test.path, s, test.result)
+		}
+	}
+}
+
+var dirtests = []PathTest{
+	{"", "."},
+	{".", "."},
+	{"/.", "/"},
+	{"/", "/"},
+	{"////", "/"},
+	{"/foo", "/"},
+	{"x/", "x"},
+	{"abc", "."},
+	{"abc/def", "abc"},
+	{"abc////def", "abc"},
+	{"a/b/.x", "a/b"},
+	{"a/b/c.", "a/b"},
+	{"a/b/c.x", "a/b"},
+}
+
+func TestDir(t *testing.T) {
+	for _, test := range dirtests {
+		if s := Dir(test.path); s != test.result {
+			t.Errorf("Dir(%q) = %q, want %q", test.path, s, test.result)
 		}
 	}
 }

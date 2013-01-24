@@ -5,15 +5,16 @@
 package elliptic
 
 import (
-	"big"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 )
 
 func TestOnCurve(t *testing.T) {
 	p224 := P224()
-	if !p224.IsOnCurve(p224.Gx, p224.Gy) {
+	if !p224.IsOnCurve(p224.Params().Gx, p224.Params().Gy) {
 		t.Errorf("FAIL")
 	}
 }
@@ -295,7 +296,66 @@ func TestBaseMult(t *testing.T) {
 		}
 		x, y := p224.ScalarBaseMult(k.Bytes())
 		if fmt.Sprintf("%x", x) != e.x || fmt.Sprintf("%x", y) != e.y {
-			t.Errorf("%d: bad output for k=%s: got (%x, %s), want (%s, %s)", i, e.k, x, y, e.x, e.y)
+			t.Errorf("%d: bad output for k=%s: got (%x, %x), want (%s, %s)", i, e.k, x, y, e.x, e.y)
+		}
+		if testing.Short() && i > 5 {
+			break
+		}
+	}
+}
+
+func TestGenericBaseMult(t *testing.T) {
+	// We use the P224 CurveParams directly in order to test the generic implementation.
+	p224 := P224().Params()
+	for i, e := range p224BaseMultTests {
+		k, ok := new(big.Int).SetString(e.k, 10)
+		if !ok {
+			t.Errorf("%d: bad value for k: %s", i, e.k)
+		}
+		x, y := p224.ScalarBaseMult(k.Bytes())
+		if fmt.Sprintf("%x", x) != e.x || fmt.Sprintf("%x", y) != e.y {
+			t.Errorf("%d: bad output for k=%s: got (%x, %x), want (%s, %s)", i, e.k, x, y, e.x, e.y)
+		}
+		if testing.Short() && i > 5 {
+			break
+		}
+	}
+}
+
+func TestInfinity(t *testing.T) {
+	tests := []struct {
+		name  string
+		curve Curve
+	}{
+		{"p224", P224()},
+		{"p256", P256()},
+	}
+
+	for _, test := range tests {
+		curve := test.curve
+		x, y := curve.ScalarBaseMult(nil)
+		if x.Sign() != 0 || y.Sign() != 0 {
+			t.Errorf("%s: x^0 != ∞", test.name)
+		}
+		x.SetInt64(0)
+		y.SetInt64(0)
+
+		x2, y2 := curve.Double(x, y)
+		if x2.Sign() != 0 || y2.Sign() != 0 {
+			t.Errorf("%s: 2∞ != ∞", test.name)
+		}
+
+		baseX := curve.Params().Gx
+		baseY := curve.Params().Gy
+
+		x3, y3 := curve.Add(baseX, baseY, x, y)
+		if x3.Cmp(baseX) != 0 || y3.Cmp(baseY) != 0 {
+			t.Errorf("%s: x+∞ != x", test.name)
+		}
+
+		x4, y4 := curve.Add(x, y, baseX, baseY)
+		if x4.Cmp(baseX) != 0 || y4.Cmp(baseY) != 0 {
+			t.Errorf("%s: ∞+x != x", test.name)
 		}
 	}
 }
@@ -313,13 +373,13 @@ func BenchmarkBaseMult(b *testing.B) {
 
 func TestMarshal(t *testing.T) {
 	p224 := P224()
-	_, x, y, err := p224.GenerateKey(rand.Reader)
+	_, x, y, err := GenerateKey(p224, rand.Reader)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	serialised := p224.Marshal(x, y)
-	xx, yy := p224.Unmarshal(serialised)
+	serialized := Marshal(p224, x, y)
+	xx, yy := Unmarshal(p224, serialized)
 	if xx == nil {
 		t.Error("failed to unmarshal")
 		return
@@ -327,5 +387,15 @@ func TestMarshal(t *testing.T) {
 	if xx.Cmp(x) != 0 || yy.Cmp(y) != 0 {
 		t.Error("unmarshal returned different values")
 		return
+	}
+}
+
+func TestP224Overflow(t *testing.T) {
+	// This tests for a specific bug in the P224 implementation.
+	p224 := P224()
+	pointData, _ := hex.DecodeString("049B535B45FB0A2072398A6831834624C7E32CCFD5A4B933BCEAF77F1DD945E08BBE5178F5EDF5E733388F196D2A631D2E075BB16CBFEEA15B")
+	x, y := Unmarshal(p224, pointData)
+	if !p224.IsOnCurve(x, y) {
+		t.Error("P224 failed to validate a correct point")
 	}
 }

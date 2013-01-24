@@ -1,6 +1,6 @@
 // Debugging map implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009, 2010, 2011
+// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009, 2010, 2011, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -46,7 +46,6 @@ namespace __debug
       public __gnu_debug::_Safe_sequence<map<_Key, _Tp, _Compare, _Allocator> >
     {
       typedef _GLIBCXX_STD_C::map<_Key, _Tp, _Compare, _Allocator> _Base;
-      typedef __gnu_debug::_Safe_sequence<map> _Safe_base;
 
       typedef typename _Base::const_iterator _Base_const_iterator;
       typedef typename _Base::iterator _Base_iterator;
@@ -61,9 +60,9 @@ namespace __debug
       typedef typename _Base::reference             reference;
       typedef typename _Base::const_reference       const_reference;
 
-      typedef __gnu_debug::_Safe_iterator<typename _Base::iterator, map>
+      typedef __gnu_debug::_Safe_iterator<_Base_iterator, map>
                                                     iterator;
-      typedef __gnu_debug::_Safe_iterator<typename _Base::const_iterator, map>
+      typedef __gnu_debug::_Safe_iterator<_Base_const_iterator, map>
                                                     const_iterator;
 
       typedef typename _Base::size_type             size_type;
@@ -85,26 +84,27 @@ namespace __debug
 	: _Base(__gnu_debug::__base(__gnu_debug::__check_valid_range(__first,
 								     __last)),
 		__gnu_debug::__base(__last),
-		__comp, __a), _Safe_base() { }
+		__comp, __a) { }
 
       map(const map& __x)
-      : _Base(__x), _Safe_base() { }
+      : _Base(__x) { }
 
       map(const _Base& __x)
-      : _Base(__x), _Safe_base() { }
+      : _Base(__x) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       map(map&& __x)
-      : _Base(std::move(__x)), _Safe_base()
+      noexcept(is_nothrow_copy_constructible<_Compare>::value)
+      : _Base(std::move(__x))
       { this->_M_swap(__x); }
 
       map(initializer_list<value_type> __l,
 	  const _Compare& __c = _Compare(),
 	  const allocator_type& __a = allocator_type())
-      : _Base(__l, __c, __a), _Safe_base() { }
+      : _Base(__l, __c, __a) { }
 #endif
 
-      ~map() { }
+      ~map() _GLIBCXX_NOEXCEPT { }
 
       map&
       operator=(const map& __x)
@@ -114,12 +114,13 @@ namespace __debug
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       map&
       operator=(map&& __x)
       {
 	// NB: DR 1204.
 	// NB: DR 675.
+	__glibcxx_check_self_move_assign(__x);
 	clear();
 	swap(__x);
 	return *this;
@@ -140,52 +141,52 @@ namespace __debug
 
       // iterators:
       iterator 
-      begin()
+      begin() _GLIBCXX_NOEXCEPT
       { return iterator(_Base::begin(), this); }
 
       const_iterator
-      begin() const
+      begin() const _GLIBCXX_NOEXCEPT
       { return const_iterator(_Base::begin(), this); }
 
       iterator
-      end()
+      end() _GLIBCXX_NOEXCEPT
       { return iterator(_Base::end(), this); }
 
       const_iterator
-      end() const
+      end() const _GLIBCXX_NOEXCEPT
       { return const_iterator(_Base::end(), this); }
 
       reverse_iterator
-      rbegin()
+      rbegin() _GLIBCXX_NOEXCEPT
       { return reverse_iterator(end()); }
 
       const_reverse_iterator
-      rbegin() const
+      rbegin() const _GLIBCXX_NOEXCEPT
       { return const_reverse_iterator(end()); }
 
       reverse_iterator
-      rend()
+      rend() _GLIBCXX_NOEXCEPT
       { return reverse_iterator(begin()); }
 
       const_reverse_iterator
-      rend() const
+      rend() const _GLIBCXX_NOEXCEPT
       { return const_reverse_iterator(begin()); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       const_iterator
-      cbegin() const
+      cbegin() const noexcept
       { return const_iterator(_Base::begin(), this); }
 
       const_iterator
-      cend() const
+      cend() const noexcept
       { return const_iterator(_Base::end(), this); }
 
       const_reverse_iterator
-      crbegin() const
+      crbegin() const noexcept
       { return const_reverse_iterator(end()); }
 
       const_reverse_iterator
-      crend() const
+      crend() const noexcept
       { return const_reverse_iterator(begin()); }
 #endif
 
@@ -202,23 +203,42 @@ namespace __debug
       using _Base::at;
 
       // modifiers:
+#if __cplusplus >= 201103L
+      template<typename... _Args>
+	std::pair<iterator, bool>
+	emplace(_Args&&... __args)
+	{
+	  auto __res = _Base::emplace(std::forward<_Args>(__args)...);
+	  return std::pair<iterator, bool>(iterator(__res.first, this),
+					   __res.second);
+	}
+
+      template<typename... _Args>
+	iterator
+	emplace_hint(const_iterator __pos, _Args&&... __args)
+	{
+	  __glibcxx_check_insert(__pos);
+	  return iterator(_Base::emplace_hint(__pos.base(),
+					      std::forward<_Args>(__args)...),
+			  this);
+	}
+#endif
+
       std::pair<iterator, bool>
       insert(const value_type& __x)
       {
-	typedef typename _Base::iterator _Base_iterator;
 	std::pair<_Base_iterator, bool> __res = _Base::insert(__x);
 	return std::pair<iterator, bool>(iterator(__res.first, this),
 					 __res.second);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
-	       std::enable_if<std::is_convertible<_Pair,
-						  value_type>::value>::type>
+	       std::enable_if<std::is_constructible<value_type,
+						    _Pair&&>::value>::type>
         std::pair<iterator, bool>
         insert(_Pair&& __x)
         {
-	  typedef typename _Base::iterator _Base_iterator;
 	  std::pair<_Base_iterator, bool> __res
 	    = _Base::insert(std::forward<_Pair>(__x));
 	  return std::pair<iterator, bool>(iterator(__res.first, this),
@@ -226,14 +246,14 @@ namespace __debug
 	}
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       void
       insert(std::initializer_list<value_type> __list)
       { _Base::insert(__list); }
 #endif
 
       iterator
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       insert(const_iterator __position, const value_type& __x)
 #else
       insert(iterator __position, const value_type& __x)
@@ -243,10 +263,10 @@ namespace __debug
 	return iterator(_Base::insert(__position.base(), __x), this);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair, typename = typename
-	       std::enable_if<std::is_convertible<_Pair,
-						  value_type>::value>::type>
+	       std::enable_if<std::is_constructible<value_type,
+						    _Pair&&>::value>::type>
         iterator
         insert(const_iterator __position, _Pair&& __x)
         {
@@ -265,7 +285,7 @@ namespace __debug
 			__gnu_debug::__base(__last));
 	}
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       iterator
       erase(const_iterator __position)
       {
@@ -273,6 +293,10 @@ namespace __debug
 	this->_M_invalidate_if(_Equal(__position.base()));
 	return iterator(_Base::erase(__position.base()), this);
       }
+
+      iterator
+      erase(iterator __position)
+      { return erase(const_iterator(__position)); }
 #else
       void
       erase(iterator __position)
@@ -297,7 +321,7 @@ namespace __debug
 	  }
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       iterator
       erase(const_iterator __first, const_iterator __last)
       {
@@ -343,7 +367,7 @@ namespace __debug
       }
 
       void
-      clear()
+      clear() _GLIBCXX_NOEXCEPT
       {
 	this->_M_invalidate_all();
 	_Base::clear();
@@ -383,7 +407,6 @@ namespace __debug
       std::pair<iterator,iterator>
       equal_range(const key_type& __x)
       {
-	typedef typename _Base::iterator _Base_iterator;
 	std::pair<_Base_iterator, _Base_iterator> __res =
 	_Base::equal_range(__x);
 	return std::make_pair(iterator(__res.first, this),
@@ -393,24 +416,22 @@ namespace __debug
       std::pair<const_iterator,const_iterator>
       equal_range(const key_type& __x) const
       {
-	typedef typename _Base::const_iterator _Base_const_iterator;
 	std::pair<_Base_const_iterator, _Base_const_iterator> __res =
 	_Base::equal_range(__x);
 	return std::make_pair(const_iterator(__res.first, this),
 			      const_iterator(__res.second, this));
       }
 
-      _Base& 
-      _M_base() { return *this; }
+      _Base&
+      _M_base() _GLIBCXX_NOEXCEPT       { return *this; }
 
       const _Base&
-      _M_base() const { return *this; }
+      _M_base() const _GLIBCXX_NOEXCEPT { return *this; }
 
     private:
       void
       _M_invalidate_all()
       {
-	typedef typename _Base::const_iterator _Base_const_iterator;
 	typedef __gnu_debug::_Not_equal_to<_Base_const_iterator> _Not_equal;
 	this->_M_invalidate_if(_Not_equal(_M_base().end()));
       }

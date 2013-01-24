@@ -1,5 +1,4 @@
-#  Copyright (C) 2003, 2004, 2007, 2008, 2009, 2010
-#  Free Software Foundation, Inc.
+#  Copyright (C) 2003-2013 Free Software Foundation, Inc.
 #  Contributed by Kelley Cook, June 2004.
 #  Original code from Neil Booth, May 2003.
 #
@@ -30,7 +29,9 @@ BEGIN {
 # Return nonzero if FLAGS contains a flag matching REGEX.
 function flag_set_p(regex, flags)
 {
-	return (" " flags " ") ~ (" " regex " ")
+    # Ignore the arguments of flags with arguments.
+    gsub ("\\([^)]+\\)", "", flags);
+    return (" " flags " ") ~ (" " regex " ")
 }
 
 # Return STRING if FLAGS contains a flag matching regexp REGEX,
@@ -40,6 +41,16 @@ function test_flag(regex, flags, string)
 	if (flag_set_p(regex, flags))
 		return string
 	return ""
+}
+
+# Return a field initializer, with trailing comma, for a field that is
+# 1 if FLAGS contains a flag matching REGEX and 0 otherwise.
+function flag_init(regex, flags)
+{
+	if (flag_set_p(regex, flags))
+		return "1 /* " regex " */, "
+	else
+		return "0, "
 }
 
 # If FLAGS contains a "NAME(...argument...)" flag, return the value
@@ -87,26 +98,46 @@ function switch_flags (flags)
 	  test_flag("Common", flags, " | CL_COMMON") \
 	  test_flag("Target", flags, " | CL_TARGET") \
 	  test_flag("Driver", flags, " | CL_DRIVER") \
-	  test_flag("RejectDriver", flags, " | CL_REJECT_DRIVER") \
-	  test_flag("NoDriverArg", flags, " | CL_NO_DRIVER_ARG") \
-	  test_flag("SeparateAlias", flags, " | CL_SEPARATE_ALIAS") \
-	  test_flag("Save", flags, " | CL_SAVE") \
 	  test_flag("Joined", flags, " | CL_JOINED") \
-	  test_flag("JoinedOrMissing", flags, " | CL_JOINED | CL_MISSING_OK") \
+	  test_flag("JoinedOrMissing", flags, " | CL_JOINED") \
 	  test_flag("Separate", flags, " | CL_SEPARATE") \
-	  test_flag("RejectNegative", flags, " | CL_REJECT_NEGATIVE") \
-	  test_flag("UInteger", flags, " | CL_UINTEGER") \
 	  test_flag("Undocumented", flags,  " | CL_UNDOCUMENTED") \
+	  test_flag("NoDWARFRecord", flags,  " | CL_NO_DWARF_RECORD") \
 	  test_flag("Warning", flags,  " | CL_WARNING") \
-	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION") \
-	  test_flag("Report", flags, " | CL_REPORT")
-	sep_args = opt_args("Args", flags)
-	if (sep_args != "") {
-		sep_args--
-		result = result " | (" sep_args \
-		    " << CL_SEPARATE_NARGS_SHIFT)"
-	}
+	  test_flag("Optimization", flags,  " | CL_OPTIMIZATION")
 	sub( "^0 \\| ", "", result )
+	return result
+}
+
+# Return bit-field initializers for option flags FLAGS.
+function switch_bit_fields (flags)
+{
+	vn = var_name(flags);
+	if (host_wide_int[vn] == "yes")
+		hwi = "Host_Wide_Int"
+	else
+		hwi = ""
+	result = ""
+	sep_args = opt_args("Args", flags)
+	if (sep_args == "")
+		sep_args = 0
+	else
+		sep_args--
+	result = result sep_args ", "
+
+	result = result \
+	  flag_init("SeparateAlias", flags) \
+	  flag_init("NegativeAlias", flags) \
+	  flag_init("NoDriverArg", flags) \
+	  flag_init("RejectDriver", flags) \
+	  flag_init("RejectNegative", flags) \
+	  flag_init("JoinedOrMissing", flags) \
+	  flag_init("UInteger", flags) \
+	  flag_init("Host_Wide_Int", hwi) \
+	  flag_init("ToLower", flags) \
+	  flag_init("Report", flags)
+
+	sub(", $", "", result)
 	return result
 }
 
@@ -115,6 +146,17 @@ function switch_flags (flags)
 function var_name(flags)
 {
 	return nth_arg(0, opt_args("Var", flags))
+}
+
+# Return the name of the variable if FLAGS has a HOST_WIDE_INT variable. 
+# Return the empty string otherwise.
+function host_wide_int_var_name(flags)
+{
+	split (flags, array, "[ \t]+")
+	if (array[1] == "HOST_WIDE_INT")
+		return array[2]
+	else
+		return ""
 }
 
 # Return true if the option described by FLAGS has a globally-visible state.
@@ -169,9 +211,17 @@ function var_type_struct(flags)
 {
 	if (flag_set_p("UInteger", flags))
 		return "int "
+	else if (flag_set_p("Enum.*", flags)) {
+		en = opt_args("Enum", flags);
+		return enum_type[en] " "
+	}
 	else if (!flag_set_p("Joined.*", flags) && !flag_set_p("Separate", flags)) {
-		if (flag_set_p(".*Mask.*", flags))
-			return "int "
+		if (flag_set_p(".*Mask.*", flags)) {
+			if (host_wide_int[var_name(flags)] == "yes")
+				return "HOST_WIDE_INT "
+			else
+				return "int "
+		}
 		else
 			return "signed char "
 	}
@@ -239,3 +289,58 @@ function opt_enum(name)
 {
 	return "OPT_" opt_sanitized_name(name)
 }
+
+# Given the language called NAME return a sanitized version of its name.
+function lang_sanitized_name(name)
+{
+    gsub( "[^" alnum "_]", "X", name )
+    return name
+}
+
+# Search for a valid var_name among all OPTS equal to option NAME.
+# If not found, return "".
+function search_var_name(name, opt_numbers, opts, flags, n_opts)
+{
+    opt_var_name = var_name(flags[opt_numbers[name]]);
+    if (opt_var_name != "") {
+        return opt_var_name;
+    }
+    for (k = 0; k < n_opts; k++) {
+        if (opts[k] == name && var_name(flags[k]) != "") {
+            return var_name(flags[k]);
+        }
+    }
+    return ""
+}
+
+# Handle LangEnabledBy(ENABLED_BY_LANGS, ENABLEDBY_NAME, ENABLEDBY_POSARG,
+# ENABLEDBY_NEGARG). This function does not return anything.
+function lang_enabled_by(enabledby_langs, enabledby_name, enabledby_posarg, enabledby_negarg)
+{
+    n_enabledby_arg_langs = split(enabledby_langs, enabledby_arg_langs, " ");
+    enabledby_index = opt_numbers[enabledby_name];
+    if (enabledby_index == "") {
+        print "#error LangEnabledby: " enabledby_name 
+    } else {
+        if (enabledby_posarg != "" && enabledby_negarg != "") {
+            with_args = "," enabledby_posarg "," enabledby_negarg
+        } else if (enabledby_posarg == "" && enabledby_negarg == "") {
+            with_args = ""
+        } else {
+            print "#error LangEnabledBy("enabledby_langs","enabledby_name", " \
+                enabledby_posarg", " enabledby_negargs                  \
+                ") with three arguments, it should have either 2 or 4"
+        }
+        
+        for (j = 1; j <= n_enabledby_arg_langs; j++) {
+            lang_name = lang_sanitized_name(enabledby_arg_langs[j]);
+            lang_index = lang_numbers[enabledby_arg_langs[j]];
+            if (enables[lang_name,enabledby_name] == "") {
+                enabledby[lang_name,n_enabledby_lang[lang_index]] = enabledby_name;
+                n_enabledby_lang[lang_index]++;
+            }
+            enables[lang_name,enabledby_name] = enables[lang_name,enabledby_name] opts[i] with_args ";";
+        }
+    }
+}
+

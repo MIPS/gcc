@@ -1,5 +1,5 @@
 /* Sparse Arrays for Objective C dispatch tables
-   Copyright (C) 1993, 1995, 1996, 2002, 2004, 2009, 2010
+   Copyright (C) 1993, 1995, 1996, 2002, 2004, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "objc-private/sarray.h"
 #include "objc/runtime.h" /* For objc_malloc */
 #include "objc/thr.h"     /* For objc_mutex_lock */
+#include "objc-private/module-abi-8.h"
 #include "objc-private/runtime.h"
 #include <stdio.h>
 #include <string.h> /* For memset */

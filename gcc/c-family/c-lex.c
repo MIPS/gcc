@@ -1,7 +1,5 @@
 /* Mainly the interface between cpplib and the C front ends.
-   Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "input.h"
-#include "output.h"
 #include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
@@ -44,8 +41,10 @@ static splay_tree file_info_tree;
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
 
-static tree interpret_integer (const cpp_token *, unsigned int);
-static tree interpret_float (const cpp_token *, unsigned int);
+static tree interpret_integer (const cpp_token *, unsigned int,
+			       enum overflow_type *);
+static tree interpret_float (const cpp_token *, unsigned int, const char *,
+			     enum overflow_type *);
 static tree interpret_fixed (const cpp_token *, unsigned int);
 static enum integer_type_kind narrowest_unsigned_type
 	(unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT, unsigned int);
@@ -165,18 +164,16 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
 	  unsigned int ARG_UNUSED (line),
 	  const cpp_string * ARG_UNUSED (str))
 {
-#ifdef ASM_OUTPUT_IDENT
   if (!flag_no_ident)
     {
       /* Convert escapes in the string.  */
       cpp_string cstr = { 0, 0 };
       if (cpp_interpret_string (pfile, str, 1, &cstr, CPP_STRING))
 	{
-	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
+	  targetm.asm_out.output_ident ((const char *) cstr.text);
 	  free (CONST_CAST (unsigned char *, cstr.text));
 	}
     }
-#endif
 }
 
 /* Called at the start of every non-empty line.  TOKEN is the first
@@ -207,11 +204,11 @@ fe_file_change (const struct line_map *new_map)
 	    line = SOURCE_LINE (new_map - 1, included_at);
 
 	  input_location = new_map->start_location;
-	  (*debug_hooks->start_source_file) (line, new_map->to_file);
+	  (*debug_hooks->start_source_file) (line, LINEMAP_FILE (new_map));
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
-	  else if (new_map->sysp == 2)
+	  else if (LINEMAP_SYSP (new_map) == 2)
 	    {
 	      c_header_level = 1;
 	      ++pending_lang_change;
@@ -224,17 +221,17 @@ fe_file_change (const struct line_map *new_map)
 #ifndef NO_IMPLICIT_EXTERN_C
       if (c_header_level && --c_header_level == 0)
 	{
-	  if (new_map->sysp == 2)
+	  if (LINEMAP_SYSP (new_map) == 2)
 	    warning (0, "badly nested C headers from preprocessor");
 	  --pending_lang_change;
 	}
 #endif
       input_location = new_map->start_location;
 
-      (*debug_hooks->end_source_file) (new_map->to_line);
+      (*debug_hooks->end_source_file) (LINEMAP_LINE (new_map));
     }
 
-  update_header_times (new_map->to_file);
+  update_header_times (LINEMAP_FILE (new_map));
   input_location = new_map->start_location;
 }
 
@@ -296,6 +293,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
   const cpp_token *tok;
   enum cpp_ttype type;
   unsigned char add_flags = 0;
+  enum overflow_type overflow = OT_NONE;
 
   timevar_push (TV_CPP);
  retry:
@@ -314,7 +312,8 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
     case CPP_NUMBER:
       {
-	unsigned int flags = cpp_classify_number (parse_in, tok);
+	const char *suffix = NULL;
+	unsigned int flags = cpp_classify_number (parse_in, tok, &suffix, *loc);
 
 	switch (flags & CPP_N_CATEGORY)
 	  {
@@ -328,15 +327,34 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	       Set PURE_ZERO to pass this information to the C++ parser.  */
 	    if (tok->val.str.len == 1 && *tok->val.str.text == '0')
 	      add_flags = PURE_ZERO;
-	    *value = interpret_integer (tok, flags);
+	    *value = interpret_integer (tok, flags, &overflow);
 	    break;
 
 	  case CPP_N_FLOATING:
-	    *value = interpret_float (tok, flags);
+	    *value = interpret_float (tok, flags, suffix, &overflow);
 	    break;
 
 	  default:
 	    gcc_unreachable ();
+	  }
+
+	if (flags & CPP_N_USERDEF)
+	  {
+	    char *str;
+	    tree literal;
+	    tree suffix_id = get_identifier (suffix);
+	    int len = tok->val.str.len - strlen (suffix);
+	    /* If this is going to be used as a C string to pass to a
+	       raw literal operator, we need to add a trailing NUL.  */
+	    tree num_string = build_string (len + 1,
+					    (const char *) tok->val.str.text);
+	    TREE_TYPE (num_string) = char_array_type_node;
+	    num_string = fix_string_type (num_string);
+	    str = CONST_CAST (char *, TREE_STRING_POINTER (num_string));
+	    str[len] = '\0';
+	    literal = build_userdef_literal (suffix_id, *value, overflow,
+					     num_string);
+	    *value = literal;
 	  }
       }
       break;
@@ -397,7 +415,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
 	*cpp_spell_token (parse_in, tok, name, true) = 0;
 
-	error ("stray %qs in program", name);
+	error_at (*loc, "stray %qs in program", name);
       }
 
       goto retry;
@@ -415,11 +433,44 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       }
       goto retry;
 
+    case CPP_CHAR_USERDEF:
+    case CPP_WCHAR_USERDEF:
+    case CPP_CHAR16_USERDEF:
+    case CPP_CHAR32_USERDEF:
+      {
+	tree literal;
+	cpp_token temp_tok = *tok;
+	const char *suffix = cpp_get_userdef_suffix (tok);
+	temp_tok.val.str.len -= strlen (suffix);
+	temp_tok.type = cpp_userdef_char_remove_type (type);
+	literal = build_userdef_literal (get_identifier (suffix),
+					 lex_charconst (&temp_tok),
+					 OT_NONE, NULL_TREE);
+	*value = literal;
+      }
+      break;
+
     case CPP_CHAR:
     case CPP_WCHAR:
     case CPP_CHAR16:
     case CPP_CHAR32:
       *value = lex_charconst (tok);
+      break;
+
+    case CPP_STRING_USERDEF:
+    case CPP_WSTRING_USERDEF:
+    case CPP_STRING16_USERDEF:
+    case CPP_STRING32_USERDEF:
+    case CPP_UTF8STRING_USERDEF:
+      {
+	tree literal, string;
+	const char *suffix = cpp_get_userdef_suffix (tok);
+	string = build_string (tok->val.str.len - strlen (suffix),
+			       (const char *) tok->val.str.text);
+	literal = build_userdef_literal (get_identifier (suffix),
+					 string, OT_NONE, NULL_TREE);
+	*value = literal;
+      }
       break;
 
     case CPP_STRING:
@@ -437,7 +488,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
       break;
 
     case CPP_PRAGMA:
-      *value = build_int_cst (NULL, tok->val.pragma);
+      *value = build_int_cst (integer_type_node, tok->val.pragma);
       break;
 
       /* These tokens should not be visible outside cpplib.  */
@@ -538,15 +589,20 @@ narrowest_signed_type (unsigned HOST_WIDE_INT low,
 
 /* Interpret TOKEN, an integer with FLAGS as classified by cpplib.  */
 static tree
-interpret_integer (const cpp_token *token, unsigned int flags)
+interpret_integer (const cpp_token *token, unsigned int flags,
+		   enum overflow_type *overflow)
 {
   tree value, type;
   enum integer_type_kind itk;
   cpp_num integer;
   cpp_options *options = cpp_get_options (parse_in);
 
+  *overflow = OT_NONE;
+
   integer = cpp_interpret_integer (parse_in, token, flags);
   integer = cpp_num_sign_extend (integer, options->precision);
+  if (integer.overflow)
+    *overflow = OT_OVERFLOW;
 
   /* The type of a constant with a U suffix is straightforward.  */
   if (flags & CPP_N_UNSIGNED)
@@ -621,9 +677,10 @@ interpret_integer (const cpp_token *token, unsigned int flags)
 }
 
 /* Interpret TOKEN, a floating point number with FLAGS as classified
-   by cpplib.  */
+   by cpplib.  For C++0X SUFFIX may contain a user-defined literal suffix.  */
 static tree
-interpret_float (const cpp_token *token, unsigned int flags)
+interpret_float (const cpp_token *token, unsigned int flags,
+		 const char *suffix, enum overflow_type *overflow)
 {
   tree type;
   tree const_type;
@@ -632,6 +689,8 @@ interpret_float (const cpp_token *token, unsigned int flags)
   REAL_VALUE_TYPE real_trunc;
   char *copy;
   size_t copylen;
+
+  *overflow = OT_NONE;
 
   /* Default (no suffix) depends on whether the FLOAT_CONST_DECIMAL64
      pragma has been used and is either double or _Decimal64.  Types
@@ -681,7 +740,7 @@ interpret_float (const cpp_token *token, unsigned int flags)
 	    return error_mark_node;
 	  }
 	else
-	  pedwarn (input_location, OPT_pedantic, "non-standard suffix on floating constant");
+	  pedwarn (input_location, OPT_Wpedantic, "non-standard suffix on floating constant");
 
 	type = c_common_type_for_mode (mode, 0);
 	gcc_assert (type);
@@ -702,7 +761,9 @@ interpret_float (const cpp_token *token, unsigned int flags)
      has any suffixes, cut them off; REAL_VALUE_ATOF/ REAL_VALUE_HTOF
      can't handle them.  */
   copylen = token->val.str.len;
-  if (flags & CPP_N_DFLOAT)
+  if (flags & CPP_N_USERDEF)
+    copylen -= strlen (suffix);
+  else if (flags & CPP_N_DFLOAT)
     copylen -= 2;
   else
     {
@@ -734,19 +795,31 @@ interpret_float (const cpp_token *token, unsigned int flags)
   if (REAL_VALUE_ISINF (real)
       || (const_type != type && REAL_VALUE_ISINF (real_trunc)))
     {
-      if (!MODE_HAS_INFINITIES (TYPE_MODE (type)))
-	pedwarn (input_location, 0, "floating constant exceeds range of %qT", type);
-      else
-	warning (OPT_Woverflow, "floating constant exceeds range of %qT", type);
+      *overflow = OT_OVERFLOW;
+      if (!(flags & CPP_N_USERDEF))
+	{
+	  if (!MODE_HAS_INFINITIES (TYPE_MODE (type)))
+	    pedwarn (input_location, 0,
+		     "floating constant exceeds range of %qT", type);
+	  else
+	    warning (OPT_Woverflow,
+		     "floating constant exceeds range of %qT", type);
+	}
     }
   /* We also give a warning if the value underflows.  */
   else if (REAL_VALUES_EQUAL (real, dconst0)
-	   || (const_type != type && REAL_VALUES_EQUAL (real_trunc, dconst0)))
+	   || (const_type != type
+	       && REAL_VALUES_EQUAL (real_trunc, dconst0)))
     {
       REAL_VALUE_TYPE realvoidmode;
-      int overflow = real_from_string (&realvoidmode, copy);
-      if (overflow < 0 || !REAL_VALUES_EQUAL (realvoidmode, dconst0))
-	warning (OPT_Woverflow, "floating constant truncated to zero");
+      int oflow = real_from_string (&realvoidmode, copy);
+      *overflow = (oflow == 0 ? OT_NONE
+			      : (oflow < 0 ? OT_UNDERFLOW : OT_OVERFLOW));
+      if (!(flags & CPP_N_USERDEF))
+	{
+	  if (oflow < 0 || !REAL_VALUES_EQUAL (realvoidmode, dconst0))
+	    warning (OPT_Woverflow, "floating constant truncated to zero");
+	}
     }
 
   /* Create a node with determined type and value.  */

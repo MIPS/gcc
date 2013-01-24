@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Iterator Wrappers for the C++ library testsuite. 
 //
-// Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
+// Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -31,7 +31,7 @@
 #include <testsuite_hooks.h>
 #include <bits/stl_iterator_base_types.h>
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <bits/move.h>
 #endif
 
@@ -91,7 +91,7 @@ namespace __gnu_test
 	ptr(ptr_in), SharedInfo(SharedInfo_in)
       { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<class U>
       void
       operator=(U&& new_val)

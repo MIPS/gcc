@@ -1,6 +1,5 @@
 /* Header file for collect/tlink routines.
-   Copyright (C) 1998, 2003, 2004, 2005, 2007, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,7 +29,7 @@ extern void collect_exit (int) ATTRIBUTE_NORETURN;
 
 extern int collect_wait (const char *, struct pex_obj *);
 
-extern void dump_file (const char *, FILE *);
+extern void dump_ld_file (const char *, FILE *);
 
 extern int file_exists (const char *);
 
@@ -40,12 +39,9 @@ extern const char *c_file_name;
 extern struct obstack temporary_obstack;
 extern char *temporary_firstobj;
 extern bool vflag, debug;
+extern bool may_unlink_output_file;
 
-extern void error (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void notice_translated (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
-extern void fatal (const char *, ...) ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-extern void fatal_perror (const char *, ...)
-  ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
 
 #endif /* ! GCC_COLLECT2_H */

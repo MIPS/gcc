@@ -5,11 +5,15 @@
 package unicode_test
 
 import (
+	"flag"
+	"fmt"
+	"runtime"
+	"sort"
 	"testing"
 	. "unicode"
 )
 
-var upperTest = []int{
+var upperTest = []rune{
 	0x41,
 	0xc0,
 	0xd8,
@@ -33,7 +37,7 @@ var upperTest = []int{
 	0x1d7ca,
 }
 
-var notupperTest = []int{
+var notupperTest = []rune{
 	0x40,
 	0x5b,
 	0x61,
@@ -46,7 +50,7 @@ var notupperTest = []int{
 	0x10000,
 }
 
-var letterTest = []int{
+var letterTest = []rune{
 	0x41,
 	0x61,
 	0xaa,
@@ -82,7 +86,7 @@ var letterTest = []int{
 	0x2fa1d,
 }
 
-var notletterTest = []int{
+var notletterTest = []rune{
 	0x20,
 	0x35,
 	0x375,
@@ -94,7 +98,7 @@ var notletterTest = []int{
 }
 
 // Contains all the special cased Latin-1 chars.
-var spaceTest = []int{
+var spaceTest = []rune{
 	0x09,
 	0x0a,
 	0x0b,
@@ -108,7 +112,8 @@ var spaceTest = []int{
 }
 
 type caseT struct {
-	cas, in, out int
+	cas     int
+	in, out rune
 }
 
 var caseTest = []caseT{
@@ -212,6 +217,10 @@ var caseTest = []caseT{
 	{UpperCase, 0x10450, 0x10450},
 	{LowerCase, 0x10450, 0x10450},
 	{TitleCase, 0x10450, 0x10450},
+
+	// Non-letters with case.
+	{LowerCase, 0x2161, 0x2171},
+	{UpperCase, 0x0345, 0x0399},
 }
 
 func TestIsLetter(t *testing.T) {
@@ -323,7 +332,7 @@ func TestIsSpace(t *testing.T) {
 // Check that the optimizations for IsLetter etc. agree with the tables.
 // We only need to check the Latin-1 range.
 func TestLetterOptimizations(t *testing.T) {
-	for i := 0; i < 0x100; i++ {
+	for i := rune(0); i <= MaxLatin1; i++ {
 		if Is(Letter, i) != IsLetter(i) {
 			t.Errorf("IsLetter(U+%04X) disagrees with Is(Letter)", i)
 		}
@@ -352,8 +361,8 @@ func TestLetterOptimizations(t *testing.T) {
 }
 
 func TestTurkishCase(t *testing.T) {
-	lower := []int("abcçdefgğhıijklmnoöprsştuüvyz")
-	upper := []int("ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ")
+	lower := []rune("abcçdefgğhıijklmnoöprsştuüvyz")
+	upper := []rune("ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ")
 	for i, l := range lower {
 		u := upper[i]
 		if TurkishCase.ToLower(l) != l {
@@ -373,6 +382,166 @@ func TestTurkishCase(t *testing.T) {
 		}
 		if TurkishCase.ToTitle(l) != u {
 			t.Errorf("title(U+%04X) is U+%04X not U+%04X", l, TurkishCase.ToTitle(l), u)
+		}
+	}
+}
+
+var simpleFoldTests = []string{
+	// SimpleFold could order its returned slices in any order it wants,
+	// but we know it orders them in increasing order starting at in
+	// and looping around from MaxRune to 0.
+
+	// Easy cases.
+	"Aa",
+	"aA",
+	"δΔ",
+	"Δδ",
+
+	// ASCII special cases.
+	"KkK",
+	"kKK",
+	"KKk",
+	"Ssſ",
+	"sſS",
+	"ſSs",
+
+	// Non-ASCII special cases.
+	"ρϱΡ",
+	"ϱΡρ",
+	"Ρρϱ",
+	"ͅΙιι",
+	"Ιιιͅ",
+	"ιιͅΙ",
+	"ιͅΙι",
+
+	// Extra special cases: has lower/upper but no case fold.
+	"İ",
+	"ı",
+}
+
+func TestSimpleFold(t *testing.T) {
+	for _, tt := range simpleFoldTests {
+		cycle := []rune(tt)
+		r := cycle[len(cycle)-1]
+		for _, out := range cycle {
+			if r := SimpleFold(r); r != out {
+				t.Errorf("SimpleFold(%#U) = %#U, want %#U", r, r, out)
+			}
+			r = out
+		}
+	}
+}
+
+// Running 'go test -calibrate' runs the calibration to find a plausible
+// cutoff point for linear search of a range list vs. binary search.
+// We create a fake table and then time how long it takes to do a
+// sequence of searches within that table, for all possible inputs
+// relative to the ranges (something before all, in each, between each, after all).
+// This assumes that all possible runes are equally likely.
+// In practice most runes are ASCII so this is a conservative estimate
+// of an effective cutoff value. In practice we could probably set it higher
+// than what this function recommends.
+
+var calibrate = flag.Bool("calibrate", false, "compute crossover for linear vs. binary search")
+
+func TestCalibrate(t *testing.T) {
+	if !*calibrate {
+		return
+	}
+
+	if runtime.GOARCH == "amd64" {
+		fmt.Printf("warning: running calibration on %s\n", runtime.GOARCH)
+	}
+
+	// Find the point where binary search wins by more than 10%.
+	// The 10% bias gives linear search an edge when they're close,
+	// because on predominantly ASCII inputs linear search is even
+	// better than our benchmarks measure.
+	n := sort.Search(64, func(n int) bool {
+		tab := fakeTable(n)
+		blinear := func(b *testing.B) {
+			tab := tab
+			max := n*5 + 20
+			for i := 0; i < b.N; i++ {
+				for j := 0; j <= max; j++ {
+					linear(tab, uint16(j))
+				}
+			}
+		}
+		bbinary := func(b *testing.B) {
+			tab := tab
+			max := n*5 + 20
+			for i := 0; i < b.N; i++ {
+				for j := 0; j <= max; j++ {
+					binary(tab, uint16(j))
+				}
+			}
+		}
+		bmlinear := testing.Benchmark(blinear)
+		bmbinary := testing.Benchmark(bbinary)
+		fmt.Printf("n=%d: linear=%d binary=%d\n", n, bmlinear.NsPerOp(), bmbinary.NsPerOp())
+		return bmlinear.NsPerOp()*100 > bmbinary.NsPerOp()*110
+	})
+	fmt.Printf("calibration: linear cutoff = %d\n", n)
+}
+
+func fakeTable(n int) []Range16 {
+	var r16 []Range16
+	for i := 0; i < n; i++ {
+		r16 = append(r16, Range16{uint16(i*5 + 10), uint16(i*5 + 12), 1})
+	}
+	return r16
+}
+
+func linear(ranges []Range16, r uint16) bool {
+	for i := range ranges {
+		range_ := &ranges[i]
+		if r < range_.Lo {
+			return false
+		}
+		if r <= range_.Hi {
+			return (r-range_.Lo)%range_.Stride == 0
+		}
+	}
+	return false
+}
+
+func binary(ranges []Range16, r uint16) bool {
+	// binary search over ranges
+	lo := 0
+	hi := len(ranges)
+	for lo < hi {
+		m := lo + (hi-lo)/2
+		range_ := &ranges[m]
+		if range_.Lo <= r && r <= range_.Hi {
+			return (r-range_.Lo)%range_.Stride == 0
+		}
+		if r < range_.Lo {
+			hi = m
+		} else {
+			lo = m + 1
+		}
+	}
+	return false
+}
+
+func TestLatinOffset(t *testing.T) {
+	var maps = []map[string]*RangeTable{
+		Categories,
+		FoldCategory,
+		FoldScript,
+		Properties,
+		Scripts,
+	}
+	for _, m := range maps {
+		for name, tab := range m {
+			i := 0
+			for i < len(tab.R16) && tab.R16[i].Hi <= MaxLatin1 {
+				i++
+			}
+			if tab.LatinOffset != i {
+				t.Errorf("%s: LatinOffset=%d, want %d", name, tab.LatinOffset, i)
+			}
 		}
 	}
 }

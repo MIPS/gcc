@@ -1,14 +1,16 @@
-// $G $D/$F.go && $L $F.$A && ./$A.out
+// run
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Test types of constant expressions, using reflect.
+
 package main
 
 import "reflect"
 
-func typeof(x interface{}) string { return reflect.Typeof(x).String() }
+func typeof(x interface{}) string { return reflect.TypeOf(x).String() }
 
 func f() int { return 0 }
 

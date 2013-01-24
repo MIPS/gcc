@@ -1,4 +1,4 @@
-// $G $D/$F.go || echo BUG should compile
+// compile
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -8,16 +8,21 @@ package main
 
 func main() {
 L1:
-L2:	for i := 0; i < 10; i++ {
-		print(i);
-		break L2;
+L2:
+	for i := 0; i < 10; i++ {
+		print(i)
+		break L2
 	}
 
-L3: ;
-L4:	for i := 0; i < 10; i++ {
-		print(i);
-		break L4;
+L3:
+	;
+L4:
+	for i := 0; i < 10; i++ {
+		print(i)
+		break L4
 	}
+	goto L1
+	goto L3
 }
 
 /*

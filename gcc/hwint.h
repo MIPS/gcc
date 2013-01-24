@@ -1,6 +1,5 @@
 /* HOST_WIDE_INT definitions for the GNU compiler.
-   Copyright (C) 1998, 2002, 2004, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -60,19 +59,29 @@ extern char sizeof_long_long_must_be_8[sizeof(long long) == 8 ? 1 : -1];
 #if HOST_BITS_PER_LONG >= 64 || !defined NEED_64BIT_HOST_WIDE_INT
 #   define HOST_BITS_PER_WIDE_INT HOST_BITS_PER_LONG
 #   define HOST_WIDE_INT long
+#   define HOST_WIDE_INT_C(X) X ## L
 #else
 # if HOST_BITS_PER_LONGLONG >= 64
 #   define HOST_BITS_PER_WIDE_INT HOST_BITS_PER_LONGLONG
 #   define HOST_WIDE_INT long long
+#   define HOST_WIDE_INT_C(X) X ## LL
 # else
 #  if HOST_BITS_PER___INT64 >= 64
 #   define HOST_BITS_PER_WIDE_INT HOST_BITS_PER___INT64
 #   define HOST_WIDE_INT __int64
+#   define HOST_WIDE_INT_C(X) X ## i64
 #  else
     #error "Unable to find a suitable type for HOST_WIDE_INT"
 #  endif
 # endif
 #endif
+
+#define HOST_WIDE_INT_1 HOST_WIDE_INT_C(1)
+
+/* This is a magic identifier which allows GCC to figure out the type
+   of HOST_WIDE_INT for %wd specifier checks.  You must issue this
+   typedef before using the __asm_fprintf__ format attribute.  */
+typedef HOST_WIDE_INT __gcc_host_wide_int__;
 
 /* Various printf format strings for HOST_WIDE_INT.  */
 
@@ -100,6 +109,7 @@ extern char sizeof_long_long_must_be_8[sizeof(long long) == 8 ? 1 : -1];
 #define HOST_WIDE_INT_PRINT_DEC_C HOST_WIDE_INT_PRINT_DEC HOST_WIDE_INT_PRINT_C
 #define HOST_WIDE_INT_PRINT_UNSIGNED "%" HOST_WIDE_INT_PRINT "u"
 #define HOST_WIDE_INT_PRINT_HEX "%#" HOST_WIDE_INT_PRINT "x"
+#define HOST_WIDE_INT_PRINT_HEX_PURE "%" HOST_WIDE_INT_PRINT "x"
 
 /* Set HOST_WIDEST_INT.  This is a 64-bit type unless the compiler
    in use has no 64-bit type at all; in that case it's 32 bits.  */
@@ -114,14 +124,17 @@ extern char sizeof_long_long_must_be_8[sizeof(long long) == 8 ? 1 : -1];
 # define HOST_WIDEST_INT_PRINT_UNSIGNED	      HOST_WIDE_INT_PRINT_UNSIGNED
 # define HOST_WIDEST_INT_PRINT_HEX	      HOST_WIDE_INT_PRINT_HEX
 # define HOST_WIDEST_INT_PRINT_DOUBLE_HEX     HOST_WIDE_INT_PRINT_DOUBLE_HEX
+# define HOST_WIDEST_INT_C(X)		      HOST_WIDE_INT(X)
 #else
 # if HOST_BITS_PER_LONGLONG >= 64
 #  define HOST_BITS_PER_WIDEST_INT	      HOST_BITS_PER_LONGLONG
 #  define HOST_WIDEST_INT		      long long
+#  define HOST_WIDEST_INT_C(X)		      X ## LL
 # else
 #  if HOST_BITS_PER___INT64 >= 64
 #   define HOST_BITS_PER_WIDEST_INT	      HOST_BITS_PER___INT64
 #   define HOST_WIDEST_INT		      __int64
+#   define HOST_WIDEST_INT_C(X)		      X ## i64
 #  else
     #error "This line should be impossible to reach"
 #  endif
@@ -165,11 +178,17 @@ extern int clz_hwi (unsigned HOST_WIDE_INT x);
 extern int ctz_hwi (unsigned HOST_WIDE_INT x);
 extern int ffs_hwi (unsigned HOST_WIDE_INT x);
 
+/* Return the number of set bits in X.  */
+extern int popcount_hwi (unsigned HOST_WIDE_INT x);
+
 /* Return log2, or -1 if not exact.  */
 extern int exact_log2                  (unsigned HOST_WIDE_INT);
 
 /* Return floor of log2, with -1 for zero.  */
 extern int floor_log2                  (unsigned HOST_WIDE_INT);
+
+/* Return the smallest n such that 2**n >= X.  */
+extern int ceil_log2			(unsigned HOST_WIDE_INT);
 
 #else /* GCC_VERSION >= 3004 */
 
@@ -215,9 +234,27 @@ ffs_hwi (unsigned HOST_WIDE_INT x)
 }
 
 static inline int
+popcount_hwi (unsigned HOST_WIDE_INT x)
+{
+# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+  return __builtin_popcountl (x);
+# elif HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONGLONG
+  return __builtin_popcountll (x);
+# else
+  return __builtin_popcount (x);
+# endif
+}
+
+static inline int
 floor_log2 (unsigned HOST_WIDE_INT x)
 {
   return HOST_BITS_PER_WIDE_INT - 1 - clz_hwi (x);
+}
+
+static inline int
+ceil_log2 (unsigned HOST_WIDE_INT x)
+{
+  return floor_log2 (x - 1) + 1;
 }
 
 static inline int
@@ -228,33 +265,15 @@ exact_log2 (unsigned HOST_WIDE_INT x)
 
 #endif /* GCC_VERSION >= 3004 */
 
-/* Compute the greatest common divisor of two numbers using
-   Euclid's algorithm.  */
+#define HOST_WIDE_INT_MIN (HOST_WIDE_INT) \
+  ((unsigned HOST_WIDE_INT) 1 << (HOST_BITS_PER_WIDE_INT - 1))
+#define HOST_WIDE_INT_MAX (~(HOST_WIDE_INT_MIN))
 
-static inline int
-gcd (int a, int b)
-{
-  int x, y, z;
-
-  x = abs (a);
-  y = abs (b);
-
-  while (x > 0)
-    {
-      z = y % x;
-      y = x;
-      x = z;
-    }
-
-  return y;
-}
-
-/* Compute the least common multiple of two numbers A and B .  */
-
-static inline int
-least_common_multiple (int a, int b)
-{
-  return (abs (a) * abs (b) / gcd (a, b));
-}
+extern HOST_WIDE_INT abs_hwi (HOST_WIDE_INT);
+extern unsigned HOST_WIDE_INT absu_hwi (HOST_WIDE_INT);
+extern HOST_WIDE_INT gcd (HOST_WIDE_INT, HOST_WIDE_INT);
+extern HOST_WIDE_INT pos_mul_hwi (HOST_WIDE_INT, HOST_WIDE_INT);
+extern HOST_WIDE_INT mul_hwi (HOST_WIDE_INT, HOST_WIDE_INT);
+extern HOST_WIDE_INT least_common_multiple (HOST_WIDE_INT, HOST_WIDE_INT);
 
 #endif /* ! GCC_HWINT_H */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---             Copyright (C) 2009, Free Software Foundation, Inc.           --
+--          Copyright (C) 2009-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +24,7 @@
 ------------------------------------------------------------------------------
 
 --  This package contains the routines used to deal with generation and output
---  of Soure Coverage Obligations (SCO's) used for coverage analysis purposes.
+--  of Source Coverage Obligations (SCO's) used for coverage analysis purposes.
 --  See package SCOs for full documentation of format of SCO information.
 
 with Types; use Types;
@@ -52,15 +52,18 @@ package Par_SCO is
    procedure Set_SCO_Pragma_Enabled (Loc : Source_Ptr);
    --  This procedure is called from Sem_Prag when a pragma is enabled (i.e.
    --  when the Pragma_Enabled flag is set). Loc is the Sloc of the N_Pragma
-   --  node. This is used to enable the corresponding SCO table entry. Note
+   --  node. This is used to enable the corresponding statement SCO entry. Note
    --  that we use the Sloc as the key here, since in the generic case, the
    --  analysis is on a copy of the node, which is different from the node
    --  seen by Par_SCO in the parse tree (but the Sloc values are the same).
 
+   function SCO_Pragma_Disabled (Loc : Source_Ptr) return Boolean;
+   --  True if Loc is the source location of a disabled pragma
+
    procedure SCO_Output;
-   --  Outputs SCO lines for all units, with appropriate section headers, for
-   --  unit U in the ALI file, as recorded by previous calls to SCO_Record,
-   --  possibly modified by calls to Set_SCO_Condition.
+   --  Outputs SCO lines for all units, with appropriate section headers, as
+   --  recorded by previous calls to SCO_Record, possibly modified by calls to
+   --  Set_SCO_Condition.
 
    procedure dsco;
    --  Debug routine to dump internal SCO table. This is a raw format dump

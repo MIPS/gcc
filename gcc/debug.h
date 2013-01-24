@@ -1,6 +1,5 @@
 /* Debug hooks for GCC.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -178,19 +177,12 @@ extern void dwarf2out_begin_prologue (unsigned int, const char *);
 extern void dwarf2out_vms_end_prologue (unsigned int, const char *);
 extern void dwarf2out_vms_begin_epilogue (unsigned int, const char *);
 extern void dwarf2out_end_epilogue (unsigned int, const char *);
-extern void dwarf2out_frame_init (void);
 extern void dwarf2out_frame_finish (void);
 /* Decide whether we want to emit frame unwind information for the current
    translation unit.  */
-extern int dwarf2out_do_frame (void);
-extern int dwarf2out_do_cfi_asm (void);
+extern bool dwarf2out_do_frame (void);
+extern bool dwarf2out_do_cfi_asm (void);
 extern void dwarf2out_switch_text_section (void);
-
-extern void debug_flush_symbol_queue (void);
-extern void debug_queue_symbol (tree);
-extern void debug_free_queue (void);
-extern int debug_nesting;
-extern int symbol_queue_index;
 
 const char *remap_debug_filename (const char *);
 void add_debug_prefix_map (const char *);

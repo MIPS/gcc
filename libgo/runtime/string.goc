@@ -4,54 +4,72 @@
 
 package runtime
 #include "runtime.h"
+#include "arch.h"
+#include "malloc.h"
+#include "go-string.h"
+
 #define charntorune(pv, str, len) __go_get_rune(str, len, pv)
+
+intgo
+runtime_findnull(const byte *s)
+{
+	if(s == nil)
+		return 0;
+	return __builtin_strlen((const char*) s);
+}
+
+String
+runtime_gostringnocopy(const byte *str)
+{
+	String s;
+	
+	s.str = str;
+	s.len = runtime_findnull(str);
+	return s;
+}
 
 enum
 {
 	Runeself	= 0x80,
 };
 
-func stringiter(s String, k int32) (retk int32) {
-	int32 l, n;
+func stringiter(s String, k int) (retk int) {
+	int32 l;
 
-	if(k >= s.__length) {
+	if(k >= s.len) {
 		// retk=0 is end of iteration
 		retk = 0;
 		goto out;
 	}
 
-	l = s.__data[k];
+	l = s.str[k];
 	if(l < Runeself) {
 		retk = k+1;
 		goto out;
 	}
 
 	// multi-char rune
-	n = charntorune(&l, s.__data+k, s.__length-k);
-	retk = k + (n ? n : 1);
+	retk = k + charntorune(&l, s.str+k, s.len-k);
 
 out:
 }
 
-func stringiter2(s String, k int32) (retk int32, retv int32) {
-	int32 n;
-
-	if(k >= s.__length) {
+func stringiter2(s String, k int) (retk int, retv int32) {
+	if(k >= s.len) {
 		// retk=0 is end of iteration
 		retk = 0;
 		retv = 0;
 		goto out;
 	}
 
-	retv = s.__data[k];
+	retv = s.str[k];
 	if(retv < Runeself) {
 		retk = k+1;
 		goto out;
 	}
 
 	// multi-char rune
-	n = charntorune(&retv, s.__data+k, s.__length-k);
-	retk = k + (n ? n : 1);
+	retk = k + charntorune(&retv, s.str+k, s.len-k);
 
 out:
 }

@@ -1,6 +1,5 @@
 /* CPP Library - lexical analysis.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -267,7 +266,6 @@ search_line_acc_char (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 /* Disable on Solaris 2/x86 until the following problems can be properly
    autoconfed:
 
-   The Solaris 8 assembler cannot assemble SSE2/SSE4.2 insns.
    The Solaris 9 assembler cannot assemble SSE4.2 insns.
    Before Solaris 9 Update 6, SSE insns cannot be executed.
    The Solaris 10+ assembler tags objects with the instruction set
@@ -294,7 +292,7 @@ static const char repl_chars[4][16] __attribute__((aligned(16))) = {
 /* A version of the fast scanner using MMX vectorized byte compare insns.
 
    This uses the PMOVMSKB instruction which was introduced with "MMX2",
-   which was packaged into SSE1; it is also present in the AMD 3dNOW-A
+   which was packaged into SSE1; it is also present in the AMD MMX
    extension.  Mark the function as using "sse" so that we emit a real
    "emms" instruction, rather than the 3dNOW "femms" instruction.  */
 
@@ -428,6 +426,8 @@ search_line_sse42 (const uchar *s, const uchar *end)
   /* Check for unaligned input.  */
   if (si & 15)
     {
+      v16qi sv;
+
       if (__builtin_expect (end - s < 16, 0)
 	  && __builtin_expect ((si & 0xfff) > 0xff0, 0))
 	{
@@ -440,8 +440,9 @@ search_line_sse42 (const uchar *s, const uchar *end)
 
       /* ??? The builtin doesn't understand that the PCMPESTRI read from
 	 memory need not be aligned.  */
-      __asm ("%vpcmpestri $0, (%1), %2"
-	     : "=c"(index) : "r"(s), "x"(search), "a"(4), "d"(16));
+      sv = __builtin_ia32_loaddqu ((const char *) s);
+      index = __builtin_ia32_pcmpestri128 (search, 4, sv, 16, 0);
+
       if (__builtin_expect (index < 16, 0))
 	goto found;
 
@@ -477,7 +478,8 @@ search_line_sse42 (const uchar *s, const uchar *end)
 typedef const uchar * (*search_line_fast_type) (const uchar *, const uchar *);
 static search_line_fast_type search_line_fast;
 
-static void __attribute__((constructor))
+#define HAVE_init_vectorized_lexer 1
+static inline void
 init_vectorized_lexer (void)
 {
   unsigned dummy, ecx = 0, edx = 0;
@@ -488,7 +490,7 @@ init_vectorized_lexer (void)
   minimum = 3;
 #elif defined(__SSE2__)
   minimum = 2;
-#elif defined(__SSE__) || defined(__3dNOW_A__)
+#elif defined(__SSE__)
   minimum = 1;
 #endif
 
@@ -505,7 +507,8 @@ init_vectorized_lexer (void)
     }
   else if (__get_cpuid (0x80000001, &dummy, &dummy, &dummy, &edx))
     {
-      if (minimum == 1 || edx & bit_3DNOWP)
+      if (minimum == 1
+	  || (edx & (bit_MMXEXT | bit_CMOV)) == (bit_MMXEXT | bit_CMOV))
 	impl = search_line_mmx;
     }
 
@@ -589,10 +592,10 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
   {
 #define N  (sizeof(vc) / sizeof(long))
 
-    typedef char check_count[(N == 2 || N == 4) * 2 - 1];
     union {
       vc v;
-      unsigned long l[N];
+      /* Statically assert that N is 2 or 4.  */
+      unsigned long l[(N == 2 || N == 4) ? N : -1];
     } u;
     unsigned long l, i = 0;
 
@@ -628,6 +631,69 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
   }
 }
 
+#elif defined (__ARM_NEON__)
+#include "arm_neon.h"
+
+static const uchar *
+search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
+{
+  const uint8x16_t repl_nl = vdupq_n_u8 ('\n');
+  const uint8x16_t repl_cr = vdupq_n_u8 ('\r');
+  const uint8x16_t repl_bs = vdupq_n_u8 ('\\');
+  const uint8x16_t repl_qm = vdupq_n_u8 ('?');
+  const uint8x16_t xmask = (uint8x16_t) vdupq_n_u64 (0x8040201008040201ULL);
+
+  unsigned int misalign, found, mask;
+  const uint8_t *p;
+  uint8x16_t data;
+
+  /* Align the source pointer.  */
+  misalign = (uintptr_t)s & 15;
+  p = (const uint8_t *)((uintptr_t)s & -16);
+  data = vld1q_u8 (p);
+
+  /* Create a mask for the bytes that are valid within the first
+     16-byte block.  The Idea here is that the AND with the mask
+     within the loop is "free", since we need some AND or TEST
+     insn in order to set the flags for the branch anyway.  */
+  mask = (-1u << misalign) & 0xffff;
+
+  /* Main loop, processing 16 bytes at a time.  */
+  goto start;
+
+  do
+    {
+      uint8x8_t l;
+      uint16x4_t m;
+      uint32x2_t n;
+      uint8x16_t t, u, v, w;
+
+      p += 16;
+      data = vld1q_u8 (p);
+      mask = 0xffff;
+
+    start:
+      t = vceqq_u8 (data, repl_nl);
+      u = vceqq_u8 (data, repl_cr);
+      v = vorrq_u8 (t, vceqq_u8 (data, repl_bs));
+      w = vorrq_u8 (u, vceqq_u8 (data, repl_qm));
+      t = vandq_u8 (vorrq_u8 (v, w), xmask);
+      l = vpadd_u8 (vget_low_u8 (t), vget_high_u8 (t));
+      m = vpaddl_u8 (l);
+      n = vpaddl_u16 (m);
+      
+      found = vget_lane_u32 ((uint32x2_t) vorr_u64 ((uint64x1_t) n, 
+	      vshr_n_u64 ((uint64x1_t) n, 24)), 0);
+      found &= mask;
+    }
+  while (!found);
+
+  /* FOUND contains 1 in bits for which we matched a relevant
+     character.  Conversion to the byte index is trivial.  */
+  found = __builtin_ctz (found);
+  return (const uchar *)p + found;
+}
+
 #else
 
 /* We only have one accellerated alternative.  Use a direct call so that
@@ -636,6 +702,16 @@ search_line_fast (const uchar *s, const uchar *end ATTRIBUTE_UNUSED)
 #define search_line_fast  search_line_acc_char
 
 #endif
+
+/* Initialize the lexer if needed.  */
+
+void
+_cpp_init_lexer (void)
+{
+#ifdef HAVE_init_vectorized_lexer
+  init_vectorized_lexer ();
+#endif
+}
 
 /* Returns with a logical line that contains no escaped newlines or
    trigraphs.  This is a time-critical inner loop.  */
@@ -1017,6 +1093,7 @@ warn_about_normalization (cpp_reader *pfile,
       else
 	cpp_warning_with_line (pfile, CPP_W_NORMALIZE, token->src_loc, 0,
 			       "`%.*s' is not in NFC", (int) sz, buf);
+      free (buf);
     }
 }
 
@@ -1269,7 +1346,6 @@ static void
 lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
 		const uchar *cur)
 {
-  source_location saw_NUL = 0;
   const uchar *raw_prefix;
   unsigned int raw_prefix_len = 0;
   enum cpp_ttype type;
@@ -1410,7 +1486,9 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
 				       raw_prefix_len) == 0
 			   && cur[raw_prefix_len+1] == '"')
 		    {
-		      cur += raw_prefix_len+2;
+		      BUF_APPEND (")", 1);
+		      base++;
+		      cur += raw_prefix_len + 2;
 		      goto break_outer_loop;
 		    }
 		  else
@@ -1473,15 +1551,36 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
 	  cur = base = pfile->buffer->cur;
 	  note = &pfile->buffer->notes[pfile->buffer->cur_note];
 	}
-      else if (c == '\0' && !saw_NUL)
-	LINEMAP_POSITION_FOR_COLUMN (saw_NUL, pfile->line_table,
-				     CPP_BUF_COLUMN (pfile->buffer, cur));
     }
  break_outer_loop:
 
-  if (saw_NUL && !pfile->state.skipping)
-    cpp_error_with_line (pfile, CPP_DL_WARNING, saw_NUL, 0,
-	       "null character(s) preserved in literal");
+  if (CPP_OPTION (pfile, user_literals))
+    {
+      /* According to C++11 [lex.ext]p10, a ud-suffix not starting with an
+	 underscore is ill-formed.  Since this breaks programs using macros
+	 from inttypes.h, we generate a warning and treat the ud-suffix as a
+	 separate preprocessing token.  This approach is under discussion by
+	 the standards committee, and has been adopted as a conforming
+	 extension by other front ends such as clang. */
+      if (ISALPHA (*cur))
+	{
+	  /* Raise a warning, but do not consume subsequent tokens.  */
+	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
+				   token->src_loc, 0,
+				   "invalid suffix on literal; C++11 requires "
+				   "a space between literal and identifier");
+	}
+      /* Grab user defined literal suffix.  */
+      else if (*cur == '_')
+	{
+	  type = cpp_userdef_string_add_type (type);
+	  ++cur;
+
+	  while (ISIDNUM (*cur))
+	    ++cur;
+	}
+    }
 
   pfile->buffer->cur = cur;
   if (first_buff == NULL)
@@ -1585,6 +1684,35 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
   if (type == CPP_OTHER && CPP_OPTION (pfile, lang) != CLK_ASM)
     cpp_error (pfile, CPP_DL_PEDWARN, "missing terminating %c character",
 	       (int) terminator);
+
+  if (CPP_OPTION (pfile, user_literals))
+    {
+      /* According to C++11 [lex.ext]p10, a ud-suffix not starting with an
+	 underscore is ill-formed.  Since this breaks programs using macros
+	 from inttypes.h, we generate a warning and treat the ud-suffix as a
+	 separate preprocessing token.  This approach is under discussion by
+	 the standards committee, and has been adopted as a conforming
+	 extension by other front ends such as clang. */
+      if (ISALPHA (*cur))
+	{
+	  /* Raise a warning, but do not consume subsequent tokens.  */
+	  if (CPP_OPTION (pfile, warn_literal_suffix))
+	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
+				   token->src_loc, 0,
+				   "invalid suffix on literal; C++11 requires "
+				   "a space between literal and identifier");
+	}
+      /* Grab user defined literal suffix.  */
+      else if (*cur == '_')
+	{
+	  type = cpp_userdef_char_add_type (type);
+	  type = cpp_userdef_string_add_type (type);
+          ++cur;
+
+	  while (ISIDNUM (*cur))
+	    ++cur;
+	}
+    }
 
   pfile->buffer->cur = cur;
   create_literal (pfile, token, base, cur - base, type);
@@ -1708,6 +1836,34 @@ next_tokenrun (tokenrun *run)
   return run->next;
 }
 
+/* Return the number of not yet processed token in a given
+   context.  */
+int
+_cpp_remaining_tokens_num_in_context (cpp_context *context)
+{
+  if (context->tokens_kind == TOKENS_KIND_DIRECT)
+    return (LAST (context).token - FIRST (context).token);
+  else if (context->tokens_kind == TOKENS_KIND_INDIRECT
+	   || context->tokens_kind == TOKENS_KIND_EXTENDED)
+    return (LAST (context).ptoken - FIRST (context).ptoken);
+  else
+      abort ();
+}
+
+/* Returns the token present at index INDEX in a given context.  If
+   INDEX is zero, the next token to be processed is returned.  */
+static const cpp_token*
+_cpp_token_from_context_at (cpp_context *context, int index)
+{
+  if (context->tokens_kind == TOKENS_KIND_DIRECT)
+    return &(FIRST (context).token[index]);
+  else if (context->tokens_kind == TOKENS_KIND_INDIRECT
+	   || context->tokens_kind == TOKENS_KIND_EXTENDED)
+    return FIRST (context).ptoken[index];
+ else
+   abort ();
+}
+
 /* Look ahead in the input stream.  */
 const cpp_token *
 cpp_peek_token (cpp_reader *pfile, int index)
@@ -1719,15 +1875,10 @@ cpp_peek_token (cpp_reader *pfile, int index)
   /* First, scan through any pending cpp_context objects.  */
   while (context->prev)
     {
-      ptrdiff_t sz = (context->direct_p
-                      ? LAST (context).token - FIRST (context).token
-                      : LAST (context).ptoken - FIRST (context).ptoken);
+      ptrdiff_t sz = _cpp_remaining_tokens_num_in_context (context);
 
       if (index < (int) sz)
-        return (context->direct_p
-                ? FIRST (context).token + index
-                : *(FIRST (context).ptoken + index));
-
+        return _cpp_token_from_context_at (context, index);
       index -= (int) sz;
       context = context->prev;
     }
@@ -1980,8 +2131,11 @@ _cpp_lex_direct (cpp_reader *pfile)
     }
   c = *buffer->cur++;
 
-  LINEMAP_POSITION_FOR_COLUMN (result->src_loc, pfile->line_table,
-			       CPP_BUF_COLUMN (buffer, buffer->cur));
+  if (pfile->forced_token_location_p)
+    result->src_loc = *pfile->forced_token_location_p;
+  else
+    result->src_loc = linemap_position_for_column (pfile->line_table,
+					  CPP_BUF_COLUMN (buffer, buffer->cur));
 
   switch (c)
     {
@@ -2012,18 +2166,20 @@ _cpp_lex_direct (cpp_reader *pfile)
     case 'R':
       /* 'L', 'u', 'U', 'u8' or 'R' may introduce wide characters,
 	 wide strings or raw strings.  */
-      if (c == 'L' || CPP_OPTION (pfile, uliterals))
+      if (c == 'L' || CPP_OPTION (pfile, rliterals)
+	  || (c != 'R' && CPP_OPTION (pfile, uliterals)))
 	{
 	  if ((*buffer->cur == '\'' && c != 'R')
 	      || *buffer->cur == '"'
 	      || (*buffer->cur == 'R'
 		  && c != 'R'
 		  && buffer->cur[1] == '"'
-		  && CPP_OPTION (pfile, uliterals))
+		  && CPP_OPTION (pfile, rliterals))
 	      || (*buffer->cur == '8'
 		  && c == 'u'
 		  && (buffer->cur[1] == '"'
-		      || (buffer->cur[1] == 'R' && buffer->cur[2] == '"'))))
+		      || (buffer->cur[1] == 'R' && buffer->cur[2] == '"'
+			  && CPP_OPTION (pfile, rliterals)))))
 	    {
 	      lex_string (pfile, result, buffer->cur - 1);
 	      break;
@@ -2133,6 +2289,17 @@ _cpp_lex_direct (cpp_reader *pfile)
 	{
 	  if (*buffer->cur == ':')
 	    {
+	      /* C++11 [2.5/3 lex.pptoken], "Otherwise, if the next
+		 three characters are <:: and the subsequent character
+		 is neither : nor >, the < is treated as a preprocessor
+		 token by itself".  */
+	      if (CPP_OPTION (pfile, cplusplus)
+		  && (CPP_OPTION (pfile, lang) == CLK_CXX11
+		      || CPP_OPTION (pfile, lang) == CLK_GNUCXX11)
+		  && buffer->cur[1] == ':'
+		  && buffer->cur[2] != ':' && buffer->cur[2] != '>')
+		break;
+
 	      buffer->cur++;
 	      result->flags |= DIGRAPH;
 	      result->type = CPP_OPEN_SQUARE;
@@ -2841,4 +3008,22 @@ cpp_token_val_index (cpp_token *tok)
     default:
       return CPP_TOKEN_FLD_NONE;
     }
+}
+
+/* All tokens lexed in R after calling this function will be forced to have
+   their source_location the same as the location referenced by P, until
+   cpp_stop_forcing_token_locations is called for R.  */
+
+void
+cpp_force_token_locations (cpp_reader *r, source_location *p)
+{
+  r->forced_token_location_p = p;
+}
+
+/* Go back to assigning locations naturally for lexed tokens.  */
+
+void
+cpp_stop_forcing_token_locations (cpp_reader *r)
+{
+  r->forced_token_location_p = NULL;
 }

@@ -4,6 +4,7 @@
    Use of this source code is governed by a BSD-style
    license that can be found in the LICENSE file.  */
 
+#include "runtime.h"
 #include "go-assert.h"
 #include "map.h"
 
@@ -34,7 +35,7 @@ __go_mapiternext (struct __go_hash_iter *it)
   if (entry == NULL)
     {
       const struct __go_map *map;
-      size_t bucket;
+      uintptr_t bucket;
 
       map = it->map;
       bucket = it->bucket;

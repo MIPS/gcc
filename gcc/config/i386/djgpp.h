@@ -1,6 +1,5 @@
 /* Configuration for an i386 running MS-DOS with DJGPP.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2007,
-   2010 Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,23 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-/* If defined, a C expression whose value is a string containing the
-   assembler operation to identify the following data as
-   uninitialized global data.  If not defined, and neither
-   `ASM_OUTPUT_BSS' nor `ASM_OUTPUT_ALIGNED_BSS' are defined,
-   uninitialized global data will be output in the data section if
-   `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
-   used.  */
 #undef BSS_SECTION_ASM_OP
 #define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* Define the name of the .data section.  */
 #undef DATA_SECTION_ASM_OP
 #define DATA_SECTION_ASM_OP "\t.section .data"
-
-/* Define the name of the .ident op.  */
-#undef IDENT_ASM_OP
-#define IDENT_ASM_OP "\t.ident\t"
 
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
@@ -54,10 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Define standard DJGPP installation paths.  */
 /* We override default /usr or /usr/local part with /dev/env/DJDIR which */
 /* points to actual DJGPP installation directory.  */
-
-/* Standard include directory */
-#undef STANDARD_INCLUDE_DIR
-#define STANDARD_INCLUDE_DIR "/dev/env/DJDIR/include/"
 
 /* Search for as.exe and ld.exe in DJGPP's binary directory.  */ 
 #undef MD_EXEC_PREFIX
@@ -162,8 +146,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Used to be defined in xm-djgpp.h, but moved here for cross-compilers.  */
 #define LIBSTDCXX "stdcxx"
-
-#define TARGET_VERSION fprintf (stderr, " (80386, MS-DOS DJGPP)"); 
 
 /* Warn that -mbnu210 is now obsolete.  */
 #undef  SUBTARGET_OVERRIDE_OPTIONS

@@ -6,17 +6,18 @@
 
 #include <stddef.h>
 
+#include "runtime.h"
 #include "array.h"
 
 /* This is in C so that the compiler can optimize it appropriately.
    We deliberately don't split the stack in case it does call the
    library function, which shouldn't need much stack space.  */
 
-int IndexByte (struct __go_open_array, char)
-  asm ("libgo_bytes.bytes.IndexByte")
+intgo IndexByte (struct __go_open_array, char)
+  asm ("bytes.IndexByte")
   __attribute__ ((no_split_stack));
 
-int
+intgo
 IndexByte (struct __go_open_array s, char b)
 {
   char *p;
@@ -25,4 +26,18 @@ IndexByte (struct __go_open_array s, char b)
   if (p == NULL)
     return -1;
   return p - (char *) s.__values;
+}
+
+/* Comparison.  */
+
+_Bool Equal (struct __go_open_array a, struct __go_open_array b)
+  asm ("bytes.Equal")
+  __attribute__ ((no_split_stack));
+
+_Bool
+Equal (struct __go_open_array a, struct __go_open_array b)
+{
+  if (a.__count != b.__count)
+    return 0;
+  return __builtin_memcmp (a.__values, b.__values, a.__count) == 0;
 }

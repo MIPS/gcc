@@ -1,5 +1,4 @@
-/* Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008, 2010 Free Software Foundation, Inc.
+/* Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -209,6 +208,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    registers.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   ((REGNO) == 0 ? (MODE) == CCmode || (MODE) == CCFPmode		\
+   : (REGNO) == 88 ? SCALAR_INT_MODE_P (MODE)				\
    : !TARGET_PA_11 && FP_REGNO_P (REGNO)				\
      ? (VALID_FP_MODE_P (MODE)						\
 	&& (GET_MODE_SIZE (MODE) <= 8					\

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for Xilinx MicroBlaze.
-   Copyright 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
    Contributed by Michael Eager <eager@eagercon.com>.
 
@@ -101,22 +101,6 @@ extern enum pipeline_type microblaze_pipe;
 #define EXTRA_SPECS							\
   { "target_asm_spec", TARGET_ASM_SPEC },				\
   SUBTARGET_EXTRA_SPECS
-
-/* Print subsidiary information on the compiler version in use.  */
-#define MICROBLAZE_VERSION MICROBLAZE_DEFAULT_CPU
-
-#ifndef MACHINE_TYPE
-#define MACHINE_TYPE "MicroBlaze/ELF"
-#endif
-
-#ifndef TARGET_VERSION_INTERNAL
-#define TARGET_VERSION_INTERNAL(STREAM)					\
-  fprintf (STREAM, " %s %s", MACHINE_TYPE, MICROBLAZE_VERSION)
-#endif
-
-#ifndef TARGET_VERSION
-#define TARGET_VERSION TARGET_VERSION_INTERNAL (stderr)
-#endif
 
 /* Local compiler-generated symbols must have a prefix that the assembler
    understands.   */
@@ -404,9 +388,6 @@ extern enum reg_class microblaze_regno_to_class[];
 #define SECONDARY_MEMORY_NEEDED(CLASS1, CLASS2, MODE)			\
   (GET_MODE_CLASS (MODE) == MODE_INT)
 
-#define CLASS_MAX_NREGS(CLASS, MODE)					\
-  ((GET_MODE_SIZE (MODE) + (UNITS_PER_WORD) - 1) / (UNITS_PER_WORD))
-
 /* Stack layout; function entry, exit and calling.  */
 
 #define STACK_GROWS_DOWNWARD
@@ -489,7 +470,7 @@ typedef struct microblaze_args
   /* Adjustments made to args pass in regs.  */
   /* ??? The size is doubled to work around a bug in the code that sets the 
      adjustments in function_arg.  */
-  struct rtx_def *adjust[MAX_ARGS_IN_REGISTERS * 2];
+  rtx adjust[MAX_ARGS_IN_REGISTERS * 2];
 } CUMULATIVE_ARGS;
 
 #define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,FNDECL,N_NAMED_ARGS)	\
@@ -540,12 +521,6 @@ typedef struct microblaze_args
    addresses which require two reload registers.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)  (!pic_address_needs_scratch (X))
 
-/* At present, GAS doesn't understand li.[sd], so don't allow it
-   to be generated at present.  */
-#define LEGITIMATE_CONSTANT_P(X)				\
-  (GET_CODE (X) != CONST_DOUBLE					\
-    || microblaze_const_double_ok (X, GET_MODE (X)))
-
 #define CASE_VECTOR_MODE			(SImode)
 
 #ifndef DEFAULT_SIGNED_CHAR
@@ -571,7 +546,7 @@ typedef struct microblaze_args
 
 #define FUNCTION_MODE   SImode
 
-/* Mode should alwasy be SImode */
+/* Mode should always be SImode */
 #define REGISTER_MOVE_COST(MODE, FROM, TO)			\
   ( GR_REG_CLASS_P (FROM) && GR_REG_CLASS_P (TO) ? 2 		\
    : (FROM) == ST_REGS && GR_REG_CLASS_P (TO) ? 4		\
@@ -721,8 +696,8 @@ do {									\
 #define ASCII_DATA_ASM_OP		"\t.ascii\t"
 #define STRING_ASM_OP			"\t.asciz\t"
 
-#define ASM_OUTPUT_IDENT(FILE, STRING)					\
-  microblaze_asm_output_ident (FILE, STRING)
+#undef TARGET_ASM_OUTPUT_IDENT
+#define TARGET_ASM_OUTPUT_IDENT microblaze_asm_output_ident
 
 /* Default to -G 8 */
 #ifndef MICROBLAZE_DEFAULT_GVALUE
@@ -762,13 +737,6 @@ extern int interrupt_handler;
 extern int save_volatiles;
 
 #define INTERRUPT_HANDLER_NAME "_interrupt_handler"
-
-/* These #define added for C++.  */
-#define UNALIGNED_SHORT_ASM_OP          ".data16"
-#define UNALIGNED_INT_ASM_OP            ".data32"
-#define UNALIGNED_DOUBLE_INT_ASM_OP     ".data8"
-
-#define ASM_BYTE_OP                     ".data8"
 
 /* The following #defines are used in the headers files. Always retain these.  */
 

@@ -39,5 +39,3 @@ module mod_D
   use mod_A
   use mod_C
 end module
-
-! { dg-final { cleanup-modules "mod_A mod_B mod_C mod_D" } }

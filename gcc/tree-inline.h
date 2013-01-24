@@ -1,6 +1,5 @@
 /* Tree inlining hooks and declarations.
-   Copyright 2001, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -21,8 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_TREE_INLINE_H
 #define GCC_TREE_INLINE_H
-
-#include "vecir.h" /* For VEC(gimple,heap).  */
 
 struct cgraph_edge;
 
@@ -116,10 +113,10 @@ typedef struct copy_body_data
   struct pointer_set_t *statements_to_fold;
 
   /* Entry basic block to currently copied body.  */
-  struct basic_block_def *entry_bb;
+  basic_block entry_bb;
 
   /* Debug statements that need processing.  */
-  VEC(gimple,heap) *debug_stmts;
+  vec<gimple> debug_stmts;
 
   /* A map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined, where
@@ -135,6 +132,9 @@ typedef struct eni_weights_d
   /* Cost per call.  */
   unsigned call_cost;
 
+  /* Cost per indirect call.  */
+  unsigned indirect_call_cost;
+
   /* Cost per call to a target specific builtin */
   unsigned target_builtin_call_cost;
 
@@ -143,6 +143,9 @@ typedef struct eni_weights_d
 
   /* Cost for omp construct.  */
   unsigned omp_cost;
+
+  /* Cost for tm transaction.  */
+  unsigned tm_cost;
 
   /* Cost of return.  */
   unsigned return_cost;
@@ -182,7 +185,6 @@ int estimate_num_insns (gimple, eni_weights *);
 int estimate_num_insns_fn (tree, eni_weights *);
 int count_insns_seq (gimple_seq, eni_weights *);
 bool tree_versionable_function_p (tree);
-bool tree_can_inline_p (struct cgraph_edge *e);
 
 extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);

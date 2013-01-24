@@ -228,20 +228,24 @@ LIBGOMP_ENABLE(symvers,yes,[=STYLE],
 # If we never went through the LIBGOMP_CHECK_LINKER_FEATURES macro, then we
 # don't know enough about $LD to do tricks...
 AC_REQUIRE([LIBGOMP_CHECK_LINKER_FEATURES])
-# FIXME  The following test is too strict, in theory.
-if test $enable_shared = no || test "x$LD" = x; then
-  enable_symvers=no
-else
-  if test $with_gnu_ld = yes ; then
-    enable_symvers=gnu
+
+# Turn a 'yes' into a suitable default.
+if test x$enable_symvers = xyes ; then
+  # FIXME  The following test is too strict, in theory.
+  if test $enable_shared = no || test "x$LD" = x; then
+    enable_symvers=no
   else
-    case ${target_os} in
-      # Sun symbol versioning exists since Solaris 2.5.
-      solaris2.[[5-9]]* | solaris2.1[[0-9]]*)
-        enable_symvers=sun ;;
-      *)
-        enable_symvers=no ;;
-    esac
+    if test $with_gnu_ld = yes ; then
+      enable_symvers=gnu
+    else
+      case ${target_os} in
+        # Sun symbol versioning exists since Solaris 2.5.
+        solaris2.[[5-9]]* | solaris2.1[[0-9]]*)
+          enable_symvers=sun ;;
+        *)
+          enable_symvers=no ;;
+      esac
+    fi
   fi
 fi
 
@@ -351,15 +355,12 @@ if test $enable_symvers != no ; then
      # The Solaris 2 runtime linker doesn't support the GNU extension of
      # binding the same symbol to different versions
      solaris2*)
-       symvers_renaming=no ;;
+       ;;
      # Other platforms with GNU symbol versioning (GNU/Linux, more?) do.
      *)
        AC_DEFINE(HAVE_SYMVER_SYMBOL_RENAMING_RUNTIME_SUPPORT, 1,
          [Define to 1 if the target runtime linker supports binding the same symbol to different versions.])
-       symvers_renaming=yes ;;
+       ;;
     esac
-else
-    symvers_renaming=no
 fi
-AM_CONDITIONAL(LIBGOMP_BUILD_VERSIONED_SHLIB_SOL2, test $symvers_renaming = no)
 ])

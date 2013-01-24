@@ -13,7 +13,6 @@ type Visitor interface {
 	Visit(node Node) (w Visitor)
 }
 
-
 // Helper functions for common node lists. They may be empty.
 
 func walkIdentList(v Visitor, list []*Ident) {
@@ -22,13 +21,11 @@ func walkIdentList(v Visitor, list []*Ident) {
 	}
 }
 
-
 func walkExprList(v Visitor, list []Expr) {
 	for _, x := range list {
 		Walk(v, x)
 	}
 }
-
 
 func walkStmtList(v Visitor, list []Stmt) {
 	for _, x := range list {
@@ -36,13 +33,11 @@ func walkStmtList(v Visitor, list []Stmt) {
 	}
 }
 
-
 func walkDeclList(v Visitor, list []Decl) {
 	for _, x := range list {
 		Walk(v, x)
 	}
 }
-
 
 // TODO(gri): Investigate if providing a closure to Walk leads to
 //            simpler use (and may help eliminate Inspect in turn).
@@ -163,7 +158,9 @@ func Walk(v Visitor, node Node) {
 		Walk(v, n.Fields)
 
 	case *FuncType:
-		Walk(v, n.Params)
+		if n.Params != nil {
+			Walk(v, n.Params)
+		}
 		if n.Results != nil {
 			Walk(v, n.Results)
 		}
@@ -234,7 +231,7 @@ func Walk(v Visitor, node Node) {
 		}
 
 	case *CaseClause:
-		walkExprList(v, n.Values)
+		walkExprList(v, n.List)
 		walkStmtList(v, n.Body)
 
 	case *SwitchStmt:
@@ -245,12 +242,6 @@ func Walk(v Visitor, node Node) {
 			Walk(v, n.Tag)
 		}
 		Walk(v, n.Body)
-
-	case *TypeCaseClause:
-		for _, x := range n.Types {
-			Walk(v, x)
-		}
-		walkStmtList(v, n.Body)
 
 	case *TypeSwitchStmt:
 		if n.Init != nil {
@@ -355,9 +346,6 @@ func Walk(v Visitor, node Node) {
 		}
 		Walk(v, n.Name)
 		walkDeclList(v, n.Decls)
-		for _, g := range n.Comments {
-			Walk(v, g)
-		}
 		// don't walk n.Comments - they have been
 		// visited already through the individual
 		// nodes
@@ -375,7 +363,6 @@ func Walk(v Visitor, node Node) {
 	v.Visit(nil)
 }
 
-
 type inspector func(Node) bool
 
 func (f inspector) Visit(node Node) Visitor {
@@ -384,7 +371,6 @@ func (f inspector) Visit(node Node) Visitor {
 	}
 	return nil
 }
-
 
 // Inspect traverses an AST in depth-first order: It starts by calling
 // f(node); node must not be nil. If f returns true, Inspect invokes f

@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2010, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -41,24 +41,24 @@ typedef unsigned char Boolean;
 
 /* General Use Integer Types */
 
-/* Signed 32/bit integer */
+/* Signed 32-bit integer */
 typedef int Int;
 
-/* Signed 16 bit integer */
+/* Signed 16-bit integer */
 typedef short Short;
 
-/* Non/negative Int values */
+/* Non-negative Int values */
 typedef Int Nat;
 
 /* Positive Int values */
 typedef Int Pos;
 
-/* 8/bit unsigned integer */
-typedef char Byte;
+/* 8-bit unsigned integer */
+typedef unsigned char Byte;
 
-/* 8/Bit Character and String Types:  */
+/* 8-Bit Character and String Types:  */
 
-/* 8/bit character type */
+/* 8-bit character type */
 typedef char Char;
 
 /* Graphic characters, as defined in ARM */
@@ -129,6 +129,9 @@ typedef Text_Ptr Source_Ptr;
 
 /* Used for Sloc in all nodes in the representation of package Standard.  */
 #define Standard_Location -2
+
+/* Instance identifiers */
+typedef Nat Instance_Id;
 
 /* Type used for union of all possible ID values covering all ranges */
 typedef int Union_Id;

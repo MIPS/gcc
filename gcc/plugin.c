@@ -1,5 +1,5 @@
 /* Support for GCC plugin mechanism.
-   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "intl.h"
 #include "plugin.h"
-#include "timevar.h"
 #include "ggc.h"
 
 #ifdef ENABLE_PLUGIN
@@ -149,7 +148,7 @@ add_new_plugin (const char* plugin_name)
 			    plugin_name, ".so", NULL);
       if (access (plugin_name, R_OK))
 	fatal_error
-	  ("inacessible plugin file %s expanded from short plugin name %s: %m",
+	  ("inaccessible plugin file %s expanded from short plugin name %s: %m",
 	   plugin_name, base_name);
     }
   else
@@ -420,6 +419,7 @@ register_callback (const char *plugin_name,
 	  }
       /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
+      case PLUGIN_FINISH_DECL:
       case PLUGIN_START_UNIT:
       case PLUGIN_FINISH_UNIT:
       case PLUGIN_PRE_GENERICIZE:
@@ -496,6 +496,7 @@ invoke_plugin_callbacks_full (int event, void *gcc_data)
 	gcc_assert (event < event_last);
       /* Fall through.  */
       case PLUGIN_FINISH_TYPE:
+      case PLUGIN_FINISH_DECL:
       case PLUGIN_START_UNIT:
       case PLUGIN_FINISH_UNIT:
       case PLUGIN_PRE_GENERICIZE:
@@ -863,7 +864,7 @@ get_event_last (void)
 
 
 /* Retrieve the default plugin directory.  The gcc driver should have passed
-   it as -iplugindir <dir> to the cc1 program, and it is queriable thru the
+   it as -iplugindir <dir> to the cc1 program, and it is queriable through the
    -print-file-name=plugin option to gcc.  */
 const char*
 default_plugin_dir_name (void)

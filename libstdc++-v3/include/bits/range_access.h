@@ -32,7 +32,7 @@
 
 #pragma GCC system_header
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -41,7 +41,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Return an iterator pointing to the first element of
    *          the container.
-   *  @param  cont  Container.
+   *  @param  __cont  Container.
    */
   template<class _Container>
     inline auto
@@ -51,7 +51,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Return an iterator pointing to the first element of
    *          the const container.
-   *  @param  cont  Container.
+   *  @param  __cont  Container.
    */
   template<class _Container>
     inline auto
@@ -61,7 +61,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Return an iterator pointing to one past the last element of
    *          the container.
-   *  @param  cont  Container.
+   *  @param  __cont  Container.
    */
   template<class _Container>
     inline auto
@@ -71,7 +71,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Return an iterator pointing to one past the last element of
    *          the const container.
-   *  @param  cont  Container.
+   *  @param  __cont  Container.
    */
   template<class _Container>
     inline auto
@@ -80,7 +80,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief  Return an iterator pointing to the first element of the array.
-   *  @param  arr  Array.
+   *  @param  __arr  Array.
    */
   template<class _Tp, size_t _Nm>
     inline _Tp*
@@ -90,7 +90,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    *  @brief  Return an iterator pointing to one past the last element
    *          of the array.
-   *  @param  arr  Array.
+   *  @param  __arr  Array.
    */
   template<class _Tp, size_t _Nm>
     inline _Tp*
@@ -100,6 +100,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
 #endif // _GLIBCXX_RANGE_ACCESS_H

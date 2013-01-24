@@ -31,12 +31,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "unwind-pe.h"
 #include <string.h> /* For memcpy */
 
-/* This hook allows libraries to sepecify special actions when an
-   exception is thrown without a handler in place.  This is deprecated
-   in favour of objc_set_uncaught_exception_handler ().  */
-void (*_objc_unexpected_exception) (id exception); /* !T:SAFE */
-
-
 /* 'is_kind_of_exception_matcher' is our default exception matcher -
    it determines if the object 'exception' is of class 'catch_class',
    or of a subclass.  */
@@ -165,6 +159,11 @@ parse_lsda_header (struct _Unwind_Context *context, const unsigned char *p,
   info->ttype_encoding = *p++;
   if (info->ttype_encoding != DW_EH_PE_omit)
     {
+#if _GLIBCXX_OVERRIDE_TTYPE_ENCODING
+      /* Older ARM EABI toolchains set this value incorrectly, so use a
+	 hardcoded OS-specific format.  */
+      info->ttype_encoding = _GLIBCXX_OVERRIDE_TTYPE_ENCODING;
+#endif
       p = read_uleb128 (p, &tmp);
       info->TType = p + tmp;
     }
@@ -179,26 +178,6 @@ parse_lsda_header (struct _Unwind_Context *context, const unsigned char *p,
 
   return p;
 }
-
-#ifdef __ARM_EABI_UNWINDER__
-
-static Class
-get_ttype_entry (struct lsda_header_info *info, _uleb128_t i)
-{
-  _Unwind_Ptr ptr;
-  
-  ptr = (_Unwind_Ptr) (info->TType - (i * 4));
-  ptr = _Unwind_decode_target2 (ptr);
-
-  /* NULL ptr means catch-all.  Note that if the class is not found,
-     this will abort the program.  */
-  if (ptr)
-    return objc_getRequiredClass ((const char *) ptr);
-  else
-    return 0;
-}
-
-#else
 
 static Class
 get_ttype_entry (struct lsda_header_info *info, _Unwind_Word i)
@@ -217,14 +196,14 @@ get_ttype_entry (struct lsda_header_info *info, _Unwind_Word i)
     return 0;
 }
 
-#endif
-
 /* Using a different personality function name causes link failures
    when trying to mix code using different exception handling
    models.  */
 #ifdef SJLJ_EXCEPTIONS
 #define PERSONALITY_FUNCTION	__gnu_objc_personality_sj0
 #define __builtin_eh_return_data_regno(x) x
+#elif defined(__SEH__)
+#define PERSONALITY_FUNCTION	__gnu_objc_personality_imp
 #else
 #define PERSONALITY_FUNCTION	__gnu_objc_personality_v0
 #endif
@@ -248,6 +227,9 @@ PERSONALITY_FUNCTION (_Unwind_State state,
 
 #define CONTINUE_UNWINDING return _URC_CONTINUE_UNWIND
 
+#ifdef __SEH__
+static
+#endif
 _Unwind_Reason_Code
 PERSONALITY_FUNCTION (int version,
 		      _Unwind_Action actions,
@@ -539,13 +521,16 @@ objc_exception_throw (id exception)
       (*__objc_uncaught_exception_handler) (exception);
     }
 
-  /* As a last resort support the old, deprecated way of setting an
-     uncaught exception handler.  */
-  if (_objc_unexpected_exception != 0)
-    {
-      (*_objc_unexpected_exception) (exception);
-    }
-
   abort ();
 }
 
+#ifdef __SEH__
+EXCEPTION_DISPOSITION
+__gnu_objc_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
+			     PCONTEXT ms_orig_context,
+			     PDISPATCHER_CONTEXT ms_disp)
+{
+  return _GCC_specific_handler (ms_exc, this_frame, ms_orig_context,
+				ms_disp, __gnu_objc_personality_imp);
+}
+#endif /* SEH */

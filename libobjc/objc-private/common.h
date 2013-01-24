@@ -1,5 +1,5 @@
 /* GNU Objective C Runtime Common Private Definitions
-   Copyright (C) 2010 Free Software Foundation, Inc.
+   Copyright (C) 2010, 2011 Free Software Foundation, Inc.
    Contributed by Nicola Pero
 
 This file is part of GCC.
@@ -27,11 +27,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /* This file contains definitions that should be included by all .c
    and .m files in libobjc.  */
-
-/* This variable allows the public headers to determine when they are
-   being included by a file inside libobjc itself, or when they are
-   being included by an external file.  */
-#define GNU_LIBOBJC_COMPILING_LIBOBJC_ITSELF 1
 
 /* When debugging libobjc, add
 

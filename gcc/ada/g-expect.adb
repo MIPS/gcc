@@ -6,25 +6,23 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2000-2010, AdaCore                     --
+--                     Copyright (C) 2000-2012, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
 -- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNAT;  see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
@@ -35,7 +33,7 @@ with System;              use System;
 with System.OS_Constants; use System.OS_Constants;
 with Ada.Calendar;        use Ada.Calendar;
 
-with GNAT.IO;
+with GNAT.IO;      use GNAT.IO;
 with GNAT.OS_Lib;  use GNAT.OS_Lib;
 with GNAT.Regpat;  use GNAT.Regpat;
 
@@ -680,6 +678,7 @@ package body GNAT.Expect is
                            --  ??? Note that ddd tries again up to three times
                            --  in that case. See LiterateA.C:174
 
+                           Close (Descriptors (D).Input_Fd);
                            Descriptors (D).Input_Fd := Invalid_FD;
                            Result := Expect_Process_Died;
                            return;
@@ -895,7 +894,8 @@ package body GNAT.Expect is
 
    begin
       Non_Blocking_Spawn
-        (Process, Command, Arguments, Err_To_Out => Err_To_Out);
+        (Process, Command, Arguments, Err_To_Out => Err_To_Out,
+         Buffer_Size => 0);
 
       if Input'Length > 0 then
          Send (Process, Input);
@@ -928,7 +928,7 @@ package body GNAT.Expect is
                   NOutput (Output'Range) := Output.all;
                   Free (Output);
 
-                  --  Here if current buffer size is OK
+               --  Here if current buffer size is OK
 
                else
                   NOutput := Output;
@@ -946,6 +946,7 @@ package body GNAT.Expect is
       end;
 
       if Last = 0 then
+         Free (Output);
          return "";
       end if;
 
@@ -1056,16 +1057,17 @@ package body GNAT.Expect is
       Command_With_Path : String_Access;
 
    begin
-      --  Create the rest of the pipes
-
-      Set_Up_Communications
-        (Descriptor, Err_To_Out, Pipe1'Access, Pipe2'Access, Pipe3'Access);
-
       Command_With_Path := Locate_Exec_On_Path (Command);
 
       if Command_With_Path = null then
          raise Invalid_Process;
       end if;
+
+      --  Create the rest of the pipes once we know we will be able to
+      --  execute the process.
+
+      Set_Up_Communications
+        (Descriptor, Err_To_Out, Pipe1'Access, Pipe2'Access, Pipe3'Access);
 
       --  Fork a new process
 
@@ -1366,6 +1368,8 @@ package body GNAT.Expect is
       end if;
 
       if Create_Pipe (Pipe2) /= 0 then
+         Close (Pipe1.Input);
+         Close (Pipe1.Output);
          return;
       end if;
 
@@ -1390,7 +1394,7 @@ package body GNAT.Expect is
          --  Create a separate pipe for standard error
 
          if Create_Pipe (Pipe3) /= 0 then
-            return;
+            Pipe3.all := Pipe2.all;
          end if;
       end if;
 

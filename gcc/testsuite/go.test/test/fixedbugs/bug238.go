@@ -1,4 +1,4 @@
-// errchk $G -e $D/$F.go
+// errorcheck
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -19,4 +19,3 @@ const h bool = false
 const i int = 2
 const j float64 = 5
 
-func main() { println(a, b, c, d, e, f, g) }

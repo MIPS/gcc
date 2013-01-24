@@ -1,6 +1,6 @@
 // Memory extensions -*- C++ -*-
 
-// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+// Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2011
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -110,10 +110,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief Copies the range [first,last) into result.
-   *  @param  first  An input iterator.
-   *  @param  last   An input iterator.
-   *  @param  result An output iterator.
-   *  @return   result + (first - last)
+   *  @param  __first  An input iterator.
+   *  @param  __count  Length
+   *  @param  __result An output iterator.
+   *  @return   __result + (__first + __count)
    *  @ingroup SGIextensions
    *
    *  Like copy(), but does not require an initialized output range.

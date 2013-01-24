@@ -1,6 +1,7 @@
 // Functions for Exception Support for Java.
 
-/* Copyright (C) 1998, 1999, 2001, 2002, 2006, 2010  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2002, 2006, 2010, 2011
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -24,7 +25,7 @@ details.  */
 // stdlib.h's abort().
 namespace std
 {
-  static __attribute__ ((__noreturn__)) void
+  __attribute__ ((__noreturn__)) void
   abort ()
   {
     ::abort ();
@@ -160,6 +161,11 @@ parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
   info->ttype_encoding = *p++;
   if (info->ttype_encoding != DW_EH_PE_omit)
     {
+#if _GLIBCXX_OVERRIDE_TTYPE_ENCODING
+      /* Older ARM EABI toolchains set this value incorrectly, so use a
+	 hardcoded OS-specific format.  */
+  info->ttype_encoding = _GLIBCXX_OVERRIDE_TTYPE_ENCODING;
+#endif
       p = read_uleb128 (p, &tmp);
       info->TType = p + tmp;
     }
@@ -175,21 +181,6 @@ parse_lsda_header (_Unwind_Context *context, const unsigned char *p,
   return p;
 }
 
-#ifdef __ARM_EABI_UNWINDER__
-
-static void **
-get_ttype_entry(_Unwind_Context *, lsda_header_info* info, _uleb128_t i)
-{
-  _Unwind_Ptr ptr;
-
-  ptr = (_Unwind_Ptr) (info->TType - (i * 4));
-  ptr = _Unwind_decode_target2(ptr);
-  
-  return reinterpret_cast<void **>(ptr);
-}
-
-#else
-
 static void **
 get_ttype_entry (_Unwind_Context *context, lsda_header_info *info, long i)
 {
@@ -201,13 +192,13 @@ get_ttype_entry (_Unwind_Context *context, lsda_header_info *info, long i)
   return reinterpret_cast<void **>(ptr);
 }
 
-#endif
-
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
 #ifdef SJLJ_EXCEPTIONS
 #define PERSONALITY_FUNCTION	__gcj_personality_sj0
 #define __builtin_eh_return_data_regno(x) x
+#elif defined (__SEH__)
+#define PERSONALITY_FUNCTION	__gcj_personality_imp
 #else
 #define PERSONALITY_FUNCTION	__gcj_personality_v0
 #endif
@@ -231,7 +222,12 @@ PERSONALITY_FUNCTION (_Unwind_State state,
 
 #define CONTINUE_UNWINDING return _URC_CONTINUE_UNWIND
 
-extern "C" _Unwind_Reason_Code
+#ifdef __SEH__
+static
+#else
+extern "C"
+#endif
+_Unwind_Reason_Code
 PERSONALITY_FUNCTION (int version,
 		      _Unwind_Action actions,
 		      _Unwind_Exception_Class exception_class,
@@ -495,3 +491,14 @@ PERSONALITY_FUNCTION (int version,
 #endif
   return _URC_INSTALL_CONTEXT;
 }
+
+#ifdef __SEH__
+extern "C"
+EXCEPTION_DISPOSITION
+__gcj_personality_seh0 (PEXCEPTION_RECORD ms_exc, void *this_frame,
+			PCONTEXT ms_orig_context, PDISPATCHER_CONTEXT ms_disp)
+{
+  return _GCC_specific_handler (ms_exc, this_frame, ms_orig_context,
+				ms_disp, __gcj_personality_imp);
+}
+#endif /* SEH */

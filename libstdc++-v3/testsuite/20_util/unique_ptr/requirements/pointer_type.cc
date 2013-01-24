@@ -1,7 +1,7 @@
 // { dg-do compile }
-// { dg-options "-std=gnu++0x" }
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2010 Free Software Foundation
+// Copyright (C) 2010-2012 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,20 +18,19 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// 20.6.11 Template class unique_ptr [unique.ptr.single]
+// 20.7.1.2 unique_ptr for single objects [unique.ptr.single]
 
 #include <memory>
-#include <testsuite_hooks.h>
 
 struct A
 {
-  void operator()(void* p) const { }
+  void operator()(void*) const { }
 };
 
 struct B
 {
   typedef char* pointer;
-  void operator()(pointer p) const { }
+  void operator()(pointer) const { }
 };
 
 int main()

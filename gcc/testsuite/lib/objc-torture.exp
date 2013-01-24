@@ -1,5 +1,4 @@
-# Copyright (C) 1992-1998, 1999, 2000, 2007, 2008, 2010
-# Free Software Foundation, Inc.
+# Copyright (C) 1992-2013 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +29,7 @@ proc objc-set-runtime-options { dowhat args } {
     # installation can have the objc headers present in the same locations 
     # that Darwin uses.  If NeXT is ported to another target, then it should
     # be listed here.
-    if [istarget "*-*-darwin*" ] {
+    if [istarget *-*-darwin*] {
       lappend rtlist "-fnext-runtime" 
     }
     if [info exists OBJC_RUNTIME_OPTIONS] {

@@ -7,29 +7,23 @@ package bzip2
 import (
 	"bufio"
 	"io"
-	"os"
 )
 
 // bitReader wraps an io.Reader and provides the ability to read values,
-// bit-by-bit, from it. Its Read* methods don't return the usual os.Error
+// bit-by-bit, from it. Its Read* methods don't return the usual error
 // because the error handling was verbose. Instead, any error is kept and can
 // be checked afterwards.
 type bitReader struct {
-	r    byteReader
+	r    io.ByteReader
 	n    uint64
 	bits uint
-	err  os.Error
+	err  error
 }
 
-// bitReader needs to read bytes from an io.Reader. We attempt to cast the
-// given io.Reader to this interface and, if it doesn't already fit, we wrap in
-// a bufio.Reader.
-type byteReader interface {
-	ReadByte() (byte, os.Error)
-}
-
+// newBitReader returns a new bitReader reading from r. If r is not
+// already an io.ByteReader, it will be converted via a bufio.Reader.
 func newBitReader(r io.Reader) bitReader {
-	byter, ok := r.(byteReader)
+	byter, ok := r.(io.ByteReader)
 	if !ok {
 		byter = bufio.NewReader(r)
 	}
@@ -38,11 +32,11 @@ func newBitReader(r io.Reader) bitReader {
 
 // ReadBits64 reads the given number of bits and returns them in the
 // least-significant part of a uint64. In the event of an error, it returns 0
-// and the error can be obtained by calling Error().
+// and the error can be obtained by calling Err().
 func (br *bitReader) ReadBits64(bits uint) (n uint64) {
 	for bits > br.bits {
 		b, err := br.r.ReadByte()
-		if err == os.EOF {
+		if err == io.EOF {
 			err = io.ErrUnexpectedEOF
 		}
 		if err != nil {
@@ -83,6 +77,6 @@ func (br *bitReader) ReadBit() bool {
 	return n != 0
 }
 
-func (br *bitReader) Error() os.Error {
+func (br *bitReader) Err() error {
 	return br.err
 }

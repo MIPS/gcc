@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O0 -mavx -mvzeroupper -dp" } */
+/* { dg-additional-options "-mabi=sysv" { target x86_64-*-mingw* } } */
 
 #include <immintrin.h>
 
@@ -13,4 +14,4 @@ foo ()
   _mm256_zeroupper ();
 }
 
-/* { dg-final { scan-assembler-not "avx_vzeroupper" } } */
+/* { dg-final { scan-assembler-times "avx_vzeroupper" 1 } } */

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -97,6 +97,13 @@ begin
    --  Create package Standard
 
    CStand.Create_Standard;
+
+   --  If the -gnatd.H flag is present, we are only interested in the Standard
+   --  package, so the frontend has done its job here.
+
+   if Debug_Flag_Dot_HH then
+      return;
+   end if;
 
    --  Check possible symbol definitions specified by -gnateD switches
 
@@ -219,6 +226,12 @@ begin
       Opt.Suppress_Options := Scope_Suppress;
    end;
 
+   --  This is where we can capture the value of the compilation unit specific
+   --  restrictions that have been set by the config pragma files (or from
+   --  Targparm), for later restoration when processing e.g. subunits.
+
+   Save_Config_Cunit_Boolean_Restrictions;
+
    --  If there was a -gnatem switch, initialize the mappings of unit names to
    --  file names and of file names to path names from the mapping file.
 
@@ -270,6 +283,12 @@ begin
 
    if Config_Pragmas /= Error_List
      and then Operating_Mode /= Check_Syntax
+
+     --  Do not attempt to process deferred configuration pragmas if the main
+     --  unit failed to load, to avoid cascaded inconsistencies that can lead
+     --  to a compiler crash.
+
+     and then not Fatal_Error (Main_Unit)
    then
       --  Pragmas that require some semantic activity, such as
       --  Interrupt_State, cannot be processed until the main unit
@@ -370,9 +389,9 @@ begin
    end if;
 
    --  Qualify all entity names in inner packages, package bodies, etc.,
-   --  except when compiling for the VM back-ends, which depend on
-   --  having unqualified names in certain cases and handles the
-   --  generation of qualified names when needed.
+   --  except when compiling for the VM back-ends, which depend on having
+   --  unqualified names in certain cases and handles the generation of
+   --  qualified names when needed.
 
    if VM_Target = No_VM then
       Exp_Dbug.Qualify_All_Entity_Names;

@@ -2,9 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// The textproto package implements generic support for
-// text-based request/response protocols in the style of
-// HTTP, NNTP, and SMTP.
+// Package textproto implements generic support for text-based request/response
+// protocols in the style of HTTP, NNTP, and SMTP.
 //
 // The package provides:
 //
@@ -21,6 +20,9 @@
 //
 // Writer, to write dot-encoded text blocks.
 //
+// Conn, a convenient packaging of Reader, Writer, and Pipeline for use
+// with a single network connection.
+//
 package textproto
 
 import (
@@ -28,7 +30,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 )
 
 // An Error represents a numeric error response from a server.
@@ -37,7 +38,7 @@ type Error struct {
 	Msg  string
 }
 
-func (e *Error) String() string {
+func (e *Error) Error() string {
 	return fmt.Sprintf("%03d %s", e.Code, e.Msg)
 }
 
@@ -45,7 +46,7 @@ func (e *Error) String() string {
 // as an invalid response or a hung-up connection.
 type ProtocolError string
 
-func (p ProtocolError) String() string {
+func (p ProtocolError) Error() string {
 	return string(p)
 }
 
@@ -71,14 +72,14 @@ func NewConn(conn io.ReadWriteCloser) *Conn {
 }
 
 // Close closes the connection.
-func (c *Conn) Close() os.Error {
+func (c *Conn) Close() error {
 	return c.conn.Close()
 }
 
 // Dial connects to the given address on the given network using net.Dial
 // and then returns a new Conn for the connection.
-func Dial(network, addr string) (*Conn, os.Error) {
-	c, err := net.Dial(network, "", addr)
+func Dial(network, addr string) (*Conn, error) {
+	c, err := net.Dial(network, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func Dial(network, addr string) (*Conn, os.Error) {
 //	}
 //	return c.ReadCodeLine(250)
 //
-func (c *Conn) Cmd(format string, args ...interface{}) (id uint, err os.Error) {
+func (c *Conn) Cmd(format string, args ...interface{}) (id uint, err error) {
 	id = c.Next()
 	c.StartRequest(id)
 	err = c.PrintfLine(format, args...)
@@ -119,4 +120,30 @@ func (c *Conn) Cmd(format string, args ...interface{}) (id uint, err os.Error) {
 		return 0, err
 	}
 	return id, nil
+}
+
+// TrimString returns s without leading and trailing ASCII space.
+func TrimString(s string) string {
+	for len(s) > 0 && isASCIISpace(s[0]) {
+		s = s[1:]
+	}
+	for len(s) > 0 && isASCIISpace(s[len(s)-1]) {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
+// TrimBytes returns b without leading and trailing ASCII space.
+func TrimBytes(b []byte) []byte {
+	for len(b) > 0 && isASCIISpace(b[0]) {
+		b = b[1:]
+	}
+	for len(b) > 0 && isASCIISpace(b[len(b)-1]) {
+		b = b[:len(b)-1]
+	}
+	return b
+}
+
+func isASCIISpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }

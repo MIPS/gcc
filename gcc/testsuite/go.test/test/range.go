@@ -1,8 +1,10 @@
-// $G $D/$F.go && $L $F.$A && ./$A.out
+// run
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+
+// Test the 'for range' construct.
 
 package main
 
@@ -54,6 +56,17 @@ func testslice() {
 	}
 	if s != 15 {
 		println("wrong sum ranging over makeslice")
+		panic("fail")
+	}
+	
+	x := []int{10, 20}
+	y := []int{99}
+	i := 1
+	for i, x[i] = range y {
+		break
+	}
+	if i != 0 || x[0] != 10 || x[1] != 99 {
+		println("wrong parallel assignment", i, x[0], x[1])
 		panic("fail")
 	}
 }
@@ -172,7 +185,7 @@ func makestring() string {
 }
 
 func teststring() {
-	s := 0
+	var s rune
 	nmake = 0
 	for _, v := range makestring() {
 		s += v
@@ -208,7 +221,7 @@ func teststring1() {
 
 func makemap() map[int]int {
 	nmake++
-	return map[int]int{0:'a', 1:'b', 2:'c', 3:'d', 4:'☺'}
+	return map[int]int{0: 'a', 1: 'b', 2: 'c', 3: 'd', 4: '☺'}
 }
 
 func testmap() {

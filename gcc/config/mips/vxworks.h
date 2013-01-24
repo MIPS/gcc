@@ -1,5 +1,4 @@
-/* Copyright (C) 1999, 2003, 2004, 2007, 2008, 2010, 2011
-   Free Software Foundation, Inc.
+/* Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -16,9 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
-
-#undef  TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (MIPS, VxWorks syntax)");
 
 #undef  ASM_SPEC
 #define ASM_SPEC "\

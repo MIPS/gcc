@@ -1,8 +1,10 @@
-// [ $GOOS != nacl ] || exit 0  # NaCl runner elides NUL in output
 // [ "$GORUN" == "" ] || exit 0  # Android runner gets confused by the NUL output 
 // $G $D/$F.go && $L $F.$A && ./$A.out >tmp.go &&
 // errchk $G -e tmp.go
 // rm -f tmp.go
+
+// NOTE: This test is not run by 'run.go' and so not run by all.bash.
+// To run this test you must use the ./run shell script.
 
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -40,7 +42,7 @@ var y = ` + "`in raw string \x00 foo`" + `  // ERROR "NUL"
 
 /* in other comment ` + "\x00" + ` */ // ERROR "NUL"
 
-/* in source code */ ` + "\x00" + `// ERROR "NUL"
+/* in source code */ ` + "\x00" + `// ERROR "NUL" "illegal character"
 
 var xx = "in string ` + "\xc2\xff" + `" // ERROR "UTF-8"
 
@@ -51,9 +53,9 @@ var yy = ` + "`in raw string \xff foo`" + `  // ERROR "UTF-8"
 /* in other comment ` + "\xe0\x00\x00" + ` */ // ERROR "UTF-8|NUL"
 
 /* in variable name */
-var z` + "\xc1\x81" + ` int // ERROR "UTF-8"
+var z` + "\xc1\x81" + ` int // ERROR "UTF-8" "invalid identifier character"
 
-/* in source code */ ` + "\xc2A" + `// ERROR "UTF-8"
+/* in source code */ ` + "var \xc2A int" + `// ERROR "UTF-8" "invalid identifier character"
 
 `)
 }

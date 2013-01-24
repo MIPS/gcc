@@ -1,7 +1,5 @@
 /* Definitions of target machine for GCC, for SPARC64, ELF.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2004, 2005, 2007, 2010,
-   2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1994-2013 Free Software Foundation, Inc.
    Contributed by Doug Evans, dje@cygnus.com.
 
 This file is part of GCC.
@@ -19,9 +17,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
-
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (sparc64-elf)")
 
 /* A 64 bit v9 compiler in a Medium/Anywhere code model environment.  */
 #undef TARGET_DEFAULT
@@ -42,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #undef ASM_SPEC
 #define ASM_SPEC "\
 -s %{fpic|fPIC|fpie|fPIE:-K PIC} \
-%{mlittle-endian:-EL} \
 %(asm_cpu) %(asm_arch) \
 "
 
@@ -50,30 +44,18 @@ along with GCC; see the file COPYING3.  If not see
 #undef LINK_SPEC
 #define LINK_SPEC "\
 %{v:-V} \
-%{mlittle-endian:-EL} \
 "
 
-/* We need something a little simpler for the embedded environment.
-   Profiling doesn't really work yet so we just copy the default.  */
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "\
-%{!shared:%{pg:gcrt0.o%s}%{!pg:%{p:mcrt0.o%s}%{!p:crt0.o%s}}} \
-crtbegin.o%s \
-"
+#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
 
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
-   crtend.o%s"
+  "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   crtend.o%s crtn.o%s"
 
 /* Use the default (for now).  */
 #undef LIB_SPEC
-
-#undef BYTES_BIG_ENDIAN
-#define BYTES_BIG_ENDIAN (! TARGET_LITTLE_ENDIAN)
-
-#undef WORDS_BIG_ENDIAN
-#define WORDS_BIG_ENDIAN (! TARGET_LITTLE_ENDIAN)
 
 #undef  LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX  "."

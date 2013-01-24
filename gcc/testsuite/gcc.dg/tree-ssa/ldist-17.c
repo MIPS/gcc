@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -ftree-loop-distribution -fdump-tree-ldist-details" } */
+/* { dg-options "-O2 -ftree-loop-distribution -ftree-loop-distribute-patterns -fdump-tree-ldist-details -fdisable-tree-cunroll -fdisable-tree-cunrolli" } */
 
 typedef int mad_fixed_t;
 struct mad_pcm
@@ -46,5 +46,5 @@ mad_synth_mute (struct mad_synth *synth)
 }
 
 /* { dg-final { scan-tree-dump "distributed: split to 4" "ldist" } } */
-/* { dg-final { scan-tree-dump-times "__builtin_memset" 8 "ldist" } } */
+/* { dg-final { scan-tree-dump-times "generated memset zero" 4 "ldist" } } */
 /* { dg-final { cleanup-tree-dump "ldist" } } */

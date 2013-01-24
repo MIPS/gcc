@@ -1,5 +1,5 @@
 /* Target Code for moxie
-   Copyright (C) 2008, 2009, 2010  Free Software Foundation
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
    Contributed by Anthony Green.
 
    This file is part of GCC.
@@ -281,6 +281,9 @@ moxie_expand_prologue (void)
 
   moxie_compute_frame ();
 
+  if (flag_stack_usage_info)
+    current_function_static_stack_size = cfun->machine->size_for_adjusting_sp;
+
   /* Save callee-saved registers.  */
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     {
@@ -293,8 +296,8 @@ moxie_expand_prologue (void)
 
   if (cfun->machine->size_for_adjusting_sp > 0)
     {
-      int i = cfun->machine->size_for_adjusting_sp;
-      while (i > 255)
+      int i = cfun->machine->size_for_adjusting_sp; 
+      while ((i >= 255) && (i <= 510))
 	{
 	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx, 
 					stack_pointer_rtx, 
@@ -302,11 +305,21 @@ moxie_expand_prologue (void)
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  i -= 255;
 	}
-      if (i > 0)
+      if (i <= 255)
 	{
 	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx, 
 					stack_pointer_rtx, 
 					GEN_INT (i)));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
+      else
+	{
+	  rtx reg = gen_rtx_REG (SImode, MOXIE_R12);
+	  insn = emit_move_insn (reg, GEN_INT (i));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  insn = emit_insn (gen_subsi3 (stack_pointer_rtx, 
+					stack_pointer_rtx, 
+					reg));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
@@ -320,7 +333,7 @@ moxie_expand_epilogue (void)
 
   if (cfun->machine->callee_saved_reg_size != 0)
     {
-      reg = gen_rtx_REG (Pmode, MOXIE_R5);
+      reg = gen_rtx_REG (Pmode, MOXIE_R12);
       if (cfun->machine->callee_saved_reg_size <= 255)
 	{
 	  emit_move_insn (reg, hard_frame_pointer_rtx);
@@ -370,11 +383,12 @@ moxie_initial_elimination_offset (int from, int to)
 /* Worker function for TARGET_SETUP_INCOMING_VARARGS.  */
 
 static void
-moxie_setup_incoming_varargs (CUMULATIVE_ARGS *cum,
+moxie_setup_incoming_varargs (cumulative_args_t cum_v,
 			      enum machine_mode mode ATTRIBUTE_UNUSED,
 			      tree type ATTRIBUTE_UNUSED,
 			      int *pretend_size, int no_rtl)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int regno;
   int regs = 8 - *cum;
   
@@ -409,10 +423,12 @@ moxie_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
    NULL_RTX if there's no more space.  */
 
 static rtx
-moxie_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+moxie_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 		    const_tree type ATTRIBUTE_UNUSED,
 		    bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   if (*cum < 8)
     return gen_rtx_REG (mode, *cum);
   else 
@@ -424,9 +440,11 @@ moxie_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    : (unsigned) int_size_in_bytes (TYPE))
 
 static void
-moxie_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
+moxie_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
 			    const_tree type, bool named ATTRIBUTE_UNUSED)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+
   *cum = (*cum < MOXIE_R6
 	  ? *cum + ((3 + MOXIE_FUNCTION_ARG_SIZE (mode, type)) / 4)
 	  : *cum);
@@ -436,7 +454,7 @@ moxie_function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
    passed by reference.  */
 
 static bool
-moxie_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
+moxie_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			 enum machine_mode mode, const_tree type,
 			 bool named ATTRIBUTE_UNUSED)
 {
@@ -459,16 +477,17 @@ moxie_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
    that fit in argument passing registers.  */
 
 static int
-moxie_arg_partial_bytes (CUMULATIVE_ARGS *cum,
+moxie_arg_partial_bytes (cumulative_args_t cum_v,
 			 enum machine_mode mode,
 			 tree type, bool named)
 {
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes_left, size;
 
   if (*cum >= 8)
     return 0;
 
-  if (moxie_pass_by_reference (cum, mode, type, named))
+  if (moxie_pass_by_reference (cum_v, mode, type, named))
     size = 4;
   else if (type)
     {
@@ -498,9 +517,9 @@ moxie_static_chain (const_tree fndecl, bool incoming_p)
     return NULL;
 
   if (incoming_p)
-    addr = plus_constant (arg_pointer_rtx, 2 * UNITS_PER_WORD);
+    addr = plus_constant (Pmode, arg_pointer_rtx, 2 * UNITS_PER_WORD);
   else
-    addr = plus_constant (stack_pointer_rtx, -UNITS_PER_WORD);
+    addr = plus_constant (Pmode, stack_pointer_rtx, -UNITS_PER_WORD);
 
   mem = gen_rtx_MEM (Pmode, addr);
   MEM_NOTRAP_P (mem) = 1;

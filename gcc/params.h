@@ -1,6 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -105,6 +104,11 @@ extern void maybe_set_param_value (compiler_param num, int value,
 
 extern void set_default_param_value (compiler_param num, int value);
 
+/* Add all parameters and default values that can be set in both the
+   driver and the compiler proper.  */
+
+extern void global_init_params (void);
+
 /* Note that all parameters have been added and all default values
    set.  */
 extern void finish_params (void);
@@ -118,8 +122,6 @@ extern int default_param_value (compiler_param num);
 extern void init_param_values (int *params);
 
 /* Macros for the various parameters.  */
-#define STRUCT_REORG_COLD_STRUCT_RATIO \
-  PARAM_VALUE (PARAM_STRUCT_REORG_COLD_STRUCT_RATIO)
 #define MAX_INLINE_INSNS_SINGLE \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SINGLE)
 #define MAX_INLINE_INSNS \
@@ -206,4 +208,15 @@ extern void init_param_values (int *params);
   PARAM_VALUE (PARAM_PREFETCH_MIN_INSN_TO_MEM_RATIO)
 #define MIN_NONDEBUG_INSN_UID \
   PARAM_VALUE (PARAM_MIN_NONDEBUG_INSN_UID)
+#define MAX_STORES_TO_SINK \
+  PARAM_VALUE (PARAM_MAX_STORES_TO_SINK)
+#define ALLOW_LOAD_DATA_RACES \
+  PARAM_VALUE (PARAM_ALLOW_LOAD_DATA_RACES)
+#define ALLOW_STORE_DATA_RACES \
+  PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES)
+#define ALLOW_PACKED_LOAD_DATA_RACES \
+  PARAM_VALUE (PARAM_ALLOW_PACKED_LOAD_DATA_RACES)
+#define ALLOW_PACKED_STORE_DATA_RACES \
+  PARAM_VALUE (PARAM_ALLOW_PACKED_STORE_DATA_RACES)
+
 #endif /* ! GCC_PARAMS_H */

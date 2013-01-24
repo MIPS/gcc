@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler, for the HP Spectrum.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) of Cygnus Support
    and Tim Moore (moore@defmacro.cs.utah.edu) of the Center for
    Software Science at the University of Utah.
@@ -25,29 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 /* For long call handling.  */
 extern unsigned long total_code_bytes;
 
-/* Which processor to schedule for.  */
-
-enum processor_type
-{
-  PROCESSOR_700,
-  PROCESSOR_7100,
-  PROCESSOR_7100LC,
-  PROCESSOR_7200,
-  PROCESSOR_7300,
-  PROCESSOR_8000
-};
-
-/* For -mschedule= option.  */
-extern enum processor_type pa_cpu;
-
-/* For -munix= option.  */
-extern int flag_pa_unix;
-
 #define pa_cpu_attr ((enum attr_cpu)pa_cpu)
-
-/* Print subsidiary information on the compiler version in use.  */
-
-#define TARGET_VERSION fputs (" (hppa)", stderr);
 
 #define TARGET_PA_10 (!TARGET_PA_11 && !TARGET_PA_20)
 
@@ -86,9 +62,19 @@ extern int flag_pa_unix;
 #define TARGET_HPUX_11_11 0
 #endif
 
+/* HP-UX 11i multibyte and UNIX 2003 extensions.  */
+#ifndef TARGET_HPUX_11_31
+#define TARGET_HPUX_11_31 0
+#endif
+
 /* HP-UX long double library.  */
 #ifndef HPUX_LONG_DOUBLE_LIBRARY
 #define HPUX_LONG_DOUBLE_LIBRARY 0
+#endif
+
+/* Linux kernel atomic operation support.  */
+#ifndef TARGET_SYNC_LIBCALL
+#define TARGET_SYNC_LIBCALL 0
 #endif
 
 /* The following three defines are potential target switches.  The current
@@ -179,11 +165,11 @@ extern int flag_pa_unix;
    the stack pointer at the function's entry.  Yuk!  */
 #define DEBUGGER_AUTO_OFFSET(X) \
   ((GET_CODE (X) == PLUS ? INTVAL (XEXP (X, 1)) : 0) \
-    + (frame_pointer_needed ? 0 : compute_frame_size (get_frame_size (), 0)))
+    + (frame_pointer_needed ? 0 : pa_compute_frame_size (get_frame_size (), 0)))
 
 #define DEBUGGER_ARG_OFFSET(OFFSET, X) \
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
-    + (frame_pointer_needed ? 0 : compute_frame_size (get_frame_size (), 0)))
+    + (frame_pointer_needed ? 0 : pa_compute_frame_size (get_frame_size (), 0)))
 
 #define TARGET_CPU_CPP_BUILTINS()				\
 do {								\
@@ -373,7 +359,7 @@ typedef struct GTY(()) machine_function
 
 /* Function to return the rtx used to save the pic offset table register
    across function calls.  */
-extern struct rtx_def *hppa_pic_save_rtx (void);
+extern rtx hppa_pic_save_rtx (void);
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -474,7 +460,7 @@ extern struct rtx_def *hppa_pic_save_rtx (void);
       {									\
 	fputs (integer_asm_op (SIZE, FALSE), FILE);			\
 	if ((ENCODING) & DW_EH_PE_indirect)				\
-	  output_addr_const (FILE, get_deferred_plabel (ADDR));		\
+	  output_addr_const (FILE, pa_get_deferred_plabel (ADDR));	\
 	else								\
 	  assemble_name (FILE, XSTR ((ADDR), 0));			\
 	fputs ("+8-$PIC_pcrel$0", FILE);				\
@@ -678,7 +664,8 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
 
 /* If defined, a C expression which determines whether, and in which
    direction, to pad out an argument with extra space.  */
-#define FUNCTION_ARG_PADDING(MODE, TYPE) function_arg_padding ((MODE), (TYPE))
+#define FUNCTION_ARG_PADDING(MODE, TYPE) \
+  pa_function_arg_padding ((MODE), (TYPE))
 
 /* Specify padding for the last element of a block move between registers
    and memory.
@@ -690,7 +677,7 @@ struct hppa_args {int words, nargs_prototype, incoming, indirect; };
    so that there is only one element.  This allows the object to be
    correctly padded.  */
 #define BLOCK_REG_PADDING(MODE, TYPE, FIRST) \
-  function_arg_padding ((MODE), (TYPE))
+  pa_function_arg_padding ((MODE), (TYPE))
 
 
 /* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
@@ -761,7 +748,8 @@ extern int may_call_alloca;
    They give nonzero only if X is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 
 #define REGNO_OK_FOR_INDEX_P(X) \
   ((X) && ((X) < 32							\
@@ -810,7 +798,8 @@ extern int may_call_alloca;
    || (GET_CODE (X) == SYMBOL_REF && !SYMBOL_REF_TLS_MODEL (X))		\
    || GET_CODE (X) == CONST_INT || GET_CODE (X) == CONST		\
    || GET_CODE (X) == HIGH) 						\
-   && (reload_in_progress || reload_completed || ! symbolic_expression_p (X)))
+   && (reload_in_progress || reload_completed				\
+       || ! pa_symbolic_expression_p (X)))
 
 /* A C expression that is nonzero if we are using the new HP assembler.  */
 
@@ -827,37 +816,6 @@ extern int may_call_alloca;
 #define MIN_LEGIT_64BIT_CONST_INT ((HOST_WIDE_INT) -32 << 31)
 #define LEGITIMATE_64BIT_CONST_INT_P(X) \
   ((X) >= MIN_LEGIT_64BIT_CONST_INT && (X) < MAX_LEGIT_64BIT_CONST_INT)
-
-/* A C expression that is nonzero if X is a legitimate constant for an
-   immediate operand.
-
-   We include all constant integers and constant doubles, but not
-   floating-point, except for floating-point zero.  We reject LABEL_REFs
-   if we're not using gas or the new HP assembler. 
-
-   In 64-bit mode, we reject CONST_DOUBLES.  We also reject CONST_INTS
-   that need more than three instructions to load prior to reload.  This
-   limit is somewhat arbitrary.  It takes three instructions to load a
-   CONST_INT from memory but two are memory accesses.  It may be better
-   to increase the allowed range for CONST_INTS.  We may also be able
-   to handle CONST_DOUBLES.  */
-
-#define LEGITIMATE_CONSTANT_P(X)				\
-  ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT			\
-    || (X) == CONST0_RTX (GET_MODE (X)))			\
-   && (NEW_HP_ASSEMBLER						\
-       || TARGET_GAS						\
-       || GET_CODE (X) != LABEL_REF)				\
-   && (!TARGET_64BIT						\
-       || GET_CODE (X) != CONST_DOUBLE)				\
-   && (!TARGET_64BIT						\
-       || HOST_BITS_PER_WIDE_INT <= 32				\
-       || GET_CODE (X) != CONST_INT				\
-       || reload_in_progress					\
-       || reload_completed					\
-       || LEGITIMATE_64BIT_CONST_INT_P (INTVAL (X))		\
-       || cint_ok_for_move (INTVAL (X)))			\
-   && !function_label_operand (X, VOIDmode))
 
 /* Target flags set on a symbol_ref.  */
 
@@ -974,7 +932,7 @@ extern int may_call_alloca;
    the REG_POINTER lossage can be fixed, it seems better canonicalize.
 
    We initially break out scaled indexed addresses in canonical order
-   in emit_move_sequence.  LEGITIMIZE_ADDRESS also canonicalizes
+   in pa_emit_move_sequence.  LEGITIMIZE_ADDRESS also canonicalizes
    scaled indexed addresses during RTL generation.  However, fold_rtx
    has its own opinion on how the operands of a PLUS should be ordered.
    If one of the operands is equivalent to a constant, it will make
@@ -995,6 +953,9 @@ extern int may_call_alloca;
 
 #define VAL_U5_BITS_P(X) ((unsigned HOST_WIDE_INT)(X) < 0x20)
 #define INT_U5_BITS(X) VAL_U5_BITS_P (INTVAL (X))
+
+#define VAL_U6_BITS_P(X) ((unsigned HOST_WIDE_INT)(X) < 0x40)
+#define INT_U6_BITS(X) VAL_U6_BITS_P (INTVAL (X))
 
 #define VAL_11_BITS_P(X) ((unsigned HOST_WIDE_INT)(X) + 0x400 < 0x800)
 #define INT_11_BITS(X) VAL_11_BITS_P (INTVAL (X))
@@ -1231,7 +1192,7 @@ do { 									\
   (TREE_CODE (DECL) == FUNCTION_DECL					\
    || (TREE_CODE (DECL) == VAR_DECL					\
        && TREE_READONLY (DECL) && ! TREE_SIDE_EFFECTS (DECL)		\
-       && (! DECL_INITIAL (DECL) || ! reloc_needed (DECL_INITIAL (DECL))) \
+       && (! DECL_INITIAL (DECL) || ! pa_reloc_needed (DECL_INITIAL (DECL))) \
        && !flag_pic)							\
    || CONSTANT_CLASS_P (DECL))
 
@@ -1314,8 +1275,8 @@ do { 									\
 
 /* Handling the special cases is going to get too complicated for a macro,
    just call `pa_adjust_insn_length' to do the real work.  */
-#define ADJUST_INSN_LENGTH(INSN, LENGTH)	\
-  LENGTH += pa_adjust_insn_length (INSN, LENGTH);
+#define ADJUST_INSN_LENGTH(INSN, LENGTH) \
+  ((LENGTH) = pa_adjust_insn_length ((INSN), (LENGTH)))
 
 /* Millicode insns are actually function calls with some special
    constraints on arguments and register usage.
@@ -1338,7 +1299,7 @@ do { 									\
    get_attr_type will try to recognize the given insn, so make sure to
    filter out things it will not accept -- SEQUENCE, USE and CLOBBER insns
    in particular.  */
-#define INSN_REFERENCES_ARE_DELAYED(X) (insn_refs_are_delayed (X))
+#define INSN_REFERENCES_ARE_DELAYED(X) (pa_insn_refs_are_delayed (X))
 
 
 /* Control the assembler format that we output.  */
@@ -1416,7 +1377,7 @@ do { 									\
 #define TARGET_ASM_GLOBALIZE_LABEL pa_globalize_label
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
-  output_ascii ((FILE), (P), (SIZE))
+  pa_output_ascii ((FILE), (P), (SIZE))
 
 /* Jump tables are always placed in the text section.  Technically, it
    is possible to put them in the readonly data section when -mbig-switch
@@ -1500,7 +1461,7 @@ do { 									\
    M modifier to handle preincrement addressing for memory refs.
    F modifier to handle preincrement addressing for fp memory refs */
 
-#define PRINT_OPERAND(FILE, X, CODE) print_operand (FILE, X, CODE)
+#define PRINT_OPERAND(FILE, X, CODE) pa_print_operand (FILE, X, CODE)
 
 
 /* Print a memory address as an operand to reference that memory location.  */
@@ -1524,7 +1485,7 @@ do { 									\
 	fputs ("RR'", FILE);						\
       else								\
 	fputs ("RT'", FILE);						\
-      output_global_address (FILE, XEXP (addr, 1), 0);			\
+      pa_output_global_address (FILE, XEXP (addr, 1), 0);		\
       fputs ("(", FILE);						\
       output_operand (XEXP (addr, 0), 0);				\
       fputs (")", FILE);						\
@@ -1540,7 +1501,7 @@ do { 									\
 /* Find the return address associated with the frame given by
    FRAMEADDR.  */
 #define RETURN_ADDR_RTX(COUNT, FRAMEADDR)				 \
-  (return_addr_rtx (COUNT, FRAMEADDR))
+  (pa_return_addr_rtx (COUNT, FRAMEADDR))
 
 /* Used to mask out junk bits from the return address, such as
    processor state, interrupt status, condition codes and the like.  */
@@ -1548,9 +1509,6 @@ do { 									\
   /* The privilege level is in the two low order bits, mask em out	\
      of the return address.  */						\
   (GEN_INT (-4))
-
-/* The number of Pmode words for the setjmp buffer.  */
-#define JMP_BUF_SIZE 50
 
 /* We need a libcall to canonicalize function pointers on TARGET_ELF32.  */
 #define CANONICALIZE_FUNCPTR_FOR_COMPARE_LIBCALL \
@@ -1560,3 +1518,12 @@ do { 									\
 #undef TARGET_HAVE_TLS
 #define TARGET_HAVE_TLS true
 #endif
+
+/* The maximum offset in bytes for a PA 1.X pc-relative call to the
+   head of the preceding stub table.  The selected offsets have been
+   chosen so that approximately one call stub is allocated for every
+   86.7 instructions.  A long branch stub is two instructions when
+   not generating PIC code.  For HP-UX and ELF targets, PIC stubs are
+   seven and four instructions, respectively.  */  
+#define MAX_PCREL17F_OFFSET \
+  (flag_pic ? (TARGET_HPUX ? 198164 : 221312) : 240000)

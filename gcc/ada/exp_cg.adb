@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2010, Free Software Foundation, Inc.           --
+--          Copyright (C) 2010-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -122,7 +122,7 @@ package body Exp_CG is
       for J in Call_Graph_Nodes.First .. Call_Graph_Nodes.Last loop
          N := Call_Graph_Nodes.Table (J);
 
-         if Nkind_In (N, N_Procedure_Call_Statement, N_Function_Call) then
+         if Nkind (N) in N_Subprogram_Call then
             Write_Call_Info (N);
 
          else pragma Assert (Nkind (N) = N_Defining_Identifier);
@@ -349,7 +349,7 @@ package body Exp_CG is
 
    procedure Register_CG_Node (N : Node_Id) is
    begin
-      if Nkind_In (N, N_Procedure_Call_Statement, N_Function_Call) then
+      if Nkind (N) in N_Subprogram_Call then
          if Current_Scope = Main_Unit_Entity
            or else Entity_Is_In_Main_Unit (Current_Scope)
          then
@@ -478,7 +478,8 @@ package body Exp_CG is
         and then
           Is_Ancestor
             (Find_Dispatching_Type (Ultimate_Alias (Prim)),
-             Root_Type (Ctrl_Typ))
+             Root_Type (Ctrl_Typ),
+             Use_Full_View => True)
       then
          --  This is a special case in which we generate in the ci file the
          --  slot number of the renaming primitive (i.e. Base2) but instead of
@@ -616,7 +617,8 @@ package body Exp_CG is
          if Present (Overridden_Operation (Prim))
            and then
              Is_Ancestor
-               (Find_Dispatching_Type (Overridden_Operation (Prim)), Typ)
+               (Find_Dispatching_Type (Overridden_Operation (Prim)), Typ,
+                Use_Full_View => True)
          then
             Write_Char (',');
             Write_Int
@@ -642,7 +644,8 @@ package body Exp_CG is
 
                   if Present (Int_Alias)
                     and then
-                      not Is_Ancestor (Find_Dispatching_Type (Int_Alias), Typ)
+                      not Is_Ancestor (Find_Dispatching_Type (Int_Alias), Typ,
+                                       Use_Full_View => True)
                     and then (Alias (Prim_Op)) = Prim
                   then
                      Write_Char (',');

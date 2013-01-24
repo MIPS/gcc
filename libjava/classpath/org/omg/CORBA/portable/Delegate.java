@@ -377,6 +377,7 @@ public abstract class Delegate
    * of the method is not supported, for example, due security reasons.
    */
   @SuppressWarnings("unchecked") // Needed for API compatibility
+  @SuppressWarnings("rawtypes") // Needed for API compatibility
   public ServantObject servant_preinvoke(org.omg.CORBA.Object self,
                                          String operation, Class expectedType
                                         )

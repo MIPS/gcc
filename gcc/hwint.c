@@ -1,7 +1,5 @@
 /* Operations on HOST_WIDE_INT.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,13 +19,15 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "diagnostic-core.h"
 
 #if GCC_VERSION < 3004
 
-/* The functions clz_hwi, ctz_hwi, ffs_hwi, floor_log2 and exact_log2
-   are defined as inline functions in hwint.h if GCC_VERSION >= 3004.
-   The definitions here are used for older versions of GCC and non-GCC
-   bootstrap compilers.  */
+/* The functions clz_hwi, ctz_hwi, ffs_hwi, floor_log2, ceil_log2,
+   and exact_log2 are defined as inline functions in hwint.h
+   if GCC_VERSION >= 3004.
+   The definitions here are used for older versions of GCC and
+   non-GCC bootstrap compilers.  */
 
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.  */
@@ -58,6 +58,14 @@ floor_log2 (unsigned HOST_WIDE_INT x)
     t += 1;
 
   return t;
+}
+
+/* Given X, an unsigned number, return the largest Y such that 2**Y >= X.  */
+
+int
+ceil_log2 (unsigned HOST_WIDE_INT x)
+{
+  return floor_log2 (x - 1) + 1;
 }
 
 /* Return the logarithm of X, base 2, considering X unsigned,
@@ -97,4 +105,102 @@ ffs_hwi (unsigned HOST_WIDE_INT x)
   return 1 + floor_log2 (x & -x);
 }
 
+/* Return the number of set bits in X.  */
+
+int
+popcount_hwi (unsigned HOST_WIDE_INT x)
+{
+  int i, ret = 0;
+  size_t bits = sizeof (x) * CHAR_BIT;
+
+  for (i = 0; i < bits; i += 1)
+    {
+      ret += x & 1;
+      x >>= 1;
+    }
+
+  return ret;
+}
+
 #endif /* GCC_VERSION < 3004 */
+
+/* Compute the absolute value of X.  */
+
+HOST_WIDE_INT
+abs_hwi (HOST_WIDE_INT x)
+{
+  gcc_checking_assert (x != HOST_WIDE_INT_MIN);
+  return x >= 0 ? x : -x;
+}
+
+/* Compute the absolute value of X as an unsigned type.  */
+
+unsigned HOST_WIDE_INT
+absu_hwi (HOST_WIDE_INT x)
+{
+  return x >= 0 ? (unsigned HOST_WIDE_INT)x : -(unsigned HOST_WIDE_INT)x;
+}
+
+/* Compute the greatest common divisor of two numbers A and B using
+   Euclid's algorithm.  */
+
+HOST_WIDE_INT
+gcd (HOST_WIDE_INT a, HOST_WIDE_INT b)
+{
+  HOST_WIDE_INT x, y, z;
+
+  x = abs_hwi (a);
+  y = abs_hwi (b);
+
+  while (x > 0)
+    {
+      z = y % x;
+      y = x;
+      x = z;
+    }
+
+  return y;
+}
+
+/* For X and Y positive integers, return X multiplied by Y and check
+   that the result does not overflow.  */
+
+HOST_WIDE_INT
+pos_mul_hwi (HOST_WIDE_INT x, HOST_WIDE_INT y)
+{
+  if (x != 0)
+    gcc_checking_assert ((HOST_WIDE_INT_MAX) / x >= y);
+
+  return x * y;
+}
+
+/* Return X multiplied by Y and check that the result does not
+   overflow.  */
+
+HOST_WIDE_INT
+mul_hwi (HOST_WIDE_INT x, HOST_WIDE_INT y)
+{
+  gcc_checking_assert (x != HOST_WIDE_INT_MIN
+		       && y != HOST_WIDE_INT_MIN);
+
+  if (x >= 0)
+    {
+      if (y >= 0)
+	return pos_mul_hwi (x, y);
+
+      return -pos_mul_hwi (x, -y);
+    }
+
+  if (y >= 0)
+    return -pos_mul_hwi (-x, y);
+
+  return pos_mul_hwi (-x, -y);
+}
+
+/* Compute the least common multiple of two numbers A and B .  */
+
+HOST_WIDE_INT
+least_common_multiple (HOST_WIDE_INT a, HOST_WIDE_INT b)
+{
+  return mul_hwi (abs_hwi (a) / gcd (a, b), abs_hwi (b));
+}

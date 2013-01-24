@@ -1,7 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 2000, 2001, 2002, 2003, 2004,
-   2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -687,7 +685,7 @@ machopic_indirect_data_reference (rtx orig, rtx reg)
       orig = machopic_indirect_data_reference (XEXP (orig, 1),
 					       (base == reg ? 0 : reg));
       if (MACHOPIC_INDIRECT && (GET_CODE (orig) == CONST_INT))
-	result = plus_constant (base, INTVAL (orig));
+	result = plus_constant (Pmode, base, INTVAL (orig));
       else
 	result = gen_rtx_PLUS (Pmode, base, orig);
 
@@ -972,7 +970,7 @@ machopic_legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 					      Pmode, (base == reg ? 0 : reg));
       if (GET_CODE (orig) == CONST_INT)
 	{
-	  pic_ref = plus_constant (base, INTVAL (orig));
+	  pic_ref = plus_constant (Pmode, base, INTVAL (orig));
 	  is_complex = 1;
 	}
       else
@@ -1195,7 +1193,11 @@ static section *
 darwin_mergeable_string_section (tree exp,
 				 unsigned HOST_WIDE_INT align)
 {
-  if (flag_merge_constants
+  /* Darwin's ld expects to see non-writable string literals in the .cstring 
+     section.  Later versions of ld check and complain when CFStrings are 
+     enabled.  Therefore we shall force the strings into .cstring since we
+     don't support writable ones anyway.  */
+  if ((darwin_constant_cfstrings || flag_merge_constants)
       && TREE_CODE (exp) == STRING_CST
       && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
       && align <= 256
@@ -1259,6 +1261,14 @@ darwin_mergeable_constant_section (tree exp,
     }
 
   return readonly_data_section;
+}
+
+section *
+darwin_tm_clone_table_section (void)
+{
+  return get_named_section (NULL,
+			    "__DATA,__tm_clone_table,regular,no_dead_strip",
+			    3);
 }
 
 int
@@ -1749,19 +1759,49 @@ darwin_label_is_anonymous_local_objc_name (const char *name)
   return (!strncmp ((const char *)p, "_OBJC_", 6));
 }
 
-/* LTO support for Mach-O.  */
+/* LTO support for Mach-O.
 
-/* Section names for LTO sections.  */
-static unsigned int lto_section_names_offset = 0;
+   This version uses three mach-o sections to encapsulate the (unlimited
+   number of) lto sections.
 
-/* This is the obstack which we use to allocate the many strings.  */
-static struct obstack lto_section_names_obstack;
+   __GNU_LTO, __lto_sections  contains the concatented GNU LTO section data.
+   __GNU_LTO, __section_names contains the GNU LTO section names.
+   __GNU_LTO, __section_index contains an array of values that index these.
 
-/* Segment name for LTO sections.  */
+   Indexed thus:
+     <section offset from the start of __GNU_LTO, __lto_sections>,
+     <section length>
+     <name offset from the start of __GNU_LTO, __section_names,
+     <name length>.
+
+   At present, for both m32 and m64 mach-o files each of these fields is
+   represented  by a uint32_t.  This is because, AFAICT, a mach-o object
+   cannot exceed 4Gb because the section_64 offset field (see below) is 32bits.
+
+    uint32_t offset;
+   "offset  An integer specifying the offset to this section in the file."  */
+
+/* Count lto section numbers.  */
+static unsigned int lto_section_num = 0;
+
+/* A vector of information about LTO sections, at present, we only have
+   the name.  TODO: see if we can get the data length somehow.  */
+typedef struct GTY (()) darwin_lto_section_e {
+  const char *sectname;
+} darwin_lto_section_e ;
+
+static GTY (()) vec<darwin_lto_section_e, va_gc> *lto_section_names;
+
+/* Segment for LTO data.  */
 #define LTO_SEGMENT_NAME "__GNU_LTO"
 
-/* Section name for LTO section names section.  */
-#define LTO_NAMES_SECTION "__section_names"
+/* Section wrapper scheme (used here to wrap the unlimited number of LTO
+   sections into three Mach-O ones).
+   NOTE: These names MUST be kept in sync with those in
+	 libiberty/simple-object-mach-o.  */
+#define LTO_SECTS_SECTION "__wrapper_sects"
+#define LTO_NAMES_SECTION "__wrapper_names"
+#define LTO_INDEX_SECTION "__wrapper_index"
 
 /* File to temporarily store LTO data.  This is appended to asm_out_file
    in darwin_end_file.  */
@@ -1804,37 +1844,38 @@ darwin_asm_named_section (const char *name,
 			  unsigned int flags,
 			  tree decl ATTRIBUTE_UNUSED)
 {
-  /* LTO sections go in a special segment __GNU_LTO.  We want to replace the
-     section name with something we can use to represent arbitrary-length
-     names (section names in Mach-O are at most 16 characters long).  */
+  /* LTO sections go in a special section that encapsulates the (unlimited)
+     number of GNU LTO sections within a single mach-o one.  */
   if (strncmp (name, LTO_SECTION_NAME_PREFIX,
 	       strlen (LTO_SECTION_NAME_PREFIX)) == 0)
     {
+      darwin_lto_section_e e;
       /* We expect certain flags to be set...  */
       gcc_assert ((flags & (SECTION_DEBUG | SECTION_NAMED))
 		  == (SECTION_DEBUG | SECTION_NAMED));
 
-      /* Add the section name to the things to output when we end the
-	 current assembler output file.
-	 This is all not very efficient, but that doesn't matter -- this
-	 shouldn't be a hot path in the compiler...  */
-      obstack_1grow (&lto_section_names_obstack, '\t');
-      obstack_grow (&lto_section_names_obstack, ".ascii ", 7);
-      obstack_1grow (&lto_section_names_obstack, '"');
-      obstack_grow (&lto_section_names_obstack, name, strlen (name));
-      obstack_grow (&lto_section_names_obstack, "\\0\"\n", 4);
-
-      /* Output the dummy section name.  */
-      fprintf (asm_out_file, "\t# %s\n", name);
-      fprintf (asm_out_file, "\t.section %s,__%08X,regular,debug\n",
-	       LTO_SEGMENT_NAME, lto_section_names_offset);
-
-      /* Update the offset for the next section name.  Make sure we stay
-	 within reasonable length.  */  
-      lto_section_names_offset += strlen (name) + 1;
-      gcc_assert (lto_section_names_offset > 0
-		  && lto_section_names_offset < ((unsigned) 1 << 31));
-    }
+      /* Switch to our combined section.  */
+      fprintf (asm_out_file, "\t.section %s,%s,regular,debug\n",
+	       LTO_SEGMENT_NAME, LTO_SECTS_SECTION);
+      /* Output a label for the start of this sub-section.  */
+      fprintf (asm_out_file, "L_GNU_LTO%d:\t;# %s\n",
+	       lto_section_num, name);
+      /* We have to jump through hoops to get the values of the intra-section
+         offsets... */
+      fprintf (asm_out_file, "\t.set L$gnu$lto$offs%d,L_GNU_LTO%d-L_GNU_LTO0\n",
+	       lto_section_num, lto_section_num);
+      fprintf (asm_out_file,
+	       "\t.set L$gnu$lto$size%d,L_GNU_LTO%d-L_GNU_LTO%d\n",
+	       lto_section_num, lto_section_num+1, lto_section_num);
+      lto_section_num++;
+      e.sectname = xstrdup (name);
+      /* Keep the names, we'll need to make a table later.
+         TODO: check that we do not revisit sections, that would break
+         the assumption of how this is done.  */
+      if (lto_section_names == NULL)
+        vec_alloc (lto_section_names, 16);
+      vec_safe_push (lto_section_names, e);
+   }
   else if (strncmp (name, "__DWARF,", 8) == 0)
     darwin_asm_dwarf_section (name, flags, decl);
   else
@@ -2578,7 +2619,7 @@ darwin_assemble_visibility (tree decl, int vis)
 {
   if (vis == VISIBILITY_DEFAULT)
     ;
-  else if (vis == VISIBILITY_HIDDEN)
+  else if (vis == VISIBILITY_HIDDEN || vis == VISIBILITY_INTERNAL)
     {
       fputs ("\t.private_extern ", asm_out_file);
       assemble_name (asm_out_file,
@@ -2586,11 +2627,11 @@ darwin_assemble_visibility (tree decl, int vis)
       fputs ("\n", asm_out_file);
     }
   else
-    warning (OPT_Wattributes, "internal and protected visibility attributes "
+    warning (OPT_Wattributes, "protected visibility attribute "
 	     "not supported in this configuration; ignored");
 }
 
-/* VEC Used by darwin_asm_dwarf_section.
+/* vec used by darwin_asm_dwarf_section.
    Maybe a hash tab would be better here - but the intention is that this is
    a very short list (fewer than 16 items) and each entry should (ideally, 
    eventually) only be presented once.
@@ -2603,11 +2644,9 @@ typedef struct GTY(()) dwarf_sect_used_entry {
 }
 dwarf_sect_used_entry;
 
-DEF_VEC_O(dwarf_sect_used_entry);
-DEF_VEC_ALLOC_O(dwarf_sect_used_entry, gc);
 
 /* A list of used __DWARF sections.  */
-static GTY (()) VEC (dwarf_sect_used_entry, gc) * dwarf_sect_names_table;
+static GTY (()) vec<dwarf_sect_used_entry, va_gc> *dwarf_sect_names_table;
 
 /* This is called when we are asked to assemble a named section and the 
    name begins with __DWARF,.  We keep a list of the section names (without
@@ -2630,10 +2669,10 @@ darwin_asm_dwarf_section (const char *name, unsigned int flags,
   namelen = strchr (sname, ',') - sname;
   gcc_assert (namelen);
   if (dwarf_sect_names_table == NULL)
-    dwarf_sect_names_table = VEC_alloc (dwarf_sect_used_entry, gc, 16);
+    vec_alloc (dwarf_sect_names_table, 16);
   else
     for (i = 0; 
-	 VEC_iterate (dwarf_sect_used_entry, dwarf_sect_names_table, i, ref);
+	 dwarf_sect_names_table->iterate (i, &ref);
 	 i++)
       {
 	if (!ref)
@@ -2653,7 +2692,7 @@ darwin_asm_dwarf_section (const char *name, unsigned int flags,
       fprintf (asm_out_file, "Lsection%.*s:\n", namelen, sname);
       e.count = 1;
       e.name = xstrdup (sname);
-      VEC_safe_push (dwarf_sect_used_entry, gc, dwarf_sect_names_table, &e);
+      vec_safe_push (dwarf_sect_names_table, e);
     }
 }
 
@@ -2707,16 +2746,12 @@ darwin_asm_output_dwarf_offset (FILE *file, int size, const char * lab,
   darwin_asm_output_dwarf_delta (file, size, lab, sname);
 }
 
-/* Called from the within the TARGET_ASM_FILE_START for each target. 
-  Initialize the stuff we need for LTO long section names support.  */
+/* Called from the within the TARGET_ASM_FILE_START for each target.  */
 
 void
 darwin_file_start (void)
 {
-  /* We fill this obstack with the complete section text for the lto section
-     names to write in darwin_file_end.  */
-  obstack_init (&lto_section_names_obstack);
-  lto_section_names_offset = 0;
+  /* Nothing to do.  */
 }
 
 /* Called for the TARGET_ASM_FILE_END hook.
@@ -2727,8 +2762,6 @@ darwin_file_start (void)
 void
 darwin_file_end (void)
 {
-  const char *lto_section_names;
-
   machopic_finish (asm_out_file);
   if (strcmp (lang_hooks.name, "GNU C++") == 0)
     {
@@ -2758,6 +2791,13 @@ darwin_file_end (void)
 	  lto_asm_txt = buf = (char *) xmalloc (n + 1);
 	  while (fgets (lto_asm_txt, n, lto_asm_out_file))
 	    fputs (lto_asm_txt, asm_out_file);
+	  /* Put a termination label.  */
+	  fprintf (asm_out_file, "\t.section %s,%s,regular,debug\n",
+		   LTO_SEGMENT_NAME, LTO_SECTS_SECTION);
+	  fprintf (asm_out_file, "L_GNU_LTO%d:\t;# end of lto\n",
+		   lto_section_num);
+	  /* Make sure our termination label stays in this section.  */
+	  fputs ("\t.space\t1\n", asm_out_file);
 	}
 
       /* Remove the temporary file.  */
@@ -2766,21 +2806,50 @@ darwin_file_end (void)
       free (lto_asm_out_name);
     }
 
-  /* Finish the LTO section names obstack.  Don't output anything if
-     there are no recorded section names.  */
-  obstack_1grow (&lto_section_names_obstack, '\0');
-  lto_section_names = XOBFINISH (&lto_section_names_obstack, const char *);
-  if (strlen (lto_section_names) > 0)
+  /* Output the names and indices.  */
+  if (lto_section_names && lto_section_names->length ())
     {
-      fprintf (asm_out_file,
-	       "\t.section %s,%s,regular,debug\n",
+      int count;
+      darwin_lto_section_e *ref;
+      /* For now, we'll make the offsets 4 bytes and unaligned - we'll fix
+         the latter up ourselves.  */
+      const char *op = integer_asm_op (4,0);
+
+      /* Emit the names.  */
+      fprintf (asm_out_file, "\t.section %s,%s,regular,debug\n",
 	       LTO_SEGMENT_NAME, LTO_NAMES_SECTION);
-      fprintf (asm_out_file,
-	       "\t# Section names in %s are offsets into this table\n",
-	       LTO_SEGMENT_NAME);
-      fprintf (asm_out_file, "%s\n", lto_section_names);
+      FOR_EACH_VEC_ELT (*lto_section_names, count, ref)
+	{
+	  fprintf (asm_out_file, "L_GNU_LTO_NAME%d:\n", count);
+         /* We have to jump through hoops to get the values of the intra-section
+            offsets... */
+	  fprintf (asm_out_file,
+		   "\t.set L$gnu$lto$noff%d,L_GNU_LTO_NAME%d-L_GNU_LTO_NAME0\n",
+		   count, count);
+	  fprintf (asm_out_file,
+		   "\t.set L$gnu$lto$nsiz%d,L_GNU_LTO_NAME%d-L_GNU_LTO_NAME%d\n",
+		   count, count+1, count);
+	  fprintf (asm_out_file, "\t.asciz\t\"%s\"\n", ref->sectname);
+	}
+      fprintf (asm_out_file, "L_GNU_LTO_NAME%d:\t;# end\n", lto_section_num);
+      /* make sure our termination label stays in this section.  */
+      fputs ("\t.space\t1\n", asm_out_file);
+
+      /* Emit the Index.  */
+      fprintf (asm_out_file, "\t.section %s,%s,regular,debug\n",
+	       LTO_SEGMENT_NAME, LTO_INDEX_SECTION);
+      fputs ("\t.align\t2\n", asm_out_file);
+      fputs ("# Section offset, Section length, Name offset, Name length\n",
+	     asm_out_file);
+      FOR_EACH_VEC_ELT (*lto_section_names, count, ref)
+	{
+	  fprintf (asm_out_file, "%s L$gnu$lto$offs%d\t;# %s\n",
+		   op, count, ref->sectname);
+	  fprintf (asm_out_file, "%s L$gnu$lto$size%d\n", op, count);
+	  fprintf (asm_out_file, "%s L$gnu$lto$noff%d\n", op, count);
+	  fprintf (asm_out_file, "%s L$gnu$lto$nsiz%d\n", op, count);
+	}
     }
-  obstack_free (&lto_section_names_obstack, NULL);
 
   /* If we have section anchors, then we must prevent the linker from
      re-arranging data.  */
@@ -2867,10 +2936,39 @@ darwin_override_options (void)
       /* Earlier versions are not specifically accounted, until required.  */
     }
 
+  /* In principle, this should be c-family only.  However, we really need to
+     set sensible defaults for LTO as well, since the section selection stuff
+     should check for correctness re. the ABI.  TODO: check and provide the
+     flags (runtime & ABI) from the lto wrapper).  */
+
+  /* Unless set, force ABI=2 for NeXT and m64, 0 otherwise.  */
+  if (!global_options_set.x_flag_objc_abi)
+    global_options.x_flag_objc_abi
+	= (!flag_next_runtime)
+		? 0
+		: (TARGET_64BIT ? 2
+				: (generating_for_darwin_version >= 9) ? 1
+								       : 0);
+
+  /* Objective-C family ABI 2 is only valid for next/m64 at present.  */
+  if (global_options_set.x_flag_objc_abi && flag_next_runtime)
+    {
+      if (TARGET_64BIT && global_options.x_flag_objc_abi < 2)
+	error_at (UNKNOWN_LOCATION, "%<-fobjc-abi-version%> >= 2 must be"
+				    " used for %<-m64%> targets with"
+				    " %<-fnext-runtime%>");
+      if (!TARGET_64BIT && global_options.x_flag_objc_abi >= 2)
+	error_at (UNKNOWN_LOCATION, "%<-fobjc-abi-version%> >= 2 is not"
+				    " supported on %<-m32%> targets with"
+				    " %<-fnext-runtime%>");
+    }
+
   /* Don't emit DWARF3/4 unless specifically selected.  This is a 
      workaround for tool bugs.  */
   if (!global_options_set.x_dwarf_strict) 
     dwarf_strict = 1;
+  if (!global_options_set.x_dwarf_version)
+    dwarf_version = 2;
 
   /* Do not allow unwind tables to be generated by default for m32.  
      fnon-call-exceptions will override this, regardless of what we do.  */
@@ -2903,6 +3001,18 @@ darwin_override_options (void)
       flag_reorder_blocks = 1;
     }
 
+    /* FIXME: flag_objc_sjlj_exceptions is no longer needed since there is only
+       one valid choice of exception scheme for each runtime.  */
+    if (!global_options_set.x_flag_objc_sjlj_exceptions)
+      global_options.x_flag_objc_sjlj_exceptions = 
+				flag_next_runtime && !TARGET_64BIT;
+
+    /* FIXME: and this could be eliminated then too.  */
+    if (!global_options_set.x_flag_exceptions
+	&& flag_objc_exceptions
+	&& TARGET_64BIT)
+      flag_exceptions = 1;
+
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */
@@ -2922,17 +3032,19 @@ darwin_override_options (void)
       darwin_emit_branch_islands = true;
     }
 
-  if (flag_var_tracking
+  if (flag_var_tracking_uninit == 0
       && generating_for_darwin_version >= 9
       && (flag_gtoggle ? (debug_info_level == DINFO_LEVEL_NONE)
       : (debug_info_level >= DINFO_LEVEL_NORMAL))
       && write_symbols == DWARF2_DEBUG)
-    flag_var_tracking_uninit = 1;
+    flag_var_tracking_uninit = flag_var_tracking;
 
   if (MACHO_DYNAMIC_NO_PIC_P)
     {
       if (flag_pic)
-	warning (0, "-mdynamic-no-pic overrides -fpic or -fPIC");
+	warning_at (UNKNOWN_LOCATION, 0,
+		 "%<-mdynamic-no-pic%> overrides %<-fpic%>, %<-fPIC%>,"
+		 " %<-fpie%> or %<-fPIE%>");
       flag_pic = 0;
     }
   else if (flag_pic == 1)
@@ -2951,12 +3063,13 @@ darwin_override_options (void)
   darwin_running_cxx = (strstr (lang_hooks.name, "C++") != 0);
 }
 
-/* Add $LDBL128 suffix to long double builtins.  */
+#if DARWIN_PPC
+/* Add $LDBL128 suffix to long double builtins for ppc darwin.  */
 
 static void
-darwin_patch_builtin (int fncode)
+darwin_patch_builtin (enum built_in_function fncode)
 {
-  tree fn = built_in_decls[fncode];
+  tree fn = builtin_decl_explicit (fncode);
   tree sym;
   char *newname;
 
@@ -2968,7 +3081,7 @@ darwin_patch_builtin (int fncode)
 
   set_user_assembler_name (fn, newname);
 
-  fn = implicit_built_in_decls[fncode];
+  fn = builtin_decl_implicit (fncode);
   if (fn)
     set_user_assembler_name (fn, newname);
 }
@@ -2992,6 +3105,7 @@ darwin_patch_builtins (void)
 #undef PATCH_BUILTIN_NO64
 #undef PATCH_BUILTIN_VARIADIC
 }
+#endif
 
 /*  CFStrings implementation.  */
 static GTY(()) tree cfstring_class_reference = NULL_TREE;
@@ -3143,9 +3257,10 @@ darwin_rename_builtins (void)
      use the faster version.  */
   if (!flag_unsafe_math_optimizations)
     {
-      int dcode = (BUILT_IN_COMPLEX_DIV_MIN
-		   + DCmode - MIN_MODE_COMPLEX_FLOAT);
-      tree fn = built_in_decls[dcode];
+      enum built_in_function dcode
+	= (enum built_in_function)(BUILT_IN_COMPLEX_DIV_MIN
+				   + DCmode - MIN_MODE_COMPLEX_FLOAT);
+      tree fn = builtin_decl_explicit (dcode);
       /* Fortran and c call TARGET_INIT_BUILTINS and
 	 TARGET_INIT_LIBFUNCS at different times, so we have to put a
 	 call into each to ensure that at least one of them is called
@@ -3153,7 +3268,7 @@ darwin_rename_builtins (void)
 	 new hook to run after build_common_builtin_nodes runs.  */
       if (fn)
 	set_user_assembler_name (fn, "___ieee_divdc3");
-      fn = implicit_built_in_decls[dcode];
+      fn = builtin_decl_implicit (dcode);
       if (fn)
 	set_user_assembler_name (fn, "___ieee_divdc3");
     }
@@ -3217,7 +3332,7 @@ darwin_build_constant_cfstring (tree str)
   if (!desc)
     {
       tree var, constructor, field;
-      VEC(constructor_elt,gc) *v = NULL;
+      vec<constructor_elt, va_gc> *v = NULL;
       int length = TREE_STRING_LENGTH (str) - 1;
 
       if (darwin_warn_nonportable_cfstrings)
@@ -3352,7 +3467,7 @@ darwin_function_section (tree decl, enum node_frequency freq,
 
   /* Startup code should go to startup subsection unless it is
      unlikely executed (this happens especially with function splitting
-     where we can split away unnecesary parts of static constructors).  */
+     where we can split away unnecessary parts of static constructors).  */
   if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
     return (weak)
 	    ? darwin_sections[text_startup_coal_section]

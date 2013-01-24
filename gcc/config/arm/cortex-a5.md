@@ -1,5 +1,5 @@
 ;; ARM Cortex-A5 pipeline description
-;; Copyright (C) 2010 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 ;; Contributed by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -58,12 +58,12 @@
 
 (define_insn_reservation "cortex_a5_alu" 2
   (and (eq_attr "tune" "cortexa5")
-       (eq_attr "type" "alu"))
+       (eq_attr "type" "alu_reg,simple_alu_imm"))
   "cortex_a5_ex1")
 
 (define_insn_reservation "cortex_a5_alu_shift" 2
   (and (eq_attr "tune" "cortexa5")
-       (eq_attr "type" "alu_shift,alu_shift_reg"))
+       (eq_attr "type" "simple_alu_shift,alu_shift,alu_shift_reg"))
   "cortex_a5_ex1")
 
 ;; Forwarding path for unshifted operands.

@@ -1,9 +1,13 @@
 /* Test basic Objective-C foreach syntax.  This tests warnings and errors.  */
-/* { dg-do compile } */
+/* 
+   { dg-options "-ftrack-macro-expansion=0" }
+   { dg-do compile } 
+*/
 
-#import "../objc-obj-c++-shared/Object1.h"
-#import "../objc-obj-c++-shared/next-mapping.h"
-
+#import "../objc-obj-c++-shared/TestsuiteObject.h"
+#import <objc/objc.h>
+#undef  nil
+#define nil ((id)0)
 /*
 struct __objcFastEnumerationState
 {
@@ -13,7 +17,7 @@ struct __objcFastEnumerationState
   unsigned long extra[5];
 };
 */
-@interface Object (NSFastEnumeration)
+@interface TestsuiteObject (NSFastEnumeration)
 - (unsigned long)countByEnumeratingWithState: (struct __objcFastEnumerationState *)state
                                      objects:(id *)stackbuf 
                                        count:(unsigned int)len;
@@ -36,10 +40,10 @@ int main (void)
   id object = nil;
 
   for (typedef int my_typedef in array) /* { dg-error "declaration of non-variable" } */
-    ;                                   /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 38 } */
+    ;                                   /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 42 } */
 
   for (function () in nil) /* { dg-error "invalid iterating variable in fast enumeration" } */
-    ;                      /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 41 } */
+    ;                      /* { dg-error "iterating variable in fast enumeration is not an object" "" { target *-*-* } 45 } */
 
   for (object_function () in nil) /* { dg-error "invalid iterating variable in fast enumeration" } */
     ;

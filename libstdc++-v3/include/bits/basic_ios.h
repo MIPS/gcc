@@ -1,7 +1,7 @@
 // Iostreams base classes -*- C++ -*-
 
 // Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-// 2006, 2007, 2008, 2009, 2010, 2011
+// 2006, 2007, 2008, 2009, 2010, 2011, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -52,10 +52,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return *__f;
     }
 
-  // 27.4.5  Template class basic_ios
   /**
-   *  @brief  Virtual base class for all stream classes.
+   *  @brief Template class basic_ios, virtual base class for all
+   *  stream classes. 
    *  @ingroup io
+   *
+   *  @tparam _CharT  Type of character stream.
+   *  @tparam _Traits  Traits for character type, defaults to
+   *                   char_traits<_CharT>.
    *
    *  Most of the member functions called dispatched on stream objects
    *  (e.g., @c std::cout.foo(bar);) are consolidated in this class.
@@ -131,7 +135,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  [Re]sets the error state.
-       *  @param  state  The new state flag(s) to set.
+       *  @param  __state  The new state flag(s) to set.
        *
        *  See std::ios_base::iostate for the possible bit values.  Most
        *  users will not need to pass an argument.
@@ -141,7 +145,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Sets additional flags in the error state.
-       *  @param  state  The additional state flag(s) to set.
+       *  @param  __state  The additional state flag(s) to set.
        *
        *  See std::ios_base::iostate for the possible bit values.
       */
@@ -216,7 +220,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Throwing exceptions on errors.
-       *  @param  except  The new exceptions mask.
+       *  @param  __except  The new exceptions mask.
        *
        *  By default, error flags are set silently.  You can set an
        *  exceptions mask for each stream; if a bit in the mask becomes set
@@ -289,7 +293,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Ties this stream to an output stream.
-       *  @param  tiestr  The output stream.
+       *  @param  __tiestr  The output stream.
        *  @return  The previously tied output stream, or NULL if the stream
        *           was not tied.
        *
@@ -315,7 +319,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Changing the underlying buffer.
-       *  @param  sb  The new stream buffer.
+       *  @param  __sb  The new stream buffer.
        *  @return  The previous stream buffer.
        *
        *  Associates a new buffer with the current stream, and clears the
@@ -371,7 +375,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Sets a new @a empty character.
-       *  @param  ch  The new character.
+       *  @param  __ch  The new character.
        *  @return  The previous fill character.
        *
        *  The fill character is used to fill out space when P+ characters
@@ -389,7 +393,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // Locales:
       /**
        *  @brief  Moves to a new locale.
-       *  @param  loc  The new locale.
+       *  @param  __loc  The new locale.
        *  @return  The previous locale.
        *
        *  Calls @c ios_base::imbue(loc), and if a stream buffer is associated
@@ -403,8 +407,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Squeezes characters.
-       *  @param  c  The character to narrow.
-       *  @param  dfault  The character to narrow.
+       *  @param  __c  The character to narrow.
+       *  @param  __dfault  The character to narrow.
        *  @return  The narrowed character.
        *
        *  Maps a character of @c char_type to a character of @c char,
@@ -424,7 +428,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        *  @brief  Widens characters.
-       *  @param  c  The character to widen.
+       *  @param  __c  The character to widen.
        *  @return  The widened character.
        *
        *  Maps a character of @c char to a character of @c char_type.

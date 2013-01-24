@@ -1,6 +1,6 @@
 #! /bin/sh
 # Wrapper around gettext for programs using the msgid convention.
-# Copyright 1998, 2001, 2002, 2003, 2009, 2010 Free Software Foundation, Inc.
+# Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 # Written by Paul Eggert <eggert@twinsun.com>.
 # Revised by Zack Weinberg <zackw@stanford.edu> for no-POTFILES operation.
@@ -72,6 +72,9 @@ pottmp=$pwd/$T/tmp.pot
 # Locate files to scan.  We scan the following directories:
 #  $srcdir
 #  $srcdir/c-family
+#  $srcdir/common
+#  $srcdir/common/config
+#  $srcdir/common/config/*
 #  $srcdir/config
 #  $srcdir/config/*
 #  all subdirectories of $srcdir containing a config-lang.in file, and
@@ -91,7 +94,8 @@ echo "scanning for keywords, %e and %n strings..." >&2
 
 ( cd $srcdir
   lang_subdirs=`echo */config-lang.in */*/config-lang.in | sed -e 's|/config-lang\.in||g'`
-  { for dir in "" c-family/ config/ config/*/ \
+  { for dir in "" c-family/ common/ common/config/ common/config/*/ \
+      config/ config/*/ \
       `find $lang_subdirs -type d -print | fgrep -v .svn | sort | sed -e 's|$|/|'`
     do  for glob in '*.c' '*.cc' '*.h' '*.def'
         do  eval echo $dir$glob

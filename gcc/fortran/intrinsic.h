@@ -1,7 +1,6 @@
 /* Header file for intrinsics check, resolve and simplify function
    prototypes.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -39,6 +38,8 @@ gfc_try gfc_check_allocated (gfc_expr *);
 gfc_try gfc_check_associated (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_atan_2 (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_atan2 (gfc_expr *, gfc_expr *);
+gfc_try gfc_check_atomic_def (gfc_expr *, gfc_expr *);
+gfc_try gfc_check_atomic_ref (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_besn (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_bessel_n2 (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_try gfc_check_bge_bgt_ble_blt (gfc_expr *, gfc_expr *);
@@ -122,6 +123,7 @@ gfc_try gfc_check_product_sum (gfc_actual_arglist *);
 gfc_try gfc_check_radix (gfc_expr *);
 gfc_try gfc_check_rand (gfc_expr *);
 gfc_try gfc_check_range (gfc_expr *);
+gfc_try gfc_check_rank (gfc_expr *);
 gfc_try gfc_check_real (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_rename (gfc_expr *, gfc_expr *);
 gfc_try gfc_check_repeat (gfc_expr *, gfc_expr *);
@@ -259,6 +261,7 @@ gfc_expr *gfc_simplify_digits (gfc_expr *);
 gfc_expr *gfc_simplify_dim (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dprod (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dot_product (gfc_expr *, gfc_expr *);
+gfc_expr *gfc_simplify_dreal (gfc_expr *);
 gfc_expr *gfc_simplify_dshiftl (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_dshiftr (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_epsilon (gfc_expr *);
@@ -345,6 +348,7 @@ gfc_expr *gfc_simplify_precision (gfc_expr *);
 gfc_expr *gfc_simplify_product (gfc_expr *, gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_radix (gfc_expr *);
 gfc_expr *gfc_simplify_range (gfc_expr *);
+gfc_expr *gfc_simplify_rank (gfc_expr *);
 gfc_expr *gfc_simplify_real (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_simplify_realpart (gfc_expr *);
 gfc_expr *gfc_simplify_repeat (gfc_expr *, gfc_expr *);
@@ -412,6 +416,8 @@ void gfc_resolve_asinh (gfc_expr *, gfc_expr *);
 void gfc_resolve_atan (gfc_expr *, gfc_expr *);
 void gfc_resolve_atanh (gfc_expr *, gfc_expr *);
 void gfc_resolve_atan2 (gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_atomic_def (gfc_code *);
+void gfc_resolve_atomic_ref (gfc_code *);
 void gfc_resolve_besn (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_bessel_n2 (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *a);
 void gfc_resolve_btest (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -479,6 +485,7 @@ void gfc_resolve_long (gfc_expr *, gfc_expr *);
 void gfc_resolve_ior (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_iparity (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_isatty (gfc_expr *, gfc_expr *);
+void gfc_resolve_rank (gfc_expr *, gfc_expr *);
 void gfc_resolve_rshift (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_lshift (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_ishft (gfc_expr *, gfc_expr *, gfc_expr *);
@@ -538,6 +545,7 @@ void gfc_resolve_signal (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_sin (gfc_expr *, gfc_expr *);
 void gfc_resolve_sinh (gfc_expr *, gfc_expr *);
 void gfc_resolve_size (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
+void gfc_resolve_stride (gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_spacing (gfc_expr *, gfc_expr *);
 void gfc_resolve_spread (gfc_expr *, gfc_expr *, gfc_expr *, gfc_expr *);
 void gfc_resolve_sqrt (gfc_expr *, gfc_expr *);

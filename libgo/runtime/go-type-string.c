@@ -4,27 +4,26 @@
    Use of this source code is governed by a BSD-style
    license that can be found in the LICENSE file.  */
 
-#include <stddef.h>
-
-#include "go-string.h"
+#include "runtime.h"
 #include "go-type.h"
+#include "go-string.h"
 
 /* A string hash function for a map.  */
 
-size_t
+uintptr_t
 __go_type_hash_string (const void *vkey,
-		       size_t key_size __attribute__ ((unused)))
+		       uintptr_t key_size __attribute__ ((unused)))
 {
-  size_t ret;
-  const struct __go_string *key;
-  size_t len;
-  size_t i;
-  const unsigned char *p;
+  uintptr_t ret;
+  const String *key;
+  intgo len;
+  intgo i;
+  const byte *p;
 
   ret = 5381;
-  key = (const struct __go_string *) vkey;
-  len = key->__length;
-  for (i = 0, p = key->__data; i < len; i++, p++)
+  key = (const String *) vkey;
+  len = key->len;
+  for (i = 0, p = key->str; i < len; i++, p++)
     ret = ret * 33 + *p;
   return ret;
 }
@@ -33,13 +32,12 @@ __go_type_hash_string (const void *vkey,
 
 _Bool
 __go_type_equal_string (const void *vk1, const void *vk2,
-			size_t key_size __attribute__ ((unused)))
+			uintptr_t key_size __attribute__ ((unused)))
 {
-  const struct __go_string *k1;
-  const struct __go_string *k2;
+  const String *k1;
+  const String *k2;
 
-  k1 = (const struct __go_string *) vk1;
-  k2 = (const struct __go_string *) vk2;
-  return (k1->__length == k2->__length
-	  && __builtin_memcmp (k1->__data, k2->__data, k1->__length) == 0);
+  k1 = (const String *) vk1;
+  k2 = (const String *) vk2;
+  return __go_ptr_strings_equal (k1, k2);
 }

@@ -1,7 +1,5 @@
 /* Move registers around to reduce number of move instructions needed.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "target.h"
-#include "output.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -42,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "diagnostic-core.h"
 #include "reload.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 #include "ira.h"
@@ -548,8 +544,7 @@ optimize_reg_copy_3 (rtx insn, rtx dest, rtx src)
   /* Do not use a SUBREG to truncate from one mode to another if truncation
      is not a nop.  */
   if (GET_MODE_BITSIZE (GET_MODE (src_reg)) <= GET_MODE_BITSIZE (GET_MODE (src))
-      && !TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (GET_MODE (src)),
-				 GET_MODE_BITSIZE (GET_MODE (src_reg))))
+      && !TRULY_NOOP_TRUNCATION_MODES_P (GET_MODE (src), GET_MODE (src_reg)))
     return;
 
   set_insn = p;
@@ -618,10 +613,10 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
   int src_regno;
   int dest_regno;
 
-  /* A REG_LIVE_LENGTH of -1 indicates the register is equivalent to a constant
-     or memory location and is used infrequently; a REG_LIVE_LENGTH of -2 is
-     parameter when there is no frame pointer that is not allocated a register.
-     For now, we just reject them, rather than incrementing the live length.  */
+  /* A REG_LIVE_LENGTH of -1 indicates the register must not go into
+     a hard register, e.g. because it crosses as setjmp.  See the
+     comment in regstat.c:regstat_bb_compute_ri.  Don't try to apply
+     any transformations to such regs.  */
 
   if (REG_P (src)
       && REG_LIVE_LENGTH (REGNO (src)) > 0
@@ -860,7 +855,7 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 	  if (REG_N_CALLS_CROSSED (REGNO (src)) == 0)
 	    break;
 
-	  if (call_used_regs [REGNO (dst)]
+	  if ((HARD_REGISTER_P (dst) && call_used_regs [REGNO (dst)])
 	      || find_reg_fusage (p, CLOBBER, dst))
 	    break;
 	}
@@ -1236,11 +1231,11 @@ regmove_optimize (void)
   df_note_add_problem ();
   df_analyze ();
 
-  if (flag_ira_loop_pressure)
-    ira_set_pseudo_classes (dump_file);
-
   regstat_init_n_sets_and_refs ();
   regstat_compute_ri ();
+
+  if (flag_ira_loop_pressure)
+    ira_set_pseudo_classes (true, dump_file);
 
   regno_src_regno = XNEWVEC (int, nregs);
   for (i = nregs; --i >= 0; )
@@ -1371,6 +1366,7 @@ struct rtl_opt_pass pass_regmove =
  {
   RTL_PASS,
   "regmove",                            /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_regmove,                  /* gate */
   regmove_optimize,			/* execute */
   NULL,                                 /* sub */
@@ -1382,7 +1378,6 @@ struct rtl_opt_pass pass_regmove =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_dump_func |
   TODO_ggc_collect                      /* todo_flags_finish */
  }
 };

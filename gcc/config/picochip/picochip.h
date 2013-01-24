@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler for picoChip
-   Copyright (C) 2001, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    Contributed by Picochip Ltd. (http://www.picochip.com)
    Maintained by Daniel Towner (daniel.towner@picochip.com) and
@@ -83,8 +83,6 @@ extern enum picochip_dfa_type picochip_schedule_type;
 #define TARGET_HAS_MUL_UNIT (picochip_has_mul_unit)
 #define TARGET_HAS_MAC_UNIT (picochip_has_mac_unit)
 #define TARGET_HAS_MULTIPLY (picochip_has_mac_unit || picochip_has_mul_unit)
-
-#define TARGET_VERSION fprintf(stderr, "(picoChip)");
 
 /* Storage Layout */
 
@@ -223,7 +221,7 @@ extern enum picochip_dfa_type picochip_schedule_type;
 #define CALL_USED_REGISTERS {1,1,1,1,1,1,0,0, 0,0,0,0,1,1,0,1, 1,1,1,1}
 #define CALL_REALLY_USED_REGISTERS {1,1,1,1,1,1,0,0, 0,0,0,0,1,1,0,0, 0,1,0,0}
 
-/* Define the number of the picoChip link and condition psuedo registers. */
+/* Define the number of the picoChip link and condition pseudo registers. */
 #define LINK_REGNUM 12
 #define CC_REGNUM 17
 #define ACC_REGNUM 16
@@ -454,11 +452,6 @@ do {                                                                         \
     goto WIN;                                                                \
   } while(0);                                                                \
 
-/* Nonzero if the constant rtx X is a legitimate general operand.  X
-   satisfies CONSTANT_P.  */
-
-#define LEGITIMATE_CONSTANT_P(X) 1
-
 
 /* Condition Code Status  */
 
@@ -495,7 +488,8 @@ do {                                                                         \
 #define ASM_APP_ON "// High-level ASM start\n"
 #define ASM_APP_OFF "// High-level ASM end\n"
 
-#define ASM_OUTPUT_IDENT(STREAM,STRING) fprintf(STREAM, ".ident %s\n", STRING)
+#undef TARGET_ASM_OUTPUT_IDENT
+#define TARGET_ASM_OUTPUT_IDENT default_asm_output_ident_directive
 
 /* Output of Data  */
 

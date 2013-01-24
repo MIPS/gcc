@@ -6,6 +6,7 @@ package strconv_test
 
 import (
 	"math"
+	"math/rand"
 	. "strconv"
 	"testing"
 )
@@ -123,28 +124,117 @@ var ftoatests = []ftoaTest{
 	{2.2250738585072012e-308, 'g', -1, "2.2250738585072014e-308"},
 	// http://www.exploringbinary.com/php-hangs-on-numeric-value-2-2250738585072011e-308/
 	{2.2250738585072011e-308, 'g', -1, "2.225073858507201e-308"},
+
+	// Issue 2625.
+	{383260575764816448, 'f', 0, "383260575764816448"},
+	{383260575764816448, 'g', -1, "3.8326057576481645e+17"},
 }
 
 func TestFtoa(t *testing.T) {
 	for i := 0; i < len(ftoatests); i++ {
 		test := &ftoatests[i]
-		s := Ftoa64(test.f, test.fmt, test.prec)
-		if s != test.s {
-			t.Error("test", test.f, string(test.fmt), test.prec, "want", test.s, "got", s)
-		}
-		s = FtoaN(test.f, test.fmt, test.prec, 64)
+		s := FormatFloat(test.f, test.fmt, test.prec, 64)
 		if s != test.s {
 			t.Error("testN=64", test.f, string(test.fmt), test.prec, "want", test.s, "got", s)
 		}
+		x := AppendFloat([]byte("abc"), test.f, test.fmt, test.prec, 64)
+		if string(x) != "abc"+test.s {
+			t.Error("AppendFloat testN=64", test.f, string(test.fmt), test.prec, "want", "abc"+test.s, "got", string(x))
+		}
 		if float64(float32(test.f)) == test.f && test.fmt != 'b' {
-			s := Ftoa32(float32(test.f), test.fmt, test.prec)
-			if s != test.s {
-				t.Error("test32", test.f, string(test.fmt), test.prec, "want", test.s, "got", s)
-			}
-			s = FtoaN(test.f, test.fmt, test.prec, 32)
+			s := FormatFloat(test.f, test.fmt, test.prec, 32)
 			if s != test.s {
 				t.Error("testN=32", test.f, string(test.fmt), test.prec, "want", test.s, "got", s)
+			}
+			x := AppendFloat([]byte("abc"), test.f, test.fmt, test.prec, 32)
+			if string(x) != "abc"+test.s {
+				t.Error("AppendFloat testN=32", test.f, string(test.fmt), test.prec, "want", "abc"+test.s, "got", string(x))
 			}
 		}
 	}
 }
+
+func TestFtoaRandom(t *testing.T) {
+	N := int(1e4)
+	if testing.Short() {
+		N = 100
+	}
+	t.Logf("testing %d random numbers with fast and slow FormatFloat", N)
+	for i := 0; i < N; i++ {
+		bits := uint64(rand.Uint32())<<32 | uint64(rand.Uint32())
+		x := math.Float64frombits(bits)
+
+		shortFast := FormatFloat(x, 'g', -1, 64)
+		SetOptimize(false)
+		shortSlow := FormatFloat(x, 'g', -1, 64)
+		SetOptimize(true)
+		if shortSlow != shortFast {
+			t.Errorf("%b printed as %s, want %s", x, shortFast, shortSlow)
+		}
+
+		prec := rand.Intn(12) + 5
+		shortFast = FormatFloat(x, 'e', prec, 64)
+		SetOptimize(false)
+		shortSlow = FormatFloat(x, 'e', prec, 64)
+		SetOptimize(true)
+		if shortSlow != shortFast {
+			t.Errorf("%b printed as %s, want %s", x, shortFast, shortSlow)
+		}
+	}
+}
+
+func BenchmarkFormatFloatDecimal(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FormatFloat(33909, 'g', -1, 64)
+	}
+}
+
+func BenchmarkFormatFloat(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FormatFloat(339.7784, 'g', -1, 64)
+	}
+}
+
+func BenchmarkFormatFloatExp(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FormatFloat(-5.09e75, 'g', -1, 64)
+	}
+}
+
+func BenchmarkFormatFloatNegExp(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FormatFloat(-5.11e-95, 'g', -1, 64)
+	}
+}
+
+func BenchmarkFormatFloatBig(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FormatFloat(123456789123456789123456789, 'g', -1, 64)
+	}
+}
+
+func benchmarkAppendFloat(b *testing.B, f float64, fmt byte, prec, bitSize int) {
+	dst := make([]byte, 30)
+	for i := 0; i < b.N; i++ {
+		AppendFloat(dst[:0], f, fmt, prec, bitSize)
+	}
+}
+
+func BenchmarkAppendFloatDecimal(b *testing.B) { benchmarkAppendFloat(b, 33909, 'g', -1, 64) }
+func BenchmarkAppendFloat(b *testing.B)        { benchmarkAppendFloat(b, 339.7784, 'g', -1, 64) }
+func BenchmarkAppendFloatExp(b *testing.B)     { benchmarkAppendFloat(b, -5.09e75, 'g', -1, 64) }
+func BenchmarkAppendFloatNegExp(b *testing.B)  { benchmarkAppendFloat(b, -5.11e-95, 'g', -1, 64) }
+func BenchmarkAppendFloatBig(b *testing.B) {
+	benchmarkAppendFloat(b, 123456789123456789123456789, 'g', -1, 64)
+}
+
+func BenchmarkAppendFloat32Integer(b *testing.B)       { benchmarkAppendFloat(b, 33909, 'g', -1, 32) }
+func BenchmarkAppendFloat32ExactFraction(b *testing.B) { benchmarkAppendFloat(b, 3.375, 'g', -1, 32) }
+func BenchmarkAppendFloat32Point(b *testing.B)         { benchmarkAppendFloat(b, 339.7784, 'g', -1, 32) }
+func BenchmarkAppendFloat32Exp(b *testing.B)           { benchmarkAppendFloat(b, -5.09e25, 'g', -1, 32) }
+func BenchmarkAppendFloat32NegExp(b *testing.B)        { benchmarkAppendFloat(b, -5.11e-25, 'g', -1, 32) }
+
+func BenchmarkAppendFloat64Fixed1(b *testing.B) { benchmarkAppendFloat(b, 123456, 'e', 3, 64) }
+func BenchmarkAppendFloat64Fixed2(b *testing.B) { benchmarkAppendFloat(b, 123.456, 'e', 3, 64) }
+func BenchmarkAppendFloat64Fixed3(b *testing.B) { benchmarkAppendFloat(b, 1.23456e+78, 'e', 3, 64) }
+func BenchmarkAppendFloat64Fixed4(b *testing.B) { benchmarkAppendFloat(b, 1.23456e-78, 'e', 3, 64) }

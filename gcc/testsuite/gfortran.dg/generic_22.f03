@@ -35,4 +35,3 @@ contains
 
 
 end module base_mod
-! { dg-final { cleanup-modules "m" } }

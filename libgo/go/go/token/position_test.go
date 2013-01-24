@@ -6,9 +6,10 @@ package token
 
 import (
 	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
 )
-
 
 func checkPos(t *testing.T, msg string, p, q Position) {
 	if p.Filename != q.Filename {
@@ -25,7 +26,6 @@ func checkPos(t *testing.T, msg string, p, q Position) {
 	}
 }
 
-
 func TestNoPos(t *testing.T) {
 	if NoPos.IsValid() {
 		t.Errorf("NoPos should not be valid")
@@ -35,7 +35,6 @@ func TestNoPos(t *testing.T) {
 	fset = NewFileSet()
 	checkPos(t, "fset NoPos", fset.Position(NoPos), Position{})
 }
-
 
 var tests = []struct {
 	filename string
@@ -53,7 +52,6 @@ var tests = []struct {
 	{"h", []byte("package p\n\nimport \"fmt\"\n "), 25, []int{0, 10, 11, 24}},
 }
 
-
 func linecol(lines []int, offs int) (int, int) {
 	prevLineOffs := 0
 	for line, lineOffs := range lines {
@@ -64,7 +62,6 @@ func linecol(lines []int, offs int) (int, int) {
 	}
 	return len(lines), offs - prevLineOffs + 1
 }
-
 
 func verifyPositions(t *testing.T, fset *FileSet, f *File, lines []int) {
 	for offs := 0; offs < f.Size(); offs++ {
@@ -80,7 +77,6 @@ func verifyPositions(t *testing.T, fset *FileSet, f *File, lines []int) {
 	}
 }
 
-
 func makeTestSource(size int, lines []int) []byte {
 	src := make([]byte, size)
 	for _, offs := range lines {
@@ -90,7 +86,6 @@ func makeTestSource(size int, lines []int) []byte {
 	}
 	return src
 }
-
 
 func TestPositions(t *testing.T) {
 	const delta = 7 // a non-zero base offset increment
@@ -150,7 +145,6 @@ func TestPositions(t *testing.T) {
 	}
 }
 
-
 func TestLineInfo(t *testing.T) {
 	fset := NewFileSet()
 	f := fset.AddFile("foo", fset.Base(), 500)
@@ -170,20 +164,69 @@ func TestLineInfo(t *testing.T) {
 	}
 }
 
-
 func TestFiles(t *testing.T) {
 	fset := NewFileSet()
 	for i, test := range tests {
 		fset.AddFile(test.filename, fset.Base(), test.size)
 		j := 0
-		for g := range fset.Files() {
-			if g.Name() != tests[j].filename {
-				t.Errorf("expected filename = %s; got %s", tests[j].filename, g.Name())
+		fset.Iterate(func(f *File) bool {
+			if f.Name() != tests[j].filename {
+				t.Errorf("expected filename = %s; got %s", tests[j].filename, f.Name())
 			}
 			j++
-		}
+			return true
+		})
 		if j != i+1 {
 			t.Errorf("expected %d files; got %d", i+1, j)
 		}
 	}
+}
+
+// FileSet.File should return nil if Pos is past the end of the FileSet.
+func TestFileSetPastEnd(t *testing.T) {
+	fset := NewFileSet()
+	for _, test := range tests {
+		fset.AddFile(test.filename, fset.Base(), test.size)
+	}
+	if f := fset.File(Pos(fset.Base())); f != nil {
+		t.Errorf("expected nil, got %v", f)
+	}
+}
+
+func TestFileSetCacheUnlikely(t *testing.T) {
+	fset := NewFileSet()
+	offsets := make(map[string]int)
+	for _, test := range tests {
+		offsets[test.filename] = fset.Base()
+		fset.AddFile(test.filename, fset.Base(), test.size)
+	}
+	for file, pos := range offsets {
+		f := fset.File(Pos(pos))
+		if f.Name() != file {
+			t.Errorf("expecting %q at position %d, got %q", file, pos, f.Name())
+		}
+	}
+}
+
+// issue 4345. Test concurrent use of FileSet.Pos does not trigger a
+// race in the FileSet position cache.
+func TestFileSetRace(t *testing.T) {
+	fset := NewFileSet()
+	for i := 0; i < 100; i++ {
+		fset.AddFile(fmt.Sprintf("file-%d", i), fset.Base(), 1031)
+	}
+	max := int32(fset.Base())
+	var stop sync.WaitGroup
+	r := rand.New(rand.NewSource(7))
+	for i := 0; i < 2; i++ {
+		r := rand.New(rand.NewSource(r.Int63()))
+		stop.Add(1)
+		go func() {
+			for i := 0; i < 1000; i++ {
+				fset.Position(Pos(r.Int31n(max)))
+			}
+			stop.Done()
+		}()
+	}
+	stop.Wait()
 }

@@ -1,7 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1990-2013 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -31,21 +29,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "regs.h"
 #include "function.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "coverage.h"
 #include "tree.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
 #include "tree-pass.h"
-#include "timevar.h"
 #include "value-prof.h"
 #include "cgraph.h"
+#include "profile.h"
+#include "target.h"
 
 static GTY(()) tree gcov_type_node;
-static GTY(()) tree gcov_type_tmp_var;
 static GTY(()) tree tree_interval_profiler_fn;
 static GTY(()) tree tree_pow2_profiler_fn;
 static GTY(()) tree tree_one_value_profiler_fn;
@@ -79,8 +75,11 @@ init_ic_make_global_vars (void)
   TREE_PUBLIC (ic_void_ptr_var) = 0;
   DECL_ARTIFICIAL (ic_void_ptr_var) = 1;
   DECL_INITIAL (ic_void_ptr_var) = NULL;
+  if (targetm.have_tls)
+    DECL_TLS_MODEL (ic_void_ptr_var) =
+      decl_default_tls_model (ic_void_ptr_var);
+
   varpool_finalize_decl (ic_void_ptr_var);
-  varpool_mark_needed_node (varpool_node (ic_void_ptr_var));
 
   gcov_type_ptr = build_pointer_type (get_gcov_type ());
   ic_gcov_type_ptr_var
@@ -91,9 +90,14 @@ init_ic_make_global_vars (void)
   TREE_PUBLIC (ic_gcov_type_ptr_var) = 0;
   DECL_ARTIFICIAL (ic_gcov_type_ptr_var) = 1;
   DECL_INITIAL (ic_gcov_type_ptr_var) = NULL;
+  if (targetm.have_tls)
+    DECL_TLS_MODEL (ic_gcov_type_ptr_var) =
+      decl_default_tls_model (ic_gcov_type_ptr_var);
+
   varpool_finalize_decl (ic_gcov_type_ptr_var);
-  varpool_mark_needed_node (varpool_node (ic_gcov_type_ptr_var));
 }
+
+/* Create the type and function decls for the interface with gcov.  */
 
 void
 gimple_init_edge_profiler (void)
@@ -202,20 +206,18 @@ gimple_init_edge_profiler (void)
 void
 gimple_gen_edge_profiler (int edgeno, edge e)
 {
-  tree ref, one;
+  tree ref, one, gcov_type_tmp_var;
   gimple stmt1, stmt2, stmt3;
 
-  /* We share one temporary variable declaration per function.  This
-     gets re-set in tree_profiling.  */
-  if (gcov_type_tmp_var == NULL_TREE)
-    gcov_type_tmp_var = create_tmp_reg (gcov_type_node, "PROF_edge_counter");
   ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
   one = build_int_cst (gcov_type_node, 1);
+  gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
+					  NULL, "PROF_edge_counter");
   stmt1 = gimple_build_assign (gcov_type_tmp_var, ref);
-  gimple_assign_set_lhs (stmt1, make_ssa_name (gcov_type_tmp_var, stmt1));
+  gcov_type_tmp_var = make_temp_ssa_name (gcov_type_node,
+					  NULL, "PROF_edge_counter");
   stmt2 = gimple_build_assign_with_ops (PLUS_EXPR, gcov_type_tmp_var,
 					gimple_assign_lhs (stmt1), one);
-  gimple_assign_set_lhs (stmt2, make_ssa_name (gcov_type_tmp_var, stmt2));
   stmt3 = gimple_build_assign (unshare_expr (ref), gimple_assign_lhs (stmt2));
   gsi_insert_on_edge (e, stmt1);
   gsi_insert_on_edge (e, stmt2);
@@ -230,7 +232,8 @@ prepare_instrumented_value (gimple_stmt_iterator *gsi, histogram_value value)
 {
   tree val = value->hvalue.value;
   if (POINTER_TYPE_P (TREE_TYPE (val)))
-    val = fold_convert (sizetype, val);
+    val = fold_convert (build_nonstandard_integer_type
+			  (TYPE_PRECISION (TREE_TYPE (val)), 1), val);
   return force_gimple_operand_gsi (gsi, fold_convert (gcov_type_node, val),
 				   true, NULL_TREE, true, GSI_SAME_STMT);
 }
@@ -322,14 +325,14 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 
   /* Insert code:
 
-    __gcov_indirect_call_counters = get_relevant_counter_ptr ();
-    __gcov_indirect_call_callee = (void *) indirect call argument;
+    stmt1: __gcov_indirect_call_counters = get_relevant_counter_ptr ();
+    stmt2: tmp1 = (void *) (indirect call argument value)
+    stmt3: __gcov_indirect_call_callee = tmp1;
    */
 
-  tmp1 = create_tmp_reg (ptr_void, "PROF");
   stmt1 = gimple_build_assign (ic_gcov_type_ptr_var, ref_ptr);
+  tmp1 = make_temp_ssa_name (ptr_void, NULL, "PROF");
   stmt2 = gimple_build_assign (tmp1, unshare_expr (value->hvalue.value));
-  gimple_assign_set_lhs (stmt2, make_ssa_name (tmp1, stmt2));
   stmt3 = gimple_build_assign (ic_void_ptr_var, gimple_assign_lhs (stmt2));
 
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
@@ -346,7 +349,7 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 void
 gimple_gen_ic_func_profiler (void)
 {
-  struct cgraph_node * c_node = cgraph_node (current_function_decl);
+  struct cgraph_node * c_node = cgraph_get_node (current_function_decl);
   gimple_stmt_iterator gsi;
   gimple stmt1, stmt2;
   tree tree_uid, cur_func, counter_ptr, ptr_var, void0;
@@ -356,6 +359,13 @@ gimple_gen_ic_func_profiler (void)
 
   gimple_init_edge_profiler ();
 
+  /* Insert code:
+
+    stmt1: __gcov_indirect_call_profiler (__gcov_indirect_call_counters,
+					  current_function_funcdef_no,
+					  &current_function_decl,
+					  __gcov_indirect_call_callee);
+   */
   gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
 
   cur_func = force_gimple_operand_gsi (&gsi,
@@ -369,7 +379,7 @@ gimple_gen_ic_func_profiler (void)
   ptr_var = force_gimple_operand_gsi (&gsi, ic_void_ptr_var,
 				      true, NULL_TREE, true,
 				      GSI_SAME_STMT);
-  tree_uid = build_int_cst (gcov_type_node, c_node->pid);
+  tree_uid = build_int_cst (gcov_type_node, current_function_funcdef_no);
   stmt1 = gimple_build_call (tree_indirect_call_profiler_fn, 4,
 			     counter_ptr, tree_uid, cur_func, ptr_var);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
@@ -447,30 +457,26 @@ tree_profiling (void)
 {
   struct cgraph_node *node;
 
-  /* Don't profile functions produced at destruction time, particularly
-     the gcov datastructure initializer.  Don't profile if it has been
-     already instrumented either (when OpenMP expansion creates
-     child function from already instrumented body).  */
-  if (cgraph_state == CGRAPH_STATE_FINISHED)
-    return 0;
+  /* This is a small-ipa pass that gets called only once, from
+     cgraphunit.c:ipa_passes().  */
+  gcc_assert (cgraph_state == CGRAPH_STATE_IPA_SSA);
 
-  for (node = cgraph_nodes; node; node = node->next)
+  init_node_map();
+
+  FOR_EACH_DEFINED_FUNCTION (node)
     {
-      if (!node->analyzed
-	  || !gimple_has_body_p (node->decl)
-	  || !(!node->clone_of || node->decl != node->clone_of->decl))
+      if (!gimple_has_body_p (node->symbol.decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
-      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-      current_function_decl = node->decl;
+      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
-      /* Re-set global shared temporary variable for edge-counters.  */
-      gcov_type_tmp_var = NULL_TREE;
+      /* Local pure-const may imply need to fixup the cfg.  */
+      if (execute_fixup_cfg () & TODO_cleanup_cfg)
+	cleanup_tree_cfg ();
 
       branch_prob ();
 
@@ -488,22 +494,19 @@ tree_profiling (void)
 	 easy to adjust it, if and when there is some.  */
       free_dominance_info (CDI_DOMINATORS);
       free_dominance_info (CDI_POST_DOMINATORS);
-
-      current_function_decl = NULL;
       pop_cfun ();
     }
 
   /* Drop pure/const flags from instrumented functions.  */
-  for (node = cgraph_nodes; node; node = node->next)
+  FOR_EACH_DEFINED_FUNCTION (node)
     {
-      if (!node->analyzed
-	  || !gimple_has_body_p (node->decl)
-	  || !(!node->clone_of || node->decl != node->clone_of->decl))
+      if (!gimple_has_body_p (node->symbol.decl)
+	  || !(!node->clone_of
+	  || node->symbol.decl != node->clone_of->symbol.decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
       cgraph_set_const_flag (node, false, false);
@@ -511,22 +514,20 @@ tree_profiling (void)
     }
 
   /* Update call statements and rebuild the cgraph.  */
-  for (node = cgraph_nodes; node; node = node->next)
+  FOR_EACH_DEFINED_FUNCTION (node)
     {
       basic_block bb;
 
-      if (!node->analyzed
-	  || !gimple_has_body_p (node->decl)
-	  || !(!node->clone_of || node->decl != node->clone_of->decl))
+      if (!gimple_has_body_p (node->symbol.decl)
+	  || !(!node->clone_of
+	  || node->symbol.decl != node->clone_of->symbol.decl))
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
-      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-      current_function_decl = node->decl;
+      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
       FOR_EACH_BB (bb)
 	{
@@ -539,15 +540,14 @@ tree_profiling (void)
 	    }
 	}
 
-      cfun->after_tree_profile = 1;
       update_ssa (TODO_update_ssa);
 
       rebuild_cgraph_edges ();
 
-      current_function_decl = NULL;
       pop_cfun ();
     }
 
+  del_node_map();
   return 0;
 }
 
@@ -565,7 +565,8 @@ struct simple_ipa_opt_pass pass_ipa_tree_profile =
 {
  {
   SIMPLE_IPA_PASS,
-  "tree_profile_ipa",                  /* name */
+  "profile",  		               /* name */
+  OPTGROUP_NONE,                       /* optinfo_flags */
   gate_tree_profile_ipa,               /* gate */
   tree_profiling,                      /* execute */
   NULL,                                /* sub */
@@ -576,7 +577,7 @@ struct simple_ipa_opt_pass pass_ipa_tree_profile =
   0,                                   /* properties_provided */
   0,                                   /* properties_destroyed */
   0,                                   /* todo_flags_start */
-  TODO_dump_func                       /* todo_flags_finish */
+  0                                    /* todo_flags_finish */
  }
 };
 

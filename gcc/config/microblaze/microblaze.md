@@ -1,5 +1,5 @@
 ;; microblaze.md -- Machine description for Xilinx MicroBlaze processors.
-;; Copyright 2009, 2010 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Eager <eager@eagercon.com>.
 
@@ -81,6 +81,13 @@
 
 ;; # instructions (4 bytes each)
 (define_attr "length" "" (const_int 4))
+
+(define_code_iterator any_return [return simple_return])
+
+;; <optab> expands to the name of the optab for a particular code.
+(define_code_attr optab [(return "return")
+			 (simple_return "simple_return")])
+
 
 ;;----------------------------------------------------
 ;; Attribute describing the processor.  
@@ -351,7 +358,7 @@
 ;;----------------------------------------------------------------
 (define_delay (eq_attr "type" "branch,call,jump")
   [(and (eq_attr "type" "!branch,call,jump,icmp,multi,no_delay_arith,no_delay_load,no_delay_store,no_delay_imul,no_delay_move,darith") 
-        (ior (eq (symbol_ref "microblaze_no_unsafe_delay") (const_int 0))
+        (ior (not (match_test "microblaze_no_unsafe_delay"))
              (eq_attr "type" "!fadd,frsub,fmul,fdiv,fcmp,store,load")
              ))
   (nil) (nil)])
@@ -715,32 +722,6 @@
   (set_attr "length"	"4,8,8,8")])
 
 
-(define_insn "anddi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(and:DI (match_operand:DI 1 "register_operand" "d")
-		(match_operand:DI 2 "register_operand" "d")))]
-  ""
-  "and\t%M0,%M1,%M2\;and\t%L0,%L1,%L2"
-  [(set_attr "type"	"darith")
-  (set_attr "mode"	"DI")
-  (set_attr "length"    "8")])
-
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(and:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed 
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (and:SI (subreg:SI (match_dup 1) 0) 
-					    (subreg:SI (match_dup 2) 0)))
-  (set (subreg:SI (match_dup 0) 4) (and:SI (subreg:SI (match_dup 1) 4) 
-					   (subreg:SI (match_dup 2) 4)))]
-  "")
-
 (define_insn "iorsi3"
   [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
 	(ior:SI (match_operand:SI 1 "arith_operand" "%d,d,d,d")
@@ -755,34 +736,6 @@
   (set_attr "mode"	"SI,SI,SI,SI")
   (set_attr "length"	"4,8,8,8")])
 
-
-(define_insn "iordi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(ior:DI (match_operand:DI 1 "register_operand" "d")
-		(match_operand:DI 2 "register_operand" "d")))]
-  ""
-  "or\t%M0,%M1,%M2\;or\t%L0,%L1,%L2"
-  [(set_attr "type"	"darith")
-  (set_attr "mode"	"DI")
-  (set_attr "length"    "8")]
-)
-
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(ior:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed 
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (ior:SI (subreg:SI (match_dup 1) 0) 
-					    (subreg:SI (match_dup 2) 0)))
-  (set (subreg:SI (match_dup 0) 4) (ior:SI (subreg:SI (match_dup 1) 4) 
-					   (subreg:SI (match_dup 2) 4)))]
-  "")
-
 (define_insn "xorsi3"
   [(set (match_operand:SI 0 "register_operand" "=d,d,d")
 	(xor:SI (match_operand:SI 1 "arith_operand" "%d,d,d")
@@ -795,33 +748,6 @@
   [(set_attr "type"	"arith,arith,no_delay_arith")
   (set_attr "mode"	"SI,SI,SI")
   (set_attr "length"	"4,8,8")])
-
-(define_insn "xordi3"
-  [(set (match_operand:DI 0 "register_operand" "=d")
-	(xor:DI (match_operand:DI 1 "register_operand" "d")
-		(match_operand:DI 2 "register_operand" "d")))]
-  ""
-  "xor\t%M0,%M1,%M2\;xor\t%L0,%L1,%L2"
-  [(set_attr "type"	"darith")
-  (set_attr "mode"	"DI")
-  (set_attr "length"    "8")]
-)
-
-
-(define_split
-  [(set (match_operand:DI 0 "register_operand" "")
-	(xor:DI (match_operand:DI 1 "register_operand" "")
-		(match_operand:DI 2 "register_operand" "")))]
-  "reload_completed 
-   && GET_CODE (operands[0]) == REG && GP_REG_P (REGNO (operands[0]))
-   && GET_CODE (operands[1]) == REG && GP_REG_P (REGNO (operands[1]))
-   && GET_CODE (operands[2]) == REG && GP_REG_P (REGNO (operands[2]))"
-
-  [(set (subreg:SI (match_dup 0) 0) (xor:SI (subreg:SI (match_dup 1) 0) 
-					    (subreg:SI (match_dup 2) 0)))
-  (set (subreg:SI (match_dup 0) 4) (xor:SI (subreg:SI (match_dup 1) 4) 
-					   (subreg:SI (match_dup 2) 4)))]
-  "")
 
 ;;----------------------------------------------------------------
 ;; Zero extension
@@ -1017,7 +943,7 @@
   }
 )
 
-;; Added for status resgisters 
+;; Added for status registers
 (define_insn "movsi_status"
   [(set (match_operand:SI 0 "register_operand" "=d,d,z")
         (match_operand:SI 1 "register_operand" "z,d,d"))]
@@ -1936,9 +1862,21 @@
 
 ;; Trivial return.  Make it look like a normal return insn as that
 ;; allows jump optimizations to work better .
-(define_insn "return"
-  [(return)]
+(define_expand "return"
+  [(simple_return)]
   "microblaze_can_use_return_insn ()"
+  {}
+)
+
+(define_expand "simple_return"
+  [(simple_return)]
+  ""
+  {}
+)
+
+(define_insn "*<optab>"
+  [(any_return)]
+  ""
   { 
     if (microblaze_is_interrupt_handler ())
         return "rtid\tr14, 0\;%#";
@@ -1947,15 +1885,14 @@
   }
   [(set_attr "type"	"jump")
   (set_attr "mode"	"none")
-  (set_attr "length"	"4")])
+  (set_attr "length"	"4")]
+)
 
 ;; Normal return.
-;; We match any mode for the return address, so that this will work with
-;; both 32 bit and 64 bit targets.
 
-(define_insn "return_internal"
-  [(parallel [(use (match_operand:SI 0 "register_operand" ""))
-              (return)])]
+(define_insn "<optab>_internal"
+  [(any_return)
+   (use (match_operand:SI 0 "register_operand" ""))]
   ""
   {	
     if (microblaze_is_interrupt_handler ())

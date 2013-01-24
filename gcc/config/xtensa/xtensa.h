@@ -1,6 +1,5 @@
 /* Definitions of Tensilica's Xtensa target machine for GNU compiler.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -164,15 +163,6 @@ extern unsigned xtensa_current_frame_size;
 /* Imitate the way many other C compilers handle alignment of
    bitfields and the structures that contain them.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* Disable the use of word-sized or smaller complex modes for structures,
-   and for function arguments in particular, where they cause problems with
-   register a7.  The xtensa_copy_incoming_a7 function assumes that there is
-   a single reference to an argument in a7, but with small complex modes the
-   real and imaginary components may be extracted separately, leading to two
-   uses of the register, only one of which would be replaced.  */
-#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
-  ((MODE) == CQImode || (MODE) == CHImode)
 
 /* Align string constants and constructors to at least a word boundary.
    The typical use of this macro is to increase alignment for string
@@ -450,15 +440,6 @@ extern const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER];
    the RTL, as either incoming or outgoing arguments.  */
 #define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P hook_bool_mode_true
 
-/* Return the maximum number of consecutive registers
-   needed to represent mode MODE in a register of class CLASS.  */
-#define CLASS_UNITS(mode, size)						\
-  ((GET_MODE_SIZE (mode) + (size) - 1) / (size))
-
-#define CLASS_MAX_NREGS(CLASS, MODE)					\
-  (CLASS_UNITS (MODE, UNITS_PER_WORD))
-
-
 /* Stack layout; function entry, exit and calling.  */
 
 #define STACK_GROWS_DOWNWARD
@@ -670,10 +651,6 @@ typedef struct xtensa_args
   ((GET_CODE (X) == LABEL_REF || GET_CODE (X) == SYMBOL_REF		\
     || GET_CODE (X) == CONST_INT || GET_CODE (X) == HIGH		\
     || (GET_CODE (X) == CONST)))
-
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-#define LEGITIMATE_CONSTANT_P(X) (! xtensa_tls_referenced_p (X))
 
 /* A C expression that is nonzero if X is a legitimate immediate
    operand on the target machine when generating position independent

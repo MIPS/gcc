@@ -43,7 +43,7 @@ SA(__has_trivial_copy(E));
 
 struct F
 {
-  F(F&) = default;		// { dg-error "non-const" }
+  F(F&) = default;
 };
 
 struct G: public F
@@ -54,5 +54,5 @@ struct G: public F
 
 struct H
 {
-  virtual ~H() = default;	// { dg-error "declared virtual" }
+  virtual ~H() = default;
 };

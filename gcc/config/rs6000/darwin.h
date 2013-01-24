@@ -1,6 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997, 2000, 2001, 2003, 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -21,9 +20,6 @@
 
 #undef DARWIN_PPC
 #define DARWIN_PPC 1
-
-#undef  TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (Darwin/PowerPC)");
 
 /* The "Darwin ABI" is mostly like AIX, but with some key differences.  */
 
@@ -176,17 +172,16 @@ extern int darwin_emit_branch_islands;
   (RS6000_ALIGN (crtl->outgoing_args_size, 16)		\
    + (STACK_POINTER_OFFSET))
 
-/* Define cutoff for using external functions to save floating point.
-   Currently on Darwin, always use inline stores.  */
-
-#undef	FP_SAVE_INLINE
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
-#undef GP_SAVE_INLINE
-#define GP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 32)
-
 /* Darwin uses a function call if everything needs to be saved/restored.  */
+
 #undef WORLD_SAVE_P
 #define WORLD_SAVE_P(INFO) ((INFO)->world_save_p)
+
+/* We don't use these on Darwin, they are just place-holders.  */
+#define SAVE_FP_PREFIX ""
+#define SAVE_FP_SUFFIX ""
+#define RESTORE_FP_PREFIX ""
+#define RESTORE_FP_SUFFIX ""
 
 /* The assembler wants the alternate register names, but without
    leading percent sign.  */
@@ -237,12 +232,6 @@ extern int darwin_emit_branch_islands;
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START ";"
 
-/* FP save and restore routines.  */
-#define	SAVE_FP_PREFIX "._savef"
-#define SAVE_FP_SUFFIX ""
-#define	RESTORE_FP_PREFIX "._restf"
-#define RESTORE_FP_SUFFIX ""
-
 /* This is how to output an assembler line that says to advance
    the location counter to a multiple of 2**LOG bytes using the
    "nop" instruction as padding.  */
@@ -291,12 +280,9 @@ extern int darwin_emit_branch_islands;
    default as well.  */
 
 #undef  TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_POWERPC | MASK_MULTIPLE | MASK_NEW_MNEMONICS \
-                      | MASK_PPC_GFXOPT)
+#define TARGET_DEFAULT (MASK_MULTIPLE | MASK_PPC_GFXOPT)
 
-/* Darwin only runs on PowerPC, so short-circuit POWER patterns.  */
-#undef  TARGET_POWER
-#define TARGET_POWER 0
+/* Darwin always uses IBM long double, never IEEE long double.  */
 #undef  TARGET_IEEEQUAD
 #define TARGET_IEEEQUAD 0
 
@@ -384,10 +370,6 @@ extern int darwin_emit_branch_islands;
 #include <stdbool.h>
 #endif
 
-#if !defined(__LP64__) && !defined(DARWIN_LIBSYSTEM_HAS_UNWIND)
-#define MD_UNWIND_SUPPORT "config/rs6000/darwin-unwind.h"
-#endif
-
 /* True, iff we're generating fast turn around debugging code.  When
    true, we arrange for function prologues to start with 5 nops so
    that gdb may insert code to redirect them, and for data to be
@@ -436,3 +418,7 @@ do {									\
   rs6000_builtin_decls[(unsigned) (RS6000_BUILTIN_CFSTRING)]		\
     = darwin_init_cfstring_builtins ((unsigned) (RS6000_BUILTIN_CFSTRING)); \
 } while(0)
+
+/* So far, there is no rs6000_fold_builtin, if one is introduced, then
+   this will need to be modified similar to the x86 case.  */
+#define TARGET_FOLD_BUILTIN SUBTARGET_FOLD_BUILTIN

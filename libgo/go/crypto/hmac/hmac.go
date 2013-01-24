@@ -2,40 +2,41 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// The hmac package implements the Keyed-Hash Message Authentication Code (HMAC)
-// as defined in U.S. Federal Information Processing Standards Publication 198.
-// An HMAC is a cryptographic hash that uses a key to sign a message.
-// The receiver verifies the hash by recomputing it using the same key.
+/*
+Package hmac implements the Keyed-Hash Message Authentication Code (HMAC) as
+defined in U.S. Federal Information Processing Standards Publication 198.
+An HMAC is a cryptographic hash that uses a key to sign a message.
+The receiver verifies the hash by recomputing it using the same key.
+
+Receivers should be careful to use Equal to compare MACs in order to avoid
+timing side-channels:
+
+	// CheckMAC returns true if messageMAC is a valid HMAC tag for message.
+	func CheckMAC(message, messageMAC, key []byte) bool {
+		mac := hmac.New(sha256.New, key)
+		mac.Write(message)
+		expectedMAC := mac.Sum(nil)
+		return hmac.Equal(messageMAC, expectedMAC)
+	}
+*/
 package hmac
 
 import (
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
+	"crypto/subtle"
 	"hash"
-	"os"
 )
 
 // FIPS 198:
 // http://csrc.nist.gov/publications/fips/fips198/fips-198a.pdf
 
-// key is zero padded to 64 bytes
-// ipad = 0x36 byte repeated to 64 bytes
-// opad = 0x5c byte repeated to 64 bytes
+// key is zero padded to the block size of the hash function
+// ipad = 0x36 byte repeated for key length
+// opad = 0x5c byte repeated for key length
 // hmac = H([key ^ opad] H([key ^ ipad] text))
-
-const (
-	// NOTE(rsc): This constant is actually the
-	// underlying hash function's block size.
-	// HMAC is only conventionally used with
-	// MD5 and SHA1, and both use 64-byte blocks.
-	// The hash.Hash interface doesn't provide a
-	// way to find out the block size.
-	padSize = 64
-)
 
 type hmac struct {
 	size         int
+	blocksize    int
 	key, tmp     []byte
 	outer, inner hash.Hash
 }
@@ -44,45 +45,47 @@ func (h *hmac) tmpPad(xor byte) {
 	for i, k := range h.key {
 		h.tmp[i] = xor ^ k
 	}
-	for i := len(h.key); i < padSize; i++ {
+	for i := len(h.key); i < h.blocksize; i++ {
 		h.tmp[i] = xor
 	}
 }
 
-func (h *hmac) Sum() []byte {
-	sum := h.inner.Sum()
+func (h *hmac) Sum(in []byte) []byte {
+	origLen := len(in)
+	in = h.inner.Sum(in)
 	h.tmpPad(0x5c)
-	for i, b := range sum {
-		h.tmp[padSize+i] = b
-	}
+	copy(h.tmp[h.blocksize:], in[origLen:])
 	h.outer.Reset()
 	h.outer.Write(h.tmp)
-	return h.outer.Sum()
+	return h.outer.Sum(in[:origLen])
 }
 
-func (h *hmac) Write(p []byte) (n int, err os.Error) {
+func (h *hmac) Write(p []byte) (n int, err error) {
 	return h.inner.Write(p)
 }
 
 func (h *hmac) Size() int { return h.size }
 
+func (h *hmac) BlockSize() int { return h.blocksize }
+
 func (h *hmac) Reset() {
 	h.inner.Reset()
 	h.tmpPad(0x36)
-	h.inner.Write(h.tmp[0:padSize])
+	h.inner.Write(h.tmp[:h.blocksize])
 }
 
-// New returns a new HMAC hash using the given hash generator and key.
+// New returns a new HMAC hash using the given hash.Hash type and key.
 func New(h func() hash.Hash, key []byte) hash.Hash {
 	hm := new(hmac)
 	hm.outer = h()
 	hm.inner = h()
 	hm.size = hm.inner.Size()
-	hm.tmp = make([]byte, padSize+hm.size)
-	if len(key) > padSize {
+	hm.blocksize = hm.inner.BlockSize()
+	hm.tmp = make([]byte, hm.blocksize+hm.size)
+	if len(key) > hm.blocksize {
 		// If key is too big, hash it.
 		hm.outer.Write(key)
-		key = hm.outer.Sum()
+		key = hm.outer.Sum(nil)
 	}
 	hm.key = make([]byte, len(key))
 	copy(hm.key, key)
@@ -90,11 +93,10 @@ func New(h func() hash.Hash, key []byte) hash.Hash {
 	return hm
 }
 
-// NewMD5 returns a new HMAC-MD5 hash using the given key.
-func NewMD5(key []byte) hash.Hash { return New(md5.New, key) }
-
-// NewSHA1 returns a new HMAC-SHA1 hash using the given key.
-func NewSHA1(key []byte) hash.Hash { return New(sha1.New, key) }
-
-// NewSHA256 returns a new HMAC-SHA256 hash using the given key.
-func NewSHA256(key []byte) hash.Hash { return New(sha256.New, key) }
+// Equal compares two MACs for equality without leaking timing information.
+func Equal(mac1, mac2 []byte) bool {
+	// We don't have to be constant time if the lengths of the MACs are
+	// different as that suggests that a completely different hash function
+	// was used.
+	return len(mac1) == len(mac2) && subtle.ConstantTimeCompare(mac1, mac2) == 1
+}

@@ -1,7 +1,5 @@
 /* Compute different info about registers.
-   Copyright (C) 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996
-   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010  Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "output.h"
-#include "timevar.h"
 #include "hashtab.h"
 #include "target.h"
 #include "tree-pass.h"
@@ -87,9 +84,15 @@ static const char initial_call_really_used_regs[] = CALL_REALLY_USED_REGISTERS;
    and are also considered fixed.  */
 char global_regs[FIRST_PSEUDO_REGISTER];
 
+/* Declaration for the global register. */
+static tree GTY(()) global_regs_decl[FIRST_PSEUDO_REGISTER];
+
 /* Same information as REGS_INVALIDATED_BY_CALL but in regset form to be used
    in dataflow more conveniently.  */
 regset regs_invalidated_by_call_regset;
+
+/* Same information as FIXED_REG_SET but in regset form.  */
+regset fixed_reg_set_regset;
 
 /* The bitmap_obstack is used to hold some static variables that
    should not be reset after each function is compiled.  */
@@ -115,9 +118,6 @@ static const char *const initial_reg_names[] = REGISTER_NAMES;
 
 /* Array containing all of the register class names.  */
 const char * reg_class_names[] = REG_CLASS_NAMES;
-
-#define last_mode_for_init_move_cost \
-  (this_target_regs->x_last_mode_for_init_move_cost)
 
 /* No more global register variables may be declared; true once
    reginfo has been initialized.  */
@@ -186,95 +186,9 @@ init_reg_sets (void)
   memcpy (reg_alloc_order, initial_reg_alloc_order, sizeof reg_alloc_order);
 #endif
   memcpy (reg_names, initial_reg_names, sizeof reg_names);
-}
 
-/* Initialize may_move_cost and friends for mode M.  */
-void
-init_move_cost (enum machine_mode m)
-{
-  static unsigned short last_move_cost[N_REG_CLASSES][N_REG_CLASSES];
-  bool all_match = true;
-  unsigned int i, j;
-
-  gcc_assert (have_regs_of_mode[m]);
-  for (i = 0; i < N_REG_CLASSES; i++)
-    if (contains_reg_of_mode[i][m])
-      for (j = 0; j < N_REG_CLASSES; j++)
-	{
-	  int cost;
-	  if (!contains_reg_of_mode[j][m])
-	    cost = 65535;
-	  else
-	    {
-	      cost = register_move_cost (m, (enum reg_class) i,
-					 (enum reg_class) j);
-	      gcc_assert (cost < 65535);
-	    }
-	  all_match &= (last_move_cost[i][j] == cost);
-	  last_move_cost[i][j] = cost;
-	}
-  if (all_match && last_mode_for_init_move_cost != -1)
-    {
-      move_cost[m] = move_cost[last_mode_for_init_move_cost];
-      may_move_in_cost[m] = may_move_in_cost[last_mode_for_init_move_cost];
-      may_move_out_cost[m] = may_move_out_cost[last_mode_for_init_move_cost];
-      return;
-    }
-  last_mode_for_init_move_cost = m;
-  move_cost[m] = (move_table *)xmalloc (sizeof (move_table)
-					* N_REG_CLASSES);
-  may_move_in_cost[m] = (move_table *)xmalloc (sizeof (move_table)
-					       * N_REG_CLASSES);
-  may_move_out_cost[m] = (move_table *)xmalloc (sizeof (move_table)
-					        * N_REG_CLASSES);
-  for (i = 0; i < N_REG_CLASSES; i++)
-    if (contains_reg_of_mode[i][m])
-      for (j = 0; j < N_REG_CLASSES; j++)
-	{
-	  int cost;
-	  enum reg_class *p1, *p2;
-
-	  if (last_move_cost[i][j] == 65535)
-	    {
-	      move_cost[m][i][j] = 65535;
-	      may_move_in_cost[m][i][j] = 65535;
-	      may_move_out_cost[m][i][j] = 65535;
-	    }
-	  else
-	    {
-	      cost = last_move_cost[i][j];
-
-	      for (p2 = &reg_class_subclasses[j][0];
-		   *p2 != LIM_REG_CLASSES; p2++)
-		if (*p2 != i && contains_reg_of_mode[*p2][m])
-		  cost = MAX (cost, move_cost[m][i][*p2]);
-
-	      for (p1 = &reg_class_subclasses[i][0];
-		   *p1 != LIM_REG_CLASSES; p1++)
-		if (*p1 != j && contains_reg_of_mode[*p1][m])
-		  cost = MAX (cost, move_cost[m][*p1][j]);
-
-	      gcc_assert (cost <= 65535);
-	      move_cost[m][i][j] = cost;
-
-	      if (reg_class_subset_p ((enum reg_class) i, (enum reg_class) j))
-		may_move_in_cost[m][i][j] = 0;
-	      else
-		may_move_in_cost[m][i][j] = cost;
-
-	      if (reg_class_subset_p ((enum reg_class) j, (enum reg_class) i))
-		may_move_out_cost[m][i][j] = 0;
-	      else
-		may_move_out_cost[m][i][j] = cost;
-	    }
-	}
-    else
-      for (j = 0; j < N_REG_CLASSES; j++)
-	{
-	  move_cost[m][i][j] = 65535;
-	  may_move_in_cost[m][i][j] = 65535;
-	  may_move_out_cost[m][i][j] = 65535;
-	}
+  SET_HARD_REG_SET (accessible_reg_set);
+  SET_HARD_REG_SET (operand_reg_set);
 }
 
 /* We need to save copies of some of the register information which
@@ -286,6 +200,8 @@ static char saved_call_used_regs[FIRST_PSEUDO_REGISTER];
 static char saved_call_really_used_regs[FIRST_PSEUDO_REGISTER];
 #endif
 static const char *saved_reg_names[FIRST_PSEUDO_REGISTER];
+static HARD_REG_SET saved_accessible_reg_set;
+static HARD_REG_SET saved_operand_reg_set;
 
 /* Save the register information.  */
 void
@@ -309,6 +225,8 @@ save_register_info (void)
   /* And similarly for reg_names.  */
   gcc_assert (sizeof reg_names == sizeof saved_reg_names);
   memcpy (saved_reg_names, reg_names, sizeof reg_names);
+  COPY_HARD_REG_SET (saved_accessible_reg_set, accessible_reg_set);
+  COPY_HARD_REG_SET (saved_operand_reg_set, operand_reg_set);
 }
 
 /* Restore the register information.  */
@@ -324,6 +242,8 @@ restore_register_info (void)
 #endif
 
   memcpy (reg_names, saved_reg_names, sizeof reg_names);
+  COPY_HARD_REG_SET (accessible_reg_set, saved_accessible_reg_set);
+  COPY_HARD_REG_SET (operand_reg_set, saved_operand_reg_set);
 }
 
 /* After switches have been processed, which perhaps alter
@@ -448,9 +368,32 @@ init_reg_sets_1 (void)
     }
   else
     CLEAR_REG_SET (regs_invalidated_by_call_regset);
+  if (!fixed_reg_set_regset)
+    fixed_reg_set_regset = ALLOC_REG_SET (&persistent_obstack);
+  else
+    CLEAR_REG_SET (fixed_reg_set_regset);
 
+  AND_HARD_REG_SET (operand_reg_set, accessible_reg_set);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
+      /* As a special exception, registers whose class is NO_REGS are
+	 not accepted by `register_operand'.  The reason for this change
+	 is to allow the representation of special architecture artifacts
+	 (such as a condition code register) without extending the rtl
+	 definitions.  Since registers of class NO_REGS cannot be used
+	 as registers in any case where register classes are examined,
+	 it is better to apply this exception in a target-independent way.  */
+      if (REGNO_REG_CLASS (i) == NO_REGS)
+	CLEAR_HARD_REG_BIT (operand_reg_set, i);
+
+      /* If a register is too limited to be treated as a register operand,
+	 then it should never be allocated to a pseudo.  */
+      if (!TEST_HARD_REG_BIT (operand_reg_set, i))
+	{
+	  fixed_regs[i] = 1;
+	  call_used_regs[i] = 1;
+	}
+
       /* call_used_regs must include fixed_regs.  */
       gcc_assert (!fixed_regs[i] || call_used_regs[i]);
 #ifdef CALL_REALLY_USED_REGISTERS
@@ -459,7 +402,10 @@ init_reg_sets_1 (void)
 #endif
 
       if (fixed_regs[i])
-	SET_HARD_REG_BIT (fixed_reg_set, i);
+	{
+	  SET_HARD_REG_BIT (fixed_reg_set, i);
+	  SET_REGNO_REG_SET (fixed_reg_set_regset, i);
+	}
 
       if (call_used_regs[i])
 	SET_HARD_REG_BIT (call_used_reg_set, i);
@@ -526,8 +472,7 @@ init_reg_sets_1 (void)
 	  SET_HARD_REG_BIT (ok_regs, j);
 
       for (i = 0; i < N_REG_CLASSES; i++)
-	if (((unsigned) CLASS_MAX_NREGS ((enum reg_class) i,
-					 (enum machine_mode) m)
+	if ((targetm.class_max_nregs ((reg_class_t) i, (enum machine_mode) m)
 	     <= reg_class_size[i])
 	    && hard_reg_set_intersect_p (ok_regs, reg_class_contents[i]))
 	  {
@@ -535,25 +480,6 @@ init_reg_sets_1 (void)
 	     have_regs_of_mode [m] = 1;
 	  }
      }
-
-  /* Reset move_cost and friends, making sure we only free shared
-     table entries once.  */
-  for (i = 0; i < MAX_MACHINE_MODE; i++)
-    if (move_cost[i])
-      {
-	for (j = 0; j < i && move_cost[i] != move_cost[j]; j++)
-	  ;
-	if (i == j)
-	  {
-	    free (move_cost[i]);
-	    free (may_move_in_cost[i]);
-	    free (may_move_out_cost[i]);
-	  }
-      }
-  memset (move_cost, 0, sizeof move_cost);
-  memset (may_move_in_cost, 0, sizeof may_move_in_cost);
-  memset (may_move_out_cost, 0, sizeof may_move_out_cost);
-  last_mode_for_init_move_cost = -1;
 }
 
 /* Compute the table of register modes.
@@ -575,13 +501,15 @@ init_reg_modes_target (void)
     {
       reg_raw_mode[i] = choose_hard_reg_mode (i, 1, false);
 
-      /* If we couldn't find a valid mode, just use the previous mode.
-         ??? One situation in which we need to do this is on the mips where
-	 HARD_REGNO_NREGS (fpreg, [SD]Fmode) returns 2.  Ideally we'd like
-	 to use DF mode for the even registers and VOIDmode for the odd
-	 (for the cpu models where the odd ones are inaccessible).  */
+      /* If we couldn't find a valid mode, just use the previous mode
+	 if it is suitable, otherwise fall back on word_mode.  */
       if (reg_raw_mode[i] == VOIDmode)
-	reg_raw_mode[i] = i == 0 ? word_mode : reg_raw_mode[i-1];
+    	{
+	  if (i > 0 && hard_regno_nregs[i][reg_raw_mode[i - 1]] == 1)
+	    reg_raw_mode[i] = reg_raw_mode[i - 1];
+	  else
+	    reg_raw_mode[i] = word_mode;
+	}
     }
 }
 
@@ -629,8 +557,9 @@ register_move_cost (enum machine_mode mode, reg_class_t from, reg_class_t to)
 }
 
 /* Compute cost of moving registers to/from memory.  */
+
 int
-memory_move_cost (enum machine_mode mode, enum reg_class rclass, bool in)
+memory_move_cost (enum machine_mode mode, reg_class_t rclass, bool in)
 {
   return targetm.memory_move_cost (mode, rclass, in);
 }
@@ -824,8 +753,10 @@ fix_register (const char *name, int fixed, int call_used)
 
 /* Mark register number I as global.  */
 void
-globalize_reg (int i)
+globalize_reg (tree decl, int i)
 {
+  location_t loc = DECL_SOURCE_LOCATION (decl);
+
 #ifdef STACK_REGS
   if (IN_RANGE (i, FIRST_STACK_REG, LAST_STACK_REG))
     {
@@ -835,18 +766,23 @@ globalize_reg (int i)
 #endif
 
   if (fixed_regs[i] == 0 && no_global_reg_vars)
-    error ("global register variable follows a function definition");
+    error_at (loc, "global register variable follows a function definition");
 
   if (global_regs[i])
     {
-      warning (0, "register used for two global register variables");
+      warning_at (loc, 0, 
+		  "register of %qD used for multiple global register variables",
+		  decl);
+      inform (DECL_SOURCE_LOCATION (global_regs_decl[i]),
+	      "conflicts with %qD", global_regs_decl[i]); 
       return;
     }
 
   if (call_used_regs[i] && ! fixed_regs[i])
-    warning (0, "call-clobbered register used for global register variable");
+    warning_at (loc, 0, "call-clobbered register used for global register variable");
 
   global_regs[i] = 1;
+  global_regs_decl[i] = decl;
 
   /* If we're globalizing the frame pointer, we need to set the
      appropriate regs_invalidated_by_call bit, even if it's already
@@ -901,6 +837,8 @@ static struct reg_pref *reg_pref;
 
 /* Current size of reg_info.  */
 static int reg_info_size;
+/* Max_reg_num still last resize_reg_info call.  */
+static int max_regno_since_last_resize;
 
 /* Return the reg_class in which pseudo reg number REGNO is best allocated.
    This function is sometimes called before the info has been computed.
@@ -911,6 +849,7 @@ reg_preferred_class (int regno)
   if (reg_pref == 0)
     return GENERAL_REGS;
 
+  gcc_assert (regno < reg_info_size);
   return (enum reg_class) reg_pref[regno].prefclass;
 }
 
@@ -920,6 +859,7 @@ reg_alternate_class (int regno)
   if (reg_pref == 0)
     return ALL_REGS;
 
+  gcc_assert (regno < reg_info_size);
   return (enum reg_class) reg_pref[regno].altclass;
 }
 
@@ -930,45 +870,64 @@ reg_allocno_class (int regno)
   if (reg_pref == 0)
     return NO_REGS;
 
+  gcc_assert (regno < reg_info_size);
   return (enum reg_class) reg_pref[regno].allocnoclass;
 }
 
 
 
-/* Allocate space for reg info.  */
+/* Allocate space for reg info and initilize it.  */
 static void
 allocate_reg_info (void)
 {
-  reg_info_size = max_reg_num ();
+  int i;
+
+  max_regno_since_last_resize = max_reg_num ();
+  reg_info_size = max_regno_since_last_resize * 3 / 2 + 1;
   gcc_assert (! reg_pref && ! reg_renumber);
   reg_renumber = XNEWVEC (short, reg_info_size);
   reg_pref = XCNEWVEC (struct reg_pref, reg_info_size);
   memset (reg_renumber, -1, reg_info_size * sizeof (short));
+  for (i = 0; i < reg_info_size; i++)
+    {
+      reg_pref[i].prefclass = GENERAL_REGS;
+      reg_pref[i].altclass = ALL_REGS;
+      reg_pref[i].allocnoclass = GENERAL_REGS;
+    }
 }
 
 
-/* Resize reg info. The new elements will be uninitialized.  Return
-   TRUE if new elements (for new pseudos) were added.  */
+/* Resize reg info. The new elements will be initialized.  Return TRUE
+   if new pseudos were added since the last call.  */
 bool
 resize_reg_info (void)
 {
-  int old;
+  int old, i;
+  bool change_p;
 
   if (reg_pref == NULL)
     {
       allocate_reg_info ();
       return true;
     }
-  if (reg_info_size == max_reg_num ())
-    return false;
+  change_p = max_regno_since_last_resize != max_reg_num ();
+  max_regno_since_last_resize = max_reg_num ();
+  if (reg_info_size >= max_reg_num ())
+    return change_p;
   old = reg_info_size;
-  reg_info_size = max_reg_num ();
+  reg_info_size = max_reg_num () * 3 / 2 + 1;
   gcc_assert (reg_pref && reg_renumber);
   reg_renumber = XRESIZEVEC (short, reg_renumber, reg_info_size);
   reg_pref = XRESIZEVEC (struct reg_pref, reg_pref, reg_info_size);
   memset (reg_pref + old, -1,
 	  (reg_info_size - old) * sizeof (struct reg_pref));
   memset (reg_renumber + old, -1, (reg_info_size - old) * sizeof (short));
+  for (i = old; i < reg_info_size; i++)
+    {
+      reg_pref[i].prefclass = GENERAL_REGS;
+      reg_pref[i].altclass = ALL_REGS;
+      reg_pref[i].allocnoclass = GENERAL_REGS;
+    }
   return true;
 }
 
@@ -997,9 +956,10 @@ reginfo_init (void)
   if (df)
     df_compute_regs_ever_live (true);
 
-  /* This prevents dump_flow_info from losing if called
+  /* This prevents dump_reg_info from losing if called
      before reginfo is run.  */
   reg_pref = NULL;
+  reg_info_size = max_regno_since_last_resize = 0;
   /* No more global register variables may be declared.  */
   no_global_reg_vars = 1;
   return 1;
@@ -1010,6 +970,7 @@ struct rtl_opt_pass pass_reginfo_init =
  {
   RTL_PASS,
   "reginfo",                            /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   reginfo_init,                         /* execute */
   NULL,                                 /* sub */
@@ -1026,7 +987,7 @@ struct rtl_opt_pass pass_reginfo_init =
 
 
 
-/* Set up preferred, alternate, and cover classes for REGNO as
+/* Set up preferred, alternate, and allocno classes for REGNO as
    PREFCLASS, ALTCLASS, and ALLOCNOCLASS.  */
 void
 setup_reg_classes (int regno,
@@ -1035,7 +996,7 @@ setup_reg_classes (int regno,
 {
   if (reg_pref == NULL)
     return;
-  gcc_assert (reg_info_size == max_reg_num ());
+  gcc_assert (reg_info_size >= max_reg_num ());
   reg_pref[regno].prefclass = prefclass;
   reg_pref[regno].altclass = altclass;
   reg_pref[regno].allocnoclass = allocnoclass;
@@ -1084,10 +1045,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
   switch (code)
     {
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case CC0:
     case PC:
     case SYMBOL_REF:
@@ -1172,17 +1130,7 @@ reg_scan_mark_refs (rtx x, rtx insn)
       /* If this is setting a register from a register or from a simple
 	 conversion of a register, propagate REG_EXPR.  */
       if (REG_P (dest) && !REG_ATTRS (dest))
-	{
-	  rtx src = SET_SRC (x);
-
-	  while (GET_CODE (src) == SIGN_EXTEND
-		 || GET_CODE (src) == ZERO_EXTEND
-		 || GET_CODE (src) == TRUNCATE
-		 || (GET_CODE (src) == SUBREG && subreg_lowpart_p (src)))
-	    src = XEXP (src, 0);
-
-	  set_reg_attrs_from_value (dest, src);
-	}
+	set_reg_attrs_from_value (dest, SET_SRC (x));
 
       /* ... fall through ...  */
 

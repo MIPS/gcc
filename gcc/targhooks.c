@@ -1,6 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -102,10 +101,8 @@ default_unspec_may_trap_p (const_rtx x, unsigned flags)
 {
   int i;
 
-  if (GET_CODE (x) == UNSPEC_VOLATILE
-      /* Any floating arithmetic may trap.  */
-      || (SCALAR_FLOAT_MODE_P (GET_MODE (x))
-	  && flag_trapping_math))
+  /* Any floating arithmetic may trap.  */
+  if ((SCALAR_FLOAT_MODE_P (GET_MODE (x)) && flag_trapping_math))
     return 1;
 
   for (i = 0; i < XVECLEN (x, 0); ++i)
@@ -124,7 +121,7 @@ default_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
 			       const_tree funtype ATTRIBUTE_UNUSED,
 			       int for_return ATTRIBUTE_UNUSED)
 {
-  if (for_return == 2)
+  if (type != NULL_TREE && for_return == 2)
     return promote_mode (type, mode, punsignedp);
   return mode;
 }
@@ -170,7 +167,7 @@ default_expand_builtin_saveregs (void)
 }
 
 void
-default_setup_incoming_varargs (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_setup_incoming_varargs (cumulative_args_t ca ATTRIBUTE_UNUSED,
 				enum machine_mode mode ATTRIBUTE_UNUSED,
 				tree type ATTRIBUTE_UNUSED,
 				int *pretend_arg_size ATTRIBUTE_UNUSED,
@@ -189,13 +186,13 @@ default_builtin_setjmp_frame_value (void)
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns false.  */
 
 bool
-hook_bool_CUMULATIVE_ARGS_false (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_false (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return false;
 }
 
 bool
-default_pretend_outgoing_varargs_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED)
+default_pretend_outgoing_varargs_named (cumulative_args_t ca ATTRIBUTE_UNUSED)
 {
   return (targetm.calls.setup_incoming_varargs
 	  != default_setup_incoming_varargs);
@@ -253,7 +250,7 @@ default_mode_rep_extended (enum machine_mode mode ATTRIBUTE_UNUSED,
 /* Generic hook that takes a CUMULATIVE_ARGS pointer and returns true.  */
 
 bool
-hook_bool_CUMULATIVE_ARGS_true (CUMULATIVE_ARGS * a ATTRIBUTE_UNUSED)
+hook_bool_CUMULATIVE_ARGS_true (cumulative_args_t a ATTRIBUTE_UNUSED)
 {
   return true;
 }
@@ -302,7 +299,7 @@ default_cxx_get_cookie_size (tree type)
    of the TARGET_PASS_BY_REFERENCE hook uses just MUST_PASS_IN_STACK.  */
 
 bool
-hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
+hook_pass_by_reference_must_pass_in_stack (cumulative_args_t c ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED, const_tree type ATTRIBUTE_UNUSED,
 	bool named_arg ATTRIBUTE_UNUSED)
 {
@@ -313,7 +310,7 @@ hook_pass_by_reference_must_pass_in_stack (CUMULATIVE_ARGS *c ATTRIBUTE_UNUSED,
    version of the hook is true for all named arguments.  */
 
 bool
-hook_callee_copies_named (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+hook_callee_copies_named (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			  enum machine_mode mode ATTRIBUTE_UNUSED,
 			  const_tree type ATTRIBUTE_UNUSED, bool named)
 {
@@ -369,21 +366,6 @@ default_mangle_assembler_name (const char *name ATTRIBUTE_UNUSED)
   if (*name != '*' && user_label_prefix[0])
     stripped = ACONCAT ((user_label_prefix, stripped, NULL));
   return get_identifier (stripped);
-}
-
-/* The default implementation of TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA.  */
-
-bool
-default_asm_output_addr_const_extra (FILE *file ATTRIBUTE_UNUSED,
-				     rtx x ATTRIBUTE_UNUSED)
-{
-#ifdef OUTPUT_ADDR_CONST_EXTRA
-  OUTPUT_ADDR_CONST_EXTRA (file, x, fail);
-  return true;
-
-fail:
-#endif
-  return false;
 }
 
 /* True if MODE is valid for the target.  By "valid", we mean able to
@@ -514,9 +496,11 @@ default_builtin_vectorized_conversion (unsigned int code ATTRIBUTE_UNUSED,
 
 int
 default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
-                                    tree vectype ATTRIBUTE_UNUSED,
+                                    tree vectype,
                                     int misalign ATTRIBUTE_UNUSED)
 {
+  unsigned elements;
+
   switch (type_of_cost)
     {
       case scalar_stmt:
@@ -529,6 +513,7 @@ default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
       case scalar_to_vec:
       case cond_branch_not_taken:
       case vec_perm:
+      case vec_promote_demote:
         return 1;
 
       case unaligned_load:
@@ -537,6 +522,10 @@ default_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 
       case cond_branch_taken:
         return 3;
+
+      case vec_construct:
+	elements = TYPE_VECTOR_SUBPARTS (vectype);
+	return elements / 2 + 1;
 
       default:
         gcc_unreachable ();
@@ -555,7 +544,7 @@ default_builtin_reciprocal (unsigned int fn ATTRIBUTE_UNUSED,
 
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -564,7 +553,7 @@ hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 
 bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -573,7 +562,7 @@ hook_bool_CUMULATIVE_ARGS_mode_tree_bool_true (
 
 int
 hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
-	CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,
 	tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
 {
@@ -581,49 +570,42 @@ hook_int_CUMULATIVE_ARGS_mode_tree_bool_0 (
 }
 
 void
-default_function_arg_advance (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_arg_advance (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			      enum machine_mode mode ATTRIBUTE_UNUSED,
 			      const_tree type ATTRIBUTE_UNUSED,
 			      bool named ATTRIBUTE_UNUSED)
 {
-#ifdef FUNCTION_ARG_ADVANCE
-  CUMULATIVE_ARGS args = *ca;
-  FUNCTION_ARG_ADVANCE (args, mode, CONST_CAST_TREE (type), named);
-  *ca = args;
-#else
   gcc_unreachable ();
-#endif
 }
 
 rtx
-default_function_arg (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 		      enum machine_mode mode ATTRIBUTE_UNUSED,
 		      const_tree type ATTRIBUTE_UNUSED,
 		      bool named ATTRIBUTE_UNUSED)
 {
-#ifdef FUNCTION_ARG
-  return FUNCTION_ARG (*ca, mode, CONST_CAST_TREE (type), named);
-#else
   gcc_unreachable ();
-#endif
 }
 
 rtx
-default_function_incoming_arg (CUMULATIVE_ARGS *ca ATTRIBUTE_UNUSED,
+default_function_incoming_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
 			       enum machine_mode mode ATTRIBUTE_UNUSED,
 			       const_tree type ATTRIBUTE_UNUSED,
 			       bool named ATTRIBUTE_UNUSED)
 {
-#ifdef FUNCTION_INCOMING_ARG
-  return FUNCTION_INCOMING_ARG (*ca, mode, CONST_CAST_TREE (type), named);
-#else
   gcc_unreachable ();
-#endif
 }
 
 unsigned int
 default_function_arg_boundary (enum machine_mode mode ATTRIBUTE_UNUSED,
 			       const_tree type ATTRIBUTE_UNUSED)
+{
+  return PARM_BOUNDARY;
+}
+
+unsigned int
+default_function_arg_round_boundary (enum machine_mode mode ATTRIBUTE_UNUSED,
+				     const_tree type ATTRIBUTE_UNUSED)
 {
   return PARM_BOUNDARY;
 }
@@ -855,6 +837,24 @@ default_branch_target_register_class (void)
   return NO_REGS;
 }
 
+extern bool
+default_lra_p (void)
+{
+  return false;
+}
+
+int
+default_register_priority (int hard_regno ATTRIBUTE_UNUSED)
+{
+  return 0;
+}
+
+extern bool
+default_different_addr_displacement_p (void)
+{
+  return false;
+}
+
 reg_class_t
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 			  reg_class_t reload_class_i ATTRIBUTE_UNUSED,
@@ -884,8 +884,7 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 				reload_mode);
 
       if (icode != CODE_FOR_nothing
-	  && insn_data[(int) icode].operand[in_p].predicate
-	  && ! insn_data[(int) icode].operand[in_p].predicate (x, reload_mode))
+	  && !insn_operand_matches (icode, in_p, x))
 	icode = CODE_FOR_nothing;
       else if (icode != CODE_FOR_nothing)
 	{
@@ -945,14 +944,6 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
   return rclass;
 }
 
-bool
-default_handle_c_option (size_t code ATTRIBUTE_UNUSED,
-			 const char *arg ATTRIBUTE_UNUSED,
-			 int value ATTRIBUTE_UNUSED)
-{
-  return false;
-}
-
 /* By default, if flag_pic is true, then neither local nor global relocs
    should be placed in readonly memory.  */
 
@@ -967,6 +958,13 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 					 tree id)
 {
    return id;
+}
+
+/* Default to natural alignment for vector types.  */
+HOST_WIDE_INT
+default_vector_alignment (const_tree type)
+{
+  return tree_low_cst (TYPE_SIZE (type), 0);
 }
 
 bool
@@ -1018,6 +1016,68 @@ unsigned int
 default_autovectorize_vector_sizes (void)
 {
   return 0;
+}
+
+/* By default, the cost model accumulates three separate costs (prologue,
+   loop body, and epilogue) for a vectorized loop or block.  So allocate an
+   array of three unsigned ints, set it to zero, and return its address.  */
+
+void *
+default_init_cost (struct loop *loop_info ATTRIBUTE_UNUSED)
+{
+  unsigned *cost = XNEWVEC (unsigned, 3);
+  cost[vect_prologue] = cost[vect_body] = cost[vect_epilogue] = 0;
+  return cost;
+}
+
+/* By default, the cost model looks up the cost of the given statement
+   kind and mode, multiplies it by the occurrence count, accumulates
+   it into the cost specified by WHERE, and returns the cost added.  */
+
+unsigned
+default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
+		       struct _stmt_vec_info *stmt_info, int misalign,
+		       enum vect_cost_model_location where)
+{
+  unsigned *cost = (unsigned *) data;
+  unsigned retval = 0;
+
+  if (flag_vect_cost_model)
+    {
+      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+      int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
+							  misalign);
+      /* Statements in an inner loop relative to the loop being
+	 vectorized are weighted more heavily.  The value here is
+	 arbitrary and could potentially be improved with analysis.  */
+      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+	count *= 50;  /* FIXME.  */
+
+      retval = (unsigned) (count * stmt_cost);
+      cost[where] += retval;
+    }
+
+  return retval;
+}
+
+/* By default, the cost model just returns the accumulated costs.  */
+
+void
+default_finish_cost (void *data, unsigned *prologue_cost,
+		     unsigned *body_cost, unsigned *epilogue_cost)
+{
+  unsigned *cost = (unsigned *) data;
+  *prologue_cost = cost[vect_prologue];
+  *body_cost     = cost[vect_body];
+  *epilogue_cost = cost[vect_epilogue];
+}
+
+/* Free the cost data.  */
+
+void
+default_destroy_cost_data (void *data)
+{
+  free (data);
 }
 
 /* Determine whether or not a pointer mode is valid. Assume defaults
@@ -1157,21 +1217,10 @@ default_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
 /* The default implementation of TARGET_MODE_DEPENDENT_ADDRESS_P.  */
 
 bool
-default_mode_dependent_address_p (const_rtx addr ATTRIBUTE_UNUSED)
+default_mode_dependent_address_p (const_rtx addr ATTRIBUTE_UNUSED,
+				  addr_space_t addrspace ATTRIBUTE_UNUSED)
 {
-#ifdef GO_IF_MODE_DEPENDENT_ADDRESS
-
-  GO_IF_MODE_DEPENDENT_ADDRESS (CONST_CAST_RTX (addr), win);
   return false;
-  /* Label `win' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS.  */
- win: ATTRIBUTE_UNUSED_LABEL
-  return true;
-
-#else
-
-  return false;
-
-#endif
 }
 
 bool
@@ -1212,9 +1261,10 @@ default_target_can_inline_p (tree caller, tree callee)
   else if (!caller_opts)
     ret = false;
 
-  /* If both caller and callee have attributes, assume that if the pointer is
-     different, the the two functions have different target options since
-     build_target_option_node uses a hash table for the options.  */
+  /* If both caller and callee have attributes, assume that if the
+     pointer is different, the two functions have different target
+     options since build_target_option_node uses a hash table for the
+     options.  */
   else
     ret = (callee_opts == caller_opts);
 
@@ -1229,7 +1279,8 @@ default_target_can_inline_p (tree caller, tree callee)
    this means extra overhead for dispatch tables, which raises the
    threshold for using them.  */
 
-unsigned int default_case_values_threshold (void)
+unsigned int
+default_case_values_threshold (void)
 {
   return (HAVE_casesi ? 4 : 5);
 }
@@ -1242,6 +1293,12 @@ default_have_conditional_execution (void)
 #else
   return false;
 #endif
+}
+
+tree
+default_builtin_tm_load_store (tree ARG_UNUSED (type))
+{
+  return NULL_TREE;
 }
 
 /* Compute cost of moving registers to/from memory.  */
@@ -1302,11 +1359,7 @@ reg_class_t
 default_preferred_output_reload_class (rtx x ATTRIBUTE_UNUSED,
 				       reg_class_t rclass)
 {
-#ifdef PREFERRED_OUTPUT_RELOAD_CLASS
-  return PREFERRED_OUTPUT_RELOAD_CLASS (x, (enum reg_class) rclass);
-#else
   return rclass;
-#endif
 }
 
 /* The default implementation of TARGET_PREFERRED_RENAME_CLASS.  */
@@ -1322,6 +1375,19 @@ bool
 default_class_likely_spilled_p (reg_class_t rclass)
 {
   return (reg_class_size[(int) rclass] == 1);
+}
+
+/* The default implementation of TARGET_CLASS_MAX_NREGS.  */
+
+unsigned char
+default_class_max_nregs (reg_class_t rclass ATTRIBUTE_UNUSED,
+			 enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+#ifdef CLASS_MAX_NREGS
+  return (unsigned char) CLASS_MAX_NREGS ((enum reg_class) rclass, mode);
+#else
+  return ((GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD);
+#endif
 }
 
 /* Determine the debugging unwind mechanism for the target.  */
@@ -1343,48 +1409,6 @@ default_debug_unwind_info (void)
 #endif
 
   return UI_NONE;
-}
-
-/* Determine the exception handling mechanism for the target.  */
-
-enum unwind_info_type
-default_except_unwind_info (struct gcc_options *opts ATTRIBUTE_UNUSED)
-{
-  /* Obey the configure switch to turn on sjlj exceptions.  */
-#ifdef CONFIG_SJLJ_EXCEPTIONS
-  if (CONFIG_SJLJ_EXCEPTIONS)
-    return UI_SJLJ;
-#endif
-
-  /* ??? Change all users to the hook, then poison this.  */
-#ifdef DWARF2_UNWIND_INFO
-  if (DWARF2_UNWIND_INFO)
-    return UI_DWARF2;
-#endif
-
-  return UI_SJLJ;
-}
-
-/* To be used by targets that force dwarf2 unwind enabled.  */
-
-enum unwind_info_type
-dwarf2_except_unwind_info (struct gcc_options *opts ATTRIBUTE_UNUSED)
-{
-  /* Obey the configure switch to turn on sjlj exceptions.  */
-#ifdef CONFIG_SJLJ_EXCEPTIONS
-  if (CONFIG_SJLJ_EXCEPTIONS)
-    return UI_SJLJ;
-#endif
-
-  return UI_DWARF2;
-}
-
-/* To be used by targets that force sjlj unwind enabled.  */
-
-enum unwind_info_type
-sjlj_except_unwind_info (struct gcc_options *opts ATTRIBUTE_UNUSED)
-{
-  return UI_SJLJ;
 }
 
 /* To be used by targets where reg_raw_mode doesn't return the right
@@ -1505,9 +1529,19 @@ default_pch_valid_p (const void *data_p, size_t len)
   return NULL;
 }
 
-const struct default_options empty_optimization_table[] =
-  {
-    { OPT_LEVELS_NONE, 0, NULL, 0 }
-  };
+/* Default version of member_type_forces_blk.  */
+
+bool
+default_member_type_forces_blk (const_tree, enum machine_mode)
+{
+  return false;
+}
+
+/* Default version of canonicalize_comparison.  */
+
+void
+default_canonicalize_comparison (int *, rtx *, rtx *, bool)
+{
+}
 
 #include "gt-targhooks.h"

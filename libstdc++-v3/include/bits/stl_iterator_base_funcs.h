@@ -1,7 +1,6 @@
 // Functions used by iterators -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-// Free Software Foundation, Inc.
+// Copyright (C) 2001-2012 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -63,6 +62,7 @@
 #pragma GCC system_header
 
 #include <bits/concept_check.h>
+#include <debug/debug.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -98,12 +98,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief A generalization of pointer arithmetic.
-   *  @param  first  An input iterator.
-   *  @param  last  An input iterator.
+   *  @param  __first  An input iterator.
+   *  @param  __last  An input iterator.
    *  @return  The distance between them.
    *
-   *  Returns @c n such that first + n == last.  This requires that @p last
-   *  must be reachable from @p first.  Note that @c n may be negative.
+   *  Returns @c n such that __first + n == __last.  This requires
+   *  that @p __last must be reachable from @p __first.  Note that @c
+   *  n may be negative.
    *
    *  For random access iterators, this uses their @c + and @c - operations
    *  and are constant time.  For other %iterator classes they are linear time.
@@ -123,6 +124,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // concept requirements
       __glibcxx_function_requires(_InputIteratorConcept<_InputIterator>)
+      _GLIBCXX_DEBUG_ASSERT(__n >= 0);
       while (__n--)
 	++__i;
     }
@@ -156,12 +158,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   /**
    *  @brief A generalization of pointer arithmetic.
-   *  @param  i  An input iterator.
-   *  @param  n  The @a delta by which to change @p i.
+   *  @param  __i  An input iterator.
+   *  @param  __n  The @a delta by which to change @p __i.
    *  @return  Nothing.
    *
    *  This increments @p i by @p n.  For bidirectional and random access
-   *  iterators, @p n may be negative, in which case @p i is decremented.
+   *  iterators, @p __n may be negative, in which case @p __i is decremented.
    *
    *  For random access iterators, this uses their @c + and @c - operations
    *  and are constant time.  For other %iterator classes they are linear time.
@@ -175,7 +177,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::__advance(__i, __d, std::__iterator_category(__i));
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
   template<typename _ForwardIterator>
     inline _ForwardIterator
@@ -195,7 +197,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __x;
     }
 
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace

@@ -1,8 +1,7 @@
 /* Stub functions for Objective-C and Objective-C++ routines
    that are called from within the C and C++ front-ends,
    respectively.
-   Copyright (C) 1991, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2007, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1991-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -110,12 +109,12 @@ objc_declare_alias (tree ARG_UNUSED (alias), tree ARG_UNUSED (orig))
 }
 
 void
-objc_declare_class (tree ARG_UNUSED (list))
+objc_declare_class (tree ARG_UNUSED (identifier))
 {
 }
 
 void
-objc_declare_protocols (tree ARG_UNUSED (list), tree ARG_UNUSED (attributes))
+objc_declare_protocol (tree ARG_UNUSED (name), tree ARG_UNUSED (attributes))
 {
 }
 
@@ -204,7 +203,8 @@ objc_add_method_declaration (bool ARG_UNUSED (is_class_method),
 bool
 objc_start_method_definition (bool ARG_UNUSED (is_class_method),
 			      tree ARG_UNUSED (signature),
-			      tree ARG_UNUSED (attributes))
+			      tree ARG_UNUSED (attributes),
+			      tree ARG_UNUSED (expr))
 {
   return true;
 }
@@ -258,7 +258,7 @@ objc_build_selector_expr (location_t ARG_UNUSED (loc), tree ARG_UNUSED (expr))
 }
 
 tree
-objc_build_message_expr (tree ARG_UNUSED (expr))
+objc_build_message_expr (tree ARG_UNUSED (receiver), tree ARG_UNUSED (args))
 {
   return 0;
 }
@@ -275,10 +275,10 @@ objc_get_class_reference (tree ARG_UNUSED (name))
   return 0;
 }
 
-tree
-objc_get_interface_ivars (tree ARG_UNUSED (fieldlist))
+bool
+objc_detect_field_duplicates (bool ARG_UNUSED (check_superclasses_only))
 {
-  return 0;
+  return false;
 }
 
 tree

@@ -1,6 +1,5 @@
 /* Parse tree dumper
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
    Contributed by Steven Bosscher
 
 This file is part of GCC.
@@ -33,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "gfortran.h"
 #include "constructor.h"
 
@@ -94,6 +94,12 @@ show_indent (void)
 static void
 show_typespec (gfc_typespec *ts)
 {
+  if (ts->type == BT_ASSUMED)
+    {
+      fputs ("(TYPE(*))", dumpfile);
+      return;
+    }
+
   fprintf (dumpfile, "(%s ", gfc_basic_typename (ts->type));
 
   switch (ts->type)
@@ -159,7 +165,7 @@ show_array_spec (gfc_array_spec *as)
 
   fprintf (dumpfile, "(%d [%d]", as->rank, as->corank);
 
-  if (as->rank + as->corank > 0)
+  if (as->rank + as->corank > 0 || as->rank == -1)
     {
       switch (as->type)
       {
@@ -167,6 +173,7 @@ show_array_spec (gfc_array_spec *as)
 	case AS_DEFERRED:      c = "AS_DEFERRED";      break;
 	case AS_ASSUMED_SIZE:  c = "AS_ASSUMED_SIZE";  break;
 	case AS_ASSUMED_SHAPE: c = "AS_ASSUMED_SHAPE"; break;
+	case AS_ASSUMED_RANK:  c = "AS_ASSUMED_RANK";  break;
 	default:
 	  gfc_internal_error ("show_array_spec(): Unhandled array shape "
 			      "type.");
@@ -561,7 +568,7 @@ show_expr (gfc_expr *p)
       if (p->value.function.name == NULL)
 	{
 	  fprintf (dumpfile, "%s", p->symtree->n.sym->name);
-	  if (gfc_is_proc_ptr_comp (p, NULL))
+	  if (gfc_is_proc_ptr_comp (p))
 	    show_ref (p->ref);
 	  fputc ('[', dumpfile);
 	  show_actual_arglist (p->value.function.actual);
@@ -570,7 +577,7 @@ show_expr (gfc_expr *p)
       else
 	{
 	  fprintf (dumpfile, "%s", p->value.function.name);
-	  if (gfc_is_proc_ptr_comp (p, NULL))
+	  if (gfc_is_proc_ptr_comp (p))
 	    show_ref (p->ref);
 	  fputc ('[', dumpfile);
 	  fputc ('[', dumpfile);
@@ -605,6 +612,8 @@ show_attr (symbol_attribute *attr, const char * module)
   if (attr->save != SAVE_NONE)
     fprintf (dumpfile, "%s", gfc_code2string (save_status, attr->save));
 
+  if (attr->artificial)
+    fputs (" ARTIFICIAL", dumpfile);
   if (attr->allocatable)
     fputs (" ALLOCATABLE", dumpfile);
   if (attr->asynchronous)
@@ -780,7 +789,7 @@ show_f2k_derived (gfc_namespace* f2k)
   for (f = f2k->finalizers; f; f = f->next)
     {
       show_indent ();
-      fprintf (dumpfile, "FINAL %s", f->proc_sym->name);
+      fprintf (dumpfile, "FINAL %s", f->proc_tree->n.sym->name);
     }
 
   /* Type-bound procedures.  */
@@ -893,7 +902,8 @@ show_symbol (gfc_symbol *sym)
     }
 
   if (sym->formal_ns && (sym->formal_ns->proc_name != sym)
-      && sym->attr.proc != PROC_ST_FUNCTION)
+      && sym->attr.proc != PROC_ST_FUNCTION
+      && !sym->attr.entry)
     {
       show_indent ();
       fputs ("Formal namespace", dumpfile);
@@ -1038,6 +1048,7 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OMP_SINGLE: name = "SINGLE"; break;
     case EXEC_OMP_TASK: name = "TASK"; break;
     case EXEC_OMP_TASKWAIT: name = "TASKWAIT"; break;
+    case EXEC_OMP_TASKYIELD: name = "TASKYIELD"; break;
     case EXEC_OMP_WORKSHARE: name = "WORKSHARE"; break;
     default:
       gcc_unreachable ();
@@ -1070,6 +1081,7 @@ show_omp_node (int level, gfc_code *c)
       return;
     case EXEC_OMP_BARRIER:
     case EXEC_OMP_TASKWAIT:
+    case EXEC_OMP_TASKYIELD:
       return;
     default:
       break;
@@ -1082,6 +1094,12 @@ show_omp_node (int level, gfc_code *c)
 	{
 	  fputs (" IF(", dumpfile);
 	  show_expr (omp_clauses->if_expr);
+	  fputc (')', dumpfile);
+	}
+      if (omp_clauses->final_expr)
+	{
+	  fputs (" FINAL(", dumpfile);
+	  show_expr (omp_clauses->final_expr);
 	  fputc (')', dumpfile);
 	}
       if (omp_clauses->num_threads)
@@ -1129,6 +1147,8 @@ show_omp_node (int level, gfc_code *c)
 	fputs (" ORDERED", dumpfile);
       if (omp_clauses->untied)
 	fputs (" UNTIED", dumpfile);
+      if (omp_clauses->mergeable)
+	fputs (" MERGEABLE", dumpfile);
       if (omp_clauses->collapse)
 	fprintf (dumpfile, " COLLAPSE(%d)", omp_clauses->collapse);
       for (list_type = 0; list_type < OMP_LIST_NUM; list_type++)
@@ -1395,6 +1415,33 @@ show_code_node (int level, gfc_code *c)
 	}
       break;
 
+    case EXEC_LOCK:
+    case EXEC_UNLOCK:
+      if (c->op == EXEC_LOCK)
+	fputs ("LOCK ", dumpfile);
+      else
+	fputs ("UNLOCK ", dumpfile);
+
+      fputs ("lock-variable=", dumpfile);
+      if (c->expr1 != NULL)
+	show_expr (c->expr1);
+      if (c->expr4 != NULL)
+	{
+	  fputs (" acquired_lock=", dumpfile);
+	  show_expr (c->expr4);
+	}
+      if (c->expr2 != NULL)
+	{
+	  fputs (" stat=", dumpfile);
+	  show_expr (c->expr2);
+	}
+      if (c->expr3 != NULL)
+	{
+	  fputs (" errmsg=", dumpfile);
+	  show_expr (c->expr3);
+	}
+      break;
+
     case EXEC_ARITHMETIC_IF:
       fputs ("IF ", dumpfile);
       show_expr (c->expr1);
@@ -1440,6 +1487,8 @@ show_code_node (int level, gfc_code *c)
     case EXEC_BLOCK:
       {
 	const char* blocktype;
+	gfc_namespace *saved_ns;
+
 	if (c->ext.block.assoc)
 	  blocktype = "ASSOCIATE";
 	else
@@ -1448,7 +1497,10 @@ show_code_node (int level, gfc_code *c)
 	fprintf (dumpfile, "%s ", blocktype);
 	++show_level;
 	ns = c->ext.block.ns;
+	saved_ns = gfc_current_ns;
+	gfc_current_ns = ns;
 	gfc_traverse_symtree (ns->sym_root, show_symtree);
+	gfc_current_ns = saved_ns;
 	show_code (show_level, ns->code);
 	--show_level;
 	show_indent ();
@@ -1565,6 +1617,28 @@ show_code_node (int level, gfc_code *c)
 	break;
 
       show_indent ();
+      fputs ("END DO", dumpfile);
+      break;
+
+    case EXEC_DO_CONCURRENT:
+      fputs ("DO CONCURRENT ", dumpfile);
+      for (fa = c->ext.forall_iterator; fa; fa = fa->next)
+        {
+          show_expr (fa->var);
+          fputc (' ', dumpfile);
+          show_expr (fa->start);
+          fputc (':', dumpfile);
+          show_expr (fa->end);
+          fputc (':', dumpfile);
+          show_expr (fa->stride);
+
+          if (fa->next != NULL)
+            fputc (',', dumpfile);
+        }
+      show_expr (c->expr1);
+
+      show_code (level + 1, c->block->next);
+      code_indent (level, c->label1);
       fputs ("END DO", dumpfile);
       break;
 
@@ -2134,6 +2208,7 @@ show_code_node (int level, gfc_code *c)
     case EXEC_OMP_SINGLE:
     case EXEC_OMP_TASK:
     case EXEC_OMP_TASKWAIT:
+    case EXEC_OMP_TASKYIELD:
     case EXEC_OMP_WORKSHARE:
       show_omp_node (level, c);
       break;
@@ -2172,67 +2247,63 @@ show_namespace (gfc_namespace *ns)
   gfc_equiv *eq;
   int i;
 
+  gcc_assert (ns);
   save = gfc_current_ns;
 
   show_indent ();
   fputs ("Namespace:", dumpfile);
 
-  if (ns != NULL)
+  i = 0;
+  do
     {
-      i = 0;
-      do
-	{
-	  int l = i;
-	  while (i < GFC_LETTERS - 1
-		 && gfc_compare_types(&ns->default_type[i+1],
-				      &ns->default_type[l]))
-	    i++;
+      int l = i;
+      while (i < GFC_LETTERS - 1
+	     && gfc_compare_types (&ns->default_type[i+1],
+				   &ns->default_type[l]))
+	i++;
 
-	  if (i > l)
-	    fprintf (dumpfile, " %c-%c: ", l+'A', i+'A');
-	  else
-	    fprintf (dumpfile, " %c: ", l+'A');
+      if (i > l)
+	fprintf (dumpfile, " %c-%c: ", l+'A', i+'A');
+      else
+	fprintf (dumpfile, " %c: ", l+'A');
 
-	  show_typespec(&ns->default_type[l]);
-	  i++;
-      } while (i < GFC_LETTERS);
+      show_typespec(&ns->default_type[l]);
+      i++;
+    } while (i < GFC_LETTERS);
 
-      if (ns->proc_name != NULL)
-	{
-	  show_indent ();
-	  fprintf (dumpfile, "procedure name = %s", ns->proc_name->name);
-	}
-
-      ++show_level;
-      gfc_current_ns = ns;
-      gfc_traverse_symtree (ns->common_root, show_common);
-
-      gfc_traverse_symtree (ns->sym_root, show_symtree);
-
-      for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; op++)
-	{
-	  /* User operator interfaces */
-	  intr = ns->op[op];
-	  if (intr == NULL)
-	    continue;
-
-	  show_indent ();
-	  fprintf (dumpfile, "Operator interfaces for %s:",
-		   gfc_op2string ((gfc_intrinsic_op) op));
-
-	  for (; intr; intr = intr->next)
-	    fprintf (dumpfile, " %s", intr->sym->name);
-	}
-
-      if (ns->uop_root != NULL)
-	{
-	  show_indent ();
-	  fputs ("User operators:\n", dumpfile);
-	  gfc_traverse_user_op (ns, show_uop);
-	}
+  if (ns->proc_name != NULL)
+    {
+      show_indent ();
+      fprintf (dumpfile, "procedure name = %s", ns->proc_name->name);
     }
-  else
-    ++show_level;
+
+  ++show_level;
+  gfc_current_ns = ns;
+  gfc_traverse_symtree (ns->common_root, show_common);
+
+  gfc_traverse_symtree (ns->sym_root, show_symtree);
+
+  for (op = GFC_INTRINSIC_BEGIN; op != GFC_INTRINSIC_END; op++)
+    {
+      /* User operator interfaces */
+      intr = ns->op[op];
+      if (intr == NULL)
+	continue;
+
+      show_indent ();
+      fprintf (dumpfile, "Operator interfaces for %s:",
+	       gfc_op2string ((gfc_intrinsic_op) op));
+
+      for (; intr; intr = intr->next)
+	fprintf (dumpfile, " %s", intr->sym->name);
+    }
+
+  if (ns->uop_root != NULL)
+    {
+      show_indent ();
+      fputs ("User operators:\n", dumpfile);
+      gfc_traverse_user_op (ns, show_uop);
+    }
   
   for (eq = ns->equiv; eq; eq = eq->next)
     show_equiv (eq);
@@ -2264,3 +2335,4 @@ gfc_dump_parse_tree (gfc_namespace *ns, FILE *file)
   dumpfile = file;
   show_namespace (ns);
 }
+

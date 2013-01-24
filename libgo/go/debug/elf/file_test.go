@@ -5,9 +5,16 @@
 package elf
 
 import (
+	"bytes"
+	"compress/gzip"
 	"debug/dwarf"
 	"encoding/binary"
+	"io"
+	"net"
+	"os"
+	"path"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -15,12 +22,14 @@ type fileTest struct {
 	file     string
 	hdr      FileHeader
 	sections []SectionHeader
+	progs    []ProgHeader
+	needed   []string
 }
 
 var fileTests = []fileTest{
 	{
 		"testdata/gcc-386-freebsd-exec",
-		FileHeader{ELFCLASS32, ELFDATA2LSB, EV_CURRENT, ELFOSABI_FREEBSD, 0, binary.LittleEndian, ET_EXEC, EM_386},
+		FileHeader{ELFCLASS32, ELFDATA2LSB, EV_CURRENT, ELFOSABI_FREEBSD, 0, binary.LittleEndian, ET_EXEC, EM_386, 0x80483cc},
 		[]SectionHeader{
 			{"", SHT_NULL, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			{".interp", SHT_PROGBITS, SHF_ALLOC, 0x80480d4, 0xd4, 0x15, 0x0, 0x0, 0x1, 0x0},
@@ -53,10 +62,18 @@ var fileTests = []fileTest{
 			{".symtab", SHT_SYMTAB, 0x0, 0x0, 0xfb8, 0x4b0, 0x1d, 0x38, 0x4, 0x10},
 			{".strtab", SHT_STRTAB, 0x0, 0x0, 0x1468, 0x206, 0x0, 0x0, 0x1, 0x0},
 		},
+		[]ProgHeader{
+			{PT_PHDR, PF_R + PF_X, 0x34, 0x8048034, 0x8048034, 0xa0, 0xa0, 0x4},
+			{PT_INTERP, PF_R, 0xd4, 0x80480d4, 0x80480d4, 0x15, 0x15, 0x1},
+			{PT_LOAD, PF_R + PF_X, 0x0, 0x8048000, 0x8048000, 0x5fb, 0x5fb, 0x1000},
+			{PT_LOAD, PF_R + PF_W, 0x5fc, 0x80495fc, 0x80495fc, 0xd8, 0xf8, 0x1000},
+			{PT_DYNAMIC, PF_R + PF_W, 0x60c, 0x804960c, 0x804960c, 0x98, 0x98, 0x4},
+		},
+		[]string{"libc.so.6"},
 	},
 	{
 		"testdata/gcc-amd64-linux-exec",
-		FileHeader{ELFCLASS64, ELFDATA2LSB, EV_CURRENT, ELFOSABI_NONE, 0, binary.LittleEndian, ET_EXEC, EM_X86_64},
+		FileHeader{ELFCLASS64, ELFDATA2LSB, EV_CURRENT, ELFOSABI_NONE, 0, binary.LittleEndian, ET_EXEC, EM_X86_64, 0x4003e0},
 		[]SectionHeader{
 			{"", SHT_NULL, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			{".interp", SHT_PROGBITS, SHF_ALLOC, 0x400200, 0x200, 0x1c, 0x0, 0x0, 0x1, 0x0},
@@ -96,6 +113,42 @@ var fileTests = []fileTest{
 			{".symtab", SHT_SYMTAB, 0x0, 0x0, 0x19a0, 0x6f0, 0x24, 0x39, 0x8, 0x18},
 			{".strtab", SHT_STRTAB, 0x0, 0x0, 0x2090, 0x1fc, 0x0, 0x0, 0x1, 0x0},
 		},
+		[]ProgHeader{
+			{PT_PHDR, PF_R + PF_X, 0x40, 0x400040, 0x400040, 0x1c0, 0x1c0, 0x8},
+			{PT_INTERP, PF_R, 0x200, 0x400200, 0x400200, 0x1c, 0x1c, 1},
+			{PT_LOAD, PF_R + PF_X, 0x0, 0x400000, 0x400000, 0x684, 0x684, 0x200000},
+			{PT_LOAD, PF_R + PF_W, 0x688, 0x600688, 0x600688, 0x210, 0x218, 0x200000},
+			{PT_DYNAMIC, PF_R + PF_W, 0x6b0, 0x6006b0, 0x6006b0, 0x1a0, 0x1a0, 0x8},
+			{PT_NOTE, PF_R, 0x21c, 0x40021c, 0x40021c, 0x20, 0x20, 0x4},
+			{PT_LOOS + 0x474E550, PF_R, 0x5b8, 0x4005b8, 0x4005b8, 0x24, 0x24, 0x4},
+			{PT_LOOS + 0x474E551, PF_R + PF_W, 0x0, 0x0, 0x0, 0x0, 0x0, 0x8},
+		},
+		[]string{"libc.so.6"},
+	},
+	{
+		"testdata/hello-world-core.gz",
+		FileHeader{ELFCLASS64, ELFDATA2LSB, EV_CURRENT, ELFOSABI_NONE, 0x0, binary.LittleEndian, ET_CORE, EM_X86_64, 0x0},
+		[]SectionHeader{},
+		[]ProgHeader{
+			{Type: PT_NOTE, Flags: 0x0, Off: 0x3f8, Vaddr: 0x0, Paddr: 0x0, Filesz: 0x8ac, Memsz: 0x0, Align: 0x0},
+			{Type: PT_LOAD, Flags: PF_X + PF_R, Off: 0x1000, Vaddr: 0x400000, Paddr: 0x0, Filesz: 0x0, Memsz: 0x1000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_R, Off: 0x1000, Vaddr: 0x401000, Paddr: 0x0, Filesz: 0x1000, Memsz: 0x1000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x2000, Vaddr: 0x402000, Paddr: 0x0, Filesz: 0x1000, Memsz: 0x1000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_X + PF_R, Off: 0x3000, Vaddr: 0x7f54078b8000, Paddr: 0x0, Filesz: 0x0, Memsz: 0x1b5000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: 0x0, Off: 0x3000, Vaddr: 0x7f5407a6d000, Paddr: 0x0, Filesz: 0x0, Memsz: 0x1ff000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_R, Off: 0x3000, Vaddr: 0x7f5407c6c000, Paddr: 0x0, Filesz: 0x4000, Memsz: 0x4000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x7000, Vaddr: 0x7f5407c70000, Paddr: 0x0, Filesz: 0x2000, Memsz: 0x2000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x9000, Vaddr: 0x7f5407c72000, Paddr: 0x0, Filesz: 0x5000, Memsz: 0x5000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_X + PF_R, Off: 0xe000, Vaddr: 0x7f5407c77000, Paddr: 0x0, Filesz: 0x0, Memsz: 0x22000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0xe000, Vaddr: 0x7f5407e81000, Paddr: 0x0, Filesz: 0x3000, Memsz: 0x3000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x11000, Vaddr: 0x7f5407e96000, Paddr: 0x0, Filesz: 0x3000, Memsz: 0x3000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_R, Off: 0x14000, Vaddr: 0x7f5407e99000, Paddr: 0x0, Filesz: 0x1000, Memsz: 0x1000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x15000, Vaddr: 0x7f5407e9a000, Paddr: 0x0, Filesz: 0x2000, Memsz: 0x2000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_W + PF_R, Off: 0x17000, Vaddr: 0x7fff79972000, Paddr: 0x0, Filesz: 0x23000, Memsz: 0x23000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_X + PF_R, Off: 0x3a000, Vaddr: 0x7fff799f8000, Paddr: 0x0, Filesz: 0x1000, Memsz: 0x1000, Align: 0x1000},
+			{Type: PT_LOAD, Flags: PF_X + PF_R, Off: 0x3b000, Vaddr: 0xffffffffff600000, Paddr: 0x0, Filesz: 0x1000, Memsz: 0x1000, Align: 0x1000},
+		},
+		nil,
 	},
 }
 
@@ -103,9 +156,18 @@ func TestOpen(t *testing.T) {
 	for i := range fileTests {
 		tt := &fileTests[i]
 
-		f, err := Open(tt.file)
+		var f *File
+		var err error
+		if path.Ext(tt.file) == ".gz" {
+			var r io.ReaderAt
+			if r, err = decompress(tt.file); err == nil {
+				f, err = NewFile(r)
+			}
+		} else {
+			f, err = Open(tt.file)
+		}
 		if err != nil {
-			t.Error(err)
+			t.Errorf("cannot open file %s: %v", tt.file, err)
 			continue
 		}
 		if !reflect.DeepEqual(f.FileHeader, tt.hdr) {
@@ -121,31 +183,88 @@ func TestOpen(t *testing.T) {
 				t.Errorf("open %s, section %d:\n\thave %#v\n\twant %#v\n", tt.file, i, &s.SectionHeader, sh)
 			}
 		}
+		for i, p := range f.Progs {
+			if i >= len(tt.progs) {
+				break
+			}
+			ph := &tt.progs[i]
+			if !reflect.DeepEqual(&p.ProgHeader, ph) {
+				t.Errorf("open %s, program %d:\n\thave %#v\n\twant %#v\n", tt.file, i, &p.ProgHeader, ph)
+			}
+		}
 		tn := len(tt.sections)
 		fn := len(f.Sections)
 		if tn != fn {
 			t.Errorf("open %s: len(Sections) = %d, want %d", tt.file, fn, tn)
 		}
+		tn = len(tt.progs)
+		fn = len(f.Progs)
+		if tn != fn {
+			t.Errorf("open %s: len(Progs) = %d, want %d", tt.file, fn, tn)
+		}
+		tl := tt.needed
+		fl, err := f.ImportedLibraries()
+		if err != nil {
+			t.Error(err)
+		}
+		if !reflect.DeepEqual(tl, fl) {
+			t.Errorf("open %s: DT_NEEDED = %v, want %v", tt.file, tl, fl)
+		}
 	}
 }
 
+// elf.NewFile requires io.ReaderAt, which compress/gzip cannot
+// provide. Decompress the file to a bytes.Reader.
+func decompress(gz string) (io.ReaderAt, error) {
+	in, err := os.Open(gz)
+	if err != nil {
+		return nil, err
+	}
+	defer in.Close()
+	r, err := gzip.NewReader(in)
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	_, err = io.Copy(&out, r)
+	return bytes.NewReader(out.Bytes()), err
+}
+
+type relocationTestEntry struct {
+	entryNumber int
+	entry       *dwarf.Entry
+}
+
 type relocationTest struct {
-	file       string
-	firstEntry *dwarf.Entry
+	file    string
+	entries []relocationTestEntry
 }
 
 var relocationTests = []relocationTest{
 	{
-		"testdata/go-relocation-test-gcc441-x86-64.o",
-		&dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.4.1"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "go-relocation-test.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x6)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}},
+		"testdata/go-relocation-test-gcc441-x86-64.obj",
+		[]relocationTestEntry{
+			{0, &dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.4.1"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "go-relocation-test.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x6)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}}},
+		},
 	},
 	{
-		"testdata/go-relocation-test-gcc441-x86.o",
-		&dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.4.1"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "t.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x5)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}},
+		"testdata/go-relocation-test-gcc441-x86.obj",
+		[]relocationTestEntry{
+			{0, &dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.4.1"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "t.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x5)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}}},
+		},
 	},
 	{
-		"testdata/go-relocation-test-gcc424-x86-64.o",
-		&dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.2.4 (Ubuntu 4.2.4-1ubuntu4)"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "go-relocation-test-gcc424.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x6)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}},
+		"testdata/go-relocation-test-gcc424-x86-64.obj",
+		[]relocationTestEntry{
+			{0, &dwarf.Entry{Offset: 0xb, Tag: dwarf.TagCompileUnit, Children: true, Field: []dwarf.Field{{Attr: dwarf.AttrProducer, Val: "GNU C 4.2.4 (Ubuntu 4.2.4-1ubuntu4)"}, {Attr: dwarf.AttrLanguage, Val: int64(1)}, {Attr: dwarf.AttrName, Val: "go-relocation-test-gcc424.c"}, {Attr: dwarf.AttrCompDir, Val: "/tmp"}, {Attr: dwarf.AttrLowpc, Val: uint64(0x0)}, {Attr: dwarf.AttrHighpc, Val: uint64(0x6)}, {Attr: dwarf.AttrStmtList, Val: int64(0)}}}},
+		},
+	},
+	{
+		"testdata/gcc-amd64-openbsd-debug-with-rela.obj",
+		[]relocationTestEntry{
+			{203, &dwarf.Entry{Offset: 0xc62, Tag: dwarf.TagMember, Children: false, Field: []dwarf.Field{{Attr: dwarf.AttrName, Val: "it_interval"}, {Attr: dwarf.AttrDeclFile, Val: int64(7)}, {Attr: dwarf.AttrDeclLine, Val: int64(236)}, {Attr: dwarf.AttrType, Val: dwarf.Offset(0xb7f)}, {Attr: dwarf.AttrDataMemberLoc, Val: []byte{0x23, 0x0}}}}},
+			{204, &dwarf.Entry{Offset: 0xc70, Tag: dwarf.TagMember, Children: false, Field: []dwarf.Field{{Attr: dwarf.AttrName, Val: "it_value"}, {Attr: dwarf.AttrDeclFile, Val: int64(7)}, {Attr: dwarf.AttrDeclLine, Val: int64(237)}, {Attr: dwarf.AttrType, Val: dwarf.Offset(0xb7f)}, {Attr: dwarf.AttrDataMemberLoc, Val: []byte{0x23, 0x10}}}}},
+		},
 	},
 }
 
@@ -161,20 +280,53 @@ func TestDWARFRelocations(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		reader := dwarf.Reader()
-		// Checking only the first entry is sufficient since it has
-		// many different strings. If the relocation had failed, all
-		// the string offsets would be zero and all the strings would
-		// end up being the same.
-		firstEntry, err := reader.Next()
-		if err != nil {
-			t.Error(err)
+		for _, testEntry := range test.entries {
+			reader := dwarf.Reader()
+			for j := 0; j < testEntry.entryNumber; j++ {
+				entry, err := reader.Next()
+				if entry == nil || err != nil {
+					t.Errorf("Failed to skip to entry %d: %v", testEntry.entryNumber, err)
+					continue
+				}
+			}
+			entry, err := reader.Next()
+			if err != nil {
+				t.Error(err)
+				continue
+			}
+			if !reflect.DeepEqual(testEntry.entry, entry) {
+				t.Errorf("#%d/%d: mismatch: got:%#v want:%#v", i, testEntry.entryNumber, entry, testEntry.entry)
+				continue
+			}
+		}
+	}
+}
+
+func TestNoSectionOverlaps(t *testing.T) {
+	// Ensure 6l outputs sections without overlaps.
+	if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
+		return // not ELF
+	}
+	_ = net.ResolveIPAddr // force dynamic linkage
+	f, err := Open(os.Args[0])
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	for i, si := range f.Sections {
+		sih := si.SectionHeader
+		if sih.Type == SHT_NOBITS {
 			continue
 		}
-
-		if !reflect.DeepEqual(test.firstEntry, firstEntry) {
-			t.Errorf("#%d: mismatch: got:%#v want:%#v", i, firstEntry, test.firstEntry)
-			continue
+		for j, sj := range f.Sections {
+			sjh := sj.SectionHeader
+			if i == j || sjh.Type == SHT_NOBITS || sih.Offset == sjh.Offset && sih.Size == 0 {
+				continue
+			}
+			if sih.Offset >= sjh.Offset && sih.Offset < sjh.Offset+sjh.Size {
+				t.Errorf("ld produced ELF with section %s within %s: 0x%x <= 0x%x..0x%x < 0x%x",
+					sih.Name, sjh.Name, sjh.Offset, sih.Offset, sih.Offset+sih.Size, sjh.Offset+sjh.Size)
+			}
 		}
 	}
 }

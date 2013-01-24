@@ -1,5 +1,5 @@
 /* GNU Objective-C Runtime API - Modern API
-   Copyright (C) 2010 Free Software Foundation, Inc.
+   Copyright (C) 2010, 2011 Free Software Foundation, Inc.
    Contributed by Nicola Pero <nicola.pero@meta-innovation.com>
 
 This file is part of GCC.
@@ -28,23 +28,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /*
   This file declares the "modern" GNU Objective-C Runtime API.
-  Include this file to use it.
 
-  This API is replacing the "traditional" GNU Objective-C Runtime API
-  (declared in objc/objc-api.h) which is the one supported by older
-  versions of the GNU Objective-C Runtime.  The "modern" API is very
-  similar to the API used by the modern Apple/NeXT runtime.
-
-  Because the two APIs have some conflicting definitions (in
-  particular, Method and Category are defined differently) you should
-  include either objc/objc-api.h (to use the traditional GNU
-  Objective-C Runtime API) or objc/runtime.h (to use the modern GNU
-  Objective-C Runtime API), but not both.
+  This API replaced the "traditional" GNU Objective-C Runtime API
+  (which used to be declared in objc/objc-api.h) which is the one
+  supported by older versions of the GNU Objective-C Runtime.  The
+  "modern" API is very similar to the API used by the modern
+  Apple/NeXT runtime.
 */
-#ifdef __objc_api_INCLUDE_GNU
-# error You can not include both objc/objc-api.h and objc/runtime.h.  Include objc/objc-api.h for the traditional GNU Objective-C Runtime API and objc/runtime.h for the modern one.
-#endif
-
 #include "objc.h"
 #include "objc-decls.h"
 
@@ -507,10 +497,10 @@ objc_EXPORT const char * class_getName (Class class_);
 objc_EXPORT BOOL class_isMetaClass (Class class_);
 
 /* Return the superclass of 'class_'.  If 'class_' is Nil, or it is a
-   root class, return Nil.  If 'class_' is a class being constructed,
-   that is, a class returned by objc_allocateClassPair() but before it
-   has been registered with the runtime using
-   objc_registerClassPair(), return Nil.  */
+   root class, return Nil.  This function also works if 'class_' is a
+   class being constructed, that is, a class returned by
+   objc_allocateClassPair() but before it has been registered with the
+   runtime using objc_registerClassPair().  */
 objc_EXPORT Class class_getSuperclass (Class class_);
 
 /* Return the 'version' number of the class, which is an integer that

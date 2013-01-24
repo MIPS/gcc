@@ -56,7 +56,7 @@ module s_base_mat_mod
 contains 
   subroutine s_scals(d,a,info) 
     implicit none 
-    class(s_base_sparse_mat), intent(in) :: a
+    class(s_base_sparse_mat), intent(inout) :: a
     real(spk_), intent(in)      :: d
     integer, intent(out)            :: info
 
@@ -73,7 +73,7 @@ contains
 
   subroutine s_scal(d,a,info) 
     implicit none 
-    class(s_base_sparse_mat), intent(in) :: a
+    class(s_base_sparse_mat), intent(inout) :: a
     real(spk_), intent(in)      :: d(:)
     integer, intent(out)            :: info
 
@@ -183,5 +183,3 @@ end module s_mat_mod
     call a%scal (1.0_spk_, info)
     if (info .ne. 700) call abort
 end
-! { dg-final { cleanup-modules "const_mod base_mat_mod s_base_mat_mod s_mat_mod" } }
-

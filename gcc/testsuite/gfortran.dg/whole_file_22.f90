@@ -35,4 +35,3 @@ subroutine test()
 USE M
 CALL b()
 END
-

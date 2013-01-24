@@ -1,3 +1,32 @@
+2013-01-15  Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	PR 55982
+	* strncat-chk.c (__strncat_chk): Fix loop unroll.
+
+2012-09-14  David Edelsohn  <dje.gcc@gmail.com>
+
+	* configure: Regenerated.
+
+2012-05-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/51007
+	* configure.ac: Allow gnu, gnu* variants for --enable-symvers argument.
+	* configure: Regenerated.
+
+2012-05-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure: Regenerated.
+
+2011-11-21  Andreas Tobler  <andreast@fgznet.ch>
+
+	* configure: Regenerate.
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR bootstrap/48135
+	* configure.ac (ssp_use_symver): Handle --disable-symvers.
+	* configure: Regenerate.
+
 2011-02-13  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* Makefile.in: Regenerate.

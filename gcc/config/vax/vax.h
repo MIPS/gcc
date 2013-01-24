@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler.  VAX version.
-   Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,8 +33,6 @@ along with GCC; see the file COPYING3.  If not see
     }						\
   while (0)
 
-#define VMS_TARGET 0
-
 /* Use -J option for long branch support with Unix assembler.  */
 
 #define ASM_SPEC "-J"
@@ -50,13 +46,6 @@ along with GCC; see the file COPYING3.  If not see
   %{p:%eprofiling not supported with -mg\n}\
   %{pg:%eprofiling not supported with -mg\n}}\
  %{!mg:%{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
-
-/* Print subsidiary information on the compiler version in use.  */
-
-#ifndef TARGET_NAME	/* A more specific value might be supplied via -D.  */
-#define TARGET_NAME "vax"
-#endif
-#define TARGET_VERSION fprintf (stderr, " (%s)", TARGET_NAME)
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -226,11 +215,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define REG_CLASS_NAMES	\
   { "NO_REGS", "ALL_REGS" }
 
-/* Return the maximum number of consecutive registers
-   needed to represent mode MODE in a register of class CLASS.  */
-#define CLASS_MAX_NREGS(CLASS, MODE)	\
-  ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
@@ -249,12 +233,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define INDEX_REG_CLASS ALL_REGS
 #define BASE_REG_CLASS ALL_REGS
 
-/* Return the maximum number of consecutive registers
-   needed to represent mode MODE in a register of class CLASS.  */
-/* On the VAX, this is always the size of MODE in words,
-   since all registers are the same size.  */
-#define CLASS_MAX_NREGS(CLASS, MODE)	\
- ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* Stack layout; function entry, exit and calling.  */
 
@@ -277,7 +255,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Given an rtx for the address of a frame,
    return an rtx for the address of the word in the frame
    that holds the dynamic chain--the previous frame's address.  */
-#define DYNAMIC_CHAIN_ADDRESS(FRAME) plus_constant ((FRAME), 12)
+#define DYNAMIC_CHAIN_ADDRESS(FRAME) plus_constant (Pmode, (FRAME), 12)
 
 /* If we generate an insn to push BYTES bytes,
    this says how many the stack pointer really advances by.
@@ -388,7 +366,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)					\
   ((COUNT == 0)								\
-   ? gen_rtx_MEM (Pmode, plus_constant (FRAME, RETURN_ADDRESS_OFFSET))	\
+   ? gen_rtx_MEM (Pmode, plus_constant (Pmode, FRAME,			\
+					RETURN_ADDRESS_OFFSET))		\
    : (rtx) 0)
 
 
@@ -404,7 +383,8 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 
 #define REGNO_OK_FOR_INDEX_P(regno)	\
   ((regno) < FIRST_PSEUDO_REGISTER || reg_renumber[regno] >= 0)
@@ -418,11 +398,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* 1 if X is an rtx for a constant that is a valid address.  */
 
 #define CONSTANT_ADDRESS_P(X) legitimate_constant_address_p (X)
-
-/* Nonzero if the constant value X is a legitimate general operand.
-   It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
-
-#define LEGITIMATE_CONSTANT_P(X) legitimate_constant_p (X)
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -456,11 +431,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
 #endif
-
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
-  { if (vax_mode_dependent_address_p (ADDR)) goto LABEL; }
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -478,10 +448,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* This flag, if defined, says the same insns that convert to a signed fixnum
-   also convert validly to an unsigned one.  */
-#define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
