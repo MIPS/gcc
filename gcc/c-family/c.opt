@@ -1082,6 +1082,25 @@ fpermissive
 C++ ObjC++ Var(flag_permissive)
 Downgrade conformance errors to warnings
 
+fpl
+C ObjC C++ ObjC++ Report Var(flag_pl)
+Add point-lookout instrumentation
+
+fpl-check-incomplete-type
+C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl_incomplete_type)
+Add point-lookout instrumentation for usage of variables with incomplete type
+
+fpl-first-field-has-own-bounds
+C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl_first_field_has_own_bounds)
+Forces PL instrumentation to use narrowed bounds for address of the first field
+in the structure.  By default pointer to the first field has the same bounds
+as pointer to the whole structure.
+
+fpl-narrow-to-innermost-array
+C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl_narrow_to_innermost_arrray)
+Forces PL instrumentation to use bounds of the innermost arrays in case of
+nested static arryas access. By default outermost array is used.
+
 fplan9-extensions
 C ObjC Var(flag_plan9_extensions)
 Enable Plan 9 language extensions

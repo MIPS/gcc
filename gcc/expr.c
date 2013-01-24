@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssaexpand.h"
 #include "target-globals.h"
 #include "params.h"
+#include "tree-pl.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -1364,7 +1365,24 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
   size_tree = make_tree (sizetype, size);
 
   fn = emit_block_move_libcall_fn (true);
-  call_expr = build_call_expr (fn, 3, dst_tree, src_tree, size_tree);
+  /* In case PL is on we actually should have all checks
+     made and bounds copied.  It means we may call a nocheck
+     memcpy version to copy data.  Currently we do not have
+     such memcpy version and therefore use common function
+     and provide it with zero bounds.  */
+  if (flag_pl)
+    {
+      tree tmp, bnd;
+
+      tmp = pl_build_make_bounds_call (integer_zero_node, integer_zero_node);
+      bnd = make_tree (bound_type_node,
+			assign_temp (bound_type_node, 0, 1));
+      expand_assignment (bnd, tmp, false);
+
+      call_expr = build_call_expr (fn, 5, dst_tree, bnd, src_tree, bnd, size_tree);
+    }
+  else
+    call_expr = build_call_expr (fn, 3, dst_tree, src_tree, size_tree);
   CALL_EXPR_TAILCALL (call_expr) = tailcall;
 
   retval = expand_normal (call_expr);
@@ -4869,9 +4887,11 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	    || TREE_CODE (to) == SSA_NAME))
     {
       rtx value;
+      rtx bounds;
 
       push_temp_slots ();
       value = expand_normal (from);
+      pl_split_returned_reg (value, &value, &bounds);
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -4905,6 +4925,17 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
 	  emit_move_insn (to_rtx, value);
 	}
+
+      if (bounds
+	  && !BOUNDED_TYPE_P (TREE_TYPE (to))
+	  && pl_type_has_pointer (TREE_TYPE (to)))
+	{
+	  gcc_assert (MEM_P (to_rtx));
+	  gcc_assert (!CONST_INT_P (bounds));
+
+	  pl_emit_bounds_store (bounds, value, to_rtx);
+	}
+
       preserve_temp_slots (to_rtx);
       pop_temp_slots ();
       return;
@@ -5017,7 +5048,7 @@ emit_storent_insn (rtx to, rtx from)
 rtx
 store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 {
-  rtx temp;
+  rtx temp, temp_bnd;
   rtx alt_rtl = NULL_RTX;
   location_t loc = curr_insn_location ();
 
@@ -5108,6 +5139,8 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+      if (TREE_CODE (exp) == CALL_EXPR)
+	pl_split_returned_reg (temp, &temp, &temp_bnd);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5190,6 +5223,9 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
+      if (TREE_CODE (exp) == CALL_EXPR)
+	pl_split_returned_reg (temp, &temp, &temp_bnd);
+
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -5351,6 +5387,11 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	    emit_move_insn (target, temp);
 	}
     }
+
+  if (0 && temp_bnd && TREE_TYPE (exp)
+      && !BOUNDED_TYPE_P (TREE_TYPE (exp))
+      && pl_type_has_pointer (TREE_TYPE (exp)))
+    pl_emit_bounds_store (temp_bnd, temp, target);
 
   return NULL_RTX;
 }

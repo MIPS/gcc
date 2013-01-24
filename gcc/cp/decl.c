@@ -54,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "plugin.h"
 #include "cgraph.h"
+#include "tree-pl.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -6365,6 +6366,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	     the class specifier.  */
 	  if (!DECL_EXTERNAL (decl))
 	    var_definition_p = true;
+
+	  /* Register var for PL initialization if needed. */
+	  if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+	    pl_register_var_initializer (decl);
 	}
       /* If the variable has an array type, lay out the type, even if
 	 there is no initializer.  It is valid to index through the

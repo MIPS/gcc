@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "output.h"
+#include "tree-pl.h"
 
 static rtx break_out_memory_refs (rtx);
 
@@ -1853,9 +1854,10 @@ rtx
 hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
-  rtx val;
+  rtx val, bnd;
 
   val = targetm.calls.function_value (valtype, func ? func : fntype, outgoing);
+  pl_split_returned_reg (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1881,7 +1883,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return val;
+  return pl_join_splitted_reg (val, bnd);
 }
 
 /* Return an rtx representing the register or memory location

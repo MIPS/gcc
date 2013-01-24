@@ -1070,6 +1070,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is a bound type.  */
+#define BOUND_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == BOUND_TYPE)
+
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -2931,9 +2935,12 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
+#define DECL_BOUNDS_RTL(NODE) (DECL_WRTL_CHECK (NODE)->decl_with_rtl.bounds)
+
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
+  rtx bounds;
 };
 
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
@@ -3435,6 +3442,10 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define DECL_HAS_DEBUG_ARGS_P(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.has_debug_args_flag)
 
+/* Nonzero if a FUNCTION_DECL is PL static initializer.  */
+#define DECL_PL_STATIC_INIT(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.pl_static_init)
+
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
 #define DECL_STRUCT_FUNCTION(NODE) \
@@ -3516,6 +3527,7 @@ struct GTY(()) tree_function_decl {
   unsigned has_debug_args_flag : 1;
   unsigned tm_clone_flag : 1;
   unsigned versioned_function : 1;
+  unsigned pl_static_init : 1;
   /* No bits left.  */
 };
 
@@ -4209,6 +4221,9 @@ enum tree_index
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
+  TI_BOUND32_TYPE,
+  TI_BOUND64_TYPE,
+
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
   TI_DFLOAT128_TYPE,
@@ -4349,6 +4364,9 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
+
+#define bound32_type_node               global_trees[TI_BOUND32_TYPE]
+#define bound64_type_node               global_trees[TI_BOUND64_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */

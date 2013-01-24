@@ -193,3 +193,7 @@ extern const char *default_pch_valid_p (const void *, size_t);
 extern void default_asm_output_ident_directive (const char*);
 
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
+
+extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
+extern rtx default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
+extern tree default_fn_abi_va_list_bounds_size (tree);

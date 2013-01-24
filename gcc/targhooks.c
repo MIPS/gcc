@@ -1539,5 +1539,27 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 {
   return false;
 }
+rtx
+default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
+			     rtx ptr ATTRIBUTE_UNUSED,
+			     rtx bnd ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      rtx bounds ATTRIBUTE_UNUSED,
+			      rtx to ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+tree
+default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
+{
+  return integer_zero_node;
+}
 
 #include "gt-targhooks.h"

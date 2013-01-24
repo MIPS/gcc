@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
+#include "tree-pl.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 
@@ -2101,6 +2102,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   /* SSE REX registers */
   SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS,
   SSE_REGS, SSE_REGS,
+  /* PL bound registers */
+  BND_REGS, BND_REGS, BND_REGS, BND_REGS,
 };
 
 /* The "default" register map used in 32bit mode.  */
@@ -2114,6 +2117,7 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* The "default" register map used in 64bit mode.  */
@@ -2127,6 +2131,7 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
   25, 26, 27, 28, 29, 30, 31, 32,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -2192,6 +2197,7 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* Define parameter passing and return registers.  */
@@ -2325,6 +2331,9 @@ tree x86_mfence;
    of SSESF, SSEDF classes, that are basically SSE class, just gcc will
    use SF or DFmode move instead of DImode to avoid reformatting penalties.
 
+   X86_64_BOUNDED* classes are similar to integer classes but additionally
+   mean bounds should be passed for the argument.
+
    Similarly we play games with INTEGERSI_CLASS to use cheaper SImode moves
    whenever possible (upper half does contain padding).  */
 enum x86_64_reg_class
@@ -2339,7 +2348,9 @@ enum x86_64_reg_class
     X86_64_X87_CLASS,
     X86_64_X87UP_CLASS,
     X86_64_COMPLEX_X87_CLASS,
-    X86_64_MEMORY_CLASS
+    X86_64_MEMORY_CLASS,
+    X86_64_BOUNDED_INTEGER_CLASS,
+    X86_64_BOUNDED_INTEGERSI_CLASS
   };
 
 #define MAX_CLASSES 4
@@ -2586,6 +2597,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrtm",		OPTION_MASK_ISA_RTM },
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
+    { "-mpl",           OPTION_MASK_ISA_PL },
   };
 
   /* Flag options.  */
@@ -2859,7 +2871,7 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_FXSR		(HOST_WIDE_INT_1 << 37)
 #define PTA_XSAVE		(HOST_WIDE_INT_1 << 38)
 #define PTA_XSAVEOPT		(HOST_WIDE_INT_1 << 39)
-
+#define PTA_PL                  (HOST_WIDE_INT_1 << 40)
 /* if this reaches 64, need to widen struct pta flags below */
 
   static struct pta
@@ -3375,6 +3387,9 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_XSAVEOPT
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEOPT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_XSAVEOPT;
+        if (processor_alias_table[i].flags & PTA_PL
+            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_PL))
+          ix86_isa_flags |= OPTION_MASK_ISA_PL;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -3999,6 +4014,13 @@ ix86_conditional_register_usage (void)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+
+  /* Support bound registers only for PL mode.  */
+  if (! TARGET_PL)
+    {
+      for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
+	fixed_regs[i] = 1, reg_names[i] = "";
+    }
 }
 
 
@@ -4169,6 +4191,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("fxsr",	OPT_mfxsr),
     IX86_ATTR_ISA ("xsave",	OPT_mxsave),
     IX86_ATTR_ISA ("xsaveopt",	OPT_mxsaveopt),
+    IX86_ATTR_ISA ("pl",       OPT_mpl),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -5334,7 +5357,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
     return size;
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
-  if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
+  if (aggregate_value_p (TREE_TYPE (funtype), fundecl ? fundecl : funtype)
       && !ix86_keep_aggregate_return_pointer (funtype))
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
@@ -5669,6 +5692,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
       cum->nregs = (cum->call_abi == SYSV_ABI
                    ? X86_64_REGPARM_MAX
                    : X86_64_MS_REGPARM_MAX);
+
+      /* All bound registers are available for argument passing.  */
+      cum->bnd_nregs = LAST_BND_REG - FIRST_BND_REG + 1;
     }
   if (TARGET_SSE)
     {
@@ -5710,6 +5736,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->warn_avx = 0;
 	  cum->warn_sse = 0;
 	  cum->warn_mmx = 0;
+	  cum->bnd_nregs = 0;
 	  return;
 	}
 
@@ -5730,12 +5757,15 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	    }
 	  else
 	    cum->nregs = ix86_function_regparm (fntype, fndecl);
+	  cum->bnd_nregs = cum->nregs;
 	}
 
       /* Set up the number of SSE registers used for passing SFmode
 	 and DFmode arguments.  Warn for mismatching ABI.  */
       cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl, true);
     }
+
+  cum->bnd_regno = FIRST_BND_REG;
 }
 
 /* Return the "natural" mode for TYPE.  In most cases, this is just TYPE_MODE.
@@ -5864,9 +5894,16 @@ merge_classes (enum x86_64_reg_class class1, enum x86_64_reg_class class2)
     return X86_64_MEMORY_CLASS;
 
   /* Rule #4: If one of the classes is INTEGER, the result is INTEGER.  */
+  /* Rule #4.1 If one of the classes is BOUNDED, the result is BOUNDED.  */
   if ((class1 == X86_64_INTEGERSI_CLASS && class2 == X86_64_SSESF_CLASS)
       || (class2 == X86_64_INTEGERSI_CLASS && class1 == X86_64_SSESF_CLASS))
     return X86_64_INTEGERSI_CLASS;
+  if ((class1 == X86_64_BOUNDED_INTEGERSI_CLASS && class2 == X86_64_SSESF_CLASS)
+      || (class2 == X86_64_BOUNDED_INTEGERSI_CLASS && class1 == X86_64_SSESF_CLASS))
+    return X86_64_BOUNDED_INTEGERSI_CLASS;
+  if (class1 == X86_64_BOUNDED_INTEGER_CLASS || class1 == X86_64_BOUNDED_INTEGERSI_CLASS
+      || class2 == X86_64_BOUNDED_INTEGER_CLASS || class2 == X86_64_BOUNDED_INTEGERSI_CLASS)
+    return X86_64_BOUNDED_INTEGER_CLASS;
   if (class1 == X86_64_INTEGER_CLASS || class1 == X86_64_INTEGERSI_CLASS
       || class2 == X86_64_INTEGER_CLASS || class2 == X86_64_INTEGERSI_CLASS)
     return X86_64_INTEGER_CLASS;
@@ -5899,7 +5936,8 @@ merge_classes (enum x86_64_reg_class class1, enum x86_64_reg_class class2)
 
 static int
 classify_argument (enum machine_mode mode, const_tree type,
-		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset)
+		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset,
+		   bool named)
 {
   HOST_WIDE_INT bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
@@ -5992,7 +6030,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 		      num = classify_argument (TYPE_MODE (type), type,
 					       subclasses,
 					       (int_bit_position (field)
-						+ bit_offset) % 256);
+						+ bit_offset) % 256, named);
 		      if (!num)
 			return 0;
 		      pos = (int_bit_position (field)
@@ -6010,7 +6048,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	  {
 	    int num;
 	    num = classify_argument (TYPE_MODE (TREE_TYPE (type)),
-				     TREE_TYPE (type), subclasses, bit_offset);
+				     TREE_TYPE (type), subclasses, bit_offset, named);
 	    if (!num)
 	      return 0;
 
@@ -6041,7 +6079,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 
 		  num = classify_argument (TYPE_MODE (TREE_TYPE (field)),
 					   TREE_TYPE (field), subclasses,
-					   bit_offset);
+					   bit_offset, named);
 		  if (!num)
 		    return 0;
 		  for (i = 0; i < num; i++)
@@ -6154,12 +6192,18 @@ classify_argument (enum machine_mode mode, const_tree type,
 
 	if (size <= 32)
 	  {
-	    classes[0] = X86_64_INTEGERSI_CLASS;
+	    /* Pass bound for pointers and unnamed integers.  */
+	    classes[0] = flag_pl && ((type && BOUNDED_TYPE_P (type)) || !named)
+	      ? X86_64_BOUNDED_INTEGERSI_CLASS
+	      : X86_64_INTEGERSI_CLASS;
 	    return 1;
 	  }
 	else if (size <= 64)
 	  {
-	    classes[0] = X86_64_INTEGER_CLASS;
+	    /* Pass bound for pointers and unnamed integers.  */
+	    classes[0] = flag_pl && ((type && BOUNDED_TYPE_P (type)) || !named)
+	      ? X86_64_BOUNDED_INTEGER_CLASS
+	      : X86_64_INTEGER_CLASS;
 	    return 1;
 	  }
 	else if (size <= 64+32)
@@ -6259,6 +6303,8 @@ classify_argument (enum machine_mode mode, const_tree type,
     case V8QImode:
       classes[0] = X86_64_SSE_CLASS;
       return 1;
+    case BND32mode:
+    case BND64mode:
     case BLKmode:
     case VOIDmode:
       return 0;
@@ -6283,13 +6329,14 @@ classify_argument (enum machine_mode mode, const_tree type,
    class.  Return 0 iff parameter should be passed in memory.  */
 static int
 examine_argument (enum machine_mode mode, const_tree type, int in_return,
-		  int *int_nregs, int *sse_nregs)
+		  int *int_nregs, int *sse_nregs, int *bnd_nregs, bool named)
 {
   enum x86_64_reg_class regclass[MAX_CLASSES];
-  int n = classify_argument (mode, type, regclass, 0);
+  int n = classify_argument (mode, type, regclass, 0, named);
 
   *int_nregs = 0;
   *sse_nregs = 0;
+  *bnd_nregs = 0;
   if (!n)
     return 0;
   for (n--; n >= 0; n--)
@@ -6298,6 +6345,11 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	(*int_nregs)++;
+	break;
+      case X86_64_BOUNDED_INTEGER_CLASS:
+      case X86_64_BOUNDED_INTEGERSI_CLASS:
+	(*int_nregs)++;
+	(*bnd_nregs)++;
 	break;
       case X86_64_SSE_CLASS:
       case X86_64_SSESF_CLASS:
@@ -6326,7 +6378,8 @@ examine_argument (enum machine_mode mode, const_tree type, int in_return,
 static rtx
 construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     const_tree type, int in_return, int nintregs, int nsseregs,
-		     const int *intreg, int sse_regno)
+		     const int *intreg, int sse_regno,
+		     int bnd_regno, bool named)
 {
   /* The following variables hold the static issued_error state.  */
   static bool issued_sse_arg_error;
@@ -6340,15 +6393,16 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   int n;
   int i;
   int nexps = 0;
-  int needed_sseregs, needed_intregs;
+  int needed_sseregs, needed_intregs, needed_bndregs;
   rtx exp[MAX_CLASSES];
   rtx ret;
 
-  n = classify_argument (mode, type, regclass, 0);
+  n = classify_argument (mode, type, regclass, 0, named);
   if (!n)
     return NULL;
+
   if (!examine_argument (mode, type, in_return, &needed_intregs,
-			 &needed_sseregs))
+			 &needed_sseregs, &needed_bndregs, named))
     return NULL;
   if (needed_intregs > nintregs || needed_sseregs > nsseregs)
     return NULL;
@@ -6391,7 +6445,9 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 
   /* First construct simple cases.  Avoid SCmode, since we want to use
      single register to pass this type.  */
-  if (n == 1 && mode != SCmode)
+  if (n == 1 && mode != SCmode
+      && regclass[0] != X86_64_BOUNDED_INTEGER_CLASS
+      && regclass[0] != X86_64_BOUNDED_INTEGERSI_CLASS)
     switch (regclass[0])
       {
       case X86_64_INTEGER_CLASS:
@@ -6448,6 +6504,17 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
         {
 	  case X86_64_NO_CLASS:
 	    break;
+	  case X86_64_BOUNDED_INTEGER_CLASS:
+	  case X86_64_BOUNDED_INTEGERSI_CLASS:
+	    exp [nexps++]
+	      = gen_rtx_EXPR_LIST (VOIDmode,
+				   bnd_regno <= LAST_BND_REG
+				   ? gen_rtx_REG (BNDmode, bnd_regno)
+				   : GEN_INT (bnd_regno - LAST_BND_REG),
+				   GEN_INT (i*8));
+	    bnd_regno++;
+	    /* FALLTHRU */
+
 	  case X86_64_INTEGER_CLASS:
 	  case X86_64_INTEGERSI_CLASS:
 	    /* Merge TImodes on aligned occasions here too.  */
@@ -6559,6 +6626,11 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
+      if (flag_pl && type && BOUNDED_TYPE_P (type))
+	{
+	  cum->bnd_nregs--;
+	  cum->bnd_regno++;
+	}
 
       if (cum->nregs <= 0)
 	{
@@ -6630,19 +6702,23 @@ static void
 function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 			 const_tree type, HOST_WIDE_INT words, bool named)
 {
-  int int_nregs, sse_nregs;
+  int int_nregs, sse_nregs, bnd_nregs, exam;
 
   /* Unnamed 256bit vector mode parameters are passed on stack.  */
   if (!named && VALID_AVX256_REG_MODE (mode))
     return;
 
-  if (examine_argument (mode, type, 0, &int_nregs, &sse_nregs)
+  exam = examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs, named);
+
+  if (exam
       && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs)
     {
       cum->nregs -= int_nregs;
       cum->sse_nregs -= sse_nregs;
+      cum->bnd_nregs -= bnd_nregs;
       cum->regno += int_nregs;
       cum->sse_regno += sse_nregs;
+      cum->bnd_regno += bnd_nregs;
     }
   else
     {
@@ -6750,7 +6826,22 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      if (regno == AX_REG)
 		regno = CX_REG;
 	    }
-	  return gen_rtx_REG (mode, regno);
+
+	  if (flag_pl && type && BOUNDED_TYPE_P (type))
+	    {
+	      rtx bnd = gen_rtx_EXPR_LIST (VOIDmode,
+					   gen_rtx_REG (BNDmode, cum->bnd_regno),
+					   const0_rtx);
+	      rtx val = gen_rtx_EXPR_LIST (VOIDmode,
+					   gen_rtx_REG (mode, regno),
+					   const0_rtx);
+	      rtx ret = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+	      XVECEXP (ret, 0, 0) = bnd;
+	      XVECEXP (ret, 0, 1) = val;
+	      return ret;
+	    }
+	  else
+	    return gen_rtx_REG (mode, regno);
 	}
       break;
 
@@ -6858,7 +6949,7 @@ function_arg_64 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
   return construct_container (mode, orig_mode, type, 0, cum->nregs,
 			      cum->sse_nregs,
 			      &x86_64_int_parameter_registers [cum->regno],
-			      cum->sse_regno);
+			      cum->sse_regno, cum->bnd_regno, named);
 }
 
 static rtx
@@ -7227,6 +7318,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 		   const_tree fntype, const_tree fn)
 {
   unsigned int regno;
+  rtx res;
 
   /* 8-byte vector modes in %mm0. See ix86_return_in_memory for where
      we normally prevent this case when mmx is not available.  However
@@ -7248,6 +7340,10 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   /* Floating point return values in %st(0) (unless -mno-fp-ret-in-387).  */
   else if (X87_FLOAT_MODE_P (mode) && TARGET_FLOAT_RETURNS_IN_80387)
     regno = FIRST_FLOAT_REG;
+
+  /* Bounds are returnd in the first bound register.  */
+  else if (mode == BND32mode)
+    regno = FIRST_BND_REG;
   else
     /* Most things go in %eax.  */
     regno = AX_REG;
@@ -7265,7 +7361,17 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   /* OImode shouldn't be used directly.  */
   gcc_assert (mode != OImode);
 
-  return gen_rtx_REG (orig_mode, regno);
+  res = gen_rtx_REG (orig_mode, regno);
+
+  if (flag_pl && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
+    {
+      rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
+      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
+      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+    }
+
+  return res;
 }
 
 static rtx
@@ -7311,7 +7417,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   ret = construct_container (mode, orig_mode, valtype, 1,
 			     X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
-			     x86_64_int_return_registers, 0);
+			     x86_64_int_return_registers, 0, FIRST_BND_REG, true);
 
   /* For zero sized structures, construct_container returns NULL, but we
      need to keep rest of compiler happy by returning meaningful value.  */
@@ -7322,11 +7428,15 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 }
 
 static rtx
-function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
+function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
+		      const_tree valtype)
 {
   unsigned int regno = AX_REG;
+  rtx res;
 
-  if (TARGET_SSE)
+  if (mode == BND64mode)
+    regno = FIRST_BND_REG;
+  else if (TARGET_SSE)
     {
       switch (GET_MODE_SIZE (mode))
         {
@@ -7344,7 +7454,19 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
 	  break;
         }
     }
-  return gen_rtx_REG (orig_mode, regno);
+
+  res = gen_rtx_REG (orig_mode, regno);
+
+  if (flag_pl && BOUNDED_TYPE_P (valtype))
+    {
+      rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+			    FIRST_BND_REG);
+      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
+      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+    }
+
+  return res;
 }
 
 static rtx
@@ -7359,7 +7481,7 @@ ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
   fntype = fn ? TREE_TYPE (fn) : fntype_or_decl;
 
   if (TARGET_64BIT && ix86_function_type_abi (fntype) == MS_ABI)
-    return function_value_ms_64 (orig_mode, mode);
+    return function_value_ms_64 (orig_mode, mode, valtype);
   else if (TARGET_64BIT)
     return function_value_64 (orig_mode, mode, valtype);
   else
@@ -7462,8 +7584,9 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
 static bool ATTRIBUTE_UNUSED
 return_in_memory_64 (const_tree type, enum machine_mode mode)
 {
-  int needed_intregs, needed_sseregs;
-  return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs);
+  int needed_intregs, needed_sseregs, needed_bndregs;
+  return !examine_argument (mode, type, 1, &needed_intregs, &needed_sseregs,
+			    &needed_bndregs, true);
 }
 
 static bool ATTRIBUTE_UNUSED
@@ -7651,7 +7774,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 {
   rtx save_area, mem;
   alias_set_type set;
-  int i, max;
+  int i, max, bnd_reg;
 
   /* GPR size of varargs save area.  */
   if (cfun->va_list_gpr_size)
@@ -7676,6 +7799,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (max > X86_64_REGPARM_MAX)
     max = X86_64_REGPARM_MAX;
 
+  bnd_reg = cum->bnd_regno;
   for (i = cum->regno; i < max; i++)
     {
       mem = gen_rtx_MEM (word_mode,
@@ -7685,6 +7809,35 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       emit_move_insn (mem,
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
+      if (flag_pl)
+	{
+	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
+	  rtx ptr = gen_rtx_REG (DImode,
+				 x86_64_int_parameter_registers[i]);
+	  rtx bounds;
+
+	  if (bnd_reg <= LAST_BND_REG)
+	    bounds = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+				  bnd_reg);
+	  else
+	    {
+	      rtx ldx_addr;
+	      if (bnd_reg == LAST_BND_REG + 1)
+		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -8);
+	      else
+		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+	      bounds = gen_reg_rtx (TARGET_64BIT ? BND64mode : BND32mode);
+	      emit_insn (TARGET_64BIT
+			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
+			 : gen_bnd32_ldx (bounds, ldx_addr, ptr));
+	    }
+
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_stx (addr, ptr, bounds)
+		     : gen_bnd32_stx (addr, ptr, bounds));
+
+	  bnd_reg++;
+	}
     }
 
   if (ix86_varargs_fpr_size)
@@ -7942,7 +8095,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   int size, rsize;
   tree lab_false, lab_over = NULL_TREE;
   tree addr, t2;
-  rtx container;
+  rtx container, bndcontainer = NULL;
   int indirect_p = 0;
   tree ptrtype;
   enum machine_mode nat_mode;
@@ -7990,7 +8143,8 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       container = construct_container (nat_mode, TYPE_MODE (type),
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
-				       0);
+				       0, 0, true);
+      pl_split_returned_reg (container, &container, &bndcontainer);
       break;
     }
 
@@ -8000,14 +8154,15 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   if (container)
     {
-      int needed_intregs, needed_sseregs;
+      int needed_intregs, needed_sseregs, needed_bndregs;
       bool need_temp;
       tree int_addr, sse_addr;
 
       lab_false = create_artificial_label (UNKNOWN_LOCATION);
       lab_over = create_artificial_label (UNKNOWN_LOCATION);
 
-      examine_argument (nat_mode, type, 0, &needed_intregs, &needed_sseregs);
+      examine_argument (nat_mode, type, 0, &needed_intregs, &needed_sseregs,
+			&needed_bndregs, true);
 
       need_temp = (!REG_P (container)
 		   && ((needed_intregs && TYPE_ALIGN (type) > 64)
@@ -11973,6 +12128,30 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
   return !ix86_legitimate_constant_p (mode, x);
 }
 
+/* Nonzero if the sum of passed values VAL1 and VAL2 is
+   a valid address operand.  If IS_INDEX is non zero then
+   VAL2 must be an index in reulting address.  Otherwise VAL2
+   is a base of resultng address.  */
+bool
+ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index)
+{
+  enum machine_mode mode = GET_MODE (val1);
+
+  if (is_index)
+    val2 = gen_rtx_MULT (mode, val2, const1_rtx);
+
+  return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
+  /*
+  if (!REG_P (val2))
+    return false;
+
+  if (is_index && (REGNO (val2) == VIRTUAL_INCOMING_ARGS_REGNUM
+		   || REGNO (val2) == VIRTUAL_STACK_VARS_REGNUM
+		   || REGNO (val2) == VIRTUAL_OUTGOING_ARGS_REGNUM))
+    return false;
+
+  return true; */
+}
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
@@ -13919,7 +14098,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) &&  ! ANY_BND_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -14033,6 +14212,7 @@ get_some_local_dynamic_name (void)
    ~ -- print "i" if TARGET_AVX2, "f" otherwise.
    @ -- print a segment register of thread base pointer load
    ^ -- print addr32 prefix if TARGET_64BIT and Pmode != word_mode
+   ! -- print PL prefix for jxx/call/ret instructions if required.
  */
 
 void
@@ -14523,6 +14703,12 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("addr32 ", file);
 	  return;
 
+	case '!':
+	  if (TARGET_PL && flag_pl)
+	    /*fputs ("repne ", file);*/
+	    fputs (".byte 0xf2\n\t", file);
+	  return;
+
 	default:
 	    output_operand_lossage ("invalid operand code '%c'", code);
 	}
@@ -14663,7 +14849,7 @@ static bool
 ix86_print_operand_punct_valid_p (unsigned char code)
 {
   return (code == '@' || code == '*' || code == '+' || code == '&'
-	  || code == ';' || code == '~' || code == '^');
+	  || code == ';' || code == '~' || code == '^' || code == '!');
 }
 
 /* Print a memory operand whose address is ADDR.  */
@@ -23570,7 +23756,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	XMM12_REG, XMM13_REG, XMM14_REG,
 	XMM15_REG, SI_REG, DI_REG
   };
-  rtx vec[ARRAY_SIZE (clobbered_registers) + 3];
+  rtx vec[ARRAY_SIZE (clobbered_registers) + 4];
   rtx use = NULL, call;
   unsigned int vec_len;
 
@@ -23622,6 +23808,18 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     call = gen_rtx_SET (VOIDmode, retval, call);
   vec[vec_len++] = call;
 
+  if (retval)
+    {
+      rtx b0 = gen_rtx_REG (BND64mode, FIRST_BND_REG);
+      rtx unspec0 = gen_rtx_UNSPEC (BND64mode,
+				    gen_rtvec (1, b0), UNSPEC_BNDRET);
+      rtx b1 = gen_rtx_REG (BND64mode, FIRST_BND_REG + 1);
+      rtx unspec1 = gen_rtx_UNSPEC (BND64mode,
+				    gen_rtvec (1, b1), UNSPEC_BNDRET);
+      vec[vec_len++] = gen_rtx_SET (BND64mode, b0, unspec0);
+      vec[vec_len++] = gen_rtx_SET (BND64mode, b1, unspec1);
+    }
+
   if (pop)
     {
       pop = gen_rtx_PLUS (Pmode, stack_pointer_rtx, pop);
@@ -23666,13 +23864,13 @@ ix86_output_call_insn (rtx insn, rtx call_op)
   if (SIBLING_CALL_P (insn))
     {
       if (direct_p)
-	xasm = "jmp\t%P0";
+	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
       else if (TARGET_SEH)
-	xasm = "rex.W jmp %A0";
+	xasm = "%!rex.W jmp %A0";
       else
-	xasm = "jmp\t%A0";
+	xasm = "%!jmp\t%A0";
 
       output_asm_insn (xasm, &call_op);
       return "";
@@ -23709,9 +23907,9 @@ ix86_output_call_insn (rtx insn, rtx call_op)
     }
 
   if (direct_p)
-    xasm = "call\t%P0";
+    xasm = "%!call\t%P0";
   else
-    xasm = "call\t%A0";
+    xasm = "%!call\t%A0";
 
   output_asm_insn (xasm, &call_op);
 
@@ -26569,6 +26767,30 @@ enum ix86_builtins
   IX86_BUILTIN_XABORT,
   IX86_BUILTIN_XTEST,
 
+  /* PL */
+  IX86_BUILTIN_BNDMK32,
+  IX86_BUILTIN_BNDMK64,
+  IX86_BUILTIN_BNDSTX32,
+  IX86_BUILTIN_BNDSTX64, 
+  IX86_BUILTIN_BNDLDX32,
+  IX86_BUILTIN_BNDLDX64,
+  IX86_BUILTIN_BNDCL32,
+  IX86_BUILTIN_BNDCL64,
+  IX86_BUILTIN_BNDCU32,
+  IX86_BUILTIN_BNDCU64,
+  IX86_BUILTIN_BNDRET32,
+  IX86_BUILTIN_BNDRET64,
+  IX86_BUILTIN_BNDBIND32,
+  IX86_BUILTIN_BNDBIND64,
+  IX86_BUILTIN_BNDINT_USER32,
+  IX86_BUILTIN_BNDINT_USER64,
+  IX86_BUILTIN_BNDBIND_INT32,
+  IX86_BUILTIN_BNDBIND_INT64,
+  IX86_BUILTIN_BNDINT32,
+  IX86_BUILTIN_BNDINT64,
+  IX86_BUILTIN_ARG_BND32,
+  IX86_BUILTIN_ARG_BND64,
+
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
   IX86_BUILTIN_BEXTR64,
@@ -26939,6 +27161,16 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xbegin, "__builtin_ia32_xbegin", IX86_BUILTIN_XBEGIN, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xend, "__builtin_ia32_xend", IX86_BUILTIN_XEND, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
+
+  /* PL */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PVOID_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -27764,6 +27996,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph, "__builtin_ia32_vcvtps2ph", IX86_BUILTIN_CVTPS2PH, UNKNOWN, (int) V8HI_FTYPE_V4SF_INT },
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph256, "__builtin_ia32_vcvtps2ph256", IX86_BUILTIN_CVTPS2PH256, UNKNOWN, (int) V8HI_FTYPE_V8SF_INT },
 
+  /* PL */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
+
   /* BMI2 */
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_si3, "__builtin_ia32_bzhi_si", IX86_BUILTIN_BZHI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_di3, "__builtin_ia32_bzhi_di", IX86_BUILTIN_BZHI64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
@@ -28470,6 +28706,32 @@ ix86_init_mmx_sse_builtins (void)
       ftype = (enum ix86_builtin_func_type) d->flag;
       def_builtin_const (d->mask, d->name, ftype, d->code);
     }
+
+  /* Add PL instructions.  */
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds32",
+	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds64",
+	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_intersect_bounds32",
+	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_intersect_bounds64",
+	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int32",
+	       PVOID_FTYPE_PVOID_BND32_PVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int64",
+	       PVOID_FTYPE_PVOID_BND64_PVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
+	       BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
+	       BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint32",
+	       BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint64",
+	       BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_arg_bnd32",
+	       BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
+  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_arg_bnd64",
+	       BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
 }
 
 /* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
@@ -29835,6 +30097,10 @@ ix86_init_builtin_types (void)
 {
   tree float128_type_node, float80_type_node;
 
+  lang_hooks.types.register_builtin_type (TARGET_64BIT ? 
+                                            bound64_type_node :
+                                            bound32_type_node, "__bnd");
+
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
   if (TYPE_MODE (float80_type_node) != XFmode)
@@ -29852,6 +30118,8 @@ ix86_init_builtin_types (void)
   TYPE_PRECISION (float128_type_node) = 128;
   layout_type (float128_type_node);
   lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
+
+  
 
   /* This macro is built by i386-builtin-types.awk.  */
   DEFINE_BUILTIN_PRIMITIVE_TYPES;
@@ -31535,6 +31803,287 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
+    case IX86_BUILTIN_BNDMK32:
+    case IX86_BUILTIN_BNDMK64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      /* Builtin arg1 is size of block but instruction op1 should
+	 be (size - 1).  */
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (fold_build2 (PLUS_EXPR, TREE_TYPE (arg1),
+					arg1, integer_minus_one_node));
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd64_mk (target, op0, op1)
+                 : gen_bnd32_mk (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDSTX32:
+    case IX86_BUILTIN_BNDSTX64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+      op2 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+
+      emit_insn (TARGET_64BIT 
+                 ? gen_bnd64_stx (op0, op1, op2) 
+                 : gen_bnd32_stx (op0, op1, op2));
+      return 0;
+
+    case IX86_BUILTIN_BNDLDX32:
+    case IX86_BUILTIN_BNDLDX64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      /* Avoid registers which connot be used as index.  */
+      if (REGNO (op1) == VIRTUAL_INCOMING_ARGS_REGNUM
+	  || REGNO (op1) == VIRTUAL_STACK_VARS_REGNUM
+	  || REGNO (op1) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  emit_move_insn (temp, op1);
+	  op1 = temp;
+	}
+
+      /* If op1 was a register originally then it may have
+	 mode other than Pmode.  We need to extend in such
+	 case because bndldx may work only with Pmode regs.  */
+      if (GET_MODE (op1) != Pmode)
+	{
+	  rtx ext = gen_rtx_ZERO_EXTEND (Pmode, op1);
+	  op1 = gen_reg_rtx (Pmode);
+	  emit_move_insn (op1, ext);
+	}
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_ldx (target, op0, op1)
+                 : gen_bnd32_ldx (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDCL32:
+    case IX86_BUILTIN_BNDCL64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_cl (op0, op1)
+                 : gen_bnd32_cl (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_BNDCU32:
+    case IX86_BUILTIN_BNDCU64: 
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0); 
+      op1 = expand_normal (arg1); 
+
+      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_cu (op0, op1) 
+                 : gen_bnd32_cu (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_BNDRET32:
+    case IX86_BUILTIN_BNDRET64:
+      target = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
+			    FIRST_BND_REG);
+      return target;
+
+    case IX86_BUILTIN_BNDBIND32:
+    case IX86_BUILTIN_BNDBIND64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+
+      /* Size was passed but we need to use (size - 1) in bndmk.  */
+      arg2 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg2), arg2,
+			  integer_minus_one_node);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+
+      op1 = force_reg (Pmode, op1);
+      op2 = force_reg (Pmode, op2);
+
+      /* Bounds are bound to return value, so put them into b0.  */
+      emit_insn( TARGET_64BIT
+		 ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
+				 op1, op2)
+		 : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
+				 op1, op2));
+      return op0;
+
+    case IX86_BUILTIN_BNDBIND_INT32:
+    case IX86_BUILTIN_BNDBIND_INT64:
+      {
+	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
+	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
+	rtx m1, m1h1, m1h2, lb, ub, t1, t2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	arg1 = CALL_EXPR_ARG (exp, 1);
+	arg2 = CALL_EXPR_ARG (exp, 2);
+	arg3 = CALL_EXPR_ARG (exp, 3);
+
+	/* Size was passed but we need to use (size - 1) as for bndmk.  */
+	arg3 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg3), arg3,
+			    integer_minus_one_node);
+
+	/* Add LB to size and inverse to get UB.  */
+	arg3 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg3), arg3, arg2);
+	arg3 = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (arg3), arg3);
+
+	op0 = expand_normal (arg0);
+	op1 = expand_normal (arg1);
+	lb = force_reg (hmode, expand_normal (arg2));
+	ub = force_reg (hmode, expand_normal (arg3));
+
+	/* We need to move bounds to memory before any computations.  */
+	if (!MEM_P (op1))
+	  {
+	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_insn (gen_move_insn (m1, op1));
+	  }
+	else
+	  m1 = op1;
+
+	/* Generate mem expression to be used for access to LB and UB.  */
+	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+
+	t1 = gen_reg_rtx (hmode);
+
+	/* Compute LB.  */
+	emit_move_insn (t1, m1h1);
+	t2 = ix86_expand_compare (LTU, t1, lb);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t2, lb, t1)));
+	emit_move_insn (m1h1, t1);
+
+
+	/* Compute UB.  UB are stored in 1's complement form.  Therefore
+	   we also use LTU here.  */
+	emit_move_insn (t1, m1h2);
+	t2 = ix86_expand_compare (LTU, t1, ub);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t2, ub, t1)));
+	emit_move_insn (m1h2, t1);
+
+	emit_move_insn (gen_rtx_REG (mode, FIRST_BND_REG), m1);
+
+	return op0;
+      }
+
+    case IX86_BUILTIN_BNDINT32:
+    case IX86_BUILTIN_BNDINT64:
+      {
+	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
+	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
+	rtx res = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	arg1 = CALL_EXPR_ARG (exp, 1);
+
+	op0 = expand_normal (arg0);
+	op1 = expand_normal (arg1);
+
+	/* We need to move bounds to memory before any computations.  */
+	if (!MEM_P (op0))
+	  {
+	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_insn (gen_move_insn (m1, op0));
+	  }
+	else
+	  m1 = op0;
+
+	if (!MEM_P (op1))
+	  {
+	    m2 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_move_insn (m2, op1);
+	  }
+	else
+	  m2 = op1;
+
+	/* Generate mem expression to be used for access to LB and UB.  */
+	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	m2h1 = gen_rtx_MEM (hmode, XEXP (m2, 0));
+	m2h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m2, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	rh1 = gen_rtx_MEM (hmode, XEXP (res, 0));
+	rh2 = gen_rtx_MEM (hmode,
+			   gen_rtx_PLUS (Pmode, XEXP (res, 0),
+					 GEN_INT (GET_MODE_SIZE (hmode))));
+
+	/* Allocate temporaries.  */
+	t1 = gen_reg_rtx (hmode);
+	t2 = gen_reg_rtx (hmode);
+
+	/* Compute LB.  */
+	emit_move_insn (t1, m1h1);
+	emit_move_insn (t2, m2h1);
+	t3 = ix86_expand_compare (LTU, t1, t2);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	emit_move_insn (rh1, t1);
+
+	/* Compute UB.  UB are stored in 1's complement form.  Therefore
+	   we also use LTU here.  */
+	emit_move_insn (t1, m1h2);
+	emit_move_insn (t2, m2h2);
+	t3 = ix86_expand_compare (LTU, t1, t2);
+	emit_insn (gen_rtx_SET (VOIDmode, t1,
+				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	emit_move_insn (rh2, t1);
+
+	return res;
+      }
+
+    case IX86_BUILTIN_ARG_BND32:
+    case IX86_BUILTIN_ARG_BND64:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+
+      gcc_assert (TREE_CODE (arg0) == SSA_NAME);
+      arg0 = SSA_NAME_VAR (arg0);
+
+      gcc_assert (TREE_CODE (arg0) == PARM_DECL);
+      gcc_assert (DECL_BOUNDS_RTL (arg0));
+
+      target = DECL_BOUNDS_RTL (arg0);
+      return target;
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
@@ -32307,6 +32856,166 @@ addcarryx:
 					    d->flag, d->comparison);
 
   gcc_unreachable ();
+}
+
+static tree
+ix86_builtin_pl_function (unsigned fcode)
+{
+  switch (fcode)
+    {
+    case BUILT_IN_PL_BNDMK:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDMK64]
+	: ix86_builtins[IX86_BUILTIN_BNDMK32];
+
+    case BUILT_IN_PL_BNDSTX:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDSTX64]
+	: ix86_builtins[IX86_BUILTIN_BNDSTX32];
+
+    case BUILT_IN_PL_BNDLDX:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDLDX64]
+        : ix86_builtins[IX86_BUILTIN_BNDLDX32];
+
+    case BUILT_IN_PL_BNDCL:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCL64]
+        : ix86_builtins[IX86_BUILTIN_BNDCL32];
+
+    case BUILT_IN_PL_BNDCU:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
+        : ix86_builtins[IX86_BUILTIN_BNDCU32];
+
+    case BUILT_IN_PL_BNDRET:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]
+	: ix86_builtins[IX86_BUILTIN_BNDRET32];
+
+    case BUILT_IN_PL_INTERSECT:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT64]
+	: ix86_builtins[IX86_BUILTIN_BNDINT32];
+
+    case BUILT_IN_PL_USER_INTERSECT:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT_USER64]
+	: ix86_builtins[IX86_BUILTIN_BNDINT_USER32];
+
+    case BUILT_IN_PL_BIND_INTERSECT:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDBIND_INT64]
+	: ix86_builtins[IX86_BUILTIN_BNDBIND_INT32];
+
+    case BUILT_IN_PL_ARG_BND:
+      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_ARG_BND64]
+	: ix86_builtins[IX86_BUILTIN_ARG_BND32];
+
+    default:
+      return NULL_TREE;
+    }
+
+  gcc_unreachable ();
+}
+
+static rtx
+ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
+{
+  rtx addr = NULL;
+  rtx reg;
+
+  if (REG_P (slot))
+    {
+      ptr = slot;
+
+      /* We do not expect non register bounds for register
+	 parameters other than R8 and R9.  */
+      gcc_assert (REGNO (ptr) == R8_REG || REGNO (ptr) == R9_REG);
+      gcc_assert (bnd == const1_rtx || bnd == const2_rtx);
+
+      /* Here we have the case when more than five pointers are
+	 passed on registers.  In this case we are out of bound
+	 registers and have to use bndldx to load bound.  RA and
+	 RA - 8 are used for address translation in bndldx.  */
+      if (bnd == const1_rtx)
+	addr = plus_constant (Pmode, arg_pointer_rtx, -8);
+      else
+	addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+    }
+  else if (MEM_P (slot))
+    {
+      if (!ptr)
+	ptr = copy_to_mode_reg (Pmode, slot);
+      addr = XEXP (slot, 0);
+      addr = force_reg (Pmode, addr);
+    }
+  else
+    gcc_unreachable ();
+
+  ptr = force_reg (Pmode, ptr);
+  /* If ptr was a register originally then it may have
+     mode other than Pmode.  We need to extend in such
+     case because bndldx may work only with Pmode regs.  */
+  if (GET_MODE (ptr) != Pmode)
+    {
+      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
+      ptr = gen_reg_rtx (Pmode);
+      emit_move_insn (ptr, ext);
+    }
+
+  reg = gen_reg_rtx (BNDmode);
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd64_ldx (reg, addr, ptr)
+	     : gen_bnd32_ldx (reg, addr, ptr));
+
+  return reg;
+}
+
+static rtx
+ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
+{
+  if (REG_P (addr))
+    {
+      /* Non register bounds comes only for parameters in
+	 R8 and R9.  */
+      gcc_assert (REGNO (addr) == R8_REG || REGNO (addr) == R9_REG);
+      gcc_assert (to == const1_rtx || to == const2_rtx);
+
+      if (to == const1_rtx)
+	addr = plus_constant (Pmode, stack_pointer_rtx, -8);
+      else
+	addr = plus_constant (Pmode, stack_pointer_rtx, -16);
+    }
+  else if (MEM_P (addr))
+    addr = XEXP (addr, 0);
+  else
+    gcc_unreachable ();
+
+  /* Of ptr is not int at all then we are trying to store bounds
+     for something which is not pointer.  It may happen when we
+     store args for vararg call.  Just ignore such stores.  */
+  /*  if (GET_MODE_CLASS (GET_MODE (ptr)) != MODE_INT)
+      return NULL_RTX;*/
+
+  /* Should we also ignore integer modes of incorrect size?.  */
+  ptr = force_reg (Pmode, ptr);
+  /*if (GET_MODE (ptr) != Pmode
+      && GET_MODE (ptr) != (TARGET_64BIT ? DImode : SImode))
+    {
+      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
+      ptr = gen_reg_rtx (Pmode);
+      emit_move_insn (ptr, ext);
+      }*/
+
+  /* Avoid registers which connot be used as index.  */
+  if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM
+      || REGNO (ptr) == VIRTUAL_STACK_VARS_REGNUM
+      || REGNO (ptr) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+    {
+      rtx temp = gen_reg_rtx (Pmode);
+      emit_move_insn (temp, ptr);
+      ptr = temp;
+    }
+
+  bounds = force_reg (GET_MODE (bounds), bounds);
+
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd64_stx (addr, ptr, bounds)
+	     : gen_bnd32_stx (addr, ptr, bounds));
+
+  return NULL_RTX;
 }
 
 /* Returns a function decl for a vectorized version of the builtin function
@@ -33434,6 +34143,7 @@ ix86_class_likely_spilled_p (reg_class_t rclass)
       case SSE_FIRST_REG:
       case FP_TOP_REG:
       case FP_SECOND_REG:
+      case BND_REGS:
 	return true;
 
       default:
@@ -33777,6 +34487,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
+  if (TARGET_PL && BND_REGNO_P (regno))
+    return VALID_BND_REG_MODE(mode);
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -34552,6 +35264,10 @@ x86_order_regs_for_local_alloc (void)
    for (i = FIRST_SSE_REG; i <= LAST_SSE_REG; i++)
      reg_alloc_order [pos++] = i;
    for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
+     reg_alloc_order [pos++] = i;
+
+   /* PL bound registers.  */
+   for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
      reg_alloc_order [pos++] = i;
 
    /* x87 registers.  */
@@ -41022,6 +41738,22 @@ ix86_fn_abi_va_list (tree fndecl)
     return sysv_va_list_type_node;
 }
 
+/* This function returns size of bounds for the calling abi
+   specific va_list node.  */
+
+static tree
+ix86_fn_abi_va_list_bounds_size (tree fndecl)
+{
+  if (!TARGET_64BIT)
+    return integer_zero_node;
+  gcc_assert (fndecl != NULL_TREE);
+
+  if (ix86_function_abi ((const_tree) fndecl) == MS_ABI)
+    return integer_zero_node;
+  else
+    return TYPE_SIZE (sysv_va_list_type_node);
+}
+
 /* Returns the canonical va_list type specified by TYPE. If there
    is no valid TYPE provided, it return NULL_TREE.  */
 
@@ -42146,6 +42878,15 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 
+#undef TARGET_BUILTIN_PL_FUNCTION
+#define TARGET_BUILTIN_PL_FUNCTION ix86_builtin_pl_function
+
+#undef TARGET_LOAD_BOUNDS_FOR_ARG
+#define TARGET_LOAD_BOUNDS_FOR_ARG ix86_load_bounds
+
+#undef TARGET_STORE_BOUNDS_FOR_ARG
+#define TARGET_STORE_BOUNDS_FOR_ARG ix86_store_bounds
+
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
   ix86_builtin_vectorized_function
@@ -42304,6 +43045,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_FN_ABI_VA_LIST
 #define TARGET_FN_ABI_VA_LIST ix86_fn_abi_va_list
+
+#undef TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+#define TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE ix86_fn_abi_va_list_bounds_size
 
 #undef TARGET_CANONICAL_VA_LIST_TYPE
 #define TARGET_CANONICAL_VA_LIST_TYPE ix86_canonical_va_list_type

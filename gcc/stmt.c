@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "params.h"
 #include "dumpfile.h"
+#include "tree-pl.h"
 
 
 /* Functions and data structures for expanding case statements.  */
@@ -1442,6 +1443,7 @@ expand_value_return (rtx val)
 
   tree decl = DECL_RESULT (current_function_decl);
   rtx return_reg = DECL_RTL (decl);
+
   if (return_reg != val)
     {
       tree funtype = TREE_TYPE (current_function_decl);
@@ -1483,6 +1485,7 @@ void
 expand_return (tree retval)
 {
   rtx result_rtl;
+  rtx bounds_rtl;
   rtx val = 0;
   tree retval_rhs;
 
@@ -1509,6 +1512,59 @@ expand_return (tree retval)
     retval_rhs = retval;
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
+
+  /* Put returned bounds to the right place.  */
+  bounds_rtl = DECL_BOUNDS_RTL (DECL_RESULT (current_function_decl));
+  if (bounds_rtl)
+    {
+      tree bounds
+	= pl_get_registered_bounds (DECL_RESULT (current_function_decl));
+      rtx addr, bnd;
+
+      if (bounds)
+	{
+	  bnd = expand_normal (bounds);
+	  gcc_assert (REG_P (bounds_rtl));
+	  emit_move_insn (bounds_rtl, bnd);
+	}
+      else if (REG_P (bounds_rtl))
+	{
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+	  bnd = targetm.calls.load_bounds_for_arg (addr, NULL, NULL);
+	  emit_move_insn (bounds_rtl, bnd);
+	}
+      else
+	{
+	  int n;
+
+	  gcc_assert (GET_CODE (bounds_rtl) == PARALLEL);
+
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+
+	  for (n = 0; n < XVECLEN (bounds_rtl, 0); n++)
+	    {
+	      rtx reg = XEXP (XVECEXP (bounds_rtl, 0, n), 0);
+	      rtx offs = XEXP (XVECEXP (bounds_rtl, 0, n), 1);
+	      rtx from = adjust_address (addr, Pmode, INTVAL (offs));
+	      rtx bnd = targetm.calls.load_bounds_for_arg (from, NULL, NULL);
+	      emit_move_insn (reg, bnd);
+	    }
+	}
+    }
+  else if (flag_pl
+	   && !BOUNDED_TYPE_P (TREE_TYPE (retval_rhs))
+	   && pl_type_has_pointer (TREE_TYPE (retval_rhs))
+	   && TREE_CODE (retval_rhs) != RESULT_DECL)
+    {
+      rtx addr = expand_normal (build_fold_addr_expr (retval_rhs));
+      addr = gen_rtx_MEM (Pmode, addr);
+
+      gcc_assert (MEM_P (result_rtl));
+
+      pl_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
+    }
 
   /* If we are returning the RESULT_DECL, then the value has already
      been stored into it, so we don't have to do anything special.  */

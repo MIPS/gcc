@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
+#include "tree-pl.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -2559,8 +2560,28 @@ expand_builtin_cexpi (tree exp, rtx target)
 
       /* Make sure not to fold the sincos call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-      expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
-				      call, 3, arg, top1, top2));
+      if (flag_pl)
+	{
+	  tree tmp, bnd1, bnd2;
+
+	  tmp = pl_build_make_bounds_call (top1,
+					   TYPE_SIZE_UNIT (TREE_TYPE (arg)));
+	  bnd1 = make_tree (bound_type_node,
+			    assign_temp (bound_type_node, 0, 1));
+	  expand_assignment (bnd1, tmp, false);
+
+	  tmp = pl_build_make_bounds_call (top2,
+					   TYPE_SIZE_UNIT (TREE_TYPE (arg)));
+	  bnd2 = make_tree (bound_type_node,
+			    assign_temp (bound_type_node, 0, 1));
+	  expand_assignment (bnd2, tmp, false);
+
+	  expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
+					  call, 5, arg, top1, bnd1, top2, bnd2));
+	}
+      else
+	expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
+					call, 3, arg, top1, top2));
     }
   else
     {
@@ -5806,6 +5827,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
+  tree orig_exp = exp;
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
@@ -5847,6 +5869,41 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	    expand_expr (arg, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	  return const0_rtx;
+	}
+    }
+
+  /* Currently none of builtin expand functions works with bounds.
+     To avoid modification of all expanders we just make a new call
+     expression without bound args.  The original expression is used
+     in case we expand builtin as a call.  */
+  if (flag_pl)
+    {
+      int new_arg_no = 0;
+      tree new_call;
+      tree arg;
+      call_expr_arg_iterator iter;
+      tree *new_args = XALLOCAVEC (tree, call_expr_nargs (exp));
+
+      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
+	if (!BOUND_TYPE_P (TREE_TYPE (arg)))
+	  new_args[new_arg_no++] = arg;
+
+      if (new_arg_no > 0)
+	{
+	  new_call = build_call_array (TREE_TYPE (exp), fndecl, new_arg_no, new_args);
+	  CALL_EXPR_STATIC_CHAIN (new_call) = CALL_EXPR_STATIC_CHAIN (exp);
+	  CALL_EXPR_FN (new_call) = CALL_EXPR_FN (exp);
+	  TREE_SIDE_EFFECTS (new_call) = TREE_SIDE_EFFECTS (exp);
+	  TREE_NOTHROW (new_call) = TREE_NOTHROW (exp);
+	  CALL_EXPR_TAILCALL (new_call) = CALL_EXPR_TAILCALL (exp);
+	  CALL_EXPR_RETURN_SLOT_OPT (new_call) = CALL_EXPR_RETURN_SLOT_OPT (exp);
+	  CALL_ALLOCA_FOR_VAR_P (new_call) = CALL_ALLOCA_FOR_VAR_P (exp);
+	  CALL_FROM_THUNK_P (new_call) = CALL_FROM_THUNK_P (exp);
+	  CALL_EXPR_VA_ARG_PACK (new_call) = CALL_EXPR_VA_ARG_PACK (exp);
+	  SET_EXPR_LOCATION (new_call, EXPR_LOCATION (exp));
+	  TREE_SET_BLOCK (new_call, TREE_BLOCK (exp));
+
+	  exp = new_call;
 	}
     }
 
@@ -6143,60 +6200,80 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
+      if (flag_pl)
+	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STPCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMPCPY:
+      if (flag_pl)
+	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMSET:
+      if (flag_pl)
+	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_BZERO:
+      if (flag_pl)
+	break;
       target = expand_builtin_bzero (exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
 	return target;
@@ -6204,6 +6281,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
+      if (flag_pl)
+	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
 	return target;
@@ -6830,6 +6909,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
+      if (flag_pl)
+	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
 	return target;
@@ -6863,13 +6944,25 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
 
+    case BUILT_IN_PL_BNDMK:
+    case BUILT_IN_PL_BNDSTX:
+    case BUILT_IN_PL_BNDCL:
+    case BUILT_IN_PL_BNDCU:
+    case BUILT_IN_PL_BNDLDX:
+    case BUILT_IN_PL_BNDRET:
+    case BUILT_IN_PL_INTERSECT:
+      /* Point Lookout expanding is target specific.
+	 No generic function should be used.  */
+      gcc_unreachable ();
+      break;
+
     default:	/* just do library call, if unknown builtin */
       break;
     }
 
   /* The switch statement above can drop through to cause the function
      to be called normally.  */
-  return expand_call (exp, target, ignore);
+  return expand_call (orig_exp, target, ignore);
 }
 
 /* Determine whether a tree node represents a call to a built-in
@@ -12105,6 +12198,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
   tree fntype = TREE_TYPE (current_function_decl);
   int nargs = call_expr_nargs (exp);
   tree arg;
+  int arg_no;
   /* There is good chance the current input_location points inside the
      definition of the va_start macro (perhaps on the token for
      builtin) in a system header, so warnings will not be emitted.
@@ -12121,12 +12215,18 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2))
+      if (va_start_p && (nargs != 2) && (nargs < 3 || nargs > 4 || !flag_pl))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
 	}
-      arg = CALL_EXPR_ARG (exp, 1);
+      arg_no = 1;
+      arg = CALL_EXPR_ARG (exp, arg_no);
+      if (flag_pl && BOUND_TYPE_P (TREE_TYPE (arg)))
+	{
+	  arg_no++;
+	  arg = CALL_EXPR_ARG (exp, arg_no);
+	}
     }
   /* We use __builtin_va_start (ap, 0, 0) or __builtin_next_arg (0, 0)
      when we checked the arguments and if needed issued a warning.  */
@@ -12141,12 +12241,13 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 		   "%<__builtin_next_arg%> called without an argument");
 	  return true;
 	}
-      else if (nargs > 1)
+      else if ((nargs > 1 && !flag_pl) || (nargs > 2 && flag_pl))
 	{
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;
 	}
-      arg = CALL_EXPR_ARG (exp, 0);
+      arg_no = 0;
+      arg = CALL_EXPR_ARG (exp, arg_no);
     }
 
   if (TREE_CODE (arg) == SSA_NAME)
@@ -12197,10 +12298,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	 as otherwise we could warn even for correct code like:
 	 void foo (int i, ...)
 	 { va_list ap; i++; va_start (ap, i); va_end (ap); }  */
-      if (va_start_p)
-	CALL_EXPR_ARG (exp, 1) = integer_zero_node;
-      else
-	CALL_EXPR_ARG (exp, 0) = integer_zero_node;
+      CALL_EXPR_ARG (exp, arg_no) = integer_zero_node;
     }
   return false;
 }

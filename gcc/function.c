@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
+#include "tree-pl.h"
 
 /* So we can assign to cfun in this file.  */
 #undef cfun
@@ -1619,6 +1620,10 @@ instantiate_virtual_regs_in_insn (rtx insn)
       x = recog_data.operand[i];
       switch (GET_CODE (x))
 	{
+	case PLUS:
+	  for_each_rtx (&x, instantiate_virtual_regs_in_rtx, NULL);
+	  break;
+
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
@@ -1983,7 +1988,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 {
   const_tree type = (TYPE_P (exp)) ? exp : TREE_TYPE (exp);
   int i, regno, nregs;
-  rtx reg;
+  rtx reg, bnd;
 
   if (fntype)
     switch (TREE_CODE (fntype))
@@ -2042,6 +2047,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   /* Make sure we have suitable call-clobbered regs to return
      the value in; if not, we must return it in memory.  */
   reg = hard_function_value (type, 0, fntype, 0);
+  pl_split_returned_reg (reg, &reg, &bnd);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -2072,6 +2078,13 @@ use_register_for_decl (const_tree decl)
 
   /* Honor addressability.  */
   if (TREE_ADDRESSABLE (decl))
+    return false;
+
+  /* Decl is implicitly addressible by bound stores and loads
+     if it is aggregate holding bounds.  */
+  if (flag_pl && TREE_TYPE (decl)
+      && !BOUNDED_TYPE_P (TREE_TYPE (decl))
+      && pl_type_has_pointer (TREE_TYPE (decl)))
     return false;
 
   /* Only register-like things go in registers.  */
@@ -2183,6 +2196,7 @@ struct assign_parm_data_one
   tree passed_type;
   rtx entry_parm;
   rtx stack_parm;
+  rtx bound_parm;
   enum machine_mode nominal_mode;
   enum machine_mode passed_mode;
   enum machine_mode promoted_mode;
@@ -2330,7 +2344,9 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* NAMED_ARG is a misnomer.  We really mean 'non-variadic'. */
   if (!cfun->stdarg)
     data->named_arg = 1;  /* No variadic parms.  */
-  else if (DECL_CHAIN (parm))
+  else if (DECL_CHAIN (parm)
+	   && (!BOUND_TYPE_P (TREE_TYPE (DECL_CHAIN (parm)))
+	       || DECL_CHAIN (DECL_CHAIN (parm))))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
   else if (targetm.calls.strict_argument_naming (all->args_so_far))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
@@ -2417,7 +2433,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 			    struct assign_parm_data_one *data)
 {
   HOST_WIDE_INT pretend_bytes = 0;
-  rtx entry_parm;
+  rtx entry_parm, bound_parm = 0;
   bool in_regs;
 
   if (data->promoted_mode == VOIDmode)
@@ -2430,6 +2446,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
+  pl_split_returned_reg (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2523,6 +2540,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
   data->locate.offset.constant += pretend_bytes;
 
   data->entry_parm = entry_parm;
+  data->bound_parm = bound_parm;
 }
 
 /* A subroutine of assign_parms.  If there is actually space on the stack
@@ -2532,8 +2550,11 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
+  /* Bounds are never passed on stack.  */
+  if (BOUND_TYPE_P (data->passed_type))
+    return false;
   /* Trivially true if we've no incoming register.  */
-  if (data->entry_parm == NULL)
+  else if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
      since we've arranged to drop the entire argument on the stack.  */
@@ -2823,6 +2844,22 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  push_to_sequence2 (all->first_conversion_insn,
 			     all->last_conversion_insn);
 	  emit_group_store (mem, entry_parm, data->passed_type, size);
+	  if (data->bound_parm)
+	    {
+	      int n;
+
+	      gcc_assert (GET_CODE (data->bound_parm) == PARALLEL);
+
+	      for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
+		{
+		  rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
+		  rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
+		  rtx ptr = pl_get_value_with_offs (entry_parm, offs);
+		  rtx slot = adjust_address (mem, GET_MODE (reg),
+					     INTVAL (offs));
+		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
+		}
+	    }
 	  all->first_conversion_insn = get_insns ();
 	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
@@ -3187,6 +3224,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 {
   /* Value must be stored in the stack slot STACK_PARM during function
      execution.  */
+  rtx entry_parm = data->entry_parm;
   bool to_conversion = false;
 
   assign_parm_remove_parallels (data);
@@ -3260,6 +3298,48 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
     }
 
   SET_DECL_RTL (parm, data->stack_parm);
+
+  if (data->bound_parm && AGGREGATE_TYPE_P (data->passed_type))
+    {
+      rtx bnd;
+      rtx ptr, mem;
+      int n;
+
+      gcc_assert (REG_P (data->bound_parm)
+		  || CONST_INT_P (data->bound_parm)
+                  || GET_CODE (data->bound_parm) == PARALLEL);
+
+      if (REG_P (data->entry_parm))
+	ptr = data->entry_parm;
+      else
+	{
+	  ptr = gen_reg_rtx (Pmode);
+	  emit_move_insn (ptr, data->entry_parm);
+	}
+
+      mem = validize_mem (data->stack_parm);
+
+      if (GET_CODE (data->bound_parm) == PARALLEL)
+        {
+          for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
+            { 
+              rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
+              rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1); 
+              rtx ptr = pl_get_value_with_offs (entry_parm, offs); 
+              rtx slot = adjust_address (mem, GET_MODE (reg), 
+                                             INTVAL (offs));
+              targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL); 
+            }
+          return;
+        }
+      else if (REG_P (data->bound_parm))
+	bnd = data->bound_parm;
+      else
+	bnd = targetm.calls.load_bounds_for_arg (data->entry_parm, ptr,
+						 data->bound_parm);
+
+      targetm.calls.store_bounds_for_arg (ptr, data->stack_parm, bnd, NULL);
+    }
 }
 
 /* A subroutine of assign_parms.  If the ABI splits complex arguments, then
@@ -3392,6 +3472,56 @@ assign_parms (tree fndecl)
 	  assign_parm_find_stack_rtl (parm, &data);
 	  assign_parm_adjust_entry_rtl (&data);
 	}
+
+      if (flag_pl
+	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
+	{
+	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
+	    data.bound_parm
+	      = targetm.calls.load_bounds_for_arg (data.entry_parm,
+						   NULL,
+						   data.bound_parm);
+	  else if (GET_CODE (data.bound_parm) == PARALLEL)
+	    {
+	      rtx *tmps = XALLOCAVEC (rtx, XVECLEN (data.bound_parm, 0));
+	      int n;
+
+	      for (n = 0; n < XVECLEN (data.bound_parm, 0); n++)
+		{
+		  rtx reg = XEXP (XVECEXP (data.bound_parm, 0, n), 0);
+		  rtx offs = XEXP (XVECEXP (data.bound_parm, 0, n), 1);
+
+		  if (!REG_P (reg))
+		    {
+		      rtx p = pl_get_value_with_offs (data.entry_parm, offs);
+		      reg = targetm.calls.load_bounds_for_arg (p, NULL, reg);
+		    }
+
+		  tmps[n] = gen_rtx_EXPR_LIST (VOIDmode, reg, offs);
+		}
+
+	      data.bound_parm
+		= gen_rtx_PARALLEL (VOIDmode,
+				    gen_rtvec_v (XVECLEN (data.bound_parm, 0),
+						 tmps));
+	    }
+	  else if (!AGGREGATE_TYPE_P (data.passed_type))
+	    {
+	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
+						BNDmode,
+						TYPE_ALIGN (bound_type_node));
+	      rtx stack
+		= assign_stack_local (BNDmode,
+				      GET_MODE_SIZE (BNDmode),
+				      align);
+
+	      gcc_assert (REG_P (data.bound_parm));
+	      emit_move_insn (stack, data.bound_parm);
+
+	      data.bound_parm = stack;
+	    }
+	}
+      DECL_BOUNDS_RTL (parm) = data.bound_parm;
 
       /* Record permanently how this parm was passed.  */
       if (data.passed_pointer)
@@ -3542,6 +3672,7 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
+	  pl_split_returned_reg (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4792,6 +4923,9 @@ expand_function_start (tree subr)
 	     figure out what the mode of the eventual return register will
 	     actually be, and use that.  */
 	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
+	  rtx bounds;
+
+	  pl_split_returned_reg (hard_reg, &hard_reg, &bounds);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -4803,6 +4937,7 @@ expand_function_start (tree subr)
 	      gcc_assert (GET_CODE (hard_reg) == PARALLEL);
 	      SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
 	    }
+	  DECL_BOUNDS_RTL (DECL_RESULT (subr)) = bounds;
 	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
@@ -4897,14 +5032,11 @@ expand_dummy_function_end (void)
   in_dummy_function = false;
 }
 
-/* Call DOIT for each hard register used as a return value from
-   the current function.  */
+/* Helper for diddle_return_value.  */
 
 void
-diddle_return_value (void (*doit) (rtx, void *), void *arg)
+diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 {
-  rtx outgoing = crtl->return_rtx;
-
   if (! outgoing)
     return;
 
@@ -4922,6 +5054,16 @@ diddle_return_value (void (*doit) (rtx, void *), void *arg)
 	    (*doit) (x, arg);
 	}
     }
+}
+
+/* Call DOIT for each hard register used as a return value from
+   the current function.  */
+
+void
+diddle_return_value (void (*doit) (rtx, void *), void *arg)
+{
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
+  diddle_return_value_1 (doit, arg, crtl->return_bnd);
 }
 
 static void
@@ -5158,6 +5300,12 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
+      pl_split_returned_reg (outgoing, &outgoing, &crtl->return_bnd);
+
+      if (flag_pl && GET_CODE (outgoing) == PARALLEL)
+	{
+	  outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
+	}
 
       /* Mark this as a function return value so integrate will delete the
 	 assignment and USE below when inlining this function.  */

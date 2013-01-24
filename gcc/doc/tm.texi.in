@@ -4283,6 +4283,8 @@ This hook returns the va_list type of the calling convention specified by
 The default version of this hook returns @code{va_list_type_node}.
 @end deftypefn
 
+@hook TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+
 @hook TARGET_CANONICAL_VA_LIST_TYPE
 This hook returns the va_list type of the calling convention specified by the
 type of @var{type}. If @var{type} is not a valid va_list type, it returns
@@ -5059,6 +5061,10 @@ defined, then define this hook to return @code{true} if
 @code{TARGET_SETUP_INCOMING_VARARGS} is used, @code{false} otherwise.
 Otherwise, you should not define this hook.
 @end deftypefn
+
+@hook TARGET_LOAD_BOUNDS_FOR_ARG
+
+@hook TARGET_STORE_BOUNDS_FOR_ARG
 
 @node Trampolines
 @section Trampolines for Nested Functions
@@ -10756,6 +10762,8 @@ convenient, and have mode @var{mode} if that is convenient.
 ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
+
+@hook TARGET_BUILTIN_PL_FUNCTION
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 Select a replacement for a machine specific built-in function that
