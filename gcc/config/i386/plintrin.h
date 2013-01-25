@@ -2,6 +2,8 @@
 # error "Never use <plintrin.h> directly; include <immintrin.h> instead."
 #endif
 
+#include <stddef.h>
+
 //typedef __int128 __bnd;
 /*
 extern __inline __bnd __attribute__((__gnu_inline__, __always_inline__, __artificial__))

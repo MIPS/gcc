@@ -23,3 +23,5 @@ extern tree pl_make_bounds_for_struct_addr (tree ptr);
 extern tree pl_get_zero_bounds (void);
 extern bool pl_variable_size_type (tree type);
 extern tree pl_build_make_bounds_call (tree lb, tree size);
+extern tree pl_build_bndstx_call (tree addr, tree ptr, tree bounds);
+extern void pl_expand_bounds_reset_for_mem (tree mem, tree ptr);
