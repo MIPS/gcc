@@ -2346,8 +2346,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
   *bitfield = (TREE_CODE (node) == COMPONENT_REF
 	       && DECL_BIT_FIELD_TYPE (TREE_OPERAND (node, 1)));
   /* To get bitfield address we will need outer elemnt.  */
-  if (*bitfield && (TREE_CODE (nodes[len - 2]) == ARRAY_REF
-		    || TREE_CODE (nodes[len - 2]) == COMPONENT_REF))
+  if (*bitfield)
     *elt = nodes[len - 2];
   else
     *elt = NULL_TREE;
@@ -2617,13 +2616,6 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 					  false);
 
 	/* Break if there is no dereference and operation is safe.  */
-	if (safe)
-	  {
-	    /* We may still need addr_first for bndstx in case
-	       write a pointer into memory.  */
-	    addr_first = pl_build_addr_expr (node);
-	    break;
-	  }
 
 	if (bitfield)
           {
