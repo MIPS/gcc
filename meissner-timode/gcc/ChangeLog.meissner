@@ -1,3 +1,48 @@
+2013-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (PTImode): New mode, like TImode,
+	but it won't be allowed in VSX registers.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Update
+	comments to mention PTImode.
+	(rs6000_debug_reg_global): Add PTImode to modes that are checked.
+	Print out all of the virtual registers.
+	(invalid_e500_subreg): Add PTImode where TImode is used.  Allow
+	PTImode in GPRs, but not in VSX registers.  Use PTImode for
+	checking whether an offset address is valid instead of TImode.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): LIkewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_secondary_reload): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(print_operand): Update comments to include PTImode.
+	(rs6000_option_override_internal): If -mno-vsx, turn off
+	-mvsx-timode.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	-mvsx-timode to power7 defaults.
+	(power7): Likewise.
+	(power8): Likewise.
+
+	* config/rs6000/rs6000.h (MASK_VSX_TIMODE): Map from
+	OPTION_MASK_VSX_MODE.
+	(STACK_SAVEAREA_MODE): Use PTImode instead of TImode.
+
+	* config/rs6000/rs6000.md (FIRST_GPR_REGNO): Add convenience
+	constants.
+	(LAST_GPR_REGNO): Likewise.
+	(INT): Add PTImode to create move operation.
+	(TI2): New iterator for both TImode, PTImode.
+	(movti_string): Replace insns moving TImode with those that move
+	either TImode or PTImode.
+	(mov<mode>_string): Likewise.
+	(movti_ppc64): Likewise.
+	(mov<mode>_ppc64): Likewise.
+	(TImode splitters): Likewise.
+
+
 2013-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 195383.
