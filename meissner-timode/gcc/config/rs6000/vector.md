@@ -709,45 +709,55 @@
 
 
 ;; Vector logical instructions
+;; Do not support TImode logical instructions on 32-bit at present, because the
+;; compiler will see that we have a TImode and when it wanted DImode, and
+;; convert the DImode to TImode, store it on the stack, and load it in a VSX
+;; register.
 (define_expand "xor<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (xor:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 (define_expand "ior<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 (define_expand "and<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (and:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 (define_expand "one_cmpl<mode>2"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (not:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 (define_expand "nor<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (not:VEC_L (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
 			      (match_operand:VEC_L 2 "vlogical_operand" ""))))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 (define_expand "andc<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
         (and:VEC_L (not:VEC_L (match_operand:VEC_L 2 "vlogical_operand" ""))
 		   (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")
 
 ;; Same size conversions

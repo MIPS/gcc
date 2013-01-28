@@ -14768,9 +14768,14 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 
   if (from_size != to_size)
     {
-      enum reg_class xclass = (TARGET_VSX) ? VSX_REGS : FLOAT_REGS;
+      /* Don't allow 32/64-bit types to overlap with 128-bit types under VSX
+	 because the scalar part of the register is in the upper 64-bits, and
+	 not the lower 64-bits.  */
+      if (TARGET_VSX)
+	return reg_classes_intersect_p (VSX_REGS, rclass);
+
       return ((from_size < 8 || to_size < 8 || TARGET_IEEEQUAD)
-	      && reg_classes_intersect_p (xclass, rclass));
+	      && reg_classes_intersect_p (FLOAT_REGS, rclass));
     }
 
   if (TARGET_E500_DOUBLE

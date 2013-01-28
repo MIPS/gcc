@@ -1086,13 +1086,18 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 
-;; Logical and permute operations
+;; Logical operations
+;; Do not support TImode logical instructions on 32-bit at present, because the
+;; compiler will see that we have a TImode and when it wanted DImode, and
+;; convert the DImode to TImode, store it on the stack, and load it in a VSX
+;; register.
 (define_insn "*vsx_and<mode>3"
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (and:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxland %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1100,7 +1105,8 @@
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (ior:VSX_L (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
 		   (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxlor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1109,7 +1115,8 @@
         (xor:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
 	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxlxor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1117,7 +1124,8 @@
   [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
         (not:VSX_L
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxlnor %x0,%x1,%x1"
   [(set_attr "type" "vecsimple")])
   
@@ -1127,7 +1135,8 @@
 	 (ior:VSX_L
 	  (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
 	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxlnor %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 
@@ -1137,7 +1146,8 @@
 	 (not:VSX_L
 	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))
 	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode)
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "xxlandc %x0,%x1,%x2"
   [(set_attr "type" "vecsimple")])
 

@@ -1,5 +1,23 @@
 2013-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (xor<mode>3): Do not allow TImode
+	logical operations in 32-bit.
+	(ior<mode>3): Likewise.
+	(and<mode>3): Likewise.
+	(one_compl<mode>2): Likewise.
+	(nor<mode>3): Likewise.
+	(andc<mode>3): Likewise.
+	* config/rs6000/vsx.md (vsx_and<mode>3): Likewise.
+	(vsx_ior<mode>3): Likewise.
+	(vsx_xor<mode>3): Likewise.
+	(vsx_one_cmpl<mode>2): Likewise.
+	(vsx_nor<mode>3): Likewise.
+	(vsx_andc<mode>3): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_cannot_change_mode_class): Under
+	VSX, don't allow types in vector registers to change mode with
+	different sized types.
+
 	* config/rs6000/rs6000-modes.def (PTImode): New mode, like TImode,
 	but it won't be allowed in VSX registers.
 
