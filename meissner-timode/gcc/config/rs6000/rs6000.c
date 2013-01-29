@@ -14770,14 +14770,36 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 
   if (from_size != to_size)
     {
-      /* Don't allow 32/64-bit types to overlap with 128-bit types under VSX
-	 because the scalar part of the register is in the upper 64-bits, and
-	 not the lower 64-bits.  */
-      if (TARGET_VSX)
-	return reg_classes_intersect_p (VSX_REGS, rclass);
+      enum reg_class xclass = (TARGET_VSX) ? VSX_REGS : FLOAT_REGS;
 
-      return ((from_size < 8 || to_size < 8 || TARGET_IEEEQUAD)
-	      && reg_classes_intersect_p (FLOAT_REGS, rclass));
+      if (reg_classes_intersect_p (xclass, rclass))
+	{
+	  unsigned to_nregs = hard_regno_nregs[FIRST_FPR_REGNO][to];
+	  unsigned from_nregs = hard_regno_nregs[FIRST_FPR_REGNO][from];
+
+	  /* Don't allow 64-bit types to overlap with 128-bit types that take a
+	     single register under VSX because the scalar part of the register
+	     is in the upper 64-bits, and not the lower 64-bits.  Types like
+	     TFmode/TDmode that take 2 scalar register can overlap.  128-bit
+	     IEEE floating point can't overlap, and neither can small
+	     values.  */
+
+	  if (TARGET_IEEEQUAD && (to == TFmode || from == TFmode))
+	    return true;
+
+	  if (from_size < 8 || to_size < 8)
+	    return true;
+
+	  if (from_size == 8 && (8 * to_nregs) != to_size)
+	    return true;
+
+	  if (to_size == 8 && (8 * from_nregs) != from_size)
+	    return true;
+
+	  return false;
+	}
+      else
+	return false;
     }
 
   if (TARGET_E500_DOUBLE
@@ -14793,7 +14815,7 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
      trying to check whether the modes are vector modes.  Otherwise it won't
      allow say DF and DI to change classes.  For types like TFmode and TDmode
      that take 2 64-bit registers, rather than a single 128-bit register, don't
-     allow subregs of those types.  */
+     allow subregs of those types to other 128 bit types.  */
   if (TARGET_VSX && VSX_REG_CLASS_P (rclass))
     {
       unsigned num_regs = (from_size + 15) / 16;
