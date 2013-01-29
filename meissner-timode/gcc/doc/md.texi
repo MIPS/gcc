@@ -2084,14 +2084,14 @@ If the LFIWAX instruction is enabled, a floating point register
 @item ws
 VSX vector register to hold scalar float data
 
+@item wt
+VSX vector register to hold 128-bit integer
+
 @item wx
 If the STFIWX instruction is enabled, a floating point register
 
 @item wz
 If the LFIWZX instruction is enabled, a floating point register
-
-@item wt
-VSX vector register to hold 128-bit integer
 
 @item wa
 Any VSX register
