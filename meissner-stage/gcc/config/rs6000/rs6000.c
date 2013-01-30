@@ -1737,6 +1737,7 @@ rs6000_debug_reg_global (void)
 	   "wa reg_class = %s\n"
 	   "wd reg_class = %s\n"
 	   "wf reg_class = %s\n"
+	   "wg reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wx reg_class = %s\n"
@@ -1748,6 +1749,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wa]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wd]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
@@ -2120,6 +2122,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_ALTIVEC)
     rs6000_constraints[RS6000_CONSTRAINT_v] = ALTIVEC_REGS;
 
+  if (TARGET_MFPGPR)
+    rs6000_constraints[RS6000_CONSTRAINT_wg] = FLOAT_REGS;
+
   if (TARGET_LFIWAX)
     rs6000_constraints[RS6000_CONSTRAINT_wl] = FLOAT_REGS;
 
@@ -2150,6 +2155,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_di_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_di_load;
+	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_di_store;
+	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_di_load;
 	    }
 	}
       else
@@ -2170,6 +2177,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_si_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_si_load;
+	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_si_store;
+	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_si_load;
 	    }
 	}
     }
