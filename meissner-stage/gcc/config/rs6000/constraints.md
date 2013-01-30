@@ -69,6 +69,9 @@
   "@internal")
 
 ;; Register constraints to simplify move patterns
+(define_register_constraint "wg" "rs6000_constraints[RS6000_CONSTRAINT_wg]"
+  "Floating point register if -mmfpgpr is used, or NO_REGS.")
+
 (define_register_constraint "wl" "rs6000_constraints[RS6000_CONSTRAINT_wl]"
   "Floating point register if the LFIWAX instruction is enabled or NO_REGS.")
 
