@@ -210,6 +210,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-01-30  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/pipeline-1.c: Add -march=octeon
+	to force octeon tuning.
+
 2013-01-22  Andrew Pinski  <apinski@cavium.com>
 
 	* cfgexpand.c (expand_debug_expr <case BYTESWAP_EXPR>): Handle

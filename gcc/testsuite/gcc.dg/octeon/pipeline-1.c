@@ -1,6 +1,6 @@
 /* Check that we use the octeon pipeline description.  */
 /* { dg-do compile { target *-octeon-* } } */
-/* { dg-options "-O2 -fdump-rtl-sched2" } */
+/* { dg-options "-O2 -fdump-rtl-sched2 -march=octeon" } */
 
 int f (int a, int b)
 {
