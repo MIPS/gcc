@@ -3,4 +3,5 @@
 	* gcc.target/powerpc/vsx-float0.c: New testcase.
 	* gcc.target/powerpc/sd-vsx.c: Likewise.
 	* gcc.target/powerpc/sd-pwr6.c: Likewise.
+	* gcc.target/powerpc/mmfpgpr.c: Likewise.
 
