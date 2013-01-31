@@ -4,6 +4,13 @@
 	-mvsx-timode.
 	* config/rs6000/rs6000.opt (-mvsx-timode): Update comment.
 
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat32): Delete extra
+	spaces to match proposed patch.
+	(mov<mode>_softfloat32): Likewise.
+	(mov<mode>_softfloat64): Likewise.
+	(mov<mode>_softfloat): Likewise.
+	(movdi_internal64): Likewise.
+
 2013-01-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (mov<mode>_hardfloat, SD/SFmode): Delete
