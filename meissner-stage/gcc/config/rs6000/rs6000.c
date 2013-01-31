@@ -1693,6 +1693,7 @@ rs6000_debug_reg_global (void)
   static const char *const tf[2] = { "false", "true" };
   const char *nl = (const char *)0;
   int m;
+  size_t m1, m2, v;
   char costly_num[20];
   char nop_num[20];
   char flags_buffer[40];
@@ -1713,10 +1714,66 @@ rs6000_debug_reg_global (void)
     "other"
   };
 
-  fprintf (stderr, "Register information: (last virtual reg = %d)\n",
-	   LAST_VIRTUAL_REGISTER);
-  rs6000_debug_reg_print (0, 31, "gr");
-  rs6000_debug_reg_print (32, 63, "fp");
+  /* Modes we want tieable information on.  */
+  static const enum machine_mode print_tieable_modes[] = {
+    QImode,
+    HImode,
+    SImode,
+    DImode,
+    TImode,
+    SFmode,
+    DFmode,
+    TFmode,
+    SDmode,
+    DDmode,
+    TDmode,
+    V8QImode,
+    V4HImode,
+    V2SImode,
+    V16QImode,
+    V8HImode,
+    V4SImode,
+    V2DImode,
+    V32QImode,
+    V16HImode,
+    V8SImode,
+    V4DImode,
+    V2SFmode,
+    V4SFmode,
+    V2DFmode,
+    V8SFmode,
+    V4DFmode,
+    CCmode,
+    CCUNSmode,
+    CCEQmode,
+  };
+
+  /* Virtual regs we are interested in.  */
+  const static struct {
+    int regno;			/* register number.  */
+    const char *name;		/* register name.  */
+  } virtual_regs[] = {
+    { STACK_POINTER_REGNUM,			"stack pointer:" },
+    { TOC_REGNUM,				"toc:          " },
+    { STATIC_CHAIN_REGNUM,			"static chain: " },
+    { RS6000_PIC_OFFSET_TABLE_REGNUM,		"pic offset:   " },
+    { HARD_FRAME_POINTER_REGNUM,		"hard frame:   " },
+    { ARG_POINTER_REGNUM,			"arg pointer:  " },
+    { FRAME_POINTER_REGNUM,			"frame pointer:" },
+    { FIRST_PSEUDO_REGISTER,			"first pseudo: " },
+    { FIRST_VIRTUAL_REGISTER,			"first virtual:" },
+    { VIRTUAL_INCOMING_ARGS_REGNUM,		"incoming_args:" },
+    { VIRTUAL_STACK_VARS_REGNUM,		"stack_vars:   " },
+    { VIRTUAL_STACK_DYNAMIC_REGNUM,		"stack_dynamic:" },
+    { VIRTUAL_OUTGOING_ARGS_REGNUM,		"outgoing_args:" },
+    { VIRTUAL_CFA_REGNUM,			"cfa (frame):  " },
+    { VIRTUAL_PREFERRED_STACK_BOUNDARY_REGNUM,	"stack boundry:" },
+    { LAST_VIRTUAL_REGISTER,			"last virtual: " },
+  };
+
+  fputs ("\nHard register information:\n", stderr);
+  rs6000_debug_reg_print (FIRST_GPR_REGNO, LAST_GPR_REGNO, "gr");
+  rs6000_debug_reg_print (FIRST_FPR_REGNO, LAST_FPR_REGNO, "fp");
   rs6000_debug_reg_print (FIRST_ALTIVEC_REGNO,
 			  LAST_ALTIVEC_REGNO,
 			  "vs");
@@ -1728,6 +1785,10 @@ rs6000_debug_reg_global (void)
   rs6000_debug_reg_print (VSCR_REGNO, VSCR_REGNO, "vscr");
   rs6000_debug_reg_print (SPE_ACC_REGNO, SPE_ACC_REGNO, "spe_a");
   rs6000_debug_reg_print (SPEFSCR_REGNO, SPEFSCR_REGNO, "spe_f");
+
+  fputs ("\nVirtual/stack/frame registers:\n", stderr);
+  for (v = 0; v < ARRAY_SIZE (virtual_regs); v++)
+    fprintf (stderr, "%s regno = %3d\n", virtual_regs[v].name, virtual_regs[v].regno);
 
   fprintf (stderr,
 	   "\n"
@@ -1756,14 +1817,49 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
-    if (rs6000_vector_unit[m] || rs6000_vector_mem[m])
+    if (rs6000_vector_unit[m] || rs6000_vector_mem[m]
+	|| (rs6000_vector_reload[m][0] != CODE_FOR_nothing)
+	|| (rs6000_vector_reload[m][1] != CODE_FOR_nothing))
       {
 	nl = "\n";
-	fprintf (stderr, "Vector mode: %-5s arithmetic: %-8s move: %-8s\n",
+	fprintf (stderr,
+		 "Vector mode: %-5s arithmetic: %-10s move: %-10s "
+		 "reload-out: %c reload-in: %c\n",
 		 GET_MODE_NAME (m),
 		 rs6000_debug_vector_unit[ rs6000_vector_unit[m] ],
-		 rs6000_debug_vector_unit[ rs6000_vector_mem[m] ]);
+		 rs6000_debug_vector_unit[ rs6000_vector_mem[m] ],
+		 (rs6000_vector_reload[m][0] != CODE_FOR_nothing) ? 'y' : 'n',
+		 (rs6000_vector_reload[m][1] != CODE_FOR_nothing) ? 'y' : 'n');
       }
+
+  if (nl)
+    fputs (nl, stderr);
+
+  for (m1 = 0; m1 < ARRAY_SIZE (print_tieable_modes); m1++)
+    {
+      enum machine_mode mode1 = print_tieable_modes[m1];
+      bool first_time = true;
+
+      nl = (const char *)0;
+      for (m2 = 0; m2 < ARRAY_SIZE (print_tieable_modes); m2++)
+	{
+	  enum machine_mode mode2 = print_tieable_modes[m2];
+	  if (mode1 != mode2 && MODES_TIEABLE_P (mode1, mode2))
+	    {
+	      if (first_time)
+		{
+		  fprintf (stderr, "Tieable modes %s:", GET_MODE_NAME (mode1));
+		  nl = "\n";
+		  first_time = false;
+		}
+
+	      fprintf (stderr, " %s", GET_MODE_NAME (mode2));
+	    }
+	}
+
+      if (!first_time)
+	fputs ("\n", stderr);
+    }
 
   if (nl)
     fputs (nl, stderr);
@@ -2668,6 +2764,9 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
+
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
   if (TARGET_VSX)
@@ -2684,6 +2783,9 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_isa_flags |= (ISA_2_2_MASKS & ~rs6000_isa_flags_explicit);
   else if (TARGET_ALTIVEC)
     rs6000_isa_flags |= (OPTION_MASK_PPC_GFXOPT & ~rs6000_isa_flags_explicit);
+
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
 
   /* E500mc does "better" if we inline more aggressively.  Respect the
      user's opinion, though.  */
@@ -2811,6 +2913,9 @@ rs6000_option_override_internal (bool global_init_p)
   if (flag_section_anchors)
     TARGET_NO_FP_IN_TOC = 1;
 
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "before subtarget", rs6000_isa_flags);
+
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
@@ -2820,6 +2925,9 @@ rs6000_option_override_internal (bool global_init_p)
 #ifdef SUB3TARGET_OVERRIDE_OPTIONS
   SUB3TARGET_OVERRIDE_OPTIONS;
 #endif
+
+  if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
+    rs6000_print_isa_options (stderr, 0, "after subtarget", rs6000_isa_flags);
 
   /* For the E500 family of cores, reset the single/double FP flags to let us
      check that they remain constant across attributes or pragmas.  Also,
@@ -13937,6 +14045,36 @@ rs6000_secondary_reload (bool in_p,
   return ret;
 }
 
+/* Better tracing for rs6000_secondary_reload_inner.  */
+
+static void
+rs6000_secondary_reload_trace (int line, rtx reg, rtx mem, rtx scratch,
+			       bool store_p)
+{
+  rtx set, clobber;
+
+  gcc_assert (reg != NULL_RTX && mem != NULL_RTX && scratch != NULL_RTX);
+
+  fprintf (stderr, "rs6000_secondary_reload_inner:%d, type = %s\n", line,
+	   store_p ? "store" : "load");
+
+  if (store_p)
+    set = gen_rtx_SET (VOIDmode, mem, reg);
+  else
+    set = gen_rtx_SET (VOIDmode, reg, mem);
+
+  clobber = gen_rtx_CLOBBER (VOIDmode, scratch);
+  debug_rtx (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set, clobber)));
+}
+
+static void
+rs6000_secondary_reload_fail (int line, rtx reg, rtx mem, rtx scratch,
+			      bool store_p)
+{
+  rs6000_secondary_reload_trace (line, reg, mem, scratch, store_p);
+  gcc_unreachable ();
+}
+
 /* Fixup reload addresses for Altivec or VSX loads/stores to change SP+offset
    to SP+reg addressing.  */
 
@@ -13955,19 +14093,14 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   rtx cc_clobber;
 
   if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\nrs6000_secondary_reload_inner, type = %s\n",
-	       store_p ? "store" : "load");
-      fprintf (stderr, "reg:\n");
-      debug_rtx (reg);
-      fprintf (stderr, "mem:\n");
-      debug_rtx (mem);
-      fprintf (stderr, "scratch:\n");
-      debug_rtx (scratch);
-    }
+    rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
 
-  gcc_assert (regno >= 0 && regno < FIRST_PSEUDO_REGISTER);
-  gcc_assert (GET_CODE (mem) == MEM);
+  if (regno < 0 || regno >= FIRST_PSEUDO_REGISTER)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+  if (GET_CODE (mem) != MEM)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
   rclass = REGNO_REG_CLASS (regno);
   addr = XEXP (mem, 0);
 
@@ -13986,8 +14119,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       if (GET_CODE (addr) == PRE_MODIFY)
 	{
 	  scratch_or_premodify = XEXP (addr, 0);
-	  gcc_assert (REG_P (scratch_or_premodify));
-	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  if (!REG_P (scratch_or_premodify))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
 	  addr = XEXP (addr, 1);
 	}
 
@@ -13998,7 +14135,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
-	  gcc_assert (legitimate_indirect_address_p (addr_op1, false));
+	  if (!legitimate_indirect_address_p (addr_op1, false))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
 	  if (!REG_P (addr_op2)
 	      && (GET_CODE (addr_op2) != CONST_INT
@@ -14069,9 +14207,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      || !legitimate_indexed_address_p (XEXP (addr, 1), false)))
 	{
 	  scratch_or_premodify = XEXP (addr, 0);
-	  gcc_assert (legitimate_indirect_address_p (scratch_or_premodify,
-						     false));
-	  gcc_assert (GET_CODE (XEXP (addr, 1)) == PLUS);
+	  if (!legitimate_indirect_address_p (scratch_or_premodify, false))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
 	  addr = XEXP (addr, 1);
 	}
 
@@ -14093,7 +14234,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	{
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
-	  gcc_assert (REG_P (addr_op1));
+	  if (!REG_P (addr_op1))
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
 	  if (TARGET_DEBUG_ADDR)
 	    {
@@ -14128,12 +14270,12 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	}
 
       else
-	gcc_unreachable ();
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
       break;
 
     default:
-      gcc_unreachable ();
+      rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
     }
 
   /* If the original address involved a pre-modify that we couldn't use the VSX
