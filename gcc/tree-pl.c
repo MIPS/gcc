@@ -1396,7 +1396,7 @@ pl_expand_bounds_reset_for_mem (tree mem, tree ptr)
   tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
 					     integer_zero_node);
   tree bnd = make_tree (bound_type_node,
-			assign_temp (bound_type_node, 0, 0, 1));
+			assign_temp (bound_type_node, 0, 1));
   tree addr = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (mem)), mem);
   tree bndstx = pl_build_bndstx_call (addr, ptr, bnd);
@@ -1890,7 +1890,7 @@ pl_generate_extern_var_bounds (tree var)
   DECL_WEAK (end_decl) = 1;
   DECL_ATTRIBUTES (end_decl) = build_tree_list (get_identifier ("weak"),
 						NULL_TREE);
-  create_var_ann (end_decl);
+//  create_var_ann (end_decl);
 
   lb = pl_build_addr_expr (var);
   var_end = pl_build_addr_expr (end_decl);

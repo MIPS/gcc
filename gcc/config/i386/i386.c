@@ -43213,7 +43213,11 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
 
 #undef TARGET_LRA_P
+#ifdef TARGET_PL
+#define TARGET_LRA_P hook_bool_void_false
+#else
 #define TARGET_LRA_P hook_bool_void_true
+#endif
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority
