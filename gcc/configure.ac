@@ -1455,6 +1455,9 @@ if test x$enable___cxa_atexit = xyes || \
       *-*-mingw32*)
 	use_cxa_atexit=yes
 	;;
+      powerpc-ibm-aix*)
+	use_cxa_atexit=yes
+	;;
       *)
 	AC_CHECK_FUNC(__cxa_atexit,[use_cxa_atexit=yes],
 	  [echo "__cxa_atexit can't be enabled on this target"])
@@ -3317,6 +3320,12 @@ elif test x$gcc_cv_ld != x; then
       gcc_cv_ld_static_dynamic=yes
   else
     case "$target" in
+      # AIX ld uses -b flags
+      *-*-aix4.[[23]]* | *-*-aix[[5-9]]*)
+	gcc_cv_ld_static_dynamic=yes
+	gcc_cv_ld_static_option="-bstatic"
+	gcc_cv_ld_dynamic_option="-bdynamic"
+	;;
       # HP-UX ld uses -a flags to select between shared and archive.
       *-*-hpux*)
 	if test x"$gnu_ld" = xno; then
@@ -3460,6 +3469,13 @@ case "$target" in
       [.register %g2, #scratch],,
       [AC_DEFINE(HAVE_AS_REGISTER_PSEUDO_OP, 1,
 		[Define if your assembler supports .register.])])
+
+    gcc_GAS_CHECK_FEATURE([@%:@nobits], gcc_cv_as_sparc_nobits,,,
+      [.section "nobits",#alloc,#write,#nobits
+       .section "progbits",#alloc,#write,#progbits])
+    AC_DEFINE_UNQUOTED(HAVE_AS_SPARC_NOBITS,
+      [`if test $gcc_cv_as_sparc_nobits = yes; then echo 1; else echo 0; fi`],
+      [Define to 1 if your assembler supports #nobits, 0 otherwise.])
 
     gcc_GAS_CHECK_FEATURE([-relax option], gcc_cv_as_sparc_relax,,
       [-relax], [.text],,
@@ -4797,26 +4813,14 @@ if test x$gcc_cv_target_dl_iterate_phdr = xyes; then
 fi
 AC_MSG_RESULT($gcc_cv_target_dl_iterate_phdr)
 
-# Find out what GC implementation we want, or may, use.
+# We no longer support different GC mechanisms.  Emit an error if
+# the user configures with --with-gc.
 AC_ARG_WITH(gc,
 [AS_HELP_STRING([--with-gc={page,zone}],
-		[choose the garbage collection mechanism to use
-                 with the compiler])],
-[case "$withval" in
-  page)
-    GGC=ggc-$withval
-    ;;
-  zone)
-    GGC=ggc-$withval
-    AC_DEFINE(GGC_ZONE, 1, [Define if the zone collector is in use])
-    ;;
-  *)
-    AC_MSG_ERROR([$withval is an invalid option to --with-gc])
-    ;;
-esac],
-[GGC=ggc-page])
-AC_SUBST(GGC)
-echo "Using $GGC for garbage collection."
+		[this option is not supported anymore.  It used to choose
+		 the garbage collection mechanism to use with the compiler])],
+[AC_MSG_ERROR([Configure option --with-gc is only supported up to GCC 4.7.x])],
+[])
 
 # Libraries to use on the host.  This will normally be set by the top
 # level Makefile.  Here we simply capture the value for our Makefile.
