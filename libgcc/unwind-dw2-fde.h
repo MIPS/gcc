@@ -151,11 +151,14 @@ struct dwarf_fde
 typedef struct dwarf_fde fde;
 
 /* Locate the CIE for a given FDE.  */
+#include <immintrin.h>
 
 static inline const struct dwarf_cie *
 get_cie (const struct dwarf_fde *f)
 {
-  return (const void *)&f->CIE_delta - f->CIE_delta;
+  const struct dwarf_cie  *p = (const void *)&f->CIE_delta - f->CIE_delta;
+  p = __pl_bind_bounds(p, p, sizeof(struct dwarf_cie));
+  return __pl_bind_bounds(p, p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
 }
 
 static inline const fde *
