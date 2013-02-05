@@ -1122,11 +1122,7 @@ static basic_block
 pl_get_entry_block (void)
 {
   if (!entry_block)
-    {
-      basic_block prev_entry = ENTRY_BLOCK_PTR->next_bb;
-      edge e = find_edge (ENTRY_BLOCK_PTR, prev_entry);
-      entry_block = split_edge (e);
-    }
+    entry_block = split_block (ENTRY_BLOCK_PTR, NULL)->dest;
 
   return entry_block;
 }
