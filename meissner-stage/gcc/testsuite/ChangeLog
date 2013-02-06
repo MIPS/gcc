@@ -1,3 +1,86 @@
+2013-02-06 Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/55789
+	* gfortran.dg/array_constructor_41.f90: New test.
+
+2013-02-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55978
+	* gfortran.dg/class_optional_2.f90: Uncomment some cases which work now.
+
+2013-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56217
+	* g++.dg/gomp/pr56217.C: New test.
+
+2013-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56205
+	* gcc.dg/tree-ssa/stdarg-6.c: New test.
+	* gcc.c-torture/execute/pr56205.c: New test.
+
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/53342
+	PR tree-optimization/53185
+	* gcc.dg/vect/pr53185-2.c: New testcase.
+
+2013-02-05  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/55789
+	* g++.dg/tree-ssa/inline-1.C: Update max-inliner-iterations.
+	* g++.dg/tree-ssa/inline-2.C: Update max-inliner-iterations.
+	* g++.dg/tree-ssa/inline-3.C: Update max-inliner-iterations.
+	* g++.dg/ipa/inline-1.C: New testcase.
+	* g++.dg/ipa/inline-2.C: New testcase.
+	* g++.dg/ipa/inline-3.C: New testcase.
+
+2013-02-05  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/55789
+	* g++.dg/torture/pr55789.C: New testcase.
+
+2013-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56167
+	* gcc.dg/pr56167.c: New test.
+
+2013-02-04  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55146
+	* gcc.target/sh/pr55146.c: New.
+
+2013-02-04  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR tree-optimization/54386
+	* gcc.target/sh/pr54386.c: New.
+
+2013-02-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/56008
+	* gfortran.dg/realloc_on _assign_16.f90 : New test.
+
+	PR fortran/47517
+	* gfortran.dg/realloc_on _assign_17.f90 : New test.
+
+2013-02-04  Alexander Potapenko <glider@google.com>
+            Jack Howarth  <howarth@bromo.med.uc.edu>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/55617
+	* g++.dg/asan/pr55617.C: New test.
+
+2013-02-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/54195
+	* gfortran.dg/typebound_operator_19.f90: New test.
+	* gfortran.dg/typebound_assignment_4.f90: New test.
+
+2013-02-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/54107
+	* gfortran.dg/recursive_interface_1.f90: New test.
+
 2013-02-04  Richard Guenther  <rguenther@suse.de>
 
 	PR lto/56168
@@ -97,7 +180,7 @@
 	* lib/target-supports-dg.exp (dg-process-target): Use expr to
 	evaluate the end index in string range.
 
-2012-01-30  Tobias Burnus  <burnus@net-b.de>
+2013-01-30  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/56138
 	* gfortran.dg/allocatable_function_6.f90: New.

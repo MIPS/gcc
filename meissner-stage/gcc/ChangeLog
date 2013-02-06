@@ -1,3 +1,82 @@
+2013-02-06  Richard Biener  <rguenther@suse.de>
+
+	* tracer.c (tracer): Mark loops with LOOPS_NEED_FIXUP
+	instead of calling fix_loop_structure.
+
+2013-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56217
+	* omp-low.c (use_pointer_for_field): Return false if
+	lower_send_shared_vars doesn't generate any copy-out code.
+
+2013-02-06  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/56131
+	* cfgrtl.c (delete_insn): Use NOTE_BASIC_BLOCK instead of BLOCK_FOR_INSN
+	to get the bb of a NOTE_INSN_BASIC_BLOCK.  Handle the case that the bb
+	of the label is NULL.  Add comment.
+
+2013-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (struct tree_decl_with_vis): Remove thread_local field.
+
+	PR sanitizer/55374
+	* config/gnu-user.h (LIBTSAN_EARLY_SPEC): Define.
+	(STATIC_LIBTSAN_LIBS): Likewise.
+	* gcc.c (ADD_STATIC_LIBTSAN_LIBS, LIBTSAN_EARLY_SPEC): Define.
+	(LIBTSAN_SPEC): Add ADD_STATIC_LIBTSAN_LIBS, if LIBTSAN_EARLY_SPEC
+	is defined, don't add anything else beyond that.
+	(SANITIZER_EARLY_SPEC, SANITIZER_SPEC): Define.
+	(LINK_COMMAND_SPEC): Use them.
+
+	PR tree-optimization/56205
+	* tree-stdarg.c (check_all_va_list_escapes): Return true if
+	there are any PHI nodes that set non-va_list_escape_vars SSA_NAME
+	and some va_list_escape_vars SSA_NAME appears in some PHI argument.
+
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/53342
+	PR tree-optimization/53185
+	* tree-vectorizer.h (vect_check_strided_load): Remove.
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Do
+	not disallow peeling for vectorized strided loads.
+	(vect_check_strided_load): Make static and simplify.
+	(vect_analyze_data_refs): Adjust.
+	* tree-vect-stmts.c (vectorizable_load): Handle peeled loops
+	correctly when vectorizing strided loads.
+
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	* doc/install.texi: Refer to ISL, not PPL.
+
+2013-02-05  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/55789
+	* params.def (PARAM_EARLY_INLINER_MAX_ITERATIONS): Drop to 1.
+
+2013-02-05  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/55789
+	* cgraphclones.c (cgraph_remove_node_and_inline_clones): Remove
+	the dead call anyway.
+
+2013-02-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR sanitizer/55374
+	* config/gnu-user.h (LIBASAN_EARLY_SPEC): Add missing guard.
+
+2013-02-04  Alexander Potapenko  <glider@google.com>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/55617
+	* config/darwin.c (sort_ctor_records): Stabilized qsort
+	on constructor priority by using original position.
+	(finalize_ctors): New routine to sort constructors by
+	priority before use in assemble_integer.
+	(machopic_asm_out_constructor): Use finalize_ctors if needed.
+
 2013-02-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libstdc++/54314
