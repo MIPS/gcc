@@ -141,6 +141,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-flow.h"
 #include "cfgloop.h"
+#include "tree-pl.h"
 
 /* Provide defaults for stuff that may not be defined when using
    sjlj exceptions.  */
@@ -1953,6 +1954,12 @@ expand_builtin_eh_pointer (tree exp)
     = expand_builtin_eh_common (CALL_EXPR_ARG (exp, 0));
   if (region->exc_ptr_reg == NULL)
     region->exc_ptr_reg = gen_reg_rtx (ptr_mode);
+
+  /* Currently bounds are not passed to exception
+     handler.  Set them to zero.  */
+  if (flag_pl)
+    targetm.calls.init_returned_bounds ();
+
   return region->exc_ptr_reg;
 }
 

@@ -33025,6 +33025,18 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
   return NULL_RTX;
 }
 
+static void
+ix86_init_returned_bounds (void)
+{
+  rtx lb = force_reg (Pmode, GEN_INT (0));
+  rtx size = force_reg (Pmode, GEN_INT (-1));
+  emit_insn( TARGET_64BIT
+	     ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
+			     lb, size)
+	     : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
+			     lb, size));
+}
+
 /* Returns a function decl for a vectorized version of the builtin function
    with builtin function code FN and the result vector type TYPE, or NULL_TREE
    if it is not available.  */
@@ -42893,6 +42905,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_STORE_BOUNDS_FOR_ARG
 #define TARGET_STORE_BOUNDS_FOR_ARG ix86_store_bounds
+
+#undef TARGET_INIT_RETURNED_BOUNDS
+#define TARGET_INIT_RETURNED_BOUNDS ix86_init_returned_bounds
 
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \

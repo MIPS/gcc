@@ -4504,6 +4504,9 @@ expand_builtin_va_copy (tree exp)
 static rtx
 expand_builtin_frame_address (tree fndecl, tree exp)
 {
+  if (flag_pl)
+    targetm.calls.init_returned_bounds ();
+
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
      The value is the return address saved in that frame.  */
