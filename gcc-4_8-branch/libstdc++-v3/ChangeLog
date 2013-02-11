@@ -1,22 +1,69 @@
+2013-02-11  Jason Merrill  <jason@redhat.com>
+
+	* linkage.m4 (GLIBCXX_CHECK_STDLIB_DECL_AND_LINKAGE): New.
+	(GLIBCXX_CHECK_STDLIB_SUPPORT): Check for atexit and at_quick_exit.
+	* config.h.in, configure: Regenerate.
+	* include/c_std/cstdlib: Add atexit and at_quick_exit.
+	* include/c_global/cstdlib: Add atexit and at_quick_exit.
+	* testsuite/18_support/quick_exit/quick_exit.cc: New.
+
+2013-02-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56282
+	Revert:
+	2013-02-06  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/56193
+	* include/bits/basic_ios.h: Replace operator void*() const
+	with explicit operator bool() const in C++11 and greater.
+	* testsuite/27_io/basic_ios/pr56193.cc: New file.
+
+2013-02-10  François Dumont  <fdumont@gcc.gnu.org>
+	    Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/containers.xml: Add section on unordered containers.
+	* doc/xml/manual/using.xml: Fix incomplete sentence.
+
+2013-02-10  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56267
+	* include/bits/hashtable.h (__cache_default): Check if hash function
+	is copy assignable.
+	* testsuite/23_containers/unordered_set/56267.cc: New.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error line number.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Likewise.
+
+	PR libstdc++/56278
+	* include/bits/hashtable_policy.h (_Hash_code_base): Make default
+	constructor public.
+	* testsuite/23_containers/unordered_set/56278.cc: New.
+
+2013-02-09  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/tr1/bessel_function.tcc (__cyl_bessel_ij_series): Code
+	simplification.
+
 2013-02-08  Edward Smith-Rowland  <3dw4rd@verizon.net>
 
 	PR libstdc++/56216
 	* include/tr1/special_function_util.h: Remove spurious const
 	from numeric arguments.
-	* include/tr1/riemann_zeta.tcc: Ditto.
-	* include/tr1/exp_integral.tcc: Ditto.
-	* include/tr1/bessel_function.tcc: Ditto.
-	* include/tr1/hypergeometric.tcc: Ditto.
-	* include/tr1/modified_bessel_func.tcc: Ditto.
-	* include/tr1/poly_laguerre.tcc: Ditto.
-	* include/tr1/gamma.tcc: Ditto.
-	* include/tr1/legendre_function.tcc: Ditto.
-	* include/tr1/poly_hermite.tcc: Ditto.
-	* include/tr1/ell_integral.tcc: Ditto.
+	* include/tr1/riemann_zeta.tcc: Likewise.
+	* include/tr1/exp_integral.tcc: Likewise.
+	* include/tr1/bessel_function.tcc: Likewise.
+	* include/tr1/hypergeometric.tcc: Likewise.
+	* include/tr1/modified_bessel_func.tcc: Likewise.
+	* include/tr1/poly_laguerre.tcc: Likewise.
+	* include/tr1/gamma.tcc: Likewise.
+	* include/tr1/legendre_function.tcc: Likewise.
+	* include/tr1/poly_hermite.tcc: Likewise.
+	* include/tr1/ell_integral.tcc: Likewise.
 	* include/tr1/bessel_function.tcc (__cyl_bessel_ij_series):
 	If argument is zero return function value.
-	* testsuite/tr1/5_numerical_facilities/special_functions/08_cyl_bessel_i/pr56216.cc:
-	New file.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	08_cyl_bessel_i/pr56216.cc: New.
 
 2013-02-07  Paolo Carlini  <paolo.carlini@oracle.com>
 

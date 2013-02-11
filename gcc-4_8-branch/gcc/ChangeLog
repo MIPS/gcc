@@ -1,22 +1,90 @@
-2013-02-08  Edgar E. Iglesias <edgar.iglesias@gmail.com>
+2013-02-11  Uros Bizjak  <ubizjak@gmail.com>
 
-	* config.gcc (microblaze*-linux*): Add TARGET_BIG_ENDIAN_DEFAULT
-	(microblaze*-*-elf): Likewise
-	* config/microblaze/linux.h: Add -mbig-endian / -mlittle-endian to 
-	LINK_SPEC
-	* config/microblaze/microblaze-c.c: Add builtin defines for _LITTLE_ENDIAN 
-	and _BIG_ENDIAN
-	* config/microblaze/microblaze.h: Add TARGET_ENDIAN_DEFAULT and add to 
-	TARGET_DEFAULT flags.
+	PR rtl-optimization/56275
+	* simplify-rtx.c (avoid_constant_pool_reference): Check that
+	offset is non-negative and less than cmode size before
+	calling simplify_subreg.
+
+2013-02-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56264
+	* cfgloop.h (fix_loop_structure): Adjust prototype.
+	* loop-init.c (fix_loop_structure): Return the number of
+	newly discovered loops.
+	* tree-cfgcleanup.c (repair_loop_structures): When new loops
+	are discovered, do a full loop-closed SSA rewrite.
+
+2013-02-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56273
+	* tree-vrp.c (simplify_cond_using_ranges): Disable for the
+	first VRP run.
+	(check_array_ref): Fix missing newline in dumps.
+	(search_for_addr_array): Likewise.
+
+2013-02-09  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/aix61.h (OS_MISSING_ALTIVEC): Undefine.
+
+2013-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56256
+	* config/rs6000/rs6000.h (ASSEMBLER_DIALECT): Define.
+
+2013-02-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56246
+	* lra-constraints.c (simplify_operand_subreg): Try to reuse
+	reload pseudo.
+	* lra.c (lra): Clear lra_optional_reload_pseudos only when all
+	constraints are satisfied.
+
+2013-02-08  Jeff Law  <law@redhat.com>
+
+	PR debug/53948
+	* emit-rtl.c (reg_is_parm_p): New function.
+	* regs.h (reg_is_parm_p): New prototype.
+	* ira-conflicts.c (ira_build_conflicts): Allow parameters in
+	callee-clobbered registers.
+
+2013-02-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/56043
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_libmass):
+	If there is no implicit builtin declaration, just return NULL.
+
+2013-02-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (FMAMODEM): New mode iterator.
+	(fma<mode>4, fms<mode>4, fnma<mode>4, fnms<mode>4): Use FMAMODEM
+	mode iterator. Do not use TARGET_SSE_MATH in insn constraint.
+
+2013-02-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/gnu-user.h (TARGET_CAN_SPLIT_STACK): Define only
+	when HAVE_GAS_CFI_PERSONALITY_DIRECTIVE is set.
+	* config/i386/gnu-user64.h (TARGET_CAN_SPLIT_STACK): Ditto.
+
+2013-02-08  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
+
+	* config.gcc (microblaze*-linux*): Add TARGET_BIG_ENDIAN_DEFAULT.
+	(microblaze*-*-elf): Likewise.
+	* config/microblaze/linux.h: Add -mbig-endian / -mlittle-endian to
+	LINK_SPEC.
+	* config/microblaze/microblaze-c.c: Add builtin defines for
+	_LITTLE_ENDIAN and _BIG_ENDIAN.
+	* config/microblaze/microblaze.h: Add TARGET_ENDIAN_DEFAULT and
+	add to TARGET_DEFAULT flags.
 	Expand ASM_SPEC and LINK_SPEC.
-	Update BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN
-	* config/microblaze/microblaze.md: Update extendsidi2 and movdi_internal 
-	instructions to use low-order / high-order reg print_operands
-	* config/microblaze/microblaze.opt: Add mbig-endian and mlittle-endian 
-	options and inversemask / mask of LITTLE_ENDIAN
-	* config/microblaze/t-microblaze: Expand multilib options to include mlittle-
-	endian (le) and update exceptions patterns
-	
+	Update BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN.
+	* config/microblaze/microblaze.md: Update extendsidi2 and
+	movdi_internal instructions to use low-order / high-order reg
+	print_operands.
+	* config/microblaze/microblaze.opt: Add mbig-endian and mlittle-endian
+	options and inversemask / mask of LITTLE_ENDIAN.
+	* config/microblaze/t-microblaze: Expand multilib options to
+	include mlittle-endian (le) and update exceptions patterns.
+
 2013-02-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/56195
