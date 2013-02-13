@@ -1402,6 +1402,14 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 		  if (!cxx_mark_addressable (operand))
 		    operand = error_mark_node;
 		}
+	      else if (!allows_reg && !allows_mem)
+		{
+		  /* If constraint allows neither register nor memory,
+		     try harder to get a constant.  */
+		  tree constop = maybe_constant_value (operand);
+		  if (TREE_CONSTANT (constop))
+		    operand = constop;
+		}
 	    }
 	  else
 	    operand = error_mark_node;
@@ -5948,31 +5956,39 @@ check_constexpr_ctor_body (tree last, tree list)
 /* V is a vector of constructor elements built up for the base and member
    initializers of a constructor for TYPE.  They need to be in increasing
    offset order, which they might not be yet if TYPE has a primary base
-   which is not first in the base-clause.  */
+   which is not first in the base-clause or a vptr and at least one base
+   all of which are non-primary.  */
 
 static vec<constructor_elt, va_gc> *
 sort_constexpr_mem_initializers (tree type, vec<constructor_elt, va_gc> *v)
 {
   tree pri = CLASSTYPE_PRIMARY_BINFO (type);
+  tree field_type;
   constructor_elt elt;
   int i;
 
-  if (pri == NULL_TREE
-      || pri == BINFO_BASE_BINFO (TYPE_BINFO (type), 0))
+  if (pri)
+    field_type = BINFO_TYPE (pri);
+  else if (TYPE_CONTAINS_VPTR_P (type))
+    field_type = vtbl_ptr_type_node;
+  else
     return v;
 
-  /* Find the element for the primary base and move it to the beginning of
-     the vec.  */
+  /* Find the element for the primary base or vptr and move it to the
+     beginning of the vec.  */
   vec<constructor_elt, va_gc> &vref = *v;
-  pri = BINFO_TYPE (pri);
-  for (i = 1; ; ++i)
-    if (TREE_TYPE (vref[i].index) == pri)
+  for (i = 0; ; ++i)
+    if (TREE_TYPE (vref[i].index) == field_type)
       break;
 
-  elt = vref[i];
-  for (; i > 0; --i)
-    vref[i] = vref[i-1];
-  vref[0] = elt;
+  if (i > 0)
+    {
+      elt = vref[i];
+      for (; i > 0; --i)
+	vref[i] = vref[i-1];
+      vref[0] = elt;
+    }
+
   return v;
 }
 
@@ -6504,6 +6520,15 @@ cxx_bind_parameters_in_call (const constexpr_call *old_call, tree t,
       if (i == 0 && DECL_CONSTRUCTOR_P (fun))
         goto next;
       x = get_nth_callarg (t, i);
+      if (parms && DECL_BY_REFERENCE (parms))
+	{
+	  /* cp_genericize made this a reference for argument passing, but
+	     we don't want to treat it like one for constexpr evaluation.  */
+	  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
+	  gcc_assert (TREE_CODE (TREE_TYPE (x)) == REFERENCE_TYPE);
+	  type = TREE_TYPE (type);
+	  x = convert_from_reference (x);
+	}
       arg = cxx_eval_constant_expression (old_call, x, allow_non_constant,
 					  TREE_CODE (type) == REFERENCE_TYPE,
 					  non_constant_p, overflow_p);
@@ -7431,6 +7456,15 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	      op01 = size_binop_loc (loc, PLUS_EXPR, op01, min_val);
 	      return build4_loc (loc, ARRAY_REF, type, op00, op01,
 				 NULL_TREE, NULL_TREE);
+	    }
+	  /* Also handle conversion to an empty base class, which
+	     is represented with a NOP_EXPR.  */
+	  else if (is_empty_class (type)
+		   && CLASS_TYPE_P (op00type)
+		   && DERIVED_FROM_P (type, op00type))
+	    {
+	      *empty_base = true;
+	      return op00;
 	    }
 	  /* ((foo *)&struct_with_foo_field)[1] => COMPONENT_REF */
 	  else if (RECORD_OR_UNION_TYPE_P (op00type))
@@ -9525,6 +9559,8 @@ maybe_add_lambda_conv_op (tree type)
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
+  /* decl_needed_p needs to see that it's used.  */
+  TREE_USED (statfn) = 1;
   finish_return_stmt (decay_conversion (statfn, tf_warning_or_error));
 
   finish_compound_stmt (compound_stmt);
