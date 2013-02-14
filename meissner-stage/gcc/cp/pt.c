@@ -802,6 +802,11 @@ maybe_process_partial_specialization (tree type)
   if (type == error_mark_node)
     return error_mark_node;
 
+  /* A lambda that appears in specialization context is not itself a
+     specialization.  */
+  if (CLASS_TYPE_P (type) && CLASSTYPE_LAMBDA_EXPR (type))
+    return type;
+
   if (TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
     {
       error ("name of class shadows template template parameter %qD",
@@ -14457,9 +14462,11 @@ tsubst_copy_and_build (tree t,
 	complete_type (type);
 
 	/* The capture list refers to closure members, so this needs to
-	   wait until after we finish instantiating the type.  */
+	   wait until after we finish instantiating the type.  Also keep
+	   any captures that may have been added during instantiation.  */
 	LAMBDA_EXPR_CAPTURE_LIST (r)
-	  = RECUR (LAMBDA_EXPR_CAPTURE_LIST (t));
+	  = chainon (RECUR (LAMBDA_EXPR_CAPTURE_LIST (t)),
+		     LAMBDA_EXPR_CAPTURE_LIST (r));
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
 
 	RETURN (build_lambda_object (r));
