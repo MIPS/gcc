@@ -509,13 +509,14 @@ expand_gimple_atomic_exchange (gimple stmt)
 void
 expand_gimple_atomic_compare_exchange (gimple stmt)
 {
-  rtx mem, val, rtl_lhs1, rtl_lhs2, expect;
+  rtx mem, val, rtl_lhs1, expect;
   rtx real_lhs1, real_lhs2;
   enum memmodel success, failure;
   enum memmodel s, f;
   enum machine_mode mode;
   tree type;
   bool is_weak, emitted = false;
+  rtx rtl_lhs2 = const0_rtx;
 
   gcc_assert (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
 
@@ -566,11 +567,11 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
 
   expect = expand_expr_force_mode (gimple_atomic_expected (stmt), mode);
   val = expand_expr_force_mode (gimple_atomic_expr (stmt), mode);
-  rtl_lhs2 = get_atomic_lhs_rtx (stmt, 1);
   if (flag_inline_atomics)
     {
       /* Expand the operands.  */
       is_weak = gimple_atomic_weak (stmt);
+      rtl_lhs2 = get_atomic_lhs_rtx (stmt, 1);
       real_lhs1 = rtl_lhs1;
       real_lhs2 = rtl_lhs2;
       mem = expand_atomic_target (gimple_atomic_target (stmt), mode);
@@ -583,32 +584,21 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
     {
       rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N, type);
       enum machine_mode bool_mode = TYPE_MODE (boolean_type_node);
-      tree e, expect_mem = NULL_TREE;
+      tree e, expect_mem;
       tree tmp_var = NULL_TREE;
-      gimple st;
       /* The library call requires a pointer to expected and puts the return
 	 value in the same variable.  */
-
-      /* Check to see if its an ssa name that originates with a memory
-         reference, in which case we can just use that memory location.  */
-      e = gimple_atomic_expected (stmt);
-      if (TREE_CODE (e) == SSA_NAME)
+      if (!gimple_atomic_2_results (stmt))
+	expect_mem = gimple_atomic_expected (stmt);
+      else
         {
-	  st = SSA_NAME_DEF_STMT (e);
-	  if (is_gimple_assign (st))
-	    {
-	      e = gimple_assign_rhs1 (st);
-	      if (TREE_CODE (e) == MEM_REF)
-	        expect_mem = TREE_OPERAND (e, 0);
-	    }
-	}
-      /* If no memory reference was found, load expected into a temp variable
-         and pass in the address of that.  */
-      if (!expect_mem)
-        {
+	  /* If no memory reference is found, load expected into a temp variable
+	     and pass in the address of that.  */
 	  tree ptr_type;
+	  rtl_lhs2 = get_atomic_lhs_rtx (stmt, 1);
 	  e = gimple_atomic_expected (stmt);
-	  tmp_var = create_tmp_var (TREE_TYPE (e), NULL);
+	  tmp_var = add_new_static_var (TREE_TYPE (e));
+	  TREE_ADDRESSABLE (tmp_var) = true;
 	  expand_assignment (tmp_var, e, false);
 	  ptr_type = build_pointer_type (TREE_TYPE (e));
 	  expect_mem = build1 (ADDR_EXPR, ptr_type, tmp_var);
@@ -1232,19 +1222,36 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   tree bool_ret;
   gimple ret;
   tree BI_ptr_type, deref_tmp;
+  bool expand_2_results = (can_compare_and_swap_p (TYPE_MODE (BI_type), true)
+			   && flag_inline_atomics);
 
   gcc_assert (TREE_CODE (TREE_TYPE (target)) == POINTER_TYPE);
   BI_ptr_type = build_pointer_type (BI_type);
 
   expected_ptr_type = TREE_TYPE (expected);
+
+  if (!useless_type_conversion_p (BI_ptr_type, expected_ptr_type))
+    expected = fold_convert (BI_ptr_type, expected);
+
+  /* If this can nopt be expanded into a 2 result pattern on the target
+     don't bother expoanding it here.  */
+  if (!expand_2_results)
+    {
+      /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
+      ret  = gimple_build_atomic_compare_exchange (BI_type, target, expected,
+						   val, order, fail_order,
+						   is_weak);
+      bool_ret = create_tmp_var (boolean_type_node, NULL);
+      gimple_atomic_set_lhs (ret , 0, bool_ret);
+      gimple_seq_add_stmt_without_update (pre_p, ret);
+      return bool_ret;
+    }
+
   expected_type = TREE_TYPE (expected_ptr_type);
   /* Handle void * or struct * types.  */
   if (!TYPE_SIZE (expected_type)
       || (!INTEGRAL_TYPE_P (expected_type) && !POINTER_TYPE_P (expected_type)))
     expected_type = BI_type;
-
-  if (!useless_type_conversion_p (BI_ptr_type, expected_ptr_type))
-    expected = fold_convert (BI_ptr_type, expected);
 
   tmp1 = create_tmp_var (BI_ptr_type, "cmpxchg_p");
   ret = gimple_build_assign (tmp1, expected);
@@ -1257,6 +1264,7 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, deref_tmp,
 					       val, order, fail_order,
 					       is_weak);
+  gimple_atomic_set_2_results (ret, true);
   bool_ret = create_tmp_var (boolean_type_node, NULL);
   gimple_atomic_set_lhs (ret , 0, bool_ret);
   tmp2 = create_tmp_var (expected_type, NULL);
@@ -1283,6 +1291,7 @@ issue_sync_cmpxchg (tree BI_type, tree target, tree expected, tree val, gimple_s
   /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, expected, val,
 					       order, order, false);
+  gimple_atomic_set_2_results (ret, true);
   bool_ret = create_tmp_var (boolean_type_node, NULL);
   gimple_atomic_set_lhs (ret , 0, bool_ret);
   tmp = create_tmp_var (BI_type, NULL);

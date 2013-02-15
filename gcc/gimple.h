@@ -98,6 +98,7 @@ enum gf_mask {
     GF_ASM_VOLATILE		= 1 << 1,
     GF_ATOMIC_ARITH_OP		= 0x07 << GF_ATOMIC_ARITH_OP_SHIFT, /* 3 bits */
     GF_ATOMIC_KIND		= 0x0F << GF_ATOMIC_KIND_SHIFT, /* 4 bits */
+    GF_ATOMIC_2_RESULTS		= 1 << 12,
     GF_ATOMIC_SYNC		= 1 << 13,
     GF_ATOMIC_GENERIC		= 1 << 14,
     GF_ATOMIC_THREAD_FENCE	= 1 << 15,
@@ -335,7 +336,7 @@ enum gimple_atomic_arith_op
    LOAD		| ORDER | TARGET | LHS  |
    STORE	| ORDER | TARGET | EXPR |
    EXCHANGE	| ORDER | TARGET | EXPR | LHS      |
-   COMPARE_EXCHG| ORDER | TARGET | EXPR | EXPECTED | FAIL_ORDER | LHS2 | LHS1 |
+   COMPARE_EXCHG| ORDER | TARGET | EXPR | EXPECTED | FAILORDER | LHS2 | LHS1 |
    FETCH	| ORDER | TARGET | EXPR | LHS      |
    TEST_AND_SET	| ORDER | TARGET | LHS  |
    CLEAR	| ORDER | TARGET |
@@ -346,7 +347,7 @@ enum gimple_atomic_arith_op
    LOAD		| ORDER | TARGET | RET   |
    STORE	| ORDER | TARGET | EXPR  |
    EXCHANGE	| ORDER | TARGET | EXPR  | RET      |
-   COMPARE_EXCHG| ORDER | TARGET | EXPR  | EXPECTED | FAIL_ORDER | RET | LHS |
+   COMPARE_EXCHG| ORDER | TARGET | EXPR  | EXPECTED | FAILORDER | VOID | LHS |
 
    The atomic kind is encoded in the subword.
    The operation for FETCH_OP and OP_FETCH is also encoded in the subword.
@@ -2107,6 +2108,26 @@ gimple_atomic_set_from_sync (gimple gs, bool sync)
     gs->gsbase.subcode &= ~GF_ATOMIC_SYNC;
 }
 
+static inline bool
+gimple_atomic_2_results (const_gimple gs)
+{
+  gcc_gimple_checking_assert (is_gimple_atomic (gs));
+  return (gs->gsbase.subcode & GF_ATOMIC_2_RESULTS) != 0;
+}
+
+/* Set the sync origination flag of atomic operation GS.  */
+
+static inline void
+gimple_atomic_set_2_results (gimple gs, bool has2)
+{
+  gcc_gimple_checking_assert (is_gimple_atomic (gs));
+  if (has2)
+    gs->gsbase.subcode |= GF_ATOMIC_2_RESULTS;
+  else
+    gs->gsbase.subcode &= ~GF_ATOMIC_2_RESULTS;
+}
+
+
 
 /* Return the base type of the atomic operation GS.  */
 static inline tree
@@ -2133,7 +2154,7 @@ gimple_atomic_num_lhs (const_gimple gs)
   switch (gimple_atomic_kind (gs))
     {
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
-      return gimple_atomic_generic (gs) ? 1 : 2;
+      return gimple_atomic_2_results(gs) ? 2 : 1;
 
     case GIMPLE_ATOMIC_STORE:
     case GIMPLE_ATOMIC_CLEAR:
@@ -2151,7 +2172,10 @@ gimple_atomic_num_lhs (const_gimple gs)
 static inline unsigned
 gimple_atomic_num_rhs (const_gimple gs)
 {
-  return (gimple_num_ops (gs) - gimple_atomic_num_lhs (gs));
+  if (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_COMPARE_EXCHANGE)
+    return (gimple_num_ops (gs) - gimple_atomic_num_lhs (gs));
+  else
+    return 5;
 }
 
 /* Return the LHS number INDEX of atomic operation GS.  */
@@ -2159,10 +2183,7 @@ gimple_atomic_num_rhs (const_gimple gs)
 static inline tree
 gimple_atomic_lhs (const_gimple gs, unsigned index)
 {
-  unsigned n;
-
-  n = gimple_atomic_num_lhs (gs);
-  gcc_checking_assert (index < n);
+  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
   return gimple_op (gs, gimple_num_ops (gs) - index - 1);
 }
 
@@ -2171,10 +2192,7 @@ gimple_atomic_lhs (const_gimple gs, unsigned index)
 static inline tree *
 gimple_atomic_lhs_ptr (const_gimple gs, unsigned index)
 {
-  unsigned n;
-
-  n = gimple_atomic_num_lhs (gs);
-  gcc_checking_assert (index < n);
+  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
   return gimple_op_ptr (gs, gimple_num_ops (gs) - index - 1);
 }
 
@@ -2183,10 +2201,7 @@ gimple_atomic_lhs_ptr (const_gimple gs, unsigned index)
 static inline void
 gimple_atomic_set_lhs (gimple gs, unsigned index, tree expr)
 {
-  unsigned n;
-
-  n = gimple_atomic_num_lhs (gs);
-  gcc_checking_assert (index < n);
+  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
   gimple_set_op (gs, gimple_num_ops (gs) - index - 1, expr);
 }
 
@@ -2243,25 +2258,6 @@ gimple_atomic_set_target (gimple gs, tree t)
 {
   gcc_checking_assert (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_FENCE);
   gimple_set_op (gs, 1, t);
-}
-
-/* Return true if atomic operation GS has an expression field.  */
-
-static inline bool
-gimple_atomic_has_expr (const_gimple gs)
-{
-  switch (gimple_atomic_kind (gs))
-  {
-    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
-    case GIMPLE_ATOMIC_EXCHANGE:
-    case GIMPLE_ATOMIC_STORE:
-    case GIMPLE_ATOMIC_FETCH_OP:
-    case GIMPLE_ATOMIC_OP_FETCH:
-      return true;
-
-    default:
-      return false;
-  }
 }
 
 /* Return the expression field of atomic operation GS.  */
@@ -2342,11 +2338,10 @@ gimple_atomic_set_expected (gimple gs, tree t)
 static inline tree
 gimple_atomic_return (const_gimple gs)
 {
-  unsigned n;
-  gcc_checking_assert (gimple_atomic_generic (gs));
-
-  n = gimple_atomic_num_lhs (gs);
-  return gimple_op (gs, gimple_num_ops (gs) - n - 1);
+  gcc_checking_assert (gimple_atomic_generic (gs)
+		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
+			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
+  return gimple_op (gs, gimple_num_ops (gs) - 1);
 }
 
 /* Return a pointer to the return field of atomic operation GS.  */
@@ -2354,11 +2349,10 @@ gimple_atomic_return (const_gimple gs)
 static inline tree *
 gimple_atomic_return_ptr (const_gimple gs)
 {
-  unsigned n;
-  gcc_checking_assert (gimple_atomic_generic (gs));
-
-  n = gimple_atomic_num_lhs (gs);
-  return gimple_op_ptr (gs, gimple_num_ops (gs) - n - 1);
+  gcc_checking_assert (gimple_atomic_generic (gs)
+		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
+			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 1);
 }
 
 /* Set the return field of atomic operation GS.  */
@@ -2366,11 +2360,10 @@ gimple_atomic_return_ptr (const_gimple gs)
 static inline void
 gimple_atomic_set_return (gimple gs, tree t)
 {
-  unsigned n;
-  gcc_checking_assert (gimple_atomic_generic (gs));
-
-  n = gimple_atomic_num_lhs (gs);
-  gimple_set_op (gs, gimple_num_ops (gs) - n - 1, t);
+  gcc_checking_assert (gimple_atomic_generic (gs)
+		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
+			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
+  gimple_set_op (gs, gimple_num_ops (gs) - 1, t);
 }
 
 
