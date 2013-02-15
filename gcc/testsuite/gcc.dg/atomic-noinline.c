@@ -16,6 +16,10 @@ extern void abort();
 short as,bs,cs;
 char ac,bc,cc;
 
+/* Override the "bool" return value for __atomic_is_lock_free or this test will
+   fail with optimization.  */
+extern int __atomic_is_lock_free (int, void *);
+
 main ()
 {
 

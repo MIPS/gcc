@@ -8683,6 +8683,9 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	}
       return false;
 
+    case ATOMIC_EXPR:
+      return false;
+
     default:
       if (objc_is_property_ref (t))
 	return false;

@@ -10165,6 +10165,30 @@ build_call_vec (tree return_type, tree fn, vec<tree, va_gc> *args)
 }
 
 
+tree build_atomic_vec (tree type, tree decl, vec<tree, va_gc> *args)
+{
+  tree ret;
+  unsigned ix;
+  unsigned nargs;
+ 
+  nargs = ((args) ? args->length () : 0);
+
+  ret = build_vl_exp (ATOMIC_EXPR, nargs + 2);
+  ATOMIC_EXPR_DECL (ret) = decl;
+  if (nargs > 0)
+    {
+      for (ix = 0; ix < nargs; ix++)
+	ATOMIC_EXPR_ARG (ret, ix) = (*args)[ix];
+    }
+  TREE_TYPE (ret) = type;
+  TREE_SIDE_EFFECTS (ret) = 1;
+  TREE_THIS_VOLATILE (ret) = 1;
+
+  return ret;
+
+
+}
+
 /* Returns true if it is possible to prove that the index of
    an array access REF (an ARRAY_REF expression) falls into the
    array bounds.  */

@@ -2403,6 +2403,30 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_block_node (buffer, node, spc, flags);
       break;
 
+    case ATOMIC_EXPR:
+      {
+	int x, lim = atomic_expr_nargs (node);
+        tree decl = ATOMIC_EXPR_DECL (node);
+
+	pp_string (buffer, "ATOMIC_EXPR < ");
+	gcc_assert (DECL_ATOMIC_BUILT_IN (decl));
+	print_call_name (buffer, decl, flags);
+	pp_character (buffer, ',');
+	pp_space (buffer);
+	for (x = 0; x < lim; x++ )
+	  {
+	    tree t = ATOMIC_EXPR_ARG (node, x);
+	    dump_generic_node (buffer, t, spc, flags, false);
+	    if (x + 1 != lim)
+	      {
+		pp_character (buffer, ',');
+		pp_space (buffer);
+	      }
+	  }
+	pp_string (buffer," > ");
+	break;
+      }
+
     default:
       NIY;
     }

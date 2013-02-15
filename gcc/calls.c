@@ -4343,6 +4343,10 @@ emit_library_call_value (rtx orgfun, rtx value,
   va_list p;
 
   va_start (p, nargs);
+  /* For some reason library calls expect target to be NULL rather than
+     const0_rtx when the destination is not important.  */
+  if (value == const0_rtx)
+    value = NULL_RTX;
   result = emit_library_call_value_1 (1, orgfun, value, fn_type, outmode,
 				      nargs, p);
   va_end (p);

@@ -124,6 +124,15 @@ DEFGSCODE(GIMPLE_ASM, "gimple_asm", GSS_ASM)
     CHAIN is the optional static chain link for nested functions.  */
 DEFGSCODE(GIMPLE_CALL, "gimple_call", GSS_CALL)
 
+/* GIMPLE_ATOMIC <KIND, TYPE, ARG1... ARGN> Represents an atomic
+   operation which maps to a builtin function call.
+
+   FN is the gimple atomic operation KIND.
+   TYPE is the base type of the atomic operation.
+
+   ARG1-ARGN are the other arguments required by the various operations.  */
+DEFGSCODE(GIMPLE_ATOMIC, "gimple_atomic", GSS_ATOMIC)
+
 /* GIMPLE_TRANSACTION <BODY, LABEL> represents __transaction_atomic and
    __transaction_relaxed blocks.
    BODY is the sequence of statements inside the transaction.

@@ -23,7 +23,7 @@ void f3 (void)
 
 void f4 (int a, int b, int c)
 {
-  __atomic_load (&a, &b, &c,  __ATOMIC_SEQ_CST); /* { dg-error "incorrect number of arguments" } */
+  __atomic_load (&a, &b, &c,  __ATOMIC_SEQ_CST); /* { dg-error "too many arguments" } */
 }
 
 void f5 (int a, int b)
@@ -44,4 +44,10 @@ void f7 (int a, int b)
 void f8 (int a, int b, float c)
 {
   __atomic_load (&a, &b, c); /* { dg-error "non-integer memory model argument" } */
+}
+
+
+void f9 (int a, int b, int c)
+{
+  __atomic_load (&a, &b); /* { dg-error "too few arguments" } */
 }

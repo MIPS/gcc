@@ -1716,6 +1716,7 @@ warn_if_unused_value (const_tree exp, location_t locus)
     case WITH_CLEANUP_EXPR:
     case EXIT_EXPR:
     case VA_ARG_EXPR:
+    case ATOMIC_EXPR:
       return false;
 
     case BIND_EXPR:
@@ -9911,546 +9912,6 @@ builtin_type_for_size (int size, bool unsignedp)
   return type ? type : error_mark_node;
 }
 
-/* A helper function for resolve_overloaded_builtin in resolving the
-   overloaded __sync_ builtins.  Returns a positive power of 2 if the
-   first operand of PARAMS is a pointer to a supported data type.
-   Returns 0 if an error is encountered.  */
-
-static int
-sync_resolve_size (tree function, vec<tree, va_gc> *params)
-{
-  tree type;
-  int size;
-
-  if (!params)
-    {
-      error ("too few arguments to function %qE", function);
-      return 0;
-    }
-
-  type = TREE_TYPE ((*params)[0]);
-  if (TREE_CODE (type) != POINTER_TYPE)
-    goto incompatible;
-
-  type = TREE_TYPE (type);
-  if (!INTEGRAL_TYPE_P (type) && !POINTER_TYPE_P (type))
-    goto incompatible;
-
-  size = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
-  if (size == 1 || size == 2 || size == 4 || size == 8 || size == 16)
-    return size;
-
- incompatible:
-  error ("incompatible type for argument %d of %qE", 1, function);
-  return 0;
-}
-
-/* A helper function for resolve_overloaded_builtin.  Adds casts to
-   PARAMS to make arguments match up with those of FUNCTION.  Drops
-   the variadic arguments at the end.  Returns false if some error
-   was encountered; true on success.  */
-
-static bool
-sync_resolve_params (location_t loc, tree orig_function, tree function,
-		     vec<tree, va_gc> *params, bool orig_format)
-{
-  function_args_iterator iter;
-  tree ptype;
-  unsigned int parmnum;
-
-  function_args_iter_init (&iter, TREE_TYPE (function));
-  /* We've declared the implementation functions to use "volatile void *"
-     as the pointer parameter, so we shouldn't get any complaints from the
-     call to check_function_arguments what ever type the user used.  */
-  function_args_iter_next (&iter);
-  ptype = TREE_TYPE (TREE_TYPE ((*params)[0]));
-
-  /* For the rest of the values, we need to cast these to FTYPE, so that we
-     don't get warnings for passing pointer types, etc.  */
-  parmnum = 0;
-  while (1)
-    {
-      tree val, arg_type;
-
-      arg_type = function_args_iter_cond (&iter);
-      /* XXX void_type_node belies the abstraction.  */
-      if (arg_type == void_type_node)
-	break;
-
-      ++parmnum;
-      if (params->length () <= parmnum)
-	{
-	  error_at (loc, "too few arguments to function %qE", orig_function);
-	  return false;
-	}
-
-      /* Only convert parameters if arg_type is unsigned integer type with
-	 new format sync routines, i.e. don't attempt to convert pointer
-	 arguments (e.g. EXPECTED argument of __atomic_compare_exchange_n),
-	 bool arguments (e.g. WEAK argument) or signed int arguments (memmodel
-	 kinds).  */
-      if (TREE_CODE (arg_type) == INTEGER_TYPE && TYPE_UNSIGNED (arg_type))
-	{
-	  /* Ideally for the first conversion we'd use convert_for_assignment
-	     so that we get warnings for anything that doesn't match the pointer
-	     type.  This isn't portable across the C and C++ front ends atm.  */
-	  val = (*params)[parmnum];
-	  val = convert (ptype, val);
-	  val = convert (arg_type, val);
-	  (*params)[parmnum] = val;
-	}
-
-      function_args_iter_next (&iter);
-    }
-
-  /* __atomic routines are not variadic.  */
-  if (!orig_format && params->length () != parmnum + 1)
-    {
-      error_at (loc, "too many arguments to function %qE", orig_function);
-      return false;
-    }
-
-  /* The definition of these primitives is variadic, with the remaining
-     being "an optional list of variables protected by the memory barrier".
-     No clue what that's supposed to mean, precisely, but we consider all
-     call-clobbered variables to be protected so we're safe.  */
-  params->truncate (parmnum + 1);
-
-  return true;
-}
-
-/* A helper function for resolve_overloaded_builtin.  Adds a cast to
-   RESULT to make it match the type of the first pointer argument in
-   PARAMS.  */
-
-static tree
-sync_resolve_return (tree first_param, tree result, bool orig_format)
-{
-  tree ptype = TREE_TYPE (TREE_TYPE (first_param));
-  tree rtype = TREE_TYPE (result);
-  ptype = TYPE_MAIN_VARIANT (ptype);
-
-  /* New format doesn't require casting unless the types are the same size.  */
-  if (orig_format || tree_int_cst_equal (TYPE_SIZE (ptype), TYPE_SIZE (rtype)))
-    return convert (ptype, result);
-  else
-    return result;
-}
-
-/* This function verifies the PARAMS to generic atomic FUNCTION.
-   It returns the size if all the parameters are the same size, otherwise
-   0 is returned if the parameters are invalid.  */
-
-static int
-get_atomic_generic_size (location_t loc, tree function,
-			 vec<tree, va_gc> *params)
-{
-  unsigned int n_param;
-  unsigned int n_model;
-  unsigned int x;
-  int size_0;
-  tree type_0;
-
-  /* Determine the parameter makeup.  */
-  switch (DECL_FUNCTION_CODE (function))
-    {
-    case BUILT_IN_ATOMIC_EXCHANGE:
-      n_param = 4;
-      n_model = 1;
-      break;
-    case BUILT_IN_ATOMIC_LOAD:
-    case BUILT_IN_ATOMIC_STORE:
-      n_param = 3;
-      n_model = 1;
-      break;
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
-      n_param = 6;
-      n_model = 2;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  if (vec_safe_length (params) != n_param)
-    {
-      error_at (loc, "incorrect number of arguments to function %qE", function);
-      return 0;
-    }
-
-  /* Get type of first parameter, and determine its size.  */
-  type_0 = TREE_TYPE ((*params)[0]);
-  if (TREE_CODE (type_0) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (type_0)))
-    {
-      error_at (loc, "argument 1 of %qE must be a non-void pointer type",
-		function);
-      return 0;
-    }
-
-  /* Types must be compile time constant sizes. */
-  if (TREE_CODE ((TYPE_SIZE_UNIT (TREE_TYPE (type_0)))) != INTEGER_CST)
-    {
-      error_at (loc, 
-		"argument 1 of %qE must be a pointer to a constant size type",
-		function);
-      return 0;
-    }
-
-  size_0 = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (type_0)), 1);
-
-  /* Zero size objects are not allowed.  */
-  if (size_0 == 0)
-    {
-      error_at (loc, 
-		"argument 1 of %qE must be a pointer to a nonzero size object",
-		function);
-      return 0;
-    }
-
-  /* Check each other parameter is a pointer and the same size.  */
-  for (x = 0; x < n_param - n_model; x++)
-    {
-      int size;
-      tree type = TREE_TYPE ((*params)[x]);
-      /* __atomic_compare_exchange has a bool in the 4th postion, skip it.  */
-      if (n_param == 6 && x == 3)
-        continue;
-      if (!POINTER_TYPE_P (type))
-	{
-	  error_at (loc, "argument %d of %qE must be a pointer type", x + 1,
-		    function);
-	  return 0;
-	}
-      size = tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (type)), 1);
-      if (size != size_0)
-	{
-	  error_at (loc, "size mismatch in argument %d of %qE", x + 1,
-		    function);
-	  return 0;
-	}
-    }
-
-  /* Check memory model parameters for validity.  */
-  for (x = n_param - n_model ; x < n_param; x++)
-    {
-      tree p = (*params)[x];
-      if (TREE_CODE (p) == INTEGER_CST)
-        {
-	  int i = tree_low_cst (p, 1);
-	  if (i < 0 || (i & MEMMODEL_MASK) >= MEMMODEL_LAST)
-	    {
-	      warning_at (loc, OPT_Winvalid_memory_model,
-			  "invalid memory model argument %d of %qE", x + 1,
-			  function);
-	    }
-	}
-      else
-	if (!INTEGRAL_TYPE_P (TREE_TYPE (p)))
-	  {
-	    error_at (loc, "non-integer memory model argument %d of %qE", x + 1,
-		   function);
-	    return 0;
-	  }
-      }
-
-  return size_0;
-}
-
-
-/* This will take an __atomic_ generic FUNCTION call, and add a size parameter N
-   at the beginning of the parameter list PARAMS representing the size of the
-   objects.  This is to match the library ABI requirement.  LOC is the location
-   of the function call.  
-   The new function is returned if it needed rebuilding, otherwise NULL_TREE is
-   returned to allow the external call to be constructed.  */
-
-static tree
-add_atomic_size_parameter (unsigned n, location_t loc, tree function, 
-			   vec<tree, va_gc> *params)
-{
-  tree size_node;
-
-  /* Insert a SIZE_T parameter as the first param.  If there isn't
-     enough space, allocate a new vector and recursively re-build with that.  */
-  if (!params->space (1))
-    {
-      unsigned int z, len;
-      vec<tree, va_gc> *v;
-      tree f;
-
-      len = params->length ();
-      vec_alloc (v, len + 1);
-      for (z = 0; z < len; z++)
-	v->quick_push ((*params)[z]);
-      f = build_function_call_vec (loc, function, v, NULL);
-      vec_free (v);
-      return f;
-    }
-
-  /* Add the size parameter and leave as a function call for processing.  */
-  size_node = build_int_cst (size_type_node, n);
-  params->quick_insert (0, size_node);
-  return NULL_TREE;
-}
-
-
-/* This will process an __atomic_exchange function call, determine whether it
-   needs to be mapped to the _N variation, or turned into a library call.
-   LOC is the location of the builtin call.
-   FUNCTION is the DECL that has been invoked;
-   PARAMS is the argument list for the call.  The return value is non-null
-   TRUE is returned if it is translated into the proper format for a call to the
-   external library, and NEW_RETURN is set the tree for that function.
-   FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
-static bool
-resolve_overloaded_atomic_exchange (location_t loc, tree function, 
-				    vec<tree, va_gc> *params, tree *new_return)
-{	
-  tree p0, p1, p2, p3;
-  tree I_type, I_type_ptr;
-  int n = get_atomic_generic_size (loc, function, params);
-
-  /* Size of 0 is an error condition.  */
-  if (n == 0)
-    {
-      *new_return = error_mark_node;
-      return true;
-    }
-
-  /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
-    {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
-      return true;
-    }
-
-  /* Otherwise there is a lockfree match, transform the call from:
-       void fn(T* mem, T* desired, T* return, model)
-     into
-       *return = (T) (fn (In* mem, (In) *desired, model))  */
-
-  p0 = (*params)[0];
-  p1 = (*params)[1];
-  p2 = (*params)[2];
-  p3 = (*params)[3];
-  
-  /* Create pointer to appropriate size.  */
-  I_type = builtin_type_for_size (BITS_PER_UNIT * n, 1);
-  I_type_ptr = build_pointer_type (I_type);
-
-  /* Convert object pointer to required type.  */
-  p0 = build1 (VIEW_CONVERT_EXPR, I_type_ptr, p0);
-  (*params)[0] = p0; 
-  /* Convert new value to required type, and dereference it.  */
-  p1 = build_indirect_ref (loc, p1, RO_UNARY_STAR);
-  p1 = build1 (VIEW_CONVERT_EXPR, I_type, p1);
-  (*params)[1] = p1;
-
-  /* Move memory model to the 3rd position, and end param list.  */
-  (*params)[2] = p3;
-  params->truncate (3);
-
-  /* Convert return pointer and dereference it for later assignment.  */
-  *new_return = build_indirect_ref (loc, p2, RO_UNARY_STAR);
-
-  return false;
-}
-
-
-/* This will process an __atomic_compare_exchange function call, determine 
-   whether it needs to be mapped to the _N variation, or turned into a lib call.
-   LOC is the location of the builtin call.
-   FUNCTION is the DECL that has been invoked;
-   PARAMS is the argument list for the call.  The return value is non-null
-   TRUE is returned if it is translated into the proper format for a call to the
-   external library, and NEW_RETURN is set the tree for that function.
-   FALSE is returned if processing for the _N variation is required.  */
-
-static bool
-resolve_overloaded_atomic_compare_exchange (location_t loc, tree function, 
-					    vec<tree, va_gc> *params, 
-					    tree *new_return)
-{	
-  tree p0, p1, p2;
-  tree I_type, I_type_ptr;
-  int n = get_atomic_generic_size (loc, function, params);
-
-  /* Size of 0 is an error condition.  */
-  if (n == 0)
-    {
-      *new_return = error_mark_node;
-      return true;
-    }
-
-  /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
-    {
-      /* The library generic format does not have the weak parameter, so 
-	 remove it from the param list.  Since a parameter has been removed,
-	 we can be sure that there is room for the SIZE_T parameter, meaning
-	 there will not be a recursive rebuilding of the parameter list, so
-	 there is no danger this will be done twice.  */
-      if (n > 0)
-        {
-	  (*params)[3] = (*params)[4];
-	  (*params)[4] = (*params)[5];
-	  params->truncate (5);
-	}
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
-      return true;
-    }
-
-  /* Otherwise, there is a match, so the call needs to be transformed from:
-       bool fn(T* mem, T* desired, T* return, weak, success, failure)
-     into
-       bool fn ((In *)mem, (In *)expected, (In) *desired, weak, succ, fail)  */
-
-  p0 = (*params)[0];
-  p1 = (*params)[1];
-  p2 = (*params)[2];
-  
-  /* Create pointer to appropriate size.  */
-  I_type = builtin_type_for_size (BITS_PER_UNIT * n, 1);
-  I_type_ptr = build_pointer_type (I_type);
-
-  /* Convert object pointer to required type.  */
-  p0 = build1 (VIEW_CONVERT_EXPR, I_type_ptr, p0);
-  (*params)[0] = p0;
-
-  /* Convert expected pointer to required type.  */
-  p1 = build1 (VIEW_CONVERT_EXPR, I_type_ptr, p1);
-  (*params)[1] = p1;
-
-  /* Convert desired value to required type, and dereference it.  */
-  p2 = build_indirect_ref (loc, p2, RO_UNARY_STAR);
-  p2 = build1 (VIEW_CONVERT_EXPR, I_type, p2);
-  (*params)[2] = p2;
-
-  /* The rest of the parameters are fine. NULL means no special return value
-     processing.*/
-  *new_return = NULL;
-  return false;
-}
-
-
-/* This will process an __atomic_load function call, determine whether it
-   needs to be mapped to the _N variation, or turned into a library call.
-   LOC is the location of the builtin call.
-   FUNCTION is the DECL that has been invoked;
-   PARAMS is the argument list for the call.  The return value is non-null
-   TRUE is returned if it is translated into the proper format for a call to the
-   external library, and NEW_RETURN is set the tree for that function.
-   FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
-
-static bool
-resolve_overloaded_atomic_load (location_t loc, tree function, 
-				vec<tree, va_gc> *params, tree *new_return)
-{	
-  tree p0, p1, p2;
-  tree I_type, I_type_ptr;
-  int n = get_atomic_generic_size (loc, function, params);
-
-  /* Size of 0 is an error condition.  */
-  if (n == 0)
-    {
-      *new_return = error_mark_node;
-      return true;
-    }
-
-  /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
-    {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
-      return true;
-    }
-
-  /* Otherwise, there is a match, so the call needs to be transformed from:
-       void fn(T* mem, T* return, model)
-     into
-       *return = (T) (fn ((In *) mem, model))  */
-
-  p0 = (*params)[0];
-  p1 = (*params)[1];
-  p2 = (*params)[2];
-  
-  /* Create pointer to appropriate size.  */
-  I_type = builtin_type_for_size (BITS_PER_UNIT * n, 1);
-  I_type_ptr = build_pointer_type (I_type);
-
-  /* Convert object pointer to required type.  */
-  p0 = build1 (VIEW_CONVERT_EXPR, I_type_ptr, p0);
-  (*params)[0] = p0;
-
-  /* Move memory model to the 2nd position, and end param list.  */
-  (*params)[1] = p2;
-  params->truncate (2);
-
-  /* Convert return pointer and dereference it for later assignment.  */
-  *new_return = build_indirect_ref (loc, p1, RO_UNARY_STAR);
-
-  return false;
-}
-
-
-/* This will process an __atomic_store function call, determine whether it
-   needs to be mapped to the _N variation, or turned into a library call.
-   LOC is the location of the builtin call.
-   FUNCTION is the DECL that has been invoked;
-   PARAMS is the argument list for the call.  The return value is non-null
-   TRUE is returned if it is translated into the proper format for a call to the
-   external library, and NEW_RETURN is set the tree for that function.
-   FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
-
-static bool
-resolve_overloaded_atomic_store (location_t loc, tree function, 
-				 vec<tree, va_gc> *params, tree *new_return)
-{	
-  tree p0, p1;
-  tree I_type, I_type_ptr;
-  int n = get_atomic_generic_size (loc, function, params);
-
-  /* Size of 0 is an error condition.  */
-  if (n == 0)
-    {
-      *new_return = error_mark_node;
-      return true;
-    }
-
-  /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
-    {
-      *new_return = add_atomic_size_parameter (n, loc, function, params);
-      return true;
-    }
-
-  /* Otherwise, there is a match, so the call needs to be transformed from:
-       void fn(T* mem, T* value, model)
-     into
-       fn ((In *) mem, (In) *value, model)  */
-
-  p0 = (*params)[0];
-  p1 = (*params)[1];
-  
-  /* Create pointer to appropriate size.  */
-  I_type = builtin_type_for_size (BITS_PER_UNIT * n, 1);
-  I_type_ptr = build_pointer_type (I_type);
-
-  /* Convert object pointer to required type.  */
-  p0 = build1 (VIEW_CONVERT_EXPR, I_type_ptr, p0);
-  (*params)[0] = p0;
-
-  /* Convert new value to required type, and dereference it.  */
-  p1 = build_indirect_ref (loc, p1, RO_UNARY_STAR);
-  p1 = build1 (VIEW_CONVERT_EXPR, I_type, p1);
-  (*params)[1] = p1;
-  
-  /* The memory model is in the right spot already. Return is void.  */
-  *new_return = NULL_TREE;
-
-  return false;
-}
 
 
 /* Some builtin functions are placeholders for other expressions.  This
@@ -10469,7 +9930,6 @@ resolve_overloaded_builtin (location_t loc, tree function,
 			    vec<tree, va_gc> *params)
 {
   enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
-  bool orig_format = true;
   tree new_return = NULL_TREE;
 
   switch (DECL_BUILT_IN_CLASS (function))
@@ -10485,139 +9945,117 @@ resolve_overloaded_builtin (location_t loc, tree function,
       return NULL_TREE;
     }
 
-  /* Handle BUILT_IN_NORMAL here.  */
-  switch (orig_code)
+  /* Atomic function calls are turned into an ATOMIC_EXPR tree and handled
+     during gimlification.  */
+  if (DECL_ATOMIC_BUILT_IN (function))
     {
-    case BUILT_IN_ATOMIC_EXCHANGE:
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
-    case BUILT_IN_ATOMIC_LOAD:
-    case BUILT_IN_ATOMIC_STORE:
-      {
-	/* Handle these 4 together so that they can fall through to the next
-	   case if the call is transformed to an _N variant.  */
-        switch (orig_code)
-	{
-	  case BUILT_IN_ATOMIC_EXCHANGE:
-	    {
-	      if (resolve_overloaded_atomic_exchange (loc, function, params,
-						      &new_return))
-		return new_return;
-	      /* Change to the _N variant.  */
-	      orig_code = BUILT_IN_ATOMIC_EXCHANGE_N;
-	      break;
-	    }
+      tree expr_type;
+      tree check_type;
 
-	  case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
-	    {
-	      if (resolve_overloaded_atomic_compare_exchange (loc, function,
-							      params,
-							      &new_return))
-		return new_return;
-	      /* Change to the _N variant.  */
-	      orig_code = BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N;
-	      break;
-	    }
-	  case BUILT_IN_ATOMIC_LOAD:
-	    {
-	      if (resolve_overloaded_atomic_load (loc, function, params,
-						  &new_return))
-		return new_return;
-	      /* Change to the _N variant.  */
-	      orig_code = BUILT_IN_ATOMIC_LOAD_N;
-	      break;
-	    }
-	  case BUILT_IN_ATOMIC_STORE:
-	    {
-	      if (resolve_overloaded_atomic_store (loc, function, params,
-						   &new_return))
-		return new_return;
-	      /* Change to the _N variant.  */
-	      orig_code = BUILT_IN_ATOMIC_STORE_N;
-	      break;
-	    }
-	  default:
-	    gcc_unreachable ();
+      /* Determine tree type of ATOMIC_EXPR node.  */
+      switch (orig_code)
+        {
+	case BUILT_IN_SYNC_SYNCHRONIZE:
+	case BUILT_IN_ATOMIC_THREAD_FENCE:
+	case BUILT_IN_ATOMIC_SIGNAL_FENCE:
+	  expr_type = void_type_node;
+	  check_type = NULL_TREE;
+	break;
+
+	case BUILT_IN_SYNC_LOCK_RELEASE_N:
+	case BUILT_IN_SYNC_LOCK_RELEASE_1:
+	case BUILT_IN_SYNC_LOCK_RELEASE_2:
+	case BUILT_IN_SYNC_LOCK_RELEASE_4:
+	case BUILT_IN_SYNC_LOCK_RELEASE_8:
+	case BUILT_IN_SYNC_LOCK_RELEASE_16:
+	case BUILT_IN_ATOMIC_STORE:
+	case BUILT_IN_ATOMIC_STORE_N:
+	case BUILT_IN_ATOMIC_STORE_1:
+	case BUILT_IN_ATOMIC_STORE_2:
+	case BUILT_IN_ATOMIC_STORE_4:
+	case BUILT_IN_ATOMIC_STORE_8:
+	case BUILT_IN_ATOMIC_STORE_16:
+	case BUILT_IN_ATOMIC_LOAD:
+	case BUILT_IN_ATOMIC_EXCHANGE:
+	  expr_type = void_type_node;
+	  check_type = (*params)[0];
+	  break;
+
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
+	case BUILT_IN_ATOMIC_TEST_AND_SET:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_4:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_8:
+	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
+	case BUILT_IN_ATOMIC_ALWAYS_LOCK_FREE:
+	case BUILT_IN_ATOMIC_IS_LOCK_FREE:
+	  expr_type = boolean_type_node;
+	  check_type = (*params)[0];
+	  break;
+
+	default:
+	  expr_type = NULL_TREE;
+	  check_type = (*params)[0];
 	}
-	/* Fallthrough to the normal processing.  */
-      }
-    case BUILT_IN_ATOMIC_EXCHANGE_N:
-    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
-    case BUILT_IN_ATOMIC_LOAD_N:
-    case BUILT_IN_ATOMIC_STORE_N:
-    case BUILT_IN_ATOMIC_ADD_FETCH_N:
-    case BUILT_IN_ATOMIC_SUB_FETCH_N:
-    case BUILT_IN_ATOMIC_AND_FETCH_N:
-    case BUILT_IN_ATOMIC_NAND_FETCH_N:
-    case BUILT_IN_ATOMIC_XOR_FETCH_N:
-    case BUILT_IN_ATOMIC_OR_FETCH_N:
-    case BUILT_IN_ATOMIC_FETCH_ADD_N:
-    case BUILT_IN_ATOMIC_FETCH_SUB_N:
-    case BUILT_IN_ATOMIC_FETCH_AND_N:
-    case BUILT_IN_ATOMIC_FETCH_NAND_N:
-    case BUILT_IN_ATOMIC_FETCH_XOR_N:
-    case BUILT_IN_ATOMIC_FETCH_OR_N:
-      {
-        orig_format = false;
-	/* Fallthru for parameter processing.  */
-      }
-    case BUILT_IN_SYNC_FETCH_AND_ADD_N:
-    case BUILT_IN_SYNC_FETCH_AND_SUB_N:
-    case BUILT_IN_SYNC_FETCH_AND_OR_N:
-    case BUILT_IN_SYNC_FETCH_AND_AND_N:
-    case BUILT_IN_SYNC_FETCH_AND_XOR_N:
-    case BUILT_IN_SYNC_FETCH_AND_NAND_N:
-    case BUILT_IN_SYNC_ADD_AND_FETCH_N:
-    case BUILT_IN_SYNC_SUB_AND_FETCH_N:
-    case BUILT_IN_SYNC_OR_AND_FETCH_N:
-    case BUILT_IN_SYNC_AND_AND_FETCH_N:
-    case BUILT_IN_SYNC_XOR_AND_FETCH_N:
-    case BUILT_IN_SYNC_NAND_AND_FETCH_N:
-    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
-    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N:
-    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_N:
-    case BUILT_IN_SYNC_LOCK_RELEASE_N:
-      {
-	int n = sync_resolve_size (function, params);
-	tree new_function, first_param, result;
-	enum built_in_function fncode;
 
-	if (n == 0)
-	  return error_mark_node;
+      if (check_type)
+        {
+	  /* Determine the object type from the first parameter.  */
+	  int size;
+	  tree t = TREE_TYPE (check_type);
+	  if (TREE_CODE (t) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error_at (loc,
+			"argument 1 of %qE must be a non-void pointer type",
+			function);
+	      return NULL_TREE;
+	    }
 
-	fncode = (enum built_in_function)((int)orig_code + exact_log2 (n) + 1);
-	new_function = builtin_decl_explicit (fncode);
-	if (!sync_resolve_params (loc, function, new_function, params,
-				  orig_format))
-	  return error_mark_node;
+	  t = TREE_TYPE (t);
+	  /* Types must be compile time constant sizes. */
+	  if (TREE_CODE (TYPE_SIZE_UNIT (t)) != INTEGER_CST)
+	    {
+	      error_at (loc, 
+		  "argument 1 of %qE must be a pointer to a constant size type",
+		  function);
+	      return NULL_TREE;
+	    }
 
-	first_param = (*params)[0];
-	result = build_function_call_vec (loc, new_function, params, NULL);
-	if (result == error_mark_node)
-	  return result;
-	if (orig_code != BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N
-	    && orig_code != BUILT_IN_SYNC_LOCK_RELEASE_N
-	    && orig_code != BUILT_IN_ATOMIC_STORE_N)
-	  result = sync_resolve_return (first_param, result, orig_format);
+	  size = tree_low_cst (TYPE_SIZE_UNIT (t), 1);
+	  /* Zero size objects are not allowed.  */
+	  if (size == 0)
+	    {
+	      error_at (loc, 
+		"argument 1 of %qE must be a pointer to a nonzero size object",
+		function);
+	      return NULL_TREE;
+	    }
 
-	/* If new_return is set, assign function to that expr and cast the
-	   result to void since the generic interface returned void.  */
-	if (new_return)
-	  {
-	    /* Cast function result from I{1,2,4,8,16} to the required type.  */
-	    result = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (new_return), result);
-	    result = build2 (MODIFY_EXPR, TREE_TYPE (new_return), new_return,
-			     result);
-	    TREE_SIDE_EFFECTS (result) = 1;
-	    protected_set_expr_location (result, loc);
-	    result = convert (void_type_node, result);
-	  }
-	return result;
-      }
+	  /* If expr_type is not set, set it to the derived atomic type.  */
+	  if (expr_type == NULL_TREE)
+	    expr_type = t;
 
-    default:
-      return NULL_TREE;
+#if 0
+	  /* Strip off the atomic qualifier if need be.  */
+	  if (TYPE_ATOMIC (t))
+	    t = build_nonatomic_variant (t);
+#endif
+	}
+
+      new_return = build_atomic_vec (expr_type, function, params);
     }
+
+  return new_return;
 }
+
 
 /* Ignoring their sign, return true if two scalar types are the same.  */
 bool

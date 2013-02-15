@@ -1476,6 +1476,9 @@ ref_maybe_used_by_stmt_p (gimple stmt, tree ref)
     }
   else if (is_gimple_call (stmt))
     return ref_maybe_used_by_call_p (stmt, ref);
+  else if (is_gimple_atomic (stmt))
+    /* Atomic operations can have side effects on any shared memory.  */
+    return true;
   else if (gimple_code (stmt) == GIMPLE_RETURN)
     {
       tree retval = gimple_return_retval (stmt);
@@ -1798,6 +1801,9 @@ stmt_may_clobber_ref_p_1 (gimple stmt, ao_ref *ref)
     }
   else if (gimple_code (stmt) == GIMPLE_ASM)
     return true;
+  else if (is_gimple_atomic (stmt))
+    /* Atomic operations can have side effects on any shared memory.  */
+    return true;
 
   return false;
 }
@@ -1850,6 +1856,8 @@ stmt_kills_ref_p_1 (gimple stmt, ao_ref *ref)
 	}
     }
 
+  if (is_gimple_atomic (stmt))
+    return false;
   if (is_gimple_call (stmt))
     {
       tree callee = gimple_call_fndecl (stmt);

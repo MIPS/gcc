@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-march=x86-64 -mhle" } */
+/* { dg-options "-march=x86-64 -mhle -O2" } */
 /* { dg-final { scan-assembler "lock;?\[ \n\t\]+\(xacquire\|\.byte\[ \t\]+0xf2\)\[ \t\n\]+cmpxchg" } } */
 
 int

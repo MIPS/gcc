@@ -532,7 +532,7 @@ static bool
 is_gimple_reg_rhs_or_call (tree t)
 {
   return (get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS
-	  || TREE_CODE (t) == CALL_EXPR);
+	  || TREE_CODE (t) == CALL_EXPR || TREE_CODE (t) == ATOMIC_EXPR);
 }
 
 /* Return true if T is a valid memory RHS or a CALL_EXPR.  Note that
@@ -2125,6 +2125,8 @@ gimplify_var_or_parm_decl (tree *expr_p)
 
   return GS_ALL_DONE;
 }
+
+
 
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
    node *EXPR_P.
@@ -7605,6 +7607,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case ATOMIC_EXPR:
+	  ret = gimplify_atomic_expr (expr_p, pre_p, post_p);
+	  break;
+
 	case SSA_NAME:
 	  /* Allow callbacks into the gimplifier during optimization.  */
 	  ret = GS_ALL_DONE;
@@ -7976,6 +7982,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != LOOP_EXPR
 		  && code != SWITCH_EXPR
 		  && code != TRY_FINALLY_EXPR
+		  && code != ATOMIC_EXPR
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
 		  && code != OMP_MASTER

@@ -553,6 +553,19 @@ DEFTREECODE (BIND_EXPR, "bind_expr", tcc_expression, 3)
    arguments to the call.  */
 DEFTREECODE (CALL_EXPR, "call_expr", tcc_vl_exp, 3)
 
+
+/* Atomic expression.  ATOMIC_EXPRs are represented by variably-sized expression
+   nodes.  There is at least 1 fixed operand.  Operand 0 is a decl which
+   determines which of the 2 forms an ATOMIC_EXPR can take.
+
+   If operand 0 is a variable with the atomic type attribute set, then it is
+   the only parameter and represents an atomic access to that decl.
+
+   if operand 0 is a built-in function decl for one of the __atomic or __sync
+   built in functions, then the remaining operands represent the parameters
+   to that call.  */
+DEFTREECODE (ATOMIC_EXPR, "atomic_expr", tcc_vl_exp, 1)
+
 /* Specify a value to compute along with its corresponding cleanup.
    Operand 0 is the cleanup expression.
    The cleanup is executed by the first enclosing CLEANUP_POINT_EXPR,

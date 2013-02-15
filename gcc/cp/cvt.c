@@ -991,6 +991,7 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
       break;
 
     case CALL_EXPR:   /* We have a special meaning for volatile void fn().  */
+    case ATOMIC_EXPR: 
       break;
 
     case INDIRECT_REF:

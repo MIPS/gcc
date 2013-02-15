@@ -125,6 +125,7 @@ typedef struct ssa_operand_iterator_d
   int flags;
   unsigned i;
   unsigned numops;
+  unsigned def_offset;
   use_optype_p uses;
   gimple stmt;
 } ssa_op_iter;

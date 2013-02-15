@@ -141,6 +141,7 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     case GIMPLE_COND:
     case GIMPLE_GOTO:
     case GIMPLE_DEBUG:
+    case GIMPLE_ATOMIC:
       for (i = 0; i < num_ops; i++)
 	{
 	  tree op = stream_read_tree (ib, data_in);
@@ -239,6 +240,11 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	  else
 	    gimple_call_set_fntype (stmt, stream_read_tree (ib, data_in));
 	}
+      if (is_gimple_atomic (stmt))
+	{
+	  if (gimple_atomic_kind (stmt) != GIMPLE_ATOMIC_FENCE)
+	    gimple_atomic_set_type (stmt, stream_read_tree (ib, data_in));
+	}
       break;
 
     case GIMPLE_NOP:
@@ -274,6 +280,16 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 	  tree op = TREE_VALUE (gimple_asm_output_op (stmt, i));
 	  if (TREE_CODE (op) == SSA_NAME)
 	    SSA_NAME_DEF_STMT (op) = stmt;
+	}
+    }
+  else if (code == GIMPLE_ATOMIC)
+    {
+      unsigned i;
+      for (i = 0; i < gimple_atomic_num_lhs (stmt); i++)
+        {
+	  tree lhs = gimple_atomic_lhs (stmt, i);
+	  if (TREE_CODE (lhs) == SSA_NAME)
+	    SSA_NAME_DEF_STMT (lhs) = stmt;
 	}
     }
 

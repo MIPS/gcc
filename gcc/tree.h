@@ -1741,6 +1741,13 @@ extern void protected_set_expr_location (tree, location_t);
 #define CALL_EXPR_ARGP(NODE) \
   (&(TREE_OPERAND (CALL_EXPR_CHECK (NODE), 0)) + 3)
 
+/* ATOMIC_EXPR accessors.  */
+#define ATOMIC_EXPR_DECL(NODE) TREE_OPERAND (ATOMIC_EXPR_CHECK (NODE), 1)
+#define atomic_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH(NODE) - 2)
+#define ATOMIC_EXPR_ARG(NODE, I) TREE_OPERAND (ATOMIC_EXPR_CHECK (NODE),  \
+					       (I) + 2)
+
+
 /* TM directives and accessors.  */
 #define TRANSACTION_EXPR_BODY(NODE) \
   TREE_OPERAND (TRANSACTION_EXPR_CHECK (NODE), 0)
@@ -3445,6 +3452,12 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define DECL_BUILT_IN_CLASS(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
 
+/* If a FUNCTION_DECL, nonzero means an atomic built in function.  */
+#define DECL_ATOMIC_BUILT_IN(NODE) 					\
+   (DECL_BUILT_IN (NODE)						\
+   && (DECL_FUNCTION_CODE (NODE) >= BUILT_IN_SYNC_FETCH_AND_ADD_N)	\
+   && (DECL_FUNCTION_CODE (NODE) <= BUILT_IN_ATOMIC_SIGNAL_FENCE))
+
 /* In FUNCTION_DECL, a chain of ..._DECL nodes.
    VAR_DECL and PARM_DECL reserve the arguments slot for language-specific
    uses.  */
@@ -4769,6 +4782,7 @@ extern tree build_call_valist (tree, tree, int, va_list);
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
 extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
 extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
+extern tree build_atomic_vec (tree, tree, vec<tree,va_gc> *);
 
 /* Construct various nodes representing data types.  */
 
