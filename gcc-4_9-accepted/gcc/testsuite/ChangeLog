@@ -1,3 +1,28 @@
+2013-02-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54685
+	* gcc.target/sh/pr54685.c: Fix scanning of not insn.
+
+2013-02-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56348
+	* gcc.target/i386/pr56348.c: New test.
+
+2013-02-15  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* gcc.target/arm/interrupt-1.c: Fix for thumb mode.
+	* gcc.target/arm/interrupt-2.c: Likewise.
+
+2013-02-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56318
+	* gcc/testsuite/gfortran.dg/matmul_9.f90: New.
+
+2013-02-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/53818
+	* gfortran.dg/init_flag_11.f90: New.
+
 2013-02-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* gcc.dg/debug/dwarf2/pr53948.c: Allow for more whitespace.

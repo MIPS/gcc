@@ -10492,7 +10492,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  tree inst_scope = tsubst_copy (USING_DECL_SCOPE (t), args,
 					 complain, in_decl);
 	  tree name = tsubst_copy (DECL_NAME (t), args, complain, in_decl);
-	  if (TREE_CODE (scope) == TEMPLATE_TYPE_PARM
+	  /* Handle 'using T::T'.  */
+	  if (TYPE_NAME (scope)
 	      && name == TYPE_IDENTIFIER (scope))
 	    name = TYPE_IDENTIFIER (inst_scope);
 	  r = do_class_using_decl (inst_scope, name);
@@ -14444,8 +14445,20 @@ tsubst_copy_and_build (tree t,
 	   than build a new one.  */
 	tree scope = LAMBDA_EXPR_EXTRA_SCOPE (t);
 	if (scope && TREE_CODE (scope) == FUNCTION_DECL)
-	  scope = tsubst (LAMBDA_EXPR_EXTRA_SCOPE (t), args,
-			  complain, in_decl);
+	  scope = tsubst (scope, args, complain, in_decl);
+	else if (scope && TREE_CODE (scope) == PARM_DECL)
+	  {
+	    /* Look up the parameter we want directly, as tsubst_copy
+	       doesn't do what we need.  */
+	    tree fn = tsubst (DECL_CONTEXT (scope), args, complain, in_decl);
+	    tree parm = FUNCTION_FIRST_USER_PARM (fn);
+	    while (DECL_PARM_INDEX (parm) != DECL_PARM_INDEX (scope))
+	      parm = DECL_CHAIN (parm);
+	    scope = parm;
+	    /* FIXME Work around the parm not having DECL_CONTEXT set.  */
+	    if (DECL_CONTEXT (scope) == NULL_TREE)
+	      DECL_CONTEXT (scope) = fn;
+	  }
 	else
 	  scope = RECUR (scope);
 	LAMBDA_EXPR_EXTRA_SCOPE (r) = scope;
@@ -16535,6 +16548,14 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
                 && PACK_EXPANSION_P (TREE_VEC_ELT (parmvec, len - 1)))
               parm_variadic_p = 1;
             
+             for (i = 0; i < len - parm_variadic_p; ++i)
+	       /* If the template argument list of P contains a pack
+		  expansion that is not the last template argument, the
+		  entire template argument list is a non-deduced
+		  context.  */
+	       if (PACK_EXPANSION_P (TREE_VEC_ELT (parmvec, i)))
+		 return unify_success (explain_p);
+
             if (TREE_VEC_LENGTH (argvec) < len - parm_variadic_p)
               return unify_too_few_arguments (explain_p,
 					      TREE_VEC_LENGTH (argvec), len);
