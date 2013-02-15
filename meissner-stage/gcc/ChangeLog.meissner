@@ -1,3 +1,34 @@
+2013-02-14  Pat Haugen <pthaugen@us.ibm.com>
+	* config/rs6000/predicates.md (indexed_address, update_address_mem
+	update_indexed_address_mem): New predicates.
+	* config/rs6000/vsx.md (vsx_extract_<mode>_zero): Set correct "type"
+	attribute for load/store instructions.
+	* config/rs6000/dfp.md (movsd_store): Likewise.
+	(movsd_load): Likewise.
+	* config/rs6000/rs6000.md (zero_extend<mode>di2_internal1): Likewise.
+	(unnamed HI->DI extend define_insn): Likewise.
+	(unnamed SI->DI extend define_insn): Likewise.
+	(unnamed QI->SI extend define_insn): Likewise.
+	(unnamed QI->HI extend define_insn): Likewise.
+	(unnamed HI->SI extend define_insn): Likewise.
+	(unnamed HI->SI extend define_insn): Likewise.
+	(extendsfdf2_fpr): Likewise.
+	(movsi_internal1): Likewise.
+	(movsi_internal1_single): Likewise.
+	(movhi_internal): Likewise.
+	(movqi_internal): Likewise.
+	(movcc_internal1): Correct mnemonic for stw insn. Set correct "type"
+	attribute for load/store instructions.
+	(mov<mode>_hardfloat): Set correct "type" attribute for load/store
+	instructions.
+	(mov<mode>_softfloat): Likewise.
+	(mov<mode>_hardfloat32): Likewise.
+	(mov<mode>_hardfloat64): Likewise.
+	(mov<mode>_softfloat64): Likewise.
+	(movdi_internal32): Likewise.
+	(movdi_internal64): Likewise.
+	(probe_stack_<mode>): Likewise.
+
 2013-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 196092.

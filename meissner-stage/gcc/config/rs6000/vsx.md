@@ -1217,7 +1217,11 @@
 	 (parallel [(const_int 0)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
   "lxsd%U1x %x0,%y1"
-  [(set_attr "type" "fpload")
+  [(set (attr "type")
+      (if_then_else
+	(match_test "update_indexed_address_mem (operands[1], VOIDmode)")
+	(const_string "fpload_ux")
+	(const_string "fpload")))
    (set_attr "length" "4")])  
 
 ;; Extract a SF element from V4SF
