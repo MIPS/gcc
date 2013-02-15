@@ -1,3 +1,46 @@
+2013-02-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54276
+	* semantics.c (finish_id_expression): Also return the identifier
+	for an outer local static.
+
+	PR c++/56343
+	* class.c (check_bases_and_members): Deduce noexcept after
+	checking bases.
+
+	PR c++/52026
+	* semantics.c (finish_id_expression): In a template, return
+	the identifier for a constant variable.
+
+2013-02-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54922
+	* semantics.c (build_anon_member_initialization): New.
+	(build_data_member_initialization): Use it.
+
+	PR c++/55003
+	* decl.c (cp_finish_decl): Force instantiation of an
+	auto static data member.
+
+	PR c++/55220
+	* pt.c (unify): A pack expansion that is not the last template
+	argument makes the entire template argument list non-deduced.
+
+	PR c++/56323
+	* name-lookup.c (do_class_using_decl): Handle typedefs with
+	inheriting constructors.
+	(push_class_level_binding_1): Allow inheriting from template
+	template parameter, too.
+	* pt.c (tsubst_decl) [USING_DECL]: Likewise.
+
+	PR c++/55223
+	* pt.c (tsubst_copy_and_build) [LAMBDA_EXPR]: Fix handling of
+	default argument scope.
+	* mangle.c (write_name): Likewise.
+
+	PR c++/55232
+	* error.c (find_typenames_r): Don't walk into a pack expansion.
+
 2013-02-13  Jason Merrill  <jason@redhat.com>
 
 	PR c++/55670
