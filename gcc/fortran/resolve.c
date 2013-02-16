@@ -3785,28 +3785,30 @@ resolve_call (gfc_code *c)
 	}
     }
 
-  /* If this ia a deferred TBP with an abstract interface
-     (which may of course be referenced), c->expr1 will be set.  */
-  if (csym && csym->attr.abstract && !c->expr1)
+  /* If this ia a deferred TBP, c->expr1 will be set.  */
+  if (!c->expr1 && csym)
     {
-      gfc_error ("ABSTRACT INTERFACE '%s' must not be referenced at %L",
-		 csym->name, &c->loc);
-      return FAILURE;
-    }
+      if (csym->attr.abstract)
+	{
+	  gfc_error ("ABSTRACT INTERFACE '%s' must not be referenced at %L",
+		    csym->name, &c->loc);
+	  return FAILURE;
+	}
 
-  /* Subroutines without the RECURSIVE attribution are not allowed to
-   * call themselves.  */
-  if (csym && is_illegal_recursion (csym, gfc_current_ns))
-    {
-      if (csym->attr.entry && csym->ns->entries)
-	gfc_error ("ENTRY '%s' at %L cannot be called recursively, as"
-		   " subroutine '%s' is not RECURSIVE",
-		   csym->name, &c->loc, csym->ns->entries->sym->name);
-      else
-	gfc_error ("SUBROUTINE '%s' at %L cannot be called recursively, as it"
-		   " is not RECURSIVE", csym->name, &c->loc);
+      /* Subroutines without the RECURSIVE attribution are not allowed to
+	 call themselves.  */
+      if (is_illegal_recursion (csym, gfc_current_ns))
+	{
+	  if (csym->attr.entry && csym->ns->entries)
+	    gfc_error ("ENTRY '%s' at %L cannot be called recursively, "
+		       "as subroutine '%s' is not RECURSIVE",
+		       csym->name, &c->loc, csym->ns->entries->sym->name);
+	  else
+	    gfc_error ("SUBROUTINE '%s' at %L cannot be called recursively, "
+		       "as it is not RECURSIVE", csym->name, &c->loc);
 
-      t = FAILURE;
+	  t = FAILURE;
+	}
     }
 
   /* Switch off assumed size checking and do this again for certain kinds
@@ -11029,9 +11031,10 @@ apply_default_init_local (gfc_symbol *sym)
 
   /* For saved variables, we don't want to add an initializer at function
      entry, so we just add a static initializer. Note that automatic variables
-     are stack allocated even with -fno-automatic.  */
+     are stack allocated even with -fno-automatic; we have also to exclude
+     result variable, which are also nonstatic.  */
   if (sym->attr.save || sym->ns->save_all
-      || (gfc_option.flag_max_stack_var_size == 0
+      || (gfc_option.flag_max_stack_var_size == 0 && !sym->attr.result
 	  && (!sym->attr.dimension || !is_non_constant_shape_array (sym))))
     {
       /* Don't clobber an existing initializer!  */
@@ -11050,11 +11053,6 @@ static gfc_try
 resolve_fl_var_and_proc (gfc_symbol *sym, int mp_flag)
 {
   gfc_array_spec *as;
-
-  /* Avoid double diagnostics for function result symbols.  */
-  if ((sym->result || sym->attr.result) && !sym->attr.dummy
-      && (sym->ns != gfc_current_ns))
-    return SUCCESS;
 
   if (sym->ts.type == BT_CLASS && sym->attr.class_ok)
     as = CLASS_DATA (sym)->as;
@@ -12349,7 +12347,7 @@ resolve_typebound_procedures (gfc_symbol* derived)
 
   super_type = gfc_get_derived_super_type (derived);
   if (super_type)
-    resolve_typebound_procedures (super_type);
+    resolve_symbol (super_type);
 
   resolve_bindings_derived = derived;
   resolve_bindings_result = SUCCESS;
@@ -13170,6 +13168,10 @@ resolve_symbol (gfc_symbol *sym)
   gfc_array_spec *as;
   bool saved_specification_expr;
 
+  if (sym->resolved)
+    return;
+  sym->resolved = 1;
+
   if (sym->attr.artificial)
     return;
 
@@ -13779,7 +13781,6 @@ resolve_symbol (gfc_symbol *sym)
      described in 14.7.5, to those variables that have not already
      been assigned one.  */
   if (sym->ts.type == BT_DERIVED
-      && sym->ns == gfc_current_ns
       && !sym->value
       && !sym->attr.allocatable
       && !sym->attr.alloc_comp)
