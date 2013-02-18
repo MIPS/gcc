@@ -1,9 +1,6 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1871,7 +1868,7 @@ merge_exception_specifiers (tree list, tree add, tree fn)
       /* If ADD is a deferred noexcept, we must have been called from
 	 process_subob_fn.  For implicitly declared functions, we build up
 	 a list of functions to consider at instantiation time.  */
-      if (operand_equal_p (noex, boolean_true_node, 0))
+      if (noex && operand_equal_p (noex, boolean_true_node, 0))
 	noex = NULL_TREE;
       gcc_assert (fn && (!noex || is_overloaded_fn (noex)));
       noex = build_overload (fn, noex);

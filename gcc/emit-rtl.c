@@ -1,5 +1,5 @@
 /* Emit RTL for the GCC expander.
-   Copyright (C) 1987, 1988, 1992-2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -917,6 +917,18 @@ gen_reg_rtx (enum machine_mode mode)
   val = gen_raw_REG (mode, reg_rtx_no);
   regno_reg_rtx[reg_rtx_no++] = val;
   return val;
+}
+
+/* Return TRUE if REG is a PARM_DECL, FALSE otherwise.  */
+
+bool
+reg_is_parm_p (rtx reg)
+{
+  tree decl;
+
+  gcc_assert (REG_P (reg));
+  decl = REG_EXPR (reg);
+  return (decl && TREE_CODE (decl) == PARM_DECL);
 }
 
 /* Update NEW with the same attributes as REG, but with OFFSET added
@@ -1839,7 +1851,12 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 
       if (!align_computed)
 	{
-	  unsigned int obj_align = get_object_alignment (t);
+	  unsigned int obj_align;
+	  unsigned HOST_WIDE_INT obj_bitpos;
+	  get_object_alignment_1 (t, &obj_align, &obj_bitpos);
+	  obj_bitpos = (obj_bitpos - bitpos) & (obj_align - 1);
+	  if (obj_bitpos != 0)
+	    obj_align = (obj_bitpos & -obj_bitpos);
 	  attrs.align = MAX (attrs.align, obj_align);
 	}
     }
@@ -6014,7 +6031,7 @@ insn_file (const_rtx insn)
 bool
 need_atomic_barrier_p (enum memmodel model, bool pre)
 {
-  switch (model)
+  switch (model & MEMMODEL_MASK)
     {
     case MEMMODEL_RELAXED:
     case MEMMODEL_CONSUME:

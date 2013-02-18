@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 1992-2012 Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -355,6 +355,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 /* Define the default processor.  This is overridden by other tm.h files.  */
 #define PROCESSOR_DEFAULT   PROCESSOR_PPC603
 #define PROCESSOR_DEFAULT64 PROCESSOR_RS64A
+
+/* Specify the dialect of assembler to use.  Only new mnemonics are supported
+   starting with GCC 4.8, i.e. just one dialect, but for backwards
+   compatibility with older inline asm ASSEMBLER_DIALECT needs to be
+   defined.  */
+#define ASSEMBLER_DIALECT 1
 
 /* Debug support */
 #define MASK_DEBUG_STACK	0x01	/* debug stack applications */

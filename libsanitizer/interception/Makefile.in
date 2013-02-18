@@ -38,8 +38,10 @@ target_triplet = @target@
 subdir = interception
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/../config/depstand.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
+	$(top_srcdir)/../config/depstand.m4 \
 	$(top_srcdir)/../config/lead-dot.m4 \
+	$(top_srcdir)/../config/libstdc++-raw-cxx.m4 \
 	$(top_srcdir)/../config/multi.m4 \
 	$(top_srcdir)/../config/override.m4 \
 	$(top_srcdir)/../ltoptions.m4 $(top_srcdir)/../ltsugar.m4 \
@@ -54,7 +56,7 @@ CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libinterception_la_LIBADD =
 am__objects_1 = interception_linux.lo interception_mac.lo \
-	interception_win.lo
+	interception_win.lo interception_type_test.lo
 am_libinterception_la_OBJECTS = $(am__objects_1)
 libinterception_la_OBJECTS = $(am_libinterception_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -115,6 +117,8 @@ LD = @LD@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LIBSTDCXX_RAW_CXX_CXXFLAGS = @LIBSTDCXX_RAW_CXX_CXXFLAGS@
+LIBSTDCXX_RAW_CXX_LDFLAGS = @LIBSTDCXX_RAW_CXX_LDFLAGS@
 LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
@@ -196,6 +200,7 @@ sysconfdir = @sysconfdir@
 target = @target@
 target_alias = @target_alias@
 target_cpu = @target_cpu@
+target_noncanonical = @target_noncanonical@
 target_os = @target_os@
 target_vendor = @target_vendor@
 toolexecdir = @toolexecdir@
@@ -203,17 +208,21 @@ toolexeclibdir = @toolexeclibdir@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CPPFLAGS = -I $(top_srcdir)/include 
+AM_CPPFLAGS = -I $(top_srcdir)/include -I $(top_srcdir)
 
 # May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
-AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic -Wno-long-long  -fPIC -fno-builtin -fno-exceptions -fomit-frame-pointer -funwind-tables -fvisibility=hidden -Wno-variadic-macros -Wno-c99-extensions 
+AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic \
+	-Wno-long-long -fPIC -fno-builtin -fno-exceptions \
+	-fomit-frame-pointer -funwind-tables -fvisibility=hidden \
+	-Wno-variadic-macros $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 ACLOCAL_AMFLAGS = -I m4
 noinst_LTLIBRARIES = libinterception.la
 interception_files = \
         interception_linux.cc \
         interception_mac.cc \
-        interception_win.cc
+        interception_win.cc \
+	interception_type_test.cc
 
 libinterception_la_SOURCES = $(interception_files)
 
@@ -248,8 +257,6 @@ AM_MAKEFLAGS = \
 	"includedir=$(includedir)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
-	"CC=$(CC)" \
-	"CXX=$(CXX)" \
 	"LD=$(LD)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"NM=$(NM)" \
@@ -312,6 +319,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interception_linux.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interception_mac.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interception_type_test.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/interception_win.Plo@am__quote@
 
 .cc.o:

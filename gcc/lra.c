@@ -1,6 +1,5 @@
 /* LRA (local register allocator) driver and LRA utilities.
-   Copyright (C) 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -2273,7 +2272,6 @@ lra (FILE *f)
     {
       for (;;)
 	{
-	  bitmap_clear (&lra_optional_reload_pseudos);
 	  /* We should try to assign hard registers to scratches even
 	     if there were no RTL transformations in
 	     lra_constraints.  */
@@ -2312,6 +2310,7 @@ lra (FILE *f)
 		live_p = false;
 	    }
 	}
+      bitmap_clear (&lra_optional_reload_pseudos);
       bitmap_clear (&lra_inheritance_pseudos);
       bitmap_clear (&lra_split_regs);
       if (! lra_need_for_spills_p ())

@@ -1,7 +1,7 @@
 /* Write and read the cgraph to the memory mapped representation of a
    .o file.
 
-   Copyright 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -1368,7 +1368,9 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
          so we need to account for a non-zero histogram entry at new_ix.  */
       unsigned new_ix = gcov_histo_index (scaled_min);
       lto_gcov_summary.histogram[new_ix].min_value
-          = MIN (lto_gcov_summary.histogram[new_ix].min_value, scaled_min);
+          = (lto_gcov_summary.histogram[new_ix].num_counters
+             ? MIN (lto_gcov_summary.histogram[new_ix].min_value, scaled_min)
+             : scaled_min);
       /* Some of the scaled counter values would ostensibly need to be placed
          into different (larger) histogram buckets, but we keep things simple
          here and place the scaled cumulative counter value in the bucket

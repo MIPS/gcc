@@ -135,7 +135,6 @@ void FlushShadowMemory();
 
 const char *InitializePlatform();
 void FinalizePlatform();
-void MapThreadTrace(uptr addr, uptr size);
 uptr ALWAYS_INLINE INLINE GetThreadTrace(int tid) {
   uptr p = kTraceMemBegin + (uptr)tid * kTraceSize * sizeof(Event);
   DCHECK_LT(p, kTraceMemBegin + kTraceMemSize);
@@ -150,6 +149,7 @@ bool IsGlobalVar(uptr addr);
 uptr GetTlsSize();
 void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
                           uptr *tls_addr, uptr *tls_size);
+int ExtractResolvFDs(void *state, int *fds, int nfd);
 
 }  // namespace __tsan
 

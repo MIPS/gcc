@@ -34,7 +34,6 @@
 #include <stdlib.h>  // for free()
 #include <unistd.h>
 #include <libkern/OSAtomic.h>
-#include <CoreFoundation/CFString.h>
 
 namespace __asan {
 
@@ -90,10 +89,9 @@ static const char kDyldInsertLibraries[] = "DYLD_INSERT_LIBRARIES";
 
 void MaybeReexec() {
   if (!flags()->allow_reexec) return;
-#if MAC_INTERPOSE_FUNCTIONS
-  // If the program is linked with the dynamic ASan runtime library, make sure
-  // the library is preloaded so that the wrappers work. If it is not, set
-  // DYLD_INSERT_LIBRARIES and re-exec ourselves.
+  // Make sure the dynamic ASan runtime library is preloaded so that the
+  // wrappers work. If it is not, set DYLD_INSERT_LIBRARIES and re-exec
+  // ourselves.
   Dl_info info;
   CHECK(dladdr((void*)((uptr)__asan_init), &info));
   const char *dyld_insert_libraries = GetEnv(kDyldInsertLibraries);
@@ -115,8 +113,6 @@ void MaybeReexec() {
     }
     execv(program_name, *_NSGetArgv());
   }
-#endif  // MAC_INTERPOSE_FUNCTIONS
-  // If we're not using the dynamic runtime, do nothing.
 }
 
 // No-op. Mac does not support static linkage anyway.
@@ -129,36 +125,10 @@ bool AsanInterceptsSignal(int signum) {
 }
 
 void AsanPlatformThreadInit() {
-  // For the first program thread, we can't replace the allocator before
-  // __CFInitialize() has been called. If it hasn't, we'll call
-  // MaybeReplaceCFAllocator() later on this thread.
-  // For other threads __CFInitialize() has been called before their creation.
-  // See also asan_malloc_mac.cc.
-  if (((CFRuntimeBase*)kCFAllocatorSystemDefault)->_cfisa) {
-    MaybeReplaceCFAllocator();
-  }
 }
 
-AsanLock::AsanLock(LinkerInitialized) {
-  // We assume that OS_SPINLOCK_INIT is zero
-}
-
-void AsanLock::Lock() {
-  CHECK(sizeof(OSSpinLock) <= sizeof(opaque_storage_));
-  CHECK(OS_SPINLOCK_INIT == 0);
-  CHECK(owner_ != (uptr)pthread_self());
-  OSSpinLockLock((OSSpinLock*)&opaque_storage_);
-  CHECK(!owner_);
-  owner_ = (uptr)pthread_self();
-}
-
-void AsanLock::Unlock() {
-  CHECK(owner_ == (uptr)pthread_self());
-  owner_ = 0;
-  OSSpinLockUnlock((OSSpinLock*)&opaque_storage_);
-}
-
-void GetStackTrace(StackTrace *stack, uptr max_s, uptr pc, uptr bp) {
+void GetStackTrace(StackTrace *stack, uptr max_s, uptr pc, uptr bp, bool fast) {
+  (void)fast;
   stack->size = 0;
   stack->trace[0] = pc;
   if ((max_s) > 1) {
@@ -169,59 +139,8 @@ void GetStackTrace(StackTrace *stack, uptr max_s, uptr pc, uptr bp) {
   }
 }
 
-void ClearShadowMemoryForContext(void *context) {
+void ReadContextStack(void *context, uptr *stack, uptr *ssize) {
   UNIMPLEMENTED();
-}
-
-// The range of pages to be used for escape islands.
-// TODO(glider): instead of mapping a fixed range we must find a range of
-// unmapped pages in vmmap and take them.
-// These constants were chosen empirically and may not work if the shadow
-// memory layout changes. Unfortunately they do necessarily depend on
-// kHighMemBeg or kHighMemEnd.
-static void *island_allocator_pos = 0;
-
-#if SANITIZER_WORDSIZE == 32
-# define kIslandEnd (0xffdf0000 - GetPageSizeCached())
-# define kIslandBeg (kIslandEnd - 256 * GetPageSizeCached())
-#else
-# define kIslandEnd (0x7fffffdf0000 - GetPageSizeCached())
-# define kIslandBeg (kIslandEnd - 256 * GetPageSizeCached())
-#endif
-
-extern "C"
-mach_error_t __interception_allocate_island(void **ptr,
-                                            uptr unused_size,
-                                            void *unused_hint) {
-  if (!island_allocator_pos) {
-    island_allocator_pos =
-        internal_mmap((void*)kIslandBeg, kIslandEnd - kIslandBeg,
-                      PROT_READ | PROT_WRITE | PROT_EXEC,
-                      MAP_PRIVATE | MAP_ANON | MAP_FIXED,
-                      -1, 0);
-    if (island_allocator_pos != (void*)kIslandBeg) {
-      return KERN_NO_SPACE;
-    }
-    if (flags()->verbosity) {
-      Report("Mapped pages %p--%p for branch islands.\n",
-             (void*)kIslandBeg, (void*)kIslandEnd);
-    }
-    // Should not be very performance-critical.
-    internal_memset(island_allocator_pos, 0xCC, kIslandEnd - kIslandBeg);
-  };
-  *ptr = island_allocator_pos;
-  island_allocator_pos = (char*)island_allocator_pos + GetPageSizeCached();
-  if (flags()->verbosity) {
-    Report("Branch island allocated at %p\n", *ptr);
-  }
-  return err_none;
-}
-
-extern "C"
-mach_error_t __interception_deallocate_island(void *ptr) {
-  // Do nothing.
-  // TODO(glider): allow to free and reuse the island memory.
-  return err_none;
 }
 
 // Support for the following functions from libdispatch on Mac OS:
@@ -253,9 +172,6 @@ mach_error_t __interception_deallocate_island(void *ptr) {
 // The implementation details are at
 //   http://libdispatch.macosforge.org/trac/browser/trunk/src/queue.c
 
-typedef void* pthread_workqueue_t;
-typedef void* pthread_workitem_handle_t;
-
 typedef void* dispatch_group_t;
 typedef void* dispatch_queue_t;
 typedef void* dispatch_source_t;
@@ -286,9 +202,6 @@ void dispatch_barrier_async_f(dispatch_queue_t dq, void *ctxt,
                               dispatch_function_t func);
 void dispatch_group_async_f(dispatch_group_t group, dispatch_queue_t dq,
                             void *ctxt, dispatch_function_t func);
-int pthread_workqueue_additem_np(pthread_workqueue_t workq,
-    void *(*workitem_func)(void *), void * workitem_arg,
-    pthread_workitem_handle_t * itemhandlep, unsigned int *gencountp);
 }  // extern "C"
 
 static ALWAYS_INLINE
@@ -306,7 +219,7 @@ void asan_register_worker_thread(int parent_tid, StackTrace *stack) {
 // alloc_asan_context().
 extern "C"
 void asan_dispatch_call_block_and_release(void *block) {
-  GET_STACK_TRACE_HERE(kStackTraceMax);
+  GET_STACK_TRACE_THREAD;
   asan_block_context_t *context = (asan_block_context_t*)block;
   if (flags()->verbosity >= 2) {
     Report("asan_dispatch_call_block_and_release(): "
@@ -316,7 +229,7 @@ void asan_dispatch_call_block_and_release(void *block) {
   asan_register_worker_thread(context->parent_tid, &stack);
   // Call the original dispatcher for the block.
   context->func(context->block);
-  asan_free(context, &stack);
+  asan_free(context, &stack, FROM_MALLOC);
 }
 
 }  // namespace __asan
@@ -341,7 +254,7 @@ asan_block_context_t *alloc_asan_context(void *ctxt, dispatch_function_t func,
 #define INTERCEPT_DISPATCH_X_F_3(dispatch_x_f)                                \
   INTERCEPTOR(void, dispatch_x_f, dispatch_queue_t dq, void *ctxt,            \
                                   dispatch_function_t func) {                 \
-    GET_STACK_TRACE_HERE(kStackTraceMax);                                     \
+    GET_STACK_TRACE_THREAD;                                                   \
     asan_block_context_t *asan_ctxt = alloc_asan_context(ctxt, func, &stack); \
     if (flags()->verbosity >= 2) {                                            \
       Report(#dispatch_x_f "(): context: %p, pthread_self: %p\n",             \
@@ -359,7 +272,7 @@ INTERCEPT_DISPATCH_X_F_3(dispatch_barrier_async_f)
 INTERCEPTOR(void, dispatch_after_f, dispatch_time_t when,
                                     dispatch_queue_t dq, void *ctxt,
                                     dispatch_function_t func) {
-  GET_STACK_TRACE_HERE(kStackTraceMax);
+  GET_STACK_TRACE_THREAD;
   asan_block_context_t *asan_ctxt = alloc_asan_context(ctxt, func, &stack);
   if (flags()->verbosity >= 2) {
     Report("dispatch_after_f: %p\n", asan_ctxt);
@@ -372,7 +285,7 @@ INTERCEPTOR(void, dispatch_after_f, dispatch_time_t when,
 INTERCEPTOR(void, dispatch_group_async_f, dispatch_group_t group,
                                           dispatch_queue_t dq, void *ctxt,
                                           dispatch_function_t func) {
-  GET_STACK_TRACE_HERE(kStackTraceMax);
+  GET_STACK_TRACE_THREAD;
   asan_block_context_t *asan_ctxt = alloc_asan_context(ctxt, func, &stack);
   if (flags()->verbosity >= 2) {
     Report("dispatch_group_async_f(): context: %p, pthread_self: %p\n",
@@ -383,14 +296,7 @@ INTERCEPTOR(void, dispatch_group_async_f, dispatch_group_t group,
                                asan_dispatch_call_block_and_release);
 }
 
-#if MAC_INTERPOSE_FUNCTIONS && !defined(MISSING_BLOCKS_SUPPORT)
-// dispatch_async, dispatch_group_async and others tailcall the corresponding
-// dispatch_*_f functions. When wrapping functions with mach_override, those
-// dispatch_*_f are intercepted automatically. But with dylib interposition
-// this does not work, because the calls within the same library are not
-// interposed.
-// Therefore we need to re-implement dispatch_async and friends.
-
+#if !defined(MISSING_BLOCKS_SUPPORT)
 extern "C" {
 // FIXME: consolidate these declarations with asan_intercepted_functions.h.
 void dispatch_async(dispatch_queue_t dq, void(^work)(void));
@@ -407,7 +313,7 @@ void dispatch_source_set_event_handler(dispatch_source_t ds, void(^work)(void));
   void (^asan_block)(void);  \
   int parent_tid = asanThreadRegistry().GetCurrentTidOrInvalid(); \
   asan_block = ^(void) { \
-    GET_STACK_TRACE_HERE(kStackTraceMax); \
+    GET_STACK_TRACE_THREAD; \
     asan_register_worker_thread(parent_tid, &stack); \
     work(); \
   }
@@ -442,97 +348,5 @@ INTERCEPTOR(void, dispatch_source_set_event_handler,
   REAL(dispatch_source_set_event_handler)(ds, asan_block);
 }
 #endif
-
-// The following stuff has been extremely helpful while looking for the
-// unhandled functions that spawned jobs on Chromium shutdown. If the verbosity
-// level is 2 or greater, we wrap pthread_workqueue_additem_np() in order to
-// find the points of worker thread creation (each of such threads may be used
-// to run several tasks, that's why this is not enough to support the whole
-// libdispatch API.
-extern "C"
-void *wrap_workitem_func(void *arg) {
-  if (flags()->verbosity >= 2) {
-    Report("wrap_workitem_func: %p, pthread_self: %p\n", arg, pthread_self());
-  }
-  asan_block_context_t *ctxt = (asan_block_context_t*)arg;
-  worker_t fn = (worker_t)(ctxt->func);
-  void *result =  fn(ctxt->block);
-  GET_STACK_TRACE_HERE(kStackTraceMax);
-  asan_free(arg, &stack);
-  return result;
-}
-
-INTERCEPTOR(int, pthread_workqueue_additem_np, pthread_workqueue_t workq,
-    void *(*workitem_func)(void *), void * workitem_arg,
-    pthread_workitem_handle_t * itemhandlep, unsigned int *gencountp) {
-  GET_STACK_TRACE_HERE(kStackTraceMax);
-  asan_block_context_t *asan_ctxt =
-      (asan_block_context_t*) asan_malloc(sizeof(asan_block_context_t), &stack);
-  asan_ctxt->block = workitem_arg;
-  asan_ctxt->func = (dispatch_function_t)workitem_func;
-  asan_ctxt->parent_tid = asanThreadRegistry().GetCurrentTidOrInvalid();
-  if (flags()->verbosity >= 2) {
-    Report("pthread_workqueue_additem_np: %p\n", asan_ctxt);
-    PRINT_CURRENT_STACK();
-  }
-  return REAL(pthread_workqueue_additem_np)(workq, wrap_workitem_func,
-                                            asan_ctxt, itemhandlep,
-                                            gencountp);
-}
-
-// See http://opensource.apple.com/source/CF/CF-635.15/CFString.c
-int __CFStrIsConstant(CFStringRef str) {
-  CFRuntimeBase *base = (CFRuntimeBase*)str;
-#if __LP64__
-  return base->_rc == 0;
-#else
-  return (base->_cfinfo[CF_RC_BITS]) == 0;
-#endif
-}
-
-INTERCEPTOR(CFStringRef, CFStringCreateCopy, CFAllocatorRef alloc,
-                                             CFStringRef str) {
-  if (__CFStrIsConstant(str)) {
-    return str;
-  } else {
-    return REAL(CFStringCreateCopy)(alloc, str);
-  }
-}
-
-DECLARE_REAL_AND_INTERCEPTOR(void, free, void *ptr)
-
-DECLARE_REAL_AND_INTERCEPTOR(void, __CFInitialize, void)
-
-namespace __asan {
-
-void InitializeMacInterceptors() {
-  CHECK(INTERCEPT_FUNCTION(dispatch_async_f));
-  CHECK(INTERCEPT_FUNCTION(dispatch_sync_f));
-  CHECK(INTERCEPT_FUNCTION(dispatch_after_f));
-  CHECK(INTERCEPT_FUNCTION(dispatch_barrier_async_f));
-  CHECK(INTERCEPT_FUNCTION(dispatch_group_async_f));
-  // We don't need to intercept pthread_workqueue_additem_np() to support the
-  // libdispatch API, but it helps us to debug the unsupported functions. Let's
-  // intercept it only during verbose runs.
-  if (flags()->verbosity >= 2) {
-    CHECK(INTERCEPT_FUNCTION(pthread_workqueue_additem_np));
-  }
-  // Normally CFStringCreateCopy should not copy constant CF strings.
-  // Replacing the default CFAllocator causes constant strings to be copied
-  // rather than just returned, which leads to bugs in big applications like
-  // Chromium and WebKit, see
-  // http://code.google.com/p/address-sanitizer/issues/detail?id=10
-  // Until this problem is fixed we need to check that the string is
-  // non-constant before calling CFStringCreateCopy.
-  CHECK(INTERCEPT_FUNCTION(CFStringCreateCopy));
-  // Some of the library functions call free() directly, so we have to
-  // intercept it.
-  CHECK(INTERCEPT_FUNCTION(free));
-  if (flags()->replace_cfallocator) {
-    CHECK(INTERCEPT_FUNCTION(__CFInitialize));
-  }
-}
-
-}  // namespace __asan
 
 #endif  // __APPLE__

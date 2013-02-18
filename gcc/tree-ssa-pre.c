@@ -1,6 +1,5 @@
 /* SSA-PRE for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
 
@@ -1395,31 +1394,26 @@ get_representative_for (const pre_expr e)
 	    pre_expr rep = expression_for_id (i);
 	    if (rep->kind == NAME)
 	      return PRE_EXPR_NAME (rep);
+	    else if (rep->kind == CONSTANT)
+	      return PRE_EXPR_CONSTANT (rep);
 	  }
       }
       break;
     }
+
   /* If we reached here we couldn't find an SSA_NAME.  This can
      happen when we've discovered a value that has never appeared in
-     the program as set to an SSA_NAME, most likely as the result of
-     phi translation.  */
-  if (dump_file)
-    {
-      fprintf (dump_file,
-	       "Could not find SSA_NAME representative for expression:");
-      print_pre_expr (dump_file, e);
-      fprintf (dump_file, "\n");
-    }
-
-  /* Build and insert the assignment of the end result to the temporary
-     that we will return.  */
+     the program as set to an SSA_NAME, as the result of phi translation.
+     Create one here.
+     ???  We should be able to re-use this when we insert the statement
+     to compute it.  */
   name = make_temp_ssa_name (get_expr_type (e), gimple_build_nop (), "pretmp");
   VN_INFO_GET (name)->value_id = value_id;
-  VN_INFO (name)->valnum = sccvn_valnum_from_value_id (value_id);
-  if (VN_INFO (name)->valnum == NULL_TREE)
-    VN_INFO (name)->valnum = name;
+  VN_INFO (name)->valnum = name;
+  /* ???  For now mark this SSA name for release by SCCVN.  */
+  VN_INFO (name)->needs_insertion = true;
   add_to_value (value_id, get_or_alloc_expr_for_name (name));
-  if (dump_file)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Created SSA_NAME representative ");
       print_generic_expr (dump_file, name, 0);
@@ -1979,7 +1973,8 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr,
   switch (expr->kind)
     {
     case NAME:
-      return bitmap_set_contains_expr (AVAIL_OUT (block), expr);
+      return bitmap_find_leader (AVAIL_OUT (block),
+				 get_expr_value_id (expr)) != NULL;
     case NARY:
       {
 	unsigned int i;
@@ -3251,7 +3246,8 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
       gcc_assert (get_expr_type (ae) == type
 		  || useless_type_conversion_p (type, get_expr_type (ae)));
       if (ae->kind == CONSTANT)
-	add_phi_arg (phi, PRE_EXPR_CONSTANT (ae), pred, UNKNOWN_LOCATION);
+	add_phi_arg (phi, unshare_expr (PRE_EXPR_CONSTANT (ae)),
+		     pred, UNKNOWN_LOCATION);
       else
 	add_phi_arg (phi, PRE_EXPR_NAME (ae), pred, UNKNOWN_LOCATION);
     }
@@ -4170,6 +4166,7 @@ eliminate_bb (dom_walk_data *, basic_block b)
 	      if (val != VN_TOP
 		  && TREE_CODE (val) == SSA_NAME
 		  && VN_INFO (val)->needs_insertion
+		  && VN_INFO (val)->expr != NULL_TREE
 		  && (sprime = eliminate_insert (&gsi, val)) != NULL_TREE)
 		eliminate_push_avail (sprime);
 	    }

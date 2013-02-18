@@ -1,8 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011,
-   2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1096,8 +1093,6 @@ add_method (tree type, tree method, tree using_decl)
 	      && TREE_CODE (method) == FUNCTION_DECL
 	      && !DECL_EXTERN_C_P (fn)
 	      && !DECL_EXTERN_C_P (method)
-	      && (DECL_FUNCTION_SPECIFIC_TARGET (fn)
-		  || DECL_FUNCTION_SPECIFIC_TARGET (method))
 	      && targetm.target_option.function_versions (fn, method))
  	    {
 	      /* Mark functions as versions if necessary.  Modify the mangled
@@ -5250,13 +5245,14 @@ check_bases_and_members (tree t)
   cant_have_const_ctor = 0;
   no_const_asn_ref = 0;
 
-  /* Deduce noexcept on destructors.  */
-  if (cxx_dialect >= cxx0x)
-    deduce_noexcept_on_destructors (t);
-
   /* Check all the base-classes.  */
   check_bases (t, &cant_have_const_ctor,
 	       &no_const_asn_ref);
+
+  /* Deduce noexcept on destructors.  This needs to happen after we've set
+     triviality flags appropriately for our bases.  */
+  if (cxx_dialect >= cxx0x)
+    deduce_noexcept_on_destructors (t);
 
   /* Check all the method declarations.  */
   check_methods (t);
@@ -8361,6 +8357,12 @@ build_ctor_vtbl_group (tree binfo, tree t)
      construction vtable group.  */
   vtbl = build_vtable (t, id, ptr_type_node);
   DECL_CONSTRUCTION_VTABLE_P (vtbl) = 1;
+  /* Don't export construction vtables from shared libraries.  Even on
+     targets that don't support hidden visibility, this tells
+     can_refer_decl_in_current_unit_p not to assume that it's safe to
+     access from a different compilation unit (bz 54314).  */
+  DECL_VISIBILITY (vtbl) = VISIBILITY_HIDDEN;
+  DECL_VISIBILITY_SPECIFIED (vtbl) = true;
 
   v = NULL;
   accumulate_vtbl_inits (binfo, TYPE_BINFO (TREE_TYPE (binfo)),

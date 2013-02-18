@@ -1,7 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -922,7 +920,7 @@ push_local_name (tree decl)
 	  if (!DECL_LANG_SPECIFIC (decl))
 	    retrofit_lang_decl (decl);
 	  DECL_LANG_SPECIFIC (decl)->u.base.u2sel = 1;
-	  if (DECL_LANG_SPECIFIC (t))
+	  if (DECL_DISCRIMINATOR_SET_P (t))
 	    DECL_DISCRIMINATOR (decl) = DECL_DISCRIMINATOR (t) + 1;
 	  else
 	    DECL_DISCRIMINATOR (decl) = 1;
@@ -977,36 +975,6 @@ decls_match (tree newdecl, tree olddecl)
 		 : NULL_TREE);
       if (t1 != t2)
 	return 0;
-
-      /* The decls dont match if they correspond to two different versions
-	 of the same function.   Disallow extern "C" functions to be
-	 versions for now.  */
-      if (compparms (p1, p2)
-	  && same_type_p (TREE_TYPE (f1), TREE_TYPE (f2))
-	  && !DECL_EXTERN_C_P (newdecl)
-	  && !DECL_EXTERN_C_P (olddecl)
-	  && targetm.target_option.function_versions (newdecl, olddecl))
-	{
-	  /* Mark functions as versions if necessary.  Modify the mangled decl
-	     name if necessary.  */
-	  if (DECL_FUNCTION_VERSIONED (newdecl)
-	      && DECL_FUNCTION_VERSIONED (olddecl))
-	    return 0;
-	  if (!DECL_FUNCTION_VERSIONED (newdecl))
-	    {
-	      DECL_FUNCTION_VERSIONED (newdecl) = 1;
-	      if (DECL_ASSEMBLER_NAME_SET_P (newdecl))
-	        mangle_decl (newdecl);
-	    }
-	  if (!DECL_FUNCTION_VERSIONED (olddecl))
-	    {
-	      DECL_FUNCTION_VERSIONED (olddecl) = 1;
-	      if (DECL_ASSEMBLER_NAME_SET_P (olddecl))
-	       mangle_decl (olddecl);
-	    }
-	  record_function_versions (olddecl, newdecl);
-	  return 0;
-	}
 
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
 	  && ! (DECL_EXTERN_C_P (newdecl)
@@ -1065,6 +1033,35 @@ decls_match (tree newdecl, tree olddecl)
 	}
       else
 	types_match = 0;
+
+      /* The decls dont match if they correspond to two different versions
+	 of the same function.   Disallow extern "C" functions to be
+	 versions for now.  */
+      if (types_match
+	  && !DECL_EXTERN_C_P (newdecl)
+	  && !DECL_EXTERN_C_P (olddecl)
+	  && targetm.target_option.function_versions (newdecl, olddecl))
+	{
+	  /* Mark functions as versions if necessary.  Modify the mangled decl
+	     name if necessary.  */
+	  if (DECL_FUNCTION_VERSIONED (newdecl)
+	      && DECL_FUNCTION_VERSIONED (olddecl))
+	    return 0;
+	  if (!DECL_FUNCTION_VERSIONED (newdecl))
+	    {
+	      DECL_FUNCTION_VERSIONED (newdecl) = 1;
+	      if (DECL_ASSEMBLER_NAME_SET_P (newdecl))
+	        mangle_decl (newdecl);
+	    }
+	  if (!DECL_FUNCTION_VERSIONED (olddecl))
+	    {
+	      DECL_FUNCTION_VERSIONED (olddecl) = 1;
+	      if (DECL_ASSEMBLER_NAME_SET_P (olddecl))
+	       mangle_decl (olddecl);
+	    }
+	  record_function_versions (olddecl, newdecl);
+	  return 0;
+	}
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
@@ -4834,14 +4831,12 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  if (failure == 1)
 	    {
 	      error ("initializer fails to determine size of %qD", decl);
-	      TREE_TYPE (decl) = error_mark_node;
 	    }
 	  else if (failure == 2)
 	    {
 	      if (do_default)
 		{
 		  error ("array size missing in %qD", decl);
-		  TREE_TYPE (decl) = error_mark_node;
 		}
 	      /* If a `static' var's size isn't known, make it extern as
 		 well as static, so it does not get allocated.  If it's not
@@ -4853,7 +4848,6 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	  else if (failure == 3)
 	    {
 	      error ("zero-size array %qD", decl);
-	      TREE_TYPE (decl) = error_mark_node;
 	    }
 	}
 
@@ -5660,7 +5654,9 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
       if ((type_build_ctor_call (type) || CLASS_TYPE_P (type))
 	  && !(flags & LOOKUP_ALREADY_DIGESTED)
 	  && !(init && BRACE_ENCLOSED_INITIALIZER_P (init)
-	       && CP_AGGREGATE_TYPE_P (type)))
+	       && CP_AGGREGATE_TYPE_P (type)
+	       && (CLASS_TYPE_P (type)
+		   || type_has_extended_temps (type))))
 	{
 	  init_code = build_aggr_init_full_exprs (decl, init, flags);
 
@@ -5696,7 +5692,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		       && (!init || TREE_CODE (init) == TREE_LIST))
 		{
 		  init = build_functional_cast (type, init, tf_none);
-		  if (init != error_mark_node)
+		  if (TREE_CODE (init) == TARGET_EXPR)
 		    TARGET_EXPR_DIRECT_INIT_P (init) = true;
 		}
 	      init_code = NULL_TREE;
@@ -6115,6 +6111,15 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       tree d_init;
       if (init == NULL_TREE)
 	{
+	  if (DECL_TEMPLATE_INSTANTIATION (decl)
+	      && !DECL_TEMPLATE_INSTANTIATED (decl))
+	    {
+	      /* init is null because we're deferring instantiating the
+		 initializer until we need it.  Well, we need it now.  */
+	      instantiate_decl (decl, /*defer_ok*/true, /*expl*/false);
+	      return;
+	    }
+
 	  error ("declaration of %q#D has no initializer", decl);
 	  TREE_TYPE (decl) = error_mark_node;
 	  return;
@@ -6418,6 +6423,10 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    }
 	  else if (was_readonly)
 	    TREE_READONLY (decl) = 1;
+
+	  /* Likewise if it needs destruction.  */
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+	    TREE_READONLY (decl) = 0;
 	}
 
       make_rtl_for_nonlocal_decl (decl, init, asmspec);
@@ -8514,6 +8523,23 @@ check_var_type (tree identifier, tree type)
   return type;
 }
 
+/* Functions for adjusting the visibility of a tagged type and its nested
+   types when it gets a name for linkage purposes from a typedef.  */
+
+static void bt_reset_linkage (binding_entry, void *);
+static void
+reset_type_linkage (tree type)
+{
+  set_linkage_according_to_type (type, TYPE_MAIN_DECL (type));
+  if (CLASS_TYPE_P (type))
+    binding_table_foreach (CLASSTYPE_NESTED_UTDS (type), bt_reset_linkage, NULL);
+}
+static void
+bt_reset_linkage (binding_entry b, void */*data*/)
+{
+  reset_type_linkage (b->type);
+}
+
 /* Given declspecs and a declarator (abstract or otherwise), determine
    the name and type of the object declared and construct a DECL node
    for it.
@@ -10054,8 +10080,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      = TYPE_IDENTIFIER (type);
 
 	  /* Adjust linkage now that we aren't anonymous anymore.  */
-	  set_linkage_according_to_type (type, TYPE_MAIN_DECL (type));
-	  determine_visibility (TYPE_MAIN_DECL (type));
+	  reset_type_linkage (type);
 
 	  /* FIXME remangle member functions; member functions of a
 	     type with external linkage have external linkage.  */
@@ -10832,7 +10857,7 @@ check_default_argument (tree decl, tree arg)
      parameter type.  */
   ++cp_unevaluated_operand;
   perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
-				     LOOKUP_NORMAL);
+				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
@@ -12770,15 +12795,14 @@ incremented enumerator value is too large for %<long%>");
          does not fit, the program is ill-formed [C++0x dcl.enum].  */
       if (ENUM_UNDERLYING_TYPE (enumtype)
           && value
-          && TREE_CODE (value) == INTEGER_CST
-          && !int_fits_type_p (value, ENUM_UNDERLYING_TYPE (enumtype)))
+          && TREE_CODE (value) == INTEGER_CST)
         {
-          error ("enumerator value %E is too large for underlying type %<%T%>",
-                 value, ENUM_UNDERLYING_TYPE (enumtype));
+	  if (!int_fits_type_p (value, ENUM_UNDERLYING_TYPE (enumtype)))
+	    error ("enumerator value %E is too large for underlying type %<%T%>",
+		   value, ENUM_UNDERLYING_TYPE (enumtype));
 
-          /* Silently convert the value so that we can continue.  */
-          value = perform_implicit_conversion (ENUM_UNDERLYING_TYPE (enumtype),
-                                               value, tf_none);
+          /* Convert the value to the appropriate type.  */
+          value = convert (ENUM_UNDERLYING_TYPE (enumtype), value);
         }
     }
 
@@ -13099,6 +13123,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	    DECL_CONTEXT (decl1) = DECL_CONTEXT (DECL_TI_TEMPLATE (decl1));
 	}
       fntype = TREE_TYPE (decl1);
+      restype = TREE_TYPE (fntype);
 
       /* If #pragma weak applies, mark the decl appropriately now.
 	 The pragma only applies to global functions.  Because
