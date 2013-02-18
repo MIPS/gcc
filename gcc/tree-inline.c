@@ -1,6 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -536,7 +535,7 @@ can_be_nonlocal (tree decl, copy_body_data *id)
 }
 
 static tree
-remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
+remap_decls (tree decls, vec<tree, va_gc> **nonlocalized_list,
 	     copy_body_data *id)
 {
   tree old_var;
@@ -557,7 +556,7 @@ remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
 	      && nonlocalized_list)
-	    vec_safe_push (nonlocalized_list, old_var);
+	    vec_safe_push (*nonlocalized_list, old_var);
 	  continue;
 	}
 
@@ -575,7 +574,7 @@ remap_decls (tree decls, vec<tree, va_gc> *nonlocalized_list,
 	  if ((!optimize || debug_info_level > DINFO_LEVEL_TERSE)
 	      && !DECL_IGNORED_P (old_var)
 	      && nonlocalized_list)
-	    vec_safe_push (nonlocalized_list, old_var);
+	    vec_safe_push (*nonlocalized_list, old_var);
 	}
       else
 	{
@@ -622,7 +621,7 @@ remap_block (tree *block, copy_body_data *id)
 
   /* Remap its variables.  */
   BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block),
-  					BLOCK_NONLOCALIZED_VARS (new_block),
+  					&BLOCK_NONLOCALIZED_VARS (new_block),
 					id);
 
   if (id->transform_lang_insert_block)
@@ -1199,7 +1198,6 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 {
   gimple copy = NULL;
   struct walk_stmt_info wi;
-  tree new_block;
   bool skip_first = false;
 
   /* Begin by recognizing trees that we'll completely rewrite for the
@@ -1459,18 +1457,14 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
     }
 
   /* If STMT has a block defined, map it to the newly constructed
-     block.  When inlining we want statements without a block to
-     appear in the block of the function call.  */
-  new_block = id->block;
+     block.  */
   if (gimple_block (copy))
     {
       tree *n;
       n = (tree *) pointer_map_contains (id->decl_map, gimple_block (copy));
       gcc_assert (n);
-      new_block = *n;
+      gimple_set_block (copy, *n);
     }
-
-  gimple_set_block (copy, new_block);
 
   if (gimple_debug_bind_p (copy) || gimple_debug_source_bind_p (copy))
     return copy;
@@ -1988,7 +1982,6 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 	      edge old_edge = find_edge ((basic_block) new_edge->src->aux, bb);
 	      tree arg;
 	      tree new_arg;
-	      tree block = id->block;
 	      edge_iterator ei2;
 	      location_t locus;
 
@@ -2016,19 +2009,18 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 		  inserted = true;
 		}
 	      locus = gimple_phi_arg_location_from_edge (phi, old_edge);
-	      block = id->block;
 	      if (LOCATION_BLOCK (locus))
 		{
 		  tree *n;
 		  n = (tree *) pointer_map_contains (id->decl_map,
 			LOCATION_BLOCK (locus));
 		  gcc_assert (n);
-		  block = *n;
+		  locus = COMBINE_LOCATION_DATA (line_table, locus, *n);
 		}
+	      else
+		locus = LOCATION_LOCUS (locus);
 
-	      add_phi_arg (new_phi, new_arg, new_edge, block ?
-		  COMBINE_LOCATION_DATA (line_table, locus, block) :
-		  LOCATION_LOCUS (locus));
+	      add_phi_arg (new_phi, new_arg, new_edge, locus);
 	    }
 	}
     }
@@ -2325,14 +2317,11 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
   tree t, *n;
   struct walk_stmt_info wi;
 
-  t = id->block;
   if (gimple_block (stmt))
     {
       n = (tree *) pointer_map_contains (id->decl_map, gimple_block (stmt));
-      if (n)
-	t = *n;
+      gimple_set_block (stmt, n ? *n : id->block);
     }
-  gimple_set_block (stmt, t);
 
   /* Remap all the operands in COPY.  */
   memset (&wi, 0, sizeof (wi));
@@ -5191,7 +5180,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	replace_info = (*tree_map)[i];
 	if (replace_info->replace_p)
 	  {
-	    tree op = replace_info->new_tree;
 	    if (!replace_info->old_tree)
 	      {
 		int i = replace_info->parm_num;
@@ -5200,13 +5188,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 		  i --;
 		replace_info->old_tree = parm;
 	      }
-		
-
-	    STRIP_NOPS (op);
-
-	    if (TREE_CODE (op) == VIEW_CONVERT_EXPR)
-	      op = TREE_OPERAND (op, 0);
-
 	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
 	    init = setup_one_parameter (&id, replace_info->old_tree,
 	    			        replace_info->new_tree, id.src_fn,

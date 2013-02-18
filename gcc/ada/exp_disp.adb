@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -4129,17 +4129,10 @@ package body Exp_Disp is
          DT_Constr_List := New_List;
          DT_Aggr_List   := New_List;
 
-         --  Nb_Prim. If the tagged type has no primitives we add a dummy
-         --  slot whose address will be the tag of this type.
+         --  Nb_Prim
 
-         if Nb_Prim = 0 then
-            New_Node := Make_Integer_Literal (Loc, 1);
-         else
-            New_Node := Make_Integer_Literal (Loc, Nb_Prim);
-         end if;
-
-         Append_To (DT_Constr_List, New_Node);
-         Append_To (DT_Aggr_List, New_Copy (New_Node));
+         Append_To (DT_Constr_List, Make_Integer_Literal (Loc, Nb_Prim));
+         Append_To (DT_Aggr_List, Make_Integer_Literal (Loc, Nb_Prim));
 
          --  Signature
 
@@ -8107,7 +8100,7 @@ package body Exp_Disp is
          procedure Handle_Inherited_Private_Subprograms (Typ : Entity_Id);
          --  Called if Typ is declared in a nested package or a public child
          --  package to handle inherited primitives that were inherited by Typ
-         --  in  the visible part, but whose declaration was deferred because
+         --  in the visible part, but whose declaration was deferred because
          --  the parent operation was private and not visible at that point.
 
          procedure Set_Fixed_Prim (Pos : Nat);
@@ -8431,11 +8424,11 @@ package body Exp_Disp is
       if Is_Controlled (Typ) then
          if not Finalized then
             Error_Msg_N
-              ("controlled type has no explicit Finalize method?", Typ);
+              ("controlled type has no explicit Finalize method??", Typ);
 
          elsif not Adjusted then
             Error_Msg_N
-              ("controlled type has no explicit Adjust method?", Typ);
+              ("controlled type has no explicit Adjust method??", Typ);
          end if;
       end if;
 
@@ -8754,7 +8747,7 @@ package body Exp_Disp is
       if Has_CPP_Constructors (Typ)
         and then No (Init_Proc (Typ))
       then
-         Error_Msg_N ("?default constructor must be imported from C++", Typ);
+         Error_Msg_N ("??default constructor must be imported from C++", Typ);
       end if;
    end Set_CPP_Constructors;
 

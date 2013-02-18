@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2176,7 +2176,7 @@ package body Exp_Dist is
 
                Append_To (Decls,
                  Make_Pragma (Loc,
-                   Chars => Name_Import,
+                   Chars                        => Name_Import,
                    Pragma_Argument_Associations => New_List (
                      Make_Pragma_Argument_Association (Loc,
                        Chars      => Name_Convention,
@@ -7417,6 +7417,7 @@ package body Exp_Dist is
 
             --  If the current parameter has a dynamic constrained status, then
             --  this status is transmitted as well.
+
             --  This should be done for accessibility as well ???
 
             if Nkind (Parameter_Type (Current_Parameter)) /=

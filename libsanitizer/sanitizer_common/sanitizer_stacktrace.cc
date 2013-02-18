@@ -15,18 +15,16 @@
 #include "sanitizer_symbolizer.h"
 
 namespace __sanitizer {
-static const char *StripPathPrefix(const char *filepath,
-                                   const char *strip_file_prefix) {
+const char *StripPathPrefix(const char *filepath,
+                            const char *strip_file_prefix) {
+  if (filepath == 0) return 0;
   if (filepath == internal_strstr(filepath, strip_file_prefix))
     return filepath + internal_strlen(strip_file_prefix);
   return filepath;
 }
 
 // ----------------------- StackTrace ----------------------------- {{{1
-// PCs in stack traces are actually the return addresses, that is,
-// addresses of the next instructions after the call. That's why we
-// decrement them.
-static uptr patch_pc(uptr pc) {
+uptr StackTrace::GetPreviousInstructionPc(uptr pc) {
 #ifdef __arm__
   // Cancel Thumb bit.
   pc = pc & (~1);
@@ -69,7 +67,9 @@ void StackTrace::PrintStack(const uptr *addr, uptr size,
   InternalScopedBuffer<AddressInfo> addr_frames(64);
   uptr frame_num = 0;
   for (uptr i = 0; i < size && addr[i]; i++) {
-    uptr pc = patch_pc(addr[i]);
+    // PCs in stack traces are actually the return addresses, that is,
+    // addresses of the next instructions after the call.
+    uptr pc = GetPreviousInstructionPc(addr[i]);
     uptr addr_frames_num = 0;  // The number of stack frames for current
                                // instruction address.
     if (symbolize_callback) {

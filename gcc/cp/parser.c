@@ -1,6 +1,5 @@
 /* C++ Parser.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004,
-   2005, 2007, 2008, 2009, 2010, 2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
@@ -5473,7 +5472,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	/* If all went well, simply lookup the type-id.  */
 	if (cp_parser_parse_definitely (parser))
-	  postfix_expression = get_typeid (type);
+	  postfix_expression = get_typeid (type, tf_warning_or_error);
 	/* Otherwise, fall back to the expression variant.  */
 	else
 	  {
@@ -5482,7 +5481,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    /* Look for an expression.  */
 	    expression = cp_parser_expression (parser, /*cast_p=*/false, & idk);
 	    /* Compute its typeid.  */
-	    postfix_expression = build_typeid (expression);
+	    postfix_expression = build_typeid (expression, tf_warning_or_error);
 	    /* Look for the `)' token.  */
 	    cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	  }
@@ -7092,8 +7091,9 @@ cp_parser_delete_expression (cp_parser* parser)
    otherwise.  */
 
 static bool
-cp_parser_token_starts_cast_expression (cp_token *token)
+cp_parser_tokens_start_cast_expression (cp_parser *parser)
 {
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
   switch (token->type)
     {
     case CPP_COMMA:
@@ -7133,6 +7133,12 @@ cp_parser_token_starts_cast_expression (cp_token *token)
     case CPP_OR_OR:
     case CPP_EOF:
       return false;
+
+    case CPP_OPEN_PAREN:
+      /* In ((type ()) () the last () isn't a valid cast-expression,
+	 so the whole must be parsed as postfix-expression.  */
+      return cp_lexer_peek_nth_token (parser->lexer, 2)->type
+	     != CPP_CLOSE_PAREN;
 
       /* '[' may start a primary-expression in obj-c++.  */
     case CPP_OPEN_SQUARE:
@@ -7226,8 +7232,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 parenthesized ctor such as `(T ())' that looks like a cast to
 	 function returning T.  */
       if (!cp_parser_error_occurred (parser)
-	  && cp_parser_token_starts_cast_expression (cp_lexer_peek_token
-						     (parser->lexer)))
+	  && cp_parser_tokens_start_cast_expression (parser))
 	{
 	  cp_parser_parse_definitely (parser);
 	  expr = cp_parser_cast_expression (parser,
@@ -12655,11 +12660,9 @@ cp_parser_template_id (cp_parser *parser,
 	  return error_mark_node;
 	}
       /* Otherwise, emit an error about the invalid digraph, but continue
-	 parsing because we got our argument list.  In C++11 do not emit
-	 any error, per 2.5/3.  */
-      if (cxx_dialect < cxx0x
-	  && permerror (next_token->location,
-			"%<<::%> cannot begin a template-argument list"))
+	 parsing because we got our argument list.  */
+      if (permerror (next_token->location,
+		     "%<<::%> cannot begin a template-argument list"))
 	{
 	  static bool hint = false;
 	  inform (next_token->location,
@@ -14570,7 +14573,7 @@ cp_parser_enum_specifier (cp_parser* parser)
 				     /*check_dependency=*/true,
 				     /*ambiguous_decls=*/NULL,
 				     input_location);
-      if (name)
+      if (name && name != error_mark_node)
 	{
 	  type = TREE_TYPE (name);
 	  if (TREE_CODE (type) == TYPENAME_TYPE)
@@ -17932,9 +17935,10 @@ cp_parser_initializer_list (cp_parser* parser, bool* non_constant_p)
 	       && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
 	{
 	  /* In C++11, [ could start a lambda-introducer.  */
+	  bool non_const = false;
+
 	  cp_parser_parse_tentatively (parser);
 	  cp_lexer_consume_token (parser->lexer);
-	  bool non_const = false;
 	  designator = cp_parser_constant_expression (parser, true, &non_const);
 	  cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
 	  cp_parser_require (parser, CPP_EQ, RT_EQ);
@@ -19362,6 +19366,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		  if (function_declarator_p (declarator)
 		      || (decl_specifiers.type
 			  && TREE_CODE (decl_specifiers.type) == TYPE_DECL
+			  && declarator->kind == cdk_id
 			  && (TREE_CODE (TREE_TYPE (decl_specifiers.type))
 			      == FUNCTION_TYPE)))
 		    initializer = cp_parser_pure_specifier (parser);

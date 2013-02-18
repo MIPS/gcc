@@ -36,20 +36,29 @@ struct ReportStack {
   int col;
 };
 
+struct ReportMopMutex {
+  u64 id;
+  bool write;
+};
+
 struct ReportMop {
   int tid;
   uptr addr;
   int size;
   bool write;
-  int nmutex;
-  int *mutex;
+  bool atomic;
+  Vector<ReportMopMutex> mset;
   ReportStack *stack;
+
+  ReportMop();
 };
 
 enum ReportLocationType {
   ReportLocationGlobal,
   ReportLocationHeap,
-  ReportLocationStack
+  ReportLocationStack,
+  ReportLocationTLS,
+  ReportLocationFD
 };
 
 struct ReportLocation {
@@ -59,6 +68,7 @@ struct ReportLocation {
   char *module;
   uptr offset;
   int tid;
+  int fd;
   char *name;
   char *file;
   int line;
@@ -70,11 +80,13 @@ struct ReportThread {
   uptr pid;
   bool running;
   char *name;
+  int parent_tid;
   ReportStack *stack;
 };
 
 struct ReportMutex {
-  int id;
+  u64 id;
+  bool destroyed;
   ReportStack *stack;
 };
 
