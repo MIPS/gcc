@@ -110,17 +110,20 @@ get_memmodel (enum gimple_atomic_kind kind, tree exp, bool report_error = true)
   switch (kind)
     {
     case GIMPLE_ATOMIC_LOAD:
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
       if (model == MEMMODEL_RELEASE || model == MEMMODEL_ACQ_REL)
 	model_error = true;
       break;
 
     case GIMPLE_ATOMIC_STORE:
+    case GIMPLE_ATOMIC_STORE_GENERIC:
       if (model == MEMMODEL_CONSUME || model == MEMMODEL_ACQUIRE ||
 	  model == MEMMODEL_ACQ_REL)
 	 model_error = true;
       break;
 
     case GIMPLE_ATOMIC_EXCHANGE:
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
       if (model == MEMMODEL_CONSUME)
 	model_error = true;
       break;
@@ -228,12 +231,10 @@ expand_expr_force_mode (tree exp, enum machine_mode mode)
 /* Get the RTL for lhs #INDEX of STMT.  */
 
 static rtx
-get_atomic_lhs_rtx (gimple stmt, unsigned index)
+get_atomic_lhs_rtx (tree tree_lhs)
 {
-  tree tree_lhs;
   rtx rtl_lhs;
   
-  tree_lhs = gimple_atomic_lhs (stmt, index);
   if (!tree_lhs)
     return const0_rtx;
 
@@ -324,7 +325,6 @@ get_libcall_size (tree type)
 }
 
 /* Expand atomic load STMT into RTL.  Return true if successful.  */
-
 void
 expand_gimple_atomic_load (gimple stmt)
 {
@@ -339,23 +339,8 @@ expand_gimple_atomic_load (gimple stmt)
   model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
   type = get_atomic_type (stmt);
 
-  /* Generic mode is never inlined.  */
-  if (gimple_atomic_generic (stmt)) 
-    {
-      rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_LOAD, NULL_TREE);
-      rtx size = get_libcall_size (type);
-
-      mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
-			 EXPAND_SUM);
-      rtl_lhs = expand_expr (gimple_atomic_return (stmt), NULL_RTX, ptr_mode,
-			     EXPAND_SUM);
-      emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 4, size, SImode, mem,
-			 Pmode, rtl_lhs, Pmode, GEN_INT (model), SImode);
-      return;
-    }
-
   mode = mode_for_size (tree_low_cst (TYPE_SIZE (type), 1), MODE_INT, 0);
-  rtl_lhs = get_atomic_lhs_rtx (stmt, 0);
+  rtl_lhs = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
 
   /* Attempt to expand into a lock free sequence.  */
   if (flag_inline_atomics)
@@ -380,6 +365,28 @@ expand_gimple_atomic_load (gimple stmt)
 
 }
 
+/* Expand atomic generic load STMT into RTL.  Return true if successful.  */
+void
+expand_gimple_atomic_load_generic (gimple stmt)
+{
+  enum memmodel model;
+  tree type = get_atomic_type (stmt);
+  rtx mem, rtl_lhs;
+  rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_LOAD, NULL_TREE);
+  rtx size = get_libcall_size (type);
+
+  gcc_assert (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_LOAD_GENERIC);
+
+  model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
+  mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
+		     EXPAND_SUM);
+  rtl_lhs = expand_expr (gimple_atomic_return (stmt), NULL_RTX, ptr_mode,
+			 EXPAND_SUM);
+  emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 4, size, SImode, mem,
+		     Pmode, rtl_lhs, Pmode, GEN_INT (model), SImode);
+  return;
+}
+
 
 /* Expand atomic store STMT into RTL.  Return true if successful.  */
 
@@ -395,22 +402,6 @@ expand_gimple_atomic_store (gimple stmt)
 
   model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
   type = get_atomic_type (stmt);
-
-  /* Generic mode is never inlined.  */
-  if (gimple_atomic_generic (stmt)) 
-    {
-      rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_STORE, NULL_TREE);
-      rtx size = get_libcall_size (type);
-
-      mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
-			 EXPAND_SUM);
-      rtl_rhs = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
-			     EXPAND_SUM);
-      emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 4, size, SImode, mem,
-			 Pmode, rtl_rhs, Pmode, GEN_INT (model), SImode);
-      return;
-    }
-
 
   mode = mode_for_size (tree_low_cst (TYPE_SIZE (type), 1), MODE_INT, 0);
 
@@ -433,6 +424,30 @@ expand_gimple_atomic_store (gimple stmt)
     }
 }
 
+/* Expand atomic generic store STMT into RTL.  Return true if successful.  */
+
+void
+expand_gimple_atomic_store_generic (gimple stmt)
+{
+  rtx mem, rtl_rhs;
+  enum memmodel model;
+  tree type = get_atomic_type (stmt);
+  rtx size = get_libcall_size (type);
+  rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_STORE, NULL_TREE);
+
+  gcc_assert (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_STORE_GENERIC);
+
+  model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
+  mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
+		     EXPAND_SUM);
+  rtl_rhs = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
+			 EXPAND_SUM);
+  emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 4, size, SImode, mem,
+		     Pmode, rtl_rhs, Pmode, GEN_INT (model), SImode);
+  return;
+}
+
+
 /* Expand atomic exchange STMT into RTL.  Return true if successful.  */
 
 void
@@ -447,31 +462,12 @@ expand_gimple_atomic_exchange (gimple stmt)
   model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
   type = get_atomic_type (stmt);
 
-  /* Generic mode is never inlined.  */
-  if (gimple_atomic_generic (stmt)) 
-    {
-      rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_EXCHANGE, NULL_TREE);
-      rtx size = get_libcall_size (type);
-
-      mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
-			 EXPAND_SUM);
-      rtl_lhs = expand_expr (gimple_atomic_return (stmt), NULL_RTX, ptr_mode,
-			     EXPAND_SUM);
-      rtl_rhs = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
-			     EXPAND_SUM);
-      emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 5, size, SImode, mem,
-			 Pmode, rtl_rhs, Pmode, rtl_lhs, Pmode,
-			 GEN_INT (model), SImode);
-      return;
-    }
-
-
   mode = mode_for_size (tree_low_cst (TYPE_SIZE (type), 1), MODE_INT, 0);
   gcc_assert (mode != BLKmode);
 
   /* Expand the operands.  */
   val = expand_expr_force_mode (gimple_atomic_expr (stmt), mode);
-  rtl_lhs = get_atomic_lhs_rtx (stmt, 0);
+  rtl_lhs = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
 
   if (flag_inline_atomics)
     {
@@ -504,6 +500,114 @@ expand_gimple_atomic_exchange (gimple stmt)
       expand_gimple_assign_move (TREE_TYPE (type), rtl_lhs, rtl_rhs, false);
 }
 
+/* Expand atomic generic exchange STMT into RTL.  Return true if successful.  */
+
+void
+expand_gimple_atomic_exchange_generic (gimple stmt)
+{
+  rtx mem, rtl_rhs = NULL_RTX, rtl_lhs;
+  enum memmodel model;
+  tree type = get_atomic_type (stmt);
+  rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_EXCHANGE, NULL_TREE);
+  rtx size = get_libcall_size (type);
+
+  gcc_assert (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_EXCHANGE_GENERIC);
+
+  model = get_memmodel (gimple_atomic_kind (stmt), gimple_atomic_order (stmt));
+  mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
+		     EXPAND_SUM);
+  rtl_lhs = expand_expr (gimple_atomic_return (stmt), NULL_RTX, ptr_mode,
+			 EXPAND_SUM);
+  rtl_rhs = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
+			 EXPAND_SUM);
+  emit_library_call (libfunc, LCT_NORMAL, VOIDmode, 5, size, SImode, mem, Pmode,
+		     rtl_rhs, Pmode, rtl_lhs, Pmode, GEN_INT (model), SImode);
+}
+
+static enum memmodel
+process_compare_exchange_models (gimple stmt, enum memmodel *fail)
+{
+  enum memmodel s, f;
+  enum memmodel success = get_memmodel (gimple_atomic_kind (stmt),
+					gimple_atomic_order (stmt));
+  *fail = get_memmodel (gimple_atomic_kind (stmt),
+			gimple_atomic_fail_order (stmt));
+  s = pure_memmodel (success);
+  f = pure_memmodel (*fail);
+
+  /* compare_exchange has additional restrictions on the failure order.  */
+  if (f == MEMMODEL_RELEASE || f == MEMMODEL_ACQ_REL)
+    error ("invalid failure memory model for %<__atomic_compare_exchange%>");
+
+  if (f > s)
+    error ("failure memory model cannot be stronger than success "
+	   "memory model for %<__atomic_compare_exchange%>");
+  return success;
+}
+
+/* Expand atomic compare_exchange STMT into RTL.  Return true if successful.  */
+static void
+expand_into_compare_exchange_libcall (gimple stmt, enum memmodel success,
+				      enum memmodel failure)
+{
+  rtx mem, val, rtl_lhs1, expect;
+  enum machine_mode mode;
+  tree type;
+  rtx rtl_lhs2 = const0_rtx;
+
+  type = get_atomic_type (stmt);
+  rtl_lhs1 = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
+
+  mode = mode_for_size (tree_low_cst (TYPE_SIZE (type), 1), MODE_INT, 0);
+  gcc_assert (mode != BLKmode);
+
+  val = expand_expr_force_mode (gimple_atomic_expr (stmt), mode);
+
+  rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N, type);
+  enum machine_mode bool_mode = TYPE_MODE (boolean_type_node);
+  tree e, expect_mem;
+  tree tmp_var = NULL_TREE;
+
+  if (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY)
+    expect_mem = gimple_atomic_expected (stmt);
+  else
+    {
+      /* This is a 2 result form being converted to a library call. 
+	 load expected into a temp variable and pass the address of that.  */
+      tree ptr_type;
+      rtl_lhs2 = get_atomic_lhs_rtx (gimple_atomic_2nd_lhs (stmt));
+      e = gimple_atomic_expected (stmt);
+      tmp_var = add_new_static_var (TREE_TYPE (e));
+      TREE_ADDRESSABLE (tmp_var) = true;
+      expand_assignment (tmp_var, e, false);
+      ptr_type = build_pointer_type (TREE_TYPE (e));
+      expect_mem = build1 (ADDR_EXPR, ptr_type, tmp_var);
+    }
+  expect = expand_expr (expect_mem, NULL_RTX, ptr_mode, EXPAND_SUM);
+  mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
+		     EXPAND_SUM);
+  emit_library_call_value (libfunc, rtl_lhs1, LCT_NORMAL, bool_mode, 5,
+			   mem, Pmode, expect, Pmode, val,
+			   mode, GEN_INT (success),
+			   SImode, GEN_INT (failure), SImode);
+  /* If the expected return value is used, and we had to use a temporary
+     variable for expected, copy the value back.  */
+  if (rtl_lhs2 != const0_rtx && tmp_var)
+    expand_assignment (gimple_atomic_2nd_lhs (stmt), tmp_var, false);
+}
+
+/* Expand atomic compare_exchange STMT into RTL.  Return true if successful.  */
+void
+expand_gimple_atomic_compare_exchange_library (gimple stmt)
+{
+  enum memmodel success, failure;
+
+  gcc_assert (gimple_atomic_kind (stmt)
+	      == GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY);
+  success = process_compare_exchange_models (stmt, &failure);
+  expand_into_compare_exchange_libcall (stmt, success, failure);
+}
+
 /* Expand atomic compare_exchange STMT into RTL.  Return true if successful.  */
 
 void
@@ -512,7 +616,6 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
   rtx mem, val, rtl_lhs1, expect;
   rtx real_lhs1, real_lhs2;
   enum memmodel success, failure;
-  enum memmodel s, f;
   enum machine_mode mode;
   tree type;
   bool is_weak, emitted = false;
@@ -521,46 +624,9 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
   gcc_assert (gimple_atomic_kind (stmt) == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
 
   type = get_atomic_type (stmt);
-  rtl_lhs1 = get_atomic_lhs_rtx (stmt, 0);
+  rtl_lhs1 = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
 
-  success = get_memmodel (gimple_atomic_kind (stmt),
-			  gimple_atomic_order (stmt));
-  failure = get_memmodel (gimple_atomic_kind (stmt),
-			  gimple_atomic_fail_order (stmt));
-  s = pure_memmodel (success);
-  f = pure_memmodel (failure);
-
-  /* compare_exchange has additional restrictions on the failure order.  */
-  if (f == MEMMODEL_RELEASE || f == MEMMODEL_ACQ_REL)
-    error ("invalid failure memory model for %<__atomic_compare_exchange%>");
-
-  if (f > s)
-    {
-      error ("failure memory model cannot be stronger than success "
-	     "memory model for %<__atomic_compare_exchange%>");
-    }
- 
-  /* Generic mode is never inlined.  */
-  if (gimple_atomic_generic (stmt)) 
-    {
-      rtx expr;
-      enum machine_mode bool_mode = TYPE_MODE (boolean_type_node);
-      rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_COMPARE_EXCHANGE,
-				     NULL_TREE);
-      rtx size = get_libcall_size (type);
-
-      mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
-			 EXPAND_SUM);
-      expr = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
-			  EXPAND_SUM);
-      expect = expand_expr (gimple_atomic_expected (stmt), NULL_RTX, ptr_mode,
-			    EXPAND_SUM);
-      emit_library_call_value (libfunc, rtl_lhs1, LCT_NORMAL, bool_mode, 6,
-			       size, SImode, mem, Pmode, expect, Pmode, expr,
-			       Pmode, GEN_INT (success),
-			       SImode, GEN_INT (failure), SImode);
-      return;
-    }
+  success = process_compare_exchange_models (stmt, &failure);
 
   mode = mode_for_size (tree_low_cst (TYPE_SIZE (type), 1), MODE_INT, 0);
   gcc_assert (mode != BLKmode);
@@ -571,7 +637,7 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
     {
       /* Expand the operands.  */
       is_weak = gimple_atomic_weak (stmt);
-      rtl_lhs2 = get_atomic_lhs_rtx (stmt, 1);
+      rtl_lhs2 = get_atomic_lhs_rtx (gimple_atomic_2nd_lhs (stmt));
       real_lhs1 = rtl_lhs1;
       real_lhs2 = rtl_lhs2;
       mem = expand_atomic_target (gimple_atomic_target (stmt), mode);
@@ -581,40 +647,7 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
     }
   /* If no rtl is generated, then call libatomic.  */
   if (!emitted)
-    {
-      rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N, type);
-      enum machine_mode bool_mode = TYPE_MODE (boolean_type_node);
-      tree e, expect_mem;
-      tree tmp_var = NULL_TREE;
-      /* The library call requires a pointer to expected and puts the return
-	 value in the same variable.  */
-      if (!gimple_atomic_2_results (stmt))
-	expect_mem = gimple_atomic_expected (stmt);
-      else
-        {
-	  /* If no memory reference is found, load expected into a temp variable
-	     and pass in the address of that.  */
-	  tree ptr_type;
-	  rtl_lhs2 = get_atomic_lhs_rtx (stmt, 1);
-	  e = gimple_atomic_expected (stmt);
-	  tmp_var = add_new_static_var (TREE_TYPE (e));
-	  TREE_ADDRESSABLE (tmp_var) = true;
-	  expand_assignment (tmp_var, e, false);
-	  ptr_type = build_pointer_type (TREE_TYPE (e));
-	  expect_mem = build1 (ADDR_EXPR, ptr_type, tmp_var);
-	}
-      expect = expand_expr (expect_mem, NULL_RTX, ptr_mode, EXPAND_SUM);
-      mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
-			 EXPAND_SUM);
-      emit_library_call_value (libfunc, rtl_lhs1, LCT_NORMAL, bool_mode, 5,
-			       mem, Pmode, expect, Pmode, val,
-			       mode, GEN_INT (success),
-			       SImode, GEN_INT (failure), SImode);
-      /* If the expected return value is used, and we had to use a temporary
-         variable for expected, copy the value back.  */
-      if (rtl_lhs2 != const0_rtx && tmp_var)
-	expand_assignment (gimple_atomic_lhs (stmt, 1), tmp_var, false);
-    }
+    expand_into_compare_exchange_libcall (stmt, success, failure);
   else
     {
       if (rtl_lhs1 != const0_rtx)
@@ -623,6 +656,37 @@ expand_gimple_atomic_compare_exchange (gimple stmt)
 	expand_gimple_assign_move (type, rtl_lhs2, real_lhs2, false);
     }
 }
+
+/* Expand atomic compare_exchange STMT into RTL.  Return true if successful.  */
+
+void
+expand_gimple_atomic_compare_exchange_generic (gimple stmt)
+{
+  rtx mem, rtl_lhs, expect, expr;
+  enum memmodel success, failure;
+  tree type = get_atomic_type (stmt);
+  rtx libfunc = get_libcall_rtx (BUILT_IN_ATOMIC_COMPARE_EXCHANGE, NULL_TREE);
+  rtx size = get_libcall_size (type);
+  enum machine_mode bool_mode = TYPE_MODE (boolean_type_node);
+
+  gcc_assert (gimple_atomic_kind (stmt)
+	      == GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC);
+  rtl_lhs = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
+
+  success = process_compare_exchange_models (stmt, &failure);
+  mem = expand_expr (gimple_atomic_target (stmt), NULL_RTX, ptr_mode,
+		     EXPAND_SUM);
+  expr = expand_expr (gimple_atomic_expr (stmt), NULL_RTX, ptr_mode,
+		      EXPAND_SUM);
+  expect = expand_expr (gimple_atomic_expected (stmt), NULL_RTX, ptr_mode,
+			EXPAND_SUM);
+  emit_library_call_value (libfunc, rtl_lhs, LCT_NORMAL, bool_mode, 6, size,
+			   SImode, mem, Pmode, expect, Pmode, expr, Pmode,
+			   GEN_INT (success), SImode, GEN_INT (failure),
+			   SImode);
+}
+
+
 
 /* Return the RTL code for the tree operation TCODE.  */
 
@@ -709,7 +773,7 @@ expand_atomic_fetch (gimple stmt, bool fetch_after)
 
   /* Expand the operands.  */
   val = expand_expr_force_mode (gimple_atomic_expr (stmt), mode);
-  rtl_lhs = get_atomic_lhs_rtx (stmt, 0);
+  rtl_lhs = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
 
   if (warn_sync_nand && gimple_atomic_from_sync (stmt)
       && gimple_atomic_op_code (stmt) == GIMPLE_ATOMIC_ARITH_OP_NAND)
@@ -840,7 +904,7 @@ expand_gimple_atomic_test_and_set (gimple stmt)
   /* Expand the operands.  */
   mem = expand_atomic_target (gimple_atomic_target (stmt), mode);
 
-  rtl_lhs = get_atomic_lhs_rtx (stmt, 0);
+  rtl_lhs = get_atomic_lhs_rtx (gimple_atomic_lhs (stmt));
   rtl_rhs = expand_atomic_test_and_set (rtl_lhs, mem, model);
 
   /* Test and set is not allowed to fail.  */
@@ -1137,6 +1201,13 @@ get_atomic_order (tree *t, gimple_seq *pre_p)
   return *t;
 }
 
+
+/* Finish processing atomic statement STMT by linking it in after PRE_P
+   and setting EXPR_P to the return value. if there is one.
+   If present, BI_TYPE indicates the built-in return type of the atomic
+   operation
+   If present, RET_TYPE indicates the type of the user declared type the
+   return value is copied into.  */
 static inline enum gimplify_status
 finish_atomic_stmt (gimple stmt, gimple_seq *pre_p, tree *expr_p,
 		    tree BI_type = NULL_TREE, tree ret_type = NULL_TREE)
@@ -1147,7 +1218,7 @@ finish_atomic_stmt (gimple stmt, gimple_seq *pre_p, tree *expr_p,
   if (BI_type)
     {
       tmp = create_tmp_var (BI_type, NULL);
-      gimple_atomic_set_lhs (stmt, 0, tmp);
+      gimple_atomic_set_lhs (stmt, tmp);
     }
   gimple_seq_add_stmt_without_update (pre_p, stmt);
 
@@ -1160,8 +1231,10 @@ finish_atomic_stmt (gimple stmt, gimple_seq *pre_p, tree *expr_p,
 }
 
 
+/* load memory pointed to by ARG into a temporary sequenced after PRE_P.
+   Return the tmp variable.  */
 static inline tree
-deref_atomic_param_load (tree arg, gimple_seq *pre_p)
+load_from_atomic_param_pointer (tree arg, gimple_seq *pre_p)
 {
   gimple stmt;
   tree deref_tmp, tmp;
@@ -1184,8 +1257,9 @@ deref_atomic_param_load (tree arg, gimple_seq *pre_p)
   return tmp;
 }
 
+/* Store VAL into the memory pointer to by ARG, and sequence it after PRE_P.  */
 static void
-deref_atomic_param_store (tree arg, tree val, gimple_seq *pre_p)
+store_into_atomic_param_pointer (tree arg, tree val, gimple_seq *pre_p)
 {
   gimple stmt;
   tree deref_tmp;
@@ -1238,11 +1312,10 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   if (!expand_2_results)
     {
       /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
-      ret  = gimple_build_atomic_compare_exchange (BI_type, target, expected,
-						   val, order, fail_order,
-						   is_weak);
+      ret  = gimple_build_atomic_compare_exchange_library (BI_type,
+			     target, expected, val, order, fail_order, is_weak);
       bool_ret = create_tmp_var (boolean_type_node, NULL);
-      gimple_atomic_set_lhs (ret , 0, bool_ret);
+      gimple_atomic_set_lhs (ret, bool_ret);
       gimple_seq_add_stmt_without_update (pre_p, ret);
       return bool_ret;
     }
@@ -1258,21 +1331,20 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   gimple_seq_add_stmt_without_update (pre_p, ret);
 
   /* deref_tmp = *tmp1 */
-  deref_tmp = deref_atomic_param_load (tmp1, pre_p);
+  deref_tmp = load_from_atomic_param_pointer (tmp1, pre_p);
 
   /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, deref_tmp,
 					       val, order, fail_order,
 					       is_weak);
-  gimple_atomic_set_2_results (ret, true);
   bool_ret = create_tmp_var (boolean_type_node, NULL);
-  gimple_atomic_set_lhs (ret , 0, bool_ret);
+  gimple_atomic_set_lhs (ret, bool_ret);
   tmp2 = create_tmp_var (expected_type, NULL);
-  gimple_atomic_set_lhs (ret , 1, tmp2);
+  gimple_atomic_set_2nd_lhs (ret , tmp2);
   gimple_seq_add_stmt_without_update (pre_p, ret);
 
   /* *tmp1 = tmp2;  */
-  deref_atomic_param_store (tmp1, tmp2, pre_p);
+  store_into_atomic_param_pointer (tmp1, tmp2, pre_p);
 
   return bool_ret;
 }
@@ -1291,11 +1363,10 @@ issue_sync_cmpxchg (tree BI_type, tree target, tree expected, tree val, gimple_s
   /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, expected, val,
 					       order, order, false);
-  gimple_atomic_set_2_results (ret, true);
   bool_ret = create_tmp_var (boolean_type_node, NULL);
-  gimple_atomic_set_lhs (ret , 0, bool_ret);
+  gimple_atomic_set_lhs (ret, bool_ret);
   tmp = create_tmp_var (BI_type, NULL);
-  gimple_atomic_set_lhs (ret , 1, tmp);
+  gimple_atomic_set_2nd_lhs (ret , tmp);
   gimple_seq_add_stmt_without_update (pre_p, ret);
 
   if (bool_result)
@@ -1384,14 +1455,15 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
       if (atomic_lockfree_compatible (target_type))
         {
-	  ret = gimple_build_atomic_load (BI_type, target, order, NULL_TREE);
+	  ret = gimple_build_atomic_load (BI_type, target, order);
 	  finish_atomic_stmt (ret, pre_p, expr_p, BI_type, BI_type);
-	  deref_atomic_param_store (return_arg, *expr_p, pre_p);
+	  store_into_atomic_param_pointer (return_arg, *expr_p, pre_p);
 	  *expr_p = 0;
 	  return GS_ALL_DONE;
 	}
       
-      ret = gimple_build_atomic_load (target_type, target, order, return_arg);
+      ret = gimple_build_atomic_load_generic (target_type, target, order,
+					      return_arg);
       return finish_atomic_stmt (ret, pre_p, expr_p);
 
     case BUILT_IN_ATOMIC_LOAD_1:
@@ -1411,7 +1483,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
       types_match (BI_type, target_type);
 
       order = get_atomic_order (&ATOMIC_EXPR_ARG (expr, 1), pre_p);
-      ret = gimple_build_atomic_load (BI_type, target, order, NULL_TREE);
+      ret = gimple_build_atomic_load (BI_type, target, order);
       return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
 
     case BUILT_IN_ATOMIC_STORE:
@@ -1425,15 +1497,12 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
       if (atomic_lockfree_compatible (target_type))
         {
-	  deref_tmp = deref_atomic_param_load (val, pre_p);
+	  deref_tmp = load_from_atomic_param_pointer (val, pre_p);
 	  ret = gimple_build_atomic_store (BI_type, target, deref_tmp, order);
 	  return finish_atomic_stmt (ret, pre_p, expr_p);
 	}
       
-      ret = gimple_build_atomic_store (target_type, target, val, order);
-      /* Since store has no return value, the build routine cannot determine
-         that this is the generic form, so set the flag here.  */
-      gimple_atomic_set_generic  (ret, true);
+      ret = gimple_build_atomic_store_generic (target_type, target, val, order);
       return finish_atomic_stmt (ret, pre_p, expr_p, NULL_TREE);
 
     case BUILT_IN_ATOMIC_STORE_1:
@@ -1471,18 +1540,18 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
       if (atomic_lockfree_compatible (BI_type))
         {
-	  deref_tmp = deref_atomic_param_load (val, pre_p);
-	  ret = gimple_build_atomic_exchange (BI_type, target, deref_tmp, order,
-					      NULL_TREE);			
+	  deref_tmp = load_from_atomic_param_pointer (val, pre_p);
+	  ret = gimple_build_atomic_exchange (BI_type, target, deref_tmp,
+					      order);			
 	  finish_atomic_stmt (ret, pre_p, expr_p, BI_type, BI_type);
-	  deref_atomic_param_store (return_arg, *expr_p, pre_p);
+	  store_into_atomic_param_pointer (return_arg, *expr_p, pre_p);
 	  *expr_p = 0;
 	  return GS_ALL_DONE;
 	}
       
 
-      ret = gimple_build_atomic_exchange (target_type, target, val, order,
-					  return_arg);
+      ret = gimple_build_atomic_exchange_generic (target_type, target, val,
+						  order, return_arg);
       return finish_atomic_stmt (ret, pre_p, expr_p);
 
     case BUILT_IN_ATOMIC_EXCHANGE_1:
@@ -1502,8 +1571,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
       val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1), pre_p);
       order = get_atomic_order (&ATOMIC_EXPR_ARG (expr, 2), pre_p);
-      ret = gimple_build_atomic_exchange (BI_type, target, val, order,
-					  NULL_TREE);
+      ret = gimple_build_atomic_exchange (BI_type, target, val, order);
       return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
 
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
@@ -1532,18 +1600,14 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
 	if (atomic_lockfree_compatible (BI_type))
 	  {
-	    deref_tmp = deref_atomic_param_load (val, pre_p);
+	    deref_tmp = load_from_atomic_param_pointer (val, pre_p);
 	    *expr_p = issue_cmpxchg (BI_type, target, expected, deref_tmp,
 				     is_weak, order, fail_order, pre_p);
 	    return GS_ALL_DONE;
 	  }
       
-	ret = gimple_build_atomic_compare_exchange (target_type, target, 
-						    expected, val, order,
-						    fail_order, is_weak);
-	/* Since compare_exchange just returns a boolean, the build routine
-	   cannot determine that this is the generic form, so set the flag.  */
-	gimple_atomic_set_generic (ret, true);
+	ret = gimple_build_atomic_compare_exchange_generic (target_type, 
+			    target, expected, val, order, fail_order, is_weak);
 	return finish_atomic_stmt (ret, pre_p, expr_p, BI_return_type,
 				   boolean_type_node);
       }
@@ -1808,8 +1872,7 @@ gimplify_atomic_fetch:
 	  }
 	/* __sync_lock_test_and_set is an atomic exchange, but may be
 	   implemented with restrictions on some targets.  */
-	ret = gimple_build_atomic_exchange (BI_type, target, val, order,
-					    NULL_TREE);
+	ret = gimple_build_atomic_exchange (BI_type, target, val, order);
 	gimple_atomic_set_from_sync (ret, true);
 	return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
 

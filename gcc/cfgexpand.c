@@ -2039,16 +2039,36 @@ expand_atomic_stmt (gimple stmt)
       expand_gimple_atomic_load (stmt);
       break;
 
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
+      expand_gimple_atomic_load_generic (stmt);
+      break;
+
     case GIMPLE_ATOMIC_STORE:
       expand_gimple_atomic_store (stmt);
+      break;
+
+    case GIMPLE_ATOMIC_STORE_GENERIC:
+      expand_gimple_atomic_store_generic (stmt);
       break;
 
     case GIMPLE_ATOMIC_EXCHANGE:
       expand_gimple_atomic_exchange (stmt);
       break;
 
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
+      expand_gimple_atomic_exchange_generic (stmt);
+      break;
+
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
       expand_gimple_atomic_compare_exchange (stmt);
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC:
+      expand_gimple_atomic_compare_exchange_generic (stmt);
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY:
+      expand_gimple_atomic_compare_exchange_library (stmt);
       break;
 
     case GIMPLE_ATOMIC_FETCH_OP:

@@ -914,14 +914,16 @@ parse_ssa_operands (gimple stmt)
     case GIMPLE_ATOMIC:
       /* Atomic operations have side-effects on memory.  */
       add_virtual_operand (stmt, opf_def | opf_use);
-      
-      for (n = 0; n < gimple_atomic_num_lhs (stmt); n++)
-	get_expr_operands (stmt, gimple_atomic_lhs_ptr (stmt, n),
-			   opf_def | opf_non_addressable);
-      for (n = 0; n < gimple_atomic_num_rhs (stmt); n++)
-	get_expr_operands (stmt, gimple_op_ptr (stmt, n),
-			   opf_use | opf_non_addressable);
-      break;
+      start = gimple_atomic_num_lhs (stmt);
+      if (start)
+        {
+	  get_expr_operands (stmt, gimple_atomic_lhs_ptr (stmt),
+			     opf_def | opf_non_addressable);
+	  if (start == 2)
+	    get_expr_operands (stmt, gimple_atomic_2nd_lhs_ptr (stmt),
+			       opf_def | opf_non_addressable);
+	}
+      goto do_default;
       
     case GIMPLE_RETURN:
       append_vuse (gimple_vop (cfun));

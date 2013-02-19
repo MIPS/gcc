@@ -4066,13 +4066,18 @@ verify_gimple_atomic (gimple stmt)
   switch (kind)
     {
     case GIMPLE_ATOMIC_LOAD:
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
       break;
 
     case GIMPLE_ATOMIC_STORE:
+    case GIMPLE_ATOMIC_STORE_GENERIC:
     case GIMPLE_ATOMIC_EXCHANGE:
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
       break;
 
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC:
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY:
       break;
 
     case GIMPLE_ATOMIC_FETCH_OP:

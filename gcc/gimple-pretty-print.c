@@ -810,8 +810,7 @@ dump_gimple_atomic_order (pretty_printer *buffer, tree t, int spc, int flags)
 static void
 dump_gimple_atomic_type_size (pretty_printer *buffer, const_gimple gs)
 {
-  if (!gimple_atomic_generic (gs))
-    pp_string (buffer, gimple_atomic_type_size_string (gs));
+  pp_string (buffer, gimple_atomic_type_size_string (gs));
   pp_string (buffer, " <");
 }
 
@@ -821,48 +820,25 @@ dump_gimple_atomic_type_size (pretty_printer *buffer, const_gimple gs)
 static void
 dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  if (gimple_atomic_num_lhs (gs) == 1)
-    {
-      dump_generic_node (buffer, gimple_atomic_lhs (gs, 0), spc, flags, false);
-      pp_string (buffer, " = ");
-    }
-  else if (gimple_atomic_num_lhs (gs) > 1)
-    {
-      /* The first LHS is still optional, so print both results only if the
-         first one is present.  */
-      if (gimple_atomic_lhs (gs, 0))
-        {
-	  pp_string (buffer, "(");
-
-	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 0), spc, flags,
-			     false);
-	  pp_string (buffer, ", ");
-	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 1), spc, flags,
-			     false);
-	  pp_string (buffer, ") = ");
-	}
-      else
-       {
-	  /* Otherwise just print the result that has to be there.  */
-	  dump_generic_node (buffer, gimple_atomic_lhs (gs, 1), spc, flags,
-			     false);
-	  pp_string (buffer, " = ");
-       }
-    }
-   
+  
   switch (gimple_atomic_kind (gs))
     {
     case GIMPLE_ATOMIC_LOAD:
-      pp_string (buffer, "ATOMIC_LOAD");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_LOAD");
       dump_gimple_atomic_type_size (buffer, gs);
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
       pp_string (buffer, ", ");
-      if (gimple_atomic_generic (gs))
-        { 
-	  dump_generic_node (buffer, gimple_atomic_return (gs), spc, flags,
-			     false);
-	  pp_string (buffer, ", ");
-	}
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
+      pp_string (buffer, "ATOMIC_LOAD <");
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_return (gs), spc, flags, false);
+      pp_string (buffer, ", ");
       dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
       pp_string (buffer, "> ");
       break;
@@ -878,8 +854,19 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, "> ");
       break;
 
+    case GIMPLE_ATOMIC_STORE_GENERIC:
+      pp_string (buffer, "ATOMIC_STORE <");
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
     case GIMPLE_ATOMIC_EXCHANGE:
-      pp_string (buffer, "ATOMIC_EXCHANGE");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_EXCHANGE");
       if (gimple_atomic_from_sync (gs))
 	pp_string (buffer, "(SYNC_LOCK_TEST_AND_SET)");
       dump_gimple_atomic_type_size (buffer, gs);
@@ -887,23 +874,35 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, ", ");
       dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
       pp_string (buffer, ", ");
-      if (gimple_atomic_generic (gs))
-        { 
-	  dump_generic_node (buffer, gimple_atomic_return (gs), spc, flags,
-			     false);
-	  pp_string (buffer, ", ");
-	}
+      dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
+      pp_string (buffer, "> ");
+      break;
+
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
+      pp_string (buffer, "ATOMIC_EXCHANGE <");
+      dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_expr (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_return (gs), spc, flags, false);
+      pp_string (buffer, ", ");
       dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);
       pp_string (buffer, "> ");
       break;
 
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
-      pp_string (buffer, "ATOMIC_COMPARE_EXCHANGE_");
+      pp_string (buffer, "(");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, ", ");
+      dump_generic_node (buffer, gimple_atomic_2nd_lhs (gs), spc, flags,
+			 false);
+      pp_string (buffer, ") = ATOMIC_COMPARE_EXCHANGE_");
       if (gimple_atomic_weak (gs))
 	pp_string (buffer, "WEAK");
       else
 	pp_string (buffer, "STRONG");
       dump_gimple_atomic_type_size (buffer, gs);
+dump_atomic_compare_exchange_args:
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
       pp_string (buffer, ", ");
       dump_generic_node (buffer, gimple_atomic_expected (gs), spc, flags,
@@ -918,8 +917,30 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, "> ");
       break;
 
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC:
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_COMPARE_EXCHANGE_");
+      if (gimple_atomic_weak (gs))
+	pp_string (buffer, "WEAK <");
+      else
+	pp_string (buffer, "STRONG <");
+      goto dump_atomic_compare_exchange_args;
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY:
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_COMPARE_EXCHANGE_");
+      if (gimple_atomic_weak (gs))
+	pp_string (buffer, "WEAK");
+      else
+	pp_string (buffer, "STRONG");
+      dump_gimple_atomic_type_size (buffer, gs);
+      goto dump_atomic_compare_exchange_args;
+      break;
+
     case GIMPLE_ATOMIC_FETCH_OP:
-      pp_string (buffer, "ATOMIC_FETCH_");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_FETCH_");
       pp_string (buffer, gimple_atomic_op_name (gs));
       dump_gimple_atomic_type_size (buffer, gs);
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
@@ -931,7 +952,8 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_ATOMIC_OP_FETCH:
-      pp_string (buffer, "ATOMIC_");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_");
       pp_string (buffer, gimple_atomic_op_name (gs));
       pp_string (buffer, "_FETCH");
       dump_gimple_atomic_type_size (buffer, gs);
@@ -944,7 +966,8 @@ dump_gimple_atomic (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_ATOMIC_TEST_AND_SET:
-      pp_string (buffer, "ATOMIC_TEST_AND_SET <");
+      dump_generic_node (buffer, gimple_atomic_lhs (gs), spc, flags, false);
+      pp_string (buffer, " = ATOMIC_TEST_AND_SET <");
       dump_generic_node (buffer, gimple_atomic_target (gs), spc, flags, false);
       pp_string (buffer, ", ");
       dump_gimple_atomic_order (buffer, gimple_atomic_order (gs), spc, flags);

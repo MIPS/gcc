@@ -604,7 +604,7 @@ op_iter_next_def (ssa_op_iter *ptr)
     {
       while (ptr->i < ptr->numops)
 	{
-	  tree *val = gimple_op_ptr (ptr->stmt, ptr->i + ptr->def_offset);
+	  tree *val = gimple_op_ptr (ptr->stmt, ptr->i);
 	  ptr->i++;
 	  if (*val)
 	    {
@@ -644,7 +644,7 @@ op_iter_next_tree (ssa_op_iter *ptr)
     {
       while (ptr->i < ptr->numops)
 	{
-	  val = gimple_op (ptr->stmt, ptr->i + ptr->def_offset);
+	  val = gimple_op (ptr->stmt, ptr->i);
 	  ptr->i++;
 	  if (val)
 	    {
@@ -672,7 +672,6 @@ clear_and_done_ssa_iter (ssa_op_iter *ptr)
 {
   ptr->i = 0;
   ptr->numops = 0;
-  ptr->def_offset = 0;
   ptr->uses = NULL;
   ptr->iter_type = ssa_op_iter_none;
   ptr->stmt = NULL;
@@ -691,7 +690,6 @@ op_iter_init (ssa_op_iter *ptr, gimple stmt, int flags)
 		       && (!(flags & SSA_OP_VDEF) || (flags & SSA_OP_DEF))
 		       && (!(flags & SSA_OP_VUSE) || (flags & SSA_OP_USE)));
   ptr->numops = 0;
-  ptr->def_offset = 0;
   if (flags & (SSA_OP_DEF | SSA_OP_VDEF))
     {
       switch (gimple_code (stmt))
@@ -705,7 +703,6 @@ op_iter_init (ssa_op_iter *ptr, gimple stmt, int flags)
 	    break;
 	  case GIMPLE_ATOMIC:
 	    ptr->numops = gimple_atomic_num_lhs (stmt);
-	    ptr->def_offset = gimple_num_ops (stmt) - ptr->numops;
 	    break;
 	  default:
 	    ptr->numops = 0;

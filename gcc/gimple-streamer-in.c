@@ -285,11 +285,18 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   else if (code == GIMPLE_ATOMIC)
     {
       unsigned i;
-      for (i = 0; i < gimple_atomic_num_lhs (stmt); i++)
+      i = gimple_atomic_num_lhs (stmt);
+      if (i > 0)
         {
-	  tree lhs = gimple_atomic_lhs (stmt, i);
+	  tree lhs = gimple_atomic_lhs (stmt);
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    SSA_NAME_DEF_STMT (lhs) = stmt;
+	  if (i == 2)
+	    {
+	      lhs = gimple_atomic_2nd_lhs (stmt);
+	      if (TREE_CODE (lhs) == SSA_NAME)
+		SSA_NAME_DEF_STMT (lhs) = stmt;
+	    }
 	}
     }
 

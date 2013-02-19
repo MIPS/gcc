@@ -190,7 +190,7 @@ gimple_build_atomic_raw (enum gimple_atomic_kind k, tree target_type,
 			 unsigned nargs, ...)
 {
   va_list ap;
-  unsigned i;
+  unsigned i, numlhs;
   gimple s;
 
   /* Calculate the size of the atomic operand vector.  */
@@ -205,15 +205,23 @@ gimple_build_atomic_raw (enum gimple_atomic_kind k, tree target_type,
       break;
 
     case GIMPLE_ATOMIC_LOAD:
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
     case GIMPLE_ATOMIC_STORE:
+    case GIMPLE_ATOMIC_STORE_GENERIC:
     case GIMPLE_ATOMIC_TEST_AND_SET:
       i = 3;
       break;
 
     case GIMPLE_ATOMIC_EXCHANGE:
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
     case GIMPLE_ATOMIC_FETCH_OP:
     case GIMPLE_ATOMIC_OP_FETCH:
       i = 4;
+      break;
+
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC:
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY:
+      i = 6;
       break;
 
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
@@ -225,42 +233,51 @@ gimple_build_atomic_raw (enum gimple_atomic_kind k, tree target_type,
     }
 
   s = gimple_build_with_ops (GIMPLE_ATOMIC, ERROR_MARK, i);
-
   gimple_atomic_set_kind (s, k);
   if (k != GIMPLE_ATOMIC_FENCE)
       gimple_atomic_set_type (s, target_type);
   gimple_set_has_volatile_ops (s, true);
 
-  /* Now winitialize any of the fields which are passed in.  */
+
+  /* Now winitialize any of the RHS fields which are passed in.  */
   va_start (ap, nargs);
+  numlhs = gimple_atomic_num_lhs (s);
   for (i = 0; i < nargs; i++)
-    gimple_set_op (s, i, va_arg (ap, tree));
+    gimple_set_op (s, numlhs + i, va_arg (ap, tree));
   va_end (ap);
 
   return s;
 }
+
+
 /* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_LOAD kind.
    TYPE is the underlying type of the atomic operation.
    TARGET is the atomic memory location being operated on.
-   ORDER is the memory model to be used.
-   RETVAL is the location for the generic format return location.  NULL_TREE
-   indicates this is not in generic format.  */
+   ORDER is the memory model to be used.  */
 
 gimple
-gimple_build_atomic_load (tree type, tree target, tree order, tree retval)
+gimple_build_atomic_load (tree type, tree target, tree order)
 {
   gimple s;
-  if (retval)
-    {
-      s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 3, order, target,
-				   retval);
-      gimple_atomic_set_generic (s, true);
-    }
-  else
-    s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 2, order, target);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 2, target, order);
   return s;
 }
 
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_LOAD_GENERIC kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   ORDER is the memory model to be used.
+   RETVAL is the location for the generic format return location.  */
+
+gimple
+gimple_build_atomic_load_generic (tree type, tree target, tree order,
+				  tree retval)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD_GENERIC, type, 3, retval,
+			       target, order);
+  return s;
+}
 /* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_STORE kind.
    TYPE is the underlying type of the atomic operation.
    TARGET is the atomic memory location being operated on.
@@ -271,8 +288,42 @@ gimple
 gimple_build_atomic_store (tree type, tree target, tree expr, tree order)
 {
   gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_STORE, type, 3, order, target,
-			       expr);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_STORE, type, 3, expr, target,
+			       order);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_STORE_GENERIC kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   ORDER is the memory model to be used.  */
+
+gimple
+gimple_build_atomic_store_generic (tree type, tree target, tree expr,
+				   tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_STORE_GENERIC, type, 3, expr,
+			       target, order);
+  return s;
+}
+
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_EXCHANGE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPR is the expression to be stored.
+   ORDER is the memory model to be used.
+   RETVAL is the location for the generic format return location.  NULL_TREE
+   indicates this is not in generic format.  */
+
+gimple
+gimple_build_atomic_exchange (tree type, tree target, tree expr, tree order)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 3, expr, target,
+			       order);
   return s;
 }
 
@@ -285,22 +336,14 @@ gimple_build_atomic_store (tree type, tree target, tree expr, tree order)
    indicates this is not in generic format.  */
 
 gimple
-gimple_build_atomic_exchange (tree type, tree target, tree expr, tree order,
-			      tree retval)
+gimple_build_atomic_exchange_generic (tree type, tree target, tree expr,
+				      tree order, tree retval)
 {
   gimple s;
-  if (retval)
-    {
-      s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 4, order,
-				   target, expr, retval);
-      gimple_atomic_set_generic (s, true);
-    }
-  else
-    s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 3, order, target,
-				 expr);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE_GENERIC, type, 4, retval,
+			       expr, target, order);
   return s;
 }
-
 /* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_COMPARE_EXCHANGE kind.
    TYPE is the underlying type of the atomic operation.
    TARGET is the atomic memory location being operated on.
@@ -317,7 +360,51 @@ gimple_build_atomic_compare_exchange (tree type, tree target, tree expected,
 {
   gimple s;
   s = gimple_build_atomic_raw (GIMPLE_ATOMIC_COMPARE_EXCHANGE, type, 5,
-			       success, target, expr, expected, fail);
+			       fail, expected, expr, target, success);
+  gimple_atomic_set_weak (s, weak);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_COMPARE_EXCHANGE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPECTED is the value thought to be in the atomic memory location.
+   EXPR is the expression to be stored if EXPECTED matches.
+   SUCCESS is the memory model to be used for a success operation.
+   FAIL is the memory model to be used for a failed operation.
+   WEAK is true if this is a weak compare_exchange, otherwise it is strong.  */
+
+gimple
+gimple_build_atomic_compare_exchange_generic (tree type, tree target,
+					      tree expected, tree expr,
+					      tree success, tree fail,
+					      bool weak)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC, type, 5,
+			       fail, expected, expr, target, success);
+  gimple_atomic_set_weak (s, weak);
+  return s;
+}
+
+/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_COMPARE_EXCHANGE kind.
+   TYPE is the underlying type of the atomic operation.
+   TARGET is the atomic memory location being operated on.
+   EXPECTED is the value thought to be in the atomic memory location.
+   EXPR is the expression to be stored if EXPECTED matches.
+   SUCCESS is the memory model to be used for a success operation.
+   FAIL is the memory model to be used for a failed operation.
+   WEAK is true if this is a weak compare_exchange, otherwise it is strong.  */
+
+gimple
+gimple_build_atomic_compare_exchange_library (tree type, tree target,
+					      tree expected, tree expr,
+					      tree success, tree fail,
+					      bool weak)
+{
+  gimple s;
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY, type, 5,
+			       fail, expected, expr, target, success);
   gimple_atomic_set_weak (s, weak);
   return s;
 }
@@ -334,8 +421,8 @@ gimple_build_atomic_fetch_op (tree type, tree target, tree expr,
 			      enum tree_code op, tree order)
 {
   gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FETCH_OP, type, 3, order, target,
-			       expr);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FETCH_OP, type, 3, expr, target,
+			       order);
   gimple_atomic_set_op_code (s, gimple_atomic_tree_code_to_arith_op (op));
   return s;
 }
@@ -352,8 +439,8 @@ gimple_build_atomic_op_fetch (tree type, tree target, tree expr,
 			      enum tree_code op, tree order)
 {
   gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_OP_FETCH, type, 3, order, target,
-			       expr);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_OP_FETCH, type, 3, expr, target,
+			       order);
   gimple_atomic_set_op_code (s, gimple_atomic_tree_code_to_arith_op (op));
   return s;
 }
@@ -367,7 +454,7 @@ gimple_build_atomic_test_and_set (tree target, tree order)
 {
   gimple s;
   s = gimple_build_atomic_raw (GIMPLE_ATOMIC_TEST_AND_SET, boolean_type_node, 2,
-			       order, target);
+			       target, order);
   return s;
 }
 
@@ -379,8 +466,8 @@ gimple
 gimple_build_atomic_clear (tree target, tree order)
 {
   gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_CLEAR, boolean_type_node, 2, order,
-			       target);
+  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_CLEAR, boolean_type_node, 2, 
+			       target, order);
   return s;
 }
 
@@ -1654,7 +1741,7 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	wi->val_only = true;
 
       /* Walk the RHS.  */
-      for (i = 0; i < gimple_atomic_num_rhs (stmt) ; i++)
+      for (i = gimple_atomic_num_lhs (stmt); i < gimple_num_ops (stmt) ; i++)
        {
  	 ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
 			  pset);
@@ -1665,12 +1752,20 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       if (wi)
 	wi->is_lhs = true;
 
-      for (i = 0; i < gimple_atomic_num_lhs (stmt) ; i++)
+      i = gimple_atomic_num_lhs (stmt);
+      if (i)
        {
- 	 ret = walk_tree (gimple_atomic_lhs_ptr (stmt, i), callback_op, wi,
+ 	 ret = walk_tree (gimple_atomic_lhs_ptr (stmt), callback_op, wi,
 			  pset);
 	 if (ret)
 	   return ret;
+	 if (i == 2)
+	   {
+	     ret = walk_tree (gimple_atomic_2nd_lhs_ptr (stmt), callback_op, wi,
+			      pset);
+	     if (ret)
+	       return ret;
+	   }
        }
 
       if (wi)

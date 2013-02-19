@@ -98,9 +98,7 @@ enum gf_mask {
     GF_ASM_VOLATILE		= 1 << 1,
     GF_ATOMIC_ARITH_OP		= 0x07 << GF_ATOMIC_ARITH_OP_SHIFT, /* 3 bits */
     GF_ATOMIC_KIND		= 0x0F << GF_ATOMIC_KIND_SHIFT, /* 4 bits */
-    GF_ATOMIC_2_RESULTS		= 1 << 12,
-    GF_ATOMIC_SYNC		= 1 << 13,
-    GF_ATOMIC_GENERIC		= 1 << 14,
+    GF_ATOMIC_SYNC		= 1 << 14,
     GF_ATOMIC_THREAD_FENCE	= 1 << 15,
     GF_ATOMIC_WEAK		= 1 << 15,
     GF_CALL_FROM_THUNK		= 1 << 0,
@@ -306,19 +304,30 @@ struct GTY(()) gimple_statement_call
   tree GTY((length ("%h.membase.opbase.gsbase.num_ops"))) op[1];
 };
 
-/* Kind of GIMPLE_ATOMIC statements.  */
+/* Kind of GIMPLE_ATOMIC statements.  4 bits reserved. */
 enum gimple_atomic_kind
 {
+  /* 2 result kinds.  */
+  GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC,
+
+  /* 1 result kinds. */
   GIMPLE_ATOMIC_LOAD,
-  GIMPLE_ATOMIC_STORE,
   GIMPLE_ATOMIC_EXCHANGE,
   GIMPLE_ATOMIC_COMPARE_EXCHANGE,
+  GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY,
   GIMPLE_ATOMIC_FETCH_OP,
   GIMPLE_ATOMIC_OP_FETCH,
   GIMPLE_ATOMIC_TEST_AND_SET,
+
+  /* 0 result kinds. */
+  GIMPLE_ATOMIC_LOAD_GENERIC,
+  GIMPLE_ATOMIC_STORE_GENERIC,
+  GIMPLE_ATOMIC_EXCHANGE_GENERIC,
+  GIMPLE_ATOMIC_STORE,
   GIMPLE_ATOMIC_CLEAR,
   GIMPLE_ATOMIC_FENCE
 };
+
 
 /* Arithmetic operations for the FETCH_OP and OP_FETCH statements.  */
 enum gimple_atomic_arith_op
@@ -332,30 +341,36 @@ enum gimple_atomic_arith_op
 };
 
 /* GIMPLE_ATOMIC statement.  */
-/* Layout of the OPS vector for the different atomic kinds:
-   LOAD		| ORDER | TARGET | LHS  |
-   STORE	| ORDER | TARGET | EXPR |
-   EXCHANGE	| ORDER | TARGET | EXPR | LHS      |
-   COMPARE_EXCHG| ORDER | TARGET | EXPR | EXPECTED | FAILORDER | LHS2 | LHS1 |
-   FETCH	| ORDER | TARGET | EXPR | LHS      |
-   TEST_AND_SET	| ORDER | TARGET | LHS  |
-   CLEAR	| ORDER | TARGET |
-   FENCE	| ORDER |
-   generic formats allow arbitrary sized objects so the LHS object is instead
-   passed by address, so the last NON-LHS field becomes this return pointer.
+/* Layout of the OPS vector for the different atomic kinds. Capitalized fields
+   are passed by pointer.  
+   LOAD		| lhs   | TARGET | order  | 
+   STORE	| expr  | TARGET | order  |
+   EXCHANGE	| lhs   | expr   | TARGET | order    |
+   COMPARE_EXCHG| lhs   | lhs2   | fail   | expected | expr | TARGET | order |
+   FETCH	| lhs   | expr   | TARGET | order    |
+   TEST_AND_SET	| lhs   | TARGET | order  |
+   CLEAR	| TARGET| order  |
+   FENCE	| order |
+
+   Generic formats allow arbitrary sized objects so the LHS object is instead
+   passed by address
    The other non-order fields are all pointers as well.
-   LOAD		| ORDER | TARGET | RET   |
-   STORE	| ORDER | TARGET | EXPR  |
-   EXCHANGE	| ORDER | TARGET | EXPR  | RET      |
-   COMPARE_EXCHG| ORDER | TARGET | EXPR  | EXPECTED | FAILORDER | VOID | LHS |
+
+   LOAD_GENERIC		 | RET   | TARGET | order    |
+   STORE_GENERIC	 | EXPR  | TARGET | order    |
+   EXCHANGE_GENERIC	 | RET   | EXPR   | TARGET   | order
+   COMPARE_EXCHG_GENERIC | lhs   | fail   | EXPECTED | EXPR | TARGET | order |
+
+   There is a library format for compare exchange when it is known that an
+   external library call will be made. There is no point in expanding to a two
+   result instruction if it is going to have to be mapped back to a one result
+   library call, so the TARGET EXPECTED field is also passed by address.
+
+   COMPARE_EXCHG_LIBRARY | lhs   | fail   | expected | EXPR | TARGET | order |
 
    The atomic kind is encoded in the subword.
    The operation for FETCH_OP and OP_FETCH is also encoded in the subword.
 
-   This allows all the RHS values to be contiguous, and located at the same
-   index for the different kinds.  THE LHS is views from right to left, and 
-   allows more than 1 value as required by compare_exchange.  They also are 
-   contiguous.
 */
 
 struct GTY(()) gimple_statement_atomic
@@ -830,11 +845,18 @@ gimple gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
 
 
-gimple gimple_build_atomic_load (tree, tree, tree, tree);
+gimple gimple_build_atomic_load (tree, tree, tree);
+gimple gimple_build_atomic_load_generic (tree, tree, tree, tree);
 gimple gimple_build_atomic_store (tree, tree, tree, tree);
-gimple gimple_build_atomic_exchange (tree, tree, tree, tree, tree);
+gimple gimple_build_atomic_store_generic (tree, tree, tree, tree);
+gimple gimple_build_atomic_exchange (tree, tree, tree, tree);
+gimple gimple_build_atomic_exchange_generic (tree, tree, tree, tree, tree);
 gimple gimple_build_atomic_compare_exchange (tree, tree, tree, tree, tree,
 					     tree, bool);
+gimple gimple_build_atomic_compare_exchange_generic (tree, tree, tree, tree,
+					     tree, tree, bool);
+gimple gimple_build_atomic_compare_exchange_library (tree, tree, tree, tree,
+					     tree, tree, bool);
 gimple gimple_build_atomic_fetch_op (tree, tree, tree, enum tree_code, tree);
 gimple gimple_build_atomic_op_fetch (tree, tree, tree, enum tree_code, tree);
 gimple gimple_build_atomic_test_and_set (tree, tree);
@@ -1118,9 +1140,14 @@ extern void expand_gimple_assign_move (tree, rtx, rtx, bool);
 
 /* In gimple-atomic.c.  */
 extern void expand_gimple_atomic_load (gimple);
+extern void expand_gimple_atomic_load_generic (gimple);
 extern void expand_gimple_atomic_store (gimple);
+extern void expand_gimple_atomic_store_generic (gimple);
 extern void expand_gimple_atomic_exchange (gimple);
+extern void expand_gimple_atomic_exchange_generic (gimple);
 extern void expand_gimple_atomic_compare_exchange (gimple);
+extern void expand_gimple_atomic_compare_exchange_generic (gimple);
+extern void expand_gimple_atomic_compare_exchange_library (gimple);
 extern void expand_gimple_atomic_fetch_op (gimple);
 extern void expand_gimple_atomic_op_fetch (gimple);
 extern void expand_gimple_atomic_test_and_set (gimple);
@@ -2014,6 +2041,44 @@ gimple_atomic_tree_code_to_arith_op (enum tree_code tc)
   gcc_unreachable ();
 }
 
+static inline bool
+gimple_atomic_is_store (const_gimple gs)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (gs);
+  if (kind == GIMPLE_ATOMIC_STORE || kind == GIMPLE_ATOMIC_STORE_GENERIC)
+    return true;
+  return false;
+}
+
+static inline bool
+gimple_atomic_is_load (const_gimple gs)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (gs);
+  if (kind == GIMPLE_ATOMIC_LOAD || kind == GIMPLE_ATOMIC_LOAD_GENERIC)
+    return true;
+  return false;
+}
+
+static inline bool
+gimple_atomic_is_exchange (const_gimple gs)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (gs);
+  if (kind == GIMPLE_ATOMIC_EXCHANGE || kind == GIMPLE_ATOMIC_EXCHANGE_GENERIC)
+    return true;
+  return false;
+}
+
+static inline bool
+gimple_atomic_is_compare_exchange (const_gimple gs)
+{
+  enum gimple_atomic_kind kind = gimple_atomic_kind (gs);
+  if (kind == GIMPLE_ATOMIC_COMPARE_EXCHANGE
+      || kind == GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC
+      || kind == GIMPLE_ATOMIC_COMPARE_EXCHANGE_LIBRARY)
+    return true;
+  return false;
+}
+
 /* Return true if atomic fence GS is a thread fence rather than a signal
    fence.  */
 
@@ -2041,8 +2106,7 @@ gimple_atomic_set_thread_fence (gimple gs, bool thread)
 static inline bool
 gimple_atomic_weak (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
   return (gs->gsbase.subcode & GF_ATOMIC_WEAK) != 0;
 }
 
@@ -2051,39 +2115,11 @@ gimple_atomic_weak (const_gimple gs)
 static inline void
 gimple_atomic_set_weak (gimple gs, bool weak)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
   if (weak)
     gs->gsbase.subcode |= GF_ATOMIC_WEAK;
   else
     gs->gsbase.subcode &= ~GF_ATOMIC_WEAK;
-}
-
-/* Return the generic flag of atomic operation GS.  This can be checked for
-   any kind of atomic operation, but will always be false for operations
-   which do not have a generic mode.  */
-
-static inline bool
-gimple_atomic_generic (const_gimple gs)
-{
-  gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  return (gs->gsbase.subcode & GF_ATOMIC_GENERIC) != 0;
-}
-
-/* set the weak flag of atomic operation GS to WEAK.  */
-
-static inline void
-gimple_atomic_set_generic (gimple gs, bool generic)
-{
-  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_STORE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-		       || gimple_atomic_kind (gs) 
-			  == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  if (generic)
-    gs->gsbase.subcode |= GF_ATOMIC_GENERIC;
-  else
-    gs->gsbase.subcode &= ~GF_ATOMIC_GENERIC;
 }
 
 
@@ -2108,25 +2144,24 @@ gimple_atomic_set_from_sync (gimple gs, bool sync)
     gs->gsbase.subcode &= ~GF_ATOMIC_SYNC;
 }
 
+/* Return the true if atomic operation GS is in generic form.  */
+
 static inline bool
-gimple_atomic_2_results (const_gimple gs)
+gimple_atomic_is_generic (const_gimple gs)
 {
-  gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  return (gs->gsbase.subcode & GF_ATOMIC_2_RESULTS) != 0;
+  enum gimple_atomic_kind kind = gimple_atomic_kind (gs);
+  switch (kind)
+    {
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
+    case GIMPLE_ATOMIC_STORE_GENERIC:
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
+    case GIMPLE_ATOMIC_COMPARE_EXCHANGE_GENERIC:
+      return true;
+    default:
+      break;
+    }
+  return false;
 }
-
-/* Set the sync origination flag of atomic operation GS.  */
-
-static inline void
-gimple_atomic_set_2_results (gimple gs, bool has2)
-{
-  gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  if (has2)
-    gs->gsbase.subcode |= GF_ATOMIC_2_RESULTS;
-  else
-    gs->gsbase.subcode &= ~GF_ATOMIC_2_RESULTS;
-}
-
 
 
 /* Return the base type of the atomic operation GS.  */
@@ -2146,6 +2181,7 @@ gimple_atomic_set_type (gimple gs, tree t)
   gs->gimple_atomic.target_type = t;
 }
 
+
 /*  Return the number of possible results for atomic operation GS.  */
 
 static inline unsigned
@@ -2154,8 +2190,11 @@ gimple_atomic_num_lhs (const_gimple gs)
   switch (gimple_atomic_kind (gs))
     {
     case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
-      return gimple_atomic_2_results(gs) ? 2 : 1;
+      return 2;
 
+    case GIMPLE_ATOMIC_LOAD_GENERIC:
+    case GIMPLE_ATOMIC_STORE_GENERIC:
+    case GIMPLE_ATOMIC_EXCHANGE_GENERIC:
     case GIMPLE_ATOMIC_STORE:
     case GIMPLE_ATOMIC_CLEAR:
     case GIMPLE_ATOMIC_FENCE:
@@ -2164,54 +2203,72 @@ gimple_atomic_num_lhs (const_gimple gs)
     default:
       break;
     }
-  return gimple_atomic_generic (gs) ? 0 : 1;
+  return 1;
 }
 
-/* Return the number of rhs operands for atomic operation GS.  */
-
-static inline unsigned
-gimple_atomic_num_rhs (const_gimple gs)
-{
-  if (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_COMPARE_EXCHANGE)
-    return (gimple_num_ops (gs) - gimple_atomic_num_lhs (gs));
-  else
-    return 5;
-}
-
-/* Return the LHS number INDEX of atomic operation GS.  */
+/* Return the LHS of atomic operation GS.  */
 
 static inline tree
-gimple_atomic_lhs (const_gimple gs, unsigned index)
+gimple_atomic_lhs (const_gimple gs)
 {
-  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
-  return gimple_op (gs, gimple_num_ops (gs) - index - 1);
+  gcc_checking_assert (gimple_atomic_num_lhs (gs) != 0);
+  return gimple_op (gs, 0);
 }
 
-/* Return the pointer to LHS number INDEX of atomic operation GS.  */
+/* Return the pointer to LHS of atomic operation GS.  */
 
 static inline tree *
-gimple_atomic_lhs_ptr (const_gimple gs, unsigned index)
+gimple_atomic_lhs_ptr (const_gimple gs)
 {
-  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
-  return gimple_op_ptr (gs, gimple_num_ops (gs) - index - 1);
+  gcc_checking_assert (gimple_atomic_num_lhs (gs) != 0);
+  return gimple_op_ptr (gs, 0);
 }
 
-/* Set the LHS number INDEX of atomic operation GS to EXPR.  */
+/* Set the LHS of atomic operation GS to EXPR.  */
 
 static inline void
-gimple_atomic_set_lhs (gimple gs, unsigned index, tree expr)
+gimple_atomic_set_lhs (gimple gs, tree expr)
 {
-  gcc_checking_assert (index < gimple_atomic_num_lhs (gs));
-  gimple_set_op (gs, gimple_num_ops (gs) - index - 1, expr);
+  gcc_checking_assert (gimple_atomic_num_lhs (gs) != 0);
+  gimple_set_op (gs, 0, expr);
 }
 
+/* Return the second LHS of atomic operation GS.  */
+
+static inline tree
+gimple_atomic_2nd_lhs (const_gimple gs)
+{
+  gcc_checking_assert (gimple_atomic_kind (gs)
+		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  return gimple_op (gs, 1);
+}
+
+/* Return the pointer to the second LHS of atomic operation GS.  */
+
+static inline tree *
+gimple_atomic_2nd_lhs_ptr (const_gimple gs)
+{
+  gcc_checking_assert (gimple_atomic_kind (gs)
+		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  return gimple_op_ptr (gs, 1);
+}
+
+/* Set the second LHS of atomic operation GS to EXPR.  */
+
+static inline void
+gimple_atomic_set_2nd_lhs (gimple gs, tree expr)
+{
+  gcc_checking_assert (gimple_atomic_kind (gs)
+		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  gimple_set_op (gs, 1, expr);
+}
 /* Return the memory order for atomic operation GS.  */
 
 static inline tree 
 gimple_atomic_order (const_gimple gs)
 {
   gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  return gimple_op (gs, 0);
+  return gimple_op (gs, gimple_num_ops (gs) - 1);
 }
 
 /* Return a pointer to the memory order for atomic operation GS.  */
@@ -2220,7 +2277,7 @@ static inline tree *
 gimple_atomic_order_ptr (const_gimple gs)
 {
   gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  return gimple_op_ptr (gs, 0);
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 1);
 }
 
 
@@ -2230,7 +2287,7 @@ static inline void
 gimple_atomic_set_order (gimple gs, tree t)
 {
   gcc_gimple_checking_assert (is_gimple_atomic (gs));
-  gimple_set_op (gs, 0, t);
+  gimple_set_op (gs, gimple_num_ops (gs) - 1, t);
 }
 
 /* Return the target location of atomic operation GS.  */
@@ -2239,7 +2296,7 @@ static inline tree
 gimple_atomic_target (const_gimple gs)
 {
   gcc_checking_assert (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_FENCE);
-  return gimple_op (gs, 1);
+  return gimple_op (gs, gimple_num_ops (gs) - 2);
 }
 
 /* Return a pointer to the target location of atomic operation GS.  */
@@ -2248,7 +2305,7 @@ static inline tree *
 gimple_atomic_target_ptr (const_gimple gs)
 {
   gcc_checking_assert (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_FENCE);
-  return gimple_op_ptr (gs, 1);
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 2);
 }
 
 /* Set the target location of atomic operation GS to T.  */
@@ -2257,7 +2314,7 @@ static inline void
 gimple_atomic_set_target (gimple gs, tree t)
 {
   gcc_checking_assert (gimple_atomic_kind (gs) != GIMPLE_ATOMIC_FENCE);
-  gimple_set_op (gs, 1, t);
+  gimple_set_op (gs, gimple_num_ops (gs) - 2, t);
 }
 
 /* Return the expression field of atomic operation GS.  */
@@ -2265,13 +2322,9 @@ gimple_atomic_set_target (gimple gs, tree t)
 static inline tree
 gimple_atomic_expr (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_STORE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_FETCH_OP
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_OP_FETCH
-		       || gimple_atomic_kind (gs)
-			  == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  return gimple_op (gs, 2);
+  gcc_checking_assert (gimple_num_ops (gs) > 3
+		       || gimple_atomic_is_store (gs));
+  return gimple_op (gs, gimple_num_ops (gs) - 3);
 }
 
 /* Return a pointer to the expression field of atomic operation GS.  */
@@ -2279,13 +2332,9 @@ gimple_atomic_expr (const_gimple gs)
 static inline tree *
 gimple_atomic_expr_ptr (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_STORE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_FETCH_OP
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_OP_FETCH
-		       || gimple_atomic_kind (gs)
-			  == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  return gimple_op_ptr (gs, 2);
+  gcc_checking_assert (gimple_num_ops (gs) > 3
+		       || gimple_atomic_is_store (gs));
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 3);
 }
 
 /* Set the expression field of atomic operation GS.  */
@@ -2293,13 +2342,9 @@ gimple_atomic_expr_ptr (const_gimple gs)
 static inline void
 gimple_atomic_set_expr (gimple gs, tree t)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_STORE
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_FETCH_OP
-		       || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_OP_FETCH
-		       || gimple_atomic_kind (gs)
-			  == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  gimple_set_op (gs, 2, t);
+  gcc_checking_assert (gimple_num_ops (gs) > 3
+		       || gimple_atomic_is_store (gs));
+  gimple_set_op (gs, gimple_num_ops (gs) - 3, t);
 }
 
 /* Return the expected field of atomic operation GS.  */
@@ -2307,10 +2352,9 @@ gimple_atomic_set_expr (gimple gs, tree t)
 static inline tree
 gimple_atomic_expected (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
 
-  return gimple_op (gs, 3);
+  return gimple_op (gs, gimple_num_ops (gs) - 4);
 }
 
 /* Return a pointer to the expected field of atomic operation GS.  */
@@ -2318,9 +2362,8 @@ gimple_atomic_expected (const_gimple gs)
 static inline tree *
 gimple_atomic_expected_ptr (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  return gimple_op_ptr (gs, 3);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 4);
 }
 
 /* Set the expected field of atomic operation GS.  */
@@ -2328,9 +2371,8 @@ gimple_atomic_expected_ptr (const_gimple gs)
 static inline void
 gimple_atomic_set_expected (gimple gs, tree t)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  gimple_set_op (gs, 3, t);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
+  gimple_set_op (gs, gimple_num_ops (gs) - 4, t);
 }
 
 /* Return the RETURN field of generic atomic operation GS.  */
@@ -2338,10 +2380,10 @@ gimple_atomic_set_expected (gimple gs, tree t)
 static inline tree
 gimple_atomic_return (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_generic (gs)
-		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
-  return gimple_op (gs, gimple_num_ops (gs) - 1);
+  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD_GENERIC
+		       || gimple_atomic_kind (gs)
+			  == GIMPLE_ATOMIC_EXCHANGE_GENERIC);
+  return gimple_op (gs, 0);
 }
 
 /* Return a pointer to the return field of atomic operation GS.  */
@@ -2349,10 +2391,10 @@ gimple_atomic_return (const_gimple gs)
 static inline tree *
 gimple_atomic_return_ptr (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_generic (gs)
-		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
-  return gimple_op_ptr (gs, gimple_num_ops (gs) - 1);
+  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD_GENERIC
+		       || gimple_atomic_kind (gs)
+			  == GIMPLE_ATOMIC_EXCHANGE_GENERIC);
+  return gimple_op_ptr (gs, 0);
 }
 
 /* Set the return field of atomic operation GS.  */
@@ -2360,10 +2402,10 @@ gimple_atomic_return_ptr (const_gimple gs)
 static inline void
 gimple_atomic_set_return (gimple gs, tree t)
 {
-  gcc_checking_assert (gimple_atomic_generic (gs)
-		       && (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_EXCHANGE
-			   || gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD));
-  gimple_set_op (gs, gimple_num_ops (gs) - 1, t);
+  gcc_checking_assert (gimple_atomic_kind (gs) == GIMPLE_ATOMIC_LOAD_GENERIC
+		       || gimple_atomic_kind (gs)
+			  == GIMPLE_ATOMIC_EXCHANGE_GENERIC);
+  gimple_set_op (gs, 0, t);
 }
 
 
@@ -2372,9 +2414,8 @@ gimple_atomic_set_return (gimple gs, tree t)
 static inline tree
 gimple_atomic_fail_order (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  return gimple_op (gs, 4);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
+  return gimple_op (gs, gimple_num_ops (gs) - 5);
 }
 
 /* Return a pointer to the fail_order field of atomic operation GS.  */
@@ -2382,9 +2423,8 @@ gimple_atomic_fail_order (const_gimple gs)
 static inline tree *
 gimple_atomic_fail_order_ptr (const_gimple gs)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  return gimple_op_ptr (gs, 4);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
+  return gimple_op_ptr (gs, gimple_num_ops (gs) - 5);
 }
 
 
@@ -2393,9 +2433,8 @@ gimple_atomic_fail_order_ptr (const_gimple gs)
 static inline void
 gimple_atomic_set_fail_order (gimple gs, tree t)
 {
-  gcc_checking_assert (gimple_atomic_kind (gs)
-		       == GIMPLE_ATOMIC_COMPARE_EXCHANGE);
-  gimple_set_op (gs, 4, t);
+  gcc_checking_assert (gimple_atomic_is_compare_exchange (gs));
+  gimple_set_op (gs, gimple_num_ops (gs) - 5, t);
 }
 
 /* Return true if GS is a GIMPLE_ASSIGN.  */
