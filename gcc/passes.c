@@ -1561,6 +1561,8 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_resx);
   NEXT_PASS (pass_nrv);
   NEXT_PASS (pass_pl);
+  NEXT_PASS (pass_copy_prop);
+  NEXT_PASS (pass_mpxopt);
   NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   NEXT_PASS (pass_warn_function_noreturn);

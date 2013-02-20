@@ -1389,6 +1389,7 @@ OBJS = \
 	tree-parloops.o \
 	tree-phinodes.o \
 	tree-pl.o \
+	tree-mpxopt.o \
 	tree-predcom.o \
 	tree-pretty-print.o \
 	tree-profile.o \
