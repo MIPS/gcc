@@ -1,5 +1,13 @@
 2013-02-25  Catherine Moore  <clm@codesourcery.com>
 
+	Restore:
+	2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Chao-ying Fu  <fu@mips.com>
+	Initial microMIPS support.
+
+2013-02-25  Catherine Moore  <clm@codesourcery.com>
+
 	Revert:
 	2013-02-24  Catherine Moore  <clm@codesourcery.com>
 	    Joseph Myers  <joseph@codesourcery.com>

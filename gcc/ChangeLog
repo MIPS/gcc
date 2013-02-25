@@ -1,3 +1,15 @@
+2013-02-25  Catherine Moore  <clm@codesourcery.com>
+
+	Restore:
+	2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	    Maciej W. Rozycki  <macro@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+	    Nathan Sidwell <nathan@codesourcery.com>
+	    Iain Sandoe  <iain@codesourcery.com>
+	    Nathan Froyd  <froydnj@codesourcery.com>
+	    Chao-ying Fu <fu@mips.com>
+	Initial microMIPS support.
+
 2013-02-25  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56175
@@ -6,7 +18,6 @@
 	(simplify_bitwise_binary): ... here.  Also guard the conversion
 	of (type) X op CST to (type) (X op ((type-x) CST)) with it.
 
-2013-02-25  Catherine Moore  <clm@codesourcery.com>
 
 	Revert:
 	2013-02-24  Catherine Moore  <clm@codesourcery.com>
