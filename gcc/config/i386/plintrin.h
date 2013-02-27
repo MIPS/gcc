@@ -75,3 +75,6 @@ __pl_intersect_bounds (void *p, void* lb, size_t size)
   return __builtin_ia32_intersect_bounds32 (p, lb, size);
 #endif
 }
+
+extern void __mpx_check_address_read (const void *);
+extern void __mpx_check_address_write (const void *);

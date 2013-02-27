@@ -107,6 +107,8 @@ static void pl_parse_array_and_component_ref (tree node, tree *ptr,
 					      gimple_stmt_iterator *iter,
 					      bool innermost_bounds,
 					      bool always_narrow);
+static void pl_replace_address_check_builtin (gimple_stmt_iterator *gsi,
+					      tree dirflag);
 static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
 static void pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
 static void pl_process_stmt (gimple_stmt_iterator *iter, tree node,
@@ -712,10 +714,25 @@ pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
       gimple_return_set_retval2 (ret, bounds);
     }
 
-  /* TODO: Add support for structures which may
-     be returned on registers.  */
-
   update_stmt (ret);
+}
+
+/* Replace each call to __mpx_check_address_* with
+   pair of bndcu and bndcl calls.  */
+
+void
+pl_replace_address_check_builtin (gimple_stmt_iterator *gsi,
+				  tree dirflag)
+{
+  gimple_stmt_iterator call_iter = *gsi;
+  gimple call = gsi_stmt (*gsi);
+  tree addr = gimple_call_arg (call, 0);
+  tree bounds = pl_find_bounds (addr, gsi);
+
+  pl_check_mem_access (addr, addr, bounds, *gsi,
+		       gimple_location (call), dirflag);
+  gsi_prev (gsi);
+  gsi_remove (&call_iter, true);
 }
 
 /* Add bound arguments to call statement pointed by GSI.  */
@@ -741,6 +758,22 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
       && fndecl != pl_user_intersect_fndecl)
     return;
+
+  /* MPX_CHECK_ADDRESS_READ call should be replaces with two checks.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_WRITE)
+    {
+      pl_replace_address_check_builtin (gsi, integer_one_node);
+      return;
+    }
+
+  /* MPX_CHECK_ADDRESS_WRITE call should be replaces with two checks.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_READ)
+    {
+      pl_replace_address_check_builtin (gsi, integer_zero_node);
+      return;
+    }
 
   if (fndecl && DECL_ARGUMENTS (fndecl))
     first_formal_arg = DECL_ARGUMENTS (fndecl);
@@ -2933,19 +2966,19 @@ pl_init (void)
   pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 
   /* Build declarations for builtin functions.  */
-  pl_bndldx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDLDX);
-  pl_bndstx_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDSTX);
-  pl_checkl_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCL);
-  pl_checku_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCU);
-  pl_bndmk_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDMK);
-  pl_ret_bnd_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDRET);
-  pl_intersect_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_INTERSECT);
+  pl_bndldx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX);
+  pl_bndstx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX);
+  pl_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
+  pl_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
+  pl_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
+  pl_ret_bnd_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET);
+  pl_intersect_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT);
   pl_user_intersect_fndecl
-    = targetm.builtin_pl_function (BUILT_IN_PL_USER_INTERSECT);
+    = targetm.builtin_mpx_function (BUILT_IN_MPX_USER_INTERSECT);
   pl_bind_intersect_fndecl
-    = targetm.builtin_pl_function (BUILT_IN_PL_BIND_INTERSECT);
+    = targetm.builtin_mpx_function (BUILT_IN_MPX_BIND_INTERSECT);
   pl_arg_bnd_fndecl
-    = targetm.builtin_pl_function (BUILT_IN_PL_ARG_BND);
+    = targetm.builtin_mpx_function (BUILT_IN_MPX_ARG_BND);
 }
 
 static void

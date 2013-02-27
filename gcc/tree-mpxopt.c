@@ -27,6 +27,7 @@
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "vec.h"
+#include "tree-pl.h"
 
 enum check_type
 {
@@ -78,6 +79,7 @@ static void gather_checks_info (void);
 static void remove_constant_checks (void);
 static void compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom);
 static void remove_redundant_checks (void);
+static tree get_nobnd_fndecl (enum built_in_function fncode);
 static void optimize_string_function_calls (void);
 
 int
@@ -462,6 +464,8 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 	fprintf (dump_file, "    Action: delete the second check (same addresses)\n");
 
       gsi_remove (&i, true);
+      unlink_stmt_vdef (ci2->stmt);
+      release_defs (ci2->stmt);
       ci2->stmt = NULL;
     }
   else if (!is_constant_pol (delta, &sign))
@@ -482,6 +486,8 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 		fprintf (dump_file, "    Action: delete the second check\n");
 
 	      gsi_remove (&i, true);
+	      unlink_stmt_vdef (ci2->stmt);
+	      release_defs (ci2->stmt);
 	      ci2->stmt = NULL;
 	    }
 	  else if (postdom)
@@ -495,6 +501,8 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 		fprintf (dump_file, "    Action: replace the first check with the second one\n");
 
 	      gsi_remove (&i, true);
+	      unlink_stmt_vdef (ci2->stmt);
+	      release_defs (ci2->stmt);
 	      ci2->stmt = NULL;
 
 	      for (n = 0; n < delta.length (); n++)
@@ -603,6 +611,28 @@ remove_redundant_checks (void)
     }
 }
 
+tree
+get_nobnd_fndecl (enum built_in_function fncode)
+{
+  switch (fncode)
+    {
+    case BUILT_IN_MEMCPY:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOBND);
+
+    case BUILT_IN_MEMPCPY:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMPCPY_NOBND);
+
+    case BUILT_IN_MEMMOVE:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMMOVE_NOBND);
+
+    case BUILT_IN_MEMSET:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMSET_NOBND);
+
+    default:
+      return NULL_TREE;
+    }
+}
+
 void
 optimize_string_function_calls (void)
 {
@@ -626,8 +656,30 @@ optimize_string_function_calls (void)
 
 	  fndecl = gimple_call_fndecl (stmt);
 
-	  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-	    ;
+	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+	    continue;
+
+	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMCPY
+	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMPCPY
+	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMMOVE
+	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET)
+	    {
+	      tree dst = gimple_call_arg (stmt, 0);
+
+	      /* We may replace call corresponding __mpx_*_nobnd call
+		 in case destination pointer base type is not
+		 void or pointer.  */
+	      if (POINTER_TYPE_P (TREE_TYPE (dst))
+		  && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (dst)))
+		  && !pl_type_has_pointer (TREE_TYPE (TREE_TYPE (dst))))
+		{
+		  tree fndecl_nobnd
+		    = get_nobnd_fndecl (DECL_FUNCTION_CODE (fndecl));
+
+		  if (fndecl_nobnd)
+		    gimple_call_set_fndecl (stmt, fndecl_nobnd);
+		}
+	    }
 	}
     }
 }
@@ -685,8 +737,8 @@ mpxopt_fini (void)
 unsigned int
 mpxopt_execute (void)
 {
-  pl_checkl_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCL);
-  pl_checku_fndecl = targetm.builtin_pl_function (BUILT_IN_PL_BNDCU);
+  pl_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
+  pl_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
 
   mpxopt_init();
 
@@ -695,6 +747,8 @@ mpxopt_execute (void)
   remove_constant_checks ();
 
   remove_redundant_checks ();
+
+  optimize_string_function_calls ();
 
   release_check_info ();
 

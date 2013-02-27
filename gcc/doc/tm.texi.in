@@ -10768,7 +10768,7 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@hook TARGET_BUILTIN_PL_FUNCTION
+@hook TARGET_BUILTIN_MPX_FUNCTION
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 Select a replacement for a machine specific built-in function that

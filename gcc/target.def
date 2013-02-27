@@ -1282,9 +1282,9 @@ DEFHOOK
 /* Return target-specific builtin function which implements
    generic Point Lookout builtin.  */
 DEFHOOK
-(builtin_pl_function,
- "Point Lookout instrumentation pass uses this hook to obtain\n\
-target-specific functions which implement generic Point Lookout\n\
+(builtin_mpx_function,
+ "MPX instrumentation pass uses this hook to obtain\n\
+target-specific functions which implement generic MPX\n\
 builtins.",
  tree, (unsigned fcode),
  hook_tree_uint_null)

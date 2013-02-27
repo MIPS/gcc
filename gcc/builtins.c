@@ -6945,15 +6945,20 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
 
-    case BUILT_IN_PL_BNDMK:
-    case BUILT_IN_PL_BNDSTX:
-    case BUILT_IN_PL_BNDCL:
-    case BUILT_IN_PL_BNDCU:
-    case BUILT_IN_PL_BNDLDX:
-    case BUILT_IN_PL_BNDRET:
-    case BUILT_IN_PL_INTERSECT:
-      /* Point Lookout expanding is target specific.
-	 No generic function should be used.  */
+    case BUILT_IN_MPX_BNDMK:
+    case BUILT_IN_MPX_BNDSTX:
+    case BUILT_IN_MPX_BNDCL:
+    case BUILT_IN_MPX_BNDCU:
+    case BUILT_IN_MPX_BNDLDX:
+    case BUILT_IN_MPX_BNDRET:
+    case BUILT_IN_MPX_INTERSECT:
+    case BUILT_IN_MPX_USER_INTERSECT:
+    case BUILT_IN_MPX_BIND_INTERSECT:
+    case BUILT_IN_MPX_ARG_BND:
+    case BUILT_IN_MPX_CHECK_ADDRESS_WRITE:
+    case BUILT_IN_MPX_CHECK_ADDRESS_READ:
+      /* Software implementation of MPX is NYI.
+	 Target with MPX support should be used.  */
       gcc_unreachable ();
       break;
 

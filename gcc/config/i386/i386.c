@@ -27180,6 +27180,14 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xbegin, "__builtin_ia32_xbegin", IX86_BUILTIN_XBEGIN, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xend, "__builtin_ia32_xend", IX86_BUILTIN_XEND, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
+
+  /* MPX */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -28005,18 +28013,6 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph, "__builtin_ia32_vcvtps2ph", IX86_BUILTIN_CVTPS2PH, UNKNOWN, (int) V8HI_FTYPE_V4SF_INT },
   { OPTION_MASK_ISA_F16C, CODE_FOR_vcvtps2ph256, "__builtin_ia32_vcvtps2ph256", IX86_BUILTIN_CVTPS2PH256, UNKNOWN, (int) V8HI_FTYPE_V8SF_INT },
 
-  /* PL */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PVOID_DI },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PVOID_DI },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND64 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PVOID_PVOID_BND32 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PVOID_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PVOID_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PVOID },
-
   /* BMI2 */
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_si3, "__builtin_ia32_bzhi_si", IX86_BUILTIN_BZHI32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_bzhi_di3, "__builtin_ia32_bzhi_di", IX86_BUILTIN_BZHI64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
@@ -28024,6 +28020,12 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pdep_di3, "__builtin_ia32_pdep_di", IX86_BUILTIN_PDEP64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_si3, "__builtin_ia32_pext_si", IX86_BUILTIN_PEXT32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_di3, "__builtin_ia32_pext_di", IX86_BUILTIN_PEXT64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
+
+  /* MPX */
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
+  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
 };
 
 /* FMA4 and XOP.  */
@@ -28734,9 +28736,9 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_intersect_bounds64",
 	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
   def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int32",
-	       PVOID_FTYPE_PVOID_BND32_PVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
+	       PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
   def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int64",
-	       PVOID_FTYPE_PVOID_BND64_PVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
+	       PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
   def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
 	       BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
   def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
@@ -32864,47 +32866,47 @@ addcarryx:
 }
 
 static tree
-ix86_builtin_pl_function (unsigned fcode)
+ix86_builtin_mpx_function (unsigned fcode)
 {
   switch (fcode)
     {
-    case BUILT_IN_PL_BNDMK:
+    case BUILT_IN_MPX_BNDMK:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDMK64]
 	: ix86_builtins[IX86_BUILTIN_BNDMK32];
 
-    case BUILT_IN_PL_BNDSTX:
+    case BUILT_IN_MPX_BNDSTX:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDSTX64]
 	: ix86_builtins[IX86_BUILTIN_BNDSTX32];
 
-    case BUILT_IN_PL_BNDLDX:
+    case BUILT_IN_MPX_BNDLDX:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDLDX64]
         : ix86_builtins[IX86_BUILTIN_BNDLDX32];
 
-    case BUILT_IN_PL_BNDCL:
+    case BUILT_IN_MPX_BNDCL:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCL64]
         : ix86_builtins[IX86_BUILTIN_BNDCL32];
 
-    case BUILT_IN_PL_BNDCU:
+    case BUILT_IN_MPX_BNDCU:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
         : ix86_builtins[IX86_BUILTIN_BNDCU32];
 
-    case BUILT_IN_PL_BNDRET:
+    case BUILT_IN_MPX_BNDRET:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]
 	: ix86_builtins[IX86_BUILTIN_BNDRET32];
 
-    case BUILT_IN_PL_INTERSECT:
+    case BUILT_IN_MPX_INTERSECT:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT64]
 	: ix86_builtins[IX86_BUILTIN_BNDINT32];
 
-    case BUILT_IN_PL_USER_INTERSECT:
+    case BUILT_IN_MPX_USER_INTERSECT:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT_USER64]
 	: ix86_builtins[IX86_BUILTIN_BNDINT_USER32];
 
-    case BUILT_IN_PL_BIND_INTERSECT:
+    case BUILT_IN_MPX_BIND_INTERSECT:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDBIND_INT64]
 	: ix86_builtins[IX86_BUILTIN_BNDBIND_INT32];
 
-    case BUILT_IN_PL_ARG_BND:
+    case BUILT_IN_MPX_ARG_BND:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_ARG_BND64]
 	: ix86_builtins[IX86_BUILTIN_ARG_BND32];
 
@@ -42895,8 +42897,8 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 
-#undef TARGET_BUILTIN_PL_FUNCTION
-#define TARGET_BUILTIN_PL_FUNCTION ix86_builtin_pl_function
+#undef TARGET_BUILTIN_MPX_FUNCTION
+#define TARGET_BUILTIN_MPX_FUNCTION ix86_builtin_mpx_function
 
 #undef TARGET_LOAD_BOUNDS_FOR_ARG
 #define TARGET_LOAD_BOUNDS_FOR_ARG ix86_load_bounds

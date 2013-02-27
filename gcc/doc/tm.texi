@@ -10932,9 +10932,9 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_BUILTIN_PL_FUNCTION (unsigned @var{fcode})
-Point Lookout instrumentation pass uses this hook to obtain
-target-specific functions which implement generic Point Lookout
+@deftypefn {Target Hook} tree TARGET_BUILTIN_MPX_FUNCTION (unsigned @var{fcode})
+MPX instrumentation pass uses this hook to obtain
+target-specific functions which implement generic MPX
 builtins.
 @end deftypefn
 
