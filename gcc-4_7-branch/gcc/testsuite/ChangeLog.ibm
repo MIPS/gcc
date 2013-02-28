@@ -1,3 +1,12 @@
+2013-02-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	PR target/16458
+	* gcc.target/powerpc/pr16458-1.c: New test.
+	* gcc.target/powerpc/pr16458-2.c: Likewise.
+	* gcc.target/powerpc/pr16458-3.c: Likewise.
+	* gcc.target/powerpc/pr16458-4.c: Likewise.
+
 2012-07-24  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport prospective patch from mainline

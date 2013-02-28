@@ -1,3 +1,19 @@
+2013-02-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2012-04-11  Peter Bergner  <bergner@vnet.ibm.com>
+		    Michael Matz  <matz@suse.de>
+
+	PR target/16458
+	* rtlanal.c (unsigned_reg_p): New function.
+	Update copyright notice dates.
+	* rtl.h (unsigned_reg_p): Prototype it.
+	Update copyright notice dates.
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Use it.
+	Update comment.
+	* expr.c (expand_expr_real_1): Set register attributes.
+	* stmt.c (expand_case): Likewise.
+
 2013-01-17  Alan Modra  <amodra@gmail.com>
 
 	PR target/53040
