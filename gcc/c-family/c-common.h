@@ -148,6 +148,14 @@ enum rid
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
+  /* C++ concepts */
+  RID_ASSUME,    RID_AXIOM,        RID_CONCEPT,
+  RID_FORALL,    RID_REQUIRES,
+
+  /* C++ concepts (intrinsics) */
+  RID_DECLVAL,       RID_IS_SAME,
+  RID_IS_VALID_EXPR, RID_IS_VALID_TYPE,
+
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */
   RID_AT_ENCODE,   RID_AT_END,

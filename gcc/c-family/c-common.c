@@ -550,6 +550,18 @@ const struct c_common_resword c_common_reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
+
+  /* Concepts-related keywords */
+  { "assume",		RID_ASSUME,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "axiom",		RID_AXIOM,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "concept",		RID_CONCEPT,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "forall", 		RID_FORALL,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "requires", 	RID_REQUIRES,	D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "__declval",        RID_DECLVAL,    D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "__is_same",        RID_IS_SAME,    D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "__is_valid_expr",  RID_IS_VALID_EXPR, D_CXXONLY | D_CXX0X | D_CXXWARN },
+  { "__is_valid_type",  RID_IS_VALID_TYPE, D_CXXONLY | D_CXX0X | D_CXXWARN },
+
   /* These Objective-C keywords are recognized only immediately after
      an '@'.  */
   { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
