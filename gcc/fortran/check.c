@@ -256,7 +256,7 @@ array_check (gfc_expr *e, int n)
       return SUCCESS;
     }
 
-  if (e->rank != 0)
+  if (e->rank != 0 && e->ts.type != BT_PROCEDURE)
     return SUCCESS;
 
   gfc_error ("'%s' argument of '%s' intrinsic at %L must be an array",
@@ -454,7 +454,7 @@ allocatable_check (gfc_expr *e, int n)
   symbol_attribute attr;
 
   attr = gfc_variable_attr (e, NULL);
-  if (!attr.allocatable)
+  if (!attr.allocatable || attr.associate_var)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be ALLOCATABLE",
 		 gfc_current_intrinsic_arg[n]->name, gfc_current_intrinsic,

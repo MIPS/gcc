@@ -143,8 +143,12 @@ delete_insn (rtx insn)
 	  NOTE_KIND (insn) = NOTE_INSN_DELETED_LABEL;
 	  NOTE_DELETED_LABEL_NAME (insn) = name;
 
-	  if (bb_note != NULL_RTX && NOTE_INSN_BASIC_BLOCK_P (bb_note)
-	      && BLOCK_FOR_INSN (bb_note) == bb)
+	  /* If the note following the label starts a basic block, and the
+	     label is a member of the same basic block, interchange the two.  */
+	  if (bb_note != NULL_RTX
+	      && NOTE_INSN_BASIC_BLOCK_P (bb_note)
+	      && bb != NULL
+	      && bb == BLOCK_FOR_INSN (bb_note))
 	    {
 	      reorder_insns_nobb (insn, insn, bb_note);
 	      BB_HEAD (bb) = bb_note;

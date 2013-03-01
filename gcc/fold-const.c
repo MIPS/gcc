@@ -2542,19 +2542,25 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 
     case tcc_reference:
       /* If either of the pointer (or reference) expressions we are
-	 dereferencing contain a side effect, these cannot be equal.  */
-      if (TREE_SIDE_EFFECTS (arg0)
-	  || TREE_SIDE_EFFECTS (arg1))
+	 dereferencing contain a side effect, these cannot be equal,
+	 but their addresses can be.  */
+      if ((flags & OEP_CONSTANT_ADDRESS_OF) == 0
+	  && (TREE_SIDE_EFFECTS (arg0)
+	      || TREE_SIDE_EFFECTS (arg1)))
 	return 0;
 
       switch (TREE_CODE (arg0))
 	{
 	case INDIRECT_REF:
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  return OP_SAME (0);
+
 	case REALPART_EXPR:
 	case IMAGPART_EXPR:
 	  return OP_SAME (0);
 
 	case TARGET_MEM_REF:
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
 	  /* Require equal extra operands and then fall through to MEM_REF
 	     handling of the two common operands.  */
 	  if (!OP_SAME_WITH_NULL (2)
@@ -2563,6 +2569,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	    return 0;
 	  /* Fallthru.  */
 	case MEM_REF:
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
 	  /* Require equal access sizes, and similar pointer types.
 	     We can have incomplete types for array references of
 	     variable-sized arrays from the Fortran frontent
@@ -2581,22 +2588,28 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	  /* Operands 2 and 3 may be null.
 	     Compare the array index by value if it is constant first as we
 	     may have different types but same value here.  */
-	  return (OP_SAME (0)
-		  && (tree_int_cst_equal (TREE_OPERAND (arg0, 1),
-					  TREE_OPERAND (arg1, 1))
-		      || OP_SAME (1))
+	  if (!OP_SAME (0))
+	    return 0;
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  return ((tree_int_cst_equal (TREE_OPERAND (arg0, 1),
+				       TREE_OPERAND (arg1, 1))
+		   || OP_SAME (1))
 		  && OP_SAME_WITH_NULL (2)
 		  && OP_SAME_WITH_NULL (3));
 
 	case COMPONENT_REF:
 	  /* Handle operand 2 the same as for ARRAY_REF.  Operand 0
 	     may be NULL when we're called to compare MEM_EXPRs.  */
-	  return OP_SAME_WITH_NULL (0)
-		 && OP_SAME (1)
-		 && OP_SAME_WITH_NULL (2);
+	  if (!OP_SAME_WITH_NULL (0))
+	    return 0;
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  return OP_SAME (1) && OP_SAME_WITH_NULL (2);
 
 	case BIT_FIELD_REF:
-	  return OP_SAME (0) && OP_SAME (1) && OP_SAME (2);
+	  if (!OP_SAME (0))
+	    return 0;
+	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
+	  return OP_SAME (1) && OP_SAME (2);
 
 	default:
 	  return 0;
@@ -3813,6 +3826,10 @@ make_range_step (location_t loc, enum tree_code code, tree arg0, tree arg1,
   switch (code)
     {
     case TRUTH_NOT_EXPR:
+      /* We can only do something if the range is testing for zero.  */
+      if (low == NULL_TREE || high == NULL_TREE
+	  || ! integer_zerop (low) || ! integer_zerop (high))
+	return NULL_TREE;
       *p_in_p = ! in_p;
       return arg0;
 
@@ -5691,6 +5708,11 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
         break;
       /* FALLTHROUGH */
     case NEGATE_EXPR:
+      /* For division and modulus, type can't be unsigned, as e.g.
+	 (-(x / 2U)) / 2U isn't equal to -((x / 2U) / 2U) for x >= 2.
+	 For signed types, even with wrapping overflow, this is fine.  */
+      if (code != MULT_EXPR && TYPE_UNSIGNED (type))
+	break;
       if ((t1 = extract_muldiv (op0, c, code, wide_type, strict_overflow_p))
 	  != 0)
 	return fold_build1 (tcode, ctype, fold_convert (ctype, t1));
@@ -7200,6 +7222,36 @@ native_encode_int (const_tree expr, unsigned char *ptr, int len)
 }
 
 
+/* Subroutine of native_encode_expr.  Encode the FIXED_CST
+   specified by EXPR into the buffer PTR of length LEN bytes.
+   Return the number of bytes placed in the buffer, or zero
+   upon failure.  */
+
+static int
+native_encode_fixed (const_tree expr, unsigned char *ptr, int len)
+{
+  tree type = TREE_TYPE (expr);
+  enum machine_mode mode = TYPE_MODE (type);
+  int total_bytes = GET_MODE_SIZE (mode);
+  FIXED_VALUE_TYPE value;
+  tree i_value, i_type;
+
+  if (total_bytes * BITS_PER_UNIT > HOST_BITS_PER_DOUBLE_INT)
+    return 0;
+
+  i_type = lang_hooks.types.type_for_size (GET_MODE_BITSIZE (mode), 1);
+
+  if (NULL_TREE == i_type
+      || TYPE_PRECISION (i_type) != total_bytes)
+    return 0;
+  
+  value = TREE_FIXED_CST (expr);
+  i_value = double_int_to_tree (i_type, value.data);
+
+  return native_encode_int (i_value, ptr, len);
+}
+
+
 /* Subroutine of native_encode_expr.  Encode the REAL_CST
    specified by EXPR into the buffer PTR of length LEN bytes.
    Return the number of bytes placed in the buffer, or zero
@@ -7345,6 +7397,9 @@ native_encode_expr (const_tree expr, unsigned char *ptr, int len)
     case REAL_CST:
       return native_encode_real (expr, ptr, len);
 
+    case FIXED_CST:
+      return native_encode_fixed (expr, ptr, len);
+
     case COMPLEX_CST:
       return native_encode_complex (expr, ptr, len);
 
@@ -7368,44 +7423,37 @@ static tree
 native_interpret_int (tree type, const unsigned char *ptr, int len)
 {
   int total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
-  int byte, offset, word, words;
-  unsigned char value;
   double_int result;
 
-  if (total_bytes > len)
+  if (total_bytes > len
+      || total_bytes * BITS_PER_UNIT > HOST_BITS_PER_DOUBLE_INT)
     return NULL_TREE;
-  if (total_bytes * BITS_PER_UNIT > HOST_BITS_PER_DOUBLE_INT)
-    return NULL_TREE;
 
-  result = double_int_zero;
-  words = total_bytes / UNITS_PER_WORD;
-
-  for (byte = 0; byte < total_bytes; byte++)
-    {
-      int bitpos = byte * BITS_PER_UNIT;
-      if (total_bytes > UNITS_PER_WORD)
-	{
-	  word = byte / UNITS_PER_WORD;
-	  if (WORDS_BIG_ENDIAN)
-	    word = (words - 1) - word;
-	  offset = word * UNITS_PER_WORD;
-	  if (BYTES_BIG_ENDIAN)
-	    offset += (UNITS_PER_WORD - 1) - (byte % UNITS_PER_WORD);
-	  else
-	    offset += byte % UNITS_PER_WORD;
-	}
-      else
-	offset = BYTES_BIG_ENDIAN ? (total_bytes - 1) - byte : byte;
-      value = ptr[offset];
-
-      if (bitpos < HOST_BITS_PER_WIDE_INT)
-	result.low |= (unsigned HOST_WIDE_INT) value << bitpos;
-      else
-	result.high |= (unsigned HOST_WIDE_INT) value
-		       << (bitpos - HOST_BITS_PER_WIDE_INT);
-    }
+  result = double_int::from_buffer (ptr, total_bytes);
 
   return double_int_to_tree (type, result);
+}
+
+
+/* Subroutine of native_interpret_expr.  Interpret the contents of
+   the buffer PTR of length LEN as a FIXED_CST of type TYPE.
+   If the buffer cannot be interpreted, return NULL_TREE.  */
+
+static tree
+native_interpret_fixed (tree type, const unsigned char *ptr, int len)
+{
+  int total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
+  double_int result;
+  FIXED_VALUE_TYPE fixed_value;
+
+  if (total_bytes > len
+      || total_bytes * BITS_PER_UNIT > HOST_BITS_PER_DOUBLE_INT)
+    return NULL_TREE;
+
+  result = double_int::from_buffer (ptr, total_bytes);
+  fixed_value = fixed_from_double_int (result, TYPE_MODE (type));
+
+  return build_fixed (type, fixed_value);
 }
 
 
@@ -7533,6 +7581,9 @@ native_interpret_expr (tree type, const unsigned char *ptr, int len)
     case REAL_TYPE:
       return native_interpret_real (type, ptr, len);
 
+    case FIXED_POINT_TYPE:
+      return native_interpret_fixed (type, ptr, len);
+
     case COMPLEX_TYPE:
       return native_interpret_complex (type, ptr, len);
 
@@ -7557,6 +7608,7 @@ can_native_interpret_type_p (tree type)
     case BOOLEAN_TYPE:
     case POINTER_TYPE:
     case REFERENCE_TYPE:
+    case FIXED_POINT_TYPE:
     case REAL_TYPE:
     case COMPLEX_TYPE:
     case VECTOR_TYPE:

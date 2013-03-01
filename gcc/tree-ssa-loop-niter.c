@@ -3293,6 +3293,7 @@ maybe_lower_iteration_bound (struct loop *loop)
     }
   BITMAP_FREE (visited);
   queue.release ();
+  pointer_set_destroy (not_executed_last_iteration);
 }
 
 /* Records estimates on numbers of iterations of LOOP.  If USE_UNDEFINED_P
@@ -3336,7 +3337,8 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
     }
   exits.release ();
 
-  infer_loop_bounds_from_undefined (loop);
+  if (flag_aggressive_loop_optimizations)
+    infer_loop_bounds_from_undefined (loop);
 
   discover_iteration_bound_by_body_walk (loop);
 

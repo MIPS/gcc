@@ -2720,8 +2720,12 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx insn)
 	 prefetch has only the start address but it is better to have
 	 something than nothing.  */
       if (!deps->readonly)
-	add_insn_mem_dependence (deps, true, insn,
-				 gen_rtx_MEM (Pmode, XEXP (PATTERN (insn), 0)));
+	{
+	  rtx x = gen_rtx_MEM (Pmode, XEXP (PATTERN (insn), 0));
+	  if (sched_deps_info->use_cselib)
+	    cselib_lookup_from_insn (x, Pmode, true, VOIDmode, insn);
+	  add_insn_mem_dependence (deps, true, insn, x);
+	}
       break;
 
     case UNSPEC_VOLATILE:
@@ -3313,9 +3317,9 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
             SET_REGNO_REG_SET (&deps->reg_last_in_use, i);
           }
 
-      /* Flush pending lists on jumps, but not on speculative checks.  */
-      if (JUMP_P (insn) && !(sel_sched_p ()
-                             && sel_insn_is_speculation_check (insn)))
+      /* Don't flush pending lists on speculative checks for
+	 selective scheduling.  */
+      if (!sel_sched_p () || !sel_insn_is_speculation_check (insn))
 	flush_pending_lists (deps, insn, true, true);
 
       reg_pending_barrier = NOT_A_BARRIER;

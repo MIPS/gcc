@@ -1615,18 +1615,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
           && GROUP_FIRST_ELEMENT (stmt_info) != stmt)
         continue;
 
-      /* FORNOW: Any strided load prevents peeling.  The induction
-         variable analysis will fail when the prologue loop is generated,
-	 and so we can't generate the new base for the pointer.  */
-      if (STMT_VINFO_STRIDE_LOAD_P (stmt_info))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                             "strided load prevents peeling");
-	  do_peeling = false;
-	  break;
-	}
-
       /* For invariant accesses there is nothing to enhance.  */
       if (integer_zerop (DR_STEP (dr)))
 	continue;
@@ -2890,9 +2878,8 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
    This handles ARRAY_REFs (with variant index) and MEM_REFs (with variant
    base pointer) only.  */
 
-bool
-vect_check_strided_load (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
-			 tree *stepp)
+static bool
+vect_check_strided_load (gimple stmt, loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
@@ -2925,10 +2912,6 @@ vect_check_strided_load (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
       || !simple_iv (loop, loop_containing_stmt (stmt), off, &iv, true))
     return false;
 
-  if (basep)
-    *basep = iv.base;
-  if (stepp)
-    *stepp = iv.step;
   return true;
 }
 
@@ -3473,8 +3456,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 	{
 	  bool strided_load = false;
 	  if (!nested_in_vect_loop_p (loop, stmt))
-	    strided_load
-	      = vect_check_strided_load (stmt, loop_vinfo, NULL, NULL);
+	    strided_load = vect_check_strided_load (stmt, loop_vinfo);
 	  if (!strided_load)
 	    {
 	      if (dump_enabled_p ())
@@ -4691,7 +4673,9 @@ vect_permute_load_chain (vec<tree> dr_chain,
   unsigned nelt = TYPE_VECTOR_SUBPARTS (vectype);
   unsigned char *sel = XALLOCAVEC (unsigned char, nelt);
 
-  *result_chain = dr_chain.copy ();
+  result_chain->quick_grow (length);
+  memcpy (result_chain->address (), dr_chain.address (),
+	  length * sizeof (tree));
 
   for (i = 0; i < nelt; ++i)
     sel[i] = i * 2;
@@ -4726,7 +4710,8 @@ vect_permute_load_chain (vec<tree> dr_chain,
 	  vect_finish_stmt_generation (stmt, perm_stmt, gsi);
 	  (*result_chain)[j/2+length/2] = data_ref;
 	}
-      dr_chain = result_chain->copy ();
+      memcpy (dr_chain.address (), result_chain->address (),
+	      length * sizeof (tree));
     }
 }
 

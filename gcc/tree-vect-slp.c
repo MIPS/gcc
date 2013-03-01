@@ -2614,15 +2614,15 @@ vect_get_slp_vect_defs (slp_tree slp_node, vec<tree> *vec_oprnds)
 
 void
 vect_get_slp_defs (vec<tree> ops, slp_tree slp_node,
-                   vec<slp_void_p> *vec_oprnds, int reduc_index)
+		   vec<vec<tree> > *vec_oprnds, int reduc_index)
 {
-  gimple first_stmt, first_def;
+  gimple first_stmt;
   int number_of_vects = 0, i;
   unsigned int child_index = 0;
   HOST_WIDE_INT lhs_size_unit, rhs_size_unit;
   slp_tree child = NULL;
-  vec<tree> *vec_defs;
-  tree oprnd, def_lhs;
+  vec<tree> vec_defs;
+  tree oprnd;
   bool vectorized_defs;
 
   first_stmt = SLP_TREE_SCALAR_STMTS (slp_node)[0];
@@ -2638,29 +2638,22 @@ vect_get_slp_defs (vec<tree> ops, slp_tree slp_node,
       if (SLP_TREE_CHILDREN (slp_node).length () > child_index)
         {
           child = (slp_tree) SLP_TREE_CHILDREN (slp_node)[child_index];
-          first_def = SLP_TREE_SCALAR_STMTS (child)[0];
 
-	  /* In the end of a pattern sequence we have a use of the original stmt,
-	     so we need to compare OPRND with the original def.  */
-          if (is_pattern_stmt_p (vinfo_for_stmt (first_def))
-	      && !STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (first_stmt))
-              && !is_pattern_stmt_p (vinfo_for_stmt (first_stmt)))
-            first_def = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (first_def));
+	  /* We have to check both pattern and original def, if available.  */
+	  gimple first_def = SLP_TREE_SCALAR_STMTS (child)[0];
+	  gimple related = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (first_def));
 
-          if (is_gimple_call (first_def))
-            def_lhs = gimple_call_lhs (first_def);
-          else
-            def_lhs = gimple_assign_lhs (first_def);
-
-          if (operand_equal_p (oprnd, def_lhs, 0))
-            {
-              /* The number of vector defs is determined by the number of
-                 vector statements in the node from which we get those
+	  if (operand_equal_p (oprnd, gimple_get_lhs (first_def), 0)
+	      || (related
+		  && operand_equal_p (oprnd, gimple_get_lhs (related), 0)))
+	    {
+	      /* The number of vector defs is determined by the number of
+		 vector statements in the node from which we get those
 		 statements.  */
-                 number_of_vects = SLP_TREE_NUMBER_OF_VEC_STMTS (child);
-                 vectorized_defs = true;
+	      number_of_vects = SLP_TREE_NUMBER_OF_VEC_STMTS (child);
+	      vectorized_defs = true;
 	      child_index++;
-            }
+	    }
         }
 
       if (!vectorized_defs)
@@ -2683,19 +2676,20 @@ vect_get_slp_defs (vec<tree> ops, slp_tree slp_node,
         }
 
       /* Allocate memory for vectorized defs.  */
-      vec_alloc (vec_defs, number_of_vects);
+      vec_defs = vNULL;
+      vec_defs.create (number_of_vects);
 
       /* For reduction defs we call vect_get_constant_vectors (), since we are
          looking for initial loop invariant values.  */
       if (vectorized_defs && reduc_index == -1)
         /* The defs are already vectorized.  */
-        vect_get_slp_vect_defs (child, vec_defs);
+	vect_get_slp_vect_defs (child, &vec_defs);
       else
         /* Build vectors from scalar defs.  */
-        vect_get_constant_vectors (oprnd, slp_node, vec_defs, i,
+	vect_get_constant_vectors (oprnd, slp_node, &vec_defs, i,
                                    number_of_vects, reduc_index);
 
-      vec_oprnds->quick_push ((slp_void_p) vec_defs);
+      vec_oprnds->quick_push (vec_defs);
 
       /* For reductions, we only need initial values.  */
       if (reduc_index != -1)

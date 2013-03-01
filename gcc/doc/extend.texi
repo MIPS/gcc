@@ -2133,7 +2133,8 @@ attributes are currently defined for functions on all targets:
 @code{weak}, @code{malloc}, @code{alias}, @code{ifunc},
 @code{warn_unused_result}, @code{nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
-@code{no_address_safety_analysis}, @code{error} and @code{warning}.
+@code{no_sanitize_address}, @code{no_address_safety_analysis},
+@code{error} and @code{warning}.
 Several other attributes are defined for functions on particular
 target systems.  Other attributes, including @code{section} are
 supported for variables declarations (@pxref{Variable Attributes})
@@ -3432,11 +3433,15 @@ with computed goto or @code{asm goto}.
 The @code{cold} attribute on labels is not implemented in GCC versions
 earlier than 4.8.
 
-@item no_address_safety_analysis
-@cindex @code{no_address_safety_analysis} function attribute
-The @code{no_address_safety_analysis} attribute on functions is used
+@item no_sanitize_address
+@itemx no_address_safety_analysis
+@cindex @code{no_sanitize_address} function attribute
+The @code{no_sanitize_address} attribute on functions is used
 to inform the compiler that it should not instrument memory accesses
 in the function when compiling with the @option{-fsanitize=address} option.
+The @code{no_address_safety_analysis} is a deprecated alias of the
+@code{no_sanitize_address} attribute, new code should use
+@code{no_sanitize_address}.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
@@ -3654,6 +3659,11 @@ Enable/disable the generation of the advanced bit instructions.
 @itemx no-aes
 @cindex @code{target("aes")} attribute
 Enable/disable the generation of the AES instructions.
+
+@item default
+@cindex @code{target("default")} attribute
+@xref{Function Multiversioning}, where it is used to specify the
+default function version.
 
 @item mmx
 @itemx no-mmx
@@ -6062,7 +6072,7 @@ int foo ()
   int *y = &x;
   int result;
   asm ("magic stuff accessing an 'int' pointed to by '%1'"
-        "=&d" (r) : "a" (y), "m" (*y));
+       : "=&d" (r) : "a" (y), "m" (*y));
   return result;
 @}
 @end smallexample
@@ -15215,6 +15225,7 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * Bound member functions:: You can extract a function pointer to the
                         method denoted by a @samp{->*} or @samp{.*} expression.
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
+* Function Multiversioning::   Declaring multiple function versions.
 * Namespace Association:: Strong using-directives for namespace association.
 * Type Traits::         Compiler support for type traits
 * Java Exceptions::     Tweaking exception handling to work with Java.
@@ -15743,6 +15754,64 @@ interface table mechanism, instead of regular virtual table dispatch.
 @end table
 
 See also @ref{Namespace Association}.
+
+@node Function Multiversioning
+@section Function Multiversioning
+@cindex function versions
+
+With the GNU C++ front end, for target i386, you may specify multiple
+versions of a function, where each function is specialized for a
+specific target feature.  At runtime, the appropriate version of the
+function is automatically executed depending on the characteristics of
+the execution platform.  Here is an example.
+
+@smallexample
+__attribute__ ((target ("default")))
+int foo ()
+@{
+  // The default version of foo.
+  return 0;
+@}
+
+__attribute__ ((target ("sse4.2")))
+int foo ()
+@{
+  // foo version for SSE4.2
+  return 1;
+@}
+
+__attribute__ ((target ("arch=atom")))
+int foo ()
+@{
+  // foo version for the Intel ATOM processor
+  return 2;
+@}
+
+__attribute__ ((target ("arch=amdfam10")))
+int foo ()
+@{
+  // foo version for the AMD Family 0x10 processors.
+  return 3;
+@}
+
+int main ()
+@{
+  int (*p)() = &foo;
+  assert ((*p) () == foo ());
+  return 0;
+@}
+@end smallexample
+
+In the above example, four versions of function foo are created. The
+first version of foo with the target attribute "default" is the default
+version.  This version gets executed when no other target specific
+version qualifies for execution on a particular platform. A new version
+of foo is created by using the same function signature but with a
+different target string.  Function foo is called or a pointer to it is
+taken just like a regular function.  GCC takes care of doing the
+dispatching to call the right version at runtime.  Refer to the
+@uref{http://gcc.gnu.org/wiki/FunctionMultiVersioning, GCC wiki on
+Function Multiversioning} for more details.
 
 @node Namespace Association
 @section Namespace Association
