@@ -1,3 +1,13 @@
+2013-03-01  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_trans_deferred_vars): Free expr after use.
+	* trans-io.c (build_dt): Ditto.
+
+2013-02-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* resolve.c (generate_component_assignments): Don't use UTF-8
+	ligature in diagnostic.
+
 2013-02-21  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/56385
