@@ -5433,7 +5433,7 @@ Dump after the peephole pass.
 @opindex fdump-rtl-postreload
 Dump after post-reload optimizations.
 
-@itemx -fdump-rtl-pro_and_epilogue
+@item -fdump-rtl-pro_and_epilogue
 @opindex fdump-rtl-pro_and_epilogue
 Dump after generating the function prologues and epilogues.
 
@@ -11409,6 +11409,9 @@ the device name as from the AVR user manual. The difference between
 
 If @var{device} is not a device but only a core architecture like
 @code{avr51}, this macro will not be defined.
+
+@item __AVR_XMEGA__
+The device/architecture belongs to the XMEGA family of devices.
 
 @item __AVR_HAVE_ELPM__
 The device has the the @code{ELPM} instruction.
