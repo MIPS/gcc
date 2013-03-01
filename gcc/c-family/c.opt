@@ -21,6 +21,10 @@
 
 ; Please try to keep this file in ASCII collating order.
 
+; Activate C++ concepts support.
+Variable
+bool flag_concepts
+
 Language
 C
 
@@ -842,6 +846,10 @@ C ObjC C++ ObjC++ Joined
 fcanonical-system-headers
 C ObjC C++ ObjC++
 Where shorter, use canonicalized paths to systems headers.
+
+fconcepts
+C++ ObjC++ Var(flag_concepts, true)
+Activate support for C++ concepts
 
 fcheck-new
 C++ ObjC++ Var(flag_check_new)

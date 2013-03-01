@@ -238,9 +238,9 @@ const char *constant_string_class_name;
 
 int flag_use_repository;
 
-/* The C++ dialect being used. C++98 is the default.  */
+/* The C++ dialect being used. C++11 is the default.  */
 
-enum cxx_dialect cxx_dialect = cxx98;
+enum cxx_dialect cxx_dialect = cxx11;
 
 /* Maximum template instantiation depth.  This limit exists to limit the
    time it takes to notice excessively recursive template instantiations.
