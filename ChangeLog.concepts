@@ -1,0 +1,5 @@
+2013-02-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* c-common.h (rid): New resreserved words for concepts.
+	* c-common.c (c_common_reswords): Definitions thereof.
+	* doc/extend.texi (write_symbol): Initial concept docs.
