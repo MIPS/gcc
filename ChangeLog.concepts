@@ -1,9 +1,13 @@
 2013-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
+	* lex.c (flag_concepts): Revert left over declaration.
+
+2013-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
 	* gcc/c-family/c-common.c (cxx_dialect): Set C++11 as default.
 	* gcc/c-family/c.opt(flag_concepts): Add.
 	* gcc/cp/lex.c (flag_concepts): New.  Enabled concept support by
-	default. 
+	default.
 
 2013-02-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 

@@ -51,9 +51,6 @@ static void copy_lang_type (tree);
 /* A constraint that can be tested at compile time.  */
 #define CONSTRAINT(name, expr) extern int constraint_##name [(expr) ? 1 : -1]
 
-/* True if C++ concepts are enabled. */
-bool flag_concepts = true;
-
 /* Functions and data structures for #pragma interface.
 
    `#pragma implementation' means that the main file being compiled
