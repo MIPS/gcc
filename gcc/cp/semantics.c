@@ -9561,4 +9561,16 @@ is_lambda_ignored_entity (tree val)
   return false;
 }
 
+// Decompose the template requirements, given by EXPRESSION, into a set of
+// assumptions for the local scope.
+tree
+finish_template_requirements (tree expression)
+{
+  if (expression == error_mark_node)
+    return NULL_TREE;
+
+  sorry ("no template requirements yet");
+  return NULL_TREE;
+}
+
 #include "gt-cp-semantics.h"

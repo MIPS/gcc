@@ -992,6 +992,7 @@ struct GTY(()) saved_scope {
   vec<tree, va_gc> *lang_base;
   tree lang_name;
   tree template_parms;
+  tree template_reqs;
   cp_binding_level *x_previous_class_level;
   tree x_saved_tree;
 
@@ -1051,6 +1052,11 @@ struct GTY(()) saved_scope {
    stored in the TREE_VALUE.  */
 
 #define current_template_parms scope_chain->template_parms
+
+// When parsing a template declaration this node represents the
+// active template requirements. This includes the lists of
+// actual assumptions in the current scope.
+#define current_template_reqs scope_chain->template_reqs
 
 #define processing_template_decl scope_chain->x_processing_template_decl
 #define processing_specialization scope_chain->x_processing_specialization
@@ -5725,6 +5731,7 @@ extern tree lambda_expr_this_capture            (tree);
 extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
+extern tree finish_template_requirements        (tree);
 
 /* in tree.c */
 extern int cp_tree_operand_length		(const_tree);

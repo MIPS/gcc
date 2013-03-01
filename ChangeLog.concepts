@@ -1,3 +1,19 @@
+2013-03-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	* gcc/cp/cp-tree.h (saved_scope): Add template requirements.
+	(finish_template_requirements): Declare
+	* gcc/cp/parser.c (cp_parser_template_requirement_opt): Declare.
+	(cp_parser_template_declaration): Document grammar extensions.
+	(cp_parser_type_parameter): Parse requirements for template
+	template parameters.
+	(cp_parser_member_declaration): Parse requirements for
+	members of class templates.
+	(cp_parser_template_requirement_opt): Define.
+	(cp_parser_template_declaration_after_exp): Parse requirements
+	for template declarations.
+	* gcc/cp/semantics.c (finish_template_requirements): Define.
+	* gcc/cp/lex.c (cxx_init): Enable concepts by default.
+
 2013-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* lex.c (flag_concepts): Revert left over declaration.
@@ -11,6 +27,6 @@
 
 2013-02-28  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
-	* c-common.h (rid): New resreserved words for concepts.
-	* c-common.c (c_common_reswords): Definitions thereof.
-	* doc/extend.texi (write_symbol): Initial concept docs.
+	* gcc/c-family/c-common.h (rid): New resreserved words for concepts.
+	* gcc/c-family/c-common.c (c_common_reswords): Definitions thereof.
+	* gcc/doc/extend.texi (write_symbol): Initial concept docs.
