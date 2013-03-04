@@ -60,6 +60,7 @@ static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
 
 static GTY (()) tree pl_checkl_fndecl;
 static GTY (()) tree pl_checku_fndecl;
+static GTY (()) tree pl_bndmk_fndecl;
 
 static int pol_item_compare (const void *i1, const void *i2);
 static void add_pol_item (polynomial &pol, tree cst, tree var);
@@ -69,6 +70,7 @@ static void sub_pol_pol (polynomial &pol, polynomial &delta);
 static void mult_pol (polynomial &pol, tree mult);
 static bool is_constant_pol (const polynomial &pol, int *sign);
 static void print_pol (const polynomial &pol);
+static void collect_addr_value (tree obj, polynomial &res);
 static void collect_value (tree ssa_name, polynomial &res);
 static void init_check_info (void);
 static void release_check_info (void);
@@ -76,6 +78,7 @@ static void mpxopt_init (void);
 static void mpxopt_fini (void);
 static void fill_check_info (gimple stmt, struct check_info *ci);
 static void gather_checks_info (void);
+static void remove_check_if_pass (struct check_info *ci);
 static void remove_constant_checks (void);
 static void compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom);
 static void remove_redundant_checks (void);
@@ -107,7 +110,11 @@ pol_find (polynomial &pol, tree var)
     {
       n = (left + right) / 2;
 
-      if (pol[n].var == var)
+      if (pol[n].var == var
+	  || (var && pol[n].var
+	      && TREE_CODE (var) == ADDR_EXPR
+	      && TREE_CODE (pol[n].var) == ADDR_EXPR
+	      && TREE_OPERAND (var, 0) == TREE_OPERAND (pol[n].var, 0)))
 	return n;
       else if (pol[n].var > var)
 	right = n - 1;
@@ -118,10 +125,22 @@ pol_find (polynomial &pol, tree var)
   return -1;
 }
 
+tree
+extend_const (tree cst)
+{
+  if (TYPE_PRECISION (TREE_TYPE (cst)) < TYPE_PRECISION (size_type_node))
+    return build_int_cst_type (size_type_node, tree_low_cst (cst, 0));
+
+  return cst;
+}
+
 void
 add_pol_item (polynomial &pol, tree cst, tree var)
 {
   int n = pol_find (pol, var);
+
+  cst = extend_const (cst);
+
   if (n < 0)
     {
       struct pol_item item;
@@ -145,6 +164,9 @@ void
 sub_pol_item (polynomial &pol, tree cst, tree var)
 {
   int n = pol_find (pol, var);
+
+  cst = extend_const (cst);
+
   if (n < 0)
     {
       struct pol_item item;
@@ -195,7 +217,9 @@ is_constant_pol (const polynomial &pol, int *sign)
 {
   *sign = 0;
 
-  if (pol.length () > 1)
+  if (pol.length () == 0)
+    return true;
+  else if (pol.length () > 1)
     return false;
   else if (pol[0].var)
     return false;
@@ -222,14 +246,71 @@ print_pol (const polynomial &pol)
 	print_generic_expr (dump_file, pol[n].cst, 0);
       else
 	{
-	  //if (TREE_CODE (pol[n].cst) != INTEGER_CST
-	  //    || integer_onep (pol[n].cst))
+	  if (TREE_CODE (pol[n].cst) != INTEGER_CST
+	      || !integer_onep (pol[n].cst))
 	    {
 	      print_generic_expr (dump_file, pol[n].cst, 0);
 	      fprintf (dump_file, " * ");
 	    }
 	  print_generic_expr (dump_file, pol[n].var, 0);
 	}
+    }
+}
+
+void
+collect_addr_value (tree ptr, polynomial &res)
+{
+  tree obj = TREE_OPERAND (ptr, 0);
+  polynomial addr;
+
+  switch (TREE_CODE (obj))
+    {
+    case INDIRECT_REF:
+      collect_value (TREE_OPERAND (obj, 0), res);
+      break;
+
+    case MEM_REF:
+      collect_value (TREE_OPERAND (obj, 0), res);
+      addr.create (0);
+      collect_value (TREE_OPERAND (obj, 1), addr);
+      add_pol_pol (res, addr);
+      addr.release ();
+      break;
+
+    case ARRAY_REF:
+      collect_value (build_fold_addr_expr (TREE_OPERAND (obj, 0)), res);
+      addr.create (0);
+      collect_value (TREE_OPERAND (obj, 1), addr);
+      mult_pol (addr, array_ref_element_size (obj));
+      add_pol_pol (res, addr);
+      addr.release ();
+      break;
+
+    case COMPONENT_REF:
+      {
+	tree str = TREE_OPERAND (obj, 0);
+	tree field = TREE_OPERAND (obj, 1);
+	collect_value (build_fold_addr_expr (str), res);
+	addr.create (0);
+	collect_value (component_ref_field_offset (obj), addr);
+	add_pol_pol (res, addr);
+	addr.release ();
+	if (DECL_FIELD_BIT_OFFSET (field))
+	  {
+	    addr.create (0);
+	    collect_value (fold_build2 (TRUNC_DIV_EXPR, size_type_node,
+					DECL_FIELD_BIT_OFFSET (field),
+					size_int (BITS_PER_UNIT)),
+			   addr);
+	    add_pol_pol (res, addr);
+	    addr.release ();
+	  }
+      }
+      break;
+
+    default:
+      add_pol_item (res, integer_one_node, ptr);
+      break;
     }
 }
 
@@ -247,17 +328,24 @@ collect_value (tree ssa_name, polynomial &res)
       add_pol_item (res, ssa_name, NULL);
       return;
     }
-  
-  if (TREE_CODE (ssa_name) != SSA_NAME)
+  else if (TREE_CODE (ssa_name) == ADDR_EXPR)
+    {
+      collect_addr_value (ssa_name, res);
+      return;
+    }
+  else if (TREE_CODE (ssa_name) != SSA_NAME)
     {
       add_pol_item (res, integer_one_node, ssa_name);
       return;
     }
 
+  /* Now we handle the case when polynomial is computed
+     for SSA NAME.  */
   def_stmt = SSA_NAME_DEF_STMT (ssa_name);
   code = gimple_code (def_stmt);
 	
-  /* Do not walk through statements other than assignment.  */
+  /* Currently we do not walk through statements other
+     than assignment.  */
   if (code != GIMPLE_ASSIGN)
     {
       add_pol_item (res, integer_one_node, ssa_name);
@@ -270,10 +358,8 @@ collect_value (tree ssa_name, polynomial &res)
   switch (rhs_code)
     {
     case SSA_NAME:
-      collect_value (rhs1, res);
-      break;
-
     case INTEGER_CST:
+    case ADDR_EXPR:
       collect_value (rhs1, res);
       break;
 
@@ -292,48 +378,6 @@ collect_value (tree ssa_name, polynomial &res)
       collect_value (gimple_assign_rhs2 (def_stmt), addr);
       sub_pol_pol (res, addr);
       addr.release ();
-      break;
-
-    case ADDR_EXPR:
-      {
-	tree obj = TREE_OPERAND (rhs1, 0);
-
-	switch (TREE_CODE (obj))
-	  {
-	  case INDIRECT_REF:
-	    collect_value (TREE_OPERAND (obj, 0), res);
-	    break;
-
-	  case MEM_REF:
-	    collect_value (TREE_OPERAND (obj, 0), res);
-	    addr.create (0);
-	    collect_value (TREE_OPERAND (obj, 1), addr);
-	    add_pol_pol (res, addr);
-	    addr.release ();
-	    break;
-
-	  case ARRAY_REF:
-	    collect_value (TREE_OPERAND (obj, 0), res);
-	    addr.create (0);
-	    collect_value (TREE_OPERAND (obj, 1), addr);
-	    mult_pol (addr, array_ref_element_size (obj));
-	    add_pol_pol (res, addr);
-	    addr.release ();
-	    break;
-
-	  case COMPONENT_REF:
-	    collect_value (build_fold_addr_expr (TREE_OPERAND (obj, 0)), res);
-	    addr.create (0);
-	    collect_value (DECL_FIELD_OFFSET (TREE_OPERAND (obj, 1)), addr);
-	    add_pol_pol (res, addr);
-	    addr.release ();
-	    break;
-
-	  default:
-	    add_pol_item (res, integer_one_node, rhs1);
-	    break;
-	  }
-      }
       break;
 
     case MULT_EXPR:
@@ -421,8 +465,108 @@ gather_checks_info (void)
 }
 
 void
+remove_check_if_pass (struct check_info *ci)
+{
+  polynomial bound_val;
+  gimple bnd_def;
+  int sign = 0;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Trying to compute result of the check\n");
+      fprintf (dump_file, "  check: ");
+      print_gimple_stmt (dump_file, ci->stmt, 0, 0);
+      fprintf (dump_file, "  address: ");
+      print_pol (ci->addr);
+      fprintf (dump_file, "\n  bounds: ");
+      print_generic_expr (dump_file, ci->bounds, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  if (TREE_CODE (ci->bounds) != SSA_NAME)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: bounds tree code is not ssa_name\n");
+      return;
+    }
+
+  bnd_def = SSA_NAME_DEF_STMT (ci->bounds);
+  if (gimple_code (bnd_def) != GIMPLE_CALL
+      || gimple_call_fndecl (bnd_def) != pl_bndmk_fndecl)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: cannot compute bounds value\n");
+      return;
+    }
+
+  bound_val.create (0);
+  collect_value (gimple_call_arg (bnd_def, 0), bound_val);
+  if (ci->type == CHECK_UPPER_BOUND)
+    {
+      polynomial size_val;
+      size_val.create (0);
+      collect_value (gimple_call_arg (bnd_def, 1), size_val);
+      add_pol_pol (bound_val, size_val);
+      size_val.release ();
+      add_pol_item (bound_val, integer_minus_one_node, NULL);
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "  bound value: ");
+      print_pol (bound_val);
+      fprintf (dump_file, "\n");
+    }
+
+  sub_pol_pol (bound_val, ci->addr);
+  if (!is_constant_pol (bound_val, &sign))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  action: keep check (cannot compute result)\n");
+    }
+  else if (sign == 0
+	   || (ci->type == CHECK_UPPER_BOUND && sign > 0)
+	   || (ci->type == CHECK_LOWER_BOUND && sign < 0))
+    {
+      gimple_stmt_iterator i = gsi_for_stmt (ci->stmt);
+
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  action: delete check (always pass)\n");
+
+      gsi_remove (&i, true);
+      unlink_stmt_vdef (ci->stmt);
+      release_defs (ci->stmt);
+      ci->stmt = NULL;
+    }
+  else
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  action: keep check (always fail)\n");
+    }
+
+  bound_val.release ();
+}
+
+
+void
 remove_constant_checks (void)
 {
+  basic_block bb;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Searching for redundant checks...\n");
+
+  bb = ENTRY_BLOCK_PTR ->next_bb;
+  FOR_EACH_BB (bb)
+    {
+      struct bb_checks *bbc = &check_infos[bb->index];
+      unsigned int no;
+
+      /* Iterate throw all found checks in BB.  */
+      for (no = 0; no < bbc->checks.length (); no++)
+	if (bbc->checks[no].stmt)
+	  remove_check_if_pass (&bbc->checks[no]);
+    }
 }
 
 void
@@ -739,6 +883,7 @@ mpxopt_execute (void)
 {
   pl_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
   pl_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
+  pl_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
 
   mpxopt_init();
 

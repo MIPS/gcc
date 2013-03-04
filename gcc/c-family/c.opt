@@ -1094,7 +1094,8 @@ Add point-lookout instrumentation for usage of variables with incomplete type
 
 fpl-zero-input-bounds-for-main
 C ObjC C++ ObjC++ Report Var(flag_pl_zero_input_bounds_for_main) Init(1)
-Add point-lookout instrumentation for usage of variables with incomplete type
+Use zero bounds for all incoming arguments in 'main' function.  It helps when
+MPX binaries are used with non-MPX libs.
 
 fpl-first-field-has-own-bounds
 C ObjC C++ ObjC++ RejectNegative Report Var(flag_pl_first_field_has_own_bounds)
