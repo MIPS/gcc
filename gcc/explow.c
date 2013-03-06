@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "output.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 static rtx break_out_memory_refs (rtx);
 
@@ -1855,7 +1855,10 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
   rtx val, bnd;
 
   val = targetm.calls.function_value (valtype, func ? func : fntype, outgoing);
-  pl_split_returned_reg (val, &val, &bnd);
+
+  /* Split bound registers to process non-bound values separately.
+     Join back after processing.  */
+  mpx_split_returned_reg (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1881,7 +1884,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return pl_join_splitted_reg (val, bnd);
+  return mpx_join_splitted_reg (val, bnd);
 }
 
 /* Return an rtx representing the register or memory location

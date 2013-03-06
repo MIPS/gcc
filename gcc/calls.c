@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "dbgcnt.h"
 #include "tree-flow.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -134,8 +134,7 @@ static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 cumulative_args_t);
 static void precompute_register_parameters (int, struct arg_data *, int *);
-static int store_one_arg (struct arg_data *, rtx, int,
-			  int, int);
+static int store_one_arg (struct arg_data *, rtx, int, int, int);
 static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
 				      struct args_size *);
@@ -878,6 +877,7 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 		     || optimize))
 	  args[i].value = copy_to_mode_reg (args[i].mode, args[i].value);
 
+	/* Expand argument bounds if any.  */
 	if (args[i].bounds_value)
 	  {
 	    /* We have to make a temporary for bounds if there is a bndmk.  */
@@ -1155,15 +1155,21 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     if (struct_value_addr_value)
       {
 	args[j].tree_value = struct_value_addr_value;
-	if (flag_pl)
+
+	/* If we pass structure address then we need to
+	   create bounds for it.  */
+	if (flag_mpx)
 	  args[j].bounds_value
-	    = pl_make_bounds_for_struct_addr (struct_value_addr_value);
+	    = mpx_make_bounds_for_struct_addr (struct_value_addr_value);
+
 	j += inc;
       }
     FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
       {
 	tree argtype = TREE_TYPE (arg);
 
+	/* If we see bounds as argument then we need to
+	   assign it to the previous arg.  */
 	if (BOUND_TYPE_P (argtype))
 	  {
 	    args[j - inc].bounds_value = arg;
@@ -1183,11 +1189,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    args[j].tree_value = build1 (IMAGPART_EXPR, subtype, arg);
 	  }
 	else
-	  {
-	    args[j].tree_value = arg;
-	    /*if (flag_pl && argtype && BOUNDED_TYPE_P (argtype))
-	      args[j].bounds_value = pl_get_arg_bounds (arg);*/
-	  }
+	  args[j].tree_value = arg;
 	j += inc;
       }
   }
@@ -1324,7 +1326,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
-      pl_split_returned_reg (args[i].reg, &args[i].reg, &args[i].bounds_slot);
+      mpx_split_returned_reg (args[i].reg, &args[i].reg, &args[i].bounds_slot);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -1624,8 +1626,7 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 
 	  /* Skip this parm if it will not be passed on the stack.  */
 	  if (! args[i].pass_on_stack
-	      && (args[i].reg != 0
-		  || BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
+	      && args[i].reg != 0
 	      && args[i].partial == 0)
 	    continue;
 
@@ -2036,8 +2037,11 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	  else if (nregs > 0)
 	    use_regs (call_fusage, REGNO (reg), nregs);
 
+	  /* Handle passed bounds.  */
 	  if (args[i].bounds_slot)
 	    {
+	      /* If bounds have been already expanded then just
+		 move them to the bounds slot.  */
 	      if (args[i].bounds)
 		{
 		  gcc_assert (REG_P (args[i].bounds_slot)
@@ -2055,8 +2059,10 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 							  args[i].bounds_slot);
 		    }
 		}
+	      /* If we do not have computed bounds then we probably
+		 pass a structure with pointers in registers.  */
 	      else if (!BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
-		       && pl_type_has_pointer (TREE_TYPE (args[i].tree_value)))
+		       && mpx_type_has_pointer (TREE_TYPE (args[i].tree_value)))
 		if (GET_CODE (args[i].bounds_slot) == PARALLEL)
 		  {
 		    int n;
@@ -2068,7 +2074,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		      {
 			rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
 			rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
-			rtx ptr = pl_get_value_with_offs (args[i].reg, offs);
+			rtx ptr = mpx_get_value_with_offs (args[i].reg, offs);
 			rtx addr = adjust_address (args[i].value, Pmode,
 						   INTVAL (offs));
 			rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
@@ -2093,16 +2099,11 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 				|| CONST_INT_P (args[i].bounds_slot));
 
 		    if (MEM_P (args[i].value))
-		      {
-			slot = args[i].value;
-			/*ptr = gen_reg_rtx (Pmode);
-			  emit_move_insn (ptr, slot);*/
-		      }
+		      slot = args[i].value;
 		    else
 		      {
 			tree addr = build_fold_addr_expr (args[i].tree_value);
 			slot = gen_rtx_MEM (Pmode, expand_normal (addr));
-			/*ptr = args[i].value;*/
 		      }
 
 		    bnd = targetm.calls.load_bounds_for_arg (slot, ptr,
@@ -2119,7 +2120,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		  }
 	    }
 	  else
-	    gcc_assert (!flag_pl
+	    gcc_assert (!flag_mpx
 			|| !BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value)));
 	}
     }
@@ -2601,7 +2602,8 @@ expand_call (tree exp, rtx target, int ignore)
       structure_value_addr_parm = 1;
     }
 
-  if (flag_pl)
+  /* Compute number of bound arguments.  */
+  if (flag_mpx)
     {
       call_expr_arg_iterator iter;
       tree arg;
@@ -3143,7 +3145,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* Returned bound registers are handled later.  Slit them right now and
 	     join back before rerurn.  */
-	  pl_split_returned_reg (valreg, &valreg, &valbnd);
+	  mpx_split_returned_reg (valreg, &valreg, &valbnd);
 
 	  /* If VALREG is a PARALLEL whose first member has a zero
 	     offset, use that.  This is for targets such as m68k that
@@ -3184,8 +3186,7 @@ expand_call (tree exp, rtx target, int ignore)
 
       for (i = 0; i < num_actuals; i++)
 	{
-	  if ((args[i].reg == 0 || args[i].pass_on_stack)
-	      && ! BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
+	  if (args[i].reg == 0 || args[i].pass_on_stack)
 	    {
 	      rtx before_arg = get_last_insn ();
 
@@ -3216,8 +3217,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 This is the last place a block-move can happen.  */
       if (reg_parm_seen)
 	for (i = 0; i < num_actuals; i++)
-	  if (args[i].partial != 0 && ! args[i].pass_on_stack
-	      && ! BOUND_TYPE_P (TREE_TYPE (args[i].tree_value)))
+	  if (args[i].partial != 0 && ! args[i].pass_on_stack)
 	    {
 	      rtx before_arg = get_last_insn ();
 
@@ -3627,7 +3627,7 @@ expand_call (tree exp, rtx target, int ignore)
   free (stack_usage_map_buf);
 
   /* Join result with returned bounds so caller may use them if needed.  */
-  target = pl_join_splitted_reg (target, valbnd);
+  target = mpx_join_splitted_reg (target, valbnd);
 
   return target;
 }
@@ -4391,7 +4391,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* Returned bound registers are handled later.  Slit them right now and
      join back before rerurn.  */
-  pl_split_returned_reg (valreg, &valreg, &valbnd);
+  mpx_split_returned_reg (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)
@@ -4867,6 +4867,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 				      int_size_in_bytes (type));
     }
 
+  /* Store computed bounds for argument.  */
   if (arg->bounds_value)
     {
       rtx ptr, addr;
@@ -4889,13 +4890,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       targetm.calls.store_bounds_for_arg (ptr, addr,
 					  arg->bounds, NULL);
     }
-  else if (flag_pl
+  /* Copy bounds for structure with pointers passed in memory.  */
+  else if (flag_mpx
 	   && !BOUNDED_TYPE_P (TREE_TYPE (arg->tree_value))
-	   && pl_type_has_pointer (TREE_TYPE (arg->tree_value)))
+	   && mpx_type_has_pointer (TREE_TYPE (arg->tree_value)))
     {
       tree argtype = TREE_TYPE (arg->tree_value);
       rtx value = arg->pushed_value ? arg->pushed_value : arg->value;
-      pl_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
+      mpx_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
     }
 
   /* Mark all slots this store used.  */

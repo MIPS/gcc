@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "basic-block.h"
 #include "target.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 struct target_optabs default_target_optabs;
 struct target_libfuncs default_target_libfuncs;
@@ -3235,10 +3235,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
 	  val = hard_libcall_value (TYPE_MODE (integer_type_node),
 				    optab_libfunc (unoptab, mode));
-	  /* In PL mode return value may include bounds
-	     and therefore we need to split it.  */
-	  if (flag_pl)
-	    pl_split_returned_reg (val, &val, &bnd);
+	  mpx_split_returned_reg (val, &val, &bnd);
 	  outmode = GET_MODE (val);
 	}
 

@@ -52,7 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssaexpand.h"
 #include "target-globals.h"
 #include "params.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -1363,16 +1363,15 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
   size_tree = make_tree (sizetype, size);
 
   fn = emit_block_move_libcall_fn (true);
-  /* In case PL is on we actually should have all checks
-     made and bounds copied.  It means we may call a nocheck
-     memcpy version to copy data.  Currently we do not have
-     such memcpy version and therefore use common function
-     and provide it with zero bounds.  */
-  if (flag_pl)
+  /* In case MPX is on we actually should have all checks
+     made and bounds copied.  It means we may call a fast
+     memcpy version to copy data.
+     TODO: use mpx_memcpy_nobnd instead of regular memcpy.  */
+  if (flag_mpx)
     {
       tree tmp, bnd;
 
-      tmp = pl_build_make_bounds_call (integer_zero_node, integer_zero_node);
+      tmp = mpx_build_make_bounds_call (integer_zero_node, integer_zero_node);
       bnd = make_tree (bound_type_node,
 			assign_temp (bound_type_node, 0, 1));
       expand_assignment (bnd, tmp, false);
@@ -4933,7 +4932,10 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
       push_temp_slots ();
       value = expand_normal (from);
-      pl_split_returned_reg (value, &value, &bounds);
+
+      /* Split value and bounds to store them separately.  */
+      mpx_split_returned_reg (value, &value, &bounds);
+
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -4968,14 +4970,15 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  emit_move_insn (to_rtx, value);
 	}
 
+      /* Store bounds if required.  */
       if (bounds
 	  && !BOUNDED_TYPE_P (TREE_TYPE (to))
-	  && pl_type_has_pointer (TREE_TYPE (to)))
+	  && mpx_type_has_pointer (TREE_TYPE (to)))
 	{
 	  gcc_assert (MEM_P (to_rtx));
 	  gcc_assert (!CONST_INT_P (bounds));
 
-	  pl_emit_bounds_store (bounds, value, to_rtx);
+	  mpx_emit_bounds_store (bounds, value, to_rtx);
 	}
 
       preserve_temp_slots (to_rtx);
@@ -5186,8 +5189,10 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
+
+      /* Bounds returned by the call are atored separately.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	pl_split_returned_reg (temp, &temp, &temp_bnd);
+	mpx_split_returned_reg (temp, &temp, &temp_bnd);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5270,9 +5275,10 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
-      if (TREE_CODE (exp) == CALL_EXPR)
-	pl_split_returned_reg (temp, &temp, &temp_bnd);
 
+      /* Bounds returned by the call are atored separately.  */
+      if (TREE_CODE (exp) == CALL_EXPR)
+	mpx_split_returned_reg (temp, &temp, &temp_bnd);
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -5435,10 +5441,12 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	}
     }
 
+  /* Actually MPX pass created a separate statements to store
+     returned bounds.  Will it be better to do it here?  */
   if (0 && temp_bnd && TREE_TYPE (exp)
       && !BOUNDED_TYPE_P (TREE_TYPE (exp))
-      && pl_type_has_pointer (TREE_TYPE (exp)))
-    pl_emit_bounds_store (temp_bnd, temp, target);
+      && mpx_type_has_pointer (TREE_TYPE (exp)))
+    mpx_emit_bounds_store (temp_bnd, temp, target);
 
   return NULL_RTX;
 }

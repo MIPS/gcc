@@ -21,7 +21,7 @@
 #include "ggc.h"
 #include "cgraph.h"
 #include "gimple.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 #include "rtl.h"
 #include "expr.h"
 #include "tree-pretty-print.h"
@@ -29,111 +29,111 @@
 
 typedef void (*assign_handler)(tree, tree, void *);
 
-static unsigned int pl_execute (void);
-static bool pl_gate (void);
+static unsigned int mpx_execute (void);
+static bool mpx_gate (void);
 
-static int pl_may_complete_phi_bounds (void **slot, void *res);
-static bool pl_may_finish_incomplete_bounds (void);
-static int pl_find_valid_phi_bounds (void **slot, void *res);
-static int pl_recompute_phi_bounds (void **slot, void *res);
-static int pl_mark_invalid_bounds_walker (void **slot, void *res);
-static void pl_mark_completed_bounds (tree bounds);
-static bool pl_completed_bounds (tree bounds);
-static void pl_finish_incomplete_bounds (void);
-static void pl_erase_completed_bounds (void);
-static void pl_erase_incomplete_bounds (void);
-static tree pl_get_tmp_var (void);
-static void pl_fix_function_decl (tree decl, bool make_ssa_names);
-static void pl_fix_function_decls (void);
-static void pl_init (void);
-static void pl_fini (void);
-static tree pl_build_addr_expr (tree t);
-static void pl_register_bounds (tree ptr, tree bnd);
-static void pl_register_addr_bounds (tree ptr, tree bnd);
-static tree pl_get_registered_addr_bounds (tree ptr);
-static void pl_register_incomplete_bounds (tree bounds, tree ptr);
-static bool pl_incomplete_bounds (tree bounds);
-static basic_block pl_get_entry_block (void);
-static tree pl_get_none_bounds (void);
-static tree pl_get_invalid_op_bounds (void);
-static tree pl_get_nonpointer_load_bounds (void);
-static void pl_mark_invalid_bounds (tree bounds);
-static bool pl_valid_bounds (tree bounds);
-static void pl_transform_function (void);
-static tree pl_get_bound_for_parm (tree parm);
-static tree pl_force_gimple_call_op (tree op, gimple_seq *seq);
-static tree pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi);
-static void pl_build_bndstx (tree addr, tree ptr, tree bounds,
+static int mpx_may_complete_phi_bounds (void **slot, void *res);
+static bool mpx_may_finish_incomplete_bounds (void);
+static int mpx_find_valid_phi_bounds (void **slot, void *res);
+static int mpx_recompute_phi_bounds (void **slot, void *res);
+static int mpx_mark_invalid_bounds_walker (void **slot, void *res);
+static void mpx_mark_completed_bounds (tree bounds);
+static bool mpx_completed_bounds (tree bounds);
+static void mpx_finish_incomplete_bounds (void);
+static void mpx_erase_completed_bounds (void);
+static void mpx_erase_incomplete_bounds (void);
+static tree mpx_get_tmp_var (void);
+static void mpx_fix_function_decl (tree decl, bool make_ssa_names);
+static void mpx_fix_function_decls (void);
+static void mpx_init (void);
+static void mpx_fini (void);
+static tree mpx_build_addr_expr (tree t);
+static void mpx_register_bounds (tree ptr, tree bnd);
+static void mpx_register_addr_bounds (tree ptr, tree bnd);
+static tree mpx_get_registered_addr_bounds (tree ptr);
+static void mpx_register_incomplete_bounds (tree bounds, tree ptr);
+static bool mpx_incomplete_bounds (tree bounds);
+static basic_block mpx_get_entry_block (void);
+static tree mpx_get_none_bounds (void);
+static tree mpx_get_invalid_op_bounds (void);
+static tree mpx_get_nonpointer_load_bounds (void);
+static void mpx_mark_invalid_bounds (tree bounds);
+static bool mpx_valid_bounds (tree bounds);
+static void mpx_transform_function (void);
+static tree mpx_get_bound_for_parm (tree parm);
+static tree mpx_force_gimple_call_op (tree op, gimple_seq *seq);
+static tree mpx_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi);
+static void mpx_build_bndstx (tree addr, tree ptr, tree bounds,
 			     gimple_stmt_iterator *gsi);
-static tree pl_build_returned_bound (gimple call);
-static tree pl_build_component_ref (tree obj, tree field);
-static tree pl_build_array_ref (tree arr, tree etype, tree esize,
+static tree mpx_build_returned_bound (gimple call);
+static tree mpx_build_component_ref (tree obj, tree field);
+static tree mpx_build_array_ref (tree arr, tree etype, tree esize,
 				unsigned HOST_WIDE_INT idx);
-static void pl_copy_bounds_for_assign (tree lhs, tree rhs, void *arg);
-static void pl_add_modification_to_statements_list (tree lhs, tree rhs, void *arg);
-static void pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
+static void mpx_copy_bounds_for_assign (tree lhs, tree rhs, void *arg);
+static void mpx_add_modification_to_statements_list (tree lhs, tree rhs, void *arg);
+static void mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 					 assign_handler handler);
-static tree pl_compute_bounds_for_assignment (tree node, gimple assign);
-static tree pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
-static tree pl_make_addressed_object_bounds (tree obj,
+static tree mpx_compute_bounds_for_assignment (tree node, gimple assign);
+static tree mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
+static tree mpx_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
 					     bool always_narrow_fields);
-static tree pl_generate_extern_var_bounds (tree var);
-static tree pl_get_bounds_for_decl (tree decl);
-static tree pl_get_bounds_for_decl_addr (tree decl);
-static tree pl_get_bounds_for_string_cst (tree cst);
-static tree pl_get_bounds_by_definition (tree node, gimple def_stmt,
+static tree mpx_generate_extern_var_bounds (tree var);
+static tree mpx_get_bounds_for_decl (tree decl);
+static tree mpx_get_bounds_for_decl_addr (tree decl);
+static tree mpx_get_bounds_for_string_cst (tree cst);
+static tree mpx_get_bounds_by_definition (tree node, gimple def_stmt,
 					 gimple_stmt_iterator *iter);
-static tree pl_find_bounds_1 (tree ptr, tree ptr_src,
+static tree mpx_find_bounds_1 (tree ptr, tree ptr_src,
 			      gimple_stmt_iterator *iter,
 			      bool always_narrow_fields);
-static tree pl_find_bounds (tree ptr, gimple_stmt_iterator *iter);
-static tree pl_find_bounds_loaded (tree ptr, tree ptr_src,
+static tree mpx_find_bounds (tree ptr, gimple_stmt_iterator *iter);
+static tree mpx_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
-static tree pl_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter);
-static void pl_check_mem_access (tree first, tree last, tree bounds,
+static tree mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter);
+static void mpx_check_mem_access (tree first, tree last, tree bounds,
 				 gimple_stmt_iterator iter,
 				 location_t location, tree dirflag);
-static tree pl_intersect_bounds (tree bounds1, tree bounds2,
+static tree mpx_intersect_bounds (tree bounds1, tree bounds2,
 				 gimple_stmt_iterator *iter);
-static bool pl_may_narrow_to_field (tree field);
-static bool pl_narrow_bounds_for_field (tree field, bool always_narrow);
-static tree pl_narrow_bounds_to_field (tree bounds, tree component,
+static bool mpx_may_narrow_to_field (tree field);
+static bool mpx_narrow_bounds_for_field (tree field, bool always_narrow);
+static tree mpx_narrow_bounds_to_field (tree bounds, tree component,
 				       gimple_stmt_iterator *iter);
-static void pl_parse_array_and_component_ref (tree node, tree *ptr,
+static void mpx_parse_array_and_component_ref (tree node, tree *ptr,
 					      tree *elt, bool *safe,
 					      bool *bitfield,
 					      tree *bounds,
 					      gimple_stmt_iterator *iter,
 					      bool innermost_bounds,
 					      bool always_narrow);
-static void pl_replace_address_check_builtin (gimple_stmt_iterator *gsi,
+static void mpx_replace_address_check_builtin (gimple_stmt_iterator *gsi,
 					      tree dirflag);
-static void pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
-static void pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
-static void pl_process_stmt (gimple_stmt_iterator *iter, tree node,
+static void mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi);
+static void mpx_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi);
+static void mpx_process_stmt (gimple_stmt_iterator *iter, tree node,
 			     location_t loc, tree dirflag,
 			     tree access_offs, tree access_size,
 			     bool safe);
-static void pl_mark_stmt (gimple s);
-static bool pl_marked_stmt (gimple s);
-static void pl_find_bound_slots (tree type, bool *have_bound,
+static void mpx_mark_stmt (gimple s);
+static bool mpx_marked_stmt (gimple s);
+static void mpx_find_bound_slots (tree type, bool *have_bound,
 				 HOST_WIDE_INT offs,
 				 HOST_WIDE_INT ptr_size);
 
-static GTY (()) tree pl_bndldx_fndecl;
-static GTY (()) tree pl_bndstx_fndecl;
-static GTY (()) tree pl_checkl_fndecl;
-static GTY (()) tree pl_checku_fndecl;
-static GTY (()) tree pl_bndmk_fndecl;
-static GTY (()) tree pl_ret_bnd_fndecl;
-static GTY (()) tree pl_intersect_fndecl;
-static GTY (()) tree pl_user_intersect_fndecl;
-static GTY (()) tree pl_bind_intersect_fndecl;
-static GTY (()) tree pl_arg_bnd_fndecl;
+static GTY (()) tree mpx_bndldx_fndecl;
+static GTY (()) tree mpx_bndstx_fndecl;
+static GTY (()) tree mpx_checkl_fndecl;
+static GTY (()) tree mpx_checku_fndecl;
+static GTY (()) tree mpx_bndmk_fndecl;
+static GTY (()) tree mpx_ret_bnd_fndecl;
+static GTY (()) tree mpx_intersect_fndecl;
+static GTY (()) tree mpx_user_intersect_fndecl;
+static GTY (()) tree mpx_bind_intersect_fndecl;
+static GTY (()) tree mpx_arg_bnd_fndecl;
 
-static GTY (()) tree pl_bound_type;
-static GTY (()) tree pl_uintptr_type;
+static GTY (()) tree mpx_bound_type;
+static GTY (()) tree mpx_uintptr_type;
 
 static basic_block entry_block;
 static tree zero_bounds;
@@ -141,58 +141,65 @@ static tree none_bounds;
 static tree tmp_var;
 static tree incomplete_bounds;
 
-static GTY ((param_is (union gimple_statement_d))) htab_t pl_marked_stmts;
-static GTY ((param_is (union tree_node))) htab_t pl_invalid_bounds;
-static GTY ((param_is (union tree_node))) htab_t pl_completed_bounds_map;
+static GTY ((param_is (union gimple_statement_d))) htab_t mpx_marked_stmts;
+static GTY ((param_is (union tree_node))) htab_t mpx_invalid_bounds;
+static GTY ((param_is (union tree_node))) htab_t mpx_completed_bounds_map;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t pl_reg_bounds;
+     htab_t mpx_reg_bounds;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t pl_reg_addr_bounds;
+     htab_t mpx_reg_addr_bounds;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t pl_incomplete_bounds_map;
+     htab_t mpx_incomplete_bounds_map;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 
 static GTY (()) vec<tree, va_gc> *var_inits;// = NULL;
-const char *PLSI_IDENTIFIER = "__pl_initialize_static_bounds";
+const char *MPXSI_IDENTIFIER = "__mpx_initialize_static_bounds";
 
-#define MAX_STMTS_IN_STATIC_PL_CTOR 300
+#define MAX_STMTS_IN_STATIC_MPX_CTOR 300
 
-struct pl_ctor_stmt_list
+struct mpx_ctor_stmt_list
 {
   tree stmts;
   int avail;
 };
 
+/* Mark statement S to not be instrumented.  */
 static void
-pl_mark_stmt (gimple s)
+mpx_mark_stmt (gimple s)
 {
   void **slot;
 
-  slot = htab_find_slot (pl_marked_stmts, s, INSERT);
+  slot = htab_find_slot (mpx_marked_stmts, s, INSERT);
   *slot = s;
 }
 
+/* Return 1 if statement S should not be instrumented.  */
 static bool
-pl_marked_stmt (gimple s)
+mpx_marked_stmt (gimple s)
 {
-  return htab_find (pl_marked_stmts, s) != NULL;
+  return htab_find (mpx_marked_stmts, s) != NULL;
 }
 
+/* Get var to be used for bound values.  */
 static tree
-pl_get_tmp_var (void)
+mpx_get_tmp_var (void)
 {
   if (!tmp_var)
     {
-      tmp_var = create_tmp_reg (pl_bound_type, BOUND_TMP_NAME);
+      tmp_var = create_tmp_reg (mpx_bound_type, BOUND_TMP_NAME);
       //add_referenced_var (tmp_var);
     }
 
   return tmp_var;
 }
 
+/* Split rtx RETURN_REG identifying slot for function value
+   into two parts RETURN_REG_VAL and RETURN_REG_BND.
+   First is the slot for regular value and the other one is
+   for bounds.  */
 void
-pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
+mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
 		       rtx *return_reg_bnd)
 {
   int i;
@@ -254,8 +261,10 @@ pl_split_returned_reg (rtx return_reg, rtx *return_reg_val,
     }
 }
 
+/* Join previously splitted to VAL and BND rtx for function
+   value and return it.  */
 rtx
-pl_join_splitted_reg (rtx val, rtx bnd)
+mpx_join_splitted_reg (rtx val, rtx bnd)
 {
   rtx res;
 
@@ -299,8 +308,10 @@ pl_join_splitted_reg (rtx val, rtx bnd)
   return res;
 }
 
+/* Return bndmk call which creates bounds for structure
+   pointed by PTR.  */
 tree
-pl_make_bounds_for_struct_addr (tree ptr)
+mpx_make_bounds_for_struct_addr (tree ptr)
 {
   tree type = TREE_TYPE (ptr);
   tree size;
@@ -311,13 +322,14 @@ pl_make_bounds_for_struct_addr (tree ptr)
 
   gcc_assert (size);
 
-  return build_call_nary (pl_bound_type,
-			  build_fold_addr_expr (pl_bndmk_fndecl),
+  return build_call_nary (mpx_bound_type,
+			  build_fold_addr_expr (mpx_bndmk_fndecl),
 			  2, ptr, size);
 }
 
+/* Emit store of BOUNDS for pointer VALUE stored in MEM.  */
 void
-pl_emit_bounds_store (rtx bounds, rtx value, rtx mem)
+mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 {
   gcc_assert (MEM_P (mem));
 
@@ -355,7 +367,7 @@ pl_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 	  rtx ptr;
 
 	  if (GET_CODE (value) == PARALLEL)
-	    ptr = pl_get_value_with_offs (value, offs);
+	    ptr = mpx_get_value_with_offs (value, offs);
 	  else
 	    {
 	      rtx tmp = adjust_address (value, Pmode, INTVAL (offs));
@@ -368,8 +380,9 @@ pl_emit_bounds_store (rtx bounds, rtx value, rtx mem)
     }
 }
 
+/* Traversal function for mpx_may_finish_incomplete_bounds.  */
 static int
-pl_may_complete_phi_bounds (void **slot, void *res)
+mpx_may_complete_phi_bounds (void **slot, void *res)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree bounds = map->base.from;
@@ -396,20 +409,26 @@ pl_may_complete_phi_bounds (void **slot, void *res)
   return 1;
 }
 
+/* Check if there is a phi node whose bounds computation
+   was not completed before but may be completed now.  */
 static bool
-pl_may_finish_incomplete_bounds (void)
+mpx_may_finish_incomplete_bounds (void)
 {
   bool res = true;
 
-  htab_traverse (pl_incomplete_bounds_map,
-		 pl_may_complete_phi_bounds,
+  htab_traverse (mpx_incomplete_bounds_map,
+		 mpx_may_complete_phi_bounds,
 		 &res);
 
   return res;
 }
 
+/* Helper function for mpx_finish_incomplete_bounds.
+   Check if bounds phi node previously did not have
+   args allowing to determine value for phi but now
+   has.  */
 static int
-pl_find_valid_phi_bounds (void **slot, void *res)
+mpx_find_valid_phi_bounds (void **slot, void *res)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree bounds = map->base.from;
@@ -418,7 +437,7 @@ pl_find_valid_phi_bounds (void **slot, void *res)
 
   gcc_assert (TREE_CODE (bounds) == SSA_NAME);
 
-  if (pl_completed_bounds (bounds))
+  if (mpx_completed_bounds (bounds))
     return 1;
 
   phi = SSA_NAME_DEF_STMT (bounds);
@@ -431,11 +450,11 @@ pl_find_valid_phi_bounds (void **slot, void *res)
 
       gcc_assert (phi_arg);
 
-      if (pl_valid_bounds (phi_arg) && !pl_incomplete_bounds (phi_arg))
+      if (mpx_valid_bounds (phi_arg) && !mpx_incomplete_bounds (phi_arg))
 	{
 	  *((bool *)res) = true;
-	  pl_mark_completed_bounds (bounds);
-	  pl_recompute_phi_bounds (slot, NULL);
+	  mpx_mark_completed_bounds (bounds);
+	  mpx_recompute_phi_bounds (slot, NULL);
 	  return 1;
 	}
     }
@@ -443,8 +462,10 @@ pl_find_valid_phi_bounds (void **slot, void *res)
   return 1;
 }
 
+/* Helper function for mpx_finish_incomplete_bounds.
+   Recompute args for bounds phi node.  */
 static int
-pl_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
+mpx_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree bounds = map->base.from;
@@ -465,7 +486,7 @@ pl_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
   for (i = 0; i < gimple_phi_num_args (bounds_phi); i++)
     {
       tree ptr_arg = gimple_phi_arg_def (ptr_phi, i);
-      tree bound_arg = pl_find_bounds (ptr_arg, NULL);
+      tree bound_arg = mpx_find_bounds (ptr_arg, NULL);
 
       add_phi_arg (bounds_phi, bound_arg,
 		   gimple_phi_arg_edge (ptr_phi, i),
@@ -475,22 +496,26 @@ pl_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
   return 1;
 }
 
+/* Helper function for mpx_finish_incomplete_bounds.
+   Marks all found invalid bounds.  */
 static int
-pl_mark_invalid_bounds_walker (void **slot, void *res ATTRIBUTE_UNUSED)
+mpx_mark_invalid_bounds_walker (void **slot, void *res ATTRIBUTE_UNUSED)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree bounds = map->base.from;
 
-  if (!pl_completed_bounds (bounds))
+  if (!mpx_completed_bounds (bounds))
     {
-      pl_mark_invalid_bounds (bounds);
-      pl_mark_completed_bounds (bounds);
+      mpx_mark_invalid_bounds (bounds);
+      mpx_mark_completed_bounds (bounds);
     }
   return 1;
 }
 
+/* This function is called when we have enough info
+   for incomplete bounds to be finally computed.  */
 static void
-pl_finish_incomplete_bounds (void)
+mpx_finish_incomplete_bounds (void)
 {
   bool found_valid;
 
@@ -498,29 +523,32 @@ pl_finish_incomplete_bounds (void)
     {
       found_valid = false;
 
-      htab_traverse (pl_incomplete_bounds_map,
-		     pl_find_valid_phi_bounds,
+      htab_traverse (mpx_incomplete_bounds_map,
+		     mpx_find_valid_phi_bounds,
 		     &found_valid);
 
       if (found_valid)
-	htab_traverse (pl_incomplete_bounds_map,
-		       pl_recompute_phi_bounds,
+	htab_traverse (mpx_incomplete_bounds_map,
+		       mpx_recompute_phi_bounds,
 		       NULL);
     }
 
-  htab_traverse (pl_incomplete_bounds_map,
-		 pl_mark_invalid_bounds_walker,
+  htab_traverse (mpx_incomplete_bounds_map,
+		 mpx_mark_invalid_bounds_walker,
 		 NULL);
-  htab_traverse (pl_incomplete_bounds_map,
-		 pl_recompute_phi_bounds,
+  htab_traverse (mpx_incomplete_bounds_map,
+		 mpx_recompute_phi_bounds,
 		 &found_valid);
 
-  pl_erase_completed_bounds ();
-  pl_erase_incomplete_bounds ();
+  mpx_erase_completed_bounds ();
+  mpx_erase_incomplete_bounds ();
 }
 
+/* Return 1 if type TYPE is a pointer type or a
+   structure having a pointer type as one of its fields.
+   Otherwise return 0.  */
 bool
-pl_type_has_pointer (tree type)
+mpx_type_has_pointer (tree type)
 {
   bool res = false;
 
@@ -532,18 +560,22 @@ pl_type_has_pointer (tree type)
 
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL)
-	  res = res || pl_type_has_pointer (TREE_TYPE (field));
+	  res = res || mpx_type_has_pointer (TREE_TYPE (field));
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
-    res = pl_type_has_pointer (TREE_TYPE (type));
+    res = mpx_type_has_pointer (TREE_TYPE (type));
 
   return res;
 }
 
+/* Check if statically initialized variable VAR require
+   static bounds initilization.  If VAR is added into
+   bounds initlization list then 1 is returned. Otherwise
+   return 0.  */
 extern bool
-pl_register_var_initializer (tree var)
+mpx_register_var_initializer (tree var)
 {
-  if (!flag_pl)
+  if (!flag_mpx)
     return false;
 
   gcc_assert (TREE_CODE (var) == VAR_DECL);
@@ -551,7 +583,7 @@ pl_register_var_initializer (tree var)
 	      && DECL_INITIAL (var) != error_mark_node);
 
   if (TREE_STATIC (var)
-      && pl_type_has_pointer (TREE_TYPE (var)))
+      && mpx_type_has_pointer (TREE_TYPE (var)))
     {
       vec_safe_push (var_inits, var);
       return true;
@@ -560,12 +592,17 @@ pl_register_var_initializer (tree var)
   return false;
 }
 
+/* Helper function for mpx_finish_file.
+
+   Add new modification statement into list of static initilizer
+   statementes.  If statements list becomes too big, emit MPX
+   contructor and start the new one.  */
 static void
-pl_add_modification_to_statements_list (tree lhs,
-					tree rhs,
-					void *arg)
+mpx_add_modification_to_statements_list (tree lhs,
+tree rhs,
+void *arg)
 {
-  struct pl_ctor_stmt_list *stmts = (struct pl_ctor_stmt_list *)arg;
+  struct mpx_ctor_stmt_list *stmts = (struct mpx_ctor_stmt_list *)arg;
   tree modify;
 
   if (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (rhs)))
@@ -579,15 +616,16 @@ pl_add_modification_to_statements_list (tree lhs,
   if (!stmts->avail)
     {
       cgraph_build_static_cdtor ('P', stmts->stmts, MAX_RESERVED_INIT_PRIORITY-1);
-      stmts->avail = MAX_STMTS_IN_STATIC_PL_CTOR;
+      stmts->avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
       stmts->stmts = NULL;
     }
 }
 
+/* Emit static bound initilizers.  */
 void
-pl_finish_file (void)
+mpx_finish_file (void)
 {
-  struct pl_ctor_stmt_list stmts;
+  struct mpx_ctor_stmt_list stmts;
   int i;
   tree var;
 
@@ -597,7 +635,7 @@ pl_finish_file (void)
   if (seen_error ())
     return;
 
-  stmts.avail = MAX_STMTS_IN_STATIC_PL_CTOR;
+  stmts.avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
   stmts.stmts = NULL;
 
   FOR_EACH_VEC_ELT (*var_inits, i, var)
@@ -605,24 +643,23 @@ pl_finish_file (void)
        and may initialize its bounds.  Currently asm_written flag and
        rtl are checked.  Probably some other fields should be checked.  */
     if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
-      pl_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
-				   pl_add_modification_to_statements_list);
+      mpx_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
+				   mpx_add_modification_to_statements_list);
 
   if (stmts.stmts)
     cgraph_build_static_cdtor ('P', stmts.stmts, MAX_RESERVED_INIT_PRIORITY-1);
-
- // VEC_free (tree, gc, var_inits);
- // var_inits->release();
- // var_inits = NULL;
 }
 
+/* This function requests intrumentation for all statements
+   working with memory.  It also removes excess statements
+   from static initializers.  */
 static void
-pl_transform_function (void)
+mpx_transform_function (void)
 {
   basic_block bb, next;
   gimple_stmt_iterator i;
   enum gimple_rhs_class grhs_class;
-  bool safe = DECL_PL_STATIC_INIT (cfun->decl);
+  bool safe = DECL_MPX_STATIC_INIT (cfun->decl);
 
   bb = ENTRY_BLOCK_PTR ->next_bb;
   do
@@ -632,7 +669,8 @@ pl_transform_function (void)
         {
           gimple s = gsi_stmt (i);
 
-	  if (pl_marked_stmt (s))
+	  /* Skip statement marked to not be instrumented.  */
+	  if (mpx_marked_stmt (s))
 	    {
 	      gsi_next (&i);
 	      continue;
@@ -641,15 +679,15 @@ pl_transform_function (void)
           switch (gimple_code (s))
             {
             case GIMPLE_ASSIGN:
-	      pl_process_stmt (&i, gimple_assign_lhs (s),
+	      mpx_process_stmt (&i, gimple_assign_lhs (s),
 			       gimple_location (s), integer_one_node,
 			       NULL_TREE, NULL_TREE, safe);
-	      pl_process_stmt (&i, gimple_assign_rhs1 (s),
+	      mpx_process_stmt (&i, gimple_assign_rhs1 (s),
 			       gimple_location (s), integer_zero_node,
 			       NULL_TREE, NULL_TREE, safe);
 	      grhs_class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
 	      if (grhs_class == GIMPLE_BINARY_RHS)
-		pl_process_stmt (&i, gimple_assign_rhs2 (s),
+		mpx_process_stmt (&i, gimple_assign_rhs2 (s),
 				 gimple_location (s), integer_zero_node,
 				 NULL_TREE, NULL_TREE, safe);
               break;
@@ -657,19 +695,19 @@ pl_transform_function (void)
             case GIMPLE_RETURN:
               if (gimple_return_retval (s) != NULL_TREE)
                 {
-                  pl_process_stmt (&i, gimple_return_retval (s),
+                  mpx_process_stmt (&i, gimple_return_retval (s),
 				   gimple_location (s),
 				   integer_zero_node,
 				   NULL_TREE, NULL_TREE, safe);
 
 		  /* Additionall we need to add bounds
 		     to return statement.  */
-		  pl_add_bounds_to_ret_stmt (&i);
+		  mpx_add_bounds_to_ret_stmt (&i);
                 }
               break;
 
 	    case GIMPLE_CALL:
-	      pl_add_bounds_to_call_stmt (&i);
+	      mpx_add_bounds_to_call_stmt (&i);
 	      break;
 
             default:
@@ -678,9 +716,9 @@ pl_transform_function (void)
 
 	  gsi_next (&i);
 
-	  /* We do not need any statements in PL static initializer except
-	     created in PL pass.  */
-	  if (DECL_PL_STATIC_INIT (cfun->decl)
+	  /* We do not need any statements in MPX static initializer except
+	     created in MPX pass.  */
+	  if (DECL_MPX_STATIC_INIT (cfun->decl)
 	      && gimple_code (s) == GIMPLE_ASSIGN)
 	    {
 	      gimple_stmt_iterator del_iter = gsi_for_stmt (s);
@@ -697,7 +735,7 @@ pl_transform_function (void)
 /* Add bound retvals to return statement pointed by GSI.  */
 
 static void
-pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
+mpx_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
 {
   gimple ret = gsi_stmt (*gsi);
   tree retval = gimple_return_retval (ret);
@@ -709,28 +747,29 @@ pl_add_bounds_to_ret_stmt (gimple_stmt_iterator *gsi)
 
   if (BOUNDED_P (ret_decl))
     {
-      bounds = pl_find_bounds (retval, gsi);
-      pl_register_bounds (ret_decl, bounds);
-      gimple_return_set_retval2 (ret, bounds);
+      bounds = mpx_find_bounds (retval, gsi);
+      mpx_register_bounds (ret_decl, bounds);
+      gimple_return_set_retbnd (ret, bounds);
     }
 
   update_stmt (ret);
 }
 
-/* Replace each call to __mpx_check_address_* with
-   pair of bndcu and bndcl calls.  */
+/* Replace call to __mpx_check_address_* pointed by GSI with
+   pair of bndcu and bndcl calls.  DIRFLAG determines whether
+   check is for read or write.  */
 
 void
-pl_replace_address_check_builtin (gimple_stmt_iterator *gsi,
-				  tree dirflag)
+mpx_replace_address_check_builtin (gimple_stmt_iterator *gsi,
+				   tree dirflag)
 {
   gimple_stmt_iterator call_iter = *gsi;
   gimple call = gsi_stmt (*gsi);
   tree addr = gimple_call_arg (call, 0);
-  tree bounds = pl_find_bounds (addr, gsi);
+  tree bounds = mpx_find_bounds (addr, gsi);
 
-  pl_check_mem_access (addr, addr, bounds, *gsi,
-		       gimple_location (call), dirflag);
+  mpx_check_mem_access (addr, addr, bounds, *gsi,
+			gimple_location (call), dirflag);
   gsi_prev (gsi);
   gsi_remove (&call_iter, true);
 }
@@ -738,7 +777,7 @@ pl_replace_address_check_builtin (gimple_stmt_iterator *gsi,
 /* Add bound arguments to call statement pointed by GSI.  */
 
 static void
-pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
+mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 {
   gimple call = gsi_stmt (*gsi);
   unsigned arg_no = 0;
@@ -756,14 +795,14 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
-      && fndecl != pl_user_intersect_fndecl)
+      && fndecl != mpx_user_intersect_fndecl)
     return;
 
   /* MPX_CHECK_ADDRESS_READ call should be replaces with two checks.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_WRITE)
     {
-      pl_replace_address_check_builtin (gsi, integer_one_node);
+      mpx_replace_address_check_builtin (gsi, integer_one_node);
       return;
     }
 
@@ -771,10 +810,12 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_READ)
     {
-      pl_replace_address_check_builtin (gsi, integer_zero_node);
+      mpx_replace_address_check_builtin (gsi, integer_zero_node);
       return;
     }
 
+  /* If function decl is available then use it for
+     formal arguments list.  Otherwise use function type.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
     first_formal_arg = DECL_ARGUMENTS (fndecl);
   else
@@ -802,9 +843,12 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       arg_cnt++;
     }
 
-  if (fndecl == pl_user_intersect_fndecl)
+  /* This one is the special case because the second
+     argument is not used as a pointer but used as
+     lower bound instead.  */
+  if (fndecl == mpx_user_intersect_fndecl)
     {
-      fndecl = pl_bind_intersect_fndecl;
+      fndecl = mpx_bind_intersect_fndecl;
       arg_cnt = 4;
       bnd_arg_cnt = 1;
     }
@@ -823,19 +867,21 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       arg_cnt++;
     }
 
+  /* Create new call statement with additional arguments.  */
   new_call = gimple_alloc (GIMPLE_CALL, arg_cnt + 3);
   memcpy (new_call, call, sizeof (struct gimple_statement_call));
   gimple_set_num_ops (new_call, arg_cnt + 3);
   gimple_set_op (new_call, 0, gimple_op (call, 0));
-  if (fndecl == pl_bind_intersect_fndecl)
+  if (fndecl == mpx_bind_intersect_fndecl)
     {
-      gimple_set_op (new_call, 1, pl_build_addr_expr (fndecl));
+      gimple_set_op (new_call, 1, mpx_build_addr_expr (fndecl));
       gimple_call_set_fntype (new_call, TREE_TYPE (fndecl));
     }
   else
     gimple_set_op (new_call, 1, gimple_op (call, 1));
   gimple_set_op (new_call, 2, gimple_op (call, 2));
 
+  /* Add bounds for all arguments listed in formal arguments list.  */
   arg_no = 0;
   for (arg = first_formal_arg;
        arg && (!use_fntype || TREE_VALUE (arg) != void_type_node)
@@ -851,56 +897,61 @@ pl_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 	       && pass_by_reference (NULL, TYPE_MODE (type), type, false)))
 	  && bnd_arg_cnt)
 	{
-	  tree bounds = pl_find_bounds (call_arg, gsi);
+	  tree bounds = mpx_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
     }
 
+  /* Add bounds for all other arguments.  */
   for ( ; arg_no < gimple_call_num_args (call); arg_no++)
     {
       tree call_arg = gimple_call_arg (call, arg_no);
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
       if (BOUNDED_P (call_arg) && bnd_arg_cnt)
 	{
-	  tree bounds = pl_find_bounds (call_arg, gsi);
+	  tree bounds = mpx_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
     }
 
+  /* replace old call statement with the new one.  */
   FOR_EACH_SSA_TREE_OPERAND (op, call, iter, SSA_OP_ALL_DEFS)
     {
       SSA_NAME_DEF_STMT (op) = new_call;
     }
-
   gsi_replace (gsi, new_call, true);
 }
 
+/* Generate lower and upper bound checks for memory access
+   to memory slot [FIRST, LAST] againsr BOUNDS.  Checks
+   are inserted before the position pointed by ITER.
+   DIRFLAG indicates whether memory access is load or store.  */
 static void
-pl_check_mem_access (tree first, tree last, tree bounds,
-		     gimple_stmt_iterator iter,
-		     location_t location, tree dirflag)
+mpx_check_mem_access (tree first, tree last, tree bounds,
+		      gimple_stmt_iterator iter,
+		      location_t location, tree dirflag)
 {
   gimple_seq seq;
   gimple checkl, checku;
   tree node;
 
-  if (bounds == pl_get_zero_bounds ())
+  if (bounds == mpx_get_zero_bounds ())
     return;
 
   seq = NULL;//gimple_seq_alloc ();
 
-  node = pl_force_gimple_call_op (first, &seq);
+  node = mpx_force_gimple_call_op (first, &seq);
 
-  checkl = gimple_build_call (pl_checkl_fndecl, 2, bounds, node);
-  pl_mark_stmt (checkl);
+  checkl = gimple_build_call (mpx_checkl_fndecl, 2, bounds, node);
+  mpx_mark_stmt (checkl);
   gimple_seq_add_stmt (&seq, checkl);
 
-  node = pl_force_gimple_call_op (last, &seq);
+  node = mpx_force_gimple_call_op (last, &seq);
 
-  checku = gimple_build_call (pl_checku_fndecl, 2, bounds, node);
-  pl_mark_stmt (checku);
+  checku = gimple_build_call (mpx_checku_fndecl, 2, bounds, node);
+  mpx_mark_stmt (checku);
   gimple_seq_add_stmt (&seq, checku);
 
   gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
@@ -917,16 +968,18 @@ pl_check_mem_access (tree first, tree last, tree bounds,
     }
 }
 
+/* Build and return ADDR_EXPR for specified object T.  */
 static tree
-pl_build_addr_expr (tree t)
+mpx_build_addr_expr (tree t)
 {
   return TREE_CODE (t) == TARGET_MEM_REF
     ? tree_mem_ref_addr (ptr_type_node, t)
     : build_fold_addr_expr (t);
 }
 
+/* Register bounds BND for object PTR in globa bounds table.  */
 static void
-pl_register_bounds (tree ptr, tree bnd)
+mpx_register_bounds (tree ptr, tree bnd)
 {
   struct tree_map **slot, *map;
 
@@ -939,7 +992,7 @@ pl_register_bounds (tree ptr, tree bnd)
   map->to = bnd;
 
   slot = (struct tree_map **)
-    htab_find_slot_with_hash (pl_reg_bounds, map, map->hash, INSERT);
+    htab_find_slot_with_hash (mpx_reg_bounds, map, map->hash, INSERT);
   *slot = map;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -952,37 +1005,42 @@ pl_register_bounds (tree ptr, tree bnd)
     }
 }
 
+/* Get bounds registered for object PTR in global bounds table.  */
 tree
-pl_get_registered_bounds (tree ptr)
+mpx_get_registered_bounds (tree ptr)
 {
   struct tree_map *res, in;
   in.base.from = ptr;
   in.hash = htab_hash_pointer (ptr);
 
-  res = (struct tree_map *) htab_find_with_hash (pl_reg_bounds,
+  res = (struct tree_map *) htab_find_with_hash (mpx_reg_bounds,
 						 &in, in.hash);
 
   return res ? res->to : NULL_TREE;
 }
 
+/* Get bounds for input argument ARG.  */
 tree
-pl_get_arg_bounds (tree arg)
+mpx_get_arg_bounds (tree arg)
 {
-  tree bounds = pl_find_bounds (arg, NULL);
+  tree bounds = mpx_find_bounds (arg, NULL);
 
   if (!bounds)
     {
       if (arg == integer_zero_node)
-	bounds = pl_get_none_bounds ();
+	bounds = mpx_get_none_bounds ();
       else
-	bounds = pl_get_invalid_op_bounds ();
+	bounds = mpx_get_invalid_op_bounds ();
     }
 
   return bounds;
 }
 
+/*  Search rtx PAR describing function return value for an
+    item related to value at offset OFFS and return it.
+    Return NULL if item was not found.  */
 rtx
-pl_get_value_with_offs (rtx par, rtx offs)
+mpx_get_value_with_offs (rtx par, rtx offs)
 {
   int n;
 
@@ -998,10 +1056,22 @@ pl_get_value_with_offs (rtx par, rtx offs)
   return NULL;
 }
 
+/* Helper function for mpx_copy_bounds_for_stack_parm.
+   Fill HAVE_BOUND output array with information about
+   bounds requred for object of type TYPE.
+
+   OFFS is used for recursive calls and holds basic
+   offset of TYPE in outer structure in bits.
+
+   PTR_SIZE holds size of the pointer in bits.
+
+   HAVE_BOUND[i] is set to 1 if there is a field
+   in TYPE which has pointer type and offset
+   equal to i * PTR_SIZE - OFFS in bits.  */
 static void
-pl_find_bound_slots (tree type, bool *have_bound,
-		     HOST_WIDE_INT offs,
-		     HOST_WIDE_INT ptr_size)
+mpx_find_bound_slots (tree type, bool *have_bound,
+		      HOST_WIDE_INT offs,
+		      HOST_WIDE_INT ptr_size)
 {
   if (BOUNDED_TYPE_P (type))
     have_bound[offs / ptr_size] = true;
@@ -1016,7 +1086,7 @@ pl_find_bound_slots (tree type, bool *have_bound,
 	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
 	    if (DECL_FIELD_OFFSET (field))
 	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
-	    pl_find_bound_slots (TREE_TYPE (field), have_bound,
+	    mpx_find_bound_slots (TREE_TYPE (field), have_bound,
 				 offs + field_offs, ptr_size);
 	  }
     }
@@ -1028,14 +1098,16 @@ pl_find_bound_slots (tree type, bool *have_bound,
       HOST_WIDE_INT cur;
 
       for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
-	pl_find_bound_slots (etype, have_bound, offs + cur * esize, ptr_size);
+	mpx_find_bound_slots (etype, have_bound, offs + cur * esize, ptr_size);
     }
 }
 
+/* Emit code to copy bounds for structure VALUE of type TYPE
+   copied to SLOT.  */
 void
-pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
+mpx_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
 {
-  HOST_WIDE_INT ptr_size = TREE_INT_CST_LOW (TYPE_SIZE (pl_uintptr_type));
+  HOST_WIDE_INT ptr_size = TREE_INT_CST_LOW (TYPE_SIZE (mpx_uintptr_type));
   HOST_WIDE_INT max_bounds = TREE_INT_CST_LOW (TYPE_SIZE (type)) / ptr_size;
   bool *have_bound = (bool *)xmalloc (sizeof (bool) * max_bounds);
   HOST_WIDE_INT i;
@@ -1048,7 +1120,7 @@ pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
   gcc_assert (MEM_P (slot));
   gcc_assert (RECORD_OR_UNION_TYPE_P (type));
 
-  pl_find_bound_slots (type, have_bound, 0, ptr_size);
+  mpx_find_bound_slots (type, have_bound, 0, ptr_size);
 
   for (i = 0; i < max_bounds; i++)
     if (have_bound[i])
@@ -1067,8 +1139,9 @@ pl_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
   free (have_bound);
 }
 
+/* Register bounds BND for address of object PTR.  */
 static void
-pl_register_addr_bounds (tree ptr, tree bnd)
+mpx_register_addr_bounds (tree ptr, tree bnd)
 {
   struct tree_map **slot, *map;
 
@@ -1081,7 +1154,7 @@ pl_register_addr_bounds (tree ptr, tree bnd)
   map->to = bnd;
 
   slot = (struct tree_map **)
-    htab_find_slot_with_hash (pl_reg_addr_bounds, map, map->hash, INSERT);
+    htab_find_slot_with_hash (mpx_reg_addr_bounds, map, map->hash, INSERT);
   *slot = map;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1094,21 +1167,23 @@ pl_register_addr_bounds (tree ptr, tree bnd)
     }
 }
 
+/* Return bounds registered for address of object PTR.  */
 static tree
-pl_get_registered_addr_bounds (tree ptr)
+mpx_get_registered_addr_bounds (tree ptr)
 {
   struct tree_map *res, in;
   in.base.from = ptr;
   in.hash = htab_hash_pointer (ptr);
 
-  res = (struct tree_map *) htab_find_with_hash (pl_reg_addr_bounds,
+  res = (struct tree_map *) htab_find_with_hash (mpx_reg_addr_bounds,
 						 &in, in.hash);
 
   return res ? res->to : NULL_TREE;
 }
 
+/* Mark BOUNDS associated with PTR as incomplete.  */
 static void
-pl_register_incomplete_bounds (tree bounds, tree ptr)
+mpx_register_incomplete_bounds (tree bounds, tree ptr)
 {
   struct tree_map **slot, *map;
 
@@ -1118,7 +1193,7 @@ pl_register_incomplete_bounds (tree bounds, tree ptr)
   map->to = ptr;
 
   slot = (struct tree_map **)
-    htab_find_slot_with_hash (pl_incomplete_bounds_map, map, map->hash, INSERT);
+    htab_find_slot_with_hash (mpx_incomplete_bounds_map, map, map->hash, INSERT);
   *slot = map;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1131,28 +1206,31 @@ pl_register_incomplete_bounds (tree bounds, tree ptr)
     }
 }
 
+/* Return 1 if BOUNDS are incomplete and 0 otherwise.  */
 static bool
-pl_incomplete_bounds (tree bounds)
+mpx_incomplete_bounds (tree bounds)
 {
   struct tree_map *res, in;
 
   if (bounds == incomplete_bounds)
     return true;
 
-  if (pl_completed_bounds (bounds))
+  if (mpx_completed_bounds (bounds))
     return false;
 
   in.base.from = bounds;
   in.hash = htab_hash_pointer (bounds);
 
-  res = (struct tree_map *) htab_find_with_hash (pl_incomplete_bounds_map,
+  res = (struct tree_map *) htab_find_with_hash (mpx_incomplete_bounds_map,
 						 &in, in.hash);
 
   return res != NULL;
 }
 
+/* Return entry block to be used for MPX initilization code.
+   Create new block if required.  */
 static basic_block
-pl_get_entry_block (void)
+mpx_get_entry_block (void)
 {
   if (!entry_block)
     entry_block = split_block (ENTRY_BLOCK_PTR, NULL)->dest;
@@ -1160,8 +1238,9 @@ pl_get_entry_block (void)
   return entry_block;
 }
 
+/* Return SSA_NAME used to represent zero bounds.  */
 tree
-pl_get_zero_bounds (void)
+mpx_get_zero_bounds (void)
 {
   if (zero_bounds)
     return zero_bounds;
@@ -1169,7 +1248,7 @@ pl_get_zero_bounds (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Creating zero bounds...");
 
-  zero_bounds = pl_make_bounds (integer_zero_node,
+  zero_bounds = mpx_make_bounds (integer_zero_node,
 				integer_zero_node,
 				NULL,
 				false);
@@ -1177,8 +1256,9 @@ pl_get_zero_bounds (void)
   return zero_bounds;
 }
 
+/* Return SSA_NAME used to represent none bounds.  */
 static tree
-pl_get_none_bounds (void)
+mpx_get_none_bounds (void)
 {
   if (none_bounds)
     return none_bounds;
@@ -1186,7 +1266,7 @@ pl_get_none_bounds (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Creating none bounds...");
 
-  none_bounds = pl_make_bounds (integer_minus_one_node,
+  none_bounds = mpx_make_bounds (integer_minus_one_node,
 				build_int_cst (size_type_node, 2),
 				NULL,
 				false);
@@ -1194,20 +1274,24 @@ pl_get_none_bounds (void)
   return none_bounds;
 }
 
+/* Return bounds to be used as a result of operation which
+   should not create poiunter (e.g. MULT_EXPR).  */
 static tree
-pl_get_invalid_op_bounds (void)
+mpx_get_invalid_op_bounds (void)
 {
-  return pl_get_zero_bounds ();
+  return mpx_get_zero_bounds ();
 }
 
+/* Return bounds to be used for loads of non-pointer values.  */
 static tree
-pl_get_nonpointer_load_bounds (void)
+mpx_get_nonpointer_load_bounds (void)
 {
-  return pl_get_zero_bounds ();
+  return mpx_get_zero_bounds ();
 }
 
+/* Return bounds to be used as a returned by CALL.  */
 static tree
-pl_build_returned_bound (gimple call)
+mpx_build_returned_bound (gimple call)
 {
   gimple_stmt_iterator gsi;
   tree bounds;
@@ -1224,7 +1308,7 @@ pl_build_returned_bound (gimple call)
       tree size = gimple_call_arg (call, 0);
       tree lb = gimple_call_lhs (call);
       gimple_stmt_iterator iter = gsi_for_stmt (call);
-      bounds = pl_make_bounds (lb, size, &iter, true);
+      bounds = mpx_make_bounds (lb, size, &iter, true);
     }
   else if (fndecl
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -1232,18 +1316,18 @@ pl_build_returned_bound (gimple call)
     {
       tree size = targetm.fn_abi_va_list_bounds_size (cfun->decl);
       if (size == integer_zero_node)
-	bounds = pl_get_zero_bounds ();
+	bounds = mpx_get_zero_bounds ();
       else
 	{
 	  tree lb = gimple_call_lhs (call);
 	  gimple_stmt_iterator iter = gsi_for_stmt (call);
-	  bounds = pl_make_bounds (lb, size, &iter, true);
+	  bounds = mpx_make_bounds (lb, size, &iter, true);
 	}
     }
   else
     {
-      stmt = gimple_build_call (pl_ret_bnd_fndecl, 0);
-      pl_mark_stmt (stmt);
+      stmt = gimple_build_call (mpx_ret_bnd_fndecl, 0);
+      mpx_mark_stmt (stmt);
 
       /* If call may throw then we have to insert new
 	 statement on the fallthru edge.  Otherwise insert
@@ -1263,7 +1347,7 @@ pl_build_returned_bound (gimple call)
 	  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 	}
 
-      bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+      bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
       gimple_call_set_lhs (stmt, bounds);
 
       update_stmt (stmt);
@@ -1277,21 +1361,23 @@ pl_build_returned_bound (gimple call)
       print_gimple_stmt (dump_file, call, 0, TDF_VOPS|TDF_MEMSYMS);
     }
 
-  pl_register_bounds (gimple_call_lhs (call), bounds);
+  mpx_register_bounds (gimple_call_lhs (call), bounds);
 
   return bounds;
 }
 
+/* Return bounds to be used for input argument PARM.
+   Build required bounds if required.  */
 static tree
-pl_get_bound_for_parm (tree parm)
+mpx_get_bound_for_parm (tree parm)
 {
   tree decl = SSA_NAME_VAR (parm);
   tree bounds;
 
-  bounds = pl_get_registered_bounds (parm);
+  bounds = mpx_get_registered_bounds (parm);
 
   if (!bounds)
-    bounds = pl_get_registered_bounds (decl);
+    bounds = mpx_get_registered_bounds (decl);
 
   /* NULL bounds mean parm is not a pointer and
      zero bounds should be returned.  */
@@ -1304,29 +1390,29 @@ pl_get_bound_for_parm (tree parm)
 	 identify such parm.  */
       if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
 	  && DECL_ARTIFICIAL (decl))
-	bounds = pl_get_zero_bounds ();
+	bounds = mpx_get_zero_bounds ();
       /* Currently main method does not receive correct
 	 bounds and we use zero bounds instead.  Default
 	 behavior may be changed by flag.  */
-      else if (flag_pl_zero_input_bounds_for_main
+      else if (flag_mpx_zero_input_bounds_for_main
 	       && strcmp (IDENTIFIER_POINTER (DECL_NAME (cfun->decl)), "main") == 0)
-	bounds = pl_get_zero_bounds ();
+	bounds = mpx_get_zero_bounds ();
       else if (BOUNDED_P (parm))
 	{
 	    gimple_stmt_iterator gsi;
 	    gimple stmt;
 
-	    stmt = gimple_build_call (pl_arg_bnd_fndecl, 1, parm);
-	    pl_mark_stmt (stmt);
+	    stmt = gimple_build_call (mpx_arg_bnd_fndecl, 1, parm);
+	    mpx_mark_stmt (stmt);
 
-	    gsi = gsi_start_bb (pl_get_entry_block ());
+	    gsi = gsi_start_bb (mpx_get_entry_block ());
 	    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
 
-	    bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+	    bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
 	    gimple_call_set_lhs (stmt, bounds);
 
 	    update_stmt (stmt);
-	    pl_register_bounds (decl, bounds);
+	    mpx_register_bounds (decl, bounds);
 
 	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
@@ -1337,11 +1423,11 @@ pl_get_bound_for_parm (tree parm)
 	      }
 	}
       else
-	bounds = pl_get_zero_bounds ();
+	bounds = mpx_get_zero_bounds ();
     }
 
-  if (!pl_get_registered_bounds (parm))
-    pl_register_bounds (parm, bounds);
+  if (!mpx_get_registered_bounds (parm))
+    mpx_register_bounds (parm, bounds);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1357,8 +1443,10 @@ pl_get_bound_for_parm (tree parm)
   return bounds;
 }
 
+/* Force OP to be suitable for using as an argument for call.
+   New statements (if any) go to SEQ.  */
 static tree
-pl_force_gimple_call_op (tree op, gimple_seq *seq)
+mpx_force_gimple_call_op (tree op, gimple_seq *seq)
 {
   gimple_seq stmts;
   gimple_seq_node node;
@@ -1367,18 +1455,21 @@ pl_force_gimple_call_op (tree op, gimple_seq *seq)
   op = force_gimple_operand (unshare_expr (op), &stmts, true, NULL_TREE);
 
 //  for (node = gimple_seq_first (stmts); node; node = node->next)
-//    pl_mark_stmt (node->stmt);
+//    mpx_mark_stmt (node->stmt);
 
   for (si = gsi_start (stmts); !gsi_end_p (si); gsi_next (&si)) 
-    pl_mark_stmt (gsi_stmt (si));  
+    mpx_mark_stmt (gsi_stmt (si));  
 
   gimple_seq_add_seq (seq, stmts);
 
   return op;
 }
 
+/* Insert code to load bounds for PTR located by ADDR.
+   Code is inserted after position pointed by GSI.
+   Loaded bounds are returned.  */
 static tree
-pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
+mpx_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
 {
   gimple_seq seq;
   gimple stmt;
@@ -1386,12 +1477,12 @@ pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
 
   seq = NULL;//gimple_seq_alloc ();
 
-  addr = pl_force_gimple_call_op (addr, &seq);
-  ptr = pl_force_gimple_call_op (ptr, &seq);
+  addr = mpx_force_gimple_call_op (addr, &seq);
+  ptr = mpx_force_gimple_call_op (ptr, &seq);
 
-  stmt = gimple_build_call (pl_bndldx_fndecl, 2, addr, ptr);
-  pl_mark_stmt (stmt);
-  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+  stmt = gimple_build_call (mpx_bndldx_fndecl, 2, addr, ptr);
+  mpx_mark_stmt (stmt);
+  bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -1409,50 +1500,56 @@ pl_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
   return bounds;
 }
 
+/* Build and return CALL_EXPR for bndstx builtin wich specified
+   arguments.  */
 tree
-pl_build_bndstx_call (tree addr, tree ptr, tree bounds)
+mpx_build_bndstx_call (tree addr, tree ptr, tree bounds)
 {
   tree call = build1 (ADDR_EXPR,
-		      build_pointer_type (TREE_TYPE (pl_bndstx_fndecl)),
-		      pl_bndstx_fndecl);
-  return build_call_nary (TREE_TYPE (TREE_TYPE (pl_bndstx_fndecl)),
-			  call, 3, addr,ptr, bounds);
+		      build_pointer_type (TREE_TYPE (mpx_bndstx_fndecl)),
+		      mpx_bndstx_fndecl);
+  return build_call_nary (TREE_TYPE (TREE_TYPE (mpx_bndstx_fndecl)),
+			  call, 3, addr, ptr, bounds);
 }
 
+/* Emit code to store zero bounds for PTR located at MEM.  */
 void
-pl_expand_bounds_reset_for_mem (tree mem, tree ptr)
+mpx_expand_bounds_reset_for_mem (tree mem, tree ptr)
 {
-  tree zero_bnd = pl_build_make_bounds_call (integer_zero_node,
+  tree zero_bnd = mpx_build_make_bounds_call (integer_zero_node,
 					     integer_zero_node);
   tree bnd = make_tree (bound_type_node,
 			assign_temp (bound_type_node, 0, 1));
   tree addr = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (mem)), mem);
-  tree bndstx = pl_build_bndstx_call (addr, ptr, bnd);
+  tree bndstx = mpx_build_bndstx_call (addr, ptr, bnd);
 
   expand_assignment (bnd, zero_bnd, false);
   expand_normal (bndstx);
 }
 
+/* Insert code to store BOUNDS for PTR stored by ADDR.
+   New statements are inserted after position pointed
+   by GSI.  */
 static void
-pl_build_bndstx (tree addr, tree ptr, tree bounds,
+mpx_build_bndstx (tree addr, tree ptr, tree bounds,
 		 gimple_stmt_iterator *gsi)
 {
   gimple_seq seq;
   gimple stmt;
 
   /*
-  if (bounds == pl_get_zero_bounds ())
+  if (bounds == mpx_get_zero_bounds ())
     return;
   */
 
   seq = NULL;//gimple_seq_alloc ();
 
-  addr = pl_force_gimple_call_op (addr, &seq);
-  ptr = pl_force_gimple_call_op (ptr, &seq);
+  addr = mpx_force_gimple_call_op (addr, &seq);
+  ptr = mpx_force_gimple_call_op (ptr, &seq);
 
-  stmt = gimple_build_call (pl_bndstx_fndecl, 3, addr, ptr, bounds);
-  pl_mark_stmt (stmt);
+  stmt = gimple_build_call (mpx_bndstx_fndecl, 3, addr, ptr, bounds);
+  mpx_mark_stmt (stmt);
 
   gimple_seq_add_stmt (&seq, stmt);
 
@@ -1466,12 +1563,13 @@ pl_build_bndstx (tree addr, tree ptr, tree bounds,
     }
 }
 
+/* Mark BOUNDS as invalid.  */
 static void
-pl_mark_invalid_bounds (tree bounds)
+mpx_mark_invalid_bounds (tree bounds)
 {
   void **slot;
 
-  slot = htab_find_slot (pl_invalid_bounds, bounds, INSERT);
+  slot = htab_find_slot (mpx_invalid_bounds, bounds, INSERT);
   *slot = bounds;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1482,24 +1580,26 @@ pl_mark_invalid_bounds (tree bounds)
     }
 }
 
+/* Return 1 if BOUNDS were marked as invalid and 0 otherwise.  */
 static bool
-pl_valid_bounds (tree bounds)
+mpx_valid_bounds (tree bounds)
 {
   if (bounds == zero_bounds || bounds == none_bounds)
     return false;
 
-  if (htab_find (pl_invalid_bounds, bounds) != NULL)
+  if (htab_find (mpx_invalid_bounds, bounds) != NULL)
     return false;
 
   return true;
 }
 
+/* Mark BOUNDS as completed.  */
 static void
-pl_mark_completed_bounds (tree bounds)
+mpx_mark_completed_bounds (tree bounds)
 {
   void **slot;
 
-  slot = htab_find_slot (pl_completed_bounds_map, bounds, INSERT);
+  slot = htab_find_slot (mpx_completed_bounds_map, bounds, INSERT);
   *slot = bounds;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1510,26 +1610,31 @@ pl_mark_completed_bounds (tree bounds)
     }
 }
 
+/* Return 1 if BOUNDS were marked as completed and 0 otherwise.  */
 static bool
-pl_completed_bounds (tree bounds)
+mpx_completed_bounds (tree bounds)
 {
-  return htab_find (pl_completed_bounds_map, bounds) != NULL;
+  return htab_find (mpx_completed_bounds_map, bounds) != NULL;
 }
 
+/* Clear comleted bound marks.  */
 static void
-pl_erase_completed_bounds (void)
+mpx_erase_completed_bounds (void)
 {
-  htab_empty (pl_completed_bounds_map);
+  htab_empty (mpx_completed_bounds_map);
 }
 
+/* Clear incomleted bound marks.  */
 static void
-pl_erase_incomplete_bounds (void)
+mpx_erase_incomplete_bounds (void)
 {
-  htab_empty (pl_incomplete_bounds_map);
+  htab_empty (mpx_incomplete_bounds_map);
 }
 
+/* Compute bounds for pointer NODE which was assigned in
+   assignment statement ASSIGN.  Return computed bounds.  */
 static tree
-pl_compute_bounds_for_assignment (tree node, gimple assign)
+mpx_compute_bounds_for_assignment (tree node, gimple assign)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (assign);
   tree rhs1 = gimple_assign_rhs1 (assign);
@@ -1548,7 +1653,7 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case ARRAY_REF:
     case COMPONENT_REF:
     case TARGET_MEM_REF:
-      bounds = pl_find_bounds_loaded (node, rhs1, &iter);
+      bounds = mpx_find_bounds_loaded (node, rhs1, &iter);
       break;
 
     case VAR_DECL:
@@ -1558,12 +1663,12 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case INTEGER_CST:
-      bounds = pl_find_bounds (rhs1, &iter);
+      bounds = mpx_find_bounds (rhs1, &iter);
       break;
 
     case PARM_DECL:
       gcc_assert (TREE_ADDRESSABLE (rhs1));
-      bounds = pl_build_bndldx (pl_build_addr_expr (rhs1),
+      bounds = mpx_build_bndldx (mpx_build_addr_expr (rhs1),
 				node, &iter);
       break;
 
@@ -1574,8 +1679,8 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case BIT_XOR_EXPR:
       {
 	tree rhs2 = gimple_assign_rhs2 (assign);
-	tree bnd1 = pl_find_bounds (rhs1, &iter);
-	tree bnd2 = pl_find_bounds (rhs2, &iter);
+	tree bnd1 = mpx_find_bounds (rhs1, &iter);
+	tree bnd2 = mpx_find_bounds (rhs2, &iter);
 
 	/* First we try to check types of operands.  If it
 	   does not help then look at bound values.  */
@@ -1586,31 +1691,31 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 		 && !BOUNDED_P (rhs1)
 		 && rhs_code != MINUS_EXPR)
 	  bounds = bnd2;
-	else if (pl_incomplete_bounds (bnd1))
-	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
-	      && !pl_incomplete_bounds (bnd2))
+	else if (mpx_incomplete_bounds (bnd1))
+	  if (mpx_valid_bounds (bnd2) && rhs_code != MINUS_EXPR
+	      && !mpx_incomplete_bounds (bnd2))
 	    bounds = bnd2;
 	  else
 	    bounds = incomplete_bounds;
-	else if (pl_incomplete_bounds (bnd2))
-	  if (pl_valid_bounds (bnd1)
-	      && !pl_incomplete_bounds (bnd1))
+	else if (mpx_incomplete_bounds (bnd2))
+	  if (mpx_valid_bounds (bnd1)
+	      && !mpx_incomplete_bounds (bnd1))
 	    bounds = bnd1;
 	  else
 	    bounds = incomplete_bounds;
-	else if (!pl_valid_bounds (bnd1))
-	  if (pl_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
+	else if (!mpx_valid_bounds (bnd1))
+	  if (mpx_valid_bounds (bnd2) && rhs_code != MINUS_EXPR)
 	    bounds = bnd2;
-	  else if (bnd2 == pl_get_zero_bounds ())
+	  else if (bnd2 == mpx_get_zero_bounds ())
 	    bounds = bnd2;
 	  else
 	    bounds = bnd1;
-	else if (!pl_valid_bounds (bnd2))
+	else if (!mpx_valid_bounds (bnd2))
 	  bounds = bnd1;
 	else
 	  /* Seems both operands may have valid bounds.
 	     In such case use default invalid op bounds.  */
-	  bounds = pl_get_invalid_op_bounds ();
+	  bounds = mpx_get_invalid_op_bounds ();
       }
       break;
 
@@ -1639,18 +1744,18 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case FLOAT_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      bounds = pl_get_invalid_op_bounds ();
+      bounds = mpx_get_invalid_op_bounds ();
       break;
 
     case COND_EXPR:
       {
 	tree val1 = gimple_assign_rhs2 (assign);
 	tree val2 = gimple_assign_rhs3 (assign);
-	tree bnd1 = pl_find_bounds (val1, &iter);
-	tree bnd2 = pl_find_bounds (val2, &iter);
+	tree bnd1 = mpx_find_bounds (val1, &iter);
+	tree bnd2 = mpx_find_bounds (val2, &iter);
 	gimple stmt;
 
-	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
+	if (mpx_incomplete_bounds (bnd1) || mpx_incomplete_bounds (bnd2))
 	  bounds = incomplete_bounds;
 	else if (bnd1 == bnd2)
 	  bounds = bnd1;
@@ -1659,13 +1764,13 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	    if (!tree_node_can_be_shared (rhs1))
 	      rhs1 = unshare_expr (rhs1);
 
-	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
+	    bounds = make_ssa_name (mpx_get_tmp_var (), assign);
 	    stmt = gimple_build_assign_with_ops (COND_EXPR, bounds,
 						  rhs1, bnd1, bnd2);
 	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
 
-	    if (!pl_valid_bounds (bnd1) && !pl_valid_bounds (bnd2))
-	      pl_mark_invalid_bounds (bounds);
+	    if (!mpx_valid_bounds (bnd1) && !mpx_valid_bounds (bnd2))
+	      mpx_mark_invalid_bounds (bounds);
 	  }
       }
       break;
@@ -1674,10 +1779,10 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
     case MIN_EXPR:
       {
 	tree rhs2 = gimple_assign_rhs2 (assign);
-	tree bnd1 = pl_find_bounds (rhs1, &iter);
-	tree bnd2 = pl_find_bounds (rhs2, &iter);
+	tree bnd1 = mpx_find_bounds (rhs1, &iter);
+	tree bnd2 = mpx_find_bounds (rhs2, &iter);
 
-	if (pl_incomplete_bounds (bnd1) || pl_incomplete_bounds (bnd2))
+	if (mpx_incomplete_bounds (bnd1) || mpx_incomplete_bounds (bnd2))
 	  bounds = incomplete_bounds;
 	else if (bnd1 == bnd2)
 	  bounds = bnd1;
@@ -1686,14 +1791,14 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
 	    gimple stmt;
 	    tree cond = build2 (rhs_code == MAX_EXPR ? GT_EXPR : LT_EXPR,
 				boolean_type_node, rhs1, rhs2);
-	    bounds = make_ssa_name (pl_get_tmp_var (), assign);
+	    bounds = make_ssa_name (mpx_get_tmp_var (), assign);
 	    stmt = gimple_build_assign_with_ops (COND_EXPR, bounds,
 						  cond, bnd1, bnd2);
 
 	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
 
-	    if (!pl_valid_bounds (bnd1) && !pl_valid_bounds (bnd2))
-	      pl_mark_invalid_bounds (bounds);
+	    if (!mpx_valid_bounds (bnd1) && !mpx_valid_bounds (bnd2))
+	      mpx_mark_invalid_bounds (bounds);
 	  }
       }
       break;
@@ -1711,20 +1816,22 @@ pl_compute_bounds_for_assignment (tree node, gimple assign)
       /* fall thru */
 
     default:
-      internal_error ("pl_compute_bounds_for_assignment: Unexpected RHS code %s",
+      internal_error ("mpx_compute_bounds_for_assignment: Unexpected RHS code %s",
 		      tree_code_name[rhs_code]);
     }
 
   gcc_assert (bounds);
 
   if (node)
-    pl_register_bounds (node, bounds);
+    mpx_register_bounds (node, bounds);
 
   return bounds;
 }
 
+/* Compute bounds for ssa name NODE defined by DEF_STMT pointed by ITER.
+   Return computed bounds*/
 static tree
-pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *iter)
+mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *iter)
 {
   tree var, bounds;
   enum gimple_code code = gimple_code (def_stmt);
@@ -1746,15 +1853,15 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
       switch (TREE_CODE (var))
 	{
 	case PARM_DECL:
-	  bounds = pl_get_bound_for_parm (node);
-	  /*bounds = pl_find_bounds (var, iter);
-	    pl_register_bounds (node, bounds);*/
+	  bounds = mpx_get_bound_for_parm (node);
+	  /*bounds = mpx_find_bounds (var, iter);
+	    mpx_register_bounds (node, bounds);*/
 	  break;
 
 	case VAR_DECL:
 	  /* For uninitialized pointers use none bounds.  */
-	  bounds = pl_get_none_bounds ();
-	  pl_register_bounds (node, bounds);
+	  bounds = mpx_get_none_bounds ();
+	  mpx_register_bounds (node, bounds);
 	  break;
 
 	case RESULT_DECL:
@@ -1769,8 +1876,8 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 			&& TREE_CODE (TYPE_SIZE (base_type)) == INTEGER_CST
 			&& tree_low_cst (TYPE_SIZE (base_type), 1) != 0);
 
-	    bounds = pl_make_bounds (node, TYPE_SIZE_UNIT (base_type), NULL, false);
-	    pl_register_bounds (node, bounds);
+	    bounds = mpx_make_bounds (node, TYPE_SIZE_UNIT (base_type), NULL, false);
+	    mpx_register_bounds (node, bounds);
 	  }
 	  break;
 
@@ -1780,56 +1887,61 @@ pl_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *i
 	      fprintf (dump_file, "Unexpected var with no definition\n");
 	      print_generic_expr (dump_file, var, 0);
 	    }
-	  internal_error ("pl_get_bounds_by_definition: Unexpected var of type %s",
+	  internal_error ("mpx_get_bounds_by_definition: Unexpected var of type %s",
 			  tree_code_name[(int) TREE_CODE (var)]);
 	}
       break;
 
     case GIMPLE_ASSIGN:
-      bounds = pl_compute_bounds_for_assignment (node, def_stmt);
+      bounds = mpx_compute_bounds_for_assignment (node, def_stmt);
       break;
 
     case GIMPLE_CALL:
-      bounds = pl_build_returned_bound (def_stmt);
+      bounds = mpx_build_returned_bound (def_stmt);
       break;
 
     case GIMPLE_PHI:
-      stmt = create_phi_node (pl_get_tmp_var (), gimple_bb (def_stmt));
+      stmt = create_phi_node (mpx_get_tmp_var (), gimple_bb (def_stmt));
       bounds = gimple_phi_result (stmt);
       *iter = gsi_for_stmt (stmt);
 
-      pl_register_bounds (node, bounds);
-      pl_register_incomplete_bounds (bounds, node);
+      mpx_register_bounds (node, bounds);
+      mpx_register_incomplete_bounds (bounds, node);
       break;
 
     case GIMPLE_ASM:
-      bounds = pl_get_zero_bounds ();
-      pl_register_bounds (node, bounds);
+      bounds = mpx_get_zero_bounds ();
+      mpx_register_bounds (node, bounds);
       warning (0, "PL: inline assembler is a potential pointer producer; using zero bounds (%s:%d)",
 	       LOCATION_FILE (gimple_location (def_stmt)),
 	       LOCATION_LINE (gimple_location (def_stmt)));
       break;
 
     default:
-      internal_error ("pl_get_bounds_by_definition: Unexpected GIMPLE code %s",
+      internal_error ("mpx_get_bounds_by_definition: Unexpected GIMPLE code %s",
 		      gimple_code_name[code]);
     }
 
   return bounds;
 }
 
+/* Return CALL_EXPR for bndmk with specified LOWER_BOUND and SIZE.  */
 tree
-pl_build_make_bounds_call (tree lb, tree size)
+mpx_build_make_bounds_call (tree lower_bound, tree size)
 {
   tree call = build1 (ADDR_EXPR,
-		      build_pointer_type (TREE_TYPE (pl_bndmk_fndecl)),
-		      pl_bndmk_fndecl);
-  return build_call_nary (TREE_TYPE (TREE_TYPE (pl_bndmk_fndecl)),
-			  call, 2, lb, size);
+		      build_pointer_type (TREE_TYPE (mpx_bndmk_fndecl)),
+		      mpx_bndmk_fndecl);
+  return build_call_nary (TREE_TYPE (TREE_TYPE (mpx_bndmk_fndecl)),
+			  call, 2, lower_bound, size);
 }
 
+/* Generate code to make bounds with specified lower bound LB and SIZE.
+   if AFTER is 1 then code is inserted after position pointed by ITER
+   otherwise code is inserted before position pointed by ITER.
+   If ITER is NULL then code is added to entry block.  */
 static tree
-pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
+mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
 {
   gimple_seq seq;
   gimple_stmt_iterator gsi;
@@ -1839,17 +1951,17 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
   if (iter)
     gsi = *iter;
   else
-    gsi = gsi_start_bb (pl_get_entry_block ());
+    gsi = gsi_start_bb (mpx_get_entry_block ());
 
   seq = NULL;//gimple_seq_alloc ();
 
-  lb = pl_force_gimple_call_op (lb, &seq);
-  size = pl_force_gimple_call_op (size, &seq);
+  lb = mpx_force_gimple_call_op (lb, &seq);
+  size = mpx_force_gimple_call_op (size, &seq);
 
-  stmt = gimple_build_call (pl_bndmk_fndecl, 2, lb, size);
-  pl_mark_stmt (stmt);
+  stmt = gimple_build_call (mpx_bndmk_fndecl, 2, lb, size);
+  mpx_mark_stmt (stmt);
 
-  bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+  bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -1881,9 +1993,9 @@ pl_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
    In such cases we generate code to compute var bounds using special
    symbols pointing its begin and end.  */
 static tree
-pl_generate_extern_var_bounds (tree var)
+mpx_generate_extern_var_bounds (tree var)
 {
-  const char *prefix = "__pl_end_of_";
+  const char *prefix = "__mpx_end_of_";
   const char *var_name = IDENTIFIER_POINTER (DECL_NAME (var));
   tree bounds;
   tree end_decl;
@@ -1892,11 +2004,11 @@ pl_generate_extern_var_bounds (tree var)
   tree size;
   char *end_name;
 
-  /* If PL instrumentation is not enabled for vars having
+  /* If MPX instrumentation is not enabled for vars having
      incomplete type then just return zero bounds to avoid
      checks for this var.  */
-  if (!flag_pl_incomplete_type)
-    return pl_get_zero_bounds ();
+  if (!flag_mpx_incomplete_type)
+    return mpx_get_zero_bounds ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1921,21 +2033,23 @@ pl_generate_extern_var_bounds (tree var)
 						NULL_TREE);
 //  create_var_ann (end_decl);
 
-  lb = pl_build_addr_expr (var);
-  var_end = pl_build_addr_expr (end_decl);
+  lb = mpx_build_addr_expr (var);
+  var_end = mpx_build_addr_expr (end_decl);
   size = size_binop (MINUS_EXPR,
-		     fold_convert (pl_uintptr_type, var_end),
-		     fold_convert (pl_uintptr_type, lb));
+		     fold_convert (mpx_uintptr_type, var_end),
+		     fold_convert (mpx_uintptr_type, lb));
 
-  bounds = pl_make_bounds (lb, size, NULL, false);
+  bounds = mpx_make_bounds (lb, size, NULL, false);
 
   free (end_name);
 
   return bounds;
 }
 
+/* Return 1 if TYPE has fields with zero size or fields
+   marked with mpx_variable_size attribute.  */
 bool
-pl_variable_size_type (tree type)
+mpx_variable_size_type (tree type)
 {
   bool res = false;
   tree field;
@@ -1945,8 +2059,8 @@ pl_variable_size_type (tree type)
       {
 	if (TREE_CODE (field) == FIELD_DECL)
 	  res = res
-	    || lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field))
-	    || pl_variable_size_type (TREE_TYPE (field));
+	    || lookup_attribute ("mpx_variable_size", DECL_ATTRIBUTES (field))
+	    || mpx_variable_size_type (TREE_TYPE (field));
       }
   else
     res = !TYPE_SIZE (type)
@@ -1956,8 +2070,10 @@ pl_variable_size_type (tree type)
   return res;
 }
 
+/* Compute and retrurn bounds for DECL which is
+   either VAR_DECL or PARM_DECL.  */
 static tree
-pl_get_bounds_for_decl (tree decl)
+mpx_get_bounds_for_decl (tree decl)
 {
   tree bounds;
   tree lb;
@@ -1965,7 +2081,7 @@ pl_get_bounds_for_decl (tree decl)
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL);
 
-  bounds = pl_get_registered_bounds (decl);
+  bounds = mpx_get_registered_bounds (decl);
 
   if (bounds)
     return bounds;
@@ -1977,24 +2093,26 @@ pl_get_bounds_for_decl (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = pl_build_addr_expr (decl);
+  lb = mpx_build_addr_expr (decl);
 
   if (!DECL_SIZE (decl)
-      || pl_variable_size_type (TREE_TYPE (decl)))
+      || mpx_variable_size_type (TREE_TYPE (decl)))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      bounds = pl_generate_extern_var_bounds (decl);
+      bounds = mpx_generate_extern_var_bounds (decl);
     }
   else
-    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
 
-  pl_register_bounds (decl, bounds);
+  mpx_register_bounds (decl, bounds);
 
   return bounds;
 }
 
+/* Compute and return bounds for address of DECL which is
+   one of VAR_DECL, PARM_DECL, RESULT_DECL.  */
 static tree
-pl_get_bounds_for_decl_addr (tree decl)
+mpx_get_bounds_for_decl_addr (tree decl)
 {
   tree bounds;
   tree lb;
@@ -2003,7 +2121,7 @@ pl_get_bounds_for_decl_addr (tree decl)
 	      || TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL);
 
-  bounds = pl_get_registered_addr_bounds (decl);
+  bounds = mpx_get_registered_addr_bounds (decl);
 
   if (bounds)
     return bounds;
@@ -2015,22 +2133,23 @@ pl_get_bounds_for_decl_addr (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = pl_build_addr_expr (decl);
+  lb = mpx_build_addr_expr (decl);
 
   if (!DECL_SIZE (decl)
-      || pl_variable_size_type (TREE_TYPE (decl)))
+      || mpx_variable_size_type (TREE_TYPE (decl)))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      bounds = pl_generate_extern_var_bounds (decl);
+      bounds = mpx_generate_extern_var_bounds (decl);
     }
   else
-    bounds = pl_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
 
   return bounds;
 }
 
+/* Compute and return bounds for constant string.  */
 static tree
-pl_get_bounds_for_string_cst (tree cst)
+mpx_get_bounds_for_string_cst (tree cst)
 {
   tree bounds;
   tree lb;
@@ -2038,25 +2157,28 @@ pl_get_bounds_for_string_cst (tree cst)
 
   gcc_assert (TREE_CODE (cst) == STRING_CST);
 
-  bounds = pl_get_registered_bounds (cst);
+  bounds = mpx_get_registered_bounds (cst);
 
   if (bounds)
     return bounds;
 
-  lb = pl_build_addr_expr (cst);
-  size = build_int_cst (pl_uintptr_type, TREE_STRING_LENGTH (cst));
-  bounds = pl_make_bounds (lb, size, NULL, false);
+  lb = mpx_build_addr_expr (cst);
+  size = build_int_cst (mpx_uintptr_type, TREE_STRING_LENGTH (cst));
+  bounds = mpx_make_bounds (lb, size, NULL, false);
 
-  pl_register_bounds (cst, bounds);
+  mpx_register_bounds (cst, bounds);
 
   return bounds;
 }
 
+/* Compute and returne bounds for address of OBJ.
+   If ALWAYS_NARROW_FIELDS is 1 then we need to narrow
+   bounds to the smallest addressed field.  */
 static tree
-pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
-				 bool always_narrow_fields)
+mpx_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
+				  bool always_narrow_fields)
 {
-  tree bounds = pl_get_registered_addr_bounds (obj);
+  tree bounds = mpx_get_registered_addr_bounds (obj);
 
   if (bounds)
     return bounds;
@@ -2066,11 +2188,11 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
-      bounds = pl_get_bounds_for_decl_addr (obj);
+      bounds = mpx_get_bounds_for_decl_addr (obj);
       break;
 
     case STRING_CST:
-      bounds = pl_get_bounds_for_string_cst (obj);
+      bounds = mpx_get_bounds_for_string_cst (obj);
       break;
 
     case ARRAY_REF:
@@ -2081,7 +2203,7 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 	bool safe;
 	bool bitfield;
 
-	pl_parse_array_and_component_ref (obj, &ptr, &elt, &safe,
+	mpx_parse_array_and_component_ref (obj, &ptr, &elt, &safe,
 					  &bitfield, &bounds, iter, true,
 					  always_narrow_fields);
 
@@ -2091,16 +2213,16 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 
     case FUNCTION_DECL:
     case LABEL_DECL:
-      bounds = pl_get_zero_bounds ();
+      bounds = mpx_get_zero_bounds ();
       break;
 
     case MEM_REF:
-      bounds = pl_find_bounds (TREE_OPERAND (obj, 0), iter);
+      bounds = mpx_find_bounds (TREE_OPERAND (obj, 0), iter);
       break;
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (obj, 0),
+      bounds = mpx_make_addressed_object_bounds (TREE_OPERAND (obj, 0),
 						iter,
 						always_narrow_fields);
       break;
@@ -2108,16 +2230,16 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "pl_make_addressed_object_bounds: "
+	  fprintf (dump_file, "mpx_make_addressed_object_bounds: "
 		   "unexpected object of type %s\n",
 		   tree_code_name[TREE_CODE (obj)]);
 	  print_node (dump_file, "", obj, 0);
 	}
-      internal_error ("pl_make_addressed_object_bounds: Unexpected tree code %s",
+      internal_error ("mpx_make_addressed_object_bounds: Unexpected tree code %s",
 		      tree_code_name[TREE_CODE (obj)]);
     }
 
-  pl_register_addr_bounds (obj, bounds);
+  mpx_register_addr_bounds (obj, bounds);
 
   return bounds;
 }
@@ -2134,11 +2256,11 @@ pl_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
    to point to the inserted bndldx statement.
 
    If ALWAYS_NARROW_FIELD is non zero and PTR is an address of structure
-   field then we have to ignore flag_pl_first_field_has_own_bounds flag
+   field then we have to ignore flag_mpx_first_field_has_own_bounds flag
    value and perform bounds narrowing for this field.  */
 
 static tree
-pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
+mpx_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		  bool always_narrow_fields)
 {
   tree addr = NULL_TREE;
@@ -2147,7 +2269,7 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
   if (!ptr_src)
     ptr_src = ptr;
 
-  bounds = pl_get_registered_bounds (ptr_src);
+  bounds = mpx_get_registered_bounds (ptr_src);
 
   if (bounds)
     return bounds;
@@ -2160,34 +2282,34 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     case VAR_DECL:
       if (BOUNDED_P (ptr_src))
 	if (TREE_CODE (ptr) == VAR_DECL && DECL_REGISTER (ptr))
-	  bounds = pl_get_zero_bounds ();
+	  bounds = mpx_get_zero_bounds ();
 	else
 	  {
-	    addr = pl_build_addr_expr (ptr_src);
-	    bounds = pl_build_bndldx (addr, ptr, iter);
+	    addr = mpx_build_addr_expr (ptr_src);
+	    bounds = mpx_build_bndldx (addr, ptr, iter);
 	  }
       else
-	bounds = pl_get_nonpointer_load_bounds ();
+	bounds = mpx_get_nonpointer_load_bounds ();
       break;
 
     case PARM_DECL:
       gcc_unreachable ();
-      bounds = pl_get_bound_for_parm (ptr_src);
+      bounds = mpx_get_bound_for_parm (ptr_src);
       break;
 
     case TARGET_MEM_REF:
-      addr = pl_build_addr_expr (ptr_src);
-      bounds = pl_build_bndldx (addr, ptr, iter);
+      addr = mpx_build_addr_expr (ptr_src);
+      bounds = mpx_build_bndldx (addr, ptr, iter);
       break;
 
     case SSA_NAME:
-      bounds = pl_get_registered_bounds (ptr_src);
+      bounds = mpx_get_registered_bounds (ptr_src);
       if (!bounds)
 	{
 	  gimple def_stmt = SSA_NAME_DEF_STMT (ptr_src);
 	  gimple_stmt_iterator phi_iter;
 
-	  bounds = pl_get_bounds_by_definition(ptr_src, def_stmt, &phi_iter);
+	  bounds = mpx_get_bounds_by_definition(ptr_src, def_stmt, &phi_iter);
 
 	  gcc_assert (bounds);
 
@@ -2201,12 +2323,12 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 		  tree arg_bnd;
 		  gimple phi_bnd;
 
-		  arg_bnd = pl_find_bounds (arg, NULL);
+		  arg_bnd = mpx_find_bounds (arg, NULL);
 
-		  /* pl_get_bounds_by_definition created new phi
+		  /* mpx_get_bounds_by_definition created new phi
 		     statement and phi_iter points to it.
 
-		     Previous call to pl_find_bounds could create
+		     Previous call to mpx_find_bounds could create
 		     new basic block and therefore change phi statement
 		     phi_iter points to.  */
 		  phi_bnd = gsi_stmt (phi_iter);
@@ -2216,35 +2338,35 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 			       UNKNOWN_LOCATION);
 		}
 
-	      if (pl_may_finish_incomplete_bounds ())
-		pl_finish_incomplete_bounds ();
+	      if (mpx_may_finish_incomplete_bounds ())
+		mpx_finish_incomplete_bounds ();
 	    }
 
-	  gcc_assert (bounds == pl_get_registered_bounds (ptr_src)
-		      || pl_incomplete_bounds (bounds));
+	  gcc_assert (bounds == mpx_get_registered_bounds (ptr_src)
+		      || mpx_incomplete_bounds (bounds));
 	}
       break;
 
     case ADDR_EXPR:
-      bounds = pl_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter,
+      bounds = mpx_make_addressed_object_bounds (TREE_OPERAND (ptr_src, 0), iter,
 						always_narrow_fields);
       break;
 
     case INTEGER_CST:
       if (ptr_src == integer_zero_node)
-	bounds = pl_get_none_bounds ();
+	bounds = mpx_get_none_bounds ();
       else
-	bounds = pl_get_invalid_op_bounds ();
+	bounds = mpx_get_invalid_op_bounds ();
       break;
 
     default:
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "pl_find_bounds: unexpected ptr of type %s\n",
+	  fprintf (dump_file, "mpx_find_bounds: unexpected ptr of type %s\n",
 		   tree_code_name[TREE_CODE (ptr_src)]);
 	  print_node (dump_file, "", ptr_src, 0);
 	}
-      internal_error ("pl_find_bounds: Unexpected tree code %s",
+      internal_error ("mpx_find_bounds: Unexpected tree code %s",
 		      tree_code_name[TREE_CODE (ptr_src)]);
     }
 
@@ -2252,46 +2374,47 @@ pl_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (stderr, "pl_find_bounds: cannot find bounds for pointer\n");
+	  fprintf (stderr, "mpx_find_bounds: cannot find bounds for pointer\n");
 	  print_node (dump_file, "", ptr_src, 0);
 	}
-      internal_error ("pl_find_bounds: Cannot find bounds for pointer");
+      internal_error ("mpx_find_bounds: Cannot find bounds for pointer");
     }
 
   return bounds;
 }
 
 /* Normal case for bounds search without forced narrowing.  */
-
 static tree
-pl_find_bounds (tree ptr, gimple_stmt_iterator *iter)
+mpx_find_bounds (tree ptr, gimple_stmt_iterator *iter)
 {
-  return pl_find_bounds_1 (ptr, NULL_TREE, iter, false);
+  return mpx_find_bounds_1 (ptr, NULL_TREE, iter, false);
 }
 
 /* Search bounds for pointer PTR loaded from PTR_SRC
    by statement *ITER points to.  */
-
 static tree
-pl_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
+mpx_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
 {
-  return pl_find_bounds_1 (ptr, ptr_src, iter, false);
+  return mpx_find_bounds_1 (ptr, ptr_src, iter, false);
 }
 
 /* Search for narrowed bounds if applicable.  */
-
 static tree
-pl_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter)
+mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter)
 {
-  return pl_find_bounds_1 (ptr, NULL_TREE, iter, true);
+  return mpx_find_bounds_1 (ptr, NULL_TREE, iter, true);
 }
 
+/* Generate code to instersect bounds BOUNDS1 and BOUNDS2 and
+   return the result.  if ITER is not NULL then Code is inserted
+   before position pointed by ITER.  Otherwise code is added to
+   entry block.  */
 static tree
-pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
+mpx_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 {
-  if (!bounds1 || bounds1 == pl_get_zero_bounds ())
+  if (!bounds1 || bounds1 == mpx_get_zero_bounds ())
     return bounds2 ? bounds2 : bounds1;
-  else if (!bounds2 || bounds2 == pl_get_zero_bounds ())
+  else if (!bounds2 || bounds2 == mpx_get_zero_bounds ())
     return bounds1;
   else
     {
@@ -2301,10 +2424,10 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 
       seq = NULL;//gimple_seq_alloc ();
 
-      stmt = gimple_build_call (pl_intersect_fndecl, 2, bounds1, bounds2);
-      pl_mark_stmt (stmt);
+      stmt = gimple_build_call (mpx_intersect_fndecl, 2, bounds1, bounds2);
+      mpx_mark_stmt (stmt);
 
-      bounds = make_ssa_name (pl_get_tmp_var (), stmt);
+      bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
       gimple_call_set_lhs (stmt, bounds);
 
       gimple_seq_add_stmt (&seq, stmt);
@@ -2313,7 +2436,7 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
 	 In such case iter may be undefined.  */
       if (!iter)
 	{
-	  gimple_stmt_iterator gsi = gsi_last_bb (pl_get_entry_block ());
+	  gimple_stmt_iterator gsi = gsi_last_bb (mpx_get_entry_block ());
 	  iter = &gsi;
 	  gsi_insert_seq_after (iter, seq, GSI_SAME_STMT);
 	}
@@ -2333,8 +2456,10 @@ pl_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
     }
 }
 
+/* Return 1 if we are allowed to narrow bounds for addressed FIELD
+   and 0 othersize.  */
 static bool
-pl_may_narrow_to_field (tree field)
+mpx_may_narrow_to_field (tree field)
 {
   return DECL_SIZE (field) && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST
     && tree_low_cst (DECL_SIZE (field), 1) != 0
@@ -2342,23 +2467,22 @@ pl_may_narrow_to_field (tree field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST)
-    && !lookup_attribute ("pl_variable_size", DECL_ATTRIBUTES (field))
-    && !pl_variable_size_type (TREE_TYPE (field));
+    && !lookup_attribute ("mpx_variable_size", DECL_ATTRIBUTES (field))
+    && !mpx_variable_size_type (TREE_TYPE (field));
 }
 
-/* Return true if bounds for FIELD should be narrowed to
+/* Return 1 if bounds for FIELD should be narrowed to
    field's own size.
 
    If ALWAYS_NARROW is non zero and narrowing is possible
    then true is returned.  */
-
 static bool
-pl_narrow_bounds_for_field (tree field, bool always_narrow)
+mpx_narrow_bounds_for_field (tree field, bool always_narrow)
 {
   HOST_WIDE_INT offs;
   HOST_WIDE_INT bit_offs;
 
-  if (!pl_may_narrow_to_field (field))
+  if (!mpx_may_narrow_to_field (field))
     return false;
 
   /* Accesse to compiler generated fields should not cause
@@ -2369,25 +2493,47 @@ pl_narrow_bounds_for_field (tree field, bool always_narrow)
   offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
   bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
 
-  return (always_narrow || flag_pl_first_field_has_own_bounds || offs || bit_offs);
+  return (always_narrow || flag_mpx_first_field_has_own_bounds || offs || bit_offs);
 }
 
+/* Perform narrowing for BOUNDS using bounds computed for field
+   access COMPONENT.  ITER meaning is the same as for
+   mpx_intersect_bounds.  */
 static tree
-pl_narrow_bounds_to_field (tree bounds, tree component,
-			   gimple_stmt_iterator *iter)
+mpx_narrow_bounds_to_field (tree bounds, tree component,
+			    gimple_stmt_iterator *iter)
 {
   tree field = TREE_OPERAND (component, 1);
   tree size = DECL_SIZE_UNIT (field);
-  tree field_ptr = pl_build_addr_expr (component);
+  tree field_ptr = mpx_build_addr_expr (component);
   tree field_bounds;
 
-  field_bounds = pl_make_bounds (field_ptr, size, iter, false);
+  field_bounds = mpx_make_bounds (field_ptr, size, iter, false);
 
-  return pl_intersect_bounds (field_bounds, bounds, iter);
+  return mpx_intersect_bounds (field_bounds, bounds, iter);
 }
 
+/* Parse field or array access NODE.
+
+   PTR ouput parameter holds a pointer to the outermost
+   object.
+
+   BITFIELD output parameter is set to 1 if bitfield is
+   accessed and to 0 otherwise.  If it is 1 then ELT holds
+   outer component for accessed bit field.
+
+   SAFE outer parameter is set to 1 if access is safe and
+   checks are not required.
+
+   BOUNDS outer parameter holds bounds to be used to check
+   access.
+
+   If INNERMOST_BOUNDS is 1 then try to narrow bounds to the
+   innermost ccessed component.
+
+   If ALWAYS_NARROW then do narrowing ignoring field offset.  */   
 static void
-pl_parse_array_and_component_ref (tree node, tree *ptr,
+mpx_parse_array_and_component_ref (tree node, tree *ptr,
 				  tree *elt, bool *safe,
 				  bool *bitfield,
 				  tree *bounds,
@@ -2440,7 +2586,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
     {
       *safe = false;
       *ptr = TREE_OPERAND (nodes[0], 0);
-      *bounds = pl_find_bounds (*ptr, iter);
+      *bounds = mpx_find_bounds (*ptr, iter);
     }
   else
     {
@@ -2449,7 +2595,7 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 		  || TREE_CODE (var) == RESULT_DECL
 		  || TREE_CODE (var) == STRING_CST);
 
-      *ptr = pl_build_addr_expr (var);
+      *ptr = mpx_build_addr_expr (var);
     }
 
   /* In this loop we are trying to find a field access
@@ -2466,9 +2612,9 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 	{
 	  *safe = false;
 	  array_ref_found = true;
-	  if (!flag_pl_narrow_to_innermost_arrray
+	  if (!flag_mpx_narrow_to_innermost_arrray
 	      && (!last_comp
-		  || pl_may_narrow_to_field (TREE_OPERAND (last_comp, 1))))
+		  || mpx_may_narrow_to_field (TREE_OPERAND (last_comp, 1))))
 	    {
 	      comp_to_narrow = last_comp;
 	      break;
@@ -2480,14 +2626,14 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
 
 	  if (innermost_bounds
 	      && !array_ref_found
-	      && pl_narrow_bounds_for_field (field, always_narrow))
+	      && mpx_narrow_bounds_for_field (field, always_narrow))
 	    comp_to_narrow = var;
 	  last_comp = var;
 
-	  if (flag_pl_narrow_to_innermost_arrray
+	  if (flag_mpx_narrow_to_innermost_arrray
 	      && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	    {
-	      *bounds = pl_narrow_bounds_to_field (*bounds, var, iter);
+	      *bounds = mpx_narrow_bounds_to_field (*bounds, var, iter);
 	      comp_to_narrow = NULL;
 	    }
 	}
@@ -2496,14 +2642,15 @@ pl_parse_array_and_component_ref (tree node, tree *ptr,
     }
 
   if (comp_to_narrow && DECL_SIZE (TREE_OPERAND (comp_to_narrow, 1)))
-    *bounds = pl_narrow_bounds_to_field (*bounds, comp_to_narrow, iter);
+    *bounds = mpx_narrow_bounds_to_field (*bounds, comp_to_narrow, iter);
 
   if (innermost_bounds && !*bounds)
-    *bounds = pl_find_bounds (*ptr, iter);
+    *bounds = mpx_find_bounds (*ptr, iter);
 }
 
+/* Return COMPONENT_REF accessing FIELD in OBJ.  */
 static tree
-pl_build_component_ref (tree obj, tree field)
+mpx_build_component_ref (tree obj, tree field)
 {
   tree res;
 
@@ -2526,8 +2673,10 @@ pl_build_component_ref (tree obj, tree field)
   return res;
 }
 
+/* Return ARRAY_REF for array ARR and index IDX with
+   specified element type ETYPE and element size ESIZE.  */
 static tree
-pl_build_array_ref (tree arr, tree etype, tree esize,
+mpx_build_array_ref (tree arr, tree etype, tree esize,
 		    unsigned HOST_WIDE_INT idx)
 {
   tree index = build_int_cst (size_type_node, idx);
@@ -2558,18 +2707,23 @@ pl_build_array_ref (tree arr, tree etype, tree esize,
   return res;
 }
 
+/* Add code to copy bounds for assignment of RHS to LHS.  */
 static void
-pl_copy_bounds_for_assign (tree lhs, tree rhs, void *arg)
+mpx_copy_bounds_for_assign (tree lhs, tree rhs, void *arg)
 {
   gimple_stmt_iterator *iter = (gimple_stmt_iterator *)arg;
-  tree bounds = pl_find_bounds (rhs, iter);
-  tree addr = pl_build_addr_expr(lhs);
+  tree bounds = mpx_find_bounds (rhs, iter);
+  tree addr = mpx_build_addr_expr(lhs);
 
-  pl_build_bndstx (addr, rhs, bounds, iter);
+  mpx_build_bndstx (addr, rhs, bounds, iter);
 }
 
+/* Helper function which checks type of RHS and finds all pointers in
+   it.  For each found pointer we build it's accesses in LHS and RHS
+   objects and then call HANDLER for them.  Function is used to copy
+   or initilize bounds for copied object.  */
 static void
-pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handler)
+mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handler)
 {
   tree type = TREE_TYPE (rhs);
 
@@ -2590,21 +2744,21 @@ pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handl
 
 	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs), cnt, field, val)
 	    {
-	      if (pl_type_has_pointer (TREE_TYPE (field)))
+	      if (mpx_type_has_pointer (TREE_TYPE (field)))
 		{
-		  tree lhs_field = pl_build_component_ref (lhs, field);
-		  pl_walk_pointer_assignments (lhs_field, val, arg, handler);
+		  tree lhs_field = mpx_build_component_ref (lhs, field);
+		  mpx_walk_pointer_assignments (lhs_field, val, arg, handler);
 		}
 	    }
 	}
       else
 	for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	  if (TREE_CODE (field) == FIELD_DECL
-	      && pl_type_has_pointer (TREE_TYPE (field)))
+	      && mpx_type_has_pointer (TREE_TYPE (field)))
 	    {
-	      tree rhs_field = pl_build_component_ref (rhs, field);
-	      tree lhs_field = pl_build_component_ref (lhs, field);
-	      pl_walk_pointer_assignments (lhs_field, rhs_field, arg, handler);
+	      tree rhs_field = mpx_build_component_ref (rhs, field);
+	      tree lhs_field = mpx_build_component_ref (lhs, field);
+	      mpx_walk_pointer_assignments (lhs_field, rhs_field, arg, handler);
 	    }
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -2630,8 +2784,8 @@ pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handl
 		       cur <= tree_low_cst (hi_index, 1);
 		       cur++)
 		    {
-		      lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
-		      pl_walk_pointer_assignments (lhs_elem, val, arg, handler);
+		      lhs_elem = mpx_build_array_ref (lhs, etype, esize, cur);
+		      mpx_walk_pointer_assignments (lhs_elem, val, arg, handler);
 		    }
 		}
 	      else
@@ -2644,9 +2798,9 @@ pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handl
 		      cur++;
 		    }
 
-		  lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
+		  lhs_elem = mpx_build_array_ref (lhs, etype, esize, cur);
 
-		  pl_walk_pointer_assignments (lhs_elem, val, arg, handler);
+		  mpx_walk_pointer_assignments (lhs_elem, val, arg, handler);
 		}
 	    }
 	}
@@ -2654,18 +2808,37 @@ pl_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handl
       else if (maxval)
 	for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	  {
-	    tree lhs_elem = pl_build_array_ref (lhs, etype, esize, cur);
-	    tree rhs_elem = pl_build_array_ref (rhs, etype, esize, cur);
-	    pl_walk_pointer_assignments (lhs_elem, rhs_elem, arg, handler);
+	    tree lhs_elem = mpx_build_array_ref (lhs, etype, esize, cur);
+	    tree rhs_elem = mpx_build_array_ref (rhs, etype, esize, cur);
+	    mpx_walk_pointer_assignments (lhs_elem, rhs_elem, arg, handler);
 	  }
     }
   else
-    internal_error("pl_walk_pointer_assignments: unexpected RHS type: %s",
+    internal_error("mpx_walk_pointer_assignments: unexpected RHS type: %s",
 		   tree_code_name[TREE_CODE (type)]);
 }
 
+/* An instrumentation function which is called for each statement
+   having memory access we want to instrument.  It inserts check
+   code and bounds copy code.
+
+   ITER points to statement to instrument.
+
+   NODE holds memory access in statement to check.
+
+   LOC holds the location information for statement.
+
+   DIRFLAGS determines whether access is read or write.
+
+   ACCESS_OFFS should be added to address used in NODE
+   before check.
+
+   ACCESS_SIZE holds size of checked access.
+
+   SAFE indicates if NODE access is safe and should not be
+   checked.  */
 static void
-pl_process_stmt (gimple_stmt_iterator *iter, tree node,
+mpx_process_stmt (gimple_stmt_iterator *iter, tree node,
 		 location_t loc, tree dirflag,
 		 tree access_offs, tree access_size,
 		 bool safe)
@@ -2689,11 +2862,11 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  {
 	    /* We are not going to generate any checks, so do not
 	       generate bounds as well.  */
-	    addr_first = pl_build_addr_expr (node);
+	    addr_first = mpx_build_addr_expr (node);
 	    break;
 	  }
 
-	pl_parse_array_and_component_ref (node, &ptr, &elt, &safe,
+	mpx_parse_array_and_component_ref (node, &ptr, &elt, &safe,
 					  &bitfield, &bounds, iter, false,
 					  false);
 
@@ -2707,14 +2880,14 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
               size = DECL_SIZE_UNIT (field);
 
 	    if (elt)
-	      elt = pl_build_addr_expr (elt);
+	      elt = mpx_build_addr_expr (elt);
             addr_first = fold_convert_loc (loc, ptr_type_node, elt ? elt : ptr);
             addr_first = fold_build_pointer_plus_loc (loc,
 						      addr_first,
 						      byte_position (field));
           }
         else
-          addr_first = pl_build_addr_expr (node);
+          addr_first = mpx_build_addr_expr (node);
       }
       break;
 
@@ -2725,12 +2898,12 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 
     case MEM_REF:
       ptr = TREE_OPERAND (node, 0);
-      addr_first = pl_build_addr_expr (node);
+      addr_first = mpx_build_addr_expr (node);
       break;
 
     case TARGET_MEM_REF:
       ptr = TMR_BASE (node);
-      addr_first = pl_build_addr_expr (node);
+      addr_first = mpx_build_addr_expr (node);
       break;
 
     case ARRAY_RANGE_REF:
@@ -2757,7 +2930,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
         size = size_binop_loc (loc, CEIL_DIV_EXPR, size, bpu);
         size = fold_convert (size_type_node, size);
 
-	pl_process_stmt (iter, TREE_OPERAND (node, 0), loc,
+	mpx_process_stmt (iter, TREE_OPERAND (node, 0), loc,
 			 dirflag, offs, size, safe);
 	return;
       }
@@ -2771,7 +2944,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
 	return;
 
       safe = true;
-      addr_first = pl_build_addr_expr (node);
+      addr_first = mpx_build_addr_expr (node);
       break;
 
     default:
@@ -2799,25 +2972,25 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
       gimple_stmt_iterator stmt_iter = *iter;
 
       if (!bounds)
-	bounds = pl_find_bounds (ptr, iter);
+	bounds = mpx_find_bounds (ptr, iter);
 
-      pl_check_mem_access (addr_first, addr_last, bounds,
+      mpx_check_mem_access (addr_first, addr_last, bounds,
 			   stmt_iter, loc, dirflag);
     }
 
   /* We need to generate bndstx in case pointer is stored.  */
-  if (dirflag == integer_one_node && pl_type_has_pointer (node_type))
+  if (dirflag == integer_one_node && mpx_type_has_pointer (node_type))
     {
       gimple stmt = gsi_stmt (*iter);
       tree rhs1 = gimple_assign_rhs1 (stmt);
       enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
       if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
-	pl_walk_pointer_assignments (node, rhs1, iter, pl_copy_bounds_for_assign);
+	mpx_walk_pointer_assignments (node, rhs1, iter, mpx_copy_bounds_for_assign);
       else
 	{
-	  bounds = pl_compute_bounds_for_assignment (NULL_TREE, stmt);
-	  pl_build_bndstx (addr_first, rhs1, bounds, iter);
+	  bounds = mpx_compute_bounds_for_assignment (NULL_TREE, stmt);
+	  mpx_build_bndstx (addr_first, rhs1, bounds, iter);
 	}
     }
 }
@@ -2828,7 +3001,7 @@ pl_process_stmt (gimple_stmt_iterator *iter, tree node,
    is created and registered as a bound for each added
    argument.  */
 static void
-pl_fix_function_decl (tree decl, bool make_ssa_names)
+mpx_fix_function_decl (tree decl, bool make_ssa_names)
 {
   tree arg = DECL_ARGUMENTS (decl);
   tree prev_arg = NULL_TREE;
@@ -2859,7 +3032,7 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
 	      SSA_NAME_IS_DEFAULT_DEF (bounds) = 1;
 
 	      gcc_assert (prev_arg);
-	      pl_register_bounds (prev_arg, bounds);
+	      mpx_register_bounds (prev_arg, bounds);
 
 	      already_fixed = true;
 	    }
@@ -2889,8 +3062,8 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
 	  name = get_identifier (name_buf);
 
 	  bounds = build_decl (UNKNOWN_LOCATION, PARM_DECL, name,
-				 pl_bound_type);
-	  DECL_ARG_TYPE (bounds) = pl_bound_type;
+				 mpx_bound_type);
+	  DECL_ARG_TYPE (bounds) = mpx_bound_type;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2910,7 +3083,7 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
 	    {
 	      tree ssa = make_ssa_name (bounds, gimple_build_nop ());
 	      SSA_NAME_IS_DEFAULT_DEF (ssa) = 1;
-	      pl_register_bounds (arg, ssa);
+	      mpx_register_bounds (arg, ssa);
 	    }
 
 	  /* Skip inserted bound arg.  */
@@ -2919,13 +3092,15 @@ pl_fix_function_decl (tree decl, bool make_ssa_names)
     }
 }
 
+/* Fix all function declarations used in this function
+   to have bound args in them.  */
 static void
-pl_fix_function_decls (void)
+mpx_fix_function_decls (void)
 {
   basic_block bb;
   gimple_stmt_iterator i;
 
-  pl_fix_function_decl (cfun->decl, true);
+  mpx_fix_function_decl (cfun->decl, true);
 
   FOR_ALL_BB (bb)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
@@ -2935,26 +3110,27 @@ pl_fix_function_decls (void)
 	  {
 	    tree fndecl = gimple_call_fndecl (stmt);
 	    if (fndecl)
-	      pl_fix_function_decl (fndecl, false);
+	      mpx_fix_function_decl (fndecl, false);
 	  }
       }
 }
 
+/* Initialize pass. */
 static void
-pl_init (void)
+mpx_init (void)
 {
-  pl_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-				   NULL);
-  pl_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-					NULL);
-  pl_incomplete_bounds_map = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-					      NULL);
-  pl_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
-				     NULL);
-  pl_invalid_bounds = htab_create_ggc (31, htab_hash_pointer,
-				       htab_eq_pointer, NULL);
-  pl_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
-					     htab_eq_pointer, NULL);
+  mpx_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
+				    NULL);
+  mpx_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
+					 NULL);
+  mpx_incomplete_bounds_map = htab_create_ggc (31, tree_map_hash, tree_map_eq,
+					       NULL);
+  mpx_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
+				      NULL);
+  mpx_invalid_bounds = htab_create_ggc (31, htab_hash_pointer,
+					htab_eq_pointer, NULL);
+  mpx_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
+					      htab_eq_pointer, NULL);
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
@@ -2962,58 +3138,61 @@ pl_init (void)
   incomplete_bounds = integer_zero_node;
   tmp_var = NULL_TREE;
 
-  pl_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
-  pl_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
+  mpx_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
+  mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 
   /* Build declarations for builtin functions.  */
-  pl_bndldx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX);
-  pl_bndstx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX);
-  pl_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
-  pl_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
-  pl_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
-  pl_ret_bnd_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET);
-  pl_intersect_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT);
-  pl_user_intersect_fndecl
+  mpx_bndldx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX);
+  mpx_bndstx_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX);
+  mpx_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
+  mpx_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
+  mpx_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
+  mpx_ret_bnd_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET);
+  mpx_intersect_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT);
+  mpx_user_intersect_fndecl
     = targetm.builtin_mpx_function (BUILT_IN_MPX_USER_INTERSECT);
-  pl_bind_intersect_fndecl
+  mpx_bind_intersect_fndecl
     = targetm.builtin_mpx_function (BUILT_IN_MPX_BIND_INTERSECT);
-  pl_arg_bnd_fndecl
+  mpx_arg_bnd_fndecl
     = targetm.builtin_mpx_function (BUILT_IN_MPX_ARG_BND);
 }
 
+/* Finalize pass. */
 static void
-pl_fini (void)
+mpx_fini (void)
 {
 
 }
 
+/* Main pass function. */
 static unsigned int
-pl_execute (void)
+mpx_execute (void)
 {
   /* FIXME: check we need to instrument this function */
-  pl_init ();
+  mpx_init ();
 
-  pl_transform_function ();
+  mpx_transform_function ();
 
-  pl_fini ();
+  mpx_fini ();
 
   return 0;
 }
 
+/* Pass gate.  */
 static bool
-pl_gate (void)
+mpx_gate (void)
 {
-  return flag_pl != 0;
+  return flag_mpx != 0;
 }
 
-struct gimple_opt_pass pass_pl =
+struct gimple_opt_pass pass_mpx =
 {
  {
   GIMPLE_PASS,
-  "pl",                                 /* name */
+  "mpx",                                 /* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
-  pl_gate,                              /* gate */
-  pl_execute,                           /* execute */
+  mpx_gate,                              /* gate */
+  mpx_execute,                           /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
@@ -3027,4 +3206,4 @@ struct gimple_opt_pass pass_pl =
  }
 };
 
-#include "gt-tree-pl.h"
+#include "gt-tree-mpx.h"

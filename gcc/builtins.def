@@ -161,7 +161,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef DEF_MPX_BUILTIN
 #define DEF_MPX_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
-	       true, true, true, ATTRS, true, flag_pl)
+	       true, true, true, ATTRS, true, flag_mpx)
 
 
 /* Define an attribute list for math functions that are normally
@@ -832,7 +832,7 @@ DEF_GCC_BUILTIN (BUILT_IN_FILE, "FILE", BT_FN_CONST_STRING, ATTR_NOTHROW_LEAF_LI
 DEF_GCC_BUILTIN (BUILT_IN_FUNCTION, "FUNCTION", BT_FN_CONST_STRING, ATTR_NOTHROW_LEAF_LIST)
 DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 
-/* PL support.  */
+/* MPX support.  */
 DEF_BUILTIN_STUB (BUILT_IN_MPX_BNDMK, "__mpx_bndmk")
 DEF_BUILTIN_STUB (BUILT_IN_MPX_BNDSTX, "__mpx_bndstx")
 DEF_BUILTIN_STUB (BUILT_IN_MPX_BNDCL, "__mpx_bndcl")

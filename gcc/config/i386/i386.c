@@ -62,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 
@@ -2105,7 +2105,7 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   /* SSE REX registers */
   SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS,
   SSE_REGS, SSE_REGS,
-  /* PL bound registers */
+  /* MPX bound registers */
   BND_REGS, BND_REGS, BND_REGS, BND_REGS,
 };
 
@@ -2597,7 +2597,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrtm",		OPTION_MASK_ISA_RTM },
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
-    { "-mpl",           OPTION_MASK_ISA_PL },
+    { "-mmpx",          OPTION_MASK_ISA_MPX },
   };
 
   /* Flag options.  */
@@ -2871,7 +2871,7 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_FXSR		(HOST_WIDE_INT_1 << 37)
 #define PTA_XSAVE		(HOST_WIDE_INT_1 << 38)
 #define PTA_XSAVEOPT		(HOST_WIDE_INT_1 << 39)
-#define PTA_PL                  (HOST_WIDE_INT_1 << 40)
+#define PTA_MPX                 (HOST_WIDE_INT_1 << 40)
 /* if this reaches 64, need to widen struct pta flags below */
 
   static struct pta
@@ -3387,9 +3387,9 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_XSAVEOPT
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEOPT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_XSAVEOPT;
-        if (processor_alias_table[i].flags & PTA_PL
-            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_PL))
-          ix86_isa_flags |= OPTION_MASK_ISA_PL;
+        if (processor_alias_table[i].flags & PTA_MPX
+            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_MPX))
+          ix86_isa_flags |= OPTION_MASK_ISA_MPX;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4015,8 +4015,8 @@ ix86_conditional_register_usage (void)
       if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 
-  /* Support bound registers only for PL mode.  */
-  if (! TARGET_PL)
+  /* Support bound registers only for MPX mode.  */
+  if (! TARGET_MPX)
     {
       for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
 	fixed_regs[i] = 1, reg_names[i] = "";
@@ -4191,7 +4191,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("fxsr",	OPT_mfxsr),
     IX86_ATTR_ISA ("xsave",	OPT_mxsave),
     IX86_ATTR_ISA ("xsaveopt",	OPT_mxsaveopt),
-    IX86_ATTR_ISA ("pl",       OPT_mpl),
+    IX86_ATTR_ISA ("mpx",       OPT_mmpx),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -6192,16 +6192,16 @@ classify_argument (enum machine_mode mode, const_tree type,
 
 	if (size <= 32)
 	  {
-	    /* Pass bound for pointers and unnamed integers.  */
-	    classes[0] = flag_pl && ((type && BOUNDED_TYPE_P (type)) || !named)
+	    /* Pass bounds for pointers and unnamed integers.  */
+	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || !named)
 	      ? X86_64_BOUNDED_INTEGERSI_CLASS
 	      : X86_64_INTEGERSI_CLASS;
 	    return 1;
 	  }
 	else if (size <= 64)
 	  {
-	    /* Pass bound for pointers and unnamed integers.  */
-	    classes[0] = flag_pl && ((type && BOUNDED_TYPE_P (type)) || !named)
+	    /* Pass bounds for pointers and unnamed integers.  */
+	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || !named)
 	      ? X86_64_BOUNDED_INTEGER_CLASS
 	      : X86_64_INTEGER_CLASS;
 	    return 1;
@@ -6626,7 +6626,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
-      if (flag_pl && type && BOUNDED_TYPE_P (type))
+      if (flag_mpx && type && BOUNDED_TYPE_P (type))
 	{
 	  cum->bnd_nregs--;
 	  cum->bnd_regno++;
@@ -6827,7 +6827,7 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		regno = CX_REG;
 	    }
 
-	  if (flag_pl && type && BOUNDED_TYPE_P (type))
+	  if (flag_mpx && type && BOUNDED_TYPE_P (type))
 	    {
 	      rtx bnd = gen_rtx_EXPR_LIST (VOIDmode,
 					   gen_rtx_REG (BNDmode, cum->bnd_regno),
@@ -7363,7 +7363,9 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
+  /* Add bound register if bounds are returned in addition to
+     function value.  */
+  if (flag_mpx && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
     {
       rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
       rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
@@ -7457,7 +7459,9 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   res = gen_rtx_REG (orig_mode, regno);
 
-  if (flag_pl && BOUNDED_TYPE_P (valtype))
+  /* Add bound register if bounds are returned in addition to
+     function value.  */
+  if (flag_mpx && BOUNDED_TYPE_P (valtype))
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
@@ -7809,7 +7813,9 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       emit_move_insn (mem,
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
-      if (flag_pl)
+
+      /* In MPX mpde we need to store bounds for each stored rergister.  */
+      if (flag_mpx)
 	{
 	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
 	  rtx ptr = gen_rtx_REG (DImode,
@@ -8013,10 +8019,11 @@ ix86_va_start (tree valist, rtx nextarg)
 			       NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	  convert_move (va_r, next, 0);
 
-	  if (flag_pl)
-	    pl_expand_bounds_reset_for_mem (valist,
-					    make_tree (TREE_TYPE (valist),
-						       next));
+	  /* Store zero bounds for va_list.  */
+	  if (flag_mpx)
+	    mpx_expand_bounds_reset_for_mem (valist,
+					     make_tree (TREE_TYPE (valist),
+							next));
 
 	}
       return;
@@ -8076,8 +8083,9 @@ ix86_va_start (tree valist, rtx nextarg)
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-  if (flag_pl)
-    pl_expand_bounds_reset_for_mem (ovf, t1);
+  /* Store zero bounds for overflow area pointer.  */
+  if (flag_mpx)
+    mpx_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
@@ -8092,8 +8100,9 @@ ix86_va_start (tree valist, rtx nextarg)
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-      if (flag_pl)
-	pl_expand_bounds_reset_for_mem (sav, t1);
+      /* Store zero bounds for save area pointer.  */
+      if (flag_mpx)
+	mpx_expand_bounds_reset_for_mem (sav, t1);
     }
 }
 
@@ -8158,7 +8167,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
 				       0, 0, true);
-      pl_split_returned_reg (container, &container, &bndcontainer);
+      mpx_split_returned_reg (container, &container, &bndcontainer);
       break;
     }
 
@@ -12142,10 +12151,10 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
   return !ix86_legitimate_constant_p (mode, x);
 }
 
-/* Nonzero if the sum of passed values VAL1 and VAL2 is
+/* Determine if the sum of passed values VAL1 and VAL2 is
    a valid address operand.  If IS_INDEX is non zero then
-   VAL2 must be an index in reulting address.  Otherwise VAL2
-   is a base of resultng address.  */
+   VAL2 must be an index in resulting address.  Otherwise
+   VAL2 is a base of resultng address.  */
 bool
 ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index)
 {
@@ -12155,16 +12164,6 @@ ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index)
     val2 = gen_rtx_MULT (mode, val2, const1_rtx);
 
   return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
-  /*
-  if (!REG_P (val2))
-    return false;
-
-  if (is_index && (REGNO (val2) == VIRTUAL_INCOMING_ARGS_REGNUM
-		   || REGNO (val2) == VIRTUAL_STACK_VARS_REGNUM
-		   || REGNO (val2) == VIRTUAL_OUTGOING_ARGS_REGNUM))
-    return false;
-
-  return true; */
 }
 
 /* Nonzero if the constant value X is a legitimate general operand
@@ -14235,7 +14234,7 @@ get_some_local_dynamic_name (void)
    ~ -- print "i" if TARGET_AVX2, "f" otherwise.
    @ -- print a segment register of thread base pointer load
    ^ -- print addr32 prefix if TARGET_64BIT and Pmode != word_mode
-   ! -- print PL prefix for jxx/call/ret instructions if required.
+   ! -- print MPX prefix for jxx/call/ret instructions if required.
  */
 
 void
@@ -14727,7 +14726,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case '!':
-	  if (TARGET_PL && flag_pl)
+	  if (TARGET_MPX && flag_mpx)
 	    /*fputs ("repne ", file);*/
 	    fputs (".byte 0xf2\n\t", file);
 	  return;
@@ -23824,6 +23823,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     call = gen_rtx_SET (VOIDmode, retval, call);
   vec[vec_len++] = call;
 
+  /* b0 and b1 registers hold bounds for returned value.  */
   if (retval)
     {
       rtx b0 = gen_rtx_REG (BND64mode, FIRST_BND_REG);
@@ -26786,7 +26786,7 @@ enum ix86_builtins
   IX86_BUILTIN_XABORT,
   IX86_BUILTIN_XTEST,
 
-  /* PL */
+  /* MPX */
   IX86_BUILTIN_BNDMK32,
   IX86_BUILTIN_BNDMK64,
   IX86_BUILTIN_BNDSTX32,
@@ -27182,12 +27182,12 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
 
   /* MPX */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -28022,10 +28022,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_di3, "__builtin_ia32_pext_di", IX86_BUILTIN_PEXT64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
 
   /* MPX */
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
-  { OPTION_MASK_ISA_PL, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
 };
 
 /* FMA4 and XOP.  */
@@ -28726,30 +28726,30 @@ ix86_init_mmx_sse_builtins (void)
       def_builtin_const (d->mask, d->name, ftype, d->code);
     }
 
-  /* Add PL instructions.  */
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds32",
+  /* Add MPX instructions.  */
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds32",
 	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bind_bounds64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds64",
 	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_intersect_bounds32",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds32",
 	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_intersect_bounds64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds64",
 	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int32",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int32",
 	       PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndbind_int64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int64",
 	       PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret32",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret32",
 	       BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndret64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret64",
 	       BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint32",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint32",
 	       BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_bndint64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint64",
 	       BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_arg_bnd32",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd32",
 	       BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
-  def_builtin (OPTION_MASK_ISA_PL, "__builtin_ia32_arg_bnd64",
+  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd64",
 	       BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
 }
 
@@ -30144,8 +30144,6 @@ ix86_init_builtin_types (void)
   TYPE_PRECISION (float128_type_node) = 128;
   layout_type (float128_type_node);
   lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
-
-  
 
   /* This macro is built by i386-builtin-types.awk.  */
   DEFINE_BUILTIN_PRIMITIVE_TYPES;
@@ -32865,6 +32863,8 @@ addcarryx:
   gcc_unreachable ();
 }
 
+/* Return function decl for target specific builtin
+   for given MPX builtin passed i FCODE.  */
 static tree
 ix86_builtin_mpx_function (unsigned fcode)
 {
@@ -32917,6 +32917,11 @@ ix86_builtin_mpx_function (unsigned fcode)
   gcc_unreachable ();
 }
 
+/* Load bounds PTR pointer value loaded from SLOT.
+   if SLOT is a register then load bounds associated
+   with special address identified by BND.
+
+   Return loaded bounds.  */
 static rtx
 ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
 {
@@ -32970,6 +32975,11 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
   return reg;
 }
 
+/* Store bounds BOUNDS for PTR pointer value stored in
+   specified ADDR.  If ADDR is a register then TO identifies
+   which special address to use for bounds store.
+
+   Return NULL_RTX.  */
 static rtx
 ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
 {
@@ -33025,6 +33035,7 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
   return NULL_RTX;
 }
 
+/* Put zero bounds into bound register used to return bounds.  */
 static void
 ix86_init_returned_bounds (void)
 {
@@ -34506,7 +34517,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
-  if (TARGET_PL && BND_REGNO_P (regno))
+  if (TARGET_MPX && BND_REGNO_P (regno))
     return VALID_BND_REG_MODE(mode);
   if (SSE_REGNO_P (regno))
     {
@@ -35285,7 +35296,7 @@ x86_order_regs_for_local_alloc (void)
    for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
      reg_alloc_order [pos++] = i;
 
-   /* PL bound registers.  */
+   /* MPX bound registers.  */
    for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
      reg_alloc_order [pos++] = i;
 
@@ -43228,7 +43239,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
 
 #undef TARGET_LRA_P
-#ifdef TARGET_PL
+#ifdef TARGET_MPX
 #define TARGET_LRA_P hook_bool_void_false
 #else
 #define TARGET_LRA_P hook_bool_void_true

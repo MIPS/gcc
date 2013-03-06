@@ -50,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
-#include "tree-pl.h"
 
 extern cpp_reader *parse_in;
 

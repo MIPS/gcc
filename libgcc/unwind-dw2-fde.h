@@ -157,8 +157,11 @@ static inline const struct dwarf_cie *
 get_cie (const struct dwarf_fde *f)
 {
   const struct dwarf_cie  *p = (const void *)&f->CIE_delta - f->CIE_delta;
-  p = __pl_bind_bounds(p, p, sizeof(struct dwarf_cie));
-  return __pl_bind_bounds(p, p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
+#ifdef __MPX__
+  p = __mpx_bind_bounds(p, p, sizeof(struct dwarf_cie));
+  p =  __mpx_bind_bounds(p, p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
+#endif
+  return p;
 }
 
 static inline const fde *

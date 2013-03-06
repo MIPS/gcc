@@ -88,8 +88,8 @@
 #include <xtestintrin.h>
 #endif
 
-#ifdef __PL__
-#include <plintrin.h>
+#ifdef __MPX__
+#include <mpxintrin.h>
 #endif
 
 #ifdef __RDRND__

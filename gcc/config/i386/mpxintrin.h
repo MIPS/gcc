@@ -57,7 +57,7 @@ __pl_bndcu (__bnd b, void* p1)
 }
 */
 extern __inline void *  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-__pl_bind_bounds (void *p, void* lb, size_t size)
+__mpx_bind_bounds (void *p, void* lb, size_t size)
 {
 #ifdef  __x86_64__
   return __builtin_ia32_bind_bounds64 (p, lb, size);
@@ -67,7 +67,7 @@ __pl_bind_bounds (void *p, void* lb, size_t size)
 }
 
 extern __inline void *  __attribute__((__gnu_inline__, __always_inline__, __artificial__))
-__pl_intersect_bounds (void *p, void* lb, size_t size)
+__mpx_intersect_bounds (void *p, void* lb, size_t size)
 {
 #ifdef  __x86_64__
   return __builtin_ia32_intersect_bounds64 (p, lb, size);

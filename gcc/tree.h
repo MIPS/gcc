@@ -3441,8 +3441,8 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
   (FUNCTION_DECL_CHECK (NODE)->function_decl.has_debug_args_flag)
 
 /* Nonzero if a FUNCTION_DECL is PL static initializer.  */
-#define DECL_PL_STATIC_INIT(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.pl_static_init)
+#define DECL_MPX_STATIC_INIT(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->function_decl.mpx_static_init)
 
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
@@ -3525,7 +3525,7 @@ struct GTY(()) tree_function_decl {
   unsigned has_debug_args_flag : 1;
   unsigned tm_clone_flag : 1;
   unsigned versioned_function : 1;
-  unsigned pl_static_init : 1;
+  unsigned mpx_static_init : 1;
   /* No bits left.  */
 };
 

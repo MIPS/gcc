@@ -534,13 +534,12 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  tree t, t2, t3;
+  tree t, t2;
 
   t = gimple_return_retval (gs);
-  t2 = gimple_return_retval2 (gs);
-  t3 = gimple_return_retval3 (gs);
+  t2 = gimple_return_retbnd (gs);
   if (flags & TDF_RAW)
-    dump_gimple_fmt (buffer, spc, flags, "%G <%T %T %T>", gs, t, t2, t3);
+    dump_gimple_fmt (buffer, spc, flags, "%G <%T %T>", gs, t, t2);
   else
     {
       pp_string (buffer, "return");
@@ -553,11 +552,6 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	  pp_string (buffer, ", ");
 	  dump_generic_node (buffer, t2, spc, flags, false);
-	}
-      if (t3)
-	{
-	  pp_string (buffer, ", ");
-	  dump_generic_node (buffer, t3, spc, flags, false);
 	}
       pp_semicolon (buffer);
     }

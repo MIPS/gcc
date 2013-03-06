@@ -21,13 +21,12 @@
 #include "ggc.h"
 #include "cgraph.h"
 #include "gimple.h"
-#include "tree-pl.h"
 #include "rtl.h"
 #include "expr.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "vec.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 enum check_type
 {
@@ -43,14 +42,20 @@ struct pol_item
 
 typedef vec<struct pol_item> polynomial;
 
+/* Structure to hold check informtation.  */
 struct check_info
 {
+  /* Type of the check.  */
   check_type type;
+  /* Address used for the check.  */
   polynomial addr;
+  /* Bounds used for the check.  */
   tree bounds;
+  /* Check statement.  Can be NULL for removed checks.*/
   gimple stmt;
 };
 
+/* Structure to hold checks information for BB.  */
 struct bb_checks
 {
   vec<struct check_info, va_heap, vl_ptr> checks;
@@ -58,9 +63,9 @@ struct bb_checks
 
 static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
 
-static GTY (()) tree pl_checkl_fndecl;
-static GTY (()) tree pl_checku_fndecl;
-static GTY (()) tree pl_bndmk_fndecl;
+static GTY (()) tree mpx_checkl_fndecl;
+static GTY (()) tree mpx_checku_fndecl;
+static GTY (()) tree mpx_bndmk_fndecl;
 
 static int pol_item_compare (const void *i1, const void *i2);
 static void add_pol_item (polynomial &pol, tree cst, tree var);
@@ -85,6 +90,9 @@ static void remove_redundant_checks (void);
 static tree get_nobnd_fndecl (enum built_in_function fncode);
 static void optimize_string_function_calls (void);
 
+/* Comparator for pol_item structures I1 and I2 to be used
+   to find items with equal var.  Also used for polynomial
+   sorting.  */
 int
 pol_item_compare (const void *i1, const void *i2)
 {
@@ -99,6 +107,9 @@ pol_item_compare (const void *i1, const void *i2)
     return -1;
 }
 
+/* Find plynomial item in POL with var equal to VAR
+   and return its index.  Return -1 if item was not
+   found.  */
 int
 pol_find (polynomial &pol, tree var)
 {
@@ -125,6 +136,7 @@ pol_find (polynomial &pol, tree var)
   return -1;
 }
 
+/* Return constant CST extended to size type.  */
 tree
 extend_const (tree cst)
 {
@@ -134,6 +146,7 @@ extend_const (tree cst)
   return cst;
 }
 
+/* Add polynomial item CST * VAR to POL.  */
 void
 add_pol_item (polynomial &pol, tree cst, tree var)
 {
@@ -160,6 +173,7 @@ add_pol_item (polynomial &pol, tree cst, tree var)
     }
 }
 
+/* Subtract polynomial item CST * VAR from POL.  */
 void
 sub_pol_item (polynomial &pol, tree cst, tree var)
 {
@@ -187,6 +201,7 @@ sub_pol_item (polynomial &pol, tree cst, tree var)
     }
 }
 
+/* Add polynomial DELTA to POL.  */
 void
 add_pol_pol (polynomial &pol, polynomial &delta)
 {
@@ -195,6 +210,7 @@ add_pol_pol (polynomial &pol, polynomial &delta)
     add_pol_item (pol, delta[i].cst, delta[i].var);
 }
 
+/* Subtract polynomial DELTA from POL.  */
 void
 sub_pol_pol (polynomial &pol, polynomial &delta)
 {
@@ -203,6 +219,7 @@ sub_pol_pol (polynomial &pol, polynomial &delta)
     sub_pol_item (pol, delta[i].cst, delta[i].var); 
 }
 
+/* Mutiply polynomial POL by integer constant MULT.  */
 void
 mult_pol (polynomial &pol, tree mult)
 {
@@ -212,6 +229,9 @@ mult_pol (polynomial &pol, tree mult)
 			      pol[i].cst, mult);
 }
 
+/* Return 1 if we may prove POL has a constant value with
+   determined sign, which is put into *SIGN.  Otherwise
+   return 0.  */
 bool
 is_constant_pol (const polynomial &pol, int *sign)
 {
@@ -233,6 +253,7 @@ is_constant_pol (const polynomial &pol, int *sign)
   return true;
 }
 
+/* Dump polynomial into dump_file.  */
 void
 print_pol (const polynomial &pol)
 {
@@ -257,6 +278,8 @@ print_pol (const polynomial &pol)
     }
 }
 
+/* Compute value of PTR and put it into polynomial RES.
+   PTR has to be ADDR_EXPR.  */
 void
 collect_addr_value (tree ptr, polynomial &res)
 {
@@ -314,8 +337,9 @@ collect_addr_value (tree ptr, polynomial &res)
     }
 }
 
+/* Compute value of PTR and put it into polynomial RES.  */
 void
-collect_value (tree ssa_name, polynomial &res)
+collect_value (tree ptr, polynomial &res)
 {
   gimple def_stmt;
   enum gimple_code code;
@@ -323,32 +347,32 @@ collect_value (tree ssa_name, polynomial &res)
   polynomial addr;
   tree rhs1;
 
-  if (TREE_CODE (ssa_name) == INTEGER_CST)
+  if (TREE_CODE (ptr) == INTEGER_CST)
     {
-      add_pol_item (res, ssa_name, NULL);
+      add_pol_item (res, ptr, NULL);
       return;
     }
-  else if (TREE_CODE (ssa_name) == ADDR_EXPR)
+  else if (TREE_CODE (ptr) == ADDR_EXPR)
     {
-      collect_addr_value (ssa_name, res);
+      collect_addr_value (ptr, res);
       return;
     }
-  else if (TREE_CODE (ssa_name) != SSA_NAME)
+  else if (TREE_CODE (ptr) != SSA_NAME)
     {
-      add_pol_item (res, integer_one_node, ssa_name);
+      add_pol_item (res, integer_one_node, ptr);
       return;
     }
 
   /* Now we handle the case when polynomial is computed
      for SSA NAME.  */
-  def_stmt = SSA_NAME_DEF_STMT (ssa_name);
+  def_stmt = SSA_NAME_DEF_STMT (ptr);
   code = gimple_code (def_stmt);
 	
   /* Currently we do not walk through statements other
      than assignment.  */
   if (code != GIMPLE_ASSIGN)
     {
-      add_pol_item (res, integer_one_node, ssa_name);
+      add_pol_item (res, integer_one_node, ptr);
       return;
     }
 
@@ -394,27 +418,31 @@ collect_value (tree ssa_name, polynomial &res)
 	  mult_pol (res, rhs1);
 	}
       else
-	add_pol_item (res, integer_one_node, ssa_name);
+	add_pol_item (res, integer_one_node, ptr);
       break;
 
     default:
-      add_pol_item (res, integer_one_node, ssa_name);
+      add_pol_item (res, integer_one_node, ptr);
       break;
     }
 }
 
+/* Fill check_info structure *CI with information about
+   check STMT.  */
 void
 fill_check_info (gimple stmt, struct check_info *ci)
 {
   ci->addr.create (0);
   ci->bounds = gimple_call_arg (stmt, 0);
   collect_value (gimple_call_arg (stmt, 1), ci->addr);
-  ci->type = (gimple_call_fndecl (stmt) == pl_checkl_fndecl
+  ci->type = (gimple_call_fndecl (stmt) == mpx_checkl_fndecl
 	     ? CHECK_LOWER_BOUND
 	     : CHECK_UPPER_BOUND);
   ci->stmt = stmt;
 }
 
+/* Find all checks in current function and store info about them
+   in check_infos.  */
 void
 gather_checks_info (void)
 {
@@ -441,8 +469,8 @@ gather_checks_info (void)
 	  if (gimple_code (stmt) != GIMPLE_CALL)
 	    continue;
 
-	  if (gimple_call_fndecl (stmt) == pl_checkl_fndecl
-	      || gimple_call_fndecl (stmt) == pl_checku_fndecl)
+	  if (gimple_call_fndecl (stmt) == mpx_checkl_fndecl
+	      || gimple_call_fndecl (stmt) == mpx_checku_fndecl)
 	    {
 	      struct check_info ci;
 
@@ -464,6 +492,9 @@ gather_checks_info (void)
     }
 }
 
+/* Try to compare bounds value and address value
+   used in the check CI.  If we can prove that check
+   always pass then remove it.  */
 void
 remove_check_if_pass (struct check_info *ci)
 {
@@ -492,7 +523,7 @@ remove_check_if_pass (struct check_info *ci)
 
   bnd_def = SSA_NAME_DEF_STMT (ci->bounds);
   if (gimple_code (bnd_def) != GIMPLE_CALL
-      || gimple_call_fndecl (bnd_def) != pl_bndmk_fndecl)
+      || gimple_call_fndecl (bnd_def) != mpx_bndmk_fndecl)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  result: cannot compute bounds value\n");
@@ -547,7 +578,7 @@ remove_check_if_pass (struct check_info *ci)
   bound_val.release ();
 }
 
-
+/*  Try to remove all checks which are known to alwyas pass.  */
 void
 remove_constant_checks (void)
 {
@@ -569,6 +600,19 @@ remove_constant_checks (void)
     }
 }
 
+/* Compare two checks CI1 and CI2 to find redundant one.
+   CI1 is known to dominate CI2.  POSTDOM indicated if
+   CI2 postdominateds CI1.
+
+   Few conditions are checked to find redundant check:
+     1. Checks has the same type
+     2. Checks use the same bounds
+     3. One check fail means other check fail
+     4. Stronger check is always executed if weaker one is executed
+
+   If redundant check is found it is removed. If removed check is CI1
+   then CI2 is moved to CI1's position to avoid bound violation happened
+   before check is executed.  */
 void
 compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 {
@@ -711,6 +755,9 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
   delta.release ();
 }
 
+/* Find all pairs of checks where the first check dominates the
+   second one and call compare_checks to find and remove redundant
+   checks.  */
 void
 remove_redundant_checks (void)
 {
@@ -755,6 +802,7 @@ remove_redundant_checks (void)
     }
 }
 
+/* Return fast version of string function FNCODE.  */
 tree
 get_nobnd_fndecl (enum built_in_function fncode)
 {
@@ -777,6 +825,9 @@ get_nobnd_fndecl (enum built_in_function fncode)
     }
 }
 
+/* Try to find memcpy, mempcpy, memmove and memset calls which
+   are known to not write pointers to memory and use faster
+   function versions for them.  */
 void
 optimize_string_function_calls (void)
 {
@@ -815,7 +866,7 @@ optimize_string_function_calls (void)
 		 void or pointer.  */
 	      if (POINTER_TYPE_P (TREE_TYPE (dst))
 		  && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (dst)))
-		  && !pl_type_has_pointer (TREE_TYPE (TREE_TYPE (dst))))
+		  && !mpx_type_has_pointer (TREE_TYPE (TREE_TYPE (dst))))
 		{
 		  tree fndecl_nobnd
 		    = get_nobnd_fndecl (DECL_FUNCTION_CODE (fndecl));
@@ -828,6 +879,8 @@ optimize_string_function_calls (void)
     }
 }
 
+/* Create structures to hold check information
+   for current function.  */
 void
 init_check_info (void)
 {
@@ -844,6 +897,8 @@ init_check_info (void)
     }
 }
 
+/* Release structures holding check information
+   for current function.  */
 void
 release_check_info (void)
 {
@@ -862,6 +917,7 @@ release_check_info (void)
     }
 }
 
+/* Initilize pass.  */
 void
 mpxopt_init (void)
 {
@@ -871,6 +927,7 @@ mpxopt_init (void)
   calculate_dominance_info (CDI_POST_DOMINATORS);
 }
 
+/* Finalise pass.  */
 void
 mpxopt_fini (void)
 {
@@ -878,12 +935,13 @@ mpxopt_fini (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
+/* Main pass function.  */
 unsigned int
 mpxopt_execute (void)
 {
-  pl_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
-  pl_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
-  pl_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
+  mpx_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
+  mpx_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
+  mpx_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
 
   mpxopt_init();
 
@@ -902,10 +960,11 @@ mpxopt_execute (void)
   return 0;
 }
 
+/* Pass gate.  */
 bool
 mpxopt_gate (void)
 {
-  return flag_pl != 0 && optimize;
+  return flag_mpx != 0 && optimize;
 }
 
 

@@ -54,7 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "plugin.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 
 /* Initialization routine for this file.  */
@@ -1655,8 +1655,10 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  finish_decl (d, init_loc, init.value,
 		      	       init.original_type, asm_name);
 
+		  /* Register all decls with initializers in MPX
+		     to generate required static bounds initializers.  */
 		  if (DECL_INITIAL (d) != error_mark_node)
-		    pl_register_var_initializer (d);
+		    mpx_register_var_initializer (d);
 		}
 	    }
 	  else

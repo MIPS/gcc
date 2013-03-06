@@ -1125,7 +1125,7 @@ struct ipa_opt_pass_d pass_ipa_profile =
 
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor), 'D' (for a destructor) or 'P'
-   for PL constructior.  BODY is a STATEMENT_LIST containing GENERIC
+   for MPX constructior.  BODY is a STATEMENT_LIST containing GENERIC
    statements.  PRIORITY is the initialization priority for this
    constructor or destructor.
 
@@ -1188,7 +1188,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       break;
     case 'P':
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
-      DECL_PL_STATIC_INIT (decl) = 1;
+      DECL_MPX_STATIC_INIT (decl) = 1;
       decl_init_priority_insert (decl, priority);
       break;
     case 'D':
@@ -1209,7 +1209,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor), 'D' (for a destructor) or 'P'
-   for PL constructior.  BODY is a STATEMENT_LIST containing GENERIC
+   for MPX constructior.  BODY is a STATEMENT_LIST containing GENERIC
    statements.  PRIORITY is the initialization priority for this
    constructor or destructor.  */
 

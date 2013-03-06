@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -2554,18 +2554,21 @@ expand_builtin_cexpi (tree exp, rtx target)
 
       /* Make sure not to fold the sincos call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-      if (flag_pl)
+
+      /* If MPX is on then we have to add bound arguments to
+	 the call.  */
+      if (flag_mpx)
 	{
 	  tree tmp, bnd1, bnd2;
 
-	  tmp = pl_build_make_bounds_call (top1,
-					   TYPE_SIZE_UNIT (TREE_TYPE (arg)));
+	  tmp = mpx_build_make_bounds_call (top1,
+					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
 	  bnd1 = make_tree (bound_type_node,
 			    assign_temp (bound_type_node, 0, 1));
 	  expand_assignment (bnd1, tmp, false);
 
-	  tmp = pl_build_make_bounds_call (top2,
-					   TYPE_SIZE_UNIT (TREE_TYPE (arg)));
+	  tmp = mpx_build_make_bounds_call (top2,
+					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
 	  bnd2 = make_tree (bound_type_node,
 			    assign_temp (bound_type_node, 0, 1));
 	  expand_assignment (bnd2, tmp, false);
@@ -4183,10 +4186,12 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
   rtx va_r = expand_expr (valist, NULL_RTX, VOIDmode, EXPAND_WRITE);
   convert_move (va_r, nextarg, 0);
 
-  if (flag_pl)
-    pl_expand_bounds_reset_for_mem (valist,
-				    make_tree (TREE_TYPE (valist),
-					       nextarg));
+  /* We do not have any valid bounds for the pointer, so
+     just store zero bounds for it.  */
+  if (flag_mpx)
+    mpx_expand_bounds_reset_for_mem (valist,
+				     make_tree (TREE_TYPE (valist),
+						nextarg));
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */
@@ -4504,7 +4509,8 @@ expand_builtin_va_copy (tree exp)
 static rtx
 expand_builtin_frame_address (tree fndecl, tree exp)
 {
-  if (flag_pl)
+  /*  Set zero bounds for returned value.  */
+  if (flag_mpx)
     targetm.calls.init_returned_bounds ();
 
   /* The argument must be a nonnegative integer constant.
@@ -5877,7 +5883,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
      To avoid modification of all expanders we just make a new call
      expression without bound args.  The original expression is used
      in case we expand builtin as a call.  */
-  if (flag_pl)
+  if (flag_mpx)
     {
       int new_arg_no = 0;
       tree new_call;
@@ -6201,7 +6207,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
@@ -6209,7 +6215,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCPY:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
@@ -6217,7 +6223,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCPY:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
@@ -6225,7 +6231,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STPCPY:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
@@ -6233,7 +6239,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMCPY:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
@@ -6241,7 +6247,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMPCPY:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
@@ -6249,7 +6255,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMSET:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
@@ -6257,7 +6263,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_BZERO:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_bzero (exp);
       if (target)
@@ -6265,7 +6271,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCMP:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
@@ -6273,7 +6279,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCMP:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
@@ -6282,7 +6288,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
@@ -6910,7 +6916,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
-      if (flag_pl)
+      if (flag_mpx)
 	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
@@ -12221,14 +12227,15 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2) && (nargs < 3 || nargs > 4 || !flag_pl))
+      if (va_start_p && (nargs != 2) && (nargs < 3 || nargs > 4 || !flag_mpx))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
 	}
       arg_no = 1;
       arg = CALL_EXPR_ARG (exp, arg_no);
-      if (flag_pl && BOUND_TYPE_P (TREE_TYPE (arg)))
+      /* Skip bounds arg if any.  */
+      if (flag_mpx && BOUND_TYPE_P (TREE_TYPE (arg)))
 	{
 	  arg_no++;
 	  arg = CALL_EXPR_ARG (exp, arg_no);
@@ -12247,7 +12254,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 		   "%<__builtin_next_arg%> called without an argument");
 	  return true;
 	}
-      else if ((nargs > 1 && !flag_pl) || (nargs > 2 && flag_pl))
+      else if ((nargs > 1 && !flag_mpx) || (nargs > 2 && flag_mpx))
 	{
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;

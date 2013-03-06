@@ -53,7 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "params.h"
 #include "dumpfile.h"
-#include "tree-pl.h"
+#include "tree-mpx.h"
 
 
 /* Functions and data structures for expanding case statements.  */
@@ -1441,7 +1441,6 @@ expand_value_return (rtx val)
 
   tree decl = DECL_RESULT (current_function_decl);
   rtx return_reg = DECL_RTL (decl);
-
   if (return_reg != val)
     {
       tree funtype = TREE_TYPE (current_function_decl);
@@ -1516,7 +1515,7 @@ expand_return (tree retval)
   if (bounds_rtl)
     {
       tree bounds
-	= pl_get_registered_bounds (DECL_RESULT (current_function_decl));
+	= mpx_get_registered_bounds (DECL_RESULT (current_function_decl));
       rtx addr, bnd;
 
       if (bounds)
@@ -1551,9 +1550,9 @@ expand_return (tree retval)
 	    }
 	}
     }
-  else if (flag_pl
+  else if (flag_mpx
 	   && !BOUNDED_TYPE_P (TREE_TYPE (retval_rhs))
-	   && pl_type_has_pointer (TREE_TYPE (retval_rhs))
+	   && mpx_type_has_pointer (TREE_TYPE (retval_rhs))
 	   && TREE_CODE (retval_rhs) != RESULT_DECL)
     {
       rtx addr = expand_normal (build_fold_addr_expr (retval_rhs));
@@ -1561,7 +1560,7 @@ expand_return (tree retval)
 
       gcc_assert (MEM_P (result_rtl));
 
-      pl_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
+      mpx_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
     }
 
   /* If we are returning the RESULT_DECL, then the value has already
