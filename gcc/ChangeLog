@@ -1,3 +1,14 @@
+2013-03-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_alt_operands): Don't penalize
+	alternative of move insn which is an elimination result.
+	(process_address): Use EXTRA_CONSTRAINT_STR for validation of
+	extra address constraints.
+	* lra-eliminations.c (eliminate_regs_in_insn): Make return earlier
+	if there are no operand changes.
+	* lra-spills.c (lra_final_code_change): Skip subreg change for
+	operators.
+
 2013-01-14  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* ira-build.c (ira_flattening): Comment fix.

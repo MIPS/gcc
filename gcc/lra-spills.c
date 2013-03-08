@@ -644,10 +644,12 @@ lra_final_code_change (void)
 	    }
 
 	  lra_insn_recog_data_t id = lra_get_insn_recog_data (insn);
+	  struct lra_static_insn_data *static_id = id->insn_static_data;
 	  bool insn_change_p = false;
 
 	  for (i = id->insn_static_data->n_operands - 1; i >= 0; i--)
-	    if (alter_subregs (id->operand_loc[i], ! DEBUG_INSN_P (insn)))
+	    if ((DEBUG_INSN_P (insn) || ! static_id->operand[i].is_operator)
+		&& alter_subregs (id->operand_loc[i], ! DEBUG_INSN_P (insn)))
 	      {
 		lra_update_dup (id, i);
 		insn_change_p = true;

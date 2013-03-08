@@ -2068,7 +2068,11 @@ process_alt_operands (int only_alternative)
 					 no_subreg_reg_operand[1])
 		      || (targetm.preferred_reload_class
 			  (no_subreg_reg_operand[1],
-			   (enum reg_class) curr_alt[1]) != NO_REGS)))))
+			   (enum reg_class) curr_alt[1]) != NO_REGS))
+		  /* If it is a result of recent elimination in move
+		     insn we can transform it into an add still by
+		     using this alternative.  */
+		  && GET_CODE (no_subreg_reg_operand[1]) != PLUS)))
 	/* We have a move insn and a new reload insn will be similar
 	   to the current insn.  We should avoid such situation as it
 	   results in LRA cycling.  */
@@ -2443,6 +2447,15 @@ process_address (int nop, rtx *before, rtx *after)
   if (ad.index_term != NULL
       && process_addr_reg (ad.index_term, before, NULL, INDEX_REG_CLASS))
     change_p = true;
+
+#ifdef EXTRA_CONSTRAINT_STR
+  /* Target hooks sometimes reject extra constraint addresses -- use
+     EXTRA_CONSTRAINT_STR for the validation.  */
+  if (constraint[0] != 'p'
+      && EXTRA_ADDRESS_CONSTRAINT (constraint[0], constraint)
+      && EXTRA_CONSTRAINT_STR (op, constraint[0], constraint))
+    return change_p;
+#endif
 
   /* There are three cases where the shape of *AD.INNER may now be invalid:
 
