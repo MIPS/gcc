@@ -833,6 +833,10 @@ optimize_string_function_calls (void)
 {
   basic_block bb;
 
+  /* Check if we are allowed to use fast string functions.  */
+  if (!flag_mpx_use_fast_string_functions)
+    return;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for replacable string function calls...\n");
 

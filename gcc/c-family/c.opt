@@ -1108,6 +1108,10 @@ C ObjC C++ ObjC++ RejectNegative Report Var(flag_mpx_narrow_to_innermost_arrray)
 Forces MPX instrumentation to use bounds of the innermost arrays in case of
 nested static arryas access. By default outermost array is used.
 
+fmpx-use-fast-string-functions
+C ObjC C++ ObjC++ Report Var(flag_mpx_use_fast_string_functions) Init(1)
+Allow to use *_nobnd versions of string functions by MPX pass.
+
 fplan9-extensions
 C ObjC Var(flag_plan9_extensions)
 Enable Plan 9 language extensions
