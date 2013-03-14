@@ -968,7 +968,8 @@ mpxopt_execute (void)
 bool
 mpxopt_gate (void)
 {
-  return flag_mpx != 0 && optimize;
+  return flag_mpx != 0 && (flag_mpxopt > 0
+			   || (flag_mpxopt == -1 && optimize > 0));
 }
 
 

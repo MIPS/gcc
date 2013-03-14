@@ -120,6 +120,7 @@ static bool mpx_marked_stmt (gimple s);
 static void mpx_find_bound_slots (tree type, bool *have_bound,
 				 HOST_WIDE_INT offs,
 				 HOST_WIDE_INT ptr_size);
+static void mpx_fix_cfg ();
 
 static GTY (()) tree mpx_bndldx_fndecl;
 static GTY (()) tree mpx_bndstx_fndecl;
@@ -1329,23 +1330,8 @@ mpx_build_returned_bound (gimple call)
       stmt = gimple_build_call (mpx_ret_bnd_fndecl, 0);
       mpx_mark_stmt (stmt);
 
-      /* If call may throw then we have to insert new
-	 statement on the fallthru edge.  Otherwise insert
-	 it right after call.  */
-      if (stmt_can_throw_internal (call))
-	{
-	  basic_block bb = gimple_bb (call);
-
-	  gcc_assert (EDGE_COUNT (bb->succs) == 2);
-
-	  gsi_insert_on_edge (FALLTHRU_EDGE (bb), stmt);
-	  gsi_commit_edge_inserts ();
-	}
-      else
-	{
-	  gsi = gsi_for_stmt (call);
-	  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
-	}
+      gsi = gsi_for_stmt (call);
+      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 
       bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
       gimple_call_set_lhs (stmt, bounds);
@@ -3115,6 +3101,41 @@ mpx_fix_function_decls (void)
       }
 }
 
+/* We could insert some code right after call which can throw.
+   It's not allowed and therefore we fix it here.  We did not
+   add new edges from the beginning because it may cause new
+   phi node creation which may be incorrect due to incomplete
+   bound phi nodes.  */
+static void
+mpx_fix_cfg ()
+{
+  basic_block bb;
+  gimple_stmt_iterator i;
+
+  FOR_ALL_BB (bb)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      {
+	gimple stmt = gsi_stmt (i);
+	gimple_stmt_iterator next = i;
+
+	gsi_next (&next);
+
+	if (is_gimple_call (stmt)
+	    && stmt_can_throw_internal (stmt)
+	    && !gsi_end_p (next))
+	  {
+	    while (!gsi_end_p (next))
+	      {
+		gimple next_stmt = gsi_stmt (next);
+		gsi_remove (&next, false);
+		gsi_insert_on_edge (FALLTHRU_EDGE (bb), next_stmt);
+	      }
+
+	    gsi_commit_edge_inserts ();
+	  }
+      }
+}
+
 /* Initialize pass. */
 static void
 mpx_init (void)
@@ -3172,6 +3193,8 @@ mpx_execute (void)
   mpx_init ();
 
   mpx_transform_function ();
+
+  mpx_fix_cfg ();
 
   mpx_fini ();
 
