@@ -3453,9 +3453,9 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
    (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
 
 /* If a FUNCTION_DECL, nonzero means an atomic built in function.  */
-#define DECL_ATOMIC_BUILT_IN(NODE) 					\
-   (DECL_BUILT_IN (NODE)						\
-   && (DECL_FUNCTION_CODE (NODE) >= BUILT_IN_SYNC_FETCH_AND_ADD_N)	\
+#define DECL_ATOMIC_BUILT_IN(NODE) 					 \
+   (DECL_BUILT_IN (NODE) && DECL_BUILT_IN_CLASS(NODE) == BUILT_IN_NORMAL \
+   && (DECL_FUNCTION_CODE (NODE) >= BUILT_IN_SYNC_FETCH_AND_ADD_N)	 \
    && (DECL_FUNCTION_CODE (NODE) <= BUILT_IN_ATOMIC_SIGNAL_FENCE))
 
 /* In FUNCTION_DECL, a chain of ..._DECL nodes.
@@ -4782,7 +4782,8 @@ extern tree build_call_valist (tree, tree, int, va_list);
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
 extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
 extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
-extern tree build_atomic_vec (tree, tree, vec<tree,va_gc> *);
+extern tree build_atomic_vec (location_t, tree, vec<tree,va_gc> *);
+
 
 /* Construct various nodes representing data types.  */
 

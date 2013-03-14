@@ -1156,6 +1156,9 @@ extern void expand_gimple_atomic_fence (gimple);
 
 extern enum gimplify_status gimplify_atomic_expr (tree *, gimple_seq *, 
 						  gimple_seq *);
+extern enum gimplify_status gimplify_atomic_call_expr (tree *, gimple_seq *);
+
+
 
 /* In builtins.c  */
 extern bool validate_gimple_arglist (const_gimple, ...);

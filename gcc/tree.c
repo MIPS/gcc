@@ -10165,13 +10165,133 @@ build_call_vec (tree return_type, tree fn, vec<tree, va_gc> *args)
 }
 
 
-tree build_atomic_vec (tree type, tree decl, vec<tree, va_gc> *args)
+static tree
+get_atomic_builtin_return_type (tree function, tree target, location_t loc)
 {
-  tree ret;
+  tree expr_type;
+  tree check_type;
+  enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
+
+  gcc_assert (DECL_ATOMIC_BUILT_IN (function));
+
+  /* Determine tree type of ATOMIC_EXPR node.  */
+  switch (orig_code)
+    {
+    case BUILT_IN_SYNC_SYNCHRONIZE:
+    case BUILT_IN_ATOMIC_THREAD_FENCE:
+    case BUILT_IN_ATOMIC_SIGNAL_FENCE:
+      expr_type = void_type_node;
+      check_type = NULL_TREE;
+    break;
+
+    case BUILT_IN_SYNC_LOCK_RELEASE_N:
+    case BUILT_IN_SYNC_LOCK_RELEASE_1:
+    case BUILT_IN_SYNC_LOCK_RELEASE_2:
+    case BUILT_IN_SYNC_LOCK_RELEASE_4:
+    case BUILT_IN_SYNC_LOCK_RELEASE_8:
+    case BUILT_IN_SYNC_LOCK_RELEASE_16:
+    case BUILT_IN_ATOMIC_STORE:
+    case BUILT_IN_ATOMIC_STORE_N:
+    case BUILT_IN_ATOMIC_STORE_1:
+    case BUILT_IN_ATOMIC_STORE_2:
+    case BUILT_IN_ATOMIC_STORE_4:
+    case BUILT_IN_ATOMIC_STORE_8:
+    case BUILT_IN_ATOMIC_STORE_16:
+    case BUILT_IN_ATOMIC_LOAD:
+    case BUILT_IN_ATOMIC_EXCHANGE:
+      expr_type = void_type_node;
+      check_type = target;
+      break;
+
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
+    case BUILT_IN_ATOMIC_TEST_AND_SET:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_4:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_8:
+    case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
+    case BUILT_IN_ATOMIC_ALWAYS_LOCK_FREE:
+    case BUILT_IN_ATOMIC_IS_LOCK_FREE:
+      expr_type = boolean_type_node;
+      check_type = target;
+      break;
+
+    default:
+      expr_type = NULL_TREE;
+      check_type = target;
+    }
+
+  if (check_type)
+    { /* Determine the object type from the first parameter.  */
+      int size;
+      tree t = TREE_TYPE (check_type);
+      if (TREE_CODE (t) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (t)))
+	{
+	  if (loc)
+	    error_at (loc, "argument 1 of %qE must be a non-void pointer type",
+		      function);
+	  return NULL_TREE;
+	}
+
+      t = TREE_TYPE (t);
+      /* Types must be compile time constant sizes. */
+      if (TREE_CODE (TYPE_SIZE_UNIT (t)) != INTEGER_CST)
+	{
+	  if (loc)
+	    error_at (loc, 
+		  "argument 1 of %qE must be a pointer to a constant size type",
+		  function);
+	  return NULL_TREE;
+	}
+
+      size = tree_low_cst (TYPE_SIZE_UNIT (t), 1);
+      /* Zero size objects are not allowed.  */
+      if (size == 0)
+	{
+	  if (loc)
+	    error_at (loc, 
+		"argument 1 of %qE must be a pointer to a nonzero size object",
+		function);
+	  return NULL_TREE;
+	}
+
+      /* If expr_type is not set, set it to the derived atomic type.  */
+      if (expr_type == NULL_TREE)
+	expr_type = t;
+
+#if 0
+      /* Strip off the atomic qualifier if need be.  */
+      if (TYPE_ATOMIC (expr_type))
+	t = build_nonatomic_variant (expr_type);
+#endif
+    }
+  return expr_type;
+}
+
+tree 
+build_atomic_vec (location_t loc, tree decl, vec<tree, va_gc> *args)
+{
+  tree ret, type;
   unsigned ix;
   unsigned nargs;
+  tree parm1 = NULL_TREE;
  
   nargs = ((args) ? args->length () : 0);
+  if (nargs)
+    parm1 = (*args)[0];
+  else
+    parm1 = NULL_TREE;
+  type = get_atomic_builtin_return_type (decl, parm1, loc);
+  /* A NULL type indicates an error. */
+  if (type == NULL_TREE)
+    return type;
 
   ret = build_vl_exp (ATOMIC_EXPR, nargs + 2);
   ATOMIC_EXPR_DECL (ret) = decl;

@@ -1017,12 +1017,6 @@ incompatible_type (unsigned n)
   error ("argument %d must be a pointer type", n);
 }
 
-typedef struct atomic_types_d {
-  tree BI_return_type;		/* Return type of built in function.  */
-  tree BI_atomic_type;		/* Atomic type expected by builtin.  */
-  tree target_type;		/* Actual type of atomic target.  */
-} atomic_types, *atomic_types_p;
-
 
 static void
 types_match (tree BI_type, tree target_type)
@@ -1773,146 +1767,200 @@ gimplify_atomic_fetch:
     CASE_SYNC_OP (BUILT_IN_SYNC_NAND_AND_FETCH, BIT_NOT_EXPR, false);
 
   gimplify_sync_fetch:
-	if (!arg_count_ok (nargs, 2))
+      if (!arg_count_ok (nargs, 2))
+	{
+	  *expr_p = 0;
+	  return GS_ALL_DONE;
+	}
+      types_match (BI_type, target_type);
+
+      val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1), pre_p);
+      order = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
+      if (fetch_op)
+	ret = gimple_build_atomic_fetch_op (BI_type, target, val, arith_op,
+					    order);
+      else
+	ret = gimple_build_atomic_op_fetch (BI_type, target, val, arith_op,
+					    order);
+      gimple_atomic_set_from_sync (ret, true);
+      return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
+
+
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
+      BI_type = atomic_func_type (fcode
+				  - BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N);
+      /* Fallthru.  */
+    case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
+      {
+	tree expected;
+	if (!arg_count_ok (nargs, 3))
 	  {
 	    *expr_p = 0;
 	    return GS_ALL_DONE;
 	  }
 	types_match (BI_type, target_type);
 
-	val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1), pre_p);
-	order = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
-	if (fetch_op)
-	  ret = gimple_build_atomic_fetch_op (BI_type, target, val, arith_op,
-					      order);
-	else
-	  ret = gimple_build_atomic_op_fetch (BI_type, target, val, arith_op,
-					      order);
-	gimple_atomic_set_from_sync (ret, true);
-	return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
-
-
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
-	BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_TEST_AND_SET_N);
-	/* Fallthru.  */
-      case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
-	{
-	  tree expected;
-	  if (!arg_count_ok (nargs, 3))
-	    {
-	      *expr_p = 0;
-	      return GS_ALL_DONE;
-	    }
-	  types_match (BI_type, target_type);
-
-	  expected = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
-					    pre_p);
-	  val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 2),
-				       pre_p);
-	  expected = issue_sync_cmpxchg (BI_type, target, expected, val, pre_p,
-					 true);
-	  *expr_p = handle_any_casts (BI_return_type, expected, pre_p);
-	  return GS_ALL_DONE;
-	}
-
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_4:
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
-	BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_TEST_AND_SET_N);
-	/* Fallthru.  */
-      case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N:
-	{
-	  tree expected;
-	  if (!arg_count_ok (nargs, 3))
-	    {
-	      *expr_p = 0;
-	      return GS_ALL_DONE;
-	    }
-	  types_match (BI_type, target_type);
-
-	  expected = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
-					    pre_p);
-	  val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 2),
-				       pre_p);
-	  expected = issue_sync_cmpxchg (BI_type, target, expected, val, pre_p,
-					 false);
-	  *expr_p = handle_any_casts (BI_return_type, expected, pre_p);
-	  return GS_ALL_DONE;
-	}
-
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_1:
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_2:
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_4:
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_8:
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_16:
-	BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_TEST_AND_SET_N);
-	/* Fallthru.  */
-      case BUILT_IN_SYNC_LOCK_TEST_AND_SET_N:
-	if (!arg_count_ok (nargs, 2))
-	  {
-	    *expr_p = 0;
-	    return GS_ALL_DONE;
-	  }
-	types_match (BI_type, target_type);
-
-	order = build_int_cst (integer_type_node, MEMMODEL_ACQUIRE);
-	val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
+	expected = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
+					  pre_p);
+	val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 2),
 				     pre_p);
-
-        if (!INTEGRAL_TYPE_P (TREE_TYPE (val)))
-	  {
-	    error ("non-integer argument 1 to __sync_lock_test_and_set");
-	    val = integer_zero_node;
-	  }
-	/* __sync_lock_test_and_set is an atomic exchange, but may be
-	   implemented with restrictions on some targets.  */
-	ret = gimple_build_atomic_exchange (BI_type, target, val, order);
-	gimple_atomic_set_from_sync (ret, true);
-	return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
-
-      case BUILT_IN_SYNC_LOCK_RELEASE_1:
-      case BUILT_IN_SYNC_LOCK_RELEASE_2:
-      case BUILT_IN_SYNC_LOCK_RELEASE_4:
-      case BUILT_IN_SYNC_LOCK_RELEASE_8:
-      case BUILT_IN_SYNC_LOCK_RELEASE_16:
-	BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_RELEASE_N);
-	/* Fallthru.  */
-      case BUILT_IN_SYNC_LOCK_RELEASE_N:
-	if (!arg_count_ok (nargs, 1))
-	  {
-	    *expr_p = 0;
-	    return GS_ALL_DONE;
-	  }
-	types_match (BI_type, target_type);
-
-	val = build_int_cst (BI_type, 0);
-	order = build_int_cst (integer_type_node, MEMMODEL_RELEASE);
-	ret = gimple_build_atomic_store (BI_type, target, val, order);
-	gimple_atomic_set_from_sync (ret, true);
-	return finish_atomic_stmt (ret, pre_p, expr_p);
-
-      case BUILT_IN_SYNC_SYNCHRONIZE:
-	if (!arg_count_ok (nargs, 0))
-	  {
-	    *expr_p = 0;
-	    return GS_ALL_DONE;
-	  }
-	order = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
-	ret = gimple_build_atomic_fence (order, true);
-	gimple_atomic_set_from_sync (ret, true);
-	return finish_atomic_stmt (ret, pre_p, expr_p);
-
-      default:
-	gcc_unreachable ();
+	expected = issue_sync_cmpxchg (BI_type, target, expected, val, pre_p,
+				       true);
+	*expr_p = handle_any_casts (BI_return_type, expected, pre_p);
+	return GS_ALL_DONE;
       }
 
-    *expr_p = error_mark_node;
-    return GS_ERROR;
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_4:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
+      BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N);
+      /* Fallthru.  */
+    case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_N:
+      {
+	tree expected;
+	if (!arg_count_ok (nargs, 3))
+	  {
+	    *expr_p = 0;
+	    return GS_ALL_DONE;
+	  }
+	types_match (BI_type, target_type);
+
+	expected = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
+					  pre_p);
+	val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 2),
+				     pre_p);
+	expected = issue_sync_cmpxchg (BI_type, target, expected, val, pre_p,
+				       false);
+	*expr_p = handle_any_casts (BI_return_type, expected, pre_p);
+	return GS_ALL_DONE;
+      }
+
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_1:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_2:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_4:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_8:
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_16:
+      BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_TEST_AND_SET_N);
+      /* Fallthru.  */
+    case BUILT_IN_SYNC_LOCK_TEST_AND_SET_N:
+      if (!arg_count_ok (nargs, 2))
+	{
+	  *expr_p = 0;
+	  return GS_ALL_DONE;
+	}
+      types_match (BI_type, target_type);
+
+      order = build_int_cst (integer_type_node, MEMMODEL_ACQUIRE);
+      val = get_atomic_expression (BI_type, &ATOMIC_EXPR_ARG (expr, 1),
+				   pre_p);
+
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (val)))
+	{
+	  error ("non-integer argument 1 to __sync_lock_test_and_set");
+	  val = integer_zero_node;
+	}
+      /* __sync_lock_test_and_set is an atomic exchange, but may be
+	 implemented with restrictions on some targets.  */
+      ret = gimple_build_atomic_exchange (BI_type, target, val, order);
+      gimple_atomic_set_from_sync (ret, true);
+      return finish_atomic_stmt (ret, pre_p, expr_p, BI_type, target_type);
+
+    case BUILT_IN_SYNC_LOCK_RELEASE_1:
+    case BUILT_IN_SYNC_LOCK_RELEASE_2:
+    case BUILT_IN_SYNC_LOCK_RELEASE_4:
+    case BUILT_IN_SYNC_LOCK_RELEASE_8:
+    case BUILT_IN_SYNC_LOCK_RELEASE_16:
+      BI_type = atomic_func_type (fcode - BUILT_IN_SYNC_LOCK_RELEASE_N);
+      /* Fallthru.  */
+    case BUILT_IN_SYNC_LOCK_RELEASE_N:
+      if (!arg_count_ok (nargs, 1))
+	{
+	  *expr_p = 0;
+	  return GS_ALL_DONE;
+	}
+      types_match (BI_type, target_type);
+
+      val = build_int_cst (BI_type, 0);
+      order = build_int_cst (integer_type_node, MEMMODEL_RELEASE);
+      ret = gimple_build_atomic_store (BI_type, target, val, order);
+      gimple_atomic_set_from_sync (ret, true);
+      return finish_atomic_stmt (ret, pre_p, expr_p);
+
+    case BUILT_IN_SYNC_SYNCHRONIZE:
+      if (!arg_count_ok (nargs, 0))
+	{
+	  *expr_p = 0;
+	  return GS_ALL_DONE;
+	}
+      order = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
+      ret = gimple_build_atomic_fence (order, true);
+      gimple_atomic_set_from_sync (ret, true);
+      return finish_atomic_stmt (ret, pre_p, expr_p);
+
+    default:
+      gcc_unreachable ();
   }
 
+  *expr_p = error_mark_node;
+  return GS_ERROR;
+}
+
+enum gimplify_status
+gimplify_atomic_call_expr (tree *expr_p, gimple_seq *pre_p)
+{
+  tree call_expr = *expr_p;
+  tree atomic_expr, fn;
+  vec<tree, va_gc> *params;
+  unsigned x, n = call_expr_nargs (*expr_p);
+  enum gimplify_status ret;
+
+  fprintf (stderr, "GIMPLIFYING CALL EXPR : ");
+  print_generic_expr (stderr, *expr_p, 0);
+
+  fn = get_callee_fndecl (call_expr);
+  vec_alloc (params, n);
+  for (x = 0; x < n; x++)
+    params->quick_push (CALL_EXPR_ARG (call_expr, x));
+
+  atomic_expr = build_atomic_vec (0, fn, params);
+  fprintf(stderr, "\n turns into atomic expr: ");
+  print_generic_expr (stderr, atomic_expr,0 );
+
+  ret = gimplify_atomic_expr (&atomic_expr, pre_p, NULL);
+  fprintf(stderr, "\n and then gimple :");
+  print_gimple_seq (stderr, *pre_p, 0,0);
+  fprintf(stderr, "\n");
+  *expr_p = atomic_expr;
+  return ret;
+}
+
+#if 0 
+enum gimplify_status
+gimplify_atomic_call_expr (tree *expr_p, gimple_seq *pre_p)
+{
+  tree call_expr = *expr_p;
+  tree atomic_expr, fn;
+  vec<tree, va_gc> *params;
+  unsigned x, n = call_expr_nargs (*expr_p);
+  enum gimplify_status ret;
+
+  fn = get_callee_fndecl (call_expr);
+  vec_alloc (params, n);
+  for (x = 0; x < n; x++)
+    params->quick_push (CALL_EXPR_ARG (call_expr, x));
+
+  atomic_expr = build_atomic_vec (0, fn, params);
+
+  ret = gimplify_atomic_expr (&atomic_expr, pre_p, NULL);
+  *expr_p = atomic_expr;
+  return ret;
+}
+
+
+#endif

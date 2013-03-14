@@ -9929,128 +9929,29 @@ tree
 resolve_overloaded_builtin (location_t loc, tree function,
 			    vec<tree, va_gc> *params)
 {
-  enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
   tree new_return = NULL_TREE;
 
   switch (DECL_BUILT_IN_CLASS (function))
     {
     case BUILT_IN_NORMAL:
+      /* Atomic function calls are turned into an ATOMIC_EXPR tree and handled
+	 during gimlification.  */
+      if (DECL_ATOMIC_BUILT_IN (function))
+	{
+	  new_return = build_atomic_vec (loc, function, params);
+	  if (!new_return)
+	    new_return = error_mark_node;
+	}
       break;
+
     case BUILT_IN_MD:
       if (targetm.resolve_overloaded_builtin)
 	return targetm.resolve_overloaded_builtin (loc, function, params);
       else
 	return NULL_TREE;
+
     default:
       return NULL_TREE;
-    }
-
-  /* Atomic function calls are turned into an ATOMIC_EXPR tree and handled
-     during gimlification.  */
-  if (DECL_ATOMIC_BUILT_IN (function))
-    {
-      tree expr_type;
-      tree check_type;
-
-      /* Determine tree type of ATOMIC_EXPR node.  */
-      switch (orig_code)
-        {
-	case BUILT_IN_SYNC_SYNCHRONIZE:
-	case BUILT_IN_ATOMIC_THREAD_FENCE:
-	case BUILT_IN_ATOMIC_SIGNAL_FENCE:
-	  expr_type = void_type_node;
-	  check_type = NULL_TREE;
-	break;
-
-	case BUILT_IN_SYNC_LOCK_RELEASE_N:
-	case BUILT_IN_SYNC_LOCK_RELEASE_1:
-	case BUILT_IN_SYNC_LOCK_RELEASE_2:
-	case BUILT_IN_SYNC_LOCK_RELEASE_4:
-	case BUILT_IN_SYNC_LOCK_RELEASE_8:
-	case BUILT_IN_SYNC_LOCK_RELEASE_16:
-	case BUILT_IN_ATOMIC_STORE:
-	case BUILT_IN_ATOMIC_STORE_N:
-	case BUILT_IN_ATOMIC_STORE_1:
-	case BUILT_IN_ATOMIC_STORE_2:
-	case BUILT_IN_ATOMIC_STORE_4:
-	case BUILT_IN_ATOMIC_STORE_8:
-	case BUILT_IN_ATOMIC_STORE_16:
-	case BUILT_IN_ATOMIC_LOAD:
-	case BUILT_IN_ATOMIC_EXCHANGE:
-	  expr_type = void_type_node;
-	  check_type = (*params)[0];
-	  break;
-
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_N:
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_1:
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_2:
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_4:
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_8:
-	case BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP_16:
-	case BUILT_IN_ATOMIC_TEST_AND_SET:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_N:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_2:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_4:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_8:
-	case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
-	case BUILT_IN_ATOMIC_ALWAYS_LOCK_FREE:
-	case BUILT_IN_ATOMIC_IS_LOCK_FREE:
-	  expr_type = boolean_type_node;
-	  check_type = (*params)[0];
-	  break;
-
-	default:
-	  expr_type = NULL_TREE;
-	  check_type = (*params)[0];
-	}
-
-      if (check_type)
-        {
-	  /* Determine the object type from the first parameter.  */
-	  int size;
-	  tree t = TREE_TYPE (check_type);
-	  if (TREE_CODE (t) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (t)))
-	    {
-	      error_at (loc,
-			"argument 1 of %qE must be a non-void pointer type",
-			function);
-	      return NULL_TREE;
-	    }
-
-	  t = TREE_TYPE (t);
-	  /* Types must be compile time constant sizes. */
-	  if (TREE_CODE (TYPE_SIZE_UNIT (t)) != INTEGER_CST)
-	    {
-	      error_at (loc, 
-		  "argument 1 of %qE must be a pointer to a constant size type",
-		  function);
-	      return NULL_TREE;
-	    }
-
-	  size = tree_low_cst (TYPE_SIZE_UNIT (t), 1);
-	  /* Zero size objects are not allowed.  */
-	  if (size == 0)
-	    {
-	      error_at (loc, 
-		"argument 1 of %qE must be a pointer to a nonzero size object",
-		function);
-	      return NULL_TREE;
-	    }
-
-	  /* If expr_type is not set, set it to the derived atomic type.  */
-	  if (expr_type == NULL_TREE)
-	    expr_type = t;
-
-#if 0
-	  /* Strip off the atomic qualifier if need be.  */
-	  if (TYPE_ATOMIC (t))
-	    t = build_nonatomic_variant (t);
-#endif
-	}
-
-      new_return = build_atomic_vec (expr_type, function, params);
     }
 
   return new_return;
