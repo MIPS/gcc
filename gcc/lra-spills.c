@@ -548,6 +548,11 @@ lra_spill (void)
   for (i = 0; i < n; i++)
     if (pseudo_slots[pseudo_regnos[i]].mem == NULL_RTX)
       assign_mem_slot (pseudo_regnos[i]);
+  if (n > 0 && crtl->stack_alignment_needed)
+    /* If we have a stack frame, we must align it now.  The stack size
+       may be a part of the offset computation for register
+       elimination.  */
+    assign_stack_local (BLKmode, 0, crtl->stack_alignment_needed);
   if (lra_dump_file != NULL)
     {
       for (i = 0; i < slots_num; i++)
