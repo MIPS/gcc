@@ -223,15 +223,16 @@ mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
 
   for (i = 0; i < XVECLEN (return_reg, 0); i++)
     {
-      rtx reg = XEXP (XVECEXP (return_reg, 0, i), 0);
+      rtx elem = XVECEXP (return_reg, 0, i);
+      rtx reg = GET_CODE (elem) == EXPR_LIST ? XEXP (elem, 0) : elem;
 
       if (!reg)
 	continue;
 
       if (BOUND_MODE_P (GET_MODE (reg)) || CONST_INT_P (reg))
-	bnd_tmps[bnd_num++] = XVECEXP (return_reg, 0, i);
+	bnd_tmps[bnd_num++] = elem;
       else
-	val_tmps[val_num++] = XVECEXP (return_reg, 0, i);
+	val_tmps[val_num++] = elem;
     }
 
   gcc_assert (val_num);
@@ -242,24 +243,17 @@ mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
       return;
     }
 
-  if (val_num == 1)
-    {
-      *return_reg_val = XEXP (val_tmps[0], 0);
-      if (bnd_num == 1 && XEXP (bnd_tmps[0], 1) == const0_rtx)
-	*return_reg_bnd = XEXP (bnd_tmps[0], 0);
-      else
-	*return_reg_bnd
-	  = gen_rtx_PARALLEL (VOIDmode,
-			      gen_rtvec_v (bnd_num, bnd_tmps));
-    }
+  if ((GET_CODE (val_tmps[0]) == EXPR_LIST) || (val_num > 1))
+    *return_reg_val = gen_rtx_PARALLEL (GET_MODE (return_reg),
+					gen_rtvec_v (val_num, val_tmps));
   else
-    {
-      gcc_assert  (bnd_num > 0);
-      *return_reg_val = gen_rtx_PARALLEL (GET_MODE (return_reg),
-					  gen_rtvec_v (val_num, val_tmps));
-      *return_reg_bnd = gen_rtx_PARALLEL (VOIDmode,
-					  gen_rtvec_v (bnd_num, bnd_tmps));
-    }
+    *return_reg_val = val_tmps[0];
+
+  if ((GET_CODE (bnd_tmps[0]) == EXPR_LIST) || (bnd_num > 1))
+    *return_reg_bnd = gen_rtx_PARALLEL (VOIDmode,
+					gen_rtvec_v (bnd_num, bnd_tmps));
+  else
+    *return_reg_bnd = bnd_tmps[0];
 }
 
 /* Join previously splitted to VAL and BND rtx for function
@@ -268,45 +262,57 @@ rtx
 mpx_join_splitted_reg (rtx val, rtx bnd)
 {
   rtx res;
+  int i, n = 0;
 
   if (!bnd)
     return val;
 
-  if (REG_P (bnd) || CONST_INT_P (bnd))
-    {
-      gcc_assert (GET_CODE (val) != PARALLEL);
-
-      bnd = gen_rtx_EXPR_LIST (VOIDmode, bnd, const0_rtx);
-      val = gen_rtx_EXPR_LIST (VOIDmode, val, const0_rtx);
-
-      res = gen_rtx_PARALLEL (GET_MODE (val), rtvec_alloc (2));
-
-      XVECEXP (res, 0, 0) = bnd;
-      XVECEXP (res, 0, 1) = val;
-    }
+  if (GET_CODE (val) == PARALLEL)
+    n += XVECLEN (val, 0);
   else
-    {
-      bool valpar = (GET_CODE (val) == PARALLEL);
-      int n, i;
+    n++;
 
-      gcc_assert (GET_CODE (bnd) == PARALLEL);
+  if (GET_CODE (bnd) == PARALLEL)
+    n += XVECLEN (bnd, 0);
+  else
+    n++;
 
-      n = (valpar ? XVECLEN (val, 0) : 1) + XVECLEN (bnd, 0);
-      res = gen_rtx_PARALLEL (GET_MODE (val), rtvec_alloc (n));
+  res = gen_rtx_PARALLEL (GET_MODE (val), rtvec_alloc (n));
 
-      n = 0;
-      for (i = 0; i < XVECLEN (bnd, 0); i++)
-	XVECEXP (res, 0, n++) = XVECEXP (bnd, 0, i);
-      if (valpar)
-	for (i = 0; i < XVECLEN (val, 0); i++)
-	  XVECEXP (res, 0, n++) = XVECEXP (val, 0, i);
-      else
-	XVECEXP (res, 0, n++) = gen_rtx_EXPR_LIST (VOIDmode,
-						   val,
-						   const0_rtx);
-    }
+  n = 0;
+
+  if (GET_CODE (val) == PARALLEL)
+    for (i = 0; i < XVECLEN (val, 0); i++)
+      XVECEXP (res, 0, n++) = XVECEXP (val, 0, i);
+  else
+    XVECEXP (res, 0, n++) = val;
+
+  if (GET_CODE (bnd) == PARALLEL)
+    for (i = 0; i < XVECLEN (bnd, 0); i++)
+      XVECEXP (res, 0, n++) = XVECEXP (bnd, 0, i);
+  else
+    XVECEXP (res, 0, n++) = bnd;
 
   return res;
+}
+
+/* If PAR is PARALLEL holding registers then transform
+   it into PARALLEL holding EXPR_LISTs of those regs
+   and zero constant (similar to how function value
+   on multiple registers looks like).  */
+void
+mpx_put_regs_to_expr_list (rtx par)
+{
+  int n;
+
+  if (GET_CODE (par) != PARALLEL
+      || GET_CODE (XVECEXP (par, 0, 0)) == EXPR_LIST)
+    return;
+
+  for (n = 0; n < XVECLEN (par, 0); n++)
+    XVECEXP (par, 0, n) = gen_rtx_EXPR_LIST (VOIDmode,
+					     XVECEXP (par, 0, n),
+					     const0_rtx);
 }
 
 /* Return bndmk call which creates bounds for structure

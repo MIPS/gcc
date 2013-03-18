@@ -6445,11 +6445,17 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 
   /* First construct simple cases.  Avoid SCmode, since we want to use
      single register to pass this type.  */
-  if (n == 1 && mode != SCmode
-      && regclass[0] != X86_64_BOUNDED_INTEGER_CLASS
-      && regclass[0] != X86_64_BOUNDED_INTEGERSI_CLASS)
+  if (n == 1 && mode != SCmode)
     switch (regclass[0])
       {
+      case X86_64_BOUNDED_INTEGER_CLASS:
+      case X86_64_BOUNDED_INTEGERSI_CLASS:
+	ret =  gen_rtx_PARALLEL (mode, rtvec_alloc (2));
+	XVECEXP (ret, 0, 0) = bnd_regno <= LAST_BND_REG
+	  ? gen_rtx_REG (BNDmode, bnd_regno)
+	  : GEN_INT (bnd_regno - LAST_BND_REG);
+	XVECEXP (ret, 0, 1) = gen_rtx_REG (mode, intreg[0]);
+	return ret;
       case X86_64_INTEGER_CLASS:
       case X86_64_INTEGERSI_CLASS:
 	return gen_rtx_REG (mode, intreg[0]);
@@ -6829,12 +6835,8 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
 	  if (flag_mpx && type && BOUNDED_TYPE_P (type))
 	    {
-	      rtx bnd = gen_rtx_EXPR_LIST (VOIDmode,
-					   gen_rtx_REG (BNDmode, cum->bnd_regno),
-					   const0_rtx);
-	      rtx val = gen_rtx_EXPR_LIST (VOIDmode,
-					   gen_rtx_REG (mode, regno),
-					   const0_rtx);
+	      rtx bnd = gen_rtx_REG (BNDmode, cum->bnd_regno);
+	      rtx val = gen_rtx_REG (mode, regno);
 	      rtx ret = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
 	      XVECEXP (ret, 0, 0) = bnd;
 	      XVECEXP (ret, 0, 1) = val;
@@ -7368,9 +7370,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   if (flag_mpx && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
     {
       rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
-      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
-      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
-      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, res, b0));
     }
 
   return res;
@@ -7465,9 +7465,7 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
-      rtx list1 = gen_rtx_EXPR_LIST (VOIDmode, res, GEN_INT(0));
-      rtx list2 = gen_rtx_EXPR_LIST (VOIDmode, b0, GEN_INT(0));
-      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, list1, list2));
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, res, b0));
     }
 
   return res;
@@ -23819,8 +23817,17 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 
   vec_len = 0;
   call = gen_rtx_CALL (VOIDmode, fnaddr, callarg1);
+
   if (retval)
-    call = gen_rtx_SET (VOIDmode, retval, call);
+    {
+      /* For MPX we may have GPR + BR in parallel but but
+	 it will confuse DF and we need to put each reg
+	 under EXPR_LIST.  */
+      if (flag_mpx)
+	mpx_put_regs_to_expr_list (retval);
+
+      call = gen_rtx_SET (VOIDmode, retval, call);
+    }
   vec[vec_len++] = call;
 
   /* b0 and b1 registers hold bounds for returned value.  */
