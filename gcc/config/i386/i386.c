@@ -7290,6 +7290,9 @@ ix86_function_value_regno_p (const unsigned int regno)
     case AX_REG:
       return true;
 
+    case FIRST_BND_REG:
+      return flag_mpx;
+
     case FIRST_FLOAT_REG:
       /* TODO: The function should depend on current function ABI but
        builtins.c would need updating then. Therefore we use the
