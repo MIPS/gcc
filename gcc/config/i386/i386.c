@@ -28737,30 +28737,30 @@ ix86_init_mmx_sse_builtins (void)
     }
 
   /* Add MPX instructions.  */
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds32",
-	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds64",
-	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds32",
-	       PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds64",
-	       PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int32",
-	       PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int64",
-	       PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret32",
-	       BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret64",
-	       BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint32",
-	       BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint64",
-	       BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd32",
-	       BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
-  def_builtin (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd64",
-	       BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds32",
+		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds64",
+		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds32",
+		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds64",
+		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int32",
+		     PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int64",
+		     PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret32",
+		     BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret64",
+		     BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint32",
+		     BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint64",
+		     BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd32",
+		     BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd64",
+		     BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
 }
 
 /* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL

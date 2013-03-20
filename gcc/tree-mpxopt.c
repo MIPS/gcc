@@ -66,6 +66,7 @@ static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
 static GTY (()) tree mpx_checkl_fndecl;
 static GTY (()) tree mpx_checku_fndecl;
 static GTY (()) tree mpx_bndmk_fndecl;
+static GTY (()) tree mpx_intersect_fndecl;
 
 static int pol_item_compare (const void *i1, const void *i2);
 static void add_pol_item (polynomial &pol, tree cst, tree var);
@@ -84,6 +85,9 @@ static void mpxopt_fini (void);
 static void fill_check_info (gimple stmt, struct check_info *ci);
 static void gather_checks_info (void);
 static void remove_check_if_pass (struct check_info *ci);
+static void use_outer_bounds_if_possible (struct check_info *ci);
+static void remove_excess_intersections (void);
+int get_check_result (struct check_info *ci, tree bounds);
 static void remove_constant_checks (void);
 static void compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom);
 static void remove_redundant_checks (void);
@@ -492,15 +496,15 @@ gather_checks_info (void)
     }
 }
 
-/* Try to compare bounds value and address value
-   used in the check CI.  If we can prove that check
-   always pass then remove it.  */
-void
-remove_check_if_pass (struct check_info *ci)
+/* Return 1 if check CI against BOUNDS always pass,
+   -1 if check CI against BOUNDS always fails and
+   0 if we cannot compute check result.  */
+int
+get_check_result (struct check_info *ci, tree bounds)
 {
-  polynomial bound_val;
   gimple bnd_def;
-  int sign = 0;
+  polynomial bound_val;
+  int sign, res = 0;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -510,24 +514,24 @@ remove_check_if_pass (struct check_info *ci)
       fprintf (dump_file, "  address: ");
       print_pol (ci->addr);
       fprintf (dump_file, "\n  bounds: ");
-      print_generic_expr (dump_file, ci->bounds, 0);
+      print_generic_expr (dump_file, bounds, 0);
       fprintf (dump_file, "\n");
     }
 
-  if (TREE_CODE (ci->bounds) != SSA_NAME)
+  if (TREE_CODE (bounds) != SSA_NAME)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  result: bounds tree code is not ssa_name\n");
-      return;
+      return 0;
     }
 
-  bnd_def = SSA_NAME_DEF_STMT (ci->bounds);
+  bnd_def = SSA_NAME_DEF_STMT (bounds);
   if (gimple_code (bnd_def) != GIMPLE_CALL
       || gimple_call_fndecl (bnd_def) != mpx_bndmk_fndecl)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  result: cannot compute bounds value\n");
-      return;
+      return 0;
     }
 
   bound_val.create (0);
@@ -550,14 +554,53 @@ remove_check_if_pass (struct check_info *ci)
     }
 
   sub_pol_pol (bound_val, ci->addr);
+
   if (!is_constant_pol (bound_val, &sign))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "  action: keep check (cannot compute result)\n");
+	fprintf (dump_file, "  result: cannot compute result\n");
+
+      res = 0;
     }
   else if (sign == 0
 	   || (ci->type == CHECK_UPPER_BOUND && sign > 0)
 	   || (ci->type == CHECK_LOWER_BOUND && sign < 0))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: always pass\n");
+
+      res = 1;
+    }
+  else
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: always fail\n");
+
+      res = -1;
+    }
+
+  bound_val.release ();
+
+  return res;
+}
+
+/* Try to compare bounds value and address value
+   used in the check CI.  If we can prove that check
+   always pass then remove it.  */
+void
+remove_check_if_pass (struct check_info *ci)
+{
+  int result = 0;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Trying to remove check: ");
+      print_gimple_stmt (dump_file, ci->stmt, 0, 0);
+    }
+
+  result = get_check_result (ci, ci->bounds);
+
+  if (result == 1)
     {
       gimple_stmt_iterator i = gsi_for_stmt (ci->stmt);
 
@@ -569,13 +612,100 @@ remove_check_if_pass (struct check_info *ci)
       release_defs (ci->stmt);
       ci->stmt = NULL;
     }
-  else
+  else if (result == -1)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  action: keep check (always fail)\n");
     }
+  else if (result == 0)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  action: keep check (cannot compute result)\n");
+    }
+}
 
-  bound_val.release ();
+/* For bounds used in CI check if bounds are produced by
+   intersection and we may use outer bounds instead.  If
+   transformation is possible then fix check statement and
+   recompute its info.  */
+void
+use_outer_bounds_if_possible (struct check_info *ci)
+{
+  gimple bnd_def;
+  tree bnd1, bnd2, bnd_res = NULL;
+  int check_res1, check_res2;
+
+  if (TREE_CODE (ci->bounds) != SSA_NAME)
+    return;
+
+  bnd_def = SSA_NAME_DEF_STMT (ci->bounds);
+  if (gimple_code (bnd_def) != GIMPLE_CALL
+      || gimple_call_fndecl (bnd_def) != mpx_intersect_fndecl)
+    return;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Check if bounds intersection is redundant: \n");
+      fprintf (dump_file, "  check: ");
+      print_gimple_stmt (dump_file, ci->stmt, 0, 0);
+      fprintf (dump_file, "  intersection: ");
+      print_gimple_stmt (dump_file, bnd_def, 0, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  bnd1 = gimple_call_arg (bnd_def, 0);
+  bnd2 = gimple_call_arg (bnd_def, 1);
+
+  check_res1 = get_check_result (ci, bnd1);
+  check_res2 = get_check_result (ci, bnd2);
+  if (check_res1 == 1)
+    bnd_res = bnd2;
+  else if (check_res1 == -1)
+    bnd_res = bnd1;
+  else if (check_res2 == 1)
+    bnd_res = bnd1;
+  else if (check_res2 == -1)
+    bnd_res = bnd2;
+
+  if (bnd_res)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "  action: use ");
+	  print_generic_expr (dump_file, bnd2, 0);
+	  fprintf (dump_file, " instead of ");
+	  print_generic_expr (dump_file, ci->bounds, 0);
+	}
+
+      ci->bounds = bnd_res;
+      gimple_call_set_arg (ci->stmt, 0, bnd_res);
+      update_stmt (ci->stmt);
+    }
+}
+
+/*  Try to find checks whose bounds were produced by intersection
+    which does not affect check result.  In such check outer bounds
+    are used instead.  It allows to remove excess intersections
+    and helps to compare checks.  */
+void
+remove_excess_intersections (void)
+{
+  basic_block bb;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Searching for redundant bounds intersections...\n");
+
+  bb = ENTRY_BLOCK_PTR ->next_bb;
+  FOR_EACH_BB (bb)
+    {
+      struct bb_checks *bbc = &check_infos[bb->index];
+      unsigned int no;
+
+      /* Iterate throw all found checks in BB.  */
+      for (no = 0; no < bbc->checks.length (); no++)
+	if (bbc->checks[no].stmt)
+	  use_outer_bounds_if_possible (&bbc->checks[no]);
+    }
 }
 
 /*  Try to remove all checks which are known to alwyas pass.  */
@@ -946,10 +1076,13 @@ mpxopt_execute (void)
   mpx_checkl_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL);
   mpx_checku_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU);
   mpx_bndmk_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK);
+  mpx_intersect_fndecl = targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT);
 
   mpxopt_init();
 
   gather_checks_info ();
+
+  remove_excess_intersections ();
 
   remove_constant_checks ();
 

@@ -1479,7 +1479,7 @@ expand_null_return_1 (void)
    from the current function.  */
 
 void
-expand_return (tree retval)
+expand_return (tree retval, tree bounds)
 {
   rtx result_rtl;
   rtx bounds_rtl;
@@ -1514,8 +1514,6 @@ expand_return (tree retval)
   bounds_rtl = DECL_BOUNDS_RTL (DECL_RESULT (current_function_decl));
   if (bounds_rtl)
     {
-      tree bounds
-	= mpx_get_registered_bounds (DECL_RESULT (current_function_decl));
       rtx addr, bnd;
 
       if (bounds)
