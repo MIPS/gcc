@@ -6111,6 +6111,15 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       tree d_init;
       if (init == NULL_TREE)
 	{
+	  if (DECL_TEMPLATE_INSTANTIATION (decl)
+	      && !DECL_TEMPLATE_INSTANTIATED (decl))
+	    {
+	      /* init is null because we're deferring instantiating the
+		 initializer until we need it.  Well, we need it now.  */
+	      instantiate_decl (decl, /*defer_ok*/true, /*expl*/false);
+	      return;
+	    }
+
 	  error ("declaration of %q#D has no initializer", decl);
 	  TREE_TYPE (decl) = error_mark_node;
 	  return;
@@ -6425,11 +6434,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       /* Check for abstractness of the type. Notice that there is no
 	 need to strip array types here since the check for those types
 	 is already done within create_array_type_for_decl.  */
-      if (TREE_CODE (type) == FUNCTION_TYPE
-	  || TREE_CODE (type) == METHOD_TYPE)
-	abstract_virtuals_error (decl, TREE_TYPE (type));
-      else
-	abstract_virtuals_error (decl, type);
+      abstract_virtuals_error (decl, type);
 
       if (TREE_TYPE (decl) == error_mark_node)
 	/* No initialization required.  */
@@ -6749,10 +6754,9 @@ register_dtor_fn (tree decl)
      "__aeabi_atexit"), and DECL is a class object, we can just pass the
      destructor to "__cxa_atexit"; we don't have to build a temporary
      function to do the cleanup.  */
-  ob_parm = (DECL_THREAD_LOCAL_P (decl)
-	     || (flag_use_cxa_atexit
-		 && !targetm.cxx.use_atexit_for_cxa_atexit ()));
-  dso_parm = ob_parm;
+  dso_parm = (flag_use_cxa_atexit
+	      && !targetm.cxx.use_atexit_for_cxa_atexit ());
+  ob_parm = (DECL_THREAD_LOCAL_P (decl) || dso_parm);
   use_dtor = ob_parm && CLASS_TYPE_P (type);
   if (use_dtor)
     {
@@ -6816,7 +6820,7 @@ register_dtor_fn (tree decl)
 	 before passing it in, to avoid spurious errors.  */
       addr = build_nop (ptr_type_node, addr);
     }
-  else if (ob_parm)
+  else
     /* Since the cleanup functions we build ignore the address
        they're given, there's no reason to pass the actual address
        in, and, in general, it's cheaper to pass NULL than any
@@ -6826,6 +6830,10 @@ register_dtor_fn (tree decl)
   if (dso_parm)
     arg2 = cp_build_addr_expr (get_dso_handle_node (),
 			       tf_warning_or_error);
+  else if (ob_parm)
+    /* Just pass NULL to the dso handle parm if we don't actually
+       have a DSO handle on this target.  */
+    arg2 = null_pointer_node;
   else
     arg2 = NULL_TREE;
 
@@ -8590,7 +8598,6 @@ grokdeclarator (const cp_declarator *declarator,
   int explicit_int = 0;
   int explicit_char = 0;
   int defaulted_int = 0;
-  tree dependent_name = NULL_TREE;
 
   tree typedef_decl = NULL_TREE;
   const char *name = NULL;
@@ -8645,6 +8652,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool template_type_arg = false;
   bool template_parm_flag = false;
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
+  source_location saved_loc = input_location;
   const char *errmsg;
 
   signed_p = decl_spec_seq_has_spec_p (declspecs, ds_signed);
@@ -9187,12 +9195,6 @@ grokdeclarator (const cp_declarator *declarator,
     }
   friendp = decl_spec_seq_has_spec_p (declspecs, ds_friend);
 
-  if (dependent_name && !friendp)
-    {
-      error ("%<%T::%D%> is not a valid declarator", ctype, dependent_name);
-      return error_mark_node;
-    }
-
   /* Issue errors about use of storage classes for parameters.  */
   if (decl_context == PARM)
     {
@@ -9335,7 +9337,6 @@ grokdeclarator (const cp_declarator *declarator,
   if (declspecs->std_attributes)
     {
       /* Apply the c++11 attributes to the type preceding them.  */
-      source_location saved_loc = input_location;
       input_location = declspecs->locations[ds_std_attribute];
       decl_attributes (&type, declspecs->std_attributes, 0);
       input_location = saved_loc;
@@ -9423,11 +9424,10 @@ grokdeclarator (const cp_declarator *declarator,
 		error ("%qs declared as function returning an array", name);
 		return error_mark_node;
 	      }
-	    /* When decl_context == NORMAL we emit a better error message
-	       later in abstract_virtuals_error.  */
-	    if (decl_context == TYPENAME && ABSTRACT_CLASS_TYPE_P (type))
-	      error ("%qs declared as function returning an abstract "
-		     "class type", name);
+
+	    input_location = declspecs->locations[ds_type_spec];
+	    abstract_virtuals_error (ACU_RETURN, type);
+	    input_location = saved_loc;
 
 	    /* Pick up type qualifiers which should be applied to `this'.  */
 	    memfn_quals = declarator->u.function.qualifiers;
@@ -9630,9 +9630,11 @@ grokdeclarator (const cp_declarator *declarator,
 	     but to the target of the pointer.  */
 	  type_quals = TYPE_UNQUALIFIED;
 
+	  /* This code used to handle METHOD_TYPE, but I don't think it's
+	     possible to get it here anymore.  */
+	  gcc_assert (TREE_CODE (type) != METHOD_TYPE);
 	  if (declarator->kind == cdk_ptrmem
-	      && (TREE_CODE (type) == FUNCTION_TYPE
-		  || (memfn_quals && TREE_CODE (type) == METHOD_TYPE)))
+	      && TREE_CODE (type) == FUNCTION_TYPE)
 	    {
 	      memfn_quals |= type_memfn_quals (type);
 	      type = build_memfn_type (type,
@@ -10625,9 +10627,8 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 	  }
 
-	/* Record presence of `static'.  */
+	/* Record whether the function is public.  */
 	publicp = (ctype != NULL_TREE
-		   || storage_class == sc_extern
 		   || storage_class != sc_static);
 
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
@@ -10799,9 +10800,8 @@ static tree
 local_variable_p_walkfn (tree *tp, int *walk_subtrees,
 			 void * /*data*/)
 {
-  /* Check DECL_NAME to avoid including temporaries.  We don't check
-     DECL_ARTIFICIAL because we do want to complain about 'this'.  */
-  if (local_variable_p (*tp) && DECL_NAME (*tp))
+  if (local_variable_p (*tp)
+      && (!DECL_ARTIFICIAL (*tp) || DECL_NAME (*tp) == this_identifier))
     return *tp;
   else if (TYPE_P (*tp))
     *walk_subtrees = 0;
@@ -10852,15 +10852,10 @@ check_default_argument (tree decl, tree arg)
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
-      && c_inhibit_evaluation_warnings == 0
       && TYPE_PTR_OR_PTRMEM_P (decl_type)
       && null_ptr_cst_p (arg)
-      && !NULLPTR_TYPE_P (TREE_TYPE (arg)))
-    {
-      warning (OPT_Wzero_as_null_pointer_constant,
-	       "zero as null pointer constant");
-      return nullptr_node;
-    }
+      && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
+    return nullptr_node;
 
   /* [dcl.fct.default]
 
@@ -11716,9 +11711,6 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 {
   tree type;
 
-  if (decl == error_mark_node)
-    return error_mark_node;
-
   /* In the case of:
 
        struct S { struct S *p; };
@@ -11897,11 +11889,12 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 
 static tree
 xref_tag_1 (enum tag_types tag_code, tree name,
-            tag_scope scope, bool template_header_p)
+            tag_scope orig_scope, bool template_header_p)
 {
   enum tree_code code;
   tree t;
   tree context = NULL_TREE;
+  tag_scope scope;
 
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
 
@@ -11920,6 +11913,11 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     default:
       gcc_unreachable ();
     }
+
+  if (orig_scope == ts_lambda)
+    scope = ts_current;
+  else
+    scope = orig_scope;
 
   /* In case of anonymous name, xref_tag is only called to
      make type node and push name.  Name lookup is not required.  */
@@ -11994,6 +11992,10 @@ xref_tag_1 (enum tag_types tag_code, tree name,
 	{
 	  t = make_class_type (code);
 	  TYPE_CONTEXT (t) = context;
+	  if (orig_scope == ts_lambda)
+	    /* Remember that we're declaring a lambda to avoid bogus errors
+	       in push_template_decl.  */
+	    CLASSTYPE_LAMBDA_EXPR (t) = error_mark_node;
 	  t = pushtag (name, t, scope);
 	}
     }
@@ -12786,15 +12788,14 @@ incremented enumerator value is too large for %<long%>");
          does not fit, the program is ill-formed [C++0x dcl.enum].  */
       if (ENUM_UNDERLYING_TYPE (enumtype)
           && value
-          && TREE_CODE (value) == INTEGER_CST
-          && !int_fits_type_p (value, ENUM_UNDERLYING_TYPE (enumtype)))
+          && TREE_CODE (value) == INTEGER_CST)
         {
-          error ("enumerator value %E is too large for underlying type %<%T%>",
-                 value, ENUM_UNDERLYING_TYPE (enumtype));
+	  if (!int_fits_type_p (value, ENUM_UNDERLYING_TYPE (enumtype)))
+	    error ("enumerator value %E is too large for underlying type %<%T%>",
+		   value, ENUM_UNDERLYING_TYPE (enumtype));
 
-          /* Silently convert the value so that we can continue.  */
-          value = perform_implicit_conversion (ENUM_UNDERLYING_TYPE (enumtype),
-                                               value, tf_none);
+          /* Convert the value to the appropriate type.  */
+          value = convert (ENUM_UNDERLYING_TYPE (enumtype), value);
         }
     }
 
@@ -14017,7 +14018,10 @@ grokmethod (cp_decl_specifier_seq *declspecs,
 
 
 /* VAR is a VAR_DECL.  If its type is incomplete, remember VAR so that
-   we can lay it out later, when and if its type becomes complete.  */
+   we can lay it out later, when and if its type becomes complete.
+
+   Also handle constexpr pointer to member variables where the initializer
+   is an unlowered PTRMEM_CST because the class isn't complete yet.  */
 
 void
 maybe_register_incomplete_var (tree var)
@@ -14042,6 +14046,15 @@ maybe_register_incomplete_var (tree var)
 	  incomplete_var iv = {var, inner_type};
 	  vec_safe_push (incomplete_vars, iv);
 	}
+      else if (TYPE_PTRMEM_P (inner_type)
+	       && DECL_INITIAL (var)
+	       && TREE_CODE (DECL_INITIAL (var)) == PTRMEM_CST)
+	{
+	  tree context = TYPE_PTRMEM_CLASS_TYPE (inner_type);
+	  gcc_assert (TYPE_BEING_DEFINED (context));
+	  incomplete_var iv = {var, context};
+	  vec_safe_push (incomplete_vars, iv);
+	}
     }
 }
 
@@ -14061,10 +14074,17 @@ complete_vars (tree type)
 	{
 	  tree var = iv->decl;
 	  tree type = TREE_TYPE (var);
-	  /* Complete the type of the variable.  The VAR_DECL itself
-	     will be laid out in expand_expr.  */
-	  complete_type (type);
-	  cp_apply_type_quals_to_decl (cp_type_quals (type), var);
+
+	  if (TYPE_PTRMEM_P (type))
+	    DECL_INITIAL (var) = cplus_expand_constant (DECL_INITIAL (var));
+	  else
+	    {
+	      /* Complete the type of the variable.  The VAR_DECL itself
+		 will be laid out in expand_expr.  */
+	      complete_type (type);
+	      cp_apply_type_quals_to_decl (cp_type_quals (type), var);
+	    }
+
 	  /* Remove this entry from the list.  */
 	  incomplete_vars->unordered_remove (ix);
 	}

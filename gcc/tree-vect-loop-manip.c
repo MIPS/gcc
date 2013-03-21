@@ -187,6 +187,7 @@ adjust_debug_stmts (tree from, tree to, basic_block bb)
 
   if (MAY_HAVE_DEBUG_STMTS
       && TREE_CODE (from) == SSA_NAME
+      && ! SSA_NAME_IS_DEFAULT_DEF (from)
       && ! virtual_operand_p (from))
     {
       ai.from = from;
@@ -846,9 +847,6 @@ slpeel_can_duplicate_loop_p (const struct loop *loop, const_edge e)
   edge entry_e = loop_preheader_edge (loop);
   gimple orig_cond = get_loop_exit_condition (loop);
   gimple_stmt_iterator loop_exit_gsi = gsi_last_bb (exit_e->src);
-
-  if (need_ssa_update_p (cfun))
-    return false;
 
   if (loop->inner
       /* All loops have an outer scope; the only case loop->outer is NULL is for
@@ -2270,20 +2268,14 @@ vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 
    Output:
    COND_EXPR - conditional expression.
-   COND_EXPR_STMT_LIST - statements needed to construct the conditional
-                         expression.
-
 
    The returned value is the conditional expression to be used in the if
    statement that controls which version of the loop gets executed at runtime.
 */
 
 static void
-vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
-				   tree * cond_expr,
-				   gimple_seq * cond_expr_stmt_list)
+vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   vec<ddr_p>  may_alias_ddrs =
     LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo);
   int vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -2332,12 +2324,14 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 	  dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_b));
 	}
 
-      addr_base_a =
-        vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE, loop);
-      addr_base_b =
-        vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE, loop);
+      addr_base_a
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_a),
+				   size_binop (PLUS_EXPR, DR_OFFSET (dr_a),
+					       DR_INIT (dr_a)));
+      addr_base_b
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_b),
+				   size_binop (PLUS_EXPR, DR_OFFSET (dr_b),
+					       DR_INIT (dr_b)));
 
       if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
 	length_factor = scalar_loop_iters;
@@ -2434,8 +2428,7 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
 				       &cond_expr_stmt_list);
 
   if (LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
-    vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr,
-				       &cond_expr_stmt_list);
+    vect_create_cond_for_alias_checks (loop_vinfo, &cond_expr);
 
   cond_expr = force_gimple_operand_1 (cond_expr, &gimplify_stmt_list,
 				      is_gimple_condexpr, NULL_TREE);

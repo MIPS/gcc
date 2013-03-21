@@ -2100,10 +2100,40 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
   if (TREE_CODE (target) == ADDR_EXPR)
     target = TREE_OPERAND (target, 0);
   if (TREE_CODE (target) != FUNCTION_DECL)
-    return NULL;
+    {
+      target = canonicalize_constructor_val (target, NULL);
+      if (!target || TREE_CODE (target) != FUNCTION_DECL)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "ipa-prop: Discovered direct call to non-function"
+				" in (%s/%i).\n",
+		     cgraph_node_name (ie->caller), ie->caller->uid);
+	  return NULL;
+	}
+    }
   callee = cgraph_get_node (target);
-  if (!callee)
-    return NULL;
+
+  /* Because may-edges are not explicitely represented and vtable may be external,
+     we may create the first reference to the object in the unit.  */
+  if (!callee || callee->global.inlined_to)
+    {
+
+      /* We are better to ensure we can refer to it.
+	 In the case of static functions we are out of luck, since we already	
+	 removed its body.  In the case of public functions we may or may
+	 not introduce the reference.  */
+      if (!canonicalize_constructor_val (target, NULL)
+	  || !TREE_PUBLIC (target))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "ipa-prop: Discovered call to a known target "
+		     "(%s/%i -> %s/%i) but can not refer to it. Giving up.\n",
+		     xstrdup (cgraph_node_name (ie->caller)), ie->caller->uid,
+		     xstrdup (cgraph_node_name (ie->callee)), ie->callee->uid);
+	  return NULL;
+	}
+      callee = cgraph_get_create_real_symbol_node (target);
+    }
   ipa_check_create_node_params ();
 
   /* We can not make edges to inline clones.  It is bug that someone removed

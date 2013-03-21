@@ -179,7 +179,7 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
     init = convert (type, nullptr_node);
   else if (SCALAR_TYPE_P (type))
     init = convert (type, integer_zero_node);
-  else if (CLASS_TYPE_P (type))
+  else if (RECORD_OR_UNION_CODE_P (TREE_CODE (type)))
     {
       tree field;
       vec<constructor_elt, va_gc> *v = NULL;
@@ -2301,7 +2301,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       return error_mark_node;
     }
 
-  if (abstract_virtuals_error_sfinae (NULL_TREE, elt_type, complain))
+  if (abstract_virtuals_error_sfinae (ACU_NEW, elt_type, complain))
     return error_mark_node;
 
   is_initialized = (type_build_ctor_call (elt_type) || *init != NULL);

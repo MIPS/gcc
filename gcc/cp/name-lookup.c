@@ -69,14 +69,12 @@ get_anonymous_namespace_name (void)
 {
   if (!anonymous_namespace_name)
     {
-      /* The anonymous namespace has to have a unique name
-	 if typeinfo objects are being compared by name.  */
-      if (! flag_weak || ! SUPPORTS_ONE_ONLY)
-       anonymous_namespace_name = get_file_function_name ("N");
-      else
-       /* The demangler expects anonymous namespaces to be called
-          something starting with '_GLOBAL__N_'.  */
-       anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
+      /* We used to use get_file_function_name here, but that isn't
+	 necessary now that anonymous namespace typeinfos
+	 are !TREE_PUBLIC, and thus compared by address.  */
+      /* The demangler expects anonymous namespaces to be called
+	 something starting with '_GLOBAL__N_'.  */
+      anonymous_namespace_name = get_identifier ("_GLOBAL__N_1");
     }
   return anonymous_namespace_name;
 }
@@ -3027,14 +3025,6 @@ push_class_level_binding_1 (tree name, tree x)
       && TREE_TYPE (decl) == error_mark_node)
     decl = TREE_VALUE (decl);
 
-  if (TREE_CODE (decl) == USING_DECL
-      && TREE_CODE (USING_DECL_SCOPE (decl)) == TEMPLATE_TYPE_PARM
-      && DECL_NAME (decl) == TYPE_IDENTIFIER (USING_DECL_SCOPE (decl)))
-    /* This using-declaration declares constructors that inherit from the
-       constructors for the template parameter.  It does not redeclare the
-       name of the template parameter.  */
-    return true;
-
   if (!check_template_shadow (decl))
     return false;
 
@@ -3226,8 +3216,14 @@ do_class_using_decl (tree scope, tree name)
       error ("%<%T::%D%> names destructor", scope, name);
       return NULL_TREE;
     }
-  if (MAYBE_CLASS_TYPE_P (scope) && constructor_name_p (name, scope))
-    maybe_warn_cpp0x (CPP0X_INHERITING_CTORS);
+  /* Using T::T declares inheriting ctors, even if T is a typedef.  */
+  if (MAYBE_CLASS_TYPE_P (scope)
+      && ((TYPE_NAME (scope) && name == TYPE_IDENTIFIER (scope))
+	  || constructor_name_p (name, scope)))
+    {
+      maybe_warn_cpp0x (CPP0X_INHERITING_CTORS);
+      name = ctor_identifier;
+    }
   if (constructor_name_p (name, current_class_type))
     {
       error ("%<%T::%D%> names constructor in %qT",

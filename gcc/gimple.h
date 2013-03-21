@@ -661,6 +661,9 @@ struct GTY(()) gimple_statement_omp_atomic_store {
    tell the runtime that it should begin the transaction in
    serial-irrevocable mode.  */
 #define GTMA_DOES_GO_IRREVOCABLE	(1u << 6)
+/* The transaction contains no instrumentation code whatsover, most
+   likely because it is guaranteed to go irrevocable upon entry.  */
+#define GTMA_HAS_NO_INSTRUMENTATION	(1u << 7)
 
 struct GTY(()) gimple_statement_transaction
 {
@@ -2743,23 +2746,6 @@ gimple_cond_false_p (const_gimple gs)
 
   if (code == EQ_EXPR && lhs != rhs)
       return true;
-
-  return false;
-}
-
-/* Check if conditional statement GS is of the form 'if (var != 0)' or
-   'if (var == 1)' */
-
-static inline bool
-gimple_cond_single_var_p (gimple gs)
-{
-  if (gimple_cond_code (gs) == NE_EXPR
-      && gimple_cond_rhs (gs) == boolean_false_node)
-    return true;
-
-  if (gimple_cond_code (gs) == EQ_EXPR
-      && gimple_cond_rhs (gs) == boolean_true_node)
-    return true;
 
   return false;
 }

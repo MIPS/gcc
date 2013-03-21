@@ -1,3 +1,770 @@
+2013-03-20  Jeff Law  <law@redhat.com>
+
+	* g++.dg/tree-ssa/ssa-dom.C: New test.
+	
+
+2013-03-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/mmfpgpr.c: New test.
+	* gcc.target/powerpc/sd-vsx.c: Likewise.
+	* gcc.target/powerpc/sd-pwr6.c: Likewise.
+	* gcc.target/powerpc/vsx-float0.c: Likewise.
+
+2013-03-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/56355
+	* gcc.dg/pr56355-1.c: New file.
+
+2013-03-20  Catherine Moore  <clm@codesourcery.com>
+	    Richard Sandiford <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp: Add microMIPS support.
+	* gcc.target/mips/umips-movep-2.c: New test.
+	* gcc.target/mips/umips-lwp-2.c: New test.
+	* gcc.target/mips/umips-swp-5.c: New test.
+	* gcc.target/mips/umips-constraints-1.c: New test.
+	* gcc.target/mips/umips-lwp-3.c: New test.
+	* gcc.target/mips/umips-swp-6.c: New test.
+	* gcc.target/mips/umips-constraints-2.c: New test.
+	* gcc.target/mips/umips-save-restore-1.c: New test.
+	* gcc.target/mips/umips-lwp-4.c: New test.
+	* gcc.target/mips/umips-swp-7.c: New test.
+	* gcc.target/mips/umips-save-restore-2.c: New test.
+	* gcc.target/mips/umips-lwp-swp-volatile.c: New test.
+	* gcc.target/mips/umips-lwp-5.c: New test.
+	* gcc.target/mips/umips-save-restore-3.c: New test.
+	* gcc.target/mips/umips-lwp-6.c: New test.
+	* gcc.target/mips/umips-swp-1.c: New test.
+	* gcc.target/mips/umips-lwp-7.c: New test.
+	* gcc.target/mips/umips-swp-2.c: New test.
+	* gcc.target/mips/umips-lwp-8.c: New test.
+	* gcc.target/mips/umips-swp-3.c: New test.
+	* gcc.target/mips/umips-movep-1.c: New test.
+	* gcc.target/mips/umips-lwp-1.c: New test.
+	* gcc.target/mips/umips-swp-4.c: New test.
+
+2013-03-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56661
+	* gcc.dg/torture/pr56661.c: New testcase.
+
+2013-03-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR rtl-optimization/56605
+	* gcc.target/powerpc/pr56605.c: New.
+
+2013-03-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR fortran/54932
+	* gfortran.dg/do_1.f90: Don't xfail.
+
+2013-03-20  Tilo Schwarz  <tilo@tilo-schwarz.de>
+
+	PR libfortran/51825
+	* gfortran.dg/namelist_77.f90: New.
+	* gfortran.dg/namelist_78.f90: New.
+
+2013-03-20  Tilo Schwarz  <tilo@tilo-schwarz.de>
+
+	PR libfortran/48618
+	* gfortran.dg/open_negative_unit_1.f90: New.
+
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/sbc.c: New test.
+
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/ror.c: New test.
+
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/extr.c: New test.
+
+2013-03-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56273
+	* gcc.dg/tree-ssa/vrp47.c: Adjust.
+	* c-c++-common/uninit-17.c: Likewise.
+
+2013-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56635
+	* g++.dg/torture/pr56635.C: New test.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/3713
+	* g++.dg/ipa/devirt-12.C: New testcase.
+
+2013-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/56566
+	* c-c++-common/pr56566.c: New test.
+
+2013-03-17  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/abstract-dr337.C: XFAIL.
+
+2013-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56607
+	* g++.dg/warn/Wdiv-by-zero-2.C: New test.
+	* c-c++-common/pr56607.c: New test.
+
+2013-03-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56582
+	* g++.dg/cpp0x/constexpr-array5.C: New.
+
+2013-03-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56615
+	* gfortran.dg/transfer_intrinsic_5.f90: New.
+
+2013-03-15  Kai Tietz  <ktietz@redhat.com>
+
+	* gcc.target/i386/movti.c: Don't test for x64 mingw.
+	* gcc.target/i386/pr20020-1.c: Likewise.
+	* gcc.target/i386/pr20020-2.c: Likewise.
+	* gcc.target/i386/pr20020-3.c: Likewise.
+	* gcc.target/i386/pr53425-1.c: Likewise.
+	* gcc.target/i386/pr53425-2.c: Likewise.
+	* gcc.target/i386/pr55093.c: Likewise.
+	* gcc.target/i386/pr53907.c: Adjust test for LLP64 targets.
+
+2013-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56307
+	* gcc.dg/tree-ssa/pr55579.c: Add -fvar-tracking-assignments to
+	dg-options.  Remove 32-bit hppa*-*-hpux* xfail.
+
+2013-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53265
+	* gcc.dg/graphite/scop-3.c (toto): Increase array size to avoid
+	undefined behavior.
+	* gcc.dg/graphite/id-6.c (test): Likewise.
+	* gcc.dg/graphite/pr35356-2.c: Adjust regexp patterns to only look for
+	MIN_EXPR and MAX_EXPR in GIMPLE stmts.
+
+	PR tree-optimization/53265
+	* gcc.dg/pr53265.c: New test.
+	* gcc.dg/torture/pr49518.c: Add -Wno-aggressive-loop-optimizations
+	to dg-options.
+	* g++.dg/opt/longbranch2.C (EBCOTLut): Double sizes of a2 and a3
+	arrays.
+	* gcc.dg/tree-ssa/cunroll-10.c (main): Rename to foo.  Add argument
+	n, use it as high bound instead of 4.
+
+2013-03-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49880
+	* gcc.target/sh/pr49880-1.c: New.
+	* gcc.target/sh/pr49880-2.c: New.
+	* gcc.target/sh/pr49880-3.c: New.
+	* gcc.target/sh/pr49880-4.c: New.
+	* gcc.target/sh/pr49880-5.c: New.
+
+2013-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/alias-decl-32.C: Remove redundant bits.
+
+2013-03-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56608
+	* gcc.dg/vect/fast-math-bb-slp-call-3.c: New testcase.
+
+2013-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56611
+	* g++.dg/cpp0x/alias-decl-32.C: New.
+
+2013-03-11  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/56571
+	* gcc.c-torture/compile/pr56571.c: New testcase.
+
+2013-03-11  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/tree-ssa/vector-4.c: Add comment regarding xfail.
+	* gcc.dg/tree-ssa/pr55579.c: Likewise.
+
+2013-03-11  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gcc.dg/inline_3.c: Remove target and dg-excess-errors.
+	* gcc.dg/inline_4.c: Likewise.
+	* gcc.dg/unroll_2.c: Likewise.
+	* gcc.dg/unroll_3.c: Likewise.
+	* gcc.dg/unroll_4.c: Likewise.
+
+2013-03-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/54119
+	* gcc.dg/tree-ssa/vector-4.c: xfail on 32-bit hppa*-*-*.
+
+	PR debug/56307
+	* gcc.dg/tree-ssa/pr55579.c: xfail 32-bit hppa*-*-hpux*.
+
+2013-03-11  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/40797
+	* gcc.c-torture/compile/pr40797.c: New.
+
+2013-03-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/pr44194-1.c: Skip compilation on hppa*64*-*-*.
+
+2013-03-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/56575
+	* gfortran.dg/class_56.f90: New test.
+
+2013-03-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR middle-end/56524
+	* gcc.target/mips/pr56524.c: New test.
+
+2013-03-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56565
+	* g++.dg/cpp0x/lambda/lambda-nsdmi2.C: New.
+
+2013-03-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51412
+	* g++.dg/cpp0x/lambda/lambda-err3.C: New.
+
+2013-03-08  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/56478
+	* gcc.dg/torture/pr56478.c: New test.
+
+2013-03-08  Kai Tietz  <ktietz@redhat.com>
+
+	* gcc.c-torture/execute/builtins/builtins.exp: Add for mingw
+	targets linker option --allow-multiple-definition.
+
+	* gcc.dg/pr14092-1.c: Mark intptr_t typedef to use extension.
+	* gcc.dg/pr24683.c: Avoid warning about casting constant string.
+	* gcc.dg/pr52549.c: Add LLP64 case.
+	* gcc.dg/pr53701.c: Use for uintptr_t typedef __UINTPTR_TYPE__.
+	* gcc.dg/pr56510.c: Adjust for LLP64 targets.
+	* gcc.dg/torture/pr51071-2.c: Likewise.
+	* gcc.dg/tree-ssa/vrp72.c: Likewise.
+	* gcc.dg/tree-ssa/vrp73.c: Likewise.
+	* gcc.dg/tree-ssa/vrp75.c: Likewise.
+	* gcc.dg/torture/pr53922.c: Skip test for mingw-targets.
+	* gcc.dg/weak/weak-1.c: Likewise.
+	* gcc.dg/weak/weak-2.c: Likewise.
+	* gcc.dg/weak/weak-3.c: Likewise.
+	* gcc.dg/weak/weak-4.c: Likewise.
+	* gcc.dg/weak/weak-5.c: Likewise.
+	* gcc.dg/weak/weak-15.c: Likewise.
+	* gcc.dg/weak/weak-16.c: Likewise.
+
+	* c-c++-common/pr54486.c: Skip test for mingw-targets.
+
+2013-03-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56559
+	* gcc.dg/tree-ssa/reassoc-26.c: New test.
+
+2013-03-07  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/pr31490.c: Fix last change.
+
+2013-03-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56534
+	* g++.dg/template/crash115.C: New.
+
+2013-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56539
+	* gcc.c-torture/compile/pr56539.c: New test.
+
+2013-03-06  Kai Tietz  <ktietz@redhat.com>
+
+	* gcc.dg/lto/20090914-2_0.c: Skip for mingw and cygwin
+	targets.
+	* gcc.dg/lto/20091013-1_1.c: Set x64-mingw as xfail.
+	* gcc.dg/lto/20091013-1_2.c: Likewise.
+	* gcc.dg/pr31490.c: Adjust for LLP64 targets.
+
+2013-03-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/aggr6.ads: New test.
+
+2013-03-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization15.ad[sb]: New test.
+
+2013-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56548
+	* gcc.dg/pr56548.c: New test.
+
+2013-03-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR debug/53363
+	* g++.dg/debug/dwarf2/thunk1.C: Skip on darwin.
+
+2013-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56543
+	* g++.dg/template/typename20.C: New test.
+
+2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56510
+	* gcc.dg/pr56510.c: New test.
+
+	PR rtl-optimization/56484
+	* gcc.c-torture/compile/pr56484.c: New test.
+
+2013-03-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56530
+	* g++.dg/warn/Wsign-conversion-2.C: New.
+
+2013-03-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56270
+	* gcc.dg/vect/slp-38.c: New testcase.
+
+2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/56494
+	* gcc.dg/pr56494.c: New test.
+
+2013-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr56424.c: New test.
+
+2013-03-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.dg/pr55153.c: Add dg-require-effective-target scheduling.
+	* gcc.dg/pr56228.c <avr>: Skip.
+
+2013-03-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR testsuite/52641
+	PR tree-optimization/52631
+	* gcc.dg/tree-ssa/pr52631.c: Fix 16-bit int.
+
+2013-03-03  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/vect/vect-82_64.c: Skip on AIX.
+	* gcc.dg/vect/vect-83_64.c: Same.
+
+2013-03-03  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56477
+	* gfortran.dg/pointer_check_13.f90: New test.
+
+2013-03-03  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/54730
+	* gfortran.dg/array_constructor_42.f90: New test.
+
+2013-03-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52688
+	* g++.dg/template/static33.C: New.
+	* g++.dg/template/static34.C: Likewise.
+
+	PR c++/10291
+	* g++.dg/template/static35.C: New.
+
+2013-03-01  Steve Ellcey  <sellcey@mips.com>
+
+	* gcc.dg/pr56396.c: Require pic support.
+
+2013-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55481
+	* gcc.dg/torture/pr56488.c: New testcase.
+
+2013-02-28  Konstantin Serebryany  <konstantin.s.serebryany@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/56454
+	* g++.dg/asan/default-options-1.C (__asan_default_options): Use
+	no_sanitize_address attribute rather than no_address_safety_analysis.
+	* g++.dg/asan/sanitizer_test_utils.h
+	(ATTRIBUTE_NO_ADDRESS_SAFETY_ANALYSIS): Likewise.
+	* c-c++-common/asan/attrib-1.c: Test no_sanitize_address attribute
+	in addition to no_address_safety_analysis.
+
+2013-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56481
+	* g++.dg/cpp0x/constexpr-and.C: New.
+
+2013-02-28  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/56294
+	* g++.dg/debug/pr56294.C: New test.
+
+2013-02-28  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* g++.old-deja/g++.pt/ptrmem6.C(main): Add xfail aarch64*-*-*.
+
+2013-02-27  Marek Polacek  <polacek@redhat.com>
+
+	PR rtl-optimization/56466
+	* gcc.dg/pr56466.c: New test.
+
+2013-02-28  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.dg/tree-ssa/slsr-1.c: Allow widening multiplications.
+	* gcc.dg/tree-ssa/slsr-2.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-3.c: Likewise.
+
+2013-02-27  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/45472
+	* gcc.dg/pr45472.c: New test.
+
+2013-02-26  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/56426
+	* gcc.dg/pr56436.c: New test.
+
+2013-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56448
+	* gcc.c-torture/compile/pr56448.c: New test.
+
+	PR tree-optimization/56443
+	* gcc.dg/torture/pr56443.c: New test.
+
+2013-02-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56175
+	* gcc.dg/tree-ssa/forwprop-24.c: New testcase.
+
+2013-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56403
+	* g++.dg/torture/pr56403.C: New test.
+
+2013-02-25  Catherine Moore  <clm@codesourcery.com>
+
+	Revert:
+	2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp: Add microMIPS support.
+	* gcc.target/mips/umips-movep-2.c: New test.
+	* gcc.target/mips/umips-lwp-2.c: New test.
+	* gcc.target/mips/umips-swp-5.c: New test.
+	* gcc.target/mips/umips-constraints-1.c: New test.
+	* gcc.target/mips/umips-lwp-3.c: New test.
+	* gcc.target/mips/umips-swp-6.c: New test.
+	* gcc.target/mips/umips-constraints-2.c: New test.
+	* gcc.target/mips/umips-save-restore-1.c: New test.
+	* gcc.target/mips/umips-lwp-4.c: New test.
+	* gcc.target/mips/umips-swp-7.c: New test.
+	* gcc.target/mips/umips-save-restore-2.c: New test.
+	* gcc.target/mips/umips-lwp-swp-volatile.c: New test.
+	* gcc.target/mips/umips-lwp-5.c: New test.
+	* gcc.target/mips/umips-save-restore-3.c: New test.
+	* gcc.target/mips/umips-lwp-6.c: New test.
+	* gcc.target/mips/umips-swp-1.c: New test.
+	* gcc.target/mips/umips-lwp-7.c: New test.
+	* gcc.target/mips/umips-swp-2.c: New test.
+	* gcc.target/mips/umips-lwp-8.c: New test.
+	* gcc.target/mips/umips-swp-3.c: New test.
+	* gcc.target/mips/umips-movep-1.c: New test.
+	* gcc.target/mips/umips-lwp-1.c: New test.
+	* gcc.target/mips/umips-swp-4.c: New test.
+
+2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp: Add microMIPS support.
+	* gcc.target/mips/umips-movep-2.c: New test.
+	* gcc.target/mips/umips-lwp-2.c: New test.
+	* gcc.target/mips/umips-swp-5.c: New test.
+	* gcc.target/mips/umips-constraints-1.c: New test.
+	* gcc.target/mips/umips-lwp-3.c: New test.
+	* gcc.target/mips/umips-swp-6.c: New test.
+	* gcc.target/mips/umips-constraints-2.c: New test.
+	* gcc.target/mips/umips-save-restore-1.c: New test.
+	* gcc.target/mips/umips-lwp-4.c: New test.
+	* gcc.target/mips/umips-swp-7.c: New test.
+	* gcc.target/mips/umips-save-restore-2.c: New test.
+	* gcc.target/mips/umips-lwp-swp-volatile.c: New test.
+	* gcc.target/mips/umips-lwp-5.c: New test.
+	* gcc.target/mips/umips-save-restore-3.c: New test.
+	* gcc.target/mips/umips-lwp-6.c: New test.
+	* gcc.target/mips/umips-swp-1.c: New test.
+	* gcc.target/mips/umips-lwp-7.c: New test.
+	* gcc.target/mips/umips-swp-2.c: New test.
+	* gcc.target/mips/umips-lwp-8.c: New test.
+	* gcc.target/mips/umips-swp-3.c: New test.
+	* gcc.target/mips/umips-movep-1.c: New test.
+	* gcc.target/mips/umips-lwp-1.c: New test.
+	* gcc.target/mips/umips-swp-4.c: New test.
+
+2013-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/56393
+	* lib/asan-dg.exp (asan_link_flags): Add
+	-B${gccpath}/libsanitizer/asan/ to flags.
+
+2013-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56420
+	* gcc.dg/torture/pr56420.c: New test.
+
+2013-02-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/56108
+	* gcc.dg/tm/memopt-1.c: Declare functions transaction_safe.
+
+2013-02-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/56310
+	* g++.dg/ipa/pr56310.C: New test.
+
+2013-02-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56385
+	* gfortran.dg/proc_ptr_comp_37.f90: New.
+
+2013-02-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56415
+	Revert
+	2013-02-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56273
+	* g++.dg/warn/Warray-bounds-6.C: New testcase.
+	* gcc.dg/tree-ssa/pr21559.c: Adjust.
+	* gcc.dg/tree-ssa/vrp17.c: Likewise.
+	* gcc.dg/tree-ssa/vrp18.c: Likewise.
+	* gcc.dg/tree-ssa/vrp23.c: Likewise.
+	* gcc.dg/tree-ssa/vrp24.c: Likewise.
+
+2013-02-21  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/56398
+	* g++.dg/torture/pr56398.C: New test.
+
+2013-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/56405
+	* gcc.c-torture/compile/pr56405.c: New test.
+
+2013-02-20  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/56265
+	* g++.dg/ipa/devirt-11.C: New testcase.
+
+2013-02-20  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/forwprop-8.c: Adjust.
+
+2013-02-20  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56396
+	* gcc.dg/pr56396.c: New testcase.
+
+2013-02-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56373
+	* g++.dg/cpp0x/Wzero-as-null-pointer-constant-2.C: New.
+
+2013-02-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56384
+	* gcc.dg/torture/pr56384.c: New testcase.
+
+2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56350
+	* gcc.dg/pr56350.c: New test.
+
+	PR tree-optimization/56381
+	* g++.dg/opt/pr56381.C: New test.
+
+2013-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/54117
+	* lib/dg-pch.exp (pch-init, pch-finish,
+	check_effective_target_pch_supported_debug): New procs.
+	(dg-flags-pch): If $pch_unsupported, make tests UNSUPPORTED.
+	Likewise if $pch_unsupported_debug and $flags include -g.
+	Skip FAILs about missing *.gch file if $pch_unsupported_debug
+	and dg-require-effective-target pch_unsupported_debug.
+	* g++.dg/pch/pch.exp: Call pch-init and pch-finish.
+	* objc.dg/pch/pch.exp: Likewise.
+	* gcc.dg/pch/pch.exp: Likewise.
+	* gcc.dg/pch/valid-1.c: Add dg-require-effective-target
+	pch_unsupported_debug.
+	* gcc.dg/pch/valid-1.hs: Likewise.
+	* gcc.dg/pch/valid-1b.c: Likewise.
+	* gcc.dg/pch/valid-1b.hs: Likewise.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56366
+	* gcc.dg/torture/pr56366.c: New testcase.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56349
+	* gcc.dg/torture/pr56349.c: New testcase.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56321
+	* gcc.dg/torture/pr56321.c: New testcase.
+
+2013-02-16  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
+
+	* gcc.dg/20020312-2.c: Define MicroBlaze PIC register
+
+2013-02-16  Jakub Jelinek  <jakub@redhat.com>
+	    Dodji Seketeli  <dodji@redhat.com>
+
+	PR asan/56330
+	* c-c++-common/asan/no-redundant-instrumentation-4.c: New test file.
+	* c-c++-common/asan/no-redundant-instrumentation-5.c: Likewise.
+	* c-c++-common/asan/no-redundant-instrumentation-6.c: Likewise.
+	* c-c++-common/asan/no-redundant-instrumentation-7.c: Likewise.
+	* c-c++-common/asan/no-redundant-instrumentation-8.c: Likewise.
+	* c-c++-common/asan/pr56330.c: Likewise.
+	* c-c++-common/asan/no-redundant-instrumentation-1.c (test1):
+	Ensure the size argument of __builtin_memcpy is a constant.
+
+2013-02-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51242
+	* g++.dg/cpp0x/enum23.C: New.
+
+2013-02-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54685
+	* gcc.target/sh/pr54685.c: Fix scanning of not insn.
+
+2013-02-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56348
+	* gcc.target/i386/pr56348.c: New test.
+
+2013-02-15  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* gcc.target/arm/interrupt-1.c: Fix for thumb mode.
+	* gcc.target/arm/interrupt-2.c: Likewise.
+
+2013-02-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56318
+	* gfortran.dg/matmul_9.f90: New.
+
+2013-02-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/53818
+	* gfortran.dg/init_flag_11.f90: New.
+
+2013-02-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/debug/dwarf2/pr53948.c: Allow for more whitespace.
+
+2013-02-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/debug/dwarf2/pr53948.c: Allow for / and ! as comment
+	characters.
+
+2013-02-14  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR testsuite/56138
+	* gfortran.dg/allocatable_function_7.f90: New.
+
+2013-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/asan/dejagnu-gtest.h: Add multiple inclusion guards.
+	* asan_globals_test-wrapper.cc: New file.
+	* g++.dg/asan/asan_test.C: Use asan_globals_test-wrapper.cc
+	instead of asan_globals_test.cc as dg-additional-sources.
+	Include asan_mem_test.cc, asan_str_test.cc and asan_oob_test.cc.
+	* g++.dg/asan/asan_test_utils.h: Synced from upstream.  Include
+	"sanitizer_test_utils.h" instead of
+	"sanitizer_common/tests/sanitizer_test_utils.h".
+	* g++.dg/asan/asan_str_test.cc: New file, synced from upstream.
+	* g++.dg/asan/asan_mem_test.cc: New file, synced from upstream.
+	* g++.dg/asan/asan_oob_test.cc: New file, synced from upstream.
+	* g++.dg/asan/asan_globals_test.cc: Synced from upstream.
+	* g++.dg/asan/asan_test.cc: Synced from upstream.
+	* g++.dg/asan/sanitizer_test_utils.h: New file, synced from upstream.
+
+2013-02-14  Dodji Seketeli  <dodji@redhat.com>
+
+	Fix an asan crash
+	* c-c++-common/asan/memcmp-2.c: New test.
+
+2013-02-13  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/55582
+	* g++.dg/cpp0x/udlit-string-literal.h: New.
+	* g++.dg/cpp0x/udlit-string-literal.C: New.
+
+2013-02-13  Sriraman Tallam  <tmsriram@google.com>
+
+	* g++.dg/ext/mv12-aux.C: Add directives to match mv12.C.
+
+2013-02-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/56184
+	* gcc.target/arm/pr56184.C: New test.
+
+2013-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56302
+	* g++.dg/torture/pr56302.C: New test.
+	* g++.dg/cpp0x/constexpr-56302.C: New test.
+	* c-c++-common/pr56302.c: New test.
+
+2013-02-13  Tobias Burnus  <burnus@net-b.de>
+	    Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR fortran/56204
+	* gfortran.dg/quad_2.f90: Use "< epsilon" instead of "==".
+	* gfortran.dg/quad_3.f90: Ditto.
+
+2013-02-13  Kostya Serebryany  <kcc@google.com>
+
+	* c-c++-common/asan/strncpy-overflow-1.c: Update the test
+	to match the fresh asan run-time.
+	* c-c++-common/asan/rlimit-mmap-test-1.c: Ditto.
+
+2013-02-12  Dodji Seketeli  <dodji@redhat.com>
+
+	Avoid instrumenting duplicated memory access in the same basic block
+	* c-c++-common/asan/no-redundant-instrumentation-1.c: New test.
+	* c-c++-common/asan/no-redundant-instrumentation-2.c: Likewise.
+	* c-c++-common/asan/no-redundant-instrumentation-3.c: Likewise.
+	* c-c++-common/asan/inc.c: Likewise.
+
+2013-02-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR inline-asm/56148
+	* gcc.target/i386/pr56148.c: New test.
+
+2013-02-12  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR testsuite/56082
+	* gfortran.dg/bind_c_bool_1.f90 (sub): Change kind=4
+	to kind=2.
+
 2013-02-12  Richard Biener  <rguenther@suse.de>
 
 	PR lto/56297
@@ -35,7 +802,7 @@
 	* gcc.target/powerpc/ppc-stackalign-1.c: Likewise.
 	* gcc.target/powerpc/ppc-ldstruct.c: Likewise.
 
-2013-02-11  Alexander Potapenko <glider@google.com>
+2013-02-11  Alexander Potapenko  <glider@google.com>
 	    Jack Howarth  <howarth@bromo.med.uc.edu>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -260,7 +1027,7 @@
 	PR fortran/47517
 	* gfortran.dg/realloc_on _assign_17.f90 : New test.
 
-2013-02-04  Alexander Potapenko <glider@google.com>
+2013-02-04  Alexander Potapenko  <glider@google.com>
 	    Jack Howarth  <howarth@bromo.med.uc.edu>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -383,7 +1150,7 @@
 	* gfortran.dg/allocatable_function_6.f90: New.
 
 2013-01-29  Janus Weil  <janus@gcc.gnu.org>
-	    Mikael Morin <mikael@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/54107
 	* gfortran.dg/proc_ptr_comp_36.f90: New.

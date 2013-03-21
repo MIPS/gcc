@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct target_optabs default_target_optabs;
 struct target_libfuncs default_target_libfuncs;
+struct target_optabs *this_fn_optabs = &default_target_optabs;
 #if SWITCHABLE_TARGET
 struct target_optabs *this_target_optabs = &default_target_optabs;
 struct target_libfuncs *this_target_libfuncs = &default_target_libfuncs;
@@ -6150,7 +6151,7 @@ init_optabs (void)
     libfunc_hash = htab_create_ggc (10, hash_libfunc, eq_libfunc, NULL);
 
   /* Fill in the optabs with the insns we support.  */
-  init_all_optabs ();
+  init_all_optabs (this_fn_optabs);
 
   /* The ffs function operates on `int'.  Fall back on it if we do not
      have a libgcc2 function for that width.  */
@@ -6205,6 +6206,39 @@ init_optabs (void)
 
   /* Allow the target to add more libcalls or rename some, etc.  */
   targetm.init_libfuncs ();
+}
+
+/* Use the current target and options to initialize
+   TREE_OPTIMIZATION_OPTABS (OPTNODE).  */
+
+void
+init_tree_optimization_optabs (tree optnode)
+{
+  /* Quick exit if we have already computed optabs for this target.  */
+  if (TREE_OPTIMIZATION_BASE_OPTABS (optnode) == this_target_optabs)
+    return;
+
+  /* Forget any previous information and set up for the current target.  */
+  TREE_OPTIMIZATION_BASE_OPTABS (optnode) = this_target_optabs;
+  struct target_optabs *tmp_optabs = (struct target_optabs *)
+    TREE_OPTIMIZATION_OPTABS (optnode);
+  if (tmp_optabs)
+    memset (tmp_optabs, 0, sizeof (struct target_optabs));
+  else
+    tmp_optabs = (struct target_optabs *)
+      ggc_alloc_atomic (sizeof (struct target_optabs));
+
+  /* Generate a new set of optabs into tmp_optabs.  */
+  init_all_optabs (tmp_optabs);
+
+  /* If the optabs changed, record it.  */
+  if (memcmp (tmp_optabs, this_target_optabs, sizeof (struct target_optabs)))
+    TREE_OPTIMIZATION_OPTABS (optnode) = (unsigned char *) tmp_optabs;
+  else
+    {
+      TREE_OPTIMIZATION_OPTABS (optnode) = NULL;
+      ggc_free (tmp_optabs);
+    }
 }
 
 /* A helper function for init_sync_libfuncs.  Using the basename BASE,

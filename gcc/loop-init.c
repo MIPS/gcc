@@ -99,6 +99,9 @@ loop_optimizer_init (unsigned flags)
 #ifdef ENABLE_CHECKING
       verify_loop_structure ();
 #endif
+
+      /* Clear all flags.  */
+      loops_state_clear (~0U);
     }
 
   /* Apply flags to loops.  */
@@ -183,7 +186,7 @@ fix_loop_structure (bitmap changed_bbs)
   int record_exits = 0;
   loop_iterator li;
   struct loop *loop;
-  unsigned old_nloops;
+  unsigned old_nloops, i;
 
   timevar_push (TV_LOOP_INIT);
 
@@ -227,8 +230,9 @@ fix_loop_structure (bitmap changed_bbs)
 	  flow_loop_tree_node_add (loop_outer (loop), ploop);
 	}
 
-      /* Remove the loop and free its data.  */
-      delete_loop (loop);
+      /* Remove the loop.  */
+      loop->header = NULL;
+      flow_loop_tree_node_remove (loop);
     }
 
   /* Remember the number of loops so we can return how many new loops
@@ -249,6 +253,14 @@ fix_loop_structure (bitmap changed_bbs)
     	  bb->aux = NULL;
 	}
     }
+
+  /* Finally free deleted loops.  */
+  FOR_EACH_VEC_ELT (*get_loops (), i, loop)
+    if (loop && loop->header == NULL)
+      {
+	(*get_loops ())[i] = NULL;
+	flow_loop_free (loop);
+      }
 
   loops_state_clear (LOOPS_NEED_FIXUP);
 

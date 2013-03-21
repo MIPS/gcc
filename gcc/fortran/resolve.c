@@ -2145,15 +2145,14 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
   if ((gsym->type != GSYM_UNKNOWN && gsym->type != type))
     gfc_global_used (gsym, where);
 
-  if (gfc_option.flag_whole_file
-	&& (sym->attr.if_source == IFSRC_UNKNOWN
-	    || sym->attr.if_source == IFSRC_IFBODY)
-	&& gsym->type != GSYM_UNKNOWN
-	&& gsym->ns
-	&& gsym->ns->resolved != -1
-	&& gsym->ns->proc_name
-	&& not_in_recursive (sym, gsym->ns)
-	&& not_entry_self_reference (sym, gsym->ns))
+  if ((sym->attr.if_source == IFSRC_UNKNOWN
+       || sym->attr.if_source == IFSRC_IFBODY)
+      && gsym->type != GSYM_UNKNOWN
+      && gsym->ns
+      && gsym->ns->resolved != -1
+      && gsym->ns->proc_name
+      && not_in_recursive (sym, gsym->ns)
+      && not_entry_self_reference (sym, gsym->ns))
     {
       gfc_symbol *def_sym;
 
@@ -2364,7 +2363,7 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
 		     "an explicit interface", sym->name, &sym->declared_at);
 	}
 
-      if (gfc_option.flag_whole_file == 1
+      if (!pedantic
 	  || ((gfc_option.warn_std & GFC_STD_LEGACY)
 	      && !(gfc_option.warn_std & GFC_STD_GNU)))
 	gfc_errors_to_warnings (1);
@@ -9891,7 +9890,7 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
 				      (*code)->expr1->rank ? 1 : 0);
   if (depth > 1)
     {
-      gfc_warning ("TODO: type-bound deﬁned assignment(s) at %L not "
+      gfc_warning ("TODO: type-bound defined assignment(s) at %L not "
 		   "done because multiple part array references would "
 		   "occur in intermediate expressions.", &(*code)->loc);
       return;
@@ -11031,9 +11030,10 @@ apply_default_init_local (gfc_symbol *sym)
 
   /* For saved variables, we don't want to add an initializer at function
      entry, so we just add a static initializer. Note that automatic variables
-     are stack allocated even with -fno-automatic.  */
+     are stack allocated even with -fno-automatic; we have also to exclude
+     result variable, which are also nonstatic.  */
   if (sym->attr.save || sym->ns->save_all
-      || (gfc_option.flag_max_stack_var_size == 0
+      || (gfc_option.flag_max_stack_var_size == 0 && !sym->attr.result
 	  && (!sym->attr.dimension || !is_non_constant_shape_array (sym))))
     {
       /* Don't clobber an existing initializer!  */
@@ -12865,6 +12865,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component '%s' with CLASS at %L must be allocatable "
 		     "or pointer", c->name, &c->loc);
+	  /* Prevent a recurrence of the error.  */
+	  c->ts.type = BT_UNKNOWN;
 	  return FAILURE;
 	}
 
