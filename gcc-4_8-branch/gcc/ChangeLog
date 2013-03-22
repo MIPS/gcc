@@ -22,6 +22,23 @@
 	it was DW_OP_addr of address of the variable, but the variable doesn't
 	live in memory, try to emit const value attribute for the initializer.
 
+2012-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.8.1.
+	* DEV-PHASE: Set to prerelease.
+
+2013-03-22  Release Manager
+
+	* GCC 4.8.0 released.
+
+2013-03-21  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/sync.md (atomic_test_and_set): New pattern.
+
+2013-03-21  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2out.c (size_of_aranges): Skip DECL_IGNORED_P functions.
+
 2013-03-20  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56661
