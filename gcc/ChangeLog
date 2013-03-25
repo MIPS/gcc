@@ -13,11 +13,6 @@
 	* config/mips/mips.md (*movdi_64bit, *movdi_64bit_mips16)
 	(*mov<mode>_internal, *mov<mode>_mips16): Update accordingly.
 
-2013-02-26  Catherine Moore  <clm@codesourcery.com>
-
-	* config/mips/micromips.md (mips_jraddiusp): New insn.
-	* config/mips/mips.c (mips_expand_epilogue): Generate JRADDIUSP.
-
 2013-02-25  Catherine Moore  <clm@codesourcery.com>
 
 	Restore:
