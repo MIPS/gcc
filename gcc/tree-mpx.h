@@ -8,6 +8,8 @@
 
 #define bound_type_node (TARGET_64BIT ? bound64_type_node : bound32_type_node)
 
+extern const char *MPX_SIZE_OF_SYMBOL_PREFIX;
+
 extern bool mpx_register_var_initializer (tree var);
 extern void mpx_finish_file (void);
 extern tree mpx_get_registered_bounds (tree ptr);

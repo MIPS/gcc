@@ -2042,21 +2042,6 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
 	  assemble_zeros (asan_red_zone_size (size));
 	}
     }
-
-  /* Output reference to the end of the var for PL purposes.  */
-  if (flag_mpx_incomplete_type)
-    if (!SYMBOL_REF_HAS_BLOCK_INFO_P (symbol) || !SYMBOL_REF_BLOCK (symbol))
-    {
-      const char *prefix = "__pl_end_of_";
-      char *buf = (char *) xmalloc (strlen (name) + strlen (prefix) + 1);
-      strcpy (buf, prefix);
-      strcat (buf, name);
-      fprintf(asm_out_file, "\t.bss\n");
-      targetm.asm_out.globalize_label (asm_out_file, buf);
-      /*      fprintf(asm_out_file, "\t.type %s, @object\n", buf);*/
-      ASM_OUTPUT_LABEL (asm_out_file, buf);
-      free (buf);
-    }
 }
 
 /* Return 1 if type TYPE contains any pointers.  */

@@ -24,6 +24,7 @@
 #include "tree-mpx.h"
 #include "rtl.h"
 #include "expr.h"
+#include "output.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 
@@ -32,6 +33,7 @@ typedef void (*assign_handler)(tree, tree, void *);
 static unsigned int mpx_execute (void);
 static bool mpx_gate (void);
 
+static int mpx_output_size_variable (void **slot, void *res);
 static int mpx_may_complete_phi_bounds (void **slot, void *res);
 static bool mpx_may_finish_incomplete_bounds (void);
 static int mpx_find_valid_phi_bounds (void **slot, void *res);
@@ -43,6 +45,7 @@ static void mpx_finish_incomplete_bounds (void);
 static void mpx_erase_completed_bounds (void);
 static void mpx_erase_incomplete_bounds (void);
 static tree mpx_get_tmp_var (void);
+static tree mpx_get_size_tmp_var (void);
 static void mpx_fix_function_decl (tree decl, bool make_ssa_names);
 static void mpx_fix_function_decls (void);
 static void mpx_init (void);
@@ -78,6 +81,7 @@ static tree mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, boo
 static tree mpx_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
 					     bool always_narrow_fields);
+static tree mxp_get_var_size_decl (tree var);
 static tree mpx_generate_extern_var_bounds (tree var);
 static tree mpx_get_bounds_for_decl (tree decl);
 static tree mpx_get_bounds_for_decl_addr (tree decl);
@@ -140,6 +144,7 @@ static basic_block entry_block;
 static tree zero_bounds;
 static tree none_bounds;
 static tree tmp_var;
+static tree size_tmp_var;
 static tree incomplete_bounds;
 
 static GTY ((param_is (union gimple_statement_d))) htab_t mpx_marked_stmts;
@@ -153,9 +158,13 @@ static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t mpx_incomplete_bounds_map;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
+static const char *SIZE_TMP_NAME = "__size_tmp";
 
 static GTY (()) vec<tree, va_gc> *var_inits;// = NULL;
+static GTY ((if_marked ("tree_map_marked_p"),
+	     param_is (struct tree_map))) htab_t mpx_size_decls = NULL;
 const char *MPXSI_IDENTIFIER = "__mpx_initialize_static_bounds";
+const char *MPX_SIZE_OF_SYMBOL_PREFIX = "__mpx_size_of_";
 
 #define MAX_STMTS_IN_STATIC_MPX_CTOR 300
 
@@ -193,6 +202,19 @@ mpx_get_tmp_var (void)
     }
 
   return tmp_var;
+}
+
+/* Get var to be used for bound values.  */
+static tree
+mpx_get_size_tmp_var (void)
+{
+  if (!size_tmp_var)
+    {
+      size_tmp_var = create_tmp_reg (mpx_uintptr_type, SIZE_TMP_NAME);
+      //add_referenced_var (size_tmp_var);
+    }
+
+  return size_tmp_var;
 }
 
 /* Split rtx RETURN_REG identifying slot for function value
@@ -628,33 +650,54 @@ void *arg)
     }
 }
 
-/* Emit static bound initilizers.  */
+/* Helper function for mpx_finish_file.
+   Outputs one variable from mpx_size_decls table.  */
+int
+mpx_output_size_variable (void **slot, void *res)
+{
+  struct tree_map *map = (struct tree_map *)*slot;
+  tree size_decl = map->to;
+  assemble_variable (size_decl, 1, 0, 0);
+
+  return 1;
+}
+
+/* Emit static bound initilizers and size vars.  */
 void
 mpx_finish_file (void)
 {
   struct mpx_ctor_stmt_list stmts;
+  bool tmp;
   int i;
   tree var;
-
-  if (!var_inits)
-    return;
 
   if (seen_error ())
     return;
 
-  stmts.avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
-  stmts.stmts = NULL;
+  if (var_inits)
+    {
+      stmts.avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
+      stmts.stmts = NULL;
 
-  FOR_EACH_VEC_ELT (*var_inits, i, var)
-    /* !!! We must check that var is actually emitted and we need
-       and may initialize its bounds.  Currently asm_written flag and
-       rtl are checked.  Probably some other fields should be checked.  */
-    if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
-      mpx_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
-				   mpx_add_modification_to_statements_list);
+      FOR_EACH_VEC_ELT (*var_inits, i, var)
+	/* !!! We must check that var is actually emitted and we need
+	   and may initialize its bounds.  Currently asm_written flag and
+	   rtl are checked.  Probably some other fields should be checked.  */
+	if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
+	  mpx_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
+					mpx_add_modification_to_statements_list);
 
-  if (stmts.stmts)
-    cgraph_build_static_cdtor ('P', stmts.stmts, MAX_RESERVED_INIT_PRIORITY-1);
+      if (stmts.stmts)
+	cgraph_build_static_cdtor ('P', stmts.stmts, MAX_RESERVED_INIT_PRIORITY-1);
+    }
+
+  if (mpx_size_decls)
+    {
+      htab_traverse (mpx_size_decls, mpx_output_size_variable, &tmp);
+
+      htab_delete (mpx_size_decls);
+      mpx_size_decls = NULL;
+    }
 }
 
 /* This function requests intrumentation for all statements
@@ -1981,20 +2024,93 @@ mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
   return bounds;
 }
 
+/* Return var holding size relocation for given VAR.  */
+static tree
+mxp_get_var_size_decl (tree var)
+{
+  struct tree_map **slot, *map;
+  const char *var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var));
+  const char *size_suffix = "@SIZE";
+  char *decl_name;
+  char *size_name;
+  tree size_decl, size_reloc;
+
+  /* Check if we have decl already.  */
+  if (mpx_size_decls)
+    {
+      struct tree_map *res, in;
+      in.base.from = var;
+      in.hash = htab_hash_pointer (var);
+
+      res = (struct tree_map *) htab_find_with_hash (mpx_size_decls,
+						     &in, in.hash);
+
+      if (res)
+	return res->to;
+    }
+
+  /* No prepared decl was found.  Create new decl for var size.  */
+  size_name = (char *) xmalloc (strlen (var_name) + strlen (size_suffix) + 1);
+  strcpy (size_name, var_name);
+  strcat (size_name, size_suffix);
+
+  size_reloc = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			   get_identifier (size_name), mpx_uintptr_type);
+
+  TREE_PUBLIC (size_reloc) = 1;
+  TREE_USED (size_reloc) = 1;
+  DECL_ARTIFICIAL (size_reloc) = 1;
+  DECL_EXTERNAL (size_reloc) = 1;
+  DECL_COMMON (size_reloc) = 1;
+
+  decl_name = (char *) xmalloc (strlen (var_name)
+			       + strlen (MPX_SIZE_OF_SYMBOL_PREFIX) + 1);
+  strcpy (decl_name, MPX_SIZE_OF_SYMBOL_PREFIX);
+  strcat (decl_name, var_name);
+
+  size_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			 get_identifier (decl_name), mpx_uintptr_type);
+
+  TREE_PUBLIC (size_decl) = 0;
+  TREE_USED (size_decl) = 1;
+  TREE_READONLY (size_decl) = 1;
+  TREE_STATIC (size_decl) = 1;
+  TREE_ADDRESSABLE (size_decl) = 1;
+  DECL_ARTIFICIAL (size_decl) = 1;
+  DECL_COMMON (size_decl) = 1;
+  DECL_COMDAT (size_decl) = 1;
+  DECL_READ_P (size_decl) = 1;
+  DECL_INITIAL (size_decl) = mpx_build_addr_expr (size_reloc);
+
+  free (size_name);
+  free (decl_name);
+
+  /* Add created decl to the global hash map.  */
+  if (!mpx_size_decls)
+    mpx_size_decls = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+
+  map = ggc_alloc_tree_map ();
+  map->hash = htab_hash_pointer (var);
+  map->base.from = var;
+  map->to = size_decl;
+
+  slot = (struct tree_map **)
+    htab_find_slot_with_hash (mpx_size_decls, map, map->hash, INSERT);
+  *slot = map;
+
+  return size_decl;
+}
+
 /* When var has incomplete type we cannot get size to compute its bounds.
    In such cases we generate code to compute var bounds using special
    symbols pointing its begin and end.  */
 static tree
 mpx_generate_extern_var_bounds (tree var)
 {
-  const char *prefix = "__mpx_end_of_";
-  const char *var_name = IDENTIFIER_POINTER (DECL_NAME (var));
-  tree bounds;
-  tree end_decl;
-  tree var_end;
-  tree lb;
-  tree size;
-  char *end_name;
+  tree bounds, size_decl, lb, size, max_size, cond;
+  gimple_stmt_iterator gsi;
+  gimple_seq seq = NULL;
+  gimple stmt;
 
   /* If MPX instrumentation is not enabled for vars having
      incomplete type then just return zero bounds to avoid
@@ -2009,31 +2125,32 @@ mpx_generate_extern_var_bounds (tree var)
       fprintf (dump_file, "'\n");
     }
 
-  end_name = (char *) xmalloc (strlen (var_name) + strlen (prefix) + 1);
-  strcpy (end_name, prefix);
-  strcat (end_name, var_name);
-
-  end_decl = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (end_name), void_type_node);//TREE_TYPE (var));
-  TREE_PUBLIC (end_decl) = 1;
-  TREE_USED (end_decl) = 1;
-  DECL_ARTIFICIAL (end_decl) = 1;
-  DECL_EXTERNAL (end_decl) = 1;
-  DECL_COMMON (end_decl) = 1;
-  DECL_WEAK (end_decl) = 1;
-  DECL_ATTRIBUTES (end_decl) = build_tree_list (get_identifier ("weak"),
-						NULL_TREE);
-//  create_var_ann (end_decl);
+  size_decl = mxp_get_var_size_decl (var);
 
   lb = mpx_build_addr_expr (var);
-  var_end = mpx_build_addr_expr (end_decl);
-  size = size_binop (MINUS_EXPR,
-		     fold_convert (mpx_uintptr_type, var_end),
+
+  /* We should check that size relocation was resolved.
+     If it was not then use maximum possible size for the var.  */
+  max_size = build2 (MINUS_EXPR, mpx_uintptr_type, integer_zero_node,
 		     fold_convert (mpx_uintptr_type, lb));
+  max_size = mpx_force_gimple_call_op (max_size, &seq);
 
-  bounds = mpx_make_bounds (lb, size, NULL, false);
+  size = make_ssa_name (mpx_get_size_tmp_var (), gimple_build_nop ());
 
-  free (end_name);
+  stmt = gimple_build_assign (size, size_decl);
+  size_decl = size;
+  gimple_seq_add_stmt (&seq, stmt);
+
+  size = make_ssa_name (mpx_get_size_tmp_var (), gimple_build_nop ());
+  cond = build2 (NE_EXPR, boolean_type_node, size_decl, integer_zero_node);
+  stmt = gimple_build_assign_with_ops (COND_EXPR, size,
+				       cond, size_decl, max_size);
+  gimple_seq_add_stmt (&seq, stmt);
+
+  gsi = gsi_start_bb (mpx_get_entry_block ());
+  gsi_insert_seq_after (&gsi, seq, GSI_CONTINUE_LINKING);
+
+  bounds = mpx_make_bounds (lb, size, &gsi, true);
 
   return bounds;
 }
@@ -3164,6 +3281,7 @@ mpx_init (void)
   none_bounds = NULL_TREE;
   incomplete_bounds = integer_zero_node;
   tmp_var = NULL_TREE;
+  size_tmp_var = NULL_TREE;
 
   mpx_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
   mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);

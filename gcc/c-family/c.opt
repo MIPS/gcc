@@ -1089,7 +1089,7 @@ C ObjC C++ ObjC++ Report Var(flag_mpx)
 Add MPX instrumentation
 
 fmpx-check-incomplete-type
-C ObjC C++ ObjC++ Report Var(flag_mpx_incomplete_type) Init(0)
+C ObjC C++ ObjC++ Report Var(flag_mpx_incomplete_type) Init(1)
 Add MPX instrumentation for usage of variables with incomplete type
 
 fmpx-zero-input-bounds-for-main
