@@ -467,3 +467,11 @@ void
 hook_void_gcc_optionsp (struct gcc_options *opts ATTRIBUTE_UNUSED)
 {
 }
+
+/* Generic hook that takes a struct hard_reg_set_container * and returns
+   void.  */
+
+void
+hook_void_hard_reg_set_containerp (struct hard_reg_set_container *regs ATTRIBUTE_UNUSED)
+{
+}

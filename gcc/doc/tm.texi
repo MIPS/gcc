@@ -3096,6 +3096,7 @@ This describes the stack layout and calling conventions.
 * Profiling::
 * Tail Calls::
 * Stack Smashing Protection::
+* Miscellaneous Register Hooks::
 @end menu
 
 @node Frame Layout
@@ -5026,6 +5027,14 @@ normally defined in @file{libgcc2.c}.
 
 @deftypefn {Common Target Hook} bool TARGET_SUPPORTS_SPLIT_STACK (bool @var{report}, struct gcc_options *@var{opts})
 Whether this target supports splitting the stack when the options described in @var{opts} have been passed.  This is called after options have been parsed, so the target may reject splitting the stack in some configurations.  The default version of this hook returns false.  If @var{report} is true, this function may issue a warning or error; if @var{report} is false, it must simply return a value
+@end deftypefn
+
+@node Miscellaneous Register Hooks
+@subsection Miscellaneous register hooks
+@cindex miscellaneous register hooks
+
+@deftypefn {Target Hook} void TARGET_FN_OTHER_HARD_REG_USAGE (struct hard_reg_set_container *@var{regs})
+Add any hard registers to @var{regs} that are set or clobbered by a call to the function.  This hook only needs to be defined to provide registers that cannot be found by examination of the final RTL representation of a function.
 @end deftypefn
 
 @node Varargs

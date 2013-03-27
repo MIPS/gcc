@@ -73,6 +73,7 @@ extern void hook_void_tree (tree);
 extern void hook_void_tree_treeptr (tree, tree *);
 extern void hook_void_int_int (int, int);
 extern void hook_void_gcc_optionsp (struct gcc_options *);
+extern void hook_void_hard_reg_set_containerp (struct hard_reg_set_container *);
 
 extern int hook_int_uint_mode_1 (unsigned int, enum machine_mode);
 extern int hook_int_const_tree_0 (const_tree);

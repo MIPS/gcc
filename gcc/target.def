@@ -5261,6 +5261,17 @@ FRAME_POINTER_REGNUM, ARG_POINTER_REGNUM, and the PIC_OFFSET_TABLE_REGNUM.",
  void, (bitmap regs),
  hook_void_bitmap)
 
+/* For targets that need to mark extra registers as clobbered on entry to
+   the function, they should define this target hook and set their
+   bits in the struct hard_reg_set_container passed in.  */
+DEFHOOK
+(fn_other_hard_reg_usage,
+ "Add any hard registers to @var{regs} that are set or clobbered by a call to\
+ the function.  This hook only needs to be defined to provide registers that\
+ cannot be found by examination of the final RTL representation of a function.",
+ void, (struct hard_reg_set_container *regs),
+ hook_void_hard_reg_set_containerp)
+
 /* Fill in additional registers set up by prologue into a regset.  */
 DEFHOOK
 (set_up_by_prologue,
