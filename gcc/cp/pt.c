@@ -213,9 +213,8 @@ static tree instantiate_alias_template (tree, tree, tsubst_flags_t);
 static void
 push_access_scope (tree t)
 {
-  gcc_assert (TREE_CODE (t) == FUNCTION_DECL
-	      || TREE_CODE (t) == TYPE_DECL
-	      || TREE_CODE (t) == VAR_DECL);
+  gcc_assert (VAR_OR_FUNCTION_DECL_P (t)
+	      || TREE_CODE (t) == TYPE_DECL);
 
   if (DECL_FRIEND_CONTEXT (t))
     push_nested_class (DECL_FRIEND_CONTEXT (t));
@@ -2467,7 +2466,7 @@ check_explicit_specialization (tree declarator,
 	{
 	  tree fns;
 
-	  gcc_assert (TREE_CODE (declarator) == IDENTIFIER_NODE);
+	  gcc_assert (identifier_p (declarator));
 	  if (ctype)
 	    fns = dname;
 	  else
@@ -2528,8 +2527,7 @@ check_explicit_specialization (tree declarator,
 	  return decl;
 	}
       else if (ctype != NULL_TREE
-	       && (TREE_CODE (TREE_OPERAND (declarator, 0)) ==
-		   IDENTIFIER_NODE))
+	       && (identifier_p (TREE_OPERAND (declarator, 0))))
 	{
 	  /* Find the list of functions in ctype that have the same
 	     name as the declared function.  */
@@ -5601,12 +5599,12 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	{
 	  if (complain & tf_error)
 	    {
-	      int errs = errorcount, warns = warningcount;
+	      int errs = errorcount, warns = warningcount + werrorcount;
 	      if (processing_template_decl
 		  && !require_potential_constant_expression (expr))
 		return NULL_TREE;
 	      expr = cxx_constant_value (expr);
-	      if (errorcount > errs || warningcount > warns)
+	      if (errorcount > errs || warningcount + werrorcount > warns)
 		inform (EXPR_LOC_OR_HERE (expr),
 			"in template argument for type %qT ", type);
 	      if (expr == error_mark_node)
@@ -5737,7 +5735,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	 shall be one of: [...]
 
 	 -- the address of an object or function with external linkage.  */
-      if (TREE_CODE (expr) == INDIRECT_REF
+      if (INDIRECT_REF_P (expr)
 	  && TYPE_REF_OBJ_P (TREE_TYPE (TREE_OPERAND (expr, 0))))
 	{
 	  expr = TREE_OPERAND (expr, 0);
@@ -6955,7 +6953,7 @@ lookup_template_function (tree fns, tree arglist)
 
   gcc_assert (!arglist || TREE_CODE (arglist) == TREE_VEC);
 
-  if (!is_overloaded_fn (fns) && TREE_CODE (fns) != IDENTIFIER_NODE)
+  if (!is_overloaded_fn (fns) && !identifier_p (fns))
     {
       error ("%q#D is not a function template", fns);
       return error_mark_node;
@@ -7058,7 +7056,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
   spec_entry elt;
   hashval_t hash;
 
-  if (TREE_CODE (d1) == IDENTIFIER_NODE)
+  if (identifier_p (d1))
     {
       tree value = innermost_non_namespace_value (d1);
       if (value && DECL_TEMPLATE_TEMPLATE_PARM_P (value))
@@ -7853,7 +7851,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == TEMPLATE_PARM_INDEX
 	   || TREE_CODE (t) == OVERLOAD
 	   || BASELINK_P (t)
-	   || TREE_CODE (t) == IDENTIFIER_NODE
+	   || identifier_p (t)
 	   || TREE_CODE (t) == TRAIT_EXPR
 	   || TREE_CODE (t) == CONSTRUCTOR
 	   || CONSTANT_CLASS_P (t))
@@ -8482,8 +8480,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 	      if (TREE_VALUE (t)
 		  && TREE_CODE (TREE_VALUE (t)) == TREE_LIST
 		  && TREE_VALUE (TREE_VALUE (t))
-		  && (TREE_CODE (TREE_VALUE (TREE_VALUE (t)))
-		      == IDENTIFIER_NODE))
+		  && (identifier_p (TREE_VALUE (TREE_VALUE (t)))))
 		{
 		  tree chain
 		    = tsubst_expr (TREE_CHAIN (TREE_VALUE (t)), args, complain,
@@ -13480,7 +13477,7 @@ tsubst_copy_and_build (tree t,
 				     input_location);
 	if (error_msg)
 	  error (error_msg);
-	if (!function_p && TREE_CODE (decl) == IDENTIFIER_NODE)
+	if (!function_p && identifier_p (decl))
 	  {
 	    if (complain & tf_error)
 	      unqualified_name_lookup_error (decl);
@@ -13907,7 +13904,7 @@ tsubst_copy_and_build (tree t,
 					    /*done=*/false,
 					    /*address_p=*/false);
 	  }
-	else if (koenig_p && TREE_CODE (function) == IDENTIFIER_NODE)
+	else if (koenig_p && identifier_p (function))
 	  {
 	    /* Do nothing; calling tsubst_copy_and_build on an identifier
 	       would incorrectly perform unqualified lookup again.
@@ -13991,7 +13988,7 @@ tsubst_copy_and_build (tree t,
 		    not appropriate, even if an unqualified-name was used
 		    to denote the function.  */
 		 && !DECL_FUNCTION_MEMBER_P (get_first_fn (function)))
-		|| TREE_CODE (function) == IDENTIFIER_NODE)
+		|| identifier_p (function))
 	    /* Only do this when substitution turns a dependent call
 	       into a non-dependent call.  */
 	    && type_dependent_expression_p_push (t)
@@ -13999,7 +13996,7 @@ tsubst_copy_and_build (tree t,
 	  function = perform_koenig_lookup (function, call_args, false,
 					    tf_none);
 
-	if (TREE_CODE (function) == IDENTIFIER_NODE
+	if (identifier_p (function)
 	    && !any_type_dependent_arguments_p (call_args))
 	  {
 	    if (koenig_p && (complain & tf_warning_or_error))
@@ -14016,7 +14013,7 @@ tsubst_copy_and_build (tree t,
 		if (unq != function)
 		  {
 		    tree fn = unq;
-		    if (TREE_CODE (fn) == INDIRECT_REF)
+		    if (INDIRECT_REF_P (fn))
 		      fn = TREE_OPERAND (fn, 0);
 		    if (TREE_CODE (fn) == COMPONENT_REF)
 		      fn = TREE_OPERAND (fn, 1);
@@ -14049,7 +14046,7 @@ tsubst_copy_and_build (tree t,
 		    function = unq;
 		  }
 	      }
-	    if (TREE_CODE (function) == IDENTIFIER_NODE)
+	    if (identifier_p (function))
 	      {
 		if (complain & tf_error)
 		  unqualified_name_lookup_error (function);
@@ -18600,8 +18597,7 @@ instantiate_decl (tree d, int defer_ok,
 
   /* This function should only be used to instantiate templates for
      functions and static member variables.  */
-  gcc_assert (TREE_CODE (d) == FUNCTION_DECL
-	      || TREE_CODE (d) == VAR_DECL);
+  gcc_assert (VAR_OR_FUNCTION_DECL_P (d));
 
   /* Variables are never deferred; if instantiation is required, they
      are instantiated right away.  That allows for better code in the
@@ -19781,8 +19777,7 @@ type_dependent_expression_p (tree expression)
     return false;
 
   /* An unresolved name is always dependent.  */
-  if (TREE_CODE (expression) == IDENTIFIER_NODE
-      || TREE_CODE (expression) == USING_DECL)
+  if (identifier_p (expression) || TREE_CODE (expression) == USING_DECL)
     return true;
 
   /* Some expression forms are never type-dependent.  */
@@ -19887,7 +19882,7 @@ type_dependent_expression_p (tree expression)
 	  if (type_dependent_expression_p (TREE_OPERAND (expression, 0)))
 	    return true;
 	  expression = TREE_OPERAND (expression, 1);
-	  if (TREE_CODE (expression) == IDENTIFIER_NODE)
+	  if (identifier_p (expression))
 	    return false;
 	}
       /* SCOPE_REF with non-null TREE_TYPE is always non-dependent.  */
@@ -19945,6 +19940,13 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
     case TREE_VEC:
       return NULL_TREE;
 
+    case VAR_DECL:
+    case CONST_DECL:
+      /* A constant with a dependent initializer is dependent.  */
+      if (value_dependent_expression_p (*tp))
+	return *tp;
+      break;
+
     case TEMPLATE_PARM_INDEX:
       return *tp;
 
@@ -19978,7 +19980,7 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
       return NULL_TREE;
 
     case COMPONENT_REF:
-      if (TREE_CODE (TREE_OPERAND (*tp, 1)) == IDENTIFIER_NODE)
+      if (identifier_p (TREE_OPERAND (*tp, 1)))
 	/* In a template, finish_class_member_access_expr creates a
 	   COMPONENT_REF with an IDENTIFIER_NODE for op1 even if it isn't
 	   type-dependent, so that we can check access control at
@@ -20222,8 +20224,7 @@ dependent_template_p (tree tmpl)
       || TREE_CODE (tmpl) == TEMPLATE_TEMPLATE_PARM)
     return true;
   /* So are names that have not been looked up.  */
-  if (TREE_CODE (tmpl) == SCOPE_REF
-      || TREE_CODE (tmpl) == IDENTIFIER_NODE)
+  if (TREE_CODE (tmpl) == SCOPE_REF || identifier_p (tmpl))
     return true;
   /* So are member templates of dependent classes.  */
   if (TYPE_P (CP_DECL_CONTEXT (tmpl)))
@@ -20380,7 +20381,7 @@ resolve_typename_type (tree type, bool only_current_p)
      find a TEMPLATE_DECL.  Otherwise, we want to find a TYPE_DECL.  */
   if (!decl)
     /*nop*/;
-  else if (TREE_CODE (TYPENAME_TYPE_FULLNAME (type)) == IDENTIFIER_NODE
+  else if (identifier_p (TYPENAME_TYPE_FULLNAME (type))
 	   && TREE_CODE (decl) == TYPE_DECL)
     {
       result = TREE_TYPE (decl);

@@ -839,6 +839,10 @@ int arm_arch_thumb2;
 int arm_arch_arm_hwdiv;
 int arm_arch_thumb_hwdiv;
 
+/* Nonzero if we should use Neon to handle 64-bits operations rather
+   than core registers.  */
+int prefer_neon_for_64bits = 0;
+
 /* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference,
    we must report the mode of the memory reference from
    TARGET_PRINT_OPERAND to TARGET_PRINT_OPERAND_ADDRESS.  */
@@ -936,6 +940,7 @@ const struct tune_params arm_slowmul_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -950,6 +955,7 @@ const struct tune_params arm_fastmul_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -967,6 +973,7 @@ const struct tune_params arm_strongarm_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -981,6 +988,7 @@ const struct tune_params arm_xscale_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -995,6 +1003,7 @@ const struct tune_params arm_9e_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -1009,6 +1018,7 @@ const struct tune_params arm_v6t2_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1024,6 +1034,7 @@ const struct tune_params arm_cortex_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_cortex_a15_tune =
@@ -1038,6 +1049,7 @@ const struct tune_params arm_cortex_a15_tune =
   true,						/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -1055,6 +1067,7 @@ const struct tune_params arm_cortex_a5_tune =
   false,					/* Prefer LDRD/STRD.  */
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -1069,6 +1082,7 @@ const struct tune_params arm_cortex_a9_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
@@ -1085,6 +1099,7 @@ const struct tune_params arm_v6m_tune =
   false,					/* Prefer LDRD/STRD.  */
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -1099,6 +1114,7 @@ const struct tune_params arm_fa726te_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
 
@@ -2128,6 +2144,12 @@ arm_option_override (void)
                            current_tune->l1_cache_size,
                            global_options.x_param_values,
                            global_options_set.x_param_values);
+
+  /* Use Neon to perform 64-bits operations rather than core
+     registers.  */
+  prefer_neon_for_64bits = current_tune->prefer_neon_for_64bits;
+  if (use_neon_for_64bits == 1)
+     prefer_neon_for_64bits = true;
 
   /* Use the alternative scheduling-pressure algorithm by default.  */
   maybe_set_param_value (PARAM_SCHED_PRESSURE_ALGORITHM, 2,
@@ -17975,7 +17997,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	      "wC12",  "wC13",  "wC14",  "wC15"
 	    };
 
-	  fprintf (stream, wc_reg_names [INTVAL (x)]);
+	  fputs (wc_reg_names [INTVAL (x)], stream);
 	}
       return;
 
@@ -26203,39 +26225,71 @@ arm_post_atomic_barrier (enum memmodel model)
     emit_insn (gen_memory_barrier ());
 }
 
-/* Emit the load-exclusive and store-exclusive instructions.  */
+/* Emit the load-exclusive and store-exclusive instructions.
+   Use acquire and release versions if necessary.  */
 
 static void
-arm_emit_load_exclusive (enum machine_mode mode, rtx rval, rtx mem)
+arm_emit_load_exclusive (enum machine_mode mode, rtx rval, rtx mem, bool acq)
 {
   rtx (*gen) (rtx, rtx);
 
-  switch (mode)
+  if (acq)
     {
-    case QImode: gen = gen_arm_load_exclusiveqi; break;
-    case HImode: gen = gen_arm_load_exclusivehi; break;
-    case SImode: gen = gen_arm_load_exclusivesi; break;
-    case DImode: gen = gen_arm_load_exclusivedi; break;
-    default:
-      gcc_unreachable ();
+      switch (mode)
+        {
+        case QImode: gen = gen_arm_load_acquire_exclusiveqi; break;
+        case HImode: gen = gen_arm_load_acquire_exclusivehi; break;
+        case SImode: gen = gen_arm_load_acquire_exclusivesi; break;
+        case DImode: gen = gen_arm_load_acquire_exclusivedi; break;
+        default:
+          gcc_unreachable ();
+        }
+    }
+  else
+    {
+      switch (mode)
+        {
+        case QImode: gen = gen_arm_load_exclusiveqi; break;
+        case HImode: gen = gen_arm_load_exclusivehi; break;
+        case SImode: gen = gen_arm_load_exclusivesi; break;
+        case DImode: gen = gen_arm_load_exclusivedi; break;
+        default:
+          gcc_unreachable ();
+        }
     }
 
   emit_insn (gen (rval, mem));
 }
 
 static void
-arm_emit_store_exclusive (enum machine_mode mode, rtx bval, rtx rval, rtx mem)
+arm_emit_store_exclusive (enum machine_mode mode, rtx bval, rtx rval,
+                          rtx mem, bool rel)
 {
   rtx (*gen) (rtx, rtx, rtx);
 
-  switch (mode)
+  if (rel)
     {
-    case QImode: gen = gen_arm_store_exclusiveqi; break;
-    case HImode: gen = gen_arm_store_exclusivehi; break;
-    case SImode: gen = gen_arm_store_exclusivesi; break;
-    case DImode: gen = gen_arm_store_exclusivedi; break;
-    default:
-      gcc_unreachable ();
+      switch (mode)
+        {
+        case QImode: gen = gen_arm_store_release_exclusiveqi; break;
+        case HImode: gen = gen_arm_store_release_exclusivehi; break;
+        case SImode: gen = gen_arm_store_release_exclusivesi; break;
+        case DImode: gen = gen_arm_store_release_exclusivedi; break;
+        default:
+          gcc_unreachable ();
+        }
+    }
+  else
+    {
+      switch (mode)
+        {
+        case QImode: gen = gen_arm_store_exclusiveqi; break;
+        case HImode: gen = gen_arm_store_exclusivehi; break;
+        case SImode: gen = gen_arm_store_exclusivesi; break;
+        case DImode: gen = gen_arm_store_exclusivedi; break;
+        default:
+          gcc_unreachable ();
+        }
     }
 
   emit_insn (gen (bval, rval, mem));
@@ -26270,6 +26324,15 @@ arm_expand_compare_and_swap (rtx operands[])
   mod_s = operands[6];
   mod_f = operands[7];
   mode = GET_MODE (mem);
+
+  /* Normally the succ memory model must be stronger than fail, but in the
+     unlikely event of fail being ACQUIRE and succ being RELEASE we need to
+     promote succ to ACQ_REL so that we don't lose the acquire semantics.  */
+
+  if (TARGET_HAVE_LDACQ
+      && INTVAL (mod_f) == MEMMODEL_ACQUIRE
+      && INTVAL (mod_s) == MEMMODEL_RELEASE)
+    mod_s = GEN_INT (MEMMODEL_ACQ_REL);
 
   switch (mode)
     {
@@ -26345,7 +26408,19 @@ arm_split_compare_and_swap (rtx operands[])
   scratch = operands[7];
   mode = GET_MODE (mem);
 
-  arm_pre_atomic_barrier (mod_s);
+  bool use_acquire = TARGET_HAVE_LDACQ
+                     && !(mod_s == MEMMODEL_RELAXED
+                          || mod_s == MEMMODEL_CONSUME
+                          || mod_s == MEMMODEL_RELEASE);
+
+  bool use_release = TARGET_HAVE_LDACQ
+                     && !(mod_s == MEMMODEL_RELAXED
+                          || mod_s == MEMMODEL_CONSUME
+                          || mod_s == MEMMODEL_ACQUIRE);
+
+  /* Checks whether a barrier is needed and emits one accordingly.  */
+  if (!(use_acquire || use_release))
+    arm_pre_atomic_barrier (mod_s);
 
   label1 = NULL_RTX;
   if (!is_weak)
@@ -26355,7 +26430,7 @@ arm_split_compare_and_swap (rtx operands[])
     }
   label2 = gen_label_rtx ();
 
-  arm_emit_load_exclusive (mode, rval, mem);
+  arm_emit_load_exclusive (mode, rval, mem, use_acquire);
 
   cond = arm_gen_compare_reg (NE, rval, oldval, scratch);
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
@@ -26363,7 +26438,7 @@ arm_split_compare_and_swap (rtx operands[])
 			    gen_rtx_LABEL_REF (Pmode, label2), pc_rtx);
   emit_unlikely_jump (gen_rtx_SET (VOIDmode, pc_rtx, x));
 
-  arm_emit_store_exclusive (mode, scratch, mem, newval);
+  arm_emit_store_exclusive (mode, scratch, mem, newval, use_release);
 
   /* Weak or strong, we want EQ to be true for success, so that we
      match the flags that we got from the compare above.  */
@@ -26382,7 +26457,9 @@ arm_split_compare_and_swap (rtx operands[])
   if (mod_f != MEMMODEL_RELAXED)
     emit_label (label2);
 
-  arm_post_atomic_barrier (mod_s);
+  /* Checks whether a barrier is needed and emits one accordingly.  */
+  if (!(use_acquire || use_release))
+    arm_post_atomic_barrier (mod_s);
 
   if (mod_f == MEMMODEL_RELAXED)
     emit_label (label2);
@@ -26397,7 +26474,19 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   enum machine_mode wmode = (mode == DImode ? DImode : SImode);
   rtx label, x;
 
-  arm_pre_atomic_barrier (model);
+  bool use_acquire = TARGET_HAVE_LDACQ
+                     && !(model == MEMMODEL_RELAXED
+                          || model == MEMMODEL_CONSUME
+                          || model == MEMMODEL_RELEASE);
+
+  bool use_release = TARGET_HAVE_LDACQ
+                     && !(model == MEMMODEL_RELAXED
+                          || model == MEMMODEL_CONSUME
+                          || model == MEMMODEL_ACQUIRE);
+
+  /* Checks whether a barrier is needed and emits one accordingly.  */
+  if (!(use_acquire || use_release))
+    arm_pre_atomic_barrier (model);
 
   label = gen_label_rtx ();
   emit_label (label);
@@ -26410,7 +26499,7 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
     old_out = new_out;
   value = simplify_gen_subreg (wmode, value, mode, 0);
 
-  arm_emit_load_exclusive (mode, old_out, mem);
+  arm_emit_load_exclusive (mode, old_out, mem, use_acquire);
 
   switch (code)
     {
@@ -26458,12 +26547,15 @@ arm_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
       break;
     }
 
-  arm_emit_store_exclusive (mode, cond, mem, gen_lowpart (mode, new_out));
+  arm_emit_store_exclusive (mode, cond, mem, gen_lowpart (mode, new_out),
+                            use_release);
 
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
   emit_unlikely_jump (gen_cbranchsi4 (x, cond, const0_rtx, label));
 
-  arm_post_atomic_barrier (model);
+  /* Checks whether a barrier is needed and emits one accordingly.  */
+  if (!(use_acquire || use_release))
+    arm_post_atomic_barrier (model);
 }
 
 #define MAX_VECT_LEN 16

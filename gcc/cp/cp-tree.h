@@ -241,6 +241,16 @@ struct GTY(()) lang_identifier {
   tree label_value;
 };
 
+/* Return a typed pointer version of T if it designates a
+   C++ front-end identifier.  */
+inline lang_identifier*
+identifier_p (tree t)
+{
+  if (TREE_CODE (t) == IDENTIFIER_NODE)
+    return (lang_identifier*) t;
+  return NULL;
+}
+
 /* In an IDENTIFIER_NODE, nonzero if this identifier is actually a
    keyword.  C_RID_CODE (node) is then the RID_* value of the keyword,
    and C_RID_YYCODE is the token number wanted by Yacc.  */
@@ -5985,7 +5995,7 @@ extern tree build_typed_address			(tree, tree);
 extern tree build_nop				(tree, tree);
 extern tree non_reference			(tree);
 extern tree lookup_anon_field			(tree, tree);
-extern bool invalid_nonstatic_memfn_p		(const_tree, tsubst_flags_t);
+extern bool invalid_nonstatic_memfn_p		(tree, tsubst_flags_t);
 extern tree convert_member_func_to_ptr		(tree, tree, tsubst_flags_t);
 extern tree convert_ptrmem			(tree, tree, bool, bool,
 						 tsubst_flags_t);

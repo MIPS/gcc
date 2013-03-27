@@ -111,7 +111,7 @@ cxx_readonly_error (tree arg, enum lvalue_use errstring)
 			  G_("decrement of "
 			     "constant field %qD"),
 			  arg);
-  else if (TREE_CODE (arg) == INDIRECT_REF
+  else if (INDIRECT_REF_P (arg)
 	   && TREE_CODE (TREE_TYPE (TREE_OPERAND (arg, 0))) == REFERENCE_TYPE
 	   && (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
 	       || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL))
@@ -278,8 +278,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
       void **slot;
       struct pending_abstract_type *pat;
 
-      gcc_assert (!decl || DECL_P (decl)
-		  || TREE_CODE (decl) == IDENTIFIER_NODE);
+      gcc_assert (!decl || DECL_P (decl) || identifier_p (decl));
 
       if (!abstract_pending_vars)
 	abstract_pending_vars = htab_create_ggc (31, &pat_calc_hash,
@@ -336,7 +335,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
 	error ("invalid abstract return type for member function %q+#D", decl);
       else if (TREE_CODE (decl) == FUNCTION_DECL)
 	error ("invalid abstract return type for function %q+#D", decl);
-      else if (TREE_CODE (decl) == IDENTIFIER_NODE)
+      else if (identifier_p (decl))
 	/* Here we do not have location information.  */
 	error ("invalid abstract type %qT for %qE", type, decl);
       else
@@ -1241,7 +1240,7 @@ process_init_constructor_record (tree type, tree init,
 		 latter case can happen in templates where lookup has to be
 		 deferred.  */
 	      gcc_assert (TREE_CODE (ce->index) == FIELD_DECL
-			  || TREE_CODE (ce->index) == IDENTIFIER_NODE);
+			  || identifier_p (ce->index));
 	      if (ce->index != field
 		  && ce->index != DECL_NAME (field))
 		{
@@ -1367,7 +1366,7 @@ process_init_constructor_union (tree type, tree init,
     {
       if (TREE_CODE (ce->index) == FIELD_DECL)
 	;
-      else if (TREE_CODE (ce->index) == IDENTIFIER_NODE)
+      else if (identifier_p (ce->index))
 	{
 	  /* This can happen within a cast, see g++.dg/opt/cse2.C.  */
 	  tree name = ce->index;
@@ -1672,7 +1671,7 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
 
   if (TYPE_PTRDATAMEM_P (ptrmem_type))
     {
-      bool is_lval = real_lvalue_p (datum);
+      cp_lvalue_kind kind = lvalue_kind (datum);
       tree ptype;
 
       /* Compute the type of the field, as described in [expr.ref].
@@ -1702,7 +1701,9 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
 	return error_mark_node;
 
       /* If the object expression was an rvalue, return an rvalue.  */
-      if (!is_lval)
+      if (kind & clk_class)
+	datum = rvalue (datum);
+      else if (kind & clk_rvalueref)
 	datum = move (datum);
       return datum;
     }

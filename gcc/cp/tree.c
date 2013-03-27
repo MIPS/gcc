@@ -1734,7 +1734,7 @@ is_overloaded_fn (tree x)
 tree
 dependent_name (tree x)
 {
-  if (TREE_CODE (x) == IDENTIFIER_NODE)
+  if (identifier_p (x))
     return x;
   if (TREE_CODE (x) != COMPONENT_REF
       && TREE_CODE (x) != OFFSET_REF
@@ -2879,7 +2879,7 @@ maybe_dummy_object (tree type, tree* binfop)
 int
 is_dummy_object (const_tree ob)
 {
-  if (TREE_CODE (ob) == INDIRECT_REF)
+  if (INDIRECT_REF_P (ob))
     ob = TREE_OPERAND (ob, 0);
   return (TREE_CODE (ob) == NOP_EXPR
 	  && TREE_OPERAND (ob, 0) == void_zero_node);
@@ -3579,8 +3579,7 @@ decl_linkage (tree decl)
      template instantiations have internal linkage (in the object
      file), but the symbols should still be treated as having external
      linkage from the point of view of the language.  */
-  if ((TREE_CODE (decl) == FUNCTION_DECL
-       || TREE_CODE (decl) == VAR_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (decl)
       && DECL_COMDAT (decl))
     return lk_external;
 
@@ -3594,7 +3593,7 @@ decl_linkage (tree decl)
      really meant to have internal linkage have DECL_THIS_STATIC set.  */
   if (TREE_CODE (decl) == TYPE_DECL)
     return lk_external;
-  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (decl))
     {
       if (!DECL_THIS_STATIC (decl))
 	return lk_external;

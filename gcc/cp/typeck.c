@@ -1766,9 +1766,16 @@ cxx_alignas_expr (tree e)
    violates these rules.  */
 
 bool
-invalid_nonstatic_memfn_p (const_tree expr, tsubst_flags_t complain)
+invalid_nonstatic_memfn_p (tree expr, tsubst_flags_t complain)
 {
-  if (expr && DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
+  if (expr == NULL_TREE)
+    return false;
+  /* Don't enforce this in MS mode.  */
+  if (flag_ms_extensions)
+    return false;
+  if (is_overloaded_fn (expr) && !really_overloaded_fn (expr))
+    expr = get_first_fn (expr);
+  if (DECL_NONSTATIC_MEMBER_FUNCTION_P (expr))
     {
       if (complain & tf_error)
         error ("invalid use of non-static member function");
@@ -1911,7 +1918,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
       tree adr;
       tree ptrtype;
 
-      if (TREE_CODE (exp) == INDIRECT_REF)
+      if (INDIRECT_REF_P (exp))
 	return build_nop (build_pointer_type (TREE_TYPE (type)),
 			  TREE_OPERAND (exp, 0));
 
@@ -2289,7 +2296,7 @@ build_class_member_access_expr (tree object, tree member,
       int type_quals;
       tree member_type;
 
-      null_object_p = (TREE_CODE (object) == INDIRECT_REF
+      null_object_p = (INDIRECT_REF_P (object)
 		       && integer_zerop (TREE_OPERAND (object, 0)));
 
       /* Convert OBJECT to the type of MEMBER.  */
@@ -2467,7 +2474,7 @@ lookup_destructor (tree object, tree scope, tree dtor_name)
 	     scope, dtor_type);
       return error_mark_node;
     }
-  if (TREE_CODE (dtor_type) == IDENTIFIER_NODE)
+  if (identifier_p (dtor_type))
     {
       /* In a template, names we can't find a match for are still accepted
 	 destructor names, and we check them here.  */
@@ -2588,7 +2595,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 	  dependent_type_p (object_type)
 	  /* If NAME is just an IDENTIFIER_NODE, then the expression
 	     is dependent.  */
-	  || TREE_CODE (object) == IDENTIFIER_NODE
+	  || identifier_p (object)
 	  /* If NAME is "f<args>", where either 'f' or 'args' is
 	     dependent, then the expression is dependent.  */
 	  || (TREE_CODE (name) == TEMPLATE_ID_EXPR
@@ -2604,7 +2611,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
       object = build_non_dependent_expr (object);
     }
   else if (c_dialect_objc ()
-	   && TREE_CODE (name) == IDENTIFIER_NODE
+	   && identifier_p (name)
 	   && (expr = objc_maybe_build_component_ref (object, name)))
     return expr;
     
@@ -2671,8 +2678,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 	    }
 
 	  gcc_assert (CLASS_TYPE_P (scope));
-	  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE
-		      || TREE_CODE (name) == BIT_NOT_EXPR);
+	  gcc_assert (identifier_p (name) || TREE_CODE (name) == BIT_NOT_EXPR);
 
 	  if (constructor_name_p (name, scope))
 	    {
@@ -5067,8 +5073,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
   arg = mark_lvalue_use (arg);
   argtype = lvalue_type (arg);
 
-  gcc_assert (TREE_CODE (arg) != IDENTIFIER_NODE
-	      || !IDENTIFIER_OPNAME_P (arg));
+  gcc_assert (!identifier_p (arg) || !IDENTIFIER_OPNAME_P (arg));
 
   if (TREE_CODE (arg) == COMPONENT_REF && type_unknown_p (arg)
       && !really_overloaded_fn (TREE_OPERAND (arg, 1)))
@@ -5166,7 +5171,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     }
 
   /* Let &* cancel out to simplify resulting code.  */
-  if (TREE_CODE (arg) == INDIRECT_REF)
+  if (INDIRECT_REF_P (arg))
     {
       /* We don't need to have `current_class_ptr' wrapped in a
 	 NON_LVALUE_EXPR node.  */
@@ -5191,7 +5196,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
       && argtype != unknown_type_node
       && (val = get_base_address (arg))
       && COMPLETE_TYPE_P (TREE_TYPE (val))
-      && TREE_CODE (val) == INDIRECT_REF
+      && INDIRECT_REF_P (val)
       && TREE_CONSTANT (TREE_OPERAND (val, 0)))
     {
       tree type = build_pointer_type (argtype);
@@ -5710,7 +5715,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
 	return build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (arg)), targ);
       }
 
-    if (TREE_CODE (arg) == SAVE_EXPR && TREE_CODE (targ) == INDIRECT_REF)
+    if (TREE_CODE (arg) == SAVE_EXPR && INDIRECT_REF_P (targ))
       return build3 (SAVE_EXPR, build_pointer_type (TREE_TYPE (arg)),
 		     TREE_OPERAND (targ, 0), current_function_decl, NULL);
   }
@@ -7977,11 +7982,11 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
       int savew = 0, savee = 0;
 
       if (fndecl)
-	savew = warningcount, savee = errorcount;
+	savew = warningcount + werrorcount, savee = errorcount;
       rhs = initialize_reference (type, rhs, flags, complain);
       if (fndecl)
 	{
-	  if (warningcount > savew)
+	  if (warningcount + werrorcount > savew)
 	    warning (0, "in passing argument %P of %q+D", parmnum, fndecl);
 	  else if (errorcount > savee)
 	    error ("in passing argument %P of %q+D", parmnum, fndecl);
@@ -8249,7 +8254,7 @@ check_return_expr (tree retval, bool *no_warning)
 	    warn = false;
 	  /* If we are calling a function whose return type is the same of
 	     the current class reference, it is ok.  */
-	  else if (TREE_CODE (retval) == INDIRECT_REF
+	  else if (INDIRECT_REF_P (retval)
 		   && TREE_CODE (TREE_OPERAND (retval, 0)) == CALL_EXPR)
 	    warn = false;
 	}

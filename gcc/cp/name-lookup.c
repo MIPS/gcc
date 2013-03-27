@@ -678,7 +678,7 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 	 block scope declaration declares that same entity and
 	 receives the linkage of the previous declaration.  */
       if (! t && current_function_decl && x != current_function_decl
-	  && (TREE_CODE (x) == FUNCTION_DECL || TREE_CODE (x) == VAR_DECL)
+	  && VAR_OR_FUNCTION_DECL_P (x)
 	  && DECL_EXTERNAL (x))
 	{
 	  /* Look in block scope.  */
@@ -1959,7 +1959,7 @@ constructor_name_p (tree name, tree type)
   if (!name)
     return false;
 
-  if (TREE_CODE (name) != IDENTIFIER_NODE)
+  if (!identifier_p (name))
     return false;
 
   /* These don't have names.  */
@@ -2073,7 +2073,7 @@ lookup_extern_c_fun_in_all_ns (tree function)
   gcc_assert (function && TREE_CODE (function) == FUNCTION_DECL);
 
   name = DECL_NAME (function);
-  gcc_assert (name && TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (name && identifier_p (name));
 
   for (iter = IDENTIFIER_NAMESPACE_BINDINGS (name);
        iter;
@@ -2136,7 +2136,7 @@ push_using_decl_1 (tree scope, tree name)
   tree decl;
 
   gcc_assert (TREE_CODE (scope) == NAMESPACE_DECL);
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
   for (decl = current_binding_level->usings; decl; decl = DECL_CHAIN (decl))
     if (USING_DECL_SCOPE (decl) == scope && DECL_NAME (decl) == name)
       break;
@@ -5724,7 +5724,7 @@ pushtag_1 (tree name, tree type, tag_scope scope)
 		 || COMPLETE_TYPE_P (b->this_entity))))
     b = b->level_chain;
 
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
 
   /* Do C++ gratuitous typedefing.  */
   if (identifier_type_value_1 (name) != type)
