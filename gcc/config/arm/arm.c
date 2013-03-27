@@ -287,6 +287,7 @@ static unsigned arm_add_stmt_cost (void *data, int count,
 static void arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 					 bool op0_preserve_value);
 static unsigned HOST_WIDE_INT arm_asan_shadow_offset (void);
+static void arm_fn_other_hard_reg_usage (struct hard_reg_set_container *);
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -674,6 +675,10 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_CAN_USE_DOLOOP_P
 #define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
+
+#undef TARGET_FN_OTHER_HARD_REG_USAGE
+#define TARGET_FN_OTHER_HARD_REG_USAGE \
+  arm_fn_other_hard_reg_usage
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -4313,6 +4318,19 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
     }
 }
 
+/* Implement TARGET_FN_OTHER_HARD_REG_USAGE.  */
+
+static void
+arm_fn_other_hard_reg_usage (struct hard_reg_set_container *regs)
+{
+  if (TARGET_AAPCS_BASED)
+    {
+      /* For AAPCS, IP and CC can be clobbered by veneers inserted by the
+	 linker.  */
+      SET_HARD_REG_BIT (regs->set, IP_REGNUM);
+      SET_HARD_REG_BIT (regs->set, CC_REGNUM);
+    }
+}
 
 /* Define how to find the value returned by a function.  */
 
