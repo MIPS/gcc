@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "varasm.h"
+#include "hard-reg-set.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -57,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "conditions.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "output.h"
 #include "except.h"
 #include "function.h"
@@ -224,6 +224,7 @@ static int alter_cond (rtx);
 static int final_addr_vec_align (rtx);
 #endif
 static int align_fuzz (rtx, rtx, int, unsigned);
+static void collect_fn_hard_reg_usage (void);
 
 /* Initialize data in final at the beginning of a compilation.  */
 
@@ -4424,6 +4425,8 @@ rest_of_handle_final (void)
   rtx x;
   const char *fnname;
 
+  collect_fn_hard_reg_usage ();
+
   /* Get the function's name, as described by its RTL.  This may be
      different from the DECL_NAME name used in the source file.  */
 
@@ -4730,4 +4733,122 @@ rtl_opt_pass *
 make_pass_clean_state (gcc::context *ctxt)
 {
   return new pass_clean_state (ctxt);
+}
+
+/* Collect hard register usage for the current function.  */
+
+static void
+collect_fn_hard_reg_usage (void)
+{
+  rtx insn;
+  int i;
+  struct cgraph_node *node;
+  struct hard_reg_set_container other_usage;
+
+  if (!flag_use_caller_save)
+    return;
+
+  node = cgraph_get_node (current_function_decl);
+  gcc_assert (node != NULL);
+
+  gcc_assert (!node->function_used_regs_initialized);
+  node->function_used_regs_initialized = 1;
+
+  for (insn = get_insns (); insn != NULL_RTX; insn = next_insn (insn))
+    {
+      HARD_REG_SET insn_used_regs;
+
+      if (!NONDEBUG_INSN_P (insn))
+	continue;
+
+      find_all_hard_reg_sets (insn, &insn_used_regs, false);
+
+      if (CALL_P (insn)
+	  && !get_call_reg_set_usage (insn, &insn_used_regs, call_used_reg_set))
+	{
+	  CLEAR_HARD_REG_SET (node->function_used_regs);
+	  return;
+	}
+
+      IOR_HARD_REG_SET (node->function_used_regs, insn_used_regs);
+    }
+
+  /* Be conservative - mark fixed and global registers as used.  */
+  IOR_HARD_REG_SET (node->function_used_regs, fixed_reg_set);
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (global_regs[i])
+      SET_HARD_REG_BIT (node->function_used_regs, i);
+
+#ifdef STACK_REGS
+  /* Handle STACK_REGS conservatively, since the df-framework does not
+     provide accurate information for them.  */
+
+  for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
+    SET_HARD_REG_BIT (node->function_used_regs, i);
+#endif
+
+  CLEAR_HARD_REG_SET (other_usage.set);
+  targetm.fn_other_hard_reg_usage (&other_usage);
+  IOR_HARD_REG_SET (node->function_used_regs, other_usage.set);
+
+  node->function_used_regs_valid = 1;
+}
+
+/* Get the declaration of the function called by INSN.  */
+
+static tree
+get_call_fndecl (rtx insn)
+{
+  rtx note, datum;
+
+  if (!flag_use_caller_save)
+    return NULL_TREE;
+
+  note = find_reg_note (insn, REG_CALL_DECL, NULL_RTX);
+  if (note == NULL_RTX)
+    return NULL_TREE;
+
+  datum = XEXP (note, 0);
+  if (datum != NULL_RTX)
+    return SYMBOL_REF_DECL (datum);
+
+  return NULL_TREE;
+}
+
+static struct cgraph_node *
+get_call_cgraph_node (rtx insn)
+{
+  tree fndecl;
+
+  if (insn == NULL_RTX)
+    return NULL;
+
+  fndecl = get_call_fndecl (insn);
+  if (fndecl == NULL_TREE
+      || !targetm.binds_local_p (fndecl))
+    return NULL;
+
+  return cgraph_get_node (fndecl);
+}
+
+/* Find hard registers used by function call instruction INSN, and return them
+   in REG_SET.  Return DEFAULT_SET in REG_SET if not found.  */
+
+bool
+get_call_reg_set_usage (rtx insn, HARD_REG_SET *reg_set,
+			HARD_REG_SET default_set)
+{
+  struct cgraph_node *node = get_call_cgraph_node (insn);
+  if (node != NULL
+      && node->function_used_regs_valid)
+    {
+      COPY_HARD_REG_SET (*reg_set, node->function_used_regs);
+      AND_HARD_REG_SET (*reg_set, default_set);
+      return true;
+    }
+  else
+    {
+      COPY_HARD_REG_SET (*reg_set, default_set);
+      return false;
+    }
 }
