@@ -406,6 +406,15 @@ public:
   /* Time profiler: first run of function.  */
   int tp_first_run;
 
+  /* Call unsaved hard registers really used by the corresponding
+     function (including ones used by functions called by the
+     function).  */
+  HARD_REG_SET function_used_regs;
+  /* Set if function_used_regs is initialized.  */
+  unsigned function_used_regs_initialized: 1;
+  /* Set if function_used_regs is valid.  */
+  unsigned function_used_regs_valid: 1;
+
   /* Set when decl is an abstract function pointed to by the
      ABSTRACT_DECL_ORIGIN of a reachable function.  */
   unsigned used_as_abstract_origin : 1;
