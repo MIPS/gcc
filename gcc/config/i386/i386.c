@@ -32015,18 +32015,38 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
 	/* Compute LB.  */
 	emit_move_insn (t1, m1h1);
-	t2 = ix86_expand_compare (LTU, t1, lb);
-	emit_insn (gen_rtx_SET (VOIDmode, t1,
-				gen_rtx_IF_THEN_ELSE (hmode, t2, lb, t1)));
+	if (TARGET_CMOVE)
+	  {
+	    t2 = ix86_expand_compare (LTU, t1, lb);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t2, lb, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, lb, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, lb));
+	    emit_label (nomove);
+	  }
 	emit_move_insn (m1h1, t1);
 
 
 	/* Compute UB.  UB are stored in 1's complement form.  Therefore
 	   we also use LTU here.  */
 	emit_move_insn (t1, m1h2);
-	t2 = ix86_expand_compare (LTU, t1, ub);
-	emit_insn (gen_rtx_SET (VOIDmode, t1,
-				gen_rtx_IF_THEN_ELSE (hmode, t2, ub, t1)));
+	if (TARGET_CMOVE)
+	  {
+	    t2 = ix86_expand_compare (LTU, t1, ub);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t2, ub, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, ub, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, ub));
+	    emit_label (nomove);
+	  }
 	emit_move_insn (m1h2, t1);
 
 	emit_move_insn (gen_rtx_REG (mode, FIRST_BND_REG), m1);
@@ -32086,18 +32106,38 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	/* Compute LB.  */
 	emit_move_insn (t1, m1h1);
 	emit_move_insn (t2, m2h1);
-	t3 = ix86_expand_compare (LTU, t1, t2);
-	emit_insn (gen_rtx_SET (VOIDmode, t1,
-				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	if (TARGET_CMOVE)
+	  {
+	    t3 = ix86_expand_compare (LTU, t1, t2);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
+	    emit_label (nomove);
+	  }
 	emit_move_insn (rh1, t1);
 
 	/* Compute UB.  UB are stored in 1's complement form.  Therefore
 	   we also use LTU here.  */
 	emit_move_insn (t1, m1h2);
 	emit_move_insn (t2, m2h2);
-	t3 = ix86_expand_compare (LTU, t1, t2);
-	emit_insn (gen_rtx_SET (VOIDmode, t1,
-				gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	if (TARGET_CMOVE)
+	  {
+	    t3 = ix86_expand_compare (LTU, t1, t2);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
+	    emit_label (nomove);
+	  }
 	emit_move_insn (rh2, t1);
 
 	return res;
