@@ -1,3 +1,183 @@
+2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (build_java_interface_fn_ref): Likewise.
+	(make_temporary_var_for_ref_to_temp): Likewise.
+	* class.c (check_field_decls): Likewise.
+	(layout_class_type): Likewise.
+	(finish_struct_1): Likewise.
+	(fixed_type_or_null): Likewise.
+	(get_vtbl_decl_for_binfo): Likewise.
+	* cp-gimplify.c (omp_var_to_track): Likewise.
+	(cp_genericize_r): Likewise.
+	* cp-objcp-common.c (cxx_warn_unused_global_decl): Likewise.
+	* cp-tree.h (LANG_DECL_HAS_MIN): Likewise.
+	(DECL_DISCRIMINATOR_P): Likewise.
+	* decl.c (poplevel): Likewise.
+	(decls_match): Likewise.
+	(duplicate_decls): Likewise.
+	(decl_jump_unsafe): Likewise.
+	(start_decl): Likewise.
+	(check_for_uninitialized_const_var): Likewise.
+	(make_rtl_for_nonlocal_decl): Likewise.
+	(cp_finish_decl): Likewise.
+	(expand_static_init): Likewise.
+	(local_variable_p): Likewise.
+	(maybe_register_incomplete_var): Likewise.
+	* decl2.c (grokfield): Likewise.
+	(comdat_linkage): Likewise.
+	(determine_visibility): Likewise.
+	(import_export_decl): Likewise.
+	(prune_vars_needing_no_initialization): Likewise.
+	(decl_maybe_constant_var_p): Likewise.
+	* error.c (dump_simple_decl): Likewise.
+	(dump_template_decl): Likewise.
+	(cp_printer): Likewise.
+	* except.c (build_throw): Likewise.
+	* init.c (build_vtbl_address): Likewise.
+	(member_init_ok_or_else): Likewise.
+	(build_aggr_init): Likewise.
+	(expand_aggr_init_1): Likewise.
+	(build_offset_ref): Likewise.
+	(constant_value_1): Likewise.
+	* mangle.c (write_mangled_name): Likewise.
+	(write_prefix): Likewise.
+	* name-lookup.c (supplement_binding_1): Likewise.
+	(add_decl_to_level): Likewise.
+	(pushdecl_maybe_friend_1): Likewise.
+	(check_for_out_of_scope_variable): Likewise.
+	(validate_nonmember_using_decl): Likewise.
+	(lookup_name_innermost_nonclass_level_1): Likewise.
+	(lookup_arg_dependent_1): Likewise.
+	* parser.c (cp_parser_lambda_introducer): Likewise.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_single_declaration): Likewise.
+	* pt.c (convert_nontype_argument): Likewise.
+	(instantiate_class_template_1): Likewise.
+	(tsubst_decl): Likewise.
+	(tsubst_expr): Likewise.
+	(do_decl_instantiation): Likewise.
+	(do_type_instantiation): Likewise.
+	(regenerate_decl_from_template): Likewise.
+	(always_instantiate_p): Likewise.
+	(instantiate_decl): Likewise.
+	(type_dependent_expression_p): Likewise.
+	(build_non_dependent_expr): Likewise.
+	* repo.c (repo_emit_p): Likewise.
+	* rtti.c (build_dynamic_cast_1): Likewise.
+	* search.c (shared_member_p): Likewise.
+	* semantics.c (outer_var_p): Likewise.
+	(finish_id_expression): Likewise.
+	(finish_omp_clauses): Likewise.
+	(finish_decltype_type): Likewise.
+	(ensure_literal_type_for_constexpr_object): Likewise.
+	* tree.c (lvalue_kind): Likewise.
+	(bot_replace): Likewise.
+	(cp_tree_equal): Likewise.
+	(handle_init_priority_attribute): Likewise.
+	(decl_storage_duration): Likewise.
+	* typeck.c (cxx_sizeof_expr): Likewise.
+	(cxx_alignof_expr): Likewise.
+	(decay_conversion): Likewise.
+	(build_class_member_access_expr): Likewise.
+	(cp_build_array_ref): Likewise.
+	(cxx_mark_addressable): Likewise.
+	(maybe_warn_about_returning_address_of_local): Likewise.
+	(check_return_expr): Likewise.
+	* typeck2.c (cxx_readonly_error): Likewise.
+	(abstract_virtuals_error_sfinae): Likewise.
+	(cxx_incomplete_type_diagnostic): Likewise.
+
+2013-03-28  Lawrence Crowl  <crowl@google.com>
+
+	* Make-lang.in
+	(CXX_PARSER_H): Add header dependence.
+	* cp-tree.h
+	(extern debug (cp_binding_level &)): New.
+	(extern debug (cp_binding_level *)): New.
+	* name-lookup.h
+	(debug (cp_binding_level &)): New.
+	(debug (cp_binding_level *)): New.
+	* parser.c
+	(debug (cp_parser &)): New.
+	(debug (cp_parser *)): New.
+	(debug (cp_token &)): New.
+	(debug (cp_token *)): New.
+	(debug (vec<cp_token, va_gc> &)): New.
+	(debug (vec<cp_token, va_gc> *)): New.
+	* parser.c: Add header dependence.
+	(extern debug (cp_parser &)): New.
+	(extern debug (cp_parser *)): New.
+	(extern debug (cp_token &)): New.
+	(extern debug (cp_token *)): New.
+	(extern debug (vec<cp_token, va_gc> &)): New.
+	(extern debug (vec<cp_token, va_gc> *)): New.
+
+2013-03-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/17232
+	PR c++/52748
+	* typeck2.c (abstract_virtuals_error_sfinae): Don't complete
+	the type if tf_decltype is set.
+	* pt.c (fn_type_unification): Add decltype_p parm.
+	(get_bindings): Adjust.
+	* cp-tree.h: Adjust.
+	* class.c (resolve_address_of_overloaded_function): Adjust.
+	* call.c (add_template_candidate_real, print_z_candidate): Adjust.
+
+	PR c++/56679
+	* parser.c (cp_parser_sizeof_pack): Split out from...
+	(cp_parser_sizeof_operand): ...here.  Require (id).
+
+	PR c++/56701
+	* semantics.c (finish_this_expr): 'this' is an rvalue.
+	* typeck.c (cp_build_indirect_ref): Handle NOP_EXPR of 'this'.
+
+	PR c++/56710
+	* semantics.c (finish_member_declaration): Don't push closure
+	members.
+
+	* name-lookup.c (pushdecl_maybe_friend_1): Use
+	nonlambda_method_basetype and current_nonlambda_class_type.
+
+	PR c++/56728
+	* semantics.c (potential_constant_expression_1) [NOP_EXPR]: Reject
+	conversion from integer to pointer.
+	(cxx_eval_constant_expression): Likewise.
+	(cxx_eval_indirect_ref): Use the folded operand if we still think
+	this might be constant.
+
+2013-03-28  Paolo Carlini  <paolo.carlini@oracle.com>
+	    Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/56725
+	* call.c (convert_like_real): Change series of two permerrors
+	to permerror + inform (and likewise for two errors).
+	(build_new_method_call_1): Likewise.
+	* typeck.c (convert_for_initialization): Change additional
+	warning or error to inform.
+
+2013-03-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (next_aggr_init_expr_arg): Remove static specifier.
+	(first_aggr_init_expr): Likewise.
+	(more_aggr_init_expr_args_p): Likewise.
+	(type_of_this_parm): Likewise.
+	(class_of_this_parm): Likewise.
+	* name-lookup.h (get_global_value_if_present): Likewise.
+	(is_typename_at_global_scope): Likewise.
+
+2013-03-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* call.c (joust): Don't call inform for a permerror returning false.
+	* parser.c (cp_parser_check_class_key): Likewise.
+	* pt.c (tsubst_copy_and_build): Likewise.
+
+2013-03-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56749
+	* semantics.c (finish_qualified_id_expr): Return early
+	for enum scope.
+
 2013-03-26  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
 	* call.c (build_new_method_call_1): Use INDIRECT_REF_P.

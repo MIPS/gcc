@@ -2905,7 +2905,8 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   fn = fn_type_unification (tmpl, explicit_targs, targs,
 			    args_without_in_chrg,
 			    nargs_without_in_chrg,
-			    return_type, strict, flags, false);
+			    return_type, strict, flags, false,
+			    complain & tf_decltype);
 
   if (fn == error_mark_node)
     {
@@ -3221,7 +3222,7 @@ print_z_candidate (location_t loc, const char *msgstr,
 			       r->u.template_unification.return_type,
 			       r->u.template_unification.strict,
 			       r->u.template_unification.flags,
-			       true);
+			       true, false);
 	  break;
 	case rr_invalid_copy:
 	  inform (cloc,
@@ -5836,11 +5837,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    break;
 	}
 
-      permerror (loc, "invalid conversion from %qT to %qT",
-		 TREE_TYPE (expr), totype);
-      if (fn)
-	permerror (DECL_SOURCE_LOCATION (fn),
-		   "  initializing argument %P of %qD", argnum, fn);
+      if (permerror (loc, "invalid conversion from %qT to %qT",
+		     TREE_TYPE (expr), totype)
+	  && fn)
+	inform (DECL_SOURCE_LOCATION (fn),
+		"initializing argument %P of %qD", argnum, fn);
 
       return cp_convert (totype, expr, complain);
     }
@@ -5943,7 +5944,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  build_user_type_conversion (totype, convs->u.expr, LOOKUP_NORMAL,
 				      complain);
 	  if (fn)
-	    error ("  initializing argument %P of %q+D", argnum, fn);
+	    inform (input_location, "initializing argument %P of %q+D",
+		    argnum, fn);
 	}
       return error_mark_node;
 
@@ -6074,7 +6076,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    error_at (loc, "cannot bind %qT lvalue to %qT",
 		      TREE_TYPE (expr), totype);
 	    if (fn)
-	      error ("  initializing argument %P of %q+D", argnum, fn);
+	      inform (input_location,
+		      "initializing argument %P of %q+D", argnum, fn);
 	    return error_mark_node;
 	  }
 
@@ -7159,7 +7162,7 @@ build_java_interface_fn_ref (tree fn, tree instance)
   /* Get the java.lang.Class pointer for the interface being called.  */
   iface = DECL_CONTEXT (fn);
   iface_ref = lookup_field (iface, get_identifier ("class$"), 0, false);
-  if (!iface_ref || TREE_CODE (iface_ref) != VAR_DECL
+  if (!iface_ref || !VAR_P (iface_ref)
       || DECL_CONTEXT (iface_ref) != iface)
     {
       error ("could not find class$ field in java interface type %qT",
@@ -7467,11 +7470,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       if (! (complain & tf_error))
 	return error_mark_node;
 
-      permerror (input_location,
-		 "cannot call constructor %<%T::%D%> directly",
-		 basetype, name);
-      permerror (input_location, "  for a function-style cast, remove the "
-		 "redundant %<::%D%>", name);
+      if (permerror (input_location,
+		     "cannot call constructor %<%T::%D%> directly",
+		     basetype, name))
+	inform (input_location, "for a function-style cast, remove the "
+		"redundant %<::%D%>", name);
       call = build_functional_cast (basetype, build_tree_list_vec (user_args),
 				    complain);
       return call;
@@ -8650,13 +8653,15 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 		{
 		  if (complain & tf_error)
 		    {
-		      permerror (input_location,
-				 "default argument mismatch in "
-				 "overload resolution");
-		      inform (input_location,
-			      " candidate 1: %q+#F", cand1->fn);
-		      inform (input_location,
-			      " candidate 2: %q+#F", cand2->fn);
+		      if (permerror (input_location,
+				     "default argument mismatch in "
+				     "overload resolution"))
+			{
+			  inform (input_location,
+				  " candidate 1: %q+#F", cand1->fn);
+			  inform (input_location,
+				  " candidate 2: %q+#F", cand2->fn);
+			}
 		    }
 		  else
 		    return 0;
@@ -9004,7 +9009,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
   var = create_temporary_var (type);
 
   /* Register the variable.  */
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && (TREE_STATIC (decl) || DECL_THREAD_LOCAL_P (decl)))
     {
       /* Namespace-scope or local static; give it a mangled name.  */

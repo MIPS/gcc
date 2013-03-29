@@ -1924,9 +1924,8 @@ struct GTY(()) lang_decl_base {
 
 /* True for DECL codes which have template info and access.  */
 #define LANG_DECL_HAS_MIN(NODE)			\
-  (TREE_CODE (NODE) == FUNCTION_DECL		\
+  (VAR_OR_FUNCTION_DECL_P (NODE)		\
    || TREE_CODE (NODE) == FIELD_DECL		\
-   || TREE_CODE (NODE) == VAR_DECL		\
    || TREE_CODE (NODE) == CONST_DECL		\
    || TREE_CODE (NODE) == TYPE_DECL		\
    || TREE_CODE (NODE) == TEMPLATE_DECL		\
@@ -2206,8 +2205,7 @@ struct GTY((variable_size)) lang_decl {
 
 /* Nonzero if NODE has DECL_DISCRIMINATOR and not DECL_ACCESS.  */
 #define DECL_DISCRIMINATOR_P(NODE)	\
-  (TREE_CODE (NODE) == VAR_DECL		\
-   && DECL_FUNCTION_SCOPE_P (NODE))
+  (VAR_P (NODE) && DECL_FUNCTION_SCOPE_P (NODE))
 
 /* Discriminator for name mangling.  */
 #define DECL_DISCRIMINATOR(NODE) (LANG_DECL_U2_CHECK (NODE, 1)->discriminator)
@@ -3032,7 +3030,7 @@ typedef struct aggr_init_expr_arg_iterator_d {
 
 /* Initialize the abstract argument list iterator object ITER with the
    arguments from AGGR_INIT_EXPR node EXP.  */
-static inline void
+inline void
 init_aggr_init_expr_arg_iterator (tree exp,
 				       aggr_init_expr_arg_iterator *iter)
 {
@@ -3043,7 +3041,7 @@ init_aggr_init_expr_arg_iterator (tree exp,
 
 /* Return the next argument from abstract argument list iterator object ITER,
    and advance its state.  Return NULL_TREE if there are no more arguments.  */
-static inline tree
+inline tree
 next_aggr_init_expr_arg (aggr_init_expr_arg_iterator *iter)
 {
   tree result;
@@ -3058,7 +3056,7 @@ next_aggr_init_expr_arg (aggr_init_expr_arg_iterator *iter)
    past and return the first argument.  Useful in for expressions, e.g.
      for (arg = first_aggr_init_expr_arg (exp, &iter); arg;
           arg = next_aggr_init_expr_arg (&iter))   */
-static inline tree
+inline tree
 first_aggr_init_expr_arg (tree exp, aggr_init_expr_arg_iterator *iter)
 {
   init_aggr_init_expr_arg_iterator (exp, iter);
@@ -3067,7 +3065,7 @@ first_aggr_init_expr_arg (tree exp, aggr_init_expr_arg_iterator *iter)
 
 /* Test whether there are more arguments in abstract argument list iterator
    ITER, without changing its state.  */
-static inline bool
+inline bool
 more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 {
   return (iter->i < iter->n);
@@ -4911,7 +4909,7 @@ bool decl_spec_seq_has_spec_p (const cp_decl_specifier_seq *, cp_decl_spec);
 
 /* Return the type of the `this' parameter of FNTYPE.  */
 
-static inline tree
+inline tree
 type_of_this_parm (const_tree fntype)
 {
   function_args_iterator iter;
@@ -4922,7 +4920,7 @@ type_of_this_parm (const_tree fntype)
 
 /* Return the class of the `this' parameter of FNTYPE.  */
 
-static inline tree
+inline tree
 class_of_this_parm (const_tree fntype)
 {
   return TREE_TYPE (type_of_this_parm (fntype));
@@ -5108,6 +5106,8 @@ extern tree make_anon_name			(void);
 extern tree pushdecl_top_level_maybe_friend	(tree, bool);
 extern tree pushdecl_top_level_and_finish	(tree, tree);
 extern tree check_for_out_of_scope_variable	(tree);
+extern void dump				(cp_binding_level &ref);
+extern void dump				(cp_binding_level *ptr);
 extern void print_other_binding_stack		(cp_binding_level *);
 extern tree maybe_push_decl			(tree);
 extern tree current_decl_namespace		(void);
@@ -5425,7 +5425,7 @@ extern tree instantiate_template		(tree, tree, tsubst_flags_t);
 extern tree fn_type_unification			(tree, tree, tree,
 						 const tree *, unsigned int,
 						 tree, unification_kind_t, int,
-						 bool);
+						 bool, bool);
 extern void mark_decl_instantiated		(tree, int);
 extern int more_specialized_fn			(tree, tree, int);
 extern void do_decl_instantiation		(tree, tree);
