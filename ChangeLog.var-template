@@ -1,0 +1,4 @@
+2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* gcc/c-family/c-common.c (cxx_dialect): Default to C++1y.
+
