@@ -1,4 +1,12 @@
 2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
+	* cp-tree.h (variable_template_p): New.
+	* pt.c (check_template_variable): Accept variable temploids at
+	non-class scope.
+	(push_template_decl_real): The current instantiation of a template
+	can be a VAR_DECL.
+
+2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
 	* gcc/c-family/c-common.c (cxx_dialect): Default to C++1y.
 
