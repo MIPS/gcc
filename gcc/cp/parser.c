@@ -327,6 +327,21 @@ cp_lexer_debug_tokens (vec<cp_token, va_gc> *buffer)
   cp_lexer_dump_tokens (stderr, buffer, NULL, 0, NULL);
 }
 
+DEBUG_FUNCTION void
+debug (vec<cp_token, va_gc> &ref)
+{
+  cp_lexer_dump_tokens (stderr, &ref, NULL, 0, NULL);
+}
+
+DEBUG_FUNCTION void
+debug (vec<cp_token, va_gc> *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
+
 
 /* Dump the cp_parser tree field T to FILE if T is non-NULL.  DESC is the
    description for T.  */
@@ -545,6 +560,20 @@ cp_debug_parser (FILE *file, cp_parser *parser)
   fprintf (file, "\tColumn: %d\n", eloc.column);
 }
 
+DEBUG_FUNCTION void
+debug (cp_parser &ref)
+{
+  cp_debug_parser (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug (cp_parser *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
 
 /* Allocate memory for a new lexer object and return it.  */
 
@@ -1110,7 +1139,7 @@ cp_lexer_print_token (FILE * stream, cp_token *token)
     case CPP_KEYWORD:
       /* Some keywords have a value that is not an IDENTIFIER_NODE.
 	 For example, `struct' is mapped to an INTEGER_CST.  */
-      if (TREE_CODE (token->u.value) != IDENTIFIER_NODE)
+      if (!identifier_p (token->u.value))
 	break;
       /* else fall through */
     case CPP_NAME:
@@ -1139,6 +1168,23 @@ cp_lexer_print_token (FILE * stream, cp_token *token)
       break;
     }
 }
+
+DEBUG_FUNCTION void
+debug (cp_token &ref)
+{
+  cp_lexer_print_token (stderr, &ref);
+  fprintf (stderr, "\n");
+}
+
+DEBUG_FUNCTION void
+debug (cp_token *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
+
 
 /* Start emitting debugging information.  */
 
@@ -1259,7 +1305,7 @@ make_id_declarator (tree qualifying_scope, tree unqualified_name,
   if (qualifying_scope && TYPE_P (qualifying_scope))
     qualifying_scope = TYPE_MAIN_VARIANT (qualifying_scope);
 
-  gcc_assert (TREE_CODE (unqualified_name) == IDENTIFIER_NODE
+  gcc_assert (identifier_p (unqualified_name)
 	      || TREE_CODE (unqualified_name) == BIT_NOT_EXPR
 	      || TREE_CODE (unqualified_name) == TEMPLATE_ID_EXPR);
 
@@ -2592,7 +2638,7 @@ cp_parser_check_for_invalid_template_id (cp_parser* parser,
     {
       if (TYPE_P (type))
 	error_at (location, "%qT is not a template", type);
-      else if (TREE_CODE (type) == IDENTIFIER_NODE)
+      else if (identifier_p (type))
 	{
 	  if (tag_type != none_type)
 	    error_at (location, "%qE is not a class template", type);
@@ -3198,7 +3244,7 @@ cp_parser_make_typename_type (cp_parser *parser, tree scope,
 			      tree id, location_t id_location)
 {
   tree result;
-  if (TREE_CODE (id) == IDENTIFIER_NODE)
+  if (identifier_p (id))
     {
       result = make_typename_type (scope, id, typename_type,
 				   /*complain=*/tf_none);
@@ -5659,7 +5705,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
   while (true)
     {
       if (idk == CP_ID_KIND_UNQUALIFIED
-	  && TREE_CODE (postfix_expression) == IDENTIFIER_NODE
+	  && identifier_p (postfix_expression)
 	  && cp_lexer_next_token_is_not (parser->lexer, CPP_OPEN_PAREN))
 	/* It is not a Koenig lookup function call.  */
 	postfix_expression
@@ -5746,7 +5792,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    if (idk == CP_ID_KIND_UNQUALIFIED
 		|| idk == CP_ID_KIND_TEMPLATE_ID)
 	      {
-		if (TREE_CODE (postfix_expression) == IDENTIFIER_NODE)
+		if (identifier_p (postfix_expression))
 		  {
 		    if (!args->is_empty ())
 		      {
@@ -11315,7 +11361,7 @@ cp_parser_decltype (cp_parser *parser)
       cp_id_kind idk;
       const char *error_msg;
 
-      if (TREE_CODE (expr) == IDENTIFIER_NODE)
+      if (identifier_p (expr))
 	/* Lookup the name we got back from the id-expression.  */
 	expr = cp_parser_lookup_name (parser, expr,
 				      none_type,
@@ -12789,7 +12835,7 @@ cp_parser_template_id (cp_parser *parser,
     }
 
   /* Build a representation of the specialization.  */
-  if (TREE_CODE (templ) == IDENTIFIER_NODE)
+  if (identifier_p (templ))
     template_id = build_min_nt_loc (next_token->location,
 				    TEMPLATE_ID_EXPR,
 				    templ, arguments);
@@ -13304,7 +13350,7 @@ cp_parser_template_argument (cp_parser* parser)
 	{
 	  tree probe;
 
-	  if (TREE_CODE (argument) == INDIRECT_REF)
+	  if (INDIRECT_REF_P (argument))
 	    {
 	      gcc_assert (REFERENCE_REF_P (argument));
 	      argument = TREE_OPERAND (argument, 0);
@@ -14010,7 +14056,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	  && !global_p
 	  && !qualified_p
 	  && TREE_CODE (type) == TYPE_DECL
-	  && TREE_CODE (DECL_NAME (type)) == IDENTIFIER_NODE)
+	  && identifier_p (DECL_NAME (type)))
 	maybe_note_name_used_in_class (DECL_NAME (type), type);
       /* If it didn't work out, we don't have a TYPE.  */
       if ((flags & CP_PARSER_FLAGS_OPTIONAL)
@@ -15309,7 +15355,7 @@ cp_parser_using_declaration (cp_parser* parser,
      depending on what scope we are in.  */
   if (qscope == error_mark_node || identifier == error_mark_node)
     ;
-  else if (TREE_CODE (identifier) != IDENTIFIER_NODE
+  else if (!identifier_p (identifier)
 	   && TREE_CODE (identifier) != BIT_NOT_EXPR)
     /* [namespace.udecl]
 
@@ -16592,8 +16638,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		  unqualified_name = error_mark_node;
 		else if (unqualified_name
 			 && (qualifying_scope
-			     || (TREE_CODE (unqualified_name)
-				 != IDENTIFIER_NODE)))
+			     || (!identifier_p (unqualified_name))))
 		  {
 		    cp_parser_error (parser, "expected unqualified-id");
 		    unqualified_name = error_mark_node;
@@ -18256,7 +18301,7 @@ cp_parser_class_name (cp_parser *parser,
 
   /* Check to see that it is really the name of a class.  */
   if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
-      && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
+      && identifier_p (TREE_OPERAND (decl, 0))
       && cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
     /* Situations like this:
 
@@ -21206,7 +21251,7 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
   /* By this point, the NAME should be an ordinary identifier.  If
      the id-expression was a qualified name, the qualifying scope is
      stored in PARSER->SCOPE at this point.  */
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
 
   /* Perform the lookup.  */
   if (parser->scope)
@@ -22715,6 +22760,44 @@ cp_parser_late_parsing_default_args (cp_parser *parser, tree fn)
   pop_unparsed_function_queues (parser);
 }
 
+/* Subroutine of cp_parser_sizeof_operand, for handling C++11
+
+     sizeof ... ( identifier )
+
+   where the 'sizeof' token has already been consumed.  */
+
+static tree
+cp_parser_sizeof_pack (cp_parser *parser)
+{
+  /* Consume the `...'.  */
+  cp_lexer_consume_token (parser->lexer);
+  maybe_warn_variadic_templates ();
+
+  bool paren = cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN);
+  if (paren)
+    cp_lexer_consume_token (parser->lexer);
+  else
+    permerror (cp_lexer_peek_token (parser->lexer)->location,
+	       "%<sizeof...%> argument must be surrounded by parentheses");
+
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  tree name = cp_parser_identifier (parser);
+  tree expr = cp_parser_lookup_name_simple (parser, name, token->location);
+  if (expr == error_mark_node)
+    cp_parser_name_lookup_error (parser, name, expr, NLE_NULL,
+				 token->location);
+  if (TREE_CODE (expr) == TYPE_DECL)
+    expr = TREE_TYPE (expr);
+  else if (TREE_CODE (expr) == CONST_DECL)
+    expr = DECL_INITIAL (expr);
+  expr = make_pack_expansion (expr);
+
+  if (paren)
+    cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+
+  return expr;
+}
+
 /* Parse the operand of `sizeof' (or a similar operator).  Returns
    either a TYPE or an expression, depending on the form of the
    input.  The KEYWORD indicates which kind of expression we have
@@ -22728,7 +22811,12 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   char *tmp;
   bool saved_integral_constant_expression_p;
   bool saved_non_integral_constant_expression_p;
-  bool pack_expansion_p = false;
+
+  /* If it's a `...', then we are computing the length of a parameter
+     pack.  */
+  if (keyword == RID_SIZEOF
+      && cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+    return cp_parser_sizeof_pack (parser);
 
   /* Types cannot be defined in a `sizeof' expression.  Save away the
      old message.  */
@@ -22746,19 +22834,6 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
   saved_non_integral_constant_expression_p
     = parser->non_integral_constant_expression_p;
   parser->integral_constant_expression_p = false;
-
-  /* If it's a `...', then we are computing the length of a parameter
-     pack.  */
-  if (keyword == RID_SIZEOF
-      && cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
-    {
-      /* Consume the `...'.  */
-      cp_lexer_consume_token (parser->lexer);
-      maybe_warn_variadic_templates ();
-
-      /* Note that this is an expansion.  */
-      pack_expansion_p = true;
-    }
 
   /* Do not actually evaluate the expression.  */
   ++cp_unevaluated_operand;
@@ -22799,19 +22874,12 @@ cp_parser_sizeof_operand (cp_parser* parser, enum rid keyword)
 				 /*attrlist=*/NULL);
 	}
     }
-  else if (pack_expansion_p)
-    permerror (cp_lexer_peek_token (parser->lexer)->location,
-	       "%<sizeof...%> argument must be surrounded by parentheses");
 
   /* If the type-id production did not work out, then we must be
      looking at the unary-expression production.  */
   if (!expr)
     expr = cp_parser_unary_expression (parser, /*address_p=*/false,
 				       /*cast_p=*/false, NULL);
-
-  if (pack_expansion_p)
-    /* Build a pack expansion. */
-    expr = make_pack_expansion (expr);
 
   /* Go back to evaluating expressions.  */
   --cp_unevaluated_operand;
@@ -23460,12 +23528,12 @@ cp_parser_check_class_key (enum tag_types class_key, tree type)
     return;
   if ((TREE_CODE (type) == UNION_TYPE) != (class_key == union_type))
     {
-      permerror (input_location, "%qs tag used in naming %q#T",
-		 class_key == union_type ? "union"
-		 : class_key == record_type ? "struct" : "class",
-		 type);
-      inform (DECL_SOURCE_LOCATION (TYPE_NAME (type)),
-	      "%q#T was previously declared here", type);
+      if (permerror (input_location, "%qs tag used in naming %q#T",
+		     class_key == union_type ? "union"
+		     : class_key == record_type ? "struct" : "class",
+		     type))
+	inform (DECL_SOURCE_LOCATION (TYPE_NAME (type)),
+		"%q#T was previously declared here", type);
     }
 }
 
@@ -24386,7 +24454,7 @@ cp_parser_objc_protocol_qualifiers (cp_parser* parser)
 
   node = token->u.value;
 
-  while (node && TREE_CODE (node) == IDENTIFIER_NODE
+  while (node && identifier_p (node)
 	 && (node == ridpointers [(int) RID_IN]
 	     || node == ridpointers [(int) RID_OUT]
 	     || node == ridpointers [(int) RID_INOUT]

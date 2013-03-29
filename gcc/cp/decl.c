@@ -1620,8 +1620,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  warning_at (DECL_SOURCE_LOCATION (olddecl), 0,
 		      "follows non-prototype definition here");
 	}
-      else if ((TREE_CODE (olddecl) == FUNCTION_DECL
-		|| TREE_CODE (olddecl) == VAR_DECL)
+      else if (VAR_OR_FUNCTION_DECL_P (olddecl)
 	       && DECL_LANGUAGE (newdecl) != DECL_LANGUAGE (olddecl))
 	{
 	  /* [dcl.link]
@@ -3296,7 +3295,7 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
 	error ("%qD used without template parameters", name);
       return error_mark_node;
     }
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
   gcc_assert (TYPE_P (context));
 
   if (!MAYBE_CLASS_TYPE_P (context))
@@ -3402,7 +3401,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
     name = TYPE_IDENTIFIER (name);
   else if (DECL_P (name))
     name = DECL_NAME (name);
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
 
   if (!dependent_type_p (context)
       || currently_open_class (context))
@@ -4760,7 +4759,7 @@ grok_reference_init (tree decl, tree type, tree init, int flags)
    is valid, i.e., does not have a designated initializer.  */
 
 static bool
-check_array_designated_initializer (const constructor_elt *ce,
+check_array_designated_initializer (constructor_elt *ce,
 				    unsigned HOST_WIDE_INT index)
 {
   /* Designated initializers for array elements are not supported.  */
@@ -4769,9 +4768,21 @@ check_array_designated_initializer (const constructor_elt *ce,
       /* The parser only allows identifiers as designated
 	 initializers.  */
       if (ce->index == error_mark_node)
-	error ("name used in a GNU-style designated "
-	       "initializer for an array");
-      else if (TREE_CODE (ce->index) == INTEGER_CST)
+	{
+	  error ("name used in a GNU-style designated "
+		 "initializer for an array");
+	  return false;
+	}
+      else if (identifier_p (ce->index))
+	{
+	  error ("name %qD used in a GNU-style designated "
+		 "initializer for an array", ce->index);
+	  return false;
+	}
+
+      ce->index = cxx_constant_value (ce->index);
+
+      if (TREE_CODE (ce->index) == INTEGER_CST)
 	{
 	  /* A C99 designator is OK if it matches the current index.  */
 	  if (TREE_INT_CST_LOW (ce->index) == index)
@@ -4780,11 +4791,8 @@ check_array_designated_initializer (const constructor_elt *ce,
 	    sorry ("non-trivial designated initializers not supported");
 	}
       else
-	{
-	  gcc_assert (TREE_CODE (ce->index) == IDENTIFIER_NODE);
-	  error ("name %qD used in a GNU-style designated "
-		 "initializer for an array", ce->index);
-	}
+	gcc_unreachable ();
+
       return false;
     }
 
@@ -6111,7 +6119,8 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       tree d_init;
       if (init == NULL_TREE)
 	{
-	  if (DECL_TEMPLATE_INSTANTIATION (decl)
+	  if (DECL_LANG_SPECIFIC (decl)
+	      && DECL_TEMPLATE_INSTANTIATION (decl)
 	      && !DECL_TEMPLATE_INSTANTIATED (decl))
 	    {
 	      /* init is null because we're deferring instantiating the
@@ -6398,8 +6407,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 
   /* Let the middle end know about variables and functions -- but not
      static data members in uninstantiated class templates.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      || TREE_CODE (decl) == FUNCTION_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (decl))
     {
       if (TREE_CODE (decl) == VAR_DECL)
 	{
@@ -7220,8 +7228,7 @@ check_class_member_definition_namespace (tree decl)
 {
   /* These checks only apply to member functions and static data
      members.  */
-  gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
-	      || TREE_CODE (decl) == VAR_DECL);
+  gcc_assert (VAR_OR_FUNCTION_DECL_P (decl));
   /* We check for problems with specializations in pt.c in
      check_specialization_namespace, where we can issue better
      diagnostics.  */
@@ -7413,8 +7420,7 @@ grokfndecl (tree ctype,
 			  == current_class_type);
 	      fns = TREE_OPERAND (fns, 1);
 	    }
-	  gcc_assert (TREE_CODE (fns) == IDENTIFIER_NODE
-		      || TREE_CODE (fns) == OVERLOAD);
+	  gcc_assert (identifier_p (fns) || TREE_CODE (fns) == OVERLOAD);
 	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args);
 
 	  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); t; t = TREE_CHAIN (t))
@@ -7427,13 +7433,16 @@ grokfndecl (tree ctype,
 	      return NULL_TREE;
 	    }
 
+	  if (inlinep & 1)
+	    error ("%<inline%> is not allowed in declaration of friend "
+		   "template specialization %qD",
+		   decl);
+	  if (inlinep & 2)
+	    error ("%<constexpr%> is not allowed in declaration of friend "
+		   "template specialization %qD",
+		   decl);
 	  if (inlinep)
-	    {
-	      error ("%<inline%> is not allowed in declaration of friend "
-		     "template specialization %qD",
-		     decl);
-	      return NULL_TREE;
-	    }
+	    return NULL_TREE;
 	}
     }
 
@@ -7472,8 +7481,10 @@ grokfndecl (tree ctype,
     {
       if (PROCESSING_REAL_TEMPLATE_DECL_P())
 	error ("cannot declare %<::main%> to be a template");
-      if (inlinep)
+      if (inlinep & 1)
 	error ("cannot declare %<::main%> to be inline");
+      if (inlinep & 2)
+	error ("cannot declare %<::main%> to be constexpr");
       if (!publicp)
 	error ("cannot declare %<::main%> to be static");
       inlinep = 0;
@@ -7772,7 +7783,7 @@ grokvardecl (tree type,
   tree decl;
   tree explicit_scope;
 
-  gcc_assert (!name || TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (!name || identifier_p (name));
 
   /* Compute the scope in which to place the variable, but remember
      whether or not that scope was explicitly specified by the user.   */
@@ -8509,7 +8520,7 @@ check_var_type (tree identifier, tree type)
     {
       if (!identifier)
 	error ("unnamed variable or field declared void");
-      else if (TREE_CODE (identifier) == IDENTIFIER_NODE)
+      else if (identifier_p (identifier))
 	{
 	  gcc_assert (!IDENTIFIER_OPNAME_P (identifier));
 	  error ("variable or field %qE declared void", identifier);
@@ -8651,6 +8662,7 @@ grokdeclarator (const cp_declarator *declarator,
   bool parameter_pack_p = declarator? declarator->parameter_pack_p : false;
   bool template_type_arg = false;
   bool template_parm_flag = false;
+  bool typedef_p = decl_spec_seq_has_spec_p (declspecs, ds_typedef);
   bool constexpr_p = decl_spec_seq_has_spec_p (declspecs, ds_constexpr);
   source_location saved_loc = input_location;
   const char *errmsg;
@@ -8778,7 +8790,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  tree fns = TREE_OPERAND (decl, 0);
 
 		  dname = fns;
-		  if (TREE_CODE (dname) != IDENTIFIER_NODE)
+		  if (!identifier_p (dname))
 		    {
 		      gcc_assert (is_overloaded_fn (dname));
 		      dname = DECL_NAME (get_first_fn (dname));
@@ -8787,7 +8799,7 @@ grokdeclarator (const cp_declarator *declarator,
 		/* Fall through.  */
 
 	      case IDENTIFIER_NODE:
-		if (TREE_CODE (decl) == IDENTIFIER_NODE)
+		if (identifier_p (decl))
 		  dname = decl;
 
 		if (C_IS_RESERVED_WORD (dname))
@@ -8852,7 +8864,7 @@ grokdeclarator (const cp_declarator *declarator,
     }
 
   if (dname
-      && TREE_CODE (dname) == IDENTIFIER_NODE
+      && identifier_p (dname)
       && UDLIT_OPER_P (dname)
       && innermost_code != cdk_function)
     {
@@ -8862,7 +8874,7 @@ grokdeclarator (const cp_declarator *declarator,
 
   if (dname && IDENTIFIER_OPNAME_P (dname))
     {
-      if (decl_spec_seq_has_spec_p (declspecs, ds_typedef))
+      if (typedef_p)
 	{
 	  error ("declaration of %qD as %<typedef%>", dname);
 	  return error_mark_node;
@@ -8900,7 +8912,7 @@ grokdeclarator (const cp_declarator *declarator,
   if (name == NULL)
     name = decl_context == PARM ? "parameter" : "type name";
 
-  if (constexpr_p && decl_spec_seq_has_spec_p (declspecs, ds_typedef))
+  if (constexpr_p && typedef_p)
     {
       error ("%<constexpr%> cannot appear in a typedef declaration");
       return error_mark_node;
@@ -8977,7 +8989,7 @@ grokdeclarator (const cp_declarator *declarator,
 	 common.  With no options, it is allowed.  With -Wreturn-type,
 	 it is a warning.  It is only an error with -pedantic-errors.  */
       is_main = (funcdef_flag
-		 && dname && TREE_CODE (dname) == IDENTIFIER_NODE
+		 && dname && identifier_p (dname)
 		 && MAIN_NAME_P (dname)
 		 && ctype == NULL_TREE
 		 && in_namespace == NULL_TREE
@@ -9198,7 +9210,7 @@ grokdeclarator (const cp_declarator *declarator,
   /* Issue errors about use of storage classes for parameters.  */
   if (decl_context == PARM)
     {
-      if (decl_spec_seq_has_spec_p (declspecs, ds_typedef))
+      if (typedef_p)
 	{
 	  error ("typedef declaration invalid in parameter declaration");
 	  return error_mark_node;
@@ -9242,7 +9254,7 @@ grokdeclarator (const cp_declarator *declarator,
       && ((storage_class
 	   && storage_class != sc_extern
 	   && storage_class != sc_static)
-	  || decl_spec_seq_has_spec_p (declspecs, ds_typedef)))
+	  || typedef_p))
     {
       error ("multiple storage classes in declaration of %qs", name);
       thread_p = false;
@@ -9256,7 +9268,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  && (storage_class == sc_register
 	      || storage_class == sc_auto))
 	;
-      else if (decl_spec_seq_has_spec_p (declspecs, ds_typedef))
+      else if (typedef_p)
 	;
       else if (decl_context == FIELD
 	       /* C++ allows static class elements.  */
@@ -9866,8 +9878,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      return error_mark_node;
 	    }
 	}
-      else if (decl_spec_seq_has_spec_p (declspecs, ds_typedef)
-	       && current_class_type)
+      else if (typedef_p && current_class_type)
 	{
 	  error ("cannot declare member %<%T::%s%> within %qT",
 		 ctype, name, current_class_type);
@@ -9944,8 +9955,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  error ("non-member %qs cannot be declared %<mutable%>", name);
 	  storage_class = sc_none;
 	}
-      else if (decl_context == TYPENAME
-	       || decl_spec_seq_has_spec_p (declspecs, ds_typedef))
+      else if (decl_context == TYPENAME || typedef_p)
 	{
 	  error ("non-object member %qs cannot be declared %<mutable%>", name);
 	  storage_class = sc_none;
@@ -9975,7 +9985,7 @@ grokdeclarator (const cp_declarator *declarator,
     }
 
   /* If this is declaring a typedef name, return a TYPE_DECL.  */
-  if (decl_spec_seq_has_spec_p (declspecs, ds_typedef) && decl_context != TYPENAME)
+  if (typedef_p && decl_context != TYPENAME)
     {
       tree decl;
 
@@ -11896,7 +11906,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
   tree context = NULL_TREE;
   tag_scope scope;
 
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
 
   switch (tag_code)
     {
@@ -12323,7 +12333,7 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 	    bool scoped_enum_p, bool *is_new)
 {
   tree prevtype = NULL_TREE;
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
+  gcc_assert (identifier_p (name));
 
   if (is_new)
     *is_new = false;

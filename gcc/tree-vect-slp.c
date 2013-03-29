@@ -740,11 +740,16 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
 	  else
 	    {
 	      /* Load.  */
-              /* FORNOW: Check that there is no gap between the loads.  */
-              if ((GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt
-                   && GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
-                  || (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) != stmt
-                      && GROUP_GAP (vinfo_for_stmt (stmt)) != 1))
+              /* FORNOW: Check that there is no gap between the loads
+		 and no gap between the groups when we need to load
+		 multiple groups at once.
+		 ???  We should enhance this to only disallow gaps
+		 inside vectors.  */
+              if ((ncopies > 1
+		   && GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt
+		   && GROUP_GAP (vinfo_for_stmt (stmt)) != 0)
+		  || (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) != stmt
+		      && GROUP_GAP (vinfo_for_stmt (stmt)) != 1))
                 {
                   if (dump_enabled_p ())
                     {
@@ -762,7 +767,10 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo,
               /* Check that the size of interleaved loads group is not
                  greater than the SLP group size.  */
               if (loop_vinfo
-                  && GROUP_SIZE (vinfo_for_stmt (stmt)) > ncopies * group_size)
+		  && GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt
+                  && ((GROUP_SIZE (vinfo_for_stmt (stmt))
+		       - GROUP_GAP (vinfo_for_stmt (stmt)))
+		      > ncopies * group_size))
                 {
                   if (dump_enabled_p ())
                     {
@@ -2082,7 +2090,6 @@ vect_slp_analyze_bb_1 (basic_block bb)
   slp_instance instance;
   int i;
   int min_vf = 2;
-  int max_vf = MAX_VECTORIZATION_FACTOR;
 
   bb_vinfo = new_bb_vec_info (bb);
   if (!bb_vinfo)
@@ -2110,10 +2117,20 @@ vect_slp_analyze_bb_1 (basic_block bb)
       return NULL;
     }
 
+  if (!vect_analyze_data_ref_accesses (NULL, bb_vinfo))
+    {
+     if (dump_enabled_p ())
+       dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			"not vectorized: unhandled data access in "
+			"basic block.\n");
+
+      destroy_bb_vec_info (bb_vinfo);
+      return NULL;
+    }
+
   vect_pattern_recog (NULL, bb_vinfo);
 
-  if (!vect_analyze_data_ref_dependences (NULL, bb_vinfo, &max_vf)
-       || min_vf > max_vf)
+  if (!vect_slp_analyze_data_ref_dependences (bb_vinfo))
      {
        if (dump_enabled_p ())
 	 dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -2130,17 +2147,6 @@ vect_slp_analyze_bb_1 (basic_block bb)
         dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "not vectorized: bad data alignment in basic "
 			 "block.\n");
-
-      destroy_bb_vec_info (bb_vinfo);
-      return NULL;
-    }
-
-  if (!vect_analyze_data_ref_accesses (NULL, bb_vinfo))
-    {
-     if (dump_enabled_p ())
-       dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			"not vectorized: unhandled data access in "
-			"basic block.\n");
 
       destroy_bb_vec_info (bb_vinfo);
       return NULL;

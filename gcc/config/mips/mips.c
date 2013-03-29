@@ -2377,6 +2377,55 @@ mips_address_insns (rtx x, enum machine_mode mode, bool might_split_p)
   return 0;
 }
 
+/* Return true if X fits within an unsigned field of BITS bits that is
+   shifted left SHIFT bits before being used.  */
+
+bool
+mips_unsigned_immediate_p (unsigned HOST_WIDE_INT x, int bits, int shift = 0)
+{
+  return (x & ((1 << shift) - 1)) == 0 && x < ((unsigned) 1 << (shift + bits));
+}
+
+/* Return true if X fits within a signed field of BITS bits that is
+   shifted left SHIFT bits before being used.  */
+
+bool
+mips_signed_immediate_p (unsigned HOST_WIDE_INT x, int bits, int shift = 0)
+{
+  x += 1 << (bits + shift - 1);
+  return mips_unsigned_immediate_p (x, bits, shift);
+}
+
+/* Return true if X is legitimate for accessing values of mode MODE,
+   if it is based on a MIPS16 register, and if the offset satisfies
+   OFFSET_PREDICATE.  */
+
+bool
+m16_based_address_p (rtx x, enum machine_mode mode,
+		     insn_operand_predicate_fn offset_predicate)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && M16_REG_P (REGNO (addr.reg))
+	  && offset_predicate (addr.offset, mode));
+}
+
+/* Return true if X is a legitimate address that conforms to the requirements
+   for a microMIPS LWSP or SWSP insn.  */
+
+bool
+lwsp_swsp_address_p (rtx x, enum machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && REGNO (addr.reg) == STACK_POINTER_REGNUM
+	  && uw5_operand (addr.offset, mode));
+}
+
 /* Return true if X is a legitimate address with a 12-bit offset.
    MODE is the mode of the value being accessed.  */
 
@@ -8009,9 +8058,10 @@ mips_print_operand_punctuation (FILE *file, int ch)
       break;
 
     case '!':
-      /* When final_sequence is 0, the delay slot will be a nop.  We can
-	 a 16-bit delay slot for microMIPS.  */
-      if (final_sequence == 0)
+      /* If the delay slot instruction is short, then use the
+	 compact version.  */
+      if (final_sequence == 0
+	  || get_attr_length (XVECEXP (final_sequence, 0, 1)) == 2)
 	putc ('s', file);
       break;
 
@@ -16860,6 +16910,21 @@ mips_option_override (void)
     }
   else if (TARGET_BRANCHLIKELY && !ISA_HAS_BRANCHLIKELY)
     warning (0, "the %qs architecture does not support branch-likely"
+	     " instructions", mips_arch_info->name);
+
+  /* If the user hasn't specified -mimadd or -mno-imadd set
+     MASK_IMADD based on the target architecture and tuning
+     flags.  */
+  if ((target_flags_explicit & MASK_IMADD) == 0)
+    {
+      if (ISA_HAS_MADD_MSUB &&
+          (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+	target_flags |= MASK_IMADD;
+      else
+	target_flags &= ~MASK_IMADD;
+    }
+  else if (TARGET_IMADD && !ISA_HAS_MADD_MSUB)
+    warning (0, "the %qs architecture does not support madd or msub"
 	     " instructions", mips_arch_info->name);
 
   /* The effect of -mabicalls isn't defined for the EABI.  */

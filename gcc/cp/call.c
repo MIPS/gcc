@@ -233,7 +233,7 @@ check_dtor_name (tree basetype, tree name)
     name = TREE_TYPE (name);
   else if (TYPE_P (name))
     /* OK */;
-  else if (TREE_CODE (name) == IDENTIFIER_NODE)
+  else if (identifier_p (name))
     {
       if ((MAYBE_CLASS_TYPE_P (basetype)
 	   && name == constructor_name (basetype))
@@ -2905,7 +2905,8 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
   fn = fn_type_unification (tmpl, explicit_targs, targs,
 			    args_without_in_chrg,
 			    nargs_without_in_chrg,
-			    return_type, strict, flags, false);
+			    return_type, strict, flags, false,
+			    complain & tf_decltype);
 
   if (fn == error_mark_node)
     {
@@ -3147,7 +3148,7 @@ print_z_candidate (location_t loc, const char *msgstr,
 		     : ACONCAT ((msgstr, " ", NULL)));
   location_t cloc = location_of (candidate->fn);
 
-  if (TREE_CODE (candidate->fn) == IDENTIFIER_NODE)
+  if (identifier_p (candidate->fn))
     {
       cloc = loc;
       if (candidate->num_convs == 3)
@@ -3221,7 +3222,7 @@ print_z_candidate (location_t loc, const char *msgstr,
 			       r->u.template_unification.return_type,
 			       r->u.template_unification.strict,
 			       r->u.template_unification.flags,
-			       true);
+			       true, false);
 	  break;
 	case rr_invalid_copy:
 	  inform (cloc,
@@ -4437,9 +4438,9 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	}
 
       if (!COMPARISON_CLASS_P (arg1))
-	arg1 = build2 (NE_EXPR, signed_type_for (arg1_type), arg1,
+	arg1 = fold_build2 (NE_EXPR, signed_type_for (arg1_type), arg1,
 		       build_zero_cst (arg1_type));
-      return build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
+      return fold_build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
     }
 
   /* [expr.cond]
@@ -5709,12 +5710,12 @@ build_temp (tree expr, tree type, int flags,
   int savew, savee;
   vec<tree, va_gc> *args;
 
-  savew = warningcount, savee = errorcount;
+  savew = warningcount + werrorcount, savee = errorcount;
   args = make_tree_vector_single (expr);
   expr = build_special_member_call (NULL_TREE, complete_ctor_identifier,
 				    &args, type, flags, complain);
   release_tree_vector (args);
-  if (warningcount > savew)
+  if (warningcount + werrorcount > savew)
     *diagnostic_kind = DK_WARNING;
   else if (errorcount > savee)
     *diagnostic_kind = DK_ERROR;
@@ -5836,11 +5837,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    break;
 	}
 
-      permerror (loc, "invalid conversion from %qT to %qT",
-		 TREE_TYPE (expr), totype);
-      if (fn)
-	permerror (DECL_SOURCE_LOCATION (fn),
-		   "  initializing argument %P of %qD", argnum, fn);
+      if (permerror (loc, "invalid conversion from %qT to %qT",
+		     TREE_TYPE (expr), totype)
+	  && fn)
+	inform (DECL_SOURCE_LOCATION (fn),
+		"initializing argument %P of %qD", argnum, fn);
 
       return cp_convert (totype, expr, complain);
     }
@@ -5943,7 +5944,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  build_user_type_conversion (totype, convs->u.expr, LOOKUP_NORMAL,
 				      complain);
 	  if (fn)
-	    error ("  initializing argument %P of %q+D", argnum, fn);
+	    inform (input_location, "initializing argument %P of %q+D",
+		    argnum, fn);
 	}
       return error_mark_node;
 
@@ -6074,7 +6076,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    error_at (loc, "cannot bind %qT lvalue to %qT",
 		      TREE_TYPE (expr), totype);
 	    if (fn)
-	      error ("  initializing argument %P of %q+D", argnum, fn);
+	      inform (input_location,
+		      "initializing argument %P of %q+D", argnum, fn);
 	    return error_mark_node;
 	  }
 
@@ -7467,11 +7470,11 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       if (! (complain & tf_error))
 	return error_mark_node;
 
-      permerror (input_location,
-		 "cannot call constructor %<%T::%D%> directly",
-		 basetype, name);
-      permerror (input_location, "  for a function-style cast, remove the "
-		 "redundant %<::%D%>", name);
+      if (permerror (input_location,
+		     "cannot call constructor %<%T::%D%> directly",
+		     basetype, name))
+	inform (input_location, "for a function-style cast, remove the "
+		"redundant %<::%D%>", name);
       call = build_functional_cast (basetype, build_tree_list_vec (user_args),
 				    complain);
       return call;
@@ -7730,7 +7733,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	  cast_to_void = true;
 	  call = TREE_OPERAND (call, 0);
 	}
-      if (TREE_CODE (call) == INDIRECT_REF)
+      if (INDIRECT_REF_P (call))
 	call = TREE_OPERAND (call, 0);
       call = (build_min_non_dep_call_vec
 	      (call,
@@ -8563,8 +8566,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
      - do not have the same parameter type list as any non-template
        non-member candidate.  */
 
-  if (TREE_CODE (cand1->fn) == IDENTIFIER_NODE
-      || TREE_CODE (cand2->fn) == IDENTIFIER_NODE)
+  if (identifier_p (cand1->fn) || identifier_p (cand2->fn))
     {
       for (i = 0; i < len; ++i)
 	if (!same_type_p (cand1->convs[i]->type,
@@ -8575,7 +8577,7 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	  if (cand1->fn == cand2->fn)
 	    /* Two built-in candidates; arbitrarily pick one.  */
 	    return 1;
-	  else if (TREE_CODE (cand1->fn) == IDENTIFIER_NODE)
+	  else if (identifier_p (cand1->fn))
 	    /* cand1 is built-in; prefer cand2.  */
 	    return -1;
 	  else
@@ -8651,13 +8653,15 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 		{
 		  if (complain & tf_error)
 		    {
-		      permerror (input_location,
-				 "default argument mismatch in "
-				 "overload resolution");
-		      inform (input_location,
-			      " candidate 1: %q+#F", cand1->fn);
-		      inform (input_location,
-			      " candidate 2: %q+#F", cand2->fn);
+		      if (permerror (input_location,
+				     "default argument mismatch in "
+				     "overload resolution"))
+			{
+			  inform (input_location,
+				  " candidate 1: %q+#F", cand1->fn);
+			  inform (input_location,
+				  " candidate 2: %q+#F", cand2->fn);
+			}
 		    }
 		  else
 		    return 0;
