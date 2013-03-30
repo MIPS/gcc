@@ -4930,8 +4930,7 @@ class_of_this_parm (const_tree fntype)
 inline bool
 variable_template_p (tree t)
 {
-  if (TREE_CODE (t) != TEMPLATE_DECL
-      || !(DECL_NAMESPACE_SCOPE_P (t) || DECL_MEMBER_TEMPLATE_P (t)))
+  if (TREE_CODE (t) != TEMPLATE_DECL)
     return false;
   if (tree r = DECL_TEMPLATE_RESULT (t))
     return VAR_P (r);

@@ -1,5 +1,11 @@
 2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
 
+	* cp-tree.h (variable_template_p): Do not check scope.
+	* pt.c (check_template_variable): Fix thinko from previous change.
+	(push_template_decl_real): Fix formatting.
+
+2013-03-29  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
 	* cp-tree.h (variable_template_p): New.
 	* pt.c (check_template_variable): Accept variable temploids at
 	non-class scope.

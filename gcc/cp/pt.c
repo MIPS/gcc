@@ -2275,7 +2275,7 @@ check_template_variable (tree decl)
       permerror (DECL_SOURCE_LOCATION (decl),
                  "%qD is not a static data member of a class template", decl);
   }
-  else if (template_header_count > wanted)
+  if (template_header_count > wanted)
     {
       pedwarn (DECL_SOURCE_LOCATION (decl), 0,
 	       "too many template headers for %D (should be %d)",
@@ -4618,10 +4618,11 @@ push_template_decl_real (tree decl, bool is_friend)
 	       && TYPE_DECL_ALIAS_P (decl))
 	/* alias-declaration */
 	gcc_assert (!DECL_ARTIFICIAL (decl));
-      else if (VAR_P (decl)) {
-        if (!DECL_DECLARED_CONSTEXPR_P (decl))
-          error ("template declaration of non-constexpr variable %qD", decl);
-      }
+      else if (VAR_P (decl))
+        {
+          if (!DECL_DECLARED_CONSTEXPR_P (decl))
+            error ("template declaration of non-constexpr variable %qD", decl);
+        }
       else
 	{
 	  error ("template declaration of %q#D", decl);
