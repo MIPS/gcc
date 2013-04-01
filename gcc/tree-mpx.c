@@ -1947,9 +1947,9 @@ mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *
     case GIMPLE_ASM:
       bounds = mpx_get_zero_bounds ();
       mpx_register_bounds (node, bounds);
-      warning (0, "PL: inline assembler is a potential pointer producer; using zero bounds (%s:%d)",
+      /*warning (0, "PL: inline assembler is a potential pointer producer; using zero bounds (%s:%d)",
 	       LOCATION_FILE (gimple_location (def_stmt)),
-	       LOCATION_LINE (gimple_location (def_stmt)));
+	       LOCATION_LINE (gimple_location (def_stmt)));*/
       break;
 
     default:
@@ -2034,6 +2034,10 @@ mxp_get_var_size_decl (tree var)
   char *decl_name;
   char *size_name;
   tree size_decl, size_reloc;
+
+  /* For hidden symbols we want to skip first '*' char.  */
+  if (*var_name == '*')
+    var_name++;
 
   /* Check if we have decl already.  */
   if (mpx_size_decls)
