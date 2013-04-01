@@ -2209,7 +2209,10 @@ mpx_get_bounds_for_decl (tree decl)
   lb = mpx_build_addr_expr (decl);
 
   if (!DECL_SIZE (decl)
-      || mpx_variable_size_type (TREE_TYPE (decl)))
+      || (mpx_variable_size_type (TREE_TYPE (decl))
+	  && (TREE_STATIC (decl)
+	      || DECL_EXTERNAL (decl)
+	      || TREE_PUBLIC (decl))))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = mpx_generate_extern_var_bounds (decl);
@@ -2249,7 +2252,10 @@ mpx_get_bounds_for_decl_addr (tree decl)
   lb = mpx_build_addr_expr (decl);
 
   if (!DECL_SIZE (decl)
-      || mpx_variable_size_type (TREE_TYPE (decl)))
+      || (mpx_variable_size_type (TREE_TYPE (decl))
+	  && (TREE_STATIC (decl)
+	      || DECL_EXTERNAL (decl)
+	      || TREE_PUBLIC (decl))))
     {
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = mpx_generate_extern_var_bounds (decl);
