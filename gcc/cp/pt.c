@@ -6547,6 +6547,7 @@ any_pack_expanson_args_p (tree args)
   return false;
 }
 
+
 /* Convert all template arguments to their appropriate types, and
    return a vector containing the innermost resulting template
    arguments.  If any error occurs, return error_mark_node. Error and
@@ -20874,5 +20875,25 @@ print_template_statistics (void)
 	   (long) htab_elements (type_specializations),
 	   htab_collisions (type_specializations));
 }
+
+
+// Try to substitute ARGS into PARMS, returning the actual list of
+// arguments that have been substituted. If ARGS cannot be substituted,
+// return error_mark_node.
+tree
+substitute_template_parameters (tree parms, tree args)
+{
+  return coerce_template_parms (parms, args, NULL_TREE, tf_none, true, true);
+}
+
+// Substitute the template arguments ARGS into the requirement
+// expression REQS. Errors resulting from substitution are not
+// diagnosed.
+tree
+instantiate_requirements (tree reqs, tree args)
+{
+  return tsubst_expr (reqs, args, tf_none, NULL_TREE, true);
+}
+
 
 #include "gt-cp-pt.h"

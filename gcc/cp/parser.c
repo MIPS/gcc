@@ -12617,6 +12617,7 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	parameter = finish_template_template_parm (class_type_node,
 						   identifier);
 
+        // Restore the saved constraints.
         current_template_reqs = saved_template_reqs;
 
 	/* If the next token is an `=', then there is a

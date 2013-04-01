@@ -1,3 +1,34 @@
+2013-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	
+	* gcc/cp/Make-lang.in: Add constraints.o target.
+	* gcc/cp/cp-tree.h (substitute_template_parameters): Declare.
+	(instantiate_requirements): Declare.
+	(conjoin_requirements): Declare.
+	(disjoin_requirements): Declare.
+	(reduce_requirements): Declare.
+	* gcc/cp/pt.c (substitute_template_parameters): Define.
+	(instantiate_requirements): Define.
+	* gcc/cp/pt.c (finish_template_requirements): Call
+	reduce_requirements to get constraints.
+	* gcc/cp/parser.c (cp_parser_type_parameter): Restore saved
+	constraints after parsing template template parameter decl.
+	* gcc/cp/constraints.cc: New.
+
+2013-03-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/Make-lang.in: Add constraint.c
+	* gcc/cp/constraint.c: New
+	(conjoin_requirements): New
+	(disjoin_requirements): New
+	(requirement_reduction): New class
+	(reduce_requirements): New
+	* gcc/cp/cp-tree.h (reduce_requrements): New
+	(conjoin_requirements): New
+	(disjoin_requirements): New
+	* gcc/cp/cp-tree.h (finish_template_template_parm) Comments.
+	* gcc/cp/semantics.c (finish_template_requirements) Start
+	working with requirements.
+
+
 2013-03-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 
 	* gcc/cp/cp-tree.h (saved_scope): Add template requirements.

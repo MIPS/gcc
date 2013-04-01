@@ -5296,6 +5296,8 @@ extern tree begin_eh_spec_block			(void);
 extern void finish_eh_spec_block		(tree, tree);
 extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
+extern tree substitute_template_parameters      (tree, tree);
+extern tree instantiate_requirements            (tree, tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);
@@ -6084,6 +6086,12 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
+
+/* in constraint.c */
+extern tree conjoin_requirements                (tree, tree);
+extern tree disjoin_requirements                (tree, tree);
+extern tree reduce_requirements                 (tree);
+
 
 /* -- end of C++ */
 

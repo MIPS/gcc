@@ -9803,13 +9803,23 @@ is_lambda_ignored_entity (tree val)
   return false;
 }
 
-// Decompose the template requirements, given by EXPRESSION, into a set of
-// assumptions for the local scope.
+
+// Semantics for constraints.
+
+
+// Finish the template requirement, EXPRESSION, by first reducing it into
+// a logical formula written in terms of atomic propositions, and then
+// decomposing it into sets of those propositions.
 tree
 finish_template_requirements (tree expression)
 {
   if (expression == error_mark_node)
     return NULL_TREE;
+
+  tree reduced = reduce_requirements (expression);
+  
+  // TODO: Perform an initial left/right decomposition on the
+  // reduced requirements.
 
   sorry ("no template requirements yet");
   return NULL_TREE;
