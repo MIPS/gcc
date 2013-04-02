@@ -2062,62 +2062,64 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	      /* If we do not have computed bounds then we probably
 		 pass a structure with pointers in registers.  */
 	      else if (!BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
-		       && mpx_type_has_pointer (TREE_TYPE (args[i].tree_value)))
-		if (GET_CODE (args[i].bounds_slot) == PARALLEL)
-		  {
-		    int n;
+		      && mpx_type_has_pointer (TREE_TYPE (args[i].tree_value)))
+		{
+		  if (GET_CODE (args[i].bounds_slot) == PARALLEL)
+		    {
+		      int n;
 
-		    gcc_assert (MEM_P (args[i].value));
-		    gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
+		      gcc_assert (MEM_P (args[i].value));
+		      gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
 
-		    for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
-		      {
-			rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
-			rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
-			rtx ptr = mpx_get_value_with_offs (args[i].reg, offs);
-			rtx addr = adjust_address (args[i].value, Pmode,
-						   INTVAL (offs));
-			rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
+		      for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
+			{
+			  rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
+			  rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
+			  rtx ptr = mpx_get_value_with_offs (args[i].reg, offs);
+			  rtx addr = adjust_address (args[i].value, Pmode,
+						     INTVAL (offs));
+			  rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
 
-			if (REG_P (reg))
-			  {
-			    emit_move_insn (reg, bnd);
-			    use_reg (call_fusage, reg);
-			  }
-			else
-			  targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
-		      }
-		  }
-		else
-		  {
-		    rtx slot;
-		    rtx ptr = args[i].reg;
-		    rtx bnd;
+			  if (REG_P (reg))
+			    {
+			      emit_move_insn (reg, bnd);
+			      use_reg (call_fusage, reg);
+			    }
+			  else
+			    targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
+			}
+		    }
+		  else
+		    {
+		      rtx slot;
+		      rtx ptr = args[i].reg;
+		      rtx bnd;
 
-		    gcc_assert (REG_P (args[i].reg));
-		    gcc_assert (REG_P (args[i].bounds_slot)
-				|| CONST_INT_P (args[i].bounds_slot));
+		      gcc_assert (REG_P (args[i].reg));
+		      gcc_assert (REG_P (args[i].bounds_slot)
+				  || CONST_INT_P (args[i].bounds_slot));
 
-		    if (MEM_P (args[i].value))
-		      slot = args[i].value;
-		    else
-		      {
-			tree addr = build_fold_addr_expr (args[i].tree_value);
-			slot = gen_rtx_MEM (Pmode, expand_normal (addr));
-		      }
+		      if (MEM_P (args[i].value))
+			slot = args[i].value;
+		      else
+			{
+			  tree addr = build_fold_addr_expr (args[i].tree_value);
+			  slot = gen_rtx_MEM (Pmode, expand_normal (addr));
+			}
 
-		    bnd = targetm.calls.load_bounds_for_arg (slot, ptr,
-							     args[i].bounds_slot);
+		      bnd = targetm.calls.load_bounds_for_arg (slot, ptr,
+							       args[i].bounds_slot);
 
-		    if (REG_P (args[i].bounds_slot))
-		      {
-			emit_move_insn (args[i].bounds_slot, bnd);
-			use_reg (call_fusage, args[i].bounds_slot);
-		      }
-		    else
-		      targetm.calls.store_bounds_for_arg (reg, args[i].reg,
-							  bnd, args[i].bounds_slot);
-		  }
+		      if (REG_P (args[i].bounds_slot))
+			{
+			  emit_move_insn (args[i].bounds_slot, bnd);
+			  use_reg (call_fusage, args[i].bounds_slot);
+			}
+		      else
+			targetm.calls.store_bounds_for_arg (reg, args[i].reg,
+							    bnd, args[i].bounds_slot);
+		    }
+		}
 	    }
 	  else
 	    gcc_assert (!flag_mpx
