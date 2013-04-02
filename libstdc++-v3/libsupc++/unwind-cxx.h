@@ -37,6 +37,7 @@
 #include "unwind.h"
 #include <bits/atomic_word.h>
 #include <cxxabi.h>
+#include "immintrin.h"
 
 #pragma GCC visibility push(default)
 
@@ -187,21 +188,36 @@ extern std::unexpected_handler __unexpected_handler;
 static inline __cxa_exception *
 __get_exception_header_from_obj (void *ptr)
 {
-  return reinterpret_cast<__cxa_exception *>(ptr) - 1;
+  __cxa_exception *res = reinterpret_cast<__cxa_exception *>(ptr) - 1;
+#ifdef __MPX__
+  return (__cxa_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 // Acquire the C++ exception header from the generic exception header.
 static inline __cxa_exception *
 __get_exception_header_from_ue (_Unwind_Exception *exc)
 {
-  return reinterpret_cast<__cxa_exception *>(exc + 1) - 1;
+  __cxa_exception *res = reinterpret_cast<__cxa_exception *>(exc + 1) - 1;
+#ifdef __MPX__
+  return (__cxa_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 // Acquire the C++ refcounted exception header from the C++ object.
 static inline __cxa_refcounted_exception *
 __get_refcounted_exception_header_from_obj (void *ptr)
 {
-  return reinterpret_cast<__cxa_refcounted_exception *>(ptr) - 1;
+  __cxa_refcounted_exception *res = reinterpret_cast<__cxa_refcounted_exception *>(ptr) - 1;
+#ifdef __MPX__
+  return (__cxa_refcounted_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 // Acquire the C++ refcounted exception header from the generic exception
@@ -209,13 +225,23 @@ __get_refcounted_exception_header_from_obj (void *ptr)
 static inline __cxa_refcounted_exception *
 __get_refcounted_exception_header_from_ue (_Unwind_Exception *exc)
 {
-  return reinterpret_cast<__cxa_refcounted_exception *>(exc + 1) - 1;
+  __cxa_refcounted_exception *res = reinterpret_cast<__cxa_refcounted_exception *>(exc + 1) - 1;
+#ifdef __MPX__
+  return (__cxa_refcounted_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 static inline __cxa_dependent_exception *
 __get_dependent_exception_from_ue (_Unwind_Exception *exc)
 {
-  return reinterpret_cast<__cxa_dependent_exception *>(exc + 1) - 1;
+  __cxa_dependent_exception *res = reinterpret_cast<__cxa_dependent_exception *>(exc + 1) - 1;
+#ifdef __MPX__
+  return (__cxa_dependent_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 #ifdef __ARM_EABI_UNWINDER__
@@ -363,9 +389,14 @@ __gxx_caught_object(_Unwind_Exception* eo)
 static inline void*
 __get_object_from_ue(_Unwind_Exception* eo) throw()
 {
-  return __is_dependent_exception (eo->exception_class) ?
+  void *res =  __is_dependent_exception (eo->exception_class) ?
     __get_dependent_exception_from_ue (eo)->primaryException :
     eo + 1;
+#ifdef __MPX__
+  return __mpx_bind_bounds (res, res, 0 - (size_t)res);
+#else
+  return res;
+#endif
 }
 
 static inline void *
