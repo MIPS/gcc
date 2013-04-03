@@ -1,0 +1,26 @@
+2013-02-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	PR target/16458
+	* gcc.target/powerpc/pr16458-1.c: New test.
+	* gcc.target/powerpc/pr16458-2.c: Likewise.
+	* gcc.target/powerpc/pr16458-3.c: Likewise.
+	* gcc.target/powerpc/pr16458-4.c: Likewise.
+
+2012-07-24  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* g++.dg/dfp/pr54036-1.C: New test.
+	* g++.dg/dfp/pr54036-2.C: Likewise.
+	* g++.dg/dfp/pr54036-3.C: Likewise.
+
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* gcc.dg/torture/pr53703.c: New test.
+
+2012-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from gcc-4_7-branch, subversion id 184832.
+

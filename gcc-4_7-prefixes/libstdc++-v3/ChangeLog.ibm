@@ -1,0 +1,21 @@
+2012-11-09  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* src/Makefile.am: Add wstring-inst.cc.
+	* src/Makefile.in: Regenerate.
+	* src/misc-inst.cc: include <ext/vstring.h>.
+	Add vstring getline template specialization.
+	* src/istream.cc: Likewise.
+	* include/std/streambuf: Add declaration of __gnu_cxx::__vstring.
+	Add __vstring getline friend declarations.
+	* src/vstring-inst.cc: New file.
+	* include/ext/vstring.h: Add template for __vstring getline.
+	* config/abi/pre/gnu.ver: Update exports.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Regenerate.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt: Likewise.
+
+2012-07-24  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* include/decimal/decimal.h (_DEFINE_DECIMAL_UNARY_OP): Use _Op as
+	a unary operator.

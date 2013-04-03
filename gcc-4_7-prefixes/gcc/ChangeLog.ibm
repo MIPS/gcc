@@ -1,0 +1,157 @@
+2013-03-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 196358.
+	* REVISION: Update subversion id.
+
+2013-02-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2012-04-11  Peter Bergner  <bergner@vnet.ibm.com>
+		    Michael Matz  <matz@suse.de>
+
+	PR target/16458
+	* rtlanal.c (unsigned_reg_p): New function.
+	Update copyright notice dates.
+	* rtl.h (unsigned_reg_p): Prototype it.
+	Update copyright notice dates.
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Use it.
+	Update comment.
+	* expr.c (expand_expr_real_1): Set register attributes.
+	* stmt.c (expand_case): Likewise.
+
+2013-01-17  Alan Modra  <amodra@gmail.com>
+
+	PR target/53040
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): When using
+	static chain, set REST_INLINE_FPRS too.
+
+2013-01-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 195253.
+	* REVISION: Update subversion id.
+
+2012-11-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 193708.  Pick up VSX floating point ordering fix that
+	boosts dealII.
+	* REVISION: Update subversion id.
+
+2012-11-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 193121.  Pick up fix for LTC 85823.
+	* REVISION: Update subversion id.
+
+2012-11-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 193085.
+	* REVISION: Update subversion id.
+
+2012-09-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 191742.
+	* REVISION: Update subversion id.
+
+2012-09-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 191618 (4.7.3+).
+	* REVISION: Update subversion id.
+
+2012-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2012-07-16  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* opts.c (default_option): Add -fvect-cost-model to default options
+	at -O3 and above.
+
+2012-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 190299.
+	* REVISION: Update subversion id.
+
+2012-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 189305.
+	* REVISION: Update subversion id.
+
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* tree-ssa-phiopt.c (hoist_adjacent_loads): Skip virtual phis;
+	correctly set bb_for_def[12].
+
+2012-06-12  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* opts.c: Add -fhoist-adjacent-loads to -O2 and above.
+	* tree-ssa-phiopt.c (tree_ssa_phiopt_worker): Add argument to forward
+	declaration.
+	(hoist_adjacent_loads, gate_hoist_loads): New forward declarations.
+	(tree_ssa_phiopt): Call gate_hoist_loads.
+	(tree_ssa_cs_elim): Add parm to tree_ssa_phiopt_worker call.
+	(tree_ssa_phiopt_worker): Add do_hoist_loads to formal arg list; call
+	hoist_adjacent_loads.
+	(local_mem_dependence): New function.
+	(hoist_adjacent_loads): Likewise.
+	(gate_hoist_loads): Likewise.
+	* common.opt (fhoist-adjacent-loads): New switch.
+	* Makefile.in (tree-ssa-phiopt.o): Added dependencies.
+
+2012-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 188251.
+	* REVISION: Update subversion id.
+
+2012-05-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 188034.
+	* REVISION: Update subversion id.
+
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 187134 (to get fix for PR 53199)
+	* REVISION: Update subversion id.
+
+2012-04-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 186392 (to get fix for PR 52775)
+	* REVISION: Update subversion id.
+
+2012-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 185744.
+	* REVISION: Update subversion id.
+
+2012-03-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 185696.
+	* REVISION: Update subversion id.
+
+2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/50310
+	* config/rs6000/vector.md (vector_uneq<mode>): Add support for
+	UNEQ, LTGT, ORDERED, and UNORDERED IEEE vector comparisons.
+	(vector_ltgt<mode>): Likewise.
+	(vector_ordered<mode>): Likewise.
+	(vector_unordered<mode>): Likewise.
+	* config/rs6000/rs6000.c (rs6000_emit_vector_compare_inner):
+	Likewise.
+
+	Merge up to 185008.
+	* REVISION: Update subversion id.
+
+2012-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/t-linux64 (MULTILIB_OPTIONS): Delete 32-bit
+	software floating point multilib.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	(MULTILIB_EXCLUSIONS): Likewise.
+
+	Clone branch from gcc-4_7-branch, subversion id 184832.
+
+	* REVISION: New file, track merged revision file.
+
