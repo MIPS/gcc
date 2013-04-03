@@ -2036,6 +2036,12 @@
 #endif
 
 
+/* Define extra rpath prefixes at configure time.  */
+#ifndef USED_FOR_TARGET
+#undef CONFIGURE_INCLUDE_PREFIX
+#endif
+
+
 /* Define extra startfile prefixes at configure time.  */
 #ifndef USED_FOR_TARGET
 #undef CONFIGURE_STARTFILE_PREFIX

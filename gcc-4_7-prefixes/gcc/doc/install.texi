@@ -772,6 +772,7 @@ Specify an additional prefix for finding executables, libraries, and
 startfiles when the compiler is run.  By default no extra
 prefixes are used.  This option sets the options
 @option{--with-extra-exec-prefix=},
+@option{--with-extra-include-prefix=},
 @option{--with-extra-startfiles-prefix=},
 and @option{--with-extra-rpath-prefix=} if they are not specified.
 
@@ -779,6 +780,12 @@ and @option{--with-extra-rpath-prefix=} if they are not specified.
 Specify additional prefixes for finding executables when the compiler
 is run.  Each prefix is separated by the standard path sepator
 (usually colon, @option{:}).  By default no extra prefixes are used.
+
+@item --with-extra-include-prefix=@var{prefixes}
+Specify additional prefixes for finding system include files when the
+compiler is run.  Each prefix is separated by the standard path
+sepator (usually colon, @option{:}).  By default no extra prefixes are
+used.
 
 @item --with-extra-startfile-prefix=@var{prefixes}
 Specify additional prefixes for finding libraries, and startfiles when

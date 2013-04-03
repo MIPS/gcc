@@ -1118,6 +1118,9 @@ static const char *gcc_libexec_prefix;
 #endif
 
 /* Additional directories added at configure time.  */
+#ifndef CONFIGURE_INCLUDE_PREFIX
+#define CONFIGURE_INCLUDE_PREFIX ""
+#endif
 #ifndef CONFIGURE_STARTFILE_PREFIX
 #define CONFIGURE_STARTFILE_PREFIX ""
 #endif
@@ -1167,6 +1170,8 @@ static const char *const configure_startfile_prefix
   = CONFIGURE_STARTFILE_PREFIX;
 static const char *const configure_exec_prefix
   = CONFIGURE_EXEC_PREFIX;
+static const char *const configure_include_prefix
+  = CONFIGURE_INCLUDE_PREFIX;
 
 /* A relative path to be used in finding the location of tools
    relative to the driver.  */
@@ -3958,6 +3963,9 @@ process_command (unsigned int decoded_options_count,
     add_multiple_prefix (&exec_prefixes, configure_exec_prefix, "GCC",
 			 PREFIX_PRIORITY_LAST, 0, 0);
 
+  if (*configure_include_prefix)
+    add_multiple_prefix (&include_prefixes, configure_include_prefix,
+			 "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
   if (*configure_startfile_prefix)
     add_multiple_prefix (&startfile_prefixes, configure_startfile_prefix,
