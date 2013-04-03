@@ -5,6 +5,7 @@
 	extra executables, startfiles, and directories to add to the list
 	of shared library locations.
 	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
 	(--with-extra-startfile-prefix=): Likewise.
 	(--with-extra-rpath-prefix=): Likewise.
 	* configure: Regenerate.
@@ -12,15 +13,18 @@
 	* doc/install.texi (--with-extra-prefix=): Document new configure
 	switches.
 	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
 	(--with-extra-startfile-prefix=): Likewise.
 	(--with-extra-rpath-prefix=): Likewise.
 
 	* gcc.c (LINK_RPATH_DIRS_SPEC): Add support for configuration time
-	additional executable, startfile, and shared library location
-	prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
+	additional executable, startfile, include, and shared library
+	location prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
 	%extra-cpu-dirs() as spec functions.
 	(LINK_COMMAND_SPEC): Likewise.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
 	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(configure_include_prefix): Likewise.
 	(configure_startfile_prefix): Likewise.
 	(configure_exec_prefix): Likewise.
 	(static_spec_functions): Likewise.
@@ -36,13 +40,14 @@
 	LIBRARY_PATH_ENV environment variables by using the function
 	add_multiple_prefix to do the splitting of the separate prefixes.
 	Add support for the configuration switch to add new executable,
-	startfile, and shared library prefixes.
+	startfile, include, and shared library prefixes.
 
 	* gcc.h (extra_cpu_dirs_spec_function): Add declaration.
 
 	* config.in (CONFIGURE_EXEC_PREFIX): Add defines for the configure
-	switches to add executable, startfile, and shared library
+	switches to add executable, startfile, include, and shared library
 	configuration directories.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
 	(CONFIGURE_STARTFILE_PREFIX): Likewise.
 	(CONFIGURE_RPATH_PREFIX): Likewise.
 
@@ -70,5 +75,4 @@
 	startfile prefixes, look for a machine specific file as a
 	subdirectory in the startfile prefixes if the user used
 	-mcpu=<xxx>.
-
 

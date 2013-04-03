@@ -1650,6 +1650,21 @@ if test x"${EXTRA_STARTFILE_PREFIX}" != x; then
 		     [Extra startfile prefix])
 fi
 
+AC_ARG_WITH([extra-include-prefix],
+[AC_HELP_STRING([--with-extra-include-prefix={prefix}],
+ [Add extra prefixes to the list of locations to search for system include files])],
+ [EXTRA_INCLUDE_PREFIX="$withval"],
+ [if test x"${EXTRA_PREFIX}" != x; then
+    EXTRA_INCLUDE_PREFIX="${EXTRA_PREFIX}"
+  else
+    EXTRA_INCLUDE_PREFIX=""
+  fi])
+
+if test x"${EXTRA_INCLUDE_PREFIX}" != x; then
+  AC_DEFINE_UNQUOTED(CONFIGURE_INCLUDE_PREFIX, "$EXTRA_INCLUDE_PREFIX",
+		     [Extra include file prefix])
+fi
+
 AC_ARG_WITH([extra-rpath-prefix],
 [AC_HELP_STRING([--with-extra-rpath-prefix={prefixes}],
  [Specify prefixes to pass to the linker via -rpath=dir to locate shared libraries])],
