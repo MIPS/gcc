@@ -360,8 +360,14 @@ extern int dot_symbols;
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#define GLIBC_DYNAMIC_LINKER32 "%:find-dynamic-linker(/lib/ld.so.1)"
+#define GLIBC_DYNAMIC_LINKER64 "%:find-dynamic-linker(/lib64/ld64.so.1)"
+#else
 #define GLIBC_DYNAMIC_LINKER32 "/lib/ld.so.1"
 #define GLIBC_DYNAMIC_LINKER64 "/lib64/ld64.so.1"
+#endif
+
 #define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
 #define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
 #if DEFAULT_LIBC == LIBC_UCLIBC
@@ -371,17 +377,39 @@ extern int dot_symbols;
 #else
 #error "Unsupported DEFAULT_LIBC"
 #endif
+
 #define GNU_USER_DYNAMIC_LINKER32 \
   CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER32, UCLIBC_DYNAMIC_LINKER32)
 #define GNU_USER_DYNAMIC_LINKER64 \
   CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER64, UCLIBC_DYNAMIC_LINKER64)
 
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#ifdef HAVE_LOCAL_CPU_DETECT
+#define LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{static: \
+%{mcpu=native: %:linux_extra_static_libdirs(%:local_cpu_detect(cpu))} \
+%{!mcpu=native: %{mcpu=*: %:linux_extra_static_libdirs(%{mcpu=*}) }}} "
 
-#define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux %{!shared: %{!static: \
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{static: \
+%{mcpu=: %:linux_extra_static_libdirs(%{mcpu=*}) }} "
+#endif
+
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS64
+#endif
+
+
+#define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux " \
+LINUX_EXTRA_STATIC_LIBDIRS32 \
+"%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}}"
 
-#define LINK_OS_LINUX_SPEC64 "-m elf64ppc %{!shared: %{!static: \
+#define LINK_OS_LINUX_SPEC64 "-m elf64ppc " \
+LINUX_EXTRA_STATIC_LIBDIRS64 \
+"%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}"
 
