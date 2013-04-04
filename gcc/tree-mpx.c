@@ -77,7 +77,7 @@ static void mpx_add_modification_to_statements_list (tree lhs, tree rhs, void *a
 static void mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 					 assign_handler handler);
 static tree mpx_compute_bounds_for_assignment (tree node, gimple assign);
-static tree mpx_make_static_bounds (tree lb, tree ub, const char *name);
+static tree mpx_make_static_bounds (HOST_WIDE_INT lb, HOST_WIDE_INT ub, const char *name);
 static tree mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
 static tree mpx_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
@@ -142,8 +142,8 @@ static GTY (()) tree mpx_sizeof_fndecl;
 static GTY (()) tree mpx_bound_type;
 static GTY (()) tree mpx_uintptr_type;
 
-static GTY (()) tree mpx_zero_bounds_ssa = NULL;
-static GTY (()) tree mpx_none_bounds_ssa = NULL;
+static GTY (()) tree mpx_zero_bounds_var = NULL;
+static GTY (()) tree mpx_none_bounds_var = NULL;
 static GTY (()) vec<tree, va_gc> *mpx_static_const_bounds = NULL;
 
 static basic_block entry_block;
@@ -171,6 +171,8 @@ static GTY ((if_marked ("tree_map_marked_p"),
 	     param_is (struct tree_map))) htab_t mpx_size_decls = NULL;
 const char *MPXSI_IDENTIFIER = "__mpx_initialize_static_bounds";
 const char *MPX_SIZE_OF_SYMBOL_PREFIX = "__mpx_size_of_";
+const char *MPX_ZERO_BOUNDS_VAR_NAME = "__mpx_zero_bounds";
+const char *MPX_NONE_BOUNDS_VAR_NAME = "__mpx_none_bounds";
 
 #define MAX_STMTS_IN_STATIC_MPX_CTOR 300
 
@@ -704,6 +706,10 @@ mpx_finish_file (void)
       htab_delete (mpx_size_decls);
       mpx_size_decls = NULL;
     }
+
+  if (mpx_static_const_bounds)
+    FOR_EACH_VEC_ELT (*mpx_static_const_bounds, i, var)
+      assemble_variable (var, 1, 0, 0);
 }
 
 /* This function requests intrumentation for all statements
@@ -1306,16 +1312,16 @@ mpx_get_zero_bounds (void)
 
   if (flag_mpx_use_static_const_bounds)
     {
-      //gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
-      //zero_bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
+      gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
+      gimple stmt;
 
+      if (!mpx_zero_bounds_var)
+	mpx_zero_bounds_var = mpx_make_static_bounds (0, -1,
+						      MPX_ZERO_BOUNDS_VAR_NAME);
 
-      if (!mpx_zero_bounds_ssa)
-	mpx_zero_bounds_ssa = mpx_make_static_bounds (integer_zero_node,
-						      integer_zero_node,
-						      "zero_bounds");
-
-      zero_bounds = mpx_zero_bounds_ssa;
+      zero_bounds = make_ssa_name (mpx_get_tmp_var (), gimple_build_nop ());
+      stmt = gimple_build_assign (zero_bounds, mpx_zero_bounds_var);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
   else
     zero_bounds = mpx_make_bounds (integer_zero_node,
@@ -1336,10 +1342,25 @@ mpx_get_none_bounds (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Creating none bounds...");
 
-  none_bounds = mpx_make_bounds (integer_minus_one_node,
-				build_int_cst (size_type_node, 2),
-				NULL,
-				false);
+
+  if (flag_mpx_use_static_const_bounds)
+    {
+      gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
+      gimple stmt;
+
+      if (!mpx_none_bounds_var)
+	mpx_none_bounds_var = mpx_make_static_bounds (-1, 0,
+						      MPX_NONE_BOUNDS_VAR_NAME);
+
+      none_bounds = make_ssa_name (mpx_get_tmp_var (), gimple_build_nop ());
+      stmt = gimple_build_assign (none_bounds, mpx_none_bounds_var);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
+  else
+    none_bounds = mpx_make_bounds (integer_minus_one_node,
+				   build_int_cst (size_type_node, 2),
+				   NULL,
+				   false);
 
   return none_bounds;
 }
@@ -1571,13 +1592,23 @@ mpx_build_bndstx_call (tree addr, tree ptr, tree bounds)
 void
 mpx_expand_bounds_reset_for_mem (tree mem, tree ptr)
 {
-  tree zero_bnd = mpx_build_make_bounds_call (integer_zero_node,
-					     integer_zero_node);
-  tree bnd = make_tree (bound_type_node,
+  tree zero_bnd, bnd, addr, bndstx;
+
+  if (flag_mpx_use_static_const_bounds)
+    {
+      if (!mpx_zero_bounds_var)
+	mpx_zero_bounds_var = mpx_make_static_bounds (0, -1,
+						      MPX_ZERO_BOUNDS_VAR_NAME);
+      zero_bnd = mpx_zero_bounds_var;
+    }
+  else
+    zero_bnd = mpx_build_make_bounds_call (integer_zero_node,
+					   integer_zero_node);
+  bnd = make_tree (bound_type_node,
 			assign_temp (bound_type_node, 0, 1));
-  tree addr = build1 (ADDR_EXPR,
+  addr = build1 (ADDR_EXPR,
 		      build_pointer_type (TREE_TYPE (mem)), mem);
-  tree bndstx = mpx_build_bndstx_call (addr, ptr, bnd);
+  bndstx = mpx_build_bndstx_call (addr, ptr, bnd);
 
   expand_assignment (bnd, zero_bnd, false);
   expand_normal (bndstx);
@@ -1994,11 +2025,10 @@ mpx_build_make_bounds_call (tree lower_bound, tree size)
 /* Creates a static bounds var of specfified NAME initilized
    with specified LB and UB values.  */
 static tree
-mpx_make_static_bounds (tree lb, tree ub, const char *name)
+mpx_make_static_bounds (HOST_WIDE_INT lb, HOST_WIDE_INT ub, const char *name)
 {
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			 get_identifier (name), mpx_bound_type);
-  tree ssa = make_ssa_name (var, gimple_build_nop ());
 
   TREE_PUBLIC (var) = 0;
   TREE_USED (var) = 1;
@@ -2009,13 +2039,11 @@ mpx_make_static_bounds (tree lb, tree ub, const char *name)
   DECL_COMMON (var) = 1;
   DECL_COMDAT (var) = 1;
   DECL_READ_P (var) = 1;
-  DECL_INITIAL (var) = lb;
-
-  SSA_NAME_IS_DEFAULT_DEF (ssa) = 1;
+  DECL_INITIAL (var) = build_int_cst_wide (mpx_bound_type, lb, ~ub);
 
   vec_safe_push (mpx_static_const_bounds, var);
 
-  return ssa;
+  return var;
 }
 
 /* Generate code to make bounds with specified lower bound LB and SIZE.

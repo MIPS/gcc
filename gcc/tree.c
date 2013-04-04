@@ -1187,6 +1187,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
     case INTEGER_TYPE:
     case OFFSET_TYPE:
+    case BOUND_TYPE:
       if (TYPE_UNSIGNED (type))
 	{
 	  /* Cache 0..N */
