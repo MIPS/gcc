@@ -13626,6 +13626,10 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  machopic_output_function_base_name (file);
 	  break;
 #endif
+	case UNSPEC_SIZEOF:
+	  fputs ("@SIZE", file);
+	  break;
+
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
 	  break;
@@ -26819,6 +26823,8 @@ enum ix86_builtins
   IX86_BUILTIN_BNDINT64,
   IX86_BUILTIN_ARG_BND32,
   IX86_BUILTIN_ARG_BND64,
+  IX86_BUILTIN_SIZEOF32,
+  IX86_BUILTIN_SIZEOF64,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -28761,6 +28767,10 @@ ix86_init_mmx_sse_builtins (void)
 		     BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
   def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd64",
 		     BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_sizeof",
+		     USI_FTYPE_VOID, IX86_BUILTIN_SIZEOF32);
+  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia64_sizeof",
+		     UDI_FTYPE_VOID, IX86_BUILTIN_SIZEOF64);
 }
 
 /* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
@@ -32156,6 +32166,25 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       target = DECL_BOUNDS_RTL (arg0);
       return target;
 
+    case IX86_BUILTIN_SIZEOF32:
+    case IX86_BUILTIN_SIZEOF64:
+      {
+	enum machine_mode mode = TARGET_64BIT ? DImode : SImode;
+	rtx t1, t2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	gcc_assert (TREE_CODE (arg0) == VAR_DECL);
+
+	t1 = gen_reg_rtx (mode);
+	t2 = gen_rtx_SYMBOL_REF (Pmode,
+				 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg0)));
+	t2 = gen_rtx_UNSPEC (mode, gen_rtvec (1, t2), UNSPEC_SIZEOF);
+
+	emit_insn (gen_rtx_SET (VOIDmode, t1, gen_rtx_CONST (Pmode, t2)));
+
+	return t1;
+      }
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
@@ -32959,6 +32988,10 @@ ix86_builtin_mpx_function (unsigned fcode)
     case BUILT_IN_MPX_ARG_BND:
       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_ARG_BND64]
 	: ix86_builtins[IX86_BUILTIN_ARG_BND32];
+
+    case BUILT_IN_MPX_SIZEOF:
+       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_SIZEOF64]
+	 : ix86_builtins[IX86_BUILTIN_SIZEOF32];
 
     default:
       return NULL_TREE;
