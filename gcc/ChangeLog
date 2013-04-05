@@ -1,3 +1,40 @@
+2013-04-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* common.opt (fira-hard-reg-pref): New.
+	* regmove.c (regmove_optimize): Don't call regmove_forward_pass
+	for flag_ira_hard_reg_pref.
+	* ira-int.h (ira_pref_t, allocno_prefs, ALLOCNO_PREFS): New.
+	(struct ira_allocno_pref, ira_prefs, ira_prefs_num): New.
+	(ira_debug_pref, ira_debug_prefs, ira_debug_allocno_prefs): New.
+	(ira_create_pref, ira_create_copy): New.
+	(ira_add_allocno_copy_to_list): Remove.
+	(ira_swap_allocno_copy_ends_if_necessary): Ditto.
+	(ira_pref_iterator, ira_pref_iter_init, ira_pref_iter_cond): New.
+	(FOR_EACH_PREF): New.
+	* ira-build.c (ira_prefs, ira_prefs_num): New.
+	(ira_create_allocno): Reset preferences.
+	(pref_pool, pref_vec, initiate_prefs, find_allocno_pref)
+	(ira_create_pref, add_allocno_pref_to_list, ira_add_allocno_pref)
+	(print_pref, ira_debug_pref, print_prefs, ira_debug_prefs)
+	(print_allocno_prefs, ira_debug_allocno_prefs, finish_pref)
+	(finish_prefs): New.
+	(ira_add_allocno_copy_to_list): Rename to
+	add_allocno_copy_to_list.  Make static.
+	(ira_swap_allocno_copy_ends_if_necessary): Rename to
+	swap_allocno_copy_ends_if_necessary.  Make static.
+	(ira_build, ira_destroy): Initialize and finish the prefs.
+	* ira-color.c (update_allocno_cost, update_costs_from_allocno):
+	New.
+	(update_copy_costs): Rename to update_costs_from_copies.  Use
+	update_costs_from_allocno.
+	(update_costs_from_prefs, update_costs_from_copies): New.
+	(assign_hard_reg): Call update_costs_from_prefs.
+	(color_allocnos, color_pass): Ditto.
+	* ira-costs.c (find_costs_and_classes): Improve code.  Add code for
+	hard reg preferences.
+	(process_bb_node_for_hard_reg_moves): Add code for hard reg
+	preferences.
+
 2013-03-14  Andi Kleen  <ak@linux.intel.com>
 
 	PR target/56619

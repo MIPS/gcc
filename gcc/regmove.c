@@ -1241,9 +1241,9 @@ regmove_optimize (void)
   for (i = nregs; --i >= 0; )
     regno_src_regno[i] = -1;
 
-  /* A forward pass.  Replace output operands with input operands.  */
-  regmove_forward_pass ();
-
+  if (! flag_ira_hard_reg_pref)
+    /* A forward pass.  Replace output operands with input operands.  */
+    regmove_forward_pass ();
   /* A backward pass.  Replace input operands with output operands.  */
   regmove_backward_pass ();
 

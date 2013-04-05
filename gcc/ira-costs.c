@@ -1733,14 +1733,15 @@ find_costs_and_classes (FILE *dump_file)
 	       a != NULL;
 	       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
 	    {
-	      a_num = ALLOCNO_NUM (a);
-	      if (regno_aclass[i] == NO_REGS)
+	      enum reg_class aclass = regno_aclass[i];
+	      int a_num = ALLOCNO_NUM (a);
+	      int *total_a_costs = COSTS (total_allocno_costs, a_num)->cost;
+	      int *a_costs = COSTS (costs, a_num)->cost;
+	
+	      if (aclass == NO_REGS)
 		best = NO_REGS;
 	      else
 		{
-		  int *total_a_costs = COSTS (total_allocno_costs, a_num)->cost;
-		  int *a_costs = COSTS (costs, a_num)->cost;
-		  
 		  /* Finding best class which is subset of the common
 		     class.  */
 		  best_cost = (1 << (HOST_BITS_PER_INT - 2)) - 1;
@@ -1749,7 +1750,7 @@ find_costs_and_classes (FILE *dump_file)
 		  for (k = 0; k < cost_classes_ptr->num; k++)
 		    {
 		      rclass = cost_classes[k];
-		      if (! ira_class_subset_p[rclass][regno_aclass[i]])
+		      if (! ira_class_subset_p[rclass][aclass])
 			continue;
 		      /* Ignore classes that are too small or invalid
 			 for this operand.  */
@@ -1784,9 +1785,25 @@ find_costs_and_classes (FILE *dump_file)
 			     ALLOCNO_LOOP_TREE_NODE (a)->loop_num);
 		  fprintf (dump_file, ") best %s, allocno %s\n",
 			   reg_class_names[best],
-			   reg_class_names[regno_aclass[i]]);
+			   reg_class_names[aclass]);
 		}
 	      pref[a_num] = best;
+	      if (flag_ira_hard_reg_pref && pass != start && best != aclass
+		  && ira_class_hard_regs_num[best] > 0
+		  && (ira_reg_class_max_nregs[best][ALLOCNO_MODE (a)]
+		      >= ira_class_hard_regs_num[best]))
+		{
+		  int ind = cost_classes_ptr->index[aclass];
+
+		  ira_assert (ind >= 0);
+		  ira_add_allocno_pref (a, ira_class_hard_regs[best][0],
+					(a_costs[ind] - ALLOCNO_CLASS_COST (a))
+					/ (ira_register_move_cost
+					   [ALLOCNO_MODE (a)][best][aclass]));
+		  for (k = 0; k < cost_classes_ptr->num; k++)
+		    if (ira_class_subset_p[cost_classes[k]][best])
+		      a_costs[k] = a_costs[ind];
+		}
 	    }
 	}
       
@@ -1812,11 +1829,10 @@ find_costs_and_classes (FILE *dump_file)
 static void
 process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
 {
-  int i, freq, cost, src_regno, dst_regno, hard_regno;
+  int i, freq, src_regno, dst_regno, hard_regno;
   bool to_p;
   ira_allocno_t a;
-  enum reg_class rclass, hard_reg_class;
-  enum machine_mode mode;
+  enum reg_class rclass;
   basic_block bb;
   rtx insn, set, src, dst;
 
@@ -1843,15 +1859,15 @@ process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
 	  && src_regno < FIRST_PSEUDO_REGISTER)
 	{
 	  hard_regno = src_regno;
-	  to_p = true;
 	  a = ira_curr_regno_allocno_map[dst_regno];
+	  to_p = true;
 	}
       else if (src_regno >= FIRST_PSEUDO_REGISTER
 	       && dst_regno < FIRST_PSEUDO_REGISTER)
 	{
 	  hard_regno = dst_regno;
-	  to_p = false;
 	  a = ira_curr_regno_allocno_map[src_regno];
+	  to_p = false;
 	}
       else
 	continue;
@@ -1861,20 +1877,29 @@ process_bb_node_for_hard_reg_moves (ira_loop_tree_node_t loop_tree_node)
       i = ira_class_hard_reg_index[rclass][hard_regno];
       if (i < 0)
 	continue;
-      mode = ALLOCNO_MODE (a);
-      hard_reg_class = REGNO_REG_CLASS (hard_regno);
-      ira_init_register_move_cost_if_necessary (mode);
-      cost
-	= (to_p ? ira_register_move_cost[mode][hard_reg_class][rclass]
-	   : ira_register_move_cost[mode][rclass][hard_reg_class]) * freq;
-      ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), rclass,
-				  ALLOCNO_CLASS_COST (a));
-      ira_allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
-				  rclass, 0);
-      ALLOCNO_HARD_REG_COSTS (a)[i] -= cost;
-      ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[i] -= cost;
-      ALLOCNO_CLASS_COST (a) = MIN (ALLOCNO_CLASS_COST (a),
-				    ALLOCNO_HARD_REG_COSTS (a)[i]);
+      if (flag_ira_hard_reg_pref)
+	ira_add_allocno_pref (a, hard_regno, freq);
+      else
+	{
+	  int cost;
+	  enum reg_class hard_reg_class;
+	  enum machine_mode mode;
+
+	  mode = ALLOCNO_MODE (a);
+	  hard_reg_class = REGNO_REG_CLASS (hard_regno);
+	  ira_init_register_move_cost_if_necessary (mode);
+	  cost
+	    = (to_p ? ira_register_move_cost[mode][hard_reg_class][rclass]
+	       : ira_register_move_cost[mode][rclass][hard_reg_class]) * freq;
+	  ira_allocate_and_set_costs (&ALLOCNO_HARD_REG_COSTS (a), rclass,
+				      ALLOCNO_CLASS_COST (a));
+	  ira_allocate_and_set_costs (&ALLOCNO_CONFLICT_HARD_REG_COSTS (a),
+				      rclass, 0);
+	  ALLOCNO_HARD_REG_COSTS (a)[i] -= cost;
+	  ALLOCNO_CONFLICT_HARD_REG_COSTS (a)[i] -= cost;
+	  ALLOCNO_CLASS_COST (a) = MIN (ALLOCNO_CLASS_COST (a),
+					ALLOCNO_HARD_REG_COSTS (a)[i]);
+	}
     }
 }
 

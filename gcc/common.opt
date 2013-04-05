@@ -1479,6 +1479,10 @@ fmath-errno
 Common Report Var(flag_errno_math) Init(1) Optimization SetByCombined
 Set errno after built-in math functions
 
+fira-hard-reg-pref
+Common Report Var(flag_ira_hard_reg_pref) Init(1) Optimization
+Use new IRA code for hard reg preference and switch of remove constraint matching code
+
 fmax-errors=
 Common Joined RejectNegative UInteger Var(flag_max_errors)
 -fmax-errors=<number>	Maximum number of errors to report
