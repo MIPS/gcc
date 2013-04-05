@@ -3877,16 +3877,6 @@ output_addr_const (FILE *file, rtx x)
       output_addr_const (file, XEXP (x, 0));
       break;
 
-    case UNSPEC:
-      gcc_assert (XVECLEN (x, 0) == 1);
-      output_addr_const (file, XVECEXP (x, 0, 0));
-
-      if (XINT (x, 1) == UNSPEC_SIZEOF)
-	fputs ("@SIZE", file);
-      else
-	output_operand_lossage ("invalid UNSPEC as operand");
-      break;
-
     default:
       if (targetm.asm_out.output_addr_const_extra (file, x))
 	break;

@@ -15155,6 +15155,11 @@ i386_asm_output_addr_const_extra (FILE *file, rtx x)
       }
       break;
 
+    case UNSPEC_SIZEOF:
+      output_addr_const (file, op);
+      fputs ("@SIZE", file);
+      break;
+
     default:
       return false;
     }
