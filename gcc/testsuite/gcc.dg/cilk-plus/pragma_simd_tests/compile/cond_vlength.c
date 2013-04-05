@@ -1,12 +1,13 @@
 /* { dg-do run } */
-/* { dg-options " " } */
+/* { dg-options " -w" } */
 
 int main ()
 {
   int i;
   float a[256];
 
-  // The line below should be OK! 
+  /* The line below should be OK! We are looking to make sure sizeof expression
+     is folded into a integer. Not checking if it accepts the vectorlength.  */
   #pragma simd vectorlength(sizeof (a) == sizeof (float) ? 4 : 8) 
   for (i = 0; i < 256; i++)
     {
