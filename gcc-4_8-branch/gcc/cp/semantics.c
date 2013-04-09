@@ -1574,9 +1574,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       else
 	{
 	  /* Set the cv qualifiers.  */
-	  int quals = (current_class_ref
-		       ? cp_type_quals (TREE_TYPE (current_class_ref))
-		       : TYPE_UNQUALIFIED);
+	  int quals = cp_type_quals (TREE_TYPE (object));
 
 	  if (DECL_MUTABLE_P (decl))
 	    quals &= ~TYPE_QUAL_CONST;
@@ -1763,6 +1761,10 @@ finish_qualified_id_expr (tree qualifying_class,
 			       /*address_p=*/true);
       return expr;
     }
+
+  /* No need to check access within an enum.  */
+  if (TREE_CODE (qualifying_class) == ENUMERAL_TYPE)
+    return expr;
 
   /* Within the scope of a class, turn references to non-static
      members into expression of the form "this->...".  */
@@ -7007,6 +7009,13 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
       *non_constant_p = true;
       return t;
     }
+  else if (tree_int_cst_lt (index, integer_zero_node))
+    {
+      if (!allow_non_constant)
+	error ("negative array subscript");
+      *non_constant_p = true;
+      return t;
+    }
   i = tree_low_cst (index, 0);
   if (TREE_CODE (ary) == CONSTRUCTOR)
     return (*CONSTRUCTOR_ELTS (ary))[i].value;
@@ -7649,6 +7658,8 @@ cxx_eval_indirect_ref (const constexpr_call *call, tree t,
 
   if (r == NULL_TREE)
     {
+      if (addr && op0 != orig_op0)
+	return build1 (INDIRECT_REF, TREE_TYPE (t), op0);
       if (!addr)
 	VERIFY_CONSTANT (t);
       return t;
@@ -8967,7 +8978,7 @@ begin_lambda_type (tree lambda)
     /* Create the new RECORD_TYPE for this lambda.  */
     type = xref_tag (/*tag_code=*/record_type,
                      name,
-                     /*scope=*/ts_within_enclosing_non_class,
+                     /*scope=*/ts_lambda,
                      /*template_header_p=*/false);
   }
 
@@ -9039,7 +9050,8 @@ tree
 lambda_capture_field_type (tree expr)
 {
   tree type;
-  if (type_dependent_expression_p (expr))
+  if (type_dependent_expression_p (expr)
+      && !(TREE_TYPE (expr) && TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;
@@ -9248,7 +9260,8 @@ lambda_proxy_type (tree ref)
   if (REFERENCE_REF_P (ref))
     ref = TREE_OPERAND (ref, 0);
   type = TREE_TYPE (ref);
-  if (!dependent_type_p (type))
+  if (!dependent_type_p (type)
+      || (type && TREE_CODE (type) == POINTER_TYPE))
     return type;
   type = cxx_make_type (DECLTYPE_TYPE);
   DECLTYPE_TYPE_EXPR (type) = ref;
@@ -9438,6 +9451,11 @@ lambda_expr_this_capture (tree lambda)
 
   tree this_capture = LAMBDA_EXPR_THIS_CAPTURE (lambda);
 
+  /* In unevaluated context this isn't an odr-use, so just return the
+     nearest 'this'.  */
+  if (cp_unevaluated_operand)
+    return lookup_name (this_identifier);
+
   /* Try to default capture 'this' if we can.  */
   if (!this_capture
       && LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda) != CPLD_NONE)
@@ -9507,11 +9525,6 @@ lambda_expr_this_capture (tree lambda)
 
   if (!this_capture)
     {
-      /* In unevaluated context this isn't an odr-use, so just return the
-	 nearest 'this'.  */
-      if (cp_unevaluated_operand)
-	return lookup_name (this_identifier);
-
       error ("%<this%> was not captured for this lambda function");
       result = error_mark_node;
     }
@@ -9549,7 +9562,8 @@ maybe_resolve_dummy (tree object)
 
   if (type != current_class_type
       && current_class_type
-      && LAMBDA_TYPE_P (current_class_type))
+      && LAMBDA_TYPE_P (current_class_type)
+      && DERIVED_FROM_P (type, current_nonlambda_class_type ()))
     {
       /* In a lambda, need to go through 'this' capture.  */
       tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);

@@ -1,3 +1,168 @@
+2013-04-08  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/56782
+	Backport from trunk.
+	* gfortran.dg/array_constructor_44.f90:  New test.
+
+2013-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/pr56837.c: New test.
+
+2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/48186
+	* gcc.dg/pr48186.c: New test.
+
+2013-04-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline:
+	2013-03-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56720
+	* gcc.target/arm/neon-vcond-gt.c: New test.
+	* gcc.target/arm/neon-vcond-ltgt.c: Likewise.
+	* gcc.target/arm/neon-vcond-unordered.c: Likewise.
+
+2013-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56837
+	* g++.dg/torture/pr56837.C: New testcase.
+
+2013-04-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2013-04-03  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/55702
+	* gcc.dg/pr55702.c: New test.
+
+2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56819
+	* g++.dg/debug/pr56819.C: New test.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56817
+	* g++.dg/torture/pr56817.C: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55964
+	* gcc.dg/torture/pr55964-2.c: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56501
+	* gcc.dg/torture/pr56501.c: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56407
+	* gcc.dg/torture/pr56407.c: New testcase.
+
+2013-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/56745
+	* gcc.c-torture/compile/pr56745.c: New test.
+
+2013-04-02  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56735
+	* gfortran.dg/namelist_80.f90: New.
+
+2013-04-02  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56737
+	* testsuite/gfortran.dg/fmt_cache_3.f90: New.
+
+2013-04-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56768
+	* g++.dg/torture/pr56768.C: New testcase.
+
+2013-04-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55951
+	* g++.dg/ext/desig5.C: New.
+
+2013-03-29  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/avx2-vbroadcastsi128-1.c: Fix intrinsic name.
+	* gcc.target/i386/avx2-vbroadcastsi128-1.c: Ditto.
+
+2013-03-28  Tejas Belagod  <tejas.belagod@arm.com>
+
+	PR middle-end/56694
+	* g++.dg/torture/pr56694.C: Fix test case to build on bare-metal
+	targets.
+
+2013-03-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56722
+	* g++.dg/cpp0x/range-for23.C: New.
+
+2013-03-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56694
+	* g++.dg/torture/pr56694.C: New testcase.
+
+2013-03-25  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2013-03-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR fortran/54932
+	* gfortran.dg/do_1.f90: Don't xfail.
+
+2013-03-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56696
+	* gfortran.dg/eof_5.f90: New.
+
+2013-03-22  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* gcc.c-torture/execute/builtins/builtins.exp: Sort targets
+	alphabetically.
+
+2013-03-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56582
+	* g++.dg/cpp0x/constexpr-array5.C: New.
+
+2013-03-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/56560
+	* gcc.target/i386/pr56560.c: New file.
+
+2013-03-22  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	PR testsuite/55994
+	* gcc.c-torture/execute/builtins/builtins.exp: Add
+	-Wl,--allow-multiple-definition for RTEMS targets.
+
+2013-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56607
+	* g++.dg/warn/Wdiv-by-zero-2.C: New test.
+	* c-c++-common/pr56607.c: New test.
+
+2013-03-22  Release Manager
+
+	* GCC 4.8.0 released.
+
 2013-03-20  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56661
