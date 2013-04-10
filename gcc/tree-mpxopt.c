@@ -87,10 +87,12 @@ static void gather_checks_info (void);
 static void remove_check_if_pass (struct check_info *ci);
 static void use_outer_bounds_if_possible (struct check_info *ci);
 static void remove_excess_intersections (void);
-int get_check_result (struct check_info *ci, tree bounds);
+static int get_check_result (struct check_info *ci, tree bounds);
 static void remove_constant_checks (void);
 static void compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom);
 static void remove_redundant_checks (void);
+static bool stmt_dominates_p (gimple s1, gimple s2);
+static void reduce_bounds_lifetime (void);
 static tree get_nobnd_fndecl (enum built_in_function fncode);
 static void optimize_string_function_calls (void);
 
@@ -1013,6 +1015,149 @@ optimize_string_function_calls (void)
     }
 }
 
+/* Return 1 if S1 dominates S2 and 0 otherwise.  */
+bool
+stmt_dominates_p (gimple s1, gimple s2)
+{
+  basic_block bb1 = gimple_bb (s1);
+  basic_block bb2 = gimple_bb (s2);
+  bool res;
+
+  if (bb1 == bb2)
+    {
+      if (gimple_code (s1) == GIMPLE_PHI && gimple_code (s2) != GIMPLE_PHI)
+	res = true;
+      else if (gimple_code (s1) != GIMPLE_PHI && gimple_code (s2) == GIMPLE_PHI)
+	res = false;
+      else
+	{
+	  gimple_stmt_iterator i;
+
+	  res = false;
+	  for (i = gsi_for_stmt (s1); !gsi_end_p (i); gsi_next (&i))
+	    if (gsi_stmt (i) == s2)
+	      {
+		res = true;
+		break;
+	      }
+	}
+    }
+  else
+    res = dominated_by_p (CDI_DOMINATORS, bb2, bb1);
+
+  return res;
+}
+
+/* MPX pass inserts most of bounds creation code in
+   the header of the function.  We want to move bounds
+   creation closer to bounds usage to reduce bounds
+   lifetime.  We also do not want to have bounds creation
+   code on paths which do not use them.  */
+void
+reduce_bounds_lifetime (void)
+{
+  basic_block bb = FALLTHRU_EDGE (ENTRY_BLOCK_PTR)->dest;
+  gimple_stmt_iterator i;
+
+  for (i = gsi_start_bb (bb); !gsi_end_p (i); )
+    {
+      gimple dom_use, use_stmt, stmt = gsi_stmt (i);
+      ssa_op_iter iter;
+      imm_use_iterator use_iter;
+      use_operand_p use_p;
+      tree op;
+      bool deps = false;
+
+      /* Skip all statements other than BNDMK.  */
+      if (gimple_code (stmt) != GIMPLE_CALL
+	  || gimple_call_fndecl (stmt) != mpx_bndmk_fndecl)
+	{
+	  gsi_next (&i);
+	  continue;
+	}
+
+      /* Check we do not increase other values lifetime.  */
+      FOR_EACH_PHI_OR_STMT_USE (use_p, stmt, iter, SSA_OP_USE)
+	{
+	  op = USE_FROM_PTR (use_p);
+
+	  if (TREE_CODE (op) == SSA_NAME
+	      && gimple_code (SSA_NAME_DEF_STMT (op)) != GIMPLE_NOP)
+	    deps = true;
+	}
+
+      if (deps)
+	{
+	  gsi_next (&i);
+	  continue;
+	}
+
+      /* Check all usages of bounds.  */
+      op = gimple_call_lhs (stmt);
+      dom_use = NULL;
+
+      FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, op)
+	{
+	  if (!dom_use)
+	    dom_use = use_stmt;
+	  else if (stmt_dominates_p (use_stmt, dom_use))
+	    dom_use = use_stmt;
+	  else if (!stmt_dominates_p (dom_use, use_stmt))
+	    {
+	      dom_use = NULL;
+	      BREAK_FROM_IMM_USE_STMT (use_iter);
+	    }
+	}
+
+      /* In case there is a single use, just move bounds
+	 creation to the use.  */
+      if (dom_use)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Moving creation of ");
+	      print_generic_expr (dump_file, op, 0);
+	      fprintf (dump_file, " down to its use.\n");
+	    }
+
+	  if (gimple_code (dom_use) == GIMPLE_PHI)
+	    {
+	      basic_block use_bb = gimple_bb (dom_use);
+	      basic_block dom_bb = get_immediate_dominator (CDI_DOMINATORS,
+							    use_bb);
+
+	      if (dom_bb && dom_bb != bb)
+		{
+		  gimple_stmt_iterator last = gsi_last_bb (dom_bb);
+		  if (!gsi_end_p (last)
+		      && (is_ctrl_stmt (gsi_stmt (last))
+			  || (is_gimple_call (gsi_stmt (last))
+			      && stmt_can_throw_internal (gsi_stmt (last)))))
+		    gsi_move_before (&i, &last);
+		  else
+		    gsi_move_after (&i, &last);
+		}
+	      else
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "Cannot move statement bacause there is no "
+			     "suitable dominator block other than entry block.");
+		}
+	    }
+	  else
+	    {
+	      gimple_stmt_iterator gsi = gsi_for_stmt (dom_use);
+	      gsi_move_before (&i, &gsi);
+	    }
+
+	  update_stmt (stmt);
+	}
+
+      if (!gsi_end_p (i))
+	gsi_next (&i);
+    }
+}
+
 /* Create structures to hold check information
    for current function.  */
 void
@@ -1089,6 +1234,8 @@ mpxopt_execute (void)
   remove_redundant_checks ();
 
   optimize_string_function_calls ();
+
+  reduce_bounds_lifetime ();
 
   release_check_info ();
 

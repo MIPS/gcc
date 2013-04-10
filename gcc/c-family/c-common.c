@@ -367,6 +367,7 @@ static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
 static tree handle_mpx_variable_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_mpx_legacy (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -736,6 +737,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_fnspec_attribute, false },
   { "mpx_variable_size",      0, 0, true,  false, false,
 			      handle_mpx_variable_size_attribute, false },
+  { "mpx_legacy",             0, 0, true, false, false,
+			      handle_mpx_legacy, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -7941,6 +7944,22 @@ handle_mpx_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args
 				    int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "mpx_legacy" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_mpx_legacy (tree *node, tree name, tree ARG_UNUSED (args),
+		   int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;

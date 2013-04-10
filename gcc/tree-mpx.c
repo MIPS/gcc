@@ -77,7 +77,10 @@ static void mpx_add_modification_to_statements_list (tree lhs, tree rhs, void *a
 static void mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 					 assign_handler handler);
 static tree mpx_compute_bounds_for_assignment (tree node, gimple assign);
-static tree mpx_make_static_bounds (HOST_WIDE_INT lb, HOST_WIDE_INT ub, const char *name);
+static tree mpx_make_static_bounds (tree var);
+static tree mpx_make_static_const_bounds (HOST_WIDE_INT lb,
+					  HOST_WIDE_INT ub,
+					  const char *name);
 static tree mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
 static tree mpx_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
@@ -145,6 +148,8 @@ static GTY (()) tree mpx_uintptr_type;
 static GTY (()) tree mpx_zero_bounds_var = NULL;
 static GTY (()) tree mpx_none_bounds_var = NULL;
 static GTY (()) vec<tree, va_gc> *mpx_static_const_bounds = NULL;
+static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
+     htab_t mpx_static_var_bounds = NULL;
 
 static basic_block entry_block;
 static tree zero_bounds;
@@ -171,6 +176,7 @@ static GTY ((if_marked ("tree_map_marked_p"),
 	     param_is (struct tree_map))) htab_t mpx_size_decls = NULL;
 const char *MPXSI_IDENTIFIER = "__mpx_initialize_static_bounds";
 const char *MPX_SIZE_OF_SYMBOL_PREFIX = "__mpx_size_of_";
+const char *MPX_BOUNDS_OF_SYMBOL_PREFIX = "__mpx_bounds_of_";
 const char *MPX_ZERO_BOUNDS_VAR_NAME = "__mpx_zero_bounds";
 const char *MPX_NONE_BOUNDS_VAR_NAME = "__mpx_none_bounds";
 
@@ -636,8 +642,8 @@ mpx_register_var_initializer (tree var)
    contructor and start the new one.  */
 static void
 mpx_add_modification_to_statements_list (tree lhs,
-tree rhs,
-void *arg)
+					 tree rhs,
+					 void *arg)
 {
   struct mpx_ctor_stmt_list *stmts = (struct mpx_ctor_stmt_list *)arg;
   tree modify;
@@ -652,10 +658,55 @@ void *arg)
 
   if (!stmts->avail)
     {
-      cgraph_build_static_cdtor ('P', stmts->stmts, MAX_RESERVED_INIT_PRIORITY-1);
+      cgraph_build_static_cdtor ('P', stmts->stmts,
+				 MAX_RESERVED_INIT_PRIORITY + 2);
       stmts->avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
       stmts->stmts = NULL;
     }
+}
+
+/* Helper function for mpx_finish_file.
+   Outputs one static bounds variable from mpx_static_var_bounds table.  */
+int
+mpx_output_static_var_bounds (void **slot, void *res)
+{
+  struct tree_map *map = (struct tree_map *)*slot;
+  struct mpx_ctor_stmt_list *stmts = (struct mpx_ctor_stmt_list *)res;
+  tree var = map->base.from;
+  tree bnd_var = map->to;
+  tree size_ptr = build_pointer_type (size_type_node);
+  tree bnd_p = build1 (CONVERT_EXPR, size_ptr,
+		       mpx_build_addr_expr (bnd_var));
+  tree lb, ub, lhs, modify, size;
+
+  assemble_variable (bnd_var, 1, 0, 0);
+
+  lb = build1 (CONVERT_EXPR, size_type_node, mpx_build_addr_expr (var));
+  size = size_binop (MINUS_EXPR, DECL_SIZE_UNIT (var), size_one_node);
+  ub = size_binop (PLUS_EXPR, lb, size);
+  ub = build1 (BIT_NOT_EXPR, size_type_node, ub);
+
+  lhs = build1 (INDIRECT_REF, size_type_node, bnd_p);
+  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, lb);
+  append_to_statement_list (modify, &stmts->stmts);
+
+  lhs = build1 (INDIRECT_REF, size_type_node,
+		build2 (POINTER_PLUS_EXPR, size_ptr, bnd_p,
+			TYPE_SIZE_UNIT (size_type_node)));
+  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, ub);
+  append_to_statement_list (modify, &stmts->stmts);
+
+  stmts->avail--;
+
+  if (!stmts->avail)
+    {
+      cgraph_build_static_cdtor ('B', stmts->stmts,
+				 MAX_RESERVED_INIT_PRIORITY + 1);
+      stmts->avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
+      stmts->stmts = NULL;
+    }
+
+  return 1;
 }
 
 /* Helper function for mpx_finish_file.
@@ -696,7 +747,8 @@ mpx_finish_file (void)
 					mpx_add_modification_to_statements_list);
 
       if (stmts.stmts)
-	cgraph_build_static_cdtor ('P', stmts.stmts, MAX_RESERVED_INIT_PRIORITY-1);
+	cgraph_build_static_cdtor ('P', stmts.stmts,
+				   MAX_RESERVED_INIT_PRIORITY + 2);
     }
 
   if (mpx_size_decls)
@@ -710,6 +762,22 @@ mpx_finish_file (void)
   if (mpx_static_const_bounds)
     FOR_EACH_VEC_ELT (*mpx_static_const_bounds, i, var)
       assemble_variable (var, 1, 0, 0);
+
+  if (mpx_static_var_bounds)
+    {
+      stmts.avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
+      stmts.stmts = NULL;
+
+      htab_traverse (mpx_static_var_bounds,
+		     mpx_output_static_var_bounds, &stmts);
+
+      if (stmts.stmts)
+	cgraph_build_static_cdtor ('B', stmts.stmts,
+				   MAX_RESERVED_INIT_PRIORITY + 1);
+
+      htab_delete (mpx_static_var_bounds);
+      mpx_static_var_bounds = NULL;
+    }
 }
 
 /* This function requests intrumentation for all statements
@@ -1310,14 +1378,16 @@ mpx_get_zero_bounds (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Creating zero bounds...");
 
-  if (flag_mpx_use_static_const_bounds)
+  if ((flag_mpx_use_static_bounds && flag_mpx_use_static_const_bounds)
+      || flag_mpx_use_static_const_bounds > 0)
     {
       gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
       gimple stmt;
 
       if (!mpx_zero_bounds_var)
-	mpx_zero_bounds_var = mpx_make_static_bounds (0, -1,
-						      MPX_ZERO_BOUNDS_VAR_NAME);
+	mpx_zero_bounds_var
+	  = mpx_make_static_const_bounds (0, -1,
+					  MPX_ZERO_BOUNDS_VAR_NAME);
 
       zero_bounds = make_ssa_name (mpx_get_tmp_var (), gimple_build_nop ());
       stmt = gimple_build_assign (zero_bounds, mpx_zero_bounds_var);
@@ -1343,14 +1413,16 @@ mpx_get_none_bounds (void)
     fprintf (dump_file, "Creating none bounds...");
 
 
-  if (flag_mpx_use_static_const_bounds)
+  if ((flag_mpx_use_static_bounds && flag_mpx_use_static_const_bounds)
+      || flag_mpx_use_static_const_bounds > 0)
     {
       gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
       gimple stmt;
 
       if (!mpx_none_bounds_var)
-	mpx_none_bounds_var = mpx_make_static_bounds (-1, 0,
-						      MPX_NONE_BOUNDS_VAR_NAME);
+	mpx_none_bounds_var
+	  = mpx_make_static_const_bounds (-1, 0,
+					  MPX_NONE_BOUNDS_VAR_NAME);
 
       none_bounds = make_ssa_name (mpx_get_tmp_var (), gimple_build_nop ());
       stmt = gimple_build_assign (none_bounds, mpx_none_bounds_var);
@@ -1597,8 +1669,9 @@ mpx_expand_bounds_reset_for_mem (tree mem, tree ptr)
   if (flag_mpx_use_static_const_bounds)
     {
       if (!mpx_zero_bounds_var)
-	mpx_zero_bounds_var = mpx_make_static_bounds (0, -1,
-						      MPX_ZERO_BOUNDS_VAR_NAME);
+	mpx_zero_bounds_var
+	  = mpx_make_static_const_bounds (0, -1,
+					  MPX_ZERO_BOUNDS_VAR_NAME);
       zero_bnd = mpx_zero_bounds_var;
     }
   else
@@ -2025,7 +2098,71 @@ mpx_build_make_bounds_call (tree lower_bound, tree size)
 /* Creates a static bounds var of specfified NAME initilized
    with specified LB and UB values.  */
 static tree
-mpx_make_static_bounds (HOST_WIDE_INT lb, HOST_WIDE_INT ub, const char *name)
+mpx_make_static_var_bounds (tree var)
+{
+  struct tree_map **slot, *map;
+  const char *var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var));
+  char *bnd_var_name;
+  tree bnd_var;
+
+  /* First check if we already have required var.  */
+  if (mpx_static_var_bounds)
+    {
+      struct tree_map *res, in;
+      in.base.from = var;
+      in.hash = htab_hash_pointer (var);
+
+      res = (struct tree_map *) htab_find_with_hash (mpx_static_var_bounds,
+						     &in, in.hash);
+
+      if (res)
+	return res->to;
+    }
+
+  /* For hidden symbols we want to skip first '*' char.  */
+  if (*var_name == '*')
+    var_name++;
+
+  bnd_var_name = (char *) xmalloc (strlen (var_name)
+				   + strlen (MPX_BOUNDS_OF_SYMBOL_PREFIX) + 1);
+  strcpy (bnd_var_name, MPX_BOUNDS_OF_SYMBOL_PREFIX);
+  strcat (bnd_var_name, var_name);
+
+  bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			get_identifier (bnd_var_name), mpx_bound_type);
+
+  TREE_PUBLIC (bnd_var) = 0;
+  TREE_USED (bnd_var) = 1;
+  TREE_READONLY (bnd_var) = 1;
+  TREE_STATIC (bnd_var) = 1;
+  TREE_ADDRESSABLE (bnd_var) = 0;
+  DECL_ARTIFICIAL (bnd_var) = 1;
+  DECL_COMMON (bnd_var) = 1;
+  DECL_COMDAT (bnd_var) = 1;
+  DECL_READ_P (bnd_var) = 1;
+
+  /* Add created var to the global hash map.  */
+  if (!mpx_static_var_bounds)
+    mpx_static_var_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+
+  map = ggc_alloc_tree_map ();
+  map->hash = htab_hash_pointer (var);
+  map->base.from = var;
+  map->to = bnd_var;
+
+  slot = (struct tree_map **)
+    htab_find_slot_with_hash (mpx_static_var_bounds, map, map->hash, INSERT);
+  *slot = map;
+
+  return bnd_var;
+}
+
+/* Creates a static bounds var of specfified NAME initilized
+   with specified LB and UB values.  */
+static tree
+mpx_make_static_const_bounds (HOST_WIDE_INT lb,
+			      HOST_WIDE_INT ub,
+			      const char *name)
 {
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			 get_identifier (name), mpx_bound_type);
@@ -2265,7 +2402,6 @@ static tree
 mpx_get_bounds_for_decl (tree decl)
 {
   tree bounds;
-  tree lb;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL);
@@ -2282,8 +2418,6 @@ mpx_get_bounds_for_decl (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = mpx_build_addr_expr (decl);
-
   if (!DECL_SIZE (decl)
       || (mpx_variable_size_type (TREE_TYPE (decl))
 	  && (TREE_STATIC (decl)
@@ -2293,8 +2427,23 @@ mpx_get_bounds_for_decl (tree decl)
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = mpx_generate_extern_var_bounds (decl);
     }
+  else if (flag_mpx_use_static_bounds
+	   && TREE_CODE (decl) == VAR_DECL
+	   && TREE_STATIC (decl))
+    {
+      tree bnd_var = mpx_make_static_var_bounds (decl);
+      gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
+      gimple stmt;
+
+      bounds = make_ssa_name (mpx_get_tmp_var (),  gimple_build_nop ());
+      stmt = gimple_build_assign (bounds, bnd_var);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
   else
-    bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    {
+      tree lb = mpx_build_addr_expr (decl);
+      bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    }
 
   mpx_register_bounds (decl, bounds);
 
@@ -2307,7 +2456,6 @@ static tree
 mpx_get_bounds_for_decl_addr (tree decl)
 {
   tree bounds;
-  tree lb;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == PARM_DECL
@@ -2325,8 +2473,6 @@ mpx_get_bounds_for_decl_addr (tree decl)
       fprintf (dump_file, "\n");
     }
 
-  lb = mpx_build_addr_expr (decl);
-
   if (!DECL_SIZE (decl)
       || (mpx_variable_size_type (TREE_TYPE (decl))
 	  && (TREE_STATIC (decl)
@@ -2336,8 +2482,23 @@ mpx_get_bounds_for_decl_addr (tree decl)
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       bounds = mpx_generate_extern_var_bounds (decl);
     }
+  else if (flag_mpx_use_static_bounds
+	   && TREE_CODE (decl) == VAR_DECL
+	   && TREE_STATIC (decl))
+    {
+      tree bnd_var = mpx_make_static_var_bounds (decl);
+      gimple_stmt_iterator gsi = gsi_start_bb (mpx_get_entry_block ());
+      gimple stmt;
+
+      bounds = make_ssa_name (mpx_get_tmp_var (),  gimple_build_nop ());
+      stmt = gimple_build_assign (bounds, bnd_var);
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
   else
-    bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    {
+      tree lb = mpx_build_addr_expr (decl);
+      bounds = mpx_make_bounds (lb, DECL_SIZE_UNIT (decl), NULL, false);
+    }
 
   return bounds;
 }
@@ -3416,7 +3577,8 @@ mpx_execute (void)
 static bool
 mpx_gate (void)
 {
-  return flag_mpx != 0;
+  return flag_mpx != 0
+    && !lookup_attribute ("mpx_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
 struct gimple_opt_pass pass_mpx =
