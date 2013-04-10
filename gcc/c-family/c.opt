@@ -1117,7 +1117,7 @@ C ObjC C++ ObjC++ Report Var(flag_mpx_use_fast_string_functions) Init(1)
 Allow to use *_nobnd versions of string functions by MPX pass.
 
 fmpx-use-static-bounds
-C ObjC C++ ObjC++ Report Var(flag_mpx_use_static_bounds) Init(1)
+C ObjC C++ ObjC++ Report Var(flag_mpx_use_static_bounds) Init(0)
 Use statically initialized variable for static vars bounds instead of
 generating them each time it is required.
 
