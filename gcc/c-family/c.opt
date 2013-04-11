@@ -1118,13 +1118,18 @@ Allow to use *_nobnd versions of string functions by MPX pass.
 
 fmpx-use-static-bounds
 C ObjC C++ ObjC++ Report Var(flag_mpx_use_static_bounds) Init(0)
-Use statically initialized variable for static vars bounds instead of
+Use statically initialized variable for vars bounds instead of
 generating them each time it is required.
 
 fmpx-use-static-const-bounds
 C ObjC C++ ObjC++ Report Var(flag_mpx_use_static_const_bounds) Init(-1)
 Use statically initialized variable for constant bounds instead of
 generating them each time it is required.
+
+fmpx-treat-zero-size-reloc-as-infinite
+C ObjC C++ ObjC++ Report Var(flag_mpx_zero_size_reloc_as_infinite) Init(1)
+With this option zero size relocation will cause upper bound of object
+to be infinite.
 
 fplan9-extensions
 C ObjC Var(flag_plan9_extensions)
