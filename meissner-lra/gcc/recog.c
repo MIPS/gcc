@@ -1065,7 +1065,8 @@ register_operand (rtx op, enum machine_mode mode)
 	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
 	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
-	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT)
+	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT
+	  && ! LRA_SUBREG_P (op))
 	return 0;
 #endif
 
