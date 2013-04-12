@@ -1062,15 +1062,24 @@ reduce_bounds_lifetime (void)
   for (i = gsi_start_bb (bb); !gsi_end_p (i); )
     {
       gimple dom_use, use_stmt, stmt = gsi_stmt (i);
+      basic_block dom_bb;
       ssa_op_iter iter;
       imm_use_iterator use_iter;
       use_operand_p use_p;
       tree op;
+      bool want_move = false;
       bool deps = false;
 
-      /* Skip all statements other than BNDMK.  */
-      if (gimple_code (stmt) != GIMPLE_CALL
-	  || gimple_call_fndecl (stmt) != mpx_bndmk_fndecl)
+      if (gimple_code (stmt) == GIMPLE_CALL
+	  && gimple_call_fndecl (stmt) == mpx_bndmk_fndecl)
+	want_move = true;
+
+      if (gimple_code (stmt) == GIMPLE_ASSIGN
+	  && BOUND_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt)))
+	  && gimple_assign_rhs_code (stmt) == VAR_DECL)
+	want_move = true;
+
+      if (!want_move)
 	{
 	  gsi_next (&i);
 	  continue;
@@ -1093,25 +1102,45 @@ reduce_bounds_lifetime (void)
 	}
 
       /* Check all usages of bounds.  */
-      op = gimple_call_lhs (stmt);
+      if (gimple_code (stmt) == GIMPLE_CALL)
+	op = gimple_call_lhs (stmt);
+      else
+	{
+	  gcc_assert (gimple_code (stmt) == GIMPLE_ASSIGN);
+	  op = gimple_assign_lhs (stmt);
+	}
+
       dom_use = NULL;
+      dom_bb = NULL;
 
       FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, op)
 	{
-	  if (!dom_use)
+	  if (dom_bb &&
+	      dominated_by_p (CDI_DOMINATORS,
+			      dom_bb, gimple_bb (use_stmt)))
+	    {
+	      dom_use = use_stmt;
+	      dom_bb = NULL;
+	    }
+	  else if (dom_bb)
+	    dom_bb = nearest_common_dominator (CDI_DOMINATORS, dom_bb,
+					       gimple_bb (use_stmt));
+	  else if (!dom_use)
 	    dom_use = use_stmt;
 	  else if (stmt_dominates_p (use_stmt, dom_use))
 	    dom_use = use_stmt;
 	  else if (!stmt_dominates_p (dom_use, use_stmt))
 	    {
+	      dom_bb = nearest_common_dominator (CDI_DOMINATORS,
+						 gimple_bb (use_stmt),
+						 gimple_bb (dom_use));
 	      dom_use = NULL;
-	      BREAK_FROM_IMM_USE_STMT (use_iter);
 	    }
 	}
 
       /* In case there is a single use, just move bounds
 	 creation to the use.  */
-      if (dom_use)
+      if (dom_use || dom_bb)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1120,13 +1149,25 @@ reduce_bounds_lifetime (void)
 	      fprintf (dump_file, " down to its use.\n");
 	    }
 
-	  if (gimple_code (dom_use) == GIMPLE_PHI)
+	  if (dom_use && gimple_code (dom_use) == GIMPLE_PHI)
 	    {
-	      basic_block use_bb = gimple_bb (dom_use);
-	      basic_block dom_bb = get_immediate_dominator (CDI_DOMINATORS,
-							    use_bb);
+	      dom_bb = get_immediate_dominator (CDI_DOMINATORS,
+						gimple_bb (dom_use));
+	      dom_use = NULL;
+	    }
 
-	      if (dom_bb && dom_bb != bb)
+	  if (dom_bb == bb
+	      || dom_use && gimple_bb (dom_use) == bb)
+	    {
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "Cannot move statement bacause there is no "
+			     "suitable dominator block other than entry block.");
+
+		  gsi_next (&i);
+	    }
+	  else 
+	    {
+	      if (dom_bb)
 		{
 		  gimple_stmt_iterator last = gsi_last_bb (dom_bb);
 		  if (!gsi_end_p (last)
@@ -1139,21 +1180,14 @@ reduce_bounds_lifetime (void)
 		}
 	      else
 		{
-		  if (dump_file && (dump_flags & TDF_DETAILS))
-		    fprintf (dump_file, "Cannot move statement bacause there is no "
-			     "suitable dominator block other than entry block.");
+		  gimple_stmt_iterator gsi = gsi_for_stmt (dom_use);
+		  gsi_move_before (&i, &gsi);
 		}
-	    }
-	  else
-	    {
-	      gimple_stmt_iterator gsi = gsi_for_stmt (dom_use);
-	      gsi_move_before (&i, &gsi);
-	    }
 
-	  update_stmt (stmt);
+	      update_stmt (stmt);
+	    }
 	}
-
-      if (!gsi_end_p (i))
+      else
 	gsi_next (&i);
     }
 }
