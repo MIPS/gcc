@@ -165,9 +165,12 @@ package Snames is
    Name_uFinalizer                     : constant Name_Id := N + $;
    Name_uIdepth                        : constant Name_Id := N + $;
    Name_uInit                          : constant Name_Id := N + $;
+   Name_uInvariant                     : constant Name_Id := N + $;
    Name_uMaster                        : constant Name_Id := N + $;
    Name_uObject                        : constant Name_Id := N + $;
+   Name_uPost                          : constant Name_Id := N + $;
    Name_uPostconditions                : constant Name_Id := N + $;
+   Name_uPre                           : constant Name_Id := N + $;
    Name_uPriority                      : constant Name_Id := N + $;
    Name_uProcess_ATSD                  : constant Name_Id := N + $;
    Name_uRelative_Deadline             : constant Name_Id := N + $;
@@ -182,6 +185,7 @@ package Snames is
    Name_uTask_Info                     : constant Name_Id := N + $;
    Name_uTask_Name                     : constant Name_Id := N + $;
    Name_uTrace_Sp                      : constant Name_Id := N + $;
+   Name_uType_Invariant                : constant Name_Id := N + $;
 
    --  Names of predefined primitives used in the expansion of dispatching
    --  requeue and select statements, Abort, 'Callable and 'Terminated.
@@ -498,6 +502,7 @@ package Snames is
    Name_Export_Valued_Procedure        : constant Name_Id := N + $; -- GNAT
    Name_External                       : constant Name_Id := N + $; -- GNAT
    Name_Finalize_Storage_Only          : constant Name_Id := N + $; -- GNAT
+   Name_Ghost                          : constant Name_Id := N + $; -- GNAT
    Name_Global                         : constant Name_Id := N + $; -- GNAT
    Name_Ident                          : constant Name_Id := N + $; -- VMS
    Name_Implementation_Defined         : constant Name_Id := N + $; -- GNAT
@@ -721,6 +726,8 @@ package Snames is
    Name_Name                           : constant Name_Id := N + $;
    Name_NCA                            : constant Name_Id := N + $;
    Name_No                             : constant Name_Id := N + $;
+   Name_No_Access_Parameter_Allocators : constant Name_Id := N + $;
+   Name_No_Coextensions                : constant Name_Id := N + $;
    Name_No_Dependence                  : constant Name_Id := N + $;
    Name_No_Dynamic_Attachment          : constant Name_Id := N + $;
    Name_No_Dynamic_Interrupts          : constant Name_Id := N + $;
@@ -728,8 +735,11 @@ package Snames is
    Name_No_Requeue                     : constant Name_Id := N + $;
    Name_No_Requeue_Statements          : constant Name_Id := N + $;
    Name_No_Specification_Of_Aspect     : constant Name_Id := N + $;
+   Name_No_Standard_Allocators_After_Elaboration : constant Name_Id := N + $;
    Name_No_Task_Attributes             : constant Name_Id := N + $;
    Name_No_Task_Attributes_Package     : constant Name_Id := N + $;
+   Name_No_Use_Of_Attribute            : constant Name_Id := N + $;
+   Name_No_Use_Of_Pragma               : constant Name_Id := N + $;
    Name_No_Unroll                      : constant Name_Id := N + $;
    Name_No_Vector                      : constant Name_Id := N + $;
    Name_Nominal                        : constant Name_Id := N + $;
@@ -1787,6 +1797,7 @@ package Snames is
       Pragma_Export_Valued_Procedure,
       Pragma_External,
       Pragma_Finalize_Storage_Only,
+      Pragma_Ghost,
       Pragma_Global,
       Pragma_Ident,
       Pragma_Implementation_Defined,

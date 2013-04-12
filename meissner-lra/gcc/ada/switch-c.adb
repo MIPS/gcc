@@ -283,7 +283,6 @@ package body Switch.C is
             when 'a' =>
                Ptr := Ptr + 1;
                Assertions_Enabled := True;
-               Debug_Pragmas_Enabled := True;
 
             --  -gnatA (disregard gnat.adc)
 
@@ -597,7 +596,6 @@ package body Switch.C is
 
                      if Ptr >= Max or else Switch_Chars (Ptr) /= '=' then
                         Bad_Switch ("-gnateO");
-
                      else
                         Object_Path_File_Name :=
                           new String'(Switch_Chars (Ptr + 1 .. Max));
@@ -651,20 +649,48 @@ package body Switch.C is
                   --  -gnatet (write target dependent information)
 
                   when 't' =>
-                     Target_Dependent_Info_Write := True;
+                     if not First_Switch then
+                        Osint.Fail
+                          ("-gnatet must not be combined with other switches");
+                     end if;
+
+                     --  Check for '='
+
                      Ptr := Ptr + 1;
+
+                     if Ptr >= Max or else Switch_Chars (Ptr) /= '=' then
+                        Bad_Switch ("-gnatet");
+                     else
+                        Target_Dependent_Info_Write_Name :=
+                          new String'(Switch_Chars (Ptr + 1 .. Max));
+                     end if;
+
+                     return;
 
                   --  -gnateT (read target dependent information)
 
                   when 'T' =>
                      if not First_Switch then
                         Osint.Fail
-                          ("-gnateT must be first if combined with "
-                           & "other switches");
+                          ("-gnateT must not be combined with other switches");
                      end if;
 
-                     Target_Dependent_Info_Read := True;
+                     --  Check for '='
+
                      Ptr := Ptr + 1;
+
+                     if Ptr >= Max or else Switch_Chars (Ptr) /= '=' then
+                        Bad_Switch ("-gnateT");
+                     else
+                        --  This parameter was stored by Set_Targ earlier
+
+                        pragma Assert
+                          (Target_Dependent_Info_Read_Name.all =
+                             Switch_Chars (Ptr + 1 .. Max));
+                        null;
+                     end if;
+
+                     return;
 
                   --  -gnateV (validity checks on parameters)
 
@@ -724,6 +750,7 @@ package body Switch.C is
                Identifier_Character_Set := 'n';
                System_Extend_Unit := Empty;
                Warning_Mode := Treat_As_Error;
+               Style_Check_Main := True;
 
                --  Set Ada 2012 mode explicitly. We don't want to rely on the
                --  implicit setting here, since for example, we want
@@ -1146,6 +1173,7 @@ package body Switch.C is
 
             when 'y' =>
                Ptr := Ptr + 1;
+               Style_Check_Main := True;
 
                if Ptr > Max then
                   Set_Default_Style_Check_Options;

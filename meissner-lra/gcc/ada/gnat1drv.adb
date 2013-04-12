@@ -240,11 +240,9 @@ procedure Gnat1drv is
 
          Generate_SCIL := True;
 
-         --  Enable assertions and debug pragmas, since they give CodePeer
-         --  valuable extra information.
+         --  Enable assertions, since they give CodePeer valuable extra info
 
          Assertions_Enabled    := True;
-         Debug_Pragmas_Enabled := True;
 
          --  Disable all simple value propagation. This is an optimization
          --  which is valuable for code optimization, and also for generation
@@ -401,11 +399,10 @@ procedure Gnat1drv is
 
          Use_Expression_With_Actions := False;
 
-         --  Enable assertions and debug pragmas, since they give valuable
-         --  extra information for formal verification.
+         --  Enable assertions, since they give valuable extra information for
+         --  formal verification.
 
-         Assertions_Enabled    := True;
-         Debug_Pragmas_Enabled := True;
+         Assertions_Enabled := True;
 
          --  Turn off style check options since we are not interested in any
          --  front-end warnings when we are getting Alfa output.
@@ -881,7 +878,7 @@ begin
 
       --  Generate target dependent output file if requested
 
-      if Target_Dependent_Info_Write then
+      if Target_Dependent_Info_Write_Name /= null then
          Set_Targ.Write_Target_Dependent_Values;
       end if;
 
@@ -1259,7 +1256,7 @@ begin
 
       Errout.Finalize (Last_Call => True);
       Errout.Output_Messages;
-      List_Rep_Info;
+      List_Rep_Info (Ttypes.Bytes_Big_Endian);
       List_Inlining_Info;
 
       --  Only write the library if the backend did not generate any error

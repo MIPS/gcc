@@ -1829,9 +1829,8 @@ package body Exp_Ch3 is
          --  traversing the expression. ???
 
          if Kind = N_Attribute_Reference
-           and then (Attribute_Name (N) = Name_Unchecked_Access
-                       or else
-                     Attribute_Name (N) = Name_Unrestricted_Access)
+           and then Nam_In (Attribute_Name (N), Name_Unchecked_Access,
+                                                Name_Unrestricted_Access)
            and then Is_Entity_Name (Prefix (N))
            and then Is_Type (Entity (Prefix (N)))
            and then Entity (Prefix (N)) = Rec_Type
@@ -2780,8 +2779,8 @@ package body Exp_Ch3 is
 
          --  Loop through components, skipping pragmas, in 2 steps. The first
          --  step deals with regular components. The second step deals with
-         --  components have per object constraints, and no explicit initia-
-         --  lization.
+         --  components that have per object constraints and no explicit
+         --  initialization.
 
          Has_POC := False;
 
@@ -2799,9 +2798,7 @@ package body Exp_Ch3 is
             --  Leave any processing of per-object constrained component for
             --  the second pass.
 
-            if Has_Access_Constraint (Id)
-              and then No (Expression (Decl))
-            then
+            if Has_Access_Constraint (Id) and then No (Expression (Decl)) then
                Has_POC := True;
 
             --  Regular component cases
@@ -2835,9 +2832,9 @@ package body Exp_Ch3 is
 
                elsif Ekind (Scope (Id)) = E_Record_Type
                  and then Present (Corresponding_Concurrent_Type (Scope (Id)))
-                 and then (Chars (Id) = Name_uCPU                or else
-                           Chars (Id) = Name_uDispatching_Domain or else
-                           Chars (Id) = Name_uPriority)
+                 and then Nam_In (Chars (Id), Name_uCPU,
+                                              Name_uDispatching_Domain,
+                                              Name_uPriority)
                then
                   declare
                      Exp   : Node_Id;
@@ -4184,7 +4181,7 @@ package body Exp_Ch3 is
       Eq_Op := Empty;
       while Present (Prim) loop
          if Chars (Node (Prim)) = Name_Op_Eq
-              and then Comes_From_Source (Node (Prim))
+           and then Comes_From_Source (Node (Prim))
 
          --  Don't we also need to check formal types and return type as in
          --  User_Defined_Eq above???

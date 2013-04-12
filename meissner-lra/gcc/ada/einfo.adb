@@ -32,12 +32,13 @@
 pragma Style_Checks (All_Checks);
 --  Turn off subprogram ordering, not used for this unit
 
-with Atree;  use Atree;
-with Namet;  use Namet;
-with Nlists; use Nlists;
-with Output; use Output;
-with Sinfo;  use Sinfo;
-with Stand;  use Stand;
+with Aspects; use Aspects;
+with Atree;   use Atree;
+with Namet;   use Namet;
+with Nlists;  use Nlists;
+with Output;  use Output;
+with Sinfo;   use Sinfo;
+with Stand;   use Stand;
 
 package body Einfo is
 
@@ -545,9 +546,9 @@ package body Einfo is
    --    Is_Predicate_Function           Flag255
    --    Is_Predicate_Function_M         Flag256
    --    Is_Invariant_Procedure          Flag257
+   --    Has_Dynamic_Predicate_Aspect    Flag258
+   --    Has_Static_Predicate_Aspect     Flag259
 
-   --    (unused)                        Flag258
-   --    (unused)                        Flag259
    --    (unused)                        Flag260
 
    --    (unused)                        Flag261
@@ -1394,6 +1395,12 @@ package body Einfo is
       return Flag220 (Id);
    end Has_Dispatch_Table;
 
+   function Has_Dynamic_Predicate_Aspect (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag258 (Id);
+   end Has_Dynamic_Predicate_Aspect;
+
    function Has_Enumeration_Rep_Clause (Id : E) return B is
    begin
       pragma Assert (Is_Enumeration_Type (Id));
@@ -1668,6 +1675,12 @@ package body Einfo is
       pragma Assert (Is_Type (Id));
       return Flag211 (Id);
    end Has_Static_Discriminants;
+
+   function Has_Static_Predicate_Aspect (Id : E) return B is
+   begin
+      pragma Assert (Is_Type (Id));
+      return Flag259 (Id);
+   end Has_Static_Predicate_Aspect;
 
    function Has_Storage_Size_Clause (Id : E) return B is
    begin
@@ -3966,6 +3979,12 @@ package body Einfo is
       Set_Flag220 (Id, V);
    end Set_Has_Dispatch_Table;
 
+   procedure Set_Has_Dynamic_Predicate_Aspect (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag258 (Id, V);
+   end Set_Has_Dynamic_Predicate_Aspect;
+
    procedure Set_Has_Enumeration_Rep_Clause (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Enumeration_Type (Id));
@@ -4249,6 +4268,12 @@ package body Einfo is
    begin
       Set_Flag211 (Id, V);
    end Set_Has_Static_Discriminants;
+
+   procedure Set_Has_Static_Predicate_Aspect (Id : E; V : B := True) is
+   begin
+      pragma Assert (Is_Type (Id));
+      Set_Flag259 (Id, V);
+   end Set_Has_Static_Predicate_Aspect;
 
    procedure Set_Has_Storage_Size_Clause (Id : E; V : B := True) is
    begin
@@ -6549,9 +6574,30 @@ package body Einfo is
 
    function Is_Finalizer (Id : E) return B is
    begin
-      return Ekind (Id) = E_Procedure
-        and then Chars (Id) = Name_uFinalizer;
+      return Ekind (Id) = E_Procedure and then Chars (Id) = Name_uFinalizer;
    end Is_Finalizer;
+
+   -----------------------
+   -- Is_Ghost_Function --
+   -----------------------
+
+   function Is_Ghost_Function (Id : E) return B is
+      Subp_Id : Entity_Id := Id;
+
+   begin
+      if Present (Subp_Id) and then Ekind (Subp_Id) = E_Function then
+
+         --  Handle renamings of functions
+
+         if Present (Alias (Subp_Id)) then
+            Subp_Id := Alias (Subp_Id);
+         end if;
+
+         return Has_Aspect (Subp_Id, Aspect_Ghost);
+      end if;
+
+      return False;
+   end Is_Ghost_Function;
 
    --------------------
    -- Is_Input_State --
@@ -6570,8 +6616,7 @@ package body Einfo is
    function Is_Null_State (Id : E) return B is
    begin
       return
-        Ekind (Id) = E_Abstract_State
-          and then Nkind (Parent (Id)) = N_Null;
+        Ekind (Id) = E_Abstract_State and then Nkind (Parent (Id)) = N_Null;
    end Is_Null_State;
 
    ---------------------
@@ -6590,10 +6635,7 @@ package body Einfo is
 
    function Is_Package_Or_Generic_Package (Id : E) return B is
    begin
-      return
-        Ekind (Id) = E_Package
-          or else
-        Ekind (Id) = E_Generic_Package;
+      return Ekind_In (Id, E_Generic_Package, E_Package);
    end Is_Package_Or_Generic_Package;
 
    ---------------
@@ -6612,8 +6654,7 @@ package body Einfo is
 
    function Is_Protected_Component (Id : E) return B is
    begin
-      return Ekind (Id) = E_Component
-        and then Is_Protected_Type (Scope (Id));
+      return Ekind (Id) = E_Component and then Is_Protected_Type (Scope (Id));
    end Is_Protected_Component;
 
    ----------------------------
@@ -7742,6 +7783,8 @@ package body Einfo is
       W ("Has_Delayed_Aspects",             Flag200 (Id));
       W ("Has_Delayed_Freeze",              Flag18  (Id));
       W ("Has_Discriminants",               Flag5   (Id));
+      W ("Has_Dispatch_Table",              Flag220 (Id));
+      W ("Has_Dynamic_Predicate_Aspect",    Flag258 (Id));
       W ("Has_Enumeration_Rep_Clause",      Flag66  (Id));
       W ("Has_Exit",                        Flag47  (Id));
       W ("Has_External_Tag_Rep_Clause",     Flag110 (Id));
@@ -7791,6 +7834,7 @@ package body Einfo is
       W ("Has_Specified_Stream_Read",       Flag192 (Id));
       W ("Has_Specified_Stream_Write",      Flag193 (Id));
       W ("Has_Static_Discriminants",        Flag211 (Id));
+      W ("Has_Static_Predicate_Aspect",     Flag259 (Id));
       W ("Has_Storage_Size_Clause",         Flag23  (Id));
       W ("Has_Stream_Size_Clause",          Flag184 (Id));
       W ("Has_Task",                        Flag30  (Id));

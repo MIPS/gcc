@@ -486,19 +486,19 @@ package body Sem_Ch6 is
    ----------------------------
 
    procedure Analyze_Function_Call (N : Node_Id) is
-      P       : constant Node_Id := Name (N);
-      Actuals : constant List_Id := Parameter_Associations (N);
-      Actual  : Node_Id;
+      Actuals  : constant List_Id := Parameter_Associations (N);
+      Func_Nam : constant Node_Id := Name (N);
+      Actual   : Node_Id;
 
    begin
-      Analyze (P);
+      Analyze (Func_Nam);
 
       --  A call of the form A.B (X) may be an Ada 2005 call, which is
       --  rewritten as B (A, X). If the rewriting is successful, the call
       --  has been analyzed and we just return.
 
-      if Nkind (P) = N_Selected_Component
-        and then Name (N) /= P
+      if Nkind (Func_Nam) = N_Selected_Component
+        and then Name (N) /= Func_Nam
         and then Is_Rewrite_Substitution (N)
         and then Present (Etype (N))
       then
@@ -507,7 +507,7 @@ package body Sem_Ch6 is
 
       --  If error analyzing name, then set Any_Type as result type and return
 
-      if Etype (P) = Any_Type then
+      if Etype (Func_Nam) = Any_Type then
          Set_Etype (N, Any_Type);
          return;
       end if;
@@ -524,12 +524,6 @@ package body Sem_Ch6 is
       end if;
 
       Analyze_Call (N);
-
-      --  Mark function call if within assertion
-
-      if In_Assertion_Expr /= 0 then
-         Set_In_Assertion (N);
-      end if;
    end Analyze_Function_Call;
 
    -----------------------------
@@ -537,9 +531,9 @@ package body Sem_Ch6 is
    -----------------------------
 
    procedure Analyze_Function_Return (N : Node_Id) is
-      Loc        : constant Source_Ptr  := Sloc (N);
-      Stm_Entity : constant Entity_Id   := Return_Statement_Entity (N);
-      Scope_Id   : constant Entity_Id   := Return_Applies_To (Stm_Entity);
+      Loc        : constant Source_Ptr := Sloc (N);
+      Stm_Entity : constant Entity_Id  := Return_Statement_Entity (N);
+      Scope_Id   : constant Entity_Id  := Return_Applies_To (Stm_Entity);
 
       R_Type : constant Entity_Id := Etype (Scope_Id);
       --  Function result subtype
@@ -1467,9 +1461,9 @@ package body Sem_Ch6 is
       --  Special processing for Elab_Spec, Elab_Body and Elab_Subp_Body calls
 
       if Nkind (P) = N_Attribute_Reference
-        and then (Attribute_Name (P) = Name_Elab_Spec      or else
-                  Attribute_Name (P) = Name_Elab_Body      or else
-                  Attribute_Name (P) = Name_Elab_Subp_Body)
+        and then Nam_In (Attribute_Name (P), Name_Elab_Spec,
+                                             Name_Elab_Body,
+                                             Name_Elab_Subp_Body)
       then
          if Present (Actuals) then
             Error_Msg_N
@@ -4016,9 +4010,8 @@ package body Sem_Ch6 is
             Nxt := Next (Decl);
 
             if Nkind (Decl) = N_Pragma
-              and then (Pragma_Name (Decl) = Name_Unreferenced
-                          or else
-                        Pragma_Name (Decl) = Name_Unmodified)
+              and then Nam_In (Pragma_Name (Decl), Name_Unreferenced,
+                                                   Name_Unmodified)
             then
                Remove (Decl);
             end if;
@@ -4521,8 +4514,8 @@ package body Sem_Ch6 is
                   Conv := Current_Entity (Id);
 
                elsif Nkind_In (Id, N_Selected_Component, N_Expanded_Name)
-                 and then Chars (Selector_Name (Id))
-                            = Name_Unchecked_Conversion
+                 and then
+                   Chars (Selector_Name (Id)) = Name_Unchecked_Conversion
                then
                   Conv := Current_Entity (Selector_Name (Id));
                else
@@ -5106,9 +5099,8 @@ package body Sem_Ch6 is
                Nxt := Next (Decl);
 
                if Nkind (Decl) = N_Pragma
-                 and then (Pragma_Name (Decl) = Name_Unreferenced
-                           or else
-                             Pragma_Name (Decl) = Name_Unmodified)
+                 and then Nam_In (Pragma_Name (Decl), Name_Unreferenced,
+                                                      Name_Unmodified)
                then
                   Remove (Decl);
                end if;
@@ -6505,11 +6497,9 @@ package body Sem_Ch6 is
       if Present (Overridden_Subp)
         and then (not Is_Hidden (Overridden_Subp)
                    or else
-                     ((Chars (Overridden_Subp) = Name_Initialize
-                         or else
-                       Chars (Overridden_Subp) = Name_Adjust
-                         or else
-                       Chars (Overridden_Subp) = Name_Finalize)
+                     (Nam_In (Chars (Overridden_Subp), Name_Initialize,
+                                                       Name_Adjust,
+                                                       Name_Finalize)
                       and then Present (Alias (Overridden_Subp))
                       and then not Is_Hidden (Alias (Overridden_Subp))))
       then
@@ -6562,6 +6552,11 @@ package body Sem_Ch6 is
                else
                   Set_Overridden_Operation (Subp, Overridden_Subp);
                end if;
+
+            --  Ensure that a ghost function is not overriding another routine
+
+            elsif Is_Ghost_Function (Subp) then
+               Error_Msg_N ("ghost function & cannot be overriding", Subp);
             end if;
          end if;
 
@@ -7064,8 +7059,8 @@ package body Sem_Ch6 is
       --  Last non-trivial postcondition on the subprogram, or else Empty if
       --  either no non-trivial postcondition or only inherited postconditions.
 
-      Last_Contract_Case : Node_Id := Empty;
-      --  Last non-trivial contract-case on the subprogram, or else Empty
+      Last_Contract_Cases : Node_Id := Empty;
+      --  Last non-trivial contract-cases on the subprogram, or else Empty
 
       Attribute_Result_Mentioned : Boolean := False;
       --  Whether attribute 'Result is mentioned in a non-trivial postcondition
@@ -7204,8 +7199,10 @@ package body Sem_Ch6 is
       ----------------------------
 
       procedure Process_Contract_Cases (Spec : Node_Id) is
-         Prag : Node_Id;
-         Arg  : Node_Id;
+         Prag       : Node_Id;
+         Aggr       : Node_Id;
+         Conseq     : Node_Id;
+         Post_Case  : Node_Id;
 
          Ignored : Traverse_Final_Result;
          pragma Unreferenced (Ignored);
@@ -7213,42 +7210,46 @@ package body Sem_Ch6 is
       begin
          Prag := Spec_CTC_List (Contract (Spec));
          loop
-            --  Retrieve the Ensures component of the contract-case, if any
+            if Pragma_Name (Prag) = Name_Contract_Cases then
+               Aggr :=
+                 Expression (First (Pragma_Argument_Associations (Prag)));
 
-            Arg := Get_Ensures_From_CTC_Pragma (Prag);
+               Post_Case := First (Component_Associations (Aggr));
+               while Present (Post_Case) loop
+                  Conseq := Expression (Post_Case);
 
-            --  Ignore trivial contract-case when Ensures component is "True"
-            --  or "False".
+                  --  Ignore trivial contract-case when consequence is "True"
+                  --  or "False".
 
-            if Pragma_Name (Prag) = Name_Contract_Case
-              and then not Is_Trivial_Post_Or_Ensures (Expression (Arg))
-            then
-               --  Since contract-cases are listed in reverse order, the first
-               --  contract-case in the list is the last in the source.
+                  if not Is_Trivial_Post_Or_Ensures (Conseq) then
 
-               if No (Last_Contract_Case) then
-                  Last_Contract_Case := Prag;
-               end if;
+                     Last_Contract_Cases := Prag;
 
-               --  For functions, look for presence of 'Result in Ensures
+                     --  For functions, look for presence of 'Result in
+                     --  consequence expression.
 
-               if Ekind_In (Spec_Id, E_Function, E_Generic_Function) then
-                  Ignored := Find_Attribute_Result (Arg);
-               end if;
+                     if Ekind_In (Spec_Id, E_Function, E_Generic_Function) then
+                        Ignored := Find_Attribute_Result (Conseq);
+                     end if;
 
-               --  For each individual contract-case, look for presence
-               --  of an expression that could be evaluated differently
-               --  in post-state.
+                     --  For each individual case, look for presence of an
+                     --  expression that could be evaluated differently in
+                     --  post-state.
 
-               Post_State_Mentioned := False;
-               Ignored := Find_Post_State (Arg);
+                     Post_State_Mentioned := False;
+                     Ignored := Find_Post_State (Conseq);
 
-               if Post_State_Mentioned then
-                  No_Warning_On_Some_Postcondition := True;
-               else
-                  Error_Msg_N
-                    ("`Ensures` component refers only to pre-state??", Prag);
-               end if;
+                     if Post_State_Mentioned then
+                        No_Warning_On_Some_Postcondition := True;
+                     else
+                        Error_Msg_N
+                          ("contract case refers only to pre-state?T?",
+                           Conseq);
+                     end if;
+                  end if;
+
+                  Next (Post_Case);
+               end loop;
             end if;
 
             Prag := Next_Pragma (Prag);
@@ -7304,7 +7305,7 @@ package body Sem_Ch6 is
                      No_Warning_On_Some_Postcondition := True;
                   else
                      Error_Msg_N
-                       ("postcondition refers only to pre-state??", Prag);
+                       ("postcondition refers only to pre-state?T?", Prag);
                   end if;
                end if;
             end if;
@@ -7352,12 +7353,12 @@ package body Sem_Ch6 is
 
       if Ekind_In (Spec_Id, E_Function, E_Generic_Function)
         and then (Present (Last_Postcondition)
-                   or else Present (Last_Contract_Case))
+                   or else Present (Last_Contract_Cases))
         and then not Attribute_Result_Mentioned
         and then No_Warning_On_Some_Postcondition
       then
          if Present (Last_Postcondition) then
-            if Present (Last_Contract_Case) then
+            if Present (Last_Contract_Cases) then
                Error_Msg_N
                  ("neither function postcondition nor "
                   & "contract cases mention result?T?", Last_Postcondition);
@@ -7369,7 +7370,7 @@ package body Sem_Ch6 is
             end if;
          else
             Error_Msg_N
-              ("contract cases do not mention result?T?", Last_Contract_Case);
+              ("contract cases do not mention result?T?", Last_Contract_Cases);
          end if;
       end if;
    end Check_Subprogram_Contract;
@@ -11877,6 +11878,12 @@ package body Sem_Ch6 is
          Map : Elist_Id;
          CP  : Node_Id;
 
+         Ename : Name_Id;
+         --  Effective name of pragma (maybe Pre/Post rather than Precondition/
+         --  Postcodition if the pragma came from a Pre/Post aspect). We need
+         --  the name right when we generate the Check pragma, since we want
+         --  the right set of check policies to apply.
+
       begin
          --  Prepare map if this is the case where we have to map entities of
          --  arguments in the overridden subprogram to corresponding entities
@@ -11928,11 +11935,19 @@ package body Sem_Ch6 is
             return CP;
          end if;
 
+         --  Get effective name of aspect
+
+         if Present (Corresponding_Aspect (Prag)) then
+            Ename := Chars (Identifier (Corresponding_Aspect (Prag)));
+         else
+            Ename := Nam;
+         end if;
+
          --  Change copy of pragma into corresponding pragma Check
 
          Prepend_To (Pragma_Argument_Associations (CP),
            Make_Pragma_Argument_Association (Sloc (Prag),
-             Expression => Make_Identifier (Loc, Nam)));
+             Expression => Make_Identifier (Loc, Ename)));
          Set_Pragma_Identifier (CP, Make_Identifier (Sloc (Prag), Name_Check));
 
          --  If this is inherited case and the current message starts with
@@ -12241,11 +12256,12 @@ package body Sem_Ch6 is
          Prag := First (Declarations (N));
          while Present (Prag) loop
             if Nkind (Prag) = N_Pragma then
+               Check_Applicable_Policy (Prag);
 
-               --  If pragma, capture if enabled postcondition, else ignore
+               --  If pragma, capture if postconditions enabled, else ignore
 
                if Pragma_Name (Prag) = Name_Postcondition
-                 and then Check_Enabled (Name_Postcondition)
+                 and then not Is_Ignored (Prag)
                then
                   if Plist = No_List then
                      Plist := Empty_List;
@@ -12890,16 +12906,12 @@ package body Sem_Ch6 is
       --  Verify that user-defined operators have proper number of arguments
       --  First case of operators which can only be unary
 
-      if Id = Name_Op_Not
-        or else Id = Name_Op_Abs
-      then
+      if Nam_In (Id, Name_Op_Not, Name_Op_Abs) then
          N_OK := (N = 1);
 
       --  Case of operators which can be unary or binary
 
-      elsif Id = Name_Op_Add
-        or Id = Name_Op_Subtract
-      then
+      elsif Nam_In (Id, Name_Op_Add, Name_Op_Subtract) then
          N_OK := (N in 1 .. 2);
 
       --  All other operators can only be binary

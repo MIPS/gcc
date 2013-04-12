@@ -155,9 +155,7 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
 
    begin
       if Nkind (Expression (Arg)) /= N_Identifier
-        or else (Chars (Argx) /= Name_On
-                   and then
-                 Chars (Argx) /= Name_Off)
+        or else not Nam_In (Chars (Argx), Name_On, Name_Off)
       then
          Error_Msg_Name_2 := Name_On;
          Error_Msg_Name_3 := Name_Off;
@@ -1166,6 +1164,7 @@ begin
            Pragma_Fast_Math                      |
            Pragma_Finalize_Storage_Only          |
            Pragma_Float_Representation           |
+           Pragma_Ghost                          |
            Pragma_Global                         |
            Pragma_Ident                          |
            Pragma_Implementation_Defined         |

@@ -413,8 +413,8 @@ package body Sem_Ch4 is
       if Comes_From_Source (N) then
          Check_Restriction (No_Allocators, N);
 
-         --  Processing for No_Allocators_After_Elaboration, loop to look at
-         --  enclosing context, checking task case and main subprogram case.
+         --  Processing for No_Standard_Allocators_After_Elaboration, loop to
+         --  look at enclosing context, checking task/main subprogram case.
 
          C := N;
          P := Parent (C);
@@ -431,7 +431,8 @@ package body Sem_Ch4 is
                --  violation of No_Allocators_After_Elaboration we can detect.
 
                if Nkind (Original_Node (Parent (P))) = N_Task_Body then
-                  Check_Restriction (No_Allocators_After_Elaboration, N);
+                  Check_Restriction
+                    (No_Standard_Allocators_After_Elaboration, N);
                   exit;
                end if;
 
@@ -866,6 +867,11 @@ package body Sem_Ch4 is
       --  Flag indicates whether an interpretation of the prefix is a
       --  parameterless call that returns an access_to_subprogram.
 
+      procedure Check_Ghost_Function_Call;
+      --  Verify the legality of a call to a ghost function. Such calls can
+      --  appear only in assertion expressions except subtype predicates or
+      --  from within another ghost function.
+
       procedure Check_Mixed_Parameter_And_Named_Associations;
       --  Check that parameter and named associations are not mixed. This is
       --  a restriction in SPARK mode.
@@ -879,6 +885,38 @@ package body Sem_Ch4 is
 
       procedure No_Interpretation;
       --  Output error message when no valid interpretation exists
+
+      -------------------------------
+      -- Check_Ghost_Function_Call --
+      -------------------------------
+
+      procedure Check_Ghost_Function_Call is
+         S : Entity_Id;
+
+      begin
+         --  The ghost function appears inside an assertion expression
+
+         if In_Assertion_Expression (N) then
+            return;
+
+         else
+            S := Current_Scope;
+            while Present (S) and then S /= Standard_Standard loop
+
+               --  The call appears inside another ghost function
+
+               if Is_Ghost_Function (S) then
+                  return;
+               end if;
+
+               S := Scope (S);
+            end loop;
+         end if;
+
+         Error_Msg_N
+           ("call to ghost function must appear in assertion expression or "
+            & "another ghost function", N);
+      end Check_Ghost_Function_Call;
 
       --------------------------------------------------
       -- Check_Mixed_Parameter_And_Named_Associations --
@@ -968,6 +1006,12 @@ package body Sem_Ch4 is
    begin
       if Restriction_Check_Required (SPARK) then
          Check_Mixed_Parameter_And_Named_Associations;
+      end if;
+
+      --  Mark a function that appears inside an assertion expression
+
+      if Nkind (N) = N_Function_Call and then In_Assertion_Expr > 0 then
+         Set_In_Assertion_Expression (N);
       end if;
 
       --  Initialize the type of the result of the call to the error type,
@@ -1076,6 +1120,8 @@ package body Sem_Ch4 is
             Set_Etype (Nam_Ent, Etype (N));
          end if;
 
+      --  Overloaded call
+
       else
          --  An overloaded selected component must denote overloaded operations
          --  of a concurrent type. The interpretations are attached to the
@@ -1160,9 +1206,9 @@ package body Sem_Ch4 is
             Get_Next_Interp (X, It);
          end loop;
 
-         --  If the name is the result of a function call, it can only
-         --  be a call to a function returning an access to subprogram.
-         --  Insert explicit dereference.
+         --  If the name is the result of a function call, it can only be a
+         --  call to a function returning an access to subprogram. Insert
+         --  explicit dereference.
 
          if Nkind (Nam) = N_Function_Call then
             Insert_Explicit_Dereference (Nam);
@@ -1240,6 +1286,13 @@ package body Sem_Ch4 is
          end if;
 
          End_Interp_List;
+      end if;
+
+      --  A call to a ghost function is allowed only in assertion expressions,
+      --  excluding subtype predicates, or from within another ghost function.
+
+      if Is_Ghost_Function (Get_Subprogram_Entity (N)) then
+         Check_Ghost_Function_Call;
       end if;
    end Analyze_Call;
 
@@ -4058,13 +4111,11 @@ package body Sem_Ch4 is
                        and then Nkind (Name) /= N_Selected_Component)
                      or else
                       (Nkind (Parent_N) = N_Attribute_Reference
-                         and then (Attribute_Name (Parent_N) = Name_First
-                                     or else
-                                   Attribute_Name (Parent_N) = Name_Last
-                                     or else
-                                   Attribute_Name (Parent_N) = Name_Length
-                                     or else
-                                   Attribute_Name (Parent_N) = Name_Range)))
+                        and then
+                          Nam_In (Attribute_Name (Parent_N), Name_First,
+                                                             Name_Last,
+                                                             Name_Length,
+                                                             Name_Range)))
                then
                   Set_Etype (N, Etype (Comp));
 
@@ -4727,9 +4778,9 @@ package body Sem_Ch4 is
 
       elsif Nkind (Expr) = N_Attribute_Reference
         and then
-          (Attribute_Name (Expr) = Name_Access            or else
-           Attribute_Name (Expr) = Name_Unchecked_Access  or else
-           Attribute_Name (Expr) = Name_Unrestricted_Access)
+          Nam_In (Attribute_Name (Expr), Name_Access,
+                                         Name_Unchecked_Access,
+                                         Name_Unrestricted_Access)
       then
          Error_Msg_N ("argument of conversion cannot be access", N);
          Error_Msg_N ("\use qualified expression instead", N);
@@ -4984,8 +5035,7 @@ package body Sem_Ch4 is
    --  Start of processing for Check_Arithmetic_Pair
 
    begin
-      if Op_Name = Name_Op_Add or else Op_Name = Name_Op_Subtract then
-
+      if Nam_In (Op_Name, Name_Op_Add, Name_Op_Subtract) then
          if Is_Numeric_Type (T1)
            and then Is_Numeric_Type (T2)
            and then (Covers (T1 => T1, T2 => T2)
@@ -4995,11 +5045,9 @@ package body Sem_Ch4 is
             Add_One_Interp (N, Op_Id, Specific_Type (T1, T2));
          end if;
 
-      elsif Op_Name = Name_Op_Multiply or else Op_Name = Name_Op_Divide then
-
+      elsif Nam_In (Op_Name, Name_Op_Multiply, Name_Op_Divide) then
          if Is_Fixed_Point_Type (T1)
-           and then (Is_Fixed_Point_Type (T2)
-                       or else T2 = Universal_Real)
+           and then (Is_Fixed_Point_Type (T2) or else T2 = Universal_Real)
          then
             --  If Treat_Fixed_As_Integer is set then the Etype is already set
             --  and no further processing is required (this is the case of an
@@ -5037,7 +5085,7 @@ package body Sem_Ch4 is
 
          elsif Is_Fixed_Point_Type (T1)
            and then (Base_Type (T2) = Base_Type (Standard_Integer)
-                       or else T2 = Universal_Integer)
+                      or else T2 = Universal_Integer)
          then
             Add_One_Interp (N, Op_Id, T1);
 
@@ -5054,7 +5102,7 @@ package body Sem_Ch4 is
 
          elsif Is_Fixed_Point_Type (T2)
            and then (Base_Type (T1) = Base_Type (Standard_Integer)
-                       or else T1 = Universal_Integer)
+                      or else T1 = Universal_Integer)
            and then Op_Name = Name_Op_Multiply
          then
             Add_One_Interp (N, Op_Id, T2);
@@ -6664,11 +6712,13 @@ package body Sem_Ch4 is
       Func_Name := Empty;
 
       if Is_Variable (Prefix) then
-         Func_Name := Find_Aspect (Etype (Prefix), Aspect_Variable_Indexing);
+         Func_Name :=
+           Find_Value_Of_Aspect (Etype (Prefix), Aspect_Variable_Indexing);
       end if;
 
       if No (Func_Name) then
-         Func_Name := Find_Aspect (Etype (Prefix), Aspect_Constant_Indexing);
+         Func_Name :=
+           Find_Value_Of_Aspect (Etype (Prefix), Aspect_Constant_Indexing);
       end if;
 
       --  If aspect does not exist the expression is illegal. Error is

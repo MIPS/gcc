@@ -175,7 +175,7 @@ package body Sem_Attr is
    --  Note that the only required action of this procedure is to catch the
    --  static expression cases as described in the RM. Folding of other cases
    --  is done where convenient, but some additional non-static folding is in
-   --  N_Expand_Attribute_Reference in cases where this is more convenient.
+   --  Expand_N_Attribute_Reference in cases where this is more convenient.
 
    function Is_Anonymous_Tagged_Base
      (Anon : Entity_Id;
@@ -602,10 +602,13 @@ package body Sem_Attr is
             if Has_Pragma_Inline_Always (Entity (P)) then
                Error_Attr_P
                  ("prefix of % attribute cannot be Inline_Always subprogram");
-            end if;
 
-            if Aname = Name_Unchecked_Access then
+            elsif Aname = Name_Unchecked_Access then
                Error_Attr ("attribute% cannot be applied to a subprogram", P);
+
+            elsif Is_Ghost_Function (Entity (P)) then
+               Error_Attr_P
+                 ("prefix of % attribute cannot be a ghost function");
             end if;
 
             --  Issue an error if the prefix denotes an eliminated subprogram
@@ -651,10 +654,11 @@ package body Sem_Attr is
                Kill_Current_Values;
             end if;
 
-            --  Treat as call for elaboration purposes and we are all done.
-            --  Suppress this treatment under debug flag.
+            --  In the static elaboration model, treat the attribute reference
+            --  as a call for elaboration purposes.  Suppress this treatment
+            --  under debug flag. In any case, we are all done.
 
-            if not Debug_Flag_Dot_UU then
+            if not Dynamic_Elaboration_Checks and not Debug_Flag_Dot_UU then
                Check_Elab_Call (N);
             end if;
 
@@ -1221,11 +1225,9 @@ package body Sem_Attr is
             --  the prefix of another attribute. Error is posted on parent.
 
             if Nkind (Parent (N)) = N_Attribute_Reference
-              and then (Attribute_Name (Parent (N)) = Name_Address
-                          or else
-                        Attribute_Name (Parent (N)) = Name_Code_Address
-                          or else
-                        Attribute_Name (Parent (N)) = Name_Access)
+              and then Nam_In (Attribute_Name (Parent (N)), Name_Address,
+                                                            Name_Code_Address,
+                                                            Name_Access)
             then
                Error_Msg_Name_1 := Attribute_Name (Parent (N));
                Error_Msg_N ("illegal prefix for % attribute", Parent (N));
@@ -1742,9 +1744,13 @@ package body Sem_Attr is
          --  AI05-0057: if restriction No_Default_Stream_Attributes is active,
          --  it is illegal to use a predefined elementary type stream attribute
          --  either by itself, or more importantly as part of the attribute
-         --  subprogram for a composite type.
+         --  subprogram for a composite type. However, if the broader
+         --  restriction No_Streams is active, stream operations are not
+         --  generated, and there is no error.
 
-         if Restriction_Active (No_Default_Stream_Attributes) then
+         if Restriction_Active (No_Default_Stream_Attributes)
+           and then not Restriction_Active (No_Streams)
+         then
             declare
                T : Entity_Id;
 
@@ -2196,9 +2202,7 @@ package body Sem_Attr is
          --  a context check
 
          if Ada_Version >= Ada_2005
-           and then (Aname = Name_Count
-                      or else Aname = Name_Caller
-                      or else Aname = Name_AST_Entry)
+           and then Nam_In (Aname, Name_Count, Name_Caller, Name_AST_Entry)
          then
             declare
                Count : Natural := 0;
@@ -2837,9 +2841,7 @@ package body Sem_Attr is
          Check_E0;
 
          if Nkind (P) = N_Attribute_Reference
-           and then (Attribute_Name (P) = Name_Elab_Body
-                       or else
-                     Attribute_Name (P) = Name_Elab_Spec)
+           and then Nam_In (Attribute_Name (P), Name_Elab_Body, Name_Elab_Spec)
          then
             null;
 
@@ -3694,13 +3696,7 @@ package body Sem_Attr is
 
                   --  Prevent the search from going too far
 
-                  elsif Nkind_In (Stmt, N_Entry_Body,
-                                        N_Package_Body,
-                                        N_Package_Declaration,
-                                        N_Protected_Body,
-                                        N_Subprogram_Body,
-                                        N_Task_Body)
-                  then
+                  elsif Is_Body_Or_Package_Declaration (Stmt) then
                      exit;
                   end if;
 
@@ -3816,11 +3812,10 @@ package body Sem_Attr is
 
             if Nkind (Original_Node (Stmt)) = N_Pragma
               and then
-                (Pragma_Name (Original_Node (Stmt)) = Name_Assert
-                   or else
-                 Pragma_Name (Original_Node (Stmt)) = Name_Loop_Invariant
-                   or else
-                 Pragma_Name (Original_Node (Stmt)) = Name_Loop_Variant)
+                Nam_In (Pragma_Name (Original_Node (Stmt)),
+                        Name_Assert,
+                        Name_Loop_Invariant,
+                        Name_Loop_Variant)
             then
                In_Loop_Assertion := True;
 
@@ -3845,13 +3840,7 @@ package body Sem_Attr is
 
             --  Prevent the search from going too far
 
-            elsif Nkind_In (Stmt, N_Entry_Body,
-                                  N_Package_Body,
-                                  N_Package_Declaration,
-                                  N_Protected_Body,
-                                  N_Subprogram_Body,
-                                  N_Task_Body)
-            then
+            elsif Is_Body_Or_Package_Declaration (Stmt) then
                exit;
             end if;
 
@@ -4262,7 +4251,7 @@ package body Sem_Attr is
 
          if In_Spec_Expression then
 
-            --  Check in postcondition or Ensures clause
+            --  Check in postcondition, Test_Case or Contract_Cases
 
             Prag := N;
             while not Nkind_In (Prag, N_Pragma,
@@ -4302,6 +4291,30 @@ package body Sem_Attr is
                   end if;
                end;
 
+            elsif Get_Pragma_Id (Prag) = Pragma_Contract_Cases then
+               declare
+                  Aggr : constant Node_Id :=
+                    Expression (First (Pragma_Argument_Associations (Prag)));
+                  Arg  : Node_Id;
+
+               begin
+                  Arg := N;
+                  while Arg /= Prag and Parent (Parent (Arg)) /= Aggr loop
+                     Arg := Parent (Arg);
+                  end loop;
+
+                  --  At this point, Parent (Arg) should be a component
+                  --  association. Attribute Result is only allowed in
+                  --  the expression part of this association.
+
+                  if Nkind (Parent (Arg)) /= N_Component_Association
+                    or else Arg /= Expression (Parent (Arg))
+                  then
+                     Error_Attr
+                       ("% attribute misplaced inside contract cases", P);
+                  end if;
+               end;
+
             elsif Get_Pragma_Id (Prag) /= Pragma_Postcondition then
                Error_Attr ("% attribute can only appear in postcondition", P);
             end if;
@@ -4325,11 +4338,10 @@ package body Sem_Attr is
             end if;
          end if;
 
-         --  Either the attribute reference is generated for a Requires
-         --  clause, in which case no expressions follow, or it is a
-         --  primary. In that case, if expressions follow, the attribute
-         --  reference is an indexable object, so rewrite the node
-         --  accordingly.
+         --  If the attribute reference is generated for a Requires clause,
+         --  then no expressions follow. Otherwise it is a primary, in which
+         --  case, if expressions follow, the attribute reference must be
+         --  an indexable object, so rewrite the node accordingly.
 
          if Present (E1) then
             Rewrite (N,
@@ -4654,7 +4666,7 @@ package body Sem_Attr is
                Error_Attr;
             end if;
 
-            --  Check in postcondition or Ensures clause of function
+            --  Check in postcondition, Test_Case or Contract_Cases of function
 
             Prag := N;
             while not Nkind_In (Prag, N_Pragma,
@@ -4692,6 +4704,30 @@ package body Sem_Attr is
                         Error_Attr
                           ("% attribute misplaced inside test case", P);
                      end if;
+                  end if;
+               end;
+
+            elsif Get_Pragma_Id (Prag) = Pragma_Contract_Cases then
+               declare
+                  Aggr : constant Node_Id :=
+                    Expression (First (Pragma_Argument_Associations (Prag)));
+                  Arg  : Node_Id;
+
+               begin
+                  Arg := N;
+                  while Arg /= Prag and Parent (Parent (Arg)) /= Aggr loop
+                     Arg := Parent (Arg);
+                  end loop;
+
+                  --  At this point, Parent (Arg) should be a component
+                  --  association. Attribute Result is only allowed in
+                  --  the expression part of this association.
+
+                  if Nkind (Parent (Arg)) /= N_Component_Association
+                    or else Arg /= Expression (Parent (Arg))
+                  then
+                     Error_Attr
+                       ("% attribute misplaced inside contract cases", P);
                   end if;
                end;
 
@@ -9145,7 +9181,6 @@ package body Sem_Attr is
                     and then
                       (Ekind (Btyp) = E_Access_Subprogram_Type
                         or else Is_Local_Anonymous_Access (Btyp))
-
                     and then Subprogram_Access_Level (Entity (P)) >
                                Type_Access_Level (Btyp)
                   then
@@ -9547,9 +9582,9 @@ package body Sem_Attr is
                --  in such a context.
 
                if Attr_Id /= Attribute_Unchecked_Access
+                 and then Ekind (Btyp) = E_General_Access_Type
                  and then
                    Object_Access_Level (P) > Deepest_Type_Access_Level (Btyp)
-                 and then Ekind (Btyp) = E_General_Access_Type
                then
                   Accessibility_Message;
                   return;
