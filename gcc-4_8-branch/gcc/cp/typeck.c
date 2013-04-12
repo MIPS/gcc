@@ -833,7 +833,10 @@ merge_types (tree t1, tree t2)
 
 	rval = build_function_type (valtype, parms);
 	gcc_assert (type_memfn_quals (t1) == type_memfn_quals (t2));
-	rval = apply_memfn_quals (rval, type_memfn_quals (t1));
+	gcc_assert (type_memfn_rqual (t1) == type_memfn_rqual (t2));
+	rval = apply_memfn_quals (rval,
+				  type_memfn_quals (t1),
+				  type_memfn_rqual (t1));
 	raises = merge_exception_specifiers (TYPE_RAISES_EXCEPTIONS (t1),
 					     TYPE_RAISES_EXCEPTIONS (t2),
 					     NULL_TREE);
@@ -1185,6 +1188,12 @@ structural_comptypes (tree t1, tree t2, int strict)
     return false;
   if (TREE_CODE (t1) == FUNCTION_TYPE
       && type_memfn_quals (t1) != type_memfn_quals (t2))
+    return false;
+  /* Need to check this before TYPE_MAIN_VARIANT.
+     FIXME function qualifiers should really change the main variant.  */
+  if ((TREE_CODE (t1) == FUNCTION_TYPE
+       || TREE_CODE (t1) == METHOD_TYPE)
+      && type_memfn_rqual (t1) != type_memfn_rqual (t2))
     return false;
   if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
     return false;
@@ -2670,6 +2679,23 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 	      return error_mark_node;
 	    }
 
+	  if (TREE_CODE (scope) == ENUMERAL_TYPE)
+	    {
+	      /* Looking up a member enumerator (c++/56793).  */
+	      if (!TYPE_CLASS_SCOPE_P (scope)
+		  || !DERIVED_FROM_P (TYPE_CONTEXT (scope), object_type))
+		{
+		  if (complain & tf_error)
+		    error ("%<%D::%D%> is not a member of %qT",
+			   scope, name, object_type);
+		  return error_mark_node;
+		}
+	      tree val = lookup_enumerator (scope, name);
+	      if (TREE_SIDE_EFFECTS (object))
+		val = build2 (COMPOUND_EXPR, TREE_TYPE (val), object, val);
+	      return val;
+	    }
+
 	  gcc_assert (CLASS_TYPE_P (scope));
 	  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE
 		      || TREE_CODE (name) == BIT_NOT_EXPR);
@@ -4014,8 +4040,9 @@ cp_build_binary_op (location_t location,
 	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  enum tree_code tcode0 = code0, tcode1 = code1;
+	  tree cop1 = fold_non_dependent_expr_sfinae (op1, tf_none);
 
-	  warn_for_div_by_zero (location, maybe_constant_value (op1));
+	  warn_for_div_by_zero (location, maybe_constant_value (cop1));
 
 	  if (tcode0 == COMPLEX_TYPE || tcode0 == VECTOR_TYPE)
 	    tcode0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
@@ -4051,7 +4078,11 @@ cp_build_binary_op (location_t location,
 
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
-      warn_for_div_by_zero (location, maybe_constant_value (op1));
+      {
+	tree cop1 = fold_non_dependent_expr_sfinae (op1, tf_none);
+
+	warn_for_div_by_zero (location, maybe_constant_value (cop1));
+      }
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
 	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
@@ -4099,7 +4130,8 @@ cp_build_binary_op (location_t location,
 	}
       else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  tree const_op1 = maybe_constant_value (op1);
+	  tree const_op1 = fold_non_dependent_expr_sfinae (op1, tf_none);
+	  const_op1 = maybe_constant_value (const_op1);
 	  if (TREE_CODE (const_op1) != INTEGER_CST)
 	    const_op1 = op1;
 	  result_type = type0;
@@ -4145,7 +4177,8 @@ cp_build_binary_op (location_t location,
 	}
       else if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	{
-	  tree const_op1 = maybe_constant_value (op1);
+	  tree const_op1 = fold_non_dependent_expr_sfinae (op1, tf_none);
+	  const_op1 = maybe_constant_value (const_op1);
 	  if (TREE_CODE (const_op1) != INTEGER_CST)
 	    const_op1 = op1;
 	  result_type = type0;
@@ -8553,6 +8586,22 @@ cp_type_quals (const_tree type)
   return quals;
 }
 
+/* Returns the function-ref-qualifier for TYPE */
+
+cp_ref_qualifier
+type_memfn_rqual (const_tree type)
+{
+  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE
+              || TREE_CODE (type) == METHOD_TYPE);
+
+  if (!FUNCTION_REF_QUALIFIED (type))
+    return REF_QUAL_NONE;
+  else if (FUNCTION_RVALUE_QUALIFIED (type))
+    return REF_QUAL_RVALUE;
+  else
+    return REF_QUAL_LVALUE;
+}
+
 /* Returns the function-cv-quals for TYPE, which must be a FUNCTION_TYPE or
    METHOD_TYPE.  */
 
@@ -8568,18 +8617,22 @@ type_memfn_quals (const_tree type)
 }
 
 /* Returns the FUNCTION_TYPE TYPE with its function-cv-quals changed to
-   MEMFN_QUALS.  */
+   MEMFN_QUALS and its ref-qualifier to RQUAL. */
 
 tree
-apply_memfn_quals (tree type, cp_cv_quals memfn_quals)
+apply_memfn_quals (tree type, cp_cv_quals memfn_quals, cp_ref_qualifier rqual)
 {
   /* Could handle METHOD_TYPE here if necessary.  */
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
-  if (TYPE_QUALS (type) == memfn_quals)
+  if (TYPE_QUALS (type) == memfn_quals
+      && type_memfn_rqual (type) == rqual)
     return type;
+
   /* This should really have a different TYPE_MAIN_VARIANT, but that gets
      complex.  */
-  return build_qualified_type (type, memfn_quals);
+  tree result = build_qualified_type (type, memfn_quals);
+  result = build_exception_variant (result, TYPE_RAISES_EXCEPTIONS (type));
+  return build_ref_qualified_type (result, rqual);
 }
 
 /* Returns nonzero if TYPE is const or volatile.  */
