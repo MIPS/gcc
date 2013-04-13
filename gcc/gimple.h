@@ -865,6 +865,7 @@ gimple gimple_build_atomic_fence (tree, bool);
 
 const char *gimple_atomic_op_name (const_gimple);
 const char *gimple_atomic_type_size_string (const_gimple);
+tree atomic_function_required_type (tree function_decl);
 
 gimple gimple_build_call_vec (tree, vec<tree> );
 gimple gimple_build_call (tree, unsigned, ...);

@@ -10166,13 +10166,15 @@ build_call_vec (tree return_type, tree fn, vec<tree, va_gc> *args)
 
 
 static tree
-get_atomic_builtin_return_type (tree function, tree target, location_t loc)
+get_atomic_builtin_return_type (tree function, tree target, location_t loc,
+				tree *req_atomic_cast)
 {
   tree expr_type;
   tree check_type;
   enum built_in_function orig_code = DECL_FUNCTION_CODE (function);
 
   gcc_assert (DECL_ATOMIC_BUILT_IN (function));
+  *req_atomic_cast = NULL_TREE;
 
   /* Determine tree type of ATOMIC_EXPR node.  */
   switch (orig_code)
@@ -10232,7 +10234,9 @@ get_atomic_builtin_return_type (tree function, tree target, location_t loc)
     { /* Determine the object type from the first parameter.  */
       int size;
       tree t = TREE_TYPE (check_type);
-      if (TREE_CODE (t) != POINTER_TYPE || VOID_TYPE_P (TREE_TYPE (t)))
+      tree forced_type = atomic_function_required_type (function);
+      if (!POINTER_TYPE_P (t)
+	  || (VOID_TYPE_P (TREE_TYPE (t)) && forced_type == NULL_TREE))
 	{
 	  if (loc)
 	    error_at (loc, "argument 1 of %qE must be a non-void pointer type",
@@ -10240,7 +10244,13 @@ get_atomic_builtin_return_type (tree function, tree target, location_t loc)
 	  return NULL_TREE;
 	}
 
-      t = TREE_TYPE (t);
+      if (VOID_TYPE_P (TREE_TYPE (t)))
+        {
+	  t = forced_type;
+	  *req_atomic_cast = t;
+	}
+      else
+	t = TREE_TYPE (t);
       /* Types must be compile time constant sizes. */
       if (TREE_CODE (TYPE_SIZE_UNIT (t)) != INTEGER_CST)
 	{
@@ -10282,13 +10292,14 @@ build_atomic_vec (location_t loc, tree decl, vec<tree, va_gc> *args)
   unsigned ix;
   unsigned nargs;
   tree parm1 = NULL_TREE;
+  tree arg0_type = NULL_TREE;
  
   nargs = ((args) ? args->length () : 0);
   if (nargs)
     parm1 = (*args)[0];
   else
     parm1 = NULL_TREE;
-  type = get_atomic_builtin_return_type (decl, parm1, loc);
+  type = get_atomic_builtin_return_type (decl, parm1, loc, &arg0_type);
   /* A NULL type indicates an error. */
   if (type == NULL_TREE)
     return type;
@@ -10297,6 +10308,10 @@ build_atomic_vec (location_t loc, tree decl, vec<tree, va_gc> *args)
   ATOMIC_EXPR_DECL (ret) = decl;
   if (nargs > 0)
     {
+      /* If the atomic type was a void pointer to an atomic_op_{1,2,4,8,16}
+         then the argument should be cast to that type now.  */
+      if (arg0_type != NULL_TREE)
+	(*args)[0] = fold_convert (arg0_type, (*args)[0]);
       for (ix = 0; ix < nargs; ix++)
 	ATOMIC_EXPR_ARG (ret, ix) = (*args)[ix];
     }

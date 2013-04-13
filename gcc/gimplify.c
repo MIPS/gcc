@@ -7163,19 +7163,26 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case CALL_EXPR:
-	  ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
+	  {
+	    tree fndecl = get_callee_fndecl (*expr_p);
+	    /* Some languages may still utilize atomic built-ins.  */
+	    if (fndecl && DECL_ATOMIC_BUILT_IN (fndecl))
+	      ret = gimplify_atomic_call_expr (expr_p, pre_p);
+	    else
+	      ret = gimplify_call_expr (expr_p, pre_p, fallback != fb_none);
 
-	  /* C99 code may assign to an array in a structure returned
-	     from a function, and this has undefined behavior only on
-	     execution, so create a temporary if an lvalue is
-	     required.  */
-	  if (fallback == fb_lvalue)
-	    {
-	      *expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
-	      mark_addressable (*expr_p);
-	      ret = GS_OK;
-	    }
-	  break;
+	    /* C99 code may assign to an array in a structure returned
+	       from a function, and this has undefined behavior only on
+	       execution, so create a temporary if an lvalue is
+	       required.  */
+	    if (fallback == fb_lvalue)
+	      {
+		*expr_p = get_initialized_tmp_var (*expr_p, pre_p, post_p);
+		mark_addressable (*expr_p);
+		ret = GS_OK;
+	      }
+	    break;
+	  }
 
 	case TREE_LIST:
 	  gcc_unreachable ();

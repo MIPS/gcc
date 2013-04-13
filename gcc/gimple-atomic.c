@@ -147,10 +147,11 @@ get_memmodel (enum gimple_atomic_kind kind, tree exp, bool report_error = true)
   return (enum memmodel) val;
 }
 
-/* If type is compatible with a lock free size, indicate the offset from
-   ATOMIC_FUNC_N required to set the correct function.  */
+/* If TYPE is compatible with a lock free size, return the offset from
+   ATOMIC_FUNC_N required to set the correct function.  This will be in the
+   range 1 to 5.  0 Indicates the type is not lockfre compatible.  */
 static unsigned
-atomic_lockfree_compatible (tree type)
+lockfree_compatible_func_offset (tree type)
 {
   tree type_size;
   unsigned bits;
@@ -309,7 +310,7 @@ get_libcall_rtx (enum built_in_function fcode, tree type)
   unsigned off = 0;
 
   if (type)
-    off = atomic_lockfree_compatible (type);
+    off = lockfree_compatible_func_offset (type);
 
   fcode = (enum built_in_function)((unsigned)fcode + off);
   libfunc = XEXP (DECL_RTL (builtin_decl_explicit (fcode)), 0);
@@ -972,9 +973,10 @@ expand_gimple_atomic_fence (gimple stmt)
 }
 
 
-/* Return base type for an atomic builtin function.  */
+/* Return the required object type for an atomic built-in function located
+   at an offset of N from ATOMIC_FUNC_N.  */
 
-static tree
+static inline tree
 atomic_func_type (unsigned i)
 {
   gcc_checking_assert (i <= 5);
@@ -1035,7 +1037,7 @@ types_match (tree BI_type, tree target_type)
 }
 
 static tree
-atomic_type (tree atomic_expr)
+find_atomic_object_type (tree atomic_expr)
 {
   tree target_type;
 
@@ -1048,7 +1050,7 @@ atomic_type (tree atomic_expr)
 
     default:
       target_type = TREE_TYPE (ATOMIC_EXPR_ARG (atomic_expr, 0));
-      if (TREE_CODE (target_type) == POINTER_TYPE)
+      if (POINTER_TYPE_P (target_type))
 	return TREE_TYPE (target_type);
       break;
     }
@@ -1059,6 +1061,12 @@ static tree
 handle_any_casts (tree dest_type, tree value, gimple_seq *pre_p)
 {
   tree src_type = TREE_TYPE (value);
+  /* This normally doesn't happen except when openmp issues atomic operations
+     and issues the VIEW_CONVERT_EXPR.  Thge normal approach is to 
+     use the generic atomic operationa and let everything sort itself out. 
+     We ought to consider "fixing" the openmp code generation.  */
+  if (!INTEGRAL_TYPE_P (dest_type) && !POINTER_TYPE_P (dest_type))
+    return value;
 
   if (!useless_type_conversion_p (dest_type, src_type))
     {
@@ -1088,13 +1096,13 @@ handle_atomic_target (tree atomic_expr, gimple_seq *pre_p, tree target_type, tre
       if (BI_type != NULL_TREE)
 	BI_ptr_type = build_pointer_type (BI_type);
       else
-        BI_ptr_type = target_type;
+        BI_ptr_type = build_pointer_type (target_type);
 
       target_p = &ATOMIC_EXPR_ARG (atomic_expr, 0);
 
-      gcc_assert (TREE_CODE (TREE_TYPE (*target_p)) == POINTER_TYPE);
+      gcc_assert (POINTER_TYPE_P (TREE_TYPE (*target_p)));
 
-      if (!useless_type_conversion_p (BI_ptr_type, target_type))
+      if (!useless_type_conversion_p (BI_ptr_type, TREE_TYPE (*target_p)))
 	*target_p = fold_convert (BI_ptr_type, *target_p);
 
       status = gimplify_expr (target_p, pre_p, NULL,
@@ -1108,20 +1116,23 @@ handle_atomic_target (tree atomic_expr, gimple_seq *pre_p, tree target_type, tre
 }
 
 
+/* If TARG_TYPE can map maps to a lock free built in type, return that type.
+   Otherwise return NULL_TREE.  */
+   
 static tree
 atomic_BI_type (tree targ_type)
 {
   tree type = NULL_TREE;
   unsigned bt;
   
-  if (targ_type != NULL_TREE && targ_type != error_mark_node)
-    {
-      bt = atomic_lockfree_compatible (targ_type);
-      if (bt)
-	type = atomic_func_type (bt);
-    }
-  else
+  if (targ_type == NULL_TREE || targ_type == error_mark_node)
     return NULL_TREE;
+
+  bt = lockfree_compatible_func_offset (targ_type);
+  if (!bt)
+    return NULL_TREE;
+
+  type = atomic_func_type (bt);
 
   if (TYPE_SIZE (targ_type) != 0)
     return type;
@@ -1154,10 +1165,10 @@ get_atomic_addr (tree BI_type, tree *t, gimple_seq *pre_p, unsigned parm_num)
   else
     ptr_type = build_pointer_type (void_type_node);
   
-  if (TREE_CODE (TREE_TYPE (*t)) == POINTER_TYPE)
+  if (POINTER_TYPE_P (TREE_TYPE (*t)))
     {
       if (!useless_type_conversion_p (ptr_type, TREE_TYPE (*t)))
-	*t = fold_convert (ptr_type, TREE_TYPE (*t));
+	*t = fold_convert (ptr_type, *t);
       status = gimplify_expr (t, pre_p, NULL, is_gimple_val, fb_either);
 
       if (status != GS_ERROR)
@@ -1196,6 +1207,17 @@ get_atomic_order (tree *t, gimple_seq *pre_p)
 }
 
 
+static tree 
+create_tmp_name (tree type, gimple stmt)
+{
+  tree ret;
+  if (gimple_in_ssa_p (cfun))
+    ret = make_ssa_name (type, stmt);
+  else
+    ret = create_tmp_var (type, NULL);
+  return ret;
+}
+
 /* Finish processing atomic statement STMT by linking it in after PRE_P
    and setting EXPR_P to the return value. if there is one.
    If present, BI_TYPE indicates the built-in return type of the atomic
@@ -1211,7 +1233,7 @@ finish_atomic_stmt (gimple stmt, gimple_seq *pre_p, tree *expr_p,
   /* Set return variable if required and issue atomic stmt.  */
   if (BI_type)
     {
-      tmp = create_tmp_var (BI_type, NULL);
+      tmp = create_tmp_name (BI_type, stmt);
       gimple_atomic_set_lhs (stmt, tmp);
     }
   gimple_seq_add_stmt_without_update (pre_p, stmt);
@@ -1240,13 +1262,15 @@ load_from_atomic_param_pointer (tree arg, gimple_seq *pre_p)
     return NULL_TREE;
 
   ptr_type = TREE_TYPE (arg);
-  gcc_assert (TREE_CODE (ptr_type) == POINTER_TYPE);
+  gcc_assert (POINTER_TYPE_P (ptr_type));
   type = TREE_TYPE (ptr_type);
 
-  tmp = create_tmp_var (type, NULL);
+  tmp = create_tmp_name (type, NULL);
   deref_tmp = build2 (MEM_REF, type, arg,
 		    build_int_cst_wide (ptr_type, 0, 0));
   stmt = gimple_build_assign (tmp, deref_tmp);
+  if (TREE_CODE (tmp) == SSA_NAME)
+    SSA_NAME_DEF_STMT (tmp) = stmt;
   gimple_seq_add_stmt_without_update (pre_p, stmt);
   return tmp;
 }
@@ -1265,7 +1289,7 @@ store_into_atomic_param_pointer (tree arg, tree val, gimple_seq *pre_p)
     return;
 
   arg_ptr_type = TREE_TYPE (arg);
-  gcc_assert (TREE_CODE (arg_ptr_type) == POINTER_TYPE);
+  gcc_assert (POINTER_TYPE_P (arg_ptr_type));
   arg_type = TREE_TYPE (arg_ptr_type);
   if (!INTEGRAL_TYPE_P (arg_type) && !POINTER_TYPE_P (arg_type))
     {
@@ -1293,7 +1317,7 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   bool expand_2_results = (can_compare_and_swap_p (TYPE_MODE (BI_type), true)
 			   && flag_inline_atomics);
 
-  gcc_assert (TREE_CODE (TREE_TYPE (target)) == POINTER_TYPE);
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (target)));
   BI_ptr_type = build_pointer_type (BI_type);
 
   expected_ptr_type = TREE_TYPE (expected);
@@ -1301,14 +1325,14 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   if (!useless_type_conversion_p (BI_ptr_type, expected_ptr_type))
     expected = fold_convert (BI_ptr_type, expected);
 
-  /* If this can nopt be expanded into a 2 result pattern on the target
+  /* If this can not be expanded into a 2 result pattern on the target
      don't bother expoanding it here.  */
   if (!expand_2_results)
     {
       /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
       ret  = gimple_build_atomic_compare_exchange_library (BI_type,
 			     target, expected, val, order, fail_order, is_weak);
-      bool_ret = create_tmp_var (boolean_type_node, NULL);
+      bool_ret = create_tmp_name (boolean_type_node, ret);
       gimple_atomic_set_lhs (ret, bool_ret);
       gimple_seq_add_stmt_without_update (pre_p, ret);
       return bool_ret;
@@ -1331,9 +1355,9 @@ issue_cmpxchg (tree BI_type, tree target, tree expected, tree val, bool is_weak,
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, deref_tmp,
 					       val, order, fail_order,
 					       is_weak);
-  bool_ret = create_tmp_var (boolean_type_node, NULL);
+  bool_ret = create_tmp_name (boolean_type_node, ret);
   gimple_atomic_set_lhs (ret, bool_ret);
-  tmp2 = create_tmp_var (expected_type, NULL);
+  tmp2 = create_tmp_name (expected_type, ret);
   gimple_atomic_set_2nd_lhs (ret , tmp2);
   gimple_seq_add_stmt_without_update (pre_p, ret);
 
@@ -1352,14 +1376,14 @@ issue_sync_cmpxchg (tree BI_type, tree target, tree expected, tree val, gimple_s
   gimple ret;
   tree order = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
 
-  gcc_assert (TREE_CODE (TREE_TYPE (target)) == POINTER_TYPE);
+  gcc_assert (POINTER_TYPE_P (TREE_TYPE (target)));
 
   /* bool, tmp2 = cmp_exchange (t, deref_tmp, ...) */
   ret  = gimple_build_atomic_compare_exchange (BI_type, target, expected, val,
 					       order, order, false);
-  bool_ret = create_tmp_var (boolean_type_node, NULL);
+  bool_ret = create_tmp_name (boolean_type_node, ret);
   gimple_atomic_set_lhs (ret, bool_ret);
-  tmp = create_tmp_var (BI_type, NULL);
+  tmp = create_tmp_name (BI_type, ret);
   gimple_atomic_set_2nd_lhs (ret , tmp);
   gimple_seq_add_stmt_without_update (pre_p, ret);
 
@@ -1409,6 +1433,62 @@ verify_ptr_arg (tree t1, tree expr, unsigned arg)
   return true;
 } 
 
+tree
+atomic_function_required_type (tree decl)
+{
+  enum built_in_function fcode = DECL_FUNCTION_CODE (decl);
+  tree BI_type;
+
+#define CASE_ATOMIC_FUNC_REQUIRED_TYPE(OP)		\
+  case OP ## _1:					\
+  case OP ## _2:					\
+  case OP ## _4:					\
+  case OP ## _8:					\
+  case OP ## _16:					\
+    BI_type = atomic_func_type (fcode - OP ## _N);	\
+    break;
+
+  switch (fcode)
+    {
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_LOAD)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_STORE)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_EXCHANGE)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_COMPARE_EXCHANGE)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_ADD)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_SUB)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_AND)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_XOR)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_OR)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_FETCH_NAND)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_ADD_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_SUB_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_XOR_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_OR_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_ATOMIC_NAND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_ADD)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_SUB)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_AND)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_XOR)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_OR)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_FETCH_AND_NAND)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_ADD_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_SUB_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_AND_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_XOR_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_OR_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_NAND_AND_FETCH)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_BOOL_COMPARE_AND_SWAP)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_LOCK_TEST_AND_SET)
+    CASE_ATOMIC_FUNC_REQUIRED_TYPE (BUILT_IN_SYNC_LOCK_RELEASE)
+    default:
+      BI_type = NULL_TREE;
+      break;
+    }
+
+  return BI_type;
+}
 
 enum gimplify_status
 gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
@@ -1427,7 +1507,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 
   /* The ATOMIC_EXPR node's type indicates the function return type.  */
   BI_return_type = TREE_TYPE (expr);
-  target_type = atomic_type (expr);
+  target_type = find_atomic_object_type (expr);
   BI_type = atomic_BI_type (target_type);
 
   /* Target will be set to NULL if there is no target.  */
@@ -1447,7 +1527,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 				    1);
       order = get_atomic_order (&ATOMIC_EXPR_ARG (expr, 2), pre_p);
 
-      if (atomic_lockfree_compatible (target_type))
+      if (lockfree_compatible_func_offset (target_type))
         {
 	  ret = gimple_build_atomic_load (BI_type, target, order);
 	  finish_atomic_stmt (ret, pre_p, expr_p, BI_type, BI_type);
@@ -1489,7 +1569,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
       val = get_atomic_addr (BI_type, &ATOMIC_EXPR_ARG (expr, 1), pre_p, 1);
       order = get_atomic_order (&ATOMIC_EXPR_ARG (expr, 2), pre_p);
 
-      if (atomic_lockfree_compatible (target_type))
+      if (lockfree_compatible_func_offset (target_type))
         {
 	  deref_tmp = load_from_atomic_param_pointer (val, pre_p);
 	  ret = gimple_build_atomic_store (BI_type, target, deref_tmp, order);
@@ -1532,7 +1612,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 				    2);
       order = get_atomic_order (&ATOMIC_EXPR_ARG (expr, 3), pre_p);
 
-      if (atomic_lockfree_compatible (BI_type))
+      if (lockfree_compatible_func_offset (BI_type))
         {
 	  deref_tmp = load_from_atomic_param_pointer (val, pre_p);
 	  ret = gimple_build_atomic_exchange (BI_type, target, deref_tmp,
@@ -1592,7 +1672,7 @@ gimplify_atomic_expr (tree *expr_p, gimple_seq *pre_p,
 	if (host_integerp (weak, 0) && tree_low_cst (weak, 0) != 0)
 	  is_weak = true;
 
-	if (atomic_lockfree_compatible (BI_type))
+	if (lockfree_compatible_func_offset (BI_type))
 	  {
 	    deref_tmp = load_from_atomic_param_pointer (val, pre_p);
 	    *expr_p = issue_cmpxchg (BI_type, target, expected, deref_tmp,
@@ -1920,6 +2000,28 @@ gimplify_atomic_call_expr (tree *expr_p, gimple_seq *pre_p)
   unsigned x, n = call_expr_nargs (*expr_p);
   enum gimplify_status ret;
 
+  fn = get_callee_fndecl (call_expr);
+  vec_alloc (params, n);
+  for (x = 0; x < n; x++)
+    params->quick_push (CALL_EXPR_ARG (call_expr, x));
+
+  atomic_expr = build_atomic_vec (EXPR_LOCATION (call_expr), fn, params);
+
+  ret = gimplify_atomic_expr (&atomic_expr, pre_p, NULL);
+  *expr_p = atomic_expr;
+  return ret;
+}
+
+#if 0
+enum gimplify_status
+gimplify_atomic_call_expr (tree *expr_p, gimple_seq *pre_p)
+{
+  tree call_expr = *expr_p;
+  tree atomic_expr, fn;
+  vec<tree, va_gc> *params;
+  unsigned x, n = call_expr_nargs (*expr_p);
+  enum gimplify_status ret;
+
   fprintf (stderr, "GIMPLIFYING CALL EXPR : ");
   print_generic_expr (stderr, *expr_p, 0);
 
@@ -1935,10 +2037,14 @@ gimplify_atomic_call_expr (tree *expr_p, gimple_seq *pre_p)
   ret = gimplify_atomic_expr (&atomic_expr, pre_p, NULL);
   fprintf(stderr, "\n and then gimple :");
   print_gimple_seq (stderr, *pre_p, 0,0);
+  fprintf(stderr, "\n with a return value of :");
+  print_generic_expr (stderr, atomic_expr,0 );
   fprintf(stderr, "\n");
+  
   *expr_p = atomic_expr;
   return ret;
 }
+#endif
 
 #if 0 
 enum gimplify_status
