@@ -109,7 +109,8 @@ int at_eof;
    that apply to the function).  */
 
 tree
-build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
+build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals,
+		  cp_ref_qualifier rqual)
 {
   tree raises;
   tree attrs;
@@ -129,10 +130,12 @@ build_memfn_type (tree fntype, tree ctype, cp_cv_quals quals)
 				       (TREE_CODE (fntype) == METHOD_TYPE
 					? TREE_CHAIN (TYPE_ARG_TYPES (fntype))
 					: TYPE_ARG_TYPES (fntype)));
-  if (raises)
-    fntype = build_exception_variant (fntype, raises);
   if (attrs)
     fntype = cp_build_type_attribute_variant (fntype, attrs);
+  if (rqual)
+    fntype = build_ref_qualified_type (fntype, rqual);
+  if (raises)
+    fntype = build_exception_variant (fntype, raises);
 
   return fntype;
 }
@@ -157,7 +160,9 @@ change_return_type (tree new_ret, tree fntype)
   if (TREE_CODE (fntype) == FUNCTION_TYPE)
     {
       newtype = build_function_type (new_ret, args);
-      newtype = apply_memfn_quals (newtype, type_memfn_quals (fntype));
+      newtype = apply_memfn_quals (newtype,
+				   type_memfn_quals (fntype),
+				   type_memfn_rqual (fntype));
     }
   else
     newtype = build_method_type_directly
@@ -330,10 +335,11 @@ grokclassfn (tree ctype, tree function, enum overload_flags flags)
 }
 
 /* Create an ARRAY_REF, checking for the user doing things backwards
-   along the way.  */
+   along the way.  DECLTYPE_P is for N3276, as in the parser.  */
 
 tree
-grok_array_decl (location_t loc, tree array_expr, tree index_exp)
+grok_array_decl (location_t loc, tree array_expr, tree index_exp,
+		 bool decltype_p)
 {
   tree type;
   tree expr;
@@ -359,8 +365,13 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp)
 
   /* If they have an `operator[]', use that.  */
   if (MAYBE_CLASS_TYPE_P (type) || MAYBE_CLASS_TYPE_P (TREE_TYPE (index_exp)))
-    expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL, array_expr, index_exp,
-			 NULL_TREE, /*overload=*/NULL, tf_warning_or_error);
+    {
+      tsubst_flags_t complain = tf_warning_or_error;
+      if (decltype_p)
+	complain |= tf_decltype;
+      expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL, array_expr,
+			   index_exp, NULL_TREE, /*overload=*/NULL, complain);
+    }
   else
     {
       tree p1, p2, i1, i2;
@@ -460,7 +471,7 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
     }
 
   /* Deleting ptr to void is undefined behavior [expr.delete/3].  */
-  if (TREE_CODE (TREE_TYPE (type)) == VOID_TYPE)
+  if (VOID_TYPE_P (TREE_TYPE (type)))
     {
       warning (0, "deleting %qT is undefined", type);
       doing_vec = 0;
@@ -518,9 +529,9 @@ acceptable_java_type (tree type)
   if (type == error_mark_node)
     return false;
 
-  if (TREE_CODE (type) == VOID_TYPE || TYPE_FOR_JAVA (type))
+  if (VOID_TYPE_P (type) || TYPE_FOR_JAVA (type))
     return true;
-  if (TREE_CODE (type) == POINTER_TYPE || TREE_CODE (type) == REFERENCE_TYPE)
+  if (TYPE_PTR_P (type) || TREE_CODE (type) == REFERENCE_TYPE)
     {
       type = TREE_TYPE (type);
       if (TREE_CODE (type) == RECORD_TYPE)
@@ -535,7 +546,7 @@ acceptable_java_type (tree type)
 	  while (--i >= 0)
 	    {
 	      type = TREE_VEC_ELT (args, i);
-	      if (TREE_CODE (type) == POINTER_TYPE)
+	      if (TYPE_PTR_P (type))
 		type = TREE_TYPE (type);
 	      if (! TYPE_FOR_JAVA (type))
 		return false;
@@ -670,6 +681,11 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	  /* A member template definition only matches a member template
 	     declaration.  */
 	  if (is_template != (TREE_CODE (fndecl) == TEMPLATE_DECL))
+	    continue;
+
+	  /* ref-qualifier or absence of same must match.  */
+	  if (type_memfn_rqual (TREE_TYPE (function))
+	      != type_memfn_rqual (TREE_TYPE (fndecl)))
 	    continue;
 
 	  /* While finding a match, same types and params are not enough
@@ -858,7 +874,7 @@ grokfield (const cp_declarator *declarator,
 
 	  /* If this is a typedef that names the class for linkage purposes
 	     (7.1.3p8), apply any attributes directly to the type.  */
-	  if (TAGGED_TYPE_P (TREE_TYPE (value))
+	  if (OVERLOAD_TYPE_P (TREE_TYPE (value))
 	      && value == TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (value))))
 	    attrflags = ATTR_FLAG_TYPE_IN_PLACE;
 
@@ -1024,7 +1040,7 @@ grokbitfield (const cp_declarator *declarator,
     return NULL_TREE; /* friends went bad.  */
 
   /* Pass friendly classes back.  */
-  if (TREE_CODE (value) == VOID_TYPE)
+  if (VOID_TYPE_P (value))
     return void_type_node;
 
   if (!INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value))
@@ -1234,7 +1250,7 @@ cp_reconstruct_complex_type (tree type, tree bottom)
 {
   tree inner, outer;
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (TYPE_PTR_P (type))
     {
       inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
       outer = build_pointer_type_for_mode (inner, TYPE_MODE (type),
@@ -1260,7 +1276,9 @@ cp_reconstruct_complex_type (tree type, tree bottom)
     {
       inner = cp_reconstruct_complex_type (TREE_TYPE (type), bottom);
       outer = build_function_type (inner, TYPE_ARG_TYPES (type));
-      outer = apply_memfn_quals (outer, type_memfn_quals (type));
+      outer = apply_memfn_quals (outer,
+				 type_memfn_quals (type),
+				 type_memfn_rqual (type));
     }
   else if (TREE_CODE (type) == METHOD_TYPE)
     {
@@ -1922,7 +1940,7 @@ min_vis_r (tree *tp, int *walk_subtrees, void *data)
     {
       *walk_subtrees = 0;
     }
-  else if (TAGGED_TYPE_P (*tp)
+  else if (OVERLOAD_TYPE_P (*tp)
 	   && !TREE_PUBLIC (TYPE_MAIN_DECL (*tp)))
     {
       *vis_p = VISIBILITY_ANON;
@@ -2572,8 +2590,7 @@ import_export_decl (tree decl)
       else
 	comdat_p = true;
     }
-  else if (DECL_TEMPLATE_INSTANTIATION (decl)
-	   || DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (decl))
+  else if (DECL_TEMPLOID_INSTANTIATION (decl))
     {
       /* DECL is an implicit instantiation of a function or static
 	 data member.  */
@@ -3665,8 +3682,7 @@ collect_candidates_for_java_method_aliases (void)
     {
       tree fndecl = node->symbol.decl;
 
-      if (DECL_CONTEXT (fndecl)
-	  && TYPE_P (DECL_CONTEXT (fndecl))
+      if (DECL_CLASS_SCOPE_P (fndecl)
 	  && TYPE_FOR_JAVA (DECL_CONTEXT (fndecl))
 	  && TARGET_USE_LOCAL_THUNK_ALIAS_P (fndecl))
 	{

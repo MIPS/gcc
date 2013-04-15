@@ -792,7 +792,9 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  /* Extract CODE_LABEL.  */
 	  orig = XEXP (orig, 0);
 	  add_reg_note (insn, REG_LABEL_OPERAND, orig);
-	  LABEL_NUSES (orig)++;
+	  /* Make sure we have label and not a note.  */
+	  if (LABEL_P (orig))
+	    LABEL_NUSES (orig)++;
 	}
       crtl->uses_pic_offset_table = 1;
       return reg;
@@ -9134,7 +9136,6 @@ pa_combine_instructions (void)
       /* We only care about INSNs, JUMP_INSNs, and CALL_INSNs.
 	 Also ignore any special USE insns.  */
       if ((! NONJUMP_INSN_P (anchor) && ! JUMP_P (anchor) && ! CALL_P (anchor))
-	  || JUMP_TABLE_DATA_P (anchor)
 	  || GET_CODE (PATTERN (anchor)) == USE
 	  || GET_CODE (PATTERN (anchor)) == CLOBBER)
 	continue;
@@ -9159,8 +9160,7 @@ pa_combine_instructions (void)
 		continue;
 
 	      /* Anything except a regular INSN will stop our search.  */
-	      if (! NONJUMP_INSN_P (floater)
-		  || JUMP_TABLE_DATA_P (floater))
+	      if (! NONJUMP_INSN_P (floater))
 		{
 		  floater = NULL_RTX;
 		  break;
@@ -9220,8 +9220,7 @@ pa_combine_instructions (void)
 		    continue;
 
 		  /* Anything except a regular INSN will stop our search.  */
-		  if (! NONJUMP_INSN_P (floater)
-		      || JUMP_TABLE_DATA_P (floater))
+		  if (! NONJUMP_INSN_P (floater))
 		    {
 		      floater = NULL_RTX;
 		      break;

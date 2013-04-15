@@ -763,19 +763,23 @@
 )
 
 (define_insn "*mov<mode>_aarch64"
-  [(set (match_operand:SHORT 0 "nonimmediate_operand" "=r,r,r,m,  r,*w")
-        (match_operand:SHORT 1 "general_operand"      " r,M,m,rZ,*w,r"))]
+  [(set (match_operand:SHORT 0 "nonimmediate_operand" "=r,r,   *w,r,*w, m, m, r,*w,*w")
+        (match_operand:SHORT 1 "general_operand"      " r,M,D<hq>,m, m,rZ,*w,*w, r,*w"))]
   "(register_operand (operands[0], <MODE>mode)
     || aarch64_reg_or_zero (operands[1], <MODE>mode))"
   "@
    mov\\t%w0, %w1
    mov\\t%w0, %1
+   movi\\t%0.<Vallxd>, %1
    ldr<size>\\t%w0, %1
+   ldr\\t%<size>0, %1
    str<size>\\t%w1, %0
+   str\\t%<size>1, %0
    umov\\t%w0, %1.<v>[0]
-   dup\\t%0.<Vallxd>, %w1"
-  [(set_attr "v8type" "move,alu,load1,store1,*,*")
-   (set_attr "simd_type" "*,*,*,*,simd_movgp,simd_dupgp")
+   dup\\t%0.<Vallxd>, %w1
+   dup\\t%0, %1.<v>[0]"
+  [(set_attr "v8type" "move,alu,alu,load1,load1,store1,store1,*,*,*")
+   (set_attr "simd_type" "*,*,simd_move_imm,*,*,*,*,simd_movgp,simd_dupgp,simd_dup")
    (set_attr "mode" "<MODE>")
    (set_attr "simd_mode" "<MODE>")]
 )
@@ -1149,13 +1153,14 @@
 )
 
 (define_insn "*zero_extend<SHORT:mode><GPI:mode>2_aarch64"
-  [(set (match_operand:GPI 0 "register_operand" "=r,r")
-        (zero_extend:GPI (match_operand:SHORT 1 "nonimmediate_operand" "r,m")))]
+  [(set (match_operand:GPI 0 "register_operand" "=r,r,*w")
+        (zero_extend:GPI (match_operand:SHORT 1 "nonimmediate_operand" "r,m,m")))]
   ""
   "@
    uxt<SHORT:size>\t%<GPI:w>0, %w1
-   ldr<SHORT:size>\t%w0, %1"
-  [(set_attr "v8type" "extend,load1")
+   ldr<SHORT:size>\t%w0, %1
+   ldr\t%<SHORT:size>0, %1"
+  [(set_attr "v8type" "extend,load1,load1")
    (set_attr "mode" "<GPI:MODE>")]
 )
 
@@ -1894,6 +1899,21 @@
   "negs\\t%w0, %w1"
   [(set_attr "v8type" "alus")
    (set_attr "mode" "SI")]
+)
+
+(define_insn "*neg_<shift><mode>3_compare0"
+  [(set (reg:CC_NZ CC_REGNUM)
+	(compare:CC_NZ
+	 (neg:GPI (ASHIFT:GPI
+		   (match_operand:GPI 1 "register_operand" "r")
+		   (match_operand:QI 2 "aarch64_shift_imm_<mode>" "n")))
+	 (const_int 0)))
+   (set (match_operand:GPI 0 "register_operand" "=r")
+	(neg:GPI (ASHIFT:GPI (match_dup 1) (match_dup 2))))]
+  ""
+  "negs\\t%<w>0, %<w>1, <shift> %2"
+  [(set_attr "v8type" "alus_shift")
+   (set_attr "mode" "<MODE>")]
 )
 
 (define_insn "*neg_<shift>_<mode>2"

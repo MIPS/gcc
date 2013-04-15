@@ -4647,6 +4647,9 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
   int smode_bsize, mode_bsize;
   rtx op, clobber;
 
+  if (bitsize + bitpos > GET_MODE_SIZE (mode))
+    return false;
+
   /* Generate INSERT IMMEDIATE (IILL et al).  */
   /* (set (ze (reg)) (const_int)).  */
   if (TARGET_ZARCH
@@ -6867,7 +6870,7 @@ s390_chunkify_start (void)
 	    }
 	}
 
-      if (JUMP_P (insn) || LABEL_P (insn))
+      if (JUMP_P (insn) || JUMP_TABLE_DATA_P (insn) || LABEL_P (insn))
 	{
 	  if (curr_pool)
 	    s390_add_pool_insn (curr_pool, insn);

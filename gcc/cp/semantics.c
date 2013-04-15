@@ -1507,6 +1507,38 @@ finish_mem_initializers (tree mem_inits)
     emit_mem_initializers (mem_inits);
 }
 
+/* Obfuscate EXPR if it looks like an id-expression or member access so
+   that the call to finish_decltype in do_auto_deduction will give the
+   right result.  */
+
+tree
+force_paren_expr (tree expr)
+{
+  /* This is only needed for decltype(auto) in C++14.  */
+  if (cxx_dialect < cxx1y)
+    return expr;
+
+  if (!DECL_P (expr) && TREE_CODE (expr) != COMPONENT_REF
+      && TREE_CODE (expr) != SCOPE_REF)
+    return expr;
+
+  if (processing_template_decl)
+    expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
+  else
+    {
+      cp_lvalue_kind kind = lvalue_kind (expr);
+      if ((kind & ~clk_class) != clk_none)
+	{
+	  tree type = unlowered_expr_type (expr);
+	  bool rval = !!(kind & clk_rvalueref);
+	  type = cp_build_reference_type (type, rval);
+	  expr = build_static_cast (type, expr, tf_warning_or_error);
+	}
+    }
+
+  return expr;
+}
+
 /* Finish a parenthesized expression EXPR.  */
 
 tree
@@ -1524,6 +1556,8 @@ finish_parenthesized_expr (tree expr)
 
   if (TREE_CODE (expr) == STRING_CST)
     PAREN_STRING_LITERAL_P (expr) = 1;
+
+  expr = force_paren_expr (expr);
 
   return expr;
 }
@@ -2374,10 +2408,12 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 /* Finish an expression of the form CODE EXPR.  */
 
 tree
-finish_unary_op_expr (location_t loc, enum tree_code code, tree expr)
+finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
+		      tsubst_flags_t complain)
 {
-  tree result = build_x_unary_op (loc, code, expr, tf_warning_or_error);
-  if (TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
+  tree result = build_x_unary_op (loc, code, expr, complain);
+  if ((complain & tf_warning)
+      && TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
     overflow_warning (input_location, result);
 
   return result;
@@ -2707,8 +2743,7 @@ finish_member_declaration (tree decl)
   /* Put functions on the TYPE_METHODS list and everything else on the
      TYPE_FIELDS list.  Note that these are built up in reverse order.
      We reverse them (to obtain declaration order) in finish_struct.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || DECL_FUNCTION_TEMPLATE_P (decl))
+  if (DECL_DECLARES_FUNCTION_P (decl))
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
@@ -4881,7 +4916,7 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	}
 
       if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
-	  && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
+	  && !TYPE_PTR_P (TREE_TYPE (decl)))
 	{
 	  error_at (elocus, "invalid type for iteration variable %qE", decl);
 	  return NULL;
@@ -6825,7 +6860,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 	    {
 	      tree ob_arg = get_nth_callarg (t, 0);
 	      STRIP_NOPS (ob_arg);
-	      gcc_assert (TREE_CODE (TREE_TYPE (ob_arg)) == POINTER_TYPE
+	      gcc_assert (TYPE_PTR_P (TREE_TYPE (ob_arg))
 			  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (ob_arg))));
 	      result = adjust_temp_type (TREE_TYPE (TREE_TYPE (ob_arg)),
 					 result);
@@ -8237,11 +8272,10 @@ maybe_constant_value (tree t)
 {
   tree r;
 
-  if (type_dependent_expression_p (t)
+  if (instantiation_dependent_expression_p (t)
       || type_unknown_p (t)
       || BRACE_ENCLOSED_INITIALIZER_P (t)
-      || !potential_constant_expression (t)
-      || value_dependent_expression_p (t))
+      || !potential_constant_expression (t))
     {
       if (TREE_OVERFLOW_P (t))
 	{
@@ -9082,16 +9116,14 @@ lambda_function (tree lambda)
 tree
 lambda_capture_field_type (tree expr)
 {
-  tree type;
-  if (!TREE_TYPE (expr) || WILDCARD_TYPE_P (TREE_TYPE (expr)))
+  tree type = non_reference (unlowered_expr_type (expr));
+  if (!type || WILDCARD_TYPE_P (type))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;
       DECLTYPE_FOR_LAMBDA_CAPTURE (type) = true;
       SET_TYPE_STRUCTURAL_EQUALITY (type);
     }
-  else
-    type = non_reference (unlowered_expr_type (expr));
   return type;
 }
 
@@ -9292,7 +9324,7 @@ lambda_proxy_type (tree ref)
   if (REFERENCE_REF_P (ref))
     ref = TREE_OPERAND (ref, 0);
   type = TREE_TYPE (ref);
-  if (type && !WILDCARD_TYPE_P (type))
+  if (type && !WILDCARD_TYPE_P (non_reference (type)))
     return type;
   type = cxx_make_type (DECLTYPE_TYPE);
   DECLTYPE_TYPE_EXPR (type) = ref;
@@ -9589,7 +9621,7 @@ maybe_resolve_dummy (tree object)
     return object;
 
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (object));
-  gcc_assert (TREE_CODE (type) != POINTER_TYPE);
+  gcc_assert (!TYPE_PTR_P (type));
 
   if (type != current_class_type
       && current_class_type

@@ -918,7 +918,7 @@ bb_has_well_behaved_predecessors (basic_block bb)
       if ((pred->flags & EDGE_ABNORMAL_CALL) && cfun->has_nonlocal_label)
 	return false;
 
-      if (JUMP_TABLE_DATA_P (BB_END (pred->src)))
+      if (tablejump_p (BB_END (pred->src), NULL, NULL))
 	return false;
     }
   return true;
@@ -1339,6 +1339,6 @@ struct rtl_opt_pass pass_gcse2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_verify_rtl_sharing
-  | TODO_verify_flow | TODO_ggc_collect /* todo_flags_finish */
+  | TODO_verify_flow                    /* todo_flags_finish */
  }
 };

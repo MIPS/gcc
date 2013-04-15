@@ -2596,15 +2596,12 @@ verify_rtx_sharing (rtx orig, rtx insn)
   return;
 }
 
-/* Go through all the RTL insn bodies and check that there is no unexpected
-   sharing in between the subexpressions.  */
+/* Go through all the RTL insn bodies and clear all the USED bits.  */
 
-DEBUG_FUNCTION void
-verify_rtl_sharing (void)
+static void
+reset_all_used_flags (void)
 {
   rtx p;
-
-  timevar_push (TV_VERIFY_RTL_SHARING);
 
   for (p = get_insns (); p; p = NEXT_INSN (p))
     if (INSN_P (p))
@@ -2629,6 +2626,19 @@ verify_rtl_sharing (void)
 	      }
 	  }
       }
+}
+
+/* Go through all the RTL insn bodies and check that there is no unexpected
+   sharing in between the subexpressions.  */
+
+DEBUG_FUNCTION void
+verify_rtl_sharing (void)
+{
+  rtx p;
+
+  timevar_push (TV_VERIFY_RTL_SHARING);
+
+  reset_all_used_flags ();
 
   for (p = get_insns (); p; p = NEXT_INSN (p))
     if (INSN_P (p))
@@ -2638,6 +2648,8 @@ verify_rtl_sharing (void)
 	if (CALL_P (p))
 	  verify_rtx_sharing (CALL_INSN_FUNCTION_USAGE (p), p);
       }
+
+  reset_all_used_flags ();
 
   timevar_pop (TV_VERIFY_RTL_SHARING);
 }
@@ -3268,6 +3280,7 @@ int
 active_insn_p (const_rtx insn)
 {
   return (CALL_P (insn) || JUMP_P (insn)
+	  || JUMP_TABLE_DATA_P (insn) /* FIXME */
 	  || (NONJUMP_INSN_P (insn)
 	      && (! reload_completed
 		  || (GET_CODE (PATTERN (insn)) != USE
@@ -3900,15 +3913,28 @@ add_insn_before (rtx insn, rtx before, basic_block bb)
 void
 set_insn_deleted (rtx insn)
 {
-  if (INSN_P (insn) && !JUMP_TABLE_DATA_P (insn))
+  if (INSN_P (insn))
     df_insn_delete (insn);
   PUT_CODE (insn, NOTE);
   NOTE_KIND (insn) = NOTE_INSN_DELETED;
 }
 
 
-/* Remove an insn from its doubly-linked list.  This function knows how
-   to handle sequences.  */
+/* Unlink INSN from the insn chain.
+
+   This function knows how to handle sequences.
+   
+   This function does not invalidate data flow information associated with
+   INSN (i.e. does not call df_insn_delete).  That makes this function
+   usable for only disconnecting an insn from the chain, and re-emit it
+   elsewhere later.
+
+   To later insert INSN elsewhere in the insn chain via add_insn and
+   similar functions, PREV_INSN and NEXT_INSN must be nullified by
+   the caller.  Nullifying them here breaks many insn chain walks.
+
+   To really delete an insn and related DF information, use delete_insn.  */
+
 void
 remove_insn (rtx insn)
 {
@@ -3966,10 +3992,6 @@ remove_insn (rtx insn)
 
       gcc_assert (stack);
     }
-
-  /* Invalidate data flow information associated with INSN.  */
-  if (INSN_P (insn) && !JUMP_TABLE_DATA_P (insn))
-    df_insn_delete (insn);
 
   /* Fix up basic block boundaries, if necessary.  */
   if (!BARRIER_P (insn)
@@ -4661,6 +4683,7 @@ emit_insn (rtx x)
       break;
 
 #ifdef ENABLE_RTL_CHECKING
+    case JUMP_TABLE_DATA:
     case SEQUENCE:
       gcc_unreachable ();
       break;
@@ -4707,6 +4730,7 @@ emit_debug_insn (rtx x)
       break;
 
 #ifdef ENABLE_RTL_CHECKING
+    case JUMP_TABLE_DATA:
     case SEQUENCE:
       gcc_unreachable ();
       break;
@@ -4749,6 +4773,7 @@ emit_jump_insn (rtx x)
       break;
 
 #ifdef ENABLE_RTL_CHECKING
+    case JUMP_TABLE_DATA:
     case SEQUENCE:
       gcc_unreachable ();
       break;
@@ -4785,6 +4810,7 @@ emit_call_insn (rtx x)
 
 #ifdef ENABLE_RTL_CHECKING
     case SEQUENCE:
+    case JUMP_TABLE_DATA:
       gcc_unreachable ();
       break;
 #endif
@@ -4807,6 +4833,20 @@ emit_label (rtx label)
   INSN_UID (label) = cur_insn_uid++;
   add_insn (label);
   return label;
+}
+
+/* Make an insn of code JUMP_TABLE_DATA
+   and add it to the end of the doubly-linked list.  */
+
+rtx
+emit_jump_table_data (rtx table)
+{
+  rtx jump_table_data = rtx_alloc (JUMP_TABLE_DATA);
+  INSN_UID (jump_table_data) = cur_insn_uid++;
+  PATTERN (jump_table_data) = table;
+  BLOCK_FOR_INSN (jump_table_data) = NULL;
+  add_insn (jump_table_data);
+  return jump_table_data;
 }
 
 /* Make an insn of code BARRIER

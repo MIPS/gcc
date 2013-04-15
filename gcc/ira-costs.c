@@ -1269,8 +1269,7 @@ scan_one_insn (rtx insn)
   int i, k;
   bool counted_mem;
 
-  if (!NONDEBUG_INSN_P (insn)
-      || JUMP_TABLE_DATA_P (insn))
+  if (!NONDEBUG_INSN_P (insn))
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
@@ -1293,10 +1292,13 @@ scan_one_insn (rtx insn)
      a memory requiring special instructions to load it, decreasing
      mem_cost might result in it being loaded using the specialized
      instruction into a register, then stored into stack and loaded
-     again from the stack.  See PR52208.  */
+     again from the stack.  See PR52208.
+     
+     Don't do this if SET_SRC (set) has side effect.  See PR56124.  */
   if (set != 0 && REG_P (SET_DEST (set)) && MEM_P (SET_SRC (set))
       && (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != NULL_RTX
-      && ((MEM_P (XEXP (note, 0)))
+      && ((MEM_P (XEXP (note, 0))
+	   && !side_effects_p (SET_SRC (set)))
 	  || (CONSTANT_P (XEXP (note, 0))
 	      && targetm.legitimate_constant_p (GET_MODE (SET_DEST (set)),
 						XEXP (note, 0))
