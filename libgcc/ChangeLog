@@ -1,3 +1,21 @@
+2013-04-10  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/linux-atomic.c (SUBWORD_SYNC_OP, SUBWORD_VAL_CAS)
+	(SUBWORD_TEST_AND_SET): Use signed char/short types instead of
+	unsigned char/unsigned short.
+	(__sync_val_compare_and_swap_{1,2}): Handle signed argument.
+
+2013-04-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR other/55274
+	* config/t-slibgcc-hpux (SHLIB_MAPFILES): Define.
+
+2013-04-04  Meador Inge  <meadori@codesourcery.com>
+
+	* config/arm/bpabi.S (aeabi_ldivmod): Add DWARF information for
+	computing the location of the link register.
+	(aeabi_uldivmod): Ditto.
+
 2013-03-27  Kai Tietz  <ktietz@redhat.com>
 
 	* config.host: Add support for cygwin x64 target.

@@ -792,7 +792,9 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	  /* Extract CODE_LABEL.  */
 	  orig = XEXP (orig, 0);
 	  add_reg_note (insn, REG_LABEL_OPERAND, orig);
-	  LABEL_NUSES (orig)++;
+	  /* Make sure we have label and not a note.  */
+	  if (LABEL_P (orig))
+	    LABEL_NUSES (orig)++;
 	}
       crtl->uses_pic_offset_table = 1;
       return reg;
@@ -8997,9 +8999,7 @@ pa_reorg (void)
 	  unsigned int length, i;
 
 	  /* Find an ADDR_VEC or ADDR_DIFF_VEC insn to explode.  */
-	  if (! JUMP_P (insn)
-	      || (GET_CODE (PATTERN (insn)) != ADDR_VEC
-		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC))
+	  if (! JUMP_TABLE_DATA_P (insn))
 	    continue;
 
 	  /* Emit marker for the beginning of the branch table.  */
@@ -9056,9 +9056,7 @@ pa_reorg (void)
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
 	  /* Find an ADDR_VEC insn.  */
-	  if (! JUMP_P (insn)
-	      || (GET_CODE (PATTERN (insn)) != ADDR_VEC
-		  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC))
+	  if (! JUMP_TABLE_DATA_P (insn))
 	    continue;
 
 	  /* Now generate markers for the beginning and end of the
@@ -9139,9 +9137,7 @@ pa_combine_instructions (void)
 	 Also ignore any special USE insns.  */
       if ((! NONJUMP_INSN_P (anchor) && ! JUMP_P (anchor) && ! CALL_P (anchor))
 	  || GET_CODE (PATTERN (anchor)) == USE
-	  || GET_CODE (PATTERN (anchor)) == CLOBBER
-	  || GET_CODE (PATTERN (anchor)) == ADDR_VEC
-	  || GET_CODE (PATTERN (anchor)) == ADDR_DIFF_VEC)
+	  || GET_CODE (PATTERN (anchor)) == CLOBBER)
 	continue;
 
       anchor_attr = get_attr_pa_combine_type (anchor);
@@ -9164,9 +9160,7 @@ pa_combine_instructions (void)
 		continue;
 
 	      /* Anything except a regular INSN will stop our search.  */
-	      if (! NONJUMP_INSN_P (floater)
-		  || GET_CODE (PATTERN (floater)) == ADDR_VEC
-		  || GET_CODE (PATTERN (floater)) == ADDR_DIFF_VEC)
+	      if (! NONJUMP_INSN_P (floater))
 		{
 		  floater = NULL_RTX;
 		  break;
@@ -9226,9 +9220,7 @@ pa_combine_instructions (void)
 		    continue;
 
 		  /* Anything except a regular INSN will stop our search.  */
-		  if (! NONJUMP_INSN_P (floater)
-		      || GET_CODE (PATTERN (floater)) == ADDR_VEC
-		      || GET_CODE (PATTERN (floater)) == ADDR_DIFF_VEC)
+		  if (! NONJUMP_INSN_P (floater))
 		    {
 		      floater = NULL_RTX;
 		      break;

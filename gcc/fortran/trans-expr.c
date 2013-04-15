@@ -97,6 +97,24 @@ gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr)
 
 
 tree
+gfc_class_set_static_fields (tree decl, tree vptr, tree data)
+{
+  tree tmp;
+  tree field;
+  vec<constructor_elt, va_gc> *init = NULL;
+
+  field = TYPE_FIELDS (TREE_TYPE (decl));
+  tmp = gfc_advance_chain (field, CLASS_DATA_FIELD);
+  CONSTRUCTOR_APPEND_ELT (init, tmp, data);
+
+  tmp = gfc_advance_chain (field, CLASS_VPTR_FIELD);
+  CONSTRUCTOR_APPEND_ELT (init, tmp, vptr);
+
+  return build_constructor (TREE_TYPE (decl), init);
+}
+
+
+tree
 gfc_class_data_get (tree decl)
 {
   tree data;
@@ -1126,8 +1144,32 @@ gfc_conv_expr_present (gfc_symbol * sym)
   tree decl, cond;
 
   gcc_assert (sym->attr.dummy);
-
   decl = gfc_get_symbol_decl (sym);
+
+  /* Intrinsic scalars with VALUE attribute which are passed by value
+     use a hidden argument to denote the present status.  */
+  if (sym->attr.value && sym->ts.type != BT_CHARACTER
+      && sym->ts.type != BT_CLASS && sym->ts.type != BT_DERIVED
+      && !sym->attr.dimension)
+    {
+      char name[GFC_MAX_SYMBOL_LEN + 2];
+      tree tree_name;
+
+      gcc_assert (TREE_CODE (decl) == PARM_DECL);
+      name[0] = '_';
+      strcpy (&name[1], sym->name);
+      tree_name = get_identifier (name);
+
+      /* Walk function argument list to find hidden arg.  */
+      cond = DECL_ARGUMENTS (DECL_CONTEXT (decl));
+      for ( ; cond != NULL_TREE; cond = TREE_CHAIN (cond))
+	if (DECL_NAME (cond) == tree_name)
+	  break;
+
+      gcc_assert (cond);
+      return cond;
+    }
+
   if (TREE_CODE (decl) != PARM_DECL)
     {
       /* Array parameters use a temporary descriptor, we want the real
@@ -2665,6 +2707,32 @@ gfc_optimize_len_trim (tree len, tree str, int kind)
   return -1;
 }
 
+/* Helper to build a call to memcmp.  */
+
+static tree
+build_memcmp_call (tree s1, tree s2, tree n)
+{
+  tree tmp;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (s1)))
+    s1 = gfc_build_addr_expr (pvoid_type_node, s1);
+  else
+    s1 = fold_convert (pvoid_type_node, s1);
+
+  if (!POINTER_TYPE_P (TREE_TYPE (s2)))
+    s2 = gfc_build_addr_expr (pvoid_type_node, s2);
+  else
+    s2 = fold_convert (pvoid_type_node, s2);
+
+  n = fold_convert (size_type_node, n);
+
+  tmp = build_call_expr_loc (input_location,
+			     builtin_decl_explicit (BUILT_IN_MEMCMP),
+			     3, s1, s2, n);
+
+  return fold_convert (integer_type_node, tmp);
+}
+
 /* Compare two strings. If they are all single characters, the result is the
    subtraction of them. Otherwise, we build a library call.  */
 
@@ -2704,6 +2772,26 @@ gfc_build_compare_string (tree len1, tree str1, tree len2, tree str2, int kind,
       len = gfc_optimize_len_trim (len2, str2, kind);
       if (len > 0 && compare_tree_int (len1, len) < 0)
 	return integer_one_node;
+    }
+
+  /* We can compare via memcpy if the strings are known to be equal
+     in length and they are
+     - kind=1
+     - kind=4 and the comparision is for (in)equality.  */
+
+  if (INTEGER_CST_P (len1) && INTEGER_CST_P (len2)
+      && tree_int_cst_equal (len1, len2)
+      && (kind == 1 || code == EQ_EXPR || code == NE_EXPR))
+    {
+      tree tmp;
+      tree chartype;
+
+      chartype = gfc_get_char_type (kind);
+      tmp = fold_build2_loc (input_location, MULT_EXPR, TREE_TYPE(len1),
+			     fold_convert (TREE_TYPE(len1),
+					   TYPE_SIZE_UNIT(chartype)),
+			     len1);
+      return build_memcmp_call (str1, str2, tmp);
     }
 
   /* Build a call for the comparison.  */
@@ -3729,6 +3817,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   tree len;
   tree base_object;
   vec<tree, va_gc> *stringargs;
+  vec<tree, va_gc> *optionalargs;
   tree result = NULL;
   gfc_formal_arglist *formal;
   gfc_actual_arglist *arg;
@@ -3747,6 +3836,7 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   arglist = NULL;
   retargs = NULL;
   stringargs = NULL;
+  optionalargs = NULL;
   var = NULL_TREE;
   len = NULL_TREE;
   gfc_clear_ts (&ts);
@@ -3835,11 +3925,27 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	    }
 	  else
 	    {
-	      /* Pass a NULL pointer for an absent arg.  */
 	      gfc_init_se (&parmse, NULL);
-	      parmse.expr = null_pointer_node;
-	      if (arg->missing_arg_type == BT_CHARACTER)
-		parmse.string_length = build_int_cst (gfc_charlen_type_node, 0);
+
+	      /* For scalar arguments with VALUE attribute which are passed by
+		 value, pass "0" and a hidden argument gives the optional
+		 status.  */
+	      if (fsym && fsym->attr.optional && fsym->attr.value
+		  && !fsym->attr.dimension && fsym->ts.type != BT_CHARACTER
+		  && fsym->ts.type != BT_CLASS && fsym->ts.type != BT_DERIVED)
+		{
+		  parmse.expr = fold_convert (gfc_sym_type (fsym),
+					      integer_zero_node);
+		  vec_safe_push (optionalargs, boolean_false_node);
+		}
+	      else
+		{
+		  /* Pass a NULL pointer for an absent arg.  */
+		  parmse.expr = null_pointer_node;
+		  if (arg->missing_arg_type == BT_CHARACTER)
+		    parmse.string_length = build_int_cst (gfc_charlen_type_node,
+							  0);
+		}
 	    }
 	}
       else if (arg->expr->expr_type == EXPR_NULL
@@ -4010,7 +4116,31 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			gfc_conv_expr (&parmse, e);
 		    }
 		  else
+		    {
 		    gfc_conv_expr (&parmse, e);
+		    if (fsym->attr.optional
+			&& fsym->ts.type != BT_CLASS
+			&& fsym->ts.type != BT_DERIVED)
+		      {
+			if (e->expr_type != EXPR_VARIABLE
+			    || !e->symtree->n.sym->attr.optional
+			    || e->ref != NULL)
+			  vec_safe_push (optionalargs, boolean_true_node);
+			else
+			  {
+			    tmp = gfc_conv_expr_present (e->symtree->n.sym);
+			    if (!e->symtree->n.sym->attr.value)
+			      parmse.expr
+				= fold_build3_loc (input_location, COND_EXPR,
+					TREE_TYPE (parmse.expr),
+					tmp, parmse.expr,
+					fold_convert (TREE_TYPE (parmse.expr),
+						      integer_zero_node));
+
+			    vec_safe_push (optionalargs, tmp);
+			  }
+		      }
+		    }
 		}
 	      else if (arg->name && arg->name[0] == '%')
 		/* Argument list functions %VAL, %LOC and %REF are signalled
@@ -4844,12 +4974,15 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
   gfc_free_interface_mapping (&mapping);
 
   /* We need to glom RETARGS + ARGLIST + STRINGARGS + APPEND_ARGS.  */
-  arglen = (vec_safe_length (arglist) + vec_safe_length (stringargs)
-	    + vec_safe_length (append_args));
+  arglen = (vec_safe_length (arglist) + vec_safe_length (optionalargs)
+	    + vec_safe_length (stringargs) + vec_safe_length (append_args));
   vec_safe_reserve (retargs, arglen);
 
   /* Add the return arguments.  */
   retargs->splice (arglist);
+
+  /* Add the hidden present status for optional+value to the arguments.  */
+  retargs->splice (optionalargs);
 
   /* Add the hidden string length parameters to the arguments.  */
   retargs->splice (stringargs);
