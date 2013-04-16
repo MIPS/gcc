@@ -11003,19 +11003,19 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
 
   if (!cond)
     {
-      error_at (loc, "missing condition in Cilk Plus for");
+      error_at (loc, "missing condition");
       return false;
     }
   if (!incr)
     {
-      error_at (loc, "missing increment in Cilk Plus for");
+      error_at (loc, "missing increment");
       return false;
     }
   /* If the condition is zero don't generate a loop construct.  */
   // FIXME: Shouldn't we check it's actually 0, not just a constant?
   if (TREE_CONSTANT (cond))
     {
-      error_at (EXPR_LOCATION (cond), "constant condition in Cilk Plus for");
+      error_at (EXPR_LOCATION (cond), "constant condition not allowed");
       return false;
     }
   if (TREE_CODE (cond) != NE_EXPR
@@ -11024,40 +11024,37 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
       && TREE_CODE (cond) != GT_EXPR
       && TREE_CODE (cond) != GE_EXPR)
     {
-      error_at (EXPR_LOCATION (cond), "Cilk Plus for condition must be one "
+      error_at (EXPR_LOCATION (cond), "condition must be one "
 		"of the following: !=, <=, <, >= or >");
       return false;
     }
   if (TREE_THIS_VOLATILE (decl))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot "
-		"be volatile");
+      error_at (loc, "induction variable cannot be volatile");
       return false;
     }
   /* FIXME: No need to do this because you won't be able to assign to
      the read-only variable at parse time anyhow.  There's already an
      error for this and we have a test for this in
      cilk-plus/pragma_simd_tests/compile/for2.c.  */
-  if (0 && TREE_CONSTANT (decl) || TREE_READONLY (decl))
+  if (0 && (TREE_CONSTANT (decl) || TREE_READONLY (decl)))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot "
-		"be constant or readonly");
+      error_at (loc, "induction variable cannot be constant or readonly");
       return false;
     }
   if (decl && DECL_EXTERNAL (decl))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot be extern");
+      error_at (loc, "induction variable cannot be extern");
       return false;
     }
   if (decl && TREE_STATIC (decl))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot be static");
+      error_at (loc, "induction variable cannot be static");
       return false;
     }
   if (decl && DECL_REGISTER (decl))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot be "
-		"declared register");
+      error_at (loc, "induction variable cannot be declared register");
       return false;
     }
   /* FIXME: This doesn't look right.  Automatic variables are plain
@@ -11065,24 +11062,14 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
      them.  Must check with standards folks.  */
   if (0 && decl && DECL_AUTO (decl))
     {
-      error_at (loc, "Cilk Plus for induction variable cannot"
-		" be declared auto");
+      error_at (loc, "induction variable cannot be declared auto");
       return false;
     }
   if (incr && TREE_CODE (incr) == COMPOUND_EXPR)
     {
-      error_at (loc, "Only single increment expressions are allowed in "
-		"Cilk Plus for");
+      error_at (loc, "compound increment expressions are not allowed");
       return false;
     }
-
-  if (incr && TREE_CODE (incr) == COMPOUND_EXPR)
-    {
-      error_at (loc, "Only single condition expression are allowed in "
-		"Cilk Plus for");
-      return false;
-    }
-
   return true;
  }
 

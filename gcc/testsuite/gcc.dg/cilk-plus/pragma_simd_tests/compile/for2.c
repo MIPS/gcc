@@ -11,8 +11,8 @@ void foo()
 #pragma simd
   for (static int foo=5; foo < 10; ++foo)
     a[foo] = b[foo];
-  /* { dg-error "declaration of static variable" "storage class" { target *-*-* } 12 } */
-  /* { dg-error "for induction variable cannot be static" "storage class" { target *-*-* } 12 } */
+  /* { dg-error "declaration of static variable" "storage class1" { target *-*-* } 12 } */
+  /* { dg-error "induction variable cannot be static" "storage class2" { target *-*-* } 12 } */
 
   static int bar;
 #pragma simd
