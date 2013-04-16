@@ -879,7 +879,6 @@ cp_make_cilk_frame (tree compstmt)
       tree *saved_tree = &DECL_SAVED_TREE (current_function_decl);
 
       decl = make_cilk_frame (current_function_decl);
-
       push_local_binding (DECL_NAME (decl), decl, 0);
       cp_finish_decl (decl, NULL_TREE, false, NULL_TREE, 0); 
 

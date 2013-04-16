@@ -393,7 +393,7 @@ static int
 finish_separator (st_parameter_dt *dtp)
 {
   int c;
-  int err;
+  int err = LIBERROR_OK;
 
  restart:
   eat_spaces (dtp);
@@ -433,7 +433,7 @@ finish_separator (st_parameter_dt *dtp)
 	    return err;
 	  goto restart;
 	}
-
+      /* Fall through.  */
     default:
       unget_char (dtp, c);
       break;
@@ -1784,7 +1784,7 @@ read_real (st_parameter_dt *dtp, void * dest, int length)
    compatible.  Returns nonzero if incompatible.  */
 
 static int
-check_type (st_parameter_dt *dtp, bt type, int len)
+check_type (st_parameter_dt *dtp, bt type, int kind)
 {
   char message[MSGLEN];
 
@@ -1801,11 +1801,14 @@ check_type (st_parameter_dt *dtp, bt type, int len)
   if (dtp->u.p.saved_type == BT_UNKNOWN || dtp->u.p.saved_type == BT_CHARACTER)
     return 0;
 
-  if (dtp->u.p.saved_length != len)
+  if ((type != BT_COMPLEX && dtp->u.p.saved_length != kind)
+      || (type == BT_COMPLEX && dtp->u.p.saved_length != kind*2))
     {
       snprintf (message, MSGLEN,
 		  "Read kind %d %s where kind %d is required for item %d",
-		  dtp->u.p.saved_length, type_name (dtp->u.p.saved_type), len,
+		  type == BT_COMPLEX ? dtp->u.p.saved_length / 2
+				     : dtp->u.p.saved_length,
+		  type_name (dtp->u.p.saved_type), kind,
 		  dtp->u.p.item_count);
       generate_error (&dtp->common, LIBERROR_READ_VALUE, message);
       return 1;
@@ -2490,9 +2493,9 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   size_t obj_name_len;
   void * pdata;
 
-  /* This object not touched in name parsing.  */
-
-  if (!nl->touched)
+  /* If we have encountered a previous read error or this object has not been
+     touched in name parsing, just return.  */
+  if (dtp->u.p.nml_read_error || !nl->touched)
     return true;
 
   dtp->u.p.repeat_count = 0;
@@ -2532,10 +2535,8 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 				 - GFC_DESCRIPTOR_LBOUND(nl,dim))
 			* GFC_DESCRIPTOR_STRIDE(nl,dim) * nl->size);
 
-      /* Reset the error flag and try to read next value, if
-	 dtp->u.p.repeat_count=0  */
+      /* If we are finished with the repeat count, try to read next value.  */
 
-      dtp->u.p.nml_read_error = 0;
       nml_carry = 0;
       if (--dtp->u.p.repeat_count <= 0)
 	{
@@ -2564,8 +2565,8 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	    break;
 
 	  case BT_REAL:
-	    /* Need to copy data back from the real location to the temp in order
-	       to handle nml reads into arrays.  */
+	    /* Need to copy data back from the real location to the temp in
+	       order to handle nml reads into arrays.  */
 	    read_real (dtp, pdata, len);
 	    memcpy (dtp->u.p.value, pdata, dlen);
 	    break;
@@ -2787,6 +2788,7 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
 		    "namelist not terminated with / or &end");
 	  goto nml_err_ret;
 	}
+      /* Fall through.  */
     case '/':
       dtp->u.p.input_complete = 1;
       return true;
@@ -3022,6 +3024,7 @@ get_name:
 	nl = first_nl;
     }
 
+  dtp->u.p.nml_read_error = 0;
   if (!nml_read_obj (dtp, nl, 0, pprev_nl, nml_err_msg, nml_err_msg_size,
 		    clow, chigh))
     goto nml_err_ret;

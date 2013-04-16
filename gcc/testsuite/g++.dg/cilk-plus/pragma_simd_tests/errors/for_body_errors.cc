@@ -8,18 +8,18 @@ int main(void)
 
 #pragma simd
   for (ii = 0; ii < 1000; ii++)
-    break; /* { dg-error "break statments are not allowed" } */
+    break; /* { dg-error "break statements are not allowed" } */
 
 #pragma simd linear (ii)
   for (ii = 0; ii < 1000; ii++)
     if (ii)
-      continue; /* { dg-error "continue statments are not allowed" } */
+      continue; /* { dg-error "continue statements are not allowed" } */
 
 #pragma simd
   for (ii = 0; ii < 1000; ii++)
     {
 L5:
-      goto L5;  /* { dg-error "goto statments are not allowed" } */ 
+      goto L5;  /* { dg-error "goto statements are not allowed" } */ 
     }
 
 #pragma simd

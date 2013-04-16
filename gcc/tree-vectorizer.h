@@ -97,13 +97,13 @@ add_stmt_info_to_vec (stmt_vector_for_cost *stmt_cost_vec, int count,
 /************************************************************************
   SLP
  ************************************************************************/
-typedef void *slp_void_p;
+typedef struct _slp_tree *slp_tree;
 
 /* A computation tree of an SLP instance.  Each node corresponds to a group of
    stmts to be packed in a SIMD stmt.  */
-typedef struct _slp_tree {
+struct _slp_tree {
   /* Nodes that contain def-stmts of this node statements operands.  */
-  vec<slp_void_p> children;
+  vec<slp_tree> children;
   /* A group of scalar stmts to be vectorized together.  */
   vec<gimple> stmts;
   /* Vectorized stmt/s.  */
@@ -113,7 +113,7 @@ typedef struct _slp_tree {
      scalar elements in one scalar iteration (GROUP_SIZE) multiplied by VF
      divided by vector size.  */
   unsigned int vec_stmts_size;
-} *slp_tree;
+};
 
 
 /* SLP instance is a sequence of stmts in a loop that can be packed into
@@ -169,8 +169,7 @@ typedef struct _slp_oprnd_info
      operand itself in case it's constant, and an indication if it's a pattern
      stmt.  */
   enum vect_def_type first_dt;
-  tree first_def_type;
-  tree first_const_oprnd;
+  tree first_op_type;
   bool first_pattern;
 } *slp_oprnd_info;
 
@@ -461,10 +460,6 @@ typedef struct _stmt_vec_info {
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
-  /* For loads only, if there is a store with the same location, this field is
-     TRUE.  */
-  bool read_write_dep;
-
   /* The stmt to which this info struct refers to.  */
   gimple stmt;
 
@@ -590,7 +585,6 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_GROUP_STORE_COUNT(S)    (S)->store_count
 #define STMT_VINFO_GROUP_GAP(S)            (S)->gap
 #define STMT_VINFO_GROUP_SAME_DR_STMT(S)   (S)->same_dr_stmt
-#define STMT_VINFO_GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 #define STMT_VINFO_GROUPED_ACCESS(S)      ((S)->first_element != NULL && (S)->data_ref_info)
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
 
@@ -600,7 +594,6 @@ typedef struct _stmt_vec_info {
 #define GROUP_STORE_COUNT(S)            (S)->store_count
 #define GROUP_GAP(S)                    (S)->gap
 #define GROUP_SAME_DR_STMT(S)           (S)->same_dr_stmt
-#define GROUP_READ_WRITE_DEPENDENCE(S)  (S)->read_write_dep
 
 #define STMT_VINFO_RELEVANT_P(S)          ((S)->relevant != vect_unused_in_scope)
 
@@ -943,7 +936,6 @@ extern tree vect_setup_realignment (gimple, gimple_stmt_iterator *, tree *,
 extern void vect_transform_grouped_load (gimple, vec<tree> , int,
                                          gimple_stmt_iterator *);
 extern void vect_record_grouped_load_vectors (gimple, vec<tree> );
-extern int vect_get_place_in_interleaving_chain (gimple, gimple);
 extern tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 extern tree vect_create_addr_base_for_vector_ref (gimple, gimple_seq *,
                                                   tree, struct loop *);

@@ -44,7 +44,7 @@ find_invalid_stmts (tree *tp, int *walk_subtrees, void *data)
     return NULL_TREE;
   else if (TREE_CODE (*tp) == GOTO_EXPR)
     {
-      error_at (loc, "goto statments are not allowed inside "
+      error_at (loc, "goto statements are not allowed inside "
 		"loops marked with #pragma simd");
       *valid = false;
       *walk_subtrees = 0;
