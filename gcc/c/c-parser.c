@@ -11926,9 +11926,9 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   c_break_label = save_break;
   c_cont_label = save_cont;
 
-  // FIXME: Error on RETURN or GOTO within body.
-  // FIXME: Go through all lines of _Cilk_for spec and verify.
-  // FIXME: Add tests for all errors/warnings.
+  // FIXME: Error on RETURN or GOTO within body.  This is probably
+  // best done by analyzing the CFG at some point and seeing if any
+  // path goes into or out of for loop body.
 
   if (!fail)
     {

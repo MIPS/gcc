@@ -11001,21 +11001,40 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
       || body == error_mark_node)
     return false;
 
+  /* Validate the initialization.  */
+  gcc_assert (decl != NULL);
+  if (TREE_THIS_VOLATILE (decl))
+    {
+      error_at (loc, "induction variable cannot be volatile");
+      return false;
+    }
+  if (DECL_EXTERNAL (decl))
+    {
+      error_at (loc, "induction variable cannot be extern");
+      return false;
+    }
+  if (TREE_STATIC (decl))
+    {
+      error_at (loc, "induction variable cannot be static");
+      return false;
+    }
+  if (DECL_REGISTER (decl))
+    {
+      error_at (loc, "induction variable cannot be declared register");
+      return false;
+    }
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
+      && !POINTER_TYPE_P (TREE_TYPE (decl)))
+    {
+      error_at (loc, "initialization variable must be of integral "
+		"or pointer type");
+      return false;
+    }
+
+  /* Validate the condition.  */
   if (!cond)
     {
       error_at (loc, "missing condition");
-      return false;
-    }
-  if (!incr)
-    {
-      error_at (loc, "missing increment");
-      return false;
-    }
-  /* If the condition is zero don't generate a loop construct.  */
-  // FIXME: Shouldn't we check it's actually 0, not just a constant?
-  if (TREE_CONSTANT (cond))
-    {
-      error_at (EXPR_LOCATION (cond), "constant condition not allowed");
       return false;
     }
   if (TREE_CODE (cond) != NE_EXPR
@@ -11028,48 +11047,45 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
 		"of the following: !=, <=, <, >= or >");
       return false;
     }
-  if (TREE_THIS_VOLATILE (decl))
+
+  /* Validate the increment.  */
+  if (!incr)
     {
-      error_at (loc, "induction variable cannot be volatile");
+      error_at (loc, "missing increment");
+      return false;
+    }
+  if (TREE_CODE (incr) == COMPOUND_EXPR)
+    {
+      error_at (loc, "compound increment expressions are not allowed");
+      return false;
+    }
+#if 0
+  // FIXME: There's nothing in the spec specifying that a constant
+  // cannot happen here.
+  /* If the condition is zero don't generate a loop construct.  */
+  if (TREE_CONSTANT (cond))
+    {
+      error_at (EXPR_LOCATION (cond), "constant condition not allowed");
       return false;
     }
   /* FIXME: No need to do this because you won't be able to assign to
      the read-only variable at parse time anyhow.  There's already an
      error for this and we have a test for this in
      cilk-plus/pragma_simd_tests/compile/for2.c.  */
-  if (0 && (TREE_CONSTANT (decl) || TREE_READONLY (decl)))
+  if (TREE_CONSTANT (decl) || TREE_READONLY (decl))
     {
       error_at (loc, "induction variable cannot be constant or readonly");
-      return false;
-    }
-  if (decl && DECL_EXTERNAL (decl))
-    {
-      error_at (loc, "induction variable cannot be extern");
-      return false;
-    }
-  if (decl && TREE_STATIC (decl))
-    {
-      error_at (loc, "induction variable cannot be static");
-      return false;
-    }
-  if (decl && DECL_REGISTER (decl))
-    {
-      error_at (loc, "induction variable cannot be declared register");
       return false;
     }
   /* FIXME: This doesn't look right.  Automatic variables are plain
      regular local variables.  It doesn't make sense not to allow
      them.  Must check with standards folks.  */
-  if (0 && decl && DECL_AUTO (decl))
+  if (decl && DECL_AUTO (decl))
     {
       error_at (loc, "induction variable cannot be declared auto");
       return false;
     }
-  if (incr && TREE_CODE (incr) == COMPOUND_EXPR)
-    {
-      error_at (loc, "compound increment expressions are not allowed");
-      return false;
-    }
+#endif
   return true;
  }
 
