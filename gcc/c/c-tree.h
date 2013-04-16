@@ -676,8 +676,12 @@ extern tree c_build_sync (tree *);
 extern tree build_unary_op (location_t location, enum tree_code code,
 			    tree xarg, int flag);
 
-extern void c_finish_cilk_loop (location_t start_locus ATTRIBUTE_UNUSED,
+extern void c_finish_cilk_loop (location_t start_locus,
 				tree cvar, tree cond, tree incr, tree body,
-				tree clab, tree grain);
+				tree grain);
+
+extern tree c_finish_pragma_simd_loop (location_t loc,
+				       tree decl, tree init, tree cond,
+				       tree incr, tree body, tree clauses);
 
 #endif /* ! GCC_C_TREE_H */

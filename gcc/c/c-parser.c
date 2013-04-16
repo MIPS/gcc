@@ -1231,7 +1231,7 @@ static bool c_parser_objc_diagnose_bad_element_prefix
 // FIXME: Re-work this so there are only prototypes for mutually
 // recursive functions.
 /* Cilk Plus supporting routines.  */
-static void c_parser_cilk_for_statement (c_parser *, tree);
+static void c_parser_cilk_for_statement (c_parser *, enum rid, tree, tree);
 static void c_parser_simd_linear (c_parser *, struct pragma_simd_values *);
 static void c_parser_simd_private (c_parser *, struct pragma_simd_values *);
 static void c_parser_simd_assert (c_parser *, bool,
@@ -4561,7 +4561,7 @@ c_parser_statement_after_labels (c_parser *parser)
 	  if (!flag_enable_cilk)
 	    fatal_error ("-fcilkplus must be enabled to use %<cilk_for%>");
 	  else
-	    c_parser_cilk_for_statement (parser, NULL_TREE);
+	    c_parser_cilk_for_statement (parser, RID_CILK_FOR, NULL_TREE, NULL_TREE);
 	    
 	  break;
 	case RID_CILK_SYNC:
@@ -8935,7 +8935,7 @@ c_parser_simd_assert (c_parser *parser, bool is_assert,
       if (c_parser_next_token_is_keyword (parser, RID_FOR))
 	{
 	  if (!same_var_in_multiple_lists_p (p_simd_values))
-	    c_parser_for_statement (parser, p_simd_values);
+	    c_parser_cilk_for_statement (parser, RID_FOR, NULL, NULL);
 	}
       else
 	error_at (input_location, "for statement expected after pragma simd");
@@ -9366,7 +9366,7 @@ c_parser_cilk_grainsize (c_parser *parser)
 	      tree grain = convert_to_integer (long_integer_type_node,
 					       grain_expr.value);
 	      if (grain && grain != error_mark_node) 
-		c_parser_cilk_for_statement (parser, grain);
+		c_parser_cilk_for_statement (parser, RID_CILK_FOR, grain, NULL);
 	    }
 	  else 
 	    warning (0, "%<#pragma cilk grainsize is not followed by cilk_for");
@@ -10979,7 +10979,10 @@ c_parser_omp_for_loop (location_t loc,
     }
 
   save_break = c_break_label;
+  /* Magic number to inform c_finish_bc_stmt() that we are within an
+     OMP for loop.  */
   c_break_label = size_one_node;
+
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = push_stmt_list ();
@@ -11780,92 +11783,165 @@ c_parse_file (void)
   the_parser = NULL;
 }
 
-/* This function parses the cilk_for statement part of Cilk Plus.  */
+/* Parse the restriction form of the for statement allowed by
+   CilkPlus.  This function parses both the _CILK_FOR construct as
+   well as the for loop following a <#pragma simd> construct, both of
+   which have the same syntactic restrictions.
 
+   FOR_KEYWORD can be either RID_CILK_FOR or RID_FOR, for parsing
+   _cilk_for or the <#pragma simd> for loop construct respectively.
+
+   // FIXME: Parse clauses in caller and pass them here.
+   CLAUSES is ??.
+
+   GRAIN is CilkPlus grainsize.  */
+   
 static void
-c_parser_cilk_for_statement (c_parser *parser, tree grain)
+c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
+			     tree grain, tree clauses)
 {
-  tree block, cond, incr, save_break, save_cont, body;
-  tree cvar = NULL_TREE;
+  tree init, decl,  cond, stmt;
+  tree block, incr, save_break, save_cont, body;
   location_t loc;
-  gcc_assert (c_parser_next_token_is_keyword (parser, RID_CILK_FOR));
+  bool fail = false;
+
+  gcc_assert (for_keyword == RID_CILK_FOR || for_keyword == RID_FOR);
+
+  if (!c_parser_next_token_is_keyword (parser, for_keyword))
+    {
+      if (for_keyword == RID_CILK_FOR)
+	c_parser_error (parser, "cilk_for statement expected");
+      else
+	c_parser_error (parser, "for statement expected");
+      return;
+    }
+
   loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
+
   block = c_begin_compound_stmt (true);
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+
+  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      /* Parse the initialization declaration.  */
-      if (c_parser_next_tokens_start_declaration (parser))
-	{
-	  c_parser_declaration_or_fndef (parser, true, false, true, 
-					 false, false, NULL);
-	  cvar = check_for_loop_decls (loc, flag_isoc99);
-	}
-      else
-	{
-	  /* If we are here, then we have a cilk_for loop of the form:
-	     int ii = <SOMETHING_OPTIONAL> ;
-	     . . .
-	     cilk_for (ii = <SOMETHING ELSE MAYBE> ; ii <OP> <X> ; ii <OP>)
-	  */
-	  tree next_token = c_parser_peek_token (parser)->value;
-	  if (c_parser_peek_token (parser)->type == CPP_NAME)
-	    {
-	      if (TREE_CODE (next_token) == IDENTIFIER_NODE)
-		{
-		  /* Take the initial value of the set.  */
-		  tree init_exp = c_parser_expression (parser).value;
-		  if (init_exp && TREE_CODE (init_exp) == COMPOUND_EXPR)
-		    {
-		      error_at (loc, "cannot have multiple initializations in "
-				"_Cilk_for");
-		      cvar = error_mark_node;
-		    }
-		  else
-		    {
-		      cvar = lookup_name (next_token);
-		      /* Set the initial value of the induction var as the value
-			 that is set to whatever the induction variable is set
-			 here in the init expression.  */
-		      if (TREE_CODE (init_exp) == MODIFY_EXPR)
-			DECL_INITIAL (cvar) = TREE_OPERAND (init_exp, 1);
-		    }
-		}
-	    }
-	  c_parser_consume_token (parser);
-	}
-		
-      /* Parse the loop condition.  */
-      if (c_parser_next_token_is (parser, CPP_SEMICOLON))
-	{
-	  c_parser_consume_token (parser);
-	  cond = NULL_TREE;
-	}
-      else
-	{
-	  cond = c_parser_condition (parser);
-	  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
-	}
-      /* Parse the increment expression.  */
-      if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-	incr = c_process_expr_stmt (loc, NULL_TREE);
-      else
-	incr = c_process_expr_stmt (loc, c_parser_expression (parser).value);
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+      add_stmt (c_end_compound_stmt (loc, block, true));
+      return;
+    }
+
+  /* Parse the initialization declaration.  */
+  if (c_parser_next_tokens_start_declaration (parser))
+    {
+      c_parser_declaration_or_fndef (parser, true, false, true, 
+				     false, false, NULL);
+      decl = check_for_loop_decls (loc, flag_isoc99);
+      if (!decl)
+	goto error_init;
+      if (DECL_INITIAL (decl) == error_mark_node)
+	decl = error_mark_node;
+      init = decl;
+    }
+  else if (c_parser_next_token_is (parser, CPP_NAME)
+	   && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
+    {
+      struct c_expr decl_exp;
+      struct c_expr init_exp;
+      location_t init_loc;
+
+      decl_exp = c_parser_postfix_expression (parser);
+      decl = decl_exp.value;
+
+      c_parser_require (parser, CPP_EQ, "expected %<=%>");
+
+      init_loc = c_parser_peek_token (parser)->location;
+      init_exp = c_parser_expr_no_commas (parser, NULL);
+      init_exp = default_function_array_read_conversion (init_loc,
+							 init_exp);
+      init = build_modify_expr (init_loc, decl, decl_exp.original_type,
+				NOP_EXPR, init_loc, init_exp.value,
+				init_exp.original_type);
+      init = c_process_expr_stmt (init_loc, init);
+
+      c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
     }
   else
     {
-      cvar = error_mark_node;
-      cond = error_mark_node;
-      incr = error_mark_node;
+    error_init:
+      c_parser_error (parser,
+		      "expected iteration declaration or initialization");
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+				 "expected %<)%>");
+      return;
     }
+
+  /* Parse the loop condition.  */
+  cond = NULL_TREE;
+  if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
+    {
+      location_t cond_loc = c_parser_peek_token (parser)->location;
+      struct c_expr cond_expr = c_parser_binary_expression (parser, NULL,
+							    PREC_NONE);
+
+      cond = cond_expr.value;
+      cond = c_objc_common_truthvalue_conversion (cond_loc, cond);
+      cond = c_fully_fold (cond, false, NULL);
+#if 0 // Find out what this is for?
+      switch (cond_expr.original_code)
+	{
+	case GT_EXPR:
+	case GE_EXPR:
+	case LT_EXPR:
+	case LE_EXPR:
+	  break;
+	default:
+	  /* Can't be cond = error_mark_node, because we want to preserve
+	     the location until c_finish_omp_for.  */
+	  cond = build1 (NOP_EXPR, boolean_type_node, error_mark_node);
+	  break;
+	}
+      protected_set_expr_location (cond, cond_loc);
+#endif
+    }
+  c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
+
+  /* Parse the increment expression.  */
+  incr = NULL_TREE;
+  if (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
+    {
+      location_t incr_loc = c_parser_peek_token (parser)->location;
+      incr = c_process_expr_stmt (incr_loc,
+				  c_parser_expression (parser).value);
+    }
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+  if (decl == NULL || decl == error_mark_node || init == error_mark_node)
+    fail = true;
+
   save_break = c_break_label;
+  /* Magic number to inform c_finish_bc_stmt() that we are within a
+     Cilk for construct.  */
   c_break_label = build_int_cst (size_type_node, 2);
+
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
-  c_finish_cilk_loop (loc, cvar, cond, incr, body, c_cont_label, grain);
-  add_stmt (c_end_compound_stmt (loc, block, true));
+
+  // FIXME: Error on RETURN or GOTO within body.
+  // FIXME: Go through all lines of _Cilk_for spec and verify.
+  // FIXME: Add tests for all errors/warnings.
+
+  c_break_label = save_break;
+  c_cont_label = save_cont;
+
+  if (!fail)
+    {
+      if (for_keyword == RID_CILK_FOR)
+	c_finish_cilk_loop (loc, decl, cond, incr, body, grain);
+      else
+	c_finish_pragma_simd_loop (loc, decl, init, cond, incr,
+				   body, clauses);
+    }
+
+  stmt = c_end_compound_stmt (loc, block, true);
+  add_stmt (stmt);
   c_break_label = save_break;
   c_cont_label = save_cont;
 }

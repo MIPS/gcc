@@ -9171,10 +9171,8 @@ c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
       return NULL_TREE;
 
      case 2:
-       if (is_break) 
-	 error ("break statement within cilk_for loop");
-       else 
-	 error("Continue statement within cilk_for loop");
+       gcc_assert (is_break);
+       error ("break statement used within cilk_for loop");
        return NULL_TREE;
 
      default:
@@ -10989,112 +10987,168 @@ c_build_va_arg (location_t loc, tree expr, tree type)
   return build_va_arg (loc, expr, type);
 }
 
-void
-c_finish_cilk_loop (location_t start_locus, tree cvar,
-		    tree cond, tree incr, tree body, tree clab, tree grain)
-{
-  tree init;
-  tree c_tree;
+/* Validate a Cilk for loop construct.  Returns TRUE if there were no
+   errors, FALSE otherwise.  LOC is the location of the for.  DECL is
+   the controlling variable.  COND is the condition.  INCR is the
+   increment expression.  BODY is the body of the LOOP.  GRAIN is
+   ???? */
 
-  if (cvar == error_mark_node || cond == error_mark_node 
-      || incr == error_mark_node || body == error_mark_node)
-    return;
+static bool
+c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
+{
+  if (decl == error_mark_node
+      || cond == error_mark_node 
+      || incr == error_mark_node
+      || body == error_mark_node)
+    return false;
 
   if (!cond)
     {
-      error_at (start_locus, "_Cilk_for missing condition");
-      return;
+      error_at (loc, "missing condition in Cilk Plus for");
+      return false;
     }
   if (!incr)
     {
-      error_at (start_locus, "_Cilk_for missing increment");
-      return;
+      error_at (loc, "missing increment in Cilk Plus for");
+      return false;
     }
-
   /* If the condition is zero don't generate a loop construct.  */
+  // FIXME: Shouldn't we check it's actually 0, not just a constant?
   if (TREE_CONSTANT (cond))
     {
-      error_at (EXPR_LOCATION (cond), "_Cilk_for has constant condition");
-      return;
+      error_at (EXPR_LOCATION (cond), "constant condition in Cilk Plus for");
+      return false;
     }
-  if (!cvar)
-    {
-      error_at (start_locus, "missing control variable");
-      return;
-    }
-  if (clab)
-    {
-      error_at (EXPR_LOCATION (clab), "_Cilk_for has continue");
-      return;
-    }
-  
-  /* Checks if cond expr is one of the following: !=, <=, <, >=, or >.  */
   if (TREE_CODE (cond) != NE_EXPR
       && TREE_CODE (cond) != LT_EXPR
       && TREE_CODE (cond) != LE_EXPR
       && TREE_CODE (cond) != GT_EXPR
       && TREE_CODE (cond) != GE_EXPR)
     {
-      error_at (EXPR_LOCATION (cond), "_Cilk_for condition must be one of the "
-		"following: !=, <=, <, >= or >");
-      return;
+      error_at (EXPR_LOCATION (cond), "Cilk Plus for condition must be one "
+		"of the following: !=, <=, <, >= or >");
+      return false;
     }
-
-  /* Checks if the induction variable is volatile or constant.  */
-  if (TREE_THIS_VOLATILE (cvar))
+  if (TREE_THIS_VOLATILE (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be volatile");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot "
+		"be volatile");
+      return false;
     }
-  else if (TREE_CONSTANT (cvar) || TREE_READONLY (cvar))
+  if (TREE_CONSTANT (decl) || TREE_READONLY (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be constant "
-		"or readonly");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot "
+		"be constant or readonly");
+      return false;
     }
-  if (cvar && TREE_STATIC (cvar))
+  if (decl && TREE_STATIC (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be declared"
-		" static");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot be static");
+      return false;
     }
-  if (cvar && DECL_EXTERNAL (cvar))
+  if (decl && DECL_EXTERNAL (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be declared"
-		" extern");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot be extern");
+      return false;
     }
-  if (cvar && DECL_REGISTER (cvar))
+  if (decl && DECL_REGISTER (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be declared"
-		" register");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot be "
+		"declared register");
+      return false;
     }
-  if (cvar && DECL_AUTO (cvar))
+  if (decl && DECL_AUTO (decl))
     {
-      error_at (start_locus, "_Cilk_for induction variable cannot be declared"
-		" auto");
-      return;
+      error_at (loc, "Cilk Plus for induction variable cannot"
+		" be declared auto");
+      return false;
     }
   if (incr && TREE_CODE (incr) == COMPOUND_EXPR)
     {
-      error_at (start_locus, "Only single increment expression is allowed in "
-		"_Cilk_for");
-      return;
+      error_at (loc, "Only single increment expressions are allowed in "
+		"Cilk Plus for");
+      return false;
     }
 
-  if (cond && TREE_CODE (incr) == COMPOUND_EXPR)
+  if (incr && TREE_CODE (incr) == COMPOUND_EXPR)
     {
-      error_at (start_locus, "Only single condition expression is allowed in "
-		"_Cilk_for");
-      return;
+      error_at (loc, "Only single condition expression are allowed in "
+		"Cilk Plus for");
+      return false;
     }
-  init = DECL_INITIAL (cvar);
+
+  return true;
+ }
+
+/* Validate and emit code for the FOR loop following a #<pragma simd>
+   construct.
+
+   LOC is the location of the location of the FOR.
+   DECL is the iteration variable.
+   INIT is the initialization expression.
+   COND is the controlling predicate.
+   INCR is the increment expression.
+   BODY is the body of the loop.
+
+   Returns the generated statement.  */
+
+tree
+c_finish_pragma_simd_loop (location_t loc,
+			   tree decl,
+			   tree init, tree cond, tree incr,
+			   tree body,
+			   tree clauses)
+{
+  if (!c_check_cilk_loop (loc, decl, cond, incr, body))
+    return NULL;
+
+  tree initv = make_tree_vec (1);
+  tree condv = make_tree_vec (1);
+  tree incrv = make_tree_vec (1);
+  TREE_VEC_ELT (initv, 0) = init;
+  TREE_VEC_ELT (condv, 0) = cond;
+  TREE_VEC_ELT (incrv, 0) = incr;
+
+  // FIXME: Look in gomp4 branch and perhaps use OMP_SIMD??
+  // FIXME: What should we do about nested loops?  Look at specs.
+  tree t = make_node (OMP_FOR);
+  TREE_TYPE (t) = void_type_node;
+  OMP_FOR_INIT (t) = initv;
+  OMP_FOR_COND (t) = condv;
+  OMP_FOR_INCR (t) = incrv;
+  OMP_FOR_BODY (t) = body;
+  OMP_FOR_PRE_BODY (t) = NULL;
+  OMP_FOR_CLAUSES (t) = clauses;
+
+  SET_EXPR_LOCATION (t, loc);
+  return add_stmt (t);
+}
+
+/* Validate and emit code for the _Cilk_for keyword.
+
+   START_LOCUS is the location of the location of the FOR.
+   CVAR is the controlling variable.
+   COND is the controlling predicate.
+   INCR is the increment expression.
+   BODY is the body of the loop.
+   GRAIN is CilkPlus grain size.  */
+
+void
+c_finish_cilk_loop (location_t loc, tree decl, tree cond, tree incr,
+		    tree body, tree grain)
+{
+  tree init;
+  tree c_tree;
+
+  if (!c_check_cilk_loop (loc, decl, cond, incr, body))
+    return;
+
+  init = DECL_INITIAL (decl);
   
   c_tree = build_stmt (UNKNOWN_LOCATION, CILK_FOR_STMT, NULL_TREE, NULL_TREE,
 		       NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE);
   TREE_TYPE (c_tree) = void_type_node;
-  CILK_FOR_VAR (c_tree) = cvar;
+  CILK_FOR_VAR (c_tree) = decl;
   FOR_COND (c_tree) = cond;
   CILK_FOR_INIT (c_tree) = init;
   FOR_EXPR (c_tree) = incr;
