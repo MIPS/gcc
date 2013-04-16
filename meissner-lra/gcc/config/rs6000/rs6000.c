@@ -1608,6 +1608,18 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return 1;
 
+  /* See if we need to be stricter about what goes into the special
+     registers (LR, CTR, VSAVE, VSCR).  */
+  if (TARGET_CONSTRAIN_REGS)
+    {
+      if (regno == LR_REGNO || regno == CTR_REGNO)
+	return (GET_MODE_CLASS (mode) == MODE_INT
+		&& rs6000_hard_regno_nregs[mode][regno] == 1);
+
+      if (regno == VRSAVE_REGNO || regno == VSCR_REGNO)
+	return (mode == SImode);
+    }
+
   /* We cannot put non-VSX TImode or PTImode anywhere except general register
      and it must be able to fit within the register set.  */
 
@@ -2053,6 +2065,9 @@ rs6000_debug_reg_global (void)
 
   if (targetm.lra_p ())
     fprintf (stderr, DEBUG_FMT_S, "lra", "true");
+
+  if (TARGET_CONSTRAIN_REGS)
+    fprintf (stderr, DEBUG_FMT_S, "constrain-regs", "true");
 
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
@@ -2944,6 +2959,12 @@ rs6000_option_override_internal (bool global_init_p)
 	  rs6000_alignment_flags = MASK_ALIGN_NATURAL;
 	}
     }
+
+  /* If we are using the LRA register allocator, constrain the SPRs to only
+     have integer modes, and not modes like CC.  */
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_CONSTRAIN_REGS) == 0
+      && targetm.lra_p ())
+    rs6000_isa_flags |= OPTION_MASK_CONSTRAIN_REGS;
 
   /* Place FP constants in the constant pool instead of TOC
      if section anchors enabled.  */
