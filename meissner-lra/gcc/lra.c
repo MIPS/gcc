@@ -1996,7 +1996,8 @@ check_rtl (bool final_p)
 	if (final_p)
 	  {
 	    extract_insn (insn);
-	    lra_assert (constrain_operands (1));
+	    if (!constrain_operands (1))
+	      fatal_insn_not_found (insn);
 	    continue;
 	  }
 	if (insn_invalid_p (insn, false))
