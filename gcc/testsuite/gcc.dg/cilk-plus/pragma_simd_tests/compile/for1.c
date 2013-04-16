@@ -22,6 +22,16 @@ void foo()
   for (; i < 5; ++i)		// { dg-error "expected iteration decl" }
     a[i] = i;
 
+  // Empty condition is not allowed.
+#pragma simd
+  for (i=0; ; ++i)		/* { dg-error "missing condition" } */
+    a[i] = i;
+
+  // Empty increment is not allowed.
+#pragma simd
+  for (i=0; i < 1234; )		/* { dg-error "missing increment" } */
+    a[i] = i*2;
+
 #pragma simd
   i = 5; /* { dg-error "for statement expected after pragma simd" } */
 }
