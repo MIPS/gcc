@@ -1,5 +1,12 @@
 
 
+2013-04-16  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-genobj.melt (compile2obj_hook): Update the compicache.
+	(compilobj_nrep_lambda): More debug.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Unbox
+	countbox as count.
+
 2013-04-15  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-genobj.melt (compilobj_dataroutine): Compute and
 	check oinipro.

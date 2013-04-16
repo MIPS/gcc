@@ -1234,6 +1234,10 @@ $SBUF.}#
 	 )
        (debug "compile2obj_hook ooutargs=" ooutargs 
 	      "\n.. nbody=" nbody "\n..locmap=" locmap)
+       ;; associate the hook with its routine in the compiler cache
+       (mapobject_put compicache nhook hookrout)
+       (debug "compile2obj_hook updated compicache=" compicache
+	      "\n.. for nhook=" nhook)
        ;;
        ;; compile the body
        (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
@@ -1394,8 +1398,8 @@ $SBUF.}#
 	    ))
       ;; associate the procedure with its objroutine in the compiler cache
       (mapobject_put compicache pro obrout)
-      (unsafe_put_fields obrout :oprout_getargs gtatup)
-      (debug obrout "compile2obj_procedure obrout=" obrout " nbody=" nbody)
+      (put_fields obrout :oprout_getargs gtatup)
+      (debug obrout "compile2obj_procedure obrout=" obrout ".. nbody=" nbody "\n.. compicache=" compicache)
       (assert_msg "check nbody" (is_a nbody class_nrep))
       (if (is_a pro class_nrep_routproc)
 	  (let ( (pthuls (unsafe_get_field :nrpro_thunklist pro)) )
@@ -4961,6 +4965,7 @@ $SBUF.}#
   (debug "compilobj_nrep_lambda nlam=" nlam "\n.. gcx=" gcx)
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (assert_msg "check nlam" (is_a nlam class_nrep_lambda))
+  (shortbacktrace_dbg "compilobj_nrep_lambda" 12)
   (let ( (nloc (unsafe_get_field :nrep_loc nlam))
 	 (npro (let 
 		   ( (checkpro (unsafe_get_field :nlambda_proc nlam)) )

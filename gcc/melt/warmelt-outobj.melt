@@ -6152,7 +6152,7 @@ if (1) return;
      (let ( (prolist (unsafe_get_field :nctx_proclist ncx)) 
 	    (objlist (make_list discr_list))
 	    (compicache (make_mapobject discr_map_objects (+i 10 (*i 20 (list_length xlist)))))
-	    (countbox (make_integerbox discr_integer 0))
+	    (:long count 0)
 	    ) 
        (debug "translate_macroexpanded_list prolist=" prolist) 
        ;;
@@ -6161,17 +6161,18 @@ if (1) return;
        (foreach_in_list
 	(prolist)
 	(curpair pro)
-	(debug "translate_macroexpanded_list pro=" pro)
-	(put_int countbox (+i (get_int countbox) 1))
+	(setq count (+i count 1))
+	(debug "translate_macroexpanded_list pro=" pro "\n.. count=" count)
+	(shortbacktrace_dbg "translate_macroexpanded_list" 10)
 	(cond 
 	 ;; first check for hooks
 	( (is_a pro class_nrep_hookproc)
-	  (let ( (objhook (compile2obj_hook pro modctx compicache (get_int countbox)))
+	  (let ( (objhook (compile2obj_hook pro modctx compicache count))
 		 )
 	    (debug "translate_macroexpanded_list objhook=" objhook " pro=" pro)
 	    (list_append objlist objhook)))
 	( (is_a pro class_nrep_anyproc)
-	  (let ( (objpro (compile2obj_procedure pro modctx compicache (get_int countbox))) 
+	  (let ( (objpro (compile2obj_procedure pro modctx compicache count)) 
 		 )
 	    (debug "translate_macroexpanded_list objpro=" objpro " pro=" pro)
 	    (list_append objlist objpro)
