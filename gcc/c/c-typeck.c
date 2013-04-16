@@ -10990,8 +10990,7 @@ c_build_va_arg (location_t loc, tree expr, tree type)
 /* Validate a Cilk for loop construct.  Returns TRUE if there were no
    errors, FALSE otherwise.  LOC is the location of the for.  DECL is
    the controlling variable.  COND is the condition.  INCR is the
-   increment expression.  BODY is the body of the LOOP.  GRAIN is
-   ???? */
+   increment expression.  BODY is the body of the LOOP.  */
 
 static bool
 c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
@@ -11035,20 +11034,24 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
 		"be volatile");
       return false;
     }
-  if (TREE_CONSTANT (decl) || TREE_READONLY (decl))
+  /* FIXME: No need to do this because you won't be able to assign to
+     the read-only variable at parse time anyhow.  There's already an
+     error for this and we have a test for this in
+     cilk-plus/pragma_simd_tests/compile/for2.c.  */
+  if (0 && TREE_CONSTANT (decl) || TREE_READONLY (decl))
     {
       error_at (loc, "Cilk Plus for induction variable cannot "
 		"be constant or readonly");
       return false;
     }
-  if (decl && TREE_STATIC (decl))
-    {
-      error_at (loc, "Cilk Plus for induction variable cannot be static");
-      return false;
-    }
   if (decl && DECL_EXTERNAL (decl))
     {
       error_at (loc, "Cilk Plus for induction variable cannot be extern");
+      return false;
+    }
+  if (decl && TREE_STATIC (decl))
+    {
+      error_at (loc, "Cilk Plus for induction variable cannot be static");
       return false;
     }
   if (decl && DECL_REGISTER (decl))
@@ -11057,7 +11060,10 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
 		"declared register");
       return false;
     }
-  if (decl && DECL_AUTO (decl))
+  /* FIXME: This doesn't look right.  Automatic variables are plain
+     regular local variables.  It doesn't make sense not to allow
+     them.  Must check with standards folks.  */
+  if (0 && decl && DECL_AUTO (decl))
     {
       error_at (loc, "Cilk Plus for induction variable cannot"
 		" be declared auto");
@@ -11099,8 +11105,30 @@ c_finish_pragma_simd_loop (location_t loc,
 			   tree body,
 			   tree clauses)
 {
+  location_t rhs_loc;
+
   if (!c_check_cilk_loop (loc, decl, cond, incr, body))
     return NULL;
+
+  /* In the case of "for (int i = 0...)", init will be a decl.  It should
+     have a DECL_INITIAL that we can turn into an assignment.  */
+  if (init == decl)
+    {
+      rhs_loc = DECL_SOURCE_LOCATION (decl);
+
+      init = DECL_INITIAL (decl);
+      if (init == NULL)
+	{
+	  error_at (rhs_loc, "%qE is not initialized", decl);
+	  init = integer_zero_node;
+	  return NULL;
+	}
+
+      init = build_modify_expr (loc, decl, NULL_TREE, NOP_EXPR, rhs_loc,
+				init, NULL_TREE);
+    }
+  gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+  gcc_assert (TREE_OPERAND (init, 0) == decl);
 
   tree initv = make_tree_vec (1);
   tree condv = make_tree_vec (1);

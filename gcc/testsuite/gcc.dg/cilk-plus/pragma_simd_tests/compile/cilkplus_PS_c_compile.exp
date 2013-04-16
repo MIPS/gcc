@@ -19,16 +19,20 @@
 
 load_lib gcc-dg.exp
 
+set OPTS "-fcilkplus"
+# FIXME: temporary hack
+set OPTS "-fcilkplus -fopenmp -c"
+
 dg-init
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O0 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O1 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O2 -ftree-vectorize -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O3 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O0 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O1 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O2 -ftree-vectorize -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O3 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/array_notation_tests/errors/*.c]] " -O3 -ftree-vectorize -fcilkplus -g" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O0 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O1 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O2 -ftree-vectorize $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -O3 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O0 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O1 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O2 -ftree-vectorize $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] " -g -O3 $OPTS" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/array_notation_tests/errors/*.c]] " -O3 -ftree-vectorize $OPTS -g" " "
 dg-finish

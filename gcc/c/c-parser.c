@@ -4561,7 +4561,7 @@ c_parser_statement_after_labels (c_parser *parser)
 	  if (!flag_enable_cilk)
 	    fatal_error ("-fcilkplus must be enabled to use %<cilk_for%>");
 	  else
-	    c_parser_cilk_for_statement (parser, RID_CILK_FOR, NULL_TREE, NULL_TREE);
+	    c_parser_cilk_for_statement (parser, RID_CILK_FOR, NULL, NULL);
 	    
 	  break;
 	case RID_CILK_SYNC:
@@ -11830,10 +11830,10 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   /* Parse the initialization declaration.  */
   if (c_parser_next_tokens_start_declaration (parser))
     {
-      c_parser_declaration_or_fndef (parser, true, false, true, 
+      c_parser_declaration_or_fndef (parser, true, false, false,
 				     false, false, NULL);
       decl = check_for_loop_decls (loc, flag_isoc99);
-      if (!decl)
+      if (decl == NULL)
 	goto error_init;
       if (DECL_INITIAL (decl) == error_mark_node)
 	decl = error_mark_node;
@@ -11923,13 +11923,12 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
   body = c_parser_c99_block_statement (parser);
+  c_break_label = save_break;
+  c_cont_label = save_cont;
 
   // FIXME: Error on RETURN or GOTO within body.
   // FIXME: Go through all lines of _Cilk_for spec and verify.
   // FIXME: Add tests for all errors/warnings.
-
-  c_break_label = save_break;
-  c_cont_label = save_cont;
 
   if (!fail)
     {
