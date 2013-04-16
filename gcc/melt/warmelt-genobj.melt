@@ -1272,7 +1272,8 @@ $SBUF.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compile a single procedure
 (defun compile2obj_procedure (pro modctx compicache :long num)
-  (debug "compile2obj_procedure pro=" pro " num=" num
+  (debug "compile2obj_procedure pro=" pro "\n.. num=" num
+	 "\n..start compicache=" compicache
 	 "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n")
   (assert_msg "check pro" (is_a pro class_nrep_routproc))
   (assert_msg "check compicache" (is_mapobject compicache))
@@ -1295,15 +1296,15 @@ $SBUF.}#
 	       (nvariadic (unsafe_get_field :nrpro_variadic pro))
 	       )
 	  (when (is_a pronam class_named)
-		(setq routfunam (unsafe_get_field :named_name pronam))
-		(add2sbuf_strconst namsbuf "_")
-		(add2sbuf_cident namsbuf (unsafe_get_field :named_name pronam))
-		(when (is_a pronam class_cloned_symbol)
-		      (add2sbuf_strconst namsbuf "__")
-		      (add2sbuf_longdec namsbuf (get_int (get_field :csym_urank pronam)))
-		      (add2sbuf_strconst namsbuf "__")
-		      )
-		)
+	    (setq routfunam (unsafe_get_field :named_name pronam))
+	    (add2sbuf_strconst namsbuf "_")
+	    (add2sbuf_cident namsbuf (unsafe_get_field :named_name pronam))
+	    (when (is_a pronam class_cloned_symbol)
+	      (add2sbuf_strconst namsbuf "__")
+	      (add2sbuf_longdec namsbuf (get_int (get_field :csym_urank pronam)))
+	      (add2sbuf_strconst namsbuf "__")
+	      )
+	    )
 	  (if nvariadic 
 	      (setq restnam nvariadic))
 	  ))
@@ -1399,19 +1400,22 @@ $SBUF.}#
       ;; associate the procedure with its objroutine in the compiler cache
       (mapobject_put compicache pro obrout)
       (put_fields obrout :oprout_getargs gtatup)
-      (debug obrout "compile2obj_procedure obrout=" obrout ".. nbody=" nbody "\n.. compicache=" compicache)
+      (debug "compile2obj_procedure updated compicache=" compicache
+	     "\n.. pro=" pro
+	     "\n.. obrout=" obrout ".. nbody=" nbody)
       (assert_msg "check nbody" (is_a nbody class_nrep))
       (if (is_a pro class_nrep_routproc)
 	  (let ( (pthuls (unsafe_get_field :nrpro_thunklist pro)) )
 	    (debug "compile2obj_procedure pthuls=" pthuls)
-	    (list_every 
-	     pthuls
-	     (lambda (pthu) 
-	       (debug "compile2obj_procedure pthu=" pthu)
-	       (assert_msg "compile2obj_procedure check pthu" (is_closure pthu))
-	       (pthu gcx)
-	       )
-	     )))
+	    (foreach_in_list
+	     (pthuls)
+	     (pthupair pthu) 
+	     (debug "compile2obj_procedure pthu=" pthu)
+	     (assert_msg "compile2obj_procedure check pthu" (is_closure pthu))
+	     (pthu gcx)
+	     (debug "compile2obj_procedure after pthu=" pthu "\n.. compicache=" compicache)
+	     )
+	    ))
       (let ( (obody (compile_obj nbody gcx)) 
 	     )
 	(debug "compile2obj_procedure obody=" obody)
@@ -5290,6 +5294,8 @@ $SBUF.}#
 		     )) 
 	  )
       (mapobject_put compicache syv obsym)
+      (debug "compilobj_datasymbol updated compicache=" compicache
+	     "\n.. syv=" syv "\n.. obsym=" obsym)
       ;; make a cname
       (let ( (nambuf (make_strbuf discr_strbuf))
 	     (:long syrk (get_int (unsafe_get_field :ndata_rank syv)))
@@ -5365,6 +5371,8 @@ $SBUF.}#
 	      (:long drk (get_int drank))
 	      )
 	  (mapobject_put compicache dai oini)
+	  (debug "compilobj_datainstance updated compicache=" compicache 
+		 "\n.. dai=" dai "\n.. oini=" oini)
 	  (add2sbuf_strconst nambuf "dobj_")
 	  (add2sbuf_longdec nambuf drk)
 	  (if nam (progn
@@ -5432,6 +5440,8 @@ $SBUF.}#
 			     ))
 	     )
 	(mapobject_put compicache nti otup)
+	(debug "compilobj_datatuple updated compicache=" compicache
+	       "\n.. nti=" nti "\n.. otup=" otup)
 	(put_int otup (multiple_length ncompi))
 	(multiple_every
 	 ncompi
@@ -5448,7 +5458,7 @@ $SBUF.}#
 		     (instance class_objtouch
 			       :otouch_val otup
 			       :otouch_comment comm))
-	(debug "compilobj datatuple otup=" otup)
+	(debug "compilobj_datatuple otup=" otup)
 	(return otup)
 	)
       )
@@ -5489,6 +5499,8 @@ $SBUF.}#
 			  )) 
 	  )
       (mapobject_put compicache nds ostr)
+      (debug "compilobj_datastring updated compicache=" compicache
+	     "\n.. nds=" nds "\n.. ostr=" ostr)
       (add2sbuf_strconst nambuf "dstr_")
       (add2sbuf_longdec nambuf drk)
       (add2sbuf_strconst nambuf "__")
@@ -5506,6 +5518,7 @@ $SBUF.}#
 
 ;;;;;;;;;;;;;;;; compile a data boxed integer
 (defun compilobj_databoxedinteger (ndi gcx)
+  (debug "compilobj_databoxedinteger ndi=" ndi)
   (assert_msg "check ndi" (is_a ndi class_nrep_databoxedinteger))
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (let ( (compicache (unsafe_get_field :gncx_compicache gcx)) 
@@ -5514,9 +5527,9 @@ $SBUF.}#
 	 )
     ;; datastring compiled only in initial routines
     (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
-    (if chobj
-	(progn
-	  (return chobj)))
+    (when chobj
+      (debug "compilobj_databoxedinteger found chobj=" chobj)
+      (return chobj))
     (let (
 	  (nambuf (make_strbuf discr_strbuf))
 	  (ndisx (unsafe_get_field :ndata_discrx ndi))
@@ -5534,6 +5547,7 @@ $SBUF.}#
 			  )) 
 	  )
       (mapobject_put compicache ndi oint)
+      (debug "compilobj_databoxedinteger updated compicache=" compicache "\n ndi=" ndi "\n.. oint=" oint)
       (add2sbuf_strconst nambuf "dint_")
       (add2sbuf_longdec nambuf drk)
       (add2sbuf_strconst nambuf "__")
@@ -5551,19 +5565,18 @@ $SBUF.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;; compile a data closure
 (defun compilobj_dataclosure (ncl gcx)
+  (debug "compilobj_dataclosure ncl=" ncl)
   (assert_msg "check ncl" (is_a ncl class_nrep_dataclosure))
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
-  (debug "compilobj_dataclosure ncl=" ncl)
   (let ( (compicache (unsafe_get_field :gncx_compicache gcx)) 
 	 (inirout (unsafe_get_field :gncx_objrout gcx))
 	 (inibody (unsafe_get_field :obrout_body inirout))
 	 (chobj (mapobject_get compicache ncl))
 	 )
     (assert_msg  "check inirout" (is_a inirout class_initialroutineobj))
-    (if chobj
-	(progn
-	  (debug  "compilobj_dataclosure found chobj=" chobj)
-	  (return chobj)))
+    (when chobj
+      (debug  "compilobj_dataclosure found chobj=" chobj)
+      (return chobj))
     (let ( 
 	  (nam (unsafe_get_field :ndata_name ncl))
 	  (discx (unsafe_get_field :ndata_discrx ncl))
@@ -5580,9 +5593,9 @@ $SBUF.}#
       (assert_msg "check npro" (is_a npro class_nrep_routproc))
       (add2sbuf_strconst nambuf "dclo_")
       (add2sbuf_longdec nambuf (get_int nrank))
-      (if nam (progn
-		(add2sbuf_strconst nambuf "__")
-		(add2sbuf_cident nambuf (unsafe_get_field :named_name nam))))
+      (when nam
+	(add2sbuf_strconst nambuf "__")
+	(add2sbuf_cident nambuf (unsafe_get_field :named_name nam)))
       (let (
 	    (ndatarou (unsafe_get_field :nrpro_datarout npro))
 	    (oiclo
@@ -5596,6 +5609,8 @@ $SBUF.}#
 	    )
 	(put_int oiclo nbclos)
 	(mapobject_put compicache ncl oiclo)
+	(debug  "compilobj_dataclosure updated compicache=" compicache
+		"\n.. ncl=" ncl "\n.. oiclo=" oiclo)
 	(assert_msg "check ndatarou" (is_a ndatarou class_nrep_dataroutine))
 	(let (
 	      ;; npro should already have been compiled, so should be in the compiler cache
@@ -5693,6 +5708,8 @@ $SBUF.}#
 		 "\n.. npro=" npro "\n.. compicache=" compicache)
 	  (assert_msg "check oinipro" (is_object oinipro))
 	  (mapobject_put compicache ndrou oirout)
+	  (debug "compilobj_dataroutine updated compicache=" compicache 
+		 "\n.. ndrou=" ndrou "\n.. oirout=" oirout)
 	  (if (is_a npro class_nrep_routproc)
 	      (let ( (pconstl (unsafe_get_field :nrpro_const npro)) 
 		     (:long nbconst (list_length pconstl))
@@ -5827,8 +5844,10 @@ $SBUF.}#
 	   )
       (mapobject_put compicache ndhook oihook)
       (put_int oihook nbclo)
-      (debug "compilobj_datahook nclotup=" nclotup "\n nhpro=" nhpro
-	     "\n oihook=" oihook "\n oclo=" oclo "\n inibody=" inibody)
+      (debug "compilobj_datahook updated compicache=" compicache 
+	     "\n.. nclotup=" nclotup "\n.. nhpro=" nhpro
+	     "\n.. oihook=" oihook
+	     "\n.. oclo=" oclo "\n.. inibody=" inibody)
       (foreach_in_multiple
        (oclo)
        (curobc :long obix)
