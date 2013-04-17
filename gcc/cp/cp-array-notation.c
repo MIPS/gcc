@@ -2519,9 +2519,16 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     }
   else if (an_type == REDUCE_MAX)
     {
-      /* Set initial value as the first element in the list.  */
-      new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
-					  func_parm, 1);
+      if (TYPE_MIN_VALUE (TREE_TYPE (*new_var)))
+	new_var_init =
+	  build_x_modify_expr (location, *new_var, NOP_EXPR,
+			       TYPE_MIN_VALUE (TREE_TYPE (*new_var)), 1);
+      else
+	/* Set initial value as the first element in the list if a MIN Value is
+	   not defined.  */
+	new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
+					    func_parm, 1);
+
       new_no_expr  = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
@@ -2536,8 +2543,15 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     }
   else if (an_type == REDUCE_MIN)
     {
-      new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
-					  func_parm, 1);
+      if (TYPE_MAX_VALUE (TREE_TYPE (*new_var)))
+	new_var_init =
+	  build_x_modify_expr (location, *new_var, NOP_EXPR,
+			       TYPE_MAX_VALUE (TREE_TYPE (*new_var)), 1);
+      else
+	/* Set initial value as the first element in the list if a MIN Value is
+	   not defined.  */
+	new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
+					    func_parm, 1);
       new_no_expr  = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,

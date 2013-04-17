@@ -2225,9 +2225,14 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 TREE_TYPE (new_yes_expr), new_no_expr, TREE_TYPE (new_no_expr));   
       break;
     case REDUCE_MAX:
-      new_var_init = build_modify_expr
-	(location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
-	 location, func_parm, new_var_type);
+      if (TYPE_MIN_VALUE (new_var_type))
+	new_var_init = build_modify_expr
+	  (location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
+	   location, TYPE_MIN_VALUE (new_var_type), new_var_type);
+      else
+	new_var_init = build_modify_expr
+	  (location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
+	   location, func_parm, new_var_type);
       new_no_expr = build_modify_expr
 	(location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
 	 location, *new_var, TREE_TYPE (*new_var));
@@ -2240,9 +2245,14 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 new_yes_expr, TREE_TYPE (*new_var), new_no_expr, TREE_TYPE (*new_var));
       break;
     case REDUCE_MIN:
-      new_var_init = build_modify_expr
-	(location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
-	 location, func_parm, new_var_type);
+      if (TYPE_MAX_VALUE (new_var_type))
+	new_var_init = build_modify_expr
+	  (location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
+	   location, TYPE_MAX_VALUE (new_var_type), new_var_type);
+      else
+	new_var_init = build_modify_expr
+	  (location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
+	   location, func_parm, new_var_type);     
       new_no_expr = build_modify_expr
 	(location, *new_var, TREE_TYPE (*new_var), NOP_EXPR,
 	 location, *new_var, TREE_TYPE (*new_var));
