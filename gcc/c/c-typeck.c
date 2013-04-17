@@ -10987,9 +10987,87 @@ c_build_va_arg (location_t loc, tree expr, tree type)
   return build_va_arg (loc, expr, type);
 }
 
-/* Validate a Cilk for loop construct.  Returns TRUE if there were no
-   errors, FALSE otherwise.  LOC is the location of the for.  DECL is
-   the controlling variable.  COND is the condition.  INCR is the
+/* Helper function for c_check_cilk_loop.
+
+   Validate the increment in a _Cilk_for construct or a <#pragma simd>
+   for loop.
+
+   LOC is the location of the `for' keyword.  DECL is the induction
+   variable.  INCR is the original increment expression.
+
+   Returns the canonicalized increment expression for an OMP_FOR_INCR.
+   If there is a validation error, returns error_mark_node.  */
+
+static tree
+c_check_cilk_loop_incr (location_t loc, tree decl, tree incr)
+{
+  if (EXPR_HAS_LOCATION (incr))
+    loc = EXPR_LOCATION (incr);
+
+  if (!incr)
+    {
+      error_at (loc, "missing increment");
+      return error_mark_node;
+    }
+
+  switch (TREE_CODE (incr))
+    {
+    case POSTINCREMENT_EXPR:
+    case PREINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+    case PREDECREMENT_EXPR:
+      if (TREE_OPERAND (incr, 0) != decl)
+	break;
+
+      // Bah... canonicalize into whatever OMP_FOR_INCR needs.
+      if (POINTER_TYPE_P (TREE_TYPE (decl))
+	  && TREE_OPERAND (incr, 1))
+	{
+	  tree t = fold_convert_loc (loc,
+				     sizetype, TREE_OPERAND (incr, 1));
+
+	  if (TREE_CODE (incr) == POSTDECREMENT_EXPR
+	      || TREE_CODE (incr) == PREDECREMENT_EXPR)
+	    t = fold_build1_loc (loc, NEGATE_EXPR, sizetype, t);
+	  t = fold_build_pointer_plus (decl, t);
+	  incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
+	}
+      return incr;
+
+    case MODIFY_EXPR:
+      {
+	tree rhs;
+
+	if (TREE_OPERAND (incr, 0) != decl)
+	  break;
+
+	rhs = TREE_OPERAND (incr, 1);
+	if (TREE_CODE (rhs) == PLUS_EXPR
+	    && (TREE_OPERAND (rhs, 0) == decl
+		|| TREE_OPERAND (rhs, 1) == decl)
+	    && INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
+	  return incr;
+	else if (TREE_CODE (rhs) == MINUS_EXPR
+		 && TREE_OPERAND (rhs, 0) == decl
+		 && INTEGRAL_TYPE_P (TREE_TYPE (rhs)))
+	  return incr;
+	// Otherwise fail because only PLUS_EXPR and MINUS_EXPR are
+	// allowed.
+	break;
+      }
+
+    default:
+      break;
+    }
+
+  error_at (loc, "invalid increment expression");
+  return error_mark_node;
+}
+
+/* Validate a _Cilk_for construct (or a #pragma simd for loop, which
+   has the same syntactic restrictions).  Returns TRUE if there were
+   no errors, FALSE otherwise.  LOC is the location of the for.  DECL
+   is the controlling variable.  COND is the condition.  INCR is the
    increment expression.  BODY is the body of the LOOP.  */
 
 static bool
@@ -11037,28 +11115,40 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
       error_at (loc, "missing condition");
       return false;
     }
-  if (TREE_CODE (cond) != NE_EXPR
-      && TREE_CODE (cond) != LT_EXPR
-      && TREE_CODE (cond) != LE_EXPR
-      && TREE_CODE (cond) != GT_EXPR
-      && TREE_CODE (cond) != GE_EXPR)
+  bool cond_ok = false;
+  if (TREE_CODE (cond) == NE_EXPR
+      || TREE_CODE (cond) == LT_EXPR
+      || TREE_CODE (cond) == LE_EXPR
+      || TREE_CODE (cond) == GT_EXPR
+      || TREE_CODE (cond) == GE_EXPR)
     {
-      error_at (EXPR_LOCATION (cond), "condition must be one "
-		"of the following: !=, <=, <, >= or >");
+      /* Comparison must either be:
+	   DECL <comparison_operator> EXPR
+	   EXPR <comparison_operator> DECL
+      */
+      if (decl == TREE_OPERAND (cond, 0))
+	cond_ok = true;
+      else if (decl == TREE_OPERAND (cond, 1))
+	{
+	  /* Canonicalize the comparison so the DECL is on the LHS.  */
+	  TREE_SET_CODE (cond,
+			 swap_tree_comparison (TREE_CODE (cond)));
+	  TREE_OPERAND (cond, 1) = TREE_OPERAND (cond, 0);
+	  TREE_OPERAND (cond, 0) = decl;
+	  cond_ok = true;
+	}
+    }
+  if (!cond_ok)
+    {
+      error_at (loc, "invalid controlling predicate");
       return false;
     }
 
   /* Validate the increment.  */
-  if (!incr)
-    {
-      error_at (loc, "missing increment");
-      return false;
-    }
-  if (TREE_CODE (incr) == COMPOUND_EXPR)
-    {
-      error_at (loc, "compound increment expressions are not allowed");
-      return false;
-    }
+  incr = c_check_cilk_loop_incr (loc, decl, incr);
+  if (incr == error_mark_node)
+    return false;
+
 #if 0
   // FIXME: There's nothing in the spec specifying that a constant
   // cannot happen here.
@@ -11098,6 +11188,7 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
    COND is the controlling predicate.
    INCR is the increment expression.
    BODY is the body of the loop.
+   CLAUSES are the clauses associated with the pragma simd loop.
 
    Returns the generated statement.  */
 
