@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-do options "-fcilkplus" } */
+/* { dg-options "-fcilkplus" } */
 
 int main ()
 {

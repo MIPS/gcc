@@ -1,3 +1,13 @@
+2013-04-17  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c/c-array-notation.c (build_array_notation_expr): Added a check for
+	length mismatch.  Also changed loading array_list so that array refs can
+	be used with array notations.  Finally, store array notation components
+	into variable only if it is not a INTEGER constant.
+	(find_rank): Changed the computation method so that array ref can be
+	used with array notations.
+	(length_mismatch_in_expr_p): New function.
+
 2013-04-14  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/Make-lang.in (C_AND_OBJC_OBJS): Added c/c-pragma-simd.o.

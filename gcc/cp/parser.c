@@ -237,7 +237,7 @@ static tree cp_literal_operator_id
   (const char *);
 
 static tree cp_parser_array_notation
-  (cp_parser *, tree, tree);
+  (location_t, cp_parser *, tree, tree);
 
 static vec<tree, va_gc> *cp_parser_elem_fn_expression_list
   (cp_parser *);
@@ -6129,7 +6129,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
     /* If we reach here, then we have something like this:
            ARRAY [:]
      */
-    postfix_expression = cp_parser_array_notation (parser, NULL_TREE,
+    postfix_expression = cp_parser_array_notation (loc, parser, NULL_TREE,
 						   postfix_expression);
   else
     {
@@ -6168,7 +6168,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
 	}
       if (flag_enable_cilk
 	  && cp_lexer_peek_token (parser->lexer)->type == CPP_COLON)
-	postfix_expression = cp_parser_array_notation (parser, index,
+	postfix_expression = cp_parser_array_notation (loc, parser, index,
 						       postfix_expression);
       else
 	{
@@ -30080,7 +30080,8 @@ cp_parser_cilk_for_init_statement (cp_parser *parser, tree *init)
    ARRAY_NOTATION_REF.  If some error occurred it returns NULL_TREE.  */
 
 static tree
-cp_parser_array_notation (cp_parser *parser, tree init_index, tree array_value)
+cp_parser_array_notation (location_t loc, cp_parser *parser, tree init_index,
+			  tree array_value)
 {
   cp_token *token = NULL;
   tree start_index = NULL_TREE, length_index = NULL_TREE, stride = NULL_TREE;
@@ -30096,7 +30097,15 @@ cp_parser_array_notation (cp_parser *parser, tree init_index, tree array_value)
   if (processing_template_decl)
     {
       array_type = TREE_TYPE (array_value);
-      type = TREE_TYPE (array_type);
+      if (array_type)
+	type = TREE_TYPE (array_type);
+      else if (TREE_CODE (array_value) == ARRAY_REF)
+	{
+	  array_type = TREE_TYPE (TREE_OPERAND (array_value, 0));
+	  type = TREE_TYPE (array_type);
+	}
+      else 
+	type = array_type;
     }
   else
     {
@@ -30186,6 +30195,8 @@ cp_parser_array_notation (cp_parser *parser, tree init_index, tree array_value)
   value_tree = build_array_notation_ref (input_location, array_value,
 					 start_index, length_index, stride,
 					 type);
+  if (value_tree != error_mark_node)
+    SET_EXPR_LOCATION (value_tree, loc);
   return value_tree;
 }
 

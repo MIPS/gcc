@@ -1,5 +1,5 @@
-/* {dg-do compile } */
-/* {dg-options } */
+/* { dg-do compile } */
+/* { dg-options } */
 #include <cstdlib>
 float q;
 #if 1

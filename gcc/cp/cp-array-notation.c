@@ -55,6 +55,52 @@ struct inv_list
 
 int array_notation_label_no;
 
+/* Returns false if there is a length mismatch among expressions
+   on the same dimension AND the same side of the equal sign.  The exprs are
+   passed in through 2-D array **LIST where X and Y indicate first and
+   second dimension sizes of LIST, respectively.  */
+static bool
+length_mismatch_in_expr_p (location_t loc, tree **list, size_t x, size_t y)
+{
+  size_t ii, jj;
+  tree start = NULL_TREE;
+  HOST_WIDE_INT l_start, l_node;
+  for (jj = 0; jj < y; jj++)
+    {
+      start = NULL_TREE;
+      for (ii = 0; ii < x; ii++)
+	{
+	  if (!start)
+	    start = list[ii][jj];
+	  else if (TREE_CODE (start) == INTEGER_CST)
+	    {
+	    /* If start is a INTEGER, and list[ii][jj] is an integer then
+	       check if they are equal.  If they are not equal then return
+	       true.  */
+	    if (TREE_CODE (list[ii][jj]) == INTEGER_CST)
+	      {
+		l_node = int_cst_value (list[ii][jj]);
+		l_start = int_cst_value (start);
+		if (abs (l_start) != abs (l_node))
+		  {
+		    if (!loc && EXPR_HAS_LOCATION (start))
+		      loc = EXPR_LOCATION (start);
+		    if (!loc && EXPR_HAS_LOCATION (list[ii][jj]))
+		      loc = EXPR_LOCATION (list[ii][jj]);
+		    error_at (loc, "length mismatch in expression");
+		    return true;
+		  }
+	      }
+	    }
+	  else
+	    /* We set the start node as the current node just in case it turns
+	       out to be an integer.  */
+	    start = list[ii][jj];
+	}
+    }
+  return false;
+}
+
 /* Returns the rank of ARRAY through the *RANK.  The user can specify whether
    (s)he wants to step into array_notation-specific builtin functions
    (specified by the IGNORE_BUILTIN_FN).
@@ -437,6 +483,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
   char label_name[50];
   int s_jj = 0;
 
+  if (!location && EXPR_HAS_LOCATION (lhs))
+    location = EXPR_LOCATION (lhs);
   /* In the first part, we try to break up the builtin functions for array
      notations.  */
   find_rank (rhs, false, &rhs_rank);
@@ -705,6 +753,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
 	      else if (TREE_CODE (ii_tree) == VAR_DECL
 		       || TREE_CODE (ii_tree) == PARM_DECL)
 		break;
+	      else if (TREE_CODE (ii_tree) == CALL_EXPR)
+		break;
 	    }
 	}
     }
@@ -778,6 +828,30 @@ build_x_array_notation_expr (location_t location, tree lhs,
       else
 	rhs_vector[ii][0] = false;
     }
+  if (length_mismatch_in_expr_p (location ? location : EXPR_LOCATION (lhs),
+				 lhs_length, lhs_list_size, lhs_rank)
+      || length_mismatch_in_expr_p (location ? location : EXPR_LOCATION (rhs),
+				    rhs_length, rhs_list_size, rhs_rank))
+    {
+      pop_stmt_list (loop);
+      return error_mark_node;
+    }
+  if (lhs_list_size > 0 && rhs_list_size > 0)
+    if (TREE_CODE (lhs_length[0][0]) == INTEGER_CST
+	&& TREE_CODE (rhs_length[0][0]) == INTEGER_CST)
+      {
+	HOST_WIDE_INT l_length = int_cst_value (lhs_length[0][0]);
+	HOST_WIDE_INT r_length = int_cst_value (rhs_length[0][0]);
+	/* The length can be negative or positive.  As long as the
+	   magnitude is OK, then the array notation is valid.  */
+	if (abs (l_length) != abs (r_length))
+	  {
+	    error_at (location, "length mismatch between LHS and RHS");
+	    pop_stmt_list (loop);
+	    return error_mark_node;
+	  }
+      }
+
    for (ii = 0; ii < lhs_rank; ii++)
     if (lhs_start[0][ii] && TREE_TYPE (lhs_start[0][ii]))
 	lhs_var[ii] =  build_decl (location, VAR_DECL, NULL_TREE,
