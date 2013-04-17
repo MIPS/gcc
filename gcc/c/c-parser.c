@@ -11791,10 +11791,11 @@ c_parse_file (void)
    FOR_KEYWORD can be either RID_CILK_FOR or RID_FOR, for parsing
    _cilk_for or the <#pragma simd> for loop construct respectively.
 
-   // FIXME: Parse clauses in caller and pass them here.
-   CLAUSES is ??.
+   For a <#pragma simd>, CLAUSES are the clauses that should have been
+   previously parsed.  If there are none, or if we are parsing a
+   _Cilk_for instead, this will be NULL.
 
-   GRAIN is CilkPlus grainsize.  */
+   GRAIN is CilkPlus grainsize when parsing a _Cilk_for.  */
    
 static void
 c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
@@ -11810,7 +11811,7 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   if (!c_parser_next_token_is_keyword (parser, for_keyword))
     {
       if (for_keyword == RID_CILK_FOR)
-	c_parser_error (parser, "cilk_for statement expected");
+	c_parser_error (parser, "_Cilk_for statement expected");
       else
 	c_parser_error (parser, "for statement expected");
       return;
@@ -11883,22 +11884,6 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
       cond = cond_expr.value;
       cond = c_objc_common_truthvalue_conversion (cond_loc, cond);
       cond = c_fully_fold (cond, false, NULL);
-#if 0 // Find out what this is for?
-      switch (cond_expr.original_code)
-	{
-	case GT_EXPR:
-	case GE_EXPR:
-	case LT_EXPR:
-	case LE_EXPR:
-	  break;
-	default:
-	  /* Can't be cond = error_mark_node, because we want to preserve
-	     the location until c_finish_omp_for.  */
-	  cond = build1 (NOP_EXPR, boolean_type_node, error_mark_node);
-	  break;
-	}
-      protected_set_expr_location (cond, cond_loc);
-#endif
     }
   c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
 
@@ -11926,9 +11911,29 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   c_break_label = save_break;
   c_cont_label = save_cont;
 
+  // FIXME: TODO items for remaining parsing duties.
+
+  // FIXME: The specs says "the total number of iterations (loop
+  //        count) can be determined before beginning the loop
+  //        execution".  We should probably wrap the RHS of the
+  //        conditional expression in a SAVE_EXPR and avoid executing
+  //        it multiple times.  And of course, we should write an
+  //        execution test to go along with this.
+  //
+  //        foo < SAVE_EXPR(RHS)
+
+  // FIXME: Similarly for the increment.  The spec says "the increment
+  //        and limit expressions may be evaluated fewer times than in
+  //        the serialization".  We should probably use SAVE_EXPR here
+  //        too.
+  //
+  //        foo += SAVE_EXPR(INCR)
+
+  // FIXME: Parse the #<pragma simd> clauses.
+
   // FIXME: Error on RETURN or GOTO within body.  This is probably
-  // best done by analyzing the CFG at some point and seeing if any
-  // path goes into or out of for loop body.
+  //        best done by analyzing the CFG at some point and seeing if
+  //        any path goes into or out of the loop body.
 
   if (!fail)
     {

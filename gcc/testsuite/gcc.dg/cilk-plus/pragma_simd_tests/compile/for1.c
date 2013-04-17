@@ -43,6 +43,10 @@ void foo()
   for (struct S ss = { 0 }; ss.i <= 1000; ++ss.i) /* { dg-error "initialization variable must be of integral or pointer type" } */
     a[ss.i] = b[ss.i];
 
+  #pragma simd
+  for (float f=0.0; f < 15.0; ++f) /* { dg-error "must be of integral" } */
+    a[(int)f] = (int) f;
+
   // Pointers are OK.
   #pragma simd
   for (int *i=c; i < &c[100]; ++i)
