@@ -1,3 +1,89 @@
+2013-04-17  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/cortex-m4.md: Add a new bypass.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (*adds_<optab><mode>_multp2):
+	New pattern.
+	(*subs_<optab><mode>_multp2): New pattern.
+	(*adds_<optab><ALLX:mode>_<GPI:mode>): New pattern.
+	(*subs_<optab><ALLX:mode>_<GPI:mode>): New pattern.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (*adds_mul_imm_<mode>): New pattern.
+	(*subs_mul_imm_<mode>): New pattern.
+
+2013-04-16  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/56948
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add j->r alternative.
+	(vsx_movti_64bit): Change j->wa to O->wa.  Add n->r alternative.
+	(vsx_movti_32bit): Change j->wa to O->wa.
+
+2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/56921
+	* loop-init.c (pass_rtl_move_loop_invariants): Add
+	TODO_do_not_ggc_collect to todo_flags_finish.
+	(pass_rtl_unswitch): Same.
+	(pass_rtl_unroll_and_peel_loops): Same.
+	(pass_rtl_doloop): Same.
+
+2013-04-16  Greta Yorsh  <Greta.Yorsh at arm.com>
+
+	* config/arm/arm.c (emit_multi_reg_push): New declaration
+	for an existing function.
+	(arm_emit_strd_push): New function.
+	(arm_expand_prologue): Used here.
+	(arm_emit_ldrd_pop): New function.
+	(arm_expand_epilogue): Used here.
+	(arm_get_frame_offsets): Update condition.
+	(arm_emit_multi_reg_pop): Add a special case for load of a single
+	register with writeback.
+
+2013-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/invoke.texi (i386 Option): Reword -mstack-protector-guard
+	description.
+
+2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56756
+	* tree-ssa-loop-im.c (struct first_mem_ref_loc_1): New functor.
+	(first_mem_ref_loc): New.
+	(execute_sm): Place the load temporarily before a previous
+	access instead of in the latch edge to ensure its SSA dependencies
+	are defined at points dominating the load.
+
+2013-04-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cfgrtl.c (cfg_layout_merge_blocks): Revert r184005, implement
+	correct fix by moving header and footer insn to the footer of
+	the merged basic block.  Clear BB_END of the merged-away block.
+
+	PR middle-end/43631
+	* emit-rtl.c (make_note_raw): New function.
+	(link_insn_into_chain): New static inline function.
+	(add_insn): Use it.
+	(add_insn_before, add_insn_after): Factor insn chain linking code...
+	(add_insn_before_nobb, add_insn_after_nobb): ...here, new functions
+	using link_insn_into_chain.
+	(note_outside_basic_block_p): New helper function for emit_note_after
+	and emit_note_before.
+	(emit_note_after): Use nobb variant of add_insn_after if the note
+	should not be contained in a basic block.
+	(emit_note_before): Use nobb variant of add_insn_before if the note
+	should not be contained in a basic block.
+	(emit_note_copy): Use make_note_raw.
+	(emit_note): Likewise.
+	* bb-reorder.c (insert_section_boundary_note): Remove hack to set
+	BLOCK_FOR_INSN to NULL manually for NOTE_INSN_SWITCH_TEXT_SECTIONS.
+	* jump.c (cleanup_barriers): Use reorder_insns_nobb to avoid making
+	the moved barrier the tail of the basic block it follows.
+	* var-tracking.c (pass_variable_tracking): Add TODO_verify_flow.
+
 2013-04-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/56962
