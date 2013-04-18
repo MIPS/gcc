@@ -1209,7 +1209,8 @@ strip_typedefs (tree t)
     case TYPENAME_TYPE:
       {
 	tree fullname = TYPENAME_TYPE_FULLNAME (t);
-	if (TREE_CODE (fullname) == TEMPLATE_ID_EXPR)
+	if (TREE_CODE (fullname) == TEMPLATE_ID_EXPR
+	    && TREE_OPERAND (fullname, 1))
 	  {
 	    tree args = TREE_OPERAND (fullname, 1);
 	    tree new_args = copy_node (args);
@@ -1228,8 +1229,13 @@ strip_typedefs (tree t)
 		  changed = true;
 	      }
 	    if (changed)
-	      fullname = lookup_template_function (TREE_OPERAND (fullname, 0),
-						   new_args);
+	      {
+		NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_args)
+		  = NON_DEFAULT_TEMPLATE_ARGS_COUNT (args);
+		fullname
+		  = lookup_template_function (TREE_OPERAND (fullname, 0),
+					      new_args);
+	      }
 	    else
 	      ggc_free (new_args);
 	  }
@@ -1362,8 +1368,8 @@ strip_typedefs_expr (tree t)
 	    r = copy_node (t);
 	    for (i = 0; i < n; ++i)
 	      TREE_VEC_ELT (r, i) = VEC_index (tree, vec, i);
-	    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
-	      (r, GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (t));
+	    NON_DEFAULT_TEMPLATE_ARGS_COUNT (r)
+	      = NON_DEFAULT_TEMPLATE_ARGS_COUNT (t);
 	  }
 	else
 	  r = t;
