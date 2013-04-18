@@ -1,3 +1,177 @@
+2013-04-18   Cary Coutant  <ccoutant@google.com>
+
+	* g++.dg/debug/dwarf2/typedef2.C: Add -fno-debug-types-section flag.
+	* g++.dg/debug/dwarf2/typedef4.C: Likewise.
+	* g++.dg/debug/dwarf2/static-data-member1.C: Likewise.
+	* g++.dg/debug/dwarf2/global-used-types-1.C: Likewise.
+	* g++.dg/debug/dwarf2/self-ref-1.C: Likewise.
+	* g++.dg/debug/dwarf2/nested-2.C: Likewise.
+	* g++.dg/debug/dwarf2/typedef1.C: Likewise.
+	* g++.dg/debug/dwarf2/namespace-2.C: Likewise.
+	* g++.dg/debug/dwarf2/integer-typedef.C: Likewise.
+	* g++.dg/debug/dwarf2/self-ref-2.C: Likewise.
+	* g++.dg/debug/dwarf2/explicit-constructor.C: Likewise.
+
+2013-04-18  Grigoriy Kraynov  <grigoriy.kraynov@intel.com>
+
+	* gcc.target/i386/avx2-vpop-check.h: volatility is casted away in
+	memcmp().
+
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56984
+	* gcc.c-torture/compile/pr56984.c: New test.
+
+	PR rtl-optimization/56992
+	* gcc.dg/pr56992.c: New test.
+
+2013-04-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56814
+	* gfortran.dg/proc_ptr_42.f90: New.
+
+2013-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr41.ad[sb]: New test.
+	* gcc.dg/tree-ssa/ssa-fre-38.c: Likewise.
+	* gcc.dg/vect/slp-24-big-array.c: Beef up anti-vectorization trick.
+	* gcc.dg/vect/slp-24.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i2-gap.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap7-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap7.c: Likewise.
+	* gcc.dg/vect/vect-strided-mult-char-ls.c: Likewise.
+	* gcc.dg/vect/vect-strided-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-same-dr.c: Likewise.
+	* gcc.dg/vect/vect-strided-u16-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u16-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u32-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u32-i8.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i2-gap.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4-unknown.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap7-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap7.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8.c: Likewise.
+
+2013-04-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/40958
+	* lib/gcc-dg.exp (scan-module): Uncompress module file before scanning.
+	* gfortran.dg/module_md5_1.f90: Remove.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/aarch64/adds3.c: New.
+	* gcc.target/aarch64/subs3.c: New.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/aarch64/adds1.c: New.
+	* gcc.target/aarch64/adds2.c: New.
+	* gcc.target/aarch64/subs1.c: New.
+	* gcc.target/aarch64/subs2.c: New.
+
+2013-04-16  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement n3599 - Literal operator templates for strings.
+	* g++.dg/cpp1y/udlit-char-template.C: New test.
+	* g++.dg/cpp1y/udlit-char-template-neg.C: New test.
+
+2013-04-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39505
+	* gfortran.dg/no_arg_check_1.f90: New.
+	* gfortran.dg/no_arg_check_2.f90: New.
+	* gfortran.dg/no_arg_check_3.f90: New.
+
+2013-04-16  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56968
+	* gfortran.dg/proc_ptr_41.f90: New.
+
+2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56756
+	* gcc.dg/torture/pr56756.c: New testcase.
+
+2013-04-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56969
+	* gfortran.dg/c_assoc_5.f90: New.
+
+2013-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/ipa/devirt-c-7.C: Require nonpic effective target.
+	* gcc.c-torture/execute/pr33992.x: Remove.
+	* gcc.c-torture/execute/pr33992.c (foo): Declare as static.
+	* gcc.dg/uninit-pred-5_a.c (foo): Ditto.
+	* gcc.dg/uninit-pred-5_b.c (foo): Ditto.
+
+2013-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56962
+	* gcc.c-torture/execute/pr56962.c: New test.
+
+2013-04-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56933
+	* gcc.dg/vect/pr56933.c: New testcase.
+
+2013-04-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/anddi3-opt.c: New test.
+	* gcc.target/arm/anddi3-opt2.c: Likewise.
+
+2013-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr56890-1.c: New test.
+	* gcc.dg/pr56890-2.c: Likewise.
+
+2013-04-15  Joey Ye  <joey.ye@arm.com>
+
+	* gcc.target/arm/thumb1-far-jump-1.c: New test.
+	* gcc.target/arm/thumb1-far-jump-2.c: New test.
+
+2013-04-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56816
+	* gfortran.dg/select_type_33.f03: New test.
+
+2013-04-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55959
+	* gfortran.dg/typebound_proc_29.f03: New.
+
+2013-04-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56266
+	* gfortran.dg/typebound_proc_28.f03: New.
+
+2013-04-12  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/vrp87.c: Do not run test on ppc and xtensa
+	either.
+
+2013-04-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56929
+	* gfortran.dg/coarray/alloc_comp_2.f90: New.
+
+2013-04-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/56903
+	* gcc.target/i386/pr56903.c: New test.
+
 2013-04-12  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/56261
@@ -56,7 +230,7 @@
 
 	* gcc.dg/fold-cstvecshift.c: New testcase.
 
-2013-04-11   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+2013-04-11  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/negs.c: New.
 
@@ -780,7 +954,7 @@
 	* gcc.dg/vect/vect-outer-3a-big-array.c: Adjust.
 	* gcc.dg/vect/vect-outer-3a.c: Likewise.
 
-2013-03-21   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+2013-03-21  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/vect.c: Test and result vector added
 	for sabd and saba instructions.

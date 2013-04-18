@@ -1,3 +1,104 @@
+2013-04-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56994
+	* invoke.texi (NEAREST): S argument is not optional.
+
+2013-04-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56814
+	* interface.c (check_result_characteristics): Get result from interface
+	if present.
+
+2013-04-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/40958
+	* scanner.h: New file.
+	* Make-lang.in: Dependencies on scanner.h.
+	* scanner.c (gfc_directorylist): Move to scanner.h.
+	* module.c: Don't include md5.h, include scanner.h and zlib.h.
+	(MOD_VERSION): Add comment about backwards compatibility.
+	(module_fp): Change type to gzFile.
+	(ctx): Remove.
+	(gzopen_included_file_1): New function.
+	(gzopen_included_file): New function.
+	(gzopen_intrinsic_module): New function.
+	(write_char): Use gzputc.
+	(read_crc32_from_module_file): New function.
+	(read_md5_from_module_file): Remove.
+	(gfc_dump_module): Use gz* functions instead of stdio, check gzip
+	crc32 instead of md5.
+	(read_module_to_tmpbuf): Use gz* functions instead of stdio.
+	(gfc_use_module): Use gz* functions.
+
+2013-04-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39505
+	* decl.c (ext_attr_list): Add EXT_ATTR_NO_ARG_CHECK.
+	* gfortran.h (ext_attr_id_t): Ditto.
+	* gfortran.texi (GNU Fortran Compiler Directives):
+	Document it.
+	* interface.c (compare_type_rank): Ignore rank for NO_ARG_CHECK.
+	(compare_parameter): Ditto - and regard as unlimited polymorphic.
+	* resolve.c (resolve_symbol, resolve_variable): Add same constraint
+	checks as for TYPE(*); turn dummy to TYPE(*),dimension(*).
+	(gfc_explicit_interface_required): Require explicit interface
+	for NO_ARG_CHECK.
+
+2013-04-16  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56968
+	* expr.c (gfc_check_pointer_assign): Handle generic functions returning
+	procedure pointers.
+
+2013-04-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56969
+	* intrinsic.c (gfc_intrinsic_func_interface): Don't set
+	module name to "(intrinsic)" for intrinsics from intrinsic
+	modules.
+
+2013-04-15  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (SYSTEM_CLOCK): Recommend kind=8.
+
+2013-04-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/56919
+	* intrinsics.texi (SYSTEM_CLOCK): Update documentation.
+
+2013-04-15  Tobias Burnus  <burnus@net-b.de>
+
+	* class.c (gfc_find_intrinsic_vtab): Removed unused var.
+	* dependency.c (check_data_pointer_types): Fix check.
+	* frontend-passes.c (check_data_pointer_types): Remove
+	superfluous statement.
+	* parse.c (decode_omp_directive): Add missing break.
+	* resolve.c (resolve_typebound_subroutine: Free variable.
+	* trans-decl.c (create_function_arglist): Correct condition.
+
+2013-04-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56816
+	* match.c (gfc_match_select_type): Add syntax error. Move namespace
+	allocation and cleanup...
+	* parse.c (decode_statement): ... here.
+
+2013-04-13  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55959
+	* expr.c (gfc_simplify_expr): Branch is not unreachable.
+
+2013-04-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56266
+	* primary.c (gfc_match_varspec): Turn gcc_assert into MATCH_ERROR.
+
+2013-04-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56929
+	* trans-array.c (duplicate_allocatable): Fix handling
+	of scalar coarrays.
+
 2013-04-12  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/56261

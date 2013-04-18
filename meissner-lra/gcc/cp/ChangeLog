@@ -1,3 +1,26 @@
+2013-04-16  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement n3599 - Literal operator templates for strings.
+	* parser.c (make_string_pack (tree value)): New function.
+	(cp_parser_userdef_string_literal (cp_token *)): Use it
+	to construct calls to character string literal operator templates.
+	(cp_parser_template_declaration_after_export): Check for new string
+	literal operator template parameter form.
+
+2013-04-15  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (tsubst) [DECLTYPE_TYPE]: Use tsubst_copy_and_build.
+
+	PR c++/52748
+	* pt.c (tsubst) [DECLTYPE_TYPE]: If ~id is an expression
+	rather than a destructor name, it isn't an unqualified-name.
+	(tsubst_copy_and_build): Pass down decltype_flag to operator
+	handling code, too.
+
+	PR c++/56388
+	* semantics.c (insert_capture_proxy): Just use index 1 in the
+	stmt_list_stack.
+
 2013-04-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* error.c (cp_print_error_function,
