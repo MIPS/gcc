@@ -1,0 +1,977 @@
+2012-11-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 193345.
+	* REVISION: Update subversion id.
+
+2012-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2012-07-16  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* opts.c (default_option): Add -fvect-cost-model to default options
+	at -O3 and above.
+
+2012-08-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 190265.
+	* REVISION: Update subversion id.
+
+2012-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 189305.
+	* REVISION: Update subversion id.
+
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* tree-ssa-phiopt.c (hoist_adjacent_loads): Skip virtual phis;
+	correctly set bb_for_def[12].
+
+2012-06-12  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	* opts.c: Add -fhoist-adjacent-loads to -O2 and above.
+	* tree-ssa-phiopt.c (tree_ssa_phiopt_worker): Add argument to forward
+	declaration.
+	(hoist_adjacent_loads, gate_hoist_loads): New forward declarations.
+	(tree_ssa_phiopt): Call gate_hoist_loads.
+	(tree_ssa_cs_elim): Add parm to tree_ssa_phiopt_worker call.
+	(tree_ssa_phiopt_worker): Add do_hoist_loads to formal arg list; call
+	hoist_adjacent_loads.
+	(local_mem_dependence): New function.
+	(hoist_adjacent_loads): Likewise.
+	(gate_hoist_loads): Likewise.
+	* common.opt (fhoist-adjacent-loads): New switch.
+	* Makefile.in (tree-ssa-phiopt.o): Added dependencies.
+
+2012-06-11  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/476.opt: Use correct Init value.
+
+2012-06-06  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+
+	2011-11-02  Peter Bergner  <bergner@vnet.ibm.com>
+		    Iain Sandoe  <iains@gcc.gnu.org>
+
+	* config/rs6000/rs6000.c (USE_HIDDEN_LINKONCE): New define.
+	(get_ppc476_thunk_name): Use it.
+	(rs6000_code_end): Likewise.
+	(macho_branch_islands): Fix typo.
+
+	2011-11-02  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_code_end): Declare ATTRIBUTE_UNUSED.
+
+	2011-11-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config.gcc (powerpc*-*-linux*): Add powerpc*-*-linux*ppc476* variant.
+	* config/rs6000/476.h: New file.
+	* config/rs6000/476.opt: Likewise.
+	* config/rs6000/rs6000.h (TARGET_LINK_STACK): New define.
+	(SET_TARGET_LINK_STACK): Likewise.
+	(TARGET_ASM_CODE_END): Define.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Enable
+	TARGET_LINK_STACK for -mtune=476 and -mtune=476fp.
+	(rs6000_legitimize_tls_address): Emit the link stack preserving GOT
+	code if TARGET_LINK_STACK.
+	(rs6000_emit_load_toc_table): Likewise.
+	(output_function_profiler): Likewise
+	(macho_branch_islands): Likewise
+	(machopic_output_stub): Likewise
+	(get_ppc476_thunk_name): New function.
+	(rs6000_code_end): Likewise.
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1, load_toc_v4_PIC_1b):
+	Convert to a define_expand.
+	(load_toc_v4_PIC_1_normal): New define_insn.
+	(load_toc_v4_PIC_1_476): Likewise.
+	(load_toc_v4_PIC_1b_normal): Likewise.
+	(load_toc_v4_PIC_1b_476): Likewise.
+
+2012-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 188250.
+	* REVISION: Update subversion id.
+
+2012-06-04  Pat Haugen <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2012-05-24  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Change
+	rs6000_sched_costly_dep default to true_store_to_load_dep_costly.
+	(adjacent_mem_locations): Move some code to and call...
+	(get_memref_parts): ...new function.
+	(mem_locations_overlap): New function.
+	(rs6000_adjust_priority): Adjust calls to is_load_insn/is_store_insn.
+	(is_mem_ref): Rename to...
+	(find_mem_ref): ...this. Return MEM rtx.
+	(get_store_dest): Remove function.
+	(is_load_insn1, is_load_insn, is_store_insn1, is_store_insn): Add
+	new parameter and adjust calls.
+	(rs6000_is_costly_dependence): Update calls for extra arg. Make sure
+	mem refs overlap for true_store_to_load_dep_costly.
+	(rs6000_sched_reorder2): Update calls for extra arg. Adjust args
+	passed to adjacent_mem_locations.
+	(is_costly_group): Walk resolved dependency list.
+	(force_new_group): Emit group ending nop for Power6/Power7.
+	* config/rs6000/rs6000.md (UNSPEC_GRP_END_NOP): New enum value.
+	(group_ending_nop): New define_insn.
+
+2012-06-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2012-04-11  Peter Bergner  <bergner@vnet.ibm.com>
+		    Michael Matz  <matz@suse.de>
+
+	PR target/16458
+	* rtlanal.c (unsigned_reg_p): New function.
+	Update copyright notice dates.
+	* rtl.h (unsigned_reg_p): Prototype it.
+	Update copyright notice dates.
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Use it.
+	Update comment.
+	* expr.c (expand_expr_real_1): Set register attributes.
+	* stmt.c (expand_case): Likewise.
+
+2012-05-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 188031.
+	* REVISION: Update subversion id.
+
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 187135 (pick up PR target/53199).
+	* REVISION: Update subversion id.
+
+2012-04-23  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 186704 (pick up PR lto/48246).
+	* REVISION: Update subversion id.
+
+2012-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 186580 (pick up PR target/52775).
+	* REVISION: Update subversion id.
+
+2012-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 185896.
+	* REVISION: Update subversion id.
+
+2012-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 185014 (which picks up the fix for PR target/50310).
+	* REVISION: Update subversion id.
+
+2012-02-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+
+	PR tree-optimization/52424
+	* tree-ssa-dom.c (dom_opt_leave_block): Push a marker before
+	calling dom_thread_across_edge.
+
+2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 184287 (to get fix for PR 52199).
+	* REVISION: Update subversion id.
+
+2012-02-14  Bill Schmidt <wschmidt@linux.vnet.ibm.com>
+	    Ira Rosen <irar@il.ibm.com>
+
+	PR tree-optimization/50031
+	PR tree-optimization/50969
+	* targhooks.c (default_builtin_vectorization_cost): Handle
+	vec_promote_demote.
+	* target.h (enum vect_cost_for_stmt): Add vec_promote_demote.
+	* tree-vect-loop.c (vect_get_single_scalar_iteraion_cost): Handle
+	all types of reduction and pattern statements.
+	(vect_estimate_min_profitable_iters): Likewise.
+	* tree-vect-stmts.c (vect_model_promotion_demotion_cost): New function.
+	(vect_model_store_cost): Use vec_perm rather than vector_stmt for
+	statement cost.
+	(vect_model_load_cost): Likewise.
+	(vect_get_load_cost): Likewise; add dump logic for explicit realigns.
+	(vectorizable_type_demotion): Call vect_model_promotion_demotion_cost.
+	(vectorizable_type_promotion): Likewise.
+	* config/spu/spu.c (spu_builtin_vectorization_cost): Handle
+	vec_promote_demote.
+	* config/i386/i386.c (ix86_builtin_vectorization_cost): Likewise.
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorization_cost): Update
+	vec_perm for VSX and handle vec_promote_demote.
+
+2012-02-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline.
+	2012-02-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_trampoline_init): Fix error
+	message for -mno-pointers-to-nested-function.
+
+2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 184047.
+	* REVISION: Update subversion id.
+
+2012-02-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal):
+	Set rs6000_always_hint to false for 476.
+
+2012-02-02  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from pre-committed mainline patch.
+
+	* config/rs6000/dfp.md (floatdidd2): New define_insn.
+
+2012-01-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49642
+	* ipa-split.c (forbidden_dominators): New variable.
+	(check_forbidden_calls): New function.
+	(dominated_by_forbidden): Likewise.
+	(consider_split): Check for forbidden dominators.
+	(execute_split_functions): Initialize and free forbidden
+	dominators info; call check_forbidden_calls.
+
+2012-01-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 183074.
+	* REVISION: Update subversion id.
+
+	Backport from the mainline
+	2012-01-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add DF
+	reload patterns if -mvsx-scalar-memory.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp): Allow xscvspdp to be
+	generated, even -mno-vsx-scalar-double was used.
+	(vsx_xscvdpsp_scalar): Likewise.
+	(vsx_xscvspdp_scalar2): Likewise.
+
+2011-12-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 182752.
+	* REVISION: Update subversion id.
+
+2011-12-28  Michael Meissner  <meissner@the-meissners.org>
+
+	Merge up to 182713.
+	* REVISION: Update subversion id.
+
+2011-12-09  Michael Meissner  <meissner@the-meissners.org>
+
+	Merge up to 182172.
+	* REVISION: Update subversion id.
+
+	Backport from the mainline
+	2011-12-08  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/rs6000.c (altivec_expand_builtin): Call
+	expand_call to return a valid funciton instead of return
+	cosnt0_rtx/NULL_RTX if there was an error with the builtin.
+	(altivec_expand_ld_builtin): Ditto.
+	(rs6000_inner_target_options): If VSX is selected as a target
+	attribute or pragma, enable ALTIVEC also.
+	(rs6000_pragma_target_parse): Call rs6000_option_override_internal
+	to do all of the standard processing when switching options,
+	including redefining appropriate macros.
+
+2011-12-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2011-12-02  Michael Meissner  <meissner@the-meissners.org>
+
+	PR target/51390
+	* config/rs6000/rs6000.c (def_builtin): Use the correct field to
+	figure out the function's attributes.
+	(struct builtin_description): Mark mask field as const since we no
+	longer need to modify it for SPE and PAIRED builtins.
+
+	2011-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtins.def: Completely rewrite builtin
+	handling to centralize more of the builtins in this file.  Change
+	some builtin enumerations to be more consistant.  Use a new mask
+	to hold the current builtins, including SPE and PAIRED builtins
+	which no longer are set via target_flags masks.  Add
+	-mdebug=builtin debug support.  For power machines, define all
+	Altivec and VSX buitins when the compiler starts, but don't allow
+	the use of a builtin unless the appropriate switch is used, or
+	#pragma GCC target is used to change the options.  If the user
+	uses #pragma GCC target, update the appropriate hardware macros.
+	* common/config/rs6000/rs6000-common.c (rs6000_handle_option): Ditto.
+	* config/rs6000/rs6000.opt (rs6000_builtin_mask): Ditto.
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Ditto.
+	(rs6000_define_or_undefine_macro): Ditto.
+	(rs6000_target_modify_macros): Ditto.
+	(rs6000_cpu_cpp_builtins): Ditto.
+	(altivec_overloaded_builtins): Ditto.
+	(altivec_build_resolved_builtin): Ditto.
+	* config/rs6000/rs6000.c (rs6000_target_modify_macros_ptr): Ditto.
+	(rs6000_builtin_info): Ditto.
+	(def_builtin): Ditto.
+	(enable_mask_for_builtins): Ditto.
+	(DEBUG_FMT_X): Ditto.
+	(rs6000_debug_reg_global): Ditto.
+	(rs6000_builtin_mask_calculate): Ditto.
+	(rs6000_option_override_internal): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+	(rs6000_builtin_vectorized_function): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_dst): Ditto.
+	(bdesc_2arg): Ditto.
+	(builtin_description_predicates): Ditto.
+	(bdesc_altivec_preds): Ditto.
+	(bdesc_spe_predicates): Ditto.
+	(bdesc_spe_evsel): Ditto.
+	(bdesc_paired_preds): Ditto.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_overloaded_builtin_p): Ditto.
+	(rs6000_expand_unop_builtin): Ditto.
+	(bdesc_2arg_spe): Ditto.
+	(spe_expand_builtin): Ditto.
+	(rs6000_invalid_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(spe_init_builtins): Ditto.
+	(paired_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(builtin_function_type): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_builtin_reciprocal): Ditto.
+	(rs6000_builtin_mask_names): Ditto.
+	(rs6000_pragma_target_parse): Ditto.
+	(rs6000_function_specific_print): Ditto.
+	* config/rs6000/rs6000.h (MASK_DEBUG_BUILTIN): Ditto.
+	(MASK_DEBUG_ALL): Ditto.
+	(TARGET_DEBUG_BUILTIN): Ditto.
+	(TARGET_EXTRA_BUILTINS): Ditto.
+	(REGISTER_TARGET_PRAGMAS): Ditto.
+	(enum rs6000_btc): Ditto.
+	(RS6000_BTC_*): Ditto.
+	(RS6000_BTM_*): Ditto.
+	(enum rs6000_builtins): Ditto.
+	* config/rs6000/rs6000-protos.h (rs6000_overloaded_builtin_p): Ditto.
+	(rs6000_target_modify_macros): Ditto.
+	(rs6000_target_modify_macros_ptr): Ditto.
+
+	* config/rs6000/vector.md (unsfloat<VEC_int><mode>2): Use the
+	standard name for converting vector unsigned values to floating
+	point.  Delete the TARGET_VECTORIZE_BUILTIN_CONVERSION hook, which
+	is handled by machine independent code.
+	* config/rs6000/rs6000.c (TARGET_VECTORIZE_BUILTIN_CONVERSION): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+
+2011-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2011-12-02  Michael Meissner  <meissner@the-meissners.org>
+
+	PR target/51390
+	* config/rs6000/rs6000.c (def_builtin): Use the correct field to
+	figure out the function's attributes.
+	(struct builtin_description): Mark mask field as const since we no
+	longer need to modify it for SPE and PAIRED builtins.
+
+	2011-11-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtins.def: Completely rewrite builtin
+	handling to centralize more of the builtins in this file.  Change
+	some builtin enumerations to be more consistant.  Use a new mask
+	to hold the current builtins, including SPE and PAIRED builtins
+	which no longer are set via target_flags masks.  Add
+	-mdebug=builtin debug support.  For power machines, define all
+	Altivec and VSX buitins when the compiler starts, but don't allow
+	the use of a builtin unless the appropriate switch is used, or
+	#pragma GCC target is used to change the options.  If the user
+	uses #pragma GCC target, update the appropriate hardware macros.
+	* common/config/rs6000/rs6000-common.c (rs6000_handle_option): Ditto.
+	* config/rs6000/rs6000.opt (rs6000_builtin_mask): Ditto.
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): Ditto.
+	(rs6000_define_or_undefine_macro): Ditto.
+	(rs6000_target_modify_macros): Ditto.
+	(rs6000_cpu_cpp_builtins): Ditto.
+	(altivec_overloaded_builtins): Ditto.
+	(altivec_build_resolved_builtin): Ditto.
+	* config/rs6000/rs6000.c (rs6000_target_modify_macros_ptr): Ditto.
+	(rs6000_builtin_info): Ditto.
+	(def_builtin): Ditto.
+	(enable_mask_for_builtins): Ditto.
+	(DEBUG_FMT_X): Ditto.
+	(rs6000_debug_reg_global): Ditto.
+	(rs6000_builtin_mask_calculate): Ditto.
+	(rs6000_option_override_internal): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+	(rs6000_builtin_vectorized_function): Ditto.
+	(bdesc_3arg): Ditto.
+	(bdesc_dst): Ditto.
+	(bdesc_2arg): Ditto.
+	(builtin_description_predicates): Ditto.
+	(bdesc_altivec_preds): Ditto.
+	(bdesc_spe_predicates): Ditto.
+	(bdesc_spe_evsel): Ditto.
+	(bdesc_paired_preds): Ditto.
+	(bdesc_abs): Ditto.
+	(bdesc_1arg): Ditto.
+	(rs6000_overloaded_builtin_p): Ditto.
+	(rs6000_expand_unop_builtin): Ditto.
+	(bdesc_2arg_spe): Ditto.
+	(spe_expand_builtin): Ditto.
+	(rs6000_invalid_builtin): Ditto.
+	(rs6000_expand_builtin): Ditto.
+	(rs6000_init_builtins): Ditto.
+	(spe_init_builtins): Ditto.
+	(paired_init_builtins): Ditto.
+	(altivec_init_builtins): Ditto.
+	(builtin_function_type): Ditto.
+	(rs6000_common_init_builtins): Ditto.
+	(rs6000_builtin_reciprocal): Ditto.
+	(rs6000_builtin_mask_names): Ditto.
+	(rs6000_pragma_target_parse): Ditto.
+	(rs6000_function_specific_print): Ditto.
+	* config/rs6000/rs6000.h (MASK_DEBUG_BUILTIN): Ditto.
+	(MASK_DEBUG_ALL): Ditto.
+	(TARGET_DEBUG_BUILTIN): Ditto.
+	(TARGET_EXTRA_BUILTINS): Ditto.
+	(REGISTER_TARGET_PRAGMAS): Ditto.
+	(enum rs6000_btc): Ditto.
+	(RS6000_BTC_*): Ditto.
+	(RS6000_BTM_*): Ditto.
+	(enum rs6000_builtins): Ditto.
+	* config/rs6000/rs6000-protos.h (rs6000_overloaded_builtin_p): Ditto.
+	(rs6000_target_modify_macros): Ditto.
+	(rs6000_target_modify_macros_ptr): Ditto.
+
+	* config/rs6000/vector.md (unsfloat<VEC_int><mode>2): Use the
+	standard name for converting vector unsigned values to floating
+	point.  Delete the TARGET_VECTORIZE_BUILTIN_CONVERSION hook, which
+	is handled by machine independent code.
+	* config/rs6000/rs6000.c (TARGET_VECTORIZE_BUILTIN_CONVERSION): Ditto.
+	(rs6000_builtin_conversion): Ditto.
+
+2011-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2011-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* builtins.c (set_builtin_user_assembler_name): Remove extra
+	newline added in October 11th, 2011 change.
+
+	2011-10-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Fix typo in my
+	change on October 11th, 2011.
+
+	2011-10-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* tree.h (built_in_decls): Delete old interface with two parallel
+	arrays to hold standard builtin declarations, and replace it with
+	a function based interface that can support creating builtins on
+	the fly in the future.  Change all uses, and poison the old
+	names.  Make sure 0 is not a legitimate builtin index.
+	(implicit_built_in_decls): Ditto.
+	(built_in_info): Ditto.
+	(BUILTIN_VALID_P): Ditto.
+	(builtin_decl_explicit): Ditto.
+	(builtin_decl_implicit): Ditto.
+	(set_builtin_decl): Ditto.
+	(set_builtin_decl_implicit_p): Ditto.
+	(builtin_decl_explicit_p): Ditto.
+	(builtin_decl_implicit_p): Ditto.
+	* tree-complex.c (expand_complex_libcall): Ditto.
+	* tree-loop-distribution.c (generate_memset_zero): Ditto.
+	* tree-ssa-strlen.c (get_string_length): Ditto.
+	(handle_builtin_strcpy): Ditto.
+	(handle_builtin_strcat): Ditto.
+	* tree.c (iterative_hash_expr): Ditto.
+	(local_define_builtin): Ditto.
+	(build_common_builtin_nodes): Ditto.
+	* builtins.c (built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	(built_in_info): Ditto
+	(expand_builtin_classify_type): Ditto.
+	(mathfn_built_in_1): Ditto.
+	(expand_builtin_cexpi): Ditto.
+	(expand_builtin_mempcpy_args): Ditto.
+	(expand_builtin_stpcpy): Ditto.
+	(gimplify_va_arg_expr): Ditto.
+	(expand_builtin_sync_operation): Ditto.
+	(build_builtin_expect_predicate): Ditto.
+	(fold_builtin_memory_op): Ditto.
+	(fold_builtin_strcpy): Ditto.
+	(fold_builtin_stpcpy): Ditto.
+	(fold_builtin_strncpy): Ditto.
+	(fold_builtin_interclass_mathfn): Ditto.
+	(fold_builtin_classify): Ditto.
+	(fold_builtin_2): Ditto.
+	(fold_builtin_strstr): Ditto.
+	(fold_builtin_strrchr): Ditto.
+	(fold_builtin_strpbrk): Ditto.
+	(fold_builtin_strcat): Ditto.
+	(fold_builtin_strncat): Ditto.
+	(fold_builtin_strcspn): Ditto.
+	(fold_builtin_fputs): Ditto.
+	(fold_builtin_sprintf): Ditto.
+	(fold_builtin_snprintf): Ditto.
+	(expand_builtin_memory_chk): Ditto.
+	(fold_builtin_memory_chk): Ditto.
+	(fold_builtin_stxcpy_chk): Ditto.
+	(fold_builtin_strncpy_chk): Ditto.
+	(fold_builtin_strcat_chk): Ditto.
+	(fold_builtin_strncat_chk): Ditto.
+	(fold_builtin_sprintf_chk_1): Ditto.
+	(fold_builtin_snprintf_chk_1): Ditto.
+	(fold_builtin_printf): Ditto.
+	(fold_builtin_fprintf): Ditto.
+	(fold_call_stmt): Ditto.
+	(set_builtin_user_assembler_name): Ditto.
+	* tree-emutls.c (emutls_common_1): Ditto.
+	* omp-low.c (scan_omp): Ditto.
+	(lower_rec_input_clauses): Ditto.
+	(lower_reduction_clauses): Ditto.
+	(expand_parallel_call): Ditto.
+	(expand_task_call): Ditto.
+	(maybe_catch_exception): Ditto.
+	(optimize_omp_library_calls): Ditto.
+	(expand_omp_for_generic): Ditto.
+	(expand_omp_for_static_nochunk): Ditto.
+	(expand_omp_for_static_chunk): Ditto.
+	(expand_omp_sections): Ditto.
+	(expand_omp_atomic_fetch_op): Ditto.
+	(expand_omp_atomic_pipeline): Ditto.
+	(expand_omp_atomic_mutex): Ditto.
+	(lower_omp_single_simple): Ditto.
+	(lower_omp_single_copy): Ditto.
+	(lower_omp_master): Ditto.
+	(lower_omp_ordered): Ditto.
+	(lower_omp_critical): Ditto.
+	* tree-ssa-ccp.c (optimize_stdarg_builtin): Ditto.
+	* builtins.c (DEF_BUILTIN_STUB): Ditto.
+	(BUILT_IN_NONE): Ditto.
+	* tree-ssa-math-opts.c (execute_optimize_bswap): Ditto.
+	* gimple-low.c (lower_function_body): Ditto.
+	(lower_builtin_setjmp): Ditto.
+	* c-decl.c (merge_decls): Ditto.
+	* tree-eh.c (lower_resx): Ditto.
+	(lower_resx): Ditto.
+	(lower_eh_dispatch): Ditto.
+	* function (gimplify_parameters): Ditto.
+	* c-typeck.c (build_function_call_vec): Ditto.
+	* gimplify.c (build_stack_save_restore): Ditto.
+	(gimplify_vla_decl): Ditto.
+	(gimplify_modify_expr_to_memcpy): Ditto.
+	(gimplify_modify_expr_to_memset): Ditto.
+	(gimplify_variable_sized_compare): Ditto.
+	(gimplify_function_tree): Ditto.
+	* calls.c (emit_call_1): Ditto.
+	* tree-ssa-forprop.c (simplify_builtin_call): Ditto.
+	* tree-nested.c (convert_nl_goto_reference): Ditto.
+	(convert_tramp_reference_op): Ditto.
+	(finalize_nesting_tree_1): Ditto.
+	* tree-ssa-loop-prefetch.c (issue_prefetch_ref): Ditto.
+	(tree_ssa_prefetch_arrays): Ditto.
+	* tree-streamer-in.c (streamer_get_builtin_tree): Ditto.
+	* system.h (built_in_decls): Ditto.
+	(implicit_built_in_decls): Ditto.
+	* tree-vect-generic.c (expand_vector_operations_1): Ditto.
+	* config/sparc/sparc.c (sparc_gimplify_va_arg): Ditto.
+	* config/i386/i386.c (ix86_gimplify_va_arg): Ditto.
+	(ix86_veclibabi_svml): Ditto.
+	(ix86_veclibabi_acml): Ditto.
+	* config/vms/vms.c (vms_patch_builtins): Ditto.
+	* config/ia64/ia64.c (ia64_init_builtins): Ditto.
+	* config/rs6000/rs6000.c (rs6000_gimplify_va_arg): Ditto.
+	(rs6000_builtin_vectorized_libmass): Ditto.
+	(rs6000_init_builtins): Ditto.
+	* config/darwin.c (darwin_override_options): Ditto.
+	(darwin_patch_builtin): Ditto.
+	(darwin_rename_builtins): Ditto.
+	* config/pa/pa.c (pa_init_builtins): Ditto.
+
+2011-11-07  Alan Modra  <amodra@gmail.com>
+
+	PR target/30282
+	* config/rs6000/rs6000.c (rs6000_emit_stack_reset): Always emit
+	blockage for ABI_V4.
+
+2011-10-11  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* mangle.c (write_type): Handle CV qualifiers for decimal classes.
+
+2011-09-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* graphite-scop-detection.c (make_close_phi_nodes_unique):  New
+	forward declaration.
+	(remove_duplicate_close_phi): Detect and repair creation of
+	duplicate close-phis for a containing loop.
+
+2011-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 178615.
+	* REVISION: Update subversion id.
+
+	Backport from mainline
+	2011-09-19  Alan Modra  <amodra@gmail.com>
+		    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/50341
+	* config/rs6000/rs6000.md (call_indirect_aix<ptrsize>): Do not
+	split the load of the indirect function's TOC from the call to
+	prevent the compiler from moving the load of the new TOC above
+	code that references the current function's TOC.
+	(call_indirect_aix<ptrsize>_internal): Ditto.
+	(call_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_indirect_aix<ptrsize>_internal2): Ditto.
+	(call_value_indirect_aix<ptrsize>): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal): Ditto.
+	(call_value_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal2): Ditto.
+
+2011-08-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-08-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-msave-toc-indirect): Change default
+	to off.  Document switch.
+	* doc/invoke.texi (-msave-toc-indirect): Ditto.
+
+2011-08-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r177731
+	2011-08-13  David Li  <davidxl@google.com>
+
+	* cp/class.c (update_vtable_entry_for_fn): Correctly set
+	BV_LOST_PRIMARY.
+
+2011-08-12  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Apply force_reg
+	to addr.
+
+2011-08-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Handle V2DI mode.
+	create invalid offset address for vsx splat insn.
+	* config/rs6000/predicates.md (splat_input_operand): Return
+	indexed_or_indirect_address() for MEM ops.
+
+========== AT 5.0 release, subversion id 176948. ==========
+
+2011-07-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49749
+	* tree-ssa-reassoc.c (get_rank): New forward declaration.
+	(PHI_LOOP_BIAS): Changed value.
+	(phi_loop_bias): Replaced with...
+	(phi_rank): ...this new function.
+	(loop_carried_phi): New function.
+	(propagate_rank): Likewise.
+	(get_rank): Replace loop-biasing expression with call to phi_rank;
+	remove variable maxrank; replace propagation logic with calls to
+	propagate_rank.
+
+2011-07-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49749
+	* tree-ssa-reassoc.c (PHI_LOOP_BIAS): New constant.
+	(phi_loop_bias): New function.
+	(get_rank): Bias rank upward for loop-carried dependencies; fix
+	errors in operand scan conditions.
+
+2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_fma*): Use 4 argument fma instructions
+	where we can use them from the standard and altivec instruction
+	sets, instead of always using the 3 operand VSX forms that require
+	the destination to overlap one of the inputs.
+	(vsx_fms*): Ditto.
+	(vsx_fnma*): Ditto.
+	(vsx_fnms*): Ditto.
+
+	* config/rs6000/rs6000.md (fmadf4_fpr): Set fp_type fp_maddsub_d
+	for DF types.
+	(fmsdf4_fpr): Ditto.
+	(nfmadf4_fpr): Ditto.
+	(nfmsdf4_fpr): Ditto.
+
+2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mpointers-to-nested-functions):
+	Rename -mr11.
+	* config/rs6000/rs6000.c (rs6000_trampoline_init): Ditto.
+	(rs6000_call_indirect_aix): Ditto.
+	* config/rs6000/rs6000.md (call_indirect_aix<ptrsize>): Ditto.
+	(call_indirect_aix<ptrsize>_internal): Ditto.
+	(call_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_indirect_aix<ptrsize>_internal2): Ditto.
+	(call_value_indirect_aix<ptrsize>): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal): Ditto.
+	(call_value_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal2): Ditto.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Ditto.
+
+2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_call_indirect_aix): New
+	declaration.
+	(rs6000_save_toc_in_prologue_p): Ditto.
+
+	* config/rs6000/rs6000.opt (-mr11): New switch to disable loading
+	up the static chain (r11) during indirect function calls.
+	(-msave-toc-indirect): New undocumented debug switch.
+
+	* config/rs6000/rs6000.c (struct machine_function): Add
+	save_toc_in_prologue field to note whether the prologue needs to
+	save the TOC value in the reserved stack location.
+	(rs6000_emit_prologue): Use TOC_REGNUM instead of 2.  If we need
+	to save the TOC in the prologue, do so.
+	(rs6000_trampoline_init): Don't allow creating AIX style
+	trampolines if -mno-r11 is in effect.
+	(rs6000_call_indirect_aix): New function to create AIX style
+	indirect calls, adding support for -mno-r11 to suppress loading
+	the static chain, and saving the TOC in the prologue instead of
+	the call body.
+	(rs6000_save_toc_in_prologue_p): Return true if we are saving the
+	TOC in the prologue.
+
+	* config/rs6000/rs6000.md (STACK_POINTER_REGNUM): Add more fixed
+	register numbers.
+	(TOC_REGNUM): Ditto.
+	(STATIC_CHAIN_REGNUM): Ditto.
+	(ARG_POINTER_REGNUM): Ditto.
+	(SFP_REGNO): Delete, unused.
+	(TOC_SAVE_OFFSET_32BIT): Add constants for AIX TOC save and
+	function descriptor offsets.
+	(TOC_SAVE_OFFSET_64BIT): Ditto.
+	(AIX_FUNC_DESC_TOC_32BIT): Ditto.
+	(AIX_FUNC_DESC_TOC_64BIT): Ditto.
+	(AIX_FUNC_DESC_SC_32BIT): Ditto.
+	(AIX_FUNC_DESC_SC_64BIT): Ditto.
+	(ptrload): New mode attribute for the appropriate load of a
+	pointer.
+	(call_indirect_aix32): Delete, rewrite AIX indirect function
+	calls.
+	(call_indirect_aix64): Ditto.
+	(call_value_indirect_aix32): Ditto.
+	(call_value_indirect_aix64): Ditto.
+	(call_indirect_nonlocal_aix32_internal): Ditto.
+	(call_indirect_nonlocal_aix32): Ditto.
+	(call_indirect_nonlocal_aix64_internal): Ditto.
+	(call_indirect_nonlocal_aix64): Ditto.
+	(call): Rewrite AIX indirect function calls.  Add support for
+	eliminating the static chain, and for moving the save of the TOC
+	to the function prologue.
+	(call_value): Ditto.
+	(call_indirect_aix<ptrsize>): Ditto.
+	(call_indirect_aix<ptrsize>_internal): Ditto.
+	(call_indirect_aix<ptrsize>_internal2): Ditto.
+	(call_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_value_indirect_aix<ptrsize>): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal): Ditto.
+	(call_value_indirect_aix<ptrsize>_internal2): Ditto.
+	(call_value_indirect_aix<ptrsize>_nor11): Ditto.
+	(call_nonlocal_aix32): Relocate in the rs6000.md file.
+	(call_nonlocal_aix64): Ditto.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Add -mr11 and
+	-mno-r11 documentation.
+
+2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 175885.
+	* REVISION: Update subversion id.
+
+	Backport from the mainline:
+	2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* params.def (PARAM_CASE_VALUES_THRESHOLD): New parameter to
+	override CASE_VALUES_THRESHOLD.
+
+	* stmt.c (toplevel): Include params.h.
+	(case_values_threshold): Use the --param case-values-threshold
+	value if non-zero, otherwise use machine dependent value.
+	(expand_case): Use case_values_threshold.
+
+	* Makefile.in (stmt.o): Add $(PARAMS_H) dependency.
+
+	* doc/invoke.texi (--param case-values-threshold): Document.
+
+2011-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 175762.
+	* REVISION: Update subversion id.
+
+2011-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 174573.
+	* REVISION: Update subversion id.
+
+2011-06-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 174572.
+	* REVISION: Update subversion id.
+
+2011-05-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 174363.
+	* REVISION: Update subversion id.
+
+2011-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 174299.
+	* REVISION: Update subversion id.
+
+2011-05-19  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/t-linux64 (MULTILIB_OPTIONS): Remove soft-float support.
+	(MULTILIB_DIRNAMES): Likewise.
+	(MULTILIB_EXCEPTIONS): Likewise.
+	(MULTILIB_EXCLUSIONS): Likewise.
+	(MULTILIB_OSDIRNAMES): Likewise.
+	(MULTILIB_MATCHES): Likewise.
+
+2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173634 (fix PR 48857).
+	* REVISION: Update subversion id.
+
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173137.
+	* REVISION: Update subversion id.
+
+	Backport from mainline
+	2011-03-26  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (word_offset_memref_op): Handle
+	cmodel medium addresses.
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Handle misaligned
+	64-bit gpr loads and stores.
+	(rs6000_secondary_reload_ppc64): New function.
+	* config/rs6000/rs6000-protos.h: Declare it.
+	* config/rs6000/rs6000.md (reload_di_store, reload_di_load): New.
+
+2011-04-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173048.
+	* REVISION: Update subversion id.
+
+2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48258
+	* config/rs6000/vector.md (UNSPEC_REDUC): New unspec for vector
+	reduction.
+	(VEC_reduc): New code iterator and splitters for vector reduction.
+	(VEC_reduc_name): Ditto.
+	(VEC_reduc_rtx): Ditto.
+	(reduc_<VEC_reduc_name>_v2df): Vector reduction expanders for VSX.
+	(reduc_<VEC_reduc_name>_v4sf): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for extracting SF on VSX.
+
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): New insn for
+	generating xscvspdp.
+	(vsx_extract_v4sf): New insn to extract SF from V4SF vector.
+	(vsx_reduc_<VEC_reduc_name>_v2df): New insns and splitters for
+	double add, minimum, maximum vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf): Ditto.
+	(vsx_reduc_<VEC_reduc_name>_v2df2_scalar): New combiner insn to
+	optimize double vector reduction.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Ditto.
+
+2011-04-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 172725.
+	* REVISION: Update subversion id.
+
+2011-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 172515.
+	* REVISION: Update subversion id.
+
+2011-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 172266.
+	* REVISION: Update subversion id.
+
+2011-04-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 172195.
+	* REVISION: Update subversion id.
+
+2011-04-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 172055.
+	* REVISION: Update subversion id.
+
+2011-03-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 171704.
+	* REVISION: Update subersion id.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (UNSPEC_*, UNSPECV_*): Redefine all
+	UNSPEC constants to be in the unspec enumeration, and redefine
+	all UNSPECV constants to be in the unspecv enumeration, so that
+	dumps print which unspec/unspec_volatile this is.
+	* config/rs6000/vector.md (UNSPEC_*): Ditto.
+	* config/rs6000/paired.md (UNSPEC_*): Ditto.
+	* config/rs6000/vsx.md (UNSPEC_*): Ditto.
+	* config/rs6000/altivec.md (UNSPEC_*, UNSPECV_*): Ditto.
+	* config/rs6000/dfp.md (UNSPEC_*): Ditto.
+
+	* config/rs6000/rs6000.md (UNSPECV_ISYNC, UNSPECV_LWSYNC): Rename
+	UNSPEC_ISYNC and UNSPEC_HWSYNC to UNSPECV_ISYNC and
+	UNSPECV_LWSYNC, since these are used as unspec_volatile.
+	* config/rs6000/sync.md (isync, lwsync): Ditto.
+
+	Backport from mainline
+	2011-03-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48226
+	* config/rs6000/rs6000-c.c (rs6000_macro_to_expand): If we see a
+	vector when peeking at the next token for vector, don't expand the
+	keywords.
+
+	Backport from mainline
+	2011-03-16  Alan Modra  <amodra@gmail.com>
+
+	PR target/45844
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Don't
+	create invalid offset address for vsx splat insn.
+	* config/rs6000/predicates.md (splat_input_operand): New.
+	* config/rs6000/vsx.md (vsx_splat_*): Use it.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Branch from gcc-4_6-branch, subversion id 171614.
+	* REVISION: New file.
+

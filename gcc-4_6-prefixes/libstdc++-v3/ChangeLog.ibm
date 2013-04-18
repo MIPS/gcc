@@ -1,0 +1,73 @@
+2012-11-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* include/ext/atomicity.h (__exchange_and_add): Use 1
+	and -1 instead of __val,
+	(__exchange_and_add_nb): Likewise.
+	(__atomic_add): Likewise.
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): Use __asm__ instead of
+	__asm and __volatile__ instead of __volatile.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+	(__rs6000_atomic_fetch_and_add_32): Likewise.
+
+2012-09-05  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
+
+	* src/Makefile.am: Add wstring-inst.cc.
+	* src/Makefile.in: Regenerate.
+	* src/misc-inst.cc: include <ext/vstring.h>.
+	Add vstring getline template specialization.
+	* src/istream.cc: Likewise.
+	* include/std/streambuf: Add declaration of __gnu_cxx::__vstring.
+	Add __vstring getline friend declarations.
+	* src/vstring-inst.cc: New file.
+	* include/ext/vstring.h: Add template for __vstring getline.
+	* config/abi/pre/gnu.ver: Update exports.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Regenerate.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt: Likewise.
+
+2012-07-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* include/decimal/decimal.h (_DEFINE_DECIMAL_UNARY_OP): Use _Op as
+	a unary operator.
+
+2012-05-10  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* include/ext/atomicity.h (__exchange_and_add_nb): New.
+	(__exchange_and_add_dispatch_nb): Likewise.
+	* include/bits/basic_string.h (_M_dispose): Declare inline.
+	Use __exchange_and_add_dispatch_nb and _GLIBCXX_WRITE_MEM_BARRIER;
+	(_M_refcopy): Declare inline.
+	Use __exchange_and_add_dispatch_nb and _GLIBCXX_READ_MEM_BARRIER;
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_32): New define.
+
+2012-04-30  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): Consolidate 32-bit and
+	64-bit versions.
+	Remove use of __typeof.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+
+2012-03-16  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/cpu/powerpc/cpu_defines.h: Remove #ifdef IN_LIBSTDCXX test.
+	* include/ext/atomicity.h: Likewise.
+
+	Revert:
+	2012-02-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* configure.host: Set OPTIMIZE_CXXFLAGS to -DIN_LIBSTDCXX for
+	powerpc*-linux.
+
+2012-02-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* configure.host: Set OPTIMIZE_CXXFLAGS to -DIN_LIBSTDCXX for
+	powerpc*-linux.
+	* config/cpu/powerpc/cpu_defines.h
+	(__rs6000_atomic_fetch_and_add_acquire_32): New define.
+	(__rs6000_atomic_fetch_and_add_release_32): Likewise.
+	* include/ext/atomicity.h (__exchange_and_add): Use them.
+	(__atomic_add): Likewise.

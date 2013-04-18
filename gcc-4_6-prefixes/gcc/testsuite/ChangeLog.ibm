@@ -1,0 +1,117 @@
+2012-07-25  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport prospective patch from mainline
+	PR libstdc++/54036
+	* g++.dg/dfp/pr54036-1.C: New test.
+	* g++.dg/dfp/pr54036-2.C: Likewise.
+	* g++.dg/dfp/pr54036-3.C: Likewise.
+
+2012-06-20  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	PR tree-optimization/53703
+	* gcc.dg/torture/pr53703.c: New test.
+
+2012-06-04  Pat Haugen <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2012-05-24  Pat Haugen <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/lhs-1.c: New.
+	* gcc.target/powerpc/lhs-2.c: New.
+	* gcc.target/powerpc/lhs-3.c: New.
+
+2012-01-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49642
+	* gcc.dg/tree-ssa/pr49642.c: New test.
+
+2011-12-09  Michael Meissner  <meissner@the-meissners.org>
+
+	Backport from trunk
+	2011-12-08  Michael Meissner  <meissner@the-meissners.org>
+
+	* gcc.target/powerpc/recip-5.c: Disable running on any system that
+	does not support VSX.
+
+	Backport from trunk
+	2011-12-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-target-4.c: New file to test target
+	specific functions enabling target specific builtins.
+
+2011-10-11  Peter Bergner  <bergner@vnet.ibm.com>
+
+        Backport from mainline
+	2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* g++.dg/dfp/44473-1.C: New test.
+	* g++.dg/dfp/44473-2.C: New test.
+	* g++.dg/dfp/mangle-1.C: New test.
+	* g++.dg/dfp/mangle-2.C: New test.
+	* g++.dg/dfp/mangle-3.C: New test.
+	* g++.dg/dfp/mangle-4.C: New test.
+	* g++.dg/dfp/mangle-5.C: New test.
+
+2011-09-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	* g++.dg/ext/altivec-17.C: Fix dg-error to match current compiler.
+
+2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-fma-1.c: Adjust to allow non-VSX fmas to
+	be generated.
+	* gcc.target/powerpc/ppc-fma-2.c: Ditto.
+	* gcc.target/powerpc/recip-3.c: Ditto.
+
+2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/no-r11-1.c: Change -mno-r11 to
+	-mno-pointers-to-nested-functions.
+	* gcc.target/powerpc/no-r11-2.c: Ditto.
+	* gcc.target/powerpc/no-r11-3.c: Ditto.
+
+2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/no-r11-1.c: New test for -mr11, -mno-r11.
+	* gcc.target/powerpc/no-r11-2.c: Ditto.
+	* gcc.target/powerpc/no-r11-3.c: Ditto.
+
+2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 175885.
+
+	Backport from mainline
+	2011-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-switch-1.c: New test for
+	--param case-values-threshold.
+	* gcc.target/powerpc/ppc-switch-2.c: Ditto.
+
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 173137.
+
+2011-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48258
+	* gcc.target/powerpc/pr48258-1.c: New file.
+	* gcc.target/powerpc/pr48258-2.c: Ditto.
+
+2011-03-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Branch from gcc-4_6-branch, subversion id 171614.
+
