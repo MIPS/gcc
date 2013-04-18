@@ -3,6 +3,8 @@
 	* cp-array-notation.c (fix_builtin_array_notation_fn): Fixed a bug of
 	switching the true and false condition in array notation reduction
 	functions.
+	(fix_unary_array_notation_exprs): Replaced appending to statement lists
+	with pushing and popping of statements along with add statement.
 
 2013-04-17  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 

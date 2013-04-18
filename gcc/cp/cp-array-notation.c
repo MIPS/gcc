@@ -565,7 +565,7 @@ build_x_array_notation_expr (location_t location, tree lhs,
 	{
 	  new_modify_expr = build_x_modify_expr (location, lhs,
 						 modifycode, rhs, complain);
-	  add_stmt (finish_expr_stmt (new_modify_expr));
+	  finish_expr_stmt (new_modify_expr);
 	  pop_stmt_list (loop);
 	  return loop;
 	}
@@ -1881,9 +1881,9 @@ fix_array_notation_exprs (tree t)
     case STATEMENT_LIST:
       {
 	tree_stmt_iterator i;
+    
 	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
-	  *tsi_stmt_ptr (i) =
-	    fix_array_notation_exprs (*tsi_stmt_ptr (i));
+	  *tsi_stmt_ptr (i) = fix_array_notation_exprs (*tsi_stmt_ptr (i));
 	return t;
       }
 
@@ -2787,8 +2787,8 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 	  else if (builtin_loop)
 	    {
 	      vec<tree, va_gc> *sub_list = NULL, *new_var_list = NULL;
-	      stmt = alloc_stmt_list ();
-	      append_to_statement_list_force (builtin_loop, &stmt);
+	      stmt = push_stmt_list ();
+	      add_stmt (builtin_loop);
 	      vec_safe_push (sub_list, list_node);
 	      vec_safe_push (new_var_list, new_var);
 	      replace_array_notations (&orig_stmt, false, sub_list,
@@ -2797,7 +2797,10 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 	}
     }
   if (stmt != NULL_TREE)
-    append_to_statement_list_force (finish_expr_stmt (orig_stmt), &stmt);
+    {
+      finish_expr_stmt (orig_stmt);
+      stmt = pop_stmt_list (stmt);
+    }
   else
     stmt = orig_stmt;
   rank = 0;
