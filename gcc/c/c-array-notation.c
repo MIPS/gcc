@@ -466,7 +466,10 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
 	{
 	  builtin_loop = fix_builtin_array_notation_fn (rhs_node, &new_var);
 	  if (builtin_loop == error_mark_node)
-	    return error_mark_node;
+	    {
+	      pop_stmt_list (loop);
+	      return error_mark_node;
+	    }
 	  else if (builtin_loop)
 	    {
 	      add_stmt (builtin_loop);
@@ -1884,12 +1887,26 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 || TREE_CODE (func_parm) == NOP_EXPR)
     func_parm = TREE_OPERAND (func_parm, 0);
   
-  find_rank (an_builtin_fn, true, &rank);
+  find_rank (func_parm, false, &rank);
 
   location = EXPR_LOCATION (an_builtin_fn);
  
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      if (an_type == REDUCE_ADD || an_type == REDUCE_MUL
+	  || an_type == REDUCE_MAX  || an_type == REDUCE_MIN 
+	  || an_type == REDUCE_ALL_ZEROS || an_type == REDUCE_ANY_ZEROS
+	  || an_type == REDUCE_ANY_NONZEROS || an_type == REDUCE_ALL_NONZEROS
+	  || an_type == REDUCE_MAX_INDEX || an_type == REDUCE_MIN_INDEX
+	  || an_type == REDUCE_CUSTOM || an_type == REDUCE_MUTATING) 
+	{
+	  error_at (location, "array notation builtin functions cannot have"
+		    " array notation parameter with zero rank");
+	  return error_mark_node;
+	}
+      else 
+	return an_builtin_fn;
+    }
   else if (rank > 1 
 	   && (an_type == REDUCE_MAX_INDEX  || an_type == REDUCE_MIN_INDEX))
     {

@@ -1,3 +1,10 @@
+2013-04-18  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added a check
+	for array notation functions inside array notations.  If so, return an
+	error.
+	(build_array_notation_expr): Fixed a bug and popped a statement list.
+
 2013-04-17  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/c-array-notation.c (build_array_notation_expr): Added a check for

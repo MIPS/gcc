@@ -2096,7 +2096,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 || TREE_CODE (func_parm) == NOP_EXPR)
     func_parm = TREE_OPERAND (func_parm, 0);
   
-  find_rank (an_builtin_fn, false, &rank);
+  find_rank (func_parm, true, &rank);
 
   location = EXPR_LOCATION (an_builtin_fn);
   
@@ -2477,10 +2477,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       /* Initially we assume there are NO zeros in the list. When we find a
 	 non-zero, we keep the previous value. If we find a zero, we set the
 	 value to true.  */
-      new_no_expr = build_x_modify_expr
+      new_yes_expr = build_x_modify_expr
 	(location, *new_var, NOP_EXPR, 
 	 build_one_cst (TREE_TYPE (*new_var)), 1);
-      new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
+      new_no_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       if (ARITHMETIC_TYPE_P (TREE_TYPE (func_parm)))
 	comp_node = build_zero_cst (TREE_TYPE (func_parm));
@@ -2501,10 +2501,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       /* Initially we assume there are NO non-zeros in the list. When we find a
 	 zero, we keep the previous value. If we find a zero, we set the value
 	 to true.  */
-      new_no_expr = build_x_modify_expr
+      new_yes_expr = build_x_modify_expr
 	(location, *new_var, NOP_EXPR, 
 	 build_one_cst (TREE_TYPE (*new_var)), 1);
-      new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
+      new_no_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       if (ARITHMETIC_TYPE_P (TREE_TYPE (func_parm)))
 	comp_node = build_zero_cst (TREE_TYPE (func_parm));
