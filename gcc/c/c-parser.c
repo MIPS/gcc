@@ -11913,22 +11913,6 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
 
   // FIXME: TODO items for remaining parsing duties.
 
-  // FIXME: The specs says "the total number of iterations (loop
-  //        count) can be determined before beginning the loop
-  //        execution".  We should probably wrap the RHS of the
-  //        conditional expression in a SAVE_EXPR and avoid executing
-  //        it multiple times.  And of course, we should write an
-  //        execution test to go along with this.
-  //
-  //        foo < SAVE_EXPR(RHS)
-
-  // FIXME: Similarly for the increment.  The spec says "the increment
-  //        and limit expressions may be evaluated fewer times than in
-  //        the serialization".  We should probably use SAVE_EXPR here
-  //        too.
-  //
-  //        foo += SAVE_EXPR(INCR)
-
   // FIXME: Parse the #<pragma simd> clauses.
 
   // FIXME: Error on RETURN or GOTO within body.  This is probably

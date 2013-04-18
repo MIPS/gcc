@@ -11149,33 +11149,6 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree incr, tree body)
   if (incr == error_mark_node)
     return false;
 
-#if 0
-  // FIXME: There's nothing in the spec specifying that a constant
-  // cannot happen here.
-  /* If the condition is zero don't generate a loop construct.  */
-  if (TREE_CONSTANT (cond))
-    {
-      error_at (EXPR_LOCATION (cond), "constant condition not allowed");
-      return false;
-    }
-  /* FIXME: No need to do this because you won't be able to assign to
-     the read-only variable at parse time anyhow.  There's already an
-     error for this and we have a test for this in
-     cilk-plus/pragma_simd_tests/compile/for2.c.  */
-  if (TREE_CONSTANT (decl) || TREE_READONLY (decl))
-    {
-      error_at (loc, "induction variable cannot be constant or readonly");
-      return false;
-    }
-  /* FIXME: This doesn't look right.  Automatic variables are plain
-     regular local variables.  It doesn't make sense not to allow
-     them.  Must check with standards folks.  */
-  if (decl && DECL_AUTO (decl))
-    {
-      error_at (loc, "induction variable cannot be declared auto");
-      return false;
-    }
-#endif
   return true;
  }
 

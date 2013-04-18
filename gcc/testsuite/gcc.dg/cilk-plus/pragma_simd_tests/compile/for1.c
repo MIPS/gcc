@@ -72,7 +72,8 @@ void foo()
   for (i=0; 1234 + j < i; ++i)
     a[i] = b[i];
 
-  // There is no talk of casts in the specs.  Assume they are not allowed.
+  // According to the CilkPlus forum, casts are not allowed, even if
+  // they are no-ops.
 #pragma simd
   for (i=0; (char)i < 1234; ++i) /* { dg-error "invalid controlling predicate" } */
     a[i] = b[i];
