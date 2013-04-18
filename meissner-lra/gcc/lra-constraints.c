@@ -887,14 +887,6 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
   lra_assert (curr_insn_set != NULL_RTX);
   dreg = dest = SET_DEST (curr_insn_set);
   sreg = src = SET_SRC (curr_insn_set);
-  /* Quick check on the right move insn which does not need
-     reloads.  */
-  if ((dclass = get_op_class (dest)) != NO_REGS
-      && (sclass = get_op_class (src)) != NO_REGS
-      /* The backend guarantees that register moves of cost 2 never
-	 need reloads.  */
-      && targetm.register_move_cost (GET_MODE (src), dclass, sclass) == 2)
-    return true;
   if (GET_CODE (dest) == SUBREG)
     dreg = SUBREG_REG (dest);
   if (GET_CODE (src) == SUBREG)
@@ -902,7 +894,6 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
   if (! REG_P (dreg) || ! REG_P (sreg))
     return false;
   sclass = dclass = NO_REGS;
-  dreg = get_equiv_substitution (dreg);
   if (REG_P (dreg))
     dclass = get_reg_class (REGNO (dreg));
   if (dclass == ALL_REGS)
@@ -916,7 +907,6 @@ check_and_process_move (bool *change_p, bool *sec_mem_p ATTRIBUTE_UNUSED)
     return false;
   sreg_mode = GET_MODE (sreg);
   old_sreg = sreg;
-  sreg = get_equiv_substitution (sreg);
   if (REG_P (sreg))
     sclass = get_reg_class (REGNO (sreg));
   if (sclass == ALL_REGS)
@@ -2693,6 +2683,24 @@ emit_inc (enum reg_class new_rclass, rtx in, rtx value, int inc_amount)
   return result;
 }
 
+/* Return true if the current move insn does not need processing as we
+   already know that it satisfies its constraints.  */
+static bool
+simple_move_p (void)
+{
+  rtx dest, src;
+  enum reg_class dclass, sclass;
+
+  lra_assert (curr_insn_set != NULL_RTX);
+  dest = SET_DEST (curr_insn_set);
+  src = SET_SRC (curr_insn_set);
+  return ((dclass = get_op_class (dest)) != NO_REGS
+	  && (sclass = get_op_class (src)) != NO_REGS
+	  /* The backend guarantees that register moves of cost 2
+	     never need reloads.  */
+	  && targetm.register_move_cost (GET_MODE (src), dclass, sclass) == 2);
+ }
+
 /* Swap operands NOP and NOP + 1. */
 static inline void
 swap_operands (int nop)
@@ -2736,15 +2744,13 @@ curr_insn_transform (void)
   int max_regno_before;
   int reused_alternative_num;
 
+  curr_insn_set = single_set (curr_insn);
+  if (curr_insn_set != NULL_RTX && simple_move_p ())
+    return false;
+
   no_input_reloads_p = no_output_reloads_p = false;
   goal_alt_number = -1;
-
   change_p = sec_mem_p = false;
-  curr_insn_set = single_set (curr_insn);
-  if (curr_insn_set != NULL_RTX
-      && check_and_process_move (&change_p, &sec_mem_p))
-    return change_p;
-
   /* JUMP_INSNs and CALL_INSNs are not allowed to have any output
      reloads; neither are insns that SET cc0.  Insns that use CC0 are
      not allowed to have any input reloads.  */
@@ -2838,6 +2844,10 @@ curr_insn_transform (void)
     /* If we've changed the instruction then any alternative that
        we chose previously may no longer be valid.  */
     lra_set_used_insn_alternative (curr_insn, -1);
+
+  if (curr_insn_set != NULL_RTX
+      && check_and_process_move (&change_p, &sec_mem_p))
+    return change_p;
 
  try_swapped:
 

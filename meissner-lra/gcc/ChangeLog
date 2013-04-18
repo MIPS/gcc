@@ -1,3 +1,12 @@
+2013-04-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (check_and_process_move): Move code for move
+	cost check to simple_move_p.  Remove equiv_substitution.
+	(simple_move_p): New function.
+	(curr_insn_transform): Use the new function.  Move call of
+	check_and_process_move after operand equiv substitution and
+	address process.
+
 2013-04-18  Diego Novillo  <dnovillo@google.com>
 
 	* gimple.c (create_gimple_tmp): New.
