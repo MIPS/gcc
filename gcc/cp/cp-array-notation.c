@@ -55,6 +55,52 @@ struct inv_list
 
 int array_notation_label_no;
 
+/* Returns false if there is a length mismatch among expressions
+   on the same dimension AND the same side of the equal sign.  The exprs are
+   passed in through 2-D array **LIST where X and Y indicate first and
+   second dimension sizes of LIST, respectively.  */
+static bool
+length_mismatch_in_expr_p (location_t loc, tree **list, size_t x, size_t y)
+{
+  size_t ii, jj;
+  tree start = NULL_TREE;
+  HOST_WIDE_INT l_start, l_node;
+  for (jj = 0; jj < y; jj++)
+    {
+      start = NULL_TREE;
+      for (ii = 0; ii < x; ii++)
+	{
+	  if (!start)
+	    start = list[ii][jj];
+	  else if (TREE_CODE (start) == INTEGER_CST)
+	    {
+	    /* If start is a INTEGER, and list[ii][jj] is an integer then
+	       check if they are equal.  If they are not equal then return
+	       true.  */
+	    if (TREE_CODE (list[ii][jj]) == INTEGER_CST)
+	      {
+		l_node = int_cst_value (list[ii][jj]);
+		l_start = int_cst_value (start);
+		if (abs (l_start) != abs (l_node))
+		  {
+		    if (!loc && EXPR_HAS_LOCATION (start))
+		      loc = EXPR_LOCATION (start);
+		    if (!loc && EXPR_HAS_LOCATION (list[ii][jj]))
+		      loc = EXPR_LOCATION (list[ii][jj]);
+		    error_at (loc, "length mismatch in expression");
+		    return true;
+		  }
+	      }
+	    }
+	  else
+	    /* We set the start node as the current node just in case it turns
+	       out to be an integer.  */
+	    start = list[ii][jj];
+	}
+    }
+  return false;
+}
+
 /* Returns the rank of ARRAY through the *RANK.  The user can specify whether
    (s)he wants to step into array_notation-specific builtin functions
    (specified by the IGNORE_BUILTIN_FN).
@@ -437,6 +483,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
   char label_name[50];
   int s_jj = 0;
 
+  if (!location && EXPR_HAS_LOCATION (lhs))
+    location = EXPR_LOCATION (lhs);
   /* In the first part, we try to break up the builtin functions for array
      notations.  */
   find_rank (rhs, false, &rhs_rank);
@@ -517,7 +565,7 @@ build_x_array_notation_expr (location_t location, tree lhs,
 	{
 	  new_modify_expr = build_x_modify_expr (location, lhs,
 						 modifycode, rhs, complain);
-	  add_stmt (finish_expr_stmt (new_modify_expr));
+	  finish_expr_stmt (new_modify_expr);
 	  pop_stmt_list (loop);
 	  return loop;
 	}
@@ -705,6 +753,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
 	      else if (TREE_CODE (ii_tree) == VAR_DECL
 		       || TREE_CODE (ii_tree) == PARM_DECL)
 		break;
+	      else if (TREE_CODE (ii_tree) == CALL_EXPR)
+		break;
 	    }
 	}
     }
@@ -778,6 +828,30 @@ build_x_array_notation_expr (location_t location, tree lhs,
       else
 	rhs_vector[ii][0] = false;
     }
+  if (length_mismatch_in_expr_p (location ? location : EXPR_LOCATION (lhs),
+				 lhs_length, lhs_list_size, lhs_rank)
+      || length_mismatch_in_expr_p (location ? location : EXPR_LOCATION (rhs),
+				    rhs_length, rhs_list_size, rhs_rank))
+    {
+      pop_stmt_list (loop);
+      return error_mark_node;
+    }
+  if (lhs_list_size > 0 && rhs_list_size > 0)
+    if (TREE_CODE (lhs_length[0][0]) == INTEGER_CST
+	&& TREE_CODE (rhs_length[0][0]) == INTEGER_CST)
+      {
+	HOST_WIDE_INT l_length = int_cst_value (lhs_length[0][0]);
+	HOST_WIDE_INT r_length = int_cst_value (rhs_length[0][0]);
+	/* The length can be negative or positive.  As long as the
+	   magnitude is OK, then the array notation is valid.  */
+	if (abs (l_length) != abs (r_length))
+	  {
+	    error_at (location, "length mismatch between LHS and RHS");
+	    pop_stmt_list (loop);
+	    return error_mark_node;
+	  }
+      }
+
    for (ii = 0; ii < lhs_rank; ii++)
     if (lhs_start[0][ii] && TREE_TYPE (lhs_start[0][ii]))
 	lhs_var[ii] =  build_decl (location, VAR_DECL, NULL_TREE,
@@ -964,7 +1038,7 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		      (location, lhs_array_opr,
 		       build2 (MINUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));	
+				       stride)));
 		  else
 		    /* Array[start_index + (induction_var * stride)] */
 		    lhs_array_opr = grok_array_decl
@@ -1046,7 +1120,7 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		      (location, rhs_array_opr,
 		       build2 (MINUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));	
+				       stride)));
 		  else
 		    /* Array[start_index + (induction_var * stride)] */
 		    rhs_array_opr = grok_array_decl
@@ -1803,9 +1877,9 @@ fix_array_notation_exprs (tree t)
     case STATEMENT_LIST:
       {
 	tree_stmt_iterator i;
+    
 	for (i = tsi_start (t); !tsi_end_p (i); tsi_next (&i))
-	  *tsi_stmt_ptr (i) =
-	    fix_array_notation_exprs (*tsi_stmt_ptr (i));
+	  *tsi_stmt_ptr (i) = fix_array_notation_exprs (*tsi_stmt_ptr (i));
 	return t;
       }
 
@@ -2018,12 +2092,26 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 || TREE_CODE (func_parm) == NOP_EXPR)
     func_parm = TREE_OPERAND (func_parm, 0);
   
-  find_rank (an_builtin_fn, false, &rank);
+  find_rank (func_parm, true, &rank);
 
   location = EXPR_LOCATION (an_builtin_fn);
   
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      if (an_type == REDUCE_ADD || an_type == REDUCE_MUL 
+	  || an_type == REDUCE_MAX  || an_type == REDUCE_MIN 
+	  || an_type == REDUCE_ALL_ZEROS || an_type == REDUCE_ANY_ZEROS
+	  || an_type == REDUCE_ANY_NONZEROS || an_type == REDUCE_ALL_NONZEROS
+	  || an_type == REDUCE_MAX_INDEX || an_type == REDUCE_MIN_INDEX
+	  || an_type == REDUCE_CUSTOM || an_type == REDUCE_MUTATING) 
+	{
+	  error_at (location, "array notation builtin functions cannot have"
+		    " array notation parameter with zero rank");
+	  return error_mark_node;
+	}
+      else 
+	return an_builtin_fn;
+    }
   else if (rank > 1 
 	   && (an_type == REDUCE_MAX_INDEX  || an_type == REDUCE_MIN_INDEX))
     { 
@@ -2383,10 +2471,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       /* Initially we assume there are NO zeros in the list. When we find a
 	 non-zero, we keep the previous value. If we find a zero, we set the
 	 value to true.  */
-      new_no_expr = build_x_modify_expr
+      new_yes_expr = build_x_modify_expr
 	(location, *new_var, NOP_EXPR, 
 	 build_one_cst (TREE_TYPE (*new_var)), 1);
-      new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
+      new_no_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       if (ARITHMETIC_TYPE_P (TREE_TYPE (func_parm)))
 	comp_node = build_zero_cst (TREE_TYPE (func_parm));
@@ -2407,10 +2495,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       /* Initially we assume there are NO non-zeros in the list. When we find a
 	 zero, we keep the previous value. If we find a zero, we set the value
 	 to true.  */
-      new_no_expr = build_x_modify_expr
+      new_yes_expr = build_x_modify_expr
 	(location, *new_var, NOP_EXPR, 
 	 build_one_cst (TREE_TYPE (*new_var)), 1);
-      new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
+      new_no_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       if (ARITHMETIC_TYPE_P (TREE_TYPE (func_parm)))
 	comp_node = build_zero_cst (TREE_TYPE (func_parm));
@@ -2425,9 +2513,16 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     }
   else if (an_type == REDUCE_MAX)
     {
-      /* Set initial value as the first element in the list.  */
-      new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
-					  func_parm, 1);
+      if (TYPE_MIN_VALUE (TREE_TYPE (*new_var)))
+	new_var_init =
+	  build_x_modify_expr (location, *new_var, NOP_EXPR,
+			       TYPE_MIN_VALUE (TREE_TYPE (*new_var)), 1);
+      else
+	/* Set initial value as the first element in the list if a MIN Value is
+	   not defined.  */
+	new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
+					    func_parm, 1);
+
       new_no_expr  = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
@@ -2442,8 +2537,15 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     }
   else if (an_type == REDUCE_MIN)
     {
-      new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
-					  func_parm, 1);
+      if (TYPE_MAX_VALUE (TREE_TYPE (*new_var)))
+	new_var_init =
+	  build_x_modify_expr (location, *new_var, NOP_EXPR,
+			       TYPE_MAX_VALUE (TREE_TYPE (*new_var)), 1);
+      else
+	/* Set initial value as the first element in the list if a MIN Value is
+	   not defined.  */
+	new_var_init = build_x_modify_expr (location, *new_var, NOP_EXPR,
+					    func_parm, 1);
       new_no_expr  = build_x_modify_expr (location, *new_var, NOP_EXPR,
 					  *new_var, 1);
       new_yes_expr = build_x_modify_expr (location, *new_var, NOP_EXPR,
@@ -2642,11 +2744,25 @@ fix_unary_array_notation_exprs (tree orig_stmt)
   bool **count_down, **array_vector;
   tree builtin_loop, stmt = NULL_TREE, new_var = NULL_TREE;
   char label_name[50];
+  array_notation_reduce_type dummy;
   location_t location = UNKNOWN_LOCATION;
   
   find_rank (orig_stmt, false, &rank);
   if (rank == 0)
-    return orig_stmt;  
+    {
+      if (TREE_CODE (orig_stmt) == CALL_EXPR
+	  && is_builtin_array_notation_fn (CALL_EXPR_FN (orig_stmt), &dummy))
+	{
+	  /* If we are here, it is almost 100% that there is an error.  We
+	     let the function to handle array notation function to emit the
+	     error.  */
+	  builtin_loop = fix_builtin_array_notation_fn (orig_stmt, &new_var);
+	  if (builtin_loop == error_mark_node)
+	    return builtin_loop;
+	}
+      else
+	return orig_stmt;
+    }
   
   extract_array_notation_exprs (orig_stmt, false, &array_list);
   list_size = vec_safe_length (array_list);
@@ -2665,8 +2781,8 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 	  else if (builtin_loop)
 	    {
 	      vec<tree, va_gc> *sub_list = NULL, *new_var_list = NULL;
-	      stmt = alloc_stmt_list ();
-	      append_to_statement_list_force (builtin_loop, &stmt);
+	      stmt = push_stmt_list ();
+	      add_stmt (builtin_loop);
 	      vec_safe_push (sub_list, list_node);
 	      vec_safe_push (new_var_list, new_var);
 	      replace_array_notations (&orig_stmt, false, sub_list,
@@ -2675,7 +2791,10 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 	}
     }
   if (stmt != NULL_TREE)
-    append_to_statement_list_force (finish_expr_stmt (orig_stmt), &stmt);
+    {
+      finish_expr_stmt (orig_stmt);
+      stmt = pop_stmt_list (stmt);
+    }
   else
     stmt = orig_stmt;
   rank = 0;
@@ -2869,7 +2988,7 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (MINUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));	
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));
 	      else
 		/* Array[start_index + (induction_var * stride)] */
 		array_opr = grok_array_decl

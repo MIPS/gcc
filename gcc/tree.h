@@ -46,56 +46,46 @@ MAX_TREE_CODES
 
 #define INVALID_PRAGMA_SIMD_SLOT 35
 
-typedef enum pragma_simd_kind
-{
-  P_SIMD_NOASSERT = 0, /* Default is just to noassert.  */
+
+
+enum pragma_simd_assert_types {
   P_SIMD_ASSERT = 1,
-  P_SIMD_VECTORLENGTH = 2,
-  P_SIMD_PRIVATE = 4,
-  P_SIMD_LINEAR = 8,
-  P_SIMD_REDUCTION = 16
-} pragma_simd_kind;
-
-struct reduction_values
-{
-  enum tree_code reduction_operator;
-  char **reduction_var_list;
-  tree tree_reduction_var_list;
-  int not_reduced;
-  struct reduction_values *ptr_next;
+  P_SIMD_NOASSERT = 2
 };
 
-/* Since we can have multiple pragma simd, this will hold the values of 
-   each of the pragma simd and then as soon as it finds a for loop 
-   it will transfer those values into the loop tree structure.  */
-struct pragma_simd_values
-{
-  int index;
-  bool pragma_encountered;
-  unsigned int types;
-  tree vectorlength;
+enum pragma_simd_kind {
+  P_SIMD_VECTORLENGTH = 0,
+  P_SIMD_PRIVATE,
+  P_SIMD_LINEAR,
+  P_SIMD_REDUCTION
+};
+
+struct reduction_node {
+  int reduction_type;
+  vec<tree, va_gc> *reduction_vars;
+};
+
+/* Since we can have multiple pragma simds, this holds the values of
+   each of the pragma simds as we are parsing them.  An index into
+   this table gets propagated to the tree structure for LABEL_DECL's
+   (as for loops are being parsed), then to the gimple structure for
+   GIMPLE_LABEL's, then to the BB structure, and finally to the loop
+   structure.  */
+
+struct pragma_simd_values {
+  location_t loc;
+  unsigned int index;
+  enum pragma_simd_assert_types assert_requested;
+  vec<tree, va_gc> *linear_var_list;
+  vec<tree, va_gc> *linear_steps_list;
+  vec<tree, va_gc> *priv_var_list;
+  vec<tree, va_gc> *vec_length_list;
   bool vlength_OK;
-  int *vec_length_list;
-  int vec_length_size;
-  tree private_vars;
-  bool pvars_OK;
-  char **priv_var_list;
-  int priv_var_size;
-  tree linear_vars;
-  bool lvars_OK;
-  char **linear_var_list;
-  int linear_var_size;
-  tree linear_steps;
-  int *linear_steps_list;
-  int linear_steps_size;
-  struct reduction_values *reduction_vals;
-  bool rvars_OK;
-  struct pragma_simd_values *ptr_next;
+  bool linear_OK;
+  bool private_OK;
+  bool reduction_OK;
+  vec<struct reduction_node, va_gc> *reduction_list;
 };
-
-extern struct pragma_simd_values *psv_head;
-
-
 
 #undef DEFTREECODE
 #undef END_OF_BASE_TREE_CODES
@@ -6613,25 +6603,24 @@ extern bool block_may_fallthru (const_tree);
 /* Here are the pragma simd specific files used by the parser and vectorizer 
    available in pragma_simd.c.  */
 
-extern struct pragma_simd_values *psv_find_node (int psv_index);
-extern int psv_head_insert (struct pragma_simd_values local_simd_values);
-extern bool pragma_simd_acceptable_vlength_p (int ps_index, 
+extern void pragma_simd_verify_clauses (unsigned int);
+
+extern unsigned int p_simd_head_insert (struct pragma_simd_values *);
+extern bool pragma_simd_acceptable_vlength_p (unsigned int ps_index, 
 					      int possible_vectorization_factor,
 					      tree scalar_type);
-extern bool pragma_simd_assert_requested_p (int ps_index);
+extern bool pragma_simd_assert_requested_p (unsigned int ps_index);
 extern bool pragma_simd_vectorize_loop_p (int ps_index);
 
 extern void insert_reduction_values (struct reduction_values **,
 				     enum tree_code, tree);
-extern bool same_var_in_multiple_lists_p (struct pragma_simd_values *ps_values);
-extern void check_off_reduction_var (gimple reduc_stmt, int pragma_simd_index);
-extern bool all_reductions_satisfied_p (int pragma_simd_index);
-extern bool clause_resolved_p (enum pragma_simd_kind clause_type,
-			       int pragma_simd_index);
+extern void check_off_reduction_var (gimple reduc_stmt,
+				     unsigned int pragma_simd_index);
+extern bool all_reductions_satisfied_p (unsigned int pragma_simd_index);
 extern void set_OK_for_certain_clause (enum pragma_simd_kind clause_type,
 				       bool set_value,
-				       int pragma_simd_index);
-extern HOST_WIDE_INT find_linear_step_size (int pragma_simd_index, tree var);
+				       unsigned int pragma_simd_index);
+extern HOST_WIDE_INT find_linear_step_size (unsigned int, tree);
 
 tree build_call_list (tree return_type, tree fn, tree arglist);
 bool is_elem_fn (tree);

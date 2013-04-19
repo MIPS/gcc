@@ -9051,8 +9051,7 @@ c_finish_if_stmt (location_t if_locus, tree cond, tree then_block,
 
 void
 c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
-	       tree blab, tree clab,
-	       struct pragma_simd_values *cilkplus_ps_values,
+	       tree blab, tree clab, struct pragma_simd_values *p_simd_val,
 	       bool cond_is_first)
 {
   tree entry = NULL, exit = NULL, t;
@@ -9108,24 +9107,14 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 	    exit = fold_build3_loc (input_location,
 				COND_EXPR, void_type_node, cond, exit, t);
 	}
-      if (cilkplus_ps_values)
+      if (flag_enable_cilk && p_simd_val)
 	{
-	  if  (cilkplus_ps_values->pragma_encountered == true)
-	    LABEL_EXPR_PRAGMA_SIMD_INDEX (top) =
-	      psv_head_insert (*cilkplus_ps_values);
-	  else
+	  if (!p_simd_valid_stmts_in_body_p (body))
 	    LABEL_EXPR_PRAGMA_SIMD_INDEX (top) = INVALID_PRAGMA_SIMD_SLOT;
-	    
-	  /* Now we initialize them all to zeros.  */
-	  cilkplus_ps_values->pragma_encountered = false;
-	  cilkplus_ps_values->types              = P_SIMD_NOASSERT;
-	  cilkplus_ps_values->vectorlength       = NULL_TREE;
-	  cilkplus_ps_values->private_vars       = NULL_TREE;
-	  cilkplus_ps_values->linear_vars        = NULL_TREE;
-	  cilkplus_ps_values->linear_steps       = NULL_TREE;
-	  cilkplus_ps_values->reduction_vals     = NULL;
-	}  
-      
+	  else
+	    LABEL_EXPR_PRAGMA_SIMD_INDEX (top) =
+	      p_simd_head_insert (p_simd_val);
+	}
       add_stmt (top);
     }
 
