@@ -14,7 +14,6 @@
 	(fix_builtin_array_notation_fn): Added a check to see if max/min value
 	is available for the type.  If so, set it as the starting point for
 	min and max reduction function.
-
 	* parser.c (cp_parser_array_notation): Added a new location parameter.
 
 2013-04-14  Balaji V. Iyer  <balaji.v.iyer@intel.com>
