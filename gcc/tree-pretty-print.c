@@ -431,6 +431,27 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_string (buffer, "mergeable");
       break;
 
+    case OMP_SIMD_CLAUSE_ASSERT:
+      pp_string (buffer, "simd_assert");
+      break;
+
+    case OMP_SIMD_CLAUSE_VECTORLENGTH:
+      pp_string (buffer, "simd_vectorlength(");
+      dump_generic_node (buffer, OMP_CLAUSE_VECLENGTH_EXPR (clause),
+	  spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_SIMD_CLAUSE_LINEAR:
+      pp_string (buffer, "simd_linear(");
+      dump_generic_node (buffer, OMP_CLAUSE_LINEAR_VAR (clause),
+	  spc, flags, false);
+      pp_string (buffer, " : ");
+      dump_generic_node (buffer, OMP_CLAUSE_LINEAR_STEP (clause),
+	  spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
     default:
       /* Should never happen.  */
       dump_generic_node (buffer, clause, spc, flags, false);

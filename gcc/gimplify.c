@@ -6345,6 +6345,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_MERGEABLE:
+	case OMP_SIMD_CLAUSE_ASSERT:
+	case OMP_SIMD_CLAUSE_VECTORLENGTH:
+	case OMP_SIMD_CLAUSE_LINEAR:
 	  break;
 
 	case OMP_CLAUSE_DEFAULT:
@@ -6487,6 +6490,9 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_MERGEABLE:
+	case OMP_SIMD_CLAUSE_ASSERT:
+	case OMP_SIMD_CLAUSE_VECTORLENGTH:
+	case OMP_SIMD_CLAUSE_LINEAR:
 	  break;
 
 	default:

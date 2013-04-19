@@ -10764,6 +10764,14 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
     case OMP_CLAUSE:
       switch (OMP_CLAUSE_CODE (*tp))
 	{
+	case OMP_SIMD_CLAUSE_ASSERT:
+	  break;
+
+	case OMP_SIMD_CLAUSE_LINEAR:
+	  WALK_SUBTREE (OMP_CLAUSE_LINEAR_VAR (*tp));
+	  WALK_SUBTREE (OMP_CLAUSE_LINEAR_STEP (*tp));
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
@@ -10773,6 +10781,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
+	case OMP_SIMD_CLAUSE_VECTORLENGTH:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */
 

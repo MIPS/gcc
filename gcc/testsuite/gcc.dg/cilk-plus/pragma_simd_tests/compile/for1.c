@@ -33,7 +33,7 @@ void foo()
     a[i] = i*2;
 
 #pragma simd
-  i = 5; /* { dg-error "for statement expected after pragma simd" } */
+  i = 5; /* { dg-error "for statement expected" } */
 
   // Initialization variables must be either integral or pointer types.
   struct S {

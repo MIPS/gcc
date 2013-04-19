@@ -1471,6 +1471,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_COLLAPSE:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
+	case OMP_SIMD_CLAUSE_ASSERT:
+	case OMP_SIMD_CLAUSE_VECTORLENGTH:
+	case OMP_SIMD_CLAUSE_LINEAR:
 	  break;
 
 	default:
@@ -1523,6 +1526,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_MERGEABLE:
+	case OMP_SIMD_CLAUSE_ASSERT:
+	case OMP_SIMD_CLAUSE_VECTORLENGTH:
+	case OMP_SIMD_CLAUSE_LINEAR:
 	  break;
 
 	default:
