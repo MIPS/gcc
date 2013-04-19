@@ -11043,19 +11043,19 @@ c_parser_simd_clause_vectorlength (c_parser *parser, tree clauses)
   while (true)
     {
       tree expr = c_parser_expr_no_commas (parser, NULL).value;
+      expr = c_fully_fold (expr, false, NULL);
 
       if (!TREE_TYPE (expr)
 	  || !TREE_CONSTANT (expr)
 	  || !INTEGRAL_TYPE_P (TREE_TYPE (expr)))
+	error_at (loc, "vectorlength must be an integer constant");
+      else
 	{
-	  error_at (loc, "vectorlength must be an integral constant");
-	  return clauses;
+	  tree u = build_omp_clause (loc, OMP_SIMD_CLAUSE_VECTORLENGTH);
+	  OMP_CLAUSE_VECLENGTH_EXPR (u) = expr;
+	  OMP_CLAUSE_CHAIN (u) = clauses;
+	  clauses = u;
 	}
-
-      tree u = build_omp_clause (loc, OMP_SIMD_CLAUSE_VECTORLENGTH);
-      OMP_CLAUSE_VECLENGTH_EXPR (u) = expr;
-      OMP_CLAUSE_CHAIN (u) = clauses;
-      clauses = u;
 
       if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
 	{
@@ -11090,66 +11090,62 @@ c_parser_simd_clause_linear (c_parser *parser, tree clauses)
     return clauses;
 
   location_t loc = c_parser_peek_token (parser)->location;
-  while (true)
-    {
-      if (c_parser_next_token_is_not (parser, CPP_NAME))
-	{
-	  c_parser_error (parser, "expected variable");
-	  return clauses;
-	}
 
+  if (c_parser_next_token_is_not (parser, CPP_NAME)
+      || c_parser_peek_token (parser)->id_kind != C_ID_ID)
+    c_parser_error (parser, "expected identifier");
+
+  while (c_parser_next_token_is (parser, CPP_NAME)
+	 && c_parser_peek_token (parser)->id_kind == C_ID_ID)
+    {
       tree var = lookup_name (c_parser_peek_token (parser)->value);
 
       if (var == NULL)
-	undeclared_variable (c_parser_peek_token (parser)->location,
-			     c_parser_peek_token (parser)->value);
+	{
+	  undeclared_variable (c_parser_peek_token (parser)->location,
+			       c_parser_peek_token (parser)->value);
+	c_parser_consume_token (parser);
+	}
       else if (var == error_mark_node)
-	;
+	c_parser_consume_token (parser);
       else
 	{
-	  tree step;
-	  tree u = build_omp_clause (loc, OMP_SIMD_CLAUSE_LINEAR);
-	  OMP_CLAUSE_LINEAR_VAR (u) = var;
+	  tree step = integer_one_node;
 
 	  /* Parse the linear step if present.  */
-	  if (c_parser_next_token_is (parser, CPP_COLON))
+	  if (c_parser_peek_2nd_token (parser)->type == CPP_COLON)
 	    {
 	      c_parser_consume_token (parser);
-	      // FIXME: This is wrong.  The spec says that we should
-	      // expect a conditional-expression here and that it
-	      // shall either satisfy the requirements of an integer
-	      // constant expression, or be a reference to a variable
-	      // with integer type.  Use whatever we did for the
-	      // vectorlength clause.
-	      if (c_parser_next_token_is_not (parser, CPP_NUMBER))
-		{
-		  c_parser_error (parser, "expected step-size");
-		  return clauses;
-		}
+	      c_parser_consume_token (parser);
 
-	      step = c_parser_peek_token (parser)->value;
+	      tree expr = c_parser_expr_no_commas (parser, NULL).value;
+	      expr = c_fully_fold (expr, false, NULL);
+
+	      if (!TREE_TYPE (expr)
+		  || !TREE_CONSTANT (expr)
+		  || !INTEGRAL_TYPE_P (TREE_TYPE (expr)))
+		c_parser_error (parser, "step size must be an integer constant");
+	      else
+		step = expr;
 	    }
-	  else if (c_parser_next_token_is (parser, CPP_COMMA)
-		   || c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-	    step = integer_one_node;
 	  else
-	    {
-	      c_parser_error (parser,
-			      "expected ',' or ')' after variable name");
-	      return clauses;
-	    }
+	    c_parser_consume_token (parser);
+
+	  tree u = build_omp_clause (loc, OMP_SIMD_CLAUSE_LINEAR);
+	  OMP_CLAUSE_LINEAR_VAR (u) = var;
 	  OMP_CLAUSE_LINEAR_STEP (u) = step;
+	  OMP_CLAUSE_CHAIN (u) = clauses;
 	  clauses = u;
-
-	  if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
-	    {
-	      c_parser_consume_token (parser);
-	      return clauses;
-	    }
-
-	  c_parser_consume_token (parser);
 	}
+
+      if (c_parser_next_token_is_not (parser, CPP_COMMA))
+	break;
+
+      c_parser_consume_token (parser);
     }
+
+  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
   return clauses;
 }
 
@@ -11162,7 +11158,12 @@ static pragma_simd_clause
 c_parser_simd_clause_name (c_parser *parser)
 {
   pragma_simd_clause result;
-  const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+  c_token *token = c_parser_peek_token (parser);
+
+  if (!token->value || token->type != CPP_NAME)
+    return PRAGMA_SIMD_CLAUSE_NONE;
+
+  const char *p = IDENTIFIER_POINTER (token->value);
 
   if (!strcmp (p, "noassert"))
     result = PRAGMA_SIMD_CLAUSE_NOASSERT;

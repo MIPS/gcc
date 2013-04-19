@@ -10987,6 +10987,8 @@ c_build_va_arg (location_t loc, tree expr, tree type)
   return build_va_arg (loc, expr, type);
 }
 
+// FIXME: Move all these Cilk Plus functions to cilk.c or something.
+
 /* Helper function for c_check_cilk_loop.
 
    Validate the increment in a _Cilk_for construct or a <#pragma simd>
@@ -11259,6 +11261,9 @@ c_finish_cilk_loop (location_t loc, tree decl, tree cond, tree incr,
 tree
 c_finish_simd_clauses (tree clauses)
 {
+  // FIXME: "...no variable shall be the subject of more than one
+  // linear clause".  Verify and check for this.
+
   return clauses;
 }
 
