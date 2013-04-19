@@ -244,7 +244,10 @@ unsigned const char omp_clause_num_ops[] =
   3, /* OMP_CLAUSE_COLLAPSE  */
   0, /* OMP_CLAUSE_UNTIED   */
   1, /* OMP_CLAUSE_FINAL  */
-  0  /* OMP_CLAUSE_MERGEABLE  */
+  0, /* OMP_CLAUSE_MERGEABLE  */
+  0, /* OMP_SIMD_CLAUSE_ASSERT  */
+  1, /* OMP_SIMD_CLAUSE_VECTORLENGTH  */
+  2  /* OMP_SIMD_CLAUSE_LINEAR  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -266,7 +269,10 @@ const char * const omp_clause_code_name[] =
   "collapse",
   "untied",
   "final",
-  "mergeable"
+  "mergeable",
+  "simd_assert",
+  "simd_vectorlength",
+  "simd_linear"
 };
 
 

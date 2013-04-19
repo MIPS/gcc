@@ -439,7 +439,20 @@ enum omp_clause_code
   OMP_CLAUSE_FINAL,
 
   /* OpenMP clause: mergeable.  */
-  OMP_CLAUSE_MERGEABLE
+  OMP_CLAUSE_MERGEABLE,
+
+  /* The following are CilkPlus clauses for the <#pragma simd>
+     construct.  They share the same OMP_CLAUSE_* infrastructure, and
+     will eventually share the OMP_SIMD infrastructure.  */
+
+  /* CilkPlus clause: assert.  */
+  OMP_SIMD_CLAUSE_ASSERT,
+
+  /* CilkPlus clause: vectorlength (constant-expression-list).  */
+  OMP_SIMD_CLAUSE_VECTORLENGTH,
+
+  /* CilkPlus clause: linear (simd-linear-variable-list).  */
+  OMP_SIMD_CLAUSE_LINEAR
 };
 
 /* The definition of tree nodes fills the next several pages.  */
@@ -1865,6 +1878,23 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
 	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+
+/* In an OMP_SIMD_CLAUSE_VECTORLENGTH, one vectorlength
+   expression.  */
+#define OMP_CLAUSE_VECLENGTH_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK \
+		      (NODE, OMP_SIMD_CLAUSE_VECTORLENGTH), 0)
+
+/* In an OMP_SIMD_CLAUSE_LINEAR, the linear variable.  */
+#define OMP_CLAUSE_LINEAR_VAR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK \
+		      (NODE, OMP_SIMD_CLAUSE_LINEAR), 0)
+
+/* In an OMP_SIMD_CLAUSE_LINEAR, the linear variable step expression.  */
+#define OMP_CLAUSE_LINEAR_STEP(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK \
+		      (NODE, OMP_SIMD_CLAUSE_LINEAR), 1)
+
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
   != UNKNOWN_LOCATION)

@@ -11254,6 +11254,83 @@ c_finish_cilk_loop (location_t loc, tree decl, tree cond, tree incr,
   return;
 }
 
+/* Validate and emit code for <#pragma simd> clauses.  */
+
+tree
+c_finish_simd_clauses (tree clauses)
+{
+  return clauses;
+}
+
+#if 0
+// FIXME: Rewrite to look in OMP_CLAUSE's instead, and stick in
+// c_finish_simd_clauses above.
+/* Returns true of a same variable is found in sub-field vectors
+   linear_var_list, priv_var_list and reduction_list of P_SIMD_VALUES.  */
+
+static bool
+same_var_in_multiple_lists_p (struct pragma_simd_values *p_simd_values)
+{
+  size_t ii, jj, kk;
+  if (!p_simd_values)
+    return false;
+
+  /* First check linear and private lists.  */
+  for (ii = 0; ii < vec_safe_length (p_simd_values->linear_var_list); ii++)
+    for (jj = 0; jj < vec_safe_length (p_simd_values->priv_var_list); jj++)
+      {
+	tree linear_var = (*(p_simd_values->linear_var_list))[ii];
+	tree priv_var = (*(p_simd_values->priv_var_list))[jj];
+	if (simple_cst_equal (linear_var, priv_var) == 1)
+	  {
+	    error_at (p_simd_values->loc, "ill-formed pragma: variable %qE"
+		      " listed in both linear and private pragma simd clause",
+		      priv_var);
+	    return true;
+	  }
+      }
+
+  /* Now check linear and reduction lists.  */
+  for (ii = 0; ii < vec_safe_length (p_simd_values->linear_var_list); ii++)
+    for (jj = 0; jj < vec_safe_length (p_simd_values->reduction_list); jj++)
+      {
+	struct reduction_node r_node = (*(p_simd_values->reduction_list))[jj];
+	for (kk = 0; kk < vec_safe_length (r_node.reduction_vars); kk++)
+	  {
+	    tree linear_var = (*(p_simd_values->linear_var_list))[ii];
+	    tree red_var = (*(r_node.reduction_vars))[kk];
+	    if (simple_cst_equal (linear_var, red_var) == 1)
+	      {
+		error_at (p_simd_values->loc,
+			  "ill-formed pragma: variable %qE listed in both "
+			  "reduction and linear pragma simd clause", red_var);
+		return true;
+	      }
+	  }
+      }
+
+  /* Finally check private and reduction lists.  */
+  for (ii = 0; ii < vec_safe_length (p_simd_values->priv_var_list); ii++)
+    for (jj = 0; jj < vec_safe_length (p_simd_values->reduction_list); jj++)
+      {
+	struct reduction_node r_node = (*(p_simd_values->reduction_list))[jj];
+	for (kk = 0; kk < vec_safe_length (r_node.reduction_vars); kk++)
+	  {
+	    tree priv_var = (*(p_simd_values->priv_var_list))[ii];
+	    tree red_var = (*(r_node.reduction_vars))[kk];
+	    if (simple_cst_equal (priv_var, red_var) == 1)
+	      {
+		error_at (p_simd_values->loc,
+			  "ill-formed pragma: variable %qE listed in both "
+			  "reduction and private pragma simd clause", red_var);
+		return true;
+	      }
+	  }
+      }
+  return false;
+}
+#endif
+
 static bool no_cilk_errored;
 tree c_build_sync (tree *x);
 

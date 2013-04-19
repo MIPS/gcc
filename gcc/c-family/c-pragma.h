@@ -81,6 +81,19 @@ typedef enum pragma_omp_clause {
   PRAGMA_OMP_CLAUSE_MERGEABLE
 } pragma_omp_clause;
 
+/* All CilkPlus #pragma omp clauses.  */
+typedef enum pragma_simd_clause {
+  PRAGMA_SIMD_CLAUSE_NONE = 0,
+  PRAGMA_SIMD_CLAUSE_NOASSERT,
+  PRAGMA_SIMD_CLAUSE_ASSERT,
+  PRAGMA_SIMD_CLAUSE_VECTORLENGTH,
+  PRAGMA_SIMD_CLAUSE_LINEAR,
+  PRAGMA_SIMD_CLAUSE_PRIVATE,
+  PRAGMA_SIMD_CLAUSE_FIRSTPRIVATE,
+  PRAGMA_SIMD_CLAUSE_LASTPRIVATE,
+  PRAGMA_SIMD_CLAUSE_REDUCTION
+} pragma_simd_clause;
+
 extern struct cpp_reader* parse_in;
 
 /* It's safe to always leave visibility pragma enabled as if

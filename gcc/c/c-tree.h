@@ -684,4 +684,5 @@ extern tree c_finish_pragma_simd_loop (location_t loc,
 				       tree decl, tree init, tree cond,
 				       tree incr, tree body, tree clauses);
 
+extern tree c_finish_simd_clauses (tree);
 #endif /* ! GCC_C_TREE_H */
