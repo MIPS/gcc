@@ -699,7 +699,6 @@ make_cilk_frame (tree fn)
   DECL_CONTEXT (decl) = fn;
   /* Magic to prevent assert failure.  Easier than doing it right. */
   DECL_SEEN_IN_BIND_EXPR_P (decl) = 1;
-
   f->cilk_frame_decl = decl;
   return decl;
 }

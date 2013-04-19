@@ -261,6 +261,10 @@ use_pointer_in_frame (tree decl)
     }
   else
     {
+      /* FIXME: Try to figure out why this is happening.  It is in the
+	 distructor that has "Cilk" in it.  */
+      if (flag_enable_cilk && TREE_CODE (decl) == MEM_REF)
+	decl = TREE_OPERAND (decl, 0);
       /* Variable sized types make things "interesting" in the frame.  */
       return DECL_SIZE (decl) == NULL || !TREE_CONSTANT (DECL_SIZE (decl));
     }

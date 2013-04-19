@@ -1,5 +1,7 @@
+#if HAVE_IO
 #include <iostream> 
 #include <cstdio>
+#endif
 #include <cstring>
 
 #include <cilk/cilk.h>  
@@ -32,11 +34,13 @@ CClass::CClass(int a, int b)
 #if 1
 CClass::~CClass() 
 {
-  cilk_for (int ii = 0; ii < NUMBER; ii++) {
+#if 1
+  _Cilk_for (int ii = 0; ii < NUMBER; ii++) {
     x[ii]=0;
     y[ii]=0;
     r[ii]=0;
   }
+#endif
 }
 
 int CClass::SomeCalc()
@@ -52,7 +56,9 @@ void CClass::PrintValues()
 {
   for(int ii = 0; ii < NUMBER; ii++)
   {
+#if HAVE_IO
     printf("X[%2d]=%2d Y[%2d]=%2d r[%2d]=%3d\n",ii,x[ii],ii,y[ii],ii,r[ii]); 
+#endif
   }
   return;
 }
@@ -61,13 +67,17 @@ int main(void)
 {
   CClass vars(5,9);
   
+#if HAVE_IO
   cout << "Array values BEFORE The Calculation: " << endl;
+#endif
   vars.PrintValues();
   
   vars.SomeCalc();  
 
 
+#if HAVE_IO
   cout << "Array values AFTER The Calculation: " << endl;
+#endif
   vars.PrintValues();
   return 5;
 }

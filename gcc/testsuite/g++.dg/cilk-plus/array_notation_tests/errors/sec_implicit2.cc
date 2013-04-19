@@ -1,5 +1,5 @@
-/* {dg-do compile } */
-/* {dg-options } */
+/* { dg-do compile } */
+/* { dg-options } */
 
 int main (int argc, char **argv)
 {

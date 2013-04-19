@@ -1,3 +1,22 @@
+2013-04-18  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-array-notation.c (fix_builtin_array_notation_fn): Fixed a bug of
+	switching the true and false condition in array notation reduction
+	functions.
+	(fix_unary_array_notation_exprs): Replaced appending to statement lists
+	with pushing and popping of statements along with add statement.
+
+2013-04-17  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-array-notation.c (build_x_array_notation_expr): Added a check for
+	array notation length mismatch.  Also added a check for CALL_EXPR.
+	(length_mismatch_in_expr_p): New function.
+	(fix_builtin_array_notation_fn): Added a check to see if max/min value
+	is available for the type.  If so, set it as the starting point for
+	min and max reduction function.
+
+	* parser.c (cp_parser_array_notation): Added a new location parameter.
+
 2013-04-14  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* Make-lang.in (CXX_AND_OBJCXX_OBJS): Added cp/cp-pragma-simd.o.
