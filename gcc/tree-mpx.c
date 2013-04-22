@@ -48,7 +48,7 @@ static void mpx_erase_incomplete_bounds (void);
 static tree mpx_get_tmp_var (void);
 static tree mpx_get_size_tmp_var (void);
 static void mpx_fix_function_decl (tree decl, bool make_ssa_names);
-static void mpx_fix_function_decls (void);
+static void mpx_fix_function_decls (void) ATTRIBUTE_UNUSED;
 static void mpx_init (void);
 static void mpx_fini (void);
 static tree mpx_build_addr_expr (tree t);
@@ -82,15 +82,13 @@ static tree mpx_make_static_bounds (tree var);
 static tree mpx_make_static_const_bounds (HOST_WIDE_INT lb,
 					  HOST_WIDE_INT ub,
 					  const char *name);
-static tree mpx_make_static_const_bounds (tree lb,
-					  tree ub);
 static tree mpx_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after);
 static tree mpx_make_addressed_object_bounds (tree obj,
 					     gimple_stmt_iterator *iter,
 					     bool always_narrow_fields);
-static tree mxp_get_var_size_decl (tree var);
+static tree mxp_get_var_size_decl (tree var) ATTRIBUTE_UNUSED;
 static tree mpx_generate_extern_var_bounds (tree var);
-static tree mpx_get_bounds_for_decl (tree decl);
+static tree mpx_get_bounds_for_decl (tree decl) ATTRIBUTE_UNUSED;
 static tree mpx_get_bounds_for_decl_addr (tree decl);
 static tree mpx_get_bounds_for_string_cst (tree cst);
 static tree mpx_get_bounds_by_definition (tree node, gimple def_stmt,
@@ -101,7 +99,7 @@ static tree mpx_find_bounds_1 (tree ptr, tree ptr_src,
 static tree mpx_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
-static tree mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter);
+static tree mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter) ATTRIBUTE_UNUSED;
 static void mpx_check_mem_access (tree first, tree last, tree bounds,
 				 gimple_stmt_iterator iter,
 				 location_t location, tree dirflag);
@@ -750,7 +748,7 @@ mpx_output_static_bounds (void **slot, void *res)
 /* Helper function for mpx_finish_file.
    Outputs one variable from mpx_size_decls table.  */
 int
-mpx_output_size_variable (void **slot, void *res)
+mpx_output_size_variable (void **slot, void *res ATTRIBUTE_UNUSED)
 {
   struct tree_map *map = (struct tree_map *)*slot;
   tree size_decl = map->to;
@@ -1099,7 +1097,8 @@ mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 static void
 mpx_check_mem_access (tree first, tree last, tree bounds,
 		      gimple_stmt_iterator iter,
-		      location_t location, tree dirflag)
+		      location_t location ATTRIBUTE_UNUSED,
+		      tree dirflag ATTRIBUTE_UNUSED)
 {
   gimple_seq seq;
   gimple checkl, checku;
@@ -1263,7 +1262,7 @@ mpx_find_bound_slots (tree type, bool *have_bound,
       tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
       tree etype = TREE_TYPE (type);
       HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
-      HOST_WIDE_INT cur;
+      unsigned HOST_WIDE_INT cur;
 
       for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	mpx_find_bound_slots (etype, have_bound, offs + cur * esize, ptr_size);
@@ -3213,8 +3212,8 @@ mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler hand
 		  tree lo_index = TREE_OPERAND (purp, 0);
 		  tree hi_index = TREE_OPERAND (purp, 1);
 
-		  for (cur = tree_low_cst (lo_index, 1);
-		       cur <= tree_low_cst (hi_index, 1);
+		  for (cur = (unsigned)tree_low_cst (lo_index, 1);
+		       cur <= (unsigned)tree_low_cst (hi_index, 1);
 		       cur++)
 		    {
 		      lhs_elem = mpx_build_array_ref (lhs, etype, esize, cur);

@@ -1157,7 +1157,7 @@ reduce_bounds_lifetime (void)
 	    }
 
 	  if (dom_bb == bb
-	      || dom_use && gimple_bb (dom_use) == bb)
+	      || (dom_use && gimple_bb (dom_use) == bb))
 	    {
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "Cannot move statement bacause there is no "
@@ -1199,6 +1199,9 @@ init_check_info (void)
 {
   struct bb_checks empty_bbc;
   int n;
+
+  empty_bbc.checks.create (0);
+  empty_bbc.checks.release ();
 
   release_check_info ();
   

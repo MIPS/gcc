@@ -23922,20 +23922,8 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  rtx callarg2,
 		  rtx pop, bool sibcall)
 {
-<<<<<<< HEAD
-  /* We need to represent that SI and DI registers are clobbered
-     by SYSV calls.  */
-  static int clobbered_registers[] = {
-	XMM6_REG, XMM7_REG, XMM8_REG,
-	XMM9_REG, XMM10_REG, XMM11_REG,
-	XMM12_REG, XMM13_REG, XMM14_REG,
-	XMM15_REG, SI_REG, DI_REG
-  };
-  rtx vec[ARRAY_SIZE (clobbered_registers) + 4];
-=======
   int const cregs_size = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
   rtx vec[3 + cregs_size];
->>>>>>> c7a79d83f1b065e24018fc3e470101fe743140de
   rtx use = NULL, call;
   unsigned int vec_len = 0;
 

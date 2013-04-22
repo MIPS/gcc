@@ -1418,7 +1418,7 @@ lra_assign (void)
 	&& overlaps_hard_reg_set_p (call_used_reg_set,
 				    PSEUDO_REGNO_MODE (i), reg_renumber[i])) {
       if (lra_dump_file != NULL)
-        fprintf (lra_dump_file, "%s, bad number is %d, max is %d, call_used_reg_set %d, mode is %d renumber %d\n",current_function_name(),i,max_regno,call_used_reg_set,PSEUDO_REGNO_MODE (i), reg_renumber[i]);
+        fprintf (lra_dump_file, "%s, bad number is %d, max is %d, call_used_reg_set "HOST_WIDEST_INT_PRINT_UNSIGNED", mode is %d renumber %d\n",current_function_name(),i,max_regno,call_used_reg_set,PSEUDO_REGNO_MODE (i), reg_renumber[i]);
       gcc_unreachable ();
     }
 #endif
