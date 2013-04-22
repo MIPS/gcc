@@ -1030,7 +1030,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		  base_var = ARRAY_NOTATION_ARRAY (lhs_array[ii][s_jj]);
 		  if (TREE_CODE (base_var) == ARRAY_REF)
 		    lhs_array_opr = grok_array_decl
-		      (location, lhs_array_opr,  TREE_OPERAND (base_var, 1));
+		      (location, lhs_array_opr,  TREE_OPERAND (base_var, 1),
+		       false);
 		  
 		  if (lhs_count_down[ii][s_jj])
 		    /* Array[start_index - (induction_var * stride)] */
@@ -1038,14 +1039,14 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		      (location, lhs_array_opr,
 		       build2 (MINUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));
+				       stride)), false);
 		  else
 		    /* Array[start_index + (induction_var * stride)] */
 		    lhs_array_opr = grok_array_decl
 		      (location, lhs_array_opr,
 		       build2 (PLUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));
+				       stride)), false);
 		}
 	      vec_safe_push (lhs_array_operand, lhs_array_opr);
 	    }
@@ -1112,7 +1113,8 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		  base_var = ARRAY_NOTATION_ARRAY (rhs_array[ii][s_jj]);
 		  if (TREE_CODE (base_var) == ARRAY_REF)
 		    rhs_array_opr = grok_array_decl
-		      (location, rhs_array_opr,  TREE_OPERAND (base_var, 1));
+		      (location, rhs_array_opr,  TREE_OPERAND (base_var, 1),
+		       false);
 
 		  if (rhs_count_down[ii][s_jj])
 		    /* Array[start_index - (induction_var * stride)] */
@@ -1120,14 +1122,14 @@ build_x_array_notation_expr (location_t location, tree lhs,
 		      (location, rhs_array_opr,
 		       build2 (MINUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));
+				       stride)), false);
 		  else
 		    /* Array[start_index + (induction_var * stride)] */
 		    rhs_array_opr = grok_array_decl
 		      (location, rhs_array_opr,
 		       build2 (PLUS_EXPR, TREE_TYPE (var), start,
 			       build2 (MULT_EXPR, TREE_TYPE (var), var,
-				       stride)));
+				       stride)), false);
 		}
 	      vec_safe_push (rhs_array_operand, rhs_array_opr);
 	    }
@@ -1698,13 +1700,15 @@ fix_conditional_array_notations_1 (tree orig_stmt)
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (MINUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));	
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);	
 	      else
 		/* Array[start_index + (induction_var * stride)] */
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (PLUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);
 		
 	    }
 	  vec_safe_push (array_operand, array_opr);
@@ -2325,13 +2329,15 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (MINUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));	
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);	
 	      else
 		/* Array[start_index + (induction_var * stride)] */
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (PLUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);
 	    }
 	  vec_safe_push (array_operand, array_opr);
 	}
@@ -2988,13 +2994,15 @@ fix_unary_array_notation_exprs (tree orig_stmt)
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (MINUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);
 	      else
 		/* Array[start_index + (induction_var * stride)] */
 		array_opr = grok_array_decl
 		  (location, array_opr,
 		   build2 (PLUS_EXPR, TREE_TYPE (var), start,
-			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)));
+			   build2 (MULT_EXPR, TREE_TYPE (var), var, stride)),
+		   false);
 	    }
 	  vec_safe_push (array_operand, array_opr);  
 	}

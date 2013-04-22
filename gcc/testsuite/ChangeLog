@@ -1,3 +1,162 @@
+2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/56990
+	* gcc.dg/pr56990.c: New test.
+
+2013-04-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56872
+	* gfortran.dg/array_constructor_45.f90:  New test.
+	* gfortran.dg/array_constructor_46.f90:  New test.
+	* gfortran.dg/array_constructor_47.f90:  New test.
+	* gfortran.dg/array_constructor_40.f90:  Adjust number of
+	while loops.
+
+2013-04-18  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56816
+	* gfortran.dg/select_type_33.f03: New test.
+
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56984
+	* gcc.c-torture/compile/pr56984.c: New test.
+
+	PR rtl-optimization/56992
+	* gcc.dg/pr56992.c: New test.
+
+2013-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/ipa/devirt-c-7.C: Require nonpic effective target.
+	* gcc.c-torture/execute/pr33992.x: Remove.
+	* gcc.c-torture/execute/pr33992.c (foo): Declare as static.
+	* gcc.dg/uninit-pred-5_a.c (foo): Ditto.
+	* gcc.dg/uninit-pred-5_b.c (foo): Ditto.
+
+	Backport from mainline
+	2013-03-27  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	* g++.dg/ipa/ivinline-1.C: Add target nonpic.
+	* g++.dg/ipa/ivinline-2.C: Likewise.
+	* g++.dg/ipa/ivinline-3.C: Likewise.
+	* g++.dg/ipa/ivinline-4.C: Likewise.
+	* g++.dg/ipa/ivinline-5.C: Likewise.
+	* g++.dg/ipa/ivinline-7.C: Likewise.
+	* g++.dg/ipa/ivinline-8.C: Likewise.
+	* g++.dg/ipa/ivinline-9.C: Likewise.
+	* g++.dg/cpp0x/noexcept03.C: Likewise.
+	* gcc.dg/const-1.c: Likewise.
+	* gcc.dg/ipa/pure-const-1.c: Likewise.
+	* gcc.dg/noreturn-8.c: Likewise.
+	* gcc.target/i386/mmx-1.c: Likewise.
+	* gcc.dg/tree-ssa/ipa-split-5.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre6.c: Likewise.
+	* gcc.c-torture/execute/pr33992.x: New file.
+
+2013-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56962
+	* gcc.c-torture/execute/pr56962.c: New test.
+
+2013-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr56890-1.c: New test.
+	* gcc.dg/pr56890-2.c: Likewise.
+
+2013-04-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/56903
+	* gcc.target/i386/pr56903.c: New test.
+
+2013-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56918
+	PR tree-optimization/56920
+	* gcc.dg/vect/pr56918.c: New test.
+	* gcc.dg/vect/pr56920.c: New test.
+
+2013-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56895
+	* g++.dg/template/arrow4.C: New test.
+
+2013-04-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56913
+	* g++.dg/cpp0x/sfinae44.C: New.
+
+2013-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backported from mainline.
+	2013-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vect-fcm.x: Add check for zero forms of
+	inverse operands.
+	* gcc.target/aarch64/vect-fcm-eq-d.c: Check that new zero form
+	loop is vectorized.
+	* gcc.target/aarch64/vect-fcm-eq-f.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-ge-d.c: Check that new zero form
+	loop is vectorized and that the correct instruction is generated.
+	* gcc.target/aarch64/vect-fcm-ge-f.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-gt-d.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-gt-f.c: Likewise.
+
+2013-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56899
+	* gcc.c-torture/execute/pr56899.c: New test.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56895
+	* g++.dg/template/arrow3.C: New test.
+
+	Backported from mainline
+	2013-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56883
+	* c-c++-common/gomp/pr56883.c: New test.
+
+2013-04-08  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/56782
+	Backport from trunk.
+	* gfortran.dg/array_constructor_44.f90:  New test.
+
+2013-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/pr56837.c: New test.
+
+2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/48186
+	* gcc.dg/pr48186.c: New test.
+
+2013-04-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline:
+	2013-03-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56720
+	* gcc.target/arm/neon-vcond-gt.c: New test.
+	* gcc.target/arm/neon-vcond-ltgt.c: Likewise.
+	* gcc.target/arm/neon-vcond-unordered.c: Likewise.
+
+2013-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56837
+	* g++.dg/torture/pr56837.C: New testcase.
+
 2013-04-03  Marek Polacek  <polacek@redhat.com>
 
 	Backport from mainline:
@@ -142,8 +301,8 @@
 
 2013-03-15  Tobias Burnus  <burnus@net-b.de>
 
-	PR fortran/56615                                                                                                                
-	* gfortran.dg/transfer_intrinsic_5.f90: New.                                                                                    
+	PR fortran/56615
+	* gfortran.dg/transfer_intrinsic_5.f90: New.
 
 2013-03-15  Kai Tietz  <ktietz@redhat.com>
 
@@ -309,8 +468,7 @@
 
 2013-03-06  Kai Tietz  <ktietz@redhat.com>
 
-	* gcc.dg/lto/20090914-2_0.c: Skip for mingw and cygwin
-	targets.
+	* gcc.dg/lto/20090914-2_0.c: Skip for mingw and cygwin targets.
 	* gcc.dg/lto/20091013-1_1.c: Set x64-mingw as xfail.
 	* gcc.dg/lto/20091013-1_2.c: Likewise.
 	* gcc.dg/pr31490.c: Adjust for LLP64 targets.
@@ -772,8 +930,10 @@
 
 	Avoid instrumenting duplicated memory access in the same basic block
 	* c-c++-common/asan/no-redundant-instrumentation-1.c: New test.
-	* testsuite/c-c++-common/asan/no-redundant-instrumentation-2.c: Likewise.
-	* testsuite/c-c++-common/asan/no-redundant-instrumentation-3.c: Likewise.
+	* testsuite/c-c++-common/asan/no-redundant-instrumentation-2.c:
+	Likewise.
+	* testsuite/c-c++-common/asan/no-redundant-instrumentation-3.c:
+	Likewise.
 	* testsuite/c-c++-common/asan/inc.c: Likewise.
 
 2013-02-12  Vladimir Makarov  <vmakarov@redhat.com>
@@ -785,8 +945,7 @@
 	    Tobias Burnus  <burnus@net-b.de>
 
 	PR testsuite/56082
-	* gfortran.dg/bind_c_bool_1.f90 (sub): Change kind=4
-	to kind=2.
+	* gfortran.dg/bind_c_bool_1.f90 (sub): Change kind=4 to kind=2.
 
 2013-02-12  Richard Biener  <rguenther@suse.de>
 
@@ -993,7 +1152,8 @@
 2013-02-06  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/55978
-	* gfortran.dg/class_optional_2.f90: Uncomment some cases which work now.
+	* gfortran.dg/class_optional_2.f90: Uncomment some cases
+	which work now.
 
 2013-02-06  Jakub Jelinek  <jakub@redhat.com>
 
