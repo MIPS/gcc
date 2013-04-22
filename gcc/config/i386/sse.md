@@ -2037,42 +2037,46 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define_mode_iterator FMAMODE [SF DF V4SF V2DF V8SF V4DF])
+;; The standard names for scalar FMA are only available with SSE math enabled.
+(define_mode_iterator FMAMODEM [(SF "TARGET_SSE_MATH")
+				(DF "TARGET_SSE_MATH")
+				V4SF V2DF V8SF V4DF])
 
-;; The standard names for fma is only available with SSE math enabled.
 (define_expand "fma<mode>4"
-  [(set (match_operand:FMAMODE 0 "register_operand")
-	(fma:FMAMODE
-	  (match_operand:FMAMODE 1 "nonimmediate_operand")
-	  (match_operand:FMAMODE 2 "nonimmediate_operand")
-	  (match_operand:FMAMODE 3 "nonimmediate_operand")))]
-  "(TARGET_FMA || TARGET_FMA4) && TARGET_SSE_MATH")
+  [(set (match_operand:FMAMODEM 0 "register_operand")
+	(fma:FMAMODEM
+	  (match_operand:FMAMODEM 1 "nonimmediate_operand")
+	  (match_operand:FMAMODEM 2 "nonimmediate_operand")
+	  (match_operand:FMAMODEM 3 "nonimmediate_operand")))]
+  "TARGET_FMA || TARGET_FMA4")
 
 (define_expand "fms<mode>4"
-  [(set (match_operand:FMAMODE 0 "register_operand")
-	(fma:FMAMODE
-	  (match_operand:FMAMODE 1 "nonimmediate_operand")
-	  (match_operand:FMAMODE 2 "nonimmediate_operand")
-	  (neg:FMAMODE (match_operand:FMAMODE 3 "nonimmediate_operand"))))]
-  "(TARGET_FMA || TARGET_FMA4) && TARGET_SSE_MATH")
+  [(set (match_operand:FMAMODEM 0 "register_operand")
+	(fma:FMAMODEM
+	  (match_operand:FMAMODEM 1 "nonimmediate_operand")
+	  (match_operand:FMAMODEM 2 "nonimmediate_operand")
+	  (neg:FMAMODEM (match_operand:FMAMODEM 3 "nonimmediate_operand"))))]
+  "TARGET_FMA || TARGET_FMA4")
 
 (define_expand "fnma<mode>4"
-  [(set (match_operand:FMAMODE 0 "register_operand")
-	(fma:FMAMODE
-	  (neg:FMAMODE (match_operand:FMAMODE 1 "nonimmediate_operand"))
-	  (match_operand:FMAMODE 2 "nonimmediate_operand")
-	  (match_operand:FMAMODE 3 "nonimmediate_operand")))]
-  "(TARGET_FMA || TARGET_FMA4) && TARGET_SSE_MATH")
+  [(set (match_operand:FMAMODEM 0 "register_operand")
+	(fma:FMAMODEM
+	  (neg:FMAMODEM (match_operand:FMAMODEM 1 "nonimmediate_operand"))
+	  (match_operand:FMAMODEM 2 "nonimmediate_operand")
+	  (match_operand:FMAMODEM 3 "nonimmediate_operand")))]
+  "TARGET_FMA || TARGET_FMA4")
 
 (define_expand "fnms<mode>4"
-  [(set (match_operand:FMAMODE 0 "register_operand")
-	(fma:FMAMODE
-	  (neg:FMAMODE (match_operand:FMAMODE 1 "nonimmediate_operand"))
-	  (match_operand:FMAMODE 2 "nonimmediate_operand")
-	  (neg:FMAMODE (match_operand:FMAMODE 3 "nonimmediate_operand"))))]
-  "(TARGET_FMA || TARGET_FMA4) && TARGET_SSE_MATH")
+  [(set (match_operand:FMAMODEM 0 "register_operand")
+	(fma:FMAMODEM
+	  (neg:FMAMODEM (match_operand:FMAMODEM 1 "nonimmediate_operand"))
+	  (match_operand:FMAMODEM 2 "nonimmediate_operand")
+	  (neg:FMAMODEM (match_operand:FMAMODEM 3 "nonimmediate_operand"))))]
+  "TARGET_FMA || TARGET_FMA4")
 
-;; The builtin for intrinsics is not constrained by SSE math enabled.
+;; The builtins for intrinsics are not constrained by SSE math enabled.
+(define_mode_iterator FMAMODE [SF DF V4SF V2DF V8SF V4DF])
+
 (define_expand "fma4i_fmadd_<mode>"
   [(set (match_operand:FMAMODE 0 "register_operand")
 	(fma:FMAMODE
@@ -7422,31 +7426,12 @@
   [(set (match_dup 0) (match_dup 1))]
   "operands[1] = gen_rtx_REG (DImode, REGNO (operands[1]));")
 
-(define_insn "*vec_extractv2di_1_rex64"
-  [(set (match_operand:DI 0 "nonimmediate_operand"     "=m,x,x,x,r")
-	(vec_select:DI
-	  (match_operand:V2DI 1 "nonimmediate_operand" " x,0,x,o,o")
-	  (parallel [(const_int 1)])))]
-  "TARGET_64BIT && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
-  "@
-   %vmovhps\t{%1, %0|%0, %1}
-   psrldq\t{$8, %0|%0, 8}
-   vpsrldq\t{$8, %1, %0|%0, %1, 8}
-   %vmovq\t{%H1, %0|%0, %H1}
-   mov{q}\t{%H1, %0|%0, %H1}"
-  [(set_attr "isa" "*,noavx,avx,*,*")
-   (set_attr "type" "ssemov,sseishft1,sseishft1,ssemov,imov")
-   (set_attr "length_immediate" "*,1,1,*,*")
-   (set_attr "memory" "*,none,none,*,*")
-   (set_attr "prefix" "maybe_vex,orig,vex,maybe_vex,orig")
-   (set_attr "mode" "V2SF,TI,TI,TI,DI")])
-
 (define_insn "*vec_extractv2di_1"
-  [(set (match_operand:DI 0 "nonimmediate_operand"     "=m,x,x,x,x,x")
+  [(set (match_operand:DI 0 "nonimmediate_operand"     "=m,x,x,x,x,x,r")
 	(vec_select:DI
-	  (match_operand:V2DI 1 "nonimmediate_operand" " x,0,x,o,x,o")
+	  (match_operand:V2DI 1 "nonimmediate_operand" " x,0,x,o,x,o,o")
 	  (parallel [(const_int 1)])))]
-  "!TARGET_64BIT && TARGET_SSE
+  "(TARGET_64BIT || TARGET_SSE)
    && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "@
    %vmovhps\t{%1, %0|%0, %1}
@@ -7454,13 +7439,14 @@
    vpsrldq\t{$8, %1, %0|%0, %1, 8}
    %vmovq\t{%H1, %0|%0, %H1}
    movhlps\t{%1, %0|%0, %1}
-   movlps\t{%H1, %0|%0, %H1}"
-  [(set_attr "isa" "*,sse2_noavx,avx,sse2,noavx,noavx")
-   (set_attr "type" "ssemov,sseishft1,sseishft1,ssemov,ssemov,ssemov")
-   (set_attr "length_immediate" "*,1,1,*,*,*")
-   (set_attr "memory" "*,none,none,*,*,*")
-   (set_attr "prefix" "maybe_vex,orig,vex,maybe_vex,orig,orig")
-   (set_attr "mode" "V2SF,TI,TI,TI,V4SF,V2SF")])
+   movlps\t{%H1, %0|%0, %H1}
+   mov{q}\t{%H1, %0|%0, %H1}"
+  [(set_attr "isa" "*,sse2_noavx,avx,sse2,noavx,noavx,x64")
+   (set_attr "type" "ssemov,sseishft1,sseishft1,ssemov,ssemov,ssemov,imov")
+   (set_attr "length_immediate" "*,1,1,*,*,*,*")
+   (set_attr "memory" "*,none,none,*,*,*,*")
+   (set_attr "prefix" "maybe_vex,orig,vex,maybe_vex,orig,orig,orig")
+   (set_attr "mode" "V2SF,TI,TI,TI,V4SF,V2SF,DI")])
 
 (define_insn "*vec_dupv4si"
   [(set (match_operand:V4SI 0 "register_operand"     "=x,x,x")

@@ -568,6 +568,7 @@ lra_spill (void)
   free (slots);
   free (pseudo_slots);
   free (pseudo_regnos);
+  free (spill_hard_reg);
 }
 
 /* Apply alter_subreg for subregs of regs in *LOC.  Use FINAL_P for
@@ -638,7 +639,7 @@ lra_final_code_change (void)
 		 need them anymore and don't want to waste compiler
 		 time processing them in a few subsequent passes.  */
 	      lra_invalidate_insn_data (insn);
-	      remove_insn (insn);
+	      delete_insn (insn);
 	      continue;
 	    }
 

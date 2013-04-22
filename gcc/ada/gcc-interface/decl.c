@@ -33,6 +33,7 @@
 #include "ggc.h"
 #include "target.h"
 #include "tree-inline.h"
+#include "diagnostic-core.h"
 
 #include "ada.h"
 #include "types.h"
@@ -2244,6 +2245,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	for (index = ndim - 1; index >= 0; index--)
 	  {
 	    tem = build_nonshared_array_type (tem, gnu_index_types[index]);
+	    if (Reverse_Storage_Order (gnat_entity))
+	      sorry ("non-default Scalar_Storage_Order");
 	    TYPE_MULTI_ARRAY_P (tem) = (index > 0);
 	    if (array_type_has_nonaliased_component (tem, gnat_entity))
 	      TYPE_NONALIASED_COMPONENT (tem) = 1;
@@ -2957,6 +2960,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type = make_node (tree_code_for_record_type (gnat_entity));
 	TYPE_NAME (gnu_type) = gnu_entity_name;
 	TYPE_PACKED (gnu_type) = (packed != 0) || has_rep;
+	if (Reverse_Storage_Order (gnat_entity))
+	  sorry ("non-default Scalar_Storage_Order");
 
 	if (!definition)
 	  {
@@ -6181,12 +6186,13 @@ elaborate_expression_1 (tree gnu_expr, Entity_Id gnat_entity, tree gnu_name,
     expr_variable_p = false;
   else
     {
-      /* Skip any conversions and simple arithmetics to see if the expression
-	 is based on a read-only variable.
+      /* Skip any conversions and simple constant arithmetics to see if the
+	 expression is based on a read-only variable.
 	 ??? This really should remain read-only, but we have to think about
 	 the typing of the tree here.  */
-      tree inner
-	= skip_simple_arithmetic (remove_conversions (gnu_expr, true));
+      tree inner = remove_conversions (gnu_expr, true);
+
+      inner = skip_simple_constant_arithmetic (inner);
 
       if (handled_component_p (inner))
 	{
@@ -6612,6 +6618,13 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
 	  && TYPE_JUSTIFIED_MODULAR_P (gnu_field_type)
 	  && tree_int_cst_compare (gnu_size, TYPE_ADA_SIZE (gnu_field_type))
 	       <= 0)
+	gnu_field_type = TREE_TYPE (TYPE_FIELDS (gnu_field_type));
+
+      /* Similarly if the field's type is a misaligned integral type, but
+	 there is no restriction on the size as there is no justification.  */
+      if (!needs_strict_alignment
+	  && TYPE_IS_PADDING_P (gnu_field_type)
+	  && INTEGRAL_TYPE_P (TREE_TYPE (TYPE_FIELDS (gnu_field_type))))
 	gnu_field_type = TREE_TYPE (TYPE_FIELDS (gnu_field_type));
 
       gnu_field_type

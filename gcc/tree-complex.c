@@ -428,7 +428,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
       DECL_NAME (r) = get_identifier (ACONCAT ((name, suffix, NULL)));
 
       SET_DECL_DEBUG_EXPR (r, build1 (code, type, orig));
-      DECL_DEBUG_EXPR_IS_FROM (r) = 1;
+      DECL_HAS_DEBUG_EXPR_P (r) = 1;
       DECL_IGNORED_P (r) = 0;
       TREE_NO_WARNING (r) = TREE_NO_WARNING (orig);
     }
@@ -1648,9 +1648,8 @@ struct gimple_opt_pass pass_lower_complex =
   PROP_gimple_lcx,			/* properties_provided */
   0,                       		/* properties_destroyed */
   0,					/* todo_flags_start */
-    TODO_ggc_collect
-    | TODO_update_ssa
-    | TODO_verify_stmts	 		/* todo_flags_finish */
+  TODO_update_ssa
+  | TODO_verify_stmts	 		/* todo_flags_finish */
  }
 };
 
@@ -1679,8 +1678,7 @@ struct gimple_opt_pass pass_lower_complex_O0 =
   PROP_gimple_lcx,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect
-    | TODO_update_ssa
-    | TODO_verify_stmts	 		/* todo_flags_finish */
+  TODO_update_ssa
+  | TODO_verify_stmts	 		/* todo_flags_finish */
  }
 };

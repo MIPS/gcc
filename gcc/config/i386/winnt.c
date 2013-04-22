@@ -250,8 +250,9 @@ i386_pe_assemble_visibility (tree decl,
   if (!decl
       || !lookup_attribute ("visibility", DECL_ATTRIBUTES (decl)))
     return;
-  warning (OPT_Wattributes, "visibility attribute not supported "
-	   "in this configuration; ignored");
+  if (!DECL_ARTIFICIAL (decl))
+    warning (OPT_Wattributes, "visibility attribute not supported "
+			      "in this configuration; ignored");
 }
 
 /* This is used as a target hook to modify the DECL_ASSEMBLER_NAME
@@ -645,7 +646,17 @@ struct GTY(()) export_list
   int is_data;		/* used to type tag exported symbols.  */
 };
 
+/* Keep a list of stub symbols.  */
+
+struct GTY(()) stub_list
+{
+  struct stub_list *next;
+  const char *name;
+};
+
 static GTY(()) struct export_list *export_head;
+
+static GTY(()) struct stub_list *stub_head;
 
 /* Assemble an export symbol entry.  We need to keep a list of
    these, so that we can output the export list at the end of the
@@ -676,6 +687,30 @@ i386_pe_maybe_record_exported_symbol (tree decl, const char *name, int is_data)
   p->is_data = is_data;
   export_head = p;
 }
+
+void
+i386_pe_record_stub (const char *name)
+{
+  struct stub_list *p;
+
+  if (!name || *name == 0)
+    return;
+
+  p = stub_head;
+  while (p != NULL)
+    {
+      if (p->name[0] == *name
+          && !strcmp (p->name, name))
+	return;
+      p = p->next;
+    }
+
+  p = ggc_alloc_stub_list ();
+  p->next = stub_head;
+  p->name = name;
+  stub_head = p;
+}
+
 
 #ifdef CXX_WRAP_SPEC_LIST
 
@@ -778,6 +813,30 @@ i386_pe_file_end (void)
 	  fprintf (asm_out_file, "\t.ascii \" -export:\\\"%s\\\"%s\"\n",
 		   default_strip_name_encoding (q->name),
 		   (q->is_data ? ",data" : ""));
+	}
+    }
+
+  if (stub_head)
+    {
+      struct stub_list *q;
+
+      for (q = stub_head; q != NULL; q = q->next)
+	{
+	  const char *name = q->name;
+	  const char *oname;
+
+	  if (name[0] == '*')
+	    ++name;
+	  oname = name;
+	  if (name[0] == '.')
+	    ++name;
+	  if (strncmp (name, "refptr.", 7) != 0)
+	    continue;
+	  name += 7;
+	  fprintf (asm_out_file, "\t.section\t.rdata$%s, \"dr\"\n"
+	  		   "\t.globl\t%s\n"
+			   "\t.linkonce\tdiscard\n", oname, oname);
+	  fprintf (asm_out_file, "%s:\n\t.quad\t%s\n", oname, name);
 	}
     }
 }

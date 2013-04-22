@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1774,6 +1774,35 @@ package body Exp_Util is
       end if;
    end Ensure_Defined;
 
+   ---------------
+   -- Entity_Of --
+   ---------------
+
+   function Entity_Of (N : Node_Id) return Entity_Id is
+      Id : Entity_Id;
+
+   begin
+      Id := Empty;
+
+      if Is_Entity_Name (N) then
+         Id := Entity (N);
+
+         --  Follow a possible chain of renamings to reach the root renamed
+         --  object.
+
+         while Present (Renamed_Object (Id)) loop
+            if Is_Entity_Name (Renamed_Object (Id)) then
+               Id := Entity (Renamed_Object (Id));
+            else
+               Id := Empty;
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      return Id;
+   end Entity_Of;
+
    --------------------
    -- Entry_Names_OK --
    --------------------
@@ -3141,25 +3170,27 @@ package body Exp_Util is
 
       --  N_Raise_xxx_Error is an annoying special case, it is a statement if
       --  it has type Standard_Void_Type, and a subexpression otherwise.
-      --  otherwise. Procedure attribute references are also statements.
+      --  otherwise. Procedure calls, and similarly procedure attribute
+      --  references, are also statements.
 
       if Nkind (Assoc_Node) in N_Subexpr
-        and then (Nkind (Assoc_Node) in N_Raise_xxx_Error
+        and then (Nkind (Assoc_Node) not in N_Raise_xxx_Error
                    or else Etype (Assoc_Node) /= Standard_Void_Type)
+        and then Nkind (Assoc_Node) /= N_Procedure_Call_Statement
         and then (Nkind (Assoc_Node) /= N_Attribute_Reference
                    or else
                      not Is_Procedure_Attribute_Name
                            (Attribute_Name (Assoc_Node)))
       then
-         P := Assoc_Node;             -- ??? does not agree with above!
-         N := Parent (Assoc_Node);
+         N := Assoc_Node;
+         P := Parent (Assoc_Node);
 
       --  Non-subexpression case. Note that N is initially Empty in this case
       --  (N is only guaranteed Non-Empty in the subexpr case).
 
       else
-         P := Assoc_Node;
          N := Empty;
+         P := Assoc_Node;
       end if;
 
       --  Capture root of the transient scope
@@ -3170,6 +3201,13 @@ package body Exp_Util is
 
       loop
          pragma Assert (Present (P));
+
+         --  Make sure that inserted actions stay in the transient scope
+
+         if Present (Wrapped_Node) and then N = Wrapped_Node then
+            Store_Before_Actions_In_Scope (Ins_Actions);
+            return;
+         end if;
 
          case Nkind (P) is
 
@@ -3282,14 +3320,17 @@ package body Exp_Util is
 
                return;
 
-            --  Case of appearing within an Expressions_With_Actions node. We
-            --  append the actions to the list of actions already there, if
-            --  the node has not been analyzed yet. Otherwise find insertion
-            --  location further up the tree.
+            --  Case of appearing within an Expressions_With_Actions node. When
+            --  the new actions come from the expression of the expression with
+            --  actions, they must be added to the existing actions. The other
+            --  alternative is when the new actions are related to one of the
+            --  existing actions of the expression with actions. In that case
+            --  they must be inserted further up the tree.
 
             when N_Expression_With_Actions =>
-               if not Analyzed (P) then
-                  Append_List (Ins_Actions, Actions (P));
+               if N = Expression (P) then
+                  Insert_List_After_And_Analyze
+                    (Last (Actions (P)), Ins_Actions);
                   return;
                end if;
 
@@ -3662,6 +3703,7 @@ package body Exp_Util is
                N_Push_Storage_Error_Label               |
                N_Qualified_Expression                   |
                N_Quantified_Expression                  |
+               N_Raise_Expression                       |
                N_Range                                  |
                N_Range_Constraint                       |
                N_Real_Literal                           |
@@ -3696,13 +3738,6 @@ package body Exp_Util is
                null;
 
          end case;
-
-         --  Make sure that inserted actions stay in the transient scope
-
-         if P = Wrapped_Node then
-            Store_Before_Actions_In_Scope (Ins_Actions);
-            return;
-         end if;
 
          --  If we fall through above tests, keep climbing tree
 
@@ -4263,7 +4298,7 @@ package body Exp_Util is
          --  Look for aspect Default_Iterator
 
          if Has_Aspects (Parent (Typ)) then
-            Aspect := Find_Aspect (Typ, Aspect_Default_Iterator);
+            Aspect := Find_Value_Of_Aspect (Typ, Aspect_Default_Iterator);
 
             if Present (Aspect) then
                Iter := Entity (Aspect);
@@ -5154,11 +5189,9 @@ package body Exp_Util is
       --  True if access attribute
 
       elsif Nkind (N) = N_Attribute_Reference
-        and then (Attribute_Name (N) = Name_Access
-                    or else
-                  Attribute_Name (N) = Name_Unchecked_Access
-                    or else
-                  Attribute_Name (N) = Name_Unrestricted_Access)
+        and then Nam_In (Attribute_Name (N), Name_Access,
+                                             Name_Unchecked_Access,
+                                             Name_Unrestricted_Access)
       then
          return True;
 
@@ -5423,10 +5456,7 @@ package body Exp_Util is
       pragma Assert
         (Has_Invariants (Typ) and then Present (Invariant_Procedure (Typ)));
 
-      if Check_Enabled (Name_Invariant)
-           or else
-         Check_Enabled (Name_Assertion)
-      then
+      if Check_Kind (Name_Invariant) = Name_Check then
          return
            Make_Procedure_Call_Statement (Loc,
              Name                   =>
@@ -5514,18 +5544,36 @@ package body Exp_Util is
 
    function Make_Predicate_Call
      (Typ  : Entity_Id;
-      Expr : Node_Id) return Node_Id
+      Expr : Node_Id;
+      Mem  : Boolean := False) return Node_Id
    is
       Loc : constant Source_Ptr := Sloc (Expr);
 
    begin
       pragma Assert (Present (Predicate_Function (Typ)));
 
+      --  Call special membership version if requested and available
+
+      if Mem then
+         declare
+            PFM : constant Entity_Id := Predicate_Function_M (Typ);
+         begin
+            if Present (PFM) then
+               return
+                 Make_Function_Call (Loc,
+                   Name                   => New_Occurrence_Of (PFM, Loc),
+                   Parameter_Associations => New_List (Relocate_Node (Expr)));
+            end if;
+         end;
+      end if;
+
+      --  Case of calling normal predicate function
+
       return
-        Make_Function_Call (Loc,
-          Name                   =>
-            New_Occurrence_Of (Predicate_Function (Typ), Loc),
-          Parameter_Associations => New_List (Relocate_Node (Expr)));
+          Make_Function_Call (Loc,
+            Name                   =>
+              New_Occurrence_Of (Predicate_Function (Typ), Loc),
+            Parameter_Associations => New_List (Relocate_Node (Expr)));
    end Make_Predicate_Call;
 
    --------------------------
@@ -5537,14 +5585,26 @@ package body Exp_Util is
       Expr : Node_Id) return Node_Id
    is
       Loc : constant Source_Ptr := Sloc (Expr);
+      Nam : Name_Id;
 
    begin
+      --  Compute proper name to use, we need to get this right so that the
+      --  right set of check policies apply to the CHeck pragma we are making.
+
+      if Has_Dynamic_Predicate_Aspect (Typ) then
+         Nam := Name_Dynamic_Predicate;
+      elsif Has_Static_Predicate_Aspect (Typ) then
+         Nam := Name_Static_Predicate;
+      else
+         Nam := Name_Predicate;
+      end if;
+
       return
         Make_Pragma (Loc,
           Pragma_Identifier            => Make_Identifier (Loc, Name_Check),
           Pragma_Argument_Associations => New_List (
             Make_Pragma_Argument_Association (Loc,
-              Expression => Make_Identifier (Loc, Name_Predicate)),
+              Expression => Make_Identifier (Loc, Nam)),
             Make_Pragma_Argument_Association (Loc,
               Expression => Make_Predicate_Call (Typ, Expr))));
    end Make_Predicate_Check;
@@ -7938,6 +7998,37 @@ package body Exp_Util is
          return False;
       end if;
    end Type_May_Have_Bit_Aligned_Components;
+
+   ----------------------------------
+   -- Within_Case_Or_If_Expression --
+   ----------------------------------
+
+   function Within_Case_Or_If_Expression (N : Node_Id) return Boolean is
+      Par : Node_Id;
+
+   begin
+      --  Locate an enclosing case or if expression. Note: these constructs can
+      --  get expanded into Expression_With_Actions, hence the need to test
+      --  using the original node.
+
+      Par := N;
+      while Present (Par) loop
+         if Nkind_In (Original_Node (Par), N_Case_Expression,
+                                           N_If_Expression)
+         then
+            return True;
+
+         --  Prevent the search from going too far
+
+         elsif Is_Body_Or_Package_Declaration (Par) then
+            return False;
+         end if;
+
+         Par := Parent (Par);
+      end loop;
+
+      return False;
+   end Within_Case_Or_If_Expression;
 
    ----------------------------
    -- Wrap_Cleanup_Procedure --

@@ -1855,7 +1855,8 @@ lower_eh_must_not_throw (struct leh_state *state, gimple tp)
       this_region = gen_eh_region_must_not_throw (state->cur_region);
       this_region->u.must_not_throw.failure_decl
 	= gimple_eh_must_not_throw_fndecl (inner);
-      this_region->u.must_not_throw.failure_loc = gimple_location (tp);
+      this_region->u.must_not_throw.failure_loc
+	= LOCATION_LOCUS (gimple_location (tp));
 
       /* In order to get mangling applied to this decl, we must mark it
 	 used now.  Otherwise, pass_ipa_free_lang_data won't think it
@@ -3229,14 +3230,48 @@ static void
 optimize_clobbers (basic_block bb)
 {
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
+  bool any_clobbers = false;
+  bool seen_stack_restore = false;
+  edge_iterator ei;
+  edge e;
+
+  /* Only optimize anything if the bb contains at least one clobber,
+     ends with resx (checked by caller), optionally contains some
+     debug stmts or labels, or at most one __builtin_stack_restore
+     call, and has an incoming EH edge.  */
   for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
       if (is_gimple_debug (stmt))
 	continue;
-      if (!gimple_clobber_p (stmt)
-	  || TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
-	return;
+      if (gimple_clobber_p (stmt))
+	{
+	  any_clobbers = true;
+	  continue;
+	}
+      if (!seen_stack_restore
+	  && gimple_call_builtin_p (stmt, BUILT_IN_STACK_RESTORE))
+	{
+	  seen_stack_restore = true;
+	  continue;
+	}
+      if (gimple_code (stmt) == GIMPLE_LABEL)
+	break;
+      return;
+    }
+  if (!any_clobbers)
+    return;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (e->flags & EDGE_EH)
+      break;
+  if (e == NULL)
+    return;
+  gsi = gsi_last_bb (bb);
+  for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (!gimple_clobber_p (stmt))
+	continue;
       unlink_stmt_vdef (stmt);
       gsi_remove (&gsi, true);
       release_defs (stmt);
@@ -3277,8 +3312,7 @@ sink_clobbers (basic_block bb)
 	continue;
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	break;
-      if (!gimple_clobber_p (stmt)
-	  || TREE_CODE (gimple_assign_lhs (stmt)) == SSA_NAME)
+      if (!gimple_clobber_p (stmt))
 	return 0;
       any_clobbers = true;
     }
@@ -3291,11 +3325,27 @@ sink_clobbers (basic_block bb)
   for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
+      tree lhs;
       if (is_gimple_debug (stmt))
 	continue;
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	break;
       unlink_stmt_vdef (stmt);
+      lhs = gimple_assign_lhs (stmt);
+      /* Unfortunately we don't have dominance info updated at this
+	 point, so checking if
+	 dominated_by_p (CDI_DOMINATORS, succbb,
+			 gimple_bb (SSA_NAME_DEF_STMT (TREE_OPERAND (lhs, 0)))
+	 would be too costly.  Thus, avoid sinking any clobbers that
+	 refer to non-(D) SSA_NAMEs.  */
+      if (TREE_CODE (lhs) == MEM_REF
+	  && TREE_CODE (TREE_OPERAND (lhs, 0)) == SSA_NAME
+	  && !SSA_NAME_IS_DEFAULT_DEF (TREE_OPERAND (lhs, 0)))
+	{
+	  gsi_remove (&gsi, true);
+	  release_defs (stmt);
+	  continue;
+	}
       gsi_remove (&gsi, false);
       /* Trigger the operand scanner to cause renaming for virtual
          operands for this statement.
@@ -3519,22 +3569,37 @@ struct gimple_opt_pass pass_lower_eh_dispatch =
  }
 };
 
-/* Walk statements, see what regions are really referenced and remove
-   those that are unused.  */
+/* Walk statements, see what regions and, optionally, landing pads
+   are really referenced.
+   
+   Returns in R_REACHABLEP an sbitmap with bits set for reachable regions,
+   and in LP_REACHABLE an sbitmap with bits set for reachable landing pads.
+
+   Passing NULL for LP_REACHABLE is valid, in this case only reachable
+   regions are marked.
+
+   The caller is responsible for freeing the returned sbitmaps.  */
 
 static void
-remove_unreachable_handlers (void)
+mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 {
   sbitmap r_reachable, lp_reachable;
-  eh_region region;
-  eh_landing_pad lp;
   basic_block bb;
-  int lp_nr, r_nr;
+  bool mark_landing_pads = (lp_reachablep != NULL);
+  gcc_checking_assert (r_reachablep != NULL);
 
   r_reachable = sbitmap_alloc (cfun->eh->region_array->length ());
-  lp_reachable = sbitmap_alloc (cfun->eh->lp_array->length ());
   bitmap_clear (r_reachable);
-  bitmap_clear (lp_reachable);
+  *r_reachablep = r_reachable;
+
+  if (mark_landing_pads)
+    {
+      lp_reachable = sbitmap_alloc (cfun->eh->lp_array->length ());
+      bitmap_clear (lp_reachable);
+      *lp_reachablep = lp_reachable;
+    }
+  else
+    lp_reachable = NULL;
 
   FOR_EACH_BB (bb)
     {
@@ -3543,20 +3608,24 @@ remove_unreachable_handlers (void)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  lp_nr = lookup_stmt_eh_lp (stmt);
 
-	  /* Negative LP numbers are MUST_NOT_THROW regions which
-	     are not considered BB enders.  */
-	  if (lp_nr < 0)
-	    bitmap_set_bit (r_reachable, -lp_nr);
-
-	  /* Positive LP numbers are real landing pads, are are BB enders.  */
-	  else if (lp_nr > 0)
+	  if (mark_landing_pads)
 	    {
-	      gcc_assert (gsi_one_before_end_p (gsi));
-	      region = get_eh_region_from_lp_number (lp_nr);
-	      bitmap_set_bit (r_reachable, region->index);
-	      bitmap_set_bit (lp_reachable, lp_nr);
+	      int lp_nr = lookup_stmt_eh_lp (stmt);
+
+	      /* Negative LP numbers are MUST_NOT_THROW regions which
+		 are not considered BB enders.  */
+	      if (lp_nr < 0)
+		bitmap_set_bit (r_reachable, -lp_nr);
+
+	      /* Positive LP numbers are real landing pads, and BB enders.  */
+	      else if (lp_nr > 0)
+		{
+		  gcc_assert (gsi_one_before_end_p (gsi));
+		  eh_region region = get_eh_region_from_lp_number (lp_nr);
+		  bitmap_set_bit (r_reachable, region->index);
+		  bitmap_set_bit (lp_reachable, lp_nr);
+		}
 	    }
 
 	  /* Avoid removing regions referenced from RESX/EH_DISPATCH.  */
@@ -3573,6 +3642,19 @@ remove_unreachable_handlers (void)
 	    }
 	}
     }
+}
+
+/* Remove unreachable handlers and unreachable landing pads.  */
+
+static void
+remove_unreachable_handlers (void)
+{
+  sbitmap r_reachable, lp_reachable;
+  eh_region region;
+  eh_landing_pad lp;
+  unsigned i;
+
+  mark_reachable_handlers (&r_reachable, &lp_reachable);
 
   if (dump_file)
     {
@@ -3584,21 +3666,24 @@ remove_unreachable_handlers (void)
       dump_bitmap_file (dump_file, lp_reachable);
     }
 
-  for (r_nr = 1;
-       vec_safe_iterate (cfun->eh->region_array, r_nr, &region); ++r_nr)
-    if (region && !bitmap_bit_p (r_reachable, r_nr))
-      {
-	if (dump_file)
-	  fprintf (dump_file, "Removing unreachable region %d\n", r_nr);
-	remove_eh_handler (region);
-      }
+  if (dump_file)
+    {
+      FOR_EACH_VEC_SAFE_ELT (cfun->eh->region_array, i, region)
+	if (region && !bitmap_bit_p (r_reachable, region->index))
+	  fprintf (dump_file,
+		   "Removing unreachable region %d\n",
+		   region->index);
+    }
 
-  for (lp_nr = 1;
-       vec_safe_iterate (cfun->eh->lp_array, lp_nr, &lp); ++lp_nr)
-    if (lp && !bitmap_bit_p (lp_reachable, lp_nr))
+  remove_unreachable_eh_regions (r_reachable);
+
+  FOR_EACH_VEC_SAFE_ELT (cfun->eh->lp_array, i, lp)
+    if (lp && !bitmap_bit_p (lp_reachable, lp->index))
       {
 	if (dump_file)
-	  fprintf (dump_file, "Removing unreachable landing pad %d\n", lp_nr);
+	  fprintf (dump_file,
+		   "Removing unreachable landing pad %d\n",
+		   lp->index);
 	remove_eh_landing_pad (lp);
       }
 
@@ -3624,12 +3709,12 @@ void
 maybe_remove_unreachable_handlers (void)
 {
   eh_landing_pad lp;
-  int i;
+  unsigned i;
 
   if (cfun->eh == NULL)
     return;
-              
-  for (i = 1; vec_safe_iterate (cfun->eh->lp_array, i, &lp); ++i)
+           
+  FOR_EACH_VEC_SAFE_ELT (cfun->eh->lp_array, i, lp)
     if (lp && lp->post_landing_pad)
       {
 	if (label_to_block (lp->post_landing_pad) == NULL)
@@ -3642,45 +3727,38 @@ maybe_remove_unreachable_handlers (void)
 
 /* Remove regions that do not have landing pads.  This assumes
    that remove_unreachable_handlers has already been run, and
-   that we've just manipulated the landing pads since then.  */
+   that we've just manipulated the landing pads since then.
+
+   Preserve regions with landing pads and regions that prevent
+   exceptions from propagating further, even if these regions
+   are not reachable.  */
 
 static void
 remove_unreachable_handlers_no_lp (void)
 {
-  eh_region r;
-  int i;
+  eh_region region;
   sbitmap r_reachable;
-  basic_block bb;
+  unsigned i;
 
-  r_reachable = sbitmap_alloc (cfun->eh->region_array->length ());
-  bitmap_clear (r_reachable);
+  mark_reachable_handlers (&r_reachable, /*lp_reachablep=*/NULL);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_VEC_SAFE_ELT (cfun->eh->region_array, i, region)
     {
-      gimple stmt = last_stmt (bb);
-      if (stmt)
-	/* Avoid removing regions referenced from RESX/EH_DISPATCH.  */
-	switch (gimple_code (stmt))
-	  {
-	  case GIMPLE_RESX:
-	    bitmap_set_bit (r_reachable, gimple_resx_region (stmt));
-	    break;
-	  case GIMPLE_EH_DISPATCH:
-	    bitmap_set_bit (r_reachable, gimple_eh_dispatch_region (stmt));
-	    break;
-	  default:
-	    break;
-	  }
+      if (! region)
+	continue;
+
+      if (region->landing_pads != NULL
+	  || region->type == ERT_MUST_NOT_THROW)
+	bitmap_set_bit (r_reachable, region->index);
+
+      if (dump_file
+	  && !bitmap_bit_p (r_reachable, region->index))
+	fprintf (dump_file,
+		 "Removing unreachable region %d\n",
+		 region->index);
     }
 
-  for (i = 1; cfun->eh->region_array->iterate (i, &r); ++i)
-    if (r && r->landing_pads == NULL && r->type != ERT_MUST_NOT_THROW
-	&& !bitmap_bit_p (r_reachable, i))
-      {
-	if (dump_file)
-	  fprintf (dump_file, "Removing unreachable region %d\n", i);
-	remove_eh_handler (r);
-      }
+  remove_unreachable_eh_regions (r_reachable);
 
   sbitmap_free (r_reachable);
 }
@@ -3708,10 +3786,10 @@ unsplit_eh (eh_landing_pad lp)
   edge e_in, e_out;
 
   /* Quickly check the edge counts on BB for singularity.  */
-  if (EDGE_COUNT (bb->preds) != 1 || EDGE_COUNT (bb->succs) != 1)
+  if (!single_pred_p (bb) || !single_succ_p (bb))
     return false;
-  e_in = EDGE_PRED (bb, 0);
-  e_out = EDGE_SUCC (bb, 0);
+  e_in = single_pred_edge (bb);
+  e_out = single_succ_edge (bb);
 
   /* Input edge must be EH and output edge must be normal.  */
   if ((e_in->flags & EDGE_EH) == 0 || (e_out->flags & EDGE_EH) != 0)
@@ -4113,7 +4191,7 @@ cleanup_empty_eh (eh_landing_pad lp)
       e_out = NULL;
       break;
     case 1:
-      e_out = EDGE_SUCC (bb, 0);
+      e_out = single_succ_edge (bb);
       break;
     default:
       return false;

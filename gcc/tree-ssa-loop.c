@@ -56,8 +56,8 @@ struct gimple_opt_pass pass_tree_loop =
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
-  TODO_verify_ssa | TODO_ggc_collect	/* todo_flags_finish */
+  0,					/* todo_flags_start */
+  TODO_verify_ssa			/* todo_flags_finish */
  }
 };
 
@@ -70,10 +70,13 @@ tree_ssa_loop_init (void)
 		       | LOOPS_HAVE_RECORDED_EXITS);
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
 
+  /* We might discover new loops, e.g. when turning irreducible
+     regions into reducible.  */
+  scev_initialize ();
+
   if (number_of_loops () <= 1)
     return 0;
 
-  scev_initialize ();
   return 0;
 }
 
@@ -167,7 +170,7 @@ struct gimple_opt_pass pass_tree_unswitch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect                  	/* todo_flags_finish */
+  0					/* todo_flags_finish */
  }
 };
 
@@ -242,8 +245,7 @@ struct gimple_opt_pass pass_vectorize =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa
-    | TODO_ggc_collect			/* todo_flags_finish */
+  0					/* todo_flags_finish */
  }
 };
 
@@ -489,7 +491,7 @@ struct gimple_opt_pass pass_complete_unroll =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect			/* todo_flags_finish */
+  0					/* todo_flags_finish */
  }
 };
 
@@ -536,8 +538,7 @@ struct gimple_opt_pass pass_complete_unrolli =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_verify_flow
-    | TODO_ggc_collect 			/* todo_flags_finish */
+  TODO_verify_flow			/* todo_flags_finish */
  }
 };
 
@@ -651,7 +652,7 @@ struct gimple_opt_pass pass_iv_optimize =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_update_ssa | TODO_ggc_collect	/* todo_flags_finish */
+  TODO_update_ssa			/* todo_flags_finish */
  }
 };
 

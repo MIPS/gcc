@@ -2401,10 +2401,8 @@ vn_phi_compute_hash (vn_phi_t vp1)
 
   /* If all PHI arguments are constants we need to distinguish
      the PHI node via its type.  */
-  type = TREE_TYPE (vp1->phiargs[0]);
-  result += (INTEGRAL_TYPE_P (type)
-	     + (INTEGRAL_TYPE_P (type)
-		? TYPE_PRECISION (type) + TYPE_UNSIGNED (type) : 0));
+  type = vp1->type;
+  result += vn_hash_type (type);
 
   FOR_EACH_VEC_ELT (vp1->phiargs, i, phi1op)
     {
@@ -2443,8 +2441,7 @@ vn_phi_eq (const void *p1, const void *p2)
 
       /* If the PHI nodes do not have compatible types
 	 they are not the same.  */
-      if (!types_compatible_p (TREE_TYPE (vp1->phiargs[0]),
-			       TREE_TYPE (vp2->phiargs[0])))
+      if (!types_compatible_p (vp1->type, vp2->type))
 	return false;
 
       /* Any phi in the same block will have it's arguments in the
@@ -2484,6 +2481,7 @@ vn_phi_lookup (gimple phi)
       def = TREE_CODE (def) == SSA_NAME ? SSA_VAL (def) : def;
       shared_lookup_phiargs.safe_push (def);
     }
+  vp1.type = TREE_TYPE (gimple_phi_result (phi));
   vp1.phiargs = shared_lookup_phiargs;
   vp1.block = gimple_bb (phi);
   vp1.hashcode = vn_phi_compute_hash (&vp1);
@@ -2516,6 +2514,7 @@ vn_phi_insert (gimple phi, tree result)
       args.safe_push (def);
     }
   vp1->value_id = VN_INFO (result)->value_id;
+  vp1->type = TREE_TYPE (gimple_phi_result (phi));
   vp1->phiargs = args;
   vp1->block = gimple_bb (phi);
   vp1->result = result;
@@ -2653,18 +2652,13 @@ static tree valueize_expr (tree expr);
 static bool
 visit_copy (tree lhs, tree rhs)
 {
-  /* Follow chains of copies to their destination.  */
-  while (TREE_CODE (rhs) == SSA_NAME
-	 && SSA_VAL (rhs) != rhs)
-    rhs = SSA_VAL (rhs);
-
   /* The copy may have a more interesting constant filled expression
      (we don't, since we know our RHS is just an SSA name).  */
-  if (TREE_CODE (rhs) == SSA_NAME)
-    {
-      VN_INFO (lhs)->has_constants = VN_INFO (rhs)->has_constants;
-      VN_INFO (lhs)->expr = VN_INFO (rhs)->expr;
-    }
+  VN_INFO (lhs)->has_constants = VN_INFO (rhs)->has_constants;
+  VN_INFO (lhs)->expr = VN_INFO (rhs)->expr;
+
+  /* And finally valueize.  */
+  rhs = SSA_VAL (rhs);
 
   return set_ssa_val_to (lhs, rhs);
 }
@@ -3063,25 +3057,38 @@ expr_has_constants (tree expr)
 static bool
 stmt_has_constants (gimple stmt)
 {
+  tree tem;
+
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return false;
 
   switch (get_gimple_rhs_class (gimple_assign_rhs_code (stmt)))
     {
-    case GIMPLE_UNARY_RHS:
-      return is_gimple_min_invariant (gimple_assign_rhs1 (stmt));
+    case GIMPLE_TERNARY_RHS:
+      tem = gimple_assign_rhs3 (stmt);
+      if (TREE_CODE (tem) == SSA_NAME)
+	tem = SSA_VAL (tem);
+      if (is_gimple_min_invariant (tem))
+	return true;
+      /* Fallthru.  */
 
     case GIMPLE_BINARY_RHS:
-      return (is_gimple_min_invariant (gimple_assign_rhs1 (stmt))
-	      || is_gimple_min_invariant (gimple_assign_rhs2 (stmt)));
-    case GIMPLE_TERNARY_RHS:
-      return (is_gimple_min_invariant (gimple_assign_rhs1 (stmt))
-	      || is_gimple_min_invariant (gimple_assign_rhs2 (stmt))
-	      || is_gimple_min_invariant (gimple_assign_rhs3 (stmt)));
+      tem = gimple_assign_rhs2 (stmt);
+      if (TREE_CODE (tem) == SSA_NAME)
+	tem = SSA_VAL (tem);
+      if (is_gimple_min_invariant (tem))
+	return true;
+      /* Fallthru.  */
+
     case GIMPLE_SINGLE_RHS:
       /* Constants inside reference ops are rarely interesting, but
 	 it can take a lot of looking to find them.  */
-      return is_gimple_min_invariant (gimple_assign_rhs1 (stmt));
+    case GIMPLE_UNARY_RHS:
+      tem = gimple_assign_rhs1 (stmt);
+      if (TREE_CODE (tem) == SSA_NAME)
+	tem = SSA_VAL (tem);
+      return is_gimple_min_invariant (tem);
+
     default:
       gcc_unreachable ();
     }
@@ -3499,8 +3506,13 @@ visit_use (tree use)
 		     We can value number 2 calls to the same function with the
 		     same vuse and the same operands which are not subsequent
 		     the same, because there is no code in the program that can
-		     compare the 2 values.  */
-		  || gimple_vdef (stmt)))
+		     compare the 2 values...  */
+		  || (gimple_vdef (stmt)
+		      /* ... unless the call returns a pointer which does
+		         not alias with anything else.  In which case the
+			 information that the values are distinct are encoded
+			 in the IL.  */
+		      && !(gimple_call_return_flags (stmt) & ERF_NOALIAS))))
 	    changed = visit_reference_op_call (lhs, stmt);
 	  else
 	    changed = defs_to_varying (stmt);
@@ -3955,18 +3967,17 @@ free_scc_vn (void)
   XDELETE (optimistic_info);
 }
 
-/* Set *ID if we computed something useful in RESULT.  */
+/* Set *ID according to RESULT.  */
 
 static void
 set_value_id_for_result (tree result, unsigned int *id)
 {
-  if (result)
-    {
-      if (TREE_CODE (result) == SSA_NAME)
-	*id = VN_INFO (result)->value_id;
-      else if (is_gimple_min_invariant (result))
-	*id = get_or_alloc_constant_value_id (result);
-    }
+  if (result && TREE_CODE (result) == SSA_NAME)
+    *id = VN_INFO (result)->value_id;
+  else if (result && is_gimple_min_invariant (result))
+    *id = get_or_alloc_constant_value_id (result);
+  else
+    *id = get_next_value_id ();
 }
 
 /* Set the value ids in the valid hash tables.  */

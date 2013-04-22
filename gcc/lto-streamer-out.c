@@ -162,6 +162,9 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   xloc = expand_location (loc);
 
   bp_pack_value (bp, ob->current_file != xloc.file, 1);
+  bp_pack_value (bp, ob->current_line != xloc.line, 1);
+  bp_pack_value (bp, ob->current_col != xloc.column, 1);
+
   if (ob->current_file != xloc.file)
     bp_pack_var_len_unsigned (bp,
 	                      streamer_string_index (ob, xloc.file,
@@ -169,12 +172,10 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
 						     true));
   ob->current_file = xloc.file;
 
-  bp_pack_value (bp, ob->current_line != xloc.line, 1);
   if (ob->current_line != xloc.line)
     bp_pack_var_len_unsigned (bp, xloc.line);
   ob->current_line = xloc.line;
 
-  bp_pack_value (bp, ob->current_col != xloc.column, 1);
   if (ob->current_col != xloc.column)
     bp_pack_var_len_unsigned (bp, xloc.column);
   ob->current_col = xloc.column;
@@ -643,7 +644,7 @@ output_cfg (struct output_block *ob, struct function *fn)
 	{
 	  streamer_write_uhwi (ob, e->dest->index);
 	  streamer_write_hwi (ob, e->probability);
-	  streamer_write_hwi (ob, e->count);
+	  streamer_write_gcov_count (ob, e->count);
 	  streamer_write_uhwi (ob, e->flags);
 	}
     }
@@ -1165,7 +1166,8 @@ write_symbol (struct streamer_tree_cache_d *cache,
   if (!TREE_PUBLIC (t)
       || is_builtin_fn (t)
       || DECL_ABSTRACT (t)
-      || TREE_CODE (t) == RESULT_DECL)
+      || TREE_CODE (t) == RESULT_DECL
+      || (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t)))
     return;
 
   gcc_assert (TREE_CODE (t) == VAR_DECL
@@ -1263,17 +1265,36 @@ bool
 output_symbol_p (symtab_node node)
 {
   struct cgraph_node *cnode;
-  struct ipa_ref *ref;
-
   if (!symtab_real_symbol_p (node))
     return false;
   /* We keep external functions in symtab for sake of inlining
      and devirtualization.  We do not want to see them in symbol table as
-     references.  */
+     references unless they are really used.  */
   cnode = dyn_cast <cgraph_node> (node);
-  if (cnode && DECL_EXTERNAL (cnode->symbol.decl))
-    return (cnode->callers
-	    || ipa_ref_list_referring_iterate (&cnode->symbol.ref_list, 0, ref));
+  if (cnode && DECL_EXTERNAL (cnode->symbol.decl)
+      && cnode->callers)
+    return true;
+
+ /* Ignore all references from external vars initializers - they are not really
+    part of the compilation unit until they are used by folding.  Some symbols,
+    like references to external construction vtables can not be referred to at all.
+    We decide this at can_refer_decl_in_current_unit_p.  */
+ if (DECL_EXTERNAL (node->symbol.decl))
+    {
+      int i;
+      struct ipa_ref *ref;
+      for (i = 0; ipa_ref_list_referring_iterate (&node->symbol.ref_list,
+					          i, ref); i++)
+	{
+	  if (ref->use == IPA_REF_ALIAS)
+	    continue;
+          if (is_a <cgraph_node> (ref->referring))
+	    return true;
+	  if (!DECL_EXTERNAL (ref->referring->symbol.decl))
+	    return true;
+	}
+      return false;
+    }
   return true;
 }
 

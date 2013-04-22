@@ -152,8 +152,12 @@ static const st_option async_opt[] =
 static void
 test_endfile (gfc_unit * u)
 {
-  if (u->endfile == NO_ENDFILE && ssize (u->s) == stell (u->s))
-    u->endfile = AT_ENDFILE;
+  if (u->endfile == NO_ENDFILE)
+    { 
+      gfc_offset sz = ssize (u->s);
+      if (sz == 0 || sz == stell (u->s))
+	u->endfile = AT_ENDFILE;
+    }
 }
 
 
@@ -814,10 +818,6 @@ st_open (st_parameter_open *opp)
 
   flags.convert = conv;
 
-  if (!(opp->common.flags & IOPARM_OPEN_HAS_NEWUNIT) && opp->common.unit < 0)
-    generate_error (&opp->common, LIBERROR_BAD_OPTION,
-		    "Bad unit number in OPEN statement");
-
   if (flags.position != POSITION_UNSPECIFIED
       && flags.access == ACCESS_DIRECT)
     generate_error (&opp->common, LIBERROR_BAD_OPTION,
@@ -844,8 +844,16 @@ st_open (st_parameter_open *opp)
     {
       if ((opp->common.flags & IOPARM_OPEN_HAS_NEWUNIT))
 	opp->common.unit = get_unique_unit_number(opp);
+      else if (opp->common.unit < 0)
+	{
+	  u = find_unit (opp->common.unit);
+	  if (u == NULL) /* Negative unit and no NEWUNIT-created unit found.  */
+	    generate_error (&opp->common, LIBERROR_BAD_OPTION,
+			    "Bad unit number in OPEN statement");
+	}
 
-      u = find_or_create_unit (opp->common.unit);
+      if (u == NULL)
+	u = find_or_create_unit (opp->common.unit);
       if (u->s == NULL)
 	{
 	  u = new_unit (opp, u, &flags);

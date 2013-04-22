@@ -44,6 +44,7 @@
 ; simd_dup              duplicate element.
 ; simd_dupgp            duplicate general purpose register.
 ; simd_ext              bitwise extract from pair.
+; simd_fabd             floating absolute difference and accumulate.
 ; simd_fadd             floating point add/sub.
 ; simd_fcmp             floating point compare.
 ; simd_fcvti            floating point convert to integer.
@@ -147,6 +148,7 @@
    simd_dup,\
    simd_dupgp,\
    simd_ext,\
+   simd_fabd,\
    simd_fadd,\
    simd_fcmp,\
    simd_fcvti,\
@@ -517,6 +519,40 @@
   "TARGET_SIMD"
   "abs\t%0.<Vtype>, %1.<Vtype>"
   [(set_attr "simd_type" "simd_negabs")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "abd<mode>_3"
+  [(set (match_operand:VDQ_BHSI 0 "register_operand" "=w")
+	(abs:VDQ_BHSI (minus:VDQ_BHSI
+		       (match_operand:VDQ_BHSI 1 "register_operand" "w")
+		       (match_operand:VDQ_BHSI 2 "register_operand" "w"))))]
+  "TARGET_SIMD"
+  "sabd\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
+  [(set_attr "simd_type" "simd_abd")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "aba<mode>_3"
+  [(set (match_operand:VDQ_BHSI 0 "register_operand" "=w")
+	(plus:VDQ_BHSI (abs:VDQ_BHSI (minus:VDQ_BHSI
+			 (match_operand:VDQ_BHSI 1 "register_operand" "w")
+			 (match_operand:VDQ_BHSI 2 "register_operand" "w")))
+		       (match_operand:VDQ_BHSI 3 "register_operand" "0")))]
+  "TARGET_SIMD"
+  "saba\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
+  [(set_attr "simd_type" "simd_abd")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "fabd<mode>_3"
+  [(set (match_operand:VDQF 0 "register_operand" "=w")
+	(abs:VDQF (minus:VDQF
+		   (match_operand:VDQF 1 "register_operand" "w")
+		   (match_operand:VDQF 2 "register_operand" "w"))))]
+  "TARGET_SIMD"
+  "fabd\t%0.<Vtype>, %1.<Vtype>, %2.<Vtype>"
+  [(set_attr "simd_type" "simd_fabd")
    (set_attr "simd_mode" "<MODE>")]
 )
 
@@ -1586,6 +1622,7 @@
   "TARGET_SIMD"
 {
   int inverse = 0;
+  int use_zero_form = 0;
   int swap_bsl_operands = 0;
   rtx mask = gen_reg_rtx (<V_cmp_result>mode);
   rtx tmp = gen_reg_rtx (<V_cmp_result>mode);
@@ -1596,12 +1633,16 @@
   switch (GET_CODE (operands[3]))
     {
     case GE:
+    case GT:
     case LE:
+    case LT:
     case EQ:
-      if (!REG_P (operands[5])
-	  && (operands[5] != CONST0_RTX (<MODE>mode)))
-	operands[5] = force_reg (<MODE>mode, operands[5]);
-      break;
+      if (operands[5] == CONST0_RTX (<MODE>mode))
+	{
+	  use_zero_form = 1;
+	  break;
+	}
+      /* Fall through.  */
     default:
       if (!REG_P (operands[5]))
 	operands[5] = force_reg (<MODE>mode, operands[5]);
@@ -1652,7 +1693,26 @@
 	 a GT b -> a GT b
 	 a LE b -> b GE a
 	 a LT b -> b GT a
-	 a EQ b -> a EQ b  */
+	 a EQ b -> a EQ b
+	 Note that there also exist direct comparison against 0 forms,
+	 so catch those as a special case.  */
+      if (use_zero_form)
+	{
+	  inverse = 0;
+	  switch (GET_CODE (operands[3]))
+	    {
+	    case LT:
+	      base_comparison = gen_aarch64_cmlt<mode>;
+	      break;
+	    case LE:
+	      base_comparison = gen_aarch64_cmle<mode>;
+	      break;
+	    default:
+	      /* Do nothing, other zero form cases already have the correct
+		 base_comparison.  */
+	      break;
+	    }
+	}
 
       if (!inverse)
 	emit_insn (base_comparison (mask, operands[4], operands[5]));
@@ -2210,17 +2270,49 @@
 ;; sq<r>dmulh_lane
 
 (define_insn "aarch64_sq<r>dmulh_lane<mode>"
-  [(set (match_operand:VSDQ_HSI 0 "register_operand" "=w")
-        (unspec:VSDQ_HSI
-	  [(match_operand:VSDQ_HSI 1 "register_operand" "w")
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+        (unspec:VDQHS
+	  [(match_operand:VDQHS 1 "register_operand" "w")
            (vec_select:<VEL>
-             (match_operand:<VCON> 2 "register_operand" "<vwx>")
+             (match_operand:<VCOND> 2 "register_operand" "<vwx>")
              (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCON>mode));
-   return \"sq<r>dmulh\\t%<v>0<Vmtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]\";"
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCOND>mode));
+   return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
+  [(set_attr "simd_type" "simd_sat_mul")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "aarch64_sq<r>dmulh_laneq<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+        (unspec:VDQHS
+	  [(match_operand:VDQHS 1 "register_operand" "w")
+           (vec_select:<VEL>
+             (match_operand:<VCONQ> 2 "register_operand" "<vwx>")
+             (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
+	 VQDMULH))]
+  "TARGET_SIMD"
+  "*
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCONQ>mode));
+   return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
+  [(set_attr "simd_type" "simd_sat_mul")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "aarch64_sq<r>dmulh_lane<mode>"
+  [(set (match_operand:SD_HSI 0 "register_operand" "=w")
+        (unspec:SD_HSI
+	  [(match_operand:SD_HSI 1 "register_operand" "w")
+           (vec_select:<VEL>
+             (match_operand:<VCONQ> 2 "register_operand" "<vwx>")
+             (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
+	 VQDMULH))]
+  "TARGET_SIMD"
+  "*
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCONQ>mode));
+   return \"sq<r>dmulh\\t%<v>0, %<v>1, %2.<v>[%3]\";"
   [(set_attr "simd_type" "simd_sat_mul")
    (set_attr "simd_mode" "<MODE>")]
 )

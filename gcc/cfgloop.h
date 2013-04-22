@@ -159,6 +159,10 @@ struct GTY ((chain_next ("%h.next"))) loop {
   /* True if the loop can be parallel.  */
   bool can_be_parallel;
 
+  /* True if -Waggressive-loop-optimizations warned about this loop
+     already.  */
+  bool warned_aggressive_loop_optimizations;
+
   /* An integer estimation of the number of iterations.  Estimate_state
      describes what is the state of the estimation.  */
   enum loop_estimation estimate_state;
@@ -168,6 +172,9 @@ struct GTY ((chain_next ("%h.next"))) loop {
 
   /* Head of the cyclic list of the exits of the loop.  */
   struct loop_exit *exits;
+
+  /* Number of iteration analysis data for RTL.  */
+  struct niter_desc *simple_loop_desc;
 };
 
 /* Flags for state of loop structure.  */
@@ -205,7 +212,8 @@ struct GTY (()) loops {
 };
 
 /* Loop recognition.  */
-extern int flow_loops_find (struct loops *);
+bool bb_loop_header_p (basic_block);
+extern struct loops *flow_loops_find (struct loops *);
 extern void disambiguate_loops_with_multiple_latches (void);
 extern void flow_loops_free (struct loops *);
 extern void flow_loops_dump (FILE *,
@@ -215,7 +223,7 @@ extern void flow_loop_dump (const struct loop *, FILE *,
 struct loop *alloc_loop (void);
 extern void flow_loop_free (struct loop *);
 int flow_loop_nodes_find (basic_block, struct loop *);
-void fix_loop_structure (bitmap changed_bbs);
+unsigned fix_loop_structure (bitmap changed_bbs);
 bool mark_irreducible_loops (void);
 void release_recorded_exits (void);
 void record_loop_exits (void);
@@ -367,7 +375,7 @@ struct rtx_iv
 /* The description of an exit from the loop and of the number of iterations
    till we take the exit.  */
 
-struct niter_desc
+struct GTY(()) niter_desc
 {
   /* The edge out of the loop.  */
   edge out_edge;
@@ -420,7 +428,7 @@ extern void free_simple_loop_desc (struct loop *loop);
 static inline struct niter_desc *
 simple_loop_desc (struct loop *loop)
 {
-  return (struct niter_desc *) loop->aux;
+  return loop->simple_loop_desc;
 }
 
 /* Accessors for the loop structures.  */

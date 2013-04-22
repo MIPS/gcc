@@ -595,9 +595,7 @@ try_forward_edges (int mode, basic_block b)
 	  /* We successfully forwarded the edge.  Now update profile
 	     data: for each edge we traversed in the chain, remove
 	     the original edge's execution count.  */
-	  edge_frequency = ((edge_probability * b->frequency
-			     + REG_BR_PROB_BASE / 2)
-			    / REG_BR_PROB_BASE);
+	  edge_frequency = apply_probability (b->frequency, edge_probability);
 
 	  do
 	    {
@@ -3017,14 +3015,11 @@ cleanup_cfg (int mode)
       && (changed
 	  || (mode & CLEANUP_CFG_CHANGED)))
     {
-      bitmap changed_bbs;
       timevar_push (TV_REPAIR_LOOPS);
       /* The above doesn't preserve dominance info if available.  */
       gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
       calculate_dominance_info (CDI_DOMINATORS);
-      changed_bbs = BITMAP_ALLOC (NULL);
-      fix_loop_structure (changed_bbs);
-      BITMAP_FREE (changed_bbs);
+      fix_loop_structure (NULL);
       free_dominance_info (CDI_DOMINATORS);
       timevar_pop (TV_REPAIR_LOOPS);
     }
@@ -3060,7 +3055,7 @@ struct rtl_opt_pass pass_jump =
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
+  0,					/* todo_flags_start */
   TODO_verify_rtl_sharing,		/* todo_flags_finish */
  }
 };
@@ -3087,7 +3082,7 @@ struct rtl_opt_pass pass_jump2 =
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
+  0,					/* todo_flags_start */
   TODO_verify_rtl_sharing,		/* todo_flags_finish */
  }
 };

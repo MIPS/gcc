@@ -249,6 +249,9 @@
 ;; 32-bit version and "%x0" in the 64-bit version.
 (define_mode_attr w [(QI "w") (HI "w") (SI "w") (DI "x") (SF "s") (DF "d")])
 
+;; For constraints used in scalar immediate vector moves
+(define_mode_attr hq [(HI "h") (QI "q")])
+
 ;; For scalar usage of vector/FP registers
 (define_mode_attr v [(QI "b") (HI "h") (SI "s") (DI "d")
 		    (V8QI "") (V16QI "")
@@ -338,6 +341,22 @@
                         (V2DF "DF")
 			(SI   "SI") (HI   "HI")
 			(QI   "QI")])
+
+;; Define container mode for lane selection.
+(define_mode_attr VCOND [(V4HI "V4HI") (V8HI "V4HI")
+			 (V2SI "V2SI") (V4SI "V2SI")
+			 (DI   "DI") (V2DI "DI")
+			 (V2SF "V2SF") (V4SF "V2SF")
+			 (V2DF "DF")])
+
+;; Define container mode for lane selection.
+(define_mode_attr VCONQ [(V8QI "V16QI") (V16QI "V16QI")
+			 (V4HI "V8HI") (V8HI "V8HI")
+			 (V2SI "V4SI") (V4SI "V4SI")
+			 (DI   "V2DI") (V2DI "V2DI")
+			 (V2SF "V2SF") (V4SF "V4SF")
+			 (V2DF "V2DF") (SI   "V4SI")
+			 (HI   "V8HI") (QI   "V16QI")])
 
 ;; Define container mode for lane selection.
 (define_mode_attr VCON [(V8QI "V16QI") (V16QI "V16QI")

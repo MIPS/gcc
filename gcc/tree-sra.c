@@ -1917,7 +1917,7 @@ create_access_replacement (struct access *access)
       && !DECL_ARTIFICIAL (access->base))
     {
       char *pretty_name = make_fancy_name (access->expr);
-      tree debug_expr = unshare_expr (access->expr), d;
+      tree debug_expr = unshare_expr_without_location (access->expr), d;
       bool fail = false;
 
       DECL_NAME (repl) = get_identifier (pretty_name);
@@ -1961,7 +1961,7 @@ create_access_replacement (struct access *access)
       if (!fail)
 	{
 	  SET_DECL_DEBUG_EXPR (repl, debug_expr);
-	  DECL_DEBUG_EXPR_IS_FROM (repl) = 1;
+	  DECL_HAS_DEBUG_EXPR_P (repl) = 1;
 	}
       if (access->grp_no_warning)
 	TREE_NO_WARNING (repl) = 1;
@@ -2000,8 +2000,7 @@ create_access_replacement (struct access *access)
 static inline tree
 get_access_replacement (struct access *access)
 {
-  if (!access->replacement_decl)
-    access->replacement_decl = create_access_replacement (access);
+  gcc_checking_assert (access->replacement_decl);
   return access->replacement_decl;
 }
 
@@ -2157,7 +2156,6 @@ analyze_access_subtree (struct access *root, struct access *parent,
 	  || ((root->grp_scalar_read || root->grp_assignment_read)
 	      && (root->grp_scalar_write || root->grp_assignment_write))))
     {
-      bool new_integer_type;
       /* Always create access replacements that cover the whole access.
          For integral types this means the precision has to match.
 	 Avoid assumptions based on the integral type kind, too.  */
@@ -2176,22 +2174,19 @@ analyze_access_subtree (struct access *root, struct access *parent,
 	  root->expr = build_ref_for_offset (UNKNOWN_LOCATION,
 					     root->base, root->offset,
 					     root->type, NULL, false);
-	  new_integer_type = true;
-	}
-      else
-	new_integer_type = false;
 
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "Marking ");
-	  print_generic_expr (dump_file, root->base, 0);
-	  fprintf (dump_file, " offset: %u, size: %u ",
-		   (unsigned) root->offset, (unsigned) root->size);
-	  fprintf (dump_file, " to be replaced%s.\n",
-		   new_integer_type ? " with an integer": "");
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Changing the type of a replacement for ");
+	      print_generic_expr (dump_file, root->base, 0);
+	      fprintf (dump_file, " offset: %u, size: %u ",
+		       (unsigned) root->offset, (unsigned) root->size);
+	      fprintf (dump_file, " to an integer.\n");
+	    }
 	}
 
       root->grp_to_be_replaced = 1;
+      root->replacement_decl = create_access_replacement (root);
       sth_created = true;
       hole = false;
     }
@@ -2209,15 +2204,7 @@ analyze_access_subtree (struct access *root, struct access *parent,
 	  if (MAY_HAVE_DEBUG_STMTS)
 	    {
 	      root->grp_to_be_debug_replaced = 1;
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "Marking ");
-		  print_generic_expr (dump_file, root->base, 0);
-		  fprintf (dump_file, " offset: %u, size: %u ",
-			   (unsigned) root->offset, (unsigned) root->size);
-		  fprintf (dump_file, " to be replaced with debug "
-			   "statements.\n");
-		}
+	      root->replacement_decl = create_access_replacement (root);
 	    }
 	}
 
@@ -2883,7 +2870,12 @@ load_assign_lhs_subreplacements (struct access *lacc, struct access *top_racc,
 							    lacc->size);
 
 	      if (racc && racc->grp_to_be_replaced)
-		drhs = get_access_replacement (racc);
+		{
+		  if (racc->grp_write)
+		    drhs = get_access_replacement (racc);
+		  else
+		    drhs = NULL;
+		}
 	      else if (*refreshed == SRA_UDH_LEFT)
 		drhs = build_debug_ref_for_model (loc, lacc->base, lacc->offset,
 						  lacc);
@@ -2973,7 +2965,11 @@ sra_modify_constructor_assign (gimple *stmt, gimple_stmt_iterator *gsi)
 static tree
 get_repl_default_def_ssa_name (struct access *racc)
 {
-  return get_or_create_ssa_default_def (cfun, get_access_replacement (racc));
+  gcc_checking_assert (!racc->grp_to_be_replaced
+		       && !racc->grp_to_be_debug_replaced);
+  if (!racc->replacement_decl)
+    racc->replacement_decl = create_access_replacement (racc);
+  return get_or_create_ssa_default_def (cfun, racc->replacement_decl);
 }
 
 /* Return true if REF has a COMPONENT_REF with a bit-field field declaration
@@ -3454,7 +3450,6 @@ struct gimple_opt_pass pass_sra_early =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_update_ssa
-  | TODO_ggc_collect
   | TODO_verify_ssa			/* todo_flags_finish */
  }
 };
@@ -3476,7 +3471,6 @@ struct gimple_opt_pass pass_sra =
   0,					/* properties_destroyed */
   TODO_update_address_taken,		/* todo_flags_start */
   TODO_update_ssa
-  | TODO_ggc_collect
   | TODO_verify_ssa			/* todo_flags_finish */
  }
 };
@@ -4466,8 +4460,8 @@ sra_ipa_modify_expr (tree *expr, bool convert,
     {
       adj = &adjustments[i];
 
-      if (adj->base == base &&
-	  (adj->offset == offset || adj->remove_param))
+      if (adj->base == base
+	  && (adj->offset == offset || adj->remove_param))
 	{
 	  cand = adj;
 	  break;
@@ -4680,6 +4674,14 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
       if (name)
 	FOR_EACH_IMM_USE_STMT (stmt, ui, name)
 	  {
+	    if (gimple_clobber_p (stmt))
+	      {
+		gimple_stmt_iterator cgsi = gsi_for_stmt (stmt);
+		unlink_stmt_vdef (stmt);
+		gsi_remove (&cgsi, true);
+		release_defs (stmt);
+		continue;
+	      }
 	    /* All other users must have been removed by
 	       ipa_sra_modify_function_body.  */
 	    gcc_assert (is_gimple_debug (stmt));

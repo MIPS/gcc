@@ -102,6 +102,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 		   int freq_scale, bool update_original)
 {
   struct cgraph_edge *new_edge;
+  /* Update this to use GCOV_COMPUTE_SCALE.  */
   gcov_type count = e->count * count_scale / REG_BR_PROB_BASE;
   gcov_type freq;
 
@@ -204,6 +205,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
       if (new_node->count > n->count)
         count_scale = REG_BR_PROB_BASE;
       else
+        /* Update to use GCOV_COMPUTE_SCALE.  */
         count_scale = new_node->count * REG_BR_PROB_BASE / n->count;
     }
   else
@@ -570,7 +572,10 @@ cgraph_remove_node_and_inline_clones (struct cgraph_node *node, struct cgraph_no
   bool found = false;
 
   if (node == forbidden_node)
-    return true;
+    {
+      cgraph_remove_edge (node->callers);
+      return true;
+    }
   for (e = node->callees; e; e = next)
     {
       next = e->next_callee;

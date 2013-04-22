@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1660,6 +1660,15 @@ package body Sem_Ch3 is
                Set_Is_Abstract_Subprogram
                  (New_Subp, Is_Abstract_Subprogram (Prim));
                Set_Interface_Alias (New_Subp, Iface_Prim);
+
+               --  If the returned type is an interface then propagate it to
+               --  the returned type. Needed by the thunk to generate the code
+               --  which displaces "this" to reference the corresponding
+               --  secondary dispatch table in the returned object.
+
+               if Is_Interface (Etype (Iface_Prim)) then
+                  Set_Etype (New_Subp, Etype (Iface_Prim));
+               end if;
 
                --  Internal entities associated with interface types are
                --  only registered in the list of primitives of the tagged
@@ -4282,13 +4291,26 @@ package body Sem_Ch3 is
                   Set_Stored_Constraint_From_Discriminant_Constraint (Id);
 
                   --  This would seem semantically correct, but apparently
-                  --  confuses the back-end. To be explained and checked with
-                  --  current version ???
+                  --  generates spurious errors about missing components ???
 
                   --  Set_Has_Discriminants (Id);
                end if;
 
                Prepare_Private_Subtype_Completion (Id, N);
+
+               --  If this is the subtype of a constrained private type with
+               --  discriminants that has got a full view and we also have
+               --  built a completion just above, show that the completion
+               --  is a clone of the full view to the back-end.
+
+               if Has_Discriminants (T)
+                  and then not Has_Unknown_Discriminants (T)
+                  and then not Is_Empty_Elmt_List (Discriminant_Constraint (T))
+                  and then Present (Full_View (T))
+                  and then Present (Full_View (Id))
+               then
+                  Set_Cloned_Subtype (Full_View (Id), Full_View (T));
+               end if;
 
             when Access_Kind =>
                Set_Ekind             (Id, E_Access_Subtype);
@@ -4375,8 +4397,15 @@ package body Sem_Ch3 is
 
       --  Some common processing on all types
 
-      Set_Size_Info      (Id,                 T);
+      Set_Size_Info      (Id, T);
       Set_First_Rep_Item (Id, First_Rep_Item (T));
+
+      --  If the parent type is a generic actual, so is the subtype. This may
+      --  happen in a nested instance. Why Comes_From_Source test???
+
+      if not Comes_From_Source (N) then
+         Set_Is_Generic_Actual_Type (Id, Is_Generic_Actual_Type (T));
+      end if;
 
       T := Etype (Id);
 
@@ -8054,6 +8083,8 @@ package body Sem_Ch3 is
          Set_Last_Entity
            (Class_Wide_Type (Derived_Type), Last_Entity (Derived_Type));
       end if;
+
+      Check_Function_Writable_Actuals (N);
    end Build_Derived_Record_Type;
 
    ------------------------
@@ -8273,6 +8304,15 @@ package body Sem_Ch3 is
       --  Return the Position number within array Discr_Expr of a discriminant
       --  D within the discriminant list of the discriminated type T.
 
+      procedure Process_Discriminant_Expression
+         (Expr : Node_Id;
+          D    : Entity_Id);
+      --  If this is a discriminant constraint on a partial view, do not
+      --  generate an overflow check on the discriminant expression. The check
+      --  will be generated when constraining the full view. Otherwise the
+      --  backend creates duplicate symbols for the temporaries corresponding
+      --  to the expressions to be checked, causing spurious assembler errors.
+
       ------------------
       -- Pos_Of_Discr --
       ------------------
@@ -8296,6 +8336,30 @@ package body Sem_Ch3 is
 
          raise Program_Error;
       end Pos_Of_Discr;
+
+      -------------------------------------
+      -- Process_Discriminant_Expression --
+      -------------------------------------
+
+      procedure Process_Discriminant_Expression
+         (Expr : Node_Id;
+          D    : Entity_Id)
+      is
+         BDT : constant Entity_Id := Base_Type (Etype (D));
+
+      begin
+         --  If this is a discriminant constraint on a partial view, do
+         --  not generate an overflow on the discriminant expression. The
+         --  check will be generated when constraining the full view.
+
+         if Is_Private_Type (T)
+           and then Present (Full_View (T))
+         then
+            Analyze_And_Resolve (Expr, BDT, Suppress => Overflow_Check);
+         else
+            Analyze_And_Resolve (Expr, BDT);
+         end if;
+      end Process_Discriminant_Expression;
 
       --  Declarations local to Build_Discriminant_Constraints
 
@@ -8337,7 +8401,7 @@ package body Sem_Ch3 is
             Discr_Expr (D) := Error;
 
          else
-            Analyze_And_Resolve (Constr, Base_Type (Etype (Discr)));
+            Process_Discriminant_Expression (Constr, Discr);
             Discr_Expr (D) := Constr;
          end if;
 
@@ -8448,7 +8512,7 @@ package body Sem_Ch3 is
                   end if;
 
                   Discr_Expr (Position) := Expr;
-                  Analyze_And_Resolve (Expr, Base_Type (Etype (Discr)));
+                  Process_Discriminant_Expression (Expr, Discr);
                end if;
 
                --  A discriminant association with more than one discriminant
@@ -9038,17 +9102,16 @@ package body Sem_Ch3 is
 
          Impl_Prag :=
            Make_Pragma (Loc,
-             Chars => Name_Implemented,
+             Chars                        => Name_Implemented,
              Pragma_Argument_Associations => New_List (
                Make_Pragma_Argument_Association (Loc,
-                 Expression =>
-                   New_Reference_To (Subp, Loc)),
+                 Expression => New_Reference_To (Subp, Loc)),
 
                Make_Pragma_Argument_Association (Loc,
                  Expression => Make_Identifier (Loc, Iface_Kind))));
 
          --  The pragma doesn't need to be analyzed because it is internally
-         --  build. It is safe to directly register it as a rep item since we
+         --  built. It is safe to directly register it as a rep item since we
          --  are only interested in the characters of the implementation kind.
 
          Record_Rep_Item (Subp, Impl_Prag);
@@ -9588,7 +9651,7 @@ package body Sem_Ch3 is
 
             elsif Is_Subprogram (E)
               and then (not Comes_From_Source (E)
-                          or else Chars (E) = Name_uCall)
+                         or else Chars (E) = Name_uCall)
             then
                null;
 
@@ -10234,19 +10297,23 @@ package body Sem_Ch3 is
               Protected_Kind   =>
             Copy_Node (Priv, Full);
 
-            Set_Has_Discriminants  (Full, Has_Discriminants (Full_Base));
-            Set_First_Entity       (Full, First_Entity (Full_Base));
-            Set_Last_Entity        (Full, Last_Entity (Full_Base));
+            Set_Has_Discriminants
+                             (Full, Has_Discriminants (Full_Base));
+            Set_Has_Unknown_Discriminants
+                             (Full, Has_Unknown_Discriminants (Full_Base));
+            Set_First_Entity (Full, First_Entity (Full_Base));
+            Set_Last_Entity  (Full, Last_Entity (Full_Base));
 
          when others =>
             Copy_Node (Full_Base, Full);
-            Set_Chars          (Full, Chars (Priv));
-            Conditional_Delay  (Full, Priv);
-            Set_Sloc           (Full, Sloc (Priv));
+
+            Set_Chars         (Full, Chars (Priv));
+            Conditional_Delay (Full, Priv);
+            Set_Sloc          (Full, Sloc (Priv));
       end case;
 
-      Set_Next_Entity (Full, Save_Next_Entity);
-      Set_Homonym     (Full, Save_Homonym);
+      Set_Next_Entity               (Full, Save_Next_Entity);
+      Set_Homonym                   (Full, Save_Homonym);
       Set_Associated_Node_For_Itype (Full, Related_Nod);
 
       --  Set common attributes for all subtypes: kind, convention, etc.
@@ -12001,9 +12068,9 @@ package body Sem_Ch3 is
          Set_Ekind (Def_Id, E_Signed_Integer_Subtype);
       end if;
 
-      Set_Etype            (Def_Id, Base_Type        (T));
-      Set_Size_Info        (Def_Id,                  (T));
-      Set_First_Rep_Item   (Def_Id, First_Rep_Item   (T));
+      Set_Etype            (Def_Id, Base_Type      (T));
+      Set_Size_Info        (Def_Id,                (T));
+      Set_First_Rep_Item   (Def_Id, First_Rep_Item (T));
       Set_Discrete_RM_Size (Def_Id);
    end Constrain_Integer;
 
@@ -12019,10 +12086,10 @@ package body Sem_Ch3 is
 
    begin
       Set_Ekind          (Def_Id, E_Ordinary_Fixed_Point_Subtype);
-      Set_Etype          (Def_Id, Base_Type        (T));
-      Set_Size_Info      (Def_Id,                  (T));
-      Set_First_Rep_Item (Def_Id, First_Rep_Item   (T));
-      Set_Small_Value    (Def_Id, Small_Value      (T));
+      Set_Etype          (Def_Id, Base_Type      (T));
+      Set_Size_Info      (Def_Id,                (T));
+      Set_First_Rep_Item (Def_Id, First_Rep_Item (T));
+      Set_Small_Value    (Def_Id, Small_Value    (T));
 
       --  Process the constraint
 
@@ -12370,9 +12437,7 @@ package body Sem_Ch3 is
          then
             Old_C := First_Component (Typ);
             while Present (Old_C) loop
-               if Chars ((Old_C)) = Name_uTag
-                 or else Chars ((Old_C)) = Name_uParent
-               then
+               if Nam_In (Chars (Old_C), Name_uTag, Name_uParent) then
                   Append_Elmt (Old_C, Comp_List);
                end if;
 
@@ -13209,9 +13274,9 @@ package body Sem_Ch3 is
         or else Is_Internal (Parent_Subp)
         or else Is_Private_Overriding
         or else Is_Internal_Name (Chars (Parent_Subp))
-        or else Chars (Parent_Subp) = Name_Initialize
-        or else Chars (Parent_Subp) = Name_Adjust
-        or else Chars (Parent_Subp) = Name_Finalize
+        or else Nam_In (Chars (Parent_Subp), Name_Initialize,
+                                             Name_Adjust,
+                                             Name_Finalize)
       then
          Set_Derived_Name;
 
@@ -13384,10 +13449,9 @@ package body Sem_Ch3 is
       --  set on both views of the type.
 
       if Is_Controlled (Parent_Type)
-        and then
-          (Chars (Parent_Subp) = Name_Initialize or else
-           Chars (Parent_Subp) = Name_Adjust     or else
-           Chars (Parent_Subp) = Name_Finalize)
+        and then Nam_In (Chars (Parent_Subp), Name_Initialize,
+                                              Name_Adjust,
+                                              Name_Finalize)
         and then Is_Hidden (Parent_Subp)
         and then not Is_Visibly_Controlled (Parent_Type)
       then
@@ -16265,31 +16329,6 @@ package body Sem_Ch3 is
    end Inherit_Components;
 
    -----------------------
-   -- Is_Constant_Bound --
-   -----------------------
-
-   function Is_Constant_Bound (Exp : Node_Id) return Boolean is
-   begin
-      if Compile_Time_Known_Value (Exp) then
-         return True;
-
-      elsif Is_Entity_Name (Exp)
-        and then Present (Entity (Exp))
-      then
-         return Is_Constant_Object (Entity (Exp))
-           or else Ekind (Entity (Exp)) = E_Enumeration_Literal;
-
-      elsif Nkind (Exp) in N_Binary_Op then
-         return Is_Constant_Bound (Left_Opnd (Exp))
-           and then Is_Constant_Bound (Right_Opnd (Exp))
-           and then Scope (Entity (Exp)) = Standard_Standard;
-
-      else
-         return False;
-      end if;
-   end Is_Constant_Bound;
-
-   -----------------------
    -- Is_Null_Extension --
    -----------------------
 
@@ -17367,7 +17406,6 @@ package body Sem_Ch3 is
       if Is_Private_Type (Id_B) then
          Append_Elmt (Id, Private_Dependents (Id_B));
       end if;
-
    end Prepare_Private_Subtype_Completion;
 
    ---------------------------
@@ -19285,7 +19323,7 @@ package body Sem_Ch3 is
                        or else
                          (Is_Class_Wide_Type (Entity (Subt))
                            and then
-                           Chars (Etype (Base_Type (Entity (Subt)))) =
+                             Chars (Etype (Base_Type (Entity (Subt)))) =
                                                                   Type_Id));
             end if;
 
@@ -19671,6 +19709,8 @@ package body Sem_Ch3 is
       then
          Derive_Progenitor_Subprograms (T, T);
       end if;
+
+      Check_Function_Writable_Actuals (N);
    end Record_Type_Declaration;
 
    ----------------------------
@@ -20119,7 +20159,7 @@ package body Sem_Ch3 is
 
       --  Complete both implicit base and declared first subtype entities
 
-      Set_Etype          (Implicit_Base, Base_Typ);
+      Set_Etype          (Implicit_Base,                 Base_Typ);
       Set_Size_Info      (Implicit_Base,                (Base_Typ));
       Set_RM_Size        (Implicit_Base, RM_Size        (Base_Typ));
       Set_First_Rep_Item (Implicit_Base, First_Rep_Item (Base_Typ));

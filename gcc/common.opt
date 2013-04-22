@@ -505,6 +505,10 @@ Waggregate-return
 Common Var(warn_aggregate_return) Warning
 Warn about returning structures, unions or arrays
 
+Waggressive-loop-optimizations
+Common Var(warn_aggressive_loop_optimizations) Init(1) Warning
+Warn if a loop with constant number of iterations triggers undefined behavior
+
 Warray-bounds
 Common Var(warn_array_bounds) Warning
 Warn if an array is accessed out of bounds
@@ -785,12 +789,22 @@ Driver Undocumented
 ;    argument.
 ;    First selectable in G++ 4.7.
 ;
-; 7: The version of the ABI that treats nullptr_t as a builtin type.
+; 7: The version of the ABI that treats nullptr_t as a builtin type and
+;    corrects the mangling of lambdas in default argument scope.
 ;    First selectable in G++ 4.8.
+;
+; 8: The version of the ABI that corrects the substitution behavior of
+;    function types with function-cv-qualifiers.
+;    First selectable in G++ 4.9.
+;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
 fabi-version=
 Common Joined RejectNegative UInteger Var(flag_abi_version) Init(2)
+
+faggressive-loop-optimizations
+Common Report Var(flag_aggressive_loop_optimizations) Optimization Init(1) 
+Aggressively optimize loops using language constraints
 
 falign-functions
 Common Report Var(align_functions,0) Optimization UInteger
@@ -1013,6 +1027,30 @@ Enum(diagnostic_prefixing_rule) String(every-line) Value(DIAGNOSTICS_SHOW_PREFIX
 fdiagnostics-show-caret
 Common Var(flag_diagnostics_show_caret) Init(1)
 Show the source line with a caret indicating the column
+
+fdiagnostics-color
+Common Alias(fdiagnostics-color=,always,never)
+;
+
+fdiagnostics-color=
+Common Joined RejectNegative Enum(diagnostic_color_rule)
+-fdiagnostics-color=[never|always|auto]	Colorize diagnostics
+
+; Required for these enum values.
+SourceInclude
+diagnostic-color.h
+
+Enum
+Name(diagnostic_color_rule) Type(int)
+
+EnumValue
+Enum(diagnostic_color_rule) String(never) Value(DIAGNOSTICS_COLOR_NO)
+
+EnumValue
+Enum(diagnostic_color_rule) String(always) Value(DIAGNOSTICS_COLOR_YES)
+
+EnumValue
+Enum(diagnostic_color_rule) String(auto) Value(DIAGNOSTICS_COLOR_AUTO)
 
 fdiagnostics-show-option
 Common Var(flag_diagnostics_show_option) Init(1)
@@ -2294,8 +2332,12 @@ Common JoinedOrMissing
 Generate debug information in default format
 
 gcoff
-Common JoinedOrMissing Negative(gdwarf-)
+Common JoinedOrMissing Negative(gdwarf)
 Generate debug information in COFF format
+
+gdwarf
+Common JoinedOrMissing Negative(gdwarf-)
+Generate debug information in default version of DWARF format
 
 gdwarf-
 Common Joined UInteger Var(dwarf_version) Init(4) Negative(gstabs)

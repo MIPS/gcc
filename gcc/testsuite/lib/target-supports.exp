@@ -2147,22 +2147,6 @@ proc check_effective_target_arm_v8_vfp_ok {} {
     }
 }
 
-# Return 1 if this is an ARM target supporting -mfpu=neon-fp-armv8
-# -mfloat-abi=softfp
-proc check_effective_target_arm_v8_neon_ok {} {
-    if { [check_effective_target_arm32] } {
-	return [check_no_compiler_messages arm_v8_neon_ok object {
-	  int foo (void)
-	  {
-	     __asm__ volatile ("vrintn.f32 q0, q0");
-	       return 0;
-	  }
-	} "-mfpu=neon-fp-armv8 -mfloat-abi=softfp"]
-    } else {
-	return 0
-    }
-}
-
 # Return 1 if this is an ARM target supporting -mfpu=vfp
 # -mfloat-abi=hard.  Some multilibs may be incompatible with these
 # options.
@@ -2226,7 +2210,8 @@ proc add_options_for_arm_v8_neon { flags } {
     if { ! [check_effective_target_arm_v8_neon_ok] } {
         return "$flags"
     }
-    return "$flags -march=armv8-a -mfpu=neon-fp-armv8 -mfloat-abi=softfp"
+    global et_arm_v8_neon_flags
+    return "$flags $et_arm_v8_neon_flags -march=armv8-a"
 }
 
 # Add the options needed for NEON.  We need either -mfloat-abi=softfp
@@ -2268,6 +2253,38 @@ proc check_effective_target_arm_neon_ok_nocache { } {
 proc check_effective_target_arm_neon_ok { } {
     return [check_cached_effective_target arm_neon_ok \
 		check_effective_target_arm_neon_ok_nocache]
+}
+
+# Return 1 if this is an ARM target supporting -mfpu=neon-fp-armv8
+# -mfloat-abi=softfp or equivalent options.  Some multilibs may be
+# incompatible with these options.  Also set et_arm_v8_neon_flags to the
+# best options to add.
+
+proc check_effective_target_arm_v8_neon_ok_nocache { } {
+    global et_arm_v8_neon_flags
+    set et_arm_v8_neon_flags ""
+    if { [check_effective_target_arm32] } {
+	foreach flags {"" "-mfloat-abi=softfp" "-mfpu=neon-fp-armv8" "-mfpu=neon-fp-armv8 -mfloat-abi=softfp"} {
+	    if { [check_no_compiler_messages_nocache arm_v8_neon_ok object {
+		#include "arm_neon.h"
+		void
+		foo ()
+		{
+	          __asm__ volatile ("vrintn.f32 q0, q0");
+		}
+	    } "$flags"] } {
+		set et_arm_v8_neon_flags $flags
+		return 1
+	    }
+	}
+    }
+
+    return 0
+}
+
+proc check_effective_target_arm_v8_neon_ok { } {
+    return [check_cached_effective_target arm_v8_neon_ok \
+		check_effective_target_arm_v8_neon_ok_nocache]
 }
 
 # Return 1 if this is an ARM target supporting -mfpu=neon-vfpv4
@@ -2509,6 +2526,24 @@ proc check_effective_target_arm_neonv2_hw { } {
     } [add_options_for_arm_neonv2 ""]]
 }
 
+# Return 1 if the target supports executing ARMv8 NEON instructions, 0
+# otherwise.
+
+proc check_effective_target_arm_v8_neon_hw { } {
+    return [check_runtime arm_v8_neon_hw_available {
+        #include "arm_neon.h"
+	int
+	main (void)
+	{
+	  float32x2_t a;
+	  asm ("vrinta.f32 %P0, %P1"
+	       : "=w" (a)
+	       : "0" (a));
+	  return 0;
+	}
+    } [add_options_for_arm_v8_neon ""]]
+}
+
 # Return 1 if this is a ARM target with NEON enabled.
 
 proc check_effective_target_arm_neon { } {
@@ -2603,6 +2638,18 @@ proc check_effective_target_arm_prefer_ldrd_strd { } {
     return [check_no_messages_and_pattern arm_prefer_ldrd_strd "strd\tr" assembly {
         void foo (int *p) { p[0] = 1; p[1] = 0;}
     }  "-O2 -mthumb" ]
+}
+
+# Return 1 if this is a PowerPC target supporting -meabi.
+
+proc check_effective_target_powerpc_eabi_ok { } {
+    if { [istarget powerpc*-*-*] } {
+	return [check_no_compiler_messages powerpc_eabi_ok object {
+	    int dummy;
+	} "-meabi"]
+    } else {
+	return 0
+    }
 }
 
 # Return 1 if this is a PowerPC target with floating-point registers.
@@ -2935,6 +2982,7 @@ proc check_effective_target_vect_float { } {
 	if { [istarget i?86-*-*]
 	      || [istarget powerpc*-*-*]
 	      || [istarget spu-*-*]
+	      || [istarget mips-sde-elf]
 	      || [istarget mipsisa64*-*-*]
 	      || [istarget x86_64-*-*]
 	      || [istarget ia64-*-*]
@@ -3532,6 +3580,7 @@ proc check_effective_target_vect_no_align { } {
     } else {
 	set et_vect_no_align_saved 0
 	if { [istarget mipsisa64*-*-*]
+	     || [istarget mips-sde-elf]
 	     || [istarget sparc*-*-*]
 	     || [istarget ia64-*-*]
 	     || [check_effective_target_arm_vect_no_misalign]

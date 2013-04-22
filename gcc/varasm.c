@@ -374,7 +374,7 @@ create_block_symbol (const char *label, struct object_block *block,
 
   /* Create the extended SYMBOL_REF.  */
   size = RTX_HDR_SIZE + sizeof (struct block_symbol);
-  symbol = ggc_alloc_zone_rtx_def (size, &rtl_zone);
+  symbol = ggc_alloc_rtx_def (size);
 
   /* Initialize the normal SYMBOL_REF fields.  */
   memset (symbol, 0, size);
@@ -5490,14 +5490,15 @@ do_assemble_alias (tree decl, tree target)
     }
   if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
     {
-#if defined (ASM_OUTPUT_TYPE_DIRECTIVE) && HAVE_GNU_INDIRECT_FUNCTION
-      ASM_OUTPUT_TYPE_DIRECTIVE
-	(asm_out_file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
-	 IFUNC_ASM_TYPE);
-#else
-      error_at (DECL_SOURCE_LOCATION (decl),
-		"ifunc is not supported in this configuration");
+#if defined (ASM_OUTPUT_TYPE_DIRECTIVE)
+      if (targetm.has_ifunc_p ())
+	ASM_OUTPUT_TYPE_DIRECTIVE
+	  (asm_out_file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+	   IFUNC_ASM_TYPE);
+      else
 #endif
+	error_at (DECL_SOURCE_LOCATION (decl),
+		  "ifunc is not supported on this target");
     }
 
 # ifdef ASM_OUTPUT_DEF_FROM_DECLS
@@ -5789,8 +5790,9 @@ default_assemble_visibility (tree decl ATTRIBUTE_UNUSED,
   assemble_name (asm_out_file, name);
   fprintf (asm_out_file, "\n");
 #else
-  warning (OPT_Wattributes, "visibility attribute not supported "
-	   "in this configuration; ignored");
+  if (!DECL_ARTIFICIAL (decl))
+    warning (OPT_Wattributes, "visibility attribute not supported "
+	     "in this configuration; ignored");
 #endif
 }
 

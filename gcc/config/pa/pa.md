@@ -3772,50 +3772,30 @@
 
 ;; Floating point move insns
 
-;; This pattern forces (set (reg:DF ...) (const_double ...))
-;; to be reloaded by putting the constant into memory when
-;; reg is a floating point register.
-;;
-;; For integer registers we use ldil;ldo to set the appropriate
-;; value.
-;;
-;; This must come before the movdf pattern, and it must be present
-;; to handle obscure reloading cases.
-(define_insn ""
-  [(set (match_operand:DF 0 "register_operand" "=?r,f")
-	(match_operand:DF 1 "" "?F,m"))]
-  "GET_CODE (operands[1]) == CONST_DOUBLE
-   && operands[1] != CONST0_RTX (DFmode)
-   && !TARGET_64BIT
-   && !TARGET_SOFT_FLOAT"
-  "* return (which_alternative == 0 ? pa_output_move_double (operands)
-				    : \"fldd%F1 %1,%0\");"
-  [(set_attr "type" "move,fpload")
-   (set_attr "length" "16,4")])
-
 (define_expand "movdf"
   [(set (match_operand:DF 0 "general_operand" "")
 	(match_operand:DF 1 "general_operand" ""))]
   ""
   "
 {
-  if (GET_CODE (operands[1]) == CONST_DOUBLE
-      && operands[1] != CONST0_RTX (DFmode))
-    {
-      /* Reject CONST_DOUBLE loads to all hard registers when
-	 generating 64-bit code and to floating point registers
-	 when generating 32-bit code.  */
-      if (REG_P (operands[0])
-	  && HARD_REGISTER_P (operands[0])
-	  && (TARGET_64BIT || REGNO (operands[0]) >= 32))
-	FAIL;
-
-      if (TARGET_64BIT)
-	operands[1] = force_const_mem (DFmode, operands[1]);
-    }
-
   if (pa_emit_move_sequence (operands, DFmode, 0))
     DONE;
+}")
+
+;; Handle DFmode input reloads requiring %r1 as a scratch register.
+(define_expand "reload_indf_r1"
+  [(set (match_operand:DF 0 "register_operand" "=Z")
+	(match_operand:DF 1 "non_hard_reg_operand" ""))
+   (clobber (match_operand:SI 2 "register_operand" "=&a"))]
+  ""
+  "
+{
+  if (pa_emit_move_sequence (operands, DFmode, operands[2]))
+    DONE;
+
+  /* We don't want the clobber emitted, so handle this ourselves.  */
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+  DONE;
 }")
 
 ;; Handle DFmode input reloads requiring a general register as a
@@ -3854,9 +3834,9 @@
 
 (define_insn ""
   [(set (match_operand:DF 0 "move_dest_operand"
-			  "=f,*r,Q,?o,?Q,f,*r,*r,?*r,?f")
+			  "=f,*r,T,?o,?Q,f,*r,*r,?*r,?f")
 	(match_operand:DF 1 "reg_or_0_or_nonsymb_mem_operand"
-			  "fG,*rG,f,*r,*r,RQ,o,RQ,f,*r"))]
+			  "fG,*rG,f,*r,*r,RT,o,RQ,f,*r"))]
   "(register_operand (operands[0], DFmode)
     || reg_or_0_operand (operands[1], DFmode))
    && !(GET_CODE (operands[1]) == CONST_DOUBLE
@@ -4071,18 +4051,6 @@
   ""
   "
 {
-  /* Except for zero, we don't support loading a CONST_INT directly
-     to a hard floating-point register since a scratch register is
-     needed for the operation.  While the operation could be handled
-     before register allocation, the simplest solution is to fail.  */
-  if (TARGET_64BIT
-      && GET_CODE (operands[1]) == CONST_INT
-      && operands[1] != CONST0_RTX (DImode)
-      && REG_P (operands[0])
-      && HARD_REGISTER_P (operands[0])
-      && REGNO (operands[0]) >= 32)
-    FAIL;
-
   if (pa_emit_move_sequence (operands, DImode, 0))
     DONE;
 }")
@@ -4190,7 +4158,7 @@
 (define_insn ""
   [(set (match_operand:DI 0 "move_dest_operand"
 			  "=r,o,Q,r,r,r,*f,*f,T,?r,?*f")
-	(match_operand:DI 1 "general_operand"
+	(match_operand:DI 1 "move_src_operand"
 			  "rM,r,r,o*R,Q,i,*fM,RT,*f,*f,r"))]
   "(register_operand (operands[0], DImode)
     || reg_or_0_operand (operands[1], DImode))
@@ -4355,42 +4323,30 @@
   [(set_attr "type" "move,move")
    (set_attr "length" "4,8")])
 
-;; This pattern forces (set (reg:SF ...) (const_double ...))
-;; to be reloaded by putting the constant into memory when
-;; reg is a floating point register.
-;;
-;; For integer registers we use ldil;ldo to set the appropriate
-;; value.
-;;
-;; This must come before the movsf pattern, and it must be present
-;; to handle obscure reloading cases.
-(define_insn ""
-  [(set (match_operand:SF 0 "register_operand" "=?r,f")
-	(match_operand:SF 1 "" "?F,m"))]
-  "GET_CODE (operands[1]) == CONST_DOUBLE
-   && operands[1] != CONST0_RTX (SFmode)
-   && ! TARGET_SOFT_FLOAT"
-  "* return (which_alternative == 0 ? pa_singlemove_string (operands)
-				    : \" fldw%F1 %1,%0\");"
-  [(set_attr "type" "move,fpload")
-   (set_attr "length" "8,4")])
-
 (define_expand "movsf"
   [(set (match_operand:SF 0 "general_operand" "")
 	(match_operand:SF 1 "general_operand" ""))]
   ""
   "
 {
-  /* Reject CONST_DOUBLE loads to floating point registers.  */
-  if (GET_CODE (operands[1]) == CONST_DOUBLE
-      && operands[1] != CONST0_RTX (SFmode)
-      && REG_P (operands[0])
-      && HARD_REGISTER_P (operands[0])
-      && REGNO (operands[0]) >= 32)
-    FAIL;
-
   if (pa_emit_move_sequence (operands, SFmode, 0))
     DONE;
+}")
+
+;; Handle SFmode input reloads requiring %r1 as a scratch register.
+(define_expand "reload_insf_r1"
+  [(set (match_operand:SF 0 "register_operand" "=Z")
+	(match_operand:SF 1 "non_hard_reg_operand" ""))
+   (clobber (match_operand:SI 2 "register_operand" "=&a"))]
+  ""
+  "
+{
+  if (pa_emit_move_sequence (operands, SFmode, operands[2]))
+    DONE;
+
+  /* We don't want the clobber emitted, so handle this ourselves.  */
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+  DONE;
 }")
 
 ;; Handle SFmode input reloads requiring a general register as a
@@ -4429,9 +4385,9 @@
 
 (define_insn ""
   [(set (match_operand:SF 0 "move_dest_operand"
-			  "=f,!*r,f,*r,Q,Q,?*r,?f")
+			  "=f,!*r,f,*r,T,Q,?*r,?f")
 	(match_operand:SF 1 "reg_or_0_or_nonsymb_mem_operand"
-			  "fG,!*rG,RQ,RQ,f,*rG,f,*r"))]
+			  "fG,!*rG,RT,RQ,f,*rG,f,*r"))]
   "(register_operand (operands[0], SFmode)
     || reg_or_0_operand (operands[1], SFmode))
    && !TARGET_SOFT_FLOAT
@@ -4451,9 +4407,9 @@
 
 (define_insn ""
   [(set (match_operand:SF 0 "move_dest_operand"
-			  "=f,!*r,f,*r,Q,Q")
+			  "=f,!*r,f,*r,T,Q")
 	(match_operand:SF 1 "reg_or_0_or_nonsymb_mem_operand"
-			  "fG,!*rG,RQ,RQ,f,*rG"))]
+			  "fG,!*rG,RT,RQ,f,*rG"))]
   "(register_operand (operands[0], SFmode)
     || reg_or_0_operand (operands[1], SFmode))
    && !TARGET_SOFT_FLOAT
@@ -5408,7 +5364,7 @@
 }")
 
 (define_insn "umulsidi3"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=f")
+  [(set (match_operand:DI 0 "register_operand" "=f")
 	(mult:DI (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "f"))
 		 (zero_extend:DI (match_operand:SI 2 "nonimmediate_operand" "f"))))]
   "TARGET_PA_11 && ! TARGET_DISABLE_FPREGS && ! TARGET_SOFT_FLOAT"
@@ -5417,7 +5373,7 @@
    (set_attr "length" "4")])
 
 (define_insn ""
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=f")
+  [(set (match_operand:DI 0 "register_operand" "=f")
 	(mult:DI (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "f"))
 		 (match_operand:DI 2 "uint32_operand" "f")))]
   "TARGET_PA_11 && ! TARGET_DISABLE_FPREGS && ! TARGET_SOFT_FLOAT && !TARGET_64BIT"
@@ -5426,7 +5382,7 @@
    (set_attr "length" "4")])
 
 (define_insn ""
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=f")
+  [(set (match_operand:DI 0 "register_operand" "=f")
 	(mult:DI (zero_extend:DI (match_operand:SI 1 "nonimmediate_operand" "f"))
 		 (match_operand:DI 2 "uint32_operand" "f")))]
   "TARGET_PA_11 && ! TARGET_DISABLE_FPREGS && ! TARGET_SOFT_FLOAT && TARGET_64BIT"
@@ -7644,7 +7600,6 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 			 (match_operand 2 "" "")))
 	      (clobber (reg:SI 2))])]
   ""
-  "
 {
   rtx op;
   rtx dst = operands[0];
@@ -7712,7 +7667,13 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     {
       rtx r4 = gen_rtx_REG (word_mode, 4);
       if (GET_CODE (op) == SYMBOL_REF)
-	  emit_call_insn (gen_call_val_symref_64bit (dst, op, nb, r4));
+	{
+	  if (TARGET_HPUX && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT
+	      && !strcmp (targetm.strip_name_encoding (XSTR (op, 0)), "powf"))
+	    emit_call_insn (gen_call_val_powf_64bit (dst, op, nb, r4));
+	  else
+	    emit_call_insn (gen_call_val_symref_64bit (dst, op, nb, r4));
+	}
       else
 	{
 	  op = force_reg (word_mode, op);
@@ -7726,10 +7687,23 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	  if (flag_pic)
 	    {
 	      rtx r4 = gen_rtx_REG (word_mode, 4);
-	      emit_call_insn (gen_call_val_symref_pic (dst, op, nb, r4));
+
+	      if (TARGET_HPUX && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT
+		  && !strcmp (targetm.strip_name_encoding (XSTR (op, 0)),
+			      "powf"))
+		emit_call_insn (gen_call_val_powf_pic (dst, op, nb, r4));
+	      else
+		emit_call_insn (gen_call_val_symref_pic (dst, op, nb, r4));
 	    }
 	  else
-	    emit_call_insn (gen_call_val_symref (dst, op, nb));
+	    {
+	      if (TARGET_HPUX && !TARGET_DISABLE_FPREGS && !TARGET_SOFT_FLOAT
+		  && !strcmp (targetm.strip_name_encoding (XSTR (op, 0)),
+			      "powf"))
+		emit_call_insn (gen_call_val_powf (dst, op, nb));
+	      else
+		emit_call_insn (gen_call_val_symref (dst, op, nb));
+	    }
 	}
       else
 	{
@@ -7746,7 +7720,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
     }
 
   DONE;
-}")
+})
 
 (define_insn "call_val_symref"
   [(set (match_operand 0 "" "")
@@ -7756,6 +7730,26 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (clobber (reg:SI 2))
    (use (const_int 0))]
   "!TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  pa_output_arg_descriptor (insn);
+  return pa_output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length")
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
+	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
+
+;; powf function clobbers %fr12
+(define_insn "call_val_powf"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:DF 48))
+   (use (const_int 1))]
+  "TARGET_HPUX && !TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
   "*
 {
   pa_output_arg_descriptor (insn);
@@ -7848,6 +7842,95 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
 	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
 	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
 
+;; powf function clobbers %fr12
+(define_insn "call_val_powf_pic"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:DF 48))
+   (clobber (match_operand 3))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "TARGET_HPUX && !TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "#")
+
+;; Split out the PIC register save and restore after reload.  As the
+;; split is done after reload, there are some situations in which we
+;; unnecessarily save and restore %r4.  This happens when there is a
+;; single call and the PIC register is not used after the call.
+;;
+;; The split has to be done since call_from_call_insn () can't handle
+;; the pattern as is.  Noreturn calls are special because they have to
+;; terminate the basic block.  The split has to contain more than one
+;; insn.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:DF 48))
+	      (clobber (match_operand 3))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "TARGET_HPUX && !TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && reload_completed
+   && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (match_dup 3) (reg:SI 19))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:DF 48))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "")
+
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:DF 48))
+	      (clobber (match_operand 3))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])]
+  "TARGET_HPUX && !TARGET_PORTABLE_RUNTIME && !TARGET_64BIT && reload_completed"
+  [(set (match_dup 3) (reg:SI 19))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:SI 1))
+	      (clobber (reg:SI 2))
+	      (clobber (reg:DF 48))
+	      (use (reg:SI 19))
+	      (use (const_int 1))])
+   (set (reg:SI 19) (match_dup 3))]
+  "")
+
+(define_insn "*call_val_powf_pic_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:SI 1))
+   (clobber (reg:SI 2))
+   (clobber (reg:DF 48))
+   (use (reg:SI 19))
+   (use (const_int 1))]
+  "TARGET_HPUX && !TARGET_PORTABLE_RUNTIME && !TARGET_64BIT"
+  "*
+{
+  pa_output_arg_descriptor (insn);
+  return pa_output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length")
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
+	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
+
 ;; This pattern is split if it is necessary to save and restore the
 ;; PIC register.
 (define_insn "call_val_symref_64bit"
@@ -7928,6 +8011,101 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
    (use (reg:DI 29))
    (use (const_int 0))]
   "TARGET_64BIT"
+  "*
+{
+  pa_output_arg_descriptor (insn);
+  return pa_output_call (insn, operands[1], 0);
+}"
+  [(set_attr "type" "call")
+   (set (attr "length")
+	(cond [(and (const_int 0) (eq (const_int 0) (pc))) (const_int 8)]
+	      (symbol_ref "pa_attr_length_call (insn, 0)")))])
+
+;; powf function clobbers %fr12
+(define_insn "call_val_powf_64bit"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (clobber (reg:DF 40))
+   (clobber (match_operand 3))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 1))]
+  "TARGET_64BIT && TARGET_HPUX"
+  "#")
+
+;; Split out the PIC register save and restore after reload.  As the
+;; split is done after reload, there are some situations in which we
+;; unnecessarily save and restore %r4.  This happens when there is a
+;; single call and the PIC register is not used after the call.
+;;
+;; The split has to be done since call_from_call_insn () can't handle
+;; the pattern as is.  Noreturn calls are special because they have to
+;; terminate the basic block.  The split has to contain more than one
+;; insn.
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DF 40))
+	      (clobber (match_operand 3))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT && TARGET_HPUX && reload_completed
+   && find_reg_note (insn, REG_NORETURN, NULL_RTX)"
+  [(set (match_dup 3) (reg:DI 27))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DF 40))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "")
+
+(define_split
+  [(parallel [(set (match_operand 0 "" "")
+	      (call (mem:SI (match_operand 1 "call_operand_address" ""))
+		    (match_operand 2 "" "")))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DF 40))
+	      (clobber (match_operand 3))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])]
+  "TARGET_64BIT && TARGET_HPUX && reload_completed"
+  [(set (match_dup 3) (reg:DI 27))
+   (parallel [(set (match_dup 0)
+	      (call (mem:SI (match_dup 1))
+		    (match_dup 2)))
+	      (clobber (reg:DI 1))
+	      (clobber (reg:DI 2))
+	      (clobber (reg:DF 40))
+	      (use (reg:DI 27))
+	      (use (reg:DI 29))
+	      (use (const_int 1))])
+   (set (reg:DI 27) (match_dup 3))]
+  "")
+
+(define_insn "*call_val_powf_64bit_post_reload"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand 1 "call_operand_address" ""))
+	      (match_operand 2 "" "i")))
+   (clobber (reg:DI 1))
+   (clobber (reg:DI 2))
+   (clobber (reg:DF 40))
+   (use (reg:DI 27))
+   (use (reg:DI 29))
+   (use (const_int 1))]
+  "TARGET_64BIT && TARGET_HPUX"
   "*
 {
   pa_output_arg_descriptor (insn);

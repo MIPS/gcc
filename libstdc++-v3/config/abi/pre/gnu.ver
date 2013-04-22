@@ -1,7 +1,6 @@
 ## Linker script for GNU versioning (GNU ld 2.13.91+ only.)
 ##
-## Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-## 2011, 2012 Free Software Foundation, Inc.
+## Copyright (C) 2002-2013 Free Software Foundation, Inc.
 ##
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
@@ -1334,10 +1333,8 @@ GLIBCXX_3.4.18 {
     extern "C++"
     {
       std::random_device::*;
+      std::__detail::_Prime_rehash_policy::*;
     };
-
-    # construction vtable
-    _ZTCSt*;
 
     # std::this_thread::__sleep_for
     _ZNSt11this_thread11__sleep_for*;
@@ -1346,6 +1343,19 @@ GLIBCXX_3.4.18 {
     _ZNKSt17bad_function_call4whatEv;
 
 } GLIBCXX_3.4.17;
+
+GLIBCXX_3.4.19 {
+
+    # std::get_new_handler()
+    _ZSt15get_new_handlerv;
+
+    # std::get_terminate()
+    _ZSt13get_terminatev;
+
+    # std::get_unexpected()
+    _ZSt14get_unexpectedv;
+
+} GLIBCXX_3.4.18;
 
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {

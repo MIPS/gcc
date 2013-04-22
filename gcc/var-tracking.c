@@ -1780,11 +1780,11 @@ vars_copy (htab_t dst, htab_t src)
 static inline tree
 var_debug_decl (tree decl)
 {
-  if (decl && DECL_P (decl)
-      && DECL_DEBUG_EXPR_IS_FROM (decl))
+  if (decl && TREE_CODE (decl) == VAR_DECL
+      && DECL_HAS_DEBUG_EXPR_P (decl))
     {
       tree debugdecl = DECL_DEBUG_EXPR (decl);
-      if (debugdecl && DECL_P (debugdecl))
+      if (DECL_P (debugdecl))
 	decl = debugdecl;
     }
 
@@ -5041,12 +5041,10 @@ track_expr_p (tree expr, bool need_rtl)
      don't need to track this expression if the ultimate declaration is
      ignored.  */
   realdecl = expr;
-  if (DECL_DEBUG_EXPR_IS_FROM (realdecl))
+  if (TREE_CODE (realdecl) == VAR_DECL && DECL_HAS_DEBUG_EXPR_P (realdecl))
     {
       realdecl = DECL_DEBUG_EXPR (realdecl);
-      if (realdecl == NULL_TREE)
-	realdecl = expr;
-      else if (!DECL_P (realdecl))
+      if (!DECL_P (realdecl))
 	{
 	  if (handled_component_p (realdecl)
 	      || (TREE_CODE (realdecl) == MEM_REF
@@ -9502,31 +9500,34 @@ vt_add_function_parameter (tree parm)
   /* DECL_INCOMING_RTL uses the INCOMING_REGNO of parameter registers.
      If the target machine has an explicit window save instruction, the
      actual entry value is the corresponding OUTGOING_REGNO instead.  */
-  if (REG_P (incoming)
-      && HARD_REGISTER_P (incoming)
-      && OUTGOING_REGNO (REGNO (incoming)) != REGNO (incoming))
+  if (HAVE_window_save && !crtl->uses_only_leaf_regs)
     {
-      parm_reg_t p;
-      p.incoming = incoming;
-      incoming
-	= gen_rtx_REG_offset (incoming, GET_MODE (incoming),
-			      OUTGOING_REGNO (REGNO (incoming)), 0);
-      p.outgoing = incoming;
-      vec_safe_push (windowed_parm_regs, p);
-    }
-  else if (MEM_P (incoming)
-	   && REG_P (XEXP (incoming, 0))
-	   && HARD_REGISTER_P (XEXP (incoming, 0)))
-    {
-      rtx reg = XEXP (incoming, 0);
-      if (OUTGOING_REGNO (REGNO (reg)) != REGNO (reg))
+      if (REG_P (incoming)
+	  && HARD_REGISTER_P (incoming)
+	  && OUTGOING_REGNO (REGNO (incoming)) != REGNO (incoming))
 	{
 	  parm_reg_t p;
-	  p.incoming = reg;
-	  reg = gen_raw_REG (GET_MODE (reg), OUTGOING_REGNO (REGNO (reg)));
-	  p.outgoing = reg;
+	  p.incoming = incoming;
+	  incoming
+	    = gen_rtx_REG_offset (incoming, GET_MODE (incoming),
+				  OUTGOING_REGNO (REGNO (incoming)), 0);
+	  p.outgoing = incoming;
 	  vec_safe_push (windowed_parm_regs, p);
-	  incoming = replace_equiv_address_nv (incoming, reg);
+	}
+      else if (MEM_P (incoming)
+	       && REG_P (XEXP (incoming, 0))
+	       && HARD_REGISTER_P (XEXP (incoming, 0)))
+	{
+	  rtx reg = XEXP (incoming, 0);
+	  if (OUTGOING_REGNO (REGNO (reg)) != REGNO (reg))
+	    {
+	      parm_reg_t p;
+	      p.incoming = reg;
+	      reg = gen_raw_REG (GET_MODE (reg), OUTGOING_REGNO (REGNO (reg)));
+	      p.outgoing = reg;
+	      vec_safe_push (windowed_parm_regs, p);
+	      incoming = replace_equiv_address_nv (incoming, reg);
+	    }
 	}
     }
 #endif
@@ -10239,6 +10240,7 @@ struct rtl_opt_pass pass_variable_tracking =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_verify_rtl_sharing               /* todo_flags_finish */
+  TODO_verify_rtl_sharing
+   | TODO_verify_flow                   /* todo_flags_finish */
  }
 };

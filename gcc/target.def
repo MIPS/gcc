@@ -1528,6 +1528,15 @@ DEFHOOK
  bool, (const_rtx x),
  default_use_anchors_for_symbol_p)
 
+/* True if target supports indirect functions.  */
+DEFHOOK
+(has_ifunc_p,
+ "It returns true if the target supports GNU indirect functions.\n\
+The support includes the assembler, linker and dynamic linker.\n\
+The default value of this hook is based on target's libc.",
+ bool, (void),
+ default_has_ifunc_p)
+
 /* True if it is OK to do sibling call optimization for the specified
    call expression EXP.  DECL will be the called function, or NULL if
    this is an indirect call.  */
@@ -2491,6 +2500,16 @@ DEFHOOK
  reg_class_t, (reg_class_t, enum machine_mode),
  NULL)
 
+DEFHOOK
+(cstore_mode,
+ "This hook defines the machine mode to use for the boolean result of\
+  conditional store patterns.  The ICODE argument is the instruction code\
+  for the cstore being performed.  Not definiting this hook is the same\
+  as accepting the mode encoded into operand 0 of the cstore expander\
+  patterns.",
+  enum machine_mode, (enum insn_code icode),
+  default_cstore_mode)
+
 /* True if a structure, union or array with MODE containing FIELD should
    be accessed using BLKmode.  */
 DEFHOOK
@@ -2817,9 +2836,9 @@ HOOK_VECTOR_END (emutls)
 #define HOOK_PREFIX "TARGET_OPTION_"
 HOOK_VECTOR (TARGET_OPTION_HOOKS, target_option_hooks)
 
-/* Function to validate the attribute((option(...))) strings or NULL.  If
-   the option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will
-   be filled in in the function decl node.  */
+/* Function to validate the attribute((target(...))) strings.  If
+   the option is validated, the hook should also fill in
+   DECL_FUNCTION_SPECIFIC_TARGET in the function decl node.  */
 DEFHOOK
 (valid_attribute_p,
  "",
@@ -2846,11 +2865,10 @@ DEFHOOK
  "",
  void, (FILE *file, int indent, struct cl_target_option *ptr), NULL)
 
-/* Function to parse arguments to be validated for #pragma option, and to
+/* Function to parse arguments to be validated for #pragma target, and to
    change the state if the options are valid.  If the first argument is
    NULL, the second argument specifies the default options to use.  Return
    true if the options are valid, and set the current state.  */
-/* ??? The documentation in tm.texi is incomplete.  */
 DEFHOOK
 (pragma_parse,
  "",
@@ -2873,14 +2891,6 @@ DEFHOOK
  "",
  bool, (tree decl1, tree decl2),
  hook_bool_tree_tree_false)
-
-/* This function returns true if the target supports function
-   multiversioning.  */
-DEFHOOK
-(supports_function_versions,
- "",
- bool, (void),
- hook_bool_void_false)
 
 /* Function to determine if one function can inline another function.  */
 #undef HOOK_PREFIX

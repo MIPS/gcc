@@ -2731,6 +2731,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       gimple_stmt_iterator gsi;
       call = gimple_build_call_from_tree (*expr_p);
       gimple_call_set_fntype (call, TREE_TYPE (fnptrtype));
+      notice_special_calls (call);
       gimplify_seq_add_stmt (pre_p, call);
       gsi = gsi_last (*pre_p);
       fold_stmt (&gsi);
@@ -4855,7 +4856,12 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      so handle it here.  */
   if (TREE_CLOBBER_P (*from_p))
     {
-      gcc_assert (!want_value && TREE_CODE (*to_p) == VAR_DECL);
+      ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+      if (ret == GS_ERROR)
+	return ret;
+      gcc_assert (!want_value
+		  && (TREE_CODE (*to_p) == VAR_DECL
+		      || TREE_CODE (*to_p) == MEM_REF));
       gimplify_seq_add_stmt (pre_p, gimple_build_assign (*to_p, *from_p));
       *expr_p = NULL;
       return GS_ALL_DONE;
@@ -4962,7 +4968,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       if (!DECL_NAME (*from_p) && DECL_NAME (*to_p))
 	DECL_NAME (*from_p)
 	  = create_tmp_var_name (IDENTIFIER_POINTER (DECL_NAME (*to_p)));
-      DECL_DEBUG_EXPR_IS_FROM (*from_p) = 1;
+      DECL_HAS_DEBUG_EXPR_P (*from_p) = 1;
       SET_DECL_DEBUG_EXPR (*from_p, *to_p);
    }
 
@@ -4978,6 +4984,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
       STRIP_USELESS_TYPE_CONVERSION (CALL_EXPR_FN (*from_p));
       assign = gimple_build_call_from_tree (*from_p);
       gimple_call_set_fntype (assign, TREE_TYPE (fnptrtype));
+      notice_special_calls (assign);
       if (!gimple_call_noreturn_p (assign))
 	gimple_call_set_lhs (assign, *to_p);
     }
@@ -8615,6 +8622,7 @@ force_gimple_operand_1 (tree expr, gimple_seq *stmts,
 {
   enum gimplify_status ret;
   struct gimplify_ctx gctx;
+  location_t saved_location;
 
   *stmts = NULL;
 
@@ -8628,6 +8636,8 @@ force_gimple_operand_1 (tree expr, gimple_seq *stmts,
   push_gimplify_context (&gctx);
   gimplify_ctxp->into_ssa = gimple_in_ssa_p (cfun);
   gimplify_ctxp->allow_rhs_cond_expr = true;
+  saved_location = input_location;
+  input_location = UNKNOWN_LOCATION;
 
   if (var)
     {
@@ -8649,6 +8659,7 @@ force_gimple_operand_1 (tree expr, gimple_seq *stmts,
       gcc_assert (ret != GS_ERROR);
     }
 
+  input_location = saved_location;
   pop_gimplify_context (NULL);
 
   return expr;

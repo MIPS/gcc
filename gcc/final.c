@@ -200,6 +200,9 @@ rtx current_insn_predicate;
 /* True if printing into -fdump-final-insns= dump.  */   
 bool final_insns_dump_p;
 
+/* True if profile_function should be called, but hasn't been called yet.  */
+static bool need_profile_function;
+
 static int asm_insn_count (rtx);
 static void profile_function (FILE *);
 static void profile_after_prologue (FILE *);
@@ -388,18 +391,8 @@ get_attr_length_1 (rtx insn, int (*fallback_fn) (rtx))
 	return 0;
 
       case CALL_INSN:
-	length = fallback_fn (insn);
-	break;
-
       case JUMP_INSN:
-	body = PATTERN (insn);
-	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
-	  {
-	    /* Alignment is machine-dependent and should be handled by
-	       ADDR_VEC_ALIGN.  */
-	  }
-	else
-	  length = fallback_fn (insn);
+	length = fallback_fn (insn);
 	break;
 
       case INSN:
@@ -818,8 +811,7 @@ struct rtl_opt_pass pass_compute_alignments =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_verify_rtl_sharing
-  | TODO_ggc_collect                    /* todo_flags_finish */
+  TODO_verify_rtl_sharing               /* todo_flags_finish */
  }
 };
 
@@ -1017,7 +1009,7 @@ shorten_branches (rtx first)
 	  int min_align;
 	  addr_diff_vec_flags flags;
 
-	  if (!JUMP_P (insn)
+	  if (! JUMP_TABLE_DATA_P (insn)
 	      || GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	    continue;
 	  pat = PATTERN (insn);
@@ -1091,7 +1083,7 @@ shorten_branches (rtx first)
 	continue;
 
       body = PATTERN (insn);
-      if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
+      if (JUMP_TABLE_DATA_P (insn))
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
@@ -1227,7 +1219,8 @@ shorten_branches (rtx first)
 	  INSN_ADDRESSES (uid) = insn_current_address;
 
 #ifdef CASE_VECTOR_SHORTEN_MODE
-	  if (optimize && JUMP_P (insn)
+	  if (optimize
+	      && JUMP_TABLE_DATA_P (insn)
 	      && GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    {
 	      rtx body = PATTERN (insn);
@@ -1668,12 +1661,14 @@ reemit_insn_block_notes (void)
      test and compare insns.  */
 
 void
-final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
+final_start_function (rtx first, FILE *file,
 		      int optimize_p ATTRIBUTE_UNUSED)
 {
   block_depth = 0;
 
   this_is_asm_operands = 0;
+
+  need_profile_function = false;
 
   last_filename = LOCATION_FILE (prologue_location);
   last_linenum = LOCATION_LINE (prologue_location);
@@ -1695,7 +1690,41 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
   /* The Sun386i and perhaps other machines don't work right
      if the profiling code comes after the prologue.  */
   if (targetm.profile_before_prologue () && crtl->profile)
-    profile_function (file);
+    {
+      if (targetm.asm_out.function_prologue
+	  == default_function_pro_epilogue
+#ifdef HAVE_prologue
+	  && HAVE_prologue
+#endif
+	 )
+	{
+	  rtx insn;
+	  for (insn = first; insn; insn = NEXT_INSN (insn))
+	    if (!NOTE_P (insn))
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+	    else if (NOTE_KIND (insn) == NOTE_INSN_BASIC_BLOCK
+		     || NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
+	      break;
+	    else if (NOTE_KIND (insn) == NOTE_INSN_DELETED
+		     || NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION)
+	      continue;
+	    else
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+
+	  if (insn)
+	    need_profile_function = true;
+	  else
+	    profile_function (file);
+	}
+      else
+	profile_function (file);
+    }
 
   /* If debugging, assign block numbers to all of the blocks in this
      function.  */
@@ -2075,6 +2104,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  if (targetm.asm_out.unwind_emit)
 	    targetm.asm_out.unwind_emit (asm_out_file, insn);
 
@@ -2130,6 +2165,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  app_disable ();
 	  if (!DECL_IGNORED_P (current_function_decl))
 	    debug_hooks->end_prologue (last_linenum, last_filename);
@@ -2353,7 +2394,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	/* Detect insns that are really jump-tables
 	   and output them as such.  */
 
-	if (GET_CODE (body) == ADDR_VEC || GET_CODE (body) == ADDR_DIFF_VEC)
+        if (JUMP_TABLE_DATA_P (insn))
 	  {
 #if !(defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC))
 	    int vlen, idx;
@@ -4412,7 +4453,7 @@ struct rtl_opt_pass pass_final =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 

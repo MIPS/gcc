@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -19,8 +19,8 @@
    <http://www.gnu.org/licenses/>.  */
 
 #define _FP_W_TYPE_SIZE		64
-#define _FP_W_TYPE		unsigned long
-#define _FP_WS_TYPE		signed long
+#define _FP_W_TYPE		unsigned long long
+#define _FP_WS_TYPE		signed long long
 #define _FP_I_TYPE		int
 
 typedef int TItype __attribute__ ((mode (TI)));

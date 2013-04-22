@@ -243,6 +243,7 @@ enum lto_section_type
   LTO_section_jump_functions,
   LTO_section_ipa_pure_const,
   LTO_section_ipa_reference,
+  LTO_section_ipa_profile,
   LTO_section_symtab_nodes,
   LTO_section_opts,
   LTO_section_cgraph_opt_sum,
@@ -690,10 +691,6 @@ struct data_in
 
   /* Number of unnamed labels.  */
   unsigned int num_unnamed_labels;
-
-  const char *current_file;
-  int current_line;
-  int current_col;
 
   /* Maps each reference number to the resolution done by the linker. */
   vec<ld_plugin_symbol_resolution_t> globals_resolution;
