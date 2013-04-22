@@ -1,3 +1,389 @@
+2013-04-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* coretypes.h (gimple_stmt_iterator_d): Forward declare.
+	(gimple_stmt_iterator): New typedef.
+	* gimple.h (gimple_stmt_iterator): Rename to...
+	(gimple_stmt_iterator_d): ... This.
+	* doc/tm.texi.in (TARGET_FOLD_BUILTIN): Detail restriction that
+	trees be valid for GIMPLE and GENERIC.
+	(TARGET_GIMPLE_FOLD_BUILTIN): New.
+	* gimple-fold.c (gimple_fold_call): Call target hook
+	gimple_fold_builtin.
+	* hooks.c (hook_bool_gsiptr_false): New.
+	* hooks.h (hook_bool_gsiptr_false): New.
+	* target.def (fold_stmt): New.
+	* doc/tm.texi: Regenerate.
+
+2013-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57018
+	* lra-eliminations.c (mark_not_eliminable): Prevent elimination of
+	a set sp if no stack realignment.
+
+2013-04-22  Nick Clifton  <nickc@redhat.com>
+
+	* config.gcc (tilegx-linux): Extend extra_objs rather than
+	overwriting it.
+	(tilepro-linux): Likewise.
+
+2013-04-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-builtins.c
+	(CF): Remove.
+	(CF0, CF1, CF2, CF3, CF4, CF10): New.
+	(VAR<1-12>): Add MAP parameter.
+	(BUILTIN_*): Likewise.
+	* config/aarch64/aarch64-simd-builtins.def: Set MAP parameter.
+	* config/aarch64/aarch64-simd.md (aarch64_sshl_n<mode>): Remove.
+	(aarch64_ushl_n<mode>): Likewise.
+	(aarch64_sshr_n<mode>): Likewise.
+	(aarch64_ushr_n<mode>): Likewise.
+	(aarch64_<maxmin><mode>): Likewise.
+	(aarch64_sqrt<mode>): Likewise.
+	* config/aarch64/arm_neon.h (vshl<q>_n_*): Use new builtin names.
+	(vshr<q>_n_*): Likewise.
+
+2013-04-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-builtins.c
+	(aarch64_simd_builtin_type_mode): Handle SF types.
+	(sf_UP): Define.
+	(BUILTIN_GPF): Define.
+	(aarch64_init_simd_builtins): Handle SF types.
+	* config/aarch64/aarch64-simd-builtins.def (frecpe): Add support.
+	(frecps): Likewise.
+	(frecpx): Likewise.
+	* config/aarch64/aarch64-simd.md
+	(simd_types): Update simd_frcp<esx> to simd_frecp<esx>.
+	(aarch64_frecpe<mode>): New.
+	(aarch64_frecps<mode>): Likewise.
+	* config/aarch64/aarch64.md (unspec): Add UNSPEC_FRECP<ESX>.
+	(v8type): Add frecp<esx>.
+	(aarch64_frecp<FRECP:frecp_suffix><mode>): New.
+	(aarch64_frecps<mode>): Likewise.
+	* config/aarch64/iterators.md (FRECP): New.
+	(frecp_suffix): Likewise.
+	* config/aarch64/arm_neon.h
+	(vrecp<esx><qsd>_<fd><32, 64>): Convert to using builtins.
+
+2013-04-22  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/56995
+	* config/sh/sh.h (enum reg_class): Remove DF_HI_REGS.
+	(REG_CLASS_NAMES): Idem.
+	(REG_CLASS_CONTENTS): Idem.
+	(REGCLASS_HAS_FP_REG): Idem.
+	* config/sh/sh.c (sh_cannot_change_mode_class): Idem.
+	(sh_conditional_register_usage): Idem.
+
+2013-04-21  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-forwprop.c (simplify_conversion_from_bitmask): New function.
+	(ssa_forward_propagate_and_combine): Use it.
+
+2013-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c: Update the flow chart diagram.
+
+2013-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56847
+	* lra-constraints.c (process_alt_operands): Discourage alternative
+	with non-matche doffsettable memory constraint fro memory with
+	known offset.
+
+2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56982
+	* builtins.def (BUILT_IN_LONGJMP): longjmp is not a leaf
+	function.
+	* gimplify.c (gimplify_call_expr): Notice special calls.
+	(gimplify_modify_expr): Likewise.
+	* tree-cfg.c (make_abnormal_goto_edges): Handle setjmp-like
+	abnormal control flow receivers.
+	(call_can_make_abnormal_goto): Handle cfun->calls_setjmp
+	in the same way as cfun->has_nonlocal_labels.
+	(gimple_purge_dead_abnormal_call_edges): Likewise.
+	(stmt_starts_bb_p): Make setjmp-like abnormal control flow
+	receivers start a basic-block.
+
+2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (struct _slp_instance): Move load_permutation
+	member ...
+	(struct _slp_tree): ... here.  Make it a vector of unsigned ints.
+	(SLP_INSTANCE_LOAD_PERMUTATION): Remove.
+	(SLP_TREE_LOAD_PERMUTATION): Add.
+	(vect_transform_slp_perm_load): Adjust prototype.
+	* tree-vect-slp.c (vect_free_slp_tree): Adjust.
+	(vect_free_slp_instance): Likewise.
+	(vect_create_new_slp_node): Likewise.
+	(vect_supported_slp_permutation_p): Remove.
+	(vect_slp_rearrange_stmts): Adjust.
+	(vect_supported_load_permutation_p): Likewise.  Inline
+	vect_supported_slp_permutation_p here.
+	(vect_analyze_slp_instance): Compute load permutations per
+	slp node instead of per instance.
+	(vect_get_slp_defs): Adjust.
+	(vect_transform_slp_perm_load): Likewise.
+	(vect_schedule_slp_instance): Remove redundant code.
+	(vect_schedule_slp): Remove hack for PR56270, add it ...
+	* tree-vect-stmts.c (vectorizable_load): ... here, do not
+	CSE loads for SLP.  Adjust.
+
+2013-04-19  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (load_multiple_sequence, ldm_stm_operation_p): Fix
+	spelling in two comments.
+
+2013-04-19  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	PR target/56797
+	* config/arm/arm.c (load_multiple_sequence): Require SP
+	as base register for loads if SP is in the register list.
+
+2013-04-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/56718
+	* ipa-cp.c (ipa_value_from_known_type_jfunc): Moved...
+	* ipa-prop.c (ipa_binfo_from_known_type_jfunc): ...here, renamed
+	and made public.  Adjusted all callers.
+	(ipa_intraprocedural_devirtualization): New function.
+	* ipa-prop.h (ipa_binfo_from_known_type_jfunc): Declare.
+	(ipa_intraprocedural_devirtualization): Likewise.
+	* Makefile.in (tree-ssa-pre.o): Add ipa-prop.h to dependencies.
+
+2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57000
+	* tree-ssa-reassoc.c (pass_reassoc): Add TODO_update_ssa_only_virtuals.
+
+2013-04-19  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/cortex-m4-fpu.md (cortex_m4_v): Delete cpu unit.
+	Replace with ...
+	(cortex_m4_v_a,  cortex_m4_v_b): ... new cpu units.
+	(cortex_m4_v, cortex_m4_exa_va, cortex_m4_exb_vb): New reservations.
+	(cortex_m4_fmacs): Use new reservations.
+	(cortex_m4_f_load, cortex_m4_f_store): Likewise.
+
+2013-04-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56999
+	* lra-coalesce.c (coalescable_pseudo_p): Remove 2nd parameter and
+	related code.
+	(lra_coalesce): Remove split_origin_bitmap and related code.
+	* lra.c (lra): Coalesce after undoing inheritance.  Recreate live
+	ranges if necessary.
+
+2013-04-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (x86_64_ms_sysv_extra_clobbered_registers):
+	New array.
+	(ix86_expand_call): Remove clobbered_registers array and use
+	x86_64_ms_sysv_extra_clobbered_registers instead.
+	* config/i386/i386.h (x86_64_ms_sysv_extra_clobbered_registers):
+	Declare here.
+	* config/i386/predicates.md (call_rex64_ms_sysv_operation): New
+	predicate.
+	* config/i386/i386.md (*call_rex64_ms_sysv): Use
+	call_rex64_ms_sysv_operation predicate.  Remove explicit clobbers.
+	(*call_value_rex64_ms_sysv): Ditto.
+
+2013-04-18  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (output_pubnames): Check die_perennial_p of
+	parent instead of die_mark.
+
+2013-04-18  Diego Novillo  <dnovillo@google.com>
+
+	* gimple.c (create_gimple_tmp): New.
+	(get_expr_type): New.
+	(build_assign): New.
+	(build_type_cast): New.
+	* gimple.h (enum ssa_mode): Define.
+	(gimple_seq_set_location): New.
+	* asan.c (build_check_stmt): Change some gimple_build_* calls
+	to use build_assign and build_type_cast.
+
+2013-04-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_group_access): Properly
+	handle negative step.  Remove redundant checks.
+	(vect_create_data_ref_ptr): Avoid ICEs with non-constant steps.
+	* tree-vect-stmts.c (vectorizable_load): Instead of asserting
+	for negative step and grouped loads fail to vectorize.
+
+2013-04-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* emit-rtl.c (reset_insn_used_flags): New function.
+	(reset_all_used_flags): Use it.
+	(verify_insn_sharing): New function.
+	(verify_rtl_sharing): Fix verification for SEQUENCEs.
+
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56984
+	* tree-vrp.c (register_edge_assert_for_2): For (x >> M) < N
+	and (x >> M) >= N don't register any assertion if N << M is the
+	minimum value.
+
+2013-04-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* lower-subreg.c (resolve_simple_move): If called self-recursive,
+	do not delete_insn insns that have not yet been emitted, only
+	unlink them with remove_insn.
+	* df-scan.c (df_insn_delete): Revert r197492.
+
+2013-04-17  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* emit-rtl.c (link_insn_into_chain): Handle chaining of SEQUENCEs.
+	* reorg.c (emit_delay_sequence): Simplify with emit-rtl API.
+
+2013-04-17  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.md (movsicc_insn): Convert define_insn into
+	define_insn_and_split.
+	(and_scc,ior_scc,negscc): Likewise.
+	(cmpsi2_addneg, subsi3_compare): Convert to named patterns.
+
+2013-04-17  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (use_return_insn): Return 0 for targets that
+	can benefit from using a sequence of LDRD instructions in epilogue
+	instead of a single LDM instruction.
+
+2013-04-17  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR 45688
+	* doc/extend.texi: Fix typo.
+
+2013-04-17  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-slp.c (vect_build_slp_tree_1): Split out from ...
+	(vect_build_slp_tree): ... here.
+	(vect_build_slp_tree_1): Compute which stmts of the SLP group
+	match.  Remove special-casing of mismatched complex loads.
+	(vect_build_slp_tree): Based on the result from vect_build_slp_tree_1
+	re-try the match with swapped commutative operands.
+	(vect_supported_load_permutation_p): Remove special-casing of
+	mismatched complex loads.
+	(vect_analyze_slp_instance): Adjust.
+
+2013-04-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/56921
+	* cfgloop.h (struct loop): Add simple_loop_desc member.
+	(struct niter_desc): Mark with GTY(()).
+	(simple_loop_desc): Do not use aux field but simple_loop_desc.
+	* loop-iv.c (get_simple_loop_desc): Likewise.
+	(free_simple_loop_desc): Likewise.
+
+	Revert
+	2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/56921
+	* loop-init.c (pass_rtl_move_loop_invariants): Add
+	TODO_do_not_ggc_collect to todo_flags_finish.
+	(pass_rtl_unswitch): Same.
+	(pass_rtl_unroll_and_peel_loops): Same.
+	(pass_rtl_doloop): Same.
+
+2013-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-alias.c (nonoverlapping_component_refs_of_decl_p): New.
+	(decl_refs_may_alias_p): Add REF1 and REF2 parameters.
+	Use nonoverlapping_component_refs_of_decl_p to disambiguate component
+	references.
+	(refs_may_alias_p_1): Adjust call to decl_refs_may_alias_p.
+	* tree-streamer.c (record_common_node): Adjust reference in comment.
+
+2013-04-17  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/cortex-m4.md: Add a new bypass.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (*adds_<optab><mode>_multp2):
+	New pattern.
+	(*subs_<optab><mode>_multp2): New pattern.
+	(*adds_<optab><ALLX:mode>_<GPI:mode>): New pattern.
+	(*subs_<optab><ALLX:mode>_<GPI:mode>): New pattern.
+
+2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (*adds_mul_imm_<mode>): New pattern.
+	(*subs_mul_imm_<mode>): New pattern.
+
+2013-04-16  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/56948
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add j->r alternative.
+	(vsx_movti_64bit): Change j->wa to O->wa.  Add n->r alternative.
+	(vsx_movti_32bit): Change j->wa to O->wa.
+
+2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/56921
+	* loop-init.c (pass_rtl_move_loop_invariants): Add
+	TODO_do_not_ggc_collect to todo_flags_finish.
+	(pass_rtl_unswitch): Same.
+	(pass_rtl_unroll_and_peel_loops): Same.
+	(pass_rtl_doloop): Same.
+
+2013-04-16  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (emit_multi_reg_push): New declaration
+	for an existing function.
+	(arm_emit_strd_push): New function.
+	(arm_expand_prologue): Used here.
+	(arm_emit_ldrd_pop): New function.
+	(arm_expand_epilogue): Used here.
+	(arm_get_frame_offsets): Update condition.
+	(arm_emit_multi_reg_pop): Add a special case for load of a single
+	register with writeback.
+
+2013-04-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/invoke.texi (i386 Option): Reword -mstack-protector-guard
+	description.
+
+2013-04-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56756
+	* tree-ssa-loop-im.c (struct first_mem_ref_loc_1): New functor.
+	(first_mem_ref_loc): New.
+	(execute_sm): Place the load temporarily before a previous
+	access instead of in the latch edge to ensure its SSA dependencies
+	are defined at points dominating the load.
+
+2013-04-16  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* cfgrtl.c (cfg_layout_merge_blocks): Revert r184005, implement
+	correct fix by moving header and footer insn to the footer of
+	the merged basic block.  Clear BB_END of the merged-away block.
+
+	PR middle-end/43631
+	* emit-rtl.c (make_note_raw): New function.
+	(link_insn_into_chain): New static inline function.
+	(add_insn): Use it.
+	(add_insn_before, add_insn_after): Factor insn chain linking code...
+	(add_insn_before_nobb, add_insn_after_nobb): ...here, new functions
+	using link_insn_into_chain.
+	(note_outside_basic_block_p): New helper function for emit_note_after
+	and emit_note_before.
+	(emit_note_after): Use nobb variant of add_insn_after if the note
+	should not be contained in a basic block.
+	(emit_note_before): Use nobb variant of add_insn_before if the note
+	should not be contained in a basic block.
+	(emit_note_copy): Use make_note_raw.
+	(emit_note): Likewise.
+	* bb-reorder.c (insert_section_boundary_note): Remove hack to set
+	BLOCK_FOR_INSN to NULL manually for NOTE_INSN_SWITCH_TEXT_SECTIONS.
+	* jump.c (cleanup_barriers): Use reorder_insns_nobb to avoid making
+	the moved barrier the tail of the basic block it follows.
+	* var-tracking.c (pass_variable_tracking): Add TODO_verify_flow.
+
 2013-04-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/56962

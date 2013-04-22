@@ -531,6 +531,21 @@ build_x_array_notation_expr (location_t location, tree lhs,
       tree rhs_node = (*rhs_list)[ii];
       if (TREE_CODE (rhs_node) == CALL_EXPR)
 	{
+	  an_reduce_type func_type = REDUCE_UNKNOWN; 
+	  if (is_builtin_array_notation_fn (CALL_EXPR_FN (rhs_node),
+					    &func_type))
+	    {
+	      if (func_type == REDUCE_MUTATING)
+		{
+		  if (location == UNKNOWN_LOCATION
+		      && EXPR_HAS_LOCATION (rhs_node))
+		    location = EXPR_LOCATION (rhs_node);
+		  error_at (location, "void value not ignored as it "
+			    "ought to be");
+		  pop_stmt_list (loop);
+		  return error_mark_node;
+		}
+	    }
 	  builtin_loop = fix_builtin_array_notation_fn (rhs_node, &new_var);
 	  if (builtin_loop == error_mark_node)
 	    return error_mark_node;

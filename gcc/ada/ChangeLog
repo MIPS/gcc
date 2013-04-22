@@ -1,3 +1,89 @@
+2013-04-22  Yannick Moy  <moy@adacore.com>
+
+	* exp_prag.adb (Expand_Pragma_Loop_Variant): Rewrite pragma as
+	null statement if ignored.
+	* sem_ch6.adb (Expand_Contract_Cases): Do nothing if pragma is ignored.
+	* sem_prag.adb (Analyze_Pragma): Keep analyzing ignored pragmas.
+
+2013-04-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_prag.adb (Analyze_Contract_Case): New routine.
+	(Analyze_Pragma): Aspect/pragma Contract_Cases can
+	now be associated with a library level subprogram.
+	Add circuitry to detect illegal uses of aspect/pragma Contract_Cases
+	in a subprogram body.
+	(Chain_Contract_Cases): Rename formal parameter Subp_Decl to
+	Subp_Id. Remove local constant Subp. The entity of the subprogram
+	is now obtained via the formal paramter.
+
+2013-04-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Analyze_Object_Declaration): Do not set
+	Is_Constr_Subt_For_Unc_Aliased on the subtype of the expression,
+	if the expression is a source entity.
+
+2013-04-22  Yannick Moy  <moy@adacore.com>
+
+	* exp_prag.adb, sinfo.ads, sem_prag.ads: Minor correction of typos in
+	comments.
+	* sem_ch6.adb (Expand_Contract_Cases): Add location to message.
+
+2013-04-22  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_prag.adb (Fix_Error): For a pragma rewritten from another
+	pragma, fix up error message to include original pragma name.
+	* par_sco.adb: Minor reformatting.
+
+2013-04-22  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb, sem_util.adb, sem_util.ads, sem_res.adb, exp_ch6.adb,
+	sem_ch6.adb, opt.ads: Minor reformatting.
+
+2013-04-22  Pascal Obry  <obry@adacore.com>
+
+	* gnat_ugn.texi, prj-nmsc.adb, projects.texi: Add check for
+	Library_Standalone and Library_Kind.
+
+2013-04-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch6.adb (Expand_Actuals): If the call is to an
+	inherited operation and the actual is a by-reference type with
+	predicates, add predicate call to post-call actions.
+	* sem_util.adb (Is_Inherited_Operation_For_Type): Fix coding
+	error: a type declaration has a defining identifier, not an Etype.
+	* sem_res.adb: Restore code removed because of above error.
+
+2013-04-22  Doug Rupp  <rupp@adacore.com>
+
+	* init.c (__gnat_handle_vms_condition): Also match C$_SIGINT.
+
+2013-04-22  Yannick Moy  <moy@adacore.com>
+
+	* gnat_rm.texi, exp_util.adb, sem_prag.adb, sem_prag.ads, par-ch2.adb,
+	opt.ads, sem_ch13.adb: Minor correction of typos in comments/doc.
+
+2013-04-22  Vincent Celier  <celier@adacore.com>
+
+	* prj-nmsc.adb (Check_Library_Attributes): Set Library_Dir to
+	No_Path_Information only when Directories_Must_Exist_In_Projects
+	is False.
+	(Get_Directories): Set Object_Directory
+	or Exec_Directory to No_Path_Information only when
+	Directories_Must_Exist_In_Projects is False.
+
+2013-04-22  Yannick Moy  <moy@adacore.com>
+
+	* par-prag.adb, sem_attr.adb, sem_ch6.adb, sem_prag.adb, sem_warn.adb,
+	snames.ads-tmpl, sinfo.ads, sem_util.ads: Remove all references to
+	Pragma_Contract_Case and Name_Contract_Case.
+
+2013-04-22  Yannick Moy  <moy@adacore.com>
+
+	* aspects.ads, aspects.adb, sem_ch13.adb: Removal of references to
+	Contract_Case.
+	* gnat_ugn.texi, gnat_rm.texi Description of Contract_Case replaced by
+	description of Contract_Cases.
+
 2013-04-12  Robert Dewar  <dewar@adacore.com>
 
 	* makeutl.adb, prj-nmsc.adb: Minor reformatting.

@@ -1325,10 +1325,10 @@ package Sinfo is
    --    gives a policy for the aspect or pragma, then there are two cases. For
    --    an assertion aspect or pragma (one of the assertion kinds allowed in
    --    an Assertion_Policy pragma), then Is_Ignored is set if assertions are
-   --    ignored because of the use of a -gnata switch. For any other aspects
-   --    or pragmas, the flag is off. If this flag is set, the aspect/pragma
-   --    is fully analyzed and checked for other syntactic/semantic errors,
-   --    but it does not have any semantic effect.
+   --    ignored because of the absence of a -gnata switch. For any other
+   --    aspects or pragmas, the flag is off. If this flag is set, the
+   --    aspect/pragma is fully analyzed and checked for other
+   --    syntactic/semantic errors, but it does not have any semantic effect.
 
    --  Is_In_Discriminant_Check (Flag11-Sem)
    --    This flag is present in a selected component, and is used to indicate
@@ -7042,12 +7042,12 @@ package Sinfo is
       --  Note that this includes precondition/postcondition pragmas generated
       --  to correspond to Pre/Post aspects.
 
-      --  Spec_CTC_List points to a list of Contract_Case and Test_Case pragma
+      --  Spec_CTC_List points to a list of Contract_Cases and Test_Case pragma
       --  nodes for contract-cases and test-cases declared in the spec of the
       --  entry/subprogram. The last pragma encountered is at the head of this
       --  list, so it is in reverse order of textual appearance. Note that
-      --  this includes contract-case and test-case pragmas generated from
-      --  Contract_Case and Test_Case aspects.
+      --  this includes contract-cases and test-case pragmas generated from
+      --  Contract_Cases and Test_Case aspects.
 
       -------------------
       -- Expanded_Name --
