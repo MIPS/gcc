@@ -2504,8 +2504,21 @@ process_address (int nop, rtx *before, rtx *after)
 		*ad.inner = gen_rtx_LO_SUM (Pmode, new_reg, addr);
 		if (! valid_address_p (ad.mode, *ad.outer, ad.as))
 		  {
-		    *ad.inner = addr;
-		    code = -1;
+		    /* Try to put lo_sum into register.  */
+		    insn = emit_insn (gen_rtx_SET
+				      (VOIDmode, new_reg,
+				       gen_rtx_LO_SUM (Pmode, new_reg, addr)));
+		    code = recog_memoized (insn);
+		    if (code >= 0)
+		      {
+			*ad.inner = new_reg;
+			if (! valid_address_p (ad.mode, *ad.outer, ad.as))
+			  {
+			    *ad.inner = addr;
+			    code = -1;
+			  }
+		      }
+		    
 		  }
 	      }
 	    if (code < 0)

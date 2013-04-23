@@ -1,3 +1,10 @@
+2013-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_address): Try to put lo_sum into
+	register.
+	* config/rs6000/rs6000.c (legitimate_lo_sum_address_p): Remove
+	lra_in_progress guard for addressing something bigger than word.
+
 2013-04-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (check_and_process_move): Move code for move
