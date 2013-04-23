@@ -2157,7 +2157,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       break;
     case REDUCE_MAX_INDEX:
     case REDUCE_MIN_INDEX:
-      new_var_type = size_type_node;
+      new_var_type = integer_type_node;
       break;
     case REDUCE_CUSTOM:
       if (call_fn && identity_value)
@@ -2610,7 +2610,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       append_to_statement_list (new_no_expr, &new_no_list);
 
       new_cond_expr = build_x_binary_op
-	(location, LT_EXPR, array_ind_value,
+	(location, LE_EXPR, array_ind_value,
 	 TREE_CODE (array_ind_value),
 	 func_parm, TREE_CODE (func_parm), NULL, tf_warning_or_error);
       new_expr = build_x_conditional_expr (location, new_cond_expr, 
@@ -2643,7 +2643,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       append_to_statement_list (new_no_ind, &new_no_list);
       append_to_statement_list (new_no_expr, &new_no_list);
       new_cond_expr = build_x_binary_op
-	(location, GT_EXPR, array_ind_value,
+	(location, GE_EXPR, array_ind_value,
 	 TREE_CODE (array_ind_value),
 	 func_parm, TREE_CODE (func_parm), NULL, tf_warning_or_error);
       new_expr = build_x_conditional_expr (location, new_cond_expr,

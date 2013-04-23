@@ -2326,7 +2326,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
  
       new_expr = build_conditional_expr
 	(location,
-	 build2 (LT_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
+	 build2 (LE_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
 		 func_parm),
 	 false,
 	 new_yes_list, TREE_TYPE (*new_var), new_no_list, TREE_TYPE (*new_var));
@@ -2376,7 +2376,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
  
       new_expr = build_conditional_expr
 	(location,
-	 build2 (GT_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
+	 build2 (GE_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
 		 func_parm),
 	 false,
 	 new_yes_list, TREE_TYPE (*new_var), new_no_list, TREE_TYPE (*new_var));
