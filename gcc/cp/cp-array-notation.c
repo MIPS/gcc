@@ -531,6 +531,18 @@ build_x_array_notation_expr (location_t location, tree lhs,
       tree rhs_node = (*rhs_list)[ii];
       if (TREE_CODE (rhs_node) == CALL_EXPR)
 	{
+	  an_reduce_type ftype = REDUCE_UNKNOWN;
+	  if (is_builtin_array_notation_fn (CALL_EXPR_FN (rhs_node), &ftype))
+	    if (ftype == REDUCE_MUTATING)
+	      {
+		if (location == UNKNOWN_LOCATION
+		    && EXPR_HAS_LOCATION (rhs_node))
+		  location = EXPR_LOCATION (rhs_node);
+		error_at (location,
+			  "void value not ignored as it ought to be");
+		pop_stmt_list (loop);
+		return error_mark_node;
+	      }
 	  builtin_loop = fix_builtin_array_notation_fn (rhs_node, &new_var);
 	  if (builtin_loop == error_mark_node)
 	    return error_mark_node;
@@ -2096,7 +2108,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 || TREE_CODE (func_parm) == NOP_EXPR)
     func_parm = TREE_OPERAND (func_parm, 0);
   
-  find_rank (func_parm, true, &rank);
+  find_rank (func_parm, false, &rank);
 
   location = EXPR_LOCATION (an_builtin_fn);
   
@@ -2142,7 +2154,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       break;
     case REDUCE_MAX_INDEX:
     case REDUCE_MIN_INDEX:
-      new_var_type = size_type_node;
+      new_var_type = integer_type_node;
       break;
     case REDUCE_CUSTOM:
       if (call_fn && identity_value)
@@ -2595,7 +2607,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       append_to_statement_list (new_no_expr, &new_no_list);
 
       new_cond_expr = build_x_binary_op
-	(location, LT_EXPR, array_ind_value,
+	(location, LE_EXPR, array_ind_value,
 	 TREE_CODE (array_ind_value),
 	 func_parm, TREE_CODE (func_parm), NULL, tf_warning_or_error);
       new_expr = build_x_conditional_expr (location, new_cond_expr, 
@@ -2628,7 +2640,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       append_to_statement_list (new_no_ind, &new_no_list);
       append_to_statement_list (new_no_expr, &new_no_list);
       new_cond_expr = build_x_binary_op
-	(location, GT_EXPR, array_ind_value,
+	(location, GE_EXPR, array_ind_value,
 	 TREE_CODE (array_ind_value),
 	 func_parm, TREE_CODE (func_parm), NULL, tf_warning_or_error);
       new_expr = build_x_conditional_expr (location, new_cond_expr,

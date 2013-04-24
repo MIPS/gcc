@@ -464,6 +464,18 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
       tree rhs_node = (*rhs_list)[ii];
       if (TREE_CODE (rhs_node) == CALL_EXPR)
 	{
+	  an_reduce_type ftype = REDUCE_UNKNOWN;
+	  if (is_builtin_array_notation_fn (CALL_EXPR_FN (rhs_node), &ftype))
+	    if (ftype == REDUCE_MUTATING)
+	      {
+		if (location == UNKNOWN_LOCATION
+		    && EXPR_HAS_LOCATION (rhs_node))
+		  location = EXPR_LOCATION (rhs_node);
+		error_at (location,
+			  "void value not ignored as it ought to be");
+		pop_stmt_list (loop);
+		return error_mark_node;
+	      }  
 	  builtin_loop = fix_builtin_array_notation_fn (rhs_node, &new_var);
 	  if (builtin_loop == error_mark_node)
 	    {
@@ -2326,7 +2338,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
  
       new_expr = build_conditional_expr
 	(location,
-	 build2 (LT_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
+	 build2 (LE_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
 		 func_parm),
 	 false,
 	 new_yes_list, TREE_TYPE (*new_var), new_no_list, TREE_TYPE (*new_var));
@@ -2376,7 +2388,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
  
       new_expr = build_conditional_expr
 	(location,
-	 build2 (GT_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
+	 build2 (GE_EXPR, TREE_TYPE (array_ind_value), array_ind_value,
 		 func_parm),
 	 false,
 	 new_yes_list, TREE_TYPE (*new_var), new_no_list, TREE_TYPE (*new_var));
