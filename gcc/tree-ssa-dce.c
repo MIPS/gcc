@@ -1643,6 +1643,15 @@ gate_dce (void)
   return flag_tree_dce != 0;
 }
 
+static bool
+gate_dce_mpx (void)
+{
+  return flag_tree_dce != 0
+    && flag_mpx != 0
+    && (flag_mpxopt > 0
+	|| (flag_mpxopt == -1 && optimize > 0));
+}
+
 struct gimple_opt_pass pass_dce =
 {
  {
@@ -1701,5 +1710,25 @@ struct gimple_opt_pass pass_cd_dce =
   0,					/* todo_flags_start */
   TODO_verify_ssa
   | TODO_verify_flow			/* todo_flags_finish */
+ }
+};
+
+struct gimple_opt_pass pass_dce_mpx =
+{
+ {
+  GIMPLE_PASS,
+  "dce",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
+  gate_dce_mpx,				/* gate */
+  tree_ssa_dce,				/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_DCE,				/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_ssa	                /* todo_flags_finish */
  }
 };
