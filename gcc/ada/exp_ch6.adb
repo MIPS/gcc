@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Debug;    use Debug;
@@ -942,6 +943,7 @@ package body Exp_Ch6 is
       Formal    : Entity_Id;
       N_Node    : Node_Id;
       Post_Call : List_Id;
+      E_Actual  : Entity_Id;
       E_Formal  : Entity_Id;
 
       procedure Add_Call_By_Copy_Code;
@@ -1508,6 +1510,7 @@ package body Exp_Ch6 is
       Actual := First_Actual (N);
       while Present (Formal) loop
          E_Formal := Etype (Formal);
+         E_Actual := Etype (Actual);
 
          if Is_Scalar_Type (E_Formal)
            or else Nkind (Actual) = N_Slice
@@ -1645,7 +1648,7 @@ package body Exp_Ch6 is
             --  conversion" errors.
 
             elsif Is_Access_Type (E_Formal)
-              and then not Same_Type (E_Formal, Etype (Actual))
+              and then not Same_Type (E_Formal, E_Actual)
               and then not Is_Tagged_Type (Designated_Type (E_Formal))
             then
                Add_Call_By_Copy_Code;
@@ -1661,7 +1664,7 @@ package body Exp_Ch6 is
 
             elsif Is_Entity_Name (Actual)
               and then Is_Volatile (Entity (Actual))
-              and then not Is_By_Reference_Type (Etype (Actual))
+              and then not Is_By_Reference_Type (E_Actual)
               and then not Is_Scalar_Type (Etype (Entity (Actual)))
               and then not Is_Volatile (E_Formal)
             then
@@ -1682,10 +1685,10 @@ package body Exp_Ch6 is
 
             elsif Is_Scalar_Type (E_Formal)
               and then
-                (not In_Subrange_Of (E_Formal, Etype (Actual))
+                (not In_Subrange_Of (E_Formal, E_Actual)
                   or else
                     (Ekind (Formal) = E_In_Out_Parameter
-                      and then not In_Subrange_Of (Etype (Actual), E_Formal)))
+                      and then not In_Subrange_Of (E_Actual, E_Formal)))
             then
                --  Perhaps the setting back to False should be done within
                --  Add_Call_By_Copy_Code, since it could get set on other
@@ -1696,6 +1699,58 @@ package body Exp_Ch6 is
                end if;
 
                Add_Call_By_Copy_Code;
+            end if;
+
+            --  RM 3.2.4 (23/3) : A predicate is checked on in-out and out
+            --  by-reference parameters on exit from the call. If the actual
+            --  is a derived type and the operation is inherited, the body
+            --  of the operation will not contain a call to the predicate
+            --  function, so it must be done explicitly after the call. Ditto
+            --  if the actual is an entity of a predicated subtype.
+
+            --  The rule refers to by-reference types, but a check is needed
+            --  for by-copy types as well. That check is subsumed by the rule
+            --  for subtype conversion on assignment, but we can generate the
+            --  required check now.
+
+            --  Note that this is needed only if the subtype of the actual has
+            --  an explicit predicate aspect, not if it inherits them from a
+            --  base type or ancestor. The check is also superfluous if the
+            --  subtype is elaborated before the body of the subprogram, but
+            --  this is harder to verify, and there may be a redundant check.
+
+            --  Note also that Subp may be either a subprogram entity for
+            --  direct calls, or a type entity for indirect calls, which must
+            --  be handled separately because the name does not denote an
+            --  overloadable entity.
+
+            --  If the formal is class-wide the corresponding postcondition
+            --  procedure does not include a predicate call, so it has to be
+            --  generated explicitly.
+
+            if not Is_Init_Proc (Subp)
+              and then (Has_Aspect (E_Actual, Aspect_Predicate)
+                          or else
+                        Has_Aspect (E_Actual, Aspect_Dynamic_Predicate)
+                          or else
+                        Has_Aspect (E_Actual, Aspect_Static_Predicate))
+              and then Present (Predicate_Function (E_Actual))
+            then
+               if Is_Entity_Name (Actual)
+                 or else
+                   (Is_Derived_Type (E_Actual)
+                     and then Is_Overloadable (Subp)
+                     and then Is_Inherited_Operation_For_Type (Subp, E_Actual))
+               then
+                  Append_To (Post_Call,
+                    Make_Predicate_Check (E_Actual, Actual));
+
+               elsif Is_Class_Wide_Type (E_Formal)
+                 and then not Is_Class_Wide_Type (E_Actual)
+               then
+                  Append_To (Post_Call,
+                    Make_Predicate_Check (E_Actual, Actual));
+               end if;
             end if;
 
          --  Processing for IN parameters
@@ -6497,6 +6552,7 @@ package body Exp_Ch6 is
       if Init_Or_Norm_Scalars and then Is_Subprogram (Spec_Id) then
          declare
             F : Entity_Id;
+            A : Node_Id;
 
          begin
             --  Loop through formals
@@ -6511,12 +6567,15 @@ package body Exp_Ch6 is
                   --  Insert the initialization. We turn off validity checks
                   --  for this assignment, since we do not want any check on
                   --  the initial value itself (which may well be invalid).
+                  --  Predicate checks are disabled as well (RM 6.4.1 (13/3))
+
+                  A :=  Make_Assignment_Statement (Loc,
+                      Name       => New_Occurrence_Of (F, Loc),
+                      Expression => Get_Simple_Init_Val (Etype (F), N));
+                  Set_Suppress_Assignment_Checks (A);
 
                   Insert_Before_And_Analyze (First (L),
-                    Make_Assignment_Statement (Loc,
-                      Name       => New_Occurrence_Of (F, Loc),
-                      Expression => Get_Simple_Init_Val (Etype (F), N)),
-                    Suppress => Validity_Check);
+                    A, Suppress => Validity_Check);
                end if;
 
                Next_Formal (F);
@@ -7845,10 +7904,23 @@ package body Exp_Ch6 is
 
          else
             declare
-               ExpR : constant Node_Id   := Relocate_Node (Exp);
+               ExpR : Node_Id            := Relocate_Node (Exp);
                Tnn  : constant Entity_Id := Make_Temporary (Loc, 'T', ExpR);
 
             begin
+               --  In the case of discriminated objects, we have created a
+               --  constrained subtype above, and used the underlying type.
+               --  This transformation is post-analysis and harmless, except
+               --  that now the call to the post-condition will be analyzed and
+               --  type kinds have to match.
+
+               if Nkind (ExpR) = N_Unchecked_Type_Conversion
+                 and then
+                   Is_Private_Type (R_Type) /= Is_Private_Type (Etype (ExpR))
+               then
+                  ExpR := Expression (ExpR);
+               end if;
+
                --  For a complex expression of an elementary type, capture
                --  value in the temporary and use it as the reference.
 
@@ -8022,11 +8094,11 @@ package body Exp_Ch6 is
          return False;
 
       else
-         --  In Alfa mode, build-in-place calls are not expanded, so that we
+         --  In SPARK mode, build-in-place calls are not expanded, so that we
          --  may end up with a call that is neither resolved to an entity, nor
          --  an indirect call.
 
-         if Alfa_Mode then
+         if SPARK_Mode then
             return False;
 
          elsif Is_Entity_Name (Name (Exp_Node)) then
@@ -8223,6 +8295,18 @@ package body Exp_Ch6 is
             Set_Returns_By_Ref (Subp);
          end if;
       end;
+
+      --  Wnen freezing a null procedure, analyze its delayed aspects now
+      --  because we may not have reached the end of the declarative list when
+      --  delayed aspects are normally analyzed. This ensures that dispatching
+      --  calls are properly rewritten when the generated _Postcondition
+      --  procedure is analyzed in the null procedure body.
+
+      if Nkind (Parent (Subp)) = N_Procedure_Specification
+        and then Null_Present (Parent (Subp))
+      then
+         Analyze_Subprogram_Contract (Subp);
+      end if;
    end Freeze_Subprogram;
 
    -----------------------
@@ -8481,12 +8565,12 @@ package body Exp_Ch6 is
          then
             null;
 
-         --  Do not generate the call to Set_Finalize_Address in Alfa mode
+         --  Do not generate the call to Set_Finalize_Address in SPARK mode
          --  because it is not necessary and results in unwanted expansion.
          --  This expansion is also not carried out in CodePeer mode because
          --  Finalize_Address is never built.
 
-         elsif not Alfa_Mode
+         elsif not SPARK_Mode
            and then not CodePeer_Mode
          then
             Insert_Action (Allocator,

@@ -105,7 +105,9 @@ Implementation Defined Pragmas
 * Pragma Ada_2012::
 * Pragma Annotate::
 * Pragma Assert::
+* Pragma Assert_And_Cut::
 * Pragma Assertion_Policy::
+* Pragma Assume::
 * Pragma Assume_No_Invalid_Values::
 * Pragma Attribute_Definition::
 * Pragma Ast_Entry::
@@ -122,7 +124,7 @@ Implementation Defined Pragmas
 * Pragma Complete_Representation::
 * Pragma Complex_Representation::
 * Pragma Component_Alignment::
-* Pragma Contract_Case::
+* Pragma Contract_Cases::
 * Pragma Convention_Identifier::
 * Pragma CPP_Class::
 * Pragma CPP_Constructor::
@@ -177,7 +179,9 @@ Implementation Defined Pragmas
 * Pragma Linker_Destructor::
 * Pragma Linker_Section::
 * Pragma Long_Float::
+* Pragma Loop_Invariant::
 * Pragma Loop_Optimize::
+* Pragma Loop_Variant::
 * Pragma Machine_Attribute::
 * Pragma Main::
 * Pragma Main_Storage::
@@ -273,6 +277,7 @@ Implementation Defined Attributes
 * Integer_Value::
 * Invalid_Value::
 * Large::
+* Loop_Entry::
 * Machine_Size::
 * Mantissa::
 * Max_Interrupt_Priority::
@@ -301,6 +306,7 @@ Implementation Defined Attributes
 * Unconstrained_Array::
 * Universal_Literal_String::
 * Unrestricted_Access::
+* Update::
 * Valid_Scalars::
 * VADS_Size::
 * Value_Size::
@@ -860,7 +866,9 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Ada_2012::
 * Pragma Annotate::
 * Pragma Assert::
+* Pragma Assert_And_Cut::
 * Pragma Assertion_Policy::
+* Pragma Assume::
 * Pragma Assume_No_Invalid_Values::
 * Pragma Attribute_Definition::
 * Pragma Ast_Entry::
@@ -877,7 +885,7 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Complete_Representation::
 * Pragma Complex_Representation::
 * Pragma Component_Alignment::
-* Pragma Contract_Case::
+* Pragma Contract_Cases::
 * Pragma Convention_Identifier::
 * Pragma CPP_Class::
 * Pragma CPP_Constructor::
@@ -932,7 +940,9 @@ consideration, the use of these pragmas should be minimized.
 * Pragma Linker_Destructor::
 * Pragma Linker_Section::
 * Pragma Long_Float::
+* Pragma Loop_Invariant::
 * Pragma Loop_Optimize::
+* Pragma Loop_Variant::
 * Pragma Machine_Attribute::
 * Pragma Main::
 * Pragma Main_Storage::
@@ -1202,13 +1212,18 @@ Note that, as with the @code{if} statement to which it is equivalent, the
 type of the expression is either @code{Standard.Boolean}, or any type derived
 from this standard type.
 
-If assertions are disabled (switch @option{-gnata} not used), then there
+Assert checks can be either checked or ignored. By default they are ignored.
+They will be checked if either the command line switch @option{-gnata} is
+used, or if an @code{Assertion_Policy} or @code{Check_Policy} pragma is used
+to enable @code{Assert_Checks}.
+
+If assertions are ignored, then there
 is no run-time effect (and in particular, any side effects from the
 expression will not occur at run time).  (The expression is still
 analyzed at compile time, and may cause types to be frozen if they are
 mentioned here for the first time).
 
-If assertions are enabled, then the given expression is tested, and if
+If assertions are checked, then the given expression is tested, and if
 it is @code{False} then @code{System.Assertions.Raise_Assert_Failure} is called
 which results in the raising of @code{Assert_Failure} with the given message.
 
@@ -1220,12 +1235,38 @@ semantic correctness whether or not assertions are enabled, so turning
 assertions on and off cannot affect the legality of a program.
 
 Note that the implementation defined policy @code{DISABLE}, given in a
-pragma Assertion_Policy, can be used to suppress this semantic analysis.
+pragma @code{Assertion_Policy}, can be used to suppress this semantic analysis.
 
 Note: this is a standard language-defined pragma in versions
 of Ada from 2005 on. In GNAT, it is implemented in all versions
 of Ada, and the DISABLE policy is an implementation-defined
 addition.
+
+@node Pragma Assert_And_Cut
+@unnumberedsec Pragma Assert_And_Cut
+@findex Assert_And_Cut
+@noindent
+Syntax:
+@smallexample @c ada
+pragma Assert_And_Cut (
+  boolean_EXPRESSION
+  [, string_EXPRESSION]);
+@end smallexample
+
+@noindent
+The effect of this pragma is identical to that of pragma @code{Assert},
+except that in an @code{Assertion_Policy} pragma, the identifier
+@code{Assert_And_Cut} is used to control whether it is ignored or checked
+(or disabled).
+
+The intention is that this be used within a subprogram when the
+given test expresion sums up all the work done so far in the
+subprogram, so that the rest of the subprogram can be verified
+(informally or formally) using only the entry preconditions,
+and the expression in this pragma. This allows dividing up
+a subprogram into sections for the purposes of testing or
+formal verification. The pragma also serves as useful
+documentation.
 
 @node Pragma Assertion_Policy
 @unnumberedsec Pragma Assertion_Policy
@@ -1235,7 +1276,7 @@ Syntax:
 @smallexample @c ada
 pragma Assertion_Policy (CHECK | DISABLE | IGNORE);
 
-Pragma Assertion_Policy (
+pragma Assertion_Policy (
     ASSERTION_KIND => POLICY_IDENTIFIER
  @{, ASSERTION_KIND => POLICY_IDENTIFIER@});
 
@@ -1251,7 +1292,8 @@ RM_ASSERTION_KIND ::= Assert               |
                       Type_Invariant       |
                       Type_Invariant'Class
 
-ID_ASSERTION_KIND ::= Assert_And_Cut       |
+ID_ASSERTION_KIND ::= Assertions           |
+                      Assert_And_Cut       |
                       Assume               |
                       Contract_Cases       |
                       Debug                |
@@ -1262,6 +1304,7 @@ ID_ASSERTION_KIND ::= Assert_And_Cut       |
                       Postcondition        |
                       Precondition         |
                       Predicate
+                      Statement_Assertions
 
 POLICY_IDENTIFIER ::= Check | Disable | Ignore
 @end smallexample
@@ -1291,6 +1334,49 @@ checking of the corresponding pragma or aspect. This is
 useful when the pragma or aspect argument references subprograms
 in a with'ed package which is replaced by a dummy package
 for the final build.
+
+The implementation defined policy @code{Assertions} applies to all
+assertion kinds. The form with no assertion kind given implies this
+choice, so it applies to all assertion kinds (RM defined, and
+implementation defined).
+
+The implementation defined policy @code{Statement_Assertions}
+applies to @code{Assert}, @code{Assert_And_Cut},
+@code{Assume}, and @code{Loop_Invariant}.
+
+@node Pragma Assume
+@unnumberedsec Pragma Assume
+@findex Assume
+@noindent
+Syntax:
+@smallexample @c ada
+pragma Assume (
+  boolean_EXPRESSION
+  [, string_EXPRESSION]);
+@end smallexample
+
+@noindent
+The effect of this pragma is identical to that of pragma @code{Assert},
+except that in an @code{Assertion_Policy} pragma, the identifier
+@code{Assume} is used to control whether it is ignored or checked
+(or disabled).
+
+The intention is that this be used for assumptions about the
+external environment. So you cannot expect to verify formally
+or informally that the condition is met, this must be
+established by examining things outside the program itself.
+For example, we may have code that depends on the size of
+@code{Long_Long_Integer} being at least 64. So we could write:
+
+@smallexample @c ada
+pragma Assume (Long_Long_Integer'Size >= 64);
+@end smallexample
+
+@noindent
+This assumption cannot be proved from the program itself,
+but it acts as a useful run-time check that the assumption
+is met, and documents the need to ensure that it is met by
+reference to information outside the program.
 
 @node Pragma Assume_No_Invalid_Values
 @unnumberedsec Pragma Assume_No_Invalid_Values
@@ -1442,8 +1528,11 @@ pragma Check (
      [Check   =>] Boolean_EXPRESSION
   [, [Message =>] string_EXPRESSION] );
 
-CHECK_KIND ::= IDENTIFIER |
-               Pre'Class | Post'Class | Type_Invariant'Class
+CHECK_KIND ::= IDENTIFIER           |
+               Pre'Class            |
+               Post'Class           |
+               Type_Invariant'Class |
+               Invariant'Class
 @end smallexample
 
 @noindent
@@ -1456,6 +1545,11 @@ refers to the normal set of pragma @code{Assert} statements.
 Checks introduced by this pragma are normally deactivated by default. They can
 be activated either by the command line option @option{-gnata}, which turns on
 all checks, or individually controlled using pragma @code{Check_Policy}.
+
+The identifiers @code{Assertions} and @code{Statement_Assertions} are not
+permitted as check kinds, since this would cause confusion with the use
+of these identifiers in @code{Assertion_Policy} and @code{Check_Policy}
+pragmas, where they are used to refer to sets of assertions.
 
 @node Pragma Check_Float_Overflow
 @unnumberedsec Pragma Check_Float_Overflow
@@ -1557,7 +1651,7 @@ pragma Check_Policy
  ([Name   =>] CHECK_KIND,
   [Policy =>] POLICY_IDENTIFIER);
 
-Pragma Check_Policy (
+pragma Check_Policy (
     CHECK_KIND => POLICY_IDENTIFIER
  @{, CHECK_KIND => POLICY_IDENTIFIER@});
 
@@ -1589,14 +1683,14 @@ and if the check kind corresponds to one of the assertion kinds that
 are allowed by @code{Assertion_Policy}, then the effect is identical.
 
 If the first argument is Debug, then the policy applies to Debug pragmas,
-disabling their effect if the policy is @code{Off}, @code{Disable}, or
-@code{Ignore}, and allowing them to execute with normal semantics if
-the policy is @code{On} or @code{Check}. In addition if the policy is
-@code{Disable}, then the procedure call in @code{Debug} pragmas will
-be totally ignored and not analyzed semanticslly.
+disabling their effect if the policy is @code{OFF}, @code{DISABLE}, or
+@code{IGNORE}, and allowing them to execute with normal semantics if
+the policy is @code{ON} or @code{CHECK}. In addition if the policy is
+@code{DISABLE}, then the procedure call in @code{Debug} pragmas will
+be totally ignored and not analyzed semantically.
 
 Finally the first argument may be some other identifier than the above
-posibilities, in which case it controls a set of named assertions
+possibilities, in which case it controls a set of named assertions
 that can be checked using pragma @code{Check}. For example, if the pragma:
 
 @smallexample @c ada
@@ -1856,107 +1950,88 @@ If the alignment for a record or array type is not specified (using
 pragma @code{Pack}, pragma @code{Component_Alignment}, or a record rep
 clause), the GNAT uses the default alignment as described previously.
 
-@node Pragma Contract_Case
-@unnumberedsec Pragma Contract_Case
+@node Pragma Contract_Cases
+@unnumberedsec Pragma Contract_Cases
 @cindex Contract cases
-@findex Contract_Case
+@findex Contract_Cases
 @noindent
 Syntax:
 
 @smallexample @c ada
-pragma Contract_Case (
-   [Name     =>] static_string_Expression
-  ,[Mode     =>] (Nominal | Robustness)
- [, Requires =>  Boolean_Expression]
- [, Ensures  =>  Boolean_Expression]);
+pragma Contract_Cases (
+   Condition => Consequence
+ @{,Condition => Consequence@});
 @end smallexample
 
 @noindent
-The @code{Contract_Case} pragma allows defining fine-grain specifications
+The @code{Contract_Cases} pragma allows defining fine-grain specifications
 that can complement or replace the contract given by a precondition and a
-postcondition. Additionally, the @code{Contract_Case} pragma can be used
+postcondition. Additionally, the @code{Contract_Cases} pragma can be used
 by testing and formal verification tools. The compiler checks its validity and,
 depending on the assertion policy at the point of declaration of the pragma,
 it may insert a check in the executable. For code generation, the contract
-case
+cases
 
 @smallexample @c ada
-pragma Contract_Case (
-   Name     => ...
-   Mode     => ...
-   Requires => R,
-   Ensures  => E);
+pragma Contract_Cases (
+  Cond1 => Pred1,
+  Cond2 => Pred2);
 @end smallexample
 
 @noindent
-is equivalent to
+are equivalent to
 
 @smallexample @c ada
-pragma Postcondition (not R'Old or else E);
+C1 : constant Boolean := Cond1;  --  evaluated at subprogram entry
+C2 : constant Boolean := Cond2;  --  evaluated at subprogram entry
+pragma Precondition ((C1 and not C2) or (C2 and not C1));
+pragma Postcondition (if C1 then Pred1);
+pragma Postcondition (if C2 then Pred2);
 @end smallexample
 
 @noindent
-which is also equivalent to (in Ada 2012)
-
-@smallexample @c ada
-pragma Postcondition (if R'Old then E);
-@end smallexample
-
-@noindent
-expressing that, whenever condition @code{R} is satisfied on entry to the
-subprogram, condition @code{E} should be fulfilled on exit to the subprogram.
+The precondition expresses that one and only one of the conditions is
+satisfied on entry to the subprogram.
+The postcondition expresses that, whenever condition @code{Ci} is satisfied
+on entry to the subprogram, consequence @code{Predi} should be fulfilled on
+exit to the subprogram.
 
 A precondition @code{P} and postcondition @code{Q} can also be
 expressed as contract cases:
 
 @smallexample @c ada
-pragma Contract_Case (
-   Name     => "Replace precondition",
-   Mode     => Nominal,
-   Requires => not P,
-   Ensures  => False);
-pragma Contract_Case (
-   Name     => "Replace postcondition",
-   Mode     => Nominal,
-   Requires => P,
-   Ensures  => Q);
+pragma Contract_Cases (P => Q);
 @end smallexample
 
-@code{Contract_Case} pragmas may only appear immediately following the
-(separate) declaration of a subprogram in a package declaration, inside
-a package spec unit. Only other pragmas may intervene (that is appear
-between the subprogram declaration and a contract case).
+The placement and visibility rules for @code{Contract_Cases} pragmas are
+identical to those described for preconditions and postconditions.
 
-The compiler checks that boolean expressions given in @code{Requires} and
-@code{Ensures} are valid, where the rules for @code{Requires} are the
-same as the rule for an expression in @code{Precondition} and the rules
-for @code{Ensures} are the same as the rule for an expression in
+The compiler checks that boolean expressions given in conditions and
+consequences are valid, where the rules for conditions are the same as
+the rule for an expression in @code{Precondition} and the rules for
+consequences are the same as the rule for an expression in
 @code{Postcondition}. In particular, attributes @code{'Old} and
-@code{'Result} can only be used within the @code{Ensures}
-expression. The following is an example of use within a package spec:
+@code{'Result} can only be used within consequence expressions.
+The condition for the last contract case may be @code{others}, to denote
+any case not captured by the previous cases. The
+following is an example of use within a package spec:
 
 @smallexample @c ada
 package Math_Functions is
    ...
    function Sqrt (Arg : Float) return Float;
-   pragma Contract_Case (Name     => "Small argument",
-                         Mode     => Nominal,
-                         Requires => Arg < 100,
-                         Ensures  => Sqrt'Result < 10);
+   pragma Contract_Cases ((Arg in 0 .. 99) => Sqrt'Result < 10,
+                          Arg >= 100       => Sqrt'Result >= 10,
+                          others           => Sqrt'Result = 0);
    ...
 end Math_Functions;
 @end smallexample
 
 @noindent
-The meaning of a contract case is that, whenever the associated subprogram is
-executed in a context where @code{Requires} holds, then @code{Ensures}
-should hold when the subprogram returns. Mode @code{Nominal} indicates
-that the input context should also satisfy the precondition of the
-subprogram, and the output context should also satisfy its
-postcondition. More @code{Robustness} indicates that the precondition and
-postcondition of the subprogram should be ignored for this contract case,
-which is mostly useful when testing such a contract using a testing tool
-that understands contract cases.
+The meaning of contract cases is that only one case should apply at each
+call, as determined by the corresponding condition evaluating to True,
+and that the consequence for this case should hold when the subprogram
+returns.
 
 @node Pragma Convention_Identifier
 @unnumberedsec Pragma Convention_Identifier
@@ -2876,7 +2951,18 @@ the standard runtime libraries be recompiled.
 The two argument form specifies the representation to be used for
 the specified floating-point type. On all systems other than OpenVMS,
 the argument must
-be @code{IEEE_Float} and the pragma has no effect. On OpenVMS, the
+be @code{IEEE_Float} to specify the use of IEEE format, as follows:
+
+@itemize @bullet
+@item
+For a digits value of 6, 32-bit IEEE short format will be used.
+@item
+For a digits value of 15, 64-bit IEEE long format will be used.
+@item
+No other value of digits is permitted.
+@end itemize
+
+On OpenVMS, the
 argument may be @code{VAX_Float} to specify the use of the VAX float
 format, as follows:
 
@@ -3911,6 +3997,33 @@ For further details on this pragma, see the
 @cite{DEC Ada Language Reference Manual}, section 3.5.7b.  Note that to use
 this pragma, the standard runtime libraries must be recompiled.
 
+@node Pragma Loop_Invariant
+@unnumberedsec Pragma Loop_Invariant
+@findex Loop_Invariant
+@noindent
+Syntax:
+@smallexample @c ada
+pragma Loop_Invariant ( boolean_EXPRESSION );
+
+@end smallexample
+
+@noindent
+The effect of this pragma is similar to that of pragma @code{Assert},
+except that in an @code{Assertion_Policy} pragma, the identifier
+@code{Loop_Invariant} is used to control whether it is ignored or checked
+(or disabled).
+
+@code{Loop_Invariant} can only appear as one of the items in the sequence
+of statements of a loop body. The intention is that it be used to
+represent a "loop invariant" assertion, i.e. something that is true each
+time through the loop, and which can be used to show that the loop is
+achieving its purpose.
+
+To aid in writing such invariants, the special attribute @code{Loop_Entry}
+may be used to refer to the value of an expression on entry to the loop. This
+attribute can only be used within the expression of a @code{Loop_Invariant}
+pragma. For full details, see documentation of attribute @code{Loop_Entry}.
+
 @node Pragma Loop_Optimize
 @unnumberedsec Pragma Loop_Optimize
 @findex Loop_Optimize
@@ -3959,6 +4072,48 @@ These hints do not void the need to pass the appropriate switches to the
 compiler in order to enable the relevant optimizations, that is to say
 @option{-funroll-loops} for unrolling and @option{-ftree-vectorize} for
 vectorization.
+
+@node Pragma Loop_Variant
+@unnumberedsec Pragma Loop_Variant
+@findex Loop_Variant
+@noindent
+Syntax:
+
+@smallexample @c ada
+pragma Loop_Variant ( LOOP_VARIANT_ITEM @{, LOOP_VARIANT_ITEM @} );
+LOOP_VARIANT_ITEM ::= CHANGE_DIRECTION => discrete_EXPRESSION
+CHANGE_DIRECTION ::= Increases | Decreases
+@end smallexample
+
+@noindent
+This pragma must appear immediately within the sequence of statements of a
+loop statement. It allows the specification of quantities which must always
+decrease or increase in successive iterations of the loop. In its simplest
+form, just one expression is specified, whose value must increase or decrease
+on each iteration of the loop.
+
+In a more complex form, multiple arguments can be given which are intepreted
+in a nesting lexicographic manner. For example:
+
+@smallexample @c ada
+pragma Loop_Variant (Increases => X, Decreases => Y);
+@end smallexample
+
+@noindent
+specifies that each time through the loop either X increases, or X stays
+the same and Y decreases. A @code{Loop_Variant} pragma ensures that the
+loop is making progress. It can be useful in helping to show informally
+or prove formally that the loop always terminates.
+
+@code{Loop_Variant} is an assertion whose effect can be controlled using
+an @code{Assertion_Policy} with a check name of @code{Loop_Variant}. The
+policy can be @code{Check} to enable the loop variant check, @code{Ignore}
+to ignore the check (in which case the pragma has no effect on the program),
+or @code{Disable} in which case the pragma is not even checked for correct
+syntax.
+
+The @code{Loop_Entry} attribute may be used within the expressions of the
+@code{Loop_Variant} pragma to refer to values on entry to the loop.
 
 @node Pragma Machine_Attribute
 @unnumberedsec Pragma Machine_Attribute
@@ -5014,9 +5169,9 @@ compiles with the Rational APEX compiler, even when the code includes non-
 conforming Ada constructs.  The profile enables the following three pragmas:
 
 @itemize @bullet
-pragma Implicit_Packing;
-pragma Overriding_Renamings;
-pragma Use_VADS_Size;
+@item pragma Implicit_Packing
+@item pragma Overriding_Renamings
+@item pragma Use_VADS_Size
 @end itemize
 
 @noindent
@@ -5617,12 +5772,38 @@ pragma Suppress (Identifier [, [On =>] Name]);
 
 @noindent
 This is a standard pragma, and supports all the check names required in
-the RM. It is included here because GNAT recognizes one additional check
-name: @code{Alignment_Check} which can be used to suppress alignment checks
+the RM. It is included here because GNAT recognizes some additional check
+names that are implementation defined (as permitted by the RM):
+
+@itemize @bullet
+
+@item
+@code{Alignment_Check} can be used to suppress alignment checks
 on addresses used in address clauses. Such checks can also be suppressed
 by suppressing range checks, but the specific use of @code{Alignment_Check}
 allows suppression of alignment checks without suppressing other range checks.
 
+@item
+@code{Predicate_Check} can be used to control whether predicate checks are
+active. It is applicable only to predicates for which the policy is
+@code{Check}. Unlike @code{Assertion_Policy}, which determines if a given
+predicate is ignored or checked for the whole program, the use of
+@code{Suppress} and @code{Unsuppress} with this check name allows a given
+predicate to be turned on and off at specific points in the program.
+
+@item
+@code{Validity_Check} can be used specifically to control validity checks.
+If @code{Suppress} is used to suppress validity checks, then no validity
+checks are performed, including those specified by the appropriate compiler
+switch or the @code{Validity_Checks} pragma.
+
+@item
+Additional check names previously introduced by use of the @code{Check_Name}
+pragma are also allowed.
+
+@end itemize
+
+@noindent
 Note that pragma Suppress gives the compiler permission to omit
 checks, but does not require the compiler to omit checks. The compiler
 will generate checks if they are essentially free, even when they are
@@ -5818,12 +5999,10 @@ pragma Test_Case (
 
 @noindent
 The @code{Test_Case} pragma allows defining fine-grain specifications
-for use by testing tools. Its syntax is similar to the syntax of the
-@code{Contract_Case} pragma, which is used for both testing and
-formal verification.
+for use by testing tools.
 The compiler checks the validity of the @code{Test_Case} pragma, but its
 presence does not lead to any modification of the code generated by the
-compiler, contrary to the treatment of the @code{Contract_Case} pragma.
+compiler.
 
 @code{Test_Case} pragmas may only appear immediately following the
 (separate) declaration of a subprogram in a package declaration, inside
@@ -6173,6 +6352,10 @@ checks.
 This pragma is standard in Ada 2005. It is available in all earlier versions
 of Ada as an implementation-defined pragma.
 
+Note that in addition to the checks defined in the Ada RM, GNAT recogizes
+a number of implementation-defined check names. See description of pragma
+@code{Suppress} for full details.
+
 @node Pragma Use_VADS_Size
 @unnumberedsec Pragma Use_VADS_Size
 @cindex @code{Size}, VADS compatibility
@@ -6503,6 +6686,7 @@ consideration, you should minimize the use of these attributes.
 * Integer_Value::
 * Invalid_Value::
 * Large::
+* Loop_Entry::
 * Machine_Size::
 * Mantissa::
 * Max_Interrupt_Priority::
@@ -6532,6 +6716,7 @@ consideration, you should minimize the use of these attributes.
 * Unconstrained_Array::
 * Universal_Literal_String::
 * Unrestricted_Access::
+* Update::
 * Valid_Scalars::
 * VADS_Size::
 * Value_Size::
@@ -6992,6 +7177,36 @@ relevant environment variables at run time.
 The @code{Large} attribute is provided for compatibility with Ada 83.  See
 the Ada 83 reference manual for an exact description of the semantics of
 this attribute.
+
+@node Loop_Entry
+@unnumberedsec Loop_Entry
+@findex Loop_Entry
+@noindent
+Syntax:
+
+@smallexample @c ada
+X'Loop_Entry [(loop_name)]
+@end smallexample
+
+@noindent
+The @code{Loop_Entry} attribute is used to refer to the value that an
+expression had upon entry to a given loop in much the same way that the
+@code{Old} attribute in a subprogram postcondition can be used to refer
+to the value an expression had upon entry to the subprogram. The
+relevant loop is either identified by the given loop name, or it is the
+innermost enclosing loop when no loop name is given.
+
+@noindent
+A @code{Loop_Entry} attribute can only occur within a
+@code{Loop_Variant} or @code{Loop_Invariant} pragma. A common use of
+@code{Loop_Entry} is to compare the current value of objects with their
+initial value at loop entry, in a @code{Loop_Invariant} pragma.
+
+@noindent
+The effect of using @code{X'Loop_Entry} is the same as declaring
+a constant initialized with the initial value of @code{X} at loop
+entry. This copy is not performed if the loop is not entered, or if the
+corresponding pragmas are ignored or disabled.
 
 @node Machine_Size
 @unnumberedsec Machine_Size
@@ -7534,6 +7749,78 @@ context of the attribute, and may not be returned to some enclosing
 scope. For instance, a function cannot use @code{Unrestricted_Access}
 to create a unconstrained pointer and then return that value to the
 caller.
+
+@node Update
+@unnumberedsec Update
+@findex Update
+@noindent
+The @code{Update} attribute creates a copy of an array or record value
+with one or more modified components. The syntax is:
+
+@smallexample @c ada
+PREFIX'Update (AGGREGATE);
+@end smallexample
+
+@noindent
+where @code{PREFIX} is the name of an array or record object, and
+@code{AGGREGATE} is a named aggregate that does not contain an @code{others}
+choice. The effect is to yield a copy of the array or record value which
+is unchanged apart from the components mentioned in the aggregate, which
+are changed to the indicated value. The original value of the array or
+record value is not affected. For example:
+
+@smallexample @c ada
+type Arr is Array (1 .. 5) of Integer;
+...
+Avar1 : Arr := (1,2,3,4,5);
+Avar2 : Arr := Avar1'Update ((2 => 10, 3 .. 4 => 20));
+@end smallexample
+
+@noindent
+yields a value for @code{Avar2} of 1,10,20,20,5 with @code{Avar1}
+begin unmodified. Similarly:
+
+@smallexample @c ada
+type Rec is A, B, C : Integer;
+...
+Rvar1 : Rec := (A => 1, B => 2, C => 3);
+Rvar2 : Rec := Rvar1'Update ((B => 20));
+@end smallexample
+
+@noindent
+yields a value for @code{Rvar2} of (A => 1, B => 20, C => 3),
+with @code{Rvar1} being unmodifed.
+Note that the value of the attribute reference is computed
+completely before it is used. This means that if you write:
+
+@smallexample @c ada
+Avar1 := Avar1'Update ((1 => 10, 2 => Function_Call));
+@end smallexample
+
+@noindent
+then the value of @code{Avar1} is not modified if @code{Function_Call}
+raises an exception, unlike the effect of a series of direct assignments
+to elements of @code{Avar1}. In general this requires that
+two extra complete copies of the object are required, which should be
+kept in mind when considering efficiency.
+
+The @code{Update} attribute cannot be applied to prefixes of a limited
+type, and cannot reference discriminants in the case of a record type.
+
+In the record case, no component can be mentioned more than once. In
+the array case, two overlapping ranges can appear in the aggregate,
+in which case the modifications are processed left to right.
+
+Multi-dimensional arrays can be modified, as shown by this example:
+
+@smallexample @c ada
+A : array (1 .. 10, 1 .. 10) of Integer;
+..
+A := A'Update (1 => (2 => 20), 3 => (4 => 30));
+@end smallexample
+
+@noindent
+which changes element (1,2) to 20 and (3,4) to 30.
 
 @node Valid_Scalars
 @unnumberedsec Valid_Scalars
@@ -10420,6 +10707,12 @@ the last line is a single @code{LF} character (@code{16#0A#}).
 The implementation defined check name Alignment_Check controls checking of
 address clause values for proper alignment (that is, the address supplied
 must be consistent with the alignment of the type).
+
+The implementation defined check name Predicate_Check controls whether
+predicate checks are generated.
+
+The implementation defined check name Validity_Check controls whether
+validity checks are generated.
 
 In addition, a user program can add implementation-defined check names
 by means of the pragma Check_Name.
@@ -18138,7 +18431,7 @@ A complete description of the AIs may be found in
 @item @code{Atomic_Components} @tab
 @item @code{Bit_Order} @tab
 @item @code{Component_Size} @tab
-@item @code{Contract_Case} @tab                 -- GNAT
+@item @code{Contract_Cases} @tab                 -- GNAT
 @item @code{Discard_Names} @tab
 @item @code{External_Tag} @tab
 @item @code{Favor_Top_Level} @tab               -- GNAT

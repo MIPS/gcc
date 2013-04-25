@@ -1429,11 +1429,12 @@ package Einfo is
 --       type has no discriminants and the full view has discriminants with
 --       defaults. In Ada 2005 heap-allocated objects of such types are not
 --       constrained, and can change their discriminants with full assignment.
---       Sem_Aux.Effectively_Has_Constrained_Partial_View should be always
---       used by callers, rather than reading this attribute directly because,
---       according to RM 3.10.2 (27/2), untagged generic formal private types
---       and subtypes are also considered to have a constrained partial view
---       [when in a generic body].
+--
+--       Ada 2012 has an additional rule (3.3. (23/10.3)) concerning objects
+--       declared in a generic package body. Objects whose type is an untagged
+--       generic formal private type are considered to have a constrained
+--       partial view. The predicate Object_Type_Has_Constrained_Partial_View
+--       in sem_aux is used to test for this case.
 
 --    Has_Contiguous_Rep (Flag181)
 --       Defined in enumeration types. True if the type as a representation
@@ -1596,6 +1597,11 @@ package Einfo is
 --       type is frozen, however this may not be true in some error situations.
 --       Note that it might be the full type which has inheritable invariants,
 --       and then the flag will also be set in the private type.
+
+--    Has_Loop_Entry_Attributes (Flag260)
+--       Defined in E_Loop entities. Set when the loop is subject to at least
+--       one attribute 'Loop_Entry. The flag also implies that the loop has
+--       already been transformed. See Expand_Loop_Entry_Attribute for details.
 
 --    Has_Machine_Radix_Clause (Flag83)
 --       Defined in decimal types and subtypes, set if a Machine_Radix
@@ -2308,9 +2314,13 @@ package Einfo is
 --       package, generic function, generic procedure), and False for all
 --       other entities.
 
---    Is_Ghost_Function (synthesized)
---       Applies to all entities. Yields True for a function marked by aspect
---       Ghost.
+--    Is_Ghost_Entity (synthesized)
+--       Applies to all entities. Yields True for a subprogram or a whole
+--       object that has convention Ghost.
+
+--    Is_Ghost_Subprogram (synthesized)
+--       Applies to all entities. Yields True for a subprogram that has a Ghost
+--       convention.
 
 --    Is_Hidden (Flag57)
 --       Defined in all entities. Set true for all entities declared in the
@@ -2543,7 +2553,7 @@ package Einfo is
 --       entirely synthesized, by looking at the bounds, and the immediate
 --       subtype parent. However, this method does not work for some Itypes
 --       that have no parent set (and the only way to find the immediate
---       subtype parent is to go through the tree). For now, this flay is set
+--       subtype parent is to go through the tree). For now, this flag is set
 --       conservatively, i.e. if it is set then for sure the subtype is non-
 --       static, but if it is not set, then the type may or may not be static.
 --       Thus the test for a static subtype is that this flag is clear AND that
@@ -3031,10 +3041,6 @@ package Einfo is
 --       the literals string entity. See unit Exp_Imgv for full details of
 --       the nature and use of this entity for implementing the Image and
 --       Value attributes for the enumeration type in question.
-
---    Loop_Entry_Attributes (Elist10)
---       Defined for loop statement scopes. The list contains all Loop_Entry
---       attribute references related to the target loop.
 
 --    Low_Bound_Tested (Flag205)
 --       Defined in all entities. Currently this can only be set True for
@@ -4217,6 +4223,7 @@ package Einfo is
       --  floating point subtype created by a floating point type declaration.
 
       E_Floating_Point_Subtype,
+
       --  Floating point subtype, created by either a floating point subtype
       --  or floating point type declaration (in the latter case a floating
       --  point type is created for the base type, and this is the first
@@ -5426,7 +5433,8 @@ package Einfo is
    --    Address_Clause                      (synth)
    --    First_Formal                        (synth)
    --    First_Formal_With_Extras            (synth)
-   --    Is_Ghost_Function                   (synth)    (non-generic case only)
+   --    Is_Ghost_Entity                     (synth)    (non-generic case only)
+   --    Is_Ghost_Subprogram                 (synth)    (non-generic case only)
    --    Last_Formal                         (synth)
    --    Number_Formals                      (synth)
    --    Scope_Depth                         (synth)
@@ -5506,8 +5514,8 @@ package Einfo is
 
    --  E_Loop
    --    First_Exit_Statement                (Node8)
-   --    Loop_Entry_Attributes               (Elist10)
    --    Has_Exit                            (Flag47)
+   --    Has_Loop_Entry_Attributes           (Flag260)
    --    Has_Master_Entity                   (Flag21)
    --    Has_Nested_Block_With_Handler       (Flag101)
 
@@ -5699,6 +5707,8 @@ package Einfo is
    --    First_Formal                        (synth)
    --    First_Formal_With_Extras            (synth)
    --    Is_Finalizer                        (synth)
+   --    Is_Ghost_Entity                     (synth)    (non-generic case only)
+   --    Is_Ghost_Subprogram                 (synth)    (non-generic case only)
    --    Last_Formal                         (synth)
    --    Number_Formals                      (synth)
 
@@ -5905,6 +5915,7 @@ package Einfo is
    --    Treat_As_Volatile                   (Flag41)
    --    Address_Clause                      (synth)
    --    Alignment_Clause                    (synth)
+   --    Is_Ghost_Entity                     (synth)
    --    Size_Clause                         (synth)
 
    --  E_Void
@@ -6279,6 +6290,7 @@ package Einfo is
    function Has_Initial_Value                   (Id : E) return B;
    function Has_Interrupt_Handler               (Id : E) return B;
    function Has_Invariants                      (Id : E) return B;
+   function Has_Loop_Entry_Attributes           (Id : E) return B;
    function Has_Machine_Radix_Clause            (Id : E) return B;
    function Has_Master_Entity                   (Id : E) return B;
    function Has_Missing_Return                  (Id : E) return B;
@@ -6443,7 +6455,6 @@ package Einfo is
    function Limited_View                        (Id : E) return E;
    function Lit_Indexes                         (Id : E) return E;
    function Lit_Strings                         (Id : E) return E;
-   function Loop_Entry_Attributes               (Id : E) return L;
    function Low_Bound_Tested                    (Id : E) return B;
    function Machine_Radix_10                    (Id : E) return B;
    function Master_Id                           (Id : E) return E;
@@ -6636,7 +6647,8 @@ package Einfo is
    function Is_Discriminal                      (Id : E) return B;
    function Is_Dynamic_Scope                    (Id : E) return B;
    function Is_Finalizer                        (Id : E) return B;
-   function Is_Ghost_Function                   (Id : E) return B;
+   function Is_Ghost_Entity                     (Id : E) return B;
+   function Is_Ghost_Subprogram                 (Id : E) return B;
    function Is_Input_State                      (Id : E) return B;
    function Is_Null_State                       (Id : E) return B;
    function Is_Output_State                     (Id : E) return B;
@@ -6886,6 +6898,7 @@ package Einfo is
    procedure Set_Has_Inheritable_Invariants      (Id : E; V : B := True);
    procedure Set_Has_Initial_Value               (Id : E; V : B := True);
    procedure Set_Has_Invariants                  (Id : E; V : B := True);
+   procedure Set_Has_Loop_Entry_Attributes       (Id : E; V : B := True);
    procedure Set_Has_Machine_Radix_Clause        (Id : E; V : B := True);
    procedure Set_Has_Master_Entity               (Id : E; V : B := True);
    procedure Set_Has_Missing_Return              (Id : E; V : B := True);
@@ -7056,7 +7069,6 @@ package Einfo is
    procedure Set_Limited_View                    (Id : E; V : E);
    procedure Set_Lit_Indexes                     (Id : E; V : E);
    procedure Set_Lit_Strings                     (Id : E; V : E);
-   procedure Set_Loop_Entry_Attributes           (Id : E; V : L);
    procedure Set_Low_Bound_Tested                (Id : E; V : B := True);
    procedure Set_Machine_Radix_10                (Id : E; V : B := True);
    procedure Set_Master_Id                       (Id : E; V : E);
@@ -7585,6 +7597,7 @@ package Einfo is
    pragma Inline (Has_Inheritable_Invariants);
    pragma Inline (Has_Initial_Value);
    pragma Inline (Has_Invariants);
+   pragma Inline (Has_Loop_Entry_Attributes);
    pragma Inline (Has_Machine_Radix_Clause);
    pragma Inline (Has_Master_Entity);
    pragma Inline (Has_Missing_Return);
@@ -7794,7 +7807,6 @@ package Einfo is
    pragma Inline (Limited_View);
    pragma Inline (Lit_Indexes);
    pragma Inline (Lit_Strings);
-   pragma Inline (Loop_Entry_Attributes);
    pragma Inline (Low_Bound_Tested);
    pragma Inline (Machine_Radix_10);
    pragma Inline (Master_Id);
@@ -8042,6 +8054,7 @@ package Einfo is
    pragma Inline (Set_Has_Inheritable_Invariants);
    pragma Inline (Set_Has_Initial_Value);
    pragma Inline (Set_Has_Invariants);
+   pragma Inline (Set_Has_Loop_Entry_Attributes);
    pragma Inline (Set_Has_Machine_Radix_Clause);
    pragma Inline (Set_Has_Master_Entity);
    pragma Inline (Set_Has_Missing_Return);
@@ -8211,7 +8224,6 @@ package Einfo is
    pragma Inline (Set_Limited_View);
    pragma Inline (Set_Lit_Indexes);
    pragma Inline (Set_Lit_Strings);
-   pragma Inline (Set_Loop_Entry_Attributes);
    pragma Inline (Set_Low_Bound_Tested);
    pragma Inline (Set_Machine_Radix_10);
    pragma Inline (Set_Master_Id);

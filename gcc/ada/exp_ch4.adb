@@ -1240,14 +1240,14 @@ package body Exp_Ch4 is
             --    * .NET/JVM - these targets do not support address arithmetic
             --    and unchecked conversion, key elements of Finalize_Address.
 
-            --    * Alfa mode - the call is useless and results in unwanted
+            --    * SPARK mode - the call is useless and results in unwanted
             --    expansion.
 
             --    * CodePeer mode - TSS primitive Finalize_Address is not
             --    created in this mode.
 
             if VM_Target = No_VM
-              and then not Alfa_Mode
+              and then not SPARK_Mode
               and then not CodePeer_Mode
               and then Present (Finalization_Master (PtrT))
               and then Present (Temp_Decl)
@@ -2568,11 +2568,14 @@ package body Exp_Ch4 is
          Full_Type := Typ;
       end if;
 
-      --  Defense against malformed private types with no completion the error
-      --  will be diagnosed later by check_completion
+      --  If the private type has no completion the context may be the
+      --  expansion of a composite equality for a composite type with some
+      --  still incomplete components. The expression will not be analyzed
+      --  until the enclosing type is completed, at which point this will be
+      --  properly expanded, unless there is a bona fide completion error.
 
       if No (Full_Type) then
-         return New_Reference_To (Standard_False, Loc);
+         return Make_Op_Eq (Loc, Left_Opnd => Lhs, Right_Opnd => Rhs);
       end if;
 
       Full_Type := Base_Type (Full_Type);
@@ -4188,7 +4191,7 @@ package body Exp_Ch4 is
 
       --  Local variables
 
-      Dtyp    : constant Entity_Id  := Available_View (Designated_Type (PtrT));
+      Dtyp    : constant Entity_Id := Available_View (Designated_Type (PtrT));
       Desig   : Entity_Id;
       Nod     : Node_Id;
       Pool    : Entity_Id;
@@ -4252,10 +4255,10 @@ package body Exp_Ch4 is
 
          --  The finalization master must be inserted and analyzed as part of
          --  the current semantic unit. This form of expansion is not carried
-         --  out in Alfa mode because it is useless. Note that the master is
+         --  out in SPARK mode because it is useless. Note that the master is
          --  updated when analysis changes current units.
 
-         if not Alfa_Mode then
+         if not SPARK_Mode then
             if Present (Rel_Typ) then
                Set_Finalization_Master (PtrT, Finalization_Master (Rel_Typ));
             else
@@ -4574,9 +4577,19 @@ package body Exp_Ch4 is
                      --  access type did not get expanded. Salvage it now.
 
                      if not Restriction_Active (No_Task_Hierarchy) then
-                        pragma Assert (Present (Parent (Base_Type (PtrT))));
-                        Expand_N_Full_Type_Declaration
-                          (Parent (Base_Type (PtrT)));
+                        if Present (Parent (Base_Type (PtrT))) then
+                           Expand_N_Full_Type_Declaration
+                             (Parent (Base_Type (PtrT)));
+
+                        --  The only other possibility is an itype. For this
+                        --  case, the master must exist in the context. This is
+                        --  the case when the allocator initializes an access
+                        --  component in an init-proc.
+
+                        else
+                           pragma Assert (Is_Itype (PtrT));
+                           Build_Master_Renaming (PtrT, N);
+                        end if;
                      end if;
                   end if;
 
@@ -4673,9 +4686,8 @@ package body Exp_Ch4 is
                                           (First_Discriminant (Typ)))
                        and then (Ada_Version < Ada_2005
                                   or else not
-                                    Effectively_Has_Constrained_Partial_View
-                                      (Typ  => Typ,
-                                       Scop => Current_Scope))
+                                    Object_Type_Has_Constrained_Partial_View
+                                      (Typ, Current_Scope))
                      then
                         Typ := Build_Default_Subtype (Typ, N);
                         Set_Expression (N, New_Reference_To (Typ, Loc));
@@ -4788,13 +4800,13 @@ package body Exp_Ch4 is
 
                      --  Do not generate this call in the following cases:
                      --
-                     --    * Alfa mode - the call is useless and results in
+                     --    * SPARK mode - the call is useless and results in
                      --    unwanted expansion.
                      --
                      --    * CodePeer mode - TSS primitive Finalize_Address is
                      --    not created in this mode.
 
-                     elsif not (Alfa_Mode or CodePeer_Mode) then
+                     elsif not (SPARK_Mode or CodePeer_Mode) then
                         Insert_Action (N,
                           Make_Set_Finalize_Address_Call
                             (Loc     => Loc,
@@ -7555,7 +7567,7 @@ package body Exp_Ch4 is
 
       --  CodePeer and GNATprove want to see the unexpanded N_Op_Expon node
 
-      if CodePeer_Mode or Alfa_Mode then
+      if CodePeer_Mode or SPARK_Mode then
          return;
       end if;
 

@@ -1,3 +1,74 @@
+2013-04-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/53685
+	PR fortran/57022
+	* check.c (gfc_calculate_transfer_sizes): Fix for array-valued SOURCE
+	expressions.
+	* simplify.c (gfc_simplify_sizeof,gfc_simplify_storage_size): Get rid
+	of special treatment for EXPR_ARRAY.
+	* target-memory.h (gfc_element_size): New prototype.
+	* target-memory.c (size_array): Remove.
+	(gfc_element_size): New function.
+	(gfc_target_expr_size): Modified to always return the full size of the
+	expression.
+
+2013-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56907
+	* trans-intrinsic.c (conv_isocbinding_function): Don't pack array
+	passed to C_LOC
+
+2013-04-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56872
+	* frontend-passes.c (copy_walk_reduction_arg): Change argument type
+	to gfc_constructor.  If it has an iterator, wrap the copy of its
+	expression in an array constructor with that iterator.  Don't special
+	case function expressions.
+	(callback_reduction): Update caller.  Don't return early if there is
+	an iterator.
+
+2013-04-18  Tobias Burnus  <burnus@net-b.de>
+
+	* expr.c (find_array_element): Don't copy expr.
+	* data.c (create_character_initializer): Free expr.
+	* frontend-passes.c (combine_array_constructor): Ditto.
+	* match.c (match_typebound_call, gfc_match_select_type): Ditto.
+	* resolve.c (resolve_typebound_function): Free gfc_ref.
+
+2013-04-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56994
+	* invoke.texi (NEAREST): S argument is not optional.
+
+2013-04-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56814
+	* interface.c (check_result_characteristics): Get result from interface
+	if present.
+
+2013-04-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/40958
+	* scanner.h: New file.
+	* Make-lang.in: Dependencies on scanner.h.
+	* scanner.c (gfc_directorylist): Move to scanner.h.
+	* module.c: Don't include md5.h, include scanner.h and zlib.h.
+	(MOD_VERSION): Add comment about backwards compatibility.
+	(module_fp): Change type to gzFile.
+	(ctx): Remove.
+	(gzopen_included_file_1): New function.
+	(gzopen_included_file): New function.
+	(gzopen_intrinsic_module): New function.
+	(write_char): Use gzputc.
+	(read_crc32_from_module_file): New function.
+	(read_md5_from_module_file): Remove.
+	(gfc_dump_module): Use gz* functions instead of stdio, check gzip
+	crc32 instead of md5.
+	(read_module_to_tmpbuf): Use gz* functions instead of stdio.
+	(gfc_use_module): Use gz* functions.
+
 2013-04-16  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/39505

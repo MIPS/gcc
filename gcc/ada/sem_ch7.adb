@@ -1812,9 +1812,72 @@ package body Sem_Ch7 is
 
    procedure Install_Private_Declarations (P : Entity_Id) is
       Id        : Entity_Id;
-      Priv_Elmt : Elmt_Id;
-      Priv      : Entity_Id;
       Full      : Entity_Id;
+      Priv_Deps : Elist_Id;
+
+      procedure Swap_Private_Dependents (Priv_Deps : Elist_Id);
+      --  When the full view of a private type is made available, we do the
+      --  same for its private dependents under proper visibility conditions.
+      --  When compiling a grand-chid unit this needs to be done recursively.
+
+      -----------------------------
+      -- Swap_Private_Dependents --
+      -----------------------------
+
+      procedure Swap_Private_Dependents (Priv_Deps : Elist_Id) is
+         Deps      : Elist_Id;
+         Priv      : Entity_Id;
+         Priv_Elmt : Elmt_Id;
+         Is_Priv   : Boolean;
+
+      begin
+         Priv_Elmt := First_Elmt (Priv_Deps);
+         while Present (Priv_Elmt) loop
+            Priv := Node (Priv_Elmt);
+
+            --  Before the exchange, verify that the presence of the Full_View
+            --  field. This field will be empty if the entity has already been
+            --  installed due to a previous call.
+
+            if Present (Full_View (Priv))
+              and then Is_Visible_Dependent (Priv)
+            then
+               if Is_Private_Type (Priv) then
+                  Deps := Private_Dependents (Priv);
+                  Is_Priv := True;
+               else
+                  Is_Priv := False;
+               end if;
+
+               --  For each subtype that is swapped, we also swap the reference
+               --  to it in Private_Dependents, to allow access to it when we
+               --  swap them out in End_Package_Scope.
+
+               Replace_Elmt (Priv_Elmt, Full_View (Priv));
+               Exchange_Declarations (Priv);
+               Set_Is_Immediately_Visible
+                 (Priv, In_Open_Scopes (Scope (Priv)));
+               Set_Is_Potentially_Use_Visible
+                 (Priv, Is_Potentially_Use_Visible (Node (Priv_Elmt)));
+
+               --  Within a child unit, recurse, except in generic child
+               --  unit, which (unfortunately) handle private_dependents
+               --  separately.
+
+               if Is_Priv
+                 and then Is_Child_Unit (Cunit_Entity (Current_Sem_Unit))
+                 and then not Is_Empty_Elmt_List (Deps)
+                 and then not Inside_A_Generic
+               then
+                  Swap_Private_Dependents (Deps);
+               end if;
+            end if;
+
+            Next_Elmt (Priv_Elmt);
+         end loop;
+      end Swap_Private_Dependents;
+
+   --  Start processing for Install_Private_Declarations
 
    begin
       --  First exchange declarations for private types, so that the full
@@ -1822,8 +1885,8 @@ package body Sem_Ch7 is
       --  Private_Dependents list and also exchange any subtypes of or derived
       --  types from it. Finally, if this is a Taft amendment type, the
       --  incomplete declaration is irrelevant, and we want to link the
-      --  eventual full declaration with the original private one so we also
-      --  skip the exchange.
+      --  eventual full declaration with the original private one so we
+      --  also skip the exchange.
 
       Id := First_Entity (P);
       while Present (Id) and then Id /= First_Private_Entity (P) loop
@@ -1833,8 +1896,8 @@ package body Sem_Ch7 is
            and then Scope (Full_View (Id)) = Scope (Id)
            and then Ekind (Full_View (Id)) /= E_Incomplete_Type
          then
-            --  If there is a use-type clause on the private type, set the
-            --  full view accordingly.
+            --  If there is a use-type clause on the private type, set the full
+            --  view accordingly.
 
             Set_In_Use (Full_View (Id), In_Use (Id));
             Full := Full_View (Id);
@@ -1850,9 +1913,9 @@ package body Sem_Ch7 is
                --  from another private type which is not private anymore. This
                --  can only happen in a package nested within a child package,
                --  when the parent type is defined in the parent unit. At this
-               --  point the current type is not private either, and we have to
-               --  install the underlying full view, which is now visible. Save
-               --  the current full view as well, so that all views can be
+               --  point the current type is not private either, and we have
+               --  to install the underlying full view, which is now visible.
+               --  Save the current full view as well, so that all views can be
                --  restored on exit. It may seem that after compiling the child
                --  body there are not environments to restore, but the back-end
                --  expects those links to be valid, and freeze nodes depend on
@@ -1869,36 +1932,10 @@ package body Sem_Ch7 is
                end if;
             end if;
 
-            Priv_Elmt := First_Elmt (Private_Dependents (Id));
-
+            Priv_Deps := Private_Dependents (Id);
             Exchange_Declarations (Id);
             Set_Is_Immediately_Visible (Id);
-
-            while Present (Priv_Elmt) loop
-               Priv := Node (Priv_Elmt);
-
-               --  Before the exchange, verify that the presence of the
-               --  Full_View field. It will be empty if the entity has already
-               --  been installed due to a previous call.
-
-               if Present (Full_View (Priv))
-                 and then Is_Visible_Dependent (Priv)
-               then
-
-                  --  For each subtype that is swapped, we also swap the
-                  --  reference to it in Private_Dependents, to allow access
-                  --  to it when we swap them out in End_Package_Scope.
-
-                  Replace_Elmt (Priv_Elmt, Full_View (Priv));
-                  Exchange_Declarations (Priv);
-                  Set_Is_Immediately_Visible
-                    (Priv, In_Open_Scopes (Scope (Priv)));
-                  Set_Is_Potentially_Use_Visible
-                    (Priv, Is_Potentially_Use_Visible (Node (Priv_Elmt)));
-               end if;
-
-               Next_Elmt (Priv_Elmt);
-            end loop;
+            Swap_Private_Dependents (Priv_Deps);
          end if;
 
          Next_Entity (Id);
@@ -2035,8 +2072,8 @@ package body Sem_Ch7 is
       if Ada_Version < Ada_2012 then
          Enter_Name (Id);
 
-      --  Ada 2012 (AI05-0162): Enter the name in the current scope handling
-      --  private type that completes an incomplete type.
+      --  Ada 2012 (AI05-0162): Enter the name in the current scope. Note that
+      --  there may be an incomplete previous view.
 
       else
          declare
@@ -2093,7 +2130,7 @@ package body Sem_Ch7 is
 
          --  Create a class-wide type with the same attributes
 
-         Make_Class_Wide_Type     (Id);
+         Make_Class_Wide_Type (Id);
 
       elsif Abstract_Present (Def) then
          Error_Msg_N ("only a tagged type can be abstract", N);

@@ -4529,7 +4529,7 @@ Additional details on incorrect parameters
 
 @item -gnatjnn
 @cindex @option{-gnatjnn} (@command{gcc})
-In normal operation mode (or if @option{-gnatj0} is used, then error messages
+In normal operation mode (or if @option{-gnatj0} is used), then error messages
 with continuation lines are treated as though the continuation lines were
 separate messages (and so a warning with two continuation lines counts as
 three warnings, and is listed as three separate messages).
@@ -5413,7 +5413,7 @@ This switch suppresses warnings for tracking of deleted conditional code.
 @cindex @option{-gnatw.t} (@command{gcc})
 This switch activates warnings on suspicious postconditions (whether a
 pragma @code{Postcondition} or a @code{Post} aspect in Ada 2012)
-and suspicious contract cases (pragma @code{Contract_Case}). A
+and suspicious contract cases (pragma @code{Contract_Cases}). A
 function postcondition or contract case is suspicious when no postcondition
 or contract case for this function mentions the result of the function.
 A procedure postcondition or contract case is suspicious when it only
@@ -9448,12 +9448,13 @@ object and ALI files in the directory where it found the dummy file.
 @item ^-j^/PROCESSES=^@var{n}
 @cindex @option{^-j^/PROCESSES^} (@command{gnatmake})
 @cindex Parallel make
-Use @var{n} processes to carry out the (re)compilations. On a
-multiprocessor machine compilations will occur in parallel. In the
-event of compilation errors, messages from various compilations might
-get interspersed (but @command{gnatmake} will give you the full ordered
-list of failing compiles at the end). If this is problematic, rerun
-the make process with n set to 1 to get a clean list of messages.
+Use @var{n} processes to carry out the (re)compilations. On a multiprocessor
+machine compilations will occur in parallel. If @var{n} is 0, then the
+maximum number of parallel compilations is the number of core processors
+on the platform. In the event of compilation errors, messages from various
+compilations might get interspersed (but @command{gnatmake} will give you the
+full ordered list of failing compiles at the end). If this is problematic,
+rerun the make process with n set to 1 to get a clean list of messages.
 
 @item ^-k^/CONTINUE_ON_ERROR^
 @cindex @option{^-k^/CONTINUE_ON_ERROR^} (@command{gnatmake})
@@ -10909,6 +10910,14 @@ Ada 2005 mode etc.
 
 @table @option
 @c !sort!
+@item --version
+@cindex @option{--version} @command{gnatelim}
+Display Copyright and version, then exit disregarding all other options.
+
+@item --help
+@cindex @option{--help} @command{gnatelim}
+Display usage, then exit disregarding all other options.
+
 @item ^-files^/FILES^=@var{filename}
 @cindex @option{^-files^/FILES^} (@code{gnatelim})
 Take the argument source files from the specified file. This file should be an
@@ -14206,6 +14215,14 @@ with @option{^-pipe^/STANDARD_OUTPUT^} option.
 The additional @command{gnatpp} switches are defined in this subsection.
 
 @table @option
+@item --version
+@cindex @option{--version} @command{gnatpp}
+Display Copyright and version, then exit disregarding all other options.
+
+@item --help
+@cindex @option{--help} @command{gnatpp}
+Display usage, then exit disregarding all other options.
+
 @item ^-files @var{filename}^/FILES=@var{filename}^
 @cindex @option{^-files^/FILES^} (@code{gnatpp})
 Take the argument source files from the specified file. This file should be an
@@ -15656,6 +15673,14 @@ Report control fan-in coupling
 Additional @command{gnatmetric} switches are as follows:
 
 @table @option
+@item --version
+@cindex @option{--version} @command{gnatmetric}
+Display Copyright and version, then exit disregarding all other options.
+
+@item --help
+@cindex @option{--help} @command{gnatmetric}
+Display usage, then exit disregarding all other options.
+
 @item ^-files @var{filename}^/FILES=@var{filename}^
 @cindex @option{^-files^/FILES^} (@code{gnatmetric})
 Take the argument source files from the specified file. This file should be an
@@ -16367,6 +16392,10 @@ Several such switches may be specified simultaneously.
 @cindex @option{^-I-^/NOCURRENT_DIRECTORY^} (@code{gnatls})
 Source path manipulation. Same meaning as the equivalent @command{gnatmake}
 flags (@pxref{Switches for gnatmake}).
+
+@item ^-aP^/ADD_PROJECT_SEARCH_DIR=^@var{dir}
+@cindex @option{^-aP^/ADD_PROJECT_SEARCH_DIR=^} (@code{gnatls})
+Add @var{dir} at the beginning of the project search dir.
 
 @item --RTS=@var{rts-path}
 @cindex @option{--RTS} (@code{gnatls})
@@ -17083,6 +17112,7 @@ build an encapsulated library the attribute
 @group
    for Library_Dir use "lib_dir";
    for Library_Name use "dummy";
+   for Library_Kind use "dynamic";
    for Library_Interface use ("int1", "int1.child");
    for Library_Standalone use "encapsulated";
 @end group
@@ -18473,6 +18503,14 @@ is an optional sequence of switches as described in the next section
 
 @table @option
 @c !sort!
+
+@item --version
+@cindex @option{--version} @command{gnatstub}
+Display Copyright and version, then exit disregarding all other options.
+
+@item --help
+@cindex @option{--help} @command{gnatstub}
+Display usage, then exit disregarding all other options.
 
 @item ^-f^/FULL^
 @cindex @option{^-f^/FULL^} (@command{gnatstub})

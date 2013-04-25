@@ -35,6 +35,7 @@ with Exp_Ch3;  use Exp_Ch3;
 with Exp_Ch9;  use Exp_Ch9;
 with Exp_Disp; use Exp_Disp;
 with Exp_Dist; use Exp_Dist;
+with Exp_Pakd; use Exp_Pakd;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Fname;    use Fname;
@@ -63,7 +64,6 @@ with Sem_Dist; use Sem_Dist;
 with Sem_Elim; use Sem_Elim;
 with Sem_Eval; use Sem_Eval;
 with Sem_Mech; use Sem_Mech;
-with Sem_Prag; use Sem_Prag;
 with Sem_Res;  use Sem_Res;
 with Sem_Smem; use Sem_Smem;
 with Sem_Type; use Sem_Type;
@@ -2180,45 +2180,22 @@ package body Sem_Ch3 is
          D := Next_Node;
       end loop;
 
-      --  One more thing to do, we need to scan the declarations to check
-      --  for any precondition/postcondition pragmas (Pre/Post aspects have
-      --  by this stage been converted into corresponding pragmas). It is
-      --  at this point that we analyze the expressions in such pragmas,
-      --  to implement the delayed visibility requirement.
+      --  One more thing to do, we need to scan the declarations to check for
+      --  any precondition/postcondition pragmas (Pre/Post aspects have by this
+      --  stage been converted into corresponding pragmas). It is at this point
+      --  that we analyze the expressions in such pragmas, to implement the
+      --  delayed visibility requirement.
 
       declare
-         Decl : Node_Id;
-         Spec : Node_Id;
-         Sent : Entity_Id;
-         Prag : Node_Id;
+         Decl    : Node_Id;
+         Subp_Id : Entity_Id;
 
       begin
          Decl := First (L);
          while Present (Decl) loop
-            if Nkind (Original_Node (Decl)) = N_Subprogram_Declaration then
-               Spec := Specification (Original_Node (Decl));
-               Sent := Defining_Unit_Name (Spec);
-
-               --  Analyze preconditions and postconditions
-
-               Prag := Spec_PPC_List (Contract (Sent));
-               while Present (Prag) loop
-                  Analyze_PPC_In_Decl_Part (Prag, Sent);
-                  Prag := Next_Pragma (Prag);
-               end loop;
-
-               --  Analyze contract-cases and test-cases
-
-               Prag := Spec_CTC_List (Contract (Sent));
-               while Present (Prag) loop
-                  Analyze_CTC_In_Decl_Part (Prag, Sent);
-                  Prag := Next_Pragma (Prag);
-               end loop;
-
-               --  At this point, entities have been attached to identifiers.
-               --  This is required to be able to detect suspicious contracts.
-
-               Check_Subprogram_Contract (Sent);
+            if Nkind (Decl) = N_Subprogram_Declaration then
+               Subp_Id := Defining_Unit_Name (Specification (Decl));
+               Analyze_Subprogram_Contract (Subp_Id);
             end if;
 
             Next (Decl);
@@ -8682,6 +8659,10 @@ package body Sem_Ch3 is
          Set_Known_To_Have_Preelab_Init
            (Def_Id, Known_To_Have_Preelab_Init (T));
 
+         --  Private subtypes may have private dependents
+
+         Set_Private_Dependents (Def_Id, New_Elmt_List);
+
       elsif Is_Class_Wide_Type (T) then
          Set_Ekind (Def_Id, E_Class_Wide_Subtype);
 
@@ -9853,10 +9834,10 @@ package body Sem_Ch3 is
 
                --  The side effect removal machinery may generate illegal Ada
                --  code to avoid the usage of access types and 'reference in
-               --  Alfa mode. Since this is legal code with respect to theorem
+               --  SPARK mode. Since this is legal code with respect to theorem
                --  proving, do not emit the error.
 
-               if Alfa_Mode
+               if SPARK_Mode
                  and then Nkind (Exp) = N_Function_Call
                  and then Nkind (Parent (Exp)) = N_Object_Declaration
                  and then not Comes_From_Source
@@ -10780,13 +10761,9 @@ package body Sem_Ch3 is
          --  A deferred constant is a visible entity. If type has invariants,
          --  verify that the initial value satisfies them.
 
-         if Expander_Active and then Has_Invariants (T) then
-            declare
-               Call : constant Node_Id :=
-                 Make_Invariant_Call (New_Occurrence_Of (Prev, Sloc (N)));
-            begin
-               Insert_After (N, Call);
-            end;
+         if Has_Invariants (T) and then Present (Invariant_Procedure (T)) then
+            Insert_After (N,
+              Make_Invariant_Call (New_Occurrence_Of (Prev, Sloc (N))));
          end if;
       end if;
    end Constant_Redeclaration;
@@ -11113,6 +11090,7 @@ package body Sem_Ch3 is
    is
       Loc         : constant Source_Ptr := Sloc (Constrained_Typ);
       Compon_Type : constant Entity_Id := Etype (Comp);
+      Array_Comp  : Node_Id;
 
       function Build_Constrained_Array_Type
         (Old_Type : Entity_Id) return Entity_Id;
@@ -11510,7 +11488,22 @@ package body Sem_Ch3 is
          return Compon_Type;
 
       elsif Is_Array_Type (Compon_Type) then
-         return Build_Constrained_Array_Type (Compon_Type);
+         Array_Comp := Build_Constrained_Array_Type (Compon_Type);
+
+         --  If the component of the parent is packed, and the record type is
+         --  already frozen, as is the case for an itype, the component type
+         --  itself will not be frozen, and the packed array type for it must
+         --  be constructed explicitly. Since the creation of packed types is
+         --  an expansion activity, we only do this if expansion is active.
+
+         if Expander_Active
+           and then Is_Packed (Compon_Type)
+           and then Is_Frozen (Current_Scope)
+         then
+            Create_Packed_Array_Type (Array_Comp);
+         end if;
+
+         return Array_Comp;
 
       elsif Has_Discriminants (Compon_Type) then
          return Build_Constrained_Discriminated_Type (Compon_Type);
@@ -11978,7 +11971,7 @@ package body Sem_Ch3 is
          --  which must not be reevaluated.
 
          --  The forced evaluation removes side effects from expressions,
-         --  which should occur also in Alfa mode. Otherwise, we end up with
+         --  which should occur also in SPARK mode. Otherwise, we end up with
          --  unexpected insertions of actions at places where this is not
          --  supposed to occur, e.g. on default parameters of a call.
 
@@ -18614,9 +18607,9 @@ package body Sem_Ch3 is
             --  duplication of the expression without forcing evaluation.
 
             --  The forced evaluation removes side effects from expressions,
-            --  which should occur also in Alfa mode. Otherwise, we end up with
-            --  unexpected insertions of actions at places where this is not
-            --  supposed to occur, e.g. on default parameters of a call.
+            --  which should occur also in SPARK mode. Otherwise, we end up
+            --  with unexpected insertions of actions at places where this is
+            --  not supposed to occur, e.g. on default parameters of a call.
 
             if Expander_Active then
                Force_Evaluation (Lo);
@@ -18729,7 +18722,7 @@ package body Sem_Ch3 is
       --  Case of other than an explicit N_Range node
 
       --  The forced evaluation removes side effects from expressions, which
-      --  should occur also in Alfa mode. Otherwise, we end up with unexpected
+      --  should occur also in SPARK mode. Otherwise, we end up with unexpected
       --  insertions of actions at places where this is not supposed to occur,
       --  e.g. on default parameters of a call.
 
@@ -20173,7 +20166,7 @@ package body Sem_Ch3 is
       --  subtype range. Keep Size, RM_Size and First_Rep_Item info, which
       --  should not be relied upon in formal verification.
 
-      if Strict_Alfa_Mode then
+      if SPARK_Strict_Mode then
          declare
             Sym_Hi_Val : Uint;
             Sym_Lo_Val : Uint;

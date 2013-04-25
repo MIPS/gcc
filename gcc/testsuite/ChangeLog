@@ -1,9 +1,200 @@
-2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+2013-04-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimizations/57046
+	* gcc.target/i386/pr57046.c: New test.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1y/cplusplus.C: New.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1y/cxx1y_macro.C: Remove.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* c-c++-common/Wpointer-arith-1.c: New.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1y/cxx1y_macro.C: New.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56970
+	* g++.dg/cpp0x/sfinae45.C: New.
+
+2013-04-24  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/57050
+	* gcc.c-torture/execute/pr56982.c: Avoid sigjmp_buf use.
+
+2013-04-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57036
+	* gcc.dg/torture/pr57036-1.c: New testcase.
+	* gcc.dg/torture/pr57036-2.c: Likewise.
+
+2013-04-23  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* gcc.target/aarch64/scalar-mov.c: New testcase.
+
+2013-04-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57026
+	* gcc.dg/torture/pr57026.c: New testcase.
+
+2013-04-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/53685
+	PR fortran/57022
+	* gfortran.dg/transfer_check_4.f90: New.
+
+2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/56990
+	* gcc.dg/pr56990.c: New test.
+
+2013-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57018
+	* gcc.target/i386/pr57018.c: New test.
+
+2013-04-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vrecps.c: New.
+	* gcc.target/aarch64/vrecpx.c: Likewise.
+
+2013-04-22  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/56995
+	* gcc.target/sh/mfmovd.c: Add new function and check hard_float.
+
+2013-04-21  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/forwprop-26.c: New test.
+
+2013-04-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56907
+	* gfortran.dg/c_loc_test_22.f90: New.
+
+2013-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56847
+	* gcc.dg/pr56847.c: New test.
+
+2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56982
+	* gcc.c-torture/execute/pr56982.c: New testcase.
+
+2013-04-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/56718
+	* g++.dg/ipa/imm-devirt-1.C: New test.
+	* g++.dg/ipa/imm-devirt-2.C: Likewise.
+
+2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57000
+	* gcc.dg/tree-ssa/reassoc-27.c: New testcase.
+
+2013-04-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56872
+	* gfortran.dg/array_constructor_45.f90:  New test.
+	* gfortran.dg/array_constructor_46.f90:  New test.
+	* gfortran.dg/array_constructor_47.f90:  New test.
+	* gfortran.dg/array_constructor_40.f90:  Adjust number of while loops.
+
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/56999
+	* g++.dg/opt/pr56999.C: New test.
+
+2013-04-18  Cary Coutant  <ccoutant@google.com>
+
+	* g++.dg/debug/dwarf2/pubnames-2.C: Add -fno-debug-types-section.
+	* g++.dg/debug/dwarf2/pubnames-3.C: New test case.
+
+2013-04-18  Cary Coutant  <ccoutant@google.com>
+
+	* g++.dg/debug/dwarf2/typedef2.C: Add -fno-debug-types-section flag.
+	* g++.dg/debug/dwarf2/typedef4.C: Likewise.
+	* g++.dg/debug/dwarf2/static-data-member1.C: Likewise.
+	* g++.dg/debug/dwarf2/global-used-types-1.C: Likewise.
+	* g++.dg/debug/dwarf2/self-ref-1.C: Likewise.
+	* g++.dg/debug/dwarf2/nested-2.C: Likewise.
+	* g++.dg/debug/dwarf2/typedef1.C: Likewise.
+	* g++.dg/debug/dwarf2/namespace-2.C: Likewise.
+	* g++.dg/debug/dwarf2/integer-typedef.C: Likewise.
+	* g++.dg/debug/dwarf2/self-ref-2.C: Likewise.
+	* g++.dg/debug/dwarf2/explicit-constructor.C: Likewise.
+
+2013-04-18  Grigoriy Kraynov  <grigoriy.kraynov@intel.com>
+
+	* gcc.target/i386/avx2-vpop-check.h: Cast away volatility in memcmp().
+
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56984
+	* gcc.c-torture/compile/pr56984.c: New test.
+
+	PR rtl-optimization/56992
+	* gcc.dg/pr56992.c: New test.
+
+2013-04-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56814
+	* gfortran.dg/proc_ptr_42.f90: New.
+
+2013-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr41.ad[sb]: New test.
+	* gcc.dg/tree-ssa/ssa-fre-38.c: Likewise.
+	* gcc.dg/vect/slp-24-big-array.c: Beef up anti-vectorization trick.
+	* gcc.dg/vect/slp-24.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u16-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i2-gap.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap2.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap7-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-a-u8-i8-gap7.c: Likewise.
+	* gcc.dg/vect/vect-strided-mult-char-ls.c: Likewise.
+	* gcc.dg/vect/vect-strided-mult.c: Likewise.
+	* gcc.dg/vect/vect-strided-same-dr.c: Likewise.
+	* gcc.dg/vect/vect-strided-u16-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u16-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u32-i4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u32-i8.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i2-gap.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap2.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4-unknown.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap4.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap7-big-array.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8-gap7.c: Likewise.
+	* gcc.dg/vect/vect-strided-u8-i8.c: Likewise.
+
+2013-04-17  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR fortran/40958
+	* lib/gcc-dg.exp (scan-module): Uncompress module file before scanning.
+	* gfortran.dg/module_md5_1.f90: Remove.
+
+2013-04-16  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/adds3.c: New.
 	* gcc.target/aarch64/subs3.c: New.
 
-2013-04-16   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+2013-04-16  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/adds1.c: New.
 	* gcc.target/aarch64/adds2.c: New.

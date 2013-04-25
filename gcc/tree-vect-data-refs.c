@@ -1062,27 +1062,6 @@ vect_get_data_access_cost (struct data_reference *dr,
 }
 
 
-static hashval_t
-vect_peeling_hash (const void *elem)
-{
-  const struct _vect_peel_info *peel_info;
-
-  peel_info = (const struct _vect_peel_info *) elem;
-  return (hashval_t) peel_info->npeel;
-}
-
-
-static int
-vect_peeling_hash_eq (const void *elem1, const void *elem2)
-{
-  const struct _vect_peel_info *a, *b;
-
-  a = (const struct _vect_peel_info *) elem1;
-  b = (const struct _vect_peel_info *) elem2;
-  return (a->npeel == b->npeel);
-}
-
-
 /* Insert DR into peeling hash table with NPEEL as key.  */
 
 static void
@@ -1090,12 +1069,11 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
                           int npeel)
 {
   struct _vect_peel_info elem, *slot;
-  void **new_slot;
+  _vect_peel_info **new_slot;
   bool supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
 
   elem.npeel = npeel;
-  slot = (vect_peel_info) htab_find (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                                     &elem);
+  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find (&elem);
   if (slot)
     slot->count++;
   else
@@ -1104,8 +1082,7 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
       slot->npeel = npeel;
       slot->dr = dr;
       slot->count = 1;
-      new_slot = htab_find_slot (LOOP_VINFO_PEELING_HTAB (loop_vinfo), slot,
-                                 INSERT);
+      new_slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find_slot (slot, INSERT);
       *new_slot = slot;
     }
 
@@ -1117,11 +1094,11 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
 /* Traverse peeling hash table to find peeling option that aligns maximum
    number of data accesses.  */
 
-static int
-vect_peeling_hash_get_most_frequent (void **slot, void *data)
+int
+vect_peeling_hash_get_most_frequent (_vect_peel_info **slot,
+				     _vect_peel_extended_info *max)
 {
-  vect_peel_info elem = (vect_peel_info) *slot;
-  vect_peel_extended_info max = (vect_peel_extended_info) data;
+  vect_peel_info elem = *slot;
 
   if (elem->count > max->peel_info.count
       || (elem->count == max->peel_info.count
@@ -1139,11 +1116,11 @@ vect_peeling_hash_get_most_frequent (void **slot, void *data)
 /* Traverse peeling hash table and calculate cost for each peeling option.
    Find the one with the lowest cost.  */
 
-static int
-vect_peeling_hash_get_lowest_cost (void **slot, void *data)
+int
+vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
+				   _vect_peel_extended_info *min)
 {
-  vect_peel_info elem = (vect_peel_info) *slot;
-  vect_peel_extended_info min = (vect_peel_extended_info) data;
+  vect_peel_info elem = *slot;
   int save_misalignment, dummy;
   unsigned int inside_cost = 0, outside_cost = 0, i;
   gimple stmt = DR_STMT (elem->dr);
@@ -1223,14 +1200,16 @@ vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
      {
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
-       htab_traverse (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                      vect_peeling_hash_get_lowest_cost, &res);
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           .traverse <_vect_peel_extended_info *,
+                      vect_peeling_hash_get_lowest_cost> (&res);
      }
    else
      {
        res.peel_info.count = 0;
-       htab_traverse (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                      vect_peeling_hash_get_most_frequent, &res);
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           .traverse <_vect_peel_extended_info *,
+                      vect_peeling_hash_get_most_frequent> (&res);
      }
 
    *npeel = res.peel_info.npeel;
@@ -1423,10 +1402,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						    size_zero_node) < 0;
 
               /* Save info about DR in the hash table.  */
-              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo))
-                LOOP_VINFO_PEELING_HTAB (loop_vinfo) =
-                           htab_create (1, vect_peeling_hash,
-                                        vect_peeling_hash_eq, free);
+              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo).is_created ())
+                LOOP_VINFO_PEELING_HTAB (loop_vinfo).create (1);
 
               vectype = STMT_VINFO_VECTYPE (stmt_info);
               nelements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -2024,7 +2001,7 @@ vect_analyze_group_access (struct data_reference *dr)
 
   /* For interleaving, GROUPSIZE is STEP counted in elements, i.e., the
      size of the interleaving group (including gaps).  */
-  groupsize = dr_step / type_size;
+  groupsize = absu_hwi (dr_step) / type_size;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
   if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
@@ -2094,10 +2071,10 @@ vect_analyze_group_access (struct data_reference *dr)
       gimple next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
-      tree next_step;
       tree prev_init = DR_INIT (data_ref);
       gimple prev = stmt;
-      HOST_WIDE_INT diff, count_in_bytes, gaps = 0;
+      HOST_WIDE_INT diff, gaps = 0;
+      unsigned HOST_WIDE_INT count_in_bytes;
 
       while (next)
         {
@@ -2126,18 +2103,11 @@ vect_analyze_group_access (struct data_reference *dr)
             }
 
           prev = next;
-
-          /* Check that all the accesses have the same STEP.  */
-          next_step = DR_STEP (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
-          if (tree_int_cst_compare (step, next_step))
-            {
-              if (dump_enabled_p ())
-                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
-                                 "not consecutive access in interleaving");
-              return false;
-            }
-
           data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (next));
+
+	  /* All group members have the same STEP by construction.  */
+	  gcc_checking_assert (operand_equal_p (DR_STEP (data_ref), step, 0));
+
           /* Check that the distance between two accesses is equal to the type
              size. Otherwise, we have gaps.  */
           diff = (TREE_INT_CST_LOW (DR_INIT (data_ref))
@@ -2175,7 +2145,8 @@ vect_analyze_group_access (struct data_reference *dr)
 
       /* Check that the size of the interleaving (including gaps) is not
          greater than STEP.  */
-      if (dr_step && dr_step < count_in_bytes + gaps * type_size)
+      if (dr_step != 0
+	  && absu_hwi (dr_step) < count_in_bytes + gaps * type_size)
         {
           if (dump_enabled_p ())
             {
@@ -2188,7 +2159,8 @@ vect_analyze_group_access (struct data_reference *dr)
 
       /* Check that the size of the interleaving is equal to STEP for stores,
          i.e., that there are no gaps.  */
-      if (dr_step && dr_step != count_in_bytes)
+      if (dr_step != 0
+	  && absu_hwi (dr_step) != count_in_bytes)
         {
           if (DR_IS_READ (dr))
             {
@@ -2208,7 +2180,8 @@ vect_analyze_group_access (struct data_reference *dr)
         }
 
       /* Check that STEP is a multiple of type size.  */
-      if (dr_step && (dr_step % type_size) != 0)
+      if (dr_step != 0
+	  && (dr_step % type_size) != 0)
         {
           if (dump_enabled_p ())
             {
@@ -3520,7 +3493,6 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   tree aptr;
   gimple_stmt_iterator incr_gsi;
   bool insert_after;
-  bool negative;
   tree indx_before_incr, indx_after_incr;
   gimple incr;
   tree step;
@@ -3550,11 +3522,10 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   else
     step = DR_STEP (STMT_VINFO_DATA_REF (stmt_info));
 
-  if (tree_int_cst_compare (step, size_zero_node) == 0)
+  if (integer_zerop (step))
     *inv_p = true;
   else
     *inv_p = false;
-  negative = tree_int_cst_compare (step, size_zero_node) < 0;
 
   /* Create an expression for the first address accessed by this load
      in LOOP.  */
@@ -3693,18 +3664,18 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   else
     {
       /* The step of the aggregate pointer is the type size.  */
-      tree step = TYPE_SIZE_UNIT (aggr_type);
+      tree iv_step = TYPE_SIZE_UNIT (aggr_type);
       /* One exception to the above is when the scalar step of the load in
 	 LOOP is zero. In this case the step here is also zero.  */
       if (*inv_p)
-	step = size_zero_node;
-      else if (negative)
-	step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
+	iv_step = size_zero_node;
+      else if (tree_int_cst_sgn (step) == -1)
+	iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
       create_iv (aggr_ptr_init,
-		 fold_convert (aggr_ptr_type, step),
+		 fold_convert (aggr_ptr_type, iv_step),
 		 aggr_ptr, loop, &incr_gsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);

@@ -43,6 +43,11 @@ package Sem_Util is
    --  Add A to the list of access types to process when expanding the
    --  freeze node of E.
 
+   procedure Add_Contract_Item (Item : Node_Id; Subp_Id : Entity_Id);
+   --  Add a contract item (pragma Precondition, Postcondition, Test_Case,
+   --  Contract_Cases, Global, Depends) to the contract of a subprogram. Item
+   --  denotes a pragma and Subp_Id is the related subprogram.
+
    procedure Add_Global_Declaration (N : Node_Id);
    --  These procedures adds a declaration N at the library level, to be
    --  elaborated before any other code in the unit. It is used for example
@@ -469,6 +474,11 @@ package Sem_Util is
    --  analyzed. Subsequent uses of this id on a different type denotes the
    --  discriminant at the same position in this new type.
 
+   function Find_Loop_In_Conditional_Block (N : Node_Id) return Node_Id;
+   --  Find the nested loop statement in a conditional block. Loops subject to
+   --  attribute 'Loop_Entry are transformed into blocks. Parts of the original
+   --  loop are nested within the block.
+
    procedure Find_Overlaid_Entity
      (N   : Node_Id;
       Ent : out Entity_Id;
@@ -575,8 +585,8 @@ package Sem_Util is
    --  Otherwise return Empty. Expression N should have been resolved already.
 
    function Get_Ensures_From_CTC_Pragma (N : Node_Id) return Node_Id;
-   --  Return the Ensures component of Contract_Case or Test_Case pragma N, or
-   --  Empty otherwise.
+   --  Return the Ensures component of Test_Case pragma N, or Empty otherwise
+   --  Bad name now that this no longer applies to Contract_Case ???
 
    function Get_Generic_Entity (N : Node_Id) return Entity_Id;
    --  Returns the true generic entity in an instantiation. If the name in the
@@ -616,7 +626,8 @@ package Sem_Util is
    --  Sem_Ch8 for further details on handling of entity visibility.
 
    function Get_Name_From_CTC_Pragma (N : Node_Id) return String_Id;
-   --  Return the Name component of Contract_Case or Test_Case pragma N
+   --  Return the Name component of Test_Case pragma N
+   --  Bad name now that this no longer applies to Contract_Case ???
 
    function Get_Pragma_Id (N : Node_Id) return Pragma_Id;
    pragma Inline (Get_Pragma_Id);
@@ -634,8 +645,8 @@ package Sem_Util is
    --  with any other kind of entity.
 
    function Get_Requires_From_CTC_Pragma (N : Node_Id) return Node_Id;
-   --  Return the Requires component of Contract_Case or Test_Case pragma N, or
-   --  Empty otherwise.
+   --  Return the Requires component of Test_Case pragma N, or Empty otherwise
+   --  Bad name now that this no longer applies to Contract_Case ???
 
    function Get_Subprogram_Entity (Nod : Node_Id) return Entity_Id;
    --  Nod is either a procedure call statement, or a function call, or an
@@ -893,8 +904,9 @@ package Sem_Util is
    --  it is of protected, synchronized or task kind.
 
    function Is_Expression_Function (Subp : Entity_Id) return Boolean;
-   --  Predicate to determine whether a function entity comes from a rewritten
-   --  expression function, and should be inlined unconditionally.
+   --  Predicate to determine whether a scope entity comes from a rewritten
+   --  expression function call, and should be inlined unconditionally. Also
+   --  used to determine that such a call does not constitute a freeze point.
 
    function Is_False (U : Uint) return Boolean;
    pragma Inline (Is_False);
@@ -937,7 +949,10 @@ package Sem_Util is
    --  i.e. a library unit or an entity declared in a library package.
 
    function Is_Limited_Class_Wide_Type (Typ : Entity_Id) return Boolean;
-   --  Determine whether a given arbitrary type is a limited class-wide type
+   --  Determine whether a given type is a limited class-wide type, in which
+   --  case it needs a Master_Id, because extensions of its designated type
+   --  may include task components. A class-wide type that comes from a
+   --  limited view must be treated in the same way.
 
    function Is_Local_Variable_Reference (Expr : Node_Id) return Boolean;
    --  Determines whether Expr is a reference to a variable or IN OUT mode
@@ -1516,6 +1531,10 @@ package Sem_Util is
    function Statically_Different (E1, E2 : Node_Id) return Boolean;
    --  Return True if it can be statically determined that the Expressions
    --  E1 and E2 refer to different objects
+
+   function Subject_To_Loop_Entry_Attributes (N : Node_Id) return Boolean;
+   --  Determine whether node N is a loop statement subject to at least one
+   --  'Loop_Entry attribute.
 
    function Subprogram_Access_Level (Subp : Entity_Id) return Uint;
    --  Return the accessibility level of the view denoted by Subp
