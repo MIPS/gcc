@@ -60,20 +60,20 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
 		 index_type size)
 {
   /* r.* indicates the return array.  */
-  index_type rstride[GFC_MAX_DIMENSIONS];
-  index_type rstride0;
+  index_type rsm[GFC_MAX_DIMENSIONS];
+  index_type rsm0;
   index_type rs;
   char * restrict rptr;
   /* v.* indicates the vector array.  */
-  index_type vstride0;
+  index_type vsm0;
   char *vptr;
   /* f.* indicates the field array.  */
-  index_type fstride[GFC_MAX_DIMENSIONS];
-  index_type fstride0;
+  index_type fsm[GFC_MAX_DIMENSIONS];
+  index_type fsm0;
   const char *fptr;
   /* m.* indicates the mask array.  */
-  index_type mstride[GFC_MAX_DIMENSIONS];
-  index_type mstride0;
+  index_type msm[GFC_MAX_DIMENSIONS];
+  index_type msm0;
   const GFC_LOGICAL_1 *mptr;
 
   index_type count[GFC_MAX_DIMENSIONS];
@@ -91,7 +91,7 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
   /* Use the same loop for all logical types, by using GFC_LOGICAL_1
      and using shifting to address size and endian issues.  */
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16
@@ -119,9 +119,9 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
 			    GFC_DESCRIPTOR_EXTENT(mask,n), rs);
 	  extent[n] = GFC_DESCRIPTOR_EXTENT(ret,n);
 	  empty = empty || extent[n] <= 0;
-	  rstride[n] = GFC_DESCRIPTOR_SM(ret, n);
-	  fstride[n] = GFC_DESCRIPTOR_SM(field, n);
-	  mstride[n] = GFC_DESCRIPTOR_SM(mask, n);
+	  rsm[n] = GFC_DESCRIPTOR_SM(ret, n);
+	  fsm[n] = GFC_DESCRIPTOR_SM(field, n);
+	  msm[n] = GFC_DESCRIPTOR_SM(mask, n);
 	  rs *= extent[n];
 	}
       ret->offset = 0;
@@ -135,19 +135,19 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
 	  count[n] = 0;
 	  extent[n] = GFC_DESCRIPTOR_EXTENT(ret,n);
 	  empty = empty || extent[n] <= 0;
-	  rstride[n] = GFC_DESCRIPTOR_SM(ret, n);
-	  fstride[n] = GFC_DESCRIPTOR_SM(field, n);
-	  mstride[n] = GFC_DESCRIPTOR_SM(mask, n);
+	  rsm[n] = GFC_DESCRIPTOR_SM(ret, n);
+	  fsm[n] = GFC_DESCRIPTOR_SM(field, n);
+	  msm[n] = GFC_DESCRIPTOR_SM(mask, n);
 	}
     }
 
   if (empty)
     return;
 
-  vstride0 = GFC_DESCRIPTOR_SM(vector,0);
-  rstride0 = rstride[0];
-  fstride0 = fstride[0];
-  mstride0 = mstride[0];
+  vsm0 = GFC_DESCRIPTOR_SM(vector,0);
+  rsm0 = rsm[0];
+  fsm0 = fsm[0];
+  msm0 = msm[0];
   rptr = ret->base_addr;
   fptr = field->base_addr;
   vptr = vector->base_addr;
@@ -158,7 +158,7 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
         {
           /* From vector.  */
           memcpy (rptr, vptr, size);
-          vptr += vstride0;
+          vptr += vsm0;
         }
       else
         {
@@ -166,9 +166,9 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
           memcpy (rptr, fptr, size);
         }
       /* Advance to the next element.  */
-      rptr += rstride0;
-      fptr += fstride0;
-      mptr += mstride0;
+      rptr += rsm0;
+      fptr += fsm0;
+      mptr += msm0;
       count[0]++;
       n = 0;
       while (count[n] == extent[n])
@@ -178,9 +178,9 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
           count[n] = 0;
           /* We could precalculate these products, but this is a less
              frequently used path so probably not worth it.  */
-          rptr -= rstride[n] * extent[n];
-          fptr -= fstride[n] * extent[n];
-          mptr -= mstride[n] * extent[n];
+          rptr -= rsm[n] * extent[n];
+          fptr -= fsm[n] * extent[n];
+          mptr -= msm[n] * extent[n];
           n++;
           if (n >= dim)
             {
@@ -191,9 +191,9 @@ unpack_internal (gfc_array_char *ret, const gfc_array_char *vector,
           else
             {
               count[n]++;
-              rptr += rstride[n];
-              fptr += fstride[n];
-              mptr += mstride[n];
+              rptr += rsm[n];
+              fptr += fsm[n];
+              mptr += msm[n];
             }
         }
     }
@@ -214,7 +214,7 @@ unpack1 (gfc_array_char *ret, const gfc_array_char *vector,
     unpack_bounds (ret, vector, mask, field);
 
   type_size = GFC_DTYPE_TYPE_SIZE (vector);
-  size = GFC_DESCRIPTOR_SIZE (vector);
+  size = GFC_DESCRIPTOR_ELEM_LEN (vector);
 
   switch(type_size)
     {
@@ -576,9 +576,9 @@ unpack0 (gfc_array_char *ret, const gfc_array_char *vector,
     }
 
   memset (&tmp, 0, sizeof (tmp));
-  tmp.dtype = 0;
+  tmp.type = 0;
   tmp.base_addr = field;
-  unpack_internal (ret, vector, mask, &tmp, GFC_DESCRIPTOR_SIZE (vector));
+  unpack_internal (ret, vector, mask, &tmp, GFC_DESCRIPTOR_ELEM_LEN (vector));
 }
 
 
@@ -600,7 +600,7 @@ unpack0_char (gfc_array_char *ret,
     unpack_bounds (ret, vector, mask, NULL);
 
   memset (&tmp, 0, sizeof (tmp));
-  tmp.dtype = 0;
+  tmp.type = 0;
   tmp.base_addr = field;
   unpack_internal (ret, vector, mask, &tmp, vector_length);
 }
@@ -624,7 +624,7 @@ unpack0_char4 (gfc_array_char *ret,
     unpack_bounds (ret, vector, mask, NULL);
 
   memset (&tmp, 0, sizeof (tmp));
-  tmp.dtype = 0;
+  tmp.type = 0;
   tmp.base_addr = field;
   unpack_internal (ret, vector, mask, &tmp,
 		   vector_length * sizeof (gfc_char4_t));

@@ -119,6 +119,12 @@ libgfortran_stat_codes;
 #define GFC_DTYPE_TYPE_MASK 0x38
 #define GFC_DTYPE_SIZE_SHIFT 6
 
+/* Array-descriptor attributes, see ISO_Fortran_binding.h.  */
+#define GFC_ATTRIBUTE_POINTER 1
+#define GFC_ATTRIBUTE_ALLOCATABLE 2
+#define GFC_ATTRIBUTE_OTHER 3
+
+
 /* Basic types.  BT_VOID is used by ISO C Binding so funcs like c_f_pointer
    can take any arg with the pointer attribute as a param.  These are also
    used in the run-time library for IO.  */

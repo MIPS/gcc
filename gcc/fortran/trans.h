@@ -406,6 +406,9 @@ void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
 
 tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
 
+/* Termine the byte-size of a string. */
+tree size_of_string_in_bytes (int, tree);
+
 
 /* trans-expr.c */
 void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
@@ -519,7 +522,8 @@ bool gfc_get_module_backend_decl (gfc_symbol *);
 tree gfc_get_symbol_decl (gfc_symbol *);
 
 /* Build a static initializer.  */
-tree gfc_conv_initializer (gfc_expr *, gfc_typespec *, tree, bool, bool, bool);
+tree gfc_conv_initializer (gfc_expr *, gfc_typespec *, tree, bool, bool,
+			   bool, int);
 
 /* Assign a default initializer to a derived type.  */
 void gfc_init_default_dt (gfc_symbol *, stmtblock_t *, bool);

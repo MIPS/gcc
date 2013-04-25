@@ -53,7 +53,7 @@ transpose_'rtype_code` ('rtype` * const restrict ret,
   if (ret->base_addr == NULL)
     {
       assert (GFC_DESCRIPTOR_RANK (ret) == 2);
-      assert (ret->dtype == source->dtype);
+      assert (ret->type == source->type);
 
       GFC_DIMENSION_SET(ret->dim[0], 0, GFC_DESCRIPTOR_EXTENT(source,1),
 			sizeof ('rtype_name`));

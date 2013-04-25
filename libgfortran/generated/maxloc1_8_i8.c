@@ -96,8 +96,8 @@ maxloc1_8_i8 (gfc_array_i8 * const restrict retarray,
 	}
 
       retarray->offset = 0;
-      retarray->rank = rank;
-      retarray->dtype = array->dtype;
+      retarray->elem_len = array->elem_len;
+      retarray->type = array->type;
 
       alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1)
     		   * extent[rank-1];
@@ -246,7 +246,7 @@ mmaxloc1_8_i8 (gfc_array_i8 * const restrict retarray,
 
   mbase = mask->base_addr;
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16
@@ -299,8 +299,8 @@ mmaxloc1_8_i8 (gfc_array_i8 * const restrict retarray,
     		   * extent[rank-1];
 
       retarray->offset = 0;
-      retarray->rank = rank;
-      retarray->dtype = array->dtype;
+      retarray->elem_len = array->elem_len;
+      retarray->type = array->type;
 
       if (alloc_size == 0)
 	{
@@ -483,9 +483,9 @@ smaxloc1_8_i8 (gfc_array_i8 * const restrict retarray,
 	  GFC_DIMENSION_SET (retarray->dim[n], 0, extent[n], sm);
 	}
 
+      retarray->elem_len = array->elem_len;
+      retarray->type = array->type;
       retarray->offset = 0;
-      retarray->rank = rank;
-      retarray->dtype = array->dtype;
 
       alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1)
     		   * extent[rank-1];

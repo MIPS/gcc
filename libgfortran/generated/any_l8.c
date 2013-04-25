@@ -58,7 +58,7 @@ any_l8 (gfc_array_l8 * const restrict retarray,
   dim = (*pdim) - 1;
   rank = GFC_DESCRIPTOR_RANK (array) - 1;
 
-  src_kind = GFC_DESCRIPTOR_SIZE (array);
+  src_kind = GFC_DESCRIPTOR_ELEM_LEN (array);
 
   len = GFC_DESCRIPTOR_EXTENT(array,dim);
   if (len < 0)
@@ -97,9 +97,9 @@ any_l8 (gfc_array_l8 * const restrict retarray,
 	  GFC_DIMENSION_SET (retarray->dim[n], 0, extent[n], sm);
         }
 
+      retarray->elem_len = array->elem_len;
+      retarray->type = array->type;
       retarray->offset = 0;
-      retarray->rank = rank;
-      retarray->dtype = array->dtype;
 
       alloc_size = GFC_DESCRIPTOR_SM (retarray, rank-1)
     		   * extent[rank-1];

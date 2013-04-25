@@ -322,56 +322,61 @@ internal_proto(big_endian);
 
 #include "ISO_Fortran_binding.h"
 
-typedef CFI_dim_t descriptor_dimension;
-#define GFC_ARRAY_DESCRIPTOR(r, type) CFI_GFC_CDESC_T (r, type)
+#if GFC_ATTRIBUTE_POINTER != CFI_attribute_pointer \
+   || GFC_ATTRIBUTE_ALLOCATABLE != CFI_attribute_allocatable \
+   || GFC_ATTRIBUTE_OTHER != CFI_attribute_other
+   || GFC_MAX_DIMENSIONS != CFI_MAX_RANK
+ chokeme
+#endif
 
+typedef CFI_dim_t descriptor_dimension;
 
 /* Commonly used array descriptor types.  */
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) gfc_array_void;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, char) gfc_array_char;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_1) gfc_array_i1;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_2) gfc_array_i2;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, void) gfc_array_void;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, char) gfc_array_char;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_INTEGER_1) gfc_array_i1;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_INTEGER_2) gfc_array_i2;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_INTEGER_4) gfc_array_i4;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_INTEGER_8) gfc_array_i8;
 #ifdef HAVE_GFC_INTEGER_16
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_INTEGER_16) gfc_array_i16;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_INTEGER_16) gfc_array_i16;
 #endif
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_4) gfc_array_r4;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_8) gfc_array_r8;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_REAL_4) gfc_array_r4;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_REAL_8) gfc_array_r8;
 #ifdef HAVE_GFC_REAL_10
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_10) gfc_array_r10;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_REAL_10) gfc_array_r10;
 #endif
 #ifdef HAVE_GFC_REAL_16
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_REAL_16) gfc_array_r16;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_REAL_16) gfc_array_r16;
 #endif
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_4) gfc_array_c4;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_8) gfc_array_c8;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_COMPLEX_4) gfc_array_c4;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_COMPLEX_8) gfc_array_c8;
 #ifdef HAVE_GFC_COMPLEX_10
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_10) gfc_array_c10;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_COMPLEX_10) gfc_array_c10;
 #endif
 #ifdef HAVE_GFC_COMPLEX_16
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_COMPLEX_16) gfc_array_c16;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_COMPLEX_16) gfc_array_c16;
 #endif
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_1) gfc_array_l1;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_2) gfc_array_l2;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_4) gfc_array_l4;
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_8) gfc_array_l8;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_1) gfc_array_l1;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_2) gfc_array_l2;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_4) gfc_array_l4;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_8) gfc_array_l8;
 #ifdef HAVE_GFC_LOGICAL_16
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #endif
 
 
 #define GFC_DESCRIPTOR_RANK(desc) ((desc)->rank)
-#define GFC_DESCRIPTOR_TYPE(desc) (((desc)->dtype & GFC_DTYPE_TYPE_MASK) \
+#define GFC_DESCRIPTOR_TYPE(desc) (((desc)->type & GFC_DTYPE_TYPE_MASK) \
                                    >> GFC_DTYPE_TYPE_SHIFT)
-#define GFC_DESCRIPTOR_SIZE(desc) ((desc)->dtype >> GFC_DTYPE_SIZE_SHIFT)
+#define GFC_DESCRIPTOR_ELEM_LEN(desc) ((desc)->elem_len)
 
 /*  This is for getting the size of a type when the type of the
     descriptor is known at compile-time.  Do not use for string types.  */
 
 #define GFC_DESCRIPTOR_SIZE_TYPEKNOWN(desc) (sizeof((desc)->base_addr[0]))
 #define GFC_DESCRIPTOR_DATA(desc) ((desc)->base_addr)
-#define GFC_DESCRIPTOR_DTYPE(desc) ((desc)->dtype)
+#define GFC_DESCRIPTOR_DTYPE(desc) ((desc)->type)
 
 #define GFC_DIMENSION_LBOUND(dim) ((dim).lower_bound)
 #define GFC_DIMENSION_UBOUND(dim) ((dim).lower_bound + (dim).extent - 1)
@@ -391,11 +396,11 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 #define GFC_DESCRIPTOR_UBOUND(desc,i) ((desc)->dim[i].extent - 1 \
 				      + (desc)->dim[i].lower_bound)
 #define GFC_DESCRIPTOR_EXTENT_BYTES(desc,i) \
-  (GFC_DESCRIPTOR_EXTENT(desc,i) * GFC_DESCRIPTOR_SIZE(desc))
+  (GFC_DESCRIPTOR_EXTENT(desc,i) * GFC_DESCRIPTOR_ELEM_LEN(desc))
 
 #define GFC_DESCRIPTOR_SM(desc,i) ((desc)->dim[i].sm)
 #define GFC_DESCRIPTOR_STRIDE(desc,i) \
-  (GFC_DESCRIPTOR_SM(desc,i) / GFC_DESCRIPTOR_SIZE(desc))
+  (GFC_DESCRIPTOR_SM(desc,i) / GFC_DESCRIPTOR_ELEM_LEN(desc))
 
 /* This is for getting the stride when the type of the descriptor is known at
    compile-time, to avoid expensive divisions.  Do not use for string
@@ -410,7 +415,7 @@ typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
   ((~((index_type) 0) >> GFC_DTYPE_SIZE_SHIFT) << GFC_DTYPE_SIZE_SHIFT)
 #define GFC_DTYPE_TYPE_SIZE_MASK (GFC_DTYPE_SIZE_MASK | GFC_DTYPE_TYPE_MASK)
 
-#define GFC_DTYPE_TYPE_SIZE(desc) ((desc)->dtype & GFC_DTYPE_TYPE_SIZE_MASK)
+#define GFC_DTYPE_TYPE_SIZE(desc) ((desc)->type & GFC_DTYPE_TYPE_SIZE_MASK)
 
 #define GFC_DTYPE_INTEGER_1 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
    | (sizeof(GFC_INTEGER_1) << GFC_DTYPE_SIZE_SHIFT))
@@ -1296,7 +1301,7 @@ iexport_proto(random_seed_i8);
 
 /* size.c */
 
-typedef GFC_ARRAY_DESCRIPTOR (GFC_MAX_DIMENSIONS, void) array_t;
+typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, void) array_t;
 
 extern index_type size0 (const array_t * array); 
 iexport_proto(size0);

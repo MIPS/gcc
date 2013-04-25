@@ -74,8 +74,8 @@ spread_r4 (gfc_array_r4 *ret, const gfc_array_r4 *source,
 
       /* The front end has signalled that we need to populate the
 	 return array descriptor.  */
-      ret->rank = rrank;
-      ret->dtype = source->dtype;
+      ret->elem_len = source->elem_len;
+      ret->type = source->type;
       dim = 0;
       rs = 1;
       for (n = 0; n < rrank; n++)

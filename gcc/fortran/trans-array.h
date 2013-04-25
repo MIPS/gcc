@@ -120,7 +120,7 @@ void gfc_set_delta (gfc_loopinfo *);
 /* Resolve array assignment dependencies.  */
 void gfc_conv_resolve_dependencies (gfc_loopinfo *, gfc_ss *, gfc_ss *);
 /* Build a null array descriptor constructor.  */
-tree gfc_build_null_descriptor (tree);
+tree gfc_build_null_descriptor (tree, int, int);
 
 /* Get a single array element.  */
 void gfc_conv_array_ref (gfc_se *, gfc_array_ref *, gfc_symbol *, locus *);
@@ -163,6 +163,11 @@ tree gfc_conv_descriptor_ubound_get (tree, tree);
 tree gfc_conv_descriptor_sm_get (tree, tree);
 tree gfc_conv_descriptor_extent_get (tree, tree);
 tree gfc_conv_descriptor_token (tree);
+tree gfc_conv_descriptor_elem_len_get (tree);
+void gfc_conv_descriptor_elem_len_set (stmtblock_t *, tree, tree);
+void gfc_conv_descriptor_rank_set (stmtblock_t *, tree, int);
+void gfc_conv_descriptor_version_set (stmtblock_t *, tree);
+void gfc_conv_descriptor_attr_set (stmtblock_t *, tree, int);
 
 tree gfc_data_field_from_base_field (tree);
 tree gfc_dimension_field_from_base_field (tree);

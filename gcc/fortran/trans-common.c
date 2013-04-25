@@ -656,7 +656,8 @@ create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
 					    TREE_TYPE (s->field),
 					    s->sym->attr.dimension,
 					    s->sym->attr.pointer
-					    || s->sym->attr.allocatable, false);
+					    || s->sym->attr.allocatable, false,
+					    s->sym->as ? s->sym->as->rank : 0);
 
 		CONSTRUCTOR_APPEND_ELT (v, s->field, tmp);
 	      }

@@ -214,7 +214,7 @@ index_type count_0 (const gfc_array_l1 * array)
   index_type n;
 
   rank = GFC_DESCRIPTOR_RANK (array);
-  kind = GFC_DESCRIPTOR_SIZE (array);
+  kind = GFC_DESCRIPTOR_ELEM_LEN (array);
 
   base = array->base_addr;
 

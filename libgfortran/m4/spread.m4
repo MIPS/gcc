@@ -75,8 +75,8 @@ spread_'rtype_code` ('rtype` *ret, const 'rtype` *source,
 
       /* The front end has signalled that we need to populate the
 	 return array descriptor.  */
-      ret->rank = rrank;
-      ret->dtype = source->dtype;
+      ret->elem_len = source->elem_len;
+      ret->type = source->type;
       dim = 0;
       rs = 1;
       for (n = 0; n < rrank; n++)

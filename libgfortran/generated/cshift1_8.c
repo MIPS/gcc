@@ -72,7 +72,7 @@ cshift1 (gfc_array_char * const restrict ret,
   if (which < 0 || (which + 1) > GFC_DESCRIPTOR_RANK (array))
     runtime_error ("Argument 'DIM' is out of range in call to 'CSHIFT'");
 
-  size = GFC_DESCRIPTOR_SIZE(array);
+  size = GFC_DESCRIPTOR_ELEM_LEN(array);
 
   arraysize = size0 ((array_t *)array);
 
@@ -82,8 +82,9 @@ cshift1 (gfc_array_char * const restrict ret,
       index_type sm, ext;
 
       ret->base_addr = xmalloc (size * arraysize);
+      ret->elem_len = array->elem_len;
+      ret->type = array->type;
       ret->offset = 0;
-      ret->dtype = array->dtype;
       sm = sizeof (GFC_INTEGER_8);
       ext = 1;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)

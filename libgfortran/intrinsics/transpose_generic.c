@@ -48,11 +48,11 @@ transpose_internal (gfc_array_char *ret, gfc_array_char *source)
   assert (GFC_DESCRIPTOR_RANK (source) == 2
           && GFC_DESCRIPTOR_RANK (ret) == 2);
 
-  size = GFC_DESCRIPTOR_SIZE(ret);
+  size = GFC_DESCRIPTOR_ELEM_LEN(ret);
 
   if (ret->base_addr == NULL)
     {
-      assert (ret->dtype == source->dtype);
+      assert (ret->type == source->type);
 
       GFC_DIMENSION_SET (ret->dim[0], 0, GFC_DESCRIPTOR_EXTENT(source,1),
 			 size);

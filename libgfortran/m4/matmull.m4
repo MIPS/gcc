@@ -136,7 +136,7 @@ matmul_'rtype_code` ('rtype` * const restrict retarray,
       }
 
   abase = a->base_addr;
-  a_kind = GFC_DESCRIPTOR_SIZE (a);
+  a_kind = GFC_DESCRIPTOR_ELEM_LEN (a);
 
   if (a_kind == 1 || a_kind == 2 || a_kind == 4 || a_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16
@@ -148,7 +148,7 @@ matmul_'rtype_code` ('rtype` * const restrict retarray,
     internal_error (NULL, "Funny sized logical array");
 
   bbase = b->base_addr;
-  b_kind = GFC_DESCRIPTOR_SIZE (b);
+  b_kind = GFC_DESCRIPTOR_ELEM_LEN (b);
 
   if (b_kind == 1 || b_kind == 2 || b_kind == 4 || b_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16

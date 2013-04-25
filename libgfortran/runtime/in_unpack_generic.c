@@ -36,8 +36,8 @@ internal_unpack (gfc_array_char * d, const void * s)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
-  index_type stride[GFC_MAX_DIMENSIONS];
-  index_type stride0;
+  index_type sm[GFC_MAX_DIMENSIONS];
+  index_type sm0;
   index_type dim;
   index_type dsize;
   char *dest;
@@ -179,19 +179,19 @@ internal_unpack (gfc_array_char * d, const void * s)
       break;
     }
 
-  size = GFC_DESCRIPTOR_SIZE (d);
 
   dim = GFC_DESCRIPTOR_RANK (d);
-  dsize = 1;
+  size = GFC_DESCRIPTOR_ELEM_LEN (d);
+  dsize = size;
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
-      stride[n] = GFC_DESCRIPTOR_STRIDE(d,n);
+      sm[n] = GFC_DESCRIPTOR_SM(d,n);
       extent[n] = GFC_DESCRIPTOR_EXTENT(d,n);
       if (extent[n] <= 0)
 	return;
 
-      if (dsize == stride[n])
+      if (dsize == sm[n])
 	dsize *= extent[n];
       else
 	dsize = 0;
@@ -201,11 +201,11 @@ internal_unpack (gfc_array_char * d, const void * s)
 
   if (dsize != 0)
     {
-      memcpy (dest, src, dsize * size);
+      memcpy (dest, src, dsize);
       return;
     }
 
-  stride0 = stride[0] * size;
+  sm0 = sm[0];
 
   while (dest)
     {
@@ -213,7 +213,7 @@ internal_unpack (gfc_array_char * d, const void * s)
       memcpy (dest, src, size);
       /* Advance to the next element.  */
       src += size;
-      dest += stride0;
+      dest += sm0;
       count[0]++;
       /* Advance to the next source element.  */
       n = 0;
@@ -224,7 +224,7 @@ internal_unpack (gfc_array_char * d, const void * s)
           count[n] = 0;
           /* We could precalculate these products, but this is a less
              frequently used path so probably not worth it.  */
-          dest -= stride[n] * extent[n] * size;
+          dest -= sm[n] * extent[n];
           n++;
           if (n == dim)
             {
@@ -234,7 +234,7 @@ internal_unpack (gfc_array_char * d, const void * s)
           else
             {
               count[n]++;
-              dest += stride[n] * size;
+              dest += sm[n];
             }
         }
     }

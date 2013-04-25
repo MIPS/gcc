@@ -74,7 +74,7 @@ eoshift1 (gfc_array_char * const restrict ret,
   soffset = 0;
   roffset = 0;
 
-  size = GFC_DESCRIPTOR_SIZE(array);
+  size = GFC_DESCRIPTOR_ELEM_LEN(array);
 
   if (pwhich)
     which = *pwhich - 1;
@@ -89,8 +89,9 @@ eoshift1 (gfc_array_char * const restrict ret,
     {
       int i;
 
+      ret->elem_len = array->elem_len;
+      ret->type = array->type;
       ret->offset = 0;
-      ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
 	  index_type ext, sm;

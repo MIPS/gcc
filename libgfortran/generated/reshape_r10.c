@@ -30,7 +30,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #if defined (HAVE_GFC_REAL_10)
 
-typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
+typedef CFI_CDESC_TYPE_T(1, index_type) shape_type;
 
 
 extern void reshape_r10 (gfc_array_r10 * const restrict, 
@@ -116,8 +116,8 @@ reshape_r10 (gfc_array_r10 * const restrict ret,
         alloc_size = rs;
 
       ret->base_addr = xmalloc (alloc_size);
-      ret->rank = rdim;
-      ret->dtype = source->dtype;
+      ret->elem_len = source->elem_len;
+      ret->type = source->type;
     }
 
   if (shape_empty)

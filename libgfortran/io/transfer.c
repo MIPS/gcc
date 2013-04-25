@@ -2133,7 +2133,8 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
     return;
 
   iotype = (bt) GFC_DESCRIPTOR_TYPE (desc);
-  size = iotype == BT_CHARACTER ? charlen : GFC_DESCRIPTOR_SIZE (desc);
+  size = iotype == BT_CHARACTER ? charlen
+				: (index_type) GFC_DESCRIPTOR_ELEM_LEN (desc);
 
   rank = GFC_DESCRIPTOR_RANK (desc);
   for (n = 0; n < rank; n++)
@@ -2878,33 +2879,36 @@ init_loop_spec (gfc_array_char *desc, array_loop_spec *ls,
 {
   int rank = GFC_DESCRIPTOR_RANK(desc);
   int i;
-  gfc_offset index; 
+  gfc_offset index, elem_len;
   int empty;
 
   empty = 0;
   index = 1;
   *start_record = 0;
 
-  for (i=0; i<rank; i++)
+  elem_len = GFC_DESCRIPTOR_ELEM_LEN (desc);
+  if (elem_len <= 0)
+    return 0;
+
+  for (i=0; i < rank; i++)
     {
       ls[i].idx = GFC_DESCRIPTOR_LBOUND(desc,i);
       ls[i].start = GFC_DESCRIPTOR_LBOUND(desc,i);
       ls[i].end = GFC_DESCRIPTOR_UBOUND(desc,i);
-      ls[i].step = GFC_DESCRIPTOR_STRIDE(desc,i);
-      empty = empty || (GFC_DESCRIPTOR_UBOUND(desc,i) 
-			< GFC_DESCRIPTOR_LBOUND(desc,i));
+      ls[i].step = GFC_DESCRIPTOR_SM(desc,i)/elem_len;
+      empty = empty || (GFC_DESCRIPTOR_EXTENT(desc,i) <= 0);
 
       if (GFC_DESCRIPTOR_SM(desc,i) > 0)
 	{
 	  index += (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
-	    * GFC_DESCRIPTOR_STRIDE(desc,i);
+	    * GFC_DESCRIPTOR_SM(desc,i)/elem_len;
 	}
       else
 	{
 	  index -= (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
-	    * GFC_DESCRIPTOR_STRIDE(desc,i);
+	    * GFC_DESCRIPTOR_SM(desc,i)/elem_len;
 	  *start_record -= (GFC_DESCRIPTOR_EXTENT(desc,i) - 1)
-	    * GFC_DESCRIPTOR_STRIDE(desc,i);
+	    * GFC_DESCRIPTOR_SM(desc,i)/elem_len;
 	}
     }
 
@@ -3745,15 +3749,15 @@ st_wait (st_parameter_wait *wtp __attribute__((unused)))
    in a linked list of namelist_info types.  */
 
 extern void st_set_nml_var (st_parameter_dt *dtp, void *, char *,
-			    GFC_INTEGER_4, gfc_charlen_type, int,
+			    GFC_INTEGER_4, size_t, int,
 			    GFC_INTEGER_4);
 export_proto(st_set_nml_var);
 
 
 void
 st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
-		GFC_INTEGER_4 len, gfc_charlen_type string_length,
-		int rank, GFC_INTEGER_4 dtype)
+		GFC_INTEGER_4 len, size_t elem_len,
+		int rank, GFC_INTEGER_4 type)
 {
   namelist_info *t1 = NULL;
   namelist_info *nml;
@@ -3768,11 +3772,11 @@ st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
   nml->var_name[var_name_len] = '\0';
 
   nml->len = (int) len;
-  nml->string_length = (index_type) string_length;
+  nml->string_length = len ? (index_type) elem_len/len : 0;
 
   nml->var_rank = rank;
-  nml->size = (index_type) (dtype >> GFC_DTYPE_SIZE_SHIFT);
-  nml->type = (bt) ((dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT);
+  nml->size = (index_type) elem_len;
+  nml->type = (bt) ((type & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT);
 
   if (nml->var_rank > 0)
     {

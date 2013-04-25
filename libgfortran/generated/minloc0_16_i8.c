@@ -56,8 +56,8 @@ minloc0_16_i8 (gfc_array_i16 * const restrict retarray,
   if (retarray->base_addr == NULL)
     {
       GFC_DIMENSION_SET (retarray->dim[0], 0, rank, sizeof (GFC_INTEGER_16));
-      retarray->rank = 1;
-      retarray->dtype = retarray->dtype;
+      retarray->elem_len = retarray->elem_len;
+      retarray->type = retarray->type;
       retarray->offset = 0;
       retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_16) * rank);
     }
@@ -198,8 +198,8 @@ mminloc0_16_i8 (gfc_array_i16 * const restrict retarray,
   if (retarray->base_addr == NULL)
     {
       GFC_DIMENSION_SET (retarray->dim[0], 0, rank, sizeof (GFC_INTEGER_16));
-      retarray->rank = 1;
-      retarray->dtype = retarray->dtype;
+      retarray->elem_len = retarray->elem_len;
+      retarray->type = retarray->type;
       retarray->offset = 0;
       retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_16) * rank);
     }
@@ -215,7 +215,7 @@ mminloc0_16_i8 (gfc_array_i16 * const restrict retarray,
 	}
     }
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   mbase = mask->base_addr;
 
@@ -367,8 +367,6 @@ sminloc0_16_i8 (gfc_array_i16 * const restrict retarray,
   if (retarray->base_addr == NULL)
     {
       GFC_DIMENSION_SET (retarray->dim[0], 0, rank, sizeof (GFC_INTEGER_16));
-      retarray->rank = 1;
-      retarray->dtype = retarray->dtype;
       retarray->offset = 0;
       retarray->base_addr = xmalloc (sizeof (GFC_INTEGER_16) * rank);
     }

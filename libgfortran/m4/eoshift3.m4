@@ -79,7 +79,7 @@ eoshift3 (gfc_array_char * const restrict ret,
   roffset = 0;
 
   arraysize = size0 ((array_t *) array);
-  size = GFC_DESCRIPTOR_SIZE(array);
+  size = GFC_DESCRIPTOR_ELEM_LEN(array);
 
   if (pwhich)
     which = *pwhich - 1;
@@ -91,8 +91,9 @@ eoshift3 (gfc_array_char * const restrict ret,
       int i;
 
       ret->base_addr = xmalloc (size * arraysize);
+      ret->elem_len = array->elem_len;
+      ret->type = array->type;
       ret->offset = 0;
-      ret->dtype = array->dtype;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
 	  index_type ext, sm;

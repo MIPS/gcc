@@ -66,7 +66,7 @@ unpack0_i16 (gfc_array_i16 *ret, const gfc_array_i16 *vector,
   /* Use the same loop for all logical types, by using GFC_LOGICAL_1
      and using shifting to address size and endian issues.  */
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16
@@ -211,7 +211,7 @@ unpack1_i16 (gfc_array_i16 *ret, const gfc_array_i16 *vector,
   /* Use the same loop for all logical types, by using GFC_LOGICAL_1
      and using shifting to address size and endian issues.  */
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16

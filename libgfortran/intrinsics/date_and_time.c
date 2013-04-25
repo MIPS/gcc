@@ -193,9 +193,9 @@ date_and_time (char *__date, char *__time, char *__zone,
     {
       index_type len, delta, elt_size;
 
-      elt_size = GFC_DESCRIPTOR_SIZE (__values);
+      elt_size = GFC_DESCRIPTOR_ELEM_LEN (__values);
       len = GFC_DESCRIPTOR_EXTENT(__values,0);
-      delta = GFC_DESCRIPTOR_STRIDE(__values,0);
+      delta = GFC_DESCRIPTOR_SM(__values,0)/elt_size;
       if (delta == 0)
 	delta = 1;
       
@@ -274,7 +274,7 @@ secnds (GFC_REAL_4 *x)
   GFC_DESCRIPTOR_DTYPE (avalues) = ((BT_REAL << GFC_DTYPE_TYPE_SHIFT)
 				        & GFC_DTYPE_TYPE_MASK) +
 				    (4 << GFC_DTYPE_SIZE_SHIFT);
-
+  GFC_DESCRIPTOR_ELEM_LEN (avalues) = sizeof (GFC_INTEGER_4);
   GFC_DIMENSION_SET (avalues->dim[0], 0, 8, sizeof (GFC_REAL_4));
 
   date_and_time (NULL, NULL, NULL, avalues, 0, 0, 0);

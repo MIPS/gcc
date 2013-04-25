@@ -6,6 +6,8 @@ ACLOCAL_AMFLAGS = -I .. -I ../config
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
+libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
+
 ## Symbol versioning (copied from libssp).
 if LIBGFOR_USE_SYMVER
 if LIBGFOR_USE_SYMVER_GNU
@@ -30,6 +32,8 @@ version_arg =
 version_dep =
 endif
 
+nodist_libsubinclude_HEADERS = ISO_Fortran_binding.h
+
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS)) \
 	    $(lt_host_flags)
 
@@ -39,12 +43,14 @@ libgfortran_la_LINK = $(LINK) $(libgfortran_la_LDFLAGS)
 libgfortran_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` \
 	$(LTLDFLAGS) $(LIBQUADLIB) -lm $(extra_ldflags_libgfortran) \
 	$(version_arg) -Wc,-shared-libgcc
-libgfortran_la_DEPENDENCIES = $(version_dep) libgfortran.spec $(LIBQUADLIB_DEP)
+libgfortran_la_DEPENDENCIES = ISO_Fortran_binding.h $(version_dep) libgfortran.spec \
+	$(LIBQUADLIB_DEP)
 
 myexeclib_LTLIBRARIES = libgfortranbegin.la
 myexeclibdir = $(libdir)/gcc/$(target_alias)/$(gcc_version)$(MULTISUBDIR)
 libgfortranbegin_la_SOURCES = fmain.c
 libgfortranbegin_la_LDFLAGS = -static
+libgfortranbegin_la_DEPENDENCIES = ISO_Fortran_binding.h libgfortran.h
 libgfortranbegin_la_LINK = $(LINK) $(libgfortranbegin_la_LDFLAGS)
 
 cafexeclib_LTLIBRARIES = libcaf_single.la
@@ -167,6 +173,7 @@ runtime/compile_options.c \
 runtime/convert_char.c \
 runtime/environ.c \
 runtime/error.c \
+runtime/iso_ts29113.c \
 runtime/fpu.c \
 runtime/main.c \
 runtime/memory.c \
@@ -855,6 +862,11 @@ I_M4_DEPS2=$(I_M4_DEPS) m4/ifunction_logical.m4
 
 kinds.h: $(srcdir)/mk-kinds-h.sh
 	$(SHELL) $(srcdir)/mk-kinds-h.sh '$(FCCOMPILE)' > $@ || rm $@
+
+ISO_Fortran_binding.h: $(srcdir)/mk-kinds-ts29113.sh $(srcdir)/ISO_Fortran_binding.h.tmpl
+	cp $(srcdir)/ISO_Fortran_binding.h.tmpl $@.tmp
+	$(SHELL) $(srcdir)/mk-kinds-ts29113.sh '$(FCCOMPILE)' >> $@.tmp || rm $@.tmp
+	mv $@.tmp $@
 
 kinds.inc: kinds.h
 	grep '^#' < kinds.h > $@

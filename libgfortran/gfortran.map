@@ -1195,6 +1195,18 @@ GFORTRAN_1.5 {
     _gfortran_backtrace;
 } GFORTRAN_1.4; 
 
+GFORTRAN_1.6 {
+  global:
+    CFI_address;
+    CFI_allocate;
+    CFI_deallocate;
+    CFI_establish;
+    CFI_is_contiguous;
+    CFI_section;
+    CFI_select_part;
+    CFI_setpointer;
+} GFORTRAN_1.5; 
+
 F2C_1.0 {
   global:
     _gfortran_f2c_specific__abs_c4;

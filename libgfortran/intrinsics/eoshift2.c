@@ -67,7 +67,7 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
   soffset = 0;
   roffset = 0;
 
-  size = GFC_DESCRIPTOR_SIZE (array);
+  size = GFC_DESCRIPTOR_ELEM_LEN (array);
 
   arraysize = size0 ((array_t *) array);
 
@@ -76,7 +76,8 @@ eoshift2 (gfc_array_char *ret, const gfc_array_char *array,
       int i;
 
       ret->offset = 0;
-      ret->dtype = array->dtype;
+      ret->elem_len = array->elem_len;
+      ret->type = array->type;
 
       /* xmalloc allocates a single byte for zero size.  */
       ret->base_addr = xmalloc (size * arraysize);

@@ -1563,18 +1563,25 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   if (as)
     rank = as->rank;
 
+  decl = (sym) ? sym->backend_decl : c->backend_decl;
   if (rank)
     {
-      decl = (sym) ? sym->backend_decl : c->backend_decl;
       if (sym && sym->attr.dummy)
         decl = build_fold_indirect_ref_loc (input_location, decl);
       dt =  TREE_TYPE (decl);
       dtype = gfc_get_dtype (dt);
+      tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dt));
     }
   else
     {
       itype = ts->type;
       dtype = IARG (itype << GFC_DTYPE_TYPE_SHIFT);
+      tmp = TREE_TYPE (decl);
+      if (TREE_CODE (tmp) == REFERENCE_TYPE)
+	tmp = TREE_TYPE (tmp);
+      if (POINTER_TYPE_P (tmp) || TREE_CODE (tmp) == REFERENCE_TYPE)
+	tmp = TREE_TYPE (tmp);
+      tmp = TYPE_SIZE_UNIT (tmp);
     }
 
   /* Build up the arguments for the transfer call.
@@ -1583,10 +1590,6 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
 
   dt_parm_addr = gfc_build_addr_expr (NULL_TREE, dt_parm);
 
-  if (ts->type == BT_CHARACTER)
-    tmp = ts->u.cl->backend_decl;
-  else
-    tmp = build_int_cst (gfc_charlen_type_node, 0);
   tmp = build_call_expr_loc (input_location,
 			 iocall[IOCALL_SET_NML_VAL], 7,
 			 dt_parm_addr, addr_expr, string,

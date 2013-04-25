@@ -59,14 +59,8 @@ ISO_C_BINDING_PREFIX (c_f_pointer) (void *c_ptr_in,
     {
       f_ptr_out->offset = 0;
 
-      /* Set the necessary dtype field for all pointers.  */
-      f_ptr_out->dtype = 0;
-
-      /* Put in the element size.  */
-      f_ptr_out->dtype = f_ptr_out->dtype | (elemSize << GFC_DTYPE_SIZE_SHIFT);
-
       /* Set the data type (e.g., BT_INTEGER).  */
-      f_ptr_out->dtype = f_ptr_out->dtype | (type << GFC_DTYPE_TYPE_SHIFT);
+      f_ptr_out->type = (type << GFC_DTYPE_TYPE_SHIFT);
     }
   
   /* Use the generic version of c_f_pointer to set common fields.  */
@@ -101,7 +95,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void *c_ptr_in,
       f_ptr_out->offset = str;
       shapeSize = 0;
       p = shape->base_addr;
-      size = GFC_DESCRIPTOR_SIZE(shape);
+      size = GFC_DESCRIPTOR_ELEM_LEN(shape);
 
       source_stride = GFC_DESCRIPTOR_SM(shape,0);
 
@@ -158,12 +152,12 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void *c_ptr_in,
       f_ptr_out->offset *= -1;
 
       /* All we know is the rank, so set it, leaving the rest alone.
-         Make NO assumptions about the state of dtype coming in!  If we
+         Make NO assumptions about the state of type coming in!  If we
          shift right by TYPE_SHIFT bits we'll throw away the existing
          rank.  Then, shift left by the same number to shift in zeros
          and or with the new rank.  */
-      f_ptr_out->dtype = ((f_ptr_out->dtype >> GFC_DTYPE_TYPE_SHIFT)
-                           << GFC_DTYPE_TYPE_SHIFT) | shapeSize;
+      f_ptr_out->type = ((f_ptr_out->type >> GFC_DTYPE_TYPE_SHIFT)
+                           << GFC_DTYPE_TYPE_SHIFT);
     }
 }
 
@@ -182,8 +176,8 @@ ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void *c_ptr_in,
   /* Preserve the size and rank bits, but reset the type.  */
   if (shape != NULL)
     {
-      f_ptr_out->dtype = f_ptr_out->dtype & (~GFC_DTYPE_TYPE_MASK);
-      f_ptr_out->dtype = f_ptr_out->dtype
+      f_ptr_out->type = f_ptr_out->type & (~GFC_DTYPE_TYPE_MASK);
+      f_ptr_out->type = f_ptr_out->type
 			 | (BT_DERIVED << GFC_DTYPE_TYPE_SHIFT);
     }
 }

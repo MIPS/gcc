@@ -1497,7 +1497,8 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 						      && sym->attr.allocatable),
 						  sym->attr.pointer
 						  || sym->attr.allocatable,
-						  sym->attr.proc_pointer);
+						  sym->attr.proc_pointer,
+						  sym->as ? sym->as->rank : 0);
     }
 
   if (!TREE_STATIC (decl)
@@ -1599,7 +1600,8 @@ get_proc_pointer_decl (gfc_symbol *sym)
       DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
 						  TREE_TYPE (decl),
 						  sym->attr.dimension,
-						  false, true);
+						  false, true,
+						  sym->as ? sym->as->rank : 0);
     }
 
   /* Handle threadprivate procedure pointers.  */
@@ -3649,9 +3651,12 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 				NULL_TREE);
 	}
 
-      if (sym->ts.type == BT_CLASS
+      if (sym->ts.type == BT_CLASS && !sym->attr.dummy
 	  && (sym->attr.save || gfc_option.flag_max_stack_var_size == 0)
-	  && CLASS_DATA (sym)->attr.allocatable)
+	  && (CLASS_DATA (sym)->attr.allocatable
+	      || CLASS_DATA (sym)->attr.dimension
+              || (CLASS_DATA (sym)->attr.codimension
+                  && gfc_option.coarray != GFC_FCOARRAY_LIB)))
 	{
 	  tree vptr;
 
@@ -3669,8 +3674,19 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      || (CLASS_DATA (sym)->attr.codimension
 		  && gfc_option.coarray != GFC_FCOARRAY_LIB))
 	    {
+	      int attr;
+
+	      if (CLASS_DATA (sym)->attr.class_pointer)
+		attr = GFC_ATTRIBUTE_POINTER;
+	      else if (CLASS_DATA (sym)->attr.allocatable)
+		attr = GFC_ATTRIBUTE_ALLOCATABLE;
+	      else
+		gcc_unreachable ();
+
 	      tmp = gfc_class_data_get (sym->backend_decl);
-	      tmp = gfc_build_null_descriptor (TREE_TYPE (tmp));
+	      tmp = gfc_build_null_descriptor (TREE_TYPE (tmp),
+					       CLASS_DATA (sym)->as->rank,
+					       attr);
 	    }
 	  else
 	    tmp = null_pointer_node;
@@ -3817,6 +3833,22 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      gfc_set_backend_locus (&sym->declared_at);
 	      gfc_start_block (&init);
 
+	      if (!sym->attr.dummy && descriptor != NULL_TREE)
+		{
+                  tree type = TREE_TYPE (CLASS_DATA (sym)->backend_decl);
+		  gcc_assert (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as);
+		  gfc_conv_descriptor_elem_len_set (&init, descriptor,
+				  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
+		  gfc_conv_descriptor_version_set (&init, descriptor);
+		  gfc_conv_descriptor_rank_set (&init, descriptor,
+						CLASS_DATA (sym)->as->rank);
+		  tmp = gfc_conv_descriptor_dtype (descriptor);
+		  gfc_add_modify (&init, tmp, gfc_get_dtype (type));
+		  gfc_conv_descriptor_attr_set (&init, descriptor,
+                                     CLASS_DATA (sym)->attr.allocatable
+                                     ? GFC_ATTRIBUTE_ALLOCATABLE
+                                     : GFC_ATTRIBUTE_POINTER);
+		}
 	      if (!sym->attr.dummy || sym->attr.intent == INTENT_OUT)
 		{
 		  /* Nullify when entering the scope.  */
@@ -4400,7 +4432,8 @@ gfc_emit_parameter_debug_info (gfc_symbol *sym)
   DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
 					      TREE_TYPE (decl),
 					      sym->attr.dimension,
-					      false, false);
+					      false, false,
+					      sym->as ? sym->as->rank : 0);
   debug_hooks->global_decl (decl);
 }
 

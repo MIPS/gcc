@@ -101,7 +101,7 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
   /* Use the same loop for all logical types, by using GFC_LOGICAL_1
      and using shifting to address size and endian issues.  */
 
-  mask_kind = GFC_DESCRIPTOR_SIZE (mask);
+  mask_kind = GFC_DESCRIPTOR_ELEM_LEN (mask);
 
   if (mask_kind == 1 || mask_kind == 2 || mask_kind == 4 || mask_kind == 8
 #ifdef HAVE_GFC_LOGICAL_16
@@ -404,7 +404,7 @@ pack (gfc_array_char *ret, const gfc_array_char *array,
 
     }
 
-  size = GFC_DESCRIPTOR_SIZE (array);
+  size = GFC_DESCRIPTOR_ELEM_LEN (array);
   pack_internal (ret, array, mask, vector, size);
 }
 
@@ -603,7 +603,7 @@ void
 pack_s (gfc_array_char *ret, const gfc_array_char *array,
 	const GFC_LOGICAL_4 *mask, const gfc_array_char *vector)
 {
-  pack_s_internal (ret, array, mask, vector, GFC_DESCRIPTOR_SIZE (array));
+  pack_s_internal (ret, array, mask, vector, GFC_DESCRIPTOR_ELEM_LEN (array));
 }
 
 

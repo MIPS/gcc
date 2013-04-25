@@ -28,8 +28,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <string.h>
 #include <assert.h>
 
-typedef GFC_ARRAY_DESCRIPTOR(1, index_type) shape_type;
-typedef GFC_ARRAY_DESCRIPTOR(GFC_MAX_DIMENSIONS, char) parray;
+typedef CFI_CDESC_TYPE_T(1, index_type) shape_type;
+typedef CFI_CDESC_TYPE_T(GFC_MAX_DIMENSIONS, char) parray;
 
 static void
 reshape_internal (parray *ret, parray *source, shape_type *shape,
@@ -38,8 +38,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   /* r.* indicates the return array.  */
   index_type rcount[GFC_MAX_DIMENSIONS];
   index_type rextent[GFC_MAX_DIMENSIONS];
-  index_type rstride[GFC_MAX_DIMENSIONS];
-  index_type rstride0;
+  index_type rsm[GFC_MAX_DIMENSIONS];
+  index_type rsm0;
   index_type rdim;
   index_type rsize;
   index_type rs;
@@ -48,15 +48,15 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   /* s.* indicates the source array.  */
   index_type scount[GFC_MAX_DIMENSIONS];
   index_type sextent[GFC_MAX_DIMENSIONS];
-  index_type sstride[GFC_MAX_DIMENSIONS];
-  index_type sstride0;
+  index_type ssm[GFC_MAX_DIMENSIONS];
+  index_type ssm0;
   index_type sdim;
   index_type ssize;
   const char *sptr;
   /* p.* indicates the pad array.  */
   index_type pcount[GFC_MAX_DIMENSIONS];
   index_type pextent[GFC_MAX_DIMENSIONS];
-  index_type pstride[GFC_MAX_DIMENSIONS];
+  index_type psm[GFC_MAX_DIMENSIONS];
   index_type pdim;
   index_type psize;
   const char *pptr;
@@ -65,7 +65,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   int n;
   int dim;
   int sempty, pempty, shape_empty;
-  index_type shape_data[GFC_MAX_DIMENSIONS];
+  index_type shape_data[GFC_MAX_DIMENSIONS], tmp_stride;
 
   rdim = GFC_DESCRIPTOR_EXTENT(shape,0);
   if (rdim != GFC_DESCRIPTOR_RANK(ret))
@@ -73,9 +73,10 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 
   shape_empty = 0;
 
+  tmp_stride = GFC_DESCRIPTOR_SM (shape,0)/sizeof (index_type);
   for (n = 0; n < rdim; n++)
     {
-      shape_data[n] = shape->base_addr[n * GFC_DESCRIPTOR_STRIDE(shape,0)];
+      shape_data[n] = shape->base_addr[n * tmp_stride];
       if (shape_data[n] <= 0)
 	{
 	  shape_data[n] = 0;
@@ -104,8 +105,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 	alloc_size = rs;
 
       ret->base_addr = xmalloc (alloc_size);
-      ret->rank = rdim;
-      ret->dtype = source->dtype;
+      ret->elem_len = source->elem_len;
+      ret->type = source->type;
     }
 
   if (shape_empty)
@@ -114,20 +115,20 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
   if (pad)
     {
       pdim = GFC_DESCRIPTOR_RANK (pad);
-      psize = 1;
+      psize = size;
       pempty = 0;
       for (n = 0; n < pdim; n++)
         {
           pcount[n] = 0;
-          pstride[n] = GFC_DESCRIPTOR_STRIDE(pad,n);
-          pextent[n] = GFC_DESCRIPTOR_EXTENT(pad,n);
+          psm[n] = GFC_DESCRIPTOR_SM (pad,n);
+          pextent[n] = GFC_DESCRIPTOR_EXTENT (pad,n);
           if (pextent[n] <= 0)
 	    {
 	      pempty = 1;
               pextent[n] = 0;
 	    }
 
-          if (psize == pstride[n])
+          if (psize == psm[n])
             psize *= pextent[n];
           else
             psize = 0;
@@ -180,9 +181,10 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 	  for (n = 0; n < rdim; n++)
 	    seen[n] = 0;
 
+	  tmp_stride = GFC_DESCRIPTOR_SM (order,0)/sizeof (index_type);
 	  for (n = 0; n < rdim; n++)
 	    {
-	      v = order->base_addr[n * GFC_DESCRIPTOR_STRIDE(order,0)] - 1;
+	      v = order->base_addr[n * tmp_stride] - 1;
 
 	      if (v < 0 || v >= rdim)
 		runtime_error("Value %ld out of range in ORDER argument"
@@ -197,22 +199,24 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 	}
     }
 
-  rsize = 1;
+  rsize = size;
+  if (order)
+    tmp_stride = GFC_DESCRIPTOR_SM (order,0)/sizeof (index_type);
   for (n = 0; n < rdim; n++)
     {
       if (order)
-        dim = order->base_addr[n * GFC_DESCRIPTOR_STRIDE(order,0)] - 1;
+        dim = order->base_addr[n * tmp_stride] - 1;
       else
         dim = n;
 
       rcount[n] = 0;
-      rstride[n] = GFC_DESCRIPTOR_STRIDE(ret,dim);
+      rsm[n] = GFC_DESCRIPTOR_SM(ret,dim);
       rextent[n] = GFC_DESCRIPTOR_EXTENT(ret,dim);
 
       if (rextent[n] != shape_data[dim])
         runtime_error ("shape and target do not conform");
 
-      if (rsize == rstride[n])
+      if (rsize == rsm[n])
         rsize *= rextent[n];
       else
         rsize = 0;
@@ -221,12 +225,12 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
     }
 
   sdim = GFC_DESCRIPTOR_RANK (source);
-  ssize = 1;
+  ssize = size;
   sempty = 0;
   for (n = 0; n < sdim; n++)
     {
       scount[n] = 0;
-      sstride[n] = GFC_DESCRIPTOR_STRIDE(source,n);
+      ssm[n] = GFC_DESCRIPTOR_SM(source,n);
       sextent[n] = GFC_DESCRIPTOR_EXTENT(source,n);
       if (sextent[n] <= 0)
 	{
@@ -234,7 +238,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 	  sextent[n] = 0;
 	}
 
-      if (ssize == sstride[n])
+      if (ssize == ssm[n])
         ssize *= sextent[n];
       else
         ssize = 0;
@@ -242,17 +246,14 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 
   if (rsize != 0 && ssize != 0 && psize != 0)
     {
-      rsize *= size;
-      ssize *= size;
-      psize *= size;
       reshape_packed (ret->base_addr, rsize, source->base_addr, ssize,
 		      pad ? pad->base_addr : NULL, psize);
       return;
     }
   rptr = ret->base_addr;
   src = sptr = source->base_addr;
-  rstride0 = rstride[0] * size;
-  sstride0 = sstride[0] * size;
+  rsm0 = rsm[0];
+  ssm0 = ssm[0];
 
   if (sempty && pempty)
     abort ();
@@ -267,8 +268,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
 	{
 	  scount[dim] = pcount[dim];
 	  sextent[dim] = pextent[dim];
-	  sstride[dim] = pstride[dim];
-	  sstride0 = pstride[0] * size;
+	  ssm[dim] = psm[dim];
+	  ssm0 = psm[0];
 	}
     }
 
@@ -277,8 +278,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
       /* Select between the source and pad arrays.  */
       memcpy(rptr, src, size);
       /* Advance to the next element.  */
-      rptr += rstride0;
-      src += sstride0;
+      rptr += rsm0;
+      src += ssm0;
       rcount[0]++;
       scount[0]++;
 
@@ -291,7 +292,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
           rcount[n] = 0;
           /* We could precalculate these products, but this is a less
              frequently used path so probably not worth it.  */
-          rptr -= rstride[n] * rextent[n] * size;
+          rptr -= rsm[n] * rextent[n];
           n++;
           if (n == rdim)
             {
@@ -302,7 +303,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
           else
             {
               rcount[n]++;
-              rptr += rstride[n] * size;
+              rptr += rsm[n];
             }
 	}
 
@@ -315,7 +316,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
           scount[n] = 0;
           /* We could precalculate these products, but this is a less
              frequently used path so probably not worth it.  */
-          src -= sstride[n] * sextent[n] * size;
+          src -= ssm[n] * sextent[n];
           n++;
           if (n == sdim)
             {
@@ -328,8 +329,8 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
                     {
                       scount[dim] = pcount[dim];
                       sextent[dim] = pextent[dim];
-                      sstride[dim] = pstride[dim];
-                      sstride0 = sstride[0] * size;
+                      ssm[dim] = psm[dim];
+                      ssm0 = ssm[0];
                     }
                 }
               /* We now start again from the beginning of the pad array.  */
@@ -339,7 +340,7 @@ reshape_internal (parray *ret, parray *source, shape_type *shape,
           else
             {
               scount[n]++;
-              src += sstride[n] * size;
+              src += ssm[n];
             }
         }
     }
@@ -353,7 +354,7 @@ reshape (parray *ret, parray *source, shape_type *shape, parray *pad,
 	 shape_type *order)
 {
   reshape_internal (ret, source, shape, pad, order,
-		    GFC_DESCRIPTOR_SIZE (source));
+		    GFC_DESCRIPTOR_ELEM_LEN (source));
 }
 
 

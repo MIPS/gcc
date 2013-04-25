@@ -165,7 +165,7 @@ end
 ! { dg-final { scan-tree-dump-times "\\.base_addr = \\(void .\\) &array_t1.0.;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_array_assumed \\(\\(struct t1.0:. .\\) parm" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_array_assumed \\(\\(struct t2.0:. . restrict\\) array_t2_alloc.base_addr\\);" 1 "original" } }
-! { dg-final { scan-tree-dump-times "sub_array_assumed \\(\\(struct t3.0:. .\\) array_t3_ptr.base_addr\\);" 1 "original" } }
+! { dg-final { scan-tree-dump-times "D\\.\[0-9\]+ = _gfortran_internal_pack \\(&array_t3_ptr\\);\[^\\n\]*\\n *sub_array_assumed \\(D\\.\[0-9\]+\\);" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_array_assumed \\(\\(struct t1.0:. . restrict\\) array_class_t1_alloc._data.base_addr\\);" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "sub_array_assumed \\(\\(struct t1.0:. .\\) array_class_t1_ptr._data.base_addr\\);" 1 "original" } }
 

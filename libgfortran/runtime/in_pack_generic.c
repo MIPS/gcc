@@ -36,10 +36,10 @@ internal_pack (gfc_array_char * source)
 {
   index_type count[GFC_MAX_DIMENSIONS];
   index_type extent[GFC_MAX_DIMENSIONS];
-  index_type stride[GFC_MAX_DIMENSIONS];
-  index_type stride0;
+  index_type sm[GFC_MAX_DIMENSIONS];
   index_type dim;
   index_type ssize;
+  index_type sm0;
   const char *src;
   char *dest;
   void *destptr;
@@ -52,7 +52,6 @@ internal_pack (gfc_array_char * source)
     return NULL;
 
   type_size = GFC_DTYPE_TYPE_SIZE(source);
-  size = GFC_DESCRIPTOR_SIZE (source);
   switch (type_size)
     {
     case GFC_DTYPE_INTEGER_1:
@@ -156,12 +155,13 @@ internal_pack (gfc_array_char * source)
     }
 
   dim = GFC_DESCRIPTOR_RANK (source);
-  ssize = 1;
+  size = GFC_DESCRIPTOR_ELEM_LEN (source);
+  ssize = size;
   packed = 1;
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
-      stride[n] = GFC_DESCRIPTOR_STRIDE(source,n);
+      sm[n] = GFC_DESCRIPTOR_SM(source,n);
       extent[n] = GFC_DESCRIPTOR_EXTENT(source,n);
       if (extent[n] <= 0)
         {
@@ -170,7 +170,7 @@ internal_pack (gfc_array_char * source)
           break;
         }
 
-      if (ssize != stride[n])
+      if (ssize != sm[n])
         packed = 0;
 
       ssize *= extent[n];
@@ -183,7 +183,7 @@ internal_pack (gfc_array_char * source)
   destptr = xmalloc (ssize * size);
   dest = (char *)destptr;
   src = source->base_addr;
-  stride0 = stride[0] * size;
+  sm0 = sm[0];
 
   while (src)
     {
@@ -191,7 +191,7 @@ internal_pack (gfc_array_char * source)
       memcpy(dest, src, size);
       /* Advance to the next element.  */
       dest += size;
-      src += stride0;
+      src += sm0;
       count[0]++;
       /* Advance to the next source element.  */
       n = 0;
@@ -202,7 +202,7 @@ internal_pack (gfc_array_char * source)
           count[n] = 0;
           /* We could precalculate these products, but this is a less
              frequently used path so probably not worth it.  */
-          src -= stride[n] * extent[n] * size;
+          src -= sm[n] * extent[n];
           n++;
           if (n == dim)
             {
@@ -212,7 +212,7 @@ internal_pack (gfc_array_char * source)
           else
             {
               count[n]++;
-              src += stride[n] * size;
+              src += sm[n];
             }
         }
     }

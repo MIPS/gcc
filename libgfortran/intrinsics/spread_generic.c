@@ -53,7 +53,7 @@ spread_internal (gfc_array_char *ret, const gfc_array_char *source,
   index_type ncopies;
   index_type size;
 
-  size = GFC_DESCRIPTOR_SIZE(source);
+  size = GFC_DESCRIPTOR_ELEM_LEN(source);
 
   srank = GFC_DESCRIPTOR_RANK(source);
 
@@ -73,8 +73,8 @@ spread_internal (gfc_array_char *ret, const gfc_array_char *source,
 
       size_t ext, sm;
 
-      ret->rank = rrank;
-      ret->dtype = source->dtype;
+      ret->elem_len = source->elem_len;
+      ret->type = source->type;
       dim = 0;
       rs = size;
       for (n = 0; n < rrank; n++)
@@ -236,7 +236,7 @@ spread_internal_scalar (gfc_array_char *ret, const char *source,
   char * dest;
   size_t size;
 
-  size = GFC_DESCRIPTOR_SIZE(ret);
+  size = GFC_DESCRIPTOR_ELEM_LEN(ret);
 
   if (GFC_DESCRIPTOR_RANK (ret) != 1)
     runtime_error ("incorrect destination rank in spread()");
@@ -467,7 +467,7 @@ spread_scalar (gfc_array_char *ret, const char *source,
 {
   index_type type_size;
 
-  if (!ret->dtype)
+  if (!ret->type)
     runtime_error ("return array missing descriptor in spread()");
 
   type_size = GFC_DTYPE_TYPE_SIZE(ret);
@@ -628,7 +628,7 @@ spread_char_scalar (gfc_array_char *ret,
 		    const index_type *pncopies,
 		    GFC_INTEGER_4 source_length __attribute__((unused)))
 {
-  if (!ret->dtype)
+  if (!ret->type)
     runtime_error ("return array missing descriptor in spread()");
   spread_internal_scalar (ret, source, along, pncopies);
 }
@@ -646,7 +646,7 @@ spread_char4_scalar (gfc_array_char *ret,
 		     const index_type *pncopies,
 		     GFC_INTEGER_4 source_length __attribute__((unused)))
 {
-  if (!ret->dtype)
+  if (!ret->type)
     runtime_error ("return array missing descriptor in spread()");
   spread_internal_scalar (ret, source, along, pncopies);
 

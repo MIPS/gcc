@@ -63,7 +63,8 @@ cshift0 (gfc_array_char * ret, const gfc_array_char * array,
       int i;
 
       ret->offset = 0;
-      ret->dtype = array->dtype;
+      ret->elem_len = array->elem_len;
+      ret->type = array->type;
       for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
         {
 	  index_type ext, sm;
@@ -409,7 +410,7 @@ cshift0 (gfc_array_char * ret, const gfc_array_char * array,
 	       const GFC_INTEGER_##N *pshift, const GFC_INTEGER_##N *pdim)    \
   {									      \
     cshift0 (ret, array, *pshift, pdim ? *pdim : 1,			      \
-	     GFC_DESCRIPTOR_SIZE (array));				      \
+	     GFC_DESCRIPTOR_ELEM_LEN (array));				      \
   }									      \
 									      \
   extern void cshift0_##N##_char (gfc_array_char *, GFC_INTEGER_4,	      \

@@ -1746,13 +1746,17 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
 				    gfc_array_index_type, &chain);
   TREE_NO_WARNING (decl) = 1;
 
-  /* Add the dtype component.  */
+  /* Add the type component.  */
   decl = gfc_add_field_to_struct_1 (fat_type,
-				    get_identifier ("dtype"),
+				    get_identifier ("type"),
 				    gfc_array_index_type, &chain);
   TREE_NO_WARNING (decl) = 1;
 
-
+  /* Add the attribute component.  */
+  decl = gfc_add_field_to_struct_1 (fat_type,
+				    get_identifier ("attribute"),
+				    integer_type_node, &chain);
+  TREE_NO_WARNING (decl) = 1;
 
   /* Build the array type for the stride and bound components.  */
   if (dimen + codimen > 0)
