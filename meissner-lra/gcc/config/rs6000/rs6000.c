@@ -7377,9 +7377,14 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
       if (regno >= FIRST_PSEUDO_REGISTER)
 	{
-	  cl = reg_preferred_class (regno);
-	  gcc_assert (cl != NO_REGS);
-	  regno = ira_class_hard_regs[cl][0];
+	  if (reg_renumber[regno] >= 0)
+	    regno = reg_renumber[regno];
+	  else
+	    {
+	      cl = reg_preferred_class (regno);
+	      gcc_assert (cl != NO_REGS);
+	      regno = ira_class_hard_regs[cl][0];
+	    }
 	}
       if (FP_REGNO_P (regno))
 	{
@@ -7407,9 +7412,14 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
       if (regno >= FIRST_PSEUDO_REGISTER)
 	{
-	  cl = reg_preferred_class (regno);
-	  gcc_assert (cl != NO_REGS);
-	  regno = ira_class_hard_regs[cl][0];
+	  if (reg_renumber[regno] >= 0)
+	    regno = reg_renumber[regno];
+	  else
+	    {
+	      cl = reg_preferred_class (regno);
+	      gcc_assert (cl != NO_REGS);
+	      regno = ira_class_hard_regs[cl][0];
+	    }
 	}
       if (FP_REGNO_P (regno))
 	{
