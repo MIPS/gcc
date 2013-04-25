@@ -1,3 +1,17 @@
+2013-04-25  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/assign_10.f90: Update scan dump times.
+	* gfortran.dg/associate_11.f90: Ditto.
+	* gfortran.dg/assumed_rank_10.f90: Ditto.
+	* gfortran.dg/assumed_rank_12.f90: Ditto.
+	* gfortran.dg/assumed_type_2.f90: Ditto.
+	* gfortran.dg/class_allocate_14.f90: Ditto.
+	* gfortran.dg/intrinsic_size_3.f90: Ditto.
+	* gfortran.dg/no_arg_check_2.f90: Ditto.
+	* gfortran.dg/transpose_optimization_2.f90: Ditto.
+	* gfortran.dg/iso-ts-29113_1.f90: New.
+	* gfortran.dg/iso-ts-29113_1_c.c: New.
+
 2013-03-31  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/c_f_pointer_tests.f90: Move to trunk version.
