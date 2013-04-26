@@ -1857,6 +1857,7 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
     case POINTER_PLUS_EXPR:
     case NOP_EXPR:
     case CONVERT_EXPR:
+    case VIEW_CONVERT_EXPR:
     case INTEGER_CST:
       bounds = mpx_find_bounds (rhs1, &iter);
       break;
