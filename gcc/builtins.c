@@ -6690,12 +6690,16 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	   must be dropped to match the expected parameter list.  */
 	nargs = call_expr_nargs (exp);
 	vec_alloc (vec, nargs - 1);
-	for (z = 0; z < 3; z++)
-	  vec->quick_push (CALL_EXPR_ARG (exp, z));
-	/* Skip the boolean weak parameter.  */
-	for (z = 4; z < 6; z++)
-	  vec->quick_push (CALL_EXPR_ARG (exp, z));
-	exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
+	for (z = 0; z < nargs; z++)
+	  {
+	    /* Skip the boolean weak parameter.  */
+	    if ((!flag_mpx && z == 3)
+		|| (flag_mpx && z == 5))
+	      continue;
+
+	    vec->quick_push (CALL_EXPR_ARG (exp, z));
+	  }
+	orig_exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
 	break;
       }
 
