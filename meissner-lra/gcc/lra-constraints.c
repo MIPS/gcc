@@ -2038,7 +2038,13 @@ process_alt_operands (int only_alternative)
 	     or non-important thing to be worth to do it.  */
 	  overall = losers * LRA_LOSER_COST_FACTOR + reject;
 	  if ((best_losers == 0 || losers != 0) && best_overall < overall)
-	    goto fail;
+	    {
+	      if (lra_dump_file != NULL)
+		fprintf (lra_dump_file, "          alt=%d,overall=%d,losers=%d,"
+			 "small_class_ops=%d,rld_nregs=%d -- reject\n",
+		 nalt, overall, losers, small_class_operands_num, reload_nregs);
+	      goto fail;
+	    }
 
 	  curr_alt[nop] = this_alternative;
 	  COPY_HARD_REG_SET (curr_alt_set[nop], this_alternative_set);
@@ -2055,6 +2061,9 @@ process_alt_operands (int only_alternative)
 	    early_clobbered_nops[early_clobbered_regs_num++] = nop;
 	}
       if (curr_insn_set != NULL_RTX && n_operands == 2
+          /* Prevent processing non-move insns.  */
+          && (GET_CODE (SET_SRC (curr_insn_set)) == SUBREG
+              || SET_SRC (curr_insn_set) == no_subreg_reg_operand[1])
 	  && ((! curr_alt_win[0] && ! curr_alt_win[1]
 	       && REG_P (no_subreg_reg_operand[0])
 	       && REG_P (no_subreg_reg_operand[1])
@@ -2162,6 +2171,10 @@ process_alt_operands (int only_alternative)
 	small_class_operands_num
 	  += SMALL_REGISTER_CLASS_P (curr_alt[nop]) ? 1 : 0;
 
+      if (lra_dump_file != NULL)
+	fprintf (lra_dump_file, "          alt=%d,overall=%d,losers=%d,"
+		 "small_class_ops=%d,rld_nregs=%d\n",
+		 nalt, overall, losers, small_class_operands_num, reload_nregs);
       /* If this alternative can be made to work by reloading, and it
 	 needs less reloading than the others checked so far, record
 	 it as the chosen goal for reloading.  */
@@ -2518,7 +2531,6 @@ process_address (int nop, rtx *before, rtx *after)
 			    code = -1;
 			  }
 		      }
-		    
 		  }
 	      }
 	    if (code < 0)
@@ -3007,6 +3019,9 @@ curr_insn_transform (void)
 	  for (; *p != '\0' && *p != ',' && *p != '#'; p++)
 	    fputc (*p, lra_dump_file);
 	}
+      if (INSN_CODE (curr_insn) >= 0
+	  && (p = get_insn_name (INSN_CODE (curr_insn))) != NULL)
+	fprintf (lra_dump_file, " {%s}", p);
       fprintf (lra_dump_file, "\n");
     }
 

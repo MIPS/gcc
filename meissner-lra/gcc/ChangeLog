@@ -1,3 +1,10 @@
+2013-04-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (setup_operand_alternative): Ignore '?'.
+	* lra-constraints.c (process_alt_operands): Print cost dump for
+	alternatives.  Check only moves for cycling.
+	(curr_insn_transform): Print insn name.
+
 2013-04-25  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_move): Use assigned hard reg
