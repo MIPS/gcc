@@ -27045,6 +27045,7 @@ struct builtin_isa {
   enum ix86_builtin_func_type tcode; /* type to use in the declaration */
   HOST_WIDE_INT isa;		/* isa_flags this builtin is defined for */
   bool const_p;			/* true if the declaration is constant */
+  bool leaf_p;			/* true if the declaration has leaf attribute */
   bool set_and_not_built_p;
 };
 
@@ -27096,6 +27097,7 @@ def_builtin (HOST_WIDE_INT mask, const char *name,
 	  ix86_builtins[(int) code] = NULL_TREE;
 	  ix86_builtins_isa[(int) code].tcode = tcode;
 	  ix86_builtins_isa[(int) code].name = name;
+	  ix86_builtins_isa[(int) code].leaf_p = false;
 	  ix86_builtins_isa[(int) code].const_p = false;
 	  ix86_builtins_isa[(int) code].set_and_not_built_p = true;
 	}
@@ -27146,6 +27148,9 @@ ix86_add_new_builtins (HOST_WIDE_INT isa)
 	  ix86_builtins[i] = decl;
 	  if (ix86_builtins_isa[i].const_p)
 	    TREE_READONLY (decl) = 1;
+	  if (ix86_builtins_isa[i].leaf_p)
+	    DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						      NULL_TREE);
 	}
     }
 }
@@ -27346,14 +27351,6 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_RTM, CODE_FOR_xbegin, "__builtin_ia32_xbegin", IX86_BUILTIN_XBEGIN, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xend, "__builtin_ia32_xend", IX86_BUILTIN_XEND, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_RTM, CODE_FOR_xtest, "__builtin_ia32_xtest", IX86_BUILTIN_XTEST, UNKNOWN, (int) INT_FTYPE_VOID },
-
-  /* MPX */
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
 };
 
 /* Builtins with variable number of arguments.  */
@@ -28186,8 +28183,22 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pdep_di3, "__builtin_ia32_pdep_di", IX86_BUILTIN_PDEP64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_si3, "__builtin_ia32_pext_si", IX86_BUILTIN_PEXT32, UNKNOWN, (int) UINT_FTYPE_UINT_UINT },
   { OPTION_MASK_ISA_BMI2, CODE_FOR_bmi2_pext_di3, "__builtin_ia32_pext_di", IX86_BUILTIN_PEXT64, UNKNOWN, (int) UINT64_FTYPE_UINT64_UINT64 },
+};
 
-  /* MPX */
+/* Bultins for MPX.  */
+static const struct builtin_description bdesc_mpx[] =
+{
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+};
+
+/* Const builtins for MPX.  */
+static const struct builtin_description bdesc_mpx_const[] =
+{
   { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
   { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
   { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
@@ -28921,6 +28932,49 @@ ix86_init_mmx_sse_builtins (void)
 		     USI_FTYPE_VOID, IX86_BUILTIN_SIZEOF32);
   def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia64_sizeof",
 		     UDI_FTYPE_VOID, IX86_BUILTIN_SIZEOF64);
+}
+
+static void
+ix86_init_mpx_builtins ()
+{
+  const struct builtin_description * d;
+  enum ix86_builtin_func_type ftype;
+  tree decl;
+  size_t i;
+
+  for (i = 0, d = bdesc_mpx;
+       i < ARRAY_SIZE (bdesc_mpx);
+       i++, d++)
+    {
+      if (d->name == 0)
+	continue;
+
+      ftype = (enum ix86_builtin_func_type) d->flag;
+      decl = def_builtin (d->mask, d->name, ftype, d->code);
+
+      if (decl)
+	DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						  NULL_TREE);
+      else
+	ix86_builtins_isa[(int)d->code].leaf_p = true;
+    }
+
+  for (i = 0, d = bdesc_mpx_const;
+       i < ARRAY_SIZE (bdesc_mpx_const);
+       i++, d++)
+    {
+      if (d->name == 0)
+	continue;
+
+      ftype = (enum ix86_builtin_func_type) d->flag;
+      decl = def_builtin_const (d->mask, d->name, ftype, d->code);
+
+      if (decl)
+	DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						  NULL_TREE);
+      else
+	ix86_builtins_isa[(int)d->code].leaf_p = true;
+    }
 }
 
 /* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
@@ -30391,6 +30445,7 @@ ix86_init_builtins (void)
 
   ix86_init_tm_builtins ();
   ix86_init_mmx_sse_builtins ();
+  ix86_init_mpx_builtins ();
 
   if (TARGET_LP64)
     ix86_init_builtins_va_builtins_abi ();
