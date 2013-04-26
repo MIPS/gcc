@@ -99,11 +99,7 @@ void
 _fatal_insn (const char *msgid, const_rtx insn, const char *file, int line,
 	     const char *function)
 {
-  error ("%s", _(msgid));
-
-  /* The above incremented error_count, but isn't an error that we want to
-     count, so reset it here.  */
-  errorcount--;
+  inform (input_location,"%s", _(msgid));
 
   debug_rtx (insn);
   fancy_abort (file, line, function);

@@ -2095,8 +2095,8 @@ spill_failure (rtx insn, enum reg_class rclass)
 		   reg_class_names[rclass]);
   else
     {
-      error ("unable to find a register to spill in class %qs",
-	     reg_class_names[rclass]);
+      inform (input_location, "unable to find a register to spill in class %qs",
+	      reg_class_names[rclass]);
 
       if (dump_file)
 	{
