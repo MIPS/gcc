@@ -784,6 +784,9 @@ setup_operand_alternative (lra_insn_recog_data_t data)
 		  lra_assert (i != nop - 1);
 		  break;
 
+		case '?':
+		  op_alt->reject += LRA_LOSER_COST_FACTOR;
+		  break;
 		case '!':
 		  op_alt->reject += LRA_MAX_REJECT;
 		  break;

@@ -1,3 +1,11 @@
+2013-04-28  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra.c (setup_operand_alternative): Restore taking into account
+	'?'.
+	* lra-constraints.c (process_alt_operands): Discourage a bit more using
+	memory for pseudos.  Remove printing undefined values.  Modify
+	cost values for conflicts with early clobbers.
+
 2013-04-26  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra.c (setup_operand_alternative): Ignore '?'.

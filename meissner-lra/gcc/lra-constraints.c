@@ -2007,7 +2007,7 @@ process_alt_operands (int only_alternative)
 		 although it might takes the same number of
 		 reloads.  */
 	      if (no_regs_p && REG_P (op))
-		reject++;
+		reject += 2;
 
 #ifdef SECONDARY_MEMORY_NEEDED
 	      /* If reload requires moving value through secondary
@@ -2040,9 +2040,9 @@ process_alt_operands (int only_alternative)
 	  if ((best_losers == 0 || losers != 0) && best_overall < overall)
 	    {
 	      if (lra_dump_file != NULL)
-		fprintf (lra_dump_file, "          alt=%d,overall=%d,losers=%d,"
-			 "small_class_ops=%d,rld_nregs=%d -- reject\n",
-		 nalt, overall, losers, small_class_operands_num, reload_nregs);
+		fprintf (lra_dump_file,
+			 "          alt=%d,overall=%d,losers=%d -- reject\n",
+			 nalt, overall, losers);
 	      goto fail;
 	    }
 
@@ -2139,7 +2139,10 @@ process_alt_operands (int only_alternative)
 	      curr_alt_dont_inherit_ops[curr_alt_dont_inherit_ops_num++]
 		= last_conflict_j;
 	      losers++;
-	      overall += LRA_LOSER_COST_FACTOR;
+	      /* Early clobber was already reflected in REJECT. */
+	      lra_assert (reject > 0);
+	      reject--;
+	      overall += LRA_LOSER_COST_FACTOR - 1;
 	    }
 	  else
 	    {
@@ -2163,7 +2166,10 @@ process_alt_operands (int only_alternative)
 		}
 	      curr_alt_win[i] = curr_alt_match_win[i] = false;
 	      losers++;
-	      overall += LRA_LOSER_COST_FACTOR;
+	      /* Early clobber was already reflected in REJECT. */
+	      lra_assert (reject > 0);
+	      reject--;
+	      overall += LRA_LOSER_COST_FACTOR - 1;
 	    }
 	}
       small_class_operands_num = 0;
