@@ -1,5 +1,9 @@
 
 2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outcinitpredef_objinithook):
+	Implemented.
+
+2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-predef.list (_ZXTRA1PREDEF, _ZXTRA2PREDEF, _ZXTRA3PREDEF):
 	New pseudo predefined for testing purposes.

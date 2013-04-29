@@ -459,7 +459,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (add2sbuf_string sbuf (unsafe_get_field :named_name oiopredef))
 	 (add2sbuf_strconst sbuf ") = 1;")
 	 (add2sbuf_indentnl sbuf 2)
-	 (add2sbuf_strconst sbuf "fnotice(stderr, \"MELT: predefined %s already defined <%s:%d>\\n\", \"")
+	 (add2sbuf_strconst sbuf "fnotice(stderr, \"MELT: predefined object %s already defined <%s:%d>\\n\", \"")
 	 (add2sbuf_string sbuf (unsafe_get_field :named_name oiopredef))
 	 (add2sbuf_strconst sbuf "\", __FILE__, __LINE__);")
 	 (add2sbuf_indentnl sbuf 2)
@@ -508,8 +508,53 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (assert_msg "outcinitpredef_objinithook check recv" (is_a recv class_objinithook))
   (assert_msg "outcinitpredef_objinithook check sbuf" (is_strbuf sbuf))
   (assert_msg "outcinitpredef_objinithook check ptrstr" (is_string ptrstr))
-  (assert_msg "@$@unimplemented outcinitpredef_objinithook")
-)
+  (let ( (odata (get_field :oie_data recv)) 
+	 (odiscr (get_field :oie_discr recv))
+	 (oname (get_field :oie_cname recv))
+	 (olocvar (get_field :oie_locvar recv))
+	 (opredef (get_field :oihk_predef recv))
+	 (odloc (get_field :nrep_loc odata))
+	 )
+    (debug "outcinitpredef_objinithook opredef=" opredef "\n odata=" odata "\n oname=" oname)
+    (if (null opredef) (return ()))
+    (output_location odloc sbuf depth "inipredefhook")
+    (add2out sbuf "/*inipredefhook " oname " */")
+    (add2sbuf_indentnl sbuf depth)
+    (cond
+     ( (is_a opredef class_symbol)
+       (let ( 
+	     (opredname (get_field :named_name opredef))
+	     )
+	 (add2out sbuf 
+		  ##{if (!MELT_PREDEF($OPREDNAME)) 
+		  MELT_STORE_PREDEF($OPREDNAME, (melt_ptr_t)& $PTRSTR->$ONAME) ;
+		  else {
+		  MELTPREDEFIX(meltpredefinited,$OPREDNAME) = 1	;
+		  fnotice(stderr, "MELT: predefined hook %s already defined <%s:%d>\n",
+				  "$OPREDNAME", __FILE__, __LINE__) ;
+		  }						    ;
+		  }#)
+	 (add2sbuf_indentnl sbuf 1)
+	 ))
+     ( (is_integerbox opredef)
+       (let ( (:long predefnum (get_int opredef))
+	      )
+	 (add2out sbuf 
+		  ##{if (!melt_fetch_predefined($PREDEFNUM))
+		  melt_store_predefined($PREDEFNUM, (melt_ptr_t)& $PTRSTR->$ONAME) ;
+		  else {
+		  meltpredefinited[$PREDEFNUM] = 1 ;
+		  fnotice(stderr, "MELT: predefined hook #%d already defined <%s:%d>\n",
+				  $PREDEFNUM, __FILE__, __LINE__) ;
+		  }
+		  }#)
+	 (add2sbuf_indentnl sbuf 1)
+	 ))
+     (:else
+      (debug "outcinitpredef_objinithook unexpected opredef=" opredef)
+      (assert_msg "outcinitpredef_objinithook bad predefined")
+      ))
+    ))
 
 (install_method class_objinithook output_c_initial_predef outcinitpredef_objinithook)
 
