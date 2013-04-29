@@ -1238,6 +1238,7 @@ $SBUF.}#
        (mapobject_put compicache nhook hookrout)
        (debug "compile2obj_hook updated compicache=" compicache
 	      "\n.. for nhook=" nhook)
+       (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
        ;;
        ;; compile the body
        (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
@@ -1403,6 +1404,7 @@ $SBUF.}#
       (debug "compile2obj_procedure updated compicache=" compicache
 	     "\n.. pro=" pro
 	     "\n.. obrout=" obrout ".. nbody=" nbody)
+      (shortbacktrace_dbg "compile2obj_procedure updated compicache" 15)
       (assert_msg "check nbody" (is_a nbody class_nrep))
       (if (is_a pro class_nrep_routproc)
 	  (let ( (pthuls (unsafe_get_field :nrpro_thunklist pro)) )

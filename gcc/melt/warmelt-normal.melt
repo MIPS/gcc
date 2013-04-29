@@ -4329,7 +4329,11 @@ source location.}#
     (unsafe_put_fields newenv :env_proc nproc)
     (debug "normexp_defun updated :env_proc of of newenv" newenv)
     ;; add nproc into ncx
-    (list_append (unsafe_get_field :nctx_proclist ncx) nproc)
+    (let ( (ncplis (get_field :nctx_proclist ncx)) 
+	   )
+      (list_append ncplis nproc)
+      (debug "normexp_defun appended to nctxproclist ncplis=" ncplis))
+    ;;
     (multicall
      (nbody nbindings)
      (normalize_tuple sbody newenv ncx sloc)
@@ -4443,13 +4447,18 @@ source location.}#
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
     (debug "normexp_defhook newenv=" newenv)
-    ;; add nproc into ncx
-    (list_append (get_field :nctx_proclist ncx) nproc)
-    (debug "normexp_defhook sbody=" sbody "\n.. updated ncx=" ncx)
+    ;;
     (multicall
      (nbody nbindings)
      (normalize_tuple sbody newenv ncx sloc)
      (debug "normexp_defhook nbody=" nbody "\n.. nbindings=" nbindings)
+     ;; add nproc into ncx
+     (let ( (ncplis (get_field :nctx_proclist ncx)) 
+	    )
+       (list_append ncplis nproc)
+       (debug "normexp_defhook sbody=" sbody "\n.. updated ncx=" ncx "\n.. ncplis=" ncplis)
+       )
+     (shortbacktrace_dbg "normexp_defhook" 12)
      ;; make the bindings in the newenv
      (foreach_in_multiple
       (nbindings)
@@ -4478,8 +4487,8 @@ source location.}#
 		       )
 		  (debug "normexp_defhook/lambda sy=" sy " nsy=" nsy)
 		  nsy
-		))))
-	   )
+		  ))))
+	    )
        (debug "normexp_defhook nseq=" nseq "\n .. closvtup=" closvtup)
        (put_fields nproc :nproc_body nseq)
        (put_fields ndatahook :ndhook_closv closvtup)
@@ -4530,7 +4539,8 @@ source location.}#
 			      :ndrou_proc nproc
 			      ))
 	 )
-    (debug "normalize_lambda nproc=" nproc "\n.. ndatarout=" ndatarout)
+    (debug "normalize_lambda made nproc=" nproc "\n.. ndatarout=" ndatarout)
+    (shortbacktrace_dbg "normalize_lambda" 10)
     (add_nctx_data ncx ndatarout)
     ;; update the context for the new proc & a fresh symbol cache map
     (unsafe_put_fields ncx 
@@ -4545,11 +4555,16 @@ source location.}#
      (put_env newenv fbi))
     (if (is_a sformalargs discr_variadic_formal_sequence)
 	(put_fields nproc :nrpro_variadic csym))
-    (unsafe_put_fields newenv :env_proc nproc)
+    (put_fields newenv :env_proc nproc)
     (debug "normalize_lambda updated newenv=" newenv)
     (shortbacktrace_dbg "normalize_lambda" 15)
     ;; add nproc into ncx
-    (list_append (unsafe_get_field :nctx_proclist ncx) nproc)
+    (let ( (ncplis (get_field :nctx_proclist ncx)) 
+	   )
+      (list_append ncplis nproc)
+      (debug "normalize_lambda updated ncplis=" ncplis "\n.. ncx=" ncx)
+    )
+    ;;
     (multicall
      (nbody nbindings)
      (normalize_tuple sbody newenv ncx sloc)
@@ -4558,15 +4573,15 @@ source location.}#
       (nbindings)
       (nbi :long ix)
       (put_env newenv nbi))
-     (unsafe_put_fields 
+     (put_fields 
       nproc
       :nproc_body (wrap_normal_letseq (replace_last_by_return nbody newenv sloc) nbindings sloc)
       )
      ;; restore the previous symbol cache map & the old proc and return the normalized lambda
-     (unsafe_put_fields ncx 
-			:nctx_symbcachemap savedcachemap
-			:nctx_curproc oldproc
-			)
+     (put_fields ncx 
+		 :nctx_symbcachemap savedcachemap
+		 :nctx_curproc oldproc
+		 )
      (debug "normalize_lambda restored ncx=" ncx "\n.. updated nproc=" nproc)
      (let ( 
 	   ;; we make an anonymous constant for the routine unless in toplevel

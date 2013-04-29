@@ -6149,7 +6149,7 @@ if (1) return;
        (return))
      ;;
      ;;
-     (let ( (prolist (unsafe_get_field :nctx_proclist ncx)) 
+     (let ( (prolist (get_field :nctx_proclist ncx)) 
 	    (objlist (make_list discr_list))
 	    (compicache (make_mapobject discr_map_objects (+i 10 (*i 20 (list_length xlist)))))
 	    (:long count 0)
@@ -6157,6 +6157,8 @@ if (1) return;
        ;;
        ;; compile each procedure and check for errors
        (debug "translate_macroexpanded_list prolist=" prolist)
+       (shortbacktrace_dbg "translate_macroexpanded_list" 14)
+       ;;
        (assert_msg "check prolist" (is_list prolist))
        (foreach_in_list
 	(prolist)

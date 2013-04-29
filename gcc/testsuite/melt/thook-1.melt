@@ -21,23 +21,24 @@
 #|
 (defhook justahook (:long inp :tree itr) (:long out) :long
   (debug "justahook inp=" inp " itr=" itr 
-	 " out=" out 
-	 " class_reference=" class_reference " myref=" myref)
+         " out=" out 
+         " class_reference=" class_reference " myref=" myref)
   (setq out inp)
   (return (+i inp 1))
   )
 |#
 
 (defun mybiapp (f) 
-  (lambda (x) (f x myref)))
+  (lambda (x)
+    (f x myref)))
 
 ;; also test that lambda is closing hook input values as needed
 (defhook anotherhook (:long i :value v) (:value outv) :void
   (debug "anotherhook i=" i " v=" v " myref=" myref)
   (let ( (bxi (constant_box i))
-	 )
+         )
   (setq outv
-	(lambda (x) 
-	  (tuple x v bxi))))
+        (lambda (x) 
+          (tuple x v bxi))))
 )
 ;; eof thook-1.melt
