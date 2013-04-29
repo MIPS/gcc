@@ -133,5 +133,9 @@
   DISCR_VERBATIM_STRING
   INITIAL_SYSTEM_DATA
   TRUE
+# the predefined below are for some testing, don't use them in "production"
+  _ZXTRA1PREDEF
+  _ZXTRA2PREDEF
+  _ZXTRA3PREDEF
 
 #eof melt-predef.list

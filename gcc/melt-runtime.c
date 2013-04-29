@@ -11440,7 +11440,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   register_callback (melt_plugin_name, PLUGIN_EARLY_GIMPLE_PASSES_END,
                      meltgc_early_gimple_passes_end_callback,
                      NULL);
-  /* TYhe meltgc_passexec_callback is always registered, perhaps just to
+  /* The meltgc_passexec_callback is always registered, perhaps just to
      check for signals. */
   register_callback (melt_plugin_name, PLUGIN_PASS_EXECUTION,
                      meltgc_passexec_callback,

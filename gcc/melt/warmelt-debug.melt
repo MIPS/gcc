@@ -902,7 +902,7 @@ $TORANK}#
       (hook_every self 
 		  (lambda (comp :long ix)
 		    (add2sbuf_indent sbuf (get_int boxdepthp1))
-		    (add2out sbuf "hook#" ix ": ")
+		    (add2out sbuf "hookval#" ix ": ")
 		    (dbg_out comp dbgi (get_int boxdepthp1))
 		    ))
       )

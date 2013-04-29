@@ -502,8 +502,19 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 (install_method class_objinitobject output_c_initial_predef outcinitpredef_objinitobject)
 
+;;;;;;;;;;;;;;;;
+(defun outcinitpredef_objinithook (recv sbuf ptrstr :long depth)
+  (debug recv "outcinitpredef_objinithook recv=" recv " ptrstr=" ptrstr)
+  (assert_msg "outcinitpredef_objinithook check recv" (is_a recv class_objinithook))
+  (assert_msg "outcinitpredef_objinithook check sbuf" (is_strbuf sbuf))
+  (assert_msg "outcinitpredef_objinithook check ptrstr" (is_string ptrstr))
+  (assert_msg "@$@unimplemented outcinitpredef_objinithook")
+)
+
+(install_method class_objinithook output_c_initial_predef outcinitpredef_objinithook)
 
 
+;;;;;;;;;;;;;;;;
 (defun outdeclinit_objinitmultiple (recv sbuf)
   (add2sbuf_strconst sbuf " struct MELT_MULTIPLE_STRUCT(")
   (add2sbuf_longdec sbuf (get_int recv))
@@ -761,6 +772,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (ndatr (unsafe_get_field :oie_data recv))
 	 (hkproc (get_field :oihk_prochook recv))
 	 (oclovaltup (get_field :oihk_cloval recv))
+	 (opredef (get_field :oihk_predef recv))
 	 (:long nbcloval (multiple_length oclovaltup))
 	 (hkname (get_field :nrhook_name hkproc))
 	 )
@@ -790,6 +802,10 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_cencstring sbuf hkname)
     (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
     (add2sbuf_indentnl sbuf depth)
+    (when opredef
+      (add2out sbuf ##{/*predefinedhook $OPREDEF for $CNAME*/}#)
+      (add2sbuf_indentnl sbuf depth)
+      )
     (add2out sbuf ##{/*done inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf depth)
     ))

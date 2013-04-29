@@ -167,6 +167,7 @@
   :super class_objinitelem
   :fields (oihk_prochook		;the associated prochook
 	   oihk_cloval			;the tuple of closed values in the hook
+	   oihk_predef 			;the predefined, if any
 	   ))
 
 ;;; initial string - see MELT_STRING_STRUCT in melt-runtime.h
@@ -5124,7 +5125,12 @@ $SBUF.}#
   (assert_msg "compil_data_and_slots_fill check gcx" (is_a gcx class_c_generation_context))
   (debug "compil_data_and_slots_fill start ndat=" ndat " obj=" obj " odiscr=" odiscr " irout=" irout)
   (let (
-	(ipredef (if (is_a ndat class_nrep_datainstance) (unsafe_get_field :ninst_predef ndat)))
+	(ipredef 
+	 (cond
+	   ( (is_a ndat class_nrep_datainstance) 
+	     (unsafe_get_field :ninst_predef ndat))
+	   ( (is_a ndat class_nrep_datahook)
+	     (unsafe_get_field :ndhook_predef ndat))))
 	(ibodylis (unsafe_get_field :obrout_body irout))
 	(ifilllis (unsafe_get_field :oirout_fill irout))
 	(locvar (get_free_objlocptr gcx '_valdata_))
@@ -5812,6 +5818,7 @@ $SBUF.}#
 	   (nhpro (get_field :ndhook_proc ndhook))
 	   (hname (get_field :ndata_name ndhook)) ;a string
 	   (nrank (get_field :ndata_rank ndhook)) ;a boxed int
+	   (npredef (get_field :ndhook_predef ndhook)) ;a symbol or nil
 	   (nlocbind (get_field :ndata_locbind ndhook))
 	   (ndisx (get_field :ndata_discrx ndhook))
 	   (odiscr (let ( (odi (compile_obj ndisx gcx)) )
@@ -5842,6 +5849,7 @@ $SBUF.}#
 		      :oie_discr odiscr
 		      :oihk_prochook nhpro
 		      :oihk_cloval oclo
+		      :oihk_predef npredef
 		      ))
 	   )
       (mapobject_put compicache ndhook oihook)

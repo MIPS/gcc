@@ -1,6 +1,32 @@
 
 2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (_ZXTRA1PREDEF, _ZXTRA2PREDEF, _ZXTRA3PREDEF):
+	New pseudo predefined for testing purposes.
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-pre.
+
+	* melt-runtime.c (melt_really_initialize): Typo in comment.
+
+	* melt/warmelt-debug.melt (dbgout_hook_method): Tiny improvement
+	in output.
+
+	* melt/warmelt-normal.melt (class_nrep_datahook): Add ndhook_predef field.
+	(normexp_defhook): Fill it.
+
+	* melt/warmelt-genobj.melt (class_objinithook): Add oihk_predef
+	field.
+	(compil_data_and_slots_fill): Use ndhook_predef.
+	(compilobj_datahook): Use it.
+
+	* melt/warmelt-outobj.melt (outcinitpredef_objinithook): New stub.
+	(outcinitfill_objinithook): Emit comment for predefined.
+
+	* testsuite/melt/thook-1.melt (anotherhook): Make it predefined.
+
+
+2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_closure_nth): return NULL not 0 for readability.
 	(melt_hook_size, melt_hook_nth, melt_hook_data): New inlined functions.
 	(meltgc_set_hook_data, melt_hook_interned_name)

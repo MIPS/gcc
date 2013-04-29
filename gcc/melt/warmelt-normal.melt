@@ -607,6 +607,7 @@ procedure in a module, defined with $DEFHOOK. }#
   :super class_nrep_discriminated_data
   :fields (ndhook_proc		    ;associated procedure
 	   ndhook_closv		    ;tuple of closed values
+	   ndhook_predef	    ;the predefined, if any
 	   ))
 
 ;; normal static closure data
@@ -4406,6 +4407,7 @@ source location.}#
 			      :ndata_discrx (normal_predef discr_hook ncx sloc "discr_hook")
 			      :ndhook_proc nproc
 			      :ndhook_closv ()
+			      :ndhook_predef spredef
 			      ))
 	 )
     (debug "normexp_defhook newenv=" newenv

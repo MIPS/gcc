@@ -34,6 +34,7 @@
 
 ;; also test that lambda is closing hook input values as needed
 (defhook anotherhook (:long i :value v) (:value outv) :void
+  :predef _zxtra1
   (debug "anotherhook i=" i " v=" v " myref=" myref)
   (let ( (bxi (constant_box i))
          )
