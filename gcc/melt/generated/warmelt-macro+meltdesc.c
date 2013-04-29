@@ -19,8 +19,8 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 198386] MELT_0\
-.9.8-post"
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 198422] MELT_0\
+.9.9-pre"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -29,17 +29,18 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.8-post [melt-branch_revision_197956]";
+const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_198422]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-macro */
 const char melt_modulename[]="warmelt-macro";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.8-post/warmelt-macro";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
+-modules/0.9.8-post/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="655f1804b0411cf0077593fe864e3b1b";
+const char melt_prepromd5meltrun[]="82d9eff36e6044834b8df0e2f4bd4cd5";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="05862e54d8cf413c63043b035ed137c8";
+const char melt_primaryhexmd5[]="311a5e6a5dbc33793dc758dee40553b9";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -56,10 +57,10 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="6238076efd712d0267c646a4758a0a76" ;
+const char melt_cumulated_hexmd5[]="1d7644136969330bae666c9bbbe50121" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_macro_mds__6238076efd712d0267c646a4758a0a76 1
+#define meltmod_warmelt_macro_mds__1d7644136969330bae666c9bbbe50121 1
 #include "warmelt-macro+melttime.h"
 	 
 
