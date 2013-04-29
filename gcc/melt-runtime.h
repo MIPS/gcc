@@ -1617,7 +1617,7 @@ melt_ptr_t meltgc_new_string (meltobject_ptr_t discr,
 /* Allocate a new string (or null if bad DISCR or null STR) initialized from
    a memory STR which is temporarily duplicated (so can be in gc-ed) */
 melt_ptr_t meltgc_new_stringdup (meltobject_ptr_t discr,
-				       const char *str);
+				 const char *str);
 
 /* Get the naked basename of a path, ie from "/foo/bar.gyz" return
    "bar"; argument is duplicated */
@@ -2122,8 +2122,39 @@ melt_closure_nth (melt_ptr_t clo, int ix)
   if (clo && ((meltclosure_ptr_t) clo)->discr->obj_num == MELTOBMAG_CLOSURE
       && ix >= 0 && ix < (int) (((meltclosure_ptr_t) clo)->nbval))
     return (melt_ptr_t) (((meltclosure_ptr_t) clo)->tabval[ix]);
+  return NULL;
+}
+
+
+/*********** hook functions *******/
+static inline int
+melt_hook_size (melt_ptr_t hk)
+{
+  if (hk && ((melthook_ptr_t) hk)->discr->obj_num == MELTOBMAG_HOOK)
+    return (int) (((melthook_ptr_t) hk)->nbval);
   return 0;
 }
+
+static inline melt_ptr_t
+melt_hook_nth  (melt_ptr_t hk, int ix)
+{
+  if (hk && ((melthook_ptr_t) hk)->discr->obj_num == MELTOBMAG_HOOK
+      && ix >= 0 && ix < (int) (((melthook_ptr_t) hk)->nbval))
+    return (melt_ptr_t)  ((melthook_ptr_t) hk)->tabval[ix];
+  return NULL;
+}
+
+static inline melt_ptr_t
+melt_hook_data  (melt_ptr_t hk)
+{
+  if (hk && ((melthook_ptr_t) hk)->discr->obj_num == MELTOBMAG_HOOK)
+    return  (melt_ptr_t) (((melthook_ptr_t) hk)->hookdata);
+  return NULL;
+}
+
+MELT_EXTERN void meltgc_set_hook_data (melt_ptr_t hk, melt_ptr_t data);
+MELT_EXTERN const char* melt_hook_interned_name (melt_ptr_t hk);
+MELT_EXTERN melt_ptr_t meltgc_hook_name_string (melt_ptr_t hook_p);
 
 
 /***** list and pairs accessors ****/

@@ -1463,8 +1463,7 @@ source location.}#
 
 ;;; normalize local fixed binding
 (defun normbind_fixbind (bind env ncx procs psloc)
-  (if (is_not_a bind class_fixed_binding)
-      (debug "normbind_fixbind bad bind" bind))
+  (debug "normbind_fixbind bind=" bind)
   (assert_msg "check bind" (is_a bind class_fixed_binding))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
@@ -1472,14 +1471,13 @@ source location.}#
 	 (symb (unsafe_get_field :binder bind))
 	 (fixdat (unsafe_get_field :fixbind_data bind))
 	 )
-    (debug "normbind_fixbind fixdat" fixdat)
-    (if (null fixdat)
-	(progn 
-	  (debug "normbind_fixbind strange bind" bind)
-	  (error_strv psloc "unresolved forward fixed reference to"
-		      (unsafe_get_field :named_name symb)
-		      )
-	  ))
+    (debug "normbind_fixbind fixdat=" fixdat)
+    (when (null fixdat)
+      (debug "normbind_fixbind strange bind=" bind)
+      (error_strv psloc "unresolved forward fixed reference to"
+		  (unsafe_get_field :named_name symb)
+		  )
+      )
     (assert_msg "normbind_fixbind check fixdat" (is_a fixdat class_nrep_bound_data))
     ;; cache the result & return it
     (mapobject_put sycmap symb fixdat)
@@ -4492,10 +4490,12 @@ source location.}#
        (debug "normexp_defhook nseq=" nseq "\n .. closvtup=" closvtup)
        (put_fields nproc :nproc_body nseq)
        (put_fields ndatahook :ndhook_closv closvtup)
-       (debug "normexp_defhook nproc=" nproc "\n.. ndatahook=" ndatahook)
+       (put_fields shobind :fixbind_data ndatahook)
+       (debug "normexp_defhook nproc=" nproc "\n.. ndatahook=" ndatahook 
+	      "\n.. shobind=" shobind)
        ;;
        (debug "normexp_defhook result nproc=" nproc)
-       (return nproc)
+       (return nproc ())
        ))))
 (install_method class_source_defhook normal_exp normexp_defhook)
 

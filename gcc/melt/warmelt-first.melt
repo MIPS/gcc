@@ -1563,6 +1563,28 @@ make a $CURAT string.}#
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;; HOOKs primitives
+;; test
+(defprimitive is_hook (hk) :long
+  :doc #{Test if value $HK is a hook - a @i{C/C++} callable @i{closed c-function}}#
+  #{(melt_magic_discr((melt_ptr_t)($HK)) == MELTOBMAG_HOOK)}#)
+(defprimitive hook_size (hk) :long
+  :doc #{Return the checked size of a hook $HK or else 0}#
+  #{melt_hook_size((melt_ptr_t) $HK)}#)
+(defprimitive hook_nth (:value hk :long n) :value
+  :doc #{Return from inside the hook $HK its $N-th value or else nil.}#
+  #{melt_hook_nth((melt_ptr_t)$HK, (int)$N)}#)
+(defprimitive hook_data (:value hk) :value
+  :doc #{Return the data inside some hook $HK or else nil.}#
+  #{melt_hook_data((melt_ptr_t)$HK)}#)
+(defprimitive hook_put_data (:value hk data) :void
+  :doc #{Safely put in hook $HK the given $DATA.}#
+  #{meltgc_set_hook_data((melt_ptr_t)$HK, (melt_ptr_t)$DATA)}#)
+(defprimitive hook_name (:value hk) :value
+  :doc #{Return the value string for the name of some hook $HK or else nil.}#
+  #{meltgc_hook_name_string((melt_ptr_t)$HK)}#)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; boxed INTEGERs primitives
 ;; test
 (defprimitive is_integerbox (ib) :long
@@ -2330,7 +2352,7 @@ the routine pointer and the constants inside MELT function closure values. See a
 
 ;;; the discriminant for hooks
 (definstance discr_hook class_discriminant
-  :doc #{The $DISCR_ROUTINE is the discriminant of MELT hook values, which boxes 
+  :doc #{The $DISCR_HOOK is the discriminant of MELT hook values, which boxes 
 the hooks called from C or C++ code, notably the MELT runtime.}#
   :predef DISCR_HOOK
   :obj_num MELTOBMAG_HOOK
@@ -3894,6 +3916,20 @@ list of every element of the tuple transformed by $TRANSF.}#
 		     (setq ix (+i ix 1)))))))	     
 
 
+;;; full iterator on hook  
+;;; the function is called with the component and its index
+(defun hook_every (hk f)
+  :doc #{Apply to every value inside hook $HK the function $F}#
+  (if (is_hook hk)
+      (if (is_closure f)
+	  (let ( (:long ln (hook_size hk))
+		 (:long ix 0) )
+	    (forever hookloop
+		     (if (>=i ix ln) (exit hookloop))
+		     (f  (hook_nth hk ix) ix)
+		     (setq ix (+i ix 1)))))))	     
+
+
 
 ;;; installation of a method in a class or discriminant
 (defun install_method (dis sel fun)
@@ -4409,9 +4445,9 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  bucketlong_aux
  bucketlong_count
  bucketlong_get
- bucketlong_put
  bucketlong_nth_key
  bucketlong_nth_val
+ bucketlong_put
  bucketlong_remove
  bucketlong_replace
  bucketlong_setaux
@@ -4428,11 +4464,18 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  get_keywordstr
  get_raw_symbol
  get_symbolstr
+ hook_data
+ hook_every
+ hook_name
+ hook_nth
+ hook_put_data
+ hook_size
  informsg_long
  informsg_strv
  is_a
  is_bucketlong
  is_closure
+ is_hook
  is_integerbox
  is_list
  is_list_or_null

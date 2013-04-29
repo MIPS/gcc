@@ -41,4 +41,6 @@
         (lambda (x) 
           (tuple x v bxi))))
 )
+
+(debug "anotherhook=" anotherhook "\n.. of discr=" (discrim anotherhook))
 ;; eof thook-1.melt

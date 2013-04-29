@@ -2125,6 +2125,49 @@ meltgc_set_routine_data (melt_ptr_t rout_p, melt_ptr_t data_p)
 #undef datav
 }
 
+
+void
+meltgc_set_hook_data (melt_ptr_t hook_p, melt_ptr_t data_p)
+{
+  MELT_ENTERFRAME(2, NULL);
+#define hookv meltfram__.mcfr_varptr[0]
+#define datav meltfram__.mcfr_varptr[1]
+  hookv = hook_p;
+  datav = data_p;
+  if (melt_magic_discr((melt_ptr_t) hookv) == MELTOBMAG_HOOK) {
+    ((melthook_ptr_t) hookv)->hookdata = (melt_ptr_t) datav;
+    meltgc_touch_dest (hookv, datav);
+  }
+  MELT_EXITFRAME();
+#undef hookv 
+#undef datav
+}
+
+const char* 
+melt_hook_interned_name (melt_ptr_t hk)
+{
+  if (melt_magic_discr((melt_ptr_t) hk) != MELTOBMAG_HOOK)
+    return NULL;
+  return melt_intern_cstring (((melthook_ptr_t)hk)->hookname);
+}
+
+melt_ptr_t
+meltgc_hook_name_string (melt_ptr_t hook_p)
+{
+  MELT_ENTERFRAME(2, NULL);
+#define hookv meltfram__.mcfr_varptr[0]
+#define strv  meltfram__.mcfr_varptr[1]
+  hookv = hook_p;
+  if (melt_magic_discr((melt_ptr_t) hookv) == MELTOBMAG_HOOK) {
+    strv = meltgc_new_stringdup ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+				 ((melthook_ptr_t)hookv)->hookname);
+  }
+  MELT_EXITFRAME();
+  return (melt_ptr_t)strv;
+#undef hookv
+#undef strv
+}
+
 meltclosure_ptr_t
 meltgc_new_closure (meltobject_ptr_t discr_p,
                     meltroutine_ptr_t rout_p, unsigned len)

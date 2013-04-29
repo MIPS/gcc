@@ -881,6 +881,37 @@ $TORANK}#
 
 (install_method discr_routine dbg_output dbgout_routine_method)
 
+;; hook debug out - don't print the hook components if depth is >0
+(defun dbgout_hook_method (self dbgi :long depth)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (let ( (dis (discrim self)) 
+	 (sbuf (unsafe_get_field :dbgi_out dbgi))
+	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
+	 )
+    (if (and (>i depth 0) (== dis DISCR_HOOK))
+	(add2sbuf_strconst sbuf " *hook[%")
+      (progn
+	(add2sbuf_strconst sbuf " |")
+	(add2sbuf_string sbuf (unsafe_get_field :named_name dis))
+	(add2sbuf_strconst sbuf "[%")))
+    (add2out sbuf (hook_name self))
+    (when (<i depth 3)
+      (add2sbuf_indent sbuf (get_int boxdepthp1))
+      (add2out sbuf "hookdata: ")
+      (dbg_out (hook_data self) dbgi (get_int boxdepthp1))
+      (hook_every self 
+		  (lambda (comp :long ix)
+		    (add2sbuf_indent sbuf (get_int boxdepthp1))
+		    (add2out sbuf "hook#" ix ": ")
+		    (dbg_out comp dbgi (get_int boxdepthp1))
+		    ))
+      )
+    (add2sbuf_strconst sbuf "%]")
+    )
+  )
+
+(install_method discr_hook dbg_output dbgout_hook_method)
+
 ;; closure debug out 
 (defun dbgout_closure_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))

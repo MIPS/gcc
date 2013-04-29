@@ -1,6 +1,31 @@
 
 2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_closure_nth): return NULL not 0 for readability.
+	(melt_hook_size, melt_hook_nth, melt_hook_data): New inlined functions.
+	(meltgc_set_hook_data, melt_hook_interned_name)
+	(meltgc_hook_name_string): New declarations.
+
+	* melt-runtime.c (meltgc_set_hook_data, melt_hook_interned_name)
+	(meltgc_hook_name_string): New functions.
+
+	* melt/warmelt-first.melt (hook_data, hook_every, hook_name)
+	(hook_nth, hook_put_data, hook_size, is_hook): New primitives and
+	functions.
+
+	* melt/warmelt-debug.melt (dbgout_hook_method): New method for
+	dbg_output on discr_hook.
+
+	* melt/warmelt-normal.melt (normbind_fixbind): More debug.
+	(normexp_defhook): Update the shobind.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Improve
+	emitted comments. Emit the strncpy of the hookname.
+
+	* testsuite/melt/thook-1.melt: Add final debug to display the hook.
+
+2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

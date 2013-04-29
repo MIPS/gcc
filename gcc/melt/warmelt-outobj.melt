@@ -762,9 +762,11 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (hkproc (get_field :oihk_prochook recv))
 	 (oclovaltup (get_field :oihk_cloval recv))
 	 (:long nbcloval (multiple_length oclovaltup))
+	 (hkname (get_field :nrhook_name hkproc))
 	 )
+    (debug "outcinitfill_objinithook hkproc=" hkproc)
     (add2sbuf_indentnl sbuf depth)
-    (add2out sbuf ##{/*inihook CNAME */}#)
+    (add2out sbuf ##{/*inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf (+i depth 1))
     (when olocvar
       (output_c_code olocvar () sbuf 1)
@@ -774,19 +776,21 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       )
     (add2out 
      sbuf 
-     ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(
-						    }#)
+     ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
      (output_c_code (get_field :oie_discr recv) () sbuf (+i depth 1))
-     (add2out sbuf ##{)			;
-     }#)
+     (add2out sbuf ");")
     (add2out 
      sbuf 
      ##{ $PTRSTR->$CNAME.nbval = $NBCLOVAL ;
+     
      $PTRSTR->$CNAME.hookdata = NULL ;
      }#
      )
+    (add2out sbuf " strncpy (" ptrstr "->" cname ".hookname, \"")
+    (add2sbuf_cencstring sbuf hkname)
+    (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
     (add2sbuf_indentnl sbuf depth)
-    (add2out sbuf ##{/*done inihook CNAME */}#)
+    (add2out sbuf ##{/*done inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf depth)
     ))
 (install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
