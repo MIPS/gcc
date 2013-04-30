@@ -5,7 +5,7 @@ sh
 +]#!/bin/bash
 [+ (. (dne "#@#@# " "#@! ")) +]
 # Generated shell script for MELT modules and MELT translator bootstrap
-#   Copyright (C) 2012  Free Software Foundation
+#   Copyright (C) 2012 - 2013  Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -253,7 +253,6 @@ fi
 meltbuild_info [+(.(fromline))+] times after stagezero at `date '+%x %H:%M:%S'`: ;  times >&2
 
 
-
 ################################################################
 ## function to run MELT to emit C code  [+(.(fromline))+]
 function meltbuild_emit () {
@@ -416,7 +415,7 @@ function meltbuild_do_stage () {
     #in meltbuild_do_stage [+(.(fromline))+] ending
     meltbuild_info $meltfrom done stage $meltcurstagedir flavor $meltcurflavor previous $meltprevstagedir previous flavor $meltprevflavor timestamp $meltstamp
 
-}				#### end meltbuild_do_stage [+(.(fromline))+]
+}			#### end meltbuild_do_stage [+(.(fromline))+]
 ################################################################
 
 ##### possibly run all our stages  [+(.(fromline))+]
@@ -797,6 +796,7 @@ if [ "$melt_overall_goal" = "regenerate" ]; then
     exit 0
 fi
 
+################################################################
 ################################################################
 ### the generated documentation meltgendoc.texi [+ (. (fromline))+]
 

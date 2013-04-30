@@ -1,5 +1,5 @@
 ## file melt-predef.list
-# Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+# Copyright (C) 2009 - 2013 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -131,6 +131,7 @@
   DISCR_STRING
   DISCR_TREE
   DISCR_VERBATIM_STRING
+  HOOK_OVERRIDE_GATE
   INITIAL_SYSTEM_DATA
   TRUE
 # the predefined below are for some testing, don't use them in "production"

@@ -5,7 +5,7 @@ AutoGen definitions melt-build-script.tpl;
 // and the autogen utility by 'autogen melt-build-script.def'.
 // This file is written by Basile Starynkevitch
 //
-//   Copyright 2012  Free Software Foundation
+//   Copyright 2012 - 2013  Free Software Foundation
 //
 // This file is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -71,6 +71,11 @@ melt_translator_file = {
 melt_translator_file = {
   base = "warmelt-outobj";
   varsuf = OUTOBJ;
+};
+
+melt_translator_file = {
+  base = "warmelt-hooks";
+  varsuf = HOOKS;
 };
 
 melt_translator_file = {
