@@ -3791,19 +3791,19 @@ melt_scanning (melt_ptr_t p)
 		  (add2out outcodebuf ", "  (get_field :ctype_cname (get_field :fbind_type curoutb)))
 		  )
 		 (add2out outcodebuf ");")
-		 (add2sbuf_indentnl outcodebuf 1)
-		 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good hook " hkname "\", ")
-		 (add2sbuf_indentnl outcodebuf 1)
-		 (add2out outcodebuf "             melt_magic_discr((melt_ptr_t) MELT_PREDEF(" hkname ") == MELTOBMAG_HOOK);")
-		 (add2sbuf_indentnl outcodebuf 1)
-		 (add2out
-		  outcodebuf ##{
-		  melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
-		  (melthooksig_$HKNAME#_t*) (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookad) ;
-		  melt_assertmsg("good hook routine $HKNAME", melthookptr_$HKNAME);
-		  return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME) }#
-							    )
-		  (add2sbuf_indentnl outcodebuf 4)
+                 (add2sbuf_indentnl outcodebuf 1)
+                 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good hook " hkname "\", ")
+                 (add2sbuf_indentnl outcodebuf 15)
+                 (add2out outcodebuf "             melt_magic_discr((melt_ptr_t) MELT_PREDEF(" hkname ")) == MELTOBMAG_HOOK);")
+                 (add2sbuf_indentnl outcodebuf 1)
+                 (add2out
+                  outcodebuf ##{
+                  melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
+                  (melthooksig_$HKNAME#_t*) (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookad) ;
+                  melt_assertmsg("good hook routine $HKNAME", 
+                                 melthookptr_$HKNAME);
+                  return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME)}#
+                                                            )
 		  (foreach_in_multiple 
 		   (dins)
 		   (curinsb :long inix)
