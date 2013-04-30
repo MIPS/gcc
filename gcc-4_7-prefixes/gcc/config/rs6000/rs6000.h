@@ -213,7 +213,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #else
 #define ASM_CPU_NATIVE_SPEC "%(asm_default)"
-#define LOCAL_CPU_EXTR_SPEC_FUNCTIONS
+#define LOCAL_CPU_EXTRA_SPEC_FUNCTIONS
 #endif
 
 #define SUBTARGET_EXTRA_SPEC_FUNCTIONS
