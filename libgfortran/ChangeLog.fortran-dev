@@ -1,3 +1,32 @@
+2013-04-30  Tobias Burnus  <burnus@net-b.de>
+
+	* ISO_Fortran_binding.h.tmpl (CFI_cdesc_t): Change order
+	and used data types.
+	* intrinsics/associated.c (associated): Honor macro-name change.
+	* intrinsics/cshift0.c (cshift0): Ditto. Update type handling.
+	* intrinsics/date_and_time.c (secnds): Ditto.
+	* intrinsics/iso_c_binding.c (c_f_pointer, c_f_pointer_u0,
+	c_f_pointer_d0): Ditto.
+	* intrinsics/pack_generic.c (pack_internal): Ditto.
+	* intrinsics/spread_generic.c (spread_internal_scalar, spead,
+	spread_scalar): Ditto.
+	* intrinsics/unpack_generic.c (unpack1, unpack0): Ditto.
+	* runtime/in_pack_generic.c (internal_pack): Ditto.
+	* runtime/in_unpack_generic.c (internal_unpack): Ditto.
+	* io/io.h (namelist_type): Rename len into kind.
+	* io/list_read.c (nml_read_obj): Honor renaming.
+	* io/write.c (nml_write_obj): Ditto.
+	* io/transfer.c (transfer_array, st_set_nml_var): Update type
+	handling.
+	* libgfortran.h: Add more asserts.
+	(GFC_DESCRIPTOR_TYPE, GFC_DESCRIPTOR_STRIDE_TYPEKNOWN): Update.
+	(GFC_DESCRIPTOR_DTYPE, GFC_DTYPE_SIZE_MASK, GFC_DTYPE_TYPE_SIZE_MASK,
+	GFC_DTYPE_TYPE_SIZE, GFC_DTYPE_INTEGER_1, GFC_DTYPE_INTEGER_*,
+	GFC_DTYPE_LOGICAL_*, GFC_DTYPE_REAL_*, GFC_DTYPE_COMPLEX_*,
+	GFC_DTYPE_DERIVED_*): Removed.
+	* runtime/iso_ts29113.c (CFI_section): Correct offset calc.
+	(CFI_section): Correct extent calc.
+
 2013-04-25  Tobias Burnus  <burnus@net-b.de>
 
 	* Makefile.am: Fix dependency.
