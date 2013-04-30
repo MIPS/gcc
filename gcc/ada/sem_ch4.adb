@@ -3501,12 +3501,14 @@ package body Sem_Ch4 is
    -----------------------------------
 
    procedure Analyze_Quantified_Expression (N : Node_Id) is
-      QE_Scop : Entity_Id;
-
       function Is_Empty_Range (Typ : Entity_Id) return Boolean;
       --  If the iterator is part of a quantified expression, and the range is
       --  known to be statically empty, emit a warning and replace expression
       --  with its static value. Returns True if the replacement occurs.
+
+      function No_Else_Or_Trivial_True (If_Expr : Node_Id) return Boolean;
+      --  Determine whether if expression If_Expr lacks an else part or if it
+      --  has one, it evaluates to True.
 
       --------------------
       -- Is_Empty_Range --
@@ -3545,6 +3547,26 @@ package body Sem_Ch4 is
          end if;
       end Is_Empty_Range;
 
+      -----------------------------
+      -- No_Else_Or_Trivial_True --
+      -----------------------------
+
+      function No_Else_Or_Trivial_True (If_Expr : Node_Id) return Boolean is
+         Else_Expr : constant Node_Id :=
+                       Next (Next (First (Expressions (If_Expr))));
+      begin
+         return
+           No (Else_Expr)
+             or else (Compile_Time_Known_Value (Else_Expr)
+                       and then Is_True (Expr_Value (Else_Expr)));
+      end No_Else_Or_Trivial_True;
+
+      --  Local variables
+
+      Cond    : constant Node_Id := Condition (N);
+      Loop_Id : Entity_Id;
+      QE_Scop : Entity_Id;
+
    --  Start of processing for Analyze_Quantified_Expression
 
    begin
@@ -3569,21 +3591,56 @@ package body Sem_Ch4 is
       if Present (Iterator_Specification (N)) then
          Preanalyze (Iterator_Specification (N));
 
+         --  Do not proceed with the analysis when the range of iteration is
+         --  empty. The appropriate error is issued by Is_Empty_Range.
+
          if Is_Entity_Name (Name (Iterator_Specification (N)))
            and then Is_Empty_Range (Etype (Name (Iterator_Specification (N))))
          then
             return;
          end if;
 
-      else
+      else pragma Assert (Present (Loop_Parameter_Specification (N)));
          Preanalyze (Loop_Parameter_Specification (N));
       end if;
 
-      Preanalyze_And_Resolve (Condition (N), Standard_Boolean);
+      Preanalyze_And_Resolve (Cond, Standard_Boolean);
 
       End_Scope;
-
       Set_Etype (N, Standard_Boolean);
+
+      --  Verify that the loop variable is used within the condition of the
+      --  quantified expression.
+
+      if Present (Iterator_Specification (N)) then
+         Loop_Id := Defining_Identifier (Iterator_Specification (N));
+      else
+         Loop_Id := Defining_Identifier (Loop_Parameter_Specification (N));
+      end if;
+
+      if Warn_On_Suspicious_Contract
+        and then not Referenced (Loop_Id, Cond)
+      then
+         Error_Msg_N ("?T?unused variable &", Loop_Id);
+      end if;
+
+      --  Diagnose a possible misuse of the "some" existential quantifier. When
+      --  we have a quantified expression of the form:
+
+      --    for some X => (if P then Q [else True])
+
+      --  the if expression will not hold and render the quantified expression
+      --  trivially True.
+
+      if Formal_Extensions
+        and then not All_Present (N)
+        and then Nkind (Cond) = N_If_Expression
+        and then No_Else_Or_Trivial_True (Cond)
+      then
+         Error_Msg_N ("?suspicious expression", N);
+         Error_Msg_N ("\\did you mean (for all X ='> (if P then Q))", N);
+         Error_Msg_N ("\\or (for some X ='> P and then Q) instead'?", N);
+      end if;
    end Analyze_Quantified_Expression;
 
    -------------------

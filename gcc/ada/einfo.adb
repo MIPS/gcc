@@ -666,7 +666,7 @@ package body Einfo is
 
    function Abstract_States (Id : E) return L is
    begin
-      pragma Assert (Ekind (Id) = E_Package);
+      pragma Assert (Ekind_In (Id, E_Generic_Package, E_Package));
       return Elist25 (Id);
    end Abstract_States;
 
@@ -3233,7 +3233,7 @@ package body Einfo is
 
    procedure Set_Abstract_States (Id : E; V : L) is
    begin
-      pragma Assert (Ekind (Id) = E_Package);
+      pragma Assert (Ekind_In (Id, E_Generic_Package, E_Package));
       Set_Elist25 (Id, V);
    end Set_Abstract_States;
 
@@ -6245,6 +6245,29 @@ package body Einfo is
       end if;
    end Get_Full_View;
 
+   ----------------
+   -- Get_Pragma --
+   ----------------
+
+   function Get_Pragma (E  : Entity_Id; Id : Pragma_Id) return Node_Id
+   is
+      N : Node_Id;
+
+   begin
+      N := First_Rep_Item (E);
+      while Present (N) loop
+         if Nkind (N) = N_Pragma
+           and then Get_Pragma_Id (Pragma_Name (N)) = Id
+         then
+            return N;
+         else
+            Next_Rep_Item (N);
+         end if;
+      end loop;
+
+      return Empty;
+   end Get_Pragma;
+
    --------------------------------------
    -- Get_Record_Representation_Clause --
    --------------------------------------
@@ -6592,22 +6615,12 @@ package body Einfo is
    -------------------------
 
    function Is_Ghost_Subprogram (Id : E) return B is
-      Subp_Id : Entity_Id := Id;
-
    begin
-      if Present (Subp_Id)
-        and then Ekind_In (Subp_Id, E_Function, E_Procedure)
-      then
-         --  Handle subprogram renamings
-
-         if Present (Alias (Subp_Id)) then
-            Subp_Id := Alias (Subp_Id);
-         end if;
-
-         return Convention (Subp_Id) = Convention_Ghost;
+      if Present (Id) and then Ekind_In (Id, E_Function, E_Procedure) then
+         return Convention (Id) = Convention_Ghost;
+      else
+         return False;
       end if;
-
-      return False;
    end Is_Ghost_Subprogram;
 
    --------------------
@@ -6796,8 +6809,7 @@ package body Einfo is
 
    function Is_Wrapper_Package (Id : E) return B is
    begin
-      return (Ekind (Id) = E_Package
-                and then Present (Related_Instance (Id)));
+      return (Ekind (Id) = E_Package and then Present (Related_Instance (Id)));
    end Is_Wrapper_Package;
 
    -----------------

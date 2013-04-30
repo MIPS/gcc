@@ -1,3 +1,345 @@
+2013-04-25  Arnaud Charlet  <charlet@adacore.com>
+
+	* gcc-interface/Makefile.in (ADA_EXCLUDE_SRCS): Exclude s-init.ad{s,b}
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* checks.adb (Apply_Predicate_Check): Update the comment associated
+	with the call to Check_Expression_Against_Static_Predicate.
+	* sem_ch3.adb (Analyze_Object_Declaration): Update the comment
+	associated with the call to Check_Expression_Against_Static_Predicate.
+	* sem_util.adb (Check_Expression_Against_Static_Predicate):
+	Broaden the check from a static expression to an expression with
+	a known value at compile time.
+	* sem_util.ads (Check_Expression_Against_Static_Predicate): Update
+	comment on usage.
+
+2013-04-25  Thomas Quinot  <quinot@adacore.com>
+
+	* exp_attr.adb (Expand_N_Attribute_Reference, cases Position,
+	First_Bit, and Last_Bit): Fix incorrect test in implementation of
+	RM 2005 13.5.2(3/2).
+
+2013-04-25  Claire Dross  <dross@adacore.com>
+
+	* a-cfhase.adb, a-cfhase.ads, a-cforma.adb, a-cforma.ads, a-cfhama.adb,
+	a-cfhama.ads, a-cforse.adb, a-cforse.ads, a-cofove.adb, a-cofove.ads
+	(Query_Element): Removed.
+	(Update_Element): Removed.
+	(Insert): The version with no New_Item specified is removed.
+	(Iterate): Removed.
+	(Write): Removed.
+	(Read): Removed.
+	Every check of fields Busy and Lock has been removed.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma, case Contract_Cases): Remove
+	call to S14_Pragma (Find_Related_Subprogram): Require proper
+	placement in subprogram body (Find_Related_Subprogram): Detect
+	duplicates for all cases (Find_Related_Subprogram): Handle case
+	of spec nested inside body.
+
+2013-04-25  Arnaud Charlet  <charlet@adacore.com>
+
+	* par-prag.adb: Fix typo.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* checks.adb (Apply_Predicate_Check): If the type has a static
+	predicate and the expression is also static, check whether the
+	expression satisfies the predicate.
+	* sem_ch3.adb (Analyze_Object_Declaration): If the type has a
+	static predicate and the expression is also static, see if the
+	expression satisfies the predicate.
+	* sem_util.adb: Alphabetize several routines.
+	(Check_Expression_Against_Static_Predicate): New routine.
+	* sem_util.ads (Check_Expression_Against_Static_Predicate): New routine.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* gnat_rm.texi: Document Reason argument for pragma Warnings.
+	* par-prag.adb: Handle Reason parameter for pragma Warnings.
+	* sem_prag.adb (Analyze_Pragma, case Warnings): Allow Reason argument.
+	* snames.ads-tmpl (Name_Reason): New name entry.
+
+2013-04-25  Yannick Moy  <moy@adacore.com>
+
+	* exp_spark.adb (Expand_SPARK_N_In): Remove procedure.
+	(Expand_SPARK): Remove special expansion for membership tests.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): Update all places
+	that should use constant Base_Typ. When building an invariant
+	check, account for invariants coming from the base type. Prevent
+	the creation of a junk invariant check when the related object
+	is of an array type and it is initialized with an aggregate.
+	* exp_util.adb (Make_Invariant_Call): Typ is now a variable. Use
+	the base type to create an invariant call when the type of the
+	expression is a composite subtype.
+
+2013-04-25  Vasiliy Fofanov  <fofanov@adacore.com>
+
+	* a-cborse.adb: Fix minor typo.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Different_Generic_Profile): A spec and body
+	match in an instance if a subtype declaration that renames a
+	generic actual with the same name appears between spec and body.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* sem_util.adb: Minor reformatting.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_aggr.adb (Expand_N_Aggregate): Use special circuitry to
+	fold strings with a single others choice only if there are no
+	expressions in the aggregate.
+
+2013-04-25  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat_ugn.texi: Update doc on Ada 2012 default mode.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch6.adb: Add with and use clause for Stringt.
+	(Expand_Contract_Cases): Moved from sem_ch6. Add formal parameters
+	Decls and Stmts along with comments on their usage.
+	* exp_ch6.ads (Expand_Contract_Cases): Moved from sem_ch6.
+	* sem_ch6.adb (Expand_Contract_Cases): Moved to exp_ch6.
+	(Process_Contract_Cases): Update the call to Expand_Contract_Cases.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* gnat_rm.texi: Minor editing, to clarify use of dimension aspects.
+	* sem_util.adb (Is_OK_Variable_For_Out_Formal): Reject an
+	aggregate for a packed type, which may be converted into an
+	unchecked conversion of an object.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* sem_prag.adb: Minor code reorganization (correct misspelling
+	Restiction).
+	* sem_util.adb, aspects.ads, sem_ch6.adb: Minor reformatting.
+	* gnat_rm.texi: Document impl-defined aspects.
+	* sem_dim.adb, sem_dim.ads, gnat_ugn.texi, s-dimmks.ads: Minor
+	reformatting.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb (Set_Abstract_States): The attribute now applies
+	to generic packages.
+	* sem_ch4.adb (Referenced): Moved to sem_util.
+	* sem_ch7.adb (Unit_Requires_Body): A [generic] package with
+	a non-null abstract state needs a body.
+	* sem_prag.adb (Analyze_Depends_In_Decl_Part): Update the calls
+	to Collect_Subprogram_Inputs_Outputs.
+	(Analyze_Global_Item): Verify the proper usage of an item with mode
+	In_Out or Output relative to the enclosing context.
+	(Analyze_Pragma): Abstract_State can now be applied to a generic
+	package. Do not reset the Analyzed flag for pragmas Depends and Global
+	as this is not needed.
+	(Appears_In): Moved to library level.
+	(Check_Mode_Restiction_In_Enclosing_Context): New routine.
+	(Collect_Subprogram_Inputs_Outputs): Moved to library level. Add
+	formal parameters Subp_Id, Subp_Inputs, Subp_Outputs and Global
+	seen along with comments on usage.
+	* sem_util.ads, sem_util.adb (Referenced): New routine.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch6.adb (Expand_Contract_Cases): Generate
+	detailed error messages only when switch -gnateE is in effect.
+
+2013-04-25  Yannick Moy  <moy@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute): Do not issue
+	an error for a possibly misplaced 'Result or 'Old attribute when
+	analyzing the aspect.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch12.adb, sem_util.adb, sem_ch4.adb: Minor reformatting.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch4.adb (Analyze_Quantified_Expression):
+	Add local variable Loop_Id. Verify that the loop variable
+	is used within the condition of the quantified expression.
+	(Referenced): New routine.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_case.adb (Analyze_Choices): Enhance the error message
+	given on a bad use of subtype predicate.
+	* sem_ch5.adb (Analyze_Loop_Parameter_Specification): Enhance
+	the error message given on a bad use of subtype predicate.
+	* sem_util.adb (Bad_Predicated_Subtype_Use): Add formal parameter
+	Suggest_Static. Emit an extra error message advising how to
+	remedy the bad use of the predicate if the context warrants it.
+	* sem_util.ads (Bad_Predicated_Subtype_Use): Add formal parameter
+	Suggest_Static along with a comment explaining its usage.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_disp.adb (Check_Dispatching_Operation): Further refinement
+	to checks for AI05-0125: the check for a hidden primitive that
+	may be overridden by the new declaration only applies if the
+	hidden operation is never declared. This is not the case if the
+	operation is declared in a parent unit.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* debug.adb: Remove d.X and d.Y entries and documentation.
+	* exp_ch4.adb (Expand_N_If_Expression): Remove special code used
+	if expression with actions not available (now always available).
+	(Expand_Short_Circuit_Operator): Same change.
+	* gnat1drv.adb (Adjust_Global_Switches) Remove setting
+	Use_Expression_With_Actions flag, since this is now obsolete.
+	* opt.ads (Use_Expression_Actions): Removed (always True now).
+	* sinfo.ads: Minor comment updates.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Check_Generic_Actuals): If an actual is an array
+	subtype whose base type is currently private, install full view
+	when compiling instance body.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_disp.adb (Check_Dispatching_Operation): Refine checks for
+	AI05-0125: the check for a hidden primitive that may be overridden
+	by the new declaration is only performed if the declaration comes
+	from source, and it must carry an explicit overriding indicator.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb (Abstract_States): The attribute now applies to
+	generic packages.
+	* sem_ch3.adb (Analyze_Object_Declaration): Check whether an
+	object declaration introduces an illegal hidden state.
+	* sem_prag.adb (Analyze_Abstract_State): Check whether a state
+	declaration introduces an illegal hidden state.
+	* sem_util.ads, sem_util.adb (Check_No_Hidden_State): New routine.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch6.adb (Is_Build_In_Place_Function_Call): The call may
+	be to a protected function, in which case the name in the call
+	is a selected component.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch4.adb (Analyze_Quantified_Expression):
+	Warn on a suspicious use of quantifier "some" when "all" was meant.
+	(No_Else_Or_Trivial_True): New routine.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* einfo.ads, einfo.adb: Put back with/use for Namet.
+	(Get_Pragma): New name (wi new spec) for Find_Pragma.
+	* sem_ch6.adb: Change name Find_Pragma to Get_Pragma with
+	different interface.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Is_Visible_Component): In an instance all
+	components are visible.
+
+2013-04-25  Matthew Heaney  <heaney@adacore.com>
+
+	* a-rbtgbo.adb, a-crbtgo.adb (Generic_Equal): do not test for
+	tampering when container empty.
+	* a-crbtgk.adb (Ceiling, Find, Floor): ditto.
+	(Generic_Conditional_Insert, Generic_Conditional_Insert_With_Hint):
+	ditto.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* par-ch12.adb: Move aspects from package specification to
+	generic package declaration.
+	* sem_ch12.adb: Analyze aspect specifications before building
+	and analyzing the generic copy, so that the generated pragmas
+	are properly taken into account.
+	* sem_ch13.adb: For compilation unit aspects that apply to a
+	generic package declaration, insert corresponding pragmas ahead
+	of visible declarations.
+	* sprint.adb: Display properly the aspects of a generic type
+	declaration.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* frontend.adb: Minor reformatting.
+
+2013-04-25  Ed Schonberg  <schonberg@adacore.com>
+
+	* einfo.ads: Extend documentation on use of Is_Private_Ancestor
+	for untagged types.
+	* sem_ch3.adb (Is_Visible_Component): Refine predicate for the
+	case of untagged types derived from private types, to reject
+	illegal selected components.
+
+2013-04-25  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_util.adb (Is_Dependent_Component_Of_Mutable_Object): Test
+	for case of selecting from an unexpanded implicit dereference
+	and do not make a recursive call on such a prefix.
+
+2013-04-25  Doug Rupp  <rupp@adacore.com>
+
+	* targparm.adb (VXF{_Str}): New tag for vaxfloat.
+	(Get_Target_Parameters): Handle VXF tag.
+	* targparm.ads (VAX_Float_On_Target): New boolean.
+	* system-vms-ia64.ads (VAX_Float): New boolean.
+	* frontend.adb (Frontend): Handle VAX float boolean.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.ads, einfo.adb: Remove with and use clauses for Namet.
+	(Find_Pragma): New routine.
+	* sem_util.ads, sem_util.adb (Find_Pragma): Moved to einfo.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch13.adb (Add_Call): Do not capture the nature of the inherited
+	predicate.
+	(Add_Predicates): Save the static predicate for diagnostics and error
+	reporting purposes.
+	(Process_PPCs): Remove local variables Dynamic_Predicate_Present and
+	Static_Predicate_Present. Add local variable Static_Pred. Ensure that
+	the expression of a static predicate is static.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.adb (Is_Ghost_Subprogram): Remove useless code.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* gnat_rm.texi: Minor addition of index entry.
+
+2013-04-25  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch6.adb (Check_Access_Invariants): Test whether an
+	invariant procedure is empty before generating a call to it.
+	(Has_Enabled_Predicate): New routine.
+	(Has_Null_Body): New routine.
+	(Process_PPCs): Test whether an invariant procedure is
+	empty before generating a call to it. Test whether predicates are
+	enabled for a particular type before generating a predicate call.
+	* sem_util.ads, sem_util.adb (Find_Pragma): New routine.
+
+2013-04-25  Robert Dewar  <dewar@adacore.com>
+
+	* sem_ch7.adb, einfo.adb, repinfo.adb, snames.adb-tmpl,
+	snames.ads-tmpl: Minor reformatting.
+
+2013-04-25  Thomas Quinot  <quinot@adacore.com>
+
+	* sem_ch7.adb: Minor reformatting.
+
 2013-04-25  Robert Dewar  <dewar@adacore.com>
 
 	* gnat_rm.texi: Minor fix to Loop_Variant doc (Loop_Entry allowed).
