@@ -33,7 +33,10 @@ typedef void (*assign_handler)(tree, tree, void *);
 static unsigned int mpx_execute (void);
 static bool mpx_gate (void);
 
-static int mpx_output_static_bounds (void **slot, void *res);
+static void mpx_output_static_bounds (tree var, tree bnd_var,
+				      struct mpx_ctor_stmt_list *stmts);
+static int mpx_compare_var_names (const void *i1, const void *i2);
+static int mpx_add_tree_to_vec (void **slot, void *res);
 static int mpx_output_size_variable (void **slot, void *res);
 static int mpx_may_complete_phi_bounds (void **slot, void *res);
 static bool mpx_may_finish_incomplete_bounds (void);
@@ -669,13 +672,9 @@ mpx_add_modification_to_statements_list (tree lhs,
 
 /* Helper function for mpx_finish_file.
    Outputs one static bounds variable from mpx_static_var_bounds table.  */
-static int
-mpx_output_static_bounds (void **slot, void *res)
+static void
+mpx_output_static_bounds (tree var, tree bnd_var, struct mpx_ctor_stmt_list *stmts)
 {
-  struct tree_map *map = (struct tree_map *)*slot;
-  struct mpx_ctor_stmt_list *stmts = (struct mpx_ctor_stmt_list *)res;
-  tree var = map->base.from;
-  tree bnd_var = map->to;
   tree size_ptr = build_pointer_type (size_type_node);
   tree bnd_p = build1 (CONVERT_EXPR, size_ptr,
 		       mpx_build_addr_expr (bnd_var));
@@ -741,8 +740,6 @@ mpx_output_static_bounds (void **slot, void *res)
       stmts->avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
       stmts->stmts = NULL;
     }
-
-  return 1;
 }
 
 /* Helper function for mpx_finish_file.
@@ -753,6 +750,48 @@ mpx_output_size_variable (void **slot, void *res ATTRIBUTE_UNUSED)
   struct tree_map *map = (struct tree_map *)*slot;
   tree size_decl = map->to;
   assemble_variable (size_decl, 1, 0, 0);
+
+  return 1;
+}
+
+/* Helper function for mpx_finish_file to sort vars.  */
+static int
+mpx_compare_var_names (const void *i1, const void *i2)
+{
+  const tree t1 = *(const tree *)i1;
+  const tree t2 = *(const tree *)i2;
+  const char *name1;
+  const char *name2;
+
+  if (TREE_CODE (t1) == STRING_CST)
+    {
+      if (TREE_CODE (t2) != STRING_CST)
+	return 1;
+
+      name1 = TREE_STRING_POINTER (t1);
+      name2 = TREE_STRING_POINTER (t2);
+    }
+  else
+    {
+      if (TREE_CODE (t2) == STRING_CST)
+	return -1;
+
+      name1 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t1));
+      name2 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t2));
+    }
+
+  return strcmp (name1, name2);
+}
+
+/* Helper function for mpx_finish_file to put all
+   vars into vectors.  */
+static int
+mpx_add_tree_to_vec (void **slot, void *res)
+{
+  struct tree_map *map = (struct tree_map *)*slot;
+  vec<tree> *vars = (vec<tree> *)res;
+  tree var = map->base.from;
+  vars->safe_push (var);
 
   return 1;
 }
@@ -801,11 +840,32 @@ mpx_finish_file (void)
 
   if (mpx_static_var_bounds)
     {
+      unsigned int i;
+      vec<tree> vars;
+
       stmts.avail = MAX_STMTS_IN_STATIC_MPX_CTOR;
       stmts.stmts = NULL;
 
+      vars.create (htab_size (mpx_static_var_bounds));
+
+      /* It seems that htab_traverse gives random vars order and thus
+	 causes bootstrap to fails due to differences.  To fix it we
+	 sort all vars by name first.  */
       htab_traverse (mpx_static_var_bounds,
-		     mpx_output_static_bounds, &stmts);
+		     mpx_add_tree_to_vec, &vars);
+      vars.qsort (&mpx_compare_var_names);
+
+      for (i = 0; i < vars.length (); i++)
+	{
+	  struct tree_map *res, in;
+	  in.base.from = vars[i];
+	  in.hash = htab_hash_pointer (vars[i]);
+
+	  res = (struct tree_map *) htab_find_with_hash (mpx_static_var_bounds,
+							 &in, in.hash);
+
+	  mpx_output_static_bounds (vars[i], res->to, &stmts);
+	}
 
       if (stmts.stmts)
 	cgraph_build_static_cdtor ('B', stmts.stmts,
