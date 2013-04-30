@@ -5385,7 +5385,7 @@ $SBUF.}#
 	  (add2sbuf_longdec nambuf drk)
 	  (if nam (progn
 		    (add2sbuf_strconst nambuf "__")
-		    (add2sbuf_cident nambuf (unsafe_get_field :named_name nam))))
+		    (add2sbuf_cident nambuf (get_field :named_name nam))))
 	  (let ( (cnam (strbuf2string discr_string nambuf)) )
 	    (unsafe_put_fields oini :oie_cname cnam)
 	    )
@@ -5436,9 +5436,11 @@ $SBUF.}#
 	   )
       (add2sbuf_strconst nambuf "dtup_")
       (add2sbuf_longdec nambuf drk)
-      (if nam (progn
-		(add2sbuf_strconst nambuf "__")
-		(add2sbuf_cident nambuf (unsafe_get_field :named_name nam))))
+      (cond ((is_a nam class_named)
+	     (add2sbuf_strconst nambuf "__")
+	     (add2sbuf_cident nambuf (get_field :named_name nam)))
+	    ((is_string nam)
+	     (add2out nambuf "___") (add2sbuf_cident nambuf nam)))
       (let ( (otup (instance class_objinitmultiple
 			     :obv_type ctype_value
 			     :oie_discr odiscr

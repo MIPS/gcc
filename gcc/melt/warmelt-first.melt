@@ -595,10 +595,27 @@ definition.}#
 (defclass class_hook_binding
   :super class_fixed_binding
   :fields (hookbind_defhook ;the source definition
+	   hookbind_descr    ;the descriptor
 	   )
   :doc #{The internal $CLASS_HOOK_BINDING is for hook
 bindings. See the $DEFHOOK macro. The $HOOKBIND_DEFHOOK provides the
 definition.}# 
+)
+
+
+(defclass class_hook_descriptor
+  :super class_named
+  :fields (hookdesc_in_formals
+	   hookdesc_out_formals
+	   hookdesc_ctype
+	   hookdesc_hook
+	   )
+  :doc #{The $CLASS_HOOK_DESCRIPTOR describes the hook
+  interface. $NAMED_NAME is the hook name. $HOOKDESC_IN_FORMALS is the
+  tuple of input formal bindings. $HOOKDESC_OUT_FORMALS is the tuple
+  of output formal bindings. $HOOKDESC_CTYPE is the ctype of the
+  result. $HOOKDESC_HOOK is the described hook.}#
+  :predef CLASS_HOOK_DESCRIPTOR
 )
 
 
@@ -4392,6 +4409,7 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  class_gcc_simple_ipa_pass
  class_gcc_transform_ipa_pass
  class_generated_c_code
+ class_hook_descriptor
  class_hook_binding
  class_initial_generation_context
  class_input_channel_handler

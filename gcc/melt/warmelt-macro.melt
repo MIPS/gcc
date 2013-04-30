@@ -2912,7 +2912,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	 (docv ())			;optional :doc
 	 (hbind (instance class_hook_binding
 			  :binder symb
-			  :hookbind_defhook ())) ;to be filled later
+			  :hookbind_defhook ()
+			  :hookbind_descr ())) ;to be filled later
 	 (newenv (fresh_env env))
 	 )
     (when (is_not_a symb class_symbol)

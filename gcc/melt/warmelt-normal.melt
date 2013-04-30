@@ -4382,7 +4382,12 @@ source location.}#
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (sloc (unsafe_get_field :loca_location recv))
 	 (symb (get_field :sdef_name recv))
-	 (symbname (get_field :named_name symb))
+	 (symbname (progn 
+		     (debug "normexp_defhook symb=" symb)
+		     (let ( (sn (get_field :named_name symb))
+			    )
+		       (debug "normexp_defhook symbname=" sn)
+		       sn)))
 	 (sinformals (unsafe_get_field :sformal_args recv))
 	 (soutformals (unsafe_get_field :shook_out_formals recv))
 	 (sctype (unsafe_get_field :shook_ctype recv))
@@ -4402,6 +4407,12 @@ source location.}#
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
 			  :nrhook_closedbindlist closbindlist))
+	 (descrhook (instance class_hook_descriptor
+			      :named_name symbname
+			      :hookdesc_in_formals sinformals
+			      :hookdesc_out_formals soutformals
+			      :hookdesc_ctype sctype
+			      :hookdesc_hook ()))
 	 (ndatahook (instance class_nrep_datahook
 			      :ndata_name symbname
 			      :ndata_discrx (normal_predef discr_hook ncx sloc "discr_hook")
@@ -4409,10 +4420,29 @@ source location.}#
 			      :ndhook_closv ()
 			      :ndhook_predef spredef
 			      ))
+	;; map of formal symbol -> data of formal_binding
+	(formsymbmap (make_mapobject discr_map_objects
+				     (+i 9 (*i (+i (multiple_length sinformals) (multiple_length soutformals)) 2))))
+	(formintuple (make_multiple discr_multiple (multiple_length sinformals)))
+	(formoutuple (make_multiple discr_multiple (multiple_length soutformals)))		     
+	(namstrdata (instance class_nrep_datastring
+			      :nrep_loc sloc
+			      :ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
+			      :nstr_string  symbname))
+	(slotup (make_multiple discr_multiple
+			       (multiple_length (unsafe_get_field :class_fields class_hook_descriptor))))
+	(insdata (instance class_nrep_datainstance
+			   :nrep_loc sloc
+			   :ndata_name symbname
+			   :ndata_discrx (normal_predef class_hook_descriptor ncx sloc "class_hook_descriptor") 
+			   :ninst_hash (make_integerbox discr_integer (obj_hash descrhook))
+			   :ninst_slots slotup
+			   )) 
 	 )
     (debug "normexp_defhook newenv=" newenv
 	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc
-	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype) 
+	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
+	   "\n.. descrhook=" descrhook) 
     (assert_msg "check sctype" (is_a sctype class_ctype))
     (assert_msg "check symbname" (is_string symbname))
     (assert_msg "check sinformals" (and (is_multiple_or_null sinformals)
@@ -4425,11 +4455,39 @@ source location.}#
 		:nctx_curproc nproc
 		:nctx_symbcachemap (make_mapobject discr_map_objects 40))
     (add_nctx_data ncx ndatahook)
+    (add_nctx_data ncx insdata)
     (when (is_not_a shobind class_hook_binding)
       (error_strv sloc
 		  "bad DEFHOOK, not bound to a hook [nested hooks are prohibited]"
 		  symbname)
       (return))
+;;; fill the named_name of insdata
+    (multiple_put_nth slotup (get_int named_name) namstrdata)
+    ;; fill the hookdesc_in_formals of insdata
+    (fill_normal_formals sinformals formintuple formsymbmap env ncx sloc)
+    (let ( (nintupdata (instance class_nrep_datatuple
+				 :nrep_loc sloc
+				 :ndata_name symbname
+				 :ndata_discrx  (normal_predef discr_multiple ncx sloc "discr_multiple")
+				 :ntup_comp formintuple))
+	   )
+      (add_nctx_data ncx nintupdata)
+      (multiple_put_nth slotup (get_int hookdesc_in_formals) nintupdata)
+      (debug "normexp_defhook nintupdata=" nintupdata))
+    ;; fill the hookdesc_out_formals of insdata
+    (fill_normal_formals soutformals formoutuple formsymbmap env ncx sloc)
+    (let ( (noutupdata (instance class_nrep_datatuple
+				 :nrep_loc sloc
+				 :ndata_name symbname
+				 :ndata_discrx  (normal_predef discr_multiple ncx sloc "discr_multiple")
+				 :ntup_comp formoutuple))
+	   )
+      (add_nctx_data ncx noutupdata)
+      (multiple_put_nth slotup (get_int hookdesc_out_formals) noutupdata)
+      (debug "normexp_defhook noutupdata=" noutupdata))
+    ;; fill the hookdesc_ctype of insdata
+    (multiple_put_nth slotup (get_int hookdesc_ctype) (normal_predef sctype ncx sloc "hook ctype"))
+    ;;
     (put_fields nproc :nrhook_datahook ndatahook)
     (debug "normexp_defhook updated ncx=" ncx "\n .. nproc=" nproc)
     (foreach_in_multiple

@@ -535,13 +535,13 @@ melt_intern_cstring (const char* s)
 	  const char*curs = oldarr[oix];
 	  if (!curs) 
 	    continue;
-	  aix = melt_raw_interned_cstring_index(curs);
-	  gcc_assert (aix > 0);
+	  aix = melt_raw_interned_cstring_index (curs);
+	  gcc_assert (aix >= 0);
 	};
       gcc_assert (melt_intstrhtab.csh_count == oldcount);
     };
   {
-    long j = melt_raw_interned_cstring_index(s);
+    long j = melt_raw_interned_cstring_index (s);
     const char* ns = NULL;
     gcc_assert (j >= 0 && j < melt_primtab[melt_intstrhtab.csh_sizix]);
     ns = melt_intstrhtab.csh_array[j];

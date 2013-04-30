@@ -1,6 +1,25 @@
 
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (melt_intern_cstring): Thoe index returned by
+	melt_raw_interned_cstring_index can be 0.
+
+	* melt/warmelt-first.melt  (class_hook_descriptor): New predefined class
+	with fields hookdesc_in_formals hookdesc_out_formals
+	hookdesc_ctype hookdesc_hook.
+
+	* melt/warmelt-macro.melt (mexpand_defhook): Clear hookbind_defhook.
+
+	* melt/warmelt-normal.melt (normexp_defhook): Compile-time build
+	of the hook descriptor, still incomplete.
+
+	* melt/warmelt-genobj.melt (compilobj_datatuple): Accept string name.
+
+	* melt/warmelt-modes.melt
+	(generate_runtypesupport_predefined_hooks): Add backtrace.
+
+2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (HOOK_OVERRIDE_GATE): New.
 
 	* melt/warmelt-hooks.melt: New file.
