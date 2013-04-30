@@ -822,7 +822,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (:long nbcloval (multiple_length oclovaltup))
 	 (hkname (get_field :nrhook_name hkproc))
 	 )
-    (debug "outcinitfill_objinithook hkproc=" hkproc)
+    (debug "outcinitfill_objinithook hkproc=" hkproc "\n .. hkdata=" hkdata)
     (add2sbuf_indentnl sbuf depth)
     (add2out sbuf ##{/*inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf (+i depth 1))
@@ -4911,6 +4911,31 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (add2sbuf_indentnl implbuf depth)
     ))
 (install_method class_objputhookconst output_c_code outpucod_objputhookconst)
+
+
+;; output the putting of a constant data inside a hook
+(defun outpucod_objputhookdata (ophd declbuf implbuf :long depth)
+  (debug "outpucod_objputhookdata ophd=" ophd)
+  (assert_msg "check ophconst" (is_a ophd class_objputhookdata))
+  (let ( (oloc (get_field :obi_loc ophd))
+	 (ohook (get_field :ophkdata_hook ophd))
+	 (odata (get_field :ophkdata_data ophd))
+	 (nhook (get_field :oie_data ohook))
+	 (hookname (get_field :ndata_name nhook))
+	 )
+    (debug "outpucod_objputhookdata ophd=" ophd "\n.. ohook=" ohook "\n.. odata=" odata "\n nhook=" nhook)
+    (assert_msg "check ohook" (is_a ohook class_objinithook))
+    (output_location oloc implbuf depth "puthookdata")
+    (add2out implbuf ##{/*put data in hook $HOOKNAME */}#)
+    (add2sbuf_indentnl implbuf depth)
+    (add2sbuf_strconst implbuf "((melthook_ptr_t)")
+    (output_c_code ohook declbuf implbuf depth)
+    (add2sbuf_strconst implbuf ")->hookdata = (melt_ptr_t)(")
+    (output_c_code odata declbuf implbuf depth)
+    (add2sbuf_strconst implbuf ");")
+    (add2sbuf_indentnl implbuf depth)
+    ))
+(install_method class_objputhookdata output_c_code outpucod_objputhookdata)
 
 
 ;;; output the put of an extra returned result

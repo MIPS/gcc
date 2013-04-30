@@ -1,6 +1,15 @@
 
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (class_objputhookdata): New class with
+	fields ophkdata_hook & ophkdata_data.
+	(compilobj_datahook): Use it.
+
+	* melt/warmelt-outobj.melt (outpucod_objputhookdata): New method
+	for output_c_code on class_objputhookdata.
+
+2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-mode.melt
 	(generate_runtypesupport_predefined_hooks): Emit a warning if no
 	hook data.

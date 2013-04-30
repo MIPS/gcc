@@ -555,6 +555,13 @@
 	   ophconst_cval	 ;the constant value
 	   ))
 
+;; put a constant data inside a hook
+(defclass class_objputhookdata
+  :super class_objinstr
+  :fields (ophkdata_hook	 ;the hook
+	   ophkdata_data	 ;the data
+	   ))
+
 ;; put a constant value inside a routine
 (defclass class_objputroutconst
   :super class_objinstr
@@ -710,15 +717,16 @@
  class_objplainblock
  class_objpredef
  class_objpurevalue
- class_objputoutarg
  class_objputclosednotnullv
  class_objputclosedv
  class_objputclosurout
+ class_objputhookconst
+ class_objputhookdata
  class_objputlist
+ class_objputoutarg
  class_objputpair
  class_objputpairhead
  class_objputpairtail
- class_objputhookconst
  class_objputroutconst
  class_objputroutconstnotnull
  class_objputslot
@@ -5867,6 +5875,15 @@ $SBUF.}#
 	     "\n.. nclotup=" nclotup "\n.. nhpro=" nhpro
 	     "\n.. oihook=" oihook
 	     "\n.. oclo=" oclo "\n.. inibody=" inibody)
+      ;; set the data
+      (let ( (ophd (instance class_objputhookdata
+			      :obi_loc nloc
+			      :ophkdata_hook oihook
+			      :ophkdata_data ohkdata))
+	     )
+	 (list_append inibody ophd)
+	 (debug "compilobj_datahook ophd=" ophd))
+      ;; set the components
       (foreach_in_multiple
        (oclo)
        (curobc :long obix)
