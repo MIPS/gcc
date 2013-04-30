@@ -1,6 +1,10 @@
 
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-mode.melt
+	(generate_runtypesupport_predefined_hooks): Good emission.
+
+2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-mode.melt
 	(generate_runtypesupport_predefined_hooks): Better emission.
 
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>

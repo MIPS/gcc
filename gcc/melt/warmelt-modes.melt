@@ -3776,7 +3776,7 @@ melt_scanning (melt_ptr_t p)
 		 (add2sbuf_indentnl outcodebuf 0)
 		 (add2out outcodebuf "{")
 		 (add2sbuf_indentnl outcodebuf 0)
-		 (add2out outcodebuf "#if 0 && generate_runtypesupport_predefined_hooks")
+		 (add2out outcodebuf "#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE")
 		 (add2sbuf_indentnl outcodebuf 1)
 		 (add2out outcodebuf "typedef " ctynam " melthooksig_" hkname "_t (")
 		 (add2out outcodebuf "melt_ptr_t")
@@ -3793,31 +3793,39 @@ melt_scanning (melt_ptr_t p)
 		 (add2out outcodebuf ");")
 		 (add2sbuf_indentnl outcodebuf 1)
 		 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good hook " hkname "\", ")
-		 (add2out outcodebuf " melt_magic_discr((melt_ptr_t) MELT_PREDEF(" hkname ") == MELTOBMAG_HOOK);")
 		 (add2sbuf_indentnl outcodebuf 1)
-		 (add2out outcodebuf ##{
-			  melthooksig_$HKNAME#_t *melthookptr_#$HKNAME = 
-			    (melthooksig_$HKNAME#_t) (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookad) ;
-			  melt_assertmsg("good hook routine $HKNAME", melthookptr_$HKNAME);
-			  return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME) /*)*/ }#)
-			  (foreach_in_multiple 
-			   (dins)
-			   (curinsb :long inix)
-			   (add2out outcodebuf ", meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
-			   )
-			  (foreach_in_multiple
-			   (douts)
-			   (curoutb :long outix)
-			   (add2out outcodebuf ", meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
-			   )
-			  (add2out outcodebuf ");")
-			  (add2sbuf_indentnl outcodebuf 0)
-			  (add2out outcodebuf "#endif /* 0 && generate_runtypesupport_predefined_hooks */")
-			  (add2sbuf_indentnl outcodebuf 0)
-			  (add2out outcodebuf "} /* end  melthookproc_" hkname " */")
-			  (add2sbuf_indentnl outcodebuf 0)
-			  (add2sbuf_indentnl outcodebuf 0)
-			  )
+		 (add2out outcodebuf "             melt_magic_discr((melt_ptr_t) MELT_PREDEF(" hkname ") == MELTOBMAG_HOOK);")
+		 (add2sbuf_indentnl outcodebuf 1)
+		 (add2out
+		  outcodebuf ##{
+		  melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
+		  (melthooksig_$HKNAME#_t*) (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookad) ;
+		  melt_assertmsg("good hook routine $HKNAME", melthookptr_$HKNAME);
+		  return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME) }#
+							    )
+		  (add2sbuf_indentnl outcodebuf 4)
+		  (foreach_in_multiple 
+		   (dins)
+		   (curinsb :long inix)
+		   (add2out outcodebuf ",")
+		   (add2sbuf_indentnl outcodebuf 20)
+		   (add2out outcodebuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
+		   )
+		  (foreach_in_multiple
+		   (douts)
+		   (curoutb :long outix)
+		   (add2out outcodebuf ",") 
+		   (add2sbuf_indentnl outcodebuf 20)
+		   (add2out outcodebuf " meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
+		   )
+		  (add2out outcodebuf ");")
+		  (add2sbuf_indentnl outcodebuf 0)
+		  (add2out outcodebuf "#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */")
+		  (add2sbuf_indentnl outcodebuf 0)
+		  (add2out outcodebuf "} /* end  melthookproc_" hkname " */")
+		  (add2sbuf_indentnl outcodebuf 0)
+		  (add2sbuf_indentnl outcodebuf 0)
+		  )
 	     ;; else, not a hook data
 	     (progn
 	       (assert_msg "check hkdata is empty " (is_not_a hkdata class_hook_descriptor))
