@@ -3630,8 +3630,7 @@ mpx_fix_cfg ()
 
 	gsi_next (&next);
 
-	if (is_gimple_call (stmt)
-	    && stmt_can_throw_internal (stmt)
+	if (stmt_ends_bb_p (stmt)
 	    && !gsi_end_p (next))
 	  {
 	    while (!gsi_end_p (next))
