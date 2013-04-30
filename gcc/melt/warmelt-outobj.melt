@@ -827,8 +827,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl sbuf (+i depth 1))
     (when olocvar
       (output_c_code olocvar () sbuf 1)
-      (add2out sbuf ##{ = (melt_ptr_t) &$PTRSTR->$CNAME	;}#
-	       )
+      (add2out sbuf 
+	       ##{ = (melt_ptr_t) &$PTRSTR->$CNAME;
+	       }#)
       (add2sbuf_indentnl sbuf 1)
       )
     (add2out 
@@ -836,11 +837,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
      (output_c_code (get_field :oie_discr recv) () sbuf (+i depth 1))
      (add2out sbuf ");")
+    (add2sbuf_indentnl sbuf (+i depth 1))
     (add2out 
      sbuf 
-     ##{ $PTRSTR->$CNAME.nbval = $NBCLOVAL ;
-     
-     $PTRSTR->$CNAME.hookdata = NULL ;
+     ##{    $PTRSTR->$CNAME.nbval = $NBCLOVAL;
+     MELT_HOOK_SET_ROUTCODE ($PTRSTR, melthook_$HKNAME);
+     $PTRSTR->$CNAME.hookdata = NULL;
      }#
      )
     (add2out sbuf " strncpy (" ptrstr "->" cname ".hookname, \"")

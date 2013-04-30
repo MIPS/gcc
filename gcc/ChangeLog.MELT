@@ -1,4 +1,13 @@
 
+2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-debug.melt (dbgout_hook_method): Better output
+	indentation.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Better
+	output. Emit use of MELT_HOOK_SET_ROUTCODE macro.
+
+
 2013-04-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate all}}

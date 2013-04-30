@@ -901,12 +901,14 @@ $TORANK}#
       (dbg_out (hook_data self) dbgi (get_int boxdepthp1))
       (hook_every self 
 		  (lambda (comp :long ix)
-		    (add2sbuf_indent sbuf (get_int boxdepthp1))
+		    (add2sbuf_indentnl sbuf (get_int boxdepthp1))
 		    (add2out sbuf "hookval#" ix ": ")
 		    (dbg_out comp dbgi (get_int boxdepthp1))
 		    ))
       )
     (add2sbuf_strconst sbuf "%]")
+    (when (<i depth 3)
+      (add2sbuf_indent sbuf depth))
     )
   )
 
