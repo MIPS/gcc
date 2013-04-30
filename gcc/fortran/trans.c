@@ -1078,7 +1078,7 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
 	    tmp = TREE_OPERAND (array, 0);
 
 	  gfc_init_se (&se, NULL);
-	  array = gfc_conv_scalar_to_descriptor (&se, array, attr);
+	  array = gfc_conv_scalar_to_descriptor (&se, array, attr, &var->ts);
 	  array = gfc_build_addr_expr (NULL, array);
 	  gcc_assert (se.post.head == NULL_TREE);
 	}
@@ -1122,7 +1122,7 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
 	  /* attr: Argument is neither a pointer/allocatable,
 	     i.e. no copy back needed */
 	  gfc_init_se (&se, NULL);
-	  array = gfc_conv_scalar_to_descriptor (&se, array, attr);
+	  array = gfc_conv_scalar_to_descriptor (&se, array, attr, &var->ts);
 	  array = gfc_build_addr_expr (NULL, array);
 	  gcc_assert (se.post.head == NULL_TREE);
 	}

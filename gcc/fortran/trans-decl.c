@@ -3686,7 +3686,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      tmp = gfc_class_data_get (sym->backend_decl);
 	      tmp = gfc_build_null_descriptor (TREE_TYPE (tmp),
 					       CLASS_DATA (sym)->as->rank,
-					       attr);
+					       attr, &sym->ts);
 	    }
 	  else
 	    tmp = null_pointer_node;
@@ -3843,7 +3843,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		  gfc_conv_descriptor_rank_set (&init, descriptor,
 						CLASS_DATA (sym)->as->rank);
 		  tmp = gfc_conv_descriptor_dtype (descriptor);
-		  gfc_add_modify (&init, tmp, gfc_get_dtype (type));
+		  gfc_add_modify (&init, tmp, gfc_get_dtype (&sym->ts));
 		  gfc_conv_descriptor_attr_set (&init, descriptor,
                                      CLASS_DATA (sym)->attr.allocatable
                                      ? GFC_ATTRIBUTE_ALLOCATABLE

@@ -1,4 +1,4 @@
-/* ISO_Fortran_binding.h of GCC's GNU Fortran compiler.
+/* iso_ts29113.c. of GCC's GNU Fortran compiler.
    Copyright (C) 2013 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran runtime library (libgfortran)
@@ -252,9 +252,9 @@ CFI_section (CFI_cdesc_t *result, const CFI_cdesc_t *source,
   for (i = 0, j = 0; i < source->rank; i++)
     {
       if (lower_bounds)
-	offset += lower_bounds[i]*source->dim[i].sm;
+	offset += (lower_bounds[i]-source->dim[i].lower_bound)*source->dim[i].sm;
 
-      if (source->dim[i].sm == 0)
+      if (strides && strides[i] == 0)
 	continue;
 
       result->dim[j].lower_bound = lower_bounds
@@ -262,7 +262,7 @@ CFI_section (CFI_cdesc_t *result, const CFI_cdesc_t *source,
       if (upper_bounds)
 	{
 	  CFI_index_t extent;
-	  extent = upper_bounds[i] - result->dim[j].lower_bound;
+	  extent = upper_bounds[i] - result->dim[j].lower_bound + 1;
           result->dim[j].extent = extent < 0 ? 0 : extent;
 	}
       else
@@ -273,6 +273,7 @@ CFI_section (CFI_cdesc_t *result, const CFI_cdesc_t *source,
       else
 	{
 	  result->dim[j].sm = source->dim[i].sm * strides[i];
+	  result->dim[j].extent /= strides[i];
 	}
 
       j++;

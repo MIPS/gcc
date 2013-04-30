@@ -404,7 +404,8 @@ void gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr);
 void gfc_conv_expr_reference (gfc_se * se, gfc_expr *);
 void gfc_conv_expr_type (gfc_se * se, gfc_expr *, tree);
 
-tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
+tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute,
+				    gfc_typespec *);
 
 /* Termine the byte-size of a string. */
 tree size_of_string_in_bytes (int, tree);

@@ -2486,7 +2486,7 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   namelist_info * cmp;
   char * obj_name;
   int nml_carry;
-  int len;
+  int kind;
   int dim;
   index_type dlen;
   index_type m;
@@ -2501,29 +2501,11 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
   dtp->u.p.repeat_count = 0;
   eat_spaces (dtp);
 
-  len = nl->len;
-  switch (nl->type)
-  {
-    case BT_INTEGER:
-    case BT_LOGICAL:
-      dlen = len;
-      break;
-
-    case BT_REAL:
-      dlen = size_from_real_kind (len);
-      break;
-
-    case BT_COMPLEX:
-      dlen = size_from_complex_kind (len);
-      break;
-
-    case BT_CHARACTER:
-      dlen = chigh ? (chigh - clow + 1) : nl->string_length;
-      break;
-
-    default:
-      dlen = 0;
-    }
+  kind = nl->kind;
+  if (nl->type == BT_CHARACTER)
+    dlen = chigh ? (chigh - clow + 1) : nl->string_length;
+  else
+    dlen = nl->size;
 
   do
     {
@@ -2553,27 +2535,27 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
           switch (nl->type)
 	  {
 	  case BT_INTEGER:
-	    read_integer (dtp, len);
+	    read_integer (dtp, kind);
             break;
 
 	  case BT_LOGICAL:
-	    read_logical (dtp, len);
+	    read_logical (dtp, kind);
 	    break;
 
 	  case BT_CHARACTER:
-	    read_character (dtp, len);
+	    read_character (dtp, kind);
 	    break;
 
 	  case BT_REAL:
 	    /* Need to copy data back from the real location to the temp in
 	       order to handle nml reads into arrays.  */
-	    read_real (dtp, pdata, len);
+	    read_real (dtp, pdata, kind);
 	    memcpy (dtp->u.p.value, pdata, dlen);
 	    break;
 
 	  case BT_COMPLEX:
 	    /* Same as for REAL, copy back to temp.  */
-	    read_complex (dtp, pdata, len, dlen);
+	    read_complex (dtp, pdata, kind, dlen);
 	    memcpy (dtp->u.p.value, pdata, dlen);
 	    break;
 

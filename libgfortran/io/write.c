@@ -1744,28 +1744,10 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 
   num = 1;
 
-  len = obj->len;
-
-  switch (obj->type)
-    {
-
-    case BT_REAL:
-      obj_size = size_from_real_kind (len);
-      break;
-
-    case BT_COMPLEX:
-      obj_size = size_from_complex_kind (len);
-      break;
-
-    case BT_CHARACTER:
-      obj_size = obj->string_length;
-      break;
-
-    default:
-      obj_size = len;      
-    }
-
-  if (obj->var_rank)
+  len = obj->kind;
+  if (obj->type == BT_CHARACTER)
+    obj_size = obj->string_length;
+  else
     obj_size = obj->size;
 
   /* Set the index vector and count the number of elements.  */

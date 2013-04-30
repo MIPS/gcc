@@ -60,7 +60,8 @@ get_scalar_to_descriptor_type (tree scalar, symbol_attribute attr)
 }
 
 tree
-gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr)
+gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr,
+			       gfc_typespec *ts)
 {
   tree desc, type;
   int desc_attr;
@@ -74,7 +75,7 @@ gfc_conv_scalar_to_descriptor (gfc_se *se, tree scalar, symbol_attribute attr)
   gfc_conv_descriptor_version_set (&se->pre, desc);
   gfc_conv_descriptor_rank_set (&se->pre, desc, 0);
   gfc_add_modify (&se->pre, gfc_conv_descriptor_dtype (desc),
-		  gfc_get_dtype (type));
+		  gfc_get_dtype (ts));
   if (attr.pointer)
     desc_attr = GFC_ATTRIBUTE_POINTER;
   else if (attr.allocatable)
@@ -385,7 +386,7 @@ gfc_conv_derived_to_class (gfc_se *parmse, gfc_expr *e,
 	      gfc_conv_descriptor_version_set (&parmse->pre, ctree);
 	      gfc_conv_descriptor_rank_set (&parmse->pre, ctree, 0);
 	      gfc_add_modify (&parmse->pre, gfc_conv_descriptor_dtype (ctree),
-			      gfc_get_dtype (type));
+			      gfc_get_dtype (&class_ts));
 
 	      if (attr.pointer)
 		desc_attr = GFC_ATTRIBUTE_POINTER;
@@ -652,13 +653,9 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
     {
       if (e->rank == 0)
 	{
-// FIXME: Use gfc_conv_scalar_to_descriptor
-	  tree type = get_scalar_to_descriptor_type (parmse->expr,
-						     gfc_expr_attr (e));
-	  gfc_add_modify (&block, gfc_conv_descriptor_rank (ctree),
-			  build_int_cst (integer_type_node, 0));
+	  gfc_conv_descriptor_rank_set (&block, ctree, 0);
 	  gfc_add_modify (&block, gfc_conv_descriptor_dtype (ctree),
-			  gfc_get_dtype (type));
+			  gfc_get_dtype (&e->ts));
 
 	  tmp = gfc_class_data_get (parmse->expr);
 	  if (!POINTER_TYPE_P (TREE_TYPE (tmp)))
@@ -3616,7 +3613,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
   gfc_add_ss_to_loop (&loop, loop.temp_ss);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   /* Pass the temporary descriptor back to the caller.  */
   info = &loop.temp_ss->info->data.array;
@@ -3680,7 +3677,7 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
   gfc_conv_ss_startstride (&loop2);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop2, &expr->where);
+  gfc_conv_loop_setup (&loop2, &expr->where, &expr->ts);
 
   gfc_copy_loopinfo_to_se (&lse, &loop2);
   gfc_copy_loopinfo_to_se (&rse, &loop2);
@@ -4334,7 +4331,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 			  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (tmp, 0))))
 			tmp = TREE_OPERAND (tmp, 0);
 		      parmse.expr = gfc_conv_scalar_to_descriptor (&parmse, tmp,
-								   fsym->attr);
+								   fsym->attr,
+								   &e->ts);
 		      parmse.expr = gfc_build_addr_expr (NULL_TREE,
 							 parmse.expr);
 		    }
@@ -4921,6 +4919,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->ss,
 				       tmp, NULL_TREE, false,
 				       !comp->attr.pointer, callee_alloc,
+		 		       &se->ss->info->expr->ts,
+		 		       se->ss->info->string_length,
 				       &se->ss->info->expr->where);
 
 	  /* Pass the temporary as the first argument.  */
@@ -4957,6 +4957,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_trans_create_temp_array (&se->pre, &se->post, se->ss,
 				       tmp, NULL_TREE, false,
 				       !sym->attr.pointer, callee_alloc,
+				       &se->ss->info->expr->ts,
+				       se->ss->info->string_length,
 				       &se->ss->info->expr->where);
 
 	  /* Pass the temporary as the first argument.  */
@@ -5617,7 +5619,7 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
       /* Arrays need special handling.  */
       if (pointer)
 	ctor = gfc_build_null_descriptor (type, rank,
-					  GFC_ATTRIBUTE_POINTER);
+					  GFC_ATTRIBUTE_POINTER, ts);
       /* Special case assigning an array to zero.  */
       else if (is_zero_initializer_p (expr))
         ctor = build_constructor (type, NULL);
@@ -5725,7 +5727,7 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_conv_ss_startstride (&loop);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   /* Setup the gfc_se structures.  */
   gfc_copy_loopinfo_to_se (&lse, &loop);
@@ -6546,7 +6548,7 @@ gfc_trans_pointer_assignment (gfc_expr * expr1, gfc_expr * expr2)
 	      if (expr1->ts.deferred || expr1->ts.type == BT_CLASS)
 		{
 		  dtype = gfc_conv_descriptor_dtype (desc);
-		  tmp = gfc_get_dtype (TREE_TYPE (desc));
+		  tmp = gfc_get_dtype (&expr2->ts);
 		  gfc_add_modify (&block, dtype, tmp);
 		}
 
@@ -6997,8 +6999,8 @@ arrayfunc_assign_needs_temporary (gfc_expr * expr1, gfc_expr * expr2)
    reallocatable assignments from extrinsic function calls.  */
 
 static void
-realloc_lhs_loop_for_fcn_call (gfc_se *se, locus *where, gfc_ss **ss,
-			       gfc_loopinfo *loop)
+realloc_lhs_loop_for_fcn_call (gfc_se *se, locus *where, gfc_typespec *ts,
+			       gfc_ss **ss, gfc_loopinfo *loop)
 {
   /* Signal that the function call should not be made by
      gfc_conv_loop_setup. */
@@ -7007,7 +7009,7 @@ realloc_lhs_loop_for_fcn_call (gfc_se *se, locus *where, gfc_ss **ss,
   gfc_add_ss_to_loop (loop, *ss);
   gfc_add_ss_to_loop (loop, se->ss);
   gfc_conv_ss_startstride (loop);
-  gfc_conv_loop_setup (loop, where);
+  gfc_conv_loop_setup (loop, where, ts);
   gfc_copy_loopinfo_to_se (se, loop);
   gfc_add_block_to_block (&se->pre, &loop->pre);
   gfc_add_block_to_block (&se->pre, &loop->post);
@@ -7176,7 +7178,8 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 	  ss = gfc_walk_expr (expr1);
 	  gcc_assert (ss != gfc_ss_terminator);
 
-	  realloc_lhs_loop_for_fcn_call (&se, &expr1->where, &ss, &loop);
+	  realloc_lhs_loop_for_fcn_call (&se, &expr1->where, &expr1->ts,
+					 &ss, &loop);
 	  ss->is_alloc_lhs = 1;
 	}
       else
@@ -7648,7 +7651,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
       /* Resolve any data dependencies in the statement.  */
       gfc_conv_resolve_dependencies (&loop, lss, rss);
       /* Setup the scalarizing loops.  */
-      gfc_conv_loop_setup (&loop, &expr2->where);
+      gfc_conv_loop_setup (&loop, &expr2->where, &expr2->ts);
 
       /* Setup the gfc_se structures.  */
       gfc_copy_loopinfo_to_se (&lse, &loop);

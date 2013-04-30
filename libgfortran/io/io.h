@@ -106,6 +106,9 @@ typedef struct namelist_type
   /* Object type.  */
   bt type;
 
+  /* Intrinsic kind.  */
+  int kind;
+
   /* Object name.  */
   char * var_name;
 
@@ -114,9 +117,6 @@ typedef struct namelist_type
 
   /* Flag to show that a read is to be attempted for this node.  */
   int touched;
-
-  /* Length of intrinsic type in bytes.  */
-  int len;
 
   /* Rank of the object.  */
   int var_rank;

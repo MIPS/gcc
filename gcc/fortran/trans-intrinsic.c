@@ -926,7 +926,7 @@ trans_this_image (gfc_se * se, gfc_expr *expr)
 {
   stmtblock_t loop;
   tree type, desc, dim_arg, cond, tmp, m, loop_var, exit_label, min_var,
-       lbound, ubound, extent, ml;
+       lbound, extent, ml;
   gfc_se argse;
   int rank, corank;
 
@@ -1082,10 +1082,7 @@ trans_this_image (gfc_se * se, gfc_expr *expr)
   gfc_add_modify (&loop, ml, m);
 
   /* extent = ...  */
-  lbound = gfc_conv_descriptor_lbound_get (desc, loop_var);
-  ubound = gfc_conv_descriptor_ubound_get (desc, loop_var);
-  extent = gfc_conv_array_extent_dim (lbound, ubound, NULL);
-  extent = fold_convert (type, extent);
+  extent = fold_convert (type, gfc_conv_descriptor_extent_get (desc, loop_var));
 
   /* m = m/extent.  */
   gfc_add_modify (&loop, m, 
@@ -1208,12 +1205,11 @@ trans_image_index (gfc_se * se, gfc_expr *expr)
 
   for (codim = corank + rank - 2; codim >= rank; codim--)
     {
-      tree extent, ubound;
+      tree extent;
 
       /* coindex = coindex*extent(codim) + sub(codim) - lcobound(codim).  */
       lbound = gfc_conv_descriptor_lbound_get (desc, gfc_rank_cst[codim]);
-      ubound = gfc_conv_descriptor_ubound_get (desc, gfc_rank_cst[codim]);
-      extent = gfc_conv_array_extent_dim (lbound, ubound, NULL);
+      extent = gfc_conv_descriptor_extent_get (desc, gfc_rank_cst[codim]);
 
       /* coindex *= extent.  */
       coindex = fold_build2_loc (input_location, MULT_EXPR,
@@ -1280,7 +1276,8 @@ gfc_conv_intrinsic_rank (gfc_se *se, gfc_expr *expr)
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
 
-  se->expr = gfc_conv_descriptor_rank (argse.expr);
+  se->expr = fold_convert (gfc_get_int_type (gfc_default_integer_kind),
+			   gfc_conv_descriptor_rank (argse.expr));
 }
 
 
@@ -1370,7 +1367,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 	  else
 	    tmp = gfc_rank_cst[GFC_TYPE_ARRAY_RANK (TREE_TYPE (desc))];
           tmp = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
-				 bound, fold_convert(TREE_TYPE (bound), tmp));
+				 bound, fold_convert (TREE_TYPE (bound), tmp));
           cond = fold_build2_loc (input_location, TRUTH_ORIF_EXPR,
 				  boolean_type_node, cond, tmp);
           gfc_trans_runtime_check (true, false, cond, &se->pre, &expr->where,
@@ -2484,7 +2481,7 @@ gfc_conv_intrinsic_anyall (gfc_se * se, gfc_expr * expr, enum tree_code op)
 
   /* Initialize the loop.  */
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   gfc_mark_ss_chain_used (arrayss, 1);
   /* Generate the loop body.  */
@@ -2566,7 +2563,7 @@ gfc_conv_intrinsic_count (gfc_se * se, gfc_expr * expr)
 
   /* Initialize the loop.  */
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   gfc_mark_ss_chain_used (arrayss, 1);
   /* Generate the loop body.  */
@@ -2700,7 +2697,7 @@ gfc_conv_intrinsic_arith (gfc_se * se, gfc_expr * expr, enum tree_code op,
 
       /* Initialize the loop.  */
       gfc_conv_ss_startstride (&loop);
-      gfc_conv_loop_setup (&loop, &expr->where);
+      gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
       gfc_mark_ss_chain_used (arrayss, 1);
       if (maskexpr && maskexpr->rank > 0)
@@ -2921,7 +2918,7 @@ gfc_conv_intrinsic_dot_product (gfc_se * se, gfc_expr * expr)
 
   /* Initialize the loop.  */
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   gfc_mark_ss_chain_used (arrayss1, 1);
   gfc_mark_ss_chain_used (arrayss2, 1);
@@ -3162,7 +3159,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, enum tree_code op)
      loops (without conflicting with temporary management), or use a single
      loop minmaxloc implementation.  See PR 31067.  */
   loop.temp_dim = loop.dimen;
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   gcc_assert (loop.dimen == 1);
   if (nonempty == NULL && maskss == NULL && loop.from[0] && loop.to[0])
@@ -3622,7 +3619,7 @@ gfc_conv_intrinsic_minmaxval (gfc_se * se, gfc_expr * expr, enum tree_code op)
      loops (without conflicting with temporary management), or use a single
      loop minmaxval implementation.  See PR 31067.  */
   loop.temp_dim = loop.dimen;
-  gfc_conv_loop_setup (&loop, &expr->where);
+  gfc_conv_loop_setup (&loop, &expr->where, &expr->ts);
 
   if (nonempty == NULL && maskss == NULL
       && loop.dimen == 1 && loop.from[0] && loop.to[0])
@@ -5596,7 +5593,8 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   /* Build a destination descriptor, using the pointer, source, as the
      data field.  */
   gfc_trans_create_temp_array (&se->pre, &se->post, se->ss, mold_type,
-			       NULL_TREE, false, true, false, &expr->where);
+			       NULL_TREE, false, true, false,
+			       &expr->ts, NULL_TREE, &expr->where);
 
   /* Cast the pointer to the result.  */
   tmp = gfc_conv_descriptor_data_get (info->descriptor);
@@ -6421,10 +6419,9 @@ conv_isocbinding_subroutine (gfc_code *code)
   /* Set data value, rank, dtype, and offset.  */
   tmp = GFC_TYPE_ARRAY_DATAPTR_TYPE (TREE_TYPE (desc));
   gfc_conv_descriptor_data_set (&block, desc, fold_convert (tmp, cptrse.expr));
-  gfc_add_modify (&block, gfc_conv_descriptor_rank (desc),
-		  build_int_cst (integer_type_node, arg->next->expr->rank));
+  gfc_conv_descriptor_rank_set (&block, desc, arg->next->expr->rank);
   gfc_add_modify (&block, gfc_conv_descriptor_dtype (desc),
-		  gfc_get_dtype (TREE_TYPE (desc)));
+		  gfc_get_dtype (&arg->next->expr->ts));
 
   /* Start scalarization of the bounds, using the shape argument.  */
 
@@ -6435,7 +6432,7 @@ conv_isocbinding_subroutine (gfc_code *code)
   gfc_init_loopinfo (&loop);
   gfc_add_ss_to_loop (&loop, shape_ss);
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, &arg->next->expr->where);
+  gfc_conv_loop_setup (&loop, &arg->next->expr->where, &arg->next->expr->ts);
   gfc_mark_ss_chain_used (shape_ss, 1);
 
   gfc_copy_loopinfo_to_se (&shapese, &loop);

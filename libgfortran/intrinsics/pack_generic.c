@@ -122,6 +122,8 @@ pack_internal (gfc_array_char *ret, const gfc_array_char *array,
       extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       sstride[n] = GFC_DESCRIPTOR_SM(array,n);
       mstride[n] = GFC_DESCRIPTOR_SM(mask,n);
+      if (extent[n] <= 0)
+	mptr = NULL;
     }
   if (sstride[0] == 0)
     sstride[0] = size;
@@ -248,160 +250,154 @@ void
 pack (gfc_array_char *ret, const gfc_array_char *array,
       const gfc_array_l1 *mask, const gfc_array_char *vector)
 {
-  index_type type_size;
+  CFI_type_t type;
   index_type size;
 
-  type_size = GFC_DTYPE_TYPE_SIZE(array);
+  type = GFC_DESCRIPTOR_TYPE (array);
+  if ((type == CFI_type_struct || type == CFI_type_other)
+      && GFC_DESCRIPTOR_ELEM_LEN (array) == 1)
+    type = CFI_type_Integer1;
 
-  switch(type_size)
+  switch(type)
     {
-    case GFC_DTYPE_LOGICAL_1:
-    case GFC_DTYPE_INTEGER_1:
-    case GFC_DTYPE_DERIVED_1:
+    case CFI_type_Integer1:
+    case CFI_type_Logical1:
       pack_i1 ((gfc_array_i1 *) ret, (gfc_array_i1 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_i1 *) vector);
       return;
 
-    case GFC_DTYPE_LOGICAL_2:
-    case GFC_DTYPE_INTEGER_2:
+    case CFI_type_Integer2:
+    case CFI_type_Logical2:
       pack_i2 ((gfc_array_i2 *) ret, (gfc_array_i2 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_i2 *) vector);
       return;
 
-    case GFC_DTYPE_LOGICAL_4:
-    case GFC_DTYPE_INTEGER_4:
+    case CFI_type_Integer4:
+    case CFI_type_Logical4:
       pack_i4 ((gfc_array_i4 *) ret, (gfc_array_i4 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_i4 *) vector);
       return;
 
-    case GFC_DTYPE_LOGICAL_8:
-    case GFC_DTYPE_INTEGER_8:
+    case CFI_type_Integer8:
+    case CFI_type_Logical8:
       pack_i8 ((gfc_array_i8 *) ret, (gfc_array_i8 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_i8 *) vector);
       return;
 
 #ifdef HAVE_GFC_INTEGER_16
-    case GFC_DTYPE_LOGICAL_16:
-    case GFC_DTYPE_INTEGER_16:
+    case CFI_type_Integer16:
+    case CFI_type_Logical16:
       pack_i16 ((gfc_array_i16 *) ret, (gfc_array_i16 *) array,
 		(gfc_array_l1 *) mask, (gfc_array_i16 *) vector);
       return;
 #endif
 
-    case GFC_DTYPE_REAL_4:
+    case CFI_type_Real4:
       pack_r4 ((gfc_array_r4 *) ret, (gfc_array_r4 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_r4 *) vector);
       return;
 
-    case GFC_DTYPE_REAL_8:
+    case CFI_type_Real8:
       pack_r8 ((gfc_array_r8 *) ret, (gfc_array_r8 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_r8 *) vector);
       return;
 
-/* FIXME: This here is a hack, which will have to be removed when
-   the array descriptor is reworked.  Currently, we don't store the
-   kind value for the type, but only the size.  Because on targets with
-   __float128, we have sizeof(logn double) == sizeof(__float128),
-   we cannot discriminate here and have to fall back to the generic
-   handling (which is suboptimal).  */
-#if !defined(GFC_REAL_16_IS_FLOAT128)
 # ifdef HAVE_GFC_REAL_10
-    case GFC_DTYPE_REAL_10:
+    case CFI_type_Real10:
       pack_r10 ((gfc_array_r10 *) ret, (gfc_array_r10 *) array,
 		(gfc_array_l1 *) mask, (gfc_array_r10 *) vector);
       return;
 # endif
 
 # ifdef HAVE_GFC_REAL_16
-    case GFC_DTYPE_REAL_16:
+    case CFI_type_Real16:
       pack_r16 ((gfc_array_r16 *) ret, (gfc_array_r16 *) array,
 		(gfc_array_l1 *) mask, (gfc_array_r16 *) vector);
       return;
 # endif
-#endif
 
-    case GFC_DTYPE_COMPLEX_4:
+    case CFI_type_Complex4:
       pack_c4 ((gfc_array_c4 *) ret, (gfc_array_c4 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_c4 *) vector);
       return;
 
-    case GFC_DTYPE_COMPLEX_8:
+    case CFI_type_Complex8:
       pack_c8 ((gfc_array_c8 *) ret, (gfc_array_c8 *) array,
 	       (gfc_array_l1 *) mask, (gfc_array_c8 *) vector);
       return;
 
-/* FIXME: This here is a hack, which will have to be removed when
-   the array descriptor is reworked.  Currently, we don't store the
-   kind value for the type, but only the size.  Because on targets with
-   __float128, we have sizeof(logn double) == sizeof(__float128),
-   we cannot discriminate here and have to fall back to the generic
-   handling (which is suboptimal).  */
-#if !defined(GFC_REAL_16_IS_FLOAT128)
 # ifdef HAVE_GFC_COMPLEX_10
-    case GFC_DTYPE_COMPLEX_10:
+    case CFI_type_Complex10:
       pack_c10 ((gfc_array_c10 *) ret, (gfc_array_c10 *) array,
 		(gfc_array_l1 *) mask, (gfc_array_c10 *) vector);
       return;
 # endif
 
 # ifdef HAVE_GFC_COMPLEX_16
-    case GFC_DTYPE_COMPLEX_16:
+    case CFI_type_Complex16:
       pack_c16 ((gfc_array_c16 *) ret, (gfc_array_c16 *) array,
 		(gfc_array_l1 *) mask, (gfc_array_c16 *) vector);
       return;
 # endif
-#endif
 
       /* For derived types, let's check the actual alignment of the
 	 data pointers.  If they are aligned, we can safely call
 	 the unpack functions.  */
 
-    case GFC_DTYPE_DERIVED_2:
-      if (GFC_UNALIGNED_2(ret->base_addr) || GFC_UNALIGNED_2(array->base_addr)
-	  || (vector && GFC_UNALIGNED_2(vector->base_addr)))
-	break;
-      else
-	{
-	  pack_i2 ((gfc_array_i2 *) ret, (gfc_array_i2 *) array,
-		   (gfc_array_l1 *) mask, (gfc_array_i2 *) vector);
-	  return;
-	}
+    case CFI_type_struct:
+    case CFI_type_other:
+      switch (GFC_DESCRIPTOR_ELEM_LEN(array))
+        {
+	case 2:
+	  if (GFC_UNALIGNED_2(ret->base_addr)
+	      || GFC_UNALIGNED_2(array->base_addr)
+	      || (vector && GFC_UNALIGNED_2(vector->base_addr)))
+	    break;
+	  else
+	    {
+	      pack_i2 ((gfc_array_i2 *) ret, (gfc_array_i2 *) array,
+		       (gfc_array_l1 *) mask, (gfc_array_i2 *) vector);
+	      return;
+	    }
 
-    case GFC_DTYPE_DERIVED_4:
-      if (GFC_UNALIGNED_4(ret->base_addr) || GFC_UNALIGNED_4(array->base_addr)
-	  || (vector && GFC_UNALIGNED_4(vector->base_addr)))
-	break;
-      else
-	{
-	  pack_i4 ((gfc_array_i4 *) ret, (gfc_array_i4 *) array,
-		   (gfc_array_l1 *) mask, (gfc_array_i4 *) vector);
-	  return;
-	}
+	case 4:
+	  if (GFC_UNALIGNED_4(ret->base_addr)
+	      || GFC_UNALIGNED_4(array->base_addr)
+	      || (vector && GFC_UNALIGNED_4(vector->base_addr)))
+	    break;
+	  else
+	    {
+	      pack_i4 ((gfc_array_i4 *) ret, (gfc_array_i4 *) array,
+		       (gfc_array_l1 *) mask, (gfc_array_i4 *) vector);
+	      return;
+	    }
 
-    case GFC_DTYPE_DERIVED_8:
-      if (GFC_UNALIGNED_8(ret->base_addr) || GFC_UNALIGNED_8(array->base_addr)
-	  || (vector && GFC_UNALIGNED_8(vector->base_addr)))
-	break;
-      else
-	{
-	  pack_i8 ((gfc_array_i8 *) ret, (gfc_array_i8 *) array,
-		   (gfc_array_l1 *) mask, (gfc_array_i8 *) vector);
-	  return;
-	}
+	case 8:
+	  if (GFC_UNALIGNED_8(ret->base_addr)
+	      || GFC_UNALIGNED_8(array->base_addr)
+	      || (vector && GFC_UNALIGNED_8(vector->base_addr)))
+	    break;
+	  else
+	    {
+	      pack_i8 ((gfc_array_i8 *) ret, (gfc_array_i8 *) array,
+		       (gfc_array_l1 *) mask, (gfc_array_i8 *) vector);
+	      return;
+	    }
 
 #ifdef HAVE_GFC_INTEGER_16
-    case GFC_DTYPE_DERIVED_16:
-      if (GFC_UNALIGNED_16(ret->base_addr) || GFC_UNALIGNED_16(array->base_addr)
-	  || (vector && GFC_UNALIGNED_16(vector->base_addr)))
-	break;
-      else
-	{
-	  pack_i16 ((gfc_array_i16 *) ret, (gfc_array_i16 *) array,
-		   (gfc_array_l1 *) mask, (gfc_array_i16 *) vector);
-	  return;
-	}
+	case 16:
+	  if (GFC_UNALIGNED_16(ret->base_addr)
+	      || GFC_UNALIGNED_16(array->base_addr)
+	      || (vector && GFC_UNALIGNED_16(vector->base_addr)))
+	    break;
+	  else
+	    {
+	      pack_i16 ((gfc_array_i16 *) ret, (gfc_array_i16 *) array,
+			(gfc_array_l1 *) mask, (gfc_array_i16 *) vector);
+	      return;
+	    }
 #endif
-
+      }
     }
 
   size = GFC_DESCRIPTOR_ELEM_LEN (array);

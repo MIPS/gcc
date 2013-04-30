@@ -78,7 +78,6 @@ tree complex_float128_type_node = NULL_TREE;
 bool gfc_real16_is_float128 = false;
 
 static GTY(()) tree gfc_desc_dim_type;
-static GTY(()) tree gfc_max_array_element_size;
 static GTY(()) tree gfc_array_descriptor_base[2 * (GFC_MAX_DIMENSIONS+1)];
 static GTY(()) tree gfc_array_descriptor_base_caf[2 * (GFC_MAX_DIMENSIONS+1)];
 
@@ -861,9 +860,6 @@ gfc_init_types (void)
   char name_buf[18];
   int index;
   tree type;
-  unsigned n;
-  unsigned HOST_WIDE_INT hi;
-  unsigned HOST_WIDE_INT lo;
 
   /* Create and name the types.  */
 #define PUSH_TYPE(name, node) \
@@ -949,19 +945,6 @@ gfc_init_types (void)
 	  = build_range_type (gfc_array_index_type,
 			      build_int_cst (gfc_array_index_type, 0),
 			      NULL_TREE);
-
-  /* The maximum array element size that can be handled is determined
-     by the number of bits available to store this field in the array
-     descriptor.  */
-
-  n = TYPE_PRECISION (gfc_array_index_type) - GFC_DTYPE_SIZE_SHIFT;
-  lo = ~ (unsigned HOST_WIDE_INT) 0;
-  if (n > HOST_BITS_PER_WIDE_INT)
-    hi = lo >> (2*HOST_BITS_PER_WIDE_INT - n);
-  else
-    hi = 0, lo >>= HOST_BITS_PER_WIDE_INT - n;
-  gfc_max_array_element_size
-    = build_int_cst_wide (long_unsigned_type_node, lo, hi);
 
   boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
   boolean_true_node = build_int_cst (boolean_type_node, 1);
@@ -1190,21 +1173,25 @@ gfc_get_element_type (tree type)
 /* Build an array.  This function is called from gfc_sym_type().
    Actually returns array descriptor type.
 
-   Format of array descriptors is as follows:
+   Format of array descriptors is as follows, cf. TS29113:2012.
 
     struct gfc_array_descriptor
     {
-      array *data
-      index offset;
-      index dtype;
-      struct descriptor_dimension dimension[N_DIM];
+      base_type *base_addr;
+      size_t elem_len;
+      int version;
+      int8_t rank;
+      int8_t attribute;
+      int16_t type;
+      ptrdiff_t offset;
+      struct CFI_dim_t dim[N_DIM];
     }
 
-    struct descriptor_dimension
+    struct CFI_dim_t
     {
-      index stride;
-      index lbound;
-      index ubound;
+      ptrdiff_t lower_bound;
+      ptrdiff_t extent;
+      ptrdiff_t sm;
     }
 
    Translation code should use gfc_conv_descriptor_* rather than
@@ -1216,10 +1203,10 @@ gfc_get_element_type (tree type)
    are gfc_array_index_type and the data node is a pointer to the
    data.  See below for the handling of character types.
 
-   The dtype member is formatted as follows:
-    // 3 unused bits (used to be the rank)
-    type = (dtype & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT // 3 bits
-    size = dtype >> GFC_DTYPE_SIZE_SHIFT
+   The type member is formatted as follows; the lower byte contains
+   the type, the upper byte contains the kind value.
+    data_type = (type & GFC_TYPE_MASK)
+    kind = (type >> GFC_TYPE_KIND_SHIFT)
 
    I originally used nested ARRAY_TYPE nodes to represent arrays, but
    this generated poor code for assumed/deferred size arrays.  These
@@ -1386,87 +1373,45 @@ gfc_get_desc_dim_type (void)
    unknown cases abort.  */
 
 tree
-gfc_get_dtype (tree type)
+gfc_get_dtype (gfc_typespec *ts)
 {
-  tree size;
-  int n;
-  HOST_WIDE_INT i;
-  tree tmp;
-  tree dtype;
-  tree etype;
+  int type;
+  tree int16_type_node
+	= gfc_get_int_type (gfc_get_int_kind_from_width_isofortranenv (16));
 
-  gcc_assert (GFC_DESCRIPTOR_TYPE_P (type) || GFC_ARRAY_TYPE_P (type));
-
-  if (GFC_TYPE_ARRAY_DTYPE (type))
-    return GFC_TYPE_ARRAY_DTYPE (type);
-
-  etype = gfc_get_element_type (type);
-
-  switch (TREE_CODE (etype))
+  switch (ts->type)
     {
-    case INTEGER_TYPE:
-      n = BT_INTEGER;
+    case BT_INTEGER:
+      type = GFC_TYPE_INTEGER + (ts->kind << GFC_TYPE_KIND_SHIFT);
       break;
-
-    case BOOLEAN_TYPE:
-      n = BT_LOGICAL;
+    case BT_LOGICAL:
+      type = GFC_TYPE_LOGICAL + (ts->kind << GFC_TYPE_KIND_SHIFT);
       break;
-
-    case REAL_TYPE:
-      n = BT_REAL;
+    case BT_REAL:
+      type = GFC_TYPE_REAL + (ts->kind << GFC_TYPE_KIND_SHIFT);
       break;
-
-    case COMPLEX_TYPE:
-      n = BT_COMPLEX;
+    case BT_COMPLEX:
+      type = GFC_TYPE_COMPLEX + (ts->kind << GFC_TYPE_KIND_SHIFT);
       break;
-
-    /* We will never have arrays of arrays.  */
-    case RECORD_TYPE:
-      n = BT_DERIVED;
+    case BT_CHARACTER:
+      type = GFC_TYPE_CHARACTER + (ts->kind << GFC_TYPE_KIND_SHIFT);
       break;
-
-    case ARRAY_TYPE:
-      n = BT_CHARACTER;
+    case BT_DERIVED:
+      if (ts->f90_type == BT_VOID)
+	type = ts->u.derived
+	       && ts->u.derived->intmod_sym_id == ISOCBINDING_PTR
+	       ? GFC_TYPE_CFUNPTR : GFC_TYPE_CPTR;
+	type = GFC_TYPE_STRUCT;
+      if (ts->u.derived->attr.sequence || ts->u.derived->attr.is_bind_c)
+	type = GFC_TYPE_STRUCT;
+      else
+        type = GFC_TYPE_OTHER;
       break;
-
-    case POINTER_TYPE:
-      n = BT_ASSUMED;
-      break;
-
     default:
-      /* TODO: Don't do dtype for temporary descriptorless arrays.  */
-      /* We can strange array types for temporary arrays.  */
-      return gfc_index_zero_node;
+      type = GFC_TYPE_OTHER;
     }
 
-  size = TYPE_SIZE_UNIT (etype);
-
-  i = (n << GFC_DTYPE_TYPE_SHIFT);
-  if (size && INTEGER_CST_P (size))
-    {
-      if (tree_int_cst_lt (gfc_max_array_element_size, size))
-	gfc_fatal_error ("Array element size too big at %C");
-
-      i += TREE_INT_CST_LOW (size) << GFC_DTYPE_SIZE_SHIFT;
-    }
-  dtype = build_int_cst (gfc_array_index_type, i);
-
-  if (size && !INTEGER_CST_P (size))
-    {
-      tmp = build_int_cst (gfc_array_index_type, GFC_DTYPE_SIZE_SHIFT);
-      tmp  = fold_build2_loc (input_location, LSHIFT_EXPR,
-			      gfc_array_index_type,
-			      fold_convert (gfc_array_index_type, size), tmp);
-      dtype = fold_build2_loc (input_location, PLUS_EXPR, gfc_array_index_type,
-			       tmp, dtype);
-    }
-  /* If we don't know the size we leave it as zero.  This should never happen
-     for anything that is actually used.  */
-  /* TODO: Check this is actually true, particularly when repacking
-     assumed size parameters.  */
-
-  GFC_TYPE_ARRAY_DTYPE (type) = dtype;
-  return dtype;
+  return build_int_cst (int16_type_node, type);
 }
 
 
@@ -1689,8 +1634,14 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
 			       enum gfc_array_kind akind)
 {
   tree fat_type, decl, arraytype, *chain = NULL;
+  tree int8_type_node, int16_type_node;
   char name[16 + 2*GFC_RANK_DIGITS + 1 + 1];
   int idx;
+
+  int8_type_node
+	= gfc_get_int_type (gfc_get_int_kind_from_width_isofortranenv (8));
+  int16_type_node
+	= gfc_get_int_type (gfc_get_int_kind_from_width_isofortranenv (16));
 
   /* Assumed-rank array.  */
   if (dimen == -1)
@@ -1737,25 +1688,25 @@ gfc_get_array_descriptor_base (int dimen, int codimen, bool restricted,
   /* Add the rank component.  */
   decl = gfc_add_field_to_struct_1 (fat_type,
 				    get_identifier ("rank"),
-				    integer_type_node, &chain);
+				    int8_type_node, &chain);
+  TREE_NO_WARNING (decl) = 1;
+
+  /* Add the attribute component.  */
+  decl = gfc_add_field_to_struct_1 (fat_type,
+				    get_identifier ("attribute"),
+				    int8_type_node, &chain);
+  TREE_NO_WARNING (decl) = 1;
+
+  /* Add the type component.  */
+  decl = gfc_add_field_to_struct_1 (fat_type,
+				    get_identifier ("type"),
+				    int16_type_node, &chain);
   TREE_NO_WARNING (decl) = 1;
 
   /* Add the offset component.  */
   decl = gfc_add_field_to_struct_1 (fat_type,
 				    get_identifier ("offset"),
 				    gfc_array_index_type, &chain);
-  TREE_NO_WARNING (decl) = 1;
-
-  /* Add the type component.  */
-  decl = gfc_add_field_to_struct_1 (fat_type,
-				    get_identifier ("type"),
-				    gfc_array_index_type, &chain);
-  TREE_NO_WARNING (decl) = 1;
-
-  /* Add the attribute component.  */
-  decl = gfc_add_field_to_struct_1 (fat_type,
-				    get_identifier ("attribute"),
-				    integer_type_node, &chain);
   TREE_NO_WARNING (decl) = 1;
 
   /* Build the array type for the stride and bound components.  */

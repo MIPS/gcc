@@ -32,7 +32,8 @@ void gfc_set_loop_bounds_from_array_spec (gfc_interface_mapping *,
 
 /* Generate code to create a temporary array.  */
 tree gfc_trans_create_temp_array (stmtblock_t *, stmtblock_t *, gfc_ss *,
-				  tree, tree, bool, bool, bool, locus *);
+				  tree, tree, bool, bool, bool,
+				  gfc_typespec *, tree, locus *);
 
 /* Generate function entry code for allocation of compiler allocated array
    variables.  */
@@ -114,13 +115,13 @@ void gfc_trans_scalarizing_loops (gfc_loopinfo *, stmtblock_t *);
 /* Mark the end of the main loop body and the start of the copying loop.  */
 void gfc_trans_scalarized_loop_boundary (gfc_loopinfo *, stmtblock_t *);
 /* Initialize the scalarization loop parameters.  */
-void gfc_conv_loop_setup (gfc_loopinfo *, locus *);
+void gfc_conv_loop_setup (gfc_loopinfo *, locus *, gfc_typespec *ts);
 /* Set each array's delta.  */
 void gfc_set_delta (gfc_loopinfo *);
 /* Resolve array assignment dependencies.  */
 void gfc_conv_resolve_dependencies (gfc_loopinfo *, gfc_ss *, gfc_ss *);
 /* Build a null array descriptor constructor.  */
-tree gfc_build_null_descriptor (tree, int, int);
+tree gfc_build_null_descriptor (tree, int, int, gfc_typespec *);
 
 /* Get a single array element.  */
 void gfc_conv_array_ref (gfc_se *, gfc_array_ref *, gfc_symbol *, locus *);

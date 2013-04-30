@@ -324,9 +324,20 @@ internal_proto(big_endian);
 
 #if GFC_ATTRIBUTE_POINTER != CFI_attribute_pointer \
    || GFC_ATTRIBUTE_ALLOCATABLE != CFI_attribute_allocatable \
-   || GFC_ATTRIBUTE_OTHER != CFI_attribute_other
-   || GFC_MAX_DIMENSIONS != CFI_MAX_RANK
- chokeme
+   || GFC_ATTRIBUTE_OTHER != CFI_attribute_other \
+   || GFC_MAX_DIMENSIONS != CFI_MAX_RANK \
+   || GFC_TYPE_INTEGER != CFI_type_Integer \
+   || GFC_TYPE_LOGICAL != CFI_type_Logical \
+   || GFC_TYPE_REAL != CFI_type_Real \
+   || GFC_TYPE_COMPLEX != CFI_type_Complex \
+   || GFC_TYPE_CHARACTER != CFI_type_Character \
+   || GFC_TYPE_STRUCT != CFI_type_struct \
+   || GFC_TYPE_CPTR != CFI_type_cptr \
+   || GFC_TYPE_CFUNPTR != CFI_type_cfunptr \
+   || GFC_TYPE_OTHER != CFI_type_other \
+   || GFC_TYPE_KIND_SHIFT != CFI_type_kind_shift \
+   || GFC_TYPE_MASK != CFI_type_mask
+ choke me
 #endif
 
 typedef CFI_dim_t descriptor_dimension;
@@ -367,8 +378,7 @@ typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 
 
 #define GFC_DESCRIPTOR_RANK(desc) ((desc)->rank)
-#define GFC_DESCRIPTOR_TYPE(desc) (((desc)->type & GFC_DTYPE_TYPE_MASK) \
-                                   >> GFC_DTYPE_TYPE_SHIFT)
+#define GFC_DESCRIPTOR_TYPE(desc) ((desc)->type)
 #define GFC_DESCRIPTOR_ELEM_LEN(desc) ((desc)->elem_len)
 
 /*  This is for getting the size of a type when the type of the
@@ -376,7 +386,6 @@ typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
 
 #define GFC_DESCRIPTOR_SIZE_TYPEKNOWN(desc) (sizeof((desc)->base_addr[0]))
 #define GFC_DESCRIPTOR_DATA(desc) ((desc)->base_addr)
-#define GFC_DESCRIPTOR_DTYPE(desc) ((desc)->type)
 
 #define GFC_DIMENSION_LBOUND(dim) ((dim).lower_bound)
 #define GFC_DIMENSION_UBOUND(dim) ((dim).lower_bound + (dim).extent - 1)
@@ -407,80 +416,8 @@ typedef CFI_CDESC_TYPE_T (GFC_MAX_DIMENSIONS, GFC_LOGICAL_16) gfc_array_l16;
    types.  */
 
 #define GFC_DESCRIPTOR_STRIDE_TYPEKNOWN(desc,i) \
-  (GFC_DESCRIPTOR_SM(desc,i) / GFC_DESCRIPTOR_SIZE_TYPEKNOWN(desc))
+  ((index_type)(GFC_DESCRIPTOR_SM(desc,i) / GFC_DESCRIPTOR_SIZE_TYPEKNOWN(desc)))
 
-/* Macros to get both the size and the type with a single masking operation  */
-
-#define GFC_DTYPE_SIZE_MASK \
-  ((~((index_type) 0) >> GFC_DTYPE_SIZE_SHIFT) << GFC_DTYPE_SIZE_SHIFT)
-#define GFC_DTYPE_TYPE_SIZE_MASK (GFC_DTYPE_SIZE_MASK | GFC_DTYPE_TYPE_MASK)
-
-#define GFC_DTYPE_TYPE_SIZE(desc) ((desc)->type & GFC_DTYPE_TYPE_SIZE_MASK)
-
-#define GFC_DTYPE_INTEGER_1 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_1) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_INTEGER_2 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_2) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_INTEGER_4 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_4) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_INTEGER_8 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_8) << GFC_DTYPE_SIZE_SHIFT))
-#ifdef HAVE_GFC_INTEGER_16
-#define GFC_DTYPE_INTEGER_16 ((BT_INTEGER << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_16) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-
-#define GFC_DTYPE_LOGICAL_1 ((BT_LOGICAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_LOGICAL_1) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_LOGICAL_2 ((BT_LOGICAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_LOGICAL_2) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_LOGICAL_4 ((BT_LOGICAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_LOGICAL_4) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_LOGICAL_8 ((BT_LOGICAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_LOGICAL_8) << GFC_DTYPE_SIZE_SHIFT))
-#ifdef HAVE_GFC_LOGICAL_16
-#define GFC_DTYPE_LOGICAL_16 ((BT_LOGICAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_LOGICAL_16) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-
-#define GFC_DTYPE_REAL_4 ((BT_REAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_REAL_4) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_REAL_8 ((BT_REAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_REAL_8) << GFC_DTYPE_SIZE_SHIFT))
-#ifdef HAVE_GFC_REAL_10
-#define GFC_DTYPE_REAL_10  ((BT_REAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_REAL_10) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-#ifdef HAVE_GFC_REAL_16
-#define GFC_DTYPE_REAL_16 ((BT_REAL << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_REAL_16) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-
-#define GFC_DTYPE_COMPLEX_4 ((BT_COMPLEX << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_COMPLEX_4) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_COMPLEX_8 ((BT_COMPLEX << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_COMPLEX_8) << GFC_DTYPE_SIZE_SHIFT))
-#ifdef HAVE_GFC_COMPLEX_10
-#define GFC_DTYPE_COMPLEX_10 ((BT_COMPLEX << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_COMPLEX_10) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-#ifdef HAVE_GFC_COMPLEX_16
-#define GFC_DTYPE_COMPLEX_16 ((BT_COMPLEX << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_COMPLEX_16) << GFC_DTYPE_SIZE_SHIFT))
-#endif
-
-#define GFC_DTYPE_DERIVED_1 ((BT_DERIVED << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_1) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_DERIVED_2 ((BT_DERIVED << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_2) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_DERIVED_4 ((BT_DERIVED << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_4) << GFC_DTYPE_SIZE_SHIFT))
-#define GFC_DTYPE_DERIVED_8 ((BT_DERIVED << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_8) << GFC_DTYPE_SIZE_SHIFT))
-#ifdef HAVE_GFC_INTEGER_16
-#define GFC_DTYPE_DERIVED_16 ((BT_DERIVED << GFC_DTYPE_TYPE_SHIFT) \
-   | (sizeof(GFC_INTEGER_16) << GFC_DTYPE_SIZE_SHIFT))
-#endif
 
 /* Macros to determine the alignment of pointers.  */
 

@@ -20,9 +20,7 @@ test_address (CFI_cdesc_t *dv)
   if (dv->version != CFI_VERSION) abort ();
   if (dv->elem_len != sizeof (float)/ sizeof (char)) abort ();
   if (dv->attribute != CFI_attribute_other) abort ();
-
-  /* FIXME: Add type assert:
-     if (dv->type != CFI_type_float) abort ();  */
+  if (dv->type != CFI_type_float) abort ();
 
   /* FIXME: TS 29113 requires lower_bound == 0,
      currently, lower_bound == 1 is used.  */

@@ -2132,7 +2132,11 @@ transfer_array (st_parameter_dt *dtp, gfc_array_char *desc, int kind,
   if ((dtp->common.flags & IOPARM_LIBRETURN_MASK) != IOPARM_LIBRETURN_OK)
     return;
 
-  iotype = (bt) GFC_DESCRIPTOR_TYPE (desc);
+  iotype = (bt) (GFC_DESCRIPTOR_TYPE (desc) & CFI_type_mask);
+
+  if (iotype > CFI_type_Character)
+    internal_error (NULL, "transfer_array(): Bad type");
+
   size = iotype == BT_CHARACTER ? charlen
 				: (index_type) GFC_DESCRIPTOR_ELEM_LEN (desc);
 
@@ -3749,15 +3753,13 @@ st_wait (st_parameter_wait *wtp __attribute__((unused)))
    in a linked list of namelist_info types.  */
 
 extern void st_set_nml_var (st_parameter_dt *dtp, void *, char *,
-			    GFC_INTEGER_4, size_t, int,
-			    GFC_INTEGER_4);
+			    int, size_t, int, int);
 export_proto(st_set_nml_var);
 
 
 void
 st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
-		GFC_INTEGER_4 len, size_t elem_len,
-		int rank, GFC_INTEGER_4 type)
+		int kind, size_t elem_len, int rank, int type)
 {
   namelist_info *t1 = NULL;
   namelist_info *nml;
@@ -3771,12 +3773,12 @@ st_set_nml_var (st_parameter_dt *dtp, void * var_addr, char * var_name,
   memcpy (nml->var_name, var_name, var_name_len);
   nml->var_name[var_name_len] = '\0';
 
-  nml->len = (int) len;
-  nml->string_length = len ? (index_type) elem_len/len : 0;
-
-  nml->var_rank = rank;
+  nml->type = (bt) type;
+  nml->kind = kind;
   nml->size = (index_type) elem_len;
-  nml->type = (bt) ((type & GFC_DTYPE_TYPE_MASK) >> GFC_DTYPE_TYPE_SHIFT);
+  nml->string_length = nml->type == BT_CHARACTER
+		       ? (index_type) elem_len/kind : 0;
+  nml->var_rank = rank;
 
   if (nml->var_rank > 0)
     {

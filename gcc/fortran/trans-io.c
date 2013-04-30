@@ -1539,11 +1539,9 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
   tree dt = NULL;
   tree string;
   tree tmp;
-  tree dtype;
   tree dt_parm_addr;
   tree decl = NULL_TREE;
   int n_dim; 
-  int itype;
   int rank = 0;
 
   gcc_assert (sym || c);
@@ -1569,13 +1567,10 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
       if (sym && sym->attr.dummy)
         decl = build_fold_indirect_ref_loc (input_location, decl);
       dt =  TREE_TYPE (decl);
-      dtype = gfc_get_dtype (dt);
       tmp = TYPE_SIZE_UNIT (gfc_get_element_type (dt));
     }
   else
     {
-      itype = ts->type;
-      dtype = IARG (itype << GFC_DTYPE_TYPE_SHIFT);
       tmp = TREE_TYPE (decl);
       if (TREE_CODE (tmp) == REFERENCE_TYPE)
 	tmp = TREE_TYPE (tmp);
@@ -1586,15 +1581,16 @@ transfer_namelist_element (stmtblock_t * block, const char * var_name,
 
   /* Build up the arguments for the transfer call.
      The call for the scalar part transfers:
-     (address, name, type, kind or string_length, dtype)  */
+     (address, name, kind, elem_len, type)  */
 
   dt_parm_addr = gfc_build_addr_expr (NULL_TREE, dt_parm);
 
   tmp = build_call_expr_loc (input_location,
 			 iocall[IOCALL_SET_NML_VAL], 7,
 			 dt_parm_addr, addr_expr, string,
-			 IARG (ts->kind), tmp,
-			 build_int_cst (integer_type_node, rank), dtype);
+			 build_int_cst (integer_type_node, ts->kind), tmp,
+			 build_int_cst (integer_type_node, rank),
+			 build_int_cst (integer_type_node, ts->type));
   gfc_add_expr_to_block (block, tmp);
 
   /* If the object is an array, transfer rank times:
@@ -1972,7 +1968,7 @@ transfer_array_component (tree expr, gfc_component * cm, locus * where)
   gfc_init_loopinfo (&loop);
   gfc_add_ss_to_loop (&loop, ss);
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, where);
+  gfc_conv_loop_setup (&loop, where, &cm->ts);
   gfc_mark_ss_chain_used (ss, 1);
   gfc_start_scalarized_body (&loop, &body);
 
@@ -2286,7 +2282,7 @@ gfc_trans_transfer (gfc_code * code)
 
       /* Initialize the loop.  */
       gfc_conv_ss_startstride (&loop);
-      gfc_conv_loop_setup (&loop, &code->expr1->where);
+      gfc_conv_loop_setup (&loop, &code->expr1->where, &code->expr1->ts);
 
       /* The main loop body.  */
       gfc_mark_ss_chain_used (ss, 1);

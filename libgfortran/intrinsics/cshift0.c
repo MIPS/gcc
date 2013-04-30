@@ -51,7 +51,7 @@ cshift0 (gfc_array_char * ret, const gfc_array_char * array,
   index_type n;
   index_type arraysize;
 
-  index_type type_size;
+  CFI_type_t type;
 
   if (which < 1 || which > GFC_DESCRIPTOR_RANK (array))
     runtime_error ("Argument 'DIM' is out of range in call to 'CSHIFT'");
@@ -92,98 +92,84 @@ cshift0 (gfc_array_char * ret, const gfc_array_char * array,
   if (arraysize == 0)
     return;
 
-  type_size = GFC_DTYPE_TYPE_SIZE (array);
+  type = GFC_DESCRIPTOR_TYPE (array);
+  if ((type == CFI_type_struct || type == CFI_type_other)
+      && GFC_DESCRIPTOR_ELEM_LEN (array) == 1)
+    type = CFI_type_Integer1;
 
-  switch(type_size)
+  switch(type)
     {
-    case GFC_DTYPE_LOGICAL_1:
-    case GFC_DTYPE_INTEGER_1:
-    case GFC_DTYPE_DERIVED_1:
+    case CFI_type_Integer1:
+    case CFI_type_Logical1:
       cshift0_i1 ((gfc_array_i1 *)ret, (gfc_array_i1 *) array, shift, which);
       return;
 
-    case GFC_DTYPE_LOGICAL_2:
-    case GFC_DTYPE_INTEGER_2:
+    case CFI_type_Integer2:
+    case CFI_type_Logical2:
       cshift0_i2 ((gfc_array_i2 *)ret, (gfc_array_i2 *) array, shift, which);
       return;
 
-    case GFC_DTYPE_LOGICAL_4:
-    case GFC_DTYPE_INTEGER_4:
+    case CFI_type_Integer4:
+    case CFI_type_Logical4:
       cshift0_i4 ((gfc_array_i4 *)ret, (gfc_array_i4 *) array, shift, which);
       return;
 
-    case GFC_DTYPE_LOGICAL_8:
-    case GFC_DTYPE_INTEGER_8:
+    case CFI_type_Integer8:
+    case CFI_type_Logical8:
       cshift0_i8 ((gfc_array_i8 *)ret, (gfc_array_i8 *) array, shift, which);
       return;
 
 #ifdef HAVE_GFC_INTEGER_16
-    case GFC_DTYPE_LOGICAL_16:
-    case GFC_DTYPE_INTEGER_16:
+    case CFI_type_Integer16:
+    case CFI_type_Logical16:
       cshift0_i16 ((gfc_array_i16 *)ret, (gfc_array_i16 *) array, shift,
 		   which);
       return;
 #endif
 
-    case GFC_DTYPE_REAL_4:
+    case CFI_type_Real4:
       cshift0_r4 ((gfc_array_r4 *)ret, (gfc_array_r4 *) array, shift, which);
       return;
 
-    case GFC_DTYPE_REAL_8:
+    case CFI_type_Real8:
       cshift0_r8 ((gfc_array_r8 *)ret, (gfc_array_r8 *) array, shift, which);
       return;
 
-/* FIXME: This here is a hack, which will have to be removed when
-   the array descriptor is reworked.  Currently, we don't store the
-   kind value for the type, but only the size.  Because on targets with
-   __float128, we have sizeof(logn double) == sizeof(__float128),
-   we cannot discriminate here and have to fall back to the generic
-   handling (which is suboptimal).  */
-#if !defined(GFC_REAL_16_IS_FLOAT128)
 # ifdef HAVE_GFC_REAL_10
-    case GFC_DTYPE_REAL_10:
+    case CFI_type_Real10:
       cshift0_r10 ((gfc_array_r10 *)ret, (gfc_array_r10 *) array, shift,
 		   which);
       return;
 # endif
 
 # ifdef HAVE_GFC_REAL_16
-    case GFC_DTYPE_REAL_16:
+    case CFI_type_Real16:
       cshift0_r16 ((gfc_array_r16 *)ret, (gfc_array_r16 *) array, shift,
 		   which);
       return;
 # endif
-#endif
 
-    case GFC_DTYPE_COMPLEX_4:
+    case CFI_type_Complex4:
       cshift0_c4 ((gfc_array_c4 *)ret, (gfc_array_c4 *) array, shift, which);
       return;
 
-    case GFC_DTYPE_COMPLEX_8:
+    case CFI_type_Complex8:
       cshift0_c8 ((gfc_array_c8 *)ret, (gfc_array_c8 *) array, shift, which);
       return;
 
-/* FIXME: This here is a hack, which will have to be removed when
-   the array descriptor is reworked.  Currently, we don't store the
-   kind value for the type, but only the size.  Because on targets with
-   __float128, we have sizeof(logn double) == sizeof(__float128),
-   we cannot discriminate here and have to fall back to the generic
-   handling (which is suboptimal).  */
-#if !defined(GFC_REAL_16_IS_FLOAT128)
 # ifdef HAVE_GFC_COMPLEX_10
-    case GFC_DTYPE_COMPLEX_10:
+    case CFI_type_Complex10:
       cshift0_c10 ((gfc_array_c10 *)ret, (gfc_array_c10 *) array, shift,
 		   which);
       return;
 # endif
 
 # ifdef HAVE_GFC_COMPLEX_16
-    case GFC_DTYPE_COMPLEX_16:
+    case CFI_type_Complex16:
       cshift0_c16 ((gfc_array_c16 *)ret, (gfc_array_c16 *) array, shift,
 		   which);
       return;
 # endif
-#endif
 
     default:
       break;
@@ -285,7 +271,6 @@ cshift0 (gfc_array_char * ret, const gfc_array_char * array,
     default:
       break;
     }
-
 
   which = which - 1;
   sstride[0] = 0;

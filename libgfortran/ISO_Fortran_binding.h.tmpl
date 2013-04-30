@@ -67,9 +67,9 @@ extern "C" {
 /* Types definitions.  */
 
 typedef ptrdiff_t CFI_index_t;
-typedef int CFI_attribute_t;
-typedef ptrdiff_t CFI_type_t;
-typedef int CFI_rank_t;
+typedef int8_t CFI_rank_t;
+typedef int8_t CFI_attribute_t;
+typedef int16_t CFI_type_t;
 
 
 typedef struct CFI_dim_t
@@ -86,9 +86,9 @@ typedef struct CFI_cdesc_t
   size_t elem_len;
   int version;
   CFI_rank_t rank;
-  size_t offset;
-  CFI_type_t type;
   CFI_attribute_t attribute;
+  CFI_type_t type;
+  size_t offset;
   CFI_dim_t dim[];
 }
 CFI_cdesc_t;
@@ -102,13 +102,13 @@ struct {\
   size_t elem_len;\
   int version; \
   CFI_rank_t rank; \
-  size_t offset;\
-  CFI_index_t type;\
   CFI_attribute_t attribute; \
+  CFI_type_t type;\
+  size_t offset;\
   CFI_dim_t dim[r];\
 }
 
-#define CFI_CDESC_T(r) CFI_GFC_CDESC_T (r, void)
+#define CFI_CDESC_T(r) CFI_CDESC_TYPE_T (r, void)
 
 
 /* Functions. */
@@ -141,9 +141,9 @@ int CFI_setpointer (CFI_cdesc_t *, CFI_cdesc_t *, const CFI_index_t []);
 
 /* Types without kind paramter.   */
 
-#define CFI_type_struct 7
-#define CFI_type_cptr 8
-#define CFI_type_cfunptr 9
+#define CFI_type_struct 6
+#define CFI_type_cptr 7
+#define CFI_type_cfunptr 8
 #define CFI_type_other -1
 
 

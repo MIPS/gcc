@@ -60,7 +60,8 @@ ISO_C_BINDING_PREFIX (c_f_pointer) (void *c_ptr_in,
       f_ptr_out->offset = 0;
 
       /* Set the data type (e.g., BT_INTEGER).  */
-      f_ptr_out->type = (type << GFC_DTYPE_TYPE_SHIFT);
+      f_ptr_out->type = type;
+      f_ptr_out->elem_len = elemSize;
     }
   
   /* Use the generic version of c_f_pointer to set common fields.  */
@@ -156,8 +157,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer_u0) (void *c_ptr_in,
          shift right by TYPE_SHIFT bits we'll throw away the existing
          rank.  Then, shift left by the same number to shift in zeros
          and or with the new rank.  */
-      f_ptr_out->type = ((f_ptr_out->type >> GFC_DTYPE_TYPE_SHIFT)
-                           << GFC_DTYPE_TYPE_SHIFT);
+      f_ptr_out->type = f_ptr_out->type;
     }
 }
 
@@ -176,8 +176,7 @@ ISO_C_BINDING_PREFIX (c_f_pointer_d0) (void *c_ptr_in,
   /* Preserve the size and rank bits, but reset the type.  */
   if (shape != NULL)
     {
-      f_ptr_out->type = f_ptr_out->type & (~GFC_DTYPE_TYPE_MASK);
-      f_ptr_out->type = f_ptr_out->type
-			 | (BT_DERIVED << GFC_DTYPE_TYPE_SHIFT);
+      f_ptr_out->type = f_ptr_out->type;
+      f_ptr_out->type = CFI_type_struct;
     }
 }

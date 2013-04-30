@@ -315,7 +315,8 @@ gfc_conv_elemental_dependencies (gfc_se * se, gfc_se * loopse,
 	  gfc_init_block (&temp_post);
 	  tmp = gfc_trans_create_temp_array (&se->pre, &temp_post, tmp_ss,
 					     temptype, initial, false, true,
-					     false, &arg->expr->where);
+					     false, &e->ts, se->string_length,
+					     &arg->expr->where);
 	  gfc_add_modify (&se->pre, size, tmp);
 	  tmp = fold_convert (pvoid_type_node, tmp_ss->info->data.array.data);
 	  gfc_add_modify (&se->pre, data, tmp);
@@ -451,7 +452,7 @@ gfc_trans_call (gfc_code * code, bool dependency_check,
 	 subscripts.  This could be prevented in the elemental case
 	 as temporaries are handled separatedly
 	 (below in gfc_conv_elemental_dependencies).  */
-      gfc_conv_loop_setup (&loop, &code->expr1->where);
+      gfc_conv_loop_setup (&loop, &code->expr1->where, &code->expr1->ts);
       gfc_mark_ss_chain_used (ss, 1);
 
       /* Convert the arguments, checking for dependencies.  */
@@ -1217,7 +1218,7 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
 	     assignment from an unlimited polymorphic object.  */
 	  tmp = gfc_conv_descriptor_dtype (sym->backend_decl);
 	  gfc_add_modify (&se.pre, tmp,
-			  gfc_get_dtype (TREE_TYPE (sym->backend_decl)));
+			  gfc_get_dtype (&sym->ts));
 	}
 
       gfc_add_init_cleanup (block, gfc_finish_block( &se.pre),
@@ -2952,7 +2953,7 @@ generate_loop_for_temp_to_lhs (gfc_expr *expr, tree tmp1, tree count3,
       /* Calculate the bounds of the scalarization.  */
       gfc_conv_ss_startstride (&loop1);
       /* Setup the scalarizing loops.  */
-      gfc_conv_loop_setup (&loop1, &expr->where);
+      gfc_conv_loop_setup (&loop1, &expr->where, &expr->ts);
 
       gfc_mark_ss_chain_used (lss, 1);
 
@@ -3052,7 +3053,7 @@ generate_loop_for_rhs_to_temp (gfc_expr *expr2, tree tmp1, tree count3,
       gfc_add_ss_to_loop (&loop, rss);
 
       gfc_conv_ss_startstride (&loop);
-      gfc_conv_loop_setup (&loop, &expr2->where);
+      gfc_conv_loop_setup (&loop, &expr2->where, &expr2->ts);
 
       gfc_mark_ss_chain_used (rss, 1);
       /* Start the loop body.  */
@@ -3171,7 +3172,7 @@ compute_inner_temp_size (gfc_expr *expr1, gfc_expr *expr2,
       gfc_option.rtcheck &= ~GFC_RTCHECK_BOUNDS;
       gfc_conv_ss_startstride (&loop);
       gfc_option.rtcheck = save_flag;
-      gfc_conv_loop_setup (&loop, &expr2->where);
+      gfc_conv_loop_setup (&loop, &expr2->where, &expr2->ts);
 
       /* Figure out how many elements we need.  */
       for (i = 0; i < loop.dimen; i++)
@@ -3516,7 +3517,7 @@ gfc_trans_pointer_assign_need_temp (gfc_expr * expr1, gfc_expr * expr2,
       /* Setup the scalarizing loops and bounds.  */
       gfc_conv_ss_startstride (&loop);
 
-      gfc_conv_loop_setup (&loop, &expr2->where);
+      gfc_conv_loop_setup (&loop, &expr2->where, &expr2->ts);
 
       info = &rss->info->data.array;
       desc = info->descriptor;
@@ -4034,7 +4035,7 @@ gfc_evaluate_where_mask (gfc_expr * me, forall_info * nested_forall_info,
       gfc_add_ss_to_loop (&loop, rss);
 
       gfc_conv_ss_startstride (&loop);
-      gfc_conv_loop_setup (&loop, &me->where);
+      gfc_conv_loop_setup (&loop, &me->where, &me->ts);
 
       gfc_mark_ss_chain_used (rss, 1);
       /* Start the loop body.  */
@@ -4204,7 +4205,7 @@ gfc_trans_where_assign (gfc_expr *expr1, gfc_expr *expr2,
   gfc_conv_resolve_dependencies (&loop, lss_section, rss);
 
   /* Setup the scalarizing loops.  */
-  gfc_conv_loop_setup (&loop, &expr2->where);
+  gfc_conv_loop_setup (&loop, &expr2->where, &expr2->ts);
 
   /* Setup the gfc_se structures.  */
   gfc_copy_loopinfo_to_se (&lse, &loop);
@@ -4651,7 +4652,7 @@ gfc_trans_where_3 (gfc_code * cblock, gfc_code * eblock)
     }
 
   gfc_conv_ss_startstride (&loop);
-  gfc_conv_loop_setup (&loop, &tdst->where);
+  gfc_conv_loop_setup (&loop, &tdst->where, &tdst->ts);
 
   gfc_mark_ss_chain_used (css, 1);
   gfc_mark_ss_chain_used (tdss, 1);

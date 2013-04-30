@@ -115,9 +115,24 @@ libgfortran_stat_codes;
 
 #define GFC_MAX_DIMENSIONS 15
 
-#define GFC_DTYPE_TYPE_SHIFT 3
-#define GFC_DTYPE_TYPE_MASK 0x38
-#define GFC_DTYPE_SIZE_SHIFT 6
+#define GFC_TYPE_MASK 0xFF
+#define GFC_TYPE_KIND_SHIFT 8
+
+/* Array-descriptor attributes, see ISO_Fortran_binding.h.  */
+#define GFC_ATTRIBUTE_POINTER 1
+#define GFC_ATTRIBUTE_ALLOCATABLE 2
+#define GFC_ATTRIBUTE_OTHER 3
+
+/* Array-descriptor basic types, see ISO_Fortran_binding.h.  */
+#define GFC_TYPE_INTEGER 1
+#define GFC_TYPE_LOGICAL 2
+#define GFC_TYPE_REAL 3
+#define GFC_TYPE_COMPLEX 4
+#define GFC_TYPE_CHARACTER 5
+#define GFC_TYPE_STRUCT 6
+#define GFC_TYPE_CPTR 7
+#define GFC_TYPE_CFUNPTR 8
+#define GFC_TYPE_OTHER -1
 
 /* Array-descriptor attributes, see ISO_Fortran_binding.h.  */
 #define GFC_ATTRIBUTE_POINTER 1
@@ -130,7 +145,7 @@ libgfortran_stat_codes;
    used in the run-time library for IO.  */
 typedef enum
 { BT_UNKNOWN = 0, BT_INTEGER, BT_LOGICAL, BT_REAL, BT_COMPLEX,
-  BT_DERIVED, BT_CHARACTER, BT_CLASS, BT_PROCEDURE, BT_HOLLERITH, BT_VOID,
+  BT_CHARACTER, BT_DERIVED, BT_CLASS, BT_PROCEDURE, BT_HOLLERITH, BT_VOID,
   BT_ASSUMED
 }
 bt;

@@ -24,5 +24,5 @@ end
 ! Note that it is the kind conversion that generates the temp.
 !
 ! { dg-final { scan-tree-dump-times "parm" 28 "original" } }
-! { dg-final { scan-tree-dump-times "atmp" 28 "original" } }
+! { dg-final { scan-tree-dump-times "atmp" 26 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }
