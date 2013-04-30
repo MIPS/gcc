@@ -166,6 +166,7 @@
 (defclass class_objinithook 
   :super class_objinitelem
   :fields (oihk_prochook		;the associated prochook
+	   oihk_data			;the data description
 	   oihk_cloval			;the tuple of closed values in the hook
 	   oihk_predef 			;the predefined, if any
 	   ))
@@ -5823,6 +5824,7 @@ $SBUF.}#
 	   (npredef (get_field :ndhook_predef ndhook)) ;a symbol or nil
 	   (nlocbind (get_field :ndata_locbind ndhook))
 	   (ndisx (get_field :ndata_discrx ndhook))
+	   (ndhdata (get_field :ndhook_data ndhook))
 	   (odiscr (let ( (odi (compile_obj ndisx gcx)) )
 		     (debug "compile_obj odiscr=" odi)
 		     odi))
@@ -5842,6 +5844,10 @@ $SBUF.}#
 		   )
 	      (debug "compilobj_datahook oclo=" oc)
 	      oc))
+	   (ohkdata (let ( (o (compile_obj ndhdata gcx))
+			   )
+			   (debug "compilobj_datahook ohkdata=" o)
+			   o))
 	   (oihook 
 	    (instance class_objinithook
 		      :obv_type ctype_value
@@ -5849,6 +5855,7 @@ $SBUF.}#
 		      :oie_cname onam
 		      :oie_data ndhook
 		      :oie_discr odiscr
+		      :oihk_data ohkdata
 		      :oihk_prochook nhpro
 		      :oihk_cloval oclo
 		      :oihk_predef npredef

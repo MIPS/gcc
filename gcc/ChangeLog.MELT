@@ -1,6 +1,19 @@
 
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (class_nrep_datahook): Add ndhook_data
+	field.
+	(normexp_defhook): Fill it.
+
+	* melt/warmelt-genobj.melt (class_objinithook): Add oihk_data field.
+	(compilobj_datahook): Fill it.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Emit it.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_predefined_hooks): Implemented.
+
+2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.c (melt_intern_cstring): Thoe index returned by
 	melt_raw_interned_cstring_index can be 0.
 

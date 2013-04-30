@@ -815,6 +815,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (let ( (cname (get_field :oie_cname recv))
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (ndatr (unsafe_get_field :oie_data recv))
+	 (hkdata (get_field :oihk_data recv))
 	 (hkproc (get_field :oihk_prochook recv))
 	 (oclovaltup (get_field :oihk_cloval recv))
 	 (opredef (get_field :oihk_predef recv))
@@ -842,10 +843,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      sbuf 
      ##{    $PTRSTR->$CNAME.nbval = $NBCLOVAL;
      MELT_HOOK_SET_ROUTCODE ($PTRSTR, melthook_$HKNAME);
-     $PTRSTR->$CNAME.hookdata = NULL;
-     }#
+     $PTRSTR->$CNAME.hookdata = }#
      )
-    (add2out sbuf " strncpy (" ptrstr "->" cname ".hookname, \"")
+    (output_c_code hkdata () sbuf 1)
+    (add2out sbuf ";")
+    (add2sbuf_indentnl sbuf (+i depth 1))    
+    (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
     (add2sbuf_cencstring sbuf hkname)
     (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
     (add2sbuf_indentnl sbuf depth)

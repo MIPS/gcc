@@ -606,6 +606,7 @@ procedure in a module, defined with $DEFHOOK. }#
 (defclass class_nrep_datahook
   :super class_nrep_discriminated_data
   :fields (ndhook_proc		    ;associated procedure
+	   ndhook_data		    ;the data
 	   ndhook_closv		    ;tuple of closed values
 	   ndhook_predef	    ;the predefined, if any
 	   ))
@@ -4417,6 +4418,7 @@ source location.}#
 			      :ndata_name symbname
 			      :ndata_discrx (normal_predef discr_hook ncx sloc "discr_hook")
 			      :ndhook_proc nproc
+			      :ndhook_data ()
 			      :ndhook_closv ()
 			      :ndhook_predef spredef
 			      ))
@@ -4439,6 +4441,7 @@ source location.}#
 			   :ninst_slots slotup
 			   )) 
 	 )
+    (put_fields ndatahook :ndhook_data insdata)
     (debug "normexp_defhook newenv=" newenv
 	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc
 	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
