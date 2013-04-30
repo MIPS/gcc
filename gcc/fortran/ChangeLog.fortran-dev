@@ -1,3 +1,10 @@
+2013-04-30  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_trans_dummy_array_bias, get_std_lbound,
+	gfc_alloc_allocatable_for_assignment): Change ubound to extent.
+	* trans-expr.c (gfc_trans_alloc_subarray_assign): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Ditto.
+
 2013-04-25  Tobias Burnus  <burnus@net-b.de>
 
 	* libgfortran.h (GFC_ATTRIBUTE_*): New defines.

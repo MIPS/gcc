@@ -8098,7 +8098,7 @@ static tree
 get_std_lbound (gfc_expr *expr, tree desc, int dim, bool assumed_size)
 {
   tree lbound;
-  tree ubound;
+  tree extent;
   tree stride;
   tree cond, cond1, cond3, cond4;
   tree tmp;
@@ -8108,10 +8108,10 @@ get_std_lbound (gfc_expr *expr, tree desc, int dim, bool assumed_size)
     {
       tmp = gfc_rank_cst[dim];
       lbound = gfc_conv_descriptor_lbound_get (desc, tmp);
-      ubound = gfc_conv_descriptor_ubound_get (desc, tmp);
+      extent = gfc_conv_descriptor_extent_get (desc, tmp);
       stride = gfc_conv_descriptor_stride_get (desc, tmp);
-      cond1 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
-			       ubound, lbound);
+      cond1 = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
+			       extent, gfc_index_zero_node);
       cond3 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
 			       stride, gfc_index_zero_node);
       cond3 = fold_build2_loc (input_location, TRUTH_AND_EXPR,
@@ -8228,7 +8228,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   tree tmp;
   tree tmp2;
   tree lbound;
-  tree ubound;
+  tree extent;
   tree desc;
   tree old_desc;
   tree desc2;
@@ -8236,7 +8236,6 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   tree jump_label1;
   tree jump_label2;
   tree neq_size;
-  tree lbd;
   int n;
   int dim;
   gfc_array_spec * as;
@@ -8399,37 +8398,24 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 
   for (n = 0; n < expr2->rank; n++)
     {
+      lbound = gfc_index_one_node;
       tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			     gfc_array_index_type,
 			     loop->to[n], loop->from[n]);
-      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+      extent = fold_build2_loc (input_location, PLUS_EXPR,
 			     gfc_array_index_type,
 			     tmp, gfc_index_one_node);
 
-      lbound = gfc_index_one_node;
-      ubound = tmp;
-
       if (as)
-	{
-	  lbd = get_std_lbound (expr2, desc2, n,
-				as->type == AS_ASSUMED_SIZE);
-	  ubound = fold_build2_loc (input_location,
-				    MINUS_EXPR,
-				    gfc_array_index_type,
-				    ubound, lbound);
-	  ubound = fold_build2_loc (input_location,
-				    PLUS_EXPR,
-				    gfc_array_index_type,
-				    ubound, lbd);
-	  lbound = lbd;
-	}
+	lbound = get_std_lbound (expr2, desc2, n,
+				 as->type == AS_ASSUMED_SIZE);
 
       gfc_conv_descriptor_lbound_set (&fblock, desc,
 				      gfc_rank_cst[n],
 				      lbound);
-      gfc_conv_descriptor_ubound_set (&fblock, desc,
+      gfc_conv_descriptor_extent_set (&fblock, desc,
 				      gfc_rank_cst[n],
-				      ubound);
+				      extent);
       gfc_conv_descriptor_stride_set (&fblock, desc,
 				      gfc_rank_cst[n],
 				      size1);
@@ -8443,7 +8429,7 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 				offset, tmp2);
       size1 = fold_build2_loc (input_location, MULT_EXPR,
 			       gfc_array_index_type,
-			       tmp, size1);
+			       extent, size1);
     }
 
   /* Set the lhs descriptor and scalarizer offsets.  For rank > 1,

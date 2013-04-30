@@ -5828,7 +5828,6 @@ gfc_trans_alloc_subarray_assign (tree dest, gfc_component * cm,
 
   for (n = 0; n < expr->rank; n++)
     {
-      tree span;
       tree lbound;
 
       /* Obtain the correct lbound - ISO/IEC TR 15581:2001 page 9.
@@ -5858,14 +5857,7 @@ gfc_trans_alloc_subarray_assign (tree dest, gfc_component * cm,
 
       lbound = fold_convert (gfc_array_index_type, lbound);
 
-      /* Shift the bounds and set the offset accordingly.  */
-      tmp = gfc_conv_descriptor_ubound_get (dest, gfc_rank_cst[n]);
-      span = fold_build2_loc (input_location, MINUS_EXPR, gfc_array_index_type,
-		tmp, gfc_conv_descriptor_lbound_get (dest, gfc_rank_cst[n]));
-      tmp = fold_build2_loc (input_location, PLUS_EXPR, gfc_array_index_type,
-			     span, lbound);
-      gfc_conv_descriptor_ubound_set (&block, dest,
-				      gfc_rank_cst[n], tmp);
+      /* Shift the lower_bound and set the offset accordingly.  */
       gfc_conv_descriptor_lbound_set (&block, dest,
 				      gfc_rank_cst[n], lbound);
 

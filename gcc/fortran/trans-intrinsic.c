@@ -1296,9 +1296,9 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   tree type;
   tree bound;
   tree tmp;
-  tree cond, cond1, cond3, cond4, size;
-  tree ubound;
+  tree cond, cond1, cond3, cond4;
   tree lbound;
+  tree extent;
   gfc_se argse;
   gfc_array_spec * as;
   bool assumed_rank_lb_one;
@@ -1388,8 +1388,8 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 			     && !CLASS_DATA (arg->expr)->attr.allocatable
 			     && !CLASS_DATA (arg->expr)->attr.class_pointer));
 
-  ubound = gfc_conv_descriptor_ubound_get (desc, bound);
   lbound = gfc_conv_descriptor_lbound_get (desc, bound);
+  extent = gfc_conv_descriptor_extent_get (desc, bound);
   
   /* 13.14.53: Result value for LBOUND
 
@@ -1418,8 +1418,8 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
     {
       tree stride = gfc_conv_descriptor_stride_get (desc, bound);
 
-      cond1 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
-			       ubound, lbound);
+      cond1 = fold_build2_loc (input_location, GT_EXPR, boolean_type_node,
+			       extent, gfc_index_zero_node);
       cond3 = fold_build2_loc (input_location, GE_EXPR, boolean_type_node,
 			       stride, gfc_index_zero_node);
       cond3 = fold_build2_loc (input_location, TRUTH_AND_EXPR,
@@ -1441,14 +1441,14 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
 				  boolean_type_node, cond, cond5);
 
 	  if (assumed_rank_lb_one)
+            tmp = extent;
+	  else
 	    {
-	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
-			       gfc_array_index_type, ubound, lbound);
 	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+			       gfc_array_index_type, extent, lbound);
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
 			       gfc_array_index_type, tmp, gfc_index_one_node);
 	    }
-          else
-            tmp = ubound;
 
 	  se->expr = fold_build3_loc (input_location, COND_EXPR,
 				      gfc_array_index_type, cond,
@@ -1476,16 +1476,9 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   else
     {
       if (upper)
-        {
-	  size = fold_build2_loc (input_location, MINUS_EXPR,
-				  gfc_array_index_type, ubound, lbound);
-	  se->expr = fold_build2_loc (input_location, PLUS_EXPR,
-				      gfc_array_index_type, size,
-				  gfc_index_one_node);
-	  se->expr = fold_build2_loc (input_location, MAX_EXPR,
-				      gfc_array_index_type, se->expr,
-				      gfc_index_zero_node);
-	}
+	se->expr = fold_build2_loc (input_location, MAX_EXPR,
+				    gfc_array_index_type, extent,
+				    gfc_index_zero_node);
       else
 	se->expr = gfc_index_one_node;
     }
