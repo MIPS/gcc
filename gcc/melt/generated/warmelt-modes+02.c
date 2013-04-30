@@ -29244,7 +29244,7 @@ meltlab_endgetargs:;
 			    MELT_LOCATION ("warmelt-modes.melt:3791:/ apply");
 			    /*apply */
 			    {
-			      union meltparam_un argtab[2];
+			      union meltparam_un argtab[3];
 			      memset (&argtab, 0, sizeof (argtab));
 			      /*^apply.arg */
 			      argtab[0].meltbp_cstring = ", ";
@@ -29252,11 +29252,13 @@ meltlab_endgetargs:;
 			      argtab[1].meltbp_aptr =
 				(melt_ptr_t *) & /*_.CTYPE_CNAME__V73*/
 				meltfptr[72];
+			      /*^apply.arg */
+			      argtab[2].meltbp_cstring = "* ";
 			      /*_.ADD2OUT__V74*/ meltfptr[73] =
 				melt_apply ((meltclosure_ptr_t)
 					    (( /*!ADD2OUT */ meltfrout->
 					      tabval[1])),
-					    (melt_ptr_t) ( /*_.OUTCODEBUF__V3*/ meltfptr[2]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un *) 0);
+					    (melt_ptr_t) ( /*_.OUTCODEBUF__V3*/ meltfptr[2]), (MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un *) 0);
 			    }
 			    ;
 			    if ( /*_#OUTIX__L16*/ meltfnum[12] < 0)

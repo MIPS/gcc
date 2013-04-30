@@ -38,7 +38,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-pre/warmelt-outobj";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="765d5c9253912a609525b1b4c7270a86";
+const char melt_prepromd5meltrun[]="3109a635fb17a31bc44d323b8eecc196";
 /* hexmd5checksum of primary C file */
 const char melt_primaryhexmd5[]="7fbd43c8b3a02cc31a903b7a19007835";
 

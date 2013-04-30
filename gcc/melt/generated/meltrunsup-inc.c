@@ -3013,7 +3013,7 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 				 long *meltout_AFTERGATE_o0)
 {
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
-  typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long*);
+  typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long *);
   /*checkhook */ melt_assertmsg (" good hook HOOK_OVERRIDE_GATE",
 				 melt_magic_discr ((melt_ptr_t)
 						   MELT_PREDEF
