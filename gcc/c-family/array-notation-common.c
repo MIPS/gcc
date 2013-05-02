@@ -64,7 +64,7 @@ extract_sec_implicit_index_arg (location_t location, tree fn)
 	{
 	  if (location == UNKNOWN_LOCATION && EXPR_HAS_LOCATION (fn))
 	    location = EXPR_LOCATION (fn);
-	  error_at (location, "__sec_implicit_index parameter must be a " 
+	  error_at (location, "__sec_implicit_index parameter must be an " 
 		    "integer constant expression");
 	  return -1;
 	}

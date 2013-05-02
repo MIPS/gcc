@@ -7,16 +7,16 @@ int main(int argc, char **argv)
 {
   int array[100], array2[100][100];
 
-  array[:] = array[:] + array2[:][:]; /* { dg-error "rank mismatch in expression" } */
+  array[:] = array[:] + array2[:][:]; /* { dg-error "rank mismatch between" } */
 
-  if (array[:] + array2[:][:]) /* { dg-error "rank mismatch in expression" } */
+  if (array[:] + array2[:][:]) /* { dg-error "rank mismatch between" } */
     return argc == 5;
 
-  argc += function_call (array[:] + array2[5:10:2][:]); /* { dg-error "rank mismatch in expression" } */
+  argc += function_call (array[:] + array2[5:10:2][:]); /* { dg-error "rank mismatch between" } */
 
-  argc += function_call (function_call (array[:] + array2[5:10:2][:])); /* { dg-error "rank mismatch in expression" } */
+  argc += function_call (function_call (array[:] + array2[5:10:2][:])); /* { dg-error "rank mismatch between" } */
 
-   argc += __sec_reduce_add (array[:], array2[:][:]); /* { dg-error "rank mismatch in expression" } */
+   argc += __sec_reduce_add (array[:], array2[:][:]); /* { dg-error "rank mismatch between" } */
 
    argc += __sec_reduce_add (array2[:][:]) + argc; /* This is OK.  */
   return argc;

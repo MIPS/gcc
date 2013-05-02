@@ -55,7 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "plugin.h"
 
-
 
 /* Initialization routine for this file.  */
 
@@ -11167,6 +11166,8 @@ c_parser_array_notation (location_t loc, c_parser *parser, tree initial_index,
 
   value_tree = build_array_notation_ref (loc, array_value, start_index,
 					 end_index, stride, type);
+  if (value_tree != error_mark_node)
+    SET_EXPR_LOCATION (value_tree, loc);
   return value_tree;
 }
 

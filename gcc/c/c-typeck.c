@@ -9047,12 +9047,6 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 		"loop%'s condition");
       return;
     }
-  if (flag_enable_cilkplus && contains_array_notation_expr (incr) && 0)
-    {
-      error_at (start_locus, "array notation expression cannot be used in a "
-		"loop's increment expression");
-      return;
-    }
   
   /* If the condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
