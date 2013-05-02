@@ -30,8 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 
 
-/* Returns true if the function call in FNDECL is
-   __sec_implicit_index.  */
+/* Returns true if the function call in FNDECL is  __sec_implicit_index.  */
 
 bool
 is_sec_implicit_index_fn (tree fndecl)
@@ -47,7 +46,8 @@ is_sec_implicit_index_fn (tree fndecl)
 
 /* Returns the first and only argument for FN, which should be a
    sec_implicit_index function.  FN's location in the source file is is 
-   indicated by LOCATION.  */
+   indicated by LOCATION.  The argument to FN must be a constant integer
+   expression.  */
 
 HOST_WIDE_INT
 extract_sec_implicit_index_arg (location_t location, tree fn)
@@ -62,6 +62,9 @@ extract_sec_implicit_index_arg (location_t location, tree fn)
 	return_int = int_cst_value (fn_arg);
       else
 	{
+	  /* If the location is unknown, and if fn has a location, then use that
+	     information so that the user has a better idea where the error
+	     could be.  */
 	  if (location == UNKNOWN_LOCATION && EXPR_HAS_LOCATION (fn))
 	    location = EXPR_LOCATION (fn);
 	  error_at (location, "__sec_implicit_index parameter must be an " 

@@ -87,10 +87,11 @@ struct inv_list
   vec<tree, va_gc> *replacement;
 };
 
-/* Returns false if there is a length mismatch among expressions
+/* Returns true if there is length mismatch among expressions
    on the same dimension and on the same side of the equal sign.  The
-   expressions are passed in through 2-D array **LIST where X and Y
-   indicate first and second dimension sizes of LIST, respectively.  */
+   expressions (or ARRAY_NOTATION lengths) are passed in through 2-D array
+   **LIST where X and Y indicate first and second dimension sizes of LIST,
+   respectively.  */
 
 static bool
 length_mismatch_in_expr_p (location_t loc, tree **list, size_t x, size_t y)
@@ -165,24 +166,59 @@ is_cilkplus_reduce_builtin (tree fndecl)
   return BUILT_IN_NONE;
 }
 
-/* Set *RANK of expression ARRAY, ignoring array notation specific built-in 
-   functions if IGNORE_BUILTIN_FN is true.  The ORIG_EXPR is printed out if an
-   error occured in the rank calculation.  The functions returns false if it
-   encounters an error in rank calculation.
+/* This function will recurse into EXPR finding any
+   ARRAY_NOTATION_EXPRs and calculate the overall rank of EXPR,
+   storing it in *RANK.
 
-   For example, an array notation of A[:][:] or B[0:10][0:5:2] or C[5][:][1:0]
-   all have a rank of 2.  */
+   ORIG_EXPR is the original expression used to display if any rank
+   mismatch errors are found.
+
+   Upon entry, *RANK must be either 0, or the rank of a parent
+   expression that must have the same rank as the one being
+   calculated.  It is illegal to have multiple array notation with different
+   rank in the same expression (Please see examples below for clarification)
+
+   If there were any rank mismatches while calculating the rank, an
+   error will be issued, and FALSE will be returned.  Otherwise, TRUE
+   is returned.  
+
+   If IGNORE_BUILTIN_FN is TRUE, ignore array notation specific
+   built-in functions (__sec_reduce_*, etc).
+
+   Here are some examples of array notations and their rank:
+
+   Expression			    RANK
+   5				    0
+   X (a variable)		    0
+   *Y (a pointer)		    0
+   A[5]				    0
+   B[5][10]			    0
+   A[:]				    1 
+   B[0:10]			    1
+   C[0:10:2]			    1
+   D[5][0:10:2]			    1 (since D[5] is considered "scalar")
+   D[5][:][10]			    1 
+   E[:] + 5			    1 
+   F[:][:][:] + 5 + X		    3
+   F[:][:][:] + E[:] + 5 + X	    ERROR since rank (E[:]) = 1 and
+                                    rank (F[:][:][:]) = 3.
+   F[:][5][10] + E[:] * 5 + *Y      1
+ 
+   int func ();
+   func (A[:])			    0 (since the function returns a scalar) 
+   func (B[:][:][:][:])             0 (same reason as above)
+ */
 
 bool
-find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
+find_rank (location_t loc, tree orig_expr, tree expr, bool ignore_builtin_fn,
 	   size_t *rank)
 {
   tree ii_tree;
   size_t ii = 0, current_rank = 0;
  
-  if (TREE_CODE (array) == ARRAY_NOTATION_REF)
+  if (TREE_CODE (expr) == ARRAY_NOTATION_REF)
     {
-      ii_tree = array;
+      ii_tree = expr;
       while (ii_tree)
 	{
 	  if (TREE_CODE (ii_tree) == ARRAY_NOTATION_REF)
@@ -197,6 +233,9 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
 	    break;
 	}
       if (*rank == 0)
+	/* In this case, all the expressions this function has encountered thus
+	   far have been scalars or expressions with zero rank.  Please see
+	   header comment for examples of such expression.  */
 	*rank = current_rank;
       else if (*rank != current_rank)
 	{
@@ -209,10 +248,10 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
 	  return false;
 	}
     }
-  else if (TREE_CODE (array) == STATEMENT_LIST)
+  else if (TREE_CODE (expr) == STATEMENT_LIST)
     {
       tree_stmt_iterator ii_tsi;
-      for (ii_tsi = tsi_start (array); !tsi_end_p (ii_tsi);
+      for (ii_tsi = tsi_start (expr); !tsi_end_p (ii_tsi);
 	   tsi_next (&ii_tsi))
 	if (!find_rank (loc, orig_expr, *tsi_stmt_ptr (ii_tsi),
 			ignore_builtin_fn, rank))
@@ -220,9 +259,9 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
     }
   else
     {
-      if (TREE_CODE (array) == CALL_EXPR)
+      if (TREE_CODE (expr) == CALL_EXPR)
 	{
-	  tree func_name = CALL_EXPR_FN (array);
+	  tree func_name = CALL_EXPR_FN (expr);
 	  tree prev_arg = NULL_TREE, arg;
 	  call_expr_arg_iterator iter;
 	  size_t prev_rank = 0;
@@ -232,7 +271,7 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
 		/* If it is a built-in function, then we know it returns a 
 		   scalar.  */
 		return true;
-	  FOR_EACH_CALL_EXPR_ARG (arg, iter, array)
+	  FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
 	    {
 	      if (!find_rank (loc, orig_expr, arg, ignore_builtin_fn, rank))
 		{
@@ -259,22 +298,22 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
       else
 	{
 	  tree prev_arg = NULL_TREE;
-	  for (ii = 0; ii < TREE_CODE_LENGTH (TREE_CODE (array)); ii++)
+	  for (ii = 0; ii < TREE_CODE_LENGTH (TREE_CODE (expr)); ii++)
 	    {
-	      if (TREE_OPERAND (array, ii)
-		  && !find_rank (loc, orig_expr, TREE_OPERAND (array, ii),
+	      if (TREE_OPERAND (expr, ii)
+		  && !find_rank (loc, orig_expr, TREE_OPERAND (expr, ii),
 				 ignore_builtin_fn, rank))
 		{
 		  if (prev_arg && EXPR_HAS_LOCATION (prev_arg))
 		    error_at (EXPR_LOCATION (prev_arg),
 			      "rank mismatch between %qE and %qE", prev_arg,
-			      TREE_OPERAND (array, ii));
+			      TREE_OPERAND (expr, ii));
 		  else if (prev_arg)
 		    error_at (loc, "rank mismatch in expression %qE",
 			      orig_expr);
 		  return false;
 		}
-	      prev_arg = TREE_OPERAND (array, ii);
+	      prev_arg = TREE_OPERAND (expr, ii);
 	    }
 	}
     }
@@ -283,8 +322,8 @@ find_rank (location_t loc, tree orig_expr, tree array, bool ignore_builtin_fn,
 
 /* Extracts all array notations in NODE and stores them in ARRAY_LIST.  If 
    IGNORE_BUILTIN_FN is set, then array notations inside array notation
-   specific built-in functions are ignored.  The NODE can be anything from a
-   full function to a single variable.   */
+   specific built-in functions are ignored.  The NODE can be constants,
+   VAR_DECL, PARM_DECLS, STATEMENT_LISTS or full expressions.   */
 
 static void
 extract_array_notation_exprs (tree node, bool ignore_builtin_fn,
@@ -418,8 +457,8 @@ replace_array_notations (tree *orig, bool ignore_builtin_fn,
 /* Find all the scalar expressions in *TP and push them in DATA struct, 
    typecasted to (void *).  If *WALK_SUBTREES is set to 0 then do not go into 
    the *TP's subtrees.  Since this function steps through all the subtrees, *TP
-   and TP can be NULL_TREE and NULL, respectively.  If so, then the function
-   just returns NULL_TREE.  */
+   and TP can be NULL_TREE and NULL, respectively.  The function returns
+   NULL_TREE unconditionally.  */
 
 static tree
 find_inv_trees (tree *tp, int *walk_subtrees, void *data)
@@ -457,20 +496,16 @@ replace_inv_trees (tree *tp, int *walk_subtrees, void *data)
   struct inv_list *i_list = (struct inv_list *) data;
 
   if (vec_safe_length (i_list->list_values))
-    {
-      for (ii = 0; vec_safe_iterate (i_list->list_values, ii, &t); ii++)
+    for (ii = 0; vec_safe_iterate (i_list->list_values, ii, &t); ii++)
+      if (simple_cst_equal (*tp, t) == 1)
 	{
-	  if (simple_cst_equal (*tp, t) == 1)
-	    {
-	      vec_safe_iterate (i_list->replacement, ii, &r);
-	      gcc_assert (r != NULL_TREE);
-	      *tp = r;
-	      *walk_subtrees = 0;
-	    }
+	  vec_safe_iterate (i_list->replacement, ii, &r);
+	  gcc_assert (r != NULL_TREE);
+	  *tp = r;
+	  *walk_subtrees = 0;
 	}
-    }
-  else
-    *walk_subtrees = 0;
+      else
+	*walk_subtrees = 0;
 
   return NULL_TREE;
 }
@@ -2973,9 +3008,15 @@ expand_array_notation_exprs (tree t)
   return t;
 }
 
-/* Returns array notation expression for the array base ARRAY of type TYPE,
-   with start index, length and stride given by START_INDEX, LENGTH and STRIDE,
-   respectively.  */
+/* This handles expression of the form "a[i:j:k]" or "a[:]" or "a[i:j]," which
+   denotes an array notation expression.  If a is a variable or a member, then
+   we generate a ARRAY_NOTATION_REF front-end tree and return it.
+   This tree is broken down to ARRAY_REF toward the end of parsing.
+   ARRAY_NOTATION_REF tree holds the START_INDEX, LENGTH, STRIDE and the TYPE
+   of ARRAY_REF.  Restrictions on START_INDEX, LENGTH and STRIDE is same as that
+   of the index field passed into ARRAY_REF.  The only additional restriction
+   is that, unlike index from ARRAY_REF, stride, length and start_index cannot
+   contain ARRAY_NOTATIONS.   */
 
 tree
 build_array_notation_ref (location_t loc, tree array, tree start_index, 
