@@ -2108,7 +2108,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 || TREE_CODE (func_parm) == NOP_EXPR)
     func_parm = TREE_OPERAND (func_parm, 0);
   
-  find_rank (func_parm, false, &rank);
+  find_rank (func_parm, true, &rank);
 
   location = EXPR_LOCATION (an_builtin_fn);
   
@@ -2132,7 +2132,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	   && (an_type == REDUCE_MAX_INDEX  || an_type == REDUCE_MIN_INDEX))
     { 
       error_at (location, "__sec_reduce_min_ind or __sec_reduce_max_ind cannot "
-		"have arrays with dimension greater than 1.");
+		"have arrays with dimension greater than 1");
       return error_mark_node;
     }
   
