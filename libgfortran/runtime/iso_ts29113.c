@@ -169,7 +169,7 @@ CFI_establish (CFI_cdesc_t *dv, void *base_addr, CFI_attribute_t attribute,
   sm = dv->elem_len;
   for (i = 0; i < rank; i++)
     {
-      dv->dim[i].lower_bound = 0; /* Note: Only required for pointers.  */
+      dv->dim[i].lower_bound = 0;
       dv->dim[i].extent = extents[i];
       dv->dim[i].sm = sm;
       sm *= extents[i];
@@ -196,7 +196,7 @@ CFI_is_contiguous (const CFI_cdesc_t *dv)
   size = dv->elem_len;
   for (i = 1; i < dv->rank; i++)
     {
-      if (size < dv->dim[i].sm)
+      if (size < dv->dim[i].sm || dv->dim[i].sm < 0)
 	return 0;
       size *= dv->dim[i].sm;
     }
@@ -314,8 +314,7 @@ CFI_select_part (CFI_cdesc_t *result, const CFI_cdesc_t *source,
 
   for (i = 1; i < result->rank; i++)
    {
-      result->dim[i].lower_bound = result->attribute == CFI_attribute_other
-				   ? 0 : source->dim[i].lower_bound;
+      result->dim[i].lower_bound = source->dim[i].lower_bound;
       result->dim[i].extent = source->dim[i].extent;
       result->dim[i].sm = source->dim[i].sm;
     }

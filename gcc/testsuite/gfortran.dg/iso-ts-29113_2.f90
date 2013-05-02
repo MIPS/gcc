@@ -125,8 +125,8 @@ end subroutine test
 ! { dg-final { scan-tree-dump-times "x_str1b.type = 261;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "x_str4a.type = 1029;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "x_str4b.type = 1029;" 1 "original" } }
-! { dg-final { scan-tree-dump-times "x_cptr.type = (1025|2049);" 1 "original" } }
-! { dg-final { scan-tree-dump-times "x_funcptr.type = (1025|2049);" 1 "original" } }
+! { dg-final { scan-tree-dump       "x_cptr.type = (1025|2049);"  "original" } }
+! { dg-final { scan-tree-dump       "x_funcptr.type = (1025|2049);" "original" } }
 ! { dg-final { scan-tree-dump-times "x_seq.type = 6;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "x_bindc.type = 6;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "x_ext.type = -1;" 1 "original" } }

@@ -1,3 +1,9 @@
+2013-05-02  Tobias Burnus  <burnus@net-b.de>
+
+	* runtime/iso_ts29113.c (CFI_establish, CFI_select_part):
+	Correctly set lower_bound.
+	(CFI_is_contiguous): Handle negative strides.
+
 2013-04-30  Tobias Burnus  <burnus@net-b.de>
 
 	* ISO_Fortran_binding.h.tmpl (CFI_cdesc_t): Change order
