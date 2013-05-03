@@ -47,7 +47,7 @@ is_sec_implicit_index_fn (tree fndecl)
 /* Returns the first and only argument for FN, which should be a
    sec_implicit_index function.  FN's location in the source file is is 
    indicated by LOCATION.  The argument to FN must be a constant integer
-   expression.  */
+   expression, otherwise returns -1.  */
 
 HOST_WIDE_INT
 extract_sec_implicit_index_arg (location_t location, tree fn)

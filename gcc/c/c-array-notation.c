@@ -167,7 +167,7 @@ is_cilkplus_reduce_builtin (tree fndecl)
 
 /* This function will recurse into EXPR finding any
    ARRAY_NOTATION_EXPRs and calculate the overall rank of EXPR,
-   storing it in *RANK.
+   storing it in *RANK. LOC is the location of the original expression.
 
    ORIG_EXPR is the original expression used to display if any rank
    mismatch errors are found.
@@ -516,7 +516,6 @@ replace_inv_trees (tree *tp, int *walk_subtrees, void *data)
     }
   else
     *walk_subtrees = 0;
-
   return NULL_TREE;
 }
 
@@ -2296,7 +2295,7 @@ fix_conditional_array_notations_1 (tree stmt)
 }
 
 /* Top-level function to replace ARRAY_NOTATION_REF in a conditional statement
-   in STMT.   An expansion of array notation in STMT is returned in a 
+   in STMT.   An expansion of array notation in STMT is returned as a 
    STATEMENT_LIST.  */
 
 tree
@@ -2621,7 +2620,7 @@ contains_array_notation_expr (tree expr)
     return true;
 }
 
-/* Replaces array notations in void function call arguments in ARG and returns
+/* Replaces array notations in a void function call arguments in ARG and returns
    a STATEMENT_LIST.  */
 
 static tree
@@ -3025,7 +3024,7 @@ expand_array_notation_exprs (tree t)
    ARRAY_NOTATION_REF tree holds the START_INDEX, LENGTH, STRIDE and the TYPE
    of ARRAY_REF.  Restrictions on START_INDEX, LENGTH and STRIDE is same as that
    of the index field passed into ARRAY_REF.  The only additional restriction
-   is that, unlike index from ARRAY_REF, stride, length and start_index cannot
+   is that, unlike index in ARRAY_REF, stride, length and start_index cannot
    contain ARRAY_NOTATIONS.   */
 
 tree
