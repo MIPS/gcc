@@ -70,7 +70,6 @@
 #include "c-tree.h"
 #include "tree-iterator.h"
 #include "opts.h"
-#include "gcc.h"
 #include "c-family/c-common.h"
 
 static void replace_array_notations (tree *, bool, vec<tree, va_gc> *,
@@ -200,13 +199,22 @@ is_cilkplus_reduce_builtin (tree fndecl)
    D[5][:][10]			    1 
    E[:] + 5			    1 
    F[:][:][:] + 5 + X		    3
-   F[:][:][:] + E[:] + 5 + X	    ERROR since rank (E[:]) = 1 and
-                                    rank (F[:][:][:]) = 3.
+   F[:][:][:] + E[:] + 5 + X	    RANKMISMATCH-ERROR since rank (E[:]) = 1 and
+                                    rank (F[:][:][:]) = 3.  They must be equal 
+				    or have a rank of zero.
    F[:][5][10] + E[:] * 5 + *Y      1
- 
-   int func ();
-   func (A[:])			    0 (since the function returns a scalar) 
-   func (B[:][:][:][:])             0 (same reason as above)
+
+   int func (int);
+   func (A[:])			    1
+   func (B[:][:][:][:])             4 
+   
+   int func2 (int, int)
+   func2 (A[:], B[:][:][:][:])	    RANKMISMATCH-ERROR -- Since Rank (A[:]) = 1 
+				    and Rank (B[:][:][:][:]) = 4
+
+   A[:] + func (B[:][:][:][:])	    RANKMISMATCH-ERROR
+   func2 (A[:], B[:]) + func (A)    1 
+
  */
 
 bool
@@ -496,16 +504,18 @@ replace_inv_trees (tree *tp, int *walk_subtrees, void *data)
   struct inv_list *i_list = (struct inv_list *) data;
 
   if (vec_safe_length (i_list->list_values))
-    for (ii = 0; vec_safe_iterate (i_list->list_values, ii, &t); ii++)
-      if (simple_cst_equal (*tp, t) == 1)
-	{
-	  vec_safe_iterate (i_list->replacement, ii, &r);
-	  gcc_assert (r != NULL_TREE);
-	  *tp = r;
-	  *walk_subtrees = 0;
-	}
-      else
-	*walk_subtrees = 0;
+    {
+      for (ii = 0; vec_safe_iterate (i_list->list_values, ii, &t); ii++)
+	if (simple_cst_equal (*tp, t) == 1)
+	  {
+	    vec_safe_iterate (i_list->replacement, ii, &r);
+	    gcc_assert (r != NULL_TREE);
+	    *tp = r;
+	    *walk_subtrees = 0;
+	  }
+    }
+  else
+    *walk_subtrees = 0;
 
   return NULL_TREE;
 }
