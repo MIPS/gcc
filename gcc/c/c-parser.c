@@ -5091,7 +5091,6 @@ c_parser_for_statement (c_parser *parser)
 	}
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
-  
   save_break = c_break_label;
   c_break_label = NULL_TREE;
   save_cont = c_cont_label;

@@ -1,4 +1,4 @@
-2013-03-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+2013-04-06  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* doc/extend.texi (C Extensions): Added documentation about Cilk Plus
 	array notation built-in reduction functions.
@@ -9,10 +9,6 @@
 	* doc/generic.texi (Storage References): Added documentation for
 	ARRAY_NOTATION_REF storage.
 	* Makefile.in (C_COMMON_OBJS): Added c-family/array-notation-common.o.
-	* tree-pretty-print.c (dump_generic_node): Add case for
-	ARRAY_NOTATION_REF.
-	(BUILTINS_DEF): Depend on cilkplus.def.
-	* builtins.def: Include cilkplus.def.
-	Define DEF_CILKPLUS_BUILTIN.
+	* builtins.def: Include cilkplus.def.  Define DEF_CILKPLUS_BUILTIN.
 	* builtin-types.def: Define BT_FN_INT_PTR_PTR_PTR.
 	* cilkplus.def: New file.
