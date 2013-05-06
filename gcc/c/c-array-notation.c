@@ -175,7 +175,7 @@ is_cilkplus_reduce_builtin (tree fndecl)
    Upon entry, *RANK must be either 0, or the rank of a parent
    expression that must have the same rank as the one being
    calculated.  It is illegal to have multiple array notation with different
-   rank in the same expression (Please see examples below for clarification)
+   rank in the same expression (see examples below for clarification).
 
    If there were any rank mismatches while calculating the rank, an
    error will be issued, and FALSE will be returned.  Otherwise, TRUE
@@ -380,7 +380,6 @@ extract_array_notation_exprs (tree node, bool ignore_builtin_fn,
   return;
 }
 
-
 /* LIST contains all the array notations found in *ORIG and ARRAY_OPERAND
    contains the expanded ARRAY_REF.  E.g., if LIST[<some_index>] contains
    an array_notation expression, then ARRAY_OPERAND[<some_index>] contains its
@@ -462,11 +461,11 @@ replace_array_notations (tree *orig, bool ignore_builtin_fn,
   return;
 }
 
-/* Find all the scalar expressions in *TP and push them in DATA struct, 
-   typecasted to (void *).  If *WALK_SUBTREES is set to 0 then do not go into 
-   the *TP's subtrees.  Since this function steps through all the subtrees, *TP
-   and TP can be NULL_TREE and NULL, respectively.  The function returns
-   NULL_TREE unconditionally.  */
+/* Callback for walk_tree.  Find all the scalar expressions in *TP and push 
+   them in DATA struct, typecasted to (void *).  If *WALK_SUBTREES is set to 0 
+   then do not go into the *TP's subtrees.  Since this function steps through 
+   all the subtrees, *TP and TP can be NULL_TREE and NULL, respectively.  The 
+   function returns NULL_TREE unconditionally.  */
 
 static tree
 find_inv_trees (tree *tp, int *walk_subtrees, void *data)
@@ -492,9 +491,9 @@ find_inv_trees (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-/* Replace all the scalar expressions in *TP with the appropriate replacement
-   stored in the struct *DATA (typecasted to void*).  The subtrees are not
-   touched if *WALK_SUBTREES is set to zero.  */
+/* Callback for walk_tree.  Replace all the scalar expressions in *TP with the 
+   appropriate replacement stored in the struct *DATA (typecasted to void*).  
+   The subtrees are not touched if *WALK_SUBTREES is set to zero.  */
 
 static tree
 replace_inv_trees (tree *tp, int *walk_subtrees, void *data)
@@ -1944,9 +1943,10 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
   return loop;
 }
 
-/* Encloses the conditional statement passed in STMT with a loop around it
+/* Helper function for fix_conditional_array_notations.  Encloses the 
+   conditional statement passed in STMT with a loop around it
    and replaces the condition in STMT with a ARRAY_REF tree-node to the array.
-   The condition must have a ARRAY_NOTATION_REF tree.  An expansion of array
+   The condition must have an ARRAY_NOTATION_REF tree.  An expansion of array
    notation in STMT is returned in a STATEMENT_LIST.  */
 
 static tree
@@ -2600,7 +2600,8 @@ fix_array_notation_expr (location_t location, enum tree_code code,
   return arg;
 }
 
-/* Returns true if EXPR (and its subtrees) contain ARRAY_NOTATION_EXPR node.  */
+/* Returns true if EXPR or any of its subtrees contain ARRAY_NOTATION_EXPR 
+   node.  */
 
 bool
 contains_array_notation_expr (tree expr)

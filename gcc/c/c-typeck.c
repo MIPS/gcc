@@ -9554,8 +9554,8 @@ build_binary_op (location_t location, enum tree_code code,
       op1 = default_conversion (op1);
     }
 
-  /* When Cilk Plus is enabled and there is array notations inside op0, then
-     we check to see if there they are builtin array notation functions.  If
+  /* When Cilk Plus is enabled and there are array notations inside op0, then
+     we check to see if there are builtin array notation functions.  If
      so, then we take on the type of the array notation inside it.  */
   if (flag_enable_cilkplus && contains_array_notation_expr (op0)) 
     orig_type0 = type0 = find_correct_array_notation_type (op0);
