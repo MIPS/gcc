@@ -1,3 +1,122 @@
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/linux.h (DEFAULT_ASM_ENDIAN): Define.
+	(LINK_OS_LINUX_EMUL): Use ENDIAN_SELECT.
+	* config/rs6000/linux64.h (DEFAULT_ASM_ENDIAN): Define.
+	* config/rs6000/sysv4le.h (DEFAULT_ASM_ENDIAN): Define.
+	(LINK_TARGET_SPEC): Use ENDIAN_SELECT.
+	* config/rs6000/sysv4.h (DEFAULT_ASM_ENDIAN): Define as -mbig.
+
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/sysv4.h (ENDIAN_SELECT): Define, extracted from
+	(ASM_SPEC): ..here.  Emit DEFAULT_ASM_ENDIAN too.
+	(DEFAULT_ASM_ENDIAN): Define.
+	(CC1_SPEC, LINK_TARGET_SPEC): Use ENDIAN_SELECT.
+	* config/rs6000/linux64.h (ASM_SPEC32): Remove endian options.
+	Update -K PIC clause from sysv4.h.
+	(ASM_SPEC_COMMON): Use ENDIAN_SELECT.
+	(LINK_OS_LINUX_EMUL32, LINK_OS_LINUX_EMUL64): Likewise.
+
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (bswapdi 2nd splitter): Don't swap words
+	twice for little-endian.
+	(ashrdi3_no_power, ashrdi3): Support little-endian.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55303
+	* config/sh/sh.c (sh_rtx_costs): Handle SMIN and SMAX cases.
+	* config/sh/sh.md (*clips, uminsi3, *clipu, clipu_one): New insns and
+	related expanders.
+	* config/sh/iterators.md (SMIN_SMAX): New code iterator.
+	* config/sh/predicates.md (arith_reg_or_0_or_1_operand,
+	clips_min_const_int, clips_max_const_int, clipu_max_const_int):
+	New predicates.
+
+2013-05-05  Steven Bosscher  <steven@gcc.gnu.org>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config.gcc (hppa*-*-*): Remove MASK_BIG_SWITCH from CPU default.
+	* config/pa/pa.opt: Make mbig-switch a no-op.
+	* config/pa/pa.h (TARGET_DEFAULT): Remove MASK_BIG_SWITCH.
+	(CASE_VECTOR_MODE): Always return SImode.
+	(ASM_OUTPUT_ADDR_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Remove code
+	for the !TARGET_BIG_SWITCH case.
+	* config/pa/pa-linux.h: Likewise.
+	* config/pa/pa-openbsd.h: Likewise.
+	* config/pa/pa-hpux.h: Define TARGET_DEFAULT to 0.
+	* config/pa/pa.md (short_jump): Remove define_insn.
+	(casesi): Remove code for the !TARGET_BIG_SWITCH case.
+	(casesi0): Remove define_insn.
+	(type): Remove btable_branch.
+	(pa_combine_type): Likewise.
+	(in_nullified_branch_delay): Likewise.
+	(in_call_delay): Likewise.
+	(define_delay): Likewise.
+	(define_insn_reservation "Z3"): Likewise.
+	(define_insn_reservation "Z4"): Likewise.
+	* config/pa/pa.c  (pa_reorg): Remove code for !TARGET_BIG_SWITCH.
+	(pa_adjust_insn_length): Remove adjustment for btable branches.
+	* doc/invoke.texi (HPPA Options): Delete documentation for mbig-switch
+	and mno-big-switch
+
+2013-05-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_extract<ssevecmodelower>_0): Merge
+	from sse2_stored and *sse2_storeq_rex64 using SWI48 mode iterator.
+	Add m->r,x alternatives.
+	(*vec_extract<ssevecmodelower>_0 splitters): Merge V2DI and V4SI
+	splitters using SWI48x mode iterator.
+	(*vec_extract_v2di_0_sse): Rename from *sse2_storeq.  Disable for
+	TARGET_64BIT.  Add m->x alternative.
+	(*vec_extractv4si_mem): Rename from *vec_ext_v4si_mem.
+	Add o->x alternative.  Enable for TARGET_SSE.
+	(sse_storeq): Remove expander.
+	(*vec_extractv2di_1): Enable for TARGET_SSE. Split alternatives
+	with memory input operand.
+	(*vec_extractv2di_1 splitter): New.
+	(*vec_extractv4sf_mem): Rename from *vec_extract_v4sf_mem.
+	* config/i386/i386.md (ssevecmodelower): New mode attribute.
+
+2013-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (INT_P): Reformat.  Delete obsolete comment.
+	(INT_LOWPART): Delete.
+	(extract_MB): Adjust.
+	(extract_ME): Adjust.
+	(print_operand): Adjust.
+
+2013-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/predicates.md (reg_or_add_cint_operand,
+	reg_or_sub_cint_operand): Delete "HOST_BITS_PER_WIDE_INT == 32" case.
+	(reg_or_logical_cint_operand, easy_fp_constant,
+	logical_const_operand): Delete "CONST_DOUBLE" case.
+	* config/rs6000/rs6000.c (num_insns_constant_wide): Delete
+	"HOST_BITS_PER_WIDE_INT == 64" test.
+	(num_insns_constant): Ditto.  Delete CONST_DOUBLE DImode/VOIDmode case.
+	(build_mask64_2_operands): Delete "HOST_BITS_PER_WIDE_INT >= 64" test.
+	(rs6000_emit_set_const): Delete CONST_DOUBLE case.
+	(rs6000_emit_set_long_const): Delete "HOST_BITS_PER_WIDE_INT >= 64"
+	test.
+	(includes_rldic_lshift_p, includes_rldicr_lshift_p): Delete
+	CONST_DOUBLE DImode/VOIDmode case.
+	(INT_P, INT_LOWPART): Delete CONST_DOUBLE case.
+	(print_operand): Delete "HOST_BITS_PER_WIDE_INT == 32" case.  Delete
+	CONST_DOUBLE VOIDmode case.
+	(output_toc): Delete "HOST_BITS_PER_WIDE_INT == 32" case.
+	(rs6000_rtx_costs): Delete CONST_DOUBLE DImode/VOIDmode case.
+	* config/rs6000/rs6000.md (iordi3, xordi3, splitter for these):
+	Delete CONST_DOUBLE case.
+	(splitters for mov FMOVE64 const_double): Delete
+	"HOST_BITS_PER_WIDE_INT == 32" case.  Delete
+	"HOST_BITS_PER_WIDE_INT >= 64" test.
+	(splitter for mov DI const_int): Delete "HOST_BITS_PER_WIDE_INT == 32"
+	case.
+	(mov DI const_double): Delete.
+
 2013-05-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* combine.c (combine_simplify_rtx) <case SUBREG>: If nonzero_bits
@@ -24,8 +143,8 @@
 2013-05-03  Guozhi Wei  <carrot@google.com>
 
 	* coverage.c (coverage_obj_init): Move the construction of gcov
-	constructor to
-	(build_init_ctor): here.
+	constructor to ...
+	(build_init_ctor): ... here.
 
 2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
@@ -89,9 +208,8 @@
 2013-05-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/57130
-	* combine.c (make_compound_operation) <case SUBREG>: Pass
-	SET instead of COMPARE as in_code to the recursive call
-	if needed.
+	* combine.c (make_compound_operation) <case SUBREG>: Pass SET instead
+	of COMPARE as in_code to the recursive call if needed.
 
 2013-05-03  Uros Bizjak  <ubizjak@gmail.com>
 
