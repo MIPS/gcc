@@ -1,5 +1,8 @@
 2013-05-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 198656.
+	* REVISION: Update subversion id.
+
 	Backport from trunk
 	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
