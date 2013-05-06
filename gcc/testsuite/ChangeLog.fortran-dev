@@ -1,3 +1,13 @@
+2013-05-06  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/assumed_rank_13.f90: New.
+	* gfortran.dg/array_section_2.f90: Remove tree-dump check.
+	* gfortran.dg/assign_10.f90: Update dump-times.
+	* gfortran.dg/transpose_optimization_2.f90: Ditto.
+	* gfortran.dg/coarray_12.f90: Update dump pattern.
+	* gfortran.dg/coarray_30.f90: Ditto.
+	* gfortran.dg/intrinsic_size_3.f90: Ditto.
+
 2013-05-02  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/iso-ts-29113_2.f90: Update scan-dump.

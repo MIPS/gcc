@@ -1,3 +1,17 @@
+2013-05-06  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_conv_ss_startstride, set_loop_bounds): Handle
+	GFC_ISYM_SHAPE in the scalarizer.
+	(gfc_array_init_size, gfc_conv_expr_descriptor): Ensure that
+	extent is never negative except for assumed size arrays.
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound): Optimizations
+	of the bounds handling.
+	(gfc_conv_intrinsic_size): Handle SIZE and SHAPE directly without
+	calling the library.
+	(gfc_conv_intrinsic_function, gfc_add_intrinsic_ss_code,
+	gfc_walk_intrinsic_bound, gfc_is_intrinsic_libcall,
+	gfc_walk_intrinsic_function): Handle SHAPE.
+
 2013-04-30  Tobias Burnus  <burnus@net-b.de>
 
 	* libgfortran.h (GFC_TYPE_MASK, GFC_TYPE_KIND_SHIFT,

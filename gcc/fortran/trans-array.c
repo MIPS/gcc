@@ -4012,6 +4012,7 @@ gfc_conv_ss_startstride (gfc_loopinfo * loop)
 	    case GFC_ISYM_UBOUND:
 	    case GFC_ISYM_LCOBOUND:
 	    case GFC_ISYM_UCOBOUND:
+	    case GFC_ISYM_SHAPE:
 	    case GFC_ISYM_THIS_IMAGE:
 	      loop->dimen = ss->dimen;
 	      goto done;
@@ -4062,11 +4063,13 @@ done:
 	    /* Fall through to supply start and stride.  */
 	    case GFC_ISYM_LBOUND:
 	    case GFC_ISYM_UBOUND:
+	    case GFC_ISYM_SHAPE:
 	      {
 		gfc_expr *arg;
 
 		/* This is the variant without DIM=...  */
-		gcc_assert (expr->value.function.actual->next->expr == NULL);
+		gcc_assert (expr->value.function.actual->next->expr == NULL
+			    || expr->value.function.isym->id == GFC_ISYM_SHAPE);
 
 		arg = expr->value.function.actual->expr;
 		if (arg->rank == -1)
@@ -4818,10 +4821,12 @@ set_loop_bounds (gfc_loopinfo *loop)
 	      {
 		gfc_expr *expr = loopspec[n]->info->expr;
 
-		/* The {l,u}bound of an assumed rank.  */
+		/* The {l,u}bound and shape of an assumed rank.  */
 		gcc_assert ((expr->value.function.isym->id == GFC_ISYM_LBOUND
-			     || expr->value.function.isym->id == GFC_ISYM_UBOUND)
-			     && expr->value.function.actual->next->expr == NULL
+			     || expr->value.function.isym->id == GFC_ISYM_UBOUND
+			     || expr->value.function.isym->id == GFC_ISYM_SHAPE)
+			     && (expr->value.function.actual->next->expr == NULL
+				 || expr->value.function.isym->id == GFC_ISYM_SHAPE)
 			     && expr->value.function.actual->expr->rank == -1);
 
 		loop->to[n] = info->end[dim];
@@ -5153,15 +5158,21 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
       offset = fold_build2_loc (input_location, MINUS_EXPR,
 				gfc_array_index_type, offset, tmp);
 
-      /* Set upper bound.  */
+      /* Set extent.  */
       gfc_init_se (&se, NULL);
       gcc_assert (ubound);
       gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
       gfc_add_block_to_block (pblock, &se.pre);
-
-      gfc_conv_descriptor_ubound_set (descriptor_block, descriptor,
-				      gfc_rank_cst[n], se.expr);
       conv_ubound = se.expr;
+
+      tmp = fold_build2_loc (input_location, MINUS_EXPR, gfc_array_index_type,
+			     conv_ubound, conv_lbound);
+      tmp = fold_build2_loc (input_location, PLUS_EXPR, gfc_array_index_type,
+			     tmp, gfc_index_one_node);
+      tmp = fold_build2_loc (input_location, MAX_EXPR, gfc_array_index_type,
+			     tmp, gfc_index_zero_node);
+      gfc_conv_descriptor_extent_set (descriptor_block, descriptor,
+				      gfc_rank_cst[n], tmp);
 
       /* Store the stride.  */
       gfc_conv_descriptor_stride_set (descriptor_block, descriptor,
@@ -6666,6 +6677,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
   tree elem_len;
   int full;
   bool subref_array_target = false;
+  bool assumed_size = false;
   gfc_expr *arg, *ss_expr;
 
   if (se->want_coarray)
@@ -6711,6 +6723,9 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 
       if (se->force_tmp)
 	need_tmp = 1;
+
+      if (info->ref->u.ar.as->type == AS_ASSUMED_SIZE)
+	assumed_size = true;
 
       if (need_tmp)
 	full = 0;
@@ -7084,9 +7099,22 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 	  gfc_conv_descriptor_lbound_set (&loop.pre, parm,
 					  gfc_rank_cst[dim], from);
 
-	  /* Set the new upper bound.  */
-	  gfc_conv_descriptor_ubound_set (&loop.pre, parm,
-					  gfc_rank_cst[dim], to);
+	  /* Set the new extent.  */
+	  if (assumed_size && dim == ndim - 1)
+	    tmp = build_int_cst (gfc_array_index_type, -1);
+	  else
+	    {
+	      tmp = fold_build2_loc (input_location, MINUS_EXPR,
+				     gfc_array_index_type, to, from);
+	      tmp = fold_build2_loc (input_location, PLUS_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_one_node);
+	      tmp = fold_build2_loc (input_location, MAX_EXPR,
+				     gfc_array_index_type, tmp,
+				     gfc_index_zero_node);
+	    }
+	  gfc_conv_descriptor_extent_set (&loop.pre, parm,
+					  gfc_rank_cst[dim], tmp);
 
 	  /* Multiply the stride by the section stride to get the
 	     total stride.  */

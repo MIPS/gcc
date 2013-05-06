@@ -11,5 +11,5 @@ program main
   write(greeting,"(a)") "z"
 end
 
-! { dg-final { scan-tree-dump-times "greeting.data = \\(void . restrict\\) __builtin_malloc \\(25\\);" 1 "original" } }
+! { dg-final { scan-tree-dump-times "greeting.base_addr = \\(void . restrict\\) __builtin_malloc \\(25\\);" 1 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }

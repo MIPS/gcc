@@ -46,14 +46,14 @@ end subroutine testAlloc5
 
 
 ! { dg-final { scan-tree-dump-times "a.dim.0..lower_bound = 1;"     1 "original" } }
-! { dg-final { scan-tree-dump-times "a.dim.0..extent = .*nn - a.dim.0..lower_bound. \\+ 1;" 1 "original" } }
+! { dg-final { scan-tree-dump-times "a.dim.0..extent = MAX_EXPR <.*nn, 0>;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "a.dim.1..lower_bound = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "a.dim.1..extent = .*mm - a.dim.1..lower_bound. \\+ 1;" 1 "original" } }
 ! { dg-final { scan-tree-dump-times "a.dim.2..lower_bound = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "a.dim.2..extent"          0 "original" } }
 
 ! { dg-final { scan-tree-dump-times "xxx.dim.0..lower_bound = 1;"     1 "original" } }
-! { dg-final { scan-tree-dump-times "xxx.dim.0..extent = 2 - xxx.dim.0..lower_bound;"     1 "original" } }
+! { dg-final { scan-tree-dump-times "xxx.dim.0..extent = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "xxx.dim.1..lower_bound = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "xxx.dim.1..extent = 8 - xxx.dim.1..lower_bound;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "xxx.dim.2..lower_bound = -5;"    1 "original" } }
@@ -64,7 +64,7 @@ end subroutine testAlloc5
 ! { dg-final { scan-tree-dump-times "xxx.dim.4..extent"          0 "original" } }
 
 ! { dg-final { scan-tree-dump-times "yyy.dim.0..lower_bound = 1;"     1 "original" } }
-! { dg-final { scan-tree-dump-times "yyy.dim.0..extent = 2 - yyy.dim.0..lower_bound;"     1 "original" } }
+! { dg-final { scan-tree-dump-times "yyy.dim.0..extent = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "yyy.dim.1..lower_bound = 1;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "yyy.dim.1..extent = 8 - yyy.dim.1..lower_bound;"     1 "original" } }
 ! { dg-final { scan-tree-dump-times "yyy.dim.2..lower_bound = -5;"    1 "original" } }

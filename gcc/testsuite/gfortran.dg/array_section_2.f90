@@ -1,10 +1,13 @@
 ! { dg-do compile }
-! { dg-options "-fdump-tree-original" }
 !
 ! PR38033 - size(a) was not stabilized correctly and so the expression was
 ! evaluated twice outside the loop and then within the scalarization loops.
 !
 ! Contributed by Thomas Bruel  <tmbdev@gmail.com>
+!
+! Note: With the new array descriptor, which uses extent directly and inlined
+! SIZE, this is no longer simply testable in the dump.
+! (Before, the code had a -fdump-tree-original check.)
 !
 program test
    integer, parameter :: n = 100
@@ -12,5 +15,3 @@ program test
    allocate(a(n), temp(n))
    temp(1:size(a)) = a
 end program
-! { dg-final { scan-tree-dump-times "MAX_EXPR\[^\n\t\]+extent, 0" 1 "original" } }
-! { dg-final { cleanup-tree-dump "original" } }
