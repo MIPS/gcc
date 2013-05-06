@@ -9,6 +9,7 @@
 	* doc/generic.texi (Storage References): Added documentation for
 	ARRAY_NOTATION_REF storage.
 	* Makefile.in (C_COMMON_OBJS): Added c-family/array-notation-common.o.
+	(BUILTINS_DEF): Depend on cilkplus.def.
 	* builtins.def: Include cilkplus.def.  Define DEF_CILKPLUS_BUILTIN.
 	* builtin-types.def: Define BT_FN_INT_PTR_PTR_PTR.
 	* cilkplus.def: New file.
