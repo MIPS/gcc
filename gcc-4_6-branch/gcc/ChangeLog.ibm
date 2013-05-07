@@ -1,3 +1,26 @@
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Use DFmode
+	to save TFmode registers and DImode to save TImode registers for
+	caller save operations.
+	(HARD_REGNO_CALL_PART_CLOBBERED): TFmode and TDmode do not need to
+	mark being partially clobbered since they only use the first
+	double word.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): TFmode
+	and TDmode only use the upper 64-bits of each VSX register.
+
+2013-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Steven Bosscher <steven@gcc.gnu.org>
+
+	Backported from mainline.
+	PR rtl-optimization/56605
+	* loop-iv.c (implies_p): Handle equal RTXs and subregs.
+
 2012-11-09  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 193345.

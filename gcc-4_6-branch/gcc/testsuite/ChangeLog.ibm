@@ -1,3 +1,17 @@
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* gcc.target/powerpc/pr57150.c: New file.
+
+2013-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backported from mainline.
+	PR rtl-optimization/56605
+	* gcc.target/powerpc/pr56605.c: New.
+
 2012-07-25  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport prospective patch from mainline
