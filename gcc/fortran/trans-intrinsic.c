@@ -1334,6 +1334,7 @@ gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
   /* TODO: don't re-evaluate the descriptor on each iteration.  */
   /* Get a descriptor for the first parameter.  */
   gfc_init_se (&argse, NULL);
+  argse.data_not_needed = 1;
   gfc_conv_expr_descriptor (&argse, arg->expr);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
@@ -5091,6 +5092,7 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr, bool shape)
   /* TODO: don't re-evaluate the descriptor on each iteration.  */
   /* Get a descriptor for the first parameter.  */
   gfc_init_se (&argse, NULL);
+  argse.data_not_needed = 1;
   gfc_conv_expr_descriptor (&argse, arg->expr);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);

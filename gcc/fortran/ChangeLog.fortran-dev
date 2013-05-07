@@ -1,5 +1,10 @@
 2013-05-07  Tobias Burnus  <burnus@net-b.de>
 
+	* trans-intrinsic.c (gfc_conv_intrinsic_bound,
+	gfc_conv_intrinsic_size): Set argse.data_not_needed.
+
+2013-05-07  Tobias Burnus  <burnus@net-b.de>
+
 	* trans-array.c (gfc_conv_descriptor_stride_get,
 	gfc_conv_descriptor_stride_set): Use elem_len, unless it is
 	a nonstring intrinsic type for which size_in_bytes is used.
