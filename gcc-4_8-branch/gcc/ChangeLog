@@ -1,3 +1,273 @@
+2013-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57149
+	* tree-ssa-uninit.c (uninit_undefined_value_p): New inline.
+	(can_skip_redundant_opnd, compute_uninit_opnds_pos,
+	collect_phi_def_edges, execute_late_warn_uninitialized): Use
+	uninit_undefined_value_p instead of ssa_undefined_value_p.
+
+	PR debug/57184
+	* expr.c (expand_expr_addr_expr_1): Handle COMPOUND_LITERAL_EXPR
+	for modifier == EXPAND_INITIALIZER.
+
+2013-05-07  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57185
+	* tree-parloops.c (add_field_for_reduction): Handle anonymous
+	SSA names properly.
+
+	2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57000
+	* tree-ssa-reassoc.c (pass_reassoc): Add TODO_update_ssa_only_virtuals.
+
+2013-05-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Use DFmode
+	to save TFmode registers and DImode to save TImode registers for
+	caller save operations.
+	(HARD_REGNO_CALL_PART_CLOBBERED): TFmode and TDmode do not need to
+	mark being partially clobbered since they only use the first
+	double word.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): TFmode
+	and TDmode only use the upper 64-bits of each VSX register.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/57108
+	* config/sh/sh.md (tstsi_t_zero_extract_eq): Use QIHISIDI mode iterator.
+
+2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57106
+	* config/i386/i386.c (add_parameter_dependencies): Add dependence
+	between "first_arg" and "insn", not "last" and "insn".
+
+2013-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57130
+	* combine.c (make_compound_operation) <case SUBREG>: Pass
+	SET instead of COMPARE as in_code to the recursive call
+	if needed.
+
+	Backported from mainline
+	2013-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57051
+	* fold-const.c (const_binop): Handle VEC_LSHIFT_EXPR
+	and VEC_RSHIFT_EXPR if shift count is a multiple of element
+	bitsize.
+
+	2013-04-12  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (fold_binary_loc): Call const_binop also for mixed
+	vector-scalar operations.
+
+2013-05-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-04-25  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/57066
+        * builtins.c (fold_builtin_logb): Return +Inf for -Inf.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_alt_operands): Add checking alt
+	number to choose the best alternative.
+
+	2013-05-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57091
+	* lra-constraints.c (best_small_class_operands_num): Remove.
+	(process_alt_operands): Remove small_class_operands_num.  Take
+	small classes operands into losers and only if the operand is not
+	matched.  Modify debugging output.
+	(curr_insn_transform): Remove best_small_class_operands_num.
+	Print insn name.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57097
+	* lra-constraints.c (process_alt_operands): Discourage a bit more
+	using memory for pseudos.  Print cost dump for alternatives.
+	Modify cost values for conflicts with early clobbers.
+	(curr_insn_transform): Spill pseudos reassigned to NO_REGS.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimizations/57046
+        * lra-constraints (split_reg): Set up lra_risky_transformations_p
+        for multi-reg splits.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR target/57018
+        * lra-eliminations.c (mark_not_eliminable): Prevent elimination of
+        a set sp if no stack realignment.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimization/56999
+        * lra-coalesce.c (coalescable_pseudo_p): Remove 2nd parameter and
+        related code.
+        (lra_coalesce): Remove split_origin_bitmap and related code.
+        * lra.c (lra): Coalesce after undoing inheritance. Recreate live
+        ranges if necessary.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimization/56847
+        * lra-constraints.c (process_alt_operands): Discourage alternative
+        with non-matche doffsettable memory constraint fro memory with
+        known offset.
+
+2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2013-03-28  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (aarch64_can_eliminate): Keep frame
+	record only when desired or required.
+
+2013-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57104
+	* tsan.c (instrument_expr): Don't instrument accesses to
+	DECL_HARD_REGISTER VAR_DECLs.
+
+2013-04-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44578
+	* config/i386/i386.md (*zero_extendsidi2_rex64): Add "!" to m->?*y
+	alternative.
+	(*zero_extendsidi2): Ditto.
+
+	Backport from mainline
+	2013-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57098
+	* config/i386/i386.c (ix86_expand_vec_perm): Validize constant memory.
+
+2013-04-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57103
+	* tree-cfg.c (move_stmt_op): Fix condition under which to update
+	TREE_BLOCK.
+	(move_stmt_r): Remove redundant checking.
+
+2013-04-29  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/57108
+	* sh.md (tstsi_t_zero_extract_eq): Set mode for operand 0.
+
+2013-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57083
+	* tree-vrp.c (extract_range_from_binary_expr_1): For LSHIFT_EXPR with
+	non-singleton shift count range, zero extend low_bound for uns case.
+
+2013-04-28  Eric Botcazou  <ebotcazou@gcc.gnu.org>
+
+	* stor-layout.c (finalize_size_functions): Allocate a structure and
+	reset cfun before dumping the functions.
+
+2013-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56866
+	* config/i386/i386.c (ix86_expand_mul_widen_evenodd): Don't
+	use xop_pmacsdqh if uns_p.
+	* config/i386/sse.md (xop_rotr<mode>3): Fix up computation of
+	the immediate rotate count.
+
+2013-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57003
+	* regcprop.c (copyprop_hardreg_forward_1): If ksvd.ignore_set_reg,
+	call note_stores with kill_clobbered_value callback again after
+	killing regs_invalidated_by_call.
+
+2013-04-25  Ian Bolton  <ian.bolton@arm.com>
+
+	Backported from mainline.
+	2013-03-22  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_print_operand): New
+	format specifier for printing a constant in hex.
+	* config/aarch64/aarch64.md (insv_imm<mode>): Use the X
+	format specifier for printing second operand.
+
+2013-04-24  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backported from mainline.
+	2013-04-24  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/arm_neon.h (vld1<q>_lane*): Fix constraints.
+	(vld1<q>_dup_<sufp><8, 16, 32, 64>): Likewise.
+	(vld1<q>_<sufp><8, 16, 32, 64>): Likewise.
+
+2013-04-24  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	Backported from mainline.
+	PR target/56797
+	* config/arm/arm.c (load_multiple_sequence): Require SP
+	as base register for loads if SP is in the register list.
+
+2013-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Steven Bosscher <steven@gcc.gnu.org>
+
+	Backported from mainline.
+	PR rtl-optimization/56605
+	* loop-iv.c (implies_p): Handle equal RTXs and subregs.
+
+2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline.
+	2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/56990
+	* tsan.c (instrument_expr): Don't instrument expression
+	in case its size is zero.
+
+2013-04-22  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	Backported from mainline.
+	2013-04-10  Yufeng Zhang  <yufeng.zhang@arm.com>
+	* config/aarch64/aarch64.c (aarch64_print_extension): New function.
+	(aarch64_start_file): Use the new function.
+
 2013-05-06  Maxim Kuznetsov  <maks.kuznetsov@gmail.com>
 
 	* final.c (do_assembler_dialects): Don't handle curly braces and

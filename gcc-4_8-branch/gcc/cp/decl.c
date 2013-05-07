@@ -1756,12 +1756,16 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  warning (OPT_Wredundant_decls, "previous declaration of %q+D", olddecl);
 	}
 
-      if (DECL_DELETED_FN (newdecl))
+      if (!(DECL_TEMPLATE_INSTANTIATION (olddecl)
+	    && DECL_TEMPLATE_SPECIALIZATION (newdecl)))
 	{
-	  error ("deleted definition of %qD", newdecl);
-	  error ("after previous declaration %q+D", olddecl);
+	  if (DECL_DELETED_FN (newdecl))
+	    {
+	      error ("deleted definition of %qD", newdecl);
+	      error ("after previous declaration %q+D", olddecl);
+	    }
+	  DECL_DELETED_FN (newdecl) |= DECL_DELETED_FN (olddecl);
 	}
-      DECL_DELETED_FN (newdecl) |= DECL_DELETED_FN (olddecl);
     }
 
   /* Deal with C++: must preserve virtual function table size.  */
@@ -6143,6 +6147,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 						   auto_node);
       if (type == error_mark_node)
 	return;
+      cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
     }
 
   if (!ensure_literal_type_for_constexpr_object (decl))
