@@ -6,6 +6,12 @@
 	PR target/57150
 	* gcc.target/powerpc/pr57150.c: New file.
 
+2013-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backported from mainline.
+	PR rtl-optimization/56605
+	* gcc.target/powerpc/pr56605.c: New.
+
 2013-02-28  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
