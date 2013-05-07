@@ -1,3 +1,13 @@
+2013-05-07  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_conv_descriptor_stride_get,
+	gfc_conv_descriptor_stride_set): Use elem_len, unless it is
+	a nonstring intrinsic type for which size_in_bytes is used.
+	(gfc_array_init_size): Set elem_len before handling the
+	strides.
+	* trans-expr.c (gfc_conv_subref_array_arg): Remove no-op
+	extent shifting code.
+
 2013-05-06  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-array.c (gfc_conv_ss_startstride, set_loop_bounds): Handle

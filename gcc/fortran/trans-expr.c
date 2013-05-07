@@ -3772,12 +3772,6 @@ gfc_conv_subref_array_arg (gfc_se * parmse, gfc_expr * expr, int g77,
       offset = gfc_index_zero_node;
       for (n = 0; n < dimen; n++)
 	{
-	  tmp = gfc_conv_descriptor_extent_get (parmse->expr,
-						gfc_rank_cst[n]);
-	  gfc_conv_descriptor_ubound_set (&parmse->pre,
-					  parmse->expr,
-					  gfc_rank_cst[n],
-					  tmp);
 	  gfc_conv_descriptor_lbound_set (&parmse->pre,
 					  parmse->expr,
 					  gfc_rank_cst[n],

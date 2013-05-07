@@ -422,7 +422,11 @@ gfc_conv_descriptor_stride_get (tree desc, tree dim)
     return gfc_index_one_node;
 
   tmp = gfc_get_element_type (type);
-  size = size_in_bytes (tmp);
+  if (TREE_CODE (tmp) != RECORD_TYPE && !TYPE_STRING_FLAG (tmp))
+    size = size_in_bytes (tmp);
+  else
+    size = gfc_conv_descriptor_elem_len_get (desc);
+
   size = fold_convert (gfc_array_index_type, size);
   tmp = fold_build2_loc (input_location, FLOOR_DIV_EXPR, gfc_array_index_type,
 			 gfc_conv_descriptor_sm_get (desc, dim), size);
@@ -440,7 +444,11 @@ gfc_conv_descriptor_stride_set (stmtblock_t *block, tree desc,
 {
   tree tmp;
   tmp = gfc_get_element_type (TREE_TYPE (desc));
-  tmp = size_in_bytes (tmp);
+  if (TREE_CODE (tmp) != RECORD_TYPE && !TYPE_STRING_FLAG (tmp))
+    tmp = size_in_bytes (tmp);
+  else
+    tmp = gfc_conv_descriptor_elem_len_get (desc);
+
   tmp = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
 			 fold_convert (gfc_array_index_type, value),
 			 fold_convert (gfc_array_index_type, tmp));
@@ -5117,6 +5125,34 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
   tmp = gfc_conv_descriptor_dtype (descriptor);
   gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (ts));
 
+  if (expr3_elem_size != NULL_TREE)
+    tmp = expr3_elem_size;
+  else if (expr3 != NULL)
+    {
+      if (expr3->ts.type == BT_CLASS)
+	{
+	  gfc_se se_sz;
+	  gfc_expr *sz = gfc_copy_expr (expr3);
+	  gfc_add_vptr_component (sz);
+	  gfc_add_size_component (sz);
+	  gfc_init_se (&se_sz, NULL);
+	  gfc_conv_expr (&se_sz, sz);
+	  gfc_free_expr (sz);
+	  tmp = se_sz.expr;
+	}
+      else
+	{
+	  tmp = gfc_typenode_for_spec (&expr3->ts);
+	  tmp = TYPE_SIZE_UNIT (tmp);
+	}
+    }
+  else
+    tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
+
+  /* Convert to size_t.  */
+  element_size = fold_convert (size_type_node, tmp);
+  gfc_conv_descriptor_elem_len_set (descriptor_block, descriptor, element_size);
+
   or_expr = boolean_false_node;
 
   for (n = 0; n < rank; n++)
@@ -5248,36 +5284,6 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
 					  gfc_rank_cst[n], se.expr);
 	}
     }
-
-  /* The stride is the number of elements in the array, so multiply by the
-     size of an element to get the total size.  Obviously, if there is a
-     SOURCE expression (expr3) we must use its element size.  */
-  if (expr3_elem_size != NULL_TREE)
-    tmp = expr3_elem_size;
-  else if (expr3 != NULL)
-    {
-      if (expr3->ts.type == BT_CLASS)
-	{
-	  gfc_se se_sz;
-	  gfc_expr *sz = gfc_copy_expr (expr3);
-	  gfc_add_vptr_component (sz);
-	  gfc_add_size_component (sz);
-	  gfc_init_se (&se_sz, NULL);
-	  gfc_conv_expr (&se_sz, sz);
-	  gfc_free_expr (sz);
-	  tmp = se_sz.expr;
-	}
-      else
-	{
-	  tmp = gfc_typenode_for_spec (&expr3->ts);
-	  tmp = TYPE_SIZE_UNIT (tmp);
-	}
-    }
-  else
-    tmp = TYPE_SIZE_UNIT (gfc_get_element_type (type));
-
-  /* Convert to size_t.  */
-  element_size = fold_convert (size_type_node, tmp);
 
   if (rank == 0)
     return element_size;
