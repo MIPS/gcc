@@ -1,3 +1,7 @@
+2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-cilk.c (validate_for_record): Emitted an error statement.
+
 2013-04-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cp/cp-array-notation.c (fix_builtin_array_notation_fn): Added

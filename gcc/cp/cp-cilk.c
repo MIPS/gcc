@@ -1078,7 +1078,6 @@ check_incr (tree var, tree arith_type, tree incr)
 	}
       incr = TREE_OPERAND (incr, 1);
       incr_code = TREE_CODE (incr);
-    
     }
   else if (TREE_OPERAND (incr, 0) != var
 	   && DECL_NAME (TREE_OPERAND (incr, 0)) != DECL_NAME (var))
@@ -1368,8 +1367,12 @@ validate_for_record (tree c_for_stmt, tree var)
     return false;
 
   if (!can_convert_arg (boolean_type_node, TREE_TYPE (exp_cond), exp_cond,
-		       LOOKUP_NORMAL, tf_warning_or_error)) 
-    return false;
+			LOOKUP_NORMAL, tf_warning_or_error))
+    {
+      error_at (EXPR_LOCATION (c_for_stmt), "cannot convert %qE to boolean",
+		exp_cond);
+      return false;
+    }
 
   if (!check_incr (var, d_type, FOR_EXPR (c_for_stmt))) 
     return false;
