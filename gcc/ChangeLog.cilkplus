@@ -1,3 +1,8 @@
+2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added a check
+	for non-arithmetic types in array notation builtin functions.
+
 2013-04-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added "equal-to"
