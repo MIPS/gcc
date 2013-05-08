@@ -1,3 +1,4 @@
+
 /* C++ Functions to handle Intel(R) Cilk(TM) Plus Specific functions.
    Copyright (C) 2011-2013  Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
@@ -379,7 +380,7 @@ cilk_outline (tree outer_fn, tree inner_fn, tree *stmt_p,
   /* See if this function can throw or calls something that should
      not be spawned.  The exception part is only necessary if
      flag_exceptions && !flag_non_call_exceptions. */
-  throws = cp_function_chain->can_throw;
+  throws = flag_exceptions ? cp_function_chain->can_throw : false;
   (void) walk_tree_without_duplicates (stmt_p, check_outlined_calls, &throws);
   cp_function_chain->can_throw = throws;
 
@@ -2943,22 +2944,28 @@ cp_install_body_with_frame_cleanup (tree fndecl, tree body)
   add_local_decl (cfun, frame);
 
   DECL_SAVED_TREE (fndecl) = (list = alloc_stmt_list ());
-
-  catch_list = alloc_stmt_list ();
-  except_flag = set_cilk_except_flag (frame);
-  except_data = set_cilk_except_data (frame);
-  append_to_statement_list (except_flag, &catch_list);
-  append_to_statement_list (except_data, &catch_list);
-  append_to_statement_list (do_begin_catch (), &catch_list);
-  append_to_statement_list (build_throw (NULL_TREE), &catch_list);
-  catch_tf_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
-			      catch_list, do_end_catch (NULL_TREE));
-  catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE, catch_tf_expr);
-
-  try_catch_expr = build_stmt (EXPR_LOCATION (body), TRY_CATCH_EXPR, body,
-			       catch_list);
-  try_finally_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
-				 try_catch_expr, dtor);
-  append_to_statement_list_force (try_finally_expr, &list);
+  if (flag_exceptions)
+    {
+      catch_list = alloc_stmt_list ();
+      except_flag = set_cilk_except_flag (frame);
+      except_data = set_cilk_except_data (frame);
+      append_to_statement_list (except_flag, &catch_list);
+      append_to_statement_list (except_data, &catch_list);
+      append_to_statement_list (do_begin_catch (), &catch_list);
+      append_to_statement_list (build_throw (NULL_TREE), &catch_list);
+      catch_tf_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
+				  catch_list, do_end_catch (NULL_TREE));
+      catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE,
+			   catch_tf_expr);
+      try_catch_expr = build_stmt (EXPR_LOCATION (body), TRY_CATCH_EXPR, body,
+				   catch_list);
+      try_finally_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
+				     try_catch_expr, dtor);
+      append_to_statement_list_force (try_finally_expr, &list);
+    }
+  else
+    append_to_statement_list_force (build_stmt (EXPR_LOCATION (body),
+						TRY_FINALLY_EXPR, body, dtor),
+				    &list);
 }
 

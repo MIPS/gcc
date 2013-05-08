@@ -1,6 +1,9 @@
 2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cp-cilk.c (validate_for_record): Emitted an error statement.
+	(cp_install_body_with_frame_cleanup): Added a check to see if exceptions
+	are being enabled.  Otherwise, do not emit the catch and throw
+	expressions.
 
 2013-04-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
