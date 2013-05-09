@@ -1,3 +1,11 @@
+2013-05-09  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-cilk.c (add_incr): Added a case for CONVERT_EXPR.
+	(compute_loop_var): Added a check for expression to be error mark node.
+	If so, then we are certain that we have a operation equal instead of
+	just operation.  Thus, handle it appropriately using modify expressions.
+	(callable): Likewise.
+
 2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cp-array-notation.c (fix_builtin_array_notation_fn): Added a check

@@ -203,6 +203,7 @@ add_incr (tree incr)
     case POSTDECREMENT_EXPR:
       return false;
     case CLEANUP_POINT_EXPR:
+    case CONVERT_EXPR:
     case NOP_EXPR:
       return add_incr (TREE_OPERAND (incr, 0));
     case MODIFY_EXPR:
@@ -693,6 +694,7 @@ cp_build_cilk_for_body (struct cilk_for_desc *cfd)
 static tree
 compute_loop_var (struct cilk_for_desc *cfd, tree loop_var, tree lower_bound)
 {
+  tree new_var = NULL_TREE, new_stmt = NULL_TREE;
   tree incr = cfd->incr;
   tree count_type;
   tree scaled, adjusted;
@@ -738,6 +740,25 @@ compute_loop_var (struct cilk_for_desc *cfd, tree loop_var, tree lower_bound)
       low = lower_bound ? lower_bound : cfd->var;
       exp = build_new_op (UNKNOWN_LOCATION, add_op, 0, low, loop_var, 
 			  NULL_TREE, 0, 0);
+      if (exp == error_mark_node)
+	{
+	  /* If we are here, then operator+ or operator- couldn't be found.
+	     So, the other option is to use += and this requires storing values
+	     in the variable and then adding them one by one.  */
+	  new_var = cfd->var2;
+	  exp = alloc_stmt_list ();
+	  new_stmt = build_modify_expr (0, new_var, TREE_TYPE (new_var),
+					INIT_EXPR, 0,
+					build_zero_cst (TREE_TYPE (new_var)),
+					TREE_TYPE (new_var));
+	  append_to_statement_list_force (new_stmt, &exp);
+	  new_stmt = build_x_modify_expr (0, new_var, NOP_EXPR, low, 0);
+	  append_to_statement_list_force (new_stmt, &exp);
+	  new_stmt = build_x_modify_expr (UNKNOWN_LOCATION, new_var, add_op,
+					  loop_var, tf_warning_or_error);
+	  append_to_statement_list_force (new_stmt, &exp);
+	  return exp;
+	}
       gcc_assert (exp != error_mark_node);
  
       exp = build_modify_expr (UNKNOWN_LOCATION, cfd->var2,
@@ -975,7 +996,9 @@ callable (enum tree_code code, tree op0, tree op1, const char *what, bool cry)
 
   exp = build_new_op (UNKNOWN_LOCATION, code, flags, op0, op1, NULL_TREE, NULL,
 		      0); 
-  
+  if (exp == error_mark_node)
+    exp = build_x_modify_expr (UNKNOWN_LOCATION, op0, code, op1,
+			       tf_warning_or_error);
   if (exp && (exp != error_mark_node)) 
     return exp;
 
