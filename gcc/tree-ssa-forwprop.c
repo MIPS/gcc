@@ -826,7 +826,11 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	       && integer_zerop (TREE_OPERAND (lhs, 1))
 	       && useless_type_conversion_p
 	            (TREE_TYPE (TREE_OPERAND (def_rhs, 0)),
-		     TREE_TYPE (gimple_assign_rhs1 (use_stmt))))
+		     TREE_TYPE (gimple_assign_rhs1 (use_stmt)))
+	       /* Don't forward anything into clobber stmts if it would result
+		  in the lhs no longer being a MEM_REF.  */
+	       && (!gimple_clobber_p (use_stmt)
+		   || TREE_CODE (TREE_OPERAND (def_rhs, 0)) == MEM_REF))
 	{
 	  tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
 	  tree new_offset, new_base, saved, new_lhs;
@@ -1134,6 +1138,77 @@ forward_propagate_comparison (gimple_stmt_iterator *defgsi)
 
 bailout:
   gsi_next (defgsi);
+  return false;
+}
+
+
+/* GSI_P points to a statement which performs a narrowing integral
+   conversion.
+
+   Look for cases like:
+
+     t = x & c;
+     y = (T) t;
+
+   Turn them into:
+
+     t = x & c;
+     y = (T) x;
+
+   If T is narrower than X's type and C merely masks off bits outside
+   of (T) and nothing else.
+
+   Normally we'd let DCE remove the dead statement.  But no DCE runs
+   after the last forwprop/combine pass, so we remove the obviously
+   dead code ourselves.
+
+   Return TRUE if a change was made, FALSE otherwise.  */
+
+static bool 
+simplify_conversion_from_bitmask (gimple_stmt_iterator *gsi_p)
+{
+  gimple stmt = gsi_stmt (*gsi_p);
+  gimple rhs_def_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
+
+  /* See if the input for the conversion was set via a BIT_AND_EXPR and
+     the only use of the BIT_AND_EXPR result is the conversion.  */
+  if (is_gimple_assign (rhs_def_stmt)
+      && gimple_assign_rhs_code (rhs_def_stmt) == BIT_AND_EXPR
+      && has_single_use (gimple_assign_lhs (rhs_def_stmt)))
+    {
+      tree rhs_def_operand1 = gimple_assign_rhs1 (rhs_def_stmt);
+      tree rhs_def_operand2 = gimple_assign_rhs2 (rhs_def_stmt);
+      tree lhs_type = TREE_TYPE (gimple_assign_lhs (stmt));
+
+      /* Now verify suitability of the BIT_AND_EXPR's operands.
+	 The first must be an SSA_NAME that we can propagate and the
+	 second must be an integer constant that masks out all the
+	 bits outside the final result's type, but nothing else.  */
+      if (TREE_CODE (rhs_def_operand1) == SSA_NAME
+	  && ! SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rhs_def_operand1)
+	  && TREE_CODE (rhs_def_operand2) == INTEGER_CST
+	  && operand_equal_p (rhs_def_operand2,
+			      build_low_bits_mask (TREE_TYPE (rhs_def_operand2),
+			       			   TYPE_PRECISION (lhs_type)),
+						   0))
+	{
+	  /* This is an optimizable case.  Replace the source operand
+	     in the conversion with the first source operand of the
+	     BIT_AND_EXPR.  */
+	  gimple_assign_set_rhs1 (stmt, rhs_def_operand1);
+	  stmt = gsi_stmt (*gsi_p);
+	  update_stmt (stmt);
+
+	  /* There is no DCE after the last forwprop pass.  It's
+	     easy to clean up the first order effects here.  */
+	  gimple_stmt_iterator si;
+	  si = gsi_for_stmt (rhs_def_stmt);
+	  gsi_remove (&si, true);
+	  release_defs (rhs_def_stmt);
+	  return true;
+	}
+    }
+
   return false;
 }
 
@@ -3055,6 +3130,23 @@ ssa_forward_propagate_and_combine (void)
 		    int did_something = combine_conversions (&gsi);
 		    if (did_something == 2)
 		      cfg_changed = true;
+
+		    /* If we have a narrowing conversion to an integral
+		       type that is fed by a BIT_AND_EXPR, we might be
+		       able to remove the BIT_AND_EXPR if it merely
+		       masks off bits outside the final type (and nothing
+		       else.  */
+		    if (! did_something)
+		      {
+			tree outer_type = TREE_TYPE (gimple_assign_lhs (stmt));
+			tree inner_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
+			if (INTEGRAL_TYPE_P (outer_type)
+			    && INTEGRAL_TYPE_P (inner_type)
+			    && (TYPE_PRECISION (outer_type)
+				<= TYPE_PRECISION (inner_type)))
+			  did_something = simplify_conversion_from_bitmask (&gsi);
+		      }
+		      
 		    changed = did_something != 0;
 		  }
 		else if (code == VEC_PERM_EXPR)
@@ -3148,8 +3240,7 @@ struct gimple_opt_pass pass_forwprop =
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  TODO_ggc_collect
-  | TODO_update_ssa
+  TODO_update_ssa
   | TODO_verify_ssa		/* todo_flags_finish */
  }
 };
