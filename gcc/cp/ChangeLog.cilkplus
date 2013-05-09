@@ -5,6 +5,7 @@
 	If so, then we are certain that we have a operation equal instead of
 	just operation.  Thus, handle it appropriately using modify expressions.
 	(callable): Likewise.
+	(validate_for_record): Removed an unwanted error message.
 
 2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 

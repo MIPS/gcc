@@ -1314,7 +1314,8 @@ validate_for_scalar (tree c_for_stmt, tree var)
   return true;
 }
 
-/* This function will check if _Cilk_for loop is valid.  */
+/* Returns true if C_FOR_STMT, a CILK_FOR_STMT tree with the induction
+   variable VAR, a VAR_DECL, is valid.  */
 
 static bool
 validate_for_record (tree c_for_stmt, tree var)
@@ -1323,7 +1324,7 @@ validate_for_record (tree c_for_stmt, tree var)
   tree exp_cond = NULL_TREE;
   tree l_type = NULL_TREE, d_type = NULL_TREE, d_type_up = NULL_TREE;
   tree d_type_down = NULL_TREE;
-  tree var_type = NULL_TREE, cond = NULL_TREE, limit = NULL_TREE;
+  tree cond = NULL_TREE, limit = NULL_TREE;
   tree hack = NULL_TREE;
   int direction = 0;
   
@@ -1332,8 +1333,6 @@ validate_for_record (tree c_for_stmt, tree var)
   limit = check_limit_record (cond, var, &direction);
   if (!limit) 
     return false;
-
-  var_type = TREE_TYPE (var);
 
   l_type = TREE_TYPE (limit);
 
@@ -1371,12 +1370,6 @@ validate_for_record (tree c_for_stmt, tree var)
 		       " variable calculation", false);
   if (!exp_plus) 
     return false;
-
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (exp_plus)) != var_type
-      && !can_convert_arg (var_type, TREE_TYPE (exp_plus), exp_plus, 0,
-			   tf_warning_or_error)) 
-    error ("result of operation%c(%T,%T) not convertable to type of loop var.", 
-	   (direction >= 0) ? '+' : '-', var_type, d_type);
 
   if (cp_tree_uses_cilk (exp_plus)
       || cp_tree_uses_cilk (callable (INIT_EXPR, NULL_TREE, var, 0, false))
