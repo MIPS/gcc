@@ -356,6 +356,20 @@ ipa_set_ancestor_jf (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
   jfunc->value.ancestor.agg_preserved = agg_preserved;
 }
 
+/* Extract the acual BINFO being described by JFUNC which must be a known type
+   jump function.  */
+
+tree
+ipa_binfo_from_known_type_jfunc (struct ipa_jump_func *jfunc)
+{
+  tree base_binfo = TYPE_BINFO (jfunc->value.known_type.base_type);
+  if (!base_binfo)
+    return NULL_TREE;
+  return get_binfo_at_offset (base_binfo,
+			      jfunc->value.known_type.offset,
+			      jfunc->value.known_type.component_type);
+}
+
 /* Structure to be passed in between detect_type_change and
    check_stmt_for_type_change.  */
 
@@ -1957,6 +1971,30 @@ ipa_analyze_node (struct cgraph_node *node)
   pop_cfun ();
 }
 
+/* Given a statement CALL which must be a GIMPLE_CALL calling an OBJ_TYPE_REF
+   attempt a type-based devirtualization.  If successful, return the
+   target function declaration, otherwise return NULL.  */
+
+tree
+ipa_intraprocedural_devirtualization (gimple call)
+{
+  tree binfo, token, fndecl;
+  struct ipa_jump_func jfunc;
+  tree otr = gimple_call_fn (call);
+
+  jfunc.type = IPA_JF_UNKNOWN;
+  compute_known_type_jump_func (OBJ_TYPE_REF_OBJECT (otr), &jfunc,
+				call);
+  if (jfunc.type != IPA_JF_KNOWN_TYPE)
+    return NULL_TREE;
+  binfo = ipa_binfo_from_known_type_jfunc (&jfunc);
+  if (!binfo)
+    return NULL_TREE;
+  token = OBJ_TYPE_REF_TOKEN (otr);
+  fndecl = gimple_get_virt_method_for_binfo (tree_low_cst (token, 1),
+					     binfo);
+  return fndecl;
+}
 
 /* Update the jump function DST when the call graph edge corresponding to SRC is
    is being inlined, knowing that DST is of type ancestor and src of known
@@ -2117,7 +2155,6 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
      we may create the first reference to the object in the unit.  */
   if (!callee || callee->global.inlined_to)
     {
-      struct cgraph_node *first_clone = callee;
 
       /* We are better to ensure we can refer to it.
 	 In the case of static functions we are out of luck, since we already	
@@ -2133,31 +2170,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 		     xstrdup (cgraph_node_name (ie->callee)), ie->callee->uid);
 	  return NULL;
 	}
-
-      /* Create symbol table node.  Even if inline clone exists, we can not take
-	 it as a target of non-inlined call.  */
-      callee = cgraph_create_node (target);
-
-      /* OK, we previously inlined the function, then removed the offline copy and
-	 now we want it back for external call.  This can happen when devirtualizing
-	 while inlining function called once that happens after extern inlined and
-	 virtuals are already removed.  In this case introduce the external node
-	 and make it available for call.  */
-      if (first_clone)
-	{
-	  first_clone->clone_of = callee;
-	  callee->clones = first_clone;
-	  symtab_prevail_in_asm_name_hash ((symtab_node)callee);
-	  symtab_insert_node_to_hashtable ((symtab_node)callee);
-	  if (dump_file)
-	    fprintf (dump_file, "ipa-prop: Introduced new external node "
-		     "(%s/%i) and turned into root of the clone tree.\n",
-		     xstrdup (cgraph_node_name (callee)), callee->uid);
-	}
-      else if (dump_file)
-	fprintf (dump_file, "ipa-prop: Introduced new external node "
-		 "(%s/%i).\n",
-		 xstrdup (cgraph_node_name (callee)), callee->uid);
+      callee = cgraph_get_create_real_symbol_node (target);
     }
   ipa_check_create_node_params ();
 
@@ -3302,12 +3315,19 @@ ipa_write_jump_function (struct output_block *ob,
       stream_write_tree (ob, jump_func->value.constant, true);
       break;
     case IPA_JF_PASS_THROUGH:
-      stream_write_tree (ob, jump_func->value.pass_through.operand, true);
-      streamer_write_uhwi (ob, jump_func->value.pass_through.formal_id);
       streamer_write_uhwi (ob, jump_func->value.pass_through.operation);
-      bp = bitpack_create (ob->main_stream);
-      bp_pack_value (&bp, jump_func->value.pass_through.agg_preserved, 1);
-      streamer_write_bitpack (&bp);
+      if (jump_func->value.pass_through.operation == NOP_EXPR)
+	{
+	  streamer_write_uhwi (ob, jump_func->value.pass_through.formal_id);
+	  bp = bitpack_create (ob->main_stream);
+	  bp_pack_value (&bp, jump_func->value.pass_through.agg_preserved, 1);
+	  streamer_write_bitpack (&bp);
+	}
+      else
+	{
+	  stream_write_tree (ob, jump_func->value.pass_through.operand, true);
+	  streamer_write_uhwi (ob, jump_func->value.pass_through.formal_id);
+	}
       break;
     case IPA_JF_ANCESTOR:
       streamer_write_uhwi (ob, jump_func->value.ancestor.offset);
@@ -3342,45 +3362,63 @@ ipa_read_jump_function (struct lto_input_block *ib,
 			struct ipa_jump_func *jump_func,
 			struct data_in *data_in)
 {
-  struct bitpack_d bp;
+  enum jump_func_type jftype;
+  enum tree_code operation;
   int i, count;
 
-  jump_func->type = (enum jump_func_type) streamer_read_uhwi (ib);
-  switch (jump_func->type)
+  jftype = (enum jump_func_type) streamer_read_uhwi (ib);
+  switch (jftype)
     {
     case IPA_JF_UNKNOWN:
+      jump_func->type = IPA_JF_UNKNOWN;
       break;
     case IPA_JF_KNOWN_TYPE:
-      jump_func->value.known_type.offset = streamer_read_uhwi (ib);
-      jump_func->value.known_type.base_type = stream_read_tree (ib, data_in);
-      jump_func->value.known_type.component_type = stream_read_tree (ib,
-								     data_in);
-      break;
+      {
+	HOST_WIDE_INT offset = streamer_read_uhwi (ib);
+	tree base_type = stream_read_tree (ib, data_in);
+	tree component_type = stream_read_tree (ib, data_in);
+
+	ipa_set_jf_known_type (jump_func, offset, base_type, component_type);
+	break;
+      }
     case IPA_JF_CONST:
-      jump_func->value.constant = stream_read_tree (ib, data_in);
+      ipa_set_jf_constant (jump_func, stream_read_tree (ib, data_in));
       break;
     case IPA_JF_PASS_THROUGH:
-      jump_func->value.pass_through.operand = stream_read_tree (ib, data_in);
-      jump_func->value.pass_through.formal_id = streamer_read_uhwi (ib);
-      jump_func->value.pass_through.operation
-	= (enum tree_code) streamer_read_uhwi (ib);
-      bp = streamer_read_bitpack (ib);
-      jump_func->value.pass_through.agg_preserved = bp_unpack_value (&bp, 1);
+      operation = (enum tree_code) streamer_read_uhwi (ib);
+      if (operation == NOP_EXPR)
+	{
+	  int formal_id =  streamer_read_uhwi (ib);
+	  struct bitpack_d bp = streamer_read_bitpack (ib);
+	  bool agg_preserved = bp_unpack_value (&bp, 1);
+	  ipa_set_jf_simple_pass_through (jump_func, formal_id, agg_preserved);
+	}
+      else
+	{
+	  tree operand = stream_read_tree (ib, data_in);
+	  int formal_id =  streamer_read_uhwi (ib);
+	  ipa_set_jf_arith_pass_through (jump_func, formal_id, operand,
+					 operation);
+	}
       break;
     case IPA_JF_ANCESTOR:
-      jump_func->value.ancestor.offset = streamer_read_uhwi (ib);
-      jump_func->value.ancestor.type = stream_read_tree (ib, data_in);
-      jump_func->value.ancestor.formal_id = streamer_read_uhwi (ib);
-      bp = streamer_read_bitpack (ib);
-      jump_func->value.ancestor.agg_preserved = bp_unpack_value (&bp, 1);
-      break;
+      {
+	HOST_WIDE_INT offset = streamer_read_uhwi (ib);
+	tree type = stream_read_tree (ib, data_in);
+	int formal_id = streamer_read_uhwi (ib);
+	struct bitpack_d bp = streamer_read_bitpack (ib);
+	bool agg_preserved = bp_unpack_value (&bp, 1);
+
+	ipa_set_ancestor_jf (jump_func, offset, type, formal_id, agg_preserved);
+	break;
+      }
     }
 
   count = streamer_read_uhwi (ib);
   vec_alloc (jump_func->agg.items, count);
   if (count)
     {
-      bp = streamer_read_bitpack (ib);
+      struct bitpack_d bp = streamer_read_bitpack (ib);
       jump_func->agg.by_ref = bp_unpack_value (&bp, 1);
     }
   for (i = 0; i < count; i++)
@@ -3674,9 +3712,15 @@ write_agg_replacement_chain (struct output_block *ob, struct cgraph_node *node)
 
   for (av = aggvals; av; av = av->next)
     {
+      struct bitpack_d bp;
+
       streamer_write_uhwi (ob, av->offset);
       streamer_write_uhwi (ob, av->index);
       stream_write_tree (ob, av->value, true);
+
+      bp = bitpack_create (ob->main_stream);
+      bp_pack_value (&bp, av->by_ref, 1);
+      streamer_write_bitpack (&bp);
     }
 }
 
@@ -3694,11 +3738,14 @@ read_agg_replacement_chain (struct lto_input_block *ib,
   for (i = 0; i <count; i++)
     {
       struct ipa_agg_replacement_value *av;
+      struct bitpack_d bp;
 
       av = ggc_alloc_ipa_agg_replacement_value ();
       av->offset = streamer_read_uhwi (ib);
       av->index = streamer_read_uhwi (ib);
       av->value = stream_read_tree (ib, data_in);
+      bp = streamer_read_bitpack (ib);
+      av->by_ref = bp_unpack_value (&bp, 1);
       av->next = aggvals;
       aggvals = av;
     }
@@ -3917,7 +3964,7 @@ ipcp_transform_function (struct cgraph_node *node)
 	  if (v->index == index
 	      && v->offset == offset)
 	    break;
-	if (!v)
+	if (!v || v->by_ref != by_ref)
 	  continue;
 
 	gcc_checking_assert (is_gimple_ip_invariant (v->value));

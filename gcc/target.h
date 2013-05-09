@@ -49,7 +49,7 @@
 #define GCC_TARGET_H
 
 #include "insn-modes.h"
-#include "tm.h"
+#include "insn-codes.h"
 
 #ifdef ENABLE_CHECKING
 

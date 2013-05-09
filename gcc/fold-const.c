@@ -984,12 +984,22 @@ int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree arg2,
       break;
 
     case MULT_HIGHPART_EXPR:
-      /* ??? Need quad precision, or an additional shift operand
-	 to the multiply primitive, to handle very large highparts.  */
       if (TYPE_PRECISION (type) > HOST_BITS_PER_WIDE_INT)
-	return NULL_TREE;
-      tmp = op1 - op2;
-      res = tmp.rshift (TYPE_PRECISION (type), TYPE_PRECISION (type), !uns);
+	{
+	  bool dummy_overflow;
+	  if (TYPE_PRECISION (type) != 2 * HOST_BITS_PER_WIDE_INT)
+	    return NULL_TREE;
+	  op1.wide_mul_with_sign (op2, uns, &res, &dummy_overflow);
+	}
+      else
+	{
+	  bool dummy_overflow;
+	  /* MULT_HIGHPART_EXPR can't ever oveflow, as the multiplication
+	     is performed in twice the precision of arguments.  */
+	  tmp = op1.mul_with_sign (op2, false, &dummy_overflow);
+	  res = tmp.rshift (TYPE_PRECISION (type),
+			    2 * TYPE_PRECISION (type), !uns);
+	}
       break;
 
     case TRUNC_DIV_EXPR:
@@ -1342,22 +1352,70 @@ const_binop (enum tree_code code, tree arg1, tree arg2)
   if (TREE_CODE (arg1) == VECTOR_CST
       && TREE_CODE (arg2) == VECTOR_CST)
     {
-      tree type = TREE_TYPE(arg1);
+      tree type = TREE_TYPE (arg1);
       int count = TYPE_VECTOR_SUBPARTS (type), i;
-      tree *elts =  XALLOCAVEC (tree, count);
+      tree *elts = XALLOCAVEC (tree, count);
 
       for (i = 0; i < count; i++)
 	{
-          tree elem1 = VECTOR_CST_ELT (arg1, i);
+	  tree elem1 = VECTOR_CST_ELT (arg1, i);
 	  tree elem2 = VECTOR_CST_ELT (arg2, i);
 
-          elts[i] = const_binop (code, elem1, elem2);
+	  elts[i] = const_binop (code, elem1, elem2);
 
-          /* It is possible that const_binop cannot handle the given
-            code and return NULL_TREE */
-          if(elts[i] == NULL_TREE)
-            return NULL_TREE;
+	  /* It is possible that const_binop cannot handle the given
+	     code and return NULL_TREE */
+	  if (elts[i] == NULL_TREE)
+	    return NULL_TREE;
 	}
+
+      return build_vector (type, elts);
+    }
+
+  /* Shifts allow a scalar offset for a vector.  */
+  if (TREE_CODE (arg1) == VECTOR_CST
+      && TREE_CODE (arg2) == INTEGER_CST)
+    {
+      tree type = TREE_TYPE (arg1);
+      int count = TYPE_VECTOR_SUBPARTS (type), i;
+      tree *elts = XALLOCAVEC (tree, count);
+
+      if (code == VEC_LSHIFT_EXPR
+	  || code == VEC_RSHIFT_EXPR)
+	{
+	  if (!host_integerp (arg2, 1))
+	    return NULL_TREE;
+
+	  unsigned HOST_WIDE_INT shiftc = tree_low_cst (arg2, 1);
+	  unsigned HOST_WIDE_INT outerc = tree_low_cst (TYPE_SIZE (type), 1);
+	  unsigned HOST_WIDE_INT innerc
+	    = tree_low_cst (TYPE_SIZE (TREE_TYPE (type)), 1);
+	  if (shiftc >= outerc || (shiftc % innerc) != 0)
+	    return NULL_TREE;
+	  int offset = shiftc / innerc;
+	  if (code == VEC_LSHIFT_EXPR)
+	    offset = -offset;
+	  tree zero = build_zero_cst (TREE_TYPE (type));
+	  for (i = 0; i < count; i++)
+	    {
+	      if (i + offset < 0 || i + offset >= count)
+		elts[i] = zero;
+	      else
+		elts[i] = VECTOR_CST_ELT (arg1, i + offset);
+	    }
+	}
+      else
+	for (i = 0; i < count; i++)
+	  {
+	    tree elem1 = VECTOR_CST_ELT (arg1, i);
+
+	    elts[i] = const_binop (code, elem1, arg2);
+
+	    /* It is possible that const_binop cannot handle the given
+	       code and return NULL_TREE */
+	    if (elts[i] == NULL_TREE)
+	      return NULL_TREE;
+	  }
 
       return build_vector (type, elts);
     }
@@ -2572,13 +2630,14 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	  flags &= ~OEP_CONSTANT_ADDRESS_OF;
 	  /* Require equal access sizes, and similar pointer types.
 	     We can have incomplete types for array references of
-	     variable-sized arrays from the Fortran frontent
-	     though.  */
+	     variable-sized arrays from the Fortran frontend
+	     though.  Also verify the types are compatible.  */
 	  return ((TYPE_SIZE (TREE_TYPE (arg0)) == TYPE_SIZE (TREE_TYPE (arg1))
 		   || (TYPE_SIZE (TREE_TYPE (arg0))
 		       && TYPE_SIZE (TREE_TYPE (arg1))
 		       && operand_equal_p (TYPE_SIZE (TREE_TYPE (arg0)),
 					   TYPE_SIZE (TREE_TYPE (arg1)), flags)))
+		  && types_compatible_p (TREE_TYPE (arg0), TREE_TYPE (arg1))
 		  && (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg0, 1)))
 		      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (arg1, 1))))
 		  && OP_SAME (0) && OP_SAME (1));
@@ -4632,7 +4691,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       if (comp_code == NE_EXPR)
 	return pedantic_non_lvalue_loc (loc, fold_convert_loc (loc, type, arg1));
       else if (comp_code == EQ_EXPR)
-	return build_int_cst (type, 0);
+	return build_zero_cst (type);
     }
 
   /* Try some transformations of A op B ? A : B.
@@ -4666,6 +4725,7 @@ fold_cond_expr_with_comparison (location_t loc, tree type,
       /* Avoid these transformations if the COND_EXPR may be used
 	 as an lvalue in the C++ front-end.  PR c++/19199.  */
       && (in_gimple_form
+	  || VECTOR_TYPE_P (type)
 	  || (strcmp (lang_hooks.name, "GNU C++") != 0
 	      && strcmp (lang_hooks.name, "GNU Objective-C++") != 0)
 	  || ! maybe_lvalue_p (arg1)
@@ -5848,8 +5908,10 @@ extract_muldiv_1 (tree t, tree c, enum tree_code code, tree wide_type,
 
       /* The last case is if we are a multiply.  In that case, we can
 	 apply the distributive law to commute the multiply and addition
-	 if the multiplication of the constants doesn't overflow.  */
-      if (code == MULT_EXPR)
+	 if the multiplication of the constants doesn't overflow
+	 and overflow is defined.  With undefined overflow
+	 op0 * c might overflow, while (op0 + orig_op1) * c doesn't.  */
+      if (code == MULT_EXPR && TYPE_OVERFLOW_WRAPS (ctype))
 	return fold_build2 (tcode, ctype,
 			    fold_build2 (code, ctype,
 					 fold_convert (ctype, op0),
@@ -9855,7 +9917,8 @@ fold_binary_loc (location_t loc,
       || (TREE_CODE (arg0) == FIXED_CST && TREE_CODE (arg1) == FIXED_CST)
       || (TREE_CODE (arg0) == FIXED_CST && TREE_CODE (arg1) == INTEGER_CST)
       || (TREE_CODE (arg0) == COMPLEX_CST && TREE_CODE (arg1) == COMPLEX_CST)
-      || (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST))
+      || (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == VECTOR_CST)
+      || (TREE_CODE (arg0) == VECTOR_CST && TREE_CODE (arg1) == INTEGER_CST))
     {
       if (kind == tcc_binary)
 	{
@@ -10807,7 +10870,7 @@ fold_binary_loc (location_t loc,
 	  /* Transform x * -1 into -x.  Make sure to do the negation
 	     on the original operand with conversions not stripped
 	     because we can only strip non-sign-changing conversions.  */
-	  if (integer_all_onesp (arg1))
+	  if (integer_minus_onep (arg1))
 	    return fold_convert_loc (loc, type, negate_expr (op0));
 	  /* Transform x * -C into -x * C if x is easily negatable.  */
 	  if (TREE_CODE (arg1) == INTEGER_CST
@@ -13898,6 +13961,7 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
       return NULL_TREE;
 
     case COND_EXPR:
+    case VEC_COND_EXPR:
       /* Pedantic ANSI C says that a conditional expression is never an lvalue,
 	 so all simple results must be passed through pedantic_non_lvalue.  */
       if (TREE_CODE (arg0) == INTEGER_CST)
@@ -13915,6 +13979,37 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 	    return pedantic_non_lvalue_loc (loc, tem);
 	  return NULL_TREE;
 	}
+      else if (TREE_CODE (arg0) == VECTOR_CST)
+	{
+	  if (integer_all_onesp (arg0))
+	    return pedantic_omit_one_operand_loc (loc, type, arg1, arg2);
+	  if (integer_zerop (arg0))
+	    return pedantic_omit_one_operand_loc (loc, type, arg2, arg1);
+
+	  if ((TREE_CODE (arg1) == VECTOR_CST
+	       || TREE_CODE (arg1) == CONSTRUCTOR)
+	      && (TREE_CODE (arg2) == VECTOR_CST
+		  || TREE_CODE (arg2) == CONSTRUCTOR))
+	    {
+	      unsigned int nelts = TYPE_VECTOR_SUBPARTS (type), i;
+	      unsigned char *sel = XALLOCAVEC (unsigned char, nelts);
+	      gcc_assert (nelts == VECTOR_CST_NELTS (arg0));
+	      for (i = 0; i < nelts; i++)
+		{
+		  tree val = VECTOR_CST_ELT (arg0, i);
+		  if (integer_all_onesp (val))
+		    sel[i] = i;
+		  else if (integer_zerop (val))
+		    sel[i] = nelts + i;
+		  else /* Currently unreachable.  */
+		    return NULL_TREE;
+		}
+	      tree t = fold_vec_perm (type, arg1, arg2, sel);
+	      if (t != NULL_TREE)
+		return t;
+	    }
+	}
+
       if (operand_equal_p (arg1, op2, 0))
 	return pedantic_omit_one_operand_loc (loc, type, arg1, arg0);
 
@@ -13949,6 +14044,10 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 		return tem;
 	    }
 	}
+
+      /* ???  Fixup the code below for VEC_COND_EXPR.  */
+      if (code == VEC_COND_EXPR)
+	return NULL_TREE;
 
       /* If the second operand is simpler than the third, swap them
 	 since that produces better jump optimization results.  */
@@ -14135,16 +14234,6 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 			    fold_convert_loc (loc, type, arg0),
 			    op2);
 
-      return NULL_TREE;
-
-    case VEC_COND_EXPR:
-      if (TREE_CODE (arg0) == VECTOR_CST)
-	{
-	  if (integer_all_onesp (arg0) && !TREE_SIDE_EFFECTS (op2))
-	    return pedantic_non_lvalue_loc (loc, op1);
-	  if (integer_zerop (arg0) && !TREE_SIDE_EFFECTS (op1))
-	    return pedantic_non_lvalue_loc (loc, op2);
-	}
       return NULL_TREE;
 
     case CALL_EXPR:
@@ -15293,15 +15382,18 @@ tree_binary_nonnegative_warnv_p (enum tree_code code, tree type, tree op0,
       break;
 
     case MULT_EXPR:
-      if (FLOAT_TYPE_P (type))
+      if (FLOAT_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
 	{
-	  /* x * x for floating point x is always non-negative.  */
-	  if (operand_equal_p (op0, op1, 0))
-	    return true;
-	  return (tree_expr_nonnegative_warnv_p (op0,
-						 strict_overflow_p)
-		  && tree_expr_nonnegative_warnv_p (op1,
-						    strict_overflow_p));
+	  /* x * x is always non-negative for floating point x
+	     or without overflow.  */
+	  if (operand_equal_p (op0, op1, 0)
+	      || (tree_expr_nonnegative_warnv_p (op0, strict_overflow_p)
+		  && tree_expr_nonnegative_warnv_p (op1, strict_overflow_p)))
+	    {
+	      if (TYPE_OVERFLOW_UNDEFINED (type))
+		*strict_overflow_p = true;
+	      return true;
+	    }
 	}
 
       /* zero_extend(x) * zero_extend(y) is non-negative if x and y are

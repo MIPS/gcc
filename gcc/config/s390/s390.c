@@ -4652,6 +4652,9 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
   int smode_bsize, mode_bsize;
   rtx op, clobber;
 
+  if (bitsize + bitpos > GET_MODE_SIZE (mode))
+    return false;
+
   /* Generate INSERT IMMEDIATE (IILL et al).  */
   /* (set (ze (reg)) (const_int)).  */
   if (TARGET_ZARCH
@@ -5743,8 +5746,8 @@ addr_generation_dependency_p (rtx dep_rtx, rtx insn)
 {
   rtx target, pat;
 
-  if (GET_CODE (dep_rtx) == INSN)
-      dep_rtx = PATTERN (dep_rtx);
+  if (NONJUMP_INSN_P (dep_rtx))
+    dep_rtx = PATTERN (dep_rtx);
 
   if (GET_CODE (dep_rtx) == SET)
     {
@@ -5983,7 +5986,7 @@ s390_split_branches (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) != JUMP_INSN)
+      if (! JUMP_P (insn))
 	continue;
 
       pat = PATTERN (insn);
@@ -6403,7 +6406,7 @@ s390_find_constant (struct constant_pool *pool, rtx val,
 static rtx
 s390_execute_label (rtx insn)
 {
-  if (GET_CODE (insn) == INSN
+  if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == PARALLEL
       && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == UNSPEC
       && XINT (XVECEXP (PATTERN (insn), 0, 0), 1) == UNSPEC_EXECUTE)
@@ -6608,7 +6611,7 @@ s390_mainpool_start (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == UNSPEC_VOLATILE
 	  && XINT (SET_SRC (PATTERN (insn)), 1) == UNSPECV_MAIN_POOL)
@@ -6621,7 +6624,7 @@ s390_mainpool_start (void)
 	{
 	  s390_add_execute (pool, insn);
 	}
-      else if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      else if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	{
 	  rtx pool_ref = NULL_RTX;
 	  find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6763,7 +6766,7 @@ s390_mainpool_finish (struct constant_pool *pool)
       if (INSN_P (insn))
 	replace_ltrel_base (&PATTERN (insn));
 
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      if (NONJUMP_INSN_P (insn) || CALL_P (insn))
         {
           rtx addr, pool_ref = NULL_RTX;
           find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6845,7 +6848,7 @@ s390_chunkify_start (void)
 	  s390_add_execute (curr_pool, insn);
 	  s390_add_pool_insn (curr_pool, insn);
 	}
-      else if (GET_CODE (insn) == INSN || CALL_P (insn))
+      else if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	{
 	  rtx pool_ref = NULL_RTX;
 	  find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6872,7 +6875,7 @@ s390_chunkify_start (void)
 	    }
 	}
 
-      if (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == CODE_LABEL)
+      if (JUMP_P (insn) || JUMP_TABLE_DATA_P (insn) || LABEL_P (insn))
 	{
 	  if (curr_pool)
 	    s390_add_pool_insn (curr_pool, insn);
@@ -6916,7 +6919,7 @@ s390_chunkify_start (void)
 	     Those will have an effect on code size, which we need to
 	     consider here.  This calculation makes rather pessimistic
 	     worst-case assumptions.  */
-	  if (GET_CODE (insn) == CODE_LABEL)
+	  if (LABEL_P (insn))
 	    extra_size += 6;
 
 	  if (chunk_size < S390_POOL_CHUNK_MIN
@@ -6925,7 +6928,7 @@ s390_chunkify_start (void)
 	    continue;
 
 	  /* Pool chunks can only be inserted after BARRIERs ...  */
-	  if (GET_CODE (insn) == BARRIER)
+	  if (BARRIER_P (insn))
 	    {
 	      s390_end_pool (curr_pool, insn);
 	      curr_pool = NULL;
@@ -6942,7 +6945,7 @@ s390_chunkify_start (void)
 	      if (!section_switch_p)
 		{
 		  /* We can insert the barrier only after a 'real' insn.  */
-		  if (GET_CODE (insn) != INSN && GET_CODE (insn) != CALL_INSN)
+		  if (! NONJUMP_INSN_P (insn) && ! CALL_P (insn))
 		    continue;
 		  if (get_attr_length (insn) == 0)
 		    continue;
@@ -7014,21 +7017,17 @@ s390_chunkify_start (void)
 	 Don't do that, however, if it is the label before
 	 a jump table.  */
 
-      if (GET_CODE (insn) == CODE_LABEL
+      if (LABEL_P (insn)
 	  && (LABEL_PRESERVE_P (insn) || LABEL_NAME (insn)))
 	{
 	  rtx vec_insn = next_real_insn (insn);
-	  rtx vec_pat = vec_insn && GET_CODE (vec_insn) == JUMP_INSN ?
-			PATTERN (vec_insn) : NULL_RTX;
-	  if (!vec_pat
-	      || !(GET_CODE (vec_pat) == ADDR_VEC
-		   || GET_CODE (vec_pat) == ADDR_DIFF_VEC))
+	  if (! vec_insn || ! JUMP_TABLE_DATA_P (vec_insn))
 	    bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (insn));
 	}
 
       /* If we have a direct jump (conditional or unconditional)
 	 or a casesi jump, check all potential targets.  */
-      else if (GET_CODE (insn) == JUMP_INSN)
+      else if (JUMP_P (insn))
 	{
           rtx pat = PATTERN (insn);
 	  if (GET_CODE (pat) == PARALLEL && XVECLEN (pat, 0) > 2)
@@ -7053,12 +7052,9 @@ s390_chunkify_start (void)
 	      /* Find the jump table used by this casesi jump.  */
 	      rtx vec_label = XEXP (XEXP (XVECEXP (pat, 0, 1), 0), 0);
 	      rtx vec_insn = next_real_insn (vec_label);
-	      rtx vec_pat = vec_insn && GET_CODE (vec_insn) == JUMP_INSN ?
-			    PATTERN (vec_insn) : NULL_RTX;
-	      if (vec_pat
-		  && (GET_CODE (vec_pat) == ADDR_VEC
-		      || GET_CODE (vec_pat) == ADDR_DIFF_VEC))
+	      if (vec_insn && JUMP_TABLE_DATA_P (vec_insn))
 		{
+		  rtx vec_pat = PATTERN (vec_insn);
 		  int i, diff_p = GET_CODE (vec_pat) == ADDR_DIFF_VEC;
 
 		  for (i = 0; i < XVECLEN (vec_pat, diff_p); i++)
@@ -7087,7 +7083,7 @@ s390_chunkify_start (void)
   /* Insert base register reload insns at every far label.  */
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CODE_LABEL
+    if (LABEL_P (insn)
         && bitmap_bit_p (far_labels, CODE_LABEL_NUMBER (insn)))
       {
 	struct constant_pool *pool = s390_find_pool (pool_list, insn);
@@ -7133,7 +7129,7 @@ s390_chunkify_finish (struct constant_pool *pool_list)
       if (!curr_pool)
 	continue;
 
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      if (NONJUMP_INSN_P (insn) || CALL_P (insn))
         {
           rtx addr, pool_ref = NULL_RTX;
           find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -7186,9 +7182,9 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
       rtx jump = barrier? PREV_INSN (barrier) : NULL_RTX;
       rtx label = NEXT_INSN (curr_pool->pool_insn);
 
-      if (jump && GET_CODE (jump) == JUMP_INSN
-	  && barrier && GET_CODE (barrier) == BARRIER
-	  && label && GET_CODE (label) == CODE_LABEL
+      if (jump && JUMP_P (jump)
+	  && barrier && BARRIER_P (barrier)
+	  && label && LABEL_P (label)
 	  && GET_CODE (PATTERN (jump)) == SET
 	  && SET_DEST (PATTERN (jump)) == pc_rtx
 	  && GET_CODE (SET_SRC (PATTERN (jump))) == LABEL_REF
@@ -7208,7 +7204,7 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
     {
       rtx next_insn = NEXT_INSN (insn);
 
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == UNSPEC
 	  && XINT (SET_SRC (PATTERN (insn)), 1) == UNSPEC_RELOAD_BASE)
@@ -10092,7 +10088,7 @@ s390_optimize_prologue (void)
 
       next_insn = NEXT_INSN (insn);
 
-      if (GET_CODE (insn) != INSN)
+      if (! NONJUMP_INSN_P (insn))
 	continue;
 
       if (GET_CODE (PATTERN (insn)) == PARALLEL

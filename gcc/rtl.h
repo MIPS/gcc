@@ -364,6 +364,7 @@ struct GTY((chain_next ("RTX_NEXT (&%h)"),
  */
 #define RTX_PREV(X) ((INSN_P (X)       			\
                       || NOTE_P (X)       		\
+                      || JUMP_TABLE_DATA_P (X)		\
                       || BARRIER_P (X)        		\
                       || LABEL_P (X))    		\
                      && PREV_INSN (X) != NULL           \
@@ -470,9 +471,7 @@ struct GTY((variable_size)) rtvec_def {
 #define BARRIER_P(X) (GET_CODE (X) == BARRIER)
 
 /* Predicate yielding nonzero iff X is a data for a jump table.  */
-#define JUMP_TABLE_DATA_P(INSN) \
-  (JUMP_P (INSN) && (GET_CODE (PATTERN (INSN)) == ADDR_VEC || \
-		     GET_CODE (PATTERN (INSN)) == ADDR_DIFF_VEC))
+#define JUMP_TABLE_DATA_P(INSN) (GET_CODE (INSN) == JUMP_TABLE_DATA)
 
 /* Predicate yielding nonzero iff X is a return or simple_return.  */
 #define ANY_RETURN_P(X) \
@@ -850,8 +849,8 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 
 /* 1 if RTX is an insn that has been deleted.  */
 #define INSN_DELETED_P(RTX)						\
-  (RTL_FLAG_CHECK7("INSN_DELETED_P", (RTX), DEBUG_INSN, INSN,		\
-		   CALL_INSN, JUMP_INSN,				\
+  (RTL_FLAG_CHECK8("INSN_DELETED_P", (RTX), DEBUG_INSN, INSN,		\
+		   CALL_INSN, JUMP_INSN, JUMP_TABLE_DATA,		\
 		   CODE_LABEL, BARRIER, NOTE)->volatil)
 
 /* 1 if RTX is a call to a const function.  Built from ECF_CONST and
@@ -870,7 +869,7 @@ extern void rtl_check_failed_flag (const char *, const_rtx, const char *,
 
 /* 1 if RTX is a call to a looping const or pure function.  Built from
    ECF_LOOPING_CONST_OR_PURE and DECL_LOOPING_CONST_OR_PURE_P.  */
-#define RTL_LOOPING_CONST_OR_PURE_CALL_P(RTX)					\
+#define RTL_LOOPING_CONST_OR_PURE_CALL_P(RTX)				\
   (RTL_FLAG_CHECK1("CONST_OR_PURE_CALL_P", (RTX), CALL_INSN)->call)
 
 /* 1 if RTX is a call_insn for a sibling call.  */
@@ -961,9 +960,8 @@ extern const char * const reg_note_name[];
 #define NOTE_KIND(INSN) XCINT (INSN, 5, NOTE)
 
 /* Nonzero if INSN is a note marking the beginning of a basic block.  */
-#define NOTE_INSN_BASIC_BLOCK_P(INSN)			\
-  (GET_CODE (INSN) == NOTE				\
-   && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
+#define NOTE_INSN_BASIC_BLOCK_P(INSN) \
+  (NOTE_P (INSN) && NOTE_KIND (INSN) == NOTE_INSN_BASIC_BLOCK)
 
 /* Variable declaration and the location of a variable.  */
 #define PAT_VAR_LOCATION_DECL(PAT) (XCTREE ((PAT), 0, VAR_LOCATION))
@@ -1064,7 +1062,7 @@ enum label_kind
 /* Retrieve the kind of LABEL.  */
 #define LABEL_KIND(LABEL) __extension__					\
 ({ __typeof (LABEL) const _label = (LABEL);				\
-   if (GET_CODE (_label) != CODE_LABEL)					\
+   if (! LABEL_P (_label))						\
      rtl_check_failed_flag ("LABEL_KIND", _label, __FILE__, __LINE__,	\
 			    __FUNCTION__);				\
    (enum label_kind) ((_label->jump << 1) | _label->call); })
@@ -1073,7 +1071,7 @@ enum label_kind
 #define SET_LABEL_KIND(LABEL, KIND) do {				\
    __typeof (LABEL) const _label = (LABEL);				\
    const unsigned int _kind = (KIND);					\
-   if (GET_CODE (_label) != CODE_LABEL)					\
+   if (! LABEL_P (_label))						\
      rtl_check_failed_flag ("SET_LABEL_KIND", _label, __FILE__, __LINE__, \
 			    __FUNCTION__);				\
    _label->jump = ((_kind >> 1) & 1);					\
@@ -1665,7 +1663,7 @@ do {									\
 
 #if (defined (HAVE_PRE_INCREMENT) || defined (HAVE_PRE_DECREMENT) \
      || defined (HAVE_POST_INCREMENT) || defined (HAVE_POST_DECREMENT) \
-     || defined (HAVE_PRE_MODIFY_DISP) || defined (HAVE_PRE_MODIFY_DISP) \
+     || defined (HAVE_PRE_MODIFY_DISP) || defined (HAVE_POST_MODIFY_DISP) \
      || defined (HAVE_PRE_MODIFY_REG) || defined (HAVE_POST_MODIFY_REG))
 #define AUTO_INC_DEC
 #endif
@@ -1888,6 +1886,7 @@ extern rtx emit_debug_insn (rtx);
 extern rtx emit_jump_insn (rtx);
 extern rtx emit_call_insn (rtx);
 extern rtx emit_label (rtx);
+extern rtx emit_jump_table_data (rtx);
 extern rtx emit_barrier (void);
 extern rtx emit_note (enum insn_note);
 extern rtx emit_note_copy (rtx);
@@ -1931,7 +1930,6 @@ extern enum rtx_code swap_condition (enum rtx_code);
 extern enum rtx_code unsigned_condition (enum rtx_code);
 extern enum rtx_code signed_condition (enum rtx_code);
 extern void mark_jump_label (rtx, rtx, int);
-extern unsigned int cleanup_barriers (void);
 
 /* In jump.c */
 extern rtx delete_related_insns (rtx);
@@ -2593,6 +2591,8 @@ extern void sel_sched_fix_param (const char *param, const char *val);
 
 /* In print-rtl.c */
 extern const char *print_rtx_head;
+extern void debug (const rtx_def &ref);
+extern void debug (const rtx_def *ptr);
 extern void debug_rtx (const_rtx);
 extern void debug_rtx_list (const_rtx, int);
 extern void debug_rtx_range (const_rtx, const_rtx);
@@ -2672,9 +2672,6 @@ extern void regclass (rtx, int);
 extern void reg_scan (rtx, unsigned int);
 extern void fix_register (const char *, int, int);
 extern bool invalid_mode_change_p (unsigned int, enum reg_class);
-
-/* In reorg.c */
-extern void dbr_schedule (rtx);
 
 /* In reload1.c */
 extern int function_invariant_p (const_rtx);
