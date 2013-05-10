@@ -329,6 +329,10 @@ ISLINC = @ISLINC@
 CLOOGLIBS = @CLOOGLIBS@
 CLOOGINC = @CLOOGINC@
 
+#How to find libabigail
+ABIGAILLIBS = @ABIGAILLIBS@
+ABIGAILINC =  @ABIGAILINC@
+
 # Set to 'yes' if the LTO front end is enabled.
 enable_lto = @enable_lto@
 
@@ -1033,7 +1037,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
 	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
 BACKENDLIBS = $(CLOOGLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
-	$(ZLIB)
+	$(ZLIB) $(ABIGAILLIBS)
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
 
@@ -1064,7 +1068,7 @@ BUILD_ERRORS = build/errors.o
 INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   -I$(srcdir)/../include @INCINTL@ \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC) $(BACKTRACEINC) \
-	   $(CLOOGINC) $(ISLINC)
+	   $(CLOOGINC) $(ISLINC) $(ABIGAILINC)
 
 .cc.o .c.o:
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)

@@ -30,6 +30,7 @@ m4_include([ltversion.m4])
 m4_include([lt~obsolete.m4])
 m4_include([config/isl.m4])
 m4_include([config/cloog.m4])
+m4_include([config/abigail.m4])
 
 AC_INIT(move-if-change)
 AC_PREREQ(2.64)
@@ -133,7 +134,7 @@ build_tools="build-texinfo build-flex build-bison build-m4 build-fixincludes"
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktrace libcpp libdecnumber gmp mpfr mpc isl cloog libelf libiconv"
+host_libs="intl libiberty opcodes bfd readline tcl tk itcl libgui zlib libbacktrace libcpp libdecnumber gmp mpfr mpc isl cloog libabigail libelf libiconv"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -1670,6 +1671,31 @@ AC_SUBST(islinc)
 AC_SUBST(clooglibs)
 AC_SUBST(clooginc)
 
+# Check for a system's libabigail presence or for an in-tree one.  And
+# then, check for ABI Instrumentation support.
+AC_ARG_ENABLE(abi-instrumentation,
+	      [AS_HELP_STRING([--enable-abi-instrumentation],
+			      [enable abi instrumentation generation])],
+	      [enable_abi_instr=$enableval],
+	      [enable_abi_instr=yes])
+
+if test x$enable_abi_instr = xyes; then
+   ABIGAIL_CHECK_VERSION(0,1)
+   if test x$has_right_abigail_version != xyes; then
+      AC_MSG_ERROR([Unable to find a usable libabigail])
+   else
+      AC_MSG_RESULT([abi instrumentation enabled])	
+   fi
+else
+   AC_MSG_RESULT([abi instrumentation disabled]);
+fi
+
+if test x$HAVE_LIBABIGAIL != xyes; then
+   noconfigdirs="$noconfigdirs libabigail"
+fi
+
+AC_SUBST(abigaillibs)
+AC_SUBST(abigailinc)
 
 # Check for LTO support.
 AC_ARG_ENABLE(lto,

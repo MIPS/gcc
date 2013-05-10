@@ -5260,6 +5260,12 @@ if test "x${CLOOGLIBS}" != "x" ; then
    AC_DEFINE(HAVE_cloog, 1, [Define if cloog is in use.])
 fi
 
+AC_ARG_VAR(ABIGAILLIBS,[How to link with libabigail])
+AC_ARG_VAR(ABIGAILINC,[How to find libabigail header files])
+if test "x${ABIGAILLIBS}" != x; then
+   AC_DEFINE(HAVE_abigail, 1, [Defined if libabigail is in use])
+fi
+
 # Check for plugin support
 AC_ARG_ENABLE(plugin,
 [AS_HELP_STRING([--enable-plugin], [enable plugin support])],

@@ -225,6 +225,8 @@ HOST_EXPORTS = \
 	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
 	CLOOGLIBS="$(HOST_CLOOGLIBS)"; export CLOOGLIBS; \
 	CLOOGINC="$(HOST_CLOOGINC)"; export CLOOGINC; \
+	ABIGAILLIBS="$(HOST_ABIGAILLIBS)"; export ABIGAILLIBS; \
+	ABIGAILINC="$(HOST_ABIGAILINC)"; export ABIGAILINC; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)" ; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)" ; export LIBELFINC; \
 @if gcc-bootstrap
@@ -318,6 +320,10 @@ HOST_ISLINC = @islinc@
 # Where to find CLOOG
 HOST_CLOOGLIBS = @clooglibs@
 HOST_CLOOGINC = @clooginc@
+
+# Where to find libabigail
+HOST_ABIGAILLIBS = @abigaillibs@
+HOST_ABIGAILINC = @abigailinc@
 
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@

@@ -222,6 +222,8 @@ HOST_EXPORTS = \
 	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
 	CLOOGLIBS="$(HOST_CLOOGLIBS)"; export CLOOGLIBS; \
 	CLOOGINC="$(HOST_CLOOGINC)"; export CLOOGINC; \
+	ABIGAILLIBS="$(HOST_ABIGAILLIBS)"; export ABIGAILLIBS; \
+	ABIGAILINC="$(HOST_ABIGAILINC)"; export ABIGAILINC; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)" ; export LIBELFLIBS; \
 	LIBELFINC="$(HOST_LIBELFINC)" ; export LIBELFINC; \
 @if gcc-bootstrap
@@ -315,6 +317,10 @@ HOST_ISLINC = @islinc@
 # Where to find CLOOG
 HOST_CLOOGLIBS = @clooglibs@
 HOST_CLOOGINC = @clooginc@
+
+# Where to find libabigail
+HOST_ABIGAILLIBS = @abigaillibs@
+HOST_ABIGAILINC = @abigailinc@
 
 # Where to find libelf
 HOST_LIBELFLIBS = @libelflibs@
@@ -609,7 +615,7 @@ TARGET_LIB_PATH_libatomic = $$r/$(TARGET_SUBDIR)/libatomic/.libs:
 
 # This is the list of directories that may be needed in RPATH_ENVVAR
 # so that programs built for the host machine work.
-HOST_LIB_PATH = $(HOST_LIB_PATH_gmp)$(HOST_LIB_PATH_mpfr)$(HOST_LIB_PATH_mpc)$(HOST_LIB_PATH_isl)$(HOST_LIB_PATH_cloog)$(HOST_LIB_PATH_libelf)
+HOST_LIB_PATH = $(HOST_LIB_PATH_gmp)$(HOST_LIB_PATH_mpfr)$(HOST_LIB_PATH_mpc)$(HOST_LIB_PATH_isl)$(HOST_LIB_PATH_cloog)$(HOST_LIB_PATH_libabigail)$(HOST_LIB_PATH_libelf)
 
 # Define HOST_LIB_PATH_gcc here, for the sake of TARGET_LIB_PATH, ouch
 @if gcc
@@ -641,6 +647,11 @@ HOST_LIB_PATH_isl = \
 HOST_LIB_PATH_cloog = \
   $$r/$(HOST_SUBDIR)/cloog/.libs:$$r/$(HOST_SUBDIR)/prev-cloog/.libs:
 @endif cloog
+
+@if libabigail
+HOST_LIB_PATH_libabigail = \
+  $$r/$(HOST_SUBDIR)/libabigail/.libs:$$r/$(HOST_SUBDIR)/prev-libabigail/.libs:
+@endif libabigail
 
 @if libelf
 HOST_LIB_PATH_libelf = \
@@ -893,6 +904,7 @@ configure-host:  \
     maybe-configure-mpc \
     maybe-configure-isl \
     maybe-configure-cloog \
+    maybe-configure-libabigail \
     maybe-configure-libelf \
     maybe-configure-gold \
     maybe-configure-gprof \
@@ -1019,6 +1031,9 @@ all-host: maybe-all-isl
 @if cloog-no-bootstrap
 all-host: maybe-all-cloog
 @endif cloog-no-bootstrap
+@if libabigail-no-bootstrap
+all-host: maybe-all-libabigail
+@endif libabigail-no-bootstrap
 @if libelf-no-bootstrap
 all-host: maybe-all-libelf
 @endif libelf-no-bootstrap
@@ -1134,6 +1149,7 @@ info-host: maybe-info-mpfr
 info-host: maybe-info-mpc
 info-host: maybe-info-isl
 info-host: maybe-info-cloog
+info-host: maybe-info-libabigail
 info-host: maybe-info-libelf
 info-host: maybe-info-gold
 info-host: maybe-info-gprof
@@ -1216,6 +1232,7 @@ dvi-host: maybe-dvi-mpfr
 dvi-host: maybe-dvi-mpc
 dvi-host: maybe-dvi-isl
 dvi-host: maybe-dvi-cloog
+dvi-host: maybe-dvi-libabigail
 dvi-host: maybe-dvi-libelf
 dvi-host: maybe-dvi-gold
 dvi-host: maybe-dvi-gprof
@@ -1298,6 +1315,7 @@ pdf-host: maybe-pdf-mpfr
 pdf-host: maybe-pdf-mpc
 pdf-host: maybe-pdf-isl
 pdf-host: maybe-pdf-cloog
+pdf-host: maybe-pdf-libabigail
 pdf-host: maybe-pdf-libelf
 pdf-host: maybe-pdf-gold
 pdf-host: maybe-pdf-gprof
@@ -1380,6 +1398,7 @@ html-host: maybe-html-mpfr
 html-host: maybe-html-mpc
 html-host: maybe-html-isl
 html-host: maybe-html-cloog
+html-host: maybe-html-libabigail
 html-host: maybe-html-libelf
 html-host: maybe-html-gold
 html-host: maybe-html-gprof
@@ -1462,6 +1481,7 @@ TAGS-host: maybe-TAGS-mpfr
 TAGS-host: maybe-TAGS-mpc
 TAGS-host: maybe-TAGS-isl
 TAGS-host: maybe-TAGS-cloog
+TAGS-host: maybe-TAGS-libabigail
 TAGS-host: maybe-TAGS-libelf
 TAGS-host: maybe-TAGS-gold
 TAGS-host: maybe-TAGS-gprof
@@ -1544,6 +1564,7 @@ install-info-host: maybe-install-info-mpfr
 install-info-host: maybe-install-info-mpc
 install-info-host: maybe-install-info-isl
 install-info-host: maybe-install-info-cloog
+install-info-host: maybe-install-info-libabigail
 install-info-host: maybe-install-info-libelf
 install-info-host: maybe-install-info-gold
 install-info-host: maybe-install-info-gprof
@@ -1626,6 +1647,7 @@ install-pdf-host: maybe-install-pdf-mpfr
 install-pdf-host: maybe-install-pdf-mpc
 install-pdf-host: maybe-install-pdf-isl
 install-pdf-host: maybe-install-pdf-cloog
+install-pdf-host: maybe-install-pdf-libabigail
 install-pdf-host: maybe-install-pdf-libelf
 install-pdf-host: maybe-install-pdf-gold
 install-pdf-host: maybe-install-pdf-gprof
@@ -1708,6 +1730,7 @@ install-html-host: maybe-install-html-mpfr
 install-html-host: maybe-install-html-mpc
 install-html-host: maybe-install-html-isl
 install-html-host: maybe-install-html-cloog
+install-html-host: maybe-install-html-libabigail
 install-html-host: maybe-install-html-libelf
 install-html-host: maybe-install-html-gold
 install-html-host: maybe-install-html-gprof
@@ -1790,6 +1813,7 @@ installcheck-host: maybe-installcheck-mpfr
 installcheck-host: maybe-installcheck-mpc
 installcheck-host: maybe-installcheck-isl
 installcheck-host: maybe-installcheck-cloog
+installcheck-host: maybe-installcheck-libabigail
 installcheck-host: maybe-installcheck-libelf
 installcheck-host: maybe-installcheck-gold
 installcheck-host: maybe-installcheck-gprof
@@ -1872,6 +1896,7 @@ mostlyclean-host: maybe-mostlyclean-mpfr
 mostlyclean-host: maybe-mostlyclean-mpc
 mostlyclean-host: maybe-mostlyclean-isl
 mostlyclean-host: maybe-mostlyclean-cloog
+mostlyclean-host: maybe-mostlyclean-libabigail
 mostlyclean-host: maybe-mostlyclean-libelf
 mostlyclean-host: maybe-mostlyclean-gold
 mostlyclean-host: maybe-mostlyclean-gprof
@@ -1954,6 +1979,7 @@ clean-host: maybe-clean-mpfr
 clean-host: maybe-clean-mpc
 clean-host: maybe-clean-isl
 clean-host: maybe-clean-cloog
+clean-host: maybe-clean-libabigail
 clean-host: maybe-clean-libelf
 clean-host: maybe-clean-gold
 clean-host: maybe-clean-gprof
@@ -2036,6 +2062,7 @@ distclean-host: maybe-distclean-mpfr
 distclean-host: maybe-distclean-mpc
 distclean-host: maybe-distclean-isl
 distclean-host: maybe-distclean-cloog
+distclean-host: maybe-distclean-libabigail
 distclean-host: maybe-distclean-libelf
 distclean-host: maybe-distclean-gold
 distclean-host: maybe-distclean-gprof
@@ -2118,6 +2145,7 @@ maintainer-clean-host: maybe-maintainer-clean-mpfr
 maintainer-clean-host: maybe-maintainer-clean-mpc
 maintainer-clean-host: maybe-maintainer-clean-isl
 maintainer-clean-host: maybe-maintainer-clean-cloog
+maintainer-clean-host: maybe-maintainer-clean-libabigail
 maintainer-clean-host: maybe-maintainer-clean-libelf
 maintainer-clean-host: maybe-maintainer-clean-gold
 maintainer-clean-host: maybe-maintainer-clean-gprof
@@ -2255,6 +2283,7 @@ check-host:  \
     maybe-check-mpc \
     maybe-check-isl \
     maybe-check-cloog \
+    maybe-check-libabigail \
     maybe-check-libelf \
     maybe-check-gold \
     maybe-check-gprof \
@@ -2363,6 +2392,7 @@ install-host-nogcc:  \
     maybe-install-mpc \
     maybe-install-isl \
     maybe-install-cloog \
+    maybe-install-libabigail \
     maybe-install-libelf \
     maybe-install-gold \
     maybe-install-gprof \
@@ -2410,6 +2440,7 @@ install-host:  \
     maybe-install-mpc \
     maybe-install-isl \
     maybe-install-cloog \
+    maybe-install-libabigail \
     maybe-install-libelf \
     maybe-install-gold \
     maybe-install-gprof \
@@ -2512,6 +2543,7 @@ install-strip-host:  \
     maybe-install-strip-mpc \
     maybe-install-strip-isl \
     maybe-install-strip-cloog \
+    maybe-install-strip-libabigail \
     maybe-install-strip-libelf \
     maybe-install-strip-gold \
     maybe-install-strip-gprof \
@@ -14711,6 +14743,866 @@ maintainer-clean-cloog:
 	  || exit 1
 
 @endif cloog
+
+
+
+.PHONY: configure-libabigail maybe-configure-libabigail
+maybe-configure-libabigail:
+@if gcc-bootstrap
+configure-libabigail: stage_current
+@endif gcc-bootstrap
+@if libabigail
+maybe-configure-libabigail: configure-libabigail
+configure-libabigail: 
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	$(HOST_EXPORTS)  \
+	echo Configuring in $(HOST_SUBDIR)/libabigail; \
+	cd "$(HOST_SUBDIR)/libabigail" || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption}  \
+	  || exit 1
+@endif libabigail
+
+
+
+.PHONY: configure-stage1-libabigail maybe-configure-stage1-libabigail
+maybe-configure-stage1-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stage1-libabigail: configure-stage1-libabigail
+configure-stage1-libabigail:
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE1_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	CFLAGS="$(STAGE1_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE1_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(LIBCFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage 1 in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  $(STAGE1_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+.PHONY: configure-stage2-libabigail maybe-configure-stage2-libabigail
+maybe-configure-stage2-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stage2-libabigail: configure-stage2-libabigail
+configure-stage2-libabigail:
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE2_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE2_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE2_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(STAGE2_CFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage 2 in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGE2_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+.PHONY: configure-stage3-libabigail maybe-configure-stage3-libabigail
+maybe-configure-stage3-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stage3-libabigail: configure-stage3-libabigail
+configure-stage3-libabigail:
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE3_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE3_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE3_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(STAGE3_CFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage 3 in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGE3_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+.PHONY: configure-stage4-libabigail maybe-configure-stage4-libabigail
+maybe-configure-stage4-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stage4-libabigail: configure-stage4-libabigail
+configure-stage4-libabigail:
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE4_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGE4_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGE4_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(STAGE4_CFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage 4 in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGE4_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+.PHONY: configure-stageprofile-libabigail maybe-configure-stageprofile-libabigail
+maybe-configure-stageprofile-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stageprofile-libabigail: configure-stageprofile-libabigail
+configure-stageprofile-libabigail:
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEprofile_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGEprofile_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGEprofile_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(STAGEprofile_CFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage profile in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGEprofile_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+.PHONY: configure-stagefeedback-libabigail maybe-configure-stagefeedback-libabigail
+maybe-configure-stagefeedback-libabigail:
+@if libabigail-bootstrap
+maybe-configure-stagefeedback-libabigail: configure-stagefeedback-libabigail
+configure-stagefeedback-libabigail:
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEfeedback_TFLAGS)"; \
+	test ! -f $(HOST_SUBDIR)/libabigail/Makefile || exit 0; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS) \
+	CFLAGS="$(STAGEfeedback_CFLAGS)"; export CFLAGS; \
+	CXXFLAGS="$(STAGEfeedback_CXXFLAGS)"; export CXXFLAGS; \
+	LIBCFLAGS="$(STAGEfeedback_CFLAGS)"; export LIBCFLAGS;  \
+	echo Configuring stage feedback in $(HOST_SUBDIR)/libabigail ; \
+	$(SHELL) $(srcdir)/mkinstalldirs $(HOST_SUBDIR)/libabigail ; \
+	cd $(HOST_SUBDIR)/libabigail || exit 1; \
+	case $(srcdir) in \
+	  /* | [A-Za-z]:[\\/]*) topdir=$(srcdir) ;; \
+	  *) topdir=`echo $(HOST_SUBDIR)/libabigail/ | \
+		sed -e 's,\./,,g' -e 's,[^/]*/,../,g' `$(srcdir) ;; \
+	esac; \
+	srcdiroption="--srcdir=$${topdir}/libabigail"; \
+	libsrcdir="$$s/libabigail"; \
+	$(SHELL) $${libsrcdir}/configure \
+	  $(HOST_CONFIGARGS) --build=${build_alias} --host=${host_alias} \
+	  --target=${target_alias} $${srcdiroption} \
+	  --with-build-libsubdir=$(HOST_SUBDIR) \
+	  $(STAGEfeedback_CONFIGURE_FLAGS)
+@endif libabigail-bootstrap
+
+
+
+
+
+.PHONY: all-libabigail maybe-all-libabigail
+maybe-all-libabigail:
+@if gcc-bootstrap
+all-libabigail: stage_current
+@endif gcc-bootstrap
+@if libabigail
+TARGET-libabigail=all
+maybe-all-libabigail: all-libabigail
+all-libabigail: configure-libabigail
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS)  \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(STAGE1_FLAGS_TO_PASS) V=1 \
+		$(TARGET-libabigail))
+@endif libabigail
+
+
+
+.PHONY: all-stage1-libabigail maybe-all-stage1-libabigail
+.PHONY: clean-stage1-libabigail maybe-clean-stage1-libabigail
+maybe-all-stage1-libabigail:
+maybe-clean-stage1-libabigail:
+@if libabigail-bootstrap
+maybe-all-stage1-libabigail: all-stage1-libabigail
+all-stage1: all-stage1-libabigail
+TARGET-stage1-libabigail = $(TARGET-libabigail)
+all-stage1-libabigail: configure-stage1-libabigail
+	@[ $(current_stage) = stage1 ] || $(MAKE) stage1-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE1_TFLAGS)"; \
+	$(HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE1_CFLAGS)" \
+		CXXFLAGS="$(STAGE1_CXXFLAGS)" \
+		LIBCFLAGS="$(LIBCFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS)  \
+		$(STAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGE1_TFLAGS)" \
+		$(TARGET-stage1-libabigail)
+
+maybe-clean-stage1-libabigail: clean-stage1-libabigail
+clean-stage1: clean-stage1-libabigail
+clean-stage1-libabigail:
+	@if [ $(current_stage) = stage1 ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage1-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stage1-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS)  \
+	$(STAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+.PHONY: all-stage2-libabigail maybe-all-stage2-libabigail
+.PHONY: clean-stage2-libabigail maybe-clean-stage2-libabigail
+maybe-all-stage2-libabigail:
+maybe-clean-stage2-libabigail:
+@if libabigail-bootstrap
+maybe-all-stage2-libabigail: all-stage2-libabigail
+all-stage2: all-stage2-libabigail
+TARGET-stage2-libabigail = $(TARGET-libabigail)
+all-stage2-libabigail: configure-stage2-libabigail
+	@[ $(current_stage) = stage2 ] || $(MAKE) stage2-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE2_TFLAGS)"; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE2_CFLAGS)" \
+		CXXFLAGS="$(STAGE2_CXXFLAGS)" \
+		LIBCFLAGS="$(STAGE2_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGE2_TFLAGS)" \
+		$(TARGET-stage2-libabigail)
+
+maybe-clean-stage2-libabigail: clean-stage2-libabigail
+clean-stage2: clean-stage2-libabigail
+clean-stage2-libabigail:
+	@if [ $(current_stage) = stage2 ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage2-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stage2-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+.PHONY: all-stage3-libabigail maybe-all-stage3-libabigail
+.PHONY: clean-stage3-libabigail maybe-clean-stage3-libabigail
+maybe-all-stage3-libabigail:
+maybe-clean-stage3-libabigail:
+@if libabigail-bootstrap
+maybe-all-stage3-libabigail: all-stage3-libabigail
+all-stage3: all-stage3-libabigail
+TARGET-stage3-libabigail = $(TARGET-libabigail)
+all-stage3-libabigail: configure-stage3-libabigail
+	@[ $(current_stage) = stage3 ] || $(MAKE) stage3-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE3_TFLAGS)"; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE3_CFLAGS)" \
+		CXXFLAGS="$(STAGE3_CXXFLAGS)" \
+		LIBCFLAGS="$(STAGE3_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGE3_TFLAGS)" \
+		$(TARGET-stage3-libabigail)
+
+maybe-clean-stage3-libabigail: clean-stage3-libabigail
+clean-stage3: clean-stage3-libabigail
+clean-stage3-libabigail:
+	@if [ $(current_stage) = stage3 ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage3-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stage3-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+.PHONY: all-stage4-libabigail maybe-all-stage4-libabigail
+.PHONY: clean-stage4-libabigail maybe-clean-stage4-libabigail
+maybe-all-stage4-libabigail:
+maybe-clean-stage4-libabigail:
+@if libabigail-bootstrap
+maybe-all-stage4-libabigail: all-stage4-libabigail
+all-stage4: all-stage4-libabigail
+TARGET-stage4-libabigail = $(TARGET-libabigail)
+all-stage4-libabigail: configure-stage4-libabigail
+	@[ $(current_stage) = stage4 ] || $(MAKE) stage4-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGE4_TFLAGS)"; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGE4_CFLAGS)" \
+		CXXFLAGS="$(STAGE4_CXXFLAGS)" \
+		LIBCFLAGS="$(STAGE4_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGE4_TFLAGS)" \
+		$(TARGET-stage4-libabigail)
+
+maybe-clean-stage4-libabigail: clean-stage4-libabigail
+clean-stage4: clean-stage4-libabigail
+clean-stage4-libabigail:
+	@if [ $(current_stage) = stage4 ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stage4-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stage4-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+.PHONY: all-stageprofile-libabigail maybe-all-stageprofile-libabigail
+.PHONY: clean-stageprofile-libabigail maybe-clean-stageprofile-libabigail
+maybe-all-stageprofile-libabigail:
+maybe-clean-stageprofile-libabigail:
+@if libabigail-bootstrap
+maybe-all-stageprofile-libabigail: all-stageprofile-libabigail
+all-stageprofile: all-stageprofile-libabigail
+TARGET-stageprofile-libabigail = $(TARGET-libabigail)
+all-stageprofile-libabigail: configure-stageprofile-libabigail
+	@[ $(current_stage) = stageprofile ] || $(MAKE) stageprofile-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEprofile_TFLAGS)"; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGEprofile_CFLAGS)" \
+		CXXFLAGS="$(STAGEprofile_CXXFLAGS)" \
+		LIBCFLAGS="$(STAGEprofile_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGEprofile_TFLAGS)" \
+		$(TARGET-stageprofile-libabigail)
+
+maybe-clean-stageprofile-libabigail: clean-stageprofile-libabigail
+clean-stageprofile: clean-stageprofile-libabigail
+clean-stageprofile-libabigail:
+	@if [ $(current_stage) = stageprofile ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stageprofile-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stageprofile-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+.PHONY: all-stagefeedback-libabigail maybe-all-stagefeedback-libabigail
+.PHONY: clean-stagefeedback-libabigail maybe-clean-stagefeedback-libabigail
+maybe-all-stagefeedback-libabigail:
+maybe-clean-stagefeedback-libabigail:
+@if libabigail-bootstrap
+maybe-all-stagefeedback-libabigail: all-stagefeedback-libabigail
+all-stagefeedback: all-stagefeedback-libabigail
+TARGET-stagefeedback-libabigail = $(TARGET-libabigail)
+all-stagefeedback-libabigail: configure-stagefeedback-libabigail
+	@[ $(current_stage) = stagefeedback ] || $(MAKE) stagefeedback-start
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	TFLAGS="$(STAGEfeedback_TFLAGS)"; \
+	$(HOST_EXPORTS) \
+	$(POSTSTAGE1_HOST_EXPORTS)  \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(BASE_FLAGS_TO_PASS) \
+		CFLAGS="$(STAGEfeedback_CFLAGS)" \
+		CXXFLAGS="$(STAGEfeedback_CXXFLAGS)" \
+		LIBCFLAGS="$(STAGEfeedback_CFLAGS)" \
+		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
+		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
+		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
+		$(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 \
+		TFLAGS="$(STAGEfeedback_TFLAGS)" \
+		$(TARGET-stagefeedback-libabigail)
+
+maybe-clean-stagefeedback-libabigail: clean-stagefeedback-libabigail
+clean-stagefeedback: clean-stagefeedback-libabigail
+clean-stagefeedback-libabigail:
+	@if [ $(current_stage) = stagefeedback ]; then \
+	  [ -f $(HOST_SUBDIR)/libabigail/Makefile ] || exit 0; \
+	else \
+	  [ -f $(HOST_SUBDIR)/stagefeedback-libabigail/Makefile ] || exit 0; \
+	  $(MAKE) stagefeedback-start; \
+	fi; \
+	cd $(HOST_SUBDIR)/libabigail && \
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS) V=1 clean
+@endif libabigail-bootstrap
+
+
+
+
+
+.PHONY: check-libabigail maybe-check-libabigail
+maybe-check-libabigail:
+@if libabigail
+maybe-check-libabigail: check-libabigail
+
+check-libabigail:
+	@: $(MAKE); $(unstage)
+	@r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(FLAGS_TO_PASS) V=1 check)
+
+@endif libabigail
+
+.PHONY: install-libabigail maybe-install-libabigail
+maybe-install-libabigail:
+@if libabigail
+maybe-install-libabigail: install-libabigail
+
+install-libabigail:
+
+@endif libabigail
+
+.PHONY: install-strip-libabigail maybe-install-strip-libabigail
+maybe-install-strip-libabigail:
+@if libabigail
+maybe-install-strip-libabigail: install-strip-libabigail
+
+install-strip-libabigail:
+
+@endif libabigail
+
+# Other targets (info, dvi, pdf, etc.)
+
+.PHONY: maybe-info-libabigail info-libabigail
+maybe-info-libabigail:
+@if libabigail
+maybe-info-libabigail: info-libabigail
+
+info-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing info in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          info) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-dvi-libabigail dvi-libabigail
+maybe-dvi-libabigail:
+@if libabigail
+maybe-dvi-libabigail: dvi-libabigail
+
+dvi-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing dvi in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          dvi) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-pdf-libabigail pdf-libabigail
+maybe-pdf-libabigail:
+@if libabigail
+maybe-pdf-libabigail: pdf-libabigail
+
+pdf-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing pdf in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          pdf) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-html-libabigail html-libabigail
+maybe-html-libabigail:
+@if libabigail
+maybe-html-libabigail: html-libabigail
+
+html-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing html in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          html) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-TAGS-libabigail TAGS-libabigail
+maybe-TAGS-libabigail:
+@if libabigail
+maybe-TAGS-libabigail: TAGS-libabigail
+
+TAGS-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing TAGS in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          TAGS) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-install-info-libabigail install-info-libabigail
+maybe-install-info-libabigail:
+@if libabigail
+maybe-install-info-libabigail: install-info-libabigail
+
+install-info-libabigail: \
+    configure-libabigail \
+    info-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-info in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          install-info) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-install-pdf-libabigail install-pdf-libabigail
+maybe-install-pdf-libabigail:
+@if libabigail
+maybe-install-pdf-libabigail: install-pdf-libabigail
+
+install-pdf-libabigail: \
+    configure-libabigail \
+    pdf-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-pdf in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          install-pdf) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-install-html-libabigail install-html-libabigail
+maybe-install-html-libabigail:
+@if libabigail
+maybe-install-html-libabigail: install-html-libabigail
+
+install-html-libabigail: \
+    configure-libabigail \
+    html-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing install-html in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          install-html) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-installcheck-libabigail installcheck-libabigail
+maybe-installcheck-libabigail:
+@if libabigail
+maybe-installcheck-libabigail: installcheck-libabigail
+
+installcheck-libabigail: \
+    configure-libabigail 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing installcheck in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          installcheck) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-mostlyclean-libabigail mostlyclean-libabigail
+maybe-mostlyclean-libabigail:
+@if libabigail
+maybe-mostlyclean-libabigail: mostlyclean-libabigail
+
+mostlyclean-libabigail: 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing mostlyclean in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          mostlyclean) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-clean-libabigail clean-libabigail
+maybe-clean-libabigail:
+@if libabigail
+maybe-clean-libabigail: clean-libabigail
+
+clean-libabigail: 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing clean in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          clean) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-distclean-libabigail distclean-libabigail
+maybe-distclean-libabigail:
+@if libabigail
+maybe-distclean-libabigail: distclean-libabigail
+
+distclean-libabigail: 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing distclean in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          distclean) \
+	  || exit 1
+
+@endif libabigail
+
+.PHONY: maybe-maintainer-clean-libabigail maintainer-clean-libabigail
+maybe-maintainer-clean-libabigail:
+@if libabigail
+maybe-maintainer-clean-libabigail: maintainer-clean-libabigail
+
+maintainer-clean-libabigail: 
+	@[ -f ./libabigail/Makefile ] || exit 0; \
+	r=`${PWD_COMMAND}`; export r; \
+	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
+	$(HOST_EXPORTS) \
+	for flag in $(EXTRA_HOST_FLAGS) V=1; do \
+	  eval `echo "$$flag" | sed -e "s|^\([^=]*\)=\(.*\)|\1='\2'; export \1|"`; \
+	done; \
+	echo "Doing maintainer-clean in libabigail" ; \
+	(cd $(HOST_SUBDIR)/libabigail && \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) "AR=$${AR}" "AS=$${AS}" \
+	          "CC=$${CC}" "CXX=$${CXX}" "LD=$${LD}" "NM=$${NM}" \
+	          "RANLIB=$${RANLIB}" \
+	          "DLLTOOL=$${DLLTOOL}" "WINDRES=$${WINDRES}" "WINDMC=$${WINDMC}" \
+	          maintainer-clean) \
+	  || exit 1
+
+@endif libabigail
 
 
 
@@ -43466,6 +44358,11 @@ stage1-start::
 	  mkdir stage1-cloog; \
 	mv stage1-cloog cloog 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stage1-libabigail ] || \
+	  mkdir stage1-libabigail; \
+	mv stage1-libabigail libabigail 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stage1-libelf ] || \
 	  mkdir stage1-libelf; \
@@ -43571,6 +44468,11 @@ stage1-end::
 	  cd $(HOST_SUBDIR); mv cloog stage1-cloog  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stage1-libabigail  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stage1-libelf  ; \
@@ -43729,6 +44631,12 @@ stage2-start::
 	mv stage2-cloog cloog  ; \
 	mv stage1-cloog prev-cloog || test -f stage1-lean 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stage2-libabigail ] || \
+	  mkdir stage2-libabigail; \
+	mv stage2-libabigail libabigail  ; \
+	mv stage1-libabigail prev-libabigail || test -f stage1-lean 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stage2-libelf ] || \
 	  mkdir stage2-libelf; \
@@ -43855,6 +44763,12 @@ stage2-end::
 	  mv prev-cloog stage1-cloog ; :  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stage2-libabigail ; \
+	  mv prev-libabigail stage1-libabigail ; :  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stage2-libelf ; \
@@ -44047,6 +44961,12 @@ stage3-start::
 	mv stage3-cloog cloog  ; \
 	mv stage2-cloog prev-cloog || test -f stage2-lean 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stage3-libabigail ] || \
+	  mkdir stage3-libabigail; \
+	mv stage3-libabigail libabigail  ; \
+	mv stage2-libabigail prev-libabigail || test -f stage2-lean 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stage3-libelf ] || \
 	  mkdir stage3-libelf; \
@@ -44173,6 +45093,12 @@ stage3-end::
 	  mv prev-cloog stage2-cloog ; :  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stage3-libabigail ; \
+	  mv prev-libabigail stage2-libabigail ; :  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stage3-libelf ; \
@@ -44421,6 +45347,12 @@ stage4-start::
 	mv stage4-cloog cloog  ; \
 	mv stage3-cloog prev-cloog || test -f stage3-lean 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stage4-libabigail ] || \
+	  mkdir stage4-libabigail; \
+	mv stage4-libabigail libabigail  ; \
+	mv stage3-libabigail prev-libabigail || test -f stage3-lean 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stage4-libelf ] || \
 	  mkdir stage4-libelf; \
@@ -44547,6 +45479,12 @@ stage4-end::
 	  mv prev-cloog stage3-cloog ; :  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stage4-libabigail ; \
+	  mv prev-libabigail stage3-libabigail ; :  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stage4-libelf ; \
@@ -44783,6 +45721,12 @@ stageprofile-start::
 	mv stageprofile-cloog cloog  ; \
 	mv stage1-cloog prev-cloog || test -f stage1-lean 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stageprofile-libabigail ] || \
+	  mkdir stageprofile-libabigail; \
+	mv stageprofile-libabigail libabigail  ; \
+	mv stage1-libabigail prev-libabigail || test -f stage1-lean 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stageprofile-libelf ] || \
 	  mkdir stageprofile-libelf; \
@@ -44909,6 +45853,12 @@ stageprofile-end::
 	  mv prev-cloog stage1-cloog ; :  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stageprofile-libabigail ; \
+	  mv prev-libabigail stage1-libabigail ; :  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stageprofile-libelf ; \
@@ -45078,6 +46028,12 @@ stagefeedback-start::
 	mv stagefeedback-cloog cloog  ; \
 	mv stageprofile-cloog prev-cloog || test -f stageprofile-lean 
 @endif cloog
+@if libabigail
+	@cd $(HOST_SUBDIR); [ -d stagefeedback-libabigail ] || \
+	  mkdir stagefeedback-libabigail; \
+	mv stagefeedback-libabigail libabigail  ; \
+	mv stageprofile-libabigail prev-libabigail || test -f stageprofile-lean 
+@endif libabigail
 @if libelf
 	@cd $(HOST_SUBDIR); [ -d stagefeedback-libelf ] || \
 	  mkdir stagefeedback-libelf; \
@@ -45204,6 +46160,12 @@ stagefeedback-end::
 	  mv prev-cloog stageprofile-cloog ; :  ; \
 	fi
 @endif cloog
+@if libabigail
+	@if test -d $(HOST_SUBDIR)/libabigail ; then \
+	  cd $(HOST_SUBDIR); mv libabigail stagefeedback-libabigail ; \
+	  mv prev-libabigail stageprofile-libabigail ; :  ; \
+	fi
+@endif libabigail
 @if libelf
 	@if test -d $(HOST_SUBDIR)/libelf ; then \
 	  cd $(HOST_SUBDIR); mv libelf stagefeedback-libelf ; \

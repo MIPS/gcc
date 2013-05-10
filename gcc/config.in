@@ -1619,6 +1619,12 @@
 #endif
 
 
+/* Defined if libabigail is in use */
+#ifndef USED_FOR_TARGET
+#undef HAVE_abigail
+#endif
+
+
 /* Define if cloog is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_cloog
