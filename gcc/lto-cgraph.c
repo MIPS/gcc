@@ -468,6 +468,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->local.can_change_signature, 1);
   bp_pack_value (&bp, node->local.redefined_extern_inline, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
+  bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.address_taken, 1);
   bp_pack_value (&bp, node->abstract_and_needed, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
@@ -533,6 +534,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->symbol.externally_visible, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
+  bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->finalized, 1);
   bp_pack_value (&bp, node->alias, 1);
   bp_pack_value (&bp, node->alias_of != NULL, 1);
@@ -886,6 +888,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->local.can_change_signature = bp_unpack_value (bp, 1);
   node->local.redefined_extern_inline = bp_unpack_value (bp, 1);
   node->symbol.force_output = bp_unpack_value (bp, 1);
+  node->symbol.unique_name = bp_unpack_value (bp, 1);
   node->symbol.address_taken = bp_unpack_value (bp, 1);
   node->abstract_and_needed = bp_unpack_value (bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (bp, 1);
@@ -1040,6 +1043,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   bp = streamer_read_bitpack (ib);
   node->symbol.externally_visible = bp_unpack_value (&bp, 1);
   node->symbol.force_output = bp_unpack_value (&bp, 1);
+  node->symbol.unique_name = bp_unpack_value (&bp, 1);
   node->finalized = bp_unpack_value (&bp, 1);
   node->alias = bp_unpack_value (&bp, 1);
   non_null_aliasof = bp_unpack_value (&bp, 1);
@@ -1347,10 +1351,10 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
                                         file_data->profile_info.runs);
 	lto_gcov_summary.sum_max
             = MAX (lto_gcov_summary.sum_max,
-                   apply_probability (file_data->profile_info.sum_max, scale));
+                   apply_scale (file_data->profile_info.sum_max, scale));
 	lto_gcov_summary.sum_all
             = MAX (lto_gcov_summary.sum_all,
-                   apply_probability (file_data->profile_info.sum_all, scale));
+                   apply_scale (file_data->profile_info.sum_all, scale));
         /* Save a pointer to the profile_info with the largest
            scaled sum_all and the scale for use in merging the
            histogram.  */
@@ -1372,8 +1376,8 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
       /* Scale up the min value as we did the corresponding sum_all
          above. Use that to find the new histogram index.  */
       gcov_type scaled_min
-          = apply_probability (saved_profile_info->histogram[h_ix].min_value,
-                               saved_scale);
+          = apply_scale (saved_profile_info->histogram[h_ix].min_value,
+                         saved_scale);
       /* The new index may be shared with another scaled histogram entry,
          so we need to account for a non-zero histogram entry at new_ix.  */
       unsigned new_ix = gcov_histo_index (scaled_min);
@@ -1386,8 +1390,8 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
          here and place the scaled cumulative counter value in the bucket
          corresponding to the scaled minimum counter value.  */
       lto_gcov_summary.histogram[new_ix].cum_value
-          += apply_probability (saved_profile_info->histogram[h_ix].cum_value,
-                                saved_scale);
+          += apply_scale (saved_profile_info->histogram[h_ix].cum_value,
+                          saved_scale);
       lto_gcov_summary.histogram[new_ix].num_counters
           += saved_profile_info->histogram[h_ix].num_counters;
     }
@@ -1419,8 +1423,8 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
 	if (scale == REG_BR_PROB_BASE)
 	  continue;
 	for (edge = node->callees; edge; edge = edge->next_callee)
-	  edge->count = apply_probability (edge->count, scale);
-	node->count = apply_probability (node->count, scale);
+	  edge->count = apply_scale (edge->count, scale);
+	node->count = apply_scale (node->count, scale);
       }
 }
 

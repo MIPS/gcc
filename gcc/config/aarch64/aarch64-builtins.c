@@ -30,6 +30,7 @@
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "optabs.h"
+#include "gimple.h"
 
 enum aarch64_simd_builtin_type_mode
 {
@@ -190,6 +191,9 @@ typedef struct
 #define BUILTIN_VALL(T, N, MAP) \
   VAR10 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, \
 	 v4si, v2di, v2sf, v4sf, v2df)
+#define BUILTIN_VALLDI(T, N, MAP) \
+  VAR11 (T, N, MAP, v8qi, v16qi, v4hi, v8hi, v2si, \
+	 v4si, v2di, v2sf, v4sf, v2df, di)
 #define BUILTIN_VB(T, N, MAP) \
   VAR2 (T, N, MAP, v8qi, v16qi)
 #define BUILTIN_VD(T, N, MAP) \
@@ -1223,19 +1227,19 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
    && in_mode == N##Fmode && in_n == C)
 	case BUILT_IN_FLOOR:
 	case BUILT_IN_FLOORF:
-	  return AARCH64_FIND_FRINT_VARIANT (frintm);
+	  return AARCH64_FIND_FRINT_VARIANT (floor);
 	case BUILT_IN_CEIL:
 	case BUILT_IN_CEILF:
-	  return AARCH64_FIND_FRINT_VARIANT (frintp);
+	  return AARCH64_FIND_FRINT_VARIANT (ceil);
 	case BUILT_IN_TRUNC:
 	case BUILT_IN_TRUNCF:
-	  return AARCH64_FIND_FRINT_VARIANT (frintz);
+	  return AARCH64_FIND_FRINT_VARIANT (btrunc);
 	case BUILT_IN_ROUND:
 	case BUILT_IN_ROUNDF:
-	  return AARCH64_FIND_FRINT_VARIANT (frinta);
+	  return AARCH64_FIND_FRINT_VARIANT (round);
 	case BUILT_IN_NEARBYINT:
 	case BUILT_IN_NEARBYINTF:
-	  return AARCH64_FIND_FRINT_VARIANT (frinti);
+	  return AARCH64_FIND_FRINT_VARIANT (nearbyint);
 	case BUILT_IN_SQRT:
 	case BUILT_IN_SQRTF:
 	  return AARCH64_FIND_FRINT_VARIANT (sqrt);
@@ -1244,9 +1248,51 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
   (out_mode == N##Imode && out_n == C \
    && in_mode == N##Fmode && in_n == C)
 	case BUILT_IN_LFLOOR:
-	  return AARCH64_FIND_FRINT_VARIANT (fcvtms);
+	case BUILT_IN_IFLOORF:
+	  {
+	    tree new_tree = NULL_TREE;
+	    if (AARCH64_CHECK_BUILTIN_MODE (2, D))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lfloorv2dfv2di];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (4, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lfloorv4sfv4si];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (2, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lfloorv2sfv2si];
+	    return new_tree;
+	  }
 	case BUILT_IN_LCEIL:
-	  return AARCH64_FIND_FRINT_VARIANT (fcvtps);
+	case BUILT_IN_ICEILF:
+	  {
+	    tree new_tree = NULL_TREE;
+	    if (AARCH64_CHECK_BUILTIN_MODE (2, D))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lceilv2dfv2di];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (4, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lceilv4sfv4si];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (2, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lceilv2sfv2si];
+	    return new_tree;
+	  }
+	case BUILT_IN_LROUND:
+	case BUILT_IN_IROUNDF:
+	  {
+	    tree new_tree = NULL_TREE;
+	    if (AARCH64_CHECK_BUILTIN_MODE (2, D))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lroundv2dfv2di];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (4, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lroundv4sfv4si];
+	    else if (AARCH64_CHECK_BUILTIN_MODE (2, S))
+	      new_tree =
+		aarch64_builtin_decls[AARCH64_SIMD_BUILTIN_lroundv2sfv2si];
+	    return new_tree;
+	  }
+
 	default:
 	  return NULL_TREE;
       }
@@ -1254,6 +1300,108 @@ aarch64_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 
   return NULL_TREE;
 }
+
+#undef VAR1
+#define VAR1(T, N, MAP, A) \
+  case AARCH64_SIMD_BUILTIN_##N##A:
+
+tree
+aarch64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *args,
+		      bool ignore ATTRIBUTE_UNUSED)
+{
+  int fcode = DECL_FUNCTION_CODE (fndecl);
+  tree type = TREE_TYPE (TREE_TYPE (fndecl));
+
+  switch (fcode)
+    {
+      BUILTIN_VDQF (UNOP, abs, 2)
+	return fold_build1 (ABS_EXPR, type, args[0]);
+	break;
+      BUILTIN_VALLDI (BINOP, cmge, 0)
+	return fold_build2 (GE_EXPR, type, args[0], args[1]);
+	break;
+      BUILTIN_VALLDI (BINOP, cmgt, 0)
+	return fold_build2 (GT_EXPR, type, args[0], args[1]);
+	break;
+      BUILTIN_VALLDI (BINOP, cmeq, 0)
+	return fold_build2 (EQ_EXPR, type, args[0], args[1]);
+	break;
+      BUILTIN_VSDQ_I_DI (BINOP, cmtst, 0)
+	{
+	  tree and_node = fold_build2 (BIT_AND_EXPR, type, args[0], args[1]);
+	  tree vec_zero_node = build_zero_cst (type);
+	  return fold_build2 (NE_EXPR, type, and_node, vec_zero_node);
+	  break;
+	}
+      VAR1 (UNOP, floatv2si, 2, v2sf)
+      VAR1 (UNOP, floatv4si, 2, v4sf)
+      VAR1 (UNOP, floatv2di, 2, v2df)
+	return fold_build1 (FLOAT_EXPR, type, args[0]);
+      default:
+	break;
+    }
+
+  return NULL_TREE;
+}
+
+bool
+aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
+{
+  bool changed = false;
+  gimple stmt = gsi_stmt (*gsi);
+  tree call = gimple_call_fn (stmt);
+  tree fndecl;
+  gimple new_stmt = NULL;
+  if (call)
+    {
+      fndecl = gimple_call_fndecl (stmt);
+      if (fndecl)
+	{
+	  int fcode = DECL_FUNCTION_CODE (fndecl);
+	  int nargs = gimple_call_num_args (stmt);
+	  tree *args = (nargs > 0
+			? gimple_call_arg_ptr (stmt, 0)
+			: &error_mark_node);
+
+	  switch (fcode)
+	    {
+	      BUILTIN_VALL (UNOP, reduc_splus_, 10)
+		new_stmt = gimple_build_assign_with_ops (
+						REDUC_PLUS_EXPR,
+						gimple_call_lhs (stmt),
+						args[0],
+						NULL_TREE);
+		break;
+	      BUILTIN_VDQIF (UNOP, reduc_smax_, 10)
+		new_stmt = gimple_build_assign_with_ops (
+						REDUC_MAX_EXPR,
+						gimple_call_lhs (stmt),
+						args[0],
+						NULL_TREE);
+		break;
+	      BUILTIN_VDQIF (UNOP, reduc_smin_, 10)
+		new_stmt = gimple_build_assign_with_ops (
+						REDUC_MIN_EXPR,
+						gimple_call_lhs (stmt),
+						args[0],
+						NULL_TREE);
+		break;
+
+	    default:
+	      break;
+	    }
+	}
+    }
+
+  if (new_stmt)
+    {
+      gsi_replace (gsi, new_stmt, true);
+      changed = true;
+    }
+
+  return changed;
+}
+
 #undef AARCH64_CHECK_BUILTIN_MODE
 #undef AARCH64_FIND_FRINT_VARIANT
 #undef BUILTIN_DX

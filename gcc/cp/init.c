@@ -634,7 +634,12 @@ perform_member_init (tree member, tree init)
 	init = build_x_compound_expr_from_list (init, ELK_MEM_INIT,
 						tf_warning_or_error);
       if (TREE_TYPE (init) != type)
-	init = digest_init (type, init, tf_warning_or_error);
+	{
+	  if (BRACE_ENCLOSED_INITIALIZER_P (init)
+	      && CP_AGGREGATE_TYPE_P (type))
+	    init = reshape_init (type, init, tf_warning_or_error);
+	  init = digest_init (type, init, tf_warning_or_error);
+	}
       if (init == error_mark_node)
 	return;
       /* A FIELD_DECL doesn't really have a suitable lifetime, but
@@ -1819,7 +1824,8 @@ get_type_value (tree name)
    @@ This function should be rewritten and placed in search.c.  */
 
 tree
-build_offset_ref (tree type, tree member, bool address_p)
+build_offset_ref (tree type, tree member, bool address_p,
+		  tsubst_flags_t complain)
 {
   tree decl;
   tree basebinfo = NULL_TREE;
@@ -1843,7 +1849,8 @@ build_offset_ref (tree type, tree member, bool address_p)
   type = TYPE_MAIN_VARIANT (type);
   if (!COMPLETE_OR_OPEN_TYPE_P (complete_type (type)))
     {
-      error ("incomplete type %qT does not have member %qD", type, member);
+      if (complain & tf_error)
+	error ("incomplete type %qT does not have member %qD", type, member);
       return error_mark_node;
     }
 
@@ -1856,7 +1863,8 @@ build_offset_ref (tree type, tree member, bool address_p)
 
   if (TREE_CODE (member) == FIELD_DECL && DECL_C_BIT_FIELD (member))
     {
-      error ("invalid pointer to bit-field %qD", member);
+      if (complain & tf_error)
+	error ("invalid pointer to bit-field %qD", member);
       return error_mark_node;
     }
 
@@ -1885,10 +1893,10 @@ build_offset_ref (tree type, tree member, bool address_p)
 	  if (address_p && DECL_P (t)
 	      && DECL_NONSTATIC_MEMBER_P (t))
 	    perform_or_defer_access_check (TYPE_BINFO (type), t, t,
-					   tf_warning_or_error);
+					   complain);
 	  else
 	    perform_or_defer_access_check (basebinfo, t, t,
-					   tf_warning_or_error);
+					   complain);
 
 	  if (DECL_STATIC_FUNCTION_P (t))
 	    return t;
@@ -1902,7 +1910,7 @@ build_offset_ref (tree type, tree member, bool address_p)
        check_accessibility_of_qualified_id in case it is
        a pointer to non-static member.  */
     perform_or_defer_access_check (TYPE_BINFO (type), member, member,
-				   tf_warning_or_error);
+				   complain);
 
   if (!address_p)
     {
@@ -1934,15 +1942,17 @@ build_offset_ref (tree type, tree member, bool address_p)
 	  if (flag_ms_extensions)
 	    {
 	      PTRMEM_OK_P (member) = 1;
-	      return cp_build_addr_expr (member, tf_warning_or_error);
+	      return cp_build_addr_expr (member, complain);
 	    }
-	  error ("invalid use of non-static member function %qD",
-		 TREE_OPERAND (member, 1));
+	  if (complain & tf_error)
+	    error ("invalid use of non-static member function %qD",
+		   TREE_OPERAND (member, 1));
 	  return error_mark_node;
 	}
       else if (TREE_CODE (member) == FIELD_DECL)
 	{
-	  error ("invalid use of non-static data member %qD", member);
+	  if (complain & tf_error)
+	    error ("invalid use of non-static data member %qD", member);
 	  return error_mark_node;
 	}
       return member;
@@ -2160,6 +2170,35 @@ int
 diagnose_uninitialized_cst_or_ref_member (tree type, bool using_new, bool complain)
 {
   return diagnose_uninitialized_cst_or_ref_member_1 (type, type, using_new, complain);
+}
+
+/* Call __cxa_bad_array_new_length to indicate that the size calculation
+   overflowed.  Pretend it returns sizetype so that it plays nicely in the
+   COND_EXPR.  */
+
+tree
+throw_bad_array_new_length (void)
+{
+  tree fn = get_identifier ("__cxa_throw_bad_array_new_length");
+  if (!get_global_value_if_present (fn, &fn))
+    fn = push_throw_library_fn (fn, build_function_type_list (sizetype,
+							      NULL_TREE));
+
+  return build_cxx_call (fn, CILK_CALL_NORMAL, 0, NULL, tf_warning_or_error);
+}
+
+/* Call __cxa_bad_array_length to indicate that there were too many
+   initializers.  */
+
+tree
+throw_bad_array_length (void)
+{
+  tree fn = get_identifier ("__cxa_throw_bad_array_length");
+  if (!get_global_value_if_present (fn, &fn))
+    fn = push_throw_library_fn (fn, build_function_type_list (void_type_node,
+							      NULL_TREE));
+
+  return build_cxx_call (fn, CILK_CALL_NORMAL, 0, NULL, tf_warning_or_error);
 }
 
 /* Generate code for a new-expression, including calling the "operator
@@ -2464,9 +2503,12 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 		outer_nelts_check = NULL_TREE;
 	    }
 	  /* Perform the overflow check.  */
+	  tree errval = TYPE_MAX_VALUE (sizetype);
+	  if (cxx_dialect >= cxx11)
+	    errval = throw_bad_array_new_length ();
 	  if (outer_nelts_check != NULL_TREE)
             size = fold_build3 (COND_EXPR, sizetype, outer_nelts_check,
-                                size, TYPE_MAX_VALUE (sizetype));
+                                size, errval);
 	  /* Create the argument list.  */
 	  vec_safe_insert (*placement, 0, size);
 	  /* Do name-lookup to find the appropriate operator.  */
@@ -2690,12 +2732,8 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 		    domain = compute_array_index_type (NULL_TREE, nelts,
 						       complain);
 		  else
-		    {
-		      domain = NULL_TREE;
-		      if (CONSTRUCTOR_NELTS (vecinit) > 0)
-			warning (0, "non-constant array size in new, unable "
-				 "to verify length of initializer-list");
-		    }
+		    /* We'll check the length at runtime.  */
+		    domain = NULL_TREE;
 		  arraytype = build_cplus_array_type (type, domain);
 		  vecinit = digest_init (arraytype, vecinit, complain);
 		}
@@ -3283,6 +3321,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   tree obase = base;
   bool xvalue = false;
   bool errors = false;
+  tree length_check = NULL_TREE;
 
   if (TREE_CODE (atype) == ARRAY_TYPE && TYPE_DOMAIN (atype))
     maxindex = array_type_nelts (atype);
@@ -3300,6 +3339,14 @@ build_vec_init (tree base, tree maxindex, tree init,
       && TREE_CODE (TARGET_EXPR_INITIAL (init)) == CONSTRUCTOR
       && from_array != 2)
     init = TARGET_EXPR_INITIAL (init);
+
+  /* If we have a braced-init-list, make sure that the array
+     is big enough for all the initializers.  */
+  if (init && TREE_CODE (init) == CONSTRUCTOR
+      && CONSTRUCTOR_NELTS (init) > 0
+      && !TREE_CONSTANT (maxindex))
+    length_check = fold_build2 (LT_EXPR, boolean_type_node, maxindex,
+				size_int (CONSTRUCTOR_NELTS (init) - 1));
 
   if (init
       && TREE_CODE (atype) == ARRAY_TYPE
@@ -3319,6 +3366,10 @@ build_vec_init (tree base, tree maxindex, tree init,
 	 store_constructor will handle the semantics for us.  */
 
       stmt_expr = build2 (INIT_EXPR, atype, base, init);
+      if (length_check)
+	stmt_expr = build3 (COND_EXPR, atype, length_check,
+			    throw_bad_array_length (),
+			    stmt_expr);
       return stmt_expr;
     }
 
@@ -3432,6 +3483,18 @@ build_vec_init (tree base, tree maxindex, tree init,
       bool do_static_init = (DECL_P (obase) && TREE_STATIC (obase));
       vec<constructor_elt, va_gc> *new_vec;
       from_array = 0;
+
+      if (length_check)
+	{
+	  tree throw_call;
+	  if (array_of_runtime_bound_p (atype))
+	    throw_call = throw_bad_array_length ();
+	  else
+	    throw_call = throw_bad_array_new_length ();
+	  length_check = build3 (COND_EXPR, void_type_node, length_check,
+				 throw_call, void_zero_node);
+	  finish_expr_stmt (length_check);
+	}
 
       if (try_const)
 	vec_alloc (new_vec, CONSTRUCTOR_NELTS (init));

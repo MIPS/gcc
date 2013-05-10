@@ -1215,8 +1215,6 @@ finish_handler_parms (tree decl, tree handler)
   else
     type = expand_start_catch_block (decl);
   HANDLER_TYPE (handler) = type;
-  if (!processing_template_decl && type)
-    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -1794,7 +1792,8 @@ finish_qualified_id_expr (tree qualifying_class,
 			  bool done,
 			  bool address_p,
 			  bool template_p,
-			  bool template_arg_p)
+			  bool template_arg_p,
+			  tsubst_flags_t complain)
 {
   gcc_assert (TYPE_P (qualifying_class));
 
@@ -1814,7 +1813,7 @@ finish_qualified_id_expr (tree qualifying_class,
       if (TREE_CODE (expr) == SCOPE_REF)
 	expr = TREE_OPERAND (expr, 1);
       expr = build_offset_ref (qualifying_class, expr,
-			       /*address_p=*/true);
+			       /*address_p=*/true, complain);
       return expr;
     }
 
@@ -1848,11 +1847,12 @@ finish_qualified_id_expr (tree qualifying_class,
 		 expr,
 		 BASELINK_ACCESS_BINFO (expr),
 		 /*preserve_reference=*/false,
-		 tf_warning_or_error));
+		 complain));
       else if (done)
 	/* The expression is a qualified name whose address is not
 	   being taken.  */
-	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false);
+	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false,
+				 complain);
     }
   else if (BASELINK_P (expr))
     ;
@@ -2409,6 +2409,8 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 	  error ("invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
+      if (is_auto (destructor))
+	destructor = TREE_TYPE (object);
       if (scope && TYPE_P (scope) && !check_dtor_name (scope, destructor))
 	{
 	  error ("qualified type %qT does not match destructor name ~%qT",
@@ -3142,6 +3144,12 @@ finish_id_expression (tree id_expression,
 		= decl_function_context (containing_function);
 	    }
 
+	  if (lambda_expr && TREE_CODE (decl) == VAR_DECL
+	      && DECL_ANON_UNION_VAR_P (decl))
+	    {
+	      error ("cannot capture member %qD of anonymous union", decl);
+	      return error_mark_node;
+	    }
 	  if (context == containing_function)
 	    {
 	      decl = add_default_capture (lambda_stack,
@@ -3310,7 +3318,8 @@ finish_id_expression (tree id_expression,
 		    decl = finish_qualified_id_expr (scope, decl,
 						     done, address_p,
 						     template_p,
-						     template_arg_p);
+						     template_arg_p,
+						     tf_warning_or_error);
 		  else
 		    {
 		      tree type = NULL_TREE;
@@ -3426,7 +3435,8 @@ finish_id_expression (tree id_expression,
 					     done,
 					     address_p,
 					     template_p,
-					     template_arg_p);
+					     template_arg_p,
+					     tf_warning_or_error);
 	  else
 	    decl = convert_from_reference (decl);
 	}
@@ -5436,6 +5446,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
           break;
 
         case COMPONENT_REF:
+	case COMPOUND_EXPR:
 	  mark_type_use (expr);
           type = is_bitfield_expr_with_lowered_type (expr);
           if (!type)
@@ -5453,8 +5464,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
           break;
 
         default:
-	  gcc_unreachable ();
-          return error_mark_node;
+	  /* Handle instantiated template non-type arguments.  */
+	  type = TREE_TYPE (expr);
+          break;
         }
     }
   else
@@ -5492,6 +5504,15 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  if (clk != clk_none && !(clk & clk_class))
 	    type = cp_build_reference_type (type, (clk & clk_rvalueref));
 	}
+    }
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      if (complain & tf_warning_or_error)
+	pedwarn (input_location, OPT_Wvla,
+		 "taking decltype of array of runtime bound");
+      else
+	return error_mark_node;
     }
 
   return type;
@@ -8503,7 +8524,8 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		    if (is_this_parameter (x))
 		      {
 			if (!flag_enable_cilk 
-			    && DECL_CONSTRUCTOR_P (DECL_CONTEXT (x)))
+			    && (DECL_CONTEXT (x) == NULL_TREE
+				|| DECL_CONSTRUCTOR_P (DECL_CONTEXT (x))))
 			  {
 			    if (flags & tf_error)
 			      sorry ("calling a member function of the "
@@ -9182,14 +9204,22 @@ lambda_function (tree lambda)
    The caller should add REFERENCE_TYPE for capture by reference.  */
 
 tree
-lambda_capture_field_type (tree expr)
+lambda_capture_field_type (tree expr, bool explicit_init_p)
 {
-  tree type = non_reference (unlowered_expr_type (expr));
+  tree type;
+  if (explicit_init_p)
+    {
+      type = make_auto ();
+      type = do_auto_deduction (type, expr, type);
+    }
+  else
+    type = non_reference (unlowered_expr_type (expr));
   if (!type || WILDCARD_TYPE_P (type))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;
       DECLTYPE_FOR_LAMBDA_CAPTURE (type) = true;
+      DECLTYPE_FOR_INIT_CAPTURE (type) = explicit_init_p;
       SET_TYPE_STRUCTURAL_EQUALITY (type);
     }
   return type;
@@ -9420,9 +9450,27 @@ build_capture_proxy (tree member)
     object = TREE_OPERAND (object, 0);
 
   /* Remove the __ inserted by add_capture.  */
-  name = get_identifier (IDENTIFIER_POINTER (DECL_NAME (member)) + 2);
+  if (DECL_NORMAL_CAPTURE_P (member))
+    name = get_identifier (IDENTIFIER_POINTER (DECL_NAME (member)) + 2);
+  else
+    name = DECL_NAME (member);
 
   type = lambda_proxy_type (object);
+
+  if (TREE_CODE (type) == RECORD_TYPE
+      && TYPE_NAME (type) == NULL_TREE)
+    {
+      /* Rebuild the VLA type from the pointer and maxindex.  */
+      tree field = next_initializable_field (TYPE_FIELDS (type));
+      tree ptr = build_simple_component_ref (object, field);
+      field = next_initializable_field (DECL_CHAIN (field));
+      tree max = build_simple_component_ref (object, field);
+      type = build_array_type (TREE_TYPE (TREE_TYPE (ptr)),
+			       build_index_type (max));
+      object = convert (build_reference_type (type), ptr);
+      object = convert_from_reference (object);
+    }
+
   var = build_decl (input_location, VAR_DECL, name, type);
   SET_DECL_VALUE_EXPR (var, object);
   DECL_HAS_VALUE_EXPR_P (var) = 1;
@@ -9444,6 +9492,28 @@ build_capture_proxy (tree member)
   return var;
 }
 
+/* Return a struct containing a pointer and a length for lambda capture of
+   an array of runtime length.  */
+
+static tree
+vla_capture_type (tree array_type)
+{
+  static tree ptr_id, max_id;
+  if (!ptr_id)
+    {
+      ptr_id = get_identifier ("ptr");
+      max_id = get_identifier ("max");
+    }
+  tree ptrtype = build_pointer_type (TREE_TYPE (array_type));
+  tree field1 = build_decl (input_location, FIELD_DECL, ptr_id, ptrtype);
+  tree field2 = build_decl (input_location, FIELD_DECL, max_id, sizetype);
+  DECL_CHAIN (field2) = field1;
+  tree type = make_node (RECORD_TYPE);
+  finish_builtin_struct (type, "__cap", field2, NULL_TREE);
+  TYPE_NAME (type) = NULL_TREE;
+  return type;
+}
+
 /* From an ID and INITIALIZER, create a capture (by reference if
    BY_REFERENCE_P is true), add it to the capture-list for LAMBDA,
    and return it.  */
@@ -9455,8 +9525,26 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
   char *buf;
   tree type, member, name;
 
-  type = lambda_capture_field_type (initializer);
-  if (by_reference_p)
+  if (TREE_CODE (initializer) == TREE_LIST)
+    initializer = build_x_compound_expr_from_list (initializer, ELK_INIT,
+						   tf_warning_or_error);
+  type = lambda_capture_field_type (initializer, explicit_init_p);
+  if (array_of_runtime_bound_p (type))
+    {
+      /* For a VLA, we capture the address of the first element and the
+	 maximum index, and then reconstruct the VLA for the proxy.  */
+      gcc_assert (by_reference_p);
+      tree elt = cp_build_array_ref (input_location, initializer,
+				     integer_zero_node, tf_warning_or_error);
+      tree ctype = vla_capture_type (type);
+      tree ptr_field = next_initializable_field (TYPE_FIELDS (ctype));
+      tree nelts_field = next_initializable_field (DECL_CHAIN (ptr_field));
+      initializer = build_constructor_va (ctype, 2,
+					  ptr_field, build_address (elt),
+					  nelts_field, array_type_nelts (type));
+      type = ctype;
+    }
+  else if (by_reference_p)
     {
       type = build_reference_type (type);
       if (!real_lvalue_p (initializer))
@@ -9470,11 +9558,17 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
      won't find the field with name lookup.  We can't just leave the name
      unset because template instantiation uses the name to find
      instantiated fields.  */
-  buf = (char *) alloca (IDENTIFIER_LENGTH (id) + 3);
-  buf[1] = buf[0] = '_';
-  memcpy (buf + 2, IDENTIFIER_POINTER (id),
-	  IDENTIFIER_LENGTH (id) + 1);
-  name = get_identifier (buf);
+  if (!explicit_init_p)
+    {
+      buf = (char *) alloca (IDENTIFIER_LENGTH (id) + 3);
+      buf[1] = buf[0] = '_';
+      memcpy (buf + 2, IDENTIFIER_POINTER (id),
+	      IDENTIFIER_LENGTH (id) + 1);
+      name = get_identifier (buf);
+    }
+  else
+    /* But captures with explicit initializers are named.  */
+    name = id;
 
   /* If TREE_TYPE isn't set, we're still in the introducer, so check
      for duplicates.  */

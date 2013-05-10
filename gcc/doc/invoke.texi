@@ -379,7 +379,7 @@ Objective-C and Objective-C++ Dialects}.
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
--flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
+-flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
 -fno-default-inline @gol
@@ -407,8 +407,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
 -fsplit-ivs-in-unroller -fsplit-wide-types -fstack-protector @gol
--fstack-protector-all -fstrict-aliasing -fstrict-overflow @gol
--fthread-jumps -ftracer -ftree-bit-ccp @gol
+-fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
@@ -618,11 +618,11 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{HPPA Options}
 @gccoptlist{-march=@var{architecture-type} @gol
--mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
+-mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
 -mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
--mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
+-mlong-load-store  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
 -mno-portable-runtime  -mno-soft-float @gol
@@ -1655,7 +1655,7 @@ The name @samp{gnu++0x} is deprecated.
 
 @item c++1y
 The next revision of the ISO C++ standard, tentatively planned for
-2017.  Support is highly experimental, and will almost certainly
+2014.  Support is highly experimental, and will almost certainly
 change in incompatible ways in future releases.
 
 @item gnu++1y
@@ -2964,9 +2964,10 @@ a message which is too long to fit on a single line.
 @cindex highlight, color, colour
 @vindex GCC_COLORS @r{environment variable}
 Use color in diagnostics.  @var{WHEN} is @samp{never}, @samp{always},
-or @samp{auto}.  The default is @samp{never}, @samp{auto} means to use color
-only when the standard error is a terminal. The forms
-@option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
+or @samp{auto}.  The default is @samp{never} if @env{GCC_COLORS} environment
+variable isn't present in the environment, and @samp{auto} otherwise.
+@samp{auto} means to use color only when the standard error is a terminal.
+The forms @option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
 aliases for @option{-fdiagnostics-color=always} and
 @option{-fdiagnostics-color=never}, respectively.
 
@@ -8455,6 +8456,10 @@ files in LTO mode (via @option{-flto}).
 
 Disabled by default.
 
+@item -flto-report-wpa
+Like @option{-flto-report}, but only print for the WPA phase of Link
+Time Optimization.
+
 @item -fuse-linker-plugin
 Enables the use of a linker plugin during link-time optimization.  This
 option relies on plugin support in the linker, which is available in gold
@@ -8951,6 +8956,12 @@ If a guard check fails, an error message is printed and the program exits.
 @item -fstack-protector-all
 @opindex fstack-protector-all
 Like @option{-fstack-protector} except that all functions are protected.
+
+@item -fstack-protector-strong
+@opindex fstack-protector-strong
+Like @option{-fstack-protector} but includes additional functions to
+be protected --- those that have local array definitions, or have
+references to local frame addresses.
 
 @item -fsection-anchors
 @opindex fsection-anchors
@@ -13504,12 +13515,6 @@ other way around.
 @opindex mpa-risc-1-1
 @opindex mpa-risc-2-0
 Synonyms for @option{-march=1.0}, @option{-march=1.1}, and @option{-march=2.0} respectively.
-
-@item -mbig-switch
-@opindex mbig-switch
-Generate code suitable for big switch tables.  Use this option only if
-the assembler/linker complain about out-of-range branches within a switch
-table.
 
 @item -mjump-in-delay
 @opindex mjump-in-delay

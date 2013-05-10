@@ -656,7 +656,7 @@ dump_aggr_type (tree t, int flags)
       else
 	pp_printf (pp_base (cxx_pp), M_("<anonymous %s>"), variety);
     }
-  else if (LAMBDA_TYPE_P (name))
+  else if (LAMBDA_TYPE_P (t))
     {
       /* A lambda's "type" is essentially its signature.  */
       pp_string (cxx_pp, M_("<lambda"));
@@ -848,14 +848,24 @@ dump_type_suffix (tree t, int flags)
 	    pp_character (cxx_pp, '0');
 	  else if (host_integerp (max, 0))
 	    pp_wide_integer (cxx_pp, tree_low_cst (max, 0) + 1);
-	  else if (TREE_CODE (max) == MINUS_EXPR)
-	    dump_expr (TREE_OPERAND (max, 0),
-		       flags & ~TFF_EXPR_IN_PARENS);
 	  else
-	    dump_expr (fold_build2_loc (input_location,
-				    PLUS_EXPR, dtype, max,
-				    build_int_cst (dtype, 1)),
-		       flags & ~TFF_EXPR_IN_PARENS);
+	    {
+	      STRIP_NOPS (max);
+	      if (TREE_CODE (max) == SAVE_EXPR)
+		max = TREE_OPERAND (max, 0);
+	      if (TREE_CODE (max) == MINUS_EXPR
+		  || TREE_CODE (max) == PLUS_EXPR)
+		{
+		  max = TREE_OPERAND (max, 0);
+		  while (CONVERT_EXPR_P (max))
+		    max = TREE_OPERAND (max, 0);
+		}
+	      else
+		max = fold_build2_loc (input_location,
+				       PLUS_EXPR, dtype, max,
+				       build_int_cst (dtype, 1));
+	      dump_expr (max, flags & ~TFF_EXPR_IN_PARENS);
+	    }
 	}
       pp_cxx_right_bracket (cxx_pp);
       dump_type_suffix (TREE_TYPE (t), flags);
@@ -933,7 +943,16 @@ dump_simple_decl (tree t, tree type, int flags)
       && TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (t)))
     pp_string (cxx_pp, "...");
   if (DECL_NAME (t))
-    dump_decl (DECL_NAME (t), flags);
+    {
+      if (TREE_CODE (t) == FIELD_DECL && DECL_NORMAL_CAPTURE_P (t))
+	{
+	  pp_character (cxx_pp, '<');
+	  pp_string (cxx_pp, IDENTIFIER_POINTER (DECL_NAME (t)) + 2);
+	  pp_string (cxx_pp, " capture>");
+	}
+      else
+	dump_decl (DECL_NAME (t), flags);
+    }
   else
     pp_string (cxx_pp, M_("<anonymous>"));
   if (flags & TFF_DECL_SPECIFIERS)
@@ -1442,7 +1461,8 @@ dump_function_decl (tree t, int flags)
 	dump_type_suffix (TREE_TYPE (fntype), flags);
 
       /* If T is a template instantiation, dump the parameter binding.  */
-      if (template_parms != NULL_TREE && template_args != NULL_TREE)
+      if (template_parms != NULL_TREE && template_args != NULL_TREE
+	  && !(flags & TFF_NO_TEMPLATE_BINDINGS))
 	{
 	  pp_cxx_whitespace (cxx_pp);
 	  pp_cxx_left_bracket (cxx_pp);
@@ -2880,7 +2900,8 @@ subst_to_string (tree p)
   tree decl = TREE_PURPOSE (p);
   tree targs = TREE_VALUE (p);
   tree tparms = DECL_TEMPLATE_PARMS (decl);
-  int flags = TFF_DECL_SPECIFIERS|TFF_TEMPLATE_HEADER;
+  int flags = (TFF_DECL_SPECIFIERS|TFF_TEMPLATE_HEADER
+	       |TFF_NO_TEMPLATE_BINDINGS);
 
   if (p == NULL_TREE)
     return "";
@@ -2951,7 +2972,7 @@ cp_print_error_function (diagnostic_context *context,
       const char *file = LOCATION_FILE (diagnostic->location);
       tree abstract_origin = diagnostic_abstract_origin (diagnostic);
       char *new_prefix = (file && abstract_origin == NULL)
-			 ? file_name_as_prefix (file) : NULL;
+			 ? file_name_as_prefix (context, file) : NULL;
 
       pp_base_set_prefix (context->printer, new_prefix);
 
@@ -3383,7 +3404,7 @@ maybe_warn_cpp0x (cpp0x_warn_str str)
 	break;
       case CPP0X_AUTO:
 	pedwarn (input_location, 0,
-		 "C++0x auto only available with -std=c++11 or -std=gnu++11");
+		 "C++11 auto only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_SCOPED_ENUMS:
 	pedwarn (input_location, 0,
@@ -3432,7 +3453,7 @@ maybe_warn_cpp0x (cpp0x_warn_str str)
       case CPP0X_REF_QUALIFIER:
 	pedwarn (input_location, 0,
 		 "ref-qualifiers "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       default:
 	gcc_unreachable ();

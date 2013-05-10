@@ -80,7 +80,7 @@
   [(set (match_operand:MMXMODE 0 "nonimmediate_operand"
     "=r ,o ,r,r ,m ,?!y,!y,?!y,m  ,r   ,?!Ym,x,x,x,m,*x,*x,*x,m ,r ,Yi,!Ym,*Yi")
 	(match_operand:MMXMODE 1 "vector_move_operand"
-    "rCo,rC,C,rm,rC,C  ,!y,m  ,?!y,?!Ym,r   ,C,x,m,x,C ,*x,m ,*x,Yi,r ,*Yi,!Ym"))]
+    "rCo,rC,C,rm,rC,C  ,!y,m  ,?!y,?!Yn,r   ,C,x,m,x,C ,*x,m ,*x,Yj,r ,*Yj,!Yn"))]
   "TARGET_MMX
    && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
 {
@@ -594,15 +594,12 @@
   "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "#"
   "&& reload_completed"
-  [(const_int 0)]
+  [(set (match_dup 0) (match_dup 1))]
 {
-  rtx op1 = operands[1];
-  if (REG_P (op1))
-    op1 = gen_rtx_REG (SFmode, REGNO (op1));
+  if (REG_P (operands[1]))
+    operands[1] = gen_rtx_REG (SFmode, REGNO (operands[1]));
   else
-    op1 = gen_lowpart (SFmode, op1);
-  emit_move_insn (operands[0], op1);
-  DONE;
+    operands[1] = adjust_address (operands[1], SFmode, 0);
 })
 
 ;; Avoid combining registers from different units in a single alternative,
@@ -629,12 +626,8 @@
 	  (match_operand:V2SF 1 "memory_operand")
 	  (parallel [(const_int 1)])))]
   "TARGET_MMX && reload_completed"
-  [(const_int 0)]
-{
-  operands[1] = adjust_address (operands[1], SFmode, 4);
-  emit_move_insn (operands[0], operands[1]);
-  DONE;
-})
+  [(set (match_dup 0) (match_dup 1))]
+  "operands[1] = adjust_address (operands[1], SFmode, 4);")
 
 (define_expand "vec_extractv2sf"
   [(match_operand:SF 0 "register_operand")
@@ -1289,15 +1282,12 @@
   "TARGET_MMX && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
   "#"
   "&& reload_completed"
-  [(const_int 0)]
+  [(set (match_dup 0) (match_dup 1))]
 {
-  rtx op1 = operands[1];
-  if (REG_P (op1))
-    op1 = gen_rtx_REG (SImode, REGNO (op1));
+  if (REG_P (operands[1]))
+    operands[1] = gen_rtx_REG (SImode, REGNO (operands[1]));
   else
-    op1 = gen_lowpart (SImode, op1);
-  emit_move_insn (operands[0], op1);
-  DONE;
+    operands[1] = adjust_address (operands[1], SImode, 0);
 })
 
 ;; Avoid combining registers from different units in a single alternative,
@@ -1330,12 +1320,8 @@
 	  (match_operand:V2SI 1 "memory_operand")
 	  (parallel [(const_int 1)])))]
   "TARGET_MMX && reload_completed"
-  [(const_int 0)]
-{
-  operands[1] = adjust_address (operands[1], SImode, 4);
-  emit_move_insn (operands[0], operands[1]);
-  DONE;
-})
+  [(set (match_dup 0) (match_dup 1))]
+  "operands[1] = adjust_address (operands[1], SImode, 4);")
 
 (define_expand "vec_extractv2si"
   [(match_operand:SI 0 "register_operand")
