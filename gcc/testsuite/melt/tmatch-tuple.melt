@@ -4,7 +4,7 @@
 
 #| run in buildir/gcc
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tmatch-tuple.melt 
- gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args)" 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
  ./cc1 -fmelt-mode=runfile  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
     -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
     -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \

@@ -1,0 +1,39 @@
+; -*- lisp -*-
+;; file thook-2.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-2.melt 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
+ ./cc1 -fmelt-mode=translatedebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
+    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
+    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
+    -fmelt-workdir=meltbuild-workdir \
+    -fmelt-tempdir=meltbuild-tempdir \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thook-2.melt \
+     "$gccmelt_cflags" \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(definstance override_gate_delayed_queue class_delayed_queue
+  :named_name '"override_gate_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+)
+
+(defhook hook_override_gate (:long beforegate) (:long aftergate) :void
+  :predef HOOK_OVERRIDE_GATE
+  :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
+  ;; fails to compile in svn rev 198815
+  (debug "hook_override_gate beforegate=" beforegate 
+	 "\n override_gate_delayed_queue=" override_gate_delayed_queue=)
+  (let ( 
+	(gateflag (if beforegate :true ()))
+	)
+    (if gateflag
+	(setq aftergate 1)
+      (setq aftergate 0))
+    )
+  )
+;; eof thook-2.melt
