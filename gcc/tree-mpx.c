@@ -154,6 +154,8 @@ static GTY (()) tree mpx_none_bounds_var = NULL;
 static GTY (()) vec<tree, va_gc> *mpx_static_const_bounds = NULL;
 static GTY ((param_is (struct tree_map)))
      htab_t mpx_static_var_bounds = NULL;
+static GTY ((param_is (struct tree_map)))
+     htab_t mpx_static_var_bounds_r = NULL;
 
 static basic_block entry_block;
 static tree zero_bounds;
@@ -851,7 +853,7 @@ mpx_finish_file (void)
       /* It seems that htab_traverse gives random vars order and thus
 	 causes bootstrap to fails due to differences.  To fix it we
 	 sort all vars by name first.  */
-      htab_traverse (mpx_static_var_bounds,
+      htab_traverse (mpx_static_var_bounds_r,
 		     mpx_add_tree_to_vec, &vars);
       vars.qsort (&mpx_compare_var_names);
 
@@ -861,10 +863,10 @@ mpx_finish_file (void)
 	  in.base.from = vars[i];
 	  in.hash = htab_hash_pointer (vars[i]);
 
-	  res = (struct tree_map *) htab_find_with_hash (mpx_static_var_bounds,
+	  res = (struct tree_map *) htab_find_with_hash (mpx_static_var_bounds_r,
 							 &in, in.hash);
 
-	  mpx_output_static_bounds (vars[i], res->to, &stmts);
+	  mpx_output_static_bounds (res->to, vars[i], &stmts);
 	}
 
       if (stmts.stmts)
@@ -872,7 +874,9 @@ mpx_finish_file (void)
 				   MAX_RESERVED_INIT_PRIORITY + 1);
 
       htab_delete (mpx_static_var_bounds);
+      htab_delete (mpx_static_var_bounds_r);
       mpx_static_var_bounds = NULL;
+      mpx_static_var_bounds_r = NULL;
     }
 }
 
@@ -2257,7 +2261,10 @@ mpx_make_static_bounds (tree obj)
 
   /* Add created var to the global hash map.  */
   if (!mpx_static_var_bounds)
-    mpx_static_var_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+    {
+      mpx_static_var_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+      mpx_static_var_bounds_r = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+    }
 
   map = ggc_alloc_tree_map ();
   map->hash = htab_hash_pointer (obj);
@@ -2266,6 +2273,18 @@ mpx_make_static_bounds (tree obj)
 
   slot = (struct tree_map **)
     htab_find_slot_with_hash (mpx_static_var_bounds, map, map->hash, INSERT);
+  *slot = map;
+
+  /* We use reversed hash map to provide determined
+     order of var emitting.  With undetermined order
+     we cannot pass bootstrap.  */
+  map = ggc_alloc_tree_map ();
+  map->hash = htab_hash_pointer (bnd_var);
+  map->base.from = bnd_var;
+  map->to = obj;
+
+  slot = (struct tree_map **)
+    htab_find_slot_with_hash (mpx_static_var_bounds_r, map, map->hash, INSERT);
   *slot = map;
 
   return bnd_var;
