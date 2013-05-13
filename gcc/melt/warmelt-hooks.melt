@@ -27,10 +27,24 @@
 
 (defhook hook_override_gate (:long beforegate) (:long aftergate) :void
   :predef HOOK_OVERRIDE_GATE
+  :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
   (debug "hook_override_gate beforegate=" beforegate)
   (setq aftergate beforegate)
 )
 
+(cheader 
+ #{
+   static void melt_override_gate_callback(void* gccdata, void* userdata)
+   {
+     bool *pgatestatus = (bool*) gccdata;
+     bool gatsta = false;
+     long oldgatstalng = 0, newgatstalng = 0;
+     gcc_assert (pgatestatus != NULL);
+     gatsta = *pgatestatus;
+     oldgatstalng = newgatstalng = (long)gatsta;
+   #warning should call melthookproc_HOOK_OVERRIDE_GATE
+   } /* end of  melt_override_gate_callback */
+ }#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values

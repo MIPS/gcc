@@ -1,4 +1,13 @@
 
+2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (hook_override_gate): Add doc.
+	(melt_override_gate_callback): New in a cheader.
+
+	* melt/warmelt-mode.melt
+	(generate_runtypesupport_predefined_hooks): The emitted
+	declararion should have output arguments as pointers!
+
 2013-04-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate again, now predefined hooks work ok...}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
