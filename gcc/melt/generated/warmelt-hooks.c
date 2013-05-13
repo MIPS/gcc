@@ -41,6 +41,30 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 struct melt_callframe_st;	/*defined in melt-runtime.h */
 
 
+
+/***** 1 extra C headers *****/
+
+
+/** header #0: **/
+
+
+static void
+melt_override_gate_callback (void *gccdata, void *userdata)
+{
+  bool *pgatestatus = (bool *) gccdata;
+  bool gatsta = false;
+  long oldgatstalng = 0, newgatstalng = 0;
+  gcc_assert (pgatestatus != NULL);
+  gatsta = *pgatestatus;
+  oldgatstalng = newgatstalng = (long) gatsta;
+#warning should call melthookproc_HOOK_OVERRIDE_GATE
+}				/* end of  melt_override_gate_callback */
+
+
+
+/***** end of 1 extra C headers *****/
+
+
 /** declaration of hook melthook_HOOK_OVERRIDE_GATE */
 MELT_EXTERN
   void melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
@@ -130,7 +154,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 	  sizeof (melthook_HOOK_OVERRIDE_GATE_frame_));
 #define meltfram__ melthook_HOOK_OVERRIDE_GATE_frame_
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -34 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -2155 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_OVERRIDE_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -148,7 +172,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 
 
 #if MELT_HAVE_DEBUG
-    MELT_LOCATION ("warmelt-hooks.melt:30:/ cppif.then");
+    MELT_LOCATION ("warmelt-hooks.melt:31:/ cppif.then");
     /*^block */
     /*anyblock */
     {
@@ -174,7 +198,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 	0			/* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG */
 	;;
-      MELT_LOCATION ("warmelt-hooks.melt:30:/ cond");
+      MELT_LOCATION ("warmelt-hooks.melt:31:/ cond");
       /*cond */ if ( /*_#MELT_NEED_DBG__L3*/ meltfnum[2])	/*then */
 	{
 	  /*^cond.then */
@@ -192,7 +216,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 
 	    MELT_CHECK_SIGNAL ();
 	    ;
-	    MELT_LOCATION ("warmelt-hooks.melt:30:/ apply");
+	    MELT_LOCATION ("warmelt-hooks.melt:31:/ apply");
 	    /*apply */
 	    {
 	      union meltparam_un argtab[5];
@@ -202,7 +226,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 	      /*^apply.arg */
 	      argtab[1].meltbp_cstring = "warmelt-hooks.melt";
 	      /*^apply.arg */
-	      argtab[2].meltbp_long = 30;
+	      argtab[2].meltbp_long = 31;
 	      /*^apply.arg */
 	      argtab[3].meltbp_cstring = "hook_override_gate beforegate=";
 	      /*^apply.arg */
@@ -220,7 +244,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 	    /*_.IF___V3*/ meltfptr[2] = /*_.MELT_DEBUG_FUN__V4*/ meltfptr[3];;
 	    /*epilog */
 
-	    MELT_LOCATION ("warmelt-hooks.melt:30:/ clear");
+	    MELT_LOCATION ("warmelt-hooks.melt:31:/ clear");
 		/*clear *//*_#THE_MELTCALLCOUNT__L4*/ meltfnum[3] = 0;
 	    /*^clear */
 		/*clear *//*_.MELT_DEBUG_FUN__V4*/ meltfptr[3] = 0;
@@ -233,7 +257,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
      /*_.IF___V3*/ meltfptr[2] = NULL;;
 	}
       ;
-      MELT_LOCATION ("warmelt-hooks.melt:30:/ quasiblock");
+      MELT_LOCATION ("warmelt-hooks.melt:31:/ quasiblock");
 
 
       /*_.PROGN___V5*/ meltfptr[3] = /*_.IF___V3*/ meltfptr[2];;
@@ -241,7 +265,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
       /*_.IFCPP___V2*/ meltfptr[1] = /*_.PROGN___V5*/ meltfptr[3];;
       /*epilog */
 
-      MELT_LOCATION ("warmelt-hooks.melt:30:/ clear");
+      MELT_LOCATION ("warmelt-hooks.melt:31:/ clear");
 	      /*clear *//*_#MELT_NEED_DBG__L3*/ meltfnum[2] = 0;
       /*^clear */
 	      /*clear *//*_.IF___V3*/ meltfptr[2] = 0;
@@ -254,7 +278,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
     /*_.IFCPP___V2*/ meltfptr[1] = ( /*nil */ NULL);
 #endif /*MELT_HAVE_DEBUG */
     ;
-    MELT_LOCATION ("warmelt-hooks.melt:31:/ compute");
+    MELT_LOCATION ("warmelt-hooks.melt:32:/ compute");
     /*_#AFTERGATE__L2*/ meltfnum[1] = /*_#SETQ___L5*/ meltfnum[3] =
       /*_#BEFOREGATE__L1*/ meltfnum[0];;
 
@@ -294,7 +318,7 @@ melthookmark_HOOK_OVERRIDE_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_OVERRIDE_GATE_t *meltframptr_
     = (melthookframe_HOOK_OVERRIDE_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_OVERRIDE_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -34);
+		  meltframptr_->mcfr_nbvar == -2155);
   if (meltmarking)
     {				/* marking hook HOOK_OVERRIDE_GATE */
       int meltix;
@@ -366,7 +390,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -2039);
+		  iniframp__->mcfr_nbvar == /*minihash */ -3650);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -419,7 +443,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_2__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_2__.obj_hash = 535790000;
+  meltcdat->dobj_2__.obj_hash = 590257493;
   meltcdat->dobj_2__.obj_len = 6;
 
 
@@ -475,7 +499,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_5.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_5.obj_num = 0;
-  meltcdat->dobj_5.obj_hash = 527329589;
+  meltcdat->dobj_5.obj_hash = 939528919;
   meltcdat->dobj_5.obj_len = 2;
 
   /*inimult dtup_6___HOOK_OVERRIDE_GATE */
@@ -535,7 +559,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_9.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_9.obj_num = 0;
-  meltcdat->dobj_9.obj_hash = 517542139;
+  meltcdat->dobj_9.obj_hash = 1054495382;
   meltcdat->dobj_9.obj_len = 2;
 
   /*inimult dtup_10___HOOK_OVERRIDE_GATE */
@@ -648,14 +672,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 2039*/
+/* declstructinit initial routine melt_start_this_module minihash 3650*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
   ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
-    /*minihash */ -2039;
+    /*minihash */ -3650;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__warmelt_hooks__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -1202,7 +1226,7 @@ meltmod__warmelt_hooks__initialmeltchunk_0 (meltinitial_frame_t *
 	    /*clear *//*_.OR___V23*/ meltfptr[22] = 0;
   }
 
-  MELT_LOCATION ("warmelt-hooks.melt:36:/ initchunk");
+  MELT_LOCATION ("warmelt-hooks.melt:50:/ initchunk");
   /*^block */
   /*anyblock */
   {
@@ -1332,7 +1356,7 @@ meltmod__warmelt_hooks__forward_or_mark_module_start_frame (struct
   int meltix = 0;
   melt_initial_frame_st *meltframptr_ = (melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -2039);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -3650);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf
