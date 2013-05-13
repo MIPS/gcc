@@ -27,7 +27,7 @@
   :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
   ;; fails to compile in svn rev 198815
   (debug "hook_override_gate beforegate=" beforegate 
-	 "\n override_gate_delayed_queue=" override_gate_delayed_queue=)
+	 "\n override_gate_delayed_queue=" override_gate_delayed_queue)
   (let ( 
 	(gateflag (if beforegate :true ()))
 	)

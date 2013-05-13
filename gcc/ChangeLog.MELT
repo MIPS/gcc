@@ -35,6 +35,9 @@
 	emission.
 
 2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/thook-2.melt: Correct typo, fails.
+
+2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/thook-2.melt: Add new file.
 
 	* testsuite/melt/thook-1.melt: Improve gccmelt_cflags in build
