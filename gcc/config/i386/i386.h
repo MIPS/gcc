@@ -1956,7 +1956,7 @@ do {							\
  "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",		\
  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",			\
  "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",	\
- "b0", "b1", "b2", "b3" }
+ "bnd0", "bnd1", "bnd2", "bnd3" }
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
