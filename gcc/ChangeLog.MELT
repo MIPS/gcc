@@ -1,6 +1,21 @@
 
 2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{thook-2.melt test passes}}
+	* melt/warmelt-genobj.melt (class_any_start_routineobj): New
+	intermediate abstract superclass.
+	(class_hookroutineobj, class_initialroutineobj): Inherit from it.
+	(compil_data_and_slots_fill): Check for it. Remove ifilllis,
+	because it is unused.
+	(compilobj_datasymbol, compilobj_datainstance)
+	(compilobj_datatuple, compilobj_datastring)
+	(compilobj_databoxedinteger, compilobj_dataclosure)
+	(compilobj_dataroutine, compilobj_datahook): Check for
+	class_any_start_routineobj.
+
+
+2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

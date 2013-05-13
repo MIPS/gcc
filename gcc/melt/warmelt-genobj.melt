@@ -617,9 +617,15 @@
 	   oprout_filenum		;boxed C file number
 	   ))
 
+
+;; any initial or hook routine is a start routine
+(defclass class_any_start_routineobj
+  :super class_routineobj
+  )
+
 ;; hook routine
 (defclass class_hookroutineobj
-  :super class_routineobj
+  :super class_any_start_routineobj
   :fields (
 	   ohookrout_datarg		;the argument for the data
 	   ohookrout_inargs
@@ -630,7 +636,7 @@
 	   
 ;; initial routine common super-class
 (defclass class_initialroutineobj
-  :super class_routineobj
+  :super class_any_start_routineobj
   :fields (
 	   oirout_data			;the tuple of initial data
 	   oirout_prolog       ;the prologue (list of instr) before filling the data. Imports should go here!
@@ -654,6 +660,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; export the above classes
 (export_class				;alphabetical order
+ class_any_start_routineobj
  class_hookroutineobj
  class_initial_extension_routineobj
  class_initial_module_routineobj
@@ -5127,12 +5134,12 @@ $SBUF.}#
 ;;; to add the initial data fill and the slots filling
 ;;; return a tuple of bindings to be disposed
 (defun compil_data_and_slots_fill (ndat obj odiscr irout gcx)
+  (debug "compil_data_and_slots_fill start ndat=" ndat " obj=" obj " odiscr=" odiscr " irout=" irout)
   (assert_msg "compil_data_and_slots_fill check ndat" (is_a ndat class_nrep_bound_data))
   (assert_msg "compil_data_and_slots_fill check obj" (is_a obj class_objinitobject))
   (assert_msg "compil_data_and_slots_fill check odiscr" (is_a odiscr class_objvalue))
-  (assert_msg "compil_data_and_slots_fill check irout" (is_a irout class_initialroutineobj))
+  (assert_msg "compil_data_and_slots_fill check irout" (is_a irout class_any_start_routineobj))
   (assert_msg "compil_data_and_slots_fill check gcx" (is_a gcx class_c_generation_context))
-  (debug "compil_data_and_slots_fill start ndat=" ndat " obj=" obj " odiscr=" odiscr " irout=" irout)
   (let (
 	(ipredef 
 	 (cond
@@ -5140,8 +5147,7 @@ $SBUF.}#
 	     (unsafe_get_field :ninst_predef ndat))
 	   ( (is_a ndat class_nrep_datahook)
 	     (unsafe_get_field :ndhook_predef ndat))))
-	(ibodylis (unsafe_get_field :obrout_body irout))
-	(ifilllis (unsafe_get_field :oirout_fill irout))
+	(ibodylis (get_field :obrout_body irout))
 	(locvar (get_free_objlocptr gcx '_valdata_))
 	(comm (unsafe_get_field :named_name '_valuedata_))
 	(nloc (unsafe_get_field :nrep_loc ndat))
@@ -5155,7 +5161,6 @@ $SBUF.}#
     (assert_msg "compil_data_and_slots_fill check fresh obj" (null (unsafe_get_field :oie_locvar obj)))
     (unsafe_put_fields obj :oie_locvar locvar)
     (debug "compil_data_and_slots_fill updated obj=" obj)
-    (assert_msg "compil_data_and_slots_fill check ifilllis" (is_list ifilllis))
     (assert_msg "compil_data_and_slots_fill check ibodylis" (is_list ibodylis))
     ;; if the data is predefined, we fill it conditionally on !meltpredefinited[..]
     (if ipredef
@@ -5292,12 +5297,13 @@ $SBUF.}#
 	 (chobj (mapobject_get compicache syv))
 	 (inirout (unsafe_get_field :gncx_objrout gcx))
 	 )
-    ;; datasymbol compiled only in initial routines
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
-    (if chobj
-	(progn
-	  (debug "compilobj_datasymbol found chobj=" chobj)
-	  (return chobj)))
+    (debug "compilobj_datasymbol inirout=" inirout 
+	   "\n compicache=" compicache "\n chobj=" chobj)
+    ;; datasymbol compiled only in start routines
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
+    (when chobj
+      (debug "compilobj_datasymbol found chobj=" chobj)
+      (return chobj))
     (let (
 	  (odiscr  (compile_obj (unsafe_get_field :ndata_discrx syv) gcx))
 	  (obsym 
@@ -5344,8 +5350,8 @@ $SBUF.}#
 	 (chobj (mapobject_get compicache dai))
 	 (inirout (unsafe_get_field :gncx_objrout gcx))
 	 )
-    ;; datainstance compiled only in initial routines
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
+    ;; datainstance compiled only in start routine
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
     (when chobj
       (debug "compilobj_datainstance return found chobj=" chobj)
       (return chobj))
@@ -5357,8 +5363,6 @@ $SBUF.}#
 	   (dhash (unsafe_get_field :ninst_hash dai))
 	   (dpredef (unsafe_get_field :ninst_predef dai))
 	   (dslots (unsafe_get_field :ninst_slots dai)) 
-	   (ininsl (unsafe_get_field :ninit_topl inirout))
-	   (inifill (unsafe_get_field :oirout_fill inirout))
 	   )
       ;; if the drank is invalid or nil, the data has never been added
       ;; with add_nctx_data (should not happen)
@@ -5423,12 +5427,12 @@ $SBUF.}#
 	 (chobj (mapobject_get compicache nti))
 	 (inirout (unsafe_get_field :gncx_objrout gcx))
 	 )
-    ;; datatuples compiled only in initial routines
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
-    (if chobj
-	(progn
-	  (debug "compilobj_datatuple found chobj=" chobj)
-	  (return chobj)))
+    ;; datatuples compiled only in start routine
+    (debug "compilobj_datatuple inirout=" inirout)
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
+    (when chobj
+      (debug "compilobj_datatuple found chobj=" chobj)
+      (return chobj))
     (let ( (ncompi (unsafe_get_field :ntup_comp nti))
 	   (ocompi (multiple_map 
 		    ncompi
@@ -5440,7 +5444,7 @@ $SBUF.}#
 	   (nambuf (make_strbuf discr_strbuf))
 	   (locvar (get_free_objlocptr gcx '_valtup_))
 	   (:long drk (get_int drank))
-	   (inibody (unsafe_get_field :obrout_body inirout))
+	   (inibody (get_field :obrout_body inirout))
 	   (comm (unsafe_get_field :named_name '_initup_))
 	   )
       (add2sbuf_strconst nambuf "dtup_")
@@ -5497,7 +5501,7 @@ $SBUF.}#
 	 (chobj (mapobject_get compicache nds))
 	 )
     ;; datastring compiled only in initial routines
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
     (if chobj
 	(progn
 	  (return chobj)))
@@ -5545,7 +5549,7 @@ $SBUF.}#
 	 (chobj (mapobject_get compicache ndi))
 	 )
     ;; datastring compiled only in initial routines
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
     (when chobj
       (debug "compilobj_databoxedinteger found chobj=" chobj)
       (return chobj))
@@ -5592,7 +5596,7 @@ $SBUF.}#
 	 (inibody (unsafe_get_field :obrout_body inirout))
 	 (chobj (mapobject_get compicache ncl))
 	 )
-    (assert_msg  "check inirout" (is_a inirout class_initialroutineobj))
+    (assert_msg  "check inirout" (is_a inirout class_any_start_routineobj))
     (when chobj
       (debug  "compilobj_dataclosure found chobj=" chobj)
       (return chobj))
@@ -5682,7 +5686,7 @@ $SBUF.}#
     ;; dataroutine compiled only in initial routines
     (debug "compilobj_dataroutine inirout=" inirout)
     (shortbacktrace_dbg "compilobj_dataroutine" 10)
-    ;(assert_msg "check inirout" (is_a inirout class_initialroutineobj))
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
     (when chobj
       (debug "compilobj_dataroutine return chobj=" chobj)
       (return chobj))
@@ -5820,7 +5824,7 @@ $SBUF.}#
       (debug "compilobj_datahook return chobj=" chobj)
       (return chobj))
     (debug "compilobj_datahook inirout=" inirout)
-    (assert_msg "check inirout" (is_a inirout class_initialroutineobj))
+    (assert_msg "check inirout" (is_a inirout class_any_start_routineobj))
     (let ( (nclotup (let ( (nct (get_field :ndhook_closv ndhook)) )
 		      (debug "compilobj_datahook nclotup=" nct)
 		      nct))
