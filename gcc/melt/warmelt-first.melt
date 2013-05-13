@@ -3101,18 +3101,37 @@ Keyword is :cstring.}#
 (defun initvalue_importer (sym parenv :cstring strnam modnam)
   (code_chunk ensuremodnam #{ /* $ensuremodnam */ if (!$modnam) $modnam = "???"; 
 	      }#)
-  (if (is_not_a sym class_symbol)
-      (progn
-	(code_chunk errfailimport 
-		    #{ /* $errfailimport */ 
-		    if ($strnam)
-		      error ("MELT [%s]: imported symbol %s not found",
-				 $modnam, $strnam);
-		    else
-		      error ("MELT [%s]: importing non symbol", $modnam);
-		    }#)
-	(return)
-	))
+  ;; error if importing a non symbol
+  (when (is_not_a sym class_symbol)
+    (shortbacktrace_dbg "initvalue_importer" 10)
+    (code_chunk errfailimport_chk
+		#{ /* initvalue_importer $ERRFAILIMPORT_CHK */ 
+		if ($STRNAM)
+		error ("MELT [%s]: imported symbol %s not found",
+		       $MODNAM, $STRNAM);
+		else
+		error ("MELT [%s]: importing non symbol", $MODNAM);
+		}#)
+    (return)
+	)
+  ;; error if importing from a non environment
+  (if (is_not_a parenv class_environment)
+    (let ( (pardiscr (discrim parenv))
+	   (pardiscnam (get_field :named_name pardiscr))
+	   )
+      (shortbacktrace_dbg "initvalue_importer" 10)
+      (code_chunk 
+       errparenv_chk
+       #{ /* initvalue_importer $ERRPARENV_CHK */
+       if ($PARENV)
+          error ("MELT [%s]: imported symbol %s with bad parent environment of discriminant %s",
+		 $MODNAM, $STRNAM, melt_string_str ((melt_ptr_t)$PARDISCNAM));
+       else
+          error  ("MELT [%s]: imported symbol %s without bad parent environment",
+		  $MODNAM, $STRNAM);
+	  }#)
+      (return)))
+  ;;
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check parenv" (is_a parenv class_environment))
   (let ( (valbind (find_env parenv sym))

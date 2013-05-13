@@ -2,6 +2,12 @@
 
 2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{thook-2.melt probably still don't work, and uncommented warmelt-hooks.melt don't work...}}
+	* melt/warmelt-first.melt (initvalue_importer): Add code chunks to
+	report errors for bad parenv.
+
+2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base.c: Regenerate.
