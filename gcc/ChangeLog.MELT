@@ -35,6 +35,11 @@
 	emission.
 
 2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (hook_override_gate): Temporarily
+	commented most of the code, which does not compile in svn
+	rev. 198475.
+
+2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (hook_override_gate): Add doc.
 	(melt_override_gate_callback): New in a cheader.

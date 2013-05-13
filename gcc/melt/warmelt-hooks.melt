@@ -25,16 +25,83 @@
 ;; the copyright notice above apply both to warmelt-hooks.melt and 
 ;; to the generated files  warmelt-hooks*.c
 
+
+(definstance override_gate_delayed_queue class_delayed_queue
+  :named_name '"override_gate_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+)
+
 (defhook hook_override_gate (:long beforegate) (:long aftergate) :void
   :predef HOOK_OVERRIDE_GATE
   :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
+#|
+  ;; the below debug fails to compile in svn rev 198815
   (debug "hook_override_gate beforegate=" beforegate)
-  (setq aftergate beforegate)
+  (let ( 
+	(gateflag (if beforegate :true ()))
+	(passname ())
+	(:long passnum 0)
+	(memref (container ()))
+	(revlastlist (make_list discr_list))
+	(qufirst (get_field :delqu_first override_gate_delayed_queue))
+	(qulast (get_field :delqu_last override_gate_delayed_queue))
+	)
+    ;; retrieve the passname and pass number
+    (code_chunk 
+     getpassname_chk 
+     #{ /* hook_override_gate $GETPASSNAME_CHK */
+     gcc_assert (current_pass != NULL);
+     $PASSNAME =  meltgc_new_stringdup
+	((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING), current_pass->name);
+     $PASSNUM = current_pass->static_pass_number;
+     }#)
+    ;; call the first closures in natural order
+    (debug "hook_override_gate memref=" memref 
+	   "\n gateflag=" gateflag
+	   "\n override_gate_delayed_queue=" override_gate_delayed_queue
+	   "\n passname=" passname " passnum=" passnum)
+    ;; apply the first closures in order
+    (foreach_in_list
+     (qufirst)
+     (curpair curclo)
+     (debug "hook_override_gate first curclo=" curclo " memref=" memref)
+     (if (is_closure curclo)
+	 (let ( (clores (curclo gateflag memref passname passnum))
+		)
+	   (debug "hook_override_gate first clores=" clores)
+	   (setq gateflag clores)
+	 )))
+    ;; reverse the last closures list
+    (foreach_in_list
+     (qulast)
+     (curlpair curlclo)
+     (if (is_closure curlclo)
+	 (list_append revlastlist curlclo)))
+    ;; apply the last closures in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (curlpair curlclo)
+     (debug "hook_override_gate last curlclo=" curlclo " memref=" memref)
+     (assert_msg "check curlclo" (is_closure curlclo))
+     (let ( (clores (curlclo gateflag memref passname passnum))
+	    )
+       (debug "hook_override_gate last clores=" clores)
+       (setq gateflag clores)))
+    ;;
+    (debug "hook_override_gate final gateflag=" gateflag
+	   "\n passname=" passname " passnum=" passnum)
+    (if gateflag
+	(setq aftergate 1)
+      (setq aftergate 0))
+  )
+|#
 )
 
 (cheader 
  #{
-   static void melt_override_gate_callback(void* gccdata, void* userdata)
+   static void melt_override_gate_callback(void* gccdata, 
+					   void* userdata ATTRIBUTE_UNUSED)
    {
      bool *pgatestatus = (bool*) gccdata;
      bool gatsta = false;
@@ -42,7 +109,9 @@
      gcc_assert (pgatestatus != NULL);
      gatsta = *pgatestatus;
      oldgatstalng = newgatstalng = (long)gatsta;
-   #warning should call melthookproc_HOOK_OVERRIDE_GATE
+     melthookproc_HOOK_OVERRIDE_GATE (oldgatstalng, &newgatstalng);
+     gatsta = (newgatstalng != 0L);
+     *pgatestatus = gatsta;
    } /* end of  melt_override_gate_callback */
  }#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
