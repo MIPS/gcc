@@ -1,5 +1,9 @@
 
 
+2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/thook-2.melt: Improve.
+
 2013-05-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{thook-2.melt probably still don't work, and uncommented warmelt-hooks.melt don't work...}}
