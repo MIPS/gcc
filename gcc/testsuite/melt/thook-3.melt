@@ -1,0 +1,24 @@
+; -*- lisp -*-
+;; file thook-3.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-3.melt 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
+ ./cc1 -fmelt-mode=rundebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
+    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
+    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
+    -fmelt-workdir=meltbuild-workdir \
+    -fmelt-tempdir=meltbuild-tempdir \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thook-3.melt \
+     "$gccmelt_cflags" \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defhook quoting_hook (:long i) () :void
+  (debug "in quoting_hook q1=" '1)
+)
+
+(debug "quoting_hook =" quoting_hook)
+;; eof thook-3.melt
