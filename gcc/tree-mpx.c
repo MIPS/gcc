@@ -184,6 +184,7 @@ const char *MPXSI_IDENTIFIER = "__mpx_initialize_static_bounds";
 const char *MPX_SIZE_OF_SYMBOL_PREFIX = "__mpx_size_of_";
 const char *MPX_BOUNDS_OF_SYMBOL_PREFIX = "__mpx_bounds_of_";
 const char *MPX_STRING_BOUNDS_PREFIX = "__mpx_string_bounds_";
+const char *MPX_VAR_BOUNDS_PREFIX = "__mpx_var_bounds_";
 const char *MPX_ZERO_BOUNDS_VAR_NAME = "__mpx_zero_bounds";
 const char *MPX_NONE_BOUNDS_VAR_NAME = "__mpx_none_bounds";
 
@@ -2205,6 +2206,7 @@ static tree
 mpx_make_static_bounds (tree obj)
 {
   static int string_id = 1;
+  static int var_id = 1;
   struct tree_map **slot, *map;
   const char *var_name;
   char *bnd_var_name;
@@ -2226,16 +2228,24 @@ mpx_make_static_bounds (tree obj)
 
   if (TREE_CODE (obj) == VAR_DECL)
     {
-      var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
+      if (DECL_IGNORED_P (obj))
+	{
+	  bnd_var_name = (char *) xmalloc (strlen (MPX_VAR_BOUNDS_PREFIX) + 10);
+	  sprintf (bnd_var_name, "%s%d", MPX_VAR_BOUNDS_PREFIX, var_id++);
+	}
+      else
+	{
+	  var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (obj));
 
-      /* For hidden symbols we want to skip first '*' char.  */
-      if (*var_name == '*')
-	var_name++;
+	  /* For hidden symbols we want to skip first '*' char.  */
+	  if (*var_name == '*')
+	    var_name++;
 
-      bnd_var_name = (char *) xmalloc (strlen (var_name)
-				       + strlen (MPX_BOUNDS_OF_SYMBOL_PREFIX) + 1);
-      strcpy (bnd_var_name, MPX_BOUNDS_OF_SYMBOL_PREFIX);
-      strcat (bnd_var_name, var_name);
+	  bnd_var_name = (char *) xmalloc (strlen (var_name)
+					   + strlen (MPX_BOUNDS_OF_SYMBOL_PREFIX) + 1);
+	  strcpy (bnd_var_name, MPX_BOUNDS_OF_SYMBOL_PREFIX);
+	  strcat (bnd_var_name, var_name);
+	}
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			    get_identifier (bnd_var_name), mpx_bound_type);
