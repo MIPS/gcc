@@ -27,7 +27,10 @@
   ;; fails to compile in svn rev 198815
   (debug "hook_xtra1_override_gate beforegate=" beforegate 
 	 "\n override_xtra1_gate_delayed_queue=" override_xtra1_gate_delayed_queue
-	 "\n :true=" :true)
+	 "\n :true=" :true
+	 "\n qone=" '1
+	 "\n qstr=" '"string"
+	 "\n qif=" 'if)
   (let ( 
 	(gateflag (if beforegate :true ()))
 	)
@@ -36,4 +39,6 @@
       (setq aftergate 0))
     )
   )
+
+(debug "hook_xtra1_override_gate=" hook_xtra1_override_gate)
 ;; eof thook-2.melt

@@ -5741,10 +5741,11 @@ source location.}#
 ;;;;;; normalize a QUOTE-d symbol, string or integer
 
 (defun normexp_quote (recv env ncx psloc)
+  (debug "normexp_quote recv=" recv)
   (assert_msg "check quote recv" (is_a recv class_source_quote))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp_quote recv" recv)
+  (shortbacktrace_dbg "normexp_quote" 10)
   (let ( (sloc   (unsafe_get_field :loca_location recv))
 	 (quoted (unsafe_get_field :squoted recv)) 
 	 (curproc (unsafe_get_field :nctx_curproc ncx))
@@ -5776,7 +5777,7 @@ source location.}#
 
 	   ))
 	 )
-    (debug "normexp_quote ndata" ndata)
+    (debug "normexp_quote ndata=" ndata "\n.. curproc=" curproc)
     (if (is_a curproc class_nrep_routproc)
 	(let ( 
 	      (nconst (instance class_nrep_constant
@@ -5786,10 +5787,10 @@ source location.}#
 				:nconst_proc curproc
 				)) )
 	  (list_append (unsafe_get_field :nrpro_const curproc) ndata)
-	  (debug "normexp_quote in routine nconst" nconst)
+	  (debug "normexp_quote in routine nconst=" nconst)
 	  (return nconst ()))
       (progn
-	(debug "normexp_quote in init ndata" ndata)
+	(debug "normexp_quote in init ndata=" ndata)
 	(return ndata ())
 	))))
 (install_method class_source_quote normal_exp normexp_quote)
@@ -5831,13 +5832,15 @@ source location.}#
 
 ;;;;;; normalize a keyword
 (defun normexp_keyword (recv env ncx psloc)
+  (debug "normexp_keyword recv=" recv)
+  (shortbacktrace_dbg "normexp_keyword" 10)
   (assert_msg "check keyword recv" (is_a recv class_keyword))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp_keyword recv" recv)
   (let ( (kdata (normal_keyword_data recv ncx psloc)) 
 	 (curproc (unsafe_get_field :nctx_curproc ncx)) 
 	 )
+    (debug "normexp_keyword kdata=" kdata "\n.. curproc=" curproc)
     (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
     (if (is_a curproc class_nrep_routproc)
 	(let (
@@ -5848,13 +5851,13 @@ source location.}#
 				:nconst_data kdata
 				:nconst_proc curproc))
 	      )
-	  (debug "normexp_keyword routine curproc" curproc)
+	  (debug "normexp_keyword routine curproc=" curproc)
 	  (list_append constlist kdata)
-	  (debug "normexp_keyword result nconst" nconst)
+	  (debug "normexp_keyword result nconst=" nconst)
 	  (return nconst ())
 	  )
       (progn
-	(debug "normexp_keyword routineinit result kdata" kdata)
+	(debug "normexp_keyword routineinit result kdata=" kdata)
 	(return kdata ())
 	))))
 (install_method class_keyword normal_exp normexp_keyword)
