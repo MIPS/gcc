@@ -1,3 +1,19 @@
+2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/fstack-protector-strong.c: Don't include <stdlib.h>.
+	(alloca): Remove declaration.
+	(foo9): Replace alloca by __builtin_alloca.
+
+2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/fstack-protector-strong.c (alloca): Declare.
+
+2013-04-16  Han Shen  <shenhan@google.com>
+
+	Test cases for '-fstack-protector-strong'.
+	* gcc.dg/fstack-protector-strong.c: New.
+	* g++.dg/fstack-protector-strong.C: New.
+
 2013-05-10  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/57214
