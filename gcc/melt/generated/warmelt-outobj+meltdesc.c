@@ -49,17 +49,17 @@ const char* const melt_secondaryhexmd5tab[]={
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+03.c #3 */ "637eb5d38fc7c1cf04f4136a98b7cf31",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+04.c #4 */ "804a76ad3f452607b3df59e16ac5c0c0",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+05.c #5 */ "c185daaa87f128919c6952398334861b",
- /*sechexmd5checksum meltbuild-sources/warmelt-outobj+06.c #6 */ "9befcdece5612621234c733a8d53f887",
+ /*sechexmd5checksum meltbuild-sources/warmelt-outobj+06.c #6 */ "4dad06c2330ada53dd58d944b3bd7645",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="b98a9736f96c04b1cbd1eb7700b2792d" ;
+const char melt_cumulated_hexmd5[]="349b383a26464482eed236ecd777381e" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_outobj_mds__b98a9736f96c04b1cbd1eb7700b2792d 1
+#define meltmod_warmelt_outobj_mds__349b383a26464482eed236ecd777381e 1
 #include "warmelt-outobj+melttime.h"
 	 
 
