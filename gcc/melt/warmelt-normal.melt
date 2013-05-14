@@ -5646,7 +5646,7 @@ source location.}#
 ;; retrieve or create the normalized datasym for a symbol
 (defun normal_symbol_data (sym ncx sloc)
   ;; sym should be strictly a symbol (not be in a subclass of class_symbol!)
-  (debug "normal_symbol_data start sym" sym)
+  (debug "normal_symbol_data start sym=" sym)
   (assert_msg "check symb" (== (discrim sym) class_symbol))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (valmap  (unsafe_get_field :nctx_valmap ncx))

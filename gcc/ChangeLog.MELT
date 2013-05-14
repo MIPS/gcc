@@ -1,6 +1,12 @@
 
 
 2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normal_symbol_data): Better debug.
+
+	* melt/warmelt-outobj.melt (normadeclb_macroexpanded_list):
+	Replace every_list by foreach_in_list, and if with when...
+
+2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/thook-2.melt: Use quoted symbols, strings,
 	keywords, ...
