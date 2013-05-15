@@ -1242,8 +1242,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   )
 (install_method discr_any_receiver output_c_code outpucod_anydiscr)
 
+
+;;
 (defun outpucod_null (nul declbuf implbuf :long depth)
-  (add2sbuf_strconst implbuf "NULL")
+     ;(assert_msg "@$@unexpected call to outpucod_null")
+  (shortbacktrace_dbg "outpucod_null" 12)
+  (add2out implbuf 
+	   ##{ NULL }#)
   )
 (install_method discr_null_receiver output_c_code outpucod_null)
 
@@ -6271,6 +6276,7 @@ if (1) return;
 	    (debug "translate_macroexpanded_list objhook=" objhook 
 		   "\n.. pro=" pro "\n.. objlist=" objlist 
 		   "\n.. compicache=" compicache)
+	    (assert_msg "check objhook=" (is_object objhook))
 	    ))
 	( (is_a pro class_nrep_anyproc)
 	  (let ( (objpro (compile2obj_procedure pro modctx compicache count)) 
@@ -6279,6 +6285,7 @@ if (1) return;
 	    (debug "translate_macroexpanded_list objpro=" objpro 
 		   "\n.. pro=" pro "\n.. objlist=" objlist
 		   "\n.. compicache=" compicache)
+	    (assert_msg "check objpro=" (is_object objpro))
 	  ))
 	( :else
 	  (assert_msg "translate_macroexpanded_list unexecpected procedure" pro))
@@ -6297,6 +6304,11 @@ if (1) return;
        ;; compile the initial procedure
        (debug "translate_macroexpanded_list objlist=" objlist)
        (assert_msg "check objlist" (is_list objlist))
+       (foreach_in_list
+	(objlist)
+	(pairel obel)
+	(assert_msg "check obel is object" (is_object obel))
+	)
        (let ( (inipro (unsafe_get_field :nctx_initproc ncx)) 
 	      (inidata (unsafe_get_field :nctx_datalist ncx))
 	      (importvalues (unsafe_get_field :nctx_valuelist ncx))
@@ -6311,7 +6323,13 @@ if (1) return;
 	 (assert_msg "check inipro" (is_a inipro class_nrep_initproc))
 	 (assert_msg "check iniproctransl" (is_closure iniproctransl))
 	 (debug "translate_macroexpanded_list inipro= " inipro
-		"\n before calling iniproctransl=" iniproctransl)
+		"\n before calling iniproctransl=" iniproctransl
+		"\n.. objlist=" objlist)
+	 (foreach_in_list
+	  (objlist)
+	  (pairel obel)
+	  (assert_msg "check obel is object" (is_object obel))
+	  )
 	 (let ( (iniobj
 		 (iniproctransl inipro modctx inidata compicache procurmodenvlist importvalues)) 
 		)
@@ -6322,6 +6340,7 @@ if (1) return;
 	    (objlist)
 	    (pairel obel)
 	    (debug "translate_macroexpanded_list obel=" obel)
+	    (assert_msg "check obel" (is_object obel))
 	    ;; we do want to generate several C files...
 	    (let ( (:long filnum
 			  (if (is_a obel class_procroutineobj)

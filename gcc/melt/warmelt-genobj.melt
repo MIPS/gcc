@@ -1249,40 +1249,41 @@ $SBUF.}#
 	 (multiple_put_nth ooutargs outix outcformal)
 	 (mapobject_put locmap curoutbnd locoutb)
 	 )
-       (debug "compile2obj_hook ooutargs=" ooutargs 
-	      "\n.. nbody=" nbody "\n..locmap=" locmap)
-       ;; associate the hook with its routine in the compiler cache
-       (mapobject_put compicache nhook hookrout)
-       (debug "compile2obj_hook updated compicache=" compicache
-	      "\n.. for nhook=" nhook)
-       (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
-       ;;
-       ;; compile the body
-       (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
-       (let ( (obody (compile_obj nbody gcx))
-	      )
-	 (debug "compile2obj_hook obody=" obody)
-	 (list_append obodylist obody)
-	 ;;
-	 ;; set the output parameters in the epilog
-	 (foreach_in_multiple
-	  (ooutargs)
-	  (curout :long outix)
-	  (debug "compile2obj_hook curout=" curout "\n... outix=" outix)
-	  (let (
-		(outloc (get_field :oformal_locv curout))
-		(ctypoutb (get_field :obv_type curout))
-		(ofargout (instance class_objputoutarg
-				    :obi_loc loc
-				    :oboutarg_formal curout))
-	      )
-	    (debug "compile2obj_hook ofargout=" ofargout)
-	      (list_append oepiloglist ofargout)
-	  ))
-	 (debug "compile2obj_hook oepiloglist=" oepiloglist)
-	 ;;
-	 (debug "compile2obj_hook return hookrout=" hookrout)
-	 (return hookrout))))))
+       )
+      (debug "compile2obj_hook ooutargs=" ooutargs 
+	     "\n.. nbody=" nbody "\n..locmap=" locmap)
+      ;; associate the hook with its routine in the compiler cache
+      (mapobject_put compicache nhook hookrout)
+      (debug "compile2obj_hook updated compicache=" compicache
+	     "\n.. for nhook=" nhook)
+      (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
+      ;;
+      ;; compile the body
+      (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
+      (let ( (obody (compile_obj nbody gcx))
+	     )
+	(debug "compile2obj_hook obody=" obody)
+	(list_append obodylist obody)
+	;;
+	;; set the output parameters in the epilog
+	(foreach_in_multiple
+	 (ooutargs)
+	 (curout :long outix)
+	 (debug "compile2obj_hook curout=" curout "\n... outix=" outix)
+	 (let (
+	       (outloc (get_field :oformal_locv curout))
+	       (ctypoutb (get_field :obv_type curout))
+	       (ofargout (instance class_objputoutarg
+				   :obi_loc loc
+				   :oboutarg_formal curout))
+	       )
+	   (debug "compile2obj_hook ofargout=" ofargout)
+	   (list_append oepiloglist ofargout)
+	   ))
+	;;
+	(debug "compile2obj_hook oepiloglist=" oepiloglist)
+	(debug "compile2obj_hook return hookrout=" hookrout)
+	(return hookrout)))))
 
 
 
