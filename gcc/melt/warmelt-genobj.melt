@@ -1178,6 +1178,7 @@ $SBUF.}#
 	   "\n nmapdata=" nmapdata
 	   "\n resctype=" resctype "\n gcx=" gcx)
     (assert_msg "check resctype" (is_a resctype class_ctype))
+    (assert_msg "check nmapdata" (is_mapobject nmapdata))
     (let ( (retloc (get_free_objloctyped gcx '_reshook_ resctype))
 	   (hdataloc (get_free_objloctyped gcx '_hookdata_ ctype_value))
 	   (ogetdata (make_objcompute loc ctype_value 
@@ -5838,6 +5839,22 @@ $SBUF.}#
 	   (nrank (get_field :ndata_rank ndhook)) ;a boxed int
 	   (npredef (get_field :ndhook_predef ndhook)) ;a symbol or nil
 	   (nlocbind (get_field :ndata_locbind ndhook))
+	   (nmapdata (let ( (nmd (get_field :nrhook_mapdata nhpro)) 
+			    )
+		       (debug "compilobj_datahook nmapdata=" nmd)
+		       nmd))
+	   (:long nbdata (mapobject_count nmapdata))
+	   (ndatatup (let ( (ndt (make_multiple discr_multiple nbdata)) 
+			    )
+		       (foreach_in_mapobject
+			(nmapdata)
+			(curndata nbix)
+			(debug "compilobj_datahook curndata=" curndata " nbix=" nbix)
+			(assert_msg "check nbix" (is_integerbox nbix))
+                       ;;@@@ fixme put the curndata into ndatatup
+			)
+		       ndt
+		       ))
 	   (ndisx (get_field :ndata_discrx ndhook))
 	   (ndhdata (get_field :ndhook_data ndhook))
 	   (odiscr (let ( (odi (compile_obj ndisx gcx)) )

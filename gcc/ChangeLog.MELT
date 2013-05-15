@@ -1,6 +1,10 @@
 
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt: More debug with nmapdata.
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (outpucod_objlabelinstr): Emit correct
 	code inside #if MELTDEBUG_MATCHING conditional code.
 
