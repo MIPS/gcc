@@ -1,11 +1,18 @@
 
-2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (class_nrep_hookproc): New field
+	nrhook_mapdata.
+	(add_nctx_data): Update it for hooks.
+	(normexp_defhook): Initialize it.
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (add_nctx_data, create_normcontext)
 	(create_normal_extending_context, normal_keyword_data): More
 	debug.
 
-2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/thook-3.melt: Improve, by calling the hook and
 	asserting that a quoted number is indeed a boxed integer.

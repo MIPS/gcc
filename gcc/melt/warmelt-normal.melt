@@ -505,6 +505,7 @@ procedure in a module, defined with $DEFHOOK. }#
 	   nrhook_ctype			;ctype of result
 	   nrhook_datahook		;hook data object
 	   nrhook_closedbindlist	;list of closed bindings
+	   nrhook_mapdata		;mapping of data...
 	   ))
 
 ;;; static normalized predef
@@ -855,7 +856,19 @@ procedure in a module, defined with $DEFHOOK. }#
   (assert_msg "check nctx" (is_a nctx class_normalization_context))
   (assert_msg "check ndata" (is_a ndata class_nrep_bound_data))
   (assert_msg "fresh ndata" (null (unsafe_get_field :ndata_rank ndata)))
-  (let ( (datlis (unsafe_get_field :nctx_datalist nctx)) )
+  (let ( (datlis (unsafe_get_field :nctx_datalist nctx)) 
+	 (ncurproc (unsafe_get_field :nctx_curproc nctx))
+	 )
+    (debug "add_nctx_data ncurproc=" ncurproc)
+    (if (is_a ncurproc class_nrep_hookproc)
+	(let ( (datamap (get_field :nrhook_mapdata ncurproc))
+	      )
+	  (debug "add_nctx_data datamap=" datamap)
+	  (assert_msg "check datamap" (is_mapobject datamap))
+	  (when (null (mapobject_get datamap ndata))
+	    (mapobject_put datamap ndata (constant_box (+i 1 (mapobject_count datamap))))
+	    (debug "add_nctx_data updated datamap=" datamap)
+	  )))
     (assert_msg "check datlis" (is_list datlis))
     (let ( (lastdat (pair_head (list_last datlis)))  )
       (if (is_a lastdat class_nrep_bound_data)
@@ -4411,6 +4424,7 @@ source location.}#
 			  :nrhook_outb ()
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
+			  :nrhook_mapdata (make_mapobject discr_map_objects 31)
 			  :nrhook_closedbindlist closbindlist))
 	 (descrhook (instance class_hook_descriptor
 			      :named_name symbname
