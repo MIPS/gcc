@@ -32,10 +32,10 @@
   :delqu_last (make_list discr_list)
 )
 
+#|
 (defhook hook_override_gate (:long beforegate) (:long aftergate) :void
   :predef HOOK_OVERRIDE_GATE
   :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
-#|
   ;; the below debug fails to compile in svn rev 198815
   (debug "hook_override_gate beforegate=" beforegate)
   (let ( 
@@ -95,7 +95,6 @@
 	(setq aftergate 1)
       (setq aftergate 0))
   )
-|#
 )
 
 (cheader 
@@ -119,4 +118,5 @@
 (export_values
   hook_override_gate
 )
+|#
 ;; eof warmelt-hooks.melt

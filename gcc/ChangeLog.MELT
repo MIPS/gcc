@@ -1,10 +1,21 @@
 
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compilobj_datahook): Compute the oclo
+	correctly...
+
+
+	* melt/warmelt-hooks.melt: Temporarily comment out nearly
+	everything.
+	(hook_override_gate): Temporarily remove.
+
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-genobj.melt (class_objhooknth): New class with
 	ohknth_hook & ohknth_off fields.
-	(compile2obj_hook): Use it to fill the compicache then forgetting
-	them.
+	(compile2obj_hook): Use it to fill the compicache for data inside
+	hooks then forgetting these.
 
 	* melt/warmelt-outobj.melt (outpucod_objhooknth): New method for
 	output_c_code on class_objhooknth.

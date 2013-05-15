@@ -5876,8 +5876,8 @@ $SBUF.}#
 	   (inibody (get_field :obrout_body inirout))
 	   (:long nbclo (multiple_length nclotup))
 	   (nhpro (get_field :ndhook_proc ndhook))
-	   (hname (get_field :ndata_name ndhook)) ;a string
-	   (nrank (get_field :ndata_rank ndhook)) ;a boxed int
+	   (hname (get_field :ndata_name ndhook))      ;a string
+	   (nrank (get_field :ndata_rank ndhook))      ;a boxed int
 	   (npredef (get_field :ndhook_predef ndhook)) ;a symbol or nil
 	   (nlocbind (get_field :ndata_locbind ndhook))
 	   (nmapdata (let ( (nmd (get_field :nrhook_mapdata nhpro)) 
@@ -5899,28 +5899,37 @@ $SBUF.}#
 	   (ndisx (get_field :ndata_discrx ndhook))
 	   (ndhdata (get_field :ndhook_data ndhook))
 	   (odiscr (let ( (odi (compile_obj ndisx gcx)) )
-		     (debug "compile_obj odiscr=" odi)
+		     (debug "compilobj_datahook odiscr=" odi)
 		     odi))
 	   (onam (string4out discr_verbatim_string
 			     ##{dhook__$NRANK#__$HNAME}#))
 	   (locvar (get_free_objlocptr gcx '_valhook_))
 	   (oclo
-	    (let ( (oc
-		    (multiple_map 
-		     nclotup
-		     (lambda (nclosv :long cix)
-		       (debug "compilobj_datahook/lambda nclosv=" nclosv " #" cix)
-		       (shortbacktrace_dbg "compilobj_datahook/lambda" 12)
-		       (let ( (ocurclov (compile_obj nclosv gcx)) )
-			 (debug "compilobj_datahook/lambda ocurclov=" ocurclov)
-			 ocurclov))))
-		   )
-	      (debug "compilobj_datahook oclo=" oc)
-	      oc))
+	    (let ( 
+		  (oct (make_multiple discr_multiple (+i nbclo nbdata)))
+		  )
+	      ;; compile the closed values
+	      (foreach_in_multiple
+	       (nclotup)
+	       (nclosv :long cix)
+	       (debug "compilobj_datahook nclosv=" nclosv " cix=" cix)
+	       (let ( (ocurclov (compile_obj nclosv gcx))
+		      )
+		 (debug "compilobj_datahook ocurclov=" ocurclov " cix=" cix)
+		 (multiple_put_nth oct cix ocurclov)))
+	      ;; compile the data
+	      (foreach_in_multiple
+	       (ndatatup)
+	       (curndata :long dix)
+	       (debug "compilobj_datahook curndata=" curndata " dix=" dix)
+	       )
+	      ;;
+	      (debug "compilobj_datahook oclo=" oct)
+	      oct))
 	   (ohkdata (let ( (o (compile_obj ndhdata gcx))
 			   )
-			   (debug "compilobj_datahook ohkdata=" o)
-			   o))
+		      (debug "compilobj_datahook ohkdata=" o)
+		      o))
 	   (oihook 
 	    (instance class_objinithook
 		      :obv_type ctype_value
@@ -5942,12 +5951,12 @@ $SBUF.}#
 	     "\n.. oclo=" oclo "\n.. inibody=" inibody)
       ;; set the data
       (let ( (ophd (instance class_objputhookdata
-			      :obi_loc nloc
-			      :ophkdata_hook oihook
-			      :ophkdata_data ohkdata))
+			     :obi_loc nloc
+			     :ophkdata_hook oihook
+			     :ophkdata_data ohkdata))
 	     )
-	 (list_append inibody ophd)
-	 (debug "compilobj_datahook ophd=" ophd))
+	(list_append inibody ophd)
+	(debug "compilobj_datahook ophd=" ophd))
       ;; set the components
       (foreach_in_multiple
        (oclo)
