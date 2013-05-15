@@ -43212,6 +43212,12 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
+static bool
+ix86_lra_p ()
+{
+  return flag_mpx;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -43563,11 +43569,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
 
 #undef TARGET_LRA_P
-#ifdef TARGET_MPX
-#define TARGET_LRA_P hook_bool_void_false
-#else
-#define TARGET_LRA_P hook_bool_void_true
-#endif
+#define TARGET_LRA_P ix86_lra_p
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority
