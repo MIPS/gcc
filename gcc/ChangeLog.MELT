@@ -1,6 +1,11 @@
 
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_objlabelinstr): Emit correct
+	code inside #if MELTDEBUG_MATCHING conditional code.
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

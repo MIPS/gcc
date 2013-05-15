@@ -3375,13 +3375,17 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; output code for label instr
 
+(definstance labelcountref class_reference :referenced_value '0)
 (defun outpucod_objlabelinstr (oblab declbuf implbuf :long depth)
+  (debug "outpucod_objlabelinstr oblab=" oblab)
   (assert_msg "check oblab" (is_a oblab class_objlabelinstr))
   (add2sbuf_indentnl implbuf depth)
   (add2sbuf_strconst implbuf "/*objlabel*/ ")
   (let ( (oprefix (unsafe_get_field :oblab_prefix oblab))
 	 (obrank (unsafe_get_field :oblab_rank oblab)) 
+	 (:long count (+i 1 (get_int !labelcountref)))
 	 )
+    (set_content labelcountref (constant_box count))
     (add2sbuf_string implbuf oprefix)
     (if obrank
 	(add2sbuf_longdec implbuf (get_int obrank))
@@ -3392,12 +3396,14 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (assert_msg "check limited implbuf" 
 		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
     (output_location (unsafe_get_field :obi_loc oblab) implbuf depth "objlabel")
-    (add2out implbuf ##{ /* objlabel */
-	     #if MELTDEBUG_MATCHING
-	     static long meltlab_count_$OBRANK;   meltlab_count_$OBRANK++;
-	     debugeprintf("objlabel $OPREFIX#$OBRANK $OBLAB %ld", meltlab_count_$OBRANK) ;
-	     #endif
-	     }#)
+    (add2out 
+     implbuf ##{ /* objlabel */
+     #if MELTDEBUG_MATCHING
+     static long meltlab_count_$COUNT;   
+     meltlab_count_$COUNT++;
+     debugeprintf("objlabel_$COUNT $OPREFIX#$OBRANK $OBLAB %ld", meltlab_count_$COUNT);
+     #endif
+     }#)
     (add2sbuf_indentnl implbuf depth)
     ))
 (install_method class_objlabelinstr output_c_code outpucod_objlabelinstr)
