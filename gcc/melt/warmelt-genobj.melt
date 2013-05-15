@@ -550,9 +550,16 @@
 ;; put a constant value inside a hook
 (defclass class_objputhookconst
   :super class_objinstr
-  :fields (ophconst_hook	 ;the routine data
+  :fields (ophconst_hook	 ;the hook data
 	   ophconst_off		 ;the boxed offset
 	   ophconst_cval	 ;the constant value
+	   ))
+
+;; unsafely retrieve the hook nth "closed" data
+(defclass class_objhooknth
+  :super class_objpurevalue
+  :fields (ohknth_hook			;the hook
+	   ohknth_off			;the boxed offset
 	   ))
 
 ;; put a constant data inside a hook
@@ -694,6 +701,7 @@
  class_objgetnamedsymbol
  class_objgetslot
  class_objgotoinstr
+ class_objhooknth
  class_objinitboxinteger
  class_objinitclosure
  class_objinitelem
@@ -1261,12 +1269,45 @@ $SBUF.}#
 	     "\n.. for nhook=" nhook)
       (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
       ;;
+      ;; associate each hookdata with its retrieval in the compicache
+      (debug "compile2obj_hook nmapdata=" nmapdata "\n hdataloc=" hdataloc
+	     "\n nclosvtup=" nclosvtup "\n class_objhooknth=" class_objhooknth)
+      (let ( (:long nbclosvm1 (-i (multiple_length nclosvtup) 1))
+	     )
+	(foreach_in_mapobject
+	 (nmapdata)
+	 (curndata bxdix)
+	 (debug "compile2obj_hook curndata=" curndata " bxdix=" bxdix)
+	 (assert_msg "check curndata" (is_a curndata class_nrep_quasidata))
+	 (assert_msg "check bxdix" (is_integerbox bxdix))
+	 (let ( (:long dix (get_int bxdix))
+		(ofetchdata (instance class_objhooknth
+				      :obv_type ctype_value
+				      :ohknth_hook hdataloc
+				      :ohknth_off (constant_box (+i dix nbclosvm1)))
+			    )
+		)
+	   (debug "compile2obj_hook ofetchdata=" ofetchdata)
+	   (mapobject_put compicache curndata ofetchdata)
+	   )
+	 )				; end foreach_in_mapobject
+	(debug "compile2obj_hook hookdataupdated compicache=" compicache)
+	)
+      ;;
       ;; compile the body
       (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
       (let ( (obody (compile_obj nbody gcx))
 	     )
 	(debug "compile2obj_hook obody=" obody)
 	(list_append obodylist obody)
+	;; forget the closed data
+	(foreach_in_mapobject
+	 (nmapdata)
+	 (curndata bxdix)
+	 (debug "compile2obj_hook forgetting curndata=" curndata 
+		" bxdix=" bxdix)
+	 (mapobject_remove compicache curndata))
+	(debug "compile2obj_hook after forgethookdata compicache=" compicache)
 	;;
 	;; set the output parameters in the epilog
 	(foreach_in_multiple
