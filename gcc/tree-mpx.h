@@ -8,9 +8,11 @@
 
 #ifdef TARGET_64BIT
 #define bound_type_node (TARGET_64BIT ? bound64_type_node : bound32_type_node)
+#define BNDmode (TARGET_64BIT ? BND64mode : BND32mode)
 #else
 /* Not i386 target.  Need to be fixed to support other targets.  */
 #define bound_type_node bound32_type_node
+#define BNDmode BND32mode
 #endif
 
 extern const char *MPX_SIZE_OF_SYMBOL_PREFIX;
