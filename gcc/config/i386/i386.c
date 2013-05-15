@@ -30387,10 +30387,6 @@ ix86_init_builtin_types (void)
 {
   tree float128_type_node, float80_type_node;
 
-  lang_hooks.types.register_builtin_type (TARGET_64BIT ? 
-                                            bound64_type_node :
-                                            bound32_type_node, "__bnd");
-
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
   if (TYPE_MODE (float80_type_node) != XFmode)
