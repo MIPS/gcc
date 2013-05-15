@@ -1,6 +1,18 @@
 
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (add_nctx_data): A hook could have no
+	nrhook_mapdata yet, because it is set later.
+	(normexp_defhook): Put the nrhook_mapdata just before normalizing
+	the body.
+
+	* melt/warmelt-outobj.melt (outdeclinit_objinithook): Use the
+	correct size, given by :oihk_cloval length.
+	(outpucod_objputhookconst, outpucod_objputhookdata): Emit a
+	melt_assertmsg check.
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-genobj.melt (compilobj_datahook): Compute the oclo
 	correctly...
 

@@ -870,11 +870,12 @@ procedure in a module, defined with $DEFHOOK. }#
 	(let ( (datamap (get_field :nrhook_mapdata ncurproc))
 	       )
 	  (debug "add_nctx_data datamap=" datamap)
-	  (assert_msg "check datamap" (is_mapobject datamap))
-	  (when (null (mapobject_get datamap ndata))
-	    (mapobject_put datamap ndata (constant_box (+i 1 (mapobject_count datamap))))
-	    (debug "add_nctx_data updated datamap=" datamap)
-	    )))
+	  (when datamap
+	    (assert_msg "check datamap" (is_mapobject datamap))
+	    (when (null (mapobject_get datamap ndata))
+	      (mapobject_put datamap ndata (constant_box (+i 1 (mapobject_count datamap))))
+	      (debug "add_nctx_data updated datamap=" datamap)
+	      ))))
     (assert_msg "check datlis" (is_list datlis))
     (let ( (lastdat (pair_head (list_last datlis)))  )
       (if (is_a lastdat class_nrep_bound_data)
@@ -4422,6 +4423,7 @@ source location.}#
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
 	 (oldsymbcache (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closbindlist (make_list discr_list))
+	 (nmapdata (make_mapobject discr_map_objects 31))
 	 (nproc (instance class_nrep_hookproc
 			  :nrep_loc sloc
 			  :nproc_body ()
@@ -4430,7 +4432,7 @@ source location.}#
 			  :nrhook_outb ()
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
-			  :nrhook_mapdata (make_mapobject discr_map_objects 31)
+			  :nrhook_mapdata ()
 			  :nrhook_closedbindlist closbindlist))
 	 (descrhook (instance class_hook_descriptor
 			      :named_name symbname
@@ -4532,6 +4534,10 @@ source location.}#
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
     (debug "normexp_defhook newenv=" newenv)
+    ;; We set nrhook_mapdata only here, because add_nctx_data is using
+    ;; it, and we dont bother about data unrelated to the hook body.
+    (put_fields nproc :nrhook_mapdata nmapdata)
+    (debug "normexp_defhook nproc=" nproc "\n with nmapdata=" nmapdata)
     ;;
     (multicall
      (nbody nbindings)

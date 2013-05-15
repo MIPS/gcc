@@ -818,8 +818,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;;;;;; hooks
 
 (defun outdeclinit_objinithook (recv sbuf)
+  (debug "outdeclinit_objinithook recv=" recv)
   (add2sbuf_strconst sbuf " struct MELT_HOOK_STRUCT(")
-  (add2sbuf_longdec sbuf (get_int recv))
+  (add2sbuf_longdec sbuf (multiple_length (get_field :oihk_cloval recv)))
   (add2sbuf_strconst sbuf ") ")
   (add2sbuf_string sbuf (get_field :oie_cname recv))
   (add2sbuf_strconst sbuf ";")
@@ -4934,6 +4935,14 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (output_location oloc implbuf depth "puthookconst")
     (add2out implbuf ##{/*put inside hook $HOOKNAME */}#)
     (add2sbuf_indentnl implbuf depth)
+    (add2out implbuf 
+     "melt_assertmsg(\"puthookconst checkhook " hookname "\", (")
+    (output_c_code ohoff declbuf implbuf depth)
+    (add2out implbuf
+	     ") < melt_hook_size ((melt_ptr_t)")
+    (output_c_code ohook declbuf implbuf depth)
+    (add2out implbuf "));")
+    (add2sbuf_indentnl implbuf depth)
     (add2sbuf_strconst implbuf "((melthook_ptr_t)")
     (output_c_code ohook declbuf implbuf depth)
     (add2sbuf_strconst implbuf ")->tabval[")
@@ -4960,6 +4969,10 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (assert_msg "check ohook" (is_a ohook class_objinithook))
     (output_location oloc implbuf depth "puthookdata")
     (add2out implbuf ##{/*put data in hook $HOOKNAME */}#)
+    (add2sbuf_indentnl implbuf depth)
+    (add2out implbuf "melt_assertmsg(\"puthookdata checkhook " hookname "\", melt_magic_discr((melt_ptr_t)(")
+    (output_c_code ohook declbuf implbuf depth)
+    (add2out implbuf ")) == MELTOBMAG_HOOK);")
     (add2sbuf_indentnl implbuf depth)
     (add2sbuf_strconst implbuf "((melthook_ptr_t)")
     (output_c_code ohook declbuf implbuf depth)
