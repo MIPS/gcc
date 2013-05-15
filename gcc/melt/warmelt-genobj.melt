@@ -5851,7 +5851,7 @@ $SBUF.}#
 			(curndata nbix)
 			(debug "compilobj_datahook curndata=" curndata " nbix=" nbix)
 			(assert_msg "check nbix" (is_integerbox nbix))
-                       ;;@@@ fixme put the curndata into ndatatup
+			(multiple_put_nth ndt (-i (get_int nbix) 1) curndata)
 			)
 		       ndt
 		       ))
