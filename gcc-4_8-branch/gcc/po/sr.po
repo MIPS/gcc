@@ -19133,6 +19133,10 @@ msgstr "тип је превазиђен (декларисан код %s:%d)"
 msgid "type is deprecated (declared at %s:%d)"
 msgstr "тип је превазиђен (декларисан код %s:%d)"
 
+#: tree.c:11601
+msgid "type is deprecated (declared at %r%s:%d%R)"
+msgstr "тип је превазиђен (декларисан код %r%s:%d%R)"
+
 #: tree.c:11610
 #, fuzzy, gcc-internal-format
 #| msgid "%qs is deprecated"

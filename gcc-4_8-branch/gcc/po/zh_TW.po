@@ -19032,6 +19032,10 @@ msgstr "類型已過時(於 %s:%d 宣告)"
 msgid "type is deprecated (declared at %s:%d)"
 msgstr "類型已過時(於 %s:%d 宣告)"
 
+#: tree.c:11601
+msgid "type is deprecated (declared at %r%s:%d%R)"
+msgstr "類型已過時(於 %r%s:%d%R 宣告)"
+
 #: tree.c:11610
 #, fuzzy, gcc-internal-format
 #| msgid "%qs is deprecated"

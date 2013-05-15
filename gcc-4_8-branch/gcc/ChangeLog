@@ -1,3 +1,58 @@
+2013-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (warn_deprecated_use): Print file:line using locus color.
+	* diagnostic.c (diagnostic_report_current_module): Print file:line
+	and file:line:column using locus color.
+
+2013-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (toplev.o): Depend on diagnostic-color.h.
+	* diagnostic-color.c (should_colorize): Remove _WIN32 version.
+	(colorize_init): Add argument to _WIN32 version.
+	* toplev.c: Include diagnostic-color.h.
+	(process_options): Default to -fdiagnostics-color=auto if
+	GCC_COLORS env var is in the environment.
+	* common.opt (fdiagnostics-color=): Add Var and Init.
+	* doc/invoke.texi (-fdiagnostics-color=): Document that if
+	GCC_COLORS env var is in the environment, the default is auto
+	rather than never.
+
+	* diagnostic.h (file_name_as_prefix): Add context argument.
+	* diagnostic.c (file_name_as_prefix): Likewise.  Colorize
+	the string as locus.
+	* langhooks.c (lhd_print_error_function): Adjust caller.
+
+2013-04-12  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* opts.c: Include diagnostic-color.h.
+	(common_handle_option): Handle OPT_fdiagnostics_color_.
+	* Makefile.in (OBJS-libcommon): Add diagnostic-color.o.
+	(diagnostic.o, opts.o, pretty-print.o): Depend on diagnostic-color.h.
+	(diagnostic-color.o): New.
+	* common.opt (fdiagnostics-color, fdiagnostics-color=): New options.
+	(diagnostic_color_rule): New enum.
+	* dwarf2out.c (gen_producer_string): Don't print -fdiagnostics-color*.
+	* langhooks.c (lhd_print_error_function): Add %r "locus" and %R around
+	the location string.
+	* diagnostic.def: Add 3rd argument to DEFINE_DIAGNOSTIC_KIND macros,
+	either NULL, or color kind.
+	* diagnostic-color.c: New file.
+	* diagnostic-color.h: New file.
+	* diagnostic-core.h (DEFINE_DIAGNOSTIC_KIND): Adjust macro for 3
+	arguments.
+	* doc/invoke.texi (-fdiagnostics-color): Document.
+	* pretty-print.h (pp_show_color): Define.
+	(struct pretty_print_info): Add show_color field.
+	* diagnostic.c: Include diagnostic-color.h.
+	(diagnostic_build_prefix): Adjust for 3 argument DEFINE_DIAGNOSTIC_KIND
+	macros.  Colorize error:, warning: etc. strings and also the location
+	string.
+	(diagnostic_show_locus): Colorize the caret line.
+	* pretty-print.c: Include diagnostic-color.h.
+	(pp_base_format): Handle %r and %R format specifiers.  Colorize strings
+	inside of %< %> quotes or quoted through q format modifier.
+
 2013-05-07  Han Shen  <shenhan@google.com>
 
 	* cfgexpand.c (record_or_union_type_has_array_p): New function.
