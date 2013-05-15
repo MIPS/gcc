@@ -146,7 +146,6 @@ static GTY (()) tree mpx_bind_intersect_fndecl;
 static GTY (()) tree mpx_arg_bnd_fndecl;
 static GTY (()) tree mpx_sizeof_fndecl;
 
-static GTY (()) tree mpx_bound_type;
 static GTY (()) tree mpx_uintptr_type;
 
 static GTY (()) tree mpx_zero_bounds_var = NULL;
@@ -219,7 +218,7 @@ mpx_get_tmp_var (void)
 {
   if (!tmp_var)
     {
-      tmp_var = create_tmp_reg (mpx_bound_type, BOUND_TMP_NAME);
+      tmp_var = create_tmp_reg (bound_type_node, BOUND_TMP_NAME);
       //add_referenced_var (tmp_var);
     }
 
@@ -373,7 +372,7 @@ mpx_make_bounds_for_struct_addr (tree ptr)
 
   gcc_assert (size);
 
-  return build_call_nary (mpx_bound_type,
+  return build_call_nary (bound_type_node,
 			  build_fold_addr_expr (mpx_bndmk_fndecl),
 			  2, ptr, size);
 }
@@ -2248,7 +2247,7 @@ mpx_make_static_bounds (tree obj)
 	}
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			    get_identifier (bnd_var_name), mpx_bound_type);
+			    get_identifier (bnd_var_name), bound_type_node);
     }
   else
     {
@@ -2256,7 +2255,7 @@ mpx_make_static_bounds (tree obj)
       sprintf (bnd_var_name, "%s%d", MPX_STRING_BOUNDS_PREFIX, string_id++);
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			    get_identifier (bnd_var_name), mpx_bound_type);
+			    get_identifier (bnd_var_name), bound_type_node);
     }
 
   TREE_PUBLIC (bnd_var) = 0;
@@ -2308,7 +2307,7 @@ mpx_make_static_const_bounds (HOST_WIDE_INT lb,
 			      const char *name)
 {
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (name), mpx_bound_type);
+			 get_identifier (name), bound_type_node);
 
   TREE_PUBLIC (var) = 0;
   TREE_USED (var) = 1;
@@ -2319,7 +2318,7 @@ mpx_make_static_const_bounds (HOST_WIDE_INT lb,
   DECL_COMMON (var) = 1;
   DECL_COMDAT (var) = 1;
   DECL_READ_P (var) = 1;
-  DECL_INITIAL (var) = build_int_cst_wide (mpx_bound_type, lb, ~ub);
+  DECL_INITIAL (var) = build_int_cst_wide (bound_type_node, lb, ~ub);
 
   vec_safe_push (mpx_static_const_bounds, var);
 
@@ -3587,8 +3586,8 @@ mpx_fix_function_decl (tree decl, bool make_ssa_names)
 	  name = get_identifier (name_buf);
 
 	  bounds = build_decl (UNKNOWN_LOCATION, PARM_DECL, name,
-				 mpx_bound_type);
-	  DECL_ARG_TYPE (bounds) = mpx_bound_type;
+				 bound_type_node);
+	  DECL_ARG_TYPE (bounds) = bound_type_node;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -3698,7 +3697,6 @@ mpx_init (void)
   tmp_var = NULL_TREE;
   size_tmp_var = NULL_TREE;
 
-  mpx_bound_type = TARGET_64BIT ? bound64_type_node : bound32_type_node;
   mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 
   /* Build declarations for builtin functions.  */

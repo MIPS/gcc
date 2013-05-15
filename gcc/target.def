@@ -1280,7 +1280,7 @@ DEFHOOK
  default_expand_builtin)
 
 /* Return target-specific builtin function which implements
-   generic Point Lookout builtin.  */
+   generic memory protection builtin.  */
 DEFHOOK
 (builtin_mpx_function,
  "MPX instrumentation pass uses this hook to obtain\n\
@@ -1288,6 +1288,20 @@ target-specific functions which implement generic MPX\n\
 builtins.",
  tree, (unsigned fcode),
  hook_tree_uint_null)
+
+/* Bounds type MPX should use.  */
+DEFHOOK
+(mpx_bound_type,
+ "Return type to be used for bounds",
+ tree, (void),
+ hook_tree_uint_null)
+
+/* Bounds mode MPX should use.  */
+DEFHOOK
+(mpx_bound_mode,
+ "Return mode to be used for bounds.",
+ enum machine_mode, (void),
+ default_mpx_bound_mode)
 
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to

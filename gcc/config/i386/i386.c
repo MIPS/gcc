@@ -43209,6 +43209,18 @@ ix86_lra_p ()
   return ! flag_mpx;
 }
 
+static tree
+ix86_mpx_bound_type ()
+{
+  return TARGET_64BIT ? bound64_type_node : bound32_type_node;
+}
+
+static enum machine_mode
+ix86_mpx_bound_mode ()
+{
+  return TARGET_64BIT ? BND64mode : BND32mode;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -43590,6 +43602,12 @@ ix86_lra_p ()
 
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
+
+#undef TARGET_MPX_BOUND_TYPE
+#define TARGET_MPX_BOUND_TYPE ix86_mpx_bound_type
+
+#undef TARGET_MPX_BOUND_MODE
+#define TARGET_MPX_BOUND_MODE ix86_mpx_bound_mode
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

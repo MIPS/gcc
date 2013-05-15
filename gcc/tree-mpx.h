@@ -6,14 +6,8 @@
 #define BOUNDED_P(node) \
   BOUNDED_TYPE_P (TREE_TYPE (node))
 
-#ifdef TARGET_64BIT
-#define bound_type_node (TARGET_64BIT ? bound64_type_node : bound32_type_node)
-#define BNDmode (TARGET_64BIT ? BND64mode : BND32mode)
-#else
-/* Not i386 target.  Need to be fixed to support other targets.  */
-#define bound_type_node bound32_type_node
-#define BNDmode BND32mode
-#endif
+#define bound_type_node (targetm.mpx_bound_type ())
+#define BNDmode (targetm.mpx_bound_mode ())
 
 extern const char *MPX_SIZE_OF_SYMBOL_PREFIX;
 

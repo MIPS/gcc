@@ -10937,6 +10937,12 @@ MPX instrumentation pass uses this hook to obtain
 target-specific functions which implement generic MPX
 builtins.
 @end deftypefn
+@deftypefn {Target Hook} tree TARGET_MPX_BOUND_TYPE (void)
+Return type to be used for bounds
+@end deftypefn
+@deftypefn {Target Hook} {enum machine_mode} TARGET_MPX_BOUND_MODE (void)
+Return mode to be used for bounds.
+@end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (unsigned int @var{loc}, tree @var{fndecl}, void *@var{arglist})
 Select a replacement for a machine specific built-in function that

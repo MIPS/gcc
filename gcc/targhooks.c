@@ -1588,4 +1588,10 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
 }
 
+enum machine_mode
+default_mpx_bound_mode (void)
+{
+  return VOIDmode;
+}
+
 #include "gt-targhooks.h"

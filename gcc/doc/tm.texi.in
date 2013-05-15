@@ -10767,6 +10767,8 @@ built-in function.
 @end deftypefn
 
 @hook TARGET_BUILTIN_MPX_FUNCTION
+@hook TARGET_MPX_BOUND_TYPE
+@hook TARGET_MPX_BOUND_MODE
 
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 Select a replacement for a machine specific built-in function that
