@@ -156,7 +156,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 	  sizeof (melthook_HOOK_OVERRIDE_GATE_frame_));
 #define meltfram__ melthook_HOOK_OVERRIDE_GATE_frame_
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -314 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -1550 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_OVERRIDE_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -195,7 +195,7 @@ melthookmark_HOOK_OVERRIDE_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_OVERRIDE_GATE_t *meltframptr_
     = (melthookframe_HOOK_OVERRIDE_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_OVERRIDE_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -314);
+		  meltframptr_->mcfr_nbvar == -1550);
   if (meltmarking)
     {				/* marking hook HOOK_OVERRIDE_GATE */
       int meltix;
@@ -273,7 +273,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -1797);
+		  iniframp__->mcfr_nbvar == /*minihash */ -3100);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -377,7 +377,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_5__OVERRIDE_GATE_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V7*/ meltfptr[6]);
-  meltcdat->dobj_5__OVERRIDE_GATE_DELAYED_QUEUE.obj_hash = 517542139;
+  meltcdat->dobj_5__OVERRIDE_GATE_DELAYED_QUEUE.obj_hash = 1055582817;
   meltcdat->dobj_5__OVERRIDE_GATE_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -462,7 +462,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_10__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_10__.obj_hash = 1013919855;
+  meltcdat->dobj_10__.obj_hash = 950159196;
   meltcdat->dobj_10__.obj_len = 6;
 
 
@@ -518,7 +518,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_13.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_13.obj_num = 0;
-  meltcdat->dobj_13.obj_hash = 604111710;
+  meltcdat->dobj_13.obj_hash = 387249375;
   meltcdat->dobj_13.obj_len = 2;
 
   /*inimult dtup_14___HOOK_OVERRIDE_GATE */
@@ -579,7 +579,7 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_17.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_17.obj_num = 0;
-  meltcdat->dobj_17.obj_hash = 719812899;
+  meltcdat->dobj_17.obj_hash = 458707543;
   meltcdat->dobj_17.obj_len = 2;
 
   /*inimult dtup_18___HOOK_OVERRIDE_GATE */
@@ -658,14 +658,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 1797*/
+/* declstructinit initial routine melt_start_this_module minihash 3100*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
   ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
-    /*minihash */ -1797;
+    /*minihash */ -3100;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__warmelt_hooks__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -1493,7 +1493,7 @@ meltmod__warmelt_hooks__forward_or_mark_module_start_frame (struct
   int meltix = 0;
   melt_initial_frame_st *meltframptr_ = (melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -1797);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -3100);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf
