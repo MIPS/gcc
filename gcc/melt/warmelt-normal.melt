@@ -851,6 +851,7 @@ procedure in a module, defined with $DEFHOOK. }#
 
 ;;; add some data to a normalization context and return it
 (defun add_nctx_data (nctx ndata)
+  (debug "add_nctx_data nctx=" nctx "\n.. ndata=" ndata)
   (assert_msg "check nctx" (is_a nctx class_normalization_context))
   (assert_msg "check ndata" (is_a ndata class_nrep_bound_data))
   (assert_msg "fresh ndata" (null (unsafe_get_field :ndata_rank ndata)))
@@ -956,6 +957,8 @@ procedure in a module, defined with $DEFHOOK. }#
 (defun create_normcontext (modctx)
   :doc #{Internal routine to reate a normalization context for module
   context $MODCTX, used to compile modules.}#
+  (debug "create_normcontext modctx=" modctx)
+  (shortbacktrace_dbg "create_normcontext" 10)
   (let ( (:long maxpredefix (last_globpredef_index))
 	 (:long ix 1)
 	 (predefmap (make_mapobject discr_map_objects (+i 19 (*i 2 maxpredefix))))
@@ -997,7 +1000,7 @@ procedure in a module, defined with $DEFHOOK. }#
 		 :nctx_procurmodenvlist (make_list discr_list)
 		 ))
 	   )
-      (debug "create_normcontext return ncx" ncx)
+      (debug "create_normcontext make ncx=" ncx)
       (return ncx)
       )))
 
@@ -1007,6 +1010,7 @@ procedure in a module, defined with $DEFHOOK. }#
   context $MODCTX, used to compile, e.g. for running, the extension of a module environment $MODENV.}#
   (debug "create_normal_extending_context start modctx=" modctx
 	 "\n* modenv=" modenv "\n")
+  (shortbacktrace_dbg "create_normal_extending_context" 10)
   (let ( (:long maxpredefix (last_globpredef_index))
 	 (:long ix 1)
 	 (predefmap (make_mapobject discr_map_objects (+i 11 (*i 2 maxpredefix))))
@@ -1050,7 +1054,7 @@ procedure in a module, defined with $DEFHOOK. }#
 		 :nctx_procurmodenvlist (make_list discr_list)
 		 ))
 	   )
-      (debug "create_normal_extending_context return ncx" ncx)
+      (debug "create_normal_extending_context make ncx=" ncx)
       (return ncx)
       )))
 
@@ -5686,6 +5690,7 @@ source location.}#
 ;; retrieve or create the normalized datakeyword for a keyword
 (defun normal_keyword_data (keyw ncx sloc)
   ;; keyw should be strictly a keyword (not be in a subclass of class_keyword!)
+  (debug "normal_keyword_data keyw=" keyw)
   (assert_msg "check keywb" (== (discrim keyw) class_keyword))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (valmap  (unsafe_get_field :nctx_valmap ncx))
@@ -5713,6 +5718,7 @@ source location.}#
 	(add_nctx_data ncx synamstrdata)
 	(mapobject_put valmap keyw sydata)
 	(mapstring_putstr (unsafe_get_field :nctx_keywmap ncx) synamstr sydata)
+	(debug "normal_keyword_data return sydata=" sydata)
 	(return sydata)
 	))))
 
