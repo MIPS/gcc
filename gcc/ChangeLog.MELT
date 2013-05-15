@@ -1,4 +1,10 @@
 
+2013-05-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/thook-3.melt: Improve, by calling the hook and
+	asserting that a quoted number is indeed a boxed integer.
+	Still failing test....
+
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-genobj.melt (compile2obj_hook): Parenthesis

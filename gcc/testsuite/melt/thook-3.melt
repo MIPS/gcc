@@ -17,8 +17,20 @@
 |#
 
 (defhook quoting_hook (:long i) () :void
-  (debug "in quoting_hook q1=" '1)
+  (let ( (q1 '1) 
+	 )
+    (debug "in quoting_hook q1=" q1)
+    (assert_msg "check q1" (is_integerbox q1)))
 )
 
 (debug "quoting_hook =" quoting_hook)
+
+(code_chunk 
+ doqhook_chk 
+ #{ /* $DOQHOOK_CHK */
+   long $DOQHOOK_CHK =0;
+   debugeprintf("$DOQHOOK_CHK= %ld before doing hook", $DOQHOOK_CHK);
+   melthook_QUOTING_HOOK($QUOTING_HOOK, $DOQHOOK_CHK);
+   debugeprintf("$DOQHOOK_CHK= %ld after doing hook", $DOQHOOK_CHK);
+ }#)
 ;; eof thook-3.melt
