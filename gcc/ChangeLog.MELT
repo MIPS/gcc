@@ -1,6 +1,10 @@
 
 2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compile2obj_hook): Debug it.
+
+2013-05-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (class_nrep_hookproc): New field
 	nrhook_mapdata.
 	(add_nctx_data): Update it for hooks.

@@ -1121,6 +1121,7 @@ $SBUF.}#
 	(loc (get_field :nrep_loc nhook))
 	(nbody (get_field :nproc_body nhook))
 	(nhookname (get_field :nrhook_name nhook))
+	(nmapdata (get_field :nrhook_mapdata nhook))
 	(hookroutname (let (
 			    (namsbuf (make_strbuf discr_strbuf)) 
 			    )
@@ -1174,6 +1175,7 @@ $SBUF.}#
 	)
     (debug "compile2obj_hook empty hookrout=" hookrout 
 	   "\n nclosvtup=" nclosvtup
+	   "\n nmapdata=" nmapdata
 	   "\n resctype=" resctype "\n gcx=" gcx)
     (assert_msg "check resctype" (is_a resctype class_ctype))
     (let ( (retloc (get_free_objloctyped gcx '_reshook_ resctype))
