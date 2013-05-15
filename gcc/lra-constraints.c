@@ -4031,9 +4031,6 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 {
   int hard_regno = regno < FIRST_PSEUDO_REGISTER ? regno : reg_renumber[regno];
 
-  if (REGNO_REG_CLASS (hard_regno) == BND_REGS)
-     return false;
-
   lra_assert (hard_regno >= 0);
   return ((TEST_HARD_REG_BIT (potential_reload_hard_regs, hard_regno)
 	   /* Don't split eliminable hard registers, otherwise we can

@@ -2609,7 +2609,6 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrtm",		OPTION_MASK_ISA_RTM },
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
-    { "-mmpx",          OPTION_MASK_ISA_MPX },
   };
 
   /* Flag options.  */
@@ -3399,9 +3398,6 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_XSAVEOPT
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEOPT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_XSAVEOPT;
-        if (processor_alias_table[i].flags & PTA_MPX
-            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_MPX))
-          ix86_isa_flags |= OPTION_MASK_ISA_MPX;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4032,7 +4028,7 @@ ix86_conditional_register_usage (void)
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 
   /* Support bound registers only for MPX mode.  */
-  if (! TARGET_MPX)
+  if (! flag_mpx)
     {
       for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
 	fixed_regs[i] = 1, reg_names[i] = "";
@@ -4207,7 +4203,6 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("fxsr",	OPT_mfxsr),
     IX86_ATTR_ISA ("xsave",	OPT_mxsave),
     IX86_ATTR_ISA ("xsaveopt",	OPT_mxsaveopt),
-    IX86_ATTR_ISA ("mpx",       OPT_mmpx),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -14877,7 +14872,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case '!':
-	  if (TARGET_MPX && flag_mpx)
+	  if (flag_mpx)
 	    /*fputs ("repne ", file);*/
 	    fputs (".byte 0xf2\n\t", file);
 	  return;
@@ -28188,21 +28183,21 @@ static const struct builtin_description bdesc_args[] =
 /* Bultins for MPX.  */
 static const struct builtin_description bdesc_mpx[] =
 {
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { 0, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
+  { 0, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
+  { 0, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { 0, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { 0, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
+  { 0, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
 };
 
 /* Const builtins for MPX.  */
 static const struct builtin_description bdesc_mpx_const[] =
 {
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
-  { OPTION_MASK_ISA_MPX, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
+  { 0, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
+  { 0, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
+  { 0, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
+  { 0, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
 };
 
 /* FMA4 and XOP.  */
@@ -28904,33 +28899,33 @@ ix86_init_mmx_sse_builtins (void)
     }
 
   /* Add MPX instructions.  */
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds32",
+  def_builtin_const (0, "__builtin_ia32_bind_bounds32",
 		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bind_bounds64",
+  def_builtin_const (0, "__builtin_ia32_bind_bounds64",
 		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds32",
+  def_builtin_const (0, "__builtin_ia32_intersect_bounds32",
 		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_intersect_bounds64",
+  def_builtin_const (0, "__builtin_ia32_intersect_bounds64",
 		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int32",
+  def_builtin_const (0, "__builtin_ia32_bndbind_int32",
 		     PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndbind_int64",
+  def_builtin_const (0, "__builtin_ia32_bndbind_int64",
 		     PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret32",
+  def_builtin_const (0, "__builtin_ia32_bndret32",
 		     BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndret64",
+  def_builtin_const (0, "__builtin_ia32_bndret64",
 		     BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint32",
+  def_builtin_const (0, "__builtin_ia32_bndint32",
 		     BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_bndint64",
+  def_builtin_const (0, "__builtin_ia32_bndint64",
 		     BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd32",
+  def_builtin_const (0, "__builtin_ia32_arg_bnd32",
 		     BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_arg_bnd64",
+  def_builtin_const (0, "__builtin_ia32_arg_bnd64",
 		     BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia32_sizeof",
+  def_builtin_const (0, "__builtin_ia32_sizeof",
 		     USI_FTYPE_VOID, IX86_BUILTIN_SIZEOF32);
-  def_builtin_const (OPTION_MASK_ISA_MPX, "__builtin_ia64_sizeof",
+  def_builtin_const (0, "__builtin_ia64_sizeof",
 		     UDI_FTYPE_VOID, IX86_BUILTIN_SIZEOF64);
 }
 
@@ -34841,7 +34836,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
-  if (TARGET_MPX && BND_REGNO_P (regno))
+  if (BND_REGNO_P (regno))
     return VALID_BND_REG_MODE(mode);
   if (SSE_REGNO_P (regno))
     {
@@ -43211,7 +43206,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 static bool
 ix86_lra_p ()
 {
-  return flag_mpx;
+  return ! flag_mpx;
 }
 
 /* Initialize the GCC target structure.  */
