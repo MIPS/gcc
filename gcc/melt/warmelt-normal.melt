@@ -860,15 +860,21 @@ procedure in a module, defined with $DEFHOOK. }#
 	 (ncurproc (unsafe_get_field :nctx_curproc nctx))
 	 )
     (debug "add_nctx_data ncurproc=" ncurproc)
-    (if (is_a ncurproc class_nrep_hookproc)
+    ;; add into the hook data map, but not the hookproc itself or its
+    ;; datahook, otherwise compilobj_datahook could recur infinitely.
+    (if (and 
+	 (is_a ncurproc class_nrep_hookproc)
+	 (!= ncurproc ndata)
+	 (!= ndata (get_field :nrhook_datahook ncurproc))
+	 )
 	(let ( (datamap (get_field :nrhook_mapdata ncurproc))
-	      )
+	       )
 	  (debug "add_nctx_data datamap=" datamap)
 	  (assert_msg "check datamap" (is_mapobject datamap))
 	  (when (null (mapobject_get datamap ndata))
 	    (mapobject_put datamap ndata (constant_box (+i 1 (mapobject_count datamap))))
 	    (debug "add_nctx_data updated datamap=" datamap)
-	  )))
+	    )))
     (assert_msg "check datlis" (is_list datlis))
     (let ( (lastdat (pair_head (list_last datlis)))  )
       (if (is_a lastdat class_nrep_bound_data)
@@ -4460,6 +4466,7 @@ source location.}#
 			   )) 
 	 )
     (put_fields ndatahook :ndhook_data insdata)
+    (put_fields nproc :nrhook_datahook ndatahook)
     (debug "normexp_defhook newenv=" newenv
 	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc
 	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
@@ -4509,7 +4516,6 @@ source location.}#
     ;; fill the hookdesc_ctype of insdata
     (multiple_put_nth slotup (get_int hookdesc_ctype) (normal_predef sctype ncx sloc "hook ctype"))
     ;;
-    (put_fields nproc :nrhook_datahook ndatahook)
     (debug "normexp_defhook updated ncx=" ncx "\n .. nproc=" nproc)
     (foreach_in_multiple
      (sinformals)
