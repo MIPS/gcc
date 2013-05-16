@@ -3047,7 +3047,10 @@ end:
 
 /*** sort a multiple with a compare closure which should return a
      number; if it does not, the sort return nil, by longjmp-ing out
-     of qsort
+     of qsort.
+
+     FIXEME: When switching to C++, use std::sort instead and remove
+     the mulsort_escapjmp. Probably wants a hook for the compare...
  ***/
 static jmp_buf mulsort_escapjmp;
 static melt_ptr_t *mulsort_mult_ad;
@@ -5160,7 +5163,7 @@ end:
 #if MELT_HAVE_DEBUG
 static long applcount_melt;
 static int appldepth_melt;
-#define MAXDEPTH_APPLY_MELT 256
+#define MAXDEPTH_APPLY_MELT 512
 long melt_application_count (void)
 {
   return (long) applcount_melt;

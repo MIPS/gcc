@@ -1,0 +1,36 @@
+;; file tchunk-compo.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tchunk-compo.melt 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
+ ./cc1 -fmelt-mode=rundebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
+    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
+    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
+    -fmelt-workdir=meltbuild-workdir \
+    -fmelt-tempdir=meltbuild-tempdir \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tchunk-compo.melt \
+     "$gccmelt_cflags" \
+    meltbuild-empty-file.c
+|#
+
+(defun testa ()
+  (let ( (:long ll 0)
+	 )
+    (code_chunk 
+     compa_chk
+     #{ /* testa $COMPA_CHK */
+     static long $COMPA_CHK#_num;
+     $COMPA_CHK#_num++;
+     $LL = $COMPA_CHK#_num++;
+     $(debug "inside compa_chk ll=" ll)
+     if ($LL < 10) 
+        $LL += ($LL/3 + 1);
+     }#)
+    (debug "after compa_chk ll=" ll)
+))
+
+(testa)
+;; eof tchunk-compo.melt
+ 

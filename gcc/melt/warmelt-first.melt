@@ -1251,6 +1251,16 @@ an integer $I if $I is greater than $N.}#
   #{(char*)0}#
 )
 
+(defprimitive cstring_is_null (:cstring s) :long
+  :doc #{Test ia the cstring $S is NULL}#
+  #{(($S) == NULL)}#
+)
+
+(defprimitive cstring_non_empty (:cstring s) :long
+  :doc #{Test ia the cstring $S is not NULL and not empty}#
+  #{((($S) != NULL) && ((char*)($S))[0] != (char)0)}#
+)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -4496,6 +4506,8 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  closure_size
  create_keywordstr
  create_symbolstr
+ cstring_is_null
+ cstring_non_empty
  discrim
  get_int
  get_keywordstr

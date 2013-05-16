@@ -4100,6 +4100,7 @@ pattern if the value is an instance of @emph{exactly}
 @var{class-name} (not a sub-class) and if each specified field matches
 its [sub-]pattern.  The $OBJECT pattern macro should not be used in
 expression context.  See also $INSTANCE and $DEFCLASS.}# )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; the codechunk expander
 (defun mexpand_code_chunk (sexpr env mexpander modctx)
@@ -4116,29 +4117,38 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
     (setq curel (pair_head curpair))
     (if (is_a curel class_symbol)
 	(setq gsym curel)
-      (error_plain sloc "missing symbol in (CODE_CHUNK <state-symbol> <chunk>)"))
+      (error_plain sloc "missing symbol in (CODE_CHUNK <state-symbol> <chunk>...)"))
     (setq curpair (pair_tail curpair))
-    (setq curchk (pair_head curpair))
-    (if  (pair_tail curpair)
-	(error_plain sloc "CODE_CHUNK expects one single chunk sexpr"))
-    (if (is_not_a curchk class_sexpr)
-	(error_plain sloc "CODE_CHUNK expects a chunk sexpr"))
-    (let ( (loc (get_field :loca_location curchk)) 
-	   (chkcont (get_field :sexp_contents curchk))
-	   )
-      (foreach_in_list
-       (chkcont)
-       (curpair curcomp)
-       (cond ( (is_string curcomp)
-	       (list_append chklist (make_string discr_verbatim_string curcomp))
-	       )
-	     ( (is_a curcomp class_symbol)
-	       (list_append chklist curcomp))
-	     (:else
-	      (error_plain loc "bad content in CODE_CHUNK - expecting string or symbol")))
+    (letrec ( 
+	     (mexp_macrostring 
+	      (lambda (comp loc)
+		(debug "mexpand_code_chunk/mexp_macrostring comp=" comp "\n loc=" loc)
+		(cond
+		 ( (is_string comp)
+		   (list_append chklist (make_string discr_verbatim_string comp)))
+		 ( (is_a comp class_sexpr_macrostring)
+		   (let ( 
+			 (cloc (get_field :loca_location comp))
+			 (compcont (get_field :sexp_contents comp))
+			 )
+		     (foreach_in_list
+		      (compcont)
+		      (compair subcomp)
+		      (mexp_macrostring subcomp cloc))))
+		 ( (is_a comp class_sexpr)
+		   (list_append chklist (mexpander comp env mexpander modctx)))
+		 (:else
+		  (list_append chklist comp)))
+		(debug "mexpand_code_chunk/mexp_macrostring comp=" comp
+		       "\n updated chklist=" chklist)))
+	     )
+      (foreach_pair
+       (curpair)
+       (thispair thiscomp)
+       (mexp_macrostring thiscomp sloc)
        )
       (let ( (mres (instance class_source_codechunk
-			     :loca_location (or loc sloc)
+			     :loca_location sloc
 			     :sch_gensym gsym
 			     :sch_chunks (list_to_multiple chklist discr_multiple)
 			     )) )
@@ -4148,8 +4158,11 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 
 (install_initial_macro 'code_chunk mexpand_code_chunk)
 (export_macro code_chunk mexpand_code_chunk
-	      :doc #{The $CODE_CHUNK macro is for low-level C code chunks. The syntax is ($CODE_CHUNK @var{state-symbol} @var{chunk}) where @var{chunk} is a macro-string. It generates a C block. Since it does not make any type verification, it should be usually avoided. See $DEFPRIMITIVE etc.
-}#)
+	      :doc #{The $CODE_CHUNK macro is for low-level C code
+chunks. The syntax is ($CODE_CHUNK @var{state-symbol} @var{chunk}...)
+where @var{chunk}-s may be macro-string. It generates a C block. Since
+it does not make any type verification, it should be usually
+avoided. See $DEFPRIMITIVE etc.}#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; the unsafe_put_fields expander

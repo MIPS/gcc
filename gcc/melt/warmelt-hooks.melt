@@ -26,6 +26,19 @@
 ;; to the generated files  warmelt-hooks*.c
 
 
+
+
+;;;====================================================================
+;;;***************** get or create a named symbol *********************
+#|
+(defhook hook_create_named_symbol (:cstring nam) () :value
+  :predef HOOK_CREATE_NAMED_SYMBOL
+  
+)
+|#
+
+;;;====================================================================
+;;;******************* OVERRIDE_GATE plugin event *********************
 (definstance override_gate_delayed_queue class_delayed_queue
   :named_name '"override_gate_delayed_queue"
   :delqu_first (make_list discr_list)
