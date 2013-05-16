@@ -1,6 +1,20 @@
 
 2013-05-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_plugin_name): New public variable.
+
+2013-05-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (registered_flag_override_gate): New
+	instance.
+	(enable_override_gate, maybe_disable_override_gate): New internal
+	functions.
+	(register_override_gate_first, register_override_gate_last)
+	(unregister_override_gate_first, unregister_override_gate_last):
+	New public functions.
+
+2013-05-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (outpucod_objputhookconst): Improve
 	emitted checks.
 

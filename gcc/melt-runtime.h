@@ -78,7 +78,8 @@ extern void fatal_error (const char *, ...);
 /* We need hwint.h for  HOST_WIDE_INT */
 #include "hwint.h"
 
-
+/* the MELT plugin name, useful for register_callback. */
+MELT_EXTERN const char* melt_plugin_name;
 
 MELT_EXTERN const char melt_runtime_build_date[];
 

@@ -34,7 +34,9 @@
 
 (defhook hook_override_gate (:long beforegate) (:long aftergate) :void
   :predef HOOK_OVERRIDE_GATE
-  :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
+  :doc #{The internal $HOOK_OVERRIDE_GATE handles
+  @t{PLUGIN_OVERRIDE_GATE} events. See $REGISTER_OVERRIDE_GATE_FIRST
+  etc...}#
   (debug "hook_override_gate beforegate=" beforegate)
   (let ( 
 	(gateflag (if beforegate :true ()))
@@ -114,9 +116,105 @@
  }#)
 
 
+;; internal flag set when PLUGIN_OVERRIDE_GATE registered
+(definstance registered_flag_override_gate class_reference)
+
+;; internal function to enable the plugin hook
+(defun enable_override_gate ()
+  (when (null !registered_flag_override_gate)
+    (set_ref registered_flag_override_gate :true)
+    (code_chunk 
+     regplugin_chk
+     #{ /* enable_override_gate $REGPLUGIN_CHK */
+     register_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE,
+			melt_override_gate_callback,
+			NULL);
+     }#)
+))
+
+;; internal function to disable the plugin hook
+(defun maybe_disable_override_gate ()
+  (when (and registered_flag_override_gate
+	     (null (list_first (get_field :delqu_first override_gate_delayed_queue)))
+	     (null (list_first (get_field :delqu_last override_gate_delayed_queue))))
+    (set_ref registered_flag_override_gate ())
+    (code_chunk
+     unregplugin_chk
+     #{ /* disable_override_gate $UNREGPLUGIN_CHK */
+     unregister_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE);
+     }#)
+))
+
+;; public functions to register
+(defun register_override_gate_first (clo)
+  :doc #{Register a function $CLO for @code{PLUGIN_OVERRIDE_GATE} at first place. 
+See also $UNREGISTER_OVERRIDE_GATE_FIRST, $REGISTER_OVERRIDE_GATE_LAST, etc..}#
+  (debug "register_override_gate_first clo=" clo)
+  (when (is_closure clo)
+    (list_append (get_field :delqu_first override_gate_delayed_queue) clo)
+    (enable_override_gate)))
+
+(defun register_override_gate_last (clo)
+  :doc #{Register a function $CLO for @code{PLUGIN_OVERRIDE_GATE} at last place. 
+See also $UNREGISTER_OVERRIDE_GATE_LAST, $REGISTER_OVERRIDE_GATE_FIRST, etc...}#
+  (debug "register_override_gate_last clo=" clo)
+  (when (is_closure clo)
+    (list_append (get_field :delqu_last override_gate_delayed_queue) clo)
+    (enable_override_gate)))
+
+(defun unregister_override_gate_first (clo)
+  :doc #{Unregister a function $CLO previously registered with
+  $REGISTER_OVERRIDE_GATE_FIRST for @code{PLUGIN_OVERRIDE_GATE},
+  return the boxed count of removed closures or null on failure.}#
+  (debug "unregister_override_gate_first clo=" clo)
+  (let ( (oldlis (get_field :delqu_first override_gate_delayed_queue))
+	 (newlis (make_list discr_list))
+	 (:long count 0)
+	 )
+    (foreach_in_list
+     (oldlis)
+     (curpair curclo)
+     (if (== curclo clo) 
+	 (setq count (+i count 1))
+       (list_append newlis curclo)))
+    (when count
+      (put_fields override_gate_delayed_queue :delqu_first newlis)
+      (maybe_disable_override_gate)
+      (debug "unregister_override_gate_first count=" count)
+      (return (constant_box count)))
+    (debug "unregister_override_gate_first fail")
+    (return ())))
+
+(defun unregister_override_gate_last (clo)
+  :doc #{Unregister a function $CLO previously registered with
+  $REGISTER_OVERRIDE_GATE_LAST for @code{PLUGIN_OVERRIDE_GATE}, 
+  return the boxed count of removed closures or null on failure.}#
+  (debug "unregister_override_gate_last clo=" clo)
+  (let ( (oldlis (get_field :delqu_last override_gate_delayed_queue))
+	 (newlis (make_list discr_list))
+	 (:long count 0)
+	 )
+    (foreach_in_list
+     (oldlis)
+     (curpair curclo)
+     (if (== curclo clo) 
+	 (setq count (+i count 1))
+       (list_append newlis curclo)))
+    (when count
+      (put_fields override_gate_delayed_queue :delqu_last newlis)
+      (maybe_disable_override_gate)
+      (debug "unregister_override_gate_last count=" count)
+      (return (constant_box count)))
+    (debug "unregister_override_gate_last fail")
+    (return ())))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
   hook_override_gate
+  register_override_gate_first
+  register_override_gate_last
+  unregister_override_gate_first
+  unregister_override_gate_last
 )
 ;; eof warmelt-hooks.melt
