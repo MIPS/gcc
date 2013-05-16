@@ -32,7 +32,6 @@
   :delqu_last (make_list discr_list)
 )
 
-#|
 (defhook hook_override_gate (:long beforegate) (:long aftergate) :void
   :predef HOOK_OVERRIDE_GATE
   :doc #{ the $HOOK_OVERRIDE_GATE handles @t{PLUGIN_OVERRIDE_GATE} events.}#
@@ -99,8 +98,9 @@
 
 (cheader 
  #{
-   static void melt_override_gate_callback(void* gccdata, 
-					   void* userdata ATTRIBUTE_UNUSED)
+   static void 
+   melt_override_gate_callback (void* gccdata, 
+				void* userdata ATTRIBUTE_UNUSED)
    {
      bool *pgatestatus = (bool*) gccdata;
      bool gatsta = false;
@@ -118,5 +118,4 @@
 (export_values
   hook_override_gate
 )
-|#
 ;; eof warmelt-hooks.melt
