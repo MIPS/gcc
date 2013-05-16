@@ -1171,6 +1171,14 @@ mpx_check_mem_access (tree first, tree last, tree bounds,
   if (bounds == mpx_get_zero_bounds ())
     return;
 
+  if (dirflag == integer_zero_node
+      && !flag_mpx_check_read)
+    return;
+
+  if (dirflag == integer_one_node
+      && !flag_mpx_check_write)
+    return;
+
   seq = NULL;//gimple_seq_alloc ();
 
   node = mpx_force_gimple_call_op (first, &seq);
