@@ -24,7 +24,11 @@
      static long $COMPA_CHK#_num;
      $COMPA_CHK#_num++;
      $LL = $COMPA_CHK#_num++;
-     $(debug "inside compa_chk ll=" ll)
+     /* testa before ignore $COMPA_CHK */
+
+     $(ignore (debug "inside compa_chk ll=" ll))
+
+     /* testa after ignore $COMPA_CHK */
      if ($LL < 10) 
         $LL += ($LL/3 + 1);
      }#)

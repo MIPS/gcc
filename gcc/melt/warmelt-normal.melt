@@ -47,6 +47,25 @@ if any.}#
   :fields (nrep_loc			;location in source
 	   ))
 
+
+;;; the discriminant for normalizing closures
+(definstance discr_normalizing_closure class_discriminant
+  :doc #{The $DISCR_NORMALIZING_CLOSURE is the discriminant of MELT debug
+  functions. Use $CLONE_WITH_DISCRIMINANT on a closure, e.g. with
+  $LAMBDA, to make it a normalizing function. For gurus.}#
+  :obj_num MELTOBMAG_CLOSURE
+  :disc_super discr_closure
+  :named_name '"DISCR_NORMALIZING_CLOSURE")
+
+(defclass class_normal_magic_binding
+  :doc #{The $CLASS_NORMAL_MAGIC_BINDING is tricky, rarely
+  used (e.g. for @code{code_chunk} tags): the $NMAGIC_VALUE is the
+  returned value of its $BINDER. If it is a closure of
+  DICR_NORMALIZING_CLOSURE, that closure is applied to normalize.}#
+  :super class_any_binding
+  :fields (nmagic_value)
+)
+
 ;; a simple stuff is a non-object, a symbol (or keyword or clonedsym),
 ;; ...
 (defclass class_nrep_simple
@@ -759,6 +778,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_normal_constructed_pair_binding
  class_normal_constructed_tuple_binding
  class_normal_constructor_binding
+ class_normal_magic_binding
  class_nrep
  class_nrep_again
  class_nrep_anyproc
@@ -1557,7 +1577,7 @@ source location.}#
 	 (nletrec (get_field :nconsb_nletrec bind))
 	 )
 	  (debug "normbind_constructbind nletrec" nletrec)
-	  (assert_msg "normexp_symbol check nletrec" (is_a nletrec class_nrep_letrec))
+	  (assert_msg "normbind_constructbind  check nletrec" (is_a nletrec class_nrep_letrec))
 	  (let ( (nlocsyms (get_field :nletrec_locsyms nletrec))
 		 (ourlocsym ())
 		 )
@@ -1613,6 +1633,23 @@ source location.}#
 		       (unsafe_get_field :named_name recv))
 	   (shortbacktrace_dbg "normexp_symbol null bind" 15)
 	   (return () ())))
+     ;;
+     (if (is_a bind class_normal_magic_binding)
+	 (let ( (magval (get_field :nmagic_value bind))
+	       )
+	   (debug "normexp_symbol magicbind magval=" magval)
+	   (if (is_a magval discr_normalizing_closure)
+	       (multicall
+		(nval nbind)
+		(magval env ncx psloc)
+		(debug "normexp_symbol magicbind nval=" nval " nbind=" nbind)
+		(return nval nbind))
+	     (progn
+	       (debug "normexp_symbol magicbind bind=" bind "\n gives magval=" magval)
+	       (return magval ())
+	     ))
+	   ))
+     ;;
      (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx))
 	    (syca (mapobject_get sycmap recv)) )
        (assert_msg "check sycmap" (is_mapobject sycmap))
@@ -2298,28 +2335,54 @@ source location.}#
 	 (schk (unsafe_get_field :sch_chunks recv))
 	 (gsym (unsafe_get_field :sch_gensym recv))
 	 (csym (clone_symbol gsym))
-	 (csymstr (let ( (sbuf (make_strbuf discr_strbuf)) )
-		    (add2sbuf_string sbuf (get_field :named_name csym))
-		    (add2sbuf_strconst sbuf "__")
-		    (add2sbuf_longdec sbuf (get_int (get_field :csym_urank csym)))
-		    (strbuf2string discr_verbatim_string sbuf)
-		    ))
-	 (nchk (multiple_map 
-		schk
-		(lambda (curcomp :long curix)
-		  (cond
-		   ( (is_string curcomp) curcomp)
-		   ( (== curcomp gsym) csymstr)
-		   ( (is_a curcomp class_symbol)
-		     (normal_exp curcomp env ncx sloc))
-		   (:else
-		    (debug "normexp_code_chunk curcomp=" curcomp " curix#" curix)
-		    (multicall
-		     (nexp nbind)
-		     (normal_exp curcomp env ncx sloc)
-		     (debug "normexp_code_chunk nexp=" nexp " nbind=" nbind)
-		     (assert_msg "$@$normexp_code_chunk unimplemented subexpression")
-		   ))))))
+	 (bindlist (make_list discr_list))
+	 (newenv (fresh_env env))
+	 (csymstr 
+	  (let ( (sbuf (make_strbuf discr_strbuf)) )
+	    (add2sbuf_cident sbuf (get_field :named_name csym))
+	    (add2sbuf_strconst sbuf "__")
+	    (add2sbuf_longdec sbuf (get_int (get_field :csym_urank csym)))
+	    (strbuf2string discr_verbatim_string sbuf)
+	    ))
+	 (magicbind (let ( (mb (instance class_normal_magic_binding
+					 :binder gsym
+					 :nmagic_value csymstr))
+			   )
+		      (put_env newenv mb)
+		      (debug "normexp_code_chunk magicbind=" mb)
+		      mb))
+	 (nchk (let ( (nc 
+		       (multiple_map 
+			schk
+			(lambda (curcomp :long curix)
+			  (cond
+			   ( (is_string curcomp)
+			     (clone_with_discriminant curcomp discr_verbatim_string))
+			   ( (is_a curcomp class_symbol)
+			     (normal_exp curcomp newenv ncx sloc))
+			   (:else
+			    (debug "normexp_code_chunk curcomp=" curcomp " curix#" curix)
+			    (multicall
+			     (nexp nbind)
+			     (normal_exp curcomp newenv ncx sloc)
+			     (debug "normexp_code_chunk nexp=" nexp "\n.. nbind=" nbind)
+			     (assert_msg "check nbind" (is_list_or_null nbind))
+			     (let ( (compctyp (get_ctype nexp newenv))
+				    (cloc (or (get_field :loca_location curcomp) sloc))
+				    )
+			       (debug "normexp_code_chunk compctyp=" compctyp)
+			       (when (!= compctyp ctype_void)
+				 (error_strv cloc
+					     "composite CODE_CHUNK element should be :void, got"
+					     (get_field :named_name compctyp))
+				 (return ())
+				 )
+			       (let ( (wl (wrap_normal_let1 nexp nbind sloc))
+				      )
+				 (debug "normexp_code_chunk wl=" wl " curix#" curix)
+				 wl)))))))))
+		 (debug "normexp_code_chunk nchk=" nc)
+		 nc))
 	 (cbind (instance class_normal_let_binding
 			  :letbind_loc sloc
 			  :binder csym
@@ -7946,6 +8009,7 @@ source location.}#
  compile_obj
  create_normcontext
  create_normal_extending_context
+ discr_normalizing_closure
  get_ctype
  normal_exp
  normal_letrec_constructive

@@ -2382,7 +2382,10 @@ $SBUF.}#
 		     (debug "compobj nrepchunk comp=" comp)
 		     (if (== (discrim comp) discr_verbatim_string)
 			 comp
-		       (compile_obj comp gcx)))
+		       (let ( (ocomp (compile_obj comp gcx)) 
+			      )
+			 (debug "compobj nrepchunk ocomp=" ocomp)
+			 ocomp)))
 		   ))
 	    (oexp (if loc
 		      (instance class_objlocatedexpv
@@ -2395,6 +2398,7 @@ $SBUF.}#
 			      :obx_cont otup)
 		    ))      
 	    )
+      (debug "compilobj_nrep_chunk otup=" otup)
       (assert_msg "check ntyp" (is_a ntyp class_ctype))
       (debug "compilobj nrepchunk oexp=" oexp)
       oexp)
