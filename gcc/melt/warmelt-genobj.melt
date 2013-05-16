@@ -5909,6 +5909,7 @@ $SBUF.}#
 		  (oct (make_multiple discr_multiple (+i nbclo nbdata)))
 		  )
 	      ;; compile the closed values
+	      (debug "compilobj_datahook nclotup=" nclotup)
 	      (foreach_in_multiple
 	       (nclotup)
 	       (nclosv :long cix)
@@ -5918,11 +5919,16 @@ $SBUF.}#
 		 (debug "compilobj_datahook ocurclov=" ocurclov " cix=" cix)
 		 (multiple_put_nth oct cix ocurclov)))
 	      ;; compile the data
+	      (debug "compilobj_datahook ndatatup=" ndatatup)
 	      (foreach_in_multiple
 	       (ndatatup)
 	       (curndata :long dix)
 	       (debug "compilobj_datahook curndata=" curndata " dix=" dix)
-	       )
+	       (let ( (ocurdata (compile_obj curndata gcx))
+		      )
+		 (debug "compilobj_datahook ocurdata=" ocurdata " dix=" dix)
+		 (multiple_put_nth oct (+i nbclo dix) ocurdata)
+		 ))
 	      ;;
 	      (debug "compilobj_datahook oclo=" oct)
 	      oct))
@@ -5944,7 +5950,7 @@ $SBUF.}#
 		      ))
 	   )
       (mapobject_put compicache ndhook oihook)
-      (put_int oihook nbclo)
+      (put_int oihook (multiple_length oclo))
       (debug "compilobj_datahook updated compicache=" compicache 
 	     "\n.. nclotup=" nclotup "\n.. nhpro=" nhpro
 	     "\n.. oihook=" oihook
@@ -5958,26 +5964,20 @@ $SBUF.}#
 	(list_append inibody ophd)
 	(debug "compilobj_datahook ophd=" ophd))
       ;; set the components
+      (debug "compilobj_datahook oclo=" oclo)
       (foreach_in_multiple
        (oclo)
        (curobc :long obix)
        (debug "compilobj_datahook curobc=" curobc "   obix#" obix)
-       (let ( (curnc (multiple_nth nclotup obix))
-	      (ocompoc 
-	       (progn 
-		 (debug "compilobj_datahook curnc=" curnc)
-		 (let ( (oc (compile_obj curnc gcx)) )
-		   (debug "compilobj_datahook ocompoc=" oc)
-		   oc)))
+       (let ( 
 	      (iput (instance class_objputhookconst
 			      :obi_loc nloc
 			      :ophconst_hook oihook
 			      :ophconst_off (constant_box obix)
-			      :ophconst_cval ocompoc
+			      :ophconst_cval curobc
 			      ))
 	      )
 	 (debug "compilobj_datahook obix=" obix ".. curobc=" curobc
-		"\n.. curnc=" curnc "\n.. ocompoc=" ocompoc
 		"\n.. iput=" iput)
 	 (list_append inibody iput)
 	 ))
