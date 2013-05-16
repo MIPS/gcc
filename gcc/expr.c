@@ -6704,9 +6704,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      if (!integer_zerop (off))
 		{
 		  double_int boff, coff = mem_ref_offset (exp);
-		  boff = coff.alshift (BITS_PER_UNIT == 8
-				       ? 3 : exact_log2 (BITS_PER_UNIT),
-				       HOST_BITS_PER_DOUBLE_INT);
+		  boff = coff.lshift (BITS_PER_UNIT == 8
+				      ? 3 : exact_log2 (BITS_PER_UNIT));
 		  bit_offset += boff;
 		}
 	      exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
@@ -6732,8 +6731,7 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
     {
       double_int tem = tree_to_double_int (offset);
       tem = tem.sext (TYPE_PRECISION (sizetype));
-      tem = tem.alshift (BITS_PER_UNIT == 8 ? 3 : exact_log2 (BITS_PER_UNIT),
-			 HOST_BITS_PER_DOUBLE_INT);
+      tem = tem.lshift (BITS_PER_UNIT == 8 ? 3 : exact_log2 (BITS_PER_UNIT));
       tem += bit_offset;
       if (tem.fits_shwi ())
 	{
@@ -7563,6 +7561,15 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       inner = TREE_OPERAND (exp, 0);
       break;
 
+    case COMPOUND_LITERAL_EXPR:
+      /* Allow COMPOUND_LITERAL_EXPR in initializers, if e.g.
+	 rtl_for_decl_init is called on DECL_INITIAL with
+	 COMPOUNT_LITERAL_EXPRs in it, they aren't gimplified.  */
+      if (modifier == EXPAND_INITIALIZER
+	  && COMPOUND_LITERAL_EXPR_DECL (exp))
+	return expand_expr_addr_expr_1 (COMPOUND_LITERAL_EXPR_DECL (exp),
+					target, tmode, modifier, as);
+      /* FALLTHRU */
     default:
       /* If the object is a DECL, then expand it for its rtl.  Don't bypass
 	 expand_expr, as that can have various side effects; LABEL_DECLs for
@@ -8383,6 +8390,15 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 	      else
 		expand_operands (treeop0, treeop1, NULL_RTX, &op1, &op0,
 				 EXPAND_NORMAL);
+	      /* op0 and op1 might still be constant, despite the above
+		 != INTEGER_CST check.  Handle it.  */
+	      if (GET_MODE (op0) == VOIDmode && GET_MODE (op1) == VOIDmode)
+		{
+		  op0 = convert_modes (innermode, mode, op0, true);
+		  op1 = convert_modes (innermode, mode, op1, false);
+		  return REDUCE_BIT_FIELD (expand_mult (mode, op0, op1,
+							target, unsignedp));
+		}
 	      goto binop3;
 	    }
 	}
@@ -8405,6 +8421,19 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 		{
 		  expand_operands (treeop0, treeop1, NULL_RTX, &op0, &op1,
 				   EXPAND_NORMAL);
+		  /* op0 and op1 might still be constant, despite the above
+		     != INTEGER_CST check.  Handle it.  */
+		  if (GET_MODE (op0) == VOIDmode && GET_MODE (op1) == VOIDmode)
+		    {
+		     widen_mult_const:
+		      op0 = convert_modes (innermode, mode, op0, zextend_p);
+		      op1
+			= convert_modes (innermode, mode, op1,
+					 TYPE_UNSIGNED (TREE_TYPE (treeop1)));
+		      return REDUCE_BIT_FIELD (expand_mult (mode, op0, op1,
+							    target,
+							    unsignedp));
+		    }
 		  temp = expand_widening_mult (mode, op0, op1, target,
 					       unsignedp, this_optab);
 		  return REDUCE_BIT_FIELD (temp);
@@ -8417,9 +8446,14 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 		  op0 = expand_normal (treeop0);
 		  if (TREE_CODE (treeop1) == INTEGER_CST)
 		    op1 = convert_modes (innermode, mode,
-					 expand_normal (treeop1), unsignedp);
+					 expand_normal (treeop1),
+					 TYPE_UNSIGNED (TREE_TYPE (treeop1)));
 		  else
 		    op1 = expand_normal (treeop1);
+		  /* op0 and op1 might still be constant, despite the above
+		     != INTEGER_CST check.  Handle it.  */
+		  if (GET_MODE (op0) == VOIDmode && GET_MODE (op1) == VOIDmode)
+		    goto widen_mult_const;
 		  temp = expand_binop (mode, other_optab, op0, op1, target,
 				       unsignedp, OPTAB_LIB_WIDEN);
 		  hipart = gen_highpart (innermode, temp);

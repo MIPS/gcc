@@ -4763,9 +4763,11 @@ extern tree build_vector_from_val (tree, tree);
 extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
+extern tree build_constructor_va (tree, int, ...);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_one_cst (tree);
+extern tree build_minus_one_cst (tree);
 extern tree build_zero_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
@@ -4866,6 +4868,7 @@ extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
+extern unsigned int element_precision (const_tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 
@@ -5288,6 +5291,11 @@ extern tree first_field (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
+/* Given a vector VEC, return its first element if all elements are
+   the same.  Otherwise return NULL_TREE.  */
+
+extern tree uniform_vector_p (const_tree);
+
 /* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
 
 extern vec<tree, va_gc> *ctor_to_vec (tree);
@@ -5309,6 +5317,11 @@ extern int integer_onep (const_tree);
    all of whose significant bits are 1.  */
 
 extern int integer_all_onesp (const_tree);
+
+/* integer_minus_onep (tree x) is nonzero if X is an integer constant of
+   value -1.  */
+
+extern int integer_minus_onep (const_tree);
 
 /* integer_pow2p (tree x) is nonzero is X is an integer constant with
    exactly one bit 1.  */
@@ -5757,7 +5770,6 @@ extern tree omit_two_operands_loc (location_t, tree, tree, tree, tree);
 #define invert_truthvalue(T)\
    invert_truthvalue_loc(UNKNOWN_LOCATION, T)
 extern tree invert_truthvalue_loc (location_t, tree);
-extern tree fold_truth_not_expr (location_t, tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);

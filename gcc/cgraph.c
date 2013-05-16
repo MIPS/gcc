@@ -1049,8 +1049,8 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "updating call of %s/%i -> %s/%i: ",
-	       xstrdup (cgraph_node_name (e->caller)), e->caller->uid,
-	       xstrdup (cgraph_node_name (e->callee)), e->callee->uid);
+	       xstrdup (cgraph_node_name (e->caller)), e->caller->symbol.order,
+	       xstrdup (cgraph_node_name (e->callee)), e->callee->symbol.order);
       print_gimple_stmt (cgraph_dump_file, e->call_stmt, 0, dump_flags);
       if (e->callee->clone.combined_args_to_skip)
 	{
@@ -1409,7 +1409,14 @@ cgraph_remove_node (struct cgraph_node *node)
 void
 cgraph_mark_address_taken_node (struct cgraph_node *node)
 {
-  gcc_assert (!node->global.inlined_to);
+  /* Indirect inlining can figure out that all uses of the address are
+     inlined.  */
+  if (node->global.inlined_to)
+    {
+      gcc_assert (cfun->after_inlining);
+      gcc_assert (node->callers->indirect_inlining_edge);
+      return;
+    }
   /* FIXME: address_taken flag is used both as a shortcut for testing whether
      IPA_REF_ADDR reference exists (and thus it should be set on node
      representing alias we take address of) and as a test whether address
@@ -1798,6 +1805,8 @@ cgraph_make_node_local_1 (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 
       node->symbol.externally_visible = false;
       node->local.local = true;
+      node->symbol.unique_name = (node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY
+				  || node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
       node->symbol.resolution = LDPR_PREVAILING_DEF_IRONLY;
       gcc_assert (cgraph_function_body_availability (node) == AVAIL_LOCAL);
     }
@@ -2635,11 +2644,12 @@ cgraph_get_create_real_symbol_node (tree decl)
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
-		 xstrdup (cgraph_node_name (node)), node->uid);
+		 xstrdup (cgraph_node_name (node)), node->symbol.order);
     }
   else if (dump_file)
     fprintf (dump_file, "Introduced new external node "
-	     "(%s/%i).\n", xstrdup (cgraph_node_name (node)), node->uid);
+	     "(%s/%i).\n", xstrdup (cgraph_node_name (node)),
+	     node->symbol.order);
   return node;
 }
 #include "gt-cgraph.h"
