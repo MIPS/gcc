@@ -2,6 +2,12 @@
 
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tchunk-lowdebug.melt: New file.
+
+	* melt/warmelt-hooks.melt (hook_low_debug_value_at): Add doc.
+
+2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.c (meltgc_read_file): Add read debugs.
 
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>

@@ -33,6 +33,8 @@
 				  :cstring filename :long lineno
 				  :cstring msg :long count) () :void
   :predef HOOK_LOW_DEBUG_VALUE_AT
+  :doc #{$HOOK_LOW_DEBUG_VALUE_AT is an internal hook for the
+  melt_low_debug_value macro in @file{melt-runtime.h}.}#
   (melt_debug_fun () count filename lineno msg val)
 )
 

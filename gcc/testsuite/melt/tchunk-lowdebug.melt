@@ -1,0 +1,26 @@
+;; file tchunk-lowdebug.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tchunk-lowdebug.melt 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
+ ./cc1 -fmelt-mode=rundebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
+    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
+    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
+    -fmelt-workdir=meltbuild-workdir \
+    -fmelt-tempdir=meltbuild-tempdir \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tchunk-lowdebug.melt \
+     "$gccmelt_cflags" \
+    meltbuild-empty-file.c
+|#
+
+(defun tlowdebug ()
+  (code_chunk lowdebug_chk 
+	     #{ melt_low_debug_value("tlowdebug $LOWDEBUG_CHK", $CLASS_REFERENCE);
+	     /* end $LOWDEBUG_CHK tlowdebug */
+	     }#))
+
+(tlowdebug)
+;; eof tchunk-lowdebug.melt 
+			 
