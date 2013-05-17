@@ -1,3 +1,8 @@
+2013-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/57274
+	* c-common.c (verify_tree): Don't recurse into SIZEOF_EXPR.
+
 2013-04-12  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-format.c (gcc_diag_char_table, gcc_tdiag_char_table,
