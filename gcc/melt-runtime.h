@@ -261,9 +261,15 @@ extern int melt_flag_bootstrapping;
 #define melt_low_debug_value_at(Fil,Lin,Msg,Val) do {   \
   static long _meltlowdebugcount_##Lin;                 \
   _meltlowdebugcount_##Lin++;                           \
-    if (melt_need_debug(0)) {                           \
-  };                                                    \
-} while(0)
+    if (melt_need_debug(0))                             \
+      {                                                 \
+        melthookproc_HOOK_LOW_DEBUG_VALUE_AT            \
+          ((Val),                                       \
+           melt_basename((Fil)),  (Lin),                \
+           (Msg),                                       \
+           _meltlowdebugcount_##Lin);                   \
+      };                                                \
+  } while(0)
 
 #else /* !MELT_HAVE_DEBUG*/
 

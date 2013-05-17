@@ -2,6 +2,21 @@
 
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_low_debug_value_at): Use
+	melthookproc_HOOK_LOW_DEBUG_VALUE_AT to make it work.
+
+	* melt-runtime.c (melt_string_hex_md5sum_file_to_hexbuf): Define
+	and use MD5HEX_SIZE.
+	(melt_read_debug): New variable, when MELT_HAVE_DEBUG.
+	(melt_dbgread_value, melt_dbgread_printf): New macros.
+	(melrtgc_readhashescape): Typo, rename as meltgc_readhashescape.
+	(meltgc_readhashescape): Renamed.
+	(meltgc_readseqlist, meltgc_makesexpr, meltgc_readstring)
+	(meltgc_readmacrostringsequence, meltgc_readhashescape)
+	(meltgc_readval): Use them.
+
+2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
