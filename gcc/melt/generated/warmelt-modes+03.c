@@ -5469,7 +5469,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-modes.melt:4483:/ locexp");
+	    MELT_LOCATION ("warmelt-modes.melt:4481:/ locexp");
 	    /*register_input_channel_handler STATINCHFDCHK__1 */
 	    {
 	      struct stat STATINCHFDCHK__1_stat;
@@ -5737,7 +5737,7 @@ meltlab_endgetargs:;
     ;
 
     {
-      MELT_LOCATION ("warmelt-modes.melt:4511:/ locexp");
+      MELT_LOCATION ("warmelt-modes.melt:4509:/ locexp");
       /* FCNTLINCHFDCHK__1 start */
       if (fcntl ( /*_#INCHFD__L1*/ meltfnum[0], F_SETOWN, getpid ()))
 	melt_fatal_error
@@ -9127,7 +9127,7 @@ meltlab_endgetargs:;
   /*_#PIDSTAT__L5*/ meltfnum[4] = 0;;
 
       {
-	MELT_LOCATION ("warmelt-modes.melt:4662:/ locexp");
+	MELT_LOCATION ("warmelt-modes.melt:4660:/ locexp");
 	/* child_process_sigchld_handler WAITPROBCHK__1 */
 	/*_#WAITFAIL__L4*/ meltfnum[0] = melt_wait_for_probe (WNOHANG);
 	;
@@ -9492,7 +9492,7 @@ meltlab_endgetargs:;
 	    ;
 
 	    {
-	      MELT_LOCATION ("warmelt-modes.melt:4676:/ locexp");
+	      MELT_LOCATION ("warmelt-modes.melt:4674:/ locexp");
 	      /* child_process_sigchld_handler WAITPIDCHK__1 */
 	      {
 		pid_t wpid = 0;
@@ -9953,7 +9953,7 @@ meltlab_endgetargs:;
 	  ;
 
 	  {
-	    MELT_LOCATION ("warmelt-modes.melt:4718:/ locexp");
+	    MELT_LOCATION ("warmelt-modes.melt:4716:/ locexp");
 	    /* child_process_sigchld_handler LOOKWSTATCHK__1 */
 	    {
 	      int wstat = (int) /*_#CURWSTAT__L13*/ meltfnum[10];
@@ -10915,7 +10915,7 @@ meltlab_endgetargs:;
      /*_#PIDISBAD__L6*/ meltfnum[5] = 0;;
 
 		{
-		  MELT_LOCATION ("warmelt-modes.melt:4767:/ locexp");
+		  MELT_LOCATION ("warmelt-modes.melt:4765:/ locexp");
 		  /* register_child_process_handler TRYKILLCHK__1 */
 		  if (kill ((pid_t) /*_#PID__L1*/ meltfnum[0], 0))
 	     /*_#PIDISBAD__L6*/ meltfnum[5] = -1L;

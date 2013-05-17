@@ -4445,7 +4445,7 @@ meltlab_endgetargs:;
 		;
 
 		{
-		  MELT_LOCATION ("warmelt-outobj.melt:185:/ locexp");
+		  MELT_LOCATION ("warmelt-outobj.melt:183:/ locexp");
 		  /* outpucod_objexpandpureval void FILLCOMSTR_CHK__1 */
 		  static char buf_FILLCOMSTR_CHK__1[80];
 		  const char *comstr_FILLCOMSTR_CHK__1 =
@@ -4808,7 +4808,7 @@ meltlab_endgetargs:;
 		  (char *) 0;;
 
 		{
-		  MELT_LOCATION ("warmelt-outobj.melt:224:/ locexp");
+		  MELT_LOCATION ("warmelt-outobj.melt:222:/ locexp");
 		  /* outpucod_objexpandpureval nonvoid FILLCOMSTR_CHK__2 */
 		  static char buf_FILLCOMSTR_CHK__2[80];
 		  const char *comstr_FILLCOMSTR_CHK__2

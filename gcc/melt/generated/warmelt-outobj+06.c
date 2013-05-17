@@ -5599,7 +5599,7 @@ ltstr[]\t    ;\n\t     extern \"C\" const char melt_genversionstr[\
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5323:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5321:/ locexp");
       /* output_melt_descriptor GENVERSCH__1 + */
       meltgc_add_strbuf_cstr ((melt_ptr_t) /*_.DEBUF__V14*/ meltfptr[13],
 			      melt_gccversionstr);
@@ -5678,7 +5678,7 @@ ltstr[]\t    ;\n\t     extern \"C\" const char melt_genversionstr[\
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5341:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5339:/ locexp");
       /* output_melt_descriptor GENVMELTCH__1 + */
       meltgc_add_strbuf_cstr ((melt_ptr_t) /*_.DEBUF__V14*/ meltfptr[13],
 			      melt_version_str ());
@@ -5848,7 +5848,7 @@ ltstr[]\t    ;\n\t     extern \"C\" const char melt_genversionstr[\
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5364:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5362:/ locexp");
       /* output_melt_descriptor GENMODNAMSTR__1 + */
       meltgc_add_strbuf_cstr ((melt_ptr_t) /*_.DEBUF__V14*/ meltfptr[13],
 			      lbasename (melt_string_str
@@ -5882,7 +5882,7 @@ ltstr[]\t    ;\n\t     extern \"C\" const char melt_genversionstr[\
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5374:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5372:/ locexp");
       /* output_melt_descriptor GENRPATHCH__1 + */
       {
 	char *lrp =
@@ -5960,7 +5960,7 @@ ltstr[]\t    ;\n\t     extern \"C\" const char melt_genversionstr[\
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5398:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5396:/ locexp");
       /* output_melt_descriptor GENVERSCH__2 */
       meltgc_add_strbuf_cstr ((melt_ptr_t) /*_.DEBUF__V14*/ meltfptr[13],
 			      MELT_RUN_HASHMD5);
@@ -8750,7 +8750,7 @@ s */\n\n\t\t ";
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:5603:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:5601:/ locexp");
       /* output_melt_descriptor GENTIMCH__1 + */
       {
 	time_t now = 0;
@@ -21041,7 +21041,7 @@ meltlab_endgetargs:;
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:6064:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:6063:/ locexp");
       /* normadeclb_macroexpanded_list STARTMODNAM__1 */
 #if HAVE_CLOCK
 		/*_#STARTCLOCK__L10*/ meltfnum[1] = (long) clock ();
@@ -25619,7 +25619,7 @@ meltlab_endgetargs:;
 	  ;
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6290:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6289:/ locexp");
 	    /* translate_macroexpanded_list ERROREDNORMAL_WARNCHK__1 */
 	    warning (0,
 		     "MELT translation of %s got after normalization %ld MELT errors",
@@ -26797,7 +26797,7 @@ meltlab_endgetargs:;
 	  ;
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6344:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6343:/ locexp");
 	    /* translate_macroexpanded_list ERROREDGENER_WARNCHK__1 */
 	    warning (0,
 		     "MELT translation of %s got after generation %ld MELT errors",
@@ -28982,7 +28982,7 @@ meltlab_endgetargs:;
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:6426:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:6425:/ locexp");
       /* translate_macroexpanded_list OUTPUTCFILE__1: */
       melt_output_cfile_decl_impl
 	((melt_ptr_t) ( /*_.MODNAMSTR__V3*/ meltfptr[2]),
@@ -29540,7 +29540,7 @@ meltlab_endgetargs:;
 		;
 
 		{
-		  MELT_LOCATION ("warmelt-outobj.melt:6463:/ locexp");
+		  MELT_LOCATION ("warmelt-outobj.melt:6461:/ locexp");
 		  /* translate_macroexpanded_list SECFILOUT__1: */
 		  melt_output_cfile_decl_impl_secondary
 		    ((melt_ptr_t) ( /*_.SECFILPATH__V202*/ meltfptr[200]),
@@ -29819,7 +29819,7 @@ meltlab_endgetargs:;
 				     ( /*_.BAKSBUF__V213*/ meltfptr[198]))));;
 
 		{
-		  MELT_LOCATION ("warmelt-outobj.melt:6490:/ locexp");
+		  MELT_LOCATION ("warmelt-outobj.melt:6488:/ locexp");
 		  /*translate_macroexpanded_list BACKUPCHK__1 */
 		  {
 		    const char *BACKUPCHK__1_delfilnamstr =
@@ -29983,7 +29983,7 @@ meltlab_endgetargs:;
     ;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:6509:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:6507:/ locexp");
       /* translate_macroexpanded_list ENDMODNAM__1 */
 #if HAVE_CLOCK && defined (CLOCKS_PER_SEC)
 	      /*_#ENDCLOCK__L14*/ meltfnum[0] = (long) clock ();
@@ -30198,7 +30198,7 @@ meltlab_endgetargs:;
 	  ;
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6534:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6533:/ locexp");
 	    /* translate_macroexpanded_list ERROREDNORMAL_WARNCHK__2 */
 	    warning (0,
 		     "MELT translation of %s got after emission %ld MELT errors",
@@ -30600,7 +30600,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6549:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6547:/ locexp");
 	    /*fatal_compile_error FATALERRORMSG_CHK__1 */
 	    melt_fatal_error
 	      ("MELT failed to compile module %s (%ld errors): %s",
@@ -30624,7 +30624,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6557:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6555:/ locexp");
 	    /* fatal_compile_error FATALERROR_CHK__1 */
 	    melt_fatal_error ("MELT failed to compile module %s (%ld errors)",
 			      melt_string_str ((melt_ptr_t)
@@ -31633,7 +31633,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6604:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6602:/ locexp");
 	    /* CHECKBOOTSTRAPPING_CHK__1 */
 	    if (!melt_flag_bootstrapping)
 	      melt_fatal_error
@@ -31996,7 +31996,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6620:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6619:/ locexp");
 	    /* compile_list_sexpr WARNSHORTCHK__1 */
 	    warning (0, "MELT expanded few (%d) expressions",
 		     (int) /*_#LENXLIST__L20*/ meltfnum[1]);
@@ -39610,7 +39610,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6817:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6816:/ locexp");
 	    /* translate_run_melt_expressions WARNRUNSTR_CHK__1 */
 	    warning (0, "MELT running expression {%s} error - %s",
 		     melt_string_str ((melt_ptr_t)
@@ -39633,7 +39633,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:6824:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:6823:/ locexp");
 	    /* translate_run_melt_expressions WARNRUN_CHK__1 */
 	    warning (0, "MELT running expression {%s} errored",
 		     melt_string_str ((melt_ptr_t)
@@ -40411,7 +40411,7 @@ meltlab_endgetargs:;
 
 					{
 					  MELT_LOCATION
-					    ("warmelt-outobj.melt:6877:/ locexp");
+					    ("warmelt-outobj.melt:6876:/ locexp");
 					  /* translate_run_melt_expressions BADEXP_CHK__1 */
 					  warning (0,
 						   "MELT run %s expression #%d has bad disciminant %s",
@@ -44846,7 +44846,7 @@ UFFIX"), ("warmelt-outobj.melt") ? ("warmelt-outobj.melt") : __FILE__,
        ((meltobject_ptr_t) (( /*!DISCR_LIST */ meltfrout->tabval[2]))));;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:7117:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:7115:/ locexp");
       /* translate_to_c_module_melt_sources SETISVALIDMODSRCCH__1 */
       {
 	const char *modsrcstr =
@@ -45623,7 +45623,7 @@ meltlab_endgetargs:;
  /*_#YEAR__L2*/ meltfnum[0] = 0;;
 
     {
-      MELT_LOCATION ("warmelt-outobj.melt:7150:/ locexp");
+      MELT_LOCATION ("warmelt-outobj.melt:7149:/ locexp");
       /*+ generate_gplv3plus_copyright_notice_c_comment GETYEAR__1 */
       {
 	time_t GETYEAR__1_now = 0;
@@ -45686,7 +45686,7 @@ meltlab_endgetargs:;
 
 
 	  {
-	    MELT_LOCATION ("warmelt-outobj.melt:7168:/ locexp");
+	    MELT_LOCATION ("warmelt-outobj.melt:7166:/ locexp");
 	    /*ADDBASENAME__1 + */
 	    meltgc_add_strbuf ((melt_ptr_t) ( /*_.SBUF__V2*/ meltfptr[1]),
 			       lbasename (melt_string_str
