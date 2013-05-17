@@ -2997,7 +2997,7 @@ rs6000_option_override_internal (bool global_init_p)
 	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX)
 	    msg = N_("-mvsx requires hardware floating point");
 	  else
-	    rs6000_isa_flags &= ~OPTION_MASK_VSX;
+	    rs6000_isa_flags &= ~ OPTION_MASK_VSX;
 	}
       else if (TARGET_PAIRED_FLOAT)
 	msg = N_("-mvsx and -mpaired are incompatible");
@@ -3020,7 +3020,7 @@ rs6000_option_override_internal (bool global_init_p)
       if (msg)
 	{
 	  warning (0, msg);
-	  rs6000_isa_flags &= ~OPTION_MASK_VSX;
+	  rs6000_isa_flags &= ~ OPTION_MASK_VSX;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_VSX;
 	}
     }
