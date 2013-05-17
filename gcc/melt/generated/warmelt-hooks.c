@@ -274,30 +274,26 @@ melthook_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t melthookdata,
 				  long meltinp2_LINENO,
 				  const char *meltinp3_MSG,
 				  long meltinp4_COUNT)
-{				/* body of hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
+{				/* body of hook melthook_HOOK_LOW_DEBUG_VALUE_AT from outpucod_hookroutine */
 /* declare and initialize frame for melthook_HOOK_LOW_DEBUG_VALUE_AT hook */
 #undef meltcallcount
 #if MELT_HAVE_DEBUG
   static long melthook_call_counter_HOOK_LOW_DEBUG_VALUE_AT;
-  long melt_thishookcall_counter_HOOK_LOW_DEBUG_VALUE_AT ATTRIBUTE_UNUSED =
-    melthook_call_counter_HOOK_LOW_DEBUG_VALUE_AT++;
+  long melt_thishookcall_counter_HOOK_LOW_DEBUG_VALUE_AT ATTRIBUTE_UNUSED
+    = melthook_call_counter_HOOK_LOW_DEBUG_VALUE_AT++;
 #define meltcallcount melt_thishookcall_counter_HOOK_LOW_DEBUG_VALUE_AT
 #else
 #define meltcallcount 0L
 #endif
-  melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t
-    melthook_HOOK_LOW_DEBUG_VALUE_AT_frame_;
+  melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t meltfram__;
   /* clear and push the new call frame for hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
-  memset (&melthook_HOOK_LOW_DEBUG_VALUE_AT_frame_, 0,
-	  sizeof (melthook_HOOK_LOW_DEBUG_VALUE_AT_frame_));
-#define meltfram__ melthook_HOOK_LOW_DEBUG_VALUE_AT_frame_
+  memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
   meltframe.mcfr_nbvar = -2997 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_LOW_DEBUG_VALUE_AT_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
-  melt_topframe =
-    (struct melt_callframe_st *) &melthook_HOOK_LOW_DEBUG_VALUE_AT_frame_;
+  melt_topframe = (struct melt_callframe_st *) &meltfram__;
 #define meltfhook /*hook data of HOOK_LOW_DEBUG_VALUE_AT*/ ((melthook_ptr_t) (/*_.HOOKDATA___V1*/ meltfptr[0]))
   /* body of melthook_HOOK_LOW_DEBUG_VALUE_AT hook */
   MELT_LOCATION ("warmelt-hooks.melt:32:/ compute");
@@ -416,29 +412,26 @@ void
 melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
 			     long meltinp0_BEFOREGATE,
 			     long *meltoutp0_AFTERGATE)
-{				/* body of hook melthook_HOOK_OVERRIDE_GATE */
+{				/* body of hook melthook_HOOK_OVERRIDE_GATE from outpucod_hookroutine */
 /* declare and initialize frame for melthook_HOOK_OVERRIDE_GATE hook */
 #undef meltcallcount
 #if MELT_HAVE_DEBUG
   static long melthook_call_counter_HOOK_OVERRIDE_GATE;
-  long melt_thishookcall_counter_HOOK_OVERRIDE_GATE ATTRIBUTE_UNUSED =
-    melthook_call_counter_HOOK_OVERRIDE_GATE++;
+  long melt_thishookcall_counter_HOOK_OVERRIDE_GATE ATTRIBUTE_UNUSED
+    = melthook_call_counter_HOOK_OVERRIDE_GATE++;
 #define meltcallcount melt_thishookcall_counter_HOOK_OVERRIDE_GATE
 #else
 #define meltcallcount 0L
 #endif
-  melthookframe_HOOK_OVERRIDE_GATE_t melthook_HOOK_OVERRIDE_GATE_frame_;
+  melthookframe_HOOK_OVERRIDE_GATE_t meltfram__;
   /* clear and push the new call frame for hook melthook_HOOK_OVERRIDE_GATE */
-  memset (&melthook_HOOK_OVERRIDE_GATE_frame_, 0,
-	  sizeof (melthook_HOOK_OVERRIDE_GATE_frame_));
-#define meltfram__ melthook_HOOK_OVERRIDE_GATE_frame_
+  memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
   meltframe.mcfr_nbvar = -970 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_OVERRIDE_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
-  melt_topframe =
-    (struct melt_callframe_st *) &melthook_HOOK_OVERRIDE_GATE_frame_;
+  melt_topframe = (struct melt_callframe_st *) &meltfram__;
 #define meltfhook /*hook data of HOOK_OVERRIDE_GATE*/ ((melthook_ptr_t) (/*_.HOOKDATA___V1*/ meltfptr[0]))
   /* body of melthook_HOOK_OVERRIDE_GATE hook */
   MELT_LOCATION ("warmelt-hooks.melt:58:/ compute");
