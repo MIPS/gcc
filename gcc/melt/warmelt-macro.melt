@@ -4101,9 +4101,12 @@ pattern if the value is an instance of @emph{exactly}
 its [sub-]pattern.  The $OBJECT pattern macro should not be used in
 expression context.  See also $INSTANCE and $DEFCLASS.}# )
 
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; the codechunk expander
 (defun mexpand_code_chunk (sexpr env mexpander modctx)
+  (debug "mexpand_code_chunk sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (let ( (cont (unsafe_get_field :sexp_contents sexpr))
@@ -4131,12 +4134,18 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 			 (cloc (get_field :loca_location comp))
 			 (compcont (get_field :sexp_contents comp))
 			 )
+		     (debug "mexpand_code_chunk/mexp_macrostring compcont=" compcont)
 		     (foreach_in_list
 		      (compcont)
 		      (compair subcomp)
-		      (mexp_macrostring subcomp cloc))))
+		      (mexp_macrostring subcomp cloc))
+		     (debug "mexpand_code_chunk/mexp_macrostring updated chklist=" chklist)
+		     ))
 		 ( (is_a comp class_sexpr)
-		   (list_append chklist (mexpander comp env mexpander modctx)))
+		   (let ( (mcomp (mexpander comp env mexpander modctx))
+			  )
+		     (debug "mexpand_code_chunk/mexp_macrostring mcomp=" mcomp)
+		     (list_append chklist mcomp)))
 		 (:else
 		  (list_append chklist comp)))
 		(debug "mexpand_code_chunk/mexp_macrostring comp=" comp
@@ -4145,17 +4154,18 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
       (foreach_pair
        (curpair)
        (thispair thiscomp)
+       (debug "mexpand_code_chunk thiscomp=" thiscomp)
        (mexp_macrostring thiscomp sloc)
        )
+      (debug "mexpand_code_chunk final chklist=" chklist)
       (let ( (mres (instance class_source_codechunk
 			     :loca_location sloc
 			     :sch_gensym gsym
 			     :sch_chunks (list_to_multiple chklist discr_multiple)
 			     )) )
-	(debug "mexpand_code_chunk result" mres)
+	(debug "mexpand_code_chunk return mres=" mres)
 	(return mres)
 	))))
-
 (install_initial_macro 'code_chunk mexpand_code_chunk)
 (export_macro code_chunk mexpand_code_chunk
 	      :doc #{The $CODE_CHUNK macro is for low-level C code
@@ -4163,6 +4173,7 @@ chunks. The syntax is ($CODE_CHUNK @var{state-symbol} @var{chunk}...)
 where @var{chunk}-s may be macro-string. It generates a C block. Since
 it does not make any type verification, it should be usually
 avoided. See $DEFPRIMITIVE etc.}#)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; the unsafe_put_fields expander

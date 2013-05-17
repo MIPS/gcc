@@ -2400,8 +2400,10 @@ source location.}#
 			  :nocc_symb csym
 			  :nocc_bind cbind)) 
 	 )
-    (debug "normexp_code_chunk clocc" clocc)
+    (debug "normexp_code_chunk schk=" schk "\n.. nchk=" nchk)
+    (debug "normexp_code_chunk clocc=" clocc)
     (assert_msg "check nchk" (is_multiple nchk))
+    (debug "normexp_code_chunk return clocc=" clocc " cbind=" cbind)
     (return clocc (list cbind))
     ))
 (install_method class_source_codechunk normal_exp normexp_code_chunk)

@@ -611,11 +611,18 @@ $TORANK}#
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
 	 )
-    (if (or (>i depth 0) (== dis DISCR_STRING))
+    (if (or (>i depth 0) (== dis discr_string))
 	(progn
-	  (add2sbuf_strconst sbuf " \"")
+	  (match dis
+		 (discr_string 
+		  (add2sbuf_strconst sbuf " \""))
+		 (discr_verbatim_string
+		  (add2sbuf_strconst sbuf " !\""))
+		 (?_
+		  (add2sbuf_strconst sbuf " ?\""))
+		 )
 	  (add2sbuf_cencstring sbuf self)
-	  (add2sbuf_strconst sbuf "\"")
+	  (add2sbuf_strconst sbuf "\" ")
 	  )
       (progn
 	(add2sbuf_strconst sbuf " |")
@@ -840,10 +847,12 @@ $TORANK}#
 	  (foreach_in_multiple
 	   (self)
 	   (curcomp :long ix)
-	   (add2sbuf_indent sbuf depth)
+	   (if (and (==i 0 (%iraw ix 5)) (>i ix 0))
+	       (add2sbuf_indentnl sbuf depth)
+	     (add2sbuf_indent sbuf depth))
 	   (let ( (:long curulen (strbuf_usedlength sbuf)) )
 	     (dbg_out  curcomp dbgi (+i 1 depth))
-	     (and (>i (-i (strbuf_usedlength sbuf) curulen) 100)
+	     (and (>i (-i (strbuf_usedlength sbuf) curulen) 64)
 		  (<i ix (-i ln 1))
 		  (add2sbuf_indentnl sbuf (+i 1 depth))))
 	   )
@@ -986,7 +995,9 @@ $TORANK}#
 			 (add2sbuf_strconst sbuf "...")
 			 (exit listloop)))
 		   (if (not (is_pair curpair)) (exit listloop))
-		   (add2sbuf_indent sbuf depth)
+		   (if (and (==i (%iraw ix 5) 0) (>i ix 0))
+		       (add2sbuf_indentnl sbuf (+i depth 1))
+		     (add2sbuf_indent sbuf depth))
 		   (let ( (:long curulen (strbuf_usedlength sbuf)) )
 		     (dbg_out (pair_head curpair) dbgi (+i depth 1))
 		     (setq curpair (pair_tail curpair))

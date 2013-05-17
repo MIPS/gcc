@@ -2365,27 +2365,33 @@ $SBUF.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_nrep_chunk (nchk gcx)
+  (debug "compilobj_nrep_chunk nchk=" nchk)
   (assert_msg "check nchk" (is_a nchk class_nrep_chunk))
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
-  (debug "compilobj nrepchunk nchk=" nchk)
   (let ( (loc (unsafe_get_field :nrep_loc nchk))
 	 (nexp (unsafe_get_field :nchunk_expansion nchk))
 	 (noper (unsafe_get_field :nchunk_oper nchk))
 	 (ntyp (unsafe_get_field :nexpr_ctyp nchk))
 	 )
+    (debug "compilobj_nrep_chunk nexp=" nexp)
     (assert_msg "check noper" (is_a noper class_named))
     (assert_msg "check nexp" (is_multiple nexp))
     (assert_msg "check ntyp" (is_a ntyp class_ctype))
     (let (  (otup (multiple_map
 		   nexp
 		   (lambda (comp :long ix)
-		     (debug "compobj nrepchunk comp=" comp)
+		     (debug "compilobj_nrep_chunk comp=" comp " ix#" ix)
 		     (if (== (discrim comp) discr_verbatim_string)
-			 comp
+			 (progn
+			   (debug "compilobj_nrep_chunk verbstring comp=" comp 
+				  " ix#" ix)
+			   (return comp)
+			   )			   
 		       (let ( (ocomp (compile_obj comp gcx)) 
 			      )
-			 (debug "compobj nrepchunk ocomp=" ocomp)
-			 ocomp)))
+			 (debug "compilobj_nrep_chunk ocomp=" ocomp
+				" ix#" ix)
+			 (return ocomp))))
 		   ))
 	    (oexp (if loc
 		      (instance class_objlocatedexpv
@@ -2400,7 +2406,7 @@ $SBUF.}#
 	    )
       (debug "compilobj_nrep_chunk otup=" otup)
       (assert_msg "check ntyp" (is_a ntyp class_ctype))
-      (debug "compilobj nrepchunk oexp=" oexp)
+      (debug "compilobj_nrep_chunk result oexp=" oexp)
       oexp)
     ))
 (install_method class_nrep_chunk compile_obj compilobj_nrep_chunk)

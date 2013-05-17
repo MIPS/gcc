@@ -1,4 +1,21 @@
 
+2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{the reader is probably buggy for sexpr inside macrostrings, so
+	tchunk-compo.melt is wrongly parsed}}
+	* melt/warmelt-debug.melt (dbgout_string_method): Nicer output for
+	verbatim strings.
+	(dbgout_multiple_method, dbgout_list_method): Better indentation.
+
+	* melt/warmelt-macro.melt (mexpand_code_chunk): More debug.
+
+	* melt/warmelt-normal.melt (normexp_code_chunk): More debug.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_chunk): More debug.
+
+	* melt/warmelt-outobj.melt (outpucod_objlocatedexpv): Don't box
+	depth+1.
+
 2013-05-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{test tchunk-compo.melt still fails}}
