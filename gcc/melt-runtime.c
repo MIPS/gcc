@@ -8390,7 +8390,9 @@ meltgc_read_file (const char *filnam, const char *locnam)
                                "meltgc_read_file @ %s:%d:%d",
                                melt_basename(LOCATION_FILE(loc)),
                                LOCATION_LINE (loc), LOCATION_COLUMN(loc));
+    melt_dbgread_printf("read_file curlocbuf=%s", curlocbuf);
     valv = meltgc_readval (rd, &got);
+    melt_dbgread_value("read_file valv=", valv);
     if (!got)
       MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
@@ -8401,6 +8403,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
   memset (&rds, 0, sizeof(rds));
   rd = 0;
  end:
+  melt_dbgread_value("read_file seqv=", seqv);
   if (!seqv) {
     debugeprintf ("meltgc_read_file filnam %s fail & return NULL", filnamdup);
     warning(0, "MELT file %s read without content, perhaps failed.", filnamdup);
