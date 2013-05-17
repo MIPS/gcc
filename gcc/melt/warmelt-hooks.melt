@@ -26,7 +26,15 @@
 ;; to the generated files  warmelt-hooks*.c
 
 
-
+;;;====================================================================
+;;;******************* low level debug at routine *********************
+;;;see the melt_low_debug_value macro in melt-runtime.h
+(defhook hook_low_debug_value_at (:value val 
+				  :cstring filename :long lineno
+				  :cstring msg :long count) () :void
+  :predef HOOK_LOW_DEBUG_VALUE_AT
+  (melt_debug_fun () count filename lineno msg val)
+)
 
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
@@ -225,6 +233,7 @@ See also $UNREGISTER_OVERRIDE_GATE_LAST, $REGISTER_OVERRIDE_GATE_FIRST, etc...}#
 
 (export_values
   hook_override_gate
+  hook_low_debug_value_at
   register_override_gate_first
   register_override_gate_last
   unregister_override_gate_first

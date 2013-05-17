@@ -1,6 +1,17 @@
 
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Adding melt_low_debug_value}}
+
+	* melt-predef.list (HOOK_LOW_DEBUG_VALUE_AT): New.
+
+	* melt-runtime.h (melt_low_debug_value, melt_low_debug_value_at):
+	New macros.
+
+	* melt/warmelt-hooks.melt (hook_low_debug_value_at): New hook.
+
+2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{the reader is probably buggy for sexpr inside macrostrings, so
 	tchunk-compo.melt is wrongly parsed}}
 	* melt/warmelt-debug.melt (dbgout_string_method): Nicer output for

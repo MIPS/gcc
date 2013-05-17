@@ -95,6 +95,7 @@ extern void melt_fatal_info (const char*filename, int lineno);
 #define dbgprintf(Fmt,...) dbgprintf_raw("@%s:%d: " Fmt "\n", \
  lbasename(__FILE__), __LINE__, ##__VA_ARGS__)
 
+
 /* the version string of GCC when MELT was initialized */
 MELT_EXTERN char* melt_gccversionstr;
 
@@ -252,6 +253,18 @@ extern int melt_flag_bootstrapping;
               melt_basename(__FILE__), __LINE__, (Msg));		\
       melt_dbgbacktrace((Depth)); }} while(0)
 
+/* Low level debug, using the melt_debug_fun; see the
+   hook_low_debug_value_at in warmelt-hooks.melt file. */
+#define melt_low_debug_value(Msg,Val)\
+  melt_low_debug_value_at(__FILE__,__LINE__,(Msg),(Val))
+
+#define melt_low_debug_value_at(Fil,Lin,Msg,Val) do {   \
+  static long _meltlowdebugcount_##Lin;                 \
+  _meltlowdebugcount_##Lin++;                           \
+    if (melt_need_debug(0)) {                           \
+  };                                                    \
+} while(0)
+
 #else /* !MELT_HAVE_DEBUG*/
 
 #define debugeprintf_raw(Fmt,...) do{if (0) \
@@ -270,16 +283,24 @@ extern int melt_flag_bootstrapping;
 #define debugeprintfnonl(Fmt,...) \
   debugeprintflinenonl(__LINE__, Fmt, ##__VA_ARGS__)
 
-#define debugeprintvalue(Msg,Val) do{if (0){	\
+#define debugeprintvalue(Msg,Val) do{if (0){			\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d:\n@! %s @%p= ",			\
               melt_basename(__FILE__), __LINE__, (Msg), __val);	\
-      melt_dbgeprint(__val); }} while(0)
-#define debugebacktrace(Msg,Depth)  do{if (0){	\
+      melt_dbgeprint(__val); }} while(0)			
+
+#define debugebacktrace(Msg,Depth)  do{if (0){			\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d: %s **backtrace** ",		\
-              melt_basename(__FILE__), __LINE__, (Msg));		\
+              melt_basename(__FILE__), __LINE__, (Msg));	\
       melt_dbgbacktrace((Depth)); }} while(0)
+
+#define melt_low_debug_value(Msg,Val)\
+  melt_low_debug_value_at(__FILE__,__LINE__,(Msg),(Val))
+
+#define melt_low_debug_value_at(Fil,Lin,Msg,Val) \
+  do {if(0) (void)(Val);}while(0)
+
 #endif /*MELT_HAVE_DEBUG*/
 
 /* We need melt_need_debug and melt_need_debug_limit to work even
@@ -477,6 +498,7 @@ struct debugprint_melt_st
   int dmaxdepth;
   int dcount;
 };
+
 
 void melt_debug_out (struct debugprint_melt_st *dp, melt_ptr_t ptr,
 			int depth);
