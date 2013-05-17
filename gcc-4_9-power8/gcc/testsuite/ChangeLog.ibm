@@ -1,3 +1,75 @@
 2013-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 199028.
+
+2013-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/direct-move.h: New tests for direct move
+	support.
+	* gcc.target/powerpc/direct-move-long1.h: Likewise.
+	* gcc.target/powerpc/direct-move-long2.h: Likewise.
+	* gcc.target/powerpc/direct-move-float1.h: Likewise.
+	* gcc.target/powerpc/direct-move-float2.h: Likewise.
+	* gcc.target/powerpc/direct-move-double1.h: Likewise.
+	* gcc.target/powerpc/direct-move-double2.h: Likewise.
+	* gcc.target/powerpc/direct-move-vint1.h: Likewise.
+	* gcc.target/powerpc/direct-move-vint2.h: Likewise.
+
+2013-05-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-builtin-9.c: New file to test for
+	xscvdpsp and xscvspdp.
+
+	* gcc.target/powerpc/p8-vector-builtin-6.c: Update signatures for
+	xscvdpspn and xscvspdpn.
+
+	* gcc.target/powerpc/atomic-p8.c (char_val_compare_and_swap): Add
+	tests for compare and swap.
+	(short_val_compare_and_swap): Likewise.
+	(int_val_compare_and_swap): Likewise.
+	(long_val_compare_and_swap): Likewise.
+
+2013-05-10  Pat Haugen <pthaugen@us.ibm.com>
+
+	* lib/target-supports.exp (check_p8vector_hw_available): Modify names
+	to not overlap with VSX equivalent.
+	(check_vect_support_and_set_flags): Correct -mpower8-vector typo.
+
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* gcc.target/powerpc/pr57150.c: New file.
+
+2013-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp (check_p8vector_hw_available): Add tests
+	for power8 support.
+	(check_effective_target_powerpc_p8vector_ok): Likewise.
+	(check_vmx_hw_available): Disable power8 instructions.
+	(is-effective-target): Add p8vector_hw.
+	(is-effective-target-keyword): Likewise.
+	(check_vect_support_and_set_flags): Likewise.
+
+	* gcc.target/powerpc/atomic-p8.c: New test for atomic builtins.
+	* gcc.target/powerpc/atomic-p7.c: Likewise.
+
+2013-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/crypto-builtin-1.c: New power8 test.
+	* gcc.target/powerpc/crypto-builtin-1.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-1.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-3.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-4.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-5.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-6.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-7.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-1.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-3.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-4.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-5.c: Likewise.
+

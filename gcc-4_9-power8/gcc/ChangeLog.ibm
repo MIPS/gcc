@@ -2,3 +2,981 @@
 
 	Clone branch from subversion id 199028.
 	* REVISION: New file to track subversion id.
+
+2013-05-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_xscvspdpn_directmove): Rework SFmode
+	direct move to know that xscvspdpn needs its value in the top
+	word of the VSX register.
+	* config/rs6000/rs6000.md (reload_vsx_from_gprsf): Likewise.
+
+2013-05-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (emit_load_locked): Add support for doing
+	lbarx/lharx, but indicate the result is SImode for computation.
+	(rs6000_expand_atomic_compare_and_swap): If we can do lbarx/lharx,
+	do that operation, but then do the main calculations in SImode.
+	(rs6000_expand_atomic_compare_and_swap): Likewise.
+	(rs6000_expand_atomic_op): Likewsie.
+	* config/rs6000/sync.md (load_locked<QHI:mode>_si): Likewise.
+
+	* config/rs6000/rs6000.md (QHI): New mode iterator.
+	(HSI): Likewise.
+	(FUSEZ64): Delete in favor of QSHI, HSI, QHI iterators.  Change
+	fusion peepholes to use new iterators.
+	(FUSEZ32): Likewise.
+	(FUSES64): Likewise.
+	(power8 fusion peepholes): Likewise.
+
+2013-05-14  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/predicates.md (quad_memory_operand): Add parens to
+	avoid warning.
+
+2013-05-14  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/predicates.md (quad_memory_operand): Additional checks
+	for alignment/displacement.
+
+2013-05-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): If
+	-mdebug=reg, print what type of fusion we are doing.
+	(rs6000_option_override_internal): If we are tuning for power8,
+	turn on fusion by default.  If we are optimizing for speed and
+	doing power8 fusion, enable sign extend fusion for signed loads.
+	(rs6000_expand_vector_init): Use xscvdpspn on power8 instead of
+	xscvdpsp.
+	(rs6000_opt_masks): Add -mpower8-fusion-sign.
+	(fusion_gpr_load_p): New function to recognize when two insns can
+	be combined to be a power8 load fusion sequence.
+	(emit_fusion_gpr_load): Given a power8 fusion sequence, output the
+	appropriate code.
+
+	* config/rs6000/vsx.md (VSX_M2): New iterator for 128-bit vector
+	types and TImode.
+	(UNSPEC_VSX_CVSPDPN): Rework xscvspdpn and xscvdpspn to mirror the
+	power7 xscvspdp and xscvdpsp instructions.
+	(vsx_xscvdpspn): Likewise.
+	(vsx_xscvspdpn): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+	(vsx_xscvspdpn_scalar): Likewise.
+	(xscvdpspn): Delete in favor of new xscvdpspn/xscvspdpn.
+	(xscvdpspn_vector): Likewise.
+	(xscvspdpn): Likewise.
+	(xscvspdpn_vector): Likewise.
+	(power8 peepholes): Add peepholes to map together an ADDI with a
+	VSX load instruction for power8 fusion.
+
+	* config/rs6000/rs6000.md (UNSPEC_XSCVSPDPN): Delete, rework
+	xscvspdpn and xscvdpspn.
+	(UNSPEC_XSCVDPSPN): Likewise.
+	(UNSPEC_FUSION_GPR): New unspec for power8 load fusion.
+	(reload_vsx_from_gprsf): Rework xscvspdpn and xscvdpspn.
+	(reload_gpr_from_vsxsf): Likewise.
+	(p8_mfvsrd_4_sisf): Allow generator function to be called.
+	(power8 define_peepholes): New peepholes to do power8 load fusion
+	by combining a ADDIS instruction whose register dies on the
+	adjacent load to use the target register, which is fused together
+	on power8.
+	(power8 define_peephole2s): If we are fusing ADDIS and loads and
+	we are not optimizing for space, convert ops that sign extend into
+	a zero extend load and an explicit sign extension.
+
+	* config/rs6000/rs6000.h (TARGET_XSCVDPSPN): New macro to say when
+	to issue xscvdpspn and xscvspdpn.
+	(TARGET_XSCVSPDPN): Likewise.
+
+	* config/rs6000/rs6000.opt (-mpower8-fusion-sign): New
+	undocumented debug switch to control whether power8 load fusion
+	does explicit sign extension.
+
+	* config/rs6000/rs6000-builtins.def (xscvspdpn): Use correct
+	function.
+	(xscvspdpn): Model power8 version on power7 builtin.
+	(xscvdpspn): Likewise.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): New
+	declarations for power8 load fusion.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/predicates.md (base_reg_operand): New predicate to
+	match only base registers.
+	(fusion_gpr_addis): New predicate to match the addis of power8
+	load fusion to GPR registers.
+	(fusion_gpr_mem_load): New predicate to match the load part of
+	power8 load fusion to GPR registers.
+
+2013-05-10  Pat Haugen <pthaugen@us.ibm.com>
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Adjust
+	Power8 flags checking.
+
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (PTImode): Update comment.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Restrict
+	PTImode to being even/odd register combinations to allow the quad
+	word atomic memory operations to get the correct register.
+	(quad_load_store_p): Use TARGET_DEBUG_ADDR instead of any rs6000
+	debug option for trace information.
+	(rs6000_output_move_128bit): Likewise.
+
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P): Move VSX register
+	tests above Altivec.
+
+	* config/rs6000/sync.md (atomic_load<mode>): Simplify to use
+	<mode> instead of doing tests against each mode.
+	(ATOMIC): Update comments about power8 atomic operations.
+	(load_lockedti): Wrap TImode operations to use PTImode instead,
+	since PTImode is limited to even GPRs.
+	(load_lockedpti): Likewise.
+	(store_conditionalti): Likewise.
+	(store_conditionalpti): Likewise.
+
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Use DFmode
+	to save TFmode registers and DImode to save TImode registers for
+	caller save operations.
+	(HARD_REGNO_CALL_PART_CLOBBERED): TFmode and TDmode do not need to
+	mark being partially clobbered since they only use the first
+	double word.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): TFmode
+	and TDmode only use the upper 64-bits of each VSX register.
+
+2013-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_atomic_compare_and_swap):
+	Add support for power8 byte/short/__int128_t load locked/store
+	conditional.
+	(rs6000_expand_atomic_exchange): Likewise.
+	(rs6000_expand_atomic_op): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SYNC_HI_QI): Macros to say
+	whether byte, short, and 128-bit sync instructions are provided.
+	(TARGET_SYNC_TI): Likewise.
+
+	* config/rs6000/sync.md: Revert entire file back to original GCC
+	4.9 source.
+	(larx): Add QI, HI, TImodes.
+	(stcx): Likewise.
+	(fetchop_pred): Use int_reg_operand instead of gpc_reg_operand, so
+	that we restrict ourselves to GPRs.  Use AINT iterator instead of
+	INT1 to include quad word sync operations.
+	(atomic_compare_and_swap<mode>): Likewise.
+	(atomic_exchange<mode>): Likewise.
+	(atomic_<fetchop_name><mode>): Likewise.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<fetchop_name><mode>): Likewise.
+	(atomic_fetch_nand<mode>): Likewise.
+	(atomic_<fetchop_name>_fetch<mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+	(ATOMIC): Add QI/HI iterators on power8.
+	(AINT): Replacement for INT1 iterator that adds TImode.
+	(load_lockedti): TI mode load locked/store conditional support.
+	(load_lockedti_internal): Likewise.
+	(store_conditionalti): Likewise.
+
+	* config/rs6000/rs6000.md (INT_ATOMIC): Delete, move back to
+	sync.md.
+
+2013-05-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move):
+	Allow SDmode direct moves in either 32-bit or 64-bit.
+
+	* config/rs6000/rs6000.md (f32_dm): Add support for direct move
+	for SDmode but not SFmode.
+	(mov<mode>_hardfloat, 32-bit floating point): Likewise.
+
+	* config/rs6000/constraints.md (wn constraint): New constraint
+	that is always NO_REGS, to allow direct moves for SDmode, but not
+	SFmode.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Update to use
+	constraints.md instead of rs6000.h.  Reorder w* constraints.  Add
+	wm, wn documentation.
+
+2013-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (LOCAL_CPU_EXTRA_SPEC_FUNCTIONS): Fix
+	typo in cross compiler case.
+
+	* DEV-PHASE: Update to list branch name.
+
+	* configure.ac (--with-extra-prefix=): Add configure time switches
+	to add addition prefix directories for the compiler to search for
+	extra executables, startfiles, and directories to add to the list
+	of shared library locations.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+	* configure: Regenerate.
+
+	* doc/install.texi (--with-extra-prefix=): Document new configure
+	switches.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+
+	* gcc.c (LINK_RPATH_DIRS_SPEC): Add support for configuration time
+	additional executable, startfile, include, and shared library
+	location prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
+	%extra-cpu-dirs() as spec functions.
+	(LINK_COMMAND_SPEC): Likewise.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(configure_include_prefix): Likewise.
+	(configure_startfile_prefix): Likewise.
+	(configure_exec_prefix): Likewise.
+	(static_spec_functions): Likewise.
+	(IS_STD_DIR): Likewise.
+	(config_rpath): Likewise.
+	(build_rpath_or_cpu_dirs): Likewise.
+	(extra_rpath_dirs_spec_function): Likewsie.
+	(extra_cpu_dirs_spec_function): Likewise.
+	(find_dynamic_linker_spec_function): Likewise.
+	(add_multiple_prefix): New function that is like add_prefix, but
+	splits the prefix at PATH_SEPARATOR.
+	(process_command): Simplify processing COMPILER_PATH, LPATH, and
+	LIBRARY_PATH_ENV environment variables by using the function
+	add_multiple_prefix to do the splitting of the separate prefixes.
+	Add support for the configuration switch to add new executable,
+	startfile, include, and shared library prefixes.
+
+	* gcc.h (extra_cpu_dirs_spec_function): Add declaration.
+
+	* config.in (CONFIGURE_EXEC_PREFIX): Add defines for the configure
+	switches to add executable, startfile, include, and shared library
+	configuration directories.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(CONFIGURE_RPATH_PREFIX): Likewise.
+
+	* config/rs6000/x-rs6000 (driver-rs6000.o): Add $(GCC_H)
+	dependency.
+
+	* config/rs6000/linux64.h (GLIBC_DYNAMIC_LINKER32): If
+	--with-extra-startfile-prefix or --with-extra-prefix was used, use
+	%find-dynamic-linker() to find the dynamic linker in the startfile
+	prefixes.
+	(GLIBC_DYNAMIC_LINKER64): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS64): Likewise.
+	(LINK_OS_LINUX_SPEC32): Likewise.
+	(LINK_OS_LINUX_SPEC64): Likewise.
+	* config/rs6000/rs6000.h (EXTRA_SPEC_FUNCTIONS): Likewise.
+	(LOCAL_CPU_EXTR_SPEC_FUNCTIONS): Likewise.
+	* config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS32): Likewise.
+	(LINK_OS_LINUX_SPEC): Likewise.
+	(rs6000_extra_static_libdirs): Likewise.
+	(SUBTARGET_EXTRA_SPEC_FUNCTIONS): Likewise.
+
+	* config/rs6000/driver-rs6000.c (toplevel): Include gcc.h.
+	(rs6000_extra_static_libdirs): If we have extra configure
+	startfile prefixes, look for a machine specific file as a
+	subdirectory in the startfile prefixes if the user used
+	-mcpu=<xxx>.
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move):
+	Only allow SDmode direct moves in 64-bit for now.
+
+2013-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	SFmode direct move functions.
+	(rs6000_secondary_reload_direct_move): Likewise.
+
+	* config/rs6000/vsx.md (UNSPEC_P8V_NOTRAP): Delete.
+	(xscvdpspn): Use UNSPEC_XSCVDPSPN.  Insn is conditional on either
+	TARGET_DIRECT_MOVE or TARGET_P8_VECTOR.
+	(xscvdpspn_vector): New pattern for moving SFmode from VSX
+	register to GPR register.
+	(xscvspdpn): Use UNSPEC_XSCVSPDPN.  Insn is conditional on either
+	TARGET_DIRECT_MOVE or TARGET_P8_VECTOR.
+	(xscvspdpn_vector): New pattern for moving SFmode from GPR
+	register to VSX register.
+
+	* config/rs6000/rs6000.md (UNSPEC_XSCVSPDPN): New unspec.
+	(UNSPEC_XSCVDPSPN): Likewise.
+	(zero_extendsidi2_lfiwzx): Reorder pattern, Use ?? instead of !
+	for mtvsrwz/mtvsrwa constraint.
+	(extendsidi2_lfiwax): Likewise.
+	(reload_vsx_from_gprsf): New insns for moving SFmode between VSX
+	registers and GPR registers.
+	(reload_gpr_from_vsxsf): Likewise.
+	(p8_mfvsrd_4_disf): Likewise.
+
+	* config/rs6000/rs6000.c (IS_FP_VECT_REG_TYPE): New macro to
+	determine if register type is floating point or vector registers.
+	(reload_fpr_gpr): New tables to determine what extended direct
+	move functions are available.
+	(reload_gpr_vsx): Likewise.
+	(reload_vsx_gpr): Likewise.
+	(register_to_reg_type): New function to map a REG rtx into a
+	register type.
+	(rs6000_init_hard_regno_mode_ok): Setup mapping tables for
+	extended direct move instructions.
+	(rs6000_secondary_reload_move): New function to handle whether a
+	register to register move can be done with no extra instructions,
+	or with a series of instructions and a temporary register.
+	(rs6000_secondary_reload_simple_move): Change calling signature.
+	(rs6000_secondary_reload_direct_move): Change calling signature.
+	Rename from rs6000_secondary_reload_p8.  Use reload mapping arrays
+	to determine what extended direct move function is available.
+	(rs6000_secondary_reload): Call rs6000_secondary_reload_move to
+	handle register/register moves.
+	(rs6000_secondary_memory_needed): Use the function
+	rs6000_secondary_reload_move to figure out whether a register to
+	register move can be done without needing memory.
+
+2013-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (quad_int_reg_operand): Remove debug
+	code, rework slightly.
+
+	* config/rs6000/rs6000.c (enum rs6000_reg_type): Replace
+	reload_reg_type with rs6000_reg_type, and expand its use to more
+	register types.  If VSX, consider FPR/Altivec registers, one
+	register type, if not they are separate types.
+	(reg_class_to_reg_type) New static array to statically map
+	register class to rs6000_reg_type.
+	(IS_STD_REG_TYPE): Macro to determine if a register type is not a
+	specialized register type.
+	(rs6000_init_hard_regno_mode_ok): Set up reg_class_to_reg_type.
+	(enum reload_reg_type): Delete in favor of enum rs6000_reg_type.
+	(rs6000_reload_register_type): Likewise.
+	(rs6000_secondary_reload_simple_move): Switch to use enum
+	rs6000_reg_type for register classification.
+	(rs6000_secondary_reload_p8): Likewise.
+	(rs6000_secondary_reload): Likewise.
+	(rs6000_secondary_memory_needed): Switch to use enum
+	rs6000_reg_type for register classification.  Tighten down
+	returning that we don't need secondary memory for the cases we
+	actually support.
+
+2013-04-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Merge changes from trunk.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+
+2013-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Set
+	-mconstrain-regs if using LRA.
+
+2013-04-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Set
+	-mconstrain-regs if we are using the LRA register allocator.
+
+	* config/rs6000/rs6000.opt (-mcontrain-regs): Change comment.
+
+2013-03-26  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/power8.md: New file for Power8 pipeline description.
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add power8.md.
+	* config/rs6000/rs6000.c (rs6000_issue_rate): Add Power8 entry.
+	* config/rs6000/rs6000.md (parity<mode>2_cmpb): Set length/type attr.
+	(unnamed shift right patterns, mov<mode>_internal2): Change type attr
+	for 'mr.' to fast_compare.
+	(bpermd_<mode>): Change type attr to popcnt.
+
+2013-03-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (int_reg_operand): Clone E500 code
+	from gpc_reg_operand.
+
+	* config/rs6000/rs6000.md (mov<mode>_ppc64): Allow moves of
+	const_double to GPR registers.
+	(movti splitter for const_double): If we can't put TImode into VSX
+	registers, split const doubles immediately.  If we can put TImode
+	into VSX registers, don't split until after reload.
+
+2013-03-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (quad_memory_operand): Check for
+	TARGET_QUAD_MEMORY.
+
+2013-03-06  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.md (zero_extendsidi2_lfiwzx): Set corret "type"
+	attribute.
+	(extendsidi2_lfiwax): Likewise.
+
+2013-03-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/crypto.md: New file, add power8 crypo support.
+
+	* config/rs6000/altivec.h (vec_eqv): Add power8 support.
+	(vec_nand): Likewise.
+	(vec_orc): Likewise.
+	(vec_vaddudm): Likewise.
+	(vec_vclz): Likewise.
+	(vec_vclzb): Likewise.
+	(vec_vclzd): Likewise.
+	(vec_vclzh): Likewise.
+	(vec_vclzw): Likewise.
+	(vec_vgbbd): Likewise.
+	(vec_vmaxsd): Likewise.
+	(vec_vmaxud): Likewise.
+	(vec_vminsd): Likewise.
+	(vec_vminud): Likewise.
+	(vec_vmrgew): Likewise.
+	(vec_vmrgow): Likewise.
+	(vec_vpksdss): Likewise.
+	(vec_vpksdus): Likewise.
+	(vec_vpkudum): Likewise.
+	(vec_vpkudus): Likewise.
+	(vec_vpopcnt): Likewise.
+	(vec_vpopcntb): Likewise.
+	(vec_vpopcntd): Likewise.
+	(vec_vpopcnth): Likewise.
+	(vec_vpopcntw): Likewise.
+	(vec_vrld): Likewise.
+	(vec_vsld): Likewise.
+	(vec_vsrad): Likewise.
+	(vec_vsrd): Likewise.
+	(vec_vsubudm): Likewise.
+	(vec_vupkhsw): Likewise.
+	(vec_vupklsw): Likewise.
+
+	* config/rs6000/altivec.md (UNSPEC_VPKUHUM): Merge the unspec
+	names for vector pack/unpack and add power8 V2DI support.
+	(UNSPEC_VPKUWUM): Likewise.
+	(UNSPEC_VPKSHSS): Likewise.
+	(UNSPEC_VPKSWSS): Likewise.
+	(UNSPEC_VPKUHUS): Likewise.
+	(UNSPEC_VPKSHUS): Likewise.
+	(UNSPEC_VPKUWUS): Likewise.
+	(UNSPEC_VPKSWUS): Likewise.
+	(UNSPEC_VPACK_SIGN_SIGN_SAT): Likewise.
+	(UNSPEC_VPACK_SIGN_UNS_SAT): Likewise.
+	(UNSPEC_VPACK_UNS_UNS_SAT): Likewise.
+	(UNSPEC_VPACK_UNS_UNS_MOD): Likewise.
+	(UNSPEC_VUPKHSB): Likewise.
+	(UNSPEC_VUNPACK_HI_SIGN): Likewise.
+	(UNSPEC_VUNPACK_LO_SIGN): Likewise.
+	(UNSPEC_VUPKHSH): Likewise.
+	(UNSPEC_VUPKLSB): Likewise.
+	(UNSPEC_VUPKLSH): Likewise.
+	(UNSPEC_VGBBD): New unspec for vgbbd instruction.
+	(VI2): Add power8 V2DI support.  Where possible use mode
+	interators and mode attributes to group patterns together.  Use
+	VECTOR_UNIT_<xxx>_P test instead of TARGET_ALTIVEC for power8
+	support.
+	(VI_char): Likewise.
+	(VI_scalar): Likewise.
+	(VI_unit): Likewise.
+	(VP): LIkewise.
+	(VP_small): Likewise.
+	(VP_small_lc): Likewise.
+	(VU_char): Likewise.
+	(add<mode>3): Likewise.
+	(altivec_vaddcuw): Likewise.
+	(altivec_vaddu<VI_char>s): Likewise.
+	(altivec_vadds<VI_char>s): Likewise.
+	(sub<mode>3): Likewise.
+	(altivec_vsubcuw): Likewise.
+	(altivec_vsubu<VI_char>s): Likewise.
+	(altivec_vsubs<VI_char>s): Likewise.
+	(altivec_vavgs<VI_char>): Likewise.
+	(altivec_vcmpbfp): Likewise.
+	(altivec_eq<mode>): Likewise.
+	(altivec_gt<mode>): Likewise.
+	(altivec_gtu<mode>): Likewise.
+	(umax<mode>3): Likewise.
+	(smax<mode>3): Likewise.
+	(umin<mode>3): Likewise.
+	(smin<mode>3): Likewise.
+	(altivec_vpkuhum): Likewise.
+	(altivec_vpkuwum): Likewise.
+	(altivec_vpkshss): Likewise.
+	(altivec_vpkswss): Likewise.
+	(altivec_vpkuhus): Likewise.
+	(altivec_vpkshus): Likewise.
+	(altivec_vpkuwus): Likewise.
+	(altivec_vpkswus): Likewise.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+	(altivec_vrl<VI_char>): Likewise.
+	(altivec_vsl<VI_char>): Likewise.
+	(altivec_vsr<VI_char>): Likewise.
+	(altivec_vsra<VI_char>): Likewise.
+	(altivec_vupkhsb): Likewise.
+	(altivec_vupkhs<VU_char>): Likewise.
+	(altivec_vupkls<VU_char>): Likewise.
+	(altivec_vupkhsh): Likewise.
+	(altivec_vupklsb): Likewise.
+	(altivec_vupklsh): Likewise.
+	(altivec_vcmpequ<VI_char>_p): Likewise.
+	(altivec_vcmpgts<VI_char>_p): Likewise.
+	(altivec_vcmpgtu<VI_char>_p): Likewise.
+	(abs<mode>2): Likewise.
+	(vec_unpacks_hi_v16qi): Likewise.
+	(vec_unpacks_hi_v8hi): Likewise.
+	(vec_unpacks_lo_v16qi): Likewise.
+	(vec_unpacks_lo_v16qi): Likewise.
+	(vec_unpacks_hi_<VP_small_lc>): Likewise.
+	(vec_unpacks_lo_<VP_small_lc>): Likewise.
+	(vec_pack_trunc_v8hi): Likewise.
+	(vec_pack_trunc_v4si): Likewise.
+	(vec_pack_trunc_<mode>): Likewise.
+	(p8_vmrgew): Add support for new power8 altivec instructions.
+	(p8_vmrgow): Likewise.
+	(clz<mode>2): Likewise.
+	(popcount<mode>2): LIkewise.
+	(p8v_vgbbd): Likewise.
+	(altivec_and<mode>3): Allow scratch clobber to allow VSX ands to
+	be done in GPRs as well as vector registers.
+
+	* config/rs6000/constraints.md (wm constraint): New constraints for
+	power8.
+	(wq constraint): Likewise.
+	(wr constraint): LIkewise.
+	(wv constraint): Likewise.
+	(wx constraint): Likewise.
+	(wz constraint): Likewise.
+	(wQ constraint): Likewise.
+
+	* config/rs6000/dfp.md (negtd2): Fix spacing.
+
+	* config/rs6000/power7.md: For now, add power8 to all power7
+	rules.
+
+	* config/rs6000/predicates.md (const_0_to_15_operand): New
+	predicate, match 0..15.
+	(gpc_reg_operand): New predicate, allow VSX registers as well as
+	integer and floating point.
+	(int_reg_operand): New predicate, only allow GPRs.
+	(quad_int_reg_operand): New predicate, only allow even GPRs for
+	quad memory instructions.
+	(vsx_reg_or_cint_operand): New predicate, allow GPRs, VSX
+	registers, and integer constants to allow moving VSX logical
+	operations to GPRs.
+	(quad_memory_operand): New predicate for quad memory accesses.
+	(reg_or_indexed_operand): New predicate for direct move support.
+
+	* config/rs6000/rs6000-builtin.def (BU_P8V_AV_1): Add power8
+	builtins.
+	(BU_P8V_AV_2): Likewise.
+	(BU_P8V_AV_P): Likewise.
+	(BU_P8V_VSX_1): Likewise.
+	(BU_P8V_OVERLOAD_1): Likewise.
+	(BU_P8V_OVERLOAD_2): Likewise.
+	(BU_CRYPTO_1): Likewise.
+	(BU_CRYPTO_2): Likewise.
+	(BU_CRYPTO_3): Likewise.
+	(BU_CRYPTO_OVERLOAD_1): Likewise.
+	(BU_CRYPTO_OVERLOAD_2): Likewise.
+	(BU_CRYPTO_OVERLOAD_3): Likewise.
+	(P8V_ABS_V2DI_BUILTIN): Likewise.
+	(P8V_VUPKHSW_BUILTIN): Likewise.
+	(P8V_VUPKLSW_BUILTIN): Likewise.
+	(P8V_VCLZB_BUILTIN): Likewise.
+	(P8V_VCLZH_BUILTIN): Likewise.
+	(P8V_VCLZW_BUILTIN): Likewise.
+	(P8V_VCLZD_BUILTIN): Likewise.
+	(P8V_VPOPCNTB_BUILTIN): Likewise.
+	(P8V_VPOPCNTH_BUILTIN): Likewise.
+	(P8V_VPOPCNTW_BUILTIN): Likewise.
+	(P8V_VPOPCNTD_BUILTIN): Likewise.
+	(P8V_VGBBD_BUILTIN): Likewise.
+	(P8V_VADDUDM_BUILTIN): Likewise.
+	(P8V_VSUBUDM_BUILTIN): Likewise.
+	(P8V_VMINSD_BUILTIN): Likewise.
+	(P8V_VMAXSD_BUILTIN): Likewise.
+	(P8V_VMINUD_BUILTIN): Likewise.
+	(P8V_VMAXUD_BUILTIN): Likewise.
+	(P8V_VRLD_BUILTIN): Likewise.
+	(P8V_VSLD_BUILTIN): Likewise.
+	(P8V_VSRD_BUILTIN): Likewise.
+	(P8V_VSRAD_BUILTIN): Likewise.
+	(P8V_VPKUDUM_BUILTIN): Likewise.
+	(P8V_VPKSDSS_BUILTIN): Likewise.
+	(P8V_VPKUDUS_BUILTIN): Likewise.
+	(P8V_VPKSDUS_BUILTIN): Likewise.
+	(P8V_EQV_V16QI_BUILTIN): Likewise.
+	(P8V_EQV_V8HI_BUILTIN): Likewise.
+	(P8V_EQV_V4SI_BUILTIN): Likewise.
+	(P8V_EQV_V2DI_BUILTIN): Likewise.
+	(P8V_EQV_V4SF_BUILTIN): Likewise.
+	(P8V_EQV_V2DF_BUILTIN): Likewise.
+	(P8V_NAND_V16QI_BUILTIN): Likewise.
+	(P8V_NAND_V8HI_BUILTIN): Likewise.
+	(P8V_NAND_V4SI_BUILTIN): Likewise.
+	(P8V_NAND_V2DI_BUILTIN): Likewise.
+	(P8V_NAND_V4SF_BUILTIN): Likewise.
+	(P8V_NAND_V2DF_BUILTIN): Likewise.
+	(P8V_ORC_V16QI_BUILTIN): Likewise.
+	(P8V_ORC_V8HI_BUILTIN): Likewise.
+	(P8V_ORC_V4SI_BUILTIN): Likewise.
+	(P8V_ORC_V2DI_BUILTIN): Likewise.
+	(P8V_ORC_V4SF_BUILTIN): Likewise.
+	(P8V_ORC_V2DF_BUILTIN): Likewise.
+	(P8V_VCMPEQUD_BUILTIN): Likewise.
+	(P8V_VCMPGTSD_BUILTIN): Likewise.
+	(P8V_VCMPGTUD_BUILTIN): Likewise.
+	(P8V_VCMPEQUD_P_BUILTIN): Likewise.
+	(P8V_VCMPGTSD_P_BUILTIN): Likewise.
+	(P8V_VCMPGTUD_P_BUILTIN): Likewise.
+	(P8V_VEC_VUPKHSW_BUILTIN): Likewise.
+	(P8V_VEC_VUPKLSW_BUILTIN): Likewise.
+	(P8V_VEC_VCLZ_BUILTIN): Likewise.
+	(P8V_VEC_VCLZB_BUILTIN): Likewise.
+	(P8V_VEC_VCLZH_BUILTIN): Likewise.
+	(P8V_VEC_VCLZW_BUILTIN): Likewise.
+	(P8V_VEC_VCLZD_BUILTIN): Likewise.
+	(P8V_VEC_VPOPCNT_BUILTIN): Likewise.
+	(P8V_VEC_VPOPCNTB_BUILTIN): Likewise.
+	(P8V_VEC_VPOPCNTH_BUILTIN): Likewise.
+	(P8V_VEC_VPOPCNTW_BUILTIN): Likewise.
+	(P8V_VEC_VPOPCNTD_BUILTIN): Likewise.
+	(P8V_VEC_VGBBD_BUILTIN): Likewise.
+	(P8V_VEC_EQV_BUILTIN): Likewise.
+	(P8V_VEC_NAND_BUILTIN): Likewise.
+	(P8V_VEC_ORC_BUILTIN): Likewise.
+	(P8V_VEC_VADDUDM_BUILTIN): Likewise.
+	(P8V_VEC_VSUBUDM_BUILTIN): Likewise.
+	(P8V_VEC_VMINSD_BUILTIN): Likewise.
+	(P8V_VEC_VMAXSD_BUILTIN): Likewise.
+	(P8V_VEC_VMINUD_BUILTIN): Likewise.
+	(P8V_VEC_VMAXUD_BUILTIN): Likewise.
+	(P8V_VEC_VRLD_BUILTIN): Likewise.
+	(P8V_VEC_VSLD_BUILTIN): Likewise.
+	(P8V_VEC_VSRD_BUILTIN): Likewise.
+	(P8V_VEC_VSRAD_BUILTIN): Likewise.
+	(P8V_VEC_VPKUDUM_BUILTIN): Likewise.
+	(P8V_VEC_VPKSDSS_BUILTIN): Likewise.
+	(P8V_VEC_VPKUDUS_BUILTIN): Likewise.
+	(P8V_VEC_VPKSDUS_BUILTIN): Likewise.
+	(CRYPTO_BUILTIN_VSBOX): Likewise.
+	(CRYPTO_BUILTIN_VCIPHER): Likewise.
+	(CRYPTO_BUILTIN_VCIPHERLAST): Likewise.
+	(CRYPTO_BUILTIN_VNCIPHER): Likewise.
+	(CRYPTO_BUILTIN_VNCIPHERLAST): Likewise.
+	(CRYPTO_BUILTIN_VPMSUMB): Likewise.
+	(CRYPTO_BUILTIN_VPMSUBH): Likewise.
+	(CRYPTO_BUILTIN_VPMSUMW): Likewise.
+	(CRYPTO_BUILTIN_VPMSUMD): Likewise.
+	(CRYPTO_BUILTIN_VPERMXOR_V2DI): Likewise.
+	(CRYPTO_BUILTIN_VPERMXOR_V4SI): Likewise.
+	(CRYPTO_BUILTIN_VPERMXOR_V8HI): Likewise.
+	(CRYPTO_BUILTIN_VPERMXOR_V16QI): Likewise.
+	(CRYPTO_BUILTIN_VSHASIGMAW): Likewise.
+	(CRYPTO_BUILTIN_VSHASIGMAD): Likewise.
+	(CRYPTO_BUILTIN_VPERMXOR): Likewise.
+	(CRYPTO_BUILTIN_VSHASIGMA): Likewise.
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Don't add builtin if assembler was not configured for it.
+	(rs6000_target_modify_macros): Define __ARCH_PWR8 if power8, and
+	__POWER8_VECTOR__ if power8 vector support is enabled.
+	(altivec_overloaded_builtins): Add support for power8 builtins for
+	absolute value, vector unpack, vector pack, add, compare, max,
+	min, rotate, shift, subtract, predicated compares, logical
+	operations, count leading zeros, permutation, population count,
+	vector gather bits by bytes, and crypto.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_5_MASKS_EMBEDDED): Use
+	ISA_2_4_MASKS as base.
+	(ISA_2_7_MASKS_SERVER): New masks for power8.
+	(POWERPC_MASKS): Add power8 options.
+	(power8 cpu): Use ISA_2_7_MASKS_SERVER, instead of writing out
+	each of the options.
+
+	* config/rs6000/rs6000-opts.h (enum processor_type): Add power8
+	processor.
+	(enum rs6000_vector): Add power8 vector type.
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_move_128bit): Add
+	declaration.
+	(direct_move_p): Likewise.
+	(quad_load_store_p): Likewise.
+
+	* config/rs6000/rs6000.h (ASM_CPU_POWER8_SPEC): Use
+	ASM_CPU_POWER7_SPEC if no power8 support.
+	(ASM_CPU_SPEC): If power8 switches, add power8 cpu.
+	(TARGET_DIRECT_MOVE): Define as 0 if assembler doesn't have power8
+	support.
+	(TARGET_CRYPTO): Likewise.
+	(TARGET_P8_VECTOR): Likewise.
+	(VECTOR_UNIT_P8_VECTOR_P): New macro for power8 vector support.
+	(VECTOR_UNIT_VSX_OR_P8_VECTOR_P): Likewise.
+	(VECTOR_MEM_P8_VECTOR_P): Likewise.
+	(VECTOR_MEM_VSX_OR_P8_VECTOR_P): Likewise.
+	(VECTOR_UNIT_ALTIVEC_OR_VSX_P): Redefine to also allow power8
+	vector support.
+	(VECTOR_MEM_ALTIVEC_OR_VSX_P): Likewise.
+	(MASK_CRYPTO): Map power8 option masks into MASK_<xxx>.
+	(MASK_DIRECT_MOVE): Likewise.
+	(MASK_P8_FUSION): Likewise.
+	(MASK_P8_VECTOR): Likewise.
+	(REG_ALLOC_ORDER): Move register fr13 lower in the search order,
+	so that power8 direct move code that wants a TFmode temporary will
+	not allocate fr13:fr14 first and need to spill saved register
+	fr14.
+	(VLOGICAL_REGNO_P): Allow VSX logical operations to be done in
+	GPRs as well as VSX registers to improve quad word atomic memory
+	operations.
+	(enum r6000_reg_class_enum): Add wm, wq, wr, wv constraints.
+	(RS6000_BTM_P8_VECTOR): Add power8 builtin support.
+	(RS6000_BTM_CRYPTO): Likewise.
+	(RS6000_BTM_COMMON): Likewise.
+
+	* config/rs6000/rs6000.opt (-mpower8-fusion): New switch for
+	power8.
+	(-mpower8-vector): Likewise.
+	(-mcrypto): Likewise.
+	(-mdirect-move): Likewise.
+	(-mquad-memory): Likewise.
+	(-mlra): New debug switch.
+	(-mconstrain-regs): Likewise.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add crypto.md.
+
+	* config/rs6000/vector.md (VEC_I): Add V2DI for power8.
+	(VEC_A): Likewise.
+	(VEC_C): Likewise.
+	(GPR 128-bit spliters): Don't split direct move and quad memory
+	loads/stores.
+	(and<mode>3): Add a scratch clobber so that ANDs can be done in
+	the GPR registers.
+	(vrotl<mode>3): Use VECTOR_UNIT_ALTIVEC_OR_VSX_P instead of
+	TARGET_ALTIVEC for power8 V2DI support.
+	(vashl<mode>3): Likewise.
+	(vlshr<mode>3): Likewise.
+	(vashr<mode>3): Likewise.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Move 128-bit move patterns
+	to rs6000_output_move_128bit.  Add power8 direct move support.
+	(vsx_movti_64bit): Likewise.
+	(vsx_and<mode>3): Allow logical operations to be done in either
+	VSX registers or GPRs.  Split the GPR operations if needed.
+	(vsx_ior<mode>3): Likewise.
+	(vsx_xor<mode>3): Likewise.
+	(vsx_one_cmpl<mode>2): Likewise.
+	(vsx_nor<mode>3): Likewise.
+	(vsx_andc<mode>3): Likewise.
+	(eqv<mode>): Add new power8 vector logical operations.
+	(nand<mode>): Likewise.
+	(orc<mode>): Likewise.
+	(xscvdpspn): New power8 instructions.
+	(xscvspdpn): Likewise.
+
+	* config/rs6000/rs6000.c (power8_cost): Initial power8 costs.
+	(rs6000_lra_p): New debug target hook to switch to the LRA
+	register allocator if -mlra.
+	(TARGET_LRA_P): Likewise.
+	(rs6000_hard_regno_mode_ok): Allow scalar double and float in
+	Altivec if power8.  Add debug support for tightning constraints so
+	only int types can go in LR/CTR.
+	(rs6000_debug_reg_print): Print out new register classes if
+	-mdebug=reg.
+	(rs6000_init_hard_regno_mode_ok): Add power8 vector support.  Add
+	initial support for power8 scalar floating point in VSX
+	registers.  Add support for new power8 constraints.  Add vector
+	reload support for power8.
+	(rs6000_builtin_mask_calculate): Add support for power8 builtins.
+	(rs6000_option_override_internal): Add support for power8
+	switches.
+	(rs6000_builtin_vectorized_function): Vectorize power8 count
+	leading zero, population count.
+	(rs6000_loop_align): Add power8 support.
+	(direct_move_p): New function to return true if move would use
+	power8 direct moves.
+	(quad_load_store_p): New function to return true if load/store
+	could use quad memory instructions.
+	(rs6000_legitimize_address): If quad memory, limit TImode
+	addresses to a single register.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_expand_ternop_builtin): Add support for power8 builtins
+	functions.
+	(altivec_init_builtins): Likewise.
+	(builtin_function_type): Likewise.
+	(rs6000_common_init_builtins): Likewise.
+	(rs6000_secondary_reload_simple_move): New secondary reload helper
+	function to identify if a move is a simple move in the same
+	register class.
+	(rs6000_secondary_reload_p8): New secondary reload helper function
+	to deal with power8 direct moves.
+	(rs6000_secondary_reload): Call new helper functions.  Add quad
+	memory support.
+	(rs6000_secondary_reload): Fix thinko where wrong address was
+	used.
+	(rs6000_secondary_memory_needed): Add support for power8 direct
+	move and quad memory.
+	(rs6000_debug_secondary_memory_needed): Change argument names to
+	be clearer.  Print more debug information.
+	(rs6000_output_move_128bit): New function to return the pattern
+	for 128 bit moves.  Add power8 direct move and quad memory
+	support.
+	(emit_load_locked): Add new power8 load locked, store conditional
+	patterns.
+	(emit_store_conditional): Likewise.
+	(rs6000_adjust_cost): Add power8 support.
+	(rs6000_issue_rate): Likewise.
+	(insn_must_be_last_in_group): Likewise.
+	(force_new_group): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(altivec_expand_vec_perm_const): Add new power8 pack/unpack
+	builtins.
+	(rs6000_opt_masks): Add power8 switches.
+
+	* config/rs6000/rs6000.md (UNSPEC_P8V_FMRGOW): New power8
+	unspec's.
+	(UNSPEC_P8V_MTVSRWZ): Likewise.
+	(UNSPEC_P8V_RELOAD_FROM_GPR): Likewise.
+	(UNSPEC_P8V_MTVSRD): Likewise.
+	(UNSPEC_P8V_XXPERMDI): Likewise.
+	(UNSPEC_P8V_RELOAD_FROM_VSX): Likewise.
+	(type attribute): Add crypto.
+	(cpu attribute): Add power8.
+	(INT_ATOMIC): New iterator for types that have atomic load/store
+	operations.
+	(FMOVE128_GPR): New iterators for 128 bit direct moves.
+	(f32_lv): New mode attribute for power8 SFmode/SDmode
+	load/stores.
+	(f32_sv): Likewise.
+	(zero_extend<mode>di2_internal1): Allow combine to merge int load
+	and zero extend to generate LFIWZX/LFIWAX directly.  Add power8
+	support.  Name patterns.
+	(zero_extendsidi2_lfiwzx): Likewise.
+	(extendsidi2_lfiwax): Likewise.
+	(extendsidi2_nocell): Likewise.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(floatunssi<mode>): Likewise.
+	(fix_trunc<mode>si2_stfiwx): Likewise.
+	(fixuns_trunc<mode>si2_stfiwx): Likewise.
+	(mov<mode>_hardfloat, 32-bit moves): Add power8 support.
+	(mov<mode>_softfloat, 32-bit moves): Likewise.
+	(mov<mode>_hardfloat64, 64-bit moves): Likewise.
+	(p8_fmrgow_<mode>): Add power8 permute/direct move/quad memory
+	support.
+	(p8_mtvsrwz_1): Likewise.
+	(p8_mtvsrwz_2): Likewise.
+	(reload_fpr_from_gpr<mode>): Likewise.
+	(p8_mtvsrd_1): Likewise.
+	(p8_mtvsrd_2): Likewise.
+	(p8_xxpermdi_<mode>): Likewise.
+	(reload_vsx_from_gpr<mode>): Likewise.
+	(p8_mfvsrd_3_<mode>): Likewise.
+	(reload_gpr_from_vsx<mode>): Likewise.
+	(64-bit move splitters): Likewise.
+	(movdi_internal64): Likewise.
+	(128-bit move splitters): Likewise.
+	(toplevel): Include crypto.md.
+
+	* config/rs6000/sync.md (lock_r_constraint): New mode attributes
+	to add load linked/store conditional quad memory support, which
+	needs slightly different tweaks.
+	(lock_m_constraint): Likewise.
+	(lock_reg): Likewise.
+	(lock_memory): Likewise.
+	(fetchop_pred): Use int_reg_operand, not gpc_reg_operand.
+	(mem_thread_fence): Add support for quad memory operations.
+	(loadsync_<mode>): Likewise.
+	(atomic_store<mode>): Likewise.
+	(load_locked<mode>): Likewise.
+	(atomic_compare_and_swap<mode>): Likewise.
+	(atomic_exchange<mode>): Likewise.
+	(atomic_<fetchop_name><mode>): Likewise.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<fetchop_name><mode>): Likewise.
+	(atomic_fetch_nand<mode>): Likewise.
+	(atomic_<fetchop_name>_fetch<mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document power8 builtins.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document new
+	power8 switches: -mpower8-fusion, -mpower8-vector, -mquad-memory,
+	-mcrypto, -mdirect-move, and -mlra.
+
+	* doc/md.texi (Machine Constraints): Document wq, wr constraints
+	for power8.
+
+	Branch recreated.
+
+Power8 RFCs that are done (for first stage implementation):
+===========================================================
+RFC02196-VMX-Crypto-Operations.r9.IBM.pdf
+RFC02197-VMX-64-bit-Integer-Operations.r4.IBM.pdf
+RFC02198-VMX-Miscellaneous-Operations.r4.IBM.pdf		(vclz{b,h,w}, vgbbd)
+RFC02241-VMX-Miscellaneous-Operations-II.r5a.IBM.pdf		(vclzd, vpopcnt{b,h,w,d}, vorc, vnand, veqv)
+RFC02242-BFP-VSX-Miscellaneous-Operations.r6.IBM.pdf		(xxlorc, xxleqv, xxlnand, xscvdpspn, xscvspdpn)
+
+
+Power8 RFCs that are partially implemented:
+===========================================
+RFC02206-Direct-Move.r7.IBM.pdf					(mfvsrd, mfvsrwz, mtvsrd, mtvsrwa, mtvsrwz, fmrgew, fmrgow, vmgrew, vmgrow)
+RFC02225.lq_stq_prob_state.r5.IBM.pdf				(lq, stq are no longer privileged)
+RFC02224.lqarx_stqcx.r8.IBM.pdf					(lqarx, stqcx.)
+
+Power8 RFCs that will need compiler suppport in the first phase:
+================================================================
+RFC02182-VSX-Scalar-SP.r6.IBM.pdf				(VSX scalar single precision)
+RFC02183.HTM.r16.IBM.pdf					(hardware transactional memory)
+RFC02234.VTB.IC.IBM.r5.pdf					(virtual time base)
+RFC02240-VSX-Unaligned-Vector-Storage-Accesses.r4.IBM.pdf	(lxvx/stxvx -- allow unaligned VSX)
+RFC02243-VMX-32-bit-Multiply-Operations.r4.IBM.pdf		(vmulesw, vmulosw, vmuleuw, vmulouw, vmuluwm)
+RFC02244-VMX-Decimal-Integer-Operations.r8.IBM.pdf		(bcdadd., bcdsub.)
+RFC02247-VMX-128-bit-Operations.r1.IBM.pdf			(vadduqm, vaddcuq, vaddeuqm, vaddecuq, vsubuqm, vsubcuq, vsubeuqm, vsubecuq, vbpermq)
+
+Power8 RFCs that might need compiler support someday:
+=====================================================
+RFC02185.processor.control.r20.IBM.pdf				(msgclr, msgsnd, msgsndp, msgclrp)
+RFC02189.Extended.prob.priority.IBM.r11.pdf			(special or <reg>,<reg>,<reg> changes priority)
+RFC02202.stream.r1.IBM.pdf					(new field to stream prefetch)
+RFC02203.cache.hint.r2.IBM.pdf					(new cache hint tag)
+RFC02205.sec.r13.IBM.pdf					(mtsle -- move to split endian mode)
+RFC02215.eb.r5.IBM.pdf						(elemental memory barriers)
+RFC02216.prob.state.interrupt.r19.IBM.pdf			(rfebb -- event based branch)
+RFC02219.prefetch.r4.IBM.pdf					(prefetch field changes)
+RFC02226.lq_stq_le.r2.IBM.pdf					(lq/stq can run in little endian mode)
+RFC02227.makeitso.r6.IBM.pdf					(new addition to RFC 2189)
+RFC02228.bctar.r5.IBM.pdf					(bctar, bctarl -- meant for dynamic optimizer)
+RFC02233.accelerator-switchboard.r9c.IBM.pdf			(accelerator switchboard)
+
+Power8 RFCs that probably don't need compiler work:
+===================================================
+
+RFC02181.perf.mon.r35.IBM.pdf					(branch history rolling buffer)
+RFC02184.misc.r14.IBM.pdf					(documentation fixes)
+RFC02186.icbt.r5.IBM.pdf					(icbt is no longer embedded)
+RFC02190-Virtual-Page-Class-Keys-for-Instructions.r4.pdf	(privileged SPR)
+RFC02192.PCR.r32.IBM.pdf					(privileged SPR)
+RFC02193.CIR.r3.IBM.pdf						(privileged SPR)
+RFC02194.dcbfl.r2.IBM.pdf					(embedded phases in l field to dcbf)
+RFC02195.mas2u.r2.IBM.pdf					(privileged SPR)
+RFC02204.remove.lpes1.r3.IBM.pdf				(privileged SPR)
+RFC02210.virtualcpu.r3.PAAC.pdf					(privileged SPR)
+RFC02211.heir3e.r1.IBM.pdf					(privileged SPR)
+RFC02213.dnh.r0.IBM.pdf						(embedded debug)
+RFC02214.RMSC-inst.r5.IBM.pdf					(real mode storage control)
+RFC02229.watchpoint.r36.IBM.pdf					(update to watchpoints)
+RFC02230.fac.avail.r26.IBM.pdf					(privileged SPR)
+RFC02231.slb_noa.r8.IBM.pdf					(support for hypervisor/dynamic optimizer)
+RFC02232.rsvSPR.r3.IBM.pdf					(reserved SPRs)
+RFC02235.UPS.r6.IBM.pdf						(privileged SPR)
+RFC02236.BHRB.Trace.r18.pdf					(future for ISA 2.08)
+RFC02237.misc.r26.IBM.pdf					(documentation fixes)
+RFC02238.xlate-on-ints.r8.IBM.pdf				(kvm/interrupts)
+RFC02239.gdec.r7.IBM.pdf					(guest kernel SPR mapping)
+RFC02245.dvc.r2.IBM.pdf						(privileged SPR)
+RFC02246.misc.r0.IBM.pdf					(documentation fixes for tag bit)

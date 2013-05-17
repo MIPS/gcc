@@ -2055,7 +2055,7 @@ Any constant whose absolute value is no greater than 4-bits.
 
 @end table
 
-@item PowerPC and IBM RS6000---@file{config/rs6000/rs6000.h}
+@item PowerPC and IBM RS6000---@file{config/rs6000/constraints.md}
 @table @code
 @item b
 Address base register
@@ -2069,6 +2069,9 @@ Floating point register (containing 32-bit value)
 @item v
 Altivec vector register
 
+@item wa
+Any VSX register
+
 @item wd
 VSX vector register to hold vector double data
 
@@ -2081,6 +2084,18 @@ If @option{-mmfpgpr} was used, a floating point register
 @item wl
 If the LFIWAX instruction is enabled, a floating point register
 
+@item wm
+If direct moves are enabled, a VSX register.
+
+@item wn
+No register.
+
+@item wq
+Even general purpose register to use with load/store quad instructions
+
+@item wr
+General purpose register if 64-bit mode is used
+
 @item ws
 VSX vector register to hold scalar float data
 
@@ -2092,9 +2107,6 @@ If the STFIWX instruction is enabled, a floating point register
 
 @item wz
 If the LFIWZX instruction is enabled, a floating point register
-
-@item wa
-Any VSX register
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register

@@ -1614,6 +1614,72 @@ case "$LIBINTL" in *$LIBICONV*)
 	LIBICONV= ;;
 esac
 
+AC_ARG_WITH([extra-prefix],
+[AC_HELP_STRING([--with-extra-prefix={prefixes}],
+ [Add extra prefixes to the list of locations to search for all files])],
+ [EXTRA_PREFIX="$withval"],
+ [EXTRA_PREFIX=''])
+
+AC_ARG_WITH([extra-exec-prefix],
+[AC_HELP_STRING([--with-extra-exec-prefix={prefixes}],
+ [Add extra prefixes to the list of locations to search for executables])],
+ [EXTRA_EXEC_PREFIX="$withval"],
+ [if test x"${EXTRA_PREFIX}" != x; then
+    EXTRA_EXEC_PREFIX="`echo ${EXTRA_PREFIX} | sed 's/:/\\/bin:/g'`/bin"
+  else
+    EXTRA_EXEC_PREFIX=""
+  fi])
+
+if test x"${EXTRA_EXEC_PREFIX}" != x; then
+  AC_DEFINE_UNQUOTED(CONFIGURE_EXEC_PREFIX, "$EXTRA_EXEC_PREFIX",
+		     [Extra executable prefixes])
+fi
+
+AC_ARG_WITH([extra-startfile-prefix],
+[AC_HELP_STRING([--with-extra-startfile-prefix={prefix}],
+ [Add extra prefixes to the list of locations to search for startfiles])],
+ [EXTRA_STARTFILE_PREFIX="$withval"],
+ [if test x"${EXTRA_PREFIX}" != x; then
+    EXTRA_STARTFILE_PREFIX="`echo ${EXTRA_PREFIX} | sed 's/:/\\/lib:/g'`/lib"
+  else
+    EXTRA_STARTFILE_PREFIX=""
+  fi])
+
+if test x"${EXTRA_STARTFILE_PREFIX}" != x; then
+  AC_DEFINE_UNQUOTED(CONFIGURE_STARTFILE_PREFIX, "$EXTRA_STARTFILE_PREFIX",
+		     [Extra startfile prefix])
+fi
+
+AC_ARG_WITH([extra-include-prefix],
+[AC_HELP_STRING([--with-extra-include-prefix={prefix}],
+ [Add extra prefixes to the list of locations to search for system include files])],
+ [EXTRA_INCLUDE_PREFIX="$withval"],
+ [if test x"${EXTRA_PREFIX}" != x; then
+    EXTRA_INCLUDE_PREFIX="${EXTRA_PREFIX}"
+  else
+    EXTRA_INCLUDE_PREFIX=""
+  fi])
+
+if test x"${EXTRA_INCLUDE_PREFIX}" != x; then
+  AC_DEFINE_UNQUOTED(CONFIGURE_INCLUDE_PREFIX, "$EXTRA_INCLUDE_PREFIX",
+		     [Extra include file prefix])
+fi
+
+AC_ARG_WITH([extra-rpath-prefix],
+[AC_HELP_STRING([--with-extra-rpath-prefix={prefixes}],
+ [Specify prefixes to pass to the linker via -rpath=dir to locate shared libraries])],
+ [EXTRA_RPATH_PREFIX="$withval"],
+ [if test x"${EXTRA_PREFIX}" != x; then
+    EXTRA_RPATH_PREFIX="${prefix}/lib:`echo ${EXTRA_PREFIX} | sed 's/:/\\/lib:/g'`/lib"
+  else
+    EXTRA_RPATH_PREFIX=""
+  fi])
+
+if test x"${EXTRA_RPATH_PREFIX}" != x; then
+  AC_DEFINE_UNQUOTED(CONFIGURE_RPATH_PREFIX, "$EXTRA_RPATH_PREFIX",
+		     [Extra rpath prefix])
+fi
+
 AC_ARG_ENABLE(secureplt,
 [AS_HELP_STRING([--enable-secureplt],
 		[enable -msecure-plt by default for PowerPC])],
