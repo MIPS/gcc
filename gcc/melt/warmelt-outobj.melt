@@ -2471,7 +2471,7 @@ MELT_EXTERN  void* melt_start_this_module (void*);
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (output_centraldecl_hookroutine phook implbuf "implementation of" (the_null_cstring))
-    (add2out implbuf "{ /* body of hook " hookname " */")
+    (add2out implbuf "{ /* body of hook " hookname " from outpucod_hookroutine */")
     (add2sbuf_indentnl implbuf 0)
     (let ( (odatalocv (get_field :oformal_locv ohkdatarg))
 	   )
@@ -2481,24 +2481,25 @@ MELT_EXTERN  void* melt_start_this_module (void*);
       (add2out 
        implbuf 
        ##{/* declare and initialize frame for $HOOKNAME hook */ 
-       #undef meltcallcount
-       #if MELT_HAVE_DEBUG
+#undef meltcallcount
+#if MELT_HAVE_DEBUG
        static long melthook_call_counter_$NRAWHOOKNAME ;
-       long melt_thishookcall_counter_$NRAWHOOKNAME ATTRIBUTE_UNUSED = melthook_call_counter_$NRAWHOOKNAME++ ;
-       #define meltcallcount melt_thishookcall_counter_$NRAWHOOKNAME
-       #else
-       #define meltcallcount 0L
-       #endif
-       melthookframe_$NRAWHOOKNAME#_t melthook_$NRAWHOOKNAME#_frame_;
+       long melt_thishookcall_counter_$NRAWHOOKNAME ATTRIBUTE_UNUSED 
+            = melthook_call_counter_$NRAWHOOKNAME++ ;
+#define meltcallcount melt_thishookcall_counter_$NRAWHOOKNAME
+#else
+#define meltcallcount 0L
+#endif
+       melthookframe_$NRAWHOOKNAME#_t meltfram__;
        /* clear and push the new call frame for hook $HOOKNAME */
-       memset (&melthook_$NRAWHOOKNAME#_frame_, 0, sizeof(melthook_$NRAWHOOKNAME#_frame_)) ;
-       #define meltfram__ melthook_$NRAWHOOKNAME#_frame_
-       #define meltframe meltfram__
+       memset (&meltfram__, 0, sizeof(meltfram__)) ;
+#define meltframe meltfram__
        meltframe.mcfr_nbvar = -$MINIHASH /*hook minihash*/ ;
        ((struct melt_callframe_st*)&meltframe)->mcfr_forwmarkrout
        = melthookmark_$NRAWHOOKNAME#_rout			    ;
        meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe	;
-       melt_topframe = (struct melt_callframe_st*) &melthook_$NRAWHOOKNAME#_frame_ ;}#
+       melt_topframe = (struct melt_callframe_st*)
+           &meltfram__;}#
        )
       (add2sbuf_indentnl implbuf 0)
       (add2out implbuf "#define meltfhook /*hook data of " nrawhookname "*/ ((melthook_ptr_t) (")

@@ -1,6 +1,13 @@
 
 
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (outpucod_hookroutine): Use meltfram__
+	as the real name of the frame to ease gdb.
+
+	* testsuite/melt/tchunk-lowdebug.melt: Add more debug.
+
+2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.

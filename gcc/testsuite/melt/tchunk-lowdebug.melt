@@ -15,6 +15,10 @@
     meltbuild-empty-file.c
 |#
 
+(debug "hook_low_debug_value_at=" hook_low_debug_value_at "\n")
+
+(debug "hook_override_gate=" hook_override_gate "\n")
+
 (defun tlowdebug ()
   (code_chunk lowdebug_chk 
 	     #{ melt_low_debug_value("tlowdebug $LOWDEBUG_CHK", $CLASS_REFERENCE);
