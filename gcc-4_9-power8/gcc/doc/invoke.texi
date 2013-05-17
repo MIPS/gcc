@@ -861,7 +861,7 @@ See RS/6000 and PowerPC Options.
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
--mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vecotr @gol
+-mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
 -mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory -mlra -mno-lra}
 
