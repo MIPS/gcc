@@ -2108,6 +2108,10 @@ If the STFIWX instruction is enabled, a floating point register
 @item wz
 If the LFIWZX instruction is enabled, a floating point register
 
+@item wQ
+A memory address that will work with the @code{lq} and @code{stq}
+instructions.
+
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
 
