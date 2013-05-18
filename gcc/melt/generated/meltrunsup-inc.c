@@ -3009,6 +3009,7 @@ end:
 
 
 
+
 /*predefined hook definition HOOK_LOW_DEBUG_VALUE_AT #108*/
 void
 melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
@@ -3016,38 +3017,33 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
 				      long meltin_LINENO_p2,
 				      const char *meltin_MSG_p3,
 				      long meltin_COUNT_p4)
-{
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_LOW_DEBUG_VALUE_AT */
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp =
+    (melthook_ptr_t) MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT);
   typedef void melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t (melt_ptr_t, melt_ptr_t,
 						      const char *, long,
 						      const char *, long);
   /*checkhook */ melt_assertmsg (" good predefhook HOOK_LOW_DEBUG_VALUE_AT",
-				 melt_magic_discr ((melt_ptr_t)
-						   MELT_PREDEF
-						   (HOOK_LOW_DEBUG_VALUE_AT))
-				 == MELTOBMAG_HOOK);
+				 melt_magic_discr ((melt_ptr_t) melthkp) ==
+				 MELTOBMAG_HOOK);
   /* check hook routine HOOK_LOW_DEBUG_VALUE_AT */
   melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *melthookptr_HOOK_LOW_DEBUG_VALUE_AT =
-    (melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t
-     *) (((melthook_ptr_t) MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT))->hookad);
+    (melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *) (melthkp->hookad);
   melt_assertmsg ("good predefhook routine HOOK_LOW_DEBUG_VALUE_AT",
 		  melthookptr_HOOK_LOW_DEBUG_VALUE_AT);
 
   /* check predefhook HOOK_LOW_DEBUG_VALUE_AT name */
   melt_assertmsg ("good predefhook name HOOK_LOW_DEBUG_VALUE_AT",
-		  !strncmp (((melthook_ptr_t)
-			     MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT))->hookname,
+		  !strncmp (melthkp->hookname,
 			    "HOOK_LOW_DEBUG_VALUE_AT",
 			    MELT_HOOKNAME_LEN - 1));
   /* check hook data HOOK_LOW_DEBUG_VALUE_AT */
   melt_assertmsg
     ("good predefhook data hash HOOK_LOW_DEBUG_VALUE_AT or bootstrapping",
      melt_flag_bootstrapping != 0
-     ||
-     melt_obj_hash (((melthook_ptr_t) MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT))->
-		    hookdata) == 624290739);
-  return (*melthookptr_HOOK_LOW_DEBUG_VALUE_AT) (MELT_PREDEF
-						 (HOOK_LOW_DEBUG_VALUE_AT),
+     || melt_obj_hash (melthkp->hookdata) == 624290739);
+  return (*melthookptr_HOOK_LOW_DEBUG_VALUE_AT) ((melt_ptr_t) melthkp,
 						 meltin_VAL_p0,
 						 meltin_FILENAME_p1,
 						 meltin_LINENO_p2,
@@ -3057,37 +3053,34 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
 }				/* end  melthookproc_HOOK_LOW_DEBUG_VALUE_AT */
 
 
+
 /*predefined hook definition HOOK_OVERRIDE_GATE #109*/
 void
 melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 				 long *meltout_AFTERGATE_o0)
-{
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_OVERRIDE_GATE */
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE);
   typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long *);
   /*checkhook */ melt_assertmsg (" good predefhook HOOK_OVERRIDE_GATE",
-				 melt_magic_discr ((melt_ptr_t)
-						   MELT_PREDEF
-						   (HOOK_OVERRIDE_GATE)) ==
+				 melt_magic_discr ((melt_ptr_t) melthkp) ==
 				 MELTOBMAG_HOOK);
   /* check hook routine HOOK_OVERRIDE_GATE */
   melthooksig_HOOK_OVERRIDE_GATE_t *melthookptr_HOOK_OVERRIDE_GATE =
-    (melthooksig_HOOK_OVERRIDE_GATE_t
-     *) (((melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE))->hookad);
+    (melthooksig_HOOK_OVERRIDE_GATE_t *) (melthkp->hookad);
   melt_assertmsg ("good predefhook routine HOOK_OVERRIDE_GATE",
 		  melthookptr_HOOK_OVERRIDE_GATE);
 
   /* check predefhook HOOK_OVERRIDE_GATE name */
   melt_assertmsg ("good predefhook name HOOK_OVERRIDE_GATE",
-		  !strncmp (((melthook_ptr_t)
-			     MELT_PREDEF (HOOK_OVERRIDE_GATE))->hookname,
+		  !strncmp (melthkp->hookname,
 			    "HOOK_OVERRIDE_GATE", MELT_HOOKNAME_LEN - 1));
   /* check hook data HOOK_OVERRIDE_GATE */
   melt_assertmsg
     ("good predefhook data hash HOOK_OVERRIDE_GATE or bootstrapping",
      melt_flag_bootstrapping != 0
-     || melt_obj_hash (((melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE))->
-		       hookdata) == 912563497);
-  return (*melthookptr_HOOK_OVERRIDE_GATE) (MELT_PREDEF (HOOK_OVERRIDE_GATE),
+     || melt_obj_hash (melthkp->hookdata) == 912563497);
+  return (*melthookptr_HOOK_OVERRIDE_GATE) ((melt_ptr_t) melthkp,
 					    meltin_BEFOREGATE_p0,
 					    meltout_AFTERGATE_o0);
 #endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
