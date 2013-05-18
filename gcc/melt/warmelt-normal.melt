@@ -2436,11 +2436,59 @@ source location.}#
 		      (put_env newenv mb)
 		      (debug "normexp_expr_chunk magicbind=" mb)
 		      mb))
+	 (listbinds (make_list discr_list))
+	 (listnchunks (make_list discr_list))
+	 (nchk (make_multiple discr_multiple (multiple_length schk)))
 	 )
     (debug "normexp_expr_chunk ctyp=" ctyp "\n schk=" schk)
+    (assert_msg "check schk" (is_multiple schk))
     (assert_msg "check ctyp" (is_a ctyp class_ctype))
-    (assert_msg "$@$unimplemented normexp_expr_chunk")
-)) 
+    (foreach_in_multiple 
+     (schk)
+     (srcomp :long six)
+     (debug "normexp_expr_chunk six#" six " srcomp=" srcomp)
+     (cond ( (is_a srcomp class_source)
+	     (multicall 
+	      (ncomp ncbind)
+	      (normal_exp srcomp newenv ncx sloc)
+	      (debug "normexp_expr_chunk six#" six " ncomp=" ncomp "\n.. ncbind=" ncbind)
+	      (assert_msg "check ncbind" (is_list_or_null ncbind))
+	      (if ncbind (list_append2list listbinds ncbind))
+	      (if (is_list ncomp)
+		  (list_append2list listnchunks ncomp)
+		(list_append listnchunks ncomp))
+	      ))
+	   ( (is_string srcomp)
+	     (list_append listnchunks (make_string discr_verbatim_string srcomp))
+	     )
+	   (:else
+	    (list_append listnchunks srcomp)
+	    ))
+     (debug "normexp_expr_chunk six#" six "\n updated listbinds=" listbinds
+	    "\n updated listnchunks=" listnchunks)
+     )
+    ;; end foreach_in_multiple
+    (let ( (tupnchunk (list_to_multiple listnchunks discr_multiple))
+	   (nchunk (instance class_nrep_chunk
+			     :nrep_loc sloc
+			     :nchunk_expansion tupnchunk
+			     :nchunk_oper csym
+			     :nexpr_ctyp ctyp))
+	   (cbind  (instance class_normal_let_binding
+			     :letbind_loc sloc
+			     :binder csym
+			     :letbind_type ctyp
+			     :letbind_expr nchunk))
+	   (clocc (instance class_nrep_locsymocc
+			    :nrep_loc sloc
+			    :nocc_ctyp ctyp
+			    :nocc_symb csym
+			    :nocc_bind cbind)) 
+	   )
+      (list_append listbinds cbind)
+      (debug "normexp_expr_chunk with nchunk=" nchunk " gives clocc=" clocc " listbinds=" listbinds)
+      (return clocc listbinds)
+      ))) 
 (install_method class_source_exprchunk normal_exp normexp_expr_chunk)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
