@@ -859,7 +859,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      sbuf 
      ##{   /*inihook $HKNAME data*/
      $PTRSTR->$CNAME.nbval = $NBCLOVAL;
-     MELT_HOOK_SET_ROUTCODE ($PTRSTR, melthook_$HKNAME);
+     MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME);
      $PTRSTR->$CNAME.hookdata = }#
      )
     (output_c_code hkdata () sbuf 1)
@@ -1927,6 +1927,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun output_curframe_cdat_struct (idatup implbuf)
   (add2sbuf_indentnl implbuf 1)
   (add2sbuf_strconst implbuf "/* curframe_cdat_struct */ struct meltcdata_st {")
+  (add2sbuf_indentnl implbuf 1)
+  (add2sbuf_strconst implbuf "void* meltcdata_inigap[2]; /* could help debugging */")
+  (add2sbuf_indentnl implbuf 1)
   (foreach_in_multiple
    (idatup)
    (curdat :long curk) 

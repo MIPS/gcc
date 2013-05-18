@@ -2,6 +2,12 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Emit
+	MELT_HOOK_SET_ROUTCODE on the right cdata.
+	(output_curframe_cdat_struct): Emit an initial gap.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
