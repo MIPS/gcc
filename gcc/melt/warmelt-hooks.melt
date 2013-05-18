@@ -61,11 +61,12 @@
   @t{PLUGIN_OVERRIDE_GATE} events. See $REGISTER_OVERRIDE_GATE_FIRST
   etc...}#
   (debug "hook_override_gate beforegate=" beforegate)
+  (assert_msg "unexpected call to hook_override_gate" ())
   (let ( 
 	(gateflag (if beforegate :true ()))
 	(passname ())
 	(:long passnum 0)
-	(memref (container ()))
+	(memref (reference ()))
 	(revlastlist (make_list discr_list))
 	(qufirst (get_field :delqu_first override_gate_delayed_queue))
 	(qulast (get_field :delqu_last override_gate_delayed_queue))

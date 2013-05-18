@@ -3269,7 +3269,7 @@ void melt_caught_assign_at(void*ptr, const char*fil, int lin, const char*msg);
                   __FUNCTION__);					\
       if ( (p_##Lin == melt_checkedp_ptr1 && p_##Lin)			\
            ||  (p_##Lin == melt_checkedp_ptr2 && p_##Lin))              \
-        melt_caught_assign_at(p_##Lin,Fil,Lin,Msg); p_##Lin; } while(0)
+        melt_caught_assign_at(p_##Lin,Fil,Lin,Msg);  } while(0)
 
 #define melt_checked_assign_internal(Assign) melt_checked_assignmsg_at((Assign),__FILE__,__LINE__,__FUNCTION__) 
 #define melt_checked_assignmsg_internal(Assign,Msg) melt_checked_assignmsg_at((Assign),__FILE__,__LINE__,Msg)

@@ -1,5 +1,21 @@
 
 
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_caught_assign_at): Remove useless
+	expression.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Improve
+	emitted code, by setting the output stack location only when the
+	hook is initialized.
+
+	* melt/warmelt-hooks.melt (hook_override_gate): Temporarily
+	forbidden.
+
+	* melt/warmelt-modes.melt
+	(generate_runtypesupport_predefined_hooks): Emit more comments and
+	checks.
+
 2013-05-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

@@ -849,13 +849,6 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl sbuf depth)
     (add2out sbuf ##{/*inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf (+i depth 1))
-    (when olocvar
-      (output_c_code olocvar () sbuf 1)
-      (add2out sbuf 
-	       ##{ = (melt_ptr_t) &$PTRSTR->$CNAME;
-	       }#)
-      (add2sbuf_indentnl sbuf 1)
-      )
     (add2out 
      sbuf 
      ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
@@ -864,7 +857,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl sbuf (+i depth 1))
     (add2out 
      sbuf 
-     ##{    $PTRSTR->$CNAME.nbval = $NBCLOVAL;
+     ##{   /*inihook $HKNAME data*/
+     $PTRSTR->$CNAME.nbval = $NBCLOVAL;
      MELT_HOOK_SET_ROUTCODE ($PTRSTR, melthook_$HKNAME);
      $PTRSTR->$CNAME.hookdata = }#
      )
@@ -878,6 +872,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (when opredef
       (add2out sbuf ##{/*predefinedhook $OPREDEF for $CNAME*/}#)
       (add2sbuf_indentnl sbuf depth)
+      )
+    (when olocvar
+      (output_c_code olocvar () sbuf 1)
+      (add2out sbuf 
+	       ##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME;
+	       }#)
+      (add2sbuf_indentnl sbuf 1)
       )
     (add2out sbuf ##{/*done inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf depth)

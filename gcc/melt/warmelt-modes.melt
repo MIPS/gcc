@@ -3757,6 +3757,7 @@ melt_scanning (melt_ptr_t p)
 		    (add2out outcodebuf ", "))
 		  (assert_msg "check curinsb" (is_a curinsb class_formal_binding))
 		  (add2out outdeclbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
+		  (add2out outdeclbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
 		  (add2out outcodebuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
 		  (add2out outcodebuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
 		  )
@@ -3768,6 +3769,7 @@ melt_scanning (melt_ptr_t p)
 		  (add2out outdeclbuf 
 			   (get_field :ctype_cname (get_field :fbind_type curoutb))
 			   "*")
+		  (add2out outdeclbuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
 		  (add2out outcodebuf ", ")
 		  (add2out outcodebuf (get_field :ctype_cname (get_field :fbind_type curoutb)))
 		  (add2out outcodebuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
@@ -3794,17 +3796,37 @@ melt_scanning (melt_ptr_t p)
 		  )
 		 (add2out outcodebuf ");")
                  (add2sbuf_indentnl outcodebuf 1)
-                 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good hook " hkname "\", ")
+                 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good predefhook " hkname "\", ")
                  (add2sbuf_indentnl outcodebuf 15)
                  (add2out outcodebuf "             melt_magic_discr((melt_ptr_t) MELT_PREDEF(" hkname ")) == MELTOBMAG_HOOK);")
                  (add2sbuf_indentnl outcodebuf 1)
                  (add2out
-                  outcodebuf ##{
+                  outcodebuf 
+##{ /* check hook routine $HKNAME */
                   melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
                   (melthooksig_$HKNAME#_t*) (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookad) ;
-                  melt_assertmsg("good hook routine $HKNAME", 
+                  melt_assertmsg("good predefhook routine $HKNAME", 
                                  melthookptr_$HKNAME);
-                  return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME)}#
+}#)
+                 (add2sbuf_indentnl outcodebuf 1)
+                 (add2out
+                  outcodebuf ##{ /* check predefhook $HKNAME name */
+		  melt_assertmsg("good predefhook name $HKNAME",
+				 !strncmp (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookname,
+					   "$HKNAME", MELT_HOOKNAME_LEN-1));}#
+		  )
+                 (add2sbuf_indentnl outcodebuf 1)
+                 (add2out
+                  outcodebuf
+		  ##{ /* check hook data $HKNAME */
+                  melt_assertmsg("good predefhook data hash $HKNAME", melt_flag_bootstrapping != 0
+				 || melt_obj_hash (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookdata) == }#)
+		  
+                 (add2out outcodebuf (obj_hash hkdata))
+		 (add2out outcodebuf ");")
+                 (add2sbuf_indentnl outcodebuf 1)
+                  (add2out
+                  outcodebuf ##{return (*melthookptr_$HKNAME) (MELT_PREDEF($HKNAME)}#
                                                             )
 		  (foreach_in_multiple 
 		   (dins)
