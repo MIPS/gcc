@@ -5661,6 +5661,9 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	@which unifdef > /dev/zero || (echo unifdef not found but needed to upgrade-warmelt ; exit 1)
 	@echo upgrade-warmelt script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh regenerate
+	@echo upgrade-warmelt rebuild runtime with the newly generated meltrunsup files
+	$(COMPILER) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
+	@echo upgrade-warmelt installing generated meltrunsup files into source tree
 	for f in meltbuild-sources/generated/meltrunsup*.[ch] ; do \
 	   indent $$f ; \
 	   bf=`basename $$f` ; \

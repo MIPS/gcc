@@ -1,6 +1,10 @@
 
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	* Makefile.in (upgrade-warmelt): recompile the runtime with new
+	generated meltrunsup* files.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt
 	(generate_runtypesupport_predefined_hooks): Correct formal output
 	parameter emission of melthookproc_... Better assert message about
