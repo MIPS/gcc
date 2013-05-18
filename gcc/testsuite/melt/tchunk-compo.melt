@@ -25,12 +25,16 @@
      $COMPA_CHK#_num++;
      $LL = $COMPA_CHK#_num++;
      /* testa before ignore $COMPA_CHK */
-
      $(ignore (debug "inside compa_chk ll=" ll))
-
      /* testa after ignore $COMPA_CHK */
      if ($LL < 10) 
         $LL += ($LL/3 + 1);
+     /* nested code chunk */
+     $(code_chunk 
+       nested_chk 
+       #{/* $NESTED_CHK inside $COMPA_CHK */
+         $LL ++;
+       }#)
      }#)
     (debug "after compa_chk ll=" ll)
 ))

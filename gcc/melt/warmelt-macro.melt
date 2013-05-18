@@ -4104,6 +4104,55 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun expand_macrostring_pairs (pairs sloc env mexpander modctx)
+  (debug "expand_macrostring_pairs pairs=" pairs)
+  (assert_msg "check pairs" (is_pair pairs))
+  (assert_msg "check env" (is_a env class_environment))
+  (let ( (chklist (make_list discr_list))
+	 )
+    (letrec ( 
+	     (mexp_macrostring 
+	      (lambda (comp loc)
+		(debug "expand_macrostring_pairs/mexp_macrostring comp=" comp "\n loc=" loc)
+		(cond
+		 ( (is_string comp)
+		   (list_append chklist (make_string discr_verbatim_string comp)))
+		 ( (is_a comp class_sexpr_macrostring)
+		   (let ( 
+			 (cloc (get_field :loca_location comp))
+			 (compcont (get_field :sexp_contents comp))
+			 )
+		     (debug "expand_macrostring_pairs/mexp_macrostring compcont=" compcont)
+		     (foreach_in_list
+		      (compcont)
+		      (compair subcomp)
+		      (mexp_macrostring subcomp cloc))
+		     (debug "mexpand_code_chunk/mexp_macrostring updated chklist=" chklist)
+		     ))
+		 ( (is_a comp class_sexpr)
+		   (let ( (mcomp (mexpander comp env mexpander modctx))
+			  )
+		     (debug "expand_macrostring_pairs//mexp_macrostring mcomp=" mcomp)
+		     (list_append chklist mcomp)))
+		 (:else
+		  (list_append chklist comp)))
+		(debug "expand_macrostring_pairs/mexp_macrostring comp=" comp
+		       "\n updated chklist=" chklist)))
+	     )
+      (foreach_pair
+       (pairs)
+       (thispair thiscomp)
+       (debug "expand_macrostring_pairs thiscomp=" thiscomp)
+       (mexp_macrostring thiscomp sloc)
+       )
+      (debug "expand_macrostring_pairs final chklist=" chklist)
+      (let ( (tup (list_to_multiple chklist discr_multiple))
+	     )
+	(debug "expand_macrostring_pairs return tup=" tup)
+	(return tup)
+	))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; the codechunk expander
 (defun mexpand_code_chunk (sexpr env mexpander modctx)
   (debug "mexpand_code_chunk sexpr=" sexpr)
@@ -4114,7 +4163,6 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 	 (curpair (pair_tail (list_first cont)))
 	 (curchk ())
 	 (gsym ())
-	 (chklist (make_list discr_list))
 	 (curel ())
 	 )
     (setq curel (pair_head curpair))
@@ -4122,50 +4170,17 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 	(setq gsym curel)
       (error_plain sloc "missing symbol in (CODE_CHUNK <state-symbol> <chunk>...)"))
     (setq curpair (pair_tail curpair))
-    (letrec ( 
-	     (mexp_macrostring 
-	      (lambda (comp loc)
-		(debug "mexpand_code_chunk/mexp_macrostring comp=" comp "\n loc=" loc)
-		(cond
-		 ( (is_string comp)
-		   (list_append chklist (make_string discr_verbatim_string comp)))
-		 ( (is_a comp class_sexpr_macrostring)
-		   (let ( 
-			 (cloc (get_field :loca_location comp))
-			 (compcont (get_field :sexp_contents comp))
-			 )
-		     (debug "mexpand_code_chunk/mexp_macrostring compcont=" compcont)
-		     (foreach_in_list
-		      (compcont)
-		      (compair subcomp)
-		      (mexp_macrostring subcomp cloc))
-		     (debug "mexpand_code_chunk/mexp_macrostring updated chklist=" chklist)
-		     ))
-		 ( (is_a comp class_sexpr)
-		   (let ( (mcomp (mexpander comp env mexpander modctx))
-			  )
-		     (debug "mexpand_code_chunk/mexp_macrostring mcomp=" mcomp)
-		     (list_append chklist mcomp)))
-		 (:else
-		  (list_append chklist comp)))
-		(debug "mexpand_code_chunk/mexp_macrostring comp=" comp
-		       "\n updated chklist=" chklist)))
-	     )
-      (foreach_pair
-       (curpair)
-       (thispair thiscomp)
-       (debug "mexpand_code_chunk thiscomp=" thiscomp)
-       (mexp_macrostring thiscomp sloc)
-       )
-      (debug "mexpand_code_chunk final chklist=" chklist)
-      (let ( (mres (instance class_source_codechunk
-			     :loca_location sloc
-			     :sch_gensym gsym
-			     :sch_chunks (list_to_multiple chklist discr_multiple)
-			     )) )
-	(debug "mexpand_code_chunk return mres=" mres)
-	(return mres)
-	))))
+    (let (
+	  (tup (expand_macrostring_pairs curpair sloc env mexpander modctx))
+	  (mres (instance class_source_codechunk
+			  :loca_location sloc
+			  :sch_gensym gsym
+			  :sch_chunks tup
+			  )) 
+	  )
+      (debug "mexpand_code_chunk return mres=" mres)
+      (return mres)
+      )))
 (install_initial_macro 'code_chunk mexpand_code_chunk)
 (export_macro code_chunk mexpand_code_chunk
 	      :doc #{The $CODE_CHUNK macro is for low-level C code

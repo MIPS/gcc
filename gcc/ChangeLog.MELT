@@ -1,6 +1,15 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{The improved tchunk-compo.melt passes}}
+	* melt/warmelt-macro.melt (expand_macrostring_pairs): New utility
+	function.
+	(mexpand_code_chunk): Use it.
+	* testsuite/melt/tchunk-compo.melt: Improve with a nested chunk.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{tchunk-compo.melt passes}}
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
