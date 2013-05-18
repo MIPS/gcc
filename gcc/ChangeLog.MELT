@@ -1,6 +1,10 @@
 
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.c (meltgc_readmacrostringsequence): Improve.
+	(melt_macrostring_flush_sbufv): New local macro.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (hook_override_gate): Re-enable it.
 
