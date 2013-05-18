@@ -3737,7 +3737,7 @@ melt_scanning (melt_ptr_t p)
 		  "\n hkname=" hkname "\n.. hksymb=" hksymb "\n.. hkbind=" hkbind "\n.. hkdata=" hkdata)
 	   (add2out outdeclbuf ##{/*predefined hook declaration $HKNAME #$PRIX*/}#)
 	   (add2sbuf_indentnl outdeclbuf 0)
-	   (add2out outcodebuf ##{/*predefined hook definition $HKNAME  #$PRIX*/}#)
+	   (add2out outcodebuf ##{/*predefined hook definition $HKNAME #$PRIX*/}#)
 	   (add2sbuf_indentnl outcodebuf 0)
 	   (if (is_a hkdata class_hook_descriptor)
 	       (let ( (dname (get_field :named_name hkdata))
@@ -3768,8 +3768,7 @@ melt_scanning (melt_ptr_t p)
 		  (add2out outdeclbuf ", ")
 		  (add2out outdeclbuf 
 			   (get_field :ctype_cname (get_field :fbind_type curoutb))
-			   "*")
-		  (add2out outdeclbuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
+			   "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
 		  (add2out outcodebuf ", ")
 		  (add2out outcodebuf (get_field :ctype_cname (get_field :fbind_type curoutb)))
 		  (add2out outcodebuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
@@ -3819,7 +3818,7 @@ melt_scanning (melt_ptr_t p)
                  (add2out
                   outcodebuf
 		  ##{ /* check hook data $HKNAME */
-                  melt_assertmsg("good predefhook data hash $HKNAME", melt_flag_bootstrapping != 0
+                  melt_assertmsg("good predefhook data hash $HKNAME or bootstrapping", melt_flag_bootstrapping != 0
 				 || melt_obj_hash (((melthook_ptr_t)MELT_PREDEF($HKNAME))->hookdata) == }#)
 		  
                  (add2out outcodebuf (obj_hash hkdata))
