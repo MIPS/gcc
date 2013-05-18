@@ -2,6 +2,12 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-modes.melt
+	(generate_runtypesupport_predefined_hooks): Emit a variable
+	melthkp.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
