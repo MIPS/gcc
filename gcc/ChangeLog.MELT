@@ -1,6 +1,11 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normexp_expr_chunk): New method for
+	normal_exp on class_source_exprchunk.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Start adding expr_chunk}}
 	* melt/warmelt-macro.melt
 	(class_source_protochunk): New class, like previous class_source_codechunk.

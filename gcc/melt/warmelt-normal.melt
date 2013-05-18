@@ -2409,6 +2409,41 @@ source location.}#
 (install_method class_source_codechunk normal_exp normexp_code_chunk)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; normalize an expr_chunk
+(defun normexp_expr_chunk (recv env ncx psloc)
+  (debug "normexp_expr_chunk recv=" recv)
+  (assert_msg "check expr_chunk recv" (is_a recv class_source_codechunk))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check nctxt" (is_a ncx class_normalization_context))
+  (let ( (sloc (unsafe_get_field :loca_location recv)) 
+	 (schk (unsafe_get_field :sch_chunks recv))
+	 (gsym (unsafe_get_field :sch_gensym recv))
+	 (ctyp (unsafe_get_field :sxch_ctype recv))
+	 (csym (clone_symbol gsym))
+	 (bindlist (make_list discr_list))
+	 (newenv (fresh_env env))
+	 (csymstr 
+	  (let ( (sbuf (make_strbuf discr_strbuf)) )
+	    (add2sbuf_cident sbuf (get_field :named_name csym))
+	    (add2sbuf_strconst sbuf "__")
+	    (add2sbuf_longdec sbuf (get_int (get_field :csym_urank csym)))
+	    (strbuf2string discr_verbatim_string sbuf)
+	    ))
+	 (magicbind (let ( (mb (instance class_normal_magic_binding
+					 :binder gsym
+					 :nmagic_value csymstr))
+			   )
+		      (put_env newenv mb)
+		      (debug "normexp_expr_chunk magicbind=" mb)
+		      mb))
+	 )
+    (debug "normexp_expr_chunk ctyp=" ctyp "\n schk=" schk)
+    (assert_msg "check ctyp" (is_a ctyp class_ctype))
+    (assert_msg "$@$unimplemented normexp_expr_chunk")
+)) 
+(install_method class_source_exprchunk normal_exp normexp_expr_chunk)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; normalize a cmatchexpr
 (defun normexp_cmatchexpr (recv env ncx psloc)
   (debug "normexp_cmatchexpr recv" recv)
