@@ -738,12 +738,25 @@ $EXIT loops. The field $SEXI_BODY is the body sequence.}#
 	   ))
 
 
-;; source code chunk
-(defclass class_source_codechunk
+;; source code protochunk
+(defclass class_source_protochunk
   :super class_source
   :fields (sch_gensym			;generating symbol
 	   sch_chunks			;the chunks
 ))
+
+
+;; source code chunk
+(defclass class_source_codechunk
+  :super class_source_protochunk
+  :fields (
+))
+
+;; source expression chunk
+(defclass class_source_exprchunk
+  :super class_source_protochunk
+  :fields (sxch_ctype
+	   ))
 
 ;;;;;;;;;;;;;;;;
 ;;; source patterns
@@ -2235,18 +2248,17 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	(let ( (cty (unsafe_get_field :symb_data typkw)) 
 	       (typknam (unsafe_get_field :named_name typkw))
 	       )
-	  (if (is_not_a cty class_ctype)
-	      (progn
+	  (when (is_not_a cty class_ctype)
 		(debug "mexpand_defprimitive bad cty" typkw)
 		(error_strv loc "bad type keyword for "_  typknam)
 		(return ())
-		))
+		)
 	  (cond ( (== (unsafe_get_field :ctype_keyword cty) typkw)
 		  ()
 		  )
 		( (== (unsafe_get_field :ctype_altkeyword cty) typkw)
 		  (warning_strv loc "using obsolete ctype keyword" typknam)
-		  (inform_strv loc "prefererd ctype is" (get_field :named_name (get_field :ctype_keyword cty)))
+		  (inform_strv loc "prefered ctype is" (get_field :named_name (get_field :ctype_keyword cty)))
 		  )
 		(:else
 		 (debug "mexpand_defprimitive strange typkw" typkw)
@@ -4127,7 +4139,7 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 		      (compcont)
 		      (compair subcomp)
 		      (mexp_macrostring subcomp cloc))
-		     (debug "mexpand_code_chunk/mexp_macrostring updated chklist=" chklist)
+		     (debug "expand_macrostring_pairs/mexp_macrostring updated chklist=" chklist)
 		     ))
 		 ( (is_a comp class_sexpr)
 		   (let ( (mcomp (mexpander comp env mexpander modctx))
@@ -4153,7 +4165,7 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 	))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; the codechunk expander
+;;;; the code_chunk expander
 (defun mexpand_code_chunk (sexpr env mexpander modctx)
   (debug "mexpand_code_chunk sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
@@ -4185,9 +4197,76 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 (export_macro code_chunk mexpand_code_chunk
 	      :doc #{The $CODE_CHUNK macro is for low-level C code
 chunks. The syntax is ($CODE_CHUNK @var{state-symbol} @var{chunk}...)
-where @var{chunk}-s may be macro-string. It generates a C block. Since
-it does not make any type verification, it should be usually
-avoided. See $DEFPRIMITIVE etc.}#)
+where @var{chunk}-s may be macro-strings or nested s-expressions. It
+generates a C block. Since it does not make any type verification, it
+should be usually avoided. See $DEFPRIMITIVE and $EXPR_CHUNK etc.}#)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; the expr_chunk expander
+(defun mexpand_expr_chunk (sexpr env mexpander modctx)
+  (debug "mexpand_expr_chunk sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (sloc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont)))
+	 (curchk ())
+	 (gsym ())
+	 (kcty ())
+	 (curel ())
+	 )
+    (setq curel (pair_head curpair))
+    (if (is_a curel class_symbol)
+	(setq gsym curel)
+      (error_plain sloc "missing symbol in (EXPR_CHUNK <state-symbol> <ctype> <chunk>...)"))
+    (setq curpair (pair_tail curpair))
+    (setq kcty (pair_head curpair))
+    (when (is_not_a kcty class_keyword)
+      (error_plain sloc "missing type keyword in (EXPR_CHUNK <state-symbol> <ctype> <chunk>...)")
+      (return))
+    (let ( (cty (unsafe_get_field :symb_data kcty)) 
+	   (typknam (unsafe_get_field :named_name kcty))
+	   )
+      (when (is_not_a cty class_ctype)
+	(debug "mexpand_expr_chunk bad kcty=" kcty)
+	(error_strv sloc "bad type keyword for EXPR_CHUNK"_  typknam)
+	(return ())
+	)
+      (cond ( (== (unsafe_get_field :ctype_keyword cty) kcty)
+	      ()
+	      )
+	    ( (== (unsafe_get_field :ctype_altkeyword cty) kcty)
+	      (warning_strv sloc "using obsolete ctype keyword in EXPR_CHUNK" typknam)
+	      (inform_strv sloc "prefered ctype is" (get_field :named_name (get_field :ctype_keyword cty)))
+	      )
+	    (:else
+	     (debug "mexpand_expr_chunk strange kcty=" kcty)
+	     (error_strv sloc "invalid type keyword for EXPR_CHUNK"_
+			 typknam)
+	     (return ())   
+	     ))
+      (let (
+	    (tup (expand_macrostring_pairs curpair sloc env mexpander modctx))
+	    (mres (instance class_source_exprchunk
+			    :loca_location sloc
+			    :sch_gensym gsym
+			    :sch_chunks tup
+			    :sxch_ctype cty
+			    )) 
+	    )
+	(debug "mexpand_expr_chunk return mres=" mres)
+	(return mres)
+	))))
+(install_initial_macro 'expr_chunk mexpand_expr_chunk)
+(export_macro expr_chunk mexpand_expr_chunk
+	      :doc #{The $EXPR_CHUNK macro is for low-level C
+@b{expression} chunks, e.g. anonymous primitive-like expressions. The
+syntax is ($EXPR_CHUNK @var{state-symbol} @var{chunk}...)  where
+@var{chunk}-s may be macro-strings or sub-expressions. It generates a
+C expressions, with all the sub-expressions strictly normalized before
+the expansion of the @code{expr_chunk}. Since it does not make any
+type verification, it should be usually avoided. See $DEFPRIMITIVE and
+$EXPR_CHUNK etc.}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -7325,6 +7404,7 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_source_export_synonym
  class_source_export_values
  class_source_exportcommon
+ class_source_exprchunk
  class_source_fetch_predefined
  class_source_field_pattern
  class_source_fieldassign
@@ -7345,8 +7425,8 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_source_letrec_binding
  class_source_list
  class_source_match
- class_source_matchalt
  class_source_match_case
+ class_source_matchalt
  class_source_msend
  class_source_multicall
  class_source_or
@@ -7367,6 +7447,7 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_source_pattern_variable
  class_source_primitive
  class_source_progn
+ class_source_protochunk
  class_source_put_fields
  class_source_quasi_box
  class_source_quote

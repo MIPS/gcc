@@ -1,6 +1,19 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Start adding expr_chunk}}
+	* melt/warmelt-macro.melt
+	(class_source_protochunk): New class, like previous class_source_codechunk.
+	(class_source_codechunk): Inherit from class_source_protochunk.
+	(class_source_exprchunk): New class with sxch_ctype field.
+	(mexpand_defprimitive): Use when instead of if progn...
+	(expand_macrostring_pairs): Improve debug.
+	(mexpand_code_chunk): Improve documentation.
+	(mexpand_expr_chunk): New function.
+	(expr_chunk): New macro.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{The improved tchunk-compo.melt passes}}
 	* melt/warmelt-macro.melt (expand_macrostring_pairs): New utility
 	function.
