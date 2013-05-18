@@ -2,6 +2,10 @@
 
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (hook_override_gate): Re-enable it.
+
+2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tchunk-lowdebug.melt works}}
 	{{Regenerate all}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

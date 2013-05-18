@@ -61,7 +61,6 @@
   @t{PLUGIN_OVERRIDE_GATE} events. See $REGISTER_OVERRIDE_GATE_FIRST
   etc...}#
   (debug "hook_override_gate beforegate=" beforegate)
-  (assert_msg "unexpected call to hook_override_gate" ())
   (let ( 
 	(gateflag (if beforegate :true ()))
 	(passname ())
