@@ -6871,6 +6871,8 @@ initialize_module_meltdata_warmelt_macro (meltinitial_frame_t * iniframp__,
 
   /* curframe_cdat_struct */ struct meltcdata_st
   {
+    void *meltcdata_inigap[2];	/* could help debugging */
+
     struct MELT_OBJECT_STRUCT (3) dsym_1__IS_RECURSIVELY_CONSTRUCTIBLE;
     struct MELT_STRING_STRUCT (28) dstr_2__IS_RECURSIVELY_C;
     struct MELT_OBJECT_STRUCT (3) dsym_3__CLASS_SELECTOR;

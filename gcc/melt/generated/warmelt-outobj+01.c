@@ -17512,7 +17512,7 @@ meltlab_endgetargs:;
     MELT_LOCATION ("warmelt-outobj.melt:858:/ apply");
     /*apply */
     {
-      union meltparam_un argtab[17];
+      union meltparam_un argtab[19];
       memset (&argtab, 0, sizeof (argtab));
       /*^apply.arg */
       argtab[0].meltbp_cstring = "   /*inihook ";
@@ -17531,24 +17531,28 @@ meltlab_endgetargs:;
       /*^apply.arg */
       argtab[7].meltbp_long = /*_#NBCLOVAL__L6*/ meltfnum[2];
       /*^apply.arg */
-      argtab[8].meltbp_cstring = ";\n     MELT_HOOK_SET_ROUTCODE (";
+      argtab[8].meltbp_cstring = ";\n     MELT_HOOK_SET_ROUTCODE (&";
       /*^apply.arg */
       argtab[9].meltbp_aptr = (melt_ptr_t *) & /*_.PTRSTR__V4*/ meltfptr[3];
       /*^apply.arg */
-      argtab[10].meltbp_cstring = ", melthook_";
+      argtab[10].meltbp_cstring = "->";
       /*^apply.arg */
-      argtab[11].meltbp_aptr =
+      argtab[11].meltbp_aptr = (melt_ptr_t *) & /*_.CNAME__V14*/ meltfptr[5];
+      /*^apply.arg */
+      argtab[12].meltbp_cstring = ", melthook_";
+      /*^apply.arg */
+      argtab[13].meltbp_aptr =
 	(melt_ptr_t *) & /*_.HKNAME__V21*/ meltfptr[20];
       /*^apply.arg */
-      argtab[12].meltbp_cstring = ");\n     ";
+      argtab[14].meltbp_cstring = ");\n     ";
       /*^apply.arg */
-      argtab[13].meltbp_aptr = (melt_ptr_t *) & /*_.PTRSTR__V4*/ meltfptr[3];
+      argtab[15].meltbp_aptr = (melt_ptr_t *) & /*_.PTRSTR__V4*/ meltfptr[3];
       /*^apply.arg */
-      argtab[14].meltbp_cstring = "->";
+      argtab[16].meltbp_cstring = "->";
       /*^apply.arg */
-      argtab[15].meltbp_aptr = (melt_ptr_t *) & /*_.CNAME__V14*/ meltfptr[5];
+      argtab[17].meltbp_aptr = (melt_ptr_t *) & /*_.CNAME__V14*/ meltfptr[5];
       /*^apply.arg */
-      argtab[16].meltbp_cstring = ".hookdata = ";
+      argtab[18].meltbp_cstring = ".hookdata = ";
       /*_.ADD2OUT__V31*/ meltfptr[30] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[4])),
@@ -17558,7 +17562,8 @@ meltlab_endgetargs:;
 		     MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING
 		     MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR
 		     MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING
-		     MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "",
+		     MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR
+		     MELTBPARSTR_CSTRING ""), argtab, "",
 		    (union meltparam_un *) 0);
     }
     ;

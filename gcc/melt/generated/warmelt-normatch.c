@@ -8360,6 +8360,8 @@ initialize_module_meltdata_warmelt_normatch (meltinitial_frame_t * iniframp__,
 
   /* curframe_cdat_struct */ struct meltcdata_st
   {
+    void *meltcdata_inigap[2];	/* could help debugging */
+
     struct MELT_OBJECT_STRUCT (3) dsym_1__CLASS_PATTERN_CONTEXT;
     struct MELT_STRING_STRUCT (21) dstr_2__CLASS_PATTERN_CO;
     struct MELT_OBJECT_STRUCT (3) dsym_3__CLASS_ROOT;

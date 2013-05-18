@@ -4599,6 +4599,8 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 
   /* curframe_cdat_struct */ struct meltcdata_st
   {
+    void *meltcdata_inigap[2];	/* could help debugging */
+
     struct MELT_HOOK_STRUCT (3) dhook__1__HOOK_LOW_DEBUG_VALUE_AT;
     struct MELT_OBJECT_STRUCT (6) dobj_2__;
     struct MELT_OBJECT_STRUCT (3) dsym_3__VAL;
@@ -4713,7 +4715,8 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_HOOK))));
   /*inihook HOOK_LOW_DEBUG_VALUE_AT data */
   meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT.nbval = 3;
-  MELT_HOOK_SET_ROUTCODE (meltcdat, melthook_HOOK_LOW_DEBUG_VALUE_AT);
+  MELT_HOOK_SET_ROUTCODE (&meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT,
+			  melthook_HOOK_LOW_DEBUG_VALUE_AT);
   meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT.hookdata =
     /*_.VALDATA___V14*/ meltfptr[13];
   strncpy (meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT.hookname,
@@ -5198,7 +5201,8 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_HOOK))));
   /*inihook HOOK_OVERRIDE_GATE data */
   meltcdat->dhook__30__HOOK_OVERRIDE_GATE.nbval = 9;
-  MELT_HOOK_SET_ROUTCODE (meltcdat, melthook_HOOK_OVERRIDE_GATE);
+  MELT_HOOK_SET_ROUTCODE (&meltcdat->dhook__30__HOOK_OVERRIDE_GATE,
+			  melthook_HOOK_OVERRIDE_GATE);
   meltcdat->dhook__30__HOOK_OVERRIDE_GATE.hookdata =
     /*_.VALDATA___V48*/ meltfptr[47];
   strncpy (meltcdat->dhook__30__HOOK_OVERRIDE_GATE.hookname,

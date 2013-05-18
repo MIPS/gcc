@@ -3402,6 +3402,8 @@ initialize_module_meltdata_warmelt_debug (meltinitial_frame_t * iniframp__,
 
   /* curframe_cdat_struct */ struct meltcdata_st
   {
+    void *meltcdata_inigap[2];	/* could help debugging */
+
     struct MELT_OBJECT_STRUCT (3) dsym_1__CLASS_DEBUG_INFORMATION;
     struct MELT_STRING_STRUCT (23) dstr_2__CLASS_DEBUG_INFO;
     struct MELT_OBJECT_STRUCT (3) dsym_3__CLASS_ROOT;

@@ -8860,6 +8860,8 @@ initialize_module_meltdata_warmelt_modes (meltinitial_frame_t * iniframp__,
 
   /* curframe_cdat_struct */ struct meltcdata_st
   {
+    void *meltcdata_inigap[2];	/* could help debugging */
+
     struct MELT_ROUTINE_STRUCT (5) drout_1__INSTALL_MELT_MODE;
     struct MELT_CLOSURE_STRUCT (0) dclo_2__INSTALL_MELT_MODE;
     struct MELT_OBJECT_STRUCT (3) dsym_3__CLASS_MELT_MODE;
