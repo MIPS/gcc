@@ -2412,7 +2412,7 @@ source location.}#
 ;;; normalize an expr_chunk
 (defun normexp_expr_chunk (recv env ncx psloc)
   (debug "normexp_expr_chunk recv=" recv)
-  (assert_msg "check expr_chunk recv" (is_a recv class_source_codechunk))
+  (assert_msg "check expr_chunk recv" (is_a recv class_source_exprchunk))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (sloc (unsafe_get_field :loca_location recv)) 
@@ -2458,6 +2458,14 @@ source location.}#
 		  (list_append2list listnchunks ncomp)
 		(list_append listnchunks ncomp))
 	      ))
+	   ( (is_a srcomp class_symbol)
+	     (multicall 
+	      (nsymb nsbind)
+	      (normal_exp srcomp newenv ncx sloc)
+	      (debug "normexp_expr_chunk nsymb=" nsymb " nsbind=" nsbind)
+	      (assert_msg "nsbind null" (null nsbind))
+	      (list_append listnchunks nsymb)
+	     ))
 	   ( (is_string srcomp)
 	     (list_append listnchunks (make_string discr_verbatim_string srcomp))
 	     )

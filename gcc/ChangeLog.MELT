@@ -1,4 +1,11 @@
 
+2013-05-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_expr_chunk): Shift after keyword.
+	* melt/warmelt-normal.melt (normexp_expr_chunk): Correct assert on
+	reciever's class. Handle symbol.
+	* testsuite/melt/tchunk-compo.melt: Improve with test for expr_chunk.
+
 2013-05-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (normexp_expr_chunk): Implement, by
