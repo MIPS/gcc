@@ -40,12 +40,67 @@
 
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
-#|
-(defhook hook_create_named_symbol (:cstring nam) () :value
-  :predef HOOK_CREATE_NAMED_SYMBOL
-  
-)
-|#
+;; to be called by meltgc_named_symbol
+(defhook hook_named_symbol (:cstring nam :long create) () :value
+  :predef HOOK_NAMED_SYMBOL
+  (if (not (cstring_non_empty nam))
+      (return ()))
+  (block_signals
+   ()
+   ()
+   (let ( (sydict (unsafe_get_field :sysdata_symboldict initial_system_data))
+	 (symbv ())
+	 (namev ())
+	 )
+     (assert_msg "check sydict" (is_mapstring sydict))
+     (code_chunk 
+      namedsym_chk 
+      #{ /* hook_named_symbol $NAMEDSYM_CHK start */
+        char tinybuf_$NAMEDSYM_CHK[128];
+        char* xstr_$NAMEDSYM_CHK = NULL;
+        int namlen_$NAMEDSYM_CHK = strlen ($NAM);
+        int ix_$NAMEDSYM_CHK = 0;
+        char* namdup_$NAMEDSYM_CHK = NULL;
+        if (strlen($NAM) < sizeof(tinybuf_$NAMEDSYM_CHK)-1)
+           {
+    	     strcpy (tinybuf_$NAMEDSYM_CHK, $NAM);
+    	     namdup_$NAMEDSYM_CHK = tinybuf_$NAMEDSYM_CHK;
+    	  }
+        else 
+           {
+    	     xstr_$NAMEDSYM_CHK = (char*) xcalloc (namlen_$NAMEDSYM_CHK + 1, 1);
+    	     strcpy (xstr_$NAMEDSYM_CHK, $NAM);
+    	     namdup_$NAMEDSYM_CHK = xstr_$NAMEDSYM_CHK;
+    	  }
+        /* uppercase the name in $NAMEDSYM_CHK */
+        for (ix_$NAMEDSYM_CHK = 0;
+             ix_$NAMEDSYM_CHK < namlen_$NAMEDSYM_CHK;
+    	    ix_$NAMEDSYM_CHK)
+          if (ISALPHA(namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]))
+             namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK] 
+    	      = TOUPPER (namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]);
+        /* get the symbol if any in $NAMEDSYM_CHK */
+        $SYMBV = melt_get_mapstrings ((struct meltmapstrings_st *) $SYDICT,
+    				     namdup_$NAMEDSYM_CHK);
+        if (!$SYMBV && $CREATE) /* should create symbol  $NAMEDSYM_CHK */
+          {
+            $NAMEV = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING),
+    				       namdup_$NAMEDSYM_CHK);
+	    $(progn
+	       (setq symbv (instance class_symbol :named_name namev))
+	       (mapstring_putstr sydict namev symbv)
+	       (void))
+          } /* end if should create symbol in hook_named_symbol $NAMEDSYM_CHK */
+        /* epilog of $NAMEDSYM_CHK in hook_named_symbol */
+        if (xstr_$NAMEDSYM_CHK)
+          free (xstr_$NAMEDSYM_CHK);
+        xstr_$NAMEDSYM_CHK = NULL;
+        namdup_$NAMEDSYM_CHK = NULL;
+      /* hook_named_symbol $NAMEDSYM_CHK end */
+      }#)
+     (return symbv)
+  )))
+
 
 ;;;====================================================================
 ;;;******************* OVERRIDE_GATE plugin event *********************

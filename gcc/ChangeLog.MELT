@@ -1,6 +1,15 @@
 
 2013-05-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_GET_NAMED_SYMBOL)
+	(HOOK_CREATE_NAMED_SYMBOL): Remove.
+	(HOOK_NAMED_SYMBOL): Add.
+	* melt/generated/warmelt-normal.c: Manually edit for above change.
+	* melt/warmelt-hooks.melt (hook_create_named_symbol): Rename as
+	(hook_named_symbol).
+
+2013-05-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (mexpand_expr_chunk): Shift after keyword.
 	* melt/warmelt-normal.melt (normexp_expr_chunk): Correct assert on
 	reciever's class. Handle symbol.
