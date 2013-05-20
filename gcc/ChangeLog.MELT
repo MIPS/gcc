@@ -1,5 +1,10 @@
 
 2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (hook_named_symbol): Add and uncomment
+	it.
+
+2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

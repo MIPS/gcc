@@ -4782,7 +4782,7 @@ which signals are not handled. It could be dynamically nested.}#
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
 ;; to be called by meltgc_named_symbol
-#|
+
 (defhook hook_named_symbol (:cstring nam :long create) () :value
   :predef HOOK_NAMED_SYMBOL
   (if (not (cstring_non_empty nam))
@@ -4839,15 +4839,15 @@ which signals are not handled. It could be dynamically nested.}#
         xstr_$NAMEDSYM_CHK = NULL;
         namdup_$NAMEDSYM_CHK = NULL;
       /* hook_named_symbol $NAMEDSYM_CHK end */
+      }#)
      (return symbv)
   ))
 )
 ;; end hook_named_symbol
-|#
 
 (export_values
  block_signals
- ;hook_named_symbol
+ hook_named_symbol
  ignore
  void
 )
