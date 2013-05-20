@@ -1,3 +1,54 @@
+2013-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions): Add
+	documentation for the power8 crypto builtins.
+
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add crypto.md.
+
+	* config/rs6000/rs6000-builtin.def (BU_P8V_AV_1): Add support
+	macros for defining power8 builtin functions.
+	(BU_P8V_AV_2): Likewise.
+	(BU_P8V_AV_P): Likewise.
+	(BU_P8V_VSX_1): Likewise.
+	(BU_P8V_OVERLOAD_1): Likewise.
+	(BU_P8V_OVERLOAD_2): Likewise.
+	(BU_CRYPTO_1): Likewise.
+	(BU_CRYPTO_2): Likewise.
+	(BU_CRYPTO_3): Likewise.
+	(BU_CRYPTO_OVERLOAD_1): Likewise.
+	(BU_CRYPTO_OVERLOAD_2): Likewise.
+	(XSCVSPDP): Fix typo, point to the correct instruction.
+	(VCIPHER): Add power8 crypto builtins.
+	(VCIPHERLAST): Likewise.
+	(VNCIPHER): Likewise.
+	(VNCIPHERLAST): Likewise.
+	(VPMSUMB): Likewise.
+	(VPMSUMH): Likewise.
+	(VPMSUMW): Likewise.
+	(VPERMXOR_V2DI): Likewise.
+	(VPERMXOR_V4SI: Likewise.
+	(VPERMXOR_V8HI: Likewise.
+	(VPERMXOR_V16QI: Likewise.
+	(VSHASIGMAW): Likewise.
+	(VSHASIGMAD): Likewise.
+	(VPMSUM): Likewise.
+	(VPERMXOR): Likewise.
+	(VSHASIGMA): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__CRYPTO__ if the crypto instructions are available.
+	(altivec_overloaded_builtins): Add support for overloaded power8
+	builtins.
+
+	* config/rs6000/rs6000.c (rs6000_expand_ternop_builtin): Add
+	support for power8 crypto builtins.
+	(builtin_function_type): Likewise.
+	(altivec_init_builtins): Add support for builtins that take vector
+	long long (V2DI) arguments.
+
+	* config/rs6000/crypto.md: New file, define power8 crypto
+	instructions.
+
 2013-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen <pthaugen@us.ibm.com>
 	    Peter Bergner <bergner@vnet.ibm.com>

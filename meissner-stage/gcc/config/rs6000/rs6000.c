@@ -10676,6 +10676,27 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 	  return const0_rtx;
 	}
     }
+  else if (icode == CODE_FOR_crypto_vshasigmaw
+	   || icode == CODE_FOR_crypto_vshasigmad)
+    {
+      /* Check whether the 2nd and 3rd arguments are integer constants and in
+	 range and prepare arguments.  */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 1))
+	{
+	  error ("argument 2 must be 0 or 1");
+	  return const0_rtx;
+	}
+
+      STRIP_NOPS (arg2);
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg2), 0, 15))
+	{
+	  error ("argument 3 must be in the range 0..15");
+	  return const0_rtx;
+	}
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -12366,6 +12387,10 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SI_type_node,
 				V4SI_type_node, NULL_TREE);
+  tree int_ftype_int_v2di_v2di
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V2DI_type_node,
+				V2DI_type_node, NULL_TREE);
   tree void_ftype_v4si
     = build_function_type_list (void_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_void
@@ -12448,6 +12473,8 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V2DF_type_node,
 				V2DF_type_node, NULL_TREE);
+  tree v2di_ftype_v2di
+    = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
   tree v4si_ftype_v4si
     = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi
@@ -12583,6 +12610,9 @@ altivec_init_builtins (void)
 	case VOIDmode:
 	  type = int_ftype_int_opaque_opaque;
 	  break;
+	case V2DImode:
+	  type = int_ftype_int_v2di_v2di;
+	  break;
 	case V4SImode:
 	  type = int_ftype_int_v4si_v4si;
 	  break;
@@ -12616,6 +12646,9 @@ altivec_init_builtins (void)
 
       switch (mode0)
 	{
+	case V2DImode:
+	  type = v2di_ftype_v2di;
+	  break;
 	case V4SImode:
 	  type = v4si_ftype_v4si;
 	  break;
@@ -12821,11 +12854,26 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
      are type correct.  */
   switch (builtin)
     {
+      /* unsigned 1 argument functions.  */
+    case CRYPTO_BUILTIN_VSBOX:
+      h.uns_p[0] = 1;
+      h.uns_p[1] = 1;
+      break;
+
       /* unsigned 2 argument functions.  */
     case ALTIVEC_BUILTIN_VMULEUB_UNS:
     case ALTIVEC_BUILTIN_VMULEUH_UNS:
     case ALTIVEC_BUILTIN_VMULOUB_UNS:
     case ALTIVEC_BUILTIN_VMULOUH_UNS:
+    case CRYPTO_BUILTIN_VCIPHER:
+    case CRYPTO_BUILTIN_VCIPHERLAST:
+    case CRYPTO_BUILTIN_VNCIPHER:
+    case CRYPTO_BUILTIN_VNCIPHERLAST:
+    case CRYPTO_BUILTIN_VPMSUMB:
+    case CRYPTO_BUILTIN_VPMSUMH:
+    case CRYPTO_BUILTIN_VPMSUMW:
+    case CRYPTO_BUILTIN_VPMSUMD:
+    case CRYPTO_BUILTIN_VPMSUM:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
@@ -12848,6 +12896,14 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     case VSX_BUILTIN_XXSEL_8HI_UNS:
     case VSX_BUILTIN_XXSEL_4SI_UNS:
     case VSX_BUILTIN_XXSEL_2DI_UNS:
+    case CRYPTO_BUILTIN_VPERMXOR:
+    case CRYPTO_BUILTIN_VPERMXOR_V2DI:
+    case CRYPTO_BUILTIN_VPERMXOR_V4SI:
+    case CRYPTO_BUILTIN_VPERMXOR_V8HI:
+    case CRYPTO_BUILTIN_VPERMXOR_V16QI:
+    case CRYPTO_BUILTIN_VSHASIGMAW:
+    case CRYPTO_BUILTIN_VSHASIGMAD:
+    case CRYPTO_BUILTIN_VSHASIGMA:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
