@@ -14873,8 +14873,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
 	case '!':
 	  if (flag_mpx)
-	    /*fputs ("repne ", file);*/
-	    fputs (".byte 0xf2\n\t", file);
+	    fputs ("bnd ", file);
 	  return;
 
 	default:
