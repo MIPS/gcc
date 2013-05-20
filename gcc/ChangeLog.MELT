@@ -2,6 +2,14 @@
 
 2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_named_symbol): Protect invocation of
+	melthookproc_HOOK_NAMED_SYMBOL with a #if
+	MELT_NAMED_SYMBOL_USE_HOOK.
+	* melt/warmelt-first.melt (add_new_symbol_token): Protect the
+	warning likewise.
+
+2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.c (meltgc_named_symbol): Use hook_named_symbol when
 	possible. Add temporary information message.
 

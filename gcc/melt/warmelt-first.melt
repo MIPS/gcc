@@ -2910,9 +2910,16 @@ Keyword is :cstring.}#
 (defun add_new_symbol_token (syda str)
   (code_chunk addnewsymb_chk 
 	      #{ /* add_new_symbol_token $ADDNEWSYMB_CHK */
+#if MELT_NAMED_SYMBOL_USE_HOOK
+    static bool meltcalled_$ADDNEWSYMB_CHK;
+    if (!meltcalled_$ADDNEWSYMB_CHK)
+#endif
 	         warning (0, "MELT add_new_symbol_token unexpectedly called with %s",
 			     melt_string_str ($STR));
 #warning obsolete add_new_symbol_token  $ADDNEWSYMB_CHK
+#if MELT_NAMED_SYMBOL_USE_HOOK
+ meltcalled_$ADDNEWSYMB_CHK = 1;
+#endif /*MELT_NAMED_SYMBOL_USE_HOOK*/
 	      }#)
   (assert_msg "check syda" (is_a syda class_system_data))
   (let ( (sy (instance class_symbol :named_name str)) 

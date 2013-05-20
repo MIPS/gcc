@@ -7056,6 +7056,7 @@ meltgc_named_symbol (const char *nam, int create)
   closv = NULL;
   if (!nam || !MELT_PREDEF (INITIAL_SYSTEM_DATA))
     goto end;
+#if MELT_NAMED_SYMBOL_USE_HOOK
   if (MELT_PREDEF (HOOK_NAMED_SYMBOL))
     {
       static bool informeduse;
@@ -7080,6 +7081,7 @@ meltgc_named_symbol (const char *nam, int create)
       goto begin;
     }
  begin:
+#endif /*MELT_NAMED_SYMBOL_USE_HOOK*/
   namlen = strlen (nam);
   memset (tinybuf, 0, sizeof (tinybuf));
   if (namlen < (int) sizeof (tinybuf) - 2)
