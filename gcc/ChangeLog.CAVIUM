@@ -210,6 +210,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-05-20  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.c (mips_expand_ext_as_unaligned_load):
+	Allow BLKmode mem for 16 bit extraction.
+	Fix the case where the dest is SImode for 16bit extraction.
+	Fix the case where the dest is HImode for 16bit extraction.
+
 2013-04-26  Andrew Pinski  <apinski@cavium.com>
 
 	* reload1.c (spill_failure): Use inform instead of error

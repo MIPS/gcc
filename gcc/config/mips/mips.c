@@ -7762,7 +7762,7 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
       && GET_MODE_BITSIZE (HImode) == width
       && (REG_P (dest) || GET_CODE (dest) == SUBREG)
       && GET_CODE (src) == MEM
-      && GET_MODE (src) == QImode
+      && (GET_MODE (src) == QImode || GET_MODE (src) == BLKmode)
       && MEM_ALIGN (src) < width
       && (bitpos % BITS_PER_UNIT == 0)
       /* If this is a stack variable, the load can be done by a load followed by a shift. */
@@ -7785,7 +7785,11 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
       emit_move_insn (dest2, gen_rtx_ZERO_EXTEND (SImode, lo));
       emit_move_insn (dest3, gen_rtx_ZERO_EXTEND (SImode, hi));
       emit_insn (gen_insvsi (dest2, GEN_INT (8), GEN_INT (8), dest3));
-      if (GET_MODE (dest) == DImode)
+      if (GET_MODE (dest) == GET_MODE (dest2))
+	emit_move_insn (dest, dest2);
+      else if (GET_MODE (dest) == HImode)
+	emit_move_insn (dest, gen_lowpart (HImode, dest2));
+      else if (GET_MODE (dest) == DImode)
 	{
           /* If the dest mode is DI, then we can just sign extend from
              SI to DI (which is considered as free) as the sign bit for
