@@ -207,7 +207,7 @@
 ;; Use PTImode to get even/odd register pairs
 (define_expand "load_lockedti"
   [(use (match_operand:TI 0 "quad_int_reg_operand" ""))
-   (use (match_operand:TI 1 "memory_operand" "Z"))]
+   (use (match_operand:TI 1 "memory_operand" ""))]
   "TARGET_SYNC_TI"
 {
   emit_insn (gen_load_lockedpti (gen_lowpart (PTImode, operands[0]),
@@ -235,9 +235,9 @@
   [(set_attr "type" "store_c")])
 
 (define_expand "store_conditionalti"
-  [(use (match_operand:CC 0 "cc_reg_operand" "=x"))
-   (use (match_operand:TI 1 "memory_operand" "=Z"))
-   (use (match_operand:TI 2 "quad_int_reg_operand" "r"))]
+  [(use (match_operand:CC 0 "cc_reg_operand" ""))
+   (use (match_operand:TI 1 "memory_operand" ""))
+   (use (match_operand:TI 2 "quad_int_reg_operand" ""))]
   "TARGET_SYNC_TI"
 {
   emit_insn (gen_store_conditionalpti (operands[0],
