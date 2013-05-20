@@ -96,7 +96,7 @@
 	(MODES_TIEABLE_P): Move the VSX tests above the Altivec tests so
 	that any VSX registers are tieable, even if they are also an
 	Altivec vector mode.
-	(r6000_reg_class_enum): Add wm, wq, wr, wv constraints.
+	(r6000_reg_class_enum): Add wm, wr, wv constraints.
 	(RS6000_BTM_P8_VECTOR): Power8 builtin support.
 	(RS6000_BTM_CRYPTO): Likewise.
 	(RS6000_BTM_COMMON): Likewise.
