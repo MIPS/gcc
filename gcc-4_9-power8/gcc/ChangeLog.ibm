@@ -1,3 +1,18 @@
+2013-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/md.texi (Machine Constraints): Delete wq constraint, use r
+	constraint instead.
+	* config/rs6000/constraints.md (wq constraint): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	* config/rs6000/vsx.md (*vsx_mov<mode>, 128-bit moves): Likewise.
+	(vsx_movti_64bit): Likewise.
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Likewise.
+	* config/rs6000/sync.md (load_lockedti): Likewise.
+	(load_lockedpti): Likewise.
+	(store_conditionalti): Likewise.
+	(store_conditionalpti): Likewise.
+
 2013-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/md.texi (Machine Constraints): Add wQ.

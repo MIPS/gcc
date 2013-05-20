@@ -1909,7 +1909,6 @@ rs6000_debug_reg_global (void)
 	   "wg reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
-	   "wq reg_class = %s\n"
 	   "wr reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
@@ -1926,7 +1925,6 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
-	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wq]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
@@ -2389,10 +2387,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
     }
-
-  /* wq needs to be non-conditional, since reload complains if you have &wq and
-     wq maps to NO_REGS.  */
-  rs6000_constraints[RS6000_CONSTRAINT_wq] = GENERAL_REGS;
 
   /* Add conditional constraints based on various options, to allow us to
      collapse multiple insn patterns.  */

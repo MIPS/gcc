@@ -206,7 +206,7 @@
 
 ;; Use PTImode to get even/odd register pairs
 (define_expand "load_lockedti"
-  [(use (match_operand:TI 0 "quad_int_reg_operand" "=&wq"))
+  [(use (match_operand:TI 0 "quad_int_reg_operand" ""))
    (use (match_operand:TI 1 "memory_operand" "Z"))]
   "TARGET_SYNC_TI"
 {
@@ -216,7 +216,7 @@
 })
 
 (define_insn "load_lockedpti"
-  [(set (match_operand:PTI 0 "quad_int_reg_operand" "=&wq")
+  [(set (match_operand:PTI 0 "quad_int_reg_operand" "=&r")
 	(unspec_volatile:PTI
          [(match_operand:TI 1 "memory_operand" "Z")] UNSPECV_LL))]
   "TARGET_SYNC_TI
@@ -237,7 +237,7 @@
 (define_expand "store_conditionalti"
   [(use (match_operand:CC 0 "cc_reg_operand" "=x"))
    (use (match_operand:TI 1 "memory_operand" "=Z"))
-   (use (match_operand:TI 2 "quad_int_reg_operand" "wq"))]
+   (use (match_operand:TI 2 "quad_int_reg_operand" "r"))]
   "TARGET_SYNC_TI"
 {
   emit_insn (gen_store_conditionalpti (operands[0],
@@ -250,7 +250,7 @@
   [(set (match_operand:CC 0 "cc_reg_operand" "=x")
 	(unspec_volatile:CC [(const_int 0)] UNSPECV_SC))
    (set (match_operand:PTI 1 "memory_operand" "=Z")
-	(match_operand:PTI 2 "quad_int_reg_operand" "wq"))]
+	(match_operand:PTI 2 "quad_int_reg_operand" "r"))]
   "TARGET_SYNC_TI && quad_int_reg_operand (operands[2], PTImode)"
   "stqcx. %2,%y1"
   [(set_attr "type" "store_c")])

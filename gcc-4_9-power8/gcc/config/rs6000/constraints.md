@@ -82,9 +82,6 @@
 (define_register_constraint "wm" "rs6000_constraints[RS6000_CONSTRAINT_wm]"
   "VSX register if direct move instructions are enabled, or NO_REGS.")
 
-(define_register_constraint "wq" "rs6000_constraints[RS6000_CONSTRAINT_wq]"
-  "Even general purpose register to use with load/store quad instructions.")
-
 (define_register_constraint "wr" "rs6000_constraints[RS6000_CONSTRAINT_wr]"
   "General purpose register if 64-bit instructions are enabled or NO_REGS.")
 

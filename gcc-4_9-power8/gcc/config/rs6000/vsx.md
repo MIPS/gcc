@@ -217,8 +217,8 @@
 
 ;; VSX moves
 (define_insn "*vsx_mov<mode>"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&wq,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
-	(match_operand:VSX_M 1 "input_operand"     "<VSr>,    Z,<VSr>,wa,  Z, wa,wq,  wQ,  r,  Y,  r,    j,  j, j,W, v,wZ"))]
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&r,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
+	(match_operand:VSX_M 1 "input_operand"     "<VSr>,    Z,<VSr>,wa,  Z, wa, r, wQ,  r,  Y,  r,    j,  j, j,W, v,wZ"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
@@ -241,8 +241,8 @@
 ;; use of TImode is for unions.  However for plain data movement, slightly
 ;; favor the vector loads
 (define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,wQ,&wq,Y,r,r,?r")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v,wq, wQ,r,Y,r, n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,wQ,&r,Y,r,r,?r")
+	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v, r,wQ,r,Y,r, n"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"

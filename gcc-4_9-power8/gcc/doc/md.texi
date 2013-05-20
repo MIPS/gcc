@@ -2090,9 +2090,6 @@ If direct moves are enabled, a VSX register.
 @item wn
 No register.
 
-@item wq
-Even general purpose register to use with load/store quad instructions
-
 @item wr
 General purpose register if 64-bit mode is used
 

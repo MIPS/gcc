@@ -1402,7 +1402,6 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
   RS6000_CONSTRAINT_wl,		/* FPR register for LFIWAX */
   RS6000_CONSTRAINT_wm,		/* VSX register for direct move */
-  RS6000_CONSTRAINT_wq,		/* GPR register for LQ/STQ */
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
   RS6000_CONSTRAINT_wt,		/* VSX register for TImode */
