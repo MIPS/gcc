@@ -41,6 +41,7 @@
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
 ;; to be called by meltgc_named_symbol
+;; should be moved to warmelt-first, with block_signals ...
 (defhook hook_named_symbol (:cstring nam :long create) () :value
   :predef HOOK_NAMED_SYMBOL
   (if (not (cstring_non_empty nam))
@@ -75,7 +76,7 @@
         /* uppercase the name in $NAMEDSYM_CHK */
         for (ix_$NAMEDSYM_CHK = 0;
              ix_$NAMEDSYM_CHK < namlen_$NAMEDSYM_CHK;
-    	    ix_$NAMEDSYM_CHK)
+    	    ix_$NAMEDSYM_CHK++)
           if (ISALPHA(namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]))
              namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK] 
     	      = TOUPPER (namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]);

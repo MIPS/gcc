@@ -1,4 +1,8 @@
 
+2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (hook_named_symbol): Missing increment in
+	upcasing loop...
+
 2013-05-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
