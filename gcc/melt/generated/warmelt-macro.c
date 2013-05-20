@@ -2336,10 +2336,10 @@ meltrout_1_warmelt_macro_S_EXPR_WEIGHT (meltclosure_ptr_t meltclosp_,
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -2601,10 +2601,10 @@ meltrout_2_warmelt_macro_LAMBDA___1__ (meltclosure_ptr_t meltclosp_,
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -3077,10 +3077,10 @@ meltrout_3_warmelt_macro_EXPAND_RESTLIST_AS_LIST (meltclosure_ptr_t
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -3881,10 +3881,10 @@ meltrout_4_warmelt_macro_EXPAND_RESTLIST_AS_TUPLE (meltclosure_ptr_t
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -4347,10 +4347,10 @@ meltrout_5_warmelt_macro_EXPAND_PAIRLIST_AS_LIST (meltclosure_ptr_t
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -5094,10 +5094,10 @@ meltrout_6_warmelt_macro_EXPAND_PAIRLIST_AS_TUPLE (meltclosure_ptr_t
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -5533,10 +5533,10 @@ meltrout_7_warmelt_macro_REGISTER_GENERATOR_DEVICE (meltclosure_ptr_t
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -5662,12 +5662,13 @@ meltlab_endgetargs:;
 	  /*anyblock */
 	  {
 
-     /*_#THE_MELTCALLCOUNT__L2*/ meltfnum[1] =
-#ifdef meltcallcount
-	      meltcallcount	/* the_meltcallcount */
+     /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
+	      /* for melt_callcount */
+#if MELT_HAVE_DEBUG && defined (meltcallcount)
+	      meltcallcount	/* melt_callcount debugging */
 #else
-	      0L
-#endif /* meltcallcount the_meltcallcount */
+	      0L		/* melt_callcount without debug */
+#endif /* MELT_HAVE_DEBUG melt_callcount */
 	      ;;
 
 	    MELT_CHECK_SIGNAL ();
@@ -5678,7 +5679,7 @@ meltlab_endgetargs:;
 	      union meltparam_un argtab[10];
 	      memset (&argtab, 0, sizeof (argtab));
 	      /*^apply.arg */
-	      argtab[0].meltbp_long = /*_#THE_MELTCALLCOUNT__L2*/ meltfnum[1];
+	      argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L2*/ meltfnum[1];
 	      /*^apply.arg */
 	      argtab[1].meltbp_cstring = "warmelt-macro.melt";
 	      /*^apply.arg */
@@ -5716,7 +5717,7 @@ meltlab_endgetargs:;
 	    /*epilog */
 
 	    MELT_LOCATION ("warmelt-macro.melt:1066:/ clear");
-	       /*clear *//*_#THE_MELTCALLCOUNT__L2*/ meltfnum[1] = 0;
+	       /*clear *//*_#MELT_CALLCOUNT__L2*/ meltfnum[1] = 0;
 	    /*^clear */
 	       /*clear *//*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] = 0;
 	  }
@@ -6093,12 +6094,13 @@ meltlab_endgetargs:;
 		/*anyblock */
 		{
 
-       /*_#THE_MELTCALLCOUNT__L8*/ meltfnum[7] =
-#ifdef meltcallcount
-		    meltcallcount	/* the_meltcallcount */
+       /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] =
+		    /* for melt_callcount */
+#if MELT_HAVE_DEBUG && defined (meltcallcount)
+		    meltcallcount	/* melt_callcount debugging */
 #else
-		    0L
-#endif /* meltcallcount the_meltcallcount */
+		    0L		/* melt_callcount without debug */
+#endif /* MELT_HAVE_DEBUG melt_callcount */
 		    ;;
 
 		  MELT_CHECK_SIGNAL ();
@@ -6110,7 +6112,7 @@ meltlab_endgetargs:;
 		    memset (&argtab, 0, sizeof (argtab));
 		    /*^apply.arg */
 		    argtab[0].meltbp_long =
-		      /*_#THE_MELTCALLCOUNT__L8*/ meltfnum[7];
+		      /*_#MELT_CALLCOUNT__L8*/ meltfnum[7];
 		    /*^apply.arg */
 		    argtab[1].meltbp_cstring = "warmelt-macro.melt";
 		    /*^apply.arg */
@@ -6143,7 +6145,7 @@ meltlab_endgetargs:;
 		  /*epilog */
 
 		  MELT_LOCATION ("warmelt-macro.melt:1080:/ clear");
-		 /*clear *//*_#THE_MELTCALLCOUNT__L8*/ meltfnum[7] = 0;
+		 /*clear *//*_#MELT_CALLCOUNT__L8*/ meltfnum[7] = 0;
 		  /*^clear */
 		 /*clear *//*_.MELT_DEBUG_FUN__V23*/ meltfptr[22] = 0;
 		}
@@ -6272,10 +6274,10 @@ meltrout_8_warmelt_macro_EXPAND_APPLY (meltclosure_ptr_t meltclosp_,
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -6854,6 +6856,7 @@ melt_syntax_tester_warmelt_macro (void)
 {
   if (1)
     return;
+#define meltcallcount -1L	/* in melt_syntax_tester_warmelt_macro */
 
 
 /* generating device #1 */
@@ -8575,8 +8578,8 @@ initialize_module_meltdata_warmelt_macro (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (10) dstr_1641__ASSERT_MSG;
     struct MELT_ROUTINE_STRUCT (11) drout_1642__MEXPAND_DEBUG_MSG;
     struct MELT_CLOSURE_STRUCT (0) dclo_1643__MEXPAND_DEBUG_MSG;
-    struct MELT_OBJECT_STRUCT (3) dsym_1644__THE_MELTCALLCOUNT;
-    struct MELT_STRING_STRUCT (17) dstr_1645__THE_MELTCALLCOUN;
+    struct MELT_OBJECT_STRUCT (3) dsym_1644__MELT_CALLCOUNT;
+    struct MELT_STRING_STRUCT (14) dstr_1645__MELT_CALLCOUNT;
     struct MELT_OBJECT_STRUCT (3) dsym_1646__DEBUG_MSG_FUN;
     struct MELT_STRING_STRUCT (13) dstr_1647__DEBUG_MSG_FUN;
     struct MELT_OBJECT_STRUCT (3) dsym_1648__DEBUG_MSG;
@@ -32860,38 +32863,38 @@ initialize_module_meltdata_warmelt_macro (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_1643__MEXPAND_DEBUG_MSG.nbval = 0;
 
 
-/*iniobj dsym_1644__THE_MELTCALLCOUNT*/
+/*iniobj dsym_1644__MELT_CALLCOUNT*/
   /*uniqueobj*/ if (! /*_.VALDATA___V1722*/ meltfptr[1721])
 /*_.VALDATA___V1722*/ meltfptr[1721] =
-      (melt_ptr_t) & meltcdat->dsym_1644__THE_MELTCALLCOUNT;
+      (melt_ptr_t) & meltcdat->dsym_1644__MELT_CALLCOUNT;
   if (MELT_LIKELY (!melt_prohibit_garbcoll))
-    melt_assertmsg ("iniobj check.discr isobj dsym_1644__THE_MELTCALLCOUNT",
+    melt_assertmsg ("iniobj check.discr isobj dsym_1644__MELT_CALLCOUNT",
 		    melt_magic_discr ((melt_ptr_t)
 				      (((melt_ptr_t)
 					(MELT_PREDEF (CLASS_SYMBOL))))) ==
 		    MELTOBMAG_OBJECT);
   if (MELT_LIKELY (!melt_prohibit_garbcoll))
-    melt_assertmsg
-      ("iniobj check.discr objmagic dsym_1644__THE_MELTCALLCOUNT",
-       ((meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL)))))->
-       meltobj_magic == MELTOBMAG_OBJECT);
-  meltcdat->dsym_1644__THE_MELTCALLCOUNT.meltobj_class =
+    melt_assertmsg ("iniobj check.discr objmagic dsym_1644__MELT_CALLCOUNT",
+		    ((meltobject_ptr_t)
+		     (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL)))))->
+		    meltobj_magic == MELTOBMAG_OBJECT);
+  meltcdat->dsym_1644__MELT_CALLCOUNT.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL))));
-  meltcdat->dsym_1644__THE_MELTCALLCOUNT.obj_hash = 508915431;
-  meltcdat->dsym_1644__THE_MELTCALLCOUNT.obj_len = 3;
+  meltcdat->dsym_1644__MELT_CALLCOUNT.obj_hash = 833971291;
+  meltcdat->dsym_1644__MELT_CALLCOUNT.obj_len = 3;
 
 
-/*inistring dstr_1645__THE_MELTCALLCOUN*/
+/*inistring dstr_1645__MELT_CALLCOUNT*/
  /*_.VALSTR___V1723*/ meltfptr[1722] =
-    (melt_ptr_t) & meltcdat->dstr_1645__THE_MELTCALLCOUN;
-  meltcdat->dstr_1645__THE_MELTCALLCOUN.discr =
+    (melt_ptr_t) & meltcdat->dstr_1645__MELT_CALLCOUNT;
+  meltcdat->dstr_1645__MELT_CALLCOUNT.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_1645__THE_MELTCALLCOUN.val,
-				"THE_MELTCALLCOUNT",
-				sizeof (meltcdat->dstr_1645__THE_MELTCALLCOUN.
+  /*small inistring */ strncpy (meltcdat->dstr_1645__MELT_CALLCOUNT.val,
+				"MELT_CALLCOUNT",
+				sizeof (meltcdat->dstr_1645__MELT_CALLCOUNT.
 					val) - 1);
-  meltcdat->dstr_1645__THE_MELTCALLCOUN.val[17] = (char) 0;
-  meltcdat->dstr_1645__THE_MELTCALLCOUN.slen = 17;
+  meltcdat->dstr_1645__MELT_CALLCOUNT.val[14] = (char) 0;
+  meltcdat->dstr_1645__MELT_CALLCOUNT.slen = 14;
 
 
 /*iniobj dsym_1646__DEBUG_MSG_FUN*/
@@ -34224,10 +34227,10 @@ melt_start_this_module (void *modargp_)
   char meltpredefinited[MELTGLOB__LASTGLOB + 8];
 
 #if MELT_HAVE_DEBUG
-  static long call_counter__;
-  long thiscallcounter__ ATTRIBUTE_UNUSED = ++call_counter__;
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
 #undef meltcallcount
-#define meltcallcount thiscallcounter__
+#define meltcallcount melt_thiscallcounter__
 #else
 #undef meltcallcount
 #define meltcallcount 0L
@@ -37767,13 +37770,12 @@ melt_start_this_module (void *modargp_)
   }
 
   /*^getnamedsymbol */
-  /*getnamedsym:THE_MELTCALLCOUNT */
+  /*getnamedsym:MELT_CALLCOUNT */
   {
-    melt_ptr_t sy_THE_MELTCALLCOUNT =
-      meltgc_named_symbol ("THE_MELTCALLCOUNT", MELT_GET);
-    if (sy_THE_MELTCALLCOUNT && NULL == /*_.VALDATA___V1722*/ meltfptr[1721])
-  /*_.VALDATA___V1722*/ meltfptr[1721] =
-	(melt_ptr_t) sy_THE_MELTCALLCOUNT;
+    melt_ptr_t sy_MELT_CALLCOUNT =
+      meltgc_named_symbol ("MELT_CALLCOUNT", MELT_GET);
+    if (sy_MELT_CALLCOUNT && NULL == /*_.VALDATA___V1722*/ meltfptr[1721])
+  /*_.VALDATA___V1722*/ meltfptr[1721] = (melt_ptr_t) sy_MELT_CALLCOUNT;
   }
 
   /*^getnamedsymbol */
@@ -107898,7 +107900,7 @@ meltmod__warmelt_macro__initialmeltchunk_42 (meltinitial_frame_t *
     meltgc_intern_symbol ((melt_ptr_t)
 			  ( /*_.VALDATA___V1719*/ meltfptr[1718]));
 
-  /*internsym:THE_MELTCALLCOUNT */
+  /*internsym:MELT_CALLCOUNT */
   (void)
     meltgc_intern_symbol ((melt_ptr_t)
 			  ( /*_.VALDATA___V1722*/ meltfptr[1721]));
