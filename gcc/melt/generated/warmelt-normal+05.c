@@ -36276,10 +36276,10 @@ meltlab_endgetargs:;
 
 
    /*_.FLDSYM__V10*/ meltfptr[9] =
-	    meltgc_named_symbol (melt_string_str
-				 ((melt_ptr_t)
-				  ( /*_.FLDNAM__V6*/ meltfptr[5])),
-				 MELT_GET);;
+	    melthookproc_HOOK_NAMED_SYMBOL (melt_string_str
+					    ((melt_ptr_t)
+					     ( /*_.FLDNAM__V6*/ meltfptr[5])),
+					    (long) MELT_GET);;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;

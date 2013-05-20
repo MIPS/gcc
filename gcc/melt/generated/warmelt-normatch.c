@@ -30643,2784 +30643,5015 @@ melt_start_this_module (void *modargp_)
     }
 
   /*^comment */
- /**COMMENT: get symbols & keywords **/ ;
+ /**COMMENT: get symbols & keywords for initial procedure **/ ;
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_PATTERN_CONTEXT */
-  {
-    melt_ptr_t sy_CLASS_PATTERN_CONTEXT =
-      meltgc_named_symbol ("CLASS_PATTERN_CONTEXT", MELT_GET);
-    if (sy_CLASS_PATTERN_CONTEXT && NULL == /*_.VALDATA___V94*/ meltfptr[93])
-  /*_.VALDATA___V94*/ meltfptr[93] =
-	(melt_ptr_t) sy_CLASS_PATTERN_CONTEXT;
-  }
+
+  if (NULL == /*_.VALDATA___V94*/ meltfptr[93])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_PATTERN_CONTEXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PATTERN_CONTEXT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_PATTERN_CONTEXT =
+	meltgc_named_symbol ("CLASS_PATTERN_CONTEXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V94*/ meltfptr[93] =
+	(melt_ptr_t) meltsy_CLASS_PATTERN_CONTEXT;
+    }				/*endgetnamedsym CLASS_PATTERN_CONTEXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_ROOT */
-  {
-    melt_ptr_t sy_CLASS_ROOT = meltgc_named_symbol ("CLASS_ROOT", MELT_GET);
-    if (sy_CLASS_ROOT && NULL == /*_.VALDATA___V96*/ meltfptr[95])
-  /*_.VALDATA___V96*/ meltfptr[95] = (melt_ptr_t) sy_CLASS_ROOT;
-  }
+
+  if (NULL == /*_.VALDATA___V96*/ meltfptr[95])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_ROOT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ROOT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_ROOT =
+	meltgc_named_symbol ("CLASS_ROOT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V96*/ meltfptr[95] = (melt_ptr_t) meltsy_CLASS_ROOT;
+    }				/*endgetnamedsym CLASS_ROOT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_NORMCTXT */
-  {
-    melt_ptr_t sy_PCTN_NORMCTXT =
-      meltgc_named_symbol ("PCTN_NORMCTXT", MELT_GET);
-    if (sy_PCTN_NORMCTXT && NULL == /*_.VALDATA___V124*/ meltfptr[123])
-  /*_.VALDATA___V124*/ meltfptr[123] = (melt_ptr_t) sy_PCTN_NORMCTXT;
-  }
+
+  if (NULL == /*_.VALDATA___V124*/ meltfptr[123])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_NORMCTXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_NORMCTXT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_NORMCTXT =
+	meltgc_named_symbol ("PCTN_NORMCTXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V124*/ meltfptr[123] = (melt_ptr_t) meltsy_PCTN_NORMCTXT;
+    }				/*endgetnamedsym PCTN_NORMCTXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_SRC */
-  {
-    melt_ptr_t sy_PCTN_SRC = meltgc_named_symbol ("PCTN_SRC", MELT_GET);
-    if (sy_PCTN_SRC && NULL == /*_.VALDATA___V126*/ meltfptr[125])
-  /*_.VALDATA___V126*/ meltfptr[125] = (melt_ptr_t) sy_PCTN_SRC;
-  }
+
+  if (NULL == /*_.VALDATA___V126*/ meltfptr[125])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_SRC =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_SRC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_SRC = meltgc_named_symbol ("PCTN_SRC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V126*/ meltfptr[125] = (melt_ptr_t) meltsy_PCTN_SRC;
+    }				/*endgetnamedsym PCTN_SRC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_ENV */
-  {
-    melt_ptr_t sy_PCTN_ENV = meltgc_named_symbol ("PCTN_ENV", MELT_GET);
-    if (sy_PCTN_ENV && NULL == /*_.VALDATA___V128*/ meltfptr[127])
-  /*_.VALDATA___V128*/ meltfptr[127] = (melt_ptr_t) sy_PCTN_ENV;
-  }
+
+  if (NULL == /*_.VALDATA___V128*/ meltfptr[127])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_ENV =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_ENV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_ENV = meltgc_named_symbol ("PCTN_ENV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V128*/ meltfptr[127] = (melt_ptr_t) meltsy_PCTN_ENV;
+    }				/*endgetnamedsym PCTN_ENV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_MAPATVAR */
-  {
-    melt_ptr_t sy_PCTN_MAPATVAR =
-      meltgc_named_symbol ("PCTN_MAPATVAR", MELT_GET);
-    if (sy_PCTN_MAPATVAR && NULL == /*_.VALDATA___V130*/ meltfptr[129])
-  /*_.VALDATA___V130*/ meltfptr[129] = (melt_ptr_t) sy_PCTN_MAPATVAR;
-  }
+
+  if (NULL == /*_.VALDATA___V130*/ meltfptr[129])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_MAPATVAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_MAPATVAR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_MAPATVAR =
+	meltgc_named_symbol ("PCTN_MAPATVAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V130*/ meltfptr[129] = (melt_ptr_t) meltsy_PCTN_MAPATVAR;
+    }				/*endgetnamedsym PCTN_MAPATVAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_MAPATCST */
-  {
-    melt_ptr_t sy_PCTN_MAPATCST =
-      meltgc_named_symbol ("PCTN_MAPATCST", MELT_GET);
-    if (sy_PCTN_MAPATCST && NULL == /*_.VALDATA___V132*/ meltfptr[131])
-  /*_.VALDATA___V132*/ meltfptr[131] = (melt_ptr_t) sy_PCTN_MAPATCST;
-  }
+
+  if (NULL == /*_.VALDATA___V132*/ meltfptr[131])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_MAPATCST =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_MAPATCST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_MAPATCST =
+	meltgc_named_symbol ("PCTN_MAPATCST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V132*/ meltfptr[131] = (melt_ptr_t) meltsy_PCTN_MAPATCST;
+    }				/*endgetnamedsym PCTN_MAPATCST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_MAPOR */
-  {
-    melt_ptr_t sy_PCTN_MAPOR = meltgc_named_symbol ("PCTN_MAPOR", MELT_GET);
-    if (sy_PCTN_MAPOR && NULL == /*_.VALDATA___V134*/ meltfptr[133])
-  /*_.VALDATA___V134*/ meltfptr[133] = (melt_ptr_t) sy_PCTN_MAPOR;
-  }
+
+  if (NULL == /*_.VALDATA___V134*/ meltfptr[133])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_MAPOR =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_MAPOR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_MAPOR =
+	meltgc_named_symbol ("PCTN_MAPOR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V134*/ meltfptr[133] = (melt_ptr_t) meltsy_PCTN_MAPOR;
+    }				/*endgetnamedsym PCTN_MAPOR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_BINDLIST */
-  {
-    melt_ptr_t sy_PCTN_BINDLIST =
-      meltgc_named_symbol ("PCTN_BINDLIST", MELT_GET);
-    if (sy_PCTN_BINDLIST && NULL == /*_.VALDATA___V136*/ meltfptr[135])
-  /*_.VALDATA___V136*/ meltfptr[135] = (melt_ptr_t) sy_PCTN_BINDLIST;
-  }
+
+  if (NULL == /*_.VALDATA___V136*/ meltfptr[135])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_BINDLIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_BINDLIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_BINDLIST =
+	meltgc_named_symbol ("PCTN_BINDLIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V136*/ meltfptr[135] = (melt_ptr_t) meltsy_PCTN_BINDLIST;
+    }				/*endgetnamedsym PCTN_BINDLIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_STUFFMAP */
-  {
-    melt_ptr_t sy_PCTN_STUFFMAP =
-      meltgc_named_symbol ("PCTN_STUFFMAP", MELT_GET);
-    if (sy_PCTN_STUFFMAP && NULL == /*_.VALDATA___V138*/ meltfptr[137])
-  /*_.VALDATA___V138*/ meltfptr[137] = (melt_ptr_t) sy_PCTN_STUFFMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V138*/ meltfptr[137])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_STUFFMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_STUFFMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_STUFFMAP =
+	meltgc_named_symbol ("PCTN_STUFFMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V138*/ meltfptr[137] = (melt_ptr_t) meltsy_PCTN_STUFFMAP;
+    }				/*endgetnamedsym PCTN_STUFFMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_PVARLOCMAP */
-  {
-    melt_ptr_t sy_PCTN_PVARLOCMAP =
-      meltgc_named_symbol ("PCTN_PVARLOCMAP", MELT_GET);
-    if (sy_PCTN_PVARLOCMAP && NULL == /*_.VALDATA___V140*/ meltfptr[139])
-  /*_.VALDATA___V140*/ meltfptr[139] = (melt_ptr_t) sy_PCTN_PVARLOCMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V140*/ meltfptr[139])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_PVARLOCMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_PVARLOCMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_PVARLOCMAP =
+	meltgc_named_symbol ("PCTN_PVARLOCMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V140*/ meltfptr[139] =
+	(melt_ptr_t) meltsy_PCTN_PVARLOCMAP;
+    }				/*endgetnamedsym PCTN_PVARLOCMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_TESTS */
-  {
-    melt_ptr_t sy_PCTN_TESTS = meltgc_named_symbol ("PCTN_TESTS", MELT_GET);
-    if (sy_PCTN_TESTS && NULL == /*_.VALDATA___V142*/ meltfptr[141])
-  /*_.VALDATA___V142*/ meltfptr[141] = (melt_ptr_t) sy_PCTN_TESTS;
-  }
+
+  if (NULL == /*_.VALDATA___V142*/ meltfptr[141])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_TESTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_TESTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_TESTS =
+	meltgc_named_symbol ("PCTN_TESTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V142*/ meltfptr[141] = (melt_ptr_t) meltsy_PCTN_TESTS;
+    }				/*endgetnamedsym PCTN_TESTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PCTN_VARHANDLERS */
-  {
-    melt_ptr_t sy_PCTN_VARHANDLERS =
-      meltgc_named_symbol ("PCTN_VARHANDLERS", MELT_GET);
-    if (sy_PCTN_VARHANDLERS && NULL == /*_.VALDATA___V144*/ meltfptr[143])
-  /*_.VALDATA___V144*/ meltfptr[143] = (melt_ptr_t) sy_PCTN_VARHANDLERS;
-  }
+
+  if (NULL == /*_.VALDATA___V144*/ meltfptr[143])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PCTN_VARHANDLERS =
+	melthookproc_HOOK_NAMED_SYMBOL ("PCTN_VARHANDLERS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PCTN_VARHANDLERS =
+	meltgc_named_symbol ("PCTN_VARHANDLERS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V144*/ meltfptr[143] =
+	(melt_ptr_t) meltsy_PCTN_VARHANDLERS;
+    }				/*endgetnamedsym PCTN_VARHANDLERS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:SCAN_PATTERN */
-  {
-    melt_ptr_t sy_SCAN_PATTERN =
-      meltgc_named_symbol ("SCAN_PATTERN", MELT_GET);
-    if (sy_SCAN_PATTERN && NULL == /*_.VALDATA___V146*/ meltfptr[145])
-  /*_.VALDATA___V146*/ meltfptr[145] = (melt_ptr_t) sy_SCAN_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V146*/ meltfptr[145])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_SCAN_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("SCAN_PATTERN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_SCAN_PATTERN =
+	meltgc_named_symbol ("SCAN_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V146*/ meltfptr[145] = (melt_ptr_t) meltsy_SCAN_PATTERN;
+    }				/*endgetnamedsym SCAN_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SELECTOR */
-  {
-    melt_ptr_t sy_CLASS_SELECTOR =
-      meltgc_named_symbol ("CLASS_SELECTOR", MELT_GET);
-    if (sy_CLASS_SELECTOR && NULL == /*_.VALDATA___V148*/ meltfptr[147])
-  /*_.VALDATA___V148*/ meltfptr[147] = (melt_ptr_t) sy_CLASS_SELECTOR;
-  }
+
+  if (NULL == /*_.VALDATA___V148*/ meltfptr[147])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SELECTOR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SELECTOR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SELECTOR =
+	meltgc_named_symbol ("CLASS_SELECTOR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V148*/ meltfptr[147] = (melt_ptr_t) meltsy_CLASS_SELECTOR;
+    }				/*endgetnamedsym CLASS_SELECTOR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MELT_DEBUG_FUN */
-  {
-    melt_ptr_t sy_MELT_DEBUG_FUN =
-      meltgc_named_symbol ("MELT_DEBUG_FUN", MELT_GET);
-    if (sy_MELT_DEBUG_FUN && NULL == /*_.VALDATA___V154*/ meltfptr[153])
-  /*_.VALDATA___V154*/ meltfptr[153] = (melt_ptr_t) sy_MELT_DEBUG_FUN;
-  }
+
+  if (NULL == /*_.VALDATA___V154*/ meltfptr[153])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MELT_DEBUG_FUN =
+	melthookproc_HOOK_NAMED_SYMBOL ("MELT_DEBUG_FUN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MELT_DEBUG_FUN =
+	meltgc_named_symbol ("MELT_DEBUG_FUN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V154*/ meltfptr[153] = (melt_ptr_t) meltsy_MELT_DEBUG_FUN;
+    }				/*endgetnamedsym MELT_DEBUG_FUN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NAMED */
-  {
-    melt_ptr_t sy_CLASS_NAMED = meltgc_named_symbol ("CLASS_NAMED", MELT_GET);
-    if (sy_CLASS_NAMED && NULL == /*_.VALDATA___V156*/ meltfptr[155])
-  /*_.VALDATA___V156*/ meltfptr[155] = (melt_ptr_t) sy_CLASS_NAMED;
-  }
+
+  if (NULL == /*_.VALDATA___V156*/ meltfptr[155])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NAMED =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NAMED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NAMED =
+	meltgc_named_symbol ("CLASS_NAMED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V156*/ meltfptr[155] = (melt_ptr_t) meltsy_CLASS_NAMED;
+    }				/*endgetnamedsym CLASS_NAMED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:INSTALL_METHOD */
-  {
-    melt_ptr_t sy_INSTALL_METHOD =
-      meltgc_named_symbol ("INSTALL_METHOD", MELT_GET);
-    if (sy_INSTALL_METHOD && NULL == /*_.VALDATA___V158*/ meltfptr[157])
-  /*_.VALDATA___V158*/ meltfptr[157] = (melt_ptr_t) sy_INSTALL_METHOD;
-  }
+
+  if (NULL == /*_.VALDATA___V158*/ meltfptr[157])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_INSTALL_METHOD =
+	melthookproc_HOOK_NAMED_SYMBOL ("INSTALL_METHOD", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_INSTALL_METHOD =
+	meltgc_named_symbol ("INSTALL_METHOD", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V158*/ meltfptr[157] = (melt_ptr_t) meltsy_INSTALL_METHOD;
+    }				/*endgetnamedsym INSTALL_METHOD */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_ANY_RECEIVER */
-  {
-    melt_ptr_t sy_DISCR_ANY_RECEIVER =
-      meltgc_named_symbol ("DISCR_ANY_RECEIVER", MELT_GET);
-    if (sy_DISCR_ANY_RECEIVER && NULL == /*_.VALDATA___V160*/ meltfptr[159])
-  /*_.VALDATA___V160*/ meltfptr[159] = (melt_ptr_t) sy_DISCR_ANY_RECEIVER;
-  }
+
+  if (NULL == /*_.VALDATA___V160*/ meltfptr[159])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_ANY_RECEIVER =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_ANY_RECEIVER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_ANY_RECEIVER =
+	meltgc_named_symbol ("DISCR_ANY_RECEIVER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V160*/ meltfptr[159] =
+	(melt_ptr_t) meltsy_DISCR_ANY_RECEIVER;
+    }				/*endgetnamedsym DISCR_ANY_RECEIVER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN && NULL == /*_.VALDATA___V164*/ meltfptr[163])
-  /*_.VALDATA___V164*/ meltfptr[163] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V164*/ meltfptr[163])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V164*/ meltfptr[163] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_VARIABLE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_VARIABLE =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_VARIABLE", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_VARIABLE
-	&& NULL == /*_.VALDATA___V168*/ meltfptr[167])
-  /*_.VALDATA___V168*/ meltfptr[167] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_VARIABLE;
-  }
+
+  if (NULL == /*_.VALDATA___V168*/ meltfptr[167])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_VARIABLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_VARIABLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_VARIABLE =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_VARIABLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V168*/ meltfptr[167] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_VARIABLE;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_VARIABLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_JOKER_VARIABLE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_JOKER_VARIABLE", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE
-	&& NULL == /*_.VALDATA___V172*/ meltfptr[171])
-  /*_.VALDATA___V172*/ meltfptr[171] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE;
-  }
+
+  if (NULL == /*_.VALDATA___V172*/ meltfptr[171])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_JOKER_VARIABLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_JOKER_VARIABLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V172*/ meltfptr[171] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_JOKER_VARIABLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_CONSTANT */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_CONSTANT =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_CONSTANT", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_CONSTANT
-	&& NULL == /*_.VALDATA___V176*/ meltfptr[175])
-  /*_.VALDATA___V176*/ meltfptr[175] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_CONSTANT;
-  }
+
+  if (NULL == /*_.VALDATA___V176*/ meltfptr[175])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTANT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_CONSTANT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTANT =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_CONSTANT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V176*/ meltfptr[175] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_CONSTANT;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_CONSTANT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMAL_EXP */
-  {
-    melt_ptr_t sy_NORMAL_EXP = meltgc_named_symbol ("NORMAL_EXP", MELT_GET);
-    if (sy_NORMAL_EXP && NULL == /*_.VALDATA___V178*/ meltfptr[177])
-  /*_.VALDATA___V178*/ meltfptr[177] = (melt_ptr_t) sy_NORMAL_EXP;
-  }
+
+  if (NULL == /*_.VALDATA___V178*/ meltfptr[177])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMAL_EXP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMAL_EXP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMAL_EXP =
+	meltgc_named_symbol ("NORMAL_EXP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V178*/ meltfptr[177] = (melt_ptr_t) meltsy_NORMAL_EXP;
+    }				/*endgetnamedsym NORMAL_EXP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:LIST_APPEND2LIST */
-  {
-    melt_ptr_t sy_LIST_APPEND2LIST =
-      meltgc_named_symbol ("LIST_APPEND2LIST", MELT_GET);
-    if (sy_LIST_APPEND2LIST && NULL == /*_.VALDATA___V180*/ meltfptr[179])
-  /*_.VALDATA___V180*/ meltfptr[179] = (melt_ptr_t) sy_LIST_APPEND2LIST;
-  }
+
+  if (NULL == /*_.VALDATA___V180*/ meltfptr[179])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_LIST_APPEND2LIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("LIST_APPEND2LIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_LIST_APPEND2LIST =
+	meltgc_named_symbol ("LIST_APPEND2LIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V180*/ meltfptr[179] =
+	(melt_ptr_t) meltsy_LIST_APPEND2LIST;
+    }				/*endgetnamedsym LIST_APPEND2LIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:GET_CTYPE */
-  {
-    melt_ptr_t sy_GET_CTYPE = meltgc_named_symbol ("GET_CTYPE", MELT_GET);
-    if (sy_GET_CTYPE && NULL == /*_.VALDATA___V182*/ meltfptr[181])
-  /*_.VALDATA___V182*/ meltfptr[181] = (melt_ptr_t) sy_GET_CTYPE;
-  }
+
+  if (NULL == /*_.VALDATA___V182*/ meltfptr[181])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_GET_CTYPE =
+	melthookproc_HOOK_NAMED_SYMBOL ("GET_CTYPE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_GET_CTYPE =
+	meltgc_named_symbol ("GET_CTYPE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V182*/ meltfptr[181] = (melt_ptr_t) meltsy_GET_CTYPE;
+    }				/*endgetnamedsym GET_CTYPE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_CTYPE */
-  {
-    melt_ptr_t sy_CLASS_CTYPE = meltgc_named_symbol ("CLASS_CTYPE", MELT_GET);
-    if (sy_CLASS_CTYPE && NULL == /*_.VALDATA___V184*/ meltfptr[183])
-  /*_.VALDATA___V184*/ meltfptr[183] = (melt_ptr_t) sy_CLASS_CTYPE;
-  }
+
+  if (NULL == /*_.VALDATA___V184*/ meltfptr[183])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_CTYPE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CTYPE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_CTYPE =
+	meltgc_named_symbol ("CLASS_CTYPE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V184*/ meltfptr[183] = (melt_ptr_t) meltsy_CLASS_CTYPE;
+    }				/*endgetnamedsym CLASS_CTYPE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_LOCATED */
-  {
-    melt_ptr_t sy_CLASS_LOCATED =
-      meltgc_named_symbol ("CLASS_LOCATED", MELT_GET);
-    if (sy_CLASS_LOCATED && NULL == /*_.VALDATA___V186*/ meltfptr[185])
-  /*_.VALDATA___V186*/ meltfptr[185] = (melt_ptr_t) sy_CLASS_LOCATED;
-  }
+
+  if (NULL == /*_.VALDATA___V186*/ meltfptr[185])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_LOCATED =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LOCATED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_LOCATED =
+	meltgc_named_symbol ("CLASS_LOCATED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V186*/ meltfptr[185] = (melt_ptr_t) meltsy_CLASS_LOCATED;
+    }				/*endgetnamedsym CLASS_LOCATED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_CONSTRUCT */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_CONSTRUCT =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_CONSTRUCT", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_CONSTRUCT
-	&& NULL == /*_.VALDATA___V190*/ meltfptr[189])
-  /*_.VALDATA___V190*/ meltfptr[189] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_CONSTRUCT;
-  }
+
+  if (NULL == /*_.VALDATA___V190*/ meltfptr[189])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTRUCT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_CONSTRUCT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTRUCT =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_CONSTRUCT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V190*/ meltfptr[189] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_CONSTRUCT;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_CONSTRUCT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CTYPE_VALUE */
-  {
-    melt_ptr_t sy_CTYPE_VALUE = meltgc_named_symbol ("CTYPE_VALUE", MELT_GET);
-    if (sy_CTYPE_VALUE && NULL == /*_.VALDATA___V192*/ meltfptr[191])
-  /*_.VALDATA___V192*/ meltfptr[191] = (melt_ptr_t) sy_CTYPE_VALUE;
-  }
+
+  if (NULL == /*_.VALDATA___V192*/ meltfptr[191])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CTYPE_VALUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CTYPE_VALUE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CTYPE_VALUE =
+	meltgc_named_symbol ("CTYPE_VALUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V192*/ meltfptr[191] = (melt_ptr_t) meltsy_CTYPE_VALUE;
+    }				/*endgetnamedsym CTYPE_VALUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_OBJECT */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_OBJECT =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_OBJECT", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_OBJECT
-	&& NULL == /*_.VALDATA___V196*/ meltfptr[195])
-  /*_.VALDATA___V196*/ meltfptr[195] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_OBJECT;
-  }
+
+  if (NULL == /*_.VALDATA___V196*/ meltfptr[195])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OBJECT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_OBJECT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OBJECT =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_OBJECT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V196*/ meltfptr[195] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_OBJECT;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_OBJECT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_CLASS */
-  {
-    melt_ptr_t sy_CLASS_CLASS = meltgc_named_symbol ("CLASS_CLASS", MELT_GET);
-    if (sy_CLASS_CLASS && NULL == /*_.VALDATA___V198*/ meltfptr[197])
-  /*_.VALDATA___V198*/ meltfptr[197] = (melt_ptr_t) sy_CLASS_CLASS;
-  }
+
+  if (NULL == /*_.VALDATA___V198*/ meltfptr[197])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_CLASS =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CLASS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_CLASS =
+	meltgc_named_symbol ("CLASS_CLASS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V198*/ meltfptr[197] = (melt_ptr_t) meltsy_CLASS_CLASS;
+    }				/*endgetnamedsym CLASS_CLASS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_FIELD_PATTERN */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_FIELD_PATTERN =
-      meltgc_named_symbol ("CLASS_SOURCE_FIELD_PATTERN", MELT_GET);
-    if (sy_CLASS_SOURCE_FIELD_PATTERN
-	&& NULL == /*_.VALDATA___V200*/ meltfptr[199])
-  /*_.VALDATA___V200*/ meltfptr[199] =
-	(melt_ptr_t) sy_CLASS_SOURCE_FIELD_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V200*/ meltfptr[199])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_FIELD_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FIELD_PATTERN",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_FIELD_PATTERN =
+	meltgc_named_symbol ("CLASS_SOURCE_FIELD_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V200*/ meltfptr[199] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_FIELD_PATTERN;
+    }				/*endgetnamedsym CLASS_SOURCE_FIELD_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_FIELD */
-  {
-    melt_ptr_t sy_CLASS_FIELD = meltgc_named_symbol ("CLASS_FIELD", MELT_GET);
-    if (sy_CLASS_FIELD && NULL == /*_.VALDATA___V202*/ meltfptr[201])
-  /*_.VALDATA___V202*/ meltfptr[201] = (melt_ptr_t) sy_CLASS_FIELD;
-  }
+
+  if (NULL == /*_.VALDATA___V202*/ meltfptr[201])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_FIELD =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FIELD", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_FIELD =
+	meltgc_named_symbol ("CLASS_FIELD", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V202*/ meltfptr[201] = (melt_ptr_t) meltsy_CLASS_FIELD;
+    }				/*endgetnamedsym CLASS_FIELD */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_COMPOSITE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_COMPOSITE =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_COMPOSITE", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_COMPOSITE
-	&& NULL == /*_.VALDATA___V206*/ meltfptr[205])
-  /*_.VALDATA___V206*/ meltfptr[205] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_COMPOSITE;
-  }
+
+  if (NULL == /*_.VALDATA___V206*/ meltfptr[205])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_COMPOSITE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_COMPOSITE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_COMPOSITE =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_COMPOSITE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V206*/ meltfptr[205] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_COMPOSITE;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_COMPOSITE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_ANY_MATCHER */
-  {
-    melt_ptr_t sy_CLASS_ANY_MATCHER =
-      meltgc_named_symbol ("CLASS_ANY_MATCHER", MELT_GET);
-    if (sy_CLASS_ANY_MATCHER && NULL == /*_.VALDATA___V208*/ meltfptr[207])
-  /*_.VALDATA___V208*/ meltfptr[207] = (melt_ptr_t) sy_CLASS_ANY_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V208*/ meltfptr[207])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_ANY_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ANY_MATCHER", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_ANY_MATCHER =
+	meltgc_named_symbol ("CLASS_ANY_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V208*/ meltfptr[207] =
+	(melt_ptr_t) meltsy_CLASS_ANY_MATCHER;
+    }				/*endgetnamedsym CLASS_ANY_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_FORMAL_BINDING */
-  {
-    melt_ptr_t sy_CLASS_FORMAL_BINDING =
-      meltgc_named_symbol ("CLASS_FORMAL_BINDING", MELT_GET);
-    if (sy_CLASS_FORMAL_BINDING && NULL == /*_.VALDATA___V210*/ meltfptr[209])
-  /*_.VALDATA___V210*/ meltfptr[209] =
-	(melt_ptr_t) sy_CLASS_FORMAL_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V210*/ meltfptr[209])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_FORMAL_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FORMAL_BINDING",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_FORMAL_BINDING =
+	meltgc_named_symbol ("CLASS_FORMAL_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V210*/ meltfptr[209] =
+	(melt_ptr_t) meltsy_CLASS_FORMAL_BINDING;
+    }				/*endgetnamedsym CLASS_FORMAL_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMALIZE_TUPLE */
-  {
-    melt_ptr_t sy_NORMALIZE_TUPLE =
-      meltgc_named_symbol ("NORMALIZE_TUPLE", MELT_GET);
-    if (sy_NORMALIZE_TUPLE && NULL == /*_.VALDATA___V212*/ meltfptr[211])
-  /*_.VALDATA___V212*/ meltfptr[211] = (melt_ptr_t) sy_NORMALIZE_TUPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V212*/ meltfptr[211])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMALIZE_TUPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMALIZE_TUPLE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMALIZE_TUPLE =
+	meltgc_named_symbol ("NORMALIZE_TUPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V212*/ meltfptr[211] =
+	(melt_ptr_t) meltsy_NORMALIZE_TUPLE;
+    }				/*endgetnamedsym NORMALIZE_TUPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_OR */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_OR =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_OR", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_OR
-	&& NULL == /*_.VALDATA___V217*/ meltfptr[216])
-  /*_.VALDATA___V217*/ meltfptr[216] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_OR;
-  }
+
+  if (NULL == /*_.VALDATA___V217*/ meltfptr[216])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_OR",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OR =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_OR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V217*/ meltfptr[216] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_OR;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_OR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_MAP_OBJECTS */
-  {
-    melt_ptr_t sy_DISCR_MAP_OBJECTS =
-      meltgc_named_symbol ("DISCR_MAP_OBJECTS", MELT_GET);
-    if (sy_DISCR_MAP_OBJECTS && NULL == /*_.VALDATA___V219*/ meltfptr[218])
-  /*_.VALDATA___V219*/ meltfptr[218] = (melt_ptr_t) sy_DISCR_MAP_OBJECTS;
-  }
+
+  if (NULL == /*_.VALDATA___V219*/ meltfptr[218])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_MAP_OBJECTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_MAP_OBJECTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_MAP_OBJECTS =
+	meltgc_named_symbol ("DISCR_MAP_OBJECTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V219*/ meltfptr[218] =
+	(melt_ptr_t) meltsy_DISCR_MAP_OBJECTS;
+    }				/*endgetnamedsym DISCR_MAP_OBJECTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SYMBOL */
-  {
-    melt_ptr_t sy_CLASS_SYMBOL =
-      meltgc_named_symbol ("CLASS_SYMBOL", MELT_GET);
-    if (sy_CLASS_SYMBOL && NULL == /*_.VALDATA___V221*/ meltfptr[220])
-  /*_.VALDATA___V221*/ meltfptr[220] = (melt_ptr_t) sy_CLASS_SYMBOL;
-  }
+
+  if (NULL == /*_.VALDATA___V221*/ meltfptr[220])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SYMBOL =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SYMBOL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SYMBOL =
+	meltgc_named_symbol ("CLASS_SYMBOL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V221*/ meltfptr[220] = (melt_ptr_t) meltsy_CLASS_SYMBOL;
+    }				/*endgetnamedsym CLASS_SYMBOL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_AND */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_AND =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_AND", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_AND
-	&& NULL == /*_.VALDATA___V225*/ meltfptr[224])
-  /*_.VALDATA___V225*/ meltfptr[224] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_AND;
-  }
+
+  if (NULL == /*_.VALDATA___V225*/ meltfptr[224])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_AND =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_AND",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_AND =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_AND", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V225*/ meltfptr[224] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_AND;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_AND */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMAL_PATTERN */
-  {
-    melt_ptr_t sy_NORMAL_PATTERN =
-      meltgc_named_symbol ("NORMAL_PATTERN", MELT_GET);
-    if (sy_NORMAL_PATTERN && NULL == /*_.VALDATA___V227*/ meltfptr[226])
-  /*_.VALDATA___V227*/ meltfptr[226] = (melt_ptr_t) sy_NORMAL_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V227*/ meltfptr[226])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMAL_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMAL_PATTERN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMAL_PATTERN =
+	meltgc_named_symbol ("NORMAL_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V227*/ meltfptr[226] = (melt_ptr_t) meltsy_NORMAL_PATTERN;
+    }				/*endgetnamedsym NORMAL_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMAL_OR_VARIABLE */
-  {
-    melt_ptr_t sy_CLASS_NORMAL_OR_VARIABLE =
-      meltgc_named_symbol ("CLASS_NORMAL_OR_VARIABLE", MELT_GET);
-    if (sy_CLASS_NORMAL_OR_VARIABLE
-	&& NULL == /*_.VALDATA___V231*/ meltfptr[230])
-  /*_.VALDATA___V231*/ meltfptr[230] =
-	(melt_ptr_t) sy_CLASS_NORMAL_OR_VARIABLE;
-  }
+
+  if (NULL == /*_.VALDATA___V231*/ meltfptr[230])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMAL_OR_VARIABLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMAL_OR_VARIABLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMAL_OR_VARIABLE =
+	meltgc_named_symbol ("CLASS_NORMAL_OR_VARIABLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V231*/ meltfptr[230] =
+	(melt_ptr_t) meltsy_CLASS_NORMAL_OR_VARIABLE;
+    }				/*endgetnamedsym CLASS_NORMAL_OR_VARIABLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORVAR_NOREXP */
-  {
-    melt_ptr_t sy_NORVAR_NOREXP =
-      meltgc_named_symbol ("NORVAR_NOREXP", MELT_GET);
-    if (sy_NORVAR_NOREXP && NULL == /*_.VALDATA___V245*/ meltfptr[244])
-  /*_.VALDATA___V245*/ meltfptr[244] = (melt_ptr_t) sy_NORVAR_NOREXP;
-  }
+
+  if (NULL == /*_.VALDATA___V245*/ meltfptr[244])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORVAR_NOREXP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORVAR_NOREXP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORVAR_NOREXP =
+	meltgc_named_symbol ("NORVAR_NOREXP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V245*/ meltfptr[244] = (melt_ptr_t) meltsy_NORVAR_NOREXP;
+    }				/*endgetnamedsym NORVAR_NOREXP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORVAR_LOCSYM */
-  {
-    melt_ptr_t sy_NORVAR_LOCSYM =
-      meltgc_named_symbol ("NORVAR_LOCSYM", MELT_GET);
-    if (sy_NORVAR_LOCSYM && NULL == /*_.VALDATA___V247*/ meltfptr[246])
-  /*_.VALDATA___V247*/ meltfptr[246] = (melt_ptr_t) sy_NORVAR_LOCSYM;
-  }
+
+  if (NULL == /*_.VALDATA___V247*/ meltfptr[246])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORVAR_LOCSYM =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORVAR_LOCSYM", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORVAR_LOCSYM =
+	meltgc_named_symbol ("NORVAR_LOCSYM", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V247*/ meltfptr[246] = (melt_ptr_t) meltsy_NORVAR_LOCSYM;
+    }				/*endgetnamedsym NORVAR_LOCSYM */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORVAR_PATVAR */
-  {
-    melt_ptr_t sy_NORVAR_PATVAR =
-      meltgc_named_symbol ("NORVAR_PATVAR", MELT_GET);
-    if (sy_NORVAR_PATVAR && NULL == /*_.VALDATA___V249*/ meltfptr[248])
-  /*_.VALDATA___V249*/ meltfptr[248] = (melt_ptr_t) sy_NORVAR_PATVAR;
-  }
+
+  if (NULL == /*_.VALDATA___V249*/ meltfptr[248])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORVAR_PATVAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORVAR_PATVAR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORVAR_PATVAR =
+	meltgc_named_symbol ("NORVAR_PATVAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V249*/ meltfptr[248] = (melt_ptr_t) meltsy_NORVAR_PATVAR;
+    }				/*endgetnamedsym NORVAR_PATVAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORVAR_NREPOR */
-  {
-    melt_ptr_t sy_NORVAR_NREPOR =
-      meltgc_named_symbol ("NORVAR_NREPOR", MELT_GET);
-    if (sy_NORVAR_NREPOR && NULL == /*_.VALDATA___V251*/ meltfptr[250])
-  /*_.VALDATA___V251*/ meltfptr[250] = (melt_ptr_t) sy_NORVAR_NREPOR;
-  }
+
+  if (NULL == /*_.VALDATA___V251*/ meltfptr[250])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORVAR_NREPOR =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORVAR_NREPOR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORVAR_NREPOR =
+	meltgc_named_symbol ("NORVAR_NREPOR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V251*/ meltfptr[250] = (melt_ptr_t) meltsy_NORVAR_NREPOR;
+    }				/*endgetnamedsym NORVAR_NREPOR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_ANY */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_ANY =
-      meltgc_named_symbol ("CLASS_NORMTESTER_ANY", MELT_GET);
-    if (sy_CLASS_NORMTESTER_ANY && NULL == /*_.VALDATA___V253*/ meltfptr[252])
-  /*_.VALDATA___V253*/ meltfptr[252] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_ANY;
-  }
+
+  if (NULL == /*_.VALDATA___V253*/ meltfptr[252])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_ANY =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_ANY",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_ANY =
+	meltgc_named_symbol ("CLASS_NORMTESTER_ANY", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V253*/ meltfptr[252] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_ANY;
+    }				/*endgetnamedsym CLASS_NORMTESTER_ANY */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_EXPRESSION */
-  {
-    melt_ptr_t sy_CLASS_NREP_EXPRESSION =
-      meltgc_named_symbol ("CLASS_NREP_EXPRESSION", MELT_GET);
-    if (sy_CLASS_NREP_EXPRESSION
-	&& NULL == /*_.VALDATA___V255*/ meltfptr[254])
-  /*_.VALDATA___V255*/ meltfptr[254] =
-	(melt_ptr_t) sy_CLASS_NREP_EXPRESSION;
-  }
+
+  if (NULL == /*_.VALDATA___V255*/ meltfptr[254])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_EXPRESSION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_EXPRESSION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_EXPRESSION =
+	meltgc_named_symbol ("CLASS_NREP_EXPRESSION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V255*/ meltfptr[254] =
+	(melt_ptr_t) meltsy_CLASS_NREP_EXPRESSION;
+    }				/*endgetnamedsym CLASS_NREP_EXPRESSION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_MATCHED */
-  {
-    melt_ptr_t sy_NTEST_MATCHED =
-      meltgc_named_symbol ("NTEST_MATCHED", MELT_GET);
-    if (sy_NTEST_MATCHED && NULL == /*_.VALDATA___V273*/ meltfptr[272])
-  /*_.VALDATA___V273*/ meltfptr[272] = (melt_ptr_t) sy_NTEST_MATCHED;
-  }
+
+  if (NULL == /*_.VALDATA___V273*/ meltfptr[272])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_MATCHED =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_MATCHED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_MATCHED =
+	meltgc_named_symbol ("NTEST_MATCHED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V273*/ meltfptr[272] = (melt_ptr_t) meltsy_NTEST_MATCHED;
+    }				/*endgetnamedsym NTEST_MATCHED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_THEN */
-  {
-    melt_ptr_t sy_NTEST_THEN = meltgc_named_symbol ("NTEST_THEN", MELT_GET);
-    if (sy_NTEST_THEN && NULL == /*_.VALDATA___V275*/ meltfptr[274])
-  /*_.VALDATA___V275*/ meltfptr[274] = (melt_ptr_t) sy_NTEST_THEN;
-  }
+
+  if (NULL == /*_.VALDATA___V275*/ meltfptr[274])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_THEN =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_THEN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_THEN =
+	meltgc_named_symbol ("NTEST_THEN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V275*/ meltfptr[274] = (melt_ptr_t) meltsy_NTEST_THEN;
+    }				/*endgetnamedsym NTEST_THEN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_ELSE */
-  {
-    melt_ptr_t sy_NTEST_ELSE = meltgc_named_symbol ("NTEST_ELSE", MELT_GET);
-    if (sy_NTEST_ELSE && NULL == /*_.VALDATA___V277*/ meltfptr[276])
-  /*_.VALDATA___V277*/ meltfptr[276] = (melt_ptr_t) sy_NTEST_ELSE;
-  }
+
+  if (NULL == /*_.VALDATA___V277*/ meltfptr[276])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_ELSE =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_ELSE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_ELSE =
+	meltgc_named_symbol ("NTEST_ELSE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V277*/ meltfptr[276] = (melt_ptr_t) meltsy_NTEST_ELSE;
+    }				/*endgetnamedsym NTEST_ELSE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_NORMATCH */
-  {
-    melt_ptr_t sy_NTEST_NORMATCH =
-      meltgc_named_symbol ("NTEST_NORMATCH", MELT_GET);
-    if (sy_NTEST_NORMATCH && NULL == /*_.VALDATA___V279*/ meltfptr[278])
-  /*_.VALDATA___V279*/ meltfptr[278] = (melt_ptr_t) sy_NTEST_NORMATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V279*/ meltfptr[278])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_NORMATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_NORMATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_NORMATCH =
+	meltgc_named_symbol ("NTEST_NORMATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V279*/ meltfptr[278] = (melt_ptr_t) meltsy_NTEST_NORMATCH;
+    }				/*endgetnamedsym NTEST_NORMATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_LOCCLIST */
-  {
-    melt_ptr_t sy_NTEST_LOCCLIST =
-      meltgc_named_symbol ("NTEST_LOCCLIST", MELT_GET);
-    if (sy_NTEST_LOCCLIST && NULL == /*_.VALDATA___V281*/ meltfptr[280])
-  /*_.VALDATA___V281*/ meltfptr[280] = (melt_ptr_t) sy_NTEST_LOCCLIST;
-  }
+
+  if (NULL == /*_.VALDATA___V281*/ meltfptr[280])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_LOCCLIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_LOCCLIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_LOCCLIST =
+	meltgc_named_symbol ("NTEST_LOCCLIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V281*/ meltfptr[280] = (melt_ptr_t) meltsy_NTEST_LOCCLIST;
+    }				/*endgetnamedsym NTEST_LOCCLIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTEST_COMEFROM */
-  {
-    melt_ptr_t sy_NTEST_COMEFROM =
-      meltgc_named_symbol ("NTEST_COMEFROM", MELT_GET);
-    if (sy_NTEST_COMEFROM && NULL == /*_.VALDATA___V283*/ meltfptr[282])
-  /*_.VALDATA___V283*/ meltfptr[282] = (melt_ptr_t) sy_NTEST_COMEFROM;
-  }
+
+  if (NULL == /*_.VALDATA___V283*/ meltfptr[282])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTEST_COMEFROM =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTEST_COMEFROM", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTEST_COMEFROM =
+	meltgc_named_symbol ("NTEST_COMEFROM", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V283*/ meltfptr[282] = (melt_ptr_t) meltsy_NTEST_COMEFROM;
+    }				/*endgetnamedsym NTEST_COMEFROM */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_SUCCESS */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_SUCCESS =
-      meltgc_named_symbol ("CLASS_NORMTESTER_SUCCESS", MELT_GET);
-    if (sy_CLASS_NORMTESTER_SUCCESS
-	&& NULL == /*_.VALDATA___V285*/ meltfptr[284])
-  /*_.VALDATA___V285*/ meltfptr[284] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_SUCCESS;
-  }
+
+  if (NULL == /*_.VALDATA___V285*/ meltfptr[284])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_SUCCESS =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_SUCCESS",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_SUCCESS =
+	meltgc_named_symbol ("CLASS_NORMTESTER_SUCCESS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V285*/ meltfptr[284] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_SUCCESS;
+    }				/*endgetnamedsym CLASS_NORMTESTER_SUCCESS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTSUCCESS_DO */
-  {
-    melt_ptr_t sy_NTSUCCESS_DO =
-      meltgc_named_symbol ("NTSUCCESS_DO", MELT_GET);
-    if (sy_NTSUCCESS_DO && NULL == /*_.VALDATA___V293*/ meltfptr[292])
-  /*_.VALDATA___V293*/ meltfptr[292] = (melt_ptr_t) sy_NTSUCCESS_DO;
-  }
+
+  if (NULL == /*_.VALDATA___V293*/ meltfptr[292])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTSUCCESS_DO =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTSUCCESS_DO", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTSUCCESS_DO =
+	meltgc_named_symbol ("NTSUCCESS_DO", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V293*/ meltfptr[292] = (melt_ptr_t) meltsy_NTSUCCESS_DO;
+    }				/*endgetnamedsym NTSUCCESS_DO */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_OR_CLEAR */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_OR_CLEAR =
-      meltgc_named_symbol ("CLASS_NORMTESTER_OR_CLEAR", MELT_GET);
-    if (sy_CLASS_NORMTESTER_OR_CLEAR
-	&& NULL == /*_.VALDATA___V295*/ meltfptr[294])
-  /*_.VALDATA___V295*/ meltfptr[294] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_OR_CLEAR;
-  }
+
+  if (NULL == /*_.VALDATA___V295*/ meltfptr[294])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_CLEAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_OR_CLEAR",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_CLEAR =
+	meltgc_named_symbol ("CLASS_NORMTESTER_OR_CLEAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V295*/ meltfptr[294] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_OR_CLEAR;
+    }				/*endgetnamedsym CLASS_NORMTESTER_OR_CLEAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTORCLEAR_LOCSYM */
-  {
-    melt_ptr_t sy_NTORCLEAR_LOCSYM =
-      meltgc_named_symbol ("NTORCLEAR_LOCSYM", MELT_GET);
-    if (sy_NTORCLEAR_LOCSYM && NULL == /*_.VALDATA___V303*/ meltfptr[302])
-  /*_.VALDATA___V303*/ meltfptr[302] = (melt_ptr_t) sy_NTORCLEAR_LOCSYM;
-  }
+
+  if (NULL == /*_.VALDATA___V303*/ meltfptr[302])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTORCLEAR_LOCSYM =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTORCLEAR_LOCSYM", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTORCLEAR_LOCSYM =
+	meltgc_named_symbol ("NTORCLEAR_LOCSYM", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V303*/ meltfptr[302] =
+	(melt_ptr_t) meltsy_NTORCLEAR_LOCSYM;
+    }				/*endgetnamedsym NTORCLEAR_LOCSYM */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_OR_INITIAL_CLEAR */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_OR_INITIAL_CLEAR =
-      meltgc_named_symbol ("CLASS_NORMTESTER_OR_INITIAL_CLEAR", MELT_GET);
-    if (sy_CLASS_NORMTESTER_OR_INITIAL_CLEAR
-	&& NULL == /*_.VALDATA___V305*/ meltfptr[304])
-  /*_.VALDATA___V305*/ meltfptr[304] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_OR_INITIAL_CLEAR;
-  }
+
+  if (NULL == /*_.VALDATA___V305*/ meltfptr[304])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_INITIAL_CLEAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_OR_INITIAL_CLEAR",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_INITIAL_CLEAR =
+	meltgc_named_symbol ("CLASS_NORMTESTER_OR_INITIAL_CLEAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V305*/ meltfptr[304] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_OR_INITIAL_CLEAR;
+    }				/*endgetnamedsym CLASS_NORMTESTER_OR_INITIAL_CLEAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_OR_TRANSMIT */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_OR_TRANSMIT =
-      meltgc_named_symbol ("CLASS_NORMTESTER_OR_TRANSMIT", MELT_GET);
-    if (sy_CLASS_NORMTESTER_OR_TRANSMIT
-	&& NULL == /*_.VALDATA___V311*/ meltfptr[310])
-  /*_.VALDATA___V311*/ meltfptr[310] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_OR_TRANSMIT;
-  }
+
+  if (NULL == /*_.VALDATA___V311*/ meltfptr[310])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_TRANSMIT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_OR_TRANSMIT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_OR_TRANSMIT =
+	meltgc_named_symbol ("CLASS_NORMTESTER_OR_TRANSMIT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V311*/ meltfptr[310] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_OR_TRANSMIT;
+    }				/*endgetnamedsym CLASS_NORMTESTER_OR_TRANSMIT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTORTRANSMIT_DST */
-  {
-    melt_ptr_t sy_NTORTRANSMIT_DST =
-      meltgc_named_symbol ("NTORTRANSMIT_DST", MELT_GET);
-    if (sy_NTORTRANSMIT_DST && NULL == /*_.VALDATA___V321*/ meltfptr[320])
-  /*_.VALDATA___V321*/ meltfptr[320] = (melt_ptr_t) sy_NTORTRANSMIT_DST;
-  }
+
+  if (NULL == /*_.VALDATA___V321*/ meltfptr[320])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTORTRANSMIT_DST =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTORTRANSMIT_DST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTORTRANSMIT_DST =
+	meltgc_named_symbol ("NTORTRANSMIT_DST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V321*/ meltfptr[320] =
+	(melt_ptr_t) meltsy_NTORTRANSMIT_DST;
+    }				/*endgetnamedsym NTORTRANSMIT_DST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTORTRANSMIT_SRC */
-  {
-    melt_ptr_t sy_NTORTRANSMIT_SRC =
-      meltgc_named_symbol ("NTORTRANSMIT_SRC", MELT_GET);
-    if (sy_NTORTRANSMIT_SRC && NULL == /*_.VALDATA___V323*/ meltfptr[322])
-  /*_.VALDATA___V323*/ meltfptr[322] = (melt_ptr_t) sy_NTORTRANSMIT_SRC;
-  }
+
+  if (NULL == /*_.VALDATA___V323*/ meltfptr[322])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTORTRANSMIT_SRC =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTORTRANSMIT_SRC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTORTRANSMIT_SRC =
+	meltgc_named_symbol ("NTORTRANSMIT_SRC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V323*/ meltfptr[322] =
+	(melt_ptr_t) meltsy_NTORTRANSMIT_SRC;
+    }				/*endgetnamedsym NTORTRANSMIT_SRC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_ANYTESTER */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_ANYTESTER =
-      meltgc_named_symbol ("CLASS_NORMTESTER_ANYTESTER", MELT_GET);
-    if (sy_CLASS_NORMTESTER_ANYTESTER
-	&& NULL == /*_.VALDATA___V325*/ meltfptr[324])
-  /*_.VALDATA___V325*/ meltfptr[324] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_ANYTESTER;
-  }
+
+  if (NULL == /*_.VALDATA___V325*/ meltfptr[324])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_ANYTESTER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_ANYTESTER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_ANYTESTER =
+	meltgc_named_symbol ("CLASS_NORMTESTER_ANYTESTER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V325*/ meltfptr[324] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_ANYTESTER;
+    }				/*endgetnamedsym CLASS_NORMTESTER_ANYTESTER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_DISJUNCTION */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_DISJUNCTION =
-      meltgc_named_symbol ("CLASS_NORMTESTER_DISJUNCTION", MELT_GET);
-    if (sy_CLASS_NORMTESTER_DISJUNCTION
-	&& NULL == /*_.VALDATA___V331*/ meltfptr[330])
-  /*_.VALDATA___V331*/ meltfptr[330] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_DISJUNCTION;
-  }
+
+  if (NULL == /*_.VALDATA___V331*/ meltfptr[330])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_DISJUNCTION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_DISJUNCTION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_DISJUNCTION =
+	meltgc_named_symbol ("CLASS_NORMTESTER_DISJUNCTION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V331*/ meltfptr[330] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_DISJUNCTION;
+    }				/*endgetnamedsym CLASS_NORMTESTER_DISJUNCTION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTDISJUNCTS */
-  {
-    melt_ptr_t sy_NTDISJUNCTS = meltgc_named_symbol ("NTDISJUNCTS", MELT_GET);
-    if (sy_NTDISJUNCTS && NULL == /*_.VALDATA___V343*/ meltfptr[342])
-  /*_.VALDATA___V343*/ meltfptr[342] = (melt_ptr_t) sy_NTDISJUNCTS;
-  }
+
+  if (NULL == /*_.VALDATA___V343*/ meltfptr[342])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTDISJUNCTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTDISJUNCTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTDISJUNCTS =
+	meltgc_named_symbol ("NTDISJUNCTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V343*/ meltfptr[342] = (melt_ptr_t) meltsy_NTDISJUNCTS;
+    }				/*endgetnamedsym NTDISJUNCTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTDISJ_FRESHORVAR */
-  {
-    melt_ptr_t sy_NTDISJ_FRESHORVAR =
-      meltgc_named_symbol ("NTDISJ_FRESHORVAR", MELT_GET);
-    if (sy_NTDISJ_FRESHORVAR && NULL == /*_.VALDATA___V345*/ meltfptr[344])
-  /*_.VALDATA___V345*/ meltfptr[344] = (melt_ptr_t) sy_NTDISJ_FRESHORVAR;
-  }
+
+  if (NULL == /*_.VALDATA___V345*/ meltfptr[344])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTDISJ_FRESHORVAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTDISJ_FRESHORVAR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTDISJ_FRESHORVAR =
+	meltgc_named_symbol ("NTDISJ_FRESHORVAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V345*/ meltfptr[344] =
+	(melt_ptr_t) meltsy_NTDISJ_FRESHORVAR;
+    }				/*endgetnamedsym NTDISJ_FRESHORVAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTDISJ_SETORVAR */
-  {
-    melt_ptr_t sy_NTDISJ_SETORVAR =
-      meltgc_named_symbol ("NTDISJ_SETORVAR", MELT_GET);
-    if (sy_NTDISJ_SETORVAR && NULL == /*_.VALDATA___V347*/ meltfptr[346])
-  /*_.VALDATA___V347*/ meltfptr[346] = (melt_ptr_t) sy_NTDISJ_SETORVAR;
-  }
+
+  if (NULL == /*_.VALDATA___V347*/ meltfptr[346])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTDISJ_SETORVAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTDISJ_SETORVAR", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTDISJ_SETORVAR =
+	meltgc_named_symbol ("NTDISJ_SETORVAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V347*/ meltfptr[346] =
+	(melt_ptr_t) meltsy_NTDISJ_SETORVAR;
+    }				/*endgetnamedsym NTDISJ_SETORVAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_SAME */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_SAME =
-      meltgc_named_symbol ("CLASS_NORMTESTER_SAME", MELT_GET);
-    if (sy_CLASS_NORMTESTER_SAME
-	&& NULL == /*_.VALDATA___V349*/ meltfptr[348])
-  /*_.VALDATA___V349*/ meltfptr[348] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_SAME;
-  }
+
+  if (NULL == /*_.VALDATA___V349*/ meltfptr[348])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_SAME =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_SAME",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_SAME =
+	meltgc_named_symbol ("CLASS_NORMTESTER_SAME", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V349*/ meltfptr[348] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_SAME;
+    }				/*endgetnamedsym CLASS_NORMTESTER_SAME */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTSAME_IDENTICAL */
-  {
-    melt_ptr_t sy_NTSAME_IDENTICAL =
-      meltgc_named_symbol ("NTSAME_IDENTICAL", MELT_GET);
-    if (sy_NTSAME_IDENTICAL && NULL == /*_.VALDATA___V357*/ meltfptr[356])
-  /*_.VALDATA___V357*/ meltfptr[356] = (melt_ptr_t) sy_NTSAME_IDENTICAL;
-  }
+
+  if (NULL == /*_.VALDATA___V357*/ meltfptr[356])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTSAME_IDENTICAL =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTSAME_IDENTICAL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTSAME_IDENTICAL =
+	meltgc_named_symbol ("NTSAME_IDENTICAL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V357*/ meltfptr[356] =
+	(melt_ptr_t) meltsy_NTSAME_IDENTICAL;
+    }				/*endgetnamedsym NTSAME_IDENTICAL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_MATCHER */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_MATCHER =
-      meltgc_named_symbol ("CLASS_NORMTESTER_MATCHER", MELT_GET);
-    if (sy_CLASS_NORMTESTER_MATCHER
-	&& NULL == /*_.VALDATA___V359*/ meltfptr[358])
-  /*_.VALDATA___V359*/ meltfptr[358] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V359*/ meltfptr[358])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_MATCHER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_MATCHER =
+	meltgc_named_symbol ("CLASS_NORMTESTER_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V359*/ meltfptr[358] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_MATCHER;
+    }				/*endgetnamedsym CLASS_NORMTESTER_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTMATCH_MATCHER */
-  {
-    melt_ptr_t sy_NTMATCH_MATCHER =
-      meltgc_named_symbol ("NTMATCH_MATCHER", MELT_GET);
-    if (sy_NTMATCH_MATCHER && NULL == /*_.VALDATA___V373*/ meltfptr[372])
-  /*_.VALDATA___V373*/ meltfptr[372] = (melt_ptr_t) sy_NTMATCH_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V373*/ meltfptr[372])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTMATCH_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTMATCH_MATCHER", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTMATCH_MATCHER =
+	meltgc_named_symbol ("NTMATCH_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V373*/ meltfptr[372] =
+	(melt_ptr_t) meltsy_NTMATCH_MATCHER;
+    }				/*endgetnamedsym NTMATCH_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTMATCH_MATNDATA */
-  {
-    melt_ptr_t sy_NTMATCH_MATNDATA =
-      meltgc_named_symbol ("NTMATCH_MATNDATA", MELT_GET);
-    if (sy_NTMATCH_MATNDATA && NULL == /*_.VALDATA___V375*/ meltfptr[374])
-  /*_.VALDATA___V375*/ meltfptr[374] = (melt_ptr_t) sy_NTMATCH_MATNDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V375*/ meltfptr[374])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTMATCH_MATNDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTMATCH_MATNDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTMATCH_MATNDATA =
+	meltgc_named_symbol ("NTMATCH_MATNDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V375*/ meltfptr[374] =
+	(melt_ptr_t) meltsy_NTMATCH_MATNDATA;
+    }				/*endgetnamedsym NTMATCH_MATNDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTMATCH_INARGS */
-  {
-    melt_ptr_t sy_NTMATCH_INARGS =
-      meltgc_named_symbol ("NTMATCH_INARGS", MELT_GET);
-    if (sy_NTMATCH_INARGS && NULL == /*_.VALDATA___V377*/ meltfptr[376])
-  /*_.VALDATA___V377*/ meltfptr[376] = (melt_ptr_t) sy_NTMATCH_INARGS;
-  }
+
+  if (NULL == /*_.VALDATA___V377*/ meltfptr[376])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTMATCH_INARGS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTMATCH_INARGS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTMATCH_INARGS =
+	meltgc_named_symbol ("NTMATCH_INARGS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V377*/ meltfptr[376] = (melt_ptr_t) meltsy_NTMATCH_INARGS;
+    }				/*endgetnamedsym NTMATCH_INARGS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTMATCH_OUTLOCS */
-  {
-    melt_ptr_t sy_NTMATCH_OUTLOCS =
-      meltgc_named_symbol ("NTMATCH_OUTLOCS", MELT_GET);
-    if (sy_NTMATCH_OUTLOCS && NULL == /*_.VALDATA___V379*/ meltfptr[378])
-  /*_.VALDATA___V379*/ meltfptr[378] = (melt_ptr_t) sy_NTMATCH_OUTLOCS;
-  }
+
+  if (NULL == /*_.VALDATA___V379*/ meltfptr[378])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTMATCH_OUTLOCS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTMATCH_OUTLOCS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTMATCH_OUTLOCS =
+	meltgc_named_symbol ("NTMATCH_OUTLOCS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V379*/ meltfptr[378] =
+	(melt_ptr_t) meltsy_NTMATCH_OUTLOCS;
+    }				/*endgetnamedsym NTMATCH_OUTLOCS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_INSTANCE */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_INSTANCE =
-      meltgc_named_symbol ("CLASS_NORMTESTER_INSTANCE", MELT_GET);
-    if (sy_CLASS_NORMTESTER_INSTANCE
-	&& NULL == /*_.VALDATA___V381*/ meltfptr[380])
-  /*_.VALDATA___V381*/ meltfptr[380] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_INSTANCE;
-  }
+
+  if (NULL == /*_.VALDATA___V381*/ meltfptr[380])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_INSTANCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_INSTANCE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_INSTANCE =
+	meltgc_named_symbol ("CLASS_NORMTESTER_INSTANCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V381*/ meltfptr[380] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_INSTANCE;
+    }				/*endgetnamedsym CLASS_NORMTESTER_INSTANCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTINST_CLASS */
-  {
-    melt_ptr_t sy_NTINST_CLASS =
-      meltgc_named_symbol ("NTINST_CLASS", MELT_GET);
-    if (sy_NTINST_CLASS && NULL == /*_.VALDATA___V391*/ meltfptr[390])
-  /*_.VALDATA___V391*/ meltfptr[390] = (melt_ptr_t) sy_NTINST_CLASS;
-  }
+
+  if (NULL == /*_.VALDATA___V391*/ meltfptr[390])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTINST_CLASS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTINST_CLASS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTINST_CLASS =
+	meltgc_named_symbol ("NTINST_CLASS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V391*/ meltfptr[390] = (melt_ptr_t) meltsy_NTINST_CLASS;
+    }				/*endgetnamedsym NTINST_CLASS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTINST_FIELDLOCS */
-  {
-    melt_ptr_t sy_NTINST_FIELDLOCS =
-      meltgc_named_symbol ("NTINST_FIELDLOCS", MELT_GET);
-    if (sy_NTINST_FIELDLOCS && NULL == /*_.VALDATA___V393*/ meltfptr[392])
-  /*_.VALDATA___V393*/ meltfptr[392] = (melt_ptr_t) sy_NTINST_FIELDLOCS;
-  }
+
+  if (NULL == /*_.VALDATA___V393*/ meltfptr[392])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTINST_FIELDLOCS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTINST_FIELDLOCS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTINST_FIELDLOCS =
+	meltgc_named_symbol ("NTINST_FIELDLOCS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V393*/ meltfptr[392] =
+	(melt_ptr_t) meltsy_NTINST_FIELDLOCS;
+    }				/*endgetnamedsym NTINST_FIELDLOCS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMTESTER_TUPLE */
-  {
-    melt_ptr_t sy_CLASS_NORMTESTER_TUPLE =
-      meltgc_named_symbol ("CLASS_NORMTESTER_TUPLE", MELT_GET);
-    if (sy_CLASS_NORMTESTER_TUPLE
-	&& NULL == /*_.VALDATA___V395*/ meltfptr[394])
-  /*_.VALDATA___V395*/ meltfptr[394] =
-	(melt_ptr_t) sy_CLASS_NORMTESTER_TUPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V395*/ meltfptr[394])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMTESTER_TUPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMTESTER_TUPLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMTESTER_TUPLE =
+	meltgc_named_symbol ("CLASS_NORMTESTER_TUPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V395*/ meltfptr[394] =
+	(melt_ptr_t) meltsy_CLASS_NORMTESTER_TUPLE;
+    }				/*endgetnamedsym CLASS_NORMTESTER_TUPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTTUPLE_COMPONENTS */
-  {
-    melt_ptr_t sy_NTTUPLE_COMPONENTS =
-      meltgc_named_symbol ("NTTUPLE_COMPONENTS", MELT_GET);
-    if (sy_NTTUPLE_COMPONENTS && NULL == /*_.VALDATA___V403*/ meltfptr[402])
-  /*_.VALDATA___V403*/ meltfptr[402] = (melt_ptr_t) sy_NTTUPLE_COMPONENTS;
-  }
+
+  if (NULL == /*_.VALDATA___V403*/ meltfptr[402])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTTUPLE_COMPONENTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTTUPLE_COMPONENTS",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTTUPLE_COMPONENTS =
+	meltgc_named_symbol ("NTTUPLE_COMPONENTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V403*/ meltfptr[402] =
+	(melt_ptr_t) meltsy_NTTUPLE_COMPONENTS;
+    }				/*endgetnamedsym NTTUPLE_COMPONENTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH =
-      meltgc_named_symbol ("CLASS_NREP_MATCH", MELT_GET);
-    if (sy_CLASS_NREP_MATCH && NULL == /*_.VALDATA___V405*/ meltfptr[404])
-  /*_.VALDATA___V405*/ meltfptr[404] = (melt_ptr_t) sy_CLASS_NREP_MATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V405*/ meltfptr[404])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH =
+	meltgc_named_symbol ("CLASS_NREP_MATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V405*/ meltfptr[404] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH;
+    }				/*endgetnamedsym CLASS_NREP_MATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_TYPED_EXPRESSION */
-  {
-    melt_ptr_t sy_CLASS_NREP_TYPED_EXPRESSION =
-      meltgc_named_symbol ("CLASS_NREP_TYPED_EXPRESSION", MELT_GET);
-    if (sy_CLASS_NREP_TYPED_EXPRESSION
-	&& NULL == /*_.VALDATA___V407*/ meltfptr[406])
-  /*_.VALDATA___V407*/ meltfptr[406] =
-	(melt_ptr_t) sy_CLASS_NREP_TYPED_EXPRESSION;
-  }
+
+  if (NULL == /*_.VALDATA___V407*/ meltfptr[406])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_TYPED_EXPRESSION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_TYPED_EXPRESSION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_TYPED_EXPRESSION =
+	meltgc_named_symbol ("CLASS_NREP_TYPED_EXPRESSION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V407*/ meltfptr[406] =
+	(melt_ptr_t) meltsy_CLASS_NREP_TYPED_EXPRESSION;
+    }				/*endgetnamedsym CLASS_NREP_TYPED_EXPRESSION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMATCH_TESTS */
-  {
-    melt_ptr_t sy_NMATCH_TESTS =
-      meltgc_named_symbol ("NMATCH_TESTS", MELT_GET);
-    if (sy_NMATCH_TESTS && NULL == /*_.VALDATA___V419*/ meltfptr[418])
-  /*_.VALDATA___V419*/ meltfptr[418] = (melt_ptr_t) sy_NMATCH_TESTS;
-  }
+
+  if (NULL == /*_.VALDATA___V419*/ meltfptr[418])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMATCH_TESTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMATCH_TESTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMATCH_TESTS =
+	meltgc_named_symbol ("NMATCH_TESTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V419*/ meltfptr[418] = (melt_ptr_t) meltsy_NMATCH_TESTS;
+    }				/*endgetnamedsym NMATCH_TESTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMATCH_STUFFMAP */
-  {
-    melt_ptr_t sy_NMATCH_STUFFMAP =
-      meltgc_named_symbol ("NMATCH_STUFFMAP", MELT_GET);
-    if (sy_NMATCH_STUFFMAP && NULL == /*_.VALDATA___V421*/ meltfptr[420])
-  /*_.VALDATA___V421*/ meltfptr[420] = (melt_ptr_t) sy_NMATCH_STUFFMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V421*/ meltfptr[420])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMATCH_STUFFMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMATCH_STUFFMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMATCH_STUFFMAP =
+	meltgc_named_symbol ("NMATCH_STUFFMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V421*/ meltfptr[420] =
+	(melt_ptr_t) meltsy_NMATCH_STUFFMAP;
+    }				/*endgetnamedsym NMATCH_STUFFMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMATCH_MATCHED */
-  {
-    melt_ptr_t sy_NMATCH_MATCHED =
-      meltgc_named_symbol ("NMATCH_MATCHED", MELT_GET);
-    if (sy_NMATCH_MATCHED && NULL == /*_.VALDATA___V423*/ meltfptr[422])
-  /*_.VALDATA___V423*/ meltfptr[422] = (melt_ptr_t) sy_NMATCH_MATCHED;
-  }
+
+  if (NULL == /*_.VALDATA___V423*/ meltfptr[422])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMATCH_MATCHED =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMATCH_MATCHED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMATCH_MATCHED =
+	meltgc_named_symbol ("NMATCH_MATCHED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V423*/ meltfptr[422] = (melt_ptr_t) meltsy_NMATCH_MATCHED;
+    }				/*endgetnamedsym NMATCH_MATCHED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_LIST */
-  {
-    melt_ptr_t sy_DISCR_LIST = meltgc_named_symbol ("DISCR_LIST", MELT_GET);
-    if (sy_DISCR_LIST && NULL == /*_.VALDATA___V427*/ meltfptr[426])
-  /*_.VALDATA___V427*/ meltfptr[426] = (melt_ptr_t) sy_DISCR_LIST;
-  }
+
+  if (NULL == /*_.VALDATA___V427*/ meltfptr[426])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_LIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_LIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_LIST =
+	meltgc_named_symbol ("DISCR_LIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V427*/ meltfptr[426] = (melt_ptr_t) meltsy_DISCR_LIST;
+    }				/*endgetnamedsym DISCR_LIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_REFERENCE */
-  {
-    melt_ptr_t sy_CLASS_REFERENCE =
-      meltgc_named_symbol ("CLASS_REFERENCE", MELT_GET);
-    if (sy_CLASS_REFERENCE && NULL == /*_.VALDATA___V433*/ meltfptr[432])
-  /*_.VALDATA___V433*/ meltfptr[432] = (melt_ptr_t) sy_CLASS_REFERENCE;
-  }
+
+  if (NULL == /*_.VALDATA___V433*/ meltfptr[432])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_REFERENCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_REFERENCE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_REFERENCE =
+	meltgc_named_symbol ("CLASS_REFERENCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V433*/ meltfptr[432] =
+	(melt_ptr_t) meltsy_CLASS_REFERENCE;
+    }				/*endgetnamedsym CLASS_REFERENCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_LOCSYMOCC */
-  {
-    melt_ptr_t sy_CLASS_NREP_LOCSYMOCC =
-      meltgc_named_symbol ("CLASS_NREP_LOCSYMOCC", MELT_GET);
-    if (sy_CLASS_NREP_LOCSYMOCC && NULL == /*_.VALDATA___V444*/ meltfptr[443])
-  /*_.VALDATA___V444*/ meltfptr[443] =
-	(melt_ptr_t) sy_CLASS_NREP_LOCSYMOCC;
-  }
+
+  if (NULL == /*_.VALDATA___V444*/ meltfptr[443])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_LOCSYMOCC =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_LOCSYMOCC",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_LOCSYMOCC =
+	meltgc_named_symbol ("CLASS_NREP_LOCSYMOCC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V444*/ meltfptr[443] =
+	(melt_ptr_t) meltsy_CLASS_NREP_LOCSYMOCC;
+    }				/*endgetnamedsym CLASS_NREP_LOCSYMOCC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMAL_LET_BINDING */
-  {
-    melt_ptr_t sy_CLASS_NORMAL_LET_BINDING =
-      meltgc_named_symbol ("CLASS_NORMAL_LET_BINDING", MELT_GET);
-    if (sy_CLASS_NORMAL_LET_BINDING
-	&& NULL == /*_.VALDATA___V448*/ meltfptr[447])
-  /*_.VALDATA___V448*/ meltfptr[447] =
-	(melt_ptr_t) sy_CLASS_NORMAL_LET_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V448*/ meltfptr[447])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMAL_LET_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMAL_LET_BINDING",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMAL_LET_BINDING =
+	meltgc_named_symbol ("CLASS_NORMAL_LET_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V448*/ meltfptr[447] =
+	(melt_ptr_t) meltsy_CLASS_NORMAL_LET_BINDING;
+    }				/*endgetnamedsym CLASS_NORMAL_LET_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NORMALIZATION_CONTEXT */
-  {
-    melt_ptr_t sy_CLASS_NORMALIZATION_CONTEXT =
-      meltgc_named_symbol ("CLASS_NORMALIZATION_CONTEXT", MELT_GET);
-    if (sy_CLASS_NORMALIZATION_CONTEXT
-	&& NULL == /*_.VALDATA___V450*/ meltfptr[449])
-  /*_.VALDATA___V450*/ meltfptr[449] =
-	(melt_ptr_t) sy_CLASS_NORMALIZATION_CONTEXT;
-  }
+
+  if (NULL == /*_.VALDATA___V450*/ meltfptr[449])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NORMALIZATION_CONTEXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NORMALIZATION_CONTEXT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NORMALIZATION_CONTEXT =
+	meltgc_named_symbol ("CLASS_NORMALIZATION_CONTEXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V450*/ meltfptr[449] =
+	(melt_ptr_t) meltsy_CLASS_NORMALIZATION_CONTEXT;
+    }				/*endgetnamedsym CLASS_NORMALIZATION_CONTEXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_QUASI_CTYPE */
-  {
-    melt_ptr_t sy_CLASS_QUASI_CTYPE =
-      meltgc_named_symbol ("CLASS_QUASI_CTYPE", MELT_GET);
-    if (sy_CLASS_QUASI_CTYPE && NULL == /*_.VALDATA___V452*/ meltfptr[451])
-  /*_.VALDATA___V452*/ meltfptr[451] = (melt_ptr_t) sy_CLASS_QUASI_CTYPE;
-  }
+
+  if (NULL == /*_.VALDATA___V452*/ meltfptr[451])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_QUASI_CTYPE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_QUASI_CTYPE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_QUASI_CTYPE =
+	meltgc_named_symbol ("CLASS_QUASI_CTYPE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V452*/ meltfptr[451] =
+	(melt_ptr_t) meltsy_CLASS_QUASI_CTYPE;
+    }				/*endgetnamedsym CLASS_QUASI_CTYPE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_INSTANCE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_INSTANCE =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_INSTANCE", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_INSTANCE
-	&& NULL == /*_.VALDATA___V464*/ meltfptr[463])
-  /*_.VALDATA___V464*/ meltfptr[463] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_INSTANCE;
-  }
+
+  if (NULL == /*_.VALDATA___V464*/ meltfptr[463])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_INSTANCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_INSTANCE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_INSTANCE =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_INSTANCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V464*/ meltfptr[463] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_INSTANCE;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_INSTANCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_MULTIPLE */
-  {
-    melt_ptr_t sy_DISCR_MULTIPLE =
-      meltgc_named_symbol ("DISCR_MULTIPLE", MELT_GET);
-    if (sy_DISCR_MULTIPLE && NULL == /*_.VALDATA___V466*/ meltfptr[465])
-  /*_.VALDATA___V466*/ meltfptr[465] = (melt_ptr_t) sy_DISCR_MULTIPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V466*/ meltfptr[465])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_MULTIPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_MULTIPLE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_MULTIPLE =
+	meltgc_named_symbol ("DISCR_MULTIPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V466*/ meltfptr[465] = (melt_ptr_t) meltsy_DISCR_MULTIPLE;
+    }				/*endgetnamedsym DISCR_MULTIPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_SYMOCC */
-  {
-    melt_ptr_t sy_CLASS_NREP_SYMOCC =
-      meltgc_named_symbol ("CLASS_NREP_SYMOCC", MELT_GET);
-    if (sy_CLASS_NREP_SYMOCC && NULL == /*_.VALDATA___V468*/ meltfptr[467])
-  /*_.VALDATA___V468*/ meltfptr[467] = (melt_ptr_t) sy_CLASS_NREP_SYMOCC;
-  }
+
+  if (NULL == /*_.VALDATA___V468*/ meltfptr[467])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_SYMOCC =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_SYMOCC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_SYMOCC =
+	meltgc_named_symbol ("CLASS_NREP_SYMOCC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V468*/ meltfptr[467] =
+	(melt_ptr_t) meltsy_CLASS_NREP_SYMOCC;
+    }				/*endgetnamedsym CLASS_NREP_SYMOCC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_LET_BINDING */
-  {
-    melt_ptr_t sy_CLASS_LET_BINDING =
-      meltgc_named_symbol ("CLASS_LET_BINDING", MELT_GET);
-    if (sy_CLASS_LET_BINDING && NULL == /*_.VALDATA___V470*/ meltfptr[469])
-  /*_.VALDATA___V470*/ meltfptr[469] = (melt_ptr_t) sy_CLASS_LET_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V470*/ meltfptr[469])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_LET_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LET_BINDING", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_LET_BINDING =
+	meltgc_named_symbol ("CLASS_LET_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V470*/ meltfptr[469] =
+	(melt_ptr_t) meltsy_CLASS_LET_BINDING;
+    }				/*endgetnamedsym CLASS_LET_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_UNSAFE_GET_FIELD */
-  {
-    melt_ptr_t sy_CLASS_NREP_UNSAFE_GET_FIELD =
-      meltgc_named_symbol ("CLASS_NREP_UNSAFE_GET_FIELD", MELT_GET);
-    if (sy_CLASS_NREP_UNSAFE_GET_FIELD
-	&& NULL == /*_.VALDATA___V472*/ meltfptr[471])
-  /*_.VALDATA___V472*/ meltfptr[471] =
-	(melt_ptr_t) sy_CLASS_NREP_UNSAFE_GET_FIELD;
-  }
+
+  if (NULL == /*_.VALDATA___V472*/ meltfptr[471])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_UNSAFE_GET_FIELD =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_UNSAFE_GET_FIELD",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_UNSAFE_GET_FIELD =
+	meltgc_named_symbol ("CLASS_NREP_UNSAFE_GET_FIELD", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V472*/ meltfptr[471] =
+	(melt_ptr_t) meltsy_CLASS_NREP_UNSAFE_GET_FIELD;
+    }				/*endgetnamedsym CLASS_NREP_UNSAFE_GET_FIELD */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLONE_SYMBOL */
-  {
-    melt_ptr_t sy_CLONE_SYMBOL =
-      meltgc_named_symbol ("CLONE_SYMBOL", MELT_GET);
-    if (sy_CLONE_SYMBOL && NULL == /*_.VALDATA___V474*/ meltfptr[473])
-  /*_.VALDATA___V474*/ meltfptr[473] = (melt_ptr_t) sy_CLONE_SYMBOL;
-  }
+
+  if (NULL == /*_.VALDATA___V474*/ meltfptr[473])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLONE_SYMBOL =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLONE_SYMBOL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLONE_SYMBOL =
+	meltgc_named_symbol ("CLONE_SYMBOL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V474*/ meltfptr[473] = (melt_ptr_t) meltsy_CLONE_SYMBOL;
+    }				/*endgetnamedsym CLONE_SYMBOL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_TUPLE_COMPONENT_PATTERN */
-  {
-    melt_ptr_t sy_CLASS_TUPLE_COMPONENT_PATTERN =
-      meltgc_named_symbol ("CLASS_TUPLE_COMPONENT_PATTERN", MELT_GET);
-    if (sy_CLASS_TUPLE_COMPONENT_PATTERN
-	&& NULL == /*_.VALDATA___V476*/ meltfptr[475])
-  /*_.VALDATA___V476*/ meltfptr[475] =
-	(melt_ptr_t) sy_CLASS_TUPLE_COMPONENT_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V476*/ meltfptr[475])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_TUPLE_COMPONENT_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_TUPLE_COMPONENT_PATTERN",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_TUPLE_COMPONENT_PATTERN =
+	meltgc_named_symbol ("CLASS_TUPLE_COMPONENT_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V476*/ meltfptr[475] =
+	(melt_ptr_t) meltsy_CLASS_TUPLE_COMPONENT_PATTERN;
+    }				/*endgetnamedsym CLASS_TUPLE_COMPONENT_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:TUPCP_PATTERN */
-  {
-    melt_ptr_t sy_TUPCP_PATTERN =
-      meltgc_named_symbol ("TUPCP_PATTERN", MELT_GET);
-    if (sy_TUPCP_PATTERN && NULL == /*_.VALDATA___V486*/ meltfptr[485])
-  /*_.VALDATA___V486*/ meltfptr[485] = (melt_ptr_t) sy_TUPCP_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V486*/ meltfptr[485])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_TUPCP_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("TUPCP_PATTERN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_TUPCP_PATTERN =
+	meltgc_named_symbol ("TUPCP_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V486*/ meltfptr[485] = (melt_ptr_t) meltsy_TUPCP_PATTERN;
+    }				/*endgetnamedsym TUPCP_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:TUPCP_INDEX */
-  {
-    melt_ptr_t sy_TUPCP_INDEX = meltgc_named_symbol ("TUPCP_INDEX", MELT_GET);
-    if (sy_TUPCP_INDEX && NULL == /*_.VALDATA___V488*/ meltfptr[487])
-  /*_.VALDATA___V488*/ meltfptr[487] = (melt_ptr_t) sy_TUPCP_INDEX;
-  }
+
+  if (NULL == /*_.VALDATA___V488*/ meltfptr[487])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_TUPCP_INDEX =
+	melthookproc_HOOK_NAMED_SYMBOL ("TUPCP_INDEX", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_TUPCP_INDEX =
+	meltgc_named_symbol ("TUPCP_INDEX", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V488*/ meltfptr[487] = (melt_ptr_t) meltsy_TUPCP_INDEX;
+    }				/*endgetnamedsym TUPCP_INDEX */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_TUPLE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_TUPLE =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_TUPLE", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_TUPLE
-	&& NULL == /*_.VALDATA___V500*/ meltfptr[499])
-  /*_.VALDATA___V500*/ meltfptr[499] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_TUPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V500*/ meltfptr[499])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_TUPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_TUPLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_TUPLE =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_TUPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V500*/ meltfptr[499] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_TUPLE;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_TUPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_CONSTANT_INTEGER */
-  {
-    melt_ptr_t sy_DISCR_CONSTANT_INTEGER =
-      meltgc_named_symbol ("DISCR_CONSTANT_INTEGER", MELT_GET);
-    if (sy_DISCR_CONSTANT_INTEGER
-	&& NULL == /*_.VALDATA___V502*/ meltfptr[501])
-  /*_.VALDATA___V502*/ meltfptr[501] =
-	(melt_ptr_t) sy_DISCR_CONSTANT_INTEGER;
-  }
+
+  if (NULL == /*_.VALDATA___V502*/ meltfptr[501])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_CONSTANT_INTEGER =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_CONSTANT_INTEGER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_CONSTANT_INTEGER =
+	meltgc_named_symbol ("DISCR_CONSTANT_INTEGER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V502*/ meltfptr[501] =
+	(melt_ptr_t) meltsy_DISCR_CONSTANT_INTEGER;
+    }				/*endgetnamedsym DISCR_CONSTANT_INTEGER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:LIST_TO_MULTIPLE */
-  {
-    melt_ptr_t sy_LIST_TO_MULTIPLE =
-      meltgc_named_symbol ("LIST_TO_MULTIPLE", MELT_GET);
-    if (sy_LIST_TO_MULTIPLE && NULL == /*_.VALDATA___V504*/ meltfptr[503])
-  /*_.VALDATA___V504*/ meltfptr[503] = (melt_ptr_t) sy_LIST_TO_MULTIPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V504*/ meltfptr[503])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_LIST_TO_MULTIPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("LIST_TO_MULTIPLE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_LIST_TO_MULTIPLE =
+	meltgc_named_symbol ("LIST_TO_MULTIPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V504*/ meltfptr[503] =
+	(melt_ptr_t) meltsy_LIST_TO_MULTIPLE;
+    }				/*endgetnamedsym LIST_TO_MULTIPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_UNSAFE_NTH_COMPONENT */
-  {
-    melt_ptr_t sy_CLASS_NREP_UNSAFE_NTH_COMPONENT =
-      meltgc_named_symbol ("CLASS_NREP_UNSAFE_NTH_COMPONENT", MELT_GET);
-    if (sy_CLASS_NREP_UNSAFE_NTH_COMPONENT
-	&& NULL == /*_.VALDATA___V506*/ meltfptr[505])
-  /*_.VALDATA___V506*/ meltfptr[505] =
-	(melt_ptr_t) sy_CLASS_NREP_UNSAFE_NTH_COMPONENT;
-  }
+
+  if (NULL == /*_.VALDATA___V506*/ meltfptr[505])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_UNSAFE_NTH_COMPONENT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_UNSAFE_NTH_COMPONENT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_UNSAFE_NTH_COMPONENT =
+	meltgc_named_symbol ("CLASS_NREP_UNSAFE_NTH_COMPONENT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V506*/ meltfptr[505] =
+	(melt_ptr_t) meltsy_CLASS_NREP_UNSAFE_NTH_COMPONENT;
+    }				/*endgetnamedsym CLASS_NREP_UNSAFE_NTH_COMPONENT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTHCOMP */
-  {
-    melt_ptr_t sy_NTHCOMP = meltgc_named_symbol ("NTHCOMP", MELT_GET);
-    if (sy_NTHCOMP && NULL == /*_.VALDATA___V497*/ meltfptr[496])
-  /*_.VALDATA___V497*/ meltfptr[496] = (melt_ptr_t) sy_NTHCOMP;
-  }
+
+  if (NULL == /*_.VALDATA___V497*/ meltfptr[496])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTHCOMP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTHCOMP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTHCOMP = meltgc_named_symbol ("NTHCOMP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V497*/ meltfptr[496] = (melt_ptr_t) meltsy_NTHCOMP;
+    }				/*endgetnamedsym NTHCOMP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */
-  {
-    melt_ptr_t sy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE =
-      meltgc_named_symbol ("MAPOBJECT_SORTED_ATTRIBUTE_TUPLE", MELT_GET);
-    if (sy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE
-	&& NULL == /*_.VALDATA___V516*/ meltfptr[515])
-  /*_.VALDATA___V516*/ meltfptr[515] =
-	(melt_ptr_t) sy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V516*/ meltfptr[515])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MAPOBJECT_SORTED_ATTRIBUTE_TUPLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE =
+	meltgc_named_symbol ("MAPOBJECT_SORTED_ATTRIBUTE_TUPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V516*/ meltfptr[515] =
+	(melt_ptr_t) meltsy_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE;
+    }				/*endgetnamedsym MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MULTIPLE_MAP */
-  {
-    melt_ptr_t sy_MULTIPLE_MAP =
-      meltgc_named_symbol ("MULTIPLE_MAP", MELT_GET);
-    if (sy_MULTIPLE_MAP && NULL == /*_.VALDATA___V518*/ meltfptr[517])
-  /*_.VALDATA___V518*/ meltfptr[517] = (melt_ptr_t) sy_MULTIPLE_MAP;
-  }
+
+  if (NULL == /*_.VALDATA___V518*/ meltfptr[517])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MULTIPLE_MAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MULTIPLE_MAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MULTIPLE_MAP =
+	meltgc_named_symbol ("MULTIPLE_MAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V518*/ meltfptr[517] = (melt_ptr_t) meltsy_MULTIPLE_MAP;
+    }				/*endgetnamedsym MULTIPLE_MAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP */
-  {
-    melt_ptr_t sy_CLASS_NREP = meltgc_named_symbol ("CLASS_NREP", MELT_GET);
-    if (sy_CLASS_NREP && NULL == /*_.VALDATA___V520*/ meltfptr[519])
-  /*_.VALDATA___V520*/ meltfptr[519] = (melt_ptr_t) sy_CLASS_NREP;
-  }
+
+  if (NULL == /*_.VALDATA___V520*/ meltfptr[519])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP =
+	meltgc_named_symbol ("CLASS_NREP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V520*/ meltfptr[519] = (melt_ptr_t) meltsy_CLASS_NREP;
+    }				/*endgetnamedsym CLASS_NREP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_MATCHER */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_MATCHER =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_MATCHER", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_MATCHER
-	&& NULL == /*_.VALDATA___V528*/ meltfptr[527])
-  /*_.VALDATA___V528*/ meltfptr[527] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V528*/ meltfptr[527])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_MATCHER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_MATCHER =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V528*/ meltfptr[527] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_MATCHER;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_ANY_BINDING */
-  {
-    melt_ptr_t sy_CLASS_ANY_BINDING =
-      meltgc_named_symbol ("CLASS_ANY_BINDING", MELT_GET);
-    if (sy_CLASS_ANY_BINDING && NULL == /*_.VALDATA___V530*/ meltfptr[529])
-  /*_.VALDATA___V530*/ meltfptr[529] = (melt_ptr_t) sy_CLASS_ANY_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V530*/ meltfptr[529])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_ANY_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ANY_BINDING", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_ANY_BINDING =
+	meltgc_named_symbol ("CLASS_ANY_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V530*/ meltfptr[529] =
+	(melt_ptr_t) meltsy_CLASS_ANY_BINDING;
+    }				/*endgetnamedsym CLASS_ANY_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:FIND_ENV */
-  {
-    melt_ptr_t sy_FIND_ENV = meltgc_named_symbol ("FIND_ENV", MELT_GET);
-    if (sy_FIND_ENV && NULL == /*_.VALDATA___V532*/ meltfptr[531])
-  /*_.VALDATA___V532*/ meltfptr[531] = (melt_ptr_t) sy_FIND_ENV;
-  }
+
+  if (NULL == /*_.VALDATA___V532*/ meltfptr[531])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_FIND_ENV =
+	melthookproc_HOOK_NAMED_SYMBOL ("FIND_ENV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_FIND_ENV = meltgc_named_symbol ("FIND_ENV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V532*/ meltfptr[531] = (melt_ptr_t) meltsy_FIND_ENV;
+    }				/*endgetnamedsym FIND_ENV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:FRESH_ENV */
-  {
-    melt_ptr_t sy_FRESH_ENV = meltgc_named_symbol ("FRESH_ENV", MELT_GET);
-    if (sy_FRESH_ENV && NULL == /*_.VALDATA___V534*/ meltfptr[533])
-  /*_.VALDATA___V534*/ meltfptr[533] = (melt_ptr_t) sy_FRESH_ENV;
-  }
+
+  if (NULL == /*_.VALDATA___V534*/ meltfptr[533])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_FRESH_ENV =
+	melthookproc_HOOK_NAMED_SYMBOL ("FRESH_ENV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_FRESH_ENV =
+	meltgc_named_symbol ("FRESH_ENV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V534*/ meltfptr[533] = (melt_ptr_t) meltsy_FRESH_ENV;
+    }				/*endgetnamedsym FRESH_ENV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PUT_ENV */
-  {
-    melt_ptr_t sy_PUT_ENV = meltgc_named_symbol ("PUT_ENV", MELT_GET);
-    if (sy_PUT_ENV && NULL == /*_.VALDATA___V536*/ meltfptr[535])
-  /*_.VALDATA___V536*/ meltfptr[535] = (melt_ptr_t) sy_PUT_ENV;
-  }
+
+  if (NULL == /*_.VALDATA___V536*/ meltfptr[535])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PUT_ENV =
+	melthookproc_HOOK_NAMED_SYMBOL ("PUT_ENV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PUT_ENV = meltgc_named_symbol ("PUT_ENV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V536*/ meltfptr[535] = (melt_ptr_t) meltsy_PUT_ENV;
+    }				/*endgetnamedsym PUT_ENV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MULTIPLE_TO_LIST */
-  {
-    melt_ptr_t sy_MULTIPLE_TO_LIST =
-      meltgc_named_symbol ("MULTIPLE_TO_LIST", MELT_GET);
-    if (sy_MULTIPLE_TO_LIST && NULL == /*_.VALDATA___V538*/ meltfptr[537])
-  /*_.VALDATA___V538*/ meltfptr[537] = (melt_ptr_t) sy_MULTIPLE_TO_LIST;
-  }
+
+  if (NULL == /*_.VALDATA___V538*/ meltfptr[537])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MULTIPLE_TO_LIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("MULTIPLE_TO_LIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MULTIPLE_TO_LIST =
+	meltgc_named_symbol ("MULTIPLE_TO_LIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V538*/ meltfptr[537] =
+	(melt_ptr_t) meltsy_MULTIPLE_TO_LIST;
+    }				/*endgetnamedsym MULTIPLE_TO_LIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCH_GRAPHIC_DOT_PREFIX */
-  {
-    melt_ptr_t sy_MATCH_GRAPHIC_DOT_PREFIX =
-      meltgc_named_symbol ("MATCH_GRAPHIC_DOT_PREFIX", MELT_GET);
-    if (sy_MATCH_GRAPHIC_DOT_PREFIX
-	&& NULL == /*_.VALDATA___V543*/ meltfptr[542])
-  /*_.VALDATA___V543*/ meltfptr[542] =
-	(melt_ptr_t) sy_MATCH_GRAPHIC_DOT_PREFIX;
-  }
+
+  if (NULL == /*_.VALDATA___V543*/ meltfptr[542])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCH_GRAPHIC_DOT_PREFIX =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCH_GRAPHIC_DOT_PREFIX",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCH_GRAPHIC_DOT_PREFIX =
+	meltgc_named_symbol ("MATCH_GRAPHIC_DOT_PREFIX", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V543*/ meltfptr[542] =
+	(melt_ptr_t) meltsy_MATCH_GRAPHIC_DOT_PREFIX;
+    }				/*endgetnamedsym MATCH_GRAPHIC_DOT_PREFIX */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_STRING */
-  {
-    melt_ptr_t sy_DISCR_STRING =
-      meltgc_named_symbol ("DISCR_STRING", MELT_GET);
-    if (sy_DISCR_STRING && NULL == /*_.VALDATA___V548*/ meltfptr[547])
-  /*_.VALDATA___V548*/ meltfptr[547] = (melt_ptr_t) sy_DISCR_STRING;
-  }
+
+  if (NULL == /*_.VALDATA___V548*/ meltfptr[547])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_STRING =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_STRING", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_STRING =
+	meltgc_named_symbol ("DISCR_STRING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V548*/ meltfptr[547] = (melt_ptr_t) meltsy_DISCR_STRING;
+    }				/*endgetnamedsym DISCR_STRING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:REGISTER_OPTION */
-  {
-    melt_ptr_t sy_REGISTER_OPTION =
-      meltgc_named_symbol ("REGISTER_OPTION", MELT_GET);
-    if (sy_REGISTER_OPTION && NULL == /*_.VALDATA___V550*/ meltfptr[549])
-  /*_.VALDATA___V550*/ meltfptr[549] = (melt_ptr_t) sy_REGISTER_OPTION;
-  }
+
+  if (NULL == /*_.VALDATA___V550*/ meltfptr[549])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_REGISTER_OPTION =
+	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_OPTION", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_REGISTER_OPTION =
+	meltgc_named_symbol ("REGISTER_OPTION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V550*/ meltfptr[549] =
+	(melt_ptr_t) meltsy_REGISTER_OPTION;
+    }				/*endgetnamedsym REGISTER_OPTION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCH_GRAPHIC */
-  {
-    melt_ptr_t sy_MATCH_GRAPHIC =
-      meltgc_named_symbol ("MATCH_GRAPHIC", MELT_GET);
-    if (sy_MATCH_GRAPHIC && NULL == /*_.VALDATA___V552*/ meltfptr[551])
-  /*_.VALDATA___V552*/ meltfptr[551] = (melt_ptr_t) sy_MATCH_GRAPHIC;
-  }
+
+  if (NULL == /*_.VALDATA___V552*/ meltfptr[551])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCH_GRAPHIC =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCH_GRAPHIC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCH_GRAPHIC =
+	meltgc_named_symbol ("MATCH_GRAPHIC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V552*/ meltfptr[551] = (melt_ptr_t) meltsy_MATCH_GRAPHIC;
+    }				/*endgetnamedsym MATCH_GRAPHIC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_GRAPHIC */
-  {
-    melt_ptr_t sy_CLASS_MATCH_GRAPHIC =
-      meltgc_named_symbol ("CLASS_MATCH_GRAPHIC", MELT_GET);
-    if (sy_CLASS_MATCH_GRAPHIC && NULL == /*_.VALDATA___V555*/ meltfptr[554])
-  /*_.VALDATA___V555*/ meltfptr[554] =
-	(melt_ptr_t) sy_CLASS_MATCH_GRAPHIC;
-  }
+
+  if (NULL == /*_.VALDATA___V555*/ meltfptr[554])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_GRAPHIC =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_GRAPHIC",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_GRAPHIC =
+	meltgc_named_symbol ("CLASS_MATCH_GRAPHIC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V555*/ meltfptr[554] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_GRAPHIC;
+    }				/*endgetnamedsym CLASS_MATCH_GRAPHIC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_PROPED */
-  {
-    melt_ptr_t sy_CLASS_PROPED =
-      meltgc_named_symbol ("CLASS_PROPED", MELT_GET);
-    if (sy_CLASS_PROPED && NULL == /*_.VALDATA___V557*/ meltfptr[556])
-  /*_.VALDATA___V557*/ meltfptr[556] = (melt_ptr_t) sy_CLASS_PROPED;
-  }
+
+  if (NULL == /*_.VALDATA___V557*/ meltfptr[556])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_PROPED =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PROPED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_PROPED =
+	meltgc_named_symbol ("CLASS_PROPED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V557*/ meltfptr[556] = (melt_ptr_t) meltsy_CLASS_PROPED;
+    }				/*endgetnamedsym CLASS_PROPED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCHGX_FILENAME */
-  {
-    melt_ptr_t sy_MCHGX_FILENAME =
-      meltgc_named_symbol ("MCHGX_FILENAME", MELT_GET);
-    if (sy_MCHGX_FILENAME && NULL == /*_.VALDATA___V573*/ meltfptr[572])
-  /*_.VALDATA___V573*/ meltfptr[572] = (melt_ptr_t) sy_MCHGX_FILENAME;
-  }
+
+  if (NULL == /*_.VALDATA___V573*/ meltfptr[572])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCHGX_FILENAME =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCHGX_FILENAME", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCHGX_FILENAME =
+	meltgc_named_symbol ("MCHGX_FILENAME", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V573*/ meltfptr[572] = (melt_ptr_t) meltsy_MCHGX_FILENAME;
+    }				/*endgetnamedsym MCHGX_FILENAME */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCHGX_NODOUT */
-  {
-    melt_ptr_t sy_MCHGX_NODOUT =
-      meltgc_named_symbol ("MCHGX_NODOUT", MELT_GET);
-    if (sy_MCHGX_NODOUT && NULL == /*_.VALDATA___V575*/ meltfptr[574])
-  /*_.VALDATA___V575*/ meltfptr[574] = (melt_ptr_t) sy_MCHGX_NODOUT;
-  }
+
+  if (NULL == /*_.VALDATA___V575*/ meltfptr[574])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCHGX_NODOUT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCHGX_NODOUT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCHGX_NODOUT =
+	meltgc_named_symbol ("MCHGX_NODOUT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V575*/ meltfptr[574] = (melt_ptr_t) meltsy_MCHGX_NODOUT;
+    }				/*endgetnamedsym MCHGX_NODOUT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCHGX_EDGOUT */
-  {
-    melt_ptr_t sy_MCHGX_EDGOUT =
-      meltgc_named_symbol ("MCHGX_EDGOUT", MELT_GET);
-    if (sy_MCHGX_EDGOUT && NULL == /*_.VALDATA___V577*/ meltfptr[576])
-  /*_.VALDATA___V577*/ meltfptr[576] = (melt_ptr_t) sy_MCHGX_EDGOUT;
-  }
+
+  if (NULL == /*_.VALDATA___V577*/ meltfptr[576])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCHGX_EDGOUT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCHGX_EDGOUT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCHGX_EDGOUT =
+	meltgc_named_symbol ("MCHGX_EDGOUT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V577*/ meltfptr[576] = (melt_ptr_t) meltsy_MCHGX_EDGOUT;
+    }				/*endgetnamedsym MCHGX_EDGOUT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCHGX_DATANAMEMAP */
-  {
-    melt_ptr_t sy_MCHGX_DATANAMEMAP =
-      meltgc_named_symbol ("MCHGX_DATANAMEMAP", MELT_GET);
-    if (sy_MCHGX_DATANAMEMAP && NULL == /*_.VALDATA___V579*/ meltfptr[578])
-  /*_.VALDATA___V579*/ meltfptr[578] = (melt_ptr_t) sy_MCHGX_DATANAMEMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V579*/ meltfptr[578])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCHGX_DATANAMEMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCHGX_DATANAMEMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCHGX_DATANAMEMAP =
+	meltgc_named_symbol ("MCHGX_DATANAMEMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V579*/ meltfptr[578] =
+	(melt_ptr_t) meltsy_MCHGX_DATANAMEMAP;
+    }				/*endgetnamedsym MCHGX_DATANAMEMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCHGX_STEPNAMEMAP */
-  {
-    melt_ptr_t sy_MCHGX_STEPNAMEMAP =
-      meltgc_named_symbol ("MCHGX_STEPNAMEMAP", MELT_GET);
-    if (sy_MCHGX_STEPNAMEMAP && NULL == /*_.VALDATA___V581*/ meltfptr[580])
-  /*_.VALDATA___V581*/ meltfptr[580] = (melt_ptr_t) sy_MCHGX_STEPNAMEMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V581*/ meltfptr[580])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCHGX_STEPNAMEMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCHGX_STEPNAMEMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCHGX_STEPNAMEMAP =
+	meltgc_named_symbol ("MCHGX_STEPNAMEMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V581*/ meltfptr[580] =
+	(melt_ptr_t) meltsy_MCHGX_STEPNAMEMAP;
+    }				/*endgetnamedsym MCHGX_STEPNAMEMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHGRAPHIC_LABEL */
-  {
-    melt_ptr_t sy_MATCHGRAPHIC_LABEL =
-      meltgc_named_symbol ("MATCHGRAPHIC_LABEL", MELT_GET);
-    if (sy_MATCHGRAPHIC_LABEL && NULL == /*_.VALDATA___V585*/ meltfptr[584])
-  /*_.VALDATA___V585*/ meltfptr[584] = (melt_ptr_t) sy_MATCHGRAPHIC_LABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V585*/ meltfptr[584])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHGRAPHIC_LABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHGRAPHIC_LABEL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHGRAPHIC_LABEL =
+	meltgc_named_symbol ("MATCHGRAPHIC_LABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V585*/ meltfptr[584] =
+	(melt_ptr_t) meltsy_MATCHGRAPHIC_LABEL;
+    }				/*endgetnamedsym MATCHGRAPHIC_LABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_CLONED_SYMBOL */
-  {
-    melt_ptr_t sy_CLASS_CLONED_SYMBOL =
-      meltgc_named_symbol ("CLASS_CLONED_SYMBOL", MELT_GET);
-    if (sy_CLASS_CLONED_SYMBOL && NULL == /*_.VALDATA___V593*/ meltfptr[592])
-  /*_.VALDATA___V593*/ meltfptr[592] =
-	(melt_ptr_t) sy_CLASS_CLONED_SYMBOL;
-  }
+
+  if (NULL == /*_.VALDATA___V593*/ meltfptr[592])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_CLONED_SYMBOL =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CLONED_SYMBOL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_CLONED_SYMBOL =
+	meltgc_named_symbol ("CLASS_CLONED_SYMBOL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V593*/ meltfptr[592] =
+	(melt_ptr_t) meltsy_CLASS_CLONED_SYMBOL;
+    }				/*endgetnamedsym CLASS_CLONED_SYMBOL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_STRBUF */
-  {
-    melt_ptr_t sy_DISCR_STRBUF =
-      meltgc_named_symbol ("DISCR_STRBUF", MELT_GET);
-    if (sy_DISCR_STRBUF && NULL == /*_.VALDATA___V603*/ meltfptr[602])
-  /*_.VALDATA___V603*/ meltfptr[602] = (melt_ptr_t) sy_DISCR_STRBUF;
-  }
+
+  if (NULL == /*_.VALDATA___V603*/ meltfptr[602])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_STRBUF =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_STRBUF", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_STRBUF =
+	meltgc_named_symbol ("DISCR_STRBUF", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V603*/ meltfptr[602] = (melt_ptr_t) meltsy_DISCR_STRBUF;
+    }				/*endgetnamedsym DISCR_STRBUF */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_MATCH */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_MATCH =
-      meltgc_named_symbol ("CLASS_SOURCE_MATCH", MELT_GET);
-    if (sy_CLASS_SOURCE_MATCH && NULL == /*_.VALDATA___V614*/ meltfptr[613])
-  /*_.VALDATA___V614*/ meltfptr[613] = (melt_ptr_t) sy_CLASS_SOURCE_MATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V614*/ meltfptr[613])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCH",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCH =
+	meltgc_named_symbol ("CLASS_SOURCE_MATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V614*/ meltfptr[613] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_MATCH;
+    }				/*endgetnamedsym CLASS_SOURCE_MATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_ENVIRONMENT */
-  {
-    melt_ptr_t sy_CLASS_ENVIRONMENT =
-      meltgc_named_symbol ("CLASS_ENVIRONMENT", MELT_GET);
-    if (sy_CLASS_ENVIRONMENT && NULL == /*_.VALDATA___V616*/ meltfptr[615])
-  /*_.VALDATA___V616*/ meltfptr[615] = (melt_ptr_t) sy_CLASS_ENVIRONMENT;
-  }
+
+  if (NULL == /*_.VALDATA___V616*/ meltfptr[615])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_ENVIRONMENT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ENVIRONMENT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_ENVIRONMENT =
+	meltgc_named_symbol ("CLASS_ENVIRONMENT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V616*/ meltfptr[615] =
+	(melt_ptr_t) meltsy_CLASS_ENVIRONMENT;
+    }				/*endgetnamedsym CLASS_ENVIRONMENT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCH_INTER_ */
-  {
-    melt_ptr_t sy_MATCH_INTER_ =
-      meltgc_named_symbol ("MATCH_INTER_", MELT_GET);
-    if (sy_MATCH_INTER_ && NULL == /*_.VALDATA___V606*/ meltfptr[605])
-  /*_.VALDATA___V606*/ meltfptr[605] = (melt_ptr_t) sy_MATCH_INTER_;
-  }
+
+  if (NULL == /*_.VALDATA___V606*/ meltfptr[605])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCH_INTER_ =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCH_INTER_", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCH_INTER_ =
+	meltgc_named_symbol ("MATCH_INTER_", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V606*/ meltfptr[605] = (melt_ptr_t) meltsy_MATCH_INTER_;
+    }				/*endgetnamedsym MATCH_INTER_ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_CHECKSIGNAL */
-  {
-    melt_ptr_t sy_CLASS_NREP_CHECKSIGNAL =
-      meltgc_named_symbol ("CLASS_NREP_CHECKSIGNAL", MELT_GET);
-    if (sy_CLASS_NREP_CHECKSIGNAL
-	&& NULL == /*_.VALDATA___V618*/ meltfptr[617])
-  /*_.VALDATA___V618*/ meltfptr[617] =
-	(melt_ptr_t) sy_CLASS_NREP_CHECKSIGNAL;
-  }
+
+  if (NULL == /*_.VALDATA___V618*/ meltfptr[617])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_CHECKSIGNAL =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_CHECKSIGNAL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_CHECKSIGNAL =
+	meltgc_named_symbol ("CLASS_NREP_CHECKSIGNAL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V618*/ meltfptr[617] =
+	(melt_ptr_t) meltsy_CLASS_NREP_CHECKSIGNAL;
+    }				/*endgetnamedsym CLASS_NREP_CHECKSIGNAL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CTYPE_VOID */
-  {
-    melt_ptr_t sy_CTYPE_VOID = meltgc_named_symbol ("CTYPE_VOID", MELT_GET);
-    if (sy_CTYPE_VOID && NULL == /*_.VALDATA___V620*/ meltfptr[619])
-  /*_.VALDATA___V620*/ meltfptr[619] = (melt_ptr_t) sy_CTYPE_VOID;
-  }
+
+  if (NULL == /*_.VALDATA___V620*/ meltfptr[619])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CTYPE_VOID =
+	melthookproc_HOOK_NAMED_SYMBOL ("CTYPE_VOID", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CTYPE_VOID =
+	meltgc_named_symbol ("CTYPE_VOID", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V620*/ meltfptr[619] = (melt_ptr_t) meltsy_CTYPE_VOID;
+    }				/*endgetnamedsym CTYPE_VOID */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:_MATCHED_ */
-  {
-    melt_ptr_t sy_MATCHED_ = meltgc_named_symbol ("_MATCHED_", MELT_GET);
-    if (sy_MATCHED_ && NULL == /*_.VALDATA___V608*/ meltfptr[607])
-  /*_.VALDATA___V608*/ meltfptr[607] = (melt_ptr_t) sy_MATCHED_;
-  }
+
+  if (NULL == /*_.VALDATA___V608*/ meltfptr[607])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHED_ =
+	melthookproc_HOOK_NAMED_SYMBOL ("_MATCHED_", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHED_ =
+	meltgc_named_symbol ("_MATCHED_", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V608*/ meltfptr[607] = (melt_ptr_t) meltsy_MATCHED_;
+    }				/*endgetnamedsym _MATCHED_ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_MATCH_CASE */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_MATCH_CASE =
-      meltgc_named_symbol ("CLASS_SOURCE_MATCH_CASE", MELT_GET);
-    if (sy_CLASS_SOURCE_MATCH_CASE
-	&& NULL == /*_.VALDATA___V622*/ meltfptr[621])
-  /*_.VALDATA___V622*/ meltfptr[621] =
-	(melt_ptr_t) sy_CLASS_SOURCE_MATCH_CASE;
-  }
+
+  if (NULL == /*_.VALDATA___V622*/ meltfptr[621])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCH_CASE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCH_CASE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCH_CASE =
+	meltgc_named_symbol ("CLASS_SOURCE_MATCH_CASE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V622*/ meltfptr[621] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_MATCH_CASE;
+    }				/*endgetnamedsym CLASS_SOURCE_MATCH_CASE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:WRAP_NORMAL_LETSEQ */
-  {
-    melt_ptr_t sy_WRAP_NORMAL_LETSEQ =
-      meltgc_named_symbol ("WRAP_NORMAL_LETSEQ", MELT_GET);
-    if (sy_WRAP_NORMAL_LETSEQ && NULL == /*_.VALDATA___V624*/ meltfptr[623])
-  /*_.VALDATA___V624*/ meltfptr[623] = (melt_ptr_t) sy_WRAP_NORMAL_LETSEQ;
-  }
+
+  if (NULL == /*_.VALDATA___V624*/ meltfptr[623])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_WRAP_NORMAL_LETSEQ =
+	melthookproc_HOOK_NAMED_SYMBOL ("WRAP_NORMAL_LETSEQ",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_WRAP_NORMAL_LETSEQ =
+	meltgc_named_symbol ("WRAP_NORMAL_LETSEQ", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V624*/ meltfptr[623] =
+	(melt_ptr_t) meltsy_WRAP_NORMAL_LETSEQ;
+    }				/*endgetnamedsym WRAP_NORMAL_LETSEQ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHRES_ */
-  {
-    melt_ptr_t sy_MATCHRES_ = meltgc_named_symbol ("MATCHRES_", MELT_GET);
-    if (sy_MATCHRES_ && NULL == /*_.VALDATA___V611*/ meltfptr[610])
-  /*_.VALDATA___V611*/ meltfptr[610] = (melt_ptr_t) sy_MATCHRES_;
-  }
+
+  if (NULL == /*_.VALDATA___V611*/ meltfptr[610])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHRES_ =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHRES_", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHRES_ =
+	meltgc_named_symbol ("MATCHRES_", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V611*/ meltfptr[610] = (melt_ptr_t) meltsy_MATCHRES_;
+    }				/*endgetnamedsym MATCHRES_ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCHING_CONTEXT */
-  {
-    melt_ptr_t sy_CLASS_MATCHING_CONTEXT =
-      meltgc_named_symbol ("CLASS_MATCHING_CONTEXT", MELT_GET);
-    if (sy_CLASS_MATCHING_CONTEXT
-	&& NULL == /*_.VALDATA___V626*/ meltfptr[625])
-  /*_.VALDATA___V626*/ meltfptr[625] =
-	(melt_ptr_t) sy_CLASS_MATCHING_CONTEXT;
-  }
+
+  if (NULL == /*_.VALDATA___V626*/ meltfptr[625])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCHING_CONTEXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCHING_CONTEXT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCHING_CONTEXT =
+	meltgc_named_symbol ("CLASS_MATCHING_CONTEXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V626*/ meltfptr[625] =
+	(melt_ptr_t) meltsy_CLASS_MATCHING_CONTEXT;
+    }				/*endgetnamedsym CLASS_MATCHING_CONTEXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_NORMCTXT */
-  {
-    melt_ptr_t sy_MCTX_NORMCTXT =
-      meltgc_named_symbol ("MCTX_NORMCTXT", MELT_GET);
-    if (sy_MCTX_NORMCTXT && NULL == /*_.VALDATA___V652*/ meltfptr[651])
-  /*_.VALDATA___V652*/ meltfptr[651] = (melt_ptr_t) sy_MCTX_NORMCTXT;
-  }
+
+  if (NULL == /*_.VALDATA___V652*/ meltfptr[651])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_NORMCTXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_NORMCTXT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_NORMCTXT =
+	meltgc_named_symbol ("MCTX_NORMCTXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V652*/ meltfptr[651] = (melt_ptr_t) meltsy_MCTX_NORMCTXT;
+    }				/*endgetnamedsym MCTX_NORMCTXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_SOURCE */
-  {
-    melt_ptr_t sy_MCTX_SOURCE = meltgc_named_symbol ("MCTX_SOURCE", MELT_GET);
-    if (sy_MCTX_SOURCE && NULL == /*_.VALDATA___V654*/ meltfptr[653])
-  /*_.VALDATA___V654*/ meltfptr[653] = (melt_ptr_t) sy_MCTX_SOURCE;
-  }
+
+  if (NULL == /*_.VALDATA___V654*/ meltfptr[653])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_SOURCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_SOURCE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_SOURCE =
+	meltgc_named_symbol ("MCTX_SOURCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V654*/ meltfptr[653] = (melt_ptr_t) meltsy_MCTX_SOURCE;
+    }				/*endgetnamedsym MCTX_SOURCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_NMATCHED */
-  {
-    melt_ptr_t sy_MCTX_NMATCHED =
-      meltgc_named_symbol ("MCTX_NMATCHED", MELT_GET);
-    if (sy_MCTX_NMATCHED && NULL == /*_.VALDATA___V656*/ meltfptr[655])
-  /*_.VALDATA___V656*/ meltfptr[655] = (melt_ptr_t) sy_MCTX_NMATCHED;
-  }
+
+  if (NULL == /*_.VALDATA___V656*/ meltfptr[655])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_NMATCHED =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_NMATCHED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_NMATCHED =
+	meltgc_named_symbol ("MCTX_NMATCHED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V656*/ meltfptr[655] = (melt_ptr_t) meltsy_MCTX_NMATCHED;
+    }				/*endgetnamedsym MCTX_NMATCHED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_NMATBIND */
-  {
-    melt_ptr_t sy_MCTX_NMATBIND =
-      meltgc_named_symbol ("MCTX_NMATBIND", MELT_GET);
-    if (sy_MCTX_NMATBIND && NULL == /*_.VALDATA___V658*/ meltfptr[657])
-  /*_.VALDATA___V658*/ meltfptr[657] = (melt_ptr_t) sy_MCTX_NMATBIND;
-  }
+
+  if (NULL == /*_.VALDATA___V658*/ meltfptr[657])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_NMATBIND =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_NMATBIND", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_NMATBIND =
+	meltgc_named_symbol ("MCTX_NMATBIND", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V658*/ meltfptr[657] = (melt_ptr_t) meltsy_MCTX_NMATBIND;
+    }				/*endgetnamedsym MCTX_NMATBIND */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_CASES */
-  {
-    melt_ptr_t sy_MCTX_CASES = meltgc_named_symbol ("MCTX_CASES", MELT_GET);
-    if (sy_MCTX_CASES && NULL == /*_.VALDATA___V660*/ meltfptr[659])
-  /*_.VALDATA___V660*/ meltfptr[659] = (melt_ptr_t) sy_MCTX_CASES;
-  }
+
+  if (NULL == /*_.VALDATA___V660*/ meltfptr[659])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_CASES =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_CASES", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_CASES =
+	meltgc_named_symbol ("MCTX_CASES", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V660*/ meltfptr[659] = (melt_ptr_t) meltsy_MCTX_CASES;
+    }				/*endgetnamedsym MCTX_CASES */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_ENV */
-  {
-    melt_ptr_t sy_MCTX_ENV = meltgc_named_symbol ("MCTX_ENV", MELT_GET);
-    if (sy_MCTX_ENV && NULL == /*_.VALDATA___V662*/ meltfptr[661])
-  /*_.VALDATA___V662*/ meltfptr[661] = (melt_ptr_t) sy_MCTX_ENV;
-  }
+
+  if (NULL == /*_.VALDATA___V662*/ meltfptr[661])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_ENV =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_ENV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_ENV = meltgc_named_symbol ("MCTX_ENV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V662*/ meltfptr[661] = (melt_ptr_t) meltsy_MCTX_ENV;
+    }				/*endgetnamedsym MCTX_ENV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_MDATA */
-  {
-    melt_ptr_t sy_MCTX_MDATA = meltgc_named_symbol ("MCTX_MDATA", MELT_GET);
-    if (sy_MCTX_MDATA && NULL == /*_.VALDATA___V664*/ meltfptr[663])
-  /*_.VALDATA___V664*/ meltfptr[663] = (melt_ptr_t) sy_MCTX_MDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V664*/ meltfptr[663])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_MDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_MDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_MDATA =
+	meltgc_named_symbol ("MCTX_MDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V664*/ meltfptr[663] = (melt_ptr_t) meltsy_MCTX_MDATA;
+    }				/*endgetnamedsym MCTX_MDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_VARHANDLERS */
-  {
-    melt_ptr_t sy_MCTX_VARHANDLERS =
-      meltgc_named_symbol ("MCTX_VARHANDLERS", MELT_GET);
-    if (sy_MCTX_VARHANDLERS && NULL == /*_.VALDATA___V666*/ meltfptr[665])
-  /*_.VALDATA___V666*/ meltfptr[665] = (melt_ptr_t) sy_MCTX_VARHANDLERS;
-  }
+
+  if (NULL == /*_.VALDATA___V666*/ meltfptr[665])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_VARHANDLERS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_VARHANDLERS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_VARHANDLERS =
+	meltgc_named_symbol ("MCTX_VARHANDLERS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V666*/ meltfptr[665] =
+	(melt_ptr_t) meltsy_MCTX_VARHANDLERS;
+    }				/*endgetnamedsym MCTX_VARHANDLERS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_FLAGS */
-  {
-    melt_ptr_t sy_MCTX_FLAGS = meltgc_named_symbol ("MCTX_FLAGS", MELT_GET);
-    if (sy_MCTX_FLAGS && NULL == /*_.VALDATA___V668*/ meltfptr[667])
-  /*_.VALDATA___V668*/ meltfptr[667] = (melt_ptr_t) sy_MCTX_FLAGS;
-  }
+
+  if (NULL == /*_.VALDATA___V668*/ meltfptr[667])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_FLAGS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_FLAGS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_FLAGS =
+	meltgc_named_symbol ("MCTX_FLAGS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V668*/ meltfptr[667] = (melt_ptr_t) meltsy_MCTX_FLAGS;
+    }				/*endgetnamedsym MCTX_FLAGS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCTX_ENDLABEL */
-  {
-    melt_ptr_t sy_MCTX_ENDLABEL =
-      meltgc_named_symbol ("MCTX_ENDLABEL", MELT_GET);
-    if (sy_MCTX_ENDLABEL && NULL == /*_.VALDATA___V670*/ meltfptr[669])
-  /*_.VALDATA___V670*/ meltfptr[669] = (melt_ptr_t) sy_MCTX_ENDLABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V670*/ meltfptr[669])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCTX_ENDLABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCTX_ENDLABEL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCTX_ENDLABEL =
+	meltgc_named_symbol ("MCTX_ENDLABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V670*/ meltfptr[669] = (melt_ptr_t) meltsy_MCTX_ENDLABEL;
+    }				/*endgetnamedsym MCTX_ENDLABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_CASE */
-  {
-    melt_ptr_t sy_CLASS_MATCH_CASE =
-      meltgc_named_symbol ("CLASS_MATCH_CASE", MELT_GET);
-    if (sy_CLASS_MATCH_CASE && NULL == /*_.VALDATA___V672*/ meltfptr[671])
-  /*_.VALDATA___V672*/ meltfptr[671] = (melt_ptr_t) sy_CLASS_MATCH_CASE;
-  }
+
+  if (NULL == /*_.VALDATA___V672*/ meltfptr[671])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_CASE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_CASE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_CASE =
+	meltgc_named_symbol ("CLASS_MATCH_CASE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V672*/ meltfptr[671] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_CASE;
+    }				/*endgetnamedsym CLASS_MATCH_CASE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCASE_MCTXT */
-  {
-    melt_ptr_t sy_MCASE_MCTXT = meltgc_named_symbol ("MCASE_MCTXT", MELT_GET);
-    if (sy_MCASE_MCTXT && NULL == /*_.VALDATA___V686*/ meltfptr[685])
-  /*_.VALDATA___V686*/ meltfptr[685] = (melt_ptr_t) sy_MCASE_MCTXT;
-  }
+
+  if (NULL == /*_.VALDATA___V686*/ meltfptr[685])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCASE_MCTXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCASE_MCTXT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCASE_MCTXT =
+	meltgc_named_symbol ("MCASE_MCTXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V686*/ meltfptr[685] = (melt_ptr_t) meltsy_MCASE_MCTXT;
+    }				/*endgetnamedsym MCASE_MCTXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCASE_SOURCE */
-  {
-    melt_ptr_t sy_MCASE_SOURCE =
-      meltgc_named_symbol ("MCASE_SOURCE", MELT_GET);
-    if (sy_MCASE_SOURCE && NULL == /*_.VALDATA___V688*/ meltfptr[687])
-  /*_.VALDATA___V688*/ meltfptr[687] = (melt_ptr_t) sy_MCASE_SOURCE;
-  }
+
+  if (NULL == /*_.VALDATA___V688*/ meltfptr[687])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCASE_SOURCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCASE_SOURCE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCASE_SOURCE =
+	meltgc_named_symbol ("MCASE_SOURCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V688*/ meltfptr[687] = (melt_ptr_t) meltsy_MCASE_SOURCE;
+    }				/*endgetnamedsym MCASE_SOURCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCASE_INDEX */
-  {
-    melt_ptr_t sy_MCASE_INDEX = meltgc_named_symbol ("MCASE_INDEX", MELT_GET);
-    if (sy_MCASE_INDEX && NULL == /*_.VALDATA___V690*/ meltfptr[689])
-  /*_.VALDATA___V690*/ meltfptr[689] = (melt_ptr_t) sy_MCASE_INDEX;
-  }
+
+  if (NULL == /*_.VALDATA___V690*/ meltfptr[689])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCASE_INDEX =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCASE_INDEX", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCASE_INDEX =
+	meltgc_named_symbol ("MCASE_INDEX", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V690*/ meltfptr[689] = (melt_ptr_t) meltsy_MCASE_INDEX;
+    }				/*endgetnamedsym MCASE_INDEX */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCASE_VARMAP */
-  {
-    melt_ptr_t sy_MCASE_VARMAP =
-      meltgc_named_symbol ("MCASE_VARMAP", MELT_GET);
-    if (sy_MCASE_VARMAP && NULL == /*_.VALDATA___V692*/ meltfptr[691])
-  /*_.VALDATA___V692*/ meltfptr[691] = (melt_ptr_t) sy_MCASE_VARMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V692*/ meltfptr[691])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCASE_VARMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCASE_VARMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCASE_VARMAP =
+	meltgc_named_symbol ("MCASE_VARMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V692*/ meltfptr[691] = (melt_ptr_t) meltsy_MCASE_VARMAP;
+    }				/*endgetnamedsym MCASE_VARMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCHED_DATA */
-  {
-    melt_ptr_t sy_CLASS_MATCHED_DATA =
-      meltgc_named_symbol ("CLASS_MATCHED_DATA", MELT_GET);
-    if (sy_CLASS_MATCHED_DATA && NULL == /*_.VALDATA___V694*/ meltfptr[693])
-  /*_.VALDATA___V694*/ meltfptr[693] = (melt_ptr_t) sy_CLASS_MATCHED_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V694*/ meltfptr[693])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCHED_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCHED_DATA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCHED_DATA =
+	meltgc_named_symbol ("CLASS_MATCHED_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V694*/ meltfptr[693] =
+	(melt_ptr_t) meltsy_CLASS_MATCHED_DATA;
+    }				/*endgetnamedsym CLASS_MATCHED_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MDATA_SYMB */
-  {
-    melt_ptr_t sy_MDATA_SYMB = meltgc_named_symbol ("MDATA_SYMB", MELT_GET);
-    if (sy_MDATA_SYMB && NULL == /*_.VALDATA___V708*/ meltfptr[707])
-  /*_.VALDATA___V708*/ meltfptr[707] = (melt_ptr_t) sy_MDATA_SYMB;
-  }
+
+  if (NULL == /*_.VALDATA___V708*/ meltfptr[707])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MDATA_SYMB =
+	melthookproc_HOOK_NAMED_SYMBOL ("MDATA_SYMB", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MDATA_SYMB =
+	meltgc_named_symbol ("MDATA_SYMB", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V708*/ meltfptr[707] = (melt_ptr_t) meltsy_MDATA_SYMB;
+    }				/*endgetnamedsym MDATA_SYMB */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MDATA_CTYPE */
-  {
-    melt_ptr_t sy_MDATA_CTYPE = meltgc_named_symbol ("MDATA_CTYPE", MELT_GET);
-    if (sy_MDATA_CTYPE && NULL == /*_.VALDATA___V710*/ meltfptr[709])
-  /*_.VALDATA___V710*/ meltfptr[709] = (melt_ptr_t) sy_MDATA_CTYPE;
-  }
+
+  if (NULL == /*_.VALDATA___V710*/ meltfptr[709])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MDATA_CTYPE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MDATA_CTYPE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MDATA_CTYPE =
+	meltgc_named_symbol ("MDATA_CTYPE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V710*/ meltfptr[709] = (melt_ptr_t) meltsy_MDATA_CTYPE;
+    }				/*endgetnamedsym MDATA_CTYPE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MDATA_ORIG */
-  {
-    melt_ptr_t sy_MDATA_ORIG = meltgc_named_symbol ("MDATA_ORIG", MELT_GET);
-    if (sy_MDATA_ORIG && NULL == /*_.VALDATA___V712*/ meltfptr[711])
-  /*_.VALDATA___V712*/ meltfptr[711] = (melt_ptr_t) sy_MDATA_ORIG;
-  }
+
+  if (NULL == /*_.VALDATA___V712*/ meltfptr[711])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MDATA_ORIG =
+	melthookproc_HOOK_NAMED_SYMBOL ("MDATA_ORIG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MDATA_ORIG =
+	meltgc_named_symbol ("MDATA_ORIG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V712*/ meltfptr[711] = (melt_ptr_t) meltsy_MDATA_ORIG;
+    }				/*endgetnamedsym MDATA_ORIG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MDATA_STEPS */
-  {
-    melt_ptr_t sy_MDATA_STEPS = meltgc_named_symbol ("MDATA_STEPS", MELT_GET);
-    if (sy_MDATA_STEPS && NULL == /*_.VALDATA___V714*/ meltfptr[713])
-  /*_.VALDATA___V714*/ meltfptr[713] = (melt_ptr_t) sy_MDATA_STEPS;
-  }
+
+  if (NULL == /*_.VALDATA___V714*/ meltfptr[713])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MDATA_STEPS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MDATA_STEPS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MDATA_STEPS =
+	meltgc_named_symbol ("MDATA_STEPS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V714*/ meltfptr[713] = (melt_ptr_t) meltsy_MDATA_STEPS;
+    }				/*endgetnamedsym MDATA_STEPS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCHED_NORMAL_DATA */
-  {
-    melt_ptr_t sy_CLASS_MATCHED_NORMAL_DATA =
-      meltgc_named_symbol ("CLASS_MATCHED_NORMAL_DATA", MELT_GET);
-    if (sy_CLASS_MATCHED_NORMAL_DATA
-	&& NULL == /*_.VALDATA___V716*/ meltfptr[715])
-  /*_.VALDATA___V716*/ meltfptr[715] =
-	(melt_ptr_t) sy_CLASS_MATCHED_NORMAL_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V716*/ meltfptr[715])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCHED_NORMAL_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCHED_NORMAL_DATA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCHED_NORMAL_DATA =
+	meltgc_named_symbol ("CLASS_MATCHED_NORMAL_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V716*/ meltfptr[715] =
+	(melt_ptr_t) meltsy_CLASS_MATCHED_NORMAL_DATA;
+    }				/*endgetnamedsym CLASS_MATCHED_NORMAL_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCHED_BINDING */
-  {
-    melt_ptr_t sy_CLASS_MATCHED_BINDING =
-      meltgc_named_symbol ("CLASS_MATCHED_BINDING", MELT_GET);
-    if (sy_CLASS_MATCHED_BINDING
-	&& NULL == /*_.VALDATA___V722*/ meltfptr[721])
-  /*_.VALDATA___V722*/ meltfptr[721] =
-	(melt_ptr_t) sy_CLASS_MATCHED_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V722*/ meltfptr[721])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCHED_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCHED_BINDING",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCHED_BINDING =
+	meltgc_named_symbol ("CLASS_MATCHED_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V722*/ meltfptr[721] =
+	(melt_ptr_t) meltsy_CLASS_MATCHED_BINDING;
+    }				/*endgetnamedsym CLASS_MATCHED_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHBIND_DATA */
-  {
-    melt_ptr_t sy_MATCHBIND_DATA =
-      meltgc_named_symbol ("MATCHBIND_DATA", MELT_GET);
-    if (sy_MATCHBIND_DATA && NULL == /*_.VALDATA___V732*/ meltfptr[731])
-  /*_.VALDATA___V732*/ meltfptr[731] = (melt_ptr_t) sy_MATCHBIND_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V732*/ meltfptr[731])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHBIND_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHBIND_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHBIND_DATA =
+	meltgc_named_symbol ("MATCHBIND_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V732*/ meltfptr[731] = (melt_ptr_t) meltsy_MATCHBIND_DATA;
+    }				/*endgetnamedsym MATCHBIND_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHBIND_NBOCC */
-  {
-    melt_ptr_t sy_MATCHBIND_NBOCC =
-      meltgc_named_symbol ("MATCHBIND_NBOCC", MELT_GET);
-    if (sy_MATCHBIND_NBOCC && NULL == /*_.VALDATA___V734*/ meltfptr[733])
-  /*_.VALDATA___V734*/ meltfptr[733] = (melt_ptr_t) sy_MATCHBIND_NBOCC;
-  }
+
+  if (NULL == /*_.VALDATA___V734*/ meltfptr[733])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHBIND_NBOCC =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHBIND_NBOCC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHBIND_NBOCC =
+	meltgc_named_symbol ("MATCHBIND_NBOCC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V734*/ meltfptr[733] =
+	(melt_ptr_t) meltsy_MATCHBIND_NBOCC;
+    }				/*endgetnamedsym MATCHBIND_NBOCC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMALIZE_BINDING */
-  {
-    melt_ptr_t sy_NORMALIZE_BINDING =
-      meltgc_named_symbol ("NORMALIZE_BINDING", MELT_GET);
-    if (sy_NORMALIZE_BINDING && NULL == /*_.VALDATA___V738*/ meltfptr[737])
-  /*_.VALDATA___V738*/ meltfptr[737] = (melt_ptr_t) sy_NORMALIZE_BINDING;
-  }
+
+  if (NULL == /*_.VALDATA___V738*/ meltfptr[737])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMALIZE_BINDING =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMALIZE_BINDING", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMALIZE_BINDING =
+	meltgc_named_symbol ("NORMALIZE_BINDING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V738*/ meltfptr[737] =
+	(melt_ptr_t) meltsy_NORMALIZE_BINDING;
+    }				/*endgetnamedsym NORMALIZE_BINDING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_FLAG */
-  {
-    melt_ptr_t sy_CLASS_MATCH_FLAG =
-      meltgc_named_symbol ("CLASS_MATCH_FLAG", MELT_GET);
-    if (sy_CLASS_MATCH_FLAG && NULL == /*_.VALDATA___V740*/ meltfptr[739])
-  /*_.VALDATA___V740*/ meltfptr[739] = (melt_ptr_t) sy_CLASS_MATCH_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V740*/ meltfptr[739])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_FLAG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_FLAG =
+	meltgc_named_symbol ("CLASS_MATCH_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V740*/ meltfptr[739] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_FLAG;
+    }				/*endgetnamedsym CLASS_MATCH_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MFLAG_SPAT */
-  {
-    melt_ptr_t sy_MFLAG_SPAT = meltgc_named_symbol ("MFLAG_SPAT", MELT_GET);
-    if (sy_MFLAG_SPAT && NULL == /*_.VALDATA___V754*/ meltfptr[753])
-  /*_.VALDATA___V754*/ meltfptr[753] = (melt_ptr_t) sy_MFLAG_SPAT;
-  }
+
+  if (NULL == /*_.VALDATA___V754*/ meltfptr[753])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MFLAG_SPAT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MFLAG_SPAT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MFLAG_SPAT =
+	meltgc_named_symbol ("MFLAG_SPAT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V754*/ meltfptr[753] = (melt_ptr_t) meltsy_MFLAG_SPAT;
+    }				/*endgetnamedsym MFLAG_SPAT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MFLAG_RANK */
-  {
-    melt_ptr_t sy_MFLAG_RANK = meltgc_named_symbol ("MFLAG_RANK", MELT_GET);
-    if (sy_MFLAG_RANK && NULL == /*_.VALDATA___V756*/ meltfptr[755])
-  /*_.VALDATA___V756*/ meltfptr[755] = (melt_ptr_t) sy_MFLAG_RANK;
-  }
+
+  if (NULL == /*_.VALDATA___V756*/ meltfptr[755])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MFLAG_RANK =
+	melthookproc_HOOK_NAMED_SYMBOL ("MFLAG_RANK", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MFLAG_RANK =
+	meltgc_named_symbol ("MFLAG_RANK", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V756*/ meltfptr[755] = (melt_ptr_t) meltsy_MFLAG_RANK;
+    }				/*endgetnamedsym MFLAG_RANK */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MFLAG_STRING */
-  {
-    melt_ptr_t sy_MFLAG_STRING =
-      meltgc_named_symbol ("MFLAG_STRING", MELT_GET);
-    if (sy_MFLAG_STRING && NULL == /*_.VALDATA___V758*/ meltfptr[757])
-  /*_.VALDATA___V758*/ meltfptr[757] = (melt_ptr_t) sy_MFLAG_STRING;
-  }
+
+  if (NULL == /*_.VALDATA___V758*/ meltfptr[757])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MFLAG_STRING =
+	melthookproc_HOOK_NAMED_SYMBOL ("MFLAG_STRING", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MFLAG_STRING =
+	meltgc_named_symbol ("MFLAG_STRING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V758*/ meltfptr[757] = (melt_ptr_t) meltsy_MFLAG_STRING;
+    }				/*endgetnamedsym MFLAG_STRING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MFLAG_SETSTEP */
-  {
-    melt_ptr_t sy_MFLAG_SETSTEP =
-      meltgc_named_symbol ("MFLAG_SETSTEP", MELT_GET);
-    if (sy_MFLAG_SETSTEP && NULL == /*_.VALDATA___V760*/ meltfptr[759])
-  /*_.VALDATA___V760*/ meltfptr[759] = (melt_ptr_t) sy_MFLAG_SETSTEP;
-  }
+
+  if (NULL == /*_.VALDATA___V760*/ meltfptr[759])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MFLAG_SETSTEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MFLAG_SETSTEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MFLAG_SETSTEP =
+	meltgc_named_symbol ("MFLAG_SETSTEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V760*/ meltfptr[759] = (melt_ptr_t) meltsy_MFLAG_SETSTEP;
+    }				/*endgetnamedsym MFLAG_SETSTEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP =
-      meltgc_named_symbol ("CLASS_MATCH_STEP", MELT_GET);
-    if (sy_CLASS_MATCH_STEP && NULL == /*_.VALDATA___V762*/ meltfptr[761])
-  /*_.VALDATA___V762*/ meltfptr[761] = (melt_ptr_t) sy_CLASS_MATCH_STEP;
-  }
+
+  if (NULL == /*_.VALDATA___V762*/ meltfptr[761])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP =
+	meltgc_named_symbol ("CLASS_MATCH_STEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V762*/ meltfptr[761] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP;
+    }				/*endgetnamedsym CLASS_MATCH_STEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_THEN */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_THEN =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_THEN", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_THEN
-	&& NULL == /*_.VALDATA___V768*/ meltfptr[767])
-  /*_.VALDATA___V768*/ meltfptr[767] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_THEN;
-  }
+
+  if (NULL == /*_.VALDATA___V768*/ meltfptr[767])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_THEN =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_THEN",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_THEN =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_THEN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V768*/ meltfptr[767] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_THEN;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_THEN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_THEN */
-  {
-    melt_ptr_t sy_MSTEP_THEN = meltgc_named_symbol ("MSTEP_THEN", MELT_GET);
-    if (sy_MSTEP_THEN && NULL == /*_.VALDATA___V776*/ meltfptr[775])
-  /*_.VALDATA___V776*/ meltfptr[775] = (melt_ptr_t) sy_MSTEP_THEN;
-  }
+
+  if (NULL == /*_.VALDATA___V776*/ meltfptr[775])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_THEN =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_THEN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_THEN =
+	meltgc_named_symbol ("MSTEP_THEN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V776*/ meltfptr[775] = (melt_ptr_t) meltsy_MSTEP_THEN;
+    }				/*endgetnamedsym MSTEP_THEN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_CLEAR */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_CLEAR =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_CLEAR", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_CLEAR
-	&& NULL == /*_.VALDATA___V778*/ meltfptr[777])
-  /*_.VALDATA___V778*/ meltfptr[777] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_CLEAR;
-  }
+
+  if (NULL == /*_.VALDATA___V778*/ meltfptr[777])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_CLEAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_CLEAR",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_CLEAR =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_CLEAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V778*/ meltfptr[777] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_CLEAR;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_CLEAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_CLEARDATA */
-  {
-    melt_ptr_t sy_MSTEP_CLEARDATA =
-      meltgc_named_symbol ("MSTEP_CLEARDATA", MELT_GET);
-    if (sy_MSTEP_CLEARDATA && NULL == /*_.VALDATA___V786*/ meltfptr[785])
-  /*_.VALDATA___V786*/ meltfptr[785] = (melt_ptr_t) sy_MSTEP_CLEARDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V786*/ meltfptr[785])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_CLEARDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_CLEARDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_CLEARDATA =
+	meltgc_named_symbol ("MSTEP_CLEARDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V786*/ meltfptr[785] =
+	(melt_ptr_t) meltsy_MSTEP_CLEARDATA;
+    }				/*endgetnamedsym MSTEP_CLEARDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_WITH_FLAG */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_WITH_FLAG =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_WITH_FLAG", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_WITH_FLAG
-	&& NULL == /*_.VALDATA___V788*/ meltfptr[787])
-  /*_.VALDATA___V788*/ meltfptr[787] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_WITH_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V788*/ meltfptr[787])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_WITH_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_WITH_FLAG",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_WITH_FLAG =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_WITH_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V788*/ meltfptr[787] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_WITH_FLAG;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_WITH_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_FLAG */
-  {
-    melt_ptr_t sy_MSTEP_FLAG = meltgc_named_symbol ("MSTEP_FLAG", MELT_GET);
-    if (sy_MSTEP_FLAG && NULL == /*_.VALDATA___V796*/ meltfptr[795])
-  /*_.VALDATA___V796*/ meltfptr[795] = (melt_ptr_t) sy_MSTEP_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V796*/ meltfptr[795])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_FLAG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_FLAG =
+	meltgc_named_symbol ("MSTEP_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V796*/ meltfptr[795] = (melt_ptr_t) meltsy_MSTEP_FLAG;
+    }				/*endgetnamedsym MSTEP_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_WITH_DATA */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_WITH_DATA =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_WITH_DATA", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_WITH_DATA
-	&& NULL == /*_.VALDATA___V798*/ meltfptr[797])
-  /*_.VALDATA___V798*/ meltfptr[797] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_WITH_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V798*/ meltfptr[797])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_WITH_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_WITH_DATA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_WITH_DATA =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_WITH_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V798*/ meltfptr[797] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_WITH_DATA;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_WITH_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_DATA */
-  {
-    melt_ptr_t sy_MSTEP_DATA = meltgc_named_symbol ("MSTEP_DATA", MELT_GET);
-    if (sy_MSTEP_DATA && NULL == /*_.VALDATA___V808*/ meltfptr[807])
-  /*_.VALDATA___V808*/ meltfptr[807] = (melt_ptr_t) sy_MSTEP_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V808*/ meltfptr[807])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_DATA =
+	meltgc_named_symbol ("MSTEP_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V808*/ meltfptr[807] = (melt_ptr_t) meltsy_MSTEP_DATA;
+    }				/*endgetnamedsym MSTEP_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_INDEX */
-  {
-    melt_ptr_t sy_MSTEP_INDEX = meltgc_named_symbol ("MSTEP_INDEX", MELT_GET);
-    if (sy_MSTEP_INDEX && NULL == /*_.VALDATA___V810*/ meltfptr[809])
-  /*_.VALDATA___V810*/ meltfptr[809] = (melt_ptr_t) sy_MSTEP_INDEX;
-  }
+
+  if (NULL == /*_.VALDATA___V810*/ meltfptr[809])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_INDEX =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_INDEX", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_INDEX =
+	meltgc_named_symbol ("MSTEP_INDEX", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V810*/ meltfptr[809] = (melt_ptr_t) meltsy_MSTEP_INDEX;
+    }				/*endgetnamedsym MSTEP_INDEX */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_FLAG_SET */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_FLAG_SET =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_SET", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_FLAG_SET
-	&& NULL == /*_.VALDATA___V812*/ meltfptr[811])
-  /*_.VALDATA___V812*/ meltfptr[811] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_FLAG_SET;
-  }
+
+  if (NULL == /*_.VALDATA___V812*/ meltfptr[811])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_SET =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_FLAG_SET",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_SET =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_SET", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V812*/ meltfptr[811] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_FLAG_SET;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_FLAG_SET */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_FLAG_OPERATION */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_FLAG_OPERATION =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_OPERATION", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_FLAG_OPERATION
-	&& NULL == /*_.VALDATA___V818*/ meltfptr[817])
-  /*_.VALDATA___V818*/ meltfptr[817] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_FLAG_OPERATION;
-  }
+
+  if (NULL == /*_.VALDATA___V818*/ meltfptr[817])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_OPERATION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_FLAG_OPERATION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_OPERATION =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_OPERATION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V818*/ meltfptr[817] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_FLAG_OPERATION;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_FLAG_OPERATION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_FLAGARGS */
-  {
-    melt_ptr_t sy_MSTEP_FLAGARGS =
-      meltgc_named_symbol ("MSTEP_FLAGARGS", MELT_GET);
-    if (sy_MSTEP_FLAGARGS && NULL == /*_.VALDATA___V826*/ meltfptr[825])
-  /*_.VALDATA___V826*/ meltfptr[825] = (melt_ptr_t) sy_MSTEP_FLAGARGS;
-  }
+
+  if (NULL == /*_.VALDATA___V826*/ meltfptr[825])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_FLAGARGS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_FLAGARGS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_FLAGARGS =
+	meltgc_named_symbol ("MSTEP_FLAGARGS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V826*/ meltfptr[825] = (melt_ptr_t) meltsy_MSTEP_FLAGARGS;
+    }				/*endgetnamedsym MSTEP_FLAGARGS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_FLAG_CONJUNCTION */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_FLAG_CONJUNCTION =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_CONJUNCTION", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_FLAG_CONJUNCTION
-	&& NULL == /*_.VALDATA___V828*/ meltfptr[827])
-  /*_.VALDATA___V828*/ meltfptr[827] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_FLAG_CONJUNCTION;
-  }
+
+  if (NULL == /*_.VALDATA___V828*/ meltfptr[827])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_CONJUNCTION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_FLAG_CONJUNCTION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_CONJUNCTION =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_CONJUNCTION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V828*/ meltfptr[827] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_FLAG_CONJUNCTION;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_FLAG_CONJUNCTION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_FLAG_DISJUNCTION */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_FLAG_DISJUNCTION =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_DISJUNCTION", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_FLAG_DISJUNCTION
-	&& NULL == /*_.VALDATA___V834*/ meltfptr[833])
-  /*_.VALDATA___V834*/ meltfptr[833] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_FLAG_DISJUNCTION;
-  }
+
+  if (NULL == /*_.VALDATA___V834*/ meltfptr[833])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_DISJUNCTION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_FLAG_DISJUNCTION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_FLAG_DISJUNCTION =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_FLAG_DISJUNCTION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V834*/ meltfptr[833] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_FLAG_DISJUNCTION;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_FLAG_DISJUNCTION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG
-	&& NULL == /*_.VALDATA___V840*/ meltfptr[839])
-  /*_.VALDATA___V840*/ meltfptr[839] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V840*/ meltfptr[839])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V840*/ meltfptr[839] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPSUCCESS_VAROCC */
-  {
-    melt_ptr_t sy_MSTEPSUCCESS_VAROCC =
-      meltgc_named_symbol ("MSTEPSUCCESS_VAROCC", MELT_GET);
-    if (sy_MSTEPSUCCESS_VAROCC && NULL == /*_.VALDATA___V852*/ meltfptr[851])
-  /*_.VALDATA___V852*/ meltfptr[851] =
-	(melt_ptr_t) sy_MSTEPSUCCESS_VAROCC;
-  }
+
+  if (NULL == /*_.VALDATA___V852*/ meltfptr[851])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPSUCCESS_VAROCC =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPSUCCESS_VAROCC",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPSUCCESS_VAROCC =
+	meltgc_named_symbol ("MSTEPSUCCESS_VAROCC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V852*/ meltfptr[851] =
+	(melt_ptr_t) meltsy_MSTEPSUCCESS_VAROCC;
+    }				/*endgetnamedsym MSTEPSUCCESS_VAROCC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPSUCCESS_BINDS */
-  {
-    melt_ptr_t sy_MSTEPSUCCESS_BINDS =
-      meltgc_named_symbol ("MSTEPSUCCESS_BINDS", MELT_GET);
-    if (sy_MSTEPSUCCESS_BINDS && NULL == /*_.VALDATA___V854*/ meltfptr[853])
-  /*_.VALDATA___V854*/ meltfptr[853] = (melt_ptr_t) sy_MSTEPSUCCESS_BINDS;
-  }
+
+  if (NULL == /*_.VALDATA___V854*/ meltfptr[853])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPSUCCESS_BINDS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPSUCCESS_BINDS",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPSUCCESS_BINDS =
+	meltgc_named_symbol ("MSTEPSUCCESS_BINDS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V854*/ meltfptr[853] =
+	(melt_ptr_t) meltsy_MSTEPSUCCESS_BINDS;
+    }				/*endgetnamedsym MSTEPSUCCESS_BINDS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPSUCCESS_BODY */
-  {
-    melt_ptr_t sy_MSTEPSUCCESS_BODY =
-      meltgc_named_symbol ("MSTEPSUCCESS_BODY", MELT_GET);
-    if (sy_MSTEPSUCCESS_BODY && NULL == /*_.VALDATA___V856*/ meltfptr[855])
-  /*_.VALDATA___V856*/ meltfptr[855] = (melt_ptr_t) sy_MSTEPSUCCESS_BODY;
-  }
+
+  if (NULL == /*_.VALDATA___V856*/ meltfptr[855])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPSUCCESS_BODY =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPSUCCESS_BODY", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPSUCCESS_BODY =
+	meltgc_named_symbol ("MSTEPSUCCESS_BODY", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V856*/ meltfptr[855] =
+	(melt_ptr_t) meltsy_MSTEPSUCCESS_BODY;
+    }				/*endgetnamedsym MSTEPSUCCESS_BODY */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST
-	&& NULL == /*_.VALDATA___V858*/ meltfptr[857])
-  /*_.VALDATA___V858*/ meltfptr[857] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST;
-  }
+
+  if (NULL == /*_.VALDATA___V858*/ meltfptr[857])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V858*/ meltfptr[857] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEP_ELSE */
-  {
-    melt_ptr_t sy_MSTEP_ELSE = meltgc_named_symbol ("MSTEP_ELSE", MELT_GET);
-    if (sy_MSTEP_ELSE && NULL == /*_.VALDATA___V866*/ meltfptr[865])
-  /*_.VALDATA___V866*/ meltfptr[865] = (melt_ptr_t) sy_MSTEP_ELSE;
-  }
+
+  if (NULL == /*_.VALDATA___V866*/ meltfptr[865])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEP_ELSE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEP_ELSE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEP_ELSE =
+	meltgc_named_symbol ("MSTEP_ELSE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V866*/ meltfptr[865] = (melt_ptr_t) meltsy_MSTEP_ELSE;
+    }				/*endgetnamedsym MSTEP_ELSE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_VARIABLE */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_VARIABLE =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_VARIABLE", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_VARIABLE
-	&& NULL == /*_.VALDATA___V868*/ meltfptr[867])
-  /*_.VALDATA___V868*/ meltfptr[867] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_VARIABLE;
-  }
+
+  if (NULL == /*_.VALDATA___V868*/ meltfptr[867])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_VARIABLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_VARIABLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_VARIABLE =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_VARIABLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V868*/ meltfptr[867] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_VARIABLE;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_VARIABLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPTESTVAR_DATA */
-  {
-    melt_ptr_t sy_MSTEPTESTVAR_DATA =
-      meltgc_named_symbol ("MSTEPTESTVAR_DATA", MELT_GET);
-    if (sy_MSTEPTESTVAR_DATA && NULL == /*_.VALDATA___V876*/ meltfptr[875])
-  /*_.VALDATA___V876*/ meltfptr[875] = (melt_ptr_t) sy_MSTEPTESTVAR_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V876*/ meltfptr[875])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPTESTVAR_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPTESTVAR_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPTESTVAR_DATA =
+	meltgc_named_symbol ("MSTEPTESTVAR_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V876*/ meltfptr[875] =
+	(melt_ptr_t) meltsy_MSTEPTESTVAR_DATA;
+    }				/*endgetnamedsym MSTEPTESTVAR_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_CONSTANT */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_CONSTANT =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_CONSTANT", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_CONSTANT
-	&& NULL == /*_.VALDATA___V878*/ meltfptr[877])
-  /*_.VALDATA___V878*/ meltfptr[877] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_CONSTANT;
-  }
+
+  if (NULL == /*_.VALDATA___V878*/ meltfptr[877])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_CONSTANT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_CONSTANT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_CONSTANT =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_CONSTANT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V878*/ meltfptr[877] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_CONSTANT;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_CONSTANT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPTESTCONST_DATA */
-  {
-    melt_ptr_t sy_MSTEPTESTCONST_DATA =
-      meltgc_named_symbol ("MSTEPTESTCONST_DATA", MELT_GET);
-    if (sy_MSTEPTESTCONST_DATA && NULL == /*_.VALDATA___V888*/ meltfptr[887])
-  /*_.VALDATA___V888*/ meltfptr[887] =
-	(melt_ptr_t) sy_MSTEPTESTCONST_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V888*/ meltfptr[887])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPTESTCONST_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPTESTCONST_DATA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPTESTCONST_DATA =
+	meltgc_named_symbol ("MSTEPTESTCONST_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V888*/ meltfptr[887] =
+	(melt_ptr_t) meltsy_MSTEPTESTCONST_DATA;
+    }				/*endgetnamedsym MSTEPTESTCONST_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTEPTESTCONST_BIND */
-  {
-    melt_ptr_t sy_MSTEPTESTCONST_BIND =
-      meltgc_named_symbol ("MSTEPTESTCONST_BIND", MELT_GET);
-    if (sy_MSTEPTESTCONST_BIND && NULL == /*_.VALDATA___V890*/ meltfptr[889])
-  /*_.VALDATA___V890*/ meltfptr[889] =
-	(melt_ptr_t) sy_MSTEPTESTCONST_BIND;
-  }
+
+  if (NULL == /*_.VALDATA___V890*/ meltfptr[889])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTEPTESTCONST_BIND =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTEPTESTCONST_BIND",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTEPTESTCONST_BIND =
+	meltgc_named_symbol ("MSTEPTESTCONST_BIND", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V890*/ meltfptr[889] =
+	(melt_ptr_t) meltsy_MSTEPTESTCONST_BIND;
+    }				/*endgetnamedsym MSTEPTESTCONST_BIND */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_GROUP */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_GROUP =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_GROUP", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_GROUP
-	&& NULL == /*_.VALDATA___V892*/ meltfptr[891])
-  /*_.VALDATA___V892*/ meltfptr[891] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_GROUP;
-  }
+
+  if (NULL == /*_.VALDATA___V892*/ meltfptr[891])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_GROUP =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_GROUP",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_GROUP =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_GROUP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V892*/ meltfptr[891] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_GROUP;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_GROUP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTGROUP_START */
-  {
-    melt_ptr_t sy_MSTGROUP_START =
-      meltgc_named_symbol ("MSTGROUP_START", MELT_GET);
-    if (sy_MSTGROUP_START && NULL == /*_.VALDATA___V904*/ meltfptr[903])
-  /*_.VALDATA___V904*/ meltfptr[903] = (melt_ptr_t) sy_MSTGROUP_START;
-  }
+
+  if (NULL == /*_.VALDATA___V904*/ meltfptr[903])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTGROUP_START =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTGROUP_START", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTGROUP_START =
+	meltgc_named_symbol ("MSTGROUP_START", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V904*/ meltfptr[903] = (melt_ptr_t) meltsy_MSTGROUP_START;
+    }				/*endgetnamedsym MSTGROUP_START */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTGROUP_THEN */
-  {
-    melt_ptr_t sy_MSTGROUP_THEN =
-      meltgc_named_symbol ("MSTGROUP_THEN", MELT_GET);
-    if (sy_MSTGROUP_THEN && NULL == /*_.VALDATA___V906*/ meltfptr[905])
-  /*_.VALDATA___V906*/ meltfptr[905] = (melt_ptr_t) sy_MSTGROUP_THEN;
-  }
+
+  if (NULL == /*_.VALDATA___V906*/ meltfptr[905])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTGROUP_THEN =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTGROUP_THEN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTGROUP_THEN =
+	meltgc_named_symbol ("MSTGROUP_THEN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V906*/ meltfptr[905] = (melt_ptr_t) meltsy_MSTGROUP_THEN;
+    }				/*endgetnamedsym MSTGROUP_THEN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTGROUP_ELSE */
-  {
-    melt_ptr_t sy_MSTGROUP_ELSE =
-      meltgc_named_symbol ("MSTGROUP_ELSE", MELT_GET);
-    if (sy_MSTGROUP_ELSE && NULL == /*_.VALDATA___V908*/ meltfptr[907])
-  /*_.VALDATA___V908*/ meltfptr[907] = (melt_ptr_t) sy_MSTGROUP_ELSE;
-  }
+
+  if (NULL == /*_.VALDATA___V908*/ meltfptr[907])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTGROUP_ELSE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTGROUP_ELSE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTGROUP_ELSE =
+	meltgc_named_symbol ("MSTGROUP_ELSE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V908*/ meltfptr[907] = (melt_ptr_t) meltsy_MSTGROUP_ELSE;
+    }				/*endgetnamedsym MSTGROUP_ELSE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_INSTANCE */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_INSTANCE =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_INSTANCE", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_INSTANCE
-	&& NULL == /*_.VALDATA___V910*/ meltfptr[909])
-  /*_.VALDATA___V910*/ meltfptr[909] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_INSTANCE;
-  }
+
+  if (NULL == /*_.VALDATA___V910*/ meltfptr[909])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_INSTANCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_INSTANCE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_INSTANCE =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_INSTANCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V910*/ meltfptr[909] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_INSTANCE;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_INSTANCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTINS_CLASS */
-  {
-    melt_ptr_t sy_MSTINS_CLASS =
-      meltgc_named_symbol ("MSTINS_CLASS", MELT_GET);
-    if (sy_MSTINS_CLASS && NULL == /*_.VALDATA___V920*/ meltfptr[919])
-  /*_.VALDATA___V920*/ meltfptr[919] = (melt_ptr_t) sy_MSTINS_CLASS;
-  }
+
+  if (NULL == /*_.VALDATA___V920*/ meltfptr[919])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTINS_CLASS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTINS_CLASS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTINS_CLASS =
+	meltgc_named_symbol ("MSTINS_CLASS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V920*/ meltfptr[919] = (melt_ptr_t) meltsy_MSTINS_CLASS;
+    }				/*endgetnamedsym MSTINS_CLASS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTINS_SLOTS */
-  {
-    melt_ptr_t sy_MSTINS_SLOTS =
-      meltgc_named_symbol ("MSTINS_SLOTS", MELT_GET);
-    if (sy_MSTINS_SLOTS && NULL == /*_.VALDATA___V922*/ meltfptr[921])
-  /*_.VALDATA___V922*/ meltfptr[921] = (melt_ptr_t) sy_MSTINS_SLOTS;
-  }
+
+  if (NULL == /*_.VALDATA___V922*/ meltfptr[921])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTINS_SLOTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTINS_SLOTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTINS_SLOTS =
+	meltgc_named_symbol ("MSTINS_SLOTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V922*/ meltfptr[921] = (melt_ptr_t) meltsy_MSTINS_SLOTS;
+    }				/*endgetnamedsym MSTINS_SLOTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_MULTIPLE */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_MULTIPLE =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_MULTIPLE", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_MULTIPLE
-	&& NULL == /*_.VALDATA___V924*/ meltfptr[923])
-  /*_.VALDATA___V924*/ meltfptr[923] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_MULTIPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V924*/ meltfptr[923])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_MULTIPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_MULTIPLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_MULTIPLE =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_MULTIPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V924*/ meltfptr[923] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_MULTIPLE;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_MULTIPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTTUP_COMPONENTS */
-  {
-    melt_ptr_t sy_MSTTUP_COMPONENTS =
-      meltgc_named_symbol ("MSTTUP_COMPONENTS", MELT_GET);
-    if (sy_MSTTUP_COMPONENTS && NULL == /*_.VALDATA___V932*/ meltfptr[931])
-  /*_.VALDATA___V932*/ meltfptr[931] = (melt_ptr_t) sy_MSTTUP_COMPONENTS;
-  }
+
+  if (NULL == /*_.VALDATA___V932*/ meltfptr[931])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTTUP_COMPONENTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTTUP_COMPONENTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTTUP_COMPONENTS =
+	meltgc_named_symbol ("MSTTUP_COMPONENTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V932*/ meltfptr[931] =
+	(melt_ptr_t) meltsy_MSTTUP_COMPONENTS;
+    }				/*endgetnamedsym MSTTUP_COMPONENTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_STEP_TEST_MATCHER */
-  {
-    melt_ptr_t sy_CLASS_MATCH_STEP_TEST_MATCHER =
-      meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_MATCHER", MELT_GET);
-    if (sy_CLASS_MATCH_STEP_TEST_MATCHER
-	&& NULL == /*_.VALDATA___V934*/ meltfptr[933])
-  /*_.VALDATA___V934*/ meltfptr[933] =
-	(melt_ptr_t) sy_CLASS_MATCH_STEP_TEST_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V934*/ meltfptr[933])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_STEP_TEST_MATCHER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_STEP_TEST_MATCHER =
+	meltgc_named_symbol ("CLASS_MATCH_STEP_TEST_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V934*/ meltfptr[933] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_STEP_TEST_MATCHER;
+    }				/*endgetnamedsym CLASS_MATCH_STEP_TEST_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTMA_MATCHER */
-  {
-    melt_ptr_t sy_MSTMA_MATCHER =
-      meltgc_named_symbol ("MSTMA_MATCHER", MELT_GET);
-    if (sy_MSTMA_MATCHER && NULL == /*_.VALDATA___V948*/ meltfptr[947])
-  /*_.VALDATA___V948*/ meltfptr[947] = (melt_ptr_t) sy_MSTMA_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V948*/ meltfptr[947])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTMA_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTMA_MATCHER", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTMA_MATCHER =
+	meltgc_named_symbol ("MSTMA_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V948*/ meltfptr[947] = (melt_ptr_t) meltsy_MSTMA_MATCHER;
+    }				/*endgetnamedsym MSTMA_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTMA_BINDS */
-  {
-    melt_ptr_t sy_MSTMA_BINDS = meltgc_named_symbol ("MSTMA_BINDS", MELT_GET);
-    if (sy_MSTMA_BINDS && NULL == /*_.VALDATA___V950*/ meltfptr[949])
-  /*_.VALDATA___V950*/ meltfptr[949] = (melt_ptr_t) sy_MSTMA_BINDS;
-  }
+
+  if (NULL == /*_.VALDATA___V950*/ meltfptr[949])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTMA_BINDS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTMA_BINDS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTMA_BINDS =
+	meltgc_named_symbol ("MSTMA_BINDS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V950*/ meltfptr[949] = (melt_ptr_t) meltsy_MSTMA_BINDS;
+    }				/*endgetnamedsym MSTMA_BINDS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTMA_INS */
-  {
-    melt_ptr_t sy_MSTMA_INS = meltgc_named_symbol ("MSTMA_INS", MELT_GET);
-    if (sy_MSTMA_INS && NULL == /*_.VALDATA___V952*/ meltfptr[951])
-  /*_.VALDATA___V952*/ meltfptr[951] = (melt_ptr_t) sy_MSTMA_INS;
-  }
+
+  if (NULL == /*_.VALDATA___V952*/ meltfptr[951])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTMA_INS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTMA_INS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTMA_INS =
+	meltgc_named_symbol ("MSTMA_INS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V952*/ meltfptr[951] = (melt_ptr_t) meltsy_MSTMA_INS;
+    }				/*endgetnamedsym MSTMA_INS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSTMA_OUTS */
-  {
-    melt_ptr_t sy_MSTMA_OUTS = meltgc_named_symbol ("MSTMA_OUTS", MELT_GET);
-    if (sy_MSTMA_OUTS && NULL == /*_.VALDATA___V954*/ meltfptr[953])
-  /*_.VALDATA___V954*/ meltfptr[953] = (melt_ptr_t) sy_MSTMA_OUTS;
-  }
+
+  if (NULL == /*_.VALDATA___V954*/ meltfptr[953])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSTMA_OUTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSTMA_OUTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSTMA_OUTS =
+	meltgc_named_symbol ("MSTMA_OUTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V954*/ meltfptr[953] = (melt_ptr_t) meltsy_MSTMA_OUTS;
+    }				/*endgetnamedsym MSTMA_OUTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_FLAG */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_FLAG =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_FLAG", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_FLAG
-	&& NULL == /*_.VALDATA___V956*/ meltfptr[955])
-  /*_.VALDATA___V956*/ meltfptr[955] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V956*/ meltfptr[955])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_FLAG",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_FLAG =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V956*/ meltfptr[955] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_FLAG;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_SIMPLE */
-  {
-    melt_ptr_t sy_CLASS_NREP_SIMPLE =
-      meltgc_named_symbol ("CLASS_NREP_SIMPLE", MELT_GET);
-    if (sy_CLASS_NREP_SIMPLE && NULL == /*_.VALDATA___V958*/ meltfptr[957])
-  /*_.VALDATA___V958*/ meltfptr[957] = (melt_ptr_t) sy_CLASS_NREP_SIMPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V958*/ meltfptr[957])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_SIMPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_SIMPLE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_SIMPLE =
+	meltgc_named_symbol ("CLASS_NREP_SIMPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V958*/ meltfptr[957] =
+	(melt_ptr_t) meltsy_CLASS_NREP_SIMPLE;
+    }				/*endgetnamedsym CLASS_NREP_SIMPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NRPFLA_FLAG */
-  {
-    melt_ptr_t sy_NRPFLA_FLAG = meltgc_named_symbol ("NRPFLA_FLAG", MELT_GET);
-    if (sy_NRPFLA_FLAG && NULL == /*_.VALDATA___V968*/ meltfptr[967])
-  /*_.VALDATA___V968*/ meltfptr[967] = (melt_ptr_t) sy_NRPFLA_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V968*/ meltfptr[967])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NRPFLA_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("NRPFLA_FLAG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NRPFLA_FLAG =
+	meltgc_named_symbol ("NRPFLA_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V968*/ meltfptr[967] = (melt_ptr_t) meltsy_NRPFLA_FLAG;
+    }				/*endgetnamedsym NRPFLA_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NRPFLA_NMATCH */
-  {
-    melt_ptr_t sy_NRPFLA_NMATCH =
-      meltgc_named_symbol ("NRPFLA_NMATCH", MELT_GET);
-    if (sy_NRPFLA_NMATCH && NULL == /*_.VALDATA___V970*/ meltfptr[969])
-  /*_.VALDATA___V970*/ meltfptr[969] = (melt_ptr_t) sy_NRPFLA_NMATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V970*/ meltfptr[969])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NRPFLA_NMATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("NRPFLA_NMATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NRPFLA_NMATCH =
+	meltgc_named_symbol ("NRPFLA_NMATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V970*/ meltfptr[969] = (melt_ptr_t) meltsy_NRPFLA_NMATCH;
+    }				/*endgetnamedsym NRPFLA_NMATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCHED_DATA */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCHED_DATA =
-      meltgc_named_symbol ("CLASS_NREP_MATCHED_DATA", MELT_GET);
-    if (sy_CLASS_NREP_MATCHED_DATA
-	&& NULL == /*_.VALDATA___V972*/ meltfptr[971])
-  /*_.VALDATA___V972*/ meltfptr[971] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCHED_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V972*/ meltfptr[971])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCHED_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCHED_DATA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCHED_DATA =
+	meltgc_named_symbol ("CLASS_NREP_MATCHED_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V972*/ meltfptr[971] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCHED_DATA;
+    }				/*endgetnamedsym CLASS_NREP_MATCHED_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NRMATD_CTYPE */
-  {
-    melt_ptr_t sy_NRMATD_CTYPE =
-      meltgc_named_symbol ("NRMATD_CTYPE", MELT_GET);
-    if (sy_NRMATD_CTYPE && NULL == /*_.VALDATA___V984*/ meltfptr[983])
-  /*_.VALDATA___V984*/ meltfptr[983] = (melt_ptr_t) sy_NRMATD_CTYPE;
-  }
+
+  if (NULL == /*_.VALDATA___V984*/ meltfptr[983])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NRMATD_CTYPE =
+	melthookproc_HOOK_NAMED_SYMBOL ("NRMATD_CTYPE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NRMATD_CTYPE =
+	meltgc_named_symbol ("NRMATD_CTYPE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V984*/ meltfptr[983] = (melt_ptr_t) meltsy_NRMATD_CTYPE;
+    }				/*endgetnamedsym NRMATD_CTYPE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NRMATD_MDATA */
-  {
-    melt_ptr_t sy_NRMATD_MDATA =
-      meltgc_named_symbol ("NRMATD_MDATA", MELT_GET);
-    if (sy_NRMATD_MDATA && NULL == /*_.VALDATA___V986*/ meltfptr[985])
-  /*_.VALDATA___V986*/ meltfptr[985] = (melt_ptr_t) sy_NRMATD_MDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V986*/ meltfptr[985])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NRMATD_MDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("NRMATD_MDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NRMATD_MDATA =
+	meltgc_named_symbol ("NRMATD_MDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V986*/ meltfptr[985] = (melt_ptr_t) meltsy_NRMATD_MDATA;
+    }				/*endgetnamedsym NRMATD_MDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NRMATD_RANK */
-  {
-    melt_ptr_t sy_NRMATD_RANK = meltgc_named_symbol ("NRMATD_RANK", MELT_GET);
-    if (sy_NRMATD_RANK && NULL == /*_.VALDATA___V988*/ meltfptr[987])
-  /*_.VALDATA___V988*/ meltfptr[987] = (melt_ptr_t) sy_NRMATD_RANK;
-  }
+
+  if (NULL == /*_.VALDATA___V988*/ meltfptr[987])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NRMATD_RANK =
+	melthookproc_HOOK_NAMED_SYMBOL ("NRMATD_RANK", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NRMATD_RANK =
+	meltgc_named_symbol ("NRMATD_RANK", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V988*/ meltfptr[987] = (melt_ptr_t) meltsy_NRMATD_RANK;
+    }				/*endgetnamedsym NRMATD_RANK */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:SCAN_SUBPATTERNS */
-  {
-    melt_ptr_t sy_SCAN_SUBPATTERNS =
-      meltgc_named_symbol ("SCAN_SUBPATTERNS", MELT_GET);
-    if (sy_SCAN_SUBPATTERNS && NULL == /*_.VALDATA___V992*/ meltfptr[991])
-  /*_.VALDATA___V992*/ meltfptr[991] = (melt_ptr_t) sy_SCAN_SUBPATTERNS;
-  }
+
+  if (NULL == /*_.VALDATA___V992*/ meltfptr[991])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_SCAN_SUBPATTERNS =
+	melthookproc_HOOK_NAMED_SYMBOL ("SCAN_SUBPATTERNS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_SCAN_SUBPATTERNS =
+	meltgc_named_symbol ("SCAN_SUBPATTERNS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V992*/ meltfptr[991] =
+	(melt_ptr_t) meltsy_SCAN_SUBPATTERNS;
+    }				/*endgetnamedsym SCAN_SUBPATTERNS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:RECV */
-  {
-    melt_ptr_t sy_RECV = meltgc_named_symbol ("RECV", MELT_GET);
-    if (sy_RECV && NULL == /*_.VALDATA___V994*/ meltfptr[993])
-  /*_.VALDATA___V994*/ meltfptr[993] = (melt_ptr_t) sy_RECV;
-  }
+
+  if (NULL == /*_.VALDATA___V994*/ meltfptr[993])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_RECV =
+	melthookproc_HOOK_NAMED_SYMBOL ("RECV", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_RECV = meltgc_named_symbol ("RECV", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V994*/ meltfptr[993] = (melt_ptr_t) meltsy_RECV;
+    }				/*endgetnamedsym RECV */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:FUN */
-  {
-    melt_ptr_t sy_FUN = meltgc_named_symbol ("FUN", MELT_GET);
-    if (sy_FUN && NULL == /*_.VALDATA___V997*/ meltfptr[996])
-  /*_.VALDATA___V997*/ meltfptr[996] = (melt_ptr_t) sy_FUN;
-  }
+
+  if (NULL == /*_.VALDATA___V997*/ meltfptr[996])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_FUN =
+	melthookproc_HOOK_NAMED_SYMBOL ("FUN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_FUN = meltgc_named_symbol ("FUN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V997*/ meltfptr[996] = (melt_ptr_t) meltsy_FUN;
+    }				/*endgetnamedsym FUN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CTX */
-  {
-    melt_ptr_t sy_CTX = meltgc_named_symbol ("CTX", MELT_GET);
-    if (sy_CTX && NULL == /*_.VALDATA___V1000*/ meltfptr[999])
-  /*_.VALDATA___V1000*/ meltfptr[999] = (melt_ptr_t) sy_CTX;
-  }
+
+  if (NULL == /*_.VALDATA___V1000*/ meltfptr[999])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CTX =
+	melthookproc_HOOK_NAMED_SYMBOL ("CTX", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CTX = meltgc_named_symbol ("CTX", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1000*/ meltfptr[999] = (melt_ptr_t) meltsy_CTX;
+    }				/*endgetnamedsym CTX */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:SCAN_STEP_DATA */
-  {
-    melt_ptr_t sy_SCAN_STEP_DATA =
-      meltgc_named_symbol ("SCAN_STEP_DATA", MELT_GET);
-    if (sy_SCAN_STEP_DATA && NULL == /*_.VALDATA___V1006*/ meltfptr[1005])
-  /*_.VALDATA___V1006*/ meltfptr[1005] = (melt_ptr_t) sy_SCAN_STEP_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1006*/ meltfptr[1005])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_SCAN_STEP_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("SCAN_STEP_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_SCAN_STEP_DATA =
+	meltgc_named_symbol ("SCAN_STEP_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1006*/ meltfptr[1005] =
+	(melt_ptr_t) meltsy_SCAN_STEP_DATA;
+    }				/*endgetnamedsym SCAN_STEP_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:STEP */
-  {
-    melt_ptr_t sy_STEP = meltgc_named_symbol ("STEP", MELT_GET);
-    if (sy_STEP && NULL == /*_.VALDATA___V1008*/ meltfptr[1007])
-  /*_.VALDATA___V1008*/ meltfptr[1007] = (melt_ptr_t) sy_STEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1008*/ meltfptr[1007])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_STEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("STEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_STEP = meltgc_named_symbol ("STEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1008*/ meltfptr[1007] = (melt_ptr_t) meltsy_STEP;
+    }				/*endgetnamedsym STEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:SCAN_STEP_FLAG */
-  {
-    melt_ptr_t sy_SCAN_STEP_FLAG =
-      meltgc_named_symbol ("SCAN_STEP_FLAG", MELT_GET);
-    if (sy_SCAN_STEP_FLAG && NULL == /*_.VALDATA___V1016*/ meltfptr[1015])
-  /*_.VALDATA___V1016*/ meltfptr[1015] = (melt_ptr_t) sy_SCAN_STEP_FLAG;
-  }
+
+  if (NULL == /*_.VALDATA___V1016*/ meltfptr[1015])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_SCAN_STEP_FLAG =
+	melthookproc_HOOK_NAMED_SYMBOL ("SCAN_STEP_FLAG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_SCAN_STEP_FLAG =
+	meltgc_named_symbol ("SCAN_STEP_FLAG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1016*/ meltfptr[1015] =
+	(melt_ptr_t) meltsy_SCAN_STEP_FLAG;
+    }				/*endgetnamedsym SCAN_STEP_FLAG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PUT_THEN_MATCH */
-  {
-    melt_ptr_t sy_PUT_THEN_MATCH =
-      meltgc_named_symbol ("PUT_THEN_MATCH", MELT_GET);
-    if (sy_PUT_THEN_MATCH && NULL == /*_.VALDATA___V1043*/ meltfptr[1042])
-  /*_.VALDATA___V1043*/ meltfptr[1042] = (melt_ptr_t) sy_PUT_THEN_MATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V1043*/ meltfptr[1042])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PUT_THEN_MATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("PUT_THEN_MATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PUT_THEN_MATCH =
+	meltgc_named_symbol ("PUT_THEN_MATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1043*/ meltfptr[1042] =
+	(melt_ptr_t) meltsy_PUT_THEN_MATCH;
+    }				/*endgetnamedsym PUT_THEN_MATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:THENSTEP */
-  {
-    melt_ptr_t sy_THENSTEP = meltgc_named_symbol ("THENSTEP", MELT_GET);
-    if (sy_THENSTEP && NULL == /*_.VALDATA___V1046*/ meltfptr[1045])
-  /*_.VALDATA___V1046*/ meltfptr[1045] = (melt_ptr_t) sy_THENSTEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1046*/ meltfptr[1045])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_THENSTEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("THENSTEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_THENSTEP = meltgc_named_symbol ("THENSTEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1046*/ meltfptr[1045] = (melt_ptr_t) meltsy_THENSTEP;
+    }				/*endgetnamedsym THENSTEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PUT_ELSE_MATCH */
-  {
-    melt_ptr_t sy_PUT_ELSE_MATCH =
-      meltgc_named_symbol ("PUT_ELSE_MATCH", MELT_GET);
-    if (sy_PUT_ELSE_MATCH && NULL == /*_.VALDATA___V1060*/ meltfptr[1059])
-  /*_.VALDATA___V1060*/ meltfptr[1059] = (melt_ptr_t) sy_PUT_ELSE_MATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V1060*/ meltfptr[1059])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PUT_ELSE_MATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("PUT_ELSE_MATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PUT_ELSE_MATCH =
+	meltgc_named_symbol ("PUT_ELSE_MATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1060*/ meltfptr[1059] =
+	(melt_ptr_t) meltsy_PUT_ELSE_MATCH;
+    }				/*endgetnamedsym PUT_ELSE_MATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:ELSESTEP */
-  {
-    melt_ptr_t sy_ELSESTEP = meltgc_named_symbol ("ELSESTEP", MELT_GET);
-    if (sy_ELSESTEP && NULL == /*_.VALDATA___V1063*/ meltfptr[1062])
-  /*_.VALDATA___V1063*/ meltfptr[1062] = (melt_ptr_t) sy_ELSESTEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1063*/ meltfptr[1062])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_ELSESTEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("ELSESTEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_ELSESTEP = meltgc_named_symbol ("ELSESTEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1063*/ meltfptr[1062] = (melt_ptr_t) meltsy_ELSESTEP;
+    }				/*endgetnamedsym ELSESTEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:TRANSLATE_PATTERN */
-  {
-    melt_ptr_t sy_TRANSLATE_PATTERN =
-      meltgc_named_symbol ("TRANSLATE_PATTERN", MELT_GET);
-    if (sy_TRANSLATE_PATTERN && NULL == /*_.VALDATA___V1093*/ meltfptr[1092])
-  /*_.VALDATA___V1093*/ meltfptr[1092] =
-	(melt_ptr_t) sy_TRANSLATE_PATTERN;
-  }
+
+  if (NULL == /*_.VALDATA___V1093*/ meltfptr[1092])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_TRANSLATE_PATTERN =
+	melthookproc_HOOK_NAMED_SYMBOL ("TRANSLATE_PATTERN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_TRANSLATE_PATTERN =
+	meltgc_named_symbol ("TRANSLATE_PATTERN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1093*/ meltfptr[1092] =
+	(melt_ptr_t) meltsy_TRANSLATE_PATTERN;
+    }				/*endgetnamedsym TRANSLATE_PATTERN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MDATA */
-  {
-    melt_ptr_t sy_MDATA = meltgc_named_symbol ("MDATA", MELT_GET);
-    if (sy_MDATA && NULL == /*_.VALDATA___V1096*/ meltfptr[1095])
-  /*_.VALDATA___V1096*/ meltfptr[1095] = (melt_ptr_t) sy_MDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1096*/ meltfptr[1095])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("MDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MDATA = meltgc_named_symbol ("MDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1096*/ meltfptr[1095] = (melt_ptr_t) meltsy_MDATA;
+    }				/*endgetnamedsym MDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MCASE */
-  {
-    melt_ptr_t sy_MCASE = meltgc_named_symbol ("MCASE", MELT_GET);
-    if (sy_MCASE && NULL == /*_.VALDATA___V1099*/ meltfptr[1098])
-  /*_.VALDATA___V1099*/ meltfptr[1098] = (melt_ptr_t) sy_MCASE;
-  }
+
+  if (NULL == /*_.VALDATA___V1099*/ meltfptr[1098])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MCASE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MCASE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MCASE = meltgc_named_symbol ("MCASE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1099*/ meltfptr[1098] = (melt_ptr_t) meltsy_MCASE;
+    }				/*endgetnamedsym MCASE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:VARMAP */
-  {
-    melt_ptr_t sy_VARMAP = meltgc_named_symbol ("VARMAP", MELT_GET);
-    if (sy_VARMAP && NULL == /*_.VALDATA___V1102*/ meltfptr[1101])
-  /*_.VALDATA___V1102*/ meltfptr[1101] = (melt_ptr_t) sy_VARMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V1102*/ meltfptr[1101])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_VARMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("VARMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_VARMAP = meltgc_named_symbol ("VARMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1102*/ meltfptr[1101] = (melt_ptr_t) meltsy_VARMAP;
+    }				/*endgetnamedsym VARMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:SLOC */
-  {
-    melt_ptr_t sy_SLOC = meltgc_named_symbol ("SLOC", MELT_GET);
-    if (sy_SLOC && NULL == /*_.VALDATA___V1105*/ meltfptr[1104])
-  /*_.VALDATA___V1105*/ meltfptr[1104] = (melt_ptr_t) sy_SLOC;
-  }
+
+  if (NULL == /*_.VALDATA___V1105*/ meltfptr[1104])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_SLOC =
+	melthookproc_HOOK_NAMED_SYMBOL ("SLOC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_SLOC = meltgc_named_symbol ("SLOC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1105*/ meltfptr[1104] = (melt_ptr_t) meltsy_SLOC;
+    }				/*endgetnamedsym SLOC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_PATTERN_LIST */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_PATTERN_LIST =
-      meltgc_named_symbol ("CLASS_SOURCE_PATTERN_LIST", MELT_GET);
-    if (sy_CLASS_SOURCE_PATTERN_LIST
-	&& NULL == /*_.VALDATA___V1120*/ meltfptr[1119])
-  /*_.VALDATA___V1120*/ meltfptr[1119] =
-	(melt_ptr_t) sy_CLASS_SOURCE_PATTERN_LIST;
-  }
+
+  if (NULL == /*_.VALDATA___V1120*/ meltfptr[1119])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_LIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_LIST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_LIST =
+	meltgc_named_symbol ("CLASS_SOURCE_PATTERN_LIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1120*/ meltfptr[1119] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_PATTERN_LIST;
+    }				/*endgetnamedsym CLASS_SOURCE_PATTERN_LIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:PATUPLECOMP */
-  {
-    melt_ptr_t sy_PATUPLECOMP = meltgc_named_symbol ("PATUPLECOMP", MELT_GET);
-    if (sy_PATUPLECOMP && NULL == /*_.VALDATA___V1127*/ meltfptr[1126])
-  /*_.VALDATA___V1127*/ meltfptr[1126] = (melt_ptr_t) sy_PATUPLECOMP;
-  }
+
+  if (NULL == /*_.VALDATA___V1127*/ meltfptr[1126])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_PATUPLECOMP =
+	melthookproc_HOOK_NAMED_SYMBOL ("PATUPLECOMP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_PATUPLECOMP =
+	meltgc_named_symbol ("PATUPLECOMP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1127*/ meltfptr[1126] = (melt_ptr_t) meltsy_PATUPLECOMP;
+    }				/*endgetnamedsym PATUPLECOMP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHGRAPHIC_ALTSTEP */
-  {
-    melt_ptr_t sy_MATCHGRAPHIC_ALTSTEP =
-      meltgc_named_symbol ("MATCHGRAPHIC_ALTSTEP", MELT_GET);
-    if (sy_MATCHGRAPHIC_ALTSTEP
-	&& NULL == /*_.VALDATA___V1145*/ meltfptr[1144])
-  /*_.VALDATA___V1145*/ meltfptr[1144] =
-	(melt_ptr_t) sy_MATCHGRAPHIC_ALTSTEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1145*/ meltfptr[1144])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHGRAPHIC_ALTSTEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHGRAPHIC_ALTSTEP",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHGRAPHIC_ALTSTEP =
+	meltgc_named_symbol ("MATCHGRAPHIC_ALTSTEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1145*/ meltfptr[1144] =
+	(melt_ptr_t) meltsy_MATCHGRAPHIC_ALTSTEP;
+    }				/*endgetnamedsym MATCHGRAPHIC_ALTSTEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:ADD2OUT */
-  {
-    melt_ptr_t sy_ADD2OUT = meltgc_named_symbol ("ADD2OUT", MELT_GET);
-    if (sy_ADD2OUT && NULL == /*_.VALDATA___V1155*/ meltfptr[1154])
-  /*_.VALDATA___V1155*/ meltfptr[1154] = (melt_ptr_t) sy_ADD2OUT;
-  }
+
+  if (NULL == /*_.VALDATA___V1155*/ meltfptr[1154])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_ADD2OUT =
+	melthookproc_HOOK_NAMED_SYMBOL ("ADD2OUT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_ADD2OUT = meltgc_named_symbol ("ADD2OUT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1155*/ meltfptr[1154] = (melt_ptr_t) meltsy_ADD2OUT;
+    }				/*endgetnamedsym ADD2OUT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_INTEGER */
-  {
-    melt_ptr_t sy_DISCR_INTEGER =
-      meltgc_named_symbol ("DISCR_INTEGER", MELT_GET);
-    if (sy_DISCR_INTEGER && NULL == /*_.VALDATA___V1174*/ meltfptr[1173])
-  /*_.VALDATA___V1174*/ meltfptr[1173] = (melt_ptr_t) sy_DISCR_INTEGER;
-  }
+
+  if (NULL == /*_.VALDATA___V1174*/ meltfptr[1173])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_INTEGER =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_INTEGER", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_INTEGER =
+	meltgc_named_symbol ("DISCR_INTEGER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1174*/ meltfptr[1173] =
+	(melt_ptr_t) meltsy_DISCR_INTEGER;
+    }				/*endgetnamedsym DISCR_INTEGER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:COMPARE_NAMED_ALPHA */
-  {
-    melt_ptr_t sy_COMPARE_NAMED_ALPHA =
-      meltgc_named_symbol ("COMPARE_NAMED_ALPHA", MELT_GET);
-    if (sy_COMPARE_NAMED_ALPHA
-	&& NULL == /*_.VALDATA___V1176*/ meltfptr[1175])
-  /*_.VALDATA___V1176*/ meltfptr[1175] =
-	(melt_ptr_t) sy_COMPARE_NAMED_ALPHA;
-  }
+
+  if (NULL == /*_.VALDATA___V1176*/ meltfptr[1175])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_COMPARE_NAMED_ALPHA =
+	melthookproc_HOOK_NAMED_SYMBOL ("COMPARE_NAMED_ALPHA",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_COMPARE_NAMED_ALPHA =
+	meltgc_named_symbol ("COMPARE_NAMED_ALPHA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1176*/ meltfptr[1175] =
+	(melt_ptr_t) meltsy_COMPARE_NAMED_ALPHA;
+    }				/*endgetnamedsym COMPARE_NAMED_ALPHA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCHALT */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCHALT =
-      meltgc_named_symbol ("CLASS_NREP_MATCHALT", MELT_GET);
-    if (sy_CLASS_NREP_MATCHALT
-	&& NULL == /*_.VALDATA___V1178*/ meltfptr[1177])
-  /*_.VALDATA___V1178*/ meltfptr[1177] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCHALT;
-  }
+
+  if (NULL == /*_.VALDATA___V1178*/ meltfptr[1177])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCHALT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCHALT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCHALT =
+	meltgc_named_symbol ("CLASS_NREP_MATCHALT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1178*/ meltfptr[1177] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCHALT;
+    }				/*endgetnamedsym CLASS_NREP_MATCHALT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_MATCHED */
-  {
-    melt_ptr_t sy_NAMATCH_MATCHED =
-      meltgc_named_symbol ("NAMATCH_MATCHED", MELT_GET);
-    if (sy_NAMATCH_MATCHED && NULL == /*_.VALDATA___V1196*/ meltfptr[1195])
-  /*_.VALDATA___V1196*/ meltfptr[1195] = (melt_ptr_t) sy_NAMATCH_MATCHED;
-  }
+
+  if (NULL == /*_.VALDATA___V1196*/ meltfptr[1195])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_MATCHED =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_MATCHED", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_MATCHED =
+	meltgc_named_symbol ("NAMATCH_MATCHED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1196*/ meltfptr[1195] =
+	(melt_ptr_t) meltsy_NAMATCH_MATCHED;
+    }				/*endgetnamedsym NAMATCH_MATCHED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_RESULT */
-  {
-    melt_ptr_t sy_NAMATCH_RESULT =
-      meltgc_named_symbol ("NAMATCH_RESULT", MELT_GET);
-    if (sy_NAMATCH_RESULT && NULL == /*_.VALDATA___V1198*/ meltfptr[1197])
-  /*_.VALDATA___V1198*/ meltfptr[1197] = (melt_ptr_t) sy_NAMATCH_RESULT;
-  }
+
+  if (NULL == /*_.VALDATA___V1198*/ meltfptr[1197])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_RESULT =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_RESULT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_RESULT =
+	meltgc_named_symbol ("NAMATCH_RESULT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1198*/ meltfptr[1197] =
+	(melt_ptr_t) meltsy_NAMATCH_RESULT;
+    }				/*endgetnamedsym NAMATCH_RESULT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_BODY */
-  {
-    melt_ptr_t sy_NAMATCH_BODY =
-      meltgc_named_symbol ("NAMATCH_BODY", MELT_GET);
-    if (sy_NAMATCH_BODY && NULL == /*_.VALDATA___V1200*/ meltfptr[1199])
-  /*_.VALDATA___V1200*/ meltfptr[1199] = (melt_ptr_t) sy_NAMATCH_BODY;
-  }
+
+  if (NULL == /*_.VALDATA___V1200*/ meltfptr[1199])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_BODY =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_BODY", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_BODY =
+	meltgc_named_symbol ("NAMATCH_BODY", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1200*/ meltfptr[1199] = (melt_ptr_t) meltsy_NAMATCH_BODY;
+    }				/*endgetnamedsym NAMATCH_BODY */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_FLAGS */
-  {
-    melt_ptr_t sy_NAMATCH_FLAGS =
-      meltgc_named_symbol ("NAMATCH_FLAGS", MELT_GET);
-    if (sy_NAMATCH_FLAGS && NULL == /*_.VALDATA___V1202*/ meltfptr[1201])
-  /*_.VALDATA___V1202*/ meltfptr[1201] = (melt_ptr_t) sy_NAMATCH_FLAGS;
-  }
+
+  if (NULL == /*_.VALDATA___V1202*/ meltfptr[1201])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_FLAGS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_FLAGS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_FLAGS =
+	meltgc_named_symbol ("NAMATCH_FLAGS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1202*/ meltfptr[1201] =
+	(melt_ptr_t) meltsy_NAMATCH_FLAGS;
+    }				/*endgetnamedsym NAMATCH_FLAGS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_MDATAS */
-  {
-    melt_ptr_t sy_NAMATCH_MDATAS =
-      meltgc_named_symbol ("NAMATCH_MDATAS", MELT_GET);
-    if (sy_NAMATCH_MDATAS && NULL == /*_.VALDATA___V1204*/ meltfptr[1203])
-  /*_.VALDATA___V1204*/ meltfptr[1203] = (melt_ptr_t) sy_NAMATCH_MDATAS;
-  }
+
+  if (NULL == /*_.VALDATA___V1204*/ meltfptr[1203])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_MDATAS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_MDATAS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_MDATAS =
+	meltgc_named_symbol ("NAMATCH_MDATAS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1204*/ meltfptr[1203] =
+	(melt_ptr_t) meltsy_NAMATCH_MDATAS;
+    }				/*endgetnamedsym NAMATCH_MDATAS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NAMATCH_STARTLABEL */
-  {
-    melt_ptr_t sy_NAMATCH_STARTLABEL =
-      meltgc_named_symbol ("NAMATCH_STARTLABEL", MELT_GET);
-    if (sy_NAMATCH_STARTLABEL && NULL == /*_.VALDATA___V1206*/ meltfptr[1205])
-  /*_.VALDATA___V1206*/ meltfptr[1205] =
-	(melt_ptr_t) sy_NAMATCH_STARTLABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V1206*/ meltfptr[1205])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NAMATCH_STARTLABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("NAMATCH_STARTLABEL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NAMATCH_STARTLABEL =
+	meltgc_named_symbol ("NAMATCH_STARTLABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1206*/ meltfptr[1205] =
+	(melt_ptr_t) meltsy_NAMATCH_STARTLABEL;
+    }				/*endgetnamedsym NAMATCH_STARTLABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_LABEL */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_LABEL =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_LABEL", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_LABEL
-	&& NULL == /*_.VALDATA___V1208*/ meltfptr[1207])
-  /*_.VALDATA___V1208*/ meltfptr[1207] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_LABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V1208*/ meltfptr[1207])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_LABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_LABEL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_LABEL =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_LABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1208*/ meltfptr[1207] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_LABEL;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_LABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMLAB_STEP */
-  {
-    melt_ptr_t sy_NMLAB_STEP = meltgc_named_symbol ("NMLAB_STEP", MELT_GET);
-    if (sy_NMLAB_STEP && NULL == /*_.VALDATA___V1216*/ meltfptr[1215])
-  /*_.VALDATA___V1216*/ meltfptr[1215] = (melt_ptr_t) sy_NMLAB_STEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1216*/ meltfptr[1215])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMLAB_STEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMLAB_STEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMLAB_STEP =
+	meltgc_named_symbol ("NMLAB_STEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1216*/ meltfptr[1215] = (melt_ptr_t) meltsy_NMLAB_STEP;
+    }				/*endgetnamedsym NMLAB_STEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_LABEL_END */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_LABEL_END =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_LABEL_END", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_LABEL_END
-	&& NULL == /*_.VALDATA___V1218*/ meltfptr[1217])
-  /*_.VALDATA___V1218*/ meltfptr[1217] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_LABEL_END;
-  }
+
+  if (NULL == /*_.VALDATA___V1218*/ meltfptr[1217])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_LABEL_END =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_LABEL_END",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_LABEL_END =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_LABEL_END", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1218*/ meltfptr[1217] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_LABEL_END;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_LABEL_END */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_JUMP */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_JUMP =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_JUMP", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_JUMP
-	&& NULL == /*_.VALDATA___V1224*/ meltfptr[1223])
-  /*_.VALDATA___V1224*/ meltfptr[1223] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_JUMP;
-  }
+
+  if (NULL == /*_.VALDATA___V1224*/ meltfptr[1223])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_JUMP =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_JUMP",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_JUMP =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_JUMP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1224*/ meltfptr[1223] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_JUMP;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_JUMP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMJMP_LABEL */
-  {
-    melt_ptr_t sy_NMJMP_LABEL = meltgc_named_symbol ("NMJMP_LABEL", MELT_GET);
-    if (sy_NMJMP_LABEL && NULL == /*_.VALDATA___V1232*/ meltfptr[1231])
-  /*_.VALDATA___V1232*/ meltfptr[1231] = (melt_ptr_t) sy_NMJMP_LABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V1232*/ meltfptr[1231])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMJMP_LABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMJMP_LABEL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMJMP_LABEL =
+	meltgc_named_symbol ("NMJMP_LABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1232*/ meltfptr[1231] = (melt_ptr_t) meltsy_NMJMP_LABEL;
+    }				/*endgetnamedsym NMJMP_LABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_DATA_ACTION */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_DATA_ACTION =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_ACTION", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_DATA_ACTION
-	&& NULL == /*_.VALDATA___V1234*/ meltfptr[1233])
-  /*_.VALDATA___V1234*/ meltfptr[1233] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_DATA_ACTION;
-  }
+
+  if (NULL == /*_.VALDATA___V1234*/ meltfptr[1233])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_ACTION =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_DATA_ACTION",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_ACTION =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_ACTION", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1234*/ meltfptr[1233] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_DATA_ACTION;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_DATA_ACTION */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMDAC_DATA */
-  {
-    melt_ptr_t sy_NMDAC_DATA = meltgc_named_symbol ("NMDAC_DATA", MELT_GET);
-    if (sy_NMDAC_DATA && NULL == /*_.VALDATA___V1242*/ meltfptr[1241])
-  /*_.VALDATA___V1242*/ meltfptr[1241] = (melt_ptr_t) sy_NMDAC_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1242*/ meltfptr[1241])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMDAC_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMDAC_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMDAC_DATA =
+	meltgc_named_symbol ("NMDAC_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1242*/ meltfptr[1241] = (melt_ptr_t) meltsy_NMDAC_DATA;
+    }				/*endgetnamedsym NMDAC_DATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_DATA_INITIALIZER */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_DATA_INITIALIZER =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_INITIALIZER", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_DATA_INITIALIZER
-	&& NULL == /*_.VALDATA___V1244*/ meltfptr[1243])
-  /*_.VALDATA___V1244*/ meltfptr[1243] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_DATA_INITIALIZER;
-  }
+
+  if (NULL == /*_.VALDATA___V1244*/ meltfptr[1243])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_INITIALIZER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_DATA_INITIALIZER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_INITIALIZER =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_INITIALIZER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1244*/ meltfptr[1243] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_DATA_INITIALIZER;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_DATA_INITIALIZER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_DATA_CLEAR */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_DATA_CLEAR =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_CLEAR", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_DATA_CLEAR
-	&& NULL == /*_.VALDATA___V1250*/ meltfptr[1249])
-  /*_.VALDATA___V1250*/ meltfptr[1249] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_DATA_CLEAR;
-  }
+
+  if (NULL == /*_.VALDATA___V1250*/ meltfptr[1249])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_CLEAR =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_DATA_CLEAR",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_CLEAR =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_CLEAR", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1250*/ meltfptr[1249] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_DATA_CLEAR;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_DATA_CLEAR */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_MATCH_DATA_FINALIZER */
-  {
-    melt_ptr_t sy_CLASS_NREP_MATCH_DATA_FINALIZER =
-      meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_FINALIZER", MELT_GET);
-    if (sy_CLASS_NREP_MATCH_DATA_FINALIZER
-	&& NULL == /*_.VALDATA___V1256*/ meltfptr[1255])
-  /*_.VALDATA___V1256*/ meltfptr[1255] =
-	(melt_ptr_t) sy_CLASS_NREP_MATCH_DATA_FINALIZER;
-  }
+
+  if (NULL == /*_.VALDATA___V1256*/ meltfptr[1255])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_FINALIZER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_MATCH_DATA_FINALIZER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_MATCH_DATA_FINALIZER =
+	meltgc_named_symbol ("CLASS_NREP_MATCH_DATA_FINALIZER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1256*/ meltfptr[1255] =
+	(melt_ptr_t) meltsy_CLASS_NREP_MATCH_DATA_FINALIZER;
+    }				/*endgetnamedsym CLASS_NREP_MATCH_DATA_FINALIZER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_JUMP_WHEN_IS_A */
-  {
-    melt_ptr_t sy_CLASS_NREP_JUMP_WHEN_IS_A =
-      meltgc_named_symbol ("CLASS_NREP_JUMP_WHEN_IS_A", MELT_GET);
-    if (sy_CLASS_NREP_JUMP_WHEN_IS_A
-	&& NULL == /*_.VALDATA___V1262*/ meltfptr[1261])
-  /*_.VALDATA___V1262*/ meltfptr[1261] =
-	(melt_ptr_t) sy_CLASS_NREP_JUMP_WHEN_IS_A;
-  }
+
+  if (NULL == /*_.VALDATA___V1262*/ meltfptr[1261])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_JUMP_WHEN_IS_A =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_JUMP_WHEN_IS_A",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_JUMP_WHEN_IS_A =
+	meltgc_named_symbol ("CLASS_NREP_JUMP_WHEN_IS_A", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1262*/ meltfptr[1261] =
+	(melt_ptr_t) meltsy_CLASS_NREP_JUMP_WHEN_IS_A;
+    }				/*endgetnamedsym CLASS_NREP_JUMP_WHEN_IS_A */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTESTISA_VALUE */
-  {
-    melt_ptr_t sy_NTESTISA_VALUE =
-      meltgc_named_symbol ("NTESTISA_VALUE", MELT_GET);
-    if (sy_NTESTISA_VALUE && NULL == /*_.VALDATA___V1274*/ meltfptr[1273])
-  /*_.VALDATA___V1274*/ meltfptr[1273] = (melt_ptr_t) sy_NTESTISA_VALUE;
-  }
+
+  if (NULL == /*_.VALDATA___V1274*/ meltfptr[1273])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTESTISA_VALUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTESTISA_VALUE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTESTISA_VALUE =
+	meltgc_named_symbol ("NTESTISA_VALUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1274*/ meltfptr[1273] =
+	(melt_ptr_t) meltsy_NTESTISA_VALUE;
+    }				/*endgetnamedsym NTESTISA_VALUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTESTISA_CLASS */
-  {
-    melt_ptr_t sy_NTESTISA_CLASS =
-      meltgc_named_symbol ("NTESTISA_CLASS", MELT_GET);
-    if (sy_NTESTISA_CLASS && NULL == /*_.VALDATA___V1276*/ meltfptr[1275])
-  /*_.VALDATA___V1276*/ meltfptr[1275] = (melt_ptr_t) sy_NTESTISA_CLASS;
-  }
+
+  if (NULL == /*_.VALDATA___V1276*/ meltfptr[1275])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTESTISA_CLASS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTESTISA_CLASS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTESTISA_CLASS =
+	meltgc_named_symbol ("NTESTISA_CLASS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1276*/ meltfptr[1275] =
+	(melt_ptr_t) meltsy_NTESTISA_CLASS;
+    }				/*endgetnamedsym NTESTISA_CLASS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NTESTISA_JUMP */
-  {
-    melt_ptr_t sy_NTESTISA_JUMP =
-      meltgc_named_symbol ("NTESTISA_JUMP", MELT_GET);
-    if (sy_NTESTISA_JUMP && NULL == /*_.VALDATA___V1278*/ meltfptr[1277])
-  /*_.VALDATA___V1278*/ meltfptr[1277] = (melt_ptr_t) sy_NTESTISA_JUMP;
-  }
+
+  if (NULL == /*_.VALDATA___V1278*/ meltfptr[1277])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NTESTISA_JUMP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NTESTISA_JUMP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NTESTISA_JUMP =
+	meltgc_named_symbol ("NTESTISA_JUMP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1278*/ meltfptr[1277] =
+	(melt_ptr_t) meltsy_NTESTISA_JUMP;
+    }				/*endgetnamedsym NTESTISA_JUMP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_MATCH_NORMALIZATION_CONTEXT */
-  {
-    melt_ptr_t sy_CLASS_MATCH_NORMALIZATION_CONTEXT =
-      meltgc_named_symbol ("CLASS_MATCH_NORMALIZATION_CONTEXT", MELT_GET);
-    if (sy_CLASS_MATCH_NORMALIZATION_CONTEXT
-	&& NULL == /*_.VALDATA___V1280*/ meltfptr[1279])
-  /*_.VALDATA___V1280*/ meltfptr[1279] =
-	(melt_ptr_t) sy_CLASS_MATCH_NORMALIZATION_CONTEXT;
-  }
+
+  if (NULL == /*_.VALDATA___V1280*/ meltfptr[1279])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_MATCH_NORMALIZATION_CONTEXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MATCH_NORMALIZATION_CONTEXT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_MATCH_NORMALIZATION_CONTEXT =
+	meltgc_named_symbol ("CLASS_MATCH_NORMALIZATION_CONTEXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1280*/ meltfptr[1279] =
+	(melt_ptr_t) meltsy_CLASS_MATCH_NORMALIZATION_CONTEXT;
+    }				/*endgetnamedsym CLASS_MATCH_NORMALIZATION_CONTEXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_RESLOC */
-  {
-    melt_ptr_t sy_MATNORX_RESLOC =
-      meltgc_named_symbol ("MATNORX_RESLOC", MELT_GET);
-    if (sy_MATNORX_RESLOC && NULL == /*_.VALDATA___V1308*/ meltfptr[1307])
-  /*_.VALDATA___V1308*/ meltfptr[1307] = (melt_ptr_t) sy_MATNORX_RESLOC;
-  }
+
+  if (NULL == /*_.VALDATA___V1308*/ meltfptr[1307])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_RESLOC =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_RESLOC", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_RESLOC =
+	meltgc_named_symbol ("MATNORX_RESLOC", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1308*/ meltfptr[1307] =
+	(melt_ptr_t) meltsy_MATNORX_RESLOC;
+    }				/*endgetnamedsym MATNORX_RESLOC */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_NMATCH */
-  {
-    melt_ptr_t sy_MATNORX_NMATCH =
-      meltgc_named_symbol ("MATNORX_NMATCH", MELT_GET);
-    if (sy_MATNORX_NMATCH && NULL == /*_.VALDATA___V1310*/ meltfptr[1309])
-  /*_.VALDATA___V1310*/ meltfptr[1309] = (melt_ptr_t) sy_MATNORX_NMATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V1310*/ meltfptr[1309])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_NMATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_NMATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_NMATCH =
+	meltgc_named_symbol ("MATNORX_NMATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1310*/ meltfptr[1309] =
+	(melt_ptr_t) meltsy_MATNORX_NMATCH;
+    }				/*endgetnamedsym MATNORX_NMATCH */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_DATAMAP */
-  {
-    melt_ptr_t sy_MATNORX_DATAMAP =
-      meltgc_named_symbol ("MATNORX_DATAMAP", MELT_GET);
-    if (sy_MATNORX_DATAMAP && NULL == /*_.VALDATA___V1312*/ meltfptr[1311])
-  /*_.VALDATA___V1312*/ meltfptr[1311] = (melt_ptr_t) sy_MATNORX_DATAMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V1312*/ meltfptr[1311])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_DATAMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_DATAMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_DATAMAP =
+	meltgc_named_symbol ("MATNORX_DATAMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1312*/ meltfptr[1311] =
+	(melt_ptr_t) meltsy_MATNORX_DATAMAP;
+    }				/*endgetnamedsym MATNORX_DATAMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_FLAGMAP */
-  {
-    melt_ptr_t sy_MATNORX_FLAGMAP =
-      meltgc_named_symbol ("MATNORX_FLAGMAP", MELT_GET);
-    if (sy_MATNORX_FLAGMAP && NULL == /*_.VALDATA___V1314*/ meltfptr[1313])
-  /*_.VALDATA___V1314*/ meltfptr[1313] = (melt_ptr_t) sy_MATNORX_FLAGMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V1314*/ meltfptr[1313])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_FLAGMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_FLAGMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_FLAGMAP =
+	meltgc_named_symbol ("MATNORX_FLAGMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1314*/ meltfptr[1313] =
+	(melt_ptr_t) meltsy_MATNORX_FLAGMAP;
+    }				/*endgetnamedsym MATNORX_FLAGMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_STEPMAP */
-  {
-    melt_ptr_t sy_MATNORX_STEPMAP =
-      meltgc_named_symbol ("MATNORX_STEPMAP", MELT_GET);
-    if (sy_MATNORX_STEPMAP && NULL == /*_.VALDATA___V1316*/ meltfptr[1315])
-  /*_.VALDATA___V1316*/ meltfptr[1315] = (melt_ptr_t) sy_MATNORX_STEPMAP;
-  }
+
+  if (NULL == /*_.VALDATA___V1316*/ meltfptr[1315])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_STEPMAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_STEPMAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_STEPMAP =
+	meltgc_named_symbol ("MATNORX_STEPMAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1316*/ meltfptr[1315] =
+	(melt_ptr_t) meltsy_MATNORX_STEPMAP;
+    }				/*endgetnamedsym MATNORX_STEPMAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_MDATAQUEUE */
-  {
-    melt_ptr_t sy_MATNORX_MDATAQUEUE =
-      meltgc_named_symbol ("MATNORX_MDATAQUEUE", MELT_GET);
-    if (sy_MATNORX_MDATAQUEUE && NULL == /*_.VALDATA___V1318*/ meltfptr[1317])
-  /*_.VALDATA___V1318*/ meltfptr[1317] =
-	(melt_ptr_t) sy_MATNORX_MDATAQUEUE;
-  }
+
+  if (NULL == /*_.VALDATA___V1318*/ meltfptr[1317])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_MDATAQUEUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_MDATAQUEUE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_MDATAQUEUE =
+	meltgc_named_symbol ("MATNORX_MDATAQUEUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1318*/ meltfptr[1317] =
+	(melt_ptr_t) meltsy_MATNORX_MDATAQUEUE;
+    }				/*endgetnamedsym MATNORX_MDATAQUEUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_MSTEPQUEUE */
-  {
-    melt_ptr_t sy_MATNORX_MSTEPQUEUE =
-      meltgc_named_symbol ("MATNORX_MSTEPQUEUE", MELT_GET);
-    if (sy_MATNORX_MSTEPQUEUE && NULL == /*_.VALDATA___V1320*/ meltfptr[1319])
-  /*_.VALDATA___V1320*/ meltfptr[1319] =
-	(melt_ptr_t) sy_MATNORX_MSTEPQUEUE;
-  }
+
+  if (NULL == /*_.VALDATA___V1320*/ meltfptr[1319])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_MSTEPQUEUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_MSTEPQUEUE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_MSTEPQUEUE =
+	meltgc_named_symbol ("MATNORX_MSTEPQUEUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1320*/ meltfptr[1319] =
+	(melt_ptr_t) meltsy_MATNORX_MSTEPQUEUE;
+    }				/*endgetnamedsym MATNORX_MSTEPQUEUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_BODYLIST */
-  {
-    melt_ptr_t sy_MATNORX_BODYLIST =
-      meltgc_named_symbol ("MATNORX_BODYLIST", MELT_GET);
-    if (sy_MATNORX_BODYLIST && NULL == /*_.VALDATA___V1322*/ meltfptr[1321])
-  /*_.VALDATA___V1322*/ meltfptr[1321] = (melt_ptr_t) sy_MATNORX_BODYLIST;
-  }
+
+  if (NULL == /*_.VALDATA___V1322*/ meltfptr[1321])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_BODYLIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_BODYLIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_BODYLIST =
+	meltgc_named_symbol ("MATNORX_BODYLIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1322*/ meltfptr[1321] =
+	(melt_ptr_t) meltsy_MATNORX_BODYLIST;
+    }				/*endgetnamedsym MATNORX_BODYLIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_ENDLABEL */
-  {
-    melt_ptr_t sy_MATNORX_ENDLABEL =
-      meltgc_named_symbol ("MATNORX_ENDLABEL", MELT_GET);
-    if (sy_MATNORX_ENDLABEL && NULL == /*_.VALDATA___V1324*/ meltfptr[1323])
-  /*_.VALDATA___V1324*/ meltfptr[1323] = (melt_ptr_t) sy_MATNORX_ENDLABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V1324*/ meltfptr[1323])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_ENDLABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_ENDLABEL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_ENDLABEL =
+	meltgc_named_symbol ("MATNORX_ENDLABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1324*/ meltfptr[1323] =
+	(melt_ptr_t) meltsy_MATNORX_ENDLABEL;
+    }				/*endgetnamedsym MATNORX_ENDLABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_STARTLABEL */
-  {
-    melt_ptr_t sy_MATNORX_STARTLABEL =
-      meltgc_named_symbol ("MATNORX_STARTLABEL", MELT_GET);
-    if (sy_MATNORX_STARTLABEL && NULL == /*_.VALDATA___V1326*/ meltfptr[1325])
-  /*_.VALDATA___V1326*/ meltfptr[1325] =
-	(melt_ptr_t) sy_MATNORX_STARTLABEL;
-  }
+
+  if (NULL == /*_.VALDATA___V1326*/ meltfptr[1325])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_STARTLABEL =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_STARTLABEL",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_STARTLABEL =
+	meltgc_named_symbol ("MATNORX_STARTLABEL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1326*/ meltfptr[1325] =
+	(melt_ptr_t) meltsy_MATNORX_STARTLABEL;
+    }				/*endgetnamedsym MATNORX_STARTLABEL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATNORX_MATCHCTXT */
-  {
-    melt_ptr_t sy_MATNORX_MATCHCTXT =
-      meltgc_named_symbol ("MATNORX_MATCHCTXT", MELT_GET);
-    if (sy_MATNORX_MATCHCTXT && NULL == /*_.VALDATA___V1328*/ meltfptr[1327])
-  /*_.VALDATA___V1328*/ meltfptr[1327] =
-	(melt_ptr_t) sy_MATNORX_MATCHCTXT;
-  }
+
+  if (NULL == /*_.VALDATA___V1328*/ meltfptr[1327])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATNORX_MATCHCTXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATNORX_MATCHCTXT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATNORX_MATCHCTXT =
+	meltgc_named_symbol ("MATNORX_MATCHCTXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1328*/ meltfptr[1327] =
+	(melt_ptr_t) meltsy_MATNORX_MATCHCTXT;
+    }				/*endgetnamedsym MATNORX_MATCHCTXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMALIZE_STEP */
-  {
-    melt_ptr_t sy_NORMALIZE_STEP =
-      meltgc_named_symbol ("NORMALIZE_STEP", MELT_GET);
-    if (sy_NORMALIZE_STEP && NULL == /*_.VALDATA___V1332*/ meltfptr[1331])
-  /*_.VALDATA___V1332*/ meltfptr[1331] = (melt_ptr_t) sy_NORMALIZE_STEP;
-  }
+
+  if (NULL == /*_.VALDATA___V1332*/ meltfptr[1331])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMALIZE_STEP =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMALIZE_STEP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMALIZE_STEP =
+	meltgc_named_symbol ("NORMALIZE_STEP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1332*/ meltfptr[1331] =
+	(melt_ptr_t) meltsy_NORMALIZE_STEP;
+    }				/*endgetnamedsym NORMALIZE_STEP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NMCTXT */
-  {
-    melt_ptr_t sy_NMCTXT = meltgc_named_symbol ("NMCTXT", MELT_GET);
-    if (sy_NMCTXT && NULL == /*_.VALDATA___V1335*/ meltfptr[1334])
-  /*_.VALDATA___V1335*/ meltfptr[1334] = (melt_ptr_t) sy_NMCTXT;
-  }
+
+  if (NULL == /*_.VALDATA___V1335*/ meltfptr[1334])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NMCTXT =
+	melthookproc_HOOK_NAMED_SYMBOL ("NMCTXT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NMCTXT = meltgc_named_symbol ("NMCTXT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1335*/ meltfptr[1334] = (melt_ptr_t) meltsy_NMCTXT;
+    }				/*endgetnamedsym NMCTXT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_SETQ */
-  {
-    melt_ptr_t sy_CLASS_NREP_SETQ =
-      meltgc_named_symbol ("CLASS_NREP_SETQ", MELT_GET);
-    if (sy_CLASS_NREP_SETQ && NULL == /*_.VALDATA___V1355*/ meltfptr[1354])
-  /*_.VALDATA___V1355*/ meltfptr[1354] = (melt_ptr_t) sy_CLASS_NREP_SETQ;
-  }
+
+  if (NULL == /*_.VALDATA___V1355*/ meltfptr[1354])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_SETQ =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_SETQ", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_SETQ =
+	meltgc_named_symbol ("CLASS_NREP_SETQ", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1355*/ meltfptr[1354] =
+	(melt_ptr_t) meltsy_CLASS_NREP_SETQ;
+    }				/*endgetnamedsym CLASS_NREP_SETQ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:COMPLETE_SEQUENCE_AS_TUPLE */
-  {
-    melt_ptr_t sy_COMPLETE_SEQUENCE_AS_TUPLE =
-      meltgc_named_symbol ("COMPLETE_SEQUENCE_AS_TUPLE", MELT_GET);
-    if (sy_COMPLETE_SEQUENCE_AS_TUPLE
-	&& NULL == /*_.VALDATA___V1357*/ meltfptr[1356])
-  /*_.VALDATA___V1357*/ meltfptr[1356] =
-	(melt_ptr_t) sy_COMPLETE_SEQUENCE_AS_TUPLE;
-  }
+
+  if (NULL == /*_.VALDATA___V1357*/ meltfptr[1356])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_COMPLETE_SEQUENCE_AS_TUPLE =
+	melthookproc_HOOK_NAMED_SYMBOL ("COMPLETE_SEQUENCE_AS_TUPLE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_COMPLETE_SEQUENCE_AS_TUPLE =
+	meltgc_named_symbol ("COMPLETE_SEQUENCE_AS_TUPLE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1357*/ meltfptr[1356] =
+	(melt_ptr_t) meltsy_COMPLETE_SEQUENCE_AS_TUPLE;
+    }				/*endgetnamedsym COMPLETE_SEQUENCE_AS_TUPLE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_CHUNK */
-  {
-    melt_ptr_t sy_CLASS_NREP_CHUNK =
-      meltgc_named_symbol ("CLASS_NREP_CHUNK", MELT_GET);
-    if (sy_CLASS_NREP_CHUNK && NULL == /*_.VALDATA___V1364*/ meltfptr[1363])
-  /*_.VALDATA___V1364*/ meltfptr[1363] = (melt_ptr_t) sy_CLASS_NREP_CHUNK;
-  }
+
+  if (NULL == /*_.VALDATA___V1364*/ meltfptr[1363])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_CHUNK =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_CHUNK", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_CHUNK =
+	meltgc_named_symbol ("CLASS_NREP_CHUNK", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1364*/ meltfptr[1363] =
+	(melt_ptr_t) meltsy_CLASS_NREP_CHUNK;
+    }				/*endgetnamedsym CLASS_NREP_CHUNK */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:AND_MATCH_FLAGS */
-  {
-    melt_ptr_t sy_AND_MATCH_FLAGS =
-      meltgc_named_symbol ("AND_MATCH_FLAGS", MELT_GET);
-    if (sy_AND_MATCH_FLAGS && NULL == /*_.VALDATA___V1361*/ meltfptr[1360])
-  /*_.VALDATA___V1361*/ meltfptr[1360] = (melt_ptr_t) sy_AND_MATCH_FLAGS;
-  }
+
+  if (NULL == /*_.VALDATA___V1361*/ meltfptr[1360])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_AND_MATCH_FLAGS =
+	melthookproc_HOOK_NAMED_SYMBOL ("AND_MATCH_FLAGS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_AND_MATCH_FLAGS =
+	meltgc_named_symbol ("AND_MATCH_FLAGS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1361*/ meltfptr[1360] =
+	(melt_ptr_t) meltsy_AND_MATCH_FLAGS;
+    }				/*endgetnamedsym AND_MATCH_FLAGS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CTYPE_LONG */
-  {
-    melt_ptr_t sy_CTYPE_LONG = meltgc_named_symbol ("CTYPE_LONG", MELT_GET);
-    if (sy_CTYPE_LONG && NULL == /*_.VALDATA___V1366*/ meltfptr[1365])
-  /*_.VALDATA___V1366*/ meltfptr[1365] = (melt_ptr_t) sy_CTYPE_LONG;
-  }
+
+  if (NULL == /*_.VALDATA___V1366*/ meltfptr[1365])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CTYPE_LONG =
+	melthookproc_HOOK_NAMED_SYMBOL ("CTYPE_LONG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CTYPE_LONG =
+	meltgc_named_symbol ("CTYPE_LONG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1366*/ meltfptr[1365] = (melt_ptr_t) meltsy_CTYPE_LONG;
+    }				/*endgetnamedsym CTYPE_LONG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_VERBATIM_STRING */
-  {
-    melt_ptr_t sy_DISCR_VERBATIM_STRING =
-      meltgc_named_symbol ("DISCR_VERBATIM_STRING", MELT_GET);
-    if (sy_DISCR_VERBATIM_STRING
-	&& NULL == /*_.VALDATA___V1368*/ meltfptr[1367])
-  /*_.VALDATA___V1368*/ meltfptr[1367] =
-	(melt_ptr_t) sy_DISCR_VERBATIM_STRING;
-  }
+
+  if (NULL == /*_.VALDATA___V1368*/ meltfptr[1367])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_VERBATIM_STRING =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_VERBATIM_STRING",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_VERBATIM_STRING =
+	meltgc_named_symbol ("DISCR_VERBATIM_STRING", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1368*/ meltfptr[1367] =
+	(melt_ptr_t) meltsy_DISCR_VERBATIM_STRING;
+    }				/*endgetnamedsym DISCR_VERBATIM_STRING */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_IFISA */
-  {
-    melt_ptr_t sy_CLASS_NREP_IFISA =
-      meltgc_named_symbol ("CLASS_NREP_IFISA", MELT_GET);
-    if (sy_CLASS_NREP_IFISA && NULL == /*_.VALDATA___V1374*/ meltfptr[1373])
-  /*_.VALDATA___V1374*/ meltfptr[1373] = (melt_ptr_t) sy_CLASS_NREP_IFISA;
-  }
+
+  if (NULL == /*_.VALDATA___V1374*/ meltfptr[1373])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_IFISA =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_IFISA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_IFISA =
+	meltgc_named_symbol ("CLASS_NREP_IFISA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1374*/ meltfptr[1373] =
+	(melt_ptr_t) meltsy_CLASS_NREP_IFISA;
+    }				/*endgetnamedsym CLASS_NREP_IFISA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_PROGN */
-  {
-    melt_ptr_t sy_CLASS_NREP_PROGN =
-      meltgc_named_symbol ("CLASS_NREP_PROGN", MELT_GET);
-    if (sy_CLASS_NREP_PROGN && NULL == /*_.VALDATA___V1376*/ meltfptr[1375])
-  /*_.VALDATA___V1376*/ meltfptr[1375] = (melt_ptr_t) sy_CLASS_NREP_PROGN;
-  }
+
+  if (NULL == /*_.VALDATA___V1376*/ meltfptr[1375])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_PROGN =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_PROGN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_PROGN =
+	meltgc_named_symbol ("CLASS_NREP_PROGN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1376*/ meltfptr[1375] =
+	(melt_ptr_t) meltsy_CLASS_NREP_PROGN;
+    }				/*endgetnamedsym CLASS_NREP_PROGN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_IFTUPLESIZED */
-  {
-    melt_ptr_t sy_CLASS_NREP_IFTUPLESIZED =
-      meltgc_named_symbol ("CLASS_NREP_IFTUPLESIZED", MELT_GET);
-    if (sy_CLASS_NREP_IFTUPLESIZED
-	&& NULL == /*_.VALDATA___V1380*/ meltfptr[1379])
-  /*_.VALDATA___V1380*/ meltfptr[1379] =
-	(melt_ptr_t) sy_CLASS_NREP_IFTUPLESIZED;
-  }
+
+  if (NULL == /*_.VALDATA___V1380*/ meltfptr[1379])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_IFTUPLESIZED =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_IFTUPLESIZED",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_IFTUPLESIZED =
+	meltgc_named_symbol ("CLASS_NREP_IFTUPLESIZED", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1380*/ meltfptr[1379] =
+	(melt_ptr_t) meltsy_CLASS_NREP_IFTUPLESIZED;
+    }				/*endgetnamedsym CLASS_NREP_IFTUPLESIZED */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_IFCOMMON */
-  {
-    melt_ptr_t sy_CLASS_NREP_IFCOMMON =
-      meltgc_named_symbol ("CLASS_NREP_IFCOMMON", MELT_GET);
-    if (sy_CLASS_NREP_IFCOMMON
-	&& NULL == /*_.VALDATA___V1382*/ meltfptr[1381])
-  /*_.VALDATA___V1382*/ meltfptr[1381] =
-	(melt_ptr_t) sy_CLASS_NREP_IFCOMMON;
-  }
+
+  if (NULL == /*_.VALDATA___V1382*/ meltfptr[1381])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_IFCOMMON =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_IFCOMMON",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_IFCOMMON =
+	meltgc_named_symbol ("CLASS_NREP_IFCOMMON", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1382*/ meltfptr[1381] =
+	(melt_ptr_t) meltsy_CLASS_NREP_IFCOMMON;
+    }				/*endgetnamedsym CLASS_NREP_IFCOMMON */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_IFSAME */
-  {
-    melt_ptr_t sy_CLASS_NREP_IFSAME =
-      meltgc_named_symbol ("CLASS_NREP_IFSAME", MELT_GET);
-    if (sy_CLASS_NREP_IFSAME && NULL == /*_.VALDATA___V1386*/ meltfptr[1385])
-  /*_.VALDATA___V1386*/ meltfptr[1385] =
-	(melt_ptr_t) sy_CLASS_NREP_IFSAME;
-  }
+
+  if (NULL == /*_.VALDATA___V1386*/ meltfptr[1385])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_IFSAME =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_IFSAME", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_IFSAME =
+	meltgc_named_symbol ("CLASS_NREP_IFSAME", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1386*/ meltfptr[1385] =
+	(melt_ptr_t) meltsy_CLASS_NREP_IFSAME;
+    }				/*endgetnamedsym CLASS_NREP_IFSAME */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:LIST_MAP */
-  {
-    melt_ptr_t sy_LIST_MAP = meltgc_named_symbol ("LIST_MAP", MELT_GET);
-    if (sy_LIST_MAP && NULL == /*_.VALDATA___V1394*/ meltfptr[1393])
-  /*_.VALDATA___V1394*/ meltfptr[1393] = (melt_ptr_t) sy_LIST_MAP;
-  }
+
+  if (NULL == /*_.VALDATA___V1394*/ meltfptr[1393])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_LIST_MAP =
+	melthookproc_HOOK_NAMED_SYMBOL ("LIST_MAP", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_LIST_MAP = meltgc_named_symbol ("LIST_MAP", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1394*/ meltfptr[1393] = (melt_ptr_t) meltsy_LIST_MAP;
+    }				/*endgetnamedsym LIST_MAP */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_NREP_IF */
-  {
-    melt_ptr_t sy_CLASS_NREP_IF =
-      meltgc_named_symbol ("CLASS_NREP_IF", MELT_GET);
-    if (sy_CLASS_NREP_IF && NULL == /*_.VALDATA___V1398*/ meltfptr[1397])
-  /*_.VALDATA___V1398*/ meltfptr[1397] = (melt_ptr_t) sy_CLASS_NREP_IF;
-  }
+
+  if (NULL == /*_.VALDATA___V1398*/ meltfptr[1397])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_NREP_IF =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NREP_IF", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_NREP_IF =
+	meltgc_named_symbol ("CLASS_NREP_IF", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1398*/ meltfptr[1397] =
+	(melt_ptr_t) meltsy_CLASS_NREP_IF;
+    }				/*endgetnamedsym CLASS_NREP_IF */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMALIZE_TEST_MATCHER */
-  {
-    melt_ptr_t sy_NORMALIZE_TEST_MATCHER =
-      meltgc_named_symbol ("NORMALIZE_TEST_MATCHER", MELT_GET);
-    if (sy_NORMALIZE_TEST_MATCHER
-	&& NULL == /*_.VALDATA___V1400*/ meltfptr[1399])
-  /*_.VALDATA___V1400*/ meltfptr[1399] =
-	(melt_ptr_t) sy_NORMALIZE_TEST_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V1400*/ meltfptr[1399])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMALIZE_TEST_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMALIZE_TEST_MATCHER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMALIZE_TEST_MATCHER =
+	meltgc_named_symbol ("NORMALIZE_TEST_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1400*/ meltfptr[1399] =
+	(melt_ptr_t) meltsy_NORMALIZE_TEST_MATCHER;
+    }				/*endgetnamedsym NORMALIZE_TEST_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NDATA */
-  {
-    melt_ptr_t sy_NDATA = meltgc_named_symbol ("NDATA", MELT_GET);
-    if (sy_NDATA && NULL == /*_.VALDATA___V1404*/ meltfptr[1403])
-  /*_.VALDATA___V1404*/ meltfptr[1403] = (melt_ptr_t) sy_NDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1404*/ meltfptr[1403])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("NDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NDATA = meltgc_named_symbol ("NDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1404*/ meltfptr[1403] = (melt_ptr_t) meltsy_NDATA;
+    }				/*endgetnamedsym NDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:BINDLIST */
-  {
-    melt_ptr_t sy_BINDLIST = meltgc_named_symbol ("BINDLIST", MELT_GET);
-    if (sy_BINDLIST && NULL == /*_.VALDATA___V1407*/ meltfptr[1406])
-  /*_.VALDATA___V1407*/ meltfptr[1406] = (melt_ptr_t) sy_BINDLIST;
-  }
+
+  if (NULL == /*_.VALDATA___V1407*/ meltfptr[1406])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_BINDLIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("BINDLIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_BINDLIST = meltgc_named_symbol ("BINDLIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1407*/ meltfptr[1406] = (melt_ptr_t) meltsy_BINDLIST;
+    }				/*endgetnamedsym BINDLIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NJELSE */
-  {
-    melt_ptr_t sy_NJELSE = meltgc_named_symbol ("NJELSE", MELT_GET);
-    if (sy_NJELSE && NULL == /*_.VALDATA___V1411*/ meltfptr[1410])
-  /*_.VALDATA___V1411*/ meltfptr[1410] = (melt_ptr_t) sy_NJELSE;
-  }
+
+  if (NULL == /*_.VALDATA___V1411*/ meltfptr[1410])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NJELSE =
+	melthookproc_HOOK_NAMED_SYMBOL ("NJELSE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NJELSE = meltgc_named_symbol ("NJELSE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1411*/ meltfptr[1410] = (melt_ptr_t) meltsy_NJELSE;
+    }				/*endgetnamedsym NJELSE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NORMALIZE_FILL_MATCHER */
-  {
-    melt_ptr_t sy_NORMALIZE_FILL_MATCHER =
-      meltgc_named_symbol ("NORMALIZE_FILL_MATCHER", MELT_GET);
-    if (sy_NORMALIZE_FILL_MATCHER
-	&& NULL == /*_.VALDATA___V1417*/ meltfptr[1416])
-  /*_.VALDATA___V1417*/ meltfptr[1416] =
-	(melt_ptr_t) sy_NORMALIZE_FILL_MATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V1417*/ meltfptr[1416])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NORMALIZE_FILL_MATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("NORMALIZE_FILL_MATCHER",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NORMALIZE_FILL_MATCHER =
+	meltgc_named_symbol ("NORMALIZE_FILL_MATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1417*/ meltfptr[1416] =
+	(melt_ptr_t) meltsy_NORMALIZE_FILL_MATCHER;
+    }				/*endgetnamedsym NORMALIZE_FILL_MATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:NOUTS */
-  {
-    melt_ptr_t sy_NOUTS = meltgc_named_symbol ("NOUTS", MELT_GET);
-    if (sy_NOUTS && NULL == /*_.VALDATA___V1423*/ meltfptr[1422])
-  /*_.VALDATA___V1423*/ meltfptr[1422] = (melt_ptr_t) sy_NOUTS;
-  }
+
+  if (NULL == /*_.VALDATA___V1423*/ meltfptr[1422])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_NOUTS =
+	melthookproc_HOOK_NAMED_SYMBOL ("NOUTS", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_NOUTS = meltgc_named_symbol ("NOUTS", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1423*/ meltfptr[1422] = (melt_ptr_t) meltsy_NOUTS;
+    }				/*endgetnamedsym NOUTS */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:TESTDATA */
-  {
-    melt_ptr_t sy_TESTDATA = meltgc_named_symbol ("TESTDATA", MELT_GET);
-    if (sy_TESTDATA && NULL == /*_.VALDATA___V1427*/ meltfptr[1426])
-  /*_.VALDATA___V1427*/ meltfptr[1426] = (melt_ptr_t) sy_TESTDATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1427*/ meltfptr[1426])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_TESTDATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("TESTDATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_TESTDATA = meltgc_named_symbol ("TESTDATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1427*/ meltfptr[1426] = (melt_ptr_t) meltsy_TESTDATA;
+    }				/*endgetnamedsym TESTDATA */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_CMATCHER */
-  {
-    melt_ptr_t sy_CLASS_CMATCHER =
-      meltgc_named_symbol ("CLASS_CMATCHER", MELT_GET);
-    if (sy_CLASS_CMATCHER && NULL == /*_.VALDATA___V1439*/ meltfptr[1438])
-  /*_.VALDATA___V1439*/ meltfptr[1438] = (melt_ptr_t) sy_CLASS_CMATCHER;
-  }
+
+  if (NULL == /*_.VALDATA___V1439*/ meltfptr[1438])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_CMATCHER =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CMATCHER", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_CMATCHER =
+	meltgc_named_symbol ("CLASS_CMATCHER", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1439*/ meltfptr[1438] =
+	(melt_ptr_t) meltsy_CLASS_CMATCHER;
+    }				/*endgetnamedsym CLASS_CMATCHER */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:_MATCHRES */
-  {
-    melt_ptr_t sy_MATCHRES = meltgc_named_symbol ("_MATCHRES", MELT_GET);
-    if (sy_MATCHRES && NULL == /*_.VALDATA___V1448*/ meltfptr[1447])
-  /*_.VALDATA___V1448*/ meltfptr[1447] = (melt_ptr_t) sy_MATCHRES;
-  }
+
+  if (NULL == /*_.VALDATA___V1448*/ meltfptr[1447])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHRES =
+	melthookproc_HOOK_NAMED_SYMBOL ("_MATCHRES", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHRES =
+	meltgc_named_symbol ("_MATCHRES", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1448*/ meltfptr[1447] = (melt_ptr_t) meltsy_MATCHRES;
+    }				/*endgetnamedsym _MATCHRES */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHALT_INTER_ */
-  {
-    melt_ptr_t sy_MATCHALT_INTER_ =
-      meltgc_named_symbol ("MATCHALT_INTER_", MELT_GET);
-    if (sy_MATCHALT_INTER_ && NULL == /*_.VALDATA___V1455*/ meltfptr[1454])
-  /*_.VALDATA___V1455*/ meltfptr[1454] = (melt_ptr_t) sy_MATCHALT_INTER_;
-  }
+
+  if (NULL == /*_.VALDATA___V1455*/ meltfptr[1454])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHALT_INTER_ =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHALT_INTER_", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHALT_INTER_ =
+	meltgc_named_symbol ("MATCHALT_INTER_", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1455*/ meltfptr[1454] =
+	(melt_ptr_t) meltsy_MATCHALT_INTER_;
+    }				/*endgetnamedsym MATCHALT_INTER_ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:_MATCHED_DATA */
-  {
-    melt_ptr_t sy_MATCHED_DATA =
-      meltgc_named_symbol ("_MATCHED_DATA", MELT_GET);
-    if (sy_MATCHED_DATA && NULL == /*_.VALDATA___V1457*/ meltfptr[1456])
-  /*_.VALDATA___V1457*/ meltfptr[1456] = (melt_ptr_t) sy_MATCHED_DATA;
-  }
+
+  if (NULL == /*_.VALDATA___V1457*/ meltfptr[1456])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHED_DATA =
+	melthookproc_HOOK_NAMED_SYMBOL ("_MATCHED_DATA", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHED_DATA =
+	meltgc_named_symbol ("_MATCHED_DATA", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1457*/ meltfptr[1456] = (melt_ptr_t) meltsy_MATCHED_DATA;
+    }				/*endgetnamedsym _MATCHED_DATA */
+
 
   /*^getnamedkeyword */
   /*getnamedkeyw:TRUE */
@@ -33433,32 +35664,54 @@ melt_start_this_module (void *modargp_)
 
   /*^getnamedsymbol */
   /*getnamedsym:MATCHALTRES_ */
-  {
-    melt_ptr_t sy_MATCHALTRES_ =
-      meltgc_named_symbol ("MATCHALTRES_", MELT_GET);
-    if (sy_MATCHALTRES_ && NULL == /*_.VALDATA___V1475*/ meltfptr[1474])
-  /*_.VALDATA___V1475*/ meltfptr[1474] = (melt_ptr_t) sy_MATCHALTRES_;
-  }
+
+  if (NULL == /*_.VALDATA___V1475*/ meltfptr[1474])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MATCHALTRES_ =
+	melthookproc_HOOK_NAMED_SYMBOL ("MATCHALTRES_", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MATCHALTRES_ =
+	meltgc_named_symbol ("MATCHALTRES_", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1475*/ meltfptr[1474] = (melt_ptr_t) meltsy_MATCHALTRES_;
+    }				/*endgetnamedsym MATCHALTRES_ */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_SOURCE_MATCHALT */
-  {
-    melt_ptr_t sy_CLASS_SOURCE_MATCHALT =
-      meltgc_named_symbol ("CLASS_SOURCE_MATCHALT", MELT_GET);
-    if (sy_CLASS_SOURCE_MATCHALT
-	&& NULL == /*_.VALDATA___V1478*/ meltfptr[1477])
-  /*_.VALDATA___V1478*/ meltfptr[1477] =
-	(melt_ptr_t) sy_CLASS_SOURCE_MATCHALT;
-  }
+
+  if (NULL == /*_.VALDATA___V1478*/ meltfptr[1477])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCHALT =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCHALT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_SOURCE_MATCHALT =
+	meltgc_named_symbol ("CLASS_SOURCE_MATCHALT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1478*/ meltfptr[1477] =
+	(melt_ptr_t) meltsy_CLASS_SOURCE_MATCHALT;
+    }				/*endgetnamedsym CLASS_SOURCE_MATCHALT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:ALTERNATE_MATCH */
-  {
-    melt_ptr_t sy_ALTERNATE_MATCH =
-      meltgc_named_symbol ("ALTERNATE_MATCH", MELT_GET);
-    if (sy_ALTERNATE_MATCH && NULL == /*_.VALDATA___V1482*/ meltfptr[1481])
-  /*_.VALDATA___V1482*/ meltfptr[1481] = (melt_ptr_t) sy_ALTERNATE_MATCH;
-  }
+
+  if (NULL == /*_.VALDATA___V1482*/ meltfptr[1481])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_ALTERNATE_MATCH =
+	melthookproc_HOOK_NAMED_SYMBOL ("ALTERNATE_MATCH", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_ALTERNATE_MATCH =
+	meltgc_named_symbol ("ALTERNATE_MATCH", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V1482*/ meltfptr[1481] =
+	(melt_ptr_t) meltsy_ALTERNATE_MATCH;
+    }				/*endgetnamedsym ALTERNATE_MATCH */
+
 
   /*^comment */
  /**COMMENT: get the value importer **/ ;

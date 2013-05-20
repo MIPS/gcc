@@ -18371,7 +18371,8 @@ meltlab_endgetargs:;
       union meltparam_un argtab[1];
       memset (&argtab, 0, sizeof (argtab));
       /*^apply.arg */
-      argtab[0].meltbp_cstring = "get symbols & keywords";
+      argtab[0].meltbp_cstring =
+	"get symbols & keywords for initial procedure";
       /*_.APPEND_COMMENTCONST__V144*/ meltfptr[143] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!APPEND_COMMENTCONST */ meltfrout->tabval[19])),
@@ -26608,7 +26609,7 @@ meltlab_endgetargs:;
       union meltparam_un argtab[1];
       memset (&argtab, 0, sizeof (argtab));
       /*^apply.arg */
-      argtab[0].meltbp_cstring = "get symbols & keywords";
+      argtab[0].meltbp_cstring = "get symbols & keywords for extension";
       /*_.APPEND_COMMENTCONST__V145*/ meltfptr[141] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!APPEND_COMMENTCONST */ meltfrout->tabval[24])),

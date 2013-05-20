@@ -3090,10 +3090,10 @@ meltlab_endgetargs:;
     };
     ;
  /*_.CLASYMB__V18*/ meltfptr[17] =
-      meltgc_named_symbol (melt_string_str
-			   ((melt_ptr_t)
-			    ( /*_.NAMED_NAME__V17*/ meltfptr[16])),
-			   MELT_GET);;
+      melthookproc_HOOK_NAMED_SYMBOL (melt_string_str
+				      ((melt_ptr_t)
+				       ( /*_.NAMED_NAME__V17*/ meltfptr[16])),
+				      (long) MELT_GET);;
 
     MELT_CHECK_SIGNAL ();
     ;

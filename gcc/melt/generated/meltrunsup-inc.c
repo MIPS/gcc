@@ -3017,24 +3017,28 @@ melthookproc_HOOK_NAMED_SYMBOL (const char *meltin_NAM_p0,
   melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_SYMBOL);
   typedef melt_ptr_t melthooksig_HOOK_NAMED_SYMBOL_t (melt_ptr_t,
 						      const char *, long);
-  /*checkhook */ melt_assertmsg (" good predefhook HOOK_NAMED_SYMBOL",
-				 melt_magic_discr ((melt_ptr_t) melthkp) ==
-				 MELTOBMAG_HOOK);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
   /* check hook routine HOOK_NAMED_SYMBOL */
   melthooksig_HOOK_NAMED_SYMBOL_t *melthookptr_HOOK_NAMED_SYMBOL =
     (melthooksig_HOOK_NAMED_SYMBOL_t *) (melthkp->hookad);
-  melt_assertmsg ("good predefhook routine HOOK_NAMED_SYMBOL",
+  melt_assertmsg ("check predefhook routine HOOK_NAMED_SYMBOL",
 		  melthookptr_HOOK_NAMED_SYMBOL);
 
   /* check predefhook HOOK_NAMED_SYMBOL name */
-  melt_assertmsg ("good predefhook name HOOK_NAMED_SYMBOL",
+  melt_assertmsg ("check predefhook name HOOK_NAMED_SYMBOL",
 		  !strncmp (melthkp->hookname,
 			    "HOOK_NAMED_SYMBOL", MELT_HOOKNAME_LEN - 1));
   /* check hook data HOOK_NAMED_SYMBOL */
   melt_assertmsg
     ("good predefhook data hash HOOK_NAMED_SYMBOL or bootstrapping",
      melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 943266993);
+     || melt_obj_hash (melthkp->hookdata) == 454033420);
   return (*melthookptr_HOOK_NAMED_SYMBOL) ((melt_ptr_t) melthkp,
 					   meltin_NAM_p0, meltin_CREATE_p1);
 #endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
@@ -3056,17 +3060,21 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
   typedef void melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t (melt_ptr_t, melt_ptr_t,
 						      const char *, long,
 						      const char *, long);
-  /*checkhook */ melt_assertmsg (" good predefhook HOOK_LOW_DEBUG_VALUE_AT",
-				 melt_magic_discr ((melt_ptr_t) melthkp) ==
-				 MELTOBMAG_HOOK);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
   /* check hook routine HOOK_LOW_DEBUG_VALUE_AT */
   melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *melthookptr_HOOK_LOW_DEBUG_VALUE_AT =
     (melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *) (melthkp->hookad);
-  melt_assertmsg ("good predefhook routine HOOK_LOW_DEBUG_VALUE_AT",
+  melt_assertmsg ("check predefhook routine HOOK_LOW_DEBUG_VALUE_AT",
 		  melthookptr_HOOK_LOW_DEBUG_VALUE_AT);
 
   /* check predefhook HOOK_LOW_DEBUG_VALUE_AT name */
-  melt_assertmsg ("good predefhook name HOOK_LOW_DEBUG_VALUE_AT",
+  melt_assertmsg ("check predefhook name HOOK_LOW_DEBUG_VALUE_AT",
 		  !strncmp (melthkp->hookname,
 			    "HOOK_LOW_DEBUG_VALUE_AT",
 			    MELT_HOOKNAME_LEN - 1));
@@ -3094,17 +3102,21 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
   melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE);
   typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long *);
-  /*checkhook */ melt_assertmsg (" good predefhook HOOK_OVERRIDE_GATE",
-				 melt_magic_discr ((melt_ptr_t) melthkp) ==
-				 MELTOBMAG_HOOK);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
   /* check hook routine HOOK_OVERRIDE_GATE */
   melthooksig_HOOK_OVERRIDE_GATE_t *melthookptr_HOOK_OVERRIDE_GATE =
     (melthooksig_HOOK_OVERRIDE_GATE_t *) (melthkp->hookad);
-  melt_assertmsg ("good predefhook routine HOOK_OVERRIDE_GATE",
+  melt_assertmsg ("check predefhook routine HOOK_OVERRIDE_GATE",
 		  melthookptr_HOOK_OVERRIDE_GATE);
 
   /* check predefhook HOOK_OVERRIDE_GATE name */
-  melt_assertmsg ("good predefhook name HOOK_OVERRIDE_GATE",
+  melt_assertmsg ("check predefhook name HOOK_OVERRIDE_GATE",
 		  !strncmp (melthkp->hookname,
 			    "HOOK_OVERRIDE_GATE", MELT_HOOKNAME_LEN - 1));
   /* check hook data HOOK_OVERRIDE_GATE */

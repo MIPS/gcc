@@ -4679,6 +4679,11 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 	   "HOOK_LOW_DEBUG_VALUE_AT",
 	   sizeof (meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT.hookname) - 1);
 /*predefinedhook HOOK_LOW_DEBUG_VALUE_AT for dhook__1__HOOK_LOW_DEBUG_VALUE_AT*/
+  if (!MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT))
+    MELT_STORE_PREDEF (HOOK_LOW_DEBUG_VALUE_AT,
+		       (melt_ptr_t) & meltcdat->
+		       dhook__1__HOOK_LOW_DEBUG_VALUE_AT);
+
   /*_.VALHOOK___V11*/ meltfptr[10] =
   /*inihooklocvar HOOK_LOW_DEBUG_VALUE_AT */
   (melt_ptr_t) & meltcdat->dhook__1__HOOK_LOW_DEBUG_VALUE_AT;
@@ -5165,6 +5170,11 @@ initialize_module_meltdata_warmelt_hooks (meltinitial_frame_t * iniframp__,
 	   "HOOK_OVERRIDE_GATE",
 	   sizeof (meltcdat->dhook__30__HOOK_OVERRIDE_GATE.hookname) - 1);
 /*predefinedhook HOOK_OVERRIDE_GATE for dhook__30__HOOK_OVERRIDE_GATE*/
+  if (!MELT_PREDEF (HOOK_OVERRIDE_GATE))
+    MELT_STORE_PREDEF (HOOK_OVERRIDE_GATE,
+		       (melt_ptr_t) & meltcdat->
+		       dhook__30__HOOK_OVERRIDE_GATE);
+
   /*_.VALHOOK___V43*/ meltfptr[42] =
   /*inihooklocvar HOOK_OVERRIDE_GATE */
   (melt_ptr_t) & meltcdat->dhook__30__HOOK_OVERRIDE_GATE;
@@ -5860,100 +5870,182 @@ melt_start_this_module (void *modargp_)
     }
 
   /*^comment */
- /**COMMENT: get symbols & keywords **/ ;
+ /**COMMENT: get symbols & keywords for initial procedure **/ ;
 
   /*^getnamedsymbol */
   /*getnamedsym:VAL */
-  {
-    melt_ptr_t sy_VAL = meltgc_named_symbol ("VAL", MELT_GET);
-    if (sy_VAL && NULL == /*_.VALDATA___V17*/ meltfptr[16])
-  /*_.VALDATA___V17*/ meltfptr[16] = (melt_ptr_t) sy_VAL;
-  }
+
+  if (NULL == /*_.VALDATA___V17*/ meltfptr[16])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_VAL =
+	melthookproc_HOOK_NAMED_SYMBOL ("VAL", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_VAL = meltgc_named_symbol ("VAL", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V17*/ meltfptr[16] = (melt_ptr_t) meltsy_VAL;
+    }				/*endgetnamedsym VAL */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:FILENAME */
-  {
-    melt_ptr_t sy_FILENAME = meltgc_named_symbol ("FILENAME", MELT_GET);
-    if (sy_FILENAME && NULL == /*_.VALDATA___V20*/ meltfptr[19])
-  /*_.VALDATA___V20*/ meltfptr[19] = (melt_ptr_t) sy_FILENAME;
-  }
+
+  if (NULL == /*_.VALDATA___V20*/ meltfptr[19])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_FILENAME =
+	melthookproc_HOOK_NAMED_SYMBOL ("FILENAME", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_FILENAME = meltgc_named_symbol ("FILENAME", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V20*/ meltfptr[19] = (melt_ptr_t) meltsy_FILENAME;
+    }				/*endgetnamedsym FILENAME */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:LINENO */
-  {
-    melt_ptr_t sy_LINENO = meltgc_named_symbol ("LINENO", MELT_GET);
-    if (sy_LINENO && NULL == /*_.VALDATA___V23*/ meltfptr[22])
-  /*_.VALDATA___V23*/ meltfptr[22] = (melt_ptr_t) sy_LINENO;
-  }
+
+  if (NULL == /*_.VALDATA___V23*/ meltfptr[22])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_LINENO =
+	melthookproc_HOOK_NAMED_SYMBOL ("LINENO", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_LINENO = meltgc_named_symbol ("LINENO", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V23*/ meltfptr[22] = (melt_ptr_t) meltsy_LINENO;
+    }				/*endgetnamedsym LINENO */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MSG */
-  {
-    melt_ptr_t sy_MSG = meltgc_named_symbol ("MSG", MELT_GET);
-    if (sy_MSG && NULL == /*_.VALDATA___V26*/ meltfptr[25])
-  /*_.VALDATA___V26*/ meltfptr[25] = (melt_ptr_t) sy_MSG;
-  }
+
+  if (NULL == /*_.VALDATA___V26*/ meltfptr[25])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MSG =
+	melthookproc_HOOK_NAMED_SYMBOL ("MSG", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MSG = meltgc_named_symbol ("MSG", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V26*/ meltfptr[25] = (melt_ptr_t) meltsy_MSG;
+    }				/*endgetnamedsym MSG */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:COUNT */
-  {
-    melt_ptr_t sy_COUNT = meltgc_named_symbol ("COUNT", MELT_GET);
-    if (sy_COUNT && NULL == /*_.VALDATA___V29*/ meltfptr[28])
-  /*_.VALDATA___V29*/ meltfptr[28] = (melt_ptr_t) sy_COUNT;
-  }
+
+  if (NULL == /*_.VALDATA___V29*/ meltfptr[28])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_COUNT =
+	melthookproc_HOOK_NAMED_SYMBOL ("COUNT", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_COUNT = meltgc_named_symbol ("COUNT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V29*/ meltfptr[28] = (melt_ptr_t) meltsy_COUNT;
+    }				/*endgetnamedsym COUNT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:MELT_DEBUG_FUN */
-  {
-    melt_ptr_t sy_MELT_DEBUG_FUN =
-      meltgc_named_symbol ("MELT_DEBUG_FUN", MELT_GET);
-    if (sy_MELT_DEBUG_FUN && NULL == /*_.VALDATA___V12*/ meltfptr[11])
-  /*_.VALDATA___V12*/ meltfptr[11] = (melt_ptr_t) sy_MELT_DEBUG_FUN;
-  }
+
+  if (NULL == /*_.VALDATA___V12*/ meltfptr[11])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_MELT_DEBUG_FUN =
+	melthookproc_HOOK_NAMED_SYMBOL ("MELT_DEBUG_FUN", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_MELT_DEBUG_FUN =
+	meltgc_named_symbol ("MELT_DEBUG_FUN", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V12*/ meltfptr[11] = (melt_ptr_t) meltsy_MELT_DEBUG_FUN;
+    }				/*endgetnamedsym MELT_DEBUG_FUN */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:OVERRIDE_GATE_DELAYED_QUEUE */
-  {
-    melt_ptr_t sy_OVERRIDE_GATE_DELAYED_QUEUE =
-      meltgc_named_symbol ("OVERRIDE_GATE_DELAYED_QUEUE", MELT_GET);
-    if (sy_OVERRIDE_GATE_DELAYED_QUEUE
-	&& NULL == /*_.VALDATA___V33*/ meltfptr[32])
-  /*_.VALDATA___V33*/ meltfptr[32] =
-	(melt_ptr_t) sy_OVERRIDE_GATE_DELAYED_QUEUE;
-  }
+
+  if (NULL == /*_.VALDATA___V33*/ meltfptr[32])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_OVERRIDE_GATE_DELAYED_QUEUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("OVERRIDE_GATE_DELAYED_QUEUE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_OVERRIDE_GATE_DELAYED_QUEUE =
+	meltgc_named_symbol ("OVERRIDE_GATE_DELAYED_QUEUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V33*/ meltfptr[32] =
+	(melt_ptr_t) meltsy_OVERRIDE_GATE_DELAYED_QUEUE;
+    }				/*endgetnamedsym OVERRIDE_GATE_DELAYED_QUEUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_DELAYED_QUEUE */
-  {
-    melt_ptr_t sy_CLASS_DELAYED_QUEUE =
-      meltgc_named_symbol ("CLASS_DELAYED_QUEUE", MELT_GET);
-    if (sy_CLASS_DELAYED_QUEUE && NULL == /*_.VALDATA___V35*/ meltfptr[34])
-  /*_.VALDATA___V35*/ meltfptr[34] = (melt_ptr_t) sy_CLASS_DELAYED_QUEUE;
-  }
+
+  if (NULL == /*_.VALDATA___V35*/ meltfptr[34])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_DELAYED_QUEUE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_DELAYED_QUEUE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_DELAYED_QUEUE =
+	meltgc_named_symbol ("CLASS_DELAYED_QUEUE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V35*/ meltfptr[34] =
+	(melt_ptr_t) meltsy_CLASS_DELAYED_QUEUE;
+    }				/*endgetnamedsym CLASS_DELAYED_QUEUE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:DISCR_LIST */
-  {
-    melt_ptr_t sy_DISCR_LIST = meltgc_named_symbol ("DISCR_LIST", MELT_GET);
-    if (sy_DISCR_LIST && NULL == /*_.VALDATA___V41*/ meltfptr[40])
-  /*_.VALDATA___V41*/ meltfptr[40] = (melt_ptr_t) sy_DISCR_LIST;
-  }
+
+  if (NULL == /*_.VALDATA___V41*/ meltfptr[40])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_DISCR_LIST =
+	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_LIST", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_DISCR_LIST =
+	meltgc_named_symbol ("DISCR_LIST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V41*/ meltfptr[40] = (melt_ptr_t) meltsy_DISCR_LIST;
+    }				/*endgetnamedsym DISCR_LIST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:BEFOREGATE */
-  {
-    melt_ptr_t sy_BEFOREGATE = meltgc_named_symbol ("BEFOREGATE", MELT_GET);
-    if (sy_BEFOREGATE && NULL == /*_.VALDATA___V51*/ meltfptr[50])
-  /*_.VALDATA___V51*/ meltfptr[50] = (melt_ptr_t) sy_BEFOREGATE;
-  }
+
+  if (NULL == /*_.VALDATA___V51*/ meltfptr[50])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_BEFOREGATE =
+	melthookproc_HOOK_NAMED_SYMBOL ("BEFOREGATE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_BEFOREGATE =
+	meltgc_named_symbol ("BEFOREGATE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V51*/ meltfptr[50] = (melt_ptr_t) meltsy_BEFOREGATE;
+    }				/*endgetnamedsym BEFOREGATE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:AFTERGATE */
-  {
-    melt_ptr_t sy_AFTERGATE = meltgc_named_symbol ("AFTERGATE", MELT_GET);
-    if (sy_AFTERGATE && NULL == /*_.VALDATA___V55*/ meltfptr[54])
-  /*_.VALDATA___V55*/ meltfptr[54] = (melt_ptr_t) sy_AFTERGATE;
-  }
+
+  if (NULL == /*_.VALDATA___V55*/ meltfptr[54])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_AFTERGATE =
+	melthookproc_HOOK_NAMED_SYMBOL ("AFTERGATE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_AFTERGATE =
+	meltgc_named_symbol ("AFTERGATE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V55*/ meltfptr[54] = (melt_ptr_t) meltsy_AFTERGATE;
+    }				/*endgetnamedsym AFTERGATE */
+
 
   /*^getnamedkeyword */
   /*getnamedkeyw:TRUE */
@@ -5966,87 +6058,145 @@ melt_start_this_module (void *modargp_)
 
   /*^getnamedsymbol */
   /*getnamedsym:CLASS_REFERENCE */
-  {
-    melt_ptr_t sy_CLASS_REFERENCE =
-      meltgc_named_symbol ("CLASS_REFERENCE", MELT_GET);
-    if (sy_CLASS_REFERENCE && NULL == /*_.VALDATA___V46*/ meltfptr[45])
-  /*_.VALDATA___V46*/ meltfptr[45] = (melt_ptr_t) sy_CLASS_REFERENCE;
-  }
+
+  if (NULL == /*_.VALDATA___V46*/ meltfptr[45])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_CLASS_REFERENCE =
+	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_REFERENCE", (long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_CLASS_REFERENCE =
+	meltgc_named_symbol ("CLASS_REFERENCE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V46*/ meltfptr[45] = (melt_ptr_t) meltsy_CLASS_REFERENCE;
+    }				/*endgetnamedsym CLASS_REFERENCE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:REGISTERED_FLAG_OVERRIDE_GATE */
-  {
-    melt_ptr_t sy_REGISTERED_FLAG_OVERRIDE_GATE =
-      meltgc_named_symbol ("REGISTERED_FLAG_OVERRIDE_GATE", MELT_GET);
-    if (sy_REGISTERED_FLAG_OVERRIDE_GATE
-	&& NULL == /*_.VALDATA___V58*/ meltfptr[57])
-  /*_.VALDATA___V58*/ meltfptr[57] =
-	(melt_ptr_t) sy_REGISTERED_FLAG_OVERRIDE_GATE;
-  }
+
+  if (NULL == /*_.VALDATA___V58*/ meltfptr[57])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_REGISTERED_FLAG_OVERRIDE_GATE =
+	melthookproc_HOOK_NAMED_SYMBOL ("REGISTERED_FLAG_OVERRIDE_GATE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_REGISTERED_FLAG_OVERRIDE_GATE =
+	meltgc_named_symbol ("REGISTERED_FLAG_OVERRIDE_GATE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V58*/ meltfptr[57] =
+	(melt_ptr_t) meltsy_REGISTERED_FLAG_OVERRIDE_GATE;
+    }				/*endgetnamedsym REGISTERED_FLAG_OVERRIDE_GATE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:HOOK_OVERRIDE_GATE */
-  {
-    melt_ptr_t sy_HOOK_OVERRIDE_GATE =
-      meltgc_named_symbol ("HOOK_OVERRIDE_GATE", MELT_GET);
-    if (sy_HOOK_OVERRIDE_GATE && NULL == /*_.VALDATA___V73*/ meltfptr[72])
-  /*_.VALDATA___V73*/ meltfptr[72] = (melt_ptr_t) sy_HOOK_OVERRIDE_GATE;
-  }
+
+  if (NULL == /*_.VALDATA___V73*/ meltfptr[72])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_HOOK_OVERRIDE_GATE =
+	melthookproc_HOOK_NAMED_SYMBOL ("HOOK_OVERRIDE_GATE",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_HOOK_OVERRIDE_GATE =
+	meltgc_named_symbol ("HOOK_OVERRIDE_GATE", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V73*/ meltfptr[72] =
+	(melt_ptr_t) meltsy_HOOK_OVERRIDE_GATE;
+    }				/*endgetnamedsym HOOK_OVERRIDE_GATE */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:HOOK_LOW_DEBUG_VALUE_AT */
-  {
-    melt_ptr_t sy_HOOK_LOW_DEBUG_VALUE_AT =
-      meltgc_named_symbol ("HOOK_LOW_DEBUG_VALUE_AT", MELT_GET);
-    if (sy_HOOK_LOW_DEBUG_VALUE_AT
-	&& NULL == /*_.VALDATA___V75*/ meltfptr[74])
-  /*_.VALDATA___V75*/ meltfptr[74] =
-	(melt_ptr_t) sy_HOOK_LOW_DEBUG_VALUE_AT;
-  }
+
+  if (NULL == /*_.VALDATA___V75*/ meltfptr[74])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_HOOK_LOW_DEBUG_VALUE_AT =
+	melthookproc_HOOK_NAMED_SYMBOL ("HOOK_LOW_DEBUG_VALUE_AT",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_HOOK_LOW_DEBUG_VALUE_AT =
+	meltgc_named_symbol ("HOOK_LOW_DEBUG_VALUE_AT", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V75*/ meltfptr[74] =
+	(melt_ptr_t) meltsy_HOOK_LOW_DEBUG_VALUE_AT;
+    }				/*endgetnamedsym HOOK_LOW_DEBUG_VALUE_AT */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:REGISTER_OVERRIDE_GATE_FIRST */
-  {
-    melt_ptr_t sy_REGISTER_OVERRIDE_GATE_FIRST =
-      meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
-    if (sy_REGISTER_OVERRIDE_GATE_FIRST
-	&& NULL == /*_.VALDATA___V77*/ meltfptr[76])
-  /*_.VALDATA___V77*/ meltfptr[76] =
-	(melt_ptr_t) sy_REGISTER_OVERRIDE_GATE_FIRST;
-  }
+
+  if (NULL == /*_.VALDATA___V77*/ meltfptr[76])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_FIRST =
+	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_OVERRIDE_GATE_FIRST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_FIRST =
+	meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V77*/ meltfptr[76] =
+	(melt_ptr_t) meltsy_REGISTER_OVERRIDE_GATE_FIRST;
+    }				/*endgetnamedsym REGISTER_OVERRIDE_GATE_FIRST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:REGISTER_OVERRIDE_GATE_LAST */
-  {
-    melt_ptr_t sy_REGISTER_OVERRIDE_GATE_LAST =
-      meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_LAST", MELT_GET);
-    if (sy_REGISTER_OVERRIDE_GATE_LAST
-	&& NULL == /*_.VALDATA___V79*/ meltfptr[78])
-  /*_.VALDATA___V79*/ meltfptr[78] =
-	(melt_ptr_t) sy_REGISTER_OVERRIDE_GATE_LAST;
-  }
+
+  if (NULL == /*_.VALDATA___V79*/ meltfptr[78])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_LAST =
+	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_OVERRIDE_GATE_LAST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_LAST =
+	meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_LAST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V79*/ meltfptr[78] =
+	(melt_ptr_t) meltsy_REGISTER_OVERRIDE_GATE_LAST;
+    }				/*endgetnamedsym REGISTER_OVERRIDE_GATE_LAST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:UNREGISTER_OVERRIDE_GATE_FIRST */
-  {
-    melt_ptr_t sy_UNREGISTER_OVERRIDE_GATE_FIRST =
-      meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
-    if (sy_UNREGISTER_OVERRIDE_GATE_FIRST
-	&& NULL == /*_.VALDATA___V81*/ meltfptr[80])
-  /*_.VALDATA___V81*/ meltfptr[80] =
-	(melt_ptr_t) sy_UNREGISTER_OVERRIDE_GATE_FIRST;
-  }
+
+  if (NULL == /*_.VALDATA___V81*/ meltfptr[80])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_FIRST =
+	melthookproc_HOOK_NAMED_SYMBOL ("UNREGISTER_OVERRIDE_GATE_FIRST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_FIRST =
+	meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V81*/ meltfptr[80] =
+	(melt_ptr_t) meltsy_UNREGISTER_OVERRIDE_GATE_FIRST;
+    }				/*endgetnamedsym UNREGISTER_OVERRIDE_GATE_FIRST */
+
 
   /*^getnamedsymbol */
   /*getnamedsym:UNREGISTER_OVERRIDE_GATE_LAST */
-  {
-    melt_ptr_t sy_UNREGISTER_OVERRIDE_GATE_LAST =
-      meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_LAST", MELT_GET);
-    if (sy_UNREGISTER_OVERRIDE_GATE_LAST
-	&& NULL == /*_.VALDATA___V83*/ meltfptr[82])
-  /*_.VALDATA___V83*/ meltfptr[82] =
-	(melt_ptr_t) sy_UNREGISTER_OVERRIDE_GATE_LAST;
-  }
+
+  if (NULL == /*_.VALDATA___V83*/ meltfptr[82])
+    {
+#if MELT_NAMED_SYMBOL_USE_HOOK
+      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_LAST =
+	melthookproc_HOOK_NAMED_SYMBOL ("UNREGISTER_OVERRIDE_GATE_LAST",
+					(long) MELT_GET);
+#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
+      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_LAST =
+	meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_LAST", MELT_GET);
+#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
+   /*_.VALDATA___V83*/ meltfptr[82] =
+	(melt_ptr_t) meltsy_UNREGISTER_OVERRIDE_GATE_LAST;
+    }				/*endgetnamedsym UNREGISTER_OVERRIDE_GATE_LAST */
+
 
   /*^comment */
  /**COMMENT: get the value importer **/ ;

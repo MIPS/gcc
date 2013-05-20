@@ -29888,10 +29888,11 @@ meltlab_endgetargs:;
 	  };
 	  ;
    /*_.FLDNAM__V60*/ meltfptr[36] =
-	    meltgc_named_symbol (melt_string_str
-				 ((melt_ptr_t)
-				  ( /*_.FLDKWNAM__V59*/ meltfptr[35])),
-				 MELT_CREATE);;
+	    melthookproc_HOOK_NAMED_SYMBOL (melt_string_str
+					    ((melt_ptr_t)
+					     ( /*_.FLDKWNAM__V59*/
+					      meltfptr[35])),
+					    (long) MELT_CREATE);;
 
 #if MELT_HAVE_DEBUG
 	  MELT_LOCATION ("warmelt-macro.melt:3458:/ cppif.then");
