@@ -4462,8 +4462,8 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	}
 
       if (!COMPARISON_CLASS_P (arg1))
-	arg1 = fold_build2 (NE_EXPR, signed_type_for (arg1_type), arg1,
-		       build_zero_cst (arg1_type));
+	arg1 = cp_build_binary_op (input_location, NE_EXPR, arg1,
+				   build_zero_cst (arg1_type), complain);
       return fold_build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
     }
 
@@ -5432,7 +5432,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
-      return cp_build_binary_op (input_location, code, arg1, arg2, complain);
+      return cp_build_binary_op (loc, code, arg1, arg2, complain);
 
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
