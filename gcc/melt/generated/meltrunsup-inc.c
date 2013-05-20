@@ -3008,6 +3008,39 @@ end:
 
 
 
+/*predefined hook definition HOOK_NAMED_SYMBOL #106*/
+melt_ptr_t
+melthookproc_HOOK_NAMED_SYMBOL (const char *meltin_NAM_p0,
+				long meltin_CREATE_p1)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_NAMED_SYMBOL */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_SYMBOL);
+  typedef melt_ptr_t melthooksig_HOOK_NAMED_SYMBOL_t (melt_ptr_t,
+						      const char *, long);
+  /*checkhook */ melt_assertmsg (" good predefhook HOOK_NAMED_SYMBOL",
+				 melt_magic_discr ((melt_ptr_t) melthkp) ==
+				 MELTOBMAG_HOOK);
+  /* check hook routine HOOK_NAMED_SYMBOL */
+  melthooksig_HOOK_NAMED_SYMBOL_t *melthookptr_HOOK_NAMED_SYMBOL =
+    (melthooksig_HOOK_NAMED_SYMBOL_t *) (melthkp->hookad);
+  melt_assertmsg ("good predefhook routine HOOK_NAMED_SYMBOL",
+		  melthookptr_HOOK_NAMED_SYMBOL);
+
+  /* check predefhook HOOK_NAMED_SYMBOL name */
+  melt_assertmsg ("good predefhook name HOOK_NAMED_SYMBOL",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_NAMED_SYMBOL", MELT_HOOKNAME_LEN - 1));
+  /* check hook data HOOK_NAMED_SYMBOL */
+  melt_assertmsg
+    ("good predefhook data hash HOOK_NAMED_SYMBOL or bootstrapping",
+     melt_flag_bootstrapping != 0
+     || melt_obj_hash (melthkp->hookdata) == 943266993);
+  return (*melthookptr_HOOK_NAMED_SYMBOL) ((melt_ptr_t) melthkp,
+					   meltin_NAM_p0, meltin_CREATE_p1);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_NAMED_SYMBOL */
+
+
 
 /*predefined hook definition HOOK_LOW_DEBUG_VALUE_AT #107*/
 void
@@ -3041,7 +3074,7 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
   melt_assertmsg
     ("good predefhook data hash HOOK_LOW_DEBUG_VALUE_AT or bootstrapping",
      melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 702428777);
+     || melt_obj_hash (melthkp->hookdata) == 372954826);
   return (*melthookptr_HOOK_LOW_DEBUG_VALUE_AT) ((melt_ptr_t) melthkp,
 						 meltin_VAL_p0,
 						 meltin_FILENAME_p1,
@@ -3078,7 +3111,7 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
   melt_assertmsg
     ("good predefhook data hash HOOK_OVERRIDE_GATE or bootstrapping",
      melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 376151007);
+     || melt_obj_hash (melthkp->hookdata) == 224148143);
   return (*melthookptr_HOOK_OVERRIDE_GATE) ((melt_ptr_t) melthkp,
 					    meltin_BEFOREGATE_p0,
 					    meltout_AFTERGATE_o0);

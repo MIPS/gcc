@@ -1007,6 +1007,20 @@ meltrout_69_warmelt_first_DEBUG_MSG_FUN (meltclosure_ptr_t meltclosp_,
 					 meltxresdescr_[],
 					 union meltparam_un *meltxrestab_);
 
+/** declaration of hook melthook_HOOK_NAMED_SYMBOL */
+MELT_EXTERN
+  melt_ptr_t melthook_HOOK_NAMED_SYMBOL (melt_ptr_t melthookdata,
+					 const char *meltinp0_NAM,
+					 long meltinp1_CREATE);
+
+
+/* declare hook frame marking routine for melthook_HOOK_NAMED_SYMBOL hook */
+static void melthookmark_HOOK_NAMED_SYMBOL_rout (struct melt_callframe_st *,
+						 int);
+
+
+
+
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
@@ -1152,6 +1166,8 @@ void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__initialmeltchunk_61 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__initialmeltchunk_62 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__warmelt_first__initialmeltchunk_63 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__forward_or_mark_module_start_frame (struct
 							    melt_callframe_st
