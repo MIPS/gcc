@@ -2,6 +2,25 @@
 
 2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_named_symbol): Use hook_named_symbol when
+	possible. Add temporary information message.
+
+	* melt/warmelt-first.melt (get_symbolstr, create_symbolstr)
+	(get_raw_symbol): Use melthookproc_HOOK_NAMED_SYMBOL.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc)
+	(compile2obj_initextendproc): Emit better comment about get
+	symbols...
+
+	* melt/warmelt-outobj.melt (outpucod_objgetnamedsymbol) Emit call
+	to melthookproc_HOOK_NAMED_SYMBOL protected by #if
+	MELT_NAMED_SYMBOL_USE_HOOK.
+
+	* melt/warmelt-modes.melt
+	(generate_runtypesupport_predefined_hooks): Better check messages.
+
+2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

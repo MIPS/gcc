@@ -1716,7 +1716,7 @@ $SBUF.}#
 		     otop)))) 
 	       )
 	  ;; generate the getting of symbols & keywords
-	  (append_commentconst oiniprolog "get symbols & keywords")
+	  (append_commentconst oiniprolog "get symbols & keywords for initial procedure")
 	  (multiple_every
 	   odatatup
 	   (lambda (curpdat :long curk) 
@@ -2047,7 +2047,7 @@ $SBUF.}#
 	       )
 	  (debug "compile2obj_initextendproc objtoplis=" objtoplis)
 	  ;; generate the getting of symbols & keywords
-	  (append_commentconst oiniprolog "get symbols & keywords")
+	  (append_commentconst oiniprolog "get symbols & keywords for extension")
 	  (multiple_every
 	   odatatup
 	   (lambda (curpdat :long curk) 

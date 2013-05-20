@@ -3802,7 +3802,11 @@ melt_scanning (melt_ptr_t p)
 		  )
 		 (add2out outcodebuf ");")
                  (add2sbuf_indentnl outcodebuf 1)
-                 (add2out outcodebuf "/*checkhook*/ melt_assertmsg (\" good predefhook " hkname "\", ")
+                 (add2out outcodebuf "/*checkhook exist*/ melt_assertmsg (\" check predefhook " hkname " exists\", ")
+                 (add2sbuf_indentnl outcodebuf 15)
+                 (add2out outcodebuf "             melthkp != NULL);")
+                 (add2sbuf_indentnl outcodebuf 1)
+                 (add2out outcodebuf "/*checkhook ishook*/ melt_assertmsg (\" check predefhook " hkname " is hook\", ")
                  (add2sbuf_indentnl outcodebuf 15)
                  (add2out outcodebuf "             melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);")
                  (add2sbuf_indentnl outcodebuf 1)
@@ -3811,13 +3815,13 @@ melt_scanning (melt_ptr_t p)
 ##{ /* check hook routine $HKNAME */
                   melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
                   (melthooksig_$HKNAME#_t*) (melthkp->hookad) ;
-                  melt_assertmsg("good predefhook routine $HKNAME", 
+                  melt_assertmsg("check predefhook routine $HKNAME", 
                                  melthookptr_$HKNAME);
 }#)
                  (add2sbuf_indentnl outcodebuf 1)
                  (add2out
                   outcodebuf ##{ /* check predefhook $HKNAME name */
-		  melt_assertmsg("good predefhook name $HKNAME",
+		  melt_assertmsg("check predefhook name $HKNAME",
 				 !strncmp (melthkp->hookname,
 					   "$HKNAME", MELT_HOOKNAME_LEN-1));}#
 		  )

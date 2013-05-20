@@ -43,6 +43,7 @@
 #endif
 }#)
 
+
 ;;; Avoid using debug_msg or debug here.  See comments around
 ;;; debug_msg_fun private function near end of this file.
 
@@ -1118,16 +1119,18 @@ compiled C abstract syntax trees (that is @code{:tree} and
 
 ;; primitive to get or create a symbol from a string value
 (defprimitive get_symbolstr (strv) :value
-  :doc #{Get an existing symbol of given string value $STRV or null if not found.}#
-  #{meltgc_named_symbol( melt_string_str((melt_ptr_t)($STRV)), MELT_GET)}#)
+  :doc #{Get an existing symbol of given string value $STRV or null if
+  not found. Use $HOOK_NAMED_SYMBOL.}#
+  #{melthookproc_HOOK_NAMED_SYMBOL (melt_string_str((melt_ptr_t)($STRV)), (long)MELT_GET)}#)
 (defprimitive create_symbolstr (strv) :value
   :doc #{Retrieve an existing symbol of given string value $STRV or
-create it if not found.}# 
-  #{meltgc_named_symbol(melt_string_str((melt_ptr_t)($STRV)), 
-			MELT_CREATE)}#)
+create it if not found. Use $HOOK_NAMED_SYMBOL.}# 
+  #{melthookproc_HOOK_NAMED_SYMBOL (melt_string_str((melt_ptr_t)($STRV)), 
+			(long)MELT_CREATE)}#)
 (defprimitive get_raw_symbol (:cstring cstr) :value
-  :doc #{Get an existing symbol of given cstring $CSTR or else null.}#
-#{meltgc_named_symbol((const char*) $cstr, MELT_GET)}#)
+  :doc #{Get an existing symbol of given cstring $CSTR or else
+null. Use $HOOK_NAMED_SYMBOL.}# 
+#{melthookproc_HOOK_NAMED_SYMBOL ((const char*) ($CSTR), (long)MELT_GET)}#)
 
 ;; primitive to get or create a keyword from a string value
 (defprimitive get_keywordstr (strv) :value
@@ -2903,8 +2906,14 @@ Keyword is :cstring.}#
 
 
 
-;; function to add a new symbol [called by meltgc_named_symbol in the runtime]
+;; obsolete function to add a new symbol [called by meltgc_named_symbol in the runtime]
 (defun add_new_symbol_token (syda str)
+  (code_chunk addnewsymb_chk 
+	      #{ /* add_new_symbol_token $ADDNEWSYMB_CHK */
+	         warning (0, "MELT add_new_symbol_token unexpectedly called with %s",
+			     melt_string_str ($STR));
+#warning obsolete add_new_symbol_token  $ADDNEWSYMB_CHK
+	      }#)
   (assert_msg "check syda" (is_a syda class_system_data))
   (let ( (sy (instance class_symbol :named_name str)) 
 	 (sydict (unsafe_get_field :sysdata_symboldict syda))
@@ -4779,6 +4788,7 @@ which signals are not handled. It could be dynamically nested.}#
   :doc #{Return a void value. See $IGNORE and $CTYPE_VOID.}#
 #{/*void*/(void)0}#)
 
+
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
 ;; to be called by meltgc_named_symbol
@@ -4845,6 +4855,7 @@ which signals are not handled. It could be dynamically nested.}#
 )
 ;; end hook_named_symbol
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  block_signals
  hook_named_symbol
