@@ -132,7 +132,6 @@ static bool mpx_marked_stmt (gimple s);
 static void mpx_find_bound_slots (tree type, bool *have_bound,
 				 HOST_WIDE_INT offs,
 				 HOST_WIDE_INT ptr_size);
-static void mpx_fix_cfg ();
 
 static GTY (()) tree mpx_bndldx_fndecl;
 static GTY (()) tree mpx_bndstx_fndecl;
@@ -3647,12 +3646,12 @@ mpx_fix_function_decls (void)
       }
 }
 
-/* We could insert some code right after call which can throw.
+/* We could insert some code right after call which ends bb.
    It's not allowed and therefore we fix it here.  We did not
    add new edges from the beginning because it may cause new
    phi node creation which may be incorrect due to incomplete
    bound phi nodes.  */
-static void
+void
 mpx_fix_cfg ()
 {
   basic_block bb;

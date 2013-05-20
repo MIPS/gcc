@@ -1247,6 +1247,8 @@ mpxopt_init (void)
 void
 mpxopt_fini (void)
 {
+  mpx_fix_cfg ();
+
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
 }

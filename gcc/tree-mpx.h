@@ -29,3 +29,4 @@ extern tree mpx_build_make_bounds_call (tree lb, tree size);
 extern tree mpx_build_bndstx_call (tree addr, tree ptr, tree bounds);
 extern void mpx_expand_bounds_reset_for_mem (tree mem, tree ptr);
 extern void mpx_put_regs_to_expr_list (rtx par);
+extern void mpx_fix_cfg ();
