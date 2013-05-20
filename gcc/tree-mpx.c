@@ -2884,7 +2884,7 @@ mpx_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       break;
 
     case INTEGER_CST:
-      if (ptr_src == integer_zero_node)
+      if (integer_zerop (ptr_src))
 	bounds = mpx_get_none_bounds ();
       else
 	bounds = mpx_get_invalid_op_bounds ();
