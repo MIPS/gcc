@@ -1637,13 +1637,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#if MELT_HAVE_DEBUG")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf " static long call_counter__;")
+    (add2sbuf_strconst implbuf " static long melt_call_counter__;")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf " long thiscallcounter__ ATTRIBUTE_UNUSED = ++ call_counter__;")
+    (add2sbuf_strconst implbuf " long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#undef meltcallcount")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf "#define meltcallcount thiscallcounter__")
+    (add2sbuf_strconst implbuf "#define meltcallcount melt_thiscallcounter__")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#else")
     (add2sbuf_indentnl implbuf 0)
@@ -2566,6 +2566,8 @@ MELT_EXTERN  void* melt_start_this_module (void*);
       (add2out_strconst implbuf "#undef meltfram__")
       (add2sbuf_indentnl implbuf 0)
       (add2out_strconst implbuf "#undef meltfhook")
+      (add2sbuf_indentnl implbuf 0)
+      (add2out_strconst implbuf "#undef meltcallcount")
       (add2sbuf_indentnl implbuf 0)
       (add2sbuf_indentnl implbuf 0)
       ;;
@@ -6001,6 +6003,7 @@ MELT_EXTERN void MELT_MODULE_VISIBILITY $SYNTESTNAME (void);
 void
 $SYNTESTNAME (void) {
 if (1) return;
+#define meltcallcount -1L /* in $SYNTESTNAME */
 }#)
     (foreach_in_multiple
      (gendevtup)

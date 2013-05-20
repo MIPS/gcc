@@ -34,19 +34,6 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; primitive to ignore a value
-(defprimitive ignore (v) :void
-  :doc #{Ignore the value passed as argument.  Useful to avoid
-  translation warnings, or to force the type of a conditional. See
-  $CTYPE_VOID.}# 
-#{/*ignore*/(void)($V)}#)
-
-
-;; primitive to return a void
-(defprimitive void () :void 
-  :doc #{Return a void value. See $IGNORE and $CTYPE_VOID.}#
-#{/*void*/(void)0}#)
-
 ;; negation of is_object
 (defprimitive is_not_object (obj) :long
   :doc #{Test if $OBJ is not an object. Negation of $IS_OBJECT.}#
@@ -3873,23 +3860,6 @@ typedef struct melthook_st *melthook_ptr_t;
   :doc #{Count the number of MELT errors.}#
   #{melt_error_counter}#)
 
-;;;;
-(defciterator block_signals
-  ()
-  blksignal
-  ()
-  :doc #{The $BLOCK_SIGNALS C-iterator provides a sequence inside
-which signals are not handled. It could be dynamically nested.}# 
-  #{ /* block_signals $BLKSIGNAL start */
-     long $BLKSIGNAL#_lev = melt_blocklevel_signals;
-     melt_blocklevel_signals = $BLKSIGNAL#_lev + 1;
-  }#
-  #{ /* block_signals $BLKSIGNAL end */
-     melt_blocklevel_signals = $BLKSIGNAL#_lev;
-     MELT_CHECK_SIGNAL();
-  }#
-)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  ;; keep the alphanumerical order
@@ -3966,7 +3936,6 @@ which signals are not handled. It could be dynamically nested.}#
  add2sbuf_texi_mixloc
  add_to_out
  andi
- block_signals
  c_clock
  c_time
  cbreak_msg
@@ -3990,7 +3959,6 @@ which signals are not handled. It could be dynamically nested.}#
  full_garbcoll
  generate_flavored_melt_module
  get_globpredef
- ignore
  increment
  inform_plain
  inform_strv
@@ -4164,7 +4132,6 @@ which signals are not handled. It could be dynamically nested.}#
  variadic_length
  variadic_skip
  variadic_type_code
- void
  warning_plain
  warning_strv
  warningmsg_plain

@@ -6784,7 +6784,7 @@ remain.}#)
 ;;;;;; (debug_msg val msg [count]) 
 ;;; becomes
 ;;;;;; (cppif MELT_HAVE_DEBUG (debug_msg_fun val msg count filename lineno) ())
-;;; where count is (the_meltcallcount) if not given
+;;; where count is (melt_callcount) if not given
 
 (defun mexpand_debug_msg (sexpr env mexpander modctx)
   (debug "mexpand_debug_msg sexpr" sexpr)
@@ -6816,7 +6816,7 @@ remain.}#)
 	(error_plain loc "message argument should be string in DEBUG_MSG"_))
     (if (null xcount)
 	(let ( (conlis (make_list discr_list)) )
-	  (list_append conlis 'the_meltcallcount)
+	  (list_append conlis 'melt_callcount)
 	  (setq xcount (macroexpand_1 (instance class_sexpr 
 						:sexp_contents conlis
 						:loca_location loc)
@@ -6857,7 +6857,7 @@ remain.}#)
 ;;;;;; (debug ...) 
 ;;; becomes
 ;;;;;; (cppif MELT_HAVE_DEBUG (if (melt_need_dbg 0) (melt_debug_fun () count filename lineno ...)))
-;;; where count is (the_meltcallcount) 
+;;; where count is (melt_callcount) 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mexpand_debug  (sexpr env mexpander modctx)
   (debug "mexpand_debug sexpr" sexpr)
@@ -6872,7 +6872,7 @@ remain.}#)
 		  ((is_mixloc loc) (mixloc_val loc))))
 	(:long dline (get_int loc))
 	(debugfunbind (find_env env 'melt_debug_fun))
-	(thecountbind (find_env env 'the_meltcallcount))
+	(thecountbind (find_env env 'melt_callcount))
 	(theneeddbgbind (find_env env 'melt_need_dbg))
 	(theincrdbgbind (find_env env 'melt_increment_dbgcounter))
 	(curpair (pair_tail (list_first cont)))

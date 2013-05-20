@@ -1,5 +1,30 @@
 
 2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-module.mk
+	($(GCCMELTGEN_BUILD)%.quicklybuilt.meltmdsumedpic.o): On GCC
+	compilation failure, recompile with line numbering to also give
+	error messages in the generated file.
+
+	* melt/warmelt-first.melt (hook_named_symbol): Commented
+	temporarily, moved from warmelt-hooks.melt.
+	(block_signals, ignore, void): Move from warmelt-base.melt.
+	(melt_callcount): Better
+	(the_meltcallcount): Deprecated synonym.
+
+	* melt/warmelt-base.melt (block_signals, ignore, void): Remove,
+	since moved to warmelt-first.
+
+	* melt/warmelt-macro.melt (mexpand_debug_msg, mexpand_debug): Use
+	melt_callcount instead of the_meltcallcount.
+
+	* melt/warmelt-normal.melt (normexp_or): Use melt_callcount.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init): Emit
+	melt_thiscallcounter__ not thiscallcounter__...
+	(outpucod_hookroutine): Emit #undef meltcallcount.
+	(emit_syntax_testing_routine): Likewise.
+
+2013-05-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_named_symbol): Missing increment in
 	upcasing loop...
 

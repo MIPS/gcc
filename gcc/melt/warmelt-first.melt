@@ -1101,21 +1101,15 @@ compiled C abstract syntax trees (that is @code{:tree} and
 
 
 ;;; the call counter - do not redefine the name, it is used by expansion of debug_msg macro!
-(defprimitive the_meltcallcount () :long 
-#{#ifdef meltcallcount
-meltcallcount /* the_meltcallcount */
+(defprimitive melt_callcount () :long 
+#{/* for melt_callcount */
+#if MELT_HAVE_DEBUG && defined (meltcallcount)
+  meltcallcount  /* melt_callcount debugging */
 #else
-0L
-#endif /* meltcallcount the_meltcallcount */
+  0L  /* melt_callcount without debug */
+#endif /* MELT_HAVE_DEBUG melt_callcount */
 }#)
 
-(defprimitive the_callcount () :long  
-#{#ifdef meltcallcount
-meltcallcount /* the_callcount */
-#else
-0L
-#endif /* meltcallcount the_callcount */
-}#)
 
 ;;; the current frame depth
 (defprimitive the_framedepth () :long "(melt_curframdepth())")
@@ -1258,7 +1252,7 @@ an integer $I if $I is greater than $N.}#
 
 (defprimitive cstring_non_empty (:cstring s) :long
   :doc #{Test ia the cstring $S is not NULL and not empty}#
-  #{((($S) != NULL) && ((char*)($S))[0] != (char)0)}#
+  #{((($S) != NULL) && ((const char*)($S))[0] != (char)0)}#
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4571,6 +4565,7 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  mapstring_removestr
  melt_need_dbg
  melt_need_dbglim
+ melt_callcount
  multiple_length
  multiple_nth
  multiple_put_nth
@@ -4588,9 +4583,7 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  string>
  string_to_long
  stringconst2val
- the_callcount
  the_framedepth
- the_meltcallcount
  the_null_cstring
  )
 
@@ -4734,6 +4727,8 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
 (export_synonym container_value referenced_value
  :doc #{A better name for contained value is referenced value, so field $CONTAINER_VALUE is also $REFERENCED_VALUE.}#)
 
+(export_synonym the_meltcallcount melt_callcount
+  :doc #{$THE_MELTCALLCOUNT is obsolete for $MELT_CALLCOUNT}#)
 
 ;; we predefine :true as the TRUE. Currently no handcoded C function
 ;; uses it, but perhaps that could change!!
@@ -4750,5 +4745,111 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
   (let ( (dbgmsgfun (unsafe_get_field :sysdata_debugmsg initial_system_data)) )
     (if (is_closure dbgmsgfun)
 	(dbgmsgfun val msgstr count filenam lineno))))
+
+
+;; support for named_symbol hook
+
+;;;;
+(defciterator block_signals
+  ()
+  blksignal
+  ()
+  :doc #{The $BLOCK_SIGNALS C-iterator provides a sequence inside
+which signals are not handled. It could be dynamically nested.}# 
+  #{ /* block_signals $BLKSIGNAL start */
+     long $BLKSIGNAL#_lev = melt_blocklevel_signals;
+     melt_blocklevel_signals = $BLKSIGNAL#_lev + 1;
+  }#
+  #{ /* block_signals $BLKSIGNAL end */
+     melt_blocklevel_signals = $BLKSIGNAL#_lev;
+     MELT_CHECK_SIGNAL();
+  }#
+)
+
+;; primitive to ignore a value
+(defprimitive ignore (v) :void
+  :doc #{Ignore the value passed as argument.  Useful to avoid
+  translation warnings, or to force the type of a conditional. See
+  $CTYPE_VOID.}# 
+#{/*ignore*/(void)($V)}#)
+
+
+;; primitive to return a void
+(defprimitive void () :void 
+  :doc #{Return a void value. See $IGNORE and $CTYPE_VOID.}#
+#{/*void*/(void)0}#)
+
+;;;====================================================================
+;;;***************** get or create a named symbol *********************
+;; to be called by meltgc_named_symbol
+#|
+(defhook hook_named_symbol (:cstring nam :long create) () :value
+  :predef HOOK_NAMED_SYMBOL
+  (if (not (cstring_non_empty nam))
+      (return ()))
+  (block_signals
+   ()
+   ()
+   (let ( (sydict (unsafe_get_field :sysdata_symboldict initial_system_data))
+	 (symbv ())
+	 (namev ())
+	 )
+     (assert_msg "check sydict" (is_mapstring sydict))
+     (code_chunk 
+      namedsym_chk 
+      #{ /* hook_named_symbol $NAMEDSYM_CHK start */
+        char tinybuf_$NAMEDSYM_CHK[128];
+        char* xstr_$NAMEDSYM_CHK = NULL;
+        int namlen_$NAMEDSYM_CHK = strlen ($NAM);
+        int ix_$NAMEDSYM_CHK = 0;
+        char* namdup_$NAMEDSYM_CHK = NULL;
+        if (strlen($NAM) < sizeof(tinybuf_$NAMEDSYM_CHK)-1)
+           {
+    	     strcpy (tinybuf_$NAMEDSYM_CHK, $NAM);
+    	     namdup_$NAMEDSYM_CHK = tinybuf_$NAMEDSYM_CHK;
+    	  }
+        else 
+           {
+    	     xstr_$NAMEDSYM_CHK = (char*) xcalloc (namlen_$NAMEDSYM_CHK + 1, 1);
+    	     strcpy (xstr_$NAMEDSYM_CHK, $NAM);
+    	     namdup_$NAMEDSYM_CHK = xstr_$NAMEDSYM_CHK;
+    	  }
+        /* uppercase the name in $NAMEDSYM_CHK */
+        for (ix_$NAMEDSYM_CHK = 0;
+             ix_$NAMEDSYM_CHK < namlen_$NAMEDSYM_CHK;
+    	    ix_$NAMEDSYM_CHK++)
+          if (ISALPHA(namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]))
+             namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK] 
+    	      = TOUPPER (namdup_$NAMEDSYM_CHK[ix_$NAMEDSYM_CHK]);
+        /* get the symbol if any in $NAMEDSYM_CHK */
+        $SYMBV = melt_get_mapstrings ((struct meltmapstrings_st *) $SYDICT,
+    				     namdup_$NAMEDSYM_CHK);
+        if (!$SYMBV && $CREATE) /* should create symbol  $NAMEDSYM_CHK */
+          {
+            $NAMEV = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING),
+    				       namdup_$NAMEDSYM_CHK);
+	    $(progn
+	       (setq symbv (instance class_symbol :named_name namev))
+	       (mapstring_putstr sydict namev symbv)
+	       (void))
+          } /* end if should create symbol in hook_named_symbol $NAMEDSYM_CHK */
+        /* epilog of $NAMEDSYM_CHK in hook_named_symbol */
+        if (xstr_$NAMEDSYM_CHK)
+          free (xstr_$NAMEDSYM_CHK);
+        xstr_$NAMEDSYM_CHK = NULL;
+        namdup_$NAMEDSYM_CHK = NULL;
+      /* hook_named_symbol $NAMEDSYM_CHK end */
+     (return symbv)
+  ))
+)
+;; end hook_named_symbol
+|#
+
+(export_values
+ block_signals
+ ;hook_named_symbol
+ ignore
+ void
+)
 
 ;; eof warmelt-first.melt

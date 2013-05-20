@@ -3307,7 +3307,7 @@ source location.}#
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (debug "normexp_or recv" recv)
   (let ( 
-	(boxorcount (make_integerbox discr_integer (the_meltcallcount)))
+	(boxorcount (make_integerbox discr_integer (melt_callcount)))
 	(sloc (unsafe_get_field :loca_location recv))
 	(sdisj (unsafe_get_field :sor_disj recv))
 	(:long nbdisj (multiple_length sdisj))
