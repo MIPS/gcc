@@ -91,7 +91,6 @@ static int get_check_result (struct check_info *ci, tree bounds);
 static void remove_constant_checks (void);
 static void compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom);
 static void remove_redundant_checks (void);
-static bool stmt_dominates_p (gimple s1, gimple s2);
 static void reduce_bounds_lifetime (void);
 static tree get_nobnd_fndecl (enum built_in_function fncode);
 static void optimize_string_function_calls (void);
@@ -1015,39 +1014,6 @@ optimize_string_function_calls (void)
     }
 }
 
-/* Return 1 if S1 dominates S2 and 0 otherwise.  */
-bool
-stmt_dominates_p (gimple s1, gimple s2)
-{
-  basic_block bb1 = gimple_bb (s1);
-  basic_block bb2 = gimple_bb (s2);
-  bool res;
-
-  if (bb1 == bb2)
-    {
-      if (gimple_code (s1) == GIMPLE_PHI && gimple_code (s2) != GIMPLE_PHI)
-	res = true;
-      else if (gimple_code (s1) != GIMPLE_PHI && gimple_code (s2) == GIMPLE_PHI)
-	res = false;
-      else
-	{
-	  gimple_stmt_iterator i;
-
-	  res = false;
-	  for (i = gsi_for_stmt (s1); !gsi_end_p (i); gsi_next (&i))
-	    if (gsi_stmt (i) == s2)
-	      {
-		res = true;
-		break;
-	      }
-	}
-    }
-  else
-    res = dominated_by_p (CDI_DOMINATORS, bb2, bb1);
-
-  return res;
-}
-
 /* MPX pass inserts most of bounds creation code in
    the header of the function.  We want to move bounds
    creation closer to bounds usage to reduce bounds
@@ -1127,9 +1093,17 @@ reduce_bounds_lifetime (void)
 					       gimple_bb (use_stmt));
 	  else if (!dom_use)
 	    dom_use = use_stmt;
-	  else if (stmt_dominates_p (use_stmt, dom_use))
+	  else if (stmt_dominates_stmt_p (use_stmt, dom_use))
 	    dom_use = use_stmt;
-	  else if (!stmt_dominates_p (dom_use, use_stmt))
+	  else if (!stmt_dominates_stmt_p (dom_use, use_stmt)
+		   /* If dom_use and use_stmt are PHI nodes in one BB
+		      then it is OK to keep any of them as dom_use.
+		      stmt_dominates_stmt_p returns 0 for such
+		      combination, so check it here manually.  */
+		   && (gimple_code (dom_use) != GIMPLE_PHI
+		       || gimple_code (use_stmt) != GIMPLE_PHI
+		       || gimple_bb (use_stmt) != gimple_bb (dom_use))
+		   )
 	    {
 	      dom_bb = nearest_common_dominator (CDI_DOMINATORS,
 						 gimple_bb (use_stmt),
