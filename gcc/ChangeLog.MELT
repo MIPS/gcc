@@ -1,6 +1,14 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (add_new_symbol_token): Don't #if
+	MELT_NAMED_SYMBOL_USE_HOOK anymore.
+
+	* melt/warmelt-outobj.melt (outpucod_objgetnamedsymbol): Always
+	emit with melthookproc_HOOK_NAMED_SYMBOL.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_NAMED_SYMBOL_USE_HOOK): Temporarily define
 	it to check that it is working.
 
