@@ -1522,52 +1522,53 @@ $SBUF.}#
   (let ((locmap (make_mapobject discr_map_objects 50))
 	(oiniprolog (make_list discr_list))
 	(oinibody (make_list discr_list))
+	(modinienv (get_field :mocx_initialenv modctx))
 	(oinitrout
 	 (let ( (oi
-	       (instance class_initial_module_routineobj
-		   ;; Change the "melt_start_this_module" name with
-		   ;; great care, it is known by the MELT runtime, and
-		   ;; some functions of warmelt-outobj.melt are
-		   ;; hardwiring it, e.g. thru emission of struct
-		   ;; frame_melt_start_this_module_st or elsewhere.
-		   :named_name '"melt_start_this_module"
-		   :obrout_proc ipro
-		   :obrout_body oinibody
-		   :obrout_nbval (make_integerbox discr_integer 0)
-		   :obrout_nblong (make_integerbox discr_integer 0)
-		   :obrout_others (make_list discr_list)
-		   :obrout_cntciter (make_integerbox discr_integer 0)
-		   :obrout_cntletrec (make_integerbox discr_integer 0)
-		   :oirout_fill (make_list discr_list)
-		   :oirout_prolog oiniprolog
-		   :oirout_modulename (get_field :mocx_modulename modctx)
-		   )) )
+		 (instance class_initial_module_routineobj
+			   ;; Change the "melt_start_this_module" name with
+			   ;; great care, it is known by the MELT runtime, and
+			   ;; some functions of warmelt-outobj.melt are
+			   ;; hardwiring it, e.g. thru emission of struct
+			   ;; frame_melt_start_this_module_st or elsewhere.
+			   :named_name '"melt_start_this_module"
+			   :obrout_proc ipro
+			   :obrout_body oinibody
+			   :obrout_nbval (make_integerbox discr_integer 0)
+			   :obrout_nblong (make_integerbox discr_integer 0)
+			   :obrout_others (make_list discr_list)
+			   :obrout_cntciter (make_integerbox discr_integer 0)
+			   :obrout_cntletrec (make_integerbox discr_integer 0)
+			   :oirout_fill (make_list discr_list)
+			   :oirout_prolog oiniprolog
+			   :oirout_modulename (get_field :mocx_modulename modctx)
+			   )) )
 	   (debug "compile2obj_initproc oinitrout=" oi)
 	   oi))
 	(importmap (make_mapobject discr_map_objects 50))
 	(gcx
 	 (let ( (gx (instance 
-	      class_initial_generation_context
-	      :gncx_objrout oinitrout
-	      :gncx_locmap locmap
-	      :gncx_freeptrlist (make_list discr_list)
-	      :gncx_freelonglist (make_list discr_list)
-	      :gncx_freeothermaps (make_mapobject discr_map_objects 20)
-	      :gncx_compicache compicache
-	      :gncx_modulcontext modctx
-	      :gncx_matchmap (make_mapobject discr_map_objects 60)
-	      :igncx_procurmodenvlist
-	      (list_map 
-	       procurmodenvlist
-	       (lambda (curpro)
-		 (debug "compile2obj_initproc procurmodenvlist curpro=" curpro)
-		 (let ( (curou (mapobject_get compicache curpro)) )
-		   (debug "compile2obj_initproc procurmodenvlist curou=" curou)
-		   (assert_msg "check curou" (is_object curou))
-		   curou)))
-	      ;; perhaps we should store not a list of procedures, but their matching routines
-	      :igncx_importmap importmap
-	      ))
+		     class_initial_generation_context
+		     :gncx_objrout oinitrout
+		     :gncx_locmap locmap
+		     :gncx_freeptrlist (make_list discr_list)
+		     :gncx_freelonglist (make_list discr_list)
+		     :gncx_freeothermaps (make_mapobject discr_map_objects 20)
+		     :gncx_compicache compicache
+		     :gncx_modulcontext modctx
+		     :gncx_matchmap (make_mapobject discr_map_objects 60)
+		     :igncx_procurmodenvlist
+		     (list_map 
+		      procurmodenvlist
+		      (lambda (curpro)
+			(debug "compile2obj_initproc procurmodenvlist curpro=" curpro)
+			(let ( (curou (mapobject_get compicache curpro)) )
+			  (debug "compile2obj_initproc procurmodenvlist curou=" curou)
+			  (assert_msg "check curou" (is_object curou))
+			  curou)))
+		     ;; perhaps we should store not a list of procedures, but their matching routines
+		     :igncx_importmap importmap
+		     ))
 		)
 	   (debug "compile2obj_initproc gcx=" gx)
 	   gx))
@@ -1591,7 +1592,7 @@ $SBUF.}#
 	)
     (append_commentconst oinibody "start of oinibody")
     (debug boxloc "compile2obj_initproc boxloc=" boxloc " inidefbinds=" inidefbinds)
-    ;;; reserve location for defined values
+;;; reserve location for defined values
     (foreach_in_list
      (inidefbinds)
      (curpair curdefbind)
@@ -1600,7 +1601,7 @@ $SBUF.}#
      (let ( (inidefsymb (get_field :binder curdefbind))
 	    (oinisym (get_field :fixbind_data curdefbind))
 	    (oinidefloc (get_free_objlocptr gcx inidefsymb))
-	   )
+	    )
        (debug "compile2obj_initproc oinidefloc=" oinidefloc " oinisym=" oinisym
 	      " of discrim:" (discrim oinisym)
 	      " curdefbind=" curdefbind)
@@ -1608,7 +1609,7 @@ $SBUF.}#
        ;;class_nrep_defined_constant
        (assert_msg "check oinisym" (is_a oinisym class_nrep_simple))
        (mapobject_put locmap curdefbind oinidefloc)
-     ))
+       ))
     ;; create a commentedblock to compute the new environemnt box in boxloc if it is null 
     (let (
 	  ;; block to compute boxloc
@@ -1630,9 +1631,9 @@ $SBUF.}#
 	       ctype_void
 	       ##{/*checkfreshenv*/ if (($OPREVENV)
 					&& melt_magic_discr((melt_ptr_t)($OFRESHENV)) != MELTOBMAG_CLOSURE)
-  	           warning(0, "MELT corruption: bad FRESH_ENV @%p in system data <%s:%d>",
-			      (void*) ($OFRESHENV), __FILE__, __LINE__);}#
-		   )
+	       warning(0, "MELT corruption: bad FRESH_ENV @%p in system data <%s:%d>",
+			  (void*) ($OFRESHENV), __FILE__, __LINE__) ;}#
+	       )
 	      )
 	     ;; generate the apply of ofreshenv
 	     (list_append
@@ -1715,67 +1716,98 @@ $SBUF.}#
 		     (debug "compile2obj_initproc otop=" otop)
 		     otop)))) 
 	       )
-	  ;; generate the getting of symbols & keywords
-	  (append_commentconst oiniprolog "get symbols & keywords for initial procedure")
-	  (multiple_every
-	   odatatup
-	   (lambda (curpdat :long curk) 
-	     (if (is_a curpdat class_objinitobject)
-		 (let ( (odat (unsafe_get_field :oie_data curpdat))
-			)
-		   (debug "compile2obj_initproc getting curpdat=" curpdat)
-		   (cond 
-		    ;; first  check for keywords, since they are also symbols (so order is important)
-		    ( (is_a odat class_nrep_datakeyword)
-		      (let ( (ogkw (instance class_objgetnamedkeyword
-					     :obgnamed_iobj curpdat))
-			     )
-			(list_append oiniprolog ogkw)
-			(debug "compile2obj_initproc added keyword getting ogkw=" ogkw)
-			))
-		    ( (is_a odat class_nrep_datasymbol)
-		      (let ( (ogsy (instance class_objgetnamedsymbol
-					     :obgnamed_iobj curpdat))
-			     )
-			(list_append oiniprolog ogsy)
-			(debug "compile2obj_initproc added symbol getting ogsy=" ogsy)
-			))
-		    )))))
-	  ;; get the value importer if needed
-	  (if (>i (mapobject_count importmap) 0)
-	      (progn
-		(append_commentconst oiniprolog "get the value importer")
-		(list_append oiniprolog
-			     (instance class_objgetslot
-				       :obdi_destlist (list ovalueimporter)
-				       :ogetsl_obj initialsystemdata_objpredef 
-				       :ogetsl_field sysdata_value_importer))
-		))
-	  (if (>i (list_length importvalues) 0)
-	      (progn
-		(append_commentconst oiniprolog "before getting imported values")
-		;; generate the getting of imported values
-		(list_every
-		 importvalues
-		 (lambda (curimport)
-		   (debug "compile2obj_initproc curimport=" curimport)
-		   (assert_msg "check curimport" (is_a curimport class_nrep_importedval))
-		   (compile_warning "the generated import should have a cstring")
-		   (let ( (impsym (unsafe_get_field :nimport_symb curimport)) 
-			  (impsydat (unsafe_get_field :nimport_sydata curimport))
-			  (impsymstr (get_field :named_name impsym))
-			  (modulstr (get_field :mocx_modulename modctx)) 
-			  (osymdat (compile_obj impsydat gcx))
-			  (oimplocv (mapobject_get importmap impsym))
-			  (oimpappl (instance class_objapply
-					      :obdi_destlist (list oimplocv)
-					      :obapp_clos ovalueimporter
-					      :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
-			  )
-		     (list_append oiniprolog oimpappl)
-		     )))
-		(append_commentconst oiniprolog "after getting imported values")
-		))
+	  (debug "compile2obj_initproc objtoplis=" objtoplis "\n modinienv=" modinienv)
+	  (cond 
+	   ( (is_object modinienv)
+	     ;; generate the getting of symbols & keywords
+	     (append_commentconst oiniprolog "get symbols & keywords for initial procedure")
+	     (foreach_in_multiple
+	      (odatatup)
+	      (curpdat :long curk) 
+	      (if (is_a curpdat class_objinitobject)
+		  (let ( (odat (unsafe_get_field :oie_data curpdat))
+			 )
+		    (debug "compile2obj_initproc getting curpdat=" curpdat)
+		    (cond 
+		     ;; first  check for keywords, since they are also symbols (so order is important)
+		     ( (is_a odat class_nrep_datakeyword)
+		       (let ( (ogkw (instance class_objgetnamedkeyword
+					      :obgnamed_iobj curpdat))
+			      )
+			 (list_append oiniprolog ogkw)
+			 (debug "compile2obj_initproc added keyword getting ogkw=" ogkw)
+			 ))
+		     ( (is_a odat class_nrep_datasymbol)
+		       (let ( (ogsy (instance class_objgetnamedsymbol
+					      :obgnamed_iobj curpdat))
+			      )
+			 (list_append oiniprolog ogsy)
+			 (debug "compile2obj_initproc added symbol getting ogsy=" ogsy)
+			 ))
+		     ))))
+	     ;;
+	     ;; get the value importer if needed
+	     (if (>i (mapobject_count importmap) 0)
+		 (progn
+		   (append_commentconst oiniprolog "get the value importer")
+		   (list_append oiniprolog
+				(instance class_objgetslot
+					  :obdi_destlist (list ovalueimporter)
+					  :ogetsl_obj initialsystemdata_objpredef 
+					  :ogetsl_field sysdata_value_importer))
+		   ))
+	     (when (>i (list_length importvalues) 0)
+	       (append_commentconst oiniprolog "before getting imported values")
+	       ;; generate the getting of imported values
+	       (list_every
+		importvalues
+		(lambda (curimport)
+		  (debug "compile2obj_initproc curimport=" curimport)
+		  (assert_msg "check curimport" (is_a curimport class_nrep_importedval))
+		  (compile_warning "the generated import should have a cstring")
+		  (let ( (impsym (unsafe_get_field :nimport_symb curimport)) 
+			 (impsydat (unsafe_get_field :nimport_sydata curimport))
+			 (impsymstr (get_field :named_name impsym))
+			 (modulstr (get_field :mocx_modulename modctx)) 
+			 (osymdat (compile_obj impsydat gcx))
+			 (oimplocv (mapobject_get importmap impsym))
+			 (oimpappl (instance class_objapply
+					     :obdi_destlist (list oimplocv)
+					     :obapp_clos ovalueimporter
+					     :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
+			 )
+		    (list_append oiniprolog oimpappl)
+		    )))
+	       (append_commentconst oiniprolog "after getting imported values")
+	       )
+	     )				;end if modinienv
+	   ( (null modinienv)
+	     ;; initial module, don't need to generate importer or
+	     ;; symbol or keyword getter, but need to emit the check
+	     ;; that the parent environment is null
+	     (let ( 
+		   (modulverbstr (clone_with_discriminant
+				  (get_field :mocx_modulename modctx) 
+				  discr_verbatim_string))
+		   (ochecknopar
+		    (make_objcompute
+		     ()
+		     ctype_void
+		     ##{ /* initialization of initial module $MODULVERBSTR */
+		     melt_assertmsg("initial module $MODULVERBSTR should have no parent",
+				    modargp_ == NULL) ;
+		     }#
+		     ))
+		   )
+	       (debug "compile2obj_initproc ochecknopar=" ochecknopar)
+	       (list_append oiniprolog ochecknopar)
+	       ))
+	   (:else
+	    (debug "compile2obj_initproc unexpected modinienv=" modinienv)
+	    (assert_msg "compile2obj_initproc impossible modinienv" ())
+	    )
+	   ) ;; end cond
+	  ;;
 	  ;; append the compiled toplevel
 	  (append_commentconst oinibody "before toplevel body")
 	  (list_every 

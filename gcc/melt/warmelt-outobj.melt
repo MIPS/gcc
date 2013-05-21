@@ -6602,9 +6602,9 @@ if (1) return;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compile a list of sexpressions as a module starting from a given environment
 (defun compile_list_sexpr (lsexp inienv modnamstr)
-  (message_dbg "starting  compile_list_sexpr")
   (debug "@*@@@@ compile_list_sexpr lsexp=" lsexp "\n@ compile_list_sexpr  inienv=" inienv
 	 "\n@ compile_list_sexpr  modnamstr=" modnamstr) 
+  (shortbacktrace_dbg "compile_list_sexpr" 10)
   (assert_msg "check lsexp" (is_list lsexp))
   (assert_msg "check modnamstr" (is_string modnamstr))
   (assert_msg "check inienv" (or (null inienv) (is_a inienv class_environment)))

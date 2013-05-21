@@ -2,6 +2,14 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Don't build
+	symbol or keyword getters or importers for the first initial
+	module.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr): Better debug.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{unstable}}
 	* melt/warmelt-outobj.melt (outpucod_objgetnamedsymbol): Emit a
 	warning when without initial environment.
